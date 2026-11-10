@@ -38,6 +38,12 @@ export type DomainReadStoreOrderCustomerListDto = Readonly<{
     storeImageUrl: string | null;
     previewText: string;
     statusBadge: string | null;
+    /** `store_orders.order_status` 원문 — 목록 상태 칩·나가기 허용(끝난 주문) 판정 */
+    orderStatus?: string | null;
+    /** `store_orders.fulfillment_type` 원문 */
+    fulfillmentType?: string | null;
+    /** 고객 참여 행 `is_muted` */
+    isMuted?: boolean;
     unreadCount: number;
     lastMessageAt: string;
     href: string;
@@ -122,7 +128,7 @@ export async function composeDomainReadStoreOrderCustomerListDto(
       generation: `so-cust-list-${Date.now()}`,
       snapshotKind: "full",
       surfaceRole: "customer",
-      source: createStoreOrderCustomerLiveBootstrapSource(sb),
+      source: createStoreOrderCustomerLiveBootstrapSource(sb, undefined, { inboxOnly: true }),
     });
     if (so.viewerUserId !== viewerUserId) {
       return { ok: false, trigger: "viewer_mismatch" };
@@ -148,6 +154,20 @@ export async function composeDomainReadStoreOrderCustomerListDto(
       return a.roomId < b.roomId ? -1 : a.roomId > b.roomId ? 1 : 0;
     });
     const byId = new Map(so.rows.map((r) => [r.roomId, r]));
+    const mutedRoomIds = new Set<string>();
+    if (vms.length > 0) {
+      const { data: muteRows } = await sb
+        .from("community_messenger_participants")
+        .select("room_id, is_muted")
+        .eq("user_id", viewerUserId)
+        .in(
+          "room_id",
+          vms.map((vm) => vm.roomId)
+        );
+      for (const m of (muteRows ?? []) as Array<{ room_id: string; is_muted: boolean | null }>) {
+        if (m.is_muted === true) mutedRoomIds.add(String(m.room_id));
+      }
+    }
 
     const dto: DomainReadStoreOrderCustomerListDto = {
       authority: "domain_store_order_customer_list_canary",
@@ -174,6 +194,9 @@ export async function composeDomainReadStoreOrderCustomerListDto(
           storeImageUrl: vm.storeImageUrl,
           previewText: vm.previewText,
           statusBadge: vm.statusBadge,
+          orderStatus: raw?.orderStatusLabel?.trim() || null,
+          fulfillmentType: raw?.fulfillmentType?.trim() || null,
+          isMuted: mutedRoomIds.has(vm.roomId),
           unreadCount: vm.unreadCount,
           lastMessageAt: vm.lastMessageAt,
           href: vm.href,

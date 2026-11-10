@@ -743,9 +743,18 @@ export function createTradeLiveBootstrapSource(
   });
 }
 
+export type StoreOrderCustomerLiveBatchOptions = {
+  /**
+   * 고객 채팅 목록·허브 전용 — 고객 참여 행이 없거나(나가기 = 행 삭제) `left_at` 이 있는 방은 뺀다.
+   * 방 화면 표시(presentation)는 이 옵션 없이 모든 주문 방을 읽는다.
+   */
+  inboxOnly?: boolean;
+};
+
 export async function fetchStoreOrderCustomerLiveBatch(
   sb: SupabaseClient,
-  viewerUserId: string
+  viewerUserId: string,
+  options?: StoreOrderCustomerLiveBatchOptions
 ): Promise<{ rows: StoreOrderCustomerLoaderBatchRow[]; meta: Phase11bLiveLoadMeta }> {
   assertPhase11bLiveConstraints();
   const timings: Phase11bQueryTiming[] = [];
@@ -827,19 +836,22 @@ export async function fetchStoreOrderCustomerLiveBatch(
     () =>
       sb
         .from("community_messenger_participants")
-        .select("room_id, unread_count")
+        .select("room_id, unread_count, left_at")
         .eq("user_id", viewerUserId)
         .in("room_id", roomIds)
   );
   timings.push(tParts);
   const unreadByRoomId = new Map<string, number>();
+  const activeParticipantRoomIds = new Set<string>();
   for (const row of (partUnreadRows ?? []) as Array<{
     room_id: string;
     unread_count: number | null;
+    left_at?: string | null;
   }>) {
     const rid = String(row.room_id ?? "").trim();
     if (!rid) continue;
     unreadByRoomId.set(rid, Math.max(0, Math.floor(Number(row.unread_count) || 0)));
+    if (!row.left_at) activeParticipantRoomIds.add(rid);
   }
 
   const { map: msgMap, timing: t2 } = await loadLatestMessagesByRoomIds(sb, roomIds);
@@ -849,6 +861,7 @@ export async function fetchStoreOrderCustomerLiveBatch(
   for (const o of orderRows) {
     const room = roomById.get(o.community_messenger_room_id);
     if (!room) continue;
+    if (options?.inboxOnly && !activeParticipantRoomIds.has(o.community_messenger_room_id)) continue;
     const expectedKey = storeOrderRoomIdentity(o.id).identityKey;
     const key = String(room.domain_identity_key ?? "").trim();
     if (key !== expectedKey) continue;
@@ -894,10 +907,11 @@ export async function fetchStoreOrderCustomerLiveBatch(
 
 export function createStoreOrderCustomerLiveBootstrapSource(
   sb: SupabaseClient,
-  onMeta?: (meta: Phase11bLiveLoadMeta) => void
+  onMeta?: (meta: Phase11bLiveLoadMeta) => void,
+  options?: StoreOrderCustomerLiveBatchOptions
 ): StoreOrderBootstrapSource {
   return createStoreOrderCustomerDbLoaderSource(async (viewerUserId) => {
-    const { rows, meta } = await fetchStoreOrderCustomerLiveBatch(sb, viewerUserId);
+    const { rows, meta } = await fetchStoreOrderCustomerLiveBatch(sb, viewerUserId, options);
     onMeta?.(meta);
     return rows;
   });

@@ -38,6 +38,7 @@ import {
   unifiedListItemRowDisplayEqual,
   type UnifiedRoomListItem,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
+import { isStoreOrderBuyerHideAllowedStatus } from "@/lib/stores/store-order-process-model";
 import {
   getSwipeActions,
   type MessengerSwipeActionDef,
@@ -359,9 +360,18 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         viewerIsDeliveryStoreOwner,
         roomStatusArchived: room.roomStatus === "archived",
         isArchivedByViewer: Boolean(room.isArchivedByViewer),
+        ...(listVisual === "delivery" && deliveryMeta != null && !viewerIsDeliveryStoreOwner
+          ? {
+              storeOrderCustomerList: {
+                leaveAllowed: isStoreOrderBuyerHideAllowedStatus(deliveryMeta.orderStatus?.trim() ?? ""),
+              },
+            }
+          : {}),
       }),
     [
+      deliveryMeta,
       listContext,
+      listVisual,
       policyType,
       room.isArchivedByViewer,
       room.roomStatus,

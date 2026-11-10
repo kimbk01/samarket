@@ -188,7 +188,9 @@ export function domainSoCustomerListPaintEqual(
       x.roomId !== y.roomId ||
       x.unreadCount !== y.unreadCount ||
       x.lastMessageAt !== y.lastMessageAt ||
-      (x.previewText ?? "") !== (y.previewText ?? "")
+      (x.previewText ?? "") !== (y.previewText ?? "") ||
+      (x.orderStatus ?? null) !== (y.orderStatus ?? null) ||
+      Boolean(x.isMuted) !== Boolean(y.isMuted)
     ) {
       return false;
     }

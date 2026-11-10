@@ -245,7 +245,7 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
       data-messenger-pillar-latest-room={latestRoomId ?? ""}
       data-messenger-pillar-preview-source={useDomain ? "domain_list" : "bootstrap"}
       className="block select-none touch-manipulation rounded-[var(--messenger-radius-md)] transition-[transform,background-color,box-shadow] duration-100 ease-out will-change-transform active:scale-[0.97] active:bg-[color:var(--messenger-surface-muted)] [box-shadow:inset_0_0_0_1px_transparent] active:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.06),inset_0_2px_10px_rgba(0,0,0,0.1)]"
-      aria-label={`${copy.title} 묶음 보기`}
+      aria-label={t("cm_ui_pillar_open_list_aria", { title: copy.title })}
       onClick={(e) => {
         if (shouldSkipMessengerNavTransitionModifiers(e)) return;
         e.preventDefault();

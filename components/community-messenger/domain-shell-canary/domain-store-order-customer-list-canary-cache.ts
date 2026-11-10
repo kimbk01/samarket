@@ -18,6 +18,11 @@ export type SoCustomerListDto = {
     storeImageUrl: string | null;
     previewText: string;
     statusBadge: string | null;
+    /** 2026-11-10 추가 — 옛 세션 캐시에는 없을 수 있다 */
+    storeId?: string | null;
+    orderStatus?: string | null;
+    fulfillmentType?: string | null;
+    isMuted?: boolean;
     unreadCount: number;
     lastMessageAt: string;
     href: string;

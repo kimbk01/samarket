@@ -1,17 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   isClientBundleKilled,
   isDomainShellReadUiCanaryViewer,
 } from "@/components/community-messenger/domain-shell-canary/canary-allowlist";
+import { CommunityMessengerChatRow } from "@/components/community-messenger/chat-list/CommunityMessengerChatRow";
+import { MessengerChatRoomActionSheet } from "@/components/community-messenger/MessengerChatRoomActionSheet";
+import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
+import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import {
-  DomainCanaryShellRow,
-  formatDomainCanaryTime,
-} from "@/components/community-messenger/domain-shell-canary/DomainCanaryShellRow";
-import { markRoomEntryIntent } from "@/lib/community-messenger/room/messenger-room-entry-intent";
-import { guardRawCmListPreviewText } from "@/lib/community-messenger/cm-home-list-copy";
+  domainStoreOrderListRowLeaveAllowed,
+  domainStoreOrderListRowToUnifiedItem,
+} from "@/components/community-messenger/domain-shell-canary/domain-store-order-list-row-to-unified-item";
+import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
+import {
+  buildCommunityMessengerMarkReadPatchBody,
+  communityMessengerMarkReadFetchInitBase,
+  parseCommunityMessengerMarkReadResponse,
+} from "@/lib/community-messenger/room/community-messenger-mark-read-fetch";
+import { leaveMessengerRoomFromHomeClient } from "@/lib/community-messenger/home/messenger-home-room-leave-client";
+import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
+import type { MessengerChatListContext } from "@/lib/community-messenger/messenger-ia";
+import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   fetchDomainListCanaryWithRetry,
@@ -27,7 +41,13 @@ import {
   domainSoCustomerListPaintEqual,
   stabilizeSoCustomerListDto,
 } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-stabilize";
-import { subscribeDomainListCanaryPatch } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
+import {
+  applyDomainStoreOrderListMutePatch,
+  applyDomainStoreOrderListReadPatch,
+  applyDomainStoreOrderListRemoveRow,
+  applyDomainStoreOrderListUnreadOnlyPatch,
+  subscribeDomainListCanaryPatch,
+} from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
 import { MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 import { translateBy } from "@/lib/i18n/translate-by";
@@ -78,8 +98,19 @@ function DomainListRowSkeleton({ count = 6 }: { count?: number }) {
   );
 }
 
+/** 주문 상태 원문이 없는 옛 세션 캐시 — 나가기 판정을 못 하므로 네트워크로 한 번 새로 받는다. */
+function soCustomerListCacheLacksLifecycleFields(dto: SoCustomerListDto): boolean {
+  return dto.rows.some((r) => r.orderStatus === undefined);
+}
+
+const EMPTY_FRIEND_IDS = new Set<string>();
+const MARK_ALL_READ_CONCURRENCY = 4;
+const noopRoomAction = () => {};
+
 /**
  * Store Order Customer List — Domain Facts only. Production surface (no Legacy home).
+ * 2026-11-10 (Owner 「1단계 구현」): 거래 목록과 같은 공용 행(MessengerChatListItem `listVisual="delivery"`)으로
+ * 밀기 [읽음][나가기]·길게 누르기 메뉴·「모두 읽음」. 나가기는 끝난 주문(완료·취소·환불)만.
  */
 export function DomainStoreOrderCustomerListCanaryGate({
   tabletSplitListOnly,
@@ -89,6 +120,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
   filter?: string;
 }) {
   void _filter;
+  const router = useRouter();
   const bottomNavOccupiesClearance = useBottomNavOccupiesClearance();
   const listScrollInsetClass = bottomNavOccupiesClearance
     ? MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS
@@ -104,7 +136,26 @@ export function DomainStoreOrderCustomerListCanaryGate({
   const [mode, setMode] = useState<"loading" | "ready" | "error">(initialMode);
   const [dto, setDto] = useState<SoCustomerListDto | null>(initialDto);
   const [reason, setReason] = useState<string | null>(null);
-  const { language } = useI18n();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [openedSwipeItemId, setOpenedSwipeItemId] = useState<string | null>(null);
+  const [roomActionSheet, setRoomActionSheet] = useState<{
+    item: UnifiedRoomListItem;
+    listContext: MessengerChatListContext;
+    anchorRect: MessengerMenuAnchorRect | null;
+  } | null>(null);
+  const [leaveConfirmRoom, setLeaveConfirmRoom] = useState<CommunityMessengerRoomSummary | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const { language, t } = useI18n();
+
+  useEffect(() => {
+    if (!actionError) return;
+    const timer = setTimeout(() => setActionError(null), 8000);
+    return () => clearTimeout(timer);
+  }, [actionError]);
+
+  const closeOpenedSwipe = useCallback(() => {
+    setOpenedSwipeItemId((prev) => (prev == null ? prev : null));
+  }, []);
 
   /** 2026-07-23: 거래 리스트와 동일 — realtime patch를 마운트 중에 반영. */
   useEffect(() => {
@@ -145,6 +196,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
         /**
          * Telegram list authority: hydrated session cache → memory paint only.
          * Remount must not network-rewrite (TTL soft-skip then fetch deleted).
+         * 예외: 주문 상태 원문이 없는 옛 캐시는 나가기 판정을 위해 한 번 새로 받는다.
          */
         const cached = peekDomainStoreOrderCustomerListCanaryCache(syncUid);
         if (cached) {
@@ -153,7 +205,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
             setMode("ready");
             setReason(null);
           }
-          return;
+          if (!soCustomerListCacheLacksLifecycleFields(cached)) return;
         }
         const sb = getSupabaseClient();
         if (!sb) {
@@ -204,6 +256,159 @@ export function DomainStoreOrderCustomerListCanaryGate({
 
   const title = translateBy(language, "community_messenger_order_chats");
   const unreadRoomCount = dto?.hub.unreadRoomCount ?? 0;
+  const viewerUserIdForRows = dto?.viewerUserId ?? "";
+
+  const unifiedItems = useMemo(
+    () => (dto?.rows ?? []).map((row) => domainStoreOrderListRowToUnifiedItem(row, viewerUserIdForRows)),
+    [dto, viewerUserIdForRows]
+  );
+  const leaveAllowedByRoomId = useMemo(() => {
+    const m = new Map<string, boolean>();
+    for (const row of dto?.rows ?? []) m.set(row.roomId, domainStoreOrderListRowLeaveAllowed(row));
+    return m;
+  }, [dto]);
+
+  const resolveViewerUserId = useCallback(
+    () => getSyncViewerUserIdForClient() ?? dto?.viewerUserId ?? "",
+    [dto?.viewerUserId]
+  );
+
+  /** 방 하나 읽음 — 낙관적 0 반영, 실패 시 되돌림. 성공 여부를 돌려준다. */
+  const markRoomReadById = useCallback(
+    async (roomId: string, preUnread: number): Promise<boolean> => {
+      const viewerUserId = resolveViewerUserId();
+      if (viewerUserId) applyDomainStoreOrderListReadPatch({ viewerUserId, roomId });
+      const restore = () => {
+        if (viewerUserId && preUnread > 0) {
+          applyDomainStoreOrderListUnreadOnlyPatch({
+            viewerUserId,
+            roomId,
+            unreadCount: preUnread,
+            mutationType: "PARTICIPANT_UNREAD",
+          });
+        }
+      };
+      try {
+        const res = await fetch(communityMessengerRoomResourcePath(roomId), {
+          ...communityMessengerMarkReadFetchInitBase,
+          body: JSON.stringify(buildCommunityMessengerMarkReadPatchBody()),
+        });
+        const parsed = await parseCommunityMessengerMarkReadResponse(res);
+        if (!parsed.okHttp || parsed.json.ok !== true) {
+          restore();
+          return false;
+        }
+        return true;
+      } catch {
+        restore();
+        return false;
+      }
+    },
+    [resolveViewerUserId]
+  );
+
+  const markRoomRead = useCallback(
+    async (room: CommunityMessengerRoomSummary) => {
+      const roomId = room.id.trim();
+      if (!roomId) return;
+      setBusyId(`read:${roomId}`);
+      setActionError(null);
+      try {
+        const ok = await markRoomReadById(roomId, Math.max(0, Math.floor(Number(room.unreadCount) || 0)));
+        if (!ok) setActionError(t("cm_ui_order_chat_mark_all_read_failed"));
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [markRoomReadById, t]
+  );
+
+  const markAllRead = useCallback(async () => {
+    const targets = (dto?.rows ?? []).filter((r) => r.unreadCount > 0);
+    if (targets.length === 0) return;
+    setBusyId("read:all");
+    setActionError(null);
+    let failed = 0;
+    try {
+      for (let i = 0; i < targets.length; i += MARK_ALL_READ_CONCURRENCY) {
+        const chunk = targets.slice(i, i + MARK_ALL_READ_CONCURRENCY);
+        const results = await Promise.all(chunk.map((r) => markRoomReadById(r.roomId, r.unreadCount)));
+        failed += results.filter((ok) => !ok).length;
+      }
+      if (failed > 0) setActionError(t("cm_ui_order_chat_mark_all_read_failed"));
+    } finally {
+      setBusyId(null);
+    }
+  }, [dto?.rows, markRoomReadById, t]);
+
+  const toggleMute = useCallback(
+    async (room: CommunityMessengerRoomSummary) => {
+      const roomId = room.id.trim();
+      if (!roomId) return;
+      const nextMuted = !room.isMuted;
+      setBusyId(`settings:${roomId}`);
+      setActionError(null);
+      try {
+        const res = await fetch(communityMessengerRoomResourcePath(roomId), {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "participant_settings", isMuted: nextMuted }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !json.ok) {
+          setActionError(json.error ?? "room_settings_update_failed");
+          return;
+        }
+        const viewerUserId = resolveViewerUserId();
+        if (viewerUserId) applyDomainStoreOrderListMutePatch({ viewerUserId, roomId, isMuted: nextMuted });
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [resolveViewerUserId]
+  );
+
+  const requestLeave = useCallback(
+    (room: CommunityMessengerRoomSummary) => {
+      setOpenedSwipeItemId(null);
+      if (!leaveAllowedByRoomId.get(room.id)) return;
+      setLeaveConfirmRoom(room);
+    },
+    [leaveAllowedByRoomId]
+  );
+
+  const executeLeave = useCallback(async () => {
+    const room = leaveConfirmRoom;
+    if (!room) return;
+    setLeaveConfirmRoom(null);
+    const roomId = room.id.trim();
+    setBusyId(`leave:${roomId}`);
+    setActionError(null);
+    try {
+      const result = await leaveMessengerRoomFromHomeClient({ roomId, roomType: room.roomType });
+      if (result.ok) {
+        const viewerUserId = resolveViewerUserId();
+        if (viewerUserId) applyDomainStoreOrderListRemoveRow({ viewerUserId, roomId });
+        setRoomActionSheet(null);
+      } else {
+        setActionError(result.error ?? "leave_failed");
+      }
+    } finally {
+      setBusyId(null);
+    }
+  }, [leaveConfirmRoom, resolveViewerUserId]);
+
+  const handleOpenRoomActions = useCallback(
+    (
+      item: UnifiedRoomListItem,
+      listContext: MessengerChatListContext,
+      anchorRect: MessengerMenuAnchorRect | null
+    ) => {
+      setOpenedSwipeItemId(null);
+      setRoomActionSheet({ item, listContext, anchorRect });
+    },
+    []
+  );
 
   if (mode === "loading" && !dto) {
     return (
@@ -262,20 +467,52 @@ export function DomainStoreOrderCustomerListCanaryGate({
 
   if (!dto) return null;
 
+  const markAllBusy = busyId === "read:all";
+  const markAllButton =
+    unreadRoomCount > 0 ? (
+      <button
+        type="button"
+        className="shrink-0 text-xs font-semibold text-sam-primary disabled:opacity-50"
+        disabled={Boolean(busyId)}
+        onClick={() => void markAllRead()}
+        data-domain-so-mark-all-read=""
+      >
+        {t("common_mark_all_read")}
+      </button>
+    ) : null;
+  const sheetRoom = roomActionSheet?.item.room ?? null;
+  const sheetLeaveAllowed = sheetRoom ? Boolean(leaveAllowedByRoomId.get(sheetRoom.id)) : false;
+
   return (
     <div
       className="flex h-full min-h-0 flex-col bg-sam-app"
       data-domain-so-customer-list="1"
       data-domain-list-mode="domain"
+      data-domain-so-list-swipe="canonical"
       data-domain-unread-rooms={String(unreadRoomCount)}
       data-tablet-split={tabletSplitListOnly ? "1" : "0"}
+      aria-busy={markAllBusy || undefined}
     >
-      {!tabletSplitListOnly ? (
+      {!tabletSplitListOnly || markAllButton || actionError ? (
         <div className="border-b border-sam-border px-4 py-3">
-          <div className="text-base font-semibold text-sam-fg">{title}</div>
-          {unreadRoomCount > 0 ? (
-            <div className="text-xs text-sam-muted">
-              {translateBy(language, "community_messenger_unreadroomcount_unread", { unreadRoomCount })}
+          <div className="flex items-center gap-2">
+            {!tabletSplitListOnly ? (
+              <div className="min-w-0 flex-1">
+                <div className="text-base font-semibold text-sam-fg">{title}</div>
+                {unreadRoomCount > 0 ? (
+                  <div className="text-xs text-sam-muted">
+                    {translateBy(language, "community_messenger_unreadroomcount_unread", { unreadRoomCount })}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="min-w-0 flex-1" />
+            )}
+            {markAllButton}
+          </div>
+          {actionError ? (
+            <div className="mt-2 text-xs text-sam-danger" data-domain-so-action-error="1">
+              {actionError}
             </div>
           ) : null}
         </div>
@@ -284,32 +521,90 @@ export function DomainStoreOrderCustomerListCanaryGate({
         className={`min-h-0 flex-1 overflow-y-auto ${listScrollInsetClass}`}
         data-messenger-hub-list-scroll=""
         data-cm-list-scroll-bottom-inset={bottomNavOccupiesClearance ? "1" : "0"}
+        onScrollCapture={closeOpenedSwipe}
+        onPointerDownCapture={(e) => {
+          const target = e.target;
+          if (!(target instanceof Element)) return;
+          if (target.closest("[data-messenger-chat-row='true']")) return;
+          closeOpenedSwipe();
+        }}
       >
-        {dto.rows.map((row) => (
-          <DomainCanaryShellRow
-            key={row.roomId}
-            href={row.href}
-            title={row.storeName}
-            preview={
-              guardRawCmListPreviewText(row.previewText, dto.viewerUserId) ||
-              (translateBy(language, "community_messenger_no_messages"))
-            }
-            avatarUrl={row.storeImageUrl}
-            avatarKind="store"
-            statusBadge={row.statusBadge}
-            unreadCount={row.unreadCount}
-            time={formatDomainCanaryTime(row.lastMessageAt)}
-            onNavigate={() =>
-              markRoomEntryIntent(row.roomId, {
-                title: row.storeName,
-                avatarUrl: row.storeImageUrl,
-                expectedDomain: "store_order",
-                expectedIdentityKey: row.domainIdentityKey,
-              })
-            }
+        {unifiedItems.length === 0 ? (
+          <p className="px-4 py-10 text-center text-sm text-sam-muted">{t("nav_chat_order_empty")}</p>
+        ) : null}
+        {unifiedItems.map((item) => (
+          <CommunityMessengerChatRow
+            key={item.room.id}
+            item={item}
+            viewerUserId={dto.viewerUserId}
+            favoriteFriendIds={EMPTY_FRIEND_IDS}
+            busyId={busyId}
+            onTogglePin={noopRoomAction}
+            onToggleMute={(room) => void toggleMute(room)}
+            onMarkRead={(room) => void markRoomRead(room)}
+            onToggleArchive={noopRoomAction}
+            onLeaveRoom={requestLeave}
+            onOpenRoomActions={handleOpenRoomActions}
+            listContext="default"
+            openedSwipeItemId={openedSwipeItemId}
+            onOpenSwipeItem={setOpenedSwipeItemId}
+            listVisual="delivery"
           />
         ))}
       </div>
+
+      {roomActionSheet && sheetRoom ? (
+        <MessengerChatRoomActionSheet
+          item={roomActionSheet.item}
+          listContext={roomActionSheet.listContext}
+          anchorRect={roomActionSheet.anchorRect}
+          busyId={busyId}
+          onClose={() => setRoomActionSheet(null)}
+          onEnterRoom={() => {
+            setRoomActionSheet(null);
+            void runCommunityMessengerRoomForwardNavigation({
+              router,
+              roomId: sheetRoom.id,
+              listSource: "delivery",
+              fromEntryOrigin: "delivery",
+              viewerUserId: dto.viewerUserId,
+              roomForPrime: sheetRoom,
+            });
+          }}
+          onToggleMute={() => {
+            setRoomActionSheet(null);
+            void toggleMute(sheetRoom);
+          }}
+          onMarkRead={() => {
+            setRoomActionSheet(null);
+            void markRoomRead(sheetRoom);
+          }}
+          onLeave={() => {
+            if (!sheetLeaveAllowed) return;
+            setRoomActionSheet(null);
+            requestLeave(sheetRoom);
+          }}
+          leaveDisabledReason={sheetLeaveAllowed ? null : t("cm_ui_order_chat_leave_in_progress")}
+        />
+      ) : null}
+
+      {leaveConfirmRoom ? (
+        <MobileConfirmBottomSheet
+          open
+          onCancel={() => setLeaveConfirmRoom(null)}
+          title={t("popup_chat_room_leave_title")}
+          description={t("cm_ui_leave_confirm_delivery")}
+          cancelLabel={t("common_cancel")}
+          confirmLabel={t("popup_cta_leave")}
+          confirmTone="danger"
+          onConfirm={() => {
+            void executeLeave();
+          }}
+          zIndexClass="z-[70]"
+          ariaLabel={t("cm_ui_leave_confirm_aria")}
+          interactionMode="blocking"
+        />
+      ) : null}
     </div>
   );
 }

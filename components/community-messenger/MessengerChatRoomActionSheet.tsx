@@ -19,10 +19,12 @@ type Props = {
   onClose: () => void;
   /** 목록 롱프레스 시트 최상단 — 방으로 진입 */
   onEnterRoom: () => void;
-  onTogglePin: () => void;
+  /** 없으면 「위에 고정」 항목을 뺀다 (주문 채팅 고객 목록) */
+  onTogglePin?: () => void;
   onToggleMute: () => void;
   onMarkRead: () => void;
-  onToggleArchive: () => void;
+  /** 없으면 「보관」 항목을 뺀다 (주문 채팅 고객 목록) */
+  onToggleArchive?: () => void;
   onViewFriendProfile?: () => void;
   onViewGroupInfo?: () => void;
   onViewOpenChatInfo?: () => void;
@@ -31,6 +33,8 @@ type Props = {
   onLeave?: () => void;
   onClearLocalPreview?: () => void;
   onReportRoom?: () => void;
+  /** 나가기 비활성 사유 문구 — 있으면 나가기를 흐리게 두고 누르면 사유를 보여 준다 */
+  leaveDisabledReason?: string | null;
 };
 
 /**
@@ -51,6 +55,7 @@ export function MessengerChatRoomActionSheet({
   onViewOpenChatInfo,
   onViewRelatedCommerce,
   onLeave,
+  leaveDisabledReason = null,
 }: Props) {
   const { t } = useI18n();
   const room = item.room;
@@ -75,28 +80,30 @@ export function MessengerChatRoomActionSheet({
 
   const contextualAction = isDirect && onViewFriendProfile
     ? {
-        label: "프로필 보기",
+        label: t("cm_ui_room_action_view_profile"),
         icon: <ProfileIcon />,
         onClick: onViewFriendProfile,
         disabled: anyBusy,
       }
     : hasProductLink && onViewRelatedCommerce
       ? {
-          label: communityMessengerRoomIsDelivery(room) ? "관련 주문 보기" : "관련 거래 보기",
+          label: communityMessengerRoomIsDelivery(room)
+            ? t("cm_ui_room_action_view_order")
+            : t("cm_ui_room_action_view_trade"),
           icon: <CommerceIcon />,
           onClick: onViewRelatedCommerce,
           disabled: anyBusy,
         }
       : isPrivateGroup && onViewGroupInfo
         ? {
-            label: "그룹 정보",
+            label: t("cm_ui_room_action_group_info"),
             icon: <InfoIcon />,
             onClick: onViewGroupInfo,
             disabled: anyBusy,
           }
         : isOpenGroup && onViewOpenChatInfo
           ? {
-              label: "모임 정보",
+              label: t("cm_ui_room_action_meeting_info"),
               icon: <InfoIcon />,
               onClick: onViewOpenChatInfo,
               disabled: anyBusy,
@@ -115,13 +122,17 @@ export function MessengerChatRoomActionSheet({
       onClick: onToggleMute,
       disabled: anyBusy || isSettingsBusy,
     },
-    {
-      key: "pin",
-      icon: <PinIcon />,
-      label: room.isPinned ? t("cm_ui_unpin_top") : t("cm_ui_pin_chat_room_top"),
-      onClick: onTogglePin,
-      disabled: anyBusy || isSettingsBusy,
-    },
+    ...(onTogglePin
+      ? [
+          {
+            key: "pin",
+            icon: <PinIcon />,
+            label: room.isPinned ? t("cm_ui_unpin_top") : t("cm_ui_pin_chat_room_top"),
+            onClick: onTogglePin,
+            disabled: anyBusy || isSettingsBusy,
+          },
+        ]
+      : []),
     {
       key: "read",
       icon: <ReadIcon />,
@@ -129,16 +140,30 @@ export function MessengerChatRoomActionSheet({
       onClick: onMarkRead,
       disabled: anyBusy || isReadBusy || room.unreadCount <= 0,
     },
-    {
-      key: "archive",
-      icon: <ArchiveIcon />,
-      label: archiveUi ? archiveLabel : defaultArchiveLabel,
-      onClick: onToggleArchive,
-      disabled: anyBusy || isArchiveBusy,
-    },
+    ...(onToggleArchive
+      ? [
+          {
+            key: "archive",
+            icon: <ArchiveIcon />,
+            label: archiveUi ? archiveLabel : defaultArchiveLabel,
+            onClick: onToggleArchive,
+            disabled: anyBusy || isArchiveBusy,
+          },
+        ]
+      : []),
   ];
   const dangerItems: DibayMenuItem[] = onLeave
-    ? [{ key: "leave", icon: <LeaveIcon />, label: t("cm_ui_leave"), onClick: onLeave, disabled: anyBusy || isLeaveBusy, danger: true }]
+    ? [
+        {
+          key: "leave",
+          icon: <LeaveIcon />,
+          label: t("cm_ui_leave"),
+          onClick: onLeave,
+          disabled: anyBusy || isLeaveBusy || Boolean(leaveDisabledReason),
+          danger: true,
+          ...(leaveDisabledReason ? { hint: leaveDisabledReason } : {}),
+        },
+      ]
     : [];
 
   /**

@@ -333,6 +333,48 @@ export function applyDomainTradeListRemoveRow(input: {
   return true;
 }
 
+/**
+ * 주문(고객) 리스트 — 나가기 성공 후 행 제거. Domain canary 캐시만 바꾼다(두 번째 목록 권한 없음).
+ */
+export function applyDomainStoreOrderListRemoveRow(input: {
+  viewerUserId: string;
+  roomId: string;
+}): boolean {
+  const cached = peekDomainStoreOrderCustomerListCanaryCache(input.viewerUserId);
+  if (!cached) return false;
+  if (!cached.rows.some((r) => r.roomId === input.roomId)) return false;
+  const rows = cached.rows.filter((r) => r.roomId !== input.roomId);
+  const stabilized = stabilizeSoCustomerListDto({ ...cached, rows });
+  primeDomainStoreOrderCustomerListCanaryCache(stabilized);
+  notifyDomainListCanaryPatch("store_order");
+  logListAuthorityMutation({
+    surface: "store_order",
+    roomId: input.roomId,
+    mutationType: "LEAVE_REMOVE",
+    changedFields: ["rows"],
+    listOrderChanged: true,
+    writerName: "applyDomainStoreOrderListRemoveRow",
+  });
+  return true;
+}
+
+/** 주문(고객) 리스트 — 알림 끄기/켜기 성공 후 행 상태만 갱신. */
+export function applyDomainStoreOrderListMutePatch(input: {
+  viewerUserId: string;
+  roomId: string;
+  isMuted: boolean;
+}): boolean {
+  const cached = peekDomainStoreOrderCustomerListCanaryCache(input.viewerUserId);
+  if (!cached) return false;
+  const idx = cached.rows.findIndex((r) => r.roomId === input.roomId);
+  if (idx === -1) return false;
+  if (Boolean(cached.rows[idx]!.isMuted) === input.isMuted) return false;
+  const rows = cached.rows.map((r, i) => (i === idx ? { ...r, isMuted: input.isMuted } : r));
+  primeDomainStoreOrderCustomerListCanaryCache({ ...cached, rows });
+  notifyDomainListCanaryPatch("store_order");
+  return true;
+}
+
 /** roomId만 알 때 MARK_READ — 두 캐시에 순서대로 시도. */
 export function applyDomainListCanaryReadPatchByRoomId(input: {
   viewerUserId: string;
