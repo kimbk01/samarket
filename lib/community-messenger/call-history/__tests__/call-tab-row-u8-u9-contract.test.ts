@@ -24,14 +24,16 @@ describe("call tab row U-8·U-9", () => {
     expect(row).not.toContain("--sam-warning");
   });
 
-  it("U-8 이름 (@아이디) 띄어쓰기 · 토큰 색 · 테두리형 재다이얼 — 발신 확인 경로 유지", () => {
+  it("U-8 → 채팅 시안 4판: 이름만 · 24px 초록 재다이얼(모든 줄 같은 자리) — 발신 확인 경로 유지", () => {
     const row = src("components/community-messenger/call-history/CommunityMessengerCallRow.tsx");
-    expect(row).toContain("> (@{vm.peerPublicId})</span>");
+    expect(row).not.toContain("(@{vm.peerPublicId})");
+    expect(row).toContain("{vm.peerName}");
     /** §17-4 R-3: 대화·통화 불가 상대만 이유 안내, 그 밖은 기존 발신 확인 경로 그대로 */
     expect(row).toMatch(/if \(relationMark === "unavailable"\) \{[\s\S]{0,400}return;\s*\}\s*onRequestOutgoingConfirm\(call, vm\.callKind\);/);
     const btn = src("components/community-messenger/call-history/CommunityMessengerCallActionButton.tsx");
     expect(btn).not.toContain("#00754A");
     expect(btn).toContain("onPress();");
+    expect(btn).toContain("text-[color:var(--sam-primary)]");
     const badge = src("components/community-messenger/call-history/CommunityMessengerCallDirectionBadge.tsx");
     expect(badge).not.toContain("#E53935");
     expect(badge).toContain("var(--sam-danger)");

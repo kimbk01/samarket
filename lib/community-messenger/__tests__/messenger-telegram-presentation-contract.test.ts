@@ -105,18 +105,15 @@ describe("messenger presentation contract", () => {
     expect(bubble).not.toMatch(/data-cm-call-event-bubble[\s\S]{0,200}76vw/);
   });
 
-  it("call list meta does not truncate clock time", () => {
+  it("call row time lives in the one-line subtitle (채팅 시안 4판 — 오른쪽 시각 칸 없음, 화면 밖으로 안 나감)", () => {
     const row = readFileSync(
       resolve(root, "components/community-messenger/call-history/CommunityMessengerCallRow.tsx"),
       "utf8"
     );
-    expect(row).toContain('data-cm-list-meta=""');
-    expect(row).toContain("data-cm-call-occurrence-time");
-    expect(row).toContain("whitespace-nowrap");
-    expect(row).toContain("text-right");
-    expect(row).not.toMatch(/data-cm-list-meta[\s\S]{0,120}truncate/);
-    expect(row).not.toMatch(/data-cm-call-occurrence-time[\s\S]{0,80}max-w-\[52px\]/);
-    expect(row).not.toContain("durationLabel || timeLabel");
+    expect(row).not.toContain('data-cm-list-meta=""');
+    expect(row).not.toContain("data-cm-call-occurrence-time");
+    expect(row).toContain("data-cm-call-row-line");
+    expect(row).toMatch(/data-cm-call-row-line[\s\S]{0,200}className="truncate"/);
   });
 
   it("split-room-pane: no enter/exit motion — layout + transform locked in one block (B-5, 2026-11-08)", () => {
@@ -196,18 +193,15 @@ describe("messenger presentation contract", () => {
     expect(src).not.toContain('t("cm_peer_badge_not_friend")');
   });
 
-  it("call row: occurrence time right meta; duration in subtitle only", () => {
+  it("call row: name only, one subtitle line (kind · result or duration · time)", () => {
     const row = readFileSync(
       resolve(root, "components/community-messenger/call-history/CommunityMessengerCallRow.tsx"),
       "utf8"
     );
     expect(row).toContain('data-cm-list-surface="call"');
-    expect(row).toContain("(@{vm.peerPublicId})");
-    expect(row).toContain("data-cm-call-occurrence-time");
-    expect(row).toContain("text-right");
-    expect(row).toContain("whitespace-nowrap");
-    expect(row).not.toContain("durationLabel || timeLabel");
-    expect(row).toContain("durationOnly");
+    expect(row).not.toContain("(@{vm.peerPublicId})");
+    expect(row).toContain("durationLabel: vm.durationLabel");
+    expect(row).toContain("{line.text}");
     expect(row).toContain("<MessengerPeerRelationAvatar mark={relationMark}>");
     expect(row).not.toContain('t("cm_peer_badge_not_friend")');
     expect(row).toContain("openedSwipeItemId !== swipeItemId");

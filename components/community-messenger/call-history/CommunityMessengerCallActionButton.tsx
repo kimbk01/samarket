@@ -18,8 +18,8 @@ type Props = {
 
 /**
  * 통화 목록 재다이얼 — 탭 시 발신 확인 팝업.
- * U-8 (1단계 문서 §13-6): 채운 초록 원(하드코딩 색) → 친구·대화 행과 같은 테두리형 40px + 브랜드 토큰.
- * 터치 영역은 바깥 44px 유지. 동작(onPress)은 그대로.
+ * 채팅 시안 4판 「3. 통화 탭」 (2026-11-10): 원 테두리 없이 24px 초록 아이콘(브랜드 토큰) — 모든 줄 같은 자리.
+ * 터치 영역은 바깥 44px 유지. 동작(onPress)은 그대로. 다시 걸 수 없으면 `disabled`(흐림).
  */
 export function CommunityMessengerCallActionButton({
   kind,
@@ -42,15 +42,15 @@ export function CommunityMessengerCallActionButton({
         onPress();
       }}
       aria-disabled={dimmed || undefined}
-      className={`group inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${dimmed ? "opacity-40" : ""}`}
+      className={`group -mr-3 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 ${dimmed ? "opacity-40" : ""}`}
       data-cm-call-redial=""
       data-cm-call-unavailable={dimmed ? "1" : undefined}
     >
-      <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--messenger-primary-soft-2)] bg-[color:var(--messenger-surface)] text-[color:var(--messenger-primary)] transition-transform duration-[80ms] group-focus-visible:ring-2 group-focus-visible:ring-[color:var(--messenger-primary-soft-2)] group-active:scale-[0.93] group-active:bg-[color:var(--messenger-primary-soft)]">
+      <span className="inline-flex h-6 w-6 items-center justify-center text-[color:var(--sam-primary)] transition-transform duration-[80ms] group-focus-visible:ring-2 group-focus-visible:ring-[color:var(--messenger-primary-soft-2)] group-active:scale-[0.9]">
         {loading ? (
-          <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+          <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
         ) : (
-          <Icon className="h-5 w-5" aria-hidden />
+          <Icon className="h-6 w-6" aria-hidden />
         )}
       </span>
     </button>

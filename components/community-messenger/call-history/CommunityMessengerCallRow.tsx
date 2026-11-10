@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPoi
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { CommunityMessengerCallActionButton } from "@/components/community-messenger/call-history/CommunityMessengerCallActionButton";
-import { CommunityMessengerCallDirectionBadge } from "@/components/community-messenger/call-history/CommunityMessengerCallDirectionBadge";
+import { GroupDomainAvatar } from "@/components/community-messenger/domain-shell-canary/GroupDomainAvatar";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import {
   CALL_LOG_SWIPE_ACTION_ATTR,
@@ -13,12 +13,10 @@ import {
   isCallLogSwipeDeleteActionInteractive,
 } from "@/lib/community-messenger/call-history/call-log-swipe";
 import { presentCallHistoryRow } from "@/lib/community-messenger/call-history/call-history-presenter";
-import { formatCallLogListTime, resolveCallLogListTimestampIso } from "@/lib/community-messenger/call-log-row-copy";
+import { resolveCallLogListTimestampIso } from "@/lib/community-messenger/call-log-row-copy";
+import { formatCallHistoryRowLine } from "@/lib/community-messenger/call-history/call-history-row-line";
 import type { CommunityMessengerCallLog } from "@/lib/community-messenger/types";
-import {
-  CALL_UI_CALL_LIST_ROW_ACTIVE_CLASS,
-  CALL_UI_CALL_LIST_ROW_CLASS,
-} from "@/lib/community-messenger/call-ui/call-ui-tokens";
+import { CALL_UI_CALL_LIST_ROW_ACTIVE_CLASS } from "@/lib/community-messenger/call-ui/call-ui-tokens";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { useMessengerFriendActions } from "@/components/community-messenger/friend-cta/messenger-friend-actions-context";
 import { resolveCallLogUnavailableReasonKey } from "@/lib/community-messenger/call-ui/direct-call-unavailable-reason";
@@ -53,7 +51,7 @@ export function CommunityMessengerCallRow({
   onOpenSwipeItem,
   swipeSurfaceDataAttr,
 }: Props) {
-  const { t, safeT, language } = useI18n();
+  const { t } = useI18n();
   const vm = presentCallHistoryRow(call);
   /**
    * U-9 (1단계 문서 §13-6): 「친구 아님」은 홈의 현재 친구 목록 기준 — 서버 값은 목록 조회 시점이라
@@ -207,27 +205,38 @@ export function CommunityMessengerCallRow({
     if (vm.canNavigate) onNavigate(call);
   }, [call, closeSwipe, onNavigate, swipeOpen, vm.canNavigate]);
 
-  const timeLabel = formatCallLogListTime(
-    resolveCallLogListTimestampIso(call),
-    language,
-    t("cm_ui_call_log_time_yesterday")
+  /**
+   * 채팅 시안 4판 「3. 통화 탭」 (Owner 「정확히 시안대로」 2026-11-10): 둘째 줄 하나에 종류 · 결과(또는 통화 시간) · 날짜 시각.
+   * 상태 칩·오른쪽 시각 없음 — 줄이 화면 밖으로 나가지 않는다. 부재중(놓친 수신)만 이름·둘째 줄 빨강.
+   */
+  const line = formatCallHistoryRowLine(
+    {
+      callKind: vm.callKind,
+      displayType: vm.displayType,
+      badgeLabelKey: vm.badgeLabelKey,
+      durationLabel: vm.durationLabel,
+      timeIso: resolveCallLogListTimestampIso(call),
+    },
+    t
   );
-  const subtitleText = safeT(vm.subtitleMessageKey);
-  const durationOnly = vm.durationLabel?.trim() || null;
+  const isGroupCall = call.sessionMode === "group";
 
-  const avatarNode = (
+  /** 사진 48 둥근 사각(18) — 그룹 통화는 그룹 자리표시(참여자 사진을 쓰지 않음) */
+  const avatarNode = isGroupCall ? (
+    <GroupDomainAvatar imageUrl={null} fill shape="rounded-square" roundedClassName="rounded-[18px]" />
+  ) : (
     <SamarketThumbnail
       src={resolveUserAvatarImageSrc(vm.peerAvatarUrl)}
       size={48}
-      roundedClassName="rounded-full"
-      className="h-full w-full shrink-0 bg-sam-surface-muted ring-1 ring-sam-border"
+      roundedClassName="rounded-[18px]"
+      className="h-full w-full shrink-0 bg-[color:var(--cm-chat-band)]"
       fallbackSrc=""
       fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
     />
   );
 
   return (
-    <li className={`relative overflow-hidden ${CALL_UI_CALL_LIST_ROW_CLASS}`} data-call-log-row="true">
+    <li className="relative overflow-hidden bg-[color:var(--messenger-surface,#fff)]" data-call-log-row="true">
       <div
         className={`absolute inset-y-0 right-0 flex items-stretch ${
           deleteActionInteractive ? "pointer-events-auto" : "pointer-events-none"
@@ -261,7 +270,7 @@ export function CommunityMessengerCallRow({
       </div>
 
       <div
-        className={`relative z-[1] flex w-full touch-pan-y items-stretch bg-white dark:bg-[#1F1F1F] ${messengerPeerRelationRowClass(relationMark)}`}
+        className={`relative z-[1] flex h-[72px] w-full touch-pan-y items-center gap-3 bg-[color:var(--messenger-surface,#fff)] px-4 ${messengerPeerRelationRowClass(relationMark)}`}
         data-call-log-swipe-surface={swipeSurfaceDataAttr}
         style={{
           ...(relationMark === "stranger"
@@ -293,11 +302,11 @@ export function CommunityMessengerCallRow({
           }}
           data-cm-messenger-list-row=""
           data-cm-list-surface="call"
-          className={`flex min-w-0 flex-1 items-center py-1.5 text-left transition-transform duration-100 active:scale-[0.98] ${CALL_UI_CALL_LIST_ROW_ACTIVE_CLASS} ${
+          className={`flex min-w-0 flex-1 items-center self-stretch text-left transition-transform duration-100 active:scale-[0.98] ${CALL_UI_CALL_LIST_ROW_ACTIVE_CLASS} ${
             vm.canNavigate ? "cursor-pointer" : "cursor-default"
           }`}
         >
-          <div data-cm-list-avatar-slot="">
+          <div data-cm-list-avatar-slot="" className="shrink-0">
             {relationMark ? (
               <MessengerPeerRelationAvatar mark={relationMark}>
                 <span className="block h-[var(--cm-list-avatar)] w-[var(--cm-list-avatar)]">{avatarNode}</span>
@@ -306,58 +315,47 @@ export function CommunityMessengerCallRow({
               avatarNode
             )}
           </div>
-          <div className="min-w-0 flex-1">
-            <p data-cm-list-title="" className="truncate font-semibold text-sam-fg">
+          <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+            <p
+              data-cm-list-title=""
+              className="truncate"
+              style={{ color: line.missed ? "var(--cm-chat-danger)" : "var(--cm-chat-fg)" }}
+            >
               {vm.peerName}
-              {vm.peerPublicId && vm.peerName.toLowerCase() !== vm.peerPublicId.toLowerCase() ? (
-                <span className="font-medium text-sam-fg-muted"> (@{vm.peerPublicId})</span>
-              ) : null}
             </p>
-            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
-              <CommunityMessengerCallDirectionBadge displayType={vm.displayType} labelKey={vm.badgeLabelKey} />
-              <p data-cm-list-preview="" className="min-w-0 truncate" style={{ color: vm.subtitleColor }}>
-                {subtitleText}
-                {durationOnly ? ` · ${durationOnly}` : ""}
-              </p>
-            </div>
+            <p
+              data-cm-list-preview=""
+              data-cm-call-row-line=""
+              data-cm-call-missed={line.missed ? "1" : undefined}
+              className="truncate"
+              style={{ color: line.missed ? "var(--cm-chat-danger)" : "var(--cm-chat-sub)" }}
+            >
+              {line.text}
+            </p>
           </div>
         </button>
 
-        <aside className="flex w-auto min-w-[52px] shrink-0 grow-0 basis-auto flex-col items-end justify-center gap-1 px-1.5 py-1">
-          {timeLabel ? (
-            <span
-              data-cm-list-meta=""
-              data-cm-call-occurrence-time=""
-              className="shrink-0 grow-0 basis-auto whitespace-nowrap text-right tabular-nums text-sam-fg-muted"
-            >
-              {timeLabel}
-            </span>
-          ) : null}
-          {vm.canRedial ? (
-            <div onPointerDown={(e) => e.stopPropagation()}>
-              <CommunityMessengerCallActionButton
-                kind={vm.callKind}
-                ariaLabel={vm.callKind === "video" ? t("cm_ui_call_log_redial_video") : t("cm_ui_call_log_redial_voice")}
-                disabled={globalRedialBlocked}
-                dimmed={relationMark === "unavailable"}
-                onPress={() => {
-                  /** §17-4 R-3: 대화·통화 불가 상대 — 발신 확인 대신 이유 안내 */
-                  if (relationMark === "unavailable") {
-                    const pid = call.peerUserId?.trim() ?? "";
-                    const key = resolveCallLogUnavailableReasonKey({
-                      blockedByMe: Boolean(pid && friendActions?.blockedByMePeerIds?.has(pid)),
-                    });
-                    showMessengerSnackbar(t(key), { variant: "default" });
-                    return;
-                  }
-                  onRequestOutgoingConfirm(call, vm.callKind);
-                }}
-              />
-            </div>
-          ) : (
-            <span className="h-11 w-11" aria-hidden />
-          )}
-        </aside>
+        {/* 다시 걸기 — 모든 줄 오른쪽 같은 자리(터치 48 안 아이콘 24 → 화면 끝 16), 초록 (음성 = 전화 · 영상 = 카메라). 다시 걸 수 없는 줄(그룹 통화)은 흐린 아이콘 */}
+        <div className="flex shrink-0 items-center" onPointerDown={(e) => e.stopPropagation()}>
+          <CommunityMessengerCallActionButton
+            kind={vm.callKind}
+            ariaLabel={vm.callKind === "video" ? t("cm_ui_call_log_redial_video") : t("cm_ui_call_log_redial_voice")}
+            disabled={globalRedialBlocked || !vm.canRedial}
+            dimmed={relationMark === "unavailable"}
+            onPress={() => {
+              /** §17-4 R-3: 대화·통화 불가 상대 — 발신 확인 대신 이유 안내 */
+              if (relationMark === "unavailable") {
+                const pid = call.peerUserId?.trim() ?? "";
+                const key = resolveCallLogUnavailableReasonKey({
+                  blockedByMe: Boolean(pid && friendActions?.blockedByMePeerIds?.has(pid)),
+                });
+                showMessengerSnackbar(t(key), { variant: "default" });
+                return;
+              }
+              onRequestOutgoingConfirm(call, vm.callKind);
+            }}
+          />
+        </div>
       </div>
     </li>
   );

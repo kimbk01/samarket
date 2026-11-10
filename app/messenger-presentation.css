@@ -273,6 +273,22 @@
   --cm-list-preview-lh: 1.3;
 }
 
+/**
+ * 통화 탭 줄 (채팅 시안 4판 「3. 통화 탭」) — 높이 72 · 화면 끝까지(바깥 줄이 좌우 16) · 간격 12 · 사진 48 ·
+ * 이름 16 · 둘째 줄 13.5. 안쪽 누름 칸은 여백 없이(바깥과 겹쳐 32px 되지 않게).
+ */
+[data-cm-messenger-list-row][data-cm-list-surface="call"] {
+  --cm-call-row-min-h: 72px;
+  --cm-call-row-max-h: 72px;
+  --cm-call-avatar: 48px;
+  --cm-list-gap: 12px;
+  --cm-list-pad-x: 0px;
+  --cm-list-title-size: 16px;
+  --cm-list-title-lh: 1.3;
+  --cm-list-preview-size: 13.5px;
+  --cm-list-preview-lh: 1.35;
+}
+
 [data-cm-messenger-list-row] [data-cm-list-avatar-slot],
 [data-messenger-chat-row] [data-cm-list-avatar-slot] {
   width: var(--cm-list-avatar);
