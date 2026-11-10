@@ -315,6 +315,12 @@ final class NativeMessengerCallSoundConfigFetcher {
     else {
       return nil
     }
+    // server.url 에 쿼리(개발 앱 Vercel 보호 우회 값 등)가 붙어 있어도 네이티브 API 주소는 scheme://host[:port] 만 쓴다.
+    // 운영 server.url(https://samarket.vercel.app)은 결과가 같다. (2026-11-11 Owner 승인, docs/audit/dev-app-native-origin-plan-2026-11-11.md)
+    if let comps = URLComponents(string: origin), let scheme = comps.scheme, let host = comps.host, !host.isEmpty {
+      if let port = comps.port { return "\(scheme)://\(host):\(port)" }
+      return "\(scheme)://\(host)"
+    }
     while origin.hasSuffix("/") {
       origin.removeLast()
     }

@@ -15,6 +15,32 @@ public final class DibayServerOrigin {
 
   private DibayServerOrigin() {}
 
+  /**
+   * server.url → scheme://host[:port]. 쿼리(개발 앱 Vercel 보호 우회 값 등)·경로·fragment 는 버린다.
+   * 운영 server.url(https://samarket.vercel.app)은 결과가 같다.
+   * (2026-11-11 Owner 승인, docs/audit/dev-app-native-origin-plan-2026-11-11.md)
+   */
+  static String originOf(String raw) {
+    if (raw == null) return null;
+    String url = raw.trim();
+    if (url.isEmpty()) return null;
+    try {
+      java.net.URI uri = new java.net.URI(url);
+      String scheme = uri.getScheme();
+      String host = uri.getHost();
+      if (scheme != null && host != null && !host.isEmpty()) {
+        int port = uri.getPort();
+        return port >= 0 ? scheme + "://" + host + ":" + port : scheme + "://" + host;
+      }
+    } catch (Exception ignored) {
+      // 아래 기존 처리(끝 슬래시 제거)로 진행
+    }
+    while (url.endsWith("/")) {
+      url = url.substring(0, url.length() - 1);
+    }
+    return url.isEmpty() ? null : url;
+  }
+
   public static String resolve(Context context) {
     if (cachedOrigin != null) return cachedOrigin;
     if (context == null) return null;
@@ -31,11 +57,8 @@ public final class DibayServerOrigin {
         JSONObject root = new JSONObject(sb.toString());
         JSONObject server = root.optJSONObject("server");
         if (server == null) return null;
-        String url = server.optString("url", "").trim();
-        if (url.isEmpty()) return null;
-        while (url.endsWith("/")) {
-          url = url.substring(0, url.length() - 1);
-        }
+        String url = originOf(server.optString("url", ""));
+        if (url == null) return null;
         cachedOrigin = url;
         return cachedOrigin;
       }
