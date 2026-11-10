@@ -11,10 +11,10 @@
  *
  * Force a build: put `[vercel build]` in the commit message.
  *
- * 요청 빌드 (Owner 2026-11-10 「요청 빌드로 변경」 · Vercel 비용): Vercel Production(main) 은
- * `[vercel build]` 가 **맨 마지막 커밋 메시지**에 있을 때만 빌드한다. 그 밖의 main 푸시는 모두 건너뛴다(Canceled).
- * 스테이징 빌드는 「그 시점 main 전체」를 빌드하므로 중간 커밋을 건너뛰어도 빠지는 변경은 없다.
- * 요청 방법: git commit --allow-empty -m "chore(staging): 스테이징 빌드 요청 [vercel build]" → main 푸시.
+ * 화면 버튼 빌드만 (Owner 2026-11-10 「git으로는 아예 빌드하지 않고 Vercel 화면 버튼으로만 빌드」):
+ * `vercel.json` `git.deploymentEnabled` 가 main 포함 모든 브랜치를 꺼 둬서 git 푸시는 배포 자체를 만들지 않는다.
+ * 그래서 Production(`VERCEL_ENV=production`) 으로 여기까지 오는 빌드는 Vercel 화면에서 누른 배포뿐 → 항상 빌드한다.
+ * (이전 11-10 오전: main 푸시 + 마지막 커밋 `[vercel build]` 로 빌드 요청 — 폐지)
  *
  * Local check:
  *   node scripts/vercel-ignored-build-step.mjs
@@ -114,14 +114,14 @@ function main() {
       }
     })();
 
-  if (commitMessage.includes(FORCE_TOKEN)) {
-    log(`force token ${FORCE_TOKEN} present → build`);
+  if ((process.env.VERCEL_ENV ?? "").trim() === "production") {
+    log("production = Vercel 화면 버튼 배포만 (git 배포 꺼짐) → build");
     process.exit(1);
   }
 
-  if ((process.env.VERCEL_ENV ?? "").trim() === "production") {
-    log(`on-request build mode — no ${FORCE_TOKEN} in last commit message → skip`);
-    process.exit(0);
+  if (commitMessage.includes(FORCE_TOKEN)) {
+    log(`force token ${FORCE_TOKEN} present → build`);
+    process.exit(1);
   }
 
   const files = listChangedFiles();

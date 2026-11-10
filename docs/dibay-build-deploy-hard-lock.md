@@ -39,7 +39,7 @@ Next production build: **Vercel ONLY**.
 
 **2026-11-10 변경 (Owner 「개발 서버·운영 서버 구분」):** 수정 → 로컬 검증 → `main` 반영 → Vercel Production 빌드 = **스테이징(Staged, 운영 주소 미연결)** → 배포 고유 주소에서 확인(Vercel 로그인·주황 「스테이징」 표시) → Vercel 「…」 → **Promote** = 운영 반영(재빌드 없음). 되돌리기 = Instant Rollback. 설정: `autoAssignCustomDomains=false` · `ssoProtection=all_except_custom_domains`. 단일 정의는 `AGENTS.md` 「개발 프로세스」 2번.
 
-**2026-11-10 추가 (Owner 「요청 빌드로 변경」):** main 푸시는 자동 빌드하지 않는다. 마지막 커밋 메시지에 `[vercel build]` 가 있을 때만 빌드(`scripts/vercel-ignored-build-step.mjs`, `VERCEL_ENV=production`). 근거: 11-08 16:00~11-09 16:00 PHT 청구 $15.67 중 Build CPU Minutes $13.27(85%), 약 19시간 빌드 64회.
+**2026-11-10 추가 (Owner 「요청 빌드로 변경」):** main 푸시는 자동 빌드하지 않는다. 마지막 커밋 메시지에 `[vercel build]` 가 있을 때만 빌드(`scripts/vercel-ignored-build-step.mjs`, `VERCEL_ENV=production`). 근거: 11-08 16:00~11-09 16:00 PHT 청구 $15.67 중 Build CPU Minutes $13.27(85%), 약 19시간 빌드 64회. **→ 같은 날 변경 (Owner 「git으로는 아예 빌드하지 않고 Vercel 화면 버튼으로만 빌드」):** git 푸시는 배포를 만들지 않는다(`vercel.json` main 포함 전부 false). 빌드는 Vercel 화면 「Create Deployment」·「Redeploy」 버튼으로만, `[vercel build]` 요청 폐지.
 
 - **TEST / Preview는 정규 배포의 필수 단계가 아니다.** Owner가 필요할 때만 사용한다.
 - Vercel 기본 Preview(PR 브랜치)는 플랫폼 기본 기능이며, 정규 경로에 승인 게이트로 끼워 넣지 않는다.

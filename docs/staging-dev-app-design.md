@@ -14,7 +14,7 @@ Owner 지시: 「3단계 진행」(개발 서버·운영 서버 구분) → 「�
 
 ## 1-1. 스테이징 빌드 = 요청할 때만 (2026-11-10)
 
-main 에 올려도 스테이징은 자동으로 바뀌지 않는다. 「DIBAY 개발」에 최신 main 을 보이려면 `[vercel build]` 커밋으로 빌드를 요청한다(`AGENTS.md` 「개발 프로세스」 2번).
+main 에 올려도 스테이징은 자동으로 바뀌지 않는다. 「DIBAY 개발」에 최신 main 을 보이려면 Vercel 화면 버튼(Deployments → Create Deployment · main)으로 빌드한다(`AGENTS.md` 「개발 프로세스」 2번). git `[vercel build]` 요청은 폐지(Owner 2026-11-10).
 
 ## 2. 푸시·통화 영향 (통화 변경 규정 3번 — 영향 분석)
 
