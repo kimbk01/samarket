@@ -107,11 +107,62 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+        // 「DIBAY 개발」 — USB 설치 전용 스테이징 앱 (Owner 2026-11-10 「푸시 끄고 진행」, docs/staging-dev-app-design.md).
+        // 운영 앱(com.dibay.app)과 나란히 설치되고, 스테이징 주소(최신 main · 회원 미공개)를 연다.
+        // 푸시 기기 등록은 서버가 스테이징 주소에서 저장하지 않는다(staging-host-push-register-skip).
+        // 빌드: cd android && ./gradlew assembleStaging → adb -d install -r app/build/outputs/apk/staging/app-staging.apk
+        staging {
+            initWith debug
+            applicationIdSuffix ".dev"
+            versionNameSuffix "-staging"
+            matchingFallbacks = ['debug']
+            // 카카오 개발용 네이티브 앱 키 「DIBAY 개발 (USB 설치 전용)」 — 운영 키와 분리 (네이티브 앱 키는 APK 에 공개되는 값)
+            resValue "string", "kakao_native_app_key", "7ef4e5c9b1661536ec1edc285c858af0"
+            resValue "string", "kakao_login_scheme", "kakao7ef4e5c9b1661536ec1edc285c858af0"
+        }
     }
     testOptions {
         unitTests.includeAndroidResources = true
     }
 }
+
+// 「DIBAY 개발」: cap sync 가 만든 capacitor.config.json 을 복사해 server.url 만 스테이징 주소로 바꾼다.
+// (운영 assets 는 그대로 — staging 빌드 종류의 assets 가 같은 파일을 덮는다)
+def dibayStagingServerUrl = "https://samarket-git-main-kimbk01s-projects.vercel.app"
+// Vercel 보호 우회 비밀값(Owner 허용 2026-11-10) — android/local.properties 또는 env 에만 둔다(Git 금지).
+// 첫 화면 주소에만 붙여 Vercel 이 우회 쿠키를 심게 한다 → 이후 같은 주소의 화면·API 는 쿠키로 열림.
+def dibayStagingBypassSecret = {
+    def lp = new Properties()
+    def lpf = rootProject.file("local.properties")
+    if (lpf.exists()) lpf.withInputStream { lp.load(it) }
+    (System.getenv("DIBAY_STAGING_BYPASS_SECRET") ?: lp.getProperty("DIBAY_STAGING_BYPASS_SECRET") ?: "").trim()
+}()
+def dibayStagingStartUrl = dibayStagingBypassSecret
+    ? "${dibayStagingServerUrl}/?x-vercel-protection-bypass=${dibayStagingBypassSecret}&x-vercel-set-bypass-cookie=samesitenone"
+    : dibayStagingServerUrl
+if (!dibayStagingBypassSecret) {
+    logger.warn("DIBAY_STAGING_BYPASS_SECRET is not set — 「DIBAY 개발」 앱은 Vercel 로그인 화면에서 막힙니다 (android/local.properties)")
+}
+def dibayStagingAssetsDir = new File(buildDir, "generated/dibay-staging-assets")
+android.sourceSets.staging.assets.srcDirs += [dibayStagingAssetsDir]
+def generateDibayStagingCapacitorConfig = tasks.register("generateDibayStagingCapacitorConfig") {
+    def src = file("src/main/assets/capacitor.config.json")
+    inputs.file(src)
+    inputs.property("serverUrl", dibayStagingStartUrl)
+    outputs.dir(dibayStagingAssetsDir)
+    doLast {
+        def json = new groovy.json.JsonSlurper().parse(src)
+        json.server.url = dibayStagingStartUrl
+        // 스테이징은 Vercel 로그인(팀원만)으로 보호됨 — 로그인 화면을 앱 밖 브라우저가 아니라 앱 안에서 열어야 로그인 쿠키가 앱에 남는다.
+        def nav = (json.server.allowNavigation ?: []) as List
+        ["vercel.com", "*.vercel.com"].each { if (!nav.contains(it)) nav << it }
+        json.server.allowNavigation = nav
+        dibayStagingAssetsDir.mkdirs()
+        new File(dibayStagingAssetsDir, "capacitor.config.json").text =
+            groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(json))
+    }
+}
+tasks.matching { it.name == "mergeStagingAssets" }.configureEach { dependsOn generateDibayStagingCapacitorConfig }
 
 repositories {
     flatDir{

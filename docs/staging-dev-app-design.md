@@ -35,3 +35,16 @@ Owner 지시: 「3단계 진행」(개발 서버·운영 서버 구분) → 「�
 | 이름 | DIBAY | DIBAY 개발 |
 | 서버 주소 | `samarket.vercel.app` | 스테이징 주소(최신 main) |
 | 설치 | 스토어 | USB(Android Studio·Xcode)만 |
+
+## 4. Android 「DIBAY 개발」 만들기·설치 (2026-11-10 구현)
+
+```
+cd android && ./gradlew assembleStaging
+adb -d install -r app/build/outputs/apk/staging/app-staging.apk
+```
+
+- build type `staging` (`android/app/build.gradle`): `com.dibay.app.dev` · 이름 「DIBAY 개발」(`src/staging/res`) · 디버그 키 서명.
+- `generateDibayStagingCapacitorConfig`: cap sync 결과 `capacitor.config.json` 을 복사해 `server.url` = 스테이징 주소(+ Vercel 보호 우회 값), `allowNavigation` 에 vercel.com 추가. 운영 assets 무변경(`mergeReleaseAssets` 결과 url = samarket.vercel.app 확인).
+- Vercel 보호 우회 값: `android/local.properties` 의 `DIBAY_STAGING_BYPASS_SECRET`(Git 금지 · Owner 허용 2026-11-10). 없으면 앱이 Vercel 로그인 화면에서 막힌다.
+- 콘솔 등록(운영 설정은 그대로, 개발용만 추가): Firebase `com.dibay.app.dev` · 카카오 네이티브 앱 키 「DIBAY 개발 (USB 설치 전용)」 · Google OAuth Android 클라이언트 「DIBAY 개발 (USB 설치 전용)」(디버그 키 SHA-1).
+- 한계: 푸시·통화 수신 없음(§2). 앱 내부 네이티브 HTTP(통화·알림음 설정 등)는 쓰지 않는 전제.
