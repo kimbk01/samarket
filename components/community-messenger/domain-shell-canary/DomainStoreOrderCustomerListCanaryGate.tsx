@@ -11,10 +11,7 @@ import { CommunityMessengerChatRow } from "@/components/community-messenger/chat
 import { MessengerChatRoomActionSheet } from "@/components/community-messenger/MessengerChatRoomActionSheet";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
-import {
-  domainStoreOrderListRowLeaveAllowed,
-  domainStoreOrderListRowToUnifiedItem,
-} from "@/components/community-messenger/domain-shell-canary/domain-store-order-list-row-to-unified-item";
+import { domainStoreOrderListRowToUnifiedItem } from "@/components/community-messenger/domain-shell-canary/domain-store-order-list-row-to-unified-item";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import {
   buildCommunityMessengerMarkReadPatchBody,
@@ -98,7 +95,7 @@ function DomainListRowSkeleton({ count = 6 }: { count?: number }) {
   );
 }
 
-/** 주문 상태 원문이 없는 옛 세션 캐시 — 나가기 판정을 못 하므로 네트워크로 한 번 새로 받는다. */
+/** 주문 상태·알림 끄기 원문이 없는 옛 세션 캐시 — 상태 칩·메뉴가 맞도록 네트워크로 한 번 새로 받는다. */
 function soCustomerListCacheLacksLifecycleFields(dto: SoCustomerListDto): boolean {
   return dto.rows.some((r) => r.orderStatus === undefined);
 }
@@ -110,7 +107,7 @@ const noopRoomAction = () => {};
 /**
  * Store Order Customer List — Domain Facts only. Production surface (no Legacy home).
  * 2026-11-10 (Owner 「1단계 구현」): 거래 목록과 같은 공용 행(MessengerChatListItem `listVisual="delivery"`)으로
- * 밀기 [읽음][나가기]·길게 누르기 메뉴·「모두 읽음」. 나가기는 끝난 주문(완료·취소·환불)만.
+ * 밀기 [읽음][나가기]·길게 누르기 메뉴·「모두 읽음」. 나가기는 주문 상태와 무관하게 허용(Owner 「주문은 지워도 상관 없다」).
  */
 export function DomainStoreOrderCustomerListCanaryGate({
   tabletSplitListOnly,
@@ -196,7 +193,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
         /**
          * Telegram list authority: hydrated session cache → memory paint only.
          * Remount must not network-rewrite (TTL soft-skip then fetch deleted).
-         * 예외: 주문 상태 원문이 없는 옛 캐시는 나가기 판정을 위해 한 번 새로 받는다.
+         * 예외: 주문 상태 원문이 없는 옛 캐시는 한 번 새로 받는다.
          */
         const cached = peekDomainStoreOrderCustomerListCanaryCache(syncUid);
         if (cached) {
@@ -262,11 +259,6 @@ export function DomainStoreOrderCustomerListCanaryGate({
     () => (dto?.rows ?? []).map((row) => domainStoreOrderListRowToUnifiedItem(row, viewerUserIdForRows)),
     [dto, viewerUserIdForRows]
   );
-  const leaveAllowedByRoomId = useMemo(() => {
-    const m = new Map<string, boolean>();
-    for (const row of dto?.rows ?? []) m.set(row.roomId, domainStoreOrderListRowLeaveAllowed(row));
-    return m;
-  }, [dto]);
 
   const resolveViewerUserId = useCallback(
     () => getSyncViewerUserIdForClient() ?? dto?.viewerUserId ?? "",
@@ -368,14 +360,10 @@ export function DomainStoreOrderCustomerListCanaryGate({
     [resolveViewerUserId]
   );
 
-  const requestLeave = useCallback(
-    (room: CommunityMessengerRoomSummary) => {
-      setOpenedSwipeItemId(null);
-      if (!leaveAllowedByRoomId.get(room.id)) return;
-      setLeaveConfirmRoom(room);
-    },
-    [leaveAllowedByRoomId]
-  );
+  const requestLeave = useCallback((room: CommunityMessengerRoomSummary) => {
+    setOpenedSwipeItemId(null);
+    setLeaveConfirmRoom(room);
+  }, []);
 
   const executeLeave = useCallback(async () => {
     const room = leaveConfirmRoom;
@@ -481,7 +469,6 @@ export function DomainStoreOrderCustomerListCanaryGate({
       </button>
     ) : null;
   const sheetRoom = roomActionSheet?.item.room ?? null;
-  const sheetLeaveAllowed = sheetRoom ? Boolean(leaveAllowedByRoomId.get(sheetRoom.id)) : false;
 
   return (
     <div
@@ -580,11 +567,9 @@ export function DomainStoreOrderCustomerListCanaryGate({
             void markRoomRead(sheetRoom);
           }}
           onLeave={() => {
-            if (!sheetLeaveAllowed) return;
             setRoomActionSheet(null);
             requestLeave(sheetRoom);
           }}
-          leaveDisabledReason={sheetLeaveAllowed ? null : t("cm_ui_order_chat_leave_in_progress")}
         />
       ) : null}
 

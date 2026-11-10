@@ -33,8 +33,6 @@ type Props = {
   onLeave?: () => void;
   onClearLocalPreview?: () => void;
   onReportRoom?: () => void;
-  /** 나가기 비활성 사유 문구 — 있으면 나가기를 흐리게 두고 누르면 사유를 보여 준다 */
-  leaveDisabledReason?: string | null;
 };
 
 /**
@@ -55,7 +53,6 @@ export function MessengerChatRoomActionSheet({
   onViewOpenChatInfo,
   onViewRelatedCommerce,
   onLeave,
-  leaveDisabledReason = null,
 }: Props) {
   const { t } = useI18n();
   const room = item.room;
@@ -153,17 +150,7 @@ export function MessengerChatRoomActionSheet({
       : []),
   ];
   const dangerItems: DibayMenuItem[] = onLeave
-    ? [
-        {
-          key: "leave",
-          icon: <LeaveIcon />,
-          label: t("cm_ui_leave"),
-          onClick: onLeave,
-          disabled: anyBusy || isLeaveBusy || Boolean(leaveDisabledReason),
-          danger: true,
-          ...(leaveDisabledReason ? { hint: leaveDisabledReason } : {}),
-        },
-      ]
+    ? [{ key: "leave", icon: <LeaveIcon />, label: t("cm_ui_leave"), onClick: onLeave, disabled: anyBusy || isLeaveBusy, danger: true }]
     : [];
 
   /**

@@ -7,15 +7,8 @@ import { serializeCommunityMessengerRoomContextMeta } from "@/lib/community-mess
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
 import type { SoCustomerListDto } from "@/components/community-messenger/domain-shell-canary/domain-store-order-customer-list-canary-cache";
-import { isStoreOrderBuyerHideAllowedStatus } from "@/lib/stores/store-order-process-model";
 
 export type DomainStoreOrderListRow = SoCustomerListDto["rows"][number];
-
-/** 고객 나가기 허용 = 끝난 주문(완료·취소·환불)만. 상태를 모르면(옛 캐시) 허용하지 않는다. */
-export function domainStoreOrderListRowLeaveAllowed(row: Pick<DomainStoreOrderListRow, "orderStatus">): boolean {
-  const status = row.orderStatus?.trim() ?? "";
-  return status ? isStoreOrderBuyerHideAllowedStatus(status) : false;
-}
 
 export function domainStoreOrderListRowToUnifiedItem(
   row: DomainStoreOrderListRow,

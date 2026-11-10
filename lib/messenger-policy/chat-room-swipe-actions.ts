@@ -30,9 +30,9 @@ export function getSwipeActions(input: {
   isArchivedByViewer?: boolean;
   /**
    * 주문 채팅 고객 목록(`/delivery-chats`) — 보관 없이 읽음·나가기 2종.
-   * 진행 중 주문은 나가기를 비활성 + 사유 안내(끝난 주문만 나가기, Owner 2026-11-10 1단계).
+   * 나가기는 주문 상태와 무관하게 허용 (Owner 2026-11-10 「주문은 지워도 상관 없다」).
    */
-  storeOrderCustomerList?: { leaveAllowed: boolean };
+  storeOrderCustomerList?: boolean;
 }): MessengerSwipeActionDef[] {
   void input.policyType;
   const { listContext } = input;
@@ -46,13 +46,7 @@ export function getSwipeActions(input: {
       { kind: "read", labelKey: "cm_ui_swipe_mark_read", disabled: false },
     ];
     if (!omitLeave) {
-      const leaveAllowed = input.storeOrderCustomerList.leaveAllowed;
-      actions.push({
-        kind: "leave",
-        labelKey: "cm_ui_leave",
-        disabled: !leaveAllowed,
-        ...(!leaveAllowed ? { disabledReasonKey: "cm_ui_order_chat_leave_in_progress" as const } : {}),
-      });
+      actions.push({ kind: "leave", labelKey: "cm_ui_leave", disabled: false });
     }
     return actions;
   }

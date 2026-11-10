@@ -597,7 +597,6 @@ export const communityMessengerUiMessages = {
     cm_ui_leave_confirm_direct: "나가면 내 대화 내용과 목록에서 삭제됩니다. 상대방의 대화는 그대로 남습니다. 나가시겠습니까?",
     cm_ui_leave_confirm_delivery:
       "주문 채팅을 나가면 내 목록에서만 삭제됩니다. 주문·매장 운영에는 영향이 없습니다. 나가시겠습니까?",
-    cm_ui_order_chat_leave_in_progress: "진행 중인 주문은 나갈 수 없어요. 주문이 끝나면 나갈 수 있어요.",
     cm_ui_order_chat_mark_all_read_failed: "일부 채팅을 읽음으로 바꾸지 못했어요. 다시 시도해 주세요.",
     cm_ui_room_action_view_profile: "프로필 보기",
     cm_ui_room_action_view_order: "관련 주문 보기",
@@ -1697,7 +1696,6 @@ export const communityMessengerUiMessages = {
     cm_ui_leave_confirm_direct: "Leaving deletes this chat and its messages for you only. The other person keeps theirs. Leave anyway?",
     cm_ui_leave_confirm_delivery:
       "Leaving this order chat removes it from your list only. Your order and store ops are unchanged. Leave anyway?",
-    cm_ui_order_chat_leave_in_progress: "You can leave once the order is done.",
     cm_ui_order_chat_mark_all_read_failed: "Some chats couldn't be marked as read. Try again.",
     cm_ui_room_action_view_profile: "View profile",
     cm_ui_room_action_view_order: "View order",
