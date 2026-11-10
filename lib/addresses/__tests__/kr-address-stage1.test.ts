@@ -170,3 +170,27 @@ describe("3단계 — 거래 가격 통화", async () => {
     expect(model).toContain('resolveTradePostCurrency(meta, opts.currency || "KRW")');
   });
 });
+
+describe("3단계 보강 — 판매·구매 내역 · 가격 제안 · 다른 업종", () => {
+  it("판매·구매 내역 행이 글 통화를 싣고 카드가 쓴다", () => {
+    expect(readFileSync("app/api/my/sales/route.ts", "utf8").match(/currency: summary\.currency/g)?.length).toBe(2);
+    expect(readFileSync("app/api/my/purchases/route.ts", "utf8")).toContain("currency: summary.currency");
+    expect(readFileSync("components/mypage/sales/SalesHistoryCard.tsx", "utf8")).toContain("formatPrice(row.price, row.currency || currency)");
+    expect(readFileSync("components/mypage/purchases/PurchaseHistoryCard.tsx", "utf8")).toContain("formatPrice(row.price, row.currency || currency)");
+  });
+  it("가격 제안 문구·내 제안 목록 = 글 통화", () => {
+    const srv = readFileSync("lib/offers/price-offers.server.ts", "utf8");
+    expect(srv).not.toMatch(/formatOfferAmount\([^,()]+\)/);
+    expect(srv).toContain("currency: resolveTradePostCurrency(row.meta");
+    expect(readFileSync("lib/offers/offers-map.ts", "utf8")).toContain("productCurrency: post?.currency ?? null");
+    expect(readFileSync("components/offers/MyOffersView.tsx", "utf8")).toContain("formatOfferMoney(offer.offeredPrice, offer.productCurrency)");
+  });
+  it("부동산·렌터카·중고차·일자리도 통화 선택 + 저장", () => {
+    const form = readFileSync("components/write/trade/TradeWriteForm.tsx", "utf8");
+    expect(form.match(/<TradePriceCurrencyRadio/g)?.length).toBe(4);
+    const jobs = readFileSync("components/write/trade/generic/JobsExtendedWriteFields.tsx", "utf8");
+    expect(jobs).toContain("<TradePriceCurrencyRadio");
+    expect(jobs).toContain("meta = { ...meta, currency };");
+    expect(readFileSync("components/write/WriteSheetFlowInner.tsx", "utf8")).toContain("getCurrencyUnitLabel(masterTradeCurrency)");
+  });
+});

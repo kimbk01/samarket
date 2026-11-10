@@ -2,6 +2,7 @@
  * price_offers PostgREST 행 → 도메인 타입 (방어적).
  * `amount` 컬럼 유무·`normalizeOfferProductId`를 buyer/seller UUID에 적용하는 실수로 행이 폐기되는 것을 막는다.
  */
+import { normalizeTradePriceCurrency } from "@/lib/trade/trade-price-currency";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { normalizeOfferProductId } from "@/lib/offers/normalize-offer-product-id";
@@ -78,11 +79,11 @@ export async function enrichPriceOffersToListItems(
   const userIds = [...new Set(offers.flatMap((offer) => [offer.buyer_id, offer.seller_id]))];
 
   const [postsRes, nickMap] = await Promise.all([
-    sb.from("posts").select("id, title, thumbnail_url, status").in("id", productIds),
+    sb.from("posts").select("id, title, thumbnail_url, status, meta").in("id", productIds),
     fetchNicknamesForUserIds(sb, userIds),
   ]);
 
-  const postMap = new Map<string, { title: string; thumbnail_url: string | null; status: string | null }>();
+  const postMap = new Map<string, { title: string; thumbnail_url: string | null; status: string | null; currency: string | null }>();
   for (const row of (postsRes.data ?? []) as Record<string, unknown>[]) {
     const pid = normalizeOfferProductId(row.id) || str(row.id);
     if (!pid) continue;
@@ -90,6 +91,8 @@ export async function enrichPriceOffersToListItems(
       title: str(row.title) || "상품",
       thumbnail_url: toNullableTrimmedString(row.thumbnail_url),
       status: toNullableTrimmedString(row.status),
+      /** 글 가격 통화(meta.currency) — 없으면 null(화면이 앱 기본) */
+      currency: normalizeTradePriceCurrency((row.meta as Record<string, unknown> | null)?.currency),
     });
   }
 
@@ -109,6 +112,7 @@ export async function enrichPriceOffersToListItems(
       productTitle: post?.title ?? "상품",
       productThumbnailUrl: post?.thumbnail_url ?? null,
       productStatus: post?.status ?? null,
+      productCurrency: post?.currency ?? null,
       productHref: `/post/${encodeURIComponent(offer.product_id)}`,
       buyerNickname: nickMap.get(offer.buyer_id) ?? null,
       sellerNickname: nickMap.get(offer.seller_id) ?? null,

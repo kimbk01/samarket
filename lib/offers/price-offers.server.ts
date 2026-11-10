@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { resolveTradePostCurrency } from "@/lib/trade/trade-price-currency";
 import { fetchNicknamesForUserIds, postOwnedByUserId, postTradeListingOwnerUserId } from "@/lib/chats/resolve-author-nickname";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import {
@@ -126,6 +127,8 @@ type PostOfferContext = {
   isHidden: boolean;
   price: number;
   reservedBuyerId: string | null;
+  /** 글 가격 통화 (meta.currency → 앱 기본) */
+  currency: string;
 };
 
 type EnsureTradeChatRoomResult = {
@@ -157,10 +160,23 @@ function tsToIsoString(value: unknown): string {
   return "";
 }
 
-function formatOfferAmount(amount: number): string {
+/** 가격 제안 금액 문구 — 글 가격 통화로 (한국 주소 지원 3단계: ₩ 글은 ₩) */
+function formatOfferAmount(amount: number, currency: string): string {
   const safe = Number.isFinite(amount) ? amount : 0;
-  const currency = getAppSettings().defaultCurrency || "PHP";
   return formatPrice(safe, currency);
+}
+
+/** 제안 대상 글의 가격 통화 — meta 만 읽는다 (없거나 실패 시 앱 기본) */
+async function loadOfferPostCurrency(sb: SupabaseClient, productId: string): Promise<string> {
+  const fallback = getAppSettings().defaultCurrency || "PHP";
+  const id = trimString(productId);
+  if (!id) return fallback;
+  try {
+    const { data } = await sb.from("posts").select("meta").eq("id", id).maybeSingle();
+    return resolveTradePostCurrency((data as { meta?: unknown } | null)?.meta, fallback);
+  } catch {
+    return fallback;
+  }
 }
 
 function serviceError(status: number, error: string, code: string): Err {
@@ -265,6 +281,7 @@ async function loadPostOfferContext(
       trimString(row.visibility).toLowerCase() === "hidden",
     price,
     reservedBuyerId,
+    currency: resolveTradePostCurrency(row.meta, getAppSettings().defaultCurrency || "PHP"),
   };
 }
 
@@ -419,7 +436,8 @@ async function insertAcceptedOfferSystemMessage(
   }
 ): Promise<void> {
   const now = new Date().toISOString();
-  const body = offerServerT("offer_msg_accepted", { amount: formatOfferAmount(args.offeredPrice) });
+  const currency = await loadOfferPostCurrency(sb, args.productId);
+  const body = offerServerT("offer_msg_accepted", { amount: formatOfferAmount(args.offeredPrice, currency) });
   const metadata = {
     kind: "price_offer_accepted",
     offer_id: args.offerId,
@@ -508,7 +526,7 @@ async function notifyOfferCreated(
     user_id: args.offer.seller_id,
     notification_type: "status",
     title: offerServerT("offer_notif_received_title"),
-    body: `${titleSnippet} · ${formatOfferAmount(args.offer.original_price)} → ${formatOfferAmount(args.offer.offered_price)}`,
+    body: `${titleSnippet} · ${formatOfferAmount(args.offer.original_price, args.post.currency)} → ${formatOfferAmount(args.offer.offered_price, args.post.currency)}`,
     /** 판매자 알림 탭 시 상세 진입과 함께 받은 제안 모달 자동 오픈 (`PostDetailView`) */
     link_url: `/post/${encodeURIComponent(args.offer.product_id)}?${OPEN_RECEIVED_OFFERS_SEARCH_PARAM}=1`,
     ref_id: args.offer.id,
@@ -547,7 +565,9 @@ async function notifyOfferAccepted(
     user_id: args.offer.buyer_id,
     notification_type: "status",
     title: offerServerT("offer_notif_accepted_title"),
-    body: offerServerT("offer_notif_accepted_body", { amount: formatOfferAmount(args.offer.offered_price) }),
+    body: offerServerT("offer_notif_accepted_body", {
+      amount: formatOfferAmount(args.offer.offered_price, await loadOfferPostCurrency(sb, args.offer.product_id)),
+    }),
     link_url: tradeChatNotificationHref(linkRoomId, args.chatRoomSource),
     ref_id: args.offer.id,
     meta: {
@@ -577,7 +597,9 @@ async function notifyOfferRejected(
     user_id: args.offer.buyer_id,
     notification_type: "status",
     title: offerServerT("offer_notif_rejected_title"),
-    body: offerServerT("offer_notif_rejected_body", { amount: formatOfferAmount(args.offer.offered_price) }),
+    body: offerServerT("offer_notif_rejected_body", {
+      amount: formatOfferAmount(args.offer.offered_price, await loadOfferPostCurrency(sb, args.offer.product_id)),
+    }),
     link_url: `/post/${encodeURIComponent(args.offer.product_id)}`,
     ref_id: args.offer.id,
     meta: {
@@ -631,7 +653,7 @@ export async function createPriceOffer(
   if (offeredPrice < minAllowed) {
     return serviceError(
       400,
-      offerServerT("offer_err_price_too_low", { min: formatOfferAmount(minAllowed) }),
+      offerServerT("offer_err_price_too_low", { min: formatOfferAmount(minAllowed, post.currency) }),
       "offer_price_too_low"
     );
   }

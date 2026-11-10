@@ -7,6 +7,9 @@
  * The marketplace shell owns page chrome, chrome widget placement, and submit;
  * this body keeps Jobs-specific hire/seek extras, validation, and staging.
  */
+import { normalizeTradePriceCurrency, type TradePriceCurrency } from "@/lib/trade/trade-price-currency";
+import { useMasterDefaultTradePriceCurrency } from "@/lib/trade/use-master-trade-price-currency";
+import { TradePriceCurrencyRadio } from "@/components/write/trade/TradePriceCurrencyRadio";
 import { OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
 import { usePathname } from "next/navigation";
 import { WriteSelectSheetField } from "@/components/write/shared/WriteSelectSheetField";
@@ -54,7 +57,6 @@ import {
   type TradeWriteDraftDiscardedDetail,
 } from "@/lib/posts/trade-write-exit-cleanup";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { getAppSettings } from "@/lib/app-settings";
 import { formatPrice, formatPriceInput, getCurrencyUnitLabel } from "@/lib/utils/format";
 import {
   JOB_LISTING_KIND_OPTIONS,
@@ -219,8 +221,10 @@ export function JobsExtendedWriteFields({
   const pathname = usePathname();
   const tradeWriteSheet = useTradeWriteSheetOptional();
   const tradeWriteSheetEpoch = tradeWriteSheet?.openEpoch ?? 0;
-  const appSettings = useMemo(() => getAppSettings(), []);
-  const currency = appSettings.defaultCurrency || "PHP";
+  /** 급여 통화 (한국 주소 지원 3단계) — 고른 값(수정 시 저장값) → 없으면 대표 주소 나라. 저장: meta.currency */
+  const masterDefaultCurrency = useMasterDefaultTradePriceCurrency();
+  const [pickedCurrency, setPickedCurrency] = useState<TradePriceCurrency | null>(null);
+  const currency: TradePriceCurrency = pickedCurrency ?? masterDefaultCurrency;
 
   const {
     title,
@@ -760,6 +764,11 @@ export function JobsExtendedWriteFields({
     setImages(h.images);
     setDescriptionAppend("");
     const rawMeta = ownerEditSnapshot.meta;
+    setPickedCurrency(
+      normalizeTradePriceCurrency(
+        rawMeta && typeof rawMeta === "object" ? (rawMeta as Record<string, unknown>).currency : null
+      )
+    );
     const ts =
       rawMeta && typeof rawMeta === "object" && rawMeta !== null
         ? (rawMeta as Record<string, unknown>).trade_meet_spot
@@ -1282,6 +1291,7 @@ export function JobsExtendedWriteFields({
         const meetMeta = buildTradeMeetSpotMetaForPersist(tradeMeetSpot);
         if (meetMeta) meta = { ...meta, ...meetMeta };
       }
+      meta = { ...meta, currency };
       const priceNum = payNum ? Number(payNum) : null;
       const tradeJob = buildTradeJobPayload();
       return {
@@ -1371,6 +1381,7 @@ export function JobsExtendedWriteFields({
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
+              <TradePriceCurrencyRadio value={currency} onChange={(c) => setPickedCurrency(c)} disabled={coreLocked} />
               <GenericTradeWriteFields
                 fields={jobsGenericFields.filter(
                   (f) => f.id === "pay_type" || (!hirePayNegotiable && f.id === "pay_amount")

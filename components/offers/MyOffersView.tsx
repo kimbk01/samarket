@@ -15,6 +15,12 @@ import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomShe
 import { MyStateView } from "@/components/mypage/ds";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { formatMypageDate, formatMypageMoney } from "@/lib/mypage/format-mypage-date";
+import { formatPrice } from "@/lib/utils/format";
+
+/** 제안 금액 — 글 가격 통화(있으면) · 없으면 기존 마이페이지 금액 표기 */
+function formatOfferMoney(amount: number, currency: string | null | undefined): string {
+  return currency ? formatPrice(amount, currency) : formatMypageMoney(amount);
+}
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
@@ -197,7 +203,7 @@ export function MyOffersView({ mode, emptyLabel, onPendingCount }: Props) {
                   composePreview: {
                     productTitle: offer.productTitle.trim() || t("mypage_r5_offer_product_fallback"),
                     productThumbnail: offer.productThumbnailUrl?.trim() ?? "",
-                    priceText: formatMypageMoney(offer.originalPrice),
+                    priceText: formatOfferMoney(offer.originalPrice, offer.productCurrency),
                     sellerName: offer.sellerNickname?.trim() || t("mypage_r5_offer_seller_fallback"),
                   },
                 })
@@ -283,11 +289,11 @@ export function MyOffersView({ mode, emptyLabel, onPendingCount }: Props) {
                   {dateText ? <span className="sam-text-helper text-sam-meta">{dateText}</span> : null}
                 </div>
                 <p className="mt-1 sam-text-helper text-sam-muted">
-                  {t("ui_offer_list_price", { price: formatMypageMoney(offer.originalPrice) })}
+                  {t("ui_offer_list_price", { price: formatOfferMoney(offer.originalPrice, offer.productCurrency) })}
                 </p>
               </div>
               <p className="shrink-0 text-right sam-text-body font-bold text-sam-fg">
-                {formatMypageMoney(offer.offeredPrice)}
+                {formatOfferMoney(offer.offeredPrice, offer.productCurrency)}
               </p>
             </div>
             {offer.message ? (

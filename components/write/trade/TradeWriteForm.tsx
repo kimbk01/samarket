@@ -305,13 +305,9 @@ import {
   scrollTradeMeetSpotAnchorIntoView,
 } from "@/lib/posts/trade-meet-spot-anchor-scroll";
 import { translateBy } from "@/lib/i18n/translate-by";
-import { tapHaptic } from "@/lib/ui/tap-haptic";
-import { fetchAddressDefaultsSnapshot, peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
-import {
-  defaultTradePriceCurrencyForCountry,
-  normalizeTradePriceCurrency,
-  type TradePriceCurrency,
-} from "@/lib/trade/trade-price-currency";
+import { normalizeTradePriceCurrency, type TradePriceCurrency } from "@/lib/trade/trade-price-currency";
+import { useMasterDefaultTradePriceCurrency } from "@/lib/trade/use-master-trade-price-currency";
+import { TradePriceCurrencyRadio } from "@/components/write/trade/TradePriceCurrencyRadio";
 import { useReleaseDroppedBlobUrls } from "@/lib/media/use-release-dropped-blob-urls";
 import {
   settleTradeWriteDraftPhotoRestore,
@@ -596,29 +592,7 @@ function TradeMarketplaceWriteFormInner({
    * 가격 통화 (한국 주소 지원 3단계) — 저장값(수정·임시저장) → 없으면 대표 주소 나라(한국 KRW · 그 밖 PHP).
    * 저장: meta.currency. 표시: `resolveTradePostCurrency`.
    */
-  const [masterDefaultCurrency, setMasterDefaultCurrency] = useState<TradePriceCurrency>("PHP");
-  /** 하이드레이션 뒤에만 읽는다(서버·첫 그림 일치) — 주소 검색 국기 선택과 같은 방식 */
-  useEffect(() => {
-    const apply = (snap: Awaited<ReturnType<typeof fetchAddressDefaultsSnapshot>>) => {
-      const master = (snap?.ok ? (snap.defaults?.master as { countryCode?: string } | null) : null) ?? null;
-      setMasterDefaultCurrency(defaultTradePriceCurrencyForCountry(master?.countryCode));
-    };
-    const peek = peekFreshAddressDefaultsSnapshot();
-    if (peek) {
-      apply(peek);
-      return;
-    }
-    /** 캐시가 없으면(글쓰기로 바로 진입) 한 번 받아 온다 — 단일 비행·같은 캐시 (실기 2026-11-10: 한국 대표인데 「페소」 기본) */
-    let cancelled = false;
-    void fetchAddressDefaultsSnapshot({ caller: "trade_default_location_block", reason: "composer_default_location" })
-      .then((snap) => {
-        if (!cancelled) apply(snap);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const masterDefaultCurrency = useMasterDefaultTradePriceCurrency();
   const priceCurrency: TradePriceCurrency = normalizeTradePriceCurrency(currency) ?? masterDefaultCurrency;
   const currencyUnit = getCurrencyUnitLabel(priceCurrency);
   const [exchangeRate, setExchangeRate] = useState("");
@@ -2905,6 +2879,7 @@ function TradeMarketplaceWriteFormInner({
         )}
         {skinKey === "real-estate" ? (
           <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+            <TradePriceCurrencyRadio value={priceCurrency} onChange={(c) => setCurrency(c)} disabled={coreLocked} />
             <GenericTradeWriteFields
               fields={realEstateAdaptedFields.filter(
                 (f) => f.id === "price" || f.id === "deposit" || f.id === "monthly"
@@ -2919,6 +2894,7 @@ function TradeMarketplaceWriteFormInner({
         ) : null}
         {skinKey === "rent-car" ? (
           <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+            <TradePriceCurrencyRadio value={priceCurrency} onChange={(c) => setCurrency(c)} disabled={coreLocked} />
             <GenericTradeWriteFields
               fields={rentCarAdaptedFields.filter((f) => f.id === "daily_price")}
               values={rentCarFieldValues}
@@ -2931,6 +2907,7 @@ function TradeMarketplaceWriteFormInner({
         ) : null}
         {isUsedCarSkin && usedCarWriteTradeMode === "buy" ? (
           <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+            <TradePriceCurrencyRadio value={priceCurrency} onChange={(c) => setCurrency(c)} disabled={coreLocked} />
             <UsedCarBuyFields
               bodyTypeKey={usedCarBodyTypeKey}
               setBodyTypeKey={setUsedCarBodyTypeKey}
@@ -3254,51 +3231,6 @@ function TradeMarketplaceWriteFormInner({
         />
         </div>
       </form>
-    </div>
-  );
-}
-
-/** 가격 통화 국기 라디오 (시안 TradeCurrency) — 🇵🇭 페소 ₱ / 🇰🇷 원 ₩ */
-function TradePriceCurrencyRadio({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: TradePriceCurrency;
-  onChange: (c: TradePriceCurrency) => void;
-  disabled?: boolean;
-}) {
-  const { t } = useI18n();
-  const options: ReadonlyArray<{ id: TradePriceCurrency; flag: string; key: "trade_write_price_currency_php" | "trade_write_price_currency_krw" }> = [
-    { id: "PHP", flag: "🇵🇭", key: "trade_write_price_currency_php" },
-    { id: "KRW", flag: "🇰🇷", key: "trade_write_price_currency_krw" },
-  ];
-  return (
-    <div role="radiogroup" aria-label={t("trade_write_price_currency_aria")} className="mb-2 grid grid-cols-2 gap-2">
-      {options.map((o) => {
-        const on = value === o.id;
-        return (
-          <button
-            key={o.id}
-            type="button"
-            role="radio"
-            aria-checked={on}
-            disabled={disabled}
-            data-trade-price-currency={o.id}
-            onClick={() => {
-              if (on) return;
-              tapHaptic("select");
-              onChange(o.id);
-            }}
-            className={`sam-press flex h-12 items-center justify-center gap-2 rounded-ui-rect border sam-text-body font-semibold ${
-              on ? "border-2 border-sam-primary bg-sam-primary-soft text-sam-primary" : "border-sam-border bg-sam-surface text-sam-muted"
-            }`}
-          >
-            <span aria-hidden="true" className="text-[18px]">{o.flag}</span>
-            <span>{t(o.key)}</span>
-          </button>
-        );
-      })}
     </div>
   );
 }

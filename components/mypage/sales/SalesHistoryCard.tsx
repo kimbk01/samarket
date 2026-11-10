@@ -15,6 +15,8 @@ import { Sam } from "@/lib/ui/sam-component-classes";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 export interface SalesHistoryRow {
+  /** 가격 통화 — 글 meta.currency (PHP·KRW · 한국 주소 지원 3단계). 없으면 화면이 앱 기본 */
+  currency?: string;
   chatId: string;
   postId: string;
   /** product_chats 행이 없을 때 true — 채팅/거래완료 등 비활성 */
@@ -107,7 +109,7 @@ export function SalesHistoryCard({
           <p className="line-clamp-2 sam-text-body font-medium text-sam-fg">
             {row.title || t("mypage_comp_image_placeholder")}
           </p>
-          <p className="mt-0.5 sam-text-body font-bold text-sam-fg">{formatPrice(row.price, currency)}</p>
+          <p className="mt-0.5 sam-text-body font-bold text-sam-fg">{formatPrice(row.price, row.currency || currency)}</p>
           <p className="mt-0.5 truncate sam-text-helper text-sam-muted">
             {hasChat ? `${t("mypage_comp_actor_buyer")} ${row.buyerNickname}` : t("mypage_comp_sales_no_chat_yet")}
           </p>

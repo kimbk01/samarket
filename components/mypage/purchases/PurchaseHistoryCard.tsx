@@ -21,6 +21,8 @@ import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 export interface PurchaseHistoryRow {
+  /** 가격 통화 — 글 meta.currency (PHP·KRW · 한국 주소 지원 3단계). 없으면 화면이 앱 기본 */
+  currency?: string;
   chatId: string;
   postId: string;
   sellerId: string;
@@ -138,7 +140,7 @@ export function PurchaseHistoryCard({
           </div>
           <div className="min-w-0 flex-1 pr-1">
             <p className="line-clamp-2 sam-text-body font-medium text-sam-fg">{row.title || t("mypage_comp_image_placeholder")}</p>
-            <p className="mt-0.5 sam-text-body font-bold text-sam-fg">{formatPrice(row.price, currency)}</p>
+            <p className="mt-0.5 sam-text-body font-bold text-sam-fg">{formatPrice(row.price, row.currency || currency)}</p>
             {row.sellerNickname ? (
               <p className="mt-0.5 truncate sam-text-helper text-sam-muted">{row.sellerNickname}</p>
             ) : null}

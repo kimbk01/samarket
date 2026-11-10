@@ -1,4 +1,5 @@
 "use client";
+import { useMasterDefaultTradePriceCurrency } from "@/lib/trade/use-master-trade-price-currency";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useRouter } from "next/navigation";
@@ -22,7 +23,6 @@ import { SubmitButton } from "@/components/write/shared/SubmitButton";
 import { APP_TRADE_WRITE_HORIZONTAL_CLASS } from "@/lib/ui/app-content-layout";
 import { WriteSelectSheetField } from "@/components/write/shared/WriteSelectSheetField";
 import { formatPriceInput, getCurrencyUnitLabel } from "@/lib/utils/format";
-import { getAppSettings } from "@/lib/app-settings";
 import {
   TRADE_WRITE_FB_CONTROL,
   TRADE_WRITE_FB_CONTROL_ROW,
@@ -88,6 +88,8 @@ export function WriteSheetFlowInner({
   const [pendingTitle, setPendingTitle] = useState("");
   const [pendingDescription, setPendingDescription] = useState("");
   const [pendingPrice, setPendingPrice] = useState("");
+  /** 첫 단계 가격 단위 = 대표 주소 나라 통화 — 글쓰기 폼(통화 선택) 기본값과 같다 (한국 주소 지원 3단계) */
+  const masterTradeCurrency = useMasterDefaultTradePriceCurrency();
   /** D2: 주제 고르기 전 「판매하기/나눔하기」 — 중고거래 폼으로 그대로 넘긴다 */
   const [pendingFreeShare, setPendingFreeShare] = useState(false);
 
@@ -551,7 +553,7 @@ export function WriteSheetFlowInner({
             </label>
             <div className={`${TRADE_WRITE_FB_CONTROL_ROW} focus-within:ring-2 focus-within:ring-signature/20`}>
               <span className="shrink-0 sam-text-body font-medium text-sam-muted">
-                {getCurrencyUnitLabel(getAppSettings().defaultCurrency)}
+                {getCurrencyUnitLabel(masterTradeCurrency)}
               </span>
               <input
                 id="write-ungated-price"

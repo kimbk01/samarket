@@ -135,7 +135,8 @@ describe("D1~D5 글쓰기·내 매물", () => {
       'className={rootTopicSelect != null ? "min-w-0 w-full max-w-full space-y-0" : APP_TRADE_WRITE_FORM_FB_STACK_CLASS}'
     );
     const sheet = src("components/write/WriteSheetFlowInner.tsx");
-    expect(sheet).toContain("getCurrencyUnitLabel(getAppSettings().defaultCurrency)");
+    /** 한국 주소 지원 3단계: 단위 = 대표 주소 나라 통화(필리핀이면 ₱ 그대로) */
+    expect(sheet).toContain("getCurrencyUnitLabel(masterTradeCurrency)");
     expect((sheet.match(/<span className="text-sam-danger">\*<\/span>/g) ?? []).length).toBeGreaterThanOrEqual(3);
   });
   it("D2 보정: 주제 고르기 전에도 판매하기/나눔하기 — 같은 자리·모양, 고른 값은 중고거래 폼으로 이어짐", () => {

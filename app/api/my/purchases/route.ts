@@ -136,6 +136,7 @@ export async function GET(req: NextRequest) {
         nickById.get(listingOwnerId)?.trim() || listingOwnerId.slice(0, 8),
       title: summary.title,
       price: summary.price,
+      currency: summary.currency,
       status: summary.status,
       sellerListingState: summary.sellerListingState,
       thumbnail: thumb,

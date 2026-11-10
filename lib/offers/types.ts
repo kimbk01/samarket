@@ -31,6 +31,8 @@ export type PriceOfferListItem = {
   productTitle: string;
   productThumbnailUrl: string | null;
   productStatus: string | null;
+  /** 글 가격 통화 PHP·KRW (meta.currency) — 없으면 null */
+  productCurrency?: string | null;
   productHref: string;
   buyerNickname: string | null;
   sellerNickname: string | null;
