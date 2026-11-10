@@ -12,7 +12,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { ChevronLeft, ChevronRight, Check, X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayOverlayButton, dibayConfirm } from "@/components/ui/dibay-overlay";
-import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import {
   getOwnerLiteStoreServerSnapshot,
@@ -20,7 +19,9 @@ import {
   subscribeOwnerLiteStore,
 } from "@/lib/stores/owner-lite-external-store";
 import type { SupportCaseRow, SupportMessageRow } from "@/lib/support/support-case-types";
-import { getSupportCategoryDefinition, listIssueTypesForCategory } from "@/lib/support/support-category-registry";
+import { listIssueTypesForCategory } from "@/lib/support/support-category-registry";
+import { visibleSupportCategories, visibleSupportIssues } from "@/lib/support/support-category-settings";
+import { useSupportCategoryLabels } from "@/lib/support/use-support-category-settings";
 import type { SupportContext } from "@/lib/support/support-context";
 import { supportErrorLabel, supportReferenceLabel } from "@/lib/support/support-display-labels";
 import { supportCaseStatusLabelMeta } from "@/lib/support/support-status-label";
@@ -46,24 +47,8 @@ import {
   type SupportTicketFormState,
 } from "@/lib/support/support-ticket-form";
 
-type T = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
 const OWNER_TONE_BG = "bg-[var(--dibay-brown)]";
-
-export function supportTicketCategoryLabel(t: T, categoryId: string | null | undefined): string {
-  const def = categoryId ? getSupportCategoryDefinition(categoryId) : null;
-  return t((def?.labelKey ?? "support_cat_other") as MessageKey);
-}
-
-export function supportTicketIssueLabel(
-  t: T,
-  categoryId: string | null | undefined,
-  issueId: string | null | undefined
-): string {
-  if (!categoryId || !issueId) return "";
-  const issue = listIssueTypesForCategory(categoryId).find((i) => i.id === issueId);
-  return t((issue?.labelKey ?? "support_issue_other") as MessageKey);
-}
 
 /* ───────────── 공통 격자 ───────────── */
 
@@ -246,6 +231,7 @@ export function SupportTicketCompose({
   onOpenStoreChat: (href: string) => void;
 }) {
   const { t, safeT } = useI18n();
+  const labels = useSupportCategoryLabels();
   const ownerStores = useViewerOwnerStores();
   const viewerHasStore = ownerStores.length > 0;
   const [state, setState] = useState<SupportTicketFormState>(() => initSupportTicketForm(context));
@@ -273,8 +259,15 @@ export function SupportTicketCompose({
   const switchStore =
     ownerStores.find((s) => String(s.approval_status) === "approved") ?? ownerStores[0] ?? null;
 
-  const categories = listSupportTicketCategories({ audience: state.audience, viewerHasStore });
-  const issues = state.category ? listIssueTypesForCategory(state.category) : [];
+  // 어드민 「문의 유형 관리」 이름·순서·숨김 적용(3단계) — 정의·서버 판정은 코드 그대로
+  const categories = visibleSupportCategories(
+    labels.index,
+    state.audience,
+    listSupportTicketCategories({ audience: state.audience, viewerHasStore })
+  );
+  const issues = state.category
+    ? visibleSupportIssues(labels.index, state.audience, state.category, listIssueTypesForCategory(state.category))
+    : [];
   const referenceText = state.referenceType
     ? `${supportReferenceLabel(safeT, state.referenceType)}${
         state.referenceTitle ? ` · ${state.referenceTitle}` : state.referenceId ? ` · ${state.referenceId.slice(0, 8)}` : ""
@@ -330,10 +323,10 @@ export function SupportTicketCompose({
   if (view === "pick_category" || view === "pick_issue") {
     const picking = view === "pick_category";
     const list = picking
-      ? categories.map((c) => ({ id: c.id, label: supportTicketCategoryLabel(t, c.id), on: c.id === state.category }))
+      ? categories.map((c) => ({ id: c.id, label: labels.categoryLabel(state.audience, c.id), on: c.id === state.category }))
       : issues.map((i) => ({
           id: i.id,
-          label: supportTicketIssueLabel(t, state.category, i.id),
+          label: labels.issueLabel(state.audience, state.category, i.id),
           on: i.id === state.issueType,
         }));
     return (
@@ -399,8 +392,8 @@ export function SupportTicketCompose({
               <FieldRow
                 label={t("support_ticket_field_category")}
                 value={[
-                  supportTicketCategoryLabel(t, draft.category),
-                  supportTicketIssueLabel(t, draft.category, draft.issueType),
+                  labels.categoryLabel(draft.audience, draft.category),
+                  labels.issueLabel(draft.audience, draft.category, draft.issueType),
                 ]
                   .filter(Boolean)
                   .join(" · ")}
@@ -483,14 +476,14 @@ export function SupportTicketCompose({
         <Group>
           <FieldRow
             label={t("support_ticket_field_category")}
-            value={state.category ? supportTicketCategoryLabel(t, state.category) : ""}
+            value={state.category ? labels.categoryLabel(state.audience, state.category) : ""}
             placeholder={t("support_ticket_pick_placeholder")}
             onClick={state.categoryLocked ? undefined : () => setView("pick_category")}
             testId="support-ticket-field-category"
           />
           <FieldRow
             label={t("support_ticket_field_issue")}
-            value={supportTicketIssueLabel(t, state.category, state.issueType)}
+            value={labels.issueLabel(state.audience, state.category, state.issueType)}
             placeholder={t("support_ticket_pick_placeholder")}
             onClick={state.category ? () => setView("pick_issue") : undefined}
             testId="support-ticket-field-issue"
@@ -691,6 +684,7 @@ export function SupportTicketDetail({
   onUnauthorized: () => void;
 }) {
   const { t, safeT } = useI18n();
+  const labels = useSupportCategoryLabels();
   const [supportCase, setSupportCase] = useState<SupportCaseRow | null>(null);
   const [messages, setMessages] = useState<SupportMessageRow[]>([]);
   const [closedView, setClosedView] = useState(false);
@@ -805,7 +799,7 @@ export function SupportTicketDetail({
     }
   };
 
-  const categoryLabel = supportCase ? supportTicketCategoryLabel(t, supportCase.category) : "";
+  const categoryLabel = supportCase ? labels.categoryLabel(supportCase.audience, supportCase.category) : "";
   const headerTitle = supportCase
     ? [supportCase.public_case_no, categoryLabel].filter(Boolean).join(" · ")
     : t("support_ticket_title");

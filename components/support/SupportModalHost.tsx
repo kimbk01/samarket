@@ -18,8 +18,6 @@ import {
   SupportTicketDetail,
   SupportTicketLogin,
   SupportTicketSubmitted,
-  supportTicketCategoryLabel,
-  supportTicketIssueLabel,
   type SupportTicketSubmittedInfo,
 } from "@/components/support/SupportTicketViews";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
@@ -43,6 +41,7 @@ import {
   subscribeSupportModalState,
   type SupportModalState,
 } from "@/lib/support/support-modal-controller";
+import { useSupportCategoryLabels } from "@/lib/support/use-support-category-settings";
 import { useSupportModalMainBottomNavSuppress } from "@/lib/support/support-modal-main-bottom-nav-suppress";
 import {
   buildSupportTicketOpenPayload,
@@ -63,6 +62,7 @@ function supportTicketMineHref(info: { audience: "MEMBER" | "OWNER"; storeId: st
 
 export function SupportModalHost() {
   const { t } = useI18n();
+  const labels = useSupportCategoryLabels();
   const router = useRouter();
   const pathname = usePathname();
   const titleId = useId();
@@ -203,8 +203,8 @@ export function SupportModalHost() {
         stashSupportModalRestoreCaseId(json.case.id);
         setSubmitted({
           caseNo: json.case.public_case_no ?? "",
-          categoryLabel: supportTicketCategoryLabel(t, state.category),
-          issueLabel: supportTicketIssueLabel(t, state.category, state.issueType),
+          categoryLabel: labels.categoryLabel(state.audience, state.category),
+          issueLabel: labels.issueLabel(state.audience, state.category, state.issueType),
           createdAt: new Date().toISOString(),
           audience: state.audience,
           storeId: state.storeId ?? null,
@@ -215,7 +215,7 @@ export function SupportModalHost() {
         setSubmitting(false);
       }
     },
-    [submitting, t]
+    [submitting, labels]
   );
 
   const handleNewInquiry = useCallback(

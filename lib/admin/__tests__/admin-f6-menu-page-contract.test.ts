@@ -150,6 +150,7 @@ const TITLE_SOURCE_BY_LEAF: Readonly<Record<string, string>> = {
   // 고객지원
   "cp-support-center": "components/admin/support/AdminSupportPage.tsx",
   "cp-support-archive": "components/admin/support/AdminSupportArchivePage.tsx",
+  "cp-support-categories": "components/admin/support/AdminSupportCategoriesPage.tsx",
   "admin-inbox": "components/admin/inbox/AdminInboxPageClient.tsx",
   "delivery-order-notifications": "components/admin/order-notifications/AdminOrderNotificationsPageClient.tsx",
   // 알림

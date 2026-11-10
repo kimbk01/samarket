@@ -294,8 +294,9 @@ describe("PHASE 3-B support customer triage", () => {
 
   it("T19 raw enums absent UI contract", () => {
     const views = read("components/support/SupportTicketViews.tsx");
-    expect(views).toContain("supportTicketCategoryLabel");
-    expect(views).toContain("supportTicketIssueLabel");
+    // 이름 = 어드민 문의 유형 관리 이름 우선, 없으면 코드 기본(번역 키)
+    expect(views).toContain("labels.categoryLabel(");
+    expect(views).toContain("labels.issueLabel(");
     expect(views).not.toMatch(/>\s*PAYMENT_RECHARGE\s*</);
     expect(views).not.toMatch(/>\s*POINT_CHARGE_NOT_REFLECTED\s*</);
   });

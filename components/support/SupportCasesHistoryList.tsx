@@ -7,10 +7,9 @@ import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { SupportGenericHubInquireGate } from "@/components/support/SupportGenericHubInquireGate";
 import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 import type { SupportCaseRow } from "@/lib/support/support-case-types";
-import { getSupportCategoryDefinition, listIssueTypesForCategory } from "@/lib/support/support-category-registry";
+import { useSupportCategoryLabels } from "@/lib/support/use-support-category-settings";
 import { supportCaseStatusLabelMeta } from "@/lib/support/support-status-label";
 import { subscribeSupportModalState, getSupportModalState } from "@/lib/support/support-modal-controller";
-import type { MessageKey } from "@/lib/i18n/messages";
 import { supportErrorLabel } from "@/lib/support/support-display-labels";
 import { isSupportTicketAnsweredStatus } from "@/lib/support/support-ticket-form";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
@@ -57,10 +56,10 @@ function SupportCaseHistoryRow({ c }: { c: SupportCaseRow }) {
   // DEF-08: labels from SSOT (status label module + category registry), never raw enums.
   const statusMeta = supportCaseStatusLabelMeta(c.status);
   const statusLabel = safeT(statusMeta.key);
-  const categoryDef = getSupportCategoryDefinition(c.category);
-  const categoryLabel = safeT((categoryDef?.labelKey ?? "support_cat_other") as MessageKey);
-  const issue = c.issue_type ? listIssueTypesForCategory(c.category).find((i) => i.id === c.issue_type) : null;
-  const issueLabel = issue ? safeT(issue.labelKey as MessageKey) : "";
+  // 분야·세부 이름 = 어드민 「문의 유형 관리」 이름 우선, 없으면 코드 기본 이름
+  const labels = useSupportCategoryLabels();
+  const categoryLabel = labels.categoryLabel(c.audience, c.category);
+  const issueLabel = labels.issueLabel(c.audience, c.category, c.issue_type);
   const answered = isSupportTicketAnsweredStatus(c.status);
   return (
     <li>

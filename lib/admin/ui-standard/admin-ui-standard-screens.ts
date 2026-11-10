@@ -15,7 +15,13 @@ export const ADMIN_UI_STANDARD_SCREENS: Readonly<Record<string, readonly string[
     "/admin/audit-logs",
     "/admin/staff",
   ],
-  support: ["/admin/support", "/admin/support/archive", "/admin/inbox", "/admin/order-notifications"],
+  support: [
+    "/admin/support",
+    "/admin/support/archive",
+    "/admin/support/categories",
+    "/admin/inbox",
+    "/admin/order-notifications",
+  ],
   notifications: ["/admin/notifications", "/admin/settings/notifications", "/admin/push-devices"],
   finance: [
     "/admin/finance",

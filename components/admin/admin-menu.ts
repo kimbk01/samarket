@@ -128,6 +128,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "cp-support": "admin_menu_cp_support",
   "cp-support-center": "admin_menu_cp_support_center",
   "cp-support-archive": "admin_menu_cp_support_archive",
+  "cp-support-categories": "admin_menu_cp_support_categories",
   "admin-inbox": "admin_inbox_title",
   "cp-store-inquiry": "admin_menu_store_inquiries",
   "cp-member-assets": "admin_menu_cp_points_member",
@@ -1881,6 +1882,13 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         key: "cp-support-archive",
         title: "",
         path: "/admin/support/archive",
+        status: "done",
+      },
+      // 고객센터 접수형 3단계 (Owner 2026-11-10) — 문의 유형 이름·순서·노출
+      {
+        key: "cp-support-categories",
+        title: "",
+        path: "/admin/support/categories",
         status: "done",
       },
       // R13 — Admin notification inbox (admin_notifications). ≠ Action Queue bell.
