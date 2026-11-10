@@ -25,7 +25,9 @@ if [ "${SCALE:-0}" = "1" ]; then load "$HERE/20_scale.sql"; fi
 F1="$HERE/../../../migrations/20271111120000_messenger_contacts_sync_audit_f1.sql"
 "$BIN/createdb" -h 127.0.0.1 -p "$PORT" -U postgres iso_contacts_f1
 loadf() { "${PSQL[@]}" -d iso_contacts_f1 -f "$1" 2>&1 | clean; return "${PIPESTATUS[0]}"; }
-loadf "$HERE/00_fixture.sql"; loadf "$MIG"; loadf "$F1"
-echo "== F1 applied (1a + F1)"
+F2="$HERE/../../../migrations/20271111130000_messenger_contacts_sync_rejected_exclusion.sql"
+loadf "$HERE/00_fixture.sql"; loadf "$MIG"; loadf "$F1"; loadf "$F2"
+echo "== F1·§5-5 applied (1a + F1 + 20271111130000)"
 loadf "$HERE/10_contacts.test.sql"
 loadf "$HERE/30_audit_f1.test.sql"
+loadf "$HERE/40_rejected.test.sql"

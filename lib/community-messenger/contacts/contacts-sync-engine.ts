@@ -17,7 +17,10 @@ import {
   isContactsNativeAvailable,
   readPhoneContacts,
 } from "@/lib/community-messenger/contacts/contacts-native";
+import { contactsManilaDay } from "@/lib/community-messenger/contacts/contacts-contract";
 import {
+  clearContactsDeviceData,
+  namesForListedMembers,
   patchContactsLocalState,
   purgeOtherUsersContactsLocalState,
   readContactsLocalState,
@@ -41,9 +44,7 @@ export type ContactsSyncOutcome =
 
 const inflight = new Map<string, Promise<ContactsSyncOutcome>>();
 
-function manilaDay(now = Date.now()): string {
-  return new Date(now + 8 * 3600_000).toISOString().slice(0, 10);
-}
+const manilaDay = contactsManilaDay;
 
 function newBatchId(): string {
   try {
@@ -75,13 +76,15 @@ function handleUploadError(userId: string, r: { error: string; status: number })
     return "failed";
   }
   const stop = asStopReason(r.error);
+  if (stop === "consent_required") {
+    // 다른 기기에서 동의 철회 → 이 기기 안 번호·이름도 지운다 (§8 「동의 철회 · 기기 안 삭제」 — 최종 점검 N5)
+    clearContactsDeviceData(userId);
+    patchContactsLocalState(userId, { consented: false });
+    return "not_consented";
+  }
   if (stop) {
-    patchContactsLocalState(userId, {
-      numbers: null,
-      stoppedReason: stop,
-      stoppedDay: today,
-      ...(stop === "consent_required" ? { consented: false } : {}),
-    });
+    const cur = readContactsLocalState(userId);
+    patchContactsLocalState(userId, { numbers: null, names: namesForListedMembers(cur), stoppedReason: stop, stoppedDay: today });
     return "stopped";
   }
   if (isLimitError(r)) {
@@ -96,7 +99,14 @@ async function registerSource(userId: string, state: ContactsLocalState): Promis
   if (!platform) return null;
   const r = await contactsApi.registerSource(ensureClientInstanceId(), platform);
   if (!r.ok) {
-    if (r.error === "consent_required") patchContactsLocalState(userId, { consented: false });
+    if (r.error === "consent_required") {
+      // 다른 기기에서 동의 철회 → 이 기기 안 번호·이름 삭제 (최종 점검 N5)
+      clearContactsDeviceData(userId);
+      patchContactsLocalState(userId, { consented: false });
+    } else if (r.error === "contacts_disabled") {
+      // 어드민 킬스위치 꺼짐 → 그날은 메신저에 들어올 때마다 다시 묻지 않는다 (최종 점검 N6)
+      patchContactsLocalState(userId, { lastHeartbeatDay: manilaDay(), stoppedReason: "feature_off", stoppedDay: manilaDay() });
+    }
     return null;
   }
   const src = r.data.source;
@@ -163,7 +173,10 @@ async function runSync(userId: string, opts: { manual: boolean }): Promise<Conta
   const heartbeatDue = !state.sourceId || state.lastHeartbeatDay !== today;
   if (heartbeatDue && (allowed || state.sourceId)) {
     const registered = await registerSource(userId, state);
-    if (!registered) return "failed";
+    if (!registered) {
+      const after = readContactsLocalState(userId);
+      return !after.consented ? "not_consented" : after.stoppedReason === "feature_off" ? "stopped" : "failed";
+    }
     state = registered;
   }
 
@@ -177,11 +190,13 @@ async function runSync(userId: string, opts: { manual: boolean }): Promise<Conta
         revokePending: true,
         revokeCount: state.numbers ? Object.keys(state.numbers).length : 0,
         numbers: null,
+        names: namesForListedMembers(state),
         serverPermissionDenied: true,
       });
       return "permission_revoked";
     }
-    patchContactsLocalState(userId, { lastPermission: permission });
+    // 값이 바뀔 때만 쓴다 (매 진입 전체 JSON 다시 쓰기 금지 — 최종 점검 #9)
+    if (state.lastPermission !== permission) patchContactsLocalState(userId, { lastPermission: permission });
     return state.revokePending ? "permission_revoked" : "permission_needed";
   }
 
@@ -191,7 +206,9 @@ async function runSync(userId: string, opts: { manual: boolean }): Promise<Conta
     if (!r.ok) return "failed";
     state = patchContactsLocalState(userId, { serverPermissionDenied: false });
   }
-  state = patchContactsLocalState(userId, { lastPermission: permission, revokePending: false });
+  if (state.lastPermission !== permission || state.revokePending) {
+    state = patchContactsLocalState(userId, { lastPermission: permission, revokePending: false });
+  }
 
   // 서버 중지·하루 한도 — 연락처를 읽지도 올리지도 않는다 (감사 A5)
   if (state.stoppedReason) return "stopped";
@@ -203,7 +220,7 @@ async function runSync(userId: string, opts: { manual: boolean }): Promise<Conta
 
   const contacts = await readPhoneContacts();
   const { numbers, names } = buildContactsNumberMap(contacts, state.defaultCountry);
-  patchContactsLocalState(userId, { names });
+  if (JSON.stringify(names) !== JSON.stringify(state.names)) patchContactsLocalState(userId, { names });
 
   if (!state.numbers) return uploadSnapshot(userId, state, numbers);
 

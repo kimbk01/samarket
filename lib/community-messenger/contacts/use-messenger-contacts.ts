@@ -25,9 +25,11 @@ import {
   readContactsLocalState,
 } from "@/lib/community-messenger/contacts/contacts-local-store";
 import { runContactsSync, type ContactsSyncOutcome } from "@/lib/community-messenger/contacts/contacts-sync-engine";
+import { resetContactsArchiveSummary } from "@/lib/community-messenger/contacts/contacts-summary-cache";
 import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
 
-export type MessengerContactsPhase = "loading" | "disabled" | "consent" | "ready";
+/** error = 설정을 불러오지 못함(네트워크·서버) — 기능 꺼짐(disabled)과 구분해 다시 시도를 보여 준다 */
+export type MessengerContactsPhase = "loading" | "error" | "disabled" | "consent" | "ready";
 
 export type MessengerContactsView = {
   phase: MessengerContactsPhase;
@@ -70,6 +72,7 @@ const settingsCache = new Map<string, { at: number; settings: ContactsUserSettin
 export function invalidateMessengerContactsCache(): void {
   listCache.clear();
   settingsCache.clear();
+  resetContactsArchiveSummary();
 }
 
 async function fetchContactsList(userId: string): Promise<ListCacheEntry | null> {
@@ -190,39 +193,47 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
     [loadList, set, userId]
   );
 
+  /** 동기화 1회 → 결과(화면이 안내에 쓴다). 올렸으면 afterSync 가 목록을 새로 받고, 수동인데 안 올렸으면 여기서 받는다 */
   const sync = useCallback(
-    async (manual: boolean) => {
-      if (!userId) return;
+    async (manual: boolean): Promise<ContactsSyncOutcome | null> => {
+      if (!userId) return null;
       set({ syncing: true });
       const outcome = await runContactsSync(userId, { manual });
       await afterSync(outcome);
       if (manual && outcome !== "uploaded") await loadList(true);
+      return outcome;
     },
     [afterSync, loadList, set, userId]
   );
 
-  // 처음: 설정 1회 → 동의한 회원이면 목록 + (앱) 자동 비교
-  useEffect(() => {
-    if (!userId) {
-      set({ phase: "disabled" });
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
+  /** 설정 1회 → 동의한 회원이면 목록 + (앱) 자동 비교. 실패는 캐시하지 않는다 (다시 시도 가능) */
+  const start = useCallback(
+    async (isCancelled: () => boolean) => {
+      if (!userId) {
+        set({ phase: "disabled" });
+        return;
+      }
       const cached = settingsCache.get(userId);
       let settings: ContactsUserSettingsDto | null = cached?.settings ?? null;
       let disabled = cached?.disabled ?? false;
       if (!cached || Date.now() - cached.at > LIST_MIN_INTERVAL_MS) {
         const r = await contactsApi.settings();
+        if (isCancelled()) return;
+        if (!r.ok) {
+          // 503 contacts_disabled 만 「기능 꺼짐」, 그 밖(네트워크·429·500)은 오류 + 다시 시도 (최종 점검 #3)
+          if (r.error === "contacts_disabled") set({ phase: "disabled", settings: null, featureOff: false });
+          else set({ phase: "error" });
+          return;
+        }
         // 기능 꺼짐이어도 설정은 내려온다 (featureEnabled=false) — 동의한 회원의 삭제·철회용
-        disabled = !r.ok || r.data.featureEnabled === false;
-        settings = r.ok ? r.data.settings : null;
+        disabled = r.data.featureEnabled === false;
+        settings = r.data.settings;
         settingsCache.set(userId, { at: Date.now(), settings, disabled });
-        if (r.ok && typeof r.data.requestNumberLimit === "number") {
+        if (typeof r.data.requestNumberLimit === "number") {
           patchContactsLocalState(userId, { requestNumberLimit: r.data.requestNumberLimit });
         }
       }
-      if (cancelled) return;
+      if (isCancelled()) return;
       if (disabled || !settings) {
         set({ phase: "disabled", settings, featureOff: Boolean(settings) });
         return;
@@ -235,12 +246,25 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
       set({ phase: "ready", settings });
       await loadList(false);
       if (opts.autoSync !== false && nativeAvailable) await sync(false);
-    })();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- opts.autoSync 는 화면마다 고정
+    [loadList, nativeAvailable, set, sync, userId]
+  );
+
+  // 처음 1회
+  useEffect(() => {
+    let cancelled = false;
+    void start(() => cancelled);
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 화면 진입 1회
   }, [userId]);
+
+  const retry = useCallback(() => {
+    set({ phase: "loading" });
+    void start(() => false);
+  }, [set, start]);
 
   /** 동의 → 권한 → 불러오기 (기존·신규 회원 공통) */
   const consentAndStart = useCallback(async (): Promise<boolean> => {
@@ -253,13 +277,18 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
     const s = await contactsApi.settings();
     if (s.ok) settingsCache.set(userId, { at: Date.now(), settings: s.data.settings, disabled: false });
     set({ phase: "ready", settings: s.ok ? s.data.settings : view.settings });
+    let uploaded = false;
     if (nativeAvailable) {
       const state = await requestContactsPermission();
       patchContactsLocalState(userId, { lastPermission: state });
       set({ permission: state });
-      if (state === "granted" || state === "limited") await sync(true);
+      if (state === "granted" || state === "limited") {
+        const outcome = await sync(true);
+        // sync 가 이미 목록을 새로 받았다 (올림 → afterSync · 안 올림 → 수동 경로) — 같은 요청을 또 보내지 않는다 (최종 점검 #10)
+        uploaded = outcome !== null;
+      }
     }
-    await loadList(true);
+    if (!uploaded) await loadList(true);
     return true;
   }, [loadList, nativeAvailable, set, sync, userId, view.settings]);
 
@@ -343,6 +372,7 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
     view,
     userId,
     refresh: () => sync(true),
+    retry,
     reloadList: () => loadList(true),
     consentAndStart,
     answerNewDevice,

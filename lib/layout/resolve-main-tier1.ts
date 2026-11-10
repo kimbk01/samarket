@@ -571,6 +571,7 @@ function resolveMainTier1SubpageInner(
   if (p === "/community-messenger/contacts") {
     return {
       ...DEFAULT,
+      // = MESSENGER_CONTACTS_BACK_HREF (contacts-contract) — 1단 규칙은 연락처 모듈을 가져오지 않는다(hot path). 같은 값은 시험이 고정.
       backHref: "/community-messenger?section=friends",
       preferHistoryBack: true,
       ariaLabel: "tier1_messenger_back",

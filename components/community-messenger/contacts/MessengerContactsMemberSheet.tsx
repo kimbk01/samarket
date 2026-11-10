@@ -6,7 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
 import { DibayDialog } from "@/components/ui/dibay-overlay/DibayDialog";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
-import { postCommunityMessengerFriendRequestApi } from "@/lib/community-messenger/community-messenger-friend-request-client";
+import type { ContactsRequestState } from "@/components/community-messenger/contacts/use-contacts-friend-cta";
 import { contactsApi } from "@/lib/community-messenger/contacts/contacts-api-client";
 import type { ContactsMemberRow } from "@/lib/community-messenger/contacts/contacts-contract";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
@@ -27,24 +27,28 @@ import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/commu
  */
 export function MessengerContactsMemberSheet({
   member,
-  deviceName,
+  name,
   deviceNumber,
   callDefault = "ask",
   onClose,
-  onRequested,
+  requestState,
+  onAddFriend,
   onAccept,
   onRemoved,
 }: {
   member: ContactsMemberRow;
-  deviceName: string | null;
+  /** 표시 이름 — `contactsMemberDisplayName` (행·시트·확인 문구 공통) */
+  name: string;
   /** 이 기기에 저장된 번호 (E.164) — 없으면 휴대폰 전화 불가 */
   deviceNumber: string | null;
   /** 기본 통화 방식 (C2) */
   callDefault?: ContactsCallDefault;
   onClose: () => void;
-  onRequested: (userId: string) => void;
-  /** 받은 요청 수락 (기존 메신저 수락 경로) — 성공 여부 */
-  onAccept: (userId: string) => Promise<boolean>;
+  /** 홈 친구 요청 상태 우선 (`useContactsFriendCta`) */
+  requestState: ContactsRequestState;
+  /** 친구 추가 · 수락 — 메신저 친구 요청 SSOT (결과 안내도 그쪽이 한다) */
+  onAddFriend: () => Promise<boolean>;
+  onAccept: () => Promise<boolean>;
   onRemoved: (userId: string) => void;
 }) {
   const { t } = useI18n();
@@ -53,7 +57,6 @@ export function MessengerContactsMemberSheet({
   const [choiceOpen, setChoiceOpen] = useState(false);
   /** 숨기기·차단은 확인 후 실행 (메신저 차단과 같은 흐름: 확인 → 처리 중 → 결과 안내) */
   const [confirm, setConfirm] = useState<"hide" | "block" | null>(null);
-  const name = (member.on_this_device && deviceName) || member.nickname || member.dibay_id || "";
   const publicId = member.dibay_id || member.username;
 
   const run = async (key: string, fn: () => Promise<boolean>, done?: string) => {
@@ -94,6 +97,15 @@ export function MessengerContactsMemberSheet({
       ) : null}
     </button>
   );
+
+  /** 친구 추가·수락 — 결과 안내는 친구 요청 SSOT 가 하므로 여기서는 처리 중 표시와 닫기만 */
+  const friendCta = async (key: "add" | "accept", fn: () => Promise<boolean>) => {
+    if (busy) return;
+    setBusy(key);
+    const ok = await fn().catch(() => false);
+    setBusy(null);
+    if (ok) onClose();
+  };
 
   const doHide = () =>
     run(
@@ -160,30 +172,10 @@ export function MessengerContactsMemberSheet({
               .join(" · ")}
           </p>
         </div>
-        {member.request_state === "received"
-          ? row("accept", t("cm_contacts_accept"), null, () =>
-              void run(
-                "accept",
-                async () => {
-                  const ok = await onAccept(member.user_id);
-                  if (ok) onClose();
-                  return ok;
-                },
-                t("cm_friend_request_you_accepted", { name })
-              )
-            )
-          : member.request_state !== "sent"
-            ? row("add", t("cm_contacts_add_friend"), null, () =>
-                void run(
-                  "add",
-                  async () => {
-                    const r = await postCommunityMessengerFriendRequestApi(member.user_id);
-                    if (r.ok) onRequested(member.user_id);
-                    return r.ok;
-                  },
-                  t("cm_contacts_request_sent")
-                )
-              )
+        {requestState === "received"
+          ? row("accept", t("cm_contacts_accept"), null, () => void friendCta("accept", onAccept))
+          : requestState !== "sent"
+            ? row("add", t("cm_contacts_add_friend"), null, () => void friendCta("add", onAddFriend))
             : null}
         {row("message", t("cm_contacts_member_message"), null, () =>
           void run("message", async () => {

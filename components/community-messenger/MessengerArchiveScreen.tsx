@@ -3,7 +3,16 @@
 import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Archive, Ban, BellOff, ChevronRight, Contact, EyeOff, UserX, UsersRound } from "lucide-react";
-import { MESSENGER_CONTACTS_SETTINGS_HREF } from "@/lib/community-messenger/contacts/contacts-contract";
+import {
+  MESSENGER_CONTACTS_HIDDEN_HREF,
+  MESSENGER_CONTACTS_SCREEN_HREF,
+  MESSENGER_CONTACTS_SETTINGS_HREF,
+} from "@/lib/community-messenger/contacts/contacts-contract";
+import {
+  readContactsArchiveSummary,
+  writeContactsArchiveSummary,
+  type ContactsArchiveSummary,
+} from "@/lib/community-messenger/contacts/contacts-summary-cache";
 import { useMessengerRejectedRequests } from "@/components/community-messenger/MessengerRejectedRequestsList";
 import type { MessengerPrivacyListsStatus } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -163,7 +172,8 @@ export function MessengerArchiveScreen({
           rejected.requests == null ? null : rejected.requests.length
         ),
         // 연락처 동기화 (SSOT v5 §13 · 통합 시안 「친구 관리」) — 같은 줄 형식으로 1줄만 추가
-        ...(contactsSummary
+        // 동의한 회원만 (동의 전에는 연락처 목록이 없어 숨긴 추천을 볼 곳이 없다 — 「연락처」 묶음 줄이 동의로 안내)
+        ...(contactsSummary?.consented
           ? [
               <ArchiveLinkRow
                 key="contacts-hidden"
@@ -171,7 +181,7 @@ export function MessengerArchiveScreen({
                 icon={<UsersRound className={ICON_CLASS} strokeWidth={ICON_STROKE} />}
                 title={t("cm_contacts_hidden_title")}
                 value={contactsSummary.hiddenCount == null ? "…" : String(contactsSummary.hiddenCount)}
-                onClick={() => router.push(MESSENGER_CONTACTS_SETTINGS_HREF)}
+                onClick={() => router.push(MESSENGER_CONTACTS_HIDDEN_HREF)}
               />,
             ]
           : []),
@@ -203,7 +213,8 @@ export function MessengerArchiveScreen({
                 ? t("cm_contacts_sync_on_devices", { count: contactsSummary.deviceCount ?? 0 })
                 : t("cm_contacts_sync_not_used")
             }
-            onClick={() => router.push(MESSENGER_CONTACTS_SETTINGS_HREF)}
+            // 동의 전이면 설정이 아니라 연락처 화면(전체 화면 동의)으로
+            onClick={() => router.push(contactsSummary.consented ? MESSENGER_CONTACTS_SETTINGS_HREF : MESSENGER_CONTACTS_SCREEN_HREF)}
           />
         </div>
       ) : null}
@@ -221,31 +232,38 @@ export function MessengerArchiveScreen({
  * 연락처 줄 요약 (보관함 첫 화면이 보일 때 1회) — 기능 꺼짐·로그인 전이면 null(줄 없음).
  * 메신저 bootstrap 과 무관하게 이 화면에서만 부른다. 동의한 회원만 숨긴 추천·기기 수를 더 부른다.
  */
-function useMessengerArchiveContactsSummary(active: boolean): {
-  consented: boolean;
-  hiddenCount: number | null;
-  deviceCount: number | null;
-} | null {
-  const [summary, setSummary] = useState<{ consented: boolean; hiddenCount: number | null; deviceCount: number | null } | null>(null);
+/** 보관함 첫 화면을 오갈 때마다 다시 부르지 않게 60초 보관 (최종 점검 #11 · 연락처 캐시 초기화와 함께 비워짐) */
+function useMessengerArchiveContactsSummary(active: boolean): ContactsArchiveSummary | null {
+  const [summary, setSummary] = useState<ContactsArchiveSummary | null>(() => readContactsArchiveSummary().value);
   useEffect(() => {
     if (!active) return;
+    const cached = readContactsArchiveSummary();
+    if (cached.fresh) {
+      setSummary(cached.value);
+      return;
+    }
     let cancelled = false;
+    const keep = (value: ContactsArchiveSummary | null) => {
+      writeContactsArchiveSummary(value);
+      setSummary(value);
+    };
     void (async () => {
       const { contactsApi } = await import("@/lib/community-messenger/contacts/contacts-api-client");
       const s = await contactsApi.settings();
       if (cancelled) return;
-      if (!s.ok || s.data.featureEnabled === false) {
-        setSummary(null);
+      if (!s.ok) return; // 실패는 보관하지 않음 (다음 진입에 다시)
+      if (s.data.featureEnabled === false) {
+        keep(null);
         return;
       }
       if (!s.data.settings.consented) {
-        setSummary({ consented: false, hiddenCount: 0, deviceCount: 0 });
+        keep({ consented: false, hiddenCount: 0, deviceCount: 0 });
         return;
       }
       setSummary((prev) => prev ?? { consented: true, hiddenCount: null, deviceCount: null });
       const [h, src] = await Promise.all([contactsApi.suppressions(), contactsApi.sources(null)]);
       if (cancelled) return;
-      setSummary({
+      keep({
         consented: true,
         hiddenCount: h.ok ? h.data.suppressions.length : null,
         deviceCount: src.ok ? src.data.sources.length : null,

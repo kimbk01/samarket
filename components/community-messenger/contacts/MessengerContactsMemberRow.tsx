@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MESSENGER_ROW_BTN_CLASS } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import type { ContactsMemberRow } from "@/lib/community-messenger/contacts/contacts-contract";
+import type { ContactsRequestState } from "@/components/community-messenger/contacts/use-contacts-friend-cta";
 
 /**
  * 연락처 회원 행 — 친구 탭 행(시안 4판: 높이 64 · 좌우 16 · 간격 12 · 사진 44 둥근 사각 16 · 이름 16/600 · 2행 12.5 회색)과 같은 모양.
@@ -14,22 +15,25 @@ import type { ContactsMemberRow } from "@/lib/community-messenger/contacts/conta
  */
 export function MessengerContactsMemberRow({
   member,
-  deviceName,
+  requestState,
+  name,
   busy,
   onPress,
   onAddFriend,
   onAccept,
 }: {
   member: ContactsMemberRow;
-  deviceName: string | null;
+  /** 홈 친구 요청 상태 우선 (`useContactsFriendCta`) */
+  requestState: ContactsRequestState;
+  /** 표시 이름 — `contactsMemberDisplayName` (행·시트·확인 문구 공통) */
+  name: string;
   busy: boolean;
   onPress: () => void;
   onAddFriend: () => void;
   onAccept: () => void;
 }) {
   const { t } = useI18n();
-  const name = (member.on_this_device && deviceName) || member.nickname || member.dibay_id || member.username || "";
-  const received = member.request_state === "received";
+  const received = requestState === "received";
   return (
     <div className="flex w-full items-center" data-cm-messenger-list-row="" data-cm-list-surface="friend" data-cm-contacts-member="">
       <button
@@ -60,7 +64,7 @@ export function MessengerContactsMemberRow({
           </p>
         </div>
       </button>
-      {member.request_state === "sent" ? (
+      {requestState === "sent" ? (
         <button type="button" disabled className={`${Sam.btn.secondaryCombo} ${MESSENGER_ROW_BTN_CLASS}`} data-cm-contacts-requested="">
           {t("cm_contacts_requested")}
         </button>

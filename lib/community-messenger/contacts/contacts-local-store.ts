@@ -3,13 +3,21 @@
  * 다른 회원이 이 기기에 로그인하면 이전 회원 키는 지운다 (SSOT v5 §8 로그아웃 행).
  */
 import type { ContactsNameMap, ContactsNumberMap } from "@/lib/community-messenger/contacts/contacts-diff";
-import type { ContactsMemberRow } from "@/lib/community-messenger/contacts/contacts-contract";
+import { contactsManilaDay, type ContactsMemberRow } from "@/lib/community-messenger/contacts/contacts-contract";
 
 export const CONTACTS_LOCAL_PREFIX = "dibay:cm-contacts:v1:";
 const PREFIX = CONTACTS_LOCAL_PREFIX;
 
 /** 서버가 업로드를 멈춘 이유 — 이 값이 있으면 엔진은 연락처를 읽지도 올리지도 않는다 (감사 A5) */
-export type ContactsStopReason = "device_sync_off" | "account_sync_off" | "permission_denied" | "source_inactive" | "consent_required";
+export type ContactsStopReason =
+  | "device_sync_off"
+  | "account_sync_off"
+  | "permission_denied"
+  | "source_inactive"
+  | "consent_required"
+  /** 어드민 킬스위치 꺼짐 — 그날은 다시 묻지 않는다 */
+  | "feature_off";
+
 
 export type ContactsLocalState = {
   consented: boolean;
@@ -140,6 +148,12 @@ export function clearContactsDeviceData(userId: string): ContactsLocalState {
   });
 }
 
+/** 회원이 끔 → 서버 응답을 기다리지 않고 이 기기도 바로 멈춘다 (읽기·올리기 안 함 — 최종 점검 N3) */
+export function markContactsStopped(userId: string, reason: ContactsStopReason): void {
+  if (!userId) return;
+  patchContactsLocalState(userId, { stoppedReason: reason, stoppedDay: contactsManilaDay() });
+}
+
 /** 회원이 다시 켜거나 동의함 → 중지·한도 표시 해제 (다음 실행에서 서버가 다시 판정) */
 export function clearContactsStop(userId: string): void {
   if (!userId) return;
@@ -156,6 +170,19 @@ export function readContactsConsentedFlag(userId: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * 업로드가 멈추면(권한 철회·중지) 기기 안 이름표는 목록에 보이는 회원 것만 남긴다 —
+ * 연락처를 더 읽지 않는데 주소록 전체 이름을 계속 들고 있지 않도록 (최종 점검 #8).
+ */
+export function namesForListedMembers(state: ContactsLocalState): ContactsNameMap {
+  const keep: ContactsNameMap = {};
+  for (const m of state.members) {
+    const ref = m.client_ref;
+    if (ref && state.names[ref]) keep[ref] = state.names[ref];
+  }
+  return keep;
 }
 
 /** 이 기기 번호(e164) 찾기 — client_ref 로 */

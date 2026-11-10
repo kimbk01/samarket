@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { MESSENGER_ROW_BTN_CLASS } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
-import { openContactsAppSettings } from "@/lib/community-messenger/contacts/contacts-native";
+import { isContactsAppUpdateNeeded, openContactsAppSettings } from "@/lib/community-messenger/contacts/contacts-native";
 import type { MessengerContactsView } from "@/lib/community-messenger/contacts/use-messenger-contacts";
 
 function Banner({ title, desc, children }: { title: string; desc?: string; children?: ReactNode }) {
@@ -71,7 +71,8 @@ export function MessengerContactsBanners({
     );
   }
   if (!view.nativeAvailable) {
-    return <Banner title={t("cm_contacts_web_only_view")} />;
+    // 앱인데 연락처 플러그인이 없는 예전 바이너리 → 「앱 업데이트」 (웹 안내 문구를 앱에 띄우지 않는다 — 최종 점검 #4)
+    return <Banner title={t(isContactsAppUpdateNeeded() ? "cm_contacts_app_update_needed" : "cm_contacts_web_only_view")} />;
   }
   return null;
 }

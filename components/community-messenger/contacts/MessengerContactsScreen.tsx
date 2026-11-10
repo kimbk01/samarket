@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { RefreshCw, Settings } from "lucide-react";
-import { Share } from "@capacitor/share";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerFriendTabSectionLabel } from "@/components/community-messenger/friend-list/CommunityMessengerFriendSection";
 import { MessengerContactsMemberRow } from "@/components/community-messenger/contacts/MessengerContactsMemberRow";
@@ -15,41 +14,42 @@ import { MessengerContactsBanners } from "@/components/community-messenger/conta
 import { useMessengerContactsHeader } from "@/components/community-messenger/contacts/use-messenger-contacts-header";
 import { MESSENGER_ROW_BTN_CLASS } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
 import { Sam } from "@/lib/ui/sam-component-classes";
-import { postCommunityMessengerFriendRequestApi } from "@/lib/community-messenger/community-messenger-friend-request-client";
+import { useContactsFriendCta } from "@/components/community-messenger/contacts/use-contacts-friend-cta";
 import { useMessengerContacts } from "@/lib/community-messenger/contacts/use-messenger-contacts";
 import { findLocalNumberByRef, readContactsLocalState } from "@/lib/community-messenger/contacts/contacts-local-store";
 import { contactsNativePlatform } from "@/lib/community-messenger/contacts/contacts-native";
-import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { formatRelativeTimeAgo } from "@/lib/i18n/format-relative-time";
+import { shareCommunityPostViaNative } from "@/lib/community/share/community-share-native";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { MessengerContactsLoading, MessengerContactsRetry } from "@/components/community-messenger/contacts/MessengerContactsStatus";
 import {
+  MESSENGER_CONTACTS_BACK_HREF,
   MESSENGER_CONTACTS_SETTINGS_HREF,
+  contactsMemberDisplayName,
   type ContactsMemberRow,
 } from "@/lib/community-messenger/contacts/contacts-contract";
+import type { ContactsSyncOutcome } from "@/lib/community-messenger/contacts/contacts-sync-engine";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 const INVITE_MAX = 100;
-const BACK_HREF = "/community-messenger?section=friends";
+const BACK_HREF = MESSENGER_CONTACTS_BACK_HREF;
+
+/** 수동 새로고침 결과 안내 (최종 점검 #6) — 결과마다 한 문구 */
+const REFRESH_RESULT_KEY: Partial<Record<ContactsSyncOutcome, MessageKey>> = {
+  uploaded: "cm_contacts_refresh_done",
+  unchanged: "cm_contacts_refresh_done",
+  stopped: "cm_contacts_refresh_stopped",
+  throttled: "cm_contacts_refresh_limited",
+  permission_needed: "cm_contacts_refresh_permission",
+  permission_revoked: "cm_contacts_refresh_permission",
+  failed: "cm_contacts_action_failed",
+};
 
 /** 「0917 ··· 2231」 — 국가번호를 뺀 앞 4자리 · 끝 4자리만 (이 기기 안에서만 표시) */
 function maskContactNumber(e164: string): string {
   const local = e164.replace(/^\+63/, "0").replace(/^\+82/, "0");
   if (local.length < 8) return local;
   return `${local.slice(0, 4)} ··· ${local.slice(-4)}`;
-}
-
-/** 불러오는 중 (메신저 목록 로딩과 같은 모양) */
-function LoadingRow() {
-  const { t } = useI18n();
-  return (
-    <div className="flex items-center justify-center gap-2 px-4 py-10" role="status">
-      <span
-        className="h-4 w-4 animate-spin rounded-full border-2 border-[color:var(--messenger-divider)] border-t-[color:var(--messenger-primary)]"
-        aria-hidden
-      />
-      <span className="text-[14px]" style={{ color: "var(--cm-chat-sub)" }}>
-        {t("common_loading")}
-      </span>
-    </div>
-  );
 }
 
 /** 「내 연락처의 DIBAY 회원」 화면 (통합 시안 7A·7B) — 동의 전이면 같은 주소에서 동의 화면(전체 화면) */
@@ -60,6 +60,7 @@ export function MessengerContactsScreen() {
   const { view } = c;
   const [sheetMember, setSheetMember] = useState<ContactsMemberRow | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const cta = useContactsFriendCta(c.acceptRequest);
   // 기기 저장값(번호·이름)은 목록·이름표가 바뀔 때만 다시 읽는다 (렌더마다 전체 파싱 금지)
   const local = useMemo(
     () => (c.userId ? readContactsLocalState(c.userId) : null),
@@ -86,6 +87,11 @@ export function MessengerContactsScreen() {
   const showSettings = view.phase === "ready" || (view.featureOff && view.settings?.consented === true);
   const { syncing } = view;
   const { refresh } = c;
+  const onRefresh = useCallback(async () => {
+    const outcome = await refresh();
+    const key = outcome ? REFRESH_RESULT_KEY[outcome] : undefined;
+    if (key) showMessengerSnackbar(t(key), outcome === "failed" ? { variant: "error" } : undefined);
+  }, [refresh, t]);
   const actions = useMemo(
     () =>
       showRefresh || showSettings ? (
@@ -96,7 +102,7 @@ export function MessengerContactsScreen() {
               aria-label={t("cm_contacts_refresh")}
               aria-busy={syncing || undefined}
               disabled={syncing}
-              onClick={() => void refresh()}
+              onClick={() => void onRefresh()}
               className="flex h-11 w-11 items-center justify-center rounded-full active:bg-[color:var(--cm-chat-band)]"
             >
               <RefreshCw className={`h-5 w-5 ${syncing ? "animate-spin" : ""}`} style={{ color: "var(--cm-chat-fg)" }} aria-hidden />
@@ -113,7 +119,7 @@ export function MessengerContactsScreen() {
           ) : null}
         </div>
       ) : null,
-    [refresh, showRefresh, showSettings, syncing, t]
+    [onRefresh, showRefresh, showSettings, syncing, t]
   );
   useMessengerContactsHeader({ titleKey: "cm_contacts_screen_title", backHref: BACK_HREF, subtitle, actions });
 
@@ -133,31 +139,28 @@ export function MessengerContactsScreen() {
     return out.sort((a, b) => a.name.localeCompare(b.name)).slice(0, INVITE_MAX);
   }, [local, view.knownRefs, view.members]);
 
-  const addFriend = async (m: ContactsMemberRow) => {
+  const addFriend = async (m: ContactsMemberRow): Promise<boolean> => {
     setBusyId(m.user_id);
-    const r = await postCommunityMessengerFriendRequestApi(m.user_id);
+    const ok = await cta.addFriend(m);
     setBusyId(null);
-    if (r.ok) {
-      c.markRequested(m.user_id);
-      showMessengerSnackbar(t("cm_contacts_request_sent"));
-    } else showMessengerSnackbar(t("cm_contacts_action_failed"), { variant: "error" });
+    if (ok) c.markRequested(m.user_id);
+    return ok;
   };
 
   const accept = async (m: ContactsMemberRow, label: string): Promise<boolean> => {
     setBusyId(m.user_id);
-    const r = await c.acceptRequest(m.user_id);
+    const ok = await cta.accept(m, label);
     setBusyId(null);
-    if (r.ok) showMessengerSnackbar(t("cm_friend_request_you_accepted", { name: label }), { variant: "success" });
-    else showMessengerSnackbar(t("cm_contacts_action_failed"), { variant: "error" });
-    return r.ok;
+    if (ok) c.removeMemberLocally(m.user_id);
+    return ok;
   };
 
+  /** 초대 — 앱 공통 공유(앱 공유 창 → 브라우저 공유 → 링크 복사) · 결과 안내 */
   const invite = async () => {
-    try {
-      await Share.share({ text: t("cm_contacts_invite_text"), url: typeof window !== "undefined" ? window.location.origin : undefined });
-    } catch {
-      /* 사용자가 공유 창을 닫음 */
-    }
+    const url = typeof window !== "undefined" ? window.location.origin : "";
+    const outcome = await shareCommunityPostViaNative({ title: t("cm_contacts_invite_text"), text: t("cm_contacts_invite_text"), url });
+    if (outcome === "copied") showMessengerSnackbar(t("cm_contacts_invite_copied"));
+    else if (outcome === "failed") showMessengerSnackbar(t("cm_contacts_action_failed"), { variant: "error" });
   };
 
   const goBack = () => {
@@ -165,19 +168,35 @@ export function MessengerContactsScreen() {
     else router.replace(BACK_HREF);
   };
 
-  const nameOf = (m: ContactsMemberRow) =>
-    (m.on_this_device && m.client_ref ? view.names[m.client_ref] : null) || m.nickname || m.dibay_id || m.username || "";
+  const nameOf = (m: ContactsMemberRow) => contactsMemberDisplayName(m, view.names);
+  // 홈에서 방금 친구·차단·거절이 된 회원은 바로 뺀다 (분할 화면에서 홈과 함께 보일 때 — 홈 밖이면 그대로)
+  const members = view.members.filter((m) => !cta.isGoneNow(m));
 
   return (
     <div className="flex min-h-full flex-col bg-[color:var(--cm-chat-bg,#fff)]" data-cm-contacts-screen="">
-      {view.phase === "loading" ? <LoadingRow /> : null}
+      {view.phase === "loading" ? <MessengerContactsLoading /> : null}
+      {view.phase === "error" ? <MessengerContactsRetry onRetry={c.retry} /> : null}
       {view.phase === "disabled" ? (
         <p className="px-4 py-10 text-center text-[14px]" style={{ color: "var(--cm-chat-sub)" }}>
           {t("cm_contacts_feature_off")}
         </p>
       ) : null}
       {view.phase === "consent" ? <MessengerContactsConsentView onAgree={c.consentAndStart} onLater={goBack} /> : null}
-      {view.phase === "ready" ? (
+      {/* 계정 전체 동기화 꺼짐 — 빈 목록 대신 꺼짐 안내 + 설정 (최종 점검 #7) */}
+      {view.phase === "ready" && view.accountSyncOff ? (
+        <div className="px-5 py-10 text-center" data-cm-contacts-account-off="">
+          <p className="text-[16px] font-semibold" style={{ color: "var(--cm-chat-fg)" }}>
+            {t("cm_contacts_account_off_title")}
+          </p>
+          <p className="mb-5 mt-1 text-[14px]" style={{ color: "var(--cm-chat-sub)" }}>
+            {t("cm_contacts_account_off_desc")}
+          </p>
+          <Link href={MESSENGER_CONTACTS_SETTINGS_HREF} className={`${Sam.btn.primaryCombo} inline-flex`}>
+            {t("cm_contacts_settings")}
+          </Link>
+        </div>
+      ) : null}
+      {view.phase === "ready" && !view.accountSyncOff ? (
         <>
           <MessengerContactsBanners
             view={view}
@@ -185,26 +204,20 @@ export function MessengerContactsScreen() {
             onLater={() => void c.answerNewDevice(false)}
             onRequestPermission={() => void c.requestPermissionAgain()}
           />
-          <MessengerFriendTabSectionLabel title={t("cm_contacts_members_count", { count: view.members.length })} />
-          {view.listError && view.members.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 px-4 py-8">
-              <p className="text-center text-[14px]" style={{ color: "var(--cm-chat-sub)" }}>
-                {t("cm_contacts_load_failed")}
-              </p>
-              <button type="button" className={`${Sam.btn.secondaryCombo} ${MESSENGER_ROW_BTN_CLASS}`} onClick={() => void c.reloadList()}>
-                {t("cm_contacts_retry")}
-              </button>
-            </div>
-          ) : view.members.length === 0 ? (
+          <MessengerFriendTabSectionLabel title={t("cm_contacts_members_count", { count: members.length })} />
+          {view.listError && members.length === 0 ? (
+            <MessengerContactsRetry compact onRetry={() => void c.reloadList()} />
+          ) : members.length === 0 ? (
             <p className="px-4 py-6 text-center text-[14px]" style={{ color: "var(--cm-chat-sub)" }}>
               {t("cm_contacts_empty")}
             </p>
           ) : (
-            view.members.map((m) => (
+            members.map((m) => (
               <MessengerContactsMemberRow
                 key={m.user_id}
                 member={m}
-                deviceName={m.client_ref ? view.names[m.client_ref] ?? null : null}
+                requestState={cta.requestStateOf(m)}
+                name={nameOf(m)}
                 busy={busyId === m.user_id}
                 onPress={() => setSheetMember(m)}
                 onAddFriend={() => void addFriend(m)}
@@ -248,12 +261,13 @@ export function MessengerContactsScreen() {
       {sheetMember ? (
         <MessengerContactsMemberSheet
           member={sheetMember}
-          deviceName={sheetMember.client_ref ? view.names[sheetMember.client_ref] ?? null : null}
+          name={nameOf(sheetMember)}
           deviceNumber={local ? findLocalNumberByRef(local, sheetMember.on_this_device ? sheetMember.client_ref : null) : null}
           callDefault={view.settings?.callDefault ?? "ask"}
+          requestState={cta.requestStateOf(sheetMember)}
           onClose={() => setSheetMember(null)}
-          onRequested={c.markRequested}
-          onAccept={async (id) => (await c.acceptRequest(id)).ok}
+          onAddFriend={() => addFriend(sheetMember)}
+          onAccept={() => accept(sheetMember, nameOf(sheetMember))}
           onRemoved={c.removeMemberLocally}
         />
       ) : null}

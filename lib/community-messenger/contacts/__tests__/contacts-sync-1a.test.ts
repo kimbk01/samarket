@@ -188,3 +188,14 @@ describe("메신저 hot path 미연결 계약", () => {
     expect(hb).not.toMatch(/^import .*contacts-sync-engine/m);
   });
 });
+
+describe("연락처 화면 1단 머리글 = 연락처 계약 값 (최종 점검 · 중복 값 고정)", () => {
+  it("연락처·설정 화면 뒤로 주소가 계약 상수와 같다", async () => {
+    const { resolveMainTier1Subpage } = await import("@/lib/layout/resolve-main-tier1");
+    const { MESSENGER_CONTACTS_BACK_HREF, MESSENGER_CONTACTS_SCREEN_HREF, MESSENGER_CONTACTS_SETTINGS_HREF } = await import(
+      "@/lib/community-messenger/contacts/contacts-contract"
+    );
+    expect(resolveMainTier1Subpage(MESSENGER_CONTACTS_SCREEN_HREF)?.backHref).toBe(MESSENGER_CONTACTS_BACK_HREF);
+    expect(resolveMainTier1Subpage(MESSENGER_CONTACTS_SETTINGS_HREF)?.backHref).toBe(MESSENGER_CONTACTS_SCREEN_HREF);
+  });
+});

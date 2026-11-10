@@ -35,6 +35,11 @@ export function isContactsNativeAvailable(): boolean {
   }
 }
 
+/** 앱인데 연락처 플러그인이 없는 예전 바이너리 — 「앱 업데이트」 안내 대상 */
+export function isContactsAppUpdateNeeded(): boolean {
+  return contactsNativePlatform() !== null && !isContactsNativeAvailable();
+}
+
 function normalizeState(raw: unknown): ContactsNativePermission {
   return raw === "granted" || raw === "limited" || raw === "denied" ? raw : "prompt";
 }

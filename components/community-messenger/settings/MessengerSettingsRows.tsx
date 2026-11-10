@@ -66,12 +66,13 @@ export function SwitchRow({
   );
 }
 
-/** 상세로 가는 줄 — 높이 54 · 글자 16 · 오른쪽 › 회색 */
+/** 상세로 가는 줄 — 높이 54(설명 있으면 늘어남) · 글자 16 · 설명은 켬/끔 줄과 같이 줄바꿈(잘림 없음) · 오른쪽 › 회색 */
 export function NavRow({
   title,
   description,
   value,
   danger = false,
+  disabled = false,
   onClick,
   dataPage,
 }: {
@@ -81,6 +82,8 @@ export function NavRow({
   value?: string;
   /** 삭제 등 위험 동작 줄 — 글자 빨강 */
   danger?: boolean;
+  /** 지금 누를 수 없음 — 흐리게(opacity)가 아니라 보조 글자색 · 눌림 표시·› 없음 */
+  disabled?: boolean;
   onClick: () => void;
   dataPage: string;
 }) {
@@ -88,17 +91,21 @@ export function NavRow({
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       data-cm-settings-nav={dataPage}
-      className={`flex w-full items-center gap-3 px-4 text-left transition-colors active:bg-[color:var(--cm-chat-band)] ${
+      className={`flex w-full items-center gap-3 px-4 text-left transition-colors ${disabled ? "" : "active:bg-[color:var(--cm-chat-band)]"} ${
         description ? "min-h-[54px] py-2" : "h-[54px]"
       }`}
     >
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[16px] leading-[1.35]" style={{ color: danger ? "var(--sam-danger)" : "var(--cm-chat-fg)" }}>
+        <span
+          className="block truncate text-[16px] leading-[1.35]"
+          style={{ color: disabled ? "var(--cm-chat-sub)" : danger ? "var(--sam-danger)" : "var(--cm-chat-fg)" }}
+        >
           {title}
         </span>
         {description ? (
-          <span className="mt-px block truncate text-[12.5px] leading-snug" style={{ color: "var(--cm-chat-sub)" }}>
+          <span className="mt-px block text-[12.5px] leading-snug" style={{ color: "var(--cm-chat-sub)" }}>
             {description}
           </span>
         ) : null}
@@ -108,7 +115,9 @@ export function NavRow({
           {value}
         </span>
       ) : null}
-      <ChevronRight className="h-4 w-4 shrink-0" style={{ color: "var(--cm-chat-sub)" }} strokeWidth={1.7} aria-hidden />
+      {disabled ? null : (
+        <ChevronRight className="h-4 w-4 shrink-0" style={{ color: "var(--cm-chat-sub)" }} strokeWidth={1.7} aria-hidden />
+      )}
     </button>
   );
 }

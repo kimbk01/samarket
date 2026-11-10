@@ -53,6 +53,11 @@ export function contactsErrorStatus(code: string): number {
   return (CONTACTS_ERROR_STATUS as Record<string, number>)[code] ?? 500;
 }
 
+/** 필리핀 날짜 (YYYY-MM-DD) — 연락처 하루 단위 판정 단일 정의 (서버 SQL 의 `Asia/Manila` 날짜와 같음) */
+export function contactsManilaDay(now = Date.now()): string {
+  return new Date(now + 8 * 3600_000).toISOString().slice(0, 10);
+}
+
 /** 기기 목록 조회 때 이 기기 설치 식별자를 싣는 머리글 (주소 쿼리 금지 — 접속 기록에 남음) */
 export const CONTACTS_INSTALL_ID_HEADER = "x-contacts-install-id";
 
@@ -198,3 +203,13 @@ export type ContactsMemberRow = {
 /** 연락처 화면 주소 (메신저 하위) */
 export const MESSENGER_CONTACTS_SCREEN_HREF = "/community-messenger/contacts";
 export const MESSENGER_CONTACTS_SETTINGS_HREF = "/community-messenger/contacts/settings";
+/** 숨긴 추천 바로가기 (관리 「숨긴 추천」 줄 · 시안 hidden) — 설정 화면이 이 값을 보면 숨긴 추천 묶음으로 스크롤 */
+export const MESSENGER_CONTACTS_HIDDEN_HREF = `${MESSENGER_CONTACTS_SETTINGS_HREF}?focus=hidden`;
+/** 연락처 화면 뒤로(기록 없을 때) = 메신저 친구 탭 — 1단 머리글 규칙·화면이 같은 값 */
+export const MESSENGER_CONTACTS_BACK_HREF = "/community-messenger?section=friends";
+
+/** 연락처 회원 표시 이름 — 이 기기 연락처면 기기에 저장된 이름(서버로 안 보냄), 아니면 DIBAY 닉네임·아이디 (행·시트·확인 문구 공통) */
+export function contactsMemberDisplayName(member: ContactsMemberRow, deviceNames: Record<string, string> | null | undefined): string {
+  const local = member.on_this_device && member.client_ref ? deviceNames?.[member.client_ref] : null;
+  return local || member.nickname || member.dibay_id || member.username || "";
+}

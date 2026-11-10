@@ -6,6 +6,7 @@ import {
   CONTACTS_DISCOVERY_POLICIES,
   CONTACTS_PERMISSION_STATES,
   CONTACTS_PLATFORMS,
+  contactsManilaDay,
   type ContactsCallDefault,
   type ContactsDiscoveryPolicy,
   type ContactsErrorCode,
@@ -610,7 +611,7 @@ export type ContactsAdminCounts = {
 export async function loadContactsAdminCounts(sb: SupabaseClient): Promise<ContactsAdminCounts> {
   const head = { count: "exact" as const, head: true };
   // 필리핀 날짜 오늘 0시 (UTC 로 변환)
-  const manilaMidnightUtc = new Date(`${new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10)}T00:00:00+08:00`).toISOString();
+  const manilaMidnightUtc = new Date(`${contactsManilaDay()}T00:00:00+08:00`).toISOString();
   const [consented, sources, entries, failures, jnTotal, jnToday, maint] = await Promise.all([
     sb.from("messenger_contact_settings").select("user_id", head).not("consented_at", "is", null).is("withdrawn_at", null),
     sb.from("contact_sources").select("id", head).eq("status", "active"),

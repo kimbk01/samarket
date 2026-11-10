@@ -10,11 +10,15 @@ import { MessengerContactsRevokeDialog } from "@/components/community-messenger/
 import { MessengerContactsBanners } from "@/components/community-messenger/contacts/MessengerContactsBanners";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { MESSENGER_ROW_BTN_CLASS } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
-import { postCommunityMessengerFriendRequestApi } from "@/lib/community-messenger/community-messenger-friend-request-client";
+import { useContactsFriendCta } from "@/components/community-messenger/contacts/use-contacts-friend-cta";
 import { useMessengerContacts } from "@/lib/community-messenger/contacts/use-messenger-contacts";
 import { findLocalNumberByRef, readContactsLocalState } from "@/lib/community-messenger/contacts/contacts-local-store";
-import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { MESSENGER_CONTACTS_SCREEN_HREF, type ContactsMemberRow } from "@/lib/community-messenger/contacts/contacts-contract";
+import {
+  MESSENGER_CONTACTS_SCREEN_HREF,
+  contactsMemberDisplayName,
+  type ContactsMemberRow,
+} from "@/lib/community-messenger/contacts/contacts-contract";
+import { MessengerContactsRetry } from "@/components/community-messenger/contacts/MessengerContactsStatus";
 
 const PREVIEW_COUNT = 3;
 
@@ -29,10 +33,20 @@ export function MessengerContactsFriendSection() {
   const { view } = c;
   const [sheetMember, setSheetMember] = useState<ContactsMemberRow | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const cta = useContactsFriendCta(c.acceptRequest);
   // 기기 저장값은 시트를 열 때만 읽는다 (렌더마다 전체 파싱 금지)
   const local = useMemo(() => (sheetMember && c.userId ? readContactsLocalState(c.userId) : null), [sheetMember, c.userId]);
 
   if (view.phase === "loading" || view.phase === "disabled") return null;
+  // 설정을 못 불러옴 → 섹션을 조용히 지우지 않고 다시 시도 (최종 점검 #3·#21)
+  if (view.phase === "error") {
+    return (
+      <section data-cm-friend-section="contacts">
+        <MessengerFriendTabSectionLabel title={t("cm_contacts_section_title")} />
+        <MessengerContactsRetry compact onRetry={c.retry} />
+      </section>
+    );
+  }
 
   if (view.phase === "consent") {
     return (
@@ -55,40 +69,42 @@ export function MessengerContactsFriendSection() {
   }
 
   if (view.accountSyncOff) return null;
-  const preview = view.members.slice(0, PREVIEW_COUNT);
+  // 홈에서 방금 친구가 됐거나 대화 불가(차단·거절)가 된 회원은 빼고 센다 (§5-5)
+  const members = view.members.filter((m) => !cta.isGoneNow(m));
+  const preview = members.slice(0, PREVIEW_COUNT);
   const revoke = <MessengerContactsRevokeDialog open={view.revokePending} count={view.revokeCount} onAnswer={c.answerRevoke} />;
-  if (preview.length === 0 && !view.otherDeviceOnly && !(view.nativeAvailable && view.permission !== "granted" && view.permission !== "limited")) {
+  if (
+    preview.length === 0 &&
+    !view.listError &&
+    !view.otherDeviceOnly &&
+    !(view.nativeAvailable && view.permission !== "granted" && view.permission !== "limited")
+  ) {
     return revoke;
   }
 
-  const nameOf = (m: ContactsMemberRow) =>
-    (m.on_this_device && m.client_ref ? view.names[m.client_ref] : null) || m.nickname || m.dibay_id || m.username || "";
+  const nameOf = (m: ContactsMemberRow) => contactsMemberDisplayName(m, view.names);
 
-  const addFriend = async (m: ContactsMemberRow) => {
+  const addFriend = async (m: ContactsMemberRow): Promise<boolean> => {
     setBusyId(m.user_id);
-    const r = await postCommunityMessengerFriendRequestApi(m.user_id);
+    const ok = await cta.addFriend(m);
     setBusyId(null);
-    if (r.ok) {
-      c.markRequested(m.user_id);
-      showMessengerSnackbar(t("cm_contacts_request_sent"));
-    } else {
-      showMessengerSnackbar(t("cm_contacts_action_failed"), { variant: "error" });
-    }
+    if (ok) c.markRequested(m.user_id);
+    return ok;
   };
 
-  const accept = async (m: ContactsMemberRow) => {
+  const accept = async (m: ContactsMemberRow): Promise<boolean> => {
     setBusyId(m.user_id);
-    const r = await c.acceptRequest(m.user_id);
+    const ok = await cta.accept(m, nameOf(m));
     setBusyId(null);
-    if (r.ok) showMessengerSnackbar(t("cm_friend_request_you_accepted", { name: nameOf(m) }), { variant: "success" });
-    else showMessengerSnackbar(t("cm_contacts_action_failed"), { variant: "error" });
+    if (ok) c.removeMemberLocally(m.user_id);
+    return ok;
   };
 
   return (
     <section data-cm-friend-section="contacts">
       <MessengerFriendTabSectionLabel
         title={t("cm_contacts_section_title")}
-        count={view.members.length}
+        count={members.length}
         right={
           <Link
             href={MESSENGER_CONTACTS_SCREEN_HREF}
@@ -105,12 +121,14 @@ export function MessengerContactsFriendSection() {
         onLater={() => void c.answerNewDevice(false)}
         onRequestPermission={() => void c.requestPermissionAgain()}
       />
+      {view.listError && preview.length === 0 ? <MessengerContactsRetry compact onRetry={() => void c.reloadList()} /> : null}
       <div>
         {preview.map((m) => (
           <MessengerContactsMemberRow
             key={m.user_id}
             member={m}
-            deviceName={m.client_ref ? view.names[m.client_ref] ?? null : null}
+            requestState={cta.requestStateOf(m)}
+            name={nameOf(m)}
             busy={busyId === m.user_id}
             onPress={() => setSheetMember(m)}
             onAddFriend={() => void addFriend(m)}
@@ -121,12 +139,13 @@ export function MessengerContactsFriendSection() {
       {sheetMember ? (
         <MessengerContactsMemberSheet
           member={sheetMember}
-          deviceName={sheetMember.client_ref ? view.names[sheetMember.client_ref] ?? null : null}
+          name={nameOf(sheetMember)}
           deviceNumber={local ? findLocalNumberByRef(local, sheetMember.on_this_device ? sheetMember.client_ref : null) : null}
           callDefault={view.settings?.callDefault ?? "ask"}
+          requestState={cta.requestStateOf(sheetMember)}
           onClose={() => setSheetMember(null)}
-          onRequested={c.markRequested}
-          onAccept={async (id) => (await c.acceptRequest(id)).ok}
+          onAddFriend={() => addFriend(sheetMember)}
+          onAccept={() => accept(sheetMember)}
           onRemoved={c.removeMemberLocally}
         />
       ) : null}
