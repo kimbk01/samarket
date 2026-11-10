@@ -1,73 +1,116 @@
 name: CI
 
-# 브랜치 검사는 PR 실행 1회만 (push+PR 이중 실행 제거). main 은 병합 후 push 로 검사.
+# 정본: AGENTS.md 「개발 프로세스」 (Owner 2026-11-11 5단계). 검사는 삭제하지 않고 실행 시점·job 수만 나눈다.
+# - PR → dev / PR → main / push dev / push main 에서만 실행 (작업 브랜치 push 는 실행하지 않음).
+# - 필수 상태 검사(6단계 main 보호)는 마지막 집계 job `ci-ok` 하나만 건다 (경로 조건으로 skipped 된 job 은 통과로 집계).
+# - 문서만 바뀐 경우도 건너뛰지 않는다: vitest 21개 파일·verify-call-messenger-restore-hard-lock 이 docs/·AGENTS.md·.cursor/rules 를 읽는다.
 on:
-  push:
-    branches: ["main"]
   pull_request:
+    branches: ["dev", "main"]
+  push:
+    branches: ["dev", "main"]
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  # main 실행은 끝까지 유지 (연속 병합 시 앞 커밋 검사 취소 방지). PR 은 새 커밋이 앞 실행을 취소.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
+  # main push 는 끝까지 유지. PR·dev push 는 새 커밋이 앞 실행을 취소.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  check:
+  changes:
     runs-on: ubuntu-latest
-    # 전체 검사 15~20분 소요 — 20분 제한에서 시간 초과 취소 발생 (2026-10-19)
-    timeout-minutes: 30
-
+    timeout-minutes: 5
+    outputs:
+      android: ${{ steps.c.outputs.android }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: c
+        name: Classify changed paths (no third-party action)
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          full() { printf 'android=true\n' >> "$GITHUB_OUTPUT"; echo "[changes] $1 → android=true"; exit 0; }
+          # main 으로 가는 PR 은 항상 전체 검사
+          if [ "$EVENT" = "pull_request" ] && [ "$BASE_REF" = "main" ]; then full "PR to main"; fi
+          if [ "$EVENT" = "pull_request" ]; then base="$PR_BASE_SHA"; else base="$PUSH_BEFORE"; fi
+          if [ -z "$base" ] || [ -z "${base//0/}" ] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then full "base unknown"; fi
+          # PR 은 checkout 된 merge ref(HEAD) 기준 → 병합이 실제로 들이는 변경만
+          files="$(git diff --name-only --no-renames "$base" HEAD)"
+          if [ -z "$files" ]; then full "empty diff"; fi
+          android=false
+          if printf '%s\n' "$files" | grep -E '^(android/|lib/notifications/contracts/|capacitor\.config\.ts$|package(-lock)?\.json$|scripts/sync-capacitor-vercel\.mjs$|\.github/workflows/ci\.yml$)' >/dev/null; then android=true; fi
+          printf 'android=%s\n' "$android" >> "$GITHUB_OUTPUT"
+          echo "[changes] base=${base:0:9} files=$(printf '%s\n' "$files" | wc -l) android=$android"
 
-      - name: Setup Node
-        uses: actions/setup-node@v5
+  # 계약 검사 + 타입검사(typecheck:test 1회 — typecheck:build 범위 포함, verify:deploy-authority 가 전제 검사) + lint
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run checks (types, lint, test, contracts — no next build)
-        # ubuntu-latest default Node heap OOMs on full `npm run ci` → exit 134 (SIGABRT).
-        # Match local build memory budget; this is infra, not a product-contract gate.
+      - run: npm ci
+      - name: Static checks (contracts, typecheck, lint — no next build)
         env:
           NODE_OPTIONS: --max-old-space-size=8192
-        run: npm run ci
+        run: npm run ci:static
 
-
-  # HARD LOCK C2·C6 (docs/audit/notification-system-ssot-hardlock-reaudit-2026-11-01.md §4) —
-  # Android 탭 목적지 해석기를 TypeScript 와 같은 기준표로 검사한다. 웹만 바뀌어 Android 와 갈라지는 것을 막는다.
-  # 알림 목적지 관련 JVM 테스트만 실행한다(통화 JVM 테스트 3건은 main 기준 실패 중 — 통화 규정상 별도 승인 대상).
-  android-notification-contract:
+  # vitest 2개 shard 병렬 (기존 test:ci 의 --shard=1/2 && --shard=2/2 와 같은 테스트 집합)
+  test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    name: test (${{ matrix.shard }}/2)
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-      - name: Setup Node
-        uses: actions/setup-node@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - run: npm ci
+      - name: vitest shard ${{ matrix.shard }}/2
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: npx vitest run --shard=${{ matrix.shard }}/2
+
+  # HARD LOCK C2·C6 (docs/audit/notification-system-ssot-hardlock-reaudit-2026-11-01.md §4) — 기존과 같은 4개 JVM 테스트.
+  # android/·알림 기준표(lib/notifications/contracts/)·Capacitor 설정·의존성·이 워크플로가 바뀔 때, 그리고 main 으로 가는 PR 에서는 항상.
+  # 통화 JVM 테스트 3건 제외는 기존 그대로 (통화 규정상 별도 승인 대상).
+  android-notification-contract:
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
           cache: gradle
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
       - name: Capacitor sync (generates android/capacitor-cordova-android-plugins)
         run: npm run cap:sync:vercel
       - name: Android notification route contract tests
         working-directory: android
-        # gradle.properties 의 org.gradle.java.home(로컬 Mac 경로)를 CI JDK 로 덮어쓴다(native-build.yml 과 같음).
         run: >-
           ./gradlew --no-daemon -Dorg.gradle.java.home="$JAVA_HOME" testDebugUnitTest
           --tests 'com.dibay.app.NotificationRouteContractTest'
@@ -75,19 +118,35 @@ jobs:
           --tests 'com.dibay.app.DibayAppRouteGuardTest'
           --tests 'com.dibay.app.PushRouteAckMatchContractTest'
 
-  # [배포 구분] 출력 + 빌드 번호 역행·iOS 4곳 불일치만 실패. 네이티브 변경마다 번호 증가는 요구하지 않는다 —
-  # 번호는 설치·배포용 빌드 때 native:prepare(--release)가 강제 (Owner 2026-10-20) — docs/native-build-release-process.md §2
+  # [배포 구분] 출력 + 빌드 번호 역행·iOS 4곳 불일치만 실패 (기존 그대로). PR 은 GITHUB_BASE_REF(dev|main) 기준.
   native-version-bump:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Checkout (full history for merge-base)
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - name: Setup Node
-        uses: actions/setup-node@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
       - name: Verify native build number bump
         run: npm run verify:native-version-bump
+
+  # rulesets 의 유일한 필수 검사. skipped 는 통과, failure·cancelled 는 실패.
+  ci-ok:
+    if: always()
+    needs: [changes, static, test, android-notification-contract, native-version-bump]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Aggregate
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          node -e '
+            const n = JSON.parse(process.env.NEEDS);
+            const bad = Object.entries(n).filter(([, v]) => !["success", "skipped"].includes(v.result));
+            for (const [k, v] of Object.entries(n)) console.log(`${k}: ${v.result}`);
+            if (n.changes.result !== "success") { console.error("changes job must succeed"); process.exit(1); }
+            if (bad.length) process.exit(1);
+          '

@@ -1,147 +1,144 @@
 #!/usr/bin/env node
 /**
- * Vercel Ignored Build Step
+ * Vercel Ignored Build Step — 정본: AGENTS.md 「개발 프로세스」 2번 (Owner 2026-11-11 5단계)
  *
- * Exit 0 → skip build (no Deploy / no Build CPU)
- * Exit 1 → proceed with build
+ * Exit 0 → SKIP (빌드 안 함)
+ * Exit 1 → BUILD
  *
- * Skips Production/Preview builds when the commit only touches docs, markdown,
- * Cursor rules, QA logs, native app sources (android/ · ios/), test files, or other
- * non-runtime paths. App/runtime changes always build.
- *
- * Force a build: put `[vercel build]` in the commit message.
- *
- * main 자동 빌드 (Owner 2026-11-10 「작업자의 스테이징 배포는 인정, 불필요한 부분을 단독으로 올리면 안 된다」):
- * main 푸시마다 스테이징 빌드 — 코드(웹 번들) 변경이 없으면 건너뛴다. 불필요한 단독 푸시 금지는 AGENTS.md 개발 프로세스 2번.
+ * 원칙: 근거가 부족하면 BUILD.
+ * - 기준 = VERCEL_GIT_PREVIOUS_SHA 하나뿐 (Vercel 이 브랜치별 마지막 성공 배포 SHA 를 줌 → dev·main 판정이 서로 독립).
+ * - 기준이 비었음 / clone 에 없음(추가 fetch 후에도) / 현재와 같은 SHA / 현재의 조상이 아님 → BUILD.
+ * - 기준..현재 누적 diff 의 모든 경로가 허용 목록일 때만 SKIP. 빌드 설정·DB 계약·i18n·public 은 항상 BUILD.
+ * - 강제 토큰 없음. 판정 근거를 로그 1줄로 남긴다.
  *
  * Local check:
- *   node scripts/vercel-ignored-build-step.mjs
- *   echo $?
+ *   VERCEL_GIT_PREVIOUS_SHA=<sha> node scripts/vercel-ignored-build-step.mjs; echo $?
  */
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
-const FORCE_TOKEN = "[vercel build]";
-
-/** Directory prefixes that never affect the Next.js Production bundle. */
-const SKIP_DIR_PREFIXES = [
+/** 웹 번들에 들어가지 않는 경로 접두어 — 이 목록만 SKIP 근거가 된다. */
+const SKIP_PREFIXES = [
   "docs/",
   ".cursor/",
-  "scripts/qa/",
-  "agent-transcripts/",
-  // 네이티브 앱 소스(APK·iOS 빌드 전용) — Next.js 번들에 들어가지 않는다. 빌드 번호 증가 커밋 등.
   "android/",
   "ios/",
-  // Windows 데스크톱 셸(WebView2 + MSIX) 소스 — 설계 W0. 웹 번들에 들어가지 않는다.
   "windows/",
-  // 네이티브 로컬 시작 화면 생성물(cap sync) — Next.js 번들에 들어가지 않는다.
   "capacitor-www/",
+  "scripts/qa/",
 ];
 
-/** 웹 번들과 무관한 개별 스크립트(개발용 앱 설치 등) — 로컬·Preview 판정용 */
-const SKIP_SCRIPT_EXACT = ["scripts/ios-staging-dev-build.sh"];
+/** 루트의 *.md (AGENTS.md·CLAUDE.md·README.md 등). 하위 폴더의 .md 는 SKIP 근거가 아니다. */
+const ROOT_MARKDOWN = /^[^/]+\.md$/;
 
-/** 테스트 전용 파일 — 번들에 들어가지 않는다(CI 는 그대로 돈다). */
-const TEST_FILE_PATTERNS = [/(^|\/)__tests__\//, /\.(test|spec)\.[cm]?[jt]sx?$/];
+/** 허용 목록과 상관없이 항상 BUILD. */
+const ALWAYS_BUILD_PREFIXES = ["lib/i18n/", "supabase/", "public/"];
+const ALWAYS_BUILD_ROOT_FILES = [
+  /^vercel\.json$/,
+  /^\.vercelignore$/,
+  /^next\.config\.[^/]+$/,
+  /^package[^/]*\.json$/,
+  /^tsconfig[^/]*$/,
+];
 
-/** Exact paths that are safe to ignore. */
-const SKIP_EXACT = new Set([
-  "AGENTS.md",
-  "AGENTS.md.backup",
-  "CLAUDE.md",
-  "README.md",
-  ".gitignore",
-  ".gitattributes",
-  ".editorconfig",
-  "LICENSE",
-  "LICENSE.md",
-]);
+const SHA_RE = /^[0-9a-f]{40}$/;
 
-/** File extensions that are documentation / editor-only. */
-const SKIP_EXTENSIONS = [".md", ".mdc", ".log", ".txt"];
-
-function log(msg) {
-  console.log(`[vercel-ignore-build] ${msg}`);
-}
-
-function run(cmd) {
-  return execSync(cmd, {
+function git(args) {
+  return execFileSync("git", args, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
 }
 
-function listChangedFiles() {
-  const previousSha = process.env.VERCEL_GIT_PREVIOUS_SHA?.trim();
-  const commitSha = process.env.VERCEL_GIT_COMMIT_SHA?.trim();
-
-  if (previousSha && commitSha && previousSha !== commitSha) {
-    try {
-      const out = run(`git diff --name-only ${previousSha} ${commitSha}`);
-      return out ? out.split("\n").filter(Boolean) : [];
-    } catch {
-      // fall through
-    }
-  }
-
+function tryGit(args) {
   try {
-    const out = run("git diff --name-only HEAD^ HEAD");
-    return out ? out.split("\n").filter(Boolean) : [];
+    return git(args);
   } catch {
     return null;
   }
 }
 
-function isSkippable(file) {
-  const normalized = file.replace(/\\/g, "/").replace(/^\.\//, "");
+function hasCommit(sha) {
+  return tryGit(["cat-file", "-e", `${sha}^{commit}`]) !== null;
+}
 
-  if (SKIP_EXACT.has(normalized)) return true;
-  if (SKIP_SCRIPT_EXACT.includes(normalized)) return true;
-  if (SKIP_DIR_PREFIXES.some((prefix) => normalized.startsWith(prefix))) return true;
-  if (SKIP_EXTENSIONS.some((ext) => normalized.toLowerCase().endsWith(ext))) return true;
-  if (TEST_FILE_PATTERNS.some((re) => re.test(normalized))) return true;
+function isShallow() {
+  return tryGit(["rev-parse", "--is-shallow-repository"]) === "true";
+}
 
-  return false;
+/** 0 = 조상, 1 = 조상 아님, null = 판정 불가 */
+function isAncestor(base, head) {
+  try {
+    execFileSync("git", ["merge-base", "--is-ancestor", base, head], { stdio: "ignore" });
+    return 0;
+  } catch (e) {
+    return e && typeof e === "object" && "status" in e && e.status === 1 ? 1 : null;
+  }
+}
+
+function unshallow() {
+  if (isShallow()) tryGit(["fetch", "--no-tags", "--quiet", "--unshallow", "origin"]);
+}
+
+function classifyPath(file) {
+  const p = file.replace(/\\/g, "/").replace(/^\.\//, "");
+  if (ALWAYS_BUILD_PREFIXES.some((x) => p.startsWith(x))) return "always-build";
+  if (ALWAYS_BUILD_ROOT_FILES.some((re) => re.test(p))) return "always-build";
+  if (SKIP_PREFIXES.some((x) => p.startsWith(x))) return "skip";
+  if (ROOT_MARKDOWN.test(p)) return "skip";
+  return "build";
+}
+
+function decide() {
+  const base = (process.env.VERCEL_GIT_PREVIOUS_SHA ?? "").trim().toLowerCase();
+  const head = tryGit(["rev-parse", "HEAD"]);
+  const ctx = { base, head };
+
+  if (!head) return { build: true, reason: "head-unresolved", ...ctx };
+  const envHead = (process.env.VERCEL_GIT_COMMIT_SHA ?? "").trim().toLowerCase();
+  if (envHead && envHead !== head) return { build: true, reason: "head-mismatch", ...ctx };
+  if (!base) return { build: true, reason: "base-empty", ...ctx };
+  if (!SHA_RE.test(base)) return { build: true, reason: "base-invalid", ...ctx };
+  if (base === head) return { build: true, reason: "same-sha", ...ctx };
+
+  if (!hasCommit(base)) {
+    tryGit(["fetch", "--no-tags", "--quiet", "--depth=50", "origin", base]);
+    if (!hasCommit(base)) unshallow();
+    if (!hasCommit(base)) return { build: true, reason: "base-missing", ...ctx };
+  }
+
+  let anc = isAncestor(base, head);
+  if (anc !== 0 && isShallow()) {
+    unshallow();
+    anc = isAncestor(base, head);
+  }
+  if (anc !== 0) return { build: true, reason: anc === 1 ? "not-ancestor" : "ancestry-unknown", ...ctx };
+
+  const out = tryGit(["diff", "--name-only", "--no-renames", "-z", base, head]);
+  if (out === null) return { build: true, reason: "diff-failed", ...ctx };
+  const files = out.split("\0").filter(Boolean);
+  if (files.length === 0) return { build: false, reason: "tree-identical", files, ...ctx };
+
+  const always = files.find((f) => classifyPath(f) === "always-build");
+  if (always) return { build: true, reason: "always-build-path", files, first: always, ...ctx };
+  const runtime = files.find((f) => classifyPath(f) === "build");
+  if (runtime) return { build: true, reason: "runtime-path", files, first: runtime, ...ctx };
+  return { build: false, reason: "allowlist-only", files, first: files[0], ...ctx };
 }
 
 function main() {
-  const commitMessage =
-    process.env.VERCEL_GIT_COMMIT_MESSAGE ||
-    (() => {
-      try {
-        return run("git log -1 --pretty=%B");
-      } catch {
-        return "";
-      }
-    })();
-
-  if (commitMessage.includes(FORCE_TOKEN)) {
-    log(`force token ${FORCE_TOKEN} present → build`);
-    process.exit(1);
+  let r;
+  try {
+    r = decide();
+  } catch (e) {
+    r = { build: true, reason: `error:${e instanceof Error ? e.message.split("\n")[0] : "unknown"}` };
   }
-
-  const files = listChangedFiles();
-  if (files === null) {
-    log("could not resolve git diff → build (safe default)");
-    process.exit(1);
-  }
-
-  if (files.length === 0) {
-    log("no file changes detected → skip");
-    process.exit(0);
-  }
-
-  const relevant = files.filter((f) => !isSkippable(f));
-  if (relevant.length === 0) {
-    log(`docs/non-runtime only (${files.length} file(s)) → skip`);
-    for (const f of files.slice(0, 20)) log(`  skip: ${f}`);
-    if (files.length > 20) log(`  … +${files.length - 20} more`);
-    process.exit(0);
-  }
-
-  log(`runtime-relevant change(s) → build`);
-  for (const f of relevant.slice(0, 30)) log(`  build: ${f}`);
-  if (relevant.length > 30) log(`  … +${relevant.length - 30} more`);
-  process.exit(1);
+  const short = (s) => (s ? String(s).slice(0, 9) : "-");
+  console.log(
+    `[vercel-ignore-build] decision=${r.build ? "BUILD" : "SKIP"} reason=${r.reason}` +
+      ` base=${short(r.base)} head=${short(r.head)} files=${r.files ? r.files.length : "-"}` +
+      (r.first ? ` first=${r.first}` : ""),
+  );
+  process.exit(r.build ? 1 : 0);
 }
 
 main();
