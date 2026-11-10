@@ -20,6 +20,13 @@ import {
 import { launchOutgoingDirectCall } from "@/lib/community-messenger/call-session-navigation-seed";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import {
+  beginCallLogsFetch,
+  getCallLogsCachedCursor,
+  isCallLogsCacheFresh,
+  markCallLogsFetched,
+  recordCallLogsOlderPage,
+} from "@/lib/community-messenger/call-history/call-logs-freshness";
+import {
   appendCommunityMessengerCallLogsById,
   fetchCommunityMessengerCallLogsClient,
   useCommunityCallHistoryRealtimeSync,
@@ -140,16 +147,18 @@ export function MessengerCallLogsPanel({
   );
 
   const refetchCallLogsFromServer = useCallback(async () => {
+    const startedAtInvalidation = beginCallLogsFetch();
     const fetched = await fetchCommunityMessengerCallLogsClient();
     if (fetched) {
       applyFirstPageFromServer(fetched);
+      markCallLogsFetched(resolvedViewerUserId, startedAtInvalidation, fetched);
       return;
     }
     if (calls.length === 0) {
       setError(t("cm_ui_call_logs_load_failed"));
       setLoading(false);
     }
-  }, [applyFirstPageFromServer, calls.length, t]);
+  }, [applyFirstPageFromServer, calls.length, resolvedViewerUserId, t]);
 
   const onLoadMore = useCallback(async () => {
     const cursor = nextCursorRef.current?.trim();
@@ -169,7 +178,8 @@ export function MessengerCallLogsPanel({
     });
     setNextCursor(page.nextCursor);
     setHasMore(page.hasMore);
-  }, [enrichCalls, loadingMore, onBootstrapCallsChange, t]);
+    recordCallLogsOlderPage(resolvedViewerUserId, page);
+  }, [enrichCalls, loadingMore, onBootstrapCallsChange, resolvedViewerUserId, t]);
 
   useCommunityCallHistoryRealtimeSync({
     enabled: Boolean(resolvedViewerUserId),
@@ -189,6 +199,16 @@ export function MessengerCallLogsPanel({
     mountRefreshDoneRef.current = true;
     if (skipMountRefetchOnceRef.current) {
       skipMountRefetchOnceRef.current = false;
+      return;
+    }
+    /**
+     * 채팅 P0-4 (Owner 「P0-4 승인」 2026-11-11): 다시 연 통화 탭 — 마지막 조회 뒤 바뀌었을 신호가 없으면(실시간·통화 종료·
+     * 앱 복귀·60초) 홈 데이터의 목록을 그대로 쓰고 다시 받지 않는다(실측: 방문마다 0.6~1.2초 재조회).
+     */
+    if (isCallLogsCacheFresh(resolvedViewerUserId)) {
+      const cached = getCallLogsCachedCursor();
+      setNextCursor(cached.nextCursor);
+      setHasMore(cached.hasMore);
       return;
     }
     void refetchCallLogsFromServer();
