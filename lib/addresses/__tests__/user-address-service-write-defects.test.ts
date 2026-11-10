@@ -208,6 +208,12 @@ describe("DATA-006 coordinate validation", () => {
     expect(validatePlacesAddressPayload({ ...base, latitude: 14.65, longitude: 121.03 })).toBeNull();
     expect(validatePlacesAddressPayload({ ...base, latitude: 0, longitude: 121.03 })).toBeNull();
   });
+  it("detail (unit/floor) is optional for a saved address — delivery order checks it separately", () => {
+    expect(
+      validatePlacesAddressPayload({ formattedAddress: "Diliman, Quezon City", detailAddress: "", latitude: 14.65, longitude: 121.03 })
+    ).toBeNull();
+    expect(validatePlacesAddressPayload({ formattedAddress: "Diliman, Quezon City", latitude: 14.65, longitude: 121.03 })).toBeNull();
+  });
 });
 
 function validPayload(): import("@/lib/addresses/user-address-types").UserAddressWritePayload {

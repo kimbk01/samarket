@@ -1,6 +1,7 @@
 /**
  * 한국 주소 지원 1단계 (Owner 2026-11-10 「시안대로 구현」) — 시/군/구 판정·한국 해석·표시·저장 위치·배달 안내.
  */
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   isKoreaLatLng,
@@ -116,5 +117,12 @@ describe("4단계 — 한국 대표 주소 = 배달 지역 아님", () => {
   it("KR 지역 코드면 not_service_area, 필리핀은 ok", () => {
     expect(resolveDeliveryViewerGate({ source: "saved_address", userId: "u", canonicalLguId: "KR:11680" })).toBe("not_service_area");
     expect(resolveDeliveryViewerGate({ source: "saved_address", userId: "u", canonicalLguId: "1381300000" })).toBe("ok");
+  });
+  it("배달 홈: 한국 주소면 매장 모집 화면(배너·흐림·팝업)을 걸지 않고 안내를 보인다", () => {
+    const src = readFileSync("components/stores/home/hub/StoresHomeHub.tsx", "utf8");
+    expect(src).toMatch(/recruitingShown = recruiting && blockedViewerGate !== "not_service_area"/);
+    expect(src).toMatch(/<StoresHomeRecruitingDim state=\{recruitingShown \? launchState : null\}>/);
+    expect(src).toMatch(/\{recruitingShown && launchState \? <DeliveryRecruitingOverlays/);
+    expect(src).not.toMatch(/state=\{recruiting \? launchState/);
   });
 });

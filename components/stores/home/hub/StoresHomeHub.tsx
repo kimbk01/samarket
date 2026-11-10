@@ -490,8 +490,13 @@ export function StoresHomeHub({
   const viewerGate = readDeliveryViewerGate(meta) ?? predictedViewerGate;
   const blockedViewerGate =
     viewerGate && isDeliveryViewerGateBlocked(viewerGate) && stores.length === 0 ?
-      (viewerGate as "login_required" | "address_required")
+      (viewerGate as "login_required" | "address_required" | "not_service_area")
     : null;
+  /**
+   * 한국 대표 주소(`not_service_area`)는 매장 모집 화면(큰 배너·흐림·팝업)보다 「배달 지역이 아닙니다」를 먼저 보인다
+   * — 모집은 필리핀 매장 모집이라 한국 주소 손님에게 해당 없음 (Owner 「2건 수정」 2026-11-10, 실기: 안내가 흐림 아래 가려짐).
+   */
+  const recruitingShown = recruiting && blockedViewerGate !== "not_service_area";
 
   const emptyFallback = (
     <div className={`border border-dashed px-4 py-8 text-center ${FB.cardFlat} ${FB.hairline}`}>
@@ -559,12 +564,12 @@ export function StoresHomeHub({
       data-app-boot-status={bootStatus}
     >
       <StoresHomePerfBoot />
-      {recruiting && launchState ?
+      {recruitingShown && launchState ?
         <div className={`${STORES_HOME_CONTENT_COLUMN_CLASS} px-[var(--delivery-page-x)] pt-2`}>
           <DeliveryRecruitingHero state={launchState} />
         </div>
       : null}
-      <StoresHomeRecruitingDim state={recruiting ? launchState : null}>
+      <StoresHomeRecruitingDim state={recruitingShown ? launchState : null}>
       <StoresHomeQuickCategories />
       {/* 배민 미러링 — 상단 탭 · 아이콘 판 · 바로가기 줄 (본문과 함께 스크롤) */}
       <DeliveryHomeMenuBoard />
@@ -574,7 +579,7 @@ export function StoresHomeHub({
       <div className={`${STORES_HOME_CONTENT_COLUMN_CLASS} ${STORES_HOME_STACK} px-[var(--delivery-page-x)] pt-1`}>
         {blockedViewerGate ?
           <DeliveryViewerGatePanel gate={blockedViewerGate} />
-        : recruiting ?
+        : recruitingShown ?
           null
         : <StoresHomeHeroBanner refreshKey={bannerRefreshKey} />}
 
@@ -632,7 +637,7 @@ export function StoresHomeHub({
         }
       </div>
       </StoresHomeRecruitingDim>
-      {recruiting && launchState ? <DeliveryRecruitingOverlays state={launchState} /> : null}
+      {recruitingShown && launchState ? <DeliveryRecruitingOverlays state={launchState} /> : null}
     </div>
   );
 }

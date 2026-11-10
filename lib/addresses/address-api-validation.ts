@@ -3,7 +3,7 @@ import { parseFiniteLatitude, parseFiniteLongitude } from "@/lib/geo/parse-finit
 
 /**
  * `POST/PATCH /api/me/addresses` — `validatePlacesAddressPayload` 반환 코드(본문 `error` 문자열).
- * 필리핀형 Places 저장: `place_id` + 좌표 + `formatted_address`(또는 full) + 상세(`detail_address`/`unit_floor_room`) 필수.
+ * 필리핀형 Places 저장: `place_id` + 좌표 + `formatted_address`(또는 full) 필수 · 상세(`detail_address`/`unit_floor_room`)는 선택(배달 주문에서만 필수).
  * 사용자 문구는 `addresses-ui` · `translateUserAddressApiError` 에서 i18n.
  */
 export const USER_ADDRESS_PLACES_VALIDATION_CODES = {
@@ -123,7 +123,6 @@ export function validatePlacesAddressPayload(p: Partial<UserAddressWritePayload>
   const placeId = p.placeId?.trim() ?? "";
   const buildingName = (p.buildingName ?? "").trim();
   const formatted = (p.formattedAddress ?? p.fullAddress ?? "").trim();
-  const detail = (p.detailAddress ?? p.unitFloorRoom ?? "").trim();
   const lat = p.latitude;
   const lng = p.longitude;
   if (opts?.requirePlace === true && !placeId) return "place_id_required";
@@ -135,7 +134,11 @@ export function validatePlacesAddressPayload(p: Partial<UserAddressWritePayload>
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return "coordinates_invalid";
   // (0,0) "Null Island" — unset/default pin, never a real member address.
   if (lat === 0 && lng === 0) return "coordinates_invalid";
-  if (!detail) return "detail_address_required";
+  /**
+   * 상세 주소(호수·층)는 일반 주소에서 선택 — 주소 입력 시안 4·6번(Owner 「시안대로 구현」 2026-11-09).
+   * 배달 주문은 주문 서버(`delivery_detail_address_required`)·배달 주소 화면에서 따로 필수로 막는다.
+   * (예전: 저장에서 항상 필수 → 화면 「(선택)」과 달라 빈 칸 저장이 막혔다, 실기 2026-11-10)
+   */
   /** 거래 D A-1·W-1 (2026-10-28): 시(city/municipality)를 확정하지 못한 주소는 저장하지 않는다 — 거래 지역·거리 기준이 시 */
   if (p.cityMunicipality !== undefined && !(p.cityMunicipality ?? "").trim()) return "city_required";
   return null;

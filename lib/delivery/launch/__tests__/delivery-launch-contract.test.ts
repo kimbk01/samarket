@@ -115,7 +115,7 @@ describe("배달 오픈 관리 — 매장 모집 중 고객 경로", () => {
   it("배달 첫 화면 — 모집이면 배너·흐림·팝업, 광고 히어로 대신 / 광고 팝업 억제", () => {
     const hub = read("components/stores/home/hub/StoresHomeHub.tsx");
     expect(hub).toContain("<DeliveryRecruitingHero state={launchState} />");
-    expect(hub).toContain("<StoresHomeRecruitingDim state={recruiting ? launchState : null}>");
+    expect(hub).toContain("<StoresHomeRecruitingDim state={recruitingShown ? launchState : null}>");
     expect(hub).toContain("<DeliveryRecruitingOverlays state={launchState} />");
     // 별도 모집 팝업·광고 팝업 억제는 되돌림 (Owner 2026-11-10) — 기존 고객센터 FAB 만
     expect(read("components/platform-popup/GlobalPopupHost.tsx")).not.toContain("deliveryRecruitingHome");
@@ -150,7 +150,7 @@ describe("배달 오픈 관리 — 정식 운영이면 기존 동작 그대로 (
     const hub = read("components/stores/home/hub/StoresHomeHub.tsx");
     expect(hub).toContain("if (!state) return <>{children}</>;");
     expect(hub).toContain(": <StoresHomeHeroBanner refreshKey={bannerRefreshKey} />}");
-    expect(hub).toContain("{recruiting && launchState ? <DeliveryRecruitingOverlays state={launchState} /> : null}");
+    expect(hub).toContain("{recruitingShown && launchState ? <DeliveryRecruitingOverlays state={launchState} /> : null}");
   });
   it("서버 — 주문 거부·확인용 예외 판정은 recruiting 일 때만", () => {
     expect(read("app/api/me/store-orders/route.ts")).toContain('if (launch.mode === "recruiting") {');
