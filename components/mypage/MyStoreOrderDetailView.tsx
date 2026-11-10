@@ -34,6 +34,10 @@ import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-order-to-commerce-cart";
 import { SupportContextProvider } from "@/components/support/SupportContextProvider";
 import { buildMemberSupportContext } from "@/lib/support/support-context";
+import {
+  SUPPORT_TICKET_STORE_ORDER_CATEGORY,
+  SUPPORT_TICKET_STORE_ORDER_ISSUE,
+} from "@/lib/support/support-ticket-form";
 import { shouldEnableStoreOrderSupportFab } from "@/lib/support/store-order-support-fab";
 import { BuyerStoreOrderCompletedReviewBlock } from "@/components/mypage/BuyerStoreOrderCompletedReviewBlock";
 import type { BuyerStoreOrderReviewSummary } from "@/lib/stores/buyer-store-order-review-meta";
@@ -662,10 +666,14 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
       refundPending ||
       canRefundRequest ||
       canBuyerCancel,
-    category: "ORDER",
+    // 접수형 2단계(Owner 2026-11-10): 주문 문제는 매장에 먼저(주문 채팅) — 고객센터는 신고 › 매장 신고(주문 분쟁)
+    category: SUPPORT_TICKET_STORE_ORDER_CATEGORY,
+    issueType: SUPPORT_TICKET_STORE_ORDER_ISSUE,
     sourceSurface: "mypage_store_order_detail",
     referenceType: "STORE_ORDER",
     referenceId: String(order.id ?? orderId),
+    referenceTitle: [order.order_no, order.store_name].filter(Boolean).join(" · "),
+    storeChatHref: orderChatDisabled ? undefined : chatHref,
   });
 
   return (

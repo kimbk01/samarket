@@ -22,6 +22,18 @@ export const SUPPORT_TICKET_BODY_MAX = 1000;
 /** 매장 없는 회원 전용 분야 — 매장이 있으면 「매장 운영·승인」으로 묻는다. */
 export const SUPPORT_TICKET_STORE_LESS_ONLY_CATEGORIES: readonly string[] = ["STORE_PARTNERSHIP"];
 
+/**
+ * 고객이 고객센터에서 고를 수 없는 회원 분야 (접수형 2단계 · Owner 2026-11-10).
+ * 「주문」(주문 상태·배달 상태·누락·취소)은 매장이 답할 일 → 매장에 문의(주문 채팅).
+ * 매장이 답하지 않거나 분쟁이면 「신고 › 매장 신고(주문 분쟁)」로 접수한다.
+ * 서버 판정(레지스트리 selectable)은 지난 문의·옛 호출 호환을 위해 그대로 둔다 — 고객 화면 목록에서만 뺀다.
+ */
+export const SUPPORT_TICKET_HIDDEN_MEMBER_CATEGORIES: readonly string[] = ["ORDER"];
+
+/** 주문 화면에서 여는 고객센터 문의 = 신고 › 매장 신고(주문 분쟁) */
+export const SUPPORT_TICKET_STORE_ORDER_CATEGORY = "REPORT" as const;
+export const SUPPORT_TICKET_STORE_ORDER_ISSUE = "STORE_ORDER_DISPUTE" as const;
+
 export type SupportTicketFormState = {
   audience: SupportAudience;
   sourceSurface: string;
@@ -34,24 +46,36 @@ export type SupportTicketFormState = {
   referenceType?: string;
   referenceId?: string;
   referenceTitle?: string;
+  /** 주문 화면 — 매장 채팅 주소(표시 전용, 접수 요청에는 넣지 않는다) */
+  storeChatHref?: string;
   body: string;
 };
 
 export function initSupportTicketForm(context: SupportContext): SupportTicketFormState {
   const t = initSupportTriageFromContext(context);
+  const presetIssue =
+    t.category && context.issueType && listIssueTypesForCategory(t.category).some((i) => i.id === context.issueType)
+      ? context.issueType
+      : null;
   return {
     audience: t.audience,
     sourceSurface: t.sourceSurface,
     storeId: t.storeId,
     category: t.category,
-    issueType: null,
+    issueType: presetIssue,
     categoryLocked: t.categoryLocked,
     explicitOtherSelection: t.explicitOtherSelection,
     referenceType: t.referenceType,
     referenceId: t.referenceId,
     referenceTitle: t.referenceTitle,
+    storeChatHref: context.storeChatHref?.trim() || undefined,
     body: "",
   };
+}
+
+/** 주문 문제 안내(「매장에 먼저 문의」) 카드를 보일지 — 회원이 주문 화면에서 연 경우 */
+export function isSupportTicketStoreOrderEntry(state: SupportTicketFormState): boolean {
+  return state.audience === "MEMBER" && state.referenceType === "STORE_ORDER";
 }
 
 /** 분야 목록 — 대상(회원/매장)별 선택 가능 분야, 매장 있는 회원은 「매장 입점 문의」 제외 */
@@ -60,8 +84,12 @@ export function listSupportTicketCategories(input: {
   viewerHasStore: boolean;
 }): readonly SupportCategoryDefinition[] {
   const all = listSelectableSupportCategories(input.audience);
-  if (input.audience !== "MEMBER" || !input.viewerHasStore) return all;
-  return all.filter((c) => !SUPPORT_TICKET_STORE_LESS_ONLY_CATEGORIES.includes(c.id));
+  if (input.audience !== "MEMBER") return all;
+  return all.filter(
+    (c) =>
+      !SUPPORT_TICKET_HIDDEN_MEMBER_CATEGORIES.includes(c.id) &&
+      !(input.viewerHasStore && SUPPORT_TICKET_STORE_LESS_ONLY_CATEGORIES.includes(c.id))
+  );
 }
 
 export function selectSupportTicketCategory(

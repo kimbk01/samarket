@@ -38,6 +38,10 @@ export type SupportContext = {
   explicitOtherSelection?: boolean;
   /** Generic START: modal shows category picker; do not invent OTHER. */
   needsCategorySelection?: boolean;
+  /** 화면 표시용 세부 유형 미리 선택(접수형) — 서버는 open 요청의 issueType 만 본다 */
+  issueType?: string;
+  /** 주문 화면 — 「매장에 문의하기(주문 채팅)」 주소. 채팅을 열 수 없는 주문이면 비운다(표시 전용) */
+  storeChatHref?: string;
 };
 
 /**
@@ -59,6 +63,10 @@ export type MemberSupportContextInput = {
   referenceId?: string;
   referenceTitle?: string;
   explicitOtherSelection?: boolean;
+  /** 화면 표시용 세부 유형 미리 선택(접수형) */
+  issueType?: string;
+  /** 주문 화면 — 「매장에 문의하기(주문 채팅)」 주소(표시 전용) */
+  storeChatHref?: string;
 };
 
 export type OwnerSupportContextInput = {
@@ -81,6 +89,8 @@ export function buildMemberSupportContext(input: MemberSupportContextInput): Sup
     referenceId: input.referenceId?.trim() || undefined,
     ...(supportReferenceTitle(input.referenceTitle) ? { referenceTitle: supportReferenceTitle(input.referenceTitle) } : {}),
     ...(input.explicitOtherSelection === true ? { explicitOtherSelection: true } : {}),
+    ...(input.issueType?.trim() ? { issueType: input.issueType.trim() } : {}),
+    ...(input.storeChatHref?.trim() ? { storeChatHref: input.storeChatHref.trim() } : {}),
   };
 }
 

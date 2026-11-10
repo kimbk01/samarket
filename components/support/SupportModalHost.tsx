@@ -309,6 +309,10 @@ export function SupportModalHost() {
           submitError={submitError}
           onClose={handleClose}
           onSubmit={(state, draftKey) => void handleSubmit(state, draftKey)}
+          onOpenStoreChat={(href) => {
+            closeSupportModal();
+            router.push(href);
+          }}
         />
       );
     }

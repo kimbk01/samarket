@@ -32,6 +32,7 @@ import {
   clearSupportTicketDraft,
   initSupportTicketForm,
   isSupportTicketAnsweredStatus,
+  isSupportTicketStoreOrderEntry,
   isSupportTicketClosedStatus,
   listSupportTicketCategories,
   readSupportTicketDraft,
@@ -232,6 +233,7 @@ export function SupportTicketCompose({
   submitError,
   onClose,
   onSubmit,
+  onOpenStoreChat,
 }: {
   context: SupportContext;
   viewerName: string;
@@ -240,6 +242,8 @@ export function SupportTicketCompose({
   submitError: string | null;
   onClose: () => void;
   onSubmit: (state: SupportTicketFormState, draftKey: string) => void;
+  /** 주문 화면 — 「매장에 문의하기(주문 채팅)」 */
+  onOpenStoreChat: (href: string) => void;
 }) {
   const { t, safeT } = useI18n();
   const ownerStores = useViewerOwnerStores();
@@ -278,6 +282,7 @@ export function SupportTicketCompose({
     : "";
 
   const title = isOwner ? t("support_ticket_owner_title") : t("support_ticket_title");
+  const storeOrderEntry = isSupportTicketStoreOrderEntry(state);
 
   const whoRow = (
     <TopRow
@@ -444,7 +449,37 @@ export function SupportTicketCompose({
           </div>
         ) : null}
 
-        <SectionLabel>{draft ? t("support_ticket_new_section") : t("support_ticket_section_what")}</SectionLabel>
+        {storeOrderEntry ? (
+          <div
+            className="mx-4 mt-3 grid gap-2 rounded-ui-rect border border-[var(--overlay-border)] bg-[var(--overlay-surface)] p-3"
+            data-support-ticket-store-first="1"
+          >
+            <p className="text-[14px] font-semibold text-[var(--overlay-text-primary)]">
+              {t("support_ticket_store_first_title")}
+            </p>
+            <p className="text-[12px] leading-relaxed text-[var(--overlay-text-secondary)]">
+              {state.storeChatHref ? t("support_ticket_store_first_body") : t("support_ticket_store_first_chat_closed")}
+            </p>
+            {state.storeChatHref ? (
+              <DibayOverlayButton
+                roleTone="primary"
+                className="w-full !min-h-11"
+                data-support-ticket-store-chat="1"
+                onClick={() => onOpenStoreChat(state.storeChatHref!)}
+              >
+                {t("support_ticket_store_first_cta")}
+              </DibayOverlayButton>
+            ) : null}
+          </div>
+        ) : null}
+
+        <SectionLabel>
+          {draft
+            ? t("support_ticket_new_section")
+            : storeOrderEntry
+              ? t("support_ticket_store_unresolved")
+              : t("support_ticket_section_what")}
+        </SectionLabel>
         <Group>
           <FieldRow
             label={t("support_ticket_field_category")}

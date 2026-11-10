@@ -107,10 +107,10 @@ describe("FLW-05 — 주문 단위 고객센터 진입", () => {
     expect(code("lib/support/store-order-support-fab.ts")).not.toMatch(/"refund_rejected"/);
   });
 
-  it("정식 패널도 ORDER · STORE_ORDER 컨텍스트를 게시한다", () => {
+  it("정식 패널도 주문 단위(STORE_ORDER) 고객센터 컨텍스트를 게시한다 — 접수형 2단계: 신고 › 매장 신고(주문 분쟁)", () => {
     const panel = code("components/mypage/MyStoreOrderExpandPanel.tsx");
     expect(panel).toMatch(/<SupportContextProvider value=\{supportContext\}>/);
-    expect(panel).toMatch(/category: "ORDER"/);
+    expect(panel).toMatch(/category: SUPPORT_TICKET_STORE_ORDER_CATEGORY/);
     expect(panel).toMatch(/referenceType: "STORE_ORDER"/);
     expect(SUPPORT_FAB_ENABLED_VIEW_FILES).toContain("components/mypage/MyStoreOrderExpandPanel.tsx");
   });
