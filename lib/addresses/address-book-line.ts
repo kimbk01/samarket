@@ -129,7 +129,7 @@ export function formatAddressBookLineSegments(
    * (주소록 목록·장바구니 배송지·사장님 카드·신청 스냅샷·관리자 — 결제·주문 주소와 같은 문장).
    * 이전: 이 함수가 따로 「도로, 건물, Barangay …, 시, 도」를 이어 붙여 장소·도로 순서가 바뀌고 도 이름·같은 구간이 반복됐다.
    */
-  if ((a.countryCode ?? "PH").trim().toUpperCase() === "PH") {
+  if (["PH", "KR"].includes((a.countryCode ?? "PH").trim().toUpperCase())) {
     const parts = addressDisplayPartsFromUserAddress(a);
     const storeHead = opts?.suppressGateBuildingIfMatchesSamarketStore?.trim().toLowerCase() ?? "";
     if (parts && storeHead && a.labelType === "shop" && (parts.placeName ?? "").trim().toLowerCase() === storeHead) {

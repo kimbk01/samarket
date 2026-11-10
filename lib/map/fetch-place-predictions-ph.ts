@@ -55,7 +55,23 @@ function mapPredictions(predictions: google.maps.places.AutocompletePrediction[]
  * 필리핀 우선 — Places Autocomplete 예측(제목·부제 구조화 포함), 오류와 0건을 구분해 돌려준다(S08).
  * 지도 로드 실패·예외 → `{ ok:false, reason:"maps_unavailable" }`.
  */
-export async function fetchPlacePredictionsPhResult(input: string): Promise<PlacePredictionsResult> {
+/**
+ * 검색 나라 — 한국 주소 지원 1단계(2026-11-10). 기본 필리핀(영어 결과), 한국은 한글 결과.
+ * 한 번에 한 나라만 찾는다(두 나라를 섞으면 필리핀 결과에 한국 장소가 섞임).
+ */
+export type PlaceSearchCountry = "PH" | "KR";
+
+export function placeSearchLocale(country: PlaceSearchCountry): { country: string; language: string; region: string } {
+  return country === "KR"
+    ? { country: "kr", language: "ko", region: "KR" }
+    : { country: "ph", language: GOOGLE_MAPS_ADDRESS_LANGUAGE, region: GOOGLE_MAPS_ADDRESS_REGION };
+}
+
+export async function fetchPlacePredictionsPhResult(
+  input: string,
+  opts?: { country?: PlaceSearchCountry },
+): Promise<PlacePredictionsResult> {
+  const locale = placeSearchLocale(opts?.country ?? "PH");
   const q = input.trim();
   if (q.length < 2) return { ok: true, rows: [] };
 
@@ -75,9 +91,9 @@ export async function fetchPlacePredictionsPhResult(input: string): Promise<Plac
     service.getPlacePredictions(
       {
         input: q,
-        componentRestrictions: { country: "ph" },
-        language: GOOGLE_MAPS_ADDRESS_LANGUAGE,
-        region: GOOGLE_MAPS_ADDRESS_REGION,
+        componentRestrictions: { country: locale.country },
+        language: locale.language,
+        region: locale.region,
       },
       (predictions, status) => {
         const kind = classifyPlacePredictionsStatus(

@@ -21,6 +21,8 @@ export type CanonicalIdentitySource =
   | "address_only";
 
 export type CanonicalAddressDraft = {
+  /** 주소 나라 — 없으면 필리핀(PH). 한국 주소 지원 1단계(2026-11-10): `KR` 이면 한국 해석·한국 시/군/구 코드 */
+  countryCode?: "PH" | "KR";
   latitude: number;
   longitude: number;
   placeId: string | null;

@@ -53,7 +53,7 @@ export function resolveUserAddressTitle(row: UserAddressDTO | null | undefined):
 export function formatUserAddressFull(row: UserAddressDTO | null | undefined): string | null {
   if (!row?.id) return null;
   /** 주소 SSOT 5단계: 필리핀 주소 = ③ 전체 주소(세부, 장소, 도로, 바랑가이, 시/군) — 결제·주소록과 같은 문장 */
-  if ((row.countryCode ?? "PH").trim().toUpperCase() === "PH") {
+  if (["PH", "KR"].includes((row.countryCode ?? "PH").trim().toUpperCase())) {
     return normalizeDisplayLine(formatAddressFullOneLine(addressDisplayPartsFromUserAddress(row)));
   }
   return normalizeDisplayLine(formatCanonicalFullLineFromDto(row));

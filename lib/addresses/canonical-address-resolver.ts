@@ -1,4 +1,5 @@
 import { parsePhFromGooglePlaceResult } from "@/lib/addresses/ph-google-place-address-components";
+import { isKoreaLatLng } from "@/lib/addresses/kr/kr-sigungu";
 import { stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
 import type { CanonicalAddressDraft, CanonicalPreferredPlace } from "@/lib/addresses/canonical-address-draft";
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
@@ -178,9 +179,15 @@ export function buildCanonicalDraftFromPlaceResult(
 export async function resolveCanonicalAddressFromPlaceId(
   placeId: string,
   pin?: google.maps.LatLngLiteral | null,
+  /** 검색 나라 — 한국이면 한국어 상세 + 한국 해석 (한국 주소 지원 2026-11-10) */
+  opts?: { country?: "PH" | "KR" },
 ): Promise<CanonicalAddressDraft | null> {
   const pid = placeId.trim();
   if (!pid) return null;
+  if (opts?.country === "KR") {
+    const { resolveKrDraftFromPlaceId } = await import("@/lib/addresses/kr/kr-google-address");
+    return resolveKrDraftFromPlaceId(pid);
+  }
   await loadGoogleMaps();
   const place = await fetchPlaceDetailsAsLegacyPlaceResult(pid, PLACE_FIELDS_POI_FULL);
   if (!place) return null;
@@ -200,6 +207,15 @@ export async function resolveCanonicalAddressFromLatLng(
   _preferred?: CanonicalPreferredPlace | null,
 ): Promise<CanonicalAddressDraft | null> {
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  /** 한국 좌표 = 한국 해석 (현재 위치·지도 핀 공통 · 한국 주소 지원 2026-11-10) */
+  if (isKoreaLatLng(latitude, longitude)) {
+    try {
+      const { resolveKrPinDraft } = await import("@/lib/addresses/kr/kr-google-address");
+      return await resolveKrPinDraft(latitude, longitude);
+    } catch {
+      return null;
+    }
+  }
   try {
     const { resolveCurrentPinCanonicalAddress } = await import(
       "@/lib/addresses/resolve-current-pin-canonical-address"
@@ -211,6 +227,8 @@ export async function resolveCanonicalAddressFromLatLng(
 }
 
 export function draftFromSavedRow(row: {
+  /** 저장된 나라 — 한국 주소 수정 시 한국 갈래 유지 */
+  countryCode?: string | null;
   latitude: number | null;
   longitude: number | null;
   placeId: string | null;
@@ -232,6 +250,7 @@ export function draftFromSavedRow(row: {
   const placeName = (row.buildingName ?? "").trim() || null;
   const street = (row.streetAddress ?? "").trim() || null;
   return {
+    countryCode: (row.countryCode ?? "").trim().toUpperCase() === "KR" ? "KR" : "PH",
     latitude,
     longitude,
     placeId: (row.placeId ?? "").trim() || null,

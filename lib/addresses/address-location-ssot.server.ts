@@ -16,6 +16,7 @@
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
 import { resolveCanonicalLguIdForAddressWrite } from "@/lib/addresses/address-lgu-resolve";
+import { isKrRegionId, krRegionId, resolveKrSigunguCode } from "@/lib/addresses/kr/kr-sigungu";
 import { listTradeNationalLgus } from "@/lib/trade/location/national/load-national-lgu-dataset";
 import { normalizeTradeNationalLguName } from "@/lib/trade/location/national/normalize-lgu-name";
 import { legacyLocationRowToLguId } from "@/lib/neighborhood/lgu-location.server";
@@ -35,7 +36,7 @@ export type AddressLocationInput = Pick<
   | "cityMunicipality"
   | "province"
   | "streetAddress"
-> & { canonicalLguId?: string | null };
+> & { canonicalLguId?: string | null; countryCode?: string | null };
 
 export type DerivedAddressLocation = {
   cityMunicipality: string | null;
@@ -128,8 +129,27 @@ export function resolveAddressCanonicalLguId(input: {
   );
 }
 
+/**
+ * 한국 주소 (2026-11-10 한국 주소 지원 1단계) — 시/군/구 = 공식 시/군/구 표, 코드 = `KR:` + 5자리.
+ * 앱 동네 목록(REGIONS)은 필리핀 전용이라 쓰지 않는다.
+ */
+function deriveKrAddressLocation(input: AddressLocationInput): DerivedAddressLocation {
+  const stored = cleanAddressText(input.canonicalLguId);
+  const code = resolveKrSigunguCode({
+    sido: input.province,
+    names: [input.cityMunicipality, input.district],
+  });
+  return {
+    cityMunicipality: cleanAddressText(input.cityMunicipality) || null,
+    appRegionId: null,
+    appCityId: null,
+    canonicalLguId: isKrRegionId(stored) ? stored : code ? krRegionId(code) : null,
+  };
+}
+
 /** 행 한 건의 위치값 — 저장·조회 공통 */
 export function deriveAddressLocation(input: AddressLocationInput): DerivedAddressLocation {
+  if (cleanAddressText(input.countryCode).toUpperCase() === "KR") return deriveKrAddressLocation(input);
   const textLines = [input.formattedAddress, input.fullAddress, input.roadAddress];
   const cityMunicipality =
     cleanAddressText(input.cityMunicipality) ||

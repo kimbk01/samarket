@@ -111,7 +111,7 @@ export function HomeStoresSection({
       }
       const json = (feed.json ?? {}) as { stores?: StoreHomeFeedItem[]; meta?: { viewer_gate?: DeliveryViewerGate } };
       const gate = json.meta?.viewer_gate;
-      if (gate === "login_required" || gate === "address_required") {
+      if (gate === "login_required" || gate === "address_required" || gate === "not_service_area") {
         setState({ kind: "gate", gate });
         return;
       }
@@ -173,15 +173,26 @@ export function HomeStoresSection({
         <HomeSectionHead title={title} />
         <div className="mx-4 rounded-ui-rect border border-[#e3e7e4] px-4 py-4 text-center">
           <b className="block text-[15px] font-semibold text-[#141a16]">
-            {login ? t("home_stores_login_title") : t("home_stores_address_title")}
+            {login
+              ? t("home_stores_login_title")
+              : state.gate === "not_service_area"
+                ? t("store_delivery_not_service_area_title")
+                : t("home_stores_address_title")}
           </b>
+          {state.gate === "not_service_area" ? (
+            <span className="mt-1 block text-[13px] text-[#767676]">{t("store_delivery_not_service_area_body")}</span>
+          ) : null}
           {login ? <span className="mt-1 block text-[13px] text-[#767676]">{t("home_stores_login_body")}</span> : null}
           <button
             type="button"
             onClick={() => router.push(login ? buildLoginHref("/home") : buildMypageAddressesHref(null, { purpose: "delivery" }))}
             className="mt-3 inline-flex h-9 items-center rounded-full bg-sam-primary px-5 text-[14px] font-semibold text-white active:brightness-90"
           >
-            {login ? t("home_sign_in") : t("home_stores_address_cta")}
+            {login
+              ? t("home_sign_in")
+              : state.gate === "not_service_area"
+                ? t("store_delivery_not_service_area_cta")
+                : t("home_stores_address_cta")}
           </button>
         </div>
       </section>

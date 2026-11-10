@@ -258,7 +258,8 @@ export type CheckoutDeliveryPayload = {
 };
 
 export function toCheckoutDeliveryPayload(a: UserAddressDTO): CheckoutDeliveryPayload {
-  const isPh = (a.countryCode ?? "PH").trim().toUpperCase() === "PH";
+  /** 필리핀·한국 = ③ 전체 주소 SSOT (한국 주소 지원 2026-11-10) */
+  const isPh = ["PH", "KR"].includes((a.countryCode ?? "PH").trim().toUpperCase());
   let summary_line: string;
   let address_detail: string;
 

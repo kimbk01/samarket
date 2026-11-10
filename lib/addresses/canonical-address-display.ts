@@ -19,6 +19,8 @@ export type CanonicalDisplayInput = {
   deliveryNote?: string | null;
   /** 저장된 시/군 LGU(PSGC) — 있으면 시/군 이름을 주소 표시 SSOT 와 같은 이름으로 */
   cityLguId?: string | null;
+  /** 주소 나라 — 한국(KR)은 도로명 한 줄 표시 */
+  country?: "PH" | "KR" | null;
 };
 
 /** Snapshot / header resolvers — title no longer uses 집/회사; labels stay for shop nickname helpers. */
@@ -122,6 +124,7 @@ export function resolveAddressBookAddressLine(input: CanonicalDisplayInput): str
     cityLguId: input.cityLguId ?? null,
     cityText: input.cityMunicipality ?? null,
     fallbackLine: input.formattedAddress ?? null,
+    country: input.country ?? null,
   });
   if (!main) return "";
   const parts = main
@@ -173,6 +176,7 @@ export function displayInputFromDraft(
     detail: extra?.detail ?? null,
     landmark: extra?.landmark ?? null,
     deliveryNote: extra?.deliveryNote ?? null,
+    country: draft.countryCode === "KR" ? "KR" : "PH",
   };
 }
 
@@ -229,6 +233,7 @@ export function displayInputFromDto(
     landmark: row.landmark,
     deliveryNote: row.deliveryNote,
     cityLguId: row.canonicalLguId ?? null,
+    country: (row.countryCode ?? "PH").trim().toUpperCase() === "KR" ? "KR" : "PH",
   };
 }
 

@@ -21,6 +21,8 @@ import {
   resolveCanonicalDisplayLines,
 } from "@/lib/addresses/canonical-address-display";
 import { resolveCurrentPinCanonicalAddress } from "@/lib/addresses/resolve-current-pin-canonical-address";
+import { resolveKrPinDraft } from "@/lib/addresses/kr/kr-google-address";
+import { isKoreaLatLng } from "@/lib/addresses/kr/kr-sigungu";
 import {
   buildMypageAddressEditHref,
   buildMypageAddressSearchHref,
@@ -91,9 +93,13 @@ function AddressMapConfirmInner() {
       );
       void (async () => {
         try {
-          const next = await resolveCurrentPinCanonicalAddress(lat, lng);
+          /** 한국 좌표 = 한국 해석(한글 도로명·시/군/구) — 필리핀은 기존 핀 해석 그대로 */
+          const next = isKoreaLatLng(lat, lng)
+            ? await resolveKrPinDraft(lat, lng)
+            : await resolveCurrentPinCanonicalAddress(lat, lng);
           if (seq !== seqRef.current) return;
-          setDraft(next);
+          if (next) setDraft(next);
+          else setErr(t("addr_ui_resolve_failed_short"));
         } catch {
           if (seq === seqRef.current) setErr(t("addr_ui_resolve_failed_short"));
         } finally {

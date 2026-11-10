@@ -23,6 +23,7 @@
     "lib/community-messenger/cm-client-first-paint-baseline.json",
     "lib/community-messenger/mark-read-performance-lock.baseline.json",
     "data/trade-national-lgu/lgu-display-by-id.json",
+    "data/kr-sigungu/kr-sigungu.json",
     "config/os-launch.json",
     "config/image-remote-patterns.json"
   ],

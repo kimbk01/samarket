@@ -26,7 +26,8 @@ export type CommunityLocalFilterState = {
 /** v2 = LGU 기준. v1(앱 동네 목록) 저장값은 읽지 않는다. */
 export const COMMUNITY_LOCAL_FILTER_STORAGE_PREFIX = "samarket:community-local-filter:v2:";
 
-const PSGC_RE = /^\d{10}$/;
+/** 필리핀 PSGC 10자리 또는 한국 `KR:` + 시/군/구 5자리 (한국 주소 지원 2026-11-10) */
+const PSGC_RE = /^(\d{10}|KR:\d{5})$/;
 
 export function communityLocalFilterStorageKey(userId: string): string {
   const uid = userId.trim() || "guest";

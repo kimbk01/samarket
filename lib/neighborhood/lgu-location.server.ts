@@ -10,8 +10,10 @@ import { deterministicUuid } from "@/lib/server/deterministic-uuid";
 import { resolvePublicCityName } from "@/lib/addresses/address-display-levels";
 import { REGIONS } from "@/lib/products/form-options";
 import { appLocationIdsToCanonicalLguId } from "@/lib/addresses/app-location-lgu";
+import { isKrRegionId } from "@/lib/addresses/kr/kr-sigungu";
 
-const LGU_KEY_RE = /^lgu:(\d{10}):?$/;
+/** 필리핀 PSGC 10자리 또는 한국 `KR:` + 시/군/구 5자리 (한국 주소 지원 2026-11-10) */
+const LGU_KEY_RE = /^lgu:(\d{10}|KR:\d{5}):?$/;
 
 /** `lgu:1381300000:` → "1381300000" */
 export function parseLguLocationKey(key: string | null | undefined): string | null {
@@ -55,7 +57,10 @@ export async function ensureLguLocationId(sb: SupabaseClient<any>, lguId: string
   if (data && typeof (data as { id?: string }).id === "string") return id;
   const { error } = await sb
     .from("locations")
-    .upsert({ id, country: "Philippines", city: name, district: "", name }, { onConflict: "id" });
+    .upsert(
+      { id, country: isKrRegionId(lguId) ? "South Korea" : "Philippines", city: name, district: "", name },
+      { onConflict: "id" },
+    );
   if (error) {
     const again = await sb.from("locations").select("id").eq("id", id).maybeSingle();
     return again.data ? id : null;

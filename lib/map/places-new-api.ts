@@ -132,7 +132,9 @@ function mergePlaceResultsDedupe(lists: google.maps.places.PlaceResult[]): googl
  */
 export async function fetchPlaceDetailsAsLegacyPlaceResult(
   placeId: string,
-  fieldIds: readonly string[]
+  fieldIds: readonly string[],
+  /** 나라별 응답 언어·지역 — 기본 필리핀(영어). 한국 주소는 `{ language: "ko", region: "KR" }` */
+  locale?: { language?: string; region?: string },
 ): Promise<google.maps.places.PlaceResult | null> {
   const id = placeId.trim();
   if (!id) return null;
@@ -148,8 +150,8 @@ export async function fetchPlaceDetailsAsLegacyPlaceResult(
         {
           placeId: id,
           fields,
-          language: GOOGLE_MAPS_ADDRESS_LANGUAGE,
-          region: GOOGLE_MAPS_ADDRESS_REGION,
+          language: locale?.language ?? GOOGLE_MAPS_ADDRESS_LANGUAGE,
+          region: locale?.region ?? GOOGLE_MAPS_ADDRESS_REGION,
         },
         (result, status) => {
           if (status === google.maps.places.PlacesServiceStatus.OK && result) {

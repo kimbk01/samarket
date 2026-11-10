@@ -5,7 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { AddressEditorLocationSearch } from "@/components/addresses/AddressEditorLocationSearch";
-import { fetchPlacePredictionsPhResult, type PlacePredictionRow } from "@/lib/map/fetch-place-predictions-ph";
+import {
+  fetchPlacePredictionsPhResult,
+  type PlacePredictionRow,
+  type PlaceSearchCountry,
+} from "@/lib/map/fetch-place-predictions-ph";
+import { tapHaptic } from "@/lib/ui/tap-haptic";
+import { peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { resolveAddressSearchResultState } from "@/lib/addresses/address-search-result-state";
@@ -50,6 +56,28 @@ function writeSavedQuery(q: string): void {
   }
 }
 
+/** 검색 나라(국기 라디오) — 탭 세션 동안 마지막 선택 유지 */
+const ADDRESS_SEARCH_COUNTRY_SESSION_KEY = "dibay:mypage-address-search:country";
+
+function readInitialSearchCountry(): PlaceSearchCountry {
+  if (typeof window === "undefined") return "PH";
+  try {
+    const v = window.sessionStorage.getItem(ADDRESS_SEARCH_COUNTRY_SESSION_KEY);
+    if (v === "PH" || v === "KR") return v;
+  } catch {
+    /* private mode */
+  }
+  /** 처음이면 대표 주소의 나라 */
+  const snap = peekFreshAddressDefaultsSnapshot();
+  const master = (snap?.ok ? (snap.defaults?.master as { countryCode?: string } | null) : null) ?? null;
+  return (master?.countryCode ?? "").toUpperCase() === "KR" ? "KR" : "PH";
+}
+
+const COUNTRY_OPTIONS: ReadonlyArray<{ id: PlaceSearchCountry; flag: string; key: "addr_kr_country_ph" | "addr_kr_country_kr" }> = [
+  { id: "PH", flag: "🇵🇭", key: "addr_kr_country_ph" },
+  { id: "KR", flag: "🇰🇷", key: "addr_kr_country_kr" },
+];
+
 /** 네트워크가 끊겨 장소 조회가 멈춰도 이 시간 뒤엔 오류 안내 */
 const PLACE_RESOLVE_TIMEOUT_MS = 12_000;
 
@@ -62,6 +90,26 @@ function AddressPlatformSearchInner() {
   const editId = (sp.get("id") ?? "").trim();
   /** 주소 입력 시안: 배달 진입이면 「배달 받을 주소…」, 그 밖은 「주소를 검색해 주세요」 */
   const purpose = parseAddressFlowPurpose(sp.get("purpose"));
+  /**
+   * 한국 주소 지원(2026-11-10): 검색 나라 = 국기 라디오. 배달은 한국 보류 → 배달 진입은 필리핀 고정(라디오 숨김).
+   */
+  const [countryPick, setCountryPick] = useState<PlaceSearchCountry>("PH");
+  useEffect(() => {
+    if (purpose !== "delivery") setCountryPick(readInitialSearchCountry());
+  }, [purpose]);
+  const country: PlaceSearchCountry = purpose === "delivery" ? "PH" : countryPick;
+  const pickCountry = useCallback((next: PlaceSearchCountry) => {
+    setCountryPick((prev) => {
+      if (prev === next) return prev;
+      tapHaptic("select");
+      try {
+        window.sessionStorage.setItem(ADDRESS_SEARCH_COUNTRY_SESSION_KEY, next);
+      } catch {
+        /* private mode */
+      }
+      return next;
+    });
+  }, []);
   const listHref = buildMypageAddressesHref(returnTo, { purpose });
   const [search, setSearchState] = useState("");
   const [searching, setSearching] = useState(false);
@@ -95,7 +143,7 @@ function AddressPlatformSearchInner() {
     const timer = window.setTimeout(() => {
       void (async () => {
         try {
-          const result = await fetchPlacePredictionsPhResult(q);
+          const result = await fetchPlacePredictionsPhResult(q, { country });
           if (cancelled) return;
           if (result.ok) {
             setPredictions(result.rows);
@@ -118,7 +166,7 @@ function AddressPlatformSearchInner() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [search, retryKey]);
+  }, [search, retryKey, country]);
 
   const resultState = resolveAddressSearchResultState({
     query: search,
@@ -175,7 +223,7 @@ function AddressPlatformSearchInner() {
     setResolvingPlaceId(row.placeId);
     try {
       const draft = await withTimeout(
-        resolveCanonicalAddressFromPlaceId(row.placeId),
+        resolveCanonicalAddressFromPlaceId(row.placeId, null, { country }),
         PLACE_RESOLVE_TIMEOUT_MS,
         "place_resolve_timeout",
       );
@@ -235,6 +283,41 @@ function AddressPlatformSearchInner() {
       />
       <div className={MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS}>
         <div className={MYPAGE_ADDRESS_MANAGE_SCROLL_INNER_CLASS}>
+          {purpose !== "delivery" ? (
+            <div role="radiogroup" aria-label={t("addr_kr_country_aria")} className="mb-4 grid grid-cols-2 gap-2">
+              {COUNTRY_OPTIONS.map((o) => {
+                const on = country === o.id;
+                return (
+                  <button
+                    key={o.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => pickCountry(o.id)}
+                    data-testid={`address-search-country-${o.id}`}
+                    className={`sam-press flex h-14 items-center justify-center gap-2 rounded-ui-rect ${Sam.focusRing} ${
+                      on
+                        ? "border-2 border-sam-primary bg-sam-primary-soft text-sam-primary"
+                        : "border border-sam-border bg-sam-surface text-sam-muted"
+                    }`}
+                  >
+                    <span
+                      aria-hidden
+                      className={`flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 bg-sam-surface ${
+                        on ? "border-sam-primary" : "border-sam-border"
+                      }`}
+                    >
+                      <span className={`h-2 w-2 rounded-full ${on ? "bg-sam-primary" : "bg-transparent"}`} />
+                    </span>
+                    <span aria-hidden className="text-[22px] leading-none">
+                      {o.flag}
+                    </span>
+                    <span className="sam-text-body font-bold">{t(o.key)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
           <h2 className="mb-3 text-[20px] font-bold leading-snug text-sam-fg">
             {purpose === "delivery" ? t("addr_v2_search_lead") : t("addr_v3_search_lead_general")}
           </h2>
@@ -247,7 +330,7 @@ function AddressPlatformSearchInner() {
             onSearchChange={setSearch}
             onSearchFocus={() => undefined}
             onSelectPrediction={(p) => void onSelectPrediction(p)}
-            placeholder={t("addr_v3_search_ph")}
+            placeholder={country === "KR" ? t("addr_kr_search_ph") : t("addr_v3_search_ph")}
           />
           {err ? (
             <p className="mt-2 sam-text-body-secondary font-medium text-sam-danger" role="alert">

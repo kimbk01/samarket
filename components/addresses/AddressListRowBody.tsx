@@ -103,6 +103,12 @@ export function AddressListRowBody({
       : null}
 
       <div className="flex min-h-[26px] flex-wrap items-center gap-1.5">
+        {(row.countryCode ?? "").trim().toUpperCase() === "KR" ? (
+          /** 한국 주소 지원(2026-11-10) — 한국 주소는 국기로 구분 */
+          <span aria-label={t("addr_kr_country_kr")} className="text-[16px] leading-none" data-testid="address-row-country-kr">
+            🇰🇷
+          </span>
+        ) : null}
         {useStarbucksBadges && !isStoreAddress ?
           <span
             className={addressDesignationBadgeClass(row.labelType)}

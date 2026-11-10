@@ -341,7 +341,9 @@ export function AddressPlatformDetailClient(props: {
     setErr(null);
     try {
       /** 수정 시 예전 지역 ID 를 넣지 않는다 — 바뀐 주소로 다시 계산(서버도 같은 계산으로 덮어씀 · 주소 SSOT) */
-      const taxonomy = mapUserAddressToAppLocation({
+      const isKr = draft.countryCode === "KR";
+      /** 앱 동네 목록(REGIONS)은 필리핀 전용 — 한국 주소는 계산하지 않는다 */
+      const taxonomy = isKr ? null : mapUserAddressToAppLocation({
         appRegionId: null,
         appCityId: null,
         buildingName: selectedPlaceName,
@@ -367,6 +369,9 @@ export function AddressPlatformDetailClient(props: {
         /** 사용자가 켠 대표 지정 — 배달 새 주소도 여기서 켜져 있다 */
         fields: {
           linkedStoreId: isShop ? initial?.linkedStoreId ?? null : null,
+          /** 한국 주소 지원(2026-11-10) — 나라에 따라 서버가 지역 코드(PSGC / KR:시군구)를 정한다 */
+          countryCode: isKr ? "KR" : "PH",
+          countryName: isKr ? "South Korea" : "Philippines",
           nickname: resolvedNickname,
           barangay: draft.barangay,
           cityMunicipality: draft.cityMunicipality,
@@ -384,8 +389,8 @@ export function AddressPlatformDetailClient(props: {
           deliveryNote: deliveryNote.trim() || null,
           fullAddress: draft.formattedAddress,
           neighborhoodName: draft.neighborhoodName,
-          appRegionId: taxonomy?.regionId ?? initial?.appRegionId ?? null,
-          appCityId: taxonomy?.cityId ?? initial?.appCityId ?? null,
+          appRegionId: isKr ? null : taxonomy?.regionId ?? initial?.appRegionId ?? null,
+          appCityId: isKr ? null : taxonomy?.cityId ?? initial?.appCityId ?? null,
           useForLife: true,
           useForTrade: true,
           useForDelivery: true,

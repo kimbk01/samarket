@@ -10,9 +10,13 @@ import {
   type AddressBookCardPresentation,
 } from "@/lib/addresses/address-book-card-presentation";
 
-/** PH 주소 행 — `countryCode` 기준 */
+/**
+ * 주소 표시 SSOT(③ 전체 주소)를 쓰는 나라의 행 — 필리핀·한국 (한국 주소 지원 2026-11-10).
+ * 이름은 예전 그대로(호출처 다수) — 「PH 형식(상세가 한 줄에 함께) 표시」 여부로 읽는다.
+ */
 export function isPhUserAddressRow(row: UserAddressDTO): boolean {
-  return (row.countryCode ?? "PH").trim().toUpperCase() === "PH";
+  const c = (row.countryCode ?? "PH").trim().toUpperCase();
+  return c === "PH" || c === "KR";
 }
 
 /**

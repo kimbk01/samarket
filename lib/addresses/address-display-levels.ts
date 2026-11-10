@@ -15,8 +15,11 @@ import { resolveTradeListingPublicCityLabel } from "@/lib/posts/post-listing-loc
 import { resolveTradeLguCityFromInternal } from "@/lib/trade/location/trade-lgu-city-rollup";
 import { REGIONS } from "@/lib/products/form-options";
 import { formatLguPublicDisplayName } from "@/lib/trade/location/national/lgu-public-display-name";
+import { isKrRegionId, krRegionDisplayName, krRegionShortName } from "@/lib/addresses/kr/kr-sigungu";
 
 export type AddressDisplayParts = {
+  /** 주소 나라 — 없으면 필리핀. 한국(KR)은 도로명 한 줄이 시도·시/군/구를 이미 담는다 */
+  country?: "PH" | "KR" | null;
   /** 가게·장소 이름 (Ra Cafe) */
   placeName?: string | null;
   /** 도로·번지 (Sct. Tuason Street) */
@@ -42,7 +45,7 @@ function clean(v: string | null | undefined): string {
 }
 
 const PROVINCE_OR_COUNTRY_RE =
-  /^(metro\s*manila|kalakhang\s*maynila|ncr|national\s*capital\s*region|philippines|필리핀|republic\s+of\s+the\s+philippines)$/i;
+  /^(metro\s*manila|kalakhang\s*maynila|ncr|national\s*capital\s*region|philippines|필리핀|republic\s+of\s+the\s+philippines|대한민국|south\s*korea|korea)$/i;
 
 const COUNTRY_EDGE_RE = /^(필리핀|philippines|the\s+philippines|republic\s+of\s+the\s+philippines)\s+/i;
 const COUNTRY_TAIL_RE = /\s+(필리핀|philippines)$/i;
@@ -82,6 +85,8 @@ export function formatBarangayLabel(raw: string | null | undefined): string {
 /** ① 시/군 이름 — LGU id 우선(거래와 같은 이름), 없으면 저장 글자 */
 export function resolvePublicCityName(input: { cityLguId?: string | null; cityText?: string | null }): string | null {
   const id = clean(input.cityLguId);
+  /** 한국 시/군/구 — 「서울 강남구」 (같은 이름 구가 여러 시도에 있어 시도 줄임말을 붙임) */
+  if (isKrRegionId(id)) return krRegionDisplayName(id) ?? (clean(input.cityText) || null);
   if (id) {
     const byId = resolveTradeListingPublicCityLabel({ tradeLguId: id });
     /** 전국 데이터 「City of Bacoor」 → 「Bacoor City」 (거래 rollup 「Makati City」와 같은 표기) */
@@ -101,7 +106,10 @@ export function formatAddressPublicArea(parts: AddressDisplayParts | null | unde
 /** ② 배달 지역 — "Diliman, Quezon City" (바랑가이 없으면 시/군만) */
 export function formatAddressDeliveryArea(parts: AddressDisplayParts | null | undefined): string | null {
   if (!parts) return null;
-  const city = resolvePublicCityName(parts);
+  /** 한국 — 「역삼동, 강남구」 (시/군/구는 시도 없이) */
+  const city = isKrRegionId(parts.cityLguId)
+    ? krRegionShortName(parts.cityLguId) ?? resolvePublicCityName(parts)
+    : resolvePublicCityName(parts);
   const brgy = formatBarangayLabel(parts.barangay);
   const out: string[] = [];
   if (brgy && !(city && sameToken(brgy, city)) && !PROVINCE_OR_COUNTRY_RE.test(brgy)) out.push(brgy);
@@ -117,6 +125,15 @@ export function formatAddressFullLines(parts: AddressDisplayParts | null | undef
   if (!parts) return { main: null, detail: null };
   const city = resolvePublicCityName(parts);
   const detail = clean(parts.detail) || null;
+  /** 한국 — 「장소, 도로명 주소(시도 시/군/구 도로 번호)」 · 시/군/구를 다시 붙이지 않는다 */
+  if (parts.country === "KR") {
+    const kr: string[] = [];
+    for (const raw of [parts.placeName, clean(parts.street) || clean(parts.fallbackLine)]) {
+      const t = clean(raw);
+      if (t && !kr.some((x) => x === t || x.includes(t)) && !(detail && t === detail)) kr.push(t);
+    }
+    return { main: kr.join(", ") || (city ?? null), detail };
+  }
   const segs: string[] = [];
   const push = (raw: string | null | undefined) => {
     const t = clean(raw);
@@ -178,6 +195,7 @@ export function addressDisplayPartsFromUserAddress(a: UserAddressDTO | null | un
     if (t && !detailParts.some((d) => sameToken(d, t))) detailParts.push(t);
   }
   return {
+    country: clean(a.countryCode).toUpperCase() === "KR" ? "KR" : "PH",
     placeName: placeNameFromStoredBuilding(a.buildingName, a.streetAddress),
     street: clean(a.streetAddress) || null,
     barangay: clean(a.barangay) || clean(a.neighborhoodName) || null,

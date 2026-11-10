@@ -217,6 +217,10 @@ export const addressesUiMessages = {
     addr_v3_delivery_note_label: "배달 요청사항",
     addr_v3_general_footnote: "요청사항·찾아오는 길은 배달 주문할 때 입력합니다",
     addr_v3_list_hint: "저장된 주소 · 누르면 현재 주소로 바뀝니다",
+    addr_kr_country_aria: "주소 나라 선택",
+    addr_kr_country_ph: "필리핀",
+    addr_kr_country_kr: "한국",
+    addr_kr_search_ph: "건물명, 도로명, 동으로 검색",
   },
   en: {
     addr_ui_api_address_not_found: "Address not found.",
@@ -436,5 +440,9 @@ export const addressesUiMessages = {
     addr_v3_delivery_note_label: "Note for rider",
     addr_v3_general_footnote: "Rider notes are added when you order delivery",
     addr_v3_list_hint: "Saved addresses · tap to make it current",
+    addr_kr_country_aria: "Address country",
+    addr_kr_country_ph: "Philippines",
+    addr_kr_country_kr: "Korea",
+    addr_kr_search_ph: "Search building, road or dong",
   },
 } as const;

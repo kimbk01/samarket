@@ -1,4 +1,5 @@
 import type { StoreListDeliveryOrigin } from "@/lib/stores/store-list-delivery-origin";
+import { isKrRegionId } from "@/lib/addresses/kr/kr-sigungu";
 
 /**
  * 배달 열람 게이트 — 단일 판정 (Owner 2026-10-29 08:59, 감사 S-07·S-08·S-09).
@@ -11,19 +12,25 @@ import type { StoreListDeliveryOrigin } from "@/lib/stores/store-list-delivery-o
  * 같은 함수로 판정해 응답 `meta.viewer_gate` 에 싣고, `ok` 가 아니면 매장 목록을 비워 반환한다.
  * 비로그인 쿼리 좌표(`explicit_coords`)는 열람 자격이 아니다. 배달 범위 계산식은 건드리지 않는다.
  */
-export type DeliveryViewerGate = "login_required" | "address_required" | "ok";
+export type DeliveryViewerGate = "login_required" | "address_required" | "not_service_area" | "ok";
 
 export const DELIVERY_VIEWER_GATES: readonly DeliveryViewerGate[] = [
   "login_required",
   "address_required",
+  "not_service_area",
   "ok",
 ] as const;
 
 export function resolveDeliveryViewerGate(
-  origin: Pick<StoreListDeliveryOrigin, "source" | "userId">
+  origin: Pick<StoreListDeliveryOrigin, "source" | "userId"> & { canonicalLguId?: string | null }
 ): DeliveryViewerGate {
   if (!origin.userId) return "login_required";
   if (origin.source !== "saved_address") return "address_required";
+  /**
+   * 한국 주소 지원(Owner 2026-11-10): 한국 배달은 보류 — 대표 주소가 한국(`KR:` 시/군/구)이면
+   * 「배달 지역이 아닙니다」. 커뮤니티·거래는 한국 주소로 그대로 쓴다.
+   */
+  if (isKrRegionId(origin.canonicalLguId)) return "not_service_area";
   return "ok";
 }
 
@@ -48,7 +55,7 @@ export function readDeliveryViewerGate(meta: unknown): DeliveryViewerGate | null
 }
 
 export function isDeliveryViewerGateBlocked(gate: DeliveryViewerGate | null | undefined): boolean {
-  return gate === "login_required" || gate === "address_required";
+  return gate === "login_required" || gate === "address_required" || gate === "not_service_area";
 }
 
 const STORES_RESERVED_FIRST_SEGMENTS = new Set(["owner", "cart", "browse", "search", "gift-mall"]);
