@@ -42,13 +42,13 @@
 	<key>DibayBuildConfiguration</key>
 	<string>debug</string>
 	<key>DibayBuildTimestamp</key>
-	<string>2026-11-10T21:30:53.178Z</string>
+	<string>2026-08-04T01:09:32.603Z</string>
 	<key>DibayGitDirty</key>
-	<string>true</string>
+	<string>false</string>
 	<key>DibayGitSha</key>
-	<string>c7e3fd0ba36f</string>
+	<string>4b093a61645a</string>
 	<key>DibayGitShaFull</key>
-	<string>c7e3fd0ba36f01af3269360c5d078620cd3dc982</string>
+	<string>4b093a61645a3eedac1c5ca42a9fc09a401bf4f5</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>KAKAO_NATIVE_APP_KEY</key>
@@ -61,10 +61,10 @@
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSCameraUsageDescription</key>
-	<string>영상 통화를 위해 카메라 접근이 필요합니다.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>휴대폰 연락처에 있는 DIBAY 회원을 보여 드리기 위해 전화번호를 사용합니다. 이름은 보내지 않습니다.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>영상 통화를 위해 카메라 접근이 필요합니다.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>배달·근처 서비스 이용을 위해 위치 접근이 필요합니다.</string>
 	<key>NSMicrophoneUsageDescription</key>
