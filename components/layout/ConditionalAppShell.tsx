@@ -73,7 +73,6 @@ import {
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { SupportFabRegistryProvider } from "@/lib/support/support-fab-registry";
 import { SupportModalHost } from "@/components/support/SupportModalHost";
-import { SupportInAppNoticeHost } from "@/components/support/SupportInAppNoticeHost";
 import { useDibayAppShellAuthority } from "@/lib/device/use-dibay-app-shell";
 import { isCommunityHomeSurfacePath, isHomeSurfacePath, resolveMainSurface } from "@/lib/layout/resolve-main-surface";
 
@@ -507,7 +506,6 @@ export function ConditionalAppShell({
         <MainBottomNavFabSectorLazy />
       ) : null}
       <SupportModalHost />
-      <SupportInAppNoticeHost />
       <SupportFabHostLazy />
       <GlobalPopupHostLazy />
       <BootThumbnailObserver />

@@ -49,7 +49,7 @@ describe("Dibay usable-area sheet — OPTION B shared authority", () => {
   });
 
   it("Support exposes chrome to shared focus visibility without owning geometry", () => {
-    const host = read("components/support/SupportModalHost.tsx");
+    const host = read("components/support/SupportModalHost.tsx") + read("components/support/SupportTicketViews.tsx");
     expect(host).toContain("data-form-keyboard-sticky-chrome");
     expect(host).not.toContain("useFormKeyboardFocusVisibility");
     expect(host).not.toContain("ensureFormFocusVisibleInScrollRoot");

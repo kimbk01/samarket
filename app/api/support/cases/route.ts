@@ -14,8 +14,9 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/support/cases — requester's own support cases (history).
  *
- * 최종 설계 S63 · API A14: `status=active|done` · `cursor` · `limit` 옵트인.
- * 이 파라미터가 없으면 기존 응답 그대로(사장님 고객센터 OWNER 기본 동작 불변).
+ * 최종 설계 S63 · API A14: `cursor` · `limit` 옵트인.
+ * 접수형 문의(Owner 2026-11-10): 요청자 화면에는 **진행 중 문의만** — 종료(RESOLVED·ARCHIVED)는 사라진다.
+ * `status` 는 호환용으로 받기만 하고(active|done 외 400) 항상 진행 중만 돌려준다.
  * 페이지 모드 응답 `{ ok, cases, nextCursor, counts? }` — 첫 페이지(커서 없음)에만 `counts.active`.
  */
 export async function GET(req: NextRequest) {
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
   const [res, activeCount] = await Promise.all([
     listSupportCasesForRequester(sb, {
       ...scope,
-      status,
+      status: "active",
       cursor,
       paged,
       limit: limit ?? undefined,

@@ -1327,6 +1327,51 @@ export async function reopenSupportCase(
 }
 
 /**
+ * 접수형 문의 — 고객(요청자)이 답변을 보고 「확인했어요」 = 종료 (Owner 「접수형 1단계」 2026-11-10).
+ * - 요청자 본인 문의만. 이미 종료면 그대로 성공(멱등).
+ * - 본인 행동이므로 알림을 보내지 않는다. 종료된 문의는 요청자 화면 목록에서 사라진다.
+ * - CAS: 읽은 상태 그대로일 때만 바꾼다(관리자 동시 처리와 한 번만 전이).
+ */
+export async function requesterCloseSupportCase(
+  sb: SupabaseClient,
+  input: { userId: string; caseId: string }
+): Promise<{ ok: true; case: SupportCaseRow } | { ok: false; error: string }> {
+  const gate = await getSupportCaseForUser(sb, { userId: input.userId, caseId: input.caseId });
+  if (!gate.ok) return gate;
+  if (gate.case.status === "RESOLVED" || gate.case.status === "ARCHIVED") {
+    return { ok: true, case: gate.case };
+  }
+  const now = new Date().toISOString();
+  const { data, error } = await sb
+    .from("support_cases")
+    .update({ status: "RESOLVED", resolved_at: now, updated_at: now, requester_unread_count: 0 })
+    .eq("id", input.caseId)
+    .eq("status", gate.case.status)
+    .select("*")
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message ?? "close_failed" };
+  if (!data) {
+    const latest = await getSupportCaseForUser(sb, { userId: input.userId, caseId: input.caseId });
+    if (latest.ok && (latest.case.status === "RESOLVED" || latest.case.status === "ARCHIVED")) {
+      return { ok: true, case: latest.case };
+    }
+    return { ok: false, error: "status_conflict" };
+  }
+  await sb
+    .from("support_sessions")
+    .update({ closed_at: now, last_seen_at: now })
+    .eq("case_id", input.caseId)
+    .is("closed_at", null);
+  await recordCaseEvent(sb, {
+    caseId: input.caseId,
+    eventType: "status_changed",
+    actorUserId: input.userId,
+    payload: { status: "RESOLVED", by: "requester" },
+  });
+  return { ok: true, case: data as SupportCaseRow };
+}
+
+/**
  * Mark requester unread → 0.
  * IDEMPOTENT: when already 0, perform **no UPDATE** (no `updated_at` bump).
  * Prevents SupportModalHost Realtime `support_cases` UPDATE → GET → mark-read self-loop.

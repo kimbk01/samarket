@@ -7,16 +7,12 @@ import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { SupportGenericHubInquireGate } from "@/components/support/SupportGenericHubInquireGate";
 import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 import type { SupportCaseRow } from "@/lib/support/support-case-types";
-import { getSupportCategoryDefinition } from "@/lib/support/support-category-registry";
-import {
-  SUPPORT_CASE_HISTORY_TABS,
-  supportCaseStatusLabelMeta,
-  type SupportCaseHistoryTab,
-} from "@/lib/support/support-status-label";
+import { getSupportCategoryDefinition, listIssueTypesForCategory } from "@/lib/support/support-category-registry";
+import { supportCaseStatusLabelMeta } from "@/lib/support/support-status-label";
 import { subscribeSupportModalState, getSupportModalState } from "@/lib/support/support-modal-controller";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { supportErrorLabel } from "@/lib/support/support-display-labels";
+import { isSupportTicketAnsweredStatus } from "@/lib/support/support-ticket-form";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { MYPAGE_LIST_PAGE_DEFAULT } from "@/lib/mypage/mypage-list-cursor";
 import {
@@ -25,20 +21,22 @@ import {
   useMypageCursorList,
   type MypageCursorPage,
 } from "@/lib/mypage/use-mypage-cursor-list";
-import { useMypageTabParam } from "@/lib/mypage/use-mypage-tab-param";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
-/** 상담 내역 탭 목록 캐시 키 접두 (S63) */
+/** 내 문의 목록 캐시 키 접두 (S63) */
 export const SUPPORT_HISTORY_CACHE_PREFIX = "me:support:cases:";
 
-/** `GET /api/support/cases` 고객 상담 내역 탭 요청 주소 — 첫 페이지 20건 */
-export function supportHistoryTabUrl(tab: SupportCaseHistoryTab, cursor: string | null): string {
-  const qs = new URLSearchParams({ audience: "MEMBER", status: tab, limit: String(MYPAGE_LIST_PAGE_DEFAULT) });
+/**
+ * `GET /api/support/cases` 고객 「내 문의」 요청 주소 — 첫 페이지 20건.
+ * 접수형 문의(Owner 2026-11-10): 종료된 문의는 목록에서 사라진다 → 진행 중만.
+ */
+export function supportHistoryActiveUrl(cursor: string | null): string {
+  const qs = new URLSearchParams({ audience: "MEMBER", status: "active", limit: String(MYPAGE_LIST_PAGE_DEFAULT) });
   if (cursor) qs.set("cursor", cursor);
   return `/api/support/cases?${qs.toString()}`;
 }
 
-/** DEF-16: re-read after the Support sheet closes so status / unread reflect the visit. */
+/** DEF-16: re-read after the Support sheet closes so status reflects the visit. */
 function useOnSupportModalClosed(onClosed: () => void): void {
   useEffect(() => {
     let wasOpen = getSupportModalState().phase === "open";
@@ -50,6 +48,10 @@ function useOnSupportModalClosed(onClosed: () => void): void {
   }, [onClosed]);
 }
 
+/**
+ * 행 60px — 1줄: 「분야 · 세부」(말줄임) + 오른쪽 상태 / 2줄: 접수 번호 · 시각.
+ * 숫자 뱃지는 고객센터 FAB 아이콘에만(Owner 2026-11-10) — 목록 안에는 숫자를 그리지 않는다.
+ */
 function SupportCaseHistoryRow({ c }: { c: SupportCaseRow }) {
   const { safeT } = useI18n();
   // DEF-08: labels from SSOT (status label module + category registry), never raw enums.
@@ -57,61 +59,59 @@ function SupportCaseHistoryRow({ c }: { c: SupportCaseRow }) {
   const statusLabel = safeT(statusMeta.key);
   const categoryDef = getSupportCategoryDefinition(c.category);
   const categoryLabel = safeT((categoryDef?.labelKey ?? "support_cat_other") as MessageKey);
-  const unread = Number(c.requester_unread_count) || 0;
+  const issue = c.issue_type ? listIssueTypesForCategory(c.category).find((i) => i.id === c.issue_type) : null;
+  const issueLabel = issue ? safeT(issue.labelKey as MessageKey) : "";
+  const answered = isSupportTicketAnsweredStatus(c.status);
   return (
     <li>
       <button
         type="button"
-        className="flex w-full min-h-11 items-start gap-3 px-4 py-3 text-left transition active:bg-sam-surface-muted"
+        className="grid h-[60px] w-full grid-cols-[minmax(0,1fr)_auto] grid-rows-[22px_18px] content-center gap-x-2 px-4 text-left transition active:bg-sam-surface-muted"
+        data-support-history-row={c.id}
         onClick={() => {
           deliverSupportOpen({ caseId: c.id, source: "history" });
         }}
       >
-        <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-2 text-[14px] font-semibold text-sam-fg">
-            <span className="min-w-0 truncate">
-              {/* Never `subject` — it is an internal "CATEGORY · surface" token (B5). */}
-              {c.public_case_no || categoryLabel}
-            </span>
-            {unread > 0 ? (
-              <span
-                className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-sam-primary px-1.5 text-[11px] font-semibold text-sam-surface"
-                data-support-history-unread={unread}
-              >
-                {unread > 99 ? "99+" : unread}
-              </span>
-            ) : null}
-          </p>
-          <p className={`${OverlayUi.caption} !mb-0 mt-0.5`}>
-            {categoryLabel}
-            {" · "}
-            {statusLabel}
-          </p>
-          <p className={`${OverlayUi.caption} !mb-0`}>
-            {c.last_message_at ? formatMypageDate(c.last_message_at, { style: "relative" }) : ""}
-          </p>
-        </div>
+        <span className="truncate text-[14px] font-semibold text-sam-fg">
+          {/* Never `subject` — it is an internal "CATEGORY · surface" token (B5). */}
+          {[categoryLabel, issueLabel].filter(Boolean).join(" · ")}
+        </span>
+        <span
+          className={`row-span-2 self-center rounded-ui-rect px-2 py-0.5 text-[11px] font-bold ${
+            answered ? "bg-sam-primary-soft text-sam-primary" : "bg-sam-warning-soft text-sam-fg"
+          }`}
+          data-support-history-answered={answered ? "1" : "0"}
+        >
+          {statusLabel}
+        </span>
+        <span className="col-start-1 truncate text-[12px] text-sam-muted">
+          {[c.public_case_no, c.created_at ? formatMypageDate(c.created_at, { style: "datetime" }) : ""]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
       </button>
     </li>
   );
 }
 
 /**
- * 상담 내역 목록 — **사장님 고객센터와 공유**(`OwnerCustomerCenterView`).
- * `withStatusTabs` 를 켠 고객(MEMBER) 화면만 상태 탭·커서 더 보기(최종 설계 S63). 기본(OWNER) 렌더·요청은 불변.
+ * 내 문의 목록 — **사장님 고객센터와 공유**(`OwnerCustomerCenterView`).
+ * 회원 = 커서 더 보기, 사장님 = 그 매장 문의. 둘 다 진행 중 문의만(서버가 종료 문의를 돌려주지 않음).
  */
 export function SupportCasesHistoryList({
   audience,
   storeId,
-  withStatusTabs = false,
 }: {
   audience: "MEMBER" | "OWNER";
   storeId?: string | null;
-  /** 고객 상담 내역 화면 — `?tab=active|done` 상태 탭 + 커서 더 보기 (MEMBER 전용) */
-  withStatusTabs?: boolean;
 }) {
-  if (withStatusTabs && audience === "MEMBER") return <MemberSupportCasesTabbedList />;
+  if (audience === "MEMBER") return <MemberSupportCasesList />;
   return <SupportCasesFlatList audience={audience} storeId={storeId} />;
+}
+
+function ListHint() {
+  const { safeT } = useI18n();
+  return <p className="px-1 text-[12px] text-sam-muted">{safeT("support_ticket_list_hint")}</p>;
 }
 
 function SupportCasesFlatList({ audience, storeId }: { audience: "MEMBER" | "OWNER"; storeId?: string | null }) {
@@ -157,11 +157,7 @@ function SupportCasesFlatList({ audience, storeId }: { audience: "MEMBER" | "OWN
   useOnSupportModalClosed(reloadOnClose);
 
   if (loading) {
-    return (
-      <p className="px-4 py-6 text-sm text-sam-muted">
-        {safeT("common_loading")}
-      </p>
-    );
+    return <p className="px-4 py-6 text-sm text-sam-muted">{safeT("common_loading")}</p>;
   }
   if (error) {
     return (
@@ -174,19 +170,18 @@ function SupportCasesFlatList({ audience, storeId }: { audience: "MEMBER" | "OWN
     );
   }
   if (cases.length === 0) {
-    return (
-      <p className="px-4 py-6 text-sm text-sam-muted">
-        {safeT("support_history_empty")}
-      </p>
-    );
+    return <p className="px-4 py-6 text-sm text-sam-muted">{safeT("support_history_empty")}</p>;
   }
 
   return (
-    <ul className="divide-y divide-sam-border" data-support-cases-history="1">
-      {cases.map((c) => (
-        <SupportCaseHistoryRow key={c.id} c={c} />
-      ))}
-    </ul>
+    <div className="flex flex-col gap-2">
+      <ul className="divide-y divide-sam-border" data-support-cases-history="1">
+        {cases.map((c) => (
+          <SupportCaseHistoryRow key={c.id} c={c} />
+        ))}
+      </ul>
+      <ListHint />
+    </div>
   );
 }
 
@@ -194,51 +189,34 @@ type CasesPageJson = {
   ok?: boolean;
   cases?: SupportCaseRow[];
   nextCursor?: string | null;
-  counts?: { active?: number };
 };
 
-/** 고객 상담 내역 — 상태 탭 [진행중 n · 완료] + 커서 더 보기 (S63) */
-function MemberSupportCasesTabbedList() {
-  const { t, safeT } = useI18n();
-  const [tab, setTab] = useMypageTabParam<SupportCaseHistoryTab>({
-    values: SUPPORT_CASE_HISTORY_TABS,
-    defaultValue: "active",
-  });
-  const [activeCount, setActiveCount] = useState<number | null>(null);
+/** 고객 「내 문의」 — 진행 중 문의 + 커서 더 보기 (상태 탭 없음: 종료 문의는 사라진다) */
+function MemberSupportCasesList() {
+  const { safeT } = useI18n();
 
-  const fetchPage = useCallback(
-    async (cursor: string | null): Promise<MypageCursorPage<SupportCaseRow>> => {
-      const json = await fetchMypageListJson<CasesPageJson>(supportHistoryTabUrl(tab, cursor));
-      if (!json.ok) throw new Error("support_cases_not_ok");
-      if (!cursor && typeof json.counts?.active === "number") setActiveCount(json.counts.active);
-      return {
-        items: Array.isArray(json.cases) ? json.cases : [],
-        next_cursor: typeof json.nextCursor === "string" && json.nextCursor ? json.nextCursor : null,
-      };
-    },
-    [tab]
-  );
+  const fetchPage = useCallback(async (cursor: string | null): Promise<MypageCursorPage<SupportCaseRow>> => {
+    const json = await fetchMypageListJson<CasesPageJson>(supportHistoryActiveUrl(cursor));
+    if (!json.ok) throw new Error("support_cases_not_ok");
+    return {
+      items: Array.isArray(json.cases) ? json.cases : [],
+      next_cursor: typeof json.nextCursor === "string" && json.nextCursor ? json.nextCursor : null,
+    };
+  }, []);
 
   const list = useMypageCursorList<SupportCaseRow>({
-    cacheKey: `${SUPPORT_HISTORY_CACHE_PREFIX}${tab}`,
+    cacheKey: `${SUPPORT_HISTORY_CACHE_PREFIX}active`,
     fetchPage,
     getId: (c) => c.id,
   });
 
   const { reload } = list;
   const reloadOnClose = useCallback(() => {
-    // 상담 상태가 탭을 옮겼을 수 있다 — 다른 탭 캐시도 비우고 현재 탭 첫 페이지만 다시
+    // 확인했어요(종료)·추가 문의로 상태가 바뀌었을 수 있다 — 첫 페이지부터 다시
     forgetMypageListCache(SUPPORT_HISTORY_CACHE_PREFIX);
     void reload();
   }, [reload]);
   useOnSupportModalClosed(reloadOnClose);
-
-  const tabLabel = (v: SupportCaseHistoryTab) =>
-    v === "active"
-      ? activeCount != null && activeCount > 0
-        ? `${t("mypage_s63_tab_active")} ${activeCount > 99 ? "99+" : activeCount}`
-        : t("mypage_s63_tab_active")
-      : t("mypage_s63_tab_done");
 
   let body: ReactNode;
   if (list.status === "loading") {
@@ -252,27 +230,24 @@ function MemberSupportCasesTabbedList() {
       />
     );
   } else if (list.items.length === 0) {
-    body =
-      tab === "active" ? (
-        <MyStateView
-          kind="empty"
-          template="list"
-          empty={{
-            title: t("mypage_s63_empty_active"),
-            cta: (
-              <SupportGenericHubInquireGate
-                audience="MEMBER"
-                sourceSurface="mypage_customer_center"
-                className="w-full max-w-[240px]"
-                buttonClassName={`${Sam.btn.primaryCombo} w-full min-h-11`}
-                inquireDataAttr="data-support-hub-inquire"
-              />
-            ),
-          }}
-        />
-      ) : (
-        <MyStateView kind="empty" template="list" empty={{ title: t("mypage_s63_empty_done") }} />
-      );
+    body = (
+      <MyStateView
+        kind="empty"
+        template="list"
+        empty={{
+          title: safeT("support_history_empty"),
+          cta: (
+            <SupportGenericHubInquireGate
+              audience="MEMBER"
+              sourceSurface="mypage_customer_center"
+              className="w-full max-w-[240px]"
+              buttonClassName={`${Sam.btn.primaryCombo} w-full min-h-11`}
+              inquireDataAttr="data-support-hub-inquire"
+            />
+          ),
+        }}
+      />
+    );
   } else {
     body = (
       <>
@@ -295,23 +270,9 @@ function MemberSupportCasesTabbedList() {
   }
 
   return (
-    <div className="flex flex-col gap-3" data-support-history-tabs={tab}>
-      <div className={Sam.tabs.bar} role="tablist" aria-label={t("support_history_title")}>
-        {SUPPORT_CASE_HISTORY_TABS.map((v) => (
-          <button
-            key={v}
-            type="button"
-            role="tab"
-            aria-selected={tab === v}
-            data-testid={`support-history-tab-${v}`}
-            onClick={() => setTab(v)}
-            className={`${tab === v ? Sam.tabs.tabActive : Sam.tabs.tab} ${Sam.focusRing} flex-1`}
-          >
-            {tabLabel(v)}
-          </button>
-        ))}
-      </div>
+    <div className="flex flex-col gap-3" data-support-history-list="active">
       {body}
+      <ListHint />
     </div>
   );
 }

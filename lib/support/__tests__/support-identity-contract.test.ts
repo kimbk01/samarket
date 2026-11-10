@@ -41,9 +41,9 @@ describe("support identity / case SSOT contract", () => {
 
     const modal = readRepo("components/support/SupportModalHost.tsx");
     expect(modal).toContain("/api/support/cases/open");
-    // PHASE 3-B: case open is deferred to triage handoff (handleCreateCase), not legacy handleStartInquiry.
-    expect(modal).toContain("handleCreateCase");
-    expect(modal).toContain("requireIssueType: true");
+    // 접수형: 문의는 한 화면 쓰기의 「문의 접수」(handleSubmit)에서만 만든다.
+    expect(modal).toContain("handleSubmit");
+    expect(readRepo("lib/support/support-ticket-form.ts")).toContain("requireIssueType: true");
     expect(modal).not.toContain("handleStartInquiry");
   });
 

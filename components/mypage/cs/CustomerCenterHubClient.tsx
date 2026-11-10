@@ -17,7 +17,6 @@ import { BOARD_LABEL, type CustomerCenterContentType } from "@/lib/notices/custo
 import { buildCustomerCenterBoardListPath } from "@/lib/notices/customer-center-content-paths";
 import { SupportGenericHubInquireGate } from "@/components/support/SupportGenericHubInquireGate";
 import { DISABLED_SUPPORT_CONTEXT } from "@/lib/support/support-context";
-import { useSupportRequesterUnread } from "@/lib/support/use-support-requester-unread";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 const BOARD_TABS: {
@@ -68,7 +67,6 @@ const MEMBER_CC_CONTEXT = DISABLED_SUPPORT_CONTEXT;
 export function CustomerCenterHubClient() {
   const { safeT, language } = useI18n();
   const { balance, loading, error: balanceError } = useUserPointBalance();
-  const supportUnread = useSupportRequesterUnread({ audience: "MEMBER" });
   const points = customerCenterHubPointsValue({ balance, loading, error: balanceError });
   /** 알림 최종 설계 §3·§5 — 게시판 타일의 안 읽은 글 수 (서버 = 열람 기록 기준) */
   const [boardUnread, setBoardUnread] = useState<Partial<Record<CustomerCenterContentType, number>>>({});
@@ -100,7 +98,6 @@ export function CustomerCenterHubClient() {
       titleKey: "support_history_title",
       icon: <MessageSquare className="h-5 w-5" aria-hidden />,
       testId: "cc-hub-row-support-history",
-      badge: supportUnread,
     },
     {
       href: customerCenterChildHref("/mypage/inquiries"),
@@ -180,7 +177,8 @@ export function CustomerCenterHubClient() {
             })}
           </section>
 
-          <div data-support-hub-unread={supportUnread > 0 ? supportUnread : undefined}>
+          {/* 고객센터 답변 숫자는 고객센터 FAB 아이콘에만(Owner 2026-11-10) — 허브 행에는 숫자 없음 */}
+          <div>
             <MyGroup>
               {entries.map((entry, index) => (
                 <MyRow

@@ -33,9 +33,8 @@ describe("PHASE 3-B support customer triage", () => {
     const state = initSupportTriageFromContext(ctx);
     expect(state.step).toBe("START_CATEGORY");
     expect(state.category).toBeNull();
-    expect(read("components/support/SupportTriageFlow.tsx")).toContain(
-      "data-support-triage-categories"
-    );
+    // 접수형 한 화면: 분야 행 → 분야 선택 목록
+    expect(read("components/support/SupportTicketViews.tsx")).toContain('setView("pick_category")');
   });
 
   it("T2 generic entry does not auto OTHER", () => {
@@ -194,15 +193,13 @@ describe("PHASE 3-B support customer triage", () => {
     expect(state.step).toBe("HANDOFF_SUMMARY");
   });
 
-  it("T12 solved guidance creates no case", () => {
+  it("T12 접수형: 안내 단계 없음 — 닫기는 문의를 만들지 않는다", () => {
     const host = read("components/support/SupportModalHost.tsx");
-    expect(host).toContain("onResolvedWithoutCase");
     expect(host).toContain("handleClose");
-    const flow = read("components/support/SupportTriageFlow.tsx");
-    expect(flow).toContain("GUIDANCE_RESOLVED");
-    expect(flow).toContain("onResolvedWithoutCase");
-    // create API only from handoff CTA
-    expect(flow).toContain("data-support-triage-create");
+    const views = read("components/support/SupportTicketViews.tsx");
+    expect(views).not.toContain("GUIDANCE_RESOLVED");
+    // create API only from 「문의 접수」 button
+    expect(views).toContain("data-support-ticket-submit");
   });
 
   it("T13 escalated guidance carries metadata", () => {
@@ -244,28 +241,31 @@ describe("PHASE 3-B support customer triage", () => {
     expect(state.guidance?.revision).toBe(3);
   });
 
-  it("T14 summary required/validated", () => {
-    const flow = read("components/support/SupportTriageFlow.tsx");
-    expect(flow).toContain("summaryOk");
-    expect(flow).toContain("!summaryOk");
+  it("T14 내용 필수 — 비면 문의 접수 비활성", () => {
+    const views = read("components/support/SupportTicketViews.tsx");
+    expect(views).toContain("canSubmitSupportTicket(state)");
+    expect(views).toContain("disabled={!canSubmit}");
   });
 
-  it("T15 case created only at handoff CTA", () => {
-    const flow = read("components/support/SupportTriageFlow.tsx");
-    expect(flow).toContain("onCreateCase");
-    expect(flow).toContain("data-support-triage-create");
-    // SELECT_CATEGORY / ISSUE must not call create
-    expect(flow).not.toMatch(/SELECT_CATEGORY[\s\S]{0,200}onCreateCase/);
+  it("T15 문의는 「문의 접수」에서만 만든다", () => {
+    const views = read("components/support/SupportTicketViews.tsx");
+    expect(views).toContain("onSubmit(state, draftKey)");
+    expect(views).toContain("data-support-ticket-submit");
+    // 분야·세부 선택은 접수를 부르지 않는다
+    expect(views).not.toMatch(/selectSupportTicketCategory[\s\S]{0,200}onSubmit\(/);
+    const form = read("lib/support/support-ticket-form.ts");
+    expect(form).toContain("requireIssueType: true");
     const host = read("components/support/SupportModalHost.tsx");
-    expect(host).toContain("requireIssueType: true");
-    expect(host).toContain("handleCreateCase");
+    expect(host).toContain("handleSubmit");
+    expect(host).toContain('fetch("/api/support/cases/open"');
   });
 
-  it("T16 ACTIVE exact case preserved", () => {
+  it("T16 caseId 로 열면 그 문의 상세(질문·답변)", () => {
     const host = read("components/support/SupportModalHost.tsx");
-    expect(host).toContain("SupportActiveConversation");
-    expect(host).toContain("showActive");
-    expect(host).toContain("/api/support/cases/");
+    expect(host).toContain("SupportTicketDetail");
+    expect(host).toContain("modal.caseId");
+    const views = read("components/support/SupportTicketViews.tsx");
+    expect(views).toContain("/api/support/cases/");
   });
 
   it("T17 RESOLVED new inquiry → generic triage", () => {
@@ -293,18 +293,18 @@ describe("PHASE 3-B support customer triage", () => {
   });
 
   it("T19 raw enums absent UI contract", () => {
-    const flow = read("components/support/SupportTriageFlow.tsx");
-    expect(flow).toContain("labelForCategory");
-    expect(flow).toContain("labelForIssue");
-    expect(flow).not.toMatch(/>\s*PAYMENT_RECHARGE\s*</);
-    expect(flow).not.toMatch(/>\s*POINT_CHARGE_NOT_REFLECTED\s*</);
+    const views = read("components/support/SupportTicketViews.tsx");
+    expect(views).toContain("supportTicketCategoryLabel");
+    expect(views).toContain("supportTicketIssueLabel");
+    expect(views).not.toMatch(/>\s*PAYMENT_RECHARGE\s*</);
+    expect(views).not.toMatch(/>\s*POINT_CHARGE_NOT_REFLECTED\s*</);
   });
 
-  it("T20 current message POST append preserved", () => {
-    const host = read("components/support/SupportModalHost.tsx");
-    expect(host).toContain('method: "POST"');
-    expect(host).toContain("mergeSupportMessage");
-    expect(host).toMatch(/\/api\/support\/cases\/\$\{encodeURIComponent\(caseId\)\}/);
+  it("T20 추가 문의·확인했어요 = 같은 문의 POST", () => {
+    const views = read("components/support/SupportTicketViews.tsx");
+    expect(views).toContain('method: "POST"');
+    expect(views).toContain('JSON.stringify({ action: "close" })');
+    expect(views).toMatch(/\/api\/support\/cases\/\$\{encodeURIComponent\(caseId\)\}/);
   });
 
   it("buildTriageOpenContext carries explicit OTHER", () => {

@@ -9,7 +9,7 @@ import { resolveCustomerCenterBackHref } from "@/lib/mypage/customer-center-path
 import { DISABLED_SUPPORT_CONTEXT } from "@/lib/support/support-context";
 
 /**
- * 고객 상담 내역 `/mypage/support-history` (최종 설계 S63) — 상태 탭 `?tab=active|done` + 더 보기.
+ * 고객 「내 문의」 `/mypage/support-history` — 진행 중 문의만(종료 문의는 사라짐, Owner 2026-11-10) + 더 보기.
  * 뒤로 = 고객센터 허브(`?from=customer-center`).
  */
 export function MemberSupportHistoryClient() {
@@ -26,7 +26,7 @@ export function MemberSupportHistoryClient() {
         preferHistoryBack={false}
         template="list"
       >
-        <SupportCasesHistoryList audience="MEMBER" withStatusTabs />
+        <SupportCasesHistoryList audience="MEMBER" />
       </MyScreen>
     </SupportContextProvider>
   );

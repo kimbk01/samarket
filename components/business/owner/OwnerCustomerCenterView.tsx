@@ -11,7 +11,6 @@ import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { DISABLED_SUPPORT_CONTEXT, buildOwnerSupportContext } from "@/lib/support/support-context";
 import { OWNER_ADMIN_PRIMARY_BTN_CLASS } from "@/lib/business/owner-admin-list-ui";
-import { useSupportRequesterUnread } from "@/lib/support/use-support-requester-unread";
 
 type CareTab = "history" | "archive";
 
@@ -34,8 +33,8 @@ export function OwnerCustomerCenterView({
   const storeId = sp.get("storeId")?.trim() || null;
   const tab = parseTab(sp.get("tab"));
   const archiveBadge = inboxUnread + inquiryUnread;
-  // B6 — 「상담 내역」 badge = this store's OWNER support unread (was hard-coded 0).
-  const historyBadge = useSupportRequesterUnread({ audience: "OWNER", storeId });
+  // 고객센터 답변 숫자는 고객센터 FAB 아이콘에만(Owner 2026-11-10) — 「내 문의」 탭에는 숫자 없음.
+  const historyBadge = 0;
 
   const supportCtx = storeId
     ? buildOwnerSupportContext({

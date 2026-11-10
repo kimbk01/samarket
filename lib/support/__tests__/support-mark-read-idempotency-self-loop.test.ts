@@ -137,16 +137,13 @@ describe("support mark-read idempotency (self-loop close)", () => {
     expect(update).toHaveBeenCalledTimes(1);
   });
 
-  it("CASE5 client still subscribes messages INSERT + cases UPDATE (legitimate refresh preserved)", () => {
-    const host = readFileSync(
-      join(process.cwd(), "components/support/SupportModalHost.tsx"),
-      "utf8"
-    );
-    expect(host).toContain('table: "support_messages"');
-    expect(host).toContain('event: "INSERT"');
-    expect(host).toContain('table: "support_cases"');
-    expect(host).toContain('event: "UPDATE"');
-    expect(host).toContain("void load({ silent: true })");
+  it("CASE5 접수형 문의 상세는 실시간 구독 없음 — 열 때 1회 읽기(채팅과 별도 운영, Owner 2026-11-10)", () => {
+    const host =
+      readFileSync(join(process.cwd(), "components/support/SupportModalHost.tsx"), "utf8") +
+      readFileSync(join(process.cwd(), "components/support/SupportTicketViews.tsx"), "utf8");
+    expect(host).not.toContain("postgres_changes");
+    expect(host).not.toContain('table: "support_messages"');
+    expect(host).toContain("void load();");
   });
 
   it("CASE6 GET route still marks read (unread semantics entry preserved)", () => {

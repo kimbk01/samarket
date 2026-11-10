@@ -10,7 +10,7 @@ function read(rel: string): string {
 
 describe("Support Customer ↔ Admin message parity contracts", () => {
   it("both UIs render support_messages sender_type / message_type without a second chat model", () => {
-    const customer = read("components/support/SupportModalHost.tsx");
+    const customer = read("components/support/SupportTicketViews.tsx");
     const admin = read("components/admin/support/AdminSupportPage.tsx");
     expect(customer).toContain("SupportMessageRow");
     expect(customer).toContain("sender_type");

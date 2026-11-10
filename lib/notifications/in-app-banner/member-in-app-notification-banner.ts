@@ -80,7 +80,7 @@ export function resolveMemberInAppNotificationBanner(
   if (eventType === "missed_call" || isCallPresentationExcluded({ notification_type: notificationType })) {
     return { show: false, reason: "call_or_missed_call" };
   }
-  /** 고객센터 답변은 `SupportInAppNoticeHost` 가 맡는다. */
+  /** 고객센터 답변은 앱 사용 중 배너 없음 — 고객센터 FAB 숫자로만 알린다(접수형 문의 · Owner 2026-11-10). */
   if (eventType.startsWith("support_")) return { show: false, reason: "support_own_banner" };
   /** 친구 요청·선물·그룹 초대 — 메신저 소속(친구 요청은 중앙 팝업 유지). */
   if (isMessengerOwnedNotificationKind(eventKind)) return { show: false, reason: "messenger_owned_kind" };

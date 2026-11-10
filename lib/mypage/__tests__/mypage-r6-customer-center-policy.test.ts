@@ -408,8 +408,9 @@ describe("S63 상담 내역 — 상태 탭 · 커서 · OWNER 불변", () => {
     expect(p2.cases).toHaveLength(1);
     expect(p2.nextCursor).toBeNull();
     expect(p2.counts).toBeUndefined();
+    // 접수형 문의(Owner 2026-11-10): 종료 문의는 요청자 화면에서 사라진다 — status=done 이어도 진행 중만.
     const done = await (await supportCasesGET(req("/api/support/cases?audience=MEMBER&status=done"))).json();
-    expect(done.cases.map((c: { status: string }) => c.status).sort()).toEqual(["ARCHIVED", "RESOLVED"]);
+    expect(done.cases.some((c: { status: string }) => c.status === "RESOLVED" || c.status === "ARCHIVED")).toBe(false);
   });
 
   it("파라미터 없음(OWNER 기본) → 기존 응답 형태 그대로(nextCursor·counts 없음)", async () => {
@@ -419,17 +420,19 @@ describe("S63 상담 내역 — 상태 탭 · 커서 · OWNER 불변", () => {
     expect((await supportCasesGET(req("/api/support/cases?status=bogus"))).status).toBe(400);
   });
 
-  it("공유 목록: 탭·커서는 withStatusTabs(MEMBER)만 · OWNER 요청 불변", () => {
+  it("공유 목록: 회원 = 진행 중 + 커서 더 보기(상태 탭 없음) · OWNER 요청 불변 · 목록 안 숫자 없음", () => {
     const src = read("components/support/SupportCasesHistoryList.tsx");
-    expect(src).toContain('if (withStatusTabs && audience === "MEMBER") return <MemberSupportCasesTabbedList />');
+    expect(src).toContain('if (audience === "MEMBER") return <MemberSupportCasesList />');
     expect(src).toContain('const qs = new URLSearchParams({ audience });');
-    expect(src).toContain("useMypageTabParam");
+    expect(src).not.toContain("useMypageTabParam");
+    expect(src).toContain('status: "active"');
     expect(src).toContain("MyListPager");
     expect(src).not.toMatch(/toLocale/);
+    expect(src).not.toContain("requester_unread_count");
     const owner = read("components/business/owner/OwnerCustomerCenterView.tsx");
     expect(owner).not.toContain("withStatusTabs");
     const member = read("components/support/MemberSupportHistoryClient.tsx");
-    expect(member).toContain('<SupportCasesHistoryList audience="MEMBER" withStatusTabs />');
+    expect(member).toContain('<SupportCasesHistoryList audience="MEMBER" />');
   });
 });
 

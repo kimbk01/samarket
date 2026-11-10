@@ -8,7 +8,9 @@ import {
   markSupportCaseReadForRequester,
   postRequesterSupportMessage,
   reopenSupportCase,
+  requesterCloseSupportCase,
 } from "@/lib/support/support-case-service";
+import { isSupportTicketClosedStatus } from "@/lib/support/support-ticket-form";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,6 +30,14 @@ export async function GET(
   if (!gate.ok) {
     const status = gate.error === "not_found" ? 404 : gate.error === "forbidden" ? 403 : 400;
     return NextResponse.json({ ok: false, error: gate.error }, { status });
+  }
+  // 접수형 문의(Owner 2026-11-10): 종료된 문의는 요청자에게 내용을 돌려주지 않는다(화면에서 사라짐).
+  if (isSupportTicketClosedStatus(gate.case.status)) {
+    const notificationsRead = await markSupportCaseNotificationsRead(sb, {
+      userId: auth.userId,
+      caseId,
+    });
+    return NextResponse.json({ ok: true, case: gate.case, messages: [], closed: true, notificationsRead });
   }
   const messages = await listSupportMessages(sb, { caseId });
   if (!messages.ok) {
@@ -63,6 +73,23 @@ export async function POST(
     body?: string;
     action?: string;
   };
+
+  // 접수형 문의 — 고객이 답변 확인 후 「확인했어요」 = 종료(알림 없음)
+  if (body.action === "close") {
+    const res = await requesterCloseSupportCase(sb, { userId: auth.userId, caseId });
+    if (!res.ok) {
+      const status =
+        res.error === "not_found"
+          ? 404
+          : res.error === "forbidden"
+            ? 403
+            : res.error === "status_conflict"
+              ? 409
+              : 400;
+      return NextResponse.json({ ok: false, error: res.error }, { status });
+    }
+    return NextResponse.json({ ok: true, case: res.case });
+  }
 
   if (body.action === "reopen") {
     const res = await reopenSupportCase(sb, { userId: auth.userId, caseId });

@@ -134,8 +134,8 @@ describe("support modal CUT A / reconstruction contracts", () => {
       join(ROOT, "components/support/SupportSheetShell.tsx"),
       "utf8"
     );
-    const triage = readFileSync(
-      join(ROOT, "components/support/SupportTriageFlow.tsx"),
+    const views = readFileSync(
+      join(ROOT, "components/support/SupportTicketViews.tsx"),
       "utf8"
     );
     expect(host).toContain("SupportSheetShell");
@@ -147,16 +147,19 @@ describe("support modal CUT A / reconstruction contracts", () => {
     expect(host).not.toContain("heightPx=");
     expect(host).not.toContain("scrollIntoView");
     expect(host).not.toContain("useFormKeyboardViewport");
-    expect(host).toContain("json.message");
-    expect(host).toContain("el.scrollTop = el.scrollHeight");
+    // 접수형(Owner 2026-11-10): 화면 격자는 SupportTicketViews — 머리글·목록·하단 버튼·입력 표식 유지
     expect(host).toContain('data-support-sheet-chrome="1"');
-    expect(host).toContain('data-support-sheet-header="1"');
-    expect(host).toContain('data-form-keyboard-sticky-chrome="1"');
-    expect(host).toContain('data-support-message-list="1"');
-    expect(host).toContain('data-support-composer="1"');
-    expect(host).toContain("data-form-keyboard-field");
-    expect(host).not.toContain("useFormKeyboardFocusVisibility");
-    expect(host).not.toContain("keyboardOpen");
+    expect(views).toContain('data-support-sheet-header="1"');
+    expect(views).toContain('data-form-keyboard-sticky-chrome="1"');
+    expect(views).toContain('data-support-message-list="1"');
+    expect(views).toContain('data-support-composer="1"');
+    expect(views).toContain("data-form-keyboard-field");
+    for (const src of [host, views]) {
+      expect(src).not.toContain("useFormKeyboardFocusVisibility");
+      expect(src).not.toContain("keyboardOpen");
+      expect(src).not.toContain("useFormKeyboardViewport");
+      expect(src).not.toContain("scrollIntoView");
+    }
     expect(shell).toContain("DibayUsableAreaSheet");
     expect(shell).not.toContain("DibayBottomSheet");
     // Owner 2026-11-01 — 모든 바텀시트 기기 하단 고정, anchor prop 폐지
@@ -174,8 +177,9 @@ describe("support modal CUT A / reconstruction contracts", () => {
     expect(shell).not.toContain("DibayOverlayRoot");
     // Rejected debt must stay absent from Support presentation wiring
     expect(shell).not.toMatch(/\bsheetLift\b/);
-    expect(triage).toContain('data-support-triage-handoff-cta="1"');
-    expect(triage).toContain("min-h-0 flex-1 overflow-y-auto");
+    // 전체 화면 — 사용 가능 영역 100%
+    expect(shell).toContain("export const SUPPORT_SHEET_HEIGHT_RATIO = 1;");
+    expect(views).toContain("min-h-0 flex-1 overflow-y-auto");
   });
 
   it("eager SupportModalHost independent of FAB lazy host", () => {

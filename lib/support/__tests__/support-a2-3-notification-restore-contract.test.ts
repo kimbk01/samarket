@@ -80,15 +80,15 @@ describe("A2-3 support notification → Support Modal restore", () => {
   });
 
   it("sheet close button does not use full-width overlay text btn (title crush)", () => {
-    const page = read("components/support/SupportModalHost.tsx");
-    /** 팝업 SSOT T3 — 닫기 = 원 40 아이콘 버튼 (전폭 글자 버튼 아님) */
-    expect(page).toContain('className="dibay-overlay-icon-btn shrink-0"');
-    expect(page).toContain("!text-left");
-    expect(page).toContain("break-keep");
+    const page = read("components/support/SupportTicketViews.tsx");
+    /** 접수형 머리글 48px 격자 [48 뒤로 | 제목 1줄 | 48 닫기] — 닫기는 아이콘 버튼, 제목은 1줄 말줄임 */
+    expect(page).toContain("grid-cols-[48px_minmax(0,1fr)_48px]");
+    expect(page).toContain('data-support-modal-close="1"');
+    expect(page).toContain("truncate text-center");
   });
 
   it("modal case load fail-closes without legacy fallback", () => {
-    const page = read("components/support/SupportModalHost.tsx");
+    const page = read("components/support/SupportModalHost.tsx") + read("components/support/SupportTicketViews.tsx");
     expect(page).toContain("support_modal_case_load");
     expect(page).toContain("forbidden");
     expect(page).not.toContain("/mypage/inquiries");

@@ -5,7 +5,7 @@
 import { readFileSync } from "node:fs";
 import { MESSAGES } from "@/lib/i18n/messages";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { supportUiMessages } from "@/lib/i18n/catalog/support-ui";
 import { SUPPORT_REFERENCE_TYPES } from "@/lib/support/support-reference-authority";
 import {
@@ -18,12 +18,6 @@ import {
   supportPriorityLabel,
 } from "@/lib/support/support-status-label";
 import { SUPPORT_CASE_STATUSES } from "@/lib/support/support-case-types";
-import {
-  dismissSupportInAppNotice,
-  getSupportInAppNotice,
-  pushSupportInAppNoticeFromRealtimeRow,
-} from "@/lib/support/support-in-app-notice";
-import { closeSupportModal, openSupportModal } from "@/lib/support/support-modal-controller";
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
@@ -69,15 +63,15 @@ describe("B2 error labels — customers never see an API code", () => {
   });
 
   it("customer surfaces render errors / reference types through the label SSOT", () => {
-    const host = read("components/support/SupportModalHost.tsx");
-    const flow = read("components/support/SupportTriageFlow.tsx");
+    const views = read("components/support/SupportTicketViews.tsx");
     const hist = read("components/support/SupportCasesHistoryList.tsx");
     const enter = read("components/support/SupportCenterEnterClient.tsx");
-    expect(host).toContain("supportErrorLabel(safeT, error)");
-    expect(host).not.toMatch(/\{error\}<\/p>/);
-    expect(flow).toContain("supportErrorLabel(safeT, guidanceError)");
-    expect(flow).toContain("supportErrorLabel(safeT, startError)");
-    expect(flow).not.toMatch(/\{state\.referenceType\}/);
+    expect(views).toContain("supportErrorLabel(safeT, error)");
+    expect(views).toContain("supportErrorLabel(safeT, submitError)");
+    expect(views).toContain("supportErrorLabel(safeT, actionError)");
+    expect(views).not.toMatch(/\{error\}<\/p>/);
+    expect(views).toContain("supportReferenceLabel(safeT, state.referenceType)");
+    expect(views).not.toMatch(/\{state\.referenceType\}/);
     expect(hist).toContain("supportErrorLabel(safeT, error)");
     expect(hist).not.toContain("c.subject");
     expect(enter).not.toContain("(${error})");
@@ -134,17 +128,21 @@ describe("B4/B5/B6 lists and badges", () => {
     expect(list).not.toMatch(/:\s*th\.status\}/);
   });
 
-  it("entry badges read requester unread from support cases (not legacy notes)", () => {
+  it("고객센터 답변 숫자 = 고객센터 FAB 아이콘에만 (Owner 2026-11-10) — 허브·탭 행에는 없음", () => {
     const hook = read("lib/support/use-support-requester-unread.ts");
     expect(hook).toContain("/api/support/cases?");
     expect(hook).toContain("requester_unread_count");
+    const fab = read("components/support/SupportFab.tsx");
+    expect(fab).toContain("useSupportRequesterUnread({");
+    expect(fab).toContain('audience: owner ? "OWNER" : "MEMBER"');
+    expect(fab).toContain('data-support-fab-badge="1"');
     const hub = read("components/mypage/cs/CustomerCenterHubClient.tsx");
-    expect(hub).toContain('useSupportRequesterUnread({ audience: "MEMBER" })');
+    expect(hub).not.toContain("useSupportRequesterUnread");
     const care = read("components/business/owner/OwnerCustomerCareHubView.tsx");
-    expect(care).toContain('audience: "OWNER"');
+    expect(care).not.toContain("useSupportRequesterUnread");
     expect(care).not.toContain("noteUnread(");
     const center = read("components/business/owner/OwnerCustomerCenterView.tsx");
-    expect(center).toContain("badge: historyBadge");
+    expect(center).not.toContain("useSupportRequesterUnread");
   });
 
   it("B8 admin archive is readable; B9 dashboard tile uses support_actionable", () => {
@@ -160,46 +158,12 @@ describe("B4/B5/B6 lists and badges", () => {
   });
 });
 
-describe("D1 in-app notice", () => {
-  afterEach(() => {
-    dismissSupportInAppNotice();
-    closeSupportModal();
-  });
-
-  const row = (type: string, caseId = "c-1") => ({
-    id: "n-1",
-    type,
-    link_url: `/support/cases/${caseId}`,
-    body: "관리자 답변 본문",
-  });
-
-  it("requester support events raise the banner; others do not", () => {
-    expect(pushSupportInAppNoticeFromRealtimeRow(row("support_admin_replied"))).toBe(true);
-    expect(getSupportInAppNotice()?.caseId).toBe("c-1");
-    expect(getSupportInAppNotice()?.preview).toBe("관리자 답변 본문");
-    dismissSupportInAppNotice();
-    for (const t of ["support_customer_replied", "chat_message", "order_status", "support_case_created"]) {
-      expect(pushSupportInAppNoticeFromRealtimeRow(row(t)), t).toBe(false);
-    }
-    expect(
-      pushSupportInAppNoticeFromRealtimeRow({ ...row("support_admin_replied"), link_url: "/admin/support/x" })
-    ).toBe(false);
-  });
-
-  it("no banner while the customer is already viewing that case", () => {
-    openSupportModal({ caseId: "c-1" });
-    expect(pushSupportInAppNoticeFromRealtimeRow(row("support_admin_replied", "c-1"))).toBe(false);
-    expect(pushSupportInAppNoticeFromRealtimeRow(row("support_admin_replied", "c-2"))).toBe(true);
-  });
-
-  it("host is mounted once in the app shell and wired to the existing Realtime bridge", () => {
-    expect(read("components/layout/ConditionalAppShell.tsx")).toContain("<SupportInAppNoticeHost />");
-    expect(read("components/notifications/NotificationsBadgeRealtimeBridge.tsx")).toContain(
-      "pushSupportInAppNoticeFromRealtimeRow(row)"
+describe("접수형 문의 — 앱 사용 중 고객센터 배너 없음 (Owner 2026-11-10)", () => {
+  it("고객센터 배너 호스트·실시간 연결이 없다 — 답변은 고객센터 FAB 숫자로만", () => {
+    expect(read("components/layout/ConditionalAppShell.tsx")).not.toContain("SupportInAppNoticeHost");
+    expect(read("components/notifications/NotificationsBadgeRealtimeBridge.tsx")).not.toContain(
+      "pushSupportInAppNoticeFromRealtimeRow"
     );
-    const host = read("components/support/SupportInAppNoticeHost.tsx");
-    expect(host).toContain('source: "banner"');
-    expect(host).not.toContain("community-messenger");
   });
 });
 

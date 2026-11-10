@@ -406,21 +406,24 @@ describe("support audit phase 1 — regression lock", () => {
     /** 언어 SSOT S6: 상태 문구는 카탈로그 키 값으로 확인(대체 문구 삭제) */
     expect(MESSAGES.ko[supportCaseStatusLabelMeta("OPEN").key]).toBe("답변 대기");
     expect(MESSAGES.ko[supportCaseStatusLabelMeta("WAITING_ADMIN").key]).toBe("답변 대기");
-    expect(MESSAGES.ko[supportCaseStatusLabelMeta("WAITING_USER").key]).toBe("상담 중");
-    expect(MESSAGES.ko[supportCaseStatusLabelMeta("RESOLVED").key]).toBe("상담 종료");
-    expect(MESSAGES.ko[supportCaseStatusLabelMeta("ARCHIVED").key]).toBe("상담 종료");
+    // 접수형 문의(Owner 2026-11-10) — 답변 대기 / 답변 완료 / 종료
+    expect(MESSAGES.ko[supportCaseStatusLabelMeta("WAITING_USER").key]).toBe("답변 완료");
+    expect(MESSAGES.ko[supportCaseStatusLabelMeta("RESOLVED").key]).toBe("종료");
+    expect(MESSAGES.ko[supportCaseStatusLabelMeta("ARCHIVED").key]).toBe("종료");
     const hist = readFileSync(join(process.cwd(), "components/support/SupportCasesHistoryList.tsx"), "utf8");
     expect(hist).not.toMatch(/\{c\.status\}/);
     expect(hist).not.toMatch(/\{c\.category\}/);
     expect(hist).toContain("supportCaseStatusLabelMeta");
-    expect(hist).toContain("requester_unread_count");
+    // 숫자는 고객센터 FAB 아이콘에만 — 목록 행에는 숫자 없음(Owner 2026-11-10)
+    expect(hist).not.toContain("requester_unread_count");
   });
 
   it("DEF-07/10/11/12: customer modal failure, restore and audience contracts", () => {
     const host = readFileSync(join(process.cwd(), "components/support/SupportModalHost.tsx"), "utf8");
-    const load = host.slice(host.indexOf("const load = useCallback"), host.indexOf("const send = async"));
+    const views = readFileSync(join(process.cwd(), "components/support/SupportTicketViews.tsx"), "utf8");
+    const load = views.slice(views.indexOf("const load = useCallback"), views.indexOf("const sendFollowUp = async"));
     expect(load).toMatch(/catch \{[\s\S]*setError\("network_error"\)/);
-    expect(host).toContain('json.error === "case_closed"');
+    expect(views).toContain('json.error === "case_closed"');
     expect(host).toContain("(prev?.audience ?? fromCase?.audience)");
     const ctrl = readFileSync(join(process.cwd(), "lib/support/support-modal-controller.ts"), "utf8");
     expect(ctrl).toMatch(/closeSupportModal\(\): void \{[\s\S]*clearSupportModalRestoreCaseId\(\)/);
@@ -429,8 +432,9 @@ describe("support audit phase 1 — regression lock", () => {
       "utf8"
     );
     expect(detail).toContain("enrichSupportCasesForAdminDisplay(sb, [gate.case])");
-    const flow = readFileSync(join(process.cwd(), "components/support/SupportTriageFlow.tsx"), "utf8");
-    expect(flow).toContain("initialBody: summary,");
+    // DEF-19: 첫 메시지 = 고객이 쓴 문장 그대로(접수형 한 화면 쓰기)
+    const form = readFileSync(join(process.cwd(), "lib/support/support-ticket-form.ts"), "utf8");
+    expect(form).toContain("initialBody: body,");
   });
 
   it("Phase 2 DEF-05: messages and case state are written through one atomic RPC", async () => {

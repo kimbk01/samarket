@@ -15,7 +15,6 @@ import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/res
 import { listOwnerCustomerHubEntries } from "@/lib/business/owner-nav-registry";
 import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
 import { parseOwnerStoreOpsSnapshotFromJson } from "@/lib/stores/owner-store-ops-snapshot";
-import { useSupportRequesterUnread } from "@/lib/support/use-support-requester-unread";
 
 type UnreadState = {
   storeInquiry: number;
@@ -89,11 +88,8 @@ export function OwnerCustomerCareHubView() {
   }, [loadBadges]);
 
   const storeId = resolvedStoreId ?? storeIdParam;
-  // B6 — 「DIBAY 고객센터」 badge = this store's OWNER support cases unread (was legacy notes).
-  const customerCenterUnread = useSupportRequesterUnread({
-    audience: "OWNER",
-    storeId: storeIdParam?.trim() || storeId,
-  });
+  // 「DIBAY 고객센터」 답변 숫자는 고객센터 FAB 아이콘에만(Owner 2026-11-10) — 허브 행·합계에 넣지 않는다.
+  const customerCenterUnread = 0;
   const hubEntries = listOwnerCustomerHubEntries(storeIdParam?.trim() || storeId);
 
   const storeCustomerEntries = hubEntries.filter((e) => e.audience === "store_customer");
