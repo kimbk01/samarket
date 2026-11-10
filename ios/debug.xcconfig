@@ -1,2 +1,6 @@
 #include "App/App/kakao.xcconfig"
 CAPACITOR_DEBUG = true
+
+// 「DIBAY 개발」(Xcode Run 기본) — 이름·카카오 개발용 키(공개 값). Owner 2026-11-11 「4단계 진행」
+DIBAY_DISPLAY_NAME = DIBAY 개발
+KAKAO_NATIVE_APP_KEY = 7ef4e5c9b1661536ec1edc285c858af0

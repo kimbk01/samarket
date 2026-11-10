@@ -1,1 +1,3 @@
 #include "App/App/kakao.xcconfig"
+
+DIBAY_DISPLAY_NAME = DIBAY
