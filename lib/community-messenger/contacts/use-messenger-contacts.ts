@@ -5,6 +5,7 @@
  * 목록 조회는 이 훅이 화면에 보일 때 1회 + 같은 회원 60초 안 재호출 없음(모듈 캐시). 메신저 bootstrap·Realtime 과 무관.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CM_FRIEND_REQUEST_CHANGED_EVENT } from "@/lib/community-messenger/friend-request-change-event";
 import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
 import {
   acceptIncomingFriendRequestFromContacts,
@@ -375,6 +376,18 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
     window.addEventListener(CONTACTS_CHANGED_EVENT, onChanged);
     return () => window.removeEventListener(CONTACTS_CHANGED_EVENT, onChanged);
   }, [loadList, set, userId]);
+
+  // 친구 요청 상태가 바뀜(상대 수락·거절·취소 · 새 요청) → 열린 화면의 요청 상태·친구 제외를 서버 목록으로 다시 맞춘다
+  // (메신저 홈 밖 연락처 화면은 홈의 실시간 요청 상태를 못 받는다 — 실기 2026-11-11 결함 3)
+  useEffect(() => {
+    if (!userId) return;
+    const onFriendRequestChanged = () => {
+      listCache.delete(userId);
+      void loadList(true);
+    };
+    window.addEventListener(CM_FRIEND_REQUEST_CHANGED_EVENT, onFriendRequestChanged);
+    return () => window.removeEventListener(CM_FRIEND_REQUEST_CHANGED_EVENT, onFriendRequestChanged);
+  }, [loadList, userId]);
 
   /** 「시작하기」·권한 다시 허용 — 이 기기에서 회원이 직접 켬 (허락 + 지운 출처 재개) */
   const requestPermissionAgain = useCallback(async () => {

@@ -26,6 +26,7 @@ import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import type { CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
 import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
+import { notifyFriendRequestChanged } from "@/lib/community-messenger/friend-request-change-event";
 import {
   createResumeSignalCoalescer,
   friendRequestFeedReasonForcesRelationRecheck,
@@ -194,6 +195,7 @@ export function useGlobalFriendRequestFeed(args: {
                 if (row && row.status && row.status !== "pending") {
                   useIncomingFriendRequestPopupStore.getState().removeFriendRequestIfId(row.id);
                 }
+                notifyFriendRequestChanged();
                 void syncPending("realtime");
               }
             )
@@ -208,6 +210,7 @@ export function useGlobalFriendRequestFeed(args: {
                   outgoingLabelById.delete(row.id);
                   onAcceptedRef.current(label);
                 }
+                notifyFriendRequestChanged();
                 void syncPending("realtime");
               }
             ),

@@ -189,6 +189,43 @@ describe("메신저 hot path 미연결 계약", () => {
     expect(hb).toContain('import("@/lib/community-messenger/contacts/contacts-sync-engine")');
     expect(hb).not.toMatch(/^import .*contacts-sync-engine/m);
   });
+
+  it("친구 요청 상태 변화(전역 피드) → 연락처 화면 목록을 다시 맞춘다 (실기 2026-11-11 결함 3)", () => {
+    const feed = readFileSync(path.join(ROOT, "lib/community-messenger/realtime/use-global-friend-request-feed.ts"), "utf8");
+    // 받은 요청·보낸 요청 두 구독 모두에서 알린다
+    expect(feed.match(/notifyFriendRequestChanged\(\);/g)?.length).toBe(2);
+    const hook = readFileSync(path.join(ROOT, "lib/community-messenger/contacts/use-messenger-contacts.ts"), "utf8");
+    expect(hook).toMatch(/addEventListener\(CM_FRIEND_REQUEST_CHANGED_EVENT, onFriendRequestChanged\)/);
+    expect(hook).toMatch(/removeEventListener\(CM_FRIEND_REQUEST_CHANGED_EVENT, onFriendRequestChanged\)/);
+  });
+
+  it("친구 요청 변화 알림은 창 이벤트 1개만 보낸다", async () => {
+    const { CM_FRIEND_REQUEST_CHANGED_EVENT, notifyFriendRequestChanged } = await import(
+      "@/lib/community-messenger/friend-request-change-event"
+    );
+    if (typeof window === "undefined") {
+      expect(() => notifyFriendRequestChanged()).not.toThrow();
+      return;
+    }
+    let n = 0;
+    const on = () => {
+      n += 1;
+    };
+    window.addEventListener(CM_FRIEND_REQUEST_CHANGED_EVENT, on);
+    notifyFriendRequestChanged();
+    window.removeEventListener(CM_FRIEND_REQUEST_CHANGED_EVENT, on);
+    expect(n).toBe(1);
+  });
+
+  it("앱 시작 처리는 유휴 시간 대기에 상한이 있다 — 계속 그려지는 화면에서도 실행 후 10초 안 (실기 2026-11-11 결함 1)", async () => {
+    const hb = readFileSync(path.join(ROOT, "components/community-messenger/contacts/MessengerContactsHeartbeat.tsx"), "utf8");
+    expect(hb).toContain("ric(run, { timeout: CONTACTS_START_IDLE_MAX_WAIT_MS })");
+    expect(hb).not.toMatch(/ric\(run\)/);
+    const { CONTACTS_START_DELAY_MS, CONTACTS_START_IDLE_MAX_WAIT_MS } = await import(
+      "@/components/community-messenger/contacts/MessengerContactsHeartbeat"
+    );
+    expect(CONTACTS_START_DELAY_MS + CONTACTS_START_IDLE_MAX_WAIT_MS).toBeLessThanOrEqual(10_000);
+  });
 });
 
 describe("연락처 화면 1단 머리글 = 연락처 계약 값 (최종 점검 · 중복 값 고정)", () => {

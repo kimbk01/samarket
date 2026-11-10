@@ -35,3 +35,12 @@ F3="$HERE/../../../migrations/20271111140000_messenger_contacts_sync_f3_remainin
 loadf "$F3"
 echo "== F3 applied"
 loadf "$HERE/50_f3.test.sql"
+# 실기 결함 2 — 「최근 가입」 = 가입일 기준: 새 DB 에 전체 마이그레이션(+20271111150000) 적용 후 회귀(50, F3 기준) + 60 — 10 은 1a 시점 의미(철회 삭제 출처 재사용)라 F3 이후에는 돌리지 않음(기존 순서와 같음)
+RJ="$HERE/../../../migrations/20271111150000_messenger_contacts_recently_joined_profile_created.sql"
+"$BIN/createdb" -h 127.0.0.1 -p "$PORT" -U postgres iso_contacts_rj
+loadr() { "${PSQL[@]}" -d iso_contacts_rj -f "$1" 2>&1 | clean; return "${PIPESTATUS[0]}"; }
+loadr "$HERE/00_fixture.sql"; loadr "$MIG"; loadr "$F1"; loadr "$F2"; loadr "$F3"; loadr "$RJ"
+echo "== 20271111150000 applied (1a + F1 + §5-5 + F3 + RJ)"
+loadr "$HERE/01_helpers.sql"
+loadr "$HERE/50_f3.test.sql"
+loadr "$HERE/60_recently_joined.test.sql"

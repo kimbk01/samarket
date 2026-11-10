@@ -26,6 +26,10 @@ const MessengerContactsRevokeDialog = lazy(() =>
  */
 /** 앱 실행 중 이미 시작 처리를 한 회원 (로그인 후 화면 이동마다 다시 돌지 않게) */
 const startedUsers = new Set<string>();
+/** 첫 화면이 다 그려질 때까지 기다리는 시간 */
+export const CONTACTS_START_DELAY_MS = 8000;
+/** 그 뒤 유휴 시간을 기다리는 최대 시간 — 시작 처리는 늦어도 실행 후 10초 안에 돈다 */
+export const CONTACTS_START_IDLE_MAX_WAIT_MS = 2000;
 
 export function MessengerContactsHeartbeat() {
   const pathname = usePathname();
@@ -65,10 +69,13 @@ export function MessengerContactsHeartbeat() {
         });
       };
       timer = window.setTimeout(() => {
-        const ric = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
-        if (ric) ric(run);
+        const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number })
+          .requestIdleCallback;
+        // 유휴 시간을 기다리되 상한을 둔다 — 화면이 계속 그려지는 기기(삼성 홈 92fps 실측)에서는 유휴 시간이 오지 않아
+        // 상한 없이 기다리면 시작 처리가 70초 이상 밀린다 (실기 2026-11-11 결함 1)
+        if (ric) ric(run, { timeout: CONTACTS_START_IDLE_MAX_WAIT_MS });
         else run();
-      }, 8000);
+      }, CONTACTS_START_DELAY_MS);
     }
     return () => {
       cancelled = true;
