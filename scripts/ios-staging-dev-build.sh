@@ -75,14 +75,14 @@ DD="$WORK/build-dd"
 cd "$WORK/ios/App"
 if [[ "$TARGET" == "simulator" ]]; then
   xcodebuild -project App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator \
-    -destination "id=$UDID" -derivedDataPath "$DD" -allowProvisioningUpdates ENABLE_PREVIEWS=NO ENABLE_DEBUG_DYLIB=NO build >"$WORK/../xcodebuild.log" 2>&1 \
+    -destination "id=$UDID" -derivedDataPath "$DD" -allowProvisioningUpdates -allowProvisioningDeviceRegistration ENABLE_PREVIEWS=NO ENABLE_DEBUG_DYLIB=NO build >"$WORK/../xcodebuild.log" 2>&1 \
     || { tail -30 "$WORK/../xcodebuild.log"; exit 1; }
   APP="$DD/Build/Products/Debug-iphonesimulator/App.app"
   xcrun simctl install "$UDID" "$APP"
   xcrun simctl launch "$UDID" "$DEV_BUNDLE_ID" >/dev/null
 else
   xcodebuild -project App.xcodeproj -scheme App -configuration Debug \
-    -destination "id=$UDID" -derivedDataPath "$DD" -allowProvisioningUpdates ENABLE_PREVIEWS=NO ENABLE_DEBUG_DYLIB=NO build >"$WORK/../xcodebuild.log" 2>&1 \
+    -destination "id=$UDID" -derivedDataPath "$DD" -allowProvisioningUpdates -allowProvisioningDeviceRegistration ENABLE_PREVIEWS=NO ENABLE_DEBUG_DYLIB=NO build >"$WORK/../xcodebuild.log" 2>&1 \
     || { tail -30 "$WORK/../xcodebuild.log"; exit 1; }
   APP="$DD/Build/Products/Debug-iphoneos/App.app"
   xcrun devicectl device install app --device "$UDID" "$APP" >/dev/null
