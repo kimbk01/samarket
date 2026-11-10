@@ -26,6 +26,8 @@ export type DeliveryLaunchTexts = {
   /** 오픈 일정 문구 (예: 「오픈 예정 · 2027년 1월」) — 빈 문자열이면 줄을 그리지 않음 */
   schedule: string;
   applyLabel: string;
+  /** 흐린 목록 위 안내 띠 — 빈 문자열이면 앱 기본 문구 (Owner 「어드민에 추가」 2026-11-10) */
+  ribbon: string;
 };
 
 export type DeliveryLaunchContent = {
@@ -68,6 +70,7 @@ export const EMPTY_DELIVERY_LAUNCH_TEXTS: DeliveryLaunchTexts = {
   body: "",
   schedule: "",
   applyLabel: "",
+  ribbon: "",
 };
 
 /**
@@ -83,6 +86,7 @@ export function deliveryLaunchDesignTexts(locale: DeliveryLaunchLocale): Deliver
     body: m.delivery_recruiting_default_body,
     schedule: "",
     applyLabel: hub.mypage_hub_store_apply,
+    ribbon: m.delivery_recruiting_ribbon,
   };
 }
 
@@ -135,6 +139,7 @@ const TEXT_MAX: Record<keyof DeliveryLaunchTexts, number> = {
   body: 300,
   schedule: 80,
   applyLabel: 24,
+  ribbon: 60,
 };
 
 export function isDeliveryLaunchImageKind(v: unknown): v is DeliveryLaunchImageKind {

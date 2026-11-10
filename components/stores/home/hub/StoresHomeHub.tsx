@@ -75,6 +75,7 @@ import {
 } from "@/lib/addresses/fetch-address-defaults-client";
 import { prewarmStoresHomeBanners } from "@/lib/stores/stores-home-banners-client";
 import { isDeliveryRecruiting, useDeliveryLaunchState } from "@/lib/delivery/launch/use-delivery-launch-state";
+import type { DeliveryLaunchPublicState } from "@/lib/delivery/launch/delivery-launch-contract";
 import {
   DeliveryRecruitingHero,
   DeliveryRecruitingOverlays,
@@ -563,7 +564,7 @@ export function StoresHomeHub({
           <DeliveryRecruitingHero state={launchState} />
         </div>
       : null}
-      <StoresHomeRecruitingDim active={recruiting}>
+      <StoresHomeRecruitingDim state={recruiting ? launchState : null}>
       <StoresHomeQuickCategories />
       {/* 배민 미러링 — 상단 탭 · 아이콘 판 · 바로가기 줄 (본문과 함께 스크롤) */}
       <DeliveryHomeMenuBoard />
@@ -640,11 +641,17 @@ export function StoresHomeHub({
  * 매장 모집 중 — 지금 화면(업종판·선반·목록)을 그대로 그리되 흐리게 + 터치·키보드 막음(inert).
  * 정식 운영이면 감싸지 않아 DOM·레이아웃이 지금과 같다.
  */
-function StoresHomeRecruitingDim({ active, children }: { active: boolean; children: ReactNode }) {
-  if (!active) return <>{children}</>;
+function StoresHomeRecruitingDim({
+  state,
+  children,
+}: {
+  state: DeliveryLaunchPublicState | null;
+  children: ReactNode;
+}) {
+  if (!state) return <>{children}</>;
   return (
     <div className="relative" data-delivery-recruiting-dim="1">
-      <DeliveryRecruitingRibbon />
+      <DeliveryRecruitingRibbon state={state} />
       <div className="pointer-events-none select-none opacity-40 grayscale-[60%] blur-[1px]" inert aria-hidden="true">
         {children}
       </div>

@@ -20,6 +20,7 @@ import {
   DeliveryRecruitingHeroLayout,
   DELIVERY_RECRUITING_PRIMARY_CLASS,
 } from "@/components/delivery/launch/DeliveryRecruitingHeroLayout";
+import { DeliveryRecruitingRibbonPill } from "@/components/delivery/launch/DeliveryRecruitingSurface";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
   DELIVERY_LAUNCH_IMAGE_SPECS,
@@ -85,6 +86,7 @@ const TEXT_FIELDS: { key: keyof DeliveryLaunchTexts; label: MessageKey; multilin
   { key: "body", label: "admin_dl_field_body", multiline: true },
   { key: "schedule", label: "admin_dl_field_schedule" },
   { key: "applyLabel", label: "admin_dl_field_apply" },
+  { key: "ribbon", label: "admin_dl_field_ribbon" },
 ];
 
 const IMAGE_FIELD: Record<DeliveryLaunchImageKind, "mobileImageUrl" | "wideImageUrl"> = {
@@ -160,6 +162,17 @@ function PreviewHero({ state, locale }: { state: DeliveryLaunchPublicState; loca
       locale={locale}
       primaryAction={<span className={DELIVERY_RECRUITING_PRIMARY_CLASS}>{texts.applyLabel}</span>}
     />
+  );
+}
+
+/** 미리보기 — 배너 아래 흐린 목록 위 안내 띠 (고객 화면과 같은 모양) */
+function PreviewRibbon({ state, locale }: { state: DeliveryLaunchPublicState; locale: DeliveryLaunchLocale }) {
+  const { t } = useI18n();
+  const text = resolveDeliveryLaunchTexts(state.content, locale).ribbon || t("delivery_recruiting_ribbon");
+  return (
+    <div className="flex justify-center py-2">
+      <DeliveryRecruitingRibbonPill text={text} />
+    </div>
   );
 }
 
@@ -604,6 +617,7 @@ export function DeliveryScreensLaunchTab() {
                 <p className="mb-1 text-[12px] text-sam-muted">{t("admin_dl_preview_phone")}</p>
                 <ScaledPreview design={343}>
                   <PreviewHero state={previewState} locale={locale} />
+                  <PreviewRibbon state={previewState} locale={locale} />
                 </ScaledPreview>
               </div>
               <div className="min-w-0">
@@ -612,6 +626,7 @@ export function DeliveryScreensLaunchTab() {
                 </p>
                 <ScaledPreview design={736}>
                   <PreviewHero state={previewState} locale={locale} />
+                  <PreviewRibbon state={previewState} locale={locale} />
                 </ScaledPreview>
               </div>
             </div>

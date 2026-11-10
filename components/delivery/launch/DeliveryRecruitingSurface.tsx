@@ -70,14 +70,20 @@ export function DeliveryRecruitingHero({ state }: { state: DeliveryLaunchPublicS
   return <DeliveryRecruitingHeroLayout state={state} primaryAction={primary} />;
 }
 
-/** 흐린 목록 위 안내 띠 */
-export function DeliveryRecruitingRibbon() {
-  const { t } = useI18n();
+/** 안내 띠 모양 — 고객 화면·어드민 미리보기가 같은 모양을 쓴다 */
+export function DeliveryRecruitingRibbonPill({ text }: { text: string }) {
+  return (
+    <span className="rounded-full bg-sam-fg px-3 py-1.5 text-[12px] font-bold text-sam-surface shadow-sm">{text}</span>
+  );
+}
+
+/** 흐린 목록 위 안내 띠 — 문구는 어드민 「배달 오픈 관리」 문구 칸(비우면 앱 기본 문구) */
+export function DeliveryRecruitingRibbon({ state }: { state: DeliveryLaunchPublicState }) {
+  const { t, language } = useI18n();
+  const text = resolveDeliveryLaunchTexts(state.content, language).ribbon || t("delivery_recruiting_ribbon");
   return (
     <div className="pointer-events-none sticky top-2 z-[2] flex justify-center py-2" data-delivery-recruiting-ribbon>
-      <span className="rounded-full bg-sam-fg px-3 py-1.5 text-[12px] font-bold text-sam-surface shadow-sm">
-        {t("delivery_recruiting_ribbon")}
-      </span>
+      <DeliveryRecruitingRibbonPill text={text} />
     </div>
   );
 }

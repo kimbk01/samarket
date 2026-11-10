@@ -115,7 +115,7 @@ describe("배달 오픈 관리 — 매장 모집 중 고객 경로", () => {
   it("배달 첫 화면 — 모집이면 배너·흐림·팝업, 광고 히어로 대신 / 광고 팝업 억제", () => {
     const hub = read("components/stores/home/hub/StoresHomeHub.tsx");
     expect(hub).toContain("<DeliveryRecruitingHero state={launchState} />");
-    expect(hub).toContain("<StoresHomeRecruitingDim active={recruiting}>");
+    expect(hub).toContain("<StoresHomeRecruitingDim state={recruiting ? launchState : null}>");
     expect(hub).toContain("<DeliveryRecruitingOverlays state={launchState} />");
     // 별도 모집 팝업·광고 팝업 억제는 되돌림 (Owner 2026-11-10) — 기존 고객센터 FAB 만
     expect(read("components/platform-popup/GlobalPopupHost.tsx")).not.toContain("deliveryRecruitingHome");
@@ -148,7 +148,7 @@ describe("배달 오픈 관리 — 정식 운영이면 기존 동작 그대로 (
   });
   it("배달 첫 화면 — 모집 아니면 감싸지 않음(DOM 그대로)·광고 히어로 그대로", () => {
     const hub = read("components/stores/home/hub/StoresHomeHub.tsx");
-    expect(hub).toContain("if (!active) return <>{children}</>;");
+    expect(hub).toContain("if (!state) return <>{children}</>;");
     expect(hub).toContain(": <StoresHomeHeroBanner refreshKey={bannerRefreshKey} />}");
     expect(hub).toContain("{recruiting && launchState ? <DeliveryRecruitingOverlays state={launchState} /> : null}");
   });
@@ -196,5 +196,18 @@ describe("Owner 2026-11-10 — 홈에서 바로 들어오는 매장 아래 화�
     expect(deliveryRecruitingStoreSubpageSlug("/stores")).toBeNull();
     expect(deliveryRecruitingStoreSubpageSlug("/stores/a")).toBeNull();
     expect(deliveryRecruitingStoreSubpageSlug("/stores/a/owner/orders")).toBeNull();
+  });
+});
+
+describe("Owner 2026-11-10 「어드민에 추가」 — 안내 띠 문구", () => {
+  it("설계 기본 문구 = 앱 기본 안내 띠, 저장값은 길이 제한 안에서 그대로", () => {
+    expect(deliveryLaunchDesignTexts("ko").ribbon).toBe("배달 오픈 준비 중 · 매장을 모으고 있어요");
+    const c = normalizeDeliveryLaunchContent({ texts: { ko: { ribbon: "1월 오픈 · 지금 입점하세요" } } });
+    expect(c.texts.ko.ribbon).toBe("1월 오픈 · 지금 입점하세요");
+    expect(normalizeDeliveryLaunchContent({ texts: { ko: { ribbon: "가".repeat(200) } } }).texts.ko.ribbon.length).toBeLessThanOrEqual(60);
+  });
+  it("영어 칸이 비면 한국어 안내 띠", () => {
+    const c = normalizeDeliveryLaunchContent({ texts: { ko: { ribbon: "한국어 띠" }, en: { ribbon: "" } } });
+    expect(resolveDeliveryLaunchTexts(c, "en").ribbon).toBe("한국어 띠");
   });
 });
