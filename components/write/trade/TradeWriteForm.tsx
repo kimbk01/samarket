@@ -306,7 +306,7 @@ import {
 } from "@/lib/posts/trade-meet-spot-anchor-scroll";
 import { translateBy } from "@/lib/i18n/translate-by";
 import { tapHaptic } from "@/lib/ui/tap-haptic";
-import { peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import { fetchAddressDefaultsSnapshot, peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import {
   defaultTradePriceCurrencyForCountry,
   normalizeTradePriceCurrency,
@@ -599,9 +599,25 @@ function TradeMarketplaceWriteFormInner({
   const [masterDefaultCurrency, setMasterDefaultCurrency] = useState<TradePriceCurrency>("PHP");
   /** 하이드레이션 뒤에만 읽는다(서버·첫 그림 일치) — 주소 검색 국기 선택과 같은 방식 */
   useEffect(() => {
-    const snap = peekFreshAddressDefaultsSnapshot();
-    const master = (snap?.ok ? (snap.defaults?.master as { countryCode?: string } | null) : null) ?? null;
-    setMasterDefaultCurrency(defaultTradePriceCurrencyForCountry(master?.countryCode));
+    const apply = (snap: Awaited<ReturnType<typeof fetchAddressDefaultsSnapshot>>) => {
+      const master = (snap?.ok ? (snap.defaults?.master as { countryCode?: string } | null) : null) ?? null;
+      setMasterDefaultCurrency(defaultTradePriceCurrencyForCountry(master?.countryCode));
+    };
+    const peek = peekFreshAddressDefaultsSnapshot();
+    if (peek) {
+      apply(peek);
+      return;
+    }
+    /** 캐시가 없으면(글쓰기로 바로 진입) 한 번 받아 온다 — 단일 비행·같은 캐시 (실기 2026-11-10: 한국 대표인데 「페소」 기본) */
+    let cancelled = false;
+    void fetchAddressDefaultsSnapshot({ caller: "trade_default_location_block", reason: "composer_default_location" })
+      .then((snap) => {
+        if (!cancelled) apply(snap);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
   const priceCurrency: TradePriceCurrency = normalizeTradePriceCurrency(currency) ?? masterDefaultCurrency;
   const currencyUnit = getCurrencyUnitLabel(priceCurrency);
