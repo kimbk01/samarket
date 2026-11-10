@@ -328,24 +328,35 @@ function settleMainHubSwitchWithoutSlide(el: HTMLDivElement, generation: number)
   finalizeMainHubTransition(generation);
 }
 
-/** 허브↔허브 뒤로가기(popstate) 판정 — popstate 직후 이 시간 안의 경로 확정만 뒤로가기로 본다. */
-const HUB_POPSTATE_WINDOW_MS = 1500;
-let lastPopStateAt = 0;
-let popStateListenerInstalled = false;
+/**
+ * 허브↔허브 뒤로가기 판정 — Navigation API `navigate` 이벤트의 `navigationType === "traverse"`.
+ * popstate 는 이 앱 WebView 에서 화면 확정 **뒤**에 온다(실측 2026-11-10 Android WebView Chrome 156: traverse 15ms ·
+ * 경로 확정 79ms · popstate 141ms) → 확정 전에 오는 traverse 로 판정한다 (Owner 「traverse 판정으로 교체」 2026-11-10).
+ * Navigation API 가 없는 환경(일부 iOS WebView 등)은 판정 없음 = 기존 슬라이드 유지.
+ */
+const HUB_TRAVERSE_WINDOW_MS = 1500;
+let lastTraverseAt = 0;
+let traverseListenerInstalled = false;
 
-function installHubPopStateMarker(): void {
-  if (popStateListenerInstalled || typeof window === "undefined") return;
-  popStateListenerInstalled = true;
-  window.addEventListener("popstate", () => {
-    lastPopStateAt = performance.now();
+type NavigateEventLike = Event & { navigationType?: string };
+
+function installHubTraverseMarker(): void {
+  if (traverseListenerInstalled || typeof window === "undefined") return;
+  const nav = (window as unknown as { navigation?: EventTarget }).navigation;
+  if (!nav || typeof nav.addEventListener !== "function") return;
+  traverseListenerInstalled = true;
+  nav.addEventListener("navigate", (event) => {
+    if ((event as NavigateEventLike).navigationType === "traverse") {
+      lastTraverseAt = performance.now();
+    }
   });
 }
 
-/** 한 번만 소비 — 같은 뒤로가기로 두 번 판정하지 않는다. */
-function consumeRecentPopState(): boolean {
-  if (lastPopStateAt === 0) return false;
-  const recent = performance.now() - lastPopStateAt <= HUB_POPSTATE_WINDOW_MS;
-  lastPopStateAt = 0;
+/** 경로가 바뀔 때마다 1회 읽고 지운다 — 다음 이동으로 표시가 넘어가지 않게. */
+function consumeRecentTraverse(): boolean {
+  if (lastTraverseAt === 0) return false;
+  const recent = performance.now() - lastTraverseAt <= HUB_TRAVERSE_WINDOW_MS;
+  lastTraverseAt = 0;
   return recent;
 }
 
@@ -466,6 +477,7 @@ export function AppRouteTransition({
   const lastPushAxisRef = useRef<MainShellRoutePushAxis | null>(null);
   const pushSessionActiveRef = useRef(false);
   const appliedHubGenerationRef = useRef<number>(0);
+  const traverseCheckedPathRef = useRef<string | null>(null);
   const [pushSession, setPushSession] = useState<PushSession | null>(null);
   const [pushHandoff, setPushHandoff] = useState<PushHandoff | null>(null);
   const refBag = useRef({ subtleEnterRef, pushSurfaceRef });
@@ -473,7 +485,7 @@ export function AppRouteTransition({
   refBag.current.pushSurfaceRef = pushSurfaceRef;
 
   useEffect(() => {
-    installHubPopStateMarker();
+    installHubTraverseMarker();
   }, []);
 
   const bindPushSurfaceRef = (node: HTMLDivElement | null) => {
@@ -649,6 +661,9 @@ export function AppRouteTransition({
     let prev = renderedRef.current;
     const el = subtleEnterRef.current;
     const activeHub = peekMainHubTransition();
+    /** 이번 경로 변경이 뒤로/앞으로 가기(traverse)인지 — 경로가 바뀐 커밋에서만 1회 소비 */
+    const traverseNav = traverseCheckedPathRef.current !== pathKey ? consumeRecentTraverse() : false;
+    traverseCheckedPathRef.current = pathKey;
 
     /**
      * Stale renderedRef (e.g. still /philife while pathname is already /mypage) + new
@@ -743,8 +758,8 @@ export function AppRouteTransition({
           }
           /** Fallback: browser back / programmatic hub change without BottomNav intent. */
           setMypageStackMotionOnSurface(el, null);
-          /** A 단계: 허브↔허브 뒤로가기(popstate)만 즉시 — 링크·상세에서 하단 탭 누름 등은 기존 슬라이드 유지. */
-          if (isKeepAliveHubRouteTransition(prev.pathname, pathKey) && consumeRecentPopState()) {
+          /** A 단계: 허브↔허브 뒤로가기(traverse)만 즉시 — 링크·상세에서 하단 탭 누름 등은 기존 슬라이드 유지. */
+          if (isKeepAliveHubRouteTransition(prev.pathname, pathKey) && traverseNav) {
             forceMainHubSurfaceCleanup(el);
             return undefined;
           }

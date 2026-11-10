@@ -27,13 +27,19 @@ describe("A 단계 — 허브 간 슬라이드 제거 범위", () => {
     expect(settle).not.toContain("classList.add(");
   });
 
-  it("허브 뒤로가기만 즉시: 허브↔허브 + 최근 popstate 일 때만, 그 밖은 기존 fallback 슬라이드", () => {
+  it("허브 뒤로가기만 즉시: 허브↔허브 + 이번 경로 변경이 traverse 일 때만, 그 밖은 기존 fallback 슬라이드", () => {
     expect(art).toMatch(
-      /if \(isKeepAliveHubRouteTransition\(prev\.pathname, pathKey\) && consumeRecentPopState\(\)\) \{\s*forceMainHubSurfaceCleanup\(el\);\s*return undefined;\s*\}\s*return beginHubFallbackEnter\(el, hubAxis, pathKey\);/
+      /if \(isKeepAliveHubRouteTransition\(prev\.pathname, pathKey\) && traverseNav\) \{\s*forceMainHubSurfaceCleanup\(el\);\s*return undefined;\s*\}\s*return beginHubFallbackEnter\(el, hubAxis, pathKey\);/
     );
-    const consume = fnBody("consumeRecentPopState");
-    expect(consume).toContain("lastPopStateAt = 0");
-    expect(art).toContain("installHubPopStateMarker();");
+    // popstate 는 화면 확정 뒤에 와서 판정에 쓰지 않는다 (실측 2026-11-10)
+    expect(art).not.toMatch(/addEventListener\("popstate"/);
+    const install = fnBody("installHubTraverseMarker");
+    expect(install).toContain('nav.addEventListener("navigate"');
+    expect(install).toContain('navigationType === "traverse"');
+    expect(fnBody("consumeRecentTraverse")).toContain("lastTraverseAt = 0");
+    // 경로가 바뀐 커밋에서만 1회 소비 — 표시가 다음 이동으로 넘어가지 않음
+    expect(art).toContain("const traverseNav = traverseCheckedPathRef.current !== pathKey ? consumeRecentTraverse() : false;");
+    expect(art).toContain("installHubTraverseMarker();");
   });
 
   it("범위 밖 연출은 그대로 — fallback 슬라이드 함수·내정보/장바구니·복구 경로 유지", () => {
