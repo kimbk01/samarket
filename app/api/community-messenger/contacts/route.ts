@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
 /** DELETE — 계정 전체 연락처 삭제 (모든 기기 · 친구·숨김·차단·숨긴 추천 유지) */
 export async function DELETE(req: NextRequest) {
   return withContactsRoute(req, { name: "delete-all", limit: 10 }, async ({ userId, sb }) =>
-    contactsResultResponse(await deleteAllContacts(sb, userId), (v) => ({ ...v }))
+    contactsResultResponse(await deleteAllContacts(sb, userId), (v) => ({ ...v })),
+    { allowWhenDisabled: true }
   );
 }

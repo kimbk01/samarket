@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, type ComponentProps, type ReactNode } from "react";
-import { useSearchParams } from "next/navigation";
-import { Archive, Ban, BellOff, ChevronRight, EyeOff, UserX } from "lucide-react";
+import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Archive, Ban, BellOff, ChevronRight, Contact, EyeOff, UserX, UsersRound } from "lucide-react";
+import { MESSENGER_CONTACTS_SETTINGS_HREF } from "@/lib/community-messenger/contacts/contacts-contract";
 import { useMessengerRejectedRequests } from "@/components/community-messenger/MessengerRejectedRequestsList";
 import type { MessengerPrivacyListsStatus } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -80,6 +81,8 @@ export function MessengerArchiveScreen({
   const chatsPanelProps: ChatsProps = { ...chatsProps, busyId };
   /** §14-5: 거절한 요청 개수 — 보관함 첫 화면이 보일 때마다 다시 센다(상세에서 해제하고 돌아오면 반영) */
   const rejected = useMessengerRejectedRequests(false);
+  const router = useRouter();
+  const contactsSummary = useMessengerArchiveContactsSummary(!showMobileDetail);
   const rejectedReload = rejected.reload;
   useEffect(() => {
     if (showMobileDetail) return;
@@ -159,6 +162,19 @@ export function MessengerArchiveScreen({
           <UserX className={ICON_CLASS} strokeWidth={ICON_STROKE} />,
           rejected.requests == null ? null : rejected.requests.length
         ),
+        // 연락처 동기화 (SSOT v5 §13 · 통합 시안 「친구 관리」) — 같은 줄 형식으로 1줄만 추가
+        ...(contactsSummary
+          ? [
+              <ArchiveLinkRow
+                key="contacts-hidden"
+                dataRow="contacts_hidden"
+                icon={<UsersRound className={ICON_CLASS} strokeWidth={ICON_STROKE} />}
+                title={t("cm_contacts_hidden_title")}
+                value={contactsSummary.hiddenCount == null ? "…" : String(contactsSummary.hiddenCount)}
+                onClick={() => router.push(MESSENGER_CONTACTS_SETTINGS_HREF)}
+              />,
+            ]
+          : []),
       ],
     },
   };
@@ -173,6 +189,24 @@ export function MessengerArchiveScreen({
           {groups[group].rows}
         </div>
       ))}
+      {contactsSummary ? (
+        <div role="list" aria-label={t("cm_contacts_group_label")} data-cm-archive-group="contacts">
+          <p className="px-4 pb-1.5 pt-3.5 text-[12.5px] leading-[1.3]" style={{ color: "var(--cm-chat-sub)" }}>
+            {t("cm_contacts_group_label")}
+          </p>
+          <ArchiveLinkRow
+            dataRow="contacts_sync"
+            icon={<Contact className={ICON_CLASS} strokeWidth={ICON_STROKE} />}
+            title={t("cm_contacts_settings")}
+            value={
+              contactsSummary.consented
+                ? t("cm_contacts_sync_on_devices", { count: contactsSummary.deviceCount ?? 0 })
+                : t("cm_contacts_sync_not_used")
+            }
+            onClick={() => router.push(MESSENGER_CONTACTS_SETTINGS_HREF)}
+          />
+        </div>
+      ) : null}
 
       {showInlinePanel && selectedArchiveSection ? (
         <div className="mx-3 mt-2 min-h-[40vh] overflow-hidden rounded-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]">
@@ -180,6 +214,87 @@ export function MessengerArchiveScreen({
         </div>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * 연락처 줄 요약 (보관함 첫 화면이 보일 때 1회) — 기능 꺼짐·로그인 전이면 null(줄 없음).
+ * 메신저 bootstrap 과 무관하게 이 화면에서만 부른다. 동의한 회원만 숨긴 추천·기기 수를 더 부른다.
+ */
+function useMessengerArchiveContactsSummary(active: boolean): {
+  consented: boolean;
+  hiddenCount: number | null;
+  deviceCount: number | null;
+} | null {
+  const [summary, setSummary] = useState<{ consented: boolean; hiddenCount: number | null; deviceCount: number | null } | null>(null);
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    void (async () => {
+      const { contactsApi } = await import("@/lib/community-messenger/contacts/contacts-api-client");
+      const s = await contactsApi.settings();
+      if (cancelled) return;
+      if (!s.ok || s.data.featureEnabled === false) {
+        setSummary(null);
+        return;
+      }
+      if (!s.data.settings.consented) {
+        setSummary({ consented: false, hiddenCount: 0, deviceCount: 0 });
+        return;
+      }
+      setSummary((prev) => prev ?? { consented: true, hiddenCount: null, deviceCount: null });
+      const [h, src] = await Promise.all([contactsApi.suppressions(), contactsApi.sources(null)]);
+      if (cancelled) return;
+      setSummary({
+        consented: true,
+        hiddenCount: h.ok ? h.data.suppressions.length : null,
+        deviceCount: src.ok ? src.data.sources.length : null,
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [active]);
+  return summary;
+}
+
+/** 다른 화면으로 가는 보관함 줄 (연락처) — 보관함 줄과 같은 모양 · 오른쪽 회색 값 + › */
+function ArchiveLinkRow({
+  dataRow,
+  icon,
+  title,
+  value,
+  onClick,
+}: {
+  dataRow: string;
+  icon: ReactNode;
+  title: string;
+  value: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="listitem"
+      onClick={onClick}
+      data-cm-archive-row={dataRow}
+      className="flex h-[54px] w-full items-center gap-3 px-4 text-left transition-colors active:bg-[color:var(--messenger-surface-muted)]"
+    >
+      <span
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-[color:var(--cm-chat-band)]"
+        style={{ color: "var(--cm-chat-fg)" }}
+        aria-hidden
+      >
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-[16px]" style={{ color: "var(--cm-chat-fg)" }}>
+        {title}
+      </span>
+      <span className="flex shrink-0 items-center gap-0.5 text-[14px] tabular-nums" style={{ color: "var(--cm-chat-sub)" }}>
+        {value}
+        <ChevronRight className="h-4 w-4 shrink-0" strokeWidth={ICON_STROKE} aria-hidden />
+      </span>
+    </button>
   );
 }
 

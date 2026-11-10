@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
 /** DELETE — 동의 철회: 올린 연락처·번호 등록 삭제 (동의 기록은 남김) */
 export async function DELETE(req: NextRequest) {
   return withContactsRoute(req, { name: "consent-withdraw", limit: 10 }, async ({ userId, sb }) =>
-    contactsResultResponse(await withdrawContactsConsent(sb, userId), (v) => ({ ...v }))
+    contactsResultResponse(await withdrawContactsConsent(sb, userId), (v) => ({ ...v })),
+    { allowWhenDisabled: true }
   );
 }

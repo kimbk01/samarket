@@ -31,7 +31,7 @@ export const CONTACTS_ERROR_STATUS = {
   bad_hash: 400,
   invalid_phone: 400,
   invalid_install_id: 400,
-  too_many: 400,
+  too_many: 429,
   consent_required: 403,
   source_mismatch: 403,
   not_found: 404,
@@ -52,6 +52,9 @@ export type ContactsErrorCode = keyof typeof CONTACTS_ERROR_STATUS;
 export function contactsErrorStatus(code: string): number {
   return (CONTACTS_ERROR_STATUS as Record<string, number>)[code] ?? 500;
 }
+
+/** 기기 목록 조회 때 이 기기 설치 식별자를 싣는 머리글 (주소 쿼리 금지 — 접속 기록에 남음) */
+export const CONTACTS_INSTALL_ID_HEADER = "x-contacts-install-id";
 
 /** 설치 식별자 (`ensureClientInstanceId()` 값) 형식 */
 export function isValidContactsInstallId(raw: unknown): raw is string {

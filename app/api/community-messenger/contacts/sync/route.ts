@@ -3,6 +3,7 @@ import { parseContactsSyncRequest } from "@/lib/community-messenger/contacts/con
 import { applyContactsSync } from "@/lib/community-messenger/contacts/contacts-service.server";
 import {
   contactsError,
+  contactsJson,
   contactsResultResponse,
   readContactsJsonBody,
   withContactsRoute,
@@ -20,6 +21,9 @@ export async function POST(req: NextRequest) {
   return withContactsRoute(req, { name: "sync", limit: 10 }, async ({ userId, sb, admin }) => {
     const parsed = parseContactsSyncRequest(await readContactsJsonBody(req), admin.requestNumberLimit);
     if (!parsed.ok) return contactsError(parsed.error);
-    return contactsResultResponse(await applyContactsSync(sb, userId, parsed.value), (v) => ({ ...v }));
+    const r = await applyContactsSync(sb, userId, parsed.value);
+    // §7: 동의 철회 뒤 업로드는 다른 중지와 같이 410 (다른 경로의 consent_required 는 403 유지)
+    if (!r.ok && r.error === "consent_required") return contactsJson({ ok: false, error: r.error }, 410);
+    return contactsResultResponse(r, (v) => ({ ...v }));
   });
 }

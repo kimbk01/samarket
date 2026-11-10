@@ -481,7 +481,15 @@ export async function applyContactsSync(
 
 export type ContactsListValue =
   | { notModified: true; token: string }
-  | { notModified: false; token: string | null; accountSyncOff: boolean; members: ContactsMemberRow[]; friendIds: string[] };
+  | {
+      notModified: false;
+      token: string | null;
+      accountSyncOff: boolean;
+      members: ContactsMemberRow[];
+      friendIds: string[];
+      /** 이 기기 연락처 중 초대에서 뺄 항목(친구·내가 숨김·내가 차단) — DB F1 적용 전에는 빈 배열 */
+      knownRefs: string[];
+    };
 
 export async function listContacts(
   sb: SupabaseClient,
@@ -500,6 +508,7 @@ export async function listContacts(
       accountSyncOff: r.value.account_sync_off === true,
       members: (Array.isArray(r.value.members) ? r.value.members : []) as ContactsMemberRow[],
       friendIds: (Array.isArray(r.value.friend_ids) ? r.value.friend_ids : []) as string[],
+      knownRefs: (Array.isArray(r.value.known_refs) ? r.value.known_refs : []).map(String),
     },
   };
 }

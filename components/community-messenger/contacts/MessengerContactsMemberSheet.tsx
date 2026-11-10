@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
+import { DibayDialog } from "@/components/ui/dibay-overlay/DibayDialog";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import { postCommunityMessengerFriendRequestApi } from "@/lib/community-messenger/community-messenger-friend-request-client";
 import { contactsApi } from "@/lib/community-messenger/contacts/contacts-api-client";
@@ -20,7 +21,8 @@ import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/commu
 
 /**
  * 연락처 회원 프로필 (친구 아님) — 친구 추가 · 메시지(일반 1:1, 거래·주문 방과 따로) · 휴대폰 전화(이 기기 번호만) ·
- * 추천에서 숨기기(상대 모름) · 차단(기존 차단 API). 거래·주문 상대 여부는 표시하지 않는다 (Owner #17).
+ * 추천에서 숨기기(상대 모름) · 차단(기존 차단 API) — 둘 다 확인 후 실행. 받은 요청이면 「수락」(기존 수락 경로).
+ * 거래·주문 상대 여부는 표시하지 않는다 (Owner #17).
  * 「전화 걸기」 = 4단계 C1·C2: 기본 통화 방식(매번 묻기 → 선택 시트 · DIBAY → 기존 발신 함수 · 휴대폰 → tel:).
  */
 export function MessengerContactsMemberSheet({
@@ -30,6 +32,7 @@ export function MessengerContactsMemberSheet({
   callDefault = "ask",
   onClose,
   onRequested,
+  onAccept,
   onRemoved,
 }: {
   member: ContactsMemberRow;
@@ -40,12 +43,16 @@ export function MessengerContactsMemberSheet({
   callDefault?: ContactsCallDefault;
   onClose: () => void;
   onRequested: (userId: string) => void;
+  /** 받은 요청 수락 (기존 메신저 수락 경로) — 성공 여부 */
+  onAccept: (userId: string) => Promise<boolean>;
   onRemoved: (userId: string) => void;
 }) {
   const { t } = useI18n();
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [choiceOpen, setChoiceOpen] = useState(false);
+  /** 숨기기·차단은 확인 후 실행 (메신저 차단과 같은 흐름: 확인 → 처리 중 → 결과 안내) */
+  const [confirm, setConfirm] = useState<"hide" | "block" | null>(null);
   const name = (member.on_this_device && deviceName) || member.nickname || member.dibay_id || "";
   const publicId = member.dibay_id || member.username;
 
@@ -68,8 +75,16 @@ export function MessengerContactsMemberSheet({
       disabled={opts.disabled || busy !== null}
       aria-busy={busy === key}
       onClick={onClick}
-      className="flex min-h-[52px] w-full items-center justify-between gap-3 border-t border-[color:var(--overlay-border)] px-4 text-left disabled:opacity-50"
-      style={{ color: opts.danger ? "var(--sam-danger)" : "var(--overlay-text-primary)" }}
+      className="flex min-h-[52px] w-full items-center justify-between gap-3 border-t border-[color:var(--overlay-border)] px-4 text-left"
+      style={{
+        // 막힘은 흐리게(opacity)가 아니라 보조 글자색으로 (UI SSOT)
+        color:
+          opts.disabled || (busy !== null && busy !== key)
+            ? "var(--overlay-text-secondary)"
+            : opts.danger
+              ? "var(--sam-danger)"
+              : "var(--overlay-text-primary)",
+      }}
     >
       <span className="text-[15px]">{label}</span>
       {sub ? (
@@ -79,6 +94,43 @@ export function MessengerContactsMemberSheet({
       ) : null}
     </button>
   );
+
+  const doHide = () =>
+    run(
+      "hide",
+      async () => {
+        const r = await contactsApi.suppress(member.user_id);
+        if (r.ok) {
+          setConfirm(null);
+          onRemoved(member.user_id);
+          onClose();
+        }
+        return r.ok;
+      },
+      t("cm_contacts_hidden_done")
+    );
+
+  const doBlock = () =>
+    run(
+      "block",
+      async () => {
+        const res = await fetch("/api/community-messenger/relations/block", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ targetUserId: member.user_id, blockSource: "profile" }),
+        });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        if (res.ok && j.ok) {
+          setConfirm(null);
+          onRemoved(member.user_id);
+          onClose();
+          return true;
+        }
+        return false;
+      },
+      t("cm_contacts_blocked_done")
+    );
 
   if (choiceOpen) {
     return (
@@ -108,19 +160,31 @@ export function MessengerContactsMemberSheet({
               .join(" · ")}
           </p>
         </div>
-        {member.request_state !== "sent"
-          ? row("add", member.request_state === "received" ? t("cm_contacts_accept") : t("cm_contacts_add_friend"), null, () =>
+        {member.request_state === "received"
+          ? row("accept", t("cm_contacts_accept"), null, () =>
               void run(
-                "add",
+                "accept",
                 async () => {
-                  const r = await postCommunityMessengerFriendRequestApi(member.user_id);
-                  if (r.ok) onRequested(member.user_id);
-                  return r.ok;
+                  const ok = await onAccept(member.user_id);
+                  if (ok) onClose();
+                  return ok;
                 },
-                t("cm_contacts_request_sent")
+                t("cm_friend_request_you_accepted", { name })
               )
             )
-          : null}
+          : member.request_state !== "sent"
+            ? row("add", t("cm_contacts_add_friend"), null, () =>
+                void run(
+                  "add",
+                  async () => {
+                    const r = await postCommunityMessengerFriendRequestApi(member.user_id);
+                    if (r.ok) onRequested(member.user_id);
+                    return r.ok;
+                  },
+                  t("cm_contacts_request_sent")
+                )
+              )
+            : null}
         {row("message", t("cm_contacts_member_message"), null, () =>
           void run("message", async () => {
             const res = await fetch("/api/community-messenger/direct/start", {
@@ -150,47 +214,31 @@ export function MessengerContactsMemberSheet({
           }
           setChoiceOpen(true);
         })}
-        {row("hide", t("cm_contacts_member_hide"), t("cm_contacts_member_hide_sub"), () =>
-          void run(
-            "hide",
-            async () => {
-              const r = await contactsApi.suppress(member.user_id);
-              if (r.ok) {
-                onRemoved(member.user_id);
-                onClose();
-              }
-              return r.ok;
-            },
-            t("cm_contacts_hidden_done")
-          )
-        )}
-        {row(
-          "block",
-          t("cm_contacts_member_block"),
-          null,
-          () =>
-            void run(
-              "block",
-              async () => {
-                const res = await fetch("/api/community-messenger/relations/block", {
-                  method: "POST",
-                  credentials: "include",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ targetUserId: member.user_id, blockSource: "profile" }),
-                });
-                const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
-                if (res.ok && j.ok) {
-                  onRemoved(member.user_id);
-                  onClose();
-                  return true;
-                }
-                return false;
-              },
-              t("cm_contacts_blocked_done")
-            ),
-          { danger: true }
-        )}
+        {row("hide", t("cm_contacts_member_hide"), t("cm_contacts_member_hide_sub"), () => setConfirm("hide"))}
+        {row("block", t("cm_contacts_member_block"), null, () => setConfirm("block"), { danger: true })}
       </div>
+      <DibayDialog
+        open={confirm !== null}
+        onClose={() => (busy ? undefined : setConfirm(null))}
+        title={confirm === "block" ? t("cm_contacts_block_confirm_title", { name }) : t("cm_contacts_hide_confirm_title")}
+        description={confirm === "block" ? t("cm_contacts_block_confirm_desc") : t("cm_contacts_hide_confirm_desc")}
+        actions={[
+          {
+            key: "cancel",
+            label: t("cm_contacts_cancel"),
+            roleTone: "secondary",
+            onClick: () => setConfirm(null),
+            disabled: busy !== null,
+          },
+          {
+            key: "ok",
+            label: confirm === "block" ? t("cm_contacts_member_block") : t("cm_contacts_member_hide"),
+            roleTone: confirm === "block" ? "destructive" : "primary",
+            loading: busy !== null,
+            onClick: () => void (confirm === "block" ? doBlock() : doHide()),
+          },
+        ]}
+      />
     </MessengerHomeBottomSheetShell>
   );
 }

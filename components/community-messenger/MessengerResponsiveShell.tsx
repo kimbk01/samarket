@@ -34,6 +34,12 @@ export function isMessengerSplitCallLogsPath(pathname: string | null | undefined
   return normalizePath(pathname) === "/community-messenger/calls/logs";
 }
 
+/** 연락처 화면·연락처 동기화 설정 — 분할에서는 우측 패널에 표시 (SSOT v5 §13 · 통합 시안 가로) */
+export function isMessengerSplitContactsPath(pathname: string | null | undefined): boolean {
+  const p = normalizePath(pathname);
+  return p === "/community-messenger/contacts" || p.startsWith("/community-messenger/contacts/");
+}
+
 /**
  * 통화 화면(`/calls/:id`·outgoing·v3·v4) — 분할을 쓰지 않고 휴대폰과 같은 전체 화면 (SPL-03).
  * 통화 표현(통화 HARD LOCK D)은 그대로 — 셸만 좁은 화면 경로로 보낸다.
@@ -53,6 +59,7 @@ function MessengerResponsiveBody({ children, isWide }: Props & { isWide: boolean
   const searchParams = useSearchParams();
   const roomId = parseCommunityMessengerRoomIdFromPathname(pathname);
   const callLogs = isMessengerSplitCallLogsPath(pathname);
+  const contacts = isMessengerSplitContactsPath(pathname);
   const detailOverrideApi = useMessengerSplitDetailOverride();
   const detailOverride = isWide ? (detailOverrideApi?.detailOverride ?? null) : null;
   const scope = resolveMessengerSplitListScope({
@@ -60,7 +67,13 @@ function MessengerResponsiveBody({ children, isWide }: Props & { isWide: boolean
     cmList: searchParams.get(MESSENGER_ROOM_LIST_SOURCE_QUERY_KEY),
   });
 
-  const routeDetailKey = roomId ? `room:${roomId}` : callLogs ? "call-logs" : null;
+  const routeDetailKey = roomId
+    ? `room:${roomId}`
+    : callLogs
+      ? "call-logs"
+      : contacts
+        ? `contacts:${normalizePath(pathname)}`
+        : null;
   const showDetail = Boolean(detailOverride) || routeDetailKey != null;
 
   const detail = useMemo((): ReactNode | undefined => {

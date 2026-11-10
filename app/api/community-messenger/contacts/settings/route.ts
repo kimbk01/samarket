@@ -16,8 +16,16 @@ export const dynamic = "force-dynamic";
 
 /** GET — 계정 설정 (동의·계정 전체 동기화·번호로 나를 찾기·가입 알림·기본 통화) */
 export async function GET(req: NextRequest) {
-  return withContactsRoute(req, { name: "settings", limit: 30 }, async ({ userId, sb, admin }) =>
-    contactsResultResponse(await getContactsUserSettings(sb, userId, admin), (v) => ({ settings: v }))
+  return withContactsRoute(
+    req,
+    { name: "settings", limit: 30 },
+    async ({ userId, sb, admin, featureEnabled }) =>
+      contactsResultResponse(await getContactsUserSettings(sb, userId, admin), (v) => ({
+        settings: v,
+        featureEnabled,
+        requestNumberLimit: admin.requestNumberLimit,
+      })),
+    { allowWhenDisabled: true }
   );
 }
 

@@ -47,5 +47,5 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
     const { sourceId } = await params;
     if (!isUuid(sourceId)) return contactsError("bad_request");
     return contactsResultResponse(await deleteContactsSource(sb, userId, sourceId), () => ({}));
-  });
+  }, { allowWhenDisabled: true });
 }

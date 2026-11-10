@@ -564,6 +564,31 @@ function resolveMainTier1SubpageInner(
     };
   }
 
+  /**
+   * 연락처 화면·연락처 동기화 설정 (SSOT docs/design/messenger-contacts-sync-plan.md v5 §13) — 공통 하위 화면 머리글.
+   * 오른쪽 동작(새로고침·설정)과 부제(기기·마지막 동기화)는 화면이 `useRegisterMainTier1Header` 로 덮는다.
+   */
+  if (p === "/community-messenger/contacts") {
+    return {
+      ...DEFAULT,
+      backHref: "/community-messenger?section=friends",
+      preferHistoryBack: true,
+      ariaLabel: "tier1_messenger_back",
+      titleText: "cm_contacts_screen_title",
+      showHubQuickActions: false,
+    };
+  }
+  if (p === "/community-messenger/contacts/settings") {
+    return {
+      ...DEFAULT,
+      backHref: "/community-messenger/contacts",
+      preferHistoryBack: true,
+      ariaLabel: "tier1_messenger_back",
+      titleText: "cm_contacts_settings_title",
+      showHubQuickActions: false,
+    };
+  }
+
   if (p === "/community-messenger/delivery-chats") {
     return {
       ...DEFAULT,

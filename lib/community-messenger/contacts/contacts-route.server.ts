@@ -8,6 +8,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { contactsErrorStatus } from "@/lib/community-messenger/contacts/contacts-contract";
 import {
   loadEnabledContactsSettings,
+  readContactsAdminSettings,
   type ContactsAdminSettings,
   type ContactsResult,
 } from "@/lib/community-messenger/contacts/contacts-service.server";
@@ -16,7 +17,13 @@ import {
  * 연락처 API 공통 입구 — 로그인 → 횟수 제한 → 기능 켜짐(어드민 킬스위치) → 처리.
  * 응답은 항상 `private, no-store` (회원별 데이터 · edge 캐시 금지). 문구 없이 오류 코드만.
  */
-export type ContactsRouteContext = { userId: string; sb: SupabaseClient; admin: ContactsAdminSettings };
+export type ContactsRouteContext = {
+  userId: string;
+  sb: SupabaseClient;
+  admin: ContactsAdminSettings;
+  /** 어드민 킬스위치 켜짐 여부 — `allowWhenDisabled` 경로만 false 로 들어올 수 있다 */
+  featureEnabled: boolean;
+};
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
@@ -45,7 +52,12 @@ export async function readContactsJsonBody(req: NextRequest): Promise<unknown | 
 export async function withContactsRoute(
   req: NextRequest,
   rate: { name: string; limit: number },
-  handler: (ctx: ContactsRouteContext) => Promise<NextResponse>
+  handler: (ctx: ContactsRouteContext) => Promise<NextResponse>,
+  /**
+   * 기능이 꺼져도 회원이 자기 데이터를 지우고 동의를 거둘 수 있어야 한다 (감사 A6):
+   * 설정 조회·동의 철회·전체 삭제·기기 목록·기기 삭제만 `allowWhenDisabled`.
+   */
+  opts?: { allowWhenDisabled?: boolean }
 ): Promise<NextResponse> {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
@@ -59,10 +71,17 @@ export async function withContactsRoute(
   if (!limited.ok) return limited.response;
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) return contactsError("supabase_unconfigured");
-  const admin = await loadEnabledContactsSettings(sb);
-  if (!admin) return contactsError("contacts_disabled");
+  let admin = await loadEnabledContactsSettings(sb);
+  let featureEnabled = true;
+  if (!admin) {
+    if (!opts?.allowWhenDisabled) return contactsError("contacts_disabled");
+    const r = await readContactsAdminSettings(sb);
+    if (!r.ok || r.tableMissing) return contactsError("contacts_disabled");
+    admin = r.settings;
+    featureEnabled = false;
+  }
   try {
-    return await handler({ userId: auth.userId, sb, admin });
+    return await handler({ userId: auth.userId, sb, admin, featureEnabled });
   } catch (e) {
     console.error(`[contacts] ${rate.name}`, e);
     return contactsError("internal_error");

@@ -167,6 +167,8 @@ describe("메신저 hot path 미연결 계약", () => {
       /^components\/community-messenger\/MessengerFriendsScreen\.tsx$/,
       /^components\/community-messenger\/MessengerFriendAddSheet\.tsx$/,
       /^components\/community-messenger\/MessengerSettingsScreen\.tsx$/,
+      // §13 관리(보관함) 첫 화면 「숨긴 추천」·「연락처 동기화」 줄 — 화면이 보일 때만 API 지연 import (감사 F3)
+      /^components\/community-messenger\/MessengerArchiveScreen\.tsx$/,
     ];
     expect(importers.filter((f) => !allowed.some((re) => re.test(f)))).toEqual([]);
   });

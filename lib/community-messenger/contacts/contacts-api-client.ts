@@ -4,6 +4,7 @@
  */
 import {
   CONTACTS_API_BASE,
+  CONTACTS_INSTALL_ID_HEADER,
   type ContactsCallDefault,
   type ContactsDiscoveryPolicy,
   type ContactsMemberRow,
@@ -42,7 +43,7 @@ export type ContactsUserSettingsDto = {
 };
 
 export const contactsApi = {
-  settings: () => call<{ settings: ContactsUserSettingsDto }>("/settings"),
+  settings: () => call<{ settings: ContactsUserSettingsDto; featureEnabled?: boolean; requestNumberLimit?: number }>("/settings"),
   patchSettings: (patch: Partial<Pick<ContactsUserSettingsDto, "accountSyncEnabled" | "joinNotifyEnabled" | "callDefault">> & {
     discoveryPolicy?: ContactsDiscoveryPolicy | null;
   }) => call<Record<string, never>>("/settings", { method: "PATCH", body: JSON.stringify(patch) }),
@@ -55,12 +56,31 @@ export const contactsApi = {
     const q = sp.toString();
     return call<
       | { notModified: true; token: string }
-      | { notModified: false; token: string | null; accountSyncOff: boolean; members: ContactsMemberRow[]; friendIds: string[] }
+      | {
+          notModified: false;
+          token: string | null;
+          accountSyncOff: boolean;
+          members: ContactsMemberRow[];
+          friendIds: string[];
+          knownRefs?: string[];
+        }
     >(q ? `?${q}` : "");
   },
   deleteAll: () => call<Record<string, never>>("", { method: "DELETE" }),
   registerSource: (installId: string, platform: "android" | "ios") =>
-    call<{ source: { source_id: string; device_version: number; generation: number; reactivated: boolean; created: boolean } }>(
+    call<{
+      source: {
+        source_id: string;
+        device_version: number;
+        generation: number;
+        reactivated: boolean;
+        created: boolean;
+        sync_enabled?: boolean;
+        permission_state?: string;
+        account_sync_enabled?: boolean;
+      };
+      requestNumberLimit?: number;
+    }>(
       "/sources",
       { method: "POST", body: JSON.stringify({ installId, platform }) }
     ),
@@ -76,7 +96,7 @@ export const contactsApi = {
         entryCount: number;
         isThisDevice: boolean;
       }[];
-    }>(installId ? `/sources?install_id=${encodeURIComponent(installId)}` : "/sources"),
+    }>("/sources", installId ? { headers: { [CONTACTS_INSTALL_ID_HEADER]: installId } } : undefined),
   patchSource: (
     sourceId: string,
     body: { installId: string; syncEnabled?: boolean; permissionState?: string; revokeChoice?: "delete" | "keep" }
@@ -94,3 +114,23 @@ export const contactsApi = {
   suppress: (userId: string) => call<Record<string, never>>(`/suppressions/${userId}`, { method: "POST" }),
   unsuppress: (userId: string) => call<Record<string, never>>(`/suppressions/${userId}`, { method: "DELETE" }),
 };
+
+/**
+ * 받은 친구 요청 수락 — 기존 메신저 경로(`respond-incoming`, 요청자 id 기준) 그대로 (감사 A1).
+ * 연락처 목록은 요청 id 를 내려주지 않으므로 요청자 id 로 수락한다.
+ */
+export async function acceptIncomingFriendRequestFromContacts(requesterId: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch("/api/community-messenger/friend-requests/respond-incoming", {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requesterId, action: "accept" }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    return res.ok && body.ok === true ? { ok: true } : { ok: false, error: String(body.error ?? "network_error") };
+  } catch {
+    return { ok: false, error: "network_error" };
+  }
+}

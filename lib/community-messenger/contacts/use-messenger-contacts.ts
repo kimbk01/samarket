@@ -6,7 +6,11 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
-import { contactsApi, type ContactsUserSettingsDto } from "@/lib/community-messenger/contacts/contacts-api-client";
+import {
+  acceptIncomingFriendRequestFromContacts,
+  contactsApi,
+  type ContactsUserSettingsDto,
+} from "@/lib/community-messenger/contacts/contacts-api-client";
 import type { ContactsMemberRow } from "@/lib/community-messenger/contacts/contacts-contract";
 import {
   checkContactsPermission,
@@ -16,6 +20,7 @@ import {
 } from "@/lib/community-messenger/contacts/contacts-native";
 import {
   clearContactsDeviceData,
+  clearContactsStop,
   patchContactsLocalState,
   readContactsLocalState,
 } from "@/lib/community-messenger/contacts/contacts-local-store";
@@ -38,10 +43,28 @@ export type MessengerContactsView = {
   /** 이 기기 연락처를 아직 올리지 않았는데 다른 기기 결과가 있음 */
   otherDeviceOnly: boolean;
   names: Record<string, string>;
+  /** 이 기기 연락처 중 초대에서 뺄 항목 (친구·숨김·차단) */
+  knownRefs: string[];
+  /** 어드민 킬스위치 꺼짐 — 동의한 회원은 설정 화면에서 삭제·철회만 할 수 있다 */
+  featureOff: boolean;
+  /** 목록을 불러오지 못함 (다시 시도 표시) */
+  listError: boolean;
+  /** 권한 철회 안내의 「이미 올린 n개」 */
+  revokeCount: number;
 };
 
 const LIST_MIN_INTERVAL_MS = 60_000;
-const listCache = new Map<string, { at: number; members: ContactsMemberRow[]; friendIds: string[]; accountSyncOff: boolean; token: string | null }>();
+type ListCacheEntry = {
+  at: number;
+  members: ContactsMemberRow[];
+  friendIds: string[];
+  knownRefs: string[];
+  accountSyncOff: boolean;
+  token: string | null;
+};
+const listCache = new Map<string, ListCacheEntry>();
+/** 목록 조회 회원별 단일 비행 (§7) — 동의 직후·동기화 직후가 겹쳐도 요청 1개 */
+const listInflight = new Map<string, Promise<ListCacheEntry | null>>();
 const settingsCache = new Map<string, { at: number; settings: ContactsUserSettingsDto | null; disabled: boolean }>();
 
 export function invalidateMessengerContactsCache(): void {
@@ -49,24 +72,62 @@ export function invalidateMessengerContactsCache(): void {
   settingsCache.clear();
 }
 
+async function fetchContactsList(userId: string): Promise<ListCacheEntry | null> {
+  const cached = listCache.get(userId);
+  const local = readContactsLocalState(userId);
+  const r = await contactsApi.list(local.sourceId, cached?.token ?? local.listToken);
+  if (!r.ok) return null;
+  if (r.data.notModified) {
+    const entry: ListCacheEntry = {
+      at: Date.now(),
+      members: cached?.members ?? local.members,
+      friendIds: cached?.friendIds ?? local.friendIds,
+      knownRefs: cached?.knownRefs ?? local.knownRefs,
+      accountSyncOff: cached?.accountSyncOff ?? false,
+      token: r.data.token,
+    };
+    listCache.set(userId, entry);
+    return entry;
+  }
+  const d = r.data;
+  const entry: ListCacheEntry = {
+    at: Date.now(),
+    members: d.members,
+    friendIds: d.friendIds,
+    knownRefs: d.knownRefs ?? [],
+    accountSyncOff: d.accountSyncOff,
+    token: d.token,
+  };
+  listCache.set(userId, entry);
+  patchContactsLocalState(userId, { members: d.members, friendIds: d.friendIds, knownRefs: entry.knownRefs, listToken: d.token });
+  return entry;
+}
+
 export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
   const userId = getBoundAuthUserId() ?? "";
   const nativeAvailable = isContactsNativeAvailable();
-  const local0 = userId ? readContactsLocalState(userId) : null;
-  const cachedList = listCache.get(userId);
-  const [view, setView] = useState<MessengerContactsView>({
-    phase: "loading",
-    settings: null,
-    members: cachedList?.members ?? local0?.members ?? [],
-    friendIds: cachedList?.friendIds ?? local0?.friendIds ?? [],
-    accountSyncOff: cachedList?.accountSyncOff ?? false,
-    nativeAvailable,
-    permission: local0?.lastPermission ?? null,
-    revokePending: local0?.revokePending ?? false,
-    syncing: false,
-    lastSyncAt: local0?.lastSyncAt ?? null,
-    otherDeviceOnly: false,
-    names: local0?.names ?? {},
+  // 기기 저장값은 처음 한 번만 읽는다 (렌더마다 전체 JSON 파싱 금지 — 감사 P1)
+  const [view, setView] = useState<MessengerContactsView>(() => {
+    const local0 = userId ? readContactsLocalState(userId) : null;
+    const cachedList = listCache.get(userId);
+    return {
+      phase: "loading",
+      settings: null,
+      members: cachedList?.members ?? local0?.members ?? [],
+      friendIds: cachedList?.friendIds ?? local0?.friendIds ?? [],
+      accountSyncOff: cachedList?.accountSyncOff ?? false,
+      nativeAvailable,
+      permission: local0?.lastPermission ?? null,
+      revokePending: local0?.revokePending ?? false,
+      syncing: false,
+      lastSyncAt: local0?.lastSyncAt ?? null,
+      otherDeviceOnly: false,
+      names: local0?.names ?? {},
+      knownRefs: cachedList?.knownRefs ?? local0?.knownRefs ?? [],
+      featureOff: false,
+      listError: false,
+      revokeCount: local0?.revokeCount ?? 0,
+    };
   });
   const mounted = useRef(true);
   useEffect(() => {
@@ -84,29 +145,30 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
       if (!userId) return;
       const cached = listCache.get(userId);
       if (!force && cached && Date.now() - cached.at < LIST_MIN_INTERVAL_MS) {
-        set({ members: cached.members, friendIds: cached.friendIds, accountSyncOff: cached.accountSyncOff });
+        set({ members: cached.members, friendIds: cached.friendIds, accountSyncOff: cached.accountSyncOff, knownRefs: cached.knownRefs });
         return;
       }
-      const local = readContactsLocalState(userId);
-      const r = await contactsApi.list(local.sourceId, cached?.token ?? local.listToken);
-      if (!r.ok) return;
-      if (r.data.notModified) {
-        const members = cached?.members ?? local.members;
-        const friendIds = cached?.friendIds ?? local.friendIds;
-        listCache.set(userId, { at: Date.now(), members, friendIds, accountSyncOff: false, token: r.data.token });
-        set({ members, friendIds });
+      let p = listInflight.get(userId);
+      if (!p) {
+        p = fetchContactsList(userId).finally(() => listInflight.delete(userId));
+        listInflight.set(userId, p);
+      }
+      const entry = await p;
+      if (!entry) {
+        set({ listError: true });
         return;
       }
-      const d = r.data;
-      listCache.set(userId, { at: Date.now(), members: d.members, friendIds: d.friendIds, accountSyncOff: d.accountSyncOff, token: d.token });
-      patchContactsLocalState(userId, { members: d.members, friendIds: d.friendIds, listToken: d.token });
       const after = readContactsLocalState(userId);
       set({
-        members: d.members,
-        friendIds: d.friendIds,
-        accountSyncOff: d.accountSyncOff,
+        members: entry.members,
+        friendIds: entry.friendIds,
+        knownRefs: entry.knownRefs,
+        accountSyncOff: entry.accountSyncOff,
+        listError: false,
         names: after.names,
-        otherDeviceOnly: nativeAvailable && !after.numbers && d.members.length > 0 && !after.newDeviceAsked,
+        // 이 기기는 아직 출처가 없고(올린 적 없음) 계정에는 다른 기기 결과가 있음 (#11)
+        otherDeviceOnly:
+          nativeAvailable && !after.sourceId && !after.numbers && entry.members.length > 0 && !after.newDeviceAsked,
       });
     },
     [nativeAvailable, set, userId]
@@ -119,6 +181,7 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
         syncing: false,
         permission: local?.lastPermission ?? null,
         revokePending: local?.revokePending ?? false,
+        revokeCount: local?.revokeCount ?? 0,
         lastSyncAt: local?.lastSyncAt ?? null,
         names: local?.names ?? {},
       });
@@ -151,13 +214,17 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
       let disabled = cached?.disabled ?? false;
       if (!cached || Date.now() - cached.at > LIST_MIN_INTERVAL_MS) {
         const r = await contactsApi.settings();
-        disabled = !r.ok;
+        // 기능 꺼짐이어도 설정은 내려온다 (featureEnabled=false) — 동의한 회원의 삭제·철회용
+        disabled = !r.ok || r.data.featureEnabled === false;
         settings = r.ok ? r.data.settings : null;
         settingsCache.set(userId, { at: Date.now(), settings, disabled });
+        if (r.ok && typeof r.data.requestNumberLimit === "number") {
+          patchContactsLocalState(userId, { requestNumberLimit: r.data.requestNumberLimit });
+        }
       }
       if (cancelled) return;
       if (disabled || !settings) {
-        set({ phase: "disabled", settings: null });
+        set({ phase: "disabled", settings, featureOff: Boolean(settings) });
         return;
       }
       patchContactsLocalState(userId, { consented: settings.consented, defaultCountry: settings.defaultCountry });
@@ -181,6 +248,7 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
     const r = await contactsApi.consent();
     if (!r.ok) return false;
     patchContactsLocalState(userId, { consented: true, defaultCountry: r.data.defaultCountry });
+    clearContactsStop(userId);
     invalidateMessengerContactsCache();
     const s = await contactsApi.settings();
     if (s.ok) settingsCache.set(userId, { at: Date.now(), settings: s.data.settings, disabled: false });
@@ -247,6 +315,19 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
     [userId]
   );
 
+  /** 받은 요청 수락 (기존 메신저 수락 경로) → 친구가 되어 목록에서 빠짐 */
+  const acceptRequest = useCallback(
+    async (memberId: string) => {
+      const r = await acceptIncomingFriendRequestFromContacts(memberId);
+      if (r.ok) {
+        setView((v) => ({ ...v, members: v.members.filter((m) => m.user_id !== memberId), friendIds: [...v.friendIds, memberId] }));
+        listCache.delete(userId);
+      }
+      return r;
+    },
+    [userId]
+  );
+
   const markRequested = useCallback(
     (memberId: string) => {
       setView((v) => ({
@@ -270,5 +351,6 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
     refreshPermission,
     removeMemberLocally,
     markRequested,
+    acceptRequest,
   };
 }
