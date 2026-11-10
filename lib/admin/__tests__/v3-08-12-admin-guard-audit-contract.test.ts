@@ -155,17 +155,6 @@ describe("V3-08 internal tools — super_admin only + PUT audit", () => {
   });
 });
 
-describe("V3-08 deploy write routes are audited", () => {
-  it.each(["run-gate", "mark-verified", "cancel-verified", "mock-pipeline", "promote-web", "rollback"])(
-    "deploy/%s keeps requireDeployOwner and appends audit",
-    (r) => {
-      const src = read(`app/api/admin/deploy/${r}/route.ts`);
-      expect(src).toContain("await requireDeployOwner()");
-      expect(src).toMatch(/appendAdminRouteAudit\(gate\.sb, req,/);
-    }
-  );
-});
-
 describe("V3-09 auth settings — settings permission + masked audit", () => {
   it.each(["app/api/admin/auth-settings/route.ts", "app/api/admin/auth-providers/route.ts"])(
     "%s uses requireAdminPermission(\"settings\") everywhere",

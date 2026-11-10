@@ -183,7 +183,6 @@ export const ADMIN_UI_STANDARD_SCREENS: Readonly<Record<string, readonly string[
     "/admin/settings/auth",
     "/admin/system",
     "/admin/system/data-reset",
-    "/admin/system/deploy",
     "/admin/usage",
   ],
   trade: [

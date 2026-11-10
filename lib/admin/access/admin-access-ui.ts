@@ -25,7 +25,7 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 /** `/api/admin/me` 스냅샷 → 접근표 actor. 스냅샷이 없으면 null (기존 동작 유지). */
 export function adminAccessActorFromMe(
   me:
-    | (Pick<AdminMeSnapshot, "role" | "permissions"> & { isDeployOwner?: boolean; accountSuspended?: boolean })
+    | (Pick<AdminMeSnapshot, "role" | "permissions"> & { accountSuspended?: boolean })
     | null
     | undefined
 ): AdminRouteAccessActor | null {
@@ -33,7 +33,6 @@ export function adminAccessActorFromMe(
   return {
     role: me.role,
     permissions: me.permissions ?? [],
-    isDeployOwner: me.isDeployOwner === true,
     accountSuspended: me.accountSuspended === true,
   };
 }
@@ -130,8 +129,6 @@ export function describeAdminRequirementDenial(
   language: AppLanguageCode = "ko"
 ): string {
   switch (requirement.kind) {
-    case "deploy_owner":
-      return translate(language, "admin_access_need_deploy_owner");
     case "super_admin":
       return translate(language, "admin_access_need_super_admin");
     case "permission":

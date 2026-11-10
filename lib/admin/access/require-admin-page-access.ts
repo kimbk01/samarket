@@ -16,7 +16,6 @@ import {
   resolveAdminRouteAccess,
   type AdminRouteAccessActor,
 } from "@/lib/admin/access/admin-route-access";
-import { isDeployOwnerUserId } from "@/lib/admin/deploy-promotion/deploy-owner";
 import { isSuspendedMemberAccount } from "@/lib/auth/member-account-state";
 
 export type AdminPageAccessResult =
@@ -37,7 +36,6 @@ export function adminPageRouteActor(actor: AdminApiActor): AdminRouteAccessActor
   return {
     role: actor.role,
     permissions: actor.permissions,
-    isDeployOwner: actor.isSuperAdmin && isDeployOwnerUserId(actor.userId),
     accountSuspended: !actor.isSuperAdmin && isSuspendedMemberAccount(actor.profile),
   };
 }

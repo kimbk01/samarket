@@ -11,13 +11,11 @@ import {
 import { canAccessAdminRoute, type AdminRouteAccessActor } from "@/lib/admin/access/admin-route-access";
 import { listDashboardQuickLinks, projectDashboardQuickLinks } from "@/lib/admin/dashboard-quick-links";
 
-const SUPER: AdminRouteAccessActor = { role: "super_admin", permissions: [], isDeployOwner: false };
-const DEPLOY_OWNER: AdminRouteAccessActor = { role: "super_admin", permissions: [], isDeployOwner: true };
+const SUPER: AdminRouteAccessActor = { role: "super_admin", permissions: [] };
 /** 운영자 — point · settings 키 없음 */
 const OPERATOR: AdminRouteAccessActor = {
   role: "admin",
   permissions: ["users", "reports", "chats", "business", "boards", "ads"],
-  isDeployOwner: false,
 };
 
 const POINT_LEAF_KEYS = [
@@ -72,27 +70,9 @@ describe("filterAdminMenuByAccess — 메뉴 노출 = 서버 권한", () => {
     );
   });
 
-  it("배포 담당자 여부는 메뉴 노출을 바꾸지 않고 배포 작업 버튼만 가른다", () => {
-    const a = filterAdminMenuByAccess(adminMenu, SUPER);
-    const b = filterAdminMenuByAccess(adminMenu, DEPLOY_OWNER);
-    expect(leafPaths(a)).toEqual(leafPaths(b));
-    expect(findAdminMenuByKey(a, "system-deploy")).toBeTruthy();
-
-    const notOwner = resolveAdminRouteActionState({ href: "/admin/system/deploy", actor: SUPER, actorLoading: false });
-    expect(notOwner.allowed).toBe(false);
-    expect(notOwner.reason).toContain("배포 담당자");
-    expect(
-      resolveAdminRouteActionState({ href: "/admin/system/deploy", actor: DEPLOY_OWNER, actorLoading: false })
-    ).toEqual({ allowed: true, reason: null, loading: false });
-    expect(
-      resolveAdminRouteActionState({ href: "/admin/system/deploy", actor: null, actorLoading: true })
-    ).toEqual({ allowed: false, reason: null, loading: true });
-  });
-
   it("운영자에게는 플랫폼 시스템 내부 도구·배포가 보이지 않는다", () => {
     const menu = filterAdminMenuByAccess(adminMenu, OPERATOR);
     expect(findAdminMenuByKey(menu, "system-qa")).toBeUndefined();
-    expect(findAdminMenuByKey(menu, "system-deploy")).toBeUndefined();
   });
 });
 
@@ -104,8 +84,6 @@ describe("decideAdminPageGate — 셸 본문 게이트 (순수)", () => {
     expect(decideAdminPageGate({ href: "/admin/qa-board", actor: OPERATOR, actorLoading: false })).toBe("deny");
     expect(decideAdminPageGate({ href: "/admin/users", actor: OPERATOR, actorLoading: false })).toBe("allow");
     expect(decideAdminPageGate({ href: "/admin/point-charges", actor: SUPER, actorLoading: false })).toBe("allow");
-    // 배포 화면 열람은 super_admin (작업만 담당자)
-    expect(decideAdminPageGate({ href: "/admin/system/deploy", actor: SUPER, actorLoading: false })).toBe("allow");
   });
 
   it("쿼리 일치 규칙: 거래 채팅은 전원, 일반 채팅은 chats 키", () => {
@@ -126,18 +104,14 @@ describe("decideAdminPageGate — 셸 본문 게이트 (순수)", () => {
 });
 
 describe("adminAccessActorFromMe", () => {
-  it("/me 스냅샷 → actor (구버전 응답은 isDeployOwner·accountSuspended=false)", () => {
+  it("/me 스냅샷 → actor (구버전 응답은 accountSuspended=false)", () => {
     expect(adminAccessActorFromMe(null)).toBeNull();
     expect(adminAccessActorFromMe({ role: "admin", permissions: ["users"] })).toEqual({
       role: "admin",
       permissions: ["users"],
-      isDeployOwner: false,
       accountSuspended: false,
     });
     expect(adminAccessActorFromMe({ role: "admin", permissions: [], accountSuspended: true })?.accountSuspended).toBe(true);
-    expect(adminAccessActorFromMe({ role: "super_admin", permissions: [], isDeployOwner: true })?.isDeployOwner).toBe(
-      true
-    );
   });
 });
 

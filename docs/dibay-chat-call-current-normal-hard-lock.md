@@ -30,7 +30,7 @@ HISTORICAL PASS ≠ CURRENT PASS (unless Owner evidence board updates a cell)
 ```
 
 Production cutover remains: `git push origin main` → Vercel Git Integration only  
-(`docs/dibay-build-deploy-hard-lock.md`).
+(`AGENTS.md` 「개발 프로세스」 2번 배포 고정 조건).
 
 ---
 

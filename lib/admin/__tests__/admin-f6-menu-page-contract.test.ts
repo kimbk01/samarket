@@ -162,7 +162,6 @@ const TITLE_SOURCE_BY_LEAF: Readonly<Record<string, string>> = {
   "system-status": "components/admin/system/AdminSystemPage.tsx",
   "runtime-health": "components/admin/system/AdminRuntimeHealthPage.tsx",
   "delivery-release-gate": "components/admin/system/AdminDeliveryReleaseGatePage.tsx",
-  "system-deploy": "app/admin/system/deploy/page.tsx",
   "settings-general": "components/admin/settings/AdminSettingsPage.tsx",
   "settings-auth": "components/admin/settings/AuthLoginSettingsForm.tsx",
   "system-prelaunch-reset": "components/admin/system/AdminDataResetPage.tsx",

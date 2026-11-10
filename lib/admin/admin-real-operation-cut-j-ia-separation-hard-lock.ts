@@ -415,7 +415,6 @@ export const CUT_J_J_AMD_5_SYSTEM_TREE = [
   { key: "system-status", children: [] },
   { key: "runtime-health", children: [] },
   { key: "delivery-release-gate", children: [] },
-  { key: "system-deploy", children: [] },
   { key: "settings-general", children: [] },
   { key: "settings-auth", children: [] },
   { key: "system-hotfix", children: [] },
@@ -460,7 +459,6 @@ export const CUT_J_J_AMD_5_MASTER_ONLY_SYSTEM_LEAVES = [
   "system-status",
   "runtime-health",
   "delivery-release-gate",
-  "system-deploy",
   "system-hotfix",
   "system-prelaunch-reset",
 ] as const;
@@ -497,6 +495,13 @@ export const CUT_J_J_AMD_5_REMOVED_LEAVES = [
     path: "/admin/platform-promotion/notifications",
     coveredBy: "cp-notification-engine",
     via: "matchPaths",
+  },
+  // 수동 Promote 화면 삭제 (배포 구조 7단계, Owner 「7단계 진행」 2026-11-11) — 운영 반영은 dev→main PR 병합.
+  {
+    key: "system-deploy",
+    path: "/admin/system/deploy",
+    coveredBy: "system-status",
+    via: "path-prefix",
   },
 ] as const;
 
@@ -614,7 +619,7 @@ export function assertAdminRealOperationCutJIaSeparationHardLock(): boolean {
     CUT_J_IA_R1_MEMBERS_TREE.length === 3 &&
     CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION.roles.length === 1 &&
     CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION.roles[0] === "master" &&
-    CUT_J_J_AMD_5_REMOVED_LEAVES.length === 3 &&
+    CUT_J_J_AMD_5_REMOVED_LEAVES.length === 4 &&
     CUT_J_J_AMD_5_HIDDEN_LEAVES.length === 3 && // app-meta 노출 (2026-10-30 Owner)
     CUT_J_J_AMD_5_UNHIDDEN_LEAVES.length === 1 &&
     CUT_J_J_AMD_5_PROMOTION_TREE[0].key === "promotion-home";
