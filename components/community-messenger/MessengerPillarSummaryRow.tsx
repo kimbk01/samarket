@@ -3,13 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { MessengerListRow } from "@/components/community-messenger/line-ui";
-import {
-  formatConversationTimestamp,
-  type MessengerPillarSummary,
-} from "@/lib/community-messenger/use-community-messenger-home-state";
+import type { MessengerPillarSummary } from "@/lib/community-messenger/use-community-messenger-home-state";
 import { withMessengerEntryOrigin } from "@/lib/community-messenger/messenger-entry-origin";
-import { resolveStoreOrderDisplayIdentity } from "@/lib/community-messenger/store-order-display-identity";
 import { runMessengerViewTransition, shouldSkipMessengerNavTransitionModifiers } from "@/lib/community-messenger/messenger-view-transition";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
@@ -189,50 +184,25 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
 
   const lastItem = summary.lastItem;
   /**
-   * 주문(delivery) 허브 preview 는 표시 정체성이 매장이어야 한다(회원명·room.title 금지).
-   * Domain list 가 있으면 매장명/preview/시각은 List 1행과 동일 Facts.
-   */
-  const deliveryStoreIdentity =
-    variant === "delivery" && lastItem ? resolveStoreOrderDisplayIdentity(lastItem.room) : null;
-  /**
-   * 거래 목록 캐시(Domain list)가 있어도, 대화 홈의 실시간 요약(`lastItem`)이 더 최근이면 그쪽을 쓴다 —
-   * 대화 홈에서는 거래 목록 캐시가 실시간 패치를 받지 않아 새 메시지 뒤에도 예전 문장·시각이 남았다(2026-10-28 실기).
+   * 2026-11-10 채팅 화면 시안 3판(Owner): 입구 칸에는 마지막 대화·시각을 보여 주지 않는다 —
+   * 마지막 대화는 거래/주문 목록 각 행에서만. 이 칸은 이름 + 안 읽은 방 수 + 화살표.
+   * latestRoomId 는 진입 프리페치·실기 계측용 data 속성으로만 남긴다.
    */
   const domainAtMs = Date.parse(domainPreview?.lastEventAt ?? "") || 0;
   const bootstrapAtMs = Date.parse(lastItem?.lastEventAt ?? "") || 0;
   const useDomain =
     Boolean(domainPreview && (domainPreview.latestRoomId || domainPreview.lastEventAt)) &&
     !(bootstrapAtMs > domainAtMs);
-  const lastTitle = useDomain
-    ? domainPreview!.title.trim() || copy.defaultRoomLabel
-    : variant === "delivery"
-      ? deliveryStoreIdentity?.storeName?.trim() || copy.defaultRoomLabel
-      : lastItem?.room.title?.trim() || copy.defaultRoomLabel;
-  const previewBase = useDomain
-    ? domainPreview!.previewText.trim()
-    : lastItem?.preview?.trim() || "";
-  const preview = previewBase
-    ? `${lastTitle}: ${previewBase}`
-    : useDomain || lastItem
-      ? lastTitle
-      : copy.emptyPreview;
-  const lastEventAt = useDomain ? domainPreview!.lastEventAt : lastItem?.lastEventAt;
   const latestRoomId = useDomain ? domainPreview!.latestRoomId : lastItem?.room.id ?? null;
   /**
    * Trade / Customer Order Hub = Domain list unreadRoomCount
    * (= count(rows where unreadMessageCount > 0)). Cache miss → 0 (no attention fallback).
    */
   const unread = Math.max(0, Math.floor(Number(listUnreadRooms) || 0));
-
-  const avatar = (
-    <div
-      className="flex h-12 w-12 items-center justify-center rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]"
-      style={{ color: "var(--messenger-text)" }}
-      aria-hidden
-    >
-      {variant === "trade" ? <StorefrontIcon /> : <DeliveryScooterIcon />}
-    </div>
-  );
+  const tileToneClass =
+    variant === "trade"
+      ? "border-[color:color-mix(in_srgb,var(--sam-primary)_22%,transparent)] bg-[color:var(--sam-primary-soft)] text-[color:var(--sam-primary)]"
+      : "border-[color:color-mix(in_srgb,var(--dibay-gold,#EAC784)_55%,transparent)] bg-[color:color-mix(in_srgb,var(--dibay-gold,#EAC784)_22%,var(--sam-bg-surface,#fff))] text-[color:var(--dibay-brown,#362415)]";
 
   return (
     <Link
@@ -244,7 +214,7 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
       data-messenger-pillar-unread={String(unread)}
       data-messenger-pillar-latest-room={latestRoomId ?? ""}
       data-messenger-pillar-preview-source={useDomain ? "domain_list" : "bootstrap"}
-      className="block select-none touch-manipulation rounded-[var(--messenger-radius-md)] transition-[transform,background-color,box-shadow] duration-100 ease-out will-change-transform active:scale-[0.97] active:bg-[color:var(--messenger-surface-muted)] [box-shadow:inset_0_0_0_1px_transparent] active:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.06),inset_0_2px_10px_rgba(0,0,0,0.1)]"
+      className={`flex min-h-[44px] min-w-0 select-none touch-manipulation items-center gap-2 rounded-ui-rect border px-2.5 py-2 transition-transform duration-100 ease-out active:scale-[0.97] ${tileToneClass}`}
       aria-label={t("cm_ui_pillar_open_list_aria", { title: copy.title })}
       onClick={(e) => {
         if (shouldSkipMessengerNavTransitionModifiers(e)) return;
@@ -258,46 +228,18 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
         }, "pillar-forward");
       }}
     >
-      <MessengerListRow
-        avatar={avatar}
-        trailing={
-          <>
-            <span
-              data-cm-list-meta=""
-              className="sam-text-helper font-normal tabular-nums"
-              style={{ color: "var(--messenger-text-secondary)" }}
-            >
-              {lastEventAt ? formatConversationTimestamp(lastEventAt) : ""}
-            </span>
-            <div className="flex items-center gap-1">
-              {unread > 0 ? (
-                <span className="min-h-[20px] min-w-[20px] rounded-full bg-[color:var(--messenger-primary)] px-1.5 text-center sam-text-xxs font-semibold leading-[20px] text-white">
-                  {unread > 999 ? "999+" : unread}
-                </span>
-              ) : null}
-              <span style={{ color: "var(--messenger-text-secondary)" }} aria-hidden>
-                <ChevronRightIcon />
-              </span>
-            </div>
-          </>
-        }
-      >
-        <div className="flex min-w-0 items-center gap-1">
-          <p
-            data-cm-list-title=""
-            className="min-w-0 truncate font-semibold leading-tight"
-            style={{ color: "var(--messenger-text)" }}
-          >
-            {copy.title}
-          </p>
-        </div>
-        <p
-          className={`min-w-0 truncate sam-text-body-secondary font-normal leading-snug ${unread > 0 ? "font-medium" : ""}`}
-          style={{ color: unread > 0 ? "var(--messenger-text)" : "var(--messenger-text-secondary)" }}
-        >
-          {preview}
-        </p>
-      </MessengerListRow>
+      {variant === "trade" ? <StorefrontIcon className="h-5 w-5 shrink-0" /> : <DeliveryScooterIcon className="h-5 w-5 shrink-0" />}
+      <span data-cm-list-title="" className="min-w-0 flex-1 truncate text-[14px] font-bold leading-tight">
+        {copy.title}
+      </span>
+      {unread > 0 ? (
+        <span className="min-h-[18px] min-w-[18px] shrink-0 rounded-full bg-[color:var(--sm-color-danger)] px-1.5 text-center text-[10.5px] font-bold leading-[18px] text-white">
+          {unread > 999 ? "999+" : unread}
+        </span>
+      ) : null}
+      <span className="shrink-0 opacity-60" aria-hidden>
+        <ChevronRightIcon />
+      </span>
     </Link>
   );
 }

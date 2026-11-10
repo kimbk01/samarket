@@ -272,21 +272,22 @@ describe("messenger presentation contract", () => {
     expect(src).toContain("return null");
   });
 
-  it("section tabs use DIBAY secondary pill SSOT; trailing group create preserved", () => {
+  it("section tabs use DIBAY secondary pill SSOT; 탭 줄에는 버튼 없음 (2026-11-10 시안 3판)", () => {
     const src = readFileSync(
       resolve(root, "components/community-messenger/MessengerHomeSectionTabs.tsx"),
       "utf8"
     );
     expect(src).toContain("dibaySecondaryTabClass");
     expect(src).toContain("DibaySecondaryTabRow");
-    expect(src).toContain('mainSection === "chats"');
-    expect(src).toContain("onOpenGroupCreate");
-    /** §15-3: 네 탭 공통 [친구 추가] · 그룹 만들기는 다른 아이콘 */
-    expect(src).toContain("data-cm-friend-requests-button");
-    expect(src).toContain("<UsersRound");
-    expect(src).not.toContain("UserPlus2");
+    /** 그룹 만들기는 대화 탭 「새 대화」, 친구 추가는 친구 탭 「친구 추가」 칸 — 탭 줄 버튼 없음 */
+    expect(src).not.toContain("trailing=");
+    expect(src).not.toContain("onOpenGroupCreate");
+    expect(src).not.toContain("data-cm-friend-requests-button");
+    expect(src).toContain("data-cm-section-tab-badge");
     expect(src).not.toContain("border-b-2");
     expect(src).not.toContain("border-sam-primary");
+    const ia = readFileSync(resolve(root, "lib/community-messenger/messenger-ia.ts"), "utf8");
+    expect(ia).toMatch(/MESSENGER_MAIN_SECTION_TAB_ORDER[^=]*=\s*\[\s*"chats",\s*"friends",\s*"call_logs",\s*\]/);
   });
 
   it("section transition does not remount children via key=generation", () => {

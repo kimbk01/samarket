@@ -33,12 +33,15 @@ describe("§15-3 friend relation states", () => {
     expect(bar).toContain('rejected_by_peer: "#f1efe8"');
   });
 
-  it("친구 추가는 탭 줄로 — 친구 탭 검색 줄에는 관리만", () => {
+  it("친구 추가 = 친구 탭 맨 위 「친구 추가」 칸(@아이디 찾기) — 다른 탭에는 없음 (2026-11-10 시안 3판)", () => {
     const actions = read("components/community-messenger/friend-cta/MessengerFriendsHeaderActions.tsx");
     expect(actions).not.toContain("UserPlus");
     expect(actions).not.toContain("data-cm-friend-requests-button");
     const sections = read("components/community-messenger/MessengerHomeMainSections.tsx");
-    expect(sections).toContain("onOpenFriendRequests={() => openFriendRequests()}");
+    expect(sections).toContain('const showInlineFriendSearch = mainSection === "friends";');
+    expect(sections).toContain("data-cm-friend-add-heading");
+    /** 받은·보낸 요청은 친구 탭 요청 카드에서 시트로 */
+    expect(sections).toContain("onOpenFriendRequests={openFriendRequests}");
   });
 });
 

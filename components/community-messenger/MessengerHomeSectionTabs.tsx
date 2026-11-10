@@ -1,13 +1,8 @@
 "use client";
 
-import { UserPlus, UsersRound } from "lucide-react";
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import {
-  SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
-  SAM_TIER1_HEADER_ICON_STROKE_WIDTH,
-} from "@/lib/ui/tier1-header-icon";
 import {
   MESSENGER_MAIN_SECTION_TAB_ORDER,
   type MessengerMainSection,
@@ -28,85 +23,32 @@ const SECTION_TAB_LABEL_KEYS: Record<MessengerMainSection, MessageKey> = {
 type Props = {
   mainSection: MessengerMainSection;
   onPrimarySectionChange: (next: MessengerMainSection) => void;
-  onOpenGroupCreate: () => void;
-  /** §15-3: 네 탭 공통 [친구 추가] — 받은 요청 수 배지 · 친구 요청·추가 시트 */
+  /** 받은 친구 요청 수 — 「친구」 탭 이름 옆 숫자 */
   incomingFriendRequestCount: number;
-  outgoingFriendRequestCount: number;
-  onOpenFriendRequests: () => void;
 };
 
-const TAB_ROW_ICON_BTN =
-  "relative inline-flex h-[length:var(--dibay-secondary-tab-item-h,36px)] w-[length:var(--dibay-secondary-tab-item-h,36px)] shrink-0 items-center justify-center rounded-ui-rect border border-[color:var(--dibay-domain-divider,var(--sam-border))] bg-[color:var(--dibay-domain-tab-idle-bg,var(--sam-surface))] text-[color:var(--dibay-domain-tab-idle-fg,var(--sam-fg))] transition active:scale-[0.98]";
-
 /**
- * Messenger home section tabs — Community / Trade 와 동일 DibaySecondaryTabRow SSOT.
- * §15-3: 오른쪽 [친구 추가]는 친구·통화·대화·보관함 네 탭 모두 같은 자리·모양·동작.
- * 그룹 만들기는 대화 탭에서만, 다른 아이콘(사람 여럿)으로 [친구 추가] 왼쪽에.
+ * Messenger home section tabs — Community / Trade 와 동일 DibaySecondaryTabRow SSOT (왼쪽 정렬).
+ * 2026-11-10 채팅 화면 시안 3판(Owner 「계획된 부분을 이어 가자」): 대화 · 친구 · 통화 3개, 탭 줄에는 버튼을 붙이지 않는다.
+ * 그룹 만들기는 대화 탭 「새 대화」 버튼, 친구 추가는 친구 탭 맨 위 「친구 추가」 칸.
  */
 export function MessengerHomeSectionTabs({
   mainSection,
   onPrimarySectionChange,
-  onOpenGroupCreate,
   incomingFriendRequestCount,
-  outgoingFriendRequestCount,
-  onOpenFriendRequests,
 }: Props) {
   const { t } = useI18n();
   const requestBadge = incomingFriendRequestCount > 99 ? "99+" : String(incomingFriendRequestCount);
-
   return (
     <DibaySecondaryTabRow
       data-cm-primary-nav
       data-cm-messenger-section-tabs
       bordered
       trackAriaLabel={t("cm_ui_messenger_section_aria")}
-      trailing={
-        <div className="flex shrink-0 items-center gap-2" data-cm-section-tab-actions="">
-          {mainSection === "chats" ? (
-            <button
-              type="button"
-              onClick={onOpenGroupCreate}
-              className={TAB_ROW_ICON_BTN}
-              aria-label={t("cm_ui_create_group")}
-              title={t("cm_ui_create_group")}
-              data-cm-group-create-button=""
-            >
-              <UsersRound
-                className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
-                strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}
-                aria-hidden
-              />
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={onOpenFriendRequests}
-            className={TAB_ROW_ICON_BTN}
-            aria-label={t("cm_friend_requests_button_aria", {
-              received: incomingFriendRequestCount,
-              sent: outgoingFriendRequestCount,
-            })}
-            data-cm-friend-requests-button=""
-          >
-            <UserPlus
-              className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
-              strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}
-              aria-hidden
-            />
-            {incomingFriendRequestCount > 0 ? (
-              <span
-                className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[color:var(--sm-color-danger)] px-1 text-[11px] font-bold leading-none text-white ring-2 ring-[color:var(--messenger-bg,#fff)]"
-                aria-hidden
-              >
-                {requestBadge}
-              </span>
-            ) : null}
-          </button>
-        </div>
-      }
     >
       {MESSENGER_MAIN_SECTION_TAB_ORDER.map((section) => {
         const active = mainSection === section;
+        const badge = section === "friends" && incomingFriendRequestCount > 0 ? requestBadge : null;
         return (
           <button
             key={section}
@@ -121,6 +63,14 @@ export function MessengerHomeSectionTabs({
             <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>
               {t(SECTION_TAB_LABEL_KEYS[section])}
             </span>
+            {badge ? (
+              <span
+                className="ml-1 inline-flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-[color:var(--sm-color-danger)] px-1 text-[10.5px] font-bold leading-none text-white"
+                data-cm-section-tab-badge={section}
+              >
+                {badge}
+              </span>
+            ) : null}
           </button>
         );
       })}

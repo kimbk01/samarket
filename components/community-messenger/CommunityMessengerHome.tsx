@@ -2786,6 +2786,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     resetMessengerTransientUi();
     setGroupCreateStep("select");
   }, [resetMessengerTransientUi]);
+  /** 대화 탭 주 버튼 「새 대화」 → 1:1 대화 · 그룹 대화 메뉴 (시안 3판) */
+  const onOpenNewConversationStable = useCallback(() => {
+    resetMessengerTransientUi();
+    openHomeOverlay("composer");
+  }, [openHomeOverlay, resetMessengerTransientUi]);
   const headerActionsNode = useMemo(
     () => (
       <div className={samTier1HeaderRightColumn}>
@@ -3507,6 +3512,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         onChatListChipChange={onChatListChipChange}
         openChatJoinedItems={openChatJoinedItems}
         onOpenGroupCreateStable={onOpenGroupCreateStable}
+        onOpenNewConversationStable={onOpenNewConversationStable}
         pageError={pageError}
         loginRequiredText={t("nav_messenger_login_required")}
         retryText={t("common_try_again_later")}
@@ -3761,17 +3767,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         <MessengerNewConversationSheet
           onClose={() => closeHomeOverlay("composer")}
           onFriendChatStart={() => setMainSection("friends")}
-          onFriendAdd={() => {
-            closeHomeOverlay("composer");
-            setFriendAddTab("id");
-            setFriendManagerOpen(true);
-            requestAnimationFrame(() => friendSearchRef.current?.focus());
-          }}
           onCreateGroup={() => {
             closeHomeOverlay("composer");
             setGroupCreateStep("select");
           }}
-          onFindOpenChat={() => openHomeOverlay("public-group-find")}
         />
       ) : null}
 

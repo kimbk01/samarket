@@ -187,7 +187,10 @@ export function MessengerChatsScreen({
       />
 
       {showPillarSummaryRows && pillarSummaries ? (
-        <div className="space-y-px border-b border-[color:var(--messenger-divider)] pb-1">
+        <div
+          className="grid grid-cols-2 gap-2 border-b-[6px] border-[color:var(--messenger-surface-muted)] px-3 pb-2.5 pt-2"
+          data-cm-commerce-entry-tiles=""
+        >
           <MessengerPillarSummaryRow
             variant="trade"
             summary={pillarSummaries.trade}

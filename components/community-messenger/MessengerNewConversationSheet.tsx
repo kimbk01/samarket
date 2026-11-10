@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircle, Search, UserPlus, Users } from "lucide-react";
+import { MessageCircle, Users } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayMenuList } from "@/components/ui/dibay-overlay";
 import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/components/community-messenger/MessengerSheetUi";
@@ -8,19 +8,14 @@ import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/compon
 type Props = {
   onClose: () => void;
   onFriendChatStart: () => void;
-  onFriendAdd: () => void;
   onCreateGroup: () => void;
-  onFindOpenChat: () => void;
 };
 
-/** FAB 등에서 열리는 새 대화 진입 메뉴 — S1 머리 + S3 행동 메뉴(1단계 문서 §13-2) */
-export function MessengerNewConversationSheet({
-  onClose,
-  onFriendChatStart,
-  onFriendAdd,
-  onCreateGroup,
-  onFindOpenChat,
-}: Props) {
+/**
+ * 대화 탭 「새 대화」 메뉴 — 1:1 대화 · 그룹 대화 두 가지만 (Owner 2026-11-10 채팅 화면 시안 3판).
+ * 친구 추가는 친구 탭 「친구 추가」 칸, 모임 찾기는 설정 시트에 있다.
+ */
+export function MessengerNewConversationSheet({ onClose, onFriendChatStart, onCreateGroup }: Props) {
   const { t } = useI18n();
   const run = (fn: () => void) => () => {
     onClose();
@@ -40,30 +35,16 @@ export function MessengerNewConversationSheet({
               {
                 key: "friend-chat",
                 icon: <MessageCircle />,
-                label: t("cm_ui_start_conversation_with_friend"),
-                hint: t("cm_ui_open_profile_then_conversation"),
+                label: t("cm_ui_new_conversation_direct"),
+                hint: t("cm_ui_new_conversation_direct_hint"),
                 onClick: run(onFriendChatStart),
-              },
-              {
-                key: "friend-add",
-                icon: <UserPlus />,
-                label: t("cm_ui_add_friend"),
-                hint: t("cm_ui_search_by_at_id"),
-                onClick: run(onFriendAdd),
               },
               {
                 key: "group",
                 icon: <Users />,
-                label: t("cm_ui_create_group"),
-                hint: t("cm_ui_private_group_with_selected_friends"),
+                label: t("cm_ui_new_conversation_group"),
+                hint: t("cm_ui_new_conversation_group_hint"),
                 onClick: run(onCreateGroup),
-              },
-              {
-                key: "meeting",
-                icon: <Search />,
-                label: t("cm_ui_find_meeting"),
-                hint: t("cm_ui_browse_and_join_community_meetings"),
-                onClick: run(onFindOpenChat),
               },
             ],
           ]}

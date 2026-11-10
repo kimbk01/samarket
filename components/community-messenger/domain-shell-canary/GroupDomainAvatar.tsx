@@ -7,7 +7,14 @@ import { GROUP_IMAGE_PLACEHOLDER_MARKER } from "@/lib/messenger/group/domain";
  * Group identity avatar — group image URL or group-only placeholder.
  * Never uses participant avatar, user DefaultAvatarFace, or title-initial letter.
  */
-export function GroupDomainAvatarPlaceholder({ className = "" }: { className?: string }) {
+export function GroupDomainAvatarPlaceholder({
+  className = "",
+  shape = "circle",
+}: {
+  className?: string;
+  /** 목록 행은 1:1(원형)과 구분되게 둥근 사각형 (Owner 2026-11-10 시안 3판) */
+  shape?: "circle" | "rounded-square";
+}) {
   return (
     <svg
       className={className}
@@ -17,7 +24,7 @@ export function GroupDomainAvatarPlaceholder({ className = "" }: { className?: s
       aria-hidden
       data-group-avatar-placeholder="1"
     >
-      <rect width="40" height="40" rx="20" fill="var(--sam-primary-soft)" />
+      <rect width="40" height="40" rx={shape === "rounded-square" ? 10 : 20} fill="var(--sam-primary-soft)" />
       <circle cx="15" cy="15" r="5" fill="var(--sam-primary)" opacity="0.85" />
       <circle cx="25" cy="15" r="5" fill="var(--sam-primary)" opacity="0.65" />
       <path
@@ -52,21 +59,25 @@ export function GroupDomainAvatar({
   size = 48,
   className = "",
   fill = false,
+  shape = "circle",
 }: {
   imageUrl?: string | null;
   size?: number;
   className?: string;
   fill?: boolean;
+  shape?: "circle" | "rounded-square";
 }) {
   const src = resolveGroupDomainImageSrc(imageUrl);
+  const roundedClassName = shape === "rounded-square" ? "rounded-[12px]" : "rounded-full";
   if (!src) {
     return (
       <div
-        className={`overflow-hidden rounded-full bg-[color:var(--cm-room-primary-soft,#ede9fe)] ${className}`}
+        className={`overflow-hidden ${roundedClassName} bg-[color:var(--cm-room-primary-soft,#ede9fe)] ${className}`}
         style={fill ? { width: "100%", height: "100%" } : { width: size, height: size }}
         data-group-avatar="placeholder"
+        data-group-avatar-shape={shape}
       >
-        <GroupDomainAvatarPlaceholder className="h-full w-full" />
+        <GroupDomainAvatarPlaceholder className="h-full w-full" shape={shape} />
       </div>
     );
   }
@@ -76,10 +87,10 @@ export function GroupDomainAvatar({
       alt=""
       size={size}
       fill={fill}
-      roundedClassName="rounded-full"
+      roundedClassName={roundedClassName}
       className={className}
       fallbackSrc=""
-      fallbackNode={<GroupDomainAvatarPlaceholder className="h-full w-full" />}
+      fallbackNode={<GroupDomainAvatarPlaceholder className="h-full w-full" shape={shape} />}
     />
   );
 }

@@ -1090,7 +1090,8 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
               {titleSuffix}
             </span>
           ) : null}
-          {room.roomType !== "direct" ||
+          {/* 그룹은 사각 사진 모양 + 인원 수로 구분 — 보라색 「그룹」 배지는 목록에서 빼고 모임·거래·주문만 (시안 3판) */}
+          {(room.roomType !== "direct" && room.roomType !== "private_group") ||
           commerceMeta?.kind === "trade" ||
           commerceMeta?.kind === "delivery" ? (
             <CommunityMessengerChatTypeBadge room={room} />
@@ -1399,7 +1400,14 @@ function AvatarCircle({
   }
 
   if (roomType === "private_group" || roomType === "open_group") {
-    return <GroupDomainAvatar imageUrl={src} size={52} className={`bg-ui-hover ${sizeClassName}`} />;
+    return (
+      <GroupDomainAvatar
+        imageUrl={src}
+        size={52}
+        shape="rounded-square"
+        className={`bg-ui-hover ${sizeClassName}`}
+      />
+    );
   }
 
   return (

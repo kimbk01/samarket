@@ -18,6 +18,7 @@ import { MessengerFriendsScreen } from "@/components/community-messenger/Messeng
 import { MessengerHomeInlineFriendSearch } from "@/components/community-messenger/MessengerHomeInlineFriendSearch";
 import { MessengerHomeSectionTabs } from "@/components/community-messenger/MessengerHomeSectionTabs";
 import { MessengerHomeSectionTransition } from "@/components/community-messenger/MessengerHomeSectionTransition";
+import { MessengerHomePrimaryActionButton } from "@/components/community-messenger/MessengerHomePrimaryActionButton";
 import {
   inboxKindToChatListChip,
   messengerChatListEmptyMessageForChip,
@@ -105,6 +106,8 @@ type Props = {
   onChatListChipChange: (next: MessengerChatListChip) => void;
   openChatJoinedItems: UnifiedRoomListItem[];
   onOpenGroupCreate: () => void;
+  /** 대화 탭 주 버튼 「새 대화」 — 1:1 대화 · 그룹 대화 메뉴 */
+  onOpenNewConversation?: () => void;
   /** 인박스로 들어올 때 받은 `?from=...` */
   entryOriginQuery?: string | null;
   /** 인박스 상단 거래·배달 묶음 행 — pillar 서브 라우트에서는 null */
@@ -176,6 +179,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   onChatListChipChange,
   openChatJoinedItems,
   onOpenGroupCreate,
+  onOpenNewConversation,
   entryOriginQuery = null,
   pillarSummaries = null,
   chatListVisual = "default",
@@ -209,16 +213,16 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   const openFriendRequests = (tab?: MessengerFriendRequestsSheetTab) =>
     setFriendRequestsSheet(tab ?? (incomingPendingCount > 0 || outgoingPendingCount === 0 ? "received" : "sent"));
 
-  const showInlineFriendSearch =
-    mainSection === "friends" ||
-    mainSection === "call_logs" ||
-    mainSection === "chats" ||
-    mainSection === "archive";
+  /**
+   * 「@아이디」 사람 찾기 = 친구 추가 — 친구 탭 맨 위 「친구 추가」 칸 한 곳에만 둔다 (Owner 2026-11-10 시안 3판).
+   * 대화 검색은 머리글 돋보기(통합 검색) 하나.
+   */
+  const showInlineFriendSearch = mainSection === "friends";
 
   return (
     <section
       data-cm-messenger-main
-      className="flex min-h-0 min-w-0 flex-1 flex-col space-y-0"
+      className="relative flex min-h-0 min-w-0 flex-1 flex-col space-y-0"
     >
       <div
         className="z-20 shrink-0 space-y-2 bg-[color:var(--messenger-bg,#fff)]"
@@ -228,10 +232,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
           <MessengerHomeSectionTabs
             mainSection={mainSection}
             onPrimarySectionChange={onPrimarySectionChange}
-            onOpenGroupCreate={onOpenGroupCreate}
             incomingFriendRequestCount={incomingPendingCount}
-            outgoingFriendRequestCount={outgoingPendingCount}
-            onOpenFriendRequests={() => openFriendRequests()}
           />
         ) : null}
         {showInlineFriendSearch ? (
@@ -242,6 +243,13 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
                 : "px-0 pb-1"
             }
           >
+            <p
+              className="pb-1.5 pt-1 sam-text-body font-semibold"
+              style={{ color: "var(--messenger-text)" }}
+              data-cm-friend-add-heading=""
+            >
+              {t("cm_ui_add_friend")}
+            </p>
             <MessengerHomeInlineFriendSearch
               busyId={busyId}
               onSelectUser={onFriendRowChat}
@@ -311,33 +319,6 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
           />
         ) : null}
 
-        {mainSection === "chats" && archivedChatsCount > 0 ? (
-          <button
-            type="button"
-            onClick={onOpenArchivedChats}
-            data-cm-archived-chats-entry=""
-            className="flex w-full items-center gap-3 border-b border-[color:var(--messenger-divider)] px-3 py-2.5 text-left active:bg-[color:var(--messenger-surface-muted)]"
-            style={{ color: "var(--messenger-text)" }}
-          >
-            <span
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--messenger-surface-muted)]"
-              style={{ color: "var(--messenger-text-secondary)" }}
-              aria-hidden
-            >
-              <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                <rect x="3" y="4" width="18" height="5" rx="1" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 9v10a1 1 0 001 1h12a1 1 0 001-1V9M10 13h4" />
-              </svg>
-            </span>
-            <span className="min-w-0 flex-1 truncate sam-text-body font-medium">
-              {t("cm_ui_archived_chats_row")} ({archivedChatsCount})
-            </span>
-            <span className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }} aria-hidden>
-              ›
-            </span>
-          </button>
-        ) : null}
-
         {mainSection === "chats" ? (
           <MessengerChatsScreen
             items={primaryListItems}
@@ -364,6 +345,34 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             entryOriginQuery={entryOriginQuery}
             chatListVisual={chatListVisual}
           />
+        ) : null}
+
+        {/* 보관함은 탭이 아니다 — 대화 목록 맨 아래 한 줄 (시안 3판) */}
+        {mainSection === "chats" && archivedChatsCount > 0 ? (
+          <button
+            type="button"
+            onClick={onOpenArchivedChats}
+            data-cm-archived-chats-entry=""
+            className="mb-20 flex w-full items-center gap-3 border-t border-[color:var(--messenger-divider)] px-3 py-3 text-left active:bg-[color:var(--messenger-surface-muted)]"
+            style={{ color: "var(--messenger-text)" }}
+          >
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--messenger-surface-muted)]"
+              style={{ color: "var(--messenger-text-secondary)" }}
+              aria-hidden
+            >
+              <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <rect x="3" y="4" width="18" height="5" rx="1" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 9v10a1 1 0 001 1h12a1 1 0 001-1V9M10 13h4" />
+              </svg>
+            </span>
+            <span className="min-w-0 flex-1 truncate sam-text-body font-medium">
+              {t("cm_ui_archived_chats_row")} ({archivedChatsCount})
+            </span>
+            <span className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }} aria-hidden>
+              ›
+            </span>
+          </button>
         ) : null}
 
         {mainSection === "open_chat" ? (
@@ -439,6 +448,13 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
         ) : null}
         </MessengerHomeSectionTransition>
       </div>
+      {mainSection === "chats" && onOpenNewConversation ? (
+        <MessengerHomePrimaryActionButton
+          label={t("cm_ui_new_conversation")}
+          onClick={onOpenNewConversation}
+          dataAttr="new-conversation"
+        />
+      ) : null}
       <MessengerReceivedFriendRequestsSheet
         open={friendRequestsSheet !== null}
         onClose={() => setFriendRequestsSheet(null)}

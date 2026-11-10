@@ -5,12 +5,14 @@
 
 export type MessengerMainSection = "friends" | "chats" | "open_chat" | "archive" | "call_logs";
 
-/** 메신저 홈 2단 섹션 탭 표시 순서 — 친구 · 통화 · 대화 · 보관함 (+그룹은 헤더 액션만) */
+/**
+ * 메신저 홈 2단 섹션 탭 표시 순서 — 대화 · 친구 · 통화 (Owner 2026-11-10 채팅 화면 시안 3판).
+ * 보관함은 탭이 아니다 — 대화 목록 맨 아래 「보관된 채팅」 줄로 들어가고 `section=archive` 주소는 그대로 열린다.
+ */
 export const MESSENGER_MAIN_SECTION_TAB_ORDER: readonly MessengerMainSection[] = [
+  "chats",
   "friends",
   "call_logs",
-  "chats",
-  "archive",
 ] as const;
 
 /** 채팅 목록 행·액션 시트가 일반 탭인지 보관함 탭인지(복원·로컬 삭제 범위 문구 분기). `open_chat` 은 모임 탭 전용. */

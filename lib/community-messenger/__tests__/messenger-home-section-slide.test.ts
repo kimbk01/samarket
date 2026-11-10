@@ -12,12 +12,16 @@ describe("resolveMessengerHomeSectionSlideDirection", () => {
     expect(resolveMessengerHomeSectionSlideDirection("friends", "call_logs")).toBe("forward");
   });
 
-  it("call_logs → chats 는 forward", () => {
-    expect(resolveMessengerHomeSectionSlideDirection("call_logs", "chats")).toBe("forward");
+  it("call_logs → chats 는 backward (탭 순서: 대화 · 친구 · 통화, 2026-11-10 시안 3판)", () => {
+    expect(resolveMessengerHomeSectionSlideDirection("call_logs", "chats")).toBe("backward");
   });
 
-  it("archive → friends 는 backward", () => {
-    expect(resolveMessengerHomeSectionSlideDirection("archive", "friends")).toBe("backward");
+  it("chats → friends 는 forward", () => {
+    expect(resolveMessengerHomeSectionSlideDirection("chats", "friends")).toBe("forward");
+  });
+
+  it("보관함은 탭이 아니다 — archive ↔ friends 는 슬라이드 없음", () => {
+    expect(resolveMessengerHomeSectionSlideDirection("archive", "friends")).toBeNull();
   });
 
   it("동일 탭은 null", () => {
@@ -125,9 +129,9 @@ describe("simulateMessengerHomeSectionClickCycle", () => {
     expect(result.generationAfterUrlSync).toBe(1);
   });
 
-  it("보관함 → 친구는 backward", () => {
+  it("통화 → 친구는 backward", () => {
     const result = simulateMessengerHomeSectionClickCycle({
-      from: "archive",
+      from: "call_logs",
       to: "friends",
       urlSectionSequenceAfterClick: ["friends"],
     });
@@ -157,22 +161,22 @@ describe("simulateMessengerHomeSectionClickCycle", () => {
 
   it("중간 URL 이 기본 chats 로 오염되어도 generation 추가 없음", () => {
     const result = simulateMessengerHomeSectionClickCycle({
-      from: "call_logs",
-      to: "archive",
+      from: "friends",
+      to: "call_logs",
       // soft nav 중 빈 section → resolve 기본 chats 가 끼어드는 경우
-      urlSectionSequenceAfterClick: ["chats", "archive"],
+      urlSectionSequenceAfterClick: ["chats", "call_logs"],
     });
     expect(result.generationAfterClick).toBe(1);
     expect(result.generationAfterUrlSync).toBe(1);
-    expect(result.finalLocalSection).toBe("archive");
+    expect(result.finalLocalSection).toBe("call_logs");
   });
 
   it("pending 없이 외부 URL 변경은 한 번만 동기화", () => {
-    let local: "chats" | "archive" = "chats";
+    let local: "chats" | "call_logs" = "chats";
     const pending = null;
     let generation = 0;
 
-    const urlSection = "archive" as const;
+    const urlSection = "call_logs" as const;
     const decision = shouldApplyMessengerUrlSectionSync({
       urlSection,
       localSection: local,
@@ -202,7 +206,7 @@ describe("simulateMessengerHomeSectionClickCycle", () => {
     let pending: MessengerMainSection | null = null;
     let generation = 0;
 
-    for (const to of ["call_logs", "chats", "archive"] as const) {
+    for (const to of ["call_logs", "chats", "friends"] as const) {
       pending = to;
       const plan = planMessengerHomeSectionTransition({
         previous: local,
@@ -215,10 +219,10 @@ describe("simulateMessengerHomeSectionClickCycle", () => {
     }
 
     expect(generation).toBe(3);
-    expect(local).toBe("archive");
+    expect(local).toBe("friends");
 
     const afterUrl = shouldApplyMessengerUrlSectionSync({
-      urlSection: "archive",
+      urlSection: "friends",
       localSection: local,
       pendingUserSection: pending,
     });

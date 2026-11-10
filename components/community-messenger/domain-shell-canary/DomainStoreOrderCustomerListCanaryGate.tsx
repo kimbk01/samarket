@@ -24,6 +24,7 @@ import type { MessengerChatListContext } from "@/lib/community-messenger/messeng
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { isStoreOrderBuyerHideAllowedStatus } from "@/lib/stores/store-order-process-model";
 import {
   fetchDomainListCanaryWithRetry,
   logDomainListCanaryLegacyFallback,
@@ -259,6 +260,21 @@ export function DomainStoreOrderCustomerListCanaryGate({
     () => (dto?.rows ?? []).map((row) => domainStoreOrderListRowToUnifiedItem(row, viewerUserIdForRows)),
     [dto, viewerUserIdForRows]
   );
+  /**
+   * 시안 3판(Owner 2026-11-10): 진행 중 주문이 위, 끝난 주문(완료·취소·환불)은 「지난 주문」 접힘 묶음.
+   * 상태를 모르는 행(옛 캐시)은 진행 중 쪽에 둔다 — 숨기지 않는다.
+   */
+  const { liveItems, pastItems } = useMemo(() => {
+    const live: UnifiedRoomListItem[] = [];
+    const past: UnifiedRoomListItem[] = [];
+    for (const item of unifiedItems) {
+      const status = item.room.contextMeta?.orderStatus?.trim() ?? "";
+      if (status && isStoreOrderBuyerHideAllowedStatus(status)) past.push(item);
+      else live.push(item);
+    }
+    return { liveItems: live, pastItems: past };
+  }, [unifiedItems]);
+  const [pastFolded, setPastFolded] = useState(false);
 
   const resolveViewerUserId = useCallback(
     () => getSyncViewerUserIdForClient() ?? dto?.viewerUserId ?? "",
@@ -455,6 +471,25 @@ export function DomainStoreOrderCustomerListCanaryGate({
 
   if (!dto) return null;
 
+  const renderOrderRow = (item: UnifiedRoomListItem) => (
+    <CommunityMessengerChatRow
+      key={item.room.id}
+      item={item}
+      viewerUserId={dto.viewerUserId}
+      favoriteFriendIds={EMPTY_FRIEND_IDS}
+      busyId={busyId}
+      onTogglePin={noopRoomAction}
+      onToggleMute={(room) => void toggleMute(room)}
+      onMarkRead={(room) => void markRoomRead(room)}
+      onToggleArchive={noopRoomAction}
+      onLeaveRoom={requestLeave}
+      onOpenRoomActions={handleOpenRoomActions}
+      listContext="default"
+      openedSwipeItemId={openedSwipeItemId}
+      onOpenSwipeItem={setOpenedSwipeItemId}
+      listVisual="delivery"
+    />
+  );
   const markAllBusy = busyId === "read:all";
   const markAllButton =
     unreadRoomCount > 0 ? (
@@ -519,25 +554,25 @@ export function DomainStoreOrderCustomerListCanaryGate({
         {unifiedItems.length === 0 ? (
           <p className="px-4 py-10 text-center text-sm text-sam-muted">{t("nav_chat_order_empty")}</p>
         ) : null}
-        {unifiedItems.map((item) => (
-          <CommunityMessengerChatRow
-            key={item.room.id}
-            item={item}
-            viewerUserId={dto.viewerUserId}
-            favoriteFriendIds={EMPTY_FRIEND_IDS}
-            busyId={busyId}
-            onTogglePin={noopRoomAction}
-            onToggleMute={(room) => void toggleMute(room)}
-            onMarkRead={(room) => void markRoomRead(room)}
-            onToggleArchive={noopRoomAction}
-            onLeaveRoom={requestLeave}
-            onOpenRoomActions={handleOpenRoomActions}
-            listContext="default"
-            openedSwipeItemId={openedSwipeItemId}
-            onOpenSwipeItem={setOpenedSwipeItemId}
-            listVisual="delivery"
-          />
-        ))}
+        {liveItems.length > 0 && pastItems.length > 0 ? (
+          <p className="px-4 pb-1 pt-3 text-xs font-bold text-sam-muted" data-domain-so-section="live">
+            {t("cm_ui_order_chats_in_progress")}
+          </p>
+        ) : null}
+        {liveItems.map(renderOrderRow)}
+        {pastItems.length > 0 ? (
+          <button
+            type="button"
+            className="flex w-full items-center justify-between border-y border-sam-border bg-sam-surface-muted px-4 py-2.5 text-left text-xs text-sam-muted"
+            aria-expanded={!pastFolded}
+            onClick={() => setPastFolded((v) => !v)}
+            data-domain-so-section="past"
+          >
+            <span className="font-bold text-sam-fg">{t("cm_ui_order_chats_past", { count: pastItems.length })}</span>
+            <span>{pastFolded ? t("cm_ui_section_unfold") : t("cm_ui_section_fold")}</span>
+          </button>
+        ) : null}
+        {pastFolded ? null : pastItems.map(renderOrderRow)}
       </div>
 
       {roomActionSheet && sheetRoom ? (

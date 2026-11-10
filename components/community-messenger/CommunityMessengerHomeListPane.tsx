@@ -115,6 +115,8 @@ type Props = {
   onChatListChipChange: (next: any) => void;
   openChatJoinedItems: UnifiedRoomListItem[];
   onOpenGroupCreateStable: () => void;
+  /** 대화 탭 주 버튼 「새 대화」 */
+  onOpenNewConversationStable?: () => void;
   pageError: string | null;
   loginRequiredText: string;
   retryText: string;
@@ -255,6 +257,9 @@ function communityMessengerHomeListPanePropsEqual(prev: Props, next: Props): boo
   if (prev.openRoomActions !== next.openRoomActions) reasons.push("openRoomActions");
   if (prev.onChatListChipChange !== next.onChatListChipChange) reasons.push("onChatListChipChange");
   if (prev.onOpenGroupCreateStable !== next.onOpenGroupCreateStable) reasons.push("onOpenGroupCreateStable");
+  if (prev.onOpenNewConversationStable !== next.onOpenNewConversationStable) {
+    reasons.push("onOpenNewConversationStable");
+  }
   if (prev.onRetry !== next.onRetry) reasons.push("onRetry");
   if (prev.friendQuickMenuBlocksTabSwipeRef !== next.friendQuickMenuBlocksTabSwipeRef) {
     reasons.push("friendQuickMenuBlocksTabSwipeRef");
@@ -443,6 +448,7 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
                 onChatListChipChange={props.onChatListChipChange}
                 openChatJoinedItems={props.openChatJoinedItems}
                 onOpenGroupCreate={props.onOpenGroupCreateStable}
+                onOpenNewConversation={props.onOpenNewConversationStable}
                 entryOriginQuery={props.entryOriginQuery}
                 pillarSummaries={props.pillarSummaries}
                 chatListVisual={props.chatListVisual}
@@ -551,6 +557,7 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
               onChatListChipChange={props.onChatListChipChange}
               openChatJoinedItems={props.openChatJoinedItems}
               onOpenGroupCreate={props.onOpenGroupCreateStable}
+                onOpenNewConversation={props.onOpenNewConversationStable}
               entryOriginQuery={props.entryOriginQuery ?? null}
               pillarSummaries={props.pillarSummaries ?? null}
               chatListVisual={props.chatListVisual ?? "default"}
