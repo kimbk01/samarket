@@ -142,18 +142,10 @@ export async function POST(req: NextRequest) {
       .eq("push_token", pushToken)
       .eq("environment", environment);
   } else if (pushProvider) {
-    // R2 (2026-11-11): provider 만으로 회원의 모든 기기 행을 끄지 않는다 — 기기 범위(device_id)가 필수.
-    if (!deviceId) {
-      return NextResponse.json(
-        { ok: false, error: "device_scope_required", code: "device_scope_required" },
-        { status: 400 },
-      );
-    }
     await svc
       .from("user_devices")
       .update({ is_active: false, updated_at: now })
       .eq("user_id", userId)
-      .eq("device_id", deviceId)
       .eq("push_provider", pushProvider)
       .eq("environment", environment);
   } else {
