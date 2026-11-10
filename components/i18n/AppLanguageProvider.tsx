@@ -41,7 +41,7 @@ import {
   writeDisplayLanguageCookie,
   writePendingAccountLanguage,
 } from "@/lib/i18n/language-preference";
-import { translateText, type MessageKey } from "@/lib/i18n/messages";
+import { I18N_CATALOG_EXTENDED_EVENT, translateText, type MessageKey } from "@/lib/i18n/messages";
 import { safeTranslate, type SafeTranslateOptions } from "@/lib/i18n/safe-translate";
 import { setRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
@@ -208,6 +208,14 @@ export function AppLanguageProvider({
     document.documentElement.lang = language;
   }, [language]);
 
+  /** D 단계 안전장치: 늦게 등록된 문구 묶음(어드민 문구)이 생기면 화면을 다시 그린다 — `messages.ts` I18N_CATALOG_EXTENDED_EVENT */
+  const [catalogVersion, setCatalogVersion] = useState(0);
+  useEffect(() => {
+    const onExtended = () => setCatalogVersion((v) => v + 1);
+    window.addEventListener(I18N_CATALOG_EXTENDED_EVENT, onExtended);
+    return () => window.removeEventListener(I18N_CATALOG_EXTENDED_EVENT, onExtended);
+  }, []);
+
   const value = useMemo<AppLanguageContextValue>(
     () => ({
       language,
@@ -222,7 +230,9 @@ export function AppLanguageProvider({
       },
       tt: (text, vars) => translateText(language, text, vars),
     }),
-    [language, languagePreference, setLanguage]
+    // catalogVersion: 늦게 등록된 문구가 있으면 t·tt 를 새로 만들어 쓰는 화면을 다시 그린다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [language, languagePreference, setLanguage, catalogVersion]
   );
 
   return <AppLanguageContext.Provider value={value}>{children}</AppLanguageContext.Provider>;

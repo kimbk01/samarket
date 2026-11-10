@@ -26,7 +26,9 @@ vi.mock("@/components/i18n/AppLanguageProvider", async () => {
   const { safeTranslate } = await import("@/lib/i18n/safe-translate");
   /** 언어 SSOT B4: 삼항에서 카탈로그로 옮긴 어드민 광고 문구는 실제 ko 값으로 그린다 (화면 글자 그대로) */
   const { copyAdminB4AdsMessages } = await import("@/lib/i18n/catalog/copy-admin-b4-ads");
-  const b4Ko = copyAdminB4AdsMessages.ko as Record<string, string>;
+  /** D 단계: 회원 화면이 쓰는 키는 admin-member-shared 로 옮겨졌다 — 같은 문구 집합으로 본다 */
+  const { adminMemberSharedMessages } = await import("@/lib/i18n/catalog/admin-member-shared");
+  const b4Ko = { ...copyAdminB4AdsMessages.ko, ...adminMemberSharedMessages.ko } as Record<string, string>;
   const value = {
     language: "ko",
     t: (k: string, p?: Record<string, string | number>) =>

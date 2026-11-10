@@ -172,7 +172,6 @@ export const adminMenusMessages = {
     admin_menu_bottom_delete_tab_title: "이 탭 제거",
     admin_menu_bottom_builtin: "(내장)",
     admin_menu_bottom_custom: "(추가)",
-    admin_menu_bottom_new_label: "새 메뉴",
     admin_menu_bottom_default_label: "메뉴",
     admin_menu_bottom_footer:
       '추가 탭 id는 custom_* 형식입니다. 경로는 내부 링크만(/로 시작). 최소 1개 탭·1개 이상 노출이어야 저장됩니다. 채팅 읽지 않음 배지는 아이콘이 "chat"인 탭에만 붙습니다.',
@@ -415,7 +414,6 @@ export const adminMenusMessages = {
     admin_menu_bottom_delete_tab_title: "Remove this tab",
     admin_menu_bottom_builtin: "(built-in)",
     admin_menu_bottom_custom: "(custom)",
-    admin_menu_bottom_new_label: "New tab",
     admin_menu_bottom_default_label: "Menu",
     admin_menu_bottom_footer:
       'Custom tab ids use custom_* . Paths must be internal (/…). Need ≥1 tab and ≥1 visible. Unread badge only on icon "chat".',

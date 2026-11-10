@@ -65,7 +65,7 @@ function resolvePaidAdWriterErrorMessage(
   t: ReturnType<typeof useI18n>["t"]
 ): string {
   if (!code) return t("admin_store_insertions_paid_ads_save_fail");
-  const keyMap: Record<string, keyof typeof import("@/lib/i18n/catalog/admin-store-insertions").adminStoreInsertionsMessages.ko> = {
+  const keyMap: Record<string, import("@/lib/i18n/messages").MessageKey> = {
     invalid_window: "admin_store_insertions_paid_ads_err_invalid_window",
     empty_title: "admin_store_insertions_paid_ads_err_empty_title",
     empty_headline: "admin_store_insertions_paid_ads_err_empty_headline",

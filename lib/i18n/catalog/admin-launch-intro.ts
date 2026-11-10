@@ -5,7 +5,6 @@
 
 export const adminLaunchIntroMessages = {
   ko: {
-    launch_intro_skip: "건너뛰기",
     admin_menu_settings_intro: "인트로",
     admin_launch_intro_desc:
       "앱(Android·iOS)을 새로 켤 때 OS 시작 화면 다음에 한 번 보여주는 화면입니다. 웹·Windows에는 나오지 않습니다. DIBAY 자체 안내·브랜드 화면만 올립니다 — 매장·외부 업체 광고는 넣지 않습니다(Google Play: 앱 로딩 전 전면 광고 금지).",
@@ -104,7 +103,6 @@ export const adminLaunchIntroMessages = {
     admin_launch_intro_schedule_start: "시작",
     admin_launch_intro_schedule_end: "종료",
     admin_launch_intro_schedule_hint: "비워 두면 바로 시작하고 끝나는 시간이 없습니다. 게시하는 순간 지금 Intro는 내려가고, 시작 전과 종료 후에는 기기에 Intro가 나오지 않습니다. 시작·종료는 각 기기의 시계로 판단하므로 기기 시계가 틀리면 어긋날 수 있습니다.",
-    admin_launch_intro_schedule_now: "지금",
     admin_launch_intro_schedule_no_end: "끝 없음",
     admin_launch_intro_schedule_always: "기간 제한 없이 바로 시작합니다.",
     admin_launch_intro_schedule_summary: "기간: {start} ~ {end} (필리핀 시간). 시작 전에는 기기에 Intro가 나오지 않습니다.",
@@ -184,7 +182,6 @@ export const adminLaunchIntroMessages = {
     admin_launch_intro_layout_logo: "로고 크게 + 문구",
     admin_launch_intro_layout_logo_needs_logo: "이 배치는 로고가 있어야 게시할 수 있습니다.",
     admin_launch_intro_image_logo_layout_note: "'로고 크게' 배치에서는 그림 대신 로고가 크게 나옵니다.",
-    admin_launch_intro_logo: "로고",
     admin_launch_intro_background_image: "배경 그림",
     admin_launch_intro_decorations: "꾸밈 그림 (캐릭터·아이콘)",
     admin_launch_intro_decorations_hint: "네 귀퉁이 중 최대 {n}곳에 작은 그림을 둘 수 있습니다.",
@@ -243,7 +240,6 @@ export const adminLaunchIntroMessages = {
     admin_launch_intro_publish_confirm_desc: "게시하면 지금 게시 중인 Intro를 대신합니다. 각 기기에는 서버와 다시 확인한 뒤의 다음 실행부터 보입니다.",
   },
   en: {
-    launch_intro_skip: "Skip",
     admin_menu_settings_intro: "Intro",
     admin_launch_intro_desc:
       "Shown once after the OS start screen when the app (Android/iOS) is newly launched. Not shown on web or Windows. Use it only for DIBAY's own notices and brand screens — no store or third-party ads (Google Play: no full-screen ads before the app loads).",
@@ -342,7 +338,6 @@ export const adminLaunchIntroMessages = {
     admin_launch_intro_schedule_start: "Start",
     admin_launch_intro_schedule_end: "End",
     admin_launch_intro_schedule_hint: "Leave empty to start now with no end. Publishing takes the current Intro down at once; before the start and after the end devices show no Intro. Each device judges start/end with its own clock, so a wrong device clock shifts it.",
-    admin_launch_intro_schedule_now: "now",
     admin_launch_intro_schedule_no_end: "no end",
     admin_launch_intro_schedule_always: "Starts now with no time limit.",
     admin_launch_intro_schedule_summary: "Window: {start} – {end} (Philippine time). Devices show no Intro before the start.",
@@ -422,7 +417,6 @@ export const adminLaunchIntroMessages = {
     admin_launch_intro_layout_logo: "Large logo + text",
     admin_launch_intro_layout_logo_needs_logo: "This layout needs a logo before publishing.",
     admin_launch_intro_image_logo_layout_note: "In the large-logo layout the logo is shown instead of the image.",
-    admin_launch_intro_logo: "Logo",
     admin_launch_intro_background_image: "Background image",
     admin_launch_intro_decorations: "Decorations (characters, icons)",
     admin_launch_intro_decorations_hint: "Small images in up to {n} of the four corners.",

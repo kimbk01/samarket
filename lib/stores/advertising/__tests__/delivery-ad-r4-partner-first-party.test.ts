@@ -50,7 +50,8 @@ const adminHub = () => read("components/admin/stores/AdminDeliveryAdsControlPlan
 const commercial = () =>
   read("components/admin/stores/AdminDeliveryAdCommercialSettingsView.tsx");
 const ownerI18n = () => read("lib/i18n/catalog/owner-delivery-ads.ts");
-const adminI18n = () => read("lib/i18n/catalog/admin-delivery-ads.ts");
+/** D 단계: 회원 화면이 쓰는 키는 admin-member-shared 로 옮겨짐 — 두 파일을 함께 본다 */
+const adminI18n = () => read("lib/i18n/catalog/admin-delivery-ads.ts") + read("lib/i18n/catalog/admin-member-shared.ts");
 const catalog = () => read("lib/stores/advertising/delivery-ad-commercial-catalog.ts");
 
 const basePkg = (overrides: Partial<DeliveryAdPackageRow> = {}): DeliveryAdPackageRow => ({

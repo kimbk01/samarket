@@ -4,6 +4,7 @@
  * on a single giant `as const` object (tsconfig.app / tsconfig.test composite).
  */
 import { adminMessages } from "./catalog/admin";
+import { adminMemberSharedMessages } from "./catalog/admin-member-shared";
 import { adminOsLaunchMessages } from "./catalog/admin-os-launch";
 import { adminFinanceSsot19Messages } from "./catalog/admin-finance-ssot19";
 import { adminLaunchIntroMessages } from "./catalog/admin-launch-intro";
@@ -166,6 +167,7 @@ type KeyOf<T> = keyof T & string;
 
 /** Canonical KO key authority (catalogs only — S5). */
 export type MessageKey =
+  | KeyOf<typeof adminMemberSharedMessages.ko>
   | KeyOf<typeof adminDeliveryOpsUxMessages.ko>
   | KeyOf<typeof adminChatR1CMessages.ko>
   | KeyOf<typeof adminChatR1BMessages.ko>
@@ -327,6 +329,7 @@ export type MessageKey =
 
 /** EN sources — used only for compile-time KO/EN key parity. */
 type EnMessageKey =
+  | KeyOf<typeof adminMemberSharedMessages.en>
   | KeyOf<typeof commonMessages.en>
   | KeyOf<typeof myMessages.en>
   | KeyOf<typeof mypageHubMessages.en>

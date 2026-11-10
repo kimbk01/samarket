@@ -23,7 +23,6 @@ export const adminOsLaunchMessages = {
     admin_os_launch_deployed_unknown: "확인 불가 (출시 기록 연동 전 · NOT_PROVEN)",
     admin_os_launch_pending_title: "다음 빌드 (대기)",
     admin_os_launch_background: "배경색",
-    admin_os_launch_logo: "로고",
     admin_os_launch_logo_hint:
       "투명 배경 PNG, 짧은 변 512px 이상, 5MB 이하. 화면 가운데에 고정 크기로 표시됩니다.",
     admin_os_launch_logo_current_build: "빌드 스냅샷 로고 사용 중",
@@ -63,7 +62,6 @@ export const adminOsLaunchMessages = {
     admin_os_launch_deployed_unknown: "Unknown (no release record yet · NOT_PROVEN)",
     admin_os_launch_pending_title: "Next build (pending)",
     admin_os_launch_background: "Background color",
-    admin_os_launch_logo: "Logo",
     admin_os_launch_logo_hint:
       "Transparent PNG, at least 512 px on the short edge, up to 5 MB. Shown centered at a fixed size.",
     admin_os_launch_logo_current_build: "Using the build snapshot logo",

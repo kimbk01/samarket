@@ -5,6 +5,12 @@
  */
 import { setImmediate as realSetImmediate } from "node:timers";
 import { afterEach } from "vitest";
+/**
+ * D 단계 (2026-11-10): 서버는 `lib/i18n/messages.ts` 의 서버 전용 require 로 어드민 문구를 등록하지만,
+ * vitest(node) 는 TS 파일 require 를 못 하므로 여기서 등록한다 — 테스트의 문구 표 = 서버와 같음(회원+어드민).
+ * 회원 화면 묶음 계약은 `lib/i18n/__tests__/admin-catalog-member-split.test.ts` 가 파일 기준으로 검사한다.
+ */
+import "@/lib/i18n/admin-catalog";
 
 /**
  * 시험마다 이벤트 루프를 한 번 놓아준다 — CI `[vitest-worker]: Timeout calling "onTaskUpdate"` 근본 수정.

@@ -1,18 +1,10 @@
 import type { AppLanguageCode } from "./config";
-import { adminMessages } from "./catalog/admin";
-import { adminOsLaunchMessages } from "./catalog/admin-os-launch";
-import { adminFinanceSsot19Messages } from "./catalog/admin-finance-ssot19";
-import { adminLaunchIntroMessages } from "./catalog/admin-launch-intro";
-import { adminPlatformPromotionNotificationsMessages } from "./catalog/admin-platform-promotion-notifications";
-import { adminDeployMessages } from "./catalog/admin-deploy";
-import { adminBoostPricesMessages } from "./catalog/admin-boost-prices";
-import { adminTradeSoldWindowMessages } from "./catalog/admin-trade-sold-window";
+import { adminMemberSharedMessages } from "./catalog/admin-member-shared";
 import { ownerAnnouncementsMessages } from "./catalog/owner-announcements";
 import { storeApplyV2Messages } from "./catalog/store-apply-v2";
 import { commonMessages } from "./catalog/common";
 import { myMessages } from "./catalog/my";
 import { mypageHubMessages } from "./catalog/mypage-hub";
-import { adminLegalConsentMessages } from "./catalog/admin-legal-consent";
 import { settingsUiMessages } from "./catalog/settings-ui";
 import { mypageRoutesMessages } from "./catalog/mypage-routes";
 import { mypageComponentsMessages } from "./catalog/mypage-components";
@@ -51,7 +43,6 @@ import { messengerIaMessages } from "./catalog/messenger-ia";
 import { releaseArchiveLabelsMessages } from "./catalog/release-archive-labels";
 import { adApplicationLabelsMessages } from "./catalog/ad-application-labels";
 import { launchWeekLabelsMessages } from "./catalog/launch-week-labels";
-import { adminPermissionsLabelsMessages } from "./catalog/admin-permissions-labels";
 import { launchReadinessLabelsMessages } from "./catalog/launch-readiness-labels";
 import { opsRoutinesLabelsMessages } from "./catalog/ops-routines-labels";
 import { productionMigrationLabelsMessages } from "./catalog/production-migration-labels";
@@ -63,9 +54,6 @@ import { storeOrderChatSummaryLabelsMessages } from "./catalog/store-order-chat-
 import { storeOrderStageTermsMessages } from "./catalog/store-order-stage-terms";
 import { navigationMessages } from "./catalog/navigation";
 import { notificationMessages } from "./catalog/notifications";
-import { adminDeliveryOpsUxMessages } from "./catalog/admin-delivery-ops-ux";
-import { adminIaR1Messages } from "./catalog/admin-ia-r1";
-import { adminDashboardChatTabMessages } from "./catalog/admin-dashboard-chat-tab";
 import { popupSsotWordingMessages } from "./catalog/popup-ssot-wording";
 import { adsImpl1104PromotionMessages } from "./catalog/ads-impl-1104-p";
 import { adsImpl1104FeedMessages } from "./catalog/ads-impl-1104-f";
@@ -77,29 +65,11 @@ import { adsImpl1107PopupMessages } from "./catalog/ads-impl-1107-w2";
 import { adsImpl1107DeliveryMessages } from "./catalog/ads-impl-1107-w3";
 import { adsImpl1107LedgerMessages } from "./catalog/ads-impl-1107-r1";
 import { adsImpl1107DeleteMessages } from "./catalog/ads-impl-1107-r2";
-import { adminChatR1CMessages } from "./catalog/admin-chat-r1-pages";
-import { adminChatR1BMessages } from "./catalog/admin-chat-r1-data";
-import { adminChatR1AMessages } from "./catalog/admin-chat-r1-access";
-import { adminDeliveryR4DMessages } from "./catalog/admin-delivery-r4-field-monitoring";
-import { adminDeliveryR4CMessages } from "./catalog/admin-delivery-r4-fees-settings";
-import { adminDeliveryR4BMessages } from "./catalog/admin-delivery-r4-orders";
-import { adminDeliveryR4AMessages } from "./catalog/admin-delivery-r4-stores";
-import { adminCommunityR4Messages } from "./catalog/admin-community-r4";
-import { adminTradeAdminMessages } from "./catalog/admin-trade-admin";
-import { adminShellFrameMessages } from "./catalog/admin-shell-frame";
-import { adminDashboardV4Messages } from "./catalog/admin-dashboard-v4";
-import { adminF3MypageToolsMessages } from "./catalog/admin-f3-mypage-tools";
-import { adminMenuJAmd5Messages } from "./catalog/admin-menu-j-amd-5";
-import { adminTechInfoMessages } from "./catalog/admin-tech-info";
 import { chatsMessages } from "./catalog/chats";
 import { ptrMessages } from "./catalog/ptr";
 import { homeHubMessages } from "./catalog/home-hub";
-import { homeHubAdminMessages } from "./catalog/home-hub-admin";
 import { storeCommerceUiMessages } from "./catalog/store-commerce-ui";
 import { storePartnerAgreementMessages } from "./catalog/store-partner-agreement";
-import { adminStorePartnerAgreementsMessages } from "./catalog/admin-store-partner-agreements";
-import { adminDeliveryLaunchMessages } from "./catalog/admin-delivery-launch";
-import { adminMessengerContactsMessages } from "./catalog/admin-messenger-contacts";
 import { communityMessengerContactsMessages } from "./catalog/community-messenger-contacts";
 import { cmMonitoringSloMessages } from "./catalog/cm-monitoring-slo";
 import { communityMessengerUiMessages } from "./catalog/community-messenger-ui";
@@ -118,38 +88,15 @@ import { supportUiMessages } from "./catalog/support-ui";
 import { platformPopupUiMessages } from "./catalog/platform-popup-ui";
 import { platformPopupOwnerMessages } from "./catalog/platform-popup-owner";
 import { platformEventsUiMessages } from "./catalog/platform-events-ui";
-import { adminActionQueueMessages } from "./catalog/admin-action-queue";
-import { adminUsersAddressMessages } from "./catalog/admin-users-address";
-import { adminTradeRadiusMessages } from "./catalog/admin-trade-radius";
 import { storeOps3bMessages } from "./catalog/store-ops-3b";
 import { deliveryBundle4Messages } from "./catalog/delivery-bundle4";
-import { adminDeliveryAdsStage3Messages } from "./catalog/admin-delivery-ads-stage3";
 import { ownerStage4FeedbackMessages } from "./catalog/owner-stage4-feedback";
 import { ownerStage4NavMessages } from "./catalog/owner-stage4-nav";
 import { ownerStage4RoutesMessages } from "./catalog/owner-stage4-routes";
 import { ownerUiCopyKeysMessages } from "./catalog/owner-ui-copy-keys";
-import { adminConsoleCoreMessages } from "./catalog/admin-console-core";
 import { appShellCoreMessages } from "./catalog/app-shell-core";
 import { copyLibMessages } from "./catalog/copy-lib";
-import { copyAdminMessages } from "./catalog/copy-admin";
-import { copyAdminL25JsxAMessages } from "./catalog/copy-admin-l25-jsx-a";
-import { copyAdminL25JsxBMessages } from "./catalog/copy-admin-l25-jsx-b";
 import { copyUiL25JsxMessages } from "./catalog/copy-ui-l25-jsx";
-import { copyAdminL25CommunityAMessages } from "./catalog/copy-admin-l25-community-a";
-import { copyAdminL25CommunityBMessages } from "./catalog/copy-admin-l25-community-b";
-import { copyAdminL25TradeMessages } from "./catalog/copy-admin-l25-trade";
-import { copyAdminL25MiscMessages } from "./catalog/copy-admin-l25-misc";
-import { copyAdminL25LibMessages } from "./catalog/copy-admin-l25-lib";
-import { copyAdminL25AdsMessages } from "./catalog/copy-admin-l25-ads";
-import { copyAdminL25OpsMessages } from "./catalog/copy-admin-l25-ops";
-import { copyAdminB4StoresMessages } from "./catalog/copy-admin-b4-stores";
-import { copyAdminB4AdsMessages } from "./catalog/copy-admin-b4-ads";
-import { copyAdminB4CommunityMessages } from "./catalog/copy-admin-b4-community";
-import { copyAdminB4CoreMessages } from "./catalog/copy-admin-b4-core";
-import { copyAdminB4OrdersMessages } from "./catalog/copy-admin-b4-orders";
-import { copyAdminB4FinanceMessages } from "./catalog/copy-admin-b4-finance";
-import { copyAdminB4Ops1Messages } from "./catalog/copy-admin-b4-ops1";
-import { copyAdminB4Ops2Messages } from "./catalog/copy-admin-b4-ops2";
 import { copyLibB4Messages } from "./catalog/copy-lib-b4";
 import { copyAuthMessages } from "./catalog/copy-auth";
 import { copyMessengerMessages } from "./catalog/copy-messenger";
@@ -171,10 +118,10 @@ export type MessagesTable = {
 
 /** Runtime KO bag — explicit LocaleMessageBag annotation avoids TS7056 on as-const emit. */
 const KO_MESSAGES = {
+  ...adminMemberSharedMessages.ko,
   ...commonMessages.ko,
   ...myMessages.ko,
   ...mypageHubMessages.ko,
-  ...adminLegalConsentMessages.ko,
   ...settingsUiMessages.ko,
   ...mypageRoutesMessages.ko,
   ...mypageComponentsMessages.ko,
@@ -213,7 +160,6 @@ const KO_MESSAGES = {
   ...releaseArchiveLabelsMessages.ko,
   ...adApplicationLabelsMessages.ko,
   ...launchWeekLabelsMessages.ko,
-  ...adminPermissionsLabelsMessages.ko,
   ...launchReadinessLabelsMessages.ko,
   ...opsRoutinesLabelsMessages.ko,
   ...productionMigrationLabelsMessages.ko,
@@ -228,12 +174,8 @@ const KO_MESSAGES = {
   ...chatsMessages.ko,
   ...ptrMessages.ko,
   ...homeHubMessages.ko,
-  ...homeHubAdminMessages.ko,
   ...storeCommerceUiMessages.ko,
   ...storePartnerAgreementMessages.ko,
-  ...adminStorePartnerAgreementsMessages.ko,
-  ...adminDeliveryLaunchMessages.ko,
-  ...adminMessengerContactsMessages.ko,
   ...communityMessengerContactsMessages.ko,
   ...cmMonitoringSloMessages.ko,
   ...communityMessengerUiMessages.ko,
@@ -252,48 +194,17 @@ const KO_MESSAGES = {
   ...platformPopupUiMessages.ko,
   ...platformPopupOwnerMessages.ko,
   ...platformEventsUiMessages.ko,
-  ...adminActionQueueMessages.ko,
-  ...adminUsersAddressMessages.ko,
-  ...adminTradeRadiusMessages.ko,
   ...storeOps3bMessages.ko,
   ...deliveryBundle4Messages.ko,
-  ...adminDeliveryAdsStage3Messages.ko,
   ...ownerStage4FeedbackMessages.ko,
   ...ownerStage4NavMessages.ko,
   ...ownerStage4RoutesMessages.ko,
   ...ownerUiCopyKeysMessages.ko,
-  ...adminMessages.ko,
-  ...adminOsLaunchMessages.ko,
-  ...adminFinanceSsot19Messages.ko,
-  ...adminLaunchIntroMessages.ko,
-  ...adminPlatformPromotionNotificationsMessages.ko,
-  ...adminDeployMessages.ko,
-  ...adminBoostPricesMessages.ko,
-  ...adminTradeSoldWindowMessages.ko,
   ...ownerAnnouncementsMessages.ko,
   ...storeApplyV2Messages.ko,
-  ...adminConsoleCoreMessages.ko,
   ...appShellCoreMessages.ko,
   ...copyLibMessages.ko,
-  ...copyAdminMessages.ko,
-  ...copyAdminL25JsxAMessages.ko,
-  ...copyAdminL25JsxBMessages.ko,
   ...copyUiL25JsxMessages.ko,
-  ...copyAdminL25CommunityAMessages.ko,
-  ...copyAdminL25CommunityBMessages.ko,
-  ...copyAdminL25TradeMessages.ko,
-  ...copyAdminL25MiscMessages.ko,
-  ...copyAdminL25LibMessages.ko,
-  ...copyAdminL25AdsMessages.ko,
-  ...copyAdminL25OpsMessages.ko,
-  ...copyAdminB4StoresMessages.ko,
-  ...copyAdminB4AdsMessages.ko,
-  ...copyAdminB4CommunityMessages.ko,
-  ...copyAdminB4CoreMessages.ko,
-  ...copyAdminB4OrdersMessages.ko,
-  ...copyAdminB4FinanceMessages.ko,
-  ...copyAdminB4Ops1Messages.ko,
-  ...copyAdminB4Ops2Messages.ko,
   ...copyLibB4Messages.ko,
   ...copyAuthMessages.ko,
   ...copyMessengerMessages.ko,
@@ -302,23 +213,6 @@ const KO_MESSAGES = {
   ...copyTradeMessages.ko,
   ...copyShellMessages.ko,
   // 배달 Admin 운영 UX 교정 — ko.json 보다 뒤 (같은 키 교정 우선)
-  ...adminDeliveryOpsUxMessages.ko,
-  ...adminChatR1CMessages.ko,
-  ...adminChatR1BMessages.ko,
-  ...adminChatR1AMessages.ko,
-  ...adminDeliveryR4DMessages.ko,
-  ...adminDeliveryR4CMessages.ko,
-  ...adminDeliveryR4BMessages.ko,
-  ...adminDeliveryR4AMessages.ko,
-  ...adminCommunityR4Messages.ko,
-  ...adminTradeAdminMessages.ko,
-  ...adminShellFrameMessages.ko,
-  ...adminDashboardV4Messages.ko,
-  ...adminF3MypageToolsMessages.ko,
-  ...adminMenuJAmd5Messages.ko,
-  ...adminTechInfoMessages.ko,
-  ...adminIaR1Messages.ko,
-  ...adminDashboardChatTabMessages.ko,
   ...popupSsotWordingMessages.ko,
   ...adsImpl1104PromotionMessages.ko,
   ...adsImpl1104FeedMessages.ko,
@@ -333,10 +227,10 @@ const KO_MESSAGES = {
 } as LocaleMessageBag;
 
 const EN_MESSAGES = {
+  ...adminMemberSharedMessages.en,
   ...commonMessages.en,
   ...myMessages.en,
   ...mypageHubMessages.en,
-  ...adminLegalConsentMessages.en,
   ...settingsUiMessages.en,
   ...mypageRoutesMessages.en,
   ...mypageComponentsMessages.en,
@@ -375,7 +269,6 @@ const EN_MESSAGES = {
   ...releaseArchiveLabelsMessages.en,
   ...adApplicationLabelsMessages.en,
   ...launchWeekLabelsMessages.en,
-  ...adminPermissionsLabelsMessages.en,
   ...launchReadinessLabelsMessages.en,
   ...opsRoutinesLabelsMessages.en,
   ...productionMigrationLabelsMessages.en,
@@ -390,12 +283,8 @@ const EN_MESSAGES = {
   ...chatsMessages.en,
   ...ptrMessages.en,
   ...homeHubMessages.en,
-  ...homeHubAdminMessages.en,
   ...storeCommerceUiMessages.en,
   ...storePartnerAgreementMessages.en,
-  ...adminStorePartnerAgreementsMessages.en,
-  ...adminDeliveryLaunchMessages.en,
-  ...adminMessengerContactsMessages.en,
   ...communityMessengerContactsMessages.en,
   ...cmMonitoringSloMessages.en,
   ...communityMessengerUiMessages.en,
@@ -414,48 +303,17 @@ const EN_MESSAGES = {
   ...platformPopupUiMessages.en,
   ...platformPopupOwnerMessages.en,
   ...platformEventsUiMessages.en,
-  ...adminActionQueueMessages.en,
-  ...adminUsersAddressMessages.en,
-  ...adminTradeRadiusMessages.en,
   ...storeOps3bMessages.en,
   ...deliveryBundle4Messages.en,
-  ...adminDeliveryAdsStage3Messages.en,
   ...ownerStage4FeedbackMessages.en,
   ...ownerStage4NavMessages.en,
   ...ownerStage4RoutesMessages.en,
   ...ownerUiCopyKeysMessages.en,
-  ...adminMessages.en,
-  ...adminOsLaunchMessages.en,
-  ...adminFinanceSsot19Messages.en,
-  ...adminLaunchIntroMessages.en,
-  ...adminPlatformPromotionNotificationsMessages.en,
-  ...adminDeployMessages.en,
-  ...adminBoostPricesMessages.en,
-  ...adminTradeSoldWindowMessages.en,
   ...ownerAnnouncementsMessages.en,
   ...storeApplyV2Messages.en,
-  ...adminConsoleCoreMessages.en,
   ...appShellCoreMessages.en,
   ...copyLibMessages.en,
-  ...copyAdminMessages.en,
-  ...copyAdminL25JsxAMessages.en,
-  ...copyAdminL25JsxBMessages.en,
   ...copyUiL25JsxMessages.en,
-  ...copyAdminL25CommunityAMessages.en,
-  ...copyAdminL25CommunityBMessages.en,
-  ...copyAdminL25TradeMessages.en,
-  ...copyAdminL25MiscMessages.en,
-  ...copyAdminL25LibMessages.en,
-  ...copyAdminL25AdsMessages.en,
-  ...copyAdminL25OpsMessages.en,
-  ...copyAdminB4StoresMessages.en,
-  ...copyAdminB4AdsMessages.en,
-  ...copyAdminB4CommunityMessages.en,
-  ...copyAdminB4CoreMessages.en,
-  ...copyAdminB4OrdersMessages.en,
-  ...copyAdminB4FinanceMessages.en,
-  ...copyAdminB4Ops1Messages.en,
-  ...copyAdminB4Ops2Messages.en,
   ...copyLibB4Messages.en,
   ...copyAuthMessages.en,
   ...copyMessengerMessages.en,
@@ -463,23 +321,6 @@ const EN_MESSAGES = {
   ...copyStoreMessages.en,
   ...copyTradeMessages.en,
   ...copyShellMessages.en,
-  ...adminDeliveryOpsUxMessages.en,
-  ...adminChatR1CMessages.en,
-  ...adminChatR1BMessages.en,
-  ...adminChatR1AMessages.en,
-  ...adminDeliveryR4DMessages.en,
-  ...adminDeliveryR4CMessages.en,
-  ...adminDeliveryR4BMessages.en,
-  ...adminDeliveryR4AMessages.en,
-  ...adminCommunityR4Messages.en,
-  ...adminTradeAdminMessages.en,
-  ...adminShellFrameMessages.en,
-  ...adminDashboardV4Messages.en,
-  ...adminF3MypageToolsMessages.en,
-  ...adminMenuJAmd5Messages.en,
-  ...adminTechInfoMessages.en,
-  ...adminIaR1Messages.en,
-  ...adminDashboardChatTabMessages.en,
   ...popupSsotWordingMessages.en,
   ...adsImpl1104PromotionMessages.en,
   ...adsImpl1104FeedMessages.en,
@@ -502,6 +343,54 @@ const REVERSE_KO_MESSAGE_KEY = Object.fromEntries(
   Object.entries(MESSAGES.ko).map(([key, value]) => [value, key as MessageKey])
 ) as Record<string, MessageKey>;
 
+/**
+ * D 단계 (Owner 「정해진 설계안 순서대로」 2026-11-10): 어드민 전용 문구는 회원 화면 묶음에 싣지 않고
+ * `./admin-catalog` 가 필요한 곳(서버·어드민 화면)에서만 여기로 등록한다. 이미 있는 키는 덮지 않는다(회원 문구 우선).
+ */
+let extraCatalogVersion = 0;
+export function registerExtraMessages(ko: Record<string, string>, en: Record<string, string>): void {
+  const koBag = MESSAGES.ko as unknown as Record<string, string>;
+  const enBag = MESSAGES.en as unknown as Record<string, string>;
+  for (const [key, value] of Object.entries(ko)) {
+    if (koBag[key] === undefined) koBag[key] = value;
+    if (REVERSE_KO_MESSAGE_KEY[value] === undefined) REVERSE_KO_MESSAGE_KEY[value] = key as MessageKey;
+  }
+  for (const [key, value] of Object.entries(en)) {
+    if (enBag[key] === undefined) enBag[key] = value;
+  }
+  extraCatalogVersion += 1;
+}
+
+/** 등록 회차 — 화면이 다시 그려질 때 기준(언어 제공자). */
+export function getExtraCatalogVersion(): number {
+  return extraCatalogVersion;
+}
+
+export const I18N_CATALOG_EXTENDED_EVENT = "dibay:i18n-catalog-extended";
+
+/**
+ * 안전장치: 브라우저에서 회원 묶음에 없는 키를 찾으면 어드민 문구 묶음을 1회 늦게 불러와 등록하고,
+ * 언어 제공자가 이 이벤트로 화면을 다시 그린다(빈 글자가 남지 않게). 정상이면 일어나지 않는다 —
+ * 회원 화면이 쓰는 키는 `catalog/admin-member-shared.ts` 에 두는 계약(`admin-catalog-member-split.test.ts`).
+ */
+let adminCatalogRequested = false;
+function requestAdminCatalogOnMiss(key: string): void {
+  if (typeof window === "undefined" || adminCatalogRequested) return;
+  adminCatalogRequested = true;
+  try {
+    console.info("[i18n-admin-catalog-lazy]", key);
+  } catch {
+    /* ignore */
+  }
+  void import("./admin-catalog")
+    .then(() => {
+      window.dispatchEvent(new Event(I18N_CATALOG_EXTENDED_EVENT));
+    })
+    .catch(() => {
+      adminCatalogRequested = false;
+    });
+}
+
 const missingKeyWarned = new Set<string>();
 
 function warnMissingKey(language: AppLanguageCode, key: MessageKey): void {
@@ -519,6 +408,7 @@ export function translate(
   vars?: Record<string, string | number>
 ): string {
   const primary = MESSAGES[language][key];
+  if (primary === undefined) requestAdminCatalogOnMiss(key);
   if (primary === undefined && language === "en") {
     warnMissingKey("en", key);
   }
@@ -549,4 +439,17 @@ export function translateText(
       : text;
   }
   return translate(language, key, vars);
+}
+
+/**
+ * 서버(API·서버 렌더)는 어드민 문구를 항상 갖는다 — 브라우저 묶음에서는 이 분기가 빌드 때 제거된다
+ * (Next 가 클라이언트 빌드에서 `typeof window` 를 "object" 로 바꿔 죽은 분기를 지움).
+ */
+if (typeof window === "undefined") {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- 서버 전용 등록(클라이언트 묶음 제외)
+    require("./admin-catalog");
+  } catch {
+    /* vitest(node) 는 TS require 불가 — `tests/vitest-setup.node.ts` 가 등록한다. 운영 서버 번들은 위 require 로 등록(빌드 검증). */
+  }
 }

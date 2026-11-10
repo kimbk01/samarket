@@ -3,7 +3,6 @@
  */
 export const adminShellFrameMessages = {
   ko: {
-    admin_landscape_guard_title: "관리자 화면은 태블릿 가로 또는 PC에서 사용합니다",
     admin_landscape_guard_desc:
       "기기를 가로로 돌리거나 브라우저 창을 넓혀 주세요 (가로 1024px 이상). 작성 중인 내용은 그대로 유지됩니다.",
     admin_landscape_guard_logout: "로그아웃",
@@ -22,7 +21,6 @@ export const adminShellFrameMessages = {
     admin_shell_search_failed: "불러오기 실패",
   },
   en: {
-    admin_landscape_guard_title: "Use a tablet in landscape or a PC",
     admin_landscape_guard_desc:
       "Rotate your device to landscape or widen the browser window (at least 1024px wide). Anything you were editing is kept.",
     admin_landscape_guard_logout: "Sign out",

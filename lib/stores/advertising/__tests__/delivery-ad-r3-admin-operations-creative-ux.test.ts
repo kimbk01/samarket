@@ -45,7 +45,8 @@ const commercial = () =>
 const queue = () => read("components/admin/stores/AdminDeliveryAdActionQueuePanel.tsx");
 const mapper = () =>
   read("lib/stores/advertising/delivery-ad-admin-r3-presentation.ts");
-const i18n = () => read("lib/i18n/catalog/admin-delivery-ads.ts");
+/** D 단계: 회원 화면이 쓰는 키는 admin-member-shared 로 옮겨짐 — 두 파일을 함께 본다 */
+const i18n = () => read("lib/i18n/catalog/admin-delivery-ads.ts") + read("lib/i18n/catalog/admin-member-shared.ts");
 
 describe("R3 Admin Delivery Ads operations + creative UX", () => {
   it("R3-T1 — presentation mapper module exists", () => {

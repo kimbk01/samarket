@@ -22,6 +22,7 @@ import {
 } from "@/lib/admin-users/member-list-presentation";
 import { statusCategoryForAdminUser } from "@/components/admin/users/admin-user-lite-display";
 import type { AdminUser } from "@/lib/types/admin-user";
+import { adminMemberSharedMessages } from "@/lib/i18n/catalog/admin-member-shared";
 
 function src(rel: string): string {
   return readFileSync(join(process.cwd(), rel), "utf8");
@@ -209,7 +210,7 @@ describe("P2 member list — UI contracts", () => {
       ["admin_users_sign_up_method", "가입 방식"],
     ] as const) {
       expect(table).toContain(`t("${key}")`);
-      expect(copyAdminB4Ops1Messages.ko[key]).toBe(ko);
+      expect(({ ...copyAdminB4Ops1Messages.ko, ...adminMemberSharedMessages.ko } as Record<string, string>)[key]).toBe(ko);
     }
     expect(table).toContain("memberListStoreCellLabel");
     expect(table).toContain("MEMBER_LIST_STORE_NONE_KEY");
