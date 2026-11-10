@@ -1027,6 +1027,16 @@
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
+    /* 채팅 P0-5: 그려질 때마다 실제 높이를 기억(auto) — 건너뛸 때 이 크기를 쓴다 */
+    contain-intrinsic-block-size: auto 64px;
+  }
+
+  /*
+   * 채팅 P0-5 (Owner 「P0-5 승인」 2026-11-11): 한 번 그려진 행(data-cm-cv)만 화면 밖일 때 스타일·그리기를 건너뛴다.
+   * 길게 누름 강조·검색 강조 중(data-cm-cv-off)에는 끈다 — paint containment 가 그림자·외곽선을 자르지 않게.
+   */
+  [data-cm-room] [data-cm-timeline-message-row][data-cm-cv]:not([data-cm-cv-off]) {
+    content-visibility: auto;
   }
 
   [data-cm-room] .sam-bubble--outgoing {

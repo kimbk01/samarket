@@ -8,6 +8,8 @@ import {
   type ReactNode,
   memo,
   type MutableRefObject,
+  useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -229,6 +231,37 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     () => withCallStubViewerDirection(finalizeDeletedForEveryoneMessage(rawItem)),
     [rawItem]
   );
+
+  /**
+   * 채팅 P0-5 (Owner 「P0-5 승인」 2026-11-11 · docs/audit/messenger-p0-structural-audit-design-2026-11-11.md §8):
+   * 직접 배치(가상 스크롤 미사용) 행은 한 번 실제 크기로 그려진 뒤에만 `data-cm-cv` 를 붙인다 →
+   * CSS `content-visibility:auto` 로 화면 밖 행의 스타일·그리기를 건너뛴다(브라우저가 기억한 실제 크기 사용 → 위치 튐 없음).
+   * 실측: 이전 메시지 로드마다 스타일 계산·그리기가 줄 수에 비례해 늘었다(40→540줄, 스타일 64→176ms).
+   */
+  const rowElRef = useRef<HTMLDivElement | null>(null);
+  const attachRowRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      rowElRef.current = el;
+      measureElement(el);
+    },
+    [measureElement]
+  );
+  useEffect(() => {
+    if (!directLayout) return;
+    const el = rowElRef.current;
+    if (!el || typeof window === "undefined") return;
+    let raf2 = 0;
+    const raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => {
+        el.setAttribute("data-cm-cv", "");
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(raf1);
+      if (raf2) window.cancelAnimationFrame(raf2);
+      el.removeAttribute("data-cm-cv");
+    };
+  }, [directLayout]);
   const deletedForEveryone = Boolean(item.deletedForEveryoneAt?.trim());
   if (entryLightRow && item.messageType === "text") {
     bumpCmR9Counter(streamRoomId, "linkPreviewDeferCount");
@@ -605,8 +638,9 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   return (
     <div
       data-index={virtualIndex}
-      ref={measureElement}
+      ref={attachRowRef}
       data-cm-timeline-message-row=""
+      data-cm-cv-off={longPressVisualActive || timelineHighlightMessageId === item.id ? "" : undefined}
       data-cm-message-id={String(item.id ?? "")}
       id={`cm-room-msg-${item.id}`}
       className={`${directLayout ? "relative" : "absolute left-0 top-0"} flex w-full flex-col scroll-mt-24 ${rowPaddingTopClass} pb-1 ${
