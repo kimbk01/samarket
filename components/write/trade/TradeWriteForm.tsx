@@ -305,6 +305,13 @@ import {
   scrollTradeMeetSpotAnchorIntoView,
 } from "@/lib/posts/trade-meet-spot-anchor-scroll";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { tapHaptic } from "@/lib/ui/tap-haptic";
+import { peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import {
+  defaultTradePriceCurrencyForCountry,
+  normalizeTradePriceCurrency,
+  type TradePriceCurrency,
+} from "@/lib/trade/trade-price-currency";
 import { useReleaseDroppedBlobUrls } from "@/lib/media/use-release-dropped-blob-urls";
 import {
   settleTradeWriteDraftPhotoRestore,
@@ -407,7 +414,6 @@ function TradeMarketplaceWriteFormInner({
     [language, category]
   );
   const appSettings = useMemo(() => getAppSettings(), []);
-  const currencyUnit = getCurrencyUnitLabel(appSettings.defaultCurrency);
   const settings = category.settings;
   const hasPrice = settings?.has_price ?? true;
   const hasDirectDeal = settings?.has_direct_deal ?? true;
@@ -586,6 +592,19 @@ function TradeMarketplaceWriteFormInner({
   const [workPlace, setWorkPlace] = useState("");
   const [workType, setWorkType] = useState("");
   const [currency, setCurrency] = useState("");
+  /**
+   * 가격 통화 (한국 주소 지원 3단계) — 저장값(수정·임시저장) → 없으면 대표 주소 나라(한국 KRW · 그 밖 PHP).
+   * 저장: meta.currency. 표시: `resolveTradePostCurrency`.
+   */
+  const [masterDefaultCurrency, setMasterDefaultCurrency] = useState<TradePriceCurrency>("PHP");
+  /** 하이드레이션 뒤에만 읽는다(서버·첫 그림 일치) — 주소 검색 국기 선택과 같은 방식 */
+  useEffect(() => {
+    const snap = peekFreshAddressDefaultsSnapshot();
+    const master = (snap?.ok ? (snap.defaults?.master as { countryCode?: string } | null) : null) ?? null;
+    setMasterDefaultCurrency(defaultTradePriceCurrencyForCountry(master?.countryCode));
+  }, []);
+  const priceCurrency: TradePriceCurrency = normalizeTradePriceCurrency(currency) ?? masterDefaultCurrency;
+  const currencyUnit = getCurrencyUnitLabel(priceCurrency);
   const [exchangeRate, setExchangeRate] = useState("");
   const [tradeTopicChildId, setTradeTopicChildId] = useState("");
 
@@ -2109,7 +2128,7 @@ function TradeMarketplaceWriteFormInner({
           exchangeRate,
         });
         if (isDirectDeal && !isUsedCarSkin) meta = { ...meta, direct_deal: true };
-        meta = { ...meta, trade_chat_call_policy: tradeChatCallPolicy };
+        meta = { ...meta, trade_chat_call_policy: tradeChatCallPolicy, currency: priceCurrency };
         if (hasLocation) {
           const meetMeta = buildTradeMeetSpotMetaForPersist(tradeMeetSpot);
           if (meetMeta) meta = { ...meta, ...meetMeta };
@@ -2842,11 +2861,16 @@ function TradeMarketplaceWriteFormInner({
                 >
                   {t("trade_write_price")} <span className="text-sam-danger">*</span>
                 </label>
+                <TradePriceCurrencyRadio
+                  value={priceCurrency}
+                  onChange={(c) => setCurrency(c)}
+                  disabled={coreLocked}
+                />
                 <div
                   className={`${TRADE_WRITE_FB_CONTROL_ROW} focus-within:ring-2 focus-within:ring-signature/20`}
                 >
                   <span className="shrink-0 sam-text-body font-medium text-sam-muted">
-                    {getCurrencyUnitLabel(appSettings.defaultCurrency)}
+                    {currencyUnit}
                   </span>
                   <input
                     type="text"
@@ -2898,7 +2922,7 @@ function TradeMarketplaceWriteFormInner({
               setCarYear={setCarYear}
               price={price}
               setPrice={setPrice}
-              currencyUnitLabel={getCurrencyUnitLabel(appSettings.defaultCurrency)}
+              currencyUnitLabel={currencyUnit}
               disabled={coreLocked}
               enabledFieldIds={compositionWriteFieldIds}
               fieldsSlot="price"
@@ -2998,7 +3022,7 @@ function TradeMarketplaceWriteFormInner({
                 setCarYear={setCarYear}
                 price={price}
                 setPrice={setPrice}
-                currencyUnitLabel={getCurrencyUnitLabel(appSettings.defaultCurrency)}
+                currencyUnitLabel={currencyUnit}
                 disabled={coreLocked}
                 enabledFieldIds={compositionWriteFieldIds}
                 fieldsSlot="item"
@@ -3214,6 +3238,51 @@ function TradeMarketplaceWriteFormInner({
         />
         </div>
       </form>
+    </div>
+  );
+}
+
+/** 가격 통화 국기 라디오 (시안 TradeCurrency) — 🇵🇭 페소 ₱ / 🇰🇷 원 ₩ */
+function TradePriceCurrencyRadio({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: TradePriceCurrency;
+  onChange: (c: TradePriceCurrency) => void;
+  disabled?: boolean;
+}) {
+  const { t } = useI18n();
+  const options: ReadonlyArray<{ id: TradePriceCurrency; flag: string; key: "trade_write_price_currency_php" | "trade_write_price_currency_krw" }> = [
+    { id: "PHP", flag: "🇵🇭", key: "trade_write_price_currency_php" },
+    { id: "KRW", flag: "🇰🇷", key: "trade_write_price_currency_krw" },
+  ];
+  return (
+    <div role="radiogroup" aria-label={t("trade_write_price_currency_aria")} className="mb-2 grid grid-cols-2 gap-2">
+      {options.map((o) => {
+        const on = value === o.id;
+        return (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            disabled={disabled}
+            data-trade-price-currency={o.id}
+            onClick={() => {
+              if (on) return;
+              tapHaptic("select");
+              onChange(o.id);
+            }}
+            className={`sam-press flex h-12 items-center justify-center gap-2 rounded-ui-rect border sam-text-body font-semibold ${
+              on ? "border-2 border-sam-primary bg-sam-primary-soft text-sam-primary" : "border-sam-border bg-sam-surface text-sam-muted"
+            }`}
+          >
+            <span aria-hidden="true" className="text-[18px]">{o.flag}</span>
+            <span>{t(o.key)}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

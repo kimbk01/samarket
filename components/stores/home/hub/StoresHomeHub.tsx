@@ -570,9 +570,17 @@ export function StoresHomeHub({
         </div>
       : null}
       <StoresHomeRecruitingDim state={recruitingShown ? launchState : null}>
-      <StoresHomeQuickCategories />
-      {/* 배민 미러링 — 상단 탭 · 아이콘 판 · 바로가기 줄 (본문과 함께 스크롤) */}
-      <DeliveryHomeMenuBoard />
+      {/**
+       * 한국 대표 주소(`not_service_area`)는 업종판·바로가기 없이 안내만 — 시안(DeliveryNotArea): 화면 가운데 안내 1개.
+       * 실기 2026-11-10: 업종판·매장 바로가기 아래에 있어 내려야 보였다. 다른 게이트·정식 운영은 그대로.
+       */}
+      {blockedViewerGate === "not_service_area" ? null : (
+        <>
+          <StoresHomeQuickCategories />
+          {/* 배민 미러링 — 상단 탭 · 아이콘 판 · 바로가기 줄 (본문과 함께 스크롤) */}
+          <DeliveryHomeMenuBoard />
+        </>
+      )}
       <StoresHomePullRefreshRegister
         onRefresh={onStoresHomePullRefresh}
       />

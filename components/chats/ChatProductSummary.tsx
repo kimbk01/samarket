@@ -56,7 +56,7 @@ export function ChatProductSummary({
   variant = "card",
 }: ChatProductSummaryProps) {
   const { t } = useI18n();
-  const currency = getAppSettings().defaultCurrency ?? "KRW";
+  const currency = product.currency || getAppSettings().defaultCurrency || "KRW";
   const detailHref = product.detailHref?.trim() || `/post/${product.id}`;
   const isPhilifeCard = detailHref.startsWith("/philife/") || detailHref.startsWith("/community/");
 

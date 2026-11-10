@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveTradePostCurrency } from "@/lib/trade/trade-price-currency";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { MapPin } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -340,7 +341,8 @@ export function PostDetailView({
   const chatEnabled = appSettings.chatEnabled !== false;
   const allowChatAfterSold = appSettings.allowChatAfterSold === true;
   const reportEnabled = appSettings.reportEnabled !== false;
-  const defaultCurrency = appSettings.defaultCurrency || "KRW";
+  /** 이 글 가격 통화 = 저장값(meta.currency) → 없으면 앱 기본 (한국 주소 지원 3단계) */
+  const defaultCurrency = resolveTradePostCurrency(post.meta, appSettings.defaultCurrency || "KRW");
 
   const tradeListingOwnerUserId = useMemo(
     () => postTradeListingOwnerUserId(post as unknown as Record<string, unknown>),

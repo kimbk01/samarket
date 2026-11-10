@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
  */
 import { isTradeImagesRequiredServer } from "@/lib/trade/category-form/trade-images-required";
 import { TRADE_POST_MAX_IMAGES, filterOwnPostImageUrls } from "@/lib/posts/own-post-image-url";
+import { sanitizeTradeMetaCurrency } from "@/lib/trade/trade-price-currency";
 import { dropTradeMetaClears } from "@/lib/trade/category-form/trade-write-owned-meta-keys";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
@@ -150,10 +151,15 @@ export async function PATCH(
 
   const before = flattenPostForTradeCompare(row as Record<string, unknown>);
   /** 제한 수정 단계: 필드 삭제(null) 요청은 무시하고 기존 값 유지 */
-  const restrictedMetaBody =
+  const restrictedMetaBody0 =
     !allowEditCoreFields(lifecycle) && body.meta && typeof body.meta === "object"
       ? { ...body, meta: dropTradeMetaClears(body.meta) }
       : body;
+  /** 가격 통화(meta.currency) — PHP·KRW 만 (한국 주소 지원 3단계) */
+  const restrictedMetaBody =
+    restrictedMetaBody0.meta && typeof restrictedMetaBody0.meta === "object"
+      ? { ...restrictedMetaBody0, meta: sanitizeTradeMetaCurrency(restrictedMetaBody0.meta as Record<string, unknown>) }
+      : restrictedMetaBody0;
   /**
    * 이미지 = 자사 Storage 의 작성자 폴더만 (TM-22) — 단, **이 글에 이미 붙어 있던 사진은 그대로 유지**한다
    * (P-4 I8: 관리자·예전 경로 사진이 저장할 때 조용히 빠지던 문제). 새로 넣는 사진만 작성자 폴더 제한을 받는다.

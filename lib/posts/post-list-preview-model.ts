@@ -2,6 +2,7 @@
  * 홈 피드 PostCard 본문과 동일한 문자열·순서 — 채팅 목록/상단 카드와 단일 소스
  */
 
+import { resolveTradePostCurrency } from "@/lib/trade/trade-price-currency";
 import { formatPrice, formatTimeAgo, parseMetaAmount } from "@/lib/utils/format";
 import { getLocationLabel } from "@/lib/products/form-options";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
@@ -394,7 +395,8 @@ export function buildPostListPreviewModel(
     city || undefined,
     str(post.trade_lgu_id) || null
   );
-  const currency = opts.currency || "KRW";
+  /** 가격 통화 = 글에 저장된 통화(meta.currency, 한국 주소 지원 3단계) → 없으면 앱 기본 */
+  const currency = resolveTradePostCurrency(meta, opts.currency || "KRW");
   const locale = opts.locale || "ko-KR";
   const createdAt = str(post.created_at) || str(post.updated_at);
 

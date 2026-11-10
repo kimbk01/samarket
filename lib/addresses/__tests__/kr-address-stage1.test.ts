@@ -126,3 +126,47 @@ describe("4단계 — 한국 대표 주소 = 배달 지역 아님", () => {
     expect(src).not.toMatch(/state=\{recruiting \? launchState/);
   });
 });
+
+describe("2단계 — 거래 지역에 한국 시/군/구", async () => {
+  const { assertActiveTradeNationalLgu } = await import("@/lib/trade/location/national/assert-active-trade-national-lgu");
+  const { getTradeNationalLguDisplayNameById } = await import("@/lib/trade/location/national/lgu-display-by-id");
+  const { resolveTradeLguUrlTokenToCanonical } = await import("@/lib/trade/location/national/legacy-product-alias-canonical");
+  it("KR 코드 = 유효한 거래 지역, 모르는 KR 코드는 거부", () => {
+    const ok = assertActiveTradeNationalLgu("KR:11680");
+    expect(ok.ok).toBe(true);
+    expect(ok.ok && ok.lgu.lguType).toBe("kr_sigungu");
+    expect(assertActiveTradeNationalLgu("KR:99999").ok).toBe(false);
+    expect(assertActiveTradeNationalLgu("1381300000").ok).toBe(true);
+  });
+  it("표시 이름·주소창 토큰", () => {
+    expect(getTradeNationalLguDisplayNameById("KR:11680")).toBe("서울 강남구");
+    expect(resolveTradeLguUrlTokenToCanonical("kr:11680")).toBe("KR:11680");
+    expect(resolveTradeLguUrlTokenToCanonical("KR:11680")).toBe("KR:11680");
+  });
+  it("마이그레이션 = 공식 표 230행 그대로", () => {
+    const sql = readFileSync("supabase/migrations/20271110210000_trade_national_lgu_kr_sigungu.sql", "utf8");
+    expect((sql.match(/\('KR:\d{5}', 'kr_sigungu'/g) ?? []).length).toBe(230);
+    expect(sql).toContain("('KR:11680', 'kr_sigungu', '서울 강남구', '11', '서울특별시'");
+    expect(sql).toContain("CHECK (lgu_type IN ('city', 'municipality', 'kr_sigungu'))");
+  });
+});
+
+describe("3단계 — 거래 가격 통화", async () => {
+  const m = await import("@/lib/trade/trade-price-currency");
+  it("저장값 우선, 없으면 앱 기본 · 대표 주소 나라 기본값 · 서버 정리", () => {
+    expect(m.resolveTradePostCurrency({ currency: "KRW" }, "PHP")).toBe("KRW");
+    expect(m.resolveTradePostCurrency({}, "PHP")).toBe("PHP");
+    expect(m.resolveTradePostCurrency({ currency: "USD" }, "PHP")).toBe("PHP");
+    expect(m.defaultTradePriceCurrencyForCountry("KR")).toBe("KRW");
+    expect(m.defaultTradePriceCurrencyForCountry("PH")).toBe("PHP");
+    expect(m.sanitizeTradeMetaCurrency({ currency: "krw", a: 1 })).toEqual({ currency: "KRW", a: 1 });
+    expect(m.sanitizeTradeMetaCurrency({ currency: "USD", a: 1 })).toEqual({ a: 1 });
+  });
+  it("글쓰기 = 통화 라디오 + meta.currency 저장 · 목록 모델은 글 통화 사용", () => {
+    const form = readFileSync("components/write/trade/TradeWriteForm.tsx", "utf8");
+    expect(form).toContain("<TradePriceCurrencyRadio");
+    expect(form).toContain("trade_chat_call_policy: tradeChatCallPolicy, currency: priceCurrency");
+    const model = readFileSync("lib/posts/post-list-preview-model.ts", "utf8");
+    expect(model).toContain('resolveTradePostCurrency(meta, opts.currency || "KRW")');
+  });
+});

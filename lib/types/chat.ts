@@ -47,6 +47,8 @@ export interface ChatProductSummary {
   jobApplicationCount?: number;
   /** `posts.meta.trade_chat_call_policy` — 거래 채팅 통화(메신저) 허용 범위 */
   tradeChatCallPolicy?: "none" | "voice_only" | "voice_and_video";
+  /** 가격 통화 — 글 meta.currency (PHP·KRW, 한국 주소 지원 3단계). 없으면 앱 기본 */
+  currency?: string;
 }
 
 export type ChatRoomStatus = "active" | "blocked" | "closed" | "report_hold";

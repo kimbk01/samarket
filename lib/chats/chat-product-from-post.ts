@@ -1,4 +1,5 @@
 import type { ChatProductSummary } from "@/lib/types/chat";
+import { resolveTradePostCurrency } from "@/lib/trade/trade-price-currency";
 import { buildPostRegionLabel } from "@/lib/chats/post-region-label";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 import { getExchangeFeedLines } from "@/lib/exchange/exchange-feed-lines";
@@ -207,5 +208,6 @@ export function chatProductSummaryFromPostRow(
         : undefined,
     /** 명시 전달 — `none` 포함. 메신저/채팅 헤더가 `undefined`와 구분해 통화 버튼을 숨길 수 있음 */
     tradeChatCallPolicy: !isEx && !isJobTradeChat ? tradeChatCallPolicy : undefined,
+    currency: resolveTradePostCurrency(meta, (envC || DEFAULT_APP_SETTINGS.defaultCurrency || "PHP").toUpperCase()),
   };
 }

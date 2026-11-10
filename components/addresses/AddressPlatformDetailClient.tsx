@@ -533,7 +533,7 @@ export function AddressPlatformDetailClient(props: {
             else (e.currentTarget as HTMLInputElement).blur();
           }
         }}
-        placeholder={t("addr_v3_detail_ph")}
+        placeholder={t(draft?.countryCode === "KR" ? "addr_kr_detail_ph" : "addr_v3_detail_ph")}
         autoComplete="address-line2"
         enterKeyHint={isDelivery ? "next" : "done"}
         aria-invalid={detailInvalid || undefined}

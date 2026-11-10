@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveTradePostCurrency } from "@/lib/trade/trade-price-currency";
 import { TradeNoPhotoPlaceholder } from "@/components/trade/media/TradeNoPhotoPlaceholder";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useRef, useState } from "react";
@@ -99,7 +100,7 @@ function PostAdCompactCard({ item }: { item: PostWithMeta }) {
   const { t } = useI18n();
   const router = useRouter();
   const thumb = useRelatedItemThumbSrc(item);
-  const currency = getAppSettings().defaultCurrency || "KRW";
+  const currency = resolveTradePostCurrency(item.meta, getAppSettings().defaultCurrency || "KRW");
   const priceText =
     item.is_free_share === true
       ? "무료나눔"

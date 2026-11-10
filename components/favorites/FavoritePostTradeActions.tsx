@@ -1,4 +1,5 @@
 "use client";
+import { resolveTradePostCurrency } from "@/lib/trade/trade-price-currency";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
@@ -240,7 +241,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
       setChatError(t("ui_fav_err_sold_no_chat"));
       return;
     }
-    const defaultCurrency = getAppSettings().defaultCurrency || "KRW";
+    const defaultCurrency = resolveTradePostCurrency(post.meta, getAppSettings().defaultCurrency || "KRW");
     const imgArr = Array.isArray(post.images)
       ? post.images.filter((s): s is string => typeof s === "string")
       : [];

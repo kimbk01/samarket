@@ -4,6 +4,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import { getKrSigunguUnit, krRegionDisplayName, KR_SIGUNGU_DATASET_VERSION } from "@/lib/addresses/kr/kr-sigungu";
 import { join } from "node:path";
 import type {
   TradeLocalAreaLguMapRow,
@@ -126,6 +127,22 @@ export function getTradeNationalLguById(
 ): TradeNationalLgu | null {
   const id = (canonicalId ?? "").trim();
   if (!id) return null;
+  /** 한국 시/군/구 — 공식 표(`kr-sigungu`)에서 바로 만든다 (DB `trade_national_lgu` 에도 같은 230행 · FK) */
+  const kr = getKrSigunguUnit(id);
+  if (kr) {
+    return {
+      canonicalId: id,
+      lguType: "kr_sigungu",
+      displayName: krRegionDisplayName(id) ?? kr.name,
+      regionCode: kr.code.slice(0, 2),
+      regionName: kr.sido,
+      provinceCode: null,
+      provinceName: null,
+      isActive: true,
+      datasetVersion: KR_SIGUNGU_DATASET_VERSION,
+      supersededBy: null,
+    };
+  }
   return loadTradeNationalLguDataset().byId.get(id) ?? null;
 }
 

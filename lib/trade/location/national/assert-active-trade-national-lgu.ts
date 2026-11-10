@@ -13,7 +13,7 @@ export function assertActiveTradeNationalLgu(
   const lgu = getTradeNationalLguById(id);
   if (!lgu) return { ok: false, error: "trade_lgu_id_unknown" };
   if (!lgu.isActive) return { ok: false, error: "trade_lgu_id_inactive" };
-  if (lgu.lguType !== "city" && lgu.lguType !== "municipality") {
+  if (lgu.lguType !== "city" && lgu.lguType !== "municipality" && lgu.lguType !== "kr_sigungu") {
     return { ok: false, error: "trade_lgu_id_invalid_type" };
   }
   return { ok: true, lgu };

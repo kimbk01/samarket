@@ -173,7 +173,7 @@ export function useMessengerRoomPhase2RoomPresentation({
       (snapshot.room.contextMeta?.kind === "trade" ? snapshot.room.contextMeta.postId?.trim() : "") ||
       "";
     const detailHref = postId ? `/post/${postId}` : null;
-    const currency = getAppSettings().defaultCurrency ?? "PHP";
+    const currency = product?.currency || getAppSettings().defaultCurrency || "PHP";
     const priceRaw = product?.price;
     const priceLabel =
       typeof priceRaw === "number" && Number.isFinite(priceRaw) ? formatPrice(priceRaw, currency) : null;

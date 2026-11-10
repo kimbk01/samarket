@@ -105,12 +105,44 @@ function draftFromParsed(args: {
   };
 }
 
+/**
+ * 동·읍·면 보충 — 도로명 결과(구글)에는 동 칸이 없는 경우가 많다(실기 2026-11-10: 테헤란로 152 → 동 비어 저장).
+ * 같은 좌표의 역지오코딩 결과 전체에서 동·읍·면 이름을 찾는다. 못 찾으면 null(추정 금지).
+ */
+export function findKrDongInResults(
+  results: Array<{ address_components?: Comp[] | null }>,
+  sigunguName: string | null
+): string | null {
+  const order = ["sublocality_level_2", "sublocality_level_3", "neighborhood", "sublocality_level_1"];
+  for (const type of order) {
+    for (const r of results) {
+      const v = pick(r.address_components ?? [], type);
+      if (v && v !== sigunguName && /(동|읍|면|가)$/.test(v) && !/(구|시|군)$/.test(v)) return v;
+    }
+  }
+  return null;
+}
+
+async function reverseGeocodeKr(lat: number, lng: number): Promise<google.maps.GeocoderResult[]> {
+  await loadGoogleMaps();
+  const geocoder = new google.maps.Geocoder();
+  const resp = await geocoder.geocode({ location: { lat, lng }, language: KR_LOCALE.language, region: KR_LOCALE.region });
+  return resp.results ?? [];
+}
+
 /** 검색 결과(장소 id) → 한국 주소 초안 (한국어 상세) */
 export async function resolveKrDraftFromPlaceId(placeId: string): Promise<CanonicalAddressDraft | null> {
   const place = await fetchPlaceDetailsAsLegacyPlaceResult(placeId, PLACE_FIELDS_POI_FULL, KR_LOCALE);
   const loc = place?.geometry?.location;
   if (!place || !loc) return null;
   const parsed = parseKrGoogleAddress(place.address_components ?? [], place.formatted_address);
+  if (!parsed.dong) {
+    try {
+      parsed.dong = findKrDongInResults(await reverseGeocodeKr(loc.lat(), loc.lng()), parsed.sigunguName);
+    } catch {
+      /** 동 보충 실패는 저장을 막지 않는다 — 동 없이 시/군/구까지만 */
+    }
+  }
   return draftFromParsed({
     parsed,
     latitude: loc.lat(),
@@ -123,13 +155,11 @@ export async function resolveKrDraftFromPlaceId(placeId: string): Promise<Canoni
 
 /** 지도 핀·현재 위치 → 한국 주소 초안 (도로명 결과 우선) */
 export async function resolveKrPinDraft(lat: number, lng: number): Promise<CanonicalAddressDraft | null> {
-  await loadGoogleMaps();
-  const geocoder = new google.maps.Geocoder();
-  const resp = await geocoder.geocode({ location: { lat, lng }, language: KR_LOCALE.language, region: KR_LOCALE.region });
-  const results = resp.results ?? [];
+  const results = await reverseGeocodeKr(lat, lng);
   const best =
     results.find((r) => r.types?.some((t) => t === "street_address" || t === "premise")) ?? results[0] ?? null;
   if (!best) return null;
   const parsed = parseKrGoogleAddress(best.address_components ?? [], best.formatted_address);
+  if (!parsed.dong) parsed.dong = findKrDongInResults(results, parsed.sigunguName);
   return draftFromParsed({ parsed, latitude: lat, longitude: lng, placeId: null, placeName: null, placeTypes: [] });
 }

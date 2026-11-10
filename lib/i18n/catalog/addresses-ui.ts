@@ -221,6 +221,7 @@ export const addressesUiMessages = {
     addr_kr_country_ph: "필리핀",
     addr_kr_country_kr: "한국",
     addr_kr_search_ph: "건물명, 도로명, 동으로 검색",
+    addr_kr_detail_ph: "12층 1201호",
   },
   en: {
     addr_ui_api_address_not_found: "Address not found.",
@@ -444,5 +445,6 @@ export const addressesUiMessages = {
     addr_kr_country_ph: "Philippines",
     addr_kr_country_kr: "Korea",
     addr_kr_search_ph: "Search building, road or dong",
+    addr_kr_detail_ph: "12F, Unit 1201",
   },
 } as const;

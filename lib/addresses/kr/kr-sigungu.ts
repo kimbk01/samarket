@@ -18,6 +18,8 @@ const GENERAL_GU = (data as { generalGu: Record<string, KrGeneralGu> }).generalG
 const SIDO_SHORT = (data as { sidoShort: Record<string, string> }).sidoShort;
 
 export const KR_REGION_PREFIX = "KR:";
+/** 거래 지역 표(trade_national_lgu.dataset_version) 와 같은 값 */
+export const KR_SIGUNGU_DATASET_VERSION = "kr-bjd-20260729";
 
 const BY_CODE = new Map(UNITS.map((u) => [u.code, u]));
 
@@ -53,6 +55,13 @@ export function krRegionDisplayName(id: string | null | undefined): string | nul
   /** 세종특별자치시 세종시 → 「세종시」 */
   if (u.name.startsWith(short)) return u.name;
   return `${short} ${u.name}`;
+}
+
+/** `KR:11680` → 시/군/구 행(코드·시도·이름) — 거래 지역 서버 검사용 */
+export function getKrSigunguUnit(id: string | null | undefined): { code: string; sido: string; name: string } | null {
+  const m = clean(id).match(/^KR:(\d{5})$/);
+  if (!m) return null;
+  return BY_CODE.get(m[1]!) ?? null;
 }
 
 /** `KR:11680` → 「강남구」 (같은 시도 안 표시용) */

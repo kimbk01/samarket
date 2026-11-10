@@ -58,6 +58,9 @@ export function resolveTradeLguUrlTokenToCanonical(
 ): string | null {
   const t = (raw ?? "").trim().toLowerCase();
   if (!t) return null;
+  /** 한국 시/군/구 `KR:11680` — 소문자로 바꾸면 접두가 깨지므로 먼저 본다 (한국 주소 지원 2단계) */
+  const kr = t.match(/^kr:(\d{5})$/);
+  if (kr) return `KR:${kr[1]}`;
   if (isTradeNationalPsgcCanonicalId(t)) return t;
   const fromAlias =
     TRADE_LEGACY_PRODUCT_ALIAS_TO_CANONICAL[t as TradeLegacyProductAlias] ?? null;

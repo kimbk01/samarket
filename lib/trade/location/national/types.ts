@@ -3,7 +3,8 @@
  * Separate from local Area taxonomy (`regions-data.ts`).
  */
 
-export type TradeNationalLguType = "city" | "municipality";
+/** 한국 시/군/구(`KR:` + 5자리, 한국 주소 지원 2단계 2026-11-10) — 필리핀 PSGC 와 같은 표(trade_national_lgu)에 둔다 */
+export type TradeNationalLguType = "city" | "municipality" | "kr_sigungu";
 
 export type TradeNationalLgu = {
   canonicalId: string;

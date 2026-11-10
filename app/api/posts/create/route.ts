@@ -22,6 +22,7 @@ import { assertTradeActivityAllowed } from "@/lib/trade/trade-activity-restricti
 import { buildCreatePostInsertRow } from "@/lib/posts/build-create-post-insert-row";
 import type { CreatePostPayload, PostType } from "@/lib/posts/types";
 import { publicRegionLabelLeaksPrivateDetail } from "@/lib/addresses/community-public-region-label";
+import { sanitizeTradeMetaCurrency } from "@/lib/trade/trade-price-currency";
 import { assertActiveTradeNationalLgu } from "@/lib/trade/location/national/assert-active-trade-national-lgu";
 import { isPersistableStorageMediaRef } from "@/lib/media/persistable-storage-media-ref";
 
@@ -78,7 +79,7 @@ function parseCreatePayload(body: unknown): CreatePostPayload | { error: string 
         : undefined,
       meta:
         raw.meta != null && typeof raw.meta === "object" && !Array.isArray(raw.meta)
-          ? (raw.meta as Record<string, unknown>)
+          ? sanitizeTradeMetaCurrency(raw.meta as Record<string, unknown>)
           : undefined,
       tradeJob:
         raw.tradeJob != null && typeof raw.tradeJob === "object" && !Array.isArray(raw.tradeJob)
