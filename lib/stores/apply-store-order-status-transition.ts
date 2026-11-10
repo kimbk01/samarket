@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { markBuyerOrderChatReadOnOrderClosed } from "@/lib/order-domain/mark-buyer-order-chat-read-on-close";
 import {
   appendStoreOrderMessengerStatusTransition,
   syncStoreOrderMessengerRoomContextMeta,
@@ -945,6 +946,33 @@ export async function applyStoreOrderStatusTransition(
       orderId: oid,
       error: err,
     });
+  }
+
+  /**
+   * Owner 2026-11-10 「알림도 읽음 처리」 — 주문이 끝나면(완료·취소·환불) 고객 채팅 안 읽음·그 주문 알림을 읽음으로.
+   * 고객 알림·채팅 상태 안내가 모두 쓰인 뒤에 실행해야 방금 쓴 것까지 읽음이 된다.
+   */
+  if (buyerId) {
+    try {
+      const closedRead = await markBuyerOrderChatReadOnOrderClosed(sb, {
+        orderId: oid,
+        buyerUserId: buyerId,
+        nextStatus,
+      });
+      if (!closedRead.ok) {
+        console.error("[applyStoreOrderStatusTransition] buyer read on close failed", {
+          orderId: oid,
+          to: nextStatus,
+          error: closedRead.error,
+        });
+      }
+    } catch (err) {
+      console.error("[applyStoreOrderStatusTransition] buyer read on close threw", {
+        orderId: oid,
+        to: nextStatus,
+        error: err,
+      });
+    }
   }
 
   // NTF-04: drop the shared snapshot rows before responding so no instance serves the old status.
