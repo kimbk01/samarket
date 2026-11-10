@@ -38,6 +38,8 @@ export type Product = {
   thumbnailUrl?: string | null;
   status: "selling" | "inquiring" | "reserved" | "sold";
   allow_call: boolean;
+  /** 가격 통화 PHP·KRW — 글 meta.currency (한국 주소 지원 3단계). 없으면 PHP */
+  currency?: string;
   /** 숨김·삭제된 글(판매자 본인 제외) — 「볼 수 없는 글이에요」, 상세로 가지 않음 · 판정 `useTradeRoomListingUnavailable` (설계 G1) */
   unavailable?: boolean;
 };
@@ -332,7 +334,7 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
             line1={messengerTradeDockLine1(tradeContext.product.title, undefined)}
             line2={formatMessengerTradeDockPriceLine(
               tradeContext.product.price,
-              "PHP",
+              tradeContext.product.currency || "PHP",
               productStatusLabel[tradeContext.product.status]
             )}
             detailHref={`/post/${encodeURIComponent(tradeContext.product.id)}`}

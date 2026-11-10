@@ -25,6 +25,8 @@ export type MemberTradeListingRow = {
   status: string;
   listingState: string;
   price: number | null;
+  /** 글 가격 통화 (meta.currency) — 없으면 null */
+  currency: string | null;
   createdAt: string;
   updatedAt: string | null;
 };
@@ -107,7 +109,7 @@ export async function loadMemberTradeTab(
   if (opts.section === "listings") {
     const { data, error } = await sb
       .from("posts")
-      .select("id, title, status, seller_listing_state, price, created_at, updated_at")
+      .select("id, title, status, seller_listing_state, price, created_at, updated_at, meta_currency:meta->>currency")
       .eq("user_id", uid)
       .order("created_at", { ascending: false })
       .range(opts.from, opts.to);
@@ -121,6 +123,7 @@ export async function loadMemberTradeTab(
         status: str(row, "status"),
         listingState: str(row, "seller_listing_state"),
         price: row.price == null || row.price === "" ? null : Number(row.price),
+        currency: str(row, "meta_currency") || null,
         createdAt: str(row, "created_at"),
         updatedAt: str(row, "updated_at") || null,
       })),

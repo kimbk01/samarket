@@ -1,7 +1,25 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { resolveAddressCanonicalLguId } from "@/lib/addresses/address-location-ssot.server";
 import type { AdminNotificationCampaignRow } from "@/lib/admin/notification-campaigns/campaign-types";
 
 export const CAMPAIGN_ACTIVE_USER_DAYS = 30;
+
+/** PostgREST `.or()` 값 — `KR:11680` 처럼 `:` 가 있으면 따옴표 */
+function campaignLguFilterValue(lgu: string): string {
+  return /^[0-9A-Za-z_-]+$/.test(lgu) ? lgu : `"${lgu}"`;
+}
+
+/** 대표 주소 행이 캠페인 시/군과 맞는가 — 저장값 우선, 없으면 주소 SSOT 계산값 */
+function campaignRowMatchesLgu(row: Record<string, unknown>, lgu: string): boolean {
+  const stored = typeof row.canonical_lgu_id === "string" ? row.canonical_lgu_id.trim() : "";
+  if (stored) return stored === lgu;
+  const derived = resolveAddressCanonicalLguId({
+    canonicalLguId: null,
+    cityMunicipality: typeof row.city_municipality === "string" ? row.city_municipality : null,
+    province: typeof row.province === "string" ? row.province : null,
+  });
+  return derived === lgu;
+}
 
 /** `active_users` 기준 시각 — 회차 시작 때 1회 정해 회차(`active_since`)에 저장한다 (확정 설계 B-11). */
 export function campaignActiveUsersSince(now: Date = new Date()): string {
@@ -55,22 +73,37 @@ export async function fetchCampaignProfileScanSlice(
      */
     const lgu = campaign.segment_region_code?.trim() ?? "";
     if (!lgu) return [];
-    let rq = svc
-      .from("user_addresses")
-      .select("user_id")
-      .eq("is_active", true)
-      .eq("is_default_master", true)
-      .eq("canonical_lgu_id", lgu)
-      .order("user_id", { ascending: true })
-      .limit(limit);
-    if (afterId) rq = rq.gt("user_id", afterId);
-    const { data: rows, error: rErr } = await rq;
-    if (rErr) {
-      console.error("[campaign scan region]", rErr.message);
-      if (opts?.throwOnError) throw new Error(`target_scan_failed:${rErr.message}`);
-      return [];
+    /**
+     * 저장된 LGU 가 비어 있는 예전 대표 주소도 화면과 같은 판정(`resolveAddressCanonicalLguId`)으로 포함한다
+     * (감사 2026-11-10: 앱에는 그 시/군으로 보이는데 지역 캠페인 대상에서 빠짐 — 대표 74 중 58 이 저장값 없음).
+     * 걸러진 행 때문에 쪽 크기가 줄어 발송 반복이 일찍 끝나지 않도록, 맞는 회원이 limit 개 모이거나 끝까지 읽을 때까지 이어 읽는다.
+     */
+    const out: string[] = [];
+    let cursor = afterId;
+    for (;;) {
+      let rq = svc
+        .from("user_addresses")
+        .select("user_id, canonical_lgu_id, city_municipality, province")
+        .eq("is_active", true)
+        .eq("is_default_master", true)
+        .or(`canonical_lgu_id.eq.${campaignLguFilterValue(lgu)},canonical_lgu_id.is.null`)
+        .order("user_id", { ascending: true })
+        .limit(limit);
+      if (cursor) rq = rq.gt("user_id", cursor);
+      const { data: rows, error: rErr } = await rq;
+      if (rErr) {
+        console.error("[campaign scan region]", rErr.message);
+        if (opts?.throwOnError) throw new Error(`target_scan_failed:${rErr.message}`);
+        return out;
+      }
+      const list = (rows ?? []) as Array<Record<string, unknown>>;
+      for (const r of list) {
+        if (campaignRowMatchesLgu(r, lgu)) out.push(String(r.user_id));
+        if (out.length >= limit) return out;
+      }
+      if (list.length < limit) return out;
+      cursor = String(list[list.length - 1]!.user_id);
     }
-    return (rows ?? []).map((r) => String((r as { user_id: string }).user_id)).filter(Boolean);
   }
 
   let q = svc.from("profiles").select("id").order("id", { ascending: true }).limit(limit);
@@ -140,13 +173,27 @@ export async function countCampaignTargetMembers(
   if (tt === "region") {
     const lgu = campaign.segment_region_code?.trim() ?? "";
     if (!lgu) return 0;
-    const { count: rc, error: rErr } = await svc
-      .from("user_addresses")
-      .select("user_id", { count: "exact", head: true })
-      .eq("is_active", true)
-      .eq("is_default_master", true)
-      .eq("canonical_lgu_id", lgu);
-    return rErr ? null : rc ?? 0;
+    /** 발송 대상과 같은 판정 — 저장 LGU 일치 + 저장값 없는 예전 대표 주소는 계산값으로 (위 `fetchCampaignProfileScanSlice` 와 동일) */
+    let total = 0;
+    let cursor: string | null = null;
+    const page = 1000;
+    for (;;) {
+      let rq = svc
+        .from("user_addresses")
+        .select("user_id, canonical_lgu_id, city_municipality, province")
+        .eq("is_active", true)
+        .eq("is_default_master", true)
+        .or(`canonical_lgu_id.eq.${campaignLguFilterValue(lgu)},canonical_lgu_id.is.null`)
+        .order("user_id", { ascending: true })
+        .limit(page);
+      if (cursor) rq = rq.gt("user_id", cursor);
+      const { data: rows, error: rErr } = await rq;
+      if (rErr) return null;
+      const list = (rows ?? []) as Array<Record<string, unknown>>;
+      for (const r of list) if (campaignRowMatchesLgu(r, lgu)) total += 1;
+      if (list.length < page) return total;
+      cursor = String(list[list.length - 1]!.user_id);
+    }
   }
   let q = svc.from("profiles").select("id", { count: "exact", head: true });
   if (tt === "active_users") q = q.gte("updated_at", opts?.activeSince || campaignActiveUsersSince());

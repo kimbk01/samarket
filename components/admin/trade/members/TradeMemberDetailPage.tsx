@@ -98,6 +98,7 @@ type TradeTabResponse = {
     status: string;
     listingState: string;
     price: number | null;
+    currency?: string | null;
     createdAt: string;
     updatedAt: string | null;
   }>;
@@ -470,7 +471,7 @@ function TradeSection({
                           {r.title || t("admin_trade_posts_no_title")}
                         </Link>
                       </td>
-                      <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{formatTradePrice(r.price)}</td>
+                      <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{formatTradePrice(r.price, undefined, r.currency)}</td>
                       <td className={COMMUNITY_TD}>
                         <TradeStageBadge value={r.listingState} />
                       </td>

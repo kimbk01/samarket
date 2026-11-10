@@ -37,6 +37,7 @@ import {
   TradeStageBadge,
   TradeVisibilityBadges,
   formatTradePrice,
+  tradeAdminRowCurrency,
 } from "@/components/admin/trade/kit/TradeAdminKit";
 import {
   TRADE_POST_SORTS,
@@ -381,7 +382,7 @@ export function TradePostsPage() {
                 {r.title?.trim() || t("admin_trade_posts_no_title")}
               </Link>
               <span className="mt-0.5 flex flex-wrap items-center gap-1 text-sam-muted">
-                {formatTradePrice(r.price, r.is_free_share)}
+                {formatTradePrice(r.price, r.is_free_share, tradeAdminRowCurrency(r))}
                 {r.trade_type === "job" ? <AdminToneBadge tone="neutral">{t("admin_trade_posts_job_badge")}</AdminToneBadge> : null}
               </span>
             </td>

@@ -593,7 +593,14 @@ function TradeMarketplaceWriteFormInner({
    * 저장: meta.currency. 표시: `resolveTradePostCurrency`.
    */
   const masterDefaultCurrency = useMasterDefaultTradePriceCurrency();
-  const priceCurrency: TradePriceCurrency = normalizeTradePriceCurrency(currency) ?? masterDefaultCurrency;
+  /**
+   * 수정: 통화가 저장되지 않은 예전 글은 앱 기본 통화로 보이고(대표 주소 나라로 바꾸지 않음), 회원이 고르지 않으면 저장하지 않는다
+   * (감사 2026-11-10: 한국 대표 회원이 예전 ₱ 글을 고치면 ₩ 로 바뀌던 결함).
+   */
+  const priceCurrency: TradePriceCurrency =
+    normalizeTradePriceCurrency(currency) ??
+    (editPostId ? normalizeTradePriceCurrency(appSettings.defaultCurrency) ?? "PHP" : masterDefaultCurrency);
+  const writePriceCurrency = !editPostId || normalizeTradePriceCurrency(currency) != null;
   const currencyUnit = getCurrencyUnitLabel(priceCurrency);
   const [exchangeRate, setExchangeRate] = useState("");
   const [tradeTopicChildId, setTradeTopicChildId] = useState("");
@@ -2118,7 +2125,11 @@ function TradeMarketplaceWriteFormInner({
           exchangeRate,
         });
         if (isDirectDeal && !isUsedCarSkin) meta = { ...meta, direct_deal: true };
-        meta = { ...meta, trade_chat_call_policy: tradeChatCallPolicy, currency: priceCurrency };
+        meta = {
+          ...meta,
+          trade_chat_call_policy: tradeChatCallPolicy,
+          ...(writePriceCurrency ? { currency: priceCurrency } : {}),
+        };
         if (hasLocation) {
           const meetMeta = buildTradeMeetSpotMetaForPersist(tradeMeetSpot);
           if (meetMeta) meta = { ...meta, ...meetMeta };

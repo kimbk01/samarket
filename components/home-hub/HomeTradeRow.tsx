@@ -1,5 +1,7 @@
 "use client";
 
+import { formatPrice } from "@/lib/utils/format";
+import { resolveTradePostCurrency } from "@/lib/trade/trade-price-currency";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -17,9 +19,10 @@ import { HomeLoadError } from "@/components/home-hub/HomeLoadError";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function peso(n: number | null): string {
+/** 가격 = 글 통화(meta.currency, 한국 주소 지원 3단계) — 없으면 ₱ (감사 2026-11-10: ₩ 글이 ₱ 로 보임) */
+function tradePrice(n: number | null, meta: unknown): string {
   if (n == null) return "";
-  return `₱${n.toLocaleString("en-US")}`;
+  return formatPrice(n, resolveTradePostCurrency(meta, "PHP"));
 }
 
 /**
@@ -136,7 +139,7 @@ export function HomeTradeRow({
                   style={{ width: 118, height: 118 }}
                 />
                 <span className="mt-1.5 block truncate text-[14px] text-[#222]">{p.title}</span>
-                <span className="block text-[15px] font-bold text-[#141a16]">{peso(p.price)}</span>
+                <span className="block text-[15px] font-bold text-[#141a16]">{tradePrice(p.price, (p as { meta?: unknown }).meta)}</span>
                 <span className="block truncate text-[12px] text-[#999]">
                   {[cat, formatRelativeTimeAgo(p.created_at, language as AppLanguageCode)].filter(Boolean).join(" · ")}
                 </span>

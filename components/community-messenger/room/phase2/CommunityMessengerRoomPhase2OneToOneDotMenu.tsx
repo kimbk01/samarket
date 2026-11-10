@@ -97,6 +97,7 @@ function buildTradeContextFromDetail(
     thumbnailUrl: p.thumbnail?.trim() ? p.thumbnail.trim() : null,
     status: mapSellerListingToProductStatus(p.sellerListingState, p.status),
     allow_call: tradeChatCallPolicyAllowsVoice(policy),
+    currency: p.currency || undefined,
   };
   const vid = viewerUserId.trim();
   const sellerId = (detail.sellerId ?? "").trim();

@@ -5,7 +5,7 @@ import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audi
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { invalidateDiscoveryAfterStoreWrite } from "@/lib/stores/discovery/invalidate-discovery-after-store-write";
 import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
-import { resolveStoreHomeLguId } from "@/lib/delivery/service-area/candidate-discovery";
+import { resolveStoreHomeLguIdForStore } from "@/lib/stores/store-location-columns.server";
 import { buildDeliveryServiceAreaEditorPayload } from "@/lib/delivery/service-area/build-service-area-editor-payload";
 import {
   StoreDeliveryServiceAreasVersionConflictError,
@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 async function loadStoreGeo(sb: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>, storeId: string) {
   const { data, error } = await sb
     .from("stores")
-    .select("id, city, region, lat, lng, delivery_radius_km, delivery_service_area_authority, store_name")
+    .select("id, city, region, lat, lng, canonical_lgu_id, delivery_radius_km, delivery_service_area_authority, store_name")
     .eq("id", storeId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -104,12 +104,7 @@ export async function PUT(
     const store = await loadStoreGeo(sb, storeId);
     if (!store) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
     const beforeSelected = await loadStoreDeliveryServiceAreas(sb, storeId).catch(() => null);
-    const storeHomeLguId = resolveStoreHomeLguId({
-      cityMunicipality: store.city,
-      province: store.region,
-      storeLat: store.lat != null ? Number(store.lat) : null,
-      storeLng: store.lng != null ? Number(store.lng) : null,
-    });
+    const storeHomeLguId = resolveStoreHomeLguIdForStore(store);
     const result = await replaceStoreDeliveryServiceAreas(sb, {
       storeId,
       source: "admin",

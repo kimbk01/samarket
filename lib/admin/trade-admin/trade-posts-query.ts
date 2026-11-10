@@ -65,7 +65,8 @@ export function parseTradePostsFilter(
       sellerId: communityAdminUuidOrNull(sp.get("sellerId")),
       categoryId: communityAdminUuidOrNull(sp.get("categoryId")),
       tradeType: tradeTypeRaw === "product" || tradeTypeRaw === "job" ? tradeTypeRaw : null,
-      lguId: /^[0-9A-Za-z_-]{1,40}$/.test(lguRaw) ? lguRaw : null,
+      /** 필리핀 PSGC 또는 한국 `KR:11680` (감사 2026-11-10: `:` 가 막혀 필터가 사라짐) */
+      lguId: /^[0-9A-Za-z_-]{1,40}$/.test(lguRaw) || /^KR:\d{5}$/.test(lguRaw) ? lguRaw : null,
       fromIso: period.fromIso,
       toIso: period.toIso,
       priceMin: numOrNull(sp.get("priceMin")),
@@ -191,8 +192,10 @@ export function applyTradePostsWhere(q: Q, tab: TradePostTab, f: TradePostsFilte
   if (f.toIso) b = b.lt("created_at", f.toIso);
   if (typeof f.priceMin === "number") b = b.gte("price", f.priceMin);
   if (typeof f.priceMax === "number") b = b.lte("price", f.priceMax);
-  if (f.lguId && PG_SAFE.test(f.lguId)) {
-    const parts = [`trade_lgu_id.eq.${f.lguId}`];
+  const lguKr = Boolean(f.lguId && /^KR:\d{5}$/.test(f.lguId));
+  if (f.lguId && (PG_SAFE.test(f.lguId) || lguKr)) {
+    /** `:` 가 든 한국 코드는 PostgREST 논리식 안에서 따옴표로 감싼다 */
+    const parts = [`trade_lgu_id.eq.${lguKr ? `"${f.lguId}"` : f.lguId}`];
     for (const p of ctx.legacyLguPairs) {
       const cities = p.cityIds.filter((c) => PG_SAFE.test(c));
       if (!PG_SAFE.test(p.regionId) || cities.length === 0) continue;
@@ -241,7 +244,7 @@ export async function countTradePosts(
 export const TRADE_ADMIN_POST_LIST_SELECT =
   "id, user_id, title, price, is_free_share, is_price_offer, status, seller_listing_state, moderation_state, owner_state, " +
   "moderation_reason, moderation_at, thumbnail_url, images, region, city, trade_lgu_id, trade_category_id, trade_type, " +
-  "view_count, favorite_count, chat_count, sold_buyer_id, reserved_buyer_id, created_at, updated_at";
+  "view_count, favorite_count, chat_count, sold_buyer_id, reserved_buyer_id, created_at, updated_at, meta_currency:meta->>currency";
 
 export async function listTradePosts(
   sb: SupabaseClient,

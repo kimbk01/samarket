@@ -1,5 +1,4 @@
 import { parsePhFromGooglePlaceResult } from "@/lib/addresses/ph-google-place-address-components";
-import { isKoreaLatLng } from "@/lib/addresses/kr/kr-sigungu";
 import { stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
 import type { CanonicalAddressDraft, CanonicalPreferredPlace } from "@/lib/addresses/canonical-address-draft";
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
@@ -207,15 +206,7 @@ export async function resolveCanonicalAddressFromLatLng(
   _preferred?: CanonicalPreferredPlace | null,
 ): Promise<CanonicalAddressDraft | null> {
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-  /** 한국 좌표 = 한국 해석 (현재 위치·지도 핀 공통 · 한국 주소 지원 2026-11-10) */
-  if (isKoreaLatLng(latitude, longitude)) {
-    try {
-      const { resolveKrPinDraft } = await import("@/lib/addresses/kr/kr-google-address");
-      return await resolveKrPinDraft(latitude, longitude);
-    } catch {
-      return null;
-    }
-  }
+  /** 한국 좌표 분기는 `resolveCurrentPinCanonicalAddress` 안에 한 곳 (감사 2026-11-10 중복 제거) */
   try {
     const { resolveCurrentPinCanonicalAddress } = await import(
       "@/lib/addresses/resolve-current-pin-canonical-address"

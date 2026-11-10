@@ -5,8 +5,8 @@
 import {
   discoverDeliveryServiceAreaCandidates,
   resolveRegionalCandidateSearchKm,
-  resolveStoreHomeLguId,
 } from "@/lib/delivery/service-area/candidate-discovery";
+import { resolveStoreHomeLguIdForStore } from "@/lib/stores/store-location-columns.server";
 import type { StoreDeliveryServiceAreaRow } from "@/lib/delivery/service-area/store-delivery-service-areas";
 import { parseDeliveryServiceAreaAuthority } from "@/lib/delivery/service-area/authority";
 import { resolveEffectiveStoreDeliveryRadiusKm } from "@/lib/delivery/store-delivery-radius";
@@ -21,6 +21,8 @@ import {
 } from "@/lib/geo/ph-lgu/platform-ph-lgu";
 
 export type ServiceAreaEditorStoreGeo = {
+  /** 저장된 매장 시/군 LGU (주소 SSOT 3단계) — 있으면 그대로 쓴다 */
+  canonical_lgu_id?: string | null;
   city?: string | null;
   region?: string | null;
   lat?: number | null;
@@ -39,12 +41,7 @@ export function buildDeliveryServiceAreaEditorPayload(
   const referenceKm = resolveEffectiveStoreDeliveryRadiusKm(store.delivery_radius_km);
   const searchKm = resolveRegionalCandidateSearchKm(store.delivery_radius_km);
   const authorityMode = parseDeliveryServiceAreaAuthority(store.delivery_service_area_authority);
-  const storeHomeLguId = resolveStoreHomeLguId({
-    cityMunicipality: store.city,
-    province: store.region,
-    storeLat: lat,
-    storeLng: lng,
-  });
+  const storeHomeLguId = resolveStoreHomeLguIdForStore({ ...store, lat, lng });
 
   /**
    * When store lat/lng are missing but canonical home LGU resolved,

@@ -1,4 +1,5 @@
 import type { AddressDefaultsSnapshot } from "@/lib/addresses/address-defaults-snapshot";
+import { isKrRegionId } from "@/lib/addresses/kr/kr-sigungu";
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import { isDeliveryRoutableMasterAddress } from "@/lib/addresses/delivery-routable-address";
 import { pickAddressRowForDeliveryRouting } from "@/lib/addresses/pick-address-row-for-delivery-routing";
@@ -28,6 +29,10 @@ export function predictDeliveryViewerGateFromClientState(input: {
   const snap = input.addressSnapshot;
   if (!snap || !snap.ok || !snap.defaults) return null;
   const master = coerceUserAddressDTO(snap.defaults.master);
+  /** 한국 대표 주소 = 「배달 지역이 아닙니다」 — 서버 판정(`resolveDeliveryViewerGate`)과 같은 기준 (감사 2026-11-10: 첫 화면 ok 예측) */
+  if (master && (isKrRegionId(master.canonicalLguId) || (master.countryCode ?? "").toUpperCase() === "KR")) {
+    return "not_service_area";
+  }
   const row = pickAddressRowForDeliveryRouting({
     master,
     life: null,

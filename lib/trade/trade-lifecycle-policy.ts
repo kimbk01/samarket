@@ -400,8 +400,9 @@ export function validateRestrictedMetaPatch(
   before: FlatPostShape,
   after: FlatPostShape
 ): { ok: true } | { ok: false; error: string } {
+  const coreLockedMsg = "지금 단계에서는 가격·제목·핵심 조건을 바꿀 수 없습니다.";
   if (diffCoreExceptDescription(kind, before, after)) {
-    return { ok: false, error: "지금 단계에서는 가격·제목·핵심 조건을 바꿀 수 없습니다." };
+    return { ok: false, error: coreLockedMsg };
   }
   if (!contentChangeIsAppendOnly(before.content, after.content)) {
     return { ok: false, error: "본문은 기존 내용을 유지한 채 추가 안내만 붙일 수 있습니다." };
@@ -412,6 +413,8 @@ export function validateRestrictedMetaPatch(
     const av = stableStringifyMeta({ [k]: after.meta[k] });
     if (bv === av) continue;
     if ((ALLOWED_AUX_META_KEYS as readonly string[]).includes(k)) continue;
+    /** 가격 통화(meta.currency)는 가격과 같은 핵심 조건 — 같은 안내로 막는다 (한국 주소 지원 3단계 · 감사 2026-11-10) */
+    if (k === "currency") return { ok: false, error: coreLockedMsg };
     return { ok: false, error: `허용되지 않은 필드 변경: ${k}` };
   }
   return { ok: true };

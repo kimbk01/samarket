@@ -9,6 +9,7 @@
  * STORE physical / owner / admin addresses are out of scope.
  */
 
+import { isKoreaLatLng } from "@/lib/addresses/kr/kr-sigungu";
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
 import { GOOGLE_MAPS_ADDRESS_LANGUAGE } from "@/lib/map/google-maps-address-locale";
 import {
@@ -395,6 +396,16 @@ export async function resolveCurrentPinCanonicalAddress(
   lat: number,
   lng: number,
 ): Promise<CanonicalAddressDraft> {
+  /**
+   * 한국 좌표 = 한국 해석(한글 도로명·법정동 시/군/구) — 현재 핀 해석 SSOT 안에서 한 번만 분기한다
+   * (감사 2026-11-10: 지도 확인 화면·공용 해석에 같은 분기가 따로 있었음). 못 찾으면 예외 → 화면이 「주소 확인 실패」.
+   */
+  if (isKoreaLatLng(lat, lng)) {
+    const { resolveKrPinDraft } = await import("@/lib/addresses/kr/kr-google-address");
+    const kr = await resolveKrPinDraft(lat, lng);
+    if (!kr) throw new Error("kr_pin_unresolved");
+    return kr;
+  }
   const pin = { lat, lng };
   const geocodeResults = await reverseGeocodePin(pin);
   const base = buildDraftFromGeocoderShell(geocodeResults, lat, lng);

@@ -42,6 +42,7 @@ vi.mock("@/lib/stores/discovery/invalidate-discovery-after-store-write", () => (
 }));
 vi.mock("@/lib/stores/store-home-feed-server-cache", () => ({ clearStoreHomeFeedServerCache: vi.fn() }));
 vi.mock("@/lib/delivery/service-area/candidate-discovery", () => ({ resolveStoreHomeLguId: () => "lgu-home" }));
+vi.mock("@/lib/stores/store-location-columns.server", () => ({ resolveStoreHomeLguIdForStore: () => "lgu-home" }));
 vi.mock("@/lib/delivery/service-area/build-service-area-editor-payload", () => ({
   buildDeliveryServiceAreaEditorPayload: () => ({}),
 }));

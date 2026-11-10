@@ -16,6 +16,7 @@ function fakeSvc(log: Array<{ table: string; filters: Array<[string, unknown]> }
         gt: (k: string, v: unknown) => (entry.filters.push([`gt:${k}`, v]), q),
         gte: chain,
         eq: (k: string, v: unknown) => (entry.filters.push([k, v]), q),
+        or: (f: string) => (entry.filters.push(["or", f]), q),
         then: (res: (v: unknown) => unknown) => res({ data: rows, error: null, count: rows.length }),
       });
       return q;
@@ -27,7 +28,11 @@ describe("캠페인 지역 대상 = 대표 주소 시/군 LGU", () => {
   it("user_addresses 의 활성 대표 주소 canonical_lgu_id 로 고른다", async () => {
     const log: Array<{ table: string; filters: Array<[string, unknown]> }> = [];
     const ids = await fetchCampaignProfileScanSlice(
-      fakeSvc(log, [{ user_id: "u1" }, { user_id: "u2" }]),
+      fakeSvc(log, [
+        { user_id: "u1", canonical_lgu_id: "1381300000" },
+        { user_id: "u2", canonical_lgu_id: null, city_municipality: "Quezon City", province: "Metro Manila" },
+        { user_id: "u3", canonical_lgu_id: null, city_municipality: "Pasig", province: "Metro Manila" },
+      ] as never),
       { target_type: "region", segment_region_code: "1381300000" },
       null,
       100,
@@ -38,7 +43,8 @@ describe("캠페인 지역 대상 = 대표 주소 시/군 LGU", () => {
       expect.arrayContaining([
         ["is_active", true],
         ["is_default_master", true],
-        ["canonical_lgu_id", "1381300000"],
+        /** 감사 2026-11-10: 저장 LGU 일치 + 저장값 없는 예전 대표 주소(계산값으로 판정) */
+        ["or", "canonical_lgu_id.eq.1381300000,canonical_lgu_id.is.null"],
       ]),
     );
     expect(log.some((l) => l.table === "profiles")).toBe(false);

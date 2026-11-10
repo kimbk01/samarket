@@ -25,6 +25,8 @@ import {
 } from "@/lib/admin/trade-admin/trade-post-tabs";
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+import { formatPrice } from "@/lib/utils/format";
+import { normalizeTradePriceCurrency } from "@/lib/trade/trade-price-currency";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 
 /**
@@ -124,11 +126,24 @@ export function TradeMemberCell({
   );
 }
 
-export function formatTradePrice(price: unknown, freeShare?: unknown): string {
+/**
+ * 거래 가격 — 글 통화(meta.currency 또는 조회 별칭 meta_currency, 한국 주소 지원 3단계)가 KRW 면 ₩, 그 밖은 기존 ₱ 표기.
+ * (감사 2026-11-10: ₩ 글이 관리자 화면에서 ₱ 로 보임)
+ */
+export function formatTradePrice(price: unknown, freeShare?: unknown, currency?: unknown): string {
   if (freeShare === true) return translate(getRuntimeAppLanguage(), "admin_trade_kit_free_share");
   const n = typeof price === "number" ? price : Number(price);
   if (!Number.isFinite(n)) return "—";
+  if (normalizeTradePriceCurrency(currency) === "KRW") return formatPrice(n, "KRW");
   return formatAdminPhp(n);
+}
+
+/** 관리자 행 → 가격 통화 값 (meta.currency 또는 meta_currency 별칭) */
+export function tradeAdminRowCurrency(row: unknown): unknown {
+  if (!row || typeof row !== "object") return null;
+  const r = row as { meta?: unknown; meta_currency?: unknown };
+  const m = r.meta && typeof r.meta === "object" ? (r.meta as Record<string, unknown>).currency : null;
+  return m ?? r.meta_currency ?? null;
 }
 
 export function formatTradePoints(n: unknown): string {

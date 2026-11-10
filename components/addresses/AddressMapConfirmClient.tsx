@@ -21,8 +21,6 @@ import {
   resolveCanonicalDisplayLines,
 } from "@/lib/addresses/canonical-address-display";
 import { resolveCurrentPinCanonicalAddress } from "@/lib/addresses/resolve-current-pin-canonical-address";
-import { resolveKrPinDraft } from "@/lib/addresses/kr/kr-google-address";
-import { isKoreaLatLng } from "@/lib/addresses/kr/kr-sigungu";
 import {
   buildMypageAddressEditHref,
   buildMypageAddressSearchHref,
@@ -55,6 +53,11 @@ function AddressMapConfirmInner() {
   const [payload, setPayload] = useState<AddressPlatformV2DraftPayload | null>(null);
   const [draft, setDraft] = useState<CanonicalAddressDraft | null>(null);
   const [resolving, setResolving] = useState(false);
+  /**
+   * 핀을 옮긴 뒤 주소 해석이 실패하면 저장을 막는다 — 새 좌표에 예전 주소 글자가 붙어 저장되던 결함 (감사 2026-11-10).
+   * 다음 해석이 성공하면 풀린다.
+   */
+  const [pinUnresolved, setPinUnresolved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
   const [recenterTo, setRecenterTo] = useState<{ lat: number; lng: number; seq: number } | null>(null);
@@ -93,15 +96,21 @@ function AddressMapConfirmInner() {
       );
       void (async () => {
         try {
-          /** 한국 좌표 = 한국 해석(한글 도로명·시/군/구) — 필리핀은 기존 핀 해석 그대로 */
-          const next = isKoreaLatLng(lat, lng)
-            ? await resolveKrPinDraft(lat, lng)
-            : await resolveCurrentPinCanonicalAddress(lat, lng);
+          /** 현재 핀 해석 SSOT 1곳 — 한국 좌표 분기 포함 (중복 분기 제거 · 감사 2026-11-10) */
+          const next = await resolveCurrentPinCanonicalAddress(lat, lng);
           if (seq !== seqRef.current) return;
-          if (next) setDraft(next);
-          else setErr(t("addr_ui_resolve_failed_short"));
+          if (next) {
+            setDraft(next);
+            setPinUnresolved(false);
+          } else {
+            setPinUnresolved(true);
+            setErr(t("addr_ui_resolve_failed_short"));
+          }
         } catch {
-          if (seq === seqRef.current) setErr(t("addr_ui_resolve_failed_short"));
+          if (seq === seqRef.current) {
+            setPinUnresolved(true);
+            setErr(t("addr_ui_resolve_failed_short"));
+          }
         } finally {
           if (seq === seqRef.current) setResolving(false);
         }
@@ -129,7 +138,7 @@ function AddressMapConfirmInner() {
   }
 
   function confirm() {
-    if (!draft || resolving || !payload) return;
+    if (!draft || resolving || pinUnresolved || !payload) return;
     writeAddressPlatformV2Draft({ ...payload, draft, source: payload.source === "search" && draft.placeId ? "search" : "pin" });
     /** 지도 → 저장은 교체 이동 — 뒤로는 검색(또는 들어오기 전 화면)으로 */
     router.replace(buildMypageAddressEditHref({ returnTo, id: addressId || undefined, purpose }));
@@ -201,7 +210,7 @@ function AddressMapConfirmInner() {
           <button
             type="button"
             onClick={confirm}
-            disabled={!draft || resolving}
+            disabled={!draft || resolving || pinUnresolved}
             data-testid="address-map-confirm"
             className={`${MY_STICKY_CTA_PRIMARY_BUTTON_CLASS} sam-press`}
           >

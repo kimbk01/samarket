@@ -1,4 +1,5 @@
 import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
+import { normalizeTradePriceCurrency } from "@/lib/trade/trade-price-currency";
 import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import { resolveServerDeployTier } from "@/lib/config/test-production-isolation";
 import type { CommunityMessengerRoomSnapshotDiagnostics } from "@/lib/chat-domain/ports/community-messenger-read";
@@ -13740,7 +13741,7 @@ const TRADE_CHAT_LIST_POST_SELECT_LEGACY =
  * 운영 DB 가 이 컬럼 셋을 만족하지 못하면 즉시 알람을 받고 마이그레이션을 점검하라.
  */
 const TRADE_CHAT_LIST_POST_SELECT_CRITICAL =
-  "id, title, price, images, thumbnail_url, status, seller_listing_state, trade_category_id, trade_type, user_id";
+  "id, title, price, images, thumbnail_url, status, seller_listing_state, trade_category_id, trade_type, user_id, meta_currency:meta->>currency";
 
 /**
  * posts 스키마는 배포·마이그레이션 상태에 따라 컬럼이 다를 수 있어
@@ -14971,8 +14972,17 @@ function firstPostThumbnailForMessengerTradeList(post: Record<string, unknown> |
   return extractPostThumbnailPathFromPostRow(post ?? null);
 }
 
-/** enrich 스냅샷용 통화 코드 — 기존과 동일 규칙, `post.currency.trim()` 이중 호출만 제거 */
+/**
+ * enrich 스냅샷용 통화 코드 — 글 가격 통화(meta.currency, 한국 주소 지원 3단계) 우선.
+ * critical 조회는 meta 전체 대신 `meta_currency`(= meta->>currency) 한 값만 읽는다. 없으면 예전 규칙(currency 칸 → PHP).
+ */
 function tradePostCurrencyCodeOrPhp(post: Record<string, unknown> | null | undefined): string {
+  const fromMeta =
+    normalizeTradePriceCurrency(post?.meta_currency) ??
+    normalizeTradePriceCurrency(
+      post?.meta && typeof post.meta === "object" ? (post.meta as Record<string, unknown>).currency : null
+    );
+  if (fromMeta) return fromMeta;
   const raw = post?.currency;
   if (typeof raw !== "string") return "PHP";
   const t = raw.trim();

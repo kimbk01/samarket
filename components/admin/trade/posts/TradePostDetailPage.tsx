@@ -36,6 +36,7 @@ import {
   TradeVisibilityBadges,
   formatTradePoints,
   formatTradePrice,
+  tradeAdminRowCurrency,
   tradeErrorText,
 } from "@/components/admin/trade/kit/TradeAdminKit";
 import { useTradeCategoryOptions } from "@/components/admin/trade/posts/TradePostsPage";
@@ -446,7 +447,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
   const summaryRows: { label: string; value: ReactNode }[] = [
     {
       label: t("admin_trade_member_th_price"),
-      value: formatTradePrice(post.price, post.is_free_share) + (post.is_price_offer ? ` · ${t("admin_trade_pd_price_offer_on")}` : ""),
+      value: formatTradePrice(post.price, post.is_free_share, tradeAdminRowCurrency(post)) + (post.is_price_offer ? ` · ${t("admin_trade_pd_price_offer_on")}` : ""),
     },
     { label: t("admin_trade_posts_th_stage"), value: <TradeStageBadge value={post.seller_listing_state} /> },
     { label: t("admin_trade_posts_th_visibility"), value: <TradeVisibilityBadges moderationState={post.moderation_state} ownerState={post.owner_state} /> },
@@ -523,7 +524,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
           <h1 className="sam-text-page-title font-semibold text-sam-fg [overflow-wrap:anywhere]">
             {post.title?.trim() || t("admin_trade_posts_no_title")}
           </h1>
-          <p className="mt-1 sam-text-body text-sam-muted">{formatTradePrice(post.price, post.is_free_share)}</p>
+          <p className="mt-1 sam-text-body text-sam-muted">{formatTradePrice(post.price, post.is_free_share, tradeAdminRowCurrency(post))}</p>
         </div>
         <AdminActionButton variant="secondary" onClick={reload} disabled={busy}>
           {busy ? t("common_loading") : t("admin_trade_dash_refresh")}

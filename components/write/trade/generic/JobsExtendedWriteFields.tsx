@@ -224,7 +224,9 @@ export function JobsExtendedWriteFields({
   /** 급여 통화 (한국 주소 지원 3단계) — 고른 값(수정 시 저장값) → 없으면 대표 주소 나라. 저장: meta.currency */
   const masterDefaultCurrency = useMasterDefaultTradePriceCurrency();
   const [pickedCurrency, setPickedCurrency] = useState<TradePriceCurrency | null>(null);
-  const currency: TradePriceCurrency = pickedCurrency ?? masterDefaultCurrency;
+  /** 수정: 통화 없는 예전 글은 PHP 로 보이고, 고르지 않으면 저장하지 않는다 (감사 2026-11-10) */
+  const currency: TradePriceCurrency = pickedCurrency ?? (editPostId ? "PHP" : masterDefaultCurrency);
+  const writePriceCurrency = !editPostId || pickedCurrency != null;
 
   const {
     title,
@@ -1291,7 +1293,7 @@ export function JobsExtendedWriteFields({
         const meetMeta = buildTradeMeetSpotMetaForPersist(tradeMeetSpot);
         if (meetMeta) meta = { ...meta, ...meetMeta };
       }
-      meta = { ...meta, currency };
+      if (writePriceCurrency) meta = { ...meta, currency };
       const priceNum = payNum ? Number(payNum) : null;
       const tradeJob = buildTradeJobPayload();
       return {
@@ -1323,6 +1325,8 @@ export function JobsExtendedWriteFields({
       effectiveTradeCityId,
       tradeAddressSsot,
       tradeMeetSpot,
+      currency,
+      writePriceCurrency,
     ]
   );
 

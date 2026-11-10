@@ -165,7 +165,7 @@ describe("3단계 — 거래 가격 통화", async () => {
   it("글쓰기 = 통화 라디오 + meta.currency 저장 · 목록 모델은 글 통화 사용", () => {
     const form = readFileSync("components/write/trade/TradeWriteForm.tsx", "utf8");
     expect(form).toContain("<TradePriceCurrencyRadio");
-    expect(form).toContain("trade_chat_call_policy: tradeChatCallPolicy, currency: priceCurrency");
+    expect(form).toContain("...(writePriceCurrency ? { currency: priceCurrency } : {})");
     const model = readFileSync("lib/posts/post-list-preview-model.ts", "utf8");
     expect(model).toContain('resolveTradePostCurrency(meta, opts.currency || "KRW")');
   });

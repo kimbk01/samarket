@@ -6,6 +6,7 @@
 import { addressDisplayPartsFromStoreRow } from "@/lib/addresses/address-display-levels";
 import { legacyLocationRowToLguId } from "@/lib/neighborhood/lgu-location.server";
 import { resolveCanonicalLguIdForAddressWrite } from "@/lib/addresses/address-lgu-resolve";
+import { resolveStoreHomeLguId } from "@/lib/delivery/service-area/candidate-discovery";
 
 export function computeStoreLocationColumns(row: {
   region?: string | null;
@@ -31,4 +32,25 @@ export function computeStoreLocationColumns(row: {
     (city ? resolveCanonicalLguIdForAddressWrite({ cityMunicipality: city, province: null }) : null);
   const barangay = (row.barangayHint ?? "").trim() || (parts?.barangay ?? "").trim() || null;
   return { barangay, canonical_lgu_id: lgu };
+}
+
+/**
+ * 매장 「본거지 시/군 LGU」 단일 판정 — 저장값(stores.canonical_lgu_id) → 저장 때와 같은 계산(`computeStoreLocationColumns`)
+ * → 그래도 없으면 예전 보조 판정(도시·지역 칸 · 핀 좌표 근처 시/군, `resolveStoreHomeLguId`).
+ * 감사 2026-11-10: 배달 지역 편집기가 저장값을 읽지 않고 다른 순서로 따로 계산해 표시·판정과 달라질 수 있었다.
+ */
+export function resolveStoreHomeLguIdForStore(store: {
+  canonical_lgu_id?: string | null;
+  city?: string | null;
+  region?: string | null;
+  lat?: number | string | null;
+  lng?: number | string | null;
+}): string | null {
+  const stored = (store.canonical_lgu_id ?? "").trim();
+  if (stored) return stored;
+  const computed = computeStoreLocationColumns({ region: store.region ?? null, city: store.city ?? null }).canonical_lgu_id;
+  if (computed) return computed;
+  const lat = store.lat != null && Number.isFinite(Number(store.lat)) ? Number(store.lat) : null;
+  const lng = store.lng != null && Number.isFinite(Number(store.lng)) ? Number(store.lng) : null;
+  return resolveStoreHomeLguId({ cityMunicipality: store.city, province: store.region, storeLat: lat, storeLng: lng });
 }

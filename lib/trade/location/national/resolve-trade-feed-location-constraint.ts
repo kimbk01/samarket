@@ -7,6 +7,7 @@
  * Server-side only (loads local-area map + centroids). Do not import from client bundles.
  */
 
+import { isKrRegionId } from "@/lib/addresses/kr/kr-sigungu";
 import {
   isTradeNationalPsgcCanonicalId,
   resolveTradeLguUrlTokenToCanonical,
@@ -76,7 +77,8 @@ export function resolveTradeFeedLocationConstraint(
   const lgu = getTradeNationalLguById(canonicalId);
   if (!lgu?.isActive) return { kind: "invalid", raw };
 
-  if (!isTradeNationalPsgcCanonicalId(canonicalId)) return { kind: "invalid", raw };
+  /** 필리핀 PSGC 10자리 또는 한국 시/군/구 `KR:xxxxx` (한국 주소 지원 2단계 — 감사 2026-11-10: KR 지역 고르면 빈 목록) */
+  if (!isTradeNationalPsgcCanonicalId(canonicalId) && !isKrRegionId(canonicalId)) return { kind: "invalid", raw };
 
   const radius =
     radiusKm == null ? null : sanitizeTradeBrowseRadiusKm(radiusKm);
@@ -110,11 +112,13 @@ export function resolveTradeFeedLocationConstraint(
 export function buildTradeFeedLocationOrFilter(
   constraint: Extract<TradeFeedLocationConstraint, { kind: "lgu" }>
 ): string {
+  /** `KR:11680` 처럼 `:` 가 든 값은 PostgREST `.or()` 안에서 따옴표로 감싼다 */
+  const q = (id: string) => (/^[0-9A-Za-z_-]+$/.test(id) ? id : `"${id}"`);
   const ids = [...new Set(constraint.matchingCanonicalIds)].sort();
   const national =
     ids.length <= 1
-      ? `trade_lgu_id.eq.${ids[0] ?? constraint.canonicalId}`
-      : `trade_lgu_id.in.(${ids.join(",")})`;
+      ? `trade_lgu_id.eq.${q(ids[0] ?? constraint.canonicalId)}`
+      : `trade_lgu_id.in.(${ids.map(q).join(",")})`;
   if (constraint.legacyMembers.length === 0) {
     return national;
   }
