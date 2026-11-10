@@ -42,6 +42,7 @@ import type {
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
+import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 
 type Props = {
@@ -67,7 +68,7 @@ type Props = {
   friendRequests?: CommunityMessengerFriendRequest[];
   onFriendRequestsChanged?: (handledRequestId?: string) => void;
   busyId: string | null;
-  onOpenFriendsPrivacySummary: () => void;
+  onOpenFriendsManage: () => void;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
   onToggleFavoriteFriend: (userId: string) => void;
   onFriendSwipeHide: (userId: string) => void;
@@ -75,8 +76,7 @@ type Props = {
   onFriendSwipeBlock: (userId: string) => void;
   privacyListsStatus: MessengerPrivacyListsStatus;
   onRetryPrivacyLists: () => void;
-  /** 채팅 탭 상단 「보관된 채팅 (N)」 — 0 이면 표시 안 함 */
-  archivedChatsCount: number;
+  /** 대화 목록 맨 아래 「보관함」 줄 (항상) → 보관함 첫 화면 */
   onOpenArchivedChats: () => void;
   onFriendRowChat: (userId: string) => void;
   onFriendRowVoiceCall: (userId: string) => void;
@@ -146,7 +146,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   friendRequests = [],
   onFriendRequestsChanged,
   busyId,
-  onOpenFriendsPrivacySummary,
+  onOpenFriendsManage,
   onOpenProfile,
   onToggleFavoriteFriend,
   onFriendSwipeHide,
@@ -154,7 +154,6 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   onFriendSwipeBlock,
   privacyListsStatus,
   onRetryPrivacyLists,
-  archivedChatsCount,
   onOpenArchivedChats,
   onFriendRowChat,
   onFriendRowVoiceCall,
@@ -201,8 +200,6 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   const [friendRequestsSheet, setFriendRequestsSheet] = useState<MessengerFriendRequestsSheetTab | null>(null);
   const incomingPendingCount = friendRequests.filter((r) => r.status === "pending" && r.direction === "incoming").length;
   const outgoingPendingCount = friendRequests.filter((r) => r.status === "pending" && r.direction === "outgoing").length;
-  const friendManageCount =
-    friendStateModel.hidden.length + friendStateModel.blocked.length + friendStateModel.muted.length;
   const searchParams = useSearchParams();
   const friendRequestsParam = searchParams?.get("friendRequests")?.trim() ?? "";
   useEffect(() => {
@@ -214,10 +211,17 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
     setFriendRequestsSheet(tab ?? (incomingPendingCount > 0 || outgoingPendingCount === 0 ? "received" : "sent"));
 
   /**
-   * 「@아이디」 사람 찾기 = 친구 추가 — 친구 탭 맨 위 「친구 추가」 칸 한 곳에만 둔다 (Owner 2026-11-10 시안 3판).
+   * 「@아이디」 사람 찾기 = 친구 추가 — 친구 탭 맨 위 찾기 칸 한 곳에만 둔다 (Owner 2026-11-10 시안 3판).
+   * 채팅 시안 4판: 「친구 추가」 제목 없음 · 찾기 칸(돋보기 + 「@아이디로 친구 찾기」) 오른쪽 「관리」 글자 버튼(→ 보관함).
    * 대화 검색은 머리글 돋보기(통합 검색) 하나.
    */
   const showInlineFriendSearch = mainSection === "friends";
+  /**
+   * 보관함은 채팅 하위 화면 — 휴대폰에서는 대화·친구·통화 탭 줄 없이 1단 공통 하위 화면 머리글(뒤로 + 「보관함」)만 (채팅 시안 4판 「4. 보관함」).
+   * 분할 화면(≥768)은 1단 머리글이 없어 탭 줄로 돌아가므로 그대로 둔다.
+   */
+  const isSplitViewport = useIsMessengerSplitViewport();
+  const showTabsRow = showSectionTabs && !(mainSection === "archive" && !isSplitViewport);
 
   return (
     <section
@@ -228,7 +232,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
         className="z-20 shrink-0 space-y-2 bg-[color:var(--messenger-bg,#fff)]"
         data-messenger-hub-sticky-chrome=""
       >
-        {showSectionTabs && onPrimarySectionChange ? (
+        {showTabsRow && onPrimarySectionChange ? (
           <MessengerHomeSectionTabs
             mainSection={mainSection}
             onPrimarySectionChange={onPrimarySectionChange}
@@ -236,32 +240,19 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
           />
         ) : null}
         {showInlineFriendSearch ? (
+          /* 시안 찾기 줄: 여백 8 16 6 (위 8 = 탭 줄과의 간격 space-y-2) */
           <div
             className={
               showSectionTabs
-                ? "box-border pb-1 pl-[max(0.75rem,var(--safe-left))] pr-[max(0.75rem,var(--safe-right))]"
-                : "px-0 pb-1"
+                ? "box-border pb-1.5 pl-[max(1rem,var(--safe-left))] pr-[max(1rem,var(--safe-right))]"
+                : "px-0 pb-1.5"
             }
           >
-            <p
-              className="pb-1.5 pt-1 sam-text-body font-semibold"
-              style={{ color: "var(--messenger-text)" }}
-              data-cm-friend-add-heading=""
-            >
-              {t("cm_ui_add_friend")}
-            </p>
             <MessengerHomeInlineFriendSearch
               busyId={busyId}
               onSelectUser={onFriendRowChat}
               resetKey={mainSection}
-              trailing={
-                mainSection === "friends" ? (
-                  <MessengerFriendsHeaderActions
-                    manageCount={friendManageCount}
-                    onOpenManage={onOpenFriendsPrivacySummary}
-                  />
-                ) : null
-              }
+              trailing={<MessengerFriendsHeaderActions onOpenManage={onOpenFriendsManage} />}
             />
           </div>
         ) : null}
@@ -294,6 +285,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             friendStateModel={friendStateModel}
             friendRequests={friendRequests}
             onOpenFriendRequests={openFriendRequests}
+            onFriendRequestsChanged={onFriendRequestsChanged}
             busyId={busyId}
             onOpenProfile={onOpenProfile}
             onToggleFavorite={onToggleFavoriteFriend}
@@ -347,30 +339,47 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
           />
         ) : null}
 
-        {/* 보관함은 탭이 아니다 — 대화 목록 맨 아래 한 줄 (시안 3판) */}
-        {mainSection === "chats" && archivedChatsCount > 0 ? (
+        {/* 보관함은 탭이 아니다 — 대화 목록 맨 아래 한 줄, 항상 (채팅 시안 4판, Owner 「정확히 시안대로」 2026-11-10) */}
+        {/* 누르면 보관함 첫 화면(보관·알림 끔·숨김·차단). 거래·주문 목록에는 두지 않는다. 높이 64 = 위 연회색 띠 8 + 줄 56 */}
+        {mainSection === "chats" && chatListVisual === "default" ? (
           <button
             type="button"
             onClick={onOpenArchivedChats}
             data-cm-archived-chats-entry=""
-            className="mb-20 flex w-full items-center gap-3 border-t border-[color:var(--messenger-divider)] px-3 py-3 text-left active:bg-[color:var(--messenger-surface-muted)]"
-            style={{ color: "var(--messenger-text)" }}
+            className="mb-20 flex h-16 w-full items-center gap-3 border-t-8 border-[color:var(--cm-chat-band)] px-4 text-left text-[15px] active:bg-[color:var(--messenger-surface-muted)]"
+            style={{ color: "var(--cm-chat-fg)" }}
           >
-            <span
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--messenger-surface-muted)]"
-              style={{ color: "var(--messenger-text-secondary)" }}
+            <svg
+              className="h-5 w-5 shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.7}
+              strokeLinecap="round"
+              strokeLinejoin="round"
               aria-hidden
             >
-              <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                <rect x="3" y="4" width="18" height="5" rx="1" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 9v10a1 1 0 001 1h12a1 1 0 001-1V9M10 13h4" />
+              <rect x="3" y="4.5" width="18" height="5" rx="1" />
+              <path d="M5 9.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5M10 13.5h4" />
+            </svg>
+            <span className="shrink-0 whitespace-nowrap">{t("nav_messenger_archive")}</span>
+            <span
+              className="ml-auto flex min-w-0 items-center gap-0.5 text-[12.5px]"
+              style={{ color: "var(--cm-chat-sub)" }}
+            >
+              <span className="min-w-0 truncate">{t("cm_ui_chat_archive_entry_hint")}</span>
+              <svg
+                className="h-4 w-4 shrink-0"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.7}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="m9 6 6 6-6 6" />
               </svg>
-            </span>
-            <span className="min-w-0 flex-1 truncate sam-text-body font-medium">
-              {t("cm_ui_archived_chats_row")} ({archivedChatsCount})
-            </span>
-            <span className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }} aria-hidden>
-              ›
             </span>
           </button>
         ) : null}
@@ -398,7 +407,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
         ) : null}
 
         {mainSection === "call_logs" ? (
-          <div className="pt-1">
+          <div>
             <MessengerCallLogsPanel
               callLogsRealtimeSource="home_meta"
               seedCalls={bootstrapCalls}

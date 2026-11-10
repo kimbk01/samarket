@@ -55,11 +55,10 @@ describe("bottom sheets start at the device bottom (no gap under the sheet)", ()
   });
 
   it("messenger sheets that had no safe padding now end above the system nav once", () => {
-    expect(read("components/community-messenger/MessengerArchiveScreen.tsx")).toContain("pb-[var(--safe-bottom)]");
-    expect(read("components/community-messenger/MessengerFriendsPrivacySheet.tsx")).toContain("pb-[var(--safe-bottom)]");
-    const search = read("components/community-messenger/MessengerSearchSheet.tsx");
-    expect(search).toContain("pb-[max(0.75rem,var(--safe-bottom))]");
-    expect(search).toContain("pb-[max(0.75rem,var(--kb-safe-bottom))]");
+    /** 채팅 검색은 시트가 아니라 하위 화면(채팅 시안 4판 「8」) — 「새 대화」 시트가 아래 여백을 한 번 가진다 */
+    expect(read("components/community-messenger/MessengerNewConversationSheet.tsx")).toContain(
+      "pb-[max(18px,var(--safe-bottom))]"
+    );
     expect(read("components/community-messenger/CommunityMessengerHome.tsx")).toContain(
       "pb-[max(1rem,var(--kb-safe-bottom))]"
     );

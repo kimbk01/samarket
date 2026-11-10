@@ -2,12 +2,20 @@
 
 import { memo } from "react";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
-import { formatMessengerPeerPresenceLine } from "@/lib/community-messenger/realtime/presence/format-messenger-peer-presence-line";
+import {
+  formatMessengerLastSeenYyMmDdHhMm,
+  formatMessengerPeerPresenceLine,
+} from "@/lib/community-messenger/realtime/presence/format-messenger-peer-presence-line";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { useMessengerPresenceStore } from "@/lib/community-messenger/stores/useMessengerPresenceStore";
 
 type Props = {
   peerUserId: string;
+  /**
+   * 접속 정보(온라인·자리 비움·마지막 접속)가 없을 때 대신 보일 글 — 친구 행 @아이디 (채팅 시안 4판 「2. 친구 탭」:
+   * 상태 글 → 마지막 접속 → @아이디). 없으면 지금처럼 기본 문구.
+   */
+  fallbackText?: string | null;
 };
 
 /**
@@ -16,6 +24,7 @@ type Props = {
  */
 export const CommunityMessengerFriendPresenceLine = memo(function CommunityMessengerFriendPresenceLine({
   peerUserId,
+  fallbackText = null,
 }: Props) {
   const peerPresence = useCommunityMessengerPeerPresence(peerUserId);
   const storeLastSeenAt = useMessengerPresenceStore((s) =>
@@ -28,9 +37,14 @@ export const CommunityMessengerFriendPresenceLine = memo(function CommunityMesse
           ...peerPresence,
           lastSeenAt: peerPresence.lastSeenAt ?? storeLastSeenAt,
         };
+  const hasPresence =
+    snapshot != null &&
+    (snapshot.state === "online" ||
+      snapshot.state === "away" ||
+      Boolean(snapshot.lastSeenAt && formatMessengerLastSeenYyMmDdHhMm(snapshot.lastSeenAt)));
   return (
-    <p data-cm-list-preview="" className="truncate text-sam-fg-muted">
-      {formatMessengerPeerPresenceLine(snapshot)}
+    <p data-cm-list-preview="" className="truncate" style={{ color: "var(--cm-chat-sub)" }}>
+      {hasPresence || !fallbackText ? formatMessengerPeerPresenceLine(snapshot) : fallbackText}
     </p>
   );
 });

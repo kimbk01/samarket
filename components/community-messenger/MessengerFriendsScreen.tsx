@@ -6,7 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { MessengerFriendRowQuickPopup } from "@/components/community-messenger/MessengerFriendRowQuickPopup";
 import { MessengerBlockPeerConfirmModal } from "@/components/community-messenger/MessengerBlockPeerConfirmModal";
-import { MessengerReceivedFriendRequestsCard } from "@/components/community-messenger/friend-cta/MessengerReceivedFriendRequestsCard";
+import { MessengerFriendTabRequestsSection } from "@/components/community-messenger/friend-cta/MessengerFriendTabRequestsSection";
 import { CommunityMessengerFriendList } from "@/components/community-messenger/friend-list/CommunityMessengerFriendList";
 import type {
   CommunityMessengerFriendRequest,
@@ -21,8 +21,10 @@ type Props = {
   friendListEpochMs: number;
   friendStateModel: MessengerFriendStateModel;
   friendRequests?: CommunityMessengerFriendRequest[];
-  /** 받은 요청 카드「확인」 → 친구 요청 시트(상위 화면 소유) */
+  /** 「보낸 친구 요청 N ›」 → 친구 요청 시트 보낸 요청 탭(상위 화면 소유) */
   onOpenFriendRequests: (tab?: "received" | "sent") => void;
+  /** 받은 요청 수락·거절 뒤 — 상위가 목록에서 빼고 서버와 다시 맞춤(시트와 같은 처리) */
+  onFriendRequestsChanged?: (handledRequestId?: string) => void;
   busyId: string | null;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
   onToggleFavorite: (userId: string) => void;
@@ -54,6 +56,7 @@ export function MessengerFriendsScreen({
   friendStateModel,
   friendRequests = [],
   onOpenFriendRequests,
+  onFriendRequestsChanged,
   busyId,
   onOpenProfile,
   onToggleFavorite,
@@ -150,7 +153,7 @@ export function MessengerFriendsScreen({
   return (
     <>
       <section
-        className="space-y-2 pt-0"
+        className="pt-0"
         onPointerDownCapture={(e) => {
           if (quickMenuUserId) return;
           const target = e.target as HTMLElement | null;
@@ -161,20 +164,6 @@ export function MessengerFriendsScreen({
           onResetTransientUi();
         }}
       >
-        {incomingPending.length > 0 || outgoingPending.length > 0 ? (
-          /** §13-3 요약 블록 구역 — 구역 제목 + 카드(친구 행과 다른 모양) */
-          <section className="space-y-2 px-3 pb-1 pt-2" aria-label={t("cm_friend_requests_section")} data-cm-friend-requests-block="">
-            <p className="sam-text-helper font-semibold" style={{ color: "var(--messenger-text-secondary)" }}>
-              {t("cm_friend_requests_section")}
-            </p>
-            <MessengerReceivedFriendRequestsCard requests={incomingPending} onOpen={() => onOpenFriendRequests("received")} />
-            <MessengerReceivedFriendRequestsCard
-              variant="sent"
-              requests={outgoingPending}
-              onOpen={() => onOpenFriendRequests("sent")}
-            />
-          </section>
-        ) : null}
         <CommunityMessengerFriendList
           me={me}
           sortedFriends={sortedFriends}
@@ -186,6 +175,14 @@ export function MessengerFriendsScreen({
           onOpenProfile={onOpenProfile}
           onOpenChat={onFriendChat}
           onOpenFriendQuickMenu={openFriendQuickMenu}
+          afterMyProfile={
+            <MessengerFriendTabRequestsSection
+              incoming={incomingPending}
+              outgoingCount={outgoingPending.length}
+              onOpenSent={() => onOpenFriendRequests("sent")}
+              onChanged={(id) => onFriendRequestsChanged?.(id)}
+            />
+          }
         />
 
         {!hasVisibleFriends ? (

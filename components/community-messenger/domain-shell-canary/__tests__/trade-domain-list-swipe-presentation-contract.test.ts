@@ -57,7 +57,14 @@ describe("trade domain list swipe presentation contract", () => {
     expect(src).toContain("getSwipeLeaveConfirmI18nKey");
     expect(src).toContain("leaveMessengerRoomFromHomeClient");
     expect(src).toContain('action: "archive"');
-    expect(src).toContain("buildCommunityMessengerMarkReadPatchBody");
+    /** 읽음 요청은 주문 채팅 목록과 같은 훅(채팅 시안 4판 — 머리글 「모두 읽음」 공용) */
+    expect(src).toContain("usePillarRoomMarkRead");
+    expect(src).toContain("usePillarMarkAllRead");
+    const hook = readFileSync(
+      join(ROOT, "lib/community-messenger/pillar-chat-list/use-pillar-mark-read.ts"),
+      "utf8"
+    );
+    expect(hook).toContain("buildCommunityMessengerMarkReadPatchBody");
   });
 
   it("maps Domain row → UnifiedRoomListItem with CM room id as action identity", () => {

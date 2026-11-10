@@ -101,10 +101,176 @@
   --cm-list-avatar: var(--cm-friend-avatar);
 }
 
+/**
+ * 채팅 시안 4판 (Owner 「정확히 시안대로」 2026-11-10 · docs/design/chat-v4) — 대화 탭 색·모양 토큰.
+ * 메신저 목록 범위에만 둔다(전역 --sam-* 는 그대로). 채팅방(`[data-cm-room]`)에는 쓰지 않는다.
+ */
+[data-messenger-shell],
+[data-cm-messenger-main],
+[data-cm-pillar-screen],
+[data-cm-pillar-sheet] {
+  --cm-chat-fg: #191919;
+  --cm-chat-sub: #8a8a8a;
+  --cm-chat-band: #f7f6f3;
+  /* 시안 4판 안 읽음 빨강 */
+  --cm-chat-unread-bg: #f04f3e;
+  --cm-chat-danger: #f04f3e;
+  --cm-chat-entry-trade-bg: #e7efe8;
+  --cm-chat-entry-trade-fg: var(--sam-primary);
+  --cm-chat-entry-order-bg: #fbf3e2;
+  --cm-chat-entry-order-fg: var(--dibay-brown);
+  --cm-chat-avatar-radius: 18px;
+  --cm-chat-fab-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+/**
+ * 거래·주문 채팅 목록 (채팅 시안 4판 「9」「10」 · `data-cm-pillar-screen`) — 상태 칩·목록 밖 시트(`data-cm-pillar-sheet`).
+ * 칩: 11px · 600 · 모서리 4 · 1px 6px. 진행(초록) · 예약(노랑) · 끝남(회색) · 취소·거절(빨강) — 시안 `.chip.ing/.res/.done/.x` 값.
+ */
+[data-cm-pillar-screen],
+[data-cm-pillar-sheet] {
+  --cm-pillar-chip-ok-bg: #e6f3ec;
+  --cm-pillar-chip-ok-fg: #21885d;
+  --cm-pillar-chip-warn-bg: #fbf0d9;
+  --cm-pillar-chip-warn-fg: #8a6418;
+  --cm-pillar-chip-muted-bg: var(--cm-chat-band);
+  --cm-pillar-chip-muted-fg: var(--cm-chat-sub);
+  --cm-pillar-chip-danger-bg: #fdecea;
+  --cm-pillar-chip-danger-fg: var(--cm-chat-danger);
+  /* 밀기 [읽음] 회색 (시안 10-1) */
+  --cm-pillar-swipe-read-bg: #8a8a8a;
+  /* 상품 사진 없음 칸 · 매장 사진 없음 칸 (시안 `.av.prod` · `.av.store`) */
+  --cm-pillar-product-placeholder-bg: #c9bca6;
+  --cm-pillar-store-placeholder-bg: var(--cm-chat-entry-order-bg);
+  --cm-pillar-store-placeholder-fg: var(--cm-chat-entry-order-fg);
+}
+
+[data-cm-pillar-chip] {
+  flex: none;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+[data-cm-pillar-chip="ok"] {
+  background: var(--cm-pillar-chip-ok-bg);
+  color: var(--cm-pillar-chip-ok-fg);
+}
+
+[data-cm-pillar-chip="warn"] {
+  background: var(--cm-pillar-chip-warn-bg);
+  color: var(--cm-pillar-chip-warn-fg);
+}
+
+[data-cm-pillar-chip="muted"] {
+  background: var(--cm-pillar-chip-muted-bg);
+  color: var(--cm-pillar-chip-muted-fg);
+}
+
+[data-cm-pillar-chip="danger"] {
+  background: var(--cm-pillar-chip-danger-bg);
+  color: var(--cm-pillar-chip-danger-fg);
+}
+
+/**
+ * 거래·주문 행 길게 누르기 메뉴 (시안 10-2) — 줄 54px · 아이콘 칸 42px(모서리 15, 옅은 회색) · 글자 16/600 · 줄 사이 선 없음.
+ * 묶음 사이 8px 띠와 빨간 「나가기」는 공용 메뉴(`dibay-overlay-menu`) 그대로. 다른 화면 시트는 바꾸지 않는다.
+ */
+[data-cm-pillar-sheet] .dibay-overlay-menu__item {
+  min-height: 54px;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+[data-cm-pillar-sheet] .dibay-overlay-menu__item + .dibay-overlay-menu__item {
+  border-top: 0;
+}
+
+[data-cm-pillar-sheet] .dibay-overlay-menu__icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 15px;
+  background: var(--cm-chat-band);
+}
+
+[data-cm-pillar-sheet] .dibay-overlay-menu__label {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/**
+ * 대화 목록 기본 행 (`listVisual="default"`) — 높이 72 · 좌우 16 · 간격 12 · 사진 48 · 이름 16 · 미리보기 13.5 · 시각 11.5.
+ * 거래·주문 목록 행(`trade`·`delivery`)은 이 값을 쓰지 않는다.
+ */
+[data-messenger-chat-row][data-cm-list-visual="default"],
+[data-cm-messenger-list-row][data-cm-list-surface="chat"] {
+  --cm-list-row-min-h: 72px;
+  --cm-list-row-max-h: 72px;
+  --cm-list-avatar: 48px;
+  --cm-list-gap: 12px;
+  --cm-list-pad-x: 16px;
+  --cm-list-title-size: 16px;
+  --cm-list-title-lh: 1.3;
+  --cm-list-preview-size: 13.5px;
+  --cm-list-preview-lh: 1.35;
+  --cm-list-meta-size: 11.5px;
+}
+
+/*
+ * 좌우 16px 은 안쪽 줄(`data-cm-list-surface="chat"`)만 가진다 — 바깥 줄(분할 줄)·스와이프 본문까지 여백을 주면
+ * 14+14 처럼 겹쳐 사진이 화면 끝에서 32px 에 온다. 안쪽 줄이 스와이프 본문 안에 있으므로 D-6(밀기 버튼 틈 없음)도 그대로이고,
+ * 눌림·친구 아님 배경이 줄 전체 폭을 덮는다.
+ */
+[data-messenger-chat-row][data-cm-list-visual="default"],
+[data-messenger-chat-row][data-cm-list-visual="default"][data-cm-swipe-row] > [data-cm-swipe-fg] {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/**
+ * 대화 탭 거래·주문 입구 칸 (채팅 시안 4판) — 칸은 `data-messenger-chat-row`(바깥 탭 닫기 제외용)를 달지만
+ * 목록 행 밀도(72px·좌우 여백)를 받지 않는다: 높이 48 · 좌우 12 · 간격 8 · 이름 15px 굵게.
+ */
+[data-messenger-chat-row][data-messenger-pillar-row] {
+  height: 48px;
+  min-height: 48px;
+  max-height: 48px;
+  gap: 8px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+[data-messenger-chat-row][data-messenger-pillar-row] [data-cm-list-title] {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
 [data-cm-messenger-list-row][data-cm-list-surface="call"] {
   min-height: var(--cm-call-row-min-h);
   max-height: var(--cm-call-row-max-h);
   --cm-list-avatar: var(--cm-call-avatar);
+}
+
+/**
+ * 친구 탭 친구 줄 (채팅 시안 4판 「2. 친구 탭」, Owner 「정확히 시안대로」 2026-11-10) —
+ * 높이 64 · 좌우 16 · 간격 12 · 사진 44 · 이름 16 · 둘째 줄 12.5.
+ */
+[data-cm-messenger-list-row][data-cm-list-surface="friend"] {
+  --cm-friend-row-min-h: 64px;
+  --cm-friend-row-max-h: 64px;
+  --cm-list-avatar: 44px;
+  --cm-list-gap: 12px;
+  --cm-list-pad-x: 16px;
+  --cm-list-title-size: 16px;
+  --cm-list-title-lh: 1.3;
+  --cm-list-preview-size: 12.5px;
+  --cm-list-preview-lh: 1.3;
 }
 
 [data-cm-messenger-list-row] [data-cm-list-avatar-slot],
@@ -155,14 +321,19 @@
 }
 
 [data-cm-messenger-search-input] {
-  min-height: var(--cm-list-search-h);
-  /* parent `[&_input]:text-[14px] input` specificity wins over text-[16px] — force floor */
+  /* 친구 탭 찾기 칸 (채팅 시안 4판 「2. 친구 탭」) — 높이 38 · 둥글기 10 · 왼쪽 12 + 돋보기 20 + 8 */
+  min-height: 38px;
+  /* parent `[&_input]:text-[14px] input` specificity wins over text-[16px] — force floor.
+     입력 글자는 16px 그대로(iOS 입력 확대 방지), 안내 글(placeholder)만 시안 15px. */
   font-size: 16px !important;
   line-height: 1.25;
-  /* 화면에 붙은 입력 = 4px(UI·CTA 공통 기준 §1-3). 왼쪽 돋보기·오른쪽 지우기 버튼 자리를 비운다(§11). */
-  border-radius: var(--ui-radius-rect, 4px);
-  padding-left: 36px;
+  border-radius: 10px;
+  padding-left: 40px;
   padding-right: 36px;
+}
+
+[data-cm-messenger-search-input]::placeholder {
+  font-size: 15px;
 }
 
 /**

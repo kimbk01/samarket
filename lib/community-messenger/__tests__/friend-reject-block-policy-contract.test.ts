@@ -64,7 +64,9 @@ describe("friend reject / block policy (§14-5)", () => {
     const route = src("app/api/community-messenger/friend-requests/rejected/route.ts");
     expect(route).toContain("releaseCommunityMessengerRejectedFriendRequest");
     const archive = src("components/community-messenger/MessengerArchiveScreen.tsx");
-    expect(archive).toContain("<MessengerRejectedRequestsSheet");
+    /** 채팅 시안 4판: 보관함 「거절한 요청」 줄 → 상세 목록(휴대폰 하위 화면·분할 오른쪽) */
+    expect(archive).toContain('"requests"');
+    expect(src("components/community-messenger/MessengerArchiveSectionPanel.tsx")).toContain("<MessengerRejectedRequestsList");
   });
 
   it("차단하면 친구 관계를 양쪽 모두 정리한다", () => {

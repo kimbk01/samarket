@@ -1,9 +1,7 @@
 "use client";
 
-import { DibayMenuList, dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
-import { Globe, Users } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { openGlobalSearchFromHere } from "@/lib/search/global/global-search-navigation-ssot";
+import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { computeCallLogDisplayType, isCallLogMissedDisplayType } from "@/lib/community-messenger/call-log-row-copy";
 import {
   memo,
@@ -34,12 +32,11 @@ import {
   MessengerChatRoomActionSheet,
   MessengerFriendAddSheet,
   MessengerFriendProfileSheet,
-  MessengerFriendsPrivacySheet,
-  MessengerNewConversationSheet,
   MessengerNotificationCenterSheet,
-  MessengerSearchSheet,
-  MessengerSettingsSheet,
 } from "@/components/community-messenger/community-messenger-home-lazy-sheets";
+/** 「새 대화」 시트는 버튼을 누르자마자 열려야 한다 (채팅 시안 4판 「5. 새 대화」) — 지연 불러오기(첫 열림 약 2초) 대신 정적 */
+import { MessengerNewConversationSheet } from "@/components/community-messenger/MessengerNewConversationSheet";
+import { MessengerHomeSubScreenHost } from "@/components/community-messenger/MessengerHomeSubScreenHost";
 import { MessengerBlockPeerConfirmModal } from "@/components/community-messenger/MessengerBlockPeerConfirmModal";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { samTier1HeaderRightColumn } from "@/lib/ui/tier1-header-icon";
@@ -244,6 +241,25 @@ import {
 } from "@/lib/community-messenger/realtime/cm-rt-hs4-diagnosis";
 import { resolveCommunityMessengerRoomIdFromChatRow } from "@/lib/community-messenger/realtime/resolve-community-messenger-room-id-from-chat-row";
 import { capVisibleRoomIdsForTradeRealtime } from "@/lib/trade/trade-realtime-subscribe-policy";
+import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
+import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
+import {
+  MESSENGER_ARCHIVE_FROM_QUERY_KEY,
+  MESSENGER_ARCHIVE_SECTION_QUERY_KEY,
+  buildMessengerArchiveHref,
+  parseMessengerArchiveEntry,
+  parseMessengerArchiveSection,
+} from "@/lib/community-messenger/messenger-archive-route";
+import {
+  buildMessengerSubScreenHref,
+  messengerSubScreenKey,
+  parseMessengerSubScreen,
+  parseMessengerSubScreenKey,
+  type MessengerSettingsPage,
+  type MessengerSubScreen,
+} from "@/lib/community-messenger/messenger-sub-screen-route";
+import { pushMessengerRecentSearch } from "@/lib/community-messenger/messenger-chat-search-model";
+import { messengerNotificationSettingsBusyKey } from "@/lib/community-messenger/messenger-settings-screen-model";
 import {
   getTradeVisibleRoomSubscribeIds,
   mergeHomeAndTradeVisibleRealtimeRoomIds,
@@ -269,12 +285,10 @@ const PHILIFE_STACK_MESSENGER_HEADER_STYLE = {
   "--sector-header-icon-color": "var(--messenger-fg, #0f0f0f)",
 } as CSSProperties;
 
+/** 시트(모달)만 — 채팅 설정·채팅 검색은 시트가 아니라 하위 화면(`section=settings|search`, 채팅 시안 4판 「7」「8」) */
 type CommunityMessengerHomeOverlayKind =
   | "composer"
   | "requests"
-  | "search"
-  | "friends-privacy"
-  | "settings"
   | "public-group-find";
 
 type CommunityMessengerHomeProps = {
@@ -460,7 +474,10 @@ type CommunityMessengerHomeRouterEffectsHostProps = {
   setRecentSearches: Dispatch<SetStateAction<string[]>>;
   recentSearches: string[];
   setDismissedNotificationIds: Dispatch<SetStateAction<string[]>>;
-  openSettingsSheet: () => void;
+  openSettingsScreen: (mode: "replace") => void;
+  /** 채팅 하위 화면(친구 고르기·설정·검색) — 주소 `section=pick|settings|search` 와 맞춘다 (뒤로 = 기록) */
+  setSubScreenKey: Dispatch<SetStateAction<string | null>>;
+  subScreenRightSlot: ReactNode;
   setChatInboxFilter: Dispatch<SetStateAction<MessengerChatInboxFilter>>;
   setChatKindFilter: Dispatch<SetStateAction<MessengerChatKindFilter>>;
   setNotificationSettings: Dispatch<SetStateAction<MessengerNotificationSettings>>;
@@ -469,6 +486,9 @@ type CommunityMessengerHomeRouterEffectsHostProps = {
   mainSection: MessengerMainSection;
   pendingUserSectionRef: MutableRefObject<MessengerMainSection | null>;
   pillar: "trade" | "delivery" | null;
+  /** 휴대폰 보관함 항목 상세 — 주소 `archive` 값과 맞춘다 (뒤로 = 기록) */
+  setSelectedArchiveSection: Dispatch<SetStateAction<MessengerArchiveSection | null>>;
+  isMessengerSplitViewport: boolean;
 };
 
 /** Router context(`useSearchParams`) 구독·URL 동기 effect — Home 본문 리렌더 전파 차단 */
@@ -487,7 +507,9 @@ function CommunityMessengerHomeRouterEffectsHost({
   setRecentSearches,
   recentSearches,
   setDismissedNotificationIds,
-  openSettingsSheet,
+  openSettingsScreen,
+  setSubScreenKey,
+  subScreenRightSlot,
   setChatInboxFilter,
   setChatKindFilter,
   setNotificationSettings,
@@ -496,10 +518,37 @@ function CommunityMessengerHomeRouterEffectsHost({
   mainSection,
   pendingUserSectionRef,
   pillar,
+  setSelectedArchiveSection,
+  isMessengerSplitViewport,
 }: CommunityMessengerHomeRouterEffectsHostProps): null {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchQueryString = searchParams.toString();
+  const urlSectionParam = searchParams.get("section")?.trim() ?? "";
+  const archiveSectionParam = searchParams.get(MESSENGER_ARCHIVE_SECTION_QUERY_KEY);
+
+  /**
+   * 휴대폰 보관함 — 항목 상세는 주소 기준 (채팅 시안 4판 「4. 보관함」): 상세 주소면 그 항목, 보관함 첫 화면·다른 탭이면 닫힘.
+   * 머리글 뒤로(기록 back)·안드로이드 뒤로가 같은 길로 닫힌다. 분할 화면은 화면 상태라 건드리지 않는다.
+   */
+  useEffect(() => {
+    if (isMessengerSplitViewport) return;
+    const next = urlSectionParam === "archive" ? parseMessengerArchiveSection(archiveSectionParam) : null;
+    setSelectedArchiveSection((prev) => (prev === next ? prev : next));
+  }, [archiveSectionParam, isMessengerSplitViewport, setSelectedArchiveSection, urlSectionParam]);
+  /**
+   * 채팅 하위 화면 (채팅 시안 4판 「6」「7」「8」) — 주소가 기준. 머리글 뒤로(기록 back)·안드로이드 뒤로가 같은 길로 닫힌다.
+   * 첫 그림 전에 맞춘다(layout effect) — 대화 목록이 한 번 보였다가 바뀌지 않게.
+   */
+  const routerPathname = usePathname();
+  /** 다른 탭에 있을 때(살아 있는 숨은 메신저 홈)는 그 탭 주소의 `section`(예: 내정보 `section=settings`)을 읽지 않는다 */
+  const subScreenKeyFromUrl =
+    fromPhilifeHeaderStack || pillar != null || (routerPathname ?? "").replace(/\/+$/, "") !== "/community-messenger"
+      ? null
+      : messengerSubScreenKey(parseMessengerSubScreen(searchParams));
+  useLayoutEffect(() => {
+    setSubScreenKey((prev) => (prev === subScreenKeyFromUrl ? prev : subScreenKeyFromUrl));
+  }, [setSubScreenKey, subScreenKeyFromUrl]);
   const meetingIdParam = searchParams.get("meetingId")?.trim() ?? "";
   const openParam = searchParams.get("open")?.trim() ?? "";
   const fromParam = searchParams.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY);
@@ -522,7 +571,8 @@ function CommunityMessengerHomeRouterEffectsHost({
     setRecentSearches,
     recentSearches,
     setDismissedNotificationIds,
-    openSettingsSheet,
+    openSettingsScreen,
+    subScreenRightSlot,
     setMainSection,
     setChatInboxFilter,
     setChatKindFilter,
@@ -727,9 +777,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   /** 발신 다이얼 `router.push` 동기 연타 방지 */
   const outgoingDialSyncGuardRef = useRef(false);
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
-  const [activeOverlay, setActiveOverlay] = useState<CommunityMessengerHomeOverlayKind | null>(
-    initialTab === "settings" ? "settings" : null
-  );
+  const [activeOverlay, setActiveOverlay] = useState<CommunityMessengerHomeOverlayKind | null>(null);
+  /** 채팅 하위 화면(친구 고르기·채팅 설정·채팅 검색) — 주소(`section=pick|settings|search`)가 기준, 라우터 effect 가 맞춘다 */
+  const [subScreenKey, setSubScreenKey] = useState<string | null>(null);
+  const subScreen = useMemo(() => parseMessengerSubScreenKey(subScreenKey), [subScreenKey]);
+  /** 그룹 대화 친구 고르기 — 고른 친구(머리글 「고른 수」·아래 「n명으로 그룹 만들기」 같은 값) */
+  const [pickSelectedIds, setPickSelectedIds] = useState<string[]>([]);
   const [friendManagerOpen, setFriendManagerOpen] = useState(false);
   const [friendAddTab, setFriendAddTab] = useState<MessengerFriendAddTab>("id");
   const [friendUserSearchAttempted, setFriendUserSearchAttempted] = useState(false);
@@ -773,6 +826,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   /** Tab swipe between friends/chats/archive; avoid parent re-render when friends quick menu toggles. */
   const friendQuickMenuBlocksTabSwipeRef = useRef(false);
   const [selectedArchiveSection, setSelectedArchiveSection] = useState<MessengerArchiveSection | null>(null);
+  /** 보관함 항목 상세 — 휴대폰은 주소(`&archive=`)가 기준, 분할 화면은 화면 상태 (`onSelectArchiveSectionStable`) */
+  const isMessengerSplitViewport = useIsMessengerSplitViewport();
   const [isScrolling, setIsScrolling] = useState(false);
   const isScrollingRef = useRef(false);
   const scrollResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -780,17 +835,15 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const listScrollDismissRafRef = useRef<number | null>(null);
   const composerOpen = activeOverlay === "composer";
   const requestSheetOpen = activeOverlay === "requests";
-  const searchSheetOpen = activeOverlay === "search";
-  const friendsPrivacySheetOpen = activeOverlay === "friends-privacy";
-  const settingsSheetOpen = activeOverlay === "settings";
+  const settingsScreenOpen = subScreen?.kind === "settings";
   const publicGroupFindOpen = activeOverlay === "public-group-find";
   /**
-   * 숨김·차단 목록을 보여주는 화면(개인정보 시트·설정 시트·보관함 숨김/차단 섹션) 진입 시 SSOT hydrate.
+   * 숨김·차단 목록을 보여주는 화면(설정 시트·보관함 — 첫 화면 개수·숨김/차단 상세) 진입 시 SSOT hydrate.
    * lite/critical 은 이 목록을 unknown 으로 둘 수 있으므로 표시 직전에만 on-demand 로 채운다(첫 페인트 경로 무관).
    */
   const privacyListsSurfaceOpen =
-    friendsPrivacySheetOpen ||
-    settingsSheetOpen ||
+    mainSection === "archive" ||
+    settingsScreenOpen ||
     selectedArchiveSection === "hidden_friends" ||
     selectedArchiveSection === "blocked_friends";
   const privacyListsSurfaceMeId = data?.me?.id ?? null;
@@ -943,7 +996,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     []
   );
 
-  const { navigateToCommunityRoom, onPrimarySectionChange, onChatListChipChange } =
+  const { navigateToCommunityRoom, onPrimarySectionChange, onChatListChipChange, openMessengerArchive } =
     useCommunityMessengerHomeNavigation({
       router,
       mainSection,
@@ -1067,7 +1120,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const [groupTitle, setGroupTitle] = useState("");
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
   const [groupSelectedProfiles, setGroupSelectedProfiles] = useState<Record<string, CommunityMessengerProfileLite>>({});
-  const [groupCreateStep, setGroupCreateStep] = useState<"closed" | "select" | "private_group" | "open_group">("closed");
+  const [groupCreateStep, setGroupCreateStep] = useState<"closed" | "private_group" | "open_group">("closed");
   const [privateGroupSubStep, setPrivateGroupSubStep] = useState<"members" | "details">("members");
   const [openGroupTitle, setOpenGroupTitle] = useState("");
   const [openGroupSummary, setOpenGroupSummary] = useState("");
@@ -1268,10 +1321,24 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     resetFriendSearchState();
   }, [friendManagerOpen, resetFriendSearchState]);
 
+  /** 채팅 검색 화면을 떠나면 검색어를 비운다 — 대화 목록 거르기(`roomSearchKeyword`)가 남지 않게 */
+  const chatSearchScreenOpen = subScreen?.kind === "search";
   useEffect(() => {
-    if (activeOverlay === "search") return;
+    if (chatSearchScreenOpen) return;
     setRoomSearchKeyword("");
-  }, [activeOverlay]);
+  }, [chatSearchScreenOpen]);
+  /** 친구 고르기를 떠나면 고른 친구를 비운다 (다시 열면 처음부터) */
+  const groupPickScreenOpen = subScreen?.kind === "pick" && subScreen.mode === "group";
+  useEffect(() => {
+    if (groupPickScreenOpen) return;
+    setPickSelectedIds((prev) => (prev.length === 0 ? prev : []));
+  }, [groupPickScreenOpen]);
+  /** 친구 고르기 — 친구 목록을 채운다 (예전 그룹 시트 친구 고르기 단계와 같은 조회, 허브 목록은 다시 쓰지 않음) */
+  const pickScreenOpen = subScreen?.kind === "pick";
+  useEffect(() => {
+    if (!pickScreenOpen) return;
+    void hydrateMessengerFriends();
+  }, [hydrateMessengerFriends, pickScreenOpen]);
 
   useEffect(() => {
     if (activeOverlay === "public-group-find") return;
@@ -1992,10 +2059,15 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     [resolvePeerBlockedByMe, toggleBlock]
   );
 
-  const createPrivateGroup = useCallback(async () => {
-    const memberIds = [...new Set(groupMembers.filter(Boolean))];
-    const title = groupTitle.trim();
-    if (memberIds.length === 0 || !title) return;
+  /**
+   * 비공개 그룹 만들기 — 단일 경로(`POST /api/community-messenger/groups/create`, `groupType: "private_group"`).
+   * 그룹 시트(이름 입력 단계)와 친구 고르기 화면(「n명으로 그룹 만들기」, 채팅 시안 4판 「6」)이 같이 쓴다.
+   * 이름이 비면 서버가 고른 친구 이름으로 정한다(`resolveGroupTitle`). 나 말고 1명 이상(서버 `members_required`).
+   */
+  const createPrivateGroupWith = useCallback(async (input: { memberIds: string[]; title: string }) => {
+    const memberIds = [...new Set(input.memberIds.filter(Boolean))];
+    const title = input.title.trim();
+    if (memberIds.length === 0) return;
     setActionError((prev) => (prev === null ? prev : null));
     setBusyId("create-private-group");
     try {
@@ -2059,8 +2131,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   }, [
     data?.me?.id,
     getMessengerActionErrorMessage,
-    groupMembers,
-    groupTitle,
     navigateToCommunityRoomWithViewer,
     messengerListPathname,
     resetGroupCreateDraft,
@@ -2070,6 +2140,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     setPageError,
     t,
   ]);
+  /** 그룹 시트 「그룹 만들기」 — 이름 입력 단계(이름 필수)는 그대로 */
+  const createPrivateGroup = useCallback(async () => {
+    if (groupMembers.length === 0 || !groupTitle.trim()) return;
+    await createPrivateGroupWith({ memberIds: groupMembers, title: groupTitle });
+  }, [createPrivateGroupWith, groupMembers, groupTitle]);
 
   const createOpenGroup = useCallback(async () => {
     if (!openGroupTitle.trim()) return;
@@ -2263,7 +2338,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     searchSheetRoomItems,
     primaryListItems,
     mutedListItems,
-    archiveListItems,
     friendStateModel,
     tradePillarSummary,
     deliveryPillarSummary,
@@ -2276,15 +2350,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     openGroupSearch,
     pillar,
   });
-
-  /**
-   * A-16: 첫 화면(critical)은 최근 방만 받아 행에서 세면 「보관된 채팅 (N)」 이 lite 도착 때 바뀐다 —
-   * critical 동안은 서버가 센 보관 방 전체 수를 쓴다(lite/full 부터는 지금처럼 목록에서 센다).
-   */
-  const archivedChatsCountForRow =
-    data?.clientHydrationTier === "critical" && typeof data.criticalArchivedChatsCount === "number"
-      ? Math.max(data.criticalArchivedChatsCount, archiveListItems.length)
-      : archiveListItems.length;
 
   const tradeMetaHydrationChats = useMemo(() => {
     if (pillar === "trade" || pillar === "delivery") return primaryListItems.map((item) => item.room);
@@ -2626,14 +2691,17 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     });
   }, [data?.friends, data?.hidden]);
   const commitRecentSearch = useCallback((value: string) => {
-    const keyword = value.trim();
-    if (!keyword) return;
-    setRecentSearches((prev) => [keyword, ...prev.filter((item) => item !== keyword)].slice(0, 8));
+    if (!value.trim()) return;
+    setRecentSearches((prev) => pushMessengerRecentSearch(prev, value));
   }, []);
   const removeRecentSearch = useCallback((value: string) => {
     const keyword = value.trim();
     if (!keyword) return;
     setRecentSearches((prev) => prev.filter((item) => item !== keyword));
+  }, []);
+  /** 채팅 검색 「전체 삭제」 (채팅 시안 4판 「8」) */
+  const clearRecentSearches = useCallback(() => {
+    setRecentSearches((prev) => (prev.length === 0 ? prev : []));
   }, []);
   const dismissNotification = useCallback((id: string) => {
     setDismissedNotificationIds((prev) => {
@@ -2782,25 +2850,57 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     }),
     [notificationCenterItems]
   );
+  /**
+   * 채팅 하위 화면 열기 (채팅 시안 4판 「6」「7」「8」) — 보관함과 같이 기록을 쌓는다(push): 머리글 뒤로 = 들어온 화면.
+   * 메신저 진입 출처 `?from=` 는 유지. 옛 주소 `?tab=settings` 는 기록을 바꿔(replace) 연다.
+   */
+  const openMessengerSubScreen = useCallback(
+    (screen: MessengerSubScreen, mode: "push" | "replace" = "push") => {
+      resetMessengerTransientUi({ bumpOverlayGeneration: false });
+      const from =
+        typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("from") : null;
+      const nextUrl = buildMessengerSubScreenHref(screen, from);
+      if (typeof window !== "undefined" && `${window.location.pathname}${window.location.search}` === nextUrl) return;
+      if (mode === "replace") {
+        guardedRouterReplace(router, nextUrl, {
+          source: "community-messenger-home",
+          reason: "open_sub_screen",
+          scroll: false,
+        });
+        return;
+      }
+      void router.push(nextUrl, { scroll: false });
+    },
+    [resetMessengerTransientUi, router]
+  );
+  const openSettingsScreenStable = useCallback(
+    (mode: "push" | "replace" = "push") => openMessengerSubScreen({ kind: "settings", page: "root" }, mode),
+    [openMessengerSubScreen]
+  );
+  const openSettingsPageStable = useCallback(
+    (page: Exclude<MessengerSettingsPage, "root">) => openMessengerSubScreen({ kind: "settings", page }),
+    [openMessengerSubScreen]
+  );
+  /** 그룹 만들기 — 친구 고르기(그룹) 하위 화면으로 바로 (예전 「비공개 그룹 / 모임」 고르는 단계 없음) */
   const onOpenGroupCreateStable = useCallback(() => {
-    resetMessengerTransientUi();
-    setGroupCreateStep("select");
-  }, [resetMessengerTransientUi]);
-  /** 대화 탭 주 버튼 「새 대화」 → 1:1 대화 · 그룹 대화 메뉴 (시안 3판) */
+    openMessengerSubScreen({ kind: "pick", mode: "group" });
+  }, [openMessengerSubScreen]);
+  /** 대화 탭 주 버튼 「새 대화」 → 1:1 대화 · 그룹 대화 시트 (채팅 시안 4판 「5. 새 대화」) */
   const onOpenNewConversationStable = useCallback(() => {
     resetMessengerTransientUi();
     openHomeOverlay("composer");
   }, [openHomeOverlay, resetMessengerTransientUi]);
+  /** 머리글 돋보기 = 채팅 검색(채팅 안, 시안 「8」) · 톱니 = 채팅 설정 하위 화면(시안 「7」) */
   const headerActionsNode = useMemo(
     () => (
       <div className={samTier1HeaderRightColumn}>
         <CommunityMessengerHeaderActions
-          onOpenSearch={() => openGlobalSearchFromHere(router, { domain: "chat" })}
-          onOpenSettings={() => openHomeOverlay("settings")}
+          onOpenSearch={() => openMessengerSubScreen({ kind: "search" })}
+          onOpenSettings={() => openMessengerSubScreen({ kind: "settings", page: "root" })}
         />
       </div>
     ),
-    [openHomeOverlay, router]
+    [openMessengerSubScreen]
   );
   const updateRoomSummaryState = useCallback(
     (roomId: string, updater: (room: CommunityMessengerRoomSummary) => CommunityMessengerRoomSummary) => {
@@ -3030,28 +3130,54 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
 
   const friendHasDirectRoomStable = useCallback((userId: string) => Boolean(directRoomByPeerId.get(userId)), [directRoomByPeerId]);
 
-  /** 채팅 목록 상단 「보관된 채팅 (N)」 — 카톡처럼 목록에서 바로 보관함 채팅으로. */
+  /** 대화 목록 맨 아래 「보관함」 줄 (채팅 시안 4판) — 보관함 첫 화면으로. */
   /**
    * 1단계 결함 D-10 (2026-10-26): 화면 상태만 「보관함」으로 바꾸면 주소는 `section=chats` 로 남아
    * 주소→탭 맞춤 처리가 곧바로 「대화」로 되돌렸다 — 탭 전환과 같은 경로(주소 갱신 포함)로 연다.
    */
   const openArchivedChatsStable = useCallback(() => {
     resetMessengerTransientUi();
-    onPrimarySectionChange("archive");
-    setSelectedArchiveSection("archived_chats");
-  }, [onPrimarySectionChange, resetMessengerTransientUi]);
+    /** 채팅 시안 4판 (2026-11-10): 대화 맨 아래 「보관함」 줄 → 보관함 첫 화면(「채팅」 묶음 먼저) · 기록을 쌓아 뒤로 = 대화 탭 */
+    openMessengerArchive("chats");
+    setSelectedArchiveSection(null);
+  }, [openMessengerArchive, resetMessengerTransientUi]);
 
-  /** D-10: 렌더마다 새 함수면 주소→탭 맞춤 처리(effect)가 매 렌더 다시 돈다 — 고정 함수로 */
-  const openSettingsSheetStable = useCallback(() => openHomeOverlay("settings"), [openHomeOverlay]);
 
   const retryPrivacyListsStable = useCallback(() => {
     void hydrateMessengerPrivacyLists();
   }, [hydrateMessengerPrivacyLists]);
 
-  const onOpenFriendsPrivacySummaryStable = useCallback(() => {
+  /**
+   * 친구 탭 「관리」 · 설정 「친구 관리」 → 보관함(「친구」 묶음 먼저). 예전 「친구 관리」 시트는 보관함으로 합쳤다 (채팅 시안 4판 「4. 보관함」).
+   */
+  const openArchiveFromFriendsStable = useCallback(() => {
     resetMessengerTransientUi();
-    openHomeOverlay("friends-privacy");
-  }, [openHomeOverlay, resetMessengerTransientUi]);
+    openMessengerArchive("friends");
+    setSelectedArchiveSection(null);
+  }, [openMessengerArchive, resetMessengerTransientUi]);
+
+  /**
+   * 보관함 항목 열기·닫기. 휴대폰: 항목 상세는 하위 화면 — 주소(`&archive=`)에 쌓아 머리글 뒤로 = 보관함 첫 화면.
+   * 분할 화면(≥768): 지금처럼 오른쪽(또는 아래) 상세 — 화면 상태만.
+   */
+  const onSelectArchiveSectionStable = useCallback(
+    (section: MessengerArchiveSection | null) => {
+      if (isMessengerSplitViewport) {
+        setSelectedArchiveSection(section);
+        return;
+      }
+      const qs = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+      const entry = parseMessengerArchiveEntry(qs.get(MESSENGER_ARCHIVE_FROM_QUERY_KEY));
+      const from = qs.get("from");
+      if (section == null) {
+        runHistoryBackWithFallback(router, buildMessengerArchiveHref({ entry, from }));
+        return;
+      }
+      setSelectedArchiveSection(section);
+      void router.push(buildMessengerArchiveHref({ entry, section, from }), { scroll: false });
+    },
+    [isMessengerSplitViewport, router]
+  );
 
   const onOpenProfileForMessengerMainStable = useCallback(
     (profile: CommunityMessengerProfileLite) => {
@@ -3073,16 +3199,21 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     },
     [toggleRoomArchive]
   );
-  const updateNotificationSetting = useCallback(
-    async (key: keyof MessengerNotificationSettings, value: boolean) => {
-      const actionKey = `notification-setting:${key}`;
+  /**
+   * 채팅 설정 알림 칸 저장 — 서버 `user_notification_settings` (내정보 › 설정 › 알림과 같은 값).
+   * 「소리 · 진동」(채팅 시안 4판 「7」)은 두 칸을 한 번에 보낸다.
+   */
+  const updateNotificationSettings = useCallback(
+    async (patch: Partial<MessengerNotificationSettings>) => {
+      if (Object.keys(patch).length === 0) return;
+      const actionKey = messengerNotificationSettingsBusyKey(patch);
       setBusyId(actionKey);
       try {
         const res = await fetch("/api/me/notification-settings", {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ [key]: value }),
+          body: JSON.stringify(patch),
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         // F10 (docs/audit/notification-defect-fix-design-2026-10-28.md) — 다른 설정 화면과 같이
@@ -3092,7 +3223,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           return;
         }
         invalidateMeNotificationSettingsGetFlight();
-        setNotificationSettings((prev) => ({ ...prev, [key]: value }));
+        setNotificationSettings((prev) => ({ ...prev, ...patch }));
         window.dispatchEvent(new Event("kasama:user-notification-settings-changed"));
       } catch {
         setActionError(getMessengerActionErrorMessage("network_error"));
@@ -3158,10 +3289,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       for (const key of Object.keys(notificationSettings) as (keyof MessengerNotificationSettings)[]) {
         if (typeof nextNotifications[key] !== "boolean") continue;
         if (notificationSettings[key] === nextNotifications[key]) continue;
-        await updateNotificationSetting(key, nextNotifications[key]);
+        await updateNotificationSettings({ [key]: nextNotifications[key] });
       }
     },
-    [notificationSettings, updateNotificationSetting]
+    [notificationSettings, updateNotificationSettings]
   );
   const onBackupFileSelected = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -3386,6 +3517,53 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     [setData]
   );
 
+  /** 그룹 대화 친구 고르기 머리글 오른쪽 회색 「고른 수」 (채팅 시안 4판 「6」 — 비공개 그룹 인원 상한 상수는 없어 「/최대」는 쓰지 않는다) */
+  const pickSelectedCount = pickSelectedIds.length;
+  const subScreenRightSlot = useMemo(() => {
+    if (subScreen?.kind !== "pick" || subScreen.mode !== "group") return null;
+    return (
+      <span
+        className="pr-3 text-right text-[14px] font-semibold tabular-nums text-sam-muted"
+        aria-label={t("cm_pick_selected_count_aria", { count: pickSelectedCount })}
+        data-cm-friend-picker-count={pickSelectedCount}
+      >
+        {t("cm_pick_selected_count", { count: pickSelectedCount })}
+      </span>
+    );
+  }, [pickSelectedCount, subScreen, t]);
+  const onPickDirectStable = useCallback(
+    (userId: string) => {
+      void startDirectRoom(userId);
+    },
+    [startDirectRoom]
+  );
+  const onCreateGroupFromPickerStable = useCallback(() => {
+    void createPrivateGroupWith({ memberIds: pickSelectedIds, title: "" });
+  }, [createPrivateGroupWith, pickSelectedIds]);
+  const onOpenOpenChatDiscoveryStable = useCallback(() => openHomeOverlay("public-group-find"), [openHomeOverlay]);
+  const onOpenOpenGroupCreateStable = useCallback(() => setGroupCreateStep("open_group"), []);
+  const onIncomingCallSoundChangeStable = useCallback((next: boolean) => {
+    setIncomingCallSoundEnabled(next);
+    setCommunityMessengerIncomingCallSoundEnabled(next);
+  }, []);
+  const onIncomingCallBannerChangeStable = useCallback((next: boolean) => {
+    setIncomingCallBannerEnabled(next);
+    setCommunityMessengerIncomingCallBannerEnabled(next);
+  }, []);
+  const onToggleFavoriteFromSettingsStable = useCallback(
+    (userId: string) => void toggleFavoriteFriend(userId),
+    [toggleFavoriteFriend]
+  );
+  const onSelectFriendFromSearchStable = useCallback(
+    (friend: CommunityMessengerProfileLite) => setFriendSheet({ mode: "profile", profile: friend }),
+    []
+  );
+  const onSelectOpenGroupFromSearchStable = useCallback((groupId: string) => void openJoinModal(groupId), [openJoinModal]);
+  const onSelectMessageRoomFromSearchStable = useCallback(
+    (roomId: string) => navigateToCommunityRoomWithViewer(roomId),
+    [navigateToCommunityRoomWithViewer]
+  );
+
   return (
     <div
       data-messenger-shell
@@ -3395,6 +3573,9 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           ? "flex min-h-0 min-w-0 flex-1 flex-col space-y-0 overflow-hidden bg-[color:var(--messenger-bg)] px-0 py-0 text-[color:var(--messenger-text)]"
           : fromPhilifeHeaderStack
           ? "flex min-h-0 min-w-0 flex-1 flex-col space-y-2 overflow-hidden bg-[color:var(--messenger-bg)] px-0 pt-0 text-[color:var(--messenger-text)]"
+          : subScreen
+          ? /* 채팅 하위 화면 — 머리글 바로 아래부터(시안 여백은 화면이 가진다) */
+            "flex min-h-0 min-w-0 flex-1 flex-col space-y-0 overflow-hidden bg-[color:var(--messenger-bg)] px-0 py-0 text-[color:var(--messenger-text)]"
           : "flex min-h-0 min-w-0 flex-1 flex-col space-y-2 overflow-hidden bg-[color:var(--messenger-bg)] px-0 py-2 text-[color:var(--messenger-text)]"
       }
     >
@@ -3420,7 +3601,9 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         setRecentSearches={setRecentSearches}
         recentSearches={recentSearches}
         setDismissedNotificationIds={setDismissedNotificationIds}
-        openSettingsSheet={openSettingsSheetStable}
+        openSettingsScreen={openSettingsScreenStable}
+        setSubScreenKey={setSubScreenKey}
+        subScreenRightSlot={subScreenRightSlot}
         setChatInboxFilter={setChatInboxFilter}
         setChatKindFilter={setChatKindFilter}
         setNotificationSettings={setNotificationSettings}
@@ -3429,6 +3612,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         mainSection={mainSection}
         pendingUserSectionRef={pendingUserSectionRef}
         pillar={pillar}
+        setSelectedArchiveSection={setSelectedArchiveSection}
+        isMessengerSplitViewport={isMessengerSplitViewport}
       />
       {fromPhilifeHeaderStack ? (
         /* 커뮤니티 헤더에서 연 메신저 — 공통 하위 헤더(`DetailHeader`, 52px·제목 가운데·뒤로 48) · 메신저 색만 토큰으로 유지 (크롬 S2 2026-11-02). safe-top 은 스택 포털이 소유 → embedded */
@@ -3445,6 +3630,67 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         </div>
       ) : null}
       <MessengerFriendActionsProvider value={messengerFriendActions}>
+      {subScreen && data ? (
+        <MessengerHomeSubScreenHost
+          screen={subScreen}
+          picker={{
+            friends: sortedFriends,
+            viewerUserId: data.me?.id ?? null,
+            selectedIds: pickSelectedIds,
+            onSelectedIdsChange: setPickSelectedIds,
+            onPickDirect: onPickDirectStable,
+            onCreateGroup: onCreateGroupFromPickerStable,
+            creatingGroup: busyId === "create-private-group",
+          }}
+          settings={{
+            onOpenPage: openSettingsPageStable,
+            busyId,
+            blockedCount: (data.blocked ?? EMPTY_PRIVACY_PROFILES).length,
+            hiddenCount: (data.hidden ?? EMPTY_PRIVACY_PROFILES).length,
+            favoriteManageFriends,
+            notificationSettings,
+            updateNotificationSettings,
+            incomingCallSoundEnabled,
+            onIncomingCallSoundChange: onIncomingCallSoundChangeStable,
+            incomingCallBannerEnabled,
+            onIncomingCallBannerChange: onIncomingCallBannerChangeStable,
+            localSettings,
+            updateLocalSetting,
+            onOpenFriendManage: openArchiveFromFriendsStable,
+            onToggleFavoriteFriend: onToggleFavoriteFromSettingsStable,
+            exportSettingsBackup,
+            backupInputRef,
+            onBackupFileSelected,
+            onOpenOpenChatDiscovery: onOpenOpenChatDiscoveryStable,
+            onOpenOpenGroupCreate: onOpenOpenGroupCreateStable,
+          }}
+          search={{
+            keyword: roomSearchKeyword,
+            onKeywordChange: setRoomSearchKeyword,
+            recentSearches,
+            onCommitRecentSearch: commitRecentSearch,
+            onRemoveRecentSearch: removeRecentSearch,
+            onClearRecentSearches: clearRecentSearches,
+            searchFriendMatches,
+            searchRoomMatches,
+            searchMessageMatches,
+            searchOpenChatMatches,
+            viewerUserId: data.me?.id ?? null,
+            favoriteFriendIds,
+            savedFriendIds: knownFriendIds,
+            busyId,
+            onTogglePin: handleMessengerHomeTogglePin,
+            onToggleMute: handleMessengerHomeToggleMute,
+            onMarkRead: handleMessengerHomeMarkRoomRead,
+            onToggleArchive: handleMessengerHomeToggleRoomArchive,
+            onSelectFriend: onSelectFriendFromSearchStable,
+            onSelectOpenGroup: onSelectOpenGroupFromSearchStable,
+            onSelectMessageRoom: onSelectMessageRoomFromSearchStable,
+          }}
+        />
+      ) : null}
+      {/* 하위 화면이 열려 있으면 대화·친구·통화 목록 대신 그 화면 (데이터 전 로딩·로그인 필요 표시는 목록 자리 그대로) */}
+      {subScreen && data ? null : (
       <CommunityMessengerHomeListPane
         loading={loading}
         listPlaceholder={listAwaitingCritical}
@@ -3464,7 +3710,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         openMessengerMenuItem={openMessengerMenuItem}
         closeMessengerMenuItem={closeMessengerMenuItem}
         setOpenedSwipeItemId={setOpenedSwipeItemId}
-        setSelectedArchiveSection={setSelectedArchiveSection}
+        setSelectedArchiveSection={onSelectArchiveSectionStable}
         sortedFriends={sortedFriends}
         friendSortEpochMs={friendSortEpochMs}
         friendStateModel={friendStateModel}
@@ -3479,7 +3725,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           void refresh(true);
         }}
         busyId={busyId}
-        onOpenFriendsPrivacySummary={onOpenFriendsPrivacySummaryStable}
+        onOpenFriendsManage={openArchiveFromFriendsStable}
         onOpenProfile={onOpenProfileForMessengerMainStable}
         toggleFavoriteFriend={onListPaneToggleFavoriteFriend}
         toggleHiddenFriend={onListPaneToggleHiddenFriend}
@@ -3487,7 +3733,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         toggleBlock={onListPaneToggleBlock}
         privacyListsStatus={privacyListsStatus}
         retryPrivacyLists={retryPrivacyListsStable}
-        archivedChatsCount={archivedChatsCountForRow}
         onOpenArchivedChats={openArchivedChatsStable}
         startDirectRoom={onListPaneStartDirectRoom}
         onFriendRowVoiceCallStable={onFriendRowVoiceCallStable}
@@ -3536,6 +3781,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         showSectionTabs={!listAwaitingCritical && !authRequired && !fromPhilifeHeaderStack && pillar == null}
         splitLayoutMode={tabletSplitListOnly ? "list-only" : "hub"}
       />
+      )}
       </MessengerFriendActionsProvider>
 
       {friendSheet?.mode === "profile" && friendProfileForSheet ? (
@@ -3718,59 +3964,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         />
       ) : null}
 
-      {friendsPrivacySheetOpen && data ? (
-        <MessengerFriendsPrivacySheet
-          model={friendStateModel}
-          busyId={busyId}
-          onClose={() => closeHomeOverlay("friends-privacy")}
-          onToggleHidden={(userId) => void toggleHiddenFriend(userId)}
-          onToggleBlock={(userId) => void toggleBlock(userId)}
-          onToggleMute={(userId) => onFriendToggleRoomMuteStable(userId)}
-          friendNotificationsBusy={friendNotificationsBusyStable}
-          onOpenChat={(userId) => {
-            closeHomeOverlay("friends-privacy");
-            void startDirectRoom(userId);
-          }}
-          privacyListsStatus={privacyListsStatus}
-          onRetryPrivacyLists={retryPrivacyListsStable}
-        />
-      ) : null}
-
-      {searchSheetOpen ? (
-        <MessengerSearchSheet
-          keyword={roomSearchKeyword}
-          viewerUserId={data?.me?.id ?? null}
-          onKeywordChange={setRoomSearchKeyword}
-          onClose={() => closeHomeOverlay("search")}
-          onCommitRecentSearch={commitRecentSearch}
-          onRemoveRecentSearch={removeRecentSearch}
-          recentSearches={recentSearches}
-          queryActive={Boolean(searchKeywordNormalized)}
-          searchFriendMatches={searchFriendMatches}
-          searchRoomMatches={searchRoomMatches}
-          searchMessageMatches={searchMessageMatches}
-          searchOpenChatMatches={searchOpenChatMatches}
-          favoriteFriendIds={favoriteFriendIds}
-        savedFriendIds={knownFriendIds}
-          busyId={busyId}
-          onTogglePin={handleMessengerHomeTogglePin}
-          onToggleMute={handleMessengerHomeToggleMute}
-          onMarkRead={handleMessengerHomeMarkRoomRead}
-          onToggleArchive={handleMessengerHomeToggleRoomArchive}
-          onSelectFriend={(friend) => setFriendSheet({ mode: "profile", profile: friend })}
-          onSelectOpenGroup={(groupId) => void openJoinModal(groupId)}
-          onSelectMessageRoom={(roomId) => navigateToCommunityRoomWithViewer(roomId)}
-        />
-      ) : null}
 
       {composerOpen ? (
         <MessengerNewConversationSheet
           onClose={() => closeHomeOverlay("composer")}
-          onFriendChatStart={() => setMainSection("friends")}
-          onCreateGroup={() => {
-            closeHomeOverlay("composer");
-            setGroupCreateStep("select");
-          }}
+          onPickDirect={() => openMessengerSubScreen({ kind: "pick", mode: "direct" })}
+          onPickGroup={() => openMessengerSubScreen({ kind: "pick", mode: "group" })}
         />
       ) : null}
 
@@ -3826,39 +4025,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           onMarkRoomRead={markRoomRead}
           onToggleRoomMute={notificationRoomMuteToggle}
           onArchiveRoom={notificationArchiveRoom}
-        />
-      ) : null}
-
-      {settingsSheetOpen && data ? (
-        <MessengerSettingsSheet
-          onClose={() => closeHomeOverlay("settings")}
-          busyId={busyId}
-          blocked={data.blocked ?? EMPTY_PRIVACY_PROFILES}
-          hidden={data.hidden ?? EMPTY_PRIVACY_PROFILES}
-          favoriteManageFriends={favoriteManageFriends}
-          favoriteCount={favoriteManageFriends.length}
-          notificationSettings={notificationSettings}
-          updateNotificationSetting={updateNotificationSetting}
-          incomingCallSoundEnabled={incomingCallSoundEnabled}
-          onIncomingCallSoundChange={(next) => {
-            setIncomingCallSoundEnabled(next);
-            setCommunityMessengerIncomingCallSoundEnabled(next);
-          }}
-          incomingCallBannerEnabled={incomingCallBannerEnabled}
-          onIncomingCallBannerChange={(next) => {
-            setIncomingCallBannerEnabled(next);
-            setCommunityMessengerIncomingCallBannerEnabled(next);
-          }}
-          localSettings={localSettings}
-          updateLocalSetting={updateLocalSetting}
-          onOpenFriendManage={onOpenFriendsPrivacySummaryStable}
-          onToggleFavoriteFriend={(userId) => void toggleFavoriteFriend(userId)}
-          exportSettingsBackup={exportSettingsBackup}
-          backupInputRef={backupInputRef}
-          onBackupFileSelected={onBackupFileSelected}
-          onOpenOpenChatDiscovery={() => {
-            openHomeOverlay("public-group-find");
-          }}
         />
       ) : null}
 
@@ -3922,39 +4088,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                   : "flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
               }
             >
-            {groupCreateStep === "select" ? (
-              <>
-                {/* U-5: 머리에 이미 「그룹 생성」 — 본문 제목 중복 제거 */}
-                <h2 className="sam-text-body-lg font-semibold text-sam-fg">{t("cm_ui_which_group_to_create")}</h2>
-                {/* S-10 (1단계 문서 §14-3 ①): 글자 카드 → S3 메뉴(아이콘 + 제목 + 설명) */}
-                <div className="mt-2">
-                  <DibayMenuList
-                    groups={[
-                      [
-                        {
-                          key: "private_group",
-                          icon: <Users />,
-                          label: t("nav_messenger_private_group"),
-                          hint: `${t("cm_ui_friend_invite_type")} · ${t("cm_ui_private_group_quick_create_hint")}`,
-                          onClick: () => {
-                            setPrivateGroupSubStep("members");
-                            setGroupCreateStep("private_group");
-                          },
-                        },
-                        {
-                          key: "open_group",
-                          icon: <Globe />,
-                          label: t("nav_messenger_open_group"),
-                          hint: `${t("cm_svc_open_group_room")} · ${t("cm_ui_create_open_group_room")}`,
-                          onClick: () => setGroupCreateStep("open_group"),
-                        },
-                      ],
-                    ]}
-                  />
-                </div>
-              </>
-            ) : null}
-
             {groupCreateStep === "private_group" ? (
               <CommunityMessengerPrivateGroupCreatePanel
                 t={t}
@@ -3980,7 +4113,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                     setPrivateGroupSubStep("members");
                     return;
                   }
-                  setGroupCreateStep("select");
+                  /** 「비공개 그룹 / 모임」 고르는 단계는 없앴다 (채팅 시안 4판 「6」) — 첫 단계 뒤로 = 닫기 */
+                  setGroupCreateStep("closed");
                 }}
               />
             ) : null}
@@ -3994,7 +4128,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                   </div>
                   <button
                     type="button"
-                    onClick={() => setGroupCreateStep("select")}
+                    onClick={() => setGroupCreateStep("closed")}
                     className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg"
                   >
                     {t("tier1_back")}

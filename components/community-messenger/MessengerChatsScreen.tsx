@@ -188,7 +188,8 @@ export function MessengerChatsScreen({
 
       {showPillarSummaryRows && pillarSummaries ? (
         <div
-          className="grid grid-cols-2 gap-2 border-b-[6px] border-[color:var(--messenger-surface-muted)] px-3 pb-2.5 pt-2"
+          /** 채팅 시안 4판: 같은 폭 두 칸 · 여백 8/16/12 · 아래 8px 연회색 띠 */
+          className="grid grid-cols-2 gap-2 border-b-8 border-[color:var(--cm-chat-band)] px-4 pb-3 pt-2"
           data-cm-commerce-entry-tiles=""
         >
           <MessengerPillarSummaryRow

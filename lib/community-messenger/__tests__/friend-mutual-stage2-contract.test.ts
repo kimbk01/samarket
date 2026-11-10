@@ -52,7 +52,11 @@ describe("friend mutual stage2 — wiring", () => {
   it("F-5 requests sheet has received / sent tabs", () => {
     const sheet = src("components/community-messenger/MessengerReceivedFriendRequestsSheet.tsx");
     expect(sheet).toContain('"received" | "sent"');
-    expect(sheet).toContain("postCancelOutgoingCommunityMessengerFriendRequestApi");
+    /** 수락·거절·취소 처리는 친구 탭 「받은 친구 요청」 줄과 공용 훅 (채팅 시안 4판) */
+    expect(sheet).toContain("useMessengerFriendRequestRespond(onChanged)");
+    expect(src("components/community-messenger/friend-cta/use-messenger-friend-request-respond.ts")).toContain(
+      "postCancelOutgoingCommunityMessengerFriendRequestApi"
+    );
   });
 
   it("F-6 global popup feed is mounted by the global host (not only messenger home)", () => {
@@ -101,19 +105,21 @@ describe("friend mutual stage2 — wiring", () => {
     expect(sendFn.slice(0, 3000)).toContain("hydrateProfilesLabelsOnlyWithMap(target, [userId])");
   });
 
-  it("§11 친구 탭 상단: 글자 행 대신 아이콘 버튼 + 받은 요청이 있을 때만 카드, 내 프로필 카드 분리", () => {
+  it("§11 → 채팅 시안 4판: 친구 탭 상단 = 찾기 칸 + 「관리」, 받은 요청은 줄마다 거절·수락(요약 카드 없음), 내 프로필 줄", () => {
     const screen = src("components/community-messenger/MessengerFriendsScreen.tsx");
     expect(screen).not.toContain("data-cm-friend-requests-entry");
     expect(screen).not.toContain("data-cm-friend-manage-entry");
-    expect(screen).toContain("MessengerReceivedFriendRequestsCard");
+    expect(screen).not.toContain("MessengerReceivedFriendRequestsCard");
+    expect(screen).toContain("<MessengerFriendTabRequestsSection");
     const sections = src("components/community-messenger/MessengerHomeMainSections.tsx");
     expect(sections).toContain("MessengerFriendsHeaderActions");
     expect(sections).toContain("MessengerReceivedFriendRequestsSheet");
-    const card = src("components/community-messenger/friend-cta/MessengerReceivedFriendRequestsCard.tsx");
-    expect(card).toContain("if (requests.length === 0) return null;");
+    const block = src("components/community-messenger/friend-cta/MessengerFriendTabRequestsSection.tsx");
+    expect(block).toContain("if (incoming.length === 0 && outgoingCount === 0) return null;");
+    expect(block).toContain("useMessengerFriendRequestRespond(onChanged)");
     const me = src("components/community-messenger/MessengerFriendsMyProfileStrip.tsx");
     expect(me).toContain("cm_friend_my_profile_section");
-    expect(me).toContain("cm_friend_my_profile_badge");
+    expect(me).toContain("cm_friend_my_profile_edit");
     const inline = src("components/community-messenger/MessengerHomeInlineFriendSearch.tsx");
     expect(inline).toContain("data-cm-inline-friend-search-results");
     expect(inline).toContain("absolute inset-x-0 top-full");
@@ -122,12 +128,13 @@ describe("friend mutual stage2 — wiring", () => {
   it("D-8~D-11 (2026-10-25 실기기): 팝업 X · 보낸 요청 카드 · 패널 바깥 클릭이 확인 팝업을 막지 않음 · 처리 즉시 제거", () => {
     const popup = src("components/community-messenger/MessengerIncomingFriendRequestPopup.tsx");
     expect(popup).toContain("cm_friend_popup_close");
+    /** 보낸 요청 = 「보낸 친구 요청 N ›」 한 줄 → 시트 보낸 요청 탭 (채팅 시안 4판) */
     const screen = src("components/community-messenger/MessengerFriendsScreen.tsx");
-    expect(screen).toContain('variant="sent"');
+    expect(screen).toContain('onOpenSent={() => onOpenFriendRequests("sent")}');
     const inline = src("components/community-messenger/MessengerHomeInlineFriendSearch.tsx");
     expect(inline).toContain('.dibay-overlay-root, [data-dibay-overlay]');
-    const sheet = src("components/community-messenger/MessengerReceivedFriendRequestsSheet.tsx");
-    expect(sheet).toContain("onChanged(request.id)");
+    const respond = src("components/community-messenger/friend-cta/use-messenger-friend-request-respond.ts");
+    expect(respond).toContain("onChanged(request.id)");
   });
 
   it("D-11: 서버 목록에 없는 보낸 요청은 30초 넘으면 유지하지 않는다", async () => {
@@ -172,18 +179,19 @@ describe("friend mutual stage2 — wiring", () => {
     expect(reqSheet).not.toContain('anchor="center"');
     for (const f of [
       "components/community-messenger/MessengerReceivedFriendRequestsSheet.tsx",
-      "components/community-messenger/MessengerFriendsPrivacySheet.tsx",
-      "components/community-messenger/MessengerSettingsSheet.tsx",
-      "components/community-messenger/MessengerNewConversationSheet.tsx",
       "components/community-messenger/MessengerNotificationCenterSheet.tsx",
-      "components/community-messenger/MessengerArchiveScreen.tsx",
     ]) {
       expect(src(f)).toContain("<MessengerSheetHeaderBar");
     }
+    /** 채팅 시안 4판 「5. 새 대화」: 손잡이 + 왼쪽 제목 18/700 (닫기 X 없음) · 채팅 설정은 시트가 아니라 하위 화면 「7」 */
+    const newConversation = src("components/community-messenger/MessengerNewConversationSheet.tsx");
+    expect(newConversation).not.toContain("<MessengerSheetHeaderBar");
+    expect(newConversation).toContain("text-[18px] font-bold");
     const actionSheet = src("components/community-messenger/MessengerChatRoomActionSheet.tsx");
-    expect(actionSheet).toContain("<DibayMenuList groups={[mainItems, settingItems, dangerItems]}");
-    const card = src("components/community-messenger/friend-cta/MessengerReceivedFriendRequestsCard.tsx");
-    expect(card).toContain("shadow-[var(--overlay-elevation-1)]");
+    /** 대화·거래 행 = 묶음 3개 그대로 · 주문 행 = 채팅 시안 4판 10-2 (한 묶음 → 간격 띠 → 빨간 나가기) */
+    expect(actionSheet).toContain("[mainItems, settingItems, dangerItems]");
+    expect(actionSheet).toContain('pillar === "delivery" ? [[...mainItems, ...settingItems], dangerItems]');
+    expect(actionSheet).toContain("<DibayMenuList groups={groups} />");
     const archive = src("components/community-messenger/MessengerArchiveScreen.tsx");
     expect(archive).not.toContain("function ArchiveSectionCard");
     const inline = src("components/community-messenger/MessengerHomeInlineFriendSearch.tsx");
@@ -194,14 +202,16 @@ describe("friend mutual stage2 — wiring", () => {
     expect(src("components/community-messenger/MessengerHomeMainSections.tsx")).toContain("resetKey={mainSection}");
   });
 
-  it("§14 S-6·S-10: 검색 카드 행 버튼은 처리 성공 뒤 접힘, 그룹 생성 선택지는 S3 메뉴", () => {
+  it("§14 S-6·S-10: 검색 카드 행 버튼은 처리 성공 뒤 접힘, 그룹 만들기는 친구 고르기로 바로(채팅 시안 4판 「6」)", () => {
     const inline = src("components/community-messenger/MessengerHomeInlineFriendSearch.tsx");
     expect(inline).toContain("const ok = (await friendActions.onSend(userId)) === true;");
     expect(inline).toContain("const ok = (await friendActions.onCancel(userId)) === true;");
     expect(inline).toContain("const ok = (await friendActions.onRespond(requestId, action, peerLabel)) === true;");
     const home = src("components/community-messenger/CommunityMessengerHome.tsx");
     expect(home).toContain("onSend: (userId) => addFriendSaved(userId),");
-    expect(home).toContain('key: "private_group",');
+    /** 「비공개 그룹 / 모임」 고르는 단계(S3 메뉴)는 없앴다 — 「그룹 대화」 = 친구 고르기 하위 화면 */
+    expect(home).not.toContain('key: "private_group",');
+    expect(home).toContain('openMessengerSubScreen({ kind: "pick", mode: "group" })');
     expect(home).not.toContain('className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4 text-left transition active:bg-sam-app"');
   });
 

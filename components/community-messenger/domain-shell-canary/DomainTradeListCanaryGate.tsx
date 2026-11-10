@@ -10,7 +10,10 @@ import {
 import { CommunityMessengerChatRow } from "@/components/community-messenger/chat-list/CommunityMessengerChatRow";
 import { MessengerChatRoomActionSheet } from "@/components/community-messenger/MessengerChatRoomActionSheet";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
-import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import { MessengerPillarLeaveConfirmSheet } from "@/components/community-messenger/MessengerPillarLeaveConfirmSheet";
+import { useMessengerPillarHeaderChrome } from "@/components/community-messenger/MessengerPillarSplitChrome";
+import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
+import { DIBAY_SECONDARY_TAB_LABEL_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
 import { domainTradeListRowToUnifiedItem } from "@/components/community-messenger/domain-shell-canary/domain-trade-list-row-to-unified-item";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -41,10 +44,10 @@ import { MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS } from "@/lib/layout/main-
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import {
-  buildCommunityMessengerMarkReadPatchBody,
-  communityMessengerMarkReadFetchInitBase,
-  parseCommunityMessengerMarkReadResponse,
-} from "@/lib/community-messenger/room/community-messenger-mark-read-fetch";
+  PILLAR_MARK_ALL_READ_BUSY_ID,
+  usePillarMarkAllRead,
+  usePillarRoomMarkRead,
+} from "@/lib/community-messenger/pillar-chat-list/use-pillar-mark-read";
 import { leaveMessengerRoomFromHomeClient } from "@/lib/community-messenger/home/messenger-home-room-leave-client";
 import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
 import { getSwipeLeaveConfirmI18nKey } from "@/lib/messenger-policy/chat-room-swipe-actions";
@@ -53,6 +56,7 @@ import type { MessengerChatListContext } from "@/lib/community-messenger/messeng
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
 import { translateBy } from "@/lib/i18n/translate-by";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export type TradeListDto = {
   authority: "domain_trade_list_canary";
@@ -114,12 +118,8 @@ function DomainListRowSkeleton({ count = 6 }: { count?: number }) {
   return (
     <>
       {Array.from({ length: count }).map((_, i) => (
-        <div
-          key={i}
-          className="flex min-h-[76px] items-center gap-3 border-b border-sam-border px-3"
-          data-domain-list-row-skeleton="1"
-        >
-          <div className="h-12 w-12 shrink-0 rounded-ui-rect bg-sam-muted/20" />
+        <div key={i} className="flex h-[84px] items-center gap-3 px-4" data-domain-list-row-skeleton="1">
+          <div className="h-12 w-12 shrink-0 rounded-[var(--cm-chat-avatar-radius,18px)] bg-sam-muted/20" />
           <div className="min-w-0 flex-1 space-y-2">
             <div className="h-3 w-2/5 rounded bg-sam-muted/20" />
             <div className="h-3 w-3/5 rounded bg-sam-muted/15" />
@@ -133,12 +133,20 @@ function DomainListRowSkeleton({ count = 6 }: { count?: number }) {
 
 const ROLE_FILTERS: TradeListRoleFilter[] = ["all", "selling", "buying"];
 
+/** 거래 채팅 목록 탭 이름 — 전체 · 판매 · 구매 (채팅 시안 4판 「9」, 역할 필터 `filterTradeListRowsByRole` 그대로) */
+const ROLE_FILTER_LABEL_KEYS: Record<TradeListRoleFilter, MessageKey> = {
+  all: "cm_trade_chat_filter_all",
+  selling: "cm_trade_chat_filter_selling",
+  buying: "cm_trade_chat_filter_buying",
+};
+
 const EMPTY_FRIEND_IDS = new Set<string>();
 
 /**
  * Trade Hub→List — Domain Facts authority + canonical MessengerChatListItem swipe.
  * Cache/seed paints immediately; refresh merges in background.
  * Role filter is a selector on one trade authority list (no extra store).
+ * 채팅 시안 4판 「9」: 본문 제목·안 읽음 줄 없음 → 머리글(공통 하위 머리글)에 「모두 읽음」, 둘째 줄 = 밑줄 탭 전체 · 판매 · 구매.
  */
 export function DomainTradeListCanaryGate({
   tabletSplitListOnly,
@@ -195,7 +203,7 @@ export function DomainTradeListCanaryGate({
     const timer = setTimeout(() => setActionError(null), 8000);
     return () => clearTimeout(timer);
   }, [actionError]);
-  const { language, t, safeT } = useI18n();
+  const { language, t } = useI18n();
   /** L-5 — Home 과 동일: 스크롤·외부 탭 시 스와이프 닫기 */
   const closeOpenedSwipe = useCallback(() => {
     setOpenedSwipeItemId((prev) => (prev == null ? prev : null));
@@ -300,7 +308,6 @@ export function DomainTradeListCanaryGate({
     };
   }, [softFail]);
 
-  const title = translateBy(language, "community_messenger_trade_chats");
   const unreadRoomCount = dto?.hub.unreadRoomCount ?? 0;
 
   const visibleRows = useMemo(() => {
@@ -332,16 +339,6 @@ export function DomainTradeListCanaryGate({
     enabled: mode === "ready" && Boolean(dto?.viewerUserId),
   });
 
-  const filterLabel = (id: TradeListRoleFilter) => {
-    if (id === "all") {
-      return safeT("cm_trade_chat_filter_all");
-    }
-    if (id === "selling") {
-      return safeT("cm_trade_chat_filter_selling");
-    }
-    return safeT("cm_trade_chat_filter_buying");
-  };
-
   const patchRoomParticipant = useCallback(
     async (roomId: string, patch: { isPinned?: boolean; isMuted?: boolean }) => {
       setBusyId(`settings:${roomId}`);
@@ -363,50 +360,53 @@ export function DomainTradeListCanaryGate({
     []
   );
 
+  const resolveViewerUserId = useCallback(
+    () => getSyncViewerUserIdForClient() ?? dto?.viewerUserId ?? "",
+    [dto?.viewerUserId]
+  );
+
+  /** 방 하나 읽음 — 낙관적 0 반영, 실패 시 되돌림 (주문 채팅 목록과 같은 훅) */
+  const markRoomReadById = usePillarRoomMarkRead({
+    resolveViewerUserId,
+    applyReadPatch: applyDomainTradeListReadPatch,
+    applyUnreadRestorePatch: applyDomainTradeListUnreadOnlyPatch,
+  });
+
   const markRoomRead = useCallback(
     async (room: CommunityMessengerRoomSummary) => {
       const roomId = room.id.trim();
       if (!roomId) return;
-      const viewerUserId = getSyncViewerUserIdForClient() ?? dto?.viewerUserId ?? "";
       setBusyId(`read:${roomId}`);
       setActionError(null);
-      const preUnread = Math.max(0, Math.floor(Number(room.unreadCount) || 0));
-      if (viewerUserId) {
-        applyDomainTradeListReadPatch({ viewerUserId, roomId });
-      }
       try {
-        const res = await fetch(communityMessengerRoomResourcePath(roomId), {
-          ...communityMessengerMarkReadFetchInitBase,
-          body: JSON.stringify(buildCommunityMessengerMarkReadPatchBody()),
-        });
-        const parsed = await parseCommunityMessengerMarkReadResponse(res);
-        if (!parsed.okHttp || parsed.json.ok !== true) {
-          if (viewerUserId && preUnread > 0) {
-            applyDomainTradeListUnreadOnlyPatch({
-              viewerUserId,
-              roomId,
-              unreadCount: preUnread,
-              mutationType: "PARTICIPANT_UNREAD",
-            });
-          }
-          setActionError(parsed.json.error ?? "room_read_failed");
-        }
-      } catch {
-        if (viewerUserId && preUnread > 0) {
-          applyDomainTradeListUnreadOnlyPatch({
-            viewerUserId,
-            roomId,
-            unreadCount: preUnread,
-            mutationType: "PARTICIPANT_UNREAD",
-          });
-        }
-        setActionError("room_read_failed");
+        const ok = await markRoomReadById(roomId, Math.max(0, Math.floor(Number(room.unreadCount) || 0)));
+        if (!ok) setActionError(t("cm_ui_order_chat_mark_all_read_failed"));
       } finally {
         setBusyId(null);
       }
     },
-    [dto?.viewerUserId]
+    [markRoomReadById, t]
   );
+
+  /**
+   * 머리글 「모두 읽음」 — 주문 채팅 목록과 같은 방식(안 읽은 방만 동시 4개씩 읽음 처리).
+   * 대상은 탭과 관계없이 거래 목록 전체(머리글 동작은 화면 전체에 대한 것).
+   */
+  const markAllRead = usePillarMarkAllRead({
+    rows: dto?.rows,
+    markRoomReadById,
+    setBusyId,
+    setActionError,
+    failureMessage: t("cm_ui_order_chat_mark_all_read_failed"),
+  });
+  const onHeaderMarkAll = useCallback(() => {
+    void markAllRead();
+  }, [markAllRead]);
+  useMessengerPillarHeaderChrome("trade", {
+    canMarkAll: unreadRoomCount > 0,
+    busy: busyId === PILLAR_MARK_ALL_READ_BUSY_ID,
+    onMarkAll: onHeaderMarkAll,
+  });
 
   const toggleRoomArchive = useCallback(
     async (room: CommunityMessengerRoomSummary) => {
@@ -512,19 +512,46 @@ export function DomainTradeListCanaryGate({
     [patchRoomParticipant]
   );
 
+  const tabRow = (
+    <DibaySecondaryTabRow
+      data-cm-messenger-pillar-tabs=""
+      data-dibay-tab-align="start"
+      bordered
+      trackAriaLabel={t("cm_pillar_trade_tabs_aria")}
+    >
+      {ROLE_FILTERS.map((id) => {
+        const active = roleFilter === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            data-active={active ? "true" : "false"}
+            data-trade-role-tab={id}
+            className={dibaySecondaryTabClass(active)}
+            onClick={() => {
+              setOpenedSwipeItemId(null);
+              setRoleFilter(id);
+            }}
+          >
+            <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{t(ROLE_FILTER_LABEL_KEYS[id])}</span>
+          </button>
+        );
+      })}
+    </DibaySecondaryTabRow>
+  );
+
   if (mode === "loading" && !dto) {
     return (
       <div
-        className="flex h-full min-h-0 flex-col bg-sam-app"
+        className="flex h-full min-h-0 flex-col bg-white"
         data-domain-trade-list="loading"
         data-domain-list-mode="domain"
+        data-cm-pillar-screen="trade"
         data-tablet-split={tabletSplitListOnly ? "1" : "0"}
       >
-        {!tabletSplitListOnly ? (
-          <div className="border-b border-sam-border px-4 py-3">
-            <div className="text-base font-semibold text-sam-fg">{title}</div>
-          </div>
-        ) : null}
+        {tabRow}
         <div
           className={`min-h-0 flex-1 overflow-y-auto ${listScrollInsetClass}`}
           data-messenger-hub-list-scroll=""
@@ -539,16 +566,12 @@ export function DomainTradeListCanaryGate({
   if ((mode === "error" && !dto) || (!dto && mode !== "loading")) {
     return (
       <div
-        className="flex h-full min-h-0 flex-col bg-sam-app"
+        className="flex h-full min-h-0 flex-col bg-white"
         data-domain-trade-list="error"
         data-domain-list-mode="domain"
+        data-cm-pillar-screen="trade"
       >
         {reason ? <div className="sr-only" data-domain-trade-error={reason} /> : null}
-        {!tabletSplitListOnly ? (
-          <div className="border-b border-sam-border px-4 py-3">
-            <div className="text-base font-semibold text-sam-fg">{title}</div>
-          </div>
-        ) : null}
         <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 px-4 text-sm text-sam-muted">
           <p>{translateBy(language, "community_messenger_couldn_t_load_trade_chats")}</p>
           <button
@@ -571,56 +594,22 @@ export function DomainTradeListCanaryGate({
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col bg-sam-app"
+      className="flex h-full min-h-0 flex-col bg-white"
       data-domain-trade-list="1"
       data-domain-list-mode="domain"
       data-domain-trade-list-swipe="canonical"
       data-domain-unread-rooms={String(unreadRoomCount)}
       data-trade-role-filter={roleFilter}
+      data-cm-pillar-screen="trade"
       data-tablet-split={tabletSplitListOnly ? "1" : "0"}
+      aria-busy={busyId === PILLAR_MARK_ALL_READ_BUSY_ID || undefined}
     >
-      <div className="border-b border-sam-border px-4 py-3">
-        {!tabletSplitListOnly ? (
-          <>
-            <div className="text-base font-semibold text-sam-fg">{title}</div>
-            {unreadRoomCount > 0 ? (
-              <div className="text-xs text-sam-muted">
-                {translateBy(language, "community_messenger_unreadroomcount_unread", { unreadRoomCount })}
-              </div>
-            ) : null}
-          </>
-        ) : null}
-        <div
-          className={!tabletSplitListOnly ? "mt-2 flex gap-1.5" : "flex gap-1.5"}
-          role="tablist"
-          aria-label={t("cm_trade_chat_filter_all")}
-        >
-          {ROLE_FILTERS.map((id) => {
-            const active = roleFilter === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                className={
-                  active
-                    ? "rounded-full bg-sam-primary px-3 py-1 text-xs text-white"
-                    : "rounded-full bg-sam-muted/15 px-3 py-1 text-xs text-sam-fg"
-                }
-                onClick={() => setRoleFilter(id)}
-              >
-                {filterLabel(id)}
-              </button>
-            );
-          })}
+      {tabRow}
+      {actionError ? (
+        <div className="px-4 py-2 text-xs text-sam-danger" data-domain-trade-action-error="1">
+          {actionError}
         </div>
-        {actionError ? (
-          <div className="mt-2 text-xs text-red-600" data-domain-trade-action-error="1">
-            {actionError}
-          </div>
-        ) : null}
-      </div>
+      ) : null}
       <div
         className={`min-h-0 flex-1 overflow-y-auto ${listScrollInsetClass}`}
         data-messenger-hub-list-scroll=""
@@ -660,6 +649,7 @@ export function DomainTradeListCanaryGate({
           listContext={roomActionSheet.listContext}
           anchorRect={roomActionSheet.anchorRect}
           busyId={busyId}
+          pillar="trade"
           onClose={() => setRoomActionSheet(null)}
           onEnterRoom={() => {
             const room = roomActionSheet.item.room;
@@ -702,19 +692,13 @@ export function DomainTradeListCanaryGate({
       ) : null}
 
       {leaveConfirmRoom && leaveConfirmI18nKey ? (
-        <MobileConfirmBottomSheet
-          open
-          onCancel={() => setLeaveConfirmRoom(null)}
+        <MessengerPillarLeaveConfirmSheet
           title={t("popup_chat_room_leave_title")}
-          cancelLabel={t("common_cancel")}
-          confirmLabel={t("popup_cta_leave")}
-          confirmTone="danger"
+          busy={busyId === `leave:${leaveConfirmRoom.id.trim()}`}
+          onCancel={() => setLeaveConfirmRoom(null)}
           onConfirm={() => {
             void executeLeaveMessengerRoom();
           }}
-          zIndexClass="z-[70]"
-          ariaLabel={t("cm_ui_leave_confirm_aria")}
-          interactionMode="blocking"
         />
       ) : null}
     </div>

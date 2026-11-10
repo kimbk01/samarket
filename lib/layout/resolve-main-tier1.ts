@@ -1,3 +1,5 @@
+import { resolveMessengerArchiveTier1 } from "@/lib/community-messenger/messenger-archive-route";
+import { resolveMessengerSubScreenTier1 } from "@/lib/community-messenger/messenger-sub-screen-route";
 import {
   findMypageIaCategory,
   isMypageTopLevelPath,
@@ -523,6 +525,22 @@ function resolveMainTier1SubpageInner(
   }
 
   if (p === "/community-messenger") {
+    /**
+     * 보관함(·항목 상세) = 채팅 하위 화면 — 공통 하위 화면 머리글(뒤로 + 가운데 제목, 설계서 v3 §12).
+     * 채팅 탭 머리글·대화/친구/통화 탭 줄을 쓰지 않는다 (채팅 시안 4판 「4. 보관함」). 뒤로 = 들어온 화면(기록 우선).
+     */
+    /** 친구 고르기·채팅 설정(·상세)·채팅 검색도 같은 공통 하위 화면 머리글 (채팅 시안 4판 「6」「7」「8」) */
+    const archive = resolveMessengerArchiveTier1(search) ?? resolveMessengerSubScreenTier1(search);
+    if (archive) {
+      return {
+        ...DEFAULT,
+        backHref: archive.backHref,
+        preferHistoryBack: true,
+        ariaLabel: "tier1_messenger_back",
+        titleText: archive.titleText,
+        showHubQuickActions: false,
+      };
+    }
     return backHome({
       titleText: "tier1_messenger",
       subtitle: "tier1_messenger_hub_subtitle",
@@ -552,7 +570,8 @@ function resolveMainTier1SubpageInner(
       backHref: "/community-messenger?section=chats",
       preferHistoryBack: false,
       ariaLabel: "tier1_messenger_back",
-      titleText: "nav_chat_order_compact",
+      /** 채팅 시안 4판 — 「주문 채팅」(띄어 씀) */
+      titleText: "community_messenger_order_chats",
       showHubQuickActions: false,
     };
   }

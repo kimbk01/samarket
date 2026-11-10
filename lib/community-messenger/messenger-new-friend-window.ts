@@ -48,3 +48,34 @@ export function partitionMessengerFriendsByNew(
   }
   return { newFriends, regularFriends };
 }
+
+/**
+ * 친구 탭 「새 친구」 묶음 기간 — 최근 7일 (채팅 시안 4판, Owner 「정확히 시안대로」 2026-11-10).
+ * 시안 메모: 「기간 7일은 제가 정한 값, Owner 확인 필요」 — 값은 이 상수 하나.
+ * 위 24시간 구간(목록 정렬·배지)과는 별개다.
+ */
+export const MESSENGER_HOME_NEW_FRIENDS_SECTION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * 「새 친구」 묶음 — 친구가 된 시각(`friendshipAcceptedAt` = 수락된 친구 요청 `responded_at`·연락처 저장 시각, 서버 값)이
+ * 최근 7일 안인 친구, 최근 순. 시각이 없으면 넣지 않는다(기기 시계가 조금 늦어 방금 수락이 「미래」로 보여도 넣는다). 이 친구들은 「친구 N」 목록에도 그대로 남는다.
+ */
+export function selectMessengerHomeNewFriends(
+  friends: CommunityMessengerProfileLite[],
+  nowMs: number,
+  windowMs: number = MESSENGER_HOME_NEW_FRIENDS_SECTION_WINDOW_MS
+): CommunityMessengerProfileLite[] {
+  const picked: { friend: CommunityMessengerProfileLite; at: number }[] = [];
+  for (const friend of friends) {
+    if (!friend.isFriend) continue;
+    const raw = friend.friendshipAcceptedAt;
+    if (!raw) continue;
+    const at = new Date(raw).getTime();
+    if (!Number.isFinite(at)) continue;
+    const age = nowMs - at;
+    if (age > windowMs || age < -windowMs) continue;
+    picked.push({ friend, at });
+  }
+  picked.sort((a, b) => b.at - a.at || a.friend.label.localeCompare(b.friend.label, "ko"));
+  return picked.map((p) => p.friend);
+}

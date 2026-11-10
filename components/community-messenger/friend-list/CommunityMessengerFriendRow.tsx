@@ -17,9 +17,9 @@ type Props = {
 };
 
 /**
- * Telegram contacts 정렬 — 1행 `닉네임 (@아이디)` · 2행 상태 · 아바타 녹점 · 우측 즐겨찾기 표시.
- * §16 (Owner 2026-10-25): 2행 = 상대가 쓴 상태(bio)가 있으면 상태, 없으면 lastSeen/온라인 문구.
- * 접속 상태는 아바타 점으로 항상 보인다. 큰 「친구」상태 뱃지는 사용하지 않는다.
+ * 친구 행 (채팅 시안 4판 「2. 친구 탭」, Owner 「정확히 시안대로」 2026-11-10) — 높이 64 · 사진 44 둥근 사각(16) ·
+ * 1행 이름 16/600 (이름 옆 「(@아이디)」 없음) · 2행 12.5 회색 = 상대가 쓴 상태 글 → 없으면 마지막 접속(지금 문구) → 없으면 @아이디.
+ * 접속 상태는 아바타 점으로 항상 보인다. 큰 「친구」상태 뱃지는 사용하지 않는다. 우측 즐겨찾기 별은 그대로.
  */
 export function CommunityMessengerFriendRow({ row, onPress, onLongPress, disabled = false }: Props) {
   const publicIdLabel = row.publicId?.trim() ? formatAtUsername(row.publicId) : null;
@@ -33,32 +33,34 @@ export function CommunityMessengerFriendRow({ row, onPress, onLongPress, disable
         e.preventDefault();
         onLongPress?.();
       }}
-      className="flex w-full items-center border-b border-sam-border py-1.5 text-left transition-[transform,background-color] duration-100 active:scale-[0.99] active:bg-[color:var(--messenger-primary-soft)] disabled:opacity-50"
+      className="flex w-full items-center text-left transition-[transform,background-color] duration-100 active:scale-[0.99] active:bg-[color:var(--messenger-primary-soft)] disabled:opacity-50"
       data-cm-messenger-list-row=""
       data-cm-list-surface="friend"
     >
       <div data-cm-list-avatar-slot="" className="relative shrink-0 overflow-visible">
         <SamarketUserAvatarThumb
           avatarUrl={row.avatarUrl}
-          size={46}
-          roundedClassName="rounded-full"
+          size={44}
+          roundedClassName="rounded-[16px]"
           className="h-full w-full"
         />
         <CommunityMessengerFriendPresenceDot peerUserId={row.profileId} />
       </div>
-      <div className="min-w-0 flex-1">
-        <p data-cm-list-title="" className="truncate font-semibold text-sam-fg">
+      <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+        <p data-cm-list-title="" className="truncate" style={{ color: "var(--cm-chat-fg)" }}>
           {row.displayName}
-          {publicIdLabel ? (
-            <span className="ml-1.5 font-medium text-sam-fg-muted">{`(${publicIdLabel})`}</span>
-          ) : null}
         </p>
         {row.subtitle ? (
-          <p data-cm-list-preview="" data-cm-friend-status-message="" className="truncate text-sam-fg">
+          <p
+            data-cm-list-preview=""
+            data-cm-friend-status-message=""
+            className="truncate"
+            style={{ color: "var(--cm-chat-sub)" }}
+          >
             {row.subtitle}
           </p>
         ) : (
-          <CommunityMessengerFriendPresenceLine peerUserId={row.profileId} />
+          <CommunityMessengerFriendPresenceLine peerUserId={row.profileId} fallbackText={publicIdLabel} />
         )}
       </div>
       {row.isFavorite ? (

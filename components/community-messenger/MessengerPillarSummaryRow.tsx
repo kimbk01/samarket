@@ -167,8 +167,8 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
 
   const lastItem = summary.lastItem;
   /**
-   * 2026-11-10 채팅 화면 시안 3판(Owner): 입구 칸에는 마지막 대화·시각을 보여 주지 않는다 —
-   * 마지막 대화는 거래/주문 목록 각 행에서만. 이 칸은 이름 + 안 읽은 방 수 + 화살표.
+   * 2026-11-10 채팅 화면 시안 3판·4판(Owner): 입구 칸에는 마지막 대화·시각을 보여 주지 않는다 —
+   * 마지막 대화는 거래/주문 목록 각 행에서만. 이 칸은 아이콘 + 이름 + 안 읽은 방 수 (화살표 없음).
    * latestRoomId 는 진입 프리페치·실기 계측용 data 속성으로만 남긴다.
    */
   const domainAtMs = Date.parse(domainPreview?.lastEventAt ?? "") || 0;
@@ -182,10 +182,11 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
    * (= count(rows where unreadMessageCount > 0)). Cache miss → 0 (no attention fallback).
    */
   const unread = Math.max(0, Math.floor(Number(listUnreadRooms) || 0));
+  /** 채팅 시안 4판 — 거래 = 연초록 바탕·초록 글자, 주문 = 연금색 바탕·갈색 글자 (`--cm-chat-entry-*`) */
   const tileToneClass =
     variant === "trade"
-      ? "border-[color:color-mix(in_srgb,var(--sam-primary)_22%,transparent)] bg-[color:var(--sam-primary-soft)] text-[color:var(--sam-primary)]"
-      : "border-[color:color-mix(in_srgb,var(--dibay-gold,#EAC784)_55%,transparent)] bg-[color:color-mix(in_srgb,var(--dibay-gold,#EAC784)_22%,var(--sam-bg-surface,#fff))] text-[color:var(--dibay-brown,#362415)]";
+      ? "bg-[color:var(--cm-chat-entry-trade-bg)] text-[color:var(--cm-chat-entry-trade-fg)]"
+      : "bg-[color:var(--cm-chat-entry-order-bg)] text-[color:var(--cm-chat-entry-order-fg)]";
 
   return (
     <Link
@@ -197,7 +198,7 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
       data-messenger-pillar-unread={String(unread)}
       data-messenger-pillar-latest-room={latestRoomId ?? ""}
       data-messenger-pillar-preview-source={useDomain ? "domain_list" : "bootstrap"}
-      className={`flex min-h-[44px] min-w-0 select-none touch-manipulation items-center gap-2 rounded-ui-rect border px-2.5 py-2 transition-transform duration-100 ease-out active:scale-[0.97] ${tileToneClass}`}
+      className={`flex h-12 min-w-0 select-none touch-manipulation items-center gap-2 rounded-[12px] px-3 transition-transform duration-100 ease-out active:scale-[0.97] ${tileToneClass}`}
       aria-label={t("cm_ui_pillar_open_list_aria", { title: copy.title })}
       onClick={(e) => {
         if (shouldSkipMessengerNavTransitionModifiers(e)) return;
@@ -212,15 +213,15 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
       }}
     >
       {variant === "trade" ? <StorefrontIcon className="h-5 w-5 shrink-0" /> : <DeliveryScooterIcon className="h-5 w-5 shrink-0" />}
-      {/* 이름은 자르지 않는다 — 좁으면 두 줄로 (2026-11-10 운영 확인: 「거래 채팅」 55px 필요·52px 표시로 잘림) */}
-      <span
-        data-cm-list-title=""
-        className="min-w-0 flex-1 whitespace-normal break-keep text-[14px] font-bold leading-tight"
-      >
+      {/* 이름은 자르지 않는다 — 한 줄 전체 (채팅 시안 4판: 「거래 채팅」·「주문 채팅」 15px 굵게) */}
+      <span data-cm-list-title="" className="flex-1 whitespace-nowrap text-[15px] font-bold leading-tight">
         {copy.title}
       </span>
       {unread > 0 ? (
-        <span className="min-h-[18px] min-w-[18px] shrink-0 rounded-full bg-[color:var(--sm-color-danger)] px-1.5 text-center text-[10.5px] font-bold leading-[18px] text-white">
+        <span
+          data-cm-pillar-unread-badge=""
+          className="h-5 min-w-5 shrink-0 rounded-full bg-[color:var(--cm-chat-unread-bg)] px-1.5 text-center text-[11px] font-bold leading-5 text-white"
+        >
           {unread > 999 ? "999+" : unread}
         </span>
       ) : null}

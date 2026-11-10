@@ -276,9 +276,10 @@ describe("Trade T5 / CUT C / IME / BottomNav / highlight render locks", () => {
     expect(read("components/layout/RegionBarMainHubTier1.tsx")).not.toContain('domain: "trade"');
     expect(read("components/layout/RegionBarMainHubTier1.tsx")).toContain("buildTradeSearchEntryHref");
     expect(read("components/stores/home/hub/StoresConsumerHeaderActions.tsx")).toContain('domain: "delivery"');
-    expect(read("components/community-messenger/CommunityMessengerHome.tsx")).toContain('domain: "chat"');
+    /** 채팅 시안 4판 「8. 채팅 검색」: 채팅 돋보기는 채팅 안 검색 하위 화면 — 앱 전체 검색 진입이 아니다 */
+    expect(read("components/community-messenger/CommunityMessengerHome.tsx")).not.toContain('domain: "chat"');
     expect(read("components/community-messenger/CommunityMessengerHeaderActions.tsx")).toContain(
-      'data-global-search-open="chat"'
+      'data-cm-chat-search-open=""'
     );
     expect(isSearchableGlobalQuery("디바이")).toBe(true);
     expect(matchChatGlobalSearch({ title: "디바이", lastMessage: "" }, "디바이").matchedField).toBe("title");

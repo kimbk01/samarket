@@ -64,14 +64,14 @@ describe("messenger split left-pane contract (APK/iOS/Windows/tablet viewport SS
     expect(css).toContain("width: var(--cm-split-list-pane-width) !important");
   });
 
-  it("group create / settings / archive outer sheets share split-list class", () => {
+  it("group create outer sheet shares split-list class (보관함·채팅 설정은 시트가 아니라 하위 화면 — 채팅 시안 4판 「4」「7」)", () => {
     const home = read("components/community-messenger/CommunityMessengerHome.tsx");
-    const settings = read("components/community-messenger/MessengerSettingsSheet.tsx");
+    const settings = read("components/community-messenger/MessengerSettingsScreen.tsx");
     const archive = read("components/community-messenger/MessengerArchiveScreen.tsx");
     expect(home).toContain("MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS");
     expect(home).toContain('data-cm-group-create-outer-chrome=""');
-    expect(settings).toContain("MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS");
-    expect(archive).toContain("MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS");
+    expect(settings).not.toContain("MessengerHomeBottomSheetShell");
+    expect(archive).not.toContain("MessengerHomeBottomSheetShell");
   });
 
   it("wide room header safe-top override lives after fixed 48px lock (presentation)", () => {
@@ -84,11 +84,18 @@ describe("messenger split left-pane contract (APK/iOS/Windows/tablet viewport SS
   });
 
   it("trade/delivery pillar registers SplitTopBar chrome", () => {
-    const segment = read("components/community-messenger/MessengerPillarChatsSegment.tsx");
-    expect(segment).toContain("MessengerPillarSplitChrome");
+    /** 채팅 시안 4판: 머리글(분할 제목·뒤로 + 「모두 읽음」)은 안 읽은 방을 가진 목록 gate 가 등록 */
+    for (const gate of [
+      "components/community-messenger/domain-shell-canary/DomainTradeListCanaryGate.tsx",
+      "components/community-messenger/domain-shell-canary/DomainStoreOrderCustomerListCanaryGate.tsx",
+    ]) {
+      expect(read(gate)).toContain("useMessengerPillarHeaderChrome(");
+    }
     const chrome = read("components/community-messenger/MessengerPillarSplitChrome.tsx");
     expect(chrome).toContain("useRegisterMessengerSplitChrome");
     expect(chrome).toContain("nav_trade_chat_label");
-    expect(chrome).toContain("nav_chat_order_compact");
+    /** 「주문 채팅」(띄어 씀) — 모바일 1단 제목과 같은 키 */
+    expect(chrome).toContain("community_messenger_order_chats");
+    expect(chrome).not.toContain("nav_chat_order_compact");
   });
 });

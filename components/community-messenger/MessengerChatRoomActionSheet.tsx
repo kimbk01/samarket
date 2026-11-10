@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import type { MessengerChatListContext } from "@/lib/community-messenger/messenger-ia";
@@ -33,6 +34,15 @@ type Props = {
   onLeave?: () => void;
   onClearLocalPreview?: () => void;
   onReportRoom?: () => void;
+  /**
+   * 거래·주문 채팅 목록(채팅 시안 4판 「10-2」) — 줄 54 · 아이콘 칸 42 · 글자 16/600 (`data-cm-pillar-sheet`).
+   * 대화 목록 시트는 `default` 그대로.
+   */
+  pillar?: "trade" | "delivery" | null;
+  /** 주문 행 머리: 매장 사진 44 · 매장 이름 17/700 · 회색 「{상태} · {날짜}」 — 있으면 제목+X 머리 대신 */
+  pillarHeader?: { avatar: ReactNode; title: string; subtitle: string } | null;
+  /** 주문 행 「주문 내역 보기」 — 고객 주문 상세로 이동 */
+  onViewOrderDetail?: () => void;
 };
 
 /**
@@ -53,6 +63,9 @@ export function MessengerChatRoomActionSheet({
   onViewOpenChatInfo,
   onViewRelatedCommerce,
   onLeave,
+  pillar = null,
+  pillarHeader = null,
+  onViewOrderDetail,
 }: Props) {
   const { t } = useI18n();
   const room = item.room;
@@ -110,6 +123,17 @@ export function MessengerChatRoomActionSheet({
   const mainItems: DibayMenuItem[] = [
     { key: "enter", icon: <EnterIcon />, label: t("cm_ui_open_chat_room"), onClick: onEnterRoom, disabled: anyBusy },
     ...(contextualAction ? [{ key: "context", ...contextualAction }] : []),
+    ...(onViewOrderDetail
+      ? [
+          {
+            key: "order-detail",
+            icon: <CommerceIcon />,
+            label: t("cm_ui_room_action_view_order_history"),
+            onClick: onViewOrderDetail,
+            disabled: anyBusy,
+          },
+        ]
+      : []),
   ];
   const settingItems: DibayMenuItem[] = [
     {
@@ -154,14 +178,41 @@ export function MessengerChatRoomActionSheet({
     : [];
 
   /**
+   * 주문 행(채팅 시안 4판 10-2): 채팅방 열기 · 주문 내역 보기 · 알림 · 읽음 처리 한 묶음 → 간격 띠 → 빨간 나가기.
+   * 그 외(대화·거래 행): 기존 묶음 그대로.
+   */
+  const groups: DibayMenuItem[][] =
+    pillar === "delivery" ? [[...mainItems, ...settingItems], dangerItems] : [mainItems, settingItems, dangerItems];
+
+  /**
    * U-6 (1단계 문서 §13-2 S3): 셀 옆 드롭다운 대신 프로필 시트와 같은 하단 행동 메뉴 —
    * 머리(방 이름 + X) · 아이콘 왼쪽 · 묶음 간격 · 「나가기」는 마지막 묶음 빨간색.
    */
   return (
     <DibayBottomSheet open onClose={onClose} ariaLabel={t("cm_ui_chat_room_actions")}>
-      <div data-messenger-chat-sheet="true">
-        <DibaySheetHeader title={room.title} onClose={onClose} closeLabel={t("nav_close")} />
-        <DibayMenuList groups={[mainItems, settingItems, dangerItems]} />
+      <div data-messenger-chat-sheet="true" data-cm-pillar-sheet={pillar ?? undefined}>
+        {pillarHeader ? (
+          <div
+            className="-mx-4 flex items-center gap-3 border-b px-5 pb-3 pt-0.5"
+            style={{ borderColor: "var(--overlay-border)" }}
+            data-cm-pillar-sheet-header=""
+          >
+            <div className="shrink-0">{pillarHeader.avatar}</div>
+            <div className="min-w-0">
+              <p className="truncate text-[17px] font-bold leading-[1.3]" style={{ color: "var(--cm-chat-fg)" }}>
+                {pillarHeader.title}
+              </p>
+              {pillarHeader.subtitle ? (
+                <p className="truncate text-[12.5px] leading-[1.35]" style={{ color: "var(--cm-chat-sub)" }}>
+                  {pillarHeader.subtitle}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <DibaySheetHeader title={room.title} onClose={onClose} closeLabel={t("nav_close")} />
+        )}
+        <DibayMenuList groups={groups} />
       </div>
     </DibayBottomSheet>
   );

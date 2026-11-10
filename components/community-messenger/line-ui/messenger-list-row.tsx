@@ -18,6 +18,11 @@ type Props = {
    * (채팅 목록은 기본 `max-h` 밀도 유지)
    */
   centerWithAvatar?: boolean;
+  /**
+   * `chat` = 대화 목록 기본 행 (채팅 시안 4판 — 72px · 사진 48 둥근 사각 · 이름 16) →
+   * `data-cm-list-surface="chat"` (`app/messenger-presentation.css`). 생략 시 지금 밀도 그대로(친구 행 등).
+   */
+  surface?: "chat";
 };
 
 /**
@@ -32,6 +37,7 @@ export function MessengerListRow({
   avatarSlotClassName,
   trailingLayout = "top",
   centerWithAvatar = false,
+  surface,
 }: Props) {
   const trailingWrap =
     centerWithAvatar
@@ -50,7 +56,7 @@ export function MessengerListRow({
     avatarSlotClassName?.trim() ||
     "flex shrink-0 items-center justify-center overflow-hidden rounded-full";
   return (
-    <div className={rootClass} data-cm-messenger-list-row>
+    <div className={rootClass} data-cm-messenger-list-row data-cm-list-surface={surface}>
       <div className={avatarCellClass} data-cm-list-avatar-slot>
         {avatar}
       </div>

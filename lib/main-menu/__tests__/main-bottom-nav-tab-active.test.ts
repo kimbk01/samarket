@@ -48,3 +48,25 @@ describe("isMainBottomNavDisplayTabActive (delivery 5탭)", () => {
     expect(isMainBottomNavDisplayTabActive("/orders", orders, { secondaryRail: "trade" })).toBe(true);
   });
 });
+
+describe("isMainBottomNavDisplayTabActive (채팅 탭 · 채팅 시안 4판)", () => {
+  const chat = BOTTOM_NAV_ITEMS.find((t) => t.id === "chat")!;
+
+  it("채팅 홈 — 선택", () => {
+    expect(isMainBottomNavDisplayTabActive("/community-messenger", chat)).toBe(true);
+  });
+
+  it("거래 채팅·주문 채팅 목록은 채팅 탭의 하위 화면 — 「채팅」 탭 선택", () => {
+    expect(isMainBottomNavDisplayTabActive("/community-messenger/trade-chats", chat)).toBe(true);
+    expect(isMainBottomNavDisplayTabActive("/community-messenger/delivery-chats", chat)).toBe(true);
+  });
+
+  it("채팅방은 지금처럼 선택하지 않는다", () => {
+    expect(isMainBottomNavDisplayTabActive("/community-messenger/rooms/abc", chat)).toBe(false);
+  });
+
+  it("메신저 밖 경로는 선택하지 않는다", () => {
+    expect(isMainBottomNavDisplayTabActive("/market", chat)).toBe(false);
+    expect(isMainBottomNavDisplayTabActive("/community", chat)).toBe(false);
+  });
+});

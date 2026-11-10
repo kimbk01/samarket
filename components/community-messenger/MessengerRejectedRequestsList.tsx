@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
-import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/components/community-messenger/MessengerSheetUi";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { MESSENGER_ROW_BTN_OVERLAY_SECONDARY } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
@@ -18,7 +17,7 @@ export type MessengerRejectedRequest = {
   respondedAt: string | null;
 };
 
-/** §14-5: 내가 거절한 받은 친구 요청 목록 — 보관함 행 개수와 시트가 같은 목록을 쓴다. */
+/** §14-5: 내가 거절한 받은 친구 요청 목록 — 보관함 「거절한 요청」 줄 개수와 상세 목록이 같은 API 를 쓴다. */
 export function useMessengerRejectedRequests(enabled: boolean) {
   const [requests, setRequests] = useState<MessengerRejectedRequest[] | null>(null);
   const reload = useCallback(async () => {
@@ -37,19 +36,23 @@ export function useMessengerRejectedRequests(enabled: boolean) {
 }
 
 /**
- * 보관함 「거절한 요청」 시트 (S1) — 거절한 사람은 나에게 대화·통화·친구 요청 불가, 「해제」 하면 다시 가능.
+ * 보관함 「거절한 요청」 상세 목록 (S1) — 거절한 사람은 나에게 대화·통화·친구 요청 불가, 「해제」 하면 다시 가능.
+ * 채팅 시안 4판 (2026-11-10): 시트 대신 보관함 하위 화면(휴대폰)·오른쪽 상세(분할 화면) 본문. 내용·동작은 예전 시트와 같다.
  */
-export function MessengerRejectedRequestsSheet({
-  requests,
-  onClose,
+export function MessengerRejectedRequestsList({
   onReleased,
 }: {
-  requests: MessengerRejectedRequest[] | null;
-  onClose: () => void;
-  onReleased: (requestId: string) => void;
+  /** 해제된 요청 — 보관함 첫 화면 개수를 다시 맞춘다 */
+  onReleased?: (requestId: string) => void;
 }) {
+  const { requests, setRequests } = useMessengerRejectedRequests(true);
   const { t } = useI18n();
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  const released = (id: string) => {
+    setRequests((rows) => (rows ?? []).filter((r) => r.id !== id));
+    onReleased?.(id);
+  };
 
   const release = async (req: MessengerRejectedRequest) => {
     setBusyId(req.id);
@@ -62,13 +65,13 @@ export function MessengerRejectedRequestsSheet({
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
         if (json.error === "not_rejected") {
-          onReleased(req.id);
+          released(req.id);
           return;
         }
         showMessengerSnackbar(t("cm_friend_rejected_release_failed"), { variant: "error" });
         return;
       }
-      onReleased(req.id);
+      released(req.id);
       showMessengerSnackbar(t("cm_friend_rejected_released", { name: req.requesterLabel }), { variant: "default" });
     } catch {
       showMessengerSnackbar(t("cm_friend_rejected_release_failed"), { variant: "error" });
@@ -78,14 +81,8 @@ export function MessengerRejectedRequestsSheet({
   };
 
   return (
-    <MessengerHomeBottomSheetShell
-      onClose={onClose}
-      closeAriaLabel={t("nav_close")}
-      dialogAriaLabel={t("cm_friend_rejected_section")}
-      panelClassName="flex max-h-[min(78dvh,600px)] flex-col overflow-hidden"
-    >
-      <MessengerSheetHeaderBar title={t("cm_friend_rejected_section")} onClose={onClose} closeLabel={t("nav_close")} />
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,var(--safe-bottom))] pt-2">
+    <div data-cm-rejected-requests-list="">
+      <div className="px-4 pb-[max(1rem,var(--safe-bottom))] pt-2">
         <p className="pb-2 text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
           {t("cm_friend_rejected_section_hint")}
         </p>
@@ -133,6 +130,6 @@ export function MessengerRejectedRequestsSheet({
           </ul>
         )}
       </div>
-    </MessengerHomeBottomSheetShell>
+    </div>
   );
 }

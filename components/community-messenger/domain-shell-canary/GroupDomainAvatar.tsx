@@ -60,15 +60,19 @@ export function GroupDomainAvatar({
   className = "",
   fill = false,
   shape = "circle",
+  roundedClassName: roundedClassNameOverride,
 }: {
   imageUrl?: string | null;
   size?: number;
   className?: string;
   fill?: boolean;
   shape?: "circle" | "rounded-square";
+  /** 둥근 사각 반경을 화면별로 정할 때 (대화 목록 = 채팅 시안 4판 18px). 생략 시 shape 기본값 */
+  roundedClassName?: string;
 }) {
   const src = resolveGroupDomainImageSrc(imageUrl);
-  const roundedClassName = shape === "rounded-square" ? "rounded-[12px]" : "rounded-full";
+  const roundedClassName =
+    roundedClassNameOverride ?? (shape === "rounded-square" ? "rounded-[12px]" : "rounded-full");
   if (!src) {
     return (
       <div

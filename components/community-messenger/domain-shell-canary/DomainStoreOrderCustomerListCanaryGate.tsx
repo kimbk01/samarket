@@ -10,21 +10,34 @@ import {
 import { CommunityMessengerChatRow } from "@/components/community-messenger/chat-list/CommunityMessengerChatRow";
 import { MessengerChatRoomActionSheet } from "@/components/community-messenger/MessengerChatRoomActionSheet";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
-import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import { MessengerPillarLeaveConfirmSheet } from "@/components/community-messenger/MessengerPillarLeaveConfirmSheet";
+import { useMessengerPillarHeaderChrome } from "@/components/community-messenger/MessengerPillarSplitChrome";
+import { StoreProfileThumb } from "@/components/community-messenger/delivery-chat-list/StoreProfileThumb";
+import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
+import { DIBAY_SECONDARY_TAB_LABEL_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
 import { domainStoreOrderListRowToUnifiedItem } from "@/components/community-messenger/domain-shell-canary/domain-store-order-list-row-to-unified-item";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import {
-  buildCommunityMessengerMarkReadPatchBody,
-  communityMessengerMarkReadFetchInitBase,
-  parseCommunityMessengerMarkReadResponse,
-} from "@/lib/community-messenger/room/community-messenger-mark-read-fetch";
+  PILLAR_MARK_ALL_READ_BUSY_ID,
+  usePillarMarkAllRead,
+  usePillarRoomMarkRead,
+} from "@/lib/community-messenger/pillar-chat-list/use-pillar-mark-read";
+import {
+  customerStoreOrderDetailHref,
+  filterStoreOrderChatListByTab,
+  STORE_ORDER_CHAT_LIST_TABS,
+  type StoreOrderChatListTab,
+} from "@/lib/community-messenger/pillar-chat-list/pillar-chat-list-model";
+import { buildDeliveryChatListRowModel } from "@/lib/community-messenger/delivery-chat-list/view-model";
+import { formatChatListKakaoTime } from "@/lib/community-messenger/chat-list/chat-list-kakao-time";
+import { STORE_ORDER_DISPLAY_STORE_FALLBACK } from "@/lib/community-messenger/store-order-display-identity";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { leaveMessengerRoomFromHomeClient } from "@/lib/community-messenger/home/messenger-home-room-leave-client";
 import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
 import type { MessengerChatListContext } from "@/lib/community-messenger/messenger-ia";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { isStoreOrderBuyerHideAllowedStatus } from "@/lib/stores/store-order-process-model";
 import {
   fetchDomainListCanaryWithRetry,
   logDomainListCanaryLegacyFallback,
@@ -80,12 +93,8 @@ function DomainListRowSkeleton({ count = 6 }: { count?: number }) {
   return (
     <>
       {Array.from({ length: count }).map((_, i) => (
-        <div
-          key={i}
-          className="flex min-h-[68px] items-center gap-3 border-b border-sam-border px-3"
-          data-domain-list-row-skeleton="1"
-        >
-          <div className="h-12 w-12 shrink-0 rounded-full bg-sam-muted/20" />
+        <div key={i} className="flex h-[72px] items-center gap-3 px-4" data-domain-list-row-skeleton="1">
+          <div className="h-12 w-12 shrink-0 rounded-[var(--cm-chat-avatar-radius,18px)] bg-sam-muted/20" />
           <div className="min-w-0 flex-1 space-y-2">
             <div className="h-3 w-2/5 rounded bg-sam-muted/20" />
             <div className="h-3 w-3/5 rounded bg-sam-muted/15" />
@@ -102,13 +111,21 @@ function soCustomerListCacheLacksLifecycleFields(dto: SoCustomerListDto): boolea
 }
 
 const EMPTY_FRIEND_IDS = new Set<string>();
-const MARK_ALL_READ_CONCURRENCY = 4;
 const noopRoomAction = () => {};
+
+/** 주문 채팅 목록 탭 이름 — 전체 · 진행 중 · 지난 주문 (채팅 시안 4판 「10」) */
+const ORDER_TAB_LABEL_KEYS: Record<StoreOrderChatListTab, MessageKey> = {
+  all: "common_all",
+  live: "cm_ui_order_chats_in_progress",
+  past: "cm_pillar_order_tab_past",
+};
 
 /**
  * Store Order Customer List — Domain Facts only. Production surface (no Legacy home).
  * 2026-11-10 (Owner 「1단계 구현」): 거래 목록과 같은 공용 행(MessengerChatListItem `listVisual="delivery"`)으로
  * 밀기 [읽음][나가기]·길게 누르기 메뉴·「모두 읽음」. 나가기는 주문 상태와 무관하게 허용(Owner 「주문은 지워도 상관 없다」).
+ * 채팅 시안 4판 「10」: 본문 제목·안 읽음 줄 없음 → 머리글(공통 하위 머리글)에 「모두 읽음」, 둘째 줄 = 밑줄 탭
+ * 전체 · 진행 중 · 지난 주문 (「지난 주문 N · 접기」 줄 대신).
  */
 export function DomainStoreOrderCustomerListCanaryGate({
   tabletSplitListOnly,
@@ -252,7 +269,6 @@ export function DomainStoreOrderCustomerListCanaryGate({
     };
   }, [softFail]);
 
-  const title = translateBy(language, "community_messenger_order_chats");
   const unreadRoomCount = dto?.hub.unreadRoomCount ?? 0;
   const viewerUserIdForRows = dto?.viewerUserId ?? "";
 
@@ -261,59 +277,26 @@ export function DomainStoreOrderCustomerListCanaryGate({
     [dto, viewerUserIdForRows]
   );
   /**
-   * 시안 3판(Owner 2026-11-10): 진행 중 주문이 위, 끝난 주문(완료·취소·환불)은 「지난 주문」 접힘 묶음.
-   * 상태를 모르는 행(옛 캐시)은 진행 중 쪽에 둔다 — 숨기지 않는다.
+   * 채팅 시안 4판 「10」 탭: 진행 중 = 끝나지 않은 주문 · 지난 주문 = 완료·취소·환불(`isStoreOrderBuyerHideAllowedStatus`).
+   * 상태를 모르는 행(옛 캐시)은 진행 중으로 센다 — 숨기지 않는다.
    */
-  const { liveItems, pastItems } = useMemo(() => {
-    const live: UnifiedRoomListItem[] = [];
-    const past: UnifiedRoomListItem[] = [];
-    for (const item of unifiedItems) {
-      const status = item.room.contextMeta?.orderStatus?.trim() ?? "";
-      if (status && isStoreOrderBuyerHideAllowedStatus(status)) past.push(item);
-      else live.push(item);
-    }
-    return { liveItems: live, pastItems: past };
-  }, [unifiedItems]);
-  const [pastFolded, setPastFolded] = useState(false);
+  const [orderTab, setOrderTab] = useState<StoreOrderChatListTab>("all");
+  const visibleItems = useMemo(
+    () => filterStoreOrderChatListByTab(unifiedItems, orderTab, (item) => item.room.contextMeta?.orderStatus),
+    [orderTab, unifiedItems]
+  );
 
   const resolveViewerUserId = useCallback(
     () => getSyncViewerUserIdForClient() ?? dto?.viewerUserId ?? "",
     [dto?.viewerUserId]
   );
 
-  /** 방 하나 읽음 — 낙관적 0 반영, 실패 시 되돌림. 성공 여부를 돌려준다. */
-  const markRoomReadById = useCallback(
-    async (roomId: string, preUnread: number): Promise<boolean> => {
-      const viewerUserId = resolveViewerUserId();
-      if (viewerUserId) applyDomainStoreOrderListReadPatch({ viewerUserId, roomId });
-      const restore = () => {
-        if (viewerUserId && preUnread > 0) {
-          applyDomainStoreOrderListUnreadOnlyPatch({
-            viewerUserId,
-            roomId,
-            unreadCount: preUnread,
-            mutationType: "PARTICIPANT_UNREAD",
-          });
-        }
-      };
-      try {
-        const res = await fetch(communityMessengerRoomResourcePath(roomId), {
-          ...communityMessengerMarkReadFetchInitBase,
-          body: JSON.stringify(buildCommunityMessengerMarkReadPatchBody()),
-        });
-        const parsed = await parseCommunityMessengerMarkReadResponse(res);
-        if (!parsed.okHttp || parsed.json.ok !== true) {
-          restore();
-          return false;
-        }
-        return true;
-      } catch {
-        restore();
-        return false;
-      }
-    },
-    [resolveViewerUserId]
-  );
+  /** 방 하나 읽음 — 낙관적 0 반영, 실패 시 되돌림 (거래 채팅 목록과 같은 훅) */
+  const markRoomReadById = usePillarRoomMarkRead({
+    resolveViewerUserId,
+    applyReadPatch: applyDomainStoreOrderListReadPatch,
+    applyUnreadRestorePatch: applyDomainStoreOrderListUnreadOnlyPatch,
+  });
 
   const markRoomRead = useCallback(
     async (room: CommunityMessengerRoomSummary) => {
@@ -331,23 +314,22 @@ export function DomainStoreOrderCustomerListCanaryGate({
     [markRoomReadById, t]
   );
 
-  const markAllRead = useCallback(async () => {
-    const targets = (dto?.rows ?? []).filter((r) => r.unreadCount > 0);
-    if (targets.length === 0) return;
-    setBusyId("read:all");
-    setActionError(null);
-    let failed = 0;
-    try {
-      for (let i = 0; i < targets.length; i += MARK_ALL_READ_CONCURRENCY) {
-        const chunk = targets.slice(i, i + MARK_ALL_READ_CONCURRENCY);
-        const results = await Promise.all(chunk.map((r) => markRoomReadById(r.roomId, r.unreadCount)));
-        failed += results.filter((ok) => !ok).length;
-      }
-      if (failed > 0) setActionError(t("cm_ui_order_chat_mark_all_read_failed"));
-    } finally {
-      setBusyId(null);
-    }
-  }, [dto?.rows, markRoomReadById, t]);
+  /** 머리글 「모두 읽음」 — 안 읽은 방만 동시 4개씩 (거래 채팅 목록과 같은 훅) */
+  const markAllRead = usePillarMarkAllRead({
+    rows: dto?.rows,
+    markRoomReadById,
+    setBusyId,
+    setActionError,
+    failureMessage: t("cm_ui_order_chat_mark_all_read_failed"),
+  });
+  const onHeaderMarkAll = useCallback(() => {
+    void markAllRead();
+  }, [markAllRead]);
+  useMessengerPillarHeaderChrome("delivery", {
+    canMarkAll: unreadRoomCount > 0,
+    busy: busyId === PILLAR_MARK_ALL_READ_BUSY_ID,
+    onMarkAll: onHeaderMarkAll,
+  });
 
   const toggleMute = useCallback(
     async (room: CommunityMessengerRoomSummary) => {
@@ -414,19 +396,68 @@ export function DomainStoreOrderCustomerListCanaryGate({
     []
   );
 
+  /** 길게 누르기 메뉴 머리(시안 10-2): 매장 사진 44 · 매장 이름 · 「{상태} · {날짜}」 — 상태 이름은 화면 언어로 */
+  const sheetItem = roomActionSheet?.item ?? null;
+  const sheetHeader = useMemo(() => {
+    if (!sheetItem) return null;
+    const model = buildDeliveryChatListRowModel(sheetItem.room, t, language);
+    const storeName = model?.storeName?.trim() || STORE_ORDER_DISPLAY_STORE_FALLBACK;
+    const date = formatChatListKakaoTime(sheetItem.lastEventAt, t);
+    const status = model?.statusChip?.label ?? "";
+    return {
+      avatar: (
+        <StoreProfileThumb
+          src={model?.storeThumbnailUrl}
+          storeId={model?.storeId}
+          storeName={storeName}
+          variant="sheet"
+        />
+      ),
+      title: storeName,
+      subtitle: status && date ? t("cm_pillar_sheet_status_date", { status, date }) : status || date,
+    };
+  }, [language, sheetItem, t]);
+
+  const tabRow = (
+    <DibaySecondaryTabRow
+      data-cm-messenger-pillar-tabs=""
+      data-dibay-tab-align="start"
+      bordered
+      trackAriaLabel={t("cm_pillar_order_tabs_aria")}
+    >
+      {STORE_ORDER_CHAT_LIST_TABS.map((tab) => {
+        const active = orderTab === tab;
+        return (
+          <button
+            key={tab}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            data-active={active ? "true" : "false"}
+            data-domain-so-tab={tab}
+            className={dibaySecondaryTabClass(active)}
+            onClick={() => {
+              setOpenedSwipeItemId(null);
+              setOrderTab(tab);
+            }}
+          >
+            <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{t(ORDER_TAB_LABEL_KEYS[tab])}</span>
+          </button>
+        );
+      })}
+    </DibaySecondaryTabRow>
+  );
+
   if (mode === "loading" && !dto) {
     return (
       <div
-        className="flex h-full min-h-0 flex-col bg-sam-app"
+        className="flex h-full min-h-0 flex-col bg-white"
         data-domain-so-customer-list="loading"
         data-domain-list-mode="domain"
+        data-cm-pillar-screen="delivery"
         data-tablet-split={tabletSplitListOnly ? "1" : "0"}
       >
-        {!tabletSplitListOnly ? (
-          <div className="border-b border-sam-border px-4 py-3">
-            <div className="text-base font-semibold text-sam-fg">{title}</div>
-          </div>
-        ) : null}
+        {tabRow}
         <div
           className={`min-h-0 flex-1 overflow-y-auto ${listScrollInsetClass}`}
           data-messenger-hub-list-scroll=""
@@ -441,16 +472,12 @@ export function DomainStoreOrderCustomerListCanaryGate({
   if ((mode === "error" && !dto) || (!dto && mode !== "loading")) {
     return (
       <div
-        className="flex h-full min-h-0 flex-col bg-sam-app"
+        className="flex h-full min-h-0 flex-col bg-white"
         data-domain-so-customer-list="error"
         data-domain-list-mode="domain"
+        data-cm-pillar-screen="delivery"
       >
         {reason ? <div className="sr-only" data-domain-so-customer-error={reason} /> : null}
-        {!tabletSplitListOnly ? (
-          <div className="border-b border-sam-border px-4 py-3">
-            <div className="text-base font-semibold text-sam-fg">{title}</div>
-          </div>
-        ) : null}
         <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 px-4 text-sm text-sam-muted">
           <p>{translateBy(language, "community_messenger_couldn_t_load_order_chats")}</p>
           <button
@@ -471,72 +498,25 @@ export function DomainStoreOrderCustomerListCanaryGate({
 
   if (!dto) return null;
 
-  const renderOrderRow = (item: UnifiedRoomListItem) => (
-    <CommunityMessengerChatRow
-      key={item.room.id}
-      item={item}
-      viewerUserId={dto.viewerUserId}
-      favoriteFriendIds={EMPTY_FRIEND_IDS}
-      busyId={busyId}
-      onTogglePin={noopRoomAction}
-      onToggleMute={(room) => void toggleMute(room)}
-      onMarkRead={(room) => void markRoomRead(room)}
-      onToggleArchive={noopRoomAction}
-      onLeaveRoom={requestLeave}
-      onOpenRoomActions={handleOpenRoomActions}
-      listContext="default"
-      openedSwipeItemId={openedSwipeItemId}
-      onOpenSwipeItem={setOpenedSwipeItemId}
-      listVisual="delivery"
-    />
-  );
-  const markAllBusy = busyId === "read:all";
-  const markAllButton =
-    unreadRoomCount > 0 ? (
-      <button
-        type="button"
-        className="shrink-0 text-xs font-semibold text-sam-primary disabled:opacity-50"
-        disabled={Boolean(busyId)}
-        onClick={() => void markAllRead()}
-        data-domain-so-mark-all-read=""
-      >
-        {t("common_mark_all_read")}
-      </button>
-    ) : null;
   const sheetRoom = roomActionSheet?.item.room ?? null;
+  const sheetOrderDetailHref = customerStoreOrderDetailHref(sheetRoom?.contextMeta?.storeOrderId);
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col bg-sam-app"
+      className="flex h-full min-h-0 flex-col bg-white"
       data-domain-so-customer-list="1"
       data-domain-list-mode="domain"
       data-domain-so-list-swipe="canonical"
       data-domain-unread-rooms={String(unreadRoomCount)}
+      data-domain-so-tab-active={orderTab}
+      data-cm-pillar-screen="delivery"
       data-tablet-split={tabletSplitListOnly ? "1" : "0"}
-      aria-busy={markAllBusy || undefined}
+      aria-busy={busyId === PILLAR_MARK_ALL_READ_BUSY_ID || undefined}
     >
-      {!tabletSplitListOnly || markAllButton || actionError ? (
-        <div className="border-b border-sam-border px-4 py-3">
-          <div className="flex items-center gap-2">
-            {!tabletSplitListOnly ? (
-              <div className="min-w-0 flex-1">
-                <div className="text-base font-semibold text-sam-fg">{title}</div>
-                {unreadRoomCount > 0 ? (
-                  <div className="text-xs text-sam-muted">
-                    {translateBy(language, "community_messenger_unreadroomcount_unread", { unreadRoomCount })}
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <div className="min-w-0 flex-1" />
-            )}
-            {markAllButton}
-          </div>
-          {actionError ? (
-            <div className="mt-2 text-xs text-sam-danger" data-domain-so-action-error="1">
-              {actionError}
-            </div>
-          ) : null}
+      {tabRow}
+      {actionError ? (
+        <div className="px-4 py-2 text-xs text-sam-danger" data-domain-so-action-error="1">
+          {actionError}
         </div>
       ) : null}
       <div
@@ -551,28 +531,28 @@ export function DomainStoreOrderCustomerListCanaryGate({
           closeOpenedSwipe();
         }}
       >
-        {unifiedItems.length === 0 ? (
+        {visibleItems.length === 0 ? (
           <p className="px-4 py-10 text-center text-sm text-sam-muted">{t("nav_chat_order_empty")}</p>
         ) : null}
-        {liveItems.length > 0 && pastItems.length > 0 ? (
-          <p className="px-4 pb-1 pt-3 text-xs font-bold text-sam-muted" data-domain-so-section="live">
-            {t("cm_ui_order_chats_in_progress")}
-          </p>
-        ) : null}
-        {liveItems.map(renderOrderRow)}
-        {pastItems.length > 0 ? (
-          <button
-            type="button"
-            className="flex w-full items-center justify-between border-y border-sam-border bg-sam-surface-muted px-4 py-2.5 text-left text-xs text-sam-muted"
-            aria-expanded={!pastFolded}
-            onClick={() => setPastFolded((v) => !v)}
-            data-domain-so-section="past"
-          >
-            <span className="font-bold text-sam-fg">{t("cm_ui_order_chats_past", { count: pastItems.length })}</span>
-            <span>{pastFolded ? t("cm_ui_section_unfold") : t("cm_ui_section_fold")}</span>
-          </button>
-        ) : null}
-        {pastFolded ? null : pastItems.map(renderOrderRow)}
+        {visibleItems.map((item) => (
+          <CommunityMessengerChatRow
+            key={item.room.id}
+            item={item}
+            viewerUserId={dto.viewerUserId}
+            favoriteFriendIds={EMPTY_FRIEND_IDS}
+            busyId={busyId}
+            onTogglePin={noopRoomAction}
+            onToggleMute={(room) => void toggleMute(room)}
+            onMarkRead={(room) => void markRoomRead(room)}
+            onToggleArchive={noopRoomAction}
+            onLeaveRoom={requestLeave}
+            onOpenRoomActions={handleOpenRoomActions}
+            listContext="default"
+            openedSwipeItemId={openedSwipeItemId}
+            onOpenSwipeItem={setOpenedSwipeItemId}
+            listVisual="delivery"
+          />
+        ))}
       </div>
 
       {roomActionSheet && sheetRoom ? (
@@ -581,6 +561,8 @@ export function DomainStoreOrderCustomerListCanaryGate({
           listContext={roomActionSheet.listContext}
           anchorRect={roomActionSheet.anchorRect}
           busyId={busyId}
+          pillar="delivery"
+          pillarHeader={sheetHeader}
           onClose={() => setRoomActionSheet(null)}
           onEnterRoom={() => {
             setRoomActionSheet(null);
@@ -593,6 +575,14 @@ export function DomainStoreOrderCustomerListCanaryGate({
               roomForPrime: sheetRoom,
             });
           }}
+          onViewOrderDetail={
+            sheetOrderDetailHref
+              ? () => {
+                  setRoomActionSheet(null);
+                  router.push(sheetOrderDetailHref);
+                }
+              : undefined
+          }
           onToggleMute={() => {
             setRoomActionSheet(null);
             void toggleMute(sheetRoom);
@@ -609,20 +599,14 @@ export function DomainStoreOrderCustomerListCanaryGate({
       ) : null}
 
       {leaveConfirmRoom ? (
-        <MobileConfirmBottomSheet
-          open
-          onCancel={() => setLeaveConfirmRoom(null)}
-          title={t("popup_chat_room_leave_title")}
+        <MessengerPillarLeaveConfirmSheet
+          title={t("cm_pillar_leave_confirm_title")}
           description={t("cm_ui_leave_confirm_delivery")}
-          cancelLabel={t("common_cancel")}
-          confirmLabel={t("popup_cta_leave")}
-          confirmTone="danger"
+          busy={busyId === `leave:${leaveConfirmRoom.id.trim()}`}
+          onCancel={() => setLeaveConfirmRoom(null)}
           onConfirm={() => {
             void executeLeave();
           }}
-          zIndexClass="z-[70]"
-          ariaLabel={t("cm_ui_leave_confirm_aria")}
-          interactionMode="blocking"
         />
       ) : null}
     </div>

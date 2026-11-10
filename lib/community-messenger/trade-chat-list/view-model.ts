@@ -29,6 +29,10 @@ import type {
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
+import {
+  tradeChatStatusChipTone,
+  type PillarChatStatusChipTone,
+} from "@/lib/community-messenger/pillar-chat-list/pillar-chat-list-model";
 
 let tradeChatListDevMissingPostIdWarned = false;
 let tradeChatListDebugInfoOnce = false;
@@ -55,6 +59,12 @@ export type TradeChatListRowModel = {
   statusBadgeClassName: string;
   /** D-4: 숨김·삭제된 글(판매자 본인 제외) — 제목·가격·사진 대신 「볼 수 없는 글이에요」 */
   productUnavailable: boolean;
+  /**
+   * 1줄 상태 칩 (채팅 시안 4판 「9」) — 판매 단계(판매중·문의중 초록 · 예약중 노랑 · 판매완료 회색).
+   * 볼 수 없는 글: 구매자 쪽은 제목이 이미 「볼 수 없는 글이에요」라 판매 단계를 알 때(판매완료 등)만 칩,
+   * 판매자 본인은 자기 글이 숨김·삭제임을 회색 「볼 수 없는 글」 칩으로 본다.
+   */
+  statusChip: { label: string; tone: PillarChatStatusChipTone } | null;
 };
 
 export function resolveTradeChatListThumbnailDisplayUrl(raw: string | null | undefined): string | null {
@@ -224,6 +234,18 @@ export function buildTradeChatListRowModel(
   const statusTone = listingStateToStatusTone(listingState);
   /** D-4: 판매자 본인은 자기 글을 그대로 본다(목록 카드와 같은 규칙). 채팅 기록은 그대로 둔다 */
   const productUnavailable = unavailable && viewerRole !== "seller";
+  const listingChip = {
+    label: tradeChatListStatusBadgePresentation(listingState, t).label,
+    tone: tradeChatStatusChipTone(listingState),
+  };
+  /** 숨김·삭제 글은 판매 단계 해석이 기본값(판매중)으로 떨어진다 — 그때는 판매 단계를 모르는 것으로 본다 */
+  const statusChip: TradeChatListRowModel["statusChip"] = !unavailable
+    ? listingChip
+    : productUnavailable
+      ? listingState === "inquiry"
+        ? null
+        : listingChip
+      : { label: statusBadge.label, tone: "muted" };
 
   return {
     categoryChipLabel,
@@ -241,6 +263,7 @@ export function buildTradeChatListRowModel(
     statusTone,
     statusBadgeClassName: statusBadge.className,
     productUnavailable,
+    statusChip,
   };
 }
 

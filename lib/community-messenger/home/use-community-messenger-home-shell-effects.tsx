@@ -34,6 +34,12 @@ import {
 } from "@/lib/community-messenger/messenger-ia";
 import { shouldApplyMessengerUrlSectionSync } from "@/lib/community-messenger/messenger-home-section-slide";
 import {
+  isMessengerHomeSubScreenSearch,
+  messengerSubScreenBackHref,
+  messengerSubScreenTitleKey,
+  parseMessengerSubScreen,
+} from "@/lib/community-messenger/messenger-sub-screen-route";
+import {
   inferMessengerEntryOriginFromReferrer,
   parseMessengerEntryOrigin,
   resolveMessengerHomeTier1BackHref,
@@ -68,7 +74,10 @@ type Args = {
   setRecentSearches: Dispatch<SetStateAction<string[]>>;
   recentSearches: string[];
   setDismissedNotificationIds: Dispatch<SetStateAction<string[]>>;
-  openSettingsSheet: () => void;
+  /** 옛 주소 `?tab=settings` — 채팅 설정 하위 화면으로 바꿔 연다 */
+  openSettingsScreen: (mode: "replace") => void;
+  /** 채팅 하위 화면(친구 고르기 등) 머리글 오른쪽 — 그룹 대화 「고른 수」 */
+  subScreenRightSlot?: ReactNode;
   setMainSection: Dispatch<SetStateAction<MessengerMainSection>>;
   setChatInboxFilter: Dispatch<SetStateAction<MessengerChatInboxFilter>>;
   setChatKindFilter: Dispatch<SetStateAction<MessengerChatKindFilter>>;
@@ -102,7 +111,8 @@ export function useCommunityMessengerHomeShellEffects({
   setRecentSearches,
   recentSearches,
   setDismissedNotificationIds,
-  openSettingsSheet,
+  openSettingsScreen,
+  subScreenRightSlot = null,
   setMainSection,
   setChatInboxFilter,
   setChatKindFilter,
@@ -195,12 +205,8 @@ export function useCommunityMessengerHomeShellEffects({
     if (fromPhilifeHeaderStack || pillar != null) return;
     const preserveFrom = fromParam ? `&from=${encodeURIComponent(fromParam)}` : "";
     if (activeTab === "settings") {
-      openSettingsSheet();
-      guardedRouterReplace(router, `${sectionUrlBasePath}?section=chats${preserveFrom}`, {
-        source: "messenger-home-shell",
-        reason: "legacy_tab_settings",
-        scroll: false,
-      });
+      /** 채팅 설정은 시트가 아니라 하위 화면 (채팅 시안 4판 「7. 채팅 설정」) — 옛 주소는 설정 화면 주소로 바꾼다 */
+      openSettingsScreen("replace");
       return;
     }
     if (activeTab === "friends") {
@@ -266,7 +272,7 @@ export function useCommunityMessengerHomeShellEffects({
     activeTab,
     fromParam,
     fromPhilifeHeaderStack,
-    openSettingsSheet,
+    openSettingsScreen,
     pendingUserSectionRef,
     pillar,
     router,
@@ -323,9 +329,10 @@ export function useCommunityMessengerHomeShellEffects({
     if (fromUrl) persistMessengerEntryOrigin(fromUrl);
     const resolvedOrigin: MessengerEntryOrigin = fromUrl ?? readStoredMessengerEntryOrigin();
 
+    /** 모바일 1단 제목 — `resolve-main-tier1` 첫 프레임 제목과 같은 키 (주문 = 「주문 채팅」, 채팅 시안 4판) */
     const titleText =
       pillar === "trade" ? "nav_trade_chat_label"
-      : pillar === "delivery" ? "nav_chat_order_compact"
+      : pillar === "delivery" ? "community_messenger_order_chats"
       : messengerSectionLabel(mainSection);
     const backHref = resolveMessengerHomeTier1BackHref({
       pillar: pillar ?? null,
@@ -340,19 +347,33 @@ export function useCommunityMessengerHomeShellEffects({
       return () => setMainTier1Extras(null);
     }
 
-    const nextExtras: MainTier1ExtrasState = {
-      tier1: {
-        rightSlot: headerActionsNode,
-        titleText,
-        subtitle: "",
-        hideTier1BottomBorder: true,
-        alignTier1TitleStart: true,
-        hideBack: hideSectionBack,
-        backHref: hideSectionBack ? undefined : backHref,
-        preferHistoryBack: false,
-      },
-      stickyBelow: !fromPhilifeHeaderStack ? <MessengerPullRefreshStickyBelow /> : undefined,
-    };
+    /**
+     * 보관함(`?section=archive`) = 공통 하위 화면 머리글 — 제목·뒤로는 `resolve-main-tier1`(주소) 값 그대로.
+     * 허브 오른쪽 아이콘·뒤로 숨김을 덮어쓰지 않는다 (채팅 시안 4판 「4. 보관함」: 오른쪽 동작 없음).
+     */
+    const archiveSubScreen = pillar == null && isMessengerHomeSubScreenSearch(queryString);
+    const nextExtras: MainTier1ExtrasState = archiveSubScreen
+      ? {
+          /** 친구 고르기(그룹) 오른쪽 「고른 수」 — 나머지 하위 화면은 오른쪽 동작 없음 */
+          tier1:
+            subScreenRightSlot != null
+              ? { hideTier1BottomBorder: true, rightSlot: subScreenRightSlot }
+              : { hideTier1BottomBorder: true },
+          stickyBelow: !fromPhilifeHeaderStack ? <MessengerPullRefreshStickyBelow /> : undefined,
+        }
+      : {
+          tier1: {
+            rightSlot: headerActionsNode,
+            titleText,
+            subtitle: "",
+            hideTier1BottomBorder: true,
+            alignTier1TitleStart: true,
+            hideBack: hideSectionBack,
+            backHref: hideSectionBack ? undefined : backHref,
+            preferHistoryBack: false,
+          },
+          stickyBelow: !fromPhilifeHeaderStack ? <MessengerPullRefreshStickyBelow /> : undefined,
+        };
     const prevRegistered = lastRegisteredTier1ExtrasRef.current;
     if (prevRegistered == null || !sameMainTier1ExtrasState(prevRegistered, nextExtras)) {
       lastRegisteredTier1ExtrasRef.current = nextExtras;
@@ -371,14 +392,23 @@ export function useCommunityMessengerHomeShellEffects({
     fromParam,
     isMessengerSplit,
     isMessengerHubRoute,
+    queryString,
+    subScreenRightSlot,
   ]);
 
+  /**
+   * 분할 화면(≥768)은 1단 머리글 대신 분할 머리글 — 친구 고르기·채팅 설정·채팅 검색은 같은 제목 + 뒤로(설정 상세 = 설정 첫 화면, 나머지 = 대화 탭).
+   */
+  const splitSubScreen = pillar == null && isMessengerHubRoute ? parseMessengerSubScreen(queryString) : null;
   const splitTitleText =
     pillar === "trade"
       ? resolveTier1BarLabel(t, tt, "nav_trade_chat_label") ?? ""
       : pillar === "delivery"
-        ? resolveTier1BarLabel(t, tt, "nav_chat_order_compact") ?? ""
-        : messengerSectionLabel(mainSection);
+        ? /** 채팅 시안 4판 — 「주문 채팅」(띄어 씀), 모바일 1단 제목과 같은 키 */
+          resolveTier1BarLabel(t, tt, "community_messenger_order_chats") ?? ""
+        : splitSubScreen
+          ? t(messengerSubScreenTitleKey(splitSubScreen))
+          : messengerSectionLabel(mainSection);
   const splitBackHref =
     pillar != null
       ? resolveMessengerHomeTier1BackHref({
@@ -386,14 +416,16 @@ export function useCommunityMessengerHomeShellEffects({
           mainSection,
           origin: parseMessengerEntryOrigin(fromParam || null) ?? readStoredMessengerEntryOrigin(),
         })
-      : undefined;
+      : splitSubScreen
+        ? messengerSubScreenBackHref(splitSubScreen, fromParam || null)
+        : undefined;
 
   useRegisterMessengerSplitChrome(
     !fromPhilifeHeaderStack && isMessengerSplit,
     splitTitleText,
-    pillar != null,
+    pillar != null || splitSubScreen != null,
     splitBackHref,
-    roomIdFromPath ? null : headerActionsNode
+    roomIdFromPath ? null : splitSubScreen ? subScreenRightSlot : headerActionsNode
   );
 
   useEffect(() => {

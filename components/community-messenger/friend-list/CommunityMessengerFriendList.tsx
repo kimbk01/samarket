@@ -2,7 +2,8 @@
 
 import { presentFriendListRow } from "@/lib/community-messenger/friend-list/friend-relation-presenter";
 import { sortFriendListRows } from "@/lib/community-messenger/friend-list/friend-list-sorter";
-import { partitionMessengerFriendsByNew } from "@/lib/community-messenger/messenger-new-friend-window";
+import type { ReactNode } from "react";
+import { selectMessengerHomeNewFriends } from "@/lib/community-messenger/messenger-new-friend-window";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 import { CommunityMessengerFriendRow } from "@/components/community-messenger/friend-list/CommunityMessengerFriendRow";
 import { CommunityMessengerFriendSection } from "@/components/community-messenger/friend-list/CommunityMessengerFriendSection";
@@ -19,6 +20,8 @@ type Props = {
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
   onOpenChat: (userId: string) => void;
   onOpenFriendQuickMenu: (userId: string) => void;
+  /** 내 프로필 줄 바로 아래 (받은 친구 요청 묶음) */
+  afterMyProfile?: ReactNode;
 };
 
 export function CommunityMessengerFriendList({
@@ -32,11 +35,16 @@ export function CommunityMessengerFriendList({
   onOpenProfile,
   onOpenChat,
   onOpenFriendQuickMenu,
+  afterMyProfile = null,
 }: Props) {
   const viewerId = me?.id ?? "";
-  const { newFriends, regularFriends } = partitionMessengerFriendsByNew(sortedFriends, friendListEpochMs);
-  const favorites = regularFriends.filter((f) => favoriteFriendIds.has(f.id) || f.isFavoriteFriend);
-  const normals = regularFriends.filter((f) => !favoriteFriendIds.has(f.id) && !f.isFavoriteFriend);
+  /**
+   * 채팅 시안 4판 「2. 친구 탭」: 「새 친구」 = 최근 7일 안에 친구가 된 사람(최근 순) — 이 사람들도 아래 즐겨찾기·「친구」 목록에 그대로 남는다.
+   * 즐겨찾기 묶음·「친구」(즐겨찾기 아닌 친구) 나눔은 예전과 같다.
+   */
+  const newFriends = selectMessengerHomeNewFriends(sortedFriends, friendListEpochMs);
+  const favorites = sortedFriends.filter((f) => favoriteFriendIds.has(f.id) || f.isFavoriteFriend);
+  const normals = sortedFriends.filter((f) => !favoriteFriendIds.has(f.id) && !f.isFavoriteFriend);
 
   const toRow = (profile: CommunityMessengerProfileLite) =>
     presentFriendListRow({
@@ -49,27 +57,41 @@ export function CommunityMessengerFriendList({
       nowMs: friendListEpochMs,
     });
 
+  const renderRow = (row: ReturnType<typeof toRow>) => (
+    <CommunityMessengerFriendRow
+      key={row.profileId}
+      row={row}
+      onPress={() => onOpenChat(row.profileId)}
+      onLongPress={() => onOpenFriendQuickMenu(row.profileId)}
+    />
+  );
   const renderRows = (profiles: CommunityMessengerProfileLite[]) =>
-    sortFriendListRows(profiles.map((p) => toRow(p))).map((row) => (
-      <CommunityMessengerFriendRow
-        key={row.profileId}
-        row={row}
-        onPress={() => onOpenChat(row.profileId)}
-        onLongPress={() => onOpenFriendQuickMenu(row.profileId)}
-      />
-    ));
+    sortFriendListRows(profiles.map((p) => toRow(p))).map(renderRow);
 
   return (
     <div>
       {me ? <MessengerFriendsMyProfileStrip me={me} /> : null}
-      {favorites.length ? (
-        <CommunityMessengerFriendSection titleKey="cm_friend_section_favorites" count={favorites.length}>{renderRows(favorites)}</CommunityMessengerFriendSection>
-      ) : null}
+      {afterMyProfile}
       {newFriends.length ? (
-        <CommunityMessengerFriendSection titleKey="cm_friend_section_new" count={newFriends.length}>{renderRows(newFriends)}</CommunityMessengerFriendSection>
+        <CommunityMessengerFriendSection
+          titleKey="cm_friend_section_new"
+          count={newFriends.length}
+          rightKey="cm_friend_section_new_window"
+          sectionId="new"
+        >
+          {/* 최근 친구가 된 순서 그대로 (정렬하지 않음) */}
+          {newFriends.map((p) => renderRow(toRow(p)))}
+        </CommunityMessengerFriendSection>
+      ) : null}
+      {favorites.length ? (
+        <CommunityMessengerFriendSection titleKey="cm_friend_section_favorites" count={favorites.length} sectionId="favorites">
+          {renderRows(favorites)}
+        </CommunityMessengerFriendSection>
       ) : null}
       {normals.length ? (
-        <CommunityMessengerFriendSection titleKey="cm_friend_section_friends" count={normals.length}>{renderRows(normals)}</CommunityMessengerFriendSection>
+        <CommunityMessengerFriendSection titleKey="cm_friend_section_friends" count={normals.length} sectionId="friends">
+          {renderRows(normals)}
+        </CommunityMessengerFriendSection>
       ) : null}
     </div>
   );

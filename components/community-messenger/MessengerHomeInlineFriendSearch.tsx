@@ -146,9 +146,11 @@ export function MessengerHomeInlineFriendSearch({ busyId, onSelectUser, trailing
     <div ref={rootRef} className={`relative ${showResults ? "z-30" : ""}`} data-cm-inline-friend-search="">
       <div className="flex items-center gap-2">
         <label className="relative flex min-w-0 flex-1 items-center">
+          {/* 채팅 시안 4판 「2. 친구 탭」: 돋보기 20px + 「@아이디로 친구 찾기」 · 칸 높이 38 · 둥글기 10 · 연회색 칸(테두리 없음) */}
           <Search
-            className="pointer-events-none absolute left-3 h-4 w-4 text-[color:var(--messenger-text-secondary)]"
-            strokeWidth={2}
+            className="pointer-events-none absolute left-3 h-5 w-5"
+            style={{ color: "var(--cm-chat-sub)" }}
+            strokeWidth={1.7}
             aria-hidden
           />
           <input
@@ -161,12 +163,12 @@ export function MessengerHomeInlineFriendSearch({ busyId, onSelectUser, trailing
             onFocus={() => setPanelOpen(true)}
             onClick={() => setPanelOpen(true)}
             maxLength={20}
-            placeholder={t("cm_ui_at_id_example")}
+            placeholder={t("cm_friend_find_by_id_placeholder")}
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
-            aria-label={t("cm_ui_at_id_example")}
-            className="h-11 w-full rounded-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] pl-9 pr-9 text-[16px] outline-none transition-colors focus:border-[color:var(--messenger-primary)] focus:ring-1 focus:ring-[color:var(--messenger-primary)]"
+            aria-label={t("cm_friend_find_by_id_placeholder")}
+            className="h-[38px] w-full border-0 bg-[color:var(--cm-chat-band)] text-[16px] outline-none placeholder:text-[15px] placeholder:text-[color:var(--cm-chat-sub)] focus:ring-1 focus:ring-[color:var(--messenger-primary)]"
             data-cm-messenger-search-input=""
             style={{ color: "var(--messenger-text)" }}
           />

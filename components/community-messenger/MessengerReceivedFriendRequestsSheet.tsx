@@ -11,12 +11,7 @@ import {
 } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
 import type { CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
-import {
-  patchCommunityMessengerFriendRequestApi,
-  postCancelOutgoingCommunityMessengerFriendRequestApi,
-} from "@/lib/community-messenger/community-messenger-friend-request-client";
-import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
-import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { useMessengerFriendRequestRespond } from "@/components/community-messenger/friend-cta/use-messenger-friend-request-respond";
 
 export type MessengerFriendRequestsSheetTab = "received" | "sent";
 
@@ -33,7 +28,7 @@ type Props = {
 export function MessengerReceivedFriendRequestsSheet({ open, onClose, requests, onChanged, initialTab = "received" }: Props) {
   const { t } = useI18n();
   const [tab, setTab] = useState<MessengerFriendRequestsSheetTab>(initialTab);
-  const [busy, setBusy] = useState<{ id: string; action: Exclude<MessengerFriendCtaBusy, null> } | null>(null);
+  const { busy, respond, cancel } = useMessengerFriendRequestRespond(onChanged);
   const incoming = requests.filter((r) => r.status === "pending" && r.direction === "incoming");
   const outgoing = requests.filter((r) => r.status === "pending" && r.direction === "outgoing");
 
@@ -42,46 +37,6 @@ export function MessengerReceivedFriendRequestsSheet({ open, onClose, requests, 
   }, [open, initialTab]);
 
   if (!open) return null;
-
-  const respond = async (request: CommunityMessengerFriendRequest, action: "accept" | "reject") => {
-    setBusy({ id: request.id, action });
-    try {
-      const result = await patchCommunityMessengerFriendRequestApi(request.id, action);
-      if (!result.ok) {
-        const gone = result.error === "not_pending" || result.error === "request_not_found";
-        showMessengerSnackbar(t(gone ? "cm_friend_request_no_longer_pending" : "cm_friend_request_respond_failed"), {
-          variant: "error",
-        });
-        if (gone) onChanged(request.id);
-        return;
-      }
-      useIncomingFriendRequestPopupStore.getState().removeFriendRequestIfId(request.id);
-      showMessengerSnackbar(
-        t(action === "accept" ? "cm_friend_request_you_accepted" : "cm_friend_request_you_rejected", {
-          name: request.requesterLabel,
-        }),
-        { variant: action === "accept" ? "success" : "default" }
-      );
-      onChanged(request.id);
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const cancel = async (request: CommunityMessengerFriendRequest) => {
-    setBusy({ id: request.id, action: "cancel" });
-    try {
-      const result = await postCancelOutgoingCommunityMessengerFriendRequestApi(request.addresseeId);
-      if (!result.ok) {
-        showMessengerSnackbar(t("cm_friend_request_cancel_failed"), { variant: "error" });
-        return;
-      }
-      showMessengerSnackbar(t("cm_friend_request_cancelled"), { variant: "default" });
-      onChanged(request.id);
-    } finally {
-      setBusy(null);
-    }
-  };
 
   const rows = tab === "received" ? incoming : outgoing;
 

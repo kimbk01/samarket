@@ -42,7 +42,8 @@ describe("global search entry, adapters, back", () => {
     expect(read("components/layout/RegionBarMainHubTier1.tsx")).toContain("openGlobalSearchFromHere");
     expect(read("components/stores/home/hub/StoresConsumerHeaderActions.tsx")).toContain("openGlobalSearchFromHere");
     expect(read("components/stores/home/hub/StoresHomeHeaderChrome.tsx")).not.toContain("StoresHomeSearchModal");
-    expect(read("components/community-messenger/CommunityMessengerHome.tsx")).toContain("openGlobalSearchFromHere");
+    /** 채팅 돋보기는 채팅 안 검색 하위 화면(채팅 시안 4판 「8」) — 앱 전체 검색(/search) 아님 */
+    expect(read("components/community-messenger/CommunityMessengerHome.tsx")).not.toContain("openGlobalSearchFromHere");
   });
 
   it("keeps domain sections and existing CTA helpers", () => {

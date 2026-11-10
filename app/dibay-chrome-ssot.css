@@ -305,6 +305,33 @@
   flex: 0 0 auto;
 }
 
+/*
+ * 메신저 대화·친구·통화 탭 — 채팅 시안 4판 (Owner 「정확히 시안대로」 2026-11-10 · docs/design/chat-v4).
+ * 왼쪽 16px 부터 글자 폭 그대로 · 간격 22px · 15px · 선택 = 700 + 검정(--cm-chat-fg) + 글자 폭 2px 밑줄 / 나머지 = 500 + 회색(--cm-chat-sub).
+ * `data-cm-messenger-section-tabs` 줄과 채팅 검색 탭 줄(`data-cm-messenger-search-tabs`, 시안 「8. 채팅 검색」)·
+ * 거래/주문 채팅 목록 탭 줄(`data-cm-messenger-pillar-tabs`, 시안 「9」「10」)에만 적용 — 다른 화면 2단 탭은 그대로.
+ * 왼쪽 시작: 행 안쪽 여백(APP_MAIN_GUTTER_X_CLASS 10px) + 탭 track 6px = 16px.
+ */
+[data-dibay-tab-tier="section"][data-dibay-tab-align="start"]:is([data-cm-messenger-section-tabs], [data-cm-messenger-search-tabs], [data-cm-messenger-pillar-tabs]) {
+  --dibay-tab2-pad-x: 0px;
+  --dibay-tab2-bar-inset: 0px;
+  --dibay-tab2-idle-color: var(--cm-chat-sub);
+  --dibay-tab2-active-color: var(--cm-chat-fg);
+  /* 시안 탭 줄 높이 42px */
+  --dibay-secondary-tab-row-h: 42px;
+}
+
+[data-dibay-tab-tier="section"][data-dibay-tab-align="start"]:is([data-cm-messenger-section-tabs], [data-cm-messenger-search-tabs], [data-cm-messenger-pillar-tabs]) .dibay-secondary-tabs {
+  gap: 22px;
+  padding-left: 6px;
+}
+
+[data-dibay-tab-tier="section"][data-dibay-tab-align="start"]:is([data-cm-messenger-section-tabs], [data-cm-messenger-search-tabs], [data-cm-messenger-pillar-tabs])
+  .dibay-secondary-tabs
+  .dibay-secondary-tab:is([aria-selected="true"], .dibay-secondary-tab--active) {
+  font-weight: 700;
+}
+
 :is([data-dibay-tab-tier="filter"], [data-dibay-tab-tier="section"]) .dibay-secondary-tab:not(:disabled):active {
   transform: scale(0.97);
   opacity: 1;

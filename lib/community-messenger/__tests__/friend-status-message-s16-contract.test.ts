@@ -6,11 +6,13 @@ import { describe, expect, it } from "vitest";
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
 describe("§16 friend status message", () => {
-  it("친구 목록 2행: 상태가 있으면 상태, 없으면 접속 상태", () => {
+  it("친구 목록 2행: 상태가 있으면 상태, 없으면 접속 상태, 그것도 없으면 @아이디 (채팅 시안 4판)", () => {
     const row = read("components/community-messenger/friend-list/CommunityMessengerFriendRow.tsx");
     expect(row).toContain("{row.subtitle ? (");
     expect(row).toContain("data-cm-friend-status-message");
-    expect(row).toContain("<CommunityMessengerFriendPresenceLine peerUserId={row.profileId} />");
+    expect(row).toContain(
+      "<CommunityMessengerFriendPresenceLine peerUserId={row.profileId} fallbackText={publicIdLabel} />"
+    );
     const presenter = read("lib/community-messenger/friend-list/friend-relation-presenter.ts");
     expect(presenter).toContain("subtitle: input.profile.bio?.trim() || null,");
   });

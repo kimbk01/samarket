@@ -58,10 +58,14 @@ export function isMainBottomNavDisplayTabActive(
   }
 ): boolean {
   if (tab.id === "chat") {
+    /**
+     * 채팅 시안 4판 (Owner 「정확히 시안대로」 2026-11-10): 거래 채팅·주문 채팅 목록
+     * (`/community-messenger/trade-chats`·`/delivery-chats`)은 채팅 탭의 하위 화면 — 「채팅」 탭 선택.
+     * 채팅방(`/rooms/*`)은 지금처럼 선택하지 않는다.
+     */
     const p = pathOnly(pathname);
     if (!p.startsWith("/community-messenger")) return false;
     if (p.includes("/rooms/")) return false;
-    if (p.includes("/trade-chats") || p.includes("/delivery-chats")) return false;
     return true;
   }
   if (tab.id === "delivery-order-chat" || tab.id === "philife-messenger" || tab.id === "trade-order-chat") {

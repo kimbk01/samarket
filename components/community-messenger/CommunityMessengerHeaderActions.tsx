@@ -10,7 +10,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 
 /**
- * 메신저 홈 상단 우측: 검색 / 설정 / **종(통합 인박스 요약 시트 1장, 맨 끝)**.
+ * 메신저 홈 상단 우측: 검색(채팅 검색 하위 화면) / 설정(채팅 설정 하위 화면) / **종(통합 인박스 요약 시트 1장, 맨 끝)**.
  * 그룹 생성은 섹션 탭 행 우측(`MessengerHomeSectionTabs`).
  * 종 모달 안 이중 「알림 센터」 카드는 두지 않는다 — 탭·전체보기로만 진입.
  */
@@ -37,7 +37,7 @@ export function CommunityMessengerHeaderActions({
     <div className={samTier1HeaderIconCluster}>
       <button
         type="button"
-        data-global-search-open="chat"
+        data-cm-chat-search-open=""
         onClick={onOpenSearch}
         className={iconBtn}
         aria-label={t("cm_ui_messenger_search")}

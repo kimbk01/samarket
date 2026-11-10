@@ -13,7 +13,14 @@ type Props = {
   src: string | null | undefined;
   storeId: string | null | undefined;
   storeName: string;
+  /** 목록 = 48 · 모서리 18 (기본) / 길게 누르기 메뉴 머리 = 44 · 모서리 16 (채팅 시안 4판 「10」「10-2」) */
+  variant?: "list" | "sheet";
 };
+
+const THUMB_GEOMETRY = {
+  list: { size: 48, boxClass: "h-12 w-12", roundedClass: "rounded-[var(--cm-chat-avatar-radius,18px)]", textClass: "text-[17px]" },
+  sheet: { size: 44, boxClass: "h-11 w-11", roundedClass: "rounded-[16px]", textClass: "text-[16px]" },
+} as const;
 
 function resolveStoreProfileDisplayUrl(raw: string | null | undefined): string | null {
   const u = typeof raw === "string" ? raw.trim() : "";
@@ -21,12 +28,19 @@ function resolveStoreProfileDisplayUrl(raw: string | null | undefined): string |
   return resolveStoreProductMediaUrl(u) ?? u;
 }
 
-function StoreInitialFallback({ storeName }: { storeName: string }) {
+/** 매장 사진 없음 — 옅은 금색 칸 + 갈색 첫 글자 (시안 `.av.store`) */
+function StoreInitialFallback({ storeName, variant }: { storeName: string; variant: "list" | "sheet" }) {
   const initial = (storeName.trim()[0] ?? "S").toUpperCase();
+  const g = THUMB_GEOMETRY[variant];
   return (
     <div
-      className="flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-full border border-[#D7E5DE] bg-[#EAF4EF] sam-text-body font-semibold text-[#006241]"
+      className={`flex shrink-0 items-center justify-center font-bold ${g.boxClass} ${g.roundedClass} ${g.textClass}`}
+      style={{
+        background: "var(--cm-pillar-store-placeholder-bg)",
+        color: "var(--cm-pillar-store-placeholder-fg)",
+      }}
       aria-hidden
+      data-cm-store-thumb-placeholder=""
     >
       {initial}
     </div>
@@ -44,8 +58,9 @@ async function fetchStoreProfileThumbnailUrl(storeId: string): Promise<string | 
   return u ? resolveStoreProfileDisplayUrl(u) : null;
 }
 
-/** 주문 채팅 목록 — 매장 프로필(56px 원형) */
-export function StoreProfileThumb({ src, storeId, storeName }: Props) {
+/** 주문 채팅 목록 — 매장 프로필 (둥근 사각, 채팅 시안 4판) */
+export function StoreProfileThumb({ src, storeId, storeName, variant = "list" }: Props) {
+  const g = THUMB_GEOMETRY[variant];
   const sid = typeof storeId === "string" ? storeId.trim() : "";
   const directUrl = useMemo(() => resolveStoreProfileDisplayUrl(src), [src]);
   const [apiUrl, setApiUrl] = useState<string | null>(() => {
@@ -97,17 +112,17 @@ export function StoreProfileThumb({ src, storeId, storeName }: Props) {
   }, [apiUrl, sid]);
 
   if (!displayUrl) {
-    return <StoreInitialFallback storeName={storeName} />;
+    return <StoreInitialFallback storeName={storeName} variant={variant} />;
   }
 
   return (
     <SamarketThumbnail
       src={displayUrl}
-      size={56}
-      roundedClassName="rounded-full"
-      className="border border-[#D7E5DE] bg-[#EAF4EF]"
+      size={g.size}
+      roundedClassName={g.roundedClass}
+      className={`${g.boxClass} bg-[color:var(--cm-pillar-store-placeholder-bg)]`}
       fallbackSrc=""
-      fallbackNode={<StoreInitialFallback storeName={storeName} />}
+      fallbackNode={<StoreInitialFallback storeName={storeName} variant={variant} />}
       priority={Boolean(displayUrl)}
       onImageError={onImageError}
     />

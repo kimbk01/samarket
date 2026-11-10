@@ -7,6 +7,7 @@ import { MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-con
 /**
  * 메신저 홈 탭 주 버튼 (Owner 2026-11-10 채팅 화면 시안 3판) — 아이콘만 쓰지 않고 할 일을 글자로 적는다.
  * 목록 영역(부모 `relative`) 오른쪽 아래, 하단 탭이 있으면 그 위.
+ * 채팅 시안 4판: 높이 48 · 알약 · 여백 0 20 0 16 · 15px 굵게 · + 20px · 오른쪽 16 · 그림자 `--cm-chat-fab-shadow`.
  */
 export function MessengerHomePrimaryActionButton({
   label,
@@ -23,7 +24,7 @@ export function MessengerHomePrimaryActionButton({
       type="button"
       onClick={onClick}
       data-cm-primary-action={dataAttr}
-      className={`absolute right-4 z-30 inline-flex h-12 items-center gap-1.5 rounded-full bg-sam-primary pl-4 pr-5 text-[15px] font-bold text-white shadow-[0_6px_16px_rgba(11,66,26,0.3)] transition active:scale-[0.97] ${
+      className={`absolute right-4 z-30 inline-flex h-12 items-center gap-1.5 rounded-full bg-sam-primary pl-4 pr-5 text-[15px] font-bold text-white shadow-[var(--cm-chat-fab-shadow)] transition active:scale-[0.97] ${
         bottomNavOccupiesClearance ? MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS : "bottom-4"
       }`}
     >

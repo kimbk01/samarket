@@ -17,6 +17,7 @@ import {
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { getMessengerRoomBackOverride } from "@/lib/community-messenger/room/messenger-room-back-navigation";
 import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
+import { isMessengerHomeSubScreenSearch } from "@/lib/community-messenger/messenger-sub-screen-route";
 import { resolveTier1BarLabel } from "@/lib/layout/resolve-tier1-bar-label";
 import { mainTier1ExtrasForPathname, useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
@@ -84,11 +85,18 @@ export function RegionBar({
     isTradeFloatingMenuSurface(pathNoQuery) &&
     ruleSet.showRegionPicker &&
     !ruleSet.showTradeHubLeading;
+  /**
+   * 메신저 보관함(`?section=archive`)·친구 고르기·채팅 설정·채팅 검색은 채팅 탭 화면이 아니라 하위 화면 — 허브 머리글 대신
+   * 아래 공통 하위 화면 머리글 (`resolveMainTier1Subpage` 가 주소로 제목·뒤로를 정함, 채팅 시안 4판 「4」「6」「7」「8」).
+   */
+  const isMessengerArchiveSubScreen =
+    pathNoQuery === "/community-messenger" && isMessengerHomeSubScreenSearch(searchParams);
   if (
-    (keepAliveHub === "community" ||
+    ((keepAliveHub === "community" ||
       keepAliveHub === "trade" ||
       keepAliveHub === "chat" ||
-      keepAliveHub === "mypage") ||
+      keepAliveHub === "mypage") &&
+      !isMessengerArchiveSubScreen) ||
     isTradeExplorationSurface
   ) {
     return <RegionBarMainHubTier1 pathNoQuery={pathNoQuery} />;

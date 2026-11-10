@@ -33,7 +33,6 @@ import { presentCommunityMessengerRoomContextListText } from "@/lib/community-me
 import { communityMessengerRoomIsInboxHidden, type CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import { CommunityMessengerChatTypeBadge } from "@/components/community-messenger/chat-list/CommunityMessengerChatTypeBadge";
 import {
-  formatConversationTimestamp,
   messengerStringSetsEqual,
   unifiedListItemRowDisplayEqual,
   type UnifiedRoomListItem,
@@ -65,14 +64,12 @@ import {
 import { messengerTradeViewerRoleFromContextMeta } from "@/lib/community-messenger/messenger-trade-viewer-role";
 import { TradeChatListRowContent } from "@/components/community-messenger/trade-chat-list/TradeChatListRowContent";
 import { TradeProductThumb } from "@/components/community-messenger/trade-chat-list/TradeProductThumb";
-import { formatTradeChatListTimestamp } from "@/lib/community-messenger/trade-chat-list/trade-chat-list-timestamp";
 import { DeliveryChatListRowContent } from "@/components/community-messenger/delivery-chat-list/DeliveryChatListRowContent";
 import { StoreProfileThumb } from "@/components/community-messenger/delivery-chat-list/StoreProfileThumb";
 import {
   buildDeliveryChatListRowModel,
 } from "@/lib/community-messenger/delivery-chat-list/view-model";
 import { STORE_ORDER_DISPLAY_STORE_FALLBACK } from "@/lib/community-messenger/store-order-display-identity";
-import { formatDeliveryChatListShortTimestamp } from "@/lib/community-messenger/delivery-chat-list/delivery-chat-list-timestamp";
 import { buildDeliveryChatListPreviewLine } from "@/lib/community-messenger/delivery-chat-list/delivery-chat-list-preview";
 import { prefetchStoreProfileThumbnailIfNeeded } from "@/lib/community-messenger/delivery-chat-list/store-profile-thumbnail-cache";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -81,7 +78,6 @@ import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatar
 import { prefetchTradePostThumbnailIfNeeded } from "@/lib/community-messenger/trade-chat-list/trade-post-thumbnail-cache";
 import { resolveCommerceChatListPresentation } from "@/lib/community-messenger/commerce-chat-list-presentation";
 import { useTradeChatListPostPreviewFields } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-post-preview-fields";
-import { formatTradeMarketplacePeerProductTitle } from "@/lib/community-messenger/room/phase2/marketplace-room-chrome";
 import { useMessengerChatListUnread } from "@/lib/community-messenger/read/messenger-chat-list-unread-display";
 import {
   normalizeMessengerRealtimeRoomId,
@@ -92,8 +88,11 @@ import {
   logCmMemoPropEqual,
   useCmDevRenderTrace,
 } from "@/lib/community-messenger/dev/cm-event-loop-dev";
+import { formatChatListKakaoTime } from "@/lib/community-messenger/chat-list/chat-list-kakao-time";
 
 const ACTION_W = 78;
+/** 채팅 시안 4판 — 대화 목록 사진은 종류(사람·그룹·거래·주문)와 관계없이 48px 둥근 사각 (`--cm-chat-avatar-radius` 18px) */
+const CHAT_LIST_AVATAR_ROUNDED_CLASS = "rounded-[var(--cm-chat-avatar-radius,18px)]";
 const MESSENGER_CHAT_LIST_ITEM_NOOP_LEAVE_ROOM = (_room: CommunityMessengerRoomSummary) => {};
 const DRAG_START_X = 16;
 const DRAG_CANCEL_Y = 14;
@@ -229,7 +228,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   onResetTransientUi,
   listVisual = "default",
 }: Props) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
   useCmDevRenderTrace("MessengerChatListItem");
   const onLeaveRoom = onLeaveRoomProp ?? MESSENGER_CHAT_LIST_ITEM_NOOP_LEAVE_ROOM;
   if (!shouldFreezeRoomListSubtree()) {
@@ -404,7 +403,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   }, [isPillarChatListVisual, room.roomType, room.title]);
   /**
    * 거래·주문 목록(`/trade-chats`·`/delivery-chats`)은 `--messenger-bg` 가 없는 화면이다 — 투명이면 밀기 버튼이 비친다
-   * (2026-11-10 운영 확인: 주문 목록 행 배경 rgba(0,0,0,0) → 「읽음·나가기」 상시 노출). 두 목록 모두 흰 바탕.
+   * (2026-11-10 운영 확인: 주문 목록 행 배경 rgba(0,0,0,0) → 「읽음·나가기」 상시 노출). 두 목록 모두 흰 바탕(불투명).
    */
   const tradeListRowBgClass = isPillarChatListVisual
     ? "bg-white"
@@ -413,25 +412,19 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       : commerceMeta?.kind === "trade" && tradeViewerRoleForTint === "buyer"
         ? "bg-[color:var(--messenger-trade-list-buyer-bg)]"
         : "bg-[color:var(--messenger-bg)]";
-  const tradeListRowShellClass = isPillarChatListVisual
-    ? "border-b border-[#E5EEE9] bg-white"
-    : `border-b border-[color:var(--messenger-divider)] ${tradeListRowBgClass}`;
+  /** 채팅 시안 4판: 대화·거래·주문 목록 모두 줄 사이 구분선 없음(행 높이로 구분 — 시안 「9」「10」). */
+  const tradeListRowShellClass = tradeListRowBgClass;
+  /** 오른쪽 위 시각 — 대화·거래·주문 목록 모두 카카오톡 형식 (채팅 시안 4판) */
+  const listTimeLabel = useMemo(() => formatChatListKakaoTime(item.lastEventAt, t), [item.lastEventAt, t]);
   const roomStoreId = useMemo(() => normalizeMessengerRealtimeRoomId(room.id), [room.id]);
   const tradeRowModel = useMemo(
     () => (isTradeChatListVisual ? buildTradeChatListRowModel(room, t, viewerUserId) : null),
     [isTradeChatListVisual, room, t, viewerUserId]
   );
-  const tradeListTimeLabel = useMemo(
-    () => (isTradeChatListVisual ? formatTradeChatListTimestamp(item.lastEventAt) : ""),
-    [isTradeChatListVisual, item.lastEventAt]
-  );
+  /** 상태 칩 글자는 화면 언어로 — `language` 를 넘긴다 (옛: 런타임 언어 기본값에 기대어 다른 언어 글자가 남던 경로) */
   const deliveryRowModel = useMemo(
-    () => (isDeliveryChatListVisual ? buildDeliveryChatListRowModel(room, t) : null),
-    [isDeliveryChatListVisual, room, t]
-  );
-  const deliveryListTimeLabel = useMemo(
-    () => (isDeliveryChatListVisual ? formatDeliveryChatListShortTimestamp(item.lastEventAt) : ""),
-    [isDeliveryChatListVisual, item.lastEventAt]
+    () => (isDeliveryChatListVisual ? buildDeliveryChatListRowModel(room, t, language) : null),
+    [isDeliveryChatListVisual, language, room, t]
   );
   const tradeListPreview = useTradeChatListPostPreviewFields({
     /** 설계 G3: 「볼 수 없는 글」 줄은 미리보기(제목·가격)를 서버에서 다시 받지 않는다 — 가격이 되살아나던 결함 */
@@ -439,10 +432,14 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     productTitle: tradeRowModel?.productTitle ?? "",
     productPriceText: tradeRowModel?.productPriceText,
   });
-  const tradeListDisplayTitle = useMemo(() => {
+  /** 채팅 시안 4판 「9」 — 1줄 = 상품 이름만, 2줄 = 「판매|구매 · 상대 이름 · ₱가격」(가격은 알 때만) */
+  const tradeListMetaLine = useMemo(() => {
     if (!isTradeChatListVisual || !tradeRowModel) return "";
-    return formatTradeMarketplacePeerProductTitle(tradeRowModel.peerName, tradeListPreview.displayTitle);
-  }, [isTradeChatListVisual, tradeListPreview.displayTitle, tradeRowModel]);
+    return [tradeRowModel.rolePrefix, tradeRowModel.peerName, tradeListPreview.displayPriceText]
+      .map((part) => (typeof part === "string" ? part.trim() : ""))
+      .filter(Boolean)
+      .join(" · ");
+  }, [isTradeChatListVisual, tradeListPreview.displayPriceText, tradeRowModel]);
   const bootstrapUnreadFloor = Math.max(0, Math.floor(Number(room.unreadCount) || 0));
   const { count: displayedUnreadCount, tier: unreadDisplayTier } = useMessengerChatListUnread(room.id, bootstrapUnreadFloor);
 
@@ -566,17 +563,18 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     tradeListPreview.displayTitle,
   ]);
 
+  /**
+   * 채팅 시안 4판: 부재중 통화는 칸(배지)이 아니라 미리보기 글자를 빨간색으로 — 미리보기가 이미 「부재중 …」이다.
+   */
+  const isMissedCallPreview = item.previewKind === "call" && item.callStatus === "missed";
   /** L-9 — 방 단위 archived 와 viewer 보관 구분 */
-  const secondaryHint =
-    item.previewKind === "call" && item.callStatus === "missed"
-      ? t("cm_ui_missed_call")
-      : room.isReadonly
-        ? t("cm_ui_read_only")
-        : room.roomStatus === "archived"
-          ? t("cm_ui_archived_room")
-          : room.isArchivedByViewer
-            ? t("cm_ui_archived")
-            : null;
+  const secondaryHint = room.isReadonly
+    ? t("cm_ui_read_only")
+    : room.roomStatus === "archived"
+      ? t("cm_ui_archived_room")
+      : room.isArchivedByViewer
+        ? t("cm_ui_archived")
+        : null;
 
   const kickRoomNavPrefetchOnPointerDown = useCallback(() => {
     armMessengerRoomRoutePrefetch({
@@ -895,11 +893,20 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     [closeSwipe, menuItemId, onCloseMenuItem]
   );
 
-  const swipeActionSurfaceClass = useCallback((kind: MessengerSwipeActionKind) => {
-    if (kind === "leave") return "bg-orange-600";
-    if (kind === "read") return "bg-slate-500";
-    return "bg-amber-600";
-  }, []);
+  /** 거래·주문 목록 밀기 버튼 (채팅 시안 4판 10-1): 읽음 회색 #8A8A8A · 나가기 빨강 · 14px/700. 대화 목록은 그대로. */
+  const swipeActionSurfaceClass = useCallback(
+    (kind: MessengerSwipeActionKind) => {
+      if (isPillarChatListVisual) {
+        if (kind === "leave") return "bg-[color:var(--cm-chat-danger)] text-[14px] font-bold";
+        if (kind === "read") return "bg-[color:var(--cm-pillar-swipe-read-bg)] text-[14px] font-bold";
+        return "bg-amber-600 text-[14px] font-bold";
+      }
+      if (kind === "leave") return "bg-orange-600 sam-text-helper font-semibold";
+      if (kind === "read") return "bg-slate-500 sam-text-helper font-semibold";
+      return "bg-amber-600 sam-text-helper font-semibold";
+    },
+    [isPillarChatListVisual]
+  );
 
   const runSwipeKind = useCallback(
     (kind: MessengerSwipeActionKind) => {
@@ -930,7 +937,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       <TradeProductThumb
         src={tradeRowModel.productThumbnailUrl}
         postId={tradeRowModel.productUnavailable ? null : tradeRowModel.postId}
-        categoryChipLabel={tradeRowModel.categoryChipLabel}
+        peer={{ avatarUrl: room.avatarUrl }}
       />
     ) : commerceMeta?.thumbnailUrl ? (
       <div className="relative">
@@ -944,7 +951,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             src={room.avatarUrl}
             label={listDisplayTitle}
             roomType={room.roomType}
-            sizeClassName="h-[52px] w-[52px]"
+            sizeClassName="h-12 w-12"
             textClassName="sam-text-body"
           />
           {presencePeerUserId ? (
@@ -959,87 +966,68 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       ? commerceMeta.itemStateLabel.trim()
       : null;
 
+  /** 거래·주문 목록 오른쪽 — 카카오톡 시각 11.5 회색 + 빨간 안 읽음 배지(20px · 11px 굵게), 채팅 시안 4판 「9」「10」 */
   const trailingBlock =
-    isDeliveryChatListVisual ? (
+    isPillarChatListVisual ? (
       <>
         <span
           data-cm-list-meta=""
-          className="whitespace-nowrap text-right sam-text-helper font-normal tabular-nums leading-none"
-          style={{ color: "var(--messenger-text-secondary)" }}
+          className="whitespace-nowrap text-right text-[11.5px] font-normal tabular-nums leading-none"
+          style={{ color: "var(--cm-chat-sub)" }}
         >
-          {deliveryListTimeLabel}
+          {listTimeLabel}
         </span>
         {displayedUnreadCount > 0 ? (
           <span
             data-cm-unread-badge="true"
-            className="mt-1.5 flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[#006241] px-1.5 text-center sam-text-xxs font-semibold leading-[20px] text-white"
+            className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[color:var(--cm-chat-unread-bg)] px-1.5 text-center text-[11px] font-bold leading-5 text-white"
           >
             {displayedUnreadCount > 999 ? "999+" : displayedUnreadCount}
           </span>
         ) : (
-          <span className="mt-1.5 block h-[20px]" aria-hidden />
-        )}
-      </>
-    ) : isTradeChatListVisual && tradeRowModel ? (
-      <>
-        <span
-          data-cm-list-meta=""
-          className="whitespace-nowrap text-right sam-text-helper font-normal tabular-nums leading-none"
-          style={{ color: "var(--messenger-text-secondary)" }}
-        >
-          {tradeListTimeLabel}
-        </span>
-        {displayedUnreadCount > 0 ? (
-          <span
-            data-cm-unread-badge="true"
-            className="mt-1.5 flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[#006241] px-1.5 text-center sam-text-xxs font-semibold leading-[20px] text-white"
-          >
-            {displayedUnreadCount > 999 ? "999+" : displayedUnreadCount}
-          </span>
-        ) : (
-          <span className="mt-1.5 block h-[20px]" aria-hidden />
+          <span className="block h-5" aria-hidden />
         )}
       </>
     ) : (
-      <>
+      <div className="flex flex-col items-end gap-1.5">
         <span
           data-cm-list-meta=""
-          className="sam-text-helper font-normal tabular-nums"
-          style={{ color: "var(--messenger-text-secondary)" }}
+          className="whitespace-nowrap font-normal tabular-nums"
+          style={{ color: "var(--cm-chat-sub)" }}
         >
-          {formatConversationTimestamp(item.lastEventAt)}
+          {listTimeLabel}
         </span>
-        <div className="flex flex-col items-end gap-0.5">
+        {room.isPinned || room.isMuted || displayedUnreadCount > 0 ? (
           <div className="flex items-center gap-0.5">
             {room.isPinned ? (
-              <span style={{ color: "var(--messenger-text-secondary)" }} aria-label={t("cm_ui_pinned")}>
+              <span style={{ color: "var(--cm-chat-sub)" }} aria-label={t("cm_ui_pinned")}>
                 <PinIcon />
               </span>
             ) : null}
             {room.isMuted ? (
-              <span style={{ color: "var(--messenger-text-secondary)" }} aria-label={t("cm_ui_notifications_off")}>
+              <span style={{ color: "var(--cm-chat-sub)" }} aria-label={t("cm_ui_notifications_off")}>
                 <MuteIcon />
               </span>
             ) : null}
             {displayedUnreadCount > 0 ? (
               <span
                 data-cm-unread-badge="true"
-                className="min-h-[20px] min-w-[20px] rounded-full bg-[color:var(--messenger-primary)] px-1.5 text-center sam-text-xxs font-semibold leading-[20px] text-white"
+                className="bg-[color:var(--cm-chat-unread-bg)] text-center text-[11px] font-bold leading-[20px] text-white"
               >
                 {displayedUnreadCount > 999 ? "999+" : displayedUnreadCount}
               </span>
             ) : null}
           </div>
-          {productStatusForTrailing ? (
-            <span
-              className="max-w-[6rem] truncate text-right sam-text-xxs font-normal leading-none"
-              style={{ color: "var(--messenger-text-secondary)" }}
-            >
-              {productStatusForTrailing}
-            </span>
-          ) : null}
-        </div>
-      </>
+        ) : null}
+        {productStatusForTrailing ? (
+          <span
+            className="max-w-[6rem] truncate text-right sam-text-xxs font-normal leading-none"
+            style={{ color: "var(--cm-chat-sub)" }}
+          >
+            {productStatusForTrailing}
+          </span>
+        ) : null}
+      </div>
     );
 
   const rowSurfaceClass = `transition-colors duration-100 ${
@@ -1054,8 +1042,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         trailing={trailingBlock}
         storeName={deliveryRowModel?.storeName?.trim() || STORE_ORDER_DISPLAY_STORE_FALLBACK}
         previewLine={deliveryPreviewLine}
-        statusLabel={deliveryRowModel?.orderStatusLabel ?? ""}
-        statusBadgeClassName={deliveryRowModel?.statusBadgeClassName ?? ""}
+        statusChip={deliveryRowModel?.statusChip ?? null}
         unread={displayedUnreadCount > 0}
       />
     ) : isTradeChatListVisual && tradeRowModel ? (
@@ -1063,12 +1050,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         rowSurfaceClass={rowSurfaceClass}
         avatar={avatarBlock}
         trailing={trailingBlock}
-        productTitle={tradeListDisplayTitle}
+        productTitle={tradeListPreview.displayTitle}
+        statusChip={tradeRowModel.statusChip}
+        metaLine={tradeListMetaLine}
         previewLine={tradePreviewLine}
-        rolePrefix={tradeRowModel.rolePrefix}
-        productPriceText={tradeListPreview.displayPriceText}
-        statusLabel={tradeRowModel.statusLabel}
-        statusBadgeClassName={tradeRowModel.statusBadgeClassName}
         unread={displayedUnreadCount > 0}
       />
     ) : (
@@ -1079,18 +1064,25 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         }`}
         avatar={avatarBlock}
         trailing={trailingBlock}
-        avatarSlotClassName={peerRelationMark ? "relative flex shrink-0 items-center justify-center" : undefined}
+        surface="chat"
+        trailingLayout="center"
+        /** 사진 칸은 자르지 않는다 — 둥근 사각은 사진 자체가, 친구 관계 배지·접속 점은 칸 밖으로 */
+        avatarSlotClassName="relative flex shrink-0 items-center justify-center"
       >
-        <div className="flex min-w-0 items-center gap-1">
+        <div className="flex min-w-0 items-center gap-[5px]">
           <p
             data-cm-list-title=""
-            className="min-w-0 truncate font-semibold leading-tight"
-            style={{ color: "var(--messenger-text)" }}
+            className="min-w-0 truncate font-semibold tracking-[-0.2px]"
+            style={{ color: "var(--cm-chat-fg)" }}
           >
             {listDisplayTitle}
           </p>
           {titleSuffix ? (
-            <span className="shrink-0 sam-text-helper font-normal" style={{ color: "var(--messenger-text-secondary)" }}>
+            <span
+              data-cm-list-member-count=""
+              className="shrink-0 text-[14px] font-medium"
+              style={{ color: "var(--cm-chat-sub)" }}
+            >
               {titleSuffix}
             </span>
           ) : null}
@@ -1119,7 +1111,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             {commerceSubline}
           </p>
         ) : null}
-        <div className="mt-0.5 flex min-w-0 items-center gap-1">
+        <div className="mt-[3px] flex min-w-0 items-center gap-1">
           {commerceMeta?.kind === "delivery" && deliveryStepLabel ? (
             <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]">
               {deliveryStepLabel}
@@ -1140,9 +1132,14 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           ) : null}
           <p
             data-cm-list-preview=""
-            className={`min-w-0 truncate font-normal leading-snug ${displayedUnreadCount > 0 ? "font-medium" : ""}`}
+            data-cm-list-preview-missed-call={isMissedCallPreview ? "1" : undefined}
+            className="min-w-0 truncate font-normal"
             style={{
-              color: displayedUnreadCount > 0 ? "var(--messenger-text)" : "var(--messenger-text-secondary)",
+              color: isMissedCallPreview
+                ? "var(--cm-chat-danger, var(--sam-danger))"
+                : displayedUnreadCount > 0
+                  ? "var(--cm-chat-fg)"
+                  : "var(--cm-chat-sub)",
             }}
           >
             {item.preview}
@@ -1208,6 +1205,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         ref={setMainRowRef}
         className={`relative w-full min-w-0 ${tradeListRowShellClass}`}
         data-messenger-chat-row="true"
+        data-cm-list-visual={listVisual}
         data-cm-list-row-selected={isRouteActiveRoom ? "1" : undefined}
         data-messenger-trade-row-role={tradeViewerRoleForTint ?? undefined}
       >
@@ -1238,6 +1236,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       ref={setMainRowRef}
       className={`relative w-full min-w-0 overflow-hidden ${tradeListRowShellClass}`}
       data-messenger-chat-row="true"
+      data-cm-list-visual={listVisual}
       /** D-6: 좌우 여백은 본문(data-cm-swipe-fg)에 — 바깥 틀 여백이면 스와이프 버튼 띠가 틈으로 보인다 */
       data-cm-swipe-row=""
       data-cm-list-row-selected={isRouteActiveRoom ? "1" : undefined}
@@ -1263,7 +1262,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             }}
             aria-disabled={action.disabled || undefined}
             disabled={swipeActionDisabled(action.kind) || (action.disabled && !action.disabledReasonKey)}
-            className={`flex w-[78px] items-center justify-center px-2 sam-text-helper font-semibold text-white disabled:opacity-50 ${
+            className={`flex w-[78px] items-center justify-center px-2 text-white disabled:opacity-50 ${
               action.disabled ? "opacity-50" : ""
             } ${swipeActionSurfaceClass(action.kind)}`}
           >
@@ -1345,25 +1344,25 @@ function CommerceThumb({
     return (
       <SamarketUserAvatarThumb
         avatarUrl={fallbackAvatarUrl}
-        size={52}
-        roundedClassName="rounded-full"
-        className="border border-[color:var(--messenger-divider)] bg-ui-hover h-[52px] w-[52px]"
+        size={48}
+        roundedClassName={CHAT_LIST_AVATAR_ROUNDED_CLASS}
+        className="border border-[color:var(--messenger-divider)] bg-ui-hover h-12 w-12"
       />
     );
   }
   return (
     <SamarketThumbnail
       src={src}
-      size={52}
-      roundedClassName="rounded-[8px]"
+      size={48}
+      roundedClassName={CHAT_LIST_AVATAR_ROUNDED_CLASS}
       className="border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]"
       fallbackSrc=""
       fallbackNode={
         <SamarketUserAvatarThumb
           avatarUrl={fallbackAvatarUrl}
-          size={52}
-          roundedClassName="rounded-full"
-          className="border border-[color:var(--messenger-divider)] bg-ui-hover h-[52px] w-[52px]"
+          size={48}
+          roundedClassName={CHAT_LIST_AVATAR_ROUNDED_CLASS}
+          className="border border-[color:var(--messenger-divider)] bg-ui-hover h-12 w-12"
         />
       }
       onImageError={() => setFailed(true)}
@@ -1396,8 +1395,8 @@ function AvatarCircle({
     return (
       <SamarketUserAvatarThumb
         avatarUrl={src}
-        size={52}
-        roundedClassName="rounded-full"
+        size={48}
+        roundedClassName={CHAT_LIST_AVATAR_ROUNDED_CLASS}
         className={`bg-ui-hover ${sizeClassName}`}
       />
     );
@@ -1407,8 +1406,9 @@ function AvatarCircle({
     return (
       <GroupDomainAvatar
         imageUrl={src}
-        size={52}
+        size={48}
         shape="rounded-square"
+        roundedClassName={CHAT_LIST_AVATAR_ROUNDED_CLASS}
         className={`bg-ui-hover ${sizeClassName}`}
       />
     );
@@ -1417,8 +1417,8 @@ function AvatarCircle({
   return (
     <SamarketThumbnail
       src={safeSrc && !imageFailed ? safeSrc : null}
-      size={52}
-      roundedClassName="rounded-full"
+      size={48}
+      roundedClassName={CHAT_LIST_AVATAR_ROUNDED_CLASS}
       className={`bg-ui-hover ${sizeClassName}`}
       fallbackSrc=""
       fallbackNode={<div className={`flex h-full w-full items-center justify-center font-semibold text-ui-muted ${textClassName}`}>{initial}</div>}

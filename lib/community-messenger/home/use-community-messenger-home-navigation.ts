@@ -13,6 +13,10 @@ import {
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
 
+import {
+  buildMessengerArchiveHref,
+  type MessengerArchiveEntry,
+} from "@/lib/community-messenger/messenger-archive-route";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { parseCommunityMessengerRoomIdFromPathname } from "@/lib/community-messenger/messenger-room-pathname";
@@ -131,6 +135,24 @@ export function useCommunityMessengerHomeNavigation({
     ]
   );
 
+  /**
+   * 보관함 열기 (채팅 시안 4판 「4. 보관함」) — 대화 탭 맨 아래 「보관함」 줄(`chats`) · 친구 탭 「관리」·설정 「친구 관리」(`friends`).
+   * 탭 전환(replace)과 달리 기록을 쌓는다(push) — 보관함 머리글 뒤로 = 들어온 탭으로 돌아감.
+   */
+  const openMessengerArchive = useCallback(
+    (entry: MessengerArchiveEntry) => {
+      pendingUserSectionRef.current = "archive";
+      resetMessengerTransientUi({ bumpOverlayGeneration: false });
+      setMainSection("archive");
+      const from =
+        typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("from") : null;
+      const nextUrl = buildMessengerArchiveHref({ entry, from });
+      if (typeof window !== "undefined" && `${window.location.pathname}${window.location.search}` === nextUrl) return;
+      void router.push(nextUrl, { scroll: false });
+    },
+    [pendingUserSectionRef, resetMessengerTransientUi, router, setMainSection]
+  );
+
   const onChatListChipChange = useCallback(
     (chip: MessengerChatListChip) => {
       resetMessengerTransientUi();
@@ -147,5 +169,6 @@ export function useCommunityMessengerHomeNavigation({
     replaceMessengerSectionUrl,
     onPrimarySectionChange,
     onChatListChipChange,
+    openMessengerArchive,
   };
 }

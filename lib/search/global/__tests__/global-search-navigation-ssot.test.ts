@@ -137,7 +137,9 @@ describe("global search entry / close / return SSOT", () => {
     expect(communityTrade).not.toContain('href="/search"');
     expect(delivery).toContain('openGlobalSearchFromHere(router, { domain: "delivery" })');
     expect(delivery).not.toContain('href="/search"');
-    expect(messenger).toContain('openGlobalSearchFromHere(router, { domain: "chat" })');
+    /** 채팅 시안 4판 「8. 채팅 검색」(Owner 2026-11-10): 채팅 돋보기는 앱 전체 검색이 아니라 채팅 안 검색 하위 화면 */
+    expect(messenger).not.toContain('openGlobalSearchFromHere(router, { domain: "chat" })');
+    expect(messenger).toContain('onOpenSearch={() => openMessengerSubScreen({ kind: "search" })}');
     expect(messenger).not.toContain('router.push("/search")');
   });
 

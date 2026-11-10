@@ -58,8 +58,10 @@ describe("resolveActiveMainBottomNavTabIndex", () => {
     expect(resolveActiveMainBottomNavTabIndex("/market/jobs", tradeTabs)).toBe(1);
     expect(resolveActiveMainBottomNavTabIndex("/philife", tradeTabs)).toBe(1);
     expect(resolveActiveMainBottomNavTabIndex("/stores", tradeTabs)).toBe(2);
-    /** 하단 chat 슬롯 — trade-chats 는 FAB·레거시 href, 탭 활성 아님(전체 인박스만) */
-    expect(resolveActiveMainBottomNavTabIndex("/community-messenger/trade-chats", tradeTabs)).toBe(-1);
+    /** 하단 chat 슬롯 — 거래·주문 채팅 목록은 채팅 탭의 하위 화면이라 「채팅」 탭 선택 (채팅 시안 4판 2026-11-10) */
+    expect(resolveActiveMainBottomNavTabIndex("/community-messenger/trade-chats", tradeTabs)).toBe(3);
+    expect(resolveActiveMainBottomNavTabIndex("/community-messenger/delivery-chats", tradeTabs)).toBe(3);
+    expect(resolveActiveMainBottomNavTabIndex("/community-messenger/rooms/abc", tradeTabs)).toBe(-1);
     expect(resolveActiveMainBottomNavTabIndex("/community-messenger?section=chats", tradeTabs)).toBe(3);
     expect(resolveActiveMainBottomNavTabIndex("/mypage", tradeTabs)).toBe(4);
 

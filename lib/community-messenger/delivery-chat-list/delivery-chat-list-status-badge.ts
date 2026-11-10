@@ -1,3 +1,5 @@
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { isStoreOrderTerminalStatus } from "@/lib/stores/store-order-process-model";
 
@@ -22,10 +24,11 @@ function badgeClassForOrderStatus(raw: string): string {
 
 export function deliveryChatListStatusBadgePresentation(
   orderStatusRaw: string,
-  fulfillmentType: string
+  fulfillmentType: string,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
 ): { label: string; className: string } {
   const raw = orderStatusRaw.trim();
-  const label = raw ? buyerOrderStatusLabel(raw, undefined, fulfillmentType) : "";
+  const label = raw ? buyerOrderStatusLabel(raw, lang, fulfillmentType) : "";
   return {
     label: label.trim() || raw,
     className: badgeClassForOrderStatus(raw),

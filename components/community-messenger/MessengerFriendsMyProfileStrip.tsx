@@ -7,17 +7,16 @@ import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultA
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
-import {
-  incomingCallPeerNicknameLabel,
-  labelFromDisplayAndUsername,
-} from "@/lib/users/user-label";
+import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 
 type Props = {
   me: CommunityMessengerProfileLite | null;
 };
 
 /**
- * 친구 탭 상단 — `닉네임 (@아이디)` · 나의 상태(bio) · 편집은 마이페이지 프로필 수정과 동일 데이터
+ * 친구 탭 내 프로필 줄 (채팅 시안 4판 「2. 친구 탭」, Owner 「정확히 시안대로」 2026-11-10).
+ * 높이 80 · 사진 56 둥근 사각(21) · 이름 17/600 · 둘째 줄 @아이디 12.5 회색 · 오른쪽 「프로필 편집」(회색 칸, 32 · 8 · 13/600).
+ * 편집은 마이페이지 프로필 수정과 같은 화면.
  */
 export function MessengerFriendsMyProfileStrip({ me }: Props) {
   const { t } = useI18n();
@@ -25,51 +24,41 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
   const nick = incomingCallPeerNicknameLabel(rawLabel) || rawLabel;
   const atFromLabel = rawLabel.match(/\((@[^)]+)\)/)?.[1] ?? null;
   const username = me?.subtitle?.trim() || atFromLabel || null;
-  const titleName = labelFromDisplayAndUsername(nick, username) || nick || "내 프로필";
-  const bioLine = me?.bio?.trim() ?? "";
+  const handle = username ? (username.startsWith("@") ? username : `@${username}`) : null;
 
   return (
-    <section className="px-3 pb-3 pt-2" aria-label={t("cm_friend_my_profile_section")} data-cm-friend-my-profile="">
-      <p className="mb-1.5 sam-text-helper font-semibold" style={{ color: "var(--messenger-text-secondary)" }}>
-        {t("cm_friend_my_profile_section")}
-      </p>
-      {/* §13-3 U-2: 요약 블록 — 카드 + 그림자 + 브랜드 테두리 링 아바타 (친구 행과 구분) */}
-      <div className="flex items-center gap-3 rounded-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-3 shadow-[var(--overlay-elevation-1)]">
+    <section
+      className="flex h-20 items-center gap-3 px-4"
+      aria-label={t("cm_friend_my_profile_section")}
+      data-cm-friend-my-profile=""
+    >
+      <span className="inline-flex h-14 w-14 shrink-0 overflow-hidden rounded-[21px]">
         <SamarketThumbnail
           src={resolveUserAvatarImageSrc(me?.avatarUrl)}
-          size={52}
-          roundedClassName="rounded-full"
-          className="bg-[color:var(--messenger-primary-soft)] ring-2 ring-[color:var(--messenger-primary)] ring-offset-2 ring-offset-[color:var(--messenger-surface)]"
+          size={56}
+          roundedClassName="rounded-[21px]"
+          className="h-full w-full bg-[color:var(--cm-chat-band)]"
           fallbackSrc=""
           fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
         />
-        <div className="min-w-0 flex-1">
-          <p className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
-              {nick || titleName}
-            </span>
-            <span className="shrink-0 rounded-full bg-[color:var(--messenger-primary)] px-1.5 py-px text-[11px] font-bold leading-4 text-[color:var(--sam-text-on-primary)]">
-              {t("cm_friend_my_profile_badge")}
-            </span>
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+        <p className="truncate text-[17px] font-semibold leading-[1.3]" style={{ color: "var(--cm-chat-fg)" }}>
+          {nick || t("cm_friend_my_profile_section")}
+        </p>
+        {handle ? (
+          <p data-copyable="" className="truncate text-[12.5px] leading-[1.3]" style={{ color: "var(--cm-chat-sub)" }}>
+            {handle}
           </p>
-          {username ? (
-            <p data-copyable="" className="truncate sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
-              {username.startsWith("@") ? username : `@${username}`}
-            </p>
-          ) : null}
-          {bioLine ? (
-            <p className="mt-0.5 line-clamp-2 sam-text-helper leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
-              {bioLine}
-            </p>
-          ) : null}
-        </div>
-        <Link
-          href={MYPAGE_PROFILE_EDIT_HREF}
-          className="shrink-0 rounded-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-2.5 py-1.5 sam-text-helper font-semibold text-[color:var(--messenger-text)] transition-[transform,background-color] duration-100 active:scale-[0.97] active:bg-[color:var(--messenger-surface-muted)]"
-        >
-          {t("cm_friend_my_profile_edit")}
-        </Link>
+        ) : null}
       </div>
+      <Link
+        href={MYPAGE_PROFILE_EDIT_HREF}
+        className="inline-flex h-8 shrink-0 items-center rounded-[8px] bg-[color:var(--cm-chat-band)] px-[13px] text-[13px] font-semibold active:opacity-80"
+        style={{ color: "var(--cm-chat-fg)" }}
+      >
+        {t("cm_friend_my_profile_edit")}
+      </Link>
     </section>
   );
 }
