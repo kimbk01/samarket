@@ -2,6 +2,7 @@
 
 import {
   Component,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -317,6 +318,38 @@ function applyMainHubPendingExit(
 }
 
 /**
+ * A 단계 (Owner 승인 2026-11-10, `docs/audit/app-tab-navigation-root-cause-design-2026-11-10.md` §1-A):
+ * 하단 탭 허브→허브 이동은 슬라이드 없이 즉시 — 경로 확정 순간 표식만 정리하고 이동 세션을 끝낸다
+ * (`prefers-reduced-motion` 경로와 같은 처리). 이전에는 화면 전체를 오른쪽 밖(100%)에 두었다가 0.44초 밀어 넣어
+ * 그 사이 하단 탭만 남은 빈 화면이 보였다. 허브→상세·상세→허브·링크 이동 등 다른 연출은 그대로.
+ */
+function settleMainHubSwitchWithoutSlide(el: HTMLDivElement, generation: number): void {
+  forceMainHubSurfaceCleanup(el);
+  finalizeMainHubTransition(generation);
+}
+
+/** 허브↔허브 뒤로가기(popstate) 판정 — popstate 직후 이 시간 안의 경로 확정만 뒤로가기로 본다. */
+const HUB_POPSTATE_WINDOW_MS = 1500;
+let lastPopStateAt = 0;
+let popStateListenerInstalled = false;
+
+function installHubPopStateMarker(): void {
+  if (popStateListenerInstalled || typeof window === "undefined") return;
+  popStateListenerInstalled = true;
+  window.addEventListener("popstate", () => {
+    lastPopStateAt = performance.now();
+  });
+}
+
+/** 한 번만 소비 — 같은 뒤로가기로 두 번 판정하지 않는다. */
+function consumeRecentPopState(): boolean {
+  if (lastPopStateAt === 0) return false;
+  const recent = performance.now() - lastPopStateAt <= HUB_POPSTATE_WINDOW_MS;
+  lastPopStateAt = 0;
+  return recent;
+}
+
+/**
  * Pathname confirmed (or fallback start): run enter on the same surface — no second arm.
  */
 function applyMainHubEnter(
@@ -438,6 +471,10 @@ export function AppRouteTransition({
   const refBag = useRef({ subtleEnterRef, pushSurfaceRef });
   refBag.current.subtleEnterRef = subtleEnterRef;
   refBag.current.pushSurfaceRef = pushSurfaceRef;
+
+  useEffect(() => {
+    installHubPopStateMarker();
+  }, []);
 
   const bindPushSurfaceRef = (node: HTMLDivElement | null) => {
     refBag.current.subtleEnterRef.current = node;
@@ -689,7 +726,7 @@ export function AppRouteTransition({
           if (activeHub && isMainHubTransitionGenerationActive(activeHub.generation)) {
             const settle = settleMainHubTransitionOnPathname(activeHub.generation, pathKey);
             if (settle === "settled") {
-              applyMainHubEnter(el, activeHub.axis, activeHub.generation);
+              settleMainHubSwitchWithoutSlide(el, activeHub.generation);
               return undefined;
             }
             if (settle === "mismatch") {
@@ -706,6 +743,11 @@ export function AppRouteTransition({
           }
           /** Fallback: browser back / programmatic hub change without BottomNav intent. */
           setMypageStackMotionOnSurface(el, null);
+          /** A 단계: 허브↔허브 뒤로가기(popstate)만 즉시 — 링크·상세에서 하단 탭 누름 등은 기존 슬라이드 유지. */
+          if (isKeepAliveHubRouteTransition(prev.pathname, pathKey) && consumeRecentPopState()) {
+            forceMainHubSurfaceCleanup(el);
+            return undefined;
+          }
           return beginHubFallbackEnter(el, hubAxis, pathKey);
         }
 
@@ -823,7 +865,7 @@ export function AppRouteTransition({
         }
         const settle = settleMainHubTransitionOnPathname(active.generation, pathKey);
         if (settle === "settled") {
-          applyMainHubEnter(el, active.axis, active.generation);
+          settleMainHubSwitchWithoutSlide(el, active.generation);
         }
         renderedRef.current = { pathname: pathKey, node: children };
         return undefined;
@@ -857,7 +899,7 @@ export function AppRouteTransition({
       }
       const settle = settleMainHubTransitionOnPathname(activeHub.generation, pathKey);
       if (settle === "settled" && activeHub.phase !== "done") {
-        applyMainHubEnter(el, activeHub.axis, activeHub.generation);
+        settleMainHubSwitchWithoutSlide(el, activeHub.generation);
       }
     }
 
