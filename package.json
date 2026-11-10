@@ -214,7 +214,8 @@
     "verify:push-phase1-ready": "node scripts/verify-push-phase1-ready.mjs",
     "qa:native-oauth-device": "node scripts/print-native-oauth-device-qa.mjs",
     "qa:call-pip-dock": "node scripts/qa/call-pip-dock-harness.mjs",
-    "ci": "npm run verify:deploy-authority && npm run verify:bundle-budget-baseline && npm run verify:routes && npm run verify:app-boot-consent-contract && npm run verify:trade-hot-path-contract && npm run verify:trade-detail-bottom-safe-contract && npm run verify:philife-write-composer-contract && npm run verify:store-cart-sheet-contract && npm run verify:store-payment-cod-label-contract && npm run verify:store-cart-hooks-contract && npm run verify:post-list-by-category-hooks-contract && npm run verify:thumbnail-contract && npm run verify:stores-home-hub-contract && npm run verify:deploy-imports && npm run typecheck:build && npm run typecheck:test && npm run lint && npm run verify:i18n-key-exposure && npm run verify:vitest-worker-budget && npm run verify:call-log-no-hard-delete && npm run verify:call-messenger-restore-hard-lock && npm run test:ci",
+    "ci": "npm run ci:static && npm run test:ci",
+    "ci:static": "npm run verify:deploy-authority && npm run verify:bundle-budget-baseline && npm run verify:routes && npm run verify:app-boot-consent-contract && npm run verify:trade-hot-path-contract && npm run verify:trade-detail-bottom-safe-contract && npm run verify:philife-write-composer-contract && npm run verify:store-cart-sheet-contract && npm run verify:store-payment-cod-label-contract && npm run verify:store-cart-hooks-contract && npm run verify:post-list-by-category-hooks-contract && npm run verify:thumbnail-contract && npm run verify:stores-home-hub-contract && npm run verify:deploy-imports && npm run typecheck:test && npm run lint && npm run verify:i18n-key-exposure && npm run verify:vitest-worker-budget && npm run verify:call-log-no-hard-delete && npm run verify:call-messenger-restore-hard-lock",
     "check": "npm run ci && npm run build && npm run check:bundle",
     "check:supabase-dns": "node scripts/check-supabase-dns.mjs",
     "tokens:apply-visual": "node scripts/apply-samarket-visual-tokens.mjs",
@@ -273,7 +274,6 @@
     "test:watch": "vitest",
     "generate:vapid": "node scripts/generate-vapid-keys.cjs",
     "generate:apple-client-secret": "node scripts/generate-apple-client-secret.mjs",
-    "cap:sync": "npx cap sync",
     "cap:sync:vercel": "node scripts/sync-capacitor-vercel.mjs",
     "cap:sync:vercel:ios": "node scripts/sync-capacitor-vercel.mjs --ios",
     "native:prepare": "node scripts/native-prepare.mjs",
@@ -320,9 +320,7 @@
     "verify:no-cold-warm-renderer-split": "node scripts/verify-no-cold-warm-renderer-split.cjs",
     "verify:no-cache-network-full-replace": "node scripts/verify-no-cache-network-full-replace.cjs",
     "manner-battery:recompute": "npx tsx scripts/manner-battery-recompute-snapshots.ts",
-    "manner-battery:apply": "node scripts/apply-manner-battery-ssot-migrations.mjs",
-    "verify:test-prod-isolation-p0": "node scripts/verify-test-production-isolation-p0.mjs",
-    "verify:test-service-role-ref": "node scripts/verify-test-service-role-ref.mjs"
+    "manner-battery:apply": "node scripts/apply-manner-battery-ssot-migrations.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",

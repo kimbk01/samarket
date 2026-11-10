@@ -16,8 +16,6 @@ const loadRoutines = vi.fn();
 const loadRunbooks = vi.fn();
 const loadPerf = vi.fn();
 const loadAppSettings = vi.fn();
-const listPromotionHistory = vi.fn();
-const listRecent = vi.fn();
 
 vi.mock("@/lib/admin/require-admin-permission", () => ({
   requireSuperAdmin: (...a: unknown[]) => requireSuperAdmin(...a),
@@ -59,16 +57,6 @@ vi.mock("@/lib/admin-settings/app-settings-db", async (orig) => ({
   ...(await orig<object>()),
   loadAppSettingsBundleFromDb: (...a: unknown[]) => loadAppSettings(...a),
 }));
-vi.mock("@/lib/admin/deploy-promotion/deploy-promotion-store", async (orig) => ({
-  ...(await orig<object>()),
-  listPromotionHistory: (...a: unknown[]) => listPromotionHistory(...a),
-  listRecentDeployPromotionRecords: (...a: unknown[]) => listRecent(...a),
-  hydratePromotionRecordFromLedger: async () => ({ hydrated: false }),
-}));
-vi.mock("@/lib/admin/deploy-promotion/deploy-promotion-ssot", async (orig) => ({
-  ...(await orig<object>()),
-  readRuntimeGitSha: () => null,
-}));
 
 import { GET as feedGET } from "@/app/api/admin/feed-emergency/route";
 import { GET as knowledgeGET } from "@/app/api/admin/ops-knowledge/route";
@@ -78,7 +66,6 @@ import { GET as routinesGET } from "@/app/api/admin/ops-routines/route";
 import { GET as runbooksGET } from "@/app/api/admin/ops-runbooks/route";
 import { GET as perfGET } from "@/app/api/admin/performance-ops/route";
 import { GET as appSettingsGET } from "@/app/api/admin/app-settings/route";
-import { GET as deployStatusGET } from "@/app/api/admin/deploy/status/route";
 
 type PageJson<T = Record<string, unknown>> = {
   ok: boolean;
@@ -276,19 +263,5 @@ describe("app-settings ?part=change-logs (설정 변경 이력 — 자체 30건 
   it("DB 오류 → 500 (기본값으로 숨기지 않음)", async () => {
     loadAppSettings.mockResolvedValue({ ok: false, reason: "error", message: "x" });
     expect((await appSettingsGET(req("/api/admin/app-settings?part=change-logs"))).status).toBe(500);
-  });
-});
-
-describe("deploy/status ?part=history (감사 30건·최근 20건 상한 제거)", () => {
-  it("전체 이력을 받아 쪽으로 자른다", async () => {
-    listPromotionHistory.mockReturnValue(
-      rows(64, (i) => ({ at: iso(i), sha: `sha${i}`, action: "evidence", actorUserId: "system" }))
-    );
-    listRecent.mockReturnValue([]);
-    const j = await json<{ sha: string }>(await deployStatusGET(req("/api/admin/deploy/status?part=history&limit=50&offset=50")));
-    expect(listPromotionHistory).toHaveBeenCalledWith(Number.MAX_SAFE_INTEGER);
-    expect(j.total).toBe(64);
-    expect(j.items).toHaveLength(14);
-    expect(j.items?.[0].sha).toBe("sha13");
   });
 });

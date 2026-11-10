@@ -71,8 +71,6 @@ function guardCallsFor(req: AdminRouteRequirement): string[] {
       return ["requireAdminApiUser(", "isRouteAdmin(", "requireAdminApiActor("];
     case "super_admin":
       return ["requireSuperAdmin("];
-    case "deploy_owner":
-      return ["requireDeployOwner("];
     case "permission":
       // 광고 SSOT §4 (2026-11-07): 상위노출 쓰기 = ads 키 전용 가드 `requireAdsWriteAdmin` (= requireAdminPermission("ads"))
       return req.key === "ads"
@@ -107,7 +105,6 @@ const VIEW_CONTRACT: { page: string; route: string; method?: string }[] = [
   { page: "/admin/settings/auth", route: "auth-settings/route.ts" },
   { page: "/admin/qa-board", route: "qa-board/route.ts" },
   { page: "/admin/system/data-reset", route: "system/data-reset/summary/route.ts" },
-  { page: "/admin/system/deploy", route: "deploy/status/route.ts" },
   { page: "/admin/trade/settings", route: "trade/settings/route.ts" },
   { page: "/admin/community/topics", route: "community/topics/route.ts" },
   { page: "/admin/community/members", route: "community/members/route.ts" },
@@ -140,7 +137,6 @@ const VIEW_CONTRACT: { page: string; route: string; method?: string }[] = [
 
 /** 쓰기 작업 가드가 더 강한 화면 — `action` 이 실제 쓰기 API 가드와 같다. */
 const ACTION_CONTRACT: { page: string; route: string; method: string }[] = [
-  { page: "/admin/system/deploy", route: "deploy/promote-web/route.ts", method: "POST" },
   { page: "/admin/store-fee-policies", route: "store-fee-policies/route.ts", method: "POST" },
   { page: "/admin/app/legal", route: "app-legal-documents/route.ts", method: "POST" },
   // R9 — 쓰기 권한이 따로인 나머지 화면 (화면은 useAdminRouteAction 으로 쓰기 버튼 비활성)
@@ -285,7 +281,6 @@ describe("admin route access — API 가드 계약", () => {
 
 describe("canAccessAdminRoute / canActOnAdminRoute", () => {
   const superAdmin: AdminRouteAccessActor = { role: "super_admin", permissions: [] };
-  const owner: AdminRouteAccessActor = { role: "master", permissions: [], isDeployOwner: true };
   const operator: AdminRouteAccessActor = {
     role: "admin",
     permissions: ["users", "boards", "reports", "ads", "business", "chats", "products"],
@@ -332,12 +327,9 @@ describe("canAccessAdminRoute / canActOnAdminRoute", () => {
     expect(canAccessAdminRoute("/admin/users", member)).toBe(false);
   });
 
-  it("super_admin — 배포 작업만 배포 담당자", () => {
+  it("super_admin — 최고관리자 화면 접근", () => {
     expect(canAccessAdminRoute("/admin/qa-board", superAdmin)).toBe(true);
     expect(canAccessAdminRoute("/admin/point-charges", superAdmin)).toBe(true);
-    expect(canAccessAdminRoute("/admin/system/deploy", superAdmin)).toBe(true);
-    expect(canActOnAdminRoute("/admin/system/deploy", superAdmin)).toBe(false);
-    expect(canActOnAdminRoute("/admin/system/deploy", owner)).toBe(true);
   });
 
   it("운영자 — 기본 키 화면은 열리고 point·settings·super 화면은 막힘", () => {

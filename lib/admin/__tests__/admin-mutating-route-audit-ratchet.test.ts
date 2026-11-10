@@ -282,8 +282,6 @@ describe("V3-12 admin mutating route audit ratchet", () => {
     const mustAudit = [
       "app/api/admin/ops-board/route.ts",
       "app/api/admin/usage-ops/route.ts",
-      "app/api/admin/deploy/promote-web/route.ts",
-      "app/api/admin/deploy/run-gate/route.ts",
       "app/api/admin/auth-settings/route.ts",
       "app/api/admin/auth-providers/route.ts",
       "app/api/admin/push/test/route.ts",

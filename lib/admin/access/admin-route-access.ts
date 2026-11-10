@@ -40,7 +40,6 @@ export type AdminRouteRequirement =
   | { kind: "any_admin" }
   | { kind: "permission"; key: AdminPermissionKey }
   | { kind: "super_admin" }
-  | { kind: "deploy_owner" }
   | { kind: "domain"; guard: "trade" }
   | { kind: "domain"; guard: "community"; area: CommunityAdminArea }
   | { kind: "domain"; guard: "chat"; scope: AdminChatAccessScope };
@@ -61,8 +60,6 @@ export type AdminRouteAccessActor = {
   /** 유효 관리자 역할 (`super_admin`·`master`·`admin` …) */
   role: string | null | undefined;
   permissions: readonly string[];
-  /** `DIBAY_DEPLOY_OWNER_IDS` 판정 결과 (서버가 넘김) */
-  isDeployOwner?: boolean;
   /** 정지된 운영자 (서버 `/api/admin/me.accountSuspended`) — 거래·거래 채팅·커뮤니티 홍보 불가 (`requireTradeAdmin`·`requireTradeChatAdmin`·`requireCommunityAdmin("promotion")` 과 같은 규칙) */
   accountSuspended?: boolean;
 };
@@ -151,8 +148,6 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   // ── 플랫폼 시스템 · 내부 도구
   ...ADMIN_SUPER_ADMIN_INTERNAL_TOOL_PATHS.map((path): AdminRouteAccessRule => ({ path, requirement: SUPER })),
   { path: "/admin/system/data-reset", requirement: SUPER },
-  // 조회(`deploy/status`)는 super_admin, 배포 작업은 배포 담당자만 (설계 §4-2 #3).
-  { path: "/admin/system/deploy", requirement: SUPER, action: { kind: "deploy_owner" } },
   // IA-06: 최고관리자 전용 메뉴 화면 — 화면 자체를 최고관리자로 (쓰기 API 는 이미 requireSuperAdmin)
   { path: "/admin/system", requirement: SUPER },
   { path: "/admin/feed-emergency", requirement: SUPER },
@@ -393,8 +388,6 @@ export function actorMeetsAdminRouteRequirement(
       return true;
     case "super_admin":
       return isSuper;
-    case "deploy_owner":
-      return isSuper && actor.isDeployOwner === true;
     case "permission":
       // 정지된 운영자: 서버 `requireAdminApiActor`(AD-07)가 모든 관리자 API 를 막는다 — 권한 키가 있어도 불가 (최고관리자 제외)
       if (!isSuper && actor.accountSuspended === true) return false;

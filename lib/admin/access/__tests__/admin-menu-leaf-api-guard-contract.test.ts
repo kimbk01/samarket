@@ -119,7 +119,6 @@ function getHandlerBody(routeFile: string): string | null {
 function guardRequirementOf(body: string): AdminRouteRequirement | "multi" | null {
   const found: AdminRouteRequirement[] = [];
   let m: RegExpMatchArray | null;
-  if (/\brequireDeployOwner\(/.test(body)) found.push({ kind: "deploy_owner" });
   if (/\brequireSuperAdmin\(/.test(body)) found.push({ kind: "super_admin" });
   for (m of body.matchAll(/\brequireAdminPermission\(\s*["']([\w-]+)["']/g)) found.push({ kind: "permission", key: m[1] as never });
   for (m of body.matchAll(/\brequireCommunityAdmin\(\s*["']([\w-]+)["']/g))
@@ -158,13 +157,12 @@ const PERMISSION_KEYS: readonly AdminPermissionKey[] = [
   "dev",
 ];
 
-/** 가상 관리자: 운영자 역할 × (키 없음 · 키 1개씩 · 전부) + 최고관리자 · 배포 담당. */
+/** 가상 관리자: 운영자 역할 × (키 없음 · 키 1개씩 · 전부) + 최고관리자. */
 const ACTORS: AdminRouteAccessActor[] = [
   { role: "admin", permissions: [] },
   ...PERMISSION_KEYS.map((k) => ({ role: "admin", permissions: [k] })),
   { role: "admin", permissions: [...PERMISSION_KEYS] },
   { role: "super_admin", permissions: [] },
-  { role: "super_admin", permissions: [], isDeployOwner: true },
 ];
 
 type Leaf = { key: string; path: string };

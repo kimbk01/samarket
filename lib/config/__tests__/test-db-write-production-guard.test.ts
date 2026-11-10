@@ -151,13 +151,9 @@ const tracked = execSync("git ls-files", { cwd: ROOT, encoding: "utf8" })
 /** vitest suites + Playwright service-role clients that write to a real Supabase / PostgREST. */
 const TEST_DB_WRITERS = [
   "lib/promotion/__tests__/community-paid-exposure-runtime.e2e.test.ts",
-  "lib/community-operator-import/__tests__/bplus-e2e.staging.test.ts",
   "lib/push/dispatch/__tests__/a-web-isolated-integration.staging.test.ts",
   "tests/e2e/member-feed-ad-banner-ui.spec.ts",
   "tests/e2e/revenue-final-regression-gate.spec.ts",
-  "tests/e2e/community-import-admin.staging.spec.ts",
-  "tests/e2e/community-import-diagnose.staging.spec.ts",
-  "tests/e2e/community-import-sites.staging.spec.ts",
 ];
 
 /** Playwright specs that create / update / delete / send / apply through the app under test. */
@@ -174,9 +170,6 @@ const PLAYWRIGHT_MUTATION_SPECS = [
   "tests/e2e/messenger-scenario-perf-capture.spec.ts",
   "tests/e2e/trade-c2c-perf-baseline-capture.spec.ts",
   "tests/e2e/i18n-my-profile-language.spec.ts",
-  "tests/e2e/community-import-admin.staging.spec.ts",
-  "tests/e2e/community-import-diagnose.staging.spec.ts",
-  "tests/e2e/community-import-sites.staging.spec.ts",
 ];
 
 /** Node QA / runtime-proof scripts outside the F-13 financial set that write with service role / pg. */
@@ -227,7 +220,6 @@ const SCRIPT_DB_WRITERS = [
 
 /** Isolated-local-DB scripts: resolver result must be loopback (shared F-13 resolver, by URL host). */
 const LOOPBACK_ONLY_SCRIPTS = [
-  "scripts/staging-e2e/seed-ui-admin.mjs",
   "scripts/qa/stores-discovery-scale-cut7-100k-planner-proof.mjs",
 ];
 
@@ -269,7 +261,7 @@ function isQaLikeScript(rel: string): boolean {
   if (!/^scripts\/.*\.(mjs|mts|ts|js|cjs)$/.test(rel) || /\/lib\//.test(rel) || /\/__tests__\//.test(rel)) {
     return false;
   }
-  if (rel.startsWith("scripts/qa/") || rel.startsWith("scripts/perf/") || rel.startsWith("scripts/staging-e2e/")) {
+  if (rel.startsWith("scripts/qa/") || rel.startsWith("scripts/perf/")) {
     return true;
   }
   const name = basename(rel);

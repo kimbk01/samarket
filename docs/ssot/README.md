@@ -5,7 +5,7 @@ Current product contracts live in **one** place per domain. Do not treat forensi
 | Domain | Canonical |
 |--------|-----------|
 | Execution (Owner Core) | `.cursor/rules/dibay-master-execution-contract.mdc` |
-| Deploy | `.cursor/rules/dibay-production-deploy-authority-hard-lock.mdc` · `docs/dibay-build-deploy-hard-lock.md` |
+| Deploy | `AGENTS.md` 「개발 프로세스」 1·2번 |
 | Inspection | `.cursor/rules/samarket-dev-inspection-regulation.mdc` |
 | i18n | `.cursor/rules/samarket-i18n-core.mdc` |
 | Device | `.cursor/rules/dibay-device-ssot.mdc` · `docs/dibay-device-fd*.md` |
