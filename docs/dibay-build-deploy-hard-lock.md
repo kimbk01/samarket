@@ -35,7 +35,9 @@ Next production build: **Vercel ONLY**.
 
 ## Regular deploy path (Owner 2026-10-15)
 
-**정규 웹 배포:** 수정 → 로컬/CI 검증 → 기존 승인 절차 → `main` 반영 → Vercel Production 자동 배포 → 운영 확인.
+**(2026-11-10 이전) 정규 웹 배포:** 수정 → 로컬/CI 검증 → 기존 승인 절차 → `main` 반영 → Vercel Production 자동 배포 → 운영 확인.
+
+**2026-11-10 변경 (Owner 「개발 서버·운영 서버 구분」):** 수정 → 로컬 검증 → `main` 반영 → Vercel Production 빌드 = **스테이징(Staged, 운영 주소 미연결)** → 배포 고유 주소에서 확인(Vercel 로그인·주황 「스테이징」 표시) → Vercel 「…」 → **Promote** = 운영 반영(재빌드 없음). 되돌리기 = Instant Rollback. 설정: `autoAssignCustomDomains=false` · `ssoProtection=all_except_custom_domains`. 단일 정의는 `AGENTS.md` 「개발 프로세스」 2번.
 
 - **TEST / Preview는 정규 배포의 필수 단계가 아니다.** Owner가 필요할 때만 사용한다.
 - Vercel 기본 Preview(PR 브랜치)는 플랫폼 기본 기능이며, 정규 경로에 승인 게이트로 끼워 넣지 않는다.
