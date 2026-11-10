@@ -299,6 +299,14 @@ contact_join_notices       (owner_user_id, joined_user_id, notified_at, PK(owner
 - 서버 코드 `lib/community-messenger/contacts/*` — 응답은 오류 코드만, `private, no-store`. 메신저 bootstrap·home-sync·Realtime·방 진입 경로에서 가져오지 않음 (vitest 계약으로 고정).
 - 검증: 로컬 일회용 PG16 격리 시험 `supabase/tests/isolated/contacts-sync-1a/` 66개 PASS · 합성 규모(회원 10만·번호 행 100만) 측정 — 1행 259 B(색인 포함 실측), 목록 7.6 ms, 변경 없음 0.013 ms, 변경분 50개 1.6 ms, 스냅숏 1,000개 30.6 ms, 가입 대상 계산 2.6 ms, 정리 dry_run 6.4 ms (§11 의 320 B·50 ms 기준 충족, 운영 측정 아님).
 
+### 12-2. 1b 구현·시험 기록 (2026-11-10 · 운영 DB 미적용 · 작업 브랜치 `feat/contacts-sync-1b`)
+- 운영 1a 적용 완료 (`schema_migrations 20271111090000`, 표 9·함수 15·RLS·권한 확인) · Vercel `CONTACTS_PHONE_HMAC_KEY` 추가 · 1a 스테이징 빌드 READY (`samarket-3qywytouy…`, 키 포함).
+- 마이그레이션 `20271111100000_messenger_contacts_sync_1b_friend_delete_trigger.sql` — §5-3 그대로: 문장 단위 AFTER DELETE 트리거 1개, ① 제한 기록 실패 시 ② 실패 표 + WARNING, 둘 다 실패면 친구 삭제 취소, 계정 삭제 연쇄 중 기록 안 함(EXISTS). 차단 트리거 없음.
+- 격리 시험 `supabase/tests/isolated/contacts-sync-1b/run.sh` (운영 user_social_relations 제약·기존 차단 트리거 원문 복사): T1·T1b·T2·T2w·T3·T4a·T4b·T6a·T6b·T7a·T7b·T8·T9·권한·트리거 정의 **15개 PASS**.
+- T5 동시성 (8명 15초, 같은 두 회원에 삭제·추가·차단 반복): 기준선(트리거 없음) 교착 실패 5건 / 트리거 있음 1건 — **증가 없음**. 두 경우 모두 기존 차단 트리거 경합으로 같은 오류(아래 보고)가 나 일부 클라이언트가 멈춤.
+- T10 성능 (1명 삭제·추가 반복 10초): 기준선 평균 0.090 ms / 트리거 0.070 ms — 측정 오차 범위, **증가 없음**.
+- 보고만 (1b 무관, 기준선에서도 발생): 차단 upsert 와 친구 추가가 같은 두 회원에 **동시에** 몰리면 기존 트리거 `trg_user_social_relations_blocked_clears_friend` 때문에 `tuple to be updated was already modified by an operation triggered by the current command` 오류. 실사용 빈도 낮음 · 기존 친구·차단 계약 영역이라 손대지 않음.
+
 ## 13. 화면 변경 범위 (통합 시안 기준)
 | 화면 | 현재 | 변경 | 단계 |
 |---|---|---|---|
