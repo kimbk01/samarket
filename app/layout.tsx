@@ -136,9 +136,9 @@ export default async function RootLayout({
             </LaunchIntroRoot>
           </AppBootProvider>
           </DibayAppDialogProvider>
+          {/* 스테이징(회원 미공개) 주소로 열었을 때만 주황 테두리·이름표 — 운영 주소에서는 그리지 않음 */}
+          <StagingDeployMarker />
         </AppLanguageProvider>
-        {/* 스테이징(회원 미공개) 주소로 열었을 때만 주황 테두리·이름표 — 운영 주소에서는 그리지 않음 */}
-        <StagingDeployMarker />
       </body>
     </html>
   );

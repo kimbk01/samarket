@@ -6,6 +6,8 @@
 
 export const adminDeployMessages = {
   ko: {
+    deploy_staging_marker_label: "스테이징 · 회원 미공개",
+    deploy_staging_marker_label_sha: "스테이징 · 회원 미공개 · {sha}",
     admin_menu_system_deploy: "배포 · 운영 적용",
     admin_deploy_title: "배포 · 운영 적용",
     admin_deploy_subtitle:
@@ -160,6 +162,8 @@ export const adminDeployMessages = {
     admin_deploy_ops_sem_prod: "실제 운영 적용",
   },
   en: {
+    deploy_staging_marker_label: "Staging · not public",
+    deploy_staging_marker_label_sha: "Staging · not public · {sha}",
     admin_menu_system_deploy: "Deploy · Promote",
     admin_deploy_title: "Deploy · Production",
     admin_deploy_subtitle:

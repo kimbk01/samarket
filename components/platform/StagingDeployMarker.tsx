@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { isStagingDeployHost } from "@/lib/platform/staging-deploy-host";
 
 /**
@@ -8,6 +9,7 @@ import { isStagingDeployHost } from "@/lib/platform/staging-deploy-host";
  * 화면 위에 겹쳐 그리기만 하고 터치·클릭은 모두 통과(pointer-events: none) — 레이아웃·크기 영향 0.
  */
 export function StagingDeployMarker() {
+  const { t } = useI18n();
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -49,7 +51,7 @@ export function StagingDeployMarker() {
           textOverflow: "ellipsis",
         }}
       >
-        {sha ? `스테이징 · 회원 미공개 · ${sha}` : "스테이징 · 회원 미공개"}
+        {sha ? t("deploy_staging_marker_label_sha", { sha }) : t("deploy_staging_marker_label")}
       </div>
     </div>
   );
