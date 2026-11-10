@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { logServerSessionRefreshDiag } from "@/lib/auth/server-session-refresh-diag";
 import { cookieSecureFromNextHeaders } from "@/lib/auth/cookie-secure-flag";
 
 export async function createSupabaseRouteHandlerClient() {
@@ -9,6 +10,7 @@ export async function createSupabaseRouteHandlerClient() {
 
   const cookieStore = await cookies();
   const cookieSecure = await cookieSecureFromNextHeaders();
+  const requestHeaders = await headers();
 
   return createServerClient(url, anon, {
     cookieOptions: {
@@ -21,6 +23,12 @@ export async function createSupabaseRouteHandlerClient() {
         return cookieStore.getAll();
       },
       setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
+        logServerSessionRefreshDiag({
+          component: "route_or_rsc",
+          requestCookies: cookieStore.getAll(),
+          cookiesToSet,
+          headers: requestHeaders,
+        });
         try {
           cookiesToSet.forEach(({ name, value, options }) =>
             cookieStore.set(name, value, options)

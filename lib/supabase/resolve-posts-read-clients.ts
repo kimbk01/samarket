@@ -1,3 +1,4 @@
+import { logServerSessionRefreshDiag } from "@/lib/auth/server-session-refresh-diag";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NextRequest } from "next/server";
@@ -37,8 +38,14 @@ export function createSupabaseFromRequestForRead(
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(_cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-        /* 읽기 전용 라우트 */
+      setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+        /* 읽기 전용 라우트 — 쿠키는 쓰지 않는다(진단 기록만) */
+        logServerSessionRefreshDiag({
+          component: "posts_read",
+          requestCookies: request.cookies.getAll(),
+          cookiesToSet,
+          headers: request.headers,
+        });
       },
     },
   });

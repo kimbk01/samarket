@@ -4,6 +4,7 @@
  * 주기적 세션 체크가 401 로 보일 수 있어,
  * Request + mutable NextResponse 패턴으로 갱신 쿠키를 응답에 실음 (@supabase/ssr 권장).
  */
+import { logServerSessionRefreshDiag } from "@/lib/auth/server-session-refresh-diag";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
@@ -70,6 +71,12 @@ export async function GET(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet: CookieToSet[]) {
+        logServerSessionRefreshDiag({
+          component: "api_auth_session",
+          requestCookies: request.cookies.getAll(),
+          cookiesToSet,
+          headers: request.headers,
+        });
         cookiesToSet.forEach(({ name, value }) => {
           request.cookies.set(name, value);
         });

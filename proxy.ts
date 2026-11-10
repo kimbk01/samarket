@@ -1,3 +1,4 @@
+import { logServerSessionRefreshDiag } from "@/lib/auth/server-session-refresh-diag";
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
@@ -219,6 +220,12 @@ export async function proxy(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
+        logServerSessionRefreshDiag({
+          component: "proxy",
+          requestCookies: request.cookies.getAll(),
+          cookiesToSet,
+          headers: request.headers,
+        });
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         // Must re-inject request header — bare `NextResponse.next({ request })` drops it.
         response = nextWithOwnerPathRequest(request, pathname);
