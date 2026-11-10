@@ -28,6 +28,7 @@ import {
 import { runContactsSync, type ContactsSyncOutcome } from "@/lib/community-messenger/contacts/contacts-sync-engine";
 import { resetContactsArchiveSummary } from "@/lib/community-messenger/contacts/contacts-summary-cache";
 import { setContactsFriendTagIds } from "@/lib/community-messenger/contacts/contacts-friend-tag-store";
+import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
 
 /** error = 설정을 불러오지 못함(네트워크·서버) — 기능 꺼짐(disabled)과 구분해 다시 시도를 보여 준다 */
 export type MessengerContactsPhase = "loading" | "error" | "disabled" | "consent" | "ready";
@@ -73,6 +74,8 @@ type ListCacheEntry = {
   token: string | null;
 };
 const listCache = new Map<string, ListCacheEntry>();
+/** 「다른 기기 출처 있음」 — 앱 실행 중 회원별 1번만 조회 */
+const otherDeviceSourcesCache = new Map<string, boolean>();
 /** 목록 조회 회원별 단일 비행 (§7) — 동의 직후·동기화 직후가 겹쳐도 요청 1개 */
 const listInflight = new Map<string, Promise<ListCacheEntry | null>>();
 const settingsCache = new Map<string, { at: number; settings: ContactsUserSettingsDto | null; disabled: boolean }>();
@@ -80,6 +83,7 @@ const settingsCache = new Map<string, { at: number; settings: ContactsUserSettin
 export function invalidateMessengerContactsCache(): void {
   listCache.clear();
   settingsCache.clear();
+  otherDeviceSourcesCache.clear();
   resetContactsArchiveSummary();
 }
 
@@ -209,9 +213,17 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
         deviceApprovalNeeded: outcome === "device_not_approved",
       });
       if (outcome === "device_not_approved" && local && !local.newDeviceAsked) {
-        // #11 「다른 기기에서 동기화한 연락처가 있어요 · 이 기기 연락처도 추가할까요?」 — 계정에 다른 기기 출처가 있을 때만 1번
-        const src = await contactsApi.sources(null);
-        if (src.ok) set({ otherDeviceOnly: src.data.sources.length > 0 });
+        // #11 「다른 기기에서 동기화한 연락처가 있어요 · 이 기기 연락처도 추가할까요?」 — 계정에 「다른」 기기 출처가 있을 때만 1번.
+        // 이 기기(같은 설치)는 빼고 세며, 회원별로 앱 실행 중 1번만 묻는다 (재점검 #10)
+        let others = otherDeviceSourcesCache.get(userId);
+        if (others === undefined) {
+          const src = await contactsApi.sources(ensureClientInstanceId());
+          if (src.ok) {
+            others = src.data.sources.filter((x) => !x.isThisDevice).length > 0;
+            otherDeviceSourcesCache.set(userId, others);
+          }
+        }
+        if (others !== undefined) set({ otherDeviceOnly: others });
       }
       if (outcome === "uploaded") await loadList(true);
     },
@@ -260,11 +272,14 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
       }
       if (isCancelled()) return;
       if (disabled || !settings) {
+        setContactsFriendTagIds([]);
         set({ phase: "disabled", settings, featureOff: Boolean(settings) });
         return;
       }
       patchContactsLocalState(userId, { consented: settings.consented, defaultCountry: settings.defaultCountry });
       if (!settings.consented) {
+        // 동의 전·철회 후에는 친구 행 「내 연락처」 표시도 없앤다 (재점검 #6)
+        setContactsFriendTagIds([]);
         set({ phase: "consent", settings });
         return;
       }

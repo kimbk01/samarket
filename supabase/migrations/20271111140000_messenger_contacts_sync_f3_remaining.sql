@@ -146,6 +146,7 @@ BEGIN
         pending_generation = NULL, last_used_at = now()
     WHERE id = v_src.id;
     PERFORM public.cm_contacts_bump_owner_versions(ARRAY[p_user]);
+    PERFORM public.cm_contacts_bump_holders_if_mutual(p_user);
     v_removed := true;
   ELSE
     UPDATE public.contact_sources
@@ -181,6 +182,7 @@ BEGIN
   UPDATE public.contact_sources SET status = 'removed', removed_at = now(), removed_by = 'user', pending_generation = NULL
   WHERE id = v_id AND status = 'active';
   PERFORM public.cm_contacts_bump_owner_versions(ARRAY[p_user]);
+  PERFORM public.cm_contacts_bump_holders_if_mutual(p_user);
   RETURN jsonb_build_object('ok', true);
 END;
 $function$;
@@ -201,6 +203,7 @@ BEGIN
   WHERE user_id = p_user AND status = 'active';
   GET DIAGNOSTICS v_sources = ROW_COUNT;
   PERFORM public.cm_contacts_bump_owner_versions(ARRAY[p_user]);
+  PERFORM public.cm_contacts_bump_holders_if_mutual(p_user);
   RETURN jsonb_build_object('ok', true, 'sources_removed', v_sources);
 END;
 $function$;
@@ -277,6 +280,23 @@ BEGIN
     'open', (SELECT count(*) FROM public.contact_suppression_failures WHERE resolved_at IS NULL),
     'warn', (SELECT count(*) FROM public.contact_suppression_failures WHERE resolved_at IS NULL AND attempts >= 3)
   );
+END;
+$function$;
+
+-- 「서로 저장」 회원의 연락처가 통째로 빠지면(기기·전체 삭제·권한 철회 지우기·미사용 정리) 그 회원 번호를 가진 회원 목록도 바뀜 (감사 P2)
+CREATE OR REPLACE FUNCTION public.cm_contacts_bump_holders_if_mutual(p_user uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+BEGIN
+  IF coalesce(
+       (SELECT st.discovery_policy FROM public.messenger_contact_settings st WHERE st.user_id = p_user),
+       (SELECT a.default_discovery_policy FROM public.messenger_contacts_admin_settings a WHERE a.id = 1),
+       'everyone') = 'mutual' THEN
+    PERFORM public.cm_contacts_bump_holders_of_user(p_user);
+  END IF;
 END;
 $function$;
 
@@ -380,8 +400,15 @@ CREATE TRIGGER trg_contact_settings_list_bump
 
 DROP TRIGGER IF EXISTS trg_member_phone_lookup_list_bump ON public.member_phone_lookup;
 CREATE TRIGGER trg_member_phone_lookup_list_bump
-  AFTER DELETE OR UPDATE OF phone_hmac ON public.member_phone_lookup
+  AFTER DELETE ON public.member_phone_lookup
   FOR EACH ROW
+  EXECUTE FUNCTION public.cm_contacts_on_lookup_change();
+-- 같은 번호로 다시 등록(갱신)은 목록이 안 바뀜 → 번호가 실제로 바뀐 때만
+DROP TRIGGER IF EXISTS trg_member_phone_lookup_list_bump_update ON public.member_phone_lookup;
+CREATE TRIGGER trg_member_phone_lookup_list_bump_update
+  AFTER UPDATE OF phone_hmac ON public.member_phone_lookup
+  FOR EACH ROW
+  WHEN (OLD.phone_hmac IS DISTINCT FROM NEW.phone_hmac)
   EXECUTE FUNCTION public.cm_contacts_on_lookup_change();
 
 
@@ -566,7 +593,8 @@ BEGIN
         -- 확정으로 보이기 시작·사라지는 번호 = 상대 「서로 저장」 판정이 바뀌는 번호
         SELECT coalesce(array_agg(e.phone_hmac), '{}'::bytea[]) INTO v_touched
         FROM public.contact_source_entries e JOIN public.member_phone_lookup l ON l.phone_hmac = e.phone_hmac
-        WHERE e.source_id = v_src.id AND (e.seen_generation < v_target_gen OR e.generation <> v_target_gen);
+        -- 사라지는 번호(이번에 다시 안 옴) ∪ 새로 보이는 번호(이번 세대에 들어옴)
+        WHERE e.source_id = v_src.id AND (e.seen_generation < v_target_gen OR e.generation = v_target_gen);
       END IF;
       DELETE FROM public.contact_source_entries WHERE source_id = v_src.id AND seen_generation < v_target_gen;
       UPDATE public.contact_source_entries SET generation = v_target_gen
@@ -768,6 +796,7 @@ DECLARE
   v_abandoned integer := 0;
   v_owner_ids uuid[];
   v_rec jsonb;
+  v_o uuid;
 BEGIN
   SELECT idle_source_days INTO v_idle_days FROM public.messenger_contacts_admin_settings WHERE id = 1;
   v_idle_days := coalesce(v_idle_days, 180);
@@ -797,6 +826,9 @@ BEGIN
   UPDATE public.contact_sources SET status = 'removed', removed_at = now(), removed_by = 'idle', pending_generation = NULL
   WHERE status = 'active' AND last_used_at < now() - make_interval(days => v_idle_days);
   PERFORM public.cm_contacts_bump_owner_versions(v_owner_ids);
+  FOR v_o IN SELECT unnest(v_owner_ids) LOOP
+    PERFORM public.cm_contacts_bump_holders_if_mutual(v_o);
+  END LOOP;
 
   -- 인증이 풀렸거나 번호가 없어진 회원의 등록
   DELETE FROM public.member_phone_lookup l USING public.profiles p
@@ -924,6 +956,7 @@ BEGIN
     'public.cm_contacts_recover_failures()',
     'public.cm_contacts_trigger_enabled()',
     'public.cm_contacts_bump_holders_of_user(uuid)',
+    'public.cm_contacts_bump_holders_if_mutual(uuid)',
     'public.cm_contacts_on_profile_change()',
     'public.cm_contacts_on_settings_change()',
     'public.cm_contacts_on_lookup_change()',

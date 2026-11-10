@@ -268,7 +268,11 @@ export async function getContactsUserSettings(
   if (key && own.e164) {
     const want = contactsPhoneHmacHex(own.e164, key);
     const have = String((lk as Record<string, unknown> | null)?.phone_hmac ?? "").replace(/^\\x/, "").toLowerCase();
-    if (want !== have) {
+    // 같은 번호를 다른 회원이 이미 등록했으면 건드리지 않는다 (번호 표기만 다른 두 계정이 서로 빼앗지 않게 — 매일 정리가 판정)
+    const { data: holder } = want !== have
+      ? await sb.from("member_phone_lookup").select("user_id").eq("phone_hmac", toByteaParam(want)).neq("user_id", userId).maybeSingle()
+      : { data: null };
+    if (want !== have && !holder) {
       const up = await callRpc(sb, "cm_contacts_lookup_upsert", {
         p_user: userId,
         p_phone_hmac: toByteaParam(want),

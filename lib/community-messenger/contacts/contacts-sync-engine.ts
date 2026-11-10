@@ -256,11 +256,9 @@ async function runSync(userId: string, opts: ContactsSyncOptions): Promise<Conta
   // OS 설정에서 권한을 다시 켠 것 = 회원이 직접 다시 켬 → 지운 출처도 재개
   const regranted = allowed && state.lastPermission !== null && state.lastPermission !== "granted" && state.lastPermission !== "limited";
   const reactivate = opts.reactivate === true || regranted;
-  const removedStop = state.stoppedReason === "source_removed" || state.stoppedReason === "source_inactive";
-
   // 하루 1회 기기 사용 갱신 (§7·S7) — 권한이 꺼져도 「유지」한 기기는 사용 중으로 갱신 (§8·#10, 180일 정리 대상 아님).
-  // 회원이 다시 켰고 지금 멈춰 있으면 같은 날이라도 바로 다시 등록한다.
-  const heartbeatDue = !state.sourceId || state.lastHeartbeatDay !== today || (reactivate && (removedStop || !!state.stoppedReason));
+  // 회원이 직접 다시 켰으면 같은 날이라도 바로 다시 등록(재개)한다 — 「다시 켜기」가 그날 바로 동작 (재점검 #1)
+  const heartbeatDue = !state.sourceId || state.lastHeartbeatDay !== today || reactivate;
   if (heartbeatDue && (allowed || state.sourceId)) {
     const registered = await registerSource(userId, state, reactivate && allowed);
     if (!registered) {
@@ -320,7 +318,8 @@ async function runSync(userId: string, opts: ContactsSyncOptions): Promise<Conta
   const { numbers, names } = buildContactsNumberMap(contacts, state.defaultCountry);
   if (JSON.stringify(names) !== JSON.stringify(state.names)) patchContactsLocalState(userId, { names });
 
-  if (!state.numbers) return uploadSnapshot(userId, state, numbers);
+  // 끊긴 전체 업로드가 있으면 변경분보다 먼저 이어 올린다 (서버가 미확정 세대를 들고 있어 변경분은 409 — 재점검 #4)
+  if (!state.numbers || state.snapshotProgress) return uploadSnapshot(userId, state, numbers);
 
   const diff = diffContactsNumberMaps(state.numbers, numbers);
   if (diff.add.length === 0 && diff.remove.length === 0) {

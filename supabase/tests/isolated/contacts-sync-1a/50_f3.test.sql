@@ -149,3 +149,42 @@ BEGIN
   PERFORM t_ok('F3-CNT 출처별 개수', (c->>(SELECT id::text FROM contact_sources WHERE user_id = Y LIMIT 1))::int = 1, c::text);
 END
 $f3b$;
+
+-- 재점검 #2·#3: 「서로 저장」 회원의 전체 업로드 확정·기기 삭제도 상대 목록 버전 +
+INSERT INTO public.profiles (id, nickname, phone, phone_country_code, phone_verified, phone_verified_at, created_at) VALUES
+ ('00000000-0000-0000-0000-0000000000c1', 'U1', '09170000041', '+63', true, now(), now() - interval '100 days'),
+ ('00000000-0000-0000-0000-0000000000c2', 'M1', '09170000042', '+63', true, now(), now() - interval '100 days');
+DO $f3c$
+DECLARE
+  U uuid := '00000000-0000-0000-0000-0000000000c1';
+  M uuid := '00000000-0000-0000-0000-0000000000c2';
+  rU bytea := t_h('inst-U1'); rM bytea := t_h('inst-M1');
+  sU uuid; sM uuid; v bigint; r jsonb;
+BEGIN
+  PERFORM public.cm_contacts_consent(U, 'v1', t_h('u-phone'), 1::smallint, now());
+  PERFORM public.cm_contacts_consent(M, 'v1', t_h('m-phone'), 1::smallint, now());
+  UPDATE messenger_contact_settings SET discovery_policy = 'mutual' WHERE user_id = U;
+  sU := (public.cm_contacts_register_source(U, rU, 'android')->>'source_id')::uuid;
+  sM := (public.cm_contacts_register_source(M, rM, 'android')->>'source_id')::uuid;
+  PERFORM public.cm_contacts_apply(M, sM, rM, 'batch-mut-m', 'snapshot_chunk', NULL,
+    jsonb_build_array(jsonb_build_object('h', t_hex('u-phone'), 'r', 'ref-u')), NULL, NULL, 0, 1);
+  r := public.cm_contacts_list(M, sM, NULL);
+  PERFORM t_ok('F3-MC-0 U 가 M 번호 없음 → M 목록에 U 없음', NOT (t_members(r) @> ARRAY[U]), r::text);
+  v := (SELECT account_list_version FROM messenger_contact_settings WHERE user_id = M);
+  PERFORM public.cm_contacts_apply(U, sU, rU, 'batch-mut-u', 'snapshot_chunk', NULL,
+    jsonb_build_array(jsonb_build_object('h', t_hex('m-phone'), 'r', 'ref-m')), NULL, NULL, 0, 1);
+  PERFORM t_ok('F3-MC-1 mutual U 첫 전체 업로드 확정 → M 버전 +',
+    (SELECT account_list_version FROM messenger_contact_settings WHERE user_id = M) > v);
+  r := public.cm_contacts_list(M, sM, NULL);
+  PERFORM t_ok('F3-MC-2 M 목록에 U 보임', t_members(r) @> ARRAY[U], r::text);
+  v := (SELECT account_list_version FROM messenger_contact_settings WHERE user_id = M);
+  PERFORM public.cm_contacts_delete_source(U, sU);
+  PERFORM t_ok('F3-MC-3 mutual U 기기 삭제 → M 버전 +',
+    (SELECT account_list_version FROM messenger_contact_settings WHERE user_id = M) > v);
+  v := (SELECT account_list_version FROM messenger_contact_settings WHERE user_id = M);
+  -- 같은 번호 재등록: 갱신 트리거는 번호가 실제로 바뀐 때만 (WHEN 조건) · 삭제 트리거는 따로
+  PERFORM t_ok('F3-MC-4 번호 등록 갱신 트리거 = 번호 변경 때만',
+    (SELECT pg_get_triggerdef(oid) FROM pg_trigger WHERE tgname = 'trg_member_phone_lookup_list_bump_update') LIKE '%old.phone_hmac IS DISTINCT FROM new.phone_hmac%'
+    AND (SELECT pg_get_triggerdef(oid) FROM pg_trigger WHERE tgname = 'trg_member_phone_lookup_list_bump') LIKE '%AFTER DELETE%');
+END
+$f3c$;

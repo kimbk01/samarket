@@ -57,6 +57,16 @@ export function MessengerContactsBanners({
       </Banner>
     );
   }
+  // 권한이 꺼져 있으면 「시작하기」보다 먼저 「설정 열기」 (iOS 는 다시 묻지 않음 — 재점검 #8)
+  if (view.nativeAvailable && view.permission === "denied") {
+    return (
+      <Banner title={t("cm_contacts_permission_off_title")} desc={t("cm_contacts_permission_off_desc")}>
+        <button type="button" className={`${Sam.btn.secondaryCombo} ${MESSENGER_ROW_BTN_CLASS}`} onClick={() => void openContactsAppSettings()}>
+          {t("cm_contacts_open_settings")}
+        </button>
+      </Banner>
+    );
+  }
   // 이 기기에서 아직 허락 안 함(다른 기기 결과 없음) — 「시작하기」 = 이 기기 허락 + 권한 요청 (#11)
   if (view.nativeAvailable && view.deviceApprovalNeeded) {
     return (
@@ -83,15 +93,6 @@ export function MessengerContactsBanners({
         <Link href={MESSENGER_CONTACTS_SETTINGS_HREF} className={`${Sam.btn.secondaryCombo} ${MESSENGER_ROW_BTN_CLASS}`}>
           {t("cm_contacts_settings")}
         </Link>
-      </Banner>
-    );
-  }
-  if (view.nativeAvailable && view.permission === "denied") {
-    return (
-      <Banner title={t("cm_contacts_permission_off_title")} desc={t("cm_contacts_permission_off_desc")}>
-        <button type="button" className={`${Sam.btn.secondaryCombo} ${MESSENGER_ROW_BTN_CLASS}`} onClick={() => void openContactsAppSettings()}>
-          {t("cm_contacts_open_settings")}
-        </button>
       </Banner>
     );
   }

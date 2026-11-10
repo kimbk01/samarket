@@ -30,6 +30,7 @@ import {
   patchContactsLocalState,
 } from "@/lib/community-messenger/contacts/contacts-local-store";
 import { invalidateMessengerContactsCache } from "@/lib/community-messenger/contacts/use-messenger-contacts";
+import { setContactsFriendTagIds } from "@/lib/community-messenger/contacts/contacts-friend-tag-store";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { formatRelativeTimeAgo } from "@/lib/i18n/format-relative-time";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -148,7 +149,7 @@ export function MessengerContactsSettingsScreen() {
     if (src.ok) setSources(src.data.sources);
     if (h?.ok) setHidden(h.data.suppressions);
     setStatus("ready");
-  }, []);
+  }, [userId]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -211,6 +212,7 @@ export function MessengerContactsSettingsScreen() {
       if (ok && userId) {
         clearContactsDeviceData(userId);
         patchContactsLocalState(userId, { consented: false });
+        setContactsFriendTagIds([]);
         setConfirm(null);
         router.replace(MESSENGER_CONTACTS_BACK_HREF);
         return;
