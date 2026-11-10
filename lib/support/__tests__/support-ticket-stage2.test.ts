@@ -94,6 +94,6 @@ describe("주문 문제는 매장으로", () => {
       expect(src, f).not.toContain('category: "ORDER"');
     }
     const host = read("components/support/SupportModalHost.tsx");
-    expect(host).toContain("onOpenStoreChat={(href) => {");
+    expect(host).toContain("onOpenStoreChat={closeAndNavigate}");
   });
 });

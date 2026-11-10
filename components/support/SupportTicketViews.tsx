@@ -32,8 +32,10 @@ import {
   canSubmitSupportTicket,
   clearSupportTicketDraft,
   initSupportTicketForm,
+  SUPPORT_TICKET_ACTIVE_LIST_MAX,
   isSupportTicketAnsweredStatus,
   isSupportTicketStoreOrderEntry,
+  sortActiveSupportTickets,
   isSupportTicketClosedStatus,
   listSupportTicketCategories,
   readSupportTicketDraft,
@@ -118,10 +120,11 @@ function TopRow({
 }) {
   return (
     <div
-      className="grid h-11 shrink-0 grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-2 border-b border-[var(--overlay-border)] bg-[var(--overlay-surface)] px-4"
+      className="grid h-11 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[var(--overlay-border)] bg-[var(--overlay-surface)] px-4"
       data-support-ticket-who={owner ? "OWNER" : "MEMBER"}
     >
-      <span className="truncate text-[12px] text-[var(--overlay-text-secondary)]">{label}</span>
+      {/* 실기 결함 1(2026-11-10): 라벨은 자르지 않는다 — 칸 너비 = 글자 길이 */}
+      <span className="whitespace-nowrap text-[12px] text-[var(--overlay-text-secondary)]">{label}</span>
       <span className="truncate text-[14px] font-semibold text-[var(--overlay-text-primary)]">{value}</span>
       {right ??
         (tag ? (
@@ -206,6 +209,86 @@ function useViewerOwnerStores() {
   return snap.ownerStores;
 }
 
+/* ───────────── 진행 중인 문의 (실기 결함 3 · 2026-11-10) ───────────── */
+
+/**
+ * 고객센터 FAB 숫자를 보고 눌렀을 때 답변 온 문의로 바로 갈 수 있게 — 쓰기 화면 맨 위.
+ * 같은 대상(회원 / 그 매장)의 진행 중 문의만, 답변 완료 먼저(최근 순). 없으면 아무것도 그리지 않는다.
+ */
+function ActiveTicketList({
+  audience,
+  storeId,
+  onOpenCase,
+}: {
+  audience: "MEMBER" | "OWNER";
+  storeId: string | null;
+  onOpenCase: (caseId: string) => void;
+}) {
+  const { t } = useI18n();
+  const labels = useSupportCategoryLabels();
+  const [rows, setRows] = useState<SupportCaseRow[]>([]);
+
+  useEffect(() => {
+    if (audience === "OWNER" && !storeId) {
+      setRows([]);
+      return;
+    }
+    let cancelled = false;
+    const qs = new URLSearchParams({ audience });
+    if (audience === "OWNER" && storeId) qs.set("storeId", storeId);
+    void fetch(`/api/support/cases?${qs.toString()}`, { credentials: "include", cache: "no-store" })
+      .then((r) => r.json().catch(() => null))
+      .then((j: { ok?: boolean; cases?: SupportCaseRow[] } | null) => {
+        if (cancelled || !j?.ok || !Array.isArray(j.cases)) return;
+        setRows(sortActiveSupportTickets(j.cases).slice(0, SUPPORT_TICKET_ACTIVE_LIST_MAX));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [audience, storeId]);
+
+  if (rows.length === 0) return null;
+  return (
+    <div data-support-ticket-active-list="1">
+      <SectionLabel>{t("support_ticket_active_section")}</SectionLabel>
+      <div className="border-y border-[var(--overlay-border)] bg-[var(--overlay-surface)]">
+        {rows.map((c) => {
+          const answered = isSupportTicketAnsweredStatus(c.status);
+          return (
+            <button
+              key={c.id}
+              type="button"
+              data-support-ticket-active-row={c.id}
+              onClick={() => onOpenCase(c.id)}
+              className="grid h-[60px] w-full grid-cols-[minmax(0,1fr)_auto_16px] grid-rows-[22px_18px] content-center gap-x-2 border-b border-[var(--overlay-border)] px-4 text-left last:border-b-0 active:bg-[var(--overlay-secondary)]"
+            >
+              <span className="truncate text-[14px] font-semibold text-[var(--overlay-text-primary)]">
+                {[labels.categoryLabel(c.audience, c.category), labels.issueLabel(c.audience, c.category, c.issue_type)]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+              <span
+                className={`row-span-2 self-center rounded-ui-rect px-2 py-0.5 text-[11px] font-bold ${
+                  answered ? "bg-sam-primary-soft text-sam-primary" : "bg-sam-warning-soft text-[var(--overlay-text-primary)]"
+                }`}
+              >
+                {t(supportCaseStatusLabelMeta(c.status).key)}
+              </span>
+              <span className="row-span-2 flex items-center justify-end text-[var(--overlay-text-secondary)]" aria-hidden>
+                <ChevronRight className="h-4 w-4" strokeWidth={2} />
+              </span>
+              <span className="col-start-1 truncate text-[12px] text-[var(--overlay-text-secondary)]">
+                {[c.public_case_no, formatMypageDate(c.last_message_at, { style: "datetime" })].filter(Boolean).join(" · ")}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ───────────── 쓰기 ───────────── */
 
 type ComposeView = "form" | "pick_category" | "pick_issue";
@@ -219,6 +302,7 @@ export function SupportTicketCompose({
   onClose,
   onSubmit,
   onOpenStoreChat,
+  onOpenCase,
 }: {
   context: SupportContext;
   viewerName: string;
@@ -229,6 +313,8 @@ export function SupportTicketCompose({
   onSubmit: (state: SupportTicketFormState, draftKey: string) => void;
   /** 주문 화면 — 「매장에 문의하기(주문 채팅)」 */
   onOpenStoreChat: (href: string) => void;
+  /** 진행 중인 문의 행 — 그 문의 상세로 */
+  onOpenCase: (caseId: string) => void;
 }) {
   const { t, safeT } = useI18n();
   const labels = useSupportCategoryLabels();
@@ -380,6 +466,8 @@ export function SupportTicketCompose({
       <SupportTicketHeader titleId={titleId} title={title} onClose={onClose} />
       {whoRow}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-form-keyboard-scroll-root="1">
+        <ActiveTicketList audience={state.audience} storeId={state.storeId ?? null} onOpenCase={onOpenCase} />
+
         {draft ? (
           <div
             className="mx-4 mt-3 overflow-hidden rounded-ui-rect border border-sam-warning bg-[var(--overlay-surface)]"
@@ -520,7 +608,7 @@ export function SupportTicketCompose({
         ) : null}
         <DibayOverlayButton
           roleTone="primary"
-          className={`w-full !min-h-11 ${isOwner ? "!bg-[var(--dibay-brown)]" : ""}`}
+          className={`w-full !min-h-11 ${isOwner && canSubmit ? "!bg-[var(--dibay-brown)]" : ""}`}
           loading={submitting}
           disabled={!canSubmit}
           data-support-ticket-submit="1"
@@ -675,6 +763,7 @@ export function SupportTicketDetail({
   onClosedByRequester,
   onNewInquiry,
   onUnauthorized,
+  onBack,
 }: {
   caseId: string;
   titleId: string;
@@ -682,6 +771,8 @@ export function SupportTicketDetail({
   onClosedByRequester: () => void;
   onNewInquiry: (fromCase: { audience: "MEMBER" | "OWNER"; ownerStoreId: string | null } | null) => void;
   onUnauthorized: () => void;
+  /** 쓰기 화면의 「진행 중인 문의」에서 연 경우 — 머리글 뒤로 = 쓰기 화면 */
+  onBack?: (() => void) | null;
 }) {
   const { t, safeT } = useI18n();
   const labels = useSupportCategoryLabels();
@@ -811,7 +902,7 @@ export function SupportTicketDetail({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-sam-app" data-support-ticket-view="detail">
-      <SupportTicketHeader titleId={titleId} title={headerTitle} onClose={onClose} />
+      <SupportTicketHeader titleId={titleId} title={headerTitle} onBack={onBack ?? null} onClose={onClose} />
       {supportCase && !closedView ? (
         <TopRow
           label={t("support_ticket_status_label")}

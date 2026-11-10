@@ -292,3 +292,21 @@ export function isSupportTicketClosedStatus(status: string | null | undefined): 
 export function isSupportTicketAnsweredStatus(status: string | null | undefined): boolean {
   return status === "WAITING_USER";
 }
+
+/** 쓰기 화면 「진행 중인 문의」 최대 줄 수 */
+export const SUPPORT_TICKET_ACTIVE_LIST_MAX = 5;
+
+/** 진행 중인 문의 정렬 — 종료 문의 제외, 답변 완료(고객 확인 대기) 먼저, 그다음 최근 순 */
+export function sortActiveSupportTickets<T extends { status: string; last_message_at?: string | null }>(
+  rows: readonly T[]
+): T[] {
+  return rows
+    .filter((r) => !isSupportTicketClosedStatus(r.status))
+    .slice()
+    .sort((a, b) => {
+      const aa = isSupportTicketAnsweredStatus(a.status) ? 0 : 1;
+      const bb = isSupportTicketAnsweredStatus(b.status) ? 0 : 1;
+      if (aa !== bb) return aa - bb;
+      return String(b.last_message_at ?? "").localeCompare(String(a.last_message_at ?? ""));
+    });
+}

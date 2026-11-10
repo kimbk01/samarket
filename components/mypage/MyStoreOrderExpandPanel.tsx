@@ -510,7 +510,8 @@ export function MyStoreOrderExpandPanel({
     sourceSurface: "orders_hub_store_order_expand",
     referenceType: "STORE_ORDER",
     referenceId: String(order.id ?? orderId),
-    referenceTitle: [order.order_no, order.store_name].filter(Boolean).join(" · "),
+    // 실기(2026-11-10): 매장명 먼저 — 긴 주문번호에 매장명이 잘리지 않게
+    referenceTitle: [order.store_name, order.order_no].filter(Boolean).join(" · "),
     storeChatHref: isStoreOrderChatDisabledForBuyer(String(order.order_status ?? ""))
       ? undefined
       : `/orders/store/${encodeURIComponent(String(order.id ?? orderId))}/chat`,

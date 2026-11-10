@@ -38,6 +38,7 @@ import {
   closeSupportModal,
   getSupportModalState,
   resetSupportModalToStart,
+  setSupportModalCaseId,
   subscribeSupportModalState,
   type SupportModalState,
 } from "@/lib/support/support-modal-controller";
@@ -87,6 +88,11 @@ export function SupportModalHost() {
   const [composeNonce, setComposeNonce] = useState(0);
   const historyPushed = useRef(false);
   const closingFromPop = useRef(false);
+  /**
+   * 실기 결함 2(2026-11-10): 창을 닫고 다른 화면으로 갈 때 — 닫기의 history.back() 이 방금 한 이동을 되돌렸다.
+   * 이동할 주소가 있으면 back 대신 모달이 넣은 기록 항목을 그 주소로 **교체**한다(뒤로 = 원래 화면).
+   */
+  const navigateOnClose = useRef<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -125,7 +131,16 @@ export function SupportModalHost() {
       setSubmitting(false);
       setSubmitError(null);
       setSubmitted(null);
-      if (historyPushed.current && !closingFromPop.current) {
+      const navTarget = navigateOnClose.current;
+      navigateOnClose.current = null;
+      if (navTarget) {
+        if (historyPushed.current && !closingFromPop.current) {
+          historyPushed.current = false;
+          router.replace(navTarget);
+        } else {
+          router.push(navTarget);
+        }
+      } else if (historyPushed.current && !closingFromPop.current) {
         historyPushed.current = false;
         try {
           if (window.history.state?.[HISTORY_KEY]) {
@@ -161,7 +176,7 @@ export function SupportModalHost() {
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, [open]);
+  }, [open, router]);
 
   const handleClose = useCallback(() => {
     closeSupportModal();
@@ -238,6 +253,11 @@ export function SupportModalHost() {
     []
   );
 
+  const closeAndNavigate = useCallback((href: string) => {
+    navigateOnClose.current = href;
+    closeSupportModal();
+  }, []);
+
   const goAuth = useCallback(
     (path: "/login" | "/signup") => {
       const ctx = getSupportModalState().context;
@@ -249,18 +269,16 @@ export function SupportModalHost() {
         /* 저장 실패 — 로그인 후 버튼을 다시 누르면 된다 */
       }
       const next = pathname || "/";
-      closeSupportModal();
-      router.push(`${path}?next=${encodeURIComponent(next)}`);
+      closeAndNavigate(`${path}?next=${encodeURIComponent(next)}`);
     },
-    [pathname, router]
+    [pathname, closeAndNavigate]
   );
 
   const goMine = useCallback(
     (info: SupportTicketSubmittedInfo) => {
-      closeSupportModal();
-      router.push(supportTicketMineHref(info));
+      closeAndNavigate(supportTicketMineHref(info));
     },
-    [router]
+    [closeAndNavigate]
   );
 
   const viewerName = getCurrentUser()?.nickname || getCurrentUser()?.display_name || "";
@@ -296,6 +314,9 @@ export function SupportModalHost() {
           onClosedByRequester={handleClose}
           onNewInquiry={handleNewInquiry}
           onUnauthorized={() => setAuth("out")}
+          onBack={
+            modal.context && isSupportContextEnabled(modal.context) ? () => setSupportModalCaseId(null) : null
+          }
         />
       );
     } else if (modal.context && isSupportContextEnabled(modal.context)) {
@@ -309,10 +330,8 @@ export function SupportModalHost() {
           submitError={submitError}
           onClose={handleClose}
           onSubmit={(state, draftKey) => void handleSubmit(state, draftKey)}
-          onOpenStoreChat={(href) => {
-            closeSupportModal();
-            router.push(href);
-          }}
+          onOpenStoreChat={closeAndNavigate}
+          onOpenCase={(caseId) => setSupportModalCaseId(caseId)}
         />
       );
     }
