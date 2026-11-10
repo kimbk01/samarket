@@ -6,8 +6,6 @@
 
 export const adminOsLaunchMessages = {
   ko: {
-    admin_menu_settings_startup_group: "앱 화면 구성",
-    admin_menu_settings_os_start: "OS 시작 화면",
     admin_os_launch_title: "OS 시작 화면",
     admin_os_launch_desc:
       "앱 아이콘을 누르면 Android·iOS가 가장 먼저 보여주는 화면입니다. 배경색과 가운데 로고만 바꿀 수 있습니다.",
@@ -45,8 +43,6 @@ export const adminOsLaunchMessages = {
     admin_os_launch_error: "처리하지 못했습니다: {error}",
   },
   en: {
-    admin_menu_settings_startup_group: "App screens",
-    admin_menu_settings_os_start: "OS start screen",
     admin_os_launch_title: "OS start screen",
     admin_os_launch_desc:
       "The first screen Android and iOS show when the app icon is tapped. Only the background color and the centered logo can change.",

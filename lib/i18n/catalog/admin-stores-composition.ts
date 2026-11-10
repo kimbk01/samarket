@@ -1,7 +1,6 @@
 /** Admin Stores Composition Policy — C2 UI copy */
 export const adminStoresCompositionMessages = {
   ko: {
-    admin_menu_stores_composition_policy: "Composition 정책",
     admin_stores_composition_title: "스토어 Composition 정책",
     admin_stores_composition_desc:
       "HOME/BROWSE 노출 구성 정책을 저장합니다. Discovery 순위는 여기서 편집할 수 없습니다. 엔진 cutover 전까지 사용자 화면에는 적용되지 않습니다.",
@@ -35,7 +34,6 @@ export const adminStoresCompositionMessages = {
     admin_stores_composition_title_editability: "Title 편집: DEFERRED (Presentation i18n authority)",
   },
   en: {
-    admin_menu_stores_composition_policy: "Composition policy",
     admin_stores_composition_title: "Store composition policy",
     admin_stores_composition_desc:
       "Persist HOME/BROWSE exposure composition policy. Discovery ranking cannot be edited here. Not applied to user surfaces until engine cutover.",

@@ -21,6 +21,7 @@ import {
   type AdminRouteAccessActor,
 } from "@/lib/admin/access/admin-route-access";
 import { filterAdminMenuByAccess, resolveAdminRouteActionState } from "@/lib/admin/access/admin-access-ui";
+import { adminMemberSharedMessages } from "@/lib/i18n/catalog/admin-member-shared";
 import {
   isCampaignCreateSendCausing,
   isCampaignEditSendAffecting,
@@ -79,8 +80,8 @@ function expectMatrix(fn: (a: AdminRouteAccessActor) => boolean, expected: Expec
 describe("R2 · 권한 키 정의 (RS-04 support)", () => {
   it("support 키 = 타입·키 목록·라벨·전 역할 기본값", () => {
     expect(ADMIN_PERMISSION_KEYS).toContain("support");
-    expect(adminPermissionsLabelsMessages.ko.admin_perm_support).toBe("고객지원");
-    expect(adminPermissionsLabelsMessages.en.admin_perm_support).toBe("Customer support");
+    expect(({ ...adminPermissionsLabelsMessages.ko, ...adminMemberSharedMessages.ko } as Record<string, string>).admin_perm_support).toBe("고객지원");
+    expect(({ ...adminPermissionsLabelsMessages.en, ...adminMemberSharedMessages.en } as Record<string, string>).admin_perm_support).toBe("Customer support");
     expect(getPermissionLabel("support")).not.toBe("support");
     for (const role of ["operator", "manager", "master"] as const) {
       expect(DEFAULT_PERMISSIONS_BY_ROLE[role], role).toContain("support");

@@ -1,7 +1,6 @@
 /** Admin store discovery + campaign writer UI copy */
 export const adminStoreDiscoveryMessages = {
   ko: {
-    admin_menu_store_discovery_control: "기획 프로모션",
     admin_store_discovery_title: "기획 프로모션",
     admin_store_discovery_desc:
       "플랫폼 기획·이벤트 노출(store_discovery_campaigns)만 관리합니다. 매장 광고·배너·쿠폰·배달비 혜택과 다릅니다.",
@@ -78,7 +77,6 @@ export const adminStoreDiscoveryMessages = {
     admin_store_discovery_panel_review_link: "스토어 캠페인 관리 화면",
   },
   en: {
-    admin_menu_store_discovery_control: "Editorial promotions",
     admin_store_discovery_title: "Editorial promotions",
     admin_store_discovery_desc:
       "Manage platform editorial/event exposure (store_discovery_campaigns) only — not store ads, banners, coupons, or delivery-fee benefits.",

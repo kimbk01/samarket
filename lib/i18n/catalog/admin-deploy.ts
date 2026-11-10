@@ -6,7 +6,6 @@
 
 export const adminDeployMessages = {
   ko: {
-    admin_menu_system_deploy: "배포 · 운영 적용",
     admin_deploy_title: "배포 · 운영 적용",
     admin_deploy_subtitle:
       "정규 웹 배포: 검증 후 main에 반영하면 Vercel이 Production에 자동 배포합니다. TEST·Preview는 선택이며 필수가 아닙니다. DB·앱 스토어는 별도입니다.",
@@ -130,7 +129,6 @@ export const adminDeployMessages = {
     admin_deploy_ops_can_test: "테스트 가능",
     admin_deploy_ops_can_promote: "운영 적용 가능",
     admin_deploy_ops_source: "조회 원천",
-    admin_deploy_ops_status_ok: "정상",
     admin_deploy_ops_status_miswired: "연결 오류",
     admin_deploy_ops_status_error: "오류",
     admin_deploy_result_blocked: "실행할 수 없음",
@@ -160,7 +158,6 @@ export const adminDeployMessages = {
     admin_deploy_ops_sem_prod: "실제 운영 적용",
   },
   en: {
-    admin_menu_system_deploy: "Deploy · Promote",
     admin_deploy_title: "Deploy · Production",
     admin_deploy_subtitle:
       "Regular web ship: after checks, land on main — Vercel auto-deploys Production. TEST/Preview are optional, not required. DB / store apps are separate.",
@@ -285,7 +282,6 @@ export const adminDeployMessages = {
     admin_deploy_ops_can_test: "Can test",
     admin_deploy_ops_can_promote: "Can apply to prod",
     admin_deploy_ops_source: "Source",
-    admin_deploy_ops_status_ok: "OK",
     admin_deploy_ops_status_miswired: "Miswired",
     admin_deploy_ops_status_error: "Error",
     admin_deploy_result_blocked: "Blocked",

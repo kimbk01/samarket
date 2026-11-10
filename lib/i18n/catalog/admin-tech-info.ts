@@ -4,17 +4,7 @@
  */
 export const adminTechInfoMessages = {
   ko: {
-    admin_tech_info_title: "기술 정보",
-    admin_tech_id_copy: "복사",
-    admin_tech_id_copied: "복사됨",
-    admin_tech_id_copy_failed: "복사 실패",
-    admin_tech_id_copy_aria: "ID 복사: {id}",
   },
   en: {
-    admin_tech_info_title: "Technical details",
-    admin_tech_id_copy: "Copy",
-    admin_tech_id_copied: "Copied",
-    admin_tech_id_copy_failed: "Copy failed",
-    admin_tech_id_copy_aria: "Copy ID: {id}",
   },
 } as const;

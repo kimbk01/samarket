@@ -5,7 +5,6 @@
 
 export const adminLaunchIntroMessages = {
   ko: {
-    admin_menu_settings_intro: "인트로",
     admin_launch_intro_desc:
       "앱(Android·iOS)을 새로 켤 때 OS 시작 화면 다음에 한 번 보여주는 화면입니다. 웹·Windows에는 나오지 않습니다. DIBAY 자체 안내·브랜드 화면만 올립니다 — 매장·외부 업체 광고는 넣지 않습니다(Google Play: 앱 로딩 전 전면 광고 금지).",
     admin_launch_intro_propagation_note:
@@ -130,7 +129,6 @@ export const adminLaunchIntroMessages = {
     admin_launch_intro_err_draft_image_missing: "초안 이미지 파일을 찾을 수 없습니다. 이미지를 다시 올린 뒤 게시하세요.",
     admin_launch_intro_err_transition_rejected: "지금 상태에서는 할 수 없는 동작입니다. 새로고침한 뒤 다시 확인하세요.",
     admin_launch_intro_err_publication_not_found: "게시본을 찾을 수 없습니다. 새로고침한 뒤 다시 확인하세요.",
-    admin_launch_intro_err_reason_required: "사유를 입력해 주세요.",
     admin_launch_intro_err_cta_label_invalid: "버튼 문구가 비어 있거나 너무 깁니다.",
     admin_launch_intro_err_cta_path_invalid: "버튼 이동 경로가 앱 안 주소가 아닙니다.",
     admin_launch_intro_err_cta_next_on_last_scene: "마지막 장면의 버튼은 「다음 장면」으로 둘 수 없습니다.",
@@ -240,7 +238,6 @@ export const adminLaunchIntroMessages = {
     admin_launch_intro_publish_confirm_desc: "게시하면 지금 게시 중인 Intro를 대신합니다. 각 기기에는 서버와 다시 확인한 뒤의 다음 실행부터 보입니다.",
   },
   en: {
-    admin_menu_settings_intro: "Intro",
     admin_launch_intro_desc:
       "Shown once after the OS start screen when the app (Android/iOS) is newly launched. Not shown on web or Windows. Use it only for DIBAY's own notices and brand screens — no store or third-party ads (Google Play: no full-screen ads before the app loads).",
     admin_launch_intro_propagation_note:
@@ -365,7 +362,6 @@ export const adminLaunchIntroMessages = {
     admin_launch_intro_err_draft_image_missing: "A draft image file is missing. Upload it again before publishing.",
     admin_launch_intro_err_transition_rejected: "This action is not allowed in the current state. Refresh and check again.",
     admin_launch_intro_err_publication_not_found: "Publication not found. Refresh and check again.",
-    admin_launch_intro_err_reason_required: "Please enter a reason.",
     admin_launch_intro_err_cta_label_invalid: "The button label is empty or too long.",
     admin_launch_intro_err_cta_path_invalid: "The button path is not an in-app address.",
     admin_launch_intro_err_cta_next_on_last_scene: "The last scene's button cannot be \"next scene\".",

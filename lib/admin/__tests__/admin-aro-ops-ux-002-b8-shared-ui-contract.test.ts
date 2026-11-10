@@ -35,7 +35,7 @@ describe("ARO-OPS-UX-002-B8 shared UI / geometry", () => {
   });
 
   it("B8-07 System hub labels clarify purpose without IA route change", () => {
-    const catalog = read("lib/i18n/catalog/admin.ts");
+    const catalog = (read("lib/i18n/catalog/admin.ts") + read("lib/i18n/catalog/admin-member-shared.ts"));
     expect(catalog).toContain('admin_menu_customer_platform: "시스템 허브"');
     expect(catalog).toContain('admin_menu_cp_dashboard: "시스템 개요"');
     expect(catalog).toContain('admin_menu_customer_platform: "System hub"');

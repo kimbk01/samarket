@@ -19,11 +19,6 @@ export const adminPlatformPromotionNotificationsMessages = {
     admin_promotion_bell_action_label: "앱 알림함 등록/관리 (Push 「보내기」와 다름)",
     admin_promotion_bell_empty:
       "설정된 앱 알림함 항목이 없습니다. 이벤트 노출 설정에서 켠 뒤 알림 캠페인에서 등록하세요.",
-    admin_platform_events_push_manage: "Push 캠페인 관리 · 보내기",
-    admin_platform_events_push_source_blocked:
-      "Push 발송이 소스 계약에 막혔습니다. 알림 캠페인에서 공식 랜딩/콘텐츠를 확인하세요. 검증을 우회하지 않습니다.",
-    admin_platform_events_push_publish_required: "이벤트 게시 후 Push를 보낼 수 있습니다.",
-    admin_platform_events_bell_manage: "앱 알림함 캠페인 등록/관리",
     admin_campaign_cms_push_in_app_counts: "푸시 {push} · 인앱 {in_app}",
     admin_campaign_cms_linked_type_event: "이벤트",
     admin_campaign_cms_linked_source_unavailable: "원본 확인 불가",
@@ -100,11 +95,6 @@ export const adminPlatformPromotionNotificationsMessages = {
     admin_campaign_cms_confirm_fact_channel: "채널: {channel}",
     admin_campaign_cms_confirm_fact_time: "시각: {time}",
     admin_feed_ad_destination_type_event: "Event",
-    admin_destination_hint_kind_internal_route: "앱 내부 화면",
-    admin_destination_hint_kind_event: "이벤트",
-    admin_destination_hint_kind_external_url: "외부 링크 · 인앱 브라우저",
-    admin_destination_hint_kind_none: "링크 없음",
-    admin_destination_hint_invalid: "유효하지 않은 링크",
   },
   en: {
     admin_promotion_notifications_save_not_send:
@@ -120,11 +110,6 @@ export const adminPlatformPromotionNotificationsMessages = {
     admin_promotion_bell_action_label: "Register / manage inbox (not the same as Send push)",
     admin_promotion_bell_empty:
       "No inbox items configured. Enable on Event exposure, then register via notification campaigns.",
-    admin_platform_events_push_manage: "Manage Push campaign · Send",
-    admin_platform_events_push_source_blocked:
-      "Push send blocked by campaign source contract. Confirm approved landing/content on the notification campaign. Do not bypass validation.",
-    admin_platform_events_push_publish_required: "Push can be sent after the event is published.",
-    admin_platform_events_bell_manage: "Register / manage inbox campaign",
     admin_campaign_cms_push_in_app_counts: "Push {push} · In-app {in_app}",
     admin_campaign_cms_linked_type_event: "Event",
     admin_campaign_cms_linked_source_unavailable: "Source unavailable",
@@ -211,10 +196,5 @@ export const adminPlatformPromotionNotificationsMessages = {
     admin_campaign_cms_confirm_fact_channel: "Channel: {channel}",
     admin_campaign_cms_confirm_fact_time: "Time: {time}",
     admin_feed_ad_destination_type_event: "Event",
-    admin_destination_hint_kind_internal_route: "In-app page",
-    admin_destination_hint_kind_event: "Event",
-    admin_destination_hint_kind_external_url: "External · in-app browser",
-    admin_destination_hint_kind_none: "No link",
-    admin_destination_hint_invalid: "Invalid link",
   },
 } as const;

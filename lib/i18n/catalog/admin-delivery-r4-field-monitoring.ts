@@ -3,9 +3,6 @@
  */
 export const adminDeliveryR4DMessages = {
   ko: {
-    // 메뉴 라벨 (A-1 승인 — 경로·메뉴 key 불변, 라벨만 운영 명칭으로)
-    admin_menu_delivery_ops_console: "실시간 상황판",
-    admin_menu_delivery_operations_stats: "배달 통계",
     // 기존 라벨 교정 — 휴리스틱·UTC·원시 값 표기 제거
     admin_del_admin_status_prefix: "관리 상태: {status}",
     admin_del_alert_filter_today_utc: "오늘만 (마닐라)",
@@ -151,8 +148,6 @@ export const adminDeliveryR4DMessages = {
     admin_r4d_auto_not_ready: "자동 조치 기능이 아직 준비되지 않았습니다. 시스템 관리자에게 문의하세요.",
   },
   en: {
-    admin_menu_delivery_ops_console: "Live ops board",
-    admin_menu_delivery_operations_stats: "Delivery statistics",
     admin_del_admin_status_prefix: "Admin status: {status}",
     admin_del_alert_filter_today_utc: "Today only (Manila)",
     admin_del_alert_metadata_summary: "Technical details — run detail (latest 5)",

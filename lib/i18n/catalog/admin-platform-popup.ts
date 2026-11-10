@@ -45,17 +45,7 @@ export const adminPlatformPopupMessages = {
     admin_platform_popup_creative_ratio_help:
       "최종 제작물은 반드시 36:25 입니다. 비율이 다르면 중앙 크롭을 명시적으로 적용해야 합니다.",
     admin_platform_popup_apply_center_crop: "36:25 중앙 크롭 적용 후 업로드",
-    admin_platform_popup_preview_unsaved: "저장되지 않은 미리보기",
-    admin_platform_popup_preview_saved: "저장된 데이터 미리보기",
-    admin_platform_popup_preview_landscape: "가로 화면에서는 팝업을 노출하지 않습니다.",
-    admin_platform_popup_preview_landscape_deny: "가로 화면에서는 팝업을 노출하지 않습니다.",
-    admin_platform_popup_preview_tablet_portrait: "태블릿 세로",
-    admin_platform_popup_preview_tablet_landscape: "태블릿 가로",
-    admin_platform_popup_preview_desktop: "데스크톱",
-    admin_platform_popup_preview_safe_simulated: "시뮬레이션 safe-bottom: {px}px (미리보기 셸)",
     admin_platform_popup_benefit_requires_event_benefit:
-      "혜택 다이얼로그는 연결된 이벤트에 혜택 정보가 있을 때 사용할 수 있습니다.",
-    admin_platform_popup_benefit_requires_event:
       "혜택 다이얼로그는 연결된 이벤트에 혜택 정보가 있을 때 사용할 수 있습니다.",
     admin_platform_popup_benefit_contract:
       "혜택 다이얼로그는 연결된 이벤트에 혜택 정보가 있을 때 사용할 수 있습니다.",
@@ -72,9 +62,6 @@ export const adminPlatformPopupMessages = {
       "이미지는 보조 소재입니다. 이벤트 혜택을 복제하지 않습니다.",
     admin_platform_popup_sheet_spec: "하단 노출 · 내용 높이에 맞춤 · 이미지·내용·CTA 구성",
     admin_platform_popup_sheet_spec_safe: "하단 여백은 앱이 자동으로 처리합니다.",
-    admin_platform_popup_preview_empty: "미리볼 크리에이티브가 없습니다.",
-    admin_platform_popup_preview_renderer_note:
-      "미리보기는 프로덕션 DibayPopupAd를 그대로 사용합니다. 가로 모드에서는 팝업을 가로형으로 바꾸지 않고 노출하지 않습니다.",
     admin_platform_popup_hub_title: "팝업 광고 운영",
     admin_platform_popup_hub_desc: "오너 신청 검토 · 노출 관리 · 직접 등록. 신청≠노출.",
     admin_platform_popup_upload_hint:
@@ -104,8 +91,6 @@ export const adminPlatformPopupMessages = {
     admin_platform_popup_action_approve_schedule: "승인 후 예약 노출",
     admin_platform_popup_action_approve_active: "승인 후 노출 시작",
     admin_platform_popup_action_schedule: "예약 노출",
-    admin_platform_popup_action_go_live: "노출 시작",
-    admin_platform_popup_action_pause: "노출 중지",
     admin_platform_popup_action_resume: "다시 노출",
     admin_platform_popup_action_end: "종료",
     admin_platform_popup_action_delete_draft: "삭제",
@@ -159,17 +144,7 @@ export const adminPlatformPopupMessages = {
     admin_platform_popup_creative_ratio_help:
       "Final creative must be 36:25. Non-matching images require explicit center crop.",
     admin_platform_popup_apply_center_crop: "Upload with 36:25 center crop",
-    admin_platform_popup_preview_unsaved: "Unsaved preview",
-    admin_platform_popup_preview_saved: "Saved production preview",
-    admin_platform_popup_preview_landscape: "Popups are not shown in landscape.",
-    admin_platform_popup_preview_landscape_deny: "Popups are not shown in landscape.",
-    admin_platform_popup_preview_tablet_portrait: "Tablet portrait",
-    admin_platform_popup_preview_tablet_landscape: "Tablet landscape",
-    admin_platform_popup_preview_desktop: "Desktop",
-    admin_platform_popup_preview_safe_simulated: "Simulated safe-bottom: {px}px (preview shell)",
     admin_platform_popup_benefit_requires_event_benefit:
-      "Benefit dialog requires linked Event Benefit content.",
-    admin_platform_popup_benefit_requires_event:
       "Benefit dialog requires linked Event Benefit content.",
     admin_platform_popup_benefit_contract:
       "Benefit dialog is available when the linked Event has Benefit content.",
@@ -186,9 +161,6 @@ export const adminPlatformPopupMessages = {
       "Image is supporting creative. Do not clone Event Benefit fields here.",
     admin_platform_popup_sheet_spec: "Bottom anchored · content-driven height · image + copy + CTA",
     admin_platform_popup_sheet_spec_safe: "Bottom inset is handled automatically by the app.",
-    admin_platform_popup_preview_empty: "No creative to preview.",
-    admin_platform_popup_preview_renderer_note:
-      "Preview uses the exact production DibayPopupAd. Landscape does not convert the popup — it suppresses it.",
     admin_platform_popup_hub_title: "Popup Ads Ops",
     admin_platform_popup_hub_desc: "Owner request review · execution · direct create. Request ≠ execution.",
     admin_platform_popup_upload_hint:
@@ -218,8 +190,6 @@ export const adminPlatformPopupMessages = {
     admin_platform_popup_action_approve_schedule: "Approve → scheduled",
     admin_platform_popup_action_approve_active: "Approve → start exposure",
     admin_platform_popup_action_schedule: "Schedule",
-    admin_platform_popup_action_go_live: "Start exposure",
-    admin_platform_popup_action_pause: "Stop exposure",
     admin_platform_popup_action_resume: "Resume",
     admin_platform_popup_action_end: "End",
     admin_platform_popup_action_delete_draft: "Delete",

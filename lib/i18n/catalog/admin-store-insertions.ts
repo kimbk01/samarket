@@ -1,7 +1,6 @@
 /** Admin store paid ads + coupon writer UI copy */
 export const adminStoreInsertionsMessages = {
   ko: {
-    admin_menu_store_insertions_control: "매장 홍보 광고",
     admin_store_insertions_title: "매장 홍보 광고",
     admin_store_insertions_desc:
       "배달 매장 홍보 광고(store_sponsored)를 생성·수정·비활성화합니다. 쿠폰·기획 프로모션·피드 광고와 다릅니다.",
@@ -93,12 +92,10 @@ export const adminStoreInsertionsMessages = {
     admin_store_insertions_coupons_err_invalid_end_at: "종료 시각 형식이 올바르지 않습니다.",
     admin_store_insertions_coupons_err_invalid_discount_type: "할인 유형이 올바르지 않습니다.",
     admin_store_insertions_coupons_err_invalid_discount_value: "할인 값이 올바르지 않습니다.",
-    admin_store_insertions_coupons_err_store_not_found: "매장을 찾을 수 없습니다.",
     admin_store_insertions_coupons_err_store_not_eligible: "승인된 매장만 쿠폰 대상이 됩니다.",
     admin_store_insertions_coupons_err_missing_store_id: "매장 ID를 입력하세요.",
   },
   en: {
-    admin_menu_store_insertions_control: "Store sponsored ads",
     admin_store_insertions_title: "Store sponsored ads",
     admin_store_insertions_desc:
       "Create, edit, and deactivate Delivery store sponsored ads (store_sponsored). Not coupons, editorial, or feed ads.",
@@ -188,7 +185,6 @@ export const adminStoreInsertionsMessages = {
     admin_store_insertions_coupons_err_invalid_end_at: "End time format is invalid.",
     admin_store_insertions_coupons_err_invalid_discount_type: "Discount type is invalid.",
     admin_store_insertions_coupons_err_invalid_discount_value: "Discount value is invalid.",
-    admin_store_insertions_coupons_err_store_not_found: "Store not found.",
     admin_store_insertions_coupons_err_store_not_eligible: "Only approved stores can have coupons.",
     admin_store_insertions_coupons_err_missing_store_id: "Enter a store ID.",
   },

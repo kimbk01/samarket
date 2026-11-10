@@ -53,7 +53,6 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_reason: "사유 (수정요청·반려·중지·강제중단 필수)",
     admin_delivery_ads_confirm_again: "다시 눌러 확인",
     admin_delivery_ads_action_start_review: "검토 시작",
-    admin_delivery_ads_action_request_changes: "보류",
     admin_delivery_ads_action_approve: "승인",
     admin_delivery_ads_action_reject: "반려",
     admin_delivery_ads_action_pause: "일시중지",
@@ -64,14 +63,6 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_action_archive: "보관",
     admin_delivery_ads_action_delete_safe_draft: "초안 삭제",
     admin_delivery_ads_legacy_redirect: "배달 광고 통합 관리로 이동했습니다.",
-    admin_menu_delivery_ads_control: "광고 / 노출 현황",
-    admin_menu_ads_advertising_workspace: "전체 광고",
-    admin_menu_ads_authority_boosts: "상위노출 관리",
-    admin_menu_ads_authority_applications: "광고 승인",
-    admin_menu_ads_authority_operations: "노출 관리",
-    admin_menu_ads_authority_placements: "광고 위치",
-    admin_menu_ads_authority_products: "광고 상품 / 가격",
-    admin_menu_ads_authority_history: "광고 이력",
     admin_delivery_ads_commercial_subtitle:
       "기간 패키지 · 가격 · 지면 판매 · Partner (Admin SSOT)",
     admin_delivery_ads_commercial_link: "광고 상품 설정",
@@ -214,7 +205,6 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_partner_memberships_title: "Partner 멤버십",
     admin_delivery_ads_partner_memberships_desc:
       "가입 대기 · 이용 중 · 해지 예정 · 종료 (월 회비 결제는 미구현)",
-    admin_delivery_ads_partner_manage_title: "Partner 관리",
     admin_delivery_ads_partner_manage_desc: "광고 Partner 요금과 가입 매장을 관리합니다.",
     admin_delivery_ads_partner_payment_note:
       "Partner 월 회비 자동 결제는 아직 사용할 수 없습니다.",
@@ -332,7 +322,6 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_reason: "Reason (required for changes/reject/pause/terminate)",
     admin_delivery_ads_confirm_again: "Tap again to confirm",
     admin_delivery_ads_action_start_review: "Start review",
-    admin_delivery_ads_action_request_changes: "Hold",
     admin_delivery_ads_action_approve: "Approve",
     admin_delivery_ads_action_reject: "Reject",
     admin_delivery_ads_action_pause: "Pause",
@@ -343,14 +332,6 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_action_archive: "Archive",
     admin_delivery_ads_action_delete_safe_draft: "Delete draft",
     admin_delivery_ads_legacy_redirect: "Moved to unified Delivery ads control.",
-    admin_menu_delivery_ads_control: "Ads control",
-    admin_menu_ads_advertising_workspace: "All ads",
-    admin_menu_ads_authority_boosts: "Boost management",
-    admin_menu_ads_authority_applications: "Ad approval",
-    admin_menu_ads_authority_operations: "Exposure operations",
-    admin_menu_ads_authority_placements: "Ad placements",
-    admin_menu_ads_authority_products: "Ad products / pricing",
-    admin_menu_ads_authority_history: "Ad history",
     admin_delivery_ads_commercial_subtitle:
       "Packages · prices · placement sellability · Partner (Admin SSOT)",
     admin_delivery_ads_commercial_link: "Ad product settings",
@@ -496,7 +477,6 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_partner_memberships_title: "Partner memberships",
     admin_delivery_ads_partner_memberships_desc:
       "Pending · active · cancel pending · ended (monthly fee payment not implemented)",
-    admin_delivery_ads_partner_manage_title: "Partner management",
     admin_delivery_ads_partner_manage_desc: "Manage Partner fees and enrolled stores.",
     admin_delivery_ads_partner_payment_note:
       "Partner monthly fee auto-payment is not available yet.",

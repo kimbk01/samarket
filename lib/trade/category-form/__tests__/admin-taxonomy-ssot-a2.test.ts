@@ -6,6 +6,7 @@ import { adminCategoriesMessages } from "@/lib/i18n/catalog/admin-categories";
 import { adminMenusMessages } from "@/lib/i18n/catalog/admin-menus";
 import { adminTradeMessages } from "@/lib/i18n/catalog/admin-trade";
 import { MESSAGES } from "@/lib/i18n/messages";
+import { adminMemberSharedMessages } from "@/lib/i18n/catalog/admin-member-shared";
 
 function read(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), "utf8");
@@ -52,24 +53,24 @@ describe("CUT A2 admin taxonomy SSOT", () => {
     // 거래 Admin 설계 v2 §B-3 (D-37): /admin/categories 는 /admin/menus/trade 로 리다이렉트 (AdminCategoriesPage 삭제).
     const page = read("app/admin/categories/page.tsx");
     expect(page).toContain('redirect("/admin/menus/trade")');
-    expect(adminCategoriesMessages.ko.admin_cat_trade_ssot_link).toBe("거래 메뉴 설정");
-    expect(adminCategoriesMessages.en.admin_cat_trade_ssot_link).toBe("Trade menu settings");
+    expect(({ ...adminCategoriesMessages.ko, ...adminMemberSharedMessages.ko } as Record<string, string>).admin_cat_trade_ssot_link).toBe("거래 메뉴 설정");
+    expect(({ ...adminCategoriesMessages.en, ...adminMemberSharedMessages.en } as Record<string, string>).admin_cat_trade_ssot_link).toBe("Trade menu settings");
   });
 
   it("admin copy uses 주제 / 카테고리 / 옵션 (T0)", () => {
     /** 언어 SSOT S5: 화면 값으로 확인 — 이전 기대값 「주제 (거래)」는 화면에 나오지 않던 값(L9, Owner 결정 대기) */
     expect(MESSAGES.ko.admin_menu_menu_trade).toBe("카테고리");
     expect(MESSAGES.en.admin_menu_menu_trade).toBe("Categories");
-    expect(adminMenusMessages.ko.admin_menu_trade_mgmt_title).toBe("거래 메뉴 설정");
-    expect(adminMenusMessages.en.admin_menu_trade_mgmt_title).toBe("Trade menu settings");
-    expect(adminMenusMessages.ko.admin_menu_trade_items_heading).toBe("주제");
-    expect(adminMenusMessages.en.admin_menu_trade_items_heading).toBe("Subjects");
-    expect(adminMenusMessages.ko.admin_menu_subtopic_manage).toBe("카테고리 관리");
-    expect(adminMenusMessages.en.admin_menu_subtopic_manage).toBe("Manage categories");
-    expect(adminCategoriesMessages.ko.admin_cat_composition_title).toBe("옵션");
-    expect(adminCategoriesMessages.en.admin_cat_composition_title).toBe("Options");
-    expect(adminTradeMessages.ko.admin_trade_hub_section_menu_chips).toBe("주제 · 카테고리 · 옵션");
-    expect(adminMenusMessages.ko.admin_menu_subtopic_desc).toMatch(/SUV/);
-    expect(adminMenusMessages.en.admin_menu_subtopic_desc).toMatch(/SUV/);
+    expect(({ ...adminMenusMessages.ko, ...adminMemberSharedMessages.ko } as Record<string, string>).admin_menu_trade_mgmt_title).toBe("거래 메뉴 설정");
+    expect(({ ...adminMenusMessages.en, ...adminMemberSharedMessages.en } as Record<string, string>).admin_menu_trade_mgmt_title).toBe("Trade menu settings");
+    expect(({ ...adminMenusMessages.ko, ...adminMemberSharedMessages.ko } as Record<string, string>).admin_menu_trade_items_heading).toBe("주제");
+    expect(({ ...adminMenusMessages.en, ...adminMemberSharedMessages.en } as Record<string, string>).admin_menu_trade_items_heading).toBe("Subjects");
+    expect(({ ...adminMenusMessages.ko, ...adminMemberSharedMessages.ko } as Record<string, string>).admin_menu_subtopic_manage).toBe("카테고리 관리");
+    expect(({ ...adminMenusMessages.en, ...adminMemberSharedMessages.en } as Record<string, string>).admin_menu_subtopic_manage).toBe("Manage categories");
+    expect(({ ...adminCategoriesMessages.ko, ...adminMemberSharedMessages.ko } as Record<string, string>).admin_cat_composition_title).toBe("옵션");
+    expect(({ ...adminCategoriesMessages.en, ...adminMemberSharedMessages.en } as Record<string, string>).admin_cat_composition_title).toBe("Options");
+    expect(({ ...adminTradeMessages.ko, ...adminMemberSharedMessages.ko } as Record<string, string>).admin_trade_hub_section_menu_chips).toBe("주제 · 카테고리 · 옵션");
+    expect(({ ...adminMenusMessages.ko, ...adminMemberSharedMessages.ko } as Record<string, string>).admin_menu_subtopic_desc).toMatch(/SUV/);
+    expect(({ ...adminMenusMessages.en, ...adminMemberSharedMessages.en } as Record<string, string>).admin_menu_subtopic_desc).toMatch(/SUV/);
   });
 });
