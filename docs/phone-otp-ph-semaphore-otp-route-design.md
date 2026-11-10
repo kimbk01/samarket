@@ -1,6 +1,7 @@
-# 필리핀 전화 인증 문자 지연 — 재감사 결과와 설계안 (v2)
+# 필리핀 전화 인증 문자 지연 — 재감사 결과와 설계안 (v2 · 시험 후 되돌림)
 
 - 작성: 2026-11-10 PHT (v1 대체)
+- **결과: 되돌림** — `/otp` 는 스테이징(e7c0475d2)에서 정상 동작했지만 평소 속도는 1크레딧 경로와 같아서, Owner 「1크레딧으로 되돌리기」(2026-11-10)에 따라 코드를 e7c0475d2 이전 상태로 되돌렸다. 운영(Promote)에는 나간 적 없음. 시험 기록은 7절.
 - Owner 지시 원문:
   1. 「필핀 전화인증 번호가 늦게 오는 부분을 확인 해라」
   2. 「크래딧이 올라 간다고??? 그게 맞어??」
@@ -86,3 +87,17 @@
 | 스테이징 1건 | 스테이징 주소에서 필리핀 번호로 1회 발송 → 운영 DB `phone_otp_delivery_events` 가 success(provider_message_id) 인지, `code_mismatch` 가 아닌지 · Semaphore `GET /messages/{id}` type=Otp · 받은 번호로 인증 성공 | NOT_PROVEN (휴대폰 필요) |
 | 실기기 지연 | Globe 1번호·Smart 1번호 각 3회: 요청 시각(DB)·Semaphore 넘김 시각·휴대폰 도착 시각·인증 성공. 바꾸기 전 기록(F2·F4)과 비교 | NOT_PROVEN |
 | 운영 반영 | Promote 는 Owner 승인 후 | 대기 |
+
+## 7. 스테이징 시험 결과와 결정 (2026-11-10)
+
+| 시각 (PHT) | 경로 | 통신사 | 크레딧 | 통신사 넘김 | 보낸 뒤 인증 완료 |
+|---|---|---|---|---|---|
+| 11:56:38 | `/messages` (Single, 메시지 284601689) | Smart | -1 | 5초 | 8초 |
+| 12:03:04 | `/otp` (Otp, 메시지 284602824, 스테이징 e7c0475d2) | Globe | -2 | 6초 | 15초 |
+
+- 근거: 운영 DB `phone_otp_delivery_events`·`phone_otp_challenges.verified_at`, Semaphore `GET /messages/{id}`·`GET /account/transactions`.
+- `/otp` 동작 PASS(종류 Otp·받은 번호 일치·인증 성공). **빨라짐 FAIL** — Owner 실기 「이전과 속도에서 차이가 없다」, 기록상 넘김 시간 같음.
+- 붐빌 때의 효과는 재현할 수 없어 NOT_PROVEN. 비용 두 배 대비 효과 미확인 → Owner 「1크레딧으로 되돌리기」.
+- 다시 늦음이 생기면: `provider_message_id` 로 Semaphore `created_at`→`updated_at`(넘김)과 통신사를 먼저 조회한다. 넘김이 몇 초면 통신사 구간이다.
+- P2·P3·P4·P5 는 그대로 Owner 결정 대기.
+

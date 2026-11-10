@@ -33,8 +33,8 @@ describe("전송 함수 — 비운영 + 운영 DB 이면 외부 호출 0", () =>
 
   it("Semaphore 문자", async () => {
     vi.stubEnv("SEMAPHORE_API_KEY", "k");
-    const { sendSemaphoreOtpSms } = await import("@/lib/auth/semaphore-sms");
-    const r = await sendSemaphoreOtpSms("09171234567", "x {otp}", "123456");
+    const { sendSemaphoreSms } = await import("@/lib/auth/semaphore-sms");
+    const r = await sendSemaphoreSms("09171234567", "x");
     expect(r.ok).toBe(false);
     expect(fetchSpy).not.toHaveBeenCalled();
   });

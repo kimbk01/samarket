@@ -6,7 +6,7 @@
 import { resolveVerifyPhone, type ResolvedVerifyPhone } from "@/lib/phone/verify-phone-number";
 import { isSolapiSmsConfigured } from "@/lib/env/solapi-sms";
 import { sendSolapiSms } from "@/lib/auth/solapi-sms";
-import { sendSemaphoreOtpSms } from "@/lib/auth/semaphore-sms";
+import { sendSemaphoreSms } from "@/lib/auth/semaphore-sms";
 
 /** 입력 번호 → 인증 대상. 한국은 Solapi 설정(키·발신번호)이 있을 때만 받는다. 그 외 나라는 null. */
 export function resolveVerifyTarget(inputPhone: string): ResolvedVerifyPhone | null {
@@ -21,6 +21,5 @@ export async function sendVerifySms(target: ResolvedVerifyPhone, otpCode: string
   if (target.country === "KR") {
     return sendSolapiSms(`0${target.storage.phone_number}`, `[DIBAY] Verification code: ${otpCode}`);
   }
-  // 필리핀: Semaphore 인증번호 전용 경로(/otp) — 문구는 같고 번호 자리만 {otp} (2026-11-10)
-  return sendSemaphoreOtpSms(target.e164, "[DIBAY] Verification code: {otp}", otpCode);
+  return sendSemaphoreSms(target.e164, `[DIBAY] Verification code: ${otpCode}`);
 }
