@@ -35,6 +35,7 @@ export function BusinessApplyPartnerSection({
   subLabel,
   refreshKey = 0,
   onStateChange,
+  titleClassName,
 }: {
   categoryPrimarySlug: string;
   categorySubSlug: string;
@@ -44,6 +45,8 @@ export function BusinessApplyPartnerSection({
   refreshKey?: number;
   /** 안정된 함수(상태 setter 등)를 넘긴다 */
   onStateChange: (state: BusinessApplyPartnerState) => void;
+  /** 섹션 제목 크기 (신청서와 같게) */
+  titleClassName?: string;
 }) {
   const { t, language } = useI18n();
   const locale = language === "en" ? "en" : "ko";
@@ -129,7 +132,7 @@ export function BusinessApplyPartnerSection({
   if (load.kind === "ready" && !load.offer.terms) return null;
 
   return (
-    <OwnerStoreAdminDashSection title={t("partner_apply_section_title")}>
+    <OwnerStoreAdminDashSection title={t("partner_apply_section_title")} titleClassName={titleClassName}>
       {load.kind === "loading" ? (
         <p className="sam-text-body text-sam-muted" role="status">
           {t("partner_loading")}

@@ -70,8 +70,11 @@ export function resolveStorePhoneTarget(inputPhone: string): ResolvedVerifyPhone
 async function runtime(): Promise<
   Result<{ ttlSec: number; cooldownSec: number; maxAttempts: number; secret: string }>
 > {
+  /**
+   * 시간·횟수 값만 회원 인증 설정에서 빌린다. 회원 전화 인증 on/off(`enabled`)는 따르지 않는다 —
+   * 매장 입점에 필수인 인증이라 회원 인증을 꺼도 매장 신청이 막히면 안 된다 (재감사 2026-11-10).
+   */
   const settings = await loadAuthPhoneSettings();
-  if (!settings.enabled) return fail(403, "store_phone_verify_disabled");
   const secret = resolvePhoneOtpHashSecret();
   if (!secret.ok) return fail(503, "store_phone_verify_disabled");
   return {
@@ -136,14 +139,21 @@ async function loadLatest(sb: SupabaseClient, userId: string, purpose: StorePhon
 /** 인증번호 보내기 — 새 행 1개(이전 기록은 남김). 재발송 대기·매장 중복 검사 후 발송. */
 export async function sendStorePhoneOtp(
   sb: SupabaseClient,
-  input: { userId: string; phone: string; purpose: StorePhoneVerifyPurpose; storeId: string | null }
+  input: {
+    userId: string;
+    phone: string;
+    purpose: StorePhoneVerifyPurpose;
+    storeId: string | null;
+    /** 중복 검사에서 뺄 내 매장 (번호 변경·보완 제출 — 소유 확인은 호출 쪽) */
+    excludeStoreId?: string | null;
+  }
 ): Promise<Result<{ phone: string; expiresAt: string; resendAvailableAt: string }>> {
   const rt = await runtime();
   if (!rt.ok) return rt;
   const target = resolveStorePhoneTarget(input.phone);
   if (!target) return fail(400, "store_phone_invalid");
 
-  const dup = await isStorePhoneUsedByOtherStore(sb, target.storage.phone, input.storeId);
+  const dup = await isStorePhoneUsedByOtherStore(sb, target.storage.phone, input.excludeStoreId ?? input.storeId);
   if (!dup.ok) return dup;
   if (dup.data) return fail(409, "store_phone_already_registered");
 
@@ -160,7 +170,7 @@ export async function sendStorePhoneOtp(
   const code = String(randomInt(100000, 1000000));
   const now = Date.now();
   const expiresAt = new Date(now + rt.data.ttlSec * 1000).toISOString();
-  const { error: insErr } = await sb.from("store_phone_verifications").insert({
+  const { data: insRow, error: insErr } = await sb.from("store_phone_verifications").insert({
     user_id: input.userId,
     store_id: input.storeId,
     purpose: input.purpose,
@@ -168,11 +178,14 @@ export async function sendStorePhoneOtp(
     otp_code_hash: hashCode(input.purpose, target.e164, code, rt.data.secret),
     otp_expires_at: expiresAt,
     requested_at: new Date(now).toISOString(),
-  });
+  }).select("id").maybeSingle();
   if (insErr) return fail(500, "server_error");
 
   const sent = await sendVerifySms(target, code);
   if (!sent.ok) {
+    // 발송 실패 — 방금 만든 기록을 지워 재발송 대기 시간이 실패 발송부터 시작하지 않게 (재감사 2026-11-10)
+    const failedId = (insRow as { id?: string } | null)?.id;
+    if (failedId) await sb.from("store_phone_verifications").delete().eq("id", failedId);
     await recordPhoneOtpDeliveryEvent(sb, {
       userId: input.userId,
       outcome: "failed",

@@ -61,6 +61,7 @@ import {
   type StoreCoreLocationField,
 } from "@/lib/stores/store-core-info-reverification";
 import { createAdminNotification } from "@/lib/admin/notifications/admin-notification-service";
+import { findStoreNameDuplicates } from "@/lib/stores/store-application-input.server";
 import {
   consumeStorePhoneVerification,
   isStorePhoneUsedByOtherStore,
@@ -189,7 +190,20 @@ export async function patchStoreProfileCore(input: {
       if (name.length < 2) {
         return NextResponse.json({ ok: false, error: "store_name_too_short" }, { status: 400 });
       }
-      patch.store_name = name;
+      const currentName = String((currentRow as { store_name?: unknown }).store_name ?? "").trim();
+      if (name !== currentName) {
+        /**
+         * 매장 신청 v2 (재감사 2026-11-10) — 이름을 바꾸면 신청서와 같은 중복 규칙(실매장·심사/운영 중).
+         * 바꾼 이름이 곧 전체 이름이므로 지점명 표시는 지운다(본 이름·지점명 분리가 어긋나지 않게).
+         */
+        const dup = await findStoreNameDuplicates(sb, name, sid);
+        if (!dup.ok) return NextResponse.json({ ok: false, error: "name_check_failed" }, { status: 500 });
+        if (dup.rows.length > 0) {
+          return NextResponse.json({ ok: false, error: "store_name_duplicate" }, { status: 409 });
+        }
+        patch.store_name = name;
+        patch.branch_name = null;
+      }
     }
     if (body.business_type !== undefined) {
       patch.business_type = trimOrNull(body.business_type);
@@ -227,8 +241,15 @@ export async function patchStoreProfileCore(input: {
     if (pt !== null && !norm) {
       return NextResponse.json({ ok: false, error: PH_LOCAL_MOBILE_RULE_MESSAGE_KO }, { status: 400 });
     }
-    const currentPhone = trimOrNull((currentRow as { phone?: unknown }).phone);
-    if ((norm ?? null) !== (currentPhone ?? null)) {
+    const currentRaw = trimOrNull((currentRow as { phone?: unknown }).phone);
+    /** 저장값도 같은 형식(09…)으로 맞춰 비교 — 옛 표기(+63·띄어쓰기)를 번호 변경으로 오판하지 않게 (재감사 2026-11-10) */
+    const currentPhone = currentRaw ? normalizePhMobileDb(currentRaw) ?? currentRaw : null;
+    const reverifySame =
+      actor.kind === "owner" && !!norm && norm === currentPhone && !!String(body.phone_verification_id ?? "").trim();
+    if (reverifySame) {
+      // 같은 번호를 다시 인증 — 번호는 그대로, 인증 기록(시각)만 저장 (재감사 2026-11-10)
+      pendingOwnerPhoneChange = { phoneDb09: norm!, verificationId: String(body.phone_verification_id).trim() };
+    } else if ((norm ?? null) !== (currentPhone ?? null)) {
       if (actor.kind === "owner") {
         if (!norm) return NextResponse.json({ ok: false, error: "store_phone_required" }, { status: 400 });
         const vid = String(body.phone_verification_id ?? "").trim();

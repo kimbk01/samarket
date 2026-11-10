@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { checkStoreDeliveryMenuBeforeExpose } from "@/lib/stores/delivery-menus/store-delivery-menu-guard.server";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { appendStoreApplicationEvent } from "@/lib/stores/store-application-events.server";
+import { isStorePhoneUsedByOtherStore } from "@/lib/stores/store-phone-otp-service";
 import {
   ADMIN_STORE_ACTIONS_REQUIRING_REASON,
   ADMIN_STORE_REASON_MIN_LENGTH,
@@ -619,6 +620,19 @@ export async function executeAdminStorePatchAction(input: {
         }
         patch.phone = norm;
       }
+      // 매장 신청 v2 (재감사 2026-11-10) — 번호가 바뀌면 매장 전화 인증 기록을 지운다(관리자 입력 = 인증 아님),
+      // 심사·운영 중 다른 매장과 같은 번호는 사장님 경로와 같이 거부.
+      const prevPhone = normalizePhMobileDb(String(store.phone ?? "")) ?? (String(store.phone ?? "").trim() || null);
+      if ((patch.phone ?? null) !== prevPhone) {
+        if (typeof patch.phone === "string") {
+          const dup = await isStorePhoneUsedByOtherStore(sb, patch.phone, id);
+          if (!dup.ok) return NextResponse.json({ ok: false, error: "store_phone_check_failed" }, { status: 500 });
+          if (dup.data) return NextResponse.json({ ok: false, error: "store_phone_already_registered" }, { status: 409 });
+        }
+        patch.phone_verified_at = null;
+        patch.phone_verification_id = null;
+      }
+      // 같은 번호 재저장은 인증 기록 유지 (값은 그대로 다시 씀)
     }
     if (body.description !== undefined) {
       before.description = store.description;

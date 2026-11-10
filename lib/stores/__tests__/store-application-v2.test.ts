@@ -122,3 +122,55 @@ describe("회원 전화 인증과 분리", () => {
     expect(read("app/api/me/stores/[storeId]/resubmit/route.ts")).toContain('.eq("approval_status", "revision_requested")');
   });
 });
+
+describe("재감사 수정 (2026-11-10 · Owner 「전부 수정」)", () => {
+  it("사장님 조회 API 는 관리자 내부 메모(승인·심사 시작 사유)를 내보내지 않는다", () => {
+    const src = read("app/api/me/stores/[storeId]/application/route.ts");
+    expect(src).toContain("OWNER_VISIBLE_REASON_ACTIONS");
+    expect(src).not.toMatch(/events:\s*events\.rows,/);
+    const mig = read("supabase/migrations/20271110190000_store_application_events_owner_select_revoke.sql");
+    expect(mig).toContain("DROP POLICY IF EXISTS store_application_events_owner_select");
+    expect(mig).toContain("REVOKE ALL ON public.store_application_events FROM anon, authenticated");
+  });
+
+  it("어드민 연락처 수정 — 번호가 바뀌면 인증 기록을 지우고 같은 번호 매장을 막는다", () => {
+    const src = read("lib/admin-business/execute-admin-store-patch-action.server.ts");
+    const block = src.slice(src.indexOf('action === "set_store_contact"'), src.indexOf('action === "set_store_location"'));
+    expect(block).toContain("patch.phone_verified_at = null");
+    expect(block).toContain("isStorePhoneUsedByOtherStore");
+  });
+
+  it("매장 전화 인증은 회원 전화 인증 on/off 를 따르지 않는다", () => {
+    const src = read("lib/stores/store-phone-otp-service.ts");
+    expect(src).not.toMatch(/settings\.enabled/);
+  });
+
+  it("보완 제출 인증 — 소유 확인된 내 매장은 같은 번호 검사에서 뺀다", () => {
+    const src = read("app/api/me/store-phone-verification/send/route.ts");
+    expect(src).toContain("excludeStoreId: ownStoreId");
+  });
+
+  it("기본 정보 저장 오류는 원문 코드를 보여 주지 않는다", async () => {
+    const { formatOwnerStorePatchError } = await import("@/lib/business/owner-store-patch-error-i18n");
+    for (const c of [
+      "store_phone_required",
+      "store_phone_verification_required",
+      "store_phone_verification_mismatch",
+      "store_phone_already_registered",
+      "store_phone_check_failed",
+      "store_name_duplicate",
+    ]) {
+      expect(formatOwnerStorePatchError(c, "ko")).toBeTruthy();
+    }
+    expect(read("components/business/OwnerStoreBasicInfoForm.tsx")).not.toContain("(code ? code : t(");
+  });
+
+  it("글자 크기 — 섹션 제목 옵션 · 입력 important (전역 font: inherit 대비) · 신청 버튼 굵게", () => {
+    const form = read("components/business/BusinessApplyForm.tsx");
+    expect(form).toContain('titleClassName={SECTION_TITLE}');
+    expect(form).toContain("!text-[16px]");
+    expect(form).toContain("placeholder:!text-[15px]");
+    expect(form).toContain("!font-bold");
+    expect(form).not.toContain("owner-store-admin-dash-section__header_h2");
+  });
+});

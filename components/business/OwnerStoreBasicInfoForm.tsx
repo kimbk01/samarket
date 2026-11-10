@@ -888,8 +888,7 @@ export function OwnerStoreBasicInfoForm({
         setError(
           code === "invalid_ph_phone"
             ? t("business_phase7_499")
-            : formatOwnerStorePatchError(code, language) ??
-                (code ? code : t("business_phase7_517"))
+            : formatOwnerStorePatchError(code, language) ?? t("business_phase7_517")
         );
         return false;
       }

@@ -16,6 +16,7 @@ export function OwnerStoreAdminDashSection({
   /** 지정 시 `<section>`에 합쳐짐. `border-0` 등으로 기본 테두리·그림자를 덮어쓸 때 사용 */
   className,
   id,
+  titleClassName = "text-[15px] font-bold",
 }: {
   /** 비우거나 생략하면 헤더(제목 줄)를 렌더하지 않습니다. */
   title?: string;
@@ -25,6 +26,8 @@ export function OwnerStoreAdminDashSection({
   surfaceTone?: "default" | "muted" | "emphasized" | "bizSoft";
   className?: string;
   id?: string;
+  /** 제목 글자 크기·굵기 (기본 15/700 · 입점 신청서는 16/700 — Owner 2026-11-10) */
+  titleClassName?: string;
 }) {
   const hasBody = children != null && children !== false;
   const showHeader = typeof title === "string" && title.trim() !== "";
@@ -57,7 +60,7 @@ export function OwnerStoreAdminDashSection({
         <div
           className={`owner-store-admin-dash-section__header flex flex-wrap items-start justify-between gap-2 ${headerPad}`}
         >
-          <h2 className="min-w-0 text-[15px] font-bold leading-snug tracking-tight text-sam-fg">{title}</h2>
+          <h2 className={`min-w-0 ${titleClassName} leading-snug tracking-tight text-sam-fg`}>{title}</h2>
         </div>
       ) : null}
       {hasBody ?

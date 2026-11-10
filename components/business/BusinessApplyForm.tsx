@@ -85,8 +85,12 @@ type FormState = Omit<BusinessApplyFormValues, "partnerAgreement">;
 
 /** 글자 비율 (Owner 2026-11-10): 섹션 16/700 · 라벨 14/600 · 입력 16/400 · 자리표시 15 · 도움말 13 */
 const LABEL = "mb-1.5 block text-[14px] font-semibold leading-snug text-sam-fg";
+/**
+ * 입력 16 · 자리표시 15 — 앱 전역 `:is(input…, textarea, select) { font: inherit }` 초기화가 일반 유틸보다 우선하므로
+ * 크기는 `!` (important) 로 고정 (재감사 2026-11-10: 운영 실측 14px).
+ */
 const INPUT =
-  "sam-input w-full min-w-0 bg-sam-surface text-[16px] font-normal text-sam-fg placeholder:text-[15px] placeholder:text-sam-muted owner-store-profile-field-edge";
+  "sam-input w-full min-w-0 bg-sam-surface !text-[16px] font-normal text-sam-fg placeholder:!text-[15px] placeholder:text-sam-muted owner-store-profile-field-edge";
 const TEXTAREA = `${INPUT} min-h-[5rem] resize-y py-2.5`;
 const HELP = "mt-1.5 text-[13px] leading-snug text-sam-muted";
 const COUNT = "mt-1 text-right text-[13px] tabular-nums text-sam-muted";
@@ -95,8 +99,8 @@ const OUTLINE_BTN = `inline-flex min-h-[44px] items-center justify-center rounde
 const CHIP_BASE = `inline-flex min-h-[44px] items-center gap-1.5 rounded-ui-rect border px-3 text-[15px] text-sam-fg ${FORM_INTERACTIVE_PRESS_CLASS}`;
 const CHIP_ON = "border-2 border-sam-primary bg-sam-primary-soft font-bold";
 const CHIP_OFF = "border-sam-border bg-sam-surface";
-const SECTION_HEAD_FIX =
-  "[&_.owner-store-admin-dash-section__header_h2]:text-[16px] [&_.owner-store-admin-dash-section__header_h2]:font-bold";
+/** 섹션 제목 16/700 — 공용 섹션 컴포넌트의 제목 크기 옵션으로 (임의 변형 선택자는 운영에서 안 맞았음 · 재감사 2026-11-10) */
+const SECTION_TITLE = "text-[16px] font-bold";
 /** 하단 막힘 사유 줄 높이(사유 + 해결 버튼) — 마지막 입력이 바에 가리지 않게 */
 const BLOCKED_REASON_LINE_PX = 44;
 /** 이 화면은 고객센터 버튼을 켠다 — 버튼(44) + 바 위 간격(10) */
@@ -229,6 +233,7 @@ export function BusinessApplyForm({
     : "";
 
   /* ── 매장 이름 중복 확인 (입력 멈춘 뒤 0.5초 · 서버가 신청 때 다시 확인) ── */
+  /** dup = -1 → 확인 실패(요청 제한·서버 오류) — 「사용 가능」으로 보이지 않게 (재감사 2026-11-10) */
   const [nameCheck, setNameCheck] = useState<{ name: string; dup: number } | null>(null);
   const [nameChecking, setNameChecking] = useState(false);
   const shopNameNorm = normalizeStoreApplyName(values.shopName);
@@ -246,11 +251,13 @@ export function BusinessApplyForm({
       void fetch(`/api/me/stores/name-check?${qs.toString()}`, { credentials: "include", signal: ctl.signal })
         .then((r) => r.json())
         .then((j: { ok?: boolean; duplicateCount?: number }) => {
-          setNameCheck({ name: shopNameNorm, dup: j?.ok ? Number(j.duplicateCount ?? 0) : 0 });
+          setNameCheck({ name: shopNameNorm, dup: j?.ok ? Number(j.duplicateCount ?? 0) : -1 });
           setNameChecking(false);
         })
         .catch(() => {
-          if (!ctl.signal.aborted) setNameChecking(false);
+          if (ctl.signal.aborted) return;
+          setNameCheck({ name: shopNameNorm, dup: -1 });
+          setNameChecking(false);
         });
     }, 500);
     return () => {
@@ -258,7 +265,8 @@ export function BusinessApplyForm({
       window.clearTimeout(timer);
     };
   }, [shopNameNorm, storeId]);
-  const nameDup = nameCheck && nameCheck.name === shopNameNorm ? nameCheck.dup : 0;
+  const nameCheckFailed = Boolean(nameCheck && nameCheck.name === shopNameNorm && nameCheck.dup < 0);
+  const nameDup = nameCheck && nameCheck.name === shopNameNorm ? Math.max(0, nameCheck.dup) : 0;
   const branchNorm = normalizeStoreApplyName(values.branchName);
   const branchRequiredMissing = nameDup > 0 && !branchNorm;
 
@@ -325,7 +333,7 @@ export function BusinessApplyForm({
         id="business-apply-form"
         onSubmit={handleSubmit}
         noValidate
-        className={`${OWNER_STORE_STACK_Y_CLASS} ${SECTION_HEAD_FIX}`}
+        className={OWNER_STORE_STACK_Y_CLASS}
         style={{
           paddingBottom: `calc(${formPadStyle.paddingBottom} + ${
             !disabled && blocked ? BLOCKED_REASON_LINE_PX : 0
@@ -345,7 +353,7 @@ export function BusinessApplyForm({
         ) : null}
 
         {/* 신청자 */}
-        <OwnerStoreAdminDashSection title={t("store_apply_section_applicant")}>
+        <OwnerStoreAdminDashSection title={t("store_apply_section_applicant")} titleClassName={SECTION_TITLE}>
           <div ref={reg("name")}>
             <label className={LABEL} htmlFor="apply-legal-name">
               {t("business_phase7_180")}
@@ -373,7 +381,7 @@ export function BusinessApplyForm({
         </OwnerStoreAdminDashSection>
 
         {/* 매장 정보 */}
-        <OwnerStoreAdminDashSection title={t("store_apply_section_store")}>
+        <OwnerStoreAdminDashSection title={t("store_apply_section_store")} titleClassName={SECTION_TITLE}>
           <div ref={reg("shop_name")}>
             <label className={LABEL} htmlFor="apply-shop-name">
               {t("store_apply_shop_name")}
@@ -393,6 +401,10 @@ export function BusinessApplyForm({
               <p className={HELP}>{t("store_apply_shop_name_help")}</p>
             ) : nameChecking ? (
               <p className={HELP}>{t("store_apply_name_checking")}</p>
+            ) : nameCheckFailed ? (
+              <p className={HELP} role="status">
+                {t("store_apply_name_check_failed")}
+              </p>
             ) : nameDup > 0 ? (
               <p className="mt-1.5 text-[13px] font-medium text-sam-warning" role="status">
                 {t("store_apply_name_dup")}
@@ -539,7 +551,7 @@ export function BusinessApplyForm({
         </OwnerStoreAdminDashSection>
 
         {/* 매장 연락처 — 매장 전용 전화 인증 (회원 전화와 분리) */}
-        <OwnerStoreAdminDashSection title={t("store_apply_section_contact")}>
+        <OwnerStoreAdminDashSection title={t("store_apply_section_contact")} titleClassName={SECTION_TITLE}>
           <div ref={reg("phone")}>
             <p className={LABEL}>
               {t("store_apply_phone_label")}
@@ -602,7 +614,7 @@ export function BusinessApplyForm({
         </OwnerStoreAdminDashSection>
 
         {/* 매장 위치 (실제 영업장 · 지도) — 회원 주소록과 구분 */}
-        <OwnerStoreAdminDashSection title={t("store_apply_section_location")}>
+        <OwnerStoreAdminDashSection title={t("store_apply_section_location")} titleClassName={SECTION_TITLE}>
           <div ref={reg("location")}>
             <p className="text-[13px] leading-snug text-sam-muted">{t("store_apply_location_help")}</p>
             {values.location ? (
@@ -627,7 +639,7 @@ export function BusinessApplyForm({
         </OwnerStoreAdminDashSection>
 
         {/* 요청 사항 */}
-        <OwnerStoreAdminDashSection title={t("business_phase7_693")}>
+        <OwnerStoreAdminDashSection title={t("business_phase7_693")} titleClassName={SECTION_TITLE}>
           <div>
             <label className={LABEL} htmlFor="apply-request-note">
               {t("store_apply_request_note")}
@@ -654,6 +666,7 @@ export function BusinessApplyForm({
               subLabel={subLabel}
               refreshKey={partnerRefreshKey}
               onStateChange={setPartner}
+              titleClassName={SECTION_TITLE}
             />
           </div>
         ) : null}
@@ -715,7 +728,7 @@ export function BusinessApplyForm({
                 onPointerDown={(e) => {
                   if (!disabled) triggerInteractionFeedback("light", e);
                 }}
-                className={`${OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS} ${FORM_INTERACTIVE_PRESS_CLASS} text-[16px]`}
+                className={`${OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS} ${FORM_INTERACTIVE_PRESS_CLASS} !text-[16px]`}
               >
                 {t("common_cancel")}
               </button>
@@ -726,7 +739,7 @@ export function BusinessApplyForm({
                 onPointerDown={(e) => {
                   if (!submitDisabled) triggerInteractionFeedback("light", e);
                 }}
-                className={`${OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS} ${OWNER_STORE_ADMIN_FOOTER_PRIMARY_DISABLED_TOKEN_CLASS} ${FORM_INTERACTIVE_PRESS_CLASS} text-[16px] font-bold`}
+                className={`${OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS} ${OWNER_STORE_ADMIN_FOOTER_PRIMARY_DISABLED_TOKEN_CLASS} ${FORM_INTERACTIVE_PRESS_CLASS} !text-[16px] !font-bold`}
               >
                 {submitLabel ?? (mode === "revise" ? t("store_apply_revise_submit") : t("business_phase7_679"))}
               </button>

@@ -42,25 +42,31 @@ export async function POST(req: NextRequest) {
   const purpose = String(body.purpose ?? "") as StorePhoneVerifyPurpose;
   if (!STORE_PHONE_VERIFY_PURPOSES.includes(purpose)) return jsonError("invalid_purpose", 400);
 
-  let storeId: string | null = null;
-  if (purpose === "store_phone_change") {
-    storeId = String(body.storeId ?? "").trim() || null;
-    if (!storeId) return jsonError("store_id_required", 400);
+  /**
+   * 내 매장 — 번호 변경(store_phone_change)은 필수, 보완 제출(store_apply + storeId)은 선택.
+   * 소유가 확인된 내 매장은 같은 번호 중복 검사에서 뺀다 (보완 화면에서 원래 번호 재인증 · 재감사 2026-11-10).
+   */
+  const requestedStoreId = String(body.storeId ?? "").trim() || null;
+  if (purpose === "store_phone_change" && !requestedStoreId) return jsonError("store_id_required", 400);
+  let ownStoreId: string | null = null;
+  if (requestedStoreId) {
     const { data: own, error } = await sb
       .from("stores")
       .select("id")
-      .eq("id", storeId)
+      .eq("id", requestedStoreId)
       .eq("owner_user_id", auth.userId)
       .maybeSingle();
     if (error) return jsonError("server_error", 500);
     if (!own) return jsonError("store_not_found", 404);
+    ownStoreId = requestedStoreId;
   }
 
   const r = await sendStorePhoneOtp(sb, {
     userId: auth.userId,
     phone: String(body.phone ?? ""),
     purpose,
-    storeId,
+    storeId: purpose === "store_phone_change" ? ownStoreId : null,
+    excludeStoreId: ownStoreId,
   });
   if (!r.ok) {
     return jsonError(r.code, { status: r.status, code: r.code }, r.retryAfterSec != null ? { retryAfterSec: r.retryAfterSec } : {});

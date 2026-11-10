@@ -3,6 +3,12 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { listStoreApplicationEvents } from "@/lib/stores/store-application-events.server";
 
+/**
+ * 사장님에게 보여 줄 수 있는 사유 — 사장님에게 알림으로 가는 결정만 (반려·보완 요청·재심사 열기·운영 중지).
+ * 입점 승인·심사 시작 등의 사유는 관리자 내부 메모라 내보내지 않는다 (재감사 2026-11-10 누수).
+ */
+const OWNER_VISIBLE_REASON_ACTIONS = new Set(["reject_store", "request_revision", "reopen_application", "suspend_store"]);
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -40,6 +46,13 @@ export async function GET(_req: Request, context: { params: Promise<{ storeId: s
           approved_at: (perm as { approved_at?: string | null }).approved_at ?? null,
         }
       : null,
-    events: events.rows,
+    events: events.rows.map((e) => ({
+      from_status: e.from_status,
+      to_status: e.to_status,
+      action: e.action,
+      actor_type: e.actor_type,
+      created_at: e.created_at,
+      reason: OWNER_VISIBLE_REASON_ACTIONS.has(e.action) ? e.reason : null,
+    })),
   });
 }

@@ -4,6 +4,7 @@
 -- 포함 객체
 --   1) store_application_events — 입점 심사 상태 변경 기록(추가만). 사장님 진행 막대 시각·어드민 처리 이력의 단일 원천.
 --      RLS: 사장님 본인 매장 SELECT 만. 쓰기는 service_role 만.
+--      ※ 후속 20271110190000 이 사장님 SELECT 를 회수(관리자 메모·id 노출) → service_role 전용.
 --   2) store_phone_verifications — 매장 전화 전용 인증(회원 phone_otp_challenges·profiles 와 분리).
 --      회원 번호와 같아도 됨. RLS 켜고 정책 없음(service_role 전용).
 --   3) stores.phone_verified_at · stores.phone_verification_id · stores.branch_name 추가.

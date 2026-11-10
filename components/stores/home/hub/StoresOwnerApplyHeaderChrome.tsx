@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { StoresOwnerStackHeader } from "@/components/business/owner/StoresOwnerStackHeader";
 
@@ -9,6 +10,9 @@ import { StoresOwnerStackHeader } from "@/components/business/owner/StoresOwnerS
  */
 export function StoresOwnerApplyHeaderChrome() {
   const { t } = useI18n();
+  /** `?mode=revise` = 보완 요청 매장의 「보완 내용 제출」 화면 (매장 신청 v2 재감사 2026-11-10) */
+  const revise = useSearchParams()?.get("mode") === "revise";
+  const title = revise ? t("store_apply_revise_header") : t("business_phase7_674");
 
   return (
     <StoresOwnerStackHeader
@@ -16,8 +20,8 @@ export function StoresOwnerApplyHeaderChrome() {
       backHref="/mypage"
       backPreferHistory
       backAriaLabel={t("business_phase7_675")}
-      shopName={t("business_phase7_674")}
-      pageTitle={t("business_phase7_674")}
+      shopName={title}
+      pageTitle={title}
       rightSlot={<div className="h-10 w-10 shrink-0" aria-hidden />}
     />
   );

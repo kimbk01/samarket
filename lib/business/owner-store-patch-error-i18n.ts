@@ -34,6 +34,15 @@ const PATCH_ERR_KEYS: Record<string, MessageKey> = {
   store_location_required: "addr_ui_store_location_required_for_visibility",
   // 실기 2회차 2026-11-03 P3 — 업종 없는 매장 노출 켜기
   store_category_required: "owner_store_category_required_for_visibility",
+  // 매장 신청 v2 S2 — 매장 전화 변경은 매장 전용 인증 후 저장 (재감사 2026-11-10)
+  store_phone_required: "store_apply_err_phone_verify",
+  store_phone_verification_required: "store_apply_err_phone_verify",
+  store_phone_verification_mismatch: "store_apply_err_phone_verify",
+  store_phone_already_registered: "business_phase7_685",
+  store_phone_check_failed: "store_apply_err_retry",
+  store_phone_invalid: "store_apply_err_phone_invalid",
+  store_name_duplicate: "store_apply_err_name_dup",
+  name_check_failed: "store_apply_err_retry",
 };
 
 const TZ_LABEL_KEYS: Record<string, MessageKey> = {

@@ -166,7 +166,7 @@ export function StoreLocationPickSheet({
               maxLength={80}
               onChange={(e) => setDetail(e.target.value)}
               placeholder={t("store_apply_location_detail_placeholder")}
-              className="sam-input mt-1 w-full min-w-0 bg-sam-surface text-[16px] text-sam-fg placeholder:text-[15px]"
+              className="sam-input mt-1 w-full min-w-0 bg-sam-surface !text-[16px] text-sam-fg placeholder:!text-[15px]"
             />
           </div>
         </div>

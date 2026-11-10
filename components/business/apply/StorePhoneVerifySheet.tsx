@@ -178,7 +178,7 @@ export function StorePhoneVerifySheet({
                     setError(null);
                   }}
                   placeholder="917 000 0000"
-                  className="min-w-0 flex-1 bg-transparent text-[18px] tabular-nums text-sam-fg outline-none placeholder:text-sam-muted/70"
+                  className="min-w-0 flex-1 bg-transparent !text-[18px] tabular-nums text-sam-fg outline-none placeholder:text-sam-muted/70"
                   data-testid="store-phone-verify-number"
                 />
               </div>

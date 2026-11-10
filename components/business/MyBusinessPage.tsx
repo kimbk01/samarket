@@ -79,6 +79,18 @@ export function MyBusinessPage({
   const { t } = useI18n();
   const searchParams = useOwnerAdminUrlSearchParams();
   const preferredStoreId = searchParams.get("storeId")?.trim() ?? "";
+  /**
+   * 신청·보완 제출 직후 안내 띠 — 처음 들어온 1번만 보여 주고 주소에서 `applied` 를 지운다
+   * (새로고침해도 다시 뜨던 문제 · 재감사 2026-11-10).
+   */
+  const [appliedOnce] = useState<string | null>(() => searchParams.get("applied"));
+  useEffect(() => {
+    if (!appliedOnce || typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("applied")) return;
+    url.searchParams.delete("applied");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [appliedOnce]);
 
   const [state, setState] = useState<LoadState>(() => {
     if (initialServerState == null) return { kind: "loading" };
@@ -322,7 +334,7 @@ export function MyBusinessPage({
    * 매장 신청 v2 (Owner 2026-11-10) — 입점 진행 카드: DB 상태와 1:1 진행 막대 + 현재 단계 · 사유 · 주 버튼 1개.
    * 대기·검토중·보완·반려·정지는 이 카드가 화면의 주인공. 승인 후 영업 시작 전(판매 승인·노출 대기)은 대시보드 위에 같은 카드.
    */
-  const appliedFlag = searchParams.get("applied");
+  const appliedFlag = appliedOnce;
   const appliedBanner =
     appliedFlag === "submitted" || appliedFlag === "resubmitted" ? (
       <div

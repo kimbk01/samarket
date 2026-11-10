@@ -180,3 +180,17 @@ describe("owner store PATCH — LOC-013 / LOC-007 / LOC-005", () => {
     expect(((await res.json()) as { error: string }).error).toBe("store_delivery_requires_canonical_geo");
   });
 });
+
+describe("매장 신청 v2 재감사 — 사장님 매장 전화", () => {
+  it("인증 기록 없이 번호를 바꾸면 400 store_phone_verification_required", async () => {
+    const res = await PATCH(req({ phone: "09990000002" }), ctx);
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe("store_phone_verification_required");
+  });
+
+  it("옛 표기(+63·띄어쓰기)의 같은 번호를 보내면 번호 변경으로 보지 않는다", async () => {
+    currentRow = { ...currentRow, phone: "+63 917 123 4567" };
+    const res = await PATCH(req({ phone: "09171234567", description: "x" }), ctx);
+    expect(res.status).toBe(200);
+  });
+});
