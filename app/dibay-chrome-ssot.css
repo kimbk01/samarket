@@ -298,6 +298,13 @@
   justify-content: center;
 }
 
+/* 왼쪽 정렬 선택(`data-dibay-tab-align="start"`) — 메신저 대화·친구·통화 탭 (Owner 2026-11-10 「탭메뉴는 좌측 정렬」). 글자 폭 그대로 */
+[data-dibay-tab-tier="section"][data-dibay-tab-align="start"]
+  .dibay-secondary-tabs:not(:has(> :nth-child(5)))
+  > .dibay-secondary-tab {
+  flex: 0 0 auto;
+}
+
 :is([data-dibay-tab-tier="filter"], [data-dibay-tab-tier="section"]) .dibay-secondary-tab:not(:disabled):active {
   transform: scale(0.97);
   opacity: 1;

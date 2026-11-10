@@ -43,6 +43,7 @@ export function MessengerHomeSectionTabs({
     <DibaySecondaryTabRow
       data-cm-primary-nav
       data-cm-messenger-section-tabs
+      data-dibay-tab-align="start"
       bordered
       trackAriaLabel={t("cm_ui_messenger_section_aria")}
     >

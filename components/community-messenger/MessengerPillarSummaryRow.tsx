@@ -81,23 +81,6 @@ function DeliveryScooterIcon({ className = "h-6 w-6" }: { className?: string }) 
   );
 }
 
-function ChevronRightIcon() {
-  return (
-    <svg
-      className="h-4 w-4"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="m9 6 6 6-6 6" />
-    </svg>
-  );
-}
-
 function readDomainPreview(variant: Variant): DomainCommerceHubListPreview | null {
   return variant === "trade" ? peekDomainTradeHubListPreview() : peekDomainStoreOrderHubListPreview();
 }
@@ -166,7 +149,7 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
     }
     return {
       ...base,
-      title: t("nav_chat_order_compact"),
+      title: t("community_messenger_order_chats"),
       emptyPreview: t("nav_chat_order_empty"),
       defaultRoomLabel: t("nav_chat_order_compact"),
     };
@@ -229,7 +212,11 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
       }}
     >
       {variant === "trade" ? <StorefrontIcon className="h-5 w-5 shrink-0" /> : <DeliveryScooterIcon className="h-5 w-5 shrink-0" />}
-      <span data-cm-list-title="" className="min-w-0 flex-1 truncate text-[14px] font-bold leading-tight">
+      {/* 이름은 자르지 않는다 — 좁으면 두 줄로 (2026-11-10 운영 확인: 「거래 채팅」 55px 필요·52px 표시로 잘림) */}
+      <span
+        data-cm-list-title=""
+        className="min-w-0 flex-1 whitespace-normal break-keep text-[14px] font-bold leading-tight"
+      >
         {copy.title}
       </span>
       {unread > 0 ? (
@@ -237,9 +224,6 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
           {unread > 999 ? "999+" : unread}
         </span>
       ) : null}
-      <span className="shrink-0 opacity-60" aria-hidden>
-        <ChevronRightIcon />
-      </span>
     </Link>
   );
 }

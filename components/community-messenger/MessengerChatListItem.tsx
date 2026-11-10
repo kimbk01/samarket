@@ -402,7 +402,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     if (isPillarChatListVisual || room.roomType !== "direct") return room.title;
     return incomingCallPeerNicknameLabel(room.title) || room.title;
   }, [isPillarChatListVisual, room.roomType, room.title]);
-  const tradeListRowBgClass = isTradeChatListVisual
+  /**
+   * 거래·주문 목록(`/trade-chats`·`/delivery-chats`)은 `--messenger-bg` 가 없는 화면이다 — 투명이면 밀기 버튼이 비친다
+   * (2026-11-10 운영 확인: 주문 목록 행 배경 rgba(0,0,0,0) → 「읽음·나가기」 상시 노출). 두 목록 모두 흰 바탕.
+   */
+  const tradeListRowBgClass = isPillarChatListVisual
     ? "bg-white"
     : commerceMeta?.kind === "trade" && tradeViewerRoleForTint === "seller"
       ? "bg-[color:var(--messenger-trade-list-seller-bg)]"
