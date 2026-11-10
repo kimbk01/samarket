@@ -29,6 +29,11 @@ if [ -z "$SECRET" ] && [ -f "$ROOT/android/local.properties" ]; then
   SECRET=$(grep -E '^DIBAY_STAGING_BYPASS_SECRET=' "$ROOT/android/local.properties" | tail -1 | cut -d= -f2- | tr -d '[:space:]')
 fi
 if [ -z "$SECRET" ]; then
+  # CI(GitHub Actions 등)의 Debug 빌드는 컴파일 검증만 하고 설치하지 않는다 → 주소를 바꾸지 않고 통과(경고).
+  if [ "${CI:-}" = "true" ]; then
+    echo "warning: [DIBAY] CI 빌드 — 우회 값이 없어 서버 주소를 바꾸지 않습니다(컴파일 검증 전용, 설치 금지)"
+    exit 0
+  fi
   echo "error: [DIBAY] DIBAY_STAGING_BYPASS_SECRET 없음 — android/local.properties 에 넣어야 「DIBAY 개발」을 빌드할 수 있습니다"
   exit 1
 fi
