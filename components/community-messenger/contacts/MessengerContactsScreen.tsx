@@ -174,6 +174,7 @@ export function MessengerContactsScreen() {
           member={sheetMember}
           deviceName={sheetMember.client_ref ? view.names[sheetMember.client_ref] ?? null : null}
           deviceNumber={local ? findLocalNumberByRef(local, sheetMember.on_this_device ? sheetMember.client_ref : null) : null}
+          callDefault={view.settings?.callDefault ?? "ask"}
           onClose={() => setSheetMember(null)}
           onRequested={c.markRequested}
           onRemoved={c.removeMemberLocally}

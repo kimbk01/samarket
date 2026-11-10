@@ -60,3 +60,10 @@
 ## 8. Owner 승인 요청 항목
 1. C1·C2·C3 범위로 구현
 2. 통화 단독 커밋·단독 main 반영 순서 (연락처 다른 변경과 묶지 않음)
+
+## 9. 구현 기록 (2026-11-10 · Owner 「4단계 승인」)
+- C1: `MessengerContactsCallChoiceSheet` — 연락처 회원 시트 「전화 걸기」 → DIBAY 음성·영상(기존 `guardInstantOutgoingCallStart` → `launchOutgoingDirectCall` · 실패 `alertOutgoingCallFailure` · 발신 중이면 `useOutgoingCallBlocked` 로 막음) / 휴대폰 전화(`tel:`, 이 기기 번호 있을 때만).
+- C2: 연락처 설정 「기본 통화 방식」(매번 묻기·DIBAY·휴대폰) → 회원 시트 「전화 걸기」에 적용.
+- C3: `cm_call_deny_blocked` · `cm_call_deny_peer_rejected` → 「통화를 연결할 수 없어요」(en: This call can't be connected.). 차단한 본인 문구(`cm_call_unavailable_blocked_by_me`)는 그대로.
+- **§2 의 친구 프로필 시트 「음성」 변경은 하지 않음**: 친구의 이 기기 번호를 알려면 연락처 목록 서버 함수가 친구에게도 기기 연락처 식별값을 내려줘야 해 운영 DB 함수 변경이 필요 — 이 문서 범위(통화 코드·DB 미변경) 밖. 친구 프로필 통화는 지금과 완전히 같음.
+- 통화 코드(`lib/community-messenger/call*`·`call-v4/**`·세션 API·푸시·네이티브) 변경 없음. 검증: typecheck · eslint · 통화 문구·연락처 시험 · test:ci 전체 PASS. 실기기 V1~V6 은 연락처 플러그인 들어간 앱 빌드 후 (NOT_PROVEN).

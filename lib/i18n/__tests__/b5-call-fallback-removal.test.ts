@@ -44,7 +44,8 @@ function expectScreenText({ key, ko, en }: Expected) {
 
 /** 삭제 전 화면 글자 = 카탈로그 문구 (2026-11-08 열거 결과 그대로) */
 const DENY: Record<DirectCallDenyCode, Expected> = {
-  deny_blocked: { key: "cm_call_deny_blocked", ko: "차단된 사용자와는 통화할 수 없습니다.", en: "You cannot call a blocked user." },
+  // 연락처 동기화 4단계 C3 (정책 #7 A안 「상대방은 모름」 2026-11-10) — 차단·거절 사실을 드러내지 않는 문구
+  deny_blocked: { key: "cm_call_deny_blocked", ko: "통화를 연결할 수 없어요.", en: "This call can't be connected." },
   deny_privacy: {
     key: "cm_call_deny_privacy",
     ko: "상대방의 통화 설정으로 인해 연결할 수 없습니다.",
@@ -72,8 +73,8 @@ const DENY: Record<DirectCallDenyCode, Expected> = {
   },
   deny_peer_rejected: {
     key: "cm_call_deny_peer_rejected",
-    ko: "상대가 친구 요청을 거절해 통화할 수 없습니다.",
-    en: "You can't call this person because they declined your friend request.",
+    ko: "통화를 연결할 수 없어요.",
+    en: "This call can't be connected.",
   },
 };
 

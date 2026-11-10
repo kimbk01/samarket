@@ -11,7 +11,12 @@ import { MESSENGER_ROW_BTN_CLASS } from "@/components/community-messenger/friend
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { ensureClientInstanceId, getBoundAuthUserId } from "@/lib/auth/client-instance-id";
 import { contactsApi, type ContactsUserSettingsDto } from "@/lib/community-messenger/contacts/contacts-api-client";
-import { CONTACTS_DISCOVERY_POLICIES, type ContactsDiscoveryPolicy } from "@/lib/community-messenger/contacts/contacts-contract";
+import {
+  CONTACTS_CALL_DEFAULTS,
+  CONTACTS_DISCOVERY_POLICIES,
+  type ContactsCallDefault,
+  type ContactsDiscoveryPolicy,
+} from "@/lib/community-messenger/contacts/contacts-contract";
 import { clearContactsDeviceData, patchContactsLocalState } from "@/lib/community-messenger/contacts/contacts-local-store";
 import { invalidateMessengerContactsCache } from "@/lib/community-messenger/contacts/use-messenger-contacts";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
@@ -28,6 +33,12 @@ type SourceRow = {
 };
 type Hidden = { userId: string; reason: "hidden" | "former_friend"; createdAt: string; nickname: string | null; avatarUrl: string | null };
 type Confirm = { kind: "device" | "this" | "all" | "withdraw"; sourceId?: string } | null;
+
+const CALL_DEFAULT_KEY: Record<ContactsCallDefault, MessageKey> = {
+  ask: "cm_contacts_call_default_ask",
+  dibay: "cm_contacts_call_default_dibay",
+  phone: "cm_contacts_call_default_phone",
+};
 
 const POLICY_KEY: Record<ContactsDiscoveryPolicy, MessageKey> = {
   everyone: "cm_contacts_policy_everyone",
@@ -202,6 +213,31 @@ export function MessengerContactsSettingsScreen() {
               />
             }
           />
+
+          {/* 기본 통화 방식 (4단계 C2) */}
+          <div className="flex min-h-[56px] items-center gap-3 px-4 py-2">
+            <span className="min-w-0 flex-1">
+              <span className="block text-[16px]" style={{ color: "var(--cm-chat-fg)" }}>
+                {t("cm_contacts_settings_call_default")}
+              </span>
+              <span className="block text-[12.5px]" style={{ color: "var(--cm-chat-sub)" }}>
+                {t("cm_contacts_settings_call_default_desc")}
+              </span>
+            </span>
+            <select
+              aria-label={t("cm_contacts_settings_call_default")}
+              className="h-10 rounded-ui-rect border border-[color:var(--messenger-divider)] bg-white px-2 text-[14px]"
+              value={settings.callDefault}
+              disabled={busy !== null}
+              onChange={(e) => void act("call", () => contactsApi.patchSettings({ callDefault: e.target.value as ContactsCallDefault }))}
+            >
+              {CONTACTS_CALL_DEFAULTS.map((c) => (
+                <option key={c} value={c}>
+                  {t(CALL_DEFAULT_KEY[c])}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <MessengerFriendTabSectionLabel title={t("cm_contacts_settings_devices")} />
           {sources.map((s) => (

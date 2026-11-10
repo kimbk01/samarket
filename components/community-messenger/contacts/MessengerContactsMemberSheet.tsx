@@ -10,16 +10,24 @@ import { contactsApi } from "@/lib/community-messenger/contacts/contacts-api-cli
 import type { ContactsMemberRow } from "@/lib/community-messenger/contacts/contacts-contract";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { formatAtUsername } from "@/lib/users/user-label";
+import type { ContactsCallDefault } from "@/lib/community-messenger/contacts/contacts-contract";
+import {
+  MessengerContactsCallChoiceSheet,
+  openContactsPhoneCall,
+  startContactsDibayCall,
+} from "@/components/community-messenger/contacts/MessengerContactsCallChoiceSheet";
+import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
 
 /**
  * 연락처 회원 프로필 (친구 아님) — 친구 추가 · 메시지(일반 1:1, 거래·주문 방과 따로) · 휴대폰 전화(이 기기 번호만) ·
  * 추천에서 숨기기(상대 모름) · 차단(기존 차단 API). 거래·주문 상대 여부는 표시하지 않는다 (Owner #17).
- * DIBAY 음성·영상 통화 선택은 4단계(통화 규정)에서 — 여기서는 기존 통화 경로를 건드리지 않는다.
+ * 「전화 걸기」 = 4단계 C1·C2: 기본 통화 방식(매번 묻기 → 선택 시트 · DIBAY → 기존 발신 함수 · 휴대폰 → tel:).
  */
 export function MessengerContactsMemberSheet({
   member,
   deviceName,
   deviceNumber,
+  callDefault = "ask",
   onClose,
   onRequested,
   onRemoved,
@@ -28,6 +36,8 @@ export function MessengerContactsMemberSheet({
   deviceName: string | null;
   /** 이 기기에 저장된 번호 (E.164) — 없으면 휴대폰 전화 불가 */
   deviceNumber: string | null;
+  /** 기본 통화 방식 (C2) */
+  callDefault?: ContactsCallDefault;
   onClose: () => void;
   onRequested: (userId: string) => void;
   onRemoved: (userId: string) => void;
@@ -35,6 +45,7 @@ export function MessengerContactsMemberSheet({
   const { t } = useI18n();
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
+  const [choiceOpen, setChoiceOpen] = useState(false);
   const name = (member.on_this_device && deviceName) || member.nickname || member.dibay_id || "";
   const publicId = member.dibay_id || member.username;
 
@@ -68,6 +79,20 @@ export function MessengerContactsMemberSheet({
       ) : null}
     </button>
   );
+
+  if (choiceOpen) {
+    return (
+      <MessengerContactsCallChoiceSheet
+        peerUserId={member.user_id}
+        peerLabel={name}
+        deviceNumber={deviceNumber}
+        onClose={() => {
+          setChoiceOpen(false);
+          onClose();
+        }}
+      />
+    );
+  }
 
   return (
     <MessengerHomeBottomSheetShell onClose={onClose} closeAriaLabel={t("cm_contacts_cancel")} anchor="fit-content" dialogAriaLabel={name}>
@@ -111,15 +136,20 @@ export function MessengerContactsMemberSheet({
             return true;
           })
         )}
-        {row(
-          "phone",
-          t("cm_contacts_member_phone_call"),
-          deviceNumber ? t("cm_contacts_member_phone_call_sub") : t("cm_contacts_member_no_number"),
-          () => {
-            if (deviceNumber) window.location.assign(`tel:${deviceNumber}`);
-          },
-          { disabled: !deviceNumber }
-        )}
+        {row("phone", t("cm_contacts_member_phone_call"), null, () => {
+          if (callDefault === "dibay") {
+            unlockCommunityMessengerCallPlaybackFromUserGesture();
+            void startContactsDibayCall(router, member.user_id, "voice", name).then((ok) => {
+              if (ok) onClose();
+            });
+            return;
+          }
+          if (callDefault === "phone" && deviceNumber) {
+            openContactsPhoneCall(deviceNumber);
+            return;
+          }
+          setChoiceOpen(true);
+        })}
         {row("hide", t("cm_contacts_member_hide"), t("cm_contacts_member_hide_sub"), () =>
           void run(
             "hide",
