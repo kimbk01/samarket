@@ -235,7 +235,8 @@ export function communityMessengerFriendRequestFailureMessage(
   }
   switch (err) {
     case "blocked_target":
-      return "차단 상태에서는 친구 요청을 보낼 수 없습니다.";
+      // 「상대방은 모름」 (연락처 동기화 정책 #7 A안) — 차단 여부를 드러내지 않는다
+      return "친구 요청을 보낼 수 없어요.";
     case "request_rejected":
       /** §14-5: 상대가 거절 — 거절한 사람이 해제하기 전에는 다시 요청할 수 없다 */
       return "상대가 친구 요청을 거절해 다시 요청할 수 없습니다.";

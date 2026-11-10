@@ -459,8 +459,8 @@ export const communityMessengerUiMessages = {
     cm_social_dismiss: "취소",
     cm_social_cannot_start_chat: "대화를 시작할 수 없습니다.",
     cm_social_no_matching_users: "일치하는 사용자가 없습니다.",
-    cm_social_blocked_message_denied: "차단된 사용자와는 메시지를 주고받을 수 없습니다.",
-    cm_social_rejected_message_denied: "상대가 친구 요청을 거절해 메시지를 보낼 수 없습니다.",
+    cm_social_blocked_message_denied: "메시지를 보낼 수 없어요.",
+    cm_social_rejected_message_denied: "메시지를 보낼 수 없어요.",
     cm_social_peer_blocked_notice: "차단한 사용자입니다.",
     cm_social_stranger_incoming_call: "친구가 아닌 사용자입니다.",
     cm_social_stranger_call_hint:
@@ -1634,8 +1634,8 @@ export const communityMessengerUiMessages = {
     cm_social_dismiss: "Dismiss",
     cm_social_cannot_start_chat: "You can't start a conversation with this user.",
     cm_social_no_matching_users: "No matching users found.",
-    cm_social_blocked_message_denied: "You cannot exchange messages with a blocked user.",
-    cm_social_rejected_message_denied: "You can't message this person because they declined your friend request.",
+    cm_social_blocked_message_denied: "You can't send messages to this person.",
+    cm_social_rejected_message_denied: "You can't send messages to this person.",
     cm_social_peer_blocked_notice: "You blocked this user.",
     cm_social_stranger_incoming_call: "Not in your friends list.",
     cm_social_stranger_call_hint:

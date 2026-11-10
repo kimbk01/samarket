@@ -20,7 +20,9 @@ describe("communityMessengerFriendRequestFailureMessage", () => {
     expect(communityMessengerFriendRequestFailureMessage({ ok: true })).toBeNull();
   });
 
-  it("maps blocked_target", () => {
-    expect(communityMessengerFriendRequestFailureMessage({ ok: false, error: "blocked_target" })).toContain("차단");
+  it("maps blocked_target — 차단 여부를 드러내지 않는다 (연락처 동기화 정책 #7 A안)", () => {
+    const msg = communityMessengerFriendRequestFailureMessage({ ok: false, error: "blocked_target" });
+    expect(msg).toBe("친구 요청을 보낼 수 없어요.");
+    expect(msg).not.toContain("차단");
   });
 });
