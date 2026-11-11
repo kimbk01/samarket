@@ -613,7 +613,7 @@ begin
     set role = 'member', status = 'active', nickname = excluded.nickname, avatar_url = excluded.avatar_url, bio = excluded.bio,
         joined_at = now(), left_at = null, invited_by = excluded.invited_by, decided_by = excluded.decided_by,
         decided_at = excluded.decided_at,
-        rejoin_count = public.moim_members.rejoin_count + case when v_prev in ('left', 'kicked') then 1 else 0 end,
+        rejoin_count = public.moim_members.rejoin_count + case when v_prev in ('left', 'kicked', 'banned') then 1 else 0 end,
         updated_at = now();
   select main_room_id into v_room from public.moims where id = p_moim;
   perform public.moim__room_member_activate(v_room, p_user, 'member', p_nickname, p_avatar);
