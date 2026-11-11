@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { MessageCircle, PenSquare } from "lucide-react";
+import { CalendarPlus, MessageCircle, PenSquare } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayActionSheet } from "@/components/ui/dibay-overlay";
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
@@ -18,6 +18,8 @@ import { MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS, MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS } 
 import { MoimPostRow } from "@/components/moim/MoimPostRow";
 import { MoimHeadBlock, MoimStateNotice } from "@/components/moim/MoimPublicView";
 import type { MoimReportTarget } from "@/components/moim/MoimReportSheet";
+import { MoimAlbumTab, MoimPinnedAlbumSection } from "@/components/moim/MoimAlbum";
+import { MoimScheduleCard, useMoimSchedules } from "@/components/moim/moim-schedule-ui";
 import {
   MoimAvatar,
   MoimEmptyState,
@@ -29,7 +31,9 @@ import {
   useMoimBoardLabel,
 } from "@/components/moim/moim-ui";
 
-type MoimTab = "home" | "board" | "members";
+type MoimTab = "home" | "schedules" | "board" | "album" | "members";
+const MOIM_TABS: readonly MoimTab[] = ["home", "schedules", "board", "album", "members"];
+type MoimToast = (message: string, tone?: "default" | "success" | "error") => void;
 
 /** 보는 사람이 이 게시판에 글을 쓸 수 있는가 (화면 표시용 — 최종 판정은 서버) */
 export function canWriteMoimBoard(moim: MoimDetailDto, board: MoimBoardDto): boolean {
@@ -41,14 +45,22 @@ export function activeMoimBoards(moim: MoimDetailDto): MoimBoardDto[] {
   return moim.boards.filter((b) => b.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-/** 모임 홈 (시안 U4) — 2단 탭 홈·게시판·멤버, 주소 ?tab=board&board= / ?tab=members */
-export function MoimMemberView({ moim, onReport }: { moim: MoimDetailDto; onReport: (target: MoimReportTarget) => void }) {
+/** 모임 홈 (시안 U4) — 2단 탭 홈·일정·게시판·앨범·멤버, 주소 ?tab=schedules / ?tab=board&board= / ?tab=album / ?tab=members */
+export function MoimMemberView({
+  moim,
+  onReport,
+  onToast,
+}: {
+  moim: MoimDetailDto;
+  onReport: (target: MoimReportTarget) => void;
+  onToast: MoimToast;
+}) {
   const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
   const tabParam = sp.get("tab");
-  const tab: MoimTab = tabParam === "board" || tabParam === "members" ? tabParam : "home";
+  const tab: MoimTab = (MOIM_TABS as readonly string[]).includes(tabParam ?? "") ? (tabParam as MoimTab) : "home";
   const boardParam = sp.get("board");
 
   const go = useCallback(
@@ -64,7 +76,9 @@ export function MoimMemberView({ moim, onReport }: { moim: MoimDetailDto; onRepo
 
   const tabs: { id: MoimTab; label: string }[] = [
     { id: "home", label: t("moim_home_home_tab") },
+    { id: "schedules", label: t("moim_home_schedules_tab") },
     { id: "board", label: t("moim_home_board_tab") },
+    { id: "album", label: t("moim_home_album_tab") },
     { id: "members", label: t("moim_home_members_tab", { count: moim.memberCount }) },
   ];
 
@@ -85,8 +99,18 @@ export function MoimMemberView({ moim, onReport }: { moim: MoimDetailDto; onRepo
         ))}
       </DibaySecondaryTabRow>
       <div className={moimCls.column}>
-        {tab === "home" ? <MoimHomeTab moim={moim} onOpenBoard={(b) => go("board", b)} /> : null}
+        {tab === "home" ? (
+          <MoimHomeTab
+            moim={moim}
+            onOpenBoard={(b) => go("board", b)}
+            onOpenTab={(x) => go(x)}
+            onReport={onReport}
+            onToast={onToast}
+          />
+        ) : null}
+        {tab === "schedules" ? <MoimSchedulesTab moim={moim} /> : null}
         {tab === "board" ? <MoimBoardTab moim={moim} boardId={boardParam} onBoard={(b) => go("board", b)} /> : null}
+        {tab === "album" ? <MoimAlbumTab moim={moim} onReport={onReport} onToast={onToast} /> : null}
         {tab === "members" ? <MoimMembersTab moim={moim} onReport={onReport} /> : null}
       </div>
       {moim.viewer.roomId ? (
@@ -114,7 +138,48 @@ function PostList({ moim, posts }: { moim: MoimDetailDto; posts: MoimPostDto[] }
   );
 }
 
-function MoimHomeTab({ moim, onOpenBoard }: { moim: MoimDetailDto; onOpenBoard: (boardId: string | null) => void }) {
+/** 홈 — 다가오는 일정 (앞의 3개) */
+function MoimHomeUpcoming({ moim, onSeeAll }: { moim: MoimDetailDto; onSeeAll: () => void }) {
+  const { t } = useI18n();
+  const { items, failed, retry } = useMoimSchedules(moim.id, "upcoming");
+  return (
+    <section>
+      <div className={moimCls.sectionHead}>
+        <h2 className={moimCls.sectionTitle}>{t("moim_home_upcoming_title")}</h2>
+        <button type="button" className={moimCls.sectionLink} onClick={onSeeAll}>
+          {t("moim_home_see_all")}
+        </button>
+      </div>
+      {failed ? (
+        <MoimErrorState onRetry={retry} />
+      ) : items === null ? (
+        <MoimListSkeleton rows={1} />
+      ) : items.length === 0 ? (
+        <p className="px-4 text-[13px] text-sam-muted">{t("moim_schedule_upcoming_empty")}</p>
+      ) : (
+        <div className="grid gap-2 px-4">
+          {items.slice(0, 3).map((s) => (
+            <MoimScheduleCard key={s.id} schedule={s} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function MoimHomeTab({
+  moim,
+  onOpenBoard,
+  onOpenTab,
+  onReport,
+  onToast,
+}: {
+  moim: MoimDetailDto;
+  onOpenBoard: (boardId: string | null) => void;
+  onOpenTab: (tab: MoimTab) => void;
+  onReport: (target: MoimReportTarget) => void;
+  onToast: MoimToast;
+}) {
   const { t } = useI18n();
   const notice = moim.boards.find((b) => b.kind === "notice");
   return (
@@ -139,6 +204,7 @@ function MoimHomeTab({ moim, onOpenBoard }: { moim: MoimDetailDto; onOpenBoard: 
           <PostList moim={moim} posts={moim.pinnedNotices} />
         )}
       </section>
+      <MoimHomeUpcoming moim={moim} onSeeAll={() => onOpenTab("schedules")} />
       <section>
         <div className={moimCls.sectionHead}>
           <h2 className={moimCls.sectionTitle}>{t("moim_home_recent_title")}</h2>
@@ -152,6 +218,50 @@ function MoimHomeTab({ moim, onOpenBoard }: { moim: MoimDetailDto; onOpenBoard: 
           <PostList moim={moim} posts={moim.recentPosts} />
         )}
       </section>
+      <MoimPinnedAlbumSection moim={moim} onSeeAll={() => onOpenTab("album")} onReport={onReport} onToast={onToast} />
+    </div>
+  );
+}
+
+/** 일정 탭 — 다가오는 일정 / 지난 일정 · 일정 만들기 */
+function MoimSchedulesTab({ moim }: { moim: MoimDetailDto }) {
+  const { t } = useI18n();
+  const [scope, setScope] = useState<"upcoming" | "past">("upcoming");
+  const { items, failed, retry } = useMoimSchedules(moim.id, scope);
+  const canCreate = moim.can.create_schedule;
+  return (
+    <div>
+      <div className={`${moimCls.hScroll} pt-3`} role="tablist" aria-label={t("moim_schedule_scope_aria")}>
+        <button type="button" role="tab" aria-selected={scope === "upcoming"} className={chipClass(scope === "upcoming")} onClick={() => setScope("upcoming")}>
+          {t("moim_schedule_upcoming_chip")}
+        </button>
+        <button type="button" role="tab" aria-selected={scope === "past"} className={chipClass(scope === "past")} onClick={() => setScope("past")}>
+          {t("moim_schedule_past_chip")}
+        </button>
+      </div>
+      {canCreate ? (
+        <div className="px-4 pt-3">
+          <Link href={moimRoutes.scheduleNew(moim.id)} className={`${moimCls.btnSecondary} ${moimCls.btnSm} w-full gap-1.5`}>
+            <CalendarPlus className="h-4 w-4" aria-hidden />
+            {t("moim_schedule_create_btn")}
+          </Link>
+        </div>
+      ) : null}
+      <div className="pt-3">
+        {failed ? (
+          <MoimErrorState onRetry={retry} />
+        ) : items === null ? (
+          <MoimListSkeleton />
+        ) : items.length === 0 ? (
+          <MoimEmptyState>{scope === "upcoming" ? t("moim_schedule_upcoming_empty") : t("moim_schedule_past_empty")}</MoimEmptyState>
+        ) : (
+          <div className="grid gap-2 px-4">
+            {items.map((s) => (
+              <MoimScheduleCard key={s.id} schedule={s} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

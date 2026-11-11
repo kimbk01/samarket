@@ -76,6 +76,8 @@ export type MoimDetailDto = {
   pinnedNotices: MoimPostDto[];
   /** 최근 글 (멤버면 전부, 비멤버면 public 만) */
   recentPosts: MoimPostDto[];
+  /** 다가오는 일정 (제목·시간·인원만 — 비멤버도 보임, 설계 §6 P2) */
+  upcomingSchedules: { id: string; title: string; startsAt: string; confirmedCount: number; capacity: number | null; status: string }[];
   viewer: {
     loggedIn: boolean;
     status: MoimMemberStatus | null;
@@ -132,3 +134,58 @@ export type MoimReceivedInviteDto = {
 export type MoimApiOk<T> = { ok: true } & T;
 export type MoimApiError = { ok: false; error: string; code?: string };
 export type MoimApiResult<T> = MoimApiOk<T> | MoimApiError;
+
+// ---------------------------------------------------------------------------
+// M4 — 일정·앨범·모임별 알림 설정
+// ---------------------------------------------------------------------------
+export type MoimScheduleStatus = "recruiting" | "full" | "closed" | "done" | "cancelled";
+export type MoimScheduleParticipantStatus = "requested" | "confirmed" | "rejected" | "cancelled" | "removed";
+
+export type MoimScheduleDto = {
+  id: string;
+  moimId: string;
+  title: string;
+  startsAt: string;
+  endsAt: string | null;
+  placeText: string;
+  description: string;
+  images: string[];
+  capacity: number | null;
+  joinMode: "first_come" | "approval";
+  askMotivation: boolean;
+  status: MoimScheduleStatus;
+  confirmedCount: number;
+  host: MoimAuthorDto;
+  createdAt: string;
+  updatedAt: string;
+  viewer: {
+    status: MoimScheduleParticipantStatus | null;
+    isHost: boolean;
+    /** 일정 관리권자 (호스트 · 모임장 · 부모임장) */
+    canManage: boolean;
+    /** 참여 확정이면 일정 채팅방 */
+    roomId: string | null;
+  };
+};
+
+export type MoimScheduleParticipantDto = {
+  userId: string;
+  nickname: string;
+  avatarUrl: string | null;
+  role: MoimRole | null;
+  status: MoimScheduleParticipantStatus;
+  motivation: string | null;
+  attendance: "unknown" | "present" | "absent";
+};
+
+export type MoimAlbumItemDto = {
+  id: string;
+  url: string;
+  isPinned: boolean;
+  scheduleId: string | null;
+  uploader: MoimAuthorDto;
+  createdAt: string;
+  viewerIsUploader: boolean;
+};
+
+export type MoimNotificationPrefsDto = { notice: boolean; posts: boolean; schedules: boolean };

@@ -8,7 +8,7 @@ import { MOIM_REPORT_REASON_CODES, type MoimReportReasonCode } from "@/lib/moim/
 import type { MessageKey } from "@/lib/i18n/messages";
 import { chipClass, moimCls } from "@/components/moim/moim-ui";
 
-export type MoimReportTarget = { type: "moim" | "member" | "post" | "comment"; id: string };
+export type MoimReportTarget = { type: "moim" | "member" | "post" | "comment" | "album"; id: string };
 
 /** 신고 시트 — 사유 칩 + 선택 메모 (설계 §6 P13) */
 export function MoimReportSheet({

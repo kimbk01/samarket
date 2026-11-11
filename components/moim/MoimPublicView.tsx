@@ -12,6 +12,7 @@ import type { MoimDetailDto } from "@/lib/moim/moim-api-types";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { MoimJoinSheet } from "@/components/moim/MoimJoinSheet";
 import { MoimPostRow } from "@/components/moim/MoimPostRow";
+import { MoimScheduleDateBox, formatMoimScheduleCount, formatMoimScheduleShort } from "@/components/moim/moim-schedule-ui";
 import { MoimCover, formatMoimCount, moimCategoryLabel, moimCls, useMoimBoardLabel } from "@/components/moim/moim-ui";
 
 /** 모임 머리 — 사진 · 이름 · 카테고리·동네 · 멤버 수 · 가입 방식 · 소개 (공개·멤버 공통) */
@@ -55,7 +56,7 @@ export function MoimPublicView({
   onChanged: () => void;
   onToast: (message: string, tone?: "default" | "success" | "error") => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const pathname = usePathname();
   const boardLabel = useMoimBoardLabel();
   const [joinOpen, setJoinOpen] = useState(false);
@@ -150,6 +151,27 @@ export function MoimPublicView({
             <div className="grid gap-2 px-4">
               {moim.pinnedNotices.map((p) => (
                 <MoimPostRow key={p.id} post={p} boardLabel={boardLabel(boardById.get(p.boardId) ?? { kind: p.boardKind, name: null })} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {moim.upcomingSchedules.length > 0 ? (
+          <section>
+            <div className={moimCls.sectionHead}>
+              <h2 className={moimCls.sectionTitle}>{t("moim_home_upcoming_title")}</h2>
+            </div>
+            <div className="grid gap-2 px-4">
+              {moim.upcomingSchedules.map((s) => (
+                <div key={s.id} className={`${moimCls.card} flex items-center gap-3 p-3`}>
+                  <MoimScheduleDateBox iso={s.startsAt} />
+                  <span className="min-w-0 flex-1">
+                    <b className="block break-words text-[14px] text-sam-fg">{s.title}</b>
+                    <span className="block text-[12px] text-sam-muted">
+                      {formatMoimScheduleShort(s.startsAt, language)} · {formatMoimScheduleCount(s.confirmedCount, s.capacity, t)}
+                    </span>
+                  </span>
+                </div>
               ))}
             </div>
           </section>

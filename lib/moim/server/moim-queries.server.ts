@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseServer } from "@/lib/chat/supabase-server";
 import { lguPublicName } from "@/lib/neighborhood/lgu-location.server";
+import { listUpcomingScheduleTeasers } from "@/lib/moim/server/moim-schedule-queries.server";
 import {
   MOIM_ACTIONS,
   canMoimAction,
@@ -365,6 +366,7 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
     boards: isMember ? boardRows.filter((b) => b.isActive) : [],
     pinnedNotices: await toPosts(sb, moim.id, (pinned.data ?? []) as PostRow[], viewerId),
     recentPosts: await toPosts(sb, moim.id, (recent.data ?? []) as PostRow[], viewerId),
+    upcomingSchedules: moim.status === "active" ? await listUpcomingScheduleTeasers(sb, moim.id, 3) : [],
     viewer: {
       loggedIn: !!viewerId,
       status: me?.status ?? null,
