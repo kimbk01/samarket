@@ -1,12 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
-import { getMyProfile } from "@/lib/profile/getMyProfile";
-import { resolveMemberPublicIdUi } from "@/lib/auth/member-public-id-ui-contract";
-import { resolveMypageSelfDisplayName } from "@/lib/mypage/mypage-self-display-name";
 import { renderFriendQrCardPng, renderFriendQrDataUrl } from "@/lib/community-messenger/friend-qr/friend-qr-image";
 import {
   isFriendQrNativeApp,
@@ -14,32 +12,29 @@ import {
   saveFriendQrImage,
   shareFriendQr,
 } from "@/lib/community-messenger/friend-qr/friend-qr-client";
+import { FRIEND_QR_SETTINGS_HREF } from "@/lib/community-messenger/friend-qr/friend-qr-contract";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
+import { formatAtUsername } from "@/lib/users/user-label";
 import { MemberAtIdText } from "@/components/profile/MemberAtIdText";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import type { ProfileRow } from "@/lib/profile/types";
 
 type MyQr = { token: string; url: string };
+type Owner = { displayName: string; dibayId: string | null; avatarUrl: string | null };
+type Loaded = { qr: MyQr; owner: Owner; qrAddAllowed: boolean };
 
 /**
- * QR 한 변 — min(184px, 카드 폭 70%, 화면에 시트가 다 들어가는 크기). 작은 화면(가로 태블릿 601px 등)에서
- * [공유]·[QR 다시 만들기]가 기기 하단 안전 영역 위에 보이게
- * (Xiaomi 실측 2026-11-12: 시트 본문 451px, QR 외 330px = 머리·탭 78 + 카드 글자·버튼·여백 305 + 안전 영역).
- * 최소 120px — 그보다 낮은 화면(가로 휴대폰 약 390px 등)은 QR 을 더 줄이지 않고 시트 본문이 스크롤된다
- * (계산값이 0 이하가 되어 QR 이 사라지던 문제, PR #159 리뷰). 120px = 화면에서 다른 휴대폰이 읽을 수 있는 크기.
- */
-const FRIEND_QR_IMAGE_SIDE = "min(184px, 70%, max(120px, calc(88dvh - 383px - max(1rem, var(--kb-safe-bottom)))))";
-
-/**
- * 내 QR (설계안 v3 §3.6 · QR 친구 시안 3판) — QR(가운데 내 사진)·이름·@회원 아이디,
- * 주 [공유] · 보조 [이미지 저장](브라우저만 — 앱은 S3 전까지 숨김) · 글자 [QR 다시 만들기](확인 시트).
- * QR 내용은 아이디가 아닌 토큰 주소 — 아이디를 바꿔도 QR 은 그대로.
+ * 내 QR (설계안 v3 §3.6 · QR 친구 시안 3판 · 근본 재감사 G1~G3)
+ *
+ * 배치(고정 높이 시트 안 위아래 칸): [카드: QR 칸(남은 공간) · 이름 · @아이디 · 안내] [공유 · 이미지 저장] [QR 다시 만들기]
+ * - QR 칸만 남은 공간을 채운다: QR 한 변 = min(칸 높이, 200px), 최소 120px. 200px < 가장 좁은 본문 폭 312px 이라 항상 정사각형.
+ * - 데이터는 `/friend-qr/me` 한 번(토큰·이름·@아이디·사진·QR 허용) — 불러오는 동안 같은 크기 자리표시라 글자가 늦게 와도 배치가 안 바뀐다.
+ * - 「QR로 친구 추가 허용」을 끈 회원: QR 대신 안내 + [설정에서 켜기] (남이 찍으면 DB 가 막는 QR 을 정상처럼 보이지 않게).
+ * - CTA: 주 [공유] · 보조 [이미지 저장](브라우저만 — 앱은 S3 전까지 숨김) · 글자 [QR 다시 만들기](확인 시트).
  */
 export function MyFriendQrPanel() {
   const { t } = useI18n();
-  const [qr, setQr] = useState<MyQr | null>(null);
+  const [data, setData] = useState<Loaded | null>(null);
   const [qrImage, setQrImage] = useState<string | null>(null);
-  const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [busy, setBusy] = useState<"share" | "regen" | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -47,13 +42,17 @@ export function MyFriendQrPanel() {
   const [native, setNative] = useState<boolean | null>(null);
   /**
    * 공유·저장용 카드 PNG — 미리 만들어 둔다. 누른 뒤 만들면 브라우저가 공유 창을 막는다 (PR #154 리뷰).
-   * 만드는 중(pending)에는 브라우저 [공유]·[이미지 저장]을 막는다 — 누르면 카드 없이 링크만 나가던 결함 (PR #154 리뷰 2).
-   * 만들기 실패(failed)면 공유는 링크로, 저장 버튼은 막힌다.
+   * 만드는 중(pending)에는 브라우저 [공유]·[이미지 저장]을 막는다. 실패(failed)면 공유는 링크로, 저장은 막힌다.
    */
   const [card, setCard] = useState<{ status: "pending" } | { status: "ready"; blob: Blob } | { status: "failed" }>({
     status: "pending",
   });
   const cardBlob = card.status === "ready" ? card.blob : null;
+  const qr = data?.qr ?? null;
+  const allowed = data?.qrAddAllowed !== false;
+  const name = data ? data.owner.displayName || t("friend_qr_member_fallback") : "";
+  const atId = data?.owner.dibayId ? formatAtUsername(data.owner.dibayId) : null;
+  const avatarSrc = resolveUserAvatarImageSrc(data?.owner.avatarUrl);
 
   useEffect(() => {
     setNative(isFriendQrNativeApp());
@@ -64,18 +63,14 @@ export function MyFriendQrPanel() {
     let cancelled = false;
     void (async () => {
       try {
-        const [r, me] = await Promise.all([
-          fetch("/api/community-messenger/friend-qr/me", { credentials: "include", cache: "no-store" }),
-          getMyProfile().catch(() => null),
-        ]);
-        const j = (await r.json().catch(() => ({}))) as { ok?: boolean; qr?: MyQr };
+        const r = await fetch("/api/community-messenger/friend-qr/me", { credentials: "include", cache: "no-store" });
+        const j = (await r.json().catch(() => ({}))) as { ok?: boolean; qr?: MyQr; owner?: Owner; qrAddAllowed?: boolean };
         if (cancelled) return;
-        setProfile(me);
-        if (!r.ok || j.ok !== true || !j.qr) {
+        if (!r.ok || j.ok !== true || !j.qr || !j.owner) {
           setLoadFailed(true);
           return;
         }
-        setQr(j.qr);
+        setData({ qr: j.qr, owner: j.owner, qrAddAllowed: j.qrAddAllowed !== false });
       } catch {
         if (!cancelled) setLoadFailed(true);
       }
@@ -101,15 +96,11 @@ export function MyFriendQrPanel() {
     };
   }, [qr]);
 
-  const idUi = resolveMemberPublicIdUi(profile);
-  const name = profile ? resolveMypageSelfDisplayName(profile) : "";
-
-  const avatarSrc = resolveUserAvatarImageSrc(profile?.avatar_url);
   useEffect(() => {
     setCard({ status: "pending" });
-    if (!qr) return;
+    if (!qr || !data) return;
     let cancelled = false;
-    void renderFriendQrCardPng({ url: qr.url, name, atId: idUi.atDisplay, avatarUrl: avatarSrc }).then(
+    void renderFriendQrCardPng({ url: qr.url, name, atId, avatarUrl: avatarSrc }).then(
       (blob) => {
         if (!cancelled) setCard({ status: "ready", blob });
       },
@@ -120,7 +111,7 @@ export function MyFriendQrPanel() {
     return () => {
       cancelled = true;
     };
-  }, [avatarSrc, idUi.atDisplay, name, qr]);
+  }, [atId, avatarSrc, data, name, qr]);
 
   /** 공유 = QR 카드 이미지 + 링크 글. 누른 동작 안에서 바로 연다 — 앞에서 기다리지 않는다. 취소는 문구 없음 (재감사 Q2) */
   const share = useCallback(async () => {
@@ -155,72 +146,107 @@ export function MyFriendQrPanel() {
       }
       setQrImage(null);
       setLoadFailed(false);
-      setQr(next);
+      setData((prev) => (prev ? { ...prev, qr: next } : prev));
       showMessengerSnackbar(t("friend_qr_regenerated"), { variant: "success" });
     } finally {
       setBusy(null);
     }
   }, [busy, t]);
 
-  /** 토큰 조회 실패든 QR 그림 만들기 실패든 같은 오류 화면 — 빈 자리표시·누를 수 있는 버튼이 남지 않게 */
-  if (loadFailed && !qrImage) {
-    return (
-      <p className="px-3 py-6 text-center text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-danger)" }}>
-        {t("friend_qr_load_failed")}
-      </p>
-    );
-  }
+  const failed = loadFailed && !qrImage;
+  const ready = Boolean(qr && qrImage && !failed);
+  /** 자리표시 줄 — 글자 한 줄과 같은 높이(글자 크기 × 1.35) */
+  const lineSkeleton = (widthClass: string) => (
+    <span className={`block h-[1.35em] ${widthClass} animate-pulse rounded-ui-rect bg-sam-border-soft`} aria-hidden />
+  );
 
   return (
-    <div className="space-y-3" data-testid="my-friend-qr">
-      {/** 카드 — 시트 토큰만. 이름·아이디는 말줄임 없이 줄바꿈 (QR 친구 시안 3판 화면 규칙) */}
-      <div className="grid justify-items-center gap-1 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-4 pb-4 pt-[18px] text-center">
-        <div className="relative aspect-square" style={{ width: FRIEND_QR_IMAGE_SIDE }}>
-          {qrImage ? (
-            // eslint-disable-next-line @next/next/no-img-element -- data: URL QR 이미지
-            <img src={qrImage} alt="" className="h-full w-full" />
-          ) : (
-            <div className="h-full w-full animate-pulse rounded-ui-rect bg-sam-border-soft" aria-hidden />
-          )}
-          {qrImage && profile ? (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-[color:var(--overlay-surface)]">
-              <SamarketUserAvatar avatarUrl={profile.avatar_url} sizePx={40} alt="" />
+    <div className="flex min-h-0 flex-1 flex-col gap-3" data-testid="my-friend-qr">
+      {/** 카드 — 남은 높이를 채운다. 안의 QR 칸만 늘고 준다 */}
+      <div className="flex min-h-0 flex-1 flex-col items-center gap-1 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-4 pb-4 pt-[18px] text-center">
+        <div className="flex min-h-[120px] w-full flex-1 items-center justify-center" data-testid="my-friend-qr-area">
+          {failed ? (
+            <p className="text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-danger)" }} role="alert">
+              {t("friend_qr_load_failed")}
+            </p>
+          ) : data && !allowed ? (
+            <div className="flex flex-col items-center gap-2" data-testid="my-friend-qr-off">
+              <p className="text-[length:var(--overlay-body-2-size)] font-semibold" style={{ color: "var(--overlay-text-primary)" }}>
+                {t("friend_qr_add_off")}
+              </p>
+              <Link
+                href={FRIEND_QR_SETTINGS_HREF}
+                className="text-[length:var(--overlay-body-2-size)] font-semibold text-sam-primary underline underline-offset-2"
+              >
+                {t("friend_qr_add_off_cta")}
+              </Link>
             </div>
-          ) : null}
+          ) : (
+            /** QR 정사각형 — 칸 높이를 따르되 최대 200px (항상 본문 폭보다 작아 정사각형 유지) */
+            <div className="relative aspect-square h-full max-h-[200px]">
+              {qrImage ? (
+                // eslint-disable-next-line @next/next/no-img-element -- data: URL QR 이미지
+                <img src={qrImage} alt="" className="h-full w-full" />
+              ) : (
+                <div className="h-full w-full animate-pulse rounded-ui-rect bg-sam-border-soft" aria-hidden />
+              )}
+              {qrImage && data ? (
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-[color:var(--overlay-surface)]">
+                  <SamarketUserAvatar avatarUrl={data.owner.avatarUrl} sizePx={40} alt="" />
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
-        <p
-          className="mt-2 max-w-full text-[length:var(--overlay-body-1-size)] font-bold leading-[1.35] [overflow-wrap:anywhere] [text-wrap:balance]"
+        <div
+          className="mt-2 flex w-full shrink-0 justify-center text-[length:var(--overlay-body-1-size)] font-bold leading-[1.35]"
           style={{ color: "var(--overlay-text-primary)" }}
         >
-          {name}
-        </p>
-        {idUi.atDisplay ? (
-          <p className="max-w-full font-semibold leading-[1.35] text-sam-primary">
-            <MemberAtIdText value={idUi.atDisplay} />
-          </p>
-        ) : null}
-        <p className="mt-0.5 text-[length:var(--overlay-caption-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
+          {data ? <p className="max-w-full [overflow-wrap:anywhere] [text-wrap:balance]">{name}</p> : lineSkeleton("w-28")}
+        </div>
+        <div className="flex w-full shrink-0 justify-center font-semibold leading-[1.35] text-sam-primary">
+          {data ? (
+            atId ? (
+              <p className="max-w-full">
+                <MemberAtIdText value={atId} />
+              </p>
+            ) : null
+          ) : (
+            lineSkeleton("w-20")
+          )}
+        </div>
+        <p className="mt-0.5 shrink-0 text-[length:var(--overlay-caption-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
           {t("friend_qr_my_hint")}
         </p>
       </div>
       {/**
-       * CTA 위계 (설계안 v3 §3.6 · 텔레그램·라인 내 QR 화면): 주 행동 「공유」 + 보조 「이미지 저장」 두 칸,
-       * 드물고 되돌릴 수 없는 「QR 다시 만들기」는 같은 무게 버튼으로 두지 않고 아래 글자 버튼(확인 시트 거침).
+       * CTA 위계 (설계안 v3 §3.6 · 텔레그램·라인 내 QR 화면): 주 [공유] + 보조 [이미지 저장] 한 줄,
+       * 드물고 되돌릴 수 없는 [QR 다시 만들기]는 아래 글자 버튼(확인 시트 거침). QR 허용을 끄면 둘 다 막는다.
        */}
-      <div className="dibay-overlay-actions dibay-overlay-actions--row !mt-0">
-        <button type="button" className="dibay-overlay-btn dibay-overlay-btn--primary whitespace-nowrap" disabled={!qr || !qrImage || native === null || (native === false && card.status === "pending") || busy !== null} onClick={() => void share()}>
+      <div className="dibay-overlay-actions dibay-overlay-actions--row !mt-0 shrink-0">
+        <button
+          type="button"
+          className="dibay-overlay-btn dibay-overlay-btn--primary whitespace-nowrap"
+          disabled={!ready || !allowed || native === null || (native === false && card.status === "pending") || busy !== null}
+          onClick={() => void share()}
+        >
           {t("friend_qr_share")}
         </button>
         {canSave ? (
-          <button type="button" className="dibay-overlay-btn dibay-overlay-btn--secondary whitespace-nowrap" disabled={!cardBlob || busy !== null} onClick={save}>
+          <button
+            type="button"
+            className="dibay-overlay-btn dibay-overlay-btn--secondary whitespace-nowrap"
+            disabled={!cardBlob || !allowed || busy !== null}
+            onClick={save}
+          >
             {t("friend_qr_save_image")}
           </button>
         ) : null}
       </div>
       <button
         type="button"
-        className="dibay-overlay-btn dibay-overlay-btn--text whitespace-nowrap"
-        disabled={!qr || !qrImage || busy !== null}
+        className="dibay-overlay-btn dibay-overlay-btn--text shrink-0 whitespace-nowrap"
+        disabled={!ready || !allowed || busy !== null}
         onClick={() => setConfirmOpen(true)}
         data-testid="friend-qr-regenerate"
       >

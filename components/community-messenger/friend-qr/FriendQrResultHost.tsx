@@ -144,61 +144,79 @@ export function FriendQrResultHost({
     <MessengerHomeBottomSheetShell onClose={close} closeAriaLabel={t("nav_close")} dialogAriaLabel={t("friend_qr_add")}>
       {/** 머리 = 메신저 시트 공용(손잡이·제목·닫기 X) — 닫기는 X 하나, 본문 하단 = 기기 안전 영역 */}
       <MessengerSheetHeaderBar title={t("friend_qr_add")} onClose={close} closeLabel={t("nav_close")} />
+      {/**
+       * 본문 = 고정 구성 (근본 재감사 G4): [프로필 칸(높이 고정)] [버튼 칸(48px 고정)].
+       * 불러오는 동안 같은 모양 자리표시, 실패 문구도 같은 칸 안 — 미리보기가 와도 시트 높이가 변하지 않는다.
+       */}
       <div className="grid gap-3 px-4 pb-[max(1rem,var(--kb-safe-bottom))] pt-4" data-testid="friend-qr-result">
-        {preview && !preview.isSelf ? (
-          <div className="grid justify-items-center gap-1.5 text-center">
-            <SamarketUserAvatar avatarUrl={preview.avatarUrl} sizePx={72} alt="" />
-            <p
-              className="mt-1.5 max-w-full text-[length:var(--overlay-title-2-size)] font-bold leading-[1.35] [overflow-wrap:anywhere] [text-wrap:balance]"
-              style={{ color: "var(--overlay-text-primary)" }}
-            >
-              {preview.displayName || t("friend_qr_member_fallback")}
-            </p>
-            {atId ? (
-              <p className="max-w-full text-[length:var(--overlay-body-2-size)] font-semibold text-sam-primary">
-                <MemberAtIdText value={atId} />
+        <div className="flex min-h-[10.5rem] flex-col items-center justify-center gap-1.5 text-center" data-testid="friend-qr-result-profile">
+          {preview && !preview.isSelf ? (
+            <>
+              <SamarketUserAvatar avatarUrl={preview.avatarUrl} sizePx={72} alt="" />
+              <p
+                className="mt-1.5 max-w-full text-[length:var(--overlay-title-2-size)] font-bold leading-[1.35] [overflow-wrap:anywhere] [text-wrap:balance]"
+                style={{ color: "var(--overlay-text-primary)" }}
+              >
+                {preview.displayName || t("friend_qr_member_fallback")}
               </p>
-            ) : null}
-            <p className="text-[length:var(--overlay-caption-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
-              {preview.isFriend ? t("friend_qr_already_friend") : t("friend_qr_result_source")}
+              <p className="min-h-[1.35em] max-w-full text-[length:var(--overlay-body-2-size)] font-semibold leading-[1.35] text-sam-primary">
+                {atId ? <MemberAtIdText value={atId} /> : null}
+              </p>
+              {errorKey ? (
+                <p className="text-[length:var(--overlay-caption-size)]" style={{ color: "var(--overlay-danger)" }} role="alert">
+                  {t(errorKey)}
+                </p>
+              ) : (
+                <p className="text-[length:var(--overlay-caption-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
+                  {preview.isFriend ? t("friend_qr_already_friend") : t("friend_qr_result_source")}
+                </p>
+              )}
+            </>
+          ) : errorKey ? (
+            <p className="text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-danger)" }} role="alert">
+              {t(errorKey)}
             </p>
-          </div>
-        ) : null}
-        {errorKey ? (
-          <p className="text-center text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-danger)" }} role="alert">
-            {t(errorKey)}
-          </p>
-        ) : null}
-        {!preview && !errorKey ? (
-          <p className="text-center text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
-            {t("common_loading")}
-          </p>
-        ) : null}
-        {preview && !preview.isSelf && !errorKey ? (
-          preview.isFriend ? (
-            <button
-              type="button"
-              className="dibay-overlay-btn dibay-overlay-btn--primary w-full whitespace-nowrap"
-              onClick={() => {
-                close();
-                onOpenChat(preview.userId);
-              }}
-            >
-              {t("friend_qr_open_chat")}
-            </button>
           ) : (
-            <button
-              type="button"
-              className="dibay-overlay-btn dibay-overlay-btn--primary w-full whitespace-nowrap"
-              disabled={adding}
-              aria-busy={adding}
-              onClick={() => void add()}
-              data-testid="friend-qr-add"
-            >
+            /** 불러오는 중 — 사진·이름·아이디·안내와 같은 크기 */
+            <div className="flex flex-col items-center gap-1.5" aria-busy="true" aria-label={t("common_loading")}>
+              <span className="h-[72px] w-[72px] animate-pulse rounded-full bg-sam-border-soft" aria-hidden />
+              <span className="mt-1.5 h-6 w-32 animate-pulse rounded-ui-rect bg-sam-border-soft" aria-hidden />
+              <span className="h-5 w-24 animate-pulse rounded-ui-rect bg-sam-border-soft" aria-hidden />
+              <span className="h-4 w-28 animate-pulse rounded-ui-rect bg-sam-border-soft" aria-hidden />
+            </div>
+          )}
+        </div>
+        <div className="min-h-12" data-testid="friend-qr-result-actions">
+          {preview && !preview.isSelf && !errorKey ? (
+            preview.isFriend ? (
+              <button
+                type="button"
+                className="dibay-overlay-btn dibay-overlay-btn--primary w-full whitespace-nowrap"
+                onClick={() => {
+                  close();
+                  onOpenChat(preview.userId);
+                }}
+              >
+                {t("friend_qr_open_chat")}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="dibay-overlay-btn dibay-overlay-btn--primary w-full whitespace-nowrap"
+                disabled={adding}
+                aria-busy={adding}
+                onClick={() => void add()}
+                data-testid="friend-qr-add"
+              >
+                {t("friend_qr_add")}
+              </button>
+            )
+          ) : !preview && !errorKey ? (
+            <button type="button" className="dibay-overlay-btn dibay-overlay-btn--primary w-full whitespace-nowrap" disabled>
               {t("friend_qr_add")}
             </button>
-          )
-        ) : null}
+          ) : null}
+        </div>
       </div>
     </MessengerHomeBottomSheetShell>
   );

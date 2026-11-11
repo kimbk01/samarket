@@ -85,12 +85,13 @@ describe("friend QR contract", () => {
 describe("my QR panel — failed QR image (PR #145 review)", () => {
   it("shows the error view when the QR image fails even after the token loaded, and buttons need the image", () => {
     const src = read("components/community-messenger/friend-qr/MyFriendQrPanel.tsx");
-    expect(src).toContain("if (loadFailed && !qrImage) {");
-    expect(src).not.toContain("if (loadFailed && !qr) {");
-    /** 공유·다시 만들기는 QR 그림이 있어야, 저장은 미리 만든 카드(QR 이 있어야 만들어짐)가 있어야 누를 수 있다 */
-    expect(src).toContain('disabled={!qr || !qrImage || native === null || (native === false && card.status === "pending") || busy !== null}');
-    expect(src).toContain("disabled={!cardBlob || busy !== null}");
-    expect(src.match(/disabled=\{!qr \|\| !qrImage \|\| busy !== null\}/g)).toHaveLength(1);
+    /** 실패는 QR 칸 안 문구 — 카드·버튼 배치는 그대로 (근본 재감사 G1) */
+    expect(src).toContain("const failed = loadFailed && !qrImage;");
+    expect(src).toContain('{t("friend_qr_load_failed")}');
+    /** 공유·다시 만들기는 QR 그림이 있어야(ready), 저장은 미리 만든 카드가 있어야, 셋 다 QR 허용이 켜져 있어야 누를 수 있다 */
+    expect(src).toContain('disabled={!ready || !allowed || native === null || (native === false && card.status === "pending") || busy !== null}');
+    expect(src).toContain("disabled={!cardBlob || !allowed || busy !== null}");
+    expect(src).toContain("disabled={!ready || !allowed || busy !== null}");
   });
 });
 
@@ -209,15 +210,56 @@ describe("Owner 실기 2026-11-12 — 카메라 켜기 전 화면·시트 움직
     expect(read("app/dibay-overlay.css")).toContain("transition: transform 300ms cubic-bezier(0.22, 0.9, 0.32, 1);");
   });
 
-  it("작은 화면: QR·카메라 한 변을 시트 높이에 맞춰 하단 버튼이 안전 영역 위에 남는다 (Xiaomi 601px 실측 값)", () => {
-    expect(read("components/community-messenger/friend-qr/MyFriendQrPanel.tsx")).toContain(
-      'const FRIEND_QR_IMAGE_SIDE = "min(184px, 70%, max(120px, calc(88dvh - 383px - max(1rem, var(--kb-safe-bottom)))))";',
-    );
+  it("근본 재감사 G1: 고정 높이 시트 + QR·카메라 칸만 남은 공간 — 숫자 계산 없음", () => {
+    const sheet = read("components/community-messenger/friend-qr/MyFriendQrSheet.tsx");
+    expect(sheet).toContain('const FRIEND_QR_SHEET_HEIGHT = "min(88dvh, 40rem)";');
+    expect(sheet).toContain('anchor="device-bottom"');
+    expect(sheet).toContain("deviceHeight={FRIEND_QR_SHEET_HEIGHT}");
+    const panel = read("components/community-messenger/friend-qr/MyFriendQrPanel.tsx");
+    expect(panel).toContain('className="flex min-h-[120px] w-full flex-1 items-center justify-center"');
+    expect(panel).toContain('className="relative aspect-square h-full max-h-[200px]"');
+    expect(panel).not.toContain("88dvh");
     const scan = read("components/community-messenger/friend-qr/FriendQrScanPanel.tsx");
-    /** 최소 크기 — 짧은 가로 화면에서 계산값이 0 이하로 QR 이 사라지지 않게 (PR #159 리뷰) */
-    expect(scan).toContain('const FRIEND_QR_CAMERA_MAX_SIDE = "min(320px, max(200px, calc(88dvh - 237px - max(1rem, var(--kb-safe-bottom)))))";');
+    expect(scan).toContain('className="flex min-h-[200px] flex-1 items-center justify-center"');
+    expect(scan).toContain("aspect-square h-full max-h-[300px]");
+    expect(scan).not.toContain("88dvh");
     /** 알림은 안내 줄 자리에 바꿔 보인다 — 줄이 늘어 시트가 넘치지 않게 */
     expect(scan).toContain(") : !cameraDenied ? (");
+  });
+});
+
+describe("근본 재감사 G2~G6 (2026-11-12)", () => {
+  it("G2: 내 QR 카드 내용은 /friend-qr/me 한 번 — 따로 프로필을 불러오지 않는다, 불러오는 동안 같은 크기 자리표시", () => {
+    const panel = read("components/community-messenger/friend-qr/MyFriendQrPanel.tsx");
+    expect(panel).not.toContain("getMyProfile");
+    expect(panel).toContain('lineSkeleton("w-28")');
+    const route = read("app/api/community-messenger/friend-qr/me/route.ts");
+    expect(route).toContain("owner: res.card.owner, qrAddAllowed: res.card.qrAddAllowed");
+    const server = read("lib/community-messenger/friend-qr/friend-qr.server.ts");
+    expect(server).toContain("displayName: text(row.nickname) || text(row.display_name),");
+    expect(server).toContain("qrAddAllowed: settings?.allow_qr_add !== false,");
+  });
+
+  it("G3: QR 친구 추가를 끄면 QR 대신 안내 + 설정 링크", () => {
+    const panel = read("components/community-messenger/friend-qr/MyFriendQrPanel.tsx");
+    expect(panel).toContain('{t("friend_qr_add_off")}');
+    expect(panel).toContain("href={FRIEND_QR_SETTINGS_HREF}");
+  });
+
+  it("G4: 결과 시트는 프로필 칸·버튼 칸 높이 고정 + 같은 모양 자리표시", () => {
+    const host = read("components/community-messenger/friend-qr/FriendQrResultHost.tsx");
+    expect(host).toContain('data-testid="friend-qr-result-profile"');
+    expect(host).toContain('className="min-h-12" data-testid="friend-qr-result-actions"');
+    expect(host).not.toContain('{t("common_loading")}\n');
+  });
+
+  it("G5: 셸 하단 시트 열림 속도 하나(300ms)", () => {
+    const css = read("app/messenger-home-bottom-sheet.css");
+    expect(css).not.toContain("transition: transform 360ms");
+  });
+
+  it("G6: 카메라 첫 화면 = requestVideoFrameCallback (없으면 이벤트)", () => {
+    expect(read("lib/qr/use-qr-camera-scanner.ts")).toContain("requestVideoFrameCallback");
   });
 });
 

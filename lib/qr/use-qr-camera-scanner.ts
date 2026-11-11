@@ -93,11 +93,23 @@ export function useQrCameraScanner(opts: {
           return;
         }
         readyVideo = video;
-        /** 화면 크기가 나중에 잡히는 기기도 있어 playing·loadeddata·resize 모두에서 확인 */
-        for (const ev of ["playing", "loadeddata", "resize"] as const) video.addEventListener(ev, onPlaying);
+        /**
+         * 첫 화면 판정 (QR 친구 근본 재감사 G6): `requestVideoFrameCallback` = 카메라 화면이 실제로 그려진 순간.
+         * 없는 WebView 는 playing·loadeddata·resize 이벤트 + 화면 폭>0 으로 대신한다.
+         */
+        const rvfc = (video as HTMLVideoElement & {
+          requestVideoFrameCallback?: (cb: () => void) => number;
+        }).requestVideoFrameCallback;
+        if (typeof rvfc === "function") {
+          rvfc.call(video, () => {
+            if (!cancelled) setVideoReady(true);
+          });
+        } else {
+          for (const ev of ["playing", "loadeddata", "resize"] as const) video.addEventListener(ev, onPlaying);
+        }
         video.srcObject = stream;
         await video.play().catch(() => undefined);
-        onPlaying();
+        if (typeof rvfc !== "function") onPlaying();
         const scan = () => {
           if (cancelled) return;
           const canvas = canvasRef.current;
