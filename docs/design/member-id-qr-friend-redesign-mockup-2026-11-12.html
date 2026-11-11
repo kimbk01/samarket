@@ -1,0 +1,313 @@
+<title>DIBAY QR 친구 수정 시안</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* 레이아웃: 위 = 결정 요약, 아래 = 실제 앱 크기(360×740) 휴대폰 화면을 흐름 순서대로 가로 나열 (좁으면 세로) */
+:root{
+  --dibay-green:#0B421A; --green-dark:#072e12; --green-soft:#e7efe9;
+  --page:#eef1ee; --surface:#ffffff; --secondary:#f5f7f6; --border:#e5e7e8;
+  --fg:#16201a; --sub:#6b746e; --danger:#d92d20; --scrim:rgba(10,20,14,.45);
+  --r-rect:4px; --r-md:12px; --r-xl:24px;
+  --font:"Noto Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo",sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--fg);font-family:var(--font);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+.wrap{max-width:1240px;margin:0 auto;display:grid;gap:28px}
+h1{font-size:24px;margin:0;text-wrap:balance}
+h2{font-size:17px;margin:0 0 4px;text-wrap:balance}
+.lead{color:var(--sub);max-width:70ch;margin:6px 0 0}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:18px 20px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+th{color:var(--sub);font-weight:600;font-size:12px;letter-spacing:.02em}
+.tbl{overflow-x:auto}
+.pill{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.p-req{background:var(--secondary);color:var(--sub);border:1px solid var(--border)}
+.p-now{background:var(--green-soft);color:var(--dibay-green)}
+.p-fix{background:#fdecea;color:var(--danger)}
+.p-own{background:#fff4e0;color:#8a5300}
+.flow{display:flex;gap:22px;overflow-x:auto;padding-bottom:8px}
+.step{flex:0 0 auto;display:grid;gap:8px;width:360px;max-width:100%}
+.cap{font-size:13px;font-weight:700}
+.cap small{display:block;font-weight:400;color:var(--sub);font-size:12px}
+/* 휴대폰 */
+.phone{position:relative;width:360px;max-width:100%;height:740px;background:#f3f2eb;border-radius:28px;border:8px solid #1d2420;overflow:hidden;display:flex;flex-direction:column}
+.sb{height:26px;display:flex;justify-content:space-between;align-items:center;padding:0 16px;font-size:11px;font-weight:600;color:var(--fg)}
+.nav3{position:absolute;left:0;right:0;bottom:0;height:40px;background:#fafafa;display:flex;justify-content:space-around;align-items:center;color:#555;font-size:16px;border-top:1px solid #ececec;z-index:5}
+.nav3 i{font-style:normal}
+.safe{height:40px} /* 기기 내비게이션 높이 = safe-bottom */
+.hdr{height:52px;display:flex;align-items:center;padding:0 16px;font-size:18px;font-weight:700;background:#eaf1fb}
+.tabs3{display:flex;gap:20px;padding:0 16px;height:42px;align-items:center;border-bottom:1px solid var(--border);background:#f9f9f9;font-size:15px;color:var(--sub)}
+.tabs3 b{color:var(--fg);position:relative}
+.tabs3 b:after{content:"";position:absolute;left:0;right:0;bottom:-11px;height:2px;background:var(--fg)}
+.srch{display:flex;gap:8px;padding:12px 16px 4px;align-items:center}
+.inp{flex:1;min-width:0;height:40px;border-radius:var(--r-md);background:#ecebe5;display:flex;align-items:center;padding:0 12px;color:var(--sub);font-size:14px;gap:8px}
+.ibtn{width:40px;height:40px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface);display:grid;place-items:center;flex:0 0 auto}
+.ibtn.new{outline:2px dashed #c77700;outline-offset:2px}
+.sbtn{height:40px;padding:0 14px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface);font-weight:600;display:grid;place-items:center}
+.me{display:flex;align-items:center;gap:12px;padding:10px 16px;height:80px}
+.av{width:56px;height:56px;border-radius:21px;background:linear-gradient(135deg,#f6c94a,#e07a2f);flex:0 0 auto}
+.me .nm{font-weight:700;font-size:17px}.me .id{font-size:12.5px;color:var(--sub)}
+.gbtn{height:32px;padding:0 12px;border-radius:8px;background:#ecebe5;font-size:13px;font-weight:600;display:grid;place-items:center;white-space:nowrap}
+.gbtn.hl{outline:2px solid var(--dibay-green);outline-offset:2px}
+.list{padding:4px 16px;color:var(--sub);font-size:13px}
+.row{display:flex;align-items:center;gap:12px;padding:10px 0}
+.row .a{width:44px;height:44px;border-radius:50%;background:#7a5bd1;color:#fff;display:grid;place-items:center;font-weight:700}
+/* 시트 */
+.scrim{position:absolute;inset:0;background:var(--scrim);z-index:3}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-radius:var(--r-xl) var(--r-xl) 0 0;z-index:4;display:flex;flex-direction:column}
+.handle{width:36px;height:4px;border-radius:2px;background:#d4d7d5;margin:8px auto 4px}
+.shd{display:flex;align-items:center;justify-content:space-between;padding:4px 16px 10px;border-bottom:1px solid var(--border)}
+.shd b{font-size:18px}
+.x{width:32px;height:32px;display:grid;place-items:center;border-radius:50%;color:var(--sub);font-size:18px}
+.sbody{padding:12px 16px calc(16px + 40px)} /* max(1rem, safe-bottom) — 여기선 내비게이션 40px 위 16px */
+.seg{display:flex;border-bottom:1px solid var(--border);margin:0 -16px 14px}
+.seg span{flex:1;text-align:center;padding:9px 0;color:var(--sub);font-size:15px;position:relative}
+.seg span.on{color:var(--fg);font-weight:600}
+.seg span.on:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:3px;border-radius:var(--r-rect);background:var(--dibay-green)}
+.card{display:grid;justify-items:center;gap:4px;padding:16px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface)}
+.qr{position:relative;width:184px;height:184px}
+.qr canvas{width:100%;height:100%;image-rendering:pixelated}
+.qr .cav{position:absolute;left:50%;top:50%;width:40px;height:40px;transform:translate(-50%,-50%);border-radius:50%;border:3px solid #fff;background:linear-gradient(135deg,#f6c94a,#e07a2f)}
+.card .nm{font-weight:700;font-size:16px;margin-top:6px}
+.card .id{font-weight:600;color:var(--dibay-green)}
+.card .h{font-size:12px;color:var(--sub)}
+.acts{display:flex;gap:8px;margin-top:12px}
+.btn{flex:1;min-height:48px;border-radius:var(--r-md);display:grid;place-items:center;font-weight:600;font-size:15px;border:1px solid transparent}
+.btn.pri{background:var(--dibay-green);color:#fff}
+.btn.sec{background:var(--surface);border-color:var(--border);color:var(--sub)}
+.btn.txt{background:transparent;color:var(--sub);font-weight:500;min-height:44px;margin-top:2px}
+.cam{position:relative;width:100%;aspect-ratio:1;max-width:300px;margin:0 auto;border-radius:var(--r-md);background:radial-gradient(circle at 40% 35%,#3c4a42,#101512);overflow:hidden}
+.cam .box{position:absolute;inset:18%;border:2px solid rgba(255,255,255,.85);border-radius:var(--r-rect)}
+.cam .ln{position:absolute;left:20%;right:20%;top:50%;height:2px;background:rgba(120,220,150,.8)}
+.hint{text-align:center;font-size:12px;color:var(--sub);margin:10px 0}
+.res{display:grid;justify-items:center;gap:4px;text-align:center;padding:6px 0 14px}
+.res .big{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#9ad0ff,#3a78d8)}
+.res .nm{font-size:18px;font-weight:700;margin-top:6px}
+.res .id{font-weight:600;color:var(--dibay-green)}
+.res .h{font-size:12px;color:var(--sub)}
+.err{color:var(--danger);text-align:center;padding:18px 0}
+.toast{position:absolute;left:16px;right:16px;bottom:56px;background:#1f2a23;color:#fff;border-radius:var(--r-md);padding:12px 14px;font-size:13px;z-index:6}
+.web{flex:1;background:#fff;display:flex;flex-direction:column}
+.url{margin:6px 10px;height:34px;border-radius:17px;background:#eef0f3;display:flex;align-items:center;padding:0 14px;font-size:12px;color:#333}
+.whd{height:48px;display:grid;place-items:center;font-weight:700;border-bottom:1px solid var(--border)}
+.wbody{display:grid;justify-items:center;gap:6px;padding:40px 24px}
+.note{font-size:12px;color:var(--sub);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 12px}
+.note b{color:var(--fg)}
+.tag{font-size:11px;font-weight:700;color:#8a5300}
+ul.tight{margin:6px 0 0;padding-left:18px}
+ul.tight li{margin:3px 0}
+@media (max-width:520px){.flow{flex-direction:column;overflow:visible}.step{width:100%}.phone{width:100%}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>QR 친구 · 친구 추가 수정 시안 (2026-11-12)</h1>
+    <p class="lead">설계안 <code>docs/audit/member-id-qr-friend-audit-redesign-2026-11-12.md</code> 의 화면 시안입니다. 휴대폰 화면은 앱 실제 값(초록 #0B421A, 버튼 높이 48, 시트 머리·안전 영역 계약)으로 그렸고, 회색 띠는 기기 내비게이션(40px)입니다. 사람·QR 은 예시입니다.</p>
+  </header>
+
+  <section class="panel">
+    <h2>친구 추가 방법 5가지 (섞지 않음)</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>방법</th><th>어디서</th><th>결과</th><th>기록 값</th><th>지금 상태</th></tr></thead>
+      <tbody>
+        <tr><td>아이디 검색</td><td>친구 탭 검색칸 결과 · 결과에서 연 프로필</td><td><span class="pill p-req">요청 → 수락</span></td><td><code>id_search</code></td><td><span class="pill p-fix">수정</span> 결과에서 연 프로필이 <code>profile</code> 로 남음</td></tr>
+        <tr><td>연락처</td><td>친구 탭 연락처 섹션 · 연락처 화면</td><td><span class="pill p-req">요청 → 수락</span></td><td><code>contacts</code></td><td>정상 (운영 11-11 19:01 UTC 기록 확인)</td></tr>
+        <tr><td>QR</td><td>QR 코드 시트(스캔·갤러리) · 휴대폰 카메라 → 링크</td><td><span class="pill p-now">바로 친구</span></td><td><code>qr</code></td><td><span class="pill p-fix">수정</span> 진입·저장·문구 (아래 화면)</td></tr>
+        <tr><td>프로필</td><td>1:1 방 안내줄 · 방 메뉴 · 프로필 시트</td><td><span class="pill p-req">요청 → 수락</span></td><td><code>profile</code></td><td>정상</td></tr>
+        <tr><td>그룹</td><td>그룹 만들기 · 방 그룹 초대 중 추가</td><td><span class="pill p-req">요청 → 수락</span></td><td><code>group</code> (신규)</td><td><span class="pill p-fix">수정</span> 지금 <code>profile</code> 로 섞임 · DB 허용값 추가 필요</td></tr>
+      </tbody>
+    </table></div>
+    <p class="lead">QR 만 바로 친구입니다: QR 을 보여 준 것이 동의이기 때문입니다(설계안 v3 §3.6). 열 수 없는 「친구 추가 시트」와 쓰이지 않는 추가 경로 3개는 같은 단계에서 지웁니다.</p>
+  </section>
+
+  <section>
+    <h2>QR 친구 화면 흐름</h2>
+    <p class="lead">레거시 공통(공식 문서 확인분): 내 QR·스캔은 한 화면에서 전환(LINE·WhatsApp), 갤러리는 스캔 화면 안(WhatsApp), 스캔 뒤 프로필 확인 후 「추가」(LINE·WhatsApp), 재발급은 확인 단계를 거침(LINE·WhatsApp), 스캔은 검색창 옆 전역 진입도 둠(LINE).</p>
+  </section>
+
+  <div class="flow">
+    <!-- 1 친구 탭 -->
+    <div class="step">
+      <div class="cap">① 친구 탭 · 진입 2곳<small>「QR 코드」 = 내 QR 탭으로 · 검색칸 옆 스캔 아이콘 = 스캔 탭으로</small></div>
+      <div class="phone">
+        <div class="sb"><span>2:56</span><span>100%</span></div>
+        <div class="hdr">친구</div>
+        <div class="tabs3"><span>대화</span><b>친구</b><span>통화</span></div>
+        <div class="srch">
+          <div class="inp">⌕ @아이디로 친구 찾기</div>
+          <div class="ibtn new" title="QR 스캔" aria-label="QR 스캔">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16201a" stroke-width="2" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg>
+          </div>
+          <div class="sbtn">관리</div>
+        </div>
+        <div class="me">
+          <div class="av"></div>
+          <div style="flex:1;min-width:0"><div class="nm">q테스트1</div><div class="id">@qqqq</div></div>
+          <div class="gbtn hl">QR 코드</div><div class="gbtn">프로필 편집</div>
+        </div>
+        <div class="list">받은 요청 · 새 친구 · 친구 …
+          <div class="row"><div class="a">A</div><div style="flex:1;color:var(--fg)">Alyn Buque<div style="font-size:12px;color:var(--sub)">다른 기기</div></div></div>
+        </div>
+        <div class="nav3"><i>|||</i><i>○</i><i>‹</i></div>
+      </div>
+      <div class="note"><span class="tag">Owner 결정 필요</span> 점선 스캔 아이콘은 11-10 채팅 시안 4판에 없는 요소입니다(설계 충돌). 빼면 스캔은 「QR 코드 → QR 스캔」 한 단계를 더 거칩니다.</div>
+    </div>
+
+    <!-- 2 내 QR -->
+    <div class="step">
+      <div class="cap">② QR 코드 시트 · 내 QR<small>주 [공유] · 보조 [이미지 저장] · 아래 글자 [QR 다시 만들기]</small></div>
+      <div class="phone">
+        <div class="sb"><span>2:56</span><span>100%</span></div>
+        <div class="hdr">친구</div>
+        <div class="scrim"></div>
+        <div class="sheet">
+          <div class="handle"></div>
+          <div class="shd"><b>QR 코드</b><span class="x">✕</span></div>
+          <div class="sbody">
+            <div class="seg"><span class="on">내 QR</span><span>QR 스캔</span></div>
+            <div class="card">
+              <div class="qr"><canvas class="qrc" width="29" height="29"></canvas><div class="cav"></div></div>
+              <div class="nm">q테스트1</div><div class="id">@qqqq</div>
+              <div class="h">이 QR을 스캔하면 바로 친구가 돼요</div>
+            </div>
+            <div class="acts"><div class="btn pri">공유</div><div class="btn sec">이미지 저장</div></div>
+            <div class="btn txt">QR 다시 만들기</div>
+          </div>
+        </div>
+        <div class="nav3"><i>|||</i><i>○</i><i>‹</i></div>
+      </div>
+      <div class="note"><b>공유</b> = QR 카드 이미지 + 링크 글. <b>이미지 저장</b>: 새 앱 빌드에서는 이미지 파일로 공유 창(사진에 저장), 구 앱(플러그인 없음)은 버튼 숨김, 브라우저는 내려받기. 창을 닫으면(취소) 아무 문구도 띄우지 않습니다.</div>
+    </div>
+
+    <!-- 3 재발급 확인 -->
+    <div class="step">
+      <div class="cap">③ QR 다시 만들기 확인<small>되돌릴 수 없는 행동 = 확인 시트</small></div>
+      <div class="phone">
+        <div class="sb"><span>2:57</span><span>100%</span></div>
+        <div class="hdr">친구</div>
+        <div class="scrim"></div>
+        <div class="sheet">
+          <div class="handle"></div>
+          <div class="sbody" style="padding-top:8px">
+            <div style="font-size:18px;font-weight:700;margin-bottom:4px">QR을 다시 만들까요?</div>
+            <div style="color:var(--sub)">이전에 공유한 QR은 더 이상 쓸 수 없어요.</div>
+            <div class="acts" style="margin-top:20px"><div class="btn sec">취소</div><div class="btn pri">QR 다시 만들기</div></div>
+          </div>
+        </div>
+        <div class="nav3"><i>|||</i><i>○</i><i>‹</i></div>
+      </div>
+      <div class="note">완료 → 「새 QR을 만들었어요」. 옛 QR 은 즉시 「이 QR로는 친구를 추가할 수 없어요」. 설정의 다시 만들기도 같은 함수 하나를 씁니다.</div>
+    </div>
+
+    <!-- 4 스캔 -->
+    <div class="step">
+      <div class="cap">④ QR 코드 시트 · QR 스캔<small>카메라 + 안내 네모 + [갤러리에서 선택]</small></div>
+      <div class="phone">
+        <div class="sb"><span>2:57</span><span>100%</span></div>
+        <div class="hdr">친구</div>
+        <div class="scrim"></div>
+        <div class="sheet">
+          <div class="handle"></div>
+          <div class="shd"><b>QR 코드</b><span class="x">✕</span></div>
+          <div class="sbody">
+            <div class="seg"><span>내 QR</span><span class="on">QR 스캔</span></div>
+            <div class="cam"><div class="box"></div><div class="ln"></div></div>
+            <div class="hint">친구의 QR 코드를 네모 안에 맞춰 주세요</div>
+            <div class="btn sec">갤러리에서 선택</div>
+          </div>
+        </div>
+        <div class="nav3"><i>|||</i><i>○</i><i>‹</i></div>
+      </div>
+      <div class="note">카메라 거부·없음 → 안내 문구 + 갤러리 버튼만. 다른 QR(PC 로그인 등) → 「DIBAY 친구 QR이 아니에요」 후 1초 뒤 다시 읽기. 앱이 백그라운드로 가면 카메라를 끄고, 돌아오면 다시 켭니다. 해독은 네모 영역만 640px 이하로.</div>
+    </div>
+
+    <!-- 5 결과 -->
+    <div class="step">
+      <div class="cap">⑤ 스캔 결과<small>프로필 확인 → [친구 추가] = 바로 친구</small></div>
+      <div class="phone">
+        <div class="sb"><span>2:58</span><span>100%</span></div>
+        <div class="hdr">친구</div>
+        <div class="scrim"></div>
+        <div class="sheet">
+          <div class="handle"></div>
+          <div class="shd"><b>친구 추가</b><span class="x">✕</span></div>
+          <div class="sbody">
+            <div class="res"><div class="big"></div><div class="nm">zxzx11</div><div class="id">@zxzx11</div><div class="h">QR 코드로 찾았어요</div></div>
+            <div class="btn pri">친구 추가</div>
+          </div>
+        </div>
+        <div class="toast">zxzx11님과 친구가 되었어요</div>
+        <div class="nav3"><i>|||</i><i>○</i><i>‹</i></div>
+      </div>
+      <div class="note">이미 친구 → 「이미 친구예요」 + 주 [대화하기]. 내 QR → 「내 QR이에요」. 닫기는 X 하나(본문 「취소」 없음).</div>
+    </div>
+
+    <!-- 6 실패 -->
+    <div class="step">
+      <div class="cap">⑥ 실패 문구 3종<small>사유별로 나누되 차단·설정은 숨김</small></div>
+      <div class="phone">
+        <div class="sb"><span>2:58</span><span>100%</span></div>
+        <div class="hdr">친구</div>
+        <div class="scrim"></div>
+        <div class="sheet">
+          <div class="handle"></div>
+          <div class="shd"><b>친구 추가</b><span class="x">✕</span></div>
+          <div class="sbody">
+            <div class="err">이 QR로는 친구를 추가할 수 없어요</div>
+            <div style="font-size:12px;color:var(--sub);display:grid;gap:6px">
+              <div>· 다시 만든 옛 QR · QR 친구 추가 끔 · 차단 · 탈퇴 → 위 문구 하나</div>
+              <div>· 너무 자주 시도(429) → 「잠시 후 다시 시도해 주세요」</div>
+              <div>· 내 프로필 미완료 → 앱 공용 「프로필 완성」 안내로 이동</div>
+            </div>
+          </div>
+        </div>
+        <div class="nav3"><i>|||</i><i>○</i><i>‹</i></div>
+      </div>
+      <div class="note">지금 코드는 세 경우가 모두 「이 QR로는…」 하나로 나옵니다(결함 Q3).</div>
+    </div>
+
+    <!-- 7 웹 -->
+    <div class="step">
+      <div class="cap">⑦ 휴대폰 기본 카메라로 찍었을 때<small>samarket.vercel.app/f/… — 앱 없음·구 빌드·PC</small></div>
+      <div class="phone">
+        <div class="sb"><span>2:59</span><span>100%</span></div>
+        <div class="web">
+          <div class="url">samarket.vercel.app/f/TcR0…</div>
+          <div class="whd">친구 추가</div>
+          <div class="wbody">
+            <div class="res"><div class="big" style="background:linear-gradient(135deg,#f6c94a,#e07a2f)"></div><div class="nm">q테스트1</div><div class="h">DIBAY에서 친구가 되어 보세요</div></div>
+            <div class="btn pri" style="width:100%">앱에서 열기</div>
+            <div class="btn sec" style="width:100%">웹에서 계속</div>
+          </div>
+        </div>
+        <div class="nav3"><i>|||</i><i>○</i><i>‹</i></div>
+      </div>
+      <div class="note">새 빌드(앱 링크 검증)면 이 화면 없이 앱이 바로 열려 ⑤로 갑니다. [앱에서 열기] 뒤 1.5초 안에 앱이 안 열리면 Android 는 Play 스토어로 이동합니다. <span class="tag">Owner 결정 필요</span> iOS App Store 주소가 코드에 없습니다. 앱 안 화면에서 이 주소를 열면 이 화면을 건너뛰고 ⑤로 갑니다.</div>
+    </div>
+  </div>
+
+  <section class="panel">
+    <h2>단계</h2>
+    <ul class="tight">
+      <li><b>S0</b> PR #154 병합: 스캔 진입·시트 머리·안전 영역 (웹)</li>
+      <li><b>S1</b> 웹: 취소 처리·실패 문구 3종·앱 안 /f 생략·스토어 이동·카메라 백그라운드 정지·해독 축소·다시 만들기 공용 함수·저장 카드 사진·「DIBAY」 표기·기록 값 누락 방지·죽은 경로 삭제·구 앱 [이미지 저장] 숨김</li>
+      <li><b>S2</b> DB (운영 적용은 Owner 승인): QR 친구가 예전 거절 요청 정리, 이미 친구면 스캔 수 안 올림, <code>group</code> 허용, 하루 검색 한도</li>
+      <li><b>S3</b> 네이티브(다음 일괄 빌드): 파일 플러그인 + 앱 [이미지 저장]</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+// 예시 QR 무늬 (실제 토큰 아님) — 찾기 패턴 3개 + 고정 난수
+document.querySelectorAll("canvas.qrc").forEach(function(c){
+  var n=29,x=c.getContext("2d"),s=7;x.fillStyle="#fff";x.fillRect(0,0,n,n);x.fillStyle="#0B421A";
+  function rnd(i){var t=Math.sin(i*12.9898)*43758.5453;return t-Math.floor(t);}
+  for(var y=0;y<n;y++)for(var z=0;z<n;z++){if(rnd(y*n+z+s)>0.52)x.fillRect(z,y,1,1);}
+  function f(px,py){x.fillStyle="#fff";x.fillRect(px-1,py-1,9,9);x.fillStyle="#0B421A";x.fillRect(px,py,7,7);x.fillStyle="#fff";x.fillRect(px+1,py+1,5,5);x.fillStyle="#0B421A";x.fillRect(px+2,py+2,3,3);}
+  f(0,0);f(n-7,0);f(0,n-7);
+});
+</script>

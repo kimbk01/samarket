@@ -1,0 +1,163 @@
+# QR 친구·친구 추가 방법 재감사 · 수정 설계안 (2026-11-12)
+
+Owner 지시 (2026-11-12): 「남은 부분 없도록 하고, 처음 구현 계획부터 오류·중복·누락·누수·병목을 확인하고, 친구 추가 방법의 종류와 각각 혼합되지 않고 QR 친구의 프로세스 부분을 다시 확인해서 어떻게 QR 친구를 이미지 스캔이 가능한지? 어떻게 나의 QR을 보여줄지? 등의 UI·UX·CTA SSOT 부분을 정확히 감사해서 수정 설계안을 보고해라. 레거시 어플의 QR 시스템을 정확히 분석하고, 땜빵으로 하지 말고 정확히 진행해라.」
+
+- 기준: 설계안 v3 `docs/audit/member-id-base-id-audit-design-2026-11-11.md` §3.6, PR #154 (`255a2223f`, 병합 전).
+- 증거 수준: 아래 판정은 **코드·운영 DB 읽기**로 확인한 것이다. 실기기에서 확인한 항목은 따로 표시하고, 나머지 실제 동작은 NOT_PROVEN 이다.
+
+## 0. 작업자 잘못 (먼저)
+
+| # | 잘못 | 영향 |
+|---|---|---|
+| W1 | 스캔·갤러리를 **열 수 없는 시트**(`MessengerFriendAddSheet`, 11-10 `dca01c445` 이후 여는 곳 0)에 넣고 「4단계 완료」로 보고 | 운영에서 앱 안 QR 스캔 진입 0곳. PR #154 로 진입을 옮김(병합 전) |
+| W2 | QR 시트 하단 여백 고정 20px·머리글 직접 그림·같은 무게 버튼 3개 | 기기 내비게이션에 가림, 「QR 다시 만들기」 두 줄 깨짐 (Owner 캡처 02:56). PR #154 로 수정(병합 전) |
+| W3 | 「이미지 저장」이 Android 앱에서 **저장하지 않고도 「저장했어요」**를 띄움 | `shareOrSaveReceiptImage`(`lib/mypage/store-order-receipt-image.ts:110-129`)는 WebView 에서 `<a download>` 로 넘어가 무조건 `"saved"` 를 반환한다. Android 쪽에 `DownloadListener` 0건. 실기 미확인 → **허위 성공 문구 위험** |
+| W4 | 시안 B 의 버튼 3칸 배치를 근거 없이 정함 | 레거시 앱 조사 없이 시안을 만듦 |
+
+## 1. 레거시 앱 QR 시스템 (공식 문서 우선, 2026-11-12 조사)
+
+| 항목 | 카카오톡 | LINE | WhatsApp | Telegram | WeChat |
+|---|---|---|---|---|---|
+| 내 QR 위치 | 친구 탭 → 친구 추가 → QR코드 (2차) | 친구 추가 → QR 코드 → My QR code, 검색창 옆 스캔 아이콘 (공식) | 설정 → 이름 옆 QR 아이콘 (공식) | 설정 (공식) | 나 → 프로필 → My QR code (공식) |
+| 스캔 위치 | 같은 친구 추가 → QR코드 (2차) | 스캔 아이콘 → 리더, **리더 화면에 My QR code** (공식) | **QR 화면에서 「Scan code」 전환** (공식) | 내 QR 화면 → Scan QR Code (확인 못 함) | 「+」 → Scan (공식) |
+| 갤러리 | 「앨범 불러오기」 (2차) | 확인 못 함 | **스캔 화면 왼쪽 아래 갤러리 아이콘** (공식) | 확인 못 함 | 가능 (2차) |
+| 스캔 후 | 프로필 확인 → 추가 (2차) | 「Add」 (공식) | 「Add to contacts」 (공식) | 확인 못 함 | 요청 (2차) |
+| 재발급 | 확인 못 함 | My QR code → Regenerate, 옛 QR 무효 (공식) | QR 화면 **⋮ 메뉴** → Reset QR code (공식) | 사용자명 변경 시 무효 (2차) | 확인 못 함 |
+| QR 막기 | 전화번호 허용을 꺼도 ID·QR 가능 (공식) | QR 끄는 설정 없음, 재발급만 (공식) | 재설정만 (공식) | — | 「Methods for Friending Me」 (공식) |
+
+출처: help.line.me (contentId 200000585, 20000383, 20000372) · faq.whatsapp.com (675736450543192, 1243486729346673, 256786158904828, 2416198805185327) · telegram.org/blog (reactions-spoilers-translations, ultimate-privacy-topics-2-0) · cs.help.wechat.com (14362252870543, 11900992235535) · kakaocorp.com/page/detail/10621. 2차 = 블로그. 확인 못 한 것은 설계 근거로 쓰지 않는다.
+
+**공통 패턴 (설계에 쓰는 것만)**
+1. 내 QR 과 스캔은 **한 화면에서 전환**한다 (LINE·WhatsApp 공식).
+2. 갤러리 선택은 **스캔 화면 안**에 둔다 (WhatsApp 공식).
+3. 스캔 뒤에는 **프로필을 보여 준 다음 「추가」**를 누르게 한다 (LINE·WhatsApp 공식). 스캔만으로 바로 추가하지 않는다.
+4. 재발급은 내 QR 화면에 두되 **확인 단계**를 거친다 (LINE·WhatsApp 공식). 주 버튼으로 두는 앱은 확인되지 않았다(WhatsApp 은 ⋮ 메뉴 안).
+5. 스캔 진입은 전역 위치(검색창 옆 아이콘·「+」)에도 둔다 (LINE·WeChat 공식).
+6. 공유는 내 QR 화면의 기본 행동이다 (WhatsApp 공유 아이콘·LINE Copy link, 공식). 어느 버튼이 주 버튼인지는 공식 출처가 없다.
+
+## 2. 친구 추가 방법 SSOT (섞이지 않게)
+
+운영 DB (2026-11-12 조회, 읽기만): 친구 요청 108건 중 source 기록 1건(`contacts`, 11-11 19:01 UTC — 배포 후 정상 기록), QR 토큰 1개, 스캔 0회, 「QR 허용」 설정을 바꾼 회원 0명, `member_search_daily_quota` 표 없음.
+
+| 방법 | 진입점 (지금 누를 수 있는 곳) | 결과 | source | 감사 판정 |
+|---|---|---|---|---|
+| ① 아이디 검색 | 친구 탭 검색칸 결과 행 [친구 추가] | 요청 | `id_search` | 정상 |
+| ①-b 검색 → 프로필 시트 → [친구 추가] | `CommunityMessengerHome.tsx:3885` | 요청 | **`profile`** | **FAIL — 섞임**. 검색에서 연 시트인데 profile 로 기록 |
+| ② 연락처 | 친구 탭 연락처 섹션·연락처 화면 | 요청 | `contacts` | 정상 |
+| ③ 프로필 (1:1 방 안내줄·방 메뉴·프로필 시트) | `RoomPhase2PeerNotice.tsx:166`, `OneToOneDotMenu.tsx:448` | 요청 | `profile` | 정상 |
+| ④ 그룹 만들기·방 그룹 초대 중 추가 | `CommunityMessengerHome.tsx:2826`, `use-messenger-room-phase2-controller.ts:2130` | 요청 | **`profile`** | **FAIL — 섞임**. 허용값(`id_search·qr·contacts·profile`)에 그룹이 없음 |
+| ⑤ QR (앱 안 스캔·갤러리·`/f` 웹·`dibay://friend`·앱 링크) | PR #154 후 「QR 코드」 시트 | **바로 친구** (QR 을 보여 준 것 = 동의) | `qr` | 진입 결함 W1 (수정 중) |
+| 죽은 경로 | `MessengerFriendAddSheet` 전체(QR 초대 탭 포함), `POST /relations/friend`, `addCommunityMessengerFriendSaved`·`addCommunityMessengerFriendContact` | — | — | **중복·죽은 코드** — 호출처 0 |
+
+**설계 결정**
+- D-A1 방법은 다섯 가지로 고정한다: `id_search` · `contacts` · `qr` · `profile` · `group`(신규). 결과는 QR 만 바로 친구, 나머지는 요청·수락.
+- D-A2 공용 `addFriendSaved(target, source)` 는 **호출한 화면이 source 를 반드시 넘긴다** (기본값 없음 → 타입 오류로 누락 방지). 프로필 시트는 「어디서 열었는지」(`openedFrom`)를 받아 검색에서 열면 `id_search`, 그룹 화면에서 열면 `group`.
+- D-A3 `group` 추가 = DB CHECK 변경 (운영 DB 적용은 Owner 승인).
+- D-A4 죽은 경로는 같은 단계에서 지운다: `MessengerFriendAddSheet`·홈의 `friendManagerOpen` 상태와 effect·`POST /relations/friend`(DELETE 는 사용 중이라 유지)·`service.ts` 의 호출처 0 함수 2개.
+
+## 3. QR 친구 프로세스 결함 (코드 확인)
+
+| # | 분류·심각도 | 결함 | 근거 | 수정 |
+|---|---|---|---|---|
+| Q1 | 오류·높음 | 앱에서 「이미지 저장」 허위 성공 (W3) | `store-order-receipt-image.ts:110-129`, Android `DownloadListener` 0건 | §4.3 |
+| Q2 | 오류·중간 | 공유·저장 창을 **취소**해도 「처리하지 못했어요」, 링크 공유 취소 시 다음 방식(웹 공유·복사)으로 넘어감 | `MyFriendQrPanel.tsx:94-95`, `community-share-native.ts:18-20,45-50` | 취소(AbortError·Capacitor 취소)는 조용히 끝냄 |
+| Q3 | 오류·중간 | 가입·프로필 미완료, 429 횟수 제한도 「이 QR로는 친구를 추가할 수 없어요」로 표시 | `FriendQrResultHost.tsx:74,100` | 미완료 → 공용 `handleProfileIncompleteApiResponse`, 429 → 「잠시 후 다시 시도해 주세요」, 그 밖만 「쓸 수 없는 QR」 |
+| Q4 | 오류·중간 | QR 로 친구가 돼도 **스캔한 사람이 예전에 거절한 상대 요청(rejected)이 남음** → 일반 요청 경로(FR-D3)는 이 행을 닫는다. 남으면 대화·통화가 막혔던 이력 있음 | `20271111160000:946-949` (pending 만 정리), `service.ts:10267-10272` | DB 함수 안에서 owner→viewer `rejected` → `cancelled` (FR-D3 와 같은 전이) |
+| Q5 | 오류·낮음 | 이미 친구여도 `scan_count` 증가 | `20271111160000:912` | 친구 판정 뒤로 이동 |
+| Q6 | 누락·중간 | 웹 `/f` 「앱에서 열기」가 앱이 없거나 구 바이너리면 무반응, 앱 안 WebView 에서도 버튼이 보임 | `FriendQrWebLanding.tsx:28-31`. 실기: Xiaomi 빌드 40 무반응 (11-11 23:53 PHT) | §4.5 |
+| Q7 | 누수·중간 | 앱이 백그라운드로 가도 카메라를 끄지 않음 | `use-qr-camera-scanner.ts` 에 `visibilitychange` 0건 | 숨김 → 정지, 복귀 → 재시작 |
+| Q8 | 병목·중간 | 250ms 마다 원본 해상도 전체를 메인 스레드에서 해독, 매번 캔버스 크기 재설정 | `use-qr-camera-scanner.ts:64-73` | 안내 네모 영역만 잘라 최대 640px, 캔버스 크기 1회 |
+| Q9 | 중복·낮음 | QR 다시 만들기 요청 코드 2곳 | `MyFriendQrPanel.tsx:106`, `MemberDiscoverySettingsSection.tsx:74` | 공용 함수 1개 |
+| Q10 | SSOT·낮음 | 다시 만들기 버튼 임의 클래스, QR 카드 `bg-white`·고정 글자 크기, 「**디바이** 친구 QR이 아니에요」만 표기가 다름 | `MemberDiscoverySettingsSection.tsx:145`, `MyFriendQrPanel.tsx:134,148-150`, `member-id-v3.ts:49` | 공용 클래스·토큰, 「DIBAY」 |
+| Q11 | 누락·낮음 | 저장 이미지에 사진이 없어 화면과 다름 | `friend-qr-image.ts` | 화면과 같은 카드(사진 포함, 사진을 못 불러오면 없이) |
+
+정상으로 확인한 것 (코드): 오류 정정 H·480px, 가운데 사진 면적 약 5%; 토큰 첫 생성 경합 `ON CONFLICT DO NOTHING`, 토큰 UNIQUE 인덱스(운영 DB 확인); 재발급 즉시 옛 토큰 무효; 본인·탈퇴·QR 허용 끔·양방향 차단 처리; 오류 코드 하나로 합쳐 노출; QR 주인 알림 하루 1회; 「QR로 추가」 배지; Android 카메라 권한·WebView 권한 연결; 갤러리 1600px 축소·반전 시도; PC 로그인 QR 등 다른 QR 거절.
+
+## 4. 수정 설계 — UI·UX·CTA SSOT
+
+### 4.1 진입점 (어디서 내 QR 을 보여 주고, 어디서 스캔하나)
+
+화면은 **「QR 코드」 시트 하나**다 (`MyFriendQrSheet`, 탭 [내 QR | QR 스캔]). 진입점마다 처음 열리는 탭만 다르다 (공통 패턴 1·5).
+
+| 진입점 | 처음 탭 | 근거 |
+|---|---|---|
+| 메신저 친구 탭 내 프로필 줄 「QR 코드」 | 내 QR | 텔레그램·왓츠앱 = 내 프로필 쪽 |
+| 마이페이지 내 프로필 「QR 코드」 | 내 QR | 같음 |
+| **메신저 친구 탭 검색칸 오른쪽 스캔 아이콘** (신규) | QR 스캔 | LINE 검색창 옆 스캔 아이콘 (공식) |
+
+- **Owner 결정 필요 (설계 충돌, 규정 7)**: 스캔 아이콘은 11-10 채팅 시안 4판 친구 탭 배치(검색칸 + 「관리」)에 없는 요소다. 시안을 고치지 않으면 스캔 진입은 「QR 코드 → QR 스캔 탭」 한 단계를 더 거친다.
+
+### 4.2 「QR 코드」 시트 화면 계약
+
+- 껍데기·머리·하단: `MessengerHomeBottomSheetShell` + `MessengerSheetHeaderBar`(손잡이·제목 왼쪽·닫기 X) + 본문 `pb-[max(1rem,var(--kb-safe-bottom))]` (PR #154).
+- 탭: 공용 2단 탭 `Sam.tabs` 두 칸 같은 폭.
+- **내 QR 탭**
+  - 카드: QR(가운데 사진) · 이름 · `@회원 아이디` · 「이 QR을 스캔하면 바로 친구가 돼요」. 색은 토큰(`bg-sam-surface` 등)만.
+  - CTA: **주 [공유]** · 보조 [이미지 저장] 한 줄 두 칸 → 아래 글자 버튼 [QR 다시 만들기] → 확인 시트 「이전에 공유한 QR은 더 이상 쓸 수 없어요」 (공통 패턴 4·6).
+  - 공유 = **QR 카드 이미지 + 링크 글** (앱: 파일 공유, 웹: 파일 공유를 지원하면 이미지, 아니면 링크). 취소는 조용히.
+- **QR 스캔 탭**
+  - 카메라 화면 + 안내 네모 + 「친구의 QR 코드를 네모 안에 맞춰 주세요」.
+  - **[갤러리에서 선택]**: 스캔 탭 안에서 카메라 바로 아래, 보조 버튼 (공통 패턴 2).
+  - 카메라 거부·없음 → 안내 문구 + 갤러리 버튼만.
+  - 다른 QR → 「DIBAY 친구 QR이 아니에요」 1초 뒤 다시 읽기.
+- 스캔·갤러리 성공 → 시트 닫힘 → 결과 시트.
+
+### 4.3 이미지 저장·공유 (앱에서 실제로 되게)
+
+- 앱(Capacitor): **`@capacitor/filesystem` 추가**로 PNG 를 캐시에 쓰고, `@capacitor/share`(이미 있음)의 `files` 로 공유 창을 연다.
+  - 사진첩 저장은 공유 창의 「사진에 저장」·「갤러리」로 한다.
+  - 버튼 이름은 앱에서는 「이미지 공유」가 아니라 그대로 [이미지 저장]으로 두고, 공유 창이 열리면 성공 문구를 띄우지 않는다 (허위 성공 0).
+  - → **네이티브 변경** (Android·iOS 플러그인 추가, 빌드 번호 증가는 다음 일괄 빌드 때 1회).
+- 구 바이너리(플러그인 없음, `Capacitor.isPluginAvailable("Filesystem")` false): [이미지 저장] **숨김**. 공유는 링크 공유만.
+- 웹 브라우저: `<a download>` 저장 → 「저장했어요」 (브라우저는 실제로 내려받음).
+
+### 4.4 결과 시트 (스캔 뒤)
+
+- 머리 「친구 추가」 + 닫기 X (PR #154).
+- 본문: 사진 72 · 이름 · `@회원 아이디` · 「QR 코드로 찾았어요」.
+- CTA:
+  - 친구가 아니면 주 [친구 추가] → 바로 친구 + 「{이름}님과 친구가 되었어요」 (QR 을 보여 준 것 = 동의, 설계안 v3 §3.6 유지).
+  - 이미 친구면 「이미 친구예요」 + 주 [대화하기].
+  - 본인 QR 이면 「내 QR이에요」.
+- 실패 문구 (Q3): 미완료 → 공용 처리, 429 → 잠시 후, 나머지(재발급된 QR·QR 허용 끔·차단·탈퇴) → 「이 QR로는 친구를 추가할 수 없어요」 하나 (사유를 숨김 — 차단·설정 노출 방지).
+
+### 4.5 휴대폰 기본 카메라로 찍었을 때 (`https://samarket.vercel.app/f/<토큰>`)
+
+| 상황 | 동작 |
+|---|---|
+| 앱 설치 + 새 빌드(앱 링크 검증) | 앱이 바로 열림 → 결과 시트 |
+| 앱 안 WebView 에서 `/f` 를 연 경우 | 바로 메신저 홈 결과 시트로 이동 (랜딩 생략) |
+| 브라우저 (앱 없음·구 빌드·PC) | 랜딩: 사진·이름 + 주 [앱에서 열기] + 보조 [웹에서 계속] |
+| [앱에서 열기] 1.5초 안에 앱이 안 열림 | Android → Play 스토어 `com.dibay.app` |
+| iOS | **Owner 결정 필요**: App Store 주소가 코드에 없음(`apps.apple.com/app/x` 자리표시만). 주소를 받기 전에는 [웹에서 계속]만 강조 |
+
+### 4.6 스캐너 성능·누수 (Q7·Q8)
+
+- `useQrCameraScanner` (PC 로그인 스캔과 공용):
+  - 문서가 숨겨지면 트랙 정지, 돌아오면 다시 시작.
+  - 해독은 안내 네모 영역만 최대 640px 로 잘라서 한다.
+  - 캔버스 크기는 영상 크기가 바뀔 때만 다시 정한다.
+- PC 로그인 스캔 화면도 같은 훅이라 함께 확인한다 (영향 범위).
+
+## 5. 단계·영향·검증
+
+| 단계 | 내용 | 바뀌는 파일 | 영향받는 화면 | 배포 |
+|---|---|---|---|---|
+| S0 | PR #154 (스캔 진입·시트 SSOT) 병합 | — | 친구 탭·마이페이지 QR | 웹 |
+| S1 | 웹: Q2·Q3·Q6(앱 안 생략·스토어 이동)·Q7·Q8·Q9·Q10·Q11, D-A2(source 필수), 죽은 경로 삭제(D-A4), 구 바이너리 [이미지 저장] 숨김 | `friend-qr/*`, `use-qr-camera-scanner.ts`, `CommunityMessengerHome.tsx`, `MessengerFriendProfileSheet`, 그룹 만들기·방 초대, `MemberDiscoverySettingsSection`, `f/[token]` | 메신저 홈·친구 탭·프로필 시트·그룹 만들기·방 초대·PC 로그인 스캔·마이페이지·설정 | 웹 |
+| S2 | DB: Q4·Q5, source `group` 허용 (마이그레이션 1개) + F3 하루 한도(미적용분) | `supabase/migrations/…` | QR 추가·친구 요청 | 운영 DB 적용 = Owner 승인 |
+| S3 | 네이티브: `@capacitor/filesystem` + 앱 [이미지 저장]·이미지 공유 | `package.json`, `android/`, `ios/` | 내 QR | 다음 일괄 빌드 |
+| 결정 | 친구 탭 검색칸 스캔 아이콘(시안 4판 충돌), iOS App Store 주소 | — | — | Owner |
+
+- 순서 제약: S1 의 `group` 기록은 S2 적용 뒤에만 켠다. S2 전에는 CHECK 위반 → 요청 실패가 나기 때문이다. 그래서 S1 은 `group` 을 쓰지 않고 S2 와 같은 PR 에서 켠다.
+- 실기 검증 (S0~S1 반영 후, 운영 앱, Samsung·Xiaomi 2대, 시각 PHT 기록):
+  1. 내 QR 화면 하단 가림 없음.
+  2. 버튼 한 줄 표시.
+  3. 앱 안 스캔 → 결과 → 친구 추가 + `community_friend_requests.source='qr'` 확인.
+  4. 갤러리 스캔.
+  5. 이미 친구 → [대화하기].
+  6. QR 다시 만들기 → 옛 QR 「쓸 수 없는 QR」.
+  7. QR 허용 끔 → 같은 문구, 확인 후 다시 켬.
+  8. 시트 연 채 백그라운드 → 카메라 표시등 꺼짐.
+  9. 아이디 검색·프로필 시트 추가 source.
+  - 테스트 계정끼리 친구 해제·추가는 운영 데이터 변경이라 시작 전에 알린다.
