@@ -114,7 +114,8 @@ describe("F-06 홈 배너 클라 fetcher — single-flight·짧은 캐시·force
     for (const f of ["StoresHomeHeroBanner.tsx", "StoresHomeBeforeRestBanner.tsx"]) {
       const src = readFileSync(join(process.cwd(), "components/stores/home/hub", f), "utf8");
       expect(src).toContain("fetchStoresHomeBannersDeduped(");
-      expect(src).toContain("}, [refreshKey]);");
+      /** refreshKey 의존 유지 — D1 §4 60초 규칙 gate 가 deps 에 함께 들어감 (2026-11-11) */
+      expect(src).toContain("}, [refreshKey, revisitGate]);");
       expect(src).not.toMatch(/fetch\("\/api\/stores\/home-/);
     }
     const hub = readFileSync(join(process.cwd(), "components/stores/home/hub/StoresHomeHub.tsx"), "utf8");

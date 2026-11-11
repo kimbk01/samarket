@@ -76,6 +76,7 @@ import {
 import { prewarmStoresHomeBanners } from "@/lib/stores/stores-home-banners-client";
 import { isDeliveryRecruiting, useDeliveryLaunchState } from "@/lib/delivery/launch/use-delivery-launch-state";
 import type { DeliveryLaunchPublicState } from "@/lib/delivery/launch/delivery-launch-contract";
+import { useHubDataRevisitGate } from "@/lib/http/hub-data-freshness";
 import {
   DeliveryRecruitingHero,
   DeliveryRecruitingOverlays,
@@ -387,34 +388,48 @@ export function StoresHomeHub({
    * 묶음4 F-06 — 배너는 home-feed 와 **병렬** 비행: 진입 시 prewarm(캐시·진행 중 비행 재사용),
    * 새로고침·주소 변경 때는 force 비행을 먼저 시작하고 refreshKey 로 배너 컴포넌트가 그 비행에 합류.
    */
-  useLayoutEffect(() => {
-    if (!feedReady) return;
-    prewarmStoresHomeBanners();
-  }, [feedReady]);
-  const onStoresHomePullRefresh = useCallback(() => {
-    prewarmStoresHomeBanners({ force: true });
-    setBannerRefreshKey((n) => n + 1);
-    return loadFeed({ silent: false, force: true });
-  }, [loadFeed]);
+  /** D1 §4 — 허브 화면 보관대에서 다시 보일 때 같은 조건·60초 안이면 피드·배너를 다시 받지 않음 */
+  const feedRevisitGate = useHubDataRevisitGate();
+  const feedRevisitKey = `${querySuffix}|${language}`;
 
   useLayoutEffect(() => {
     if (!feedReady) return;
-    void loadFeed();
+    if (feedRevisitGate.isFresh(feedRevisitKey)) return;
+    prewarmStoresHomeBanners();
+  }, [feedReady, feedRevisitGate, feedRevisitKey]);
+  const onStoresHomePullRefresh = useCallback(() => {
+    /** 새로고침 도중 탭을 떠나 중단돼도 돌아오면 다시 받게 60초 기록을 지운다 (PR #150 Bugbot) */
+    feedRevisitGate.reset();
+    prewarmStoresHomeBanners({ force: true });
+    setBannerRefreshKey((n) => n + 1);
+    return loadFeed({ silent: false, force: true }).then((outcome) => {
+      if (outcome === "success") feedRevisitGate.markLoaded(feedRevisitKey);
+      return outcome;
+    });
+  }, [loadFeed, feedRevisitGate, feedRevisitKey]);
+
+  useLayoutEffect(() => {
+    if (!feedReady) return;
+    if (feedRevisitGate.isFresh(feedRevisitKey)) return;
+    void loadFeed().then((outcome) => {
+      if (outcome === "success") feedRevisitGate.markLoaded(feedRevisitKey);
+    });
     return () => abortRef.current?.abort();
-  }, [loadFeed, feedReady]);
+  }, [loadFeed, feedReady, feedRevisitGate, feedRevisitKey]);
 
   useEffect(() => {
     const onAddressesUpdated = () => {
       if (!feedReady) return;
       /** R-2 — 주소가 바뀌면 이전 스냅샷 기준 예측을 버리고 서버 판정·새 스냅샷을 따른다 */
       setPredictedViewerGate(null);
+      feedRevisitGate.reset();
       prewarmStoresHomeBanners({ force: true });
       setBannerRefreshKey((n) => n + 1);
       void loadFeed({ force: true, silent: true });
     };
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
-  }, [feedReady, loadFeed]);
+  }, [feedReady, loadFeed, feedRevisitGate]);
 
   useRefetchOnPageShowRestore(() => {
     if (!feedReady) return;

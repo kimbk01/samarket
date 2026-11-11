@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { HUB_DATA_REVISIT_FRESH_MS, invalidateAllHubData, peekHubDataEpoch } from "@/lib/http/hub-data-epoch";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/lib/addresses/addresses-updated-event";
+import { PROFILE_UPDATED_EVENT } from "@/lib/profile/profile-update-events";
 
 /**
  * D1 §4 (Owner 「D1 상세 설계」 2026-11-11, `docs/audit/d1-hub-screen-retention-design-2026-11-11.md`)
@@ -10,7 +12,7 @@ import { HUB_DATA_REVISIT_FRESH_MS, invalidateAllHubData, peekHubDataEpoch } fro
  *
  * - 인스턴스 단위(ref) — 새로 마운트된 화면은 기록이 없으므로 언제나 받는다(빈 화면 방지).
  * - 조건(키)이 바뀌면(카테고리·지역·언어 등) 받는다.
- * - 앱 복귀(백그라운드 → 앞 화면)·언어 변경·명시적 무효화(당겨서 새로고침 등)는 세대(epoch)를 올려 모두 다시 받는다.
+ * - 앱 복귀(백그라운드 → 앞 화면)·언어 변경·주소 변경·프로필 변경·명시적 무효화(글 쓰기 등)는 세대(epoch)를 올려 모두 다시 받는다.
  * - 계정 전환은 보관대가 비워져 화면이 새로 마운트되므로 여기서 따로 다루지 않는다.
  * - 실시간 값(배지·진행 중 주문·채팅 목록)에는 쓰지 않는다.
  */
@@ -33,6 +35,12 @@ function installHubDataEpochListeners(): void {
       invalidateAllHubData("app_resume");
     }
   });
+  /**
+   * 숨긴 허브는 효과가 정리돼 이 알림을 듣지 못한다 — 주소·프로필이 바뀌면 세대를 올려 다시 보일 때 다시 받게 한다
+   * (배달 피드·배너는 주소 기준, 피드 글쓴이 이름은 프로필 기준).
+   */
+  window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, () => invalidateAllHubData("addresses_updated"));
+  window.addEventListener(PROFILE_UPDATED_EVENT, () => invalidateAllHubData("profile_updated"));
   try {
     let lang = document.documentElement.lang;
     new MutationObserver(() => {
