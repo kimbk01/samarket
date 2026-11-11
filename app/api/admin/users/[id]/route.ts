@@ -529,6 +529,8 @@ export async function GET(
       dibay_id_initial: prof.dibay_id_initial ?? null,
       dibay_id_changed_once: prof.dibay_id_changed_once === true,
       dibay_id_changed_at: prof.dibay_id_changed_at ?? null,
+      /** 실제 로그인 아이디 — 관리자 발급 로그인 주소(`<id>@manual.local`)의 앞부분. SNS 회원은 null (F1: username 은 자동 아이디로 바뀔 수 있어 쓰지 않음) */
+      manual_login_id: detailManualLoginId,
       // 연락 이메일만 — 내부 로그인 주소(native·@manual.local)는 내보내지 않는다 (설계안 ①)
       email: pickContactEmailForProfile(prof.email) ?? null,
       signup_provider: signupProvider,

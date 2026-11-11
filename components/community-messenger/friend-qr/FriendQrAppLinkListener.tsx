@@ -10,6 +10,12 @@ import { buildFriendQrHomePath, parseFriendQrPayload } from "@/lib/community-mes
  * `dibay://` 링크는 `PushRouteListener` 가 맡는다 — 이 부품은 https 친구 QR 주소만 보며 다른 경로(통화·채팅·푸시)는 건드리지 않는다.
  * 앱이 꺼져 있다가 열린 경우는 `getLaunchUrl` 로 한 번 확인한다.
  */
+/**
+ * 앱이 꺼져 있다가 열린 주소(`getLaunchUrl`)는 프로세스가 살아 있는 동안 계속 같은 값을 돌려준다 —
+ * 다시 마운트(로그인 변경 등)될 때마다 결과 시트가 다시 열리지 않게 프로세스당 1회만 처리한다 (PR #145 리뷰).
+ */
+let launchUrlConsumed = false;
+
 export function FriendQrAppLinkListener() {
   const router = useRouter();
   useEffect(() => {
@@ -31,8 +37,11 @@ export function FriendQrAppLinkListener() {
           return;
         }
         remove = () => void sub.remove();
-        const launch = await App.getLaunchUrl().catch(() => undefined);
-        if (!cancelled) handle(launch?.url);
+        if (!launchUrlConsumed) {
+          launchUrlConsumed = true;
+          const launch = await App.getLaunchUrl().catch(() => undefined);
+          if (!cancelled) handle(launch?.url);
+        }
       } catch {
         /* Capacitor App plugin unavailable */
       }

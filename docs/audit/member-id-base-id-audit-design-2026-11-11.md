@@ -270,3 +270,15 @@ DB (마이그레이션 1개 — 운영 적용 Owner 승인):
   2. Apple Developer 의 App ID `com.dibay.ph` 에 Associated Domains 기능을 켜고 프로비저닝 프로필을 다시 받아야 iOS 빌드가 서명된다.
 - 빌드 번호는 설치·배포용 빌드를 만들 때 1회 증가 (`npm run native:prepare`) — 이번 커밋에서 올리지 않음.
 - 검증 (로컬): typecheck 2종 0 오류 · vitest 두 묶음 전체 통과 · XML·plist 형식 OK · eslint 오류 0. 실기기 NOT_PROVEN (빌드 전).
+
+### 후속 F1 (2026-11-11) — 어드민 「로그인 아이디」 표시
+
+- 확인: 자동 아이디 발급이 `username` 을 덮어써도 **로그인은 영향 없음** — `resolvePasswordLoginIdentifier` 가 관리자 발급 로그인 주소(`<id>@manual.local` = `auth_login_email`, Auth 이메일과 일치 확인)를 username 보다 먼저 찾는다. 운영(2026-11-11): 관리자 생성 회원 40명 중 Auth 이메일 ≠ `auth_login_email` 0명.
+- 결함: 어드민 회원 머리글·개요·인증 패널이 「로그인 아이디」를 `username` 으로 표시 — 운영 관리자 생성 회원 19명은 실제 로그인 아이디와 `username` 이 다름(자동 아이디로 바뀜), SNS 회원은 로그인 아이디가 없는데 `username` 이 표시됨.
+- 수정: 상세 API 에 `manual_login_id`(발급 로그인 주소 앞부분) 추가, 세 화면 모두 그 값만 표시. 발급 로그인 아이디가 없으면 표시 안 함.
+- 자동 발급의 `username` 덮어쓰기 자체는 바꾸지 않음 — 로그인·표시 어디에도 영향이 남지 않음.
+
+### PR #145 리뷰 (Cursor Bugbot) 반영
+
+- 내 QR: QR 그림 만들기 실패 시 오류 화면·버튼 비활성 (`535581afe`).
+- 앱 링크: 꺼진 앱이 열린 주소(`getLaunchUrl`)를 프로세스당 1회만 처리 — 다시 마운트될 때 결과 시트가 다시 열리던 결함.

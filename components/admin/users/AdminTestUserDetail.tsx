@@ -52,6 +52,8 @@ import { translateBy } from "@/lib/i18n/translate-by";
 export type AdminUserDetailPayload = {
   id: string;
   username: string | null;
+  /** 실제 로그인 아이디 (관리자 발급 `<id>@manual.local` 앞부분) — SNS 회원은 null (F1) */
+  manual_login_id?: string | null;
   /** 가입 방식 — 목록과 같은 판정 (설계안 ④) */
   signup_provider?: AdminAuthProvider;
   dibay_id?: string | null;
