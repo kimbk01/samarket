@@ -4,6 +4,7 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Fragment } from "react";
+import { HUB_DATA_REVISIT_FRESH_MS, useHubDataRevisitGate } from "@/lib/http/hub-data-freshness";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import {
@@ -627,12 +628,16 @@ export function CommunityFeed({
     };
   }, [router, meetingIdParam]);
 
+  const topicOptionsRevisitGate = useHubDataRevisitGate();
   useEffect(() => {
+    /** D1 §4 — 허브 보관대에서 다시 보일 때 60초 안이면 주제 목록을 다시 받지 않음 */
+    if (topicOptionsRevisitGate.isFresh("topic-options")) return;
     let cancelled = false;
     void (async () => {
       try {
         const j = await fetchPhilifeNeighborhoodTopicOptions();
         if (cancelled) return;
+        topicOptionsRevisitGate.markLoaded("topic-options");
         const { chips: next, showNeighborOnlyStrip: strip } = buildFeedChipsFromPhilifeTopicOptionsJson(j);
         setShowNeighborOnlyStrip(strip);
         setChips(next);
@@ -658,13 +663,19 @@ export function CommunityFeed({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [topicOptionsRevisitGate]);
 
   /** UI에서 필터 띠를 끄면 `neighborOnly` 요청도 쓰지 않음(401·불필요 파라미터 제거). */
   useEffect(() => {
     if (showNeighborOnlyStrip) return;
     setNeighborOnly((n) => (n ? false : n));
   }, [showNeighborOnlyStrip]);
+
+  /** D1 §4 — 허브 화면 보관대(`HubRetentionStack`) 재진입 60초 규칙: 같은 인스턴스·같은 조건이면 다시 받지 않음 */
+  const feedRevisitGate = useHubDataRevisitGate();
+  const topAdsRevisitGate = useHubDataRevisitGate();
+  const feedAdPoolRevisitGate = useHubDataRevisitGate();
+  const feedAdPoolRefreshAtRef = useRef<number | null>(null);
 
   const fetchPage = useCallback(
     async (
@@ -981,11 +992,28 @@ export function CommunityFeed({
       return;
     }
 
+    /**
+     * D1 §4 — 보관된 허브가 다시 보일 때(같은 질의·60초 안·목록 있음) 목록·오프셋을 되돌리지 않고 다시 받지도 않는다.
+     * 새로 마운트된 화면은 기록이 없어 언제나 아래 경로로 받는다.
+     */
+    if (
+      feedRevisitGate.isFresh(feedContentKey) &&
+      postsContentKeyRef.current === feedContentKey &&
+      postsRef.current.length > 0
+    ) {
+      return;
+    }
+
     feedSessionRef.current += 1;
     const session = feedSessionRef.current;
     nextOffsetRef.current = 0;
     nextCursorTokenRef.current = null;
     loadMoreLockRef.current = false;
+    const markFeedLoaded = (outcome: DibayPtrOutcome) => {
+      if (outcome === "success" && feedSessionRef.current === session) {
+        feedRevisitGate.markLoaded(feedContentKey);
+      }
+    };
 
     /** RSC 시드: URL 과 선택한 주제·정렬이 일치할 때만(칩만 바꾸고 URL이 안 맞는 경우가 있었음). */
     const canUseRscSeedForCurrentQuery =
@@ -1032,7 +1060,7 @@ export function CommunityFeed({
       setLoading(false);
       /** Cache/RSC first paint 후 — shellReady 이전 네트워크는 splash hydrate 와 경합하므로 지연 */
       const cancelNetwork = whenAppShellReady(() => {
-        void fetchPage(0, false, session, false);
+        void fetchPage(0, false, session, false).then(markFeedLoaded);
       });
       return () => {
         cancelNetwork();
@@ -1096,7 +1124,7 @@ export function CommunityFeed({
     }
     /** hasRenderableRows 면 loading UI 없이 background sync — shellReady 이후 */
     const cancelNetwork = whenAppShellReady(() => {
-      void fetchPage(0, false, session, !hasRenderableRows);
+      void fetchPage(0, false, session, !hasRenderableRows).then(markFeedLoaded);
     });
     return () => {
       cancelNetwork();
@@ -1122,6 +1150,7 @@ export function CommunityFeed({
     feedSessionKey,
     feedContentKey,
     safeT,
+    feedRevisitGate,
   ]);
 
   const ptrDomain = useMainHubPtrDomain();
@@ -1180,6 +1209,8 @@ export function CommunityFeed({
       setTopAds([]);
       return;
     }
+    const topAdsKey = category || "all";
+    if (topAdsRevisitGate.isFresh(topAdsKey)) return;
     const load = () => {
       runSingleFlight(`community-inline-ad-card:active-plife:${category || "all"}`, () =>
         fetch(`/api/ads/active?boardKey=plife${category ? `&topic=${encodeURIComponent(category)}` : ""}`, {
@@ -1188,7 +1219,10 @@ export function CommunityFeed({
       )
         .then((r) => r.clone().json())
         .then((j: { ads?: ActiveAdFeedItem[] }) => {
-          if (!cancelled && j.ads) setTopAds(j.ads);
+          if (!cancelled && j.ads) {
+            setTopAds(j.ads);
+            topAdsRevisitGate.markLoaded(topAdsKey);
+          }
         })
         .catch(() => {
           /* 광고 로드 실패는 조용히 무시 */
@@ -1215,7 +1249,7 @@ export function CommunityFeed({
       cancelled = true;
       cancelScheduled?.();
     };
-  }, [category, feedNeedsRegionButMissing]);
+  }, [category, feedNeedsRegionButMissing, topAdsRevisitGate]);
 
   /** Feed Banner pool — one fetch per surface (slot selection is local). */
   useEffect(() => {
@@ -1232,6 +1266,20 @@ export function CommunityFeed({
     });
     if (feedAdSurface.topicSlug) qs.set("topicSlug", feedAdSurface.topicSlug);
     const key = `feed-ad-pool:${qs.toString()}`;
+    const gateKey = `${key}:${feedAdPoolTick}`;
+    /** D1 §4 — 다시 보일 때 60초 안이면 다시 받지 않고, 서버가 정한 다음 재조회 시각만 다시 건다 */
+    if (feedAdPoolRevisitGate.isFresh(gateKey)) {
+      const at = feedAdPoolRefreshAtRef.current;
+      if (at != null) {
+        refreshTimer = setTimeout(
+          () => setFeedAdPoolTick((n) => n + 1),
+          Math.max(0, at - Date.now())
+        );
+      }
+      return () => {
+        if (refreshTimer) clearTimeout(refreshTimer);
+      };
+    }
     void runSingleFlight(key, async () => {
       const r = await fetch(`/api/feed-ads/active?${qs.toString()}`, {
         credentials: "include",
@@ -1241,7 +1289,9 @@ export function CommunityFeed({
       .then((j) => {
         if (cancelled) return;
         setFeedAdPool(Array.isArray(j.campaigns) ? j.campaigns : []);
+        feedAdPoolRevisitGate.markLoaded(gateKey);
         const delay = feedAdPoolRefreshDelayMs(j.validUntil);
+        feedAdPoolRefreshAtRef.current = delay != null ? Date.now() + delay : null;
         if (delay != null) refreshTimer = setTimeout(() => setFeedAdPoolTick((n) => n + 1), delay);
       })
       .catch(() => {
@@ -1251,7 +1301,7 @@ export function CommunityFeed({
       cancelled = true;
       if (refreshTimer) clearTimeout(refreshTimer);
     };
-  }, [feedAdSurface.placement, feedAdSurface.topicSlug, feedAdPoolTick]);
+  }, [feedAdSurface.placement, feedAdSurface.topicSlug, feedAdPoolTick, feedAdPoolRevisitGate]);
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -1724,7 +1774,8 @@ export function CommunityFeed({
         const prefetchKey = `${targetSessionKey}\u001f${targetCategory}\u001f${neighborOnly ? "1" : "0"}\u001f${targetSort}`;
         const now = Date.now();
         const last = adjacentPrefetchAtRef.current[prefetchKey] ?? 0;
-        if (now - last < 12_000) continue;
+        /** D1 §4 — 인접 주제 미리 받기도 60초 규칙(보관된 허브가 다시 보일 때 반복 방지) */
+        if (now - last < HUB_DATA_REVISIT_FRESH_MS) continue;
         adjacentPrefetchAtRef.current[prefetchKey] = now;
 
         const url = itemPlan.globalFeed

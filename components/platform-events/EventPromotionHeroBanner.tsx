@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import type { EventHeroBannerRuntimeItem } from "@/lib/platform-promotion-distribution/load-active-event-hero-banners";
+import { useHubDataRevisitGate } from "@/lib/http/hub-data-freshness";
 import { recordPromotionContentVisitClient } from "@/lib/platform-promotion-lifecycle/client-record-content-visit";
 
 type Props = {
@@ -19,7 +20,11 @@ export function EventPromotionHeroBanner({ placement }: Props) {
   const [items, setItems] = useState<EventHeroBannerRuntimeItem[]>([]);
   const inventory = useMemo(() => inventoryViewFromKey("STORES_HOME_HERO"), []);
 
+  /** D1 §4 — 허브 화면 보관대에서 다시 보일 때 60초 안이면 다시 받지 않음 */
+  const revisitGate = useHubDataRevisitGate();
+
   useEffect(() => {
+    if (revisitGate.isFresh(placement)) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -31,7 +36,10 @@ export function EventPromotionHeroBanner({ placement }: Props) {
           ok?: boolean;
           items?: EventHeroBannerRuntimeItem[];
         };
-        if (!cancelled && json.ok) setItems(json.items ?? []);
+        if (!cancelled && json.ok) {
+          setItems(json.items ?? []);
+          revisitGate.markLoaded(placement);
+        }
       } catch {
         if (!cancelled) setItems([]);
       }
@@ -39,7 +47,7 @@ export function EventPromotionHeroBanner({ placement }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [placement]);
+  }, [placement, revisitGate]);
 
   const item = items[0];
   if (!item?.imageUrl) return null;

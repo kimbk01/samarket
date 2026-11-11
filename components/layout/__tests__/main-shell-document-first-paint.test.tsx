@@ -50,7 +50,10 @@ describe("C 단계 — 셸 서버 HTML", () => {
     expect(html).toContain("data-main-shell-document-loading");
     expect(html).not.toContain("data-body");
     const shell = readFileSync(join(root, "components/layout/ConditionalAppShell.tsx"), "utf8");
-    expect(shell).toContain("{shellHydrated ? children : <MainShellDocumentLoading />}");
+    /** D1 (2026-11-11): 본문은 허브 화면 보관대를 거쳐 그린다 — hydration 전 회색 줄 계약은 그대로 */
+    expect(shell).toContain(
+      "{shellHydrated ? <HubRetentionStack>{children}</HubRetentionStack> : <MainShellDocumentLoading />}"
+    );
     expect(shell).toContain("document.documentElement.setAttribute(SHELL_HYDRATED_HTML_ATTR");
   });
 

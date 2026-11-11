@@ -10,6 +10,7 @@ import {
   COMMUNITY_FEED_CACHE_STORAGE_KEY,
   COMMUNITY_FEED_LAST_VIEWER_SIG_KEY,
 } from "@/lib/community/community-feed-cache-ssot";
+import { invalidateAllHubData } from "@/lib/http/hub-data-epoch";
 
 /**
  * Philife feed persistent cache — Cold Boot Cache-First.
@@ -98,6 +99,7 @@ function removeLegacyFeedStorageKeys(): void {
 
 /** 로그아웃·계정 전환 — feed/topic persistent 전부 제거 (viewer 혼선 방지) */
 export function clearAllPhilifeFeedPersistentCaches(): void {
+  invalidateAllHubData("philife_feed_caches_cleared");
   if (typeof window === "undefined") return;
   try {
     localStorage.removeItem(STORAGE_KEY);

@@ -4,6 +4,7 @@ import { philifeNeighborhoodTopicOptionsUrl } from "@domain/philife/api";
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
 import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import type { PhilifeNeighborhoodTopicOptionsJson } from "@/lib/philife/neighborhood-topic-options-contract";
+import { invalidateAllHubData } from "@/lib/http/hub-data-epoch";
 
 export type { PhilifeNeighborhoodTopicOptionsJson } from "@/lib/philife/neighborhood-topic-options-contract";
 
@@ -113,6 +114,7 @@ export function warmPhilifeNeighborhoodTopicOptions(): void {
 
 /** PTR·강제 새로고침 — 메모리 TTL·진행 중 single-flight 제거 (persistent 는 유지; 다음 fetch 가 덮어씀) */
 export function invalidatePhilifeNeighborhoodTopicOptionsCache(): void {
+  invalidateAllHubData("topic_options_invalidated");
   topicOptionsCache = null;
   forgetSingleFlight(PHILIFE_NEIGHBORHOOD_TOPIC_OPTIONS_FLIGHT);
 }

@@ -7,7 +7,9 @@
 
 import { isDeliveryConsumerBottomNavSurface } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import { prewarmBottomNavStoresTab, type BottomNavStoresPrewarmOptions } from "@/lib/main-menu/bottom-nav-tap-prewarm-stores";
-import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import { isCommunityHomeSurfacePath, resolveMainTabKeepAliveHub } from "@/lib/layout/resolve-main-surface";
+import { isHubScreenRetainedFresh } from "@/lib/layout/hub-retention-state";
+import { HUB_DATA_REVISIT_FRESH_MS, peekHubDataEpoch } from "@/lib/http/hub-data-epoch";
 
 export type BottomNavTapPrewarmSource = "pointer_intent" | "route_commit" | "boot" | "idle";
 
@@ -38,6 +40,15 @@ export function prewarmBottomNavTapTargetClientCache(
   const path = (href.split("?")[0] ?? "").trim();
   if (!path) return;
   const source = opts.source ?? "pointer_intent";
+
+  /** D1 §4 — 허브 화면 보관대에 화면이 있고 숨긴 지 60초 안이면 누름 미리 받기를 하지 않는다(보관 화면이 데이터를 가짐) */
+  const retainedHub = resolveMainTabKeepAliveHub(path);
+  if (
+    retainedHub &&
+    isHubScreenRetainedFresh(retainedHub, peekHubDataEpoch(), HUB_DATA_REVISIT_FRESH_MS)
+  ) {
+    return;
+  }
 
   if (path === "/stores") {
     prewarmBottomNavStoresTab({

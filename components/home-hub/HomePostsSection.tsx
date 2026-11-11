@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommunityCard } from "@/components/community/CommunityCard";
 import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
 import { fetchNeighborhoodFeedShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
+import { useHubDataRevisitGate } from "@/lib/http/hub-data-freshness";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import type { HomePostsConfig } from "@/lib/home/home-layout-contract";
 import { HomeSectionHead } from "@/components/home-hub/HomeSectionHead";
@@ -31,6 +32,9 @@ export function HomePostsSection({
   const [failed, setFailed] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
 
+  /** D1 §4 — 허브 보관대에서 다시 보일 때 같은 조건·60초 안이면 다시 받지 않음 */
+  const revisitGate = useHubDataRevisitGate();
+
   useEffect(() => {
     let alive = true;
     const url = buildPhilifeNeighborhoodFeedClientUrl({
@@ -39,6 +43,8 @@ export function HomePostsSection({
       limit: config.count + 3,
       ...(config.topicSlug ? { category: config.topicSlug } : {}),
     });
+    const gateKey = `${url}|${refreshSeq}|${retryKey}`;
+    if (revisitGate.isFresh(gateKey)) return;
     void fetchNeighborhoodFeedShortTtl(url, { credentials: "include" })
       .then(async (res) => {
         const data = (res.ok ? await res.json() : null) as { posts?: NeighborhoodFeedPostDTO[] } | null;
@@ -50,6 +56,7 @@ export function HomePostsSection({
         }
         setFailed(false);
         setPosts(data.posts.filter((p) => !p.is_notice).slice(0, config.count));
+        revisitGate.markLoaded(gateKey);
       })
       .catch(() => {
         if (alive) setFailed(true);
@@ -57,7 +64,7 @@ export function HomePostsSection({
     return () => {
       alive = false;
     };
-  }, [config.count, config.sort, config.topicSlug, refreshSeq, retryKey]);
+  }, [config.count, config.sort, config.topicSlug, refreshSeq, retryKey, revisitGate]);
 
   return (
     <section className="mt-3 pt-[18px]" data-home-posts>
