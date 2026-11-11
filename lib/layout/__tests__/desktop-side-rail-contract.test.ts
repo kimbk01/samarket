@@ -44,12 +44,13 @@ describe("D1 desktop side rail", () => {
     ]) {
       expect(css).toContain(`${v}: 0px !important;`);
     }
-    expect(css).toMatch(/html:has\(\.app-bottom-nav-shell--side-rail\) \.app-shell \{\s*padding-left:/);
+    /** D1 F1 (2026-11-11): `html:has(…)` → `<html>` 셸 속성 (lib/layout/html-shell-flags.ts) */
+    expect(css).toMatch(/html\[data-shell-bottom-nav-side-rail\] \.app-shell \{\s*padding-left:/);
   });
 
   it("화면 고정 플로팅(거래 플로팅 바·FAB 섹터)은 레일 폭만큼 비킨다", () => {
     expect(SIDE_RAIL_FIXED_INSET_CLASS).toBe("app-side-rail-fixed-inset");
-    expect(css).toMatch(/html:has\(\.app-bottom-nav-shell--side-rail\) \.app-side-rail-fixed-inset \{\s*left:/);
+    expect(css).toMatch(/html\[data-shell-bottom-nav-side-rail\] \.app-side-rail-fixed-inset \{\s*left:/);
     expect(src("components/layout/MainBottomNavFabSector.tsx")).toContain("${SIDE_RAIL_FIXED_INSET_CLASS}");
     expect(src("components/home/HomeTradeHubFloatingBar.tsx")).toContain("${SIDE_RAIL_FIXED_INSET_CLASS}");
   });
@@ -97,10 +98,10 @@ describe("메신저 PC 전체 폭 M1·M3 (docs/audit/messenger-desktop-wide-desi
     const m3 = css.split("메신저 PC 전체 폭 M3")[1] ?? "";
     expect(m3).toContain("@media (min-width: 768px)");
     expect(m3).toMatch(
-      /html:has\(\.app-shell\[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"\]\)\s*:is\(\.messenger-home-bottom-sheet-panel, \.messenger-home-bottom-sheet-panel--device-bottom\)\.messenger-home-bottom-sheet-panel--split-list \{\s*left: var\(--safe-left, 0px\) !important;/,
+      /html\[data-shell-desktop-side-rail\]\[data-shell-desktop-side-rail\]\s*:is\(\.messenger-home-bottom-sheet-panel, \.messenger-home-bottom-sheet-panel--device-bottom\)\.messenger-home-bottom-sheet-panel--split-list \{\s*left: var\(--safe-left, 0px\) !important;/,
     );
     expect(m3).toMatch(
-      /html:has\(\.app-shell\[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"\]\):has\(\.app-bottom-nav-shell--side-rail\)\s*:is\([^)]*\)\.messenger-home-bottom-sheet-panel--split-list \{\s*left: calc\(var\(--app-side-rail-width, 72px\) \+ var\(--safe-left, 0px\)\) !important;/,
+      /html\[data-shell-desktop-side-rail\]\[data-shell-desktop-side-rail\]\[data-shell-bottom-nav-side-rail\]\s*:is\([^)]*\)\.messenger-home-bottom-sheet-panel--split-list \{\s*left: calc\(var\(--app-side-rail-width, 72px\) \+ var\(--safe-left, 0px\)\) !important;/,
     );
     // 휴대폰·태블릿용 기존 식은 그대로 (레일 없는 셸)
     const sheetCss = src("app/messenger-home-bottom-sheet.css");

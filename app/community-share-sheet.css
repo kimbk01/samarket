@@ -17,18 +17,19 @@
   touch-action: manipulation;
 }
 
-html:has(.app-bottom-nav-shell--delivery) .community-share-sheet-panel {
+/* D1 F1: `html:has(…)` 대신 `<html>` 셸 속성(lib/layout/html-shell-flags.ts) — 특이도는 예전과 같게 속성 반복 */
+html[data-shell-bottom-nav-delivery] .community-share-sheet-panel {
   bottom: calc(
     var(--app-bottom-nav-height, 60px) + var(--delivery-home-overhang, 0px) +
       var(--safe-bottom)
   );
 }
 
-html:not(:has(.app-bottom-nav-shell)) .community-share-sheet-panel {
+html:not([data-shell-bottom-nav]) .community-share-sheet-panel {
   bottom: var(--safe-bottom);
 }
 
-html:has(.app-bottom-nav-shell--scroll-hidden) .community-share-sheet-panel {
+html[data-shell-bottom-nav-scroll-hidden] .community-share-sheet-panel {
   bottom: var(--safe-bottom);
 }
 

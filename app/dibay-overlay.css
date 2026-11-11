@@ -1011,8 +1011,9 @@
 }
 
 /* Admin fixed table H-scroll must not compete with open dialog chrome. */
-body:has(.dibay-overlay-root) [data-admin-table-bottom-hscroll],
-body:has(.dibay-overlay-root) [data-admin-posts-mgmt-bottom-hscroll] {
+/* D1 F1: `html:has(…)` 대신 `<html>` 셸 속성(lib/layout/html-shell-flags.ts) — 특이도는 예전과 같게 속성 반복 */
+html[data-shell-overlay-open] [data-admin-table-bottom-hscroll],
+html[data-shell-overlay-open] [data-admin-posts-mgmt-bottom-hscroll] {
   visibility: hidden;
   pointer-events: none;
 }
@@ -1044,6 +1045,6 @@ body:has(.dibay-overlay-root) [data-admin-posts-mgmt-bottom-hscroll] {
   );
 }
 
-html:not(:has(.app-bottom-nav-shell)) .dibay-toast-stack {
+html:not([data-shell-bottom-nav]) .dibay-toast-stack {
   bottom: calc(var(--safe-bottom) + 1rem);
 }

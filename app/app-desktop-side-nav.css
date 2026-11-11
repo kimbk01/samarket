@@ -15,7 +15,8 @@
  * - 레일이 있으면 하단 탭이 없으므로 하단 탭 높이·돌출 변수를 0 으로 둔다 → 본문·시트·토스트·FAB 하단 여백 단일 토큰이 함께 0.
  *   (`--app-bottom-nav-clearance` 는 :root 에서 이 변수들로 계산된다.)
  */
-html:has(.app-bottom-nav-shell--side-rail) {
+/* D1 F1: `html:has(…)` 대신 `<html>` 셸 속성(lib/layout/html-shell-flags.ts) — 특이도는 예전과 같게 속성 반복 */
+html[data-shell-bottom-nav-side-rail] {
   --app-side-rail-width: 72px;
   --app-bottom-nav-height: 0px !important;
   --main-scroll-nav-overhang: 0px !important;
@@ -24,12 +25,12 @@ html:has(.app-bottom-nav-shell--side-rail) {
 }
 
 /** 본문은 레일 오른쪽에서 시작 — 트리·요소 종류는 그대로(리마운트 없음), 여백만 */
-html:has(.app-bottom-nav-shell--side-rail) .app-shell {
+html[data-shell-bottom-nav-side-rail] .app-shell {
   padding-left: calc(var(--app-side-rail-width) + var(--safe-left, 0px));
 }
 
 /** 화면 고정(fixed inset-x-0) 플로팅 요소 — 레일과 겹치지 않게 같은 폭만큼 비킨다 */
-html:has(.app-bottom-nav-shell--side-rail) .app-side-rail-fixed-inset {
+html[data-shell-bottom-nav-side-rail] .app-side-rail-fixed-inset {
   left: calc(var(--app-side-rail-width) + var(--safe-left, 0px));
 }
 
@@ -114,13 +115,13 @@ html:has(.app-bottom-nav-shell--side-rail) .app-side-rail-fixed-inset {
  * 휴대폰·태블릿(레일 없음)은 기존 식 그대로.
  */
 @media (min-width: 768px) {
-  html:has(.app-shell[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"])
+  html[data-shell-desktop-side-rail][data-shell-desktop-side-rail]
     :is(.messenger-home-bottom-sheet-panel, .messenger-home-bottom-sheet-panel--device-bottom).messenger-home-bottom-sheet-panel--split-list {
     left: var(--safe-left, 0px) !important;
   }
 
   /* 위 규칙보다 특이도가 높아야 한다 (레일이 있으면 이 값이 이긴다) */
-  html:has(.app-shell[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"]):has(.app-bottom-nav-shell--side-rail)
+  html[data-shell-desktop-side-rail][data-shell-desktop-side-rail][data-shell-bottom-nav-side-rail]
     :is(.messenger-home-bottom-sheet-panel, .messenger-home-bottom-sheet-panel--device-bottom).messenger-home-bottom-sheet-panel--split-list {
     left: calc(var(--app-side-rail-width, 72px) + var(--safe-left, 0px)) !important;
   }

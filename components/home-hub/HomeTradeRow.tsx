@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getPostsForHome } from "@/lib/posts/getPostsForHome";
+import { useHubDataRevisitGate } from "@/lib/http/hub-data-freshness";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { marketplaceFeedLocationExtrasFromUrlOrSession } from "@/lib/trade/marketplace/client-location-fetch";
 import { formatRelativeTimeAgo } from "@/lib/i18n/format-relative-time";
@@ -52,11 +53,24 @@ export function HomeTradeRow({
   const mode = rot?.mode;
   const seq = rot?.seq;
 
+  /** D1 §4 — 허브 화면 보관대에서 다시 보일 때 같은 조건(교체 상태·구성·지역)·60초 안이면 다시 받지 않음 */
+  const revisitGate = useHubDataRevisitGate();
+
   useEffect(() => {
     if (!rot) return;
+    const loc = marketplaceFeedLocationExtrasFromUrlOrSession("") ?? { locationAll: true };
+    const gateKey = [
+      mode,
+      seq,
+      config.count,
+      config.sort,
+      config.tradeCategoryId ?? "",
+      retryKey,
+      loc.locationAll === true || !loc.lguCityId ? "all" : `${loc.lguCityId}:${loc.radiusKm ?? ""}`,
+    ].join("|");
+    if (revisitGate.isFresh(gateKey)) return;
     let alive = true;
     void (async () => {
-      const loc = marketplaceFeedLocationExtrasFromUrlOrSession("") ?? { locationAll: true };
       const r = await getPostsForHome({
         type: "trade",
         sort: config.sort,
@@ -87,6 +101,7 @@ export function HomeTradeRow({
           : rotateUnseenFirst(pool, idOf, rot.history.log.trades, config.count);
       rot.commit({ trades: picked.map(idOf) });
       setItems(picked);
+      revisitGate.markLoaded(gateKey);
     })();
     return () => {
       alive = false;

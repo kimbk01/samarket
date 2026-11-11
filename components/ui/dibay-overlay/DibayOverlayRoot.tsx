@@ -17,6 +17,7 @@ import {
   type DibayOverlayZRole,
 } from "@/lib/ui/dibay-overlay-contract";
 import { useOverlayScopeAttrs } from "./overlay-scope";
+import { useHtmlShellFlagsSync } from "@/lib/layout/use-html-shell-flags-sync";
 
 export type DibayOverlayRootProps = {
   open: boolean;
@@ -141,6 +142,8 @@ export function DibayOverlayRoot({
 
   /** 화면 스코프(배달·사장님 등)를 포털 루트에도 — `overlay-scope.tsx` */
   const scopeAttrs = useOverlayScopeAttrs();
+  /** D1 F1 — `<html>` 셸 속성(`.dibay-overlay-root` 유무) 갱신 */
+  useHtmlShellFlagsSync(open && mounted);
 
   if (!open || !mounted || typeof document === "undefined" || !document.body) return null;
 

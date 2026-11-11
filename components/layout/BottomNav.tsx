@@ -91,6 +91,7 @@ import {
   type MainBottomNavTabEmphasisKind,
 } from "@/lib/main-menu/main-bottom-nav-tab-emphasis";
 import { shouldPrefetchMainBottomNavHref } from "@/lib/main-menu/main-bottom-nav-link-prefetch-eligibility";
+import { useHtmlShellFlagsSync } from "@/lib/layout/use-html-shell-flags-sync";
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
   "touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
@@ -888,6 +889,10 @@ export function BottomNav({
   }, [pendingActiveTabId]);
 
   const effectiveOuterExtra = extraOuterClassName;
+  /** D1 F1 — `<html>` 셸 속성(하단 탭 유무·모양·원형 탭) 갱신. 모양은 클래스·경로(원형 강조)로 바뀐다 */
+  useHtmlShellFlagsSync(
+    `${presentation}|${extraOuterClassName}|${usesDeliveryHubShell ? 1 : 0}|${pathname}|${hubDomain ?? ""}|${displayTabs.map((t) => t.id).join(",")}`
+  );
 
   const outerClass = [
     BOTTOM_NAV_SHELL.outerClassName,

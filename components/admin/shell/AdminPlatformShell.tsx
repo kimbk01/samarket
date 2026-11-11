@@ -47,6 +47,7 @@ import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminMenuRole } from "@/components/admin/admin-menu";
 import { OverlayScopeProvider } from "@/components/ui/dibay-overlay/overlay-scope";
 import { deliveryScopeAttrs } from "@/lib/ui/delivery-scope";
+import { useHtmlShellFlagsSync } from "@/lib/layout/use-html-shell-flags-sync";
 
 /** 관리자 「배달」 워크스페이스(메뉴 SSOT `resolveActiveWorkspace`) 본문·포털 — 배달 상태색·글자 AA 스코프 */
 const ADMIN_DELIVERY_SCOPE = deliveryScopeAttrs("admin");
@@ -225,6 +226,9 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
   const canSearchMembers = accessActor ? canAccessAdminRoute("/admin/users", accessActor) : false;
   const canSearchOrders = accessActor ? canAccessAdminRoute("/admin/stores/orders", accessActor) : false;
   const canManageStaff = accessActor ? canAccessAdminRoute("/admin/staff", accessActor) : false;
+
+  /** D1 F1 — `<html>` 셸 속성(`[data-admin-console="v2"]` 유무) 갱신 */
+  useHtmlShellFlagsSync(!!menuRole);
 
   if (!menuRole) {
     return <div className="min-h-screen bg-sam-app" aria-busy="true" />;
