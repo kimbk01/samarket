@@ -7,6 +7,7 @@ import {
 } from "@/lib/profile/require-profile-completion.server";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { normalizeCmFriendRequestSource } from "@/lib/community-messenger/friendship/cm-mutual-friend-request";
 import {
   listCommunityMessengerFriendRequests,
   sendCommunityMessengerFriendRequest,
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  let body: { targetUserId?: string; note?: string };
+  let body: { targetUserId?: string; note?: string; source?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -81,7 +82,8 @@ export async function POST(req: NextRequest) {
   const result = await sendCommunityMessengerFriendRequest(
     auth.userId,
     String(body.targetUserId ?? ""),
-    typeof body.note === "string" ? body.note : undefined
+    typeof body.note === "string" ? body.note : undefined,
+    normalizeCmFriendRequestSource(body.source)
   );
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

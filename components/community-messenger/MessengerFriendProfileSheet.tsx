@@ -104,8 +104,9 @@ export function MessengerFriendProfileSheet({
    * §16 (Owner 2026-10-25): 상대 상태(bio)·@아이디 — 진입 경로(대화방 머리글·친구 행·검색·통화 기록)마다
    * 받은 프로필에 빠져 있을 수 있어(방 스냅샷 labels-only 등) 비어 있으면 `users/resolve` 로 1회 채운다(읽기만).
    */
-  const [resolvedPeer, setResolvedPeer] = useState<{ id: string; bio: string; atId: string } | null>(null);
-  const needsResolve = !profile.bio?.trim() || !statusLine.startsWith("@");
+  const [resolvedPeer, setResolvedPeer] = useState<{ id: string; bio: string; atId: string; friendSource: string | null } | null>(null);
+  /** 친구면 친구가 된 경로(「QR로 추가」 배지, 시안 F · 재감사 N2)도 같은 조회로 받는다 */
+  const needsResolve = !profile.bio?.trim() || !statusLine.startsWith("@") || profile.isFriend === true;
   useEffect(() => {
     const pid = profile.id?.trim();
     if (!pid || !needsResolve) return;
@@ -116,15 +117,23 @@ export function MessengerFriendProfileSheet({
       signal: controller.signal,
     })
       .then((res) => res.json().catch(() => null))
-      .then((json: { ok?: boolean; profile?: { bio?: string | null; public_id?: string | null } } | null) => {
+      .then(
+        (
+          json: {
+            ok?: boolean;
+            profile?: { bio?: string | null; public_id?: string | null; friend_source?: string | null };
+          } | null,
+        ) => {
         if (!json?.ok || !json.profile) return;
         const atId = (json.profile.public_id ?? "").trim();
         setResolvedPeer({
           id: pid,
           bio: (json.profile.bio ?? "").trim(),
           atId: atId ? (atId.startsWith("@") ? atId : `@${atId}`) : "",
+          friendSource: json.profile.friend_source ?? null,
         });
-      })
+        },
+      )
       .catch(() => {});
     return () => controller.abort();
   }, [profile.id, needsResolve]);
@@ -310,6 +319,9 @@ export function MessengerFriendProfileSheet({
           ) : null}
           <div className="mt-2 flex flex-wrap items-center justify-center gap-1">
             {profile.isFriend ? <StatusChip label={t(MessengerFriendAddCtaLabelKeys.friend)} tone="brand" /> : null}
+            {profile.isFriend && resolvedForThis?.friendSource === "qr" ? (
+              <StatusChip label={t("member_friend_badge_via_qr")} tone="brand" />
+            ) : null}
             {profile.isFavoriteFriend ? <StatusChip label={t("cm_ui_favorite")} /> : null}
             {profile.isHiddenFriend ? <StatusChip label={t("common_hide")} /> : null}
             {profile.blocked ? <StatusChip label={t(MessengerFriendAddCtaLabelKeys.blockedChip)} tone="danger" /> : null}

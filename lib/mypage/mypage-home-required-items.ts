@@ -12,9 +12,9 @@
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { ProfileRow } from "@/lib/profile/types";
 import type { RequiredInfoStatus } from "@/lib/mypage/mypage-home-snapshot";
+import { resolveMemberPublicIdUi } from "@/lib/auth/member-public-id-ui-contract";
 import { evaluatePublicIdProfileView } from "@/lib/auth/dibay-public-id-ssot";
 import { resolveMemberPhoneState, type MemberPhoneStateKind } from "@/lib/profile/member-account-status";
-import { formatAtUsername } from "@/lib/users/user-label";
 
 export type MypageRequiredRowKey = "handle" | "phone" | "address";
 
@@ -86,7 +86,9 @@ function pickTrimmed(v: unknown): string | null {
 /** 11-1 회원 아이디 */
 export function resolveHandleRow(profile: ProfileRow): MypageRequiredRow {
   const view = evaluatePublicIdProfileView(profile);
-  const raw = pickTrimmed(profile.dibay_id) ?? pickTrimmed(view.atDisplay)?.replace(/^@/, "") ?? null;
+  /** 아이디·변경권 판정은 회원 아이디 단일 계약 (재감사 D3) — 이 행은 문구 키만 자기 것(`mypage_req_*`) */
+  const idUi = resolveMemberPublicIdUi(profile);
+  const raw = idUi.id;
   const base = { key: "handle" as const, action: "open" as const };
   if (!raw) {
     return {
@@ -100,8 +102,8 @@ export function resolveHandleRow(profile: ProfileRow): MypageRequiredRow {
       ctaVariant: "primary",
     };
   }
-  const at = { text: formatAtUsername(raw) || `@${raw}` };
-  if (view.canChangeOnce || view.autoAssigned) {
+  const at = { text: idUi.atDisplay ?? `@${raw}` };
+  if (idUi.canChange) {
     return {
       ...base,
       state: "complete_auto",

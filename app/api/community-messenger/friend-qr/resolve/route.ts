@@ -4,6 +4,7 @@ import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { resolveFriendQrForViewer } from "@/lib/community-messenger/friend-qr/friend-qr.server";
+import { publicFriendQrErrorCode } from "@/lib/community-messenger/friend-qr/friend-qr-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
 
   const token = req.nextUrl.searchParams.get("token") ?? "";
   const res = await resolveFriendQrForViewer(auth.userId, token);
-  if (!res.ok) return NextResponse.json({ ok: false, error: res.error }, { status: 404 });
+  /** 이유를 밝히지 않는다 (설계 §3.6 · 재감사 L1) — 본인 QR 만 따로 */
+  if (!res.ok) return NextResponse.json({ ok: false, error: publicFriendQrErrorCode(res.error) }, { status: 404 });
   return NextResponse.json({ ok: true, preview: res.preview });
 }

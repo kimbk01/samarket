@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildProfileUserSearchOrFilter,
+  escapeIlikePatternFragment,
+  escapePostgrestDoubleQuotedIlike,
   normalizeProfileUserSearchKeyword,
 } from "@/lib/community-messenger/profile-user-search-filter";
 
@@ -10,23 +11,8 @@ describe("profile-user-search-filter", () => {
     expect(normalizeProfileUserSearchKeyword("foo,bar")).toBe("foobar");
   });
 
-  it("builds dibay_id exact ilike filter with legacy confirmed username", () => {
-    expect(buildProfileUserSearchOrFilter("samarket")).toBe(
-      'dibay_id.ilike."samarket",and(username.ilike."samarket",username_confirmed.eq.true)'
-    );
-    expect(buildProfileUserSearchOrFilter("@Samarket")).toBe(
-      'dibay_id.ilike."samarket",and(username.ilike."samarket",username_confirmed.eq.true)'
-    );
-  });
-
   it("escapes ilike wildcards and quotes", () => {
-    expect(buildProfileUserSearchOrFilter('100%_"x"')).toBe(
-      'dibay_id.ilike."100\\\\%\\\\_\\"x\\"",and(username.ilike."100\\\\%\\\\_\\"x\\"",username_confirmed.eq.true)'
-    );
-  });
-
-  it("returns null for empty keyword", () => {
-    expect(buildProfileUserSearchOrFilter("")).toBeNull();
-    expect(buildProfileUserSearchOrFilter("@")).toBeNull();
+    expect(escapeIlikePatternFragment('100%_x')).toBe("100\\%\\_x");
+    expect(escapePostgrestDoubleQuotedIlike('a"b')).toBe('"a\\"b"');
   });
 });

@@ -173,7 +173,9 @@ export async function postCancelOutgoingCommunityMessengerFriendRequestApi(addre
  */
 export function postCommunityMessengerFriendRequestApi(
   targetUserId: string,
-  note?: string
+  note?: string,
+  /** 친구가 된 경로 (회원 아이디 v3 N1) — 아이디 검색·연락처·채팅방(프로필) */
+  source?: "id_search" | "contacts" | "profile"
 ): Promise<CommunityMessengerFriendRequestApiResult> {
   const target = trimId(targetUserId);
   if (!target) return Promise.resolve({ ok: false, error: "bad_target" });
@@ -186,7 +188,7 @@ export function postCommunityMessengerFriendRequestApi(
       const res = await fetch("/api/community-messenger/friend-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetUserId: target, note }),
+        body: JSON.stringify({ targetUserId: target, note, source }),
       });
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;

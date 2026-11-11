@@ -67,7 +67,8 @@ export async function resolveFriendQrOwner(
     owner: {
       userId,
       dibayId,
-      displayName: text(r.nickname) || text(r.display_name) || dibayId || "",
+      /** 이름만 — 아이디로 대신 채우지 않는다 (시안 I · 재감사 L2). 없으면 화면이 「DIBAY 회원」 */
+      displayName: text(r.nickname) || text(r.display_name),
       avatarUrl: text(r.avatar_url) || null,
     },
   };

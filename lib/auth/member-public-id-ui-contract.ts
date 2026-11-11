@@ -22,7 +22,8 @@ import { formatAtUsername } from "@/lib/users/user-label";
 export type MemberPublicIdHintKey =
   | "member_id_hint_auto"
   | "member_id_hint_legacy"
-  | "member_id_hint_custom";
+  | "member_id_hint_custom"
+  | "member_id_hint_search_off";
 
 export type MemberPublicIdUi = {
   state: PublicIdState;
@@ -43,18 +44,23 @@ export type MemberPublicIdUi = {
   changeConfirmNoteVars: Record<string, string>;
 };
 
-export function resolveMemberPublicIdUi(row: ProfilePublicIdFields | null | undefined): MemberPublicIdUi {
+const HINT_BY_STATE: Record<Exclude<PublicIdState, "none">, MemberPublicIdHintKey> = {
+  auto: "member_id_hint_auto",
+  auto_legacy: "member_id_hint_legacy",
+  custom: "member_id_hint_custom",
+};
+
+export function resolveMemberPublicIdUi(
+  row: ProfilePublicIdFields | null | undefined,
+  /** 「아이디로 나를 찾기」 — false 면 찾는 방법 대신 「검색이 꺼져 있어요」 (재감사 E4). 모르면 생략 */
+  opts?: { allowIdSearch?: boolean | null },
+): MemberPublicIdUi {
   const state = resolvePublicIdState(row);
   const id = normalizeDibayIdInput(row?.dibay_id ?? "") || null;
   const canChange = resolvePublicIdCanChange(row);
+  const searchOff = opts?.allowIdSearch === false;
   const hintKey: MemberPublicIdHintKey | null =
-    state === "auto"
-      ? "member_id_hint_auto"
-      : state === "auto_legacy"
-        ? "member_id_hint_legacy"
-        : state === "custom"
-          ? "member_id_hint_custom"
-          : null;
+    state === "none" ? null : searchOff ? "member_id_hint_search_off" : HINT_BY_STATE[state];
   return {
     state,
     atDisplay: id ? formatAtUsername(id) : null,
@@ -62,13 +68,9 @@ export function resolveMemberPublicIdUi(row: ProfilePublicIdFields | null | unde
     canChange,
     badgeKey: canChange ? "member_id_badge_can_change" : null,
     hintKey,
-    hintVars: { digits: state === "auto" && id ? id.slice(0, 5) : "" },
+    hintVars: { digits: !searchOff && state === "auto" && id ? id.slice(0, 5) : "" },
     changeCtaKey: canChange ? "member_id_cta_change" : null,
     changeConfirmNoteKey: "member_id_change_confirm_note",
     changeConfirmNoteVars: { current: id ?? "" },
   };
 }
-
-/** 친구 찾기 입력 규칙 — DB `cm_search_members` 와 같은 숫자 (설계안 v3 §3.3) */
-export const MEMBER_ID_SEARCH_MIN_ID_CHARS = 4;
-export const MEMBER_ID_SEARCH_AUTO_DIGITS = 5;

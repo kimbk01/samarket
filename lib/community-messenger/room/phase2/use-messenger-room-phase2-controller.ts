@@ -2127,7 +2127,7 @@ export function useMessengerRoomPhase2Controller() {
       if (!target) return;
       setBusy(`friend-add:${target}`);
       try {
-        const result = await postCommunityMessengerFriendRequestApi(target);
+        const result = await postCommunityMessengerFriendRequestApi(target, undefined, "profile");
         if (result.ok) {
           showMessengerSnackbar(t("cm_ui_sent_friend_request"), { variant: "success" });
           void loadFriends();

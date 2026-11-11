@@ -445,7 +445,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     }
     setFriendActionBusy(true);
     try {
-      const result = await postCommunityMessengerFriendRequestApi(peerUserId);
+      const result = await postCommunityMessengerFriendRequestApi(peerUserId, undefined, "profile");
       if (!result.ok) {
         if (result.error === "already_requested") setPeerPending({ kind: "outgoing" });
         showMessengerSnackbar(

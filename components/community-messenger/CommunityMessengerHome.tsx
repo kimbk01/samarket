@@ -1661,7 +1661,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     async (targetUserId: string): Promise<boolean> => {
       setBusyId(`friend-add:${targetUserId}`);
       try {
-        const result = await postCommunityMessengerFriendRequestApi(targetUserId);
+        const result = await postCommunityMessengerFriendRequestApi(targetUserId, undefined, "id_search");
         if (result.ok) {
           const sent = result.request;
           if (sent?.id) {

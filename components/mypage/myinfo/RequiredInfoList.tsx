@@ -7,8 +7,9 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { renderMypageHomeMenuIcon } from "@/components/mypage/myinfo/myinfo-menu-icon";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 import type { ProfileCompletionState } from "@/lib/profile/profile-completion-state";
-import { evaluatePublicIdProfileView, resolvePublicIdAtDisplay } from "@/lib/auth/dibay-public-id-ssot";
+import { evaluatePublicIdProfileView } from "@/lib/auth/dibay-public-id-ssot";
 import { resolveMemberPublicIdUi } from "@/lib/auth/member-public-id-ui-contract";
+import { useMemberDiscoverySettings } from "@/lib/auth/use-member-discovery-settings";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { formatProfilePhoneForDisplay } from "@/lib/profile/admin-phone-verification-sync";
 import type { ProfileRow } from "@/lib/profile/types";
@@ -160,7 +161,8 @@ export function RequiredInfoList({
   const bundleComplete = completeCount === 3;
 
   /** 배지·값·CTA — 회원 아이디 단일 계약 (설계안 v3 §3.8) */
-  const idUi = resolveMemberPublicIdUi(profile);
+  const discovery = useMemberDiscoverySettings();
+  const idUi = resolveMemberPublicIdUi(profile, { allowIdSearch: discovery?.allowIdSearch });
   const dibayIdBadge = !hasDibayId
     ? safeT("mypage_required_status_needed")
     : idUi.badgeKey
@@ -168,7 +170,7 @@ export function RequiredInfoList({
       : safeT("mypage_required_status_done");
 
   const dibayIdValue = hasDibayId
-    ? idUi.atDisplay ?? publicIdView.atDisplay ?? resolvePublicIdAtDisplay(profile) ?? ""
+    ? idUi.atDisplay ?? ""
     : safeT("mypage_required_dibay_id_recover_hint");
 
   const addressValueText =
