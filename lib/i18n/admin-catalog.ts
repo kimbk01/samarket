@@ -38,6 +38,7 @@ import { adminF3MypageToolsMessages } from "./catalog/admin-f3-mypage-tools";
 import { adminMenuJAmd5Messages } from "./catalog/admin-menu-j-amd-5";
 import { adminTechInfoMessages } from "./catalog/admin-tech-info";
 import { homeHubAdminMessages } from "./catalog/home-hub-admin";
+import { adminMemberIdV3Messages } from "./catalog/admin-member-id-v3";
 import { adminStorePartnerAgreementsMessages } from "./catalog/admin-store-partner-agreements";
 import { adminDeliveryLaunchMessages } from "./catalog/admin-delivery-launch";
 import { adminMessengerContactsMessages } from "./catalog/admin-messenger-contacts";
@@ -95,6 +96,7 @@ const ADMIN_KO = {
   ...adminMenuJAmd5Messages.ko,
   ...adminTechInfoMessages.ko,
   ...homeHubAdminMessages.ko,
+  ...adminMemberIdV3Messages.ko,
   ...adminStorePartnerAgreementsMessages.ko,
   ...adminDeliveryLaunchMessages.ko,
   ...adminMessengerContactsMessages.ko,
@@ -152,6 +154,7 @@ const ADMIN_EN = {
   ...adminMenuJAmd5Messages.en,
   ...adminTechInfoMessages.en,
   ...homeHubAdminMessages.en,
+  ...adminMemberIdV3Messages.en,
   ...adminStorePartnerAgreementsMessages.en,
   ...adminDeliveryLaunchMessages.en,
   ...adminMessengerContactsMessages.en,

@@ -1,38 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-/** 정책 B — 자동 발급 기본 아이디(dibay_[hex6])도 정확 일치 검색으로 친구 추가 가능 */
+/**
+ * 설계안 v3 §3.3 — 친구 찾기 판정은 DB `cm_search_members` 한 곳.
+ * 이 시험은 앱이 그 결과를 그대로 쓰는지(인자·아이디 표시·정확 일치 선택)를 본다. 판정 규칙 자체는
+ * `lib/auth/__tests__/member-id-v3-db-contract.test.ts`(마이그레이션 계약)이 본다.
+ */
 
-type Row = Record<string, unknown>;
-let rows: Row[] = [];
-const ilikeCalls: Array<{ column: string; pattern: string }> = [];
+type RpcRow = {
+  user_id: string;
+  dibay_id: string | null;
+  nickname: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  match_kind: string;
+  match_rank: number;
+};
 
-function makeQuery() {
-  let filtered = rows.slice();
-  const q: Record<string, unknown> = {};
-  q.select = () => q;
-  q.or = () => q;
-  q.neq = (col: string, v: unknown) => {
-    filtered = filtered.filter((r) => r[col] !== v);
-    return q;
-  };
-  q.eq = (col: string, v: unknown) => {
-    filtered = filtered.filter((r) => r[col] === v);
-    return q;
-  };
-  q.ilike = (col: string, pattern: string) => {
-    ilikeCalls.push({ column: col, pattern });
-    const literal = pattern.replace(/\\_/g, "_").replace(/\\%/g, "%").toLowerCase();
-    filtered = filtered.filter((r) => String(r[col] ?? "").toLowerCase() === literal);
-    return q;
-  };
-  q.limit = () => q;
-  q.maybeSingle = async () => ({ data: filtered[0] ?? null, error: null });
-  q.then = (resolve: (v: unknown) => void) => resolve({ data: filtered, error: null });
-  return q;
-}
+let rpcRows: RpcRow[] = [];
+let rpcError: { message: string } | null = null;
+const rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];
 
 vi.mock("@/lib/chat/supabase-server", () => ({
-  getSupabaseServer: () => ({ from: () => makeQuery() }),
+  getSupabaseServer: () => ({
+    rpc: async (fn: string, args: Record<string, unknown>) => {
+      rpcCalls.push({ fn, args });
+      return { data: rpcError ? null : rpcRows, error: rpcError };
+    },
+  }),
 }));
 
 vi.mock("@/lib/community-messenger/social-relations", async (orig) => {
@@ -49,65 +43,78 @@ vi.mock("@/lib/community-messenger/social-relations", async (orig) => {
   };
 });
 
-const autoMember = {
-  id: "u-auto",
+const autoMember: RpcRow = {
+  user_id: "u-auto",
+  dibay_id: "48213sun",
   nickname: "홍길동",
   display_name: "홍길동",
-  username: "dibay_a1b2c3",
-  dibay_id: "dibay_a1b2c3",
-  dibay_id_auto_assigned: true,
-  username_confirmed: true,
   avatar_url: null,
+  match_kind: "prefix",
+  match_rank: 1,
 };
-const customMember = {
-  id: "u-custom",
+const customMember: RpcRow = {
+  user_id: "u-custom",
+  dibay_id: "jjchoi",
   nickname: "커스텀",
   display_name: "다른이름",
-  username: "jjchoi",
-  dibay_id: "jjchoi",
-  dibay_id_auto_assigned: false,
-  username_confirmed: true,
   avatar_url: null,
+  match_kind: "prefix",
+  match_rank: 1,
 };
 
-describe("CM user search — auto-assigned public id", () => {
+describe("CM user search — DB cm_search_members", () => {
   beforeEach(() => {
-    rows = [autoMember, customMember];
-    ilikeCalls.length = 0;
+    rpcRows = [];
+    rpcError = null;
+    rpcCalls.length = 0;
   });
 
-  it("finds an auto-assigned member by exact id (with @ and uppercase)", async () => {
+  it("passes viewer, normalized query and limit to cm_search_members", async () => {
+    rpcRows = [autoMember];
     const { searchCommunityMessengerUsersRanked } = await import("@/lib/community-messenger/user-public-id-search");
-    const res = await searchCommunityMessengerUsersRanked("viewer", "@DIBAY_A1B2C3");
+    const res = await searchCommunityMessengerUsersRanked("viewer-1", "@48213");
+    expect(rpcCalls[0]).toEqual({
+      fn: "cm_search_members",
+      args: { p_viewer: "viewer-1", p_query: "48213", p_limit: 20 },
+    });
     expect(res.map((r) => r.id)).toEqual(["u-auto"]);
-    expect(res[0]!.publicId).toBe("dibay_a1b2c3");
-    expect(res[0]!.matchType).toBe("exact");
+    expect(res[0]!.publicId).toBe("48213sun");
+    expect(res[0]!.matchType).toBe("prefix");
+    expect(res[0]!.highlightRanges).toEqual([{ start: 0, end: 5 }]);
   });
 
-  it("does not expose auto-assigned members on partial or nickname match", async () => {
+  it("shows the one member id for every match kind; label uses nickname SSOT", async () => {
+    rpcRows = [{ ...customMember, match_kind: "name", match_rank: 3 }];
     const { searchCommunityMessengerUsersRanked } = await import("@/lib/community-messenger/user-public-id-search");
-    expect((await searchCommunityMessengerUsersRanked("viewer", "dibay_a1")).map((r) => r.id)).toEqual([]);
-    expect((await searchCommunityMessengerUsersRanked("viewer", "홍길")).map((r) => r.id)).toEqual([]);
-  });
-
-  it("custom id members stay partially searchable; label uses nickname SSOT", async () => {
-    const { searchCommunityMessengerUsersRanked } = await import("@/lib/community-messenger/user-public-id-search");
-    const res = await searchCommunityMessengerUsersRanked("viewer", "jjch");
-    expect(res.map((r) => r.id)).toEqual(["u-custom"]);
+    const res = await searchCommunityMessengerUsersRanked("viewer-1", "커스");
+    expect(res[0]!.publicId).toBe("jjchoi");
     expect(res[0]!.displayName).toBe("커스텀");
+    expect(res[0]!.matchType).toBe("name");
   });
 
-  it("resolveUserByPublicId resolves an auto id and escapes ilike wildcards", async () => {
-    const { resolveUserByPublicId } = await import("@/lib/community-messenger/social-relations");
-    const hit = await resolveUserByPublicId("dibay_a1b2c3");
-    expect(hit?.id).toBe("u-auto");
-    expect(hit?.publicId).toBe("dibay_a1b2c3");
-    expect(ilikeCalls[0]).toEqual({ column: "dibay_id", pattern: "dibay\\_a1b2c3" });
+  it("does not call the DB under 2 characters and returns [] on DB error", async () => {
+    const { searchCommunityMessengerUsersRanked } = await import("@/lib/community-messenger/user-public-id-search");
+    expect(await searchCommunityMessengerUsersRanked("viewer-1", "a")).toEqual([]);
+    expect(rpcCalls).toHaveLength(0);
+    rpcError = { message: "boom" };
+    expect(await searchCommunityMessengerUsersRanked("viewer-1", "jjch")).toEqual([]);
   });
 
-  it("resolveUserByPublicId does not match a different id through `_` wildcard", async () => {
-    rows = [{ ...customMember, id: "u-x", dibay_id: "kimxa1", username: "kimxa1" }];
+  it("resolveUserByPublicId picks only the exact match", async () => {
+    rpcRows = [
+      { ...customMember, match_kind: "prefix" },
+      { ...autoMember, match_kind: "exact", match_rank: 0 },
+    ];
     const { resolveUserByPublicId } = await import("@/lib/community-messenger/social-relations");
-    expect(await resolveUserByPublicId("kim_a1")).toBeNull();
+    const hit = await resolveUserByPublicId("@48213SUN", "viewer-1");
+    expect(hit).toEqual({ id: "u-auto", displayName: "홍길동", avatarUrl: null, publicId: "48213sun" });
+    expect(rpcCalls[0]!.args).toEqual({ p_viewer: "viewer-1", p_query: "48213sun", p_limit: 5 });
+  });
+
+  it("resolveUserByPublicId returns null without an exact match and uses a no-viewer id when none given", async () => {
+    rpcRows = [{ ...customMember, match_kind: "contains" }];
+    const { resolveUserByPublicId } = await import("@/lib/community-messenger/social-relations");
+    expect(await resolveUserByPublicId("jjcho")).toBeNull();
+    expect(rpcCalls[0]!.args.p_viewer).toBe("00000000-0000-0000-0000-000000000000");
   });
 });

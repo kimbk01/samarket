@@ -10006,7 +10006,7 @@ export async function resolveCommunityMessengerUserForSocial(
   const viewer = trimText(viewerUserId);
   let targetId = trimText(input.targetUserId);
   if (!targetId && input.publicId) {
-    const resolved = await resolveUserByPublicId(input.publicId);
+    const resolved = await resolveUserByPublicId(input.publicId, viewerUserId);
     if (!resolved) return { ok: false, error: "user_not_found" };
     targetId = resolved.id;
   }

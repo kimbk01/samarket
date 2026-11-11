@@ -4,10 +4,7 @@
  */
 
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import {
-  escapeIlikePatternFragment,
-  normalizeProfileUserSearchKeyword,
-} from "@/lib/community-messenger/profile-user-search-filter";
+import { normalizeProfileUserSearchKeyword } from "@/lib/community-messenger/profile-user-search-filter";
 import { recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store-record";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
@@ -22,11 +19,6 @@ import {
   type DirectCallPolicy,
   logCallPermission,
 } from "@/lib/community-messenger/direct-call-permission";
-import {
-  matchesPublicIdExactly,
-  resolveExactLookupPublicId,
-  type ProfilePublicIdFields,
-} from "@/lib/auth/dibay-public-id-ssot";
 import { getFriendshipPairState, isAcceptedFriendPair } from "@/lib/community-messenger/friendship-resolver";
 import { invalidateBootstrapLiteSocialDeferredForPair } from "@/lib/community-messenger/bootstrap-lite-social-deferred-cache";
 
@@ -510,50 +502,34 @@ export async function resolveDirectInteractionGuard(
   };
 }
 
+/**
+ * 아이디로 회원 1명 찾기 (친구 요청·프로필 열기) — 설계안 v3 §3.3 의 「아이디 전체 일치」.
+ * 판정은 DB `cm_search_members` 의 exact 와 같다: 탈퇴·서로 차단·「아이디로 나를 찾기」 끔 제외,
+ * 바뀐 회원의 기본 아이디(dibay_id_initial)로는 찾지 않는다.
+ */
 export async function resolveUserByPublicId(
-  publicIdRaw: string
+  publicIdRaw: string,
+  viewerUserId?: string | null
 ): Promise<SocialRelationPublicProfile | null> {
   const keyword = normalizeProfileUserSearchKeyword(publicIdRaw);
   if (!keyword) return null;
   const sb = getSupabaseOrNull();
   if (!sb) return null;
 
-  /** `_`·`%` 는 ilike 와일드카드 — 이스케이프해야 다른 회원 id 와 오매칭되지 않는다 */
-  const exactPattern = escapeIlikePatternFragment(keyword);
-  const { data: byDibay } = await (sb as any)
-    .from("profiles")
-    .select("id, display_name, nickname, username, dibay_id, dibay_id_locked, username_confirmed, avatar_url")
-    .ilike("dibay_id", exactPattern)
-    .limit(1)
-    .maybeSingle();
+  const viewer = trimText(viewerUserId) || PUBLIC_ID_LOOKUP_NO_VIEWER;
+  const { data, error } = await (sb as any).rpc("cm_search_members", {
+    p_viewer: viewer,
+    p_query: keyword,
+    p_limit: 5,
+  });
+  if (error) return null;
+  const row = ((data ?? []) as Array<Record<string, unknown>>).find((r) => r.match_kind === "exact");
+  if (!row) return null;
 
-  let row = byDibay as Record<string, unknown> | null;
-  if (!row?.id) {
-    const { data: byUsername } = await (sb as any)
-      .from("profiles")
-      .select("id, display_name, nickname, username, dibay_id, dibay_id_locked, username_confirmed, avatar_url")
-      .ilike("username", exactPattern)
-      .eq("username_confirmed", true)
-      .limit(1)
-      .maybeSingle();
-    row = byUsername as Record<string, unknown> | null;
-  }
-  if (!row?.id) return null;
-
-  const id = trimText(row.id);
-  const display =
-    trimText(row.nickname) || trimText(row.display_name) || trimText(row.username) || id;
-  const publicIdFields: ProfilePublicIdFields = {
-    dibay_id: trimText(row.dibay_id) || null,
-    dibay_id_locked: row.dibay_id_locked === true ? true : row.dibay_id_locked === false ? false : null,
-    username: trimText(row.username) || null,
-    username_confirmed:
-      row.username_confirmed === true ? true : row.username_confirmed === false ? false : null,
-  };
-  /** 정확 일치 조회 — auto-assigned 기본 아이디 포함 (정책 B) */
-  if (!matchesPublicIdExactly(publicIdFields, keyword)) return null;
-  const publicId = resolveExactLookupPublicId(publicIdFields);
-  if (!publicId) return null;
+  const id = trimText(row.user_id);
+  const publicId = trimText(row.dibay_id).toLowerCase();
+  if (!id || !publicId) return null;
+  const display = trimText(row.nickname) || trimText(row.display_name) || publicId || id;
   return {
     id,
     displayName: display,
@@ -561,6 +537,9 @@ export async function resolveUserByPublicId(
     publicId,
   };
 }
+
+/** 보는 사람이 없을 때 — 어떤 회원과도 같지 않은 값(차단 판정에 걸리지 않음) */
+const PUBLIC_ID_LOOKUP_NO_VIEWER = "00000000-0000-0000-0000-000000000000";
 
 async function syncLegacyBlockRow(
   sb: NonNullable<ReturnType<typeof getSupabaseOrNull>>,

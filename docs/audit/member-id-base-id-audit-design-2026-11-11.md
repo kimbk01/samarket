@@ -228,3 +228,18 @@ DB (마이그레이션 1개 — 운영 적용 Owner 승인):
 | # | 내용 | 근거 |
 |---|---|---|
 | F1 | `assign_auto_dibay_id` 가 발급 때 `username` 을 새 아이디로 덮어씀 — 관리자 생성 회원의 로그인 별칭이면 로그인 아이디가 바뀔 수 있음 (기존 동작, v3 에서 그대로 둠) | 2026-11-08 데이터 정리 H 는 username 을 비어 있을 때만 채웠음 |
+
+### 2단계 웹 (2026-11-11) — 아이디·친구 찾기·변경·어드민, UI·CTA 단일 계약
+
+- **UI·CTA 단일 계약** `lib/auth/member-public-id-ui-contract.ts` (`resolveMemberPublicIdUi`): 회원 아이디 1개·「1회 변경 가능」 배지·친구가 찾는 방법 안내·[아이디 변경] CTA·변경 확인 문구를 한 곳에서. 사용처: 프로필 편집·아이디 변경 시트·필수 정보(`ProfileDibayIdSection`), 내정보 필수 카드(`RequiredInfoList`), 내 프로필(`MypageSelfProfileView`).
+- **상태·변경권**: `dibay-public-id-ssot` 가 DB `dibay_id_state`·`dibay_id_can_change` 를 쓴다 (조회하지 않은 행만 같은 식으로 계산). D13 해소 — 관리자가 바꾼 회원도 앱에 [아이디 변경].
+- 자동 아이디 모양 `^[0-9]{5}[a-z]{3}$` 추가 (`dibay-id-policy`) — 회원 입력 거부·프로필 완성 판정(D4)·OAuth 별명 판정에 반영.
+- 회원 응답에서 기본 아이디(`dibay_id_initial`) 제거, 상태·변경권 추가 (`profile-row-to-client-profile`·`fetch-profile-row-safe`).
+- **친구 찾기**: `user-public-id-search` → DB `cm_search_members` 한 번 호출 (D5·D6). `resolveUserByPublicId` 도 같은 함수의 exact 만 (D5 — 탈퇴·차단·검색 끔 제외, 바뀐 기본 아이디 안 찾음). 친구 추가 시트에 규칙 안내 「아이디 4자 이상 또는 숫자 5자리」.
+- **요청 제한**: 친구 검색 하루 500회 추가. 아이디 API — 확정·자동 발급 1분 10회, **중복 확인 1분 30회** (설계 §3.3 의 10회에서 바꿈: 입력이 멈출 때마다 400ms 뒤 자동 확인이 불려 10회면 정상 입력에도 막힘) (D9).
+- **공개 프로필** `/u/[아이디]`: `dibay_id` 로 먼저 찾고, 예전 `username` 링크는 그다음 (D8). 바뀐 회원의 기본 아이디로는 열리지 않음.
+- **친구 찾기 설정** (시안 H): `GET/PATCH /api/me/discovery-settings`, 채팅 설정 화면 아래 `MemberDiscoverySettingsSection` (토글 저장은 `MyToggle` 계약).
+- **어드민** (시안 J): `AdminMemberIdPanel` — 회원 아이디·기본 아이디·상태·본인 변경권·변경 이력(관리자 변경·변경권 다시 주기 = audit_logs, 회원 본인 변경 = 마지막 `dibay_id_changed_at` 1건)·[변경권 다시 주기](사유 필수). API `GET/POST /api/admin/users/[id]/member-id`. 어드민 회원 검색에 기본 아이디 포함.
+  - 시안 J 의 「시스템 발급」 줄은 넣지 않음 — 직접 정한 아이디 61명의 기본 아이디는 발급이 아니라 2026-11-11 채움이라 발급 시각이 없음.
+- 내정보 홈 필수 행(`mypage-home-required-items`)은 기존 문구 키를 쓰되 판정은 같은 SSOT — 「미잠금·자동 아님」 회원이 「확정 필요」 대신 「1회 변경 가능」(DB 와 같음).
+- 검증 (로컬): `typecheck:build`·`typecheck:test` 0 오류 · `test:ci` 전체 통과 (1546+1545 파일) · 변경 파일 eslint 오류 0 · `check:i18n-quality` 통과. 실기기·운영 화면 NOT_PROVEN.

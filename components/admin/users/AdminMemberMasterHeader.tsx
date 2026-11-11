@@ -32,6 +32,7 @@ import { EditAdminForm } from "./EditAdminForm";
 import { MEMBER_ADMIN_COPY_KEY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { AdminMemberPasswordDialog } from "./AdminMemberPasswordDialog";
 import { AdminMemberDibayIdDialog } from "./AdminMemberDibayIdDialog";
+import { AdminMemberIdPanel } from "@/components/admin/users/AdminMemberIdPanel";
 import { AdminMemberStoreRelationDialog } from "./AdminMemberStoreRelationDialog";
 import { AdminMemberPrivilegeDialog } from "./AdminMemberPrivilegeDialog";
 import {
@@ -437,6 +438,8 @@ export function AdminMemberMasterHeader({
         onClose={() => setShowPassword(false)}
         onSuccess={() => onUpdated?.()}
       />
+      {/* 설계안 v3 시안 J — 기본 아이디·상태·변경권·변경 이력 (회원 아이디가 바뀌면 다시 불러온다) */}
+      <AdminMemberIdPanel key={user.dibay_id ?? ""} userId={user.id} canEdit={canEdit} />
       <AdminMemberDibayIdDialog
         open={showDibayId}
         userId={user.id}

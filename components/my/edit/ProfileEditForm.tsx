@@ -406,6 +406,11 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
             ...profile,
             dibay_id: normalized,
             dibay_id_locked: true,
+            /** confirm_dibay_id 결과와 같은 값 — 서버 프로필을 다시 받기 전 화면이 「변경 가능」으로 남지 않게 */
+            dibay_id_auto_assigned: false,
+            dibay_id_changed_once: true,
+            dibay_id_state: "custom",
+            dibay_id_can_change: false,
             username: normalized,
             onboarding_status: "completed",
             onboarding_completed_at: profile.onboarding_completed_at ?? new Date().toISOString(),
@@ -628,6 +633,8 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
                 dibayIdLocked={dibayIdLocked}
                 dibayIdAutoAssigned={profile.dibay_id_auto_assigned === true}
                 dibayIdChangedOnce={profile.dibay_id_changed_once === true}
+                dibayIdState={profile.dibay_id_state ?? null}
+                dibayIdCanChange={profile.dibay_id_can_change ?? null}
                 username={profile.username ?? profile.dibay_id ?? null}
                 usernameConfirmed={profile.username_confirmed ?? null}
                 usernameComplete={usernameComplete}

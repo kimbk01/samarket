@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { enforceMemberIdApiRateLimit } from "@/lib/auth/member-id-api-rate-limit";
 import { confirmDibayIdForUser } from "@/lib/auth/dibay-id-api-handlers";
 import { clearMeProfileGetRouteCache } from "@/lib/profile/me-profile-get-route-cache";
 import { clearMeProfileResponseCachesForUser } from "@/lib/profile/me-profile-get-response-cache";
@@ -12,6 +13,9 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const rateLimit = await enforceMemberIdApiRateLimit(req, auth.userId, "confirm");
+  if (!rateLimit.ok) return rateLimit.response;
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {

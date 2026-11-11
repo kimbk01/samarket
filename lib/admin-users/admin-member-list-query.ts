@@ -70,6 +70,8 @@ export function buildProfileTextSearchOr(
     `nickname.ilike.${pattern}`,
     `display_name.ilike.${pattern}`,
     `dibay_id.ilike.${pattern}`,
+    /** 설계안 v3 §3.3 — 어드민은 기본 아이디(바뀐 회원 포함)로도 회원을 찾는다 */
+    `dibay_id_initial.ilike.${pattern}`,
     `username.ilike.${pattern}`,
     `email.ilike.${pattern}`,
     `phone.ilike.${pattern}`,

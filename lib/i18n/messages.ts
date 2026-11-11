@@ -63,6 +63,7 @@ import { adsImpl1104IntroMessages } from "./catalog/ads-impl-1104-i";
 import { adsImpl1107MoneyMessages } from "./catalog/ads-impl-1107-w1";
 import { adsImpl1107PopupMessages } from "./catalog/ads-impl-1107-w2";
 import { adsImpl1107DeliveryMessages } from "./catalog/ads-impl-1107-w3";
+import { memberIdV3Messages } from "./catalog/member-id-v3";
 import { adsImpl1107LedgerMessages } from "./catalog/ads-impl-1107-r1";
 import { adsImpl1107DeleteMessages } from "./catalog/ads-impl-1107-r2";
 import { chatsMessages } from "./catalog/chats";
@@ -222,6 +223,7 @@ const KO_MESSAGES = {
   ...adsImpl1107MoneyMessages.ko,
   ...adsImpl1107PopupMessages.ko,
   ...adsImpl1107DeliveryMessages.ko,
+  ...memberIdV3Messages.ko,
   ...adsImpl1107LedgerMessages.ko,
   ...adsImpl1107DeleteMessages.ko,
 } as LocaleMessageBag;
@@ -330,6 +332,7 @@ const EN_MESSAGES = {
   ...adsImpl1107MoneyMessages.en,
   ...adsImpl1107PopupMessages.en,
   ...adsImpl1107DeliveryMessages.en,
+  ...memberIdV3Messages.en,
   ...adsImpl1107LedgerMessages.en,
   ...adsImpl1107DeleteMessages.en,
 } as LocaleMessageBag;

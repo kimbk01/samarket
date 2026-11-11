@@ -8,6 +8,7 @@ import { renderMypageHomeMenuIcon } from "@/components/mypage/myinfo/myinfo-menu
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 import type { ProfileCompletionState } from "@/lib/profile/profile-completion-state";
 import { evaluatePublicIdProfileView, resolvePublicIdAtDisplay } from "@/lib/auth/dibay-public-id-ssot";
+import { resolveMemberPublicIdUi } from "@/lib/auth/member-public-id-ui-contract";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { formatProfilePhoneForDisplay } from "@/lib/profile/admin-phone-verification-sync";
 import type { ProfileRow } from "@/lib/profile/types";
@@ -131,7 +132,7 @@ export function RequiredInfoList({
   completion: ProfileCompletionState;
   onProfileRefresh?: () => void;
 }) {
-  const { safeT } = useI18n();
+  const { safeT, t } = useI18n();
   const router = useRouter();
   const { openSheet } = useMypageProfileSheets();
   const [hasDefaultAddress, setHasDefaultAddress] = useState(completion.hasDefaultAddress);
@@ -158,16 +159,16 @@ export function RequiredInfoList({
   const completeCount = [hasDibayId, phoneVerified, hasDefaultAddress].filter(Boolean).length;
   const bundleComplete = completeCount === 3;
 
+  /** 배지·값·CTA — 회원 아이디 단일 계약 (설계안 v3 §3.8) */
+  const idUi = resolveMemberPublicIdUi(profile);
   const dibayIdBadge = !hasDibayId
     ? safeT("mypage_required_status_needed")
-    : publicIdView.autoAssigned && publicIdView.canChangeOnce
-      ? safeT("mypage_required_dibay_id_auto_assigned_badge")
-      : publicIdView.changeComplete
-        ? safeT("mypage_required_dibay_id_change_complete_badge")
-        : safeT("mypage_required_status_done");
+    : idUi.badgeKey
+      ? t(idUi.badgeKey)
+      : safeT("mypage_required_status_done");
 
   const dibayIdValue = hasDibayId
-    ? publicIdView.atDisplay ?? resolvePublicIdAtDisplay(profile) ?? ""
+    ? idUi.atDisplay ?? publicIdView.atDisplay ?? resolvePublicIdAtDisplay(profile) ?? ""
     : safeT("mypage_required_dibay_id_recover_hint");
 
   const addressValueText =
@@ -189,12 +190,8 @@ export function RequiredInfoList({
         ? undefined
         : safeT("mypage_required_dibay_id_recover_btn"),
       onCtaClick: hasDibayId ? undefined : () => openSheet("dibay-id"),
-      changeLabel:
-        hasDibayId && publicIdView.canChangeOnce
-          ? safeT("mypage_required_dibay_id_change_once_action")
-          : undefined,
-      onChangeClick:
-        hasDibayId && publicIdView.canChangeOnce ? () => openSheet("dibay-id") : undefined,
+      changeLabel: hasDibayId && idUi.changeCtaKey ? t(idUi.changeCtaKey) : undefined,
+      onChangeClick: hasDibayId && idUi.changeCtaKey ? () => openSheet("dibay-id") : undefined,
     },
     {
       id: "phone",

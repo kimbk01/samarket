@@ -209,7 +209,16 @@ export function MessengerFriendAddSheet({
                   <p className="mt-2 text-[length:var(--overlay-caption-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
                     {t("cm_ui_enter_keyword_then_search")}
                   </p>
-                ) : null}
+                ) : (
+                  /** 친구 찾기 규칙 안내 — DB cm_search_members 와 같은 규칙 (설계안 v3 §3.3) */
+                  <p
+                    className="mt-2 text-[length:var(--overlay-caption-size)]"
+                    style={{ color: "var(--overlay-text-secondary)" }}
+                    data-testid="friend-add-id-rule-hint"
+                  >
+                    {t("cm_friend_find_by_id_rule_hint")}
+                  </p>
+                )}
               </div>
               <div className="divide-y divide-[color:var(--overlay-border)] overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]">
                 {searchBusy ? (

@@ -34,11 +34,15 @@ describe("dibay-public-id-ssot contract", () => {
     expect(helpers).not.toContain("dibay_id_locked === true ? true : null");
   });
 
-  it("messenger search delegates public id to SSOT", () => {
+  it("messenger search delegates matching to DB cm_search_members (설계안 v3 §3.3)", () => {
     const src = read("lib/community-messenger/user-public-id-search.ts");
-    expect(src).toContain("resolveSearchablePublicId");
-    expect(src).toContain("isPublicIdSearchEligible");
+    expect(src).toContain('rpc("cm_search_members"');
+    expect(src).not.toMatch(/\.or\(/);
     expect(src).not.toMatch(/function resolvePublicId\(/);
+    const rel = read("lib/community-messenger/social-relations.ts");
+    const fn = rel.slice(rel.indexOf("export async function resolveUserByPublicId"));
+    expect(fn.slice(0, 1200)).toContain('rpc("cm_search_members"');
+    expect(fn.slice(0, 1200)).toContain('match_kind === "exact"');
   });
 
   it("messenger profile subtitle uses SSOT display", () => {

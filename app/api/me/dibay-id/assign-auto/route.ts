@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { assignAutoDibayIdForUser } from "@/lib/auth/assign-auto-dibay-id.server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { enforceMemberIdApiRateLimit } from "@/lib/auth/member-id-api-rate-limit";
 import { clearMeProfileGetRouteCache } from "@/lib/profile/me-profile-get-route-cache";
 import { clearMeProfileResponseCachesForUser } from "@/lib/profile/me-profile-get-response-cache";
 import { clearProfileResponseCacheForUser } from "@/lib/profile/profile-response-cache";
@@ -10,9 +11,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** 예외적으로 dibay_id 가 없을 때 서버 자동 복구 */
-export async function POST() {
+export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const rateLimit = await enforceMemberIdApiRateLimit(req, auth.userId, "assign");
+  if (!rateLimit.ok) return rateLimit.response;
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
