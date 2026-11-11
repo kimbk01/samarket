@@ -14,7 +14,6 @@ import {
   isMessengerGeneralFriendDirectKey,
   pickGeneralDirectRoomForPeer,
   resolveMessengerDotMenuCallKind,
-  resolveMessengerDotMenuCallVisibility,
   resolveMessengerRoomFeatureGate,
 } from "@/lib/community-messenger/messenger-room-domain";
 import { buildMessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
@@ -501,7 +500,13 @@ describe("resolveMessengerDotMenuCallKind", () => {
   });
 });
 
-describe("resolveMessengerDotMenuCallVisibility", () => {
+/** 통화 노출 = 공통 feature gate 의 통화 축 (통화 시트 판정 `resolveRoomCallChoice` 가 같은 gate 를 쓴다) */
+const resolveMessengerDotMenuCallVisibility = (input: Parameters<typeof resolveMessengerRoomFeatureGate>[0]) => {
+  const gate = resolveMessengerRoomFeatureGate(input);
+  return { showVoice: gate.allowVoiceCall, showVideo: gate.allowVideoCall };
+};
+
+describe("call visibility from room feature gate", () => {
   it("general allows voice and video", () => {
     expect(resolveMessengerDotMenuCallVisibility({ callKind: "general" })).toEqual({
       showVoice: true,
