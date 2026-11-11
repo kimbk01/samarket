@@ -96,6 +96,8 @@ describe("D1 셸 계약", () => {
     expect(stack).not.toContain("createPortal");
     expect(stack).toContain("<Activity");
     expect(stack).toContain("key={`hub:${next.accountGeneration}:${entry.id}`}");
+    /** 허브가 아닌 화면은 로그인·로그아웃으로 다시 만들지 않음 (PR #146 Bugbot 2차) */
+    expect(stack).toContain('<LiveRouteSlot key="live">');
     expect(stack).toContain("LayoutRouterContext.Provider");
     /** 숨긴 허브는 주소 값도 고정 — 다른 탭 주소를 보고 화면을 비우지 않게 */
     expect(stack).toContain("PathnameContext.Provider");

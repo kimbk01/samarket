@@ -108,9 +108,11 @@ export function HubRetentionStack({ children }: { children: ReactNode }) {
           </Activity>
         );
       })}
-      {currentRetained ? null : (
-        <LiveRouteSlot key={`live:${next.accountGeneration}`}>{children}</LiveRouteSlot>
-      )}
+      {/**
+       * 허브가 아닌 화면(글·매장·대화방 등)은 계정 세대를 key 에 넣지 않는다 — 그 화면에서 로그인·로그아웃해도
+       * 주소가 그대로면 화면(스크롤·작성 중 내용)을 유지한다(D1 이전과 같음). 계정 세대는 보관 허브 칸에만 쓴다.
+       */}
+      {currentRetained ? null : <LiveRouteSlot key="live">{children}</LiveRouteSlot>}
     </>
   );
 }
