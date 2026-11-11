@@ -13,6 +13,7 @@ import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types"
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { STORES_DELIVERY_CONTENT_INNER_CLASS } from "@/lib/stores/stores-home-ui";
 import { Sam } from "@/lib/ui/css-vars";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * CUT 5 — Delivery-only routable guard (does not change ADDRESS_COMPLETE).
@@ -45,6 +46,7 @@ export function resetDeliveryRoutableAddressGateCacheForTests(): void {
 }
 
 export function DeliveryRoutableAddressGate({ children }: { children: ReactNode }) {
+  const hubActive = useHubActive();
   const pathname = usePathname() ?? "";
   const { t } = useI18n();
   const [phase, setPhaseState] = useState<GatePhase>(() => lastGatePhase ?? "checking");
@@ -93,6 +95,7 @@ export function DeliveryRoutableAddressGate({ children }: { children: ReactNode 
   }, [pathname, setPhase]);
 
   useEffect(() => {
+    if (!hubActive) return;
     let cancelled = false;
     void (async () => {
       await runCheck();
@@ -106,7 +109,7 @@ export function DeliveryRoutableAddressGate({ children }: { children: ReactNode 
       cancelled = true;
       window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onRefresh);
     };
-  }, [runCheck]);
+  }, [hubActive, runCheck]);
 
   if (!isDeliveryConsumerPath(pathname) || phase === "pass") {
     return <>{children}</>;

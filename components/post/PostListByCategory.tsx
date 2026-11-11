@@ -96,6 +96,7 @@ import {
 } from "@/components/trade/TradeShowcaseSection";
 import { planTradeShowcaseInterleave, type TradeShowcaseItem } from "@/lib/trade/showcase/trade-showcase-model";
 import { filterTradeShowcaseForSearch } from "@/lib/trade/showcase/trade-showcase-filter";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 const ROUTE_PREFETCH_TS_MAX_KEYS = 120;
 
@@ -144,6 +145,7 @@ export function PostListByCategory({
   jobIndustrySlug,
   initialTradeFeed = null,
 }: PostListByCategoryProps) {
+  const hubActive = useHubActive();
   const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
@@ -580,6 +582,7 @@ export function PostListByCategory({
   );
 
   useEffect(() => {
+    if (!hubActive) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
     const row = postsRef.current;
     if (row.length === 0) return;
@@ -594,9 +597,10 @@ export function PostListByCategory({
       capRecordByOldestTimestamps(routePrefetchAtRef.current, ROUTE_PREFETCH_TS_MAX_KEYS);
       void router.prefetch(href);
     }
-  }, [routePrefetchTopIdsKey, router]);
+  }, [hubActive, routePrefetchTopIdsKey, router]);
 
   useLayoutEffect(() => {
+    if (!hubActive) return;
     let cancelled = false;
     listFeedEpochRef.current += 1;
     const epoch = listFeedEpochRef.current;
@@ -705,6 +709,7 @@ export function PostListByCategory({
       cancelled = true;
     };
   }, [
+    hubActive,
     feedKey,
     listPresentationIdentity,
     initialTradeFeed?.feedKey,
@@ -733,6 +738,7 @@ export function PostListByCategory({
 
   /** 글쓰기 완료 등 — 캐시 무효화 후 동일 피드에 머물러도 네트워크로 최신 목록 */
   useEffect(() => {
+    if (!hubActive) return;
     const onBust = () => {
       allowRscBootstrapFeedRef.current = false;
       listFeedEpochRef.current += 1;
@@ -741,7 +747,7 @@ export function PostListByCategory({
     };
     window.addEventListener(TRADE_POST_LIST_CACHE_INVALIDATED, onBust);
     return () => window.removeEventListener(TRADE_POST_LIST_CACHE_INVALIDATED, onBust);
-  }, [load]);
+  }, [hubActive, load]);
 
   useLayoutEffect(() => {
     firstCardPaintFeedKeyRef.current = feedKey;
@@ -856,6 +862,7 @@ export function PostListByCategory({
   /** PV-3 — 서버가 정한 `validUntil` 에 다시 부른다(화면은 기간을 판정하지 않는다). */
   const [feedAdPoolTick, setFeedAdPoolTick] = useState(0);
   useEffect(() => {
+    if (!hubActive) return;
     let cancelled = false;
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     const qs = new URLSearchParams({
@@ -884,7 +891,7 @@ export function PostListByCategory({
       cancelled = true;
       if (refreshTimer) clearTimeout(refreshTimer);
     };
-  }, [categoryId, feedAdPoolTick]);
+  }, [hubActive, categoryId, feedAdPoolTick]);
   const skinKey = category?.icon_key ?? undefined;
   const categorySlug = category?.slug ?? null;
   const fieldComposition = category?.settings?.field_composition ?? null;

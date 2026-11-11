@@ -5,6 +5,7 @@ import { useEffect, useMemo } from "react";
 import { storesBrowseAllPath } from "@/components/stores/browse/stores-browse-paths";
 import { shouldCanonicalizeBrowseSubToAll } from "@/lib/stores/browse-header-sub-selection";
 import type { BrowseSubIndustry } from "@/lib/stores/browse-taxonomy-ui-types";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * browse 진입·새로고침·1차 전환 — `sub` 없음·비정상 → `?sub=all` (목록 1차 전체).
@@ -15,6 +16,7 @@ export function useBrowseSubAllCanonicalUrl(
   subs: BrowseSubIndustry[],
   opts?: { enabled?: boolean },
 ): void {
+  const hubActive = useHubActive();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -26,6 +28,7 @@ export function useBrowseSubAllCanonicalUrl(
   }, [searchParams]);
 
   useEffect(() => {
+    if (!hubActive) return;
     if (!enabled || !primarySlug.trim()) return;
     const pathOnly = (pathname ?? "").split("?")[0] ?? "";
     /** Parked browse under store detail must not rewrite URL back to browse. */
@@ -39,5 +42,5 @@ export function useBrowseSubAllCanonicalUrl(
     if (current === target) return;
 
     router.replace(target, { scroll: false });
-  }, [enabled, primarySlug, trimmedSub, subs, pathname, searchParams, router]);
+  }, [hubActive, enabled, primarySlug, trimmedSub, subs, pathname, searchParams, router]);
 }

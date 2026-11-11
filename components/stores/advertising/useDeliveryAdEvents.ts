@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { DELIVERY_AD_IMPRESSION_VIEWABILITY } from "@/lib/stores/advertising/delivery-ad-event-contract";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 type Props = {
   enabled: boolean;
@@ -37,12 +38,14 @@ export function useDeliveryAdImpressionObserver(
   elementRef: React.RefObject<Element | null>,
   props: Props
 ) {
+  const hubActive = useHubActive();
   const firedRef = useRef(false);
   /** ADC-03 — 노출 1회 기록은 토큰(=광고·지면 노출) 단위. 같은 인스턴스에서 토큰이 바뀌면 다시 측정. */
   const firedTokenRef = useRef<string | null>(null);
   const dwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (!hubActive) return;
     if (!props.enabled || !props.exposureToken) return;
     if (firedTokenRef.current !== props.exposureToken) {
       firedTokenRef.current = props.exposureToken;
@@ -95,7 +98,7 @@ export function useDeliveryAdImpressionObserver(
       observer.disconnect();
       cleanup();
     };
-  }, [elementRef, props.enabled, props.exposureToken, props.sessionSeed, props.onImpressionRecorded]);
+  }, [hubActive, elementRef, props.enabled, props.exposureToken, props.sessionSeed, props.onImpressionRecorded]);
 }
 
 export function reportDeliveryAdClick(input: {

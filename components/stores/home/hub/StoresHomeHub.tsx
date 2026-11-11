@@ -83,6 +83,7 @@ import {
   DeliveryRecruitingRibbon,
 } from "@/components/delivery/launch/DeliveryRecruitingSurface";
 import { useHtmlShellFlagsSync } from "@/lib/layout/use-html-shell-flags-sync";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /** CONTRACT: `StoresHomeQuickCategories` 는 피드 로딩과 분리·항상 마운트 — `verify:stores-home-hub-contract`. */
 export function StoresHomeHub({
@@ -100,6 +101,7 @@ export function StoresHomeHub({
   buyerState: StoreOrderDashboardBuyerState;
   recentOrder: RecentOrderPreview | null;
 }) {
+  const hubActive = useHubActive();
   const { t, language } = useI18n();
   const membership = useClientMembershipState("stores-home-hub");
   /** D1 F1 — `<html>` 셸 속성(`.stores-home-hub` 유무) 갱신 */
@@ -195,6 +197,7 @@ export function StoresHomeHub({
 
   const membershipStatus = membership.status;
   useLayoutEffect(() => {
+    if (!hubActive) return;
     let cancelled = false;
     const predicted = predictDeliveryViewerGateFromClientState({
       membershipStatus,
@@ -215,9 +218,10 @@ export function StoresHomeHub({
     return () => {
       cancelled = true;
     };
-  }, [membershipStatus]);
+  }, [hubActive, membershipStatus]);
 
   useLayoutEffect(() => {
+    if (!hubActive) return;
     if (scrollReadyMarkedRef.current) return;
     const root = getMainAppScrollRootCached();
     const check = () => {
@@ -230,7 +234,7 @@ export function StoresHomeHub({
     check();
     const id = window.requestAnimationFrame(check);
     return () => cancelAnimationFrame(id);
-  }, [loading, stores.length]);
+  }, [hubActive, loading, stores.length]);
 
   const loadFeed = useCallback(
     async (opts?: {
@@ -412,15 +416,17 @@ export function StoresHomeHub({
   }, [loadFeed, feedRevisitGate, feedRevisitKey]);
 
   useLayoutEffect(() => {
+    if (!hubActive) return;
     if (!feedReady) return;
     if (feedRevisitGate.isFresh(feedRevisitKey)) return;
     void loadFeed().then((outcome) => {
       if (outcome === "success") feedRevisitGate.markLoaded(feedRevisitKey);
     });
     return () => abortRef.current?.abort();
-  }, [loadFeed, feedReady, feedRevisitGate, feedRevisitKey]);
+  }, [hubActive, loadFeed, feedReady, feedRevisitGate, feedRevisitKey]);
 
   useEffect(() => {
+    if (!hubActive) return;
     const onAddressesUpdated = () => {
       if (!feedReady) return;
       /** R-2 — 주소가 바뀌면 이전 스냅샷 기준 예측을 버리고 서버 판정·새 스냅샷을 따른다 */
@@ -432,7 +438,7 @@ export function StoresHomeHub({
     };
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
-  }, [feedReady, loadFeed, feedRevisitGate]);
+  }, [hubActive, feedReady, loadFeed, feedRevisitGate]);
 
   useRefetchOnPageShowRestore(() => {
     if (!feedReady) return;

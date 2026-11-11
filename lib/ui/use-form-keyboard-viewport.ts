@@ -19,6 +19,7 @@ import {
   resolveFormVisualViewportFrame,
   type FormKeyboardViewportSnapshot,
 } from "@/lib/ui/form-keyboard-viewport-contract";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 const CLOSED_SNAPSHOT: FormKeyboardViewportSnapshot = {
   keyboardOpen: false,
@@ -216,7 +217,9 @@ const subscribeNone = () => () => {};
  * Geometry is adapter-local (HARD LOCK: one UX contract ≠ one formula).
  */
 export function useFormKeyboardViewport(options?: { enabled?: boolean }): FormKeyboardViewportSnapshot {
-  const enabled = options?.enabled !== false;
+  /** D1 S2: 숨긴 하단 탭 허브는 키보드·화면 크기 구독을 하지 않는다 */
+  const hubActive = useHubActive();
+  const enabled = options?.enabled !== false && hubActive;
   const snap = useSyncExternalStore(
     enabled ? subscribe : subscribeNone,
     enabled ? getSnapshot : getServerSnapshot,

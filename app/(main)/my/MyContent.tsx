@@ -32,6 +32,7 @@ import {
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { MypageOwnerStoreGateSeed } from "@/lib/my/load-mypage-owner-store-gate-seed";
 import type { MypageAdminMenuSeed } from "@/lib/my/load-mypage-admin-menu-seed";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 function resolveLegacyMyPageRedirectTarget(args: {
   tab: string;
@@ -64,6 +65,7 @@ export function MyContent({
   /** RSC `isRouteAdmin()` fact for this request — admin row in the first render (client re-verifies). */
   adminMenuSeed?: MypageAdminMenuSeed | null;
 }) {
+  const hubActive = useHubActive();
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname() ?? "";
@@ -94,6 +96,7 @@ export function MyContent({
   }, []);
 
   useEffect(() => {
+    if (!hubActive) return;
     const handler = (ev: PointerEvent) => {
       const target = ev.target as HTMLElement | null;
       const a = target?.closest?.("a[href]") as HTMLAnchorElement | null;
@@ -104,7 +107,7 @@ export function MyContent({
     };
     window.addEventListener("pointerdown", handler, { capture: true });
     return () => window.removeEventListener("pointerdown", handler, { capture: true } as AddEventListenerOptions);
-  }, []);
+  }, [hubActive]);
 
   useEffect(() => {
     if (!infoHubOpen) return;

@@ -30,6 +30,7 @@ import {
   type TradeMarketplaceHydrateOutcome,
 } from "@/lib/trade/location/resolve-trade-marketplace-default-city";
 import { getAppBootSnapshot } from "@/lib/app-boot/app-boot-store";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 function isAppBootInProgress(): boolean {
   const status = getAppBootSnapshot().status;
@@ -80,6 +81,7 @@ export function useTradeMarketplaceLocationHydrate(): {
   failed: boolean;
   retry: () => void;
 } {
+  const hubActive = useHubActive();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const searchKey = searchParams.toString();
@@ -244,13 +246,14 @@ export function useTradeMarketplaceLocationHydrate(): {
   }, [runHydrate]);
 
   useEffect(() => {
+    if (!hubActive) return;
     if (onLocationStack) return;
     const onAddressesUpdated = () => {
       void runHydrate();
     };
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
-  }, [onLocationStack, runHydrate]);
+  }, [hubActive, onLocationStack, runHydrate]);
 
   return { scope, ready, unresolved, failed: failed && !onLocationStack, retry };
 }

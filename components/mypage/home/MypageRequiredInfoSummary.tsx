@@ -19,6 +19,7 @@ import {
 import type { MessageKey } from "@/lib/i18n/messages";
 import { MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * 상태 → 색 (real-screen-redesign §11 표). 빨강 글자는 연한 배경 위 대비 4.5:1 이상이 되도록
@@ -252,12 +253,14 @@ export function MypageRequiredInfoRowsCard({
 
 /** 「인증 진행 중」 행이 있을 때만 30초마다 현재 시각 갱신 → TTL 지나면 「인증 만료」로 바뀜 */
 export function useRequiredInfoNowMs(hasPending: boolean): number {
+  const hubActive = useHubActive();
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
+    if (!hubActive) return;
     if (!hasPending) return;
     const id = window.setInterval(() => setNowMs(Date.now()), 30_000);
     return () => window.clearInterval(id);
-  }, [hasPending]);
+  }, [hubActive, hasPending]);
   return nowMs;
 }
 

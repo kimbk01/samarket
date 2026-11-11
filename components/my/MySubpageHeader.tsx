@@ -16,6 +16,7 @@ import { getDibayDomainChromeElementProps } from "@/lib/ui/dibay-domain-chrome";
 import { usePathname } from "next/navigation";
 import { isMypageSubpageHeaderPath } from "@/lib/mypage/mypage-subpage-header-defaults";
 import { resolveMypageIaParentHref, resolveMypageIaTitleKey } from "@/lib/mypage/mypage-ia";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 export type MySubpageHeaderProps = {
   /** `registerMainTier1={false}` 일 때 생략 가능 */
@@ -84,6 +85,7 @@ export function MySubpageHeader({
   leftSlot,
   titleOverridesIa = false,
 }: MySubpageHeaderProps) {
+  const hubActive = useHubActive();
   const { t, tt } = useI18n();
   const pathname = usePathname();
   const domainChrome = getDibayDomainChromeElementProps(pathname);
@@ -128,6 +130,7 @@ export function MySubpageHeader({
   const registeredPathname = pathname ?? undefined;
 
   useLayoutEffect(() => {
+    if (!hubActive) return;
     if (inlineChrome || !setMainTier1Extras) return;
     if (registerMainTier1) {
       setMainTier1Extras({
@@ -155,6 +158,7 @@ export function MySubpageHeader({
     }
     return () => setMainTier1Extras(null);
   }, [
+    hubActive,
     setMainTier1Extras,
     registerMainTier1,
     titleKey,

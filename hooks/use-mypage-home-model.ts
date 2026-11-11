@@ -34,6 +34,7 @@ import {
 import { dibayMyInfoPerfMark, dibayMyInfoPerfMaybeLogTotal } from "@/lib/runtime/dibay-myinfo-perf";
 import { bumpMypageMountGeneration } from "@/lib/runtime/mypage-network-markers";
 import { cancelPendingOwnerLiteAutoHydrate } from "@/lib/stores/owner-lite-external-store";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * Local user present but profile API failed — do not leave 「확인 중」 forever.
@@ -79,6 +80,7 @@ function seedAddressStatusFromCache(): RequiredInfoStatus {
  * DO NOT: lite+full parallel profile; DO NOT child address fetch hooks on root.
  */
 export function useMypageHomeModel(enabled: boolean) {
+  const hubActive = useHubActive();
   const projection = useSyncExternalStore(
     subscribeMypageHomeStore,
     getMypageHomeProjection,
@@ -159,6 +161,7 @@ export function useMypageHomeModel(enabled: boolean) {
   }, [enabled]);
 
   useEffect(() => {
+    if (!hubActive) return;
     if (!enabled) {
       seededRef.current = false;
       setProfilePhase("pending");
@@ -197,9 +200,10 @@ export function useMypageHomeModel(enabled: boolean) {
     }
 
     void refresh();
-  }, [enabled, refresh]);
+  }, [hubActive, enabled, refresh]);
 
   useEffect(() => {
+    if (!hubActive) return;
     if (!enabled) return;
     const onProfile = () => {
       void refresh();
@@ -213,9 +217,10 @@ export function useMypageHomeModel(enabled: boolean) {
       window.removeEventListener(PROFILE_UPDATED_EVENT, onProfile);
       window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddresses);
     };
-  }, [enabled, refresh]);
+  }, [hubActive, enabled, refresh]);
 
   useEffect(() => {
+    if (!hubActive) return;
     const onAuthChanged = () => {
       const viewerId = getCurrentUser()?.id?.trim() ?? "";
       const shown = getMypageHomeProjection()?.viewerId ?? "";
@@ -232,7 +237,7 @@ export function useMypageHomeModel(enabled: boolean) {
     };
     window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
     return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
-  }, [refresh]);
+  }, [hubActive, refresh]);
 
   useEffect(() => {
     if (!projection?.profile) return;

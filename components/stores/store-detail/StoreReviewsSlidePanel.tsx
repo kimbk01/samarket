@@ -11,6 +11,7 @@ import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import { OverlayUi, OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 export function StoreReviewsSlidePanel({
   open,
@@ -51,14 +52,16 @@ export function StoreReviewsSlidePanel({
     return clearTimer;
   }, [open, visible]);
 
+  /** D1 S2: 숨긴 하단 탭 허브 안이면 화면 잠금을 풀어 둔다(다시 보이면 다시 잠금) */
+  const hubActive = useHubActive();
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || !hubActive) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [visible]);
+  }, [visible, hubActive]);
 
   useEffect(() => clearTimer, []);
 

@@ -84,8 +84,8 @@ describe("B-03·B-05·B-07·B-08·B-10 구조", () => {
   it("히어로 슬라이드 전환 애니메이션·새로고침 연결, 광고 인스턴스는 현재 슬라이드 1개", () => {
     const src = read("components/stores/home/hub/StoresHomeHeroBanner.tsx");
     expect(src).toContain("stores-home-hero-slide-in-next");
-    /** 새로고침(refreshKey) 연결 유지 — D1 §4 60초 규칙 gate 가 deps 에 함께 들어감 (2026-11-11) */
-    expect(src).toContain("[refreshKey, revisitGate]");
+    /** 새로고침(refreshKey) 연결 유지 — D1 §4 60초 규칙 gate(2026-11-11)·D1 S2 허브 활성 신호(2026-11-12)가 deps 에 함께 들어감 */
+    expect(src).toContain("[hubActive, refreshKey, revisitGate]");
     expect(src.match(/<DeliveryAdBanner/g)?.length).toBe(1);
   });
   it("샘플 매장 배너는 샘플 광고 라벨", () => {

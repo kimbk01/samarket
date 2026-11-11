@@ -26,6 +26,7 @@ import {
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { bumpRerenderTrace } from "@/lib/dibay/network-fetch-storm-trace";
 import { logHubBadgeRenderTrace } from "@/lib/dibay/shell-fetch-trace";
+import { noopHubSubscribe, useHubActive } from "@/lib/layout/hub-active-context";
 
 export type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 
@@ -33,13 +34,20 @@ export type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
  * 채팅 미읽음·매장(주문·문의) 할 일. 하단 「매장」= storesTabAttention + storeDeepLink.
  */
 export function useOwnerHubBadgeBreakdown(): OwnerHubBadgeBreakdown {
-  return useSyncExternalStore(subscribeOwnerHubBadge, getOwnerHubBadgeSnapshot, getOwnerHubBadgeServerSnapshot);
+  /** D1 S2: 숨긴 하단 탭 허브는 구독하지 않는다 — 첫 구독이 배지 받기·갱신을 시작하므로(셸 등 허브 밖은 항상 구독) */
+  const hubActive = useHubActive();
+  return useSyncExternalStore(
+    hubActive ? subscribeOwnerHubBadge : noopHubSubscribe,
+    getOwnerHubBadgeSnapshot,
+    getOwnerHubBadgeServerSnapshot
+  );
 }
 
 /** `/stores/owner` 허브 — RSC 시드·단일 Runtime으로 배지를 쓰므로 허브 배지 API 구독 금지 */
 export function useOwnerHubBadgeBreakdownWhenEnabled(enabled: boolean): OwnerHubBadgeBreakdown {
+  const hubActive = useHubActive();
   return useSyncExternalStore(
-    enabled ? subscribeOwnerHubBadge : () => () => {},
+    enabled && hubActive ? subscribeOwnerHubBadge : () => () => {},
     enabled ? getOwnerHubBadgeSnapshot : () => OWNER_HUB_BADGE_EMPTY,
     getOwnerHubBadgeServerSnapshot
   );

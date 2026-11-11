@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 export type RefetchOnRestoreOptions = {
   /** 탭/앱 전환 후 다시 보일 때 갱신 (기본 true) */
@@ -25,6 +26,7 @@ export function useRefetchOnPageShowRestore(
   refetch: () => void | Promise<void>,
   options?: RefetchOnRestoreOptions
 ): void {
+  const hubActive = useHubActive();
   const enableVis = options?.enableVisibilityRefetch !== false;
   const debounceMs = options?.visibilityDebounceMs ?? 450;
   const enableFocus = options?.enableWindowFocusRefetch === true;
@@ -38,6 +40,7 @@ export function useRefetchOnPageShowRestore(
   }, [refetch]);
 
   useEffect(() => {
+    if (!hubActive) return;
     const scheduleRestore = (ms: number) => {
       if (restoreTimerRef.current) clearTimeout(restoreTimerRef.current);
       restoreTimerRef.current = setTimeout(() => {
@@ -70,5 +73,5 @@ export function useRefetchOnPageShowRestore(
       if (enableFocus) window.removeEventListener("focus", onFocus);
       if (restoreTimerRef.current) clearTimeout(restoreTimerRef.current);
     };
-  }, [debounceMs, enableFocus, enableVis, focusDebounceMs]);
+  }, [hubActive, debounceMs, enableFocus, enableVis, focusDebounceMs]);
 }
