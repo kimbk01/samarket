@@ -122,6 +122,7 @@ export const DIBAY_CHROME_TITLE_COVERAGE_ROUTES: readonly string[] = [
   "/onboarding/username",
   "/address/select",
   "/u/user",
+  "/f/Q7mK2pX9vT4rN8wB5hLd3s",
   "/my/ads/apply",
   "/my/store-orders/o1",
   "/my/store-orders/o1/review",
