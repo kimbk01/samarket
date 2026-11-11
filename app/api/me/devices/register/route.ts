@@ -14,7 +14,6 @@ import { shouldActivateFcmDeviceRegister } from "@/lib/push/device-register/shou
 import { resolvePushEnvironment } from "@/lib/push/push-environment";
 import { normalizeApnsEnvironment, rememberDeviceApnsEnvironment } from "@/lib/push/dispatch/apns-environment";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { stagingHostPushRegisterSkip } from "@/lib/push/device-register/staging-host-push-register-skip";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,9 +39,6 @@ type RegisterBody = {
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
-  // 스테이징(회원 미공개) 주소 → 운영 DB 에 푸시 기기 저장 안 함 (Owner 2026-11-10 「푸시 끄고 진행」)
-  const stagingSkip = stagingHostPushRegisterSkip(req);
-  if (stagingSkip) return stagingSkip;
 
   const rateLimit = await enforceRateLimit({
     key: `me:devices:register:${getRateLimitKey(req, auth.userId)}`,
