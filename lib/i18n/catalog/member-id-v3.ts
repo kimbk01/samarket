@@ -5,6 +5,7 @@
 export const memberIdV3Messages = {
   ko: {
     member_id_badge_can_change: "1회 변경 가능",
+    tier1_friend_qr_add: "친구 추가",
     member_id_hint_auto: "친구가 숫자 5자리({digits})를 입력하면 나를 찾을 수 있어요.",
     member_id_hint_legacy: "친구가 아이디 전체를 입력하면 나를 찾을 수 있어요.",
     member_id_hint_custom: "친구가 아이디를 4자 이상 입력하면 나를 찾을 수 있어요.",
@@ -62,6 +63,7 @@ export const memberIdV3Messages = {
   },
   en: {
     member_id_badge_can_change: "Can change once",
+    tier1_friend_qr_add: "Add friend",
     member_id_hint_auto: "Friends can find you with the 5 digits ({digits}).",
     member_id_hint_legacy: "Friends can find you with your full ID.",
     member_id_hint_custom: "Friends can find you with 4 or more letters of your ID.",

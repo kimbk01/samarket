@@ -6,6 +6,14 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** DB `cm_search_members` 결과 행 */
+type MemberSearchRow = {
+  user_id?: string | null;
+  dibay_id?: string | null;
+  nickname?: string | null;
+  display_name?: string | null;
+};
+
 interface Ctx {
   params: Promise<{ meetingId: string }>;
 }
@@ -54,11 +62,11 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   const [{ data: members }, { data: bans }, { data: profiles }, { data: testUsers }] = await Promise.all([
     sb.from("meeting_members").select("user_id").eq("meeting_id", id),
     sb.from("meeting_member_bans").select("user_id").eq("meeting_id", id).is("released_at", null),
-    sb
-      .from("profiles")
-      .select("id, nickname, username")
-      .or(`nickname.ilike.%${query}%,username.ilike.%${query}%`)
-      .limit(8),
+    /**
+     * 회원 찾기 = 친구 찾기와 같은 DB 함수 (회원 아이디 v3 §3.3 · 후속 F2):
+     * 아이디 규칙(숫자 5자리·4자 이상·옛 형식 전체), 닉네임, 탈퇴·서로 차단·「아이디로 나를 찾기」 끔 제외.
+     */
+    (sb as any).rpc("cm_search_members", { p_viewer: auth.userId, p_query: query, p_limit: 20 }),
     sb
       .from("test_users")
       .select("id, display_name, username")
@@ -69,7 +77,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   /** 같은 동네 = 대표 주소 공개 시/군 비교 (주소 SSOT · profiles.region_name 미사용) */
   const regionUserIds = [
     hostUserId,
-    ...((profiles ?? []) as Array<{ id?: string | null }>).map((row) => String(row.id ?? "").trim()),
+    ...((profiles ?? []) as MemberSearchRow[]).map((row) => String(row.user_id ?? "").trim()),
   ].filter(Boolean);
   const [regionByUser, { data: neighborRows }] = await Promise.all([
     loadMasterPublicCityLabelsByUserIds(sb, regionUserIds),
@@ -103,16 +111,18 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     score: number;
   }> = [];
 
-  for (const row of (profiles ?? []) as Array<{ id?: string; nickname?: string | null; username?: string | null }>) {
-    const userId = String(row.id ?? "").trim();
+  for (const row of (profiles ?? []) as MemberSearchRow[]) {
+    const userId = String(row.user_id ?? "").trim();
     if (!userId || excluded.has(userId) || seen.has(userId)) continue;
     seen.add(userId);
-    const label = String(row.nickname ?? row.username ?? userId).trim() || userId;
-    const secondary = String(row.username ?? userId).trim() || userId;
+    const memberId = String(row.dibay_id ?? "").trim().toLowerCase();
+    const label = String(row.nickname ?? row.display_name ?? memberId).trim() || memberId || userId;
+    /** 보조 줄 = 회원 아이디 1개 (단일 계약 — username 아님) */
+    const secondary = memberId ? `@${memberId}` : "";
     const sameRegion = !!hostRegion && String(regionByUser.get(userId) ?? "").trim().toLowerCase() === hostRegion;
     const neighborFollow = neighborFollowIds.has(userId);
     const startsWithQuery =
-      label.toLowerCase().startsWith(query.toLowerCase()) || secondary.toLowerCase().startsWith(query.toLowerCase());
+      label.toLowerCase().startsWith(query.toLowerCase()) || memberId.startsWith(query.toLowerCase().replace(/^@+/, ""));
     candidates.push({
       userId,
       label,

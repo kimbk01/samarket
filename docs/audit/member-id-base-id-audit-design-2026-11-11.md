@@ -335,3 +335,10 @@ DB: `supabase/migrations/20271111170000_member_id_v3_audit_fixes.sql` — 운영
 - Cursor Bugbot 2건 (둘 다 작업자 구현 결함, 확인 후 수정):
   1. 메신저 홈 공용 친구 추가가 연락처·프로필 시트에서 불려도 `id_search` 로 기록 → 공용 행동이 호출처의 경로를 받음 (연락처 `contacts`, 프로필 시트·그룹 고르기 `profile`).
   2. QR 추가 때 반대쪽 대기 요청이 같은 시각에 수락되어 「QR로 추가」 배지가 안 보일 수 있음 → 같은 시각이면 `qr` 을 고르는 `pickFriendSource` (DB 변경 없음).
+
+### 마무리 (2026-11-11 밤) — Owner 「모두 진행」
+
+- **D-1** 웹 `/f/<토큰>` 머리글이 「내용을 불러올 수 없습니다」 (운영 비로그인 브라우저로 확인) → 머리글 제목 등록(`tier1_friend_qr_add` 「친구 추가」) + 머리글 제목 시험 목록에 경로 추가.
+- **F2** 모임 초대 후보 검색 → `cm_search_members` (아이디 규칙·탈퇴·차단·검색 끔 제외), 보조 줄 = `@회원 아이디` (예전 `username` 표시 제거).
+- **F3** 친구 찾기 하루 500회 → DB `member_search_quota_hit` (필리핀 날짜, `supabase/migrations/20271111180000_member_search_daily_quota.sql`). DB 함수가 없거나 답하지 못하면 검색은 막지 않는다(한도만 미적용). **운영 DB 적용은 권한 확인 단계에서 막혀 미적용** — Owner 확인 후 적용.
+- Android 앱 링크: Owner 가 준 Play 앱 서명 키 지문(`AB:46:…:63:EF`)을 `assetlinks.json` 에 추가.

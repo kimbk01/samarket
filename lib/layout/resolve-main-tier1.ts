@@ -835,6 +835,11 @@ function resolveMainTier1SubpageInner(
     return { ...DEFAULT, backHref: "/", preferHistoryBack: true, titleText: "tier1_onboarding_profile", showHubQuickActions: false };
   }
 
+  /** QR 친구 추가 웹 페이지 (회원 아이디 v3 §3.6 · 시안 I) — 머리글 「친구 추가」 */
+  if (/^\/f\/[^/]+$/.test(p)) {
+    return { ...DEFAULT, backHref: "/", preferHistoryBack: true, titleText: "tier1_friend_qr_add", showHubQuickActions: false };
+  }
+
   if (/^\/u\/[^/]+$/.test(p)) {
     return { ...DEFAULT, backHref: "/", preferHistoryBack: true, titleText: "tier1_public_profile", showHubQuickActions: false };
   }
