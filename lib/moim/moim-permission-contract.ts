@@ -10,7 +10,7 @@
 export const MOIM_ROLES = ["host", "co_host", "staff", "member"] as const;
 export type MoimRole = (typeof MOIM_ROLES)[number];
 
-export const MOIM_MEMBER_STATUSES = ["pending", "active", "left", "kicked", "banned", "rejected"] as const;
+export const MOIM_MEMBER_STATUSES = ["pending", "active", "left", "kicked", "banned", "rejected", "cancelled"] as const;
 export type MoimMemberStatus = (typeof MOIM_MEMBER_STATUSES)[number];
 
 export const MOIM_PLATFORM_STATES = ["normal", "unlisted", "warned", "blocked"] as const;

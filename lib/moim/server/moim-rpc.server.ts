@@ -83,12 +83,16 @@ function profilePayload(profile?: MoimMemberProfileInput, extra?: Record<string,
 export function moimJoin(
   actorId: string,
   moimId: string,
-  input: { answers?: string[]; profile?: MoimMemberProfileInput },
+  input: { answers?: string[]; profile?: MoimMemberProfileInput; /** 초대 링크로 들어온 경우 — 링크 사용 횟수 */ inviteToken?: string | null },
   sb?: SupabaseServer
 ) {
   return callMoimRpc<{ status: "active" | "pending"; room_id?: string; request_id?: string }>(
     "moim_join",
-    { p_actor: actorId, p_moim: moimId, p: profilePayload(input.profile, { answers: input.answers ?? [] }) },
+    {
+      p_actor: actorId,
+      p_moim: moimId,
+      p: profilePayload(input.profile, { answers: input.answers ?? [], invite_token: input.inviteToken ?? null }),
+    },
     sb
   );
 }

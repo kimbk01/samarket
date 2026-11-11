@@ -105,7 +105,7 @@ create table if not exists public.moim_members (
   moim_id uuid not null references public.moims(id) on delete cascade,
   user_id uuid not null references public.profiles(id),
   role text not null default 'member' check (role in ('host', 'co_host', 'staff', 'member')),
-  status text not null check (status in ('pending', 'active', 'left', 'kicked', 'banned', 'rejected')),
+  status text not null check (status in ('pending', 'active', 'left', 'kicked', 'banned', 'rejected', 'cancelled')),
   nickname text not null,
   avatar_url text null,
   bio text not null default '',
@@ -603,17 +603,18 @@ $$;
 create or replace function public.moim__activate_member(p_moim uuid, p_user uuid, p_nickname text, p_avatar text, p_bio text, p_invited_by uuid, p_decided_by uuid)
 returns void language plpgsql volatile security definer set search_path = public as $$
 declare
-  v_prev text;
+  v_was_member boolean;
   v_room uuid;
 begin
-  select status into v_prev from public.moim_members where moim_id = p_moim and user_id = p_user;
+  -- 재가입 = 예전에 한 번이라도 활성 멤버였던 사람(joined_at 있음). 신청 취소·거절만 있던 사람은 재가입 아님
+  select joined_at is not null into v_was_member from public.moim_members where moim_id = p_moim and user_id = p_user;
   insert into public.moim_members (moim_id, user_id, role, status, nickname, avatar_url, bio, joined_at, invited_by, decided_by, decided_at)
   values (p_moim, p_user, 'member', 'active', p_nickname, p_avatar, coalesce(p_bio, ''), now(), p_invited_by, p_decided_by, case when p_decided_by is null then null else now() end)
   on conflict (moim_id, user_id) do update
     set role = 'member', status = 'active', nickname = excluded.nickname, avatar_url = excluded.avatar_url, bio = excluded.bio,
         joined_at = now(), left_at = null, invited_by = excluded.invited_by, decided_by = excluded.decided_by,
         decided_at = excluded.decided_at,
-        rejoin_count = public.moim_members.rejoin_count + case when v_prev in ('left', 'kicked', 'banned') then 1 else 0 end,
+        rejoin_count = public.moim_members.rejoin_count + case when coalesce(v_was_member, false) then 1 else 0 end,
         updated_at = now();
   select main_room_id into v_room from public.moims where id = p_moim;
   perform public.moim__room_member_activate(v_room, p_user, 'member', p_nickname, p_avatar);
@@ -788,6 +789,11 @@ begin
 
   v_room := public.moim__room_create('moim', v_id, p_actor, v_name, v_nick, coalesce(nullif(p->>'avatar_url', ''), v_prof.avatar_url));
   update public.moims set main_room_id = v_room, member_count = 1 where id = v_id;
+  -- 방 사진 = 모임 대표 사진 (정보 수정 때도 같은 규칙)
+  if nullif(p->>'cover_image_url', '') is not null then
+    perform public.moim__writer_on();
+    update public.community_messenger_rooms set avatar_url = nullif(p->>'cover_image_url', ''), updated_at = now() where id = v_room;
+  end if;
   perform public.moim__log(v_id, p_actor, 'user', 'created', null, jsonb_build_object('join_mode', v_join));
   return jsonb_build_object('ok', true, 'moim_id', v_id, 'room_id', v_room);
 end
@@ -841,6 +847,12 @@ begin
   v_nick := btrim(coalesce(nullif(p->>'nickname', ''), v_prof.nickname, ''));
   if v_nick = '' then perform public.moim__fail('moim_nickname_required'); end if;
 
+  -- 링크로 들어온 가입(바로 가입·신청 모두) = 링크 사용 1회
+  if nullif(p->>'invite_token', '') is not null then
+    update public.moim_invites set usage_count = usage_count + 1
+     where token = p->>'invite_token' and moim_id = p_moim and revoked_at is null and (expires_at is null or expires_at > now());
+  end if;
+
   if v_m.join_mode = 'instant' then
     perform public.moim__activate_member(p_moim, p_actor, v_nick, coalesce(nullif(p->>'avatar_url', ''), v_prof.avatar_url), p->>'bio', null, null);
     perform public.moim__log(p_moim, p_actor, 'user', 'member_joined', p_actor, '{}'::jsonb);
@@ -866,7 +878,7 @@ begin
   update public.moim_join_requests set status = 'cancelled', decided_at = now()
    where moim_id = p_moim and user_id = p_actor and status = 'pending' returning id into v_req;
   if v_req is null then perform public.moim__fail('moim_request_not_found'); end if;
-  update public.moim_members set status = 'left', left_at = now(), updated_at = now()
+  update public.moim_members set status = 'cancelled', updated_at = now()
    where moim_id = p_moim and user_id = p_actor and status = 'pending';
   perform public.moim__log(p_moim, p_actor, 'user', 'join_cancelled', v_req, '{}'::jsonb);
   return jsonb_build_object('ok', true);
@@ -1238,7 +1250,7 @@ begin
 end
 $$;
 
-/** 링크 토큰 → 모임 id (만료·회수 검사). 가입은 moim_join 그대로(승인 생략 없음) */
+/** 링크 토큰 → 모임 id (만료·회수 검사). 조회만 — 사용 횟수는 moim_join 성공 시(p.invite_token) 센다. 가입은 승인 생략 없음 */
 create or replace function public.moim_invite_link_resolve(p_token text) returns jsonb
 language plpgsql volatile security definer set search_path = public as $$
 declare v_i record;
@@ -1249,7 +1261,6 @@ begin
      or v_i.m_status <> 'active' or v_i.platform_state = 'blocked' then
     return jsonb_build_object('ok', false, 'error', 'moim_invite_not_found');
   end if;
-  update public.moim_invites set usage_count = usage_count + 1 where id = v_i.id;
   return jsonb_build_object('ok', true, 'moim_id', v_i.moim_id, 'inviter_id', v_i.created_by);
 end
 $$;
