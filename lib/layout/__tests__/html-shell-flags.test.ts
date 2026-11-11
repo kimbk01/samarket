@@ -48,6 +48,19 @@ describe("D1 F1 — html·body :has 규칙 대체 셸 속성", () => {
     expect(h.getAttributeNames().filter((n) => n.startsWith("data-shell-"))).toEqual([]);
   });
 
+  it("하단 탭이 여러 개면 그중 하나라도 해당하면 참 — 예전 :has 와 같음 (D1 R4)", () => {
+    document.body.innerHTML = `<nav class="app-bottom-nav-shell"></nav><nav class="app-bottom-nav-shell app-bottom-nav-shell--delivery app-bottom-nav-shell--scroll-hidden"><a class="app-bottom-nav-item--domain-hub"><span class="app-bottom-nav-icon-slot--domain-hub-orbit"></span></a></nav>`;
+    syncHtmlShellFlagsFromDom(document);
+    const h = document.documentElement;
+    expect(h.getAttribute("data-shell-bottom-nav")).toBe("1");
+    expect(h.getAttribute("data-shell-bottom-nav-delivery")).toBe("1");
+    expect(h.getAttribute("data-shell-bottom-nav-scroll-hidden")).toBe("1");
+    expect(h.getAttribute("data-shell-bottom-nav-orbit")).toBe("1");
+    document.body.innerHTML = "";
+    syncHtmlShellFlagsFromDom(document);
+    expect(h.hasAttribute("data-shell-bottom-nav-delivery")).toBe(false);
+  });
+
   it("인라인 스크립트는 외부 참조 없이 실행된다 (첫 그림 전)", () => {
     document.body.innerHTML = `<nav class="app-bottom-nav-shell"></nav>`;
     document.documentElement.removeAttribute("data-shell-bottom-nav");

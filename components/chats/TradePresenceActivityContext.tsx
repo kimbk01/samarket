@@ -31,8 +31,33 @@ export function useTradePresenceActivityOptional(): TradePresenceActivityContext
 
 /**
  * 로그인 시 앱 전역 거래 presence 용 활동·멀티탭 가시성 + heartbeat.
+ *
+ * D1 R2 (Owner 승인 2026-11-12 · `docs/audit/d1-remaining-items-design-2026-11-12.md` §2):
+ * Provider 는 처음부터 children 을 감싸고(감싸는 요소 종류 고정 — 바뀌면 앱 셸 전체가 다시 만들어짐),
+ * 실제 동작(로그인 확인·활동·멀티탭·heartbeat)은 `armed` 뒤에 children 의 **형제**로 붙는 엔진에서만 돈다.
+ * 값은 엔진이 알려 줄 때까지 `null`(예전 「Provider 없음」과 같음 — 소비처 `useTradePresenceActivityOptional` 은 null 처리).
  */
-export function TradePresenceActivityProvider({ children }: { children: ReactNode }) {
+export function TradePresenceActivityProvider({
+  children,
+  armed = true,
+}: {
+  children: ReactNode;
+  armed?: boolean;
+}) {
+  const [value, setValue] = useState<TradePresenceActivityContextValue | null>(null);
+  return (
+    <TradePresenceActivityContext.Provider value={armed ? value : null}>
+      {armed ? <TradePresenceActivityEngine onValue={setValue} /> : null}
+      {children}
+    </TradePresenceActivityContext.Provider>
+  );
+}
+
+function TradePresenceActivityEngine({
+  onValue,
+}: {
+  onValue: (value: TradePresenceActivityContextValue | null) => void;
+}) {
   const pathname = usePathname();
   const pathnameRef = useRef<string | null>(null);
   pathnameRef.current = pathname ?? null;
@@ -140,9 +165,11 @@ export function TradePresenceActivityProvider({ children }: { children: ReactNod
     };
   }, [enabled, isLeaderTab]);
 
-  return (
-    <TradePresenceActivityContext.Provider value={enabled ? value : null}>
-      {children}
-    </TradePresenceActivityContext.Provider>
-  );
+  const published = enabled ? value : null;
+  useEffect(() => {
+    onValue(published);
+  }, [onValue, published]);
+  useEffect(() => () => onValue(null), [onValue]);
+
+  return null;
 }

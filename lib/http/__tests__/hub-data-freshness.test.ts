@@ -39,6 +39,13 @@ describe("D1 §4 허브 데이터 60초 규칙", () => {
     expect(feed).toContain("feedAdPoolRevisitGate.reset()");
   });
 
+  it("배달 「내 매장」(GET /api/me/stores)도 60초 규칙 — 성공 시에만 기록 (D1 R3)", () => {
+    const src = readFileSync(join(root, "lib/delivery/launch/use-delivery-store-owner-entry.ts"), "utf8");
+    expect(src).toContain("useHubDataRevisitGate()");
+    expect(src).toContain('if (revisitGate.isFresh("owner-entry")) return;');
+    expect(src).toMatch(/setValue\(\{ entry: [^\n]+\n\s*revisitGate\.markLoaded\("owner-entry"\);/);
+  });
+
   it("커뮤니티 피드 60초 키에 해시태그(?tag=)가 들어간다 — 태그 해제·변경 뒤 이전 목록 유지 금지 (2026-11-12 재감사 FAIL 1)", () => {
     const feed = readFileSync(join(root, "components/community/CommunityFeed.tsx"), "utf8");
     expect(feed).toContain("const feedRevisitKey = `${viewerSig}|${feedContentKey}|${tagFilter}`;");
