@@ -8,7 +8,6 @@ import type { ChatRoom } from "@/lib/types/chat";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 import {
   normalizeTradeChatCallPolicy,
-  tradeChatCallPolicyAllowsVideo,
   tradeChatCallPolicyAllowsVoice,
 } from "@/lib/trade/trade-chat-call-policy";
 import {
@@ -22,12 +21,8 @@ import {
 } from "@/lib/community-messenger/room-context-meta";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
-import { resolveDirectCallDenyUserMessage } from "@/lib/community-messenger/direct-call-permission-messages";
-import type { DirectCallDenyCode } from "@/lib/community-messenger/direct-call-permission";
-import { logCallPermission } from "@/lib/community-messenger/direct-call-permission";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { resolveDirectCallUnavailableReasonKey } from "@/lib/community-messenger/call-ui/direct-call-unavailable-reason";
 import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import {
   communityMessengerFriendRequestFailureMessage,
@@ -54,9 +49,7 @@ import {
   resolveDirectChatInboundRecipient,
   shouldHidePeerAddContactForInitiator,
 } from "@/components/community-messenger/room/phase2/community-messenger-room-phase2-peer-notice-logic";
-import { generalFriendDirectRoomGate, messengerRoomShowsConfirmedDeliveryPresentation, messengerRoomShowsConfirmedTradePresentation, resolveMessengerDotMenuCallKind, resolveMessengerDotMenuCallVisibility } from "@/lib/community-messenger/messenger-room-domain";
-import { logCallV3ButtonClick, logCallV3ButtonRender } from "@/lib/community-messenger/call-v3/call-v3-debug";
-import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
+import { generalFriendDirectRoomGate, messengerRoomShowsConfirmedDeliveryPresentation, messengerRoomShowsConfirmedTradePresentation } from "@/lib/community-messenger/messenger-room-domain";
 
 function mapSellerListingToProductStatus(
   raw: unknown,
@@ -150,16 +143,12 @@ function buildTradeContextFromMeta(
 export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: MessengerRoomPhase2ViewModel }) {
   const { t } = useI18n();
   const tradePostDetailSlide = useTradePostDetailSlideHost();
-  const [dotMenuOutgoingConfirm, setDotMenuOutgoingConfirm] = useState<null | "voice" | "video">(null);
 
   const peerUserId = (vm.snapshot.room.peerUserId ?? "").trim();
   const peerProfile = useMemo(
     () => vm.snapshot.members.find((m) => m.id.trim() === peerUserId) ?? null,
     [vm.snapshot.members, peerUserId]
   );
-  /** F3: 발신 확인창·발신 화면 공용 이름 — 매장 주문 구매자는 매장명, 아니면 프로필 이름·방 제목 */
-  const dotMenuDialPeerLabel =
-    vm.storeOrderBuyerDialPeerLabel ?? (peerProfile?.label?.trim() || vm.snapshot.room.title?.trim() || "");
 
   const deliveryMeta = useMemo(() => {
     const room = vm.snapshot.room;
@@ -193,7 +182,6 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     vm.snapshot.room,
     vm.snapshot.viewerUserId
   );
-  const callMenuKind = resolveMessengerDotMenuCallKind(vm.snapshot.room, { isDeliveryRoom });
   const roomType: RoomType = isTradeRoom ? "trade" : "direct";
 
   const friendAddCta = useMemo((): MessengerPeerSocialCta => {
@@ -268,27 +256,6 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     vm.snapshot.viewerUserId,
   ]);
 
-  const assertGeneralDirectCallAllowed = useCallback(
-    (kind: "voice" | "video"): boolean => {
-      if (callMenuKind !== "general") return true;
-      const gate = vm.snapshot.directCallGate;
-      if (!gate) return true;
-      const allowed = kind === "video" ? gate.canStartVideo : gate.canStartVoice;
-      if (allowed) return true;
-      const code: DirectCallDenyCode = gate.denyCode ?? "deny_blocked";
-      logCallPermission("ui_gate_start", {
-        callerUserId: vm.snapshot.viewerUserId,
-        calleeUserId: peerUserId || undefined,
-        roomId: vm.snapshot.room.id,
-        code,
-        callKind: kind,
-      });
-      showMessengerSnackbar(resolveDirectCallDenyUserMessage(code), { variant: "error" });
-      return false;
-    },
-    [callMenuKind, peerUserId, vm.snapshot.directCallGate, vm.snapshot.room.id, vm.snapshot.viewerUserId]
-  );
-
   const livePeerPresence = useCommunityMessengerPeerPresence(peerUserId || null, vm.snapshot.peerPresence ?? null);
 
   const mannerScore = useMemo(() => {
@@ -341,59 +308,6 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     if (!built) return undefined;
     return { ...built, product: { ...built.product, unavailable: tradeListingUnavailable } };
   }, [isTradeRoom, vm.snapshot.room.contextMeta, vm.snapshot.tradeChatRoomDetail, vm.snapshot.viewerUserId, tradeListingUnavailable]);
-
-  const tradeVideoCallEnabled = useMemo(() => {
-    if (!isTradeRoom) return false;
-    const detail = vm.snapshot.tradeChatRoomDetail;
-    if (!detail?.product) return false;
-    const policy = normalizeTradeChatCallPolicy(detail.product.tradeChatCallPolicy);
-    return tradeChatCallPolicyAllowsVideo(policy);
-  }, [isTradeRoom, vm.snapshot.tradeChatRoomDetail]);
-
-  const dotMenuCallVisibility = useMemo(
-    () =>
-      resolveMessengerDotMenuCallVisibility({
-        callKind: callMenuKind,
-        tradeAllowCall: tradeContext?.product.allow_call,
-        tradeVideoCallEnabled,
-        deliveryAllowVoiceCall: deliveryMeta?.storeVoiceCallsEnabled,
-        deliveryAllowVideoCall: deliveryMeta?.storeVideoCallsEnabled,
-      }),
-    [
-      callMenuKind,
-      deliveryMeta?.storeVideoCallsEnabled,
-      deliveryMeta?.storeVoiceCallsEnabled,
-      tradeContext?.product.allow_call,
-      tradeVideoCallEnabled,
-    ]
-  );
-
-  const dotMenuVoiceDisabled = vm.roomUnavailable || vm.outgoingDialLocked;
-  const roomId = vm.snapshot.room.id;
-
-  useEffect(() => {
-    logCallV3ButtonRender({
-      location: "room_dot_menu",
-      roomId,
-      peerId: peerUserId,
-      visible: dotMenuCallVisibility.showVoice,
-      disabled: dotMenuVoiceDisabled,
-      reason: !dotMenuCallVisibility.showVoice
-        ? "call_gate_hidden"
-        : dotMenuVoiceDisabled
-          ? vm.roomUnavailable
-            ? "room_unavailable"
-            : "outgoing_dial_locked"
-          : null,
-    });
-  }, [
-    dotMenuCallVisibility.showVoice,
-    dotMenuVoiceDisabled,
-    peerUserId,
-    roomId,
-    vm.outgoingDialLocked,
-    vm.roomUnavailable,
-  ]);
 
   const deliveryMenuProfile = useMemo((): ChatRoomMenuProfileOverride | undefined => {
     if (!isDeliveryRoom || deliveryHeaderModel.mode === "none" || deliveryHeaderModel.mode === "generic_delivery") {
@@ -510,19 +424,6 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     }
   }, [friendActionBusy, peerLabelForFriend, peerPending, t, vm]);
 
-  /** §17-4 R-3: 막힌 통화 항목 — 발신 대신 이유 안내(true 면 처리됨) */
-  const explainBlockedCall = (): boolean => {
-    const reasonKey = resolveDirectCallUnavailableReasonKey({
-      outgoingDialLocked: vm.outgoingDialLocked,
-      roomUnavailable: vm.roomUnavailable,
-      directMessageDenied: vm.snapshot.directMessageDenied,
-      blockedByMe: Boolean(peerProfile?.blocked),
-    });
-    if (!reasonKey) return false;
-    showMessengerSnackbar(t(reasonKey), { variant: "default" });
-    return true;
-  };
-
   return (
     <>
     <ChatRoomMoreMenu
@@ -531,16 +432,12 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       otherUser={otherUser}
       menuProfile={deliveryMenuProfile}
       deliveryStoreSummary={deliveryStoreSummary}
-      showVoiceCall={dotMenuCallVisibility.showVoice}
-      showVideoCall={dotMenuCallVisibility.showVideo}
       isMuted={Boolean(vm.snapshot.room.isMuted)}
       isArchived={Boolean(vm.snapshot.room.isArchivedByViewer)}
       tradeContext={tradeContext}
       onOpenProductDetail={
         tradePostDetailSlide ? (postId) => tradePostDetailSlide.openPostDetail(postId) : undefined
       }
-      disableVoiceCall={vm.roomUnavailable || vm.outgoingDialLocked}
-      disableVideoCall={vm.roomUnavailable || vm.outgoingDialLocked}
       disableMuteToggle={vm.busy === "room-mute"}
       disableArchiveToggle={
         vm.busy === "room-archive" || !communityMessengerRoomIsGloballyUsable(vm.snapshot.room)
@@ -567,28 +464,6 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       onAcceptFriendRequest={() => {
         void onAcceptFriendRequest();
       }}
-      onVoiceCall={() => {
-        if (explainBlockedCall()) return;
-        if (!assertGeneralDirectCallAllowed("voice")) return;
-        logCallV3ButtonClick({
-          location: "room_dot_menu",
-          roomId,
-          peerId: peerUserId,
-          mediaType: "audio",
-        });
-        setDotMenuOutgoingConfirm("voice");
-      }}
-      onVideoCall={() => {
-        if (explainBlockedCall()) return;
-        if (!assertGeneralDirectCallAllowed("video")) return;
-        logCallV3ButtonClick({
-          location: "room_dot_menu",
-          roomId,
-          peerId: peerUserId,
-          mediaType: "video",
-        });
-        setDotMenuOutgoingConfirm("video");
-      }}
       onToggleMute={() => void vm.toggleRoomMute()}
       onToggleArchive={() => void vm.toggleRoomArchive()}
       onLeaveRoom={() => void vm.requestLeaveRoom()}
@@ -606,22 +481,6 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       }
       disableBlockPeer={vm.busy === "block-peer" || Boolean(peerProfile?.blocked)}
     />
-    {dotMenuOutgoingConfirm ? (
-      <MessengerOutgoingCallConfirmDialog
-        open
-        peerLabel={dotMenuDialPeerLabel}
-        kind={dotMenuOutgoingConfirm}
-        busy={vm.outgoingDialLocked}
-        onCancel={() => setDotMenuOutgoingConfirm(null)}
-        onConfirm={() => {
-          const kind = dotMenuOutgoingConfirm;
-          setDotMenuOutgoingConfirm(null);
-          vm.dismissRoomSheet();
-          /** F3: 확인창 이름 그대로 발신 */
-          void vm.startManagedDirectCall(kind, dotMenuDialPeerLabel);
-        }}
-      />
-    ) : null}
     </>
   );
 }

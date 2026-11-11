@@ -20,16 +20,22 @@ describe("outgoing confirm dialog name = dial name", () => {
     );
   });
 
-  it("방 헤더 음성 확인창 「발신」이 확인창 이름을 넘긴다", () => {
+  /** 통화 버튼 통합 2판 (Owner 2026-11-12): 방 안 발신은 헤더 📞 선택 시트 하나 — 시트 제목 이름 = 발신 이름 */
+  it("방 헤더 통화 선택 시트: 시트에 보인 이름을 그대로 발신에 넘긴다", () => {
     const h = src("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Header.tsx");
     expect(h).toContain("peerLabel={voiceConfirmPeerLabel}");
-    expect(h).toContain('vm.startManagedDirectCall("voice", voiceConfirmPeerLabel)');
+    expect(h).toContain("vm.startManagedDirectCall(kind, voiceConfirmPeerLabel)");
+    const sheet = src("components/community-messenger/call-ui/MessengerCallChoiceSheet.tsx");
+    expect(sheet).toContain('{peerLabel ? ` · ${peerLabel}` : ""}');
   });
 
-  it("매장 주문 구매자 확인창 「발신」이 매장명을 넘긴다 (room.title 금지)", () => {
+  it("매장 주문 구매자: 헤더 발신 이름은 매장명 (room.title 금지) · 주문 진행 시트 📞 없음", () => {
+    const h = src("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Header.tsx");
+    expect(h).toMatch(/if \(isDeliveryBuyer\) \{\s*const storeLabel = resolveStoreOrderBuyerDialPeerLabel\(vm\.snapshot\);/);
     const s = src("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2StoreOrderChrome.tsx");
-    expect(s).toContain("peerLabel={buyerVoicePeerLabel}");
-    expect(s).toContain('vm.startManagedDirectCall("voice", buyerVoicePeerLabel)');
+    expect(s).not.toContain("startManagedDirectCall");
+    const drawer = src("components/community-messenger/room/phase2/StoreOrderBuyerRoomSheet.tsx");
+    expect(drawer).not.toContain("onVoiceCall");
   });
 
   it("거래 채팅: 확인창·발신 모두 상대 닉네임, 대체 문구는 확인창 표시 전용", () => {

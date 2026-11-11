@@ -139,6 +139,8 @@ import { noteTradeChatRoomFirstMessageReadyForShellBreakdown } from "@/lib/trade
 import { useTradeCounterpartyRole } from "@/lib/community-messenger/room/phase2/use-trade-counterparty-role";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { isCmGroupCallEnabled } from "@/lib/community-messenger/call-phase0-basics";
+import { useMessengerRoomCallChoice } from "@/components/community-messenger/room/phase2/use-messenger-room-call-choice";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 
 const CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS = 10;
 /** R10 — direct tail 유지·upgrade 측정 상한(전체 measureElement 금지) */
@@ -1258,14 +1260,34 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [vm.setMessageActionItem]
   );
+  /** 통화 버튼 통합 2판 (Owner 2026-11-12): 헤더 📞 선택 시트와 같은 판정 — 방 규칙(거래 글·매장 설정)·차단 */
+  const callChoice = useMessengerRoomCallChoice(vm);
+  /** 말풍선 행 memo 가 매 메시지마다 깨지지 않도록 판정은 ref 로 읽는다 (콜백 정체성 유지) */
+  const callChoiceRef = useRef(callChoice);
+  useLayoutEffect(() => {
+    callChoiceRef.current = callChoice;
+  }, [callChoice]);
+  const redialIsGroupRoom = vm.isGroupRoom;
+  const redialRoomUnavailable = vm.roomUnavailable;
+  const redialT = vm.t;
   const startCallStubRedial = useCallback(
     (kind: "voice" | "video") => {
-      if (vm.roomUnavailable) return;
-      /** 그룹 통화 보류(Owner 2026-11-09) — 그룹방 통화 기록 말풍선으로 다시 걸기 없음. 1:1 방은 그대로. */
-      if (vm.isGroupRoom && !isCmGroupCallEnabled()) return;
+      if (redialIsGroupRoom) {
+        /** 그룹 통화 보류(Owner 2026-11-09) — 그룹방 통화 기록 말풍선으로 다시 걸기 없음 */
+        if (!isCmGroupCallEnabled() || redialRoomUnavailable) return;
+        setStubRedialConfirmKind(kind);
+        return;
+      }
+      const choice = callChoiceRef.current;
+      const row = kind === "video" ? choice.video : choice.voice;
+      if (!row.enabled) {
+        /** 방 규칙으로 이 방에서 쓸 수 없는 종류 — 다시 걸기 없음. 지금 막힌 상태(차단·거절·발신 중) — 이유 안내 */
+        if (row.reason === "unavailable") showMessengerSnackbar(redialT(row.reasonKey), { variant: "default" });
+        return;
+      }
       setStubRedialConfirmKind(kind);
     },
-    [vm.roomUnavailable, vm.isGroupRoom]
+    [redialIsGroupRoom, redialRoomUnavailable, redialT]
   );
   const virtualItemsForLayout = vm.chatVirtualizer.getVirtualItems();
   const virtualizerMeasuredReadyForLayout =

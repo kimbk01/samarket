@@ -1,10 +1,9 @@
 "use client";
 
 import { useOwnLiveCall } from "@/lib/call/own-live-call";
-import { resolveDirectCallUnavailableReasonKey } from "@/lib/community-messenger/call-ui/direct-call-unavailable-reason";
-import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { memo, useEffect, useLayoutEffect, useMemo, useState } from "react";
-import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
+import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useMessengerRoomCallChoice } from "@/components/community-messenger/room/phase2/use-messenger-room-call-choice";
+import { resolveStoreOrderBuyerDialPeerLabel } from "@/lib/community-messenger/room/phase2/store-order-buyer-dial-peer-label";
 import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
 import { BackIcon, MoreIcon } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { useMessengerRoomPhase2HeaderView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
@@ -42,21 +41,14 @@ import {
 import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
 import { StoreOrderDeliveryMessengerHeaderBlock } from "@/components/community-messenger/room/phase2/StoreOrderDeliveryMessengerHeaderBlock";
 import { useTradePostDetailSlideHost } from "@/components/community-messenger/room/phase2/TradePostDetailSlideHostContext";
-import {
-  generalFriendDirectRoomGate,
-  messengerRoomShowsConfirmedDeliveryPresentation,
-  messengerRoomShowsConfirmedTradePresentation,
-  resolveMessengerDotMenuCallKind,
-  resolveMessengerDotMenuCallVisibility,
-} from "@/lib/community-messenger/messenger-room-domain";
-import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
-import {
-  normalizeTradeChatCallPolicy,
-  tradeChatCallPolicyAllowsVideo,
-  tradeChatCallPolicyAllowsVoice,
-} from "@/lib/trade/trade-chat-call-policy";
+import { messengerRoomShowsConfirmedDeliveryPresentation } from "@/lib/community-messenger/messenger-room-domain";
 import { logCallV3ButtonClick, logCallV3ButtonRender } from "@/lib/community-messenger/call-v3/call-v3-debug";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
+
+/** 통화 선택 시트 — 📞 를 누를 때만 불러온다 (방 첫 화면 번들·방 진입 경로에 연락처 코드를 넣지 않음) */
+const MessengerCallChoiceSheetLazy = lazy(
+  () => import("@/components/community-messenger/call-ui/MessengerCallChoiceSheet")
+);
 
 /**
  * 방 헤더 아이콘 — 보이는 원 36px(기존 그대로) · 터치 44×44 (04-DESIGN-SYSTEM Touch, T-01).
@@ -96,71 +88,28 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
   const isDeliveryRoom = Boolean(deliveryMeta) && storeOrderId.length > 0;
   const deliveryViewerRole = messengerDeliveryViewerRole(deliveryMeta, vm.snapshot.myRole);
   const isDeliveryBuyer = isDeliveryRoom && deliveryViewerRole === "buyer";
-  const isTradeRoom = messengerRoomShowsConfirmedTradePresentation(
-    vm.snapshot.room,
-    vm.snapshot.viewerUserId
-  );
-  const tradeCallPolicy = useMemo(() => {
-    if (!isTradeRoom) return "none";
-    return normalizeTradeChatCallPolicy(vm.snapshot.tradeChatRoomDetail?.product?.tradeChatCallPolicy);
-  }, [isTradeRoom, vm.snapshot.tradeChatRoomDetail?.product?.tradeChatCallPolicy]);
-  const callMenuKind = resolveMessengerDotMenuCallKind(vm.snapshot.room, { isDeliveryRoom });
-  const headerCallVisibility = useMemo(
-    () =>
-      resolveMessengerDotMenuCallVisibility({
-        callKind: callMenuKind,
-        tradeAllowCall: tradeChatCallPolicyAllowsVoice(tradeCallPolicy),
-        tradeVideoCallEnabled: tradeChatCallPolicyAllowsVideo(tradeCallPolicy),
-        deliveryAllowVoiceCall: deliveryMeta?.storeVoiceCallsEnabled,
-        deliveryAllowVideoCall: deliveryMeta?.storeVideoCallsEnabled,
-      }),
-    [
-      callMenuKind,
-      deliveryMeta?.storeVideoCallsEnabled,
-      deliveryMeta?.storeVoiceCallsEnabled,
-      tradeCallPolicy,
-    ]
-  );
-  const showHeaderVoiceCall =
-    !vm.isGroupRoom &&
-    !vm.isPrivateGroupRoom &&
-    communityMessengerRoomIsGloballyUsable(vm.snapshot.room) &&
-    headerCallVisibility.showVoice &&
-    !isDeliveryBuyer;
-  const headerVoiceDisabled = vm.roomUnavailable || vm.outgoingDialLocked;
+  /**
+   * 통화 버튼 통합 2판 (Owner 승인 2026-11-12): 방 안 통화 시작은 헤더 📞 하나 → 선택 시트
+   * (DIBAY 음성 · DIBAY 영상 · 휴대폰 전화). 노출·막힘 판정은 `resolveRoomCallChoice` 단일 정의 —
+   * 매장 주문 구매자도 매장 통화 설정을 따른다(이전: 구매자는 설정을 보지 않고 항상 노출).
+   */
+  const callChoice = useMessengerRoomCallChoice(vm);
+  const showHeaderCall = callChoice.showEntry;
+  const headerDibayAllBlocked = !callChoice.voice.enabled && !callChoice.video.enabled;
   const roomId = vm.snapshot.room.id;
   const peerUserId = vm.snapshot.room.peerUserId ?? "";
   const canOpenPeerFriendProfile = vm.canOpenPeerFriendProfile;
-  const [headerVoiceConfirmOpen, setHeaderVoiceConfirmOpen] = useState(false);
+  const [callChoiceOpen, setCallChoiceOpen] = useState(false);
 
-  /** 내 통화가 울리는 중/진행 중이면 확인 팝업을 다시 띄우지 않는다 — 기존 통화로 돌아가거나 「통화 중」 안내(1회 통화). */
+  /** 내 통화가 울리는 중/진행 중이면 시트 없이 그 통화로 돌아간다 (1회 통화) */
   const ownLiveCall = useOwnLiveCall();
-  const openHeaderVoiceConfirm = () => {
+  const openHeaderCallChoice = () => {
     if (ownLiveCall) {
-      setHeaderVoiceConfirmOpen(false);
+      setCallChoiceOpen(false);
       void vm.startManagedDirectCall("voice");
       return;
     }
-    /** §17-4 R-3: 막힌 경우 발신 확인 대신 이유 안내 */
-    if (headerVoiceDisabled) {
-      const reasonKey = resolveDirectCallUnavailableReasonKey({
-        outgoingDialLocked: vm.outgoingDialLocked,
-        roomUnavailable: vm.roomUnavailable,
-        directMessageDenied: vm.snapshot.directMessageDenied,
-        blockedByMe: Boolean(vm.snapshot.members.find((m) => m.id === peerUserId)?.blocked),
-      });
-      if (reasonKey) {
-        showMessengerSnackbar(vm.t(reasonKey), { variant: "default" });
-        return;
-      }
-    }
-    logCallV3ButtonClick({
-      location: "room_header",
-      roomId,
-      peerId: peerUserId,
-      mediaType: "audio",
-    });
-    setHeaderVoiceConfirmOpen(true);
+    setCallChoiceOpen(true);
   };
 
   useEffect(() => {
@@ -168,34 +117,17 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
       location: "room_header",
       roomId,
       peerId: peerUserId,
-      visible: showHeaderVoiceCall,
-      disabled: headerVoiceDisabled,
-      reason: !showHeaderVoiceCall
-        ? vm.isGroupRoom || vm.isPrivateGroupRoom
-          ? "group_room"
-          : !headerCallVisibility.showVoice
-            ? "call_gate_hidden"
-            : isDeliveryBuyer
-              ? "delivery_buyer_has_dedicated_button"
-              : "not_globally_usable"
-        : headerVoiceDisabled
-          ? vm.roomUnavailable
-            ? "room_unavailable"
-            : "outgoing_dial_locked"
+      visible: showHeaderCall,
+      disabled: headerDibayAllBlocked,
+      reason: !showHeaderCall
+        ? "call_choice_hidden"
+        : headerDibayAllBlocked
+          ? callChoice.voice.enabled
+            ? null
+            : callChoice.voice.reasonKey
           : null,
     });
-  }, [
-    headerCallVisibility.showVoice,
-    headerVoiceDisabled,
-    isDeliveryBuyer,
-    peerUserId,
-    roomId,
-    showHeaderVoiceCall,
-    vm.isGroupRoom,
-    vm.isPrivateGroupRoom,
-    vm.outgoingDialLocked,
-    vm.roomUnavailable,
-  ]);
+  }, [callChoice.voice, headerDibayAllBlocked, peerUserId, roomId, showHeaderCall]);
 
   const deliveryHeaderModel = useStoreOrderDeliveryMessengerHeader({
     isDeliveryRoom,
@@ -345,8 +277,16 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
       });
       if (storeLabel) return storeLabel;
     }
+    /**
+     * F3: 매장 주문 구매자는 매장명만 (사장님 개인 닉네임 = room.title 금지). 주문 진행 시트 📞 를 없앤 뒤
+     * 구매자 발신은 헤더 📞 하나뿐이라, 머리글 모델이 아직 「buyer_store」 가 아니어도 같은 매장명 함수로 보정.
+     */
+    if (isDeliveryBuyer) {
+      const storeLabel = resolveStoreOrderBuyerDialPeerLabel(vm.snapshot);
+      if (storeLabel) return storeLabel;
+    }
     return vm.snapshot.room.title?.trim() || "";
-  }, [deliveryHeaderModel.mode, deliveryHeaderModel.title, isDeliveryBuyer, vm.snapshot.room.title]);
+  }, [deliveryHeaderModel.mode, deliveryHeaderModel.title, isDeliveryBuyer, vm.snapshot]);
 
   const showDeliveryPresence =
     useDeliveryHeaderBlock &&
@@ -568,16 +508,16 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               </span>
             </button>
           ) : null}
-          {isDeliveryBuyer || showHeaderVoiceCall ? (
+          {showHeaderCall ? (
             <button
               type="button"
-              onClick={openHeaderVoiceConfirm}
-              aria-disabled={headerVoiceDisabled || undefined}
-              data-cm-call-unavailable={headerVoiceDisabled ? "1" : undefined}
-              className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} ${headerVoiceDisabled ? "opacity-45" : ""} ${
+              onClick={openHeaderCallChoice}
+              aria-haspopup="dialog"
+              data-cm-call-unavailable={headerDibayAllBlocked ? "1" : undefined}
+              className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} ${headerDibayAllBlocked ? "opacity-45" : ""} ${
                 ownLiveCall ? "text-[color:var(--cm-room-primary)]" : "text-[color:var(--cm-room-text-muted)]"
               }`}
-              aria-label={ownLiveCall ? vm.t("cm_ui_call_in_progress_return") : vm.t("cm_ui_voice_call")}
+              aria-label={ownLiveCall ? vm.t("cm_ui_call_in_progress_return") : vm.t("cm_contacts_member_phone_call")}
               data-cm-own-call-live={ownLiveCall ? "1" : undefined}
             >
               <span className={`${CM_ROOM_HEADER_TOUCH_FACE_CLASS} relative`}>
@@ -592,7 +532,8 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             </button>
           ) : null}
           {/*
-           * 1:1·거래 방 ⋮ 메뉴(검색·미디어·알림끄기·보관·나가기·영상·연락처 추가)는 전화 버튼과 **함께** 표시.
+           * 1:1·거래 방 ⋮ 메뉴(검색·미디어·알림끄기·보관·나가기·연락처 추가)는 전화 버튼과 **함께** 표시.
+           * 통화(음성·영상·휴대폰)는 ⋮ 에 두지 않고 📞 선택 시트 하나로만 (통화 버튼 통합 2판).
            * 3f49bc530(통화 진입 수정)이 전화 분기를 ⋮ 앞 삼항으로 넣어 메뉴가 사라지던 회귀 복원 (T-03).
            * 배달 구매자 방(f019baa63)·그룹 방(⚙ = 메뉴)은 기존 계약 유지.
            */}
@@ -610,19 +551,26 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
           )}
         </div>
     </MessengerHeader>
-    {headerVoiceConfirmOpen && !ownLiveCall ? (
-      <MessengerOutgoingCallConfirmDialog
-        open
-        peerLabel={voiceConfirmPeerLabel}
-        kind="voice"
-        busy={vm.outgoingDialLocked}
-        onCancel={() => setHeaderVoiceConfirmOpen(false)}
-        onConfirm={() => {
-          setHeaderVoiceConfirmOpen(false);
-          /** 확인창에 보인 이름 그대로 발신 (매장 주문 구매자 = 매장명) */
-          void vm.startManagedDirectCall("voice", voiceConfirmPeerLabel);
-        }}
-      />
+    {callChoiceOpen && !ownLiveCall ? (
+      <Suspense fallback={null}>
+        <MessengerCallChoiceSheetLazy
+          peerLabel={voiceConfirmPeerLabel}
+          viewerUserId={vm.snapshot.viewerUserId ?? null}
+          peerUserId={peerUserId || null}
+          choice={callChoice}
+          onClose={() => setCallChoiceOpen(false)}
+          onDibayCall={(kind) => {
+            logCallV3ButtonClick({
+              location: "room_header",
+              roomId,
+              peerId: peerUserId,
+              mediaType: kind === "video" ? "video" : "audio",
+            });
+            /** 시트에 보인 이름 그대로 발신 (매장 주문 구매자 = 매장명) */
+            void vm.startManagedDirectCall(kind, voiceConfirmPeerLabel);
+          }}
+        />
+      </Suspense>
     ) : null}
     </>
   );

@@ -13,9 +13,10 @@ const src = readFileSync(
 );
 
 describe("room header: call button and ⋮ menu coexist (T-03)", () => {
+  /** 통화 버튼 통합 2판 (Owner 2026-11-12): 📞 노출은 `showHeaderCall`(선택 판정 단일 정의) — 매장 구매자도 매장 설정을 따른다 */
   it("call button branch ends without an alternative (no ⋮ in its else)", () => {
-    expect(src).toContain("{isDeliveryBuyer || showHeaderVoiceCall ? (");
-    expect(src).not.toMatch(/showHeaderVoiceCall \? \([\s\S]*?\) : vm\.isPrivateGroupRoom \|\| vm\.isGroupRoom \? null : \(/);
+    expect(src).toContain("{showHeaderCall ? (");
+    expect(src).not.toMatch(/showHeaderCall \? \([\s\S]*?\) : vm\.isPrivateGroupRoom \|\| vm\.isGroupRoom \? null : \(/);
   });
 
   it("⋮ menu renders for every non-group, non-delivery-buyer room", () => {

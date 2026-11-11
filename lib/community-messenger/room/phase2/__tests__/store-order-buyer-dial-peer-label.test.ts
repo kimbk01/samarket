@@ -40,19 +40,25 @@ describe("resolveStoreOrderBuyerDialPeerLabel", () => {
     expect(resolveStoreOrderBuyerDialPeerLabel(snap(room, "owner"))).toBeNull();
   });
 
-  it("세 화면이 같은 값을 확인창 표시·발신 모두에 쓴다 (소스 계약)", () => {
+  /**
+   * 통화 버튼 통합 2판 (Owner 2026-11-12): 방 안 발신 진입 = 헤더 📞 선택 시트 · 통화 기록 말풍선.
+   * ⋮ 메뉴·방 안 프로필 시트의 통화(이전 진입점)는 없앴다.
+   */
+  it("두 진입점이 같은 값을 표시·발신 모두에 쓴다 (소스 계약)", () => {
     const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
     const base = "components/community-messenger/room/phase2/";
     const timeline = read(`${base}CommunityMessengerRoomPhase2MessageTimeline.tsx`);
     expect(timeline).toContain("peerLabel={stubRedialPeerLabel}");
     expect(timeline).toContain("vm.startManagedDirectCall(kind, stubRedialPeerLabel)");
+    expect(timeline).toContain("vm.storeOrderBuyerDialPeerLabel ??");
+    const header = read(`${base}CommunityMessengerRoomPhase2Header.tsx`);
+    expect(header).toContain("peerLabel={voiceConfirmPeerLabel}");
+    expect(header).toContain("vm.startManagedDirectCall(kind, voiceConfirmPeerLabel)");
+    expect(header).toContain("resolveStoreOrderBuyerDialPeerLabel(vm.snapshot)");
     const dot = read(`${base}CommunityMessengerRoomPhase2OneToOneDotMenu.tsx`);
-    expect(dot).toContain("peerLabel={dotMenuDialPeerLabel}");
-    expect(dot).toContain("vm.startManagedDirectCall(kind, dotMenuDialPeerLabel)");
+    expect(dot).not.toContain("startManagedDirectCall");
     const sheet = read(`${base}CommunityMessengerRoomFriendProfileSheetHost.tsx`);
-    expect(sheet).toContain("peerLabel={profileDialPeerLabel}");
-    expect(sheet).toContain("vm.startManagedDirectCall(kind, profileDialPeerLabel)");
-    for (const src of [timeline, dot, sheet]) expect(src).toContain("vm.storeOrderBuyerDialPeerLabel ??");
+    expect(sheet).not.toContain("startManagedDirectCall");
     const controller = read("lib/community-messenger/room/phase2/use-messenger-room-phase2-controller.ts");
     expect(controller).toContain(
       "dialPeerLabel?.trim() || resolveStoreOrderBuyerDialPeerLabel(snapshot) || snapshot?.room.title?.trim()",

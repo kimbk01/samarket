@@ -38,6 +38,8 @@ describe("그룹 통화 보류 — 그룹방 진입점 게이트", () => {
   it("대화 화면: 상단 「그룹 통화 …」 문구와 그룹방 통화 기록 다시 걸기가 플래그 뒤에 있다", () => {
     const src = read("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx");
     expect(src).toContain("{vm.isGroupRoom && isCmGroupCallEnabled() ? ` · ${vm.groupCallStatusLabel}` : \"\"}");
-    expect(src).toMatch(/if \(vm\.isGroupRoom && !isCmGroupCallEnabled\(\)\) return;\n\s+setStubRedialConfirmKind\(kind\);/);
+    /** 통화 버튼 통합 2판 (2026-11-12): 그룹방 분기가 먼저 — 플래그가 꺼져 있으면 다시 걸기 없음 */
+    expect(src).toContain("const redialIsGroupRoom = vm.isGroupRoom;");
+    expect(src).toMatch(/if \(redialIsGroupRoom\) \{[\s\S]*?if \(!isCmGroupCallEnabled\(\) \|\| redialRoomUnavailable\) return;\n\s+setStubRedialConfirmKind\(kind\);/);
   });
 });

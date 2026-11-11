@@ -9,7 +9,6 @@ type StoreOrderI18nT = (key: MessageKey, vars?: Record<string, string | number>)
 import { StoreOrderSellerOrderPanel } from "@/components/chats/StoreOrderSellerOrderPanel";
 import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
-import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { StoreOrderBuyerRoomSheet } from "@/components/community-messenger/room/phase2/StoreOrderBuyerRoomSheet";
 import { useStoreOrderDeliveryRoom } from "@/components/community-messenger/room/phase2/store-order-delivery-room-context";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
@@ -30,7 +29,6 @@ import { normalizeStoreOrderCancelKind, orderStatusName } from "@/lib/stores/sto
 import {
   resolveDeliveryChromePrimaryLabel,
   resolveDeliveryPeerUserId,
-  resolveStoreOrderBuyerVoicePeerLabel,
 } from "@/lib/store-order-chat/messenger-delivery-room-header";
 
 type Props = {
@@ -45,7 +43,6 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
   const { t, language } = useI18n();
   const vm = useMessengerRoomPhase2View();
   const ownerSlideHost = useOwnerOrderChatSlideHost();
-  const [buyerVoiceOutgoingConfirmOpen, setBuyerVoiceOutgoingConfirmOpen] = useState(false);
   const {
     snapshot,
     loading,
@@ -185,36 +182,9 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
       onCancel={() => void handleCancel()}
       chatRoomId={vm.snapshot.room.id}
       onSendOrderMatchAck={sendMatchAck}
-      onVoiceCall={() => setBuyerVoiceOutgoingConfirmOpen(true)}
-      voiceCallDisabled={vm.roomUnavailable || vm.outgoingDialLocked}
     />
   ) : null;
 
-  const buyerVoicePeerLabel = useMemo(() => {
-    if (isSeller) return vm.snapshot.room.title?.trim() || "";
-    return (
-      resolveStoreOrderBuyerVoicePeerLabel({
-        headerMode: "buyer_store",
-        storeDisplayName: chromePrimaryLabel,
-      }) || chromePrimaryLabel
-    );
-  }, [chromePrimaryLabel, isSeller, vm.snapshot.room.title]);
-
-  const buyerVoiceOutgoingConfirmDialog =
-    buyerVoiceOutgoingConfirmOpen && !isSeller ? (
-      <MessengerOutgoingCallConfirmDialog
-        open
-        peerLabel={buyerVoicePeerLabel}
-        kind="voice"
-        busy={vm.outgoingDialLocked}
-        onCancel={() => setBuyerVoiceOutgoingConfirmOpen(false)}
-        onConfirm={() => {
-          setBuyerVoiceOutgoingConfirmOpen(false);
-          /** 확인창에 보인 매장명 그대로 발신 — 사장님 개인 닉네임(room.title) 금지 */
-          void vm.startManagedDirectCall("voice", buyerVoicePeerLabel);
-        }}
-      />
-    ) : null;
 
   const sellerOrderPanel =
     isSeller && storeId ? (
@@ -264,7 +234,6 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
         </div>
         {buyerOrderSheet}
         {sellerOrderPanel}
-        {buyerVoiceOutgoingConfirmDialog}
       </>
     );
   }
@@ -335,7 +304,6 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
       />
       {buyerOrderSheet}
       {sellerOrderPanel}
-      {buyerVoiceOutgoingConfirmDialog}
     </>
   );
 }

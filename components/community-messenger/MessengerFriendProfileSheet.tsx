@@ -29,10 +29,13 @@ type Props = {
   profile: CommunityMessengerProfileLite;
   busyId: string | null;
   onClose: () => void;
-  /** default: Home·친구목록. roomHeader: 1:1 방 안 — 「메시지 보내기」 CTA 생략 */
+  /**
+   * default: Home·친구목록. roomHeader: 1:1 방 안 — 「메시지 보내기」·통화 버튼 생략
+   * (방 안 통화는 헤더 📞 선택 시트 하나 — 통화 버튼 통합 2판 · Owner 2026-11-12).
+   */
   context?: "default" | "roomHeader";
-  onVoiceCall: () => void;
-  onVideoCall: () => void;
+  onVoiceCall?: () => void;
+  onVideoCall?: () => void;
   onChat?: () => void;
   onToggleFavorite?: () => void;
   onToggleHidden?: () => void;
@@ -147,6 +150,7 @@ export function MessengerFriendProfileSheet({
   const cta = friendAddCta;
   const showDirectChatAction = context === "default";
   const showFriendMenuActions = context === "default";
+  const showCallActions = context === "default";
 
   /** 주 행동은 화면에 1개 — 친구 요청 버튼이 있으면 그것이 주 행동, 빠른 행동은 모두 보조 */
   const friendCtaShown = Boolean(useFriendAddGate && cta && cta.kind !== "friend");
@@ -164,23 +168,27 @@ export function MessengerFriendProfileSheet({
           },
         ]
       : []),
-    {
-      key: "voice",
-      icon: <Phone strokeWidth={2.2} />,
-      label: t("nav_voice_call_label"),
-      onClick: onVoiceCall,
-      disabled: anyBusy || !canCall,
-      loading: bVoice,
-      primary: !showDirectChatAction && !friendCtaShown,
-    },
-    {
-      key: "video",
-      icon: <Video strokeWidth={2.2} />,
-      label: t("nav_video_call_label"),
-      onClick: onVideoCall,
-      disabled: anyBusy || !canCall,
-      loading: bVideo,
-    },
+    ...(showCallActions
+      ? [
+          {
+            key: "voice",
+            icon: <Phone strokeWidth={2.2} />,
+            label: t("nav_voice_call_label"),
+            onClick: onVoiceCall,
+            disabled: anyBusy || !canCall,
+            loading: bVoice,
+            primary: !showDirectChatAction && !friendCtaShown,
+          },
+          {
+            key: "video",
+            icon: <Video strokeWidth={2.2} />,
+            label: t("nav_video_call_label"),
+            onClick: onVideoCall,
+            disabled: anyBusy || !canCall,
+            loading: bVideo,
+          },
+        ]
+      : []),
   ];
 
   const friendMenu: DibayMenuItem[] =
