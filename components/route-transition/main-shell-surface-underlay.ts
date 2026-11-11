@@ -22,6 +22,8 @@ export type MainShellSurfaceUnderlayCapture = {
   width: number;
   height: number;
   scrolls: Array<{ index: number; top: number; left: number }>;
+  /** 복제본 안 스크롤 위치를 다시 줄 요소(숨긴 요소를 뺀 뒤에도 같은 요소) */
+  scrollTargets: Array<{ el: HTMLElement | null; top: number; left: number }>;
 };
 
 function isTransparent(color: string): boolean {
@@ -58,6 +60,16 @@ export function captureMainShellSurfaceUnderlay(
   const node = el.cloneNode(true) as HTMLElement;
   node.removeAttribute("id");
   for (const n of node.querySelectorAll("[id]")) n.removeAttribute("id");
+  /**
+   * D1 S1: 숨겨 둔 요소(하단 탭 보관 허브 — `display: none`)는 화면에 안 보이므로 복제본에서 뺀다.
+   * 보이는 모습은 같고, 숨긴 허브 수천 개 요소를 복제·배치하지 않는다. 스크롤 기록(index)은 복제 직후 기준이라
+   * 지운 뒤에도 맞도록 지우기 전에 대상 요소를 잡아 둔다.
+   */
+  const cloneAll = node.querySelectorAll<HTMLElement>("*");
+  const scrollTargets = scrolls.map((s) => ({ el: cloneAll[s.index] ?? null, top: s.top, left: s.left }));
+  for (const n of Array.from(node.querySelectorAll<HTMLElement>("[style]"))) {
+    if (n.style.getPropertyValue("display") === "none") n.remove();
+  }
 
   return {
     fromPath,
@@ -68,6 +80,7 @@ export function captureMainShellSurfaceUnderlay(
     width: rect.width,
     height: rect.height,
     scrolls,
+    scrollTargets,
   };
 }
 
@@ -78,7 +91,9 @@ export function captureMainShellSurfaceUnderlay(
 export function mountMainShellSurfaceUnderlay(
   el: HTMLElement,
   capture: MainShellSurfaceUnderlayCapture,
-  maxMs: number
+  maxMs: number,
+  /** D1 S1: 주면 밑그림이 들어오는 화면과 같은 시간·곡선으로 반대쪽으로 밀려 나간다(예전 두 화면 연출과 같은 모양) */
+  exit?: { exitAxis: "ltr" | "rtl"; durationMs: number }
 ): () => void {
   const host = el.parentElement;
   if (!host) return () => {};
@@ -119,14 +134,19 @@ export function mountMainShellSurfaceUnderlay(
   }
   host.insertBefore(wrap, el.nextSibling);
 
-  if (capture.scrolls.length) {
-    const all = node.querySelectorAll<HTMLElement>("*");
-    for (const s of capture.scrolls) {
-      const n = all[s.index];
-      if (!n) continue;
-      n.scrollTop = s.top;
-      n.scrollLeft = s.left;
-    }
+  for (const s of capture.scrollTargets) {
+    if (!s.el || !s.el.isConnected) continue;
+    s.el.scrollTop = s.top;
+    s.el.scrollLeft = s.left;
+  }
+
+  if (exit) {
+    /** 들어오는 surface 의 enter 클래스와 같은 프레임에 시작 — 같은 곡선(`globals.css` main-shell-push-surface-enter-*) */
+    wrap.style.transform = "translate3d(0, 0, 0)";
+    wrap.style.willChange = "transform";
+    void wrap.offsetWidth;
+    wrap.style.transition = `transform ${exit.durationMs}ms cubic-bezier(0.25, 0.9, 0.35, 1)`;
+    wrap.style.transform = exit.exitAxis === "rtl" ? "translate3d(-100%, 0, 0)" : "translate3d(100%, 0, 0)";
   }
 
   let done = false;
