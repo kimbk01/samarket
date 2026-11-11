@@ -4,6 +4,7 @@ import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete
 import { resolveCommunityMessengerUserForSocial } from "@/lib/community-messenger/service";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { pickFriendSource } from "@/lib/community-messenger/friend-qr/friend-qr-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,20 +43,21 @@ export async function GET(req: NextRequest) {
   }
 
   const p = result.profile;
-  /** 친구가 된 경로 — 둘 사이 수락된 요청의 source (「QR로 추가」 배지, 재감사 N2) */
+  /**
+   * 친구가 된 경로 — 둘 사이 수락된 요청 중 가장 최근 수락(responded_at)의 source (「QR로 추가」 배지, 재감사 N2).
+   * QR 추가는 스캔한 쪽 행(source qr)과 반대쪽 대기 행을 같은 시각에 수락하므로, 같은 시각이면 qr 을 고른다 (PR #149 리뷰).
+   */
   let friendSource: string | null = null;
   if (p.isFriend) {
-    const { data: req } = await sb
+    const { data: rows } = await sb
       .from("community_friend_requests")
-      .select("source")
+      .select("source, responded_at")
       .eq("status", "accepted")
       .or(
         `and(requester_id.eq.${auth.userId},addressee_id.eq.${p.id}),and(requester_id.eq.${p.id},addressee_id.eq.${auth.userId})`,
       )
-      .order("responded_at", { ascending: false, nullsFirst: false })
-      .limit(1)
-      .maybeSingle();
-    friendSource = typeof req?.source === "string" ? req.source : null;
+      .limit(2);
+    friendSource = pickFriendSource((rows ?? []) as Array<{ source?: string | null; responded_at?: string | null }>);
   }
   return NextResponse.json({
     ok: true,

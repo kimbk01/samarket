@@ -82,3 +82,21 @@ describe("my QR panel — failed QR image (PR #145 review)", () => {
     expect(src.match(/disabled=\{!qr \|\| !qrImage \|\| busy !== null\}/g)).toHaveLength(3);
   });
 });
+
+describe("PR #149 review — friend source", () => {
+  it("picks the latest accepted row, qr on a tie (QR add accepts both rows at once)", async () => {
+    const { pickFriendSource } = await import("@/lib/community-messenger/friend-qr/friend-qr-contract");
+    const t = "2026-11-11T14:00:00Z";
+    expect(pickFriendSource([{ source: "id_search", responded_at: t }, { source: "qr", responded_at: t }])).toBe("qr");
+    expect(pickFriendSource([{ source: "qr", responded_at: t }, { source: "id_search", responded_at: "2026-11-12T00:00:00Z" }])).toBe("id_search");
+    expect(pickFriendSource([{ source: null, responded_at: null }])).toBeNull();
+    expect(pickFriendSource([])).toBeNull();
+  });
+
+  it("shared home add action carries the caller's source (contacts · profile sheet)", () => {
+    const home = read("components/community-messenger/CommunityMessengerHome.tsx");
+    expect(home).toContain("onSend: (userId, source) => addFriendSaved(userId, source),");
+    expect(home).toContain('addFriendSaved(friendProfileForSheet.id, "profile")');
+    expect(read("components/community-messenger/contacts/use-contacts-friend-cta.ts")).toContain('home.onSend(m.user_id, "contacts")');
+  });
+});

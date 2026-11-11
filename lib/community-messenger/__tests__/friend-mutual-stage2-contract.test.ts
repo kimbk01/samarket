@@ -208,7 +208,7 @@ describe("friend mutual stage2 — wiring", () => {
     expect(inline).toContain("const ok = (await friendActions.onCancel(userId)) === true;");
     expect(inline).toContain("const ok = (await friendActions.onRespond(requestId, action, peerLabel)) === true;");
     const home = src("components/community-messenger/CommunityMessengerHome.tsx");
-    expect(home).toContain("onSend: (userId) => addFriendSaved(userId),");
+    expect(home).toContain("onSend: (userId, source) => addFriendSaved(userId, source),");
     /** 「비공개 그룹 / 모임」 고르는 단계(S3 메뉴)는 없앴다 — 「그룹 대화」 = 친구 고르기 하위 화면 */
     expect(home).not.toContain('key: "private_group",');
     expect(home).toContain('openMessengerSubScreen({ kind: "pick", mode: "group" })');
