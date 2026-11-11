@@ -316,6 +316,12 @@ DB (마이그레이션 1개 — 운영 적용 Owner 승인):
 
 DB: `supabase/migrations/20271111170000_member_id_v3_audit_fixes.sql` — 운영 적용은 Owner 승인. **웹 병합 전에 적용해야 한다** (웹이 `cm_send_friend_request` 에 `p_source` 를 넘긴다 — DB 적용 전이면 친구 요청 실패).
 
+**운영 DB 적용 완료** (Owner 「운영 DB 적용」 2026-11-11, `schema_migrations 20271111170000`, 한 트랜잭션, 오류 없음). 적용 후 읽기 전용 확인:
+- `cm_send_friend_request` = 4인자(`p_source` 기본 NULL) 하나만, 권한 postgres·service_role 만 (적용 전과 같음). 지금 운영 웹의 3인자 이름 붙인 호출이 새 함수로 풀리는 것을 `EXPLAIN`(실행 없음)으로 확인 → 병합 전에도 친구 요청 정상.
+- `dibay_is_system_auto_id`: `48213SUN`·`dibay_0d9d04`·`dibay482913` = true, `kim.bk`·`4821sun` = false. 새·바뀐 함수 모두 anon·authenticated 실행 권한 없음.
+- `confirm_dibay_id` 회원 변경 기록·`admin_grant_dibay_id_change` 「변경권 쓴 회원만」 반영. 친구 요청 행 107(대기 4)·회원 상태 분포(75 / 59 / 8) 적용 전과 같음.
+- 쓰기 함수(아이디 확정·변경권 주기·친구 요청 경로 기록)는 운영에서 실행하지 않음 — 실기에서 확인 (NOT_PROVEN).
+
 ### 후속 (설계 완료 후 처리 목록)
 
 | # | 내용 |
