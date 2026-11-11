@@ -76,6 +76,8 @@ export function MypageRequiredDibayIdClient() {
         dibay_id_locked={profile.dibay_id_locked === true}
         dibay_id_auto_assigned={profile.dibay_id_auto_assigned === true}
         dibay_id_changed_once={profile.dibay_id_changed_once === true}
+        dibay_id_state={profile.dibay_id_state ?? null}
+        dibay_id_can_change={profile.dibay_id_can_change ?? null}
         username={profile.username ?? profile.dibay_id ?? null}
         username_confirmed={profile.username_confirmed ?? null}
         ctaPlacement="sticky"

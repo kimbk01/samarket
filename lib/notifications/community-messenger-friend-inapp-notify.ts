@@ -92,3 +92,31 @@ export async function notifyCommunityMessengerFriendRequestAccepted(
     meta: { kind: "friend_accepted", request_id: requestId, actor_id: accepterId },
   });
 }
+
+/**
+ * QR 친구 추가 — QR 주인에게 「OO님이 QR로 친구가 되었어요」 1건 (설계안 v3 §3.6).
+ * 알림 종류는 친구가 된 알림과 같은 `friend_accepted` (소리·설정·분류 등록 그대로), 문구·`via` 만 다르다.
+ */
+export async function notifyCommunityMessengerFriendAddedViaQr(
+  sb: SupabaseClient<any>,
+  args: { ownerUserId: string; scannerUserId: string; scannerLabel: string }
+): Promise<void> {
+  const uid = trimText(args.ownerUserId);
+  const scannerId = trimText(args.scannerUserId);
+  if (!uid || !scannerId) return;
+  const language = await loadNotificationUserLanguage(sb, uid);
+  const label = trimText(args.scannerLabel);
+  const name = label && !label.startsWith("@") ? label : notifySafeT(language, "notify_member_fallback_name");
+  await appendUserNotification(sb, {
+    user_id: uid,
+    notification_type: "status",
+    push_kind: "community",
+    title: notifySafeT(language, "notify_friend_added_via_qr_title"),
+    body: notifySafeT(language, "notify_friend_added_via_qr_body", { vars: { name } }),
+    link_url: "/community-messenger?section=friends",
+    ref_id: scannerId,
+    sender_id: scannerId,
+    dedupe_key: `cm_friend_qr:${scannerId}:${uid}:${dayBucket()}`,
+    meta: { kind: "friend_accepted", via: "qr", actor_id: scannerId },
+  });
+}

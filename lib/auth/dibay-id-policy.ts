@@ -18,11 +18,13 @@ export const DIBAY_ID_RESERVED = new Set([
 ]);
 
 /**
- * 서버 자동 발급 @id 형식 (설계안 ⑦, Owner 2026-11-08)
- * - 신규: `dibay` + 숫자 6~7자리 (예: dibay482913)
- * - 기존: `dibay_` + 16진수 6자리 (2026-07 ~ 2026-11 발급분, 그대로 유지)
+ * 서버 자동 발급 @id 모양 — 회원·관리자가 직접 지정할 수 없다 (DB confirm_dibay_id·admin_set_dibay_id 와 같은 목록).
+ * - v3 (Owner 2026-11-11): 숫자 5자리 + 영어 3글자 (예: 48213sun) — DB assign_auto_dibay_id
+ * - 옛 형식: `dibay` + 숫자 6~7자리 (2026-11-08 ~ 11-11), `dibay_` + 16진수 6자리 (2026-07 ~ 11-08) — 그대로 유지
+ * 상태(안 바꿈·바뀜) 판정은 모양이 아니라 DB `profiles.dibay_id_state` — `lib/auth/dibay-public-id-ssot.ts`.
  */
-const DIBAY_AUTO_PATTERNS: readonly RegExp[] = [/^dibay[0-9]{6,7}$/, /^dibay_[a-f0-9]{6}$/];
+export const DIBAY_AUTO_ID_V3_RE = /^[0-9]{5}[a-z]{3}$/;
+const DIBAY_AUTO_PATTERNS: readonly RegExp[] = [DIBAY_AUTO_ID_V3_RE, /^dibay[0-9]{6,7}$/, /^dibay_[a-f0-9]{6}$/];
 
 /** `dibay` 로 시작하는 @id 는 시스템 전용 — 사용자·관리자 지정 불가 (기존 보유자는 유지) */
 export const DIBAY_ID_SYSTEM_PREFIX = "dibay";

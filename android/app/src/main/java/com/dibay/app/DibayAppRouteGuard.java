@@ -23,7 +23,7 @@ public final class DibayAppRouteGuard {
           new HashSet<>(
               Arrays.asList(
                   "account", "address", "admin", "auth", "biz", "business-info", "chat", "chats",
-                  "community", "community-messenger", "delivery", "events", "features", "group",
+                  "community", "community-messenger", "delivery", "events", "f", "features", "group",
                   "group-chat", "home", "login", "market", "my", "mypage", "notifications",
                   "onboarding", "orders", "philife", "post", "posts", "privacy", "products",
                   "regions", "rider", "search", "services", "settings", "shop", "signup", "stores",

@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["ATB959PF9V.com.dibay.ph"],
+        "appID": "ATB959PF9V.com.dibay.ph",
+        "components": [{ "/": "/f/*", "comment": "QR friend add" }],
+        "paths": ["/f/*"]
+      }
+    ]
+  }
+}

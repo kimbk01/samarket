@@ -72,6 +72,7 @@ import { chatsMessages } from "./catalog/chats";
 import { ptrMessages } from "./catalog/ptr";
 import { homeHubMessages } from "./catalog/home-hub";
 import { homeHubAdminMessages } from "./catalog/home-hub-admin";
+import { adminMemberIdV3Messages } from "./catalog/admin-member-id-v3";
 import { storeCommerceUiMessages } from "./catalog/store-commerce-ui";
 import { storePartnerAgreementMessages } from "./catalog/store-partner-agreement";
 import { adminStorePartnerAgreementsMessages } from "./catalog/admin-store-partner-agreements";
@@ -131,6 +132,7 @@ import { adsImpl1104IntroMessages } from "./catalog/ads-impl-1104-i";
 import { adsImpl1107MoneyMessages } from "./catalog/ads-impl-1107-w1";
 import { adsImpl1107PopupMessages } from "./catalog/ads-impl-1107-w2";
 import { adsImpl1107DeliveryMessages } from "./catalog/ads-impl-1107-w3";
+import { memberIdV3Messages } from "./catalog/member-id-v3";
 import { adsImpl1107LedgerMessages } from "./catalog/ads-impl-1107-r1";
 import { adsImpl1107DeleteMessages } from "./catalog/ads-impl-1107-r2";
 import { adminConsoleCoreMessages } from "./catalog/admin-console-core";
@@ -194,6 +196,7 @@ export type MessageKey =
   | KeyOf<typeof adsImpl1107MoneyMessages.ko>
   | KeyOf<typeof adsImpl1107PopupMessages.ko>
   | KeyOf<typeof adsImpl1107DeliveryMessages.ko>
+  | KeyOf<typeof memberIdV3Messages.ko>
   | KeyOf<typeof adsImpl1107LedgerMessages.ko>
   | KeyOf<typeof adsImpl1107DeleteMessages.ko>
   | KeyOf<typeof commonMessages.ko>
@@ -254,6 +257,7 @@ export type MessageKey =
   | KeyOf<typeof ptrMessages.ko>
   | KeyOf<typeof homeHubMessages.ko>
   | KeyOf<typeof homeHubAdminMessages.ko>
+  | KeyOf<typeof adminMemberIdV3Messages.ko>
   | KeyOf<typeof storeCommerceUiMessages.ko>
   | KeyOf<typeof storePartnerAgreementMessages.ko>
   | KeyOf<typeof adminStorePartnerAgreementsMessages.ko>
@@ -388,6 +392,7 @@ type EnMessageKey =
   | KeyOf<typeof ptrMessages.en>
   | KeyOf<typeof homeHubMessages.en>
   | KeyOf<typeof homeHubAdminMessages.en>
+  | KeyOf<typeof adminMemberIdV3Messages.en>
   | KeyOf<typeof storeCommerceUiMessages.en>
   | KeyOf<typeof storePartnerAgreementMessages.en>
   | KeyOf<typeof adminStorePartnerAgreementsMessages.en>
@@ -457,6 +462,7 @@ type EnMessageKey =
   | KeyOf<typeof adsImpl1107MoneyMessages.en>
   | KeyOf<typeof adsImpl1107PopupMessages.en>
   | KeyOf<typeof adsImpl1107DeliveryMessages.en>
+  | KeyOf<typeof memberIdV3Messages.en>
   | KeyOf<typeof adsImpl1107LedgerMessages.en>
   | KeyOf<typeof adsImpl1107DeleteMessages.en>
   | KeyOf<typeof adminConsoleCoreMessages.en>

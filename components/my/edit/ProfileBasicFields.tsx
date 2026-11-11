@@ -19,6 +19,9 @@ export interface ProfileBasicFieldsProps {
   dibayIdLocked: boolean;
   dibayIdAutoAssigned?: boolean;
   dibayIdChangedOnce?: boolean;
+  /** DB 생성 컬럼 — 상태·변경권 단일 판정 */
+  dibayIdState?: string | null;
+  dibayIdCanChange?: boolean | null;
   username: string | null;
   usernameConfirmed?: boolean | null;
   usernameComplete: boolean;
@@ -44,6 +47,8 @@ export function ProfileBasicFields({
   dibayIdLocked,
   dibayIdAutoAssigned = false,
   dibayIdChangedOnce = false,
+  dibayIdState = null,
+  dibayIdCanChange = null,
   username,
   usernameConfirmed = null,
   usernameComplete,
@@ -86,6 +91,8 @@ export function ProfileBasicFields({
             dibay_id_locked={dibayIdLocked}
             dibay_id_auto_assigned={dibayIdAutoAssigned}
             dibay_id_changed_once={dibayIdChangedOnce}
+            dibay_id_state={dibayIdState}
+            dibay_id_can_change={dibayIdCanChange}
             username={username}
             username_confirmed={usernameConfirmed}
             highlighted={usernameHighlighted}

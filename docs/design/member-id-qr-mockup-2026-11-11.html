@@ -1,0 +1,412 @@
+<title>DIBAY 회원 아이디·QR 설계</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* 레이아웃: 위 = 감사·규칙 요약, 아래 = 실제 앱 크기(360px) 휴대폰 시안 9장 가로 격자 */
+:root{
+  --green:#0B421A; --green-soft:#EEF2EC; --cream:#FFFCFC; --card:#FFFFFF; --brown:#362415; --muted:#604C4C;
+  --line:rgba(54,36,21,.14); --gold:#EAC784; --danger:#B83A3A; --ok:#21885D; --page:#F4F2EE;
+  --font:"Noto Sans KR",system-ui,-apple-system,sans-serif; --mono:"Space Grotesk","Noto Sans KR",monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --green:#4FBA6E; --green-soft:#1D2A21; --cream:#15140F; --card:#1F1E19; --brown:#EFE9E1; --muted:#B8ADA3;
+  --line:rgba(239,233,225,.16); --gold:#C9A65E; --danger:#E07070; --ok:#5DC28F; --page:#11100C; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --green:#4FBA6E; --green-soft:#1D2A21; --cream:#15140F; --card:#1F1E19; --brown:#EFE9E1; --muted:#B8ADA3;
+  --line:rgba(239,233,225,.16); --gold:#C9A65E; --danger:#E07070; --ok:#5DC28F; --page:#11100C; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--page);color:var(--brown);font-family:var(--font);font-size:14px;line-height:1.6;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:36px}
+h1{font-size:26px;margin:0;text-wrap:balance;font-weight:700}
+h2{font-size:18px;margin:0 0 12px;font-weight:700;text-wrap:balance}
+h3{font-size:15px;margin:0 0 8px}
+.lead{color:var(--muted);margin:6px 0 0;max-width:70ch}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:18px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:560px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:500;color:var(--muted);font-size:12px;letter-spacing:.02em}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
+.fail{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
+.np{background:color-mix(in srgb,var(--gold) 30%,transparent);color:var(--brown)}
+.pass{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
+code,.id{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.idsample{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.idsample span{font-family:var(--mono);font-size:20px;font-weight:700;padding:6px 12px;border:1px solid var(--line);border-radius:4px;background:var(--cream)}
+.idsample b{color:var(--green)}
+ul.tight{margin:6px 0 0;padding-left:18px}
+ul.tight li{margin:3px 0}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
+.flow span{background:var(--green-soft);border-radius:4px;padding:6px 10px}
+.flow i{font-style:normal;color:var(--muted)}
+
+/* 휴대폰 시안 */
+.phones{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:28px 20px}
+.shot{display:grid;gap:8px;min-width:0}
+.cap{font-size:13px;color:var(--muted)}
+.cap b{color:var(--brown)}
+.phone{width:100%;max-width:340px;aspect-ratio:9/18.5;border-radius:28px;border:8px solid #1a1a1a;background:#FFFCFC;color:#362415;overflow:hidden;position:relative;display:flex;flex-direction:column;font-size:13px}
+.phone.dark{background:#000}
+.sb{height:26px;display:flex;justify-content:space-between;align-items:center;padding:0 16px;font-size:11px;font-weight:700;flex:none}
+.hdr{height:44px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid rgba(54,36,21,.1);font-weight:700;font-size:15px;flex:none}
+.hdr .sp{flex:1}
+.ico{width:22px;height:22px;display:inline-grid;place-items:center;color:#362415}
+.body{flex:1;overflow:hidden;padding:14px;display:flex;flex-direction:column;gap:12px}
+.av{border-radius:999px;background:linear-gradient(135deg,#C9D8C4,#8DAA88);display:grid;place-items:center;color:#fff;font-weight:700;flex:none}
+.row{display:flex;align-items:center;gap:10px}
+.nm{font-weight:700;font-size:16px}
+.at{font-family:var(--mono);color:#0B421A;font-weight:700}
+.sub{color:#604C4C;font-size:12px}
+.badge{font-size:10px;padding:1px 7px;border-radius:999px;background:#EEF2EC;color:#0B421A;font-weight:700}
+.btn{border-radius:4px;padding:9px 10px;text-align:center;font-weight:700;font-size:13px;border:1px solid rgba(54,36,21,.18);background:#fff;color:#362415}
+.btn.pri{background:#0B421A;color:#FFFCFC;border-color:#0B421A}
+.btns{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.card{border:1px solid rgba(54,36,21,.12);border-radius:4px;padding:12px;background:#fff}
+.kv{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid rgba(54,36,21,.08)}
+.kv:last-child{border-bottom:0}
+.k{color:#604C4C;font-size:12px}
+.copy{font-size:11px;color:#0B421A;font-weight:700;border:1px solid #0B421A33;border-radius:4px;padding:2px 7px}
+.qrbox{background:#fff;border-radius:12px;padding:18px;display:grid;justify-items:center;gap:10px;box-shadow:0 2px 14px rgba(54,36,21,.1)}
+.qr{position:relative;width:190px;max-width:100%;aspect-ratio:1}
+.qr svg{width:100%;height:100%;display:block}
+.qr .mid{position:absolute;inset:0;margin:auto;width:40px;height:40px;border-radius:999px;border:3px solid #fff;font-size:15px}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid rgba(54,36,21,.15);border-radius:999px;padding:3px;font-weight:700;font-size:12px}
+.seg span{text-align:center;padding:6px;border-radius:999px;color:#604C4C}
+.seg span.on{background:#0B421A;color:#FFFCFC}
+.tabs{display:flex;gap:16px;border-bottom:1px solid rgba(54,36,21,.1);font-weight:700;font-size:13px;padding:0 2px}
+.tabs span{padding:8px 0;color:#604C4C}
+.tabs span.on{color:#0B421A;border-bottom:2px solid #0B421A}
+.inp{border:1.5px solid #0B421A;border-radius:4px;padding:9px 10px;display:flex;justify-content:space-between;font-family:var(--mono);font-weight:700}
+.inp small{font-family:var(--font);color:#604C4C;font-weight:400}
+mark{background:#EAC78466;color:inherit;border-radius:2px}
+.res{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(54,36,21,.08)}
+.res .mn{flex:1;min-width:0}
+.res .cta{font-size:12px;font-weight:700;color:#FFFCFC;background:#0B421A;border-radius:4px;padding:5px 9px}
+.res .cta.ghost{background:#fff;color:#604C4C;border:1px solid rgba(54,36,21,.18)}
+.hint{font-size:11px;color:#604C4C}
+.cam{flex:1;background:radial-gradient(circle at 50% 40%,#3b4a3e,#0c0f0c);position:relative;display:grid;place-items:center}
+.frame{width:62%;aspect-ratio:1;position:relative}
+.frame i{position:absolute;width:30px;height:30px;border:4px solid #fff}
+.frame i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0;border-radius:8px 0 0 0}
+.frame i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0;border-radius:0 8px 0 0}
+.frame i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0;border-radius:0 0 0 8px}
+.frame i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0;border-radius:0 0 8px 0}
+.scanline{position:absolute;left:8%;right:8%;top:48%;height:2px;background:#4FBA6E;box-shadow:0 0 12px #4FBA6E}
+.camtxt{position:absolute;top:16px;left:0;right:0;text-align:center;color:#fff;font-size:13px}
+.cambar{background:#000;color:#fff;display:flex;justify-content:space-around;padding:14px 10px 22px;font-size:12px;flex:none}
+.cambar div{display:grid;justify-items:center;gap:4px}
+.sheet-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#FFFCFC;border-radius:16px 16px 0 0;padding:10px 16px 22px;display:grid;gap:12px}
+.grab{width:36px;height:4px;border-radius:999px;background:rgba(54,36,21,.2);justify-self:center}
+.toggle{width:38px;height:22px;border-radius:999px;background:#0B421A;position:relative;flex:none}
+.toggle::after{content:"";position:absolute;right:3px;top:3px;width:16px;height:16px;border-radius:999px;background:#fff}
+.set{display:flex;gap:10px;align-items:flex-start;padding:11px 0;border-bottom:1px solid rgba(54,36,21,.08)}
+.set .t{flex:1;min-width:0}
+.web{flex:1;display:grid;align-content:start;justify-items:center;gap:12px;padding:30px 18px;text-align:center}
+.url{font-family:var(--mono);font-size:10px;background:#F1EEE9;border-radius:999px;padding:4px 10px;margin:6px 12px;text-align:center;color:#604C4C;flex:none}
+.toast{position:absolute;left:14px;right:14px;bottom:18px;background:#362415;color:#FFFCFC;border-radius:4px;padding:10px 12px;font-size:12px}
+@media (prefers-reduced-motion:no-preference){.scanline{animation:sl 2.4s ease-in-out infinite alternate}@keyframes sl{from{top:12%}to{top:86%}}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>DIBAY 회원 아이디 · 아이디 검색 · QR 친구 추가</h1>
+    <p class="lead">2026-11-11 최종 설계안 v3 와 화면 시안입니다. 코드와 운영 DB는 바꾸지 않았고, 운영 DB는 읽기 전용으로만 조회했습니다. 상세 설계 문서는 저장소 <code>docs/audit/member-id-base-id-audit-design-2026-11-11.md</code> 에 있습니다.</p>
+  </header>
+
+  <section class="panel">
+    <h2>정정</h2>
+    <ul class="tight">
+      <li>v2 시안이 아이디 두 개를 함께 보여 줬습니다. Owner 지시에 따라 철회하고, 회원 화면에는 아이디를 하나만 보여 줍니다.</li>
+      <li>v2 에서 「가입 미완료 회원이 검색에 나옴」을 FAIL 로 적었는데, 근거가 되는 계약이나 지시가 없었습니다. 결함 목록에서 빼고 이번에는 바꾸지 않습니다.</li>
+      <li>「바꾸면 기본 아이디로 못 찾음」(D1)은 Owner 결정으로 의도된 동작이 됐습니다. 결함이 아니라 설계 변경으로 기록합니다.</li>
+    </ul>
+  </section>
+
+  <section class="panel">
+    <h2>감사 결과 (v3)</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>#</th><th>항목</th><th>판정</th><th>증거</th></tr></thead>
+      <tbody>
+        <tr><td>D2</td><td>기본 아이디에 변경 금지·중복 검사·어드민 전용 규칙이 없고, 회원 응답에도 기본 아이디가 내려감</td><td><span class="pill fail">FAIL</span></td><td><code>profile-row-to-client-profile.ts:25</code></td></tr>
+        <tr><td>D4</td><td>프로필 완성 판정이 새 자동 아이디를 직접 정한 아이디로 봄</td><td><span class="pill fail">FAIL</span></td><td><code>profile-completed.ts:3</code> · 운영 1건 (원인 경로는 확인 못 함)</td></tr>
+        <tr><td>D5</td><td>친구 검색에 탈퇴 회원이 포함됨</td><td><span class="pill fail">FAIL</span></td><td>검색 조건 없음 · 탈퇴 2명 · 화면 노출은 NOT_PROVEN</td></tr>
+        <tr><td>D13</td><td>관리자가 아이디를 바꾼 5명: DB는 본인 1회 변경을 허용하는데 앱은 막음</td><td><span class="pill fail">FAIL</span></td><td>DB <code>confirm_dibay_id</code> 와 앱 <code>canChangeOnce</code> 판정이 다름 · 화면 NOT_PROVEN</td></tr>
+        <tr><td>D6</td><td>검색이 60명만 가져와 앱에서 거름 (부분 검색을 넓히면 결과가 잘림)</td><td><span class="pill fail">FAIL</span></td><td><code>user-public-id-search.ts</code> <code>.limit(60)</code></td></tr>
+        <tr><td>D7</td><td>「QR · 초대」 탭에 QR이 없고, 초대 링크에 회원 정보가 없음</td><td><span class="pill fail">FAIL</span></td><td><code>MessengerFriendAddSheet.tsx:249-276</code></td></tr>
+        <tr><td>D8</td><td>공개 프로필 주소가 아이디로 열리지 않음 (username 으로만 찾음)</td><td><span class="pill fail">FAIL</span></td><td><code>app/(main)/u/[username]/page.tsx:36-40</code></td></tr>
+        <tr><td>D9</td><td>아이디 중복 확인·확정·자동 발급에 요청 횟수 제한 없음</td><td><span class="pill fail">FAIL</span></td><td><code>/api/me/dibay-id/*</code></td></tr>
+        <tr><td>D10</td><td>「아이디로 나를 찾기」 끄기 설정이 서버에 없음</td><td><span class="pill np">미구현</span></td><td>휴대폰 저장소 설정만 있음</td></tr>
+        <tr><td>D11</td><td>iOS 카메라 권한 문구가 「영상 통화」만 말함 (QR 스캔 목적 누락)</td><td><span class="pill fail">FAIL</span></td><td><code>Info.plist:66-67</code> · 네이티브</td></tr>
+        <tr><td>D12</td><td>앱 링크 없음: 휴대폰 카메라로 QR을 찍으면 웹이 열림</td><td><span class="pill np">미구현</span></td><td>associated-domains 없음 · 네이티브</td></tr>
+      </tbody>
+    </table></div>
+    <p class="hint" style="margin:10px 0 0;font-size:12px;color:var(--muted)">D7~D12 의 원인: 검색은 처음부터 앱에서 거르는 구조였고, QR 탭은 이름만 있고 기능이 없었습니다. 운영 현황: 회원 142명 (자동 옛 형식 54 · <code>dibay</code>+숫자 21 · 본인이 바꿈 1 · 관리자가 바꿈 5 · 직접 정한 아이디 61 · 탈퇴 2).</p>
+  </section>
+
+  <section class="panel">
+    <h2>아이디 상태와 친구 찾기</h2>
+    <p style="margin:0 0 10px;color:var(--muted)">회원 화면에는 아이디가 늘 하나만 보입니다. 상태는 서버가 판정하고, 앱은 서버가 준 아이디와 변경 가능 여부만 그립니다.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>상태</th><th>회원 화면</th><th>친구 찾기에 나오는 입력</th><th>안 나오는 입력</th><th>본인 변경</th></tr></thead>
+      <tbody>
+        <tr><td><b>새 형식 · 안 바꿈</b></td><td class="id">@48213sun</td><td class="id">48213 · 48213sun</td><td class="id">4821 · sun · 8213s · 48213su</td><td>1회 가능</td></tr>
+        <tr><td><b>옛 형식 · 안 바꿈</b> (75명)</td><td class="id">@dibay482913</td><td>아이디 전체 (<span class="id">dibay482913</span>)</td><td>일부 (<span class="id">4829</span>)</td><td>1회 가능</td></tr>
+        <tr><td><b>바뀐 아이디</b></td><td class="id">@minji.kim</td><td>4자 이상 포함 (<span class="id">minj</span>, <span class="id">kim.</span>)</td><td>옛 기본 아이디 전체 (<span class="id">48213sun</span>), 3자 이하</td><td>변경권 남았을 때만</td></tr>
+        <tr><td><b>어드민</b></td><td colspan="4">기본 아이디, 회원 아이디, 상태, 변경권, 변경 이력을 모두 봅니다. 기본 아이디로도 회원을 검색합니다. 회원 아이디 변경(사유 필수), 변경권 다시 주기(사유 필수)를 할 수 있습니다. 기본 아이디는 누구도 바꿀 수 없습니다.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="grid2">
+    <div class="panel">
+      <h2>새 자동 아이디: 숫자 5자리 + 영어 3글자</h2>
+      <div class="idsample"><span>48213<b>sun</b></span><span>07725<b>sky</b></span><span>91046<b>bee</b></span></div>
+      <ul class="tight">
+        <li>규칙은 <code>^[0-9]{5}[a-z]{3}$</code>, 8자입니다. 숫자는 00000~99999 중 무작위로 뽑고, 숫자 조합은 거르지 않습니다.</li>
+        <li>단어는 아래 78개 중 하나입니다. 조합 수는 780만 개입니다.</li>
+        <li>단어를 뺀 기준: i·l·o 가 들어간 단어(숫자 1·0과 헷갈림), 술·종교·폭력·부정적 뜻·성적·돈 관련 단어, 낯선 단어, 뜻이 나쁜 단어(mug), 숫자 단어(ten).</li>
+        <li>이 모양의 아이디는 시스템 전용이라 회원이나 관리자가 직접 만들 수 없습니다. 기존 <code>dibay…</code> 아이디는 바꾸지 않습니다.</li>
+      </ul>
+      <p class="id" style="margin:10px 0 0;font-size:12.5px;line-height:1.9;word-spacing:4px">ace ant arc art awe bag bat bay bee bud bun bus cab cap car cat cub cup day den dew emu fan fun gem gum gym ham hat hen hue hug hut jam jar jay jet jug key map mat nap net new nut pad pan pea pen pet pup ram ray red rug run rye sap saw sea sky spa sub sum sun tag tan tea tub tug van vet wax way web yak yam yes</p>
+    </div>
+    <div class="panel">
+      <h2>친구 찾기 공통 규칙</h2>
+      <ul class="tight">
+        <li>입력의 앞뒤 공백과 앞의 <code>@</code> 는 지우고 소문자로 바꿉니다. 바뀐 아이디는 점·밑줄을 무시하고 비교합니다.</li>
+        <li>정렬: 아이디 전체 일치 → 숫자 5자리·앞부분 일치 → 포함 → 닉네임. 최대 20명까지 보여 줍니다.</li>
+        <li>닉네임 검색은 지금 규칙 그대로입니다.</li>
+        <li>검색에서 빠지는 회원: 나, 탈퇴 회원, 서로 차단한 회원, 「아이디로 나를 찾기」를 끈 회원.</li>
+        <li>요청 제한: 1분 60회, 하루 500회. 아이디 확인·변경 API는 1분 10회입니다.</li>
+      </ul>
+      <h3 style="margin-top:14px">QR 친구 추가 흐름</h3>
+      <div class="flow"><span>내 QR 보여 주기</span><i>→</i><span>상대가 앱에서 스캔</span><i>→</i><span>프로필 미리보기</span><i>→</i><span>[친구 추가] = 바로 친구</span><i>→</i><span>나에게 알림</span></div>
+      <ul class="tight">
+        <li>QR에는 아이디가 아니라 무작위 토큰(<code>dibay.app/f/…</code>)이 들어갑니다. 「QR 다시 만들기」를 하면 옛 QR은 쓸 수 없게 됩니다 (라인·텔레그램 방식).</li>
+        <li>「아이디 검색 허용」과 「QR 친구 추가 허용」을 따로 둡니다. 라인은 아이디 검색을 꺼도 QR로 추가되어 혼란이 있었습니다.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>비교: 텔레그램 · 위챗 · 카카오톡 · 라인</h2>
+    <div class="scroll"><table>
+      <thead><tr><th></th><th>텔레그램</th><th>위챗</th><th>카카오톡</th><th>라인</th><th>DIBAY 설계</th></tr></thead>
+      <tbody>
+        <tr><td>영구 내부 ID</td><td>숫자 ID</td><td>처음 발급 ID</td><td>미확인</td><td>미확인</td><td><b>기본 아이디</b> (어드민 전용)</td></tr>
+        <tr><td>아이디 변경</td><td>자유</td><td>1년 1회, 옛 ID 끊김</td><td>제한 (미확인)</td><td>불가</td><td>1회, 옛 아이디 끊김 · 어드민이 변경권 다시 줌</td></tr>
+        <tr><td>검색</td><td>정확 일치 위주</td><td>정확 일치</td><td>정확 일치 + 끄기</td><td>정확 일치 + 끄기</td><td>안 바꿈: 숫자 5자리 · 바꿈: 4자 포함 + 끄기</td></tr>
+        <tr><td>내 QR 위치</td><td>설정 → QR</td><td>나 → 프로필 → QR</td><td>친구 추가 → QR</td><td>친구 추가 → QR</td><td>내 프로필 · 친구 탭 · 친구 추가</td></tr>
+        <tr><td>QR 내용</td><td>링크 / 만료 토큰</td><td>공개 안 됨</td><td>공개 안 됨</td><td>링크, 다시 만들기</td><td>토큰 링크, 다시 만들기</td></tr>
+        <tr><td>스캔 후</td><td>프로필/대화</td><td>요청 (미확인)</td><td>일방 추가</td><td>일방 추가</td><td>미리보기 → 바로 친구</td></tr>
+        <tr><td>스캔 방법</td><td>앱 + 휴대폰 카메라</td><td>앱 + 앨범</td><td>앱 + 앨범</td><td>앱</td><td>앱 + 갤러리 + 휴대폰 카메라</td></tr>
+      </tbody>
+    </table></div>
+    <p style="margin:10px 0 0;font-size:12px;color:var(--muted)">출처: telegram.org/faq, core.telegram.org/api/links, help.line.me, cs.help.wechat.com, kakaocorp.com. 「미확인」은 공식 문서로 확인하지 못한 항목입니다.</p>
+  </section>
+
+  <section>
+    <h2>화면 시안</h2>
+    <div class="phones">
+
+      <!-- A 내 프로필 -->
+      <div class="shot"><div class="cap"><b>A. 내 프로필</b> · 마이페이지</div>
+        <div class="phone">
+          <div class="sb"><span>9:41</span><span>●●● 100%</span></div>
+          <div class="hdr"><span>내 프로필</span><span class="sp"></span><span class="ico">⚙</span></div>
+          <div class="body">
+            <div class="row"><div class="av" style="width:64px;height:64px;font-size:22px">민</div>
+              <div style="min-width:0"><div class="nm">김민지</div><div class="at">@48213sun</div><span class="badge">1회 변경 가능</span></div></div>
+            <div class="btns"><div class="btn pri">내 QR</div><div class="btn">프로필 공유</div><div class="btn">프로필 편집</div></div>
+            <div class="card">
+              <div class="kv"><div><div class="k">아이디</div><div class="at">@48213sun</div></div><span class="copy">복사</span></div>
+              <div class="kv"><div><div class="k">아이디 변경</div><div class="sub">한 번 바꿀 수 있어요</div></div><span class="copy">변경</span></div>
+            </div>
+            <p class="hint">친구가 숫자 5자리(48213)를 입력하면 나를 찾을 수 있어요.</p>
+          </div>
+        </div></div>
+
+      <!-- B 내 QR -->
+      <div class="shot"><div class="cap"><b>B. 내 QR</b> · 친구 추가 → QR 탭</div>
+        <div class="phone">
+          <div class="sb"><span>9:41</span><span>●●● 100%</span></div>
+          <div class="hdr"><span class="ico">✕</span><span>QR 코드</span><span class="sp"></span></div>
+          <div class="body" style="background:#EEF2EC">
+            <div class="seg"><span class="on">내 QR</span><span>QR 스캔</span></div>
+            <div class="qrbox">
+              <div class="qr"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 37 37" shape-rendering="crispEdges"><path fill="#FFFFFF" d="M0 0h37v37H0z"/><path stroke="#0B421A" d="M0 0.5h7m2 0h1m1 0h1m2 0h2m1 0h1m2 0h2m6 0h1m1 0h7M0 1.5h1m5 0h1m3 0h1m3 0h3m2 0h7m2 0h1m1 0h1m5 0h1M0 2.5h1m1 0h3m1 0h1m2 0h1m1 0h1m1 0h2m3 0h2m2 0h2m1 0h1m1 0h1m2 0h1m1 0h3m1 0h1M0 3.5h1m1 0h3m1 0h1m3 0h1m5 0h4m2 0h1m1 0h1m1 0h1m3 0h1m1 0h3m1 0h1M0 4.5h1m1 0h3m1 0h1m1 0h4m1 0h2m2 0h3m1 0h2m1 0h1m2 0h1m2 0h1m1 0h3m1 0h1M0 5.5h1m5 0h1m5 0h2m1 0h1m1 0h3m2 0h3m5 0h1m5 0h1M0 6.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M8 7.5h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m3 0h1m4 0h2M2 8.5h2m2 0h3m1 0h3m3 0h2m1 0h2m3 0h1m1 0h2m1 0h2m1 0h1M2 9.5h2m1 0h1m2 0h1m1 0h2m1 0h3m1 0h1m2 0h3m1 0h3m4 0h1m1 0h2M0 10.5h2m1 0h1m1 0h3m1 0h1m3 0h1m1 0h3m4 0h4m3 0h1m1 0h2M2 11.5h3m2 0h6m3 0h1m1 0h2m5 0h2m6 0h4M1 12.5h3m1 0h3m7 0h4m1 0h2m2 0h9m1 0h3M0 13.5h1m1 0h2m3 0h1m3 0h1m1 0h2m2 0h4m1 0h2m2 0h3m1 0h3m1 0h3M3 14.5h1m1 0h2m1 0h1m4 0h1m1 0h1m1 0h1m1 0h5m2 0h1m4 0h2m1 0h2M0 15.5h1m2 0h1m3 0h2m1 0h1m1 0h1m1 0h2m2 0h1m2 0h4m2 0h1m1 0h2M1 16.5h1m3 0h3m1 0h2m1 0h1m3 0h1m1 0h2m1 0h2m2 0h3m5 0h3M0 17.5h2m2 0h1m2 0h5m1 0h4m4 0h1m1 0h3m1 0h4m3 0h1m1 0h1M0 18.5h2m3 0h2m1 0h2m1 0h2m1 0h2m1 0h1m1 0h3m4 0h2m2 0h1m1 0h1m2 0h2M0 19.5h1m1 0h2m1 0h1m2 0h1m4 0h1m1 0h5m3 0h1m2 0h1m2 0h1m1 0h1m1 0h1m1 0h2M0 20.5h1m2 0h1m1 0h3m2 0h1m3 0h1m3 0h3m1 0h1m1 0h1m3 0h2m2 0h2m2 0h1M3 21.5h1m1 0h1m2 0h2m2 0h3m5 0h1m2 0h2m1 0h1m2 0h3m2 0h2M0 22.5h1m5 0h1m1 0h5m1 0h3m4 0h1m1 0h4m2 0h2m1 0h2m1 0h1M0 23.5h2m2 0h1m2 0h1m4 0h3m1 0h1m1 0h1m1 0h2m3 0h4m4 0h2m1 0h1M0 24.5h1m2 0h1m2 0h1m5 0h5m1 0h1m2 0h2m6 0h5m1 0h1M2 25.5h1m4 0h1m1 0h1m3 0h2m2 0h5m1 0h1m2 0h4m2 0h2m2 0h1M1 26.5h2m2 0h3m3 0h1m6 0h1m3 0h1m1 0h3m1 0h1m2 0h3M0 27.5h1m2 0h1m4 0h1m1 0h2m2 0h1m7 0h1m1 0h1m2 0h3m5 0h2M2 28.5h3m1 0h1m6 0h1m1 0h1m1 0h3m3 0h1m1 0h1m1 0h6m2 0h1M8 29.5h4m3 0h2m2 0h1m1 0h1m2 0h1m2 0h2m3 0h3m1 0h1M0 30.5h7m1 0h2m1 0h2m1 0h2m2 0h2m1 0h1m2 0h3m1 0h1m1 0h1m1 0h2m1 0h2M0 31.5h1m5 0h1m2 0h1m1 0h1m1 0h1m1 0h3m1 0h1m2 0h1m5 0h1m3 0h2M0 32.5h1m1 0h3m1 0h1m2 0h2m1 0h3m1 0h1m1 0h1m1 0h1m1 0h1m2 0h2m1 0h6m2 0h1M0 33.5h1m1 0h3m1 0h1m1 0h2m3 0h1m3 0h2m1 0h1m1 0h1m3 0h2m2 0h5M0 34.5h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h2m2 0h1m9 0h1m1 0h1m1 0h2m1 0h1M0 35.5h1m5 0h1m5 0h4m2 0h1m1 0h1m1 0h4m1 0h1m4 0h1m1 0h1M0 36.5h7m2 0h1m1 0h3m1 0h2m1 0h3m2 0h1m1 0h2m3 0h1m1 0h5"/></svg>
+<div class="av mid">민</div></div>
+              <div style="text-align:center"><div class="nm">김민지</div><div class="at">@48213sun</div></div>
+              <div class="sub" style="text-align:center">이 QR을 스캔하면 바로 친구가 돼요</div>
+            </div>
+            <div class="btns"><div class="btn">공유</div><div class="btn">이미지 저장</div><div class="btn">QR 다시 만들기</div></div>
+          </div>
+        </div></div>
+
+      <!-- C 스캔 -->
+      <div class="shot"><div class="cap"><b>C. QR 스캔</b> · 앱 안 카메라</div>
+        <div class="phone dark">
+          <div class="sb" style="color:#fff"><span>9:41</span><span>●●● 100%</span></div>
+          <div class="cam">
+            <div class="camtxt">친구의 QR 코드를 네모 안에 맞춰 주세요</div>
+            <div class="frame"><i></i><i></i><i></i><i></i><div class="scanline"></div></div>
+          </div>
+          <div class="cambar"><div><span style="font-size:18px">🖼</span>갤러리에서 선택</div><div><span style="font-size:18px">▦</span>내 QR</div><div><span style="font-size:18px">✕</span>닫기</div></div>
+        </div></div>
+
+      <!-- D 스캔 결과 -->
+      <div class="shot"><div class="cap"><b>D. 스캔 결과</b> · 프로필 미리보기</div>
+        <div class="phone">
+          <div class="sb"><span>9:41</span><span>●●● 100%</span></div>
+          <div class="cam" style="flex:1"></div>
+          <div class="sheet-bg"></div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <div style="display:grid;justify-items:center;gap:6px;text-align:center">
+              <div class="av" style="width:72px;height:72px;font-size:26px">준</div>
+              <div class="nm">박준호</div><div class="at">@07725sky</div>
+              <div class="sub">QR 코드로 찾았어요</div>
+            </div>
+            <div class="btn pri" style="padding:12px">친구 추가</div>
+            <div class="btn">취소</div>
+          </div>
+        </div></div>
+
+      <!-- E 아이디 검색 -->
+      <div class="shot"><div class="cap"><b>E1. 친구 추가 · 숫자 5자리</b> · 아이디를 안 바꾼 회원</div>
+        <div class="phone">
+          <div class="sb"><span>9:41</span><span>●●● 100%</span></div>
+          <div class="hdr"><span class="ico">✕</span><span>친구 추가</span><span class="sp"></span></div>
+          <div class="body">
+            <div class="tabs"><span class="on">아이디</span><span>연락처</span><span>QR</span></div>
+            <div class="inp"><span>48213</span><small>5/20</small></div>
+            <div class="hint">아이디 4자 이상 또는 숫자 5자리를 입력하세요</div>
+            <div>
+              <div class="res"><div class="av" style="width:38px;height:38px">민</div><div class="mn"><div style="font-weight:700">김민지</div><div class="at" style="font-size:12px">@<mark>48213</mark>sun</div></div><span class="cta">친구 추가</span></div>
+              <div class="res"><div class="av" style="width:38px;height:38px">수</div><div class="mn"><div style="font-weight:700">이수진</div><div class="at" style="font-size:12px">@<mark>48213</mark>bee</div></div><span class="cta ghost">요청됨</span></div>
+            </div>
+            <div class="card" style="background:#F6F4F0"><div class="hint"><b>4821</b> (4자리)·<b>sun</b> 만 입력하면 아이디를 안 바꾼 회원은 나오지 않아요.</div></div>
+          </div>
+        </div></div>
+
+      <div class="shot"><div class="cap"><b>E2. 친구 추가 · 4자 이상</b> · 아이디를 바꾼 회원</div>
+        <div class="phone">
+          <div class="sb"><span>9:41</span><span>●●● 100%</span></div>
+          <div class="hdr"><span class="ico">✕</span><span>친구 추가</span><span class="sp"></span></div>
+          <div class="body">
+            <div class="tabs"><span class="on">아이디</span><span>연락처</span><span>QR</span></div>
+            <div class="inp"><span>minj</span><small>4/20</small></div>
+            <div class="hint">아이디 4자 이상 또는 숫자 5자리를 입력하세요</div>
+            <div>
+              <div class="res"><div class="av" style="width:38px;height:38px">민</div><div class="mn"><div style="font-weight:700">김민지</div><div class="at" style="font-size:12px">@<mark>minj</mark>i.kim</div></div><span class="cta">친구 추가</span></div>
+              <div class="res"><div class="av" style="width:38px;height:38px">준</div><div class="mn"><div style="font-weight:700">한민준</div><div class="at" style="font-size:12px">@han_<mark>minj</mark>un</div></div><span class="cta ghost">친구</span></div>
+            </div>
+            <div class="card" style="background:#F6F4F0"><div class="hint">김민지 님이 바꾸기 전 아이디(48213sun)로는 더 이상 찾을 수 없어요.</div></div>
+          </div>
+        </div></div>
+
+      <!-- F 상대 프로필 -->
+      <div class="shot"><div class="cap"><b>F. 친구 프로필</b> · 메신저</div>
+        <div class="phone">
+          <div class="sb"><span>9:41</span><span>●●● 100%</span></div>
+          <div class="body" style="padding:0;background:linear-gradient(#DCE6D8 0 46%,#FFFCFC 46%)">
+            <div class="hdr" style="border:0"><span class="ico">✕</span><span class="sp"></span><span class="ico">⋯</span></div>
+            <div style="display:grid;justify-items:center;gap:6px;margin-top:40px;text-align:center">
+              <div class="av" style="width:92px;height:92px;font-size:32px;border:4px solid #FFFCFC">준</div>
+              <div class="nm" style="font-size:18px">박준호</div><div class="at">@07725sky</div>
+              <span class="badge">친구 · QR로 추가</span>
+            </div>
+            <div class="btns" style="padding:18px 14px 0"><div class="btn pri">대화</div><div class="btn">음성 통화</div><div class="btn">영상 통화</div></div>
+          </div>
+        </div></div>
+
+      <!-- G 아이디 변경 -->
+      <div class="shot"><div class="cap"><b>G. 아이디 변경</b> · 1회</div>
+        <div class="phone">
+          <div class="sb"><span>9:41</span><span>●●● 100%</span></div>
+          <div class="hdr"><span class="ico">‹</span><span>아이디 변경</span><span class="sp"></span></div>
+          <div class="body">
+            <div class="card"><div class="k">지금 아이디</div><div class="at">@48213sun</div><span class="badge" style="margin-top:4px;display:inline-block">1회 변경 가능</span></div>
+            <div class="inp"><span>minji.kim</span><small style="color:#21885D">사용할 수 있어요</small></div>
+            <div class="hint">영어 소문자·숫자·점·밑줄, 4~20자</div>
+            <div class="card" style="background:#EEF2EC;border-color:#0B421A22">
+              <b style="font-size:12px">바꾸기 전에 확인하세요</b>
+              <div class="hint" style="margin-top:4px">바꾸면 지금 아이디(48213sun)로는 더 이상 찾을 수 없어요. 바꾼 아이디는 다시 바꿀 수 없어요. 친구 목록은 그대로예요.</div>
+            </div>
+            <div style="flex:1"></div>
+            <div class="btn pri" style="padding:12px">변경하기</div>
+          </div>
+        </div></div>
+
+      <!-- H 설정 -->
+      <div class="shot"><div class="cap"><b>H. 친구 찾기 설정</b> · 개인정보</div>
+        <div class="phone">
+          <div class="sb"><span>9:41</span><span>●●● 100%</span></div>
+          <div class="hdr"><span class="ico">‹</span><span>친구 찾기</span><span class="sp"></span></div>
+          <div class="body" style="gap:0">
+            <div class="set"><div class="t"><b>아이디로 나를 찾을 수 있게 하기</b><div class="hint">끄면 아이디 검색에 내가 나오지 않아요. QR 친구 추가에는 영향이 없어요.</div></div><div class="toggle"></div></div>
+            <div class="set"><div class="t"><b>QR로 친구 추가 허용</b><div class="hint">끄면 내 QR을 스캔해도 친구가 되지 않아요.</div></div><div class="toggle"></div></div>
+            <div class="set"><div class="t"><b>내 QR 다시 만들기</b><div class="hint">이전에 공유한 QR은 더 이상 쓸 수 없어요.</div></div><span class="copy">다시 만들기</span></div>
+          </div>
+        </div></div>
+
+      <!-- I 웹 -->
+      <div class="shot"><div class="cap"><b>I. 휴대폰 카메라로 찍었을 때</b> · 웹 페이지</div>
+        <div class="phone">
+          <div class="sb"><span>9:41</span><span>●●● 100%</span></div>
+          <div class="url">dibay.app/f/Q7mK2pX9…</div>
+          <div class="web">
+            <div style="font-family:var(--mono);font-weight:700;color:#0B421A;font-size:20px;letter-spacing:.04em">DIBAY</div>
+            <div class="av" style="width:80px;height:80px;font-size:28px">민</div>
+            <div><div class="nm">김민지</div><div class="sub">DIBAY에서 친구가 되어 보세요</div></div>
+            <div class="btn pri" style="width:100%;padding:12px">앱에서 열기</div>
+            <div class="btn" style="width:100%">앱 설치하기</div>
+            <div class="hint">앱 링크(네이티브 4단계)가 나가면 휴대폰 카메라로 찍어도 바로 앱이 열려요.</div>
+          </div>
+        </div></div>
+
+      <!-- J 어드민 -->
+      <div class="shot" style="grid-column:1/-1"><div class="cap"><b>J. 어드민 회원 상세 · 아이디</b> · 어드민 화면 (가로)</div>
+        <div class="card" style="max-width:760px;color:#362415;background:#fff">
+          <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <div class="row"><div class="av" style="width:44px;height:44px">민</div><div><div class="nm">김민지</div><div class="sub">가입 2026-11-12 10:21 PHT · Google</div></div></div>
+            <div class="row" style="gap:6px"><span class="btn">아이디 변경</span><span class="btn pri">변경권 다시 주기</span></div>
+          </div>
+          <div class="scroll" style="margin-top:12px"><table style="min-width:520px;font-size:12.5px">
+            <tbody>
+              <tr><th style="width:150px">회원 아이디</th><td class="at">@minji.kim</td></tr>
+              <tr><th>기본 아이디</th><td><span class="id">48213sun</span> <span class="sub">· 바꿀 수 없음 · 회원에게 안 보임 · 친구 찾기에 안 나옴</span></td></tr>
+              <tr><th>상태</th><td>바뀐 아이디 (본인 변경)</td></tr>
+              <tr><th>본인 변경권</th><td>사용함 (2026-11-14 09:05 PHT)</td></tr>
+              <tr><th>친구 찾기</th><td>아이디 검색 켜짐 · QR 친구 추가 켜짐</td></tr>
+            </tbody>
+          </table></div>
+          <h3 style="margin:14px 0 6px;font-size:13px">변경 이력</h3>
+          <div class="scroll"><table style="min-width:520px;font-size:12px">
+            <thead><tr><th>시각 (PHT)</th><th>누가</th><th>전 → 후</th><th>사유</th></tr></thead>
+            <tbody>
+              <tr><td>2026-11-12 10:21</td><td>시스템</td><td class="id">— → 48213sun</td><td>가입 시 발급</td></tr>
+              <tr><td>2026-11-14 09:05</td><td>회원 본인</td><td class="id">48213sun → minji.kim</td><td>—</td></tr>
+            </tbody>
+          </table></div>
+          <p class="hint" style="margin:8px 0 0">시안의 이름·시각은 예시입니다. 「변경권 다시 주기」는 사유를 입력해야 하고, 기록이 남습니다.</p>
+        </div></div>
+
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>진행 단계</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>단계</th><th>내용</th><th>구분</th><th>승인</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>기본 아이디 변경 금지·중복 검사, 새 형식 발급과 단어표 78개, 상태 판정·검색·어드민 변경권 함수, QR·친구 찾기 설정 표, 기존 회원 채우기 (백업 포함)</td><td>DB</td><td>운영 적용 시 Owner 승인</td></tr>
+        <tr><td>2</td><td>숫자 5자리·4자 검색, 서버 상태 판정, 탈퇴 회원 제외, 회원 응답에서 기본 아이디 빼기, <code>/u</code> 주소, 요청 제한, 어드민 아이디 화면, 프로필·아이디 변경·설정 화면 (A·E·F·G·H·J)</td><td>웹 · PR 1개</td><td>구현 승인</td></tr>
+        <tr><td>3</td><td>QR 표·친구 추가 함수, 내 QR, 앱 안 스캔과 갤러리, 미리보기, 웹 <code>/f</code>, 알림 (B·C·D·I)</td><td>DB + 웹 · PR 1개</td><td>구현·DB 승인</td></tr>
+        <tr><td>4</td><td>iOS 카메라 문구에 QR 추가, Android <code>dibay://friend</code>, 앱 링크 (<code>https://dibay.app/f</code> 를 바로 앱으로)</td><td>네이티브</td><td>Owner 일괄 빌드 때</td></tr>
+      </tbody>
+    </table></div>
+    <p style="margin:10px 0 0;font-size:12px;color:var(--muted)">3단계는 지금 설치된 앱에서도 됩니다. 앱 안 스캔은 PC 로그인과 같은 카메라 경로를 씁니다. 4단계 전까지는 휴대폰 카메라로 찍으면 웹 페이지가 열리고, Android에서는 「앱에서 열기」가 동작하지 않습니다.</p>
+  </section>
+</div>

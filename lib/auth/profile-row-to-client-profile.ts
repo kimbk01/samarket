@@ -22,7 +22,9 @@ export function profileRowToClientProfile(row: ProfileRow): Profile {
     dibay_id: row.dibay_id ?? null,
     dibay_id_locked: row.dibay_id_locked === true,
     dibay_id_auto_assigned: row.dibay_id_auto_assigned === true,
-    dibay_id_initial: row.dibay_id_initial ?? null,
+    /** v3: 기본 아이디(dibay_id_initial)는 어드민 전용 — 회원 응답에 넣지 않는다. 상태·변경권은 DB 단일 판정 */
+    dibay_id_state: row.dibay_id_state ?? null,
+    dibay_id_can_change: typeof row.dibay_id_can_change === "boolean" ? row.dibay_id_can_change : null,
     dibay_id_changed_once: row.dibay_id_changed_once === true,
     dibay_id_changed_at: row.dibay_id_changed_at ?? null,
     username_confirmed: row.username_confirmed ?? null,

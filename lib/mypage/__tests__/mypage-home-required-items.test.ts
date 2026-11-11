@@ -92,7 +92,7 @@ describe("11-1 회원 아이디", () => {
     expect(h.value).toEqual({ key: "mypage_req_value_handle_none" });
   });
 
-  it("변경 필요 (미잠금·자동 아님 초안) → 주황 「확정 필요」 [확정하기]", () => {
+  it("미잠금·자동 아님·변경권 미사용 (관리자가 바꾼 회원 등) → 설계안 v3 D13: DB 와 같이 「1회 변경 가능」 [변경]", () => {
     const [h] = rows(
       profile({
         dibay_id: "mydraft",
@@ -102,9 +102,21 @@ describe("11-1 회원 아이디", () => {
         username_confirmed: false,
       } as Partial<ProfileRow>),
     );
-    expect(pick(h)).toMatchObject({ state: "draft", tone: "action", badge: "mypage_req_badge_confirm_needed" });
-    expect(h.ctaKey).toBe("mypage_req_cta_confirm");
+    expect(pick(h)).toMatchObject({ state: "complete_auto", tone: "complete", cta: "mypage_req_cta_change" });
     expect(h.value).toEqual({ text: "@mydraft" });
+  });
+
+  it("DB 변경권(dibay_id_can_change)이 있으면 그 값만 쓴다", () => {
+    const [h] = rows(
+      profile({
+        dibay_id: "minji.kim",
+        dibay_id_auto_assigned: false,
+        dibay_id_locked: true,
+        dibay_id_state: "custom",
+        dibay_id_can_change: false,
+      } as Partial<ProfileRow>),
+    );
+    expect(pick(h)).toMatchObject({ state: "complete_locked", cta: null });
   });
 
   it("완료 (자동 ID) → 그린 「설정 완료」 + 「1회 변경 가능」 + 보조 [변경]", () => {

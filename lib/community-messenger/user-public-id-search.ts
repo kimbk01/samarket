@@ -1,25 +1,16 @@
 /**
- * CM @아이디 / 닉네임 ranked search — exact → prefix → contains → name.
+ * CM @아이디 / 닉네임 ranked search — exact → prefix → contains → name. 판정은 DB `cm_search_members` (설계안 v3 §3.3).
  */
 
 import { normalizeProfileUserSearchKeyword } from "@/lib/community-messenger/profile-user-search-filter";
-import {
-  escapeIlikePatternFragment,
-  escapePostgrestDoubleQuotedIlike,
-} from "@/lib/community-messenger/profile-user-search-filter";
 import { resolveDirectInteractionGuard } from "@/lib/community-messenger/social-relations";
-import {
-  isPublicIdSearchEligible,
-  matchesPublicIdExactly,
-  resolveExactLookupPublicId,
-  resolveSearchablePublicId,
-  type ProfilePublicIdFields,
-} from "@/lib/auth/dibay-public-id-ssot";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH = 2;
 export const COMMUNITY_MESSENGER_USER_SEARCH_LIMIT = 20;
+/** 회원당 하루 검색 횟수 (설계안 v3 §3.3) */
+export const COMMUNITY_MESSENGER_USER_SEARCH_DAILY_LIMIT = 500;
 
 export type CommunityMessengerUserSearchMatchType = "exact" | "prefix" | "contains" | "name";
 
@@ -37,11 +28,15 @@ export type CommunityMessengerUserSearchResult = {
   highlightRanges: Array<{ start: number; end: number }>;
 };
 
-type ProfileCandidate = ProfilePublicIdFields & {
-  id: string;
-  display_name: string | null;
+/** DB `cm_search_members` 결과 행 */
+type MemberSearchRow = {
+  user_id: string;
+  dibay_id: string | null;
   nickname: string | null;
+  display_name: string | null;
   avatar_url: string | null;
+  match_kind: string | null;
+  match_rank: number | null;
 };
 
 function trimText(value: unknown): string {
@@ -57,45 +52,12 @@ function getSupabaseOrNull() {
 }
 
 /** 공개 이름 SSOT = nickname (`lib/users/public-member-identity.ts`) — display_name 은 동기화 사본 */
-function displayLabel(row: ProfileCandidate): string {
-  return (
-    trimText(row.nickname) ||
-    trimText(row.display_name) ||
-    trimText(row.username) ||
-    trimText(row.id)
-  );
+function displayLabel(row: MemberSearchRow): string {
+  return trimText(row.nickname) || trimText(row.display_name) || trimText(row.dibay_id) || trimText(row.user_id);
 }
 
-function rankMatchType(
-  row: ProfileCandidate,
-  query: string
-): CommunityMessengerUserSearchMatchType | null {
-  const q = query.toLowerCase();
-  if (matchesPublicIdExactly(row, q)) return "exact";
-  const publicId = resolveSearchablePublicId(row);
-  if (publicId) {
-    if (publicId === q) return "exact";
-    if (publicId.startsWith(q)) return "prefix";
-    if (publicId.includes(q)) return "contains";
-  }
-  const name = displayLabel(row).toLowerCase();
-  if (name.includes(q)) return "name";
-  return null;
-}
-
-function matchRank(type: CommunityMessengerUserSearchMatchType): number {
-  switch (type) {
-    case "exact":
-      return 0;
-    case "prefix":
-      return 1;
-    case "contains":
-      return 2;
-    case "name":
-      return 3;
-    default:
-      return 9;
-  }
+function toMatchType(kind: string | null): CommunityMessengerUserSearchMatchType {
+  return kind === "exact" || kind === "prefix" || kind === "contains" ? kind : "name";
 }
 
 export function computePublicIdHighlightRanges(
@@ -121,30 +83,13 @@ export function computeDisplayNameHighlightRanges(
   return [{ start: idx, end: idx + q.length }];
 }
 
-function buildSearchOrFilter(query: string): string | null {
-  const keyword = normalizeProfileUserSearchKeyword(query);
-  if (keyword.length < COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH) return null;
-  const escaped = escapeIlikePatternFragment(keyword);
-  const exact = escapePostgrestDoubleQuotedIlike(escaped);
-  const prefix = escapePostgrestDoubleQuotedIlike(`${escaped}%`);
-  const contains = escapePostgrestDoubleQuotedIlike(`%${escaped}%`);
-  return [
-    `dibay_id.ilike.${exact}`,
-    `dibay_id.ilike.${prefix}`,
-    `dibay_id.ilike.${contains}`,
-    `and(username.ilike.${exact},username_confirmed.eq.true)`,
-    `and(username.ilike.${prefix},username_confirmed.eq.true)`,
-    `and(username.ilike.${contains},username_confirmed.eq.true)`,
-    `nickname.ilike.${contains}`,
-    `display_name.ilike.${contains}`,
-  ].join(",");
-}
-
-/** 커스텀 id 회원 = 부분일치 허용 · auto-assigned `dibay_[hex6]` 회원 = 정확 일치만 */
-function isEligibleProfile(row: ProfileCandidate, query: string): boolean {
-  return isPublicIdSearchEligible(row) || matchesPublicIdExactly(row, query);
-}
-
+/**
+ * 친구 찾기 (설계안 v3 §3.3) — 조건·정렬·차단·「아이디로 나를 찾기」 설정은 DB `cm_search_members` 한 곳.
+ * - 안 바꾼 새 형식(48213sun): 숫자 5자리 또는 아이디 전체
+ * - 안 바꾼 옛 형식(dibay…): 아이디 전체
+ * - 바뀐·직접 정한 아이디: 4자 이상 앞부분·포함 · 닉네임 2자 이상
+ * - 탈퇴·자기 자신·서로 차단 제외 · 기본 아이디(dibay_id_initial)는 쓰지 않음
+ */
 export async function searchCommunityMessengerUsersRanked(
   viewerUserId: string,
   rawQuery: string
@@ -153,74 +98,42 @@ export async function searchCommunityMessengerUsersRanked(
   const query = normalizeProfileUserSearchKeyword(rawQuery);
   if (!viewer || query.length < COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH) return [];
 
-  const orFilter = buildSearchOrFilter(rawQuery);
-  if (!orFilter) return [];
-
   const sb = getSupabaseOrNull();
   if (!sb) return [];
 
-  const { data, error } = await (sb as any)
-    .from("profiles")
-    .select(
-      "id, display_name, nickname, username, dibay_id, dibay_id_auto_assigned, avatar_url, username_confirmed"
-    )
-    .or(orFilter)
-    .neq("id", viewer)
-    .limit(60);
-
+  const { data, error } = await (sb as any).rpc("cm_search_members", {
+    p_viewer: viewer,
+    p_query: query,
+    p_limit: COMMUNITY_MESSENGER_USER_SEARCH_LIMIT,
+  });
   if (error) return [];
 
-  const candidates = ((data ?? []) as ProfileCandidate[]).filter((row) => isEligibleProfile(row, query));
-  const ranked = candidates
-    .map((row) => {
-      const matchType = rankMatchType(row, query);
-      if (!matchType) return null;
-      const publicId =
-        matchType === "exact" ? resolveExactLookupPublicId(row) : resolveSearchablePublicId(row);
-      const displayName = displayLabel(row);
-      const highlightRanges =
-        matchType === "name"
-          ? computeDisplayNameHighlightRanges(displayName, query)
-          : publicId
-            ? computePublicIdHighlightRanges(publicId, query)
-            : [];
-      return {
-        row,
-        matchType,
-        rank: matchRank(matchType),
-        publicId,
-        displayName,
-        highlightRanges,
-        publicIdSort: publicId ?? "",
-      };
-    })
-    .filter((item): item is NonNullable<typeof item> => item != null)
-    .sort((a, b) => {
-      if (a.rank !== b.rank) return a.rank - b.rank;
-      if (a.matchType !== "name" && b.matchType !== "name") {
-        return a.publicIdSort.localeCompare(b.publicIdSort);
-      }
-      return a.displayName.localeCompare(b.displayName);
-    })
-    .slice(0, COMMUNITY_MESSENGER_USER_SEARCH_LIMIT);
-
+  const rows = ((data ?? []) as MemberSearchRow[]).filter((row) => trimText(row.user_id));
   const results: CommunityMessengerUserSearchResult[] = [];
-  for (const item of ranked) {
-    const guard = await resolveDirectInteractionGuard(viewer, item.row.id);
+  for (const row of rows) {
+    const matchType = toMatchType(row.match_kind);
+    const publicId = trimText(row.dibay_id).toLowerCase() || null;
+    const displayName = displayLabel(row);
+    const highlightRanges =
+      matchType === "name"
+        ? computeDisplayNameHighlightRanges(displayName, query)
+        : publicId
+          ? computePublicIdHighlightRanges(publicId, query)
+          : [];
+    const guard = await resolveDirectInteractionGuard(viewer, row.user_id);
     results.push({
-      id: item.row.id,
-      displayName: item.displayName,
-      avatarUrl: trimText(item.row.avatar_url) || null,
-      publicId: item.publicId,
+      id: row.user_id,
+      displayName,
+      avatarUrl: trimText(row.avatar_url) || null,
+      publicId,
       isFriend: guard.isFriend,
       isBlockedByMe: guard.isBlockedByMe,
       isBlockedByPeer: guard.isBlockedByPeer,
       canMessage: guard.canMessage,
       canCall: guard.canCall,
-      matchType: item.matchType,
-      highlightRanges: item.highlightRanges,
+      matchType,
+      highlightRanges,
     });
   }
-
   return results;
 }

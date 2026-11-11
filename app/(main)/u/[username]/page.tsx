@@ -32,26 +32,24 @@ export default async function PublicUserProfilePage({ params }: { params: Promis
   }
 
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
-  const profileSelect = PUBLIC_PROFILE_SELECT;
-  const profileResult = await sbAny
-    .from("profiles")
-    .select(profileSelect)
-    .ilike("username", escapeIlikePatternFragment(u))
-    .maybeSingle();
-  let prof = profileResult.data;
-  const profErr = profileResult.error;
-
-  if (
-    profErr &&
-    /column|does not exist|schema cache|Could not find/i.test(String(profErr.message ?? ""))
-  ) {
-    const r2 = await sbAny
-      .from("profiles")
-      .select(PUBLIC_PROFILE_SELECT_FALLBACK)
-      .ilike("username", escapeIlikePatternFragment(u))
-      .maybeSingle();
-    prof = r2.data as typeof prof;
-  }
+  const pattern = escapeIlikePatternFragment(u);
+  /**
+   * 설계안 v3 D8: 주소는 회원 아이디(`dibay_id`)로 먼저 찾는다. 예전 username 링크는 그다음.
+   * 바뀐 회원의 기본 아이디(`dibay_id_initial`)로는 열리지 않는다 (변경 시 username 도 새 아이디가 됨).
+   */
+  const lookup = async (column: "dibay_id" | "username") => {
+    const r = await sbAny.from("profiles").select(PUBLIC_PROFILE_SELECT).ilike(column, pattern).maybeSingle();
+    if (r.error && /column|does not exist|schema cache|Could not find/i.test(String(r.error.message ?? ""))) {
+      const r2 = await sbAny
+        .from("profiles")
+        .select(PUBLIC_PROFILE_SELECT_FALLBACK)
+        .ilike(column, pattern)
+        .maybeSingle();
+      return r2.data;
+    }
+    return r.data;
+  };
+  const prof = (await lookup("dibay_id")) ?? (await lookup("username"));
 
   if (prof && isPublicProfileHidden(prof as { status?: string | null; deleted_at?: string | null })) notFound();
 

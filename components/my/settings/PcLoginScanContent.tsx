@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import jsQR from "jsqr";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { parsePcQrLoginPayload } from "@/lib/auth/pc-qr-login/pc-qr-login-contract";
 import { MYPAGE_PROFILE_HREF } from "@/lib/mypage/mypage-profile-routes";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import { useQrCameraScanner } from "@/lib/qr/use-qr-camera-scanner";
 
 type Describe = {
   client: string | null;
@@ -23,8 +23,6 @@ type ScreenState =
   | { kind: "approving"; requestId: string; nonce: string; info: Describe }
   | { kind: "done" };
 
-const SCAN_INTERVAL_MS = 250;
-
 function formatTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
@@ -34,25 +32,17 @@ function formatTime(iso: string): string {
 /**
  * 휴대폰 「My → 설정 → PC 로그인」 — PC 화면의 QR 을 찍고, 확인 화면에서 허용하면 PC 가 이 계정으로 로그인한다.
  * (Owner 「그래 만들어」 2026-11-08 · 설계 docs/audit/windows-qr-login-design-2026-11-08.md §1·§5)
- * 카메라: 통화와 같은 getUserMedia — 앱 재빌드 없음. QR 읽기: jsQR. 디바이 앱(Android·iOS) 안에서만 동작.
+ * 카메라·QR 읽기: 공용 `useQrCameraScanner` (getUserMedia + jsQR) — 앱 재빌드 없음. 디바이 앱(Android·iOS) 안에서만 동작.
  */
 export function PcLoginScanContent() {
   const { t } = useI18n();
   const router = useRouter();
   const [isApp] = useState(() => typeof window !== "undefined" && isCapacitorNativePlatform());
   const [state, setState] = useState<ScreenState>({ kind: "scanning", notice: null });
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-
-  const stopCamera = useCallback(() => {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-  }, []);
 
   const handleCode = useCallback(
     async (parsed: { requestId: string; nonce: string }) => {
-      stopCamera();
+      // 카메라는 공용 스캐너가 "accept" 에서 끈다
       setState({ kind: "checking" });
       try {
         const qs = new URLSearchParams({ id: parsed.requestId, n: parsed.nonce });
@@ -72,71 +62,26 @@ export function PcLoginScanContent() {
         setState({ kind: "scanning", notice: "failed" });
       }
     },
-    [stopCamera],
+    [],
   );
 
-  // 카메라 + QR 읽기 (scanning 상태에서만)
-  useEffect(() => {
-    if (!isApp || state.kind !== "scanning") return;
-    let cancelled = false;
-    let timer = 0;
-    const run = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
-          audio: false,
-        });
-        if (cancelled) {
-          stream.getTracks().forEach((track) => track.stop());
-          return;
-        }
-        streamRef.current = stream;
-        const video = videoRef.current;
-        if (!video) return;
-        video.srcObject = stream;
-        await video.play().catch(() => undefined);
-        const scan = () => {
-          if (cancelled) return;
-          const canvas = canvasRef.current;
-          if (video.readyState >= 2 && canvas && video.videoWidth > 0) {
-            const w = video.videoWidth;
-            const h = video.videoHeight;
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext("2d", { willReadFrequently: true });
-            if (ctx) {
-              ctx.drawImage(video, 0, 0, w, h);
-              const image = ctx.getImageData(0, 0, w, h);
-              const code = jsQR(image.data, w, h, { inversionAttempts: "dontInvert" });
-              if (code?.data) {
-                const parsed = parsePcQrLoginPayload(code.data);
-                if (parsed) {
-                  void handleCode(parsed);
-                  return;
-                }
-                // 디바이 PC 로그인 QR 이 아님 — 안내만 하고 계속 찍는다
-                setState((prev) =>
-                  prev.kind === "scanning" && prev.notice !== "invalid" ? { kind: "scanning", notice: "invalid" } : prev,
-                );
-                timer = window.setTimeout(scan, 1_000);
-                return;
-              }
-            }
-          }
-          timer = window.setTimeout(scan, SCAN_INTERVAL_MS);
-        };
-        scan();
-      } catch {
-        if (!cancelled) setState({ kind: "camera_denied" });
+  // 카메라 + QR 읽기 (scanning 상태에서만) — 공용 스캐너
+  const { videoRef, canvasRef } = useQrCameraScanner({
+    active: isApp && state.kind === "scanning",
+    onCode: (data) => {
+      const parsed = parsePcQrLoginPayload(data);
+      if (parsed) {
+        void handleCode(parsed);
+        return "accept";
       }
-    };
-    void run();
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-      stopCamera();
-    };
-  }, [handleCode, isApp, state.kind, stopCamera]);
+      // 디바이 PC 로그인 QR 이 아님 — 안내만 하고 계속 찍는다
+      setState((prev) =>
+        prev.kind === "scanning" && prev.notice !== "invalid" ? { kind: "scanning", notice: "invalid" } : prev,
+      );
+      return "reject";
+    },
+    onDenied: () => setState({ kind: "camera_denied" }),
+  });
 
   const approve = useCallback(async () => {
     if (state.kind !== "confirm") return;

@@ -11,7 +11,10 @@ export interface Profile {
   dibay_id?: string | null;
   dibay_id_locked?: boolean;
   dibay_id_auto_assigned?: boolean;
-  dibay_id_initial?: string | null;
+  /** DB 생성 컬럼 — none · auto(숫자5+영어3, 안 바꿈) · auto_legacy(dibay… 안 바꿈) · custom */
+  dibay_id_state?: "none" | "auto" | "auto_legacy" | "custom" | null;
+  /** DB 생성 컬럼 — 회원 본인 1회 변경 가능 */
+  dibay_id_can_change?: boolean | null;
   dibay_id_changed_once?: boolean;
   dibay_id_changed_at?: string | null;
   username_confirmed?: boolean | null;

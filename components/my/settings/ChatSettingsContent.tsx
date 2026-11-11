@@ -11,6 +11,7 @@ import {
   updateUserSettings,
 } from "@/lib/settings/user-settings-store";
 import { MyToggle } from "@/components/mypage/ds/MyToggle";
+import { MemberDiscoverySettingsSection } from "@/components/my/settings/MemberDiscoverySettingsSection";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -206,6 +207,8 @@ export function ChatSettingsContent() {
           </div>
         )}
       </div>
+
+      <MemberDiscoverySettingsSection />
     </div>
   );
 }

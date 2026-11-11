@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
-import { searchCommunityMessengerUsersRanked } from "@/lib/community-messenger/user-public-id-search";
+import {
+  COMMUNITY_MESSENGER_USER_SEARCH_DAILY_LIMIT,
+  searchCommunityMessengerUsersRanked,
+} from "@/lib/community-messenger/user-public-id-search";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -20,6 +23,15 @@ export async function GET(req: NextRequest) {
     code: "community_messenger_users_search_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
+
+  /** 설계안 v3 §3.3 — 숫자 5자리·4자 부분 검색으로 회원 목록을 긁지 못하게 하루 500회 */
+  const dailyLimit = await enforceRateLimit({
+    key: `community-messenger:users-search-daily:${getRateLimitKey(req, auth.userId)}`,
+    limit: COMMUNITY_MESSENGER_USER_SEARCH_DAILY_LIMIT,
+    windowMs: 86_400_000,
+    code: "community_messenger_users_search_daily_limited",
+  });
+  if (!dailyLimit.ok) return dailyLimit.response;
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
