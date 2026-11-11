@@ -1,24 +1,47 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import jsQR from "jsqr";
 
 /**
- * 카메라 QR 읽기 공용 부품 (PC 로그인 스캐너에서 분리 — 설계안 v3 §3.6).
+ * 카메라 QR 읽기 공용 부품 (PC 로그인 스캐너·친구 QR 스캔 — 설계안 v3 §3.6).
  * 카메라: getUserMedia(뒤 카메라) — 앱 재빌드 없음. QR 읽기: jsQR, 250ms 간격.
  * `onCode` 가 "accept" 면 읽기를 멈추고 카메라를 끈다. "reject" 면 1초 뒤 다시 읽는다.
+ *
+ * QR 친구 재감사 (2026-11-12):
+ * - Q7 앱이 백그라운드로 가거나 화면이 꺼지면(문서 hidden) 카메라를 끄고, 돌아오면 다시 켠다.
+ * - Q8 해독은 화면에 보이는 가운데 정사각형(두 스캐너 모두 `aspect-square` + `object-cover`)만, 최대 640px 로 줄여서.
+ *   캔버스 크기는 바뀔 때만 다시 정한다(매번 넣으면 버퍼를 새로 만든다).
  */
 const SCAN_INTERVAL_MS = 250;
 const REJECT_RETRY_MS = 1_000;
+/** 해독 이미지 한 변 최대 — QR 한 칸이 화면에서 보일 크기면 640 으로 충분 */
+const DECODE_MAX_SIDE = 640;
 
 export type QrCodeDecision = "accept" | "reject";
+
+function useDocumentVisible(): boolean {
+  const [visible, setVisible] = useState(() => typeof document === "undefined" || document.visibilityState !== "hidden");
+  useEffect(() => {
+    const onChange = () => setVisible(document.visibilityState !== "hidden");
+    document.addEventListener("visibilitychange", onChange);
+    return () => document.removeEventListener("visibilitychange", onChange);
+  }, []);
+  return visible;
+}
 
 export function useQrCameraScanner(opts: {
   active: boolean;
   onCode: (data: string) => QrCodeDecision;
   onDenied: () => void;
 }) {
-  const { active } = opts;
+  const visible = useDocumentVisible();
+  /** 읽기 성공(accept) 뒤에는 화면이 다시 보여도 카메라를 다시 켜지 않는다 — 호출처가 active 를 바꿀 때만 초기화 */
+  const [accepted, setAccepted] = useState(false);
+  useEffect(() => {
+    setAccepted(false);
+  }, [opts.active]);
+  const active = opts.active && visible && !accepted;
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -62,18 +85,23 @@ export function useQrCameraScanner(opts: {
           if (cancelled) return;
           const canvas = canvasRef.current;
           if (video.readyState >= 2 && canvas && video.videoWidth > 0) {
-            const w = video.videoWidth;
-            const h = video.videoHeight;
-            canvas.width = w;
-            canvas.height = h;
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
+            const side = Math.min(vw, vh);
+            const out = Math.min(side, DECODE_MAX_SIDE);
+            if (canvas.width !== out || canvas.height !== out) {
+              canvas.width = out;
+              canvas.height = out;
+            }
             const ctx = canvas.getContext("2d", { willReadFrequently: true });
             if (ctx) {
-              ctx.drawImage(video, 0, 0, w, h);
-              const image = ctx.getImageData(0, 0, w, h);
-              const code = jsQR(image.data, w, h, { inversionAttempts: "dontInvert" });
+              ctx.drawImage(video, (vw - side) / 2, (vh - side) / 2, side, side, 0, 0, out, out);
+              const image = ctx.getImageData(0, 0, out, out);
+              const code = jsQR(image.data, out, out, { inversionAttempts: "dontInvert" });
               if (code?.data) {
                 if (onCodeRef.current(code.data) === "accept") {
                   stop();
+                  setAccepted(true);
                   return;
                 }
                 timer = window.setTimeout(scan, REJECT_RETRY_MS);

@@ -29,12 +29,9 @@ import { OpenGroupJoinPreviewFullScreen } from "@/components/community-messenger
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/components/community-messenger/MessengerSheetUi";
 import { MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS } from "@/lib/ui/messenger-split-pane-layout";
-import type { MessengerFriendAddTab } from "@/components/community-messenger/MessengerFriendAddSheet";
 import { FriendQrResultHost } from "@/components/community-messenger/friend-qr/FriendQrResultHost";
-import { useFriendQrResultStore } from "@/lib/community-messenger/friend-qr/friend-qr-result-store";
 import {
   MessengerChatRoomActionSheet,
-  MessengerFriendAddSheet,
   MessengerFriendProfileSheet,
   MessengerNotificationCenterSheet,
 } from "@/components/community-messenger/community-messenger-home-lazy-sheets";
@@ -123,6 +120,7 @@ import {
   MessengerFriendActionsProvider,
   type MessengerFriendActionsContextValue,
 } from "@/components/community-messenger/friend-cta/messenger-friend-actions-context";
+import type { MessengerFriendAddSource } from "@/components/community-messenger/friend-cta/MessengerFriendSearchResultRow";
 import { alertOutgoingCallFailure } from "@/lib/community-messenger/call-outgoing-failure-alert";
 import {
   readPreferredCommunityMessengerDeviceIds,
@@ -187,10 +185,6 @@ import {
   type CommunityMessengerRoomSnapshot,
   type CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
-import {
-  COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH,
-  type CommunityMessengerUserSearchResult,
-} from "@/lib/community-messenger/user-public-id-search";
 import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
 import {
   communityMessengerFriendRequestFailureMessage,
@@ -724,9 +718,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const subScreen = useMemo(() => parseMessengerSubScreenKey(subScreenKey), [subScreenKey]);
   /** 그룹 대화 친구 고르기 — 고른 친구(머리글 「고른 수」·아래 「n명으로 그룹 만들기」 같은 값) */
   const [pickSelectedIds, setPickSelectedIds] = useState<string[]>([]);
-  const [friendManagerOpen, setFriendManagerOpen] = useState(false);
-  const [friendAddTab, setFriendAddTab] = useState<MessengerFriendAddTab>("id");
-  const [friendUserSearchAttempted, setFriendUserSearchAttempted] = useState(false);
   const [friendSheet, setFriendSheet] = useState<FriendSheetState | null>(null);
   const [homeOutgoingConfirm, setHomeOutgoingConfirm] = useState<null | {
     peerUserId: string;
@@ -741,7 +732,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     userId: string;
     blockSource?: "friend_list" | "chat_room" | "profile" | "incoming_call" | "call_log";
   }>(null);
-  const friendSearchRef = useRef<HTMLInputElement | null>(null);
   const [mainSection, setMainSection] = useState<MessengerMainSection>(() =>
     pillar ? "chats" : resolveMessengerSection(initialSection, initialTab)
   );
@@ -1054,10 +1044,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>([]);
   const groupInviteNotifications = useIncomingFriendRequestPopupStore((s) => s.groupInviteList);
-  const [searchKeyword, setSearchKeyword] = useState("");
-  const [searchResults, setSearchResults] = useState<CommunityMessengerUserSearchResult[]>([]);
-  const [friendUserSearchBusy, setFriendUserSearchBusy] = useState(false);
-  const friendUserSearchSeqRef = useRef(0);
   const [groupTitle, setGroupTitle] = useState("");
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
   const [groupSelectedProfiles, setGroupSelectedProfiles] = useState<Record<string, CommunityMessengerProfileLite>>({});
@@ -1081,11 +1067,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const [joinAliasName, setJoinAliasName] = useState("");
   const [joinAliasBio, setJoinAliasBio] = useState("");
   const [joinAliasAvatarUrl, setJoinAliasAvatarUrl] = useState("");
-  const resetFriendSearchState = useCallback(() => {
-    setSearchKeyword((prev) => (prev === "" ? prev : ""));
-    setSearchResults([]);
-    setFriendUserSearchAttempted((prev) => (prev ? false : prev));
-  }, []);
   const resetGroupCreateDraft = useCallback(() => {
     setGroupTitle((prev) => (prev === "" ? prev : ""));
     setGroupMembers((prev) => (prev.length === 0 ? prev : []));
@@ -1241,23 +1222,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     [t]
   );
 
-  useEffect(() => {
-    if (!localSettings.phoneFriendAddEnabled && friendAddTab === "contacts") {
-      setFriendAddTab("id");
-    }
-  }, [friendAddTab, localSettings.phoneFriendAddEnabled]);
-
-  useEffect(() => {
-    if (!friendManagerOpen) return;
-    setFriendUserSearchAttempted(false);
-    setSearchResults([]);
-  }, [friendManagerOpen]);
-
-  useEffect(() => {
-    if (friendManagerOpen) return;
-    resetFriendSearchState();
-  }, [friendManagerOpen, resetFriendSearchState]);
-
   /** 채팅 검색 화면을 떠나면 검색어를 비운다 — 대화 목록 거르기(`roomSearchKeyword`)가 남지 않게 */
   const chatSearchScreenOpen = subScreen?.kind === "search";
   useEffect(() => {
@@ -1332,14 +1296,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       return true;
     },
     [getMessengerActionErrorMessage, setData]
-  );
-
-  const maybePrefetchDirectRoom = useCallback(
-    (peerUserId: string) => {
-      const existing = pickGeneralDirectRoomForPeer(data?.chats ?? [], peerUserId);
-      if (existing) void prefetchCommunityMessengerRoomSnapshot(existing.id);
-    },
-    [data?.chats]
   );
 
   const navigateGeneralFriendRoom = useCallback(
@@ -1541,58 +1497,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     [data?.chats, reviveDirectRoomForEntry, router, t]
   );
 
-  const refreshFriendSearch = useCallback(async (keyword: string) => {
-    const q = keyword.trim();
-    if (q.length < COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH) {
-      setSearchResults([]);
-      setFriendUserSearchAttempted(true);
-      return;
-    }
-    setFriendUserSearchBusy(true);
-    try {
-      const res = await fetch(`/api/community-messenger/users?q=${encodeURIComponent(q)}`, {
-        cache: "no-store",
-      });
-      const json = (await res.json()) as { ok?: boolean; users?: CommunityMessengerUserSearchResult[] };
-      setSearchResults(res.ok && json.ok ? json.users ?? [] : []);
-      setFriendUserSearchAttempted(true);
-    } finally {
-      setFriendUserSearchBusy(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!friendManagerOpen) return;
-    const keyword = searchKeyword.trim();
-    if (!keyword || keyword.length < COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH) {
-      friendUserSearchSeqRef.current += 1;
-      setSearchResults([]);
-      setFriendUserSearchBusy(false);
-      if (!keyword) setFriendUserSearchAttempted(false);
-      return;
-    }
-    const seq = ++friendUserSearchSeqRef.current;
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        setFriendUserSearchBusy(true);
-        try {
-          const res = await fetch(`/api/community-messenger/users?q=${encodeURIComponent(keyword)}`, {
-            cache: "no-store",
-          });
-          if (seq !== friendUserSearchSeqRef.current) return;
-          const json = (await res.json()) as { ok?: boolean; users?: CommunityMessengerUserSearchResult[] };
-          setSearchResults(res.ok && json.ok ? json.users ?? [] : []);
-          setFriendUserSearchAttempted(true);
-        } finally {
-          if (seq === friendUserSearchSeqRef.current) {
-            setFriendUserSearchBusy(false);
-          }
-        }
-      })();
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [friendManagerOpen, searchKeyword]);
-
   /** 친구 요청 목록(data.requests) 즉시 반영 — 버튼 상태가 서버 재조회를 기다리지 않게 한다. */
   const patchLocalFriendRequests = useCallback(
     (mutate: (requests: CommunityMessengerFriendRequest[]) => CommunityMessengerFriendRequest[]) => {
@@ -1602,10 +1506,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
 
   const addFriendSaved = useCallback(
-    async (targetUserId: string, source: "id_search" | "contacts" | "profile" = "id_search"): Promise<boolean> => {
+    async (targetUserId: string, source: MessengerFriendAddSource): Promise<boolean> => {
       setBusyId(`friend-add:${targetUserId}`);
       try {
-        /** 친구가 된 경로 — 호출처가 넘긴다 (아이디 검색 기본 · 연락처 · 프로필 시트, PR #149 리뷰) */
+        /** 친구가 된 경로 — 호출처가 반드시 넘긴다 (기본값 없음, QR 친구 재감사 D-A2) */
         const result = await postCommunityMessengerFriendRequestApi(targetUserId, undefined, source);
         if (result.ok) {
           const sent = result.request;
@@ -1703,6 +1607,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       onOpenProfile: (user) =>
         setFriendSheet({
           mode: "profile",
+          /** 아이디 검색 결과에서 연 프로필 — 여기서 추가해도 경로는 아이디 검색 */
+          friendAddSource: "id_search",
           profile: {
             id: user.id,
             label: user.displayName,
@@ -1736,12 +1642,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     (targetUserId: string): boolean =>
       resolveMessengerBlockToggleIntent({
         targetUserId,
-        searchHit: searchResults.find((p) => p.id === targetUserId) ?? null,
+        searchHit: null,
         blockedByMe: data?.blocked ?? null,
         pools: [data?.friends, data?.hidden, data?.following],
         sheetProfile: friendSheet?.profile ?? null,
       }) === "unblock",
-    [data?.blocked, data?.following, data?.friends, data?.hidden, friendSheet, searchResults]
+    [data?.blocked, data?.following, data?.friends, data?.hidden, friendSheet]
   );
 
   const toggleFavoriteFriend = useCallback(
@@ -1771,9 +1677,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
               blocked: prev.blocked === undefined ? undefined : patchList(prev.blocked),
             };
           });
-          setSearchResults((prev) =>
-            prev.map((profile) => (profile.id === friendUserId ? { ...profile, isFavoriteFriend: nextFavorite } : profile))
-          );
           setFriendSheet((prev) =>
             prev?.profile.id === friendUserId
               ? { ...prev, profile: { ...prev.profile, isFavoriteFriend: nextFavorite } }
@@ -1853,9 +1756,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           });
           /** 서버 SSOT 로 숨김·차단 목록 정합 (로컬 패치 유지 후 authoritative replace) */
           void hydrateMessengerPrivacyLists();
-          setSearchResults((prev) =>
-            prev.map((profile) => (profile.id === friendUserId ? { ...profile, isHiddenFriend: nextHidden } : profile))
-          );
           setFriendSheet((prev) =>
             prev?.profile.id === friendUserId
               ? { ...prev, profile: { ...prev.profile, isHiddenFriend: nextHidden } }
@@ -1902,26 +1802,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             variant: isBlocked ? "success" : "default",
           });
           const nowBlocked = !isBlocked;
-          const searchHit = searchResults.find((p) => p.id === targetUserId);
           const fallbackProfile: CommunityMessengerProfileLite | null =
-            friendSheet?.profile.id === targetUserId
-              ? friendSheet.profile
-              : searchHit
-                ? {
-                    id: searchHit.id,
-                    label: searchHit.displayName,
-                    avatarUrl: searchHit.avatarUrl,
-                    following: false,
-                    blocked: nowBlocked,
-                    isFriend: searchHit.isFriend,
-                    isFavoriteFriend: false,
-                  }
-                : null;
+            friendSheet?.profile.id === targetUserId ? friendSheet.profile : null;
           /** 1) 즉시 반영 — 서버 cleanup 과 동일하게 친구·숨김에서 제거 / blocked 목록 이동 */
           setData((prev) => (prev ? applyLocalBlockStatePatch(prev, targetUserId, nowBlocked, fallbackProfile) : prev));
-          setSearchResults((prev) =>
-            prev.map((p) => (p.id === targetUserId ? { ...p, isBlockedByMe: nowBlocked } : p))
-          );
           setFriendSheet((prev) =>
             prev?.profile.id === targetUserId ? { ...prev, profile: { ...prev.profile, blocked: nowBlocked } } : prev
           );
@@ -1943,7 +1827,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           void refresh(false);
           /** 3) 숨김·차단 목록 SSOT hydrate (privacy_lists_replace) */
           void hydrateMessengerPrivacyLists();
-          void refreshFriendSearch(searchKeyword);
           return true;
         }
         if (
@@ -1976,11 +1859,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       hydrateMessengerPrivacyLists,
       messengerListPathname,
       refresh,
-      refreshFriendSearch,
       resolvePeerBlockedByMe,
       router,
-      searchKeyword,
-      searchResults,
       setAuthRequired,
       setData,
       setPageError,
@@ -3320,11 +3200,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             primeBootstrapCache(next);
             return next;
           });
-          setSearchResults((prev) =>
-            prev.map((user) =>
-              user.id === friendUserId ? { ...user, isFriend: false, isFavoriteFriend: false, isHiddenFriend: false } : user
-            )
-          );
           setFriendSheet((prev) => (prev?.profile.id === friendUserId ? null : prev));
           showMessengerSnackbar(t("cm_friend_removed"), { variant: "default" });
           return;
@@ -3826,7 +3701,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           friendAddCta={data?.me?.id ? friendAddCtaForSheet : undefined}
           onFriendAdd={
             friendSheet.allowFriendRequest !== false && data?.me?.id
-              ? () => void addFriendSaved(friendProfileForSheet.id, "profile")
+              ? () => void addFriendSaved(friendProfileForSheet.id, friendSheet.friendAddSource ?? "profile")
               : undefined
           }
           onFriendCancel={() => void cancelOutgoingFriendRequest(friendProfileForSheet.id)}
@@ -3954,35 +3829,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           onClose={() => closeHomeOverlay("composer")}
           onPickDirect={() => openMessengerSubScreen({ kind: "pick", mode: "direct" })}
           onPickGroup={() => openMessengerSubScreen({ kind: "pick", mode: "group" })}
-        />
-      ) : null}
-
-      {friendManagerOpen && data ? (
-        <MessengerFriendAddSheet
-          onClose={() => setFriendManagerOpen(false)}
-          friendAddTab={friendAddTab}
-          onFriendAddTabChange={setFriendAddTab}
-          localSettings={localSettings}
-          updateLocalSetting={updateLocalSetting}
-          searchKeyword={searchKeyword}
-          onSearchKeywordChange={setSearchKeyword}
-          friendSearchRef={friendSearchRef}
-          onSearchUsers={() => void refreshFriendSearch(searchKeyword)}
-          searchBusy={friendUserSearchBusy}
-          friendUserSearchAttempted={friendUserSearchAttempted}
-          searchResults={searchResults}
-          viewerUserId={data.me?.id ?? null}
-          busyId={busyId}
-          onPrefetchDirectRoom={(userId) => maybePrefetchDirectRoom(userId)}
-          onStartDirectChat={(userId) => {
-            setFriendManagerOpen(false);
-            void startDirectRoom(userId);
-          }}
-          onFriendQrToken={(token) => {
-            setFriendManagerOpen(false);
-            useFriendQrResultStore.getState().open(token);
-          }}
-          friendActions={messengerFriendActions}
         />
       ) : null}
 

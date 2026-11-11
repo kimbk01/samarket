@@ -10,7 +10,10 @@ import {
   COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH,
   type CommunityMessengerUserSearchResult,
 } from "@/lib/community-messenger/user-public-id-search";
-import { MessengerFriendSearchResultRow } from "@/components/community-messenger/MessengerFriendAddSheet";
+import {
+  MessengerFriendSearchResultRow,
+  type MessengerFriendAddSource,
+} from "@/components/community-messenger/friend-cta/MessengerFriendSearchResultRow";
 import { useMessengerFriendActions } from "@/components/community-messenger/friend-cta/messenger-friend-actions-context";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
@@ -118,8 +121,8 @@ export function MessengerHomeInlineFriendSearch({ busyId, onSelectUser, trailing
               collapse();
               friendActions.onOpenProfile(user);
             },
-            onSend: async (userId: string) => {
-              const ok = (await friendActions.onSend(userId)) === true;
+            onSend: async (userId: string, source: MessengerFriendAddSource) => {
+              const ok = (await friendActions.onSend(userId, source)) === true;
               if (ok) collapse();
               return ok;
             },

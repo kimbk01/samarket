@@ -27,9 +27,11 @@ describe("friend mutual stage2 — CTA state table (§3-1)", () => {
 
 describe("friend mutual stage2 — wiring", () => {
   it("F-1 search rows carry the shared friend CTA and open the profile", () => {
-    const sheet = src("components/community-messenger/MessengerFriendAddSheet.tsx");
-    expect(sheet).toContain("MessengerFriendRelationCta");
-    expect(sheet).toContain("friendActions.onOpenProfile(user)");
+    /** 열 수 없던 친구 추가 시트는 삭제(QR 친구 재감사 D-A4) — 검색 결과 행은 친구 탭 인라인 검색 전용 파일 */
+    const row = src("components/community-messenger/friend-cta/MessengerFriendSearchResultRow.tsx");
+    expect(row).toContain("MessengerFriendRelationCta");
+    expect(row).toContain("friendActions.onOpenProfile(user)");
+    expect(row).toContain('friendActions.onSend(user.id, "id_search")');
   });
 
   it("F-2·F-3 profile sheet exposes cancel / accept / reject", () => {
@@ -204,7 +206,7 @@ describe("friend mutual stage2 — wiring", () => {
 
   it("§14 S-6·S-10: 검색 카드 행 버튼은 처리 성공 뒤 접힘, 그룹 만들기는 친구 고르기로 바로(채팅 시안 4판 「6」)", () => {
     const inline = src("components/community-messenger/MessengerHomeInlineFriendSearch.tsx");
-    expect(inline).toContain("const ok = (await friendActions.onSend(userId)) === true;");
+    expect(inline).toContain("const ok = (await friendActions.onSend(userId, source)) === true;");
     expect(inline).toContain("const ok = (await friendActions.onCancel(userId)) === true;");
     expect(inline).toContain("const ok = (await friendActions.onRespond(requestId, action, peerLabel)) === true;");
     const home = src("components/community-messenger/CommunityMessengerHome.tsx");

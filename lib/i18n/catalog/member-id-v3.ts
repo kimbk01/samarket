@@ -46,7 +46,7 @@ export const memberIdV3Messages = {
     friend_qr_action_failed: "처리하지 못했어요. 다시 시도해 주세요.",
     friend_qr_scan_hint: "친구의 QR 코드를 네모 안에 맞춰 주세요",
     friend_qr_scan_gallery: "갤러리에서 선택",
-    friend_qr_scan_not_friend_qr: "디바이 친구 QR이 아니에요",
+    friend_qr_scan_not_friend_qr: "DIBAY 친구 QR이 아니에요",
     friend_qr_scan_gallery_none: "사진에서 QR을 찾지 못했어요",
     friend_qr_camera_denied: "카메라를 쓸 수 없어요. 갤러리에서 QR 사진을 선택해 주세요.",
     friend_qr_result_source: "QR 코드로 찾았어요",

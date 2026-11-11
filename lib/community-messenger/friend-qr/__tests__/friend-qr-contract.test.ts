@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -51,13 +51,20 @@ describe("friend QR contract", () => {
     expect(isGuestPublicBrowsePath(`/f/${TOKEN}`)).toBe(true);
   });
 
-  it("screens: friend add QR tab, result sheet in messenger home, scanner shared with PC login", () => {
-    const sheet = read("components/community-messenger/MessengerFriendAddSheet.tsx");
-    expect(sheet).toContain("<FriendQrTabPanel onToken={onFriendQrToken} />");
-    expect(sheet).not.toContain("inviteUrl");
+  it("screens: QR 코드 시트 진입(친구 탭 검색 줄·마이페이지), result sheet in messenger home, scanner shared with PC login", () => {
+    /** 시안 3판: 친구 탭 QR 진입 = 검색 줄 아이콘 하나, 내 프로필 줄에는 두지 않는다 */
+    const actions = read("components/community-messenger/friend-cta/MessengerFriendsHeaderActions.tsx");
+    expect(actions).toContain("<MyFriendQrSheet");
+    expect(actions).toContain('data-testid="cm-friend-qr-entry"');
+    expect(read("components/community-messenger/MessengerFriendsMyProfileStrip.tsx")).not.toContain("MyFriendQrSheet");
+    expect(read("components/mypage/profile/MypageSelfProfileView.tsx")).toContain("<MyFriendQrSheet");
+    const sheet = read("components/community-messenger/friend-qr/MyFriendQrSheet.tsx");
+    expect(sheet).toContain("<FriendQrTabPanel onToken={onToken} />");
+    expect(sheet).toContain("useFriendQrResultStore.getState().open(token)");
+    expect(sheet).toContain("buildFriendQrHomePath(token)");
+    expect(existsSync(join(process.cwd(), "components/community-messenger/MessengerFriendAddSheet.tsx"))).toBe(false);
     const home = read("components/community-messenger/CommunityMessengerHome.tsx");
     expect(home).toContain("<FriendQrResultHost");
-    expect(home).toContain("useFriendQrResultStore.getState().open(token)");
     expect(read("components/my/settings/PcLoginScanContent.tsx")).toContain("useQrCameraScanner(");
     expect(read("components/community-messenger/friend-qr/FriendQrScanPanel.tsx")).toContain("useQrCameraScanner(");
     expect(read("components/community-messenger/friend-qr/FriendQrScanPanel.tsx")).toContain("decodeQrFromImageFile");
@@ -96,7 +103,61 @@ describe("PR #149 review — friend source", () => {
   it("shared home add action carries the caller's source (contacts · profile sheet)", () => {
     const home = read("components/community-messenger/CommunityMessengerHome.tsx");
     expect(home).toContain("onSend: (userId, source) => addFriendSaved(userId, source),");
-    expect(home).toContain('addFriendSaved(friendProfileForSheet.id, "profile")');
+    /** 검색 결과에서 연 프로필 시트는 id_search, 그 밖은 profile (재감사 §2 ①-b) */
+    expect(home).toContain('addFriendSaved(friendProfileForSheet.id, friendSheet.friendAddSource ?? "profile")');
+    expect(home).toContain('friendAddSource: "id_search",');
     expect(read("components/community-messenger/contacts/use-contacts-friend-cta.ts")).toContain('home.onSend(m.user_id, "contacts")');
   });
 });
+
+describe("QR 친구 재감사 수정 (2026-11-12)", () => {
+  it("Q1·Q2: 앱에서는 이미지 저장을 숨기고(허위 성공 금지), 공유·저장 취소는 문구 없이 끝낸다", () => {
+    const panel = read("components/community-messenger/friend-qr/MyFriendQrPanel.tsx");
+    expect(panel).not.toContain("shareOrSaveReceiptImage");
+    expect(panel).toContain("{canSave ? (");
+    const client = read("lib/community-messenger/friend-qr/friend-qr-client.ts");
+    expect(client).toContain("return !(await isNativeApp());");
+    expect(client).toContain('if (isCancelMessage(err)) return "cancelled";');
+  });
+
+  it("Q3: 미완료·429 는 이유별 처리, 그 밖만 쓸 수 없는 QR", () => {
+    const host = read("components/community-messenger/friend-qr/FriendQrResultHost.tsx");
+    expect(host).toContain("handleProfileIncompleteApiResponse(j).handled || redirectForBlockedAction(router, j.error ?? j.code)");
+    expect(host).toContain('status === 429 ? "common_try_again_later" : friendQrErrorMessageKey(j.error)');
+  });
+
+  it("Q6: 웹 /f — 앱 안이면 랜딩 생략, Android 는 앱이 안 열리면 Play 스토어", () => {
+    const landing = read("components/community-messenger/friend-qr/FriendQrWebLanding.tsx");
+    expect(landing).toContain("router.replace(continueHref)");
+    expect(landing).toContain("FRIEND_QR_ANDROID_STORE_URL");
+  });
+
+  it("Q7·Q8: 스캐너는 화면이 숨으면 카메라를 끄고, 가운데 정사각형을 640 이하로 해독", () => {
+    const scanner = read("lib/qr/use-qr-camera-scanner.ts");
+    expect(scanner).toContain('document.addEventListener("visibilitychange", onChange)');
+    expect(scanner).toContain("const active = opts.active && visible && !accepted;");
+    expect(scanner).toContain("const DECODE_MAX_SIDE = 640;");
+  });
+
+  it("Q9: QR 다시 만들기는 공용 함수 하나", () => {
+    expect(read("components/community-messenger/friend-qr/MyFriendQrPanel.tsx")).toContain("requestFriendQrRegenerate()");
+    expect(read("components/my/settings/MemberDiscoverySettingsSection.tsx")).toContain("requestFriendQrRegenerate()");
+  });
+
+  it("Q11: 저장 카드 이름은 말줄임 없이 고르게 두 줄", async () => {
+    const { splitFriendQrCardName } = await import("@/lib/community-messenger/friend-qr/friend-qr-image");
+    const measure = (t: string) => Array.from(t).length * 40;
+    expect(splitFriendQrCardName("짧은이름", measure, 640)).toEqual(["짧은이름"]);
+    const lines = splitFriendQrCardName("필리핀마닐라에서일하는김디바이선생님", measure, 640);
+    expect(lines).toHaveLength(2);
+    expect(lines.join("")).toBe("필리핀마닐라에서일하는김디바이선생님");
+    expect(Math.abs(Array.from(lines[0]).length - Array.from(lines[1]).length)).toBeLessThanOrEqual(1);
+  });
+
+  it("D-A2: 친구 요청은 경로를 반드시 넘긴다 (기본값 없음)", () => {
+    const client = read("lib/community-messenger/community-messenger-friend-request-client.ts");
+    expect(client).toContain('source: "id_search" | "contacts" | "profile"');
+    expect(client).not.toContain('source?: "id_search"');
+  });
+});
+

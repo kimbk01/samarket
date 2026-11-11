@@ -9917,13 +9917,6 @@ export async function listCommunityMessengerFriends(userId: string): Promise<Com
   return result.ok ? result.friends : [];
 }
 
-export async function addCommunityMessengerFriendSaved(
-  userId: string,
-  targetUserId: string
-): Promise<{ ok: boolean; error?: string }> {
-  return addFriendSaved(userId, targetUserId);
-}
-
 export async function resolveCommunityMessengerUserForSocial(
   viewerUserId: string,
   input: { publicId?: string; targetUserId?: string }
@@ -10092,36 +10085,6 @@ export async function searchCommunityMessengerUsers(
     isFriend: row.isFriend,
     isFavoriteFriend: false,
   }));
-}
-
-/**
- * Legacy unilateral contact writer — retained for admin/compat paths that must not
- * create pending requests. New friend-add UX uses `sendCommunityMessengerFriendRequest`.
- */
-export async function addCommunityMessengerFriendContact(
-  userId: string,
-  targetUserId: string
-): Promise<{
-  ok: boolean;
-  error?: string;
-}> {
-  const target = trimText(targetUserId);
-  if (!target || target === userId) return { ok: false, error: "bad_target" };
-  if (!(await ensureNoBlockedEitherWay(userId, target))) {
-    return { ok: false, error: "blocked_target" };
-  }
-
-  const sb = getSupabaseOrNull();
-  if (sb) {
-    const { isFriendSavedByOwner } = await import("@/lib/community-messenger/friendship-resolver");
-    if (await isFriendSavedByOwner(sb, userId, target)) {
-      return { ok: true };
-    }
-  }
-
-  const added = await addFriendSaved(userId, target);
-  if (!added.ok) return { ok: false, error: added.error ?? "friend_add_failed" };
-  return { ok: true };
 }
 
 /**

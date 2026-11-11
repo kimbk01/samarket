@@ -68,8 +68,9 @@ describe("member id v3 audit fixes", () => {
     expect(normalizeCmFriendRequestSource("contacts")).toBe("contacts");
     expect(normalizeCmFriendRequestSource("qr")).toBeUndefined();
     expect(read("components/community-messenger/contacts/use-contacts-friend-cta.ts")).toContain('undefined, "contacts")');
+    /** 재감사 D-A2 (2026-11-12): 기본값 없이 호출처가 반드시 넘긴다 */
     expect(read("components/community-messenger/CommunityMessengerHome.tsx")).toContain(
-      'source: "id_search" | "contacts" | "profile" = "id_search"',
+      "async (targetUserId: string, source: MessengerFriendAddSource): Promise<boolean> =>",
     );
   });
 

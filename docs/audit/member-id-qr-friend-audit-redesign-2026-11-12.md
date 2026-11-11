@@ -170,3 +170,23 @@ Owner 지시 (2026-11-12): 「남은 부분 없도록 하고, 처음 구현 계�
   8. 시트 연 채 백그라운드 → 카메라 표시등 꺼짐.
   9. 아이디 검색·프로필 시트 추가 source.
   - 테스트 계정끼리 친구 해제·추가는 운영 데이터 변경이라 시작 전에 알린다.
+
+## 6. 구현 기록 — S0·S1 (Owner 「3판대로 구현」 2026-11-12, PR #154)
+
+| 항목 | 구현 | 파일 |
+|---|---|---|
+| 진입 (시안 3판) | 친구 탭 검색 줄 [QR 아이콘 38][관리]. 내 프로필 줄은 [프로필 편집] 하나로 되돌림. 마이페이지 [QR 코드] 유지 | `friend-cta/MessengerFriendsHeaderActions.tsx`, `MessengerFriendsMyProfileStrip.tsx` |
+| 글자 규칙 | 이름 줄바꿈 + `text-wrap: balance`, 아이디 `.` `_` 뒤에서만 줄바꿈(`MemberAtIdText`, 구 iOS 때문에 정규식 lookbehind 안 씀), 소개 단어 단위, 버튼 한 줄 | 내 프로필 줄·QR 카드·결과 시트·마이페이지·웹 /f |
+| Q1·Q2 | 앱에서는 [이미지 저장] 숨김(브라우저만 내려받기), 공유·저장 취소는 문구 없음, 공유 = 카드 이미지+링크(브라우저 파일 공유 가능 시) | `friend-qr/friend-qr-client.ts`, `MyFriendQrPanel.tsx` |
+| Q3 | 가입·프로필 미완료 → 앱 공용 처리(시트 닫음), 429 → 「잠시 후 다시 시도해 주세요.」, 그 밖 → 「이 QR로는…」 | `FriendQrResultHost.tsx` |
+| Q6 | 앱 안에서 /f 열면 랜딩 생략, Android 는 1.5초 안에 앱이 안 열리면 Play 스토어 | `FriendQrWebLanding.tsx` |
+| Q7·Q8 | 화면 숨김 → 카메라 끔, 복귀 → 다시 켬(읽기 성공 뒤에는 다시 안 켬). 가운데 정사각형 ≤640px 해독, 캔버스 크기 1회 | `lib/qr/use-qr-camera-scanner.ts` (PC 로그인 스캔 공용) |
+| Q9 | 다시 만들기 공용 함수 | `requestFriendQrRegenerate` |
+| Q10 | 설정 다시 만들기 버튼 공용 클래스, QR 카드 토큰, 「DIBAY 친구 QR이 아니에요」 | |
+| Q11 | 저장 카드 = 화면 카드(가운데 사진, 이름 두 줄 균형) | `friend-qr-image.ts` |
+| D-A2 | 친구 요청 경로 필수(기본값 제거). 검색 결과에서 연 프로필 시트 → `id_search` | `community-messenger-friend-request-client.ts`, `CommunityMessengerHome.tsx`, `community-messenger-home-types.ts` |
+| D-A4 | 삭제: `MessengerFriendAddSheet`(열 수 없던 시트, 검색 결과 행은 `friend-cta/MessengerFriendSearchResultRow.tsx` 로 이동), 홈의 시트 전용 상태·효과(검색어·결과·시도·요청 순번·QR 토큰 전달), `POST /relations/friend`(DELETE 유지), `addCommunityMessengerFriendSaved`·`addCommunityMessengerFriendContact` | |
+
+- 그룹 경로(`group`)는 아직 `profile`이다. DB 허용값 추가(S2, 운영 DB 적용은 Owner 승인) 뒤 같은 PR 에서 켠다.
+- 로컬 검증: typecheck:build·typecheck:test 통과, vitest 전체 1550 파일(1 skip) 통과, 변경 파일 eslint 통과, check:i18n-quality 통과(한국어 문장 1개 줄어 기준선 갱신).
+- 운영·실기: NOT_PROVEN (병합 전).

@@ -14,6 +14,9 @@ export const FRIEND_QR_DEEP_LINK_PREFIX = "dibay://friend/";
 /** 메신저 홈이 받는 쿼리 — 스캔 결과 시트를 연다 */
 export const FRIEND_QR_HOME_QUERY_KEY = "friendQr";
 
+/** 웹 /f 「앱에서 열기」가 실패했을 때 Android 이동처 (패키지 `com.dibay.app`, android/app/build.gradle) */
+export const FRIEND_QR_ANDROID_STORE_URL = "https://play.google.com/store/apps/details?id=com.dibay.app";
+
 export function isFriendQrToken(value: unknown): value is string {
   return typeof value === "string" && FRIEND_QR_TOKEN_RE.test(value);
 }

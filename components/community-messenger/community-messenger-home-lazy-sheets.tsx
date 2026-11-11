@@ -17,10 +17,6 @@ export const MessengerChatRoomActionSheet = dynamic(
     import("@/components/community-messenger/MessengerChatRoomActionSheet").then((m) => m.MessengerChatRoomActionSheet),
   { ssr: false, loading: () => null }
 );
-export const MessengerFriendAddSheet = dynamic(
-  () => import("@/components/community-messenger/MessengerFriendAddSheet").then((m) => m.MessengerFriendAddSheet),
-  { ssr: false, loading: () => null }
-);
 export const MessengerNotificationCenterSheet = dynamic(
   () =>
     import("@/components/community-messenger/MessengerNotificationCenterSheet").then(
