@@ -19,6 +19,7 @@ import {
 } from "@/lib/main-menu/bottom-nav-config";
 import { DELIVERY_BOTTOM_NAV_LABEL_CLASS } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import { useOwnerBottomNavScrollHide } from "@/lib/layout/use-owner-bottom-nav-scroll-hide-behavior";
+import { useHtmlShellFlagsSync } from "@/lib/layout/use-html-shell-flags-sync";
 import { triggerLightTapFeedback } from "@/lib/ui/light-tap-feedback";
 import {
   isOwnerBottomNavTabActive,
@@ -233,6 +234,12 @@ export function OwnerMobileBottomNav({
     setOwnerBottomNavOccupiesClearance(true);
     return () => setOwnerBottomNavOccupiesClearance(false);
   }, []);
+
+  /**
+   * D1 F1 — 이 탭도 `.app-bottom-nav-shell` 이므로 `<html>` 셸 속성(하단 탭 유무·배달 모양·스크롤 숨김)에 반영한다.
+   * 마운트·해제·스크롤 숨김 변경·body 로 옮긴 직후 다시 읽는다 (2026-11-12 재감사 FAIL 2 — 빠져 있었음).
+   */
+  useHtmlShellFlagsSync(`${portalToBody ? 1 : 0}|${hiddenByScroll ? 1 : 0}`);
 
   const pathKey = `${pathname}?${searchParams.toString()}`;
 

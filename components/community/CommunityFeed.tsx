@@ -937,8 +937,13 @@ export function CommunityFeed({
      * D1 §4 — 보관된 허브가 다시 보일 때(같은 질의·60초 안·목록 있음) 목록·오프셋을 되돌리지 않고 다시 받지도 않는다.
      * 새로 마운트된 화면은 기록이 없어 언제나 아래 경로로 받는다.
      */
+    /**
+     * 60초 규칙 키 = 회원 + 질의 + 해시태그(`?tag=`). 해시태그는 `feedContentKey` 에 없으므로 따로 넣는다 —
+     * 빠지면 태그 해제(또는 다른 태그) 뒤 60초 안에 이전 태그 목록이 그대로 남는다(2026-11-12 재감사 FAIL 1).
+     */
+    const feedRevisitKey = `${viewerSig}|${feedContentKey}|${tagFilter}`;
     if (
-      feedRevisitGate.isFresh(`${viewerSig}|${feedContentKey}`) &&
+      feedRevisitGate.isFresh(feedRevisitKey) &&
       postsContentKeyRef.current === feedContentKey &&
       postsRef.current.length > 0
     ) {
@@ -952,7 +957,7 @@ export function CommunityFeed({
     loadMoreLockRef.current = false;
     const markFeedLoaded = (outcome: DibayPtrOutcome) => {
       if (outcome === "success" && feedSessionRef.current === session) {
-        feedRevisitGate.markLoaded(`${viewerSig}|${feedContentKey}`);
+        feedRevisitGate.markLoaded(feedRevisitKey);
       }
     };
 
@@ -1084,6 +1089,7 @@ export function CommunityFeed({
     neighborOnly,
     viewerSig,
     feedSort,
+    tagFilter,
     fetchPage,
     initialGlobalFeedRsc,
     topicAuthorityReady,

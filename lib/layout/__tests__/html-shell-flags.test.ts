@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
+import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { HTML_SHELL_FLAGS_INLINE_SCRIPT, syncHtmlShellFlagsFromDom } from "@/lib/layout/html-shell-flags";
@@ -64,11 +65,24 @@ describe("D1 F1 — html·body :has 규칙 대체 셸 속성", () => {
       "components/admin/users/MemberAdminDialog.tsx",
       "components/delivery/ui/DeliveryModal.tsx",
       "components/admin/shell/AdminPlatformShell.tsx",
+      "components/stores/owner/OwnerMobileBottomNav.tsx",
     ]) {
       expect(readFileSync(join(ROOT, f), "utf8")).toContain("useHtmlShellFlagsSync(");
     }
     expect(readFileSync(join(ROOT, "components/layout/ConditionalAppShell.tsx"), "utf8")).toContain(
       "HTML_SHELL_FLAGS_INLINE_SCRIPT"
     );
+  });
+
+  it("하단 탭(`BOTTOM_NAV_SHELL.outerClassName`)을 그리는 컴포넌트는 모두 갱신을 요청한다 (2026-11-12 재감사 FAIL 2)", () => {
+    const out = execFileSync("git", ["grep", "-l", "BOTTOM_NAV_SHELL.outerClassName", "--", "components", "app"], {
+      cwd: ROOT,
+      encoding: "utf8",
+    });
+    const files = out.split("\n").filter((f) => f.endsWith(".tsx"));
+    expect(files.length).toBeGreaterThanOrEqual(2);
+    for (const f of files) {
+      expect(readFileSync(join(ROOT, f), "utf8"), f).toContain("useHtmlShellFlagsSync(");
+    }
   });
 });

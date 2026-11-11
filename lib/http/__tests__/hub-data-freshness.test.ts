@@ -39,6 +39,14 @@ describe("D1 §4 허브 데이터 60초 규칙", () => {
     expect(feed).toContain("feedAdPoolRevisitGate.reset()");
   });
 
+  it("커뮤니티 피드 60초 키에 해시태그(?tag=)가 들어간다 — 태그 해제·변경 뒤 이전 목록 유지 금지 (2026-11-12 재감사 FAIL 1)", () => {
+    const feed = readFileSync(join(root, "components/community/CommunityFeed.tsx"), "utf8");
+    expect(feed).toContain("const feedRevisitKey = `${viewerSig}|${feedContentKey}|${tagFilter}`;");
+    expect(feed).toContain("feedRevisitGate.isFresh(feedRevisitKey)");
+    expect(feed).toContain("feedRevisitGate.markLoaded(feedRevisitKey)");
+    expect(feed).not.toMatch(/feedRevisitGate\.(isFresh|markLoaded)\(`/);
+  });
+
   it("세대가 오르면(글 쓰기·피드 캐시 비우기·앱 복귀·언어 변경) 다시 받음", () => {
     const gate = createHubDataRevisitGate(() => 0);
     gate.markLoaded("k");
