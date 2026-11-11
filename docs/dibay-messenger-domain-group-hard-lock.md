@@ -179,6 +179,20 @@ Avatar/title tap SHOULD open Group Info (not peer profile). Settings/⋮ opens m
 
 ---
 
+## MOIM-owned GROUP rooms (Owner D1 승인 2026-11-12)
+
+모임(moim) 전체 채팅방·일정 채팅방은 **같은 GROUP 엔진의 `private_group` 방**이다 (`chat_domain='group'`, `group:{roomId}` 그대로 — 새 채팅 도메인 아님, 채팅 3종 경계 유지).
+
+| 항목 | 규칙 |
+|------|------|
+| 표시 | `community_messenger_rooms.owner_domain = 'moim'` + `owner_ref_id` (모임 id 또는 일정 id). 생성 후 변경 불가 |
+| 멤버십 권한자 | **모임 RPC 만** (`moim_*`, migration `20271112210000_moim_m2_schema_rpc.sql`). ACTIVE 판정(participant + `left_at IS NULL`)은 위 GROUP 규칙 그대로 |
+| 막힌 메신저 쪽 쓰기 (DB 트리거) | 참여자 INSERT · `role`/`left_at` 변경 · 초대 링크/가입 요청/방 차단 INSERT · 방장(`owner_user_id`)·삭제·이름·사진·공개/초대 설정 변경 → `moim_room_*_managed_by_moim` |
+| 허용되는 메신저 쪽 쓰기 | 메시지 · 읽음 · 알림 끄기(`is_muted`) · 고정 · 공지 · 보관 |
+| 역할 매핑 | 모임장 → owner · 부모임장 → admin · 운영진/멤버 → member |
+| 표시 이름 | `identity_policy='alias_allowed'` + 방 프로필 alias = 모임별 프로필 |
+| 화면 | 모임 방에서는 나가기·초대 링크·내보내기·차단·방 삭제 메뉴를 숨기고 「모임 홈」으로 보낸다 (M3) |
+
 ## Telegram / Kakao structural principles (LOCKED)
 
 1. GROUP is a first-class room  
