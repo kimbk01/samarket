@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { MyFriendQrSheet } from "@/components/community-messenger/friend-qr/MyFriendQrSheet";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
@@ -20,6 +22,7 @@ type Props = {
  */
 export function MessengerFriendsMyProfileStrip({ me }: Props) {
   const { t } = useI18n();
+  const [qrOpen, setQrOpen] = useState(false);
   const rawLabel = me?.label?.trim() || "";
   const nick = incomingCallPeerNicknameLabel(rawLabel) || rawLabel;
   const atFromLabel = rawLabel.match(/\((@[^)]+)\)/)?.[1] ?? null;
@@ -52,6 +55,16 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
           </p>
         ) : null}
       </div>
+      {/* 내 QR (설계안 v3 §3.6) — 프로필 편집과 같은 회색 칸 */}
+      <button
+        type="button"
+        onClick={() => setQrOpen(true)}
+        className="inline-flex h-8 shrink-0 items-center rounded-[8px] bg-[color:var(--cm-chat-band)] px-[13px] text-[13px] font-semibold active:opacity-80"
+        style={{ color: "var(--cm-chat-fg)" }}
+        data-testid="cm-my-profile-qr"
+      >
+        {t("friend_qr_tab_my")}
+      </button>
       <Link
         href={MYPAGE_PROFILE_EDIT_HREF}
         className="inline-flex h-8 shrink-0 items-center rounded-[8px] bg-[color:var(--cm-chat-band)] px-[13px] text-[13px] font-semibold active:opacity-80"
@@ -59,6 +72,7 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
       >
         {t("cm_friend_my_profile_edit")}
       </Link>
+      {qrOpen ? <MyFriendQrSheet onClose={() => setQrOpen(false)} /> : null}
     </section>
   );
 }

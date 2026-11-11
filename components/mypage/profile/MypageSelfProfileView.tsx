@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { MyFriendQrSheet } from "@/components/community-messenger/friend-qr/MyFriendQrSheet";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 import { resolveMemberPublicIdUi } from "@/lib/auth/member-public-id-ui-contract";
@@ -11,6 +13,7 @@ import { Sam } from "@/lib/ui/sam-component-classes";
 
 export function MypageSelfProfileView({ profile }: { profile: ProfileRow }) {
   const { safeT, t } = useI18n();
+  const [qrOpen, setQrOpen] = useState(false);
   const displayName = resolveMypageSelfDisplayName(profile) || t("mypage_comp_display_name_empty");
   /** 회원 아이디 1개 · 친구가 나를 찾는 방법 — 단일 계약 (설계안 v3 §3.8) */
   const idUi = resolveMemberPublicIdUi(profile);
@@ -37,6 +40,10 @@ export function MypageSelfProfileView({ profile }: { profile: ProfileRow }) {
           safeT("mypage_profile_bio_empty")}
       </p>
       <div className="mt-8 flex w-full max-w-sm flex-col gap-2">
+        {/* 내 QR (설계안 v3 §3.6 · 시안 A) */}
+        <button type="button" onClick={() => setQrOpen(true)} className={`${Sam.btn.secondary} w-full justify-center`} data-testid="mypage-my-qr">
+          {t("friend_qr_tab_my")}
+        </button>
         {publicHref ? (
           <Link href={publicHref} className={`${Sam.btn.secondary} w-full justify-center`}>
             {safeT("mypage_view_public_profile")}
@@ -46,6 +53,7 @@ export function MypageSelfProfileView({ profile }: { profile: ProfileRow }) {
           {safeT("mypage_settings_profile_edit")}
         </Link>
       </div>
+      {qrOpen ? <MyFriendQrSheet onClose={() => setQrOpen(false)} /> : null}
     </div>
   );
 }

@@ -30,6 +30,8 @@ import type { MessengerMenuAnchorRect } from "@/components/community-messenger/M
 import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/components/community-messenger/MessengerSheetUi";
 import { MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 import type { MessengerFriendAddTab } from "@/components/community-messenger/MessengerFriendAddSheet";
+import { FriendQrResultHost } from "@/components/community-messenger/friend-qr/FriendQrResultHost";
+import { useFriendQrResultStore } from "@/lib/community-messenger/friend-qr/friend-qr-result-store";
 import {
   MessengerChatRoomActionSheet,
   MessengerFriendAddSheet,
@@ -1289,10 +1291,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     return map;
   }, [data?.chats]);
 
-  const messengerInviteUrl = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    return `${window.location.origin}/community-messenger?section=friends`;
-  }, []);
 
   const getMessengerActionErrorMessage = useCallback(
     (error?: string) => messengerHomeActionErrorMessage(t, error),
@@ -4035,10 +4033,24 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             setFriendManagerOpen(false);
             void startDirectRoom(userId);
           }}
-          inviteUrl={messengerInviteUrl}
+          onFriendQrToken={(token) => {
+            setFriendManagerOpen(false);
+            useFriendQrResultStore.getState().open(token);
+          }}
           friendActions={messengerFriendActions}
         />
       ) : null}
+
+      {/* QR 친구 추가 결과 시트 (설계안 v3 §3.6 · 시안 D) — 앱 안 스캔·갤러리·`?friendQr=` 주소 공용 */}
+      <Suspense fallback={null}>
+        <FriendQrResultHost
+          onAdded={() => {
+            void hydrateMessengerFriends();
+            void refresh(true);
+          }}
+          onOpenChat={(peerUserId) => void startDirectRoom(peerUserId)}
+        />
+      </Suspense>
 
       {requestSheetOpen ? (
         <MessengerNotificationCenterSheet

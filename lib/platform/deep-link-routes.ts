@@ -3,6 +3,7 @@
  */
 
 import { buildCommunityPostNotificationPath } from "@/lib/notifications/community-post-notification-destination";
+import { buildFriendQrHomePath, isFriendQrToken } from "@/lib/community-messenger/friend-qr/friend-qr-contract";
 
 export type DibayDeepLinkKind =
   | "chat"
@@ -73,6 +74,11 @@ export function resolveDibayDeepLinkToAppPath(deepLink: string): string | null {
     }
     case "auth":
       return "/auth/callback";
+    case "friend": {
+      /** QR 친구 추가 (설계안 v3 §3.6) — 메신저 홈이 결과 시트를 연다. 통화·채팅 경로와 무관 */
+      const token = tailParts[0] ? decodeURIComponent(tailParts[0]) : "";
+      return isFriendQrToken(token) ? buildFriendQrHomePath(token) : null;
+    }
     default:
       return null;
   }

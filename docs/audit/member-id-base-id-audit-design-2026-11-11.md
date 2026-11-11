@@ -243,3 +243,16 @@ DB (마이그레이션 1개 — 운영 적용 Owner 승인):
   - 시안 J 의 「시스템 발급」 줄은 넣지 않음 — 직접 정한 아이디 61명의 기본 아이디는 발급이 아니라 2026-11-11 채움이라 발급 시각이 없음.
 - 내정보 홈 필수 행(`mypage-home-required-items`)은 기존 문구 키를 쓰되 판정은 같은 SSOT — 「미잠금·자동 아님」 회원이 「확정 필요」 대신 「1회 변경 가능」(DB 와 같음).
 - 검증 (로컬): `typecheck:build`·`typecheck:test` 0 오류 · `test:ci` 전체 통과 (1546+1545 파일) · 변경 파일 eslint 오류 0 · `check:i18n-quality` 통과. 실기기·운영 화면 NOT_PROVEN.
+
+### 3단계 QR 친구 추가 웹 (2026-11-11)
+
+- **설계 정정 (작업자 잘못)**: 설계안 §3.6 의 QR 주소 `https://dibay.app/f/…` 는 코드로 확인하지 않은 주소였다. 실제 운영 주소 상수 `DIBAY_PRODUCTION_SITE_ORIGIN` = `https://samarket.vercel.app` → QR 주소는 `https://samarket.vercel.app/f/<토큰>`.
+- 계약 `lib/community-messenger/friend-qr/friend-qr-contract.ts`: 주소·앱 링크(`dibay://friend/<토큰>`)·홈 경로(`/community-messenger?friendQr=`)·읽기(운영 주소·지금 주소·앱 링크만)·실패 문구 하나(본인 QR 만 따로).
+- 서버 `friend-qr.server.ts` + API `/api/community-messenger/friend-qr/{me,regenerate,resolve,add}` — DB 함수 4개만 호출. 추가 API 는 친구 요청과 같은 가입·필수 항목 확인, 요청 제한(내 QR·미리보기 60/분, 다시 만들기 10/분, 추가 20/분).
+- 알림: QR 주인에게 「OO님이 QR로 친구가 되었어요」 — 기존 알림 종류 `friend_accepted`(소리·설정·분류 등록 그대로) + `via: "qr"`, 문구만 새 키.
+- 화면: 친구 추가 시트 「QR」 탭 = [내 QR | QR 스캔] (D7 — 회원 정보 없는 초대 링크 제거), 결과 시트 `FriendQrResultHost`(메신저 홈 1곳, 앱 안 스캔·갤러리·`?friendQr=` 공용), 내 QR 시트 진입 = 마이페이지 내 프로필·메신저 친구 탭 내 프로필 줄.
+- 스캐너: PC 로그인 스캐너의 카메라·jsQR 부분을 공용 `lib/qr/use-qr-camera-scanner.ts` 로 분리, PC 로그인도 같은 부품 사용 (동작 같음: 250ms 간격, 다른 QR 이면 1초 뒤 재시도, 읽으면 카메라 끔). 갤러리 사진은 `decodeQrFromImageFile`.
+- 웹 `/f/<토큰>` (시안 I): 사진·이름만, [앱에서 열기](`dibay://friend/…`) · [웹에서 계속](로그인 → 메신저 결과 시트). 비로그인 열람 허용(`guest-browse-access-policy`). **[앱 설치] 버튼은 넣지 않음** — iOS 스토어 주소가 코드에 없고 Play 등록 공개 여부를 확인하지 못함.
+- 딥링크 `dibay://friend/<토큰>` → 홈 결과 시트 (`deep-link-routes.ts`, 통화·채팅 경로 무변경). iOS 는 지금 앱에서 동작, Android 는 4단계(intent filter) 후.
+- Android `DibayAppRouteGuard` 허용 목록에 `f` 추가 — 웹 경로 동기화 시험(LINK-02) 계약. 앱 재빌드 전까지 동작 변화 없음.
+- 검증 (로컬): typecheck 2종 0 오류 · vitest 두 묶음 전체 통과 · 변경 파일 eslint 오류 0 · i18n 품질 통과. 실기기·운영 NOT_PROVEN.

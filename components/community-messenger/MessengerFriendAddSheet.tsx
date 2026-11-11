@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useRef, useState, type RefObject } from "react";
+import { useRef, type RefObject } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
+import { FriendQrTabPanel } from "@/components/community-messenger/friend-qr/FriendQrTabPanel";
 import Link from "next/link";
 import { MESSENGER_CONTACTS_SCREEN_HREF } from "@/lib/community-messenger/contacts/contacts-contract";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -55,8 +56,8 @@ type Props = {
   busyId: string | null;
   onPrefetchDirectRoom: (userId: string) => void;
   onStartDirectChat: (userId: string) => void;
-  /** 초대 링크·QR 탭에 표시할 공개 URL */
-  inviteUrl: string;
+  /** QR 탭 스캔·갤러리에서 디바이 친구 QR 을 읽음 → 결과 시트 (설계안 v3 §3.6) */
+  onFriendQrToken: (token: string) => void;
   /** 없으면 예전처럼 행 탭 = 1:1 채팅 */
   friendActions?: MessengerFriendAddSheetFriendActions;
 };
@@ -91,21 +92,10 @@ export function MessengerFriendAddSheet({
   busyId,
   onPrefetchDirectRoom,
   onStartDirectChat,
-  inviteUrl,
+  onFriendQrToken,
   friendActions,
 }: Props) {
   const { t } = useI18n();
-  const [copied, setCopied] = useState(false);
-
-  const copyInvite = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(inviteUrl);
-      setCopied((prev) => (prev ? prev : true));
-      window.setTimeout(() => setCopied((prev) => (prev ? false : prev)), 2000);
-    } catch {
-      /* ignore */
-    }
-  }, [inviteUrl]);
 
   return (
     <MessengerHomeBottomSheetShell
@@ -256,32 +246,8 @@ export function MessengerFriendAddSheet({
           ) : null}
 
           {friendAddTab === "invite" ? (
-            <div className="space-y-3">
-              <p className="text-[length:var(--overlay-body-2-size)] leading-[1.6]" style={{ color: "var(--overlay-text-secondary)" }}>
-                {t("cm_ui_invite_link_share_hint")}
-              </p>
-              <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--sm-color-primary-soft)] px-3 py-2.5">
-                <p
-                  className="text-[length:var(--overlay-caption-size)] font-medium uppercase tracking-wide"
-                  style={{ color: "var(--overlay-text-secondary)" }}
-                >
-                  {t("cm_ui_invite_url_label")}
-                </p>
-                <p
-                  className="mt-1 break-all text-[length:var(--overlay-body-2-size)] leading-snug"
-                  style={{ color: "var(--overlay-text-primary)" }}
-                >
-                  {inviteUrl}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => void copyInvite()}
-                className="dibay-overlay-btn dibay-overlay-btn--primary !flex-none"
-              >
-                {copied ? t("cm_ui_copied") : t("cm_ui_copy_link")}
-              </button>
-            </div>
+            /** QR 탭 — 내 QR · QR 스캔 (설계안 v3 D7: 회원 정보 없는 초대 링크를 QR 친구 추가로 바꿈) */
+            <FriendQrTabPanel onToken={onFriendQrToken} />
           ) : null}
         </div>
 
