@@ -1658,10 +1658,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
 
   const addFriendSaved = useCallback(
-    async (targetUserId: string): Promise<boolean> => {
+    async (targetUserId: string, source: "id_search" | "contacts" | "profile" = "id_search"): Promise<boolean> => {
       setBusyId(`friend-add:${targetUserId}`);
       try {
-        const result = await postCommunityMessengerFriendRequestApi(targetUserId, undefined, "id_search");
+        /** 친구가 된 경로 — 호출처가 넘긴다 (아이디 검색 기본 · 연락처 · 프로필 시트, PR #149 리뷰) */
+        const result = await postCommunityMessengerFriendRequestApi(targetUserId, undefined, source);
         if (result.ok) {
           const sent = result.request;
           if (sent?.id) {
@@ -1751,7 +1752,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       friendIds: knownFriendIds,
       unavailablePeerIds,
       blockedByMePeerIds,
-      onSend: (userId) => addFriendSaved(userId),
+      onSend: (userId, source) => addFriendSaved(userId, source),
       onCancel: (userId) => cancelOutgoingFriendRequest(userId),
       onRespond: (requestId, action, peerLabel) => respondIncomingFriendRequest(requestId, action, peerLabel),
       onBlock: async (userId) => (toggleBlockRef.current ? toggleBlockRef.current(userId) : false),
@@ -2822,7 +2823,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   }, []);
   const onPrivateGroupFriendRequest = useCallback(
     async (user: CommunityMessengerProfileLite) => {
-      await addFriendSaved(user.id);
+      await addFriendSaved(user.id, "profile");
     },
     [addFriendSaved]
   );
@@ -3881,7 +3882,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           friendAddCta={data?.me?.id ? friendAddCtaForSheet : undefined}
           onFriendAdd={
             friendSheet.allowFriendRequest !== false && data?.me?.id
-              ? () => void addFriendSaved(friendProfileForSheet.id)
+              ? () => void addFriendSaved(friendProfileForSheet.id, "profile")
               : undefined
           }
           onFriendCancel={() => void cancelOutgoingFriendRequest(friendProfileForSheet.id)}

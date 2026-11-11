@@ -68,7 +68,9 @@ describe("member id v3 audit fixes", () => {
     expect(normalizeCmFriendRequestSource("contacts")).toBe("contacts");
     expect(normalizeCmFriendRequestSource("qr")).toBeUndefined();
     expect(read("components/community-messenger/contacts/use-contacts-friend-cta.ts")).toContain('undefined, "contacts")');
-    expect(read("components/community-messenger/CommunityMessengerHome.tsx")).toContain('undefined, "id_search")');
+    expect(read("components/community-messenger/CommunityMessengerHome.tsx")).toContain(
+      'source: "id_search" | "contacts" | "profile" = "id_search"',
+    );
   });
 
   it("E1: availability check = DB dibay_id_candidate_error (same as confirm)", () => {

@@ -66,6 +66,20 @@ export function parseFriendQrPayload(raw: string, currentOrigin?: string | null)
   return isFriendQrToken(token) ? token : null;
 }
 
+/**
+ * 친구가 된 경로 고르기 — 둘 사이 수락된 요청(최대 2행: 양방향) 중 가장 최근 수락. 같은 시각이면 qr 우선
+ * (QR 추가는 두 행을 같은 시각에 수락한다). 수락 시각이 없는 행은 가장 오래된 것으로 본다.
+ */
+export function pickFriendSource(rows: ReadonlyArray<{ source?: string | null; responded_at?: string | null }>): string | null {
+  let best: { source: string | null; at: number } | null = null;
+  for (const r of rows) {
+    const at = r.responded_at ? Date.parse(r.responded_at) : Number.NEGATIVE_INFINITY;
+    const source = typeof r.source === "string" && r.source ? r.source : null;
+    if (!best || at > best.at || (at === best.at && source === "qr")) best = { source, at };
+  }
+  return best?.source ?? null;
+}
+
 /** API 가 밖으로 돌려주는 오류 코드 — 차단·QR 꺼짐·없는 QR 을 구분하지 않는다 (재감사 L1). 본인 QR·서버 문제만 따로 */
 export function publicFriendQrErrorCode(code: string | null | undefined): "qr_self" | "qr_unusable" | "supabase_unavailable" {
   if (code === "qr_self") return "qr_self";

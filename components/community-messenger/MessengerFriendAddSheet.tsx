@@ -25,7 +25,8 @@ export type MessengerFriendAddSheetFriendActions = {
     incomingPendingByPeerId: ReadonlyMap<string, string>;
   };
   /** 처리 결과(성공 true)를 돌려주면 호출부가 성공 뒤 화면 정리(검색 카드 접기 등)를 할 수 있다 */
-  onSend: (userId: string) => void | Promise<boolean>;
+  /** source = 친구가 된 경로 (생략 시 아이디 검색) — 연락처·프로필 시트가 같은 행동을 쓰므로 호출처가 넘긴다 (PR #149 리뷰) */
+  onSend: (userId: string, source?: "id_search" | "contacts" | "profile") => void | Promise<boolean>;
   onCancel: (userId: string) => void | Promise<boolean>;
   onRespond: (requestId: string, action: "accept" | "reject", peerLabel: string) => void | Promise<boolean>;
   /**

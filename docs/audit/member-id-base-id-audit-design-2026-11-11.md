@@ -328,3 +328,10 @@ DB: `supabase/migrations/20271111170000_member_id_v3_audit_fixes.sql` — 운영
 |---|---|
 | F2 | 모임 초대 후보 검색(`app/api/community/meetings/[meetingId]/invite-candidates/route.ts:60`)이 `username` 을 직접 부분 검색 — 회원 아이디 규칙·검색 끔·탈퇴 제외를 거치지 않음 (범위 밖, 보고만) |
 | F3 | 요청 제한 저장소 — 운영에 Redis(Upstash/KV) 환경변수 없음 → 앱 전체 요청 제한이 인스턴스별. 친구 검색 하루 500회 포함. Vercel·Redis 설정은 Owner 승인 사항 |
+
+### PR #149 병합·운영 배포 (2026-11-11 22:53 PHT) 와 리뷰 2건
+
+- 병합 22:49 PHT (`e722728f0`, `ci-ok` 통과 확인 후 — Owner 승인 1회 대기 예외). 운영 배포 `dpl_Frkp24tjkAfrYNRSQTZ1aSN9h4LF` READY 22:53 PHT, `samarket.vercel.app` 연결 확인 (Vercel 조회).
+- Cursor Bugbot 2건 (둘 다 작업자 구현 결함, 확인 후 수정):
+  1. 메신저 홈 공용 친구 추가가 연락처·프로필 시트에서 불려도 `id_search` 로 기록 → 공용 행동이 호출처의 경로를 받음 (연락처 `contacts`, 프로필 시트·그룹 고르기 `profile`).
+  2. QR 추가 때 반대쪽 대기 요청이 같은 시각에 수락되어 「QR로 추가」 배지가 안 보일 수 있음 → 같은 시각이면 `qr` 을 고르는 `pickFriendSource` (DB 변경 없음).
