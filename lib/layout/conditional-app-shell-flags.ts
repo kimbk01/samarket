@@ -24,7 +24,6 @@ const PHILIFE_POST_DETAIL_EXCLUDED_SEGMENTS = new Set([
   "sales",
   "reviews",
   "purchases",
-  "meetings",
   "post",
 ]);
 

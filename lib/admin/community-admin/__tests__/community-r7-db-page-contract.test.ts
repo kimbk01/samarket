@@ -34,10 +34,8 @@ vi.mock("@/lib/admin-community/member-identity", () => ({
 import { listCommunityReportGroupsForAdmin } from "@/lib/community-feed/admin-community-reports";
 import { GET as pointsGET } from "@/app/api/admin/community/points/route";
 import { GET as commentsGET } from "@/app/api/admin/community/engine/comments/route";
-import { GET as meetingsGET } from "@/app/api/admin/community/engine/meetings/route";
 import { GET as restrictionsGET } from "@/app/api/admin/community/restrictions/route";
 import { handleAdminPointChargesListGet } from "@/lib/admin/shared-handlers/admin-point-charges-list";
-import { loadAdminMeetingReports } from "@/lib/admin/community-admin/load-admin-meeting-reports";
 
 const U1 = "11111111-1111-4111-8111-111111111111";
 const U2 = "22222222-2222-4222-8222-222222222222";
@@ -262,38 +260,6 @@ describe("GET /api/admin/community/engine/comments — 주제 500 · 신고 500 
   });
 });
 
-describe("GET /api/admin/community/engine/meetings — 닉네임 후보 200 상한 제거", () => {
-  it("탭·상태·검색 → RPC · total = RPC · 행 순서 = ids 순서 · 닉네임 후보 조회 없음", async () => {
-    rpcHandler = () => ({ data: { total: 333, ids: ["m2", "m1"] }, error: null });
-    handler = (c) =>
-      c.table === "meetings"
-        ? { data: [{ id: "m1", post_id: U1, host_user_id: U3, password_hash: "x" }, { id: "m2", post_id: U2, host_user_id: U3 }], error: null }
-        : { data: [], error: null };
-    const j = await json(await meetingsGET(req("/api/admin/community/engine/meetings", { tab: "open", q: "kim", limit: "50", offset: "50" })));
-    expect(onlyRpc("admin_community_meetings_page").args).toMatchObject({
-      p_tab: "open",
-      p_status: null,
-      p_q_pattern: "%kim%",
-      p_q_uuid: null,
-      p_limit: 50,
-      p_offset: 50,
-    });
-    expect(j.total).toBe(333);
-    const rows = j.meetings as Array<{ id: string; has_password: boolean; password_hash?: string }>;
-    expect(rows.map((m) => m.id)).toEqual(["m2", "m1"]);
-    expect(rows[1].has_password).toBe(true);
-    expect(rows[1].password_hash).toBeUndefined();
-    expect(fake.calls.some((c) => c.table === "profiles")).toBe(false);
-  });
-
-  it("meetingId → 단건(RPC 없음) · 기존 응답 모양", async () => {
-    handler = (c) => (c.table === "meetings" ? { data: [{ id: U1, post_id: U2, host_user_id: U3 }], error: null, count: 1 } : { data: [], error: null });
-    const j = await json(await meetingsGET(req("/api/admin/community/engine/meetings", { meetingId: U1 })));
-    expect(fake.rpcCalls).toHaveLength(0);
-    expect(j).toMatchObject({ ok: true, total: 1 });
-  });
-});
-
 describe("GET /api/admin/community/restrictions — 닉네임 후보 200 상한 제거", () => {
   it("상태·종류·회원·닉네임 → RPC(scope community) · total = RPC · 행 순서 = ids 순서", async () => {
     rpcHandler = () => ({ data: { total: 250, ids: ["s2", "s1"] }, error: null });
@@ -363,46 +329,5 @@ describe("/api/admin/point-charges 공용 처리 — 닉네임 후보 200 상한
     expect(fake.rpcCalls).toHaveLength(0);
     const call = fake.calls.find((c) => c.table === "point_charge_requests")!;
     expect(call.filters).toContainEqual(["or", "", `id.eq.${U1},user_id.eq.${U1}`]);
-  });
-});
-
-describe("loadAdminMeetingReports — 검색 후보 100 상한 제거", () => {
-  it("q → RPC(탭 묶음·기간·종류·패턴·페이지) · total·탭 건수 = RPC · 행 순서 = ids 순서", async () => {
-    rpcHandler = () => ({
-      data: { total: 180, tab_counts: { pending: 180, reviewing: 40, resolved: 10, rejected: 2, all: 192 }, ids: ["mr2", "mr1"] },
-      error: null,
-    });
-    handler = (c) =>
-      c.table === "meeting_reports"
-        ? { data: [{ id: "mr1", status: "pending", reporter_user_id: U1 }, { id: "mr2", status: "reviewing", reporter_user_id: U2 }], error: null }
-        : { data: [], error: null };
-    const r = await loadAdminMeetingReports(
-      "pending",
-      { type: "member", fromIso: "2026-10-01T00:00:00Z", toIso: null, meetingIds: null, reporterIds: null, q: "Run (club)" },
-      3,
-      fake.sb as never,
-      { pageSize: 20 }
-    );
-    expect(onlyRpc("admin_meeting_reports_page").args).toMatchObject({
-      p_tab: "pending",
-      p_type: "member",
-      p_from: "2026-10-01T00:00:00Z",
-      p_to: null,
-      p_q_pattern: "%Run  club%",
-      p_limit: 20,
-      p_offset: 40,
-      p_tab_groups: { pending: ["pending", "reviewing"], reviewing: ["reviewing"], resolved: ["resolved"], rejected: ["rejected"] },
-    });
-    expect(r.total).toBe(180);
-    expect(r.counts).toEqual({ pending: 180, reviewing: 40, resolved: 10, rejected: 2, all: 192 });
-    expect(r.rows.map((x) => x.id)).toEqual(["mr2", "mr1"]);
-    expect(fake.calls.some((c) => c.table === "profiles" || (c.table === "meetings" && c.limit))).toBe(false);
-  });
-
-  it("q 없음 → 기존 경로(range) 그대로", async () => {
-    handler = (c) => (c.table === "meeting_reports" ? { data: [], error: null, count: 3 } : { data: [], error: null });
-    const r = await loadAdminMeetingReports("all", { type: "", fromIso: null, toIso: null, meetingIds: null, reporterIds: null }, 1, fake.sb as never);
-    expect(fake.rpcCalls).toHaveLength(0);
-    expect(r.total).toBe(3);
   });
 });

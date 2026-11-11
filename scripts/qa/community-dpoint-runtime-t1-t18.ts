@@ -126,7 +126,6 @@ async function insertPost(
       region_label: "Malate",
       category: deriveCommunityPostCategoryBucket({
         topicOrCategoryRaw: input.topic.slug,
-        isMeetup: false,
       }),
       images: [],
       is_question: Boolean(input.isQuestion),

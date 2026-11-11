@@ -20,7 +20,6 @@ describe("ARO-AC-001 Dashboard Action Center", () => {
       "ORDERS",
       "SETTLEMENT",
       "COMMUNITY REPORTS",
-      "MEETING REPORTS",
       "POINT",
       "COIN",
       "CASH",
@@ -38,7 +37,7 @@ describe("ARO-AC-001 Dashboard Action Center", () => {
     }
   });
 
-  it("Action Center wires Orders / Settlement / Community / Meeting / Coin / Popup / Partner", () => {
+  it("Action Center wires Orders / Settlement / Community / Coin / Popup / Partner", () => {
     const ui = read("components/admin/dashboard/AdminActionCenter.tsx");
     expect(ui).toContain('data-aro-ac-001="1"');
     // Action Required cards render from the Action Queue registry (same payload as the Bell).
@@ -48,7 +47,6 @@ describe("ARO-AC-001 Dashboard Action Center", () => {
       "orders_attention",
       "settlements_actionable",
       "community_reports",
-      "meeting_reports",
       "coin_withdrawals",
       "platform_popup_pending",
       "partner_pending",
@@ -59,7 +57,6 @@ describe("ARO-AC-001 Dashboard Action Center", () => {
       "/admin/store-settlements?state=review_required"
     );
     expect(getAdminActionQueueCategoryDef("community_reports").listHref).toContain("/admin/community/reports");
-    expect(getAdminActionQueueCategoryDef("meeting_reports").listHref).toBe("/admin/philife/meeting-reports");
     expect(getAdminActionQueueCategoryDef("coin_withdrawals").listHref).toBe("/admin/finance#coin-withdrawals");
     expect(read("components/admin/action-queue/AdminActionQueueCardGrid.tsx")).toContain(
       "data-admin-queue-category={c.key}"
@@ -68,7 +65,7 @@ describe("ARO-AC-001 Dashboard Action Center", () => {
 
   it("queue loader counts new ARO-AC-001 sources; exposes unavailable", () => {
     const q = read("lib/admin/admin-action-queue.ts");
-    expect(q).toContain("meeting_reports");
+    expect(q).not.toContain("meeting_reports");
     expect(q).toContain("orders_attention");
     expect(q).toContain("settlements_actionable");
     expect(q).toContain("coin_withdrawal_requests");

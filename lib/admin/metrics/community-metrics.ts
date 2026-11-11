@@ -55,16 +55,14 @@ export const COMMUNITY_ADMIN_PAGE_FILTERS: Readonly<Record<string, Readonly<Reco
   "/admin/community/reports": {
     tab: ["pending", "reviewing", "resolved", "dismissed", "all"],
     stale: ["24h"],
-    type: ["post", "comment", "user", "meeting"],
+    type: ["post", "comment", "user"],
     reportId: null,
     period: null,
     from: null,
     to: null,
   },
-  "/admin/philife/meeting-reports": { status: ["pending", "reviewing", "resolved", "dismissed", "all"] },
   "/admin/community/point-charges": { status: ["pending", "approved", "rejected", "all"] },
   "/admin/community/support": { status: ["waiting", "all"], type: ["appeal"] },
-  "/admin/community/meetings": { status: ["pending", "open", "closed", "rejected", "all"] },
   "/admin/community/external-import": { tab: ["jobs", "inbox", "sources", "rules"], status: ["failed"] },
   "/admin/community/posts": {
     tab: ["active", "hidden", "deleted", "reported"],
@@ -146,13 +144,6 @@ export const COMMUNITY_METRIC_DEFINITIONS: readonly CommunityMetricDefinition[] 
   // ── D-2 처리 대기 (현재 시점) ───────────────────────────────────────────
   queueMetric("community.reports_pending", "admin_community_metric_reports_pending", "community_reports", "moderation", "/admin/community/reports?tab=pending"),
   queueMetric(
-    "community.meeting_reports_pending",
-    "admin_community_metric_meeting_reports_pending",
-    "meeting_reports",
-    "moderation",
-    "/admin/philife/meeting-reports?status=pending"
-  ),
-  queueMetric(
     "community.point_charges_pending",
     "admin_community_metric_point_charges_pending",
     "user_charges",
@@ -174,14 +165,6 @@ export const COMMUNITY_METRIC_DEFINITIONS: readonly CommunityMetricDefinition[] 
     "moderation",
     "/admin/community/support?status=waiting&type=appeal",
     "support_cases OPEN|WAITING_ADMIN ∩ appeal (support-community-filter)"
-  ),
-  direct(
-    "community.meetings_pending_approval",
-    "admin_community_metric_meetings_pending_approval",
-    "action",
-    "content",
-    "/admin/community/meetings?status=pending",
-    "meetings.platform_approval_status=pending_approval"
   ),
   direct(
     "community.import_failures_7d",
@@ -414,7 +397,6 @@ export function resolveCommunityPeriodMetric(
 /** 전체 관제 Action Center 커뮤니티 카드 구성 지표 */
 export const COMMUNITY_ACTION_CENTER_CARD_METRIC_IDS = [
   "community.reports_pending",
-  "community.meeting_reports_pending",
   "community.reports_stale_24h",
 ] as const;
 

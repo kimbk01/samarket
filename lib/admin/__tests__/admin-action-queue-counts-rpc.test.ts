@@ -33,7 +33,7 @@ describe("admin action queue counts via RPC", () => {
       data: {
         store_charges: 0, cash_charges: 2, user_charges: 1, reports: 3, store_reports: 0, delivery_alerts: 0,
         feed_ad_rows: [], trade_promo_pending: 0, store_inquiry_open: 0, support_actionable: 1,
-        community_reports: 0, store_applications: 4, delivery_ad_ops: 3, meeting_reports: 0, orders_attention: 5,
+        community_reports: 0, store_applications: 4, delivery_ad_ops: 3, meeting_reports: 9, orders_attention: 5,
         settlements_actionable: 0, coin_withdrawals: 0, platform_popup_pending: 0, partner_pending: 0,
         messenger_actionable: null,
       },
@@ -48,6 +48,9 @@ describe("admin action queue counts via RPC", () => {
     expect(byKey.orders_attention).toMatchObject({ status: "ok", count: 5 });
     expect(byKey.reports).toMatchObject({ status: "ok", count: 3 });
     expect(byKey.messenger_actionable).toMatchObject({ status: "unavailable", count: null });
+    // meeting_reports still returned by the DB function is ignored
+    expect(byKey).not.toHaveProperty("meeting_reports");
+    expect(r.by_category).not.toHaveProperty("meeting_reports");
   });
 
   it("RPC 실패 → 기존 표별 조회", async () => {
@@ -74,7 +77,8 @@ describe("admin action queue counts via RPC", () => {
   it("조건값은 TS 상수에서 만든다", () => {
     const p = buildAdminActionQueueCountsRpcParams(new Date("2026-11-01T00:00:00Z"));
     expect(p.support_statuses).toEqual(["OPEN", "WAITING_ADMIN"]);
-    expect(p.meeting_report_statuses).toEqual(["pending", "reviewing"]);
+    // legacy meeting feature removed (2026-11-12): DB arg still exists but TS no longer sends it
+    expect(p).not.toHaveProperty("meeting_report_statuses");
     expect(p.feed_ad_scan_limit).toBe(2000);
     expect(typeof p.order_active_from).toBe("string");
   });

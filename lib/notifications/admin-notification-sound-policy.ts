@@ -17,7 +17,6 @@ const ACTIONABLE_TABLES = new Set([
   "store_reports",
   "community_reports",
   "stores",
-  "meeting_approvals",
   "inquiry_threads",
   "member_admin_note_threads",
   "platform_admin_inquiries",

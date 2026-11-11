@@ -161,16 +161,6 @@ export const POST_IMAGES_ACTIVE_WRITERS: readonly PostImagesWriterInventoryRow[]
     runtimeActive: true,
     ownershipFromPath: "OWNERSHIP_EXPLICIT",
   },
-  {
-    writer: "POST /api/philife/meetings/[meetingId]/album",
-    domain: "meeting_album",
-    entity: "meeting_album_items",
-    pathShape: "{userId}/meeting-album/{meetingId}/{uuid}.{ext}",
-    dbColumn: "meeting_album_items.image_url",
-    deleteOwner: "Philife meeting album (not Community/Market Reset)",
-    runtimeActive: true,
-    ownershipFromPath: "OWNERSHIP_EXPLICIT",
-  },
 ] as const;
 
 /** Chat attachment storage is never hard-deleted by Data Reset (B4 soft/detach). */
@@ -216,6 +206,7 @@ export function classifyPostImagesPath(storagePath: string): ClassifiedPostImage
   if (/^feed-ad-requests\//.test(path)) {
     return { ...base, domain: "feed_ad", ownership: "OWNERSHIP_EXPLICIT" };
   }
+  /* 옛 모임 앨범 업로드 경로(writer 삭제됨) — 남은 저장 객체는 Data Reset 이 지우지 않도록 계속 분류만 한다 */
   if (/\/meeting-album\//.test(path)) {
     return { ...base, domain: "meeting_album", ownership: "OWNERSHIP_EXPLICIT" };
   }

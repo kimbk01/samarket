@@ -18,7 +18,6 @@ import { Sam } from "@/lib/ui/sam-component-classes";
 
 export type FeedListCardViewModel = {
   href: string;
-  meetupMeetingId?: string | null;
   topicLabel: string;
   topicColor: string | null;
   title: string;
@@ -30,7 +29,6 @@ export type FeedListCardViewModel = {
   commentCount: number;
   viewCount: number;
   isQuestion: boolean;
-  isMeetup: boolean;
   thumbnailUrl: string | null;
   /** 원본 `images` 배열 길이(썸네일 2장+ 오버레이) */
   imageCount: number;
@@ -61,9 +59,9 @@ export function normalizeFeedListBodyPreview(raw: string): string {
 }
 
 function hasCategoryBadge(
-  vm: Pick<FeedListCardViewModel, "topicLabel" | "isQuestion" | "isMeetup" | "topBadge" | "isAd">,
+  vm: Pick<FeedListCardViewModel, "topicLabel" | "isQuestion" | "topBadge" | "isAd">,
 ) {
-  return Boolean((vm.topicLabel ?? "").trim() || vm.isQuestion || vm.isMeetup || vm.topBadge || vm.isAd);
+  return Boolean((vm.topicLabel ?? "").trim() || vm.isQuestion || vm.topBadge || vm.isAd);
 }
 
 /** 「포인트 노출」 — 커뮤니티 유료 상위노출 글 표시 (Owner 2026-11-04 「배경 + 글자」 · 배경은 `CardShell boosted`) */
@@ -90,7 +88,7 @@ export function CommunityTopPostBadge({ kind }: { kind: "notice" | "pinned" | nu
   );
 }
 
-function SingleListBadge({ vm }: { vm: Pick<FeedListCardViewModel, "topicLabel" | "topicColor" | "isQuestion" | "isMeetup"> }) {
+function SingleListBadge({ vm }: { vm: Pick<FeedListCardViewModel, "topicLabel" | "topicColor" | "isQuestion"> }) {
   const { t } = useI18n();
   const label = (vm.topicLabel ?? "").trim();
   if (label) {
@@ -112,17 +110,10 @@ function SingleListBadge({ vm }: { vm: Pick<FeedListCardViewModel, "topicLabel" 
       </span>
     );
   }
-  if (vm.isMeetup) {
-    return (
-      <span className="shrink-0 rounded-[4px] border border-emerald-200/80 bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-900">
-        {t("community_badge_meeting")}
-      </span>
-    );
-  }
   return null;
 }
 
-/** 당근형: 말머리/질문/모임 — 상단 한 줄(제목과 분리) */
+/** 당근형: 말머리/질문 — 상단 한 줄(제목과 분리) */
 function ListCategoryPillRow({ vm }: { vm: FeedListCardViewModel }) {
   if (!hasCategoryBadge(vm)) return null;
   return (

@@ -15,7 +15,6 @@ import {
   messengerDirectThreadListCollapseKey,
 } from "@/lib/community-messenger/messenger-room-domain";
 import { matchesGroupChatListKindFilter } from "@/lib/community-messenger/group/group-room-notification-policy";
-import { philifeMeetingMemberRoleLabel } from "@/lib/community-messenger/cm-ui-translate";
 import {
   getRoomPreviewText,
   getRoomTypeBadgeLabel,
@@ -248,7 +247,7 @@ export function communityMessengerRoomsSortCacheKey(rooms: CommunityMessengerRoo
     .map(
       (r) =>
         /** A-8: 알림 끔만 바뀌어도 옛 방 객체를 돌려주지 않게(보관함 「알림 끔」 개수·목록 아이콘) */
-        `${r.id}\t${r.lastMessageAt}\t${r.lastMessage ?? ""}\t${r.lastMessageType ?? ""}\t${r.isPinned ? 1 : 0}\t${r.isMuted ? 1 : 0}\t${r.unreadCount}\t${r.title}\t${r.philifeMeetingMemberLabel ?? ""}\t${messengerRoomTradeThumbKeyPart(r)}\t${messengerRoomTradeListMetaSig(r)}\t${roomListVisibilityKeyPart(r)}`
+        `${r.id}\t${r.lastMessageAt}\t${r.lastMessage ?? ""}\t${r.lastMessageType ?? ""}\t${r.isPinned ? 1 : 0}\t${r.isMuted ? 1 : 0}\t${r.unreadCount}\t${r.title}\t${messengerRoomTradeThumbKeyPart(r)}\t${messengerRoomTradeListMetaSig(r)}\t${roomListVisibilityKeyPart(r)}`
     )
     .join("\n");
 }
@@ -285,7 +284,7 @@ export function visibleChatListInputKey(
     const rowSig = items
       .map(
         (i) =>
-          `${i.room.id}\t${i.room.unreadCount}\t${i.room.isPinned ? 1 : 0}\t${i.room.isMuted ? 1 : 0}\t${i.room.roomType}\t${messengerRoomTradeThumbKeyPart(i.room)}\t${messengerRoomTradeListMetaSig(i.room)}\t${i.preview}\t${i.room.title}\t${i.room.subtitle}\t${i.room.summary}\t${i.room.philifeMeetingMemberLabel ?? ""}`
+          `${i.room.id}\t${i.room.unreadCount}\t${i.room.isPinned ? 1 : 0}\t${i.room.isMuted ? 1 : 0}\t${i.room.roomType}\t${messengerRoomTradeThumbKeyPart(i.room)}\t${messengerRoomTradeListMetaSig(i.room)}\t${i.preview}\t${i.room.title}\t${i.room.subtitle}\t${i.room.summary}`
       )
       .join("\n");
     return `${items.length}|${inbox}|${kind}|${k}|${rowSig}`;
@@ -309,7 +308,6 @@ export function visibleChatListInputKey(
         r.subtitle,
         r.summary,
         previewTight,
-        r.philifeMeetingMemberLabel ?? "",
       ].join("\t");
     })
     .join("\n");
@@ -610,10 +608,7 @@ export function useCommunityMessengerHomeState({
       if (chatKindFilter === "delivery" && !communityMessengerRoomIsConfirmedDelivery(room)) return false;
       if (chatKindFilter === "delivery" && !shouldShowCommerceChatInList(room)) return false;
       if (!keyword) return true;
-      const meetingRoleHaystack = room.philifeMeetingMemberLabel
-        ? philifeMeetingMemberRoleLabel(room.philifeMeetingMemberLabel)
-        : "";
-      const haystack = [room.title, room.subtitle, room.summary, item.preview, meetingRoleHaystack]
+      const haystack = [room.title, room.subtitle, room.summary, item.preview]
         .join(" ")
         .toLowerCase();
       return haystack.includes(keyword);
@@ -631,10 +626,7 @@ export function useCommunityMessengerHomeState({
       .filter((item) => communityMessengerRoomIsVisibleInMainChatInbox(item.room))
       .filter((item) => {
         const room = item.room;
-        const meetingRoleHaystack = room.philifeMeetingMemberLabel
-          ? philifeMeetingMemberRoleLabel(room.philifeMeetingMemberLabel)
-          : "";
-        const haystack = [room.title, room.subtitle, room.summary, item.preview, meetingRoleHaystack]
+        const haystack = [room.title, room.subtitle, room.summary, item.preview]
           .join(" ")
           .toLowerCase();
         return haystack.includes(keyword);
@@ -723,7 +715,6 @@ export function unifiedListItemRowDisplayEqual(a: UnifiedRoomListItem, b: Unifie
     ar.summary === br.summary &&
     ar.peerUserId === br.peerUserId &&
     ar.roomType === br.roomType &&
-    (ar.philifeMeetingMemberLabel ?? "") === (br.philifeMeetingMemberLabel ?? "") &&
     ar.memberCount === br.memberCount &&
     roomListVisibilityKeyPart(ar) === roomListVisibilityKeyPart(br) &&
     a.preview === b.preview &&

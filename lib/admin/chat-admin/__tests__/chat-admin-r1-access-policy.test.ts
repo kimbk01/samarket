@@ -186,7 +186,6 @@ describe("R1-A permission gate per chat admin route group (source contract)", ()
       "components/admin/chats/AdminChatActionPanel.tsx",
       "components/admin/chats/AdminChatListPage.tsx",
       "components/admin/chats/AdminChatDetailPage.tsx",
-      "components/admin/community/AdminCommunityEngineMeetingsClient.tsx",
     ]) {
       const src = read(f);
       expect(src, f).not.toContain("chat-admin-guards");

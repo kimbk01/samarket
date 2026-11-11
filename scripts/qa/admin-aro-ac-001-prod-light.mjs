@@ -167,7 +167,6 @@ async function main() {
     commonOps: (await page.locator("[data-aro-ac-common-ops='1']").count()) > 0,
     hasSettlementLink: /store-settlements/.test(hrefBlob),
     hasCommunityReports: /community\/reports/.test(hrefBlob),
-    hasMeetingReports: /philife\/meeting-reports/.test(hrefBlob),
     hasCoinWithdraw: /\/admin\/finance(?:\?[^#]*)?#coin-withdrawals/.test(hrefBlob),
     hasOrders: /store-orders/.test(hrefBlob),
     hasFinanceHub: /\/admin\/finance/.test(hrefBlob),
@@ -185,7 +184,6 @@ async function main() {
   );
   checks.commonHasCoin = commonCardIds.includes("common-coin");
   checks.commonHasSettlement = commonCardIds.includes("common-settlement");
-  checks.commonHasMeeting = commonCardIds.includes("common-meeting-reports");
   checks.commonHasAds = commonCardIds.includes("common-ads");
   checks.commonHasSupport = commonCardIds.includes("common-support");
 
@@ -200,14 +198,12 @@ async function main() {
     "commonOps",
     "hasSettlementLink",
     "hasCommunityReports",
-    "hasMeetingReports",
     "hasCoinWithdraw",
     "hasOrders",
     "hasFinanceHub",
     "overflowX",
     "commonHasCoin",
     "commonHasSettlement",
-    "commonHasMeeting",
   ];
   const failed = required.filter((k) => !checks[k]);
   const report = {

@@ -1,6 +1,6 @@
 /**
- * 「전체 신고 현황」 원장 6종 정의 (감사 2026-10-30 RS-02 · 보완 §2) — 원장 키 · 표시 이름 · 조회 권한 화면 ·
- * 상태 매핑 · 처리 화면 링크. 처리(쓰기)는 각 도메인 화면·API 만 — 중앙 목록에서 추가 원장 4종은 조회만.
+ * 「전체 신고 현황」 원장 5종 정의 (감사 2026-10-30 RS-02 · 보완 §2) — 원장 키 · 표시 이름 · 조회 권한 화면 ·
+ * 상태 매핑 · 처리 화면 링크. 처리(쓰기)는 각 도메인 화면·API 만 — 중앙 목록에서 추가 원장 3종은 조회만.
  * Client-safe 순수 모듈.
  */
 
@@ -11,7 +11,6 @@ export const ADMIN_REPORT_LEDGER_SOURCES = [
   "reports",
   "community_feed",
   "store_reports",
-  "meeting_reports",
   "community_messenger_reports",
   "chat_reports",
 ] as const;
@@ -20,7 +19,6 @@ export type AdminReportLedgerSource = (typeof ADMIN_REPORT_LEDGER_SOURCES)[numbe
 /** 중앙에서 조회만 하는 원장 (처리는 도메인 화면) */
 export const ADMIN_REPORT_READ_ONLY_LEDGERS = [
   "store_reports",
-  "meeting_reports",
   "community_messenger_reports",
   "chat_reports",
 ] as const satisfies readonly AdminReportLedgerSource[];
@@ -34,7 +32,6 @@ export const ADMIN_REPORT_LEDGER_LABEL: Record<AdminReportLedgerSource, { ko: st
   reports: catalogPair("admin_reports_trade_reports"),
   community_feed: catalogPair("admin_reports_community_community_reports"),
   store_reports: catalogPair("admin_reports_store_store_reports"),
-  meeting_reports: catalogPair("admin_reports_meeting_meeting_reports"),
   community_messenger_reports: catalogPair("admin_reports_messenger_community_messenger_reports"),
   chat_reports: catalogPair("admin_reports_trade_chat_legacy_chat_reports"),
 };
@@ -45,7 +42,6 @@ export const ADMIN_REPORT_LEDGER_LABEL: Record<AdminReportLedgerSource, { ko: st
  */
 export const ADMIN_REPORT_LEDGER_VIEW_HREF: Record<AdminReportReadOnlyLedger, string> = {
   store_reports: "/admin/store-reports",
-  meeting_reports: "/admin/philife/meeting-reports",
   community_messenger_reports: "/admin/chats/reported",
   chat_reports: "/admin/chats/reported?domain=trade",
 };
@@ -53,7 +49,6 @@ export const ADMIN_REPORT_LEDGER_VIEW_HREF: Record<AdminReportReadOnlyLedger, st
 /** 추가 원장의 화면 대상 유형 (대상 유형 필터도 이 값으로 거른다) */
 export const ADMIN_REPORT_LEDGER_TARGET_TYPE: Record<AdminReportReadOnlyLedger, ReportTargetType> = {
   store_reports: "product",
-  meeting_reports: "community",
   community_messenger_reports: "chat",
   chat_reports: "chat",
 };
@@ -65,8 +60,6 @@ export const ADMIN_REPORT_LEDGER_TARGET_TYPE: Record<AdminReportReadOnlyLedger, 
 export const ADMIN_REPORT_LEDGER_STATUS_MAP: Record<AdminReportReadOnlyLedger, Record<string, ReportStatus>> = {
   /** store_reports: open · actioned · dismissed */
   store_reports: { open: "pending", actioned: "resolved", dismissed: "rejected" },
-  /** meeting_reports CHECK: pending · reviewing · resolved · rejected */
-  meeting_reports: { pending: "pending", reviewing: "reviewing", resolved: "resolved", rejected: "rejected" },
   /** community_messenger_reports CHECK: received · reviewing · resolved · rejected · sanctioned */
   community_messenger_reports: {
     received: "pending",
@@ -106,8 +99,6 @@ export function adminReportLedgerProcessHref(
   switch (source) {
     case "store_reports":
       return `/admin/store-reports?request=${encodeURIComponent(row.id)}`;
-    case "meeting_reports":
-      return `/admin/philife/meeting-reports?status=${row.uiStatus === "pending" ? "pending" : row.uiStatus === "reviewing" ? "reviewing" : row.uiStatus === "rejected" ? "rejected" : row.uiStatus === "resolved" ? "resolved" : "all"}`;
     case "community_messenger_reports": {
       const sp = new URLSearchParams({ type: "messenger", status: "all" });
       if (room) sp.set("target", room);

@@ -125,7 +125,6 @@ type Ctx = {
   communityReportsCount: number;
   globalReportsCount: number;
   /** ARO-AC-001 */
-  meetingReportsCount: number;
   ordersAttentionCount: number;
   settlementsActionableCount: number;
   coinWithdrawalsCount: number;
@@ -160,7 +159,6 @@ const AdminStorePointPendingContext = createContext<Ctx>({
   storeReportsCount: 0,
   communityReportsCount: 0,
   globalReportsCount: 0,
-  meetingReportsCount: 0,
   ordersAttentionCount: 0,
   settlementsActionableCount: 0,
   coinWithdrawalsCount: 0,
@@ -219,7 +217,6 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
   const [communityReportsCount, setCommunityReportsCount] = useState(0);
   const [globalReportsCount, setGlobalReportsCount] = useState(0);
   const [storeApplicationsCount, setStoreApplicationsCount] = useState(0);
-  const [meetingReportsCount, setMeetingReportsCount] = useState(0);
   const [ordersAttentionCount, setOrdersAttentionCount] = useState(0);
   const [settlementsActionableCount, setSettlementsActionableCount] = useState(0);
   const [coinWithdrawalsCount, setCoinWithdrawalsCount] = useState(0);
@@ -834,7 +831,6 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
             global_reports?: number;
             store_applications?: number;
             alerts?: number;
-            meeting_reports?: number;
             orders_attention?: number;
             settlements_actionable?: number;
             coin_withdrawals?: number;
@@ -910,7 +906,6 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         setCommunityReportsCount(communityReports);
         setGlobalReportsCount(globalReports);
         setStoreApplicationsCount(storeApplications);
-        setMeetingReportsCount(Math.max(0, Math.floor(Number(json.by_category?.meeting_reports) || 0)));
         setOrdersAttentionCount(Math.max(0, Math.floor(Number(json.by_category?.orders_attention) || 0)));
         setSettlementsActionableCount(
           Math.max(0, Math.floor(Number(json.by_category?.settlements_actionable) || 0))
@@ -1408,7 +1403,6 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       communityReportsCount,
       globalReportsCount,
       storeApplicationsCount,
-      meetingReportsCount,
       ordersAttentionCount,
       settlementsActionableCount,
       coinWithdrawalsCount,
@@ -1442,7 +1436,6 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       communityReportsCount,
       globalReportsCount,
       storeApplicationsCount,
-      meetingReportsCount,
       ordersAttentionCount,
       settlementsActionableCount,
       coinWithdrawalsCount,

@@ -102,6 +102,9 @@ const nextConfig = {
         destination: "/mypage/customer-center",
         permanent: false,
       },
+      /** 옛 모임 상세 링크(2026-11-12 Owner 지시로 옛 모임 삭제) → 커뮤니티 홈. 신규 모임은 `/moim/**` (docs/design/moim). */
+      { source: "/philife/meetings/:path*", destination: "/philife", permanent: false },
+      { source: "/community/meetings/:path*", destination: "/philife", permanent: false },
       /**
        * 레거시 `/market/[slug]` → `/market?category=` (HTTP 307; RSC-only redirect is 200+CSR —
        * `/market/vehicle?q=…` 첫 진입이 클라이언트 전환 중 React #310 으로 깨짐). 원래 쿼리(q·topic·sort 등)는 그대로 붙는다.

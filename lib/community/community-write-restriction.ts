@@ -1,5 +1,5 @@
 /**
- * 커뮤니티 쓰기 가드 (설계 §E-6) — 활동 제한(sanctions scope='community') 회원의 글·댓글·신고·모임을 막는다.
+ * 커뮤니티 쓰기 가드 (설계 §E-6) — 활동 제한(sanctions scope='community') 회원의 글·댓글·신고를 막는다.
  * 거래·배달·메신저는 영향 없음. 만료는 조회 시 end_at 비교 (크론 불필요). 서버 전용.
  */
 import "server-only";
@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
-export type CommunityWriteKind = "post" | "comment" | "report" | "meeting";
+export type CommunityWriteKind = "post" | "comment" | "report";
 
 export type ActiveCommunityRestriction = {
   id: string;

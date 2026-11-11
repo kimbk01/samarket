@@ -31,25 +31,11 @@ const REPORT_STATUS: Registry = {
   dismissed: { ...catalogPair("admin_dismissed"), tone: "neutral" },
 };
 
-/** 모임 신고 상태 (meeting_reports) */
-const MEETING_REPORT_STATUS: Registry = {
-  pending: { ...catalogPair("admin_chat_reports_status_received"), tone: "waiting" },
-  reviewing: { ...catalogPair("admin_chat_reports_status_reviewing"), tone: "progress" },
-  resolved: { ...catalogPair("admin_upheld"), tone: "success" },
-  rejected: { ...catalogPair("admin_dismissed"), tone: "neutral" },
-};
-
 /** 신고 대상 */
 const REPORT_TARGET: Registry = {
   post: { ...catalogPair("admin_trade_post_ads_th_post"), tone: "neutral" },
   comment: { ...catalogPair("admin_community_comments_col_body"), tone: "neutral" },
   user: { ...catalogPair("admin_users_role_badge_member"), tone: "neutral" },
-  meeting: { ...catalogPair("admin_meeting_reports_target_meeting"), tone: "neutral" },
-  member: { ...catalogPair("admin_meeting_member"), tone: "neutral" },
-  feed_post: { ...catalogPair("admin_meeting_post"), tone: "neutral" },
-  feed_comment: { ...catalogPair("admin_meeting_comment"), tone: "neutral" },
-  chat_message: { ...catalogPair("admin_meeting_chat"), tone: "neutral" },
-  album_item: { ...catalogPair("admin_meeting_album"), tone: "neutral" },
 };
 
 /** 신고 사유 (lib/reports/report-reason-code.ts 코드) */
@@ -140,7 +126,6 @@ const PIN_SCOPE: Registry = {
 const REGISTRIES = {
   content_status: CONTENT_STATUS,
   report_status: REPORT_STATUS,
-  meeting_report_status: MEETING_REPORT_STATUS,
   report_target: REPORT_TARGET,
   report_reason: REPORT_REASON,
   sanction_kind: SANCTION_KIND,

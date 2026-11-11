@@ -17,7 +17,6 @@ import {
   ARO_IA_001_COMMUNITY_REPORTS_PATH,
   ARO_IA_001_COMMUNITY_SECTION_KEYS,
   ARO_IA_001_FINANCE_POINT_POLICIES_PATH,
-  ARO_IA_001_MEETING_REPORTS_PATH,
   ARO_IA_001_OWNERS,
   ARO_IA_001_SUPPORT_PATH,
 } from "@/lib/admin/aro-ia-001-community-common-links";
@@ -90,10 +89,8 @@ describe("ARO-IA-001 Community Domain ↔ Common connection", () => {
 
   it("T8/T9/T10 — Report owners distinct; Support not merged", () => {
     const reportsLib = read("lib/community-feed/admin-community-reports.ts");
-    const meetingLib = read("lib/neighborhood/admin-meeting-reports.ts");
     const reportsUi = read("components/admin/community/AdminCommunityReportsPage.tsx");
     expect(reportsLib).toContain(ARO_IA_001_OWNERS.report);
-    expect(meetingLib).toContain(ARO_IA_001_OWNERS.meetingReport);
     expect(reportsUi).toContain("community-report-to-support");
     expect(reportsUi).toContain("ARO_IA_001_SUPPORT_PATH");
     expect(reportsUi).not.toContain("autoCreateSupportCase");
@@ -113,7 +110,6 @@ describe("ARO-IA-001 Community Domain ↔ Common connection", () => {
       ARO_IA_001_COMMUNITY_PROMOTIONS_PATH,
       ARO_IA_001_COMMUNITY_POINT_POLICIES_PATH,
       ARO_IA_001_COMMUNITY_REPORTS_PATH,
-      ARO_IA_001_MEETING_REPORTS_PATH,
     ]) {
       expect(resolveActiveWorkspace(route, "master").id).toBe("community");
     }
@@ -134,7 +130,6 @@ describe("ARO-IA-001 Community Domain ↔ Common connection", () => {
      */
     expect(MESSAGES.ko.admin_menu_community_reports).toBe("신고 처리함");
     expect(MESSAGES.ko.admin_menu_community_point_policies).toBe("포인트 정책");
-    expect(MESSAGES.ko.admin_menu_meeting_reports).toBe("모임 신고");
     expect(MESSAGES.en.admin_menu_community_reports).toBe("Report inbox");
     expect(MESSAGES.ko.admin_menu_community_section_promo_point).toBe("포인트·충전");
     const promoPage = read("components/admin/ads/AdminAdApplicationsPage.tsx");
@@ -153,9 +148,6 @@ describe("ARO-IA-001 Community Domain ↔ Common connection", () => {
     );
     expect(findAdminMenuByKey(adminMenu, "community-feed-reports")?.path).toBe(
       ARO_IA_001_COMMUNITY_REPORTS_PATH
-    );
-    expect(findAdminMenuByKey(adminMenu, "philife-meeting-reports")?.path).toBe(
-      ARO_IA_001_MEETING_REPORTS_PATH
     );
   });
 });

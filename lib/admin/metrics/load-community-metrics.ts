@@ -29,7 +29,7 @@ export type AdminCommunityPeriodStats = {
   posts: Record<"total" | "member" | "imported" | "admin" | "active_now" | "hidden_now" | "deleted_now", number>;
   comments: Record<"total" | "top_level" | "replies", number>;
   authors: Record<"active" | "new", number>;
-  reports: Record<"received" | "processed" | "resolved" | "dismissed" | "meeting_received" | "meeting_processed", number>;
+  reports: Record<"received" | "processed" | "resolved" | "dismissed", number>;
   admin_actions: { total: number; by_action: Record<string, number>; by_target_type: Record<string, number> };
   engagement: Record<"post_views" | "post_likes" | "comment_likes", number>;
   topics: { topic_id: string | null; name: string | null; slug: string | null; posts: number; comments: number }[];
@@ -145,9 +145,6 @@ export async function loadCommunityMetrics(
       count("appeals_waiting", () =>
         sbAny.from("support_cases").select("id", head).in("status", ["OPEN", "WAITING_ADMIN"]).or(supportAppealOrFilter())
       ),
-      count("meetings_pending_approval", () =>
-        sbAny.from("meetings").select("id", head).eq("platform_approval_status", "pending_approval")
-      ),
       count("import_failures_7d", () =>
         sbAny
           .from("community_import_jobs")
@@ -207,7 +204,6 @@ export async function loadCommunityMetrics(
   const [
     supportWaiting,
     appealsWaiting,
-    meetingsPending,
     importFailures,
     staleReports,
     postsActiveMember,
@@ -223,7 +219,6 @@ export async function loadCommunityMetrics(
   const directValues: Record<string, number | null> = {
     "community.support_waiting": supportWaiting,
     "community.appeals_waiting": appealsWaiting,
-    "community.meetings_pending_approval": meetingsPending,
     "community.import_failures_7d": importFailures,
     "community.reports_stale_24h": staleReports,
     "community.posts_active.member": postsActiveMember,

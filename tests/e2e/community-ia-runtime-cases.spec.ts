@@ -980,7 +980,7 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
           .trim()
           .toLowerCase();
         if (!s || c.is_feed_sort) return false;
-        if (s === "popular" || s === "recommended" || s === "recommend" || s === "meetup") return false;
+        if (s === "popular" || s === "recommended" || s === "recommend") return false;
         if (s === "home" || s === "local" || s === "latest") return false;
         return true;
       })

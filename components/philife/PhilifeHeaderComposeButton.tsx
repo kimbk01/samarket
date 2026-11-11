@@ -1,13 +1,10 @@
 "use client";
 
 import { Suspense } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { buildPhilifeComposeHref } from "@/lib/philife/compose-href";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
-import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import {
   SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
   SAM_TIER1_HEADER_ICON_HIT_CLASS,
@@ -53,40 +50,9 @@ function PhilifeHeaderComposeButtonInner() {
   const { t } = useI18n();
   const { open: openWriteSheet } = usePhilifeWriteSheet();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
-  const requireAuth = useRequireAuthAction();
   const searchParams = useSearchParams();
   const category = searchParams.get("category")?.trim() ?? "";
-  const href = buildPhilifeComposeHref(category);
-  const meetup = category === "meetup";
-  const aria =
-    meetup ? `${t("neighborhood_meetup")} ${t("nav_write_aria")}`.trim() : t("tier1_community_write");
-
-  if (meetup) {
-    return (
-      <Link
-        href={href}
-        prefetch={false}
-        className={COMPOSE_BTN_CLASS}
-        aria-label={aria}
-        onClick={(e) => {
-          if (!guardBeforeNavigate()) {
-            e.preventDefault();
-            return;
-          }
-          e.preventDefault();
-          void requireAuth(
-            "community_write",
-            () => {
-              window.location.assign(href);
-            },
-            { next: href },
-          );
-        }}
-      >
-        <SquarePencilIcon />
-      </Link>
-    );
-  }
+  const aria = t("tier1_community_write");
 
   return (
     <button

@@ -45,7 +45,6 @@ function logCmBootstrapV2(params: {
     6 +
     (d.callsLogRowsFetchMs > 0 ? 2 : 0) +
     1 +
-    (d.parallelMeetingsForDiscoverableMs > 0 ? 1 : 0) +
     (d.parallelDiscoverableFetchMs > 0 ? 4 : 0);
   const criticalPayloadMs = 0;
   const tradeEnrichMs = d.tradeContextMs;
@@ -116,7 +115,6 @@ function logCmBootstrapV2(params: {
       bootstrap_lite_requests_fetch_ms: d.bootstrapLiteRequestsFetchMs,
       bootstrap_lite_favorite_fetch_ms: d.bootstrapLiteFavoriteFetchMs,
       bootstrap_lite_discoverable_fetch_ms: d.bootstrapLiteDiscoverableFetchMs,
-      bootstrap_lite_meetings_fetch_ms: d.bootstrapLiteMeetingsFetchMs,
       bootstrap_lite_parallel_slowest_stage: d.bootstrapLiteParallelSlowestStage,
       bootstrap_lite_parallel_slowest_ms: d.bootstrapLiteParallelSlowestMs,
       bootstrap_lite_social_graph_source: d.bootstrapLiteSocialGraphSource,
@@ -239,7 +237,6 @@ function logCmBootstrapBreakdown(params: {
     6 +
     (d.callsLogRowsFetchMs > 0 ? 2 : 0) +
     1 +
-    (d.parallelMeetingsForDiscoverableMs > 0 ? 1 : 0) +
     (d.parallelDiscoverableFetchMs > 0 ? 4 : 0);
 
   const stageEntries: Array<[string, number]> = [
@@ -293,7 +290,6 @@ function logCmBootstrapBreakdown(params: {
       parallel_accepted_friends_ms: d.parallelAcceptedFriendsBundleMs,
       parallel_favorite_ms: d.parallelFavoriteFriendsMs,
       parallel_discoverable_ms: d.parallelDiscoverableFetchMs,
-      parallel_meetings_ms: d.parallelMeetingsForDiscoverableMs,
       calls_log_rows_fetch_ms: d.callsLogRowsFetchMs,
       enrich_trade_direct_keys_ms: d.enrichTradeDirectKeysMs,
       enrich_trade_middle_ms: d.enrichTradeMiddlePipelineMs,
@@ -321,7 +317,6 @@ function logCmBootstrapBreakdown(params: {
       bootstrap_lite_requests_fetch_ms: d.bootstrapLiteRequestsFetchMs,
       bootstrap_lite_favorite_fetch_ms: d.bootstrapLiteFavoriteFetchMs,
       bootstrap_lite_discoverable_fetch_ms: d.bootstrapLiteDiscoverableFetchMs,
-      bootstrap_lite_meetings_fetch_ms: d.bootstrapLiteMeetingsFetchMs,
       bootstrap_lite_parallel_slowest_stage: d.bootstrapLiteParallelSlowestStage,
       bootstrap_lite_parallel_slowest_ms: d.bootstrapLiteParallelSlowestMs,
       bootstrap_lite_social_graph_source: d.bootstrapLiteSocialGraphSource,
@@ -578,7 +573,6 @@ export async function GET(request: NextRequest) {
     parallelFriendRequestsMs: 0,
     parallelDiscoverableFetchMs: 0,
     callsLogRowsFetchMs: 0,
-    parallelMeetingsForDiscoverableMs: 0,
     enrichTradeDirectKeysMs: 0,
     enrichTradeSellerHydrateMs: 0,
     enrichTradeMiddlePipelineMs: 0,
@@ -606,7 +600,6 @@ export async function GET(request: NextRequest) {
     bootstrapLiteRequestsFetchMs: 0,
     bootstrapLiteFavoriteFetchMs: 0,
     bootstrapLiteDiscoverableFetchMs: 0,
-    bootstrapLiteMeetingsFetchMs: 0,
     bootstrapLiteParallelSlowestStage: "",
     bootstrapLiteParallelSlowestMs: 0,
     bootstrapLiteSocialGraphSource: "n/a",

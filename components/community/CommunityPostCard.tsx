@@ -7,7 +7,6 @@ import { formatTimeAgo } from "@/lib/utils/format";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { CommunityFeedPostDTO } from "@/lib/community-feed/types";
 import { extractHashtagPreview } from "@/lib/community-feed/topic-feed-skin";
-import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
 import { philifeAppPaths } from "@domain/philife/paths";
 import { resolveCommunityFeedListThumbnail } from "@/lib/community-feed/feed-list-thumbnail";
 import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
@@ -42,11 +41,8 @@ function buildCommunityFeedListViewModel(
     : [];
   const thumbnailUrl = imageUrls[0]?.trim() || resolveCommunityFeedListThumbnail(post);
   const previewSource = (post.summary ?? "").trim() || post.content;
-  const contentForTags = stripMarkdownImageSyntaxForFeedPreview(
-    post.is_meetup ? stripMeetupPostMetaFromContent(previewSource) : previewSource,
-  );
-  const placeLineRaw =
-    skin === "location_pin" ? post.meetup_place?.trim() || post.region_label?.trim() || "" : "";
+  const contentForTags = stripMarkdownImageSyntaxForFeedPreview(previewSource);
+  const placeLineRaw = skin === "location_pin" ? post.region_label?.trim() || "" : "";
   const hashtagTags = skin === "hashtags_below" ? extractHashtagPreview(`${post.title}\n${contentForTags}`, 3) : [];
 
   /** 섹션 피드 DTO에는 `images` 배열이 없고 `thumbnail_url`만 있으므로 그때만 1(썸 있음)/0. */
@@ -77,7 +73,6 @@ function buildCommunityFeedListViewModel(
     commentCount: post.comment_count,
     viewCount: post.view_count,
     isQuestion: post.is_question,
-    isMeetup: post.is_meetup,
     thumbnailUrl,
     imageCount,
     placeLine: placeLineRaw ? placeLineRaw : null,
@@ -102,12 +97,10 @@ function isSameCommunityPostCard(prev: CommunityFeedPostDTO, next: CommunityFeed
     prev.topic_name_en === next.topic_name_en &&
     prev.topic_color === next.topic_color &&
     prev.region_label === next.region_label &&
-    prev.meetup_place === next.meetup_place &&
     prev.like_count === next.like_count &&
     prev.comment_count === next.comment_count &&
     prev.view_count === next.view_count &&
     prev.is_question === next.is_question &&
-    prev.is_meetup === next.is_meetup &&
     prev.thumbnail_url === next.thumbnail_url
   );
 }

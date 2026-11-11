@@ -34,9 +34,7 @@ vi.mock("@/lib/admin-community/member-identity", () => ({
 
 import { GET as promotionOrdersGET } from "@/app/api/admin/community-promotion-orders/route";
 import { GET as noticesGET } from "@/app/api/admin/community/notices/route";
-import { GET as meetingEventsGET } from "@/app/api/admin/meeting-events/route";
 import { GET as sectionsGET } from "@/app/api/admin/community/sections/route";
-import { loadAdminMeetingReports } from "@/lib/admin/community-admin/load-admin-meeting-reports";
 
 const req = (path: string, params: Record<string, string> = {}) =>
   new NextRequest(`http://localhost${path}?${new URLSearchParams(params).toString()}`);
@@ -112,53 +110,10 @@ describe("GET /api/admin/community/notices — 고정 100건 상한 제거", () 
   });
 });
 
-describe("GET /api/admin/meeting-events — total · 실패를 빈 목록으로 숨기지 않음", () => {
-  it("limit=100&offset=200 → range(200, 300)(다음 쪽 확인 1행 포함) · total = count", async () => {
-    handler = (c) => (c.table === "meeting_events" ? { data: [], error: null, count: 412 } : { data: [], error: null });
-    const res = await meetingEventsGET(req("/api/admin/meeting-events", { limit: "100", offset: "200" }));
-    const j = await json(res);
-    expect(listCall("meeting_events").range).toEqual([200, 300]);
-    expect(j.total).toBe(412);
-    expect(j.limit).toBe(100);
-  });
-
-  it("JSON limit 은 20/50/100 만 (그 외 50)", async () => {
-    await meetingEventsGET(req("/api/admin/meeting-events", { limit: "7", offset: "0" }));
-    expect(listCall("meeting_events").range).toEqual([0, 50]);
-  });
-
-  it("DB 오류 → 500 (예전: ok + 빈 목록)", async () => {
-    handler = (c) => (c.table === "meeting_events" ? { data: null, error: { message: "boom" } } : { data: [], error: null });
-    const res = await meetingEventsGET(req("/api/admin/meeting-events", { limit: "20" }));
-    expect(res.status).toBe(500);
-    expect((await json(res)).ok).toBe(false);
-  });
-});
-
 describe("GET /api/admin/community/sections — 조회 실패는 오류", () => {
   it("DB 오류 → 500 (「섹션 없음」과 구분)", async () => {
     handler = () => ({ data: null, error: { message: "boom" } });
     const res = await sectionsGET();
     expect(res.status).toBe(500);
-  });
-});
-
-describe("loadAdminMeetingReports — 페이지 크기 (URL size)", () => {
-  it("pageSize 100, 3쪽 → range(200, 299) · total = count", async () => {
-    handler = (c) => (c.table === "meeting_reports" ? { data: [], error: null, count: 250 } : { data: [], error: null });
-    const r = await loadAdminMeetingReports(
-      "pending",
-      { type: "", fromIso: null, toIso: null, meetingIds: null, reporterIds: null },
-      3,
-      fake.sb as never,
-      { pageSize: 100 }
-    );
-    expect(listCall("meeting_reports").range).toEqual([200, 299]);
-    expect(r.total).toBe(250);
-  });
-
-  it("pageSize 생략 → 기존 50", async () => {
-    await loadAdminMeetingReports("all", { type: "", fromIso: null, toIso: null, meetingIds: null, reporterIds: null }, 2, fake.sb as never);
-    expect(listCall("meeting_reports").range).toEqual([50, 99]);
   });
 });

@@ -6,8 +6,8 @@
  * 행 변환은 기존 규칙 그대로 (`mapTradeReportRowsForAdmin` · `enrichCommunityReportRowsForAdmin` + `mapCommunityReportsToReports`).
  *
  * RS-02 (감사 2026-10-30 · J-5 TS 조회, DB 무변경) — 커서 모드(`cursor` 파라미터, 첫 쪽은 빈 값):
- * 원장 6종(위 2종 + store_reports · meeting_reports · community_messenger_reports · chat_reports)을 원장마다
- * page+1 건씩 읽어 병합 정렬한다 (`admin-ledger-merge.ts`). 추가 4종은 조회만 — 행 링크가 도메인 처리 화면.
+ * 원장 5종(위 2종 + store_reports · community_messenger_reports · chat_reports)을 원장마다
+ * page+1 건씩 읽어 병합 정렬한다 (`admin-ledger-merge.ts`). 추가 3종은 조회만 — 행 링크가 도메인 처리 화면.
  * 권한: 원장마다 그 도메인 화면의 열람 권한(`admin-route-access`)이 없으면 행·건수에서 빼고 `partial` 로 알린다.
  */
 import "server-only";
@@ -201,10 +201,6 @@ const READ_ONLY_SELECT: Record<AdminReportReadOnlyLedger, { table: string; cols:
   store_reports: {
     table: "store_reports",
     cols: "id, reporter_user_id, target_type, target_id, store_id, reason_type, message, status, reviewed_at, created_at",
-  },
-  meeting_reports: {
-    table: "meeting_reports",
-    cols: "id, meeting_id, target_type, target_id, reporter_user_id, reason_type, reason_detail, status, reviewed_at, created_at",
   },
   community_messenger_reports: {
     table: "community_messenger_reports",

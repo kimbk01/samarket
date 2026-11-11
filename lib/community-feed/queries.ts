@@ -73,7 +73,6 @@ export function mapCommunityTopicRowsToDto(rows: Record<string, unknown>[]): Com
     is_visible: parsePostgresBool(row.is_visible, false),
     is_feed_sort: parsePostgresBool(row.is_feed_sort, false),
     allow_question: parsePostgresBool(row.allow_question, false),
-    allow_meetup: parsePostgresBool(row.allow_meetup, false),
     feed_sort_mode: parseCommunityTopicFeedSortMode(row.feed_sort_mode),
     feed_list_skin: normalizeCommunityFeedListSkin(row.feed_list_skin),
   }));
@@ -151,11 +150,11 @@ export async function listTopicsForSectionSlug(
     }
 
     const selectAttempts = [
-      "id, section_id, name, name_en, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, allow_meetup, feed_list_skin, feed_sort_mode",
-      "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, allow_meetup, feed_list_skin, feed_sort_mode",
-      "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, allow_meetup, feed_list_skin",
-      "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, allow_meetup, feed_sort_mode",
-      "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, allow_meetup",
+      "id, section_id, name, name_en, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, feed_list_skin, feed_sort_mode",
+      "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, feed_list_skin, feed_sort_mode",
+      "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, feed_list_skin",
+      "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, feed_sort_mode",
+      "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question",
     ] as const;
     const tq1 = tim ? performance.now() : 0;
     let topicRows: unknown[] | null = null;
@@ -250,7 +249,7 @@ export async function listCommunityFeedPosts(options: {
     let q = sb
       .from("community_posts")
       .select(
-        `id, section_slug, topic_slug, title, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at${published}, user_id${origin}, community_topics ( ${topicCols} )`
+        `id, section_slug, topic_slug, title, summary, region_label, is_question, view_count, like_count, comment_count, created_at${published}, user_id${origin}, community_topics ( ${topicCols} )`
       )
       .eq("section_slug", sectionSlug)
       .eq("is_hidden", false);
@@ -349,9 +348,6 @@ export async function listCommunityFeedPosts(options: {
         regionLabel: String(r.region_label ?? ""),
       }),
       is_question: !!r.is_question,
-      is_meetup: !!r.is_meetup,
-      meetup_date: r.meetup_date != null ? String(r.meetup_date) : null,
-      meetup_place: r.meetup_place != null ? String(r.meetup_place) : null,
       view_count: Number(r.view_count ?? 0),
       like_count: Number(r.like_count ?? 0),
       comment_count: Number(r.comment_count ?? 0),
@@ -413,7 +409,7 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
   const selDetail = (topicCols: string, withOrigin: boolean, withPublishedAt: boolean) => {
     const origin = withOrigin ? `, ${COMMUNITY_ORIGIN_SELECT}` : "";
     const published = withPublishedAt ? ", published_at" : "";
-    return `id, section_slug, topic_slug, title, content, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at${published}, user_id${origin}, community_topics ( ${topicCols} ), community_post_images ( id, image_url, sort_order )`;
+    return `id, section_slug, topic_slug, title, content, summary, region_label, is_question, view_count, like_count, comment_count, created_at${published}, user_id${origin}, community_topics ( ${topicCols} ), community_post_images ( id, image_url, sort_order )`;
   };
 
   let withPublishedAt = true;
@@ -511,9 +507,6 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
       regionLabel: String(row.region_label ?? ""),
     }),
     is_question: !!row.is_question,
-    is_meetup: !!row.is_meetup,
-    meetup_date: row.meetup_date != null ? String(row.meetup_date) : null,
-    meetup_place: row.meetup_place != null ? String(row.meetup_place) : null,
     view_count: Number(row.view_count ?? 0),
     like_count: Number(row.like_count ?? 0),
     comment_count: Number(row.comment_count ?? 0),
@@ -666,7 +659,6 @@ export async function resolveTopicMeta(
 ): Promise<{
   id: string;
   is_feed_sort: boolean;
-  allow_meetup: boolean;
   allow_question: boolean;
   feed_list_skin: ReturnType<typeof normalizeCommunityFeedListSkin>;
 } | null> {
@@ -680,7 +672,7 @@ export async function resolveTopicMeta(
     if (!sec) return null;
     const m1 = await sb
       .from("community_topics")
-      .select("id, is_feed_sort, allow_meetup, allow_question, feed_list_skin")
+      .select("id, is_feed_sort, allow_question, feed_list_skin")
       .eq("section_id", (sec as { id: string }).id)
       .eq("slug", topicSlug.toLowerCase())
       .eq("is_active", true)
@@ -690,7 +682,7 @@ export async function resolveTopicMeta(
     if (te && isMissingDbColumnError(te, "feed_list_skin")) {
       const m2 = await sb
         .from("community_topics")
-        .select("id, is_feed_sort, allow_meetup, allow_question")
+        .select("id, is_feed_sort, allow_question")
         .eq("section_id", (sec as { id: string }).id)
         .eq("slug", topicSlug.toLowerCase())
         .eq("is_active", true)
@@ -702,14 +694,12 @@ export async function resolveTopicMeta(
     const tr = metaRow as {
       id: string;
       is_feed_sort?: boolean;
-      allow_meetup?: boolean;
       allow_question?: boolean;
       feed_list_skin?: unknown;
     };
     return {
       id: String(tr.id),
       is_feed_sort: !!tr.is_feed_sort,
-      allow_meetup: !!tr.allow_meetup,
       allow_question: !!tr.allow_question,
       feed_list_skin: normalizeCommunityFeedListSkin(tr.feed_list_skin),
     };

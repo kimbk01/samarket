@@ -154,7 +154,7 @@ export async function fetchAuthorPublicProfilesForUserIds(
 }
 
 /**
- * Community / meeting labels — Member displayLabel (nickname; UI may strip @).
+ * Community labels — Member displayLabel (nickname; UI may strip @).
  * Prefer displayLabel so CommunityAuthorRow shows nickname without forcing handle in every surface.
  */
 export async function fetchNicknamesForUserIds(

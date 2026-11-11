@@ -105,7 +105,10 @@ describe("Admin Metric Registry (설계 v4 §3 · 통합 §2.5)", () => {
     expect(ADMIN_DASHBOARD_TABS).toHaveLength(8);
     expect(adminDashboardTabMetricCount("overview")).toBe(ADMIN_DASHBOARD_OVERVIEW_METRIC_COUNT);
     for (const t of ADMIN_DASHBOARD_TABS) {
-      expect(t.metricIds).toHaveLength(t.id === "overview" ? ADMIN_DASHBOARD_OVERVIEW_METRIC_COUNT : ADMIN_DASHBOARD_METRICS_PER_TAB);
+      // support: 5 — queue.meeting_reports removed with the legacy meeting feature (Owner 2026-11-12); 6th tile = Owner decision
+      const expected =
+        t.id === "overview" ? ADMIN_DASHBOARD_OVERVIEW_METRIC_COUNT : t.id === "support" ? ADMIN_DASHBOARD_METRICS_PER_TAB - 1 : ADMIN_DASHBOARD_METRICS_PER_TAB;
+      expect(t.metricIds).toHaveLength(expected);
       expect(new Set(t.metricIds).size).toBe(t.metricIds.length);
       for (const id of t.metricIds) expect(ADMIN_METRIC_BY_ID.has(id), `${t.id}:${id}`).toBe(true);
       expect(t.shortcuts.length).toBeGreaterThanOrEqual(4);

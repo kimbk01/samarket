@@ -280,7 +280,6 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   { path: "/admin/community/promotions", requirement: ANY, action: perm("ads") },
   { path: "/admin/community/points", requirement: community("read"), action: perm("point") },
   { path: "/admin/community", requirement: community("content") },
-  { path: "/admin/philife/meeting-reports", requirement: ANY, action: community("moderation") },
   { path: "/admin/philife", requirement: ANY },
 
   // ── 채팅

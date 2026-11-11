@@ -16,7 +16,7 @@ import {
   COMMUNITY_FEED_LIST_SKINS,
   normalizeCommunityFeedListSkin,
 } from "@/lib/community-feed/topic-feed-skin";
-import { topicBelongsToPhilifeNeighborhoodSection } from "@/lib/neighborhood/meetup-feed-topics";
+import { topicBelongsToPhilifeNeighborhoodSection } from "@/lib/neighborhood/philife-topic-slug-rules";
 import type { CommunityTopicContentStats } from "@/lib/community-topics/admin-topic-content-stats";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
@@ -47,8 +47,7 @@ const ADMIN_TOPIC_SKIN_I18N: Record<CommunityFeedListSkin, `admin_topics_skin_${
 
 /**
  * App 2-tier Community IA — 운영자에게는 「주제(content topics)」만 노출한다.
- * 인기/추천 정렬 시드(is_feed_sort)·모임(allow_meetup) 주제는 이 화면에서 만들 수 없고
- * 목록에도 나오지 않는다 — Composer writeEligible 과 동일 SSOT (`!allow_meetup`).
+ * 인기/추천 정렬 시드(is_feed_sort) 주제는 이 화면에서 만들 수 없고 목록에도 나오지 않는다.
  */
 const DEFAULT_FEED_LIST_SKIN: CommunityFeedListSkin = "compact_media";
 
@@ -103,7 +102,6 @@ export function AdminCommunityTopicsPage({
             return false;
           }
           if (t.is_feed_sort) return false;
-          if (t.allow_meetup) return false;
           return true;
         })
         .slice()
@@ -154,7 +152,6 @@ export function AdminCommunityTopicsPage({
           is_feed_sort: false,
           feed_sort_mode: null,
           allow_question: true,
-          allow_meetup: false,
           color: null,
           feed_list_skin: feedListSkin,
         }),
@@ -196,7 +193,6 @@ export function AdminCommunityTopicsPage({
           is_feed_sort: edit.is_feed_sort,
           feed_sort_mode: edit.feed_sort_mode,
           allow_question: edit.allow_question,
-          allow_meetup: edit.allow_meetup,
           color: edit.color,
           icon: edit.icon,
           feed_list_skin: edit.feed_list_skin,
@@ -258,7 +254,6 @@ export function AdminCommunityTopicsPage({
       is_feed_sort: row.is_feed_sort,
       feed_sort_mode: row.feed_sort_mode,
       allow_question: row.allow_question,
-      allow_meetup: row.allow_meetup,
       color: row.color,
       icon: row.icon,
       feed_list_skin: row.feed_list_skin,
@@ -324,7 +319,6 @@ export function AdminCommunityTopicsPage({
             is_feed_sort: row.is_feed_sort,
             feed_sort_mode: row.feed_sort_mode,
             allow_question: row.allow_question,
-            allow_meetup: row.allow_meetup,
             color: row.color,
             icon: row.icon,
             feed_list_skin: row.feed_list_skin,

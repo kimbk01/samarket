@@ -227,7 +227,6 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "store-reports-admin": "admin_menu_store_reports",
   "store-reviews-admin": "admin_menu_store_reviews",
   "chat-reported": "admin_menu_chat_report_queue",
-  "philife-meeting-reports": "admin_menu_meeting_reports",
   "manage-reports": "admin_menu_manage_reports",
 
   // Trade
@@ -250,8 +249,6 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "community-sections": "admin_menu_feed_sections",
   "community-topics": "admin_menu_community_topics",
   "community-feed-settings": "admin_menu_feed_settings",
-  "community-meeting-events": "admin_menu_meeting_logs",
-  "community-meetings": "admin_menu_meetings",
   "community-posts": "admin_menu_community_posts",
   "community-external-import": "admin_menu_community_external_import",
   "community-comments": "admin_menu_community_comments",
@@ -1029,12 +1026,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             status: "done",
           },
           {
-            key: "philife-meeting-reports",
-            title: "",
-            path: "/admin/philife/meeting-reports",
-            status: "done",
-          },
-          {
             key: "community-restrictions",
             title: "",
             path: "/admin/community/restrictions",
@@ -1058,13 +1049,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             key: "community-comments",
             title: "",
             path: "/admin/community/comments",
-            status: "done",
-          },
-          {
-            key: "community-meetings",
-            title: "",
-            path: "/admin/community/meetings",
-            matchPaths: ["/admin/philife/meetings"],
             status: "done",
           },
         ],
@@ -1186,12 +1170,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             key: "community-audit",
             title: "",
             path: "/admin/community/audit",
-            status: "done",
-          },
-          {
-            key: "community-meeting-events",
-            title: "",
-            path: "/admin/philife/meeting-events",
             status: "done",
           },
           {

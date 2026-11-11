@@ -24,7 +24,7 @@ describe("community feed top posts (공지·고정)", () => {
   it("topic feed: only that topic's notices and topic-scope pins", () => {
     expect(selectCommunityFeedTopRows(rows, { filterTopicSlug: "free", nowMs: NOW }).map((r) => r.id)).toEqual(["pin-topic"]);
     expect(selectCommunityFeedTopRows(rows, { filterTopicSlug: "info", nowMs: NOW }).map((r) => r.id)).toEqual(["notice-live"]);
-    expect(selectCommunityFeedTopRows(rows, { filterTopicSlug: "meetup", nowMs: NOW })).toEqual([]);
+    expect(selectCommunityFeedTopRows(rows, { filterTopicSlug: "food", nowMs: NOW })).toEqual([]);
   });
 
   it("notice window and badges", () => {

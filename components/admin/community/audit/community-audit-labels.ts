@@ -68,7 +68,6 @@ const ACTION_PREFIX: [string, MessageKey][] = [
   ["community_settings.", "admin_community_audit_action_settings_changed"],
   ["community_import", "admin_community_audit_action_import_changed"],
   ["community_notice.", "admin_community_audit_action_notice_changed"],
-  ["meeting", "admin_community_audit_action_meeting_action"],
   ["community_post.", "admin_community_audit_action_post_action"],
   ["community_comment.", "admin_community_audit_action_comment_action"],
 ];
@@ -87,10 +86,8 @@ export const COMMUNITY_AUDIT_TARGET_LABELS: { value: string; labelKey: MessageKe
   { value: "community_post", labelKey: "admin_community_audit_target_post" },
   { value: "community_comment", labelKey: "admin_community_audit_target_comment" },
   { value: "community_report", labelKey: "admin_community_audit_target_report" },
-  { value: "meeting_report", labelKey: "admin_community_audit_target_meeting_report" },
   { value: "community_sanction", labelKey: "admin_community_audit_target_community_sanction" },
   { value: "sanction", labelKey: "admin_community_audit_target_sanction" },
-  { value: "meeting", labelKey: "admin_community_audit_target_meeting" },
   { value: "community_topic", labelKey: "admin_community_audit_target_topic" },
   { value: "community_section", labelKey: "admin_community_audit_target_section" },
   { value: "community_settings", labelKey: "admin_community_audit_target_settings" },
@@ -121,13 +118,9 @@ export function communityAuditTargetHref(type: string | null | undefined, id: st
       return raw ? `/admin/community/comments?commentId=${enc}` : "/admin/community/comments";
     case "community_report":
       return raw ? `/admin/community/reports?reportId=${enc}` : "/admin/community/reports";
-    case "meeting_report":
-      return "/admin/philife/meeting-reports";
     case "community_sanction":
     case "sanction":
       return raw ? `/admin/community/restrictions?sanctionId=${enc}` : "/admin/community/restrictions";
-    case "meeting":
-      return "/admin/community/meetings";
     case "community_topic":
       return "/admin/community/topics";
     case "community_section":

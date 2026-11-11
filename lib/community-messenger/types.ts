@@ -250,8 +250,6 @@ export type CommunityMessengerRoomSummary = {
   deletedBy?: string | null;
   /** `summary` 필드가 v1 JSON 인 경우 파싱 결과(서버 조립 시 설정). */
   contextMeta?: CommunityMessengerRoomContextMetaV1 | null;
-  /** `meetings.community_messenger_room_id` 연동 모임 방: 내 `meeting_members` 역할 표시(목록 뱃지) */
-  philifeMeetingMemberLabel?: "host" | "member" | null;
 };
 
 /** 메인 대화 목록·「보관됨」필터 — 운영상 폐쇄(방 archived) 또는 개인 보관 또는 Group Delete */
@@ -312,10 +310,6 @@ export type CommunityMessengerDiscoverableGroupSummary = {
   lastMessage: string;
   lastMessageAt: string;
   isJoined: boolean;
-  meetingId?: string | null;
-  regionText?: string | null;
-  categoryText?: string | null;
-  platformApprovalStatus?: string | null;
 };
 
 export type CommunityMessengerMessage = {

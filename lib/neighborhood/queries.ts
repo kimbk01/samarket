@@ -23,7 +23,6 @@ import {
   neighborhoodPostTopicUiSlug,
 } from "@/lib/neighborhood/philife-neighborhood-topics";
 import { fetchCommunityPostViewerState, fetchCommunityPostViewerStatesBatch } from "@/lib/community/post-engagement/viewer-state";
-import { isMeetingEventType } from "@/lib/neighborhood/meeting-event-format";
 import { resolveCommunityAuthorForFeedRow } from "@/lib/community/resolve-community-author";
 import {
   isSameCommunityImportPrincipal,
@@ -37,11 +36,6 @@ import {
 import type {
   NeighborhoodCommentNode,
   NeighborhoodFeedPostDTO,
-  NeighborhoodMeetingDetailDTO,
-  NeighborhoodMeetingEventDTO,
-  NeighborhoodMeetingNoticeDTO,
-  MeetingFeedPostDTO,
-  MeetingAlbumItemDTO,
 } from "@/lib/neighborhood/types";
 import {
   fetchBlockedAuthorIdsForViewer,
@@ -86,7 +80,7 @@ export type NeighborhoodFeedServerPerfMs = {
   main_query_filter_prepare_ms: number;
   /** Supabase 왕복(await) 합 — 라운드마다 1회 이상 */
   main_query_db_ms: number;
-  /** 마지막 성공 응답 직후 ~ `rows`·`postIds` 확정까지(차단/이웃 필터·slice). meetings/닉 제외 */
+  /** 마지막 성공 응답 직후 ~ `rows` 확정까지(차단/이웃 필터·slice). 닉 제외 */
   main_query_postprocess_ms: number;
   /** `range` 전 DB가 돌려준 원시 행 수(필터 전) */
   main_query_row_count: number;
@@ -98,7 +92,7 @@ export type NeighborhoodFeedServerPerfMs = {
   main_query_where_summary: string;
   /** order + range 요약 */
   main_query_order_summary: string;
-  /** 차단/관심이웃 프리페치 + 닉네임·모임 병렬 구간 합(벽시계 합, 순차 단계) */
+  /** 차단/관심이웃 프리페치 + 닉네임 병렬 구간 합(벽시계 합, 순차 단계) */
   community_query_related_ms: number;
   community_result_transform_ms: number;
   main_query_rounds: number;
@@ -106,8 +100,6 @@ export type NeighborhoodFeedServerPerfMs = {
   image_url_count_approx: number;
   /** `fetchNicknamesForUserIds` 내부: profiles 1회 + 필요 시 test_users 1회 */
   nickname_query_rounds: number;
-  /** meetings `.in(post_id)` 시도 횟수(컬럼 폴백) */
-  meetings_query_rounds: number;
   /** 로그인 시 `fetchBlockedAuthorIdsForViewer` 가 실행한 Supabase `.from` 호출 수(캐시 히트면 0) */
   blocked_supabase_calls: number;
   neighbor_follow_query: 0 | 1;
@@ -117,18 +109,14 @@ export type NeighborhoodFeedServerPerfMs = {
   related_neighbor_filter_ms: number;
   /** `fetchNicknamesForUserIds` 전체(배치 profiles + 필요 시 test_users) */
   related_nickname_ms: number;
-  /** `meetings` `.in(post_id, …)` 1회 */
-  related_meetings_ms: number;
   /**
    * 병렬 구간에서 각 다리 벽시계 합보다 큰 잔여(이벤트 루프·`topicsPromise`가 social과 겹칠 때 등).
-   * `community_query_related_ms` ≈ max(social 다리) + max(nick, meetings) + related_other_ms 가 아님 —
-   * related_ms는 순차(social 벽시계 + nick∥meet 벽시계)이므로 other는 각 병렬 묶음의 잔여 합.
+   * `community_query_related_ms` ≈ max(social 다리) + nick + related_other_ms 가 아님 —
+   * related_ms는 순차(social 벽시계 + nick 병렬 묶음 벽시계)이므로 other는 각 병렬 묶음의 잔여 합.
    */
   related_other_ms: number;
   /** 필터 통과 후 글 행 기준 고유 `user_id` 수 — 닉네임 배치 입력 크기 */
   related_distinct_author_ids: number;
-  /** meetings `.in` 에 넣은 `community_posts.id` 개수 */
-  related_meetings_post_ids: number;
 };
 
 export type NeighborhoodFeedPageResult = {
@@ -225,18 +213,16 @@ export async function listNeighborhoodFeed(options: {
   const collectPerf = process.env.NODE_ENV === "development";
   const blockedMetrics = { supabaseSelectCalls: 0 };
   const nickMetrics = { profileSelect: 0, testUsersSelect: 0 };
-  let meetingsQueryRounds = 0;
   let socialPreflightMs = 0;
   let mainPrepareMs = 0;
   let mainDbMs = 0;
   let mainPostprocessMs = 0;
   let mainRounds = 0;
-  let nickMeetMs = 0;
+  let nickMs = 0;
   let transformMs = 0;
   let relatedBlockedFilterMs = 0;
   let relatedNeighborFilterMs = 0;
   let relatedNicknameMs = 0;
-  let relatedMeetingsMs = 0;
 
   const v = options.viewerUserId?.trim() ?? "";
   const topicsPromise = options.topics ? Promise.resolve(options.topics) : loadPhilifeDefaultSectionTopics();
@@ -312,35 +298,35 @@ export async function listNeighborhoodFeed(options: {
 
   const ORIGIN_TAIL = ", origin_kind, display_author_name, display_author_avatar_url, display_date";
   const FEED_SELECT_FULL =
-    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, is_question, is_deleted, is_hidden, status" +
     ORIGIN_TAIL;
   const FEED_SELECT_FULL_NO_TOPIC_SLUG =
-    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
+    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, is_question, is_deleted, is_hidden, status" +
     ORIGIN_TAIL;
   const FEED_SELECT_BASE =
-    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_deleted, is_hidden, status" +
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, is_deleted, is_hidden, status" +
     ORIGIN_TAIL;
   const FEED_SELECT_BASE_NO_TOPIC_SLUG =
-    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_deleted, is_hidden, status" +
+    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, is_deleted, is_hidden, status" +
     ORIGIN_TAIL;
   /** published_at kept; origin columns stripped */
   const FEED_SELECT_FULL_NO_ORIGIN =
-    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, is_question, is_deleted, is_hidden, status";
   const FEED_SELECT_FULL_NO_TOPIC_SLUG_NO_ORIGIN =
-    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, is_question, is_deleted, is_hidden, status";
   const FEED_SELECT_BASE_NO_ORIGIN =
-    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_deleted, is_hidden, status";
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, is_deleted, is_hidden, status";
   const FEED_SELECT_BASE_NO_TOPIC_SLUG_NO_ORIGIN =
-    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_deleted, is_hidden, status";
+    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, is_deleted, is_hidden, status";
   /** Pre-published_at DBs — no published_at, no origin */
   const FEED_SELECT_FULL_LEGACY =
-    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, is_question, is_deleted, is_hidden, status";
   const FEED_SELECT_FULL_NO_TOPIC_SLUG_LEGACY =
-    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, is_question, is_deleted, is_hidden, status";
   const FEED_SELECT_BASE_LEGACY =
-    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status";
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, is_deleted, is_hidden, status";
   const FEED_SELECT_BASE_NO_TOPIC_SLUG_LEGACY =
-    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status";
+    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, is_deleted, is_hidden, status";
 
   const keysetCursor =
     !hashtag &&
@@ -381,11 +367,7 @@ export async function listNeighborhoodFeed(options: {
     }
     if (filterCat) {
       if (useTopicSlugFilter && cols.includes("topic_slug")) {
-        if (filterCat === "meetup") {
-          qq = qq.eq("category", "meetup");
-        } else {
-          qq = qq.eq("topic_slug", filterCat);
-        }
+        qq = qq.eq("topic_slug", filterCat);
       } else {
         qq = qq.eq("category", filterCat);
       }
@@ -483,12 +465,7 @@ export async function listNeighborhoodFeed(options: {
       effectiveSelectCols = noTopicNoOrigin;
     }
   }
-  if (
-    error &&
-    (isMissingDbColumnError(error, "is_question") ||
-      isMissingDbColumnError(error, "is_meetup") ||
-      isMissingDbColumnError(error, "meetup_place"))
-  ) {
+  if (error && isMissingDbColumnError(error, "is_question")) {
     effectiveSelectCols =
       chronologyCol === "published_at"
         ? useTopicSlug
@@ -533,16 +510,13 @@ export async function listNeighborhoodFeed(options: {
         post_return_count: 0,
         image_url_count_approx: 0,
         nickname_query_rounds: 0,
-        meetings_query_rounds: 0,
         blocked_supabase_calls: blockedMetrics.supabaseSelectCalls,
         neighbor_follow_query: options.neighborOnly === true && v ? 1 : 0,
         related_blocked_filter_ms: Math.round(relatedBlockedFilterMs),
         related_neighbor_filter_ms: Math.round(relatedNeighborFilterMs),
         related_nickname_ms: 0,
-        related_meetings_ms: 0,
         related_other_ms: Math.round(relatedOtherSocial),
         related_distinct_author_ids: 0,
-        related_meetings_post_ids: 0,
       };
     }
     return empty;
@@ -624,34 +598,7 @@ export async function listNeighborhoodFeed(options: {
   }
 
   const uids = [...new Set(rows.map((r) => String(r.user_id ?? "")).filter(Boolean))];
-  const postIds = rows.map((r) => String(r.id));
   mainPostprocessMs = performance.now() - tSyncA;
-  /**
-   * Production `meetings` has no `tenure_type` — select without it; default tenure short in map.
-   */
-  const meetingsPromise =
-    postIds.length > 0
-      ? (async () => {
-          meetingsQueryRounds += 1;
-          const t0 = performance.now();
-          try {
-            let rMeet = await sb
-              .from("meetings")
-              .select("id, post_id, meeting_date, cover_image_url, community_messenger_room_id")
-              .in("post_id", postIds);
-            if (rMeet.error && isMissingDbColumnError(rMeet.error, "community_messenger_room_id")) {
-              const rMeetNarrow = await sb
-                .from("meetings")
-                .select("id, post_id, meeting_date, cover_image_url")
-                .in("post_id", postIds);
-              rMeet = rMeetNarrow as typeof rMeet;
-            }
-            return (rMeet.data as unknown[] | null) ?? null;
-          } finally {
-            if (collectPerf) relatedMeetingsMs = performance.now() - t0;
-          }
-        })()
-      : Promise.resolve(null);
   const syncAfterMainMs = performance.now() - tSyncA;
 
   const nickPromise = (async () => {
@@ -669,50 +616,14 @@ export async function listNeighborhoodFeed(options: {
   );
 
   const tNick0 = performance.now();
-  const [nickMap, meetings, locationCityById, importPrincipalId] = await Promise.all([
+  const [nickMap, locationCityById, importPrincipalId] = await Promise.all([
     nickPromise,
-    meetingsPromise,
     locationCityPromise,
     loadCommunityImportPrincipalUserId(sb),
   ]);
-  nickMeetMs = performance.now() - tNick0;
+  nickMs = performance.now() - tNick0;
 
   const tSyncB = performance.now();
-  const meetByPost = new Map<
-    string,
-    {
-      id: string;
-      meeting_date: string | null;
-      tenure_type?: string | null;
-      cover_image_url?: string | null;
-      community_messenger_room_id?: string | null;
-    }
-  >();
-  if (Array.isArray(meetings)) {
-    for (const m of meetings as {
-      id?: string;
-      post_id?: string;
-      meeting_date?: string | null;
-      tenure_type?: string | null;
-      cover_image_url?: string | null;
-      community_messenger_room_id?: string | null;
-    }[]) {
-      const pid = String(m.post_id ?? "");
-      if (pid && m.id) {
-        const roomRaw = m.community_messenger_room_id;
-        const roomId =
-          roomRaw != null && String(roomRaw).trim() ? String(roomRaw).trim() : null;
-        meetByPost.set(pid, {
-          id: String(m.id),
-          meeting_date: m.meeting_date ?? null,
-          tenure_type: m.tenure_type ?? null,
-          cover_image_url: m.cover_image_url != null && String(m.cover_image_url).trim() ? String(m.cover_image_url).trim() : null,
-          community_messenger_room_id: roomId,
-        });
-      }
-    }
-  }
-
   const defaultSkin = normalizeCommunityFeedListSkin(undefined);
   const posts = rows.map((r) => {
     const uid = String(r.user_id ?? "");
@@ -721,13 +632,8 @@ export async function listNeighborhoodFeed(options: {
       regionLabel: String(r.region_label ?? "").trim(),
       locationCity: locationId ? locationCityById.get(locationId) ?? null : null,
     });
-    const enumCat = String(r.category ?? "etc").trim().toLowerCase() || "etc";
     const topicUiSlug = neighborhoodPostTopicUiSlug(r);
-    let imgs = Array.isArray(r.images) ? (r.images as unknown[]).filter((x): x is string => typeof x === "string") : [];
-    const meet = meetByPost.get(String(r.id));
-    if (imgs.length === 0 && meet?.cover_image_url) {
-      imgs = [meet.cover_image_url];
-    }
+    const imgs = Array.isArray(r.images) ? (r.images as unknown[]).filter((x): x is string => typeof x === "string") : [];
     /** DB summary만 읽는 hot path: 이미지 URL/깨진 마크다운을 응답에 다시 노출하지 않음 */
     const summaryRaw = summarizeCommunityPostContent(
       r.summary != null ? String(r.summary) : "",
@@ -746,10 +652,6 @@ export async function listNeighborhoodFeed(options: {
       : { content: summaryRaw, summary: summaryRaw };
     const content = keywordPreview.content;
     const isQuestion = Boolean(r.is_question);
-    const isMeetupRow = Boolean(r.is_meetup);
-    const meetupPlace = r.meetup_place != null && String(r.meetup_place).trim() !== "" ? String(r.meetup_place).trim() : null;
-    const hasMeeting = Boolean(meet?.id);
-    const isMeetup = hasMeeting || isMeetupRow || enumCat === "meetup";
     const feedSkin = topicFeedSkinBySlug.get(topicUiSlug) ?? defaultSkin;
     const topicColor = topicColorBySlug.get(topicUiSlug) ?? null;
     const author = resolveCommunityAuthorForFeedRow(
@@ -776,8 +678,6 @@ export async function listNeighborhoodFeed(options: {
       feed_list_skin: feedSkin,
       topic_color: topicColor,
       is_question: isQuestion,
-      is_meetup: isMeetup,
-      meetup_place: meetupPlace,
       title: String(r.title ?? ""),
       content,
       summary: keywordPreview.summary,
@@ -801,12 +701,6 @@ export async function listNeighborhoodFeed(options: {
       author_id: uid,
       origin_kind: author.origin_kind,
       member_peer_user_id: author.member_peer_user_id,
-      meeting_id: meet?.id ?? null,
-      community_messenger_room_id: meet?.community_messenger_room_id ?? null,
-      meeting_date:
-        meet?.tenure_type === "long"
-          ? null
-          : meet?.meeting_date ?? (r.meetup_date != null ? String(r.meetup_date) : null),
     };
   });
   transformMs = syncAfterMainMs + (performance.now() - tSyncB);
@@ -830,8 +724,7 @@ export async function listNeighborhoodFeed(options: {
     if (allLocations) parts.push("scope=global");
     else parts.push("scope=location_id+not_null");
     if (filterCat) {
-      if (filterCat === "meetup") parts.push("filter=category.eq.meetup");
-      else if (useTopicSlug) parts.push(`filter=topic_slug.eq.${filterCat}`);
+      if (useTopicSlug) parts.push(`filter=topic_slug.eq.${filterCat}`);
       else parts.push(`filter=category.eq.${filterCat}`);
     } else parts.push("filter=none");
     if (authorUserId) parts.push("user_id.eq");
@@ -854,9 +747,8 @@ export async function listNeighborhoodFeed(options: {
 
   const maxSocialLeg = Math.max(relatedBlockedFilterMs, relatedNeighborFilterMs);
   const relatedOtherSocial = Math.max(0, socialPreflightMs - maxSocialLeg);
-  const maxNickMeetLeg = Math.max(relatedNicknameMs, relatedMeetingsMs);
-  const relatedOtherNickMeet = Math.max(0, nickMeetMs - maxNickMeetLeg);
-  const relatedOtherMs = relatedOtherSocial + relatedOtherNickMeet;
+  const relatedOtherNick = Math.max(0, nickMs - relatedNicknameMs);
+  const relatedOtherMs = relatedOtherSocial + relatedOtherNick;
 
   const mainTotalMs = mainPrepareMs + mainDbMs + mainPostprocessMs;
 
@@ -871,22 +763,19 @@ export async function listNeighborhoodFeed(options: {
         main_query_select_columns: effectiveSelectCols,
         main_query_where_summary,
         main_query_order_summary,
-        community_query_related_ms: Math.round(socialPreflightMs + nickMeetMs),
+        community_query_related_ms: Math.round(socialPreflightMs + nickMs),
         community_result_transform_ms: Math.round(transformMs),
         main_query_rounds: mainRounds,
         post_return_count: finalPosts.length,
         image_url_count_approx: finalPosts.reduce((n, p) => n + (Array.isArray(p.images) ? p.images.length : 0), 0),
         nickname_query_rounds: nickMetrics.profileSelect + nickMetrics.testUsersSelect,
-        meetings_query_rounds: meetingsQueryRounds,
         blocked_supabase_calls: blockedMetrics.supabaseSelectCalls,
         neighbor_follow_query: options.neighborOnly === true && v ? 1 : 0,
         related_blocked_filter_ms: Math.round(relatedBlockedFilterMs),
         related_neighbor_filter_ms: Math.round(relatedNeighborFilterMs),
         related_nickname_ms: Math.round(relatedNicknameMs),
-        related_meetings_ms: Math.round(relatedMeetingsMs),
         related_other_ms: Math.round(relatedOtherMs),
         related_distinct_author_ids: uids.length,
-        related_meetings_post_ids: postIds.length,
       }
     : undefined;
 
@@ -930,52 +819,6 @@ export async function listNeighborhoodFeed(options: {
   };
 }
 
-/** `post_id`로 연결된 모임 id — 컬럼 세트가 옛 DB와 다를 때 단계적 select */
-async function fetchMeetingLinkByPostId(
-  sb: ReturnType<typeof getSupabaseServer>,
-  postId: string
-): Promise<{
-  id: string;
-  meeting_date: string | null;
-  tenure: "short" | "long";
-  cover_image_url?: string | null;
-  community_messenger_room_id?: string | null;
-} | null> {
-  const trySelect = async (cols: string) =>
-    sb.from("meetings").select(cols).eq("post_id", postId).maybeSingle();
-
-  let { data, error } = await trySelect("id, meeting_date, cover_image_url, community_messenger_room_id");
-  if (error && isMissingDbColumnError(error, "community_messenger_room_id")) {
-    ({ data, error } = await trySelect("id, meeting_date, cover_image_url"));
-  }
-  if (error && isMissingDbColumnError(error, "cover_image_url")) {
-    ({ data, error } = await trySelect("id, meeting_date, community_messenger_room_id"));
-    if (error && isMissingDbColumnError(error, "community_messenger_room_id")) {
-      ({ data, error } = await trySelect("id, meeting_date"));
-    }
-  }
-  /**
-   * 순서 7 (§14): 「id 만」 재조회는 앞 조회가 **오류**일 때만. 오류 없이 행이 없으면(모임 없는 글 — 대부분) 같은 조건이라
-   * id 만 읽어도 없음 → 이전에는 글 상세마다 헛조회 1회.
-   */
-  if (!data && error) {
-    ({ data } = await trySelect("id"));
-  }
-  if (!data) return null;
-  const row = data as unknown as Record<string, unknown>;
-  const id = String(row.id ?? "");
-  if (!id) return null;
-  const tenure: "short" | "long" = row.tenure_type === "long" ? "long" : "short";
-  const meeting_date = row.meeting_date != null ? String(row.meeting_date) : null;
-  const cover =
-    row.cover_image_url != null && String(row.cover_image_url).trim() ? String(row.cover_image_url).trim() : null;
-  const messengerRoomId =
-    row.community_messenger_room_id != null && String(row.community_messenger_room_id).trim()
-      ? String(row.community_messenger_room_id).trim()
-      : null;
-  return { id, meeting_date, tenure, cover_image_url: cover, community_messenger_room_id: messengerRoomId };
-}
-
 export async function getNeighborhoodPostDetail(
   postId: string,
   options?: { viewerUserId?: string | null }
@@ -990,33 +833,33 @@ export async function getNeighborhoodPostDetail(
   const v = options?.viewerUserId?.trim() ?? "";
   const DETAIL_ORIGIN = ", origin_kind, display_author_name, display_author_avatar_url, display_date";
   const DETAIL_SELECT_FULL =
-    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, is_question, is_deleted, is_hidden, status" +
     DETAIL_ORIGIN;
   const DETAIL_SELECT_FULL_NO_TOPIC_SLUG =
-    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
+    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, is_question, is_deleted, is_hidden, status" +
     DETAIL_ORIGIN;
   const DETAIL_SELECT_BASE =
-    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_deleted, is_hidden, status" +
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, is_deleted, is_hidden, status" +
     DETAIL_ORIGIN;
   const DETAIL_SELECT_BASE_NO_TOPIC_SLUG =
-    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_deleted, is_hidden, status" +
+    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, is_deleted, is_hidden, status" +
     DETAIL_ORIGIN;
   const DETAIL_SELECT_FULL_NO_ORIGIN =
-    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, is_question, is_deleted, is_hidden, status";
   const DETAIL_SELECT_FULL_NO_TOPIC_SLUG_NO_ORIGIN =
-    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, is_question, is_deleted, is_hidden, status";
   const DETAIL_SELECT_BASE_NO_ORIGIN =
-    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_deleted, is_hidden, status";
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, is_deleted, is_hidden, status";
   const DETAIL_SELECT_BASE_NO_TOPIC_SLUG_NO_ORIGIN =
-    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_deleted, is_hidden, status";
+    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, is_deleted, is_hidden, status";
   const DETAIL_SELECT_FULL_LEGACY =
-    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, is_question, is_deleted, is_hidden, status";
   const DETAIL_SELECT_FULL_NO_TOPIC_SLUG_LEGACY =
-    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, is_question, is_deleted, is_hidden, status";
   const DETAIL_SELECT_BASE_LEGACY =
-    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status";
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, is_deleted, is_hidden, status";
   const DETAIL_SELECT_BASE_NO_TOPIC_SLUG_LEGACY =
-    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status";
+    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, is_deleted, is_hidden, status";
 
   const fetchDetailRow = async (cols: string) => {
     let q = sb.from("community_posts").select(cols).eq("id", postId);
@@ -1075,12 +918,7 @@ export async function getNeighborhoodPostDetail(
       ));
     }
   }
-  if (
-    error &&
-    (isMissingDbColumnError(error, "is_question") ||
-      isMissingDbColumnError(error, "is_meetup") ||
-      isMissingDbColumnError(error, "meetup_place"))
-  ) {
+  if (error && isMissingDbColumnError(error, "is_question")) {
     ({ data, error } = await fetchDetailRow(
       detailHasPublishedAt
         ? useTopicSlugDetail
@@ -1110,12 +948,11 @@ export async function getNeighborhoodPostDetail(
   // Feed/Detail identity is community_posts.id — align with like/comment eligibility.
 
   const uid = String(row.user_id ?? "");
-  const [blocked, profileMap, topics, meetLink, locationCityById, postExtras, importPrincipalId] =
+  const [blocked, profileMap, topics, locationCityById, postExtras, importPrincipalId] =
     await Promise.all([
     v ? fetchBlockedAuthorIdsForViewer(sb, v) : Promise.resolve(new Set<string>()),
     fetchAuthorPublicProfilesForUserIds(sb as never, [uid]),
     loadPhilifeDefaultSectionTopics(),
-    fetchMeetingLinkByPostId(sb, postId),
     loadLocationCitiesByIds(sb, [String(row.location_id ?? "")]),
     // Explicit attribution policy columns on community_posts — NOT origin_kind (+ imported structured body, same read).
     detailExtrasInRow
@@ -1135,22 +972,14 @@ export async function getNeighborhoodPostDetail(
   const topicNameEnBySlug = buildPhilifeTopicNameEnLookup(topics);
   const topicFeedSkinBySlug = buildPhilifeTopicFeedListSkinLookup(topics);
   const topicColorBySlug = buildPhilifeTopicColorLookup(topics);
-  const enumCat = String(row.category ?? "etc").trim().toLowerCase() || "etc";
   const topicUiSlug = neighborhoodPostTopicUiSlug(row);
-  let imgs = Array.isArray(row.images) ? (row.images as unknown[]).filter((x): x is string => typeof x === "string") : [];
-  if (imgs.length === 0 && meetLink?.cover_image_url) {
-    imgs = [meetLink.cover_image_url];
-  }
+  const imgs = Array.isArray(row.images) ? (row.images as unknown[]).filter((x): x is string => typeof x === "string") : [];
   const content = String(row.content ?? "");
   const storedSummary = summarizeCommunityPostContent(
     row.summary != null ? String(row.summary) : "",
     160
   );
   const isQuestion = Boolean(row.is_question);
-  const isMeetupRow = Boolean(row.is_meetup);
-  const meetupPlace = row.meetup_place != null && String(row.meetup_place).trim() !== "" ? String(row.meetup_place).trim() : null;
-  const hasMeeting = Boolean(meetLink?.id);
-  const isMeetup = hasMeeting || isMeetupRow || enumCat === "meetup";
   const defaultSkin = normalizeCommunityFeedListSkin(undefined);
   const authorProfile = profileMap.get(uid);
   const viewer = v ? await fetchCommunityPostViewerState(sb, v, postId, uid) : undefined;
@@ -1175,8 +1004,6 @@ export async function getNeighborhoodPostDetail(
     feed_list_skin: topicFeedSkinBySlug.get(topicUiSlug) ?? defaultSkin,
     topic_color: topicColorBySlug.get(topicUiSlug) ?? null,
     is_question: isQuestion,
-    is_meetup: isMeetup,
-    meetup_place: meetupPlace,
     title: String(row.title ?? ""),
     content,
     summary: storedSummary || summarizeCommunityPostContent(content, 160),
@@ -1228,16 +1055,6 @@ export async function getNeighborhoodPostDetail(
           return { is_notice: b.isNotice, is_pinned: b.isPinned || pinnedInTopic };
         })()
       : {}),
-    meeting_id: meetLink?.id ?? null,
-    community_messenger_room_id: meetLink?.community_messenger_room_id ?? null,
-    meeting_date:
-      meetLink?.tenure === "long"
-        ? null
-        : meetLink?.meeting_date != null
-          ? meetLink.meeting_date
-          : row.meetup_date != null
-            ? String(row.meetup_date)
-            : null,
     ...(viewer ? { viewer } : {}),
   };
 }
@@ -1294,414 +1111,4 @@ export async function listNeighborhoodSimilarPosts(
 export async function listNeighborhoodComments(postId: string, viewerUserId?: string | null): Promise<NeighborhoodCommentNode[]> {
   const flat = await listCommunityPostComments(postId, viewerUserId);
   return flatCommentsToNeighborhoodTree(flat);
-}
-
-/** `/philife/:id` 오인 방지: id가 community_posts가 아니라 meetings.id인 경우 */
-export async function isNeighborhoodMeetingId(meetingId: string): Promise<boolean> {
-  const id = meetingId?.trim();
-  if (!id) return false;
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return false;
-  }
-  const { data, error } = await sb.from("meetings").select("id").eq("id", id).maybeSingle();
-  if (error || !data) return false;
-  return !!(data as { id?: string }).id;
-}
-
-/** DB 마이그레이션 단계별로 컬럼이 다를 수 있어 select 를 단계적으로 시도.
- * Production has no `tenure_type` — levels that probe it first are omitted. */
-const MEETING_DETAIL_SELECT_LEVELS: string[] = [
-  "id, post_id, title, description, location_text, meeting_date, max_members, created_by, host_user_id, join_policy, entry_policy, requires_approval, status, is_closed, joined_count, pending_count, banned_count, notice_count, last_notice_at, chat_room_id, community_messenger_room_id, password_hash, welcome_message, cover_image_url, region_text, category_text, platform_approval_required, platform_approval_status, allow_feed, allow_album_upload",
-  "id, post_id, title, description, location_text, meeting_date, max_members, created_by, host_user_id, join_policy, entry_policy, requires_approval, status, is_closed, joined_count, pending_count, banned_count, notice_count, last_notice_at, chat_room_id, password_hash",
-  "id, post_id, title, description, location_text, meeting_date, max_members, created_by, host_user_id, join_policy, status, is_closed, chat_room_id",
-  "id, post_id, title, description, location_text, meeting_date, max_members, created_by, join_policy, status, is_closed, chat_room_id",
-];
-
-export async function getMeetingDetail(meetingId: string): Promise<NeighborhoodMeetingDetailDTO | null> {
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return null;
-  }
-
-  const mid = meetingId?.trim();
-  if (!mid) return null;
-
-  let row: Record<string, unknown> | null = null;
-  for (const cols of MEETING_DETAIL_SELECT_LEVELS) {
-    const { data, error } = await sb.from("meetings").select(cols as never).eq("id", mid).maybeSingle();
-    if (!error && data) {
-      row = data as unknown as Record<string, unknown>;
-      break;
-    }
-  }
-  if (!row) return null;
-
-  const { count } = await sb
-    .from("meeting_members")
-    .select("id", { count: "exact", head: true })
-    .eq("meeting_id", mid)
-    .eq("status", "joined");
-
-  const st = String(row.status ?? (row.is_closed ? "closed" : "open"));
-  const tenure = row.tenure_type === "long" ? "long" : "short";
-  const joinedHead = count ?? 0;
-  const jp = String(row.join_policy ?? "open").trim() || "open";
-  const ep = row.entry_policy;
-  const entryRaw =
-    ep != null && String(ep).trim() !== "" ? String(ep).trim().toLowerCase() : jp.toLowerCase();
-  const hasPwd = String(row.password_hash ?? "").trim().length > 0;
-  let entry_policy = (["open", "approve", "password", "invite_only"].includes(entryRaw)
-    ? entryRaw
-    : jp === "approve"
-      ? "approve"
-      : "open") as NeighborhoodMeetingDetailDTO["entry_policy"];
-  /** `password_hash` 가 있는데 정책만 open 으로 떨어지면 가입 API와 UI가 엇갈려 빈 POST 로 invalid_password 나는 경우 방지 */
-  if (
-    hasPwd &&
-    entry_policy === "open" &&
-    entryRaw !== "approve" &&
-    entryRaw !== "invite_only"
-  ) {
-    entry_policy = "password";
-  }
-  return {
-    id: String(row.id),
-    post_id: String(row.post_id ?? ""),
-    title: String(row.title ?? ""),
-    description: String(row.description ?? ""),
-    location_text: String(row.location_text ?? ""),
-    meeting_date: tenure === "long" ? null : row.meeting_date != null ? String(row.meeting_date) : null,
-    tenure_type: tenure,
-    max_members: Number(row.max_members ?? 0),
-    member_count: joinedHead,
-    created_by: String(row.created_by ?? ""),
-    host_user_id: String(row.host_user_id ?? row.created_by ?? ""),
-    join_policy: jp,
-    entry_policy,
-    requires_approval:
-      row.requires_approval === true ||
-      entryRaw === "approve" ||
-      entryRaw === "invite_only" ||
-      jp === "approve",
-    has_password: hasPwd,
-    status: st,
-    is_closed: !!row.is_closed || st === "closed" || st === "ended" || st === "cancelled",
-    joined_count: Number(row.joined_count ?? joinedHead),
-    pending_count: Number(row.pending_count ?? 0),
-    banned_count: Number(row.banned_count ?? 0),
-    notice_count: Number(row.notice_count ?? 0),
-    last_notice_at: row.last_notice_at != null ? String(row.last_notice_at) : null,
-    chat_room_id: row.chat_room_id != null ? String(row.chat_room_id) : null,
-    community_messenger_room_id:
-      row.community_messenger_room_id != null ? String(row.community_messenger_room_id) : null,
-    welcome_message: row.welcome_message != null ? String(row.welcome_message) : null,
-    cover_image_url: row.cover_image_url != null ? String(row.cover_image_url) : null,
-    region_text: row.region_text != null ? String(row.region_text) : null,
-    category_text: row.category_text != null ? String(row.category_text) : null,
-    platform_approval_required: row.platform_approval_required !== false,
-    platform_approval_status: (() => {
-      if (row.platform_approval_status == null) return null;
-      const s = String(row.platform_approval_status);
-      if (s === "pending_approval" || s === "approved" || s === "rejected") return s;
-      return null;
-    })(),
-    allow_feed: row.allow_feed !== false,
-    allow_album_upload: row.allow_album_upload !== false,
-  };
-}
-
-/** 모임 피드 글 상세에서 댓글 입력 허용 여부 등에 사용 */
-export async function isViewerJoinedNeighborhoodMeeting(
-  meetingId: string,
-  viewerUserId: string | null | undefined
-): Promise<boolean> {
-  const mid = meetingId?.trim();
-  const uid = viewerUserId?.trim();
-  if (!mid || !uid) return false;
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return false;
-  }
-  const { data, error } = await sb
-    .from("meeting_members")
-    .select("id")
-    .eq("meeting_id", mid)
-    .eq("user_id", uid)
-    .eq("status", "joined")
-    .maybeSingle();
-  if (error || !data) return false;
-  return true;
-}
-
-export async function listMeetingFeedPosts(
-  meetingId: string,
-  limit = 30
-): Promise<MeetingFeedPostDTO[]> {
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return [];
-  }
-
-  const pageSize = Math.min(Math.max(limit, 1), 50);
-  const { data, error } = await sb
-    .from("meeting_feed_posts")
-    .select("id, meeting_id, author_user_id, post_type, content, is_pinned, is_hidden, created_at")
-    .eq("meeting_id", meetingId)
-    .is("deleted_at", null)
-    .eq("is_hidden", false)
-    .order("is_pinned", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(pageSize);
-
-  if (error || !Array.isArray(data)) return [];
-
-  const uids = [...new Set(data.map((r: Record<string, unknown>) => String(r.author_user_id ?? "")).filter(Boolean))];
-  const nickMap = await fetchNicknamesForUserIds(sb as never, uids);
-
-  return (data as Record<string, unknown>[]).map((row) => {
-    const uid = String(row.author_user_id ?? "");
-    const pt = String(row.post_type ?? "normal");
-    return {
-      id: String(row.id),
-      meeting_id: String(row.meeting_id ?? meetingId),
-      author_user_id: uid,
-      author_name: nickMap.get(uid) ?? (uid ? uid.slice(0, 8) : "알 수 없음"),
-      post_type: (["normal", "notice", "intro", "attendance", "review"].includes(pt)
-        ? pt
-        : "normal") as MeetingFeedPostDTO["post_type"],
-      content: String(row.content ?? ""),
-      is_pinned: !!row.is_pinned,
-      is_hidden: !!row.is_hidden,
-      created_at: String(row.created_at ?? ""),
-    };
-  });
-}
-
-export async function listMeetingAlbumItems(
-  meetingId: string,
-  limit = 30
-): Promise<MeetingAlbumItemDTO[]> {
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return [];
-  }
-
-  const pageSize = Math.min(Math.max(limit, 1), 50);
-  const { data, error } = await sb
-    .from("meeting_album_items")
-    .select("id, meeting_id, uploader_user_id, image_url, caption, is_hidden, created_at")
-    .eq("meeting_id", meetingId)
-    .eq("is_hidden", false)
-    .order("created_at", { ascending: false })
-    .limit(pageSize);
-
-  if (error || !Array.isArray(data)) return [];
-
-  const uids = [...new Set(data.map((r: Record<string, unknown>) => String(r.uploader_user_id ?? "")).filter(Boolean))];
-  const nickMap = await fetchNicknamesForUserIds(sb as never, uids);
-
-  return (data as Record<string, unknown>[]).map((row) => {
-    const uid = String(row.uploader_user_id ?? "");
-    return {
-      id: String(row.id),
-      meeting_id: String(row.meeting_id ?? meetingId),
-      uploader_user_id: uid,
-      uploader_name: nickMap.get(uid) ?? (uid ? uid.slice(0, 8) : "알 수 없음"),
-      image_url: row.image_url != null ? String(row.image_url) : null,
-      caption: row.caption != null ? String(row.caption) : null,
-      is_hidden: !!row.is_hidden,
-      created_at: String(row.created_at ?? ""),
-    };
-  });
-}
-
-export async function listMeetingNotices(meetingId: string, limit = 3): Promise<NeighborhoodMeetingNoticeDTO[]> {
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return [];
-  }
-
-  /** 모임 상세 공지 탭 등에서 한 번에 충분히 불러오기 (상한만 둠) */
-  const pageSize = Math.min(Math.max(limit, 1), 80);
-  const { data, error } = await sb
-    .from("meeting_notices")
-    .select("id, meeting_id, title, body, visibility, is_pinned, created_at, updated_at, author_user_id")
-    .eq("meeting_id", meetingId)
-    .eq("is_active", true)
-    .order("is_pinned", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(pageSize);
-
-  if (error || !Array.isArray(data)) return [];
-
-  return data.map((row) => ({
-    id: String(row.id),
-    meeting_id: String(row.meeting_id ?? meetingId),
-    title: String(row.title ?? ""),
-    body: String(row.body ?? ""),
-    visibility: String(row.visibility ?? "members") === "public" ? "public" : "members",
-    is_pinned: !!row.is_pinned,
-    created_at: String(row.created_at ?? ""),
-    updated_at: String(row.updated_at ?? row.created_at ?? ""),
-    author_user_id: String(row.author_user_id ?? ""),
-  }));
-}
-
-export async function listMeetingMembers(
-  meetingId: string,
-  status: "joined" | "pending" = "joined"
-): Promise<import("@/lib/neighborhood/types").MeetingMemberListItemDTO[]> {
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return [];
-  }
-
-  const { data, error } = await sb
-    .from("meeting_members")
-    .select("user_id, status, role, created_at, requested_at")
-    .eq("meeting_id", meetingId)
-    .eq("status", status)
-    .order(status === "pending" ? "requested_at" : "created_at", { ascending: true });
-  if (error || !Array.isArray(data)) return [];
-
-  const rows = data as Array<{
-    user_id?: unknown;
-    status?: unknown;
-    role?: unknown;
-    created_at?: unknown;
-    requested_at?: unknown;
-  }>;
-  const userIds = [...new Set(rows.map((row) => String(row.user_id ?? "").trim()).filter(Boolean))];
-  const nickMap = await fetchNicknamesForUserIds(sb as never, userIds);
-
-  const requestMessageMap = new Map<string, string>();
-  if (status === "pending" && userIds.length > 0) {
-    const { data: requests } = await sb
-      .from("meeting_join_requests")
-      .select("user_id, request_message, requested_at")
-      .eq("meeting_id", meetingId)
-      .eq("status", "pending")
-      .in("user_id", userIds)
-      .order("requested_at", { ascending: false });
-    for (const row of (requests ?? []) as Array<{ user_id?: unknown; request_message?: unknown }>) {
-      const userId = String(row.user_id ?? "").trim();
-      if (!userId || requestMessageMap.has(userId)) continue;
-      requestMessageMap.set(userId, typeof row.request_message === "string" ? row.request_message.trim() : "");
-    }
-  }
-
-  return rows.map((row) => {
-    const userId = String(row.user_id ?? "").trim();
-    const roleRaw = String(row.role ?? "member").trim();
-    const resolvedRole =
-      roleRaw === "host" || roleRaw === "co_host" || roleRaw === "member" ? roleRaw : "member";
-    const statusRaw = String(row.status ?? status).trim();
-    const resolvedStatus =
-      statusRaw === "joined" ||
-      statusRaw === "pending" ||
-      statusRaw === "left" ||
-      statusRaw === "kicked" ||
-      statusRaw === "banned" ||
-      statusRaw === "rejected"
-        ? statusRaw
-        : status;
-    return {
-      userId,
-      name: nickMap.get(userId) ?? (userId ? userId.slice(0, 8) : "알 수 없음"),
-      role: resolvedRole,
-      status: resolvedStatus,
-      joinedAt:
-        typeof row.requested_at === "string"
-          ? row.requested_at
-          : typeof row.created_at === "string"
-            ? row.created_at
-            : null,
-      requestMessage: requestMessageMap.get(userId) ?? null,
-    };
-  });
-}
-
-export type ListMeetingEventsPageResult = {
-  events: NeighborhoodMeetingEventDTO[];
-  hasMore: boolean;
-};
-
-export async function listMeetingEventsPage(
-  meetingId: string,
-  options: { limit?: number; offset?: number; eventType?: string | null } = {}
-): Promise<ListMeetingEventsPageResult> {
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return { events: [], hasMore: false };
-  }
-
-  const pageSize = Math.min(Math.max(options.limit ?? 15, 1), 30);
-  const offset = Math.min(Math.max(options.offset ?? 0, 0), 2000);
-  const fetchCount = pageSize + 1;
-
-  let q = sb
-    .from("meeting_events")
-    .select("id, meeting_id, actor_user_id, target_user_id, event_type, payload, created_at")
-    .eq("meeting_id", meetingId)
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false });
-
-  const et = options.eventType?.trim() ?? "";
-  if (et && isMeetingEventType(et)) {
-    q = q.eq("event_type", et);
-  }
-
-  const { data, error } = await q.range(offset, offset + fetchCount - 1);
-
-  if (error || !Array.isArray(data)) return { events: [], hasMore: false };
-
-  const hasMore = data.length > pageSize;
-  const slice = hasMore ? data.slice(0, pageSize) : data;
-
-  const userIds = [
-    ...new Set(
-      slice
-        .flatMap((row) => [String(row.actor_user_id ?? "").trim(), String(row.target_user_id ?? "").trim()])
-        .filter(Boolean)
-    ),
-  ];
-  const nickMap = await fetchNicknamesForUserIds(sb as never, userIds);
-
-  const events = slice.map((row) => {
-    const actorId = row.actor_user_id != null ? String(row.actor_user_id) : null;
-    const targetId = row.target_user_id != null ? String(row.target_user_id) : null;
-    return {
-      id: String(row.id),
-      meeting_id: String(row.meeting_id ?? meetingId),
-      actor_user_id: actorId,
-      actor_name: actorId ? nickMap.get(actorId) ?? actorId.slice(0, 8) : "시스템",
-      target_user_id: targetId,
-      target_name: targetId ? nickMap.get(targetId) ?? targetId.slice(0, 8) : null,
-      event_type: String(row.event_type ?? ""),
-      payload:
-        row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
-          ? (row.payload as Record<string, unknown>)
-          : {},
-      created_at: String(row.created_at ?? ""),
-    };
-  });
-
-  return { events, hasMore };
 }

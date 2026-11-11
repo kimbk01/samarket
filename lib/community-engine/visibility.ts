@@ -23,16 +23,3 @@ export function isCommunityCommentPubliclyVisible(row: {
 }): boolean {
   return isCommunityPostPubliclyVisible(row);
 }
-
-/** 모임 참여/채팅 허용 여부 (종료·취소 시 차단) */
-export function isMeetingJoinable(row: {
-  status?: string | null;
-  is_closed?: boolean | null;
-}): boolean {
-  const s = String(row.status ?? "")
-    .trim()
-    .toLowerCase();
-  if (s === "ended" || s === "cancelled" || s === "closed") return false;
-  if (s === "open") return true;
-  return row.is_closed !== true;
-}

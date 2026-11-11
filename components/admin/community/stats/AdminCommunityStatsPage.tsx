@@ -154,7 +154,6 @@ export function AdminCommunityStatsPage() {
               <Tile
                 label={t("admin_community_stats_reports_received")}
                 value={s.reports?.received}
-                sub={t("admin_community_stats_meeting_reports", { n: n(s.reports?.meeting_received) })}
               />
               <Tile
                 label={t("admin_community_stats_reports_processed")}
@@ -162,7 +161,6 @@ export function AdminCommunityStatsPage() {
                 sub={t("admin_community_stats_reports_processed_sub", {
                   resolved: n(s.reports?.resolved),
                   dismissed: n(s.reports?.dismissed),
-                  meeting: n(s.reports?.meeting_processed),
                 })}
               />
               <Tile label={t("admin_community_stats_admin_actions")} value={s.admin_actions?.total} />

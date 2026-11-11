@@ -64,7 +64,6 @@ export type FullBootstrapSnapshotPayloadJson = {
   attachment_meta?: unknown;
   call_logs?: unknown[];
   call_session_participants?: unknown[];
-  meetings?: unknown[];
   profile_labels_expanded?: Record<string, unknown>;
   snapshot_version?: number;
   list_limit?: number;
@@ -542,11 +541,6 @@ export async function assembleFullBootstrapFromSnapshotPayload(
     { preloadedLegacy: hs5FromSnapshot(payload) }
   ).catch(() => {});
 
-  const { enrichOpenGroupSummariesWithPhilifeMeetingLabels } = await import(
-    "@/lib/community-messenger/philife-meeting-open-group-summaries"
-  );
-  await enrichOpenGroupSummariesWithPhilifeMeetingLabels(userId, mySummaries);
-
   const chats = mySummaries.filter((room) => room.roomType === "direct");
   const groups = mySummaries.filter((room) => isCommunityMessengerPrivateGroupListRoomType(room.roomType));
 
@@ -558,28 +552,9 @@ export async function assembleFullBootstrapFromSnapshotPayload(
     profileById
   );
 
-  const meetingMetaByRoomId = new Map<
-    string,
-    { id: string; regionText: string | null; categoryText: string | null; platformApprovalStatus: string | null }
-  >();
-  for (const raw of Array.isArray(payload.meetings) ? payload.meetings : []) {
-    const row = raw as Record<string, unknown>;
-    const roomId = trimText(row.community_messenger_room_id);
-    const meetingId = trimText(row.id);
-    if (!roomId || !meetingId) continue;
-    meetingMetaByRoomId.set(roomId, {
-      id: meetingId,
-      regionText: trimText(row.region_text) || null,
-      categoryText: trimText(row.category_text) || null,
-      platformApprovalStatus: trimText(row.platform_approval_status) || null,
-    });
-  }
-
   const discoverableGroups = discSummaries
     .map((summary) => {
       if (summary.roomType !== "open_group") return null;
-      const meetingMeta = meetingMetaByRoomId.get(summary.id);
-      if (meetingMeta?.platformApprovalStatus === "pending_approval") return null;
       return {
         id: summary.id,
         roomType: "open_group" as const,
@@ -598,10 +573,6 @@ export async function assembleFullBootstrapFromSnapshotPayload(
         lastMessage: summary.lastMessage,
         lastMessageAt: summary.lastMessageAt,
         isJoined: joinedRoomIds.has(summary.id),
-        meetingId: meetingMeta?.id ?? null,
-        regionText: meetingMeta?.regionText ?? null,
-        categoryText: meetingMeta?.categoryText ?? null,
-        platformApprovalStatus: meetingMeta?.platformApprovalStatus ?? null,
       };
     })
     .filter(Boolean) as CommunityMessengerDiscoverableGroupSummary[];

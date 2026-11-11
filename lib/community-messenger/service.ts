@@ -255,7 +255,7 @@ import {
   loadTradeProductChatExitSnapshotForMessengerRoom,
 } from "@/lib/messenger-policy/load-trade-product-chat-exit-for-room";
 import { assertMessengerRoomAllowsCommunicationFeature } from "@/lib/trade/enforce-messenger-trade-room-call-policy";
-import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
+import { hashOpenGroupPassword, verifyOpenGroupPassword } from "@/lib/community-messenger/open-group-password";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateHomeSyncSnapshotCache } from "@/lib/community-messenger/home-sync-snapshot-cache";
 import { invalidateCmBootstrapSnapshotCache } from "@/lib/community-messenger/cm-bootstrap-snapshot-cache";
@@ -3230,7 +3230,6 @@ export type CommunityMessengerBootstrapDiagnostics = {
   parallelDiscoverableFetchMs: number;
   /** `fetchCallLogRowsOnly` 단독 */
   callsLogRowsFetchMs: number;
-  parallelMeetingsForDiscoverableMs: number;
   enrichTradeDirectKeysMs: number;
   enrichTradeSellerHydrateMs: number;
   enrichTradeMiddlePipelineMs: number;
@@ -3281,7 +3280,6 @@ export type CommunityMessengerBootstrapDiagnostics = {
   bootstrapLiteRequestsFetchMs: number;
   bootstrapLiteFavoriteFetchMs: number;
   bootstrapLiteDiscoverableFetchMs: number;
-  bootstrapLiteMeetingsFetchMs: number;
   bootstrapLiteParallelSlowestStage: string;
   bootstrapLiteParallelSlowestMs: number;
   /** lite 소셜 그래프 출처 — `cache` | `empty` | `full_fetch` | `n/a` */
@@ -5047,16 +5045,6 @@ export async function listCommunityMessengerMyChatsAndGroups(
       phaseRows.push({ phase: "enrich_messenger_trade_unread_legacy", ms: unreadBadgeMs });
     }
   }
-  if (!isCritical && !skipHeavyEnrich) {
-    const tOpen = performance.now();
-    const { enrichOpenGroupSummariesWithPhilifeMeetingLabels } = await import(
-      "@/lib/community-messenger/philife-meeting-open-group-summaries"
-    );
-    await enrichOpenGroupSummariesWithPhilifeMeetingLabels(userId, mySummaries);
-    if (homeSyncBreakdownEnabled()) {
-      phaseRows.push({ phase: "enrich_open_group_philife_meeting_labels", ms: performance.now() - tOpen });
-    }
-  }
   if (messengerPerfStepsEnabled()) {
     logMessengerPerfMs("listCommunityMessengerMyChatsAndGroups_wall", performance.now() - tListTop);
   }
@@ -6102,7 +6090,6 @@ function finishBootstrapLiteParallelBreakdown(diagnostics: CommunityMessengerBoo
     ["requests", diagnostics.bootstrapLiteRequestsFetchMs],
     ["favorite", diagnostics.bootstrapLiteFavoriteFetchMs],
     ["discoverable", diagnostics.bootstrapLiteDiscoverableFetchMs],
-    ["meetings", diagnostics.bootstrapLiteMeetingsFetchMs],
   ];
   let slowestStage = "rooms";
   let slowestMs = -1;
@@ -6176,7 +6163,6 @@ export async function getCommunityMessengerBootstrap(
     diagnostics.parallelFriendRequestsMs = 0;
     diagnostics.parallelDiscoverableFetchMs = 0;
     diagnostics.callsLogRowsFetchMs = 0;
-    diagnostics.parallelMeetingsForDiscoverableMs = 0;
     diagnostics.enrichTradeDirectKeysMs = 0;
     diagnostics.enrichTradeSellerHydrateMs = 0;
     diagnostics.enrichTradeMiddlePipelineMs = 0;
@@ -6204,7 +6190,6 @@ export async function getCommunityMessengerBootstrap(
     diagnostics.bootstrapLiteRequestsFetchMs = 0;
     diagnostics.bootstrapLiteFavoriteFetchMs = 0;
     diagnostics.bootstrapLiteDiscoverableFetchMs = 0;
-    diagnostics.bootstrapLiteMeetingsFetchMs = 0;
     diagnostics.bootstrapLiteParallelSlowestStage = "";
     diagnostics.bootstrapLiteParallelSlowestMs = 0;
     diagnostics.bootstrapLiteSocialGraphSource = "n/a";
@@ -6373,7 +6358,6 @@ export async function getCommunityMessengerBootstrap(
     diagnostics && (diagnostics.bootstrapLiteRequestsFetchMs = 0);
     diagnostics && (diagnostics.bootstrapLiteFavoriteFetchMs = 0);
     diagnostics && (diagnostics.bootstrapLiteDiscoverableFetchMs = 0);
-    diagnostics && (diagnostics.bootstrapLiteMeetingsFetchMs = 0);
     diagnostics &&
       (diagnostics.parallelAcceptedFriendsBundleMs = diagnostics.bootstrapLiteFriendsFetchMs);
     diagnostics && (diagnostics.parallelFavoriteFriendsMs = 0);
@@ -6458,7 +6442,6 @@ export async function getCommunityMessengerBootstrap(
     diagnostics && (diagnostics.bootstrapLiteRequestsFetchMs = diagnostics.parallelFriendRequestsMs);
     diagnostics && (diagnostics.bootstrapLiteFavoriteFetchMs = diagnostics.parallelFavoriteFriendsMs);
     diagnostics && (diagnostics.bootstrapLiteDiscoverableFetchMs = diagnostics.parallelDiscoverableFetchMs);
-    diagnostics && (diagnostics.bootstrapLiteMeetingsFetchMs = 0);
   }
   const friendIds = acceptedPeerIdsFromCommunityFriendRows(userId, acceptedFriendRows);
   const friendshipAcceptedAtByPeer = friendshipAcceptedAtByPeerFromRows(userId, acceptedFriendRows);
@@ -6642,12 +6625,6 @@ export async function getCommunityMessengerBootstrap(
       diagnostics && (diagnostics.unreadMs = Math.round(performance.now() - tUnread));
     }
   }
-  if (!isMinimalLiteBootstrap) {
-    const { enrichOpenGroupSummariesWithPhilifeMeetingLabels } = await import(
-      "@/lib/community-messenger/philife-meeting-open-group-summaries"
-    );
-    await enrichOpenGroupSummariesWithPhilifeMeetingLabels(userId, mySummaries);
-  }
   const tTransformLists = performance.now();
   const chats = mySummaries.filter((room) => room.roomType === "direct");
   const groups = mySummaries.filter((room) => isCommunityMessengerPrivateGroupListRoomType(room.roomType));
@@ -6659,44 +6636,9 @@ export async function getCommunityMessengerBootstrap(
     discState.byRoomId,
     profileById
   );
-  const meetingMetaByRoomId = new Map<
-    string,
-    { id: string; regionText: string | null; categoryText: string | null; platformApprovalStatus: string | null }
-  >();
-  const discoverableRoomIds = dedupeIds(discSummaries.map((summary) => summary.id));
-  if (discoverableRoomIds.length > 0) {
-    const sbMeet = getSupabaseOrNull();
-    if (sbMeet) {
-      const tMeet = performance.now();
-      const { data: meetingRows } = await (sbMeet as any)
-        .from("meetings")
-        .select("id, community_messenger_room_id, region_text, category_text, platform_approval_status")
-        .in("community_messenger_room_id", discoverableRoomIds);
-      diagnostics && (diagnostics.parallelMeetingsForDiscoverableMs = Math.round(performance.now() - tMeet));
-      for (const row of (meetingRows ?? []) as Array<{
-        id?: unknown;
-        community_messenger_room_id?: unknown;
-        region_text?: unknown;
-        category_text?: unknown;
-        platform_approval_status?: unknown;
-      }>) {
-        const roomId = trimText(row.community_messenger_room_id);
-        const meetingId = trimText(row.id);
-        if (!roomId || !meetingId) continue;
-        meetingMetaByRoomId.set(roomId, {
-          id: meetingId,
-          regionText: trimText(row.region_text) || null,
-          categoryText: trimText(row.category_text) || null,
-          platformApprovalStatus: trimText(row.platform_approval_status) || null,
-        });
-      }
-    }
-  }
   const discoverableGroups = discSummaries
     .map((summary) => {
       if (summary.roomType !== "open_group") return null;
-      const meetingMeta = meetingMetaByRoomId.get(summary.id);
-      if (meetingMeta?.platformApprovalStatus === "pending_approval") return null;
       return {
         id: summary.id,
         roomType: "open_group" as const,
@@ -6715,10 +6657,6 @@ export async function getCommunityMessengerBootstrap(
         lastMessage: summary.lastMessage,
         lastMessageAt: summary.lastMessageAt,
         isJoined: discState.joinedRoomIds.has(summary.id),
-        meetingId: meetingMeta?.id ?? null,
-        regionText: meetingMeta?.regionText ?? null,
-        categoryText: meetingMeta?.categoryText ?? null,
-        platformApprovalStatus: meetingMeta?.platformApprovalStatus ?? null,
       };
     })
     .filter(Boolean) as CommunityMessengerDiscoverableGroupSummary[];
@@ -11781,7 +11719,7 @@ export async function createOpenGroupRoom(input: {
   if (creatorIdentityMode === "alias" && !trimText(input.creatorAliasProfile?.displayName)) {
     return { ok: false, error: "alias_name_required" };
   }
-  const passwordHash = joinPolicy === "password" ? hashMeetingPassword(password) : null;
+  const passwordHash = joinPolicy === "password" ? hashOpenGroupPassword(password) : null;
   const sb = getSupabaseOrNull();
   if (sb) {
     /** Pre-allocate id so group:{roomId} + chat_domain are atomic (prod NOT NULL). */
@@ -12315,7 +12253,7 @@ export async function joinOpenGroupRoomWithPassword(input: {
       const identityPolicy = normalizeRoomIdentityPolicy(room.identity_policy, "open_group");
       if (joinPolicy === "password") {
         if (!password) return { ok: false, error: "password_required" };
-        if (!verifyMeetingPassword(password, room.password_hash)) return { ok: false, error: "invalid_password" };
+        if (!verifyOpenGroupPassword(password, room.password_hash)) return { ok: false, error: "invalid_password" };
       }
       if (identityPolicy !== "alias_allowed" && identityMode === "alias") return { ok: false, error: "forbidden" };
       /**
@@ -12401,7 +12339,7 @@ export async function joinOpenGroupRoomWithPassword(input: {
   if (room.roomStatus !== "active" || room.isReadonly) return { ok: false, error: "room_unavailable" };
   if (room.joinPolicy === "password") {
     if (!password) return { ok: false, error: "password_required" };
-    if (!verifyMeetingPassword(password, room.passwordHash)) return { ok: false, error: "invalid_password" };
+    if (!verifyOpenGroupPassword(password, room.passwordHash)) return { ok: false, error: "invalid_password" };
   }
   if (room.identityPolicy !== "alias_allowed" && identityMode === "alias") return { ok: false, error: "forbidden" };
   const memberCount = dev.participants.filter((participant) => participant.roomId === roomId).length;
@@ -12451,7 +12389,7 @@ export async function updateOpenGroupRoomSettings(input: {
   };
   if (title) patch.title = title;
   if (typeof input.summary === "string") patch.summary = summary;
-  if (password) patch.password_hash = hashMeetingPassword(password);
+  if (password) patch.password_hash = hashOpenGroupPassword(password);
   if (typeof input.memberLimit === "number" && Number.isFinite(input.memberLimit)) {
     patch.member_limit = Math.min(1000, Math.max(2, Math.floor(input.memberLimit)));
   }
@@ -12490,7 +12428,7 @@ export async function updateOpenGroupRoomSettings(input: {
   if (room.ownerUserId !== input.userId) return { ok: false, error: "forbidden" };
   if (title) room.title = title;
   if (typeof input.summary === "string") room.summary = summary;
-  if (password) room.passwordHash = hashMeetingPassword(password);
+  if (password) room.passwordHash = hashOpenGroupPassword(password);
   if (typeof input.memberLimit === "number" && Number.isFinite(input.memberLimit)) {
     room.memberLimit = Math.min(1000, Math.max(2, Math.floor(input.memberLimit)));
   }

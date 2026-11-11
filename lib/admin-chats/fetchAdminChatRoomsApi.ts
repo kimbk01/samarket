@@ -108,9 +108,3 @@ export async function fetchAdminChatRoomsListApi(
   );
 }
 
-export async function fetchAdminMeetingOpenChatRoomsListApi(options?: {
-  hasReport?: boolean;
-}): Promise<AdminChatRoom[]> {
-  void options;
-  return [];
-}

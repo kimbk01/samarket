@@ -63,15 +63,6 @@ const REGISTRY: readonly OperationalFrequencyEntry[] = [
     purpose: "Community report queue (community_reports)",
   },
   {
-    id: "community-meeting-reports",
-    workspace: "COMMUNITY",
-    section: "moderation",
-    route: "/admin/philife/meeting-reports",
-    frequency: "DAILY_CRITICAL",
-    order: 20,
-    purpose: "Meeting report queue (meeting_reports) — separate owner",
-  },
-  {
     id: "community-posts",
     workspace: "COMMUNITY",
     section: "content",

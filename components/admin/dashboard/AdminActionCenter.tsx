@@ -125,7 +125,6 @@ export function AdminActionCenter() {
       labelEn: "Reports/Support",
       n:
         q.communityReportsCount +
-        q.meetingReportsCount +
         q.tradeReportsCount +
         q.supportActionableCount,
     },
@@ -159,7 +158,7 @@ export function AdminActionCenter() {
     {
       id: "domain-community",
       href: withAdminReturnTo("/admin/community", returnTo),
-      count: q.communityReportsCount + q.meetingReportsCount,
+      count: q.communityReportsCount,
       titleKo: "커뮤니티 운영",
       titleEn: "Community ops",
       domainKo: "커뮤니티",
@@ -248,19 +247,6 @@ export function AdminActionCenter() {
       domainEn: "Support",
       primaryCtaKo: "Support 관제",
       primaryCtaEn: "Support control plane",
-      alwaysShow: true,
-    },
-    {
-      id: "common-meeting-reports",
-      href: withAdminReturnTo("/admin/philife/meeting-reports", returnTo),
-      count: q.meetingReportsCount,
-      unavailable: unavailable.has("meeting_reports"),
-      titleKo: "모임 신고 큐",
-      titleEn: "Meeting reports queue",
-      domainKo: "커뮤니티",
-      domainEn: "Community",
-      primaryCtaKo: "모임 신고",
-      primaryCtaEn: "Meeting reports",
       alwaysShow: true,
     },
   ];

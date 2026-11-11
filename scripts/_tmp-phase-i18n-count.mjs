@@ -59,7 +59,7 @@ const phases = {
   "5_chat_trade_only": ["components/chats", "app/(main)/chats"],
   "7_owner": ["app/(main)/stores/owner", "components/stores/owner", "app/(main)/my/business", "components/business"],
   "8_messenger": ["app/(main)/community-messenger", "components/community-messenger"],
-  "9_philife": ["app/(main)/philife", "app/(main)/community", "components/philife", "components/community", "components/meetings"],
+  "9_philife": ["app/(main)/philife", "app/(main)/community", "components/philife", "components/community"],
   "10_auth": ["app/(auth)", "app/(main)/onboarding", "components/auth", "components/signup"],
   "11_admin": ["app/admin", "components/admin"],
   "6_delivery_LAST": [

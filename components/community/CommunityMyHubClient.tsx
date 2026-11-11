@@ -71,11 +71,6 @@ export function CommunityMyHubClient({ userId }: { userId: string }) {
           )}
         </ul>
       </section>
-
-      <section className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-        <h2 className="sam-text-body font-semibold text-sam-fg">{t("community_hub_meetings")}</h2>
-        <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("community_hub_meetings_hint")}</p>
-      </section>
     </div>
   );
 }

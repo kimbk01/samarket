@@ -23,7 +23,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { projectFeedAdOpsProductStatus } from "@/lib/ads/feed-ad-ops-presentation";
 import {
-  applyMeetingReportTabFilter,
   applyStoreApprovalStatusFilter,
   applySupportCaseTabFilter,
 } from "@/lib/admin/metrics/admin-metric-filters";
@@ -33,7 +32,6 @@ import {
   STORE_ORDER_ADMIN_QUEUE_EXCLUDED_STATUSES,
   TRADE_REPORT_ADMIN_ACTIONABLE,
 } from "@/lib/admin/admin-ops-actionable-status";
-import { MEETING_REPORT_TAB_STATUSES } from "@/lib/admin/metrics/admin-metric-filters";
 import { ADMIN_SUPPORT_TAB_STATUSES } from "@/lib/support/support-case-types";
 import {
   ADMIN_ACTION_QUEUE_REGISTRY,
@@ -110,7 +108,6 @@ export type AdminActionQueueCounts = {
   community_reports: number;
   store_applications: number;
   /** ARO-AC-001 extensions */
-  meeting_reports: number;
   orders_attention: number;
   settlements_actionable: number;
   coin_withdrawals: number;
@@ -151,7 +148,6 @@ export type AdminActionQueueCounts = {
     support_actionable: number;
     store_inquiry_open: number;
     platform_inquiry_open: number;
-    meeting_reports: number;
     orders_attention: number;
     settlements_actionable: number;
     coin_withdrawals: number;
@@ -216,7 +212,6 @@ type QueueRows = [
   CountRes,
   CountRes,
   FeedRowsRes,
-  CountRes,
   CountRes,
   CountRes,
   CountRes,
@@ -295,9 +290,6 @@ async function loadAdminActionQueueRowsLegacy(
     storesSb
       ? storesSb.from("delivery_ad_operations_cases").select("id", head).eq("status", "WAITING_ADMIN")
       : NOT_CONFIGURED,
-    notesSb
-      ? applyMeetingReportTabFilter(notesSb.from("meeting_reports").select("id", head), "pending")
-      : NOT_CONFIGURED,
     storesSb
       ? storesSb
           .from("store_orders")
@@ -350,7 +342,6 @@ const RPC_COUNT_KEYS = [
   "community_reports",
   "store_applications",
   "delivery_ad_ops",
-  "meeting_reports",
   "orders_attention",
   "settlements_actionable",
   "coin_withdrawals",
@@ -376,7 +367,6 @@ export function buildAdminActionQueueCountsRpcParams(now: Date = new Date()): Re
     community_report_statuses: [...COMMUNITY_REPORT_ADMIN_ACTIONABLE],
     store_approval_statuses: [...ADMIN_ACTIONABLE_STORE_APPROVAL],
     delivery_ad_ops_status: "WAITING_ADMIN",
-    meeting_report_statuses: MEETING_REPORT_TAB_STATUSES.pending ? [...MEETING_REPORT_TAB_STATUSES.pending] : null,
     order_excluded_statuses: [...STORE_ORDER_ADMIN_QUEUE_EXCLUDED_STATUSES],
     order_active_from: storeOrderAdminQueueActiveFromIso(now),
     settlement_status: "review_required",
@@ -423,7 +413,7 @@ export async function loadAdminActionQueueCounts(input: {
   const { storesSb, notesSb, permissionScope } = input;
   /**
    * 관리자 종 1회 조회 (docs/audit/supabase-request-fanout-full-root-cause-2026-11-01.md 순서 1):
-   * 표 20개 count + 피드 광고 행을 `admin_action_queue_counts` 1회로. 조건값은 아래 TS 상수 그대로 넘긴다.
+   * 표 19개 count + 피드 광고 행을 `admin_action_queue_counts` 1회로. 조건값은 아래 TS 상수 그대로 넘긴다.
    * RPC 자체가 실패하면 기존 표별 조회(`loadAdminActionQueueRowsLegacy`).
    */
   const viaRpc = storesSb && notesSb ? await loadAdminActionQueueRowsViaRpc(storesSb) : null;
@@ -441,7 +431,6 @@ export async function loadAdminActionQueueCounts(input: {
     communityReportsRes,
     storeApplicationsRes,
     deliveryAdOpsRes,
-    meetingReportsRes,
     ordersAttentionRes,
     settlementsRes,
     coinWithdrawRes,
@@ -490,7 +479,6 @@ export async function loadAdminActionQueueCounts(input: {
     platform_inquiry_open: LEGACY_ZERO, // A2-2: legacy platform inbox archive only
     community_reports: countOutcome(communityReportsRes, "community_reports"),
     store_applications: countOutcome(storeApplicationsRes, "stores"),
-    meeting_reports: countOutcome(meetingReportsRes, "meeting_reports"),
     orders_attention: countOutcome(ordersAttentionRes, "store_orders"),
     settlements_actionable: countOutcome(settlementsRes, "store_sale_fee_obligations"),
     coin_withdrawals: countOutcome(coinWithdrawRes, "coin_withdrawal_requests"),
@@ -563,7 +551,6 @@ export async function loadAdminActionQueueCounts(input: {
     platform_inquiry_open: n("platform_inquiry_open"),
     community_reports,
     store_applications: n("store_applications"),
-    meeting_reports: n("meeting_reports"),
     orders_attention: n("orders_attention"),
     settlements_actionable: n("settlements_actionable"),
     coin_withdrawals: n("coin_withdrawals"),
@@ -593,7 +580,6 @@ export async function loadAdminActionQueueCounts(input: {
       support_actionable: n("support_actionable"),
       store_inquiry_open: n("store_inquiry_open"),
       platform_inquiry_open: n("platform_inquiry_open"),
-      meeting_reports: n("meeting_reports"),
       orders_attention: n("orders_attention"),
       settlements_actionable: n("settlements_actionable"),
       coin_withdrawals: n("coin_withdrawals"),

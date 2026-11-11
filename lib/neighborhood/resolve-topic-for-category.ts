@@ -4,7 +4,7 @@ import { isPhilifeNeighborhoodWriteEligibleRow } from "@/lib/neighborhood/philif
 
 /**
  * 동네 일반 글 — `community_topics` SSOT + `buildPhilifeWriteTopicOptionsFromTopics`.
- * Requires is_active + is_visible; excludes sort-slot + allow_meetup rows only.
+ * Requires is_active + is_visible; excludes sort-slot rows only.
  */
 export async function resolveTopicForNeighborhoodCategory(
   sb: SupabaseClient<any>,
@@ -14,7 +14,7 @@ export async function resolveTopicForNeighborhoodCategory(
   const slug = String(categorySlug ?? "")
     .trim()
     .toLowerCase();
-  if (!slug || slug === "meetup") return null;
+  if (!slug) return null;
 
   let sid = opts?.sectionId?.trim();
   if (!sid) {
@@ -31,7 +31,7 @@ export async function resolveTopicForNeighborhoodCategory(
 
   const { data: topic } = await sb
     .from("community_topics")
-    .select("id, slug, allow_meetup, is_feed_sort")
+    .select("id, slug, is_feed_sort")
     .eq("section_id", sid)
     .eq("slug", slug)
     .eq("is_active", true)
@@ -40,12 +40,10 @@ export async function resolveTopicForNeighborhoodCategory(
   const t = topic as {
     id?: string;
     slug?: string;
-    allow_meetup?: boolean;
     is_feed_sort?: boolean;
   } | null;
   if (!t?.id) return null;
-  const am = Boolean(t.allow_meetup);
   const fs = Boolean(t.is_feed_sort);
-  if (!isPhilifeNeighborhoodWriteEligibleRow(am, fs, t.slug ?? slug)) return null;
+  if (!isPhilifeNeighborhoodWriteEligibleRow(fs, t.slug ?? slug)) return null;
   return { topicId: String(t.id), topicSlug: String(t.slug ?? slug) };
 }

@@ -52,9 +52,4 @@ describe("ADDR-PRIV-001/002 neighborhood location is City-only", () => {
     expect(src).not.toContain("useRegion");
     expect(src).not.toContain("currentRegion");
   });
-
-  it("ADDR-PRIV-003 meeting region_text is sanitized to a public City label on the server", () => {
-    const src = readFileSync(join(process.cwd(), "app/api/community/neighborhood-posts/route.ts"), "utf8");
-    expect(src).toMatch(/sanitizePublicRegionLabel\(meet\.region_text\)/);
-  });
 });

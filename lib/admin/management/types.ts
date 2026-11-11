@@ -86,7 +86,6 @@ export type AdminTerminologyConcept =
   | "POST"
   | "COMMENT"
   | "REPORT"
-  | "MEETING_REPORT"
   | "SUPPORT_CASE"
   | "ADVERTISEMENT"
   | "PROMOTION"

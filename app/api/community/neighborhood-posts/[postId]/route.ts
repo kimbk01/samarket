@@ -59,9 +59,6 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     .trim()
     .toLowerCase();
   /** category 생략 = 기존 주제 유지 (숨김·비활성 주제 글 수정 시 자동 변경 방지 — CM-P2-09) */
-  if (rawCat === "meetup") {
-    return NextResponse.json({ ok: false, error: "모임 글은 이 경로에서 수정할 수 없습니다." }, { status: 400 });
-  }
   if (!title) {
     return NextResponse.json({ ok: false, error: "제목을 입력해 주세요." }, { status: 400 });
   }
@@ -86,14 +83,14 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const id = (await resolveCanonicalCommunityPostId(raw)) ?? raw;
 
   let selectCols =
-    "id, user_id, status, is_deleted, is_hidden, origin_kind, section_id, is_meetup, content, content_blocks, images";
+    "id, user_id, status, is_deleted, is_hidden, origin_kind, section_id, content, content_blocks, images";
   let { data: row, error: findErr } = await sb
     .from("community_posts")
     .select(selectCols)
     .eq("id", id)
     .maybeSingle();
   if (findErr && isMissingDbColumnError(findErr, "origin_kind")) {
-    selectCols = "id, user_id, status, is_deleted, is_hidden, section_id, is_meetup, content, images";
+    selectCols = "id, user_id, status, is_deleted, is_hidden, section_id, content, images";
     ({ data: row, error: findErr } = await sb.from("community_posts").select(selectCols).eq("id", id).maybeSingle());
   }
   if (findErr) {
@@ -106,7 +103,6 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     is_deleted?: boolean;
     origin_kind?: string | null;
     section_id?: string | null;
-    is_meetup?: boolean;
     content?: string | null;
     content_blocks?: unknown;
     images?: unknown;
@@ -121,7 +117,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       { status: 403 }
     );
   }
-  if (r.is_meetup === true || r.status === "deleted" || r.is_deleted === true) {
+  if (r.status === "deleted" || r.is_deleted === true) {
     return NextResponse.json({ ok: false, error: "not_editable" }, { status: 400 });
   }
   /** 관리자가 숨긴 글은 작성자가 수정할 수 없다 — 운영 조치 우회 방지 (CM-P3-09) */
@@ -193,7 +189,6 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     patch.topic_slug = topicMeta.topicSlug;
     patch.category = deriveCommunityPostCategoryBucket({
       topicOrCategoryRaw: topicMeta.topicSlug,
-      isMeetup: false,
     });
   }
 

@@ -49,11 +49,6 @@ const RESTRICTION_SCOPE_KEY = {
   all: "notify_community_restriction_scope_all",
 } as const;
 
-const MEETING_TITLE_KEY = {
-  rejected: "notify_community_meeting_rejected_title",
-  closed: "notify_community_meeting_closed_title",
-} as const;
-
 export async function notifyCommunityContentModerated(
   sb: SupabaseClient,
   args: {
@@ -205,27 +200,5 @@ export async function notifyCommunityPromotionEnded(
       : notifySafeT(lang, "notify_community_promotion_ended_body", { vars: { reason } }),
     link_url: "/mypage/points",
     meta: { kind: "community_promotion_ended", order_id: args.orderId, refund_points: refund },
-  });
-}
-
-export async function notifyCommunityMeetingDecision(
-  sb: SupabaseClient,
-  args: { hostUserId: string | null | undefined; meetingId: string; kind: "rejected" | "closed"; reason?: string | null }
-): Promise<void> {
-  const uid = clip(args.hostUserId, 64);
-  if (!uid) return;
-  const lang = await loadNotificationUserLanguage(sb, uid);
-  const reason = clip(args.reason) || "-";
-  await appendUserNotification(sb, {
-    user_id: uid,
-    notification_type: "system",
-    push_kind: "community",
-    domain: "community_chat",
-    ref_id: args.meetingId,
-    dedupe_key: `community_meeting_${args.kind}:${uid}:${args.meetingId}`,
-    title: notifySafeT(lang, MEETING_TITLE_KEY[args.kind]),
-    body: notifySafeT(lang, "notify_community_mod_reason_body", { vars: { reason } }),
-    link_url: COMMUNITY_APPEAL_HREF,
-    meta: { kind: "community_meeting_decision", action: args.kind, meeting_id: args.meetingId },
   });
 }

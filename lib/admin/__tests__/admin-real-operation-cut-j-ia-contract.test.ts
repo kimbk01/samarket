@@ -381,7 +381,8 @@ describe("CUT J IA separation hard lock", () => {
   });
 
   it("J-AMD-5 195 pre-amendment leaves: every old path still resolves to an active menu entry", () => {
-    expect(ADMIN_MENU_PRE_J_AMD_5_LEAVES).toHaveLength(195);
+    // − 옛 모임 leaf 3개(모임 신고·모임 관리·모임 기록) — 옛 모임 기능 삭제 (Owner 2026-11-12) = 192.
+    expect(ADMIN_MENU_PRE_J_AMD_5_LEAVES).toHaveLength(192);
     const leaves = walkLeaves(adminMenu);
     const removedByPath = new Map<string, (typeof CUT_J_J_AMD_5_REMOVED_LEAVES)[number]>(
       CUT_J_J_AMD_5_REMOVED_LEAVES.map((r) => [r.path, r])
@@ -418,11 +419,12 @@ describe("CUT J IA separation hard lock", () => {
     // + 배달 매장 「매장 공지」 `/admin/stores/owner-notices` (설계 v3.2 §3-4, 2026-11-10) = 253.
     // + 고객지원 「문의 유형 관리」 `/admin/support/categories` (고객센터 접수형 3단계, 2026-11-10) = 254.
     // − 시스템 「배포」 `/admin/system/deploy` (수동 Promote 폐지, 배포 구조 7단계 2026-11-11) = 253.
-    expect(leaves).toHaveLength(253);
+    // − 커뮤니티 모임 leaf 3개(모임 신고·모임 관리·모임 기록) — 옛 모임 기능 삭제 (Owner 2026-11-12) = 250.
+    expect(leaves).toHaveLength(250);
     // 원래 메뉴 leaf = 203 − (`?from=` 진입점 3개[프로모션·마이페이지 배너, 배달 광고]가 별칭으로 바뀜) + 고객지원 보기 2개 = 202
     // + Apple 결제 검토 = 203 · + 광고 「충전·문의」·Cash 충전 대기열(숨김)(2026-11-07) = 205
-    // + 홈 구성 = 206 · + 입점 계약 = 207 · + 매장 공지 = 208 · + 고객지원 문의 유형 관리 = 209 · − 배포 = 208
-    expect(leaves.filter((l) => !l.entryAlias)).toHaveLength(208);
+    // + 홈 구성 = 206 · + 입점 계약 = 207 · + 매장 공지 = 208 · + 고객지원 문의 유형 관리 = 209 · − 배포 = 208 · − 모임 3 = 205
+    expect(leaves.filter((l) => !l.entryAlias)).toHaveLength(205);
   });
 
   it("J21–J34 operational findability primary paths", () => {

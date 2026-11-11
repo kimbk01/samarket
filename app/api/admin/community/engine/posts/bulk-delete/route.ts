@@ -3,7 +3,7 @@
  * body: { ids: string[], reason: string } — 게시글 행 영구 삭제 (설계 O-2 · C-02).
  *
  * - 최고 관리자 전용, 사유 필수.
- * - 조건: 삭제 상태로 30일 경과 · 처리 안 된 신고 없음 · 노출 중/중지 홍보 없음 · 연결된 모임 없음.
+ * - 조건: 삭제 상태로 30일 경과 · 처리 안 된 신고 없음 · 노출 중/중지 홍보 없음.
  * - 삭제 전에 행 전체 스냅샷을 감사 기록에 남기고, 기록에 실패하면 그 글은 지우지 않는다.
  * - 사진: 글의 모든 사진 중 삭제 뒤 어디에서도 참조되지 않는 것만 저장소에서 지운다(Owner 승인 ③ 2026-10-31).
  */
@@ -37,7 +37,6 @@ export type HardDeleteBlockReason =
   | "too_recent"
   | "open_reports"
   | "running_promotion"
-  | "has_meeting"
   | "audit_failed"
   | "delete_failed";
 
@@ -80,7 +79,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
   }
 
-  const [postsRes, reportsRes, promoRes, meetingsRes, commentCountRes] = await Promise.all([
+  const [postsRes, reportsRes, promoRes, commentCountRes] = await Promise.all([
     sb.from("community_posts").select("*").in("id", ids),
     sb
       .from("community_reports")
@@ -94,17 +93,15 @@ export async function POST(req: NextRequest) {
       .eq("domain", "community")
       .in("target_id", ids)
       .in("order_status", ["active", "paused", "pending_review"]),
-    sb.from("meetings").select("post_id").in("post_id", ids),
     sb.from("community_comments").select("post_id").in("post_id", ids),
   ]);
-  const firstErr = [postsRes, reportsRes, promoRes, meetingsRes, commentCountRes].find((r) => r.error);
+  const firstErr = [postsRes, reportsRes, promoRes, commentCountRes].find((r) => r.error);
   if (firstErr?.error) {
     return NextResponse.json({ ok: false, error: "preflight_failed" }, { status: 500 });
   }
 
   const openReports = new Set((reportsRes.data ?? []).map((r: { target_id: string }) => r.target_id));
   const runningPromo = new Set((promoRes.data ?? []).map((r: { target_id: string }) => r.target_id));
-  const withMeeting = new Set((meetingsRes.data ?? []).map((r: { post_id: string }) => r.post_id));
   const commentCount = new Map<string, number>();
   for (const r of (commentCountRes.data ?? []) as { post_id: string }[]) {
     commentCount.set(r.post_id, (commentCount.get(r.post_id) ?? 0) + 1);
@@ -124,7 +121,6 @@ export async function POST(req: NextRequest) {
       blocked.push({ id, reason: "too_recent" });
     else if (openReports.has(id)) blocked.push({ id, reason: "open_reports" });
     else if (runningPromo.has(id)) blocked.push({ id, reason: "running_promotion" });
-    else if (withMeeting.has(id)) blocked.push({ id, reason: "has_meeting" });
     else eligible.push(id);
   }
 

@@ -5,7 +5,6 @@
 export const ARO_IA_001_COMMUNITY_PROMOTIONS_PATH = "/admin/community/promotions" as const;
 export const ARO_IA_001_COMMUNITY_POINT_POLICIES_PATH = "/admin/community/point-policies" as const;
 export const ARO_IA_001_COMMUNITY_REPORTS_PATH = "/admin/community/reports" as const;
-export const ARO_IA_001_MEETING_REPORTS_PATH = "/admin/philife/meeting-reports" as const;
 
 /** Common Ads Control Plane hub (not Community promotion writer). */
 export const ARO_IA_001_ADS_HUB_PATH = "/admin/delivery-ads" as const;
@@ -19,7 +18,6 @@ export const ARO_IA_001_OWNERS = {
   promotion: "point_promotion_orders",
   pointPolicy: "board_point_policies",
   report: "community_reports",
-  meetingReport: "meeting_reports",
 } as const;
 
 /** 커뮤니티 Admin 설계 v2 §B-2 — 9 그룹 순서 (Owner 승인). */

@@ -5,7 +5,7 @@
  * ① 제목·설명 ② 상태 탭(묶음 수) ③ 필터 바(기간 PHT·유형·상세 필터·검색어·조회·초기화) ⑤ 대상별 묶음 표 ⑥ 페이지네이션(20/50/100, URL size).
  * 같은 대상(target_type+target_id)의 신고는 1행 「신고 n건」 — 행을 누르면 오른쪽 처리 시트(공용 처리 패널).
  * 탭·필터·페이지는 URL 에 있다 → 상세 페이지 다녀와도 그대로.
- * 이 원장은 community_reports 만 — 모임 신고는 링크 탭으로 이동, 회원·사장님 문의는 고객지원.
+ * 이 원장은 community_reports 만 — 회원·사장님 문의는 고객지원.
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -46,7 +46,6 @@ import {
   CommunityReportDecisionPanel,
   nextReportActions,
 } from "@/components/admin/community/reports/CommunityReportDecisionPanel";
-import { CommunityReportSourceSwitch } from "@/components/admin/community/reports/CommunityReportSourceSwitch";
 import {
   CommunityBannerView,
   CommunityDrawer,
@@ -162,7 +161,6 @@ export function AdminCommunityReportsPage({
         }
         banner={
           <>
-            <CommunityReportSourceSwitch current="feed" />
             <CommunityBannerView banner={banner} onClose={() => setBanner(null)} />
             {filters.periodError ? (
               <CommunityBannerView

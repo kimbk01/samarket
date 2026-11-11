@@ -154,7 +154,6 @@ export const META_KIND_PREFERENCE_POLICY_OVERRIDES: Readonly<Record<string, Poli
   trade_sanction: row("member", "trade_events", "mandatory", MANDATORY),
   community_moderation: row("member", "community_social", "mandatory", MANDATORY),
   community_sanction: row("member", "community_social", "mandatory", MANDATORY),
-  community_meeting_decision: row("member", "community_social", "mandatory", MANDATORY),
   chat_report_sanction: row("member", "notice", "mandatory", MANDATORY),
   // D-Q4 — 매장 심사·영업 정지 결정과 관리자 주문 개입은 매장 오너에게 가는 필수 운영 조치 통지.
   admin_store_decision: row("owner", "owner_order_ops", "mandatory", MANDATORY),

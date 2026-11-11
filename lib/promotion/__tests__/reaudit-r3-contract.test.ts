@@ -74,7 +74,7 @@ describe("G-8 — 자체 시트·대화상자도 열려 있으면 팝업을 미�
     expect(readNonAdOpenOverlayCount()).toBe(base);
   });
 
-  it("조사된 자체 창 26곳이 열림 상태로 등록한다(통화 화면 제외)", () => {
+  it("조사된 자체 창 25곳이 열림 상태로 등록한다(통화 화면 제외)", () => {
     const files = [
       "components/community-messenger/MessengerSheetUi.tsx",
       "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
@@ -83,7 +83,6 @@ describe("G-8 — 자체 시트·대화상자도 열려 있으면 팝업을 미�
       "components/community-messenger/room/MessengerImageLightbox.tsx",
       "components/community-messenger/room/MessengerPhotoSelectSaveSheet.tsx",
       "components/community-messenger/room/message/MessageReactionRosterSheet.tsx",
-      "components/community-messenger/meetings/MeetingJoinPreviewFullScreen.tsx",
       "components/common/media/PostImageViewer.tsx",
       "components/chats/StoreOrderSellerOrderPanel.tsx",
       "components/chats/StoreOrderBuyerChatTop.tsx",

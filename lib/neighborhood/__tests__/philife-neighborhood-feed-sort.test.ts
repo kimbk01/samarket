@@ -16,7 +16,6 @@ function topic(
     sort_order: 0,
     is_visible: true,
     allow_question: false,
-    allow_meetup: false,
     feed_list_skin: "compact_media",
     ...partial,
   };

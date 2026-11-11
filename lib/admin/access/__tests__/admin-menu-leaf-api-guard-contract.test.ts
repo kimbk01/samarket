@@ -184,8 +184,6 @@ const NON_ENTRY_LOOKUPS: Readonly<Record<string, string>> = {
     "주문 상세 모달의 이력 패널 — 403 이면 패널에 forbidden 표시(AdminStoreOrderHistoryPanel), 채팅 목록은 그대로",
   "/admin/community/points → /api/admin/points/adjust":
     "포인트 조정 패널의 잔액 확인 — 조정(쓰기) 실행 때만 부름. 쓰기 권한(action=point)과 같다",
-  "/admin/philife/meeting-events → /api/admin/community/topics":
-    "주제 필터 선택지 — 실패 시 선택지만 비움(useCommunityTopicOptions 가 !ok 무시), 목록은 표시",
   "/admin/order-notifications → /api/admin/community-reports":
     "신고 목록의 피드 신고 출처 — 거래 신고와 합산, 피드 출처 실패 시 거래 신고만 표시(AdminReportListPage)",
   "/admin/order-notifications → /api/admin/point-charges":

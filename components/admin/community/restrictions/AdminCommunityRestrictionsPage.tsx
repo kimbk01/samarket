@@ -304,9 +304,7 @@ export function AdminCommunityRestrictionsPage() {
               <td className={COMMUNITY_TD}>
                 {r.source_report_href ? (
                   <Link href={communityDetailHref(r.source_report_href, qs.selfHref)} className="text-sam-info hover:underline">
-                    {r.source_report_kind === "meeting_report"
-                      ? t("admin_community_restrict_view_meeting_report")
-                      : t("admin_community_restrict_view_report")}
+                    {t("admin_community_restrict_view_report")}
                   </Link>
                 ) : (
                   <span className="text-sam-muted">{t("admin_community_restrict_direct")}</span>

@@ -36,7 +36,6 @@ export type AdminActionQueueCategory =
   | "platform_inquiry_open"
   | "community_reports"
   | "store_applications"
-  | "meeting_reports"
   | "orders_attention"
   | "settlements_actionable"
   | "coin_withdrawals"
@@ -222,24 +221,6 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     domainEn: "Community",
     ctaKo: "신고 큐",
     ctaEn: "Reports queue",
-  },
-  {
-    key: "meeting_reports",
-    sources: ["meeting_reports"],
-    nextActor: "admin",
-    lifecycle: "active",
-    priority: "P1_ACTION_REQUIRED",
-    rt: "POLL_SUFFICIENT",
-    soundEligible: false,
-    requiredPermission: "reports",
-    listHref: "/admin/philife/meeting-reports",
-    sidebarMenuKeys: ["philife-meeting-reports"],
-    titleKo: "모임 신고",
-    titleEn: "Meeting reports",
-    domainKo: "커뮤니티",
-    domainEn: "Community",
-    ctaKo: "모임 신고 큐",
-    ctaEn: "Meeting reports",
   },
   {
     key: "store_reports",

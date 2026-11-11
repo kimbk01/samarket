@@ -101,16 +101,10 @@ describe("PB-21 · PB-22 자리 계산", () => {
 });
 
 describe("DS-1 상위노출 카드 이동", () => {
-  it("메신저 방 연결 글: 상위노출이면 글 상세, 일반이면 방", () => {
-    const p = post({ id: "post-9", community_messenger_room_id: "room-1" } as Partial<NeighborhoodFeedPostDTO>);
+  it("상위노출·일반 카드 모두 글 상세로 간다", () => {
+    const p = post({ id: "post-9" });
     expect(hrefOf(renderToStaticMarkup(<CommunityCard post={p} isAd />))).toBe("/philife/post-9");
-    expect(hrefOf(renderToStaticMarkup(<CommunityCard post={p} />))).toBe("/community-messenger/rooms/room-1");
-  });
-
-  it("모임 글: 상위노출이면 글 상세, 일반이면 모임", () => {
-    const p = post({ id: "post-8", is_meetup: true, meeting_id: "meet-1" } as Partial<NeighborhoodFeedPostDTO>);
-    expect(hrefOf(renderToStaticMarkup(<CommunityCard post={p} isAd />))).toBe("/philife/post-8");
-    expect(hrefOf(renderToStaticMarkup(<CommunityCard post={p} />))).not.toBe("/philife/post-8");
+    expect(hrefOf(renderToStaticMarkup(<CommunityCard post={p} />))).toBe("/philife/post-9");
   });
 });
 

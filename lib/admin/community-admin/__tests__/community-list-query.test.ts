@@ -3,8 +3,6 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   COMMENT_STATUSES,
-  MEETING_ADMIN_TABS,
-  MEETING_STATUSES,
   buildCommunitySearchOr,
   escapeIlikePattern,
   normalizeCommunitySearchTerm,
@@ -88,34 +86,17 @@ describe("buildCommunitySearchOr", () => {
 
 describe("status whitelist", () => {
   it("accepts only schema statuses", () => {
-    expect(pickAllowed("open", MEETING_STATUSES)).toBe("open");
-    expect(pickAllowed("bogus", MEETING_STATUSES)).toBe("");
-    expect(pickAllowed("pending", MEETING_ADMIN_TABS)).toBe("pending");
+    expect(pickAllowed("bogus", COMMENT_STATUSES)).toBe("");
     expect(pickAllowed("HIDDEN", COMMENT_STATUSES)).toBe("hidden");
     expect(pickAllowed(null, COMMENT_STATUSES)).toBe("");
   });
   it("matches migration CHECK constraints", () => {
     const v2 = read("supabase/migrations/20260327100000_community_engine_v2.sql");
     expect(v2).toContain("CHECK (status IN ('active', 'hidden', 'deleted'))");
-    expect(v2).toContain("CHECK (status IN ('open', 'closed', 'ended', 'cancelled'))");
   });
 });
 
-describe("route contracts — meetings/comments list: q · total · range", () => {
-  it("meetings route", () => {
-    const src = read("app/api/admin/community/engine/meetings/route.ts");
-    // 단건(meetingId) = exact count + range · 목록 = DB RPC (R7: 닉네임 후보 200명 상한 제거)
-    expect(src).toContain('{ count: "exact" }');
-    expect(src).toContain(".range(offset, offset + limit - 1)");
-    expect(src).toContain("parseCommunityListSearch");
-    expect(src).toContain("admin_community_meetings_page");
-    expect(src).toContain("p_q_pattern: search.pattern");
-    expect(src).not.toContain('.ilike("nickname"');
-    expect(src).not.toContain("COMMUNITY_LIST_PROFILE_MATCH_LIMIT");
-    expect(src).toMatch(/total: typeof count === "number"/);
-    expect(src).toContain("host_nickname");
-    expect(src).toContain("host_username");
-  });
+describe("route contracts — comments list: q · total · range", () => {
   it("comments route", () => {
     const src = read("app/api/admin/community/engine/comments/route.ts");
     // 단건(commentId) = exact count · 목록 = DB RPC (R7: 주제 글 id 500·신고 댓글 id 500·닉네임 200 상한 제거)
@@ -129,10 +110,6 @@ describe("route contracts — meetings/comments list: q · total · range", () =
   });
   it("UIs send q and render total + pagination", () => {
     // R7 목록 표준: 검색은 표준 필터 바(URL), 총 건수·20/50/100 은 표준 페이지네이션(「총 N건」)
-    const meetings = read("components/admin/community/AdminCommunityEngineMeetingsClient.tsx");
-    expect(meetings).toContain("CommunityListPagination");
-    expect(meetings).toContain("CommunityFilterBar");
-    expect(meetings).toContain('sp.set("q", q)');
     const comments = read("components/admin/community/AdminCommunityCommentsPage.tsx");
     expect(comments).toContain("CommunityFilterBar");
     expect(comments).toContain("CommunityListPagination");

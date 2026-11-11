@@ -54,14 +54,6 @@ export const ARO_AC_001_SOURCE_MATRIX: readonly AroAc001SourceRow[] = [
     errorSemantics: "unavailable_not_zero",
   },
   {
-    item: "MEETING REPORTS",
-    canonicalSource: "meeting_reports",
-    countQuery: "status pending|reviewing",
-    deeplink: "/admin/philife/meeting-reports",
-    actionable: true,
-    errorSemantics: "unavailable_not_zero",
-  },
-  {
     item: "POINT",
     canonicalSource: "point_charge_requests",
     countQuery: "request_status pending|waiting_confirm|on_hold",

@@ -75,8 +75,6 @@ export async function POST(req: NextRequest) {
     title?: string;
     content?: string;
     is_question?: boolean;
-    meetup_place?: string | null;
-    meetup_date?: string | null;
     imageUrls?: string[];
   }>(req, "JSON 본문이 필요합니다.");
   if (!parsed.ok) return parsed.response;
@@ -129,28 +127,9 @@ export async function POST(req: NextRequest) {
   }
 
   const is_question = meta.allow_question ? !!body.is_question : false;
-  const meetupPlaceRaw = typeof body.meetup_place === "string" ? body.meetup_place.trim().slice(0, 200) : "";
-  const meetupDateRaw = typeof body.meetup_date === "string" ? body.meetup_date.trim() : "";
-  let is_meetup = false;
-  let meetup_place: string | null = null;
-  let meetup_date: string | null = null;
-  if (meta.allow_meetup) {
-    if (meetupPlaceRaw) {
-      is_meetup = true;
-      meetup_place = meetupPlaceRaw;
-    }
-    if (meetupDateRaw) {
-      const d = Date.parse(meetupDateRaw);
-      if (!Number.isNaN(d)) {
-        is_meetup = true;
-        meetup_date = new Date(d).toISOString();
-      }
-    }
-  }
 
   const categoryForDb = deriveCommunityPostCategoryBucket({
     topicOrCategoryRaw: topicSlug,
-    isMeetup: is_meetup,
   });
 
   if (ops.max_posts_per_day > 0) {
@@ -196,9 +175,6 @@ export async function POST(req: NextRequest) {
       category: categoryForDb,
       images: [],
       is_question,
-      is_meetup,
-      meetup_place,
-      meetup_date,
       status: "active",
       is_sample_data: false,
     })

@@ -108,8 +108,6 @@ vi.mock("@/lib/env/runtime", async (orig) => ({
 }));
 // 서버 페이지가 렌더하는 클라이언트 화면 (데이터 로딩만 본다)
 vi.mock("@/components/admin/community/AdminCommunityReportsPage", () => ({ AdminCommunityReportsPage: () => null }));
-vi.mock("@/components/admin/philife/AdminMeetingReportsPage", () => ({ AdminMeetingReportsPage: () => null }));
-vi.mock("@/components/admin/philife/AdminPhilifeMeetingReportsHeader", () => ({ AdminPhilifeMeetingReportsHeader: () => null }));
 
 // ── 공용 카운트 함수 — 실제 구현 + 호출 기록 ──
 vi.mock("@/lib/admin/metrics/admin-metric-filters", async (orig) => H.wrapAll(await orig<Record<string, unknown>>()));
@@ -256,7 +254,6 @@ import { GET as notificationsGET } from "@/app/api/admin/notification-campaigns/
 import CommunityReportsPage from "@/app/admin/community/reports/page";
 import * as chatLoader from "@/lib/admin/metrics/load-chat-metrics";
 import { loadMessengerDomainDashboard } from "@/lib/admin/domain-dashboard/load-messenger-domain-dashboard";
-import MeetingReportsPage from "@/app/admin/philife/meeting-reports/page";
 
 const NOW = new Date("2026-10-20T09:27:00Z"); // 17:27 PHT
 const ORDER_RPC = {
@@ -390,16 +387,6 @@ describe("처리 대기 7 — 합계·P0 = 처리 대기 목록 합 · 카테고
     expect(argsOf(filters.applySupportCaseTabFilter)).toContainEqual([tab]);
     expect(tab).toBe("ACTIONABLE");
     cover("queue.support_actionable");
-  });
-
-  it("모임 신고: applyMeetingReportTabFilter(pending) — 모임 신고 화면(서버 페이지) 로더와 같은 함수", async () => {
-    const { sources } = setup();
-    await phase(() => sources.queue());
-    expect(argsOf(filters.applyMeetingReportTabFilter)).toContainEqual(["pending"]);
-    const status = new URL(ADMIN_METRIC_BY_ID.get("queue.meeting_reports")!.href as string, "http://x").searchParams.get("status");
-    await phase(() => MeetingReportsPage({ searchParams: Promise.resolve(status ? { status } : {}) }));
-    expect(argsOf(filters.applyMeetingReportTabFilter)).toContainEqual([filters.resolveMeetingReportTab(status)]);
-    cover("queue.meeting_reports");
   });
 
   it("수수료 검토: loadStoreCommissionLedgerPage — 처리 대기 값 = 원장 「검토 필요」 API 와 같은 인자의 total", async () => {

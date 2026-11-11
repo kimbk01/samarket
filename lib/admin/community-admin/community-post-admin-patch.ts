@@ -218,10 +218,7 @@ export async function applyCommunityPostAdminPatch(
       }
       patch.topic_id = meta.id;
       patch.topic_slug = topicSlug;
-      patch.category = deriveCommunityPostCategoryBucket({
-        topicOrCategoryRaw: topicSlug,
-        isMeetup: Boolean(meta.allow_meetup),
-      });
+      patch.category = deriveCommunityPostCategoryBucket({ topicOrCategoryRaw: topicSlug });
       contentEdited = true;
     }
   }

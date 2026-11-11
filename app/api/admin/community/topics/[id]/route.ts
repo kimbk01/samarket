@@ -35,7 +35,6 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     is_feed_sort?: boolean;
     feed_sort_mode?: string | null;
     allow_question?: boolean;
-    allow_meetup?: boolean;
     color?: string | null;
     icon?: string | null;
     feed_list_skin?: string;
@@ -81,7 +80,6 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     return NextResponse.json({ ok: false, error: sortMeta.error }, { status: 400 });
   }
   if (typeof body.allow_question === "boolean") patch.allow_question = body.allow_question;
-  if (typeof body.allow_meetup === "boolean") patch.allow_meetup = body.allow_meetup;
   if (body.color !== undefined) {
     patch.color =
       body.color != null && String(body.color).trim() ? String(body.color).trim().slice(0, 32) : null;
@@ -101,9 +99,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   const selectWithSkin =
-    "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, allow_meetup, feed_list_skin";
+    "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, feed_list_skin";
   const selectNoSkin =
-    "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, allow_meetup";
+    "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question";
 
   try {
     const sb = getSupabaseServer();

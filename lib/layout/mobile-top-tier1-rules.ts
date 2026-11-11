@@ -98,7 +98,6 @@ function computeMobileTopTier1RuleSet(pathNoQuery: string): MobileTopTier1RuleSe
     pathNoQuery === "/my/business" ||
     startsWithPath(pathNoQuery, "/my/business");
 
-  const isPhilifeMeetings = startsWithPath(pathNoQuery, "/philife/meetings");
   const isPhilifeMyPage = pathNoQuery === "/philife/my";
   const isStoresSearch = pathNoQuery === "/stores/search" || startsWithPath(pathNoQuery, "/stores/search");
 
@@ -120,7 +119,6 @@ function computeMobileTopTier1RuleSet(pathNoQuery: string): MobileTopTier1RuleSe
     suppressStoresTier1ForLocalChrome ||
     isMyBusinessOwnerHubSurface ||
     isCommunityOrPhilifePostDetail ||
-    isPhilifeMeetings ||
     isPhilifeMyPage ||
     isStoresSearch;
 

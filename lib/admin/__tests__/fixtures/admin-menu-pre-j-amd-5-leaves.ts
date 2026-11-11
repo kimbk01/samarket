@@ -3,6 +3,8 @@
  * design v4 appendix). Each `path` must stay reachable: a leaf path, a matchPaths entry, or
  * `CUT_J_J_AMD_5_REMOVED_LEAVES.coveredBy`. Path-less rows are legacy keys kept for redirects.
  * DO NOT edit to make a test pass — a removed path needs an explicit J-AMD amendment.
+ * Amendment (Owner 2026-11-12, docs/design/moim/moim-design-v1-2026-11-12.md §1·§8): the 3 legacy meeting
+ * leaves (meeting reports · meetings · meeting events) were deleted with the old meeting feature → 192 rows.
  */
 export const ADMIN_MENU_PRE_J_AMD_5_LEAVES: readonly {
   workspace: string;
@@ -67,12 +69,10 @@ export const ADMIN_MENU_PRE_J_AMD_5_LEAVES: readonly {
   { workspace: "trade", key: "trade-audit", path: "/admin/trade/audit" },
   { workspace: "community", key: "community-home", path: "/admin/community" },
   { workspace: "community", key: "community-feed-reports", path: "/admin/community/reports" },
-  { workspace: "community", key: "philife-meeting-reports", path: "/admin/philife/meeting-reports" },
   { workspace: "community", key: "community-restrictions", path: "/admin/community/restrictions" },
   { workspace: "community", key: "community-appeals", path: "/admin/community/support?type=appeal" },
   { workspace: "community", key: "community-posts", path: "/admin/community/posts" },
   { workspace: "community", key: "community-comments", path: "/admin/community/comments" },
-  { workspace: "community", key: "community-meetings", path: "/admin/community/meetings" },
   { workspace: "community", key: "community-members", path: "/admin/community/members" },
   { workspace: "community", key: "community-promotions", path: "/admin/community/promotions" },
   { workspace: "community", key: "community-points", path: "/admin/community/points" },
@@ -84,7 +84,6 @@ export const ADMIN_MENU_PRE_J_AMD_5_LEAVES: readonly {
   { workspace: "community", key: "community-external-import", path: "/admin/community/external-import" },
   { workspace: "community", key: "community-notices", path: "/admin/community/notices" },
   { workspace: "community", key: "community-audit", path: "/admin/community/audit" },
-  { workspace: "community", key: "community-meeting-events", path: "/admin/philife/meeting-events" },
   { workspace: "community", key: "community-stats", path: "/admin/community/stats" },
   { workspace: "community", key: "community-feed-settings", path: "/admin/community/settings" },
   { workspace: "messenger", key: "messenger-hub", path: "/admin/messenger" },

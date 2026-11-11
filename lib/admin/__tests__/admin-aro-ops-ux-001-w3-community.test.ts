@@ -49,7 +49,6 @@ describe("ARO-OPS-UX-001-W3 community domain migration", () => {
     expect(terminologyDisplay("POST", "ko")).toMatch(/게시/);
     expect(terminologyDisplay("COMMENT", "ko")).toMatch(/댓글/);
     expect(terminologyDisplay("REPORT", "ko")).toMatch(/신고/);
-    expect(terminologyDisplay("MEETING_REPORT", "ko")).toMatch(/모임/);
     // D-15 (2026-11-07): 커뮤니티 PROMOTION 정본 용어 = 「상위노출」 (광고 ≠ 상위노출 구분은 유지)
     expect(terminologyDisplay("PROMOTION", "ko")).toMatch(/상위노출/);
     expect(terminologyDisplay("ADVERTISEMENT", "ko")).toMatch(/광고/);
@@ -114,17 +113,7 @@ describe("ARO-OPS-UX-001-W3 community domain migration", () => {
     // 설계 v2 §C-0-1: 커뮤니티 목록 틀(CommunityTable = 가로 스크롤 viewport 소유)로 이관
     expect(reports).toContain("CommunityTable");
     expect(reports).not.toContain("min-w-[1000px]");
-    expect(reports).not.toContain("/api/admin/philife/meeting-reports");
     expect(reports).toContain("/api/admin/community-reports/");
-  });
-
-  it("C10 meeting_reports separate owner preserved", () => {
-    const meeting = read("components/admin/philife/AdminMeetingReportsPage.tsx");
-    expect(meeting).toContain("data-admin-meeting-reports-owner={ARO_IA_001_OWNERS.meetingReport}");
-    expect(ARO_IA_001_OWNERS.meetingReport).toBe("meeting_reports");
-    expect(meeting).toContain("/api/admin/philife/meeting-reports/");
-    expect(meeting).not.toContain("community_reports");
-    expect(meeting).toContain("data-admin-report-cta-state");
   });
 
   it("C12–C13 promotion + point policy owners/cross-links preserved", () => {
@@ -169,9 +158,6 @@ describe("ARO-OPS-UX-001-W3 community domain migration", () => {
     expect(read("components/admin/community/AdminCommunityCommentsPage.tsx")).toContain("CommunityTable");
     expect(read("components/admin/community/AdminCommunityReportsPage.tsx")).toContain("CommunityTable");
     expect(read("components/admin/community/kit/CommunityAdminKit.tsx")).toContain("data-admin-mgmt-table-viewport");
-    expect(read("components/admin/philife/AdminMeetingReportsPage.tsx")).toContain(
-      'proofSurface="meeting-reports"'
-    );
     expect(read("components/admin/management/AdminManagementTableViewport.tsx")).toContain(
       "data-admin-mgmt-table-viewport"
     );

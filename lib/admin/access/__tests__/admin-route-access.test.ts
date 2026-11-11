@@ -144,7 +144,6 @@ const ACTION_CONTRACT: { page: string; route: string; method: string }[] = [
   { page: "/admin/community/restrictions", route: "community/restrictions/route.ts", method: "POST" },
   { page: "/admin/community/promotions", route: "community-promotion-orders/[id]/route.ts", method: "PATCH" },
   { page: "/admin/community/points", route: "points/adjust/route.ts", method: "POST" },
-  { page: "/admin/philife/meeting-reports", route: "philife/meeting-reports/[reportId]/route.ts", method: "PATCH" },
   // R2 정렬 (Owner 승인 2026-10-30) — IA-06 의 feed-emergency·runtime-health·delivery-release-gate 는 화면 자체가 최고관리자라 action 없음
   { page: "/admin/notifications", route: "notification-campaigns/[campaignId]/send/route.ts", method: "POST" },
   // 재감사 D-5 (Owner 「D-5 진행」 2026-11-03) — 활성 관리자 전원이 쓸 수 있던 광고 쓰기 3경로

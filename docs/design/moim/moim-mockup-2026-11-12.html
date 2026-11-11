@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIBAY 모임 시안</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --green:#0B421A; --green-soft:#e7efe9; --green-mid:#2f6b3f;
+  --page:#e9ece9; --app-bg:#f3f2eb; --hdr:#ffffff;
+  --surface:#ffffff; --secondary:#f5f7f6; --border:#e5e7e8;
+  --fg:#16201a; --sub:#6b746e; --danger:#d92d20; --danger-bg:#fdecea;
+  --warn:#8a5300; --warn-bg:#fff4e0; --ok:#0f7a3a; --ok-bg:#e3f4ea; --info:#1d4ed8; --info-bg:#e8efff;
+  --scrim:rgba(17,24,20,.48);
+  --r:4px; --r-sheet:16px;
+  --font:"Noto Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo",sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--fg);font-family:var(--font);font-size:14px;line-height:1.5;padding:28px 16px 64px}
+.wrap{max-width:1320px;margin:0 auto;display:grid;gap:36px}
+h1{font-size:24px;margin:0}
+h2{font-size:18px;margin:0}
+h3{font-size:15px;margin:0}
+.lead{color:var(--sub);max-width:80ch;margin:6px 0 0}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;display:grid;gap:10px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+th{color:var(--sub);font-weight:600;font-size:12px;white-space:nowrap}
+.tbl{overflow-x:auto}
+.sec{display:grid;gap:14px}
+.row{display:flex;gap:24px;overflow-x:auto;padding-bottom:12px;align-items:flex-start}
+.cap{font-size:12px;font-weight:700;display:flex;gap:8px;align-items:center}
+.cap small{font-weight:400;color:var(--sub)}
+.note{font-size:12.5px;color:var(--sub);max-width:360px}
+.note b{color:var(--fg)}
+.dev{flex:0 0 auto;display:grid;gap:8px;width:360px}
+
+/* 휴대폰 */
+.phone{position:relative;width:360px;height:740px;background:var(--app-bg);border-radius:30px;border:7px solid #1d2420;overflow:hidden;display:flex;flex-direction:column}
+.st{height:26px;flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;padding:0 18px;font-size:11px;font-weight:600;background:var(--hdr)}
+.hdr{height:50px;flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 14px;background:var(--hdr);border-bottom:1px solid var(--border)}
+.hdr b{font-size:17px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ic{width:22px;height:22px;display:inline-grid;place-items:center;font-size:16px;color:#2b3330;flex:0 0 auto}
+.body{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.scroll{flex:1;overflow:hidden;padding:0 0 12px}
+.bnav{height:56px;flex:0 0 auto;display:flex;border-top:1px solid var(--border);background:#fff}
+.bnav span{flex:1;display:grid;place-items:center;font-size:10.5px;color:var(--sub);line-height:1.2;text-align:center}
+.bnav span.on{color:var(--green);font-weight:700}
+.bnav i{font-style:normal;font-size:17px;display:block}
+
+/* 탭·칩 (2단 탭은 자르지 않고 가로 스크롤) */
+.tabs{display:flex;gap:18px;padding:0 14px;background:#fff;border-bottom:1px solid var(--border);overflow-x:auto;white-space:nowrap;flex:0 0 auto}
+.tabs span{padding:11px 0 9px;font-size:14px;color:var(--sub);border-bottom:2px solid transparent;flex:0 0 auto}
+.tabs span.on{color:var(--fg);font-weight:700;border-color:var(--fg)}
+.chips{display:flex;gap:6px;padding:10px 14px;overflow-x:auto;white-space:nowrap;flex:0 0 auto}
+.chip{flex:0 0 auto;padding:5px 12px;border-radius:999px;border:1px solid var(--border);background:#fff;font-size:12.5px}
+.chip.on{background:var(--green);color:#fff;border-color:var(--green)}
+
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:12px}
+.list{display:grid;gap:8px;padding:0 14px}
+.sh{display:flex;justify-content:space-between;align-items:baseline;padding:14px 14px 8px}
+.sh b{font-size:15px}
+.sh a{font-size:12px;color:var(--sub);text-decoration:none}
+.mo{display:flex;gap:10px;align-items:flex-start}
+.thumb{width:56px;height:56px;border-radius:var(--r);flex:0 0 auto;background:linear-gradient(135deg,#cfe0d3,#9dbfa6);display:grid;place-items:center;font-size:22px}
+.mo .t{font-weight:700;font-size:14px;line-height:1.35}
+.mo .d{font-size:12px;color:var(--sub);margin-top:2px}
+.meta{font-size:11.5px;color:var(--sub);display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.badge{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:999px;white-space:nowrap;vertical-align:1px}
+.b-green{background:var(--green-soft);color:var(--green)}
+.b-warn{background:var(--warn-bg);color:var(--warn)}
+.b-bad{background:var(--danger-bg);color:var(--danger)}
+.b-ok{background:var(--ok-bg);color:var(--ok)}
+.b-info{background:var(--info-bg);color:var(--info)}
+.b-gray{background:var(--secondary);color:var(--sub)}
+.mine{display:flex;gap:12px;padding:0 14px;overflow-x:auto}
+.mine div{flex:0 0 auto;width:72px;text-align:center;font-size:11.5px;line-height:1.3}
+.mine .thumb{width:60px;height:60px;margin:0 auto 4px;border-radius:999px}
+.fab{position:absolute;right:16px;bottom:72px;background:var(--green);color:#fff;border-radius:999px;padding:11px 16px;font-weight:700;font-size:13.5px;box-shadow:0 4px 12px rgba(0,0,0,.18)}
+
+.btn{display:flex;align-items:center;justify-content:center;height:46px;border-radius:var(--r);font-weight:700;font-size:15px;background:var(--green);color:#fff}
+.btn.sec2{background:#fff;color:var(--fg);border:1px solid var(--border)}
+.btn.sm{height:34px;font-size:13px;padding:0 12px}
+.btn.danger{background:#fff;color:var(--danger);border:1px solid #f3c7c3}
+.cta{padding:10px 14px 14px;background:#fff;border-top:1px solid var(--border);flex:0 0 auto;display:flex;gap:8px}
+.cta .btn{flex:1}
+
+.field{padding:0 14px;display:grid;gap:6px;margin-top:14px}
+.field label{font-size:12.5px;font-weight:700}
+.input{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-size:14px;color:var(--fg)}
+.input.ph{color:#9aa39d}
+.hint{font-size:11.5px;color:var(--sub)}
+.seg{display:flex;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;background:#fff}
+.seg span{flex:1;text-align:center;padding:9px 0;font-size:13px;border-right:1px solid var(--border)}
+.seg span:last-child{border-right:0}
+.seg span.on{background:var(--green-soft);color:var(--green);font-weight:700}
+.steps{display:flex;gap:4px;padding:12px 14px 0}
+.steps i{flex:1;height:3px;border-radius:2px;background:var(--border)}
+.steps i.on{background:var(--green)}
+.warnbox{margin:12px 14px 0;background:var(--warn-bg);color:var(--warn);border-radius:var(--r);padding:9px 11px;font-size:12px}
+.infobox{margin:12px 14px 0;background:var(--green-soft);color:var(--green);border-radius:var(--r);padding:9px 11px;font-size:12px}
+.badbox{margin:12px 14px 0;background:var(--danger-bg);color:var(--danger);border-radius:var(--r);padding:9px 11px;font-size:12px}
+
+.cover{height:140px;background:linear-gradient(135deg,#a9c9b1,#56865f);position:relative;flex:0 0 auto}
+.cover .tag{position:absolute;left:14px;bottom:10px;color:#fff;font-size:12px;font-weight:600}
+.mhead{background:#fff;padding:12px 14px;border-bottom:1px solid var(--border)}
+.mhead .n{font-size:18px;font-weight:700}
+.stat{display:flex;gap:14px;font-size:12px;color:var(--sub);margin-top:4px;flex-wrap:wrap}
+.row2{display:flex;gap:8px;margin-top:10px}
+.row2 .btn{flex:1}
+
+.sched{display:flex;gap:10px;align-items:center}
+.date{width:46px;flex:0 0 auto;text-align:center;border:1px solid var(--border);border-radius:var(--r);padding:4px 0;line-height:1.15}
+.date small{display:block;font-size:10px;color:var(--danger);font-weight:700}
+.date b{font-size:17px}
+.av{width:30px;height:30px;border-radius:999px;background:#cbd8ce;display:inline-grid;place-items:center;font-size:12px;font-weight:700;color:#244;flex:0 0 auto}
+.mrow{display:flex;gap:10px;align-items:center;padding:10px 14px;background:#fff;border-bottom:1px solid var(--border)}
+.mrow .nm{flex:1;min-width:0}
+.mrow .nm b{font-size:14px}
+.mrow .nm div{font-size:11.5px;color:var(--sub)}
+
+.scrimwrap{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:flex-end;z-index:5}
+.sheet{width:100%;background:#fff;border-radius:var(--r-sheet) var(--r-sheet) 0 0;padding:8px 0 16px}
+.grab{width:36px;height:4px;border-radius:2px;background:#d6dad7;margin:0 auto 8px}
+.sheet h4{margin:0;padding:6px 16px 10px;font-size:16px}
+.opt{display:flex;align-items:center;gap:12px;padding:12px 16px;font-size:14.5px}
+.opt .ic{color:var(--green)}
+.opt.red{color:var(--danger)}
+.opt.red .ic{color:var(--danger)}
+.qr{width:120px;height:120px;margin:4px auto 6px;background:
+  repeating-linear-gradient(90deg,#16201a 0 6px,#fff 6px 12px),repeating-linear-gradient(0deg,#16201a 0 6px,#fff 6px 12px);background-blend-mode:difference;border:6px solid #fff;outline:1px solid var(--border)}
+
+.chatrow{display:flex;gap:10px;align-items:center;padding:11px 14px;background:#fff;border-bottom:1px solid var(--border)}
+.chatrow .nm{flex:1;min-width:0}
+.chatrow .nm b{font-size:14px}
+.chatrow .nm div{font-size:12px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.unread{background:var(--danger);color:#fff;border-radius:999px;font-size:10.5px;font-weight:700;padding:0 6px;line-height:17px}
+.roomtop{display:flex;gap:8px;align-items:center;padding:8px 14px;background:var(--green-soft);font-size:12.5px;color:var(--green)}
+.roomtop b{flex:1}
+.bub{max-width:76%;background:#fff;border-radius:12px;padding:8px 11px;font-size:13.5px;margin:6px 14px}
+.bub.me{margin-left:auto;background:var(--green);color:#fff}
+.who{font-size:11px;color:var(--sub);margin:8px 14px -4px}
+
+.ntf{display:flex;gap:10px;padding:12px 14px;background:#fff;border-bottom:1px solid var(--border)}
+.ntf.unr{background:#f6faf7}
+.ntf .tx{flex:1;font-size:13px;line-height:1.45}
+.ntf .tm{font-size:11px;color:var(--sub)}
+
+/* 어드민 */
+.admin{background:#fff;border:1px solid var(--border);border-radius:8px;overflow:hidden;min-width:1040px}
+.abar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:#16201a;color:#fff;font-size:13px}
+.abar b{font-size:14px}
+.agrid{display:grid;grid-template-columns:190px 1fr}
+.aside{background:#f7f8f7;border-right:1px solid var(--border);padding:12px 0;font-size:12.5px}
+.aside div{padding:6px 16px;color:var(--sub)}
+.aside div.grp{font-weight:700;color:var(--fg);margin-top:8px}
+.aside div.on{background:var(--green-soft);color:var(--green);font-weight:700}
+.amain{padding:16px 18px;display:grid;gap:12px;align-content:start}
+.atabs{display:flex;gap:4px;flex-wrap:wrap}
+.atabs span{padding:5px 11px;border:1px solid var(--border);border-radius:var(--r);font-size:12.5px;background:#fff}
+.atabs span.on{background:var(--green);color:#fff;border-color:var(--green)}
+.afil{display:flex;gap:8px;flex-wrap:wrap}
+.afil span{border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;font-size:12.5px;color:var(--sub);background:#fff}
+.afil span.q{flex:1;min-width:240px}
+.atbl td,.atbl th{font-size:12.5px;padding:8px}
+.atbl tr:hover td{background:#fafbfa}
+.link{color:var(--info);text-decoration:none}
+.split{display:grid;grid-template-columns:1fr 340px;gap:14px;align-items:start}
+.box{border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:grid;gap:8px;background:#fff}
+.box h3{font-size:14px}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:4px 10px;font-size:12.5px}
+.kv span:nth-child(odd){color:var(--sub)}
+.radio{display:grid;gap:6px;font-size:12.5px}
+.radio label{display:flex;gap:8px;align-items:center;border:1px solid var(--border);border-radius:var(--r);padding:7px 10px}
+.radio label.on{border-color:var(--green);background:var(--green-soft)}
+.ta{border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;font-size:12.5px;color:#9aa39d;min-height:54px}
+.drawer{border-left:1px solid var(--border);background:#fff;padding:14px;display:grid;gap:10px;align-content:start}
+
+/* 흐름도 */
+.flow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12.5px}
+.flow span{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:6px 10px}
+.flow span.k{background:var(--green-soft);border-color:#c6d9cb;color:var(--green);font-weight:700}
+.flow span.x{background:var(--danger-bg);border-color:#f3c7c3;color:var(--danger)}
+.flow em{font-style:normal;color:var(--sub)}
+.flows{display:grid;gap:12px}
+.flows h3{font-size:13.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>DIBAY 「모임」 화면 시안 v1</h1>
+  <p class="lead">설계 문서 <code>docs/design/moim/moim-design-v1-2026-11-12.md</code> 의 화면 시안입니다. 휴대폰 화면은 360px 기준이고, 어드민 화면은 PC 기준입니다. 사람·모임 이름은 모두 예시입니다. 문구는 구현할 때 i18n 키로 옮깁니다. 숫자 상한(D6)은 아직 정해지지 않아 화면에 넣지 않았습니다.</p>
+</header>
+
+<!-- ───────── 1. 구분 ───────── -->
+<section class="sec">
+  <h2>1. 모임과 다른 채팅의 구분</h2>
+  <div class="panel tbl">
+    <table>
+      <tr><th></th><th>친구 그룹채팅</th><th>오픈채팅</th><th>모임 전체 채팅</th><th>모임 일정 채팅</th></tr>
+      <tr><th>만드는 곳</th><td>메신저</td><td>메신저</td><td><b>모임 개설 시 자동</b></td><td><b>일정 생성 시 자동</b></td></tr>
+      <tr><th>들어오기</th><td>친구 초대·링크</td><td>검색 후 바로/비밀번호</td><td><b>모임 가입 = 자동 입장</b></td><td><b>참여 확정 = 자동 입장</b></td></tr>
+      <tr><th>나가기·내보내기</th><td>방에서</td><td>방에서</td><td><b>모임에서만</b>(방 안에 나가기 메뉴 없음)</td><td>일정 참여 취소 · 일정 호스트</td></tr>
+      <tr><th>표시 이름</th><td>DIBAY 닉네임</td><td>닉네임·방별 별명</td><td><b>모임별 프로필</b></td><td><b>모임별 프로필</b></td></tr>
+      <tr><th>기록</th><td>대화만</td><td>대화만</td><td>게시판·일정·앨범은 모임 홈에</td><td>후기 게시판</td></tr>
+      <tr><th>목록 표시</th><td>그룹</td><td>오픈채팅</td><td><span class="badge b-green">모임</span> + 모임 이름</td><td><span class="badge b-info">일정</span> + 일정 제목</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ───────── 2. 흐름 ───────── -->
+<section class="sec">
+  <h2>2. 프로세스 흐름 (요약)</h2>
+  <div class="panel flows">
+    <div><h3>개설</h3><div class="flow"><span>전화 인증 회원</span><em>→</em><span>카테고리</span><em>→</em><span>이름·소개·사진</span><em>→</em><span>동네·정원</span><em>→</em><span>가입 방식·질문</span><em>→</em><span>운영 규칙 동의</span><em>→</em><span class="k">모임 + 기본 게시판 4개 + 전체 채팅방 생성</span></div></div>
+    <div><h3>가입 (바로)</h3><div class="flow"><span>공개 페이지</span><em>→</em><span>모임 프로필 확인</span><em>→</em><span class="k">멤버 + 채팅방 자동 입장</span><em>→</em><span>가입인사 안내</span><em>·</em><span>모임장 알림(묶음)</span></div></div>
+    <div><h3>가입 (승인)</h3><div class="flow"><span>질문 답변</span><em>→</em><span>신청(대기)</span><em>→</em><span>승인권자 알림</span><em>→</em><span class="k">승인: 멤버 + 방 입장 + 결과 알림</span><em>/</em><span class="x">거절: 결과 알림</span></div></div>
+    <div><h3>초대</h3><div class="flow"><span>링크·QR</span><em>→</em><span>공개 페이지</span><em>→</em><span>원래 가입 방식대로</span><em>│</em><span>친구 직접 초대</span><em>→</em><span>수락</span><em>→</em><span class="k">운영진 초대는 승인 생략</span></div></div>
+    <div><h3>일정</h3><div class="flow"><span>일정 만들기</span><em>→</em><span class="k">일정 채팅방 생성</span><em>→</em><span>선착순 참여 / 신청→승인</span><em>→</em><span>리마인드</span><em>→</em><span>종료·출석</span><em>→</em><span>후기 안내</span></div></div>
+    <div><h3>탈퇴·내보내기·차단</h3><div class="flow"><span>탈퇴</span><em>→</em><span>모든 모임 방 퇴장 · 다가오는 일정 취소</span><em>│</em><span>내보내기(재가입 가능)</span><em>│</em><span class="x">차단(재가입·초대·링크 모두 불가)</span></div></div>
+    <div><h3>모임장 위임</h3><div class="flow"><span>직접 위임</span><em>→</em><span>상대 수락</span><em>→</em><span class="k">교체 + 전체 알림</span><em>│</em><span>30일 미접속</span><em>→</em><span>운영진 요청</span><em>→</em><span>어드민 지정</span><em>│</em><span class="x">경고 상태 위임 불가</span></div></div>
+    <div><h3>신고·제재</h3><div class="flow"><span>⋮ 신고</span><em>→</em><span>어드민 큐</span><em>→</em><span>기각 / 숨김 / 추천 제외 / 경고 / 모임 차단 / 이용 제한</span><em>→</em><span class="k">제재 기록 + 신고 처리 + 신고자 알림 한 번에</span></div></div>
+  </div>
+</section>
+
+<!-- ───────── 3. 사용자 화면 ───────── -->
+<section class="sec">
+  <h2>3. 사용자 화면</h2>
+  <div class="row">
+
+    <!-- U1 모임 탭 홈 -->
+    <div class="dev">
+      <div class="cap">U1 · 모임 탭 홈 <small>/moim</small></div>
+      <div class="phone">
+        <div class="st"><span>9:41</span><span>▮▮ ◔</span></div>
+        <div class="hdr"><b>동네생활</b><span class="ic">⌕</span><span class="ic">🔔</span></div>
+        <div class="tabs"><span>전체</span><span>질문</span><span class="on">모임</span><span>동네소식</span><span>맛집</span></div>
+        <div class="body"><div class="scroll">
+          <div class="sh"><b>내 모임</b><a>전체 3</a></div>
+          <div class="mine">
+            <div><div class="thumb">🏸</div>BGC 배드민턴</div>
+            <div><div class="thumb">📚</div>마카티 독서</div>
+            <div><div class="thumb">🐶</div>산책 친구</div>
+          </div>
+          <div class="chips"><span class="chip on">전체</span><span class="chip">운동</span><span class="chip">동네친구</span><span class="chip">스터디</span><span class="chip">맛집·카페</span><span class="chip">육아</span><span class="chip">반려동물</span></div>
+          <div class="sh" style="padding-top:2px"><b>Taguig 모임</b><a>최근 활동순</a></div>
+          <div class="list">
+            <div class="card mo"><div class="thumb">⚽</div><div><div class="t">주말 아침 풋살 <span class="badge b-info">일정 모집 중</span></div><div class="d">토요일 아침 7시, 초보 환영해요</div><div class="meta"><span>운동</span>·<span>Taguig</span>·<span>멤버 24</span></div></div></div>
+            <div class="card mo"><div class="thumb">☕</div><div><div class="t">BGC 카페 탐방</div><div class="d">한 달에 두 번 새 카페 가요</div><div class="meta"><span>맛집·카페</span>·<span>Taguig</span>·<span>멤버 11</span>·<span>승인 가입</span></div></div></div>
+            <div class="card mo"><div class="thumb">🗣️</div><div><div class="t">영어 회화 스터디</div><div class="d">평일 저녁 온라인 + 월 1회 오프라인</div><div class="meta"><span>스터디</span>·<span>Taguig</span>·<span>멤버 8</span></div></div></div>
+          </div>
+        </div>
+        <div class="fab">＋ 모임 만들기</div>
+        </div>
+        <div class="bnav"><span><i>⌂</i>홈</span><span class="on"><i>☷</i>동네생활</span><span><i>✎</i>글쓰기</span><span><i>✉</i>채팅</span><span><i>☺</i>내정보</span></div>
+      </div>
+      <p class="note">진입 위치는 <b>D2</b>(권고: 동네생활 상단 「모임」 탭). 노출은 같은 도시(LGU) 모임만입니다(D3). 카테고리 칩은 자르지 않고 가로로 넘깁니다.</p>
+    </div>
+
+    <!-- U2 만들기 -->
+    <div class="dev">
+      <div class="cap">U2 · 모임 만들기 3/5 <small>/moim/new</small></div>
+      <div class="phone">
+        <div class="st"><span>9:41</span><span>▮▮ ◔</span></div>
+        <div class="hdr"><span class="ic">←</span><b>모임 만들기</b><span class="hint">3/5</span></div>
+        <div class="steps"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div>
+        <div class="body"><div class="scroll">
+          <div class="field"><label>활동 동네</label><div class="input">Taguig City</div><div class="hint">기본 주소의 도시로 정해져요. 바꾸려면 내 주소를 바꿔 주세요.</div></div>
+          <div class="field"><label>정원</label><div class="input">30명</div><div class="hint">최대 인원은 운영 정책에 따라요.</div></div>
+          <div class="field"><label>가입 방식</label><div class="seg"><span>바로 가입</span><span class="on">승인 후 가입</span></div></div>
+          <div class="field"><label>가입 질문 <span class="hint">(선택, 최대 3개)</span></label>
+            <div class="input">배드민턴 얼마나 쳐 보셨어요?</div>
+            <div class="input ph">＋ 질문 추가</div>
+          </div>
+          <div class="warnbox">실명·전화번호·신분증을 묻는 질문은 쓸 수 없어요.</div>
+        </div></div>
+        <div class="cta"><span class="btn sec2">이전</span><span class="btn">다음</span></div>
+      </div>
+      <p class="note">단계: ① 카테고리 ② 이름·소개·사진 ③ 동네·정원·가입 방식 ④ 연령(D5) ⑤ 운영 규칙 동의. 질문을 저장할 때 금지어를 검사합니다.</p>
+    </div>
+
+    <!-- U3 공개 페이지 + 가입 시트 -->
+    <div class="dev">
+      <div class="cap">U3 · 모임 공개 페이지 + 가입 신청 <small>/moim/[id]</small></div>
+      <div class="phone">
+        <div class="st"><span>9:41</span><span>▮▮ ◔</span></div>
+        <div class="hdr"><span class="ic">←</span><b></b><span class="ic">⤴</span><span class="ic">⋮</span></div>
+        <div class="body"><div class="scroll">
+          <div class="cover"><span class="tag">운동 · Taguig</span></div>
+          <div class="mhead"><div class="n">BGC 배드민턴</div><div class="stat"><span>멤버 18/30</span><span>승인 후 가입</span><span>최근 활동 오늘</span></div>
+            <p style="margin:8px 0 0;font-size:13px">매주 수·토 저녁 BGC 체육관에서 칩니다. 초보도 환영해요.</p></div>
+          <div class="sh"><b>다가오는 일정</b></div>
+          <div class="list"><div class="card sched"><div class="date"><small>11/15</small><b>토</b></div><div><b style="font-size:13.5px">토요일 정기 게임</b><div class="hint">오후 6:00 · BGC 체육관 · 6/8명</div></div></div></div>
+        </div></div>
+        <div class="scrimwrap">
+          <div class="sheet">
+            <div class="grab"></div>
+            <h4>가입 신청</h4>
+            <div class="field" style="margin-top:0"><label>배드민턴 얼마나 쳐 보셨어요?</label><div class="input">1년 정도 동호회에서 쳤어요</div></div>
+            <div class="field"><label>이 모임에서 쓸 프로필</label>
+              <div class="card" style="display:flex;gap:10px;align-items:center"><span class="av">민</span><div style="flex:1"><b style="font-size:13.5px">민지</b><div class="hint">DIBAY 닉네임 · 모임마다 바꿀 수 있어요</div></div><span class="hint">수정</span></div>
+            </div>
+            <div class="field"><span class="hint">전화번호·DIBAY ID 는 다른 멤버에게 보이지 않아요.</span></div>
+            <div style="padding:12px 14px 0"><span class="btn">신청하기</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="note">비멤버는 <b>멤버 목록과 멤버 전용 글을 볼 수 없습니다</b>. 차단된 사람에게는 「가입할 수 없는 모임입니다」만 보이고 사유는 보이지 않습니다.</p>
+    </div>
+
+    <!-- U4 모임 홈 -->
+    <div class="dev">
+      <div class="cap">U4 · 모임 홈 (멤버) <small>/moim/[id]</small></div>
+      <div class="phone">
+        <div class="st"><span>9:41</span><span>▮▮ ◔</span></div>
+        <div class="hdr"><span class="ic">←</span><b>BGC 배드민턴</b><span class="ic">⌕</span><span class="ic">≡</span></div>
+        <div class="tabs"><span class="on">홈</span><span>게시판</span><span>일정</span><span>앨범</span><span>멤버 18</span></div>
+        <div class="body"><div class="scroll">
+          <div class="list" style="margin-top:12px">
+            <div class="card" style="display:flex;gap:8px;align-items:center"><span class="badge b-warn">공지</span><span style="font-size:13px;flex:1">11월 회비 안내 · 코트비 1/N</span></div>
+          </div>
+          <div class="sh"><b>다가오는 일정</b><a>달력</a></div>
+          <div class="list">
+            <div class="card sched"><div class="date"><small>11/15</small><b>토</b></div><div style="flex:1"><b style="font-size:13.5px">토요일 정기 게임</b><div class="hint">오후 6:00 · BGC 체육관</div></div><span class="badge b-ok">참여 확정</span></div>
+            <div class="card sched"><div class="date"><small>11/19</small><b>수</b></div><div style="flex:1"><b style="font-size:13.5px">수요 레슨 (승인제)</b><div class="hint">오후 7:30 · 3/6명</div></div><span class="badge b-gray">모집 중</span></div>
+          </div>
+          <div class="sh"><b>최근 글</b><a>게시판</a></div>
+          <div class="list">
+            <div class="card"><div class="hint">자유 · 준호 · 1시간 전</div><div style="font-size:13.5px">라켓 줄 어디서 매세요?</div></div>
+            <div class="card"><div class="hint">가입인사 · 새 멤버 · 어제</div><div style="font-size:13.5px">안녕하세요! 이번 주 처음 나가요</div></div>
+          </div>
+        </div>
+        <div class="fab" style="bottom:20px">💬 모임 채팅</div>
+        </div>
+      </div>
+      <p class="note">≡ 메뉴: 초대 · 내 모임 프로필 · 모임 알림 설정 · 신고 · 모임 나가기. 운영진에게는 <b>운영 관리</b>가 더 보입니다. 경고 상태이면 운영진에게만 상단 경고 배너가 보입니다.</p>
+    </div>
+
+    <!-- U5 일정 -->
+    <div class="dev">
+      <div class="cap">U5 · 일정 상세 (신청 후 승인) <small>/moim/[id]/schedules/[sid]</small></div>
+      <div class="phone">
+        <div class="st"><span>9:41</span><span>▮▮ ◔</span></div>
+        <div class="hdr"><span class="ic">←</span><b>일정</b><span class="ic">⤴</span><span class="ic">⋮</span></div>
+        <div class="body"><div class="scroll">
+          <div class="mhead"><span class="badge b-gray">모집 중</span> <span class="badge b-info">신청 후 승인</span>
+            <div class="n" style="margin-top:6px">수요 레슨</div>
+            <div class="kv" style="margin-top:8px"><span>일시</span><span>11월 19일 (수) 오후 7:30</span><span>장소</span><span>BGC 체육관 3번 코트</span><span>인원</span><span>3 / 6명</span><span>호스트</span><span>준호 (운영진)</span></div>
+            <p style="font-size:13px;margin:10px 0 0">기초 자세 위주로 1시간 레슨합니다. 라켓 없으면 빌려 드려요.</p>
+          </div>
+          <div class="sh"><b>참여 확정 3</b></div>
+          <div style="display:flex;gap:6px;padding:0 14px"><span class="av">준</span><span class="av">민</span><span class="av">하</span></div>
+          <div class="field"><label>지원 동기 (8자 이상)</label><div class="input">자세 교정 받고 싶어요!</div></div>
+          <div class="infobox">참여가 확정되면 일정 채팅방에 자동으로 들어가요.</div>
+        </div></div>
+        <div class="cta"><span class="btn">참여 신청</span></div>
+      </div>
+      <p class="note">선착순이면 버튼이 [참여하기]입니다. 호스트에게는 [신청 현황 2]가 보이고, 승인·거절 결과는 신청자에게 알림으로 갑니다. 리마인드는 시작 24시간·1시간 전에 보냅니다(D9).</p>
+    </div>
+
+    <!-- U6 초대 시트 -->
+    <div class="dev">
+      <div class="cap">U6 · 초대 <small>모임 홈 ≡ → 초대</small></div>
+      <div class="phone">
+        <div class="st"><span>9:41</span><span>▮▮ ◔</span></div>
+        <div class="hdr"><span class="ic">←</span><b>BGC 배드민턴</b></div>
+        <div class="body"><div class="scroll"></div></div>
+        <div class="scrimwrap">
+          <div class="sheet">
+            <div class="grab"></div>
+            <h4>모임 초대하기</h4>
+            <div class="qr"></div>
+            <div style="text-align:center" class="hint">dibay.app/moim/i/7Kx2…</div>
+            <div class="opt"><span class="ic">⧉</span>링크 복사</div>
+            <div class="opt"><span class="ic">⤴</span>다른 앱으로 공유</div>
+            <div class="opt"><span class="ic">☺</span>친구에게 초대 보내기</div>
+            <div class="field" style="margin-top:4px"><span class="hint">링크로 들어와도 <b>승인 후 가입</b> 방식은 그대로예요. 운영진이 친구에게 직접 보낸 초대는 승인 없이 가입돼요.</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="note">링크의 만료일 설정과 링크 끄기는 운영진 권한입니다. 같은 사람에게 다시 초대를 보낼 수 있는 간격은 D6 에서 정합니다. 차단된 모임은 초대할 수 없습니다.</p>
+    </div>
+
+    <!-- U7 멤버 관리 -->
+    <div class="dev">
+      <div class="cap">U7 · 운영 · 멤버 관리 <small>/moim/[id]/manage/members</small></div>
+      <div class="phone">
+        <div class="st"><span>9:41</span><span>▮▮ ◔</span></div>
+        <div class="hdr"><span class="ic">←</span><b>멤버 관리</b></div>
+        <div class="tabs"><span class="on">멤버 18</span><span>가입 신청 2</span><span>차단 1</span><span>메모</span></div>
+        <div class="body"><div class="scroll">
+          <div class="mrow"><span class="av">지</span><div class="nm"><b>지훈</b> <span class="badge b-green">모임장</span><div>2026-09-02 가입</div></div></div>
+          <div class="mrow"><span class="av">준</span><div class="nm"><b>준호</b> <span class="badge b-info">운영진</span><div>2026-09-10 가입</div></div></div>
+          <div class="mrow"><span class="av">민</span><div class="nm"><b>민지</b><div>2026-11-12 가입</div></div></div>
+          <div class="mrow"><span class="av">하</span><div class="nm"><b>하늘</b> <span class="badge b-gray">재가입 1</span><div>2026-10-30 가입 · 메모 있음</div></div></div>
+        </div></div>
+        <div class="scrimwrap">
+          <div class="sheet">
+            <div class="grab"></div>
+            <h4>하늘</h4>
+            <div class="opt"><span class="ic">★</span>역할 변경 (부모임장 · 운영진 · 멤버)</div>
+            <div class="opt"><span class="ic">✎</span>운영진 메모</div>
+            <div class="opt"><span class="ic">✉</span>대화하기</div>
+            <div class="opt red"><span class="ic">⇥</span>내보내기 <span class="hint">재가입 가능</span></div>
+            <div class="opt red"><span class="ic">⊘</span>차단 <span class="hint">재가입·초대 불가</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="note">역할 변경은 모임장만, 내보내기·차단은 모임장·부모임장만 할 수 있습니다. 운영진 메모와 재가입 횟수는 운영진에게만 보입니다.</p>
+    </div>
+
+    <!-- U8 채팅 목록 + 방 -->
+    <div class="dev">
+      <div class="cap">U8 · 메신저에서 모임 방 구분 <small>/community-messenger</small></div>
+      <div class="phone">
+        <div class="st"><span>9:41</span><span>▮▮ ◔</span></div>
+        <div class="hdr"><b>채팅</b><span class="ic">⌕</span><span class="ic">＋</span></div>
+        <div class="tabs"><span class="on">전체</span><span>친구</span><span>그룹</span><span>모임</span><span>오픈채팅</span><span>거래</span></div>
+        <div class="body"><div class="scroll">
+          <div class="chatrow"><span class="thumb" style="width:42px;height:42px;font-size:18px">🏸</span><div class="nm"><b>BGC 배드민턴</b> <span class="badge b-green">모임</span><div>준호: 토요일 코트 3번으로 바뀌었어요</div></div><span class="unread">4</span></div>
+          <div class="chatrow"><span class="thumb" style="width:42px;height:42px;font-size:18px">📅</span><div class="nm"><b>토요일 정기 게임</b> <span class="badge b-info">일정</span><div>BGC 배드민턴 · 11/15 오후 6시</div></div></div>
+          <div class="chatrow"><span class="av" style="width:42px;height:42px">가</span><div class="nm"><b>가족방</b> <span class="badge b-gray">그룹</span><div>엄마: 주말에 와?</div></div><span class="unread">1</span></div>
+          <div class="roomtop" style="margin-top:14px"><span>🏸</span><b>BGC 배드민턴 · 멤버 18</b><span>모임 홈 ›</span></div>
+          <div class="who">준호 · 운영진</div>
+          <div class="bub">토요일 코트 3번으로 바뀌었어요</div>
+          <div class="bub me">확인했어요!</div>
+        </div></div>
+        <div class="bnav"><span><i>⌂</i>홈</span><span><i>☷</i>동네생활</span><span><i>✎</i>글쓰기</span><span class="on"><i>✉</i>채팅</span><span><i>☺</i>내정보</span></div>
+      </div>
+      <p class="note">모임 방 설정에는 <b>알림 끄기만</b> 있습니다. 나가기·초대 링크·내보내기 메뉴는 없고, 이런 일은 모임 홈에서 합니다. 이름은 모임별 프로필로 표시됩니다. 「모임」 탭을 추가하는 것은 메신저 목록 변경이라 D1 과 함께 승인이 필요합니다.</p>
+    </div>
+
+    <!-- U9 알림 -->
+    <div class="dev">
+      <div class="cap">U9 · 알림 목록 예 <small>벨 · 커뮤니티 탭</small></div>
+      <div class="phone">
+        <div class="st"><span>9:41</span><span>▮▮ ◔</span></div>
+        <div class="hdr"><span class="ic">←</span><b>알림</b></div>
+        <div class="tabs"><span>전체</span><span>거래</span><span class="on">커뮤니티</span><span>주문</span><span>운영</span></div>
+        <div class="body"><div class="scroll">
+          <div class="ntf unr"><span class="av">🏸</span><div class="tx"><b>BGC 배드민턴</b> 가입 신청이 승인됐어요. 가입 인사를 남겨 보세요.<div class="tm">방금</div></div></div>
+          <div class="ntf unr"><span class="av">📅</span><div class="tx"><b>토요일 정기 게임</b> 내일 오후 6시에 시작해요.<div class="tm">10분 전</div></div></div>
+          <div class="ntf"><span class="av">☕</span><div class="tx"><b>BGC 카페 탐방</b> 운영진 소희님이 모임에 초대했어요.<div class="tm">2시간 전 · <span style="color:var(--green);font-weight:700">수락</span> · 거절</div></div></div>
+          <div class="ntf"><span class="av">📢</span><div class="tx"><b>BGC 배드민턴</b> 새 공지: 11월 회비 안내<div class="tm">어제</div></div></div>
+          <div class="ntf"><span class="av">!</span><div class="tx">신고하신 내용을 검토해 <b>조치했어요</b>.<div class="tm">3일 전</div></div></div>
+        </div></div>
+      </div>
+      <p class="note">알림 종류와 받는 사람은 설계 문서 §7 표에 있습니다. 결과 알림(승인·거절·내보내기·일정 취소·모임 종료·제재)은 끌 수 없습니다. 새 글 알림 기본값은 꺼짐을 권고합니다(D9).</p>
+    </div>
+
+    <!-- U10 모임 프로필 + 알림 설정 -->
+    <div class="dev">
+      <div class="cap">U10 · 내 모임 프로필 · 모임 알림 <small>≡ 메뉴</small></div>
+      <div class="phone">
+        <div class="st"><span>9:41</span><span>▮▮ ◔</span></div>
+        <div class="hdr"><span class="ic">←</span><b>이 모임에서의 나</b><span style="color:var(--green);font-weight:700;font-size:14px">저장</span></div>
+        <div class="body"><div class="scroll">
+          <div style="text-align:center;padding:16px 0 4px"><span class="av" style="width:72px;height:72px;font-size:24px">민</span><div class="hint" style="margin-top:4px">사진 바꾸기</div></div>
+          <div class="field"><label>닉네임</label><div class="input">민지(초보)</div></div>
+          <div class="field"><label>소개</label><div class="input">배드민턴 다시 시작해요</div></div>
+          <div class="infobox">다른 멤버에게는 이 프로필만 보여요. 전화번호·DIBAY ID·주소는 보이지 않아요. 바꾼 기록도 다른 멤버에게 보이지 않아요.</div>
+          <div class="sh"><b>모임 알림</b></div>
+          <div class="card" style="margin:0 14px;display:grid;gap:10px;font-size:13.5px">
+            <div style="display:flex;justify-content:space-between"><span>공지</span><span class="badge b-ok">켜짐</span></div>
+            <div style="display:flex;justify-content:space-between"><span>새 글</span><span class="badge b-gray">꺼짐</span></div>
+            <div style="display:flex;justify-content:space-between"><span>새 일정 · 리마인드</span><span class="badge b-ok">켜짐</span></div>
+            <div style="display:flex;justify-content:space-between"><span>모임 채팅</span><span class="badge b-ok">켜짐</span></div>
+          </div>
+        </div></div>
+      </div>
+      <p class="note">신원은 C안입니다. 개설·가입에는 <b>전화 인증</b>이 필요하고, 표시는 모임별 프로필입니다. 완전 익명과 실명 강제는 쓰지 않습니다(근거는 설계 §4).</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ───────── 4. 어드민 ───────── -->
+<section class="sec">
+  <h2>4. 어드민 화면</h2>
+
+  <div class="cap">A1 · 모임 목록 <small>/admin/community/moims · 권한 moim.view</small></div>
+  <div style="overflow-x:auto"><div class="admin">
+    <div class="abar"><b>DIBAY Admin</b><span>커뮤니티 › 모임</span></div>
+    <div class="agrid">
+      <div class="aside"><div class="grp">모임</div><div class="on">모임 목록</div><div>모임 신고 처리 <span class="badge b-bad">5</span></div><div>모임장 변경 요청 <span class="badge b-warn">1</span></div><div>제재 이력</div><div class="grp">설정</div><div>카테고리 관리</div><div>운영 정책</div></div>
+      <div class="amain">
+        <div class="atabs"><span class="on">전체 42</span><span>정상 37</span><span>추천 제외 2</span><span>경고 1</span><span>차단 1</span><span>종료 1</span><span>삭제 0</span></div>
+        <div class="afil"><span class="q">⌕ 모임 이름 · 모임장 닉네임/DIBAY ID · 모임 ID</span><span>동네: 전체 ▾</span><span>카테고리: 전체 ▾</span><span>개설일 ▾</span><span>신고 있음</span><span>CSV</span></div>
+        <div class="tbl"><table class="atbl">
+          <tr><th>모임</th><th>카테고리</th><th>동네</th><th>모임장</th><th>멤버</th><th>가입</th><th>상태</th><th>신고</th><th>마지막 활동</th><th>개설</th></tr>
+          <tr><td><a class="link">BGC 배드민턴</a></td><td>운동</td><td>Taguig</td><td>지훈 @jihoon</td><td>18/30</td><td>승인</td><td><span class="badge b-ok">정상</span></td><td>0</td><td>11-12 21:04</td><td>09-02</td></tr>
+          <tr><td><a class="link">마닐라 부업 스터디</a></td><td>스터디</td><td>Manila</td><td>K @k_biz</td><td>41/100</td><td>바로</td><td><span class="badge b-warn">경고 1</span></td><td>4</td><td>11-12 18:30</td><td>10-28</td></tr>
+          <tr><td><a class="link">주말 아침 풋살</a></td><td>운동</td><td>Taguig</td><td>로이 @roy</td><td>24/40</td><td>바로</td><td><span class="badge b-ok">정상</span></td><td>0</td><td>11-12 07:15</td><td>08-19</td></tr>
+          <tr><td><a class="link">무료 투자 강의방</a></td><td>스터디</td><td>Makati</td><td>T @tt</td><td>9/50</td><td>바로</td><td><span class="badge b-bad">차단</span></td><td>7</td><td>11-08 11:02</td><td>11-01</td></tr>
+        </table></div>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="cap">A2 · 모임 상세 — 멤버 탭 + 조치 <small>권한 moim.edit / moim.sanction</small></div>
+  <div style="overflow-x:auto"><div class="admin">
+    <div class="abar"><b>DIBAY Admin</b><span>커뮤니티 › 모임 › 마닐라 부업 스터디</span></div>
+    <div class="amain">
+      <div style="display:flex;gap:10px;align-items:center"><h3 style="font-size:17px">마닐라 부업 스터디</h3><span class="badge b-warn">경고 1</span><span class="badge b-gray">추천 제외</span><span class="hint">ID 3f1c… · 개설 10-28 · 모임장 K (@k_biz) <a class="link">회원 상세</a></span></div>
+      <div class="atabs"><span>기본정보</span><span class="on">멤버 41</span><span>가입신청 3</span><span>게시글</span><span>일정</span><span>앨범</span><span>채팅</span><span>신고 4</span><span>제재 1</span><span>운영기록</span></div>
+      <div class="split">
+        <div class="tbl"><table class="atbl">
+          <tr><th>모임 프로필</th><th>실제 계정</th><th>역할</th><th>상태</th><th>가입</th><th>재가입</th><th></th></tr>
+          <tr><td>K</td><td><a class="link">@k_biz</a></td><td>모임장</td><td>활성</td><td>10-28</td><td>0</td><td><a class="link">모임장 지정</a></td></tr>
+          <tr><td>부업왕</td><td><a class="link">@side_jm</a></td><td>운영진</td><td>활성</td><td>10-29</td><td>0</td><td><a class="link">역할</a> · <a class="link">내보내기</a> · <a class="link">차단</a></td></tr>
+          <tr><td>민트</td><td><a class="link">@mint22</a></td><td>멤버</td><td>활성</td><td>11-03</td><td>2</td><td><a class="link">역할</a> · <a class="link">내보내기</a> · <a class="link">차단</a></td></tr>
+          <tr><td>레오</td><td><a class="link">@leo.ph</a></td><td>멤버</td><td>차단됨</td><td>11-05</td><td>0</td><td><a class="link">차단 해제</a></td></tr>
+        </table></div>
+        <div class="box">
+          <h3>모임 조치</h3>
+          <div class="radio">
+            <label>추천 제외 해제</label>
+            <label class="on">● 모임 차단 (가입·일정·글·채팅 중지, 방 읽기 전용)</label>
+            <label>모임장 이용 제한 (기간)</label>
+            <label>모임 정보 수정</label>
+            <label>모임장 지정</label>
+          </div>
+          <div class="hint">사유 (필수)</div>
+          <div class="ta">외부 유료 강의 결제 유도 반복 — 신고 4건 확인</div>
+          <div class="hint">근거 신고: #R-1182, #R-1190 연결됨</div>
+          <span class="btn sm">조치 실행</span>
+          <div class="hint">실행하면 제재 기록 + 감사 로그 + 운영기록 + 모임장 알림이 함께 처리됩니다. 화면을 연 뒤 다른 사람이 바꿨으면 409 로 중단됩니다.</div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="cap">A3 · 모임 신고 처리 <small>/admin/community/moims/reports · 권한 moim.report</small></div>
+  <div style="overflow-x:auto"><div class="admin">
+    <div class="abar"><b>DIBAY Admin</b><span>커뮤니티 › 모임 신고 처리</span></div>
+    <div style="display:grid;grid-template-columns:1fr 380px">
+      <div class="amain">
+        <div class="atabs"><span class="on">접수 5</span><span>검토 중 2</span><span>조치 31</span><span>기각 12</span><span>전체</span></div>
+        <div class="afil"><span>대상: 전체 ▾</span><span>사유: 전체 ▾</span><span>같은 모임 묶어 보기 ✓</span><span>기간 ▾</span></div>
+        <div class="tbl"><table class="atbl">
+          <tr><th>#</th><th>대상</th><th>모임</th><th>사유</th><th>같은 대상</th><th>신고자</th><th>접수</th></tr>
+          <tr style="background:#f6faf7"><td>R-1190</td><td>글</td><td>마닐라 부업 스터디</td><td>영리·홍보</td><td>3</td><td>@ana</td><td>11-12 19:22</td></tr>
+          <tr><td>R-1189</td><td>채팅 메시지</td><td>BGC 카페 탐방</td><td>욕설·혐오</td><td>1</td><td>@bong</td><td>11-12 17:05</td></tr>
+          <tr><td>R-1187</td><td>모임</td><td>무료 투자 강의방</td><td>다단계·투자 권유</td><td>7</td><td>@cel</td><td>11-12 10:41</td></tr>
+          <tr><td>R-1185</td><td>멤버</td><td>주말 아침 풋살</td><td>노쇼·회비 미반환</td><td>1</td><td>@dan</td><td>11-11 22:13</td></tr>
+        </table></div>
+      </div>
+      <div class="drawer">
+        <h3>R-1190 · 글 신고</h3>
+        <div class="kv"><span>모임</span><span><a class="link">마닐라 부업 스터디</a> <span class="badge b-warn">경고 1</span></span><span>작성자</span><span>부업왕 (<a class="link">@side_jm</a>, 운영진)</span><span>사유</span><span>영리·홍보</span><span>신고자 메모</span><span>"무료라더니 링크 들어가면 결제"</span></div>
+        <div class="box" style="background:#fafbfa"><div class="hint">대상 원문</div><div style="font-size:12.5px">이번 주 무료 특강! 자세한 건 텔레그램 @… 으로 연락 주세요. 수강료는 입금 확인 후…</div></div>
+        <div class="hint">같은 대상 신고 3건 · 이 모임 신고 4건 · 모임장 제재 이력 1건</div>
+        <div class="radio">
+          <label>기각</label>
+          <label class="on">● 콘텐츠 숨김</label>
+          <label>추천 제외</label>
+          <label>경고</label>
+          <label>모임 차단</label>
+          <label>작성자 이용 제한 (7 / 30일 / 직접)</label>
+        </div>
+        <div class="ta">외부 메신저 유도 + 유료 결제 유도</div>
+        <span class="btn sm">처리</span>
+        <div class="hint">같은 대상 신고 3건이 함께 「조치」로 바뀌고, 신고자 3명에게 결과 알림이 갑니다(조치 내용은 알리지 않음).</div>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="cap">A4 · 운영 정책 · 카테고리 <small>권한 moim.edit · 값은 D6 결정 후 입력</small></div>
+  <div style="overflow-x:auto"><div class="admin">
+    <div class="abar"><b>DIBAY Admin</b><span>커뮤니티 › 모임 › 설정</span></div>
+    <div class="amain">
+      <div class="split" style="grid-template-columns:1fr 1fr">
+        <div class="box"><h3>운영 정책</h3>
+          <div class="kv">
+            <span>1인 개설 수</span><span class="ta" style="min-height:0">— (Owner 지정)</span>
+            <span>정원 상한</span><span class="ta" style="min-height:0">— (Owner 지정)</span>
+            <span>부모임장·운영진 상한</span><span class="ta" style="min-height:0">— (Owner 지정)</span>
+            <span>공지 고정 수</span><span class="ta" style="min-height:0">— (Owner 지정)</span>
+            <span>가입 대기 만료</span><span class="ta" style="min-height:0">— 일</span>
+            <span>종료 모임 보관</span><span class="ta" style="min-height:0">— 일</span>
+            <span>금지어</span><span class="ta">줄마다 하나씩</span>
+            <span>개설 안내문</span><span class="ta">금지 모임 유형 안내 (ko / en)</span>
+          </div>
+          <span class="btn sm" style="justify-self:start">저장</span>
+        </div>
+        <div class="box"><h3>카테고리</h3>
+          <div class="tbl"><table class="atbl">
+            <tr><th>순서</th><th>이름 (ko / en)</th><th>사용</th><th>개설 금지</th></tr>
+            <tr><td>1</td><td>운동 / Sports</td><td>✓</td><td></td></tr>
+            <tr><td>2</td><td>동네친구 / Neighbors</td><td>✓</td><td></td></tr>
+            <tr><td>3</td><td>스터디 / Study</td><td>✓</td><td></td></tr>
+            <tr><td>4</td><td>맛집·카페 / Food &amp; Cafe</td><td>✓</td><td></td></tr>
+            <tr><td>—</td><td>종교 / Religion</td><td></td><td>✓</td></tr>
+          </table></div>
+          <span class="btn sm sec2" style="justify-self:start">＋ 카테고리 추가</span>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</section>
+
+</div>
+</body>
+</html>

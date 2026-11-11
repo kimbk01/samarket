@@ -51,32 +51,6 @@ export function applyTradeReportTabFilter(q: Q, tab: TradeReportTab): Q {
   return statuses ? q.in("status", [...statuses]) : q;
 }
 
-// ── 모임 신고 (/admin/philife/meeting-reports) ──
-
-export const MEETING_REPORT_TAB_KEYS = ["pending", "reviewing", "resolved", "rejected", "all"] as const;
-export type MeetingReportTabKey = (typeof MEETING_REPORT_TAB_KEYS)[number];
-
-/** pending = 처리 대기(접수 + 검토 중) */
-export const MEETING_REPORT_TAB_STATUSES: Readonly<Record<MeetingReportTabKey, readonly string[] | null>> = {
-  pending: ["pending", "reviewing"],
-  reviewing: ["reviewing"],
-  resolved: ["resolved"],
-  rejected: ["rejected"],
-  all: null,
-};
-
-/** `?status=` — 없음·pending·open = 처리 대기, dismissed = 반려 */
-export function resolveMeetingReportTab(raw: string | null | undefined): MeetingReportTabKey {
-  const s = String(raw ?? "").trim().toLowerCase();
-  if (s === "dismissed") return "rejected";
-  return (MEETING_REPORT_TAB_KEYS as readonly string[]).includes(s) ? (s as MeetingReportTabKey) : "pending";
-}
-
-export function applyMeetingReportTabFilter(q: Q, tab: MeetingReportTabKey): Q {
-  const statuses = MEETING_REPORT_TAB_STATUSES[tab];
-  return statuses ? q.in("status", [...statuses]) : q;
-}
-
 // ── 입점 심사 (/admin/stores?status= ← /api/admin/stores) ──
 
 /** `status` = all(필터 없음) · actionable(심사 대기 계열) · 단일 approval_status */
