@@ -54,4 +54,10 @@ describe("friend QR native links", () => {
     expect(read("components/layout/MainAppProviderTree.tsx")).toContain("<FriendQrAppLinkListener />");
     expect(read("components/push/PushRouteListener.tsx")).toContain('if (!url.startsWith("dibay://")) return;');
   });
+
+  it("cold-start launch URL is applied once per process (PR #145 review)", () => {
+    const listener = read("components/community-messenger/friend-qr/FriendQrAppLinkListener.tsx");
+    expect(listener).toContain("let launchUrlConsumed = false;");
+    expect(listener).toMatch(/if \(!launchUrlConsumed\) \{\s+launchUrlConsumed = true;\s+const launch = await App\.getLaunchUrl\(\)/);
+  });
 });

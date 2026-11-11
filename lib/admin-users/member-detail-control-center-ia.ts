@@ -324,8 +324,9 @@ export function memberDetailContactEmail(email: string | null | undefined): stri
   return raw;
 }
 
-export function memberDetailLoginIdLabel(username: string | null | undefined): string | null {
-  const raw = String(username ?? "").trim();
+/** 로그인 아이디 표시 — 호출부는 관리자 발급 로그인 아이디(`manual_login_id`)를 넘긴다. `username` 은 자동 아이디로 바뀔 수 있어 넘기지 않는다 (F1) */
+export function memberDetailLoginIdLabel(loginId: string | null | undefined): string | null {
+  const raw = String(loginId ?? "").trim();
   return raw || null;
 }
 

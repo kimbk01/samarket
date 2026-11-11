@@ -146,6 +146,8 @@ export interface AdminUserDetail {
   dibay_id_initial?: string | null;
   dibay_id_changed_once?: boolean;
   dibay_id_changed_at?: string | null;
+  /** 실제 로그인 아이디 (관리자 발급 `<id>@manual.local` 앞부분) — SNS 회원은 null */
+  manual_login_id?: string | null;
   email: string | null;
   role: string;
   display_name: string | null;

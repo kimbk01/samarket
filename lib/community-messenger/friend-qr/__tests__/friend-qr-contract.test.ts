@@ -73,3 +73,12 @@ describe("friend QR contract", () => {
     expect(fn).toContain('meta: { kind: "friend_accepted", via: "qr"');
   });
 });
+
+describe("my QR panel — failed QR image (PR #145 review)", () => {
+  it("shows the error view when the QR image fails even after the token loaded, and buttons need the image", () => {
+    const src = read("components/community-messenger/friend-qr/MyFriendQrPanel.tsx");
+    expect(src).toContain("if (loadFailed && !qrImage) {");
+    expect(src).not.toContain("if (loadFailed && !qr) {");
+    expect(src.match(/disabled=\{!qr \|\| !qrImage \|\| busy !== null\}/g)).toHaveLength(3);
+  });
+});

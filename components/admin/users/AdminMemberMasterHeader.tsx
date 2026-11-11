@@ -103,7 +103,8 @@ export function AdminMemberMasterHeader({
   const publicId = publicIdForDetailUser(user);
   const nicknameSecondary = memberDetailNicknameIfDistinct(display, user.nickname);
   const contactEmail = memberDetailContactEmail(user.email);
-  const loginId = memberDetailLoginIdLabel(user.username);
+  /** F1: 로그인 아이디 = 관리자 발급 로그인 주소 기준 (username 은 자동 아이디로 바뀔 수 있음) */
+  const loginId = memberDetailLoginIdLabel(user.manual_login_id);
   const canonicalStore = resolveCanonicalMemberStore(stores);
   const hasStore = Boolean(canonicalStore);
   const primaryStore = canonicalStore;

@@ -110,6 +110,7 @@ export function MyFriendQrPanel() {
         return;
       }
       setQrImage(null);
+      setLoadFailed(false);
       setQr(j.qr);
       showMessengerSnackbar(t("friend_qr_regenerated"), { variant: "success" });
     } catch {
@@ -119,7 +120,8 @@ export function MyFriendQrPanel() {
     }
   }, [busy, t]);
 
-  if (loadFailed && !qr) {
+  /** 토큰 조회 실패든 QR 그림 만들기 실패든 같은 오류 화면 — 빈 자리표시·누를 수 있는 버튼이 남지 않게 */
+  if (loadFailed && !qrImage) {
     return (
       <p className="px-3 py-6 text-center text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-danger)" }}>
         {t("friend_qr_load_failed")}
@@ -148,16 +150,16 @@ export function MyFriendQrPanel() {
         <p className="text-[12px] text-sam-muted">{t("friend_qr_my_hint")}</p>
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <button type="button" className="dibay-overlay-btn dibay-overlay-btn--secondary" disabled={!qr || busy !== null} onClick={() => void share()}>
+        <button type="button" className="dibay-overlay-btn dibay-overlay-btn--secondary" disabled={!qr || !qrImage || busy !== null} onClick={() => void share()}>
           {t("friend_qr_share")}
         </button>
-        <button type="button" className="dibay-overlay-btn dibay-overlay-btn--secondary" disabled={!qr || busy !== null} onClick={() => void save()}>
+        <button type="button" className="dibay-overlay-btn dibay-overlay-btn--secondary" disabled={!qr || !qrImage || busy !== null} onClick={() => void save()}>
           {t("friend_qr_save_image")}
         </button>
         <button
           type="button"
           className="dibay-overlay-btn dibay-overlay-btn--secondary"
-          disabled={!qr || busy !== null}
+          disabled={!qr || !qrImage || busy !== null}
           onClick={() => setConfirmOpen(true)}
           data-testid="friend-qr-regenerate"
         >

@@ -11,7 +11,7 @@ import {
 } from "@/components/admin/users/admin-user-lite-display";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { memberDetailContactEmail, memberDetailLoginIdLabel } from "@/lib/admin-users/member-detail-control-center-ia";
+import { memberDetailContactEmail } from "@/lib/admin-users/member-detail-control-center-ia";
 import {
   memberDetailAccountStateLabel,
   memberDetailSignupOriginLabel,
@@ -149,7 +149,7 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
               ? manualLoginId
               : linked.length > 0
                 ? t("admin_users_member_sns_login_no_id")
-                : memberDetailLoginIdLabel(user.username) || empty
+                : empty /* F1: 발급 로그인 아이디가 없으면 표시하지 않는다 — username 은 로그인 아이디가 아님 */
           }
         />
         <Field label={t("admin_users_member_account_state")} value={memberDetailAccountStateLabel(user.moderation_status, user.status, language)} />
