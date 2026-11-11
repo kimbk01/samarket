@@ -55,7 +55,7 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
           </p>
         ) : null}
       </div>
-      {/* 내 QR (설계안 v3 §3.6) — 프로필 편집과 같은 회색 칸 */}
+      {/* QR 코드 [내 QR | QR 스캔] (설계안 v3 §3.6) — 프로필 편집과 같은 회색 칸 */}
       <button
         type="button"
         onClick={() => setQrOpen(true)}
@@ -63,7 +63,7 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
         style={{ color: "var(--cm-chat-fg)" }}
         data-testid="cm-my-profile-qr"
       >
-        {t("friend_qr_tab_my")}
+        {t("friend_qr_sheet_title")}
       </button>
       <Link
         href={MYPAGE_PROFILE_EDIT_HREF}

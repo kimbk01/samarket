@@ -74,7 +74,7 @@ export function MypageSelfProfileView({ profile }: { profile: ProfileRow }) {
       <div className="mt-8 flex w-full max-w-sm flex-col gap-2">
         {/* 내 QR (설계안 v3 §3.6 · 시안 A) */}
         <button type="button" onClick={() => setQrOpen(true)} className={`${Sam.btn.secondary} w-full justify-center`} data-testid="mypage-my-qr">
-          {t("friend_qr_tab_my")}
+          {t("friend_qr_sheet_title")}
         </button>
         {publicHref ? (
           <button

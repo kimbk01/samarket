@@ -342,3 +342,10 @@ DB: `supabase/migrations/20271111170000_member_id_v3_audit_fixes.sql` — 운영
 - **F2** 모임 초대 후보 검색 → `cm_search_members` (아이디 규칙·탈퇴·차단·검색 끔 제외), 보조 줄 = `@회원 아이디` (예전 `username` 표시 제거).
 - **F3** 친구 찾기 하루 500회 → DB `member_search_quota_hit` (필리핀 날짜, `supabase/migrations/20271111180000_member_search_daily_quota.sql`). DB 함수가 없거나 답하지 못하면 검색은 막지 않는다(한도만 미적용). **운영 DB 적용은 권한 확인 단계에서 막혀 미적용** — Owner 확인 후 적용.
 - Android 앱 링크: Owner 가 준 Play 앱 서명 키 지문(`AB:46:…:63:EF`)을 `assetlinks.json` 에 추가.
+
+### 실기에서 찾은 결함 (2026-11-11 23:55 PHT, Xiaomi·Samsung 운영 앱)
+
+- **FAIL — 앱 안 「QR 스캔」 진입 없음 (작업자 결함).** 스캔·갤러리를 「친구 추가 시트 QR 탭」에만 넣었는데, 그 시트를 여는 버튼이 11-10 채팅 화면 개편(`dca01c445`)에서 이미 없어져 있었다(`setFriendManagerOpen(true)` 호출 0곳). 구현 때 진입 경로를 확인하지 않았다.
+  - 수정: 마이페이지·친구 탭 내 프로필 줄의 QR 버튼 → 「QR 코드」 시트 = [내 QR | QR 스캔] (`MyFriendQrSheet` → `FriendQrTabPanel`). 스캔 결과는 메신저 안이면 결과 스토어, 다른 화면이면 `?friendQr=` 로 메신저 홈 결과 시트 하나로.
+- **FAIL — 친구 찾기 규칙 안내 미노출.** 안내 문구도 같은 시트에만 있었다. 실제로 쓰는 친구 탭 검색칸 결과 영역에 「아이디 4자 이상 또는 숫자 5자리」 안내를 항상 표시(결과 없음 문구 아래).
+- **예상 FAIL(네이티브 빌드 전)** — 설치 빌드 40(Android 1.2.6)에는 `dibay://friend`·`/f/` 앱 링크가 없어, 웹 `/f/<토큰>` 의 「앱에서 열기」가 반응하지 않는다. 빌드 41 설치 후 재확인.
