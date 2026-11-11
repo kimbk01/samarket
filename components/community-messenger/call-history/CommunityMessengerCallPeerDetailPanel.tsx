@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircle, MoreHorizontal, Smartphone } from "lucide-react";
+import { MessageCircle, MoreHorizontal } from "lucide-react";
 import { AppBackIcon } from "@/components/navigation/AppBackButton";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
@@ -22,8 +22,6 @@ import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-mess
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import type { CommunityMessengerCallLog } from "@/lib/community-messenger/types";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
-import { resolveContactsPeerNumber } from "@/components/community-messenger/contacts/contacts-friend-call";
-import { openContactsPhoneCall } from "@/components/community-messenger/contacts/MessengerContactsCallChoiceSheet";
 
 const STARBUCKS_GREEN = "#006241";
 
@@ -41,7 +39,8 @@ type Props = {
   calls: CommunityMessengerCallLog[];
   entryOrigin?: string | null;
   viewerUserId?: string | null;
-  onRequestOutgoingConfirm: (kind: "voice" | "video") => void;
+  /** 「통화」 → 통화 시트 (발신 창 통일 3판) */
+  onRequestOutgoingConfirm: () => void;
 };
 
 function CallActionTile({
@@ -82,14 +81,6 @@ export function CommunityMessengerCallPeerDetailPanel({
   const router = useRouter();
   const requestClose = useCommunityMessengerCallPeerDetailClose();
   const [showAllHistory, setShowAllHistory] = useState(false);
-  /**
-   * 통화 버튼 통합 2판 (Owner 2026-11-12): 「휴대폰 전화」 — 이 기기 연락처에 상대 번호가 있을 때만 `tel:`.
-   * 없으면 회색 · 누르면 안내. 상세를 열 때 1번만 읽는다 (기기 안 번호표).
-   */
-  const phoneNumber = useMemo(
-    () => (viewerUserId && selection.peerUserId ? resolveContactsPeerNumber(viewerUserId, selection.peerUserId) : null),
-    [selection.peerUserId, viewerUserId]
-  );
 
   const peerCalls = useMemo(
     () => filterDirectCallHistoryForPeer(calls, selection.peerUserId, selection.roomId),
@@ -187,34 +178,8 @@ export function CommunityMessengerCallPeerDetailPanel({
               {safeT("cm_ui_call_peer_detail_chat")}
             </span>
           </button>
-          <CallActionTile
-            label={safeT("cm_ui_call_peer_detail_voice")}
-            icon="voice"
-            onPress={() => onRequestOutgoingConfirm("voice")}
-          />
-          <CallActionTile
-            label={safeT("cm_ui_call_peer_detail_video")}
-            icon="video"
-            onPress={() => onRequestOutgoingConfirm("video")}
-          />
-          <button
-            type="button"
-            aria-disabled={!phoneNumber || undefined}
-            data-cm-call-peer-phone={phoneNumber ? "1" : "0"}
-            onClick={() => {
-              if (!phoneNumber) {
-                showMessengerSnackbar(t("cm_contacts_member_no_number"), { variant: "default" });
-                return;
-              }
-              openContactsPhoneCall(phoneNumber);
-            }}
-            className={`flex min-w-0 flex-1 flex-col items-center gap-1.5 px-2 py-1 text-white active:opacity-80 ${
-              phoneNumber ? "" : "opacity-50"
-            }`}
-          >
-            <Smartphone className="h-6 w-6" strokeWidth={1.8} aria-hidden />
-            <span className="sam-text-helper font-medium text-white">{t("cm_contacts_call_phone")}</span>
-          </button>
+          {/* 발신 창 통일 3판: 음성·영상·휴대폰 칸 → 「통화」 하나 → 통화 시트 */}
+          <CallActionTile label={t("cm_ui_call")} icon="voice" onPress={() => onRequestOutgoingConfirm()} />
         </div>
       </div>
 

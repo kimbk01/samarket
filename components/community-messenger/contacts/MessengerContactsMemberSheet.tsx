@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Ban, Check, EyeOff, MessageCircle, Phone, UserPlus, X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -19,10 +19,10 @@ import type { ContactsCallDefault, ContactsMemberRow } from "@/lib/community-mes
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { formatAtUsername } from "@/lib/users/user-label";
 import {
-  MessengerContactsCallChoiceSheet,
   openContactsPhoneCall,
   startContactsDibayCall,
 } from "@/components/community-messenger/contacts/MessengerContactsCallChoiceSheet";
+import MessengerCallChoiceSheet from "@/components/community-messenger/call-ui/MessengerCallChoiceSheet";
 import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
 
 /**
@@ -63,6 +63,11 @@ export function MessengerContactsMemberSheet({
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [choiceOpen, setChoiceOpen] = useState(false);
+  /**
+   * 통화 시트에서 DIBAY 발신을 시작함 — 성공하면 회원 시트를 닫고, 실패하면 회원 시트를 그대로 둔다 (PR #161 Bugbot).
+   * 실패해도 통화 시트를 다시 열지 않는다: 전화 인증 시트·진행 중 통화 화면을 가드가 이미 띄웠을 수 있어 덮으면 안 된다.
+   */
+  const dialingRef = useRef(false);
   /** 숨기기·차단은 확인 후 실행 (메신저 차단과 같은 흐름: 확인 → 처리 중 → 결과 안내) */
   const [confirm, setConfirm] = useState<"hide" | "block" | null>(null);
   const publicId = member.dibay_id || member.username;
@@ -112,15 +117,26 @@ export function MessengerContactsMemberSheet({
     setChoiceOpen(true);
   };
 
+  /** 기본 통화 방식 「매번 묻기」 → 통화 시트 (발신 창 통일 3판 — 앱 모든 발신과 같은 시트) */
   if (choiceOpen) {
     return (
-      <MessengerContactsCallChoiceSheet
-        peerUserId={member.user_id}
+      <MessengerCallChoiceSheet
         peerLabel={name}
-        deviceNumber={deviceNumber}
+        peerAvatarUrl={member.avatar_url}
+        viewerUserId={null}
+        peerUserId={member.user_id}
+        phoneNumber={deviceNumber}
         onClose={() => {
           setChoiceOpen(false);
-          onClose();
+          if (!dialingRef.current) onClose();
+        }}
+        onDibayCall={(kind) => {
+          dialingRef.current = true;
+          unlockCommunityMessengerCallPlaybackFromUserGesture();
+          void startContactsDibayCall(router, member.user_id, kind, name).then((ok) => {
+            dialingRef.current = false;
+            if (ok) onClose();
+          });
         }}
       />
     );

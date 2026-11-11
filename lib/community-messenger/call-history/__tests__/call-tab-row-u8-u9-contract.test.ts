@@ -28,8 +28,8 @@ describe("call tab row U-8·U-9", () => {
     const row = src("components/community-messenger/call-history/CommunityMessengerCallRow.tsx");
     expect(row).not.toContain("(@{vm.peerPublicId})");
     expect(row).toContain("{vm.peerName}");
-    /** §17-4 R-3: 대화·통화 불가 상대만 이유 안내, 그 밖은 기존 발신 확인 경로 그대로 */
-    expect(row).toMatch(/if \(relationMark === "unavailable"\) \{[\s\S]{0,400}return;\s*\}\s*onRequestOutgoingConfirm\(call, vm\.callKind\);/);
+    /** §17-4 R-3: 대화·통화 불가 상대만 이유 안내, 그 밖은 통화 시트 (발신 창 통일 3판) */
+    expect(row).toMatch(/if \(relationMark === "unavailable"\) \{[\s\S]{0,400}return;\s*\}\s*onRequestOutgoingConfirm\(call\);/);
     const btn = src("components/community-messenger/call-history/CommunityMessengerCallActionButton.tsx");
     expect(btn).not.toContain("#00754A");
     expect(btn).toContain("onPress();");

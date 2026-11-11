@@ -8,6 +8,8 @@ import type {
 } from "agora-rtc-sdk-ng";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -299,7 +301,10 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { VideoOff } from "lucide-react";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import { OutgoingRingCameraPreview } from "@/components/community-messenger/OutgoingRingCameraPreview";
-import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
+import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
+
+/** 통화 시트 (발신 창 통일 3판) — 통화가 끝난 뒤 「다시 걸기」를 누를 때만 불러온다 */
+const RetryCallSheetLazy = lazy(() => import("@/components/community-messenger/call-ui/MessengerCallChoiceSheet"));
 
 const CALL_CLIENT_TIER = getPublicDeployTier();
 const MAX_MOBILE_CALL_ACTIONS = 5;
@@ -661,7 +666,8 @@ export function CommunityMessengerCallClient({
   const [layoutSwapped, setLayoutSwapped] = useState(false);
   const [camOff, setCamOff] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
-  const [retryOutgoingConfirmKind, setRetryOutgoingConfirmKind] = useState<null | "voice" | "video">(null);
+  /** 끝난 통화 「다시 걸기」 → 통화 시트 (발신 창 통일 3판) */
+  const [retryCallSheetOpen, setRetryCallSheetOpen] = useState(false);
   /** 조인 직후(트랙 생성 시점)에도 최신 음소거 의도를 반영 */
   const micMutedRef = useRef(false);
   useEffect(() => {
@@ -5293,7 +5299,7 @@ export function CommunityMessengerCallClient({
         id: "retry-call",
         label: t("common_retry"),
         icon: "retry",
-        onClick: () => setRetryOutgoingConfirmKind(session.callKind),
+        onClick: () => setRetryCallSheetOpen(true),
         disabled: !session.peerUserId,
       });
     }
@@ -5793,18 +5799,19 @@ export function CommunityMessengerCallClient({
           closeBusy={busy === "end"}
         />
       ) : null}
-      {retryOutgoingConfirmKind ? (
-        <MessengerOutgoingCallConfirmDialog
-          open
-          peerLabel={session.peerLabel?.trim() || ""}
-          kind={retryOutgoingConfirmKind}
-          onCancel={() => setRetryOutgoingConfirmKind(null)}
-          onConfirm={() => {
-            const kind = retryOutgoingConfirmKind;
-            setRetryOutgoingConfirmKind(null);
-            startOutgoingAgain(kind);
-          }}
-        />
+      {retryCallSheetOpen ? (
+        <Suspense fallback={null}>
+          <RetryCallSheetLazy
+            peerLabel={session.peerLabel?.trim() || ""}
+            peerAvatarUrl={session.peerAvatarUrl ?? null}
+            viewerUserId={getSyncViewerUserIdForClient() || null}
+            peerUserId={session.peerUserId?.trim() || null}
+            onClose={() => setRetryCallSheetOpen(false)}
+            onDibayCall={(kind) => {
+              startOutgoingAgain(kind);
+            }}
+          />
+        </Suspense>
       ) : null}
     </div>
   );

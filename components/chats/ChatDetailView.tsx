@@ -128,7 +128,6 @@ import {
   useTradeChatRoomTypingPublisher,
 } from "@/lib/chats/use-trade-chat-room-typing";
 import { TradeChatPresenceHeaderRow } from "@/components/chats/TradeChatPresenceHeaderRow";
-import { TradeChatCallHeaderButtons } from "@/components/chats/TradeChatCallHeaderButtons";
 import { formatAtUsername } from "@/lib/users/user-label";
 import {
   normalizeTradeChatCallPolicy,
@@ -2108,15 +2107,6 @@ export function ChatDetailView({
                     messageSoundMuted={chatMessageSoundMuted}
                     onToggleMessageSound={toggleChatMessageSoundMuted}
                     variant={isStoreOrderChat ? "instagram" : "default"}
-                  />
-                ) : null}
-                {showTradeChatCallInHeader ? (
-                  <TradeChatCallHeaderButtons
-                    policy={tradeChatCallPolicyNormalized}
-                    productChatRoomId={effectiveProductChatId}
-                    communityMessengerRoomId={room.communityMessengerRoomId ?? null}
-                    peerDisplayName={room.partnerDisplayName ?? null}
-                    onErrorMessage={notifyMessengerTradeToast}
                   />
                 ) : null}
                 {isStoreOrderSeller ? (

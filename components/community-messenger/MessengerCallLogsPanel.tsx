@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommunityMessengerCallHistory } from "@/components/community-messenger/call-history/CommunityMessengerCallHistory";
@@ -10,7 +10,6 @@ import {
   type CallPeerDetailSelection,
 } from "@/components/community-messenger/call-history/CommunityMessengerCallPeerDetailPanel";
 import { CommunityMessengerCallPeerDetailShell } from "@/components/community-messenger/call-history/CommunityMessengerCallPeerDetailShell";
-import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
 import { presentCallHistoryRow } from "@/lib/community-messenger/call-history/call-history-presenter";
 import {
@@ -43,6 +42,9 @@ import { resolveCallHistoryRedialRoomClient } from "@/lib/community-messenger/ca
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import type { CommunityMessengerCallLog, CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
+/** 통화 시트 (발신 창 통일 3판) — 다시 걸기를 누를 때만 불러온다 */
+const CallLogsCallSheetLazy = lazy(() => import("@/components/community-messenger/call-ui/MessengerCallChoiceSheet"));
+
 function sanitizeCallPeerUserId(peerUserId: string | null | undefined): string | null {
   const raw = peerUserId?.trim() ?? "";
   if (!raw || raw.startsWith("peer:") || raw.startsWith("room:")) return null;
@@ -74,9 +76,9 @@ type Props = {
   callLogsRealtimeSource?: "home_meta" | "own";
 };
 
+/** 통화 시트 (발신 창 통일 3판) — 다시 걸 기록·상대. 종류는 시트에서 고른다 */
 type OutgoingConfirmState = {
   call: CommunityMessengerCallLog;
-  kind: "voice" | "video";
   peerLabel: string;
 };
 
@@ -300,10 +302,10 @@ export function MessengerCallLogsPanel({
   );
 
   const onRequestOutgoingConfirm = useCallback(
-    (call: CommunityMessengerCallLog, kind: "voice" | "video") => {
+    (call: CommunityMessengerCallLog) => {
       closeCallLogSwipe();
       const vm = presentCallHistoryRow(call);
-      setOutgoingConfirm({ call, kind, peerLabel: vm.peerDisplayLabel });
+      setOutgoingConfirm({ call, peerLabel: vm.peerDisplayLabel });
     },
     [closeCallLogSwipe]
   );
@@ -354,7 +356,7 @@ export function MessengerCallLogsPanel({
     setPeerDetailSelection(null);
   }, []);
 
-  const handleOutgoingConfirm = useCallback(() => {
+  const handleOutgoingConfirm = useCallback((kind: "voice" | "video") => {
     const next = outgoingConfirm;
     if (!next || outgoingBusy) return;
     const vm = presentCallHistoryRow(next.call);
@@ -375,7 +377,7 @@ export function MessengerCallLogsPanel({
       return;
     }
 
-    const guard = guardInstantOutgoingCallStart({ peerUserId, kind: next.kind, roomId: historicRoomId });
+    const guard = guardInstantOutgoingCallStart({ peerUserId, kind: kind, roomId: historicRoomId });
     if (!guard.ok) {
       if (isOutgoingCallPhoneVerificationRequired(guard)) return;
       setOutgoingConfirm(null);
@@ -390,7 +392,7 @@ export function MessengerCallLogsPanel({
     setPeerDetailOpen(false);
 
     logCallV4("video_confirm_clicked", {
-      kind: next.kind,
+      kind: kind,
       peerUserId: peerUserId || undefined,
       roomId: historicRoomId || undefined,
     });
@@ -400,7 +402,7 @@ export function MessengerCallLogsPanel({
         const resolved = await resolveCallHistoryRedialRoomClient({ peerUserId, roomId: historicRoomId });
         if (!resolved.ok) {
           logCallV4("video_confirm_redial_room_failed", {
-            kind: next.kind,
+            kind: kind,
             peerUserId: peerUserId || undefined,
             roomId: historicRoomId || undefined,
             error: resolved.error,
@@ -409,7 +411,7 @@ export function MessengerCallLogsPanel({
           return;
         }
         logCallV4("video_confirm_launch_with_room", {
-          kind: next.kind,
+          kind: kind,
           peerUserId: peerUserId || undefined,
           roomId: resolved.roomId,
           historicRoomId: historicRoomId || undefined,
@@ -417,7 +419,7 @@ export function MessengerCallLogsPanel({
         });
         const result = await launchOutgoingDirectCall(
           {
-            kind: next.kind,
+            kind: kind,
             roomId: resolved.roomId,
             peerUserId: peerUserId || undefined,
             peerLabel: next.peerLabel,
@@ -450,16 +452,19 @@ export function MessengerCallLogsPanel({
     portalReady && outgoingConfirm
       ? createPortal(
           <div className="relative z-[1400]">
-            <MessengerOutgoingCallConfirmDialog
-              open
-              peerLabel={outgoingConfirm.peerLabel}
-              kind={outgoingConfirm.kind}
-              busy={outgoingBusy}
-              onCancel={() => {
-                if (!outgoingBusy) setOutgoingConfirm(null);
-              }}
-              onConfirm={handleOutgoingConfirm}
-            />
+            <Suspense fallback={null}>
+              <CallLogsCallSheetLazy
+                peerLabel={outgoingConfirm.peerLabel}
+                peerAvatarUrl={outgoingConfirm.call.peerAvatarUrl ?? null}
+                viewerUserId={resolvedViewerUserId}
+                peerUserId={sanitizeCallPeerUserId(outgoingConfirm.call.peerUserId) ?? null}
+                busy={outgoingBusy}
+                onClose={() => {
+                  if (!outgoingBusy) setOutgoingConfirm(null);
+                }}
+                onDibayCall={handleOutgoingConfirm}
+              />
+            </Suspense>
           </div>,
           document.body
         )
@@ -496,7 +501,7 @@ export function MessengerCallLogsPanel({
             calls={peerDetailCalls}
             entryOrigin={entryOrigin}
             viewerUserId={resolvedViewerUserId}
-            onRequestOutgoingConfirm={(kind) => {
+            onRequestOutgoingConfirm={() => {
               closeCallLogSwipe();
               const peerId = sanitizeCallPeerUserId(peerDetailSelection.peerUserId);
               const roomId = resolveCallPeerRoomId(
@@ -523,7 +528,7 @@ export function MessengerCallLogsPanel({
                     peerUserId: peerId,
                     participantCount: 2,
                     participantLabels: [],
-                    callKind: kind,
+                    callKind: "voice",
                     status: "ended",
                     startedAt: new Date().toISOString(),
                     durationSeconds: 0,
@@ -532,7 +537,6 @@ export function MessengerCallLogsPanel({
                     endedReason: null,
                     displayType: "outgoing",
                   } satisfies CommunityMessengerCallLog),
-                kind,
                 peerLabel: peerDetailSelection.peerDisplayLabel,
               });
             }}

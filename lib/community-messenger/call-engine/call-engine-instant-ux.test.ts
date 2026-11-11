@@ -103,7 +103,6 @@ describe("call-engine instant telegram UX contracts", () => {
     const ctas = [
       "components/community-messenger/CommunityMessengerHome.tsx",
       "components/community-messenger/MessengerCallLogsPanel.tsx",
-      "components/chats/TradeChatCallHeaderButtons.tsx",
       "lib/community-messenger/room/phase2/use-messenger-room-phase2-controller.ts",
     ];
     for (const file of ctas) {

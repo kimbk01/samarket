@@ -4,6 +4,8 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  lazy,
+  Suspense,
   useEffect,
   useState,
 } from "react";
@@ -14,7 +16,6 @@ import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenge
 import { BOTTOM_NAV_STACK_ABOVE_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
-import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import {
   BackIcon,
   communityMessengerMemberAvatar,
@@ -53,31 +54,21 @@ import { useMessengerRoomPhase2View } from "@/components/community-messenger/roo
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
+/** 통화 시트 — 「통화」를 누를 때만 불러온다 (연락처 코드를 방 진입 경로에 넣지 않음) */
+const MessengerCallChoiceSheetLazy = lazy(
+  () => import("@/components/community-messenger/call-ui/MessengerCallChoiceSheet")
+);
+
 export function CommunityMessengerRoomPhase2MemberActionModal() {
   const vm = useMessengerRoomPhase2View();
   const memberActionTarget = vm.memberActionTarget;
-  const [outCallKind, setOutCallKind] = useState<null | "voice" | "video">(null);
+  /** 멤버에게 1:1 통화 — 통화 시트 (발신 창 통일 3판) */
+  const [callSheetOpen, setCallSheetOpen] = useState(false);
   useEffect(() => {
-    if (!memberActionTarget) setOutCallKind((prev) => (prev === null ? prev : null));
+    if (!memberActionTarget) setCallSheetOpen((prev) => (prev ? false : prev));
   }, [memberActionTarget]);
   return (
     <>
-      {memberActionTarget && outCallKind ? (
-        <MessengerOutgoingCallConfirmDialog
-          open
-          peerLabel={memberActionTarget.label}
-          kind={outCallKind}
-          busy={vm.outgoingDialLocked}
-          onCancel={() => setOutCallKind((prev) => (prev === null ? prev : null))}
-          onConfirm={() => {
-            const id = memberActionTarget.id;
-            const kind = outCallKind;
-            if (!vm.startDirectCallWithMember(id, kind, memberActionTarget.label)) return;
-            setOutCallKind((prev) => (prev === null ? prev : null));
-            vm.setMemberActionTarget(null);
-          }}
-        />
-      ) : null}
       {memberActionTarget ? (
         <DibayBottomSheet
           open
@@ -122,24 +113,17 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                   <p className={`mt-1 ${OverlayUi.caption}`}>{vm.t("cm_ui_open_separate_chat_with_member")}</p>
                 </div>
               </button>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setOutCallKind("voice")}
-                  disabled={vm.outgoingDialLocked}
-                  className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-4 py-4 text-left text-sm font-semibold text-[color:var(--overlay-text-primary)] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-[color:var(--sm-color-primary-disabled)] disabled:text-[color:var(--overlay-text-secondary)]"
-                >
-                  {vm.t("cm_ui_voice_call")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOutCallKind("video")}
-                  disabled={vm.outgoingDialLocked}
-                  className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-4 py-4 text-left text-sm font-semibold text-[color:var(--overlay-text-primary)] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-[color:var(--sm-color-primary-disabled)] disabled:text-[color:var(--overlay-text-secondary)]"
-                >
-                  {vm.t("cm_ui_video_call")}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setCallSheetOpen(true)}
+                disabled={vm.outgoingDialLocked}
+                className={OverlayUi.actionSheetItem}
+                data-cm-member-call=""
+              >
+                <div>
+                  <p className="text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.4] text-[color:var(--overlay-text-primary)]">{vm.t("cm_ui_call")}</p>
+                </div>
+              </button>
               {((vm.canManageMemberRoles &&
                 vm.snapshot?.room.ownerUserId &&
                 !messengerUserIdsEqual(memberActionTarget.id, vm.snapshot.room.ownerUserId)) ||
@@ -238,6 +222,24 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
               </button>
             </div>
         </DibayBottomSheet>
+      ) : null}
+      {/* 통화 시트는 멤버 메뉴 시트 위에 보이도록 마지막에 그린다 */}
+      {memberActionTarget && callSheetOpen ? (
+        <Suspense fallback={null}>
+          <MessengerCallChoiceSheetLazy
+            peerLabel={memberActionTarget.label}
+            peerAvatarUrl={memberActionTarget.avatarUrl ?? null}
+            viewerUserId={vm.snapshot?.viewerUserId ?? null}
+            peerUserId={memberActionTarget.id}
+            busy={vm.outgoingDialLocked}
+            onClose={() => setCallSheetOpen(false)}
+            onDibayCall={(kind) => {
+              const id = memberActionTarget.id;
+              if (!vm.startDirectCallWithMember(id, kind, memberActionTarget.label)) return;
+              vm.setMemberActionTarget(null);
+            }}
+          />
+        </Suspense>
       ) : null}
     </>
   );

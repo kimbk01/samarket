@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { Ban, Bell, BellOff, Eye, EyeOff, MessageCircle, Phone, Star, UserMinus, UserRound, Video } from "lucide-react";
+import { Ban, Bell, BellOff, Eye, EyeOff, MessageCircle, Phone, Star, UserMinus, UserRound } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayMenuList, DibayQuickActions, type DibayMenuItem } from "@/components/ui/dibay-overlay";
 import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/components/community-messenger/MessengerSheetUi";
@@ -17,10 +17,9 @@ type Props = {
   favoriteActive: boolean;
   onToggleFavorite: () => void;
   onChat: () => void;
-  onVoiceCall: () => void;
-  onVideoCall: () => void;
-  pendingVoice: boolean;
-  pendingVideo: boolean;
+  /** 「통화」 — 통화 시트(음성·영상·휴대폰)를 연다 (발신 창 통일 3판) */
+  onCall: () => void;
+  pendingCall: boolean;
   showMuteRow: boolean;
   directRoomMuted: boolean | undefined;
   notificationsBusy: boolean;
@@ -42,10 +41,8 @@ export function MessengerFriendRowQuickPopup({
   favoriteActive,
   onToggleFavorite,
   onChat,
-  onVoiceCall,
-  onVideoCall,
-  pendingVoice,
-  pendingVideo,
+  onCall,
+  pendingCall,
   showMuteRow,
   directRoomMuted,
   notificationsBusy,
@@ -59,7 +56,7 @@ export function MessengerFriendRowQuickPopup({
   const { t } = useI18n();
   const pid = profile.id;
   const titleId = useId();
-  const [launching, setLaunching] = useState<null | "chat" | "voice" | "video">(null);
+  const [launching, setLaunching] = useState<null | "chat" | "call">(null);
 
   useEffect(() => {
     setLaunching((prev) => (prev === null ? prev : null));
@@ -77,8 +74,7 @@ export function MessengerFriendRowQuickPopup({
   if (!open) return null;
 
   const bChat = busyId === `room:${pid}`;
-  const bVoice = pendingVoice || busyId === `call:voice:${pid}`;
-  const bVideo = pendingVideo || busyId === `call:video:${pid}`;
+  const bCall = pendingCall || busyId === `call:voice:${pid}` || busyId === `call:video:${pid}`;
   const anyBusy = Boolean(busyId) || launching != null;
 
   const haptic = (ms = 10) => {
@@ -98,7 +94,7 @@ export function MessengerFriendRowQuickPopup({
     fn();
     closeAfterPress();
   };
-  const launch = (kind: "chat" | "voice" | "video", fn: () => void) => () => {
+  const launch = (kind: "chat" | "call", fn: () => void) => () => {
     haptic(kind === "chat" ? 12 : 14);
     setLaunching(kind);
     window.setTimeout(() => fn(), 220);
@@ -183,20 +179,12 @@ export function MessengerFriendRowQuickPopup({
                 primary: true,
               },
               {
-                key: "voice",
+                key: "call",
                 icon: <Phone strokeWidth={2.2} />,
-                label: bVoice ? t("cm_ui_connecting") : t("nav_voice_call_label"),
-                onClick: launch("voice", onVoiceCall),
+                label: bCall ? t("cm_ui_connecting") : t("cm_ui_call"),
+                onClick: launch("call", onCall),
                 disabled: anyBusy,
-                loading: launching === "voice",
-              },
-              {
-                key: "video",
-                icon: <Video strokeWidth={2.2} />,
-                label: bVideo ? t("cm_ui_connecting") : t("nav_video_call_label"),
-                onClick: launch("video", onVideoCall),
-                disabled: anyBusy,
-                loading: launching === "video",
+                loading: launching === "call",
               },
             ]}
           />
