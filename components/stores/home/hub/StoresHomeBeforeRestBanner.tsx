@@ -10,6 +10,7 @@ import {
   peekStoresHomeBannersClientCache,
   type StoresHomeBannersResponse,
 } from "@/lib/stores/stores-home-banners-client";
+import { useHubDataRevisitGate } from "@/lib/http/hub-data-freshness";
 
 const BEFORE_REST_BANNERS_API = "/api/stores/home-before-rest-banners" as const;
 
@@ -27,10 +28,16 @@ export function StoresHomeBeforeRestBanner({ refreshKey = 0 }: { refreshKey?: nu
    * 슬롯 마운트 시 같은 single-flight·30초 캐시에 합류 (home-feed 뒤 순차 fetch 제거).
    * refreshKey(B-08) 변경 = 허브가 시작한 force 비행에 합류.
    */
+  /** D1 §4 — 허브 화면 보관대에서 다시 보일 때 60초 안이면 다시 받지 않음 */
+  const revisitGate = useHubDataRevisitGate();
+
   useLayoutEffect(() => {
+    const gateKey = String(refreshKey);
+    if (revisitGate.isFresh(gateKey)) return;
     let cancelled = false;
     const apply = (json: StoresHomeBannersResponse | null) => {
       if (cancelled) return;
+      if (json) revisitGate.markLoaded(gateKey);
       if (!json?.physicalEnabled) {
         setBanners([]);
         return;
@@ -50,7 +57,7 @@ export function StoresHomeBeforeRestBanner({ refreshKey = 0 }: { refreshKey?: nu
       cancelled = true;
     };
     /** B-08 — 홈 당겨서 새로고침 시 다시 조회 */
-  }, [refreshKey]);
+  }, [refreshKey, revisitGate]);
 
   if (banners === null) {
     return (

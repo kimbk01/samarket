@@ -142,3 +142,8 @@ MainHubScrollBody
 | 〃 | 샤오미 | 278,431KB | 192,543KB | PASS |
 - 측정 중 확인한 위험: 측정 스크립트가 `nav a[href^=/mypage]` 로 링크를 찾자 **숨긴 허브 안의 링크**가 먼저 잡혔다(화면 문제 아님, 측정 도구 문제로 보정). 앱 코드 중 `document.querySelector` 로 허브 안 요소를 찾는 곳은 숨긴 허브 요소를 잡을 수 있음 — 전수 점검 필요(미실시).
 - NOT_PROVEN: iPhone(운영 앱 측정 안 함), 채팅 허브(보관 제외 유지), 계정 A→B 실기.
+
+## 15. 남은 부분 적용 (2026-11-11 · Owner 「진행」)
+- 홈 회원: 배달 매장 섹션(`HomeStoresSection` — `stores/home-feed`·`home/store-menus`) 60초 규칙. 교민 이야기는 이미 적용됨(운영 재확인: 60초 안 재진입 요청 0). 진행 중 주문(`store-orders?hub_summary`)은 §4 실시간 값이라 제외.
+- 배달: 피드(`StoresHomeHub` loadFeed)·배너 2종·추천 상품 메뉴(`use-browse-featured-items-hydration`) 60초 규칙. 고객센터(`support/cases`)는 배지라 제외.
+- 숨긴 허브는 알림을 못 들으므로 주소 변경·프로필 변경도 세대를 올려 다시 받게 함.

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { buildMypageAddressesHref } from "@/lib/addresses/mypage-addresses-return-to";
 import { useRouter } from "next/navigation";
+import { useHubDataRevisitGate } from "@/lib/http/hub-data-freshness";
 import { Plus } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildLoginHref } from "@/lib/auth/client-access-flow";
@@ -91,12 +92,18 @@ export function HomeStoresSection({
   const seq = rot?.seq;
   const cfgKey = JSON.stringify(config);
 
+  /** D1 §4 — 허브 화면 보관대에서 다시 보일 때 같은 조건·60초 안이면 다시 받지 않음(보이던 매장·메뉴 유지) */
+  const revisitGate = useHubDataRevisitGate();
+
   useEffect(() => {
     if (!isMember) {
       setState({ kind: "gate", gate: "login_required" });
+      revisitGate.reset();
       return;
     }
     if (!rot) return;
+    const gateKey = `${mode}|${seq}|${cfgKey}|${language}|${retryKey}`;
+    if (revisitGate.isFresh(gateKey)) return;
     let alive = true;
     void (async () => {
       if (refreshSeq > 0) forgetStoresHomeFeedFetchSingleFlight("", language);
@@ -113,6 +120,7 @@ export function HomeStoresSection({
       const gate = json.meta?.viewer_gate;
       if (gate === "login_required" || gate === "address_required" || gate === "not_service_area") {
         setState({ kind: "gate", gate });
+        revisitGate.markLoaded(gateKey);
         return;
       }
       // Owner 2026-11-09 「샘플이라도 배달 지역 안이면 홈에서도 보여야」 — 영업시간 밖 매장도 후보(상태 표시)
@@ -127,6 +135,7 @@ export function HomeStoresSection({
       if (ordered.length === 0) {
         setState({ kind: "empty" });
         rot.commit({ stores: [] });
+        revisitGate.markLoaded(gateKey);
         return;
       }
       const res = await fetch(`/api/home/store-menus?ids=${ordered.map(idOf).join(",")}`, {
@@ -159,6 +168,7 @@ export function HomeStoresSection({
       }
       rot.commit({ stores: shown.map((s) => s.store.id), menus: menuPick });
       setState(shown.length > 0 ? { kind: "ready", shown } : { kind: "empty" });
+      revisitGate.markLoaded(gateKey);
     })();
     return () => {
       alive = false;

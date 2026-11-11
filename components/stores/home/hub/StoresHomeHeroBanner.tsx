@@ -12,6 +12,7 @@ import {
   type StoresHomeBannersResponse,
 } from "@/lib/stores/stores-home-banners-client";
 import type { HomeHeroBannerResolvedSlide } from "@/lib/stores/load-store-banner-ad-campaigns";
+import { useHubDataRevisitGate } from "@/lib/http/hub-data-freshness";
 
 const HERO_POLICY = launchBannerByInventory("STORES_HOME_HERO");
 const AUTO_MS = HERO_POLICY?.autoSlideMs ?? 5000;
@@ -78,10 +79,16 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
    * 묶음4 F-06 — 같은 fetcher(single-flight + 30초 클라 캐시)로 읽는다. 허브가 진입 시 prewarm 하고,
    * 당겨서 새로고침·주소 변경(refreshKey, B-08)은 허브가 force 비행을 먼저 시작 → 여기서는 그 비행에 합류.
    */
+  /** D1 §4 — 허브 화면 보관대에서 다시 보일 때 60초 안이면 다시 받지 않음 */
+  const revisitGate = useHubDataRevisitGate();
+
   useLayoutEffect(() => {
+    const gateKey = String(refreshKey);
+    if (revisitGate.isFresh(gateKey)) return;
     let cancelled = false;
     const apply = (json: StoresHomeBannersResponse | null) => {
       if (cancelled) return;
+      if (json) revisitGate.markLoaded(gateKey);
       const list = Array.isArray(json?.banners) ? (json!.banners as HomeHeroBannerResolvedSlide[]) : [];
       const visible = list.filter((b) => String(b.imageUrl ?? "").trim().length > 0);
       if (json) {
@@ -102,7 +109,7 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
       cancelled = true;
     };
     /** B-08 — 홈 당겨서 새로고침 시 다시 조회 */
-  }, [refreshKey]);
+  }, [refreshKey, revisitGate]);
 
   const slideCount = banners?.length ?? 0;
   const slide = slideCount > 0 ? banners![Math.min(index, slideCount - 1)]! : null;

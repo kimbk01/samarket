@@ -13,6 +13,7 @@ import {
   peekBrowseFeaturedItemsClient,
 } from "@/lib/stores/fetch-browse-featured-items-client";
 import type { BrowseFeaturedCardItem } from "@/lib/stores/browse-featured-items-types";
+import { useHubDataRevisitGate } from "@/lib/http/hub-data-freshness";
 
 export type BrowseFeaturedMenuHydrationPhase = "idle" | "loading" | "done";
 
@@ -151,9 +152,17 @@ export function useBrowseFeaturedItemsHydration(
     bumpEpoch();
   }, [bumpEpoch]);
 
+  /**
+   * D1 §4 — 허브 화면 보관대에서 다시 보일 때(같은 매장 목록·60초 안) 받아 둔 메뉴를 비우고 다시 받지 않는다.
+   * 매장 목록이 바뀌거나 60초가 지나면 지금처럼 비우고 다시 받는다.
+   */
+  const hydrationRevisitGate = useHubDataRevisitGate();
   useEffect(() => {
+    const key = `${storesKey}|${enabled ? 1 : 0}`;
+    if (hydrationRevisitGate.isFresh(key)) return;
+    hydrationRevisitGate.markLoaded(key);
     resetHydrationState();
-  }, [storesKey, enabled, resetHydrationState]);
+  }, [storesKey, enabled, resetHydrationState, hydrationRevisitGate]);
 
   const eagerKey = (opts?.eagerStoreIds ?? []).join(",");
   useEffect(() => {

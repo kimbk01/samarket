@@ -71,12 +71,23 @@ describe("D1 §4 허브 데이터 60초 규칙", () => {
     expect(read("lib/main-menu/bottom-nav-tap-prewarm-data.ts")).toContain("isHubScreenRetainedFresh(");
   });
 
+  it("주소·프로필 변경은 세대를 올림 (숨긴 허브는 알림을 못 들음)", () => {
+    const src = read("lib/http/hub-data-freshness.ts");
+    expect(src).toContain('invalidateAllHubData("addresses_updated")');
+    expect(src).toContain('invalidateAllHubData("profile_updated")');
+  });
+
   it("허브 재진입 요청부에 규칙 적용", () => {
     for (const p of [
       "components/community/CommunityFeed.tsx",
       "components/home-hub/HomePostsSection.tsx",
       "components/platform-events/EventPromotionHeroBanner.tsx",
       "components/auth/AuthLoginPanel.tsx",
+      "components/home-hub/HomeStoresSection.tsx",
+      "components/stores/home/hub/StoresHomeHub.tsx",
+      "components/stores/home/hub/StoresHomeHeroBanner.tsx",
+      "components/stores/home/hub/StoresHomeBeforeRestBanner.tsx",
+      "lib/stores/use-browse-featured-items-hydration.ts",
     ]) {
       expect(read(p)).toContain("useHubDataRevisitGate()");
     }
