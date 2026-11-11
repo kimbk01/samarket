@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 
 /**
  * 친구 QR 웹 페이지 본문 (시안 I · QR 친구 재감사 Q6) — 아이디는 보여 주지 않는다(사진·이름만).
@@ -33,18 +34,11 @@ export function FriendQrWebLanding({
     setOpenHref(/android/i.test(navigator.userAgent) && androidAppLink ? androidAppLink : appLink);
   }, [androidAppLink, appLink]);
 
+  /** 앱(Capacitor 셸) 안 — 공용 판별(원격 WebView 는 bridge 로 판별, PR #154 리뷰) → 랜딩 없이 메신저 결과 시트로 */
   useEffect(() => {
-    let cancelled = false;
-    void import("@capacitor/core")
-      .then(({ Capacitor }) => {
-        if (cancelled || !Capacitor.isNativePlatform()) return;
-        setInApp(true);
-        router.replace(continueHref);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+    if (!isCapacitorNativePlatform()) return;
+    setInApp(true);
+    router.replace(continueHref);
   }, [continueHref, router]);
 
   if (inApp) return null;

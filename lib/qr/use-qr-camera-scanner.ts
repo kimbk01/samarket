@@ -20,6 +20,12 @@ const DECODE_MAX_SIDE = 640;
 
 export type QrCodeDecision = "accept" | "reject";
 
+/**
+ * 영상 `poster` — 1×1 투명 GIF. Android WebView 는 첫 화면이 오기 전 영상 칸에 회색 재생(▶) 아이콘을 그린다
+ * (Owner 실기 캡처 2026-11-12). 투명 포스터로 그 아이콘을 없애고, 첫 화면이 재생될 때까지(`videoReady`) 영상은 숨긴다.
+ */
+export const QR_SCANNER_BLANK_POSTER = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
 function useDocumentVisible(): boolean {
   const [visible, setVisible] = useState(() => typeof document === "undefined" || document.visibilityState !== "hidden");
   useEffect(() => {
@@ -38,6 +44,8 @@ export function useQrCameraScanner(opts: {
   const visible = useDocumentVisible();
   /** 읽기 성공(accept) 뒤에는 화면이 다시 보여도 카메라를 다시 켜지 않는다 — 호출처가 active 를 바꿀 때만 초기화 */
   const [accepted, setAccepted] = useState(false);
+  /** 카메라 첫 화면이 실제로 재생 중 — 그 전에는 영상 칸을 숨기고 「카메라를 켜는 중」을 보인다 */
+  const [videoReady, setVideoReady] = useState(false);
   useEffect(() => {
     setAccepted(false);
   }, [opts.active]);
@@ -58,9 +66,14 @@ export function useQrCameraScanner(opts: {
   }, []);
 
   useEffect(() => {
+    setVideoReady(false);
     if (!active) return;
     let cancelled = false;
     let timer = 0;
+    let readyVideo: HTMLVideoElement | null = null;
+    const onPlaying = () => {
+      if (!cancelled && readyVideo && readyVideo.videoWidth > 0) setVideoReady(true);
+    };
     const run = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -79,8 +92,12 @@ export function useQrCameraScanner(opts: {
           streamRef.current = null;
           return;
         }
+        readyVideo = video;
+        /** 화면 크기가 나중에 잡히는 기기도 있어 playing·loadeddata·resize 모두에서 확인 */
+        for (const ev of ["playing", "loadeddata", "resize"] as const) video.addEventListener(ev, onPlaying);
         video.srcObject = stream;
         await video.play().catch(() => undefined);
+        onPlaying();
         const scan = () => {
           if (cancelled) return;
           const canvas = canvasRef.current;
@@ -120,11 +137,13 @@ export function useQrCameraScanner(opts: {
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
+      for (const ev of ["playing", "loadeddata", "resize"] as const) readyVideo?.removeEventListener(ev, onPlaying);
+      setVideoReady(false);
       stop();
     };
   }, [active, stop]);
 
-  return { videoRef, canvasRef, stop };
+  return { videoRef, canvasRef, stop, videoReady };
 }
 
 /** 갤러리 이미지에서 QR 읽기 — 사진은 밝기가 뒤집힌 경우도 있어 양쪽 모두 시도. 없으면 null */

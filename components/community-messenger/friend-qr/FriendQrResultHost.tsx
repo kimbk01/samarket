@@ -7,6 +7,7 @@ import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/compon
 import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 import { useFriendQrResultStore } from "@/lib/community-messenger/friend-qr/friend-qr-result-store";
 import {
+  buildFriendQrHomePath,
   FRIEND_QR_HOME_QUERY_KEY,
   friendQrErrorMessageKey,
   isFriendQrToken,
@@ -52,10 +53,15 @@ export function FriendQrResultHost({
   /**
    * 실패 이유별 처리 (재감사 Q3): 가입·프로필 미완료 → 앱 공용 안내(시트 닫음), 너무 잦은 시도(429) → 잠시 후,
    * 그 밖(옛 QR·QR 친구 추가 끔·차단·탈퇴 — 이유를 숨김) → 「이 QR로는 친구를 추가할 수 없어요」 하나.
+   * 안내를 마치고 돌아올 곳 = 같은 QR 결과 시트(`?friendQr=`) — 다시 스캔하지 않게 (PR #154 리뷰).
    */
   const applyFailure = useCallback(
-    (status: number, j: ProfileIncompleteApiPayload & { error?: string }) => {
-      if (handleProfileIncompleteApiResponse(j).handled || redirectForBlockedAction(router, j.error ?? j.code)) {
+    (status: number, j: ProfileIncompleteApiPayload & { error?: string }, failedToken: string) => {
+      const returnTo = buildFriendQrHomePath(failedToken);
+      if (
+        handleProfileIncompleteApiResponse(j, { returnTo }).handled ||
+        redirectForBlockedAction(router, j.error ?? j.code, returnTo)
+      ) {
         close();
         return;
       }
@@ -89,7 +95,7 @@ export function FriendQrResultHost({
         const j = (await r.json().catch(() => ({}))) as ProfileIncompleteApiPayload & { preview?: Preview };
         if (cancelled) return;
         if (!r.ok || j.ok !== true || !j.preview) {
-          applyFailure(r.status, j);
+          applyFailure(r.status, j, token);
           return;
         }
         setPreview(j.preview);
@@ -115,7 +121,7 @@ export function FriendQrResultHost({
       });
       const j = (await r.json().catch(() => ({}))) as ProfileIncompleteApiPayload & { peerUserId?: string };
       if (!r.ok || j.ok !== true || !j.peerUserId) {
-        applyFailure(r.status, j);
+        applyFailure(r.status, j, token);
         return;
       }
       showMessengerSnackbar(t("friend_qr_added", { name: preview.displayName || t("friend_qr_member_fallback") }), {
