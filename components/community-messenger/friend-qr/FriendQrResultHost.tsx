@@ -100,7 +100,9 @@ export function FriendQrResultHost({
         setErrorKey(friendQrErrorMessageKey(j.error));
         return;
       }
-      showMessengerSnackbar(t("friend_qr_added", { name: preview.displayName }), { variant: "success" });
+      showMessengerSnackbar(t("friend_qr_added", { name: preview.displayName || t("friend_qr_member_fallback") }), {
+        variant: "success",
+      });
       onAdded(j.peerUserId);
       close();
     } catch {
@@ -121,7 +123,7 @@ export function FriendQrResultHost({
           <div className="grid justify-items-center gap-1.5 text-center">
             <SamarketUserAvatar avatarUrl={preview.avatarUrl} sizePx={72} alt="" />
             <p className="text-[length:var(--overlay-title-2-size)] font-bold" style={{ color: "var(--overlay-text-primary)" }}>
-              {preview.displayName}
+              {preview.displayName || t("friend_qr_member_fallback")}
             </p>
             {atId ? <p className="text-[length:var(--overlay-body-2-size)] font-semibold text-sam-primary">{atId}</p> : null}
             <p className="text-[length:var(--overlay-caption-size)]" style={{ color: "var(--overlay-text-secondary)" }}>

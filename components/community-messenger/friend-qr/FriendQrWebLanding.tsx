@@ -22,7 +22,7 @@ export function FriendQrWebLanding({
         <>
           <SamarketUserAvatar avatarUrl={owner.avatarUrl} sizePx={88} alt="" />
           <div>
-            <p className="text-[20px] font-bold text-sam-fg">{owner.displayName}</p>
+            <p className="text-[20px] font-bold text-sam-fg">{owner.displayName || t("friend_qr_member_fallback")}</p>
             <p className="mt-1 text-[14px] text-sam-muted">{t("friend_qr_web_invite")}</p>
           </div>
           {appLink ? (

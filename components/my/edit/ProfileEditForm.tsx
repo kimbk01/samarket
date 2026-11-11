@@ -406,11 +406,10 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
             ...profile,
             dibay_id: normalized,
             dibay_id_locked: true,
-            /** confirm_dibay_id 결과와 같은 값 — 서버 프로필을 다시 받기 전 화면이 「변경 가능」으로 남지 않게 */
-            dibay_id_auto_assigned: false,
-            dibay_id_changed_once: true,
-            dibay_id_state: "custom",
-            dibay_id_can_change: false,
+            /**
+             * 상태·변경권(dibay_id_state·dibay_id_can_change)은 화면에서 만들지 않는다 — 바로 아래 load(freshProfile)가
+             * 서버(DB 생성 컬럼) 값으로 바꾼다 (재감사 D4). 그동안 폼은 불러오는 중 상태.
+             */
             username: normalized,
             onboarding_status: "completed",
             onboarding_completed_at: profile.onboarding_completed_at ?? new Date().toISOString(),

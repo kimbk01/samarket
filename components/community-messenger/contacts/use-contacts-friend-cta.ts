@@ -54,7 +54,7 @@ export function useContactsFriendCta(fallbackAccept: (requesterId: string) => Pr
   const addFriend = useCallback(
     async (m: ContactsMemberRow): Promise<boolean> => {
       if (home) return (await home.onSend(m.user_id)) === true;
-      const r = await postCommunityMessengerFriendRequestApi(m.user_id);
+      const r = await postCommunityMessengerFriendRequestApi(m.user_id, undefined, "contacts");
       if (r.ok) {
         showMessengerSnackbar(t("cm_contacts_request_sent"), { variant: "success" });
         return true;

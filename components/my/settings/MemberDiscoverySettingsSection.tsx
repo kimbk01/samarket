@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyToggle } from "@/components/mypage/ds/MyToggle";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import { setMemberDiscoverySettingsCache } from "@/lib/auth/use-member-discovery-settings";
+import { showMypageToast } from "@/lib/mypage/mypage-toast";
 
 type DiscoverySettings = { allowIdSearch: boolean; allowQrAdd: boolean };
 
@@ -16,6 +19,8 @@ export function MemberDiscoverySettingsSection() {
   const [settings, setSettings] = useState<DiscoverySettings | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [regenOpen, setRegenOpen] = useState(false);
+  const [regenBusy, setRegenBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,6 +35,7 @@ export function MemberDiscoverySettingsSection() {
         }
         setLoadFailed(false);
         setSettings(j.settings);
+        setMemberDiscoverySettingsCache(j.settings);
       } catch {
         if (!cancelled) setLoadFailed(true);
       }
@@ -51,9 +57,30 @@ export function MemberDiscoverySettingsSection() {
       const j = (await r.json().catch(() => ({}))) as { ok?: boolean; settings?: DiscoverySettings };
       if (!r.ok || j.ok !== true || !j.settings) return false;
       setSettings(j.settings);
+      /** 아이디 안내 문구(단일 계약)가 바로 바뀌게 (재감사 E4) */
+      setMemberDiscoverySettingsCache(j.settings);
       return true;
     } catch {
       return false;
+    }
+  };
+
+  /** 시안 H 「내 QR 다시 만들기」 (재감사 N4) — 내 QR 시트와 같은 API */
+  const regenerate = async () => {
+    setRegenOpen(false);
+    if (regenBusy) return;
+    setRegenBusy(true);
+    try {
+      const r = await fetch("/api/community-messenger/friend-qr/regenerate", { method: "POST", credentials: "include" });
+      const j = (await r.json().catch(() => ({}))) as { ok?: boolean };
+      showMypageToast(
+        t(r.ok && j.ok === true ? "friend_qr_regenerated" : "friend_qr_action_failed"),
+        r.ok && j.ok === true ? "success" : "error",
+      );
+    } catch {
+      showMypageToast(t("friend_qr_action_failed"), "error");
+    } finally {
+      setRegenBusy(false);
     }
   };
 
@@ -106,6 +133,31 @@ export function MemberDiscoverySettingsSection() {
           />
         </div>
       )}
+      <div className="mt-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <span className="sam-text-body text-sam-fg">{t("member_qr_regenerate_row")}</span>
+          <p className="mt-0.5 sam-text-xxs text-sam-muted">{t("member_qr_regenerate_row_desc")}</p>
+        </div>
+        <button
+          type="button"
+          disabled={regenBusy}
+          onClick={() => setRegenOpen(true)}
+          className="shrink-0 rounded-ui-rect border border-sam-border px-3 py-1.5 text-[13px] font-semibold text-sam-fg disabled:opacity-50"
+          data-testid="member-qr-regenerate-row"
+        >
+          {t("friend_qr_regenerate")}
+        </button>
+      </div>
+      <MobileConfirmBottomSheet
+        open={regenOpen}
+        title={t("friend_qr_regenerate_title")}
+        description={t("friend_qr_regenerate_note")}
+        cancelLabel={t("common_cancel")}
+        confirmLabel={t("friend_qr_regenerate")}
+        confirmTone="primary"
+        onCancel={() => setRegenOpen(false)}
+        onConfirm={() => void regenerate()}
+      />
     </div>
   );
 }

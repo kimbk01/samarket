@@ -66,6 +66,13 @@ export function parseFriendQrPayload(raw: string, currentOrigin?: string | null)
   return isFriendQrToken(token) ? token : null;
 }
 
+/** API 가 밖으로 돌려주는 오류 코드 — 차단·QR 꺼짐·없는 QR 을 구분하지 않는다 (재감사 L1). 본인 QR·서버 문제만 따로 */
+export function publicFriendQrErrorCode(code: string | null | undefined): "qr_self" | "qr_unusable" | "supabase_unavailable" {
+  if (code === "qr_self") return "qr_self";
+  if (code === "supabase_unavailable") return "supabase_unavailable";
+  return "qr_unusable";
+}
+
 /** API 오류 코드 → 회원에게 보이는 문구는 하나 (이유를 밝히지 않음, 설계안 §3.6). 본인 QR 만 따로 */
 export function friendQrErrorMessageKey(code: string | null | undefined): "friend_qr_err_self" | "friend_qr_err_unusable" {
   return code === "qr_self" ? "friend_qr_err_self" : "friend_qr_err_unusable";

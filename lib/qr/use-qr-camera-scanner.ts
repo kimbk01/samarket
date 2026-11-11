@@ -30,6 +30,8 @@ export function useQrCameraScanner(opts: {
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+    /** 영상 연결도 비운다 (재감사 L3) */
+    if (videoRef.current) videoRef.current.srcObject = null;
   }, []);
 
   useEffect(() => {
@@ -48,7 +50,12 @@ export function useQrCameraScanner(opts: {
         }
         streamRef.current = stream;
         const video = videoRef.current;
-        if (!video) return;
+        if (!video) {
+          /** 영상 칸이 없으면 켠 카메라를 바로 끈다 (재감사 L3) */
+          stream.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+          return;
+        }
         video.srcObject = stream;
         await video.play().catch(() => undefined);
         const scan = () => {

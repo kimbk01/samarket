@@ -57,7 +57,6 @@ import {
   resolveDeletedMessagePlaceholder,
 } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import { isCommunityMessengerGroupRoomType, isCommunityMessengerPrivateGroupListRoomType } from "@/lib/community-messenger/types";
-import { buildProfileUserSearchOrFilter } from "@/lib/community-messenger/profile-user-search-filter";
 import {
   COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS,
   downsampleVoiceWaveformPeaks,
@@ -10224,7 +10223,9 @@ async function readFriendRequestCreatedAt(sb: SupabaseLike, requestId: string): 
 export async function sendCommunityMessengerFriendRequest(
   userId: string,
   targetUserId: string,
-  note?: string
+  note?: string,
+  /** 친구가 된 경로 (회원 아이디 v3 N1) */
+  source?: import("@/lib/community-messenger/friendship/cm-mutual-friend-request").CmFriendRequestSource
 ): Promise<{
   ok: boolean;
   request?: CommunityMessengerFriendRequest;
@@ -10255,6 +10256,7 @@ export async function sendCommunityMessengerFriendRequest(
     requesterId: userId,
     addresseeId: target,
     note,
+    source,
   });
   if (!rpc.ok) {
     if (rpc.error === "incoming_request_exists" && rpc.requestId) {

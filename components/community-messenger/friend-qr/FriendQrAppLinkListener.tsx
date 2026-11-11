@@ -38,9 +38,12 @@ export function FriendQrAppLinkListener() {
         }
         remove = () => void sub.remove();
         if (!launchUrlConsumed) {
-          launchUrlConsumed = true;
           const launch = await App.getLaunchUrl().catch(() => undefined);
-          if (!cancelled) handle(launch?.url);
+          /** 실제로 처리할 때만 「처리됨」 — 기다리는 사이 다시 마운트되면 새 리스너가 처리한다 (재감사 E5) */
+          if (!cancelled && !launchUrlConsumed) {
+            launchUrlConsumed = true;
+            handle(launch?.url);
+          }
         }
       } catch {
         /* Capacitor App plugin unavailable */

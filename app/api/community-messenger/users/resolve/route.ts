@@ -42,6 +42,21 @@ export async function GET(req: NextRequest) {
   }
 
   const p = result.profile;
+  /** 친구가 된 경로 — 둘 사이 수락된 요청의 source (「QR로 추가」 배지, 재감사 N2) */
+  let friendSource: string | null = null;
+  if (p.isFriend) {
+    const { data: req } = await sb
+      .from("community_friend_requests")
+      .select("source")
+      .eq("status", "accepted")
+      .or(
+        `and(requester_id.eq.${auth.userId},addressee_id.eq.${p.id}),and(requester_id.eq.${p.id},addressee_id.eq.${auth.userId})`,
+      )
+      .order("responded_at", { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    friendSource = typeof req?.source === "string" ? req.source : null;
+  }
   return NextResponse.json({
     ok: true,
     profile: {
@@ -55,6 +70,7 @@ export async function GET(req: NextRequest) {
       is_blocked_by_me: p.isBlockedByMe,
       can_message: p.canMessage,
       can_call: p.canCall,
+      friend_source: friendSource,
     },
   });
 }

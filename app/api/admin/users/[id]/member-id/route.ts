@@ -9,7 +9,12 @@ export const dynamic = "force-dynamic";
  * - GET: 기본 아이디·회원 아이디·상태·본인 변경권·변경 이력 (기본 아이디는 어드민에서만 보인다)
  * - POST: 본인 변경권 다시 주기 — DB `admin_grant_dibay_id_change` (사유 필수, audit_logs 기록)
  */
-const HISTORY_ACTIONS = ["admin_member_dibay_id_change", "admin_member_dibay_id_change_grant"] as const;
+const HISTORY_ACTIONS = [
+  "admin_member_dibay_id_change",
+  "admin_member_dibay_id_change_grant",
+  /** 회원 본인 변경 — confirm_dibay_id 가 남긴다 (재감사 N6, 20271111170000 부터) */
+  "member_dibay_id_change",
+] as const;
 const REASON_MAX = 300;
 
 export type AdminMemberIdHistoryItem = {
@@ -59,6 +64,16 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
       created_at: string;
     };
     const after = r.after_json ?? {};
+    if (r.action === "member_dibay_id_change") {
+      return {
+        at: r.created_at,
+        kind: "member_change" as const,
+        before: pickText(after.before) ?? pickText(r.before_json?.dibay_id),
+        after: pickText(after.after),
+        reason: null,
+        actorId: r.actor_id,
+      };
+    }
     if (r.action === "admin_member_dibay_id_change_grant") {
       return {
         at: r.created_at,
@@ -79,7 +94,9 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     };
   });
 
-  /** 회원 본인 변경 — 마지막 변경 시각만 남는다 (profiles.dibay_id_changed_at) */
+  /**
+   * 회원 본인 변경 기록이 없을 때만(20271111170000 이전 변경) 마지막 변경 시각을 보탠다 — 그때는 「전」 값이 남아 있지 않다.
+   */
   const p = prof as {
     dibay_id: string | null;
     dibay_id_initial: string | null;
@@ -88,7 +105,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     dibay_id_changed_once: boolean | null;
     dibay_id_changed_at: string | null;
   };
-  if (p.dibay_id_changed_at) {
+  if (p.dibay_id_changed_at && !history.some((h) => h.kind === "member_change")) {
     history.push({
       at: p.dibay_id_changed_at,
       kind: "member_change",

@@ -108,14 +108,22 @@ type RpcClient = {
   rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
 };
 
+/** 친구가 된 경로 (회원 아이디 v3 §3.6 N1) — DB `community_friend_requests.source`. QR 은 `cm_add_friend_via_qr` 가 쓴다 */
+export type CmFriendRequestSource = "id_search" | "contacts" | "profile";
+
+export function normalizeCmFriendRequestSource(value: unknown): CmFriendRequestSource | undefined {
+  return value === "id_search" || value === "contacts" || value === "profile" ? value : undefined;
+}
+
 export async function rpcCmSendFriendRequest(
   sb: RpcClient,
-  args: { requesterId: string; addresseeId: string; note?: string }
+  args: { requesterId: string; addresseeId: string; note?: string; source?: CmFriendRequestSource }
 ): Promise<CmSendFriendRequestRpcResult> {
   const { data, error } = await sb.rpc("cm_send_friend_request", {
     p_requester_id: args.requesterId,
     p_addressee_id: args.addresseeId,
     p_note: args.note ?? "",
+    p_source: args.source ?? null,
   });
   if (error) return { ok: false, error: "friend_request_send_failed" };
   return parseCmSendFriendRequestRpc(data);

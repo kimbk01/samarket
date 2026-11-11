@@ -13,6 +13,7 @@ import {
   PUBLIC_PROFILE_SELECT_FALLBACK,
   resolvePublicTradeLocationLine,
 } from "@/lib/users/public-profile-exposure";
+import { findProfileByMemberId } from "@/lib/users/find-profile-by-member-id";
 import { escapeIlikePatternFragment } from "@/lib/community-messenger/profile-user-search-filter";
 
 export const runtime = "nodejs";
@@ -38,25 +39,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ use
 
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
-  const profileSelect = PUBLIC_PROFILE_SELECT;
-  let { data: prof, error: profErr } = await sbAny
-    .from("profiles")
-    .select(profileSelect)
-    .ilike("username", escapeIlikePatternFragment(username))
-    .maybeSingle();
-
-  if (
-    profErr &&
-    /column|does not exist|schema cache|Could not find/i.test(String(profErr.message ?? ""))
-  ) {
-    const r2 = await sbAny
-      .from("profiles")
-      .select(PUBLIC_PROFILE_SELECT_FALLBACK)
-      .ilike("username", escapeIlikePatternFragment(username))
-      .maybeSingle();
-    prof = r2.data as typeof prof;
-    profErr = r2.error;
-  }
+  /** 회원 아이디로 먼저, 예전 username 링크는 그다음 — `/u` 페이지와 같은 규칙 (재감사 N5) */
+  const found = await findProfileByMemberId(sbAny, username, PUBLIC_PROFILE_SELECT, PUBLIC_PROFILE_SELECT_FALLBACK);
+  const prof = found.row;
+  const profErr = found.row ? null : found.error;
 
   if (!profErr && prof && isPublicProfileHidden(prof as { status?: string | null; deleted_at?: string | null })) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });

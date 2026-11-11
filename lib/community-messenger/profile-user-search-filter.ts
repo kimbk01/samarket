@@ -1,6 +1,6 @@
 /**
  * PostgREST `.or()` / `.ilike()` 필터 — comma 구분·와일드카드·따옴표 이스케이프.
- * `searchCommunityMessengerUsers` 단일 사용처.
+ * 친구 찾기 판정은 DB `cm_search_members` — 여기는 입력 정리·ilike 이스케이프만 (회원 아이디 v3 재감사 D5).
  */
 export function normalizeProfileUserSearchKeyword(raw: string): string {
   const trimmed = raw.trim();
@@ -14,15 +14,4 @@ export function escapeIlikePatternFragment(value: string): string {
 
 export function escapePostgrestDoubleQuotedIlike(value: string): string {
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-}
-
-/**
- * dibay_id exact match (normalize @, lower).
- * 전환기: 확정 username(`username_confirmed=true`)도 동일 exact 로 매칭.
- */
-export function buildProfileUserSearchOrFilter(rawKeyword: string): string | null {
-  const keyword = normalizeProfileUserSearchKeyword(rawKeyword);
-  if (!keyword) return null;
-  const exact = escapePostgrestDoubleQuotedIlike(escapeIlikePatternFragment(keyword));
-  return `dibay_id.ilike.${exact},and(username.ilike.${exact},username_confirmed.eq.true)`;
 }

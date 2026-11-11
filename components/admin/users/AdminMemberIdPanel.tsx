@@ -22,6 +22,7 @@ type MemberIdPayload = {
   base: string | null;
   state: string;
   canChange: boolean;
+  changedOnce: boolean;
   history: HistoryItem[];
 };
 
@@ -96,6 +97,7 @@ export function AdminMemberIdPanel({ userId, canEdit }: { userId: string; canEdi
       const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!r.ok || j.ok !== true) {
         if (j.error === "change_right_available") setErrorText(t("admin_member_id_grant_already"));
+        else if (j.error === "change_right_not_used") setErrorText(t("admin_member_id_grant_not_used"));
         else if (j.error === "reason_required") setErrorText(t("admin_users_member_dibay_id_reason_required"));
         else if (j.error === "reason_too_long")
           setErrorText(t("admin_users_member_dibay_id_reason_too_long", { max: REASON_MAX }));
@@ -118,7 +120,8 @@ export function AdminMemberIdPanel({ userId, canEdit }: { userId: string; canEdi
     <section className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-member-id-panel="1">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-[14px] font-semibold text-sam-fg">{t("admin_member_id_panel_title")}</h2>
-        {canEdit && data && !data.canChange && data.current ? (
+        {/* 변경권 다시 주기 — 본인 변경권을 이미 쓴 회원만 (설계 §3.4 · 재감사 E2) */}
+        {canEdit && data && !data.canChange && data.changedOnce && data.current ? (
           <AdminActionButton variant="secondary" onClick={openGrant} data-member-cta="dibay_id_grant">
             {t("admin_member_id_grant_cta")}
           </AdminActionButton>
@@ -146,7 +149,11 @@ export function AdminMemberIdPanel({ userId, canEdit }: { userId: string; canEdi
             </dd>
             <dt className="text-sam-muted">{t("admin_member_id_right_label")}</dt>
             <dd className="text-sam-fg" data-member-id-can-change={data.canChange ? "1" : "0"}>
-              {data.canChange ? t("admin_member_id_right_available") : t("admin_member_id_right_used")}
+              {data.canChange
+                ? t("admin_member_id_right_available")
+                : data.changedOnce
+                  ? t("admin_member_id_right_used")
+                  : t("admin_member_id_right_locked")}
             </dd>
           </dl>
           <h3 className="mt-3 text-[13px] font-semibold text-sam-fg">{t("admin_member_id_history_title")}</h3>

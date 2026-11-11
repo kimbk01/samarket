@@ -58,6 +58,7 @@ describe("friend QR native links", () => {
   it("cold-start launch URL is applied once per process (PR #145 review)", () => {
     const listener = read("components/community-messenger/friend-qr/FriendQrAppLinkListener.tsx");
     expect(listener).toContain("let launchUrlConsumed = false;");
-    expect(listener).toMatch(/if \(!launchUrlConsumed\) \{\s+launchUrlConsumed = true;\s+const launch = await App\.getLaunchUrl\(\)/);
+    /** 재감사 E5: 실제로 처리할 때만 「처리됨」 */
+    expect(listener).toMatch(/const launch = await App\.getLaunchUrl\(\)[\s\S]{0,200}if \(!cancelled && !launchUrlConsumed\) \{\s+launchUrlConsumed = true;/);
   });
 });

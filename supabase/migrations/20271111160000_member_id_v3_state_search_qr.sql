@@ -10,8 +10,9 @@
 -- 운영 사전 조회 (2026-11-11, 읽기 전용)
 --   회원 142 · dibay_id 없음 0 · dibay_id_initial 없음 61 (직접 정한 아이디) · dibay_id_initial 중복 0
 --   다른 회원 현재 아이디와 겹치는 dibay_id_initial 0 · `^[0-9]{5}[a-z]{3}$` 사용 중 0
--- 운영 함수 정의(confirm_dibay_id · admin_set_dibay_id · dibay_id_candidate_error · cm_accept_friend_request)는
--- 2026-11-11 조회본을 그대로 옮기고 표시한 줄만 바꿨다.
+-- 운영 함수 정의(confirm_dibay_id · admin_set_dibay_id · dibay_id_candidate_error)는
+-- 2026-11-11 조회본을 그대로 옮기고 표시한 줄만 바꿨다. cm_add_friend_via_qr 의 친구 쓰기는
+-- cm_accept_friend_request(운영 정의)와 같은 방식이다 (이 파일에 그 함수 정의는 없다 — 재감사 E6 정정).
 
 BEGIN;
 

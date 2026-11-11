@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { dibayIdSimilarityKey, isValidDibayIdFormat, normalizeDibayIdInput } from "@/lib/auth/dibay-id-policy";
-import { escapeIlikePatternFragment } from "@/lib/community-messenger/profile-user-search-filter";
+import { isValidDibayIdFormat, normalizeDibayIdInput } from "@/lib/auth/dibay-id-policy";
 
 export async function reserveDibayIdForUser(
   sb: SupabaseClient,
@@ -20,43 +19,22 @@ export async function reserveDibayIdForUser(
     return { ok: false, error: "dibay_id_invalid_format", status: 400 };
   }
 
-  const { data: dibayHits, error: dibayErr } = await sb
-    .from("profiles")
-    .select("id, dibay_id")
-    .ilike("dibay_id", escapeIlikePatternFragment(normalized))
-    .limit(3);
-  if (dibayErr) {
-    return { ok: false, error: dibayErr.message, status: 500 };
+  /**
+   * 회원 아이디 v3 재감사 E1·D6: 중복 판정은 DB `dibay_id_candidate_error` 하나 — 확정(confirm_dibay_id)과 같은 함수.
+   * 다른 회원의 회원 아이디·기본 아이디·확정 username(점·밑줄 무시 포함)·dibay 접두를 모두 본다.
+   */
+  const { data: candidateError, error: rpcError } = await sb.rpc("dibay_id_candidate_error", {
+    p_user_id: userId,
+    p_normalized: normalized,
+  });
+  if (rpcError) {
+    return { ok: false, error: "dibay_id_check_failed", status: 500 };
   }
-
-  const { data: usernameHits, error: userErr } = await sb
-    .from("profiles")
-    .select("id, username, username_confirmed")
-    .ilike("username", escapeIlikePatternFragment(normalized))
-    .limit(3);
-  if (userErr) {
-    return { ok: false, error: userErr.message, status: 500 };
+  if (candidateError === "dibay_id_reserved_prefix") {
+    return { ok: false, error: "dibay_id_invalid_format", status: 400 };
   }
-
-  const takenByOther =
-    (dibayHits ?? []).some((r) => String((r as { id?: string }).id ?? "") !== userId) ||
-    (usernameHits ?? []).some(
-      (r) =>
-        String((r as { id?: string }).id ?? "") !== userId &&
-        (r as { username_confirmed?: boolean }).username_confirmed === true
-    );
-
-  // 비슷한 아이디(점·밑줄만 다름) — DB 생성 컬럼 dibay_id_key 기준 (컬럼 적용 전이면 이 검사만 건너뜀, 최종 판정은 DB 함수)
-  let similarByOther = false;
-  if (!takenByOther) {
-    const { data: keyHits, error: keyErr } = await sb
-      .from("profiles")
-      .select("id")
-      .eq("dibay_id_key", dibayIdSimilarityKey(normalized))
-      .neq("id", userId)
-      .limit(1);
-    if (!keyErr) similarByOther = (keyHits ?? []).length > 0;
-  }
+  const takenByOther = candidateError === "dibay_id_taken";
+  const similarByOther = candidateError === "dibay_id_similar_taken";
 
   return { ok: true, available: !takenByOther && !similarByOther, normalized };
 }

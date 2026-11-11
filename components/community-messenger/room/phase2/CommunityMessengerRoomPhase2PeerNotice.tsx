@@ -163,7 +163,7 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
     if (!peerUserId) return;
     setFriendBusy(true);
     try {
-      const result = await postCommunityMessengerFriendRequestApi(peerUserId);
+      const result = await postCommunityMessengerFriendRequestApi(peerUserId, undefined, "profile");
       if (!result.ok) {
         showMessengerSnackbar(
           communityMessengerFriendRequestFailureMessage(result) ?? t("cm_ui_friend_request_send_failed"),

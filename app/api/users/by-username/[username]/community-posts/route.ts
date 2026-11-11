@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { listCommunityPostsForUser } from "@/lib/community-feed/list-community-posts-for-user";
-import { escapeIlikePatternFragment } from "@/lib/community-messenger/profile-user-search-filter";
+import { findProfileByMemberId } from "@/lib/users/find-profile-by-member-id";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,11 +29,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), 30) : 20;
 
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
-  const { data: prof } = await sbAny
-    .from("profiles")
-    .select("id")
-    .ilike("username", escapeIlikePatternFragment(username))
-    .maybeSingle();
+  /** 회원 아이디로 먼저, 예전 username 링크는 그다음 — `/u` 페이지와 같은 규칙 (재감사 N5) */
+  const { row: prof } = await findProfileByMemberId<{ id?: string }>(sbAny, username, "id");
 
   const userId = typeof (prof as { id?: string } | null)?.id === "string" ? (prof as { id: string }).id : "";
   if (!userId) {

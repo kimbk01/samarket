@@ -282,3 +282,49 @@ DB (마이그레이션 1개 — 운영 적용 Owner 승인):
 
 - 내 QR: QR 그림 만들기 실패 시 오류 화면·버튼 비활성 (`535581afe`).
 - 앱 링크: 꺼진 앱이 열린 주소(`getLaunchUrl`)를 프로세스당 1회만 처리 — 다시 마운트될 때 결과 시트가 다시 열리던 결함.
+
+## 9. 재감사 (2026-11-11 밤) — 오류·중복·누락·누수와 수정
+
+병합된 #145·#147 을 설계안과 대조 (독립 감사 에이전트 + 코드·운영 DB 읽기 전용 확인). 모두 작업자 구현에서 생긴 문제.
+
+| # | 분류 | 내용 | 수정 |
+|---|---|---|---|
+| E1 | 오류 | 중복 확인이 기본 아이디를 안 봄 → 「사용 가능」 후 확정 실패 | `reserveDibayIdForUser` = DB `dibay_id_candidate_error` (확정과 같은 함수) |
+| E2 | 오류 | 변경권 다시 주기 대상이 설계보다 넓음 (잠긴 직접 아이디 58명 포함) | DB·어드민 버튼 모두 `changed_once = true` 만 (`change_right_not_used`) |
+| E3 | 오류 | QR 기록 `source` 가 다시 연 요청에 남음 | `cm_send_friend_request(p_source)` 가 다시 열 때 갱신 |
+| E4 | 오류 | 아이디 검색을 꺼도 「찾을 수 있어요」 안내 | 단일 계약에 검색 설정 입력, 꺼짐이면 `member_id_hint_search_off` |
+| E5 | 오류 | 앱 링크 시작 주소를 처리 전에 「처리됨」 표시 | 실제로 처리할 때만 표시 |
+| E6 | 오류 | 20271111160000 머리말의 `cm_accept_friend_request` 문구 | 문구 정정 |
+| E7 | 오류 | 생성 컬럼과 `confirm_dibay_id` 허용 조건 불일치 (운영 해당 0명) | `confirm_dibay_id` 가 `dibay_id_can_change` 로 판정 |
+| L1 | 누수 | QR API 가 차단·QR 꺼짐 이유를 코드로 노출 | 밖으로는 `qr_unusable` 하나 (본인 QR `qr_self` 만 따로) |
+| L2 | 누수 | 웹 `/f` 이름 없으면 아이디 표시 | 아이디 대신 「DIBAY 회원」 |
+| L3 | 누수(자원) | 카메라 영상 연결 미해제·영상 칸 없을 때 스트림 유지 | 끌 때 `srcObject = null`, 영상 칸 없으면 즉시 끔 |
+| L4 | 누수 | 회원이 자기 행 기본 아이디를 REST 로 읽을 수 있음 (타인 행은 RLS 차단, 운영 확인) | **변경 안 함** — 본인 데이터·화면 비노출, 칼럼 권한 재구성 회귀 위험이 더 큼 |
+| N1·N2 | 누락 | 친구가 된 경로 4종 중 QR 만 · 시안 F 「QR로 추가」 배지 | 친구 요청 호출처(아이디 검색·연락처·채팅방=profile)가 경로 전달, 친구 프로필이 경로 조회해 배지 |
+| N3 | 누락 | 시안 A [프로필 공유]·아이디 [복사] | 추가 |
+| N4 | 누락 | 시안 H 「내 QR 다시 만들기」 줄 | 추가 |
+| N5 | 누락 | 공개 프로필 API 는 username 으로만 | `/u` 페이지·API 2개 공용 `findProfileByMemberId` (회원 아이디 먼저) |
+| N6 | 누락 | 어드민 이력의 회원 본인 변경 「전」 값 | `confirm_dibay_id` 가 `member_dibay_id_change` 감사 기록 (앞으로의 변경부터) |
+| N7 | 누락 | 하루 500회 검색 제한 | **FAIL 확인**: 운영 환경변수 51개 중 `UPSTASH_*`·`KV_*` 없음 → 요청 제한이 서버 인스턴스마다 따로 셈. 후속(아래) |
+| D1 | 중복 | 자동 아이디 정규식 5곳 | DB `dibay_is_system_auto_id()` 하나를 assign·confirm·admin_set 이 사용, TS 목록은 계약 시험으로 대조 |
+| D2 | 중복 | 상태·변경권 TS 대체 계산 | 운영 실제 사례 5종으로 DB 결과와 같은지 시험 |
+| D3 | 중복 | 단일 계약 우회 화면 | 아이디 편집 분기·필수 정보 카드·내정보 홈 필수 행이 계약 사용 (친구 탭 내 프로필 줄은 서비스의 `resolvePublicIdAtDisplay` 를 그대로 받아 표시만 — 변경 없음) |
+| D4 | 중복 | 확정 직후 화면이 상태 값을 직접 씀 | 쓰지 않고 서버 프로필 다시 받기(그동안 불러오는 중 화면) |
+| D5 | 중복 | 쓰지 않는 옛 검색 함수·상수 | `resolveExactLookupPublicId`·`matchesPublicIdExactly`·`isPublicIdSearchEligible`·`buildProfileUserSearchOrFilter`·검색 숫자 상수 제거 |
+
+감사 지적 중 제외: 「스캔 뒤 카메라 재시작 안 됨」 — 스캔 성공 시 친구 추가 시트가 닫혀 다시 열 때 새로 마운트됨(코드 확인), 실제 영향 없음.
+
+DB: `supabase/migrations/20271111170000_member_id_v3_audit_fixes.sql` — 운영 적용은 Owner 승인. **웹 병합 전에 적용해야 한다** (웹이 `cm_send_friend_request` 에 `p_source` 를 넘긴다 — DB 적용 전이면 친구 요청 실패).
+
+**운영 DB 적용 완료** (Owner 「운영 DB 적용」 2026-11-11, `schema_migrations 20271111170000`, 한 트랜잭션, 오류 없음). 적용 후 읽기 전용 확인:
+- `cm_send_friend_request` = 4인자(`p_source` 기본 NULL) 하나만, 권한 postgres·service_role 만 (적용 전과 같음). 지금 운영 웹의 3인자 이름 붙인 호출이 새 함수로 풀리는 것을 `EXPLAIN`(실행 없음)으로 확인 → 병합 전에도 친구 요청 정상.
+- `dibay_is_system_auto_id`: `48213SUN`·`dibay_0d9d04`·`dibay482913` = true, `kim.bk`·`4821sun` = false. 새·바뀐 함수 모두 anon·authenticated 실행 권한 없음.
+- `confirm_dibay_id` 회원 변경 기록·`admin_grant_dibay_id_change` 「변경권 쓴 회원만」 반영. 친구 요청 행 107(대기 4)·회원 상태 분포(75 / 59 / 8) 적용 전과 같음.
+- 쓰기 함수(아이디 확정·변경권 주기·친구 요청 경로 기록)는 운영에서 실행하지 않음 — 실기에서 확인 (NOT_PROVEN).
+
+### 후속 (설계 완료 후 처리 목록)
+
+| # | 내용 |
+|---|---|
+| F2 | 모임 초대 후보 검색(`app/api/community/meetings/[meetingId]/invite-candidates/route.ts:60`)이 `username` 을 직접 부분 검색 — 회원 아이디 규칙·검색 끔·탈퇴 제외를 거치지 않음 (범위 밖, 보고만) |
+| F3 | 요청 제한 저장소 — 운영에 Redis(Upstash/KV) 환경변수 없음 → 앱 전체 요청 제한이 인스턴스별. 친구 검색 하루 500회 포함. Vercel·Redis 설정은 Owner 승인 사항 |
