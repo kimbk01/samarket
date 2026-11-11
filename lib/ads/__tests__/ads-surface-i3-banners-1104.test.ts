@@ -2,6 +2,7 @@
  * 광고 표면 연동 I3 (Owner 「감사해서 구현해라」 2026-11-04) — 배너(피드·이벤트) lib·API 동작 시험.
  * FA-3 업로드 기하 · FA-6 시작 시각 재조회 · EV-1 이벤트 배너 업로드 · EV-2 히어로 대체 텍스트 · EV-3 히어로 순서
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import sharp from "sharp";

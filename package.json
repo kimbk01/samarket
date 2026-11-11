@@ -227,7 +227,7 @@
     "build:analyze": "cross-env NODE_OPTIONS=--max-old-space-size=8192 ANALYZE=true next build",
     "build:clean": "npm run clean && npm run build",
     "start": "next start",
-    "lint": "eslint . --quiet",
+    "lint": "eslint . --quiet --cache --cache-strategy content --cache-location .cache/eslint/",
     "lint:strict": "eslint . --max-warnings 0",
     "test": "vitest run",
     "test:ci": "vitest run --shard=1/2 && vitest run --shard=2/2",

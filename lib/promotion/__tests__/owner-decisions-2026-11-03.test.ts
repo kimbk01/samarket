@@ -3,6 +3,7 @@
  * 웹: O-1 커뮤니티 「광고」 표기 · O-2 커뮤니티 위쪽 개수(2026-11-05 1개) · O-3 상세 「광고」 · O-5 공통 화면 바로가기 카드 · O-6① 도메인 메뉴 신청 처리
  * DB (「DB 3건 진행」): O-10 환급 원장 문구 · O-6② 공통 화면 도메인 거름 · O-4 피드 배너 노출·클릭 기록
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 검사한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";

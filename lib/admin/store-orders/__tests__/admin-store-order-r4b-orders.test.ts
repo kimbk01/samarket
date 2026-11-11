@@ -2,6 +2,7 @@
  * R4 Area B (주문) — DEF-8 / E-1 legacy write gate, meta PATCH concurrency (updated_at CAS),
  * DEF-49 single-order links, DEF-60 single order-chat path, DEF-23 wording, payment events ?order_id=.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";

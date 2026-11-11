@@ -6,6 +6,7 @@
  * 2. 피드 신청·피드 캠페인·상위노출·팝업 오너 신청의 운영 상태 scheduled = 「예약」 탭 (「노출 중」 아님).
  *    TS(`resolveShellStatusTab` ← `opsStatus`) 와 SQL(`admin_ads_workspace_rows` status_tab) 이 같은 정의임을 고정한다.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 검사한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

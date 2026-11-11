@@ -9,6 +9,7 @@
  * 마지막 테스트가 「레지스트리 지표 전부가 이 표에 있다」를 강제한다 (새 지표 = 계약 추가 필수).
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- 기록용 가짜 클라이언트·모듈 */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { describe, expect, it, vi, type Mock } from "vitest";
 import { NextRequest } from "next/server";
 

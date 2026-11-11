@@ -121,3 +121,6 @@ next-env.d.ts
 /.tmp/
 # lib/stores/__tests__/store-discovery-shadow-adversarial-cut6.test.ts
 /docs/perf/stores-discovery-scale-cut6-adversarial-latest.json
+
+# ESLint 결과 캐시 (CI 는 actions/cache 로 보관 — 내용 해시 기준)
+/.cache/eslint/

@@ -7,6 +7,7 @@
  * 그리고 **TS 는 수수료 의무·Cash 원장을 쓰지 않는다**(기준 이후/이전 주문 모두 같은 TS 경로).
  * 수수료 의무 1행(7%)·기준 이전 0행은 DB 트리거(`trg_store_orders_commission_lifecycle`) 영역 → L2.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";

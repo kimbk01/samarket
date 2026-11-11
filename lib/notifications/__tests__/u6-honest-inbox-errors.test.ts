@@ -2,6 +2,7 @@
  * U6 — NOTIF-01: list DB failure with nothing loaded → 503 ok:false (not ok:true []).
  * NOTIF-04: mark-all DB failure → ok:false (route maps to 500), not ok:true updated:0.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

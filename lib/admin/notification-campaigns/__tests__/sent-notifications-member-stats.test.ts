@@ -2,6 +2,7 @@
  * 푸시·알림 발송 시안 v3 (Owner 구현 승인 2026-11-02) — 목록·받은 사람 창이 같은 회원 단위 계산을 쓴다.
  * 운영 실측(2026-11-02): 「테스트입니다」 128명 = 성공 22 · 실패 6 · 없음 100 · 열람 3.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 검사한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { describe, expect, it } from "vitest";
 import {
   applyKindFilter,

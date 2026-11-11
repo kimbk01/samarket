@@ -2,6 +2,7 @@
  * 받는 사람 규칙 (Owner 2026-11-03) — 알림함은 전원, 이벤트·마케팅 푸시는 혜택·이벤트 수신 동의(정본 1곳) 회원만.
  * 계획: docs/audit/marketing-consent-and-push-audience-plan-2026-11-03.md 단계 5.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { describe, expect, it } from "vitest";
 import {
   campaignPushSkipReasonFromDecision,

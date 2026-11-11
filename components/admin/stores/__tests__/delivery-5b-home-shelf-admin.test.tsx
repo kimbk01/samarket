@@ -1,6 +1,7 @@
 /**
  * 5-B HS-01·HS-03·HS-04·HS-05·HS-06·HS-08 — HOME 선반 관리자 계약.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";

@@ -2,6 +2,7 @@
  * 운영자 알림 재감사 단계 1 (Owner 「단계 1 구현」 2026-11-03)
  * 설계: docs/audit/admin-push-consent-full-reaudit-design-2026-11-03.md
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { describe, expect, it } from "vitest";
 import { parseCampaignWriteInput } from "@/lib/admin/notification-campaigns/campaign-input";
 import {

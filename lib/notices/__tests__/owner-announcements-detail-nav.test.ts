@@ -4,6 +4,7 @@
  * ② 최신 공지 카드 = 안 읽은 공지 먼저
  * ③ 삭제·숨김·예약 글은 없는 글(제목도 주지 않음), 게시 종료만 unavailable
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { describe, expect, it } from "vitest";
 import { listOwnerAnnouncements, loadOwnerAnnouncementDetail } from "@/lib/notices/owner-announcements.server";
 

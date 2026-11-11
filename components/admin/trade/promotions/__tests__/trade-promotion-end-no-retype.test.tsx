@@ -3,6 +3,7 @@
  * 어드민 SSOT §3-1 (Owner 2026-11-07 · AD-123 대체) — 거래 상위노출 종료 = L3: 공개 사유 + 내부 메모 + 귀책 + 환급 미리보기.
  * 대상 재입력 칸이 없고(사유만 입력하면 실행 가능), 내부 메모는 `internalReason` 으로만 간다(D-10).
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import React, { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";

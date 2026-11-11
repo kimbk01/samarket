@@ -7,6 +7,7 @@
  * 감사·구매자 알림에 그대로 · 알림 구매자/오너 각 1 · pending 원장 잔존 0 · TS 수수료 쓰기 0.
  * 원장+상태 1 TX·2세션 경합·조리 후 승인 시 수수료 검토 플래그는 DB 함수/트리거 → L2.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createStage5OrderWorld, feeOrCashTouches, type Stage5OrderWorld } from "./helpers/stage5-order-world";
 

@@ -1,6 +1,7 @@
 /**
  * 결함 3 (문서 J, LOC-004 연동): 관리자 주문 상세 「주문 당시 판정」 = 저장된 `checkout_*` 원값만.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { readAdminOrderCheckoutJudgement } from "@/lib/admin/store-orders/load-admin-store-order-detail";

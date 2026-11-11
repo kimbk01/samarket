@@ -2,6 +2,7 @@
  * IN-N2 (2026-11-04) — 공통 광고 화면 인트로 카드가 Live 게시본 기간(예약됨·끝남·게시 중)을 반영.
  * 실제 GET 라우트를 Supabase 모의 클라이언트로 부르고, 카드 문구 함수로 화면 문구까지 확인한다.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 검사한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({

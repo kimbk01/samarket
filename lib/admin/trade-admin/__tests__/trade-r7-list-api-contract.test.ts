@@ -3,6 +3,7 @@
  * `limit`(20/50/100 만, 그 외 50) · `offset` → `.range(offset, offset+limit-1)` · `total` = DB count(exact) · 고정 상한 제거.
  * 파라미터가 없을 때의 기존 응답(다른 호출자 호환)도 함께 고정한다.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 

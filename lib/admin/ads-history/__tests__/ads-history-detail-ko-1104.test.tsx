@@ -3,6 +3,7 @@
  * 광고 수정 설계 2026-11-04 — AD-129·AD-308(이력 상세 단건 주소·권한 없으면 숨김) ·
  * AD-301·AD-302·AD-303(한국어 화면에 영어 코드 0) · AL-12(운영자 등록 피드 배너 = 결제 없음) · D-20(만들기 화면 첫 상태).
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

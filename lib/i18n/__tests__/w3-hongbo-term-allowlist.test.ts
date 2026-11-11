@@ -3,6 +3,7 @@
  * 허용 = 정상 용어(배달 상품명 「매장 홍보」·동네 카테고리 「홍보」·게시판 「프로모션 / 홍보 글」·쿠폰 「신메뉴 홍보」 등)
  *       + 이번 D-15 목록 밖이라 보고만 한 키(아래 OUT_OF_SCOPE · 새로 넣지 말 것).
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 검사한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import path from "node:path";

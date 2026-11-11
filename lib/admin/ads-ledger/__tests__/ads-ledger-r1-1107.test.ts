@@ -2,6 +2,7 @@
  * 광고 원장 R1 (설계 ads-admin-ssot-design-2026-11-07 §1·§2·§5·§6 · 2026-11-07) — 동작 시험.
  * 위치 문구 1개 함수 · 원장 행 → 광고주·결제·상태(기간 만료) · 바로 가기 권한 · 로더(원장 RPC · 옛 함수 대체 · 새 종류 행) · 위치 지도 칸.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";

@@ -4,6 +4,7 @@
  * ② 사장님 API: 매장 보유자만 · store_owners = 상태 무관 · store_owners_approved = 승인 매장 보유자만
  * ③ 알림: 사장님 1명 = 1건 · 중복 방지 키 · 링크 = 운영 공지 상세 · 기존 운영 알림 kind
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { NextRequest } from "next/server";

@@ -2,6 +2,7 @@
  * R7 — 광고 작업 화면 서버 페이지 계약 (`admin_ads_workspace_page`).
  * 원천 합치기·모드·종류·상태 탭·정렬·페이지·total·요약 개수 = RPC 한 번. 페이지 행만 원천별 id 로 읽는다.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";

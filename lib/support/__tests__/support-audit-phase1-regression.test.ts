@@ -3,6 +3,7 @@
  * Runs the real support services against an in-memory Supabase double; no network, no DB.
  * Each case failed on main@70cc8918a (see audit design doc §1) and must keep passing.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { MESSAGES } from "@/lib/i18n/messages";
 import { randomUUID } from "node:crypto";

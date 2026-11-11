@@ -3,6 +3,7 @@
  * 관리자 자동 갱신 정책 — 대시보드 주기 갱신은 핵심 지표만 · 탭 숨김 시 중단 · 겹침 없음 · 수동 새로고침은 전부(fresh).
  * 실제 컴포넌트(AdminDashboardView) + 가짜 API · 주기 타이머와 시계만 가짜(응답 본문 읽기는 실제 타이머).
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

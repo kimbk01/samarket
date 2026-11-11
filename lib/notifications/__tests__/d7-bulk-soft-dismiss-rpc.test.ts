@@ -2,6 +2,7 @@
  * 재감사 D-7 (P-10) — 알림센터 삭제(개별·선택·읽은 알림·전체)는 행마다 select + update 를 반복하지 않고
  * `soft_dismiss_notification_events` 한 번(500건 단위)으로 기록한다. 대상 선택은 TS 회원 A 판정 그대로.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 

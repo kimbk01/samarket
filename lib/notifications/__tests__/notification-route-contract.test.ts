@@ -11,6 +11,7 @@
  *   단, 행이 없어 봉투가 필요한 push_only 시스템 캠페인만 예외로 표시한다(운영 발송 0건).
  * 기준표 갱신: UPDATE_NOTIFICATION_ROUTE_FIXTURES=1 npx vitest run <이 파일>
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";

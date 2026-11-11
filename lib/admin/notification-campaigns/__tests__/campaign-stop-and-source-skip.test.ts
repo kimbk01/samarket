@@ -3,6 +3,7 @@
  * ADM-08: a cron-claimed scheduled/recurring occurrence re-verifies its source and is skipped
  *         (recorded reason) when the notice/event is no longer public.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createFakeSupabase, hasFilter } from "@/lib/admin/notification-campaigns/__tests__/fake-supabase-recorder";
 

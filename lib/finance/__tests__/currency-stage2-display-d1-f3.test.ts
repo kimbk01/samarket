@@ -2,6 +2,7 @@
  * 2단계 표시·동작 결함 (설계 `docs/audit/currency-remaining-defects-design-2026-11-04.md` §2·§5)
  * D-1·D-2·D-3·D-10·D-11·D-14·D-15·F-2·F-3 — 순수 함수는 동작으로, 화면 배선은 소스로 검사.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 검사한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { MESSAGES } from "@/lib/i18n/messages";
 import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
