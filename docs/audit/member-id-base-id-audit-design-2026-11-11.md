@@ -256,3 +256,17 @@ DB (마이그레이션 1개 — 운영 적용 Owner 승인):
 - 딥링크 `dibay://friend/<토큰>` → 홈 결과 시트 (`deep-link-routes.ts`, 통화·채팅 경로 무변경). iOS 는 지금 앱에서 동작, Android 는 4단계(intent filter) 후.
 - Android `DibayAppRouteGuard` 허용 목록에 `f` 추가 — 웹 경로 동기화 시험(LINK-02) 계약. 앱 재빌드 전까지 동작 변화 없음.
 - 검증 (로컬): typecheck 2종 0 오류 · vitest 두 묶음 전체 통과 · 변경 파일 eslint 오류 0 · i18n 품질 통과. 실기기·운영 NOT_PROVEN.
+
+### 4단계 네이티브 (2026-11-11) — 코드만, 빌드는 Owner 일괄
+
+- iOS 카메라 권한 문구: 「영상 통화와 QR 코드 스캔을 위해 카메라 접근이 필요합니다.」 (Info.plist · ko/en InfoPlist.strings) — D11.
+- Android `dibay://friend/<토큰>` intent filter → 메신저 결과 시트 (JS 해석은 3단계 `deep-link-routes`).
+- 앱 링크 (D12):
+  - Android: `https://samarket.vercel.app/f/…` intent filter `autoVerify="true"` + `public/.well-known/assetlinks.json` (패키지 `com.dibay.app`, 지문 = 릴리스 APK 서명 `CN=DIBAY Play Upload` SHA-256 `5F:4D:B9:4E:…:90:5E`, `apksigner` 로 2026-11-11 읽음).
+  - iOS: `App.entitlements` `applinks:samarket.vercel.app` + `public/.well-known/apple-app-site-association` (appID `ATB959PF9V.com.dibay.ph` — Xcode 프로젝트의 팀·번들 ID), `next.config.js` 로 JSON 응답, 비로그인 열람 허용.
+  - 앱 안: `FriendQrAppLinkListener` (https 친구 QR 주소만, 꺼진 앱은 `getLaunchUrl`) — `PushRouteListener`(통화 경로 포함)·`AppDelegate`(이미 유니버설 링크 전달) 무변경.
+- **Owner 조치 필요 (작업자가 할 수 없음)**:
+  1. Google Play 로 설치한 앱은 Play 앱 서명 키로 서명된다 — 그 SHA-256 은 Play Console(앱 무결성 → 앱 서명)에만 있다. 받으면 `assetlinks.json` 에 한 줄 추가해야 Play 설치 앱에서 앱 링크가 바로 열린다 (그 전에는 브라우저 → 웹 `/f` 페이지).
+  2. Apple Developer 의 App ID `com.dibay.ph` 에 Associated Domains 기능을 켜고 프로비저닝 프로필을 다시 받아야 iOS 빌드가 서명된다.
+- 빌드 번호는 설치·배포용 빌드를 만들 때 1회 증가 (`npm run native:prepare`) — 이번 커밋에서 올리지 않음.
+- 검증 (로컬): typecheck 2종 0 오류 · vitest 두 묶음 전체 통과 · XML·plist 형식 OK · eslint 오류 0. 실기기 NOT_PROVEN (빌드 전).

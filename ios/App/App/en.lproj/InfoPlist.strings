@@ -1,5 +1,5 @@
 /* Permission purpose strings (English) */
-"NSCameraUsageDescription" = "DIBAY needs camera access for video calls.";
+"NSCameraUsageDescription" = "DIBAY needs camera access for video calls and scanning QR codes.";
 "NSLocationWhenInUseUsageDescription" = "DIBAY needs your location for delivery and nearby services.";
 "NSMicrophoneUsageDescription" = "DIBAY needs microphone access for voice and video calls and voice messages.";
 "NSPhotoLibraryAddUsageDescription" = "DIBAY needs permission to save photos received in Messenger to your photo library.";

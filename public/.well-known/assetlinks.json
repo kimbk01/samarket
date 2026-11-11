@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.dibay.app",
+      "sha256_cert_fingerprints": [
+        "5F:4D:B9:4E:C7:EA:E6:06:F3:3D:53:C8:99:B8:F4:5B:3C:56:0E:CA:42:72:B0:23:47:A2:D0:E6:D7:B1:90:5E"
+      ]
+    }
+  }
+]

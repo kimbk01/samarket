@@ -100,6 +100,22 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="dibay" android:host="call" android:pathPrefix="/" />
             </intent-filter>
+
+            <!-- QR 친구 추가 (회원 아이디 v3 §3.6): dibay://friend/<토큰> → 메신저 결과 시트 -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="dibay" android:host="friend" android:pathPrefix="/" />
+            </intent-filter>
+
+            <!-- 앱 링크: https://samarket.vercel.app/f/<토큰> 을 휴대폰 카메라로 찍으면 바로 앱 (assetlinks.json 검증) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="samarket.vercel.app" android:pathPrefix="/f/" />
+            </intent-filter>
         </activity>
 
         <service

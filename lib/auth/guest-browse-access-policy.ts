@@ -87,6 +87,8 @@ export function isGuestPublicBrowsePath(pathname: string): boolean {
   if (pathname === "/search" || pathname.startsWith("/search/")) return true;
   /** QR 친구 추가 웹 페이지 — 휴대폰 카메라로 찍은 사람이 로그인 전에도 연다 (설계안 v3 §3.6 · 시안 I). 사진·이름만 보임 */
   if (pathname.startsWith("/f/")) return true;
+  /** 앱 링크 검증 파일 (apple-app-site-association · assetlinks.json) — Apple·Google 이 로그인 없이 가져간다 */
+  if (pathname.startsWith("/.well-known/")) return true;
   /** 운영자(사업자) 정보 — 개인정보처리방침·비로그인 메뉴가 안내하는 공개 페이지 (App Store 1.5·5.1.1) */
   if (pathname === "/business-info" || pathname.startsWith("/business-info/")) return true;
   if (pathname === "/services" || pathname.startsWith("/services/")) return true;

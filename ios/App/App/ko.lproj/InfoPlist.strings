@@ -1,5 +1,5 @@
 /* 권한 안내 문구 (한국어) — Info.plist 와 같은 문구 */
-"NSCameraUsageDescription" = "영상 통화를 위해 카메라 접근이 필요합니다.";
+"NSCameraUsageDescription" = "영상 통화와 QR 코드 스캔을 위해 카메라 접근이 필요합니다.";
 "NSLocationWhenInUseUsageDescription" = "배달·근처 서비스 이용을 위해 위치 접근이 필요합니다.";
 "NSMicrophoneUsageDescription" = "음성·영상 통화와 음성 메시지를 위해 마이크 접근이 필요합니다.";
 "NSPhotoLibraryAddUsageDescription" = "메신저에서 주고받은 사진을 사진 보관함에 저장하기 위해 권한이 필요합니다.";

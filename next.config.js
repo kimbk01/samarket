@@ -210,6 +210,11 @@ const nextConfig = {
   async headers() {
     return [
       {
+        // 앱 링크 검증 파일 (회원 아이디 v3 §3.6 · 4단계) — Apple 은 JSON 으로 받아야 한다 (확장자 없는 파일)
+        source: "/.well-known/apple-app-site-association",
+        headers: [{ key: "Content-Type", value: "application/json" }],
+      },
+      {
         source: "/sw.js",
         headers: [
           { key: "Cache-Control", value: "no-store, must-revalidate" },
