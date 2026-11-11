@@ -31,6 +31,7 @@ export function MainHubScrollColumn({
 export function MainHubScrollBody({
   className,
   roomHost = false,
+  plain = false,
   children,
 }: {
   className?: string;
@@ -39,13 +40,21 @@ export function MainHubScrollBody({
    * 스크롤 잠금·z-index 해제, `data-main-hub-scroll-body` 표식 없음.
    */
   roomHost?: boolean;
+  /**
+   * D1 (2026-11-11): 허브·방이 아닌 화면 — 예전 `div` 래퍼와 같은 클래스만(허브 표식·스크롤 클래스 없음).
+   * 허브↔상세 이동에도 같은 요소 타입을 유지해 안쪽 허브 화면 보관대(`HubRetentionStack`)가 다시 만들어지지 않게 한다.
+   */
+  plain?: boolean;
   children: ReactNode;
 }) {
   /** F 단계: 스크롤 후보가 생기거나(마운트)·표식이 바뀌거나(roomHost)·사라질 때 구독자에게 알린다 — 전역 DOM 관찰 대신 */
   useLayoutEffect(() => {
     notifyAppShellScrollRootsChanged();
     return () => notifyAppShellScrollRootsChanged();
-  }, [roomHost]);
+  }, [roomHost, plain]);
+  if (plain) {
+    return <main className={className}>{children}</main>;
+  }
   return (
     <main
       data-main-hub-scroll-body={roomHost ? undefined : ""}

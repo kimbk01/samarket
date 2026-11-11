@@ -16,6 +16,7 @@ import {
 } from "@/lib/http/run-single-flight";
 import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import { samarketFeedTraceLogEnabled } from "@/lib/debug/samarket-server-trace-flags";
+import { invalidateAllHubData } from "@/lib/http/hub-data-epoch";
 
 const CLIENT_TTL_MS = 1200;
 
@@ -211,6 +212,7 @@ export async function fetchNeighborhoodFeedShortTtl(url: string, init?: RequestI
 
 /** PTR·강제 새로고침 — 완료 TTL·진행 중 single-flight 제거(다음 fetch는 네트워크) */
 export function invalidateNeighborhoodFeedClientShortTtl(): void {
+  invalidateAllHubData("neighborhood_feed_invalidated");
   completed.clear();
   forgetSingleFlightsWhere((k) => typeof k === "string" && k.startsWith(flightPrefix));
 }

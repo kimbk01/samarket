@@ -9,6 +9,7 @@ import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import { usePasswordLogin } from "@/components/auth/usePasswordLogin";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { useHubDataRevisitGate } from "@/lib/http/hub-data-freshness";
 import { finishClientAuthLogin } from "@/lib/auth/finish-client-auth-login.client";
 import { useOAuthLogin, type OAuthAuthSuccessInput } from "@/lib/auth/oauth/use-oauth-login";
 import { DibayAuthLogoHiddenGate } from "@/components/auth/DibayAuthLogoHiddenGate";
@@ -94,8 +95,12 @@ export function AuthLoginPanel({
     resetOAuthOnClose();
   }, [active, resetOAuthOnClose, resetPasswordLogin]);
 
+  /** D1 §4 — 내정보(비회원) 허브가 보관대에서 다시 보일 때 60초 안이면 로그인 수단을 다시 받지 않음 */
+  const providersRevisitGate = useHubDataRevisitGate();
+
   useEffect(() => {
     if (!active) return;
+    if (providersRevisitGate.isFresh("providers")) return;
     let cancelled = false;
     void (async () => {
       setProvidersLoading(true);
@@ -121,6 +126,7 @@ export function AuthLoginPanel({
         setProviders(providersOk && providersJson?.providers ? providersJson.providers : []);
         const passwordSetting = settingsJson?.settings?.find((item) => item.provider === "password");
         setPasswordEnabled(passwordSetting ? passwordSetting.enabled === true : true);
+        if (providersOk) providersRevisitGate.markLoaded("providers");
       } catch {
         if (!cancelled) {
           setProviders([]);
@@ -133,7 +139,7 @@ export function AuthLoginPanel({
     return () => {
       cancelled = true;
     };
-  }, [active]);
+  }, [active, providersRevisitGate]);
 
   const handleOAuthLogin = useCallback(
     (provider: OAuthProvider) => {

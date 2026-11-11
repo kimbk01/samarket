@@ -50,6 +50,7 @@ import {
   resolvesMainHubScrollColumn,
 } from "@/lib/layout/main-hub-scroll-column";
 import { MainHubScrollBody } from "./MainHubScrollColumn";
+import { HubRetentionStack } from "./HubRetentionStack";
 import { invalidateMainAppScrollRootCache } from "@/lib/layout/main-app-scroll-root";
 import { logDevSafeModeProbeOnce } from "@/lib/dev/is-dev-safe-mode";
 import {
@@ -353,7 +354,8 @@ export function ConditionalAppShell({
        * C2 (Owner 승인 2026-11-10): 셸(헤더·하단 메뉴)은 서버에서 그리고, 페이지 본문은 hydration 직후부터 —
        * 서버 HTML·hydration 첫 렌더는 기존 회색 줄 본문. 페이지 본문의 서버 렌더는 이번 범위가 아니다.
        */}
-      {shellHydrated ? children : <MainShellDocumentLoading />}
+      {/** D1 (Owner 2026-11-11): 하단 탭 허브 화면 보관대 — 허브 재진입 시 다시 그리지 않음 (`HubRetentionStack`) */}
+      {shellHydrated ? <HubRetentionStack>{children}</HubRetentionStack> : <MainShellDocumentLoading />}
     </div>
   );
 
@@ -369,44 +371,33 @@ export function ConditionalAppShell({
         ) : null
       }
     >
-      {hubScrollColumn || f.isCommunityMessengerRoom ? (
-        /**
-         * 메신저 목록↔채팅방 — 같은 요소 타입(MainHubScrollBody)을 유지해 이동할 때마다 메신저 레이아웃 전체
-         * (게스트 게이트·스낵바·프레즌스 등)가 다시 만들어지며 깜빡이지 않게 한다. 방에서는 roomHost 로
-         * 스크롤 잠금·스택 컨텍스트 없음·허브 스크롤 표식 없음(다른 화면 스크롤 탐색에 잡히지 않게).
-         */
-        <MainHubScrollBody
-          roomHost={!hubScrollColumn}
-          className={
-            hubScrollColumn
-              ? `${mainSurfaceClass}${
-                  f.isCommunityMessengerHubListSurface ? " main-hub-scroll-body--child-scroll-lock" : ""
-                }`
-              : /** 방: 기존 방 래퍼(div)와 같은 클래스 — 하단 여백·배경 변화 없음 */
-                `min-h-0 min-w-0 flex-1 flex-col ${
-                  f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute
-                    ? "flex min-h-0 overflow-x-hidden overflow-y-hidden"
-                    : mainScrollInMainColumn
-                      ? MAIN_COLUMN_SCROLL_CLASS
-                      : "flex overflow-x-hidden"
-                }`
-          }
-        >
-          {mainInnerColumn}
-        </MainHubScrollBody>
-      ) : (
-        <div
-          className={`min-h-0 min-w-0 flex-1 flex-col ${
-            f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute
-              ? "flex min-h-0 overflow-x-hidden overflow-y-hidden"
-              : mainScrollInMainColumn
-                ? MAIN_COLUMN_SCROLL_CLASS
-                : "flex overflow-x-hidden"
-          }`}
-        >
-          {mainInnerColumn}
-        </div>
-      )}
+      {/**
+       * 메신저 목록↔채팅방 — 같은 요소 타입(MainHubScrollBody)을 유지해 이동할 때마다 메신저 레이아웃 전체
+       * (게스트 게이트·스낵바·프레즌스 등)가 다시 만들어지며 깜빡이지 않게 한다. 방에서는 roomHost 로
+       * 스크롤 잠금·스택 컨텍스트 없음·허브 스크롤 표식 없음(다른 화면 스크롤 탐색에 잡히지 않게).
+       * D1 (2026-11-11): 그 밖의 화면도 같은 요소(plain — 예전 div 래퍼와 같은 클래스)로 유지해
+       * 허브↔상세 이동에 허브 화면 보관대가 다시 만들어지지 않게 한다.
+       */}
+      <MainHubScrollBody
+        roomHost={!hubScrollColumn && f.isCommunityMessengerRoom}
+        plain={!hubScrollColumn && !f.isCommunityMessengerRoom}
+        className={
+          hubScrollColumn
+            ? `${mainSurfaceClass}${
+                f.isCommunityMessengerHubListSurface ? " main-hub-scroll-body--child-scroll-lock" : ""
+              }`
+            : /** 방·그 밖의 화면: 기존 래퍼(div)와 같은 클래스 — 하단 여백·배경 변화 없음 */
+              `min-h-0 min-w-0 flex-1 flex-col ${
+                f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute
+                  ? "flex min-h-0 overflow-x-hidden overflow-y-hidden"
+                  : mainScrollInMainColumn
+                    ? MAIN_COLUMN_SCROLL_CLASS
+                    : "flex overflow-x-hidden"
+              }`
+        }
+      >
+        {mainInnerColumn}
+      </MainHubScrollBody>
     </MainShellTabContentTransition>
   );
   const bottomNavScrollHidden = Boolean(bottomNavScrollHideEnabled && bottomNavHiddenByScroll);
