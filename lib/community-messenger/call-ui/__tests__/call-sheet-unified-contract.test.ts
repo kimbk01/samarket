@@ -91,6 +91,12 @@ describe("발신 창 통일 — 통화 시트 1종", () => {
     expect(member).not.toContain("else setChoiceOpen(true)");
   });
 
+  it("방 헤더 시트 사진 = 헤더에 보이는 사진 (주문방은 헤더 모델 사진, 주문 썸네일 아님 · 실기 2026-11-12)", () => {
+    const header = read("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Header.tsx");
+    expect(header).toContain("? deliveryHeaderModel.avatarUrl ?? vm.snapshot.room.avatarUrl");
+    expect(header).not.toContain("deliveryMeta?.thumbnailUrl ?? vm.snapshot.room.avatarUrl");
+  });
+
   it("쓰지 않던 옛 통화 부품 삭제", () => {
     expect(existsSync(join(process.cwd(), "components/chats/TradeChatCallHeaderButtons.tsx"))).toBe(false);
     expect(existsSync(join(process.cwd(), "components/community-messenger/call-ui/CallKindBottomSheetActions.tsx"))).toBe(false);

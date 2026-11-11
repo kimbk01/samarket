@@ -557,7 +557,12 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
           peerLabel={voiceConfirmPeerLabel}
           viewerUserId={vm.snapshot.viewerUserId ?? null}
           peerUserId={peerUserId || null}
-          peerAvatarUrl={useDeliveryHeaderBlock ? deliveryMeta?.thumbnailUrl ?? vm.snapshot.room.avatarUrl : vm.snapshot.room.avatarUrl}
+          /** 시트 사진 = 헤더에 보이는 사진 그대로 (주문방: 사장님 쪽 = 구매자 프로필 · 구매자 쪽 = 매장 사진) — 실기 2026-11-12 FAIL 수정 */
+          peerAvatarUrl={
+            useDeliveryHeaderBlock
+              ? deliveryHeaderModel.avatarUrl ?? vm.snapshot.room.avatarUrl
+              : vm.snapshot.room.avatarUrl
+          }
           voice={callChoice.voice}
           video={callChoice.video}
           busy={vm.outgoingDialLocked}
