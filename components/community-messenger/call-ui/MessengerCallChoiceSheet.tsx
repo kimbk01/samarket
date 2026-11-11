@@ -11,7 +11,7 @@
  * - 휴대폰 전화: 이 기기 연락처(연락처 동기화)에 상대 번호가 있을 때만 `tel:` (서버·통화 세션 없음). 번호는 기기 밖으로 보내지 않는다.
  * - 연락처 코드를 읽으므로 **호출처는 이 파일을 지연 import** 한다 (연락처 hot path 계약 — 방 진입·bootstrap 미연결).
  */
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Phone, Smartphone, Video } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
@@ -57,10 +57,11 @@ export default function MessengerCallChoiceSheet({
   onDibayCall,
 }: MessengerCallSheetProps) {
   const { t } = useI18n();
-  const openedAtRef = useRef(0);
-  useEffect(() => {
-    openedAtRef.current = Date.now();
-  }, []);
+  /**
+   * 첫 렌더 시각 — effect(페인트 뒤)가 아니라 렌더 때 정해야 pointerup 직후 합성 click 보다 먼저 잡힌다
+   * (PR #161 Bugbot: ref 0 으로 시작하면 가드가 항상 통과해 말풍선·통화 탭에서 시트가 바로 닫힘).
+   */
+  const [openedAt] = useState(() => Date.now());
 
   /** 시트를 열 때 1번만 읽는다 (기기 안 번호표) */
   const phoneNumber = useMemo(() => {
@@ -70,13 +71,14 @@ export default function MessengerCallChoiceSheet({
 
   const title = peerLabel.trim() || t("common_partner");
   const handleClose = () => {
-    if (Date.now() - openedAtRef.current < BACKDROP_DISMISS_GUARD_MS) return;
+    if (Date.now() - openedAt < BACKDROP_DISMISS_GUARD_MS) return;
     onClose();
   };
   const dibay = (kind: "voice" | "video") => {
     if (busy) return;
-    onClose();
+    /** 발신을 먼저 알리고 시트를 닫는다 — 호출처가 「발신 중」을 알고 닫기 동작을 고를 수 있게 (연락처 회원 시트: 실패 시 선택 화면 유지) */
     onDibayCall(kind);
+    onClose();
   };
 
   const reason = (key: string, text: string): ReactNode => (

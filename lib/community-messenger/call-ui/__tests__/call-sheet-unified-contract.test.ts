@@ -74,6 +74,21 @@ describe("발신 창 통일 — 통화 시트 1종", () => {
     expect(sheet).not.toContain("cm_contacts_call_dibay_sub");
   });
 
+  it("말풍선·통화 탭에서 연 직후 합성 click 으로 닫히지 않는다 — 여는 시각은 렌더 때 (PR #161 Bugbot)", () => {
+    const sheet = read("components/community-messenger/call-ui/MessengerCallChoiceSheet.tsx");
+    expect(sheet).toContain("const [openedAt] = useState(() => Date.now());");
+    expect(sheet).toContain("if (Date.now() - openedAt < BACKDROP_DISMISS_GUARD_MS) return;");
+    expect(sheet).not.toContain("openedAtRef");
+  });
+
+  it("발신을 먼저 알리고 닫는다 · 연락처 회원은 발신 실패 시 통화 시트 다시 (PR #161 Bugbot)", () => {
+    const sheet = read("components/community-messenger/call-ui/MessengerCallChoiceSheet.tsx");
+    expect(sheet).toMatch(/onDibayCall\(kind\);\s*onClose\(\);/);
+    const member = read("components/community-messenger/contacts/MessengerContactsMemberSheet.tsx");
+    expect(member).toContain("if (!dialingRef.current) onClose();");
+    expect(member).toMatch(/if \(ok\) onClose\(\);\s*else setChoiceOpen\(true\);/);
+  });
+
   it("쓰지 않던 옛 통화 부품 삭제", () => {
     expect(existsSync(join(process.cwd(), "components/chats/TradeChatCallHeaderButtons.tsx"))).toBe(false);
     expect(existsSync(join(process.cwd(), "components/community-messenger/call-ui/CallKindBottomSheetActions.tsx"))).toBe(false);

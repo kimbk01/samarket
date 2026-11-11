@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Ban, Check, EyeOff, MessageCircle, Phone, UserPlus, X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -63,6 +63,8 @@ export function MessengerContactsMemberSheet({
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [choiceOpen, setChoiceOpen] = useState(false);
+  /** 통화 시트에서 DIBAY 발신을 시작함 — 성공하면 회원 시트를 닫고, 실패하면 통화 시트를 다시 연다 (PR #161 Bugbot · 4단계와 같은 동작) */
+  const dialingRef = useRef(false);
   /** 숨기기·차단은 확인 후 실행 (메신저 차단과 같은 흐름: 확인 → 처리 중 → 결과 안내) */
   const [confirm, setConfirm] = useState<"hide" | "block" | null>(null);
   const publicId = member.dibay_id || member.username;
@@ -123,11 +125,16 @@ export function MessengerContactsMemberSheet({
         phoneNumber={deviceNumber}
         onClose={() => {
           setChoiceOpen(false);
-          onClose();
+          if (!dialingRef.current) onClose();
         }}
         onDibayCall={(kind) => {
+          dialingRef.current = true;
           unlockCommunityMessengerCallPlaybackFromUserGesture();
-          void startContactsDibayCall(router, member.user_id, kind, name);
+          void startContactsDibayCall(router, member.user_id, kind, name).then((ok) => {
+            dialingRef.current = false;
+            if (ok) onClose();
+            else setChoiceOpen(true);
+          });
         }}
       />
     );
