@@ -171,7 +171,8 @@ describe("body bottom clearance SSOT (H-02 / N-01 / N-06)", () => {
       "--app-bottom-nav-clearance: calc(var(--app-bottom-nav-height, 60px) + var(--main-scroll-nav-overhang, 0px) + var(--safe-bottom));"
     );
     expect(css).toMatch(/:root\s*\{\s*--main-scroll-nav-overhang:\s*0px;/);
-    expect(css).toContain("html:has(.app-bottom-nav-shell--delivery)");
+    /** D1 F1 (2026-11-11): `html:has(…)` → `<html>` 셸 속성 (lib/layout/html-shell-flags.ts) */
+    expect(css).toContain("html[data-shell-bottom-nav-delivery] {");
   });
   it("bottom sheets start at the screen bottom with or without a tab (Owner 2026-11-01)", async () => {
     const { readFileSync } = await import("node:fs");

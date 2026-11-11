@@ -39,6 +39,7 @@ import {
   MEMBER_ADMIN_TYPOGRAPHY_CLASS,
   type MemberAdminDialogSize,
 } from "@/lib/admin-users/member-admin-visual-ssot";
+import { useHtmlShellFlagsSync } from "@/lib/layout/use-html-shell-flags-sync";
 
 export type MemberAdminDialogProps = {
   open: boolean;
@@ -183,6 +184,9 @@ export function MemberAdminDialog({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, pending, dirtyConfirmOpen, requestClose]);
+
+  /** D1 F1 — `<html>` 셸 속성(`.dibay-overlay-root` 유무) 갱신 */
+  useHtmlShellFlagsSync(open && mounted);
 
   if (!open || !mounted || typeof document === "undefined" || !document.body) return null;
 

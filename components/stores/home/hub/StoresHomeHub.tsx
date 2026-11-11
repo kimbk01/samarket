@@ -82,6 +82,7 @@ import {
   DeliveryRecruitingOverlays,
   DeliveryRecruitingRibbon,
 } from "@/components/delivery/launch/DeliveryRecruitingSurface";
+import { useHtmlShellFlagsSync } from "@/lib/layout/use-html-shell-flags-sync";
 
 /** CONTRACT: `StoresHomeQuickCategories` 는 피드 로딩과 분리·항상 마운트 — `verify:stores-home-hub-contract`. */
 export function StoresHomeHub({
@@ -101,6 +102,8 @@ export function StoresHomeHub({
 }) {
   const { t, language } = useI18n();
   const membership = useClientMembershipState("stores-home-hub");
+  /** D1 F1 — `<html>` 셸 속성(`.stores-home-hub` 유무) 갱신 */
+  useHtmlShellFlagsSync();
   /** 배달 오픈 관리 — 매장 모집이면 큰 배너 + 목록 흐림·터치 막음 + 팝업·FAB (Owner 2026-11-10) */
   const launchState = useDeliveryLaunchState();
   const recruiting = isDeliveryRecruiting(launchState);

@@ -2180,7 +2180,8 @@ export function CommunityFeed({
             <ul ref={listRootRef} className={`${COMMUNITY_FEED_LIST_WRAP_CLASS} ${topAds.length > 0 ? "mt-1" : ""}`}>
               {postsForList.map((p, index) => (
                 <Fragment key={p.id}>
-                  <li className="list-none">
+                  {/* D1 F2 (2026-11-11): 화면 밖 글 칸은 스타일·배치 계산을 건너뜀 — `app/samarket-components.css` */}
+                  <li className="list-none" data-community-feed-cv-row="">
                     <CommunityCard
                       post={p}
                       priorityThumb={index < FEED_LCP_PRIORITY_COUNT}

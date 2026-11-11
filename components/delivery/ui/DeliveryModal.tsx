@@ -8,6 +8,7 @@ import {
 } from "@/lib/main-menu/bottom-nav-config";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useOverlayScopeAttrs } from "@/components/ui/dibay-overlay/overlay-scope";
+import { useHtmlShellFlagsSync } from "@/lib/layout/use-html-shell-flags-sync";
 
 /** ASCII-only source; avoids broken encoding in tooling */
 const ARIA_CLOSE = "\uB2EB\uAE30";
@@ -67,6 +68,9 @@ export function DeliveryModal({
       document.body.style.overflow = prev;
     };
   }, [open]);
+
+  /** D1 F1 — `<html>` 셸 속성(`.dibay-overlay-root` 유무) 갱신 */
+  useHtmlShellFlagsSync(open && portalReady);
 
   if (!open || !portalReady) return null;
 

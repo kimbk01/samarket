@@ -16,7 +16,9 @@ describe("채팅 P0-5 content-visibility", () => {
   it("content-visibility 는 data-cm-cv(그린 뒤 표식) 행에만, 강조 중(data-cm-cv-off)은 제외", () => {
     expect(css).toMatch(/\[data-cm-timeline-message-row\]\[data-cm-cv\]:not\(\[data-cm-cv-off\]\)\s*\{\s*content-visibility:\s*auto;/);
     const plain = css.replace(/\[data-cm-cv\]:not\(\[data-cm-cv-off\]\)\s*\{\s*content-visibility:\s*auto;/, "");
-    expect(plain).not.toMatch(/content-visibility:\s*auto/);
+    /** D1 F2 (2026-11-11): 커뮤니티 피드 글 칸 규칙은 채팅 밖 별도 계약 (hub-data / d1 문서) — 여기서는 제외하고 본다 */
+    const plainNoFeed = plain.replace(/\[data-community-feed-cv-row\]\s*\{\s*content-visibility:\s*auto;/, "");
+    expect(plainNoFeed).not.toMatch(/content-visibility:\s*auto/);
   });
 
   it("모든 행이 실제 높이를 기억(contain-intrinsic-block-size: auto)", () => {

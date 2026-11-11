@@ -84,6 +84,7 @@ describe("D1 §4 허브 데이터 60초 규칙", () => {
       "components/platform-events/EventPromotionHeroBanner.tsx",
       "components/auth/AuthLoginPanel.tsx",
       "components/home-hub/HomeStoresSection.tsx",
+      "components/home-hub/HomeTradeRow.tsx",
       "components/stores/home/hub/StoresHomeHub.tsx",
       "components/stores/home/hub/StoresHomeHeroBanner.tsx",
       "components/stores/home/hub/StoresHomeBeforeRestBanner.tsx",

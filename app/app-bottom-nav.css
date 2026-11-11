@@ -564,11 +564,12 @@
   --app-bottom-nav-clearance: calc(var(--app-bottom-nav-height, 60px) + var(--main-scroll-nav-overhang, 0px) + var(--safe-bottom));
 }
 
-html:has(.app-bottom-nav-shell :is(.app-bottom-nav-item--domain-hub, .app-bottom-nav-item--messenger-hub) .app-bottom-nav-icon-slot--domain-hub-orbit) {
+/* D1 F1: `html:has(…)` 대신 `<html>` 셸 속성(lib/layout/html-shell-flags.ts) — 특이도는 예전과 같게 속성 반복 */
+html[data-shell-bottom-nav-orbit][data-shell-bottom-nav-orbit][data-shell-bottom-nav-orbit] {
   --main-scroll-nav-overhang: var(--app-bottom-nav-orbit-rise, calc(2.625rem * 0.36));
 }
 
-html:has(.app-bottom-nav-shell--delivery) {
+html[data-shell-bottom-nav-delivery] {
   --main-scroll-nav-overhang: var(--delivery-home-overhang, 0px);
 }
 

@@ -1782,11 +1782,12 @@ button.delivery-category-search.delivery-category-tab,
   }
 }
 
-html:has(.stores-home-hub) .main-hub-scroll-body[data-stores-home-ptr-root] {
+/* D1 F1: `html:has(…)` 대신 `<html>` 셸 속성(lib/layout/html-shell-flags.ts) — 특이도는 예전과 같게 속성 반복 */
+html[data-shell-stores-home-hub] .main-hub-scroll-body[data-stores-home-ptr-root] {
   overscroll-behavior-y: none;
 }
 
-html:has([data-stores-browse-ptr-hint]) .main-hub-scroll-body[data-stores-browse-ptr-root] {
+html[data-shell-stores-browse-ptr-hint] .main-hub-scroll-body[data-stores-browse-ptr-root] {
   overscroll-behavior-y: none;
 }
 

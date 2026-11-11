@@ -51,6 +51,8 @@ import {
 } from "@/lib/layout/main-hub-scroll-column";
 import { MainHubScrollBody } from "./MainHubScrollColumn";
 import { HubRetentionStack } from "./HubRetentionStack";
+import { HTML_SHELL_FLAGS_INLINE_SCRIPT } from "@/lib/layout/html-shell-flags";
+import { useHtmlShellFlagsSync } from "@/lib/layout/use-html-shell-flags-sync";
 import { invalidateMainAppScrollRootCache } from "@/lib/layout/main-app-scroll-root";
 import { logDevSafeModeProbeOnce } from "@/lib/dev/is-dev-safe-mode";
 import {
@@ -261,6 +263,8 @@ export function ConditionalAppShell({
    * 표시 조건은 하단 탭과 동일(`showBottomNavMounted`). 레일에는 스크롤·키보드 숨김·메신저 목록 칸 폭을 쓰지 않는다.
    */
   const isDesktopSideRail = appShell.navigationPresentation === "DESKTOP_SIDE_RAIL";
+  /** D1 F1 — `<html>` 셸 속성(데스크톱 세로 레일 셸 여부) 갱신 */
+  useHtmlShellFlagsSync(appShell.navigationPresentation);
   const mainBottomClassLive = useMemo(() => {
     if (!storeOwnerFlyoutSuppressesBottomNav) {
       return f.mainBottomClass;
@@ -499,6 +503,15 @@ export function ConditionalAppShell({
             .join(" ")}
         />
       ) : null}
+      {/**
+       * D1 F1 (2026-11-11): `html:has(…)` 대신 `<html>` 셸 속성 — 서버 HTML 에서 하단 탭 마크업 바로 뒤에 1회 실행해
+       * 첫 그림부터 여백·위치가 맞게 한다. 이후 갱신은 각 요소 소유 컴포넌트의 `useHtmlShellFlagsSync`.
+       */}
+      <script
+        data-html-shell-flags=""
+        dangerouslySetInnerHTML={{ __html: HTML_SHELL_FLAGS_INLINE_SCRIPT }}
+        suppressHydrationWarning
+      />
       {showBottomNavMounted && f.showHomeTradeHubFloatingBar && !isTradeWriteSheetSurface ? (
         <HomeTradeHubFloatingBarLazy />
       ) : null}
