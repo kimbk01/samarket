@@ -116,6 +116,7 @@ GitHub CI (main push, 작업별 실측): 구조 분리 후 최근 2회 — stati
 
 ## 12. PR #142 보완 검증 (2026-11-11 11:30~11:58 PHT)
 - 실행 경로: Vercel 프로젝트 `buildCommand=null`·`installCommand=null`·framework nextjs·Node 24.x → `npm run build` (빌드 로그 「Running "npm run build"」·prebuild 실행 확인) → prebuild(스티커 → 이 스크립트) → `next build`(TS 검사 내장, `ignoreBuildErrors` 없음). CI 는 `next build` 를 돌리지 않고 `typecheck:test`(`tsc -b`)·`typecheck` 계열로 **독립** 검사 — 이 스크립트와 무관. `build:analyze` 는 prebuild 를 거치지 않아 원래 Next(전체 검사)로 동작 — 검사 우회 아님.
-- 무결성 시험 `scripts/next-typecheck-diagnostics-first.test.mjs` 9건 PASS: 설치본 해시 · 정상 원본 적용 · 정상 패치본 무변경 · 변조 원본 FAIL · 변조 패치본(표식·진단 줄 유지, 오류 throw 무력화) FAIL · 다른 버전 FAIL · rename 실패 시 원본 유지·임시 파일 0 · 변조 시 `npm run build` 중단 · 상수=package.json.
+- 교체 방식 정정: 「원자적 교체」= 같은 파일시스템 rename 으로 읽는 쪽이 원본 전체 또는 패치본 전체만 봄(보장). 「비정상 종료 내구성」은 별개 — 폴더 fsync 를 하지 않아 전원 차단·OS 비정상 종료 시 결과의 디스크 보존은 **보장하지 않음**. 대신 매 실행이 전체 해시를 다시 검사하므로 손상·부분 파일로 빌드되지 않음(그 외 해시 = FAIL). SIGKILL 시 임시 파일 `*.dibay-tmp-<pid>` 가 남을 수 있음(대상 파일 무손상).
+- 무결성 시험 `scripts/next-typecheck-diagnostics-first.test.mjs` 9건 PASS: (로컬) 설치본 해시 · 정상 원본 적용 · 정상 패치본 무변경 · 변조 원본 FAIL · 변조 패치본(표식·진단 줄 유지, 오류 throw 무력화) FAIL · 다른 버전 FAIL · rename 실패 시 원본 유지·임시 파일 0 · 변조 시 `npm run build` 중단 · 상수=package.json.
 - 캐시 시나리오(실제 Next runTypeCheck, 캐시 사용 vs 캐시 없음 오류 목록 해시 비교): 파일 삭제 53=53 · 이름 변경 53=53 · 없는 import 1=1 · 공통 타입 1=1 · .d.ts 2=2 · tsconfig 707=707 · 번역 1=1 · 수정 전 캐시 호환 · 롤백 호환(C8 5초). 패치 결과물 해시는 보완 전후 동일(`2e91c011…`)이라 이 측정은 보완본에도 해당.
 - NOT_PROVEN: Vercel 의 `.next/cache/.tsbuildinfo` 보존·복원, Vercel 에서 패치 적용 로그, Vercel 캐시 없는 첫 빌드, Vercel 시간 단축.
