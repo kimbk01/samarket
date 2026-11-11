@@ -49,7 +49,6 @@ function rowStatus(r: SanctionDbRow, nowMs: number): "active" | "expired" | "rev
 
 function sourceReportHref(r: SanctionDbRow): string | null {
   if (!r.source_report_id) return null;
-  if (r.source_report_kind === "meeting_report") return "/admin/philife/meeting-reports";
   return `/admin/reports/${encodeURIComponent(r.source_report_id)}`;
 }
 

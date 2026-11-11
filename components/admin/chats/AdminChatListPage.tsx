@@ -133,7 +133,7 @@ function getInitialFilters(mode: ChatListMode): AdminChatFilters {
   if (mode === "reported") return { ...DEFAULT_FILTERS, reportedOnly: true };
   if (mode === "business") return DEFAULT_FILTERS;
   if (mode === "community") return { ...DEFAULT_FILTERS, roomType: "community" };
-  /** 모임·게시판(chat_rooms group) + 모임 오픈채팅을 한 화면에 표시 */
+  /** 모임·게시판(chat_rooms group) */
   if (mode === "group") return DEFAULT_FILTERS;
   return DEFAULT_FILTERS;
 }

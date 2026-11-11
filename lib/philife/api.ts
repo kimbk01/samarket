@@ -22,11 +22,6 @@ export function philifeNeighborhoodPostsUrl(): string {
   return `${PHILIFE_API}/neighborhood-posts`;
 }
 
-/** 모임 만들기 폼 — `allow_meetup` 피드 주제 목록 (어드민 `community_topics` 연동) */
-export function philifeMeetupFeedTopicsUrl(): string {
-  return `${PHILIFE_API}/meetup-feed-topics`;
-}
-
 export function philifeNeighborhoodPostUrl(postId: string): string {
   return `${PHILIFE_API}/neighborhood-posts/${encodeURIComponent(postId)}`;
 }
@@ -63,26 +58,4 @@ export function philifePostCommentUrl(postId: string, commentId: string): string
 
 export function philifePostCommentLikeUrl(postId: string, commentId: string): string {
   return `${PHILIFE_API}/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}/like`;
-}
-
-export function philifeMeetingApi(meetingId: string) {
-  const b = `${PHILIFE_API}/meetings/${encodeURIComponent(meetingId)}`;
-  return {
-    detail: b,
-    inviteCandidates: (q: string) => `${b}/invite-candidates?q=${encodeURIComponent(q)}`,
-    attendance: () => `${b}/attendance`,
-    close: () => `${b}/close`,
-    kick: () => `${b}/kick`,
-    cohost: () => `${b}/cohost`,
-    approve: () => `${b}/approve`,
-    reject: () => `${b}/reject`,
-    notices: () => `${b}/notices`,
-    notice: (noticeId: string) => `${b}/notices/${encodeURIComponent(noticeId)}`,
-    invite: () => `${b}/invite`,
-    ban: () => `${b}/ban`,
-    unban: () => `${b}/unban`,
-    join: () => `${b}/join`,
-    leave: () => `${b}/leave`,
-    events: (query: string) => `${b}/events?${query}`,
-  };
 }

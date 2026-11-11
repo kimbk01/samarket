@@ -48,7 +48,7 @@ const PHILIFE_TOPICS_FLIGHT_KEY = "philife:default-section-topics";
 
 const collectTopicsDiag = process.env.NODE_ENV === "development";
 
-/** API·캐시 토픽 목록은 어드민「노출 Y」인 행만(모임/일반 공통). */
+/** API·캐시 토픽 목록은 어드민「노출 Y」인 행만. */
 function onlyVisibleForFeedSectionTopics(topics: CommunityTopicDTO[]): CommunityTopicDTO[] {
   return topics.filter((t) => t.is_visible);
 }
@@ -282,13 +282,8 @@ export function clearPhilifeDefaultSectionTopicsCache(): void {
 export function isPhilifeFeedCategorySlugAllowedByTopics(topics: CommunityTopicDTO[], slug: string): boolean {
   const s = slug.trim().toLowerCase();
   if (!s) return false;
-  if (s === "meetup") {
-    return topics.some((t) => t.allow_meetup && t.is_visible);
-  }
   /** `is_feed_sort` 도 동일 `community_topics` 행 — 노출 Y이면 칩·category 필터 모두 허용(이전: 정렬칩은 탭에서 제외됨) */
-  return topics.some(
-    (t) => t.is_visible && !t.allow_meetup && t.slug.trim().toLowerCase() === s
-  );
+  return topics.some((t) => t.is_visible && t.slug.trim().toLowerCase() === s);
 }
 
 /**
@@ -298,9 +293,6 @@ export function isPhilifeFeedCategorySlugAllowedByTopics(topics: CommunityTopicD
 export function sectionHasTopicSlug(topics: CommunityTopicDTO[], slug: string): boolean {
   const s = slug.trim().toLowerCase();
   if (!s) return false;
-  if (s === "meetup") {
-    return topics.some((t) => t.allow_meetup && t.is_visible);
-  }
   return topics.some(
     (t) => t.is_visible && t.slug.trim().toLowerCase() === s
   );
@@ -308,26 +300,10 @@ export function sectionHasTopicSlug(topics: CommunityTopicDTO[], slug: string): 
 
 /**
  * 홈 피드 상단 칩: `loadPhilife…`가 노출·활성인 주제만 넘김. `is_feed_sort`(정렬칩)이어도 **탭에 표시**해 어드민「노출」과 맞춤.
- * `allow_meetup` 은 단일 「모임」칩으로 묶음.
  */
 export function buildPhilifeFeedChipsFromTopics(topics: CommunityTopicDTO[]): PhilifeNeighborhoodFeedChip[] {
   const chips: PhilifeNeighborhoodFeedChip[] = [];
-  let meetupAdded = false;
   for (const t of topics) {
-    if (t.allow_meetup && t.is_visible) {
-      if (!meetupAdded) {
-        const name = t.name?.trim() || NEIGHBORHOOD_CATEGORY_LABELS.meetup;
-        chips.push({
-          slug: "meetup",
-          name,
-          name_en: t.name_en ?? null,
-          is_feed_sort: false,
-          sort_slot: null,
-        });
-        meetupAdded = true;
-      }
-      continue;
-    }
     if (t.is_visible) {
       let sort_slot: "recommend" | "popular" | null = null;
       if (t.is_feed_sort) {
@@ -348,13 +324,13 @@ export function buildPhilifeFeedChipsFromTopics(topics: CommunityTopicDTO[]): Ph
 
 /**
  * `/philife/write` 일반(동네) 글 — `POST /api/.../neighborhood-posts` + `resolveTopicForNeighborhoodCategory` 와 동일.
- * - `is_visible` + writeEligible (sort-slot / allow_meetup 제외). content slug allowlist 없음.
+ * - `is_visible` + writeEligible (sort-slot 제외). content slug allowlist 없음.
  */
 export function buildPhilifeWriteTopicOptionsFromTopics(
   topics: CommunityTopicDTO[]
 ): PhilifeNeighborhoodWriteTopicOption[] {
   return topics
-    .filter((t) => t.is_visible && isPhilifeNeighborhoodWriteEligibleRow(t.allow_meetup, t.is_feed_sort, t.slug))
+    .filter((t) => t.is_visible && isPhilifeNeighborhoodWriteEligibleRow(t.is_feed_sort, t.slug))
     .sort(
       (a, b) =>
         (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
@@ -394,29 +370,15 @@ export function buildPhilifeTopicNameLookup(topics: CommunityTopicDTO[]): Map<st
       m.set(t.slug.trim().toLowerCase(), t.name);
     }
   }
-  let meetupLabel = NEIGHBORHOOD_CATEGORY_LABELS.meetup;
-  for (const t of topics) {
-    if (t.allow_meetup && t.is_visible) {
-      meetupLabel = t.name?.trim() || meetupLabel;
-      break;
-    }
-  }
-  m.set("meetup", meetupLabel);
   return m;
 }
 
-/** 주제 slug → `community_topics.feed_list_skin` (모임 칩 `meetup` 은 첫 `allow_meetup` 주제와 동일) */
+/** 주제 slug → `community_topics.feed_list_skin` */
 export function buildPhilifeTopicFeedListSkinLookup(topics: CommunityTopicDTO[]): Map<string, CommunityFeedListSkin> {
   const m = new Map<string, CommunityFeedListSkin>();
   for (const t of topics) {
-    if (t.is_visible && !t.allow_meetup) {
+    if (t.is_visible) {
       m.set(t.slug.trim().toLowerCase(), normalizeCommunityFeedListSkin(t.feed_list_skin));
-    }
-  }
-  for (const t of topics) {
-    if (t.allow_meetup && t.is_visible) {
-      m.set("meetup", normalizeCommunityFeedListSkin(t.feed_list_skin));
-      break;
     }
   }
   return m;
@@ -425,14 +387,8 @@ export function buildPhilifeTopicFeedListSkinLookup(topics: CommunityTopicDTO[])
 export function buildPhilifeTopicColorLookup(topics: CommunityTopicDTO[]): Map<string, string | null> {
   const m = new Map<string, string | null>();
   for (const t of topics) {
-    if (t.is_visible && !t.allow_meetup) {
+    if (t.is_visible) {
       m.set(t.slug.trim().toLowerCase(), t.color);
-    }
-  }
-  for (const t of topics) {
-    if (t.allow_meetup && t.is_visible) {
-      m.set("meetup", t.color);
-      break;
     }
   }
   return m;

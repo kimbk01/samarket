@@ -1,14 +1,11 @@
 import { extractHashtagPreview } from "@/lib/community-feed/topic-feed-skin";
-import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
 
 export function extractPostDetailHashtagsForDisplay(
   title: string,
   content: string,
-  isMeetup: boolean,
   max = 8
 ): string[] {
-  const body = isMeetup ? stripMeetupPostMetaFromContent(content) : content;
-  return extractHashtagPreview(`${title || ""}\n${body || ""}`.replace(/\0/g, ""), max);
+  return extractHashtagPreview(`${title || ""}\n${content || ""}`.replace(/\0/g, ""), max);
 }
 
 const SAVED_KEY = "philife:post-saved:";

@@ -1,6 +1,6 @@
 /**
  * D-11 (2026-11-07) — 진행 중 상위노출이 걸린 글 숨김·삭제 = DB 함수 `admin_community_post_moderate` 1번
- * (주문 종료 + 글 상태 변경 한 트랜잭션). 모임 숨김도 상위노출 확인 + 귀책 필수.
+ * (주문 종료 + 글 상태 변경 한 트랜잭션).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -13,7 +13,6 @@ const notifyCommunityPromotionEnded = vi.fn(async () => undefined);
 vi.mock("@/lib/notifications/notify-community-moderation", () => ({
   notifyCommunityPromotionEnded: (...a: unknown[]) => (notifyCommunityPromotionEnded as (...x: unknown[]) => unknown)(...a),
   notifyCommunityContentModerated: vi.fn(async () => undefined),
-  notifyCommunityMeetingDecision: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/points/community-point-bridge", () => ({
   applyCommunityPointReclaimOnPostAdminRemove: vi.fn(async () => undefined),
@@ -52,7 +51,6 @@ function makeSb() {
         },
         then(res: (v: unknown) => void) {
           if (table === "point_promotion_orders") return res({ data: orders, error: null });
-          if (table === "meetings" && mode === "update") return res({ data: [{ id: "m1" }], error: null });
           return res({ data: null, error: null });
         },
       };
@@ -146,66 +144,5 @@ describe("D-11 ① 글 숨김·삭제 + 진행 중 상위노출", () => {
     expect(out.status).toBe(200);
     expect(rpc).not.toHaveBeenCalled();
     expect(postUpdates.some((u) => u.status === "hidden")).toBe(true);
-  });
-});
-
-vi.mock("@/lib/admin/community-admin/community-admin-guards", () => ({
-  requireCommunityAdmin: vi.fn(async () => ({ ok: true, userId: "admin-1" })),
-}));
-vi.mock("@/lib/chat/supabase-server", () => ({
-  getSupabaseServer: () => meetingSb,
-}));
-let meetingSb: ReturnType<typeof makeSb>;
-let meetingRow: Record<string, unknown>;
-
-describe("D-11 ② 모임 숨김 + 진행 중 상위노출", () => {
-  async function patchMeeting(body: Record<string, unknown>) {
-    const sb = makeSb();
-    const from = sb.from.bind(sb);
-    sb.from = (table: string) => {
-      if (table === "meetings") {
-        const q = {
-          select: () => q,
-          eq: () => q,
-          is: () => q,
-          update: () => q,
-          maybeSingle: async () => ({ data: meetingRow, error: null }),
-          then: (res: (v: unknown) => void) => res({ data: [{ id: "m1" }], error: null }),
-        };
-        return q as never;
-      }
-      return from(table);
-    };
-    meetingSb = sb;
-    const { PATCH } = await import("@/app/api/admin/community/engine/meetings/[meetingId]/route");
-    return PATCH(
-      new Request("https://x.test/api/admin/community/engine/meetings/m1", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      }) as never,
-      { params: Promise.resolve({ meetingId: "m1" }) }
-    );
-  }
-
-  beforeEach(() => {
-    meetingRow = { id: "m1", post_id: "p1", host_user_id: "h1", status: "open", platform_approval_status: "approved", max_members: 10, is_closed: false };
-  });
-
-  it("귀책 없이 숨김 → 400 promotion_fault_required (예전: 상위노출 확인 없음)", async () => {
-    const res = await patchMeeting({ postStatus: "hidden", postHidden: true, reason: "운영 정책 위반" });
-    expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe("promotion_fault_required");
-    expect(rpc).not.toHaveBeenCalled();
-  });
-
-  it("귀책 있음 → admin_community_post_moderate(hide) 1번", async () => {
-    const res = await patchMeeting({ postStatus: "hidden", postHidden: true, reason: "운영 정책 위반", promotionFault: "member" });
-    expect(res.status).toBe(200);
-    expect(rpc).toHaveBeenCalledWith(
-      "admin_community_post_moderate",
-      expect.objectContaining({ p_post: "p1", p_action: "hide", p_fault: "member" })
-    );
-    expect(postUpdates.some((u) => u.status === "hidden")).toBe(false);
   });
 });

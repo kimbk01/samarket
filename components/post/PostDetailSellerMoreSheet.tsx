@@ -100,7 +100,7 @@ export function PostDetailSellerMoreSheet({
       ariaLabel={t("ui_sheet_close_aria")}
     >
       {busy ? (
-        <p className={`mb-2 text-center ${OverlayUi.bodySecondary}`}>{t("community_meeting_join_processing")}</p>
+        <p className={`mb-2 text-center ${OverlayUi.bodySecondary}`}>{t("common_processing")}</p>
       ) : null}
       <div className="overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]">
         {showLockBanner ? (

@@ -100,7 +100,7 @@ export function AdminReportListPage() {
   const [partial, setPartial] = useState(false);
 
   /**
-   * RS-02 — 원장 6종(거래·커뮤니티 + 매장·모임·메신저·구 거래 채팅)을 서버에서 원장별로 읽어 병합한다 (커서 모드).
+   * RS-02 — 원장 5종(거래·커뮤니티 + 매장·메신저·구 거래 채팅)을 서버에서 원장별로 읽어 병합한다 (커서 모드).
    * 예전처럼 출처별 고정 상한으로 읽어 브라우저에서 합치지 않는다. `?target=` 도 서버 필터.
    */
   const baseParams = useMemo(() => {
@@ -265,9 +265,6 @@ export function AdminReportListPage() {
         </Link>
         <Link href="/admin/store-reports" className="text-signature underline" prefetch={false}>
           Delivery
-        </Link>
-        <Link href="/admin/philife/meeting-reports" className="text-signature underline" prefetch={false}>
-          Meeting
         </Link>
         <Link href="/admin/chats/reported" className="text-signature underline" prefetch={false}>
           Messenger

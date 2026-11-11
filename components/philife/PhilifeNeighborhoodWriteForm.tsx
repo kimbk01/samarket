@@ -168,9 +168,7 @@ export function PhilifeNeighborhoodWriteForm({
   const [writeTopicOptions, setWriteTopicOptions] = useState<PhilifeNeighborhoodWriteTopicOption[]>([]);
   /** `writeTopicOptions.length === 0` 이 로딩 중인지·진짜 비어 있는지 구분 */
   const [writeTopicOptionsLoad, setWriteTopicOptionsLoad] = useState<"loading" | "ready">("loading");
-  const [category, setCategory] = useState<string>(() =>
-    initialCategory === "meetup" ? "" : (initialCategory?.trim().toLowerCase() || "")
-  );
+  const [category, setCategory] = useState<string>(() => initialCategory?.trim().toLowerCase() || "");
   const [title, setTitle] = useState(() => initialTitle ?? "");
   const [content, setContent] = useState(() => initialContent ?? "");
   const [busy, setBusy] = useState(false);
@@ -301,7 +299,7 @@ export function PhilifeNeighborhoodWriteForm({
    */
   const applyWriteCategory = useCallback((slug: string) => {
     const next = slug.trim().toLowerCase();
-    if (!next || next === "meetup") return;
+    if (!next) return;
     setCategory(next);
     setCategoryTouched(true);
     setTopicMenuOpen(false);

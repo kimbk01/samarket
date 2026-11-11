@@ -1,5 +1,5 @@
 /**
- * 커뮤니티 Admin 목록 API 공용 쿼리 파서 (모임·댓글 관리).
+ * 커뮤니티 Admin 목록 API 공용 쿼리 파서 (댓글 관리).
  * 순수 함수 — `q` 검색어 정리·ilike 패턴 이스케이프·limit/offset·상태 화이트리스트.
  */
 
@@ -8,12 +8,6 @@ export const COMMUNITY_LIST_MAX_LIMIT = 200;
 export const COMMUNITY_LIST_MAX_OFFSET = 100_000;
 export const COMMUNITY_LIST_SEARCH_MAX_LEN = 80;
 
-/** supabase/migrations/20260327100000_community_engine_v2.sql meetings_status_check */
-export const MEETING_STATUSES = ["open", "closed", "ended", "cancelled"] as const;
-/** supabase/migrations/20260423090000_meeting_messenger_bridge.sql meetings_platform_approval_status_check */
-export const MEETING_APPROVAL_STATUSES = ["pending_approval", "approved", "rejected"] as const;
-/** Admin 모임 탭 — status·승인 상태 조합 (서버에서 거른다) */
-export const MEETING_ADMIN_TABS = ["pending", "open", "ended", "rejected"] as const;
 /** supabase/migrations/20260327100000_community_engine_v2.sql community_comments_status_check */
 export const COMMENT_STATUSES = ["active", "hidden", "deleted"] as const;
 

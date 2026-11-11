@@ -25,7 +25,7 @@ import { CommunityMessengerHeaderActions } from "@/components/community-messenge
 import { CommunityMessengerHomeListPane } from "@/components/community-messenger/CommunityMessengerHomeListPane";
 import { CommunityMessengerPrivateGroupCreatePanel } from "@/components/community-messenger/CommunityMessengerPrivateGroupCreatePanel";
 import { DiscoverableOpenGroupCard } from "@/components/community-messenger/home/DiscoverableOpenGroupCard";
-import { MeetingJoinPreviewFullScreen } from "@/components/community-messenger/meetings/MeetingJoinPreviewFullScreen";
+import { OpenGroupJoinPreviewFullScreen } from "@/components/community-messenger/home/OpenGroupJoinPreviewFullScreen";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/components/community-messenger/MessengerSheetUi";
 import { MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS } from "@/lib/ui/messenger-split-pane-layout";
@@ -210,7 +210,6 @@ import {
   useCommunityMessengerHomeNavigation,
   type NavigateToCommunityRoomOptions,
 } from "@/lib/community-messenger/home/use-community-messenger-home-navigation";
-import { fetchMeetingDeeplink } from "@/lib/community-messenger/home/fetch-meeting-deeplink";
 import { useMessengerHomeProjectionFlags } from "@/lib/community-messenger/home/projection-source-flag";
 import { useMessengerHomeCanonicalListData } from "@/lib/community-messenger/home/canonical-home-render-adapter";
 import { useDomainListPillarBootstrapRefresh } from "@/lib/chat-domain/list/use-domain-list-pillar-bootstrap-refresh";
@@ -220,7 +219,6 @@ import { MessengerPullRefreshHost } from "@/components/community-messenger/Messe
 import { MessengerPullRefreshRegister } from "@/components/community-messenger/MessengerPullRefreshRegister";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
 import { DetailHeader } from "@/components/layout/sector-header";
-import { philifeAppPaths } from "@domain/philife/paths";
 import {
   cmReadBadgeLog,
   refreshLocalReadGuardServerAck,
@@ -539,7 +537,6 @@ function CommunityMessengerHomeRouterEffectsHost({
   useLayoutEffect(() => {
     setSubScreenKey((prev) => (prev === subScreenKeyFromUrl ? prev : subScreenKeyFromUrl));
   }, [setSubScreenKey, subScreenKeyFromUrl]);
-  const meetingIdParam = searchParams.get("meetingId")?.trim() ?? "";
   const openParam = searchParams.get("open")?.trim() ?? "";
   const fromParam = searchParams.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY);
 
@@ -573,59 +570,6 @@ function CommunityMessengerHomeRouterEffectsHost({
     pendingUserSectionRef,
     pillar,
   });
-
-  const messengerMeetingDeeplinkSeq = useRef(0);
-  useEffect(() => {
-    if (!meetingIdParam) return;
-    const seq = ++messengerMeetingDeeplinkSeq.current;
-    const ac = new AbortController();
-    const strip = () => {
-      guardedRouterReplace(router, "/community-messenger?section=chats", {
-        source: "community-messenger-home",
-        reason: "meeting_deeplink_strip",
-        scroll: false,
-      });
-    };
-    void (async () => {
-      try {
-        const resolved = await fetchMeetingDeeplink(meetingIdParam, ac.signal);
-        if (seq !== messengerMeetingDeeplinkSeq.current) return;
-        if (resolved.kind === "room") {
-          try {
-            await fetch(
-              `/api/community-messenger/rooms/${encodeURIComponent(resolved.roomId)}/meeting-ensure-participant`,
-              { method: "POST", credentials: "include", signal: ac.signal }
-            );
-          } catch {
-            /* */
-          }
-          guardedRouterReplace(
-            router,
-            `/community-messenger/rooms/${encodeURIComponent(resolved.roomId)}`,
-            {
-              source: "community-messenger-home",
-              reason: "meeting_deeplink_room",
-            }
-          );
-          return;
-        }
-        if (resolved.kind === "post") {
-          guardedRouterReplace(router, philifeAppPaths.post(resolved.postId), {
-            source: "community-messenger-home",
-            reason: "meeting_deeplink_post",
-          });
-          return;
-        }
-        strip();
-      } catch {
-        if (seq !== messengerMeetingDeeplinkSeq.current || ac.signal.aborted) return;
-        strip();
-      }
-    })();
-    return () => {
-      ac.abort();
-    };
-  }, [meetingIdParam, router]);
 
   useEffect(() => {
     if (openParam !== "public-group-find") return;
@@ -4366,7 +4310,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       ) : null}
 
       {joinTargetGroup ? (
-        <MeetingJoinPreviewFullScreen
+        <OpenGroupJoinPreviewFullScreen
           group={joinTargetGroup}
           busy={busyId === `join-open-group:${joinTargetGroup.id}`}
           onClose={closeJoinOpenGroupModal}

@@ -27,7 +27,6 @@ import { postAdsUserMessages } from "./catalog/post-ads-user";
 import { mypageMobileNavMessages } from "./catalog/mypage-mobile-nav";
 import { jobsFormMessages } from "./catalog/jobs-form";
 import { priceOffersMessages } from "./catalog/price-offers";
-import { neighborhoodMeetingEventsMessages } from "./catalog/neighborhood-meeting-events";
 import { tradeUsedCarMessages } from "./catalog/trade-used-car";
 import { tradeWriteFormMessages } from "./catalog/trade-write-form";
 import { jobsWriteFormMessages } from "./catalog/jobs-write-form";
@@ -212,7 +211,6 @@ export type MessageKey =
   | KeyOf<typeof mypageMobileNavMessages.ko>
   | KeyOf<typeof jobsFormMessages.ko>
   | KeyOf<typeof priceOffersMessages.ko>
-  | KeyOf<typeof neighborhoodMeetingEventsMessages.ko>
   | KeyOf<typeof tradeUsedCarMessages.ko>
   | KeyOf<typeof tradeWriteFormMessages.ko>
   | KeyOf<typeof jobsWriteFormMessages.ko>
@@ -347,7 +345,6 @@ type EnMessageKey =
   | KeyOf<typeof mypageMobileNavMessages.en>
   | KeyOf<typeof jobsFormMessages.en>
   | KeyOf<typeof priceOffersMessages.en>
-  | KeyOf<typeof neighborhoodMeetingEventsMessages.en>
   | KeyOf<typeof tradeUsedCarMessages.en>
   | KeyOf<typeof tradeWriteFormMessages.en>
   | KeyOf<typeof jobsWriteFormMessages.en>

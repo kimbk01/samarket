@@ -3,13 +3,11 @@
 import { dibayConfirm, DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { DIBAY_TOAST_MS, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getCurrentUser, getHydrationSafeCurrentUser, isAdminUser } from "@/lib/auth/get-current-user";
 import { isSameUserId } from "@/lib/auth/same-user-id";
-import type { NeighborhoodFeedPostDTO, NeighborhoodMeetingDetailDTO } from "@/lib/neighborhood/types";
-import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
+import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { createCommunityFeedPostReport } from "@/lib/reports/createCommunityFeedPostReport";
 import { createCommunityFeedCommentReport } from "@/lib/reports/createCommunityFeedCommentReport";
 import { blockUserDaangn } from "@/lib/reports/blockUserDaangn";
@@ -17,7 +15,6 @@ import { invalidateCommunityUserRelationSnapshot } from "@/lib/community/user-re
 import { isCommunityImportedOrigin } from "@/lib/community/community-post-origin";
 import { communityPostPublicDisplayClock } from "@/lib/community/community-publication-time";
 import { invalidateCommunityFeedCachesAfterPostModeration } from "@/lib/community/invalidate-community-author-posts-client";
-import { NeighborFollowButton } from "./NeighborFollowButton";
 import {
   philifeNeighborhoodPostUrl,
   philifePostLikeUrl,
@@ -54,32 +51,20 @@ import { CommunityInlineAdCard } from "./post-detail/CommunityInlineAdCard";
 import { CommunitySimilarPostsSection } from "./post-detail/CommunitySimilarPostsSection";
 import { CommunityShareSheet } from "./share/CommunityShareSheet";
 import { useCommunityPostShare } from "@/lib/community/share/use-community-post-share";
-import {
-  COMMUNITY_BUTTON_SECONDARY_CLASS,
-} from "@/lib/philife/philife-flat-ui-classes";
 import { CommunityCard } from "./ui/CommunityCard";
 import { CommunityNeighborPrompt } from "./ui/CommunityNeighborPrompt";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useCommunityTopicUILabel } from "@/lib/i18n/use-community-topic-ui-label";
-import { formatAppNumber } from "@/lib/i18n/locale-for-app-language";
 import { postNotificationThreadRead } from "@/lib/notifications/client/notification-event-read-client";
 
-const meetingToolbarBtn =
-  "sam-btn sam-btn--outline sam-btn--block px-1 py-2 text-center disabled:opacity-50";
-const meetingToolbarWrap =
-  "min-w-0 [&>button]:flex [&>button]:min-h-[44px] [&>button]:w-full [&>button]:items-center [&>button]:justify-center [&>button]:rounded-sam-md [&>button]:border [&>button]:border-sam-border [&>button]:bg-sam-surface [&>button]:px-1 [&>button]:py-2 [&>button]:text-center [&>button]:text-[length:var(--sam-text-body-size)] [&>button]:font-medium [&>button]:leading-[var(--sam-font-body-line)] [&>button]:text-sam-fg";
 export function CommunityDetail({
   post,
-  meeting,
-  viewerJoinedMeeting = false,
   initialRouteTotalMs,
   similarPosts = [],
   isAd = false,
 }: {
   post: NeighborhoodFeedPostDTO;
-  meeting: NeighborhoodMeetingDetailDTO | null;
-  viewerJoinedMeeting?: boolean;
   initialRouteTotalMs?: number;
   similarPosts?: NeighborhoodFeedPostDTO[];
   /** Owner 결정 O-3: 지금 광고 중(유료 상위노출)인 글 */
@@ -115,7 +100,6 @@ export function CommunityDetail({
     commentText,
     setCommentText,
     focusCommentId,
-    displayCommentCount,
     submitRootComment,
     submitReply,
     likeComment,
@@ -169,24 +153,17 @@ export function CommunityDetail({
     post.category_name_en,
     post.category
   );
-  const tier1Title = meeting
-    ? t("community_meeting_label")
-    : postCategoryLabel.trim() || t("community_community_label");
+  const tier1Title = postCategoryLabel.trim() || t("community_community_label");
   const [backToFeedHref, setBackToFeedHref] = useState<string>(philifeAppPaths.home);
   /** 이 글로 들어온 앱 내 진입 기록(같은 postId 출처)이 있는지 — Navigation API 없는 환경의 settle 판단용 */
   const [hasEntryOriginForPost, setHasEntryOriginForPost] = useState(false);
   useLayoutEffect(() => {
-    if (meeting || post.is_meetup) {
-      setBackToFeedHref(philifeAppPaths.home);
-      setHasEntryOriginForPost(false);
-      return;
-    }
     setBackToFeedHref(resolveCommunityDetailBackHref({ postId: post.id }));
     setHasEntryOriginForPost(peekCommunityPostEntryOrigin()?.postId === post.id);
-  }, [meeting, post.is_meetup, post.id]);
+  }, [post.id]);
   const hashtags = useMemo(
-    () => extractPostDetailHashtagsForDisplay(post.title, post.content, Boolean(meeting) || post.is_meetup),
-    [post.title, post.content, meeting, post.is_meetup]
+    () => extractPostDetailHashtagsForDisplay(post.title, post.content),
+    [post.title, post.content]
   );
   const communityShare = useCommunityPostShare(post, postCategoryLabel);
 
@@ -202,7 +179,7 @@ export function CommunityDetail({
     recordRouteEntryJsonParseComplete("community_detail");
     const root = articleRef.current;
     if (!root) return;
-    const hasBodyText = (meeting ? stripMeetupPostMetaFromContent(post.content) : post.content).trim().length > 0;
+    const hasBodyText = post.content.trim().length > 0;
     if (root.querySelector("h1") && hasBodyText) {
       recordRouteEntryFirstContentRender("community_detail");
       scheduleRouteEntryToPaint("community_detail");
@@ -211,7 +188,7 @@ export function CommunityDetail({
     if (interactiveTarget instanceof HTMLElement && !interactiveTarget.hasAttribute("disabled")) {
       recordRouteEntryFirstInteractive("community_detail");
     }
-  }, [initialRouteTotalMs, meeting, post.content]);
+  }, [initialRouteTotalMs, post.content]);
 
   useEffect(() => {
     const viewedKey = `community:viewed:${post.id}`;
@@ -431,8 +408,7 @@ export function CommunityDetail({
   const canOwnEdit =
     !!me?.id &&
     me.id === post.author_id &&
-    !isCommunityImportedOrigin(post.origin_kind) &&
-    !post.is_meetup;
+    !isCommunityImportedOrigin(post.origin_kind);
 
   const onEditPost = useCallback(() => {
     if (!canOwnEdit) return;
@@ -467,15 +443,6 @@ export function CommunityDetail({
     }
   };
 
-  const meetingHostDisplay =
-    meeting &&
-    (isSameUserId(post.author_id, meeting.host_user_id) || isSameUserId(post.author_id, meeting.created_by))
-      ? post.author_name
-      : meeting
-        ? meeting.host_user_id.slice(0, 8)
-        : undefined;
-
-  const commentsLocked = Boolean(meeting && !viewerJoinedMeeting);
   // Peer CTA authority = actual member target capability, not origin_kind product branch.
   const memberPeerUserId = post.member_peer_user_id?.trim() || null;
 
@@ -486,13 +453,6 @@ export function CommunityDetail({
     setReportErr("");
     setReportOpen(true);
   }, [me, post.author_id]);
-
-  const authorSubline = meeting
-    ? t("community_detail_stats_line", {
-        views: formatAppNumber(viewCount, language),
-        comments: displayCommentCount,
-      })
-    : undefined;
 
   return (
     <div className="community-post-detail-fade-in pb-[max(1rem,var(--safe-bottom))]">
@@ -506,8 +466,8 @@ export function CommunityDetail({
         <div className="mx-auto max-w-3xl">
           <CommunityCard>
           <CommunityPostCategoryRow
-            label={meeting ? t("community_meeting_label") : postCategoryLabel}
-            isQuestion={post.is_question && !meeting}
+            label={postCategoryLabel}
+            isQuestion={post.is_question}
             topBadge={post.is_notice ? "notice" : post.is_pinned ? "pinned" : null}
             isAd={isAd}
           />
@@ -516,7 +476,6 @@ export function CommunityDetail({
             authorAvatarUrl={post.author_avatar_url}
             locationLabel={post.location_label}
             createdAt={authorDisplayClock}
-            subline={authorSubline}
             showMoreMenu
             postId={post.id}
             targetUserId={memberPeerUserId}
@@ -528,12 +487,7 @@ export function CommunityDetail({
             onOwnEdit={canOwnEdit ? onEditPost : undefined}
             ownDeleteBusy={busy}
           />
-          <CommunityPostDetailBody
-            post={post}
-            meeting={meeting}
-            meetingHostDisplay={meetingHostDisplay}
-            viewerJoinedMeeting={viewerJoinedMeeting}
-          />
+          <CommunityPostDetailBody post={post} />
           {post.source_attribution?.sourceName ? (
             <div className="mt-4 rounded-ui-rect border border-[var(--cm-border)] bg-[var(--cm-page-bg)] px-3 py-3 sam-text-helper text-[var(--cm-muted)]" data-user-content="">
               <div className="font-medium text-[var(--cm-fg)]">{t("community_source_attribution_label")}</div>
@@ -551,97 +505,26 @@ export function CommunityDetail({
             </div>
           ) : null}
 
-          {!meeting ? <CommunityPostDetailTags tags={hashtags} /> : null}
-          {!meeting ? (
-            <>
-              <CommunityPostDetailStatsActions
-                postId={post.id}
-                viewCount={viewCount}
-                likeCount={likeCount}
-                likedByViewer={likedByViewer}
-                savedByViewer={savedByViewer}
-                busy={busy}
-                saveBusy={saveBusy}
-                onLike={() => void onLike()}
-                onSave={() => void onSave()}
-                onShare={() => communityShare.openSheet()}
-              />
-              {me?.id && memberPeerUserId && me.id !== memberPeerUserId ? (
-                <CommunityNeighborPrompt authorName={post.author_name} targetUserId={memberPeerUserId} />
-              ) : null}
-            </>
+          <CommunityPostDetailTags tags={hashtags} />
+          <CommunityPostDetailStatsActions
+            postId={post.id}
+            viewCount={viewCount}
+            likeCount={likeCount}
+            likedByViewer={likedByViewer}
+            savedByViewer={savedByViewer}
+            busy={busy}
+            saveBusy={saveBusy}
+            onLike={() => void onLike()}
+            onSave={() => void onSave()}
+            onShare={() => communityShare.openSheet()}
+          />
+          {me?.id && memberPeerUserId && me.id !== memberPeerUserId ? (
+            <CommunityNeighborPrompt authorName={post.author_name} targetUserId={memberPeerUserId} />
           ) : null}
           {likeActionErr || commentLikeErr ? (
             <p className="mt-2 text-sm text-[var(--cm-danger)]" role="alert">
               {likeActionErr || commentLikeErr}
             </p>
-          ) : null}
-
-          {meeting ? (
-            <div className="mt-4 grid grid-cols-3 gap-2 border-t border-[var(--cm-border)] pt-4 sm:grid-cols-5">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void onLike()}
-                className={`${meetingToolbarBtn} ${likedByViewer ? "border-[var(--cm-primary)] bg-[var(--cm-primary)] text-white" : ""}`}
-                aria-pressed={likedByViewer}
-              >
-                {t("community_stat_likes", { count: likeCount })}
-              </button>
-              {me?.id && memberPeerUserId && me.id !== memberPeerUserId ? (
-                <div className={meetingToolbarWrap}>
-                  <NeighborFollowButton targetUserId={memberPeerUserId} />
-                </div>
-              ) : (
-                <div className="min-h-[44px]" aria-hidden />
-              )}
-              {me?.id ? (
-                <Link
-                  href={philifeAppPaths.meeting(meeting.id)}
-                  className={`${meetingToolbarBtn} border-[var(--cm-primary)] bg-[var(--cm-primary)] text-white hover:bg-[var(--cm-primary-hover)]`}
-                >
-                  {t("community_inquiry")}
-                </Link>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    void requireAction("messenger_open", () => undefined, {
-                      next: typeof window !== "undefined" ? window.location.pathname + window.location.search : "/",
-                    });
-                  }}
-                  className={meetingToolbarBtn}
-                >
-                  {t("community_inquiry")}
-                </button>
-              )}
-              {me?.id && me.id !== post.author_id ? (
-                <button
-                  type="button"
-                  onClick={() => openReport()}
-                  className={`${meetingToolbarBtn} border-red-200 bg-red-50 text-[var(--cm-danger)]`}
-                >
-                  {t("community_report")}
-                </button>
-              ) : (
-                <div className="min-h-[44px]" aria-hidden />
-              )}
-              <Link href={philifeAppPaths.home} className={`${meetingToolbarBtn} bg-white`}>
-                {t("community_list")}
-              </Link>
-            </div>
-          ) : null}
-          {meeting && me?.id && me.id === post.author_id ? (
-            <div className="mt-4 border-t border-[var(--cm-border)] pt-3">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void onDeletePost()}
-                className={COMMUNITY_BUTTON_SECONDARY_CLASS}
-              >
-                {t("community_delete")}
-              </button>
-            </div>
           ) : null}
 
           {me?.id && me.id === post.author_id && !isCommunityImportedOrigin(post.origin_kind) && (
@@ -674,12 +557,6 @@ export function CommunityDetail({
             commentsLoading={commentsLoading}
             commentsLoadError={commentsLoadError}
             onRetryComments={() => void retryComments()}
-            locked={commentsLocked}
-            lockMessage={
-              !me?.id
-                ? t("community_login_meeting_for_comments")
-                : t("community_join_meeting_for_comments")
-            }
             viewerUserId={me?.id ?? null}
             viewerIsAdmin={viewerIsAdmin}
             onCommentLike={onCommentLike}
@@ -690,27 +567,22 @@ export function CommunityDetail({
             onSubmitReply={submitReply}
             commentBusy={commentActionBusy}
             composerError={commentSubmitErr}
-            composer={
-              !commentsLocked
-                ? {
-                    value: commentText,
-                    onChange: (v) => {
-                      setCommentText(v);
-                      if (commentSubmitErr) clearSubmitError();
-                    },
-                    onSubmit: () => void submitRootComment(),
-                    busy: commentActionBusy,
-                    disabled: !me?.id || commentActionBusy,
-                    isLoggedIn: !!me?.id,
-                    placeholder: t("community_comment_placeholder_detail"),
-                    me: meForComposer,
-                  }
-                : null
-            }
+            composer={{
+              value: commentText,
+              onChange: (v) => {
+                setCommentText(v);
+                if (commentSubmitErr) clearSubmitError();
+              },
+              onSubmit: () => void submitRootComment(),
+              busy: commentActionBusy,
+              disabled: !me?.id || commentActionBusy,
+              isLoggedIn: !!me?.id,
+              placeholder: t("community_comment_placeholder_detail"),
+              me: meForComposer,
+            }}
           />
 
-            {!meeting && hashtags.length > 0 ? <CommunityRelatedAlertTags tags={hashtags} /> : null}
-            {meeting && viewerJoinedMeeting && hashtags.length > 0 ? <CommunityRelatedAlertTags tags={hashtags} /> : null}
+            {hashtags.length > 0 ? <CommunityRelatedAlertTags tags={hashtags} /> : null}
             <CommunityInlineAdCard currentPostId={post.id} />
             <CommunitySimilarPostsSection currentPostId={post.id} posts={similarPosts} />
         </div>

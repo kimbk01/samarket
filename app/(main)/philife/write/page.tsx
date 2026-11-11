@@ -29,8 +29,8 @@ export default function PhilifeWritePage({ searchParams }: PhilifeWritePageProps
 async function PhilifeWritePageBody({ searchParams }: PhilifeWritePageProps) {
   const { category, edit } = await searchParams;
   if (category?.trim().toLowerCase() === "meetup") {
-    /** 모임 UX는 Philife meetup 글쓰기가 아닌 메신저 `open_chat`·오픈그룹 시트로 통일 */
-    redirect("/community-messenger?section=open_chat&open=public-group-find");
+    /** 옛 모임 글쓰기는 폐지됨 — 필라이프 홈으로 보낸다 */
+    redirect(philifeAppPaths.home);
   }
 
   const editId = edit?.trim() ?? "";
@@ -46,7 +46,7 @@ async function PhilifeWritePageBody({ searchParams }: PhilifeWritePageProps) {
     if (!post) {
       redirect(philifeAppPaths.home);
     }
-    if (!isSameUserId(viewerId, post.author_id) || isCommunityImportedOrigin(post.origin_kind) || post.is_meetup) {
+    if (!isSameUserId(viewerId, post.author_id) || isCommunityImportedOrigin(post.origin_kind)) {
       redirect(philifeAppPaths.post(post.id));
     }
     return (

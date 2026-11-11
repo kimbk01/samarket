@@ -28,8 +28,6 @@ function row(partial: Partial<NeighborhoodFeedPostDTO> & { id: string }): Neighb
     feed_list_skin: partial.feed_list_skin ?? "text_primary",
     topic_color: null,
     is_question: false,
-    is_meetup: false,
-    meetup_place: null,
     title: partial.title ?? "t",
     content: partial.content ?? "c",
     summary: partial.summary ?? "c",
@@ -42,9 +40,6 @@ function row(partial: Partial<NeighborhoodFeedPostDTO> & { id: string }): Neighb
     created_at: partial.created_at ?? "2026-08-11T00:00:00.000Z",
     author_name: partial.author_name ?? "참이슬",
     author_id: partial.author_id ?? "u1",
-    meeting_id: null,
-    community_messenger_room_id: null,
-    meeting_date: null,
   };
 }
 

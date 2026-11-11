@@ -114,7 +114,6 @@ async function fetchAdminChatDetailFromApi(
   const r = data.room as {
     id: string;
     room_type?: string;
-    meeting_id?: string;
     item_id?: string | null;
     seller_id?: string | null;
     buyer_id?: string | null;
@@ -134,14 +133,10 @@ async function fetchAdminChatDetailFromApi(
           ? "community"
           : rt === "group"
             ? "group"
-            : rt === "meeting_open_chat"
-              ? "meeting_open_chat"
-              : rt === "business"
-                ? "business"
-                : undefined;
-  const meetingId = (r.meeting_id ?? "").trim();
-  const productId =
-    r.item_id ?? (rt === "meeting_open_chat" && meetingId ? meetingId : "");
+            : rt === "business"
+              ? "business"
+              : undefined;
+  const productId = r.item_id ?? "";
   const room: AdminChatRoom = {
     id: r.id,
     productId,
@@ -160,9 +155,6 @@ async function fetchAdminChatDetailFromApi(
     roomType: adminRt,
     contextType: (r as { context_type?: string | null }).context_type ?? undefined,
     isReadonly: (r as { is_readonly?: boolean }).is_readonly === true,
-    ...(rt === "meeting_open_chat"
-      ? { adminChatStorage: "meeting_open_chat" as const, meetingId }
-      : {}),
   };
   const messenger = (data.messenger ?? null) as AdminTradeMessengerInfo | null;
   if (messenger && !messenger.legacyOnly) {
@@ -503,16 +495,6 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
                 {/* 원시 room_type/context_type 은 기술 정보로만 (상태 라벨 레지스트리 규칙) */}
                 {t("admin_chat_type_label")}:{" "}
                 {room.roomType === "item_trade" ? t("admin_chat_r1b_domain_trade") : t("admin_trade_label_unknown")}
-              </p>
-            ) : null}
-            {room.roomType === "meeting_open_chat" && room.meetingId ? (
-              <p className="mt-1 sam-text-body-secondary">
-                <Link
-                  href={`/community-messenger/rooms/${encodeURIComponent(room.id)}`}
-                  className="font-medium text-signature hover:underline"
-                >
-                  {t("admin_chat_move_to_meeting")}
-                </Link>
               </p>
             ) : null}
             <AdminChatRoomStatusBadge status={room.roomStatus} className="mt-2" />

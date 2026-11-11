@@ -9,7 +9,6 @@ import { safeTranslate } from "@/lib/i18n/safe-translate";
 export type BannedWordSurface =
   | "community_post"
   | "community_comment"
-  | "meeting_feed"
   | "trade_post"
   | "trade_chat"
   | "store_review"

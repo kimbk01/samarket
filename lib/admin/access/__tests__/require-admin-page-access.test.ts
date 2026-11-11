@@ -61,7 +61,6 @@ describe("SSR 페이지는 데이터 조회 전에 자체 가드를 호출한다
     { file: "app/admin/community/page.tsx", loader: "loadCommunityDomainDashboard({" },
     { file: "app/admin/delivery/page.tsx", loader: "loadDeliveryDomainDashboard()" },
     { file: "app/admin/messenger/page.tsx", loader: "loadMessengerDomainDashboard()" },
-    { file: "app/admin/philife/meeting-reports/page.tsx", loader: "loadAdminMeetingReports(\n" },
     { file: "app/admin/chats/[id]/page.tsx", loader: "resolveTradeMessengerRoomForAdmin(getSupabaseServer()" },
     { file: "app/admin/stores/orders/[orderId]/chat/page.tsx", loader: "lookupAdminStoreOrderMessengerRoomId(orderId)" },
   ];

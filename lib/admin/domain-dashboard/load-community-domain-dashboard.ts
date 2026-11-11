@@ -7,7 +7,6 @@ import {
   ARO_IA_001_COMMUNITY_POINT_POLICIES_PATH,
   ARO_IA_001_COMMUNITY_PROMOTIONS_PATH,
   ARO_IA_001_COMMUNITY_REPORTS_PATH,
-  ARO_IA_001_MEETING_REPORTS_PATH,
 } from "@/lib/admin/aro-ia-001-community-common-links";
 import {
   buildAdminPrelaunchResetHref,
@@ -163,7 +162,6 @@ export async function loadCommunityDomainDashboard(input: CommunityDashboardInpu
     issuesCta: catalogPair("admin_review"),
     primaryEntries: [
       { id: "reports", labelKo: "신고 처리함", labelEn: "Reports", href: `${ARO_IA_001_COMMUNITY_REPORTS_PATH}?tab=pending`, frequency: "DAILY_CRITICAL" },
-      { id: "meeting", labelKo: "모임 신고", labelEn: "Meeting reports", href: `${ARO_IA_001_MEETING_REPORTS_PATH}?status=pending`, frequency: "DAILY_CRITICAL" },
       { id: "posts", labelKo: "게시글", labelEn: "Posts", href: "/admin/community/posts", frequency: "FREQUENT" },
       { id: "comments", labelKo: "댓글", labelEn: "Comments", href: "/admin/community/comments", frequency: "FREQUENT" },
       { id: "members", labelKo: "작성자 조회", labelEn: "Authors", href: "/admin/community/members", frequency: "FREQUENT" },

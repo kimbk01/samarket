@@ -58,7 +58,7 @@ describe("fetchActiveCommunityPromotedPostIds", () => {
 
   it("숨김·비공개·다른 주제 글은 빠지고, 같은 글 주문 2건은 1건으로", async () => {
     const orders = [order(1), order(2), order(3), order(4), { ...order(1) }];
-    const posts = [post(1), post(2, { is_hidden: true }), post(3, { status: "deleted" }), post(4, { topic_slug: "meetup" })];
+    const posts = [post(1), post(2, { is_hidden: true }), post(3, { status: "deleted" }), post(4, { topic_slug: "travel" })];
     const { sb } = fakeSb(orders, posts);
     const all = await fetchActiveCommunityPromotedPostIds(sb);
     expect(all.ok && all.items.map((x) => x.postId)).toEqual(["p1", "p4"]);

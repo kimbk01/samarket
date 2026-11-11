@@ -79,8 +79,7 @@ export type ChatDomain =
   | "store_order";
 
 export interface PhilifeChatMeta {
-  kind: "meeting" | "direct" | "open_chat";
-  meetingId?: string | null;
+  kind: "direct" | "open_chat";
   hostUserId?: string | null;
   relatedPostId?: string | null;
   memberCount?: number;

@@ -142,13 +142,6 @@ describe("member id v3 follow-ups (F2·F3·D-1)", () => {
     expect(route).not.toContain("users-search-daily");
   });
 
-  it("F2: meeting invite search uses cm_search_members and shows the one member id", () => {
-    const route = read("app/api/community/meetings/[meetingId]/invite-candidates/route.ts");
-    expect(route).toContain('rpc("cm_search_members"');
-    expect(route).not.toContain('.select("id, nickname, username")');
-    expect(route).toContain("const secondary = memberId ? `@${memberId}` : \"\";");
-  });
-
   it("D-1: /f/<token> header title is registered", () => {
     expect(read("lib/layout/resolve-main-tier1.ts")).toContain('titleText: "tier1_friend_qr_add"');
   });

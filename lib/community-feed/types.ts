@@ -30,7 +30,6 @@ export type CommunityTopicDTO = {
    */
   feed_sort_mode: "popular" | "recommended" | null;
   allow_question: boolean;
-  allow_meetup: boolean;
   /** 피드 목록 카드 레이아웃 */
   feed_list_skin: CommunityFeedListSkin;
 };
@@ -49,9 +48,6 @@ export type CommunityFeedPostDTO = {
   summary: string | null;
   region_label: string;
   is_question: boolean;
-  is_meetup: boolean;
-  meetup_date: string | null;
-  meetup_place: string | null;
   view_count: number;
   like_count: number;
   comment_count: number;

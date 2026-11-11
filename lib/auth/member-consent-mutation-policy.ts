@@ -9,7 +9,7 @@
  * - consent action itself, login/logout/session, account deletion, device/notification opt-out
  * - own profile / address correction (1-1)
  * - existing order fulfillment by owner/rider, buyer cancel/refund, settlement withdrawal (1-2, 1-3)
- * - report / block / support, leaving rooms/meetings, deleting own content, mark-read
+ * - report / block / support, leaving rooms, deleting own content, mark-read
  * - lifecycle of an already-started call session (accept/signals/end) — not a new interaction
  * - push device registration (delivery plumbing; client registers only after consent — B4)
  * - guest analytics / telemetry / removed (410) endpoints
@@ -118,7 +118,6 @@ export const MEMBER_CONSENT_EXEMPT_RULES: readonly Rule[] = [
   R("POST", "/api/community/reports", "report_block_support"),
   R("POST", "/api/community-messenger/reports", "report_block_support"),
   R("POST", "/api/me/store-reports", "report_block_support"),
-  R("POST", "/api/philife/meetings/[meetingId]/report", "report_block_support"),
   R("POST", "/api/chat/rooms/[roomId]/block", "report_block_support"),
   R("POST", "/api/chat/rooms/[roomId]/unblock", "report_block_support"),
   R("POST", "/api/community-messenger/relations/block", "report_block_support"),
@@ -133,8 +132,6 @@ export const MEMBER_CONSENT_EXEMPT_RULES: readonly Rule[] = [
   R("POST", "/api/chat/rooms/[roomId]/leave", "leave"),
   R("POST", "/api/chat/rooms/[roomId]/hide", "leave"),
   R("POST", "/api/community-messenger/rooms/[roomId]/leave", "leave"),
-  R("POST", "/api/community/meetings/[meetingId]/leave", "leave"),
-  R("POST", "/api/philife/meetings/[meetingId]/leave", "leave"),
   R("DELETE", "/api/community-messenger/friends/[friendUserId]", "leave"),
   R("POST", "/api/community-messenger/friends/[friendUserId]/hidden", "leave"),
   R("DELETE", "/api/community-messenger/relations/friend", "leave"),
@@ -145,13 +142,9 @@ export const MEMBER_CONSENT_EXEMPT_RULES: readonly Rule[] = [
   R("DELETE", "/api/community-messenger/calls/logs/[callLogId]", "delete_own_content"),
   R("DELETE", "/api/community-messenger/group-rooms/[roomId]", "delete_own_content"),
   R("DELETE", "/api/community-messenger/rooms/[roomId]/messages/[messageId]", "delete_own_content"),
-  R("DELETE", "/api/community/meetings/[meetingId]/notices/[noticeId]", "delete_own_content"),
   R("DELETE", "/api/community/neighborhood-posts/[postId]", "delete_own_content"),
   R("DELETE", "/api/community/posts/[postId]/comments/[commentId]", "delete_own_content"),
   R("DELETE", "/api/me/stores/[storeId]/notices/[noticeId]", "delete_own_content"),
-  R("DELETE", "/api/philife/meetings/[meetingId]/album/[itemId]", "delete_own_content"),
-  R("DELETE", "/api/philife/meetings/[meetingId]/feed/[postId]", "delete_own_content"),
-  R("DELETE", "/api/philife/meetings/[meetingId]/notices/[noticeId]", "delete_own_content"),
   R("DELETE", "/api/philife/neighborhood-posts/[postId]", "delete_own_content"),
   R("DELETE", "/api/philife/posts/[postId]/comments/[commentId]", "delete_own_content"),
   R("POST", "/api/posts/[postId]/owner-delete", "delete_own_content"),

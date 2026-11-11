@@ -14,7 +14,6 @@ import { postAdsUserMessages } from "./catalog/post-ads-user";
 import { mypageMobileNavMessages } from "./catalog/mypage-mobile-nav";
 import { jobsFormMessages } from "./catalog/jobs-form";
 import { priceOffersMessages } from "./catalog/price-offers";
-import { neighborhoodMeetingEventsMessages } from "./catalog/neighborhood-meeting-events";
 import { tradeUsedCarMessages } from "./catalog/trade-used-car";
 import { tradeWriteFormMessages } from "./catalog/trade-write-form";
 import { jobsWriteFormMessages } from "./catalog/jobs-write-form";
@@ -132,7 +131,6 @@ const KO_MESSAGES = {
   ...mypageMobileNavMessages.ko,
   ...jobsFormMessages.ko,
   ...priceOffersMessages.ko,
-  ...neighborhoodMeetingEventsMessages.ko,
   ...tradeUsedCarMessages.ko,
   ...tradeWriteFormMessages.ko,
   ...jobsWriteFormMessages.ko,
@@ -242,7 +240,6 @@ const EN_MESSAGES = {
   ...mypageMobileNavMessages.en,
   ...jobsFormMessages.en,
   ...priceOffersMessages.en,
-  ...neighborhoodMeetingEventsMessages.en,
   ...tradeUsedCarMessages.en,
   ...tradeWriteFormMessages.en,
   ...jobsWriteFormMessages.en,

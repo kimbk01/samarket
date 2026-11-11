@@ -1,4 +1,4 @@
-import { after, NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { assertCommunityWriteAllowed } from "@/lib/community/community-write-restriction";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
@@ -12,11 +12,7 @@ import {
 import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
 import { resolveTopicForNeighborhoodCategory } from "@/lib/neighborhood/resolve-topic-for-category";
-import { resolveMeetupFeedTopicBySlug } from "@/lib/neighborhood/meetup-feed-topics";
-import { hashMeetingPassword } from "@/lib/neighborhood/meeting-password";
-import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { deriveCommunityPostCategoryBucket } from "@/lib/neighborhood/derive-community-post-category-bucket";
-import { createMeetingMessengerRoom } from "@/lib/community-messenger/meeting-chat-sync";
 import {
   communityAcceptanceErrorMessage,
   evaluateCommunityPostAcceptance,
@@ -30,7 +26,6 @@ import {
 import {
   publicRegionLabelLeaksPrivateDetail,
   resolveCommunityPublicRegionLabelForUser,
-  sanitizePublicRegionLabel,
 } from "@/lib/addresses/community-public-region-label";
 
 import { resolveMemberPostImages } from "@/lib/philife/post-body-images";
@@ -40,14 +35,6 @@ import { ensureLguLocationId, legacyLocationRowToLguId, lguPublicName, parseLguL
 import type { ResolveNeighborhoodLocationResult } from "@/lib/neighborhood/ensure-location";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-type MeetingEntryPolicy = "open" | "approve" | "password" | "invite_only";
-
-function resolveMeetingEntryPolicy(meet: { entry_policy?: unknown; join_policy?: unknown }): MeetingEntryPolicy {
-  const raw = typeof meet.entry_policy === "string" ? meet.entry_policy.trim().toLowerCase() : "";
-  if (raw === "approve" || raw === "password" || raw === "invite_only" || raw === "open") return raw;
-  return meet.join_policy === "approve" ? "approve" : "open";
-}
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
@@ -67,39 +54,11 @@ export async function POST(req: NextRequest) {
     district?: string;
     locationName?: string;
     category?: string;
-    /** 모임만: 어드민 피드 주제 slug (`allow_meetup` 주제) */
-    meetTopicSlug?: string;
     title?: string;
     content?: string;
     /** 회원 서식 본문(편집기) — 있으면 서버가 이것으로 `content` 를 만든다 */
     contentBlocks?: unknown;
     images?: string[];
-    meeting?: {
-      location_text?: string;
-      meeting_date?: string | null;
-      tenure_type?: string;
-      max_members?: number;
-      description?: string;
-      join_policy?: "open" | "approve";
-      entry_policy?: MeetingEntryPolicy;
-      meeting_password?: string;
-      allow_waitlist?: boolean;
-      allow_member_invite?: boolean;
-      welcome_message?: string;
-      allow_feed?: boolean;
-      allow_album_upload?: boolean;
-      cover_image_url?: string | null;
-      region_text?: string;
-      category_text?: string;
-      join_questions?: string[];
-      use_notices?: boolean;
-      platform_approval_required?: boolean;
-      open_chat_identity_mode?: "realname" | "nickname_optional";
-      open_chat_owner_join_as?: "realname" | "nickname";
-      open_chat_owner_nickname?: string;
-      /** false면 메신저 오픈그룹 탐색·모임 찾기 목록에서 숨김(초대 링크·직접 URL로만 입장) */
-      messenger_discoverable?: boolean;
-    };
   };
   try {
     body = await req.json();
@@ -112,11 +71,9 @@ export async function POST(req: NextRequest) {
   const district = String(body.district ?? "").trim();
   const locationName = String(body.locationName ?? "").trim();
   const title = String(body.title ?? "").trim();
-  const rawCatEarly = String(body.category ?? "").trim().toLowerCase();
-  /** 모임 글은 서식 본문을 받지 않는다(모임 소개 평문 계약 유지) */
   const richBody = resolveMemberRichBody({
     content: body.content,
-    contentBlocks: rawCatEarly === "meetup" ? undefined : body.contentBlocks,
+    contentBlocks: body.contentBlocks,
   });
   const content = richBody.content;
   const rawCat = String(body.category ?? "")
@@ -127,6 +84,10 @@ export async function POST(req: NextRequest) {
   }
   if (!rawCat) {
     return NextResponse.json({ ok: false, error: "카테고리를 선택해 주세요." }, { status: 400 });
+  }
+  /** 옛 모임(meetup) 글 작성은 폐지됨 — 모임은 신규 `moim` 도메인 (docs/design/moim/moim-design-v1-2026-11-12.md) */
+  if (rawCat === "meetup") {
+    return NextResponse.json({ ok: false, error: "category_unavailable", code: "meetup_removed" }, { status: 400 });
   }
   if (!title) {
     return NextResponse.json({ ok: false, error: "제목을 입력해 주세요." }, { status: 400 });
@@ -168,7 +129,6 @@ export async function POST(req: NextRequest) {
   );
   if (!profileGate.ok) return profileGate.response;
 
-  const isMeetup = rawCat === "meetup";
   if (
     publicRegionLabelLeaksPrivateDetail(locationName) ||
     publicRegionLabelLeaksPrivateDetail(city) ||
@@ -265,122 +225,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let topicMeta: { topicId: string; topicSlug: string } | null = null;
-  if (isMeetup) {
-    const rawMeetTopic = String(body.meetTopicSlug ?? "meetup").trim() || "meetup";
-    const resolved = await resolveMeetupFeedTopicBySlug(sb, rawMeetTopic, { sectionId: secRow.id });
-    if (!resolved) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "모임 피드 주제를 찾을 수 없습니다. 어드민 → 커뮤니티 → 피드 주제에서 '모임 허용' 주제를 추가했는지 확인하세요.",
-        },
-        { status: 400 }
-      );
-    }
-    topicMeta = { topicId: resolved.topicId, topicSlug: resolved.topicSlug };
-  } else {
-    topicMeta = await resolveTopicForNeighborhoodCategory(sb, rawCat, { sectionId: secRow.id });
-    if (!topicMeta) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            `선택한 주제를 사용할 수 없습니다. 어드민 → 피드 주제에서 동네 피드 섹션(${philifeSectionSlug}) 주제를 확인해 주세요.`,
-        },
-        { status: 400 }
-      );
-    }
+  const topicMeta = await resolveTopicForNeighborhoodCategory(sb, rawCat, { sectionId: secRow.id });
+  if (!topicMeta) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          `선택한 주제를 사용할 수 없습니다. 어드민 → 피드 주제에서 동네 피드 섹션(${philifeSectionSlug}) 주제를 확인해 주세요.`,
+      },
+      { status: 400 }
+    );
   }
-
-  const meet = body.meeting ?? {};
-  const tenureRaw = typeof meet.tenure_type === "string" ? meet.tenure_type.trim().toLowerCase() : "";
-  const tenureType: "short" | "long" = tenureRaw === "long" ? "long" : "short";
-  const meetupPlace =
-    isMeetup && tenureType === "long"
-      ? ""
-      : typeof meet.location_text === "string"
-        ? meet.location_text.trim()
-        : "";
-  let meetupDate: string | null = null;
-  if (isMeetup && tenureType === "short") {
-    if (typeof meet.meeting_date === "string" && meet.meeting_date.trim()) {
-      const d = Date.parse(meet.meeting_date);
-      if (!Number.isNaN(d)) meetupDate = new Date(d).toISOString();
-    }
-    if (!meetupDate) {
-      return NextResponse.json({ ok: false, error: "단기 모임은 일시를 선택해 주세요." }, { status: 400 });
-    }
-  }
-  /** `meetings.meeting_date`는 NOT NULL — 장기 모임은 실제 일정이 없어도 행 삽입용 타임스탬프만 넣음(표시는 tenure로 숨김) */
-  const meetingRowDateIso: string | null = isMeetup
-    ? tenureType === "long"
-      ? new Date().toISOString()
-      : meetupDate!
-    : null;
-  const entryPolicy = resolveMeetingEntryPolicy(meet);
-  const joinPolicy = entryPolicy === "approve" || entryPolicy === "invite_only" ? "approve" : "open";
-  const maxMem =
-    typeof meet.max_members === "number" && Number.isFinite(meet.max_members)
-      ? Math.min(500, Math.max(2, Math.floor(meet.max_members)))
-      : 30;
-
-  let passwordHash: string | null = null;
-  let meetingPasswordPlain: string | null = null;
-  if (entryPolicy === "password") {
-    const pwd = typeof meet.meeting_password === "string" ? meet.meeting_password.trim() : "";
-    if (pwd.length < 4 || pwd.length > 128) {
-      return NextResponse.json(
-        { ok: false, error: "모임 비밀번호는 4~128자로 입력해 주세요." },
-        { status: 400 }
-      );
-    }
-    meetingPasswordPlain = pwd;
-    passwordHash = hashMeetingPassword(pwd);
-  }
-
-  const requiresApproval = entryPolicy === "approve" || entryPolicy === "invite_only";
-  const allowWaitlist = meet.allow_waitlist === true;
-  const allowMemberInvite = meet.allow_member_invite === true;
-  const openChatIdentityMode =
-    meet.open_chat_identity_mode === "realname" || meet.open_chat_identity_mode === "nickname_optional"
-      ? meet.open_chat_identity_mode
-      : undefined;
-  const openChatOwnerJoinAs =
-    meet.open_chat_owner_join_as === "realname" || meet.open_chat_owner_join_as === "nickname"
-      ? meet.open_chat_owner_join_as
-      : undefined;
-  const openChatOwnerNickname =
-    typeof meet.open_chat_owner_nickname === "string" ? meet.open_chat_owner_nickname.trim() : "";
-  const coverImageUrl = typeof meet.cover_image_url === "string" ? meet.cover_image_url.trim() : "";
-  /** 공개 모임 지역 문구 — City 형태만 허용, 도로·건물·상세주소는 저장하지 않음 (ADDR-PRIV-003) */
-  const regionText =
-    typeof meet.region_text === "string" ? sanitizePublicRegionLabel(meet.region_text) ?? "" : "";
-  const categoryText = typeof meet.category_text === "string" ? meet.category_text.trim() : "";
-  const joinQuestions = Array.isArray(meet.join_questions)
-    ? meet.join_questions
-        .filter((item): item is string => typeof item === "string")
-        .map((item) => item.trim())
-        .filter(Boolean)
-        .slice(0, 3)
-    : [];
-  const useNotices = meet.use_notices !== false;
-  /** 기본 비승인 — 명시 true 일 때만 플랫폼 승인 대기 */
-  const platformApprovalRequired = meet.platform_approval_required === true;
-  const openChatJoinType =
-    entryPolicy === "password"
-      ? "password"
-      : entryPolicy === "approve"
-        ? "approval"
-        : entryPolicy === "invite_only"
-          ? "password_approval"
-          : "free";
 
   /** Legacy enum column only — Topic identity is topic_id/topic_slug above */
   const categoryForDb = deriveCommunityPostCategoryBucket({
     topicOrCategoryRaw: rawCat,
-    isMeetup,
   });
 
   const { data: inserted, error: insErr } = await sb
@@ -401,9 +260,6 @@ export async function POST(req: NextRequest) {
       category: categoryForDb,
       images,
       is_question: rawCat === "question" || topicMeta.topicSlug === "question",
-      is_meetup: isMeetup,
-      meetup_place: isMeetup ? meetupPlace || null : null,
-      meetup_date: isMeetup && tenureType === "short" ? meetupDate : null,
       status: "active",
       is_sample_data: false,
     })
@@ -415,106 +271,6 @@ export async function POST(req: NextRequest) {
   }
 
   const postId = (inserted as { id: string }).id;
-  let meetingId: string | null = null;
-  let messengerRoomId: string | null = null;
-
-  if (isMeetup) {
-    const meetingRowBase = {
-      post_id: postId,
-      title,
-      description: typeof meet.description === "string" ? meet.description.trim() : "",
-      location_text: meetupPlace,
-      meeting_date: meetingRowDateIso,
-      max_members: maxMem,
-      join_policy: joinPolicy,
-      entry_policy: entryPolicy,
-      password_hash: passwordHash,
-      requires_approval: requiresApproval,
-      allow_waitlist: allowWaitlist,
-      allow_member_invite: allowMemberInvite,
-      welcome_message: typeof meet.welcome_message === "string" ? meet.welcome_message.trim() || null : null,
-      allow_feed: meet.allow_feed !== false,
-      allow_album_upload: meet.allow_album_upload !== false,
-      cover_image_url: coverImageUrl || null,
-      region_text: regionText || null,
-      category_text: categoryText || null,
-      platform_approval_required: platformApprovalRequired,
-      platform_approval_status: platformApprovalRequired ? "pending_approval" : "approved",
-      status: "open",
-      host_user_id: auth.userId,
-      created_by: auth.userId,
-      is_sample_data: false,
-      tenure_type: tenureType,
-    };
-    let { data: meetRow, error: mErr } = await sb.from("meetings").insert(meetingRowBase).select("id").single();
-    if (mErr && isMissingDbColumnError(mErr, "tenure_type")) {
-      const { tenure_type: _t, ...withoutTenure } = meetingRowBase;
-      const retry = await sb.from("meetings").insert(withoutTenure).select("id").single();
-      meetRow = retry.data as typeof meetRow;
-      mErr = retry.error;
-    }
-    if (mErr || !meetRow) {
-      await sb.from("community_posts").delete().eq("id", postId);
-      return NextResponse.json({ ok: false, error: mErr?.message ?? "모임 생성 실패" }, { status: 500 });
-    }
-    meetingId = String((meetRow as { id: string }).id);
-
-    await sb.from("meeting_members").insert({
-      meeting_id: meetingId,
-      user_id: auth.userId,
-      status: "joined",
-      role: "host",
-    });
-
-    const messengerDiscoverable =
-      !platformApprovalRequired &&
-      entryPolicy !== "invite_only" &&
-      meet.messenger_discoverable !== false;
-
-    const meetingChat = await createMeetingMessengerRoom({
-      ownerUserId: auth.userId,
-      title,
-      summary: typeof meet.description === "string" ? meet.description.trim() : "",
-      coverImageUrl,
-      discoverable: messengerDiscoverable,
-      joinPolicy: entryPolicy === "password" ? "password" : "free",
-      password: meetingPasswordPlain,
-    });
-    if (!meetingChat.ok || !meetingChat.roomId) {
-      await sb.from("meetings").delete().eq("id", meetingId);
-      await sb.from("community_posts").delete().eq("id", postId);
-      return NextResponse.json({ ok: false, error: meetingChat.error ?? "meeting_chat_create_failed" }, { status: 500 });
-    }
-
-    const meetingPatch: Record<string, unknown> = {
-      community_messenger_room_id: meetingChat.roomId,
-    };
-    const { error: meetingPatchError } = await sb.from("meetings").update(meetingPatch).eq("id", meetingId);
-    if (meetingPatchError) {
-      await sb.from("community_messenger_rooms").delete().eq("id", meetingChat.roomId);
-      await sb.from("meetings").delete().eq("id", meetingId);
-      await sb.from("community_posts").delete().eq("id", postId);
-      return NextResponse.json(
-        { ok: false, error: meetingPatchError.message ?? "meeting_chat_link_failed" },
-        { status: 500 }
-      );
-    }
-
-    if (joinQuestions.length > 0) {
-      await sb.from("meeting_join_questions").insert(
-        joinQuestions.map((question, index) => ({
-          meeting_id: meetingId,
-          question_order: index + 1,
-          question_text: question,
-          created_by: auth.userId,
-        }))
-      );
-    }
-
-    messengerRoomId = meetingChat.roomId;
-    void after;
-  }
-
   if (images.length > 0 && images.some((url) => url.includes("supabase") || url.startsWith("http"))) {
     const rows = images.map((url, i) => ({
       post_id: postId,
@@ -525,7 +281,6 @@ export async function POST(req: NextRequest) {
     const { error: imgErr } = await sb.from("community_post_images").insert(rows);
     if (imgErr) {
       await sb.from("community_posts").delete().eq("id", postId);
-      if (meetingId) await sb.from("meetings").delete().eq("id", meetingId);
       return NextResponse.json({ ok: false, error: imgErr.message ?? "이미지 저장 실패" }, { status: 500 });
     }
   }
@@ -539,5 +294,5 @@ export async function POST(req: NextRequest) {
     topicSlug: topicMeta.topicSlug,
   });
 
-  return NextResponse.json({ ok: true, id: postId, meetingId, messengerRoomId });
+  return NextResponse.json({ ok: true, id: postId });
 }

@@ -86,7 +86,6 @@ export const ADMIN_UI_STANDARD_SCREENS: Readonly<Record<string, readonly string[
     "/admin/community/audit",
     "/admin/community/comments",
     "/admin/community/external-import",
-    "/admin/community/meetings",
     "/admin/community/members",
     "/admin/community/notices",
     "/admin/community/point-charges",
@@ -101,8 +100,6 @@ export const ADMIN_UI_STANDARD_SCREENS: Readonly<Record<string, readonly string[
     "/admin/community/stats",
     "/admin/community/support",
     "/admin/community/topics",
-    "/admin/philife/meeting-events",
-    "/admin/philife/meeting-reports",
   ],
   delivery: [
     "/admin/business",

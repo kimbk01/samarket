@@ -34,7 +34,6 @@ export const MESSENGER_BOOTSTRAP_LITE_FIRST_PAINT_REQUIRED = [
 export const MESSENGER_BOOTSTRAP_LITE_FIRST_PAINT_DEFERRED = [
   "friends_full",
   "requests_full",
-  "meetings",
   "discoverable",
   "non_visible_social_metadata",
   "heavy_profile_details",

@@ -271,7 +271,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
   const images = Array.isArray(post.images) ? post.images : [];
   const pinned = post.is_pinned_now === true;
   const selectedTopic = topics.find((t) => t.id === editTopicId);
-  const editableTopics = topics.filter((t) => !t.allow_meetup && (t.is_active || t.id === original.topicId));
+  const editableTopics = topics.filter((t) => t.is_active || t.id === original.topicId);
 
   const summaryRows: { label: string; value: ReactNode }[] = [
     {

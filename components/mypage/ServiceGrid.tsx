@@ -7,7 +7,6 @@ const SERVICES: { label: string; href: string; icon: React.ReactNode }[] = [
   { label: "알바", href: "/mypage/jobs", icon: <BriefcaseIcon /> },
   { label: "부동산", href: "/mypage/realty", icon: <HomeIcon /> },
   { label: "중고차", href: "/mypage/cars", icon: <CarIcon /> },
-  { label: "모임", href: "/mypage/meetup", icon: <UsersIcon /> },
   { label: "동네걷기", href: "/mypage/walk", icon: <WalkIcon /> },
   { label: "세탁수거", href: "/mypage/laundry", icon: <LaundryIcon /> },
   { label: "카마켓이네", href: "/mypage/store", icon: <StoreIcon /> },
@@ -59,13 +58,6 @@ function CarIcon() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h8m0 0v3m0-3v3m0 3H8m8 0v-3m0 3v-3" />
-    </svg>
-  );
-}
-function UsersIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
     </svg>
   );
 }

@@ -10,10 +10,6 @@ export const adminCommunityR4Messages = {
     admin_points_charge_page_next: "다음",
     // 모임·댓글 목록 검색·총 건수
     admin_community_list_total: "총 {count}건",
-    admin_community_meetings_search_label: "검색 (모임 이름·개설자)",
-    admin_community_meetings_search_placeholder: "모임 이름·개설자 닉네임·ID",
-    admin_community_meetings_empty_search: "검색 결과가 없습니다.",
-    admin_community_meetings_focus_missing: "이 모임을 찾지 못했습니다.",
     admin_community_comments_search_label: "검색 (내용·작성자)",
     admin_community_comments_search_placeholder: "댓글 내용·작성자 닉네임·ID",
     // 게시글 상세 — 첨부 이미지 개별 삭제
@@ -34,10 +30,6 @@ export const adminCommunityR4Messages = {
     admin_points_charge_page_next: "Next",
     // Meetings / comments list search & totals
     admin_community_list_total: "{count} total",
-    admin_community_meetings_search_label: "Search (meeting name · host)",
-    admin_community_meetings_search_placeholder: "Meeting name, host nickname or ID",
-    admin_community_meetings_empty_search: "No results.",
-    admin_community_meetings_focus_missing: "This meeting was not found.",
     admin_community_comments_search_label: "Search (content · author)",
     admin_community_comments_search_placeholder: "Comment text, author nickname or ID",
     // Post detail — delete one attached image

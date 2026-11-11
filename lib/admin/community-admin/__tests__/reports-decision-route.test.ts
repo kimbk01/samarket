@@ -4,10 +4,7 @@ import {
   type FakeCall,
   type FakeResult,
 } from "@/lib/admin/concurrency/__tests__/fake-supabase-query";
-import {
-  resolveCommunityReportPatchTransition,
-  resolveMeetingReportTransition,
-} from "@/lib/admin/community-admin/community-report-transitions";
+import { resolveCommunityReportPatchTransition } from "@/lib/admin/community-admin/community-report-transitions";
 import { parseCommunitySanctionInput } from "@/lib/admin/community-admin/community-sanction-input";
 
 let handler: (call: FakeCall) => FakeResult = () => ({ data: null, error: null });
@@ -195,11 +192,10 @@ describe("community write gate", () => {
     expect(await assertCommunityWriteAllowed("u1", "report")).toBeNull();
   });
 
-  it("scope mapping: report/meeting blocked only by 'all'", () => {
+  it("scope mapping: report blocked only by 'all'", () => {
     expect(communityRestrictionScopesFor("post")).toEqual(["post", "all"]);
     expect(communityRestrictionScopesFor("comment")).toEqual(["comment", "all"]);
     expect(communityRestrictionScopesFor("report")).toEqual(["all"]);
-    expect(communityRestrictionScopesFor("meeting")).toEqual(["all"]);
   });
 });
 
@@ -209,13 +205,6 @@ describe("transition tables", () => {
     expect(resolveCommunityReportPatchTransition("resolved", "open", false)).toEqual({ ok: false, error: "reopen_super_admin_only" });
     expect(resolveCommunityReportPatchTransition("dismissed", "open", true)).toEqual({ ok: true, kind: "reopen" });
     expect(resolveCommunityReportPatchTransition("reviewing", "open", true)).toEqual({ ok: false, error: "invalid_transition" });
-  });
-
-  it("meeting report transitions", () => {
-    expect(resolveMeetingReportTransition("pending", "reviewing", false)).toMatchObject({ ok: true, reasonRequired: false });
-    expect(resolveMeetingReportTransition("reviewing", "rejected", false)).toMatchObject({ ok: true, reasonRequired: true });
-    expect(resolveMeetingReportTransition("resolved", "pending", false)).toEqual({ ok: false, error: "reopen_super_admin_only" });
-    expect(resolveMeetingReportTransition("resolved", "rejected", true)).toEqual({ ok: false, error: "invalid_transition" });
   });
 
   it("sanction input: only 1/3/7/30 days or permanent", () => {

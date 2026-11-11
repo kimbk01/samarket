@@ -91,7 +91,6 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
   if (!topicId || !topicSlug) return fail("topic_required", "DIBAY 주제를 선택하세요.");
   const meta = await resolveTopicMeta(sectionSlug, topicSlug);
   if (!meta || meta.is_feed_sort || meta.id !== topicId) return fail("invalid_topic", "유효한 DIBAY 주제가 아닙니다.");
-  if (meta.allow_meetup) return fail("meetup_topic_forbidden", "모임 주제로는 외부 글을 게시할 수 없습니다.");
 
   const principalId = await loadCommunityImportPrincipalUserId(sb);
   if (!principalId) return fail("import_principal_missing", "community_import_principal 이 없습니다.");
@@ -193,7 +192,7 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
       content: markdown,
       summary: summarizeCommunityPostContent(markdown),
       region_label: regionLabel,
-      category: deriveCommunityPostCategoryBucket({ topicOrCategoryRaw: topicSlug, isMeetup: false }),
+      category: deriveCommunityPostCategoryBucket({ topicOrCategoryRaw: topicSlug }),
       display_author_name: String(edit.displayAuthor || article.author || "").trim() || content.attributionName,
       display_date: toIsoDisplayDate(edit, article),
       public_attribution_name: showAttribution ? content.attributionName : null,

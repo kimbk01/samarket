@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Fragment } from "react";
@@ -18,8 +17,6 @@ import {
   buildFeedChipsFromPhilifeTopicOptionsJson,
   type PhilifeFeedTopicChip,
 } from "@/lib/philife/philife-feed-chips-from-topic-options";
-import { fetchMeetingDeeplink } from "@/lib/community-messenger/home/fetch-meeting-deeplink";
-import { philifeAppPaths } from "@domain/philife/paths";
 import { FEED_LCP_PRIORITY_COUNT } from "@/lib/media/feed-thumbnail-display";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { APP_MAIN_GUTTER_X_CLASS, APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
@@ -33,7 +30,6 @@ import {
   COMMUNITY_FEED_LIST_WRAP_CLASS,
   PHILIFE_PAGE_ROOT_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
-import { buildPhilifeComposeHref } from "@/lib/philife/compose-href";
 import { PhilifePullRefreshHint } from "@/components/philife/PhilifePullRefreshHint";
 import { PhilifePullRefreshRegister } from "@/components/philife/PhilifePullRefreshRegister";
 import { usePhilifePullRefresh } from "@/lib/philife/use-philife-pull-refresh";
@@ -400,8 +396,6 @@ export function CommunityFeed({
   const feedSessionRef = useRef(0);
   /** 첫 페이지 fetch 만 — 세션 불일치 시에도 마지막 요청만 `loading` 해제 */
   const initialFeedLoadTokenRef = useRef(0);
-  /** meetingId 딥링크 effect 중복/StrictMode 대응(항상 ref 는 다른 useEffect 앞에 선언) */
-  const meetingDeepLinkSeq = useRef(0);
   /** 2단 탭 가로 스크롤 정렬 — StrictMode 이펙트 재실행 시 stale rAF 무시 */
   const topicTabScrollGenRef = useRef(0);
 
@@ -574,59 +568,6 @@ export function CommunityFeed({
     }
     writeCommunityHubState(navSelection);
   }, [pathname, navSelection.kind, navSelection.topicSlug, navSelection.allSort, searchParams]);
-
-  /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있어 effect 가 무한 재실행됨 → 문자열만 의존 */
-  const meetingIdParam = searchParams.get("meetingId")?.trim() ?? "";
-
-  /** Philife `meetup` 피드는 쓰지 않음 — 모임 UX는 메신저 `open_chat` 로 보낸다(`meetingId` 딥링크는 아래 effect 가 처리). */
-  useEffect(() => {
-    if (plan.category !== "meetup") return;
-    if (meetingIdParam) return;
-    void router.replace(philifeAppPaths.meetingsFeed, { scroll: false });
-  }, [plan.category, meetingIdParam, router]);
-
-  useEffect(() => {
-    if (!meetingIdParam) return;
-
-    const seq = ++meetingDeepLinkSeq.current;
-    const ac = new AbortController();
-
-    const stripMeetingIdToMessenger = () => {
-      void router.replace("/community-messenger?section=open_chat", { scroll: false });
-    };
-
-    void (async () => {
-      try {
-        const resolved = await fetchMeetingDeeplink(meetingIdParam, ac.signal);
-        if (seq !== meetingDeepLinkSeq.current) return;
-
-        if (resolved.kind === "room") {
-          try {
-            await fetch(
-              `/api/community-messenger/rooms/${encodeURIComponent(resolved.roomId)}/meeting-ensure-participant`,
-              { method: "POST", credentials: "include", signal: ac.signal }
-            );
-          } catch {
-            /* ensure 실패해도 방 진입은 시도 */
-          }
-          void router.replace(`/community-messenger/rooms/${encodeURIComponent(resolved.roomId)}`);
-          return;
-        }
-        if (resolved.kind === "post") {
-          void router.replace(philifeAppPaths.post(resolved.postId));
-          return;
-        }
-        stripMeetingIdToMessenger();
-      } catch {
-        if (seq !== meetingDeepLinkSeq.current || ac.signal.aborted) return;
-        stripMeetingIdToMessenger();
-      }
-    })();
-
-    return () => {
-      ac.abort();
-    };
-  }, [router, meetingIdParam]);
 
   const topicOptionsRevisitGate = useHubDataRevisitGate();
   useEffect(() => {
@@ -1337,7 +1278,6 @@ export function CommunityFeed({
   );
   const feedPaintQueryKey = `${category.trim().toLowerCase()}\u001f${neighborOnly ? "1" : "0"}\u001f${feedSort}\u001f${tagFilter || ""}`;
   const searchKeyForNav = searchParams.toString();
-  const philifeComposeHref = buildPhilifeComposeHref(category);
 
   /** Nav 선택 단일 진입점 — 상태 갱신 + URL 동기화 + hub state 저장 (Home/Topic/Local/Popular 공통) */
   /**
@@ -2154,25 +2094,13 @@ export function CommunityFeed({
           <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-sam-muted`}>
             {tagFilter ? t("community_feed_hashtag_empty", { tag: tagFilter }) : t("community_feed_empty")}
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-              {category === "meetup" ? (
-                <Link
-                  href={philifeComposeHref}
-                  className="font-semibold text-sam-primary"
-                  onClick={(e) => {
-                    if (!guardBeforeNavigate()) e.preventDefault();
-                  }}
-                >
-                  {t("community_meeting_post_cta")}
-                </Link>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => openPhilifeWriteSheet(category)}
-                  className="font-semibold text-sam-primary underline decoration-sam-primary/40 underline-offset-2"
-                >
-                  {t("community_first_post_cta")}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => openPhilifeWriteSheet(category)}
+                className="font-semibold text-sam-primary underline decoration-sam-primary/40 underline-offset-2"
+              >
+                {t("community_first_post_cta")}
+              </button>
             </div>
           </div>
         ) : (

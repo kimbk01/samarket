@@ -79,13 +79,6 @@ const TERMS: Record<AdminTerminologyConcept, TerminologyEntry> = {
     meaning: "Moderation report",
     doNotUseAs: ["고객지원", "Support case"],
   },
-  MEETING_REPORT: {
-    concept: "MEETING_REPORT",
-    i18nKey: "admin_management_term_meeting_report",
-    domain: "COMMUNITY",
-    meaning: "Philife meeting report (separate table)",
-    doNotUseAs: ["community_reports"],
-  },
   SUPPORT_CASE: {
     concept: "SUPPORT_CASE",
     i18nKey: "admin_management_term_support_case",

@@ -169,23 +169,6 @@ async function loadHeicSample() {
   return Buffer.from(await res.arrayBuffer());
 }
 
-async function findPhilifeMeeting(userId) {
-  const sb = await adminSb();
-  const { data: members } = await sb
-    .from("meeting_members")
-    .select("meeting_id")
-    .eq("user_id", userId)
-    .eq("status", "joined")
-    .limit(20);
-  for (const row of members ?? []) {
-    const mid = String(row.meeting_id ?? "").trim();
-    if (!mid) continue;
-    const { data: meeting } = await sb.from("meetings").select("allow_album_upload").eq("id", mid).maybeSingle();
-    if (meeting?.allow_album_upload !== false) return mid;
-  }
-  return null;
-}
-
 async function findCompletedReviewOrder(buyerUserId) {
   const sb = await adminSb();
   const { data } = await sb
@@ -333,41 +316,6 @@ async function main() {
   };
   await cleanupPostImage(sb, av2Path);
 
-  // PHILIFE — album upload + soft delete
-  const meetingId = process.env.E2E_PHILIFE_MEETING_ID || (await findPhilifeMeeting(member.userId));
-  let philifePass = false;
-  if (meetingId) {
-    const alb = await uploadFile(
-      `/api/philife/meetings/${meetingId}/album`,
-      member.cookie,
-      PNG,
-      "image/png",
-      "album.png"
-    );
-    const itemId = String(alb.body?.item?.id || "");
-    const albPath = String(alb.body?.item?.image_url || "");
-    let softDeleteOk = false;
-    if (alb.status === 200 && itemId) {
-      const del = await api(`/api/philife/meetings/${meetingId}/album/${itemId}`, member.cookie, { method: "DELETE" });
-      softDeleteOk = del.status === 200 && del.body?.ok;
-      const { data: row } = await sb
-        .from("meeting_album_items")
-        .select("is_hidden")
-        .eq("id", itemId)
-        .maybeSingle();
-      softDeleteOk = softDeleteOk && row?.is_hidden === true;
-    }
-    philifePass = alb.status === 200 && softDeleteOk;
-    report.domains.philife = { meetingId, upload_status: alb.status, soft_delete: softDeleteOk, pass: philifePass };
-    if (alb.body?.item?.image_url) {
-      const parsed = alb.body.item.image_url.match(/post-images\/(.+)$/);
-      if (parsed?.[1]) await cleanupPostImage(sb, decodeURIComponent(parsed[1]));
-      if (itemId) await sb.from("meeting_album_items").delete().eq("id", itemId);
-    }
-  } else {
-    report.domains.philife = { pass: false, reason: "no_meeting_fixture" };
-  }
-
   // MESSENGER — HEIC rejection preserved
   const roomId = process.env.MESSENGER_ROOM_ID || (await findMessengerRoom(member.userId));
   if (roomId) {
@@ -404,7 +352,6 @@ async function main() {
     report.domains.community?.pass &&
     report.domains.store?.pass &&
     report.domains.avatar?.pass &&
-    report.domains.philife?.pass &&
     report.rejection.messenger_heic?.pass &&
     report.rejection.owner_heic?.pass;
 

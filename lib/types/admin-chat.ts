@@ -13,7 +13,6 @@ export type AdminRoomType =
   | "community"
   | "group"
   | "business"
-  | "meeting_open_chat"
   | "";
 
 export interface AdminChatRoom {
@@ -42,9 +41,7 @@ export interface AdminChatRoom {
   /** 관리자 읽기 전용(메시지 전송 차단) */
   isReadonly?: boolean;
   /** 관리자 일괄 삭제 시 DB 테이블 구분 (통합 chat_rooms vs 레거시 product_chats) */
-  adminChatStorage?: "chat_rooms" | "product_chats" | "meeting_open_chat";
-  /** meeting_open_chat_rooms.meeting_id — 모임 상세 링크용 */
-  meetingId?: string;
+  adminChatStorage?: "chat_rooms" | "product_chats";
   /**
    * R1-B C-1: 사용자 앱이 쓰는 CM 방 id (거래). null = 레거시 기록만 있음 (사용자 방 없음).
    * undefined = 해석하지 않은 출처.

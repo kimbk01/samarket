@@ -21,14 +21,13 @@ export type CommunityTopicAdminRow = {
   /** is_feed_sort 일 때: popular=조회, recommended=랭킹+하위정렬 */
   feed_sort_mode: "popular" | "recommended" | null;
   allow_question: boolean;
-  allow_meetup: boolean;
   feed_list_skin: ReturnType<typeof normalizeCommunityFeedListSkin>;
 };
 
 const ADMIN_TOPICS_SELECT_WITH_SKIN =
-  "id, section_id, name, name_en, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, allow_meetup, feed_list_skin, community_sections ( slug, name )";
+  "id, section_id, name, name_en, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, feed_list_skin, community_sections ( slug, name )";
 const ADMIN_TOPICS_SELECT_NO_SKIN =
-  "id, section_id, name, name_en, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, allow_meetup, community_sections ( slug, name )";
+  "id, section_id, name, name_en, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, community_sections ( slug, name )";
 
 export async function listAllCommunityTopicsForAdmin(): Promise<CommunityTopicAdminRow[]> {
   return (await loadAllCommunityTopicsForAdmin()).rows;
@@ -50,7 +49,7 @@ export async function loadAllCommunityTopicsForAdmin(): Promise<{ rows: Communit
       const aEn = await sb
         .from("community_topics")
         .select(
-          "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, allow_meetup, feed_list_skin, community_sections ( slug, name )"
+          "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, feed_list_skin, community_sections ( slug, name )"
         )
         .order("sort_order", { ascending: true });
       adminRows = aEn.data;
@@ -58,7 +57,7 @@ export async function loadAllCommunityTopicsForAdmin(): Promise<{ rows: Communit
     }
     if (error && isMissingDbColumnError(error, "feed_sort_mode")) {
       const sel =
-        "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, allow_question, allow_meetup, feed_list_skin, community_sections ( slug, name )";
+        "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, allow_question, feed_list_skin, community_sections ( slug, name )";
       const a0 = await sb.from("community_topics").select(sel).order("sort_order", { ascending: true });
       adminRows = a0.data;
       error = a0.error;
@@ -89,7 +88,6 @@ export async function loadAllCommunityTopicsForAdmin(): Promise<{ rows: Communit
         is_feed_sort: !!r.is_feed_sort,
         feed_sort_mode: parseCommunityTopicFeedSortMode(r.feed_sort_mode),
         allow_question: !!r.allow_question,
-        allow_meetup: !!r.allow_meetup,
         feed_list_skin: normalizeCommunityFeedListSkin(r.feed_list_skin),
       };
     });

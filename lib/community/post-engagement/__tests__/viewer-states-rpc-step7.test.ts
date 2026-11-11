@@ -77,9 +77,6 @@ describe("순서 7 fetchCommunityPostViewerStatesBatch", () => {
 
 describe("순서 7 글 상세 조회 (소스 계약)", () => {
   const src = readFileSync(resolve(process.cwd(), "lib/neighborhood/queries.ts"), "utf8");
-  it("모임 「id 만」 재조회는 앞 조회 오류일 때만", () => {
-    expect(src).toContain('if (!data && error) {\n    ({ data } = await trySelect("id"));');
-  });
   it("본문 조회에 출처 열 포함 · 성공하면 별도 출처 조회 없음", () => {
     expect(src).toContain("fetchDetailRow(DETAIL_SELECT_FULL + POST_DETAIL_EXTRAS_SELECT_TAIL)");
     expect(src).toContain("? Promise.resolve(postExtrasFromCommunityPostRow(row, true))");

@@ -24,7 +24,7 @@ const SAMPLE_STATS = {
   posts: { total: 87, member: 5, imported: 82, admin: 0, active_now: 78, hidden_now: 1, deleted_now: 8 },
   comments: { total: 5, top_level: 4, replies: 1 },
   authors: { active: 2, new: 2 },
-  reports: { received: 2, processed: 3, resolved: 3, dismissed: 0, meeting_received: 0, meeting_processed: 0 },
+  reports: { received: 2, processed: 3, resolved: 3, dismissed: 0 },
   admin_actions: { total: 14, by_action: {}, by_target_type: {} },
   charges: { approved_count: 3, approved_payment_amount: 0, approved_point_amount: 0, rejected_count: 3 },
   promotions: { new_count: 0, new_point_cost: 0, ended_count: 0 },
@@ -52,11 +52,8 @@ describe("community metric registry ↔ page filter contract (D)", () => {
     }
   });
 
-  it("design D-2 links: pending reports, meeting reports ?status=pending, stale 24h, appeal", () => {
+  it("design D-2 links: pending reports, stale 24h, appeal", () => {
     expect(getCommunityMetricDefinition("community.reports_pending").href).toBe("/admin/community/reports?tab=pending");
-    expect(getCommunityMetricDefinition("community.meeting_reports_pending").href).toBe(
-      "/admin/philife/meeting-reports?status=pending"
-    );
     expect(getCommunityMetricDefinition("community.reports_stale_24h").href).toContain("stale=24h");
     expect(getCommunityMetricDefinition("community.reports_stale_24h").section).toBe("risk");
     expect(getCommunityMetricDefinition("community.appeals_waiting").href).toContain("type=appeal");
@@ -68,7 +65,6 @@ describe("community metric registry ↔ page filter contract (D)", () => {
       if (d.source.kind === "queue") for (const c of d.source.categories) expect(getAdminActionQueueCategoryDef(c)).toBeTruthy();
     }
     expect(getAdminActionQueueCategoryDef("community_reports").requiredPermission).toBe("reports");
-    expect(getAdminActionQueueCategoryDef("meeting_reports").requiredPermission).toBe("reports");
   });
 
   it("period metric paths resolve against the stats RPC shape", () => {

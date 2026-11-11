@@ -1,6 +1,5 @@
 "use client";
 
-import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
 import {
   extractImageUrlsFromInterleavedContent,
   hasInterleavedMarkdownImageSyntax,
@@ -8,8 +7,7 @@ import {
 import { NeighborhoodInterleavedContent } from "@/components/community/NeighborhoodInterleavedContent";
 import { ImportedRichContent } from "@/components/community/post-detail/ImportedRichContent";
 import { richBlocksImageUrls } from "@/lib/community/imported-content-blocks";
-import { MeetingCard } from "@/components/community/MeetingCard";
-import type { NeighborhoodFeedPostDTO, NeighborhoodMeetingDetailDTO } from "@/lib/neighborhood/types";
+import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { CM_BODY_CLASS, CM_TITLE_CLASS } from "@/lib/community/community-ui-classes";
 import { PostImageGrid } from "@/components/community/post-detail/PostImageGrid";
 import { usePostImageViewer } from "@/components/common/media/PostImageViewer";
@@ -18,21 +16,13 @@ import { PostTextWithVideos } from "@/components/community/post-detail/PostTextW
 
 type Props = {
   post: NeighborhoodFeedPostDTO;
-  meeting: NeighborhoodMeetingDetailDTO | null;
-  meetingHostDisplay: string | undefined;
-  viewerJoinedMeeting: boolean;
 };
 
-export function CommunityPostDetailBody({
-  post,
-  meeting,
-  meetingHostDisplay,
-  viewerJoinedMeeting,
-}: Props) {
-  /** 서식 본문: 가져온 글 원문 구조 + 회원 서식 글(Owner 승인 ①). 모임 글은 평문 */
-  const richBlocks = !meeting && post.content_blocks?.length ? post.content_blocks : null;
+export function CommunityPostDetailBody({ post }: Props) {
+  /** 서식 본문: 가져온 글 원문 구조 + 회원 서식 글(Owner 승인 ①) */
+  const richBlocks = post.content_blocks?.length ? post.content_blocks : null;
   const richBodyImageUrls = richBlocks ? new Set(richBlocksImageUrls(richBlocks)) : null;
-  const isInterleavedBody = !meeting && !richBlocks && hasInterleavedMarkdownImageSyntax(post.content);
+  const isInterleavedBody = !richBlocks && hasInterleavedMarkdownImageSyntax(post.content);
   /**
    * 교차 본문(native)이어도 본문에 없는 사진(구 첨부 줄)은 아래 갤러리로 보여 준다 — 사진 누락 방지 (CM-P1-02).
    * imported 교차 본문은 기존 정책(갤러리 숨김) 유지.
@@ -54,9 +44,7 @@ export function CommunityPostDetailBody({
   return (
     <div className="mt-4" data-user-content="">
       <h1 className={CM_TITLE_CLASS}>{post.title}</h1>
-      {meeting ? (
-        <div className={CM_BODY_CLASS}>{stripMeetupPostMetaFromContent(post.content)}</div>
-      ) : richBlocks ? (
+      {richBlocks ? (
         <ImportedRichContent blocks={richBlocks} />
       ) : isInterleavedBody ? (
         <div className="mt-3">
@@ -76,17 +64,6 @@ export function CommunityPostDetailBody({
         </div>
       ) : null}
       {viewer}
-
-      {meeting ? (
-        <div className="mt-5">
-          <MeetingCard
-            meeting={meeting}
-            variant="postEmbed"
-            hostDisplayName={meetingHostDisplay}
-            viewerStatus={viewerJoinedMeeting ? "joined" : null}
-          />
-        </div>
-      ) : null}
     </div>
   );
 }

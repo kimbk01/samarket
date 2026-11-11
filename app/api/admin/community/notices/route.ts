@@ -175,7 +175,6 @@ export async function POST(req: NextRequest) {
   if (!meta || meta.is_feed_sort || meta.id !== topicId) {
     return NextResponse.json({ ok: false, error: "invalid_topic" }, { status: 400 });
   }
-  if (meta.allow_meetup) return NextResponse.json({ ok: false, error: "meetup_topic_forbidden" }, { status: 400 });
   const { data: sec } = await sb
     .from("community_sections")
     .select("id, slug")
@@ -194,9 +193,8 @@ export async function POST(req: NextRequest) {
     content,
     summary: summarizeCommunityPostContent(content),
     region_label: COMMUNITY_PUBLIC_REGION_FALLBACK,
-    category: deriveCommunityPostCategoryBucket({ topicOrCategoryRaw: topicSlug, isMeetup: false }),
+    category: deriveCommunityPostCategoryBucket({ topicOrCategoryRaw: topicSlug }),
     is_question: false,
-    is_meetup: false,
     status: "active",
     is_sample_data: false,
     origin_kind: "admin",

@@ -37,7 +37,6 @@ const POST_ERROR_KEY: Record<string, MessageKey> = {
   invalid_topic: "admin_community_post_err_invalid_topic",
   topic_incomplete: "admin_community_post_err_topic_incomplete",
   topic_required: "admin_community_post_err_topic_required",
-  meetup_topic_forbidden: "admin_community_post_err_meetup_topic",
   no_updates: "admin_community_post_err_no_updates",
   pin_limit: "admin_community_post_pin_limit",
   not_active: "admin_community_post_err_not_active",
@@ -77,7 +76,6 @@ export const COMMUNITY_HARD_DELETE_BLOCK_KEY: Record<string, MessageKey> = {
   too_recent: "admin_community_post_hard_delete_too_recent",
   open_reports: "admin_community_post_hard_delete_open_reports",
   running_promotion: "admin_community_post_hard_delete_running_promotion",
-  has_meeting: "admin_community_post_hard_delete_has_meeting",
   audit_failed: "admin_community_post_hard_delete_audit_failed",
   delete_failed: "admin_community_post_hard_delete_failed",
 };
@@ -128,7 +126,6 @@ export type CommunityTopicOption = {
   slug: string;
   name: string;
   is_active: boolean;
-  allow_meetup: boolean;
 };
 
 /** 글 카테고리 선택지 — 정렬용 시드(is_feed_sort)는 뺀다 */
@@ -149,7 +146,6 @@ export function useCommunityTopicOptions(): { topics: CommunityTopicOption[]; lo
               slug: String(t.slug),
               name: String(t.name ?? t.slug),
               is_active: t.is_active !== false,
-              allow_meetup: t.allow_meetup === true,
             }))
         );
       }

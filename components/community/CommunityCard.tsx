@@ -5,7 +5,6 @@ import { philifeAppPaths } from "@domain/philife/paths";
 import { formatTimeAgo } from "@/lib/utils/format";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { extractHashtagPreview } from "@/lib/community-feed/topic-feed-skin";
-import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
 import { resolveNeighborhoodFeedListThumbnail } from "@/lib/community-feed/feed-list-thumbnail";
 import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
 import { communityPostPublicDisplayClock } from "@/lib/community/community-publication-time";
@@ -38,25 +37,15 @@ function buildNeighborhoodFeedListViewModel(
   const skin = post.feed_list_skin;
   const thumbnailUrl = resolveNeighborhoodFeedListThumbnail(post);
   const previewSource = (post.summary ?? "").trim() || post.content;
-  const contentForTags = stripMarkdownImageSyntaxForFeedPreview(
-    post.is_meetup ? stripMeetupPostMetaFromContent(previewSource) : previewSource,
-  );
-  const placeLineRaw =
-    skin === "location_pin" ? post.meetup_place?.trim() || post.location_label?.trim() || "" : "";
+  const contentForTags = stripMarkdownImageSyntaxForFeedPreview(previewSource);
+  const placeLineRaw = skin === "location_pin" ? post.location_label?.trim() || "" : "";
   const hashtagTags = skin === "hashtags_below" ? extractHashtagPreview(`${post.title}\n${contentForTags}`, 3) : [];
   const summaryBase = (post.summary ?? "").trim() || (post.content ?? "");
-  const summaryForList = post.is_meetup ? stripMeetupPostMetaFromContent(summaryBase) : summaryBase;
   const imageUrls = Array.isArray(post.images) ? post.images.filter((u) => (u ?? "").trim()) : [];
   const imageCount = imageUrls.length;
 
-  const messengerRoom = post.community_messenger_room_id?.trim() ?? "";
   return {
-    href: messengerRoom
-      ? `/community-messenger/rooms/${encodeURIComponent(messengerRoom)}`
-      : post.is_meetup && post.meeting_id
-        ? philifeAppPaths.meeting(post.meeting_id)
-        : philifeAppPaths.post(post.id),
-    meetupMeetingId: post.is_meetup && post.meeting_id ? post.meeting_id : null,
+    href: philifeAppPaths.post(post.id),
     topicLabel: resolveCommunityTopicUILabel(
       language,
       post.category_label,
@@ -65,7 +54,7 @@ function buildNeighborhoodFeedListViewModel(
     ),
     topicColor: post.topic_color,
     title: post.title?.trim() || untitledLabel,
-    summary: normalizeFeedListBodyPreview(summaryForList),
+    summary: normalizeFeedListBodyPreview(summaryBase),
     timeLabel: time,
     authorName: post.author_name,
     secondaryMeta: post.location_label?.trim() ?? "",
@@ -73,7 +62,6 @@ function buildNeighborhoodFeedListViewModel(
     commentCount: post.comment_count,
     viewCount: post.view_count,
     isQuestion: post.is_question,
-    isMeetup: post.is_meetup,
     thumbnailUrl,
     imageCount,
     placeLine: placeLineRaw ? placeLineRaw : null,
@@ -99,14 +87,10 @@ function isSameCommunityCardPost(prev: NeighborhoodFeedPostDTO, next: Neighborho
     prev.category_name_en === next.category_name_en &&
     prev.topic_color === next.topic_color &&
     prev.location_label === next.location_label &&
-    prev.meetup_place === next.meetup_place &&
-    prev.community_messenger_room_id === next.community_messenger_room_id &&
-    prev.meeting_id === next.meeting_id &&
     prev.like_count === next.like_count &&
     prev.comment_count === next.comment_count &&
     prev.view_count === next.view_count &&
     prev.is_question === next.is_question &&
-    prev.is_meetup === next.is_meetup &&
     prev.is_notice === next.is_notice &&
     prev.is_pinned === next.is_pinned &&
     (prev.images?.length ?? 0) === (next.images?.length ?? 0)
@@ -126,14 +110,11 @@ export const CommunityCard = memo(function CommunityCard({
   const { t, language } = useI18n();
   const skin = post.feed_list_skin;
   const base = buildNeighborhoodFeedListViewModel(post, t("community_no_title"), language);
-  /**
-   * 광고 ② DS-1 (2026-11-04): 상위노출 카드는 **항상 글 상세**로 보낸다(메신저 방·모임으로 보내지 않음).
-   * 일반 카드는 지금대로(방·모임 연결 글은 그쪽으로).
-   */
-  const vm = isAd ? { ...base, href: philifeAppPaths.post(post.id), isAd } : { ...base, isAd };
+  /** 광고 ② DS-1 (2026-11-04): 상위노출 카드도 글 상세로 보낸다. */
+  const vm = { ...base, isAd };
   const hasThumb = Boolean(vm.thumbnailUrl);
-  /** `text_primary` 는 일반 주제용 「썸네일 숨김」— 모임은 `meetings.cover`·`images` 로 썸네일이 있으면 우선 표시 */
-  const useTextOnlySkin = skin === "text_primary" && !(post.is_meetup && hasThumb);
+  /** `text_primary` 는 일반 주제용 「썸네일 숨김」 */
+  const useTextOnlySkin = skin === "text_primary";
 
   if (useTextOnlySkin) {
     return <FeedListLayoutTextOnly vm={vm} />;

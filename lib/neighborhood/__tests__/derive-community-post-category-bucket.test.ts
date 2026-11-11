@@ -4,22 +4,17 @@ import { deriveCommunityPostCategoryBucket } from "@/lib/neighborhood/derive-com
 describe("deriveCommunityPostCategoryBucket", () => {
   it("CASE A: custom topic → etc filler (not topic identity)", () => {
     expect(
-      deriveCommunityPostCategoryBucket({ topicOrCategoryRaw: "travel", isMeetup: false })
+      deriveCommunityPostCategoryBucket({ topicOrCategoryRaw: "travel" })
     ).toBe("etc");
     expect(
-      deriveCommunityPostCategoryBucket({ topicOrCategoryRaw: "phlifee", isMeetup: false })
+      deriveCommunityPostCategoryBucket({ topicOrCategoryRaw: "phlifee" })
     ).toBe("etc");
   });
 
   it("CASE B: question enum slug → question bucket (side-effect path may use is_question separately)", () => {
     expect(
-      deriveCommunityPostCategoryBucket({ topicOrCategoryRaw: "question", isMeetup: false })
+      deriveCommunityPostCategoryBucket({ topicOrCategoryRaw: "question" })
     ).toBe("question");
   });
 
-  it("CASE C: meetup special behavior wins", () => {
-    expect(
-      deriveCommunityPostCategoryBucket({ topicOrCategoryRaw: "travel", isMeetup: true })
-    ).toBe("meetup");
-  });
 });

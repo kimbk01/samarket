@@ -26,7 +26,7 @@ const MINIMAL_POST_COLS =
   "id, section_slug, topic_slug, title, summary, region_label, view_count, like_count, comment_count, created_at, user_id, is_hidden";
 
 const BASE_POST_COLS =
-  "id, section_slug, topic_slug, title, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, is_deleted, is_hidden, status";
+  "id, section_slug, topic_slug, title, summary, region_label, is_question, view_count, like_count, comment_count, created_at, user_id, is_deleted, is_hidden, status";
 
 const EMBED_WITH_SKIN = (withOrigin: boolean) =>
   `${BASE_POST_COLS}${withOrigin ? `, ${ORIGIN_COLS}` : ""}, community_topics ( name, name_en, slug, color, feed_list_skin )`;
@@ -163,9 +163,6 @@ function mapAuthorPostRow(
       regionLabel: String(r.region_label ?? ""),
     }),
     is_question: !!r.is_question,
-    is_meetup: !!r.is_meetup,
-    meetup_date: r.meetup_date != null ? String(r.meetup_date) : null,
-    meetup_place: r.meetup_place != null ? String(r.meetup_place) : null,
     view_count: Number(r.view_count ?? 0),
     like_count: Number(r.like_count ?? 0),
     comment_count: Number(r.comment_count ?? 0),

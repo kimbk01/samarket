@@ -15,7 +15,6 @@ export const dynamic = "force-dynamic";
 
 type ChatRowForRead = {
   room_type?: string | null;
-  meeting_id?: string | null;
   related_group_id?: string | null;
 };
 
@@ -74,7 +73,7 @@ export async function POST(
   const { data: crRow, error: crErr } = await sb
     .from("chat_rooms")
     .select(
-      "id, last_message_id, room_type, meeting_id, related_group_id, item_id, seller_id, buyer_id"
+      "id, last_message_id, room_type, related_group_id, item_id, seller_id, buyer_id"
     )
     .eq("id", roomId)
     .maybeSingle();
@@ -85,7 +84,6 @@ export async function POST(
   const cr = crRow as {
     last_message_id?: string | null;
     room_type?: string | null;
-    meeting_id?: string | null;
     related_group_id?: string | null;
   };
   if (cr.room_type !== "item_trade") {

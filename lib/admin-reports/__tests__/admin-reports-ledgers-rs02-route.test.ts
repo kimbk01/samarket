@@ -72,14 +72,13 @@ beforeEach(() => {
   actor = { userId: "admin-1", isSuperAdmin: true, role: "super_admin", permissions: [] };
 });
 
-describe("전체 신고 현황 — 원장 6종 커서 모드", () => {
+describe("전체 신고 현황 — 원장 5종 커서 모드", () => {
   it("포함 원장 결정: 도메인 필터 · 권한 · 적용 불가 조건 · 대상 유형", () => {
     const all = () => true;
     expect(resolveAdminReportLedgers({ domain: "", targetType: "", reason: "", target: "" }, all).included).toEqual([
       "reports",
       "community_feed",
       "store_reports",
-      "meeting_reports",
       "community_messenger_reports",
       "chat_reports",
     ]);
@@ -106,7 +105,6 @@ describe("전체 신고 현황 — 원장 6종 커서 모드", () => {
         { id: "s2", status: "open", reporter_user_id: "u1", target_type: "store", target_id: "st1", reason_type: "fraud", created_at: at(5) },
         { id: "s1", status: "actioned", reporter_user_id: "u1", target_type: "product", target_id: "p1", reason_type: "spam", created_at: at(1) },
       ],
-      meeting_reports: [{ id: "m1", status: "pending", reporter_user_id: "u2", target_type: "meeting", target_id: "mt", reason_type: "x", created_at: at(3) }],
       chat_reports: [{ id: "c1", status: "triaging", reporter_user_id: "u3", room_id: "r1", reason_type: "abuse", created_at: at(4) }],
       community_messenger_reports: [{ id: "cm1", status: "received", created_at: at(9) }],
       profiles: [],
@@ -128,11 +126,10 @@ describe("전체 신고 현황 — 원장 6종 커서 모드", () => {
     expect(json.reports.map((r) => `${r.ledgerSource}:${r.id}`)).toEqual([
       "store_reports:s2",
       "chat_reports:c1",
-      "meeting_reports:m1",
       "store_reports:s1",
     ]);
     expect(json.total).toBe(Object.values(json.sourceCounts).reduce((a, n) => a + n, 0));
-    expect(json.total).toBe(4);
+    expect(json.total).toBe(3);
     expect(json.nextCursor).toBeNull();
     expect(json.reports.find((r) => r.id === "c1")).toMatchObject({ status: "reviewing", ledgerReadOnly: true });
     expect(json.reports.find((r) => r.id === "s2")?.adminDetailHref).toBe("/admin/store-reports?request=s2");

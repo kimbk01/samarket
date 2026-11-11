@@ -6,7 +6,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
-import { philifeMeetingMemberRoleLabel } from "@/lib/community-messenger/cm-ui-translate";
 import { messengerRoomPrefetchPriorityScore } from "@/lib/community-messenger/room-prefetch-queue";
 import { armMessengerRoomRoutePrefetch } from "@/lib/community-messenger/room/arm-messenger-room-route-prefetch";
 import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
@@ -1091,14 +1090,6 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           commerceMeta?.kind === "trade" ||
           commerceMeta?.kind === "delivery" ? (
             <CommunityMessengerChatTypeBadge room={room} />
-          ) : null}
-          {room.philifeMeetingMemberLabel ? (
-            <span
-              className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]"
-              title={t("cm_ui_philife_meeting")}
-            >
-              {philifeMeetingMemberRoleLabel(room.philifeMeetingMemberLabel)}
-            </span>
           ) : null}
           {commerceMeta?.kind === "trade" && tradeItemStateLabel ? (
             <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]">

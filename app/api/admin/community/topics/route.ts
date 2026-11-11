@@ -41,7 +41,6 @@ export async function POST(req: NextRequest) {
     is_feed_sort?: boolean;
     feed_sort_mode?: string | null;
     allow_question?: boolean;
-    allow_meetup?: boolean;
     color?: string | null;
     icon?: string | null;
     feed_list_skin?: string;
@@ -75,7 +74,6 @@ export async function POST(req: NextRequest) {
   /** Community Nav SSOT — Admin Topics create never writes legacy sort-slot metadata */
   const { is_feed_sort, feed_sort_mode } = adminTopicCreateSortMetadata();
   const allow_question = body.allow_question !== false;
-  const allow_meetup = !!body.allow_meetup;
   const color = body.color != null && String(body.color).trim() ? String(body.color).trim().slice(0, 32) : null;
   const icon = body.icon != null && String(body.icon).trim() ? String(body.icon).trim().slice(0, 64) : null;
   const feed_list_skin = isCommunityFeedListSkin(body.feed_list_skin)
@@ -83,9 +81,9 @@ export async function POST(req: NextRequest) {
     : normalizeCommunityFeedListSkin(body.feed_list_skin);
 
   const selectWithSkin =
-    "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, allow_meetup, feed_list_skin";
+    "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, feed_list_skin";
   const selectNoSkin =
-    "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, allow_meetup";
+    "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question";
   const baseRow = {
     section_id,
     name,
@@ -97,7 +95,6 @@ export async function POST(req: NextRequest) {
     is_feed_sort,
     feed_sort_mode,
     allow_question,
-    allow_meetup,
     color,
     icon,
   };
@@ -124,7 +121,7 @@ export async function POST(req: NextRequest) {
         .from("community_topics")
         .insert(sub)
         .select(
-          "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, allow_question, allow_meetup, feed_list_skin"
+          "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, allow_question, feed_list_skin"
         )
         .single();
       data = r0.data as typeof data;

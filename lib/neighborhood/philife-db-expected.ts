@@ -18,9 +18,6 @@ export const PHILIFE_COMMUNITY_POSTS_WRITE_KEYS = [
   "category",
   "images",
   "is_question",
-  "is_meetup",
-  "meetup_place",
-  "meetup_date",
   "status",
   "is_sample_data",
 ] as const;

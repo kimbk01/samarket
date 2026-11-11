@@ -192,7 +192,7 @@ export async function POST(
     sbAny
       .from("chat_rooms")
       .select(
-        "id, room_type, item_id, meeting_id, related_group_id, is_blocked, blocked_by, is_locked, is_readonly, seller_id, buyer_id, initiator_id, peer_id, request_status, store_order_id, community_messenger_room_id"
+        "id, room_type, item_id, related_group_id, is_blocked, blocked_by, is_locked, is_readonly, seller_id, buyer_id, initiator_id, peer_id, request_status, store_order_id, community_messenger_room_id"
       )
       .eq("id", roomId)
       .maybeSingle(),

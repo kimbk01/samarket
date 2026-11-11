@@ -333,7 +333,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     unit: "count",
     href: "/admin#action-center",
   },
-  // 이동 화면 개수와 같은 것만 (감사 2026-10-20: 입점·수수료 검토·고객지원·모임 신고·주문 운영 예외)
+  // 이동 화면 개수와 같은 것만 (감사 2026-10-20: 입점·수수료 검토·고객지원·주문 운영 예외)
   // 대시보드는 이동 화면 함수로 센 값을 처리 대기 항목에도 쓴다 (load-admin-dashboard-sources `alignQueueWithDestinations`).
   {
     ...queueMetric("store_applications", "admin_metric_queue_store_applications"),
@@ -346,10 +346,6 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
   {
     ...queueMetric("support_actionable", "admin_metric_queue_open_support"),
     sourceDetail: "applySupportCaseTabFilter(ACTIONABLE) = /api/admin/support/cases?tab=ACTIONABLE total",
-  },
-  {
-    ...queueMetric("meeting_reports", "admin_metric_queue_meeting_reports"),
-    sourceDetail: "applyMeetingReportTabFilter(pending) = meeting reports screen \"Pending\" total",
   },
   {
     ...queueMetric("orders_attention", "admin_metric_queue_order_exceptions"),
@@ -1072,14 +1068,13 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
     shortcuts: [
       { id: "trade_reports", labelKo: "거래 신고", labelEn: "Trade reports", href: "/admin/trade/reports?tab=open" },
       { id: "community_reports", labelKo: "커뮤니티 신고", labelEn: "Community reports", href: "/admin/community/reports?tab=pending" },
-      { id: "meeting_reports", labelKo: "모임 신고", labelEn: "Meeting reports", href: "/admin/philife/meeting-reports" },
       { id: "posts", labelKo: "거래글", labelEn: "Trade posts", href: "/admin/posts-management" },
       { id: "community_posts", labelKo: "커뮤니티 글", labelEn: "Community posts", href: "/admin/community/posts" },
       { id: "promo", labelKo: "거래 상위노출 심사", labelEn: "Trade promotions", href: "/admin/trade/promotions?tab=pending_review" },
     ],
     pending: {
       kind: "categories",
-      categories: ["reports", "community_reports", "meeting_reports", "trade_promo_pending"],
+      categories: ["reports", "community_reports", "trade_promo_pending"],
     },
   },
   {
@@ -1195,7 +1190,6 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
       "notifications.campaigns_failed",
       "notifications.campaigns_partially_failed",
       "notifications.campaigns_in_progress",
-      "queue.meeting_reports",
       "queue.orders_attention",
     ],
     trend: "support_cases_daily",
@@ -1208,7 +1202,7 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
     ],
     pending: {
       kind: "categories",
-      categories: ["support_actionable", "messenger_actionable", "store_reports", "meeting_reports", "store_inquiry_open"],
+      categories: ["support_actionable", "messenger_actionable", "store_reports", "store_inquiry_open"],
     },
   },
 ];

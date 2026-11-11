@@ -78,12 +78,11 @@ const mk = (source: string, n: number, at: (i: number) => string): Row[] =>
   Array.from({ length: n }, (_, i) => ({ source, id: `${source.slice(0, 2)}-${String(i).padStart(3, "0")}`, createdAt: at(i) }));
 
 describe("원장 병합 — 누락·중복 없음", () => {
-  it("원장 6종 순회: 전 쪽 합 = 원장별 행 전체, 키 (source,id) 유일, 총건수 = Σ 원장 건수, 전역 정렬 유지", () => {
+  it("원장 5종 순회: 전 쪽 합 = 원장별 행 전체, 키 (source,id) 유일, 총건수 = Σ 원장 건수, 전역 정렬 유지", () => {
     const sources = [
       { source: "reports", rows: mk("reports", 7, (i) => ts(i * 3)), mode: "offset" as const },
       { source: "community_feed", rows: mk("community_feed", 3, (i) => ts(i * 5 + 1)), mode: "offset" as const },
       { source: "store_reports", rows: mk("store_reports", 0, () => ts(0)), mode: "keyset" as const },
-      { source: "meeting_reports", rows: mk("meeting_reports", 4, (i) => ts(i * 2)), mode: "keyset" as const },
       { source: "community_messenger_reports", rows: mk("community_messenger_reports", 5, () => ts(10)), mode: "keyset" as const },
       { source: "chat_reports", rows: mk("chat_reports", 2, (i) => ts(30 + i)), mode: "keyset" as const },
     ];
@@ -91,7 +90,7 @@ describe("원장 병합 — 누락·중복 없음", () => {
       const { pages, totals } = walkAll(sources, limit);
       const flat = pages.flat();
       const expected = sources.flatMap((s) => s.rows).sort(compareLedgerRows);
-      expect(totals).toEqual([21]);
+      expect(totals).toEqual([17]);
       expect(flat.map(ledgerRowKey)).toEqual(expected.map(ledgerRowKey));
       expect(new Set(flat.map(ledgerRowKey)).size).toBe(flat.length);
       for (const p of pages.slice(0, -1)) expect(p.length).toBe(limit);
@@ -175,10 +174,10 @@ describe("원장 상태 매핑 (처리 대기 / 처리 완료 / 반려)", () => 
     expect(adminReportLedgerUiStatus("store_reports", "actioned")).toBe("resolved");
     expect(adminReportLedgerUiStatus("chat_reports", "escalated")).toBe("reviewing");
     expect(adminReportLedgerUiStatus("community_messenger_reports", "sanctioned")).toBe("sanctioned");
-    expect(adminReportLedgerUiStatus("meeting_reports", "weird")).toBe("pending");
+    expect(adminReportLedgerUiStatus("store_reports", "weird")).toBe("pending");
     expect(adminReportLedgerRawStatuses("chat_reports", "reviewing")).toEqual(["triaging", "escalated"]);
     expect(adminReportLedgerRawStatuses("store_reports", "sanctioned")).toEqual([]);
-    expect(adminReportLedgerRawStatuses("meeting_reports", "")).toBeNull();
+    expect(adminReportLedgerRawStatuses("store_reports", "")).toBeNull();
     for (const src of ADMIN_REPORT_READ_ONLY_LEDGERS) {
       for (const ui of ["pending", "reviewing", "resolved", "rejected", "sanctioned", "reviewed"]) {
         for (const raw of adminReportLedgerRawStatuses(src, ui) ?? []) {

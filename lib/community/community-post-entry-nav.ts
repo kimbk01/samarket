@@ -66,7 +66,7 @@ export function prefersCommunityReducedMotion(): boolean {
   }
 }
 
-/** UUID-ish `/philife/:postId` only — write/my/meetings and messenger links are excluded. */
+/** UUID-ish `/philife/:postId` only — write/my and messenger links are excluded. */
 export function parseCommunityPostIdFromHref(href: string): string | null {
   const raw = (href ?? "").trim();
   if (!raw) return null;
@@ -77,7 +77,7 @@ export function parseCommunityPostIdFromHref(href: string): string | null {
     if (!m) return null;
     const id = decodeURIComponent(m[1] ?? "").trim();
     if (!id) return null;
-    const reserved = new Set(["write", "my", "meetings", "search"]);
+    const reserved = new Set(["write", "my", "search"]);
     if (reserved.has(id.toLowerCase())) return null;
     return id;
   } catch {

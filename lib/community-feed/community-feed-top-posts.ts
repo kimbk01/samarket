@@ -61,14 +61,13 @@ function slug(v: unknown): string {
 
 /**
  * 상단에 올릴 행 (정렬 포함).
- * @param filterTopicSlug 카테고리 피드면 slug, 전체 피드면 null/"" (모임 피드 'meetup' 은 상단 없음)
+ * @param filterTopicSlug 카테고리 피드면 slug, 전체 피드면 null/""
  */
 export function selectCommunityFeedTopRows<T extends CommunityFeedTopRowFields>(
   rows: T[],
   opts: { filterTopicSlug?: string | null; nowMs: number }
 ): T[] {
   const filter = slug(opts.filterTopicSlug);
-  if (filter === "meetup") return [];
   const picked: Array<{ row: T; notice: boolean; pinned: boolean }> = [];
   const seen = new Set<string>();
   for (const row of rows) {

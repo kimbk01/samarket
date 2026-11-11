@@ -612,7 +612,7 @@ export async function loadChatRoomDetailForUser(input: {
   const { data: cr, error: crErr } = await sbAny
     .from("chat_rooms")
     .select(
-      "id, room_type, item_id, seller_id, buyer_id, initiator_id, peer_id, meeting_id, last_message_id, last_message_at, last_message_preview, created_at, trade_status, related_post_id, related_comment_id, related_group_id, related_business_id, context_type, store_order_id, is_blocked, blocked_by, is_locked, community_messenger_room_id"
+      "id, room_type, item_id, seller_id, buyer_id, initiator_id, peer_id, last_message_id, last_message_at, last_message_preview, created_at, trade_status, related_post_id, related_comment_id, related_group_id, related_business_id, context_type, store_order_id, is_blocked, blocked_by, is_locked, community_messenger_room_id"
     )
     .eq("id", roomId)
     .maybeSingle();

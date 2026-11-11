@@ -14,7 +14,6 @@ describe("D-Q4 (Owner 2026-10-28) — 제재·운영 조치 통지는 필수", (
     "trade_sanction",
     "community_moderation",
     "community_sanction",
-    "community_meeting_decision",
     "chat_report_sanction",
   ]) {
     it(`${kind}: 해당 토글을 꺼도 푸시`, () => {

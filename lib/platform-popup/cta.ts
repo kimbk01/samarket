@@ -211,7 +211,7 @@ export function platformPopupCtaEventId(
 
 const UUID_PATH_SEG_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** `/philife/<x>` 중 글이 아닌 화면 · `/stores/<x>` 중 매장이 아닌 화면 (`app/(main)/philife` · `app/(main)/stores` 폴더) */
-const PHILIFE_NON_POST_SEGMENTS = new Set(["meetings", "my", "post", "purchases", "reviews", "sales", "write"]);
+const PHILIFE_NON_POST_SEGMENTS = new Set(["my", "post", "purchases", "reviews", "sales", "write"]);
 const STORES_NON_STORE_SEGMENTS = new Set(["browse", "cart", "gift-mall", "owner", "search"]);
 
 /**

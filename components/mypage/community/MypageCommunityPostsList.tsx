@@ -46,9 +46,9 @@ function cacheKeyFor(viewerId: string, status: OwnCommunityPostStatus) {
   return `mypage:community-posts:${viewerId}:${status}`;
 }
 
-/** 수정 항목 노출 — 가져온 글·모임 글은 숨김(PATCH 거부 조건과 동일) */
-export function canEditOwnCommunityPost(p: Pick<OwnCommunityPostDTO, "isImported" | "is_meetup">): boolean {
-  return !p.isImported && !p.is_meetup;
+/** 수정 항목 노출 — 가져온 글은 숨김(PATCH 거부 조건과 동일) */
+export function canEditOwnCommunityPost(p: Pick<OwnCommunityPostDTO, "isImported">): boolean {
+  return !p.isImported;
 }
 /** 삭제 항목 노출 — 가져온 글은 숨김(DELETE 거부 조건과 동일) */
 export function canDeleteOwnCommunityPost(p: Pick<OwnCommunityPostDTO, "isImported">): boolean {

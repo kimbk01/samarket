@@ -6,18 +6,7 @@ import type { ChatMessage, ChatRoom } from "@/lib/types/chat";
 import type {
   NeighborhoodCommentNode,
   NeighborhoodFeedPostDTO,
-  NeighborhoodMeetingDetailDTO,
-  MeetingFeedPostDTO,
-  MeetingAlbumItemDTO,
 } from "@/lib/neighborhood/types";
-
-export type SampleMeetingMember = {
-  user_id: string;
-  label: string;
-  role: "host" | "member";
-  status: "joined" | "left" | "kicked" | "pending" | "banned";
-  created_at?: string;
-};
 
 export type SampleCommentRow = {
   id: string;
@@ -43,19 +32,11 @@ export function getNeighborhoodDevSamplePost(_postId: string): NeighborhoodFeedP
   return null;
 }
 
-export function getNeighborhoodDevSampleMeeting(_meetingId: string): NeighborhoodMeetingDetailDTO | null {
-  return null;
-}
-
 export function getNeighborhoodDevSampleComments(_postId: string): NeighborhoodCommentNode[] {
   return [];
 }
 
 export function getNeighborhoodDevSampleAdminPosts(): unknown[] {
-  return [];
-}
-
-export function getNeighborhoodDevSampleAdminMeetings(): unknown[] {
   return [];
 }
 
@@ -113,48 +94,6 @@ export function addNeighborhoodDevSampleComment(_args: {
   parentId: string | null;
 }): { id: string } | null {
   return null;
-}
-
-export function updateNeighborhoodDevSampleMeeting(
-  _meetingId: string,
-  _patch: Partial<NeighborhoodMeetingDetailDTO>
-): boolean {
-  return false;
-}
-
-export function joinNeighborhoodDevSampleMeeting(
-  _meetingId: string,
-  _userId: string
-): { ok: boolean; error?: string; chatRoomId?: string | null } {
-  return { ok: false, error: "sample_disabled" };
-}
-
-export function leaveNeighborhoodDevSampleMeeting(_meetingId: string, _userId: string): boolean {
-  return false;
-}
-
-export function closeNeighborhoodDevSampleMeeting(_meetingId: string, _userId: string): boolean {
-  return false;
-}
-
-export function kickNeighborhoodDevSampleMeetingMember(
-  _meetingId: string,
-  _actorUserId: string,
-  _targetUserId: string
-): boolean {
-  return false;
-}
-
-export function getNeighborhoodDevSampleMeetingMembers(_meetingId: string): SampleMeetingMember[] {
-  return [];
-}
-
-export function getNeighborhoodDevSampleMeetingFeedPosts(_meetingId: string): MeetingFeedPostDTO[] {
-  return [];
-}
-
-export function getNeighborhoodDevSampleMeetingAlbumItems(_meetingId: string): MeetingAlbumItemDTO[] {
-  return [];
 }
 
 export function postNeighborhoodDevSampleChatMessage(

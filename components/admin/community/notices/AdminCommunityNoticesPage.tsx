@@ -133,7 +133,7 @@ export function AdminCommunityNoticesPage() {
   const noPermTitle = canContent ? undefined : t("admin_community_notices_no_perm_content");
   const { topics } = useCommunityTopicOptions();
   const topicNameOf = useTopicNameOf(topics);
-  const noticeTopics = useMemo(() => topics.filter((t) => t.is_active && !t.allow_meetup), [topics]);
+  const noticeTopics = useMemo(() => topics.filter((t) => t.is_active), [topics]);
   const topicNameById = useCallback(
     (topicId: string | null | undefined) => topics.find((t) => t.id === topicId)?.name ?? t("admin_community_notices_topic_fallback"),
     [topics, t]

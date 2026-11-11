@@ -1,12 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
-import { isSameUserId } from "@/lib/auth/same-user-id";
 import { Detail } from "@/components/community/Detail";
-import {
-  getMeetingDetail,
-  getNeighborhoodPostDetail,
-  isViewerJoinedNeighborhoodMeeting,
-} from "@/lib/neighborhood/queries";
+import { getNeighborhoodPostDetail } from "@/lib/neighborhood/queries";
 import { isUuidString } from "@/lib/shared/uuid-string";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { isPromotionLiveForTarget } from "@/lib/promotion/promotion-live-target";
@@ -38,35 +33,14 @@ async function PhilifeNeighborhoodPostPageBody({ paramsPromise }: { paramsPromis
   }
 
   const promoSb = tryCreateSupabaseServiceClient();
-  const [meeting, joinedFromDb, promotionLive] = await Promise.all([
-    post.meeting_id ? getMeetingDetail(post.meeting_id) : Promise.resolve(null),
-    post.meeting_id && viewerId
-      ? isViewerJoinedNeighborhoodMeeting(post.meeting_id, viewerId)
-      : Promise.resolve(false),
-    /** Owner 결정 O-3: 광고 중이면 상세에도 「광고」 (모임 조회와 동시에) */
-    promoSb ? isPromotionLiveForTarget(promoSb, { targetType: "community_post", targetId: seg }) : Promise.resolve(false),
-  ]);
-
-  let viewerJoinedMeeting = false;
-  if (post.meeting_id && viewerId && meeting) {
-    viewerJoinedMeeting =
-      isSameUserId(viewerId, meeting.host_user_id) ||
-      isSameUserId(viewerId, meeting.created_by) ||
-      isSameUserId(viewerId, post.author_id) ||
-      joinedFromDb;
-  }
-
-  /**
-   * 참가자를 `?meetingId=` 로 보내지 않는다.
-   * `CommunityFeed` 딥링크는 방이 없을 때 `router.replace(/philife/{post_id})` 로 복귀시키는데,
-   * 여기서 다시 `?meetingId=` 로 redirect 하면 **무한 리다이렉트(깜박임)** 가 난다.
-   */
+  /** Owner 결정 O-3: 광고 중이면 상세에도 「광고」 */
+  const promotionLive = promoSb
+    ? await isPromotionLiveForTarget(promoSb, { targetType: "community_post", targetId: seg })
+    : false;
 
   return (
     <Detail
       post={post}
-      meeting={meeting}
-      viewerJoinedMeeting={viewerJoinedMeeting}
       initialRouteTotalMs={Math.round(performance.now() - t0)}
       similarPosts={[]}
       isAd={promotionLive}

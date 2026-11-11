@@ -1,6 +1,6 @@
 import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
 import { listAllCommunityTopicsForAdmin } from "@/lib/community-topics/server";
-import { topicBelongsToPhilifeNeighborhoodSection } from "@/lib/neighborhood/meetup-feed-topics";
+import { topicBelongsToPhilifeNeighborhoodSection } from "@/lib/neighborhood/philife-topic-slug-rules";
 
 export type OperatorImportTopicOption = {
   id: string;
@@ -9,7 +9,7 @@ export type OperatorImportTopicOption = {
   sectionSlug: string;
 };
 
-/** Real Community content topics only — no feed-sort, no meetup, no default. */
+/** Real Community content topics only — no feed-sort, no default. */
 export async function listOperatorImportTopicOptions(): Promise<OperatorImportTopicOption[]> {
   const [topics, philifeNeighborhoodSectionSlug] = await Promise.all([
     listAllCommunityTopicsForAdmin(),
@@ -19,7 +19,6 @@ export async function listOperatorImportTopicOptions(): Promise<OperatorImportTo
     .filter((t) => {
       if (!topicBelongsToPhilifeNeighborhoodSection(t.section_slug, philifeNeighborhoodSectionSlug)) return false;
       if (t.is_feed_sort) return false;
-      if (t.allow_meetup) return false;
       if (!t.is_active) return false;
       return true;
     })

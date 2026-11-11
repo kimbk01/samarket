@@ -1,5 +1,5 @@
 /**
- * 채팅방 하드 삭제 전 신고 증거 조회 (서버 전용) — 일괄 삭제·모임 부가 채팅 삭제 공용.
+ * 채팅방 하드 삭제 전 신고 증거 조회 (서버 전용) — 일괄 삭제용.
  *
  * - 요청 id 와 **연결된 레거시 방 id**(product_chats ↔ chat_rooms: 같은 상품·판매자·구매자)까지 함께 검사한다.
  *   운영 FK: `reports.room_id → product_chats` SET NULL, `chat_reports` 는 chat_rooms FK 없음 →

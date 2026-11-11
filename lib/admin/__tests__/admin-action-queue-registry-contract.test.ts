@@ -112,7 +112,7 @@ describe("Admin Action Queue registry contract", () => {
   });
 
   it("only a missing SOURCE relation is treated as not-deployed (0)", () => {
-    expect(isMissingRelationError({ code: "42P01", message: 'relation "public.meeting_reports" does not exist' }, "meeting_reports")).toBe(true);
+    expect(isMissingRelationError({ code: "42P01", message: 'relation "public.community_reports" does not exist' }, "community_reports")).toBe(true);
     expect(isMissingRelationError({ code: "PGRST205", message: "Could not find the table 'public.stores' in the schema cache" }, "stores")).toBe(true);
     expect(isMissingRelationError({ code: "42P01", message: 'relation "public.store_reports" does not exist' }, "reports")).toBe(false);
     expect(isMissingRelationError({ code: "42703", message: "column stores.approval_status does not exist" }, "stores")).toBe(false);
