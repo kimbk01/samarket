@@ -46,6 +46,7 @@ import {
 } from "@/components/route-transition/main-shell-surface-underlay";
 import { shouldUseMainShellHubFallbackEnter } from "@/components/route-transition/main-shell-hub-fallback-enter";
 import { isMainTabKeepAliveHubPath } from "@/lib/layout/resolve-main-surface";
+import { isCommunityMessengerCallPath } from "@/lib/navigation/community-messenger-deep-route-path";
 import { isTradeMarketHubPathname } from "@/lib/trade/tabs/trade-market-feed-href";
 import {
   finalizeMainHubTransition,
@@ -633,16 +634,20 @@ export function AppRouteTransition({
     axis: MainShellRoutePushAxis,
     fromPath: string,
     toPath: string,
-    durationMs: number | null
+    durationMs: number | null,
+    /** D1 S1: 예전 두 화면 연출 경로 — 나가는 화면(밑그림)도 같은 시간·곡선으로 반대쪽으로 밀려 나간다 */
+    exit = false
   ) => {
     const capture = underlayCaptureRef.current;
     underlayCaptureRef.current = null;
     if (!capture || capture.fromPath !== fromPath || capture.toPath !== toPath) return;
     if (!el.classList.contains(mainShellPushEnterClassForAxis(axis))) return;
+    const ms = durationMs ?? MAIN_SHELL_ROUTE_TRANSITION_MS;
     underlayRemoveRef.current = mountMainShellSurfaceUnderlay(
       el,
       capture,
-      (durationMs ?? MAIN_SHELL_ROUTE_TRANSITION_MS) + 600
+      ms + 600,
+      exit ? { exitAxis: axis, durationMs: ms } : undefined
     );
   };
 
@@ -776,12 +781,21 @@ export function AppRouteTransition({
        * `hubChromeHeader` alone — cart forward drops chrome but must keep
        * RIGHT→LEFT via beginHubFallbackEnter (not dual-panel remount).
        */
+      /**
+       * D1 S1 (Owner 승인 2026-11-12 · `docs/audit/d1-root-cause-total-design-2026-11-12.md` §2 S1):
+       * 「살아 있는 화면은 옮기지 않는다」 — 머리글 없는 화면도 두 화면 연출(children 을 연출 칸으로 옮기고 이전 화면을
+       * React 사본으로 다시 그림 → 하단 탭 보관 화면 소실)을 쓰지 않고, 같은 surface 가 들어오며 이전 화면은
+       * DOM 밑그림으로 같은 시간·곡선에 밀려 나간다. 통화 화면(`/community-messenger/calls/**`)은 통화 변경 규정상
+       * 별도 계획·승인 전까지 예전 두 화면 연출 그대로 둔다.
+       */
+      const fallbackEligible = shouldUseMainShellHubFallbackEnter({
+        hubChromeHeaderPresent: Boolean(hubChromeHeader),
+        mainShellChildScrollLocked,
+      });
+      const liveSurfaceSlide = fallbackEligible || !isCommunityMessengerCallPath(pathKey);
       if (
         pushAxis &&
-        shouldUseMainShellHubFallbackEnter({
-          hubChromeHeaderPresent: Boolean(hubChromeHeader),
-          mainShellChildScrollLocked,
-        }) &&
+        liveSurfaceSlide &&
         !prefersReducedMotion() &&
         !pendingMenuIntent?.mainShellCrossGroupPush
       ) {
@@ -800,7 +814,14 @@ export function AppRouteTransition({
             headerFixed: Boolean(hubChromeHeader) && isMypageStackHeaderFixedKind(kind),
           });
           const cleanupEnter = beginHubFallbackEnter(el, pushAxis, pathKey);
-          mountUnderlayIfEntering(el, pushAxis, prev.pathname, pathKey, deliveryStackMs);
+          mountUnderlayIfEntering(
+            el,
+            pushAxis,
+            prev.pathname,
+            pathKey,
+            deliveryStackMs ?? mypageMotionPushDurationMs(kind),
+            !fallbackEligible
+          );
           return cleanupEnter;
         }
         return undefined;
@@ -1062,7 +1083,13 @@ export function AppRouteTransition({
     underlayCaptureRef.current = null;
     const el = subtleEnterRef.current;
     if (!el || pushSessionActiveRef.current || prefersReducedMotion()) return;
-    if (!needsDeliveryHomeSurfaceUnderlay(fromPath, toPath)) return;
+    /**
+     * D1 S1: 머리글 없는 화면(통화 제외)으로 가는 이동도 밑그림이 필요하다 — 예전 두 화면 연출 대신
+     * `mountUnderlayIfEntering(…, exit)` 가 이 복제본을 밀어 낸다. 연출을 안 하는 이동이면 쓰이지 않고 버려진다.
+     */
+    const headerlessSlideTarget =
+      !hubChromeHeader && !mainShellChildScrollLocked && !isCommunityMessengerCallPath(toPath);
+    if (!needsDeliveryHomeSurfaceUnderlay(fromPath, toPath) && !headerlessSlideTarget) return;
     underlayCaptureRef.current = captureMainShellSurfaceUnderlay(el, fromPath, toPath);
   };
 
