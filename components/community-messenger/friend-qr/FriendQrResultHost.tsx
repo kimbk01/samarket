@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
+import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/components/community-messenger/MessengerSheetUi";
 import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 import { useFriendQrResultStore } from "@/lib/community-messenger/friend-qr/friend-qr-result-store";
 import {
@@ -118,7 +118,9 @@ export function FriendQrResultHost({
 
   return (
     <MessengerHomeBottomSheetShell onClose={close} closeAriaLabel={t("nav_close")} dialogAriaLabel={t("friend_qr_add")}>
-      <div className="grid gap-3 px-4 pb-5 pt-4" data-testid="friend-qr-result">
+      {/** 머리 = 메신저 시트 공용(손잡이·제목·닫기 X) — 닫기는 X 하나, 본문 하단 = 기기 안전 영역 */}
+      <MessengerSheetHeaderBar title={t("friend_qr_add")} onClose={close} closeLabel={t("nav_close")} />
+      <div className="grid gap-3 px-4 pb-[max(1rem,var(--kb-safe-bottom))] pt-4" data-testid="friend-qr-result">
         {preview && !preview.isSelf ? (
           <div className="grid justify-items-center gap-1.5 text-center">
             <SamarketUserAvatar avatarUrl={preview.avatarUrl} sizePx={72} alt="" />
@@ -166,9 +168,6 @@ export function FriendQrResultHost({
             </button>
           )
         ) : null}
-        <button type="button" className="dibay-overlay-btn dibay-overlay-btn--secondary w-full" onClick={close}>
-          {t("common_cancel")}
-        </button>
       </div>
     </MessengerHomeBottomSheetShell>
   );

@@ -149,23 +149,27 @@ export function MyFriendQrPanel() {
         {idUi.atDisplay ? <p className="text-[14px] font-semibold text-sam-primary">{idUi.atDisplay}</p> : null}
         <p className="text-[12px] text-sam-muted">{t("friend_qr_my_hint")}</p>
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        <button type="button" className="dibay-overlay-btn dibay-overlay-btn--secondary" disabled={!qr || !qrImage || busy !== null} onClick={() => void share()}>
+      {/**
+       * CTA 위계 (설계안 v3 §3.6 · 텔레그램·라인 내 QR 화면): 주 행동 「공유」 + 보조 「이미지 저장」 두 칸,
+       * 드물고 되돌릴 수 없는 「QR 다시 만들기」는 같은 무게 버튼으로 두지 않고 아래 글자 버튼(확인 시트 거침).
+       */}
+      <div className="dibay-overlay-actions dibay-overlay-actions--row !mt-0">
+        <button type="button" className="dibay-overlay-btn dibay-overlay-btn--primary" disabled={!qr || !qrImage || busy !== null} onClick={() => void share()}>
           {t("friend_qr_share")}
         </button>
         <button type="button" className="dibay-overlay-btn dibay-overlay-btn--secondary" disabled={!qr || !qrImage || busy !== null} onClick={() => void save()}>
           {t("friend_qr_save_image")}
         </button>
-        <button
-          type="button"
-          className="dibay-overlay-btn dibay-overlay-btn--secondary"
-          disabled={!qr || !qrImage || busy !== null}
-          onClick={() => setConfirmOpen(true)}
-          data-testid="friend-qr-regenerate"
-        >
-          {t("friend_qr_regenerate")}
-        </button>
       </div>
+      <button
+        type="button"
+        className="dibay-overlay-btn dibay-overlay-btn--text"
+        disabled={!qr || !qrImage || busy !== null}
+        onClick={() => setConfirmOpen(true)}
+        data-testid="friend-qr-regenerate"
+      >
+        {t("friend_qr_regenerate")}
+      </button>
       <MobileConfirmBottomSheet
         open={confirmOpen}
         title={t("friend_qr_regenerate_title")}
