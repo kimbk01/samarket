@@ -65,11 +65,22 @@ export function MessengerHomeBottomSheetShell({
     setMounted(true);
   }, []);
 
+  /**
+   * 열림 움직임 — 모든 위치(하단 시트·기기 하단·가운데)에 적용. 공용 오버레이(`DibayOverlayRoot`)와 같이
+   * rAF 두 번: 시작 위치(아래 100%)를 한 번 그린 뒤 들어온다 — 한 번이면 시작 위치 없이 바로 그려져 움직임이 안 보인다.
+   * (QR 시트가 아래→위로 올라오지 않던 결함, Owner 실기 2026-11-12)
+   */
   useEffect(() => {
-    if (!mounted || (anchor !== "device-bottom" && anchor !== "center")) return;
-    const id = requestAnimationFrame(() => setEntered(true));
-    return () => cancelAnimationFrame(id);
-  }, [mounted, anchor]);
+    if (!mounted) return;
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => setEntered(true));
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [mounted]);
 
   useEffect(() => {
     const prevOverflow = document.body.style.overflow;
@@ -89,11 +100,9 @@ export function MessengerHomeBottomSheetShell({
       ? "messenger-home-center-sheet-panel"
       : `${MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS} ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}`;
   const panelMotionClass =
-    deviceBottom ?
-      entered ? "messenger-home-bottom-sheet-panel--entered" : "messenger-home-bottom-sheet-panel--entering"
-    : center ?
+    center ?
       entered ? "messenger-home-center-sheet-panel--entered" : "messenger-home-center-sheet-panel--entering"
-    : "";
+    : entered ? "messenger-home-bottom-sheet-panel--entered" : "messenger-home-bottom-sheet-panel--entering";
 
   return createPortal(
     <div

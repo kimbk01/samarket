@@ -22,6 +22,13 @@ import type { ProfileRow } from "@/lib/profile/types";
 type MyQr = { token: string; url: string };
 
 /**
+ * QR 한 변 — min(184px, 카드 폭 70%, 화면에 시트가 다 들어가는 크기). 작은 화면(가로 태블릿 601px 등)에서
+ * [공유]·[QR 다시 만들기]가 기기 하단 안전 영역 위에 보이게
+ * (Xiaomi 실측 2026-11-12: 시트 본문 451px, QR 외 330px = 머리·탭 78 + 카드 글자·버튼·여백 305 + 안전 영역).
+ */
+const FRIEND_QR_IMAGE_SIDE = "min(184px, 70%, calc(88dvh - 383px - max(1rem, var(--kb-safe-bottom))))";
+
+/**
  * 내 QR (설계안 v3 §3.6 · QR 친구 시안 3판) — QR(가운데 내 사진)·이름·@회원 아이디,
  * 주 [공유] · 보조 [이미지 저장](브라우저만 — 앱은 S3 전까지 숨김) · 글자 [QR 다시 만들기](확인 시트).
  * QR 내용은 아이디가 아닌 토큰 주소 — 아이디를 바꿔도 QR 은 그대로.
@@ -166,7 +173,7 @@ export function MyFriendQrPanel() {
     <div className="space-y-3" data-testid="my-friend-qr">
       {/** 카드 — 시트 토큰만. 이름·아이디는 말줄임 없이 줄바꿈 (QR 친구 시안 3판 화면 규칙) */}
       <div className="grid justify-items-center gap-1 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-4 pb-4 pt-[18px] text-center">
-        <div className="relative aspect-square w-[min(184px,70%)]">
+        <div className="relative aspect-square" style={{ width: FRIEND_QR_IMAGE_SIDE }}>
           {qrImage ? (
             // eslint-disable-next-line @next/next/no-img-element -- data: URL QR 이미지
             <img src={qrImage} alt="" className="h-full w-full" />

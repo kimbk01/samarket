@@ -6,7 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { parsePcQrLoginPayload } from "@/lib/auth/pc-qr-login/pc-qr-login-contract";
 import { MYPAGE_PROFILE_HREF } from "@/lib/mypage/mypage-profile-routes";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
-import { useQrCameraScanner } from "@/lib/qr/use-qr-camera-scanner";
+import { QR_SCANNER_BLANK_POSTER, useQrCameraScanner } from "@/lib/qr/use-qr-camera-scanner";
 
 type Describe = {
   client: string | null;
@@ -66,7 +66,7 @@ export function PcLoginScanContent() {
   );
 
   // 카메라 + QR 읽기 (scanning 상태에서만) — 공용 스캐너
-  const { videoRef, canvasRef } = useQrCameraScanner({
+  const { videoRef, canvasRef, videoReady } = useQrCameraScanner({
     active: isApp && state.kind === "scanning",
     onCode: (data) => {
       const parsed = parsePcQrLoginPayload(data);
@@ -198,7 +198,15 @@ export function PcLoginScanContent() {
   return (
     <div className="px-4 py-4" data-testid="pc-login-scan">
       <div className="relative mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-ui-rect bg-black">
-        <video ref={videoRef} className="h-full w-full object-cover" playsInline muted autoPlay />
+        {/* 투명 포스터 + 첫 화면 전 숨김 — WebView 회색 ▶ 아이콘 제거 (QR 스캐너 공용, 2026-11-12) */}
+        <video
+          ref={videoRef}
+          poster={QR_SCANNER_BLANK_POSTER}
+          className={`h-full w-full object-cover transition-opacity duration-200 ${videoReady ? "opacity-100" : "opacity-0"}`}
+          playsInline
+          muted
+          autoPlay
+        />
         <div className="pointer-events-none absolute inset-[18%] rounded-ui-rect border-2 border-white/80" aria-hidden />
         <canvas ref={canvasRef} className="hidden" aria-hidden />
       </div>

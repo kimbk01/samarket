@@ -186,3 +186,37 @@ describe("QR 친구 재감사 수정 (2026-11-12)", () => {
   });
 });
 
+describe("Owner 실기 2026-11-12 — 카메라 켜기 전 화면·시트 움직임·작은 화면 하단 잘림", () => {
+  it("카메라 첫 화면 전: 투명 포스터(WebView 회색 ▶ 제거) + 영상 숨김 + 「카메라를 켜는 중이에요」", () => {
+    const hook = read("lib/qr/use-qr-camera-scanner.ts");
+    expect(hook).toContain('export const QR_SCANNER_BLANK_POSTER = "data:image/gif;base64,');
+    expect(hook).toContain("return { videoRef, canvasRef, stop, videoReady };");
+    for (const f of ["components/community-messenger/friend-qr/FriendQrScanPanel.tsx", "components/my/settings/PcLoginScanContent.tsx"]) {
+      const src = read(f);
+      expect(src).toContain("poster={QR_SCANNER_BLANK_POSTER}");
+      expect(src).toContain('${videoReady ? "opacity-100" : "opacity-0"}');
+    }
+    expect(read("components/community-messenger/friend-qr/FriendQrScanPanel.tsx")).toContain('t("friend_qr_camera_starting")');
+  });
+
+  it("메신저 하단 시트는 아래→위로 올라온다 (공용 오버레이와 같은 값, rAF 두 번)", () => {
+    const shell = read("components/community-messenger/MessengerSheetUi.tsx");
+    expect(shell).toContain("raf2 = requestAnimationFrame(() => setEntered(true));");
+    expect(shell).toContain('entered ? "messenger-home-bottom-sheet-panel--entered" : "messenger-home-bottom-sheet-panel--entering"');
+    const css = read("app/messenger-home-bottom-sheet.css");
+    expect(css).toContain(".messenger-home-bottom-sheet-panel.messenger-home-bottom-sheet-panel--entering {\n  transform: translate3d(0, 100%, 0);");
+    expect(css).toContain("transition: transform 300ms cubic-bezier(0.22, 0.9, 0.32, 1);");
+    expect(read("app/dibay-overlay.css")).toContain("transition: transform 300ms cubic-bezier(0.22, 0.9, 0.32, 1);");
+  });
+
+  it("작은 화면: QR·카메라 한 변을 시트 높이에 맞춰 하단 버튼이 안전 영역 위에 남는다 (Xiaomi 601px 실측 값)", () => {
+    expect(read("components/community-messenger/friend-qr/MyFriendQrPanel.tsx")).toContain(
+      'const FRIEND_QR_IMAGE_SIDE = "min(184px, 70%, calc(88dvh - 383px - max(1rem, var(--kb-safe-bottom))))";',
+    );
+    const scan = read("components/community-messenger/friend-qr/FriendQrScanPanel.tsx");
+    expect(scan).toContain('const FRIEND_QR_CAMERA_MAX_SIDE = "min(320px, calc(88dvh - 237px - max(1rem, var(--kb-safe-bottom))))";');
+    /** 알림은 안내 줄 자리에 바꿔 보인다 — 줄이 늘어 시트가 넘치지 않게 */
+    expect(scan).toContain(") : !cameraDenied ? (");
+  });
+});
+
