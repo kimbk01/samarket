@@ -39,7 +39,6 @@ import {
 import { MessengerNewConversationSheet } from "@/components/community-messenger/MessengerNewConversationSheet";
 import { MessengerHomeSubScreenHost } from "@/components/community-messenger/MessengerHomeSubScreenHost";
 import { MessengerBlockPeerConfirmModal } from "@/components/community-messenger/MessengerBlockPeerConfirmModal";
-import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { samTier1HeaderRightColumn } from "@/lib/ui/tier1-header-icon";
 import { tryRedirectMessengerHomeAuthBlocked } from "@/lib/community-messenger/home/messenger-home-auth-blocked-redirect";
 import {
@@ -586,12 +585,8 @@ function CommunityMessengerHomeRouterEffectsHost({
   return null;
 }
 
-/** 친구 「음성」 통화 선택 시트 (연락처 동기화 4단계 C1) — 이 기기에 번호가 있고 기본 「매번 묻기」일 때만 불러온다 */
-const ContactsCallChoiceSheetLazy = lazy(() =>
-  import("@/components/community-messenger/contacts/MessengerContactsCallChoiceSheet").then((m) => ({
-    default: m.MessengerContactsCallChoiceSheet,
-  }))
-);
+/** 통화 시트 (발신 창 통일 3판) — 친구 「통화」를 누를 때만 불러온다 (연락처 번호표를 읽음) */
+const HomeCallSheetLazy = lazy(() => import("@/components/community-messenger/call-ui/MessengerCallChoiceSheet"));
 
 export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   initialTab,
@@ -719,13 +714,14 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   /** 그룹 대화 친구 고르기 — 고른 친구(머리글 「고른 수」·아래 「n명으로 그룹 만들기」 같은 값) */
   const [pickSelectedIds, setPickSelectedIds] = useState<string[]>([]);
   const [friendSheet, setFriendSheet] = useState<FriendSheetState | null>(null);
-  const [homeOutgoingConfirm, setHomeOutgoingConfirm] = useState<null | {
+  /** 통화 시트 (발신 창 통일 3판) — 친구 프로필·친구 줄 빠른 메뉴 「통화」 */
+  const [homeCallSheet, setHomeCallSheet] = useState<null | {
     peerUserId: string;
-    /** 확인창 표시용 — 실제 이름을 모를 때만 「대화 상대」 */
+    /** 시트 제목 — 실제 이름을 모를 때만 「대화 상대」 */
     peerLabel: string;
     /** 발신 화면용 실제 이름 — 모르면 "" (대체 문구 금지, 발신 엔진이 서버 세션 이름으로 채움) */
     dialPeerLabel: string;
-    kind: "voice" | "video";
+    avatarUrl: string | null;
   }>(null);
   /** F-7 — 차단 확인 모달(해제는 확인 없이 toggleBlock) */
   const [blockConfirm, setBlockConfirm] = useState<null | {
@@ -2443,53 +2439,28 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     [resolveHomeDialPeerLabel, startDirectCall]
   );
 
-  const openHomeOutgoingConfirm = useCallback(
-    (peerUserId: string, kind: "voice" | "video", peerLabelOverride?: string | null) => {
+  /**
+   * 친구 「통화」 (프로필 시트·친구 줄 빠른 메뉴) → 통화 시트 (음성·영상·휴대폰 전화 · 발신 창 통일 3판).
+   * DIBAY 발신은 지금과 같은 `startFriendDirectCall`, 휴대폰 전화는 이 기기 연락처 번호가 있을 때만 시트가 연다.
+   */
+  const openHomeCallSheet = useCallback(
+    (peerUserId: string, peerLabelOverride?: string | null) => {
       const dialPeerLabel = resolveHomeDialPeerLabel(peerUserId, peerLabelOverride);
-      setHomeOutgoingConfirm({
+      const avatarUrl = sortedFriends.find((f) => f.id === peerUserId)?.avatarUrl ?? null;
+      setHomeCallSheet({
         peerUserId,
         peerLabel: dialPeerLabel || t("cm_ui_chat_peer_fallback"),
         dialPeerLabel,
-        kind,
+        avatarUrl,
       });
     },
-    [resolveHomeDialPeerLabel, t]
+    [resolveHomeDialPeerLabel, sortedFriends, t]
   );
-
-  /**
-   * 친구 「음성」 (프로필·친구 행 빠른 메뉴) — 연락처 동기화 4단계 C1:
-   * 이 기기 연락처에 그 친구 번호가 있고 기본 「매번 묻기」면 선택 시트(DIBAY 는 아래 기존 확인 경로 그대로 · 휴대폰 전화),
-   * 그 밖에는 지금과 완전히 같은 경로(`openHomeOutgoingConfirm`).
-   */
-  const [contactsCallChoice, setContactsCallChoice] = useState<{ peerUserId: string; peerLabel: string | null; number: string } | null>(null);
-  const viewerIdForContactsCall = data?.me?.id ?? null;
-  const friendVoiceCallWithContactsChoice = useCallback(
-    (userId: string, peerLabel?: string | null) => {
-      if (!viewerIdForContactsCall) {
-        openHomeOutgoingConfirm(userId, "voice", peerLabel);
-        return;
-      }
-      void import("@/components/community-messenger/contacts/contacts-friend-call")
-        .then((m) => {
-          const number = m.resolveContactsFriendChoiceNumber(viewerIdForContactsCall, userId);
-          if (number) setContactsCallChoice({ peerUserId: userId, peerLabel: peerLabel ?? null, number });
-          else openHomeOutgoingConfirm(userId, "voice", peerLabel);
-        })
-        .catch(() => openHomeOutgoingConfirm(userId, "voice", peerLabel));
-    },
-    [openHomeOutgoingConfirm, viewerIdForContactsCall]
-  );
-  const onFriendRowVoiceCallStable = useCallback(
+  const onFriendRowCallStable = useCallback(
     (userId: string) => {
-      friendVoiceCallWithContactsChoice(userId);
+      openHomeCallSheet(userId);
     },
-    [friendVoiceCallWithContactsChoice]
-  );
-  const onFriendRowVideoCallStable = useCallback(
-    (userId: string) => {
-      openHomeOutgoingConfirm(userId, "video");
-    },
-    [openHomeOutgoingConfirm]
+    [openHomeCallSheet]
   );
   const searchKeywordNormalized = roomSearchKeyword.trim().toLowerCase();
   const searchFriendMatches = useMemo(() => {
@@ -3583,8 +3554,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         retryPrivacyLists={retryPrivacyListsStable}
         onOpenArchivedChats={openArchivedChatsStable}
         startDirectRoom={onListPaneStartDirectRoom}
-        onFriendRowVoiceCallStable={onFriendRowVoiceCallStable}
-        onFriendRowVideoCallStable={onFriendRowVideoCallStable}
+        onFriendRowCallStable={onFriendRowCallStable}
         getFriendDirectRoomMutedStable={getFriendDirectRoomMutedStable}
         getFriendDirectRoomKindStable={getFriendDirectRoomKindStable}
         friendNotificationsBusyStable={friendNotificationsBusyStable}
@@ -3632,28 +3602,14 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       )}
       </MessengerFriendActionsProvider>
 
-      {contactsCallChoice ? (
-        <Suspense fallback={null}>
-          <ContactsCallChoiceSheetLazy
-            peerUserId={contactsCallChoice.peerUserId}
-            peerLabel={contactsCallChoice.peerLabel}
-            deviceNumber={contactsCallChoice.number}
-            onClose={() => setContactsCallChoice(null)}
-            onDibayCall={(kind) => openHomeOutgoingConfirm(contactsCallChoice.peerUserId, kind, contactsCallChoice.peerLabel)}
-          />
-        </Suspense>
-      ) : null}
       {friendSheet?.mode === "profile" && friendProfileForSheet ? (
         <MessengerFriendProfileSheet
           key={friendProfileForSheet.id}
           profile={friendProfileForSheet}
           busyId={busyId}
           onClose={() => setFriendSheet(null)}
-          onVoiceCall={() => {
-            friendVoiceCallWithContactsChoice(friendProfileForSheet.id, friendProfileForSheet.label);
-          }}
-          onVideoCall={() => {
-            openHomeOutgoingConfirm(friendProfileForSheet.id, "video", friendProfileForSheet.label);
+          onCall={() => {
+            openHomeCallSheet(friendProfileForSheet.id, friendProfileForSheet.label);
           }}
           onChat={() => {
             const id = friendProfileForSheet.id;
@@ -4191,19 +4147,21 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         />
       ) : null}
 
-      {homeOutgoingConfirm ? (
-        <MessengerOutgoingCallConfirmDialog
-          open
-          peerLabel={homeOutgoingConfirm.peerLabel}
-          kind={homeOutgoingConfirm.kind}
-          onCancel={() => setHomeOutgoingConfirm(null)}
-          onConfirm={() => {
-            const next = homeOutgoingConfirm;
-            setHomeOutgoingConfirm(null);
-            setFriendSheet(null);
-            void startFriendDirectCall(next.peerUserId, next.kind, next.dialPeerLabel);
-          }}
-        />
+      {homeCallSheet ? (
+        <Suspense fallback={null}>
+          <HomeCallSheetLazy
+            peerLabel={homeCallSheet.peerLabel}
+            peerAvatarUrl={homeCallSheet.avatarUrl}
+            viewerUserId={data?.me?.id ?? null}
+            peerUserId={homeCallSheet.peerUserId}
+            onClose={() => setHomeCallSheet(null)}
+            onDibayCall={(kind) => {
+              const next = homeCallSheet;
+              setFriendSheet(null);
+              void startFriendDirectCall(next.peerUserId, kind, next.dialPeerLabel);
+            }}
+          />
+        </Suspense>
       ) : null}
 
       <MessengerBlockPeerConfirmModal

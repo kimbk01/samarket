@@ -19,10 +19,10 @@ import type { ContactsCallDefault, ContactsMemberRow } from "@/lib/community-mes
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { formatAtUsername } from "@/lib/users/user-label";
 import {
-  MessengerContactsCallChoiceSheet,
   openContactsPhoneCall,
   startContactsDibayCall,
 } from "@/components/community-messenger/contacts/MessengerContactsCallChoiceSheet";
+import MessengerCallChoiceSheet from "@/components/community-messenger/call-ui/MessengerCallChoiceSheet";
 import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
 
 /**
@@ -112,15 +112,22 @@ export function MessengerContactsMemberSheet({
     setChoiceOpen(true);
   };
 
+  /** 기본 통화 방식 「매번 묻기」 → 통화 시트 (발신 창 통일 3판 — 앱 모든 발신과 같은 시트) */
   if (choiceOpen) {
     return (
-      <MessengerContactsCallChoiceSheet
-        peerUserId={member.user_id}
+      <MessengerCallChoiceSheet
         peerLabel={name}
-        deviceNumber={deviceNumber}
+        peerAvatarUrl={member.avatar_url}
+        viewerUserId={null}
+        peerUserId={member.user_id}
+        phoneNumber={deviceNumber}
         onClose={() => {
           setChoiceOpen(false);
           onClose();
+        }}
+        onDibayCall={(kind) => {
+          unlockCommunityMessengerCallPlaybackFromUserGesture();
+          void startContactsDibayCall(router, member.user_id, kind, name);
         }}
       />
     );

@@ -557,7 +557,10 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
           peerLabel={voiceConfirmPeerLabel}
           viewerUserId={vm.snapshot.viewerUserId ?? null}
           peerUserId={peerUserId || null}
-          choice={callChoice}
+          peerAvatarUrl={useDeliveryHeaderBlock ? deliveryMeta?.thumbnailUrl ?? vm.snapshot.room.avatarUrl : vm.snapshot.room.avatarUrl}
+          voice={callChoice.voice}
+          video={callChoice.video}
+          busy={vm.outgoingDialLocked}
           onClose={() => setCallChoiceOpen(false)}
           onDibayCall={(kind) => {
             logCallV3ButtonClick({

@@ -22,8 +22,8 @@ describe("direct call unavailable reason", () => {
   });
 
   /**
-   * 통화 버튼 통합 2판 (Owner 승인 2026-11-12) 이후 진입점: 방 헤더 📞 하나 → 선택 시트 · 통화 목록 줄.
-   * R-3 계약은 유지 — 막혀도 숨기지 않고 이유를 보인다(시트 줄 회색 + 이유 / 목록 줄 흐림 + 안내), 발신 경로 무변경.
+   * 발신 창 통일 3판 (Owner 승인 2026-11-12): 모든 1:1 발신 = 통화 시트 하나.
+   * R-3 계약은 유지 — 막혀도 숨기지 않고 이유를 보인다(시트 회색 버튼 + 아래 이유 / 목록 줄 흐림 + 안내), 발신 경로 무변경.
    */
   it("진입점: 막혀도 이유 안내, 정상이면 기존 발신 경로 그대로", () => {
     const header = read("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Header.tsx");
@@ -34,18 +34,20 @@ describe("direct call unavailable reason", () => {
     expect(header).toContain('void vm.startManagedDirectCall("voice");');
     expect(header).toContain("void vm.startManagedDirectCall(kind, voiceConfirmPeerLabel);");
     const sheet = read("components/community-messenger/call-ui/MessengerCallChoiceSheet.tsx");
-    expect(sheet).toContain("r.enabled ? t(\"cm_contacts_call_dibay_sub\") : t(r.reasonKey)");
+    expect(sheet).toContain('{!voice.enabled && !sameDibayReason ? reason("voice", t(voice.reasonKey)) : null}');
+    expect(sheet).toContain('reason("video", t(video.reasonKey))');
+    expect(sheet).toContain('roleTone="primary"');
     /** 방 ⋮ 메뉴에는 통화 줄이 없다 (중복 제거) */
     const moreMenu = read("components/community-messenger/room/phase2/ChatRoomMoreMenu.tsx");
     expect(moreMenu).not.toContain("onVoiceCall");
     expect(moreMenu).not.toContain("onVideoCall");
-    /** 방 안 통화 기록 말풍선: 다시 걸 수 없으면(방 규칙·막힘) 조용히 무시하지 않고 이유 안내 (PR #155 Bugbot) */
+    /** 방 안 통화 기록 말풍선: 헤더와 같은 통화 시트 — 막힌 버튼은 시트가 회색 + 이유로 보인다 (조용한 무시 없음) */
     const timeline = read("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx");
-    expect(timeline).toMatch(/if \(!row\.enabled\) \{[\s\S]*?showMessengerSnackbar\(redialT\(row\.reasonKey\)/);
-    expect(timeline).not.toContain('if (row.reason === "unavailable") showMessengerSnackbar');
+    expect(timeline).toContain("setStubCallSheetOpen(true);");
+    expect(timeline).toContain("voice={callChoice.voice}");
     const row = read("components/community-messenger/call-history/CommunityMessengerCallRow.tsx");
     expect(row).toContain('dimmed={relationMark === "unavailable"}');
-    expect(row).toContain("onRequestOutgoingConfirm(call, vm.callKind);");
+    expect(row).toContain("onRequestOutgoingConfirm(call);");
   });
 
   it("방 헤더는 연락처 코드를 정적으로 가져오지 않는다 (선택 시트는 📞 누를 때만 지연 import)", () => {

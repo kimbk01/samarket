@@ -33,7 +33,8 @@ const DRAG_CANCEL_Y = 14;
 type Props = {
   call: CommunityMessengerCallLog;
   onNavigate: (call: CommunityMessengerCallLog) => void;
-  onRequestOutgoingConfirm: (call: CommunityMessengerCallLog, kind: "voice" | "video") => void;
+  /** 다시 걸기 → 통화 시트 (발신 창 통일 3판) — 아이콘 모양은 기록 종류(음성 = 전화 · 영상 = 카메라) */
+  onRequestOutgoingConfirm: (call: CommunityMessengerCallLog) => void;
   onDeleteRequest: (call: CommunityMessengerCallLog) => void;
   globalRedialBlocked: boolean;
   openedSwipeItemId: string | null;
@@ -352,7 +353,7 @@ export function CommunityMessengerCallRow({
                 showMessengerSnackbar(t(key), { variant: "default" });
                 return;
               }
-              onRequestOutgoingConfirm(call, vm.callKind);
+              onRequestOutgoingConfirm(call);
             }}
           />
         </div>

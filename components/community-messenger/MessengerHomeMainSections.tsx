@@ -79,8 +79,7 @@ type Props = {
   /** 대화 목록 맨 아래 「보관함」 줄 (항상) → 보관함 첫 화면 */
   onOpenArchivedChats: () => void;
   onFriendRowChat: (userId: string) => void;
-  onFriendRowVoiceCall: (userId: string) => void;
-  onFriendRowVideoCall: (userId: string) => void;
+  onFriendRowCall: (userId: string) => void;
   getFriendDirectRoomMuted: (userId: string) => boolean | undefined;
   getFriendDirectRoomKind: (userId: string) => "trade" | "delivery" | null;
   friendNotificationsBusy: (userId: string) => boolean;
@@ -156,8 +155,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   onRetryPrivacyLists,
   onOpenArchivedChats,
   onFriendRowChat,
-  onFriendRowVoiceCall,
-  onFriendRowVideoCall,
+  onFriendRowCall,
   getFriendDirectRoomMuted,
   getFriendDirectRoomKind,
   friendNotificationsBusy,
@@ -293,8 +291,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onFriendRemove={onFriendSwipeRemove}
             onFriendBlock={onFriendSwipeBlock}
             onFriendChat={onFriendRowChat}
-            onFriendVoiceCall={onFriendRowVoiceCall}
-            onFriendVideoCall={onFriendRowVideoCall}
+            onFriendCall={onFriendRowCall}
             getFriendDirectRoomMuted={getFriendDirectRoomMuted}
             getFriendDirectRoomKind={getFriendDirectRoomKind}
             friendNotificationsBusy={friendNotificationsBusy}

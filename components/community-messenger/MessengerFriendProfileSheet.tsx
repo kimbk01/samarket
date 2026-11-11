@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommunityMessengerFriendPresenceLine } from "@/components/community-messenger/friend-list/CommunityMessengerFriendPresenceLine";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
-import { Ban, Bell, BellOff, Check, Eye, EyeOff, Flag, MessageCircle, Phone, Star, UserMinus, Users, Video, X } from "lucide-react";
+import { Ban, Bell, BellOff, Check, Eye, EyeOff, Flag, MessageCircle, Phone, Star, UserMinus, Users, X } from "lucide-react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import { hasCustomUserAvatar, resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
@@ -34,8 +34,8 @@ type Props = {
    * (방 안 통화는 헤더 📞 선택 시트 하나 — 통화 버튼 통합 2판 · Owner 2026-11-12).
    */
   context?: "default" | "roomHeader";
-  onVoiceCall?: () => void;
-  onVideoCall?: () => void;
+  /** 「통화」 — 통화 시트(음성·영상·휴대폰)를 연다 (발신 창 통일 3판). 방 안(roomHeader)은 없음 */
+  onCall?: () => void;
   onChat?: () => void;
   onToggleFavorite?: () => void;
   onToggleHidden?: () => void;
@@ -63,8 +63,7 @@ export function MessengerFriendProfileSheet({
   busyId,
   onClose,
   context = "default",
-  onVoiceCall,
-  onVideoCall,
+  onCall,
   onChat,
   onToggleFavorite,
   onToggleHidden,
@@ -171,21 +170,13 @@ export function MessengerFriendProfileSheet({
     ...(showCallActions
       ? [
           {
-            key: "voice",
+            key: "call",
             icon: <Phone strokeWidth={2.2} />,
-            label: t("nav_voice_call_label"),
-            onClick: onVoiceCall,
+            label: t("cm_ui_call"),
+            onClick: onCall,
             disabled: anyBusy || !canCall,
-            loading: bVoice,
+            loading: bVoice || bVideo,
             primary: !showDirectChatAction && !friendCtaShown,
-          },
-          {
-            key: "video",
-            icon: <Video strokeWidth={2.2} />,
-            label: t("nav_video_call_label"),
-            onClick: onVideoCall,
-            disabled: anyBusy || !canCall,
-            loading: bVideo,
           },
         ]
       : []),

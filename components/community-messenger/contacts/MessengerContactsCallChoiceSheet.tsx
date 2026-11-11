@@ -1,24 +1,20 @@
 "use client";
 
 /**
- * 연락처 회원 「전화」 선택 (연락처 동기화 4단계 C1 · 영향 분석 docs/design/messenger-contacts-call-stage4-impact.md).
+ * 연락처 회원 「전화」 발신 함수 (연락처 동기화 4단계 C1 · 영향 분석 docs/design/messenger-contacts-call-stage4-impact.md).
+ * 선택 화면은 앱 공용 통화 시트 `components/community-messenger/call-ui/MessengerCallChoiceSheet.tsx` 하나로 통일 (발신 창 통일 3판 · Owner 2026-11-12).
  * - DIBAY 음성·영상: 기존 발신 함수를 그대로 쓴다 (홈·거래 통화 버튼과 같은 순서:
  *   guardInstantOutgoingCallStart → launchOutgoingDirectCall · 실패는 alertOutgoingCallFailure · 전화 인증 필요면 그 안내).
  *   통화 세션·푸시·네이티브·권한 판정은 바꾸지 않는다 (상대 통화 설정·차단은 서버가 그대로 판정).
  * - 휴대폰 전화: 이 기기에 저장된 번호로 `tel:` (서버·통화 세션 없음).
  */
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
-import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
 import { launchOutgoingDirectCall } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
   guardInstantOutgoingCallStart,
   isOutgoingCallPhoneVerificationRequired,
   navigateBlockedOutgoingCall,
 } from "@/lib/call/outgoing-call-start-guard";
-import { useOutgoingCallBlocked } from "@/lib/call/use-outgoing-call-blocked";
 import { alertOutgoingCallFailure } from "@/lib/community-messenger/call-outgoing-failure-alert";
 
 export type ContactsCallKind = "voice" | "video";
@@ -48,84 +44,4 @@ export async function startContactsDibayCall(
 
 export function openContactsPhoneCall(deviceNumber: string): void {
   window.location.assign(`tel:${deviceNumber}`);
-}
-
-export function MessengerContactsCallChoiceSheet({
-  peerUserId,
-  peerLabel,
-  deviceNumber,
-  onClose,
-  onDibayCall,
-}: {
-  peerUserId: string;
-  peerLabel: string | null;
-  deviceNumber: string | null;
-  onClose: () => void;
-  /**
-   * DIBAY 통화를 호출한 화면의 기존 경로로 보낼 때 (친구 프로필 = 홈 발신 확인 경로 그대로 — C1 「지금과 같은 경로」).
-   * 없으면 연락처 회원과 같은 기존 발신 함수.
-   */
-  onDibayCall?: (kind: ContactsCallKind) => void;
-}) {
-  const { t } = useI18n();
-  const router = useRouter();
-  const { blocked: outgoingBlocked } = useOutgoingCallBlocked();
-  const [busy, setBusy] = useState(false);
-
-  /** 호출한 화면의 기존 경로로 보낼 때는 그 경로가 발신 중 판정·진행 중 통화 이동을 한다 → 여기서 막지 않음 */
-  const dibayBlocked = !onDibayCall && outgoingBlocked;
-  const dibay = async (kind: ContactsCallKind) => {
-    if (busy || dibayBlocked) return;
-    if (onDibayCall) {
-      onClose();
-      onDibayCall(kind);
-      return;
-    }
-    unlockCommunityMessengerCallPlaybackFromUserGesture();
-    setBusy(true);
-    const ok = await startContactsDibayCall(router, peerUserId, kind, peerLabel);
-    setBusy(false);
-    if (ok) onClose();
-  };
-
-  const row = (key: string, label: string, sub: string, onClick: () => void, disabled: boolean) => (
-    <button
-      key={key}
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className="flex min-h-[52px] w-full items-center justify-between gap-3 border-t border-[color:var(--overlay-border)] px-4 text-left"
-      // 막힘은 흐리게(opacity)가 아니라 보조 글자색으로 (UI SSOT)
-      style={{ color: disabled ? "var(--overlay-text-secondary)" : "var(--overlay-text-primary)" }}
-    >
-      <span className="text-[15px]">{label}</span>
-      <span className="text-[12px]" style={{ color: "var(--overlay-text-secondary)" }}>
-        {sub}
-      </span>
-    </button>
-  );
-
-  return (
-    <MessengerHomeBottomSheetShell onClose={onClose} closeAriaLabel={t("cm_contacts_cancel")} anchor="fit-content" dialogAriaLabel={t("cm_contacts_member_phone_call")}>
-      <div className="pb-[max(1rem,var(--safe-bottom))] pt-4" data-cm-contacts-call-choice="">
-        <p className="px-4 pb-2 text-[16px] font-semibold" style={{ color: "var(--overlay-text-primary)" }}>
-          {t("cm_contacts_member_phone_call")}
-          {peerLabel ? ` · ${peerLabel}` : ""}
-        </p>
-        {row("voice", t("cm_contacts_call_dibay_voice"), t("cm_contacts_call_dibay_sub"), () => void dibay("voice"), busy || dibayBlocked)}
-        {row("video", t("cm_contacts_call_dibay_video"), t("cm_contacts_call_dibay_sub"), () => void dibay("video"), busy || dibayBlocked)}
-        {row(
-          "phone",
-          t("cm_contacts_call_phone"),
-          deviceNumber ? t("cm_contacts_member_phone_call_sub") : t("cm_contacts_member_no_number"),
-          () => {
-            if (!deviceNumber) return;
-            openContactsPhoneCall(deviceNumber);
-            onClose();
-          },
-          !deviceNumber || busy
-        )}
-      </div>
-    </MessengerHomeBottomSheetShell>
-  );
 }

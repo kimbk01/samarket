@@ -88,8 +88,7 @@ type Props = {
   retryPrivacyLists: () => void;
   onOpenArchivedChats: () => void;
   startDirectRoom: (userId: string) => void;
-  onFriendRowVoiceCallStable: (userId: string) => void;
-  onFriendRowVideoCallStable: (userId: string) => void;
+  onFriendRowCallStable: (userId: string) => void;
   getFriendDirectRoomMutedStable: (userId: string) => boolean | undefined;
   getFriendDirectRoomKindStable: (userId: string) => "trade" | "delivery" | null;
   friendNotificationsBusyStable: (userId: string) => boolean;
@@ -218,11 +217,8 @@ function communityMessengerHomeListPanePropsEqual(prev: Props, next: Props): boo
   if (prev.retryPrivacyLists !== next.retryPrivacyLists) reasons.push("retryPrivacyLists");
   if (prev.onOpenArchivedChats !== next.onOpenArchivedChats) reasons.push("onOpenArchivedChats");
   if (prev.startDirectRoom !== next.startDirectRoom) reasons.push("startDirectRoom");
-  if (prev.onFriendRowVoiceCallStable !== next.onFriendRowVoiceCallStable) {
-    reasons.push("onFriendRowVoiceCallStable");
-  }
-  if (prev.onFriendRowVideoCallStable !== next.onFriendRowVideoCallStable) {
-    reasons.push("onFriendRowVideoCallStable");
+  if (prev.onFriendRowCallStable !== next.onFriendRowCallStable) {
+    reasons.push("onFriendRowCallStable");
   }
   if (prev.getFriendDirectRoomMutedStable !== next.getFriendDirectRoomMutedStable) {
     reasons.push("getFriendDirectRoomMutedStable");
@@ -423,8 +419,7 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
                 onRetryPrivacyLists={props.retryPrivacyLists}
                 onOpenArchivedChats={props.onOpenArchivedChats}
                 onFriendRowChat={props.startDirectRoom}
-                onFriendRowVoiceCall={props.onFriendRowVoiceCallStable}
-                onFriendRowVideoCall={props.onFriendRowVideoCallStable}
+                onFriendRowCall={props.onFriendRowCallStable}
                 getFriendDirectRoomMuted={props.getFriendDirectRoomMutedStable}
                 onFriendToggleRoomMute={props.onFriendToggleRoomMuteStable}
                 getFriendDirectRoomKind={props.getFriendDirectRoomKindStable}
@@ -531,8 +526,7 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
                 onRetryPrivacyLists={props.retryPrivacyLists}
                 onOpenArchivedChats={props.onOpenArchivedChats}
               onFriendRowChat={props.startDirectRoom}
-              onFriendRowVoiceCall={props.onFriendRowVoiceCallStable}
-              onFriendRowVideoCall={props.onFriendRowVideoCallStable}
+              onFriendRowCall={props.onFriendRowCallStable}
               getFriendDirectRoomMuted={props.getFriendDirectRoomMutedStable}
               getFriendDirectRoomKind={props.getFriendDirectRoomKindStable}
               friendNotificationsBusy={props.friendNotificationsBusyStable}

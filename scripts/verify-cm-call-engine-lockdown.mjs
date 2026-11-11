@@ -14,7 +14,6 @@ const failures = [];
 const OUTGOING_CTA_FILES = [
   "components/community-messenger/CommunityMessengerHome.tsx",
   "components/community-messenger/MessengerCallLogsPanel.tsx",
-  "components/chats/TradeChatCallHeaderButtons.tsx",
   "lib/community-messenger/room/phase2/use-messenger-room-phase2-controller.ts",
   "app/(main)/community-messenger/calls/outgoing/CommunityMessengerOutgoingDialPageClient.tsx",
 ];

@@ -26,7 +26,8 @@ type Props = {
   loading?: boolean;
   error?: string | null;
   onNavigate: (call: CommunityMessengerCallLog) => void;
-  onRequestOutgoingConfirm: (call: CommunityMessengerCallLog, kind: "voice" | "video") => void;
+  /** 다시 걸기 → 통화 시트 (발신 창 통일 3판) */
+  onRequestOutgoingConfirm: (call: CommunityMessengerCallLog) => void;
   onDeleteRequest: (call: CommunityMessengerCallLog) => void;
   openedSwipeItemId: string | null;
   onOpenSwipeItem: (id: string | null) => void;

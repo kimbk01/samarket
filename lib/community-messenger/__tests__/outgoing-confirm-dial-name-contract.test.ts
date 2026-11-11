@@ -26,7 +26,9 @@ describe("outgoing confirm dialog name = dial name", () => {
     expect(h).toContain("peerLabel={voiceConfirmPeerLabel}");
     expect(h).toContain("vm.startManagedDirectCall(kind, voiceConfirmPeerLabel)");
     const sheet = src("components/community-messenger/call-ui/MessengerCallChoiceSheet.tsx");
-    expect(sheet).toContain('{peerLabel ? ` · ${peerLabel}` : ""}');
+    /** 발신 창 통일 3판: 시트 제목 = 받는 사람 이름 (대체 문구는 표시 전용) */
+    expect(sheet).toContain('const title = peerLabel.trim() || t("common_partner");');
+    expect(sheet).toContain("{title}</h2>");
   });
 
   it("매장 주문 구매자: 헤더 발신 이름은 매장명 (room.title 금지) · 주문 진행 시트 📞 없음", () => {
@@ -38,13 +40,9 @@ describe("outgoing confirm dialog name = dial name", () => {
     expect(drawer).not.toContain("onVoiceCall");
   });
 
-  it("거래 채팅: 확인창·발신 모두 상대 닉네임, 대체 문구는 확인창 표시 전용", () => {
-    const t = src("components/chats/TradeChatCallHeaderButtons.tsx");
-    expect(t).toContain('peerLabel={dialPeerLabel || t("common_partner")}');
-    expect(t).toContain("peerLabel: dialPeerLabel || undefined");
+  /** 발신 창 통일 3판: 옛 거래 화면 통화 버튼(도달 불가)은 삭제 — 거래방 발신은 메신저 방 헤더 통화 시트 하나 */
+  it("거래 채팅: 옛 거래 화면 통화 버튼 없음", () => {
     const v = src("components/chats/ChatDetailView.tsx");
-    expect(v).toContain("peerDisplayName={room.partnerDisplayName ?? null}");
-    /** F2: 프로필 없을 때 ID 조각(partnerNickname 대체값)을 발신 이름으로 쓰지 않는다 */
-    expect(v).not.toContain("peerDisplayName={room.partnerNickname");
+    expect(v).not.toContain("TradeChatCallHeaderButtons");
   });
 });

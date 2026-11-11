@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   communityMessengerRoomIsGloballyUsable,
   type CommunityMessengerMessage,
@@ -141,6 +141,11 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { isCmGroupCallEnabled } from "@/lib/community-messenger/call-phase0-basics";
 import { useMessengerRoomCallChoice } from "@/components/community-messenger/room/phase2/use-messenger-room-call-choice";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+
+/** 통화 시트 — 말풍선을 누를 때만 불러온다 (연락처 코드를 방 진입 경로에 넣지 않음) */
+const MessengerCallChoiceSheetLazy = lazy(
+  () => import("@/components/community-messenger/call-ui/MessengerCallChoiceSheet")
+);
 
 const CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS = 10;
 /** R10 — direct tail 유지·upgrade 측정 상한(전체 measureElement 금지) */
@@ -836,7 +841,10 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     reactionKey: string;
     anchor: CommunityMessengerMessageActionAnchorRect;
   } | null>(null);
+  /** 그룹방(통화 보류 해제 시) 말풍선 다시 걸기 — 그룹 통화 확인 팝업 (보류 중이라 손대지 않음) */
   const [stubRedialConfirmKind, setStubRedialConfirmKind] = useState<null | "voice" | "video">(null);
+  /** 1:1·거래·주문 방 말풍선 → 통화 시트 (발신 창 통일 3판) */
+  const [stubCallSheetOpen, setStubCallSheetOpen] = useState(false);
   /** F3: 통화 기록 다시 걸기 확인창·발신 공용 이름 — 매장 주문 구매자는 매장명, 아니면 방 제목 */
   const stubRedialPeerLabel = vm.storeOrderBuyerDialPeerLabel ?? (vm.snapshot.room.title?.trim() || "");
 
@@ -1260,24 +1268,18 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [vm.setMessageActionItem]
   );
-  /** 통화 버튼 통합 2판 (Owner 2026-11-12): 헤더 📞 선택 시트와 같은 판정 — 방 규칙(거래 글·매장 설정)·차단 */
+  /** 통화 시트 판정 — 헤더 📞 와 같은 단일 정의 (방 규칙·차단·발신 중) */
   const callChoice = useMessengerRoomCallChoice(vm);
-  /** 말풍선 행 memo 가 매 메시지마다 깨지지 않도록 판정은 ref 로 읽는다 (콜백 정체성 유지) */
-  const callChoiceRef = useRef(callChoice);
-  useLayoutEffect(() => {
-    callChoiceRef.current = callChoice;
-  }, [callChoice]);
   const redialIsGroupRoom = vm.isGroupRoom;
   const redialRoomUnavailable = vm.roomUnavailable;
   const redialT = vm.t;
   const startCallStubRedial = useCallback(
     (kind: "voice" | "video") => {
-      /**
-       * 말풍선은 눌리는 모양이 따로 없으므로, 다시 걸 수 없을 때도 조용히 무시하지 않고 이유를 안내한다
-       * (R-3 「막혀도 이유 안내」 · 감사 D8 · PR #155 Bugbot 지적).
-       */
       if (redialIsGroupRoom) {
-        /** 그룹 통화 보류(Owner 2026-11-09) — 그룹방 통화 기록 말풍선으로 다시 걸기 없음 */
+        /**
+         * 그룹 통화 보류(Owner 2026-11-09) — 그룹방 통화 기록 말풍선으로 다시 걸기 없음.
+         * 말풍선은 눌리는 모양이 따로 없으므로 조용히 무시하지 않고 이유 안내 (감사 D8).
+         */
         if (!isCmGroupCallEnabled() || redialRoomUnavailable) {
           showMessengerSnackbar(redialT("cm_call_unavailable_generic"), { variant: "default" });
           return;
@@ -1285,14 +1287,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         setStubRedialConfirmKind(kind);
         return;
       }
-      const choice = callChoiceRef.current;
-      const row = kind === "video" ? choice.video : choice.voice;
-      if (!row.enabled) {
-        /** 방 규칙(거래 글·매장 설정) · 지금 막힌 상태(차단·거절·발신 중) — 둘 다 다시 걸기 대신 이유 안내 */
-        showMessengerSnackbar(redialT(row.reasonKey), { variant: "default" });
-        return;
-      }
-      setStubRedialConfirmKind(kind);
+      /** 발신 창 통일 3판: 1:1·거래·주문 방은 헤더 📞 와 같은 통화 시트 — 못 쓰는 버튼은 시트가 회색 + 이유로 보인다 */
+      setStubCallSheetOpen(true);
     },
     [redialIsGroupRoom, redialRoomUnavailable, redialT]
   );
@@ -2349,11 +2345,27 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
           onConfirm={() => {
             const kind = stubRedialConfirmKind;
             setStubRedialConfirmKind(null);
-            if (vm.isGroupRoom) void vm.startGroupCall(kind);
-            /** F3: 확인창 이름 그대로 발신 (매장 주문 구매자 = 매장명) */
-            else void vm.startManagedDirectCall(kind, stubRedialPeerLabel);
+            void vm.startGroupCall(kind);
           }}
         />
+      ) : null}
+      {stubCallSheetOpen ? (
+        <Suspense fallback={null}>
+          <MessengerCallChoiceSheetLazy
+            peerLabel={stubRedialPeerLabel}
+            peerAvatarUrl={vm.snapshot.room.avatarUrl}
+            viewerUserId={vm.snapshot.viewerUserId ?? null}
+            peerUserId={vm.snapshot.room.peerUserId ?? null}
+            voice={callChoice.voice}
+            video={callChoice.video}
+            busy={vm.outgoingDialLocked}
+            onClose={() => setStubCallSheetOpen(false)}
+            onDibayCall={(kind) => {
+              /** F3: 시트에 보인 이름 그대로 발신 (매장 주문 구매자 = 매장명) */
+              void vm.startManagedDirectCall(kind, stubRedialPeerLabel);
+            }}
+          />
+        </Suspense>
       ) : null}
     </div>
   );

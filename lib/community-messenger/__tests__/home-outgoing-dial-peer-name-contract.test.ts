@@ -13,8 +13,9 @@ function src(rel: string): string {
 describe("messenger home — outgoing dial peer name", () => {
   const home = src("components/community-messenger/CommunityMessengerHome.tsx");
 
-  it("확인창 「발신」이 확인창의 발신 이름을 그대로 넘긴다 (재추측 금지)", () => {
-    expect(home).toContain("startFriendDirectCall(next.peerUserId, next.kind, next.dialPeerLabel)");
+  /** 발신 창 통일 3판: 확인창 → 통화 시트. 시트에서 고른 종류 + 시트를 열 때 정한 발신 이름 그대로 */
+  it("통화 시트 「음성·영상」이 시트의 발신 이름을 그대로 넘긴다 (재추측 금지)", () => {
+    expect(home).toContain("startFriendDirectCall(next.peerUserId, kind, next.dialPeerLabel)");
   });
 
   it("대체 문구 「대화 상대」는 확인창 표시에만 — 발신 이름으로 넘기지 않는다", () => {

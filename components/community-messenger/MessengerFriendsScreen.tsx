@@ -34,8 +34,8 @@ type Props = {
   onFriendRemove: (userId: string) => void;
   onFriendBlock: (userId: string) => void;
   onFriendChat: (userId: string) => void;
-  onFriendVoiceCall: (userId: string) => void;
-  onFriendVideoCall: (userId: string) => void;
+  /** 친구 줄 빠른 메뉴 「통화」 → 통화 시트 */
+  onFriendCall: (userId: string) => void;
   getFriendDirectRoomMuted: (userId: string) => boolean | undefined;
   getFriendDirectRoomKind: (userId: string) => "trade" | "delivery" | null;
   friendNotificationsBusy: (userId: string) => boolean;
@@ -66,8 +66,7 @@ export function MessengerFriendsScreen({
   onFriendRemove,
   onFriendBlock,
   onFriendChat,
-  onFriendVoiceCall,
-  onFriendVideoCall,
+  onFriendCall,
   getFriendDirectRoomMuted,
   getFriendDirectRoomKind,
   friendNotificationsBusy,
@@ -216,10 +215,10 @@ export function MessengerFriendsScreen({
           favoriteActive={quickProfile.isFavoriteFriend}
           onToggleFavorite={() => onToggleFavorite(quickProfile.id)}
           onChat={() => onFriendChat(quickProfile.id)}
-          onVoiceCall={() => onFriendVoiceCall(quickProfile.id)}
-          onVideoCall={() => onFriendVideoCall(quickProfile.id)}
-          pendingVoice={pendingCallTarget === `voice:${quickProfile.id}`}
-          pendingVideo={pendingCallTarget === `video:${quickProfile.id}`}
+          onCall={() => onFriendCall(quickProfile.id)}
+          pendingCall={
+            pendingCallTarget === `voice:${quickProfile.id}` || pendingCallTarget === `video:${quickProfile.id}`
+          }
           showMuteRow={quickProfile.isFriend && friendHasDirectRoom(quickProfile.id)}
           directRoomMuted={getFriendDirectRoomMuted(quickProfile.id)}
           notificationsBusy={friendNotificationsBusy(quickProfile.id)}
