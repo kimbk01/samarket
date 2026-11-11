@@ -1,21 +1,21 @@
 name: CI
 
 # 정본: AGENTS.md 「개발 프로세스」 (Owner 2026-11-11 5단계). 검사는 삭제하지 않고 실행 시점·job 수만 나눈다.
-# - PR → dev / PR → main / push dev / push main 에서만 실행 (작업 브랜치 push 는 실행하지 않음).
-# - 필수 상태 검사(6단계 main 보호)는 마지막 집계 job `ci-ok` 하나만 건다 (경로 조건으로 skipped 된 job 은 통과로 집계).
+# - PR → main / push main 에서만 실행 (작업 브랜치 push 는 실행하지 않음).
+# - 결과 집계 job `ci-ok` (경로 조건으로 skipped 된 job 은 통과로 집계).
 # - 문서만 바뀐 경우도 건너뛰지 않는다: vitest 21개 파일·verify-call-messenger-restore-hard-lock 이 docs/·AGENTS.md·.cursor/rules 를 읽는다.
 on:
   pull_request:
-    branches: ["dev", "main"]
+    branches: ["main"]
   push:
-    branches: ["dev", "main"]
+    branches: ["main"]
 
 permissions:
   contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
-  # main push 는 끝까지 유지. PR·dev push 는 새 커밋이 앞 실행을 취소.
+  # main push 는 끝까지 유지. PR 은 새 커밋이 앞 실행을 취소.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
@@ -118,7 +118,7 @@ jobs:
           --tests 'com.dibay.app.DibayAppRouteGuardTest'
           --tests 'com.dibay.app.PushRouteAckMatchContractTest'
 
-  # [배포 구분] 출력 + 빌드 번호 역행·iOS 4곳 불일치만 실패 (기존 그대로). PR 은 GITHUB_BASE_REF(dev|main) 기준.
+  # [배포 구분] 출력 + 빌드 번호 역행·iOS 4곳 불일치만 실패 (기존 그대로). PR 은 GITHUB_BASE_REF(main) 기준.
   native-version-bump:
     runs-on: ubuntu-latest
     timeout-minutes: 5

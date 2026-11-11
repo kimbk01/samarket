@@ -1,6 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<!-- 「DIBAY 개발」(USB 설치 전용 스테이징 앱) — 운영 앱과 홈 화면에서 구분되는 이름 -->
-<resources>
-    <string name="app_name">DIBAY 개발</string>
-    <string name="title_activity_main">DIBAY 개발</string>
-</resources>
