@@ -209,7 +209,8 @@ async function main() {
   const video = await api(cookieA, "POST", `/api/community-messenger/rooms/${roomId}/calls`, { callKind: "video", dialIntent: "fresh" });
   record(3, "stranger video call", video.status === 200 && video.json?.ok === true, `status=${video.status} err=${video.json?.error ?? "-"}`);
 
-  const friendAdd = await api(cookieA, "POST", "/api/community-messenger/relations/friend", { targetUserId: userIdB });
+  /** 친구 요청은 friend-requests 한 곳 (relations/friend POST 는 같은 요청 함수였고 2026-11-12 삭제) */
+  const friendAdd = await api(cookieA, "POST", "/api/community-messenger/friend-requests", { targetUserId: userIdB, source: "profile" });
   record(6, "friend add", friendAdd.json?.ok === true || friendAdd.status === 200, JSON.stringify(friendAdd.json?.error ?? "ok"));
 
   const blockFriend = await api(cookieA, "POST", "/api/community-messenger/relations/block", {

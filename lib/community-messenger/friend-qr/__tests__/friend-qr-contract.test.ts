@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  buildFriendQrAndroidIntentUrl,
   buildFriendQrDeepLink,
   buildFriendQrHomePath,
   buildFriendQrUrl,
@@ -86,7 +87,10 @@ describe("my QR panel — failed QR image (PR #145 review)", () => {
     const src = read("components/community-messenger/friend-qr/MyFriendQrPanel.tsx");
     expect(src).toContain("if (loadFailed && !qrImage) {");
     expect(src).not.toContain("if (loadFailed && !qr) {");
-    expect(src.match(/disabled=\{!qr \|\| !qrImage \|\| busy !== null\}/g)).toHaveLength(3);
+    /** 공유·다시 만들기는 QR 그림이 있어야, 저장은 미리 만든 카드(QR 이 있어야 만들어짐)가 있어야 누를 수 있다 */
+    expect(src).toContain("disabled={!qr || !qrImage || native === null || busy !== null}");
+    expect(src).toContain("disabled={!card || busy !== null}");
+    expect(src.match(/disabled=\{!qr \|\| !qrImage \|\| busy !== null\}/g)).toHaveLength(1);
   });
 });
 
@@ -116,8 +120,15 @@ describe("QR 친구 재감사 수정 (2026-11-12)", () => {
     expect(panel).not.toContain("shareOrSaveReceiptImage");
     expect(panel).toContain("{canSave ? (");
     const client = read("lib/community-messenger/friend-qr/friend-qr-client.ts");
-    expect(client).toContain("return !(await isNativeApp());");
     expect(client).toContain('if (isCancelMessage(err)) return "cancelled";');
+    /** PR #154 리뷰: 공유는 누른 동작 안에서 바로 — 카드 PNG 는 미리 만들어 두고 공유 직전에 기다리지 않는다 */
+    expect(panel).toContain("const canSave = native === false;");
+    expect(panel).toContain("image: card });");
+    expect(panel).not.toContain("await renderCard");
+    const shareFn = client.slice(client.indexOf("export async function shareFriendQr"), client.indexOf("/** 브라우저 내려받기"));
+    const webPart = shareFn.slice(shareFn.indexOf("const nav ="));
+    expect(webPart.indexOf("await nav.share(data)")).toBeGreaterThan(-1);
+    expect(webPart.slice(0, webPart.indexOf("await nav.share(data)"))).not.toContain("await ");
   });
 
   it("Q3: 미완료·429 는 이유별 처리, 그 밖만 쓸 수 없는 QR", () => {
@@ -126,10 +137,16 @@ describe("QR 친구 재감사 수정 (2026-11-12)", () => {
     expect(host).toContain('status === 429 ? "common_try_again_later" : friendQrErrorMessageKey(j.error)');
   });
 
-  it("Q6: 웹 /f — 앱 안이면 랜딩 생략, Android 는 앱이 안 열리면 Play 스토어", () => {
+  it("Q6: 웹 /f — 앱 안이면 랜딩 생략, Android 는 intent 주소(앱이 없으면 Chrome 이 Play 스토어로, 타이머 없음)", () => {
     const landing = read("components/community-messenger/friend-qr/FriendQrWebLanding.tsx");
     expect(landing).toContain("router.replace(continueHref)");
-    expect(landing).toContain("FRIEND_QR_ANDROID_STORE_URL");
+    expect(landing).not.toContain("setTimeout");
+    expect(buildFriendQrAndroidIntentUrl("AbCdEfGhIjKlMnOpQrStUv")).toBe(
+      "intent://friend/AbCdEfGhIjKlMnOpQrStUv#Intent;scheme=dibay;package=com.dibay.app;S.browser_fallback_url=" +
+        encodeURIComponent("https://play.google.com/store/apps/details?id=com.dibay.app") +
+        ";end",
+    );
+    expect(read("app/(main)/f/[token]/page.tsx")).toContain("androidAppLink={");
   });
 
   it("Q7·Q8: 스캐너는 화면이 숨으면 카메라를 끄고, 가운데 정사각형을 640 이하로 해독", () => {

@@ -29,6 +29,15 @@ export function buildFriendQrDeepLink(token: string): string {
   return `${FRIEND_QR_DEEP_LINK_PREFIX}${token}`;
 }
 
+/**
+ * Android Chrome 「앱에서 열기」 주소 — `intent://friend/<토큰>#Intent;scheme=dibay;package=com.dibay.app;S.browser_fallback_url=…;end`.
+ * 앱이 이 링크를 받으면 앱이 열리고, 앱이 없거나 이 링크를 모르는 구 빌드면 Chrome 이 스토어 주소로 보낸다
+ * (시간 재기 없음 — PR #154 리뷰: 1.5초 타이머는 「앱 선택」 창이 떠 있어도 스토어로 넘어갔다).
+ */
+export function buildFriendQrAndroidIntentUrl(token: string): string {
+  return `intent://friend/${encodeURIComponent(token)}#Intent;scheme=dibay;package=com.dibay.app;S.browser_fallback_url=${encodeURIComponent(FRIEND_QR_ANDROID_STORE_URL)};end`;
+}
+
 export function buildFriendQrHomePath(token: string): string {
   return `/community-messenger?${FRIEND_QR_HOME_QUERY_KEY}=${encodeURIComponent(token)}`;
 }

@@ -9,7 +9,7 @@ import { resolveMemberPublicIdUi } from "@/lib/auth/member-public-id-ui-contract
 import { resolveMypageSelfDisplayName } from "@/lib/mypage/mypage-self-display-name";
 import { renderFriendQrCardPng, renderFriendQrDataUrl } from "@/lib/community-messenger/friend-qr/friend-qr-image";
 import {
-  canSaveFriendQrImage,
+  detectFriendQrNativeApp,
   requestFriendQrRegenerate,
   saveFriendQrImage,
   shareFriendQr,
@@ -32,19 +32,23 @@ export function MyFriendQrPanel() {
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [busy, setBusy] = useState<"share" | "save" | "regen" | null>(null);
+  const [busy, setBusy] = useState<"share" | "regen" | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [canSave, setCanSave] = useState(false);
+  /** 앱(Capacitor) 여부 — 모르는 동안(null)은 [이미지 저장]을 보이지 않는다. 앱에서는 숨김(S3 전, 재감사 Q1) */
+  const [native, setNative] = useState<boolean | null>(null);
+  /** 공유·저장용 카드 PNG — 미리 만들어 둔다. 누른 뒤 만들면 브라우저가 공유 창을 막는다 (PR #154 리뷰) */
+  const [card, setCard] = useState<Blob | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    void canSaveFriendQrImage().then((v) => {
-      if (!cancelled) setCanSave(v);
+    void detectFriendQrNativeApp().then((v) => {
+      if (!cancelled) setNative(v);
     });
     return () => {
       cancelled = true;
     };
   }, []);
+  const canSave = native === false;
 
   useEffect(() => {
     let cancelled = false;
@@ -91,39 +95,41 @@ export function MyFriendQrPanel() {
   const name = profile ? resolveMypageSelfDisplayName(profile) : "";
 
   const avatarSrc = resolveUserAvatarImageSrc(profile?.avatar_url);
-  const renderCard = useCallback(
-    () => (qr ? renderFriendQrCardPng({ url: qr.url, name, atId: idUi.atDisplay, avatarUrl: avatarSrc }) : Promise.reject(new Error("no_qr"))),
-    [avatarSrc, idUi.atDisplay, name, qr],
-  );
+  useEffect(() => {
+    setCard(null);
+    if (!qr || !profile) return;
+    let cancelled = false;
+    void renderFriendQrCardPng({ url: qr.url, name, atId: idUi.atDisplay, avatarUrl: avatarSrc }).then(
+      (blob) => {
+        if (!cancelled) setCard(blob);
+      },
+      () => undefined,
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [avatarSrc, idUi.atDisplay, name, profile, qr]);
 
-  /** 공유 = QR 카드 이미지 + 링크 글. 공유 창을 닫으면(취소) 아무 문구도 띄우지 않는다 (재감사 Q2) */
+  /** 공유 = QR 카드 이미지 + 링크 글. 누른 동작 안에서 바로 연다 — 앞에서 기다리지 않는다. 취소는 문구 없음 (재감사 Q2) */
   const share = useCallback(async () => {
-    if (!qr || busy) return;
+    if (!qr || busy || native === null) return;
     setBusy("share");
     try {
-      const image = await renderCard().catch(() => null);
-      const outcome = await shareFriendQr({ title: name, text: t("friend_qr_share_text"), url: qr.url, image });
+      const outcome = await shareFriendQr({ native, title: name, text: t("friend_qr_share_text"), url: qr.url, image: card });
       if (outcome === "copied") showMessengerSnackbar(t("friend_qr_link_copied"), { variant: "success" });
       else if (outcome === "failed") showMessengerSnackbar(t("friend_qr_action_failed"), { variant: "error" });
     } finally {
       setBusy(null);
     }
-  }, [busy, name, qr, renderCard, t]);
+  }, [busy, card, name, native, qr, t]);
 
   /** 브라우저 내려받기만 — 앱에서는 버튼이 없다 (재감사 Q1: 저장 안 됐는데 「저장했어요」 금지) */
-  const save = useCallback(async () => {
-    if (!qr || busy || !canSave) return;
-    setBusy("save");
-    try {
-      const outcome = await saveFriendQrImage(await renderCard());
-      if (outcome === "saved") showMessengerSnackbar(t("friend_qr_saved"), { variant: "success" });
-      else if (outcome === "failed") showMessengerSnackbar(t("friend_qr_action_failed"), { variant: "error" });
-    } catch {
-      showMessengerSnackbar(t("friend_qr_action_failed"), { variant: "error" });
-    } finally {
-      setBusy(null);
-    }
-  }, [busy, canSave, qr, renderCard, t]);
+  const save = useCallback(() => {
+    if (!card || busy || !canSave) return;
+    const outcome = saveFriendQrImage(card);
+    if (outcome === "saved") showMessengerSnackbar(t("friend_qr_saved"), { variant: "success" });
+    else if (outcome === "failed") showMessengerSnackbar(t("friend_qr_action_failed"), { variant: "error" });
+  }, [busy, canSave, card, t]);
 
   const regenerate = useCallback(async () => {
     setConfirmOpen(false);
@@ -190,11 +196,11 @@ export function MyFriendQrPanel() {
        * 드물고 되돌릴 수 없는 「QR 다시 만들기」는 같은 무게 버튼으로 두지 않고 아래 글자 버튼(확인 시트 거침).
        */}
       <div className="dibay-overlay-actions dibay-overlay-actions--row !mt-0">
-        <button type="button" className="dibay-overlay-btn dibay-overlay-btn--primary whitespace-nowrap" disabled={!qr || !qrImage || busy !== null} onClick={() => void share()}>
+        <button type="button" className="dibay-overlay-btn dibay-overlay-btn--primary whitespace-nowrap" disabled={!qr || !qrImage || native === null || busy !== null} onClick={() => void share()}>
           {t("friend_qr_share")}
         </button>
         {canSave ? (
-          <button type="button" className="dibay-overlay-btn dibay-overlay-btn--secondary whitespace-nowrap" disabled={!qr || !qrImage || busy !== null} onClick={() => void save()}>
+          <button type="button" className="dibay-overlay-btn dibay-overlay-btn--secondary whitespace-nowrap" disabled={!card || busy !== null} onClick={save}>
             {t("friend_qr_save_image")}
           </button>
         ) : null}

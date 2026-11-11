@@ -31,17 +31,26 @@ async function isNativeApp(): Promise<boolean> {
   }
 }
 
-/** 「이미지 저장」을 보여 줄지 — 앱에서는 숨김(S3 전), 브라우저에서는 표시 */
-export async function canSaveFriendQrImage(): Promise<boolean> {
-  return !(await isNativeApp());
+/** 앱(Capacitor) 여부 — 화면이 열릴 때 한 번 구해 두고 공유·저장에 넘긴다(누른 순간 기다리지 않게) */
+export async function detectFriendQrNativeApp(): Promise<boolean> {
+  return isNativeApp();
 }
 
 /**
  * 공유 = QR 카드 이미지 + 링크 글.
- * 앱: 링크 공유(이미지 파일은 S3). 브라우저: 파일 공유가 되면 이미지+링크, 아니면 링크, 공유가 없으면 링크 복사.
+ * - 브라우저: `navigator.share` 를 누른 동작 안에서 바로 부른다 — 앞에서 아무것도 기다리지 않는다
+ *   (기다리면 브라우저가 공유 창을 막는다, PR #154 리뷰). 이미지는 미리 만들어 둔 것만 쓴다.
+ * - 앱: 링크 공유(이미지 파일은 S3). 앱 공유 창은 누른 동작 제한이 없다.
+ * - 공유가 없거나 실패 → 링크 복사.
  */
-export async function shareFriendQr(args: { title: string; text: string; url: string; image?: Blob | null }): Promise<FriendQrShareOutcome> {
-  if (await isNativeApp()) {
+export async function shareFriendQr(args: {
+  native: boolean;
+  title: string;
+  text: string;
+  url: string;
+  image?: Blob | null;
+}): Promise<FriendQrShareOutcome> {
+  if (args.native) {
     try {
       const { Share } = await import("@capacitor/share");
       await Share.share({ title: args.title, text: args.text, url: args.url, dialogTitle: args.title });
@@ -68,9 +77,8 @@ export async function shareFriendQr(args: { title: string; text: string; url: st
   return (await copyTextToClipboard(args.url)) === "failed" ? "failed" : "copied";
 }
 
-/** 브라우저 내려받기 (앱에서는 부르지 않는다 — `canSaveFriendQrImage`) */
-export async function saveFriendQrImage(image: Blob, fileName = "dibay-qr.png"): Promise<FriendQrSaveOutcome> {
-  if (await isNativeApp()) return "failed";
+/** 브라우저 내려받기 — 앱에서는 버튼을 숨겨 부르지 않는다 (S3 전) */
+export function saveFriendQrImage(image: Blob, fileName = "dibay-qr.png"): FriendQrSaveOutcome {
   try {
     const url = URL.createObjectURL(image);
     try {
