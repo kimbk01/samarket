@@ -9,6 +9,12 @@ import { buildFriendQrHomePath } from "@/lib/community-messenger/friend-qr/frien
 import { useFriendQrResultStore } from "@/lib/community-messenger/friend-qr/friend-qr-result-store";
 
 /**
+ * 시트 높이 고정 — 내용이 늦게 오거나 탭(내 QR·스캔)마다 높이가 달라도 시트가 커지거나 잘리지 않게 (QR 친구 근본 재감사 G1).
+ * 40rem = 큰 화면에서 QR 200px·두 줄 이름·버튼·안전 영역이 다 들어가는 높이. 낮은 화면은 88dvh 까지.
+ */
+const FRIEND_QR_SHEET_HEIGHT = "min(88dvh, 40rem)";
+
+/**
  * QR 시트 — [내 QR | QR 스캔] (설계안 v3 §3.6 · 시안 B·C). 진입 = 마이페이지 내 프로필·메신저 친구 탭 내 프로필 줄.
  * 머리 = 메신저 시트 공용 `MessengerSheetHeaderBar`(손잡이·제목 왼쪽·닫기 X), 본문 하단 = 기기 안전 영역
  * (`messenger-home-bottom-sheet.css` 계약: 본문 `pb-[max(1rem,…safe-bottom)]` 한 번 — 기기 내비게이션에 안 가림).
@@ -32,10 +38,17 @@ export function MyFriendQrSheet({ onClose }: { onClose: () => void }) {
     [onClose, pathname, router]
   );
   return (
-    <MessengerHomeBottomSheetShell onClose={onClose} closeAriaLabel={t("nav_close")} dialogAriaLabel={t("friend_qr_sheet_title")}>
+    <MessengerHomeBottomSheetShell
+      onClose={onClose}
+      closeAriaLabel={t("nav_close")}
+      dialogAriaLabel={t("friend_qr_sheet_title")}
+      anchor="device-bottom"
+      deviceHeight={FRIEND_QR_SHEET_HEIGHT}
+    >
       <MessengerSheetHeaderBar title={t("friend_qr_sheet_title")} onClose={onClose} closeLabel={t("nav_close")} />
+      {/** 본문 = 위아래 칸(flex). 남은 공간은 QR·카메라 칸이 채운다 — 아주 낮은 화면에서만 스크롤 */}
       <div
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,var(--kb-safe-bottom))] pt-3"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-[max(1rem,var(--kb-safe-bottom))] pt-3"
         data-testid="my-friend-qr-sheet"
       >
         <FriendQrTabPanel onToken={onToken} />

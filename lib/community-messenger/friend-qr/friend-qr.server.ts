@@ -31,6 +31,44 @@ export async function ensureMyFriendQr(userId: string): Promise<{ ok: true; qr: 
   return { ok: true, qr: { token: r.token, url: buildFriendQrUrl(r.token) } };
 }
 
+/** 내 QR 카드 — 스캔한 친구가 보는 것과 같은 규칙(닉네임 → 표시 이름, @아이디, 사진) + QR 친구 추가 허용 여부 */
+export type MyFriendQrCard = {
+  qr: MyFriendQr;
+  owner: { displayName: string; dibayId: string | null; avatarUrl: string | null };
+  /** 「QR로 친구 추가 허용」 — 끄면 DB 가 이 QR 을 막는다(`member_friend_qr_resolve` → qr_disabled) */
+  qrAddAllowed: boolean;
+};
+
+/**
+ * 내 QR 화면 한 번에 — 토큰·카드 내용·허용 여부 (QR 친구 근본 재감사 G2·G3).
+ * 따로 불러오면 글자가 늦게 그려져 시트 높이가 변했다.
+ */
+export async function loadMyFriendQrCard(userId: string): Promise<{ ok: true; card: MyFriendQrCard } | { ok: false; error: string }> {
+  const sb = sbOrNull();
+  if (!sb) return { ok: false, error: "supabase_unavailable" };
+  const [ensured, profileRes, settingsRes] = await Promise.all([
+    ensureMyFriendQr(userId),
+    sb.from("profiles").select("nickname, display_name, dibay_id, avatar_url").eq("id", userId).maybeSingle(),
+    sb.from("member_discovery_settings").select("allow_qr_add").eq("user_id", userId).maybeSingle(),
+  ]);
+  if (!ensured.ok) return ensured;
+  if (profileRes.error) return { ok: false, error: "profile_unavailable" };
+  const row = (profileRes.data ?? {}) as Record<string, unknown>;
+  const settings = (settingsRes.data ?? null) as { allow_qr_add?: unknown } | null;
+  return {
+    ok: true,
+    card: {
+      qr: ensured.qr,
+      owner: {
+        displayName: text(row.nickname) || text(row.display_name),
+        dibayId: text(row.dibay_id).toLowerCase() || null,
+        avatarUrl: text(row.avatar_url) || null,
+      },
+      qrAddAllowed: settings?.allow_qr_add !== false,
+    },
+  };
+}
+
 export async function regenerateMyFriendQr(
   userId: string
 ): Promise<{ ok: true; qr: MyFriendQr } | { ok: false; error: string }> {

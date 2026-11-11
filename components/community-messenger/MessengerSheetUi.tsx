@@ -38,6 +38,7 @@ export function MessengerHomeBottomSheetShell({
   dialogAriaLabel,
   anchor = "fit-content",
   deviceHeightRatio = MESSENGER_SETTINGS_SHEET_DEVICE_HEIGHT_RATIO,
+  deviceHeight,
 }: {
   onClose: () => void;
   closeAriaLabel: string;
@@ -47,6 +48,11 @@ export function MessengerHomeBottomSheetShell({
   anchor?: MessengerHomeBottomSheetAnchor;
   /** `anchor="device-bottom"` 일 때 패널 높이(뷰포트 비율, 0.7 = 70%) */
   deviceHeightRatio?: number;
+  /**
+   * `anchor="device-bottom"` 일 때 패널 높이 CSS 값 — 있으면 비율 대신 쓴다 (예: `min(88dvh, 40rem)`).
+   * 내용이 늦게 오거나 탭마다 높이가 달라도 시트 높이가 변하지 않아야 하는 시트용 (QR 친구 근본 재감사 G1).
+   */
+  deviceHeight?: string;
 }) {
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
@@ -129,7 +135,8 @@ export function MessengerHomeBottomSheetShell({
         style={
           deviceBottom ?
             ({
-              "--messenger-home-sheet-device-height": `${Math.min(1, Math.max(0.25, deviceHeightRatio)) * 100}dvh`,
+              "--messenger-home-sheet-device-height":
+                deviceHeight ?? `${Math.min(1, Math.max(0.25, deviceHeightRatio)) * 100}dvh`,
             } as CSSProperties)
           : center && kbBand ?
             {

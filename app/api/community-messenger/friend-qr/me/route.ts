@@ -3,12 +3,12 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { ensureMyFriendQr } from "@/lib/community-messenger/friend-qr/friend-qr.server";
+import { loadMyFriendQrCard } from "@/lib/community-messenger/friend-qr/friend-qr.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** 내 QR (없으면 만든다) — 설계안 v3 §3.6 · 시안 B */
+/** 내 QR (없으면 만든다) + 카드 내용·QR 허용 여부 한 번에 — 설계안 v3 §3.6 · QR 친구 근본 재감사 G2·G3 */
 export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   const signupGate = await requireSignupCompleteForUser(sb, auth.userId);
   if (!signupGate.ok) return signupGate.response;
 
-  const res = await ensureMyFriendQr(auth.userId);
+  const res = await loadMyFriendQrCard(auth.userId);
   if (!res.ok) return NextResponse.json({ ok: false, error: res.error }, { status: 500 });
-  return NextResponse.json({ ok: true, qr: res.qr });
+  return NextResponse.json({ ok: true, qr: res.card.qr, owner: res.card.owner, qrAddAllowed: res.card.qrAddAllowed });
 }

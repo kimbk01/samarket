@@ -17,9 +17,9 @@ export function FriendQrTabPanel({
   const { t } = useI18n();
   const [mode, setMode] = useState<"my" | "scan">(initialMode);
   return (
-    <div className="space-y-3" data-testid="friend-qr-tab">
+    <div className="flex min-h-0 flex-1 flex-col gap-3" data-testid="friend-qr-tab">
       {/** 탭 = 제품 공용 2단 탭(`Sam.tabs`) — 두 칸 같은 폭 */}
-      <div className={`${Sam.tabs.bar} !static !bg-transparent`} role="tablist">
+      <div className={`${Sam.tabs.bar} !static shrink-0 !bg-transparent`} role="tablist">
         {(["my", "scan"] as const).map((m) => (
           <button
             key={m}
