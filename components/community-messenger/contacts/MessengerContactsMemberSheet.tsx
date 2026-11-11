@@ -63,7 +63,10 @@ export function MessengerContactsMemberSheet({
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [choiceOpen, setChoiceOpen] = useState(false);
-  /** 통화 시트에서 DIBAY 발신을 시작함 — 성공하면 회원 시트를 닫고, 실패하면 통화 시트를 다시 연다 (PR #161 Bugbot · 4단계와 같은 동작) */
+  /**
+   * 통화 시트에서 DIBAY 발신을 시작함 — 성공하면 회원 시트를 닫고, 실패하면 회원 시트를 그대로 둔다 (PR #161 Bugbot).
+   * 실패해도 통화 시트를 다시 열지 않는다: 전화 인증 시트·진행 중 통화 화면을 가드가 이미 띄웠을 수 있어 덮으면 안 된다.
+   */
   const dialingRef = useRef(false);
   /** 숨기기·차단은 확인 후 실행 (메신저 차단과 같은 흐름: 확인 → 처리 중 → 결과 안내) */
   const [confirm, setConfirm] = useState<"hide" | "block" | null>(null);
@@ -133,7 +136,6 @@ export function MessengerContactsMemberSheet({
           void startContactsDibayCall(router, member.user_id, kind, name).then((ok) => {
             dialingRef.current = false;
             if (ok) onClose();
-            else setChoiceOpen(true);
           });
         }}
       />

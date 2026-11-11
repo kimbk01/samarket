@@ -81,12 +81,14 @@ describe("발신 창 통일 — 통화 시트 1종", () => {
     expect(sheet).not.toContain("openedAtRef");
   });
 
-  it("발신을 먼저 알리고 닫는다 · 연락처 회원은 발신 실패 시 통화 시트 다시 (PR #161 Bugbot)", () => {
+  it("발신을 먼저 알리고 닫는다 · 연락처 회원은 발신 성공 때만 닫고 실패 때 시트를 다시 띄우지 않는다 (PR #161 Bugbot)", () => {
     const sheet = read("components/community-messenger/call-ui/MessengerCallChoiceSheet.tsx");
     expect(sheet).toMatch(/onDibayCall\(kind\);\s*onClose\(\);/);
     const member = read("components/community-messenger/contacts/MessengerContactsMemberSheet.tsx");
     expect(member).toContain("if (!dialingRef.current) onClose();");
-    expect(member).toMatch(/if \(ok\) onClose\(\);\s*else setChoiceOpen\(true\);/);
+    expect(member).toContain("if (ok) onClose();");
+    /** 전화 인증 시트·진행 중 통화 화면을 덮지 않도록 실패 시 통화 시트 재오픈 금지 */
+    expect(member).not.toContain("else setChoiceOpen(true)");
   });
 
   it("쓰지 않던 옛 통화 부품 삭제", () => {
