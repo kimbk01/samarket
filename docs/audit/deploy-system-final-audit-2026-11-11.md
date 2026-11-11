@@ -101,3 +101,21 @@ GitHub CI (main push, 작업별 실측): 구조 분리 후 최근 2회 — stati
 | 작업 반영 묶기(세션당 main 1회) | B | 빌드 43회/일·CI 취소 43% 감소 — 수치는 적용 후 측정(C) |
 | `test` 환경·APNs 연결 | D | Owner 지시대로 유지 |
 | 원격 `fix/restore-main-centric` 삭제 | B | 정리만 |
+
+## 11. Next 업그레이드 위험과 복구 (PR #142 보완, 2026-11-11 PHT)
+**위험**: `scripts/next-typecheck-diagnostics-first.mjs` 는 next **16.1.7** 과 `runTypeCheck.js` 전체 SHA256(원본 `1b6139b9…`, 패치본 `2e91c011…`)이 정확히 맞을 때만 동작한다. `next` 를 올리면(의존성 갱신·보안 업데이트) **prebuild 가 FAIL → `npm run build` 실패 → 운영 배포 안 됨**(직전 배포 유지). 조용히 패치를 건너뛰거나 다른 파일을 고치지 않는다 — 의도된 동작.
+
+**업그레이드 절차** (PR 1개로):
+1. 새 버전 `node_modules/next/dist/lib/typescript/runTypeCheck.js` 에서 `program.emit()` 과 `getPreEmitDiagnostics` 순서 확인.
+2. Next 가 이미 「진단 먼저」로 바뀌었으면 → 스크립트·테스트 삭제, `prebuild` 에서 `&& node scripts/next-typecheck-diagnostics-first.mjs` 제거.
+3. 그대로면 → `EXPECTED_NEXT_VERSION`·`ORIGINAL_SHA256`(새 원본 해시)·`PATCHED_SHA256`(교체 결과 해시) 갱신, 교체 대상 2줄 원문 확인, `npx vitest run scripts/next-typecheck-diagnostics-first.test.mjs` + 캐시 시나리오(§12) 재측정.
+
+**긴급 복구** (업그레이드가 급하고 1~3을 할 시간이 없을 때): `prebuild` 에서 위 스크립트 호출만 제거 → Next 원래 동작(검사 그대로, 매 빌드 전체 검사·지금 속도)으로 돌아간다. 검사가 꺼지지 않는다.
+
+**되돌리기**: PR 병합 커밋 `git revert -m 1` → PR → `ci-ok` → 병합. 즉시는 Vercel Instant Rollback. 수정본이 만든 `.next/cache/.tsbuildinfo` 는 원래 Next 가 읽어도 정상(§12 C8).
+
+## 12. PR #142 보완 검증 (2026-11-11 11:30~11:58 PHT)
+- 실행 경로: Vercel 프로젝트 `buildCommand=null`·`installCommand=null`·framework nextjs·Node 24.x → `npm run build` (빌드 로그 「Running "npm run build"」·prebuild 실행 확인) → prebuild(스티커 → 이 스크립트) → `next build`(TS 검사 내장, `ignoreBuildErrors` 없음). CI 는 `next build` 를 돌리지 않고 `typecheck:test`(`tsc -b`)·`typecheck` 계열로 **독립** 검사 — 이 스크립트와 무관. `build:analyze` 는 prebuild 를 거치지 않아 원래 Next(전체 검사)로 동작 — 검사 우회 아님.
+- 무결성 시험 `scripts/next-typecheck-diagnostics-first.test.mjs` 9건 PASS: 설치본 해시 · 정상 원본 적용 · 정상 패치본 무변경 · 변조 원본 FAIL · 변조 패치본(표식·진단 줄 유지, 오류 throw 무력화) FAIL · 다른 버전 FAIL · rename 실패 시 원본 유지·임시 파일 0 · 변조 시 `npm run build` 중단 · 상수=package.json.
+- 캐시 시나리오(실제 Next runTypeCheck, 캐시 사용 vs 캐시 없음 오류 목록 해시 비교): 파일 삭제 53=53 · 이름 변경 53=53 · 없는 import 1=1 · 공통 타입 1=1 · .d.ts 2=2 · tsconfig 707=707 · 번역 1=1 · 수정 전 캐시 호환 · 롤백 호환(C8 5초). 패치 결과물 해시는 보완 전후 동일(`2e91c011…`)이라 이 측정은 보완본에도 해당.
+- NOT_PROVEN: Vercel 의 `.next/cache/.tsbuildinfo` 보존·복원, Vercel 에서 패치 적용 로그, Vercel 캐시 없는 첫 빌드, Vercel 시간 단축.
