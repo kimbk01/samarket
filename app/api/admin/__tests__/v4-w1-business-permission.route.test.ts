@@ -2,6 +2,7 @@
  * v4 W1 API-02~07 — 관리자 쓰기·구매자 PII 조회 = `requireAdminPermission("business")`.
  * `business` 권한 없는 관리자 = 403, DB 클라이언트 미생성. 권한이 있으면 기존 처리로 진행(DB 미구성 → 503 = 통과 증거).
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 let permOk = false;

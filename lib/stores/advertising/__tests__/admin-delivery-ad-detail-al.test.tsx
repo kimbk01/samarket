@@ -4,6 +4,7 @@
  * 삭제 자리(공용 삭제 `AdminAdDeleteAction` + 종료/보관 · 어드민 SSOT §3-2) · 진행 중 종료 패널(귀책 → 미리보기 → L3 확인창,
  * 대상 재입력 없음 · 공개 사유/내부 메모 두 칸 D-10) · 재개 L2 · 검수 시작 L1 · 연장 L2 · D-03 강제 종료 버튼 없음.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

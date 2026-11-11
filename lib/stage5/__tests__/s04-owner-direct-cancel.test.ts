@@ -8,6 +8,7 @@
  * CAS(`p_expected_status`) · TS 가 원장·수수료를 직접 쓰지 않음 · 픽업 이후·관리자 잠금 거부.
  * 원장+상태 같은 TX·재고 복원 시 수동 품절 유지(PRD-06)·조리 후 수수료 검토 플래그는 DB 함수/트리거 → L2.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createStage5OrderWorld, feeOrCashTouches, type Stage5OrderWorld } from "./helpers/stage5-order-world";
 

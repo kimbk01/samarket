@@ -2,6 +2,7 @@
  * 내정보 최종 설계 R6 — S50–S65 (연동 로그인 · 고객센터 허브 · 게시판 · 게시글 · 상담 내역 · 보관함 · 약관 허브)
  * + 잔여: 매장 찜 목록 실패 5xx(S22) · 프로필 편집 단일 시트 링크(X1) · 홈 가격 제안 탭 링크(S23).
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { NextRequest } from "next/server";

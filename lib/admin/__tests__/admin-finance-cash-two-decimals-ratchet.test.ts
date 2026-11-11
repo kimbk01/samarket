@@ -4,6 +4,7 @@
  * `formatAdminPhpMinor`·`formatMoneyPhp`(정수 반올림)로 Cash·수수료·미납·잔액 값을 그리면 실패한다.
  * Point·Coin 은 정수 그대로. 판매(gross)·상품 소계·지급 의무(payable) 같은 비-Cash 페소 값은 허용.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 검사한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";

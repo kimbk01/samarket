@@ -12,6 +12,7 @@
  *    기준선 갱신: `WRITE_ADMIN_UI_BASELINE=1 npx vitest run lib/admin/__tests__/admin-ui-standard-full-ratchet.test.ts`
  *    — 갱신 diff 에 증가가 있으면 리뷰에서 거부한다.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 검사한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import fs from "node:fs";
 import { MESSAGES } from "@/lib/i18n/messages";
 import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";

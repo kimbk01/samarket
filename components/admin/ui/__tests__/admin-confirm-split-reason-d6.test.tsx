@@ -3,6 +3,7 @@
  * D-6 (2026-11-04) — 관리자 확인창 사유 두 칸: 「공개 사유(회원·사장님에게 보임 · 120자)」 + 「내부 메모(운영자만)」.
  * 확인창 공용 컴포넌트를 실제로 렌더하고, confirmAdminAction 이 두 값을 돌려주는지 본다.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 검사한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

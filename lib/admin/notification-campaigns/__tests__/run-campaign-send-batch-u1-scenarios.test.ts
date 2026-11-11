@@ -1,4 +1,5 @@
 /* U1 (EVENT-11/13/14/15, ERR-1/2, DUP-2, TIME-1, REC-1): campaign send flow scenario matrix. */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Row = Record<string, unknown>;

@@ -61,6 +61,20 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # C1·C2 (Owner 2026-11-11 「CI 시간 개선」): 검사 범위·규칙은 그대로, 직전 결과만 재사용한다.
+      # - ESLint: --cache-strategy content (파일 내용 해시) · 규칙에 파일 간·타입 정보 규칙 없음 → 파일 단위 재사용 안전.
+      # - tsc -b: .tsbuild 의 파일 해시로 바뀐 파일·영향 파일만 다시 검사 (오류 판정 동일).
+      # - 키 = 의존성·설정 해시 + 커밋. 의존성·eslint·tsconfig 가 바뀌면 이전 캐시를 쓰지 않는다(restore-keys 도 같은 해시 접두).
+      # - actions/cache 는 작업이 성공했을 때만 저장한다 → 실패한 실행의 결과는 남지 않는다.
+      - name: Restore lint / typecheck result caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cache/eslint
+            .tsbuild
+          key: static-v1-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.mjs', 'tsconfig*.json') }}-${{ github.sha }}
+          restore-keys: |
+            static-v1-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.mjs', 'tsconfig*.json') }}-
       - name: Static checks (contracts, typecheck, lint — no next build)
         env:
           NODE_OPTIONS: --max-old-space-size=8192

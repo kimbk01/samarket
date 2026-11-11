@@ -1,6 +1,7 @@
 /**
  * H-10 (Owner 2026-11-03) — 관리자 신청 목록 기간 합계 순수 계산 + 기간 경계(PHT).
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 검사한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";

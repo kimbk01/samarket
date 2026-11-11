@@ -4,6 +4,7 @@
  * FA-1·FA-2·FA-4·FA-5 피드 생성 화면 · CX-14 피드 손으로 넘기기 · CX-12 배달 미리보기 = 고객 화면 ·
  * DL-2 배달 히어로 자동 넘김 멈춤 · MY-1·MY-2 마이 배너 폼 · CX-16 이벤트 편집 날짜 PHT
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

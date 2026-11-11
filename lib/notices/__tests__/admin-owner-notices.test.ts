@@ -4,6 +4,7 @@
  * ② 회원 「앱 공지」 = audience=all 전용 (목록 API 항상 all · 폼에 보는 사람·사장님 알림 없음)
  * ③ 메뉴·권한 = `/admin/stores` 규칙 · 사장님 대상 쓰기 = business 키
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";

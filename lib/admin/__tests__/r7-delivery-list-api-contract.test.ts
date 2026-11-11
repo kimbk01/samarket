@@ -4,6 +4,7 @@
  * - 고정 상한(400·300·200·120) 은 서버 페이지 모드에서 쓰지 않는다 (`.limit(N)` 호출 없음).
  * - 다른 호출자가 있는 API 는 `limit`/`offset` 이 없을 때 예전 응답(상한 포함) 그대로.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Call = { table: string; op: string; args: unknown[] };

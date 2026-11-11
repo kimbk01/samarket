@@ -1,6 +1,7 @@
 /**
  * 재감사 S-2 (Owner 「S-2 진행」 2026-11-03) — 문구·버튼 권한·남은 곳.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 검사한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";

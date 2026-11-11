@@ -2,6 +2,7 @@
  * 상태 라벨 네임스페이스 계약 (수정 계획 2-4 · 재설계 R5) — 계획의 9개 도메인이 모두 라벨·톤을 가진다.
  * 회원 · 신고 · 광고 · 팝업 · 결제 · 포인트 · 매장 주문 · 배달 광고 · 채팅방.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 검사한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { describe, expect, it } from "vitest";
 import { listAdminStatusCodes, lookupAdminStatusLabel } from "@/lib/admin/status-labels/admin-status-label-registry";
 import "@/lib/admin/status-labels/ads-status-labels";

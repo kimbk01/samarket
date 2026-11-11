@@ -4,13 +4,61 @@
  * window 는 테스트별 stub — 전역 덮어쓰기 금지 (delivery-home-hub 등 setTimeout 필요).
  */
 import { setImmediate as realSetImmediate } from "node:timers";
-import { afterEach } from "vitest";
+import { afterAll, afterEach, beforeAll, expect } from "vitest";
 /**
- * D 단계 (2026-11-10): 서버는 `lib/i18n/messages.ts` 의 서버 전용 require 로 어드민 문구를 등록하지만,
- * vitest(node) 는 TS 파일 require 를 못 하므로 여기서 등록한다 — 테스트의 문구 표 = 서버와 같음(회원+어드민).
+ * 어드민 문구 등록 (C3 · Owner 2026-11-11 「CI 시간 개선」):
+ * 서버는 `lib/i18n/messages.ts` 의 서버 전용 require 로 어드민 문구(약 1만 7천 키)를 등록하지만 vitest(node) 는 TS require 를
+ * 못 한다. 11-10 D 단계에서는 이 전역 준비 파일이 모든 시험 파일(3,091개)마다 어드민 문구 55개 모듈을 다시 불러와
+ * 시험 준비 시간이 묶음당 약 750초(누적)였다(표본 350개: 준비 143초 → 4초).
+ * 이제 **어드민 문구를 쓰는 코드를 실행하는 시험만** 파일 맨 위에서 `import "@/lib/i18n/admin-catalog";` 로 등록한다 (2026-11-11 기준 177개 — 실패로 드러난 74개 + 키 누락 계측으로 찾은 103개).
+ * 새 시험이 어드민 문구를 쓰는데 이 줄이 없으면 → 아래 안전장치가 그 시험 파일을 **실패**시킨다(빈 값으로 조용히 통과하지 않음). 그 시험에 이 줄을 추가한다.
  * 회원 화면 묶음 계약은 `lib/i18n/__tests__/admin-catalog-member-split.test.ts` 가 파일 기준으로 검사한다.
  */
-import "@/lib/i18n/admin-catalog";
+
+/**
+ * C3 안전장치: 번역 모듈은 없는 키를 만나면 `[i18n-missing-ko|en] <key>` 경고를 낸다(`lib/i18n/messages.ts` warnMissingKey).
+ * 이 시험 파일에서 `admin_` 키 누락이 한 번이라도 나오면 파일 끝에서 실패시킨다 → 어드민 문구 등록 누락이 숨지 않는다.
+ * (시험이 console.warn 을 직접 mock 해 경고를 삼키는 경우는 잡지 못한다.)
+ */
+/**
+ * 기존 결함 — 보고만 (C3 범위 밖, 2026-11-11): 아래 시험은 `vi.resetModules()` 뒤 번역 모듈을 새로 불러와
+ * 11-10 전역 등록 때도 어드민 문구가 빈 값이었다(전역 import 상태로 재현 확인 · 시험 76개는 통과). 고치지 않고 안전장치에서만 제외한다.
+ */
+const KNOWN_ADMIN_TEXT_GAP_AFTER_RESET_MODULES = new Set([
+  "app/api/admin/notification-campaigns/__tests__/cms-routes.test.ts",
+  "app/api/admin/notification-campaigns/__tests__/create-target-payload-contract.test.ts",
+  "app/api/admin/notification-campaigns/__tests__/route-auth.test.ts",
+  "app/api/admin/push/test/__tests__/route.test.ts",
+  "app/api/me/notifications/__tests__/inapp-wp3-notification-center-api.test.ts",
+  "lib/admin/notification-campaigns/__tests__/campaign-send-user-u1-dedupe.test.ts",
+  "lib/admin/notification-campaigns/__tests__/campaign-send-user.test.ts",
+  "lib/admin/notification-campaigns/__tests__/campaign-stop-and-source-skip.test.ts",
+  "lib/admin/notification-campaigns/__tests__/marketing-consent-p0-2026-11-05.test.ts",
+  "lib/admin/platform-list/__tests__/platform-admin-list-api-contract.test.ts",
+]);
+let currentTestFile = "";
+beforeAll(() => {
+  currentTestFile = String(expect.getState().testPath ?? "").replace(/\\/g, "/");
+});
+const missingAdminKeys = new Set<string>();
+{
+  const originalWarn = console.warn.bind(console);
+  console.warn = (...args: unknown[]) => {
+    const [tag, key] = args;
+    if ((tag === "[i18n-missing-ko]" || tag === "[i18n-missing-en]") && typeof key === "string" && key.startsWith("admin_")) {
+      missingAdminKeys.add(key);
+    }
+    originalWarn(...args);
+  };
+}
+afterAll(() => {
+  if (missingAdminKeys.size === 0) return;
+  if ([...KNOWN_ADMIN_TEXT_GAP_AFTER_RESET_MODULES].some((f) => currentTestFile.endsWith(f))) return;
+  const sample = [...missingAdminKeys].slice(0, 5).join(", ");
+  throw new Error(
+    `[C3] 어드민 문구 미등록 상태로 admin_ 키 ${missingAdminKeys.size}개를 조회함 (${sample}). 이 시험 파일 맨 위에 import "@/lib/i18n/admin-catalog"; 를 추가하세요.`,
+  );
+});
 
 /**
  * 시험마다 이벤트 루프를 한 번 놓아준다 — CI `[vitest-worker]: Timeout calling "onTaskUpdate"` 근본 수정.

@@ -3,6 +3,7 @@
  * 원인: 서버가 DB 이름(entry_kind·due_minor)을 화면용 이름(entryKind·dueMinor)으로 바꿔 보내는데, 화면이 같은 값을
  * DB 이름으로 다시 읽어 종류가 하나로 뭉치고(A-1·Coin 전환) 금액이 0(A-5)이 됐다. 단위 테스트는 DB 모양만 넣어 봐서 못 잡았다.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 검사한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";

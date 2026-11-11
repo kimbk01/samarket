@@ -1,3 +1,4 @@
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 검사한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { describe, expect, it, vi } from "vitest";
 import {
   ADMIN_ACTION_QUEUE_REGISTRY,

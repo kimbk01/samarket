@@ -4,6 +4,7 @@
  *  같은 읽음 처리 함수. 글 상세 진입 = 그 글 알림 전체 읽음, 주문 상세 = 그 주문 관련 알림. 단순 목록 진입은 읽음 아님.」
  * 행 모양은 운영 DB 실측(2026-11-01, 읽기 전용)과 같다.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";

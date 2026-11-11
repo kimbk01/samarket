@@ -2,6 +2,7 @@
  * 광고 ② 수정 구현 F (Owner 「설계안대로 구현」 2026-11-04) — 피드 배너 lib·API 동작 시험.
  * FB-C17 · PV-3 · DS-2 · DS-3 · DS-4 · FB-A10 · FB-A11 · D-5 · D-6 · FB-M11 · D-7 · D-8
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { makeFakeSb, type Row } from "@/lib/ads/__tests__/helpers/fake-supabase-1104f";

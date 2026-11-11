@@ -3,6 +3,7 @@
  * `limit`(20/50/100)·`offset` → `.range()` + `count: "exact"` → 응답 `total`. 고정 상한(`.limit(200)`) 제거.
  * `limit` 이 없는 호출(다른 화면 호출자)은 기존 응답 그대로.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { NextRequest } from "next/server";

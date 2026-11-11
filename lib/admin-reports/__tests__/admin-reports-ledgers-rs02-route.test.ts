@@ -4,6 +4,7 @@
  * - 제재 기록 커서 모드: report_actions + sanctions(scope 권한) + user_moderation_events.
  * - 채팅 신고 처리(거래 신고 기각)는 공식 처리 함수 admin_decide_trade_report 로 (정적 계약).
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";

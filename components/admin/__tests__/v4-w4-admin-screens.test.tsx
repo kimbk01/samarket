@@ -3,6 +3,7 @@
  * v4 W4 관리자 화면 — 허브 홈 탭 GET 수(PERF-18)·실패 상태(UI-06·07)·오너 노출 잠금(UI-03)·
  * 기간 연장 견적 초기화/확인(UI-08)·성과/결제 실패 상태(UI-09·12)·통계 예외(UI-13·14).
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { act, type ReactNode } from "react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";

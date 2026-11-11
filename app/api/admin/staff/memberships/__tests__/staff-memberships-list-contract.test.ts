@@ -3,6 +3,7 @@
  * 예전 1,000건 고정 상한 + 화면 메모리 페이지 → limit(20/50/100)/offset 서버 페이지 + total(count exact).
  * 정렬: 활성 먼저 → (정지 → 해제), 「전체」는 활성 묶음 뒤에 활성 외 묶음을 이어 붙인다.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createFakePagedSb,

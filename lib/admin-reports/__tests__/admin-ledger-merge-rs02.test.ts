@@ -3,6 +3,7 @@
  * 누락 없음(원장별 건수 합 = 총건수 · 전 쪽 순회 = 전체 행) · 중복 없음((source,id) 유일) · 권한 제외 표시 ·
  * (created_at DESC, id DESC) 커서 — 경계 동일 시각 · 원장 0건 · 마지막 쪽 · offset 원장(기존 RPC) 혼합.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { describe, expect, it } from "vitest";
 import {
   compareLedgerRows,

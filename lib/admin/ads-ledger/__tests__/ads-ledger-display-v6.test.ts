@@ -2,6 +2,7 @@
  * 실기 v6 FAIL 2 (Owner 「설계안대로 진행」 2026-11-07 · docs/audit/ads-v6-device-fail-design-2026-11-07.md)
  * 원장 행 S-F(e8199d8c): 기간 UTC · 남은 기간 8시간 어긋남 · 대상/소재 「운영자」·uuid · 종료 광고 「승인 전」·「종료까지 N」.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 검사한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { formatAdsPeriodRange } from "@/lib/admin/ads-exposure/canonical-location-period";
 import { parseAdsLedgerRow } from "@/lib/admin/ads-ledger/ad-ledger-presentation";

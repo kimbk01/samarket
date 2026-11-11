@@ -3,6 +3,7 @@
  * 거래 문의 범위(처리 대기·기간 접수)·홍보 포인트 사용·환급은 RPC `admin_trade_overview_promo_stats` 한 번 —
  * 거래 홍보 주문 id 500건 모으기(in(...))·원장 5,000행 읽어 합산 경로가 없어야 한다.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 검사한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";

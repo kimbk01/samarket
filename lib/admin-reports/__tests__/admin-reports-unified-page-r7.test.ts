@@ -3,6 +3,7 @@
  * 거래(reports)·커뮤니티(community_reports) 병합·필터·정렬·페이지·total = RPC `admin_reports_unified_page` 한 번.
  * 고정 상한(거래 처리 대기 2000·처리 완료 300 · 커뮤니티 300) 없음. 파라미터 없는 예전 호출은 예전 응답 그대로.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";

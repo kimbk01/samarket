@@ -3,6 +3,7 @@
  * kind·store_id 는 legacyMeta → 최상위 순서(resolveNotificationEventKind)로만 읽고, 숫자(A)·목록·탭·오너
  * 판정이 모두 같은 값을 쓴다. 화면 표시·이동용 meta 는 바꾸지 않는다(3e597af8f 의 오너 특례 meta 보충 대체).
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { describe, expect, it } from "vitest";
 import {
   applyInboxEligibilityFilters,

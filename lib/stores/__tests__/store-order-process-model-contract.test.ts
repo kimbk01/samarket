@@ -5,6 +5,7 @@
  * (b) 단일 원천 — 주문 상태 → 한글 이름 표를 모델 밖에서 만들지 않는다 · 옛 이름 0건
  * (c) 전 화면 대조표 — 같은 상태 = 모든 화면 같은 이름
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";

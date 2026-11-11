@@ -3,6 +3,7 @@
  * 피드 신청 상세 렌더 시험 (2026-11-04) — AL-14 버튼 권한 · FB-A05 정지 L2(사유 두 칸) · D-5 종료 L3(귀책 → 미리보기 → 재입력) ·
  * 보완 §7 감사 이력 블록.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

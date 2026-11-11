@@ -2,6 +2,7 @@
  * 어드민 SSOT §3-1 · §3-2 (Owner 2026-11-07) — W3 화면: 대상 재입력(retype) 없음 · 공용 삭제(`AdminAdDeleteAction`) 배치 ·
  * D-03 배달 상세에 「강제 종료」 없음 · D-10 정지·재개·종료 공개 사유/내부 메모 두 칸.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";

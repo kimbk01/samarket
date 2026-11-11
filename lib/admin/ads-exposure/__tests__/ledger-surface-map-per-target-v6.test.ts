@@ -2,6 +2,7 @@
  * 실기 v6 FAIL 3 (Owner 「설계안대로 진행」 2026-11-07): 위치 지도 「배달 › 업종 상단(전체) 수용 1 · 노출 중 8」.
  * 운영 DB 22:3x PHT: academy·beauty·cafe·hardware·life·mart·pet·restaurant 각 1 = 8 (업종마다 수용 1 안 · 초과 아님).
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { describe, expect, it } from "vitest";
 import { projectLedgerSurfaceMap } from "@/lib/admin/ads-exposure/placement-inventory";
 

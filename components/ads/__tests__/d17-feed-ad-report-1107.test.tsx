@@ -4,6 +4,7 @@
  * ② 어드민 미리보기 머리줄에 신고 버튼(고객 화면과 같은 자리) ③ 버튼 터치 44px ④ 같은 사람 중복 접수 막기 ·
  * ① 신고 큐: feed_ad = 「광고」 + 캠페인 이름 + /admin/feed-ads/<id> 링크.
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

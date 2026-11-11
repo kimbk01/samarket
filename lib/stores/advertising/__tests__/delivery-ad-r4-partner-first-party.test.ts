@@ -3,6 +3,7 @@
  * R4-P1..P16 · R4-F1..F16
  */
 
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 검사한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync, existsSync } from "node:fs";
 import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { join } from "node:path";

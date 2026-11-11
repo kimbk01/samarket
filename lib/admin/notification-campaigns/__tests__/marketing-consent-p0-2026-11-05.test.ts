@@ -5,6 +5,7 @@
  * - 공지·시스템 캠페인은 그대로 (알림함 전원 · 푸시 게이트 기존 판정)
  * - 공지·시스템으로 광고 우회 → 기존 원본 규칙(이벤트·마케팅 글은 마케팅 유형만)으로 막는다. 정상 공지는 추가 확인 없이 발송
  */
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 — 이 시험은 어드민 문구를 쓰는 코드를 실행한다 (전역 준비 파일에서 옮김, C3 2026-11-11)
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
