@@ -33,7 +33,7 @@ describe("globals.css long-press rules", () => {
       expect(compact).toContain(sel);
     }
     /** D1 F1 (2026-11-11): `body:has(…)` → `<html>` 셸 속성 (lib/layout/html-shell-flags.ts) */
-    expect(compact).toContain("html[data-shell-admin-console-v2] body { -webkit-user-select: text; user-select: text; }");
+    expect(compact).toContain("[data-shell-admin-console-v2] body { -webkit-user-select: text; user-select: text; }");
   });
 
   it("keeps buttons, tabs and menu items non-selectable", () => {

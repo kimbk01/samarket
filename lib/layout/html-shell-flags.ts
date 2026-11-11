@@ -48,18 +48,22 @@ export function syncHtmlShellFlagsFromDom(doc: Document): void {
       root.removeAttribute(name);
     }
   };
-  const nav = doc.querySelector(".app-bottom-nav-shell");
-  const navHas = (cls: string) => !!nav && nav.classList.contains(cls);
+  /** 예전 `html:has(.app-bottom-nav-shell--x)` 와 같게 — 하단 탭이 여러 개면 그중 하나라도 해당하면 참 (D1 R4) */
+  const navs = Array.from(doc.querySelectorAll(".app-bottom-nav-shell"));
+  const nav = navs.length > 0 ? navs[0] : null;
+  const navHas = (cls: string) => navs.some((n) => n.classList.contains(cls));
   set("data-shell-bottom-nav", !!nav);
   set("data-shell-bottom-nav-side-rail", navHas("app-bottom-nav-shell--side-rail"));
   set("data-shell-bottom-nav-delivery", navHas("app-bottom-nav-shell--delivery"));
   set("data-shell-bottom-nav-scroll-hidden", navHas("app-bottom-nav-shell--scroll-hidden"));
   set(
     "data-shell-bottom-nav-orbit",
-    !!nav &&
-      !!nav.querySelector(
-        ".app-bottom-nav-item--domain-hub .app-bottom-nav-icon-slot--domain-hub-orbit, .app-bottom-nav-item--messenger-hub .app-bottom-nav-icon-slot--domain-hub-orbit"
-      )
+    navs.some(
+      (n) =>
+        !!n.querySelector(
+          ".app-bottom-nav-item--domain-hub .app-bottom-nav-icon-slot--domain-hub-orbit, .app-bottom-nav-item--messenger-hub .app-bottom-nav-icon-slot--domain-hub-orbit"
+        )
+    )
   );
   set(
     "data-shell-desktop-side-rail",

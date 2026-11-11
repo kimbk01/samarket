@@ -33,7 +33,8 @@ function isStoreOwnerAdminPath(pathname: string): boolean {
  *
  * CONTRACT — 하단 메인 허브 간 Provider 트리 고정 (AppRouteTransition remount 금지).
  * DO NOT: mountCart false 일 때 Fragment 로 바꿔 셸을 remount.
- * DO NOT: `/stores/owner` 에서 Customer cart Provider 마운트.
+ * DO NOT: `/stores/owner` 에서 Customer cart 를 켬 — Provider 는 그대로 두고 `inert`(값 null·저장소/동기화 0)로 끈다.
+ *   예전처럼 Fragment 로 바꾸면 앱 셸 전체가 다시 만들어져 하단 탭 보관 화면이 사라졌다(D1 R1, 2026-11-12 운영 확인).
  */
 export function StoreCommerceCartRuntimeBoundary({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "";
@@ -63,14 +64,12 @@ export function StoreCommerceCartRuntimeBoundary({ children }: { children: React
     return () => window.clearTimeout(t);
   }, [mountCart]);
 
-  if (isStoreOwnerAdminPath(pathname)) {
-    return <>{children}</>;
-  }
-
-  const mountPortals = mountCart && (idlePortalsReady || !!productId || previewOpen || conflictOpen);
+  const ownerAdmin = isStoreOwnerAdminPath(pathname);
+  const mountPortals =
+    !ownerAdmin && mountCart && (idlePortalsReady || !!productId || previewOpen || conflictOpen);
 
   return (
-    <StoreCommerceCartProvider>
+    <StoreCommerceCartProvider inert={ownerAdmin}>
       {children}
       {mountPortals ? <StoreCommerceCartPortalsLazy /> : null}
     </StoreCommerceCartProvider>

@@ -149,7 +149,19 @@ export type StoreCommerceCartActions = Pick<
 const StoreCommerceCartCtx = createContext<Ctx | null>(null);
 const StoreCommerceCartActionsCtx = createContext<StoreCommerceCartActions | null>(null);
 
-export function StoreCommerceCartProvider({ children }: { children: React.ReactNode }) {
+/**
+ * `inert` (D1 R1 · Owner 승인 2026-11-12 · `docs/audit/d1-remaining-items-design-2026-11-12.md` §2):
+ * 매장 관리(`/stores/owner`) 경로에서 Provider 를 빼지 않고 **꺼 둔다** — 감싸는 요소 종류가 바뀌면 그 아래 앱 셸 전체가
+ * 다시 만들어진다(보관 화면 소실). 꺼진 동안: 컨텍스트 값 `null`(예전 「Provider 없음」과 같음) · 저장소 읽기/쓰기·
+ * 다른 탭 동기화·스냅샷 발행 0 · 상태 비움. 다시 켜지면 예전 새 마운트처럼 저장소에서 다시 읽는다.
+ */
+export function StoreCommerceCartProvider({
+  children,
+  inert = false,
+}: {
+  children: React.ReactNode;
+  inert?: boolean;
+}) {
   const [hydrated, setHydrated] = useState(false);
   const [snapshot, setSnapshot] = useState<StoreCommerceCartSnapshotV2 | null>(null);
   const snapshotRef = useRef<StoreCommerceCartSnapshotV2 | null>(null);
@@ -160,6 +172,13 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
   }, [snapshot]);
 
   useLayoutEffect(() => {
+    if (inert) {
+      /** 꺼짐 — 예전 언마운트와 같게 상태를 비우고, 다시 켜질 때 저장소에서 새로 읽게 한다 */
+      storageSyncDoneRef.current = false;
+      setSnapshot(null);
+      setHydrated(false);
+      return;
+    }
     if (storageSyncDoneRef.current) return;
     storageSyncDoneRef.current = true;
     const loaded = readCommerceCartFromStorage();
@@ -170,7 +189,7 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
     setHydrated(true);
     markCartHydrationStage("provider_ready_ms");
     markCartHydrationStage("cart_state_ready_ms");
-  }, []);
+  }, [inert]);
 
   const applyExternalSnapshot = useCallback((incoming: StoreCommerceCartSnapshotV2 | null) => {
     setSnapshot((current) => {
@@ -186,23 +205,24 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (inert || !hydrated) return;
     return bindCommerceCartResync({
       getCurrent: () => snapshotRef.current,
       apply: applyExternalSnapshot,
       onExpired: () =>
         showCommerceCartPolicyToast(translate(getRuntimeAppLanguage(), "store_cart_expired_toast")),
     });
-  }, [hydrated, applyExternalSnapshot]);
+  }, [inert, hydrated, applyExternalSnapshot]);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (inert || !hydrated) return;
     writeCommerceCartToStorage(snapshot);
-  }, [hydrated, snapshot]);
+  }, [inert, hydrated, snapshot]);
 
   useEffect(() => {
+    if (inert) return;
     publishCommerceCartSnapshot(hydrated, snapshot);
-  }, [hydrated, snapshot]);
+  }, [inert, hydrated, snapshot]);
 
   const flushCartSnapshot = useCallback(
     (
@@ -506,8 +526,8 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
   );
 
   return (
-    <StoreCommerceCartActionsCtx.Provider value={actionsValue}>
-      <StoreCommerceCartCtx.Provider value={value}>{children}</StoreCommerceCartCtx.Provider>
+    <StoreCommerceCartActionsCtx.Provider value={inert ? null : actionsValue}>
+      <StoreCommerceCartCtx.Provider value={inert ? null : value}>{children}</StoreCommerceCartCtx.Provider>
     </StoreCommerceCartActionsCtx.Provider>
   );
 }
