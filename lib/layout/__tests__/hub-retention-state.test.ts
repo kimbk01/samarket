@@ -12,7 +12,7 @@ const root = join(__dirname, "../../..");
 const read = (p: string) => readFileSync(join(root, p), "utf8");
 
 /** 테스트용 라우터 정보 = "주소#판" (같은 주소의 다른 서버 응답 = 같은 주소·다른 판) */
-const base = (viewerKey: string | null = "guest"): HubRetentionState<string> => ({ viewerKey, currentId: null, entries: [] });
+const base = (viewerKey: string | null = "guest"): HubRetentionState<string> => ({ viewerKey, currentId: null, accountGeneration: 0, entries: [] });
 const sameAddress = (a: string, b: string) => a.split("#")[0] === b.split("#")[0];
 const step = (s: HubRetentionState<string>, hubId: Parameters<typeof nextHubRetentionState>[1]["hubId"], liveCtx: string, viewerKey: string | null = s.viewerKey) =>
   nextHubRetentionState(s, { hubId, liveCtx, viewerKey, retainable: HUB_RETENTION_HUB_IDS, sameAddress });
@@ -69,12 +69,15 @@ describe("D1 허브 화면 보관대 상태", () => {
     s = step(s, "community", "c4", "guest");
     expect(s.entries).toEqual([{ id: "community", ctx: "c4", pinnedLive: null }]);
     expect(s.viewerKey).toBe("guest");
+    /** 계정이 바뀔 때마다 세대 증가 — 보관 칸 key 가 바뀌어 같은 허브라도 새로 마운트(이전 계정 화면·60초 기록 재사용 금지) */
+    expect(s.accountGeneration).toBe(2);
   });
 
   it("앱 시작 확인 중 → 회원 확정은 비우지 않음", () => {
     let s = step(base(null), "home", "c1", null);
     s = step(s, "home", "c1", "member:a");
     expect(s.entries.length).toBe(1);
+    expect(s.accountGeneration).toBe(0);
   });
 
   it("계정 키", () => {
@@ -92,6 +95,7 @@ describe("D1 셸 계약", () => {
     const stack = read("components/layout/HubRetentionStack.tsx");
     expect(stack).not.toContain("createPortal");
     expect(stack).toContain("<Activity");
+    expect(stack).toContain("key={`hub:${next.accountGeneration}:${entry.id}`}");
     expect(stack).toContain("LayoutRouterContext.Provider");
     /** 숨긴 허브는 주소 값도 고정 — 다른 탭 주소를 보고 화면을 비우지 않게 */
     expect(stack).toContain("PathnameContext.Provider");

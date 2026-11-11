@@ -67,6 +67,7 @@ export function HubRetentionStack({ children }: { children: ReactNode }) {
   const [state, setState] = useState<HubRetentionState<RouterCtx>>(() => ({
     viewerKey,
     currentId: null,
+    accountGeneration: 0,
     entries: [],
   }));
   const [instanceId] = useState(allocateHubRetentionInstanceId);
@@ -102,12 +103,14 @@ export function HubRetentionStack({ children }: { children: ReactNode }) {
         const visible = entry.id === currentRetained;
         /** 보이는 칸: 같은 주소로 돌아온 직후면 떠나기 직전 정보(다시 만들지 않음), 그 밖에는 현재 정보 — `nextHubRetentionState` */
         return (
-          <Activity key={`hub:${entry.id}`} mode={visible ? "visible" : "hidden"}>
+          <Activity key={`hub:${next.accountGeneration}:${entry.id}`} mode={visible ? "visible" : "hidden"}>
             <FrozenRouterContexts ctx={entry.ctx}>{children}</FrozenRouterContexts>
           </Activity>
         );
       })}
-      {currentRetained ? null : <LiveRouteSlot key="live">{children}</LiveRouteSlot>}
+      {currentRetained ? null : (
+        <LiveRouteSlot key={`live:${next.accountGeneration}`}>{children}</LiveRouteSlot>
+      )}
     </>
   );
 }

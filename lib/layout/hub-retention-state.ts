@@ -30,6 +30,8 @@ export type HubRetentionState<C> = {
   viewerKey: string | null;
   /** 지난 렌더에 보이던 보관 허브 */
   currentId: MainTabKeepAliveHubId | null;
+  /** 계정 세대 — 계정이 바뀔 때마다 1 증가. 보관 칸 key 에 넣어 같은 허브라도 새로 마운트한다(이전 계정 화면·기록 재사용 금지) */
+  accountGeneration: number;
   entries: ReadonlyArray<HubRetentionEntry<C>>;
 };
 
@@ -69,6 +71,7 @@ export function nextHubRetentionState<C>(
     state = {
       viewerKey: input.viewerKey,
       currentId: accountChanged ? null : prev.currentId,
+      accountGeneration: accountChanged ? prev.accountGeneration + 1 : prev.accountGeneration,
       entries: accountChanged ? [] : prev.entries,
     };
   }

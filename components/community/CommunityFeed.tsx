@@ -997,7 +997,7 @@ export function CommunityFeed({
      * 새로 마운트된 화면은 기록이 없어 언제나 아래 경로로 받는다.
      */
     if (
-      feedRevisitGate.isFresh(feedContentKey) &&
+      feedRevisitGate.isFresh(`${viewerSig}|${feedContentKey}`) &&
       postsContentKeyRef.current === feedContentKey &&
       postsRef.current.length > 0
     ) {
@@ -1011,7 +1011,7 @@ export function CommunityFeed({
     loadMoreLockRef.current = false;
     const markFeedLoaded = (outcome: DibayPtrOutcome) => {
       if (outcome === "success" && feedSessionRef.current === session) {
-        feedRevisitGate.markLoaded(feedContentKey);
+        feedRevisitGate.markLoaded(`${viewerSig}|${feedContentKey}`);
       }
     };
 
@@ -1207,6 +1207,8 @@ export function CommunityFeed({
     // 동네 탭인데 지역이 없으면 피드 자체가 「지역 변경」 안내만 보인다 — 광고 자리도 없다
     if (feedNeedsRegionButMissing) {
       setTopAds([]);
+      /** 광고를 비웠으니 기록도 지운다 — 60초 안에 다른 탭으로 돌아와도 다시 받게 */
+      topAdsRevisitGate.reset();
       return;
     }
     const topAdsKey = category || "all";
@@ -1255,6 +1257,9 @@ export function CommunityFeed({
   useEffect(() => {
     if (!feedAdSurface.placement) {
       setFeedAdPool(null);
+      /** 광고 풀을 비웠으니 기록도 지운다 — 60초 안에 광고 자리가 있는 탭으로 돌아와도 다시 받게 */
+      feedAdPoolRevisitGate.reset();
+      feedAdPoolRefreshAtRef.current = null;
       return;
     }
     let cancelled = false;

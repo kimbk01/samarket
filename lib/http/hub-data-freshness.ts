@@ -52,6 +52,8 @@ export type HubDataRevisitGate = {
   isFresh: (key: string) => boolean;
   /** 받기 성공 시 기록 */
   markLoaded: (key: string) => void;
+  /** 화면 값을 비웠을 때(조건상 데이터 없음 등) — 다음 효과에서 반드시 다시 받게 기록을 지운다 */
+  reset: () => void;
 };
 
 export function createHubDataRevisitGate(
@@ -67,6 +69,9 @@ export function createHubDataRevisitGate(
       now() - last.at < maxAgeMs,
     markLoaded: (key) => {
       last = { key, at: now(), epoch: peekHubDataEpoch() };
+    },
+    reset: () => {
+      last = null;
     },
   };
 }

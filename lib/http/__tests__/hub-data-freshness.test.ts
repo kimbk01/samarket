@@ -29,6 +29,16 @@ describe("D1 §4 허브 데이터 60초 규칙", () => {
     expect(gate.isFresh("k")).toBe(false); // 60초 지나면 받음
   });
 
+  it("화면 값을 비우면(reset) 60초 안이라도 다시 받음", () => {
+    const gate = createHubDataRevisitGate(() => 0);
+    gate.markLoaded("all");
+    gate.reset();
+    expect(gate.isFresh("all")).toBe(false);
+    const feed = readFileSync(join(root, "components/community/CommunityFeed.tsx"), "utf8");
+    expect(feed).toContain("topAdsRevisitGate.reset()");
+    expect(feed).toContain("feedAdPoolRevisitGate.reset()");
+  });
+
   it("세대가 오르면(글 쓰기·피드 캐시 비우기·앱 복귀·언어 변경) 다시 받음", () => {
     const gate = createHubDataRevisitGate(() => 0);
     gate.markLoaded("k");
