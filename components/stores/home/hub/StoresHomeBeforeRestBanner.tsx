@@ -37,7 +37,8 @@ export function StoresHomeBeforeRestBanner({ refreshKey = 0 }: { refreshKey?: nu
     let cancelled = false;
     const apply = (json: StoresHomeBannersResponse | null) => {
       if (cancelled) return;
-      if (json) revisitGate.markLoaded(gateKey);
+      /** 실패 응답(`{}`·ok=false)은 기록하지 않는다 — 다시 보일 때 다시 받게 (PR #150 Bugbot) */
+      if (json?.ok === true) revisitGate.markLoaded(gateKey);
       if (!json?.physicalEnabled) {
         setBanners([]);
         return;

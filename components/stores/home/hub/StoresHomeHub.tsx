@@ -398,10 +398,15 @@ export function StoresHomeHub({
     prewarmStoresHomeBanners();
   }, [feedReady, feedRevisitGate, feedRevisitKey]);
   const onStoresHomePullRefresh = useCallback(() => {
+    /** 새로고침 도중 탭을 떠나 중단돼도 돌아오면 다시 받게 60초 기록을 지운다 (PR #150 Bugbot) */
+    feedRevisitGate.reset();
     prewarmStoresHomeBanners({ force: true });
     setBannerRefreshKey((n) => n + 1);
-    return loadFeed({ silent: false, force: true });
-  }, [loadFeed]);
+    return loadFeed({ silent: false, force: true }).then((outcome) => {
+      if (outcome === "success") feedRevisitGate.markLoaded(feedRevisitKey);
+      return outcome;
+    });
+  }, [loadFeed, feedRevisitGate, feedRevisitKey]);
 
   useLayoutEffect(() => {
     if (!feedReady) return;
@@ -417,13 +422,14 @@ export function StoresHomeHub({
       if (!feedReady) return;
       /** R-2 — 주소가 바뀌면 이전 스냅샷 기준 예측을 버리고 서버 판정·새 스냅샷을 따른다 */
       setPredictedViewerGate(null);
+      feedRevisitGate.reset();
       prewarmStoresHomeBanners({ force: true });
       setBannerRefreshKey((n) => n + 1);
       void loadFeed({ force: true, silent: true });
     };
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
-  }, [feedReady, loadFeed]);
+  }, [feedReady, loadFeed, feedRevisitGate]);
 
   useRefetchOnPageShowRestore(() => {
     if (!feedReady) return;
