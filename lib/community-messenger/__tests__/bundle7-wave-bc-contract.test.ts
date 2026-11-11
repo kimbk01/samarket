@@ -30,16 +30,13 @@ describe("Bundle7 Wave B contracts", () => {
     expect(actions.find((a) => a.kind === "archive")?.disabled).toBe(false);
   });
 
-  it("F-6: relations/friend POST gates signup/profile", () => {
+  it("F-6: relations/friend 는 친구 끊기(DELETE)만 — 친구 추가 POST 없음(QR 친구 재감사 D-A4), 요청은 friend-requests 한 곳", () => {
     const src = readFileSync(
       join(process.cwd(), "app/api/community-messenger/relations/friend/route.ts"),
       "utf8"
     );
-    expect(src).toContain("gateFriendAddProfile");
-    expect(src).toContain("requireSignupCompleteForUser");
-    expect(src).toContain("messenger_add_friend");
-    const postIdx = src.indexOf("export async function POST");
-    expect(src.indexOf("gateFriendAddProfile", postIdx)).toBeGreaterThan(postIdx);
+    expect(src).not.toContain("export async function POST");
+    expect(src).toContain("export async function DELETE");
   });
 
   it("L-5: trade list wires scroll/outside swipe close", () => {

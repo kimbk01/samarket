@@ -14,6 +14,9 @@ export const FRIEND_QR_DEEP_LINK_PREFIX = "dibay://friend/";
 /** 메신저 홈이 받는 쿼리 — 스캔 결과 시트를 연다 */
 export const FRIEND_QR_HOME_QUERY_KEY = "friendQr";
 
+/** 웹 /f 「앱에서 열기」가 실패했을 때 Android 이동처 (패키지 `com.dibay.app`, android/app/build.gradle) */
+export const FRIEND_QR_ANDROID_STORE_URL = "https://play.google.com/store/apps/details?id=com.dibay.app";
+
 export function isFriendQrToken(value: unknown): value is string {
   return typeof value === "string" && FRIEND_QR_TOKEN_RE.test(value);
 }
@@ -24,6 +27,15 @@ export function buildFriendQrUrl(token: string, origin: string = DIBAY_PRODUCTIO
 
 export function buildFriendQrDeepLink(token: string): string {
   return `${FRIEND_QR_DEEP_LINK_PREFIX}${token}`;
+}
+
+/**
+ * Android Chrome 「앱에서 열기」 주소 — `intent://friend/<토큰>#Intent;scheme=dibay;package=com.dibay.app;S.browser_fallback_url=…;end`.
+ * 앱이 이 링크를 받으면 앱이 열리고, 앱이 없거나 이 링크를 모르는 구 빌드면 Chrome 이 스토어 주소로 보낸다
+ * (시간 재기 없음 — PR #154 리뷰: 1.5초 타이머는 「앱 선택」 창이 떠 있어도 스토어로 넘어갔다).
+ */
+export function buildFriendQrAndroidIntentUrl(token: string): string {
+  return `intent://friend/${encodeURIComponent(token)}#Intent;scheme=dibay;package=com.dibay.app;S.browser_fallback_url=${encodeURIComponent(FRIEND_QR_ANDROID_STORE_URL)};end`;
 }
 
 export function buildFriendQrHomePath(token: string): string {

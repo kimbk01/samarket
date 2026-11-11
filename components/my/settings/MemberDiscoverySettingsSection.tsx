@@ -7,6 +7,8 @@ import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { setMemberDiscoverySettingsCache } from "@/lib/auth/use-member-discovery-settings";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
+import { Sam } from "@/lib/ui/sam-component-classes";
+import { requestFriendQrRegenerate } from "@/lib/community-messenger/friend-qr/friend-qr-client";
 
 type DiscoverySettings = { allowIdSearch: boolean; allowQrAdd: boolean };
 
@@ -65,20 +67,14 @@ export function MemberDiscoverySettingsSection() {
     }
   };
 
-  /** 시안 H 「내 QR 다시 만들기」 (재감사 N4) — 내 QR 시트와 같은 API */
+  /** 시안 H 「내 QR 다시 만들기」 (재감사 N4·Q9) — 내 QR 시트와 같은 함수 */
   const regenerate = async () => {
     setRegenOpen(false);
     if (regenBusy) return;
     setRegenBusy(true);
     try {
-      const r = await fetch("/api/community-messenger/friend-qr/regenerate", { method: "POST", credentials: "include" });
-      const j = (await r.json().catch(() => ({}))) as { ok?: boolean };
-      showMypageToast(
-        t(r.ok && j.ok === true ? "friend_qr_regenerated" : "friend_qr_action_failed"),
-        r.ok && j.ok === true ? "success" : "error",
-      );
-    } catch {
-      showMypageToast(t("friend_qr_action_failed"), "error");
+      const next = await requestFriendQrRegenerate();
+      showMypageToast(t(next ? "friend_qr_regenerated" : "friend_qr_action_failed"), next ? "success" : "error");
     } finally {
       setRegenBusy(false);
     }
@@ -142,7 +138,7 @@ export function MemberDiscoverySettingsSection() {
           type="button"
           disabled={regenBusy}
           onClick={() => setRegenOpen(true)}
-          className="shrink-0 rounded-ui-rect border border-sam-border px-3 py-1.5 text-[13px] font-semibold text-sam-fg disabled:opacity-50"
+          className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} ${Sam.btn.disabledToken} shrink-0 whitespace-nowrap`}
           data-testid="member-qr-regenerate-row"
         >
           {t("friend_qr_regenerate")}

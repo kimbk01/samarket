@@ -10,7 +10,10 @@ import {
   COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH,
   type CommunityMessengerUserSearchResult,
 } from "@/lib/community-messenger/user-public-id-search";
-import { MessengerFriendSearchResultRow } from "@/components/community-messenger/MessengerFriendAddSheet";
+import {
+  MessengerFriendSearchResultRow,
+  type MessengerFriendAddSource,
+} from "@/components/community-messenger/friend-cta/MessengerFriendSearchResultRow";
 import { useMessengerFriendActions } from "@/components/community-messenger/friend-cta/messenger-friend-actions-context";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
@@ -118,8 +121,8 @@ export function MessengerHomeInlineFriendSearch({ busyId, onSelectUser, trailing
               collapse();
               friendActions.onOpenProfile(user);
             },
-            onSend: async (userId: string) => {
-              const ok = (await friendActions.onSend(userId)) === true;
+            onSend: async (userId: string, source: MessengerFriendAddSource) => {
+              const ok = (await friendActions.onSend(userId, source)) === true;
               if (ok) collapse();
               return ok;
             },
@@ -220,9 +223,15 @@ export function MessengerHomeInlineFriendSearch({ busyId, onSelectUser, trailing
               {t("common_loading")}
             </p>
           ) : results.length === 0 ? (
-            <p className="px-3 py-4 text-center text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
-              {!attempted ? t("cm_ui_enter_keyword_then_search") : t("cm_social_no_matching_users")}
-            </p>
+            <div className="px-3 py-4 text-center" style={{ color: "var(--overlay-text-secondary)" }}>
+              {attempted ? (
+                <p className="text-[length:var(--overlay-body-2-size)]">{t("cm_social_no_matching_users")}</p>
+              ) : null}
+              {/** 친구 찾기 규칙 안내 — DB cm_search_members 와 같은 규칙 (설계안 v3 §3.3) */}
+              <p className="mt-1 text-[length:var(--overlay-caption-size)]" data-testid="friend-inline-id-rule-hint">
+                {t("cm_friend_find_by_id_rule_hint")}
+              </p>
+            </div>
           ) : (
             rowFriendActions ? (
               results.map((user) => (

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { MyFriendQrSheet } from "@/components/community-messenger/friend-qr/MyFriendQrSheet";
+import { MemberAtIdText } from "@/components/profile/MemberAtIdText";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 import { resolveMemberPublicIdUi } from "@/lib/auth/member-public-id-ui-contract";
@@ -49,10 +50,10 @@ export function MypageSelfProfileView({ profile }: { profile: ProfileRow }) {
   return (
     <div className="flex flex-col items-center px-4 py-8 text-center">
       <SamarketUserAvatar avatarUrl={profile.avatar_url} sizePx={96} alt="" />
-      <h1 className="mt-4 max-w-full truncate text-[20px] font-bold text-sam-fg">{displayName}</h1>
+      <h1 className="mt-4 max-w-full text-[20px] font-bold leading-[1.35] text-sam-fg [overflow-wrap:anywhere] [text-wrap:balance]">{displayName}</h1>
       {handle ? (
         <p className="mt-1 flex max-w-full flex-wrap items-center justify-center gap-2 text-[14px] text-sam-muted">
-          <span className="truncate">{handle}</span>
+          <MemberAtIdText value={handle} />
           {idUi.badgeKey ? <span className={Sam.badge.primary}>{t(idUi.badgeKey)}</span> : null}
           <button
             type="button"
@@ -67,14 +68,14 @@ export function MypageSelfProfileView({ profile }: { profile: ProfileRow }) {
       {idUi.hintKey ? (
         <p className="mt-1 max-w-full text-[12px] text-sam-muted">{t(idUi.hintKey, idUi.hintVars)}</p>
       ) : null}
-      <p className="mt-3 max-w-full truncate text-[14px] leading-relaxed text-sam-muted">
+      <p className="mt-3 max-w-full text-[14px] leading-relaxed text-sam-muted [overflow-wrap:anywhere] [text-wrap:balance] [word-break:keep-all]">
         {bio ||
           safeT("mypage_profile_bio_empty")}
       </p>
       <div className="mt-8 flex w-full max-w-sm flex-col gap-2">
         {/* 내 QR (설계안 v3 §3.6 · 시안 A) */}
         <button type="button" onClick={() => setQrOpen(true)} className={`${Sam.btn.secondary} w-full justify-center`} data-testid="mypage-my-qr">
-          {t("friend_qr_tab_my")}
+          {t("friend_qr_sheet_title")}
         </button>
         {publicHref ? (
           <button

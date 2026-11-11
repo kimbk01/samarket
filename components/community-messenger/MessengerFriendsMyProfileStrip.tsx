@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { MyFriendQrSheet } from "@/components/community-messenger/friend-qr/MyFriendQrSheet";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
@@ -10,6 +8,7 @@ import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
+import { MemberAtIdText } from "@/components/profile/MemberAtIdText";
 
 type Props = {
   me: CommunityMessengerProfileLite | null;
@@ -22,7 +21,6 @@ type Props = {
  */
 export function MessengerFriendsMyProfileStrip({ me }: Props) {
   const { t } = useI18n();
-  const [qrOpen, setQrOpen] = useState(false);
   const rawLabel = me?.label?.trim() || "";
   const nick = incomingCallPeerNicknameLabel(rawLabel) || rawLabel;
   const atFromLabel = rawLabel.match(/\((@[^)]+)\)/)?.[1] ?? null;
@@ -31,7 +29,7 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
 
   return (
     <section
-      className="flex h-20 items-center gap-3 px-4"
+      className="flex min-h-20 items-center gap-3 px-4 py-3"
       aria-label={t("cm_friend_my_profile_section")}
       data-cm-friend-my-profile=""
     >
@@ -46,25 +44,15 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
         />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
-        <p className="truncate text-[17px] font-semibold leading-[1.3]" style={{ color: "var(--cm-chat-fg)" }}>
+        <p className="text-[17px] font-semibold leading-[1.3] [overflow-wrap:anywhere] [text-wrap:balance]" style={{ color: "var(--cm-chat-fg)" }}>
           {nick || t("cm_friend_my_profile_section")}
         </p>
         {handle ? (
-          <p data-copyable="" className="truncate text-[12.5px] leading-[1.3]" style={{ color: "var(--cm-chat-sub)" }}>
-            {handle}
+          <p className="text-[12.5px] leading-[1.35]" style={{ color: "var(--cm-chat-sub)" }}>
+            <MemberAtIdText value={handle} />
           </p>
         ) : null}
       </div>
-      {/* 내 QR (설계안 v3 §3.6) — 프로필 편집과 같은 회색 칸 */}
-      <button
-        type="button"
-        onClick={() => setQrOpen(true)}
-        className="inline-flex h-8 shrink-0 items-center rounded-[8px] bg-[color:var(--cm-chat-band)] px-[13px] text-[13px] font-semibold active:opacity-80"
-        style={{ color: "var(--cm-chat-fg)" }}
-        data-testid="cm-my-profile-qr"
-      >
-        {t("friend_qr_tab_my")}
-      </button>
       <Link
         href={MYPAGE_PROFILE_EDIT_HREF}
         className="inline-flex h-8 shrink-0 items-center rounded-[8px] bg-[color:var(--cm-chat-band)] px-[13px] text-[13px] font-semibold active:opacity-80"
@@ -72,7 +60,6 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
       >
         {t("cm_friend_my_profile_edit")}
       </Link>
-      {qrOpen ? <MyFriendQrSheet onClose={() => setQrOpen(false)} /> : null}
     </section>
   );
 }
