@@ -695,7 +695,19 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   </button>
                 </div>
 
-                <div className="mt-4 space-y-2">
+                {vm.isMoimRoom && vm.moimRoomOwner ? (
+                  <div className="mt-4 space-y-2">
+                    <a
+                      href={`/moim/${vm.moimRoomOwner.moimId}`}
+                      data-moim-room-home="menu"
+                      className={`block w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-left sam-text-body font-semibold text-sam-fg ${ROOM_SHEET_ROW_PRESS_CLASS}`}
+                    >
+                      {vm.t("moim_room_go_home")}
+                    </a>
+                    <p className="px-1 sam-text-helper text-sam-muted">{vm.t("moim_room_managed_in_moim")}</p>
+                  </div>
+                ) : null}
+                <div className={vm.isMoimRoom ? "hidden" : "mt-4 space-y-2"}>
                   <button
                     type="button"
                     onClick={() => {
@@ -1161,6 +1173,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         >
                           {vm.isOwner ? vm.t("cm_ui_members_transfer") : vm.t("cm_ui_members_invite")}
                         </button>
+                        {vm.isMoimRoom ? null : (
                         <button
                           type="button"
                           onClick={() => {
@@ -1179,6 +1192,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                               ? vm.t("cm_ui_leave_after_owner_transfer")
                               : vm.t("nav_messenger_leave_group_room")}
                         </button>
+                        )}
                       </div>
                     </div>
                   ) : null}

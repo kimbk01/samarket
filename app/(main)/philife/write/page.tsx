@@ -29,8 +29,8 @@ export default function PhilifeWritePage({ searchParams }: PhilifeWritePageProps
 async function PhilifeWritePageBody({ searchParams }: PhilifeWritePageProps) {
   const { category, edit } = await searchParams;
   if (category?.trim().toLowerCase() === "meetup") {
-    /** 옛 모임 글쓰기는 폐지됨 — 필라이프 홈으로 보낸다 */
-    redirect(philifeAppPaths.home);
+    /** 모임은 글이 아니라 모임 탭에서 만든다 (docs/design/moim §2) */
+    redirect("/moim/new");
   }
 
   const editId = edit?.trim() ?? "";

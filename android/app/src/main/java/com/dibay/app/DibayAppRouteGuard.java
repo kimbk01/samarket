@@ -24,7 +24,7 @@ public final class DibayAppRouteGuard {
               Arrays.asList(
                   "account", "address", "admin", "auth", "biz", "business-info", "chat", "chats",
                   "community", "community-messenger", "delivery", "events", "f", "features", "group",
-                  "group-chat", "home", "login", "market", "my", "mypage", "notifications",
+                  "group-chat", "home", "login", "market", "moim", "my", "mypage", "notifications",
                   "onboarding", "orders", "philife", "post", "posts", "privacy", "products",
                   "regions", "rider", "search", "services", "settings", "shop", "signup", "stores",
                   "support", "terms", "u", "write")));

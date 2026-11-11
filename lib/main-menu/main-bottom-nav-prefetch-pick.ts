@@ -50,6 +50,8 @@ export function isBottomNavTabActive(pathname: string | null, tabHref: string): 
   if (h === "/philife" && isCommunityHomeSurfacePath(p)) return true;
   /** 거래(`/market`·상품 상세·쓰기)는 커뮤니티 안의 「거래」 탭 — 하단은 커뮤니티 탭이 켜진다 (홈 설계안 v11) */
   if (h === "/philife" && resolveMainSurface(p) === "trade") return true;
+  /** 모임(`/moim`)도 커뮤니티 안의 탭 */
+  if (h === "/philife" && (p === "/moim" || p.startsWith("/moim/"))) return true;
   return false;
 }
 

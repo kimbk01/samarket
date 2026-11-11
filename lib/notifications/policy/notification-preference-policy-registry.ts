@@ -80,6 +80,13 @@ export const CANONICAL_EVENT_PREFERENCE_POLICY: Readonly<
  * Takes precedence over canonical event defaults.
  */
 export const META_KIND_PREFERENCE_POLICY_OVERRIDES: Readonly<Record<string, PolicyRow>> = {
+  // 모임 결과 통지 — 끌 수 없음 (docs/design/moim §7: 승인·거절·내보내기·위임 요청·종료)
+  moim_join_approved: row("member", "community_social", "mandatory", MANDATORY),
+  moim_join_rejected: row("member", "community_social", "mandatory", MANDATORY),
+  moim_member_removed: row("member", "community_social", "mandatory", MANDATORY),
+  moim_host_transfer_requested: row("member", "community_social", "mandatory", MANDATORY),
+  moim_closed: row("member", "community_social", "mandatory", MANDATORY),
+
   // Member financial (mandatory)
   user_point_charge_approved: row("member", "member_financial", "mandatory", MANDATORY),
   user_point_charge_rejected: row("member", "member_financial", "mandatory", MANDATORY),

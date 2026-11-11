@@ -132,6 +132,12 @@ export const MEMBER_CONSENT_EXEMPT_RULES: readonly Rule[] = [
   R("POST", "/api/chat/rooms/[roomId]/leave", "leave"),
   R("POST", "/api/chat/rooms/[roomId]/hide", "leave"),
   R("POST", "/api/community-messenger/rooms/[roomId]/leave", "leave"),
+  // 모임 (2026-11-12 M3): 나가기·가입 신청 취소·신고·내 글/댓글 삭제는 약관 동의 전에도 허용
+  R("POST", "/api/moim/[moimId]/leave", "leave"),
+  R("DELETE", "/api/moim/[moimId]/join", "leave"),
+  R("POST", "/api/moim/[moimId]/reports", "report_block_support"),
+  R("DELETE", "/api/moim/posts/[postId]", "delete_own_content"),
+  R("DELETE", "/api/moim/comments/[commentId]", "delete_own_content"),
   R("DELETE", "/api/community-messenger/friends/[friendUserId]", "leave"),
   R("POST", "/api/community-messenger/friends/[friendUserId]/hidden", "leave"),
   R("DELETE", "/api/community-messenger/relations/friend", "leave"),

@@ -614,7 +614,7 @@
    "lib/notices/customer-center-safe-markdown.ts": 9,
    "lib/notifications/badge-writer-authority.ts": 1,
    "lib/notifications/display/build-message-notification-display.ts": 1,
-   "lib/notifications/notification-item-sound-seeds.ts": 32,
+   "lib/notifications/notification-item-sound-seeds.ts": 33,
    "lib/notifications/notification-sound-registry.ts": 56,
    "lib/notifications/publish-notification-side-effect.ts": 1,
    "lib/offers/offers-map.ts": 2,

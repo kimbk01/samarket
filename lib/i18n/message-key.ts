@@ -69,6 +69,9 @@ import { navigationMessages } from "./catalog/navigation";
 import { notificationMessages } from "./catalog/notifications";
 import { chatsMessages } from "./catalog/chats";
 import { ptrMessages } from "./catalog/ptr";
+import { moimCoreMessages } from "./catalog/moim-core";
+import { moimScreensMessages } from "./catalog/moim-screens";
+import { moimManageMessages } from "./catalog/moim-manage";
 import { homeHubMessages } from "./catalog/home-hub";
 import { homeHubAdminMessages } from "./catalog/home-hub-admin";
 import { adminMemberIdV3Messages } from "./catalog/admin-member-id-v3";
@@ -253,6 +256,9 @@ export type MessageKey =
   | KeyOf<typeof notificationMessages.ko>
   | KeyOf<typeof chatsMessages.ko>
   | KeyOf<typeof ptrMessages.ko>
+  | KeyOf<typeof moimCoreMessages.ko>
+  | KeyOf<typeof moimScreensMessages.ko>
+  | KeyOf<typeof moimManageMessages.ko>
   | KeyOf<typeof homeHubMessages.ko>
   | KeyOf<typeof homeHubAdminMessages.ko>
   | KeyOf<typeof adminMemberIdV3Messages.ko>
@@ -387,6 +393,9 @@ type EnMessageKey =
   | KeyOf<typeof notificationMessages.en>
   | KeyOf<typeof chatsMessages.en>
   | KeyOf<typeof ptrMessages.en>
+  | KeyOf<typeof moimCoreMessages.en>
+  | KeyOf<typeof moimScreensMessages.en>
+  | KeyOf<typeof moimManageMessages.en>
   | KeyOf<typeof homeHubMessages.en>
   | KeyOf<typeof homeHubAdminMessages.en>
   | KeyOf<typeof adminMemberIdV3Messages.en>

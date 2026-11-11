@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -15,6 +15,11 @@ const MIGRATION = readFileSync(
   join(process.cwd(), "supabase/migrations/20271112210000_moim_m2_schema_rpc.sql"),
   "utf8"
 );
+/** 모임 RPC 마이그레이션 전부 (오류 코드 대조용) */
+const ALL_MOIM_SQL = readdirSync(join(process.cwd(), "supabase/migrations"))
+  .filter((f) => /_moim_m\d+[a-z]?_/.test(f) && !f.includes("drop_legacy"))
+  .map((f) => readFileSync(join(process.cwd(), "supabase/migrations", f), "utf8"))
+  .join("\n");
 
 function sqlPermissionRows(): Map<string, { min: string; adjustable: boolean; floor: string }> {
   const start = MIGRATION.indexOf("create or replace function public.moim_permission_defaults()");
@@ -81,9 +86,9 @@ describe("moim permission contract — TS 표 = SQL moim_permission_defaults()",
 describe("moim error codes — TS 목록 = SQL 이 내는 코드", () => {
   it("SQL 의 moim__fail / raise 코드가 모두 TS 목록에 있다", () => {
     const failCodes = new Set<string>();
-    for (const m of MIGRATION.matchAll(/moim__fail\('([a-z_]+)'\)/g)) failCodes.add(m[1]);
-    for (const m of MIGRATION.matchAll(/raise exception '(moim_[a-z_]+)'/g)) failCodes.add(m[1]);
-    for (const m of MIGRATION.matchAll(/'error', '(moim_[a-z_]+)'/g)) failCodes.add(m[1]);
+    for (const m of ALL_MOIM_SQL.matchAll(/moim__fail\('([a-z_]+)'\)/g)) failCodes.add(m[1]);
+    for (const m of ALL_MOIM_SQL.matchAll(/raise exception '(moim_[a-z_]+)'/g)) failCodes.add(m[1]);
+    for (const m of ALL_MOIM_SQL.matchAll(/'error', '(moim_[a-z_]+)'/g)) failCodes.add(m[1]);
     expect([...failCodes].sort()).toEqual([...MOIM_ERROR_CODES].sort());
   });
 

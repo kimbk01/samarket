@@ -275,6 +275,37 @@ export const NOTIFICATION_ITEMS: readonly NotificationItemDefinition[] = [
     soundEventKey: "item_community_pinned",
     samples: [{ eventType: "community_activity", kind: "community_pinned" }],
   }),
+  /** 모임(moim) — 가입·승인·초대·역할·위임·공지·댓글·종료 (docs/design/moim §7). 소리 키는 기존 모임 키 재사용(운영 DB 행 있음) */
+  item({
+    key: "moim",
+    labelKo: "모임 활동",
+    labelEn: "Group activity",
+    audience: "member",
+    match: {
+      eventTypes: ["community_activity"],
+      kinds: [
+        "moim_join_requested",
+        "moim_join_approved",
+        "moim_join_rejected",
+        "moim_member_removed",
+        "moim_invited",
+        "moim_role_changed",
+        "moim_host_transfer_requested",
+        "moim_host_changed",
+        "moim_notice_posted",
+        "moim_comment",
+        "moim_closed",
+      ],
+    },
+    soundEventKey: "item_community_meeting",
+    samples: [
+      { eventType: "community_activity", kind: "moim_join_requested" },
+      { eventType: "community_activity", kind: "moim_join_approved" },
+      { eventType: "community_activity", kind: "moim_invited" },
+      { eventType: "community_activity", kind: "moim_notice_posted" },
+      { eventType: "community_activity", kind: "moim_closed" },
+    ],
+  }),
   item({
     key: "community_moderation",
     labelKo: "게시글 조치·제재",

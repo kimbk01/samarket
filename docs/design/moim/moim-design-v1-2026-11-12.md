@@ -435,7 +435,7 @@
 | M1a | **옛 모임 코드 전부 삭제**(§1) — 앱이 옛 테이블·열을 더 이상 읽고 쓰지 않게 함 | 메신저 결합 제거(오픈그룹 탐색·부트스트랩의 meetings 조인 제거, 비밀번호 해시 이동), 알림 항목 교체, 어드민 메뉴 제거<br>`/philife/write?category=meetup` · `/philife/meetings/*` 는 **M3 전까지 커뮤니티 홈으로** 보낸다(깨진 화면 없음) | 웹 |
 | M1b | **옛 모임 DB 삭제**: 테이블 26개·함수·트리거·`community_posts.is_meetup/meetup_*`·`community_topics.allow_meetup`·`chat_rooms.meeting_id` 삭제 + 옛 모임을 참조하는 운영 함수 8개(`admin_action_queue_counts`, `admin_community_period_stats`, `community_import_publish`, `get_cm_bootstrap_full_snapshot`, `philife_list_default_section_topics_for_feed` 등)와 `philife_topics` 뷰 재정의 | **M1a 가 운영에 나간 뒤에만** 적용(먼저 지우면 운영 앱이 깨짐). 파일 `supabase/migrations/20271112200000_moim_m1b_drop_legacy_meetings.sql` — 운영 현재 함수 정의에서 해당 부분만 지우고 개수가 다르면 전체 롤백. `open_chat_*`(옛 오픈채팅, 모임 아님)는 범위 밖 | DB(Owner 승인 후 적용) |
 | M2 | 신규 스키마 §3 + RPC + 권한 함수 + 메신저 `owner_domain` 차단 — `20271112210000_moim_m2_schema_rpc.sql` · `lib/moim/*`. 확정: 모임 테이블 클라이언트 직접 접근 없음(서버 RPC 만), 수치 상한은 `moim_policies`(NULL=검사 안 함, D6 지정 전), 카테고리 시드 없음(M5 어드민), 게시판·일정·앨범 RPC 는 M3·M4 | 메신저 그룹 RPC 6개, 하드락 문서 갱신(**D1 승인 필요**) | DB + 웹 |
-| M3 | 사용자: 탐색 · 개설 · 공개 페이지 · 가입 · 초대 · 탈퇴 · 모임 홈 · 게시판 · 멤버 관리 · 위임 · 종료 · 전체 채팅 | 메신저 목록의 「모임」 배지, 방 상단 「모임 홈」 버튼 | 웹 |
+| M3 | 사용자: 탐색 · 개설 · 공개 페이지 · 가입 · 초대 · 탈퇴 · 모임 홈 · 게시판 · 멤버 관리 · 위임 · 종료 · 전체 채팅 — DB `20271112230000_moim_m3_board_rpc.sql`(글·댓글·고정·게시판·메모·신고 접수), API `app/api/moim/**`, 화면 `app/(main)/moim/**`. 앨범·모임별 알림 설정은 M4(일정과 함께) | 메신저 목록의 「모임」 배지, 방 상단 「모임 홈」 버튼 | 웹 |
 | M4 | 일정 · 일정 채팅 · 출석 · 후기 · 리마인드 | 예약 발송(cron `CRON_TZ=Asia/Manila`) | 웹 |
 | M5 | 어드민 §8 전체 + 권한 키 `moim` | `admin-menu.ts`, `admin-route-access.ts`, 대시보드 | 웹 |
 | M6 | 신고 → 제재 연결, 신고 결과 알림 | 메신저 신고 큐의 모임 방 표시 | 웹 |

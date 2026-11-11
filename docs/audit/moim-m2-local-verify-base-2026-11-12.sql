@@ -202,3 +202,5 @@ insert into public.user_addresses (user_id, canonical_lgu_id, is_default_master)
   ('00000000-0000-0000-0000-0000000000a1', '1381300000', true),
   ('00000000-0000-0000-0000-0000000000a4', '1381300000', true);
 grant all on all tables in schema public to service_role;
+create table if not exists public.community_messenger_messages (id uuid primary key default gen_random_uuid(), room_id uuid not null);
+grant all on public.community_messenger_messages to service_role;
