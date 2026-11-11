@@ -32,7 +32,6 @@ import {
 import type { StoreOrderChatCardView } from "@/lib/store-order-chat/build-store-order-chat-card-view";
 import { StoreOrderDeliveryAddressDisplay } from "@/components/addresses/StoreOrderDeliveryAddressDisplay";
 import { StoreOrderReceiptCard } from "@/components/community-messenger/room/phase2/StoreOrderReceiptCard";
-import { VoiceCallIcon } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import {
   STORE_ORDER_DELIVERY_DETAIL_DRAWER_BACKDROP_TRANSITION_CLASS,
   STORE_ORDER_DELIVERY_DETAIL_DRAWER_TRANSFORM_CLASS,
@@ -56,8 +55,6 @@ type Props = {
   onCancel: () => void;
   chatRoomId: string;
   onSendOrderMatchAck: () => Promise<boolean>;
-  onVoiceCall: () => void;
-  voiceCallDisabled?: boolean;
   /** 메신저 방 — 우→좌 75vw peek (기본 bottom_sheet) */
   sheetVariant?: StoreOrderBuyerRoomSheetVariant;
 };
@@ -76,8 +73,6 @@ export function StoreOrderBuyerRoomSheet({
   onCancel,
   chatRoomId,
   onSendOrderMatchAck,
-  onVoiceCall,
-  voiceCallDisabled = false,
   sheetVariant = "bottom_sheet",
 }: Props) {
   const { t } = useI18n();
@@ -181,8 +176,6 @@ export function StoreOrderBuyerRoomSheet({
         open={open}
         peekDrawer={peekDrawer}
         onClose={() => onOpenChange(false)}
-        onVoiceCall={onVoiceCall}
-        voiceCallDisabled={voiceCallDisabled}
       >
         <div className="shrink-0 border-b border-[color:var(--cm-room-divider)] px-3 py-2.5">
           <BuyerOrderDrawerActions
@@ -221,16 +214,12 @@ function BuyerOrderDrawerShell({
   open,
   peekDrawer,
   onClose,
-  onVoiceCall,
-  voiceCallDisabled,
   children,
 }: {
   t: StoreOrderI18nT;
   open: boolean;
   peekDrawer: boolean;
   onClose: () => void;
-  onVoiceCall: () => void;
-  voiceCallDisabled: boolean;
   children: ReactNode;
 }) {
   return (
@@ -254,8 +243,6 @@ function BuyerOrderDrawerShell({
       <BuyerOrderDrawerHeader
         t={t}
         onClose={onClose}
-        onVoiceCall={onVoiceCall}
-        voiceCallDisabled={voiceCallDisabled}
         peekDrawer={peekDrawer}
       />
       {children}
@@ -266,14 +253,10 @@ function BuyerOrderDrawerShell({
 function BuyerOrderDrawerHeader({
   t,
   onClose,
-  onVoiceCall,
-  voiceCallDisabled,
   peekDrawer,
 }: {
   t: StoreOrderI18nT;
   onClose: () => void;
-  onVoiceCall: () => void;
-  voiceCallDisabled: boolean;
   peekDrawer: boolean;
 }) {
   return (
@@ -289,15 +272,7 @@ function BuyerOrderDrawerHeader({
       >
         {t("store_messenger_progress_drawer_title")}
       </h2>
-      <button
-        type="button"
-        onClick={onVoiceCall}
-        disabled={voiceCallDisabled}
-        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--delivery-radius)] text-[color:var(--delivery-primary)] transition hover:bg-[color:var(--delivery-primary-soft)] enabled:active:scale-[var(--overlay-press-scale)] enabled:active:bg-[color:var(--delivery-primary-soft)] disabled:text-[color:var(--overlay-text-secondary)]"
-        aria-label={t("cm_ui_voice_call")}
-      >
-        <VoiceCallIcon className="h-5 w-5" />
-      </button>
+      {/* 통화는 방 헤더 📞 선택 시트 하나로만 — 여기 📞 는 중복이라 없앰 (통화 버튼 통합 2판 · Owner 2026-11-12) */}
       <button
         type="button"
         onClick={onClose}

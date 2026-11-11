@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>통화 버튼 통합 설계</title>
+<style>
+:root{--green:#0B421A;--green-soft:#E7EFE8;--bg:#F2F0EB;--card:#fff;--fg:#191919;--sub:#7a7a7a;--line:#E2DFD8;--bad:#C0392B;--bad-soft:#FDECEA;--ok:#21885d;--ok-soft:#E6F3EC;--warn:#8A6418;--warn-soft:#FBF0D9;--f:"Noto Sans KR",-apple-system,"Apple SD Gothic Neo",system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 var(--f)}
+main{max-width:1080px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:24px;margin:0 0 4px}
+h2{font-size:19px;margin:36px 0 10px;padding-top:10px;border-top:2px solid var(--line)}
+h3{font-size:16px;margin:20px 0 8px}
+.meta{color:var(--sub);font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:14px 16px;margin:10px 0}
+table{width:100%;border-collapse:collapse;background:var(--card);font-size:13.5px}
+th,td{border:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+th{background:#F7F6F3;font-weight:600}
+.scroll{overflow-x:auto}
+code{font-size:12px;background:#F2F0EB;padding:1px 4px;border-radius:3px;word-break:break-all}
+.b{display:inline-block;font-size:12px;font-weight:700;padding:1px 7px;border-radius:999px;white-space:nowrap}
+.fail{background:var(--bad-soft);color:var(--bad)}
+.pass{background:var(--ok-soft);color:var(--ok)}
+.np{background:var(--warn-soft);color:var(--warn)}
+ul,ol{margin:6px 0;padding-left:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px;margin-top:12px}
+.phone{background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.06);display:flex;flex-direction:column}
+.cap{font-size:13px;font-weight:700;padding:8px 12px;background:#F7F6F3;border-bottom:1px solid var(--line)}
+.cap small{display:block;font-weight:400;color:var(--sub)}
+.hdr{display:flex;align-items:center;gap:6px;height:52px;padding:0 4px 0 6px;border-bottom:1px solid var(--line);background:#fff}
+.ic{width:44px;height:44px;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative}
+.ic svg{width:19px;height:19px;stroke:#555;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ic.on svg{stroke:var(--green)}
+.ic.tap::after{content:"";position:absolute;inset:6px;border:2px solid var(--ok);border-radius:50%}
+.av{width:36px;height:36px;border-radius:50%;background:#d9e3da;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--green)}
+.av.sq{border-radius:50%;background:#efe6d4;color:#6b4e1f}
+.nm{flex:1;min-width:0;line-height:1.2}
+.nm b{display:block;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nm span{font-size:11px;color:var(--sub)}
+.room{background:#F4F3EF;flex:1;min-height:70px;position:relative}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.32)}
+.sheet{background:#fff;border-radius:16px 16px 0 0;padding:14px 0 10px;position:relative}
+.sheet .t{padding:0 16px 8px;font-size:15.5px;font-weight:700}
+.row{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 16px;border-top:1px solid #EFEDE8}
+.row svg{width:20px;height:20px;stroke:var(--green);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.row .l{flex:1;font-size:14.5px}
+.row .s{font-size:11.5px;color:var(--sub);text-align:right}
+.row.off .l{color:#A3A09A}
+.row.off svg{stroke:#BDBAB3}
+.cancel{margin:8px 16px 0;text-align:center;padding:10px;background:#F2F0EB;border-radius:4px;font-size:14px;font-weight:600}
+.note{font-size:12px;color:var(--sub);padding:8px 12px;border-top:1px solid var(--line);background:#fff}
+.note .r{color:var(--bad);font-weight:600}
+.note .g{color:var(--ok);font-weight:600}
+.list .li{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid #F0EEE9;background:#fff}
+.list .li .nm b{font-size:14px}
+.list .li .nm span{font-size:11.5px}
+.list .miss b,.list .miss span{color:var(--bad)}
+.tiles{display:flex;gap:6px;background:var(--green);margin:10px 12px;border-radius:4px;padding:8px 4px}
+.tiles div{flex:1;text-align:center;color:#fff;font-size:11px}
+.tiles div svg{display:block;margin:0 auto 3px;width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tiles div.off{opacity:.45}
+.bub{background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 10px;display:inline-block;margin:8px 10px;font-size:12.5px}
+</style>
+</head>
+<body>
+<main>
+<h1>통화 버튼 통합 — 감사 · 설계안 · 시안 (2판)</h1>
+<p class="meta">작성 2026-11-12 PHT · 기준 코드 <code>origin/main 67d6b629a</code> · 범위: 1:1 · 그룹(통화 보류) · 거래 · 주문 채팅방의 통화 시작, 그리고 통화 내역(통화 탭 · 방 안 통화 기록) · <b>코드 감사·설계만</b> — 코드 변경 없음 · 실기기·운영 화면 미확인</p>
+
+<div class="card">
+<b>1판에서 틀린 점 (먼저 정정)</b>
+<ul>
+<li>1판은 헤더에 🎥 아이콘을 하나 더 붙이는 안이었습니다. 화면 폭이 좁은 기기에서 이름이 잘리는 문제를 따지지 않았고, Owner 가 원한 「전화 아이콘 하나 → 통화 방식 선택」 형태가 아니었습니다.</li>
+<li>이미 저장소에 같은 형태의 선택 시트(<code>MessengerContactsCallChoiceSheet</code> — 「DIBAY 음성 통화 · DIBAY 영상 통화 · 휴대폰 전화」, 번호 없으면 회색)와 Owner 원문 「통화시 일반 전화가 되냐?? 디바이 통화가 되느냐를 설정」(<code>docs/design/messenger-contacts-sync-plan.md:9</code>)이 있는데 1판에서 확인하지 않았습니다.</li>
+<li>2판은 이 기존 시트·계약을 기준으로 다시 설계했습니다.</li>
+</ul>
+</div>
+
+<h2>1. Owner 지시 (원문 기준)</h2>
+<ol>
+<li>아이콘을 늘리지 않는다 — 기기별로 헤더가 잘린다.</li>
+<li><b>전화 아이콘 하나</b>를 누르면 <b>음성 · 영상 · 일반 전화</b> 중에서 고른다.</li>
+<li>친구 관리(연락처 동기화)로 상대 전화번호가 있으면 <b>일반 전화 활성</b>, 없으면 <b>회색 비활성</b>.</li>
+<li>통화 내역에서는 그 기록의 통화 종류로 다시 건다.</li>
+<li>중복 위치 없이, 각 채팅방에서 정확한 통화가 걸린다.</li>
+</ol>
+
+<h2>2. 이미 있는 것 (재사용 근거)</h2>
+<div class="scroll">
+<table>
+<tr><th>항목</th><th>위치</th><th>내용</th></tr>
+<tr><td>통화 선택 시트</td><td><code>components/community-messenger/contacts/MessengerContactsCallChoiceSheet.tsx</code></td><td>3줄: 「DIBAY 음성 통화」「DIBAY 영상 통화」(무료 · 데이터) · 「휴대폰 전화」(통신사 요금 · 이 기기 번호 / 번호 없으면 회색 「이 기기에 번호 없음」). 막힌 줄은 흐림이 아닌 보조 글자색 (UI 기준). 현재 연락처 회원 시트·홈 친구 「음성」에서만 씀.</td></tr>
+<tr><td>번호 출처</td><td><code>contacts-friend-call.ts</code> · <code>contacts-local-store.ts</code></td><td>상대 번호는 <b>이 기기 연락처에서만</b> 찾음 (<code>friendRefs[친구ID]</code> → 기기 번호표). 서버는 상대 번호를 내려주지 않음 (개인정보 계약). 연락처 동의를 안 했으면 번호 없음.</td></tr>
+<tr><td>일반 전화 동작</td><td><code>openContactsPhoneCall()</code></td><td><code>tel:</code> 로 기기 전화 앱을 엶 — 서버·통화 세션·푸시 없음.</td></tr>
+<tr><td>문구 (ko·en)</td><td><code>lib/i18n/catalog</code></td><td><code>cm_contacts_call_dibay_voice/video</code> · <code>cm_contacts_call_dibay_sub</code> · <code>cm_contacts_call_phone</code> · <code>cm_contacts_member_phone_call_sub</code> · <code>cm_contacts_member_no_number</code> — 모두 있음</td></tr>
+<tr><td>통화 탭 다시 걸기</td><td><code>CommunityMessengerCallRow.tsx:338-357</code></td><td>모든 줄 오른쪽 같은 자리, 기록 종류대로(음성 = 전화 · 영상 = 카메라) — 채팅 시안 4판에서 정한 모습. 누르면 확인 팝업 → 서버가 걸 방을 정함(<code>/calls/redial-room</code>)</td></tr>
+<tr><td>통화 상대 상세</td><td><code>CommunityMessengerCallPeerDetailPanel.tsx:166-190</code></td><td>초록 띠: 채팅 · 음성 · 영상 (일반 전화 없음)</td></tr>
+</table>
+</div>
+
+<h2>3. 현재 결함 (코드 판정)</h2>
+<p class="meta">FAIL·PASS 는 코드 판정입니다. 실기기 판정은 모두 <span class="b np">NOT_PROVEN</span>.</p>
+<div class="scroll">
+<table>
+<tr><th>#</th><th>판정</th><th>방</th><th>결함</th><th>근거 (파일:줄)</th></tr>
+<tr><td>D1</td><td><span class="b fail">FAIL</span></td><td>1:1 · 거래 · 주문 사장님</td><td><b>통화 위치 분산</b> — 헤더 📞(음성만) + ⋮ 메뉴 「음성 통화」「영상 통화」 + (1:1) 상대 이름 탭 프로필 시트 음성·영상. 영상은 헤더에 없고 ⋮ 안에 숨어 있음</td><td><code>CommunityMessengerRoomPhase2Header.tsx:571-590</code> · <code>ChatRoomMoreMenu.tsx:402-425</code> · <code>CommunityMessengerRoomFriendProfileSheetHost.tsx:61-66</code></td></tr>
+<tr><td>D2</td><td><span class="b fail">FAIL</span></td><td>전체</td><td><b>일반 전화 선택 없음</b> — 방 안 어디에도 「휴대폰 전화」가 없음. 이 기기 연락처에 상대 번호가 있어도 방에서는 걸 수 없음</td><td>방 코드에 <code>tel:</code> · 선택 시트 사용 0건 (<code>grep</code> 결과: 선택 시트 사용처는 홈·연락처 회원 시트 2곳뿐)</td></tr>
+<tr><td>D3</td><td><span class="b fail">FAIL</span></td><td>주문 · 구매자</td><td>매장이 음성 통화를 꺼도 헤더 📞 · 주문 진행 시트 📞 가 보이고, 눌러 팝업 「통화」까지 간 뒤 서버에서 거절</td><td><code>Header.tsx:571</code> <code>isDeliveryBuyer || showHeaderVoiceCall</code> (구매자는 판정 우회) · <code>StoreOrderBuyerRoomSheet.tsx:294</code> · 서버 거절 <code>enforce-messenger-trade-room-call-policy.ts:92</code></td></tr>
+<tr><td>D4</td><td><span class="b fail">FAIL</span></td><td>주문 · 구매자</td><td>📞 가 헤더와 주문 진행 시트 머리에 2개 · 매장이 영상을 허용해도 구매자는 영상 진입 없음</td><td><code>Header.tsx:571, 599</code> · <code>StoreOrderBuyerRoomSheet.tsx:290-300</code></td></tr>
+<tr><td>D5</td><td><span class="b fail">FAIL</span></td><td>1:1</td><td>차단·거절 상대: 헤더 📞·프로필 시트는 팝업 「통화」를 누른 뒤에야 실패, ⋮ 메뉴는 누르자마자 이유 안내 — 같은 상대인데 위치마다 다름</td><td><code>Header.tsx:138-161</code> (사전 판정 없음) vs <code>OneToOneDotMenu.tsx:271-289</code></td></tr>
+<tr><td>D6</td><td><span class="b fail">FAIL</span></td><td>전체</td><td>내 통화가 진행 중일 때 헤더 📞 만 팝업 없이 그 통화로 복귀, 나머지는 팝업을 다시 띄움</td><td><code>Header.tsx:138-142</code> (<code>useOwnLiveCall</code> 은 헤더에만)</td></tr>
+<tr><td>D7</td><td><span class="b fail">FAIL</span></td><td>1:1 · 거래 · 주문</td><td>방 안 통화 기록 말풍선 다시 걸기가 방 규칙(거래 글 통화 설정 · 매장 통화 설정 · 차단)을 보지 않음 — 「음성만」 거래방에서 영상 기록을 누르면 영상 팝업 → 서버 거절</td><td><code>CommunityMessengerRoomPhase2MessageTimeline.tsx:1261-1268</code></td></tr>
+<tr><td>D8</td><td><span class="b fail">FAIL</span></td><td>그룹</td><td>통화 보류 중 통화 기록 말풍선이 눌리는 모양인데 눌러도 무반응</td><td><code>MessageTimeline.tsx:1265</code></td></tr>
+<tr><td>D9</td><td><span class="b fail">FAIL</span></td><td>통화 탭</td><td>통화 상대 상세에 일반 전화 없음 (번호가 있어도)</td><td><code>CommunityMessengerCallPeerDetailPanel.tsx:166-190</code></td></tr>
+</table>
+</div>
+<p><b>확인 팝업 여부</b>: 방 안 모든 진입점(헤더 · ⋮ · 프로필 시트 · 주문 시트 · 통화 기록 · 그룹 멤버)이 같은 확인 팝업 <code>MessengerOutgoingCallConfirmDialog</code> 을 거침 <span class="b pass">코드 PASS</span> (예외 D6). 실기 <span class="b np">NOT_PROVEN</span>.</p>
+<p><b>헤더 폭</b>: 지금 헤더 오른쪽 아이콘 수 — 1:1 2개(📞 ⋮) · 거래 2개 · 주문 구매자 1개(📞) · 주문 사장님 2개 · 그룹 2개(🔍 ⚙). 설계안은 <b>모든 방에서 개수를 늘리지 않습니다</b> (아래 표).</p>
+
+<h2>4. 설계안</h2>
+<div class="card">
+<b>규칙 하나: 「📞 하나 → 선택 시트 → 바로 연결」</b>
+<ol>
+<li><b>위치</b>: 방 안 통화 시작은 <b>헤더 오른쪽 📞 하나</b>뿐. ⋮ 메뉴의 「음성 통화」「영상 통화」, 방 안 프로필 시트의 통화 버튼, 주문 진행 시트의 📞 는 없앰.</li>
+<li><b>📞 를 누르면 선택 시트</b> (기존 연락처 선택 시트와 같은 모양·같은 문구):
+ <ul>
+ <li>「DIBAY 음성 통화」 — 무료 · 데이터</li>
+ <li>「DIBAY 영상 통화」 — 무료 · 데이터</li>
+ <li>「휴대폰 전화」 — 이 기기 연락처에 상대 번호가 있으면 활성(통신사 요금 · 이 기기 번호), 없으면 <b>회색</b>(이 기기에 번호 없음)</li>
+ </ul>
+ <b>세 줄은 항상 같은 자리에 보임</b>. 방 규칙으로 막힌 DIBAY 줄은 회색 + 짧은 이유(예: 「판매자가 음성만 허용」 「매장이 영상 통화를 받지 않음」 「통화를 연결할 수 없어요」).</li>
+<li><b>고르면 바로 연결</b> — 시트에서 고른 것이 확인 역할을 하므로 확인 팝업을 한 번 더 띄우지 않음 (연락처 회원 시트가 이미 이렇게 동작: <code>startContactsDibayCall</code>). DIBAY 발신은 지금과 같은 함수 <code>startManagedDirectCall</code>(방 발신 · 매장명 표시 그대로).</li>
+<li><b>진행 중 통화가 있으면</b> 📞 는 시트 없이 그 통화 화면으로 (지금 헤더 동작을 모든 진입점에 동일).</li>
+<li><b>📞 자체를 숨기는 경우</b>: 그룹(보류) · 거래 글 통화 「허용 안 함」 · 매장이 음성·영상 둘 다 끔 — 지금 노출 규칙 그대로 (방 통화 규칙을 바꾸지 않음).</li>
+<li><b>통화 내역</b>: 통화 탭 줄 오른쪽 아이콘과 방 안 통화 기록 말풍선은 <b>그 기록의 종류(음성/영상)로 다시 걸기</b> — 지금처럼 확인 팝업 1번 (목록에서 잘못 누름 방지). 방 안 말풍선은 헤더와 같은 판정을 써서 막힌 종류·그룹은 눌리지 않는 모양. 통화 상대 상세 초록 띠에 「휴대폰 전화」 칸 추가 (번호 없으면 회색).</li>
+</ol>
+</div>
+
+<h3>방 종류별 결과</h3>
+<div class="scroll">
+<table>
+<tr><th>방</th><th>헤더 오른쪽 (지금 → 설계)</th><th>DIBAY 음성 / 영상 줄</th><th>휴대폰 전화 줄</th><th>해결</th></tr>
+<tr><td>1:1 일반</td><td>📞 ⋮ → 📞 ⋮ (같음)</td><td>활성. 차단·거절은 회색 + 이유 (시트 열 때 판정)</td><td>이 기기 연락처 번호 있으면 활성</td><td>D1 D2 D5 D6</td></tr>
+<tr><td>그룹 (보류)</td><td>🔍 ⚙ → 같음</td><td colspan="2">시트 없음 · 통화 기록 말풍선 눌리지 않음</td><td>D8</td></tr>
+<tr><td>거래</td><td>📞 ⋮ → 📞 ⋮ (「허용 안 함」 글은 ⋮ 만)</td><td>글 통화 설정대로: 「음성만」이면 영상 줄 회색 「판매자가 음성만 허용」</td><td>같은 규칙 (번호 있으면 활성)</td><td>D1 D2 D6 D7</td></tr>
+<tr><td>주문 · 구매자</td><td>📞 → 📞 (같음, 매장이 둘 다 끄면 숨김)</td><td>매장 통화 설정대로 (지금은 무시 — D3)</td><td>같은 규칙</td><td>D2 D3 D4 D7</td></tr>
+<tr><td>주문 · 사장님</td><td>📞 ⋮ → 📞 ⋮ (같음)</td><td>매장 통화 설정대로</td><td>같은 규칙</td><td>D1 D2 D6 D7</td></tr>
+</table>
+</div>
+
+<h3>바뀌는 파일 (통화 변경 규정 3번 — 영향 분석)</h3>
+<div class="scroll">
+<table>
+<tr><th>파일</th><th>변경</th><th>영향 화면·호출처</th></tr>
+<tr><td><code>lib/community-messenger/call-ui/room-call-choice.ts</code> (신규) + 시험</td><td>방 통화 판정 하나: 방 종류 · 거래 글 설정 · 매장 설정(구매자 우회 제거) · <code>directCallGate</code> · 방 사용 불가 · 그룹 보류 → <code>{보일지, 음성: 활성|회색(이유), 영상: …}</code>. 기존 <code>resolveMessengerDotMenuCallVisibility</code> 를 감쌈</td><td>헤더 · 통화 기록 말풍선</td></tr>
+<tr><td><code>components/community-messenger/call-ui/MessengerRoomCallChoiceSheet.tsx</code> (신규)</td><td>기존 연락처 선택 시트와 같은 줄 모양·같은 문구 키. DIBAY → <code>startManagedDirectCall</code>, 휴대폰 → <code>openContactsPhoneCall</code></td><td>헤더 📞</td></tr>
+<tr><td><code>components/community-messenger/contacts/contacts-friend-call.ts</code></td><td><code>resolveContactsPeerNumber(나, 상대)</code> 추가 — 친구(<code>friendRefs</code>) + 이 기기 연락처 회원(<code>members</code>, <code>on_this_device</code>) 번호. 시트를 열 때만 읽음(번호표는 큼). 기존 함수는 그대로</td><td>방 시트 · 통화 상대 상세</td></tr>
+<tr><td><code>CommunityMessengerRoomPhase2Header.tsx</code></td><td>📞 → 시트. 헤더용 확인 팝업 제거</td><td>모든 1:1·거래·주문 방</td></tr>
+<tr><td><code>ChatRoomMoreMenu.tsx</code> · <code>CommunityMessengerRoomPhase2OneToOneDotMenu.tsx</code></td><td>「음성 통화」「영상 통화」 줄과 그 팝업 제거</td><td>⋮ 메뉴 (높이 2줄 줄어듦)</td></tr>
+<tr><td><code>CommunityMessengerRoomFriendProfileSheetHost.tsx</code> · <code>MessengerFriendProfileSheet.tsx</code></td><td>방 안(<code>context="roomHeader"</code>)에서만 통화 버튼 숨김 — 홈·친구 목록 프로필 시트는 그대로</td><td>1:1 방 상대 이름 탭</td></tr>
+<tr><td><code>StoreOrderBuyerRoomSheet.tsx</code> · <code>CommunityMessengerRoomPhase2StoreOrderChrome.tsx</code></td><td>주문 진행 시트 머리 📞 와 그 팝업 제거</td><td>주문 구매자 방</td></tr>
+<tr><td><code>CommunityMessengerRoomPhase2MessageTimeline.tsx</code> · <code>MessengerTimelineVirtualRow.tsx</code></td><td>말풍선 다시 걸기에 같은 판정 — 막힌 종류·그룹은 눌리지 않는 모양</td><td>방 안 통화 기록</td></tr>
+<tr><td><code>CommunityMessengerCallPeerDetailPanel.tsx</code> · <code>MessengerCallLogsPanel.tsx</code></td><td>「휴대폰 전화」 칸 추가 (번호 없으면 회색)</td><td>통화 탭 → 상대 상세</td></tr>
+<tr><td>i18n 카탈로그</td><td>회색 이유 문구 ko·en (기존 키 우선 재사용 — <code>cm_ui_trade_post_voice_only</code> · <code>cm_call_deny_*</code> 등, 없는 것만 신규)</td><td>—</td></tr>
+</table>
+</div>
+<ul>
+<li><b>바꾸지 않는 것</b>: 발신 함수(<code>startManagedDirectCall</code> · <code>launchOutgoingDirectCall</code> · <code>guardInstantOutgoingCallStart</code>) · 서버 통화 API · 거래/매장 통화 서버 판정 · 다시 걸기 방 판정(<code>/calls/redial-room</code>) · VoIP/FCM 발송 · 수신 화면 · CallKit · 네이티브(<code>android/</code> <code>ios/</code>) · 연락처 동기화 서버·DB · 홈·친구 목록·연락처 화면 통화.</li>
+<li><b>설치된 구 바이너리</b>: 웹 화면만 바뀜 → 재빌드 불필요. 단 「휴대폰 전화」 번호는 <b>연락처 플러그인이 들어간 앱</b>에서만 생김. 2026-11-10 조회 기준 그런 앱이 설치된 기기 0대 (<code>docs/design/messenger-contacts-call-stage4-impact.md</code> §4) → <b>새 앱 빌드 설치 전까지 모든 기기에서 「휴대폰 전화」는 회색</b>. 그 이후 설치 현황은 확인 못 함.</li>
+<li><b>회귀 위험</b>: ① 확인 팝업 단계가 시트로 바뀜 (잘못 누름 → 시트에서 한 번 더 골라야 하므로 안전 단계 유지) ② ⋮ 메뉴에서 통화 줄을 찾던 사용자 ③ 시트 판정이 서버와 다르면 회색인데 서버는 허용(또는 반대) — 같은 기존 판정 함수를 감싸서 막음 ④ <code>tel:</code> 이 Android·iOS 앱 화면(WebView)에서 전화 앱을 여는지 실기 미확인 (연락처 4단계 V5 도 NOT_PROVEN).</li>
+<li><b>롤백</b>: 통화 단독 PR 1개 → 문제 시 Vercel Instant Rollback.</li>
+<li><b>실기기 검증 행렬</b> (Samsung ↔ iPhone · 매 테스트 Production SHA · 운영 DB 세션 대조): 방 종류 5 × (시트 표시 · DIBAY 음성 · DIBAY 영상 · 휴대폰 전화 활성/회색) · 거래 글 설정 3종 · 매장 설정 4조합 × 구매자/사장님 · 차단/거절 상대 회색 · 통화 중 📞 → 복귀 · 통화 탭 다시 걸기(음성/영상) · 통화 상대 상세 휴대폰 전화 · 거절 · 벨 중 취소 · 무응답 · 종료 후 즉시 재발신 · 휴대폰 전화 후 운영 DB 세션 0건.</li>
+</ul>
+
+<h2>5. 시안 (375px)</h2>
+<svg width="0" height="0" style="position:absolute">
+<defs>
+<symbol id="back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+<symbol id="phone" viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></symbol>
+<symbol id="video" viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></symbol>
+<symbol id="cell" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></symbol>
+<symbol id="more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></symbol>
+<symbol id="chat" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.2A8.4 8.4 0 1 1 21 11.5z"/></symbol>
+</defs>
+</svg>
+
+<h3>A. 1:1 채팅</h3>
+<div class="grid">
+<div class="phone">
+<div class="cap">헤더 — 아이콘 2개 그대로<small>📞 를 누르면 선택 시트</small></div>
+<div class="hdr"><div class="ic"><svg><use href="#back"/></svg></div><div class="av">김</div><div class="nm"><b>김선희</b><span>온라인</span></div><div class="ic tap"><svg><use href="#phone"/></svg></div><div class="ic"><svg><use href="#more"/></svg></div></div>
+<div class="room" style="min-height:120px"></div>
+<div class="note">⋮ 메뉴: 대화 검색 · 사진·파일 · 알림 끄기 · 보관 · 나가기 (<span class="r">통화 줄 없음</span>) · 이름 탭 = 프로필 보기만</div>
+</div>
+<div class="phone">
+<div class="cap">선택 시트 — 연락처에 번호 있음</div>
+<div class="room"><div class="dim"></div></div>
+<div class="sheet"><div class="t">전화 걸기 · 김선희</div>
+<div class="row"><svg><use href="#phone"/></svg><span class="l">DIBAY 음성 통화</span><span class="s">무료 · 데이터</span></div>
+<div class="row"><svg><use href="#video"/></svg><span class="l">DIBAY 영상 통화</span><span class="s">무료 · 데이터</span></div>
+<div class="row"><svg><use href="#cell"/></svg><span class="l">휴대폰 전화</span><span class="s">통신사 요금 · 이 기기 번호</span></div>
+<div class="cancel">취소</div></div>
+<div class="note"><span class="g">고르면 바로 연결</span> (확인 팝업 다시 없음)</div>
+</div>
+<div class="phone">
+<div class="cap">선택 시트 — 번호 없음</div>
+<div class="room"><div class="dim"></div></div>
+<div class="sheet"><div class="t">전화 걸기 · 박지훈</div>
+<div class="row"><svg><use href="#phone"/></svg><span class="l">DIBAY 음성 통화</span><span class="s">무료 · 데이터</span></div>
+<div class="row"><svg><use href="#video"/></svg><span class="l">DIBAY 영상 통화</span><span class="s">무료 · 데이터</span></div>
+<div class="row off"><svg><use href="#cell"/></svg><span class="l">휴대폰 전화</span><span class="s">이 기기에 번호 없음</span></div>
+<div class="cancel">취소</div></div>
+<div class="note">회색 줄은 눌러도 아무 일 없음 (글자색만 보조색)</div>
+</div>
+<div class="phone">
+<div class="cap">선택 시트 — 차단·거절 상대</div>
+<div class="room"><div class="dim"></div></div>
+<div class="sheet"><div class="t">전화 걸기 · 이민수</div>
+<div class="row off"><svg><use href="#phone"/></svg><span class="l">DIBAY 음성 통화</span><span class="s">통화를 연결할 수 없어요</span></div>
+<div class="row off"><svg><use href="#video"/></svg><span class="l">DIBAY 영상 통화</span><span class="s">통화를 연결할 수 없어요</span></div>
+<div class="row off"><svg><use href="#cell"/></svg><span class="l">휴대폰 전화</span><span class="s">이 기기에 번호 없음</span></div>
+<div class="cancel">취소</div></div>
+<div class="note">팝업까지 간 뒤 실패하던 것(D5) → 시트에서 바로 이유 표시</div>
+</div>
+</div>
+
+<h3>B. 거래 채팅 — 글 통화 설정 「음성만」</h3>
+<div class="grid">
+<div class="phone">
+<div class="cap">헤더 — 📞 ⋮ (지금과 같은 개수)</div>
+<div class="hdr"><div class="ic"><svg><use href="#back"/></svg></div><div class="av sq">상품</div><div class="nm"><b>아이폰 15 128GB 깨끗합니다</b><span>판매자 · 온라인</span></div><div class="ic tap"><svg><use href="#phone"/></svg></div><div class="ic"><svg><use href="#more"/></svg></div></div>
+<div class="room" style="min-height:60px"></div>
+<div class="sheet"><div class="t">전화 걸기 · 판매자</div>
+<div class="row"><svg><use href="#phone"/></svg><span class="l">DIBAY 음성 통화</span><span class="s">무료 · 데이터</span></div>
+<div class="row off"><svg><use href="#video"/></svg><span class="l">DIBAY 영상 통화</span><span class="s">판매자가 음성만 허용</span></div>
+<div class="row off"><svg><use href="#cell"/></svg><span class="l">휴대폰 전화</span><span class="s">이 기기에 번호 없음</span></div>
+<div class="cancel">취소</div></div>
+</div>
+<div class="phone">
+<div class="cap">방 안 통화 기록 — 막힌 종류</div>
+<div class="room" style="min-height:150px"><span class="bub">🎥 영상 통화 · 6분 56초</span><br><span style="font-size:12px;color:#7a7a7a;padding:0 12px;display:block">지금 정책이 「음성만」이면 이 기록은 눌리지 않는 모양 (지금은 눌러서 팝업 → 서버 거절, D7)</span><span class="bub">📞 음성 통화 · 2분 10초</span><br><span style="font-size:12px;color:#7a7a7a;padding:0 12px;display:block">← 누르면 음성 확인 팝업 → 음성 다시 걸기</span></div>
+</div>
+<div class="phone">
+<div class="cap">글 통화 설정 「허용 안 함」</div>
+<div class="hdr"><div class="ic"><svg><use href="#back"/></svg></div><div class="av sq">상품</div><div class="nm"><b>아이폰 15 128GB 깨끗합니다</b><span>판매자 · 온라인</span></div><div class="ic"><svg><use href="#more"/></svg></div></div>
+<div class="room" style="min-height:80px"></div>
+<div class="note">📞 숨김 — 지금 규칙 그대로</div>
+</div>
+</div>
+
+<h3>C. 주문 채팅</h3>
+<div class="grid">
+<div class="phone">
+<div class="cap">구매자 — 지금<small>매장 설정 무시 · 📞 2개</small></div>
+<div class="hdr"><div class="ic"><svg><use href="#back"/></svg></div><div class="av sq">매장</div><div class="nm"><b>마닐라 김밥천국</b><span>한식 · 분식</span></div><div class="ic"><svg><use href="#phone"/></svg></div></div>
+<div style="display:flex;align-items:center;padding:6px 12px;border-bottom:1px solid #E2DFD8"><b style="flex:1;font-size:14px">주문 진행 상황</b><div class="ic"><svg style="stroke:#C0392B"><use href="#phone"/></svg></div><span style="font-size:18px;padding:0 6px">×</span></div>
+<div class="note"><span class="r">D3</span> 매장이 꺼도 보임 · <span class="r">D4</span> 📞 2개 · 영상 없음</div>
+</div>
+<div class="phone">
+<div class="cap">구매자 — 설계 (매장: 음성만 허용)</div>
+<div class="hdr"><div class="ic"><svg><use href="#back"/></svg></div><div class="av sq">매장</div><div class="nm"><b>마닐라 김밥천국</b><span>한식 · 분식</span></div><div class="ic tap"><svg><use href="#phone"/></svg></div></div>
+<div class="room" style="min-height:40px"></div>
+<div class="sheet"><div class="t">전화 걸기 · 마닐라 김밥천국</div>
+<div class="row"><svg><use href="#phone"/></svg><span class="l">DIBAY 음성 통화</span><span class="s">무료 · 데이터</span></div>
+<div class="row off"><svg><use href="#video"/></svg><span class="l">DIBAY 영상 통화</span><span class="s">매장이 영상 통화를 받지 않음</span></div>
+<div class="row off"><svg><use href="#cell"/></svg><span class="l">휴대폰 전화</span><span class="s">이 기기에 번호 없음</span></div>
+<div class="cancel">취소</div></div>
+<div class="note"><span class="g">주문 진행 시트의 📞 제거</span> · 이름 = 매장명 (지금과 같음)</div>
+</div>
+<div class="phone">
+<div class="cap">사장님 — 설계</div>
+<div class="hdr"><div class="ic"><svg><use href="#back"/></svg></div><div class="av">고</div><div class="nm"><b>고객 · 주문 #1042</b><span>온라인</span></div><div class="ic tap"><svg><use href="#phone"/></svg></div><div class="ic"><svg><use href="#more"/></svg></div></div>
+<div class="room" style="min-height:60px"></div>
+<div class="note">⋮ 의 음성·영상 줄 제거 → 📞 시트 하나 (매장 설정대로)</div>
+</div>
+</div>
+
+<h3>D. 통화 내역 (통화 탭)</h3>
+<div class="grid">
+<div class="phone">
+<div class="cap">통화 목록 — 지금 그대로 (채팅 시안 4판)<small>오른쪽 아이콘 = 그 기록 종류로 다시 걸기</small></div>
+<div class="list">
+<div class="li"><div class="av">김</div><div class="nm"><b>김선희</b><span>영상 · 6분 56초 · 오전 9:54</span></div><div class="ic on"><svg><use href="#video"/></svg></div></div>
+<div class="li miss"><div class="av">박</div><div class="nm"><b>박지훈</b><span>부재중 음성 통화 · 어제</span></div><div class="ic on"><svg><use href="#phone"/></svg></div></div>
+<div class="li"><div class="av">테</div><div class="nm"><b>테스트</b><span>음성 통화 · 취소 · 어제</span></div><div class="ic on"><svg><use href="#phone"/></svg></div></div>
+</div>
+<div class="note">🎥 → 영상 확인 팝업 · 📞 → 음성 확인 팝업 (지금과 같음)</div>
+</div>
+<div class="phone">
+<div class="cap">통화 상대 상세 — 휴대폰 전화 칸 추가</div>
+<div style="text-align:center;padding:14px 0 0"><div class="av" style="margin:0 auto;width:56px;height:56px;font-size:18px">김</div><b style="display:block;margin-top:6px">김선희</b></div>
+<div class="tiles"><div><svg><use href="#chat"/></svg>채팅</div><div><svg><use href="#phone"/></svg>음성</div><div><svg><use href="#video"/></svg>영상</div><div><svg><use href="#cell"/></svg>휴대폰</div></div>
+<div class="note"><span class="g">새 칸</span> 「휴대폰」 — 번호 있으면 기기 전화 앱</div>
+</div>
+<div class="phone">
+<div class="cap">통화 상대 상세 — 번호 없음</div>
+<div style="text-align:center;padding:14px 0 0"><div class="av" style="margin:0 auto;width:56px;height:56px;font-size:18px">박</div><b style="display:block;margin-top:6px">박지훈</b></div>
+<div class="tiles"><div><svg><use href="#chat"/></svg>채팅</div><div><svg><use href="#phone"/></svg>음성</div><div><svg><use href="#video"/></svg>영상</div><div class="off"><svg><use href="#cell"/></svg>휴대폰</div></div>
+<div class="note">회색 · 누르면 「이 기기에 번호 없음」 안내</div>
+</div>
+</div>
+
+<h2>6. Owner 확인이 필요한 충돌 (허위 보고 금지 7번 — 임의로 고르지 않음)</h2>
+<div class="scroll">
+<table>
+<tr><th>#</th><th>충돌</th><th>설계안의 처리</th></tr>
+<tr><td>K1</td><td>연락처 정책 #12 「다른 기기에서만 발견된 회원 → 휴대폰 전화 <b>숨김</b>」(<code>messenger-contacts-sync-plan.md:45</code>) vs 이번 지시 「번호 없으면 <b>회색</b>」</td><td>방 시트·통화 상대 상세는 이번 지시대로 <b>회색</b>. 연락처 회원 시트(#12 대상)는 바꾸지 않음.</td></tr>
+<tr><td>K2</td><td>연락처 기본 통화 방식 설정(C2: 매번 묻기 · DIBAY · 휴대폰)은 지금 연락처 회원 시트와 홈 친구 「음성」에만 적용</td><td>방 헤더는 이번 지시대로 <b>항상 선택 시트</b> (설정을 적용하지 않음). 설정을 방에도 적용하려면 별도 지시 필요.</td></tr>
+<tr><td>K3</td><td>주문 채팅의 「휴대폰 전화」 번호를 <b>매장 공개 전화번호</b>(매장 상세에 이미 공개)·<b>주문 구매자 번호</b>(사장님 주문 카드에 이미 표시)로 채울 수 있음 — 지시는 「친구 관리로 등록된 번호」</td><td>지시대로 <b>이 기기 연락처 번호만</b> 사용. 매장·주문 번호 사용은 넣지 않음.</td></tr>
+<tr><td>K4</td><td>거래 통화 시작 권한 — 옛 거래 화면 코드(<code>ChatDetailView.tsx:601</code>, 지금 도달 불가)는 구매자만, 현재 메신저 거래방·서버는 판매자·구매자 모두</td><td>현재 동작(모두) 유지.</td></tr>
+</table>
+</div>
+
+<h2>7. 범위 밖 — 보고만</h2>
+<ul>
+<li>홈 친구 프로필 시트: 「음성」은 번호 있을 때 선택 시트, 「영상」은 바로 확인 팝업 — 방 설계와 모양이 다름 (<code>CommunityMessengerHome.tsx:3834-3839</code>). 이번 범위(채팅방·통화 내역) 밖.</li>
+<li>쓰이지 않는 코드: <code>components/chats/TradeChatCallHeaderButtons.tsx</code> (거래방은 항상 메신저로 이동 <code>app/(main)/chats/[roomId]/page.tsx:74-78</code>) · <code>components/community-messenger/call-ui/CallKindBottomSheetActions.tsx</code> (사용처 0). 화면 영향 없음.</li>
+<li>통화 탭 다시 걸기는 기록의 방이 막혀 있으면 서버가 일반 1:1 방으로 바꿔 검 (<code>service.ts</code> <code>resolveCommunityMessengerRedialRoom</code>) — 기존 서버 계약, 변경 안 함.</li>
+<li>영상 통화 기본 플래그 <code>CM_CALL_PHASE0_BASICS_ONLY = true</code>: 브라우저·Windows 에서 <code>NEXT_PUBLIC_DIBAY_CALL_V4_TELEGRAM_LANE</code> 이 운영에서 꺼져 있으면 영상은 「음성만 가능」 안내. 로컬 값은 켜짐, 운영 값 확인 못 함. Android·iOS 앱은 해당 없음.</li>
+</ul>
+</main>
+</body>
+</html>

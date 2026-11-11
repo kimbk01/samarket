@@ -10,10 +10,8 @@ import {
   Flag,
   Image as ImageIcon,
   LogOut,
-  Phone,
   Search,
   UserPlus,
-  Video,
 } from "lucide-react";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -89,12 +87,6 @@ export type ChatRoomMoreMenuProps = {
   /** 배달·주문: 매장 요약(구매자 점세개) */
   deliveryStoreSummary?: DeliveryStoreMenuSummary;
   menuProfile?: ChatRoomMenuProfileOverride;
-  /** dot menu 음성 통화 행 — 상위 callKind SSOT에서 전달 */
-  showVoiceCall: boolean;
-  /** dot menu 영상 통화 행 — 상위 callKind SSOT에서 전달 */
-  showVideoCall: boolean;
-  disableVoiceCall?: boolean;
-  disableVideoCall?: boolean;
   disableMuteToggle?: boolean;
   disableArchiveToggle?: boolean;
   disableLeaveRoom?: boolean;
@@ -112,9 +104,6 @@ export type ChatRoomMoreMenuProps = {
   onCancelFriendRequest?: () => void;
   /** relation=incoming — 받은 요청 수락 */
   onAcceptFriendRequest?: () => void;
-  /** §17-4 R-3: disable*Call 이어도 눌림 — 호출부가 이유를 안내한다(흐린 모양만) */
-  onVoiceCall: () => void;
-  onVideoCall: () => void;
   onToggleMute: () => void;
   onToggleArchive: () => void;
   onLeaveRoom: () => void;
@@ -160,7 +149,6 @@ function peerPresenceStatusDotClass(
 
 /**
  * 메뉴 행 (팝업 SSOT T3) — 48 · 16 · overlay 색 · 눌림 배경만 · 비활성 회색 글자 (opacity 금지).
- * 음성·영상 통화 행은 통화 규정 LOCK 이라 아래 `listRowClass` 를 그대로 쓴다.
  */
 function menuRowClass(interactive: boolean, danger = false): string {
   const tone = danger ? "text-[color:var(--overlay-danger)]" : "text-[color:var(--overlay-text-primary)]";
@@ -168,14 +156,6 @@ function menuRowClass(interactive: boolean, danger = false): string {
   return interactive
     ? `${base} ${tone} transition-colors active:bg-[color:var(--overlay-secondary)]`
     : `${base} text-[color:var(--overlay-text-secondary)]`;
-}
-
-function listRowClass(interactive: boolean): string {
-  const base =
-    "flex w-full min-h-[48px] items-center gap-3 border-b border-[color:var(--cm-room-divider)] px-3 py-2.5 text-left sam-text-body text-[color:var(--cm-room-text)]";
-  return interactive
-    ? `${base} active:bg-[color:var(--cm-room-primary-soft)]`
-    : `${base} opacity-55`;
 }
 
 export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
@@ -198,10 +178,6 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
     tradeContext,
     deliveryStoreSummary,
     menuProfile,
-    showVoiceCall,
-    showVideoCall,
-    disableVoiceCall = false,
-    disableVideoCall = false,
     disableMuteToggle = false,
     disableArchiveToggle = false,
     disableLeaveRoom = false,
@@ -213,8 +189,6 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
     onFriendRequest,
     onCancelFriendRequest,
     onAcceptFriendRequest,
-    onVoiceCall,
-    onVideoCall,
     onToggleMute,
     onToggleArchive,
     onLeaveRoom,
@@ -234,8 +208,6 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
 
   const friendLabelNone = roomType === "direct" ? t("cm_ui_add_friend") : t("cm_ui_friend_request");
 
-  const showVoice = showVoiceCall;
-  const showVideo = showVideoCall;
 
   const profileNickname = menuProfile?.nickname?.trim() || otherUser.nickname;
   const profileAvatarUrl = menuProfile?.avatarUrl ?? otherUser.avatarUrl;
@@ -399,31 +371,7 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
           </div>
         ) : null}
 
-        {showVoice ? (
-          <button
-            type="button"
-            onClick={onVoiceCall}
-            aria-disabled={disableVoiceCall || undefined}
-            data-cm-call-unavailable={disableVoiceCall ? "1" : undefined}
-            className={`${listRowClass(!disableVoiceCall)} ${disableVoiceCall ? "opacity-40" : ""}`}
-          >
-            <Phone className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
-            <span className="min-w-0 flex-1 font-medium">{t("cm_ui_voice_call")}</span>
-          </button>
-        ) : null}
-
-        {showVideo ? (
-          <button
-            type="button"
-            onClick={onVideoCall}
-            aria-disabled={disableVideoCall || undefined}
-            data-cm-call-unavailable={disableVideoCall ? "1" : undefined}
-            className={`${listRowClass(!disableVideoCall)} ${disableVideoCall ? "opacity-40" : ""}`}
-          >
-            <Video className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
-            <span className="min-w-0 flex-1 font-medium">{t("cm_ui_video_call")}</span>
-          </button>
-        ) : null}
+        {/* 통화(음성·영상·휴대폰)는 헤더 📞 선택 시트 하나로만 — 통화 버튼 통합 2판 (Owner 2026-11-12) */}
 
         <button
           type="button"
@@ -493,13 +441,9 @@ export const MOCK_CHAT_ROOM_MORE_MENU_DIRECT: ChatRoomMoreMenuProps = {
   },
   isMuted: false,
   isArchived: false,
-  showVoiceCall: true,
-  showVideoCall: true,
   onSearch: () => {},
   onOpenMediaFiles: () => {},
   onFriendRequest: () => {},
-  onVoiceCall: () => {},
-  onVideoCall: () => {},
   onToggleMute: () => {},
   onToggleArchive: () => {},
   onLeaveRoom: () => {},
@@ -517,8 +461,6 @@ export const MOCK_CHAT_ROOM_MORE_MENU_TRADE: ChatRoomMoreMenuProps = {
   },
   isMuted: true,
   isArchived: false,
-  showVoiceCall: true,
-  showVideoCall: false,
   tradeContext: {
     sellerId: "s1",
     buyerId: "b1",
@@ -535,8 +477,6 @@ export const MOCK_CHAT_ROOM_MORE_MENU_TRADE: ChatRoomMoreMenuProps = {
   onSearch: () => {},
   onOpenMediaFiles: () => {},
   onFriendRequest: () => {},
-  onVoiceCall: () => {},
-  onVideoCall: () => {},
   onToggleMute: () => {},
   onToggleArchive: () => {},
   onLeaveRoom: () => {},

@@ -495,7 +495,7 @@ export function MessengerCallLogsPanel({
             selection={peerDetailSelection}
             calls={peerDetailCalls}
             entryOrigin={entryOrigin}
-            viewerUserId={viewerUserId}
+            viewerUserId={resolvedViewerUserId}
             onRequestOutgoingConfirm={(kind) => {
               closeCallLogSwipe();
               const peerId = sanitizeCallPeerUserId(peerDetailSelection.peerUserId);
