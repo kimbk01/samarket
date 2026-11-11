@@ -1272,17 +1272,24 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   const redialT = vm.t;
   const startCallStubRedial = useCallback(
     (kind: "voice" | "video") => {
+      /**
+       * 말풍선은 눌리는 모양이 따로 없으므로, 다시 걸 수 없을 때도 조용히 무시하지 않고 이유를 안내한다
+       * (R-3 「막혀도 이유 안내」 · 감사 D8 · PR #155 Bugbot 지적).
+       */
       if (redialIsGroupRoom) {
         /** 그룹 통화 보류(Owner 2026-11-09) — 그룹방 통화 기록 말풍선으로 다시 걸기 없음 */
-        if (!isCmGroupCallEnabled() || redialRoomUnavailable) return;
+        if (!isCmGroupCallEnabled() || redialRoomUnavailable) {
+          showMessengerSnackbar(redialT("cm_call_unavailable_generic"), { variant: "default" });
+          return;
+        }
         setStubRedialConfirmKind(kind);
         return;
       }
       const choice = callChoiceRef.current;
       const row = kind === "video" ? choice.video : choice.voice;
       if (!row.enabled) {
-        /** 방 규칙으로 이 방에서 쓸 수 없는 종류 — 다시 걸기 없음. 지금 막힌 상태(차단·거절·발신 중) — 이유 안내 */
-        if (row.reason === "unavailable") showMessengerSnackbar(redialT(row.reasonKey), { variant: "default" });
+        /** 방 규칙(거래 글·매장 설정) · 지금 막힌 상태(차단·거절·발신 중) — 둘 다 다시 걸기 대신 이유 안내 */
+        showMessengerSnackbar(redialT(row.reasonKey), { variant: "default" });
         return;
       }
       setStubRedialConfirmKind(kind);

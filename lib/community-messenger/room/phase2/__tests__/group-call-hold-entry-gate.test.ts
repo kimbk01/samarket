@@ -40,6 +40,8 @@ describe("그룹 통화 보류 — 그룹방 진입점 게이트", () => {
     expect(src).toContain("{vm.isGroupRoom && isCmGroupCallEnabled() ? ` · ${vm.groupCallStatusLabel}` : \"\"}");
     /** 통화 버튼 통합 2판 (2026-11-12): 그룹방 분기가 먼저 — 플래그가 꺼져 있으면 다시 걸기 없음 */
     expect(src).toContain("const redialIsGroupRoom = vm.isGroupRoom;");
-    expect(src).toMatch(/if \(redialIsGroupRoom\) \{[\s\S]*?if \(!isCmGroupCallEnabled\(\) \|\| redialRoomUnavailable\) return;\n\s+setStubRedialConfirmKind\(kind\);/);
+    expect(src).toMatch(
+      /if \(redialIsGroupRoom\) \{[\s\S]*?if \(!isCmGroupCallEnabled\(\) \|\| redialRoomUnavailable\) \{\s*showMessengerSnackbar\([^)]*\)[^;]*;\s*return;\s*\}\s*setStubRedialConfirmKind\(kind\);/,
+    );
   });
 });

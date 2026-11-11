@@ -39,6 +39,10 @@ describe("direct call unavailable reason", () => {
     const moreMenu = read("components/community-messenger/room/phase2/ChatRoomMoreMenu.tsx");
     expect(moreMenu).not.toContain("onVoiceCall");
     expect(moreMenu).not.toContain("onVideoCall");
+    /** 방 안 통화 기록 말풍선: 다시 걸 수 없으면(방 규칙·막힘) 조용히 무시하지 않고 이유 안내 (PR #155 Bugbot) */
+    const timeline = read("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx");
+    expect(timeline).toMatch(/if \(!row\.enabled\) \{[\s\S]*?showMessengerSnackbar\(redialT\(row\.reasonKey\)/);
+    expect(timeline).not.toContain('if (row.reason === "unavailable") showMessengerSnackbar');
     const row = read("components/community-messenger/call-history/CommunityMessengerCallRow.tsx");
     expect(row).toContain('dimmed={relationMark === "unavailable"}');
     expect(row).toContain("onRequestOutgoingConfirm(call, vm.callKind);");
