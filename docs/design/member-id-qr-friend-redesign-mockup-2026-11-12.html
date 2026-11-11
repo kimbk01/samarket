@@ -2,312 +2,227 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap">
 <style>
-/* 레이아웃: 위 = 결정 요약, 아래 = 실제 앱 크기(360×740) 휴대폰 화면을 흐름 순서대로 가로 나열 (좁으면 세로) */
+/* 레이아웃: 화면 종류마다 한 줄 × 기기 3종(344 · 360 · 412, 실제 화면 비율) — 각 휴대폰 위에 이 페이지가 잰 잘림 검사 */
 :root{
-  --dibay-green:#0B421A; --green-dark:#072e12; --green-soft:#e7efe9;
-  --page:#eef1ee; --surface:#ffffff; --secondary:#f5f7f6; --border:#e5e7e8;
-  --fg:#16201a; --sub:#6b746e; --danger:#d92d20; --scrim:rgba(10,20,14,.45);
+  --green:#0B421A; --green-soft:#e7efe9;
+  --page:#e9ece9; --app-bg:#f3f2eb; --band:#ecebe5; --hdr:#eaf1fb;
+  --surface:#ffffff; --secondary:#f5f7f6; --border:#e5e7e8;
+  --fg:#16201a; --sub:#6b746e; --danger:#d92d20; --scrim:rgba(17,24,20,.48);
+  --ok:#0f7a3a; --ok-bg:#e3f4ea; --bad:#b42318; --bad-bg:#fdecea; --own:#8a5300; --own-bg:#fff4e0;
   --r-rect:4px; --r-md:12px; --r-xl:24px;
   --font:"Noto Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo",sans-serif;
   color-scheme:light;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--page);color:var(--fg);font-family:var(--font);font-size:14px;line-height:1.5;
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
-.wrap{max-width:1240px;margin:0 auto;display:grid;gap:28px}
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 56px}
+.wrap{max-width:1320px;margin:0 auto;display:grid;gap:34px}
 h1{font-size:24px;margin:0;text-wrap:balance}
-h2{font-size:17px;margin:0 0 4px;text-wrap:balance}
-.lead{color:var(--sub);max-width:70ch;margin:6px 0 0}
-.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:18px 20px}
+h2{font-size:17px;margin:0;text-wrap:balance}
+.lead{color:var(--sub);max-width:76ch;margin:6px 0 0}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:18px 20px;display:grid;gap:10px}
 table{border-collapse:collapse;width:100%;font-size:13px}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
-th{color:var(--sub);font-weight:600;font-size:12px;letter-spacing:.02em}
+th{color:var(--sub);font-weight:600;font-size:12px}
 .tbl{overflow-x:auto}
-.pill{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;white-space:nowrap}
-.p-req{background:var(--secondary);color:var(--sub);border:1px solid var(--border)}
-.p-now{background:var(--green-soft);color:var(--dibay-green)}
-.p-fix{background:#fdecea;color:var(--danger)}
-.p-own{background:#fff4e0;color:#8a5300}
-.flow{display:flex;gap:22px;overflow-x:auto;padding-bottom:8px}
-.step{flex:0 0 auto;display:grid;gap:8px;width:360px;max-width:100%}
-.cap{font-size:13px;font-weight:700}
-.cap small{display:block;font-weight:400;color:var(--sub);font-size:12px}
-/* 휴대폰 */
-.phone{position:relative;width:360px;max-width:100%;height:740px;background:#f3f2eb;border-radius:28px;border:8px solid #1d2420;overflow:hidden;display:flex;flex-direction:column}
-.sb{height:26px;display:flex;justify-content:space-between;align-items:center;padding:0 16px;font-size:11px;font-weight:600;color:var(--fg)}
-.nav3{position:absolute;left:0;right:0;bottom:0;height:40px;background:#fafafa;display:flex;justify-content:space-around;align-items:center;color:#555;font-size:16px;border-top:1px solid #ececec;z-index:5}
-.nav3 i{font-style:normal}
-.safe{height:40px} /* 기기 내비게이션 높이 = safe-bottom */
-.hdr{height:52px;display:flex;align-items:center;padding:0 16px;font-size:18px;font-weight:700;background:#eaf1fb}
-.tabs3{display:flex;gap:20px;padding:0 16px;height:42px;align-items:center;border-bottom:1px solid var(--border);background:#f9f9f9;font-size:15px;color:var(--sub)}
-.tabs3 b{color:var(--fg);position:relative}
-.tabs3 b:after{content:"";position:absolute;left:0;right:0;bottom:-11px;height:2px;background:var(--fg)}
-.srch{display:flex;gap:8px;padding:12px 16px 4px;align-items:center}
-.inp{flex:1;min-width:0;height:40px;border-radius:var(--r-md);background:#ecebe5;display:flex;align-items:center;padding:0 12px;color:var(--sub);font-size:14px;gap:8px}
-.ibtn{width:40px;height:40px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface);display:grid;place-items:center;flex:0 0 auto}
-.ibtn.new{outline:2px dashed #c77700;outline-offset:2px}
-.sbtn{height:40px;padding:0 14px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface);font-weight:600;display:grid;place-items:center}
-.me{display:flex;align-items:center;gap:12px;padding:10px 16px;height:80px}
-.av{width:56px;height:56px;border-radius:21px;background:linear-gradient(135deg,#f6c94a,#e07a2f);flex:0 0 auto}
-.me .nm{font-weight:700;font-size:17px}.me .id{font-size:12.5px;color:var(--sub)}
-.gbtn{height:32px;padding:0 12px;border-radius:8px;background:#ecebe5;font-size:13px;font-weight:600;display:grid;place-items:center;white-space:nowrap}
-.gbtn.hl{outline:2px solid var(--dibay-green);outline-offset:2px}
-.list{padding:4px 16px;color:var(--sub);font-size:13px}
-.row{display:flex;align-items:center;gap:12px;padding:10px 0}
-.row .a{width:44px;height:44px;border-radius:50%;background:#7a5bd1;color:#fff;display:grid;place-items:center;font-weight:700}
-/* 시트 */
-.scrim{position:absolute;inset:0;background:var(--scrim);z-index:3}
-.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-radius:var(--r-xl) var(--r-xl) 0 0;z-index:4;display:flex;flex-direction:column}
-.handle{width:36px;height:4px;border-radius:2px;background:#d4d7d5;margin:8px auto 4px}
-.shd{display:flex;align-items:center;justify-content:space-between;padding:4px 16px 10px;border-bottom:1px solid var(--border)}
-.shd b{font-size:18px}
-.x{width:32px;height:32px;display:grid;place-items:center;border-radius:50%;color:var(--sub);font-size:18px}
-.sbody{padding:12px 16px calc(16px + 40px)} /* max(1rem, safe-bottom) — 여기선 내비게이션 40px 위 16px */
-.seg{display:flex;border-bottom:1px solid var(--border);margin:0 -16px 14px}
-.seg span{flex:1;text-align:center;padding:9px 0;color:var(--sub);font-size:15px;position:relative}
-.seg span.on{color:var(--fg);font-weight:600}
-.seg span.on:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:3px;border-radius:var(--r-rect);background:var(--dibay-green)}
-.card{display:grid;justify-items:center;gap:4px;padding:16px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface)}
-.qr{position:relative;width:184px;height:184px}
-.qr canvas{width:100%;height:100%;image-rendering:pixelated}
-.qr .cav{position:absolute;left:50%;top:50%;width:40px;height:40px;transform:translate(-50%,-50%);border-radius:50%;border:3px solid #fff;background:linear-gradient(135deg,#f6c94a,#e07a2f)}
-.card .nm{font-weight:700;font-size:16px;margin-top:6px}
-.card .id{font-weight:600;color:var(--dibay-green)}
-.card .h{font-size:12px;color:var(--sub)}
-.acts{display:flex;gap:8px;margin-top:12px}
-.btn{flex:1;min-height:48px;border-radius:var(--r-md);display:grid;place-items:center;font-weight:600;font-size:15px;border:1px solid transparent}
-.btn.pri{background:var(--dibay-green);color:#fff}
-.btn.sec{background:var(--surface);border-color:var(--border);color:var(--sub)}
-.btn.txt{background:transparent;color:var(--sub);font-weight:500;min-height:44px;margin-top:2px}
-.cam{position:relative;width:100%;aspect-ratio:1;max-width:300px;margin:0 auto;border-radius:var(--r-md);background:radial-gradient(circle at 40% 35%,#3c4a42,#101512);overflow:hidden}
-.cam .box{position:absolute;inset:18%;border:2px solid rgba(255,255,255,.85);border-radius:var(--r-rect)}
-.cam .ln{position:absolute;left:20%;right:20%;top:50%;height:2px;background:rgba(120,220,150,.8)}
-.hint{text-align:center;font-size:12px;color:var(--sub);margin:10px 0}
-.res{display:grid;justify-items:center;gap:4px;text-align:center;padding:6px 0 14px}
-.res .big{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#9ad0ff,#3a78d8)}
-.res .nm{font-size:18px;font-weight:700;margin-top:6px}
-.res .id{font-weight:600;color:var(--dibay-green)}
-.res .h{font-size:12px;color:var(--sub)}
-.err{color:var(--danger);text-align:center;padding:18px 0}
-.toast{position:absolute;left:16px;right:16px;bottom:56px;background:#1f2a23;color:#fff;border-radius:var(--r-md);padding:12px 14px;font-size:13px;z-index:6}
-.web{flex:1;background:#fff;display:flex;flex-direction:column}
-.url{margin:6px 10px;height:34px;border-radius:17px;background:#eef0f3;display:flex;align-items:center;padding:0 14px;font-size:12px;color:#333}
-.whd{height:48px;display:grid;place-items:center;font-weight:700;border-bottom:1px solid var(--border)}
-.wbody{display:grid;justify-items:center;gap:6px;padding:40px 24px}
-.note{font-size:12px;color:var(--sub);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 12px}
+code{font-size:12px}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.t-own{background:var(--own-bg);color:var(--own)}
+.sec{display:grid;gap:12px}
+.row3{display:flex;gap:22px;overflow-x:auto;padding-bottom:10px;align-items:flex-start}
+.dev{flex:0 0 auto;display:grid;gap:6px}
+.dev-h{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;font-weight:700}
+.dev-h small{font-weight:400;color:var(--sub)}
+.chk{font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;background:var(--secondary);color:var(--sub)}
+.chk.ok{background:var(--ok-bg);color:var(--ok)} .chk.bad{background:var(--bad-bg);color:var(--bad)}
+.note{font-size:12.5px;color:var(--sub);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 12px;max-width:80ch}
 .note b{color:var(--fg)}
-.tag{font-size:11px;font-weight:700;color:#8a5300}
-ul.tight{margin:6px 0 0;padding-left:18px}
-ul.tight li{margin:3px 0}
-@media (max-width:520px){.flow{flex-direction:column;overflow:visible}.step{width:100%}.phone{width:100%}}
+
+/* ── 휴대폰: 안쪽 크기 = 기기 CSS px ── */
+.phone{position:relative;background:var(--app-bg);border-radius:30px;border:7px solid #1d2420;overflow:hidden;display:flex;flex-direction:column;font-size:14px}
+.st{height:28px;flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;padding:0 18px;font-size:12px;font-weight:600;background:var(--hdr)}
+.sysnav{position:absolute;left:0;right:0;bottom:0;height:40px;background:#fafafa;display:flex;justify-content:space-around;align-items:center;color:#4b4f4c;border-top:1px solid #ececec;z-index:9;font-size:15px}
+.app{flex:1;display:flex;flex-direction:column;min-height:0}
+.hdr{height:52px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:0 12px 0 20px;background:var(--hdr)}
+.hdr b{font-size:18px}
+.hicons{display:flex;gap:14px;color:#2b3330}
+.tabs3{display:flex;gap:22px;padding:0 18px;height:44px;flex:0 0 auto;align-items:center;border-bottom:1px solid var(--border);background:#f9f9f9;font-size:15px;color:var(--sub)}
+.tabs3 b{color:var(--fg);position:relative;font-weight:700}
+.tabs3 b:after{content:"";position:absolute;left:0;right:0;bottom:-12px;height:2px;background:var(--fg)}
+.scroll{flex:1;overflow:hidden;min-height:0}
+.srch{display:flex;gap:8px;padding:12px 16px 6px;align-items:center}
+.inp{flex:1 1 auto;min-width:0;height:38px;border-radius:var(--r-md);background:var(--band);display:flex;align-items:center;padding:0 12px;color:var(--sub);font-size:15px;gap:6px;white-space:nowrap;overflow:hidden}
+.ibtn{width:38px;height:38px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface);display:grid;place-items:center;flex:0 0 auto}
+.sbtn{height:38px;padding:0 14px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface);font-weight:600;display:grid;place-items:center;flex:0 0 auto;white-space:nowrap}
+.me{display:flex;align-items:center;gap:12px;padding:12px 16px;min-height:80px}
+.av56{width:56px;height:56px;border-radius:21px;flex:0 0 auto;background:linear-gradient(135deg,#f6c94a,#e07a2f)}
+.me-t{flex:1 1 auto;min-width:0;display:grid;gap:3px}
+.me .nm{font-weight:600;font-size:17px;line-height:1.3;text-wrap:balance}
+.me .id{font-size:12.5px;color:var(--sub);line-height:1.35}
+.gbtn{height:32px;padding:0 13px;border-radius:8px;background:var(--band);font-size:13px;font-weight:600;display:grid;place-items:center;white-space:nowrap;flex:0 0 auto;align-self:center}
+.sect{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 6px;font-size:13px;color:var(--sub)}
+.sect a{color:var(--green);font-weight:700;text-decoration:none}
+.fr{display:flex;align-items:center;gap:12px;padding:8px 16px}
+.fr .a{width:44px;height:44px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;color:#fff;font-weight:700}
+.fr .t{flex:1;min-width:0;line-height:1.3}
+.fr .t div:last-child{font-size:12.5px;color:var(--sub)}
+.fr .cta{height:32px;padding:0 12px;border-radius:8px;background:var(--green);color:#fff;font-size:13px;font-weight:600;display:grid;place-items:center;white-space:nowrap}
+.bnav{height:60px;flex:0 0 auto;display:flex;justify-content:space-around;align-items:center;background:var(--surface);border-top:1px solid var(--border);margin-bottom:40px;font-size:11px;color:var(--sub)}
+.bnav div{display:grid;justify-items:center;gap:2px}
+.bnav i{width:22px;height:22px;border-radius:6px;border:2px solid currentColor;display:block}
+.bnav .on{color:var(--fg);font-weight:700}
+.bnav .on i{background:var(--fg);border-color:var(--fg)}
+
+/* ── 시트 ── */
+.scrim{position:absolute;inset:0;background:var(--scrim);z-index:6}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-height:88%;background:var(--surface);border-radius:var(--r-xl) var(--r-xl) 0 0;z-index:7;display:flex;flex-direction:column}
+.handle{width:36px;height:4px;border-radius:2px;background:#d4d7d5;margin:8px auto 2px;flex:0 0 auto}
+.shd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 12px 10px 16px;border-bottom:1px solid var(--border);flex:0 0 auto}
+.shd b{font-size:18px}
+.x{width:36px;height:36px;display:grid;place-items:center;color:var(--sub);flex:0 0 auto}
+.sbody{padding:0 16px calc(16px + 40px);overflow:hidden}   /* 하단 = max(1rem, safe-bottom) : 기기 내비게이션 40 + 16 */
+.seg{display:flex;border-bottom:1px solid var(--border);margin:0 -16px 14px}
+.seg span{flex:1;text-align:center;padding:11px 0;color:var(--sub);font-size:15px;position:relative;white-space:nowrap}
+.seg span.on{color:var(--fg);font-weight:700}
+.seg span.on:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:3px;border-radius:var(--r-rect);background:var(--green)}
+.card{display:grid;justify-items:center;gap:4px;padding:18px 16px 16px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);text-align:center}
+.qr{position:relative;width:min(184px,70%);aspect-ratio:1}
+.qr canvas{width:100%;height:100%;image-rendering:pixelated;display:block}
+.qr .cav{position:absolute;left:50%;top:50%;width:22%;height:22%;transform:translate(-50%,-50%);border-radius:50%;border:3px solid #fff;background:linear-gradient(135deg,#f6c94a,#e07a2f)}
+.cnm{font-weight:700;font-size:16px;line-height:1.35;margin-top:8px;text-wrap:balance;max-width:100%}
+.cid{font-weight:600;color:var(--green);line-height:1.35;max-width:100%}
+.ch{font-size:12px;color:var(--sub);margin-top:2px}
+.acts{display:flex;gap:8px;margin-top:12px}
+.btn{flex:1 1 0;min-width:0;min-height:48px;border-radius:var(--r-md);display:grid;place-items:center;font-weight:600;font-size:15px;border:1px solid transparent;padding:0 8px;text-align:center;white-space:nowrap}
+.btn.pri{background:var(--green);color:#fff}
+.btn.sec2{background:var(--surface);border-color:var(--border);color:var(--sub)}
+.btn.txt{background:transparent;color:var(--sub);font-weight:500;min-height:44px;margin-top:4px;width:100%;flex:none}
+.cam{position:relative;width:100%;aspect-ratio:1;max-width:300px;margin:0 auto;border-radius:var(--r-md);background:radial-gradient(circle at 42% 38%,#45534b,#0e1310);overflow:hidden}
+.cam .box{position:absolute;inset:18%;border:2px solid rgba(255,255,255,.9);border-radius:var(--r-rect)}
+.hint{text-align:center;font-size:12px;color:var(--sub);margin:12px 0}
+.res{display:grid;justify-items:center;gap:3px;text-align:center;padding:16px 0 18px}
+.res .big{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#9ad0ff,#3a78d8)}
+.rnm{font-size:18px;font-weight:700;margin-top:8px;line-height:1.35;text-wrap:balance;max-width:100%}
+.rid{font-weight:600;color:var(--green);max-width:100%}
+.rh{font-size:12px;color:var(--sub);margin-top:2px}
+
+/* ── 마이페이지 ── */
+.mphdr{height:52px;flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 16px;background:var(--hdr);font-weight:700;font-size:17px}
+.mp{display:grid;justify-items:center;gap:4px;padding:26px 16px 0;text-align:center}
+.mp .big{width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,#f6c94a,#e07a2f)}
+.mnm{font-size:20px;font-weight:700;margin-top:12px;line-height:1.35;text-wrap:balance;max-width:100%}
+.midl{display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;gap:2px 8px;color:var(--sub);max-width:100%}
+.mcp{font-size:12px;font-weight:600;color:var(--green);text-decoration:underline;text-underline-offset:2px}
+.mbio{color:var(--sub);margin-top:8px;word-break:keep-all;text-wrap:balance;max-width:100%}
+.stack{display:grid;gap:8px;width:100%;margin-top:22px}
+.stack div{min-height:44px;border-radius:var(--r-rect);display:grid;place-items:center;font-weight:600;border:1px solid var(--border);background:var(--surface)}
+.stack .p{background:var(--green);color:#fff;border-color:transparent}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
 <div class="wrap">
   <header>
-    <h1>QR 친구 · 친구 추가 수정 시안 (2026-11-12)</h1>
-    <p class="lead">설계안 <code>docs/audit/member-id-qr-friend-audit-redesign-2026-11-12.md</code> 의 화면 시안입니다. 휴대폰 화면은 앱 실제 값(초록 #0B421A, 버튼 높이 48, 시트 머리·안전 영역 계약)으로 그렸고, 회색 띠는 기기 내비게이션(40px)입니다. 사람·QR 은 예시입니다.</p>
+    <h1>QR 친구 수정 시안 3판</h1>
+    <p class="lead">기기 3종을 실제 화면 크기(CSS px)로 그렸습니다: <b>344×882</b> 갤럭시 Z 폴드 덮개 화면(가장 좁은 현행 안드로이드), <b>360×780</b> 갤럭시 A·M 계열(시험폰 기준), <b>412×915</b> 큰 안드로이드. 이름·아이디는 최장 값(닉네임 20자 <code>MEMBER_NICKNAME_MAX</code>, 아이디 20자 <code>DIBAY_ID_RE</code>)입니다. 각 휴대폰 위 표시는 이 페이지가 글자 넘침·말줄임·화면 밖 요소를 직접 잰 결과입니다. 하단 회색 띠 = 기기 내비게이션(40px), 그 위 = 앱 하단 탭(60px).</p>
   </header>
 
   <section class="panel">
-    <h2>친구 추가 방법 5가지 (섞지 않음)</h2>
+    <h2>화면 규칙 (구현 SSOT)</h2>
     <div class="tbl"><table>
-      <thead><tr><th>방법</th><th>어디서</th><th>결과</th><th>기록 값</th><th>지금 상태</th></tr></thead>
+      <thead><tr><th>항목</th><th>규칙</th><th>근거</th></tr></thead>
       <tbody>
-        <tr><td>아이디 검색</td><td>친구 탭 검색칸 결과 · 결과에서 연 프로필</td><td><span class="pill p-req">요청 → 수락</span></td><td><code>id_search</code></td><td><span class="pill p-fix">수정</span> 결과에서 연 프로필이 <code>profile</code> 로 남음</td></tr>
-        <tr><td>연락처</td><td>친구 탭 연락처 섹션 · 연락처 화면</td><td><span class="pill p-req">요청 → 수락</span></td><td><code>contacts</code></td><td>정상 (운영 11-11 19:01 UTC 기록 확인)</td></tr>
-        <tr><td>QR</td><td>QR 코드 시트(스캔·갤러리) · 휴대폰 카메라 → 링크</td><td><span class="pill p-now">바로 친구</span></td><td><code>qr</code></td><td><span class="pill p-fix">수정</span> 진입·저장·문구 (아래 화면)</td></tr>
-        <tr><td>프로필</td><td>1:1 방 안내줄 · 방 메뉴 · 프로필 시트</td><td><span class="pill p-req">요청 → 수락</span></td><td><code>profile</code></td><td>정상</td></tr>
-        <tr><td>그룹</td><td>그룹 만들기 · 방 그룹 초대 중 추가</td><td><span class="pill p-req">요청 → 수락</span></td><td><code>group</code> (신규)</td><td><span class="pill p-fix">수정</span> 지금 <code>profile</code> 로 섞임 · DB 허용값 추가 필요</td></tr>
+        <tr><td>QR 진입 (친구 탭)</td><td>검색 줄 <b>[검색칸][QR 아이콘 38][관리]</b>. 내 프로필 줄은 채팅 시안 4판 그대로 <b>[프로필 편집] 하나</b>. QR 아이콘 → 「QR 코드」 시트 내 QR 탭</td><td>1판에서 프로필 줄 버튼 2개로 이름 칸이 344 폭에서 약 50px 까지 줄어 잘림</td></tr>
+        <tr><td>QR 진입 (마이페이지)</td><td>내 프로필 버튼 목록 맨 위 [QR 코드] (지금 운영과 같은 자리)</td><td>—</td></tr>
+        <tr><td>이름</td><td>말줄임 금지. 줄바꿈 + 줄 길이 균형(<code>text-wrap: balance</code>) → 마지막 줄에 한 글자만 남지 않음</td><td>2판 「선생 / 님」 결함</td></tr>
+        <tr><td>회원 아이디</td><td>말줄임 금지. 줄을 바꿀 때는 <code>.</code> <code>_</code> 뒤에서만(<code>&lt;wbr&gt;</code>), 숫자·글자 중간에서 끊지 않음</td><td>2판 「manila / 2026」 결함</td></tr>
+        <tr><td>버튼 글자</td><td>한 줄 고정(<code>white-space: nowrap</code>). 한 줄에 버튼 최대 2개</td><td>1판 「QR 다시 / 만들기」 결함</td></tr>
+        <tr><td>시트</td><td>공용 머리(손잡이·제목·닫기 X), 본문 하단 = max(16px, 기기 안전 영역), 최대 높이 88%</td><td><code>messenger-home-bottom-sheet.css</code></td></tr>
       </tbody>
     </table></div>
-    <p class="lead">QR 만 바로 친구입니다: QR 을 보여 준 것이 동의이기 때문입니다(설계안 v3 §3.6). 열 수 없는 「친구 추가 시트」와 쓰이지 않는 추가 경로 3개는 같은 단계에서 지웁니다.</p>
+    <p class="note"><span class="tag t-own">Owner 결정 필요</span> 검색 줄 QR 아이콘은 채팅 시안 4판(11-10)에 없는 요소입니다. 4판의 내 프로필 줄은 그대로 두고 40px 아이콘 하나만 더합니다. 빼면 친구 탭에는 QR 진입이 없고 마이페이지에서만 들어갑니다.</p>
   </section>
 
-  <section>
-    <h2>QR 친구 화면 흐름</h2>
-    <p class="lead">레거시 공통(공식 문서 확인분): 내 QR·스캔은 한 화면에서 전환(LINE·WhatsApp), 갤러리는 스캔 화면 안(WhatsApp), 스캔 뒤 프로필 확인 후 「추가」(LINE·WhatsApp), 재발급은 확인 단계를 거침(LINE·WhatsApp), 스캔은 검색창 옆 전역 진입도 둠(LINE).</p>
-  </section>
-
-  <div class="flow">
-    <!-- 1 친구 탭 -->
-    <div class="step">
-      <div class="cap">① 친구 탭 · 진입 2곳<small>「QR 코드」 = 내 QR 탭으로 · 검색칸 옆 스캔 아이콘 = 스캔 탭으로</small></div>
-      <div class="phone">
-        <div class="sb"><span>2:56</span><span>100%</span></div>
-        <div class="hdr">친구</div>
-        <div class="tabs3"><span>대화</span><b>친구</b><span>통화</span></div>
-        <div class="srch">
-          <div class="inp">⌕ @아이디로 친구 찾기</div>
-          <div class="ibtn new" title="QR 스캔" aria-label="QR 스캔">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16201a" stroke-width="2" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg>
-          </div>
-          <div class="sbtn">관리</div>
-        </div>
-        <div class="me">
-          <div class="av"></div>
-          <div style="flex:1;min-width:0"><div class="nm">q테스트1</div><div class="id">@qqqq</div></div>
-          <div class="gbtn hl">QR 코드</div><div class="gbtn">프로필 편집</div>
-        </div>
-        <div class="list">받은 요청 · 새 친구 · 친구 …
-          <div class="row"><div class="a">A</div><div style="flex:1;color:var(--fg)">Alyn Buque<div style="font-size:12px;color:var(--sub)">다른 기기</div></div></div>
-        </div>
-        <div class="nav3"><i>|||</i><i>○</i><i>‹</i></div>
-      </div>
-      <div class="note"><span class="tag">Owner 결정 필요</span> 점선 스캔 아이콘은 11-10 채팅 시안 4판에 없는 요소입니다(설계 충돌). 빼면 스캔은 「QR 코드 → QR 스캔」 한 단계를 더 거칩니다.</div>
-    </div>
-
-    <!-- 2 내 QR -->
-    <div class="step">
-      <div class="cap">② QR 코드 시트 · 내 QR<small>주 [공유] · 보조 [이미지 저장] · 아래 글자 [QR 다시 만들기]</small></div>
-      <div class="phone">
-        <div class="sb"><span>2:56</span><span>100%</span></div>
-        <div class="hdr">친구</div>
-        <div class="scrim"></div>
-        <div class="sheet">
-          <div class="handle"></div>
-          <div class="shd"><b>QR 코드</b><span class="x">✕</span></div>
-          <div class="sbody">
-            <div class="seg"><span class="on">내 QR</span><span>QR 스캔</span></div>
-            <div class="card">
-              <div class="qr"><canvas class="qrc" width="29" height="29"></canvas><div class="cav"></div></div>
-              <div class="nm">q테스트1</div><div class="id">@qqqq</div>
-              <div class="h">이 QR을 스캔하면 바로 친구가 돼요</div>
-            </div>
-            <div class="acts"><div class="btn pri">공유</div><div class="btn sec">이미지 저장</div></div>
-            <div class="btn txt">QR 다시 만들기</div>
-          </div>
-        </div>
-        <div class="nav3"><i>|||</i><i>○</i><i>‹</i></div>
-      </div>
-      <div class="note"><b>공유</b> = QR 카드 이미지 + 링크 글. <b>이미지 저장</b>: 새 앱 빌드에서는 이미지 파일로 공유 창(사진에 저장), 구 앱(플러그인 없음)은 버튼 숨김, 브라우저는 내려받기. 창을 닫으면(취소) 아무 문구도 띄우지 않습니다.</div>
-    </div>
-
-    <!-- 3 재발급 확인 -->
-    <div class="step">
-      <div class="cap">③ QR 다시 만들기 확인<small>되돌릴 수 없는 행동 = 확인 시트</small></div>
-      <div class="phone">
-        <div class="sb"><span>2:57</span><span>100%</span></div>
-        <div class="hdr">친구</div>
-        <div class="scrim"></div>
-        <div class="sheet">
-          <div class="handle"></div>
-          <div class="sbody" style="padding-top:8px">
-            <div style="font-size:18px;font-weight:700;margin-bottom:4px">QR을 다시 만들까요?</div>
-            <div style="color:var(--sub)">이전에 공유한 QR은 더 이상 쓸 수 없어요.</div>
-            <div class="acts" style="margin-top:20px"><div class="btn sec">취소</div><div class="btn pri">QR 다시 만들기</div></div>
-          </div>
-        </div>
-        <div class="nav3"><i>|||</i><i>○</i><i>‹</i></div>
-      </div>
-      <div class="note">완료 → 「새 QR을 만들었어요」. 옛 QR 은 즉시 「이 QR로는 친구를 추가할 수 없어요」. 설정의 다시 만들기도 같은 함수 하나를 씁니다.</div>
-    </div>
-
-    <!-- 4 스캔 -->
-    <div class="step">
-      <div class="cap">④ QR 코드 시트 · QR 스캔<small>카메라 + 안내 네모 + [갤러리에서 선택]</small></div>
-      <div class="phone">
-        <div class="sb"><span>2:57</span><span>100%</span></div>
-        <div class="hdr">친구</div>
-        <div class="scrim"></div>
-        <div class="sheet">
-          <div class="handle"></div>
-          <div class="shd"><b>QR 코드</b><span class="x">✕</span></div>
-          <div class="sbody">
-            <div class="seg"><span>내 QR</span><span class="on">QR 스캔</span></div>
-            <div class="cam"><div class="box"></div><div class="ln"></div></div>
-            <div class="hint">친구의 QR 코드를 네모 안에 맞춰 주세요</div>
-            <div class="btn sec">갤러리에서 선택</div>
-          </div>
-        </div>
-        <div class="nav3"><i>|||</i><i>○</i><i>‹</i></div>
-      </div>
-      <div class="note">카메라 거부·없음 → 안내 문구 + 갤러리 버튼만. 다른 QR(PC 로그인 등) → 「DIBAY 친구 QR이 아니에요」 후 1초 뒤 다시 읽기. 앱이 백그라운드로 가면 카메라를 끄고, 돌아오면 다시 켭니다. 해독은 네모 영역만 640px 이하로.</div>
-    </div>
-
-    <!-- 5 결과 -->
-    <div class="step">
-      <div class="cap">⑤ 스캔 결과<small>프로필 확인 → [친구 추가] = 바로 친구</small></div>
-      <div class="phone">
-        <div class="sb"><span>2:58</span><span>100%</span></div>
-        <div class="hdr">친구</div>
-        <div class="scrim"></div>
-        <div class="sheet">
-          <div class="handle"></div>
-          <div class="shd"><b>친구 추가</b><span class="x">✕</span></div>
-          <div class="sbody">
-            <div class="res"><div class="big"></div><div class="nm">zxzx11</div><div class="id">@zxzx11</div><div class="h">QR 코드로 찾았어요</div></div>
-            <div class="btn pri">친구 추가</div>
-          </div>
-        </div>
-        <div class="toast">zxzx11님과 친구가 되었어요</div>
-        <div class="nav3"><i>|||</i><i>○</i><i>‹</i></div>
-      </div>
-      <div class="note">이미 친구 → 「이미 친구예요」 + 주 [대화하기]. 내 QR → 「내 QR이에요」. 닫기는 X 하나(본문 「취소」 없음).</div>
-    </div>
-
-    <!-- 6 실패 -->
-    <div class="step">
-      <div class="cap">⑥ 실패 문구 3종<small>사유별로 나누되 차단·설정은 숨김</small></div>
-      <div class="phone">
-        <div class="sb"><span>2:58</span><span>100%</span></div>
-        <div class="hdr">친구</div>
-        <div class="scrim"></div>
-        <div class="sheet">
-          <div class="handle"></div>
-          <div class="shd"><b>친구 추가</b><span class="x">✕</span></div>
-          <div class="sbody">
-            <div class="err">이 QR로는 친구를 추가할 수 없어요</div>
-            <div style="font-size:12px;color:var(--sub);display:grid;gap:6px">
-              <div>· 다시 만든 옛 QR · QR 친구 추가 끔 · 차단 · 탈퇴 → 위 문구 하나</div>
-              <div>· 너무 자주 시도(429) → 「잠시 후 다시 시도해 주세요」</div>
-              <div>· 내 프로필 미완료 → 앱 공용 「프로필 완성」 안내로 이동</div>
-            </div>
-          </div>
-        </div>
-        <div class="nav3"><i>|||</i><i>○</i><i>‹</i></div>
-      </div>
-      <div class="note">지금 코드는 세 경우가 모두 「이 QR로는…」 하나로 나옵니다(결함 Q3).</div>
-    </div>
-
-    <!-- 7 웹 -->
-    <div class="step">
-      <div class="cap">⑦ 휴대폰 기본 카메라로 찍었을 때<small>samarket.vercel.app/f/… — 앱 없음·구 빌드·PC</small></div>
-      <div class="phone">
-        <div class="sb"><span>2:59</span><span>100%</span></div>
-        <div class="web">
-          <div class="url">samarket.vercel.app/f/TcR0…</div>
-          <div class="whd">친구 추가</div>
-          <div class="wbody">
-            <div class="res"><div class="big" style="background:linear-gradient(135deg,#f6c94a,#e07a2f)"></div><div class="nm">q테스트1</div><div class="h">DIBAY에서 친구가 되어 보세요</div></div>
-            <div class="btn pri" style="width:100%">앱에서 열기</div>
-            <div class="btn sec" style="width:100%">웹에서 계속</div>
-          </div>
-        </div>
-        <div class="nav3"><i>|||</i><i>○</i><i>‹</i></div>
-      </div>
-      <div class="note">새 빌드(앱 링크 검증)면 이 화면 없이 앱이 바로 열려 ⑤로 갑니다. [앱에서 열기] 뒤 1.5초 안에 앱이 안 열리면 Android 는 Play 스토어로 이동합니다. <span class="tag">Owner 결정 필요</span> iOS App Store 주소가 코드에 없습니다. 앱 안 화면에서 이 주소를 열면 이 화면을 건너뛰고 ⑤로 갑니다.</div>
-    </div>
-  </div>
-
-  <section class="panel">
-    <h2>단계</h2>
-    <ul class="tight">
-      <li><b>S0</b> PR #154 병합: 스캔 진입·시트 머리·안전 영역 (웹)</li>
-      <li><b>S1</b> 웹: 취소 처리·실패 문구 3종·앱 안 /f 생략·스토어 이동·카메라 백그라운드 정지·해독 축소·다시 만들기 공용 함수·저장 카드 사진·「DIBAY」 표기·기록 값 누락 방지·죽은 경로 삭제·구 앱 [이미지 저장] 숨김</li>
-      <li><b>S2</b> DB (운영 적용은 Owner 승인): QR 친구가 예전 거절 요청 정리, 이미 친구면 스캔 수 안 올림, <code>group</code> 허용, 하루 검색 한도</li>
-      <li><b>S3</b> 네이티브(다음 일괄 빌드): 파일 플러그인 + 앱 [이미지 저장]</li>
-    </ul>
-  </section>
+  <section class="sec"><h2>① 친구 탭</h2><div class="row3" data-k="friends"></div></section>
+  <section class="sec"><h2>② QR 코드 시트 · 내 QR</h2><div class="row3" data-k="myqr"></div>
+    <p class="note"><b>[공유]</b> 주 버튼 = QR 카드 이미지 + 링크 글. <b>[이미지 저장]</b> 새 앱 빌드 = 이미지 파일로 공유 창(사진에 저장), 구 앱 = 버튼 숨김(아래 줄은 [공유] 하나가 전체 폭), 브라우저 = 내려받기. 창을 닫으면 문구 없음. <b>QR 다시 만들기</b> = 글자 버튼 → 확인 시트 「이전에 공유한 QR은 더 이상 쓸 수 없어요」.</p></section>
+  <section class="sec"><h2>③ QR 코드 시트 · QR 스캔</h2><div class="row3" data-k="scan"></div>
+    <p class="note">카메라 거부·없음 → 카메라 칸 대신 「카메라를 쓸 수 없어요. 갤러리에서 QR 사진을 선택해 주세요.」 + [갤러리에서 선택]. 다른 QR → 「DIBAY 친구 QR이 아니에요」 후 1초 뒤 다시 읽기. 앱이 백그라운드로 가면 카메라 끔.</p></section>
+  <section class="sec"><h2>④ 스캔 결과</h2><div class="row3" data-k="result"></div>
+    <p class="note">이미 친구 → 「이미 친구예요」 + 주 [대화하기]. 실패: 옛 QR·QR 친구 추가 끔·차단·탈퇴 → 「이 QR로는 친구를 추가할 수 없어요」, 너무 잦은 시도 → 「잠시 후 다시 시도해 주세요」, 내 프로필 미완료 → 앱 공용 프로필 완성 안내.</p></section>
+  <section class="sec"><h2>⑤ 마이페이지 내 프로필</h2><div class="row3" data-k="mypage"></div></section>
 </div>
 
 <script>
-// 예시 QR 무늬 (실제 토큰 아님) — 찾기 패턴 3개 + 고정 난수
+var NAME="필리핀마닐라에서일하는김디바이선생님";
+var ID='@kim.<wbr>dibay_<wbr>manila2026';
+var DEV=[[344,882,"갤럭시 Z 폴드 덮개"],[360,780,"갤럭시 A·M"],[412,915,"큰 안드로이드"]];
+function ic(p){return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg>';}
+var I={search:ic('<circle cx="11" cy="11" r="6"/><path d="m20 20-4-4"/>'),gear:ic('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),bell:ic('<path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/>'),
+ qr:ic('<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2M20 14v6h-6M17 17v3"/>'),x:ic('<path d="M6 6l12 12M18 6 6 18"/>'),back:ic('<path d="m15 5-7 7 7 7"/>')};
+var ST='<div class="st"><span>2:56</span><span>100%</span></div>';
+var SYS='<div class="sysnav"><span>|||</span><span>○</span><span>‹</span></div>';
+function bnav(on){return '<div class="bnav">'+['홈','커뮤니티','배달','채팅','내정보'].map(function(n){return '<div'+(n===on?' class="on"':'')+'><i></i>'+n+'</div>';}).join('')+'</div>';}
+var BNAV=bnav('채팅');
+function friendsApp(){
+  return '<div class="app"><div class="hdr"><b>친구</b><div class="hicons">'+I.search+I.gear+I.bell+'</div></div>'+
+  '<div class="tabs3"><span>대화</span><b>친구</b><span>통화</span></div><div class="scroll">'+
+  '<div class="srch"><div class="inp">'+I.search.replace('22','18').replace('22','18')+'@아이디로 친구 찾기</div><div class="ibtn" aria-label="QR 코드">'+I.qr+'</div><div class="sbtn">관리</div></div>'+
+  '<div class="me"><div class="av56"></div><div class="me-t"><div class="nm">'+NAME+'</div><div class="id">'+ID+'</div></div><div class="gbtn">프로필 편집</div></div>'+
+  '<div class="sect"><span>받은 친구 요청 1</span></div>'+
+  '<div class="fr"><div class="a" style="background:#7a5bd1">A</div><div class="t"><div>Alyn Buque</div><div>@alyn.b</div></div><div class="cta">수락</div></div>'+
+  '<div class="sect"><span>친구 12</span></div>'+
+  '<div class="fr"><div class="a" style="background:#3a78d8">W</div><div class="t"><div>w테스트1</div><div>@wwww</div></div></div>'+
+  '<div class="fr"><div class="a" style="background:#c46a2b">김</div><div class="t"><div>김선희</div><div>@sunhee.kim</div></div></div>'+
+  '<div class="fr"><div class="a" style="background:#2f8f5b">Z</div><div class="t"><div>zxzx11</div><div>@zxzx11</div></div></div>'+
+  '<div class="fr"><div class="a" style="background:#8a8f8c">B</div><div class="t"><div>B2B TEST</div><div>@b2b.test</div></div></div>'+
+  '</div>'+BNAV+'</div>';
+}
+function sheet(title,body){return friendsApp()+'<div class="scrim"></div><div class="sheet"><div class="handle"></div><div class="shd"><b>'+title+'</b><span class="x">'+I.x+'</span></div><div class="sbody">'+body+'</div></div>';}
+var T={
+ friends:function(){return ST+friendsApp()+SYS;},
+ myqr:function(){return ST+sheet("QR 코드",'<div class="seg"><span class="on">내 QR</span><span>QR 스캔</span></div><div class="card"><div class="qr"><canvas class="qrc" width="29" height="29"></canvas><div class="cav"></div></div><div class="cnm">'+NAME+'</div><div class="cid">'+ID+'</div><div class="ch">이 QR을 스캔하면 바로 친구가 돼요</div></div><div class="acts"><div class="btn pri">공유</div><div class="btn sec2">이미지 저장</div></div><div class="btn txt">QR 다시 만들기</div>')+SYS;},
+ scan:function(){return ST+sheet("QR 코드",'<div class="seg"><span>내 QR</span><span class="on">QR 스캔</span></div><div class="cam"><div class="box"></div></div><div class="hint">친구의 QR 코드를 네모 안에 맞춰 주세요</div><div class="acts" style="margin-top:0"><div class="btn sec2">갤러리에서 선택</div></div>')+SYS;},
+ result:function(){return ST+sheet("친구 추가",'<div class="res"><div class="big"></div><div class="rnm">'+NAME+'</div><div class="rid">'+ID+'</div><div class="rh">QR 코드로 찾았어요</div></div><div class="acts" style="margin-top:0"><div class="btn pri">친구 추가</div></div>')+SYS;},
+ mypage:function(){return ST+'<div class="app"><div class="mphdr">'+I.back+'내 프로필</div><div class="scroll"><div class="mp"><div class="big"></div><div class="mnm">'+NAME+'</div><div class="midl"><span>'+ID+'</span><span class="mcp">복사</span></div><div class="mbio">마닐라 BGC 근처에서 일해요. 중고 거래와 맛집 정보 나눠요.</div><div class="stack"><div>QR 코드</div><div>프로필 공유</div><div>공개 프로필 보기</div><div class="p">프로필 수정</div></div></div></div>'+bnav('내정보')+'</div>'+SYS;}
+};
+document.querySelectorAll(".row3").forEach(function(row){
+  var k=row.getAttribute("data-k");
+  DEV.forEach(function(d){
+    var el=document.createElement("div");el.className="dev";
+    el.innerHTML='<div class="dev-h"><span>'+d[0]+'×'+d[1]+' <small>'+d[2]+'</small></span><span class="chk">검사 중</span></div><div class="phone" style="width:'+(d[0]+14)+'px;height:'+(d[1]+14)+'px">'+T[k]()+'</div>';
+    row.appendChild(el);
+  });
+});
 document.querySelectorAll("canvas.qrc").forEach(function(c){
-  var n=29,x=c.getContext("2d"),s=7;x.fillStyle="#fff";x.fillRect(0,0,n,n);x.fillStyle="#0B421A";
-  function rnd(i){var t=Math.sin(i*12.9898)*43758.5453;return t-Math.floor(t);}
-  for(var y=0;y<n;y++)for(var z=0;z<n;z++){if(rnd(y*n+z+s)>0.52)x.fillRect(z,y,1,1);}
+  var n=29,x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,n,n);x.fillStyle="#0B421A";
+  function r(i){var t=Math.sin(i*12.9898)*43758.5453;return t-Math.floor(t);}
+  for(var y=0;y<n;y++)for(var z=0;z<n;z++){if(r(y*n+z+7)>0.52)x.fillRect(z,y,1,1);}
   function f(px,py){x.fillStyle="#fff";x.fillRect(px-1,py-1,9,9);x.fillStyle="#0B421A";x.fillRect(px,py,7,7);x.fillStyle="#fff";x.fillRect(px+1,py+1,5,5);x.fillStyle="#0B421A";x.fillRect(px+2,py+2,3,3);}
   f(0,0);f(n-7,0);f(0,n-7);
 });
+// 잘림 검사: ① 글자가 칸보다 넓음 ② 칸이 휴대폰 밖 ③ 마지막 줄 한 글자(이름) ④ 시트가 기기 내비게이션을 덮음
+function lastLineChars(el){
+  var range=document.createRange(),tn=el.firstChild;if(!tn||tn.nodeType!==3)return 99;
+  var txt=tn.textContent,lastTop=null,cnt=0;
+  for(var i=txt.length-1;i>=0;i--){range.setStart(tn,i);range.setEnd(tn,i+1);var t=range.getBoundingClientRect().top;if(lastTop===null)lastTop=t;if(Math.abs(t-lastTop)>2)break;cnt++;}
+  return cnt;
+}
+function check(){
+  document.querySelectorAll(".dev").forEach(function(d){
+    var ph=d.querySelector(".phone"),pr=ph.getBoundingClientRect(),bad=[];
+    ph.querySelectorAll(".nm,.id,.cnm,.cid,.rnm,.rid,.mnm,.midl span,.mbio,.gbtn,.sbtn,.inp,.btn,.seg span,.shd b,.ch,.rh,.hint,.stack div,.fr .t div,.cta").forEach(function(el){
+      var r=el.getBoundingClientRect();
+      if(el.scrollWidth>el.clientWidth+1)bad.push("넘침");
+      else if(r.right>pr.right-7||r.left<pr.left+7)bad.push("화면 밖");
+      if(/(^|\s)(nm|cnm|rnm|mnm)(\s|$)/.test(el.className)&&r.height>30&&lastLineChars(el)<2)bad.push("한 글자 줄");
+    });
+    var sb=ph.querySelector(".sbody");
+    if(sb){var last=sb.lastElementChild.getBoundingClientRect();var nav=ph.querySelector(".sysnav").getBoundingClientRect();if(last.bottom>nav.top-8)bad.push("내비게이션 가림");}
+    var c=d.querySelector(".chk");
+    c.textContent=bad.length?("잘림·가림 "+bad.length+"곳"):"잘림·가림 0";
+    c.title=bad.join(", ");
+    c.className="chk "+(bad.length?"bad":"ok");
+  });
+}
+(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(function(){requestAnimationFrame(check);});
 </script>
