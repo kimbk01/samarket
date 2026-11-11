@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { peekMoimRoomOwner } from "@/lib/moim/use-moim-room-owner";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import type { MessengerChatListContext } from "@/lib/community-messenger/messenger-ia";
 import {
@@ -173,7 +174,9 @@ export function MessengerChatRoomActionSheet({
         ]
       : []),
   ];
-  const dangerItems: DibayMenuItem[] = onLeave
+  /** 모임 방은 모임에서만 나간다 (목록이 이미 조회한 결과로 판단 — 아직 모르면 DB 가 거부) */
+  const isMoimRoom = isPrivateGroup && Boolean(peekMoimRoomOwner(room.id));
+  const dangerItems: DibayMenuItem[] = onLeave && !isMoimRoom
     ? [{ key: "leave", icon: <LeaveIcon />, label: t("cm_ui_leave"), onClick: onLeave, disabled: anyBusy || isLeaveBusy, danger: true }]
     : [];
 

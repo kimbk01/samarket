@@ -481,6 +481,16 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
         )}
 
         <div className="flex shrink-0 items-center gap-0 self-center">
+          {vm.isMoimRoom && vm.moimRoomOwner ? (
+            <button
+              type="button"
+              data-moim-room-home="header"
+              onClick={() => vm.router.push(`/moim/${vm.moimRoomOwner!.moimId}`)}
+              className="mr-1 shrink-0 rounded-full border border-sam-border px-2.5 py-1 sam-text-helper font-semibold text-sam-fg"
+            >
+              {vm.t("moim_room_home_btn")}
+            </button>
+          ) : null}
           {vm.isGroupRoom ? (
             <button
               type="button"

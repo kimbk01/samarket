@@ -31,7 +31,8 @@ export function resolveMainSurface(pathname: string | null | undefined): MainSur
   if (p === "/community-messenger" || p.startsWith("/community-messenger/")) return "chat";
   if (p === "/chats" || p.startsWith("/chats/") || p === "/chat" || p.startsWith("/chat/")) return "chat";
 
-  if (isCommunityHomeSurfacePath(p) || p.startsWith("/philife/") || p.startsWith("/community/")) {
+  /** 모임(`/moim`)은 커뮤니티 안의 탭 — 하단 커뮤니티 탭 활성 */
+  if (isCommunityHomeSurfacePath(p) || p.startsWith("/philife/") || p.startsWith("/community/") || p === "/moim" || p.startsWith("/moim/")) {
     return "community";
   }
 

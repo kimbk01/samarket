@@ -67,6 +67,9 @@ import { adsImpl1107LedgerMessages } from "./catalog/ads-impl-1107-r1";
 import { adsImpl1107DeleteMessages } from "./catalog/ads-impl-1107-r2";
 import { chatsMessages } from "./catalog/chats";
 import { ptrMessages } from "./catalog/ptr";
+import { moimCoreMessages } from "./catalog/moim-core";
+import { moimScreensMessages } from "./catalog/moim-screens";
+import { moimManageMessages } from "./catalog/moim-manage";
 import { homeHubMessages } from "./catalog/home-hub";
 import { storeCommerceUiMessages } from "./catalog/store-commerce-ui";
 import { storePartnerAgreementMessages } from "./catalog/store-partner-agreement";
@@ -172,6 +175,9 @@ const KO_MESSAGES = {
   ...notificationMessages.ko,
   ...chatsMessages.ko,
   ...ptrMessages.ko,
+  ...moimCoreMessages.ko,
+  ...moimScreensMessages.ko,
+  ...moimManageMessages.ko,
   ...homeHubMessages.ko,
   ...storeCommerceUiMessages.ko,
   ...storePartnerAgreementMessages.ko,
@@ -281,6 +287,9 @@ const EN_MESSAGES = {
   ...notificationMessages.en,
   ...chatsMessages.en,
   ...ptrMessages.en,
+  ...moimCoreMessages.en,
+  ...moimScreensMessages.en,
+  ...moimManageMessages.en,
   ...homeHubMessages.en,
   ...storeCommerceUiMessages.en,
   ...storePartnerAgreementMessages.en,

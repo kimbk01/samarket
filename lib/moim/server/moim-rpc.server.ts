@@ -252,3 +252,104 @@ export function moimInviteRespond(
     sb
   );
 }
+
+// ---------------------------------------------------------------------------
+// M3 — 게시판·글·댓글·메모·신고 (migration 20271112230000)
+// ---------------------------------------------------------------------------
+
+export type MoimPostInput = {
+  boardId: string;
+  title?: string;
+  body: string;
+  images?: string[];
+  visibility?: "members" | "public";
+};
+
+export function moimPostCreate(actorId: string, moimId: string, input: MoimPostInput, sb?: SupabaseServer) {
+  return callMoimRpc<{ post_id: string; board_kind: string }>(
+    "moim_post_create",
+    {
+      p_actor: actorId,
+      p_moim: moimId,
+      p: {
+        board_id: input.boardId,
+        title: input.title ?? "",
+        body: input.body,
+        images: input.images ?? [],
+        visibility: input.visibility ?? "members",
+      },
+    },
+    sb
+  );
+}
+
+export function moimPostUpdate(
+  actorId: string,
+  postId: string,
+  patch: Partial<{ title: string; body: string; images: string[]; visibility: "members" | "public" }>,
+  sb?: SupabaseServer
+) {
+  return callMoimRpc("moim_post_update", { p_actor: actorId, p_post: postId, p: patch }, sb);
+}
+
+export function moimPostRemove(actorId: string, postId: string, reason: string | null, sb?: SupabaseServer) {
+  return callMoimRpc<{ result: "deleted" | "hidden"; author_id?: string }>(
+    "moim_post_remove",
+    { p_actor: actorId, p_post: postId, p_reason: reason },
+    sb
+  );
+}
+
+export function moimPostPin(actorId: string, postId: string, pinned: boolean, sb?: SupabaseServer) {
+  return callMoimRpc("moim_post_pin", { p_actor: actorId, p_post: postId, p_pinned: pinned }, sb);
+}
+
+export function moimCommentCreate(actorId: string, postId: string, body: string, sb?: SupabaseServer) {
+  return callMoimRpc<{ comment_id: string; post_author_id: string; moim_id: string }>(
+    "moim_comment_create",
+    { p_actor: actorId, p_post: postId, p_body: body },
+    sb
+  );
+}
+
+export function moimCommentRemove(actorId: string, commentId: string, sb?: SupabaseServer) {
+  return callMoimRpc("moim_comment_remove", { p_actor: actorId, p_comment: commentId }, sb);
+}
+
+export function moimBoardUpsert(
+  actorId: string,
+  moimId: string,
+  input: Partial<{ boardId: string; name: string; writeMinRole: MoimRole; isActive: boolean }>,
+  sb?: SupabaseServer
+) {
+  const p: Record<string, unknown> = {};
+  if (input.boardId) p.board_id = input.boardId;
+  if (input.name !== undefined) p.name = input.name;
+  if (input.writeMinRole !== undefined) p.write_min_role = input.writeMinRole;
+  if (input.isActive !== undefined) p.is_active = input.isActive;
+  return callMoimRpc<{ board_id: string }>("moim_board_upsert", { p_actor: actorId, p_moim: moimId, p }, sb);
+}
+
+export function moimMemberNoteSet(actorId: string, moimId: string, targetUserId: string, body: string, sb?: SupabaseServer) {
+  return callMoimRpc("moim_member_note_set", { p_actor: actorId, p_moim: moimId, p_target: targetUserId, p_body: body }, sb);
+}
+
+export const MOIM_REPORT_TARGET_TYPES = ["moim", "member", "post", "comment", "schedule", "album", "chat_message"] as const;
+export type MoimReportTargetType = (typeof MOIM_REPORT_TARGET_TYPES)[number];
+
+export function moimReportCreate(
+  actorId: string,
+  moimId: string,
+  input: { targetType: MoimReportTargetType; targetId: string; reasonCode: string; detail?: string | null },
+  sb?: SupabaseServer
+) {
+  return callMoimRpc<{ report_id: string }>(
+    "moim_report_create",
+    {
+      p_actor: actorId,
+      p_moim: moimId,
+      p: { target_type: input.targetType, target_id: input.targetId, reason_code: input.reasonCode, detail: input.detail ?? null },
+    },
+    sb
+  );
+}

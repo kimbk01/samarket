@@ -250,6 +250,7 @@ export function isAuthRequiredPushRoute(path: string): boolean {
     p.startsWith("/chats") ||
     p.startsWith("/orders") ||
     p.startsWith("/philife") ||
+    p.startsWith("/moim") ||
     p.startsWith("/mypage") ||
     p.startsWith("/my") ||
     p.startsWith("/notifications") ||

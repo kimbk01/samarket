@@ -150,6 +150,10 @@ export function classifyMemberNotificationDomain(
   if (metaKind === "friend_request" || metaKind === "friend_accepted") {
     return "community";
   }
+  // 모임(moim) 알림은 notification_type 과 관계없이 커뮤니티
+  if (metaKind.startsWith("moim_")) {
+    return "community";
+  }
   // 알림 최종 설계 §2-2 (Owner 승인 2026-11-01): 회원 포인트 충전 결과 = 「주문·배달」 (이전 B-13 「시스템」).
   if (metaKind.startsWith("user_point_charge_")) {
     return "delivery";

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useMoimRoomOwner } from "@/lib/moim/use-moim-room-owner";
 import { getCommunityMessengerPermissionGuide } from "@/lib/community-messenger/call-permission";
 import { resolveGroupRoomCapabilities } from "@/lib/community-messenger/group/group-room-permissions";
 import {
@@ -110,6 +111,9 @@ export function useMessengerRoomPhase2RoomPresentation({
   const isPrivateGroupRoom = snapshot?.room.roomType === "private_group";
   const isOpenGroupRoom = snapshot?.room.roomType === "open_group";
   const isOwner = snapshot?.myRole === "owner";
+  /** 모임 소유 방 (docs/dibay-messenger-domain-group-hard-lock.md 「MOIM-owned GROUP rooms」) — 멤버십·방 설정은 모임에서 */
+  const moimRoomOwner = useMoimRoomOwner(isPrivateGroupRoom ? roomId : null);
+  const isMoimRoom = Boolean(moimRoomOwner);
   const domainChromePresentation = useMemo(() => {
     if (!snapshot?.room) return null;
     const tradeProductTitle =
@@ -268,7 +272,7 @@ export function useMessengerRoomPhase2RoomPresentation({
           },
         })
       : null;
-  const canInviteMembers = Boolean(isPrivateGroupRoom && groupCaps?.canInviteMembers);
+  const canInviteMembers = Boolean(isPrivateGroupRoom && !isMoimRoom && groupCaps?.canInviteMembers);
   const myRoleLabel = snapshot
     ? isOwner
       ? t("nav_messenger_owner_label")
@@ -278,13 +282,14 @@ export function useMessengerRoomPhase2RoomPresentation({
   const canEditGroupNotice = Boolean(
     (isPrivateGroupRoom || isOpenGroupRoom) && groupCaps?.canEditNotice
   );
-  const canEditPrivateGroupMeta = Boolean(isPrivateGroupRoom && groupCaps?.canEditGroupInfo);
-  const canPinGroupMessage = canEditPrivateGroupMeta;
-  const canManageGroupPermissions = Boolean(isPrivateGroupRoom && groupCaps?.canUpdatePermissions);
+  const canEditPrivateGroupMeta = Boolean(isPrivateGroupRoom && !isMoimRoom && groupCaps?.canEditGroupInfo);
+  /** 메시지 고정은 모임 방에서도 그대로 (방 설정이 아님) */
+  const canPinGroupMessage = Boolean(isPrivateGroupRoom && groupCaps?.canEditGroupInfo);
+  const canManageGroupPermissions = Boolean(isPrivateGroupRoom && !isMoimRoom && groupCaps?.canUpdatePermissions);
   const canManageMemberRoles = Boolean(
-    isPrivateGroupRoom && (groupCaps?.canPromoteMember || groupCaps?.canDemoteAdmin)
+    isPrivateGroupRoom && !isMoimRoom && (groupCaps?.canPromoteMember || groupCaps?.canDemoteAdmin)
   );
-  const canKickGroupMembers = Boolean(isPrivateGroupRoom && groupCaps?.canKickMembers);
+  const canKickGroupMembers = Boolean(isPrivateGroupRoom && !isMoimRoom && groupCaps?.canKickMembers);
   const canStartGroupCall = Boolean(
     isGroupRoom &&
       snapshot &&
@@ -384,6 +389,8 @@ export function useMessengerRoomPhase2RoomPresentation({
     isPrivateGroupRoom,
     isOpenGroupRoom,
     isOwner,
+    isMoimRoom,
+    moimRoomOwner,
     roomTypeLabel,
     roomSubtitle,
     roomJoinLabel,

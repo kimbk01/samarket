@@ -637,6 +637,14 @@ function resolveMainTier1SubpageInner(
     return backHome({ titleText: "tier1_my_community_activity", showHubQuickActions: true });
   }
 
+  /** 모임 (docs/design/moim §9) — 탭 홈은 동네생활로, 하위 화면은 화면이 제목을 덮어쓴다(useRegisterMainTier1Header) */
+  if (p === "/moim") {
+    return backHome({ titleText: "tier1_moim", showHubQuickActions: true });
+  }
+  if (starts(p, "/moim")) {
+    return { ...DEFAULT, backHref: "/moim", preferHistoryBack: true, titleText: "tier1_moim", showHubQuickActions: false };
+  }
+
   if (p === "/mypage/purchases") {
     return backHome({ titleText: "tier1_trade_management", showHubQuickActions: true });
   }

@@ -42,6 +42,7 @@ export const NOTIFICATION_ITEM_SOUND_SEEDS: readonly NotificationItemSoundSeed[]
   seed("item_trade_report_result", "거래 신고 결과", "Trade report result", "trade", "user", "trade_offer_received"),
   seed("item_trade_promotion", "거래글 상위노출 심사", "Trade promotion", "trade", "user", "trade_offer_received"),
   seed("item_community_pinned", "내 글 상단 고정", "Post pinned", "community", "receiver", "community_comment_received"),
+  seed("item_community_meeting", "모임 활동", "Group activity", "community", "receiver", "community_comment_received"),
   seed("item_community_moderation", "게시글 조치·제재", "Post actions and sanctions", "community", "receiver", "community_comment_received"),
   seed("item_community_report_result", "커뮤니티 신고 결과", "Community report result", "community", "receiver", "community_comment_received"),
   seed("item_community_promotion", "커뮤니티 상위노출 종료", "Community promotion", "community", "receiver", "community_comment_received"),

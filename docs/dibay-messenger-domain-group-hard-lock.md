@@ -191,7 +191,7 @@ Avatar/title tap SHOULD open Group Info (not peer profile). Settings/⋮ opens m
 | 허용되는 메신저 쪽 쓰기 | 메시지 · 읽음 · 알림 끄기(`is_muted`) · 고정 · 공지 · 보관 |
 | 역할 매핑 | 모임장 → owner · 부모임장 → admin · 운영진/멤버 → member |
 | 표시 이름 | `identity_policy='alias_allowed'` + 방 프로필 alias = 모임별 프로필 |
-| 화면 | 모임 방에서는 나가기·초대 링크·내보내기·차단·방 삭제 메뉴를 숨기고 「모임 홈」으로 보낸다 (M3) |
+| 화면 (M3 구현) | 모임 방 판정 = `GET /api/moim/rooms?ids=` + `lib/moim/use-moim-room-owner.ts` (부트스트랩 핫 경로 무변경). 방 설정 시트: 나가기·방 삭제·초대·초대 링크 관리·내보내기·차단·역할·권한 숨김 → 「모임 홈으로 가기」. 방 머리글 「모임 홈」 버튼. 채팅 목록 「모임」 배지·길게 누르기 메뉴의 나가기 숨김. 메시지 고정은 그대로 |
 
 ## Telegram / Kakao structural principles (LOCKED)
 

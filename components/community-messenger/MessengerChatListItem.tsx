@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useMoimRoomOwner } from "@/lib/moim/use-moim-room-owner";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { messengerRoomPrefetchPriorityScore } from "@/lib/community-messenger/room-prefetch-queue";
 import { armMessengerRoomRoutePrefetch } from "@/lib/community-messenger/room/arm-messenger-room-route-prefetch";
@@ -228,6 +229,8 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   listVisual = "default",
 }: Props) {
   const { t, safeT, language } = useI18n();
+  /** 모임 소유 방이면 「모임」 배지 (부트스트랩과 별도로 화면이 그려진 뒤 조회) */
+  const moimRoomOwner = useMoimRoomOwner(item.room.roomType === "private_group" ? item.room.id : null);
   useCmDevRenderTrace("MessengerChatListItem");
   const onLeaveRoom = onLeaveRoomProp ?? MESSENGER_CHAT_LIST_ITEM_NOOP_LEAVE_ROOM;
   if (!shouldFreezeRoomListSubtree()) {
@@ -1090,6 +1093,14 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           commerceMeta?.kind === "trade" ||
           commerceMeta?.kind === "delivery" ? (
             <CommunityMessengerChatTypeBadge room={room} />
+          ) : null}
+          {moimRoomOwner ? (
+            <span
+              data-cm-list-moim-badge=""
+              className="shrink-0 rounded-[6px] bg-sam-primary-soft px-1 py-px sam-text-xxs font-semibold text-sam-primary"
+            >
+              {t("moim_chat_list_badge")}
+            </span>
           ) : null}
           {commerceMeta?.kind === "trade" && tradeItemStateLabel ? (
             <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]">

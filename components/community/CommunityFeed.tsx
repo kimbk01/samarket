@@ -1917,6 +1917,19 @@ export function CommunityFeed({
                   </button>
                 );
               })}
+              {/* 모임 탭 (Owner D2 2026-11-12: 동네생활 상단 「모임」) — 별도 화면 /moim */}
+              <button
+                key="moim"
+                type="button"
+                role="tab"
+                aria-selected={false}
+                data-community-tab="moim"
+                onClick={() => router.push("/moim")}
+                onMouseEnter={() => router.prefetch?.("/moim")}
+                className={dibaySecondaryTabClass(false)}
+              >
+                <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{safeT("moim_tab")}</span>
+              </button>
             </DibaySecondaryTabRow>
             {navSelection.kind === "local" ? (
               <div className={`${PHILIFE_FEED_FILTER_STRIP_CLASS} border-t-0`}>
