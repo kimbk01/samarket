@@ -88,8 +88,8 @@ describe("my QR panel — failed QR image (PR #145 review)", () => {
     expect(src).toContain("if (loadFailed && !qrImage) {");
     expect(src).not.toContain("if (loadFailed && !qr) {");
     /** 공유·다시 만들기는 QR 그림이 있어야, 저장은 미리 만든 카드(QR 이 있어야 만들어짐)가 있어야 누를 수 있다 */
-    expect(src).toContain("disabled={!qr || !qrImage || native === null || busy !== null}");
-    expect(src).toContain("disabled={!card || busy !== null}");
+    expect(src).toContain('disabled={!qr || !qrImage || native === null || (native === false && card.status === "pending") || busy !== null}');
+    expect(src).toContain("disabled={!cardBlob || busy !== null}");
     expect(src.match(/disabled=\{!qr \|\| !qrImage \|\| busy !== null\}/g)).toHaveLength(1);
   });
 });
@@ -123,7 +123,11 @@ describe("QR 친구 재감사 수정 (2026-11-12)", () => {
     expect(client).toContain('if (isCancelMessage(err)) return "cancelled";');
     /** PR #154 리뷰: 공유는 누른 동작 안에서 바로 — 카드 PNG 는 미리 만들어 두고 공유 직전에 기다리지 않는다 */
     expect(panel).toContain("const canSave = native === false;");
-    expect(panel).toContain("image: card });");
+    expect(panel).toContain("image: cardBlob });");
+    /** PR #154 리뷰 2: 카드 만드는 중에는 브라우저 공유를 막는다 · 앱 판별은 공용 bridge 판별 */
+    expect(panel).toContain('(native === false && card.status === "pending")');
+    expect(client).toContain("return isCapacitorNativePlatform();");
+    expect(client).not.toContain('import("@capacitor/core")');
     expect(panel).not.toContain("await renderCard");
     const shareFn = client.slice(client.indexOf("export async function shareFriendQr"), client.indexOf("/** 브라우저 내려받기"));
     const webPart = shareFn.slice(shareFn.indexOf("const nav ="));
@@ -133,7 +137,10 @@ describe("QR 친구 재감사 수정 (2026-11-12)", () => {
 
   it("Q3: 미완료·429 는 이유별 처리, 그 밖만 쓸 수 없는 QR", () => {
     const host = read("components/community-messenger/friend-qr/FriendQrResultHost.tsx");
-    expect(host).toContain("handleProfileIncompleteApiResponse(j).handled || redirectForBlockedAction(router, j.error ?? j.code)");
+    expect(host).toContain("handleProfileIncompleteApiResponse(j, { returnTo }).handled ||");
+    expect(host).toContain("redirectForBlockedAction(router, j.error ?? j.code, returnTo)");
+    /** PR #154 리뷰: 안내를 마치면 같은 QR 결과 시트로 돌아온다 */
+    expect(host).toContain("const returnTo = buildFriendQrHomePath(failedToken);");
     expect(host).toContain('status === 429 ? "common_try_again_later" : friendQrErrorMessageKey(j.error)');
   });
 
@@ -141,6 +148,7 @@ describe("QR 친구 재감사 수정 (2026-11-12)", () => {
     const landing = read("components/community-messenger/friend-qr/FriendQrWebLanding.tsx");
     expect(landing).toContain("router.replace(continueHref)");
     expect(landing).not.toContain("setTimeout");
+    expect(landing).toContain("if (!isCapacitorNativePlatform()) return;");
     expect(buildFriendQrAndroidIntentUrl("AbCdEfGhIjKlMnOpQrStUv")).toBe(
       "intent://friend/AbCdEfGhIjKlMnOpQrStUv#Intent;scheme=dibay;package=com.dibay.app;S.browser_fallback_url=" +
         encodeURIComponent("https://play.google.com/store/apps/details?id=com.dibay.app") +

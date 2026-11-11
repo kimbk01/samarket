@@ -1,6 +1,7 @@
 "use client";
 
 import { copyTextToClipboard, isShareAbortError } from "@/lib/community/share/community-share-copy";
+import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 
 /**
  * 내 QR 공유·이미지 저장·다시 만들기 — 클라이언트 단일 정의 (QR 친구 재감사 Q1·Q2·Q9, 2026-11-12).
@@ -21,19 +22,13 @@ function isCancelMessage(err: unknown): boolean {
   return /cancel/i.test(msg);
 }
 
-async function isNativeApp(): Promise<boolean> {
-  if (typeof window === "undefined") return false;
-  try {
-    const { Capacitor } = await import("@capacitor/core");
-    return Capacitor.isNativePlatform();
-  } catch {
-    return false;
-  }
-}
-
-/** 앱(Capacitor) 여부 — 화면이 열릴 때 한 번 구해 두고 공유·저장에 넘긴다(누른 순간 기다리지 않게) */
-export async function detectFriendQrNativeApp(): Promise<boolean> {
-  return isNativeApp();
+/**
+ * 앱(Capacitor 셸) 여부 — 공용 판별 `isCapacitorNativePlatform` 만 쓴다.
+ * 원격 server.url WebView 는 `Capacitor.isNativePlatform()` 이 web 을 돌려줄 때가 있어 bridge 로 판별한다 (PR #154 리뷰).
+ * 화면이 열릴 때 한 번 구해 두고 공유·저장에 넘긴다(누른 순간 기다리지 않게).
+ */
+export function isFriendQrNativeApp(): boolean {
+  return isCapacitorNativePlatform();
 }
 
 /**
