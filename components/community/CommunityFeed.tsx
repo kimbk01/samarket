@@ -2181,12 +2181,15 @@ export function CommunityFeed({
               {postsForList.map((p, index) => (
                 <Fragment key={p.id}>
                   {/* D1 F2 (2026-11-11): 화면 밖 글 칸은 스타일·배치 계산을 건너뜀 — `app/samarket-components.css` */}
-                  <li className="list-none" data-community-feed-cv-row="">
-                    <CommunityCard
-                      post={p}
-                      priorityThumb={index < FEED_LCP_PRIORITY_COUNT}
-                      isAd={activeAdPostIds.has(String(p.id))}
-                    />
+                  <li className="list-none flow-root">
+                    {/* D1 F2 — 화면 밖 계산 건너뛰기 칸. 카드 그림자가 잘리지 않게 칸을 그림자만큼 넓힌다(app/samarket-components.css) */}
+                    <div data-community-feed-cv-row="">
+                      <CommunityCard
+                        post={p}
+                        priorityThumb={index < FEED_LCP_PRIORITY_COUNT}
+                        isAd={activeAdPostIds.has(String(p.id))}
+                      />
+                    </div>
                   </li>
                   {feedAdSurface.placement &&
                   !feedSearchActive &&
