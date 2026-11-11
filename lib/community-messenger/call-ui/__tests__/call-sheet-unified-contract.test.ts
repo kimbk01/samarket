@@ -45,7 +45,7 @@ describe("발신 창 통일 — 통화 시트 1종", () => {
   it("연락처 회원 시트 「매번 묻기」도 같은 통화 시트 · 옛 연락처 목록형 시트 부품 없음", () => {
     const member = read("components/community-messenger/contacts/MessengerContactsMemberSheet.tsx");
     expect(member).toContain('from "@/components/community-messenger/call-ui/MessengerCallChoiceSheet"');
-    const contacts = read("components/community-messenger/contacts/MessengerContactsCallChoiceSheet.tsx");
+    const contacts = read("components/community-messenger/contacts/contacts-dibay-call.ts");
     expect(contacts).not.toContain("export function MessengerContactsCallChoiceSheet");
   });
 
@@ -100,5 +100,7 @@ describe("발신 창 통일 — 통화 시트 1종", () => {
   it("쓰지 않던 옛 통화 부품 삭제", () => {
     expect(existsSync(join(process.cwd(), "components/chats/TradeChatCallHeaderButtons.tsx"))).toBe(false);
     expect(existsSync(join(process.cwd(), "components/community-messenger/call-ui/CallKindBottomSheetActions.tsx"))).toBe(false);
+    /** 연락처 목록형 시트 부품 제거 후 발신 함수만 남은 파일은 이름도 바꿈 */
+    expect(existsSync(join(process.cwd(), "components/community-messenger/contacts/MessengerContactsCallChoiceSheet.tsx"))).toBe(false);
   });
 });

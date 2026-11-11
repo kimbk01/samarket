@@ -253,14 +253,3 @@ export function resolveMessengerRoomFeatureGate(input: {
   };
 }
 
-/** dot menu 음성/영상 행 노출 — 공통 feature gate 의 통화 축만 사용. */
-export function resolveMessengerDotMenuCallVisibility(input: {
-  callKind: MessengerDotMenuCallKind;
-  tradeAllowCall?: boolean;
-  tradeVideoCallEnabled?: boolean;
-  deliveryAllowVoiceCall?: boolean;
-  deliveryAllowVideoCall?: boolean;
-}): { showVoice: boolean; showVideo: boolean } {
-  const gate = resolveMessengerRoomFeatureGate(input);
-  return { showVoice: gate.allowVoiceCall, showVideo: gate.allowVideoCall };
-}

@@ -18,7 +18,7 @@ import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-over
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
-import { openContactsPhoneCall } from "@/components/community-messenger/contacts/MessengerContactsCallChoiceSheet";
+import { openContactsPhoneCall } from "@/components/community-messenger/contacts/contacts-dibay-call";
 import { resolveContactsPeerNumber } from "@/components/community-messenger/contacts/contacts-friend-call";
 import type { RoomCallChoiceRow } from "@/lib/community-messenger/call-ui/room-call-choice";
 

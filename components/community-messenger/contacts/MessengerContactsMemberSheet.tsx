@@ -21,7 +21,7 @@ import { formatAtUsername } from "@/lib/users/user-label";
 import {
   openContactsPhoneCall,
   startContactsDibayCall,
-} from "@/components/community-messenger/contacts/MessengerContactsCallChoiceSheet";
+} from "@/components/community-messenger/contacts/contacts-dibay-call";
 import MessengerCallChoiceSheet from "@/components/community-messenger/call-ui/MessengerCallChoiceSheet";
 import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
 
