@@ -25,8 +25,10 @@ type MyQr = { token: string; url: string };
  * QR 한 변 — min(184px, 카드 폭 70%, 화면에 시트가 다 들어가는 크기). 작은 화면(가로 태블릿 601px 등)에서
  * [공유]·[QR 다시 만들기]가 기기 하단 안전 영역 위에 보이게
  * (Xiaomi 실측 2026-11-12: 시트 본문 451px, QR 외 330px = 머리·탭 78 + 카드 글자·버튼·여백 305 + 안전 영역).
+ * 최소 120px — 그보다 낮은 화면(가로 휴대폰 약 390px 등)은 QR 을 더 줄이지 않고 시트 본문이 스크롤된다
+ * (계산값이 0 이하가 되어 QR 이 사라지던 문제, PR #159 리뷰). 120px = 화면에서 다른 휴대폰이 읽을 수 있는 크기.
  */
-const FRIEND_QR_IMAGE_SIDE = "min(184px, 70%, calc(88dvh - 383px - max(1rem, var(--kb-safe-bottom))))";
+const FRIEND_QR_IMAGE_SIDE = "min(184px, 70%, max(120px, calc(88dvh - 383px - max(1rem, var(--kb-safe-bottom)))))";
 
 /**
  * 내 QR (설계안 v3 §3.6 · QR 친구 시안 3판) — QR(가운데 내 사진)·이름·@회원 아이디,

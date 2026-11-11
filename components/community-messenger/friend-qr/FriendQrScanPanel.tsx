@@ -4,8 +4,11 @@ import { useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { decodeQrFromImageFile, QR_SCANNER_BLANK_POSTER, useQrCameraScanner } from "@/lib/qr/use-qr-camera-scanner";
 
-/** 카메라 칸 최대 한 변 — 시트(88dvh) − 머리·탭 78px − 안내·버튼·여백 159px − 하단 안전 영역 (Xiaomi 601px 실측으로 계산·적용 확인) */
-const FRIEND_QR_CAMERA_MAX_SIDE = "min(320px, calc(88dvh - 237px - max(1rem, var(--kb-safe-bottom))))";
+/**
+ * 카메라 칸 최대 한 변 — 시트(88dvh) − 머리·탭 78px − 안내·버튼·여백 159px − 하단 안전 영역 (Xiaomi 601px 실측으로 계산·적용 확인).
+ * 최소 200px — 그보다 낮은 화면은 카메라를 더 줄이지 않고 시트 본문이 스크롤된다 (계산값이 너무 작아지던 문제, PR #159 리뷰).
+ */
+const FRIEND_QR_CAMERA_MAX_SIDE = "min(320px, max(200px, calc(88dvh - 237px - max(1rem, var(--kb-safe-bottom)))))";
 import { parseFriendQrPayload } from "@/lib/community-messenger/friend-qr/friend-qr-contract";
 
 /**

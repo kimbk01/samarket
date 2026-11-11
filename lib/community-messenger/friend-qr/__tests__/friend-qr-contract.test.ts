@@ -211,10 +211,11 @@ describe("Owner 실기 2026-11-12 — 카메라 켜기 전 화면·시트 움직
 
   it("작은 화면: QR·카메라 한 변을 시트 높이에 맞춰 하단 버튼이 안전 영역 위에 남는다 (Xiaomi 601px 실측 값)", () => {
     expect(read("components/community-messenger/friend-qr/MyFriendQrPanel.tsx")).toContain(
-      'const FRIEND_QR_IMAGE_SIDE = "min(184px, 70%, calc(88dvh - 383px - max(1rem, var(--kb-safe-bottom))))";',
+      'const FRIEND_QR_IMAGE_SIDE = "min(184px, 70%, max(120px, calc(88dvh - 383px - max(1rem, var(--kb-safe-bottom)))))";',
     );
     const scan = read("components/community-messenger/friend-qr/FriendQrScanPanel.tsx");
-    expect(scan).toContain('const FRIEND_QR_CAMERA_MAX_SIDE = "min(320px, calc(88dvh - 237px - max(1rem, var(--kb-safe-bottom))))";');
+    /** 최소 크기 — 짧은 가로 화면에서 계산값이 0 이하로 QR 이 사라지지 않게 (PR #159 리뷰) */
+    expect(scan).toContain('const FRIEND_QR_CAMERA_MAX_SIDE = "min(320px, max(200px, calc(88dvh - 237px - max(1rem, var(--kb-safe-bottom)))))";');
     /** 알림은 안내 줄 자리에 바꿔 보인다 — 줄이 늘어 시트가 넘치지 않게 */
     expect(scan).toContain(") : !cameraDenied ? (");
   });
