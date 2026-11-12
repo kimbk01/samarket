@@ -97,3 +97,36 @@
 - 실제 기기 화면에서 수신자에게 「취소」로 보이는 것(코드·DB 로 확인, 화면 캡처 없음).
 - iPhone 표시·iOS 부재중 푸시 처리.
 - 보고만: `call-log-display-type.ts` 주석의 「미응답: 발신자 `unanswered`(응답 없음)」도 코드(양쪽 부재중)와 다르다 — 이번 지시 범위 밖(발신자 시간 초과 문구)이라 바꾸지 않음.
+
+## 9. 실기 결과 (#220 반영 후) — FAIL · 원인 · 보완 설계 D6
+조건: Production `85c3e070e`(#220 병합) · Samsung RFCY40PY2CA 1.2.6 (50) · 로그인 수신자 계정 · 앱 앞 화면 · 2026-11-13 04:58 PHT · 세션 `9c97f6c1` (음성, Xiaomi 발신 → Samsung 울림 4초 → 발신자 취소)
+
+| 항목 | 결과 | 증거 |
+|---|---|---|
+| 수신자 화면 「부재중」 | PASS (Owner 확인) | — |
+| 서버 부재중 알림 행 | PASS | `notification_events` missed_call 04:58:22.69 |
+| 서버 푸시 발송 | PASS | `notification_deliveries` missed_call `sent` 04:58:22.93 |
+| 기기 푸시 수신 | PASS | logcat 04:58:23.103 `data_type_detected type=missed_call` |
+| 시스템 알림(알림창) | 표시 안 함 — 앱 앞 화면이라 설계상 생략 | `foreground_skip_system_notification type=missed_call` (`DibayFirebaseMessagingService.java:309`) — 시간 초과 부재중과 같은 규칙 |
+| 앱 안 부재중 배너 | **FAIL** | 알림음(`call_missed`)만 04:58:23.05, 배너 없음 |
+
+**원인 (작업자 누락 — 「모든 진입점」 확인 실패):** 수신자에게 부재중으로 바꿔야 할 진입점 중 3곳이 아직 `status === "missed"` 로만 판정.
+| # | 진입점 | 현재 | 결과 |
+|---|---|---|---|
+| E1 | `lib/community-messenger/service.ts` 통화 기록 메시지 `incrementUnread: input.status === "missed"` (C-N1) | 취소는 수신자 대화방 안 읽은 수를 올리지 않음 | 앱 안 배너는 「안 읽은 수 증가」로만 시작(`cm-participant-unread-full-effects.ts`) → 배너 시작 안 됨 · 대화방 안 읽은 표시 없음 |
+| E2 | `lib/community-messenger/notifications/messenger-in-app-banner-content.ts:109` `if (message.callStatus !== "missed") return null` | 취소 통화 기록은 배너 내용 없음 | 배너 없음 |
+| E3 | `components/community-messenger/MessengerChatListItem.tsx:571` `isMissedCallPreview = callStatus === "missed"` | 목록 글자는 「부재중 …」인데 빨간색 아님 | 부재중 강조 없음 |
+| E4 | `lib/community-messenger/realtime/call-stub-receive-sound-policy.ts` 실시간 수신음 = `callStatus === "missed"` 만 | 취소는 수신음 규칙상 무음(부재중 알림음은 알림 경로로 이미 울림) | 시간 초과 부재중과 소리 경로가 다름 |
+
+### D6. 보완 — 「발신자 취소」를 수신자 쪽에서 시간 초과 부재중과 같게
+판정 함수 1개 `isCalleeMissedCallStub({ callStatus, endedReason/resolvedEvent, viewer 가 수신자인가 })` = 부재중 또는 (발신자 취소 && 보는 사람 ≠ 발신자). 위 4곳이 모두 이 함수만 쓴다.
+- E1 서버: 발신자 취소(`cancelled` + `canceled`) 통화 기록도 안 읽은 수 증가 — 통화 기록 보낸 사람이 발신자라 증가 대상은 수신자뿐(C-N1 의 「받은·거절 통화는 올리지 않음」 유지, 통화 중·재발신 등 다른 취소는 제외).
+- E2 배너: 수신자에게는 발신자 취소도 부재중 배너(제목 「부재중 전화」).
+- E3 목록: 같은 판정으로 빨간 글자.
+- E4 수신음: 시간 초과 부재중과 같은 규칙(수신자만).
+- 시스템 알림: 앱 앞 화면 생략은 시간 초과 부재중과 같은 기존 규칙 그대로(바꾸지 않음).
+- 시험: 진입점 4곳 계약 시험(발신자 취소·수신자 → 부재중 처리 / 발신자 → 아님 / 통화 중 취소 → 아님) 추가.
+
+### D6 구현 메모 (Owner 「D6 구현 승인」 2026-11-13)
+- 단일 판정 `lib/community-messenger/call-callee-missed.ts` — E1 서버 안 읽은 수(`callStubIncrementsCalleeUnread`, 통화 기록 보낸 사람 = 발신자일 때만), E2 앱 안 배너·E4 실시간 수신음(`isMissedCallStubForViewer`).
+- **E3 은 이번에 바꾸지 않음 (충돌 보고):** 목록 행 `callStatus` 가 만들 때 항상 `null`(`use-community-messenger-home-state.ts` 428줄) → 시간 초과 부재중도 원래 빨간색이 아님. 발신자 취소와 무관한 기존 결함이라 「범위 밖 = 보고만」. 수신자 기준으로 발신자 취소와 시간 초과는 지금도 같은 모습(둘 다 기본색).

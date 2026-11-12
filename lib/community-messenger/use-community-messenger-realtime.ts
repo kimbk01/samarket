@@ -442,7 +442,7 @@ function notifyMessengerHomeRealtimeMessageInsert(args: {
 
   if (!messageId) return;
   /** N-1: 통화 기록은 부재중만 수신음 — 받은·거절·취소 통화 종료 때 울리지 않게 */
-  if (!messengerRealtimeRowPlaysReceiveSound(row)) return;
+  if (!messengerRealtimeRowPlaysReceiveSound(row, viewer)) return;
   const soundDomain = resolveCmInAppSoundNotificationDomain(roomRaw, viewer);
   ingestMessengerMessageSound({
     messageId,
