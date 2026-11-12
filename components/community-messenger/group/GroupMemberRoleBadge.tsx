@@ -7,25 +7,28 @@ type GroupMemberRoleBadgeProps = {
   className?: string;
 };
 
-/** Kakao/Telegram-style role badge — OWNER #006241, ADMIN #00754A. */
+/**
+ * 그룹 역할 배지 — 방장·관리자·멤버 (한국어 화면에 영어 「OWNER」「ADMIN」 금지 · 2026-11-12).
+ * 글자는 그룹 화면이 이미 쓰는 키(`nav_messenger_owner_label`·`cm_ui_admin`), 색은 브랜드 토큰.
+ */
 export function GroupMemberRoleBadge({ role, className = "" }: GroupMemberRoleBadgeProps) {
-  const { safeT } = useI18n();
+  const { t, safeT } = useI18n();
   const r = typeof role === "string" ? role.trim() : "";
   if (r === "owner") {
     return (
       <span
-        className={`inline-flex shrink-0 items-center rounded-ui-rect bg-[#006241] px-1.5 py-0.5 sam-text-xxs font-bold uppercase tracking-wide text-white ${className}`}
+        className={`inline-flex shrink-0 items-center rounded-ui-rect bg-[color:var(--overlay-primary)] px-1.5 py-0.5 sam-text-xxs font-bold text-white ${className}`}
       >
-        {safeT("cm_ui_group_role_owner_badge")}
+        {t("nav_messenger_owner_label")}
       </span>
     );
   }
   if (r === "admin") {
     return (
       <span
-        className={`inline-flex shrink-0 items-center rounded-ui-rect bg-[#00754A] px-1.5 py-0.5 sam-text-xxs font-bold uppercase tracking-wide text-white ${className}`}
+        className={`inline-flex shrink-0 items-center rounded-ui-rect bg-[color:var(--overlay-primary)] px-1.5 py-0.5 sam-text-xxs font-bold text-white ${className}`}
       >
-        {safeT("cm_ui_group_role_admin_badge")}
+        {t("cm_ui_admin")}
       </span>
     );
   }
