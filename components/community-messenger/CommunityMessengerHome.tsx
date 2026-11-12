@@ -2618,7 +2618,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   }, []);
   const onPrivateGroupFriendRequest = useCallback(
     async (user: CommunityMessengerProfileLite) => {
-      await addFriendSaved(user.id, "profile");
+      /** 그룹 만들기 중 친구 추가 = 경로 `group` (QR 친구 재감사 D-A1) */
+      await addFriendSaved(user.id, "group");
     },
     [addFriendSaved]
   );

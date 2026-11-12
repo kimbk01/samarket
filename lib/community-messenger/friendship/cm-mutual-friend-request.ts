@@ -108,11 +108,14 @@ type RpcClient = {
   rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
 };
 
-/** 친구가 된 경로 (회원 아이디 v3 §3.6 N1) — DB `community_friend_requests.source`. QR 은 `cm_add_friend_via_qr` 가 쓴다 */
-export type CmFriendRequestSource = "id_search" | "contacts" | "profile";
+/**
+ * 친구가 된 경로 (회원 아이디 v3 §3.6 N1) — DB `community_friend_requests.source`. QR 은 `cm_add_friend_via_qr` 가 쓴다.
+ * `group` = 그룹 만들기·방 그룹 초대 중 친구 추가 (DB 허용값 20271113300000, QR 친구 재감사 D-A1).
+ */
+export type CmFriendRequestSource = "id_search" | "contacts" | "profile" | "group";
 
 export function normalizeCmFriendRequestSource(value: unknown): CmFriendRequestSource | undefined {
-  return value === "id_search" || value === "contacts" || value === "profile" ? value : undefined;
+  return value === "id_search" || value === "contacts" || value === "profile" || value === "group" ? value : undefined;
 }
 
 export async function rpcCmSendFriendRequest(

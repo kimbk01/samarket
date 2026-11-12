@@ -5,6 +5,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { resolveDirectInteractionGuard } from "@/lib/community-messenger/social-relations";
 import { notifyCommunityMessengerFriendAddedViaQr } from "@/lib/notifications/community-messenger-friend-inapp-notify";
 import { buildFriendQrUrl, isFriendQrToken } from "@/lib/community-messenger/friend-qr/friend-qr-contract";
+import { invalidateBootstrapLiteSocialDeferredForPair } from "@/lib/community-messenger/bootstrap-lite-social-deferred-cache";
 
 /**
  * QR 친구 추가 서버 (설계안 v3 §3.6) — DB 함수만 부른다:
@@ -145,6 +146,8 @@ export async function addFriendViaQr(
   const peerUserId = text(r.peer_user_id);
   const alreadyFriend = r.idempotent === true;
   if (peerUserId && !alreadyFriend) {
+    /** 친구 관계가 바뀌었으니 두 사람의 친구 목록 캐시를 지운다 — 다른 친구 경로와 같게 (QR 친구 재감사, 2026-11-12) */
+    invalidateBootstrapLiteSocialDeferredForPair(viewerUserId, peerUserId);
     after(async () => {
       try {
         const { data: me } = await sb

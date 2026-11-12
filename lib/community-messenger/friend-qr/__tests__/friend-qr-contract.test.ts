@@ -293,3 +293,31 @@ describe("전체 실기 감사 2026-11-12 08:0x — 상태별 화면", () => {
   });
 });
 
+describe("S2 운영 DB 적용 2026-11-12 — group 경로·QR 추가 캐시", () => {
+  it("그룹 만들기·방 그룹 초대 중 친구 추가 = group, DB 허용값과 같다", async () => {
+    const { normalizeCmFriendRequestSource } = await import("@/lib/community-messenger/friendship/cm-mutual-friend-request");
+    expect(normalizeCmFriendRequestSource("group")).toBe("group");
+    expect(normalizeCmFriendRequestSource("qr")).toBeUndefined();
+    expect(read("components/community-messenger/CommunityMessengerHome.tsx")).toContain('await addFriendSaved(user.id, "group");');
+    expect(read("lib/community-messenger/room/phase2/use-messenger-room-phase2-controller.ts")).toContain(
+      'postCommunityMessengerFriendRequestApi(target, undefined, "group")',
+    );
+    const sql = read("supabase/migrations/20271113300000_member_id_v3_s2_qr_group.sql");
+    expect(sql).toContain("CHECK (source IS NULL OR source IN ('id_search', 'qr', 'contacts', 'profile', 'group'))");
+    expect(sql).toContain("WHEN p_source IN ('id_search', 'contacts', 'profile', 'qr', 'group')");
+  });
+
+  it("Q4·Q5: QR 추가 DB 함수 — 이미 친구면 스캔 수 그대로, 예전 거절 행 cancelled", () => {
+    const sql = read("supabase/migrations/20271113300000_member_id_v3_s2_qr_group.sql");
+    const fn = sql.slice(sql.indexOf("CREATE OR REPLACE FUNCTION public.cm_add_friend_via_qr"));
+    expect(fn.indexOf("'idempotent', true")).toBeLessThan(fn.indexOf("SET scan_count = scan_count + 1"));
+    expect(fn).toContain("SET status = 'cancelled', responded_at = v_now\n  WHERE requester_id = v_owner AND addressee_id = p_viewer AND status = 'rejected';");
+  });
+
+  it("QR 로 친구가 되면 두 사람 친구 목록 캐시를 지운다", () => {
+    expect(read("lib/community-messenger/friend-qr/friend-qr.server.ts")).toContain(
+      "invalidateBootstrapLiteSocialDeferredForPair(viewerUserId, peerUserId);",
+    );
+  });
+});
+
