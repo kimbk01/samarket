@@ -537,7 +537,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       </div>
       {isDeliveryPurpose && deliveryPickRow ? (
         /** 시안 5번 하단 버튼 — 고른 주소의 세부 주소 여부로 문구가 바뀐다 */
-        <div className={`shrink-0 ${MY_STICKY_CTA_BAR_SURFACE_CLASS}`}>
+        <div className={`shrink-0 ${MY_STICKY_CTA_BAR_SURFACE_CLASS} pb-[var(--safe-bottom,0px)]`}>
           <div className={MY_STICKY_CTA_ROW_CLASS}>
             <button
               type="button"

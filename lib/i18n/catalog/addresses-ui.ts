@@ -203,7 +203,7 @@ export const addressesUiMessages = {
     addr_v3_change_location: "위치 변경",
     addr_v3_detail_label: "상세 주소",
     addr_v3_detail_label_delivery: "세부 주소",
-    addr_v3_detail_ph: "Unit 1204, 12F, House No. 15",
+    addr_v3_detail_ph: "세부주소 입력 (예: Unit 1204, 12층)",
     addr_v3_optional: "선택",
     addr_v3_required: "필수",
     addr_v3_detail_required_err: "세부 주소를 입력해 주세요 — 라이더가 찾아갈 수 있어요",
@@ -221,7 +221,7 @@ export const addressesUiMessages = {
     addr_kr_country_ph: "필리핀",
     addr_kr_country_kr: "한국",
     addr_kr_search_ph: "건물명, 도로명, 동으로 검색",
-    addr_kr_detail_ph: "12층 1201호",
+    addr_kr_detail_ph: "세부주소 입력 (예: 101동 1203호)",
   },
   en: {
     addr_ui_api_address_not_found: "Address not found.",

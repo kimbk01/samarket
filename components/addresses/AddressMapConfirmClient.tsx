@@ -205,7 +205,8 @@ function AddressMapConfirmInner() {
           </p>
         ) : null}
       </div>
-      <div className={`shrink-0 ${MY_STICKY_CTA_BAR_SURFACE_CLASS}`}>
+      {/* 화면 고정형(셸 하단 여백 없음) — 기기 네비게이션 바·홈 표시줄 위로 (Owner 2026-11-12 실기: 버튼이 3버튼 바와 겹침) */}
+      <div className={`shrink-0 ${MY_STICKY_CTA_BAR_SURFACE_CLASS} pb-[var(--safe-bottom,0px)]`}>
         <div className={MY_STICKY_CTA_ROW_CLASS}>
           <button
             type="button"
