@@ -4,7 +4,6 @@
  * - 고정 상한 제거: 쪽 번호 모드에서는 keyset `limit(n+1)`·진행 중 통화 상한(100)을 쓰지 않는다.
  * - `offset` 이 없는 기존 호출자(연결 채팅방 카드 등)는 keyset 응답 그대로.
  */
-import "@/lib/i18n/admin-catalog";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Call = { method: string; args: unknown[] };

@@ -1713,6 +1713,9 @@ export const adminMemberSharedMessages = {
     admin_please_set_an_in_app_page: "이동할 페이지를 설정해 주세요.",
     admin_text_5: "일반 1:1",
     admin_trade: "거래",
+    /** 도메인 칩 — 브랜드명 (회원 화면 묶음에서도 쓰므로 이 파일, Owner 2026-11-13) */
+    admin_domain_chip_market: B.MARKET,
+    admin_domain_chip_dipick: B.DIPICK,
     admin_store_order: "배달 주문",
     admin_support: "고객센터",
     admin_active_last_7_days: "활성 (최근 7일)",
@@ -3831,6 +3834,9 @@ export const adminMemberSharedMessages = {
     admin_please_set_an_in_app_page: "Please set an in-app page path.",
     admin_text_5: "1:1",
     admin_trade: "Trade",
+    /** 도메인 칩 — 브랜드명 (회원 화면 묶음에서도 쓰므로 이 파일, Owner 2026-11-13) */
+    admin_domain_chip_market: B.MARKET,
+    admin_domain_chip_dipick: B.DIPICK,
     admin_store_order: "Store order",
     admin_support: "Support",
     admin_active_last_7_days: "Active (last 7 days)",

@@ -174,7 +174,7 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
     expect(adminDeliveryAdProductHumanLabel("store_sponsored", "ko")).toBe("매장 홍보");
     expect(adminDeliveryAdProductHumanLabel("banner", "ko")).toBe("배너 광고");
     expect(adminDeliveryAdInventoryHumanLabel("STORES_HOME_FEED", "ko")).toBe(
-      "배달 홈 매장 광고"
+      "DIPICK 홈 매장 광고"
     );
     expect(adminDeliveryAdInventoryHumanLabel("STORES_HOME_HERO", "ko")).toContain("배너");
     expect(i18n()).toContain("매장 홍보");

@@ -60,11 +60,16 @@ function extractCatalogEntries(filePath, lang) {
   if (!match) return [];
   const block = match[1];
   const out = [];
+  /**
+   * 값 = "문자열" · '문자열' · `템플릿` · 브랜드 상수 `B.MARKET` (서비스 브랜드 SSOT, Owner 2026-11-13 —
+   * 카탈로그 값이 `lib/brand/dibay-service-brand.ts` 상수를 참조). 템플릿의 `${B.X}` 는 이름 X 로 읽는다.
+   */
   const keyValueRe =
-    /^\s+"?([a-zA-Z_][a-zA-Z0-9_.]*)"?\s*:\s*(?:\n\s*)?(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)')/gm;
+    /^\s+"?([a-zA-Z_][a-zA-Z0-9_.]*)"?\s*:\s*(?:\n\s*)?(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|`((?:\\.|[^`\\])*)`|B\.([A-Z]+)\b)/gm;
   let m;
   while ((m = keyValueRe.exec(block)) !== null) {
-    const value = (m[2] ?? m[3] ?? "").replace(/\\n/g, "\n").replace(/\\"/g, '"');
+    const raw = m[2] ?? m[3] ?? (m[4] != null ? m[4].replace(/\$\{B\.([A-Z]+)\}/g, "$1") : null) ?? m[5] ?? "";
+    const value = raw.replace(/\\n/g, "\n").replace(/\\"/g, '"');
     out.push({ key: m[1], value });
   }
   return out;

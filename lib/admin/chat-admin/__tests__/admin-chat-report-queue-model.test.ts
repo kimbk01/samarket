@@ -1,4 +1,3 @@
-import "@/lib/i18n/admin-catalog";
 import { describe, expect, it } from "vitest";
 import {
   buildChatReportQueueSearch,
