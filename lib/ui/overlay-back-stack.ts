@@ -13,7 +13,6 @@
 
 import { useEffect, useRef } from "react";
 import { resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 type OverlayBackEntry = { id: number; run: () => void };
 
@@ -116,14 +115,11 @@ export function __setOverlayBackListenerDriverForTests(driver: OverlayBackListen
  */
 export function useOverlayHardwareBack(active: boolean, onBack: (() => void) | null): void {
   const ref = useRef(onBack);
-  /** D1 S2: 숨긴 하단 탭 허브의 창은 뒤로가기 스택에 올리지 않는다 */
-  const hubActive = useHubActive();
-  const registered = active && hubActive;
   useEffect(() => {
     ref.current = onBack;
   });
   useEffect(() => {
-    if (!registered) return;
+    if (!active) return;
     return pushOverlayBackEntry(() => ref.current?.());
-  }, [registered]);
+  }, [active]);
 }

@@ -30,7 +30,6 @@ import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
 import { addStoresHomePullRefreshHandler } from "@/lib/stores/stores-home-pull-refresh-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRouter } from "next/navigation";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /** 1차 업종 1개 — 누르면 업종 페이지 (메뉴 판은 `DeliveryHomeMenuBoard`) */
 type DeliveryHomeMenuEntry = StoreTaxonomyCategory & { homeHref: string; homePrimarySlug: string };
@@ -52,7 +51,6 @@ function resolveSubsForPrimary(
  * pickedPrimary/activePrimary authority: `stores-home-category-chrome-store`.
  */
 export function StoresHomeQuickCategories() {
-  const hubActive = useHubActive();
   const { t, language } = useI18n();
   const router = useRouter();
   const primaryRegion = useRegionOptional()?.primaryRegion ?? null;
@@ -103,7 +101,6 @@ export function StoresHomeQuickCategories() {
   }, [language]);
 
   useLayoutEffect(() => {
-    if (!hubActive) return;
     if (isStoresTaxonomyClientCacheFresh(language)) {
       const warmed = readStoresHomeTaxonomyFromClientCache(language);
       if (warmed && warmed.categories.length > 0) {
@@ -134,7 +131,7 @@ export function StoresHomeQuickCategories() {
     return () => {
       cancelled = true;
     };
-  }, [hubActive, language]);
+  }, [language]);
 
   /** 업종 chrome store 용 1차 목록 — 고객 홈 아이콘은 `DeliveryHomeMenuBoard`(메뉴) 가 그린다 */
   const primaries = useMemo<DeliveryHomeMenuEntry[]>(() => {
@@ -212,16 +209,14 @@ export function StoresHomeQuickCategories() {
   );
 
   useLayoutEffect(() => {
-    if (!hubActive) return;
     setStoresHomeCategoryChromeHandlers({
       onSelectPrimary: handleSelectPrimary,
       onPrewarmPrimary: prewarmHomeEntry,
       onPrewarmSub: prewarmBrowseForSlug,
     });
-  }, [hubActive, handleSelectPrimary, prewarmBrowseForSlug, prewarmHomeEntry]);
+  }, [handleSelectPrimary, prewarmBrowseForSlug, prewarmHomeEntry]);
 
   useLayoutEffect(() => {
-    if (!hubActive) return;
     patchStoresHomeCategoryChrome({
       taxonomyReady,
       primaries,
@@ -231,7 +226,7 @@ export function StoresHomeQuickCategories() {
       language,
       primaryAriaLabel: t("store_primary_industry_aria"),
     });
-  }, [hubActive, language, primaries, topics, subs, t, taxonomyReady]);
+  }, [language, primaries, topics, subs, t, taxonomyReady]);
 
   return null;
 }

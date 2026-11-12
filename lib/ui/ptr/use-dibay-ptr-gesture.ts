@@ -15,7 +15,6 @@ import {
   DIBAY_PTR_THRESHOLD_PX,
   isDibayPtrVerticalPullDown,
 } from "@/lib/ui/ptr/dibay-ptr-ssot";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 export type DibayPtrGestureStore = {
   getSnapshot: () => DibayPtrSnapshot;
@@ -74,7 +73,6 @@ export function isDibayPtrScrollAtTop(extraScrollContainerSelector?: string): bo
  * DO NOT: 스크롤 본문 transform · window 전역 리스너.
  */
 export function useDibayPtrGesture(options: UseDibayPtrGestureOptions): void {
-  const hubActive = useHubActive();
   const {
     enabled,
     store,
@@ -98,7 +96,6 @@ export function useDibayPtrGesture(options: UseDibayPtrGestureOptions): void {
   const startXRef = useRef(0);
 
   useEffect(() => {
-    if (!hubActive) return;
     if (!enabled) return;
 
     invalidateMainAppScrollRootCache();
@@ -265,7 +262,6 @@ export function useDibayPtrGesture(options: UseDibayPtrGestureOptions): void {
       }
     };
   }, [
-    hubActive,
     enabled,
     store,
     rootDatasetKey,

@@ -9,7 +9,6 @@ import {
   computeCommerceChildTransitionKind,
   isCommerceConsumerChildSlideHostPath,
 } from "@/lib/delivery/customer/commerce-child-page-slide";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 function stripCommerceChildTransitionClasses(el: HTMLDivElement | null) {
   if (!el) return;
@@ -23,7 +22,6 @@ function stripCommerceChildTransitionClasses(el: HTMLDivElement | null) {
  * Pairs with `shouldSuppressCommerceConsumerMainShellSlide` (no double slide).
  */
 export function CommerceChildSlideShell({ children }: { children: ReactNode }) {
-  const hubActive = useHubActive();
   const pathname = usePathname();
   const hostRef = useRef<HTMLDivElement>(null);
   const kindRef = useRef<RouteTransitionEnterKind>("none");
@@ -35,13 +33,12 @@ export function CommerceChildSlideShell({ children }: { children: ReactNode }) {
   const pathKey = pathname ?? "";
 
   useEffect(() => {
-    if (!hubActive) return;
     const onPopState = () => {
       popstateBackRef.current = true;
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [hubActive]);
+  }, []);
 
   useLayoutEffect(() => {
     const el = hostRef.current;

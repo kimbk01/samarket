@@ -28,7 +28,6 @@ import { parseDestinationHref } from "@/lib/destination/destination-contract";
 import type { DibayPtrSnapshot } from "@/lib/ui/ptr/create-dibay-ptr-store";
 import { DIBAY_PTR_THRESHOLD_PX } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 type Exposure = {
   id: string;
@@ -71,7 +70,6 @@ export function useDibayPtrRevealAd(
    */
   onAdVisibleChange?: (visible: boolean) => void
 ) {
-  const hubActive = useHubActive();
   const pathname = usePathname() ?? "/";
   // 캐시 버전 — 노출 종료로 항목이 비워지면 즉시 다음 유휴 조회(회전·빈도 반영)
   const adsVersion = useSyncExternalStore(subscribePtrRevealAds, getPtrRevealAdsVersion, () => 0);
@@ -110,16 +108,14 @@ export function useDibayPtrRevealAd(
   }, [isPreview, authReady, userId]);
 
   useEffect(() => {
-    if (!hubActive) return;
     if (isPreview) return;
     if (frameWidthPx > 0) ensurePtrRevealAd(pathname, deviceVariant);
-  }, [hubActive, isPreview, pathname, deviceVariant, frameWidthPx, snap.phase, adsVersion]);
+  }, [isPreview, pathname, deviceVariant, frameWidthPx, snap.phase, adsVersion]);
 
   const holding = snap.phase === "REFRESHING" || snap.phase === "SUCCESS" || snap.phase === "ERROR";
 
   // 사이클 시작 시 광고 고정(당김 중 교체 금지), IDLE 복귀 시 노출 종료 처리
   useEffect(() => {
-    if (!hubActive) return;
     const cur = exposureRef.current;
     if (isPreview) {
       exposureRef.current =
@@ -166,7 +162,7 @@ export function useDibayPtrRevealAd(
         force((n) => n + 1);
       }
     }
-  }, [hubActive, snap.phase, pathname, isPreview, previewAd, deviceVariant, signalAdVisible]);
+  }, [snap.phase, pathname, isPreview, previewAd, deviceVariant, signalAdVisible]);
 
   const exposure = exposureRef.current;
   const band =
@@ -187,8 +183,6 @@ export function useDibayPtrRevealAd(
 
   // 노출 = 유지 단계 + 임계 높이 이상 + 이 띠 이미지가 실제 로드·표시됨 + 화면 전면
   useEffect(() => {
-    /** D1 S2: 숨긴 하단 탭 허브의 띠는 노출로 세지 않는다 */
-    if (!hubActive) return;
     const ex = exposureRef.current;
     if (!ex || ex.impressed || ex.finished || !band) return;
     if (!holding || snap.pullPx < DIBAY_PTR_THRESHOLD_PX) return;

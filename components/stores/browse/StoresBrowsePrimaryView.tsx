@@ -127,7 +127,6 @@ import {
   readDeliveryViewerGate,
   type DeliveryViewerGate,
 } from "@/lib/stores/delivery-viewer-gate";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 
 /** `browseListContextKey` — geo(5번째) 제외 비교용 */
@@ -155,7 +154,6 @@ export function StoresBrowsePrimaryView({
   primarySlug: string;
   initialSubSlug: string | null;
 }) {
-  const hubActive = useHubActive();
   const { t, safeT, language } = useI18n();
   const browseLifecycle = useDeliverySurfaceLifecycle("browse");
   const browseActive = browseLifecycle === "active";
@@ -248,7 +246,6 @@ export function StoresBrowsePrimaryView({
   }, [browseUserGeo]);
 
   useEffect(() => {
-    if (!hubActive) return;
     if (!browseActive) return;
     if (!browseDistanceCoordsEnabled) {
       setBrowseOriginResolveCompleted(true);
@@ -289,7 +286,7 @@ export function StoresBrowsePrimaryView({
       window.removeEventListener(ME_PROFILE_CACHE_INVALIDATED_EVENT, onRefresh);
       window.removeEventListener(APP_BOOT_PROFILE_UPDATED_EVENT, onBootProfile);
     };
-  }, [hubActive, browseActive, browseDistanceCoordsEnabled]);
+  }, [browseActive, browseDistanceCoordsEnabled]);
 
   const primary = useMemo(
     () => resolveCanonicalPrimaryBySlug(taxonomy, primarySlug),
@@ -429,7 +426,6 @@ export function StoresBrowsePrimaryView({
   }, [activeSub, primarySlug, remoteRows]);
 
   useEffect(() => {
-    if (!hubActive) return;
     if (!browseActive) return;
     // 뒤로가기(popstate) 복귀 계측 — 동기 핸들러 부담 최소화
     const onPop = () => {
@@ -444,7 +440,7 @@ export function StoresBrowsePrimaryView({
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, [hubActive, browseActive, searchParams]);
+  }, [browseActive, searchParams]);
 
   const browseQuerySuffix = useMemo(() => {
     const r = primaryRegion?.regionId ? getRegionName(primaryRegion.regionId).trim() : "";
@@ -722,7 +718,6 @@ export function StoresBrowsePrimaryView({
   }, [browseListContextKey, browseQuerySuffix, browseQuerySuffixWithoutGeo, peekBrowsePaintCache]);
 
   useEffect(() => {
-    if (!hubActive) return;
     if (!browseActive) {
       loadRemoteRequestIdRef.current += 1;
       return;
@@ -787,7 +782,6 @@ export function StoresBrowsePrimaryView({
     const silent = !!cached || browseHadListForContextRef.current;
     void loadRemoteRef.current({ silent });
   }, [
-    hubActive,
     browseActive,
     browseOriginResolveCompleted,
     browseDistanceCoordsEnabled,
@@ -798,11 +792,10 @@ export function StoresBrowsePrimaryView({
   ]);
 
   useEffect(() => {
-    if (!hubActive) return;
     if (!browseActive) return;
     if (listRefreshTick === 0) return;
     void loadRemoteRef.current({ force: true, silent: false });
-  }, [hubActive, browseActive, listRefreshTick]);
+  }, [browseActive, listRefreshTick]);
 
   /** 서브·업종 탭 전환 시 정렬 default — 마운트 직후에는 URL `sort` 유지 (deep link `sort=popular` 등) */
   const browseListScopeKeyRef = useRef(browseListSortScopeKey(primarySlug, activeSub));
@@ -997,7 +990,6 @@ export function StoresBrowsePrimaryView({
   }, [menuRoot, primary, language]);
 
   useLayoutEffect(() => {
-    if (!hubActive) return;
     if (!setMainTier1Extras) return;
     if (!browseActive) {
       setMainTier1Extras(null);
@@ -1013,7 +1005,7 @@ export function StoresBrowsePrimaryView({
       stickyBelow: browseStickyBelow,
     });
     return () => setMainTier1Extras(null);
-  }, [hubActive, browseActive, setMainTier1Extras, primary, menuRoot, browseStickyBelow, browseHeaderTitle]);
+  }, [browseActive, setMainTier1Extras, primary, menuRoot, browseStickyBelow, browseHeaderTitle]);
 
   const blockedViewerGate =
     isDeliveryViewerGateBlocked(viewerGate) && !(remoteRows?.length) ?

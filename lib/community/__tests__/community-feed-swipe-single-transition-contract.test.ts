@@ -23,8 +23,7 @@ describe("커뮤니티 주제 스와이프 — 1 동작 = 1 이동 = 1 진입", 
   });
 
   it("URL → 표면 동기화 effect 는 URL 의 주제를 기준으로 판단 (state 비교로 같은 목적지 재요청 없음)", () => {
-    /** D1 S2 (2026-11-12): 숨긴 허브에서는 주소를 바꾸지 않도록 허브 활성 신호가 deps 맨 앞에 들어감 */
-    const body = block(feed, "const urlTopicSurfaceSlug =", "  }, [\n    hubActive,\n    topicAuthorityReady,\n    urlTopicSurfaceSlug,");
+    const body = block(feed, "const urlTopicSurfaceSlug =", "  }, [\n    topicAuthorityReady,\n    urlTopicSurfaceSlug,");
     expect(body).toContain("resolveCommunityFeedSurface(plan.category, \"topic\")");
     expect(body).toContain("if (plan.category === urlTopicSurfaceSlug) return;");
     expect(body).not.toContain("feedAdSurface");

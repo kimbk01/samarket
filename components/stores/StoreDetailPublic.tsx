@@ -213,7 +213,6 @@ import {
   dibayDeliveryDetailPhase2Log,
   dibayDeliveryDetailPhase2SinceMountOrNav,
 } from "@/lib/dibay/delivery-detail-phase2-trace";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /** WP6 — 히어로 누름 → 전체 화면 사진 보기 (기존 공용 뷰어 재사용, 누를 때만 로드) */
 const PostImageViewer = dynamic(
@@ -289,7 +288,6 @@ export function StoreDetailPublic({
   /** 서버에서 동일 API 선조회 — 첫 페인트·캐시 프라임·카트 진입 가속 */
   initialApiResponse?: StoreApiJsonResponse | null;
 }) {
-  const hubActive = useHubActive();
   const { t, language } = useI18n();
   const regionViewerUserId = useRegionViewerUserId();
   /** serviceability 캐시·게스트 판정 — 장바구니와 동일 viewer 키 (ADDR-SSOT-003/007) */
@@ -426,9 +424,8 @@ export function StoreDetailPublic({
     !storeOrderability.viewerIsOwner &&
     !storeOrderability.viewerIsAdmin;
   useEffect(() => {
-    if (!hubActive) return;
     if (recruitingBlocksViewer) router.replace("/stores");
-  }, [hubActive, recruitingBlocksViewer, router]);
+  }, [recruitingBlocksViewer, router]);
   /** DSC-06 · S3-04 — summary·legacy 모두 네트워크/서버 오류(5xx·0)면 「매장을 찾을 수 없음」이 아니라 오류+재시도 */
   const [detailLoadFailed, setDetailLoadFailed] = useState(false);
   /** C-04 — 메뉴(스냅샷·legacy 폴백) 로드 실패 = 빈 메뉴와 구분해 오류+재시도 */
@@ -1292,11 +1289,10 @@ export function StoreDetailPublic({
   }, []);
 
   useEffect(() => {
-    if (!hubActive) return;
     if (!storeActive || typeof window === "undefined") return;
     const id = window.setInterval(() => setOpenTick((n) => n + 1), 60_000);
     return () => window.clearInterval(id);
-  }, [hubActive, storeActive]);
+  }, [storeActive]);
 
   useLayoutEffect(() => {
     if (initialApiResponse?.status === 200) {
@@ -1458,7 +1454,6 @@ export function StoreDetailPublic({
   }, [store?.slug, store?.delivery_available, store?.pickup_available]);
 
   useEffect(() => {
-    if (!hubActive) return;
     if (!storeEffectsEnabled) return;
     const slugKey = store?.slug?.trim();
     if (!slugKey) {
@@ -1487,7 +1482,7 @@ export function StoreDetailPublic({
       ac?.abort();
       window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     };
-  }, [hubActive, storeEffectsEnabled, store?.slug, serviceabilityViewerId]);
+  }, [storeEffectsEnabled, store?.slug, serviceabilityViewerId]);
 
   useEffect(() => {
     const slugKey = store?.slug?.trim();

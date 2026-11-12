@@ -10,20 +10,17 @@ import {
 } from "@/lib/stores/store-delivery-api-client";
 import type { BuyerStoreOrdersHubSummary } from "@/lib/delivery/customer/load-buyer-store-orders-hub-summary";
 import { orderStatusName } from "@/lib/stores/store-order-process-model";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * 진행 중 배달 한 줄 (회원만) — 진행 중인 배달 주문이 있을 때만 배너 아래 한 줄로 보인다(없으면 칸 없음, 시안 v22).
  * 데이터 = 기존 구매자 주문 요약(`/api/me/store-orders?hub_summary=1`). 상태 이름 = 주문 단일 정의 `orderStatusName`.
  */
 export function HomeOngoingSection({ refreshSeq }: { refreshSeq: number }) {
-  const hubActive = useHubActive();
   const { t, language } = useI18n();
   const router = useRouter();
   const [summary, setSummary] = useState<BuyerStoreOrdersHubSummary | null>(null);
 
   useEffect(() => {
-    if (!hubActive) return;
     let alive = true;
     if (refreshSeq > 0) invalidateMeStoreOrdersHubSummaryCache();
     void fetchMeStoreOrdersHubSummaryDeduped({ force: refreshSeq > 0 })
@@ -37,7 +34,7 @@ export function HomeOngoingSection({ refreshSeq }: { refreshSeq: number }) {
     return () => {
       alive = false;
     };
-  }, [hubActive, refreshSeq]);
+  }, [refreshSeq]);
 
   if (!summary || summary.activeOrders <= 0 || !summary.recent) return null;
   const recent = summary.recent;

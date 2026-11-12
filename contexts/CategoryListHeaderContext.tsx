@@ -10,7 +10,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 /**
  * 거래 마켓 2단 탭을 전역 헤더 크롬에 올리는 컨텍스트.
  * (카테고리 제목 서브헤더 설정은 크롬 S2 2026-11-02 에서 제거 — 제목은 `useRegisterMainTier1Header`)
@@ -50,7 +49,6 @@ export function useRegisterTradeSecondaryTabs(
   node: ReactNode | null,
   syncKey?: string | number
 ) {
-  const hubActive = useHubActive();
   const ctx = useContext(CategoryListHeaderContext);
   const setTradeSecondaryTabs = ctx?.setTradeSecondaryTabs;
   const nodeRef = useRef(node);
@@ -58,7 +56,6 @@ export function useRegisterTradeSecondaryTabs(
   const driver = syncKey !== undefined ? syncKey : node;
 
   useLayoutEffect(() => {
-    if (!hubActive) return;
     if (!setTradeSecondaryTabs) return;
     if (!enabled || nodeRef.current == null) {
       setTradeSecondaryTabs(null);
@@ -66,7 +63,7 @@ export function useRegisterTradeSecondaryTabs(
     }
     setTradeSecondaryTabs(nodeRef.current);
     return () => setTradeSecondaryTabs(null);
-  }, [hubActive, enabled, driver, setTradeSecondaryTabs]);
+  }, [enabled, driver, setTradeSecondaryTabs]);
 }
 
 export const useTradeMenuSecondaryHeader = useTradeSecondaryTabs;

@@ -7,7 +7,6 @@ import {
   isDocumentScrollRoot,
 } from "@/lib/ui/store-detail-scroll-root";
 import { invalidateStoreDetailViewportMetricsCache } from "@/lib/ui/store-detail-viewport-metrics";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * 매장 상세 — 실제 스크롤 루트(`<main>` | document) 1곳만 구독, rAF 배치.
@@ -18,9 +17,7 @@ export function useStoreDetailScrollRootScroll(
   deps: DependencyList,
   enabled = true
 ): void {
-  const hubActive = useHubActive();
   useEffect(() => {
-    if (!hubActive) return;
     if (!enabled || typeof window === "undefined") return;
 
     invalidateStoreDetailScrollRootCache();
@@ -65,5 +62,5 @@ export function useStoreDetailScrollRootScroll(
       if (rafId) window.cancelAnimationFrame(rafId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- caller supplies semantic deps
-  }, [hubActive, enabled, onScroll, ...deps]);
+  }, [enabled, onScroll, ...deps]);
 }

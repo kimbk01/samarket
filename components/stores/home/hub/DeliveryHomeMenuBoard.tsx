@@ -32,7 +32,6 @@ import {
 import { deliveryMenuLinkHref, type DeliveryMenuPublic } from "@/lib/stores/delivery-menus/delivery-menu-types";
 import { scheduleStoresBrowseListPrewarm } from "@/lib/stores/stores-browse-prewarm-coordinator";
 import { useRegionOptional } from "@/contexts/RegionContext";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /** 앱 세션 동안 마지막 상단 탭 유지 (매장 갔다 돌아와도 같은 탭) */
 let lastSelectedRootSlug: string | null = null;
@@ -99,7 +98,6 @@ function IconTile({
  * - 메뉴가 없으면(복구 스위치) 1차 업종 아이콘 판.
  */
 export function DeliveryHomeMenuBoard() {
-  const hubActive = useHubActive();
   const { t, language } = useI18n();
   const router = useRouter();
   const primaryRegion = useRegionOptional()?.primaryRegion ?? null;
@@ -107,7 +105,6 @@ export function DeliveryHomeMenuBoard() {
   const [taxonomy, setTaxonomy] = useState<StoresHomeTaxonomyState | null>(null);
 
   useLayoutEffect(() => {
-    if (!hubActive) return;
     const cached = readStoresHomeTaxonomyFromClientCache(language);
     if (cached && cached.categories.length > 0) setTaxonomy(cached);
     let cancelled = false;
@@ -124,7 +121,7 @@ export function DeliveryHomeMenuBoard() {
     return () => {
       cancelled = true;
     };
-  }, [hubActive, language]);
+  }, [language]);
 
   /** 당겨서 새로고침 — 같은 taxonomy 재조회 (StoresHomeQuickCategories 가 캐시를 비운 뒤 dedupe 공유) */
   useLayoutEffect(() => {

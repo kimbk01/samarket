@@ -52,7 +52,6 @@ import {
 import { useDeliverySurfaceLifecycle } from "@/components/delivery/presentation/DeliverySurfaceLifecycle";
 import { deliveryPresentationMarkEvent } from "@/lib/dibay/delivery-presentation-evidence";
 import type { StoreChromePortalTarget } from "@/lib/dibay/delivery-store-chrome-portal-contract";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   menusLoading,
@@ -146,7 +145,6 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   menuProductsForReviewRail?: StoreMenuReviewRailProduct[];
   onOpenReviews: (opts?: StoreReviewsPanelOpenOptions) => void;
 }) {
-  const hubActive = useHubActive();
   const storeLifecycle = useDeliverySurfaceLifecycle("store");
   const storeActive = storeLifecycle === "active";
   const featuredFocusActive = Boolean(focusProductId?.trim()) && focusEntryPreparing;
@@ -193,7 +191,6 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
 
   /** Featured — offscreen pre-land (single scroll WRITE) before rtl slide. */
   useLayoutEffect(() => {
-    if (!hubActive) return;
     const productId = focusProductId?.trim();
     if (!featuredFocusActive || !productId || menusLoading) return;
     if (focusPrepareCompleteRef.current === productId) return;
@@ -368,7 +365,6 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
       endFeaturedEntryScrollPrepare();
     };
   }, [
-    hubActive,
     featuredFocusActive,
     featuredSoftHosted,
     focusProductId,

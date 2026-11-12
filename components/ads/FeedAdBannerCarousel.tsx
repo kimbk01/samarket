@@ -38,7 +38,6 @@ import {
   feedAdCreativeIdOfSlide,
   sendFeedAdEvent,
 } from "@/lib/ads/feed-ad-event-client";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * PV-3: 화면이 받는 캠페인 = 서버 공개 투영(`FeedAdPublicCampaign`). 기간·상태·원래 이름은 오지 않는다.
@@ -93,7 +92,6 @@ export function FeedAdBannerCarousel({
   surfaceKey?: string;
   campaignPool?: readonly FeedAdCarouselCampaign[] | null;
 }) {
-  const hubActive = useHubActive();
   const { t, safeT } = useI18n();
   const [fetchedCampaigns, setFetchedCampaigns] = useState<FeedAdCarouselCampaign[]>([]);
   /** PV-3: 서버가 정한 다음 재조회 시각 — 지나면 다시 부른다(화면이 기간을 판정하지 않음) */
@@ -124,7 +122,6 @@ export function FeedAdBannerCarousel({
   ]);
 
   useEffect(() => {
-    if (!hubActive) return;
     if (usePool) return;
     let cancelled = false;
     const qs = new URLSearchParams({
@@ -170,7 +167,7 @@ export function FeedAdBannerCarousel({
       cancelled = true;
       if (timer != null) window.clearTimeout(timer);
     };
-  }, [hubActive, usePool, domain, placement, categoryId, topicSlug, slotOrdinal, feedSessionId, surfaceKey, refetchTick]);
+  }, [usePool, domain, placement, categoryId, topicSlug, slotOrdinal, feedSessionId, surfaceKey, refetchTick]);
 
   const campaigns = usePool ? (selectedFromPool ?? []) : fetchedCampaigns;
   if (campaigns.length === 0) return null;
@@ -243,7 +240,6 @@ function FeedAdBannerCarouselView({
   adLabel: string;
   altFallback: string;
 }) {
-  const hubActive = useHubActive();
   const { t } = useI18n();
   const multi = slides.length > 1;
   const [trackIndex, setTrackIndex] = useState(0);
@@ -287,7 +283,6 @@ function FeedAdBannerCarouselView({
   }, []);
 
   useEffect(() => {
-    if (!hubActive) return;
     const el = rootRef.current;
     if (!el || typeof IntersectionObserver === "undefined") return;
     const io = new IntersectionObserver(
@@ -296,13 +291,12 @@ function FeedAdBannerCarouselView({
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [hubActive]);
+  }, []);
 
   /** Owner 결정 O-4: 지금 보이는 슬라이드가 50% 이상 · 1초 이어지면 노출 1회 (서버가 1시간 단위로 중복 제거) */
   const currentCampaignId = currentCampaign.id;
   const currentCreativeId = feedAdCreativeIdOfSlide(current.id, currentCampaignId);
   useEffect(() => {
-    if (!hubActive) return;
     if (!halfVisible || !pageVisible) return;
     const id = window.setTimeout(() => {
       sendFeedAdEvent({
@@ -315,7 +309,7 @@ function FeedAdBannerCarouselView({
       });
     }, FEED_AD_IMPRESSION_DWELL_MS);
     return () => window.clearTimeout(id);
-  }, [hubActive, halfVisible, pageVisible, currentCampaignId, currentCreativeId, placement, feedSessionId, slotOrdinal]);
+  }, [halfVisible, pageVisible, currentCampaignId, currentCreativeId, placement, feedSessionId, slotOrdinal]);
 
   useEffect(() => {
     const onVis = () => setPageVisible(document.visibilityState === "visible");
@@ -349,11 +343,10 @@ function FeedAdBannerCarouselView({
    * trackIndex 를 넣어 손으로 넘긴 직후 곧바로 또 넘어가지 않게 간격을 다시 센다.
    */
   useEffect(() => {
-    if (!hubActive) return;
     if (!multi || !inView || !pageVisible || reduceMotion) return;
     const id = window.setInterval(advance, FEED_AD_SLIDE_INTERVAL_MS);
     return () => window.clearInterval(id);
-  }, [hubActive, advance, inView, multi, pageVisible, reduceMotion, trackIndex]);
+  }, [advance, inView, multi, pageVisible, reduceMotion, trackIndex]);
 
   const onSwipeEnd = useCallback(
     (endX: number | undefined) => {

@@ -11,7 +11,6 @@ import {
   type StoresHomeBannersResponse,
 } from "@/lib/stores/stores-home-banners-client";
 import { useHubDataRevisitGate } from "@/lib/http/hub-data-freshness";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 const BEFORE_REST_BANNERS_API = "/api/stores/home-before-rest-banners" as const;
 
@@ -21,7 +20,6 @@ const BEFORE_REST_BANNERS_API = "/api/stores/home-before-rest-banners" as const;
  * Does not use native rest_stores insertion planner.
  */
 export function StoresHomeBeforeRestBanner({ refreshKey = 0 }: { refreshKey?: number }) {
-  const hubActive = useHubActive();
   const { t } = useI18n();
   const [banners, setBanners] = useState<PhysicalBannerResolvedSlide[] | null>(null);
 
@@ -34,7 +32,6 @@ export function StoresHomeBeforeRestBanner({ refreshKey = 0 }: { refreshKey?: nu
   const revisitGate = useHubDataRevisitGate();
 
   useLayoutEffect(() => {
-    if (!hubActive) return;
     const gateKey = String(refreshKey);
     if (revisitGate.isFresh(gateKey)) return;
     let cancelled = false;
@@ -61,7 +58,7 @@ export function StoresHomeBeforeRestBanner({ refreshKey = 0 }: { refreshKey?: nu
       cancelled = true;
     };
     /** B-08 — 홈 당겨서 새로고침 시 다시 조회 */
-  }, [hubActive, refreshKey, revisitGate]);
+  }, [refreshKey, revisitGate]);
 
   if (banners === null) {
     return (

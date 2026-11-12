@@ -14,7 +14,6 @@ import {
   samTier1HeaderIconCluster,
   SAM_TIER1_HEADER_ACTION_BTN_CLASS,
 } from "@/lib/ui/tier1-header-icon";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 const HUB_TRAILING_ROW_CLASS = samTier1HeaderIconCluster;
 
@@ -40,7 +39,6 @@ function MyHubHeaderInAppSoundFallback() {
 }
 
 function MyHubHeaderInAppSoundInner() {
-  const hubActive = useHubActive();
   const { t } = useI18n();
   const [soundOn, setSoundOn] = useState(true);
   const [loaded, setLoaded] = useState(false);
@@ -61,7 +59,6 @@ function MyHubHeaderInAppSoundInner() {
   }, []);
 
   useEffect(() => {
-    if (!hubActive) return;
     const cancel = scheduleNotificationSettingsSnapshotDeferred(
       () => {
         void loadSound();
@@ -69,10 +66,9 @@ function MyHubHeaderInAppSoundInner() {
       { source: "notification-settings-my-hub" }
     );
     return cancel;
-  }, [hubActive, loadSound]);
+  }, [loadSound]);
 
   useEffect(() => {
-    if (!hubActive) return;
     const onCustom = () => {
       invalidateMeNotificationSettingsGetFlight();
       void loadSound();
@@ -80,7 +76,7 @@ function MyHubHeaderInAppSoundInner() {
     if (typeof window === "undefined") return;
     window.addEventListener("kasama:user-notification-settings-changed", onCustom);
     return () => window.removeEventListener("kasama:user-notification-settings-changed", onCustom);
-  }, [hubActive, loadSound]);
+  }, [loadSound]);
 
   const onToggleSound = async () => {
     if (busy) return;

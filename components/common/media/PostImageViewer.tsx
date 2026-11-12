@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { HubPortalGate } from "@/components/layout/HubPortalGate";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   resolveMessengerImageSaveMode,
@@ -111,12 +109,6 @@ export function PostImageViewer(props: {
   const savedScrollY = useRef(0);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
-  /**
-   * D1 S2: 숨긴 하단 탭 허브 안이면 열려 있어도 그리지 않고, 화면 잠금·키보드·뒤로가기 리스너를 걸지 않는다
-   * (포털이라 허브의 display:none 밖). 열림 상태·뒤로가기 기록은 그대로 두었다가 다시 보이면 이어서 쓴다.
-   */
-  const hubActive = useHubActive();
-  const shown = open && hubActive;
 
   const count = urls.length;
   const safeIndex = Math.max(0, Math.min(count - 1, index));
@@ -166,7 +158,6 @@ export function PostImageViewer(props: {
       closingFromPop.current = false;
       return;
     }
-    if (!hubActive) return;
     if (!historyPushed.current) {
       try {
         window.history.pushState({ ...window.history.state, [HISTORY_KEY]: true }, "");
@@ -183,11 +174,11 @@ export function PostImageViewer(props: {
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, [open, hubActive]);
+  }, [open]);
 
   // Scroll lock + restore the post's scroll position on close.
   useLayoutEffect(() => {
-    if (!shown || typeof document === "undefined") return;
+    if (!open || typeof document === "undefined") return;
     savedScrollY.current = window.scrollY;
     const html = document.documentElement;
     const body = document.body;
@@ -206,17 +197,17 @@ export function PostImageViewer(props: {
         if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
       });
     };
-  }, [shown]);
+  }, [open]);
 
   useEffect(() => {
     const el = stageRef.current;
-    if (!shown || !el) return;
+    if (!open || !el) return;
     const measure = () => setStage({ w: el.clientWidth, h: el.clientHeight });
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [shown, mounted]);
+  }, [open, mounted]);
 
   useEffect(
     () => () => {
@@ -252,7 +243,7 @@ export function PostImageViewer(props: {
   );
 
   useEffect(() => {
-    if (!shown) return;
+    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onCloseRef.current();
       else if (e.key === "ArrowLeft") goTo(-1);
@@ -260,7 +251,7 @@ export function PostImageViewer(props: {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [shown, goTo]);
+  }, [open, goTo]);
 
   const toStageCentre = useCallback((p: Pt): Pt => {
     const r = stageRef.current?.getBoundingClientRect();
@@ -600,7 +591,7 @@ export function PostImageViewer(props: {
     </div>
   );
 
-  return createPortal(<HubPortalGate>{node}</HubPortalGate>, document.body);
+  return createPortal(node, document.body);
 }
 
 /** One viewer per post body: `openAt(urls, i)` from any image in that body. */
