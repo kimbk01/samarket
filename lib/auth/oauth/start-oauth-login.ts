@@ -18,9 +18,8 @@ const SUPABASE_OAUTH_PROVIDERS = new Set<OAuthProvider>(["google", "kakao", "app
 
 export { NATIVE_OAUTH_LAUNCH_PATH, NATIVE_OAUTH_START_FETCH_TIMEOUT_MS };
 
-/** UI 노출 — Facebook(start 미연결) 제외 */
+/** UI 노출 — start 연결된 공급자만 */
 export function isOAuthLoginStartSupported(provider: OAuthProvider): boolean {
-  if (provider === "facebook") return false;
   return (
     provider === "google"
     || provider === "kakao"

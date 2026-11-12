@@ -82,7 +82,6 @@ export const authUiMessages = {
     auth_provider_continue_naver: "네이버로 계속하기",
     auth_provider_continue_apple: "Apple로 계속하기",
     auth_provider_continue_google: "Google로 계속하기",
-    auth_provider_continue_facebook: "Facebook으로 계속하기",
     auth_err_auth_timeout: "로그인 서버 응답이 지연되고 있습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.",
     auth_err_identifier_resolve_timeout:
       "로그인 ID 확인이 지연되고 있습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.",
@@ -390,7 +389,6 @@ export const authUiMessages = {
     auth_provider_continue_naver: "Continue with Naver",
     auth_provider_continue_apple: "Continue with Apple",
     auth_provider_continue_google: "Continue with Google",
-    auth_provider_continue_facebook: "Continue with Facebook",
     auth_err_auth_timeout: "The sign-in server is taking too long to respond. Check your network and try again.",
     auth_err_identifier_resolve_timeout:
       "Sign-in ID lookup is taking too long. Check your network and try again.",

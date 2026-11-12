@@ -128,7 +128,7 @@ export function LoginProviderButtons({
 }: Props) {
   const { t } = useI18n();
   /**
-   * P1-14: Capacitor bridge 준비 후 플랫폼 필터 (native_blocked 숨김 · iOS Apple 보장 · Naver/Facebook 미노출).
+   * P1-14: Capacitor bridge 준비 후 플랫폼 필터 (native_blocked 숨김 · iOS Apple 보장 · Naver 미노출).
    * 준비 전에는 소셜 버튼을 그리지 않는다 — 나타났다 사라지는 깜빡임 방지.
    */
   const { ready: platformReady, providers: visibleProviders } = usePlatformFilteredLoginProviders(providers);

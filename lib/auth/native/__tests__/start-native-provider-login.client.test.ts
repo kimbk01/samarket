@@ -70,12 +70,4 @@ describe("start-native-provider-login.client", () => {
       provider: "google",
     });
   });
-
-  it("rejects facebook with native_provider_not_implemented", async () => {
-    const { startNativeProviderLogin } = await import("@/lib/auth/native/start-native-provider-login.client");
-    await expect(startNativeProviderLogin({ provider: "facebook" })).rejects.toMatchObject({
-      code: "native_provider_not_implemented",
-      provider: "facebook",
-    });
-  });
 });

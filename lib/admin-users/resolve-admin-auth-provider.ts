@@ -44,7 +44,6 @@ const SNS_PROVIDERS: readonly AdminAuthProvider[] = [
   "kakao",
   "apple",
   "naver",
-  "facebook",
 ];
 
 function pickString(value: unknown): string | null {
@@ -65,7 +64,6 @@ export function normalizeAdminAuthProvider(input: unknown): AdminAuthProvider | 
     raw === "kakao" ||
     raw === "naver" ||
     raw === "apple" ||
-    raw === "facebook" ||
     raw === "email"
   ) {
     return raw;
@@ -181,7 +179,6 @@ export function adminAuthProviderLabel(provider: AdminAuthProvider): string {
   if (provider === "kakao") return "Kakao";
   if (provider === "naver") return "Naver";
   if (provider === "apple") return "Apple";
-  if (provider === "facebook") return "Facebook";
   if (provider === "manual") return "Manual";
   if (provider === "email") return "Email";
   return "Unknown";

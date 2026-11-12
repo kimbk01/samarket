@@ -10,7 +10,7 @@ import { adminServerText } from "@/lib/i18n/admin-server-language";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const PROVIDERS = new Set<LoginSettingProvider>(["password", "google", "kakao", "naver", "apple", "facebook"]);
+const PROVIDERS = new Set<LoginSettingProvider>(["password", "google", "kakao", "naver", "apple"]);
 
 function isPolicyTableUnavailable(error: { message?: string; code?: string } | null | undefined): boolean {
   const message = String(error?.message ?? "").toLowerCase();

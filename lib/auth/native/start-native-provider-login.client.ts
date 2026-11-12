@@ -56,7 +56,7 @@ export type NativeProviderLoginSuccess = FinishClientAuthLoginTermsHandoff & {
 
 /**
  * Native SDK login — Chrome / Custom Tab / startOAuthLogin fallback 금지.
- * Facebook → native_provider_not_implemented (STEP F 전).
+ * SDK 미구현 공급자 → native_provider_not_implemented.
  */
 export async function startNativeProviderLogin(
   input: StartNativeProviderLoginInput,

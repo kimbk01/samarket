@@ -85,7 +85,7 @@ const nextConfig = {
   images: {
     /**
      * 허용 출처 단일 목록 — 프로필 사진 표시 판정(`lib/profile/resolve-profile-image-src.ts`)과 공유.
-     * Supabase Storage · SNS OAuth 프로필(구글·카카오·네이버·페이스북) · 로컬 `supabase start`(http 127.0.0.1/localhost).
+     * Supabase Storage · SNS OAuth 프로필(구글·카카오·네이버) · 로컬 `supabase start`(http 127.0.0.1/localhost).
      * 원격 http 는 추가하지 않는다(https 만 · 혼합 콘텐츠 금지).
      */
     remotePatterns: require("./config/image-remote-patterns.json"),

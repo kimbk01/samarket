@@ -47,6 +47,6 @@ describe("startOAuthLogin", () => {
     vi.stubGlobal("window", { location: { origin: "https://samarket.vercel.app", assign: vi.fn() } });
 
     const { startOAuthLogin } = await import("@/lib/auth/oauth/start-oauth-login");
-    expect(() => startOAuthLogin({ provider: "facebook" })).toThrow();
+    expect(() => startOAuthLogin({ provider: "naver" })).toThrow();
   });
 });

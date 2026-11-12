@@ -23,7 +23,7 @@ export type MemberPasswordEligibilityInput = {
   linkedSnsProviders?: readonly (string | null | undefined)[];
 };
 
-const SNS = new Set(["google", "kakao", "apple", "naver", "facebook"]);
+const SNS = new Set(["google", "kakao", "apple", "naver"]);
 
 function isManualLoginEmail(value: string | null | undefined): boolean {
   return String(value ?? "").trim().toLowerCase().endsWith(MANUAL_MEMBER_EMAIL_SUFFIX);

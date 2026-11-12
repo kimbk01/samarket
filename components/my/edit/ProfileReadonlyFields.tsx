@@ -26,7 +26,6 @@ function profileAuthProviderBadgeClass(provider: OAuthProvider | "email"): strin
   if (provider === "naver") return "bg-[#03C75A]";
   if (provider === "apple") return "bg-black";
   if (provider === "google") return "border border-[#dadce0] bg-sam-surface";
-  if (provider === "facebook") return "bg-[#1877F2]";
   return "bg-sam-primary";
 }
 

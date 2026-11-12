@@ -53,7 +53,7 @@ function isExchangeFailure(
 
 /**
  * P2: provider SDK token → adapter verify → Supabase session.
- * Stub provider (Facebook) → 501 after credential validation.
+ * Stub provider → 501 after credential validation.
  * Kakao/Apple/Google → adapter verify + establishSession.
  */
 export async function exchangeNativeProviderToken(

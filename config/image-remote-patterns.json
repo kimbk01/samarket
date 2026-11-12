@@ -10,7 +10,6 @@
   { "protocol": "https", "hostname": "k.kakaocdn.net", "pathname": "/**" },
   { "protocol": "https", "hostname": "*.kakaocdn.net", "pathname": "/**" },
   { "protocol": "https", "hostname": "*.pstatic.net", "pathname": "/**" },
-  { "protocol": "https", "hostname": "graph.facebook.com", "pathname": "/**" },
   { "protocol": "https", "hostname": "*.fbcdn.net", "pathname": "/**" },
   { "protocol": "https", "hostname": "*.fbsbx.com", "pathname": "/**" },
   { "protocol": "http", "hostname": "127.0.0.1", "pathname": "/storage/v1/object/public/**" },

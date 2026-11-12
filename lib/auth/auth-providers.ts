@@ -3,7 +3,6 @@ export const SUPPORTED_AUTH_PROVIDERS = [
   "kakao",
   "naver",
   "apple",
-  "facebook",
 ] as const;
 
 export type OAuthProvider = (typeof SUPPORTED_AUTH_PROVIDERS)[number];
@@ -48,8 +47,7 @@ export function getOAuthProviderLabel(provider: OAuthProvider): string {
   if (provider === "google") return "Google";
   if (provider === "kakao") return "Kakao";
   if (provider === "naver") return "Naver";
-  if (provider === "apple") return "Apple";
-  return "Facebook";
+  return "Apple";
 }
 
 export function sortAuthProviders<T extends { sort_order: number; provider: string }>(rows: T[]): T[] {

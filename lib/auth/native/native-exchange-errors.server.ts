@@ -36,7 +36,7 @@ export function nativeProviderNotImplemented(provider: NativeExchangeProvider | 
 
 export function invalidNativeExchangeProvider(): NativeExchangeFailure {
   return nativeExchangeBadRequest(
-    "Native exchange provider must be apple, kakao, google, or facebook.",
+    "Native exchange provider must be apple, kakao, or google.",
     "invalid_provider",
   );
 }

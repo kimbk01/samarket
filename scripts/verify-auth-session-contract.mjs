@@ -115,7 +115,7 @@ if (
   !loginButtons.includes("isOAuthLoginStartSupported") &&
   !loginButtons.includes("usePlatformFilteredLoginProviders")
 ) {
-  failures.push("LoginProviderButtons must filter unsupported OAuth providers (Facebook)");
+  failures.push("LoginProviderButtons must filter unsupported OAuth providers");
 }
 
 // Naver 로그인 비활성 (auth SSOT 2026-10-21 P0-1) — start/callback 은 410 만 반환한다.

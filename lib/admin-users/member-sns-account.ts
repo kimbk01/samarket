@@ -27,7 +27,7 @@ export type AdminMemberLoginAccount = {
   linkedAt: string | null;
 };
 
-const SNS = new Set<AdminAuthProvider>(["google", "kakao", "apple", "naver", "facebook"]);
+const SNS = new Set<AdminAuthProvider>(["google", "kakao", "apple", "naver"]);
 
 function pick(value: unknown): string | null {
   const trimmed = String(value ?? "").trim();
@@ -94,7 +94,7 @@ export function adminMemberLoginAccountLabelKo(account: AdminMemberLoginAccount 
   if (account.provider === "google") {
     return account.email ? `Google ${account.email}` : account.providerUserId ? `Google ${account.providerUserId}` : "Google";
   }
-  const label = account.provider === "naver" ? "네이버" : "Facebook";
+  const label = "네이버";
   return account.email ? `${label} ${account.email}` : account.providerUserId ? `${label} ${account.providerUserId}` : label;
 }
 

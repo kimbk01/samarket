@@ -29,7 +29,7 @@ describe("native exchange route contract", () => {
     );
     expect(contractSource).toContain("NativeExchangeSuccessResponse");
     expect(contractSource).toContain("NativeExchangeRequest");
-    expect(contractSource).toContain('"google", "kakao", "apple", "facebook"');
+    expect(contractSource).toContain('"google", "kakao", "apple"]');
   });
 
   it("does not register naver in native exchange types", () => {

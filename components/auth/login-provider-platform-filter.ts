@@ -14,7 +14,7 @@ import {
   type DibayAppPlatform,
 } from "@/lib/platform/capacitor-native";
 
-/** 버튼 노출 대상 — Naver(서버 비활성 예정)·Facebook(start 미연결)은 절대 노출하지 않는다. */
+/** 버튼 노출 대상 — Naver(서버 비활성)는 절대 노출하지 않는다. */
 const LOGIN_BUTTON_PROVIDERS = new Set<OAuthProvider>(["google", "kakao", "apple"]);
 
 /** 버튼 목록 확정 전 bridge 대기 상한 — 이후에는 현재 감지값으로 렌더한다. */
