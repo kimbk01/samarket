@@ -4085,7 +4085,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                         groupMembers.length === 0 ||
                         !groupTitle.trim()
                       }
-                      className="dibay-overlay-btn dibay-overlay-btn--primary w-full disabled:opacity-40"
+                      className="dibay-overlay-btn dibay-overlay-btn--primary w-full"
                     >
                       {busyId === "create-private-group" ? t("cm_ui_creating") : t("cm_ui_create_group_submit")}
                     </button>
@@ -4100,7 +4100,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                       (openGroupJoinPolicy === "password" && !openGroupPassword.trim()) ||
                       (openGroupCreatorIdentityMode === "alias" && !openGroupCreatorAliasName.trim())
                     }
-                    className="dibay-overlay-btn dibay-overlay-btn--primary w-full disabled:opacity-40"
+                    className="dibay-overlay-btn dibay-overlay-btn--primary w-full"
                   >
                     {busyId === "create-open-group" ? t("cm_ui_creating") : t("cm_ui_create_open_group_chat")}
                   </button>
