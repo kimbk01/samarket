@@ -149,6 +149,26 @@ for (const rel of [`${JAVA}/nativevideo/NativeVideoCallActivity.java`, `${JAVA}/
 }
 mustInclude(`${JAVA}/call/NativeCallAppReturn.java`, "native_call_app_return_unconfirmed", "실제 결과 기록(막혀도 성공처럼 기록 금지)");
 mustInclude(`${JAVA}/MainActivity.java`, "NativeCallAppReturn.onMainResumed()", "메신저 재개 시 복귀 결과 확인");
+console.log("⑩ 뒤로 → 메신저 + PiP = 고정 전 startActivity(OPEN) → 자동 PiP (원인 문서 §7)");
+{
+  const ret = read(`${JAVA}/call/NativeCallAppReturn.java`);
+  const m = ret.match(/public static boolean openAppForAutoPip\([\s\S]*?\n  \}/);
+  if (!m) fail("NativeCallAppReturn.openAppForAutoPip 없음");
+  else {
+    if (!m[0].includes("from.startActivity(open)")) fail("openAppForAutoPip 는 startActivity(OPEN 전환)로 열어야 함 — moveToFront(TO_FRONT)는 PiP2 자동 PiP 불가");
+    if (m[0].includes("FLAG_ACTIVITY_NO_USER_ACTION")) fail("openAppForAutoPip 에 FLAG_ACTIVITY_NO_USER_ACTION 금지 — 사용자 떠남이 꺼지면 자동 PiP 불가");
+    ok("openAppForAutoPip = startActivity · NO_USER_ACTION 없음");
+  }
+}
+for (const [rel, tag] of [
+  [`${JAVA}/nativevideo/NativeVideoCallActivity.java`, "native_video"],
+  [`${JAVA}/nativevoice/NativeVoiceCallActivity.java`, "native_voice"],
+]) {
+  mustInclude(rel, "if (canOpenAppForAutoPip() && openAppThenAutoPip(source)) return true;", "뒤로·줄이기 = 고정 전 메신저 열기(실패 시 기존 경로)");
+  mustInclude(rel, `"${tag}_user_leave_skipped"`, "메신저 연 직후 onUserLeaveHint PiP 중복 요청 건너뜀");
+  mustInclude(rel, `"${tag}_auto_pip_missed"`, "자동 PiP 실패 기록(통화 유지)");
+  mustInclude(rel, `"${tag}_auto_pip_entered"`, "자동 PiP 진입 기록");
+}
 
 if (failed) {
   console.error("verify:call-surface-cta-ssot FAILED");
