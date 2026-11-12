@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { QrCode } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/components/community-messenger/MessengerSheetUi";
@@ -173,9 +174,23 @@ export function FriendQrResultHost({
               )}
             </>
           ) : errorKey ? (
-            <p className="text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-danger)" }} role="alert">
-              {t(errorKey)}
-            </p>
+            /** 실패·내 QR — 사진 자리에 아이콘, 이름 자리에 문구 (빈 화면처럼 보이지 않게, 전체 실기 감사 2026-11-12) */
+            <>
+              <span
+                className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-[color:var(--overlay-secondary)]"
+                style={{ color: "var(--overlay-text-secondary)" }}
+                aria-hidden
+              >
+                <QrCode className="h-8 w-8" strokeWidth={1.8} />
+              </span>
+              <p
+                className="mt-1.5 max-w-full text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.35]"
+                style={{ color: errorKey === "friend_qr_err_self" ? "var(--overlay-text-primary)" : "var(--overlay-danger)" }}
+                role="alert"
+              >
+                {t(errorKey)}
+              </p>
+            </>
           ) : (
             /** 불러오는 중 — 사진·이름·아이디·안내와 같은 크기 */
             <div className="flex flex-col items-center gap-1.5" aria-busy="true" aria-label={t("common_loading")}>

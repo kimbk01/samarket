@@ -202,7 +202,11 @@ export function MyFriendQrPanel() {
           className="mt-2 flex w-full shrink-0 justify-center text-[length:var(--overlay-body-1-size)] font-bold leading-[1.35]"
           style={{ color: "var(--overlay-text-primary)" }}
         >
-          {data ? <p className="max-w-full [overflow-wrap:anywhere] [text-wrap:balance]">{name}</p> : lineSkeleton("w-28")}
+          {data ? (
+            <p className="max-w-full [overflow-wrap:anywhere] [text-wrap:balance]">{name}</p>
+          ) : failed ? null : (
+            lineSkeleton("w-28")
+          )}
         </div>
         <div className="flex w-full shrink-0 justify-center font-semibold leading-[1.35] text-sam-primary">
           {data ? (
@@ -211,13 +215,16 @@ export function MyFriendQrPanel() {
                 <MemberAtIdText value={atId} />
               </p>
             ) : null
-          ) : (
+          ) : failed ? null : (
             lineSkeleton("w-20")
           )}
         </div>
-        <p className="mt-0.5 shrink-0 text-[length:var(--overlay-caption-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
-          {t("friend_qr_my_hint")}
-        </p>
+        {/** 「스캔하면 바로 친구」 안내는 QR 이 실제로 쓰일 때만 — QR 끔·불러오기 실패에서는 모순이라 숨김 (전체 실기 감사 2026-11-12) */}
+        {!failed && allowed ? (
+          <p className="mt-0.5 shrink-0 text-[length:var(--overlay-caption-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
+            {t("friend_qr_my_hint")}
+          </p>
+        ) : null}
       </div>
       {/**
        * CTA 위계 (설계안 v3 §3.6 · 텔레그램·라인 내 QR 화면): 주 [공유] + 보조 [이미지 저장] 한 줄,

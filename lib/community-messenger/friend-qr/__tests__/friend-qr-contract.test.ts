@@ -274,3 +274,16 @@ describe("Xiaomi 실측 2026-11-12 07:4x — 스캔 칸 영상·버튼", () => {
   });
 });
 
+describe("전체 실기 감사 2026-11-12 08:0x — 상태별 화면", () => {
+  it("QR 끔·불러오기 실패: 「스캔하면 바로 친구」 안내 숨김, 실패면 이름·아이디 자리표시도 그리지 않음", () => {
+    const panel = read("components/community-messenger/friend-qr/MyFriendQrPanel.tsx");
+    expect(panel).toContain("{!failed && allowed ? (");
+    expect(panel.match(/\) : failed \? null : \(/g)).toHaveLength(2);
+  });
+
+  it("결과 시트 실패·내 QR: 사진 자리 아이콘 + 이름 자리 문구", () => {
+    const host = read("components/community-messenger/friend-qr/FriendQrResultHost.tsx");
+    expect(host).toContain('<QrCode className="h-8 w-8" strokeWidth={1.8} />');
+  });
+});
+
