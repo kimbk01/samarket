@@ -7,6 +7,7 @@ import { Settings } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyNotificationsView } from "@/components/my/MyNotificationsView";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { SAM_TIER1_HEADER_ACTION_BTN_CLASS } from "@/lib/ui/tier1-header-icon";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import {
   getNotificationBadgeCountServerSnapshot,
@@ -79,7 +80,7 @@ export default function NotificationsCenterPage() {
         rightSlot={
           <Link
             href="/mypage/section/settings/notifications"
-            className="sam-header-action flex min-h-11 min-w-11 items-center justify-center text-sam-fg"
+            className={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
             aria-label={t("notif_tier1_to_settings")}
           >
             <Settings className="h-5 w-5" strokeWidth={2} aria-hidden />

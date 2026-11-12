@@ -30,7 +30,7 @@ function CaretDownIcon({ className }: { className?: string }) {
 
 /**
  * CONTRACT — `/stores` 배민 미러링 고정 헤더 (설계 v6 §3 ①②) + 당김 새로고침 힌트.
- * ① 「주소 ▾」 굵게 · 헤더 아이콘 주문·카트·알림 — 스크롤하면 접힘
+ * ① 「주소 ▾」 제목과 같은 17px/600 · 헤더 아이콘 주문·카트·알림 48/24 (헤더 SSOT 2단계) — 스크롤하면 접힘
  *   (Owner 2026-11-13: 바로 아래 ② 검색창과 겹치므로 헤더 🔍 제거 — 2026-10-30 「공통 아이콘 그대로」를 이 화면만 대체)
  * ② 검색창 알약 43px · 테두리 1.5px 녹색 — 누르면 배달 검색
  * PTR 슬롯은 헤더 맨 아래 그대로 (`DibayPtrSlot`).
@@ -50,17 +50,18 @@ export function StoresHomeHeaderChrome() {
   );
   return (
     <header data-stores-home-header data-baemin-mirror="1" className={`${MIRROR_HEADER_SHELL_CLASS} z-[3]`}>
-      <div className="mx-auto w-full min-w-0 max-w-[768px]">
+      <div className="mx-auto w-full min-w-0 max-w-[768px] sector-header--no-left-slot">
         <div
           data-stores-home-address-row
           data-collapsed={collapsed ? "true" : "false"}
           aria-hidden={collapsed}
-          className={`overflow-hidden ${collapsed ? "h-0" : "h-[50px]"}`}
+          className={`overflow-hidden ${collapsed ? "h-0" : "h-[length:var(--sector-header-h)]"}`}
         >
-          <div className="grid h-[50px] grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-[var(--delivery-page-x)]">
+          {/* 헤더 SSOT 2단계 — 다른 허브와 같은 줄(높이 52 · 주소 시작 16px · 아이콘 48/24 · 끝 아이콘 그림 = 화면 끝 16px) */}
+          <div className="sector-header-bar sector-header-bar--left-title">
             <button
               type="button"
-              className="inline-flex min-w-0 max-w-full items-center gap-1 justify-self-start text-[17px] font-bold leading-none text-[color:#362415] active:opacity-70"
+              className="inline-flex min-w-0 max-w-full items-center gap-1 justify-self-start text-[length:var(--sector-header-title-size)] font-semibold leading-none text-[color:var(--sector-header-title-color)] active:opacity-70"
               aria-label={t("layout_neighborhood_address_aria", { line: headerLine })}
               tabIndex={collapsed ? -1 : 0}
               onClick={() =>
@@ -74,7 +75,7 @@ export function StoresHomeHeaderChrome() {
             >
               <AddressKindHeadPin kind="master" className="h-[18px] w-[18px] shrink-0 [&_svg]:h-full [&_svg]:w-full" />
               <span className="truncate">{headerLine}</span>
-              <CaretDownIcon className="h-2.5 w-2.5 shrink-0" />
+              <CaretDownIcon className="h-3.5 w-3.5 shrink-0" />
             </button>
             <div className={`${STORES_HOME_HEADER_ACTIONS_CLUSTER} h-full self-stretch`}>
               <StoresConsumerHeaderActions hideSearch />
