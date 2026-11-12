@@ -76,7 +76,7 @@ public final class NativeVideoCallUiPresenter {
     String endLabel =
         phase == Phase.DIALING
             ? safeString(app, R.string.dibay_video_call_cancel)
-            : safeString(app, R.string.dibay_video_call_end);
+            : safeString(app, R.string.dibay_call_end_call);
     String cameraLabel = safeString(app, R.string.dibay_video_camera_on);
     return new Model(
         phase,

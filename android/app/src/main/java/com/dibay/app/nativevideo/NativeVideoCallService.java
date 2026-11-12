@@ -15,7 +15,9 @@ import android.media.AudioManager;
 import android.os.Build;
 import android.os.IBinder;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.Person;
 import androidx.core.content.ContextCompat;
+import com.dibay.app.IncomingCallUiCopy;
 import com.dibay.app.R;
 import com.dibay.app.DibayNativeLocale;
 
@@ -29,6 +31,11 @@ public class NativeVideoCallService extends Service {
   /** @deprecated legacy HIGH channel id — do not create/post new ongoing FGS here. */
   public static final String LEGACY_CHANNEL_ID = "dibay_native_video_call";
 
+  /** SSOT §5 — 통화 전용 알림 묶음. 일반 DIBAY 알림과 OS 자동 묶음 금지. */
+  static final String CALL_NOTIFICATION_GROUP = "dibay.call.ongoing";
+  /** 첫 연결 시각(벽시계) — 알림 통화 시간. STOP 에서 지운다. */
+  private static final java.util.concurrent.ConcurrentHashMap<String, Long> CONNECTED_WALL_AT =
+      new java.util.concurrent.ConcurrentHashMap<>();
   private static final int NOTIFICATION_ID = 96001;
   private static final String ACTION_RINGING = "com.dibay.app.nativevideo.RINGING";
   private static final String ACTION_CONNECTING = "com.dibay.app.nativevideo.CONNECTING";
@@ -133,6 +140,7 @@ public class NativeVideoCallService extends Service {
       callId = "unknown";
     }
     if (ACTION_STOP.equals(action)) {
+      CONNECTED_WALL_AT.remove(callId);
       String owner = ownerCallId;
       if (owner != null && !owner.equals(callId)) {
         // 이전 통화의 STOP 이 새 통화 START 뒤에 도착 — 새 통화 FGS 를 끊지 않는다.
@@ -158,40 +166,66 @@ public class NativeVideoCallService extends Service {
   }
 
   private Notification buildNotification(String callId, String action) {
-    String title =
-        ACTION_CONNECTED.equals(action)
-            ? "DIBAY video call"
-            : ACTION_CONNECTING.equals(action) ? "DIBAY video connecting" : "DIBAY incoming video call";
-    // Voice FGS parity: DEFAULT + onlyAlertOnce + silent — shade ongoing, no heads-up.
+    // SSOT docs/dibay-call-minimized-surface-cta-ssot.md §5 — 진행 중 통화 알림 = 통화 카드(CallStyle).
+    // 제목 = 상대 이름, 본문 = 「영상 통화 중」(키), 통화 시간, 통화 전용 묶음(일반 알림과 자동 묶음 금지).
+    // 채널·중요도·소리는 그대로(DEFAULT + onlyAlertOnce + silent — heads-up 없음, 사용자 채널 설정 보존).
+    String sid = callId != null ? callId.trim() : "";
+    NativeVideoCallRuntime.Session session = sid.isEmpty() ? null : NativeVideoCallRuntime.getSession(sid);
+    String peerName =
+        session != null && session.callerName != null && !session.callerName.trim().isEmpty()
+            ? IncomingCallUiCopy.sanitizeNickname(session.callerName.trim())
+            : "";
+    if (peerName.isEmpty()) peerName = "DIBAY";
+    boolean connected = ACTION_CONNECTED.equals(action);
+    boolean connecting = ACTION_CONNECTING.equals(action);
+    int textRes =
+        connected
+            ? R.string.dibay_call_ch_video_ongoing_name
+            : connecting ? R.string.dibay_video_call_connecting : R.string.dibay_video_call_incoming;
     NotificationCompat.Builder builder =
         new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(title)
-            .setContentText("Native video runtime")
+            .setContentTitle(peerName)
+            .setContentText(DibayNativeLocale.string(this, textRes))
             .setOngoing(!ACTION_RINGING.equals(action))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setGroup(CALL_NOTIFICATION_GROUP)
             .setOnlyAlertOnce(true)
             .setSilent(true)
             .setSound(null)
             .setVibrate(null);
+    if (connected && !sid.isEmpty()) {
+      Long at = CONNECTED_WALL_AT.get(sid);
+      if (at == null) {
+        at = System.currentTimeMillis();
+        CONNECTED_WALL_AT.put(sid, at);
+      }
+      builder.setWhen(at).setShowWhen(true).setUsesChronometer(true);
+    }
 
-    // CONNECTING + CONNECTED: return-to-call + hangup (voice zombie parity).
-    if ((ACTION_CONNECTED.equals(action) || ACTION_CONNECTING.equals(action))
-        && callId != null
-        && !callId.trim().isEmpty()) {
-      String sid = callId.trim();
-      NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(sid);
+    // CONNECTING + CONNECTED: return-to-call + hangup (zombie guard — a live FGS must always offer hangup).
+    if ((connected || connecting) && !sid.isEmpty()) {
       PendingIntent contentPi = returnToCallIntent(sid, session, action);
       if (contentPi != null) {
         builder.setContentIntent(contentPi);
       }
       PendingIntent hangUpPi = hangUpIntent(sid);
       if (hangUpPi != null) {
-        builder.addAction(
-            new NotificationCompat.Action.Builder(
-                    0, DibayNativeLocale.string(this, R.string.dibay_video_call_end), hangUpPi)
-                .build());
+        String endLabel = DibayNativeLocale.string(this, R.string.dibay_call_end_call);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+          try {
+            Person person = new Person.Builder().setName(peerName).setImportant(true).build();
+            builder.setStyle(
+                NotificationCompat.CallStyle.forOngoingCall(person, hangUpPi).setIsVideo(true));
+          } catch (IllegalArgumentException | IllegalStateException error) {
+            NativeVideoCallLog.warn(
+                "ongoing_notification_callstyle_failed", sid, "err=" + error.getClass().getSimpleName());
+            builder.addAction(new NotificationCompat.Action.Builder(R.drawable.ic_call_end, endLabel, hangUpPi).build());
+          }
+        } else {
+          builder.addAction(new NotificationCompat.Action.Builder(R.drawable.ic_call_end, endLabel, hangUpPi).build());
+        }
       }
     }
 

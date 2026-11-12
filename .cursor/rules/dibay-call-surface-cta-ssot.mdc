@@ -1,0 +1,28 @@
+---
+description: HARD LOCK — 통화 화면 밖 표면(PiP·진행 중 알림·최근 앱 카드·Dock)과 통화 CTA(종료·마이크·카메라) 단일 정의. 레거시(Telegram) 실측 기준. Android 네이티브 통화 화면·PiP·알림을 고칠 때 반드시 읽는다.
+alwaysApply: false
+globs:
+  - android/app/src/main/java/com/dibay/app/nativevideo/**
+  - android/app/src/main/java/com/dibay/app/nativevoice/**
+  - android/app/src/main/java/com/dibay/app/call/CallPipActionPlan.java
+  - android/app/src/main/java/com/dibay/app/call/CallRecentsCardPresenter.java
+  - android/app/src/main/java/com/dibay/app/call/CallForegroundService.java
+  - android/app/src/main/res/layout/activity_native_video_call.xml
+  - android/app/src/main/res/layout/activity_native_voice_call.xml
+  - android/app/src/main/res/layout/activity_incoming_call.xml
+  - android/app/src/main/res/drawable/ic_call_end.xml
+---
+
+# 통화 화면 밖 표면·CTA SSOT (HARD LOCK)
+
+단일 정의: `docs/dibay-call-minimized-surface-cta-ssot.md` · 근거(실측 원본): `docs/audit/call-pip-nav-notification-audit-design-2026-11-12.md`.
+상위: `AGENTS.md` 「통화 변경 규정」 · `docs/dibay-chat-call-current-normal-hard-lock.md` HARD LOCK A.
+
+1. **통화 CTA 에 X 모양 금지.** 종료·거절 = 빨간 수화기 `ic_call_end` 하나. X 는 OS PiP 메뉴의 창 닫기 전용.
+2. **PiP 버튼 = 마이크 · 카메라(영상) · 통화 종료**, 순서·우선순위는 `CallPipActionPlan` 하나로만 정한다.
+3. **PiP 닫기(X)·최근 앱에서 카드 제거 = 통화 유지**(11-01 판단표 SURFACE_LOST = KEEP). 카메라 상태도 그대로.
+4. **자동 PiP 는 CONNECTED 동안만**(`setAutoEnterEnabled`). `onUserLeaveHint` 는 PiP 꺼진 기기의 Dock 대체 경로라 유지.
+5. **진행 중 통화 알림 = CallStyle 통화 카드** + 상대 이름 + 「영상/음성 통화 중」 키 + 통화 시간 + 묶음 `dibay.call.ongoing`. 코드 안 영어 문구 금지.
+6. **최근 앱 통화 카드 = CONNECTED 동안만**, 종료·화면 종료 시 숨김(잔류 0). 표시/숨김은 `CallRecentsCardPresenter` 하나.
+7. 검사 `npm run verify:call-surface-cta-ssot`(CI `ci:static`) + `CallPipActionPlanTest`. 검사를 느슨하게 고쳐 통과시키지 않는다.
+8. 바꾸려면 Owner 명시 재개방 + SSOT 개정 + 통화 변경 규정 3번(영향 분석·승인) + 실기(Telegram 실측표와 1:1).
