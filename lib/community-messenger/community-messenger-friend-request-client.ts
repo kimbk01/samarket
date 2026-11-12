@@ -175,7 +175,7 @@ export function postCommunityMessengerFriendRequestApi(
   targetUserId: string,
   note: string | undefined,
   /** 친구가 된 경로 — 반드시 넘긴다 (QR 친구 재감사 D-A2). 아이디 검색·연락처·채팅방(프로필) */
-  source: "id_search" | "contacts" | "profile"
+  source: "id_search" | "contacts" | "profile" | "group"
 ): Promise<CommunityMessengerFriendRequestApiResult> {
   const target = trimId(targetUserId);
   if (!target) return Promise.resolve({ ok: false, error: "bad_target" });

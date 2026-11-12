@@ -2129,7 +2129,8 @@ export function useMessengerRoomPhase2Controller() {
       if (!target) return;
       setBusy(`friend-add:${target}`);
       try {
-        const result = await postCommunityMessengerFriendRequestApi(target, undefined, "profile");
+        /** 방 그룹 초대 중 친구 추가 = 경로 `group` (QR 친구 재감사 D-A1) */
+        const result = await postCommunityMessengerFriendRequestApi(target, undefined, "group");
         if (result.ok) {
           showMessengerSnackbar(t("cm_ui_sent_friend_request"), { variant: "success" });
           void loadFriends();

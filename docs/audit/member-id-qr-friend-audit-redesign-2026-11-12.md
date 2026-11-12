@@ -292,3 +292,11 @@ Owner 지시 (2026-11-12): 「남은 부분 없도록 하고, 처음 구현 계�
 
 - PASS: 내정보 「QR 코드」 줄(높이 67 = 「나의 배터리·신뢰」 줄 67), 시트 아래 붙음·높이 529·넘침 0·마지막 버튼 576, 스캔 탭 카메라 268·갤러리 48, 갤러리로 q테스트1 현재 QR 사진 선택 → 메신저로 이동 → 결과 시트 「q테스트1 · @qqqq · 이미 친구예요 · 대화하기」.
 - FAIL: 넓은 화면(1006px)에서 시트가 화면 전체 폭으로 열려 [공유] 버튼이 약 1000px — 메신저 밖 시트 폭 규칙이 없었다. 공용 오버레이 시트(최대 32rem·가운데)와 같게 수정. 기기 적용 계측: 시트 512px·좌우 차 1px·[공유] 478px·넘침 0.
+
+### 8.8 S2 운영 DB 적용 (Owner 「운영 DB 적용」 2026-11-12 10:0x PHT)
+
+- 적용: `20271111180000_member_search_daily_quota`(하루 검색 한도 표·함수), `20271113300000_member_id_v3_s2_qr_group`(source `group` 허용·`cm_send_friend_request` group 받기·`cm_add_friend_via_qr` Q4·Q5). `schema_migrations` 기록 확인.
+- 적용 전 확인: 저장소 `cm_send_friend_request` 본문 = 운영 본문(md5 `6b3d45d0…` 일치) — 바뀐 줄은 허용 경로 한 줄뿐.
+- 적용 후 확인: 제약에 group, 권한(anon·authenticated 실행 불가·service_role 만), 되돌림 트랜잭션 시험 — 이미 친구 QR 추가 스캔 수 0→0(Q5), group 요청 정상(already_friend), 하루 한도 2 에서 3번째 막힘. 되돌린 뒤 운영 데이터 변화 0.
+- 롤백: 이전 정의는 `20271111160000`·`20271111170000` 의 함수 부분 재실행, 제약은 group 빼고 다시 만들기, 한도 표는 `DROP TABLE member_search_daily_quota; DROP FUNCTION member_search_quota_hit`.
+- 코드(같은 PR): 그룹 만들기·방 그룹 초대 = `group`, QR 로 친구가 되면 두 사람 친구 목록 캐시 무효화(다른 친구 경로와 같게 — 감사 중 발견).

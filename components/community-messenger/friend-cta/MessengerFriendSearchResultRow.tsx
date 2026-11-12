@@ -13,9 +13,9 @@ import {
 
 /**
  * 친구가 된 경로 — DB `community_friend_requests.source` 허용값과 같다 (QR 친구 재감사 §2).
- * QR(`qr`)은 별도 함수(`cm_add_friend_via_qr`)라 여기 없다. 그룹 경로 값은 DB 허용값 추가(S2) 뒤에 넣는다.
+ * QR(`qr`)은 별도 함수(`cm_add_friend_via_qr`)라 여기 없다. `group` = 그룹 만들기·방 그룹 초대 중 추가 (DB S2 적용 2026-11-12).
  */
-export type MessengerFriendAddSource = "id_search" | "contacts" | "profile";
+export type MessengerFriendAddSource = "id_search" | "contacts" | "profile" | "group";
 
 /** 검색 결과 행 친구 CTA — 홈의 친구 요청 목록에서 계산한 상태 + 행동 */
 export type MessengerFriendSearchFriendActions = {
