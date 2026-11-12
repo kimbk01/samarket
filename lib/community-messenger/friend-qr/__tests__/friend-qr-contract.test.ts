@@ -269,7 +269,7 @@ describe("Xiaomi 실측 2026-11-12 07:4x — 스캔 칸 영상·버튼", () => {
       expect(read(f)).toContain("absolute inset-0 !h-full w-full object-cover");
     }
     expect(read("components/community-messenger/friend-qr/FriendQrScanPanel.tsx")).toContain(
-      'className="dibay-overlay-btn dibay-overlay-btn--secondary w-full flex-none whitespace-nowrap"',
+      'className="dibay-overlay-btn dibay-overlay-btn--secondary w-full !flex-none whitespace-nowrap"',
     );
   });
 });
