@@ -51,10 +51,20 @@ describe("C 단계 — 셸 서버 HTML", () => {
     expect(html).not.toContain("data-body");
     const shell = readFileSync(join(root, "components/layout/ConditionalAppShell.tsx"), "utf8");
     /** D1 (2026-11-11): 본문은 허브 화면 보관대를 거쳐 그린다 — hydration 전 회색 줄 계약은 그대로 */
-    expect(shell).toContain(
-      "{shellHydrated ? <HubRetentionStack>{children}</HubRetentionStack> : <MainShellDocumentLoading />}"
+    /** P1 (2026-11-12): 허용 목록(홈)만 서버·첫 렌더부터 본문, 그 밖은 회색 줄 */
+    expect(shell).toMatch(
+      /\{shellHydrated \|\| isServerRenderedBodyPath\(pathname\) \? \(\s*<HubRetentionStack>\{children\}<\/HubRetentionStack>\s*\) : \(\s*<MainShellDocumentLoading \/>\s*\)\}/
     );
     expect(shell).toContain("document.documentElement.setAttribute(SHELL_HYDRATED_HTML_ATTR");
+  });
+
+  it("P1: 서버 본문 허용 목록은 홈만", async () => {
+    const { isServerRenderedBodyPath } = await import("@/lib/layout/server-rendered-body-paths");
+    expect(isServerRenderedBodyPath("/")).toBe(true);
+    expect(isServerRenderedBodyPath("/home")).toBe(true);
+    for (const p of ["/philife", "/community", "/stores", "/mypage", "/community-messenger", "/market", "/home/x", null]) {
+      expect(isServerRenderedBodyPath(p)).toBe(false);
+    }
   });
 
   it("C3: 하단 메뉴 레일·탭 주소의 저장값 읽기는 hydration 이후에만", () => {

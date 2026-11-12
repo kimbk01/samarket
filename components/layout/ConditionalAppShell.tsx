@@ -80,6 +80,7 @@ import { MainShellDocumentLoading } from "@/components/layout/MainRouteLoading";
 import { SHELL_HYDRATED_HTML_ATTR, useShellHydrated } from "@/lib/ui/use-shell-hydrated";
 import { useDibayAppShellAuthority } from "@/lib/device/use-dibay-app-shell";
 import { isCommunityHomeSurfacePath, isHomeSurfacePath, resolveMainSurface } from "@/lib/layout/resolve-main-surface";
+import { isServerRenderedBodyPath } from "@/lib/layout/server-rendered-body-paths";
 
 const PhilifeFeedWarmPrefetch = dynamic(
   () => import("@/components/community/PhilifeFeedWarmPrefetch").then((mod) => mod.PhilifeFeedWarmPrefetch),
@@ -359,7 +360,12 @@ export function ConditionalAppShell({
        * 서버 HTML·hydration 첫 렌더는 기존 회색 줄 본문. 페이지 본문의 서버 렌더는 이번 범위가 아니다.
        */}
       {/** D1 (Owner 2026-11-11): 하단 탭 허브 화면 보관대 — 허브 재진입 시 다시 그리지 않음 (`HubRetentionStack`) */}
-      {shellHydrated ? <HubRetentionStack>{children}</HubRetentionStack> : <MainShellDocumentLoading />}
+      {/** P1 (2026-11-12): 허용 목록 화면(홈)은 서버·hydration 첫 렌더부터 본문 — `isServerRenderedBodyPath` */}
+      {shellHydrated || isServerRenderedBodyPath(pathname) ? (
+        <HubRetentionStack>{children}</HubRetentionStack>
+      ) : (
+        <MainShellDocumentLoading />
+      )}
     </div>
   );
 
