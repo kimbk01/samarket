@@ -3,7 +3,7 @@
  *
  * viewer 관점 해석은 타임라인·목록과 동일하게 `resolveCallEventCanonical` 만 사용한다.
  * - 발신자 취소: 발신자 `outgoing_cancelled`(취소됨) / 수신자 `incoming_missed`(부재중)
- * - 미응답: 발신자 `unanswered`(응답 없음) / 수신자 `incoming_missed`(부재중)
+ * - 미응답: 발신자·수신자 모두 `incoming_missed`(부재중) — 현재 코드 기준(발신자 「응답 없음」 분리는 미구현)
  * - 거절: 수신자 `local_rejected`(거절함) / 발신자 `remote_rejected`(거절됨)
  *
  * 서버 전용 의존성이 없어야 한다 (client presenter 에서도 import).

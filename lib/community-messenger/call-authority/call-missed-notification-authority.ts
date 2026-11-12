@@ -57,9 +57,30 @@ export type RoomBoundMissedCallNotifyDecision =
     }
   | { notify: false; skipReason: string };
 
+/** 발신자가 응답 전에 취소한 1:1 통화 — 수신자에게는 부재중 (Owner 2026-11-13 · 레거시 텔레그램 동일). */
+export function isCallerCancelledBeforeAnswer(input: {
+  status: string | null | undefined;
+  endedReason?: string | null;
+}): boolean {
+  const status = trimText(input.status).toLowerCase();
+  const endedReason = trimText(input.endedReason).toLowerCase();
+  return status === "cancelled" && (endedReason === "canceled" || endedReason === "cancelled");
+}
+
+/** 수신자 부재중 알림 판정 대상 상태 — 받지 않음(시간 초과) 또는 발신자 취소. 호출부 게이트도 이 함수만 쓴다. */
+export function isRoomBoundMissedCallCandidate(input: {
+  status: string | null | undefined;
+  endedReason?: string | null;
+}): boolean {
+  const status = trimText(input.status).toLowerCase();
+  return status === "missed" || status === "timeout" || isCallerCancelledBeforeAnswer(input);
+}
+
 /**
  * When to create the logical missed product notification (room-bound).
  * Callee only. Requires session.room_id. No orphan invent path.
+ * 대상: 받지 않음(missed/timeout) + 발신자 응답 전 취소(cancelled + canceled) —
+ * docs/audit/call-cancel-callee-missed-design-2026-11-13.md D3.
  */
 export function decideRoomBoundMissedCallNotification(input: {
   status: string | null | undefined;
@@ -72,7 +93,8 @@ export function decideRoomBoundMissedCallNotification(input: {
   callKind?: string | null;
 }): RoomBoundMissedCallNotifyDecision {
   const status = trimText(input.status).toLowerCase();
-  if (status !== "missed" && status !== "timeout") {
+  const callerCancelled = isCallerCancelledBeforeAnswer(input);
+  if (!isRoomBoundMissedCallCandidate(input)) {
     return { notify: false, skipReason: `status_${status || "empty"}` };
   }
 
@@ -95,8 +117,7 @@ export function decideRoomBoundMissedCallNotification(input: {
     endedReason === "answered_elsewhere" ||
     endedReason === "peer_busy" ||
     endedReason === "callee_busy" ||
-    endedReason === "canceled" ||
-    endedReason === "cancelled" ||
+    (!callerCancelled && (endedReason === "canceled" || endedReason === "cancelled")) ||
     endedReason === "declined" ||
     endedReason === "redial_replaced"
   ) {

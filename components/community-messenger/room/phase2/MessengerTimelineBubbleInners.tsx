@@ -157,12 +157,15 @@ export const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallSt
   voiceCallLabel,
   videoCallLabel,
   callStatusLabel,
+  callStatusTone,
 }: {
   item: TimelineViberBubbleMessage;
   stubBusy: boolean;
   voiceCallLabel: string;
   videoCallLabel: string;
   callStatusLabel: string;
+  /** 문구와 같은 판정의 색 — 있으면 이것만 쓴다(보는 사람 기준·언어 무관). docs/audit/call-cancel-callee-missed-design-2026-11-13.md D2 */
+  callStatusTone?: "missed" | "rejected" | "cancelled" | "normal";
 }) {
   const CallGlyph = item.callKind === "video" ? VideoCallIcon : VoiceCallIcon;
   const kindLabel = item.callKind === "video" ? videoCallLabel : voiceCallLabel;
@@ -170,10 +173,16 @@ export const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallSt
   const displayLabel = resultLabel
     ? `${kindLabel} · ${resultLabel}`
     : item.content.trim() || `${kindLabel} · ${resultLabel || ""}`;
-  const isMissed = item.callStatus === "missed" || /부재중/.test(resultLabel);
-  /** 결과별 색 구분(정상·부재중·거절·취소) — 보는 사람과 무관하게 통화 결과 기준 */
-  const isRejected = !isMissed && (item.callStatus === "rejected" || /거절/.test(resultLabel));
-  const isCancelled = !isMissed && !isRejected && (item.callStatus === "cancelled" || /취소/.test(resultLabel));
+  /** 결과별 색 구분(정상·부재중·거절·취소) — 문구와 같은 판정(발신자 취소는 수신자에게 부재중) */
+  const isMissed = callStatusTone
+    ? callStatusTone === "missed"
+    : item.callStatus === "missed" || /부재중/.test(resultLabel);
+  const isRejected = callStatusTone
+    ? callStatusTone === "rejected"
+    : !isMissed && (item.callStatus === "rejected" || /거절/.test(resultLabel));
+  const isCancelled = callStatusTone
+    ? callStatusTone === "cancelled"
+    : !isMissed && !isRejected && (item.callStatus === "cancelled" || /취소/.test(resultLabel));
   const isMine = Boolean(item.isMine);
 
   /**

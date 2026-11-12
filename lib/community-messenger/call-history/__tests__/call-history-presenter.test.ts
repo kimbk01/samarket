@@ -69,20 +69,21 @@ describe("call-history-presenter", () => {
     expect(incoming.badgeLabelKey).toBe("cm_call_status_incoming_answered");
   });
 
-  it("caller cancel: caller and callee both see 취소 (outcome-based, timeline 과 동일)", () => {
+  // Owner 2026-11-13: 발신자 취소 = 발신자 「취소」 · 수신자 「부재중」 (타임라인과 동일)
+  it("caller cancel: caller 취소 · callee 부재중", () => {
     const caller = presentCallHistoryRow(baseCall({ status: "cancelled", isOutgoing: true }));
     expect(caller.displayType).toBe("cancelled");
     expect(caller.badgeLabelKey).toBe("cm_call_status_cancelled");
     expect(caller.isMissed).toBe(false);
 
-    /** 구 캐시 payload 의 viewer 기준 displayType("missed_incoming") 도 결과 기준으로 교정 */
+    /** 구 캐시 payload 의 displayType("cancelled") 도 수신자 기준(부재중)으로 다시 계산 */
     const callee = presentCallHistoryRow(
-      baseCall({ status: "cancelled", isOutgoing: false, displayType: "missed_incoming" })
+      baseCall({ status: "cancelled", isOutgoing: false, displayType: "cancelled" })
     );
-    expect(callee.displayType).toBe("cancelled");
-    expect(callee.badgeLabelKey).toBe("cm_call_status_cancelled");
-    expect(callee.isMissed).toBe(false);
-    expect(callee.avatarOverlayKind).toBeNull();
+    expect(callee.displayType).toBe("missed_incoming");
+    expect(callee.badgeLabelKey).toBe("cm_call_status_missed");
+    expect(callee.isMissed).toBe(true);
+    expect(callee.avatarOverlayKind).toBe("missed");
   });
 
   it("missed: caller and callee both see 부재중", () => {

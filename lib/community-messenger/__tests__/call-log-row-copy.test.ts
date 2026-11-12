@@ -78,7 +78,8 @@ describe("call-log-row-copy", () => {
     expect(cancelled.durationLabel).toBeNull();
   });
 
-  it("normalize recomputes outcome displayType from status (callee of caller-cancel → cancelled, same as caller)", () => {
+  // Owner 2026-11-13: 발신자 취소의 수신자 = 부재중
+  it("normalize recomputes displayType from status (callee of caller-cancel → missed_incoming)", () => {
     const normalized = normalizeCommunityMessengerCallLog({
       id: "3",
       sessionId: null,
@@ -99,7 +100,7 @@ describe("call-log-row-copy", () => {
       displayType: "missed_incoming",
       peerAvatarUrl: null,
     });
-    expect(normalized.displayType).toBe("cancelled");
+    expect(normalized.displayType).toBe("missed_incoming");
     expect(buildCallHistorySubtitle(normalized).messageKey).toBe("cm_ui_call_log_kind_video");
   });
 

@@ -24,6 +24,7 @@ import { useGroupMessageReadCounts } from "@/lib/community-messenger/group/use-g
 import { stripMentionTokensForPreview } from "@/lib/community-messenger/group/group-room-mention-parser";
 import {
   getCallStubTimelineStatusLine,
+  getCallStubTimelineTone,
   inferResolvedEventFromStoredCallStatus,
   resolveCallStubEventFromMessageMetadata,
 } from "@/lib/community-messenger/call-event-message";
@@ -2225,6 +2226,25 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                             });
                           })()
                         : vm.tt(formatRoomCallStatus(item.callStatus))
+                    }
+                    callStatusTone={
+                      item.messageType === "call_stub"
+                        ? (() => {
+                            const fromMeta = resolveCallStubEventFromMessageMetadata(
+                              item.metadata as Record<string, unknown> | null | undefined
+                            );
+                            return getCallStubTimelineTone({
+                              resolvedEvent:
+                                fromMeta.resolvedEvent ??
+                                inferResolvedEventFromStoredCallStatus(item.callStatus),
+                              callStatusFallback: item.callStatus,
+                              viewerUserId: vm.snapshot.viewerUserId ?? "",
+                              senderUserId: item.senderId,
+                              initiatorUserId: fromMeta.initiatorUserId,
+                              recipientUserId: fromMeta.recipientUserId,
+                            });
+                          })()
+                        : undefined
                     }
                     stubBusy={stubBusy}
                     senderLabelDisplay={resolveMessageSenderLabel(item)}
