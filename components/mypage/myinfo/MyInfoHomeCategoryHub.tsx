@@ -144,7 +144,7 @@ export function MyInfoHomeCategoryGrid({
                 </span>
                 <span className="break-words text-[16px] font-extrabold leading-tight text-sam-fg">{t(cat.titleKey)}</span>
                 <span
-                  className={`mt-1 line-clamp-2 break-words text-[12px] leading-snug ${warn ? "font-semibold text-[#8A3B00] dark:text-sam-warning" : "text-sam-muted"}`}
+                  className={`mt-1 line-clamp-2 break-words text-[12px] leading-snug ${warn ? "font-semibold text-[#8A3B00]" : "text-sam-muted"}`}
                 >
                   {s.text}
                 </span>

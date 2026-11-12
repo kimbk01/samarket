@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<meta name="color-scheme" content="light dark"/>
+<meta name="color-scheme" content="light"/>
 <title>DIBAY</title>
 <style>:root{--sam-bg-app:#FFFCFC;--sam-fg:#0B421A;--sam-muted:#5C6B63;--sam-border:#E6EBE8;--sam-surface:#FFFFFF;--sam-primary:#0B421A;--safe-bottom:env(safe-area-inset-bottom,0px);--safe-top:env(safe-area-inset-top,0px)}
 html,body{margin:0;padding:0;height:100%;background:var(--sam-bg-app);color:var(--sam-fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;-webkit-tap-highlight-color:transparent}
@@ -17,10 +17,7 @@ html,body{margin:0;padding:0;height:100%;background:var(--sam-bg-app);color:var(
 #dibay-startup-nav{flex:0 0 auto;display:flex;align-items:stretch;justify-content:space-around;gap:2px;padding:6px 4px calc(6px + var(--safe-bottom));border-top:1px solid var(--sam-border);background:var(--sam-surface);min-height:calc(56px + var(--safe-bottom))}
 #dibay-startup-nav button{appearance:none;border:0;background:transparent;color:var(--sam-muted);flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px 2px;font-size:10px;font-weight:600;cursor:pointer}
 #dibay-startup-nav button[aria-current="page"]{color:var(--sam-primary)}
-#dibay-startup-nav button svg{display:block}
-@media (prefers-color-scheme: dark){
-  :root{--sam-bg-app:#12161d;--sam-fg:#F2F5F3;--sam-muted:#A7B2AB;--sam-border:#2A323C;--sam-surface:#1A2028;--sam-primary:#8FCB9B}
-}</style>
+#dibay-startup-nav button svg{display:block}</style>
 </head>
 <body>
 <div id="dibay-startup-root">
@@ -35,7 +32,6 @@ html,body{margin:0;padding:0;height:100%;background:var(--sam-bg-app);color:var(
 </div>
 
 <script>(function(){
-  var THEME_KEY="dibay:startup:theme";
   var LANG_KEY="dibay:startup:lang";
   var USER_KEY="dibay:startup:user";
   var NAV_KEY="dibay:startup:nav";
@@ -48,22 +44,6 @@ html,body{margin:0;padding:0;height:100%;background:var(--sam-bg-app);color:var(
 
   function readJson(key){
     try{var raw=localStorage.getItem(key);return raw?JSON.parse(raw):null;}catch(e){return null;}
-  }
-  function applyTheme(theme){
-    var dark=false;
-    if(theme==="dark") dark=true;
-    else if(theme==="light") dark=false;
-    else dark=!!(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches);
-    document.documentElement.style.colorScheme=dark?"dark":"light";
-    if(dark){
-      document.documentElement.style.setProperty("--sam-bg-app","#12161d");
-      document.documentElement.style.setProperty("--sam-fg","#F2F5F3");
-      document.documentElement.style.setProperty("--sam-muted","#A7B2AB");
-      document.documentElement.style.setProperty("--sam-border","#2A323C");
-      document.documentElement.style.setProperty("--sam-surface","#1A2028");
-      document.documentElement.style.setProperty("--sam-primary","#8FCB9B");
-    }
-    return dark;
   }
   function applyUser(user){
     var el=document.querySelector("#dibay-startup-header .user");
@@ -153,8 +133,6 @@ html,body{margin:0;padding:0;height:100%;background:var(--sam-bg-app);color:var(
     }catch(e){}
   }
   function paint(){
-    var theme=null; try{theme=localStorage.getItem(THEME_KEY);}catch(e){}
-    applyTheme(theme||"system");
     applyUser(readJson(USER_KEY));
     applyNav(readJson(NAV_KEY));
     var route=readJson(ROUTE_KEY);

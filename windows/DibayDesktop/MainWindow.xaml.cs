@@ -40,6 +40,8 @@ public sealed partial class MainWindow : Window
     {
         await Web.EnsureCoreWebView2Async();
         var core = Web.CoreWebView2;
+        // 다크 모드 없음 (Owner 2026-11-12) — Windows 다크 테마여도 웹(prefers-color-scheme)·WebView2 대화상자 라이트 고정.
+        core.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Light;
 #if DEBUG
         core.Settings.AreDevToolsEnabled = true;
 #else

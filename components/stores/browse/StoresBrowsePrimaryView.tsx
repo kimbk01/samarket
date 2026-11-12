@@ -1056,7 +1056,7 @@ export function StoresBrowsePrimaryView({
   }
 
   return (
-    <div className={`min-h-[50vh] bg-white ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} dark:bg-[#18191A]`}>
+    <div className={`min-h-[50vh] bg-white ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}>
       <BrowseSubtopicCollapseSentinel routeKey={subtopicCollapseRouteKey} />
       <div className="pt-3">
       {browseListReady && browseActive ?
@@ -1158,9 +1158,9 @@ export function StoresBrowsePrimaryView({
             }}
           />
         : showEmptyBlock ?
-          <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-4 py-10 text-center dark:border-sam-border dark:bg-[#242526]">
-            <p className="text-sm text-sam-muted dark:text-sam-meta">{t("store_empty_store_list")}</p>
-            <p className="mt-1 text-xs text-sam-meta dark:text-sam-muted">
+          <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-4 py-10 text-center">
+            <p className="text-sm text-sam-muted">{t("store_empty_store_list")}</p>
+            <p className="mt-1 text-xs text-sam-meta">
               {menuRoot ?
                 safeT("store_browse_menu_empty_hint")
               : browseScopePolicy?.enabled === false
@@ -1171,13 +1171,13 @@ export function StoresBrowsePrimaryView({
             </p>
             {otherPrimaries.length > 0 && !menuRoot ?
               <div className="mt-5">
-                <p className="mb-2 sam-text-xxs font-semibold text-sam-muted dark:text-sam-meta">{t("store_browse_other_industries")}</p>
+                <p className="mb-2 sam-text-xxs font-semibold text-sam-muted">{t("store_browse_other_industries")}</p>
                 <div className="flex flex-wrap justify-center gap-2">
                   {otherPrimaries.map((p) => (
                     <Link
                       key={p.id}
                       href={storesBrowsePrimaryPath(p.slug)}
-                      className="inline-flex items-center gap-1 rounded-full border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-semibold text-sam-fg active:bg-sam-surface-muted dark:border-sam-border dark:bg-[#3A3B3C] dark:text-[#E4E6EB]"
+                      className="inline-flex items-center gap-1 rounded-full border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-semibold text-sam-fg active:bg-sam-surface-muted"
                     >
                       <span aria-hidden>{p.symbol}</span>
                       {resolveTaxonomyIndustryLabel(

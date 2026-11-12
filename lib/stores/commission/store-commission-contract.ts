@@ -258,7 +258,7 @@ export const STORE_COMMISSION_FILTER_LABEL: Record<StoreCommissionLedgerFilterSt
   ...STORE_COMMISSION_ROW_STATE_LABEL,
 };
 
-/** Design tokens (light + dark via prefers-color-scheme) — never raw palette colors. */
+/** Design tokens (light only — DIBAY has no dark mode) — never raw palette colors. */
 export const STORE_COMMISSION_ROW_STATE_CHIP: Record<StoreCommissionRowState, string> = {
   charged: "bg-sam-success-soft text-sam-success",
   outstanding: "bg-sam-danger-soft text-sam-danger",

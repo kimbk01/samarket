@@ -86,7 +86,7 @@ describe("IA-19 owner UI token ratchet", () => {
   it("order-chat ensure failure document uses an inline token shell", () => {
     const src = readFileSync(join(ROOT, "lib/business/owner-order-chat-ensure-document.ts"), "utf8");
     expect(src).toContain("--sam-bg-app:");
-    expect(src).toContain("prefers-color-scheme:dark");
+    expect(src).not.toContain("prefers-color-scheme");
     expect(src).toContain("background:var(--sam-bg-app)");
     expect(src).not.toMatch(/background:#fff|color:#111/);
   });

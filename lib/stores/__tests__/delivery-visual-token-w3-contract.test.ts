@@ -32,11 +32,8 @@ describe("DIBAY 는 다크 모드 없음 — 배달 토큰에 다크 전용 규�
   it("delivery-tokens.css 에 prefers-color-scheme: dark 블록 없음", () => {
     expect(src("app/delivery-tokens.css")).not.toContain("prefers-color-scheme: dark");
   });
-  it("주문 목록 토큰의 기존 다크 블록에 on-primary·표면 재정의를 추가하지 않음", () => {
-    const css = src("app/store-order-list-tokens.css");
-    const dark = css.slice(css.indexOf("@media (prefers-color-scheme: dark)"));
-    expect(dark).not.toContain("--sam-text-on-primary");
-    expect(dark).not.toContain("--sol-card-bg");
+  it("주문 목록 토큰에 prefers-color-scheme: dark 블록 없음", () => {
+    expect(src("app/store-order-list-tokens.css")).not.toContain("prefers-color-scheme");
   });
 });
 

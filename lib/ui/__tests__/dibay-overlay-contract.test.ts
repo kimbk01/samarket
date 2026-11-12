@@ -63,7 +63,7 @@ describe("DIBAY Overlay SSOT contract", () => {
   it("CSS tokens match attachment SSOT", () => {
     const css = read("app/dibay-overlay.css");
     // Brand green / danger / text follow light-only base tokens (one brand green #0B421A).
-    // Never --sam-*: they flip under prefers-color-scheme dark while the overlay surface stays white.
+    // Never --sam-*: the overlay surface keeps its own base tokens.
     expect(css).toContain("--overlay-primary: var(--dibay-green)");
     expect(css).toContain("--overlay-danger: var(--sm-color-danger)");
     expect(css).toContain("--overlay-text-primary: var(--sm-color-text-main)");

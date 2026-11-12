@@ -138,7 +138,7 @@ export function StoreDetailSlideShell({ children }: { children: ReactNode }) {
   return (
     <StoreDetailAnimatedBackProvider value={requestAnimatedBack}>
       <div
-        className="relative z-[20] min-h-[100dvh] bg-white dark:bg-[#18191A]"
+        className="relative z-[20] min-h-[100dvh] bg-white"
         style={surfaceStyle}
         onTransitionEnd={onSurfaceTransitionEnd}
         data-store-detail-slide-phase={phase}

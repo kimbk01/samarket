@@ -16,7 +16,7 @@ export const PRODUCT_DETAIL_CTA_BUTTON =
  */
 
 /** 외곽 셸: 상단 그림자 — safe-area 는 자식 최하단 섹터에만 */
-export const TRADE_POST_DETAIL_BOTTOM_SHELL = `fixed bottom-0 left-1/2 z-30 flex w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} -translate-x-1/2 flex-col border-t border-sam-border bg-sam-surface shadow-[0_-2px_16px_rgba(15,20,25,0.07)] dark:border-sam-border dark:shadow-[0_-2px_14px_rgba(0,0,0,0.4)]`;
+export const TRADE_POST_DETAIL_BOTTOM_SHELL = `fixed bottom-0 left-1/2 z-30 flex w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} -translate-x-1/2 flex-col border-t border-sam-border bg-sam-surface shadow-[0_-2px_16px_rgba(15,20,25,0.07)]`;
 
 /** PRIMARY 공통 골격 (safe 제외) */
 const TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW_BASE =

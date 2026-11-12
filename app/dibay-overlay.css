@@ -3,7 +3,7 @@
  * Attachment SSOT — do not invent alternate values.
  * Colors follow the app's base brand tokens (`--dibay-*` / `--sm-color-*`, light only) so overlays share one
  * brand green (#0B421A), danger and text colors with the rest of the app (UI·CTA 공통 기준 2026-10-24 §1-1).
- * Do NOT point these at `--sam-*`: those flip under `prefers-color-scheme: dark` while the overlay surface stays
+ * Do NOT point these at `--sam-*`: those are scoped app tokens while the overlay surface stays
  * white → unreadable titles on dark-mode phones (DIBAY has no dark mode product UI).
  */
 

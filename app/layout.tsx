@@ -79,10 +79,8 @@ export const viewport: Viewport = {
   /** Android Chrome 등: 가상 키보드 시 레이아웃 뷰포트가 줄어들어 채팅 입력·flex 높이와 맞기 쉬움 */
   interactiveWidget: "resizes-content",
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#0B421A" },
-    { media: "(prefers-color-scheme: dark)", color: "#0B421A" },
-  ],
+  /** 다크 모드 없음 — 기기 다크여도 같은 값 */
+  themeColor: "#0B421A",
 };
 
 export default async function RootLayout({

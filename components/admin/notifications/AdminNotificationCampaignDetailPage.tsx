@@ -564,7 +564,7 @@ export function AdminNotificationCampaignDetailPage() {
                 </Link>
               </div>
             ) : linkedId && linkedContent ? (
-              <div className="space-y-2 rounded-ui-rect border border-sam-warning bg-sam-warning-soft/60 p-3 dark:border-sam-warning dark:bg-sam-warning/20">
+              <div className="space-y-2 rounded-ui-rect border border-sam-warning bg-sam-warning-soft/60 p-3">
                 <div className="flex flex-wrap items-start gap-3">
                   {linkedContent.hero_image_url ? (
                     <SamarketThumbnail
@@ -877,7 +877,7 @@ export function AdminNotificationCampaignDetailPage() {
           </section>
 
           {isSending ? (
-            <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-4 py-3 text-sm dark:border-sam-warning dark:bg-sam-warning/30">
+            <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-4 py-3 text-sm">
               <p className="font-medium text-sam-fg">{t("admin_notif_status_sending")}</p>
               <p className="mt-1 text-sam-muted">{t("admin_notif_sending_progress")}</p>
               <AdminActionButton variant="secondary" size="sm" className="mt-2"

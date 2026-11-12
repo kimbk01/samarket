@@ -601,7 +601,7 @@ function BrowseSurface({
   }, [instanceIdRef]);
 
   return (
-    <div className="min-h-[100dvh] bg-sam-app dark:bg-[#18191A]">
+    <div className="min-h-[100dvh] bg-sam-app">
       <StoresBrowsePrimaryView
         primarySlug={spec.primarySlug}
         initialSubSlug={subSlug ?? spec.initialSubSlug}

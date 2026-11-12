@@ -32,15 +32,15 @@ export const MYPAGE_REQUIRED_TONE_CLASS: Record<
 > = {
   missing: {
     row: "bg-sam-danger-soft",
-    value: "text-[color-mix(in_srgb,var(--sam-danger)_78%,#000)] dark:text-sam-danger",
+    value: "text-[color-mix(in_srgb,var(--sam-danger)_78%,#000)]",
     badge:
-      "border-transparent bg-[color-mix(in_srgb,var(--sam-danger)_78%,#000)] text-white dark:bg-sam-danger dark:text-sam-ink",
+      "border-transparent bg-[color-mix(in_srgb,var(--sam-danger)_78%,#000)] text-white",
   },
   progress: {
     row: "",
     value: "text-sam-muted",
     badge:
-      "border-[#F2A65A] bg-transparent text-[#8A3B00] dark:border-sam-warning dark:text-sam-warning",
+      "border-[#F2A65A] bg-transparent text-[#8A3B00]",
   },
   complete: {
     row: "",
@@ -49,8 +49,8 @@ export const MYPAGE_REQUIRED_TONE_CLASS: Record<
   },
   action: {
     row: "bg-sam-warning-soft",
-    value: "text-[#8A3B00] dark:text-sam-warning",
-    badge: "border-[#F2A65A] bg-[#FFE3C2] text-[#8A3B00] dark:border-transparent dark:bg-sam-warning dark:text-sam-ink",
+    value: "text-[#8A3B00]",
+    badge: "border-[#F2A65A] bg-[#FFE3C2] text-[#8A3B00]",
   },
   error: {
     row: "",
@@ -220,7 +220,7 @@ export function MypageRequiredInfoRowsCard({
             <h2 className="text-[15px] font-bold text-sam-fg">{t("mypage_req_card_title")}</h2>
             {result.settled && !anyError ? (
               <span
-                className={`text-[12px] font-bold ${doneCount === total ? "text-sam-primary" : "text-[#8A3B00] dark:text-sam-warning"}`}
+                className={`text-[12px] font-bold ${doneCount === total ? "text-sam-primary" : "text-[#8A3B00]"}`}
                 data-testid="mypage-account-progress"
               >
                 {doneCount === total ? t("mypage_req_all_done") : t("mypage_req_progress", { done: doneCount, total })}
