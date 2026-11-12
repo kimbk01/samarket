@@ -4,10 +4,12 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { peekTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
 import { resolveCommunityBottomNavEntryHref } from "@/lib/community/community-hub-state";
+import { DIBAY_SECONDARY_TAB_INNER_CLASS } from "@/lib/ui/dibay-secondary-tabs";
 
 /**
- * 커뮤니티 1단 제목 자리 — 「정보교환 · 거래」 전환 탭 (홈 설계안 v11, Owner 「구현 시작」 2026-11-09).
- * 거래(`/market`)는 하단 탭이 아니라 커뮤니티 안의 탭이다. 거래 화면 본문·2단 탭은 그대로 둔다.
+ * 「정보교환 · 거래」 전환 탭 (홈 설계안 v11, Owner 「구현 시작」 2026-11-09).
+ * 거래(`/market`)는 하단 탭이 아니라 커뮤니티 안의 탭이다.
+ * 자리 = 머리글 3단 `CommunityTradeSwitchRow` (Owner 「A 안」 2026-11-12 — 1단 제목 자리에선 영문이 잘려 옮김).
  * - 정보교환 → 마지막 커뮤니티 주제 복원(`resolveCommunityBottomNavEntryHref`)
  * - 거래 → 마지막 거래 목록 URL 복원(`peekTradeListReturnHref`)
  */
@@ -33,7 +35,7 @@ export function CommunityTradeTitleSwitch({ active }: { active: "community" | "t
    */
   return (
     <span
-      className="inline-flex min-w-0 items-center gap-0.5 rounded-full bg-black/[0.06] p-[3px]"
+      className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-black/[0.06] p-[3px]"
       role="tablist"
       data-community-trade-title-switch
     >
@@ -61,5 +63,26 @@ export function CommunityTradeTitleSwitch({ active }: { active: "community" | "t
         );
       })}
     </span>
+  );
+}
+
+/**
+ * 머리글 3단 — 2단 탭 줄 바로 아래, 「정보교환 · 거래」 전환 탭을 **왼쪽 정렬**로 둔다
+ * (Owner 「A 안 · 정보교환 탭 메뉴 좌측 정렬」 2026-11-12, 시안 `docs/design/community-trade-header-switch-mockup-2026-11-12.html`).
+ * 줄을 혼자 쓰므로 영문·긴 문구도 잘리지 않는다 — 폭이 모자라면 줄이 가로로 밀린다(글자 자르기 없음).
+ * 시작선·좌우 여백·줄 높이 = 2단 탭 줄과 같은 토큰(`DIBAY_SECONDARY_TAB_INNER_CLASS` · `--dibay-secondary-tab-row-h`).
+ */
+export function CommunityTradeSwitchRow({ active }: { active: "community" | "trade" }) {
+  return (
+    <div
+      className="w-full min-w-0 bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))]"
+      data-community-trade-switch-row
+    >
+      <div className={DIBAY_SECONDARY_TAB_INNER_CLASS}>
+        <div className="flex h-[length:var(--dibay-secondary-tab-row-h,44px)] min-w-0 max-w-full items-center justify-start overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <CommunityTradeTitleSwitch active={active} />
+        </div>
+      </div>
+    </div>
   );
 }

@@ -192,6 +192,8 @@ function TradePrimaryTabsInner({
         trackRole="tablist"
         trackAriaLabel={t("trade_138")}
         bordered={!embedInAppHeader}
+        /** 2단 탭 왼쪽 정렬 (Owner 「A 안」 2026-11-12) — 4개 탭 균등 분할·가운데 정렬 대신 글자 폭 그대로 왼쪽부터 */
+        data-dibay-tab-align="start"
         /** 탭 칸 좌우 여백 0 — 첫 탭 글자가 다른 2단 줄과 같은 시작선 (탭 사이 간격은 2단 정본 = 칸 여백 12px) */
         hostClassName="[--dibay-secondary-tab-pad-x:0px]"
         trailing={

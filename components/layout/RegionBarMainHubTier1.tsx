@@ -25,7 +25,6 @@ import { SAM_TIER1_HEADER_ACTION_BTN_CLASS } from "@/lib/ui/tier1-header-icon";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { openGlobalSearchFromHere } from "@/lib/search/global/global-search-navigation-ssot";
 import { buildTradeSearchEntryHref } from "@/lib/trade/search/trade-search-paths";
-import { CommunityTradeTitleSwitch } from "@/components/layout/CommunityTradeTitleSwitch";
 
 function UnifiedTier1Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -83,12 +82,15 @@ export function RegionBarMainHubTier1({ pathNoQuery }: { pathNoQuery: string }) 
   }
 
   /**
-   * 커뮤니티·거래 = 한 탭 안의 두 화면 — 제목 자리를 「정보교환 · 거래」 전환 탭으로 (홈 설계안 v11, 2026-11-09).
-   * 예전 거래 제목 「DIBAY MARKET」(시안 v2) 자리. 오른쪽 버튼·거래 본문은 그대로.
+   * 커뮤니티·거래 1단 = 제목 글자만 (Owner 「A 안」 2026-11-12) — 「정보교환」/「거래」.
+   * 「정보교환 · 거래」 전환 탭은 1단에서 영문이 잘려(제목칸 152px < 버튼 182px, 390px 폭 실측) 머리글 3단
+   * `CommunityTradeSwitchRow` 로 옮겼다 (커뮤니티 = `CommunityFeed` 2단 아래 · 거래 = `AppStickyHeader` 2단 아래).
    */
   const title: ReactNode =
     hub === "trade" || hub === "community" ? (
-      <CommunityTradeTitleSwitch active={hub} />
+      <span className="whitespace-nowrap">
+        {t(hub === "community" ? "nav_community_switch_info" : "nav_bottom_trade")}
+      </span>
     ) : (
       t(hubTitleKey(hub))
     );

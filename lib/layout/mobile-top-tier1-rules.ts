@@ -1,7 +1,11 @@
 import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
 import { isTradeSearchPath } from "@/lib/trade/search/trade-search-paths";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { isCommunityHomeSurfacePath, isHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import {
+  isCommunityHomeSurfacePath,
+  isHomeSurfacePath,
+  resolveMainTabKeepAliveHub,
+} from "@/lib/layout/resolve-main-surface";
 
 const COMMUNITY_POST_DETAIL_RE = /^\/community\/post\/[^/]+$/;
 const PHILIFE_POST_DETAIL_RE = /^\/philife\/post\/[^/]+$/;
@@ -53,6 +57,29 @@ export type MobileTopTier1RuleSet = {
   showServicesMenu: boolean;
   showStoreCart: boolean;
 };
+
+/**
+ * `/market` 이 아닌 거래 화면 중 허브 머리글(`RegionBarMainHubTier1`)을 쓰는 곳 — `RegionBar` 판정 단일 정의.
+ */
+export function isTradeExplorationHubSurface(pathNoQuery: string, ruleSet: MobileTopTier1RuleSet): boolean {
+  return isTradeFloatingMenuSurface(pathNoQuery) && ruleSet.showRegionPicker && !ruleSet.showTradeHubLeading;
+}
+
+/**
+ * 「정보교환 · 거래」 전환 줄(머리글 3단)을 보일 허브 — 허브 머리글 1단이 커뮤니티·거래 제목을 그리는 곳과 같다
+ * (`RegionBar` → `RegionBarMainHubTier1` 판정과 같은 규칙, Owner 「A 안」 2026-11-12).
+ */
+export function resolveCommunityTradeSwitchHub(
+  pathname: string | null | undefined,
+  ruleSet: MobileTopTier1RuleSet
+): "community" | "trade" | null {
+  if (!ruleSet.showRegionBar) return null;
+  const pathNoQuery = normalizeAppPathnameForTier1(pathname);
+  const hub = resolveMainTabKeepAliveHub(pathNoQuery);
+  if (hub === "community" || hub === "trade") return hub;
+  if (pathNoQuery.startsWith("/mypage/")) return null;
+  return isTradeExplorationHubSurface(pathNoQuery, ruleSet) ? "trade" : null;
+}
 
 let tier1RuleCacheKey = "";
 let tier1RuleCache: MobileTopTier1RuleSet | null = null;
