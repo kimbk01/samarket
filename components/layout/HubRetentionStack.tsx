@@ -1,8 +1,9 @@
 "use client";
 
-import { Activity, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { HubActiveContext } from "@/lib/layout/hub-active-context";
 import { usePathname } from "next/navigation";
-import { LayoutRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { GlobalLayoutRouterContext, LayoutRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import {
   PathnameContext,
   PathParamsContext,
@@ -53,6 +54,17 @@ export function HubRetentionStack({ children }: { children: ReactNode }) {
   const livePathname = useContext(PathnameContext);
   const liveSearchParams = useContext(SearchParamsContext);
   const liveParams = useContext(PathParamsContext);
+  const liveGlobal = useContext(GlobalLayoutRouterContext);
+  /**
+   * D1 S2: 보관 허브가 숨어 있거나 「같은 주소로 돌아온 직후」(떠나기 직전 정보로 그림)일 때는 Next 의 「새 화면을 보이게
+   * 스크롤」 처리기(layout-router `handlePotentialScroll` → `scrollIntoView`)가 움직이지 않게 빈 스크롤 신호를 준다 —
+   * 이 화면들의 스크롤 위치는 `AppScrollMemory` 가 맡는다. 예전 React Activity 에서는 숨긴 허브의 이 처리기가 깨어나지
+   * 않았는데, CSS 숨김에서는 살아 있어 탭 복귀 때 복원(예: 900)을 0 으로 되돌렸다(2026-11-12 로컬 운영 빌드 확인).
+   */
+  const inertScrollGlobal = useMemo(
+    () => (liveGlobal ? { ...liveGlobal, focusAndScrollRef: INERT_FOCUS_AND_SCROLL_REF } : null),
+    [liveGlobal]
+  );
   const liveCtx = useMemo<RouterCtx | null>(
     () =>
       liveLayout
@@ -103,9 +115,25 @@ export function HubRetentionStack({ children }: { children: ReactNode }) {
         const visible = entry.id === currentRetained;
         /** 보이는 칸: 같은 주소로 돌아온 직후면 떠나기 직전 정보(다시 만들지 않음), 그 밖에는 현재 정보 — `nextHubRetentionState` */
         return (
-          <Activity key={`hub:${next.accountGeneration}:${entry.id}`} mode={visible ? "visible" : "hidden"}>
-            <FrozenRouterContexts ctx={entry.ctx}>{children}</FrozenRouterContexts>
-          </Activity>
+          /**
+           * D1 S2: React `Activity` 대신 CSS 로 숨긴다 — 다시 보일 때 하위 효과 전체를 끊고 다시 연결하지 않는다.
+           * 보일 때 `display: contents`(예전처럼 상자 없음 — 배치 동일), 숨길 때 `display: none`(광고 노출 관찰자가 보이지 않음으로 판정).
+           * 숨김 중 멈춰야 하는 효과는 `HubActiveContext`(`useHubActive`)로 멈춘다.
+           */
+          <div
+            key={`hub:${next.accountGeneration}:${entry.id}`}
+            data-hub-retained={entry.id}
+            style={visible ? HUB_VISIBLE_STYLE : HUB_HIDDEN_STYLE}
+          >
+            <HubActiveContext.Provider value={visible}>
+              <InertScrollWhenFrozen
+                inert={!visible || entry.ctx !== liveCtx}
+                inertGlobal={inertScrollGlobal}
+              >
+                <FrozenRouterContexts ctx={entry.ctx}>{children}</FrozenRouterContexts>
+              </InertScrollWhenFrozen>
+            </HubActiveContext.Provider>
+          </div>
         );
       })}
       {/**
@@ -116,6 +144,37 @@ export function HubRetentionStack({ children }: { children: ReactNode }) {
     </>
   );
 }
+
+type GlobalLayoutCtx = NonNullable<React.ContextType<typeof GlobalLayoutRouterContext>>;
+
+/** Next 가 「적용할 스크롤 없음」으로 읽는 값 — Next 는 이 객체의 apply 를 false 로만 바꾼다 */
+const INERT_FOCUS_AND_SCROLL_REF: GlobalLayoutCtx["focusAndScrollRef"] = {
+  apply: false,
+  hashFragment: null,
+  segmentPaths: [],
+  onlyHashChange: false,
+};
+
+/** 같은 요소 종류를 항상 유지(inert 값만 바꿈) — 감싸는 요소가 바뀌면 아래가 다시 만들어진다 */
+function InertScrollWhenFrozen({
+  inert,
+  inertGlobal,
+  children,
+}: {
+  inert: boolean;
+  inertGlobal: GlobalLayoutCtx | null;
+  children: ReactNode;
+}) {
+  const live = useContext(GlobalLayoutRouterContext);
+  return (
+    <GlobalLayoutRouterContext.Provider value={inert && inertGlobal ? inertGlobal : live}>
+      {children}
+    </GlobalLayoutRouterContext.Provider>
+  );
+}
+
+const HUB_VISIBLE_STYLE = { display: "contents" } as const;
+const HUB_HIDDEN_STYLE = { display: "none" } as const;
 
 function sameRouterAddress(a: RouterCtx, b: RouterCtx): boolean {
   return a.pathname === b.pathname && (a.searchParams?.toString() ?? "") === (b.searchParams?.toString() ?? "");

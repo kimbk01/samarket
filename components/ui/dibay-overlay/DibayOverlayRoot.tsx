@@ -18,6 +18,8 @@ import {
 } from "@/lib/ui/dibay-overlay-contract";
 import { useOverlayScopeAttrs } from "./overlay-scope";
 import { useHtmlShellFlagsSync } from "@/lib/layout/use-html-shell-flags-sync";
+import { useHubActive } from "@/lib/layout/hub-active-context";
+import { HubPortalGate } from "@/components/layout/HubPortalGate";
 
 export type DibayOverlayRootProps = {
   open: boolean;
@@ -56,7 +58,7 @@ export type DibayOverlayRootProps = {
  * default navigation and can freeze route changes after overlays close.
  */
 export function DibayOverlayRoot({
-  open,
+  open: openProp,
   onClose,
   dismissible = true,
   placement,
@@ -72,6 +74,12 @@ export function DibayOverlayRoot({
   backdropVariant = "default",
   adLayer = false,
 }: DibayOverlayRootProps) {
+  /**
+   * D1 S2: 숨긴 하단 탭 허브 안에서 열린 창은 보이지 않게 하고(포털은 허브의 `display:none` 밖 → `HubPortalGate`),
+   * 등록·뒤로가기·화면 잠금·키보드도 걸지 않는다. 다시 보이면 다시 걸린다 — 예전 React Activity 숨김과 같은 결과.
+   */
+  const hubActive = useHubActive();
+  const open = openProp && hubActive;
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
   const previouslyFocused = useRef<HTMLElement | null>(null);
@@ -145,7 +153,8 @@ export function DibayOverlayRoot({
   /** D1 F1 — `<html>` 셸 속성(`.dibay-overlay-root` 유무) 갱신 */
   useHtmlShellFlagsSync(open && mounted);
 
-  if (!open || !mounted || typeof document === "undefined" || !document.body) return null;
+  /** 그리기는 원래 열림 기준(숨긴 허브에서는 문이 숨김 — 내용 상태 유지), 등록·잠금·키보드는 위 `open`(허브 활성 포함) 기준 */
+  if (!openProp || !mounted || typeof document === "undefined" || !document.body) return null;
 
   const placementClass =
     placement === "center"
@@ -157,6 +166,7 @@ export function DibayOverlayRoot({
   const zClass = zIndexClass ?? OVERLAY_Z_CLASS[zRole];
 
   return createPortal(
+    <HubPortalGate>
     <div
       className={`${placementClass} ${zClass} ${stageClassName}`.trim()}
       style={stageStyle}
@@ -194,7 +204,8 @@ export function DibayOverlayRoot({
       >
         {children}
       </div>
-    </div>,
+    </div>
+    </HubPortalGate>,
     document.body,
   );
 }

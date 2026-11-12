@@ -134,6 +134,7 @@ import { CommunityLocalFilterPickerSheet } from "@/components/community/Communit
 import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 declare global {
   interface Window {
@@ -297,6 +298,11 @@ export function CommunityFeed({
   const { open: openPhilifeWriteSheet } = usePhilifeWriteSheet();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const router = useRouter();
+  /**
+   * D1 S2: 하단 탭 보관 허브가 숨어 있으면 데이터 받기·광고 새로고침·미리 받기·주소 바꾸기를 멈춘다
+   * (CSS 숨김이라 효과가 계속 살아 있음). 다시 보이면 효과가 다시 실행되고 60초 규칙이 판정한다.
+   */
+  const hubActive = useHubActive();
   const pathname = usePathname();
   const { beginMenuNavigation } = useLatestMenuNavigation();
   const searchParams = useSearchParams();
@@ -506,6 +512,7 @@ export function CommunityFeed({
       ? resolveCommunityFeedSurface(plan.category, "topic").topicSlug ?? ""
       : "";
   useEffect(() => {
+    if (!hubActive) return;
     if (!topicAuthorityReady) return;
     if (!urlTopicSurfaceSlug) return;
     if (plan.category === urlTopicSurfaceSlug) return;
@@ -515,6 +522,7 @@ export function CommunityFeed({
     });
     void router.replace(target, { scroll: false });
   }, [
+    hubActive,
     topicAuthorityReady,
     urlTopicSurfaceSlug,
     plan.category,
@@ -571,6 +579,7 @@ export function CommunityFeed({
 
   const topicOptionsRevisitGate = useHubDataRevisitGate();
   useEffect(() => {
+    if (!hubActive) return;
     /** D1 §4 — 허브 보관대에서 다시 보일 때 60초 안이면 주제 목록을 다시 받지 않음 */
     if (topicOptionsRevisitGate.isFresh("topic-options")) return;
     let cancelled = false;
@@ -604,7 +613,7 @@ export function CommunityFeed({
     return () => {
       cancelled = true;
     };
-  }, [topicOptionsRevisitGate]);
+  }, [hubActive, topicOptionsRevisitGate]);
 
   /** UI에서 필터 띠를 끄면 `neighborOnly` 요청도 쓰지 않음(401·불필요 파라미터 제거). */
   useEffect(() => {
@@ -910,6 +919,7 @@ export function CommunityFeed({
 
   /** 주제·필터 시 피드 리셋. URL topic slug 와 확정된 topic-options 권한이 같은 cache/fetch 키를 사용한다. */
   useLayoutEffect(() => {
+    if (!hubActive) return;
     const options = topicOptionsAuthorityRef.current;
     const bootSelection = resolveCommunityFeedBootSelection(plan.category, options);
     /**
@@ -1083,6 +1093,7 @@ export function CommunityFeed({
      * authority 확정은 `category` state 로만 전파한다.
      */
   }, [
+    hubActive,
     category,
     plan.category,
     plan.requiresRegion,
@@ -1132,6 +1143,7 @@ export function CommunityFeed({
 
   /** Member Identity mutation — drop contaminated author_name snapshots; SWR refetch */
   useEffect(() => {
+    if (!hubActive) return;
     const onProfileUpdated = () => {
       clearAllPhilifeFeedPersistentCaches();
       invalidateNeighborhoodFeedClientShortTtl();
@@ -1141,7 +1153,7 @@ export function CommunityFeed({
     };
     window.addEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
     return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
-  }, [fetchPage]);
+  }, [hubActive, fetchPage]);
 
   /**
    * Owner 2026-11-05 「광고 지역 제한 전면 해제」: 상위노출 선정은 모든 탭에서 지역 값을 보내지 않는다(예전 D-11 폐지).
@@ -1150,6 +1162,7 @@ export function CommunityFeed({
 
   // 상단 광고: 피드·주제 칩 이후 유휴 시 로드 (첫 페인트·메인 fetch와 경합 완화)
   useEffect(() => {
+    if (!hubActive) return;
     let cancelled = false;
     // 동네 탭인데 지역이 없으면 피드 자체가 「지역 변경」 안내만 보인다 — 광고 자리도 없다
     if (feedNeedsRegionButMissing) {
@@ -1198,10 +1211,11 @@ export function CommunityFeed({
       cancelled = true;
       cancelScheduled?.();
     };
-  }, [category, feedNeedsRegionButMissing, topAdsRevisitGate]);
+  }, [hubActive, category, feedNeedsRegionButMissing, topAdsRevisitGate]);
 
   /** Feed Banner pool — one fetch per surface (slot selection is local). */
   useEffect(() => {
+    if (!hubActive) return;
     if (!feedAdSurface.placement) {
       setFeedAdPool(null);
       /** 광고 풀을 비웠으니 기록도 지운다 — 60초 안에 광고 자리가 있는 탭으로 돌아와도 다시 받게 */
@@ -1253,7 +1267,7 @@ export function CommunityFeed({
       cancelled = true;
       if (refreshTimer) clearTimeout(refreshTimer);
     };
-  }, [feedAdSurface.placement, feedAdSurface.topicSlug, feedAdPoolTick, feedAdPoolRevisitGate]);
+  }, [hubActive, feedAdSurface.placement, feedAdSurface.topicSlug, feedAdPoolTick, feedAdPoolRevisitGate]);
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -1423,6 +1437,7 @@ export function CommunityFeed({
   );
 
   useEffect(() => {
+    if (!hubActive) return;
     if (!navItems.length) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
@@ -1432,9 +1447,10 @@ export function CommunityFeed({
     for (const item of initialTargets) {
       prefetchNavItemByIntent(item);
     }
-  }, [navItems, prefetchNavItemByIntent]);
+  }, [hubActive, navItems, prefetchNavItemByIntent]);
 
   useEffect(() => {
+    if (!hubActive) return;
     if (!navItems.length) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
@@ -1447,7 +1463,7 @@ export function CommunityFeed({
     for (const item of immediateTargets) {
       prefetchNavItemByIntent(item);
     }
-  }, [navItems, activeTopicTabIndex, prefetchNavItemByIntent]);
+  }, [hubActive, navItems, activeTopicTabIndex, prefetchNavItemByIntent]);
 
   const { deviceClass } = useDibayAppShellAuthority();
   const feedSwipeOn = deviceClass === "PHONE_ANDROID" || deviceClass === "PHONE_IOS";
@@ -1689,6 +1705,7 @@ export function CommunityFeed({
   });
 
   useEffect(() => {
+    if (!hubActive) return;
     if (!navItems.length) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
@@ -1788,10 +1805,11 @@ export function CommunityFeed({
       }
     }, 120);
     return () => cancelScheduledWhenBrowserIdle(idleId);
-  }, [navItems, activeTopicTabIndex, neighborOnly, viewerSig, router, locationKey, locationMeta]);
+  }, [hubActive, navItems, activeTopicTabIndex, neighborOnly, viewerSig, router, locationKey, locationMeta]);
 
   /** idle 대기 전, 경계 스와이프 목적지와 인접 주제를 즉시 prewarm해 첫 리스트 지연을 줄인다. */
   useEffect(() => {
+    if (!hubActive) return;
     if (!navItems.length) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
@@ -1808,7 +1826,7 @@ export function CommunityFeed({
     for (const item of immediate) {
       prefetchNavItemByIntent(item);
     }
-  }, [navItems, activeTopicTabIndex, prefetchNavItemByIntent, router]);
+  }, [hubActive, navItems, activeTopicTabIndex, prefetchNavItemByIntent, router]);
 
   return (
     <div className={PHILIFE_PAGE_ROOT_CLASS} data-community-renderer="canonical-v1" data-community-feed="list">
@@ -1948,7 +1966,8 @@ export function CommunityFeed({
                 </div>
               </div>
             ) : null}
-            {allSortOpen && allSortMenuPos && typeof document !== "undefined"
+            {/* D1 S2: 숨긴 하단 탭 허브면 정렬 메뉴(포털)도 그리지 않는다 */}
+            {allSortOpen && allSortMenuPos && hubActive && typeof document !== "undefined"
               ? createPortal(
                   <ul
                     ref={allSortMenuRef}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { HubPortalGate } from "@/components/layout/HubPortalGate";
 import {
   STORE_COMMERCE_ACTION_ERROR_CLASS,
   STORE_COMMERCE_ACTION_PLANE_CLASS,
@@ -68,5 +69,8 @@ export function StoreCommerceBottomActionShell({
     </div>
   );
 
-  return portalToBody && typeof document !== "undefined" ? createPortal(shell, document.body) : shell;
+  /** D1 S2: 포털이면 숨긴 하단 탭 허브와 같이 숨긴다(`HubPortalGate`) */
+  return portalToBody && typeof document !== "undefined"
+    ? createPortal(<HubPortalGate>{shell}</HubPortalGate>, document.body)
+    : shell;
 }

@@ -24,6 +24,7 @@ import {
   parseMarketplaceBrowseStateFromSearchParams,
   resolveMarketCategorySurfaceQuery,
 } from "@/lib/trade/marketplace/marketplace-browse-state";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 function MarketTradeFeedBody({
   initialHomeTradeFeed,
@@ -47,6 +48,7 @@ export function MarketContent({
   initialHomeTradeFeed?: GetPostsForHomeResult | null;
   clientFeedInstantBoot?: boolean;
 }) {
+  const hubActive = useHubActive();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -130,6 +132,7 @@ export function MarketContent({
   }, []);
 
   useEffect(() => {
+    if (!hubActive) return;
     if (tabs.length === 0 || activeIndex < 0) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
@@ -148,7 +151,7 @@ export function MarketContent({
       }
     }, 300);
     return () => cancelScheduledWhenBrowserIdle(idleId);
-  }, [tabs, activeIndex, router]);
+  }, [hubActive, tabs, activeIndex, router]);
 
   useEffect(() => {
     const cancelWarm = warmMainShellData();

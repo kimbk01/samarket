@@ -6,6 +6,7 @@ import {
   DISABLED_SUPPORT_CONTEXT,
   type SupportContext,
 } from "@/lib/support/support-context";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * Publishes explicit per-screen support context to the global FAB registry.
@@ -18,6 +19,7 @@ export function SupportContextProvider({
   value: SupportContext;
   children: React.ReactNode;
 }) {
+  const hubActive = useHubActive();
   const { publish } = useSupportFabRegistry();
   const stableValue = useMemo(
     () => (value.enabled === true ? value : { ...value, enabled: false as const }),
@@ -34,11 +36,12 @@ export function SupportContextProvider({
   );
 
   useEffect(() => {
+    if (!hubActive) return;
     publish(stableValue);
     return () => {
       publish(DISABLED_SUPPORT_CONTEXT);
     };
-  }, [stableValue, publish]);
+  }, [hubActive, stableValue, publish]);
 
   return <>{children}</>;
 }

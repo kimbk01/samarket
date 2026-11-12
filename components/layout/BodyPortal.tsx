@@ -1,6 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
+import { HubPortalGate } from "@/components/layout/HubPortalGate";
 import { useLayoutEffect, useState, type ReactNode } from "react";
 
 /**
@@ -22,5 +23,6 @@ export function BodyPortal({ children }: { children: ReactNode }) {
     return null;
   }
 
-  return createPortal(children, document.body);
+  /** D1 S2: 숨긴 하단 탭 허브 안이면 같이 숨긴다(`HubPortalGate`) */
+  return createPortal(<HubPortalGate>{children}</HubPortalGate>, document.body);
 }

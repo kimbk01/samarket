@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { getAppBootSnapshot } from "@/lib/app-boot/app-boot-store";
 import { APP_BOOT_PROFILE_UPDATED_EVENT, APP_BOOT_READY_EVENT } from "@/lib/app-boot/app-boot-types";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * Boot ready 후 address-defaults / marketplace hydrate 재시도.
@@ -11,7 +12,9 @@ import { APP_BOOT_PROFILE_UPDATED_EVENT, APP_BOOT_READY_EVENT } from "@/lib/app-
  * `shouldRetry` 가 false 면 이미 표시 줄이 있을 때 중복 fetch 를 막는다.
  */
 export function useAddressDefaultsBootRetry(retry: () => void, shouldRetry: () => boolean): void {
+  const hubActive = useHubActive();
   useEffect(() => {
+    if (!hubActive) return;
     const onBoot = () => {
       const boot = getAppBootSnapshot();
       const memberReady = boot.status === "ready" && Boolean(boot.profile);
@@ -26,5 +29,5 @@ export function useAddressDefaultsBootRetry(retry: () => void, shouldRetry: () =
       window.removeEventListener(APP_BOOT_READY_EVENT, onBoot);
       window.removeEventListener(APP_BOOT_PROFILE_UPDATED_EVENT, onBoot);
     };
-  }, [retry, shouldRetry]);
+  }, [hubActive, retry, shouldRetry]);
 }

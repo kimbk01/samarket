@@ -13,6 +13,7 @@ import {
 } from "@/lib/stores/stores-home-banners-client";
 import type { HomeHeroBannerResolvedSlide } from "@/lib/stores/load-store-banner-ad-campaigns";
 import { useHubDataRevisitGate } from "@/lib/http/hub-data-freshness";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 const HERO_POLICY = launchBannerByInventory("STORES_HOME_HERO");
 const AUTO_MS = HERO_POLICY?.autoSlideMs ?? 5000;
@@ -53,6 +54,7 @@ function writeStoredHeroBannerCount(n: number): void {
  * Empty = hide. Multi active → carousel (auto + loop + dots).
  */
 export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }) {
+  const hubActive = useHubActive();
   const { t } = useI18n();
   const [banners, setBanners] = useState<HomeHeroBannerResolvedSlide[] | null>(null);
   const [storedCount, setStoredCount] = useState<number | null>(null);
@@ -83,6 +85,7 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
   const revisitGate = useHubDataRevisitGate();
 
   useLayoutEffect(() => {
+    if (!hubActive) return;
     const gateKey = String(refreshKey);
     if (revisitGate.isFresh(gateKey)) return;
     let cancelled = false;
@@ -110,7 +113,7 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
       cancelled = true;
     };
     /** B-08 — 홈 당겨서 새로고침 시 다시 조회 */
-  }, [refreshKey, revisitGate]);
+  }, [hubActive, refreshKey, revisitGate]);
 
   const slideCount = banners?.length ?? 0;
   const slide = slideCount > 0 ? banners![Math.min(index, slideCount - 1)]! : null;
@@ -163,10 +166,11 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
   }, [rootEl]);
 
   useEffect(() => {
+    if (!hubActive) return;
     if (slideCount <= 1 || !inView || !pageVisible || reduceMotion) return;
     const id = window.setInterval(advance, AUTO_MS);
     return () => window.clearInterval(id);
-  }, [advance, slideCount, index, inView, pageVisible, reduceMotion]);
+  }, [hubActive, advance, slideCount, index, inView, pageVisible, reduceMotion]);
 
   useLayoutEffect(() => {
     markStoresHomePerf("hero");

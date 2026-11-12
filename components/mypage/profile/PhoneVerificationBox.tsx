@@ -23,6 +23,7 @@ import {
   parsePhoneVerificationSettings,
   type PhoneOtpPendingChallenge,
 } from "@/lib/mypage/load-phone-verification-state";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /** 재전송 남은 초 — 렌더 시점 계산이 아니라 1초마다 갱신되는 `now` 로 계산 (S05) */
 export function resolvePhoneOtpCooldownLeft(cooldownUntil: number, now: number): number {
@@ -143,6 +144,7 @@ export function PhoneVerificationBox({
   /** page(기본) = 앱 화면 · overlay = 시트 안 — 시트가 제목을 이미 보여 주므로 제목을 다시 쓰지 않는다. */
   surface?: "page" | "overlay";
 }) {
+  const hubActive = useHubActive();
   const { t } = useI18n();
   const ov = surface === "overlay" && !compact;
   const ovCls = {
@@ -264,6 +266,7 @@ export function PhoneVerificationBox({
 
   /** 재전송 타이머 — 쿨다운 동안 1초마다 다시 그린다 (S05: 남은 초가 줄지 않던 결함) */
   useEffect(() => {
+    if (!hubActive) return;
     if (cooldownUntil <= Date.now()) return;
     setNowMs(Date.now());
     const id = window.setInterval(() => {
@@ -272,7 +275,7 @@ export function PhoneVerificationBox({
       if (n >= cooldownUntil) window.clearInterval(id);
     }, 1000);
     return () => window.clearInterval(id);
-  }, [cooldownUntil]);
+  }, [hubActive, cooldownUntil]);
 
   const normalizedPhone = useMemo(() => normalizePhilippinesPhoneNumber(phone), [phone]);
   const koreaLocal = isKorea ? parseKoreaMobileLocal(phone) : null;

@@ -116,6 +116,7 @@ import {
   marketplaceBrowseStateToGetPostsForHomeOptions,
   parseMarketplaceBrowseStateFromSearchParams,
 } from "@/lib/trade/marketplace/marketplace-browse-state";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 
 type ListState = "idle" | "loading" | "error" | "empty";
@@ -187,6 +188,7 @@ export function HomeProductList({
   initialHomeTradeFeed?: GetPostsForHomeResult | null;
   clientInstantBoot?: boolean;
 }) {
+  const hubActive = useHubActive();
   const { t, safeT } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
@@ -529,6 +531,7 @@ export function HomeProductList({
    * 첫 렌더는 `hydrationSeed`만 사용해 서버 HTML과 일치시킨다.
    */
   useLayoutEffect(() => {
+    if (!hubActive) return;
     if (locationInvalid) {
       silentRequestIdRef.current += 1;
       setPosts([]);
@@ -651,6 +654,7 @@ export function HomeProductList({
       keepVisibleOnFailure: !identityTransition,
     });
   }, [
+    hubActive,
     tradeState,
     lguCityId,
     locationAll,
@@ -681,19 +685,21 @@ export function HomeProductList({
 
   /** 글쓰기 완료 등으로 캐시만 비울 때 — 동일 URL에 머물러도 즉시 재요청 */
   useEffect(() => {
+    if (!hubActive) return;
     const onBust = () => {
       allowRscHomeListSeedRef.current = false;
       void load({ keepVisibleOnFailure: true });
     };
     window.addEventListener(TRADE_POST_LIST_CACHE_INVALIDATED, onBust);
     return () => window.removeEventListener(TRADE_POST_LIST_CACHE_INVALIDATED, onBust);
-  }, [load]);
+  }, [hubActive, load]);
 
   /**
    * 리스트→상세 체감: 상단 카드 `/post/:id` idle prefetch (제거 시 회귀).
    * `.cursor/rules/trade-post-detail-chat-hot-path.mdc`
    */
   useEffect(() => {
+    if (!hubActive) return;
     if (posts.length === 0) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
@@ -705,7 +711,7 @@ export function HomeProductList({
       }
     }, 480);
     return () => cancelScheduledWhenBrowserIdle(idleId);
-  }, [posts, router]);
+  }, [hubActive, posts, router]);
 
   const listPagination = useTradeChatListClientPagination({
     items: posts,
@@ -896,6 +902,7 @@ export function HomeProductList({
   /** PV-3 — 서버가 정한 `validUntil` 에 다시 부른다(화면은 기간을 판정하지 않는다). */
   const [feedAdPoolTick, setFeedAdPoolTick] = useState(0);
   useEffect(() => {
+    if (!hubActive) return;
     let cancelled = false;
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     const qs = new URLSearchParams({
@@ -923,7 +930,7 @@ export function HomeProductList({
       cancelled = true;
       if (refreshTimer) clearTimeout(refreshTimer);
     };
-  }, [feedAdPoolTick]);
+  }, [hubActive, feedAdPoolTick]);
 
   /**
    * CUT H: silent fetch must not apply incoming order (auto unshift).
@@ -976,6 +983,7 @@ export function HomeProductList({
   }, [load]);
 
   useEffect(() => {
+    if (!hubActive) return;
     const onReset = (ev: Event) => {
       // R-A: matching-identity invalidation — prefer event detail, fall back to live browse key.
       const fromEvent =
@@ -1004,7 +1012,7 @@ export function HomeProductList({
     };
     window.addEventListener(MARKETPLACE_BROWSE_RESET_EVENT, onReset);
     return () => window.removeEventListener(MARKETPLACE_BROWSE_RESET_EVENT, onReset);
-  }, [browseIdentityKey]);
+  }, [hubActive, browseIdentityKey]);
 
   /** bfcache 복원 + 탭/앱 복귀 + 포커스만 바뀌는 복귀 — 한 훅·동일 디바운스 정책 */
   useRefetchOnPageShowRestore(() => void refreshSilent(), {

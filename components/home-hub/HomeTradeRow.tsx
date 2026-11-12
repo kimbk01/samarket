@@ -17,6 +17,7 @@ import { keepSessionPick, rotateUnseenFirst } from "@/lib/home/home-rotation";
 import type { HomeRotationCtl } from "@/components/home-hub/use-home-rotation";
 import { HomeSectionHead } from "@/components/home-hub/HomeSectionHead";
 import { HomeLoadError } from "@/components/home-hub/HomeLoadError";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -45,6 +46,7 @@ export function HomeTradeRow({
   rot: HomeRotationCtl | null;
   refreshSeq: number;
 }) {
+  const hubActive = useHubActive();
   const { t, language } = useI18n();
   const router = useRouter();
   const [items, setItems] = useState<PostWithMeta[] | null>(null);
@@ -57,6 +59,7 @@ export function HomeTradeRow({
   const revisitGate = useHubDataRevisitGate();
 
   useEffect(() => {
+    if (!hubActive) return;
     if (!rot) return;
     const loc = marketplaceFeedLocationExtrasFromUrlOrSession("") ?? { locationAll: true };
     const gateKey = [
@@ -107,7 +110,7 @@ export function HomeTradeRow({
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 교체는 mode·seq(새로고침)·구성 기준
-  }, [mode, seq, config.count, config.sort, config.tradeCategoryId, retryKey]);
+  }, [hubActive, mode, seq, config.count, config.sort, config.tradeCategoryId, retryKey]);
 
   const catName = (id: string | null | undefined) => {
     const c = tradeCategories.find((x) => x.id === id);

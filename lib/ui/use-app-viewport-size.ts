@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * Viewport measurement only.
@@ -44,10 +45,12 @@ function viewportSizesEqual(a: AppViewportSize, b: AppViewportSize): boolean {
 }
 
 export function useAppViewportSize(): AppViewportSize {
+  const hubActive = useHubActive();
   const [size, setSize] = useState<AppViewportSize>(() => readCurrentSize());
   const prevRef = useRef<AppViewportSize>(size);
 
   useEffect(() => {
+    if (!hubActive) return;
     if (typeof window === "undefined") return;
 
     let rafId = 0;
@@ -78,7 +81,7 @@ export function useAppViewportSize(): AppViewportSize {
       vv?.removeEventListener("resize", schedule);
       vv?.removeEventListener("scroll", schedule);
     };
-  }, []);
+  }, [hubActive]);
 
   return size;
 }

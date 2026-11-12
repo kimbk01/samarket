@@ -13,6 +13,7 @@ import {
   STORE_DETAIL_TABS_PIN_ENTER_PX,
   STORE_DETAIL_TABS_PIN_EXIT_PX,
 } from "@/lib/ui/store-detail-viewport-tuning";
+import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * 매장 메뉴 카테고리 탭 pin — 스크롤 루트 1곳 + rAF (CSS sticky 금지: 슬라이드 셸 transform).
@@ -26,6 +27,7 @@ export function useStoreDetailCategoryTabsPin(args: {
   tabsHeightPx: number;
   tabsBottomPx: () => number;
 } {
+  const hubActive = useHubActive();
   const { sentinelRef, tabsRef, enabled = true } = args;
   const [pinned, setPinned] = useState(false);
   const [tabsHeightPx, setTabsHeightPx] = useState(48);
@@ -65,6 +67,7 @@ export function useStoreDetailCategoryTabsPin(args: {
   }, [enabled]);
 
   useLayoutEffect(() => {
+    if (!hubActive) return;
     if (!enabled) {
       pinnedRef.current = false;
       setPinned(false);
@@ -74,7 +77,7 @@ export function useStoreDetailCategoryTabsPin(args: {
     scrollRootRef.current = getStoreDetailAppScrollRootCached();
     recapturePinThreshold();
     evaluatePin();
-  }, [enabled, recapturePinThreshold, evaluatePin]);
+  }, [hubActive, enabled, recapturePinThreshold, evaluatePin]);
 
   useLayoutEffect(() => {
     if (!enabled) return;
