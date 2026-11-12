@@ -11,14 +11,12 @@ function read(rel: string): string {
  * Does not prove Production DB delta (runtime QA separate).
  */
 describe("A2-1 support entry cutover contract", () => {
-  it("disables POST writers for member-admin-notes and platform-inquiries", () => {
+  it("disables POST writers for member-admin-notes", () => {
     const notes = read("app/api/me/admin-notes/route.ts");
     const noteThread = read("app/api/me/admin-notes/[threadId]/route.ts");
-    const platform = read("app/api/me/stores/[storeId]/platform-inquiries/route.ts");
     expect(notes).toContain("legacy_writer_disabled");
     expect(notes).toContain("status: 410");
     expect(noteThread).toContain("legacy_writer_disabled");
-    expect(platform).toContain("legacy_writer_disabled");
   });
 
   it("Member customer center inquire CTA opens Support Modal SSOT", () => {

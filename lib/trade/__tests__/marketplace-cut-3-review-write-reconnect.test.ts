@@ -10,14 +10,6 @@ function readRepoFile(relativePath: string): string {
 
 /** 거래 후기 없음(Owner 2026-10-28) — CUT 3 의 후기 작성 경로는 닫는다. 데이터(transaction_reviews)는 보존. */
 describe("거래 후기 없음 — 작성 경로 닫힘", () => {
-  it("submit-review 는 410 이고 후기·신뢰 이벤트를 쓰지 않는다", () => {
-    const src = readRepoFile("app/api/trade/product-chat/[roomId]/submit-review/route.ts");
-    expect(src).toContain("reviews_removed");
-    expect(src).toContain("status: 410");
-    expect(src).not.toContain('.from("transaction_reviews")');
-    expect(src).not.toContain("recordTrustEvent");
-  });
-
   it("TradeFlowBanner 에 후기 작성 버튼·시트가 없다", () => {
     const banner = readRepoFile("components/trade/TradeFlowBanner.tsx");
     expect(banner).not.toContain("TradeReviewWriteSheet");

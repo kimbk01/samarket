@@ -25,7 +25,7 @@ import { isPostEligibleForPromotionBoost, TRADE_PROMOTION_PROJECTION } from "@/l
  * - **related**(판매자 다른 글·유사·광고)는 **동일 페이지의 RSC `Suspense` 슬롯**에서 `getTradeDetailRelatedData` 로만 채운다(첫 바이트에서 related DB를 기다리지 않음). 클라 `/api/.../related` 단독 첫 페인트 금지 원칙은 동일.
  * - 거래방 시드·판매자 제안 RSC 선로드는 이 타입에 포함하지 않는다(핫패스 계약).
  * - related 슬롯은 본문과 **동일** `PostWithMeta` 를 `preloadedItem` 으로 넘겨 `loadPostDetailShared` 중복을 피한다.
- * - `GET /api/posts/[postId]/related` 는 보조 — 상세 related 데이터는 RSC(스트림 슬롯 또는 번들)를 신뢰한다.
+ * - 상세 related 데이터는 RSC(스트림 슬롯 또는 번들)를 신뢰한다 (옛 `GET /api/posts/[postId]/related` 는 2026-11-12 제거).
  *
  * 상세 규칙: `.cursor/rules/trade-post-detail-chat-hot-path.mdc`
  */

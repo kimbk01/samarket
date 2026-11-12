@@ -90,17 +90,6 @@ describe("stage 2-D gift certificate", () => {
     }
   });
 
-  it("GFT-06: owner gift revenue route no longer reads the archive Store Cash wallet", async () => {
-    const route = source("app/api/me/stores/[storeId]/gift-certificates/revenue/route.ts");
-    expect(route).not.toMatch(/GIFT_TABLES|\.from\(|\.rpc\(/);
-    const { GET } = await import("@/app/api/me/stores/[storeId]/gift-certificates/revenue/route");
-    const res = GET();
-    expect(res.status).toBe(410);
-    const json = (await res.json()) as Record<string, unknown>;
-    expect(json.ok).toBe(false);
-    expect(Object.keys(json).some((k) => /storeCash/i.test(k))).toBe(false);
-  });
-
   it("GFT-04: preview exposes the forfeited amount; consent only when forfeit > 0", () => {
     const over = computeCheckoutGiftApplyPreview({ amountBeforeGift: 300, giftRemaining: 1000 });
     expect(over.giftUsed).toBe(300);

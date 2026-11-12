@@ -111,9 +111,8 @@ describe("CUT D — sales card has no review progress badge copy", () => {
 });
 
 describe("거래 후기 없음 — 회원 후기 API 는 닫힘(410), 데이터는 보존", () => {
-  it("submit-review·written-reviews·buyer-review·seller-sees-buyer-review·received-reviews 는 410 reviews_removed", () => {
+  it("written-reviews·buyer-review·seller-sees-buyer-review·received-reviews 는 410 reviews_removed", () => {
     for (const rel of [
-      "app/api/trade/product-chat/[roomId]/submit-review/route.ts",
       "app/api/my/written-reviews/route.ts",
       "app/api/my/buyer-review/route.ts",
       "app/api/my/seller-sees-buyer-review/route.ts",

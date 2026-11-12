@@ -40,9 +40,6 @@ describe("finance × ads product decision lock", () => {
   it("AD-P0-3 trade_post_ads new writes blocked", () => {
     expect(TRADE_POST_ADS_NEW_WRITES_ENABLED).toBe(false);
     expect(assertTradePostAdsNewWriteAllowed().ok).toBe(false);
-    const apply = read("app/api/posts/[postId]/trade-ads/apply/route.ts");
-    expect(apply).toContain("assertTradePostAdsNewWriteAllowed");
-    expect(apply).toContain("410");
   });
 
   it("AD-P0-4 finance↔ad deep-links exist", () => {

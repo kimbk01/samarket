@@ -39,13 +39,6 @@ describe("CUT B Finance SSOT + operation UX", () => {
     expect(page).toContain('data-admin-cash-charges-canonical="1"');
   });
 
-  it("keeps legacy ads charge-request PATCH as 410 NO_NEW_WRITE", () => {
-    const legacy = read(
-      "app/api/admin/delivery-ads/business-cash/charge-requests/[id]/route.ts"
-    );
-    expect(legacy).toContain("410");
-  });
-
   it("routes legacy store-point focus to archive; Cash queue is canonical", () => {
     expect(adminStorePointChargeFocusHref("x")).toBe("/admin/store-point-ledger?request=x");
     expect(adminCashTopUpQueueHref()).toBe("/admin/delivery-ads/cash-charges");

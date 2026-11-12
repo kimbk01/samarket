@@ -1,13 +1,10 @@
 /**
  * finance-ssot-19 — admin payout routes:
- * - PATCH /api/admin/store-settlements/[id]: business permission gate, then 410 — per-order payout
- *   is retired (buyers pay stores directly; docs/store-commission-cash-settlement-ssot.md).
  * - POST /api/admin/coin-withdrawals mark_paid: payout reference required, RPC error mapped.
  * - point-charges approve: snapshot_invalid → 400.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const requireAdminPermission = vi.fn();
@@ -37,42 +34,6 @@ vi.mock("@/lib/currency/coin-withdrawal-writer", () => ({
   markCoinWithdrawalPaid: (...args: unknown[]) => markCoinWithdrawalPaid(...args),
   rejectCoinWithdrawal: (...args: unknown[]) => rejectCoinWithdrawal(...args),
 }));
-
-describe("PATCH /api/admin/store-settlements/[settlementId] (retired — direct-pay model)", () => {
-  beforeEach(() => {
-    requireAdminPermission.mockReset();
-    tryGetSupabaseForStores.mockReset();
-    requireAdminPermission.mockResolvedValue({ ok: true, sb: {}, actor: { userId: "admin-1" } });
-  });
-
-  it("uses requireAdminPermission('business') and returns its response when denied", async () => {
-    requireAdminPermission.mockResolvedValue({
-      ok: false,
-      response: NextResponse.json({ ok: false, error: "permission_denied" }, { status: 403 }),
-    });
-    const { PATCH } = await import("@/app/api/admin/store-settlements/[settlementId]/route");
-    const res = await PATCH();
-    expect(res.status).toBe(403);
-    expect(requireAdminPermission).toHaveBeenCalledWith("business");
-  });
-
-  it("per-order payout is retired → 410 and never touches the DB", async () => {
-    const { PATCH } = await import("@/app/api/admin/store-settlements/[settlementId]/route");
-    const res = await PATCH();
-    expect(res.status).toBe(410);
-    expect(await res.json()).toMatchObject({ ok: false, error: "settlement_payout_retired" });
-    expect(tryGetSupabaseForStores).not.toHaveBeenCalled();
-  });
-
-  it("route no longer uses isRouteAdmin", () => {
-    const src = readFileSync(
-      resolve(process.cwd(), "app/api/admin/store-settlements/[settlementId]/route.ts"),
-      "utf8"
-    );
-    expect(src).not.toContain("isRouteAdmin");
-    expect(src).toContain('requireAdminPermission("business")');
-  });
-});
 
 function postReq(body: unknown) {
   return new Request("http://x/api/admin/coin-withdrawals", {

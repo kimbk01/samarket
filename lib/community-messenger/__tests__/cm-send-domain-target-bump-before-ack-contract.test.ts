@@ -38,25 +38,6 @@ describe("CM message send Domain target bump before ACK", () => {
   });
 });
 
-const groupSrc = readFileSync(
-  join(process.cwd(), "app/api/community-messenger/group-rooms/[roomId]/messages/route.ts"),
-  "utf8"
-);
-
-describe("CM group-rooms message send notify before ACK", () => {
-  it("awaits durable notify + target bump before after(); defers FCM/mirror", () => {
-    const durable = groupSrc.indexOf("await runCommunityMessengerSendDurablePreAckEffects");
-    const syncBump = groupSrc.indexOf("await bumpMessengerRoomTargetsForRecipients");
-    const afterCall = groupSrc.indexOf("after(async () => {");
-    expect(durable).toBeGreaterThan(-1);
-    expect(syncBump).toBeGreaterThan(-1);
-    expect(afterCall).toBeGreaterThan(-1);
-    expect(Math.max(durable, syncBump)).toBeLessThan(afterCall);
-    expect(groupSrc.slice(afterCall)).toContain("runCommunityMessengerSendDeferredPostAckEffects");
-    expect(groupSrc).toContain("skipBadgeTargetBump: true");
-  });
-});
-
 const publishSrc = readFileSync(
   join(process.cwd(), "lib/community-messenger/server/publish-messenger-room-bump.ts"),
   "utf8"

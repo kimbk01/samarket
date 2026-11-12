@@ -210,16 +210,9 @@ describe("Manner Battery SSOT structural contracts", () => {
       path.join(root, "app/api/trade/product-chat/[roomId]/buyer-confirm/route.ts"),
       "utf8"
     );
-    const review = readFileSync(
-      path.join(root, "app/api/trade/product-chat/[roomId]/submit-review/route.ts"),
-      "utf8"
-    );
     /** 거래 B (Owner 2026-10-28): 구매 확정 없음 — buyer-confirm 은 410, 새 trade_completed 이벤트를 만들지 않는다(보존 데이터는 그대로) */
     expect(confirm).toContain("trade_sold_only");
     expect(confirm).not.toContain("recordTrustEvent");
-    /** 거래 후기 없음(Owner 2026-10-28): 후기 작성 경로는 닫혀 새 trade_review_* 이벤트를 만들지 않는다 */
-    expect(review).toContain("reviews_removed");
-    expect(review).not.toContain("recordTrustEvent");
   });
 
   it("SSOT doc exists and matches policy version", () => {

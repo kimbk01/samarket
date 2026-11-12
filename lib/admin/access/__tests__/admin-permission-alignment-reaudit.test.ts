@@ -213,7 +213,6 @@ describe("G-18 — 앱 공통 설정 쓰기 = settings (운영자 기본은 sett
     ["app-business-info/route.ts", "POST"],
     ["app-business-info/[id]/route.ts", "PATCH"],
     ["startup-config/route.ts", "PUT"],
-    ["startup-config/upload-image/route.ts", "POST"],
   ])("%s %s", (route, method) => {
     expectHandlerKey(route, method, "settings");
   });

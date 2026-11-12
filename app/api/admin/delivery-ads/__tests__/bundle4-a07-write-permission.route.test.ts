@@ -30,7 +30,6 @@ import { PATCH as patchCampaign } from "@/app/api/admin/delivery-ads/[campaignId
 import { GET as getExtend, POST as postExtend } from "@/app/api/admin/delivery-ads/[campaignId]/extend/route";
 import { POST as postFirstParty } from "@/app/api/admin/delivery-ads/first-party/route";
 import { POST as postBusinessCash } from "@/app/api/admin/delivery-ads/business-cash/route";
-import { PATCH as patchChargeRequest } from "@/app/api/admin/delivery-ads/business-cash/charge-requests/[id]/route";
 
 const json = (body: unknown) =>
   new Request("http://localhost/api/admin/delivery-ads/x", {
@@ -48,16 +47,15 @@ beforeEach(() => {
 });
 
 describe("A-07 배달 광고 쓰기 권한 = business", () => {
-  it("business 권한 없음 → 쓰기 5경로 모두 403, DB 클라이언트 미생성", async () => {
+  it("business 권한 없음 → 쓰기 4경로 모두 403, DB 클라이언트 미생성", async () => {
     const results = await Promise.all([
       patchCampaign(json({ productKind: "x" }), campaignCtx as never),
       postExtend(json({ productKind: "x" }), campaignCtx as never),
       postFirstParty(json({})),
       postBusinessCash(json({})),
-      patchChargeRequest(json({}) as never, { params: Promise.resolve({ id: "r1" }) }),
     ]);
-    expect(results.map((r) => r.status)).toEqual([403, 403, 403, 403, 403]);
-    expect(permCalls).toEqual(["business", "business", "business", "business", "business"]);
+    expect(results.map((r) => r.status)).toEqual([403, 403, 403, 403]);
+    expect(permCalls).toEqual(["business", "business", "business", "business"]);
     expect(storesSb).not.toHaveBeenCalled();
     expect(serviceSb).not.toHaveBeenCalled();
   });
@@ -69,7 +67,6 @@ describe("A-07 배달 광고 쓰기 권한 = business", () => {
     expect((await postExtend(json({ productKind: "x" }), campaignCtx as never)).status).toBe(503);
     expect((await postFirstParty(json({}))).status).toBe(503);
     expect((await postBusinessCash(json({}))).status).not.toBe(403);
-    expect((await patchChargeRequest(json({}) as never, { params: Promise.resolve({ id: "r1" }) })).status).toBe(410);
   });
 
   it("읽기(GET)는 기존 관리자 검사 유지 — business 권한 검사 없음", async () => {
