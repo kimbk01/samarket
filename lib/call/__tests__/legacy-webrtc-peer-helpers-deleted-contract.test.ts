@@ -63,14 +63,10 @@ describe("legacy WebRTC peer helpers deleted (Fix 5)", () => {
     }
   });
 
-  it("lib/call barrel does not re-export deleted modules or symbols", () => {
-    const barrel = read("lib/call/index.ts");
-    expect(barrel).not.toContain("./createPeerConnection");
-    expect(barrel).not.toContain("./webrtc-configuration");
-    for (const sym of DELETED_SYMBOLS) {
-      expect(barrel).not.toContain(sym);
-    }
-    expect(barrel).toContain("./ice-servers");
+  /** 2026-11-12 D5: import 0 이던 lib/call 배럴 자체를 삭제 — 옛 헬퍼 재수출 경로가 사라짐 */
+  it("lib/call barrel is removed", () => {
+    expect(existsSync(join(root, "lib/call/index.ts"))).toBe(false);
+    expect(existsSync(join(root, "lib/call/ice-servers.ts"))).toBe(true);
   });
 
   it("product tree has no import path or symbol reintroduction", () => {

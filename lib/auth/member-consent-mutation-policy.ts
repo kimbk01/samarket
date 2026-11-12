@@ -170,10 +170,7 @@ export const MEMBER_CONSENT_EXEMPT_RULES: readonly Rule[] = [
   R("POST", "/api/me/notifications/room-read", "mark_read"),
   R("POST", "/api/me/stores/[storeId]/delivery-ads/[campaignId]/messages/read", "mark_read"),
   // already-started call session lifecycle (starting a call stays CONSENT_REQUIRED)
-  R("POST", "/api/community-messenger/calls/[sessionId]/accept", "existing_call_session"),
-  R("POST", "/api/community-messenger/calls/[sessionId]/end", "existing_call_session"),
   R("POST", "/api/community-messenger/calls/[sessionId]/missed", "existing_call_session"),
-  R("POST", "/api/community-messenger/calls/[sessionId]/reject", "existing_call_session"),
   R("POST", "/api/community-messenger/calls/[sessionId]/push-ack", "existing_call_session"),
   R("PATCH", "/api/community-messenger/calls/sessions/[sessionId]", "existing_call_session"),
   R("POST", "/api/community-messenger/calls/sessions/[sessionId]/signals", "existing_call_session"),

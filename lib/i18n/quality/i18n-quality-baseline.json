@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-12 16:59 PHT",
+ "generatedAtPht": "2026-11-12 17:00 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -22,9 +22,7 @@
  "fileRules": {
   "foreign-script-code": {},
   "foreign-locale-code": {},
-  "non-catalog-fallback-en": {
-   "components/community-messenger/call-history/CommunityMessengerCallStatusBadge.tsx": 1
-  },
+  "non-catalog-fallback-en": {},
   "non-catalog-inline-ko-en": {
    "lib/admin/metrics/dashboard-overview-contract.ts": 5
   },
@@ -129,7 +127,6 @@
    "app/api/community-messenger/calls/sessions/[sessionId]/token/route.ts": 1,
    "app/api/community-messenger/calls/sessions/active/route.ts": 1,
    "app/api/community-messenger/calls/sessions/incoming/route.ts": 1,
-   "app/api/community-messenger/calls/stub-message/route.ts": 1,
    "app/api/community-messenger/direct/start/route.ts": 1,
    "app/api/community-messenger/friend-requests/[requestId]/route.ts": 2,
    "app/api/community-messenger/friend-requests/cancel-outgoing/route.ts": 1,
@@ -404,8 +401,6 @@
    "lib/business/owner-store-order-messenger-link.ts": 2,
    "lib/business/owner-store-settlement-labels.ts": 11,
    "lib/call/call-notification.ts": 3,
-   "lib/call/call-session-state.ts": 8,
-   "lib/call/mapCallEndToRoomEvent.ts": 10,
    "lib/categories/admin/category-admin-api.ts": 6,
    "lib/categories/admin/checkSlugAvailable.ts": 4,
    "lib/categories/validateSlug.ts": 3,

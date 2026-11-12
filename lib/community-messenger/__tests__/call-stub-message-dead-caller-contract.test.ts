@@ -53,12 +53,10 @@ describe("call stub-message dead runtime caller contract", () => {
     expect(service).toContain("resolveTerminalStubActorUserId");
   });
 
-  it("stub-message route documents replaceExisting unread risk (dead path)", () => {
-    const route = fs.readFileSync(
-      path.join(ROOT, "app/api/community-messenger/calls/stub-message/route.ts"),
-      "utf8"
-    );
-    expect(route).toContain('incrementUnread: !replaceExisting && status === "missed"');
-    expect(route).toContain("in-flight dialing/incoming stub publish blocked");
+  /** 2026-11-12 통화 죽은 코드 정리 D5 (Owner 승인·stub 포함): 호출처 0 이던 stub-message 라우트 삭제 — 재도입 금지 */
+  it("stub-message route is removed (dead path deleted)", () => {
+    expect(
+      fs.existsSync(path.join(ROOT, "app/api/community-messenger/calls/stub-message/route.ts"))
+    ).toBe(false);
   });
 });

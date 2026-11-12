@@ -191,7 +191,8 @@ describe("P2-b orphan missed facts (byRoom required)", () => {
 
   it("documents byRoom product consumers remain (cannot drop for COUNT-only)", () => {
     const storeSrc = readFileSync(
-      join(process.cwd(), "lib/notifications/client/room-missed-call-badge-store.ts"),
+      // 2026-11-12 D5: import 0 이던 room-missed-call-badge-store 삭제 → 실제 소비처로 확인
+      join(process.cwd(), "lib/notifications/apply-badge-count-authority-response.ts"),
       "utf8"
     );
     expect(storeSrc).toContain("missedCallByRoom");
