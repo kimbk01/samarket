@@ -83,11 +83,13 @@ describe("§14-11 앱 안 배너 문구 = OS 푸시 문구", () => {
     expect(c?.preview).not.toContain("비밀");
   });
 
-  it("부재중 통화 기록: 서버 부재중 알림과 같은 「부재중 전화 / 이름 · 부재중 음성 통화」", () => {
+  // D7 (2026-11-13 실측): 통화 기록은 안 읽은 수 경로에서 배너를 만들지 않는다 — 부재중 배너는 부재중 알림 행이 근거
+  // (missed-call-event-banner.test.ts). 문구 「부재중 전화 / 이름 · 부재중 음성 통화」는 그쪽에서 같은 함수로 만든다.
+  it("부재중 통화 기록 → null (안 읽은 수 경로는 부재중 배너를 만들지 않음, D7)", () => {
     const c = build(
       snap({}, [{ messageType: "call_stub", callStatus: "missed", callKind: "voice", createdAt: "2026-10-25T12:30:00Z" }])
     );
-    expect(c).toMatchObject({ title: "부재중 전화", preview: "q테스트1 · 부재중 음성 통화" });
+    expect(c).toBeNull();
   });
 
   it("부재중 외 통화 기록·오래된 메시지·수신 메시지 없음 → null (배너 생략)", () => {

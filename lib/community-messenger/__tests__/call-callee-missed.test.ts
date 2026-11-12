@@ -75,7 +75,7 @@ describe("진입점 — 실시간 수신음", () => {
   });
 });
 
-describe("진입점 — 앱 안 부재중 배너", () => {
+describe("진입점 — 안 읽은 수 경로는 통화 기록 배너를 만들지 않음 (D7)", () => {
   const room = { id: "room-1", roomType: "direct", title: "t" } as unknown as CommunityMessengerRoomSummary;
   const stub = (callStatus: string, callResolvedEvent: string): CommunityMessengerMessage =>
     ({
@@ -91,25 +91,11 @@ describe("진입점 — 앱 안 부재중 배너", () => {
       callSessionId: "s1",
       metadata: { callStatus, callResolvedEvent, initiatorUserId: CALLER, recipientUserId: CALLEE, endedReason: "canceled" },
     }) as unknown as CommunityMessengerMessage;
-  it("발신자 취소 → 수신자에게 부재중 배너", () => {
-    const content = buildMessengerInAppBannerContent({
-      room,
-      messages: [stub("cancelled", "cancelled_by_caller")],
-      viewerUserId: CALLEE,
-      language: "ko",
-      chatPreviewEnabled: true,
-    });
-    expect(content?.kind).toBe("missed_call");
-    expect(content?.title).toBe("부재중 전화");
-  });
-  it("통화 중 취소 → 배너 없음", () => {
-    const content = buildMessengerInAppBannerContent({
-      room,
-      messages: [stub("cancelled", "peer_busy")],
-      viewerUserId: CALLEE,
-      language: "ko",
-      chatPreviewEnabled: true,
-    });
-    expect(content).toBeNull();
+  it("발신자 취소·부재중 통화 기록 모두 null — 부재중 배너는 부재중 알림 행이 근거", () => {
+    for (const [st, ev] of [["cancelled", "cancelled_by_caller"], ["missed", "missed"]] as const) {
+      expect(
+        buildMessengerInAppBannerContent({ room, messages: [stub(st, ev)], viewerUserId: CALLEE, language: "ko", chatPreviewEnabled: true }),
+      ).toBeNull();
+    }
   });
 });
