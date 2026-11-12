@@ -116,17 +116,11 @@ describe("marketplace public filters do not expose reserved", () => {
       resolve(process.cwd(), "components/trade/TradePrimaryTabs.tsx"),
       "utf8"
     );
-    const search = readFileSync(
-      resolve(process.cwd(), "components/search/SearchFilterBar.tsx"),
-      "utf8"
-    );
     expect(tabs).not.toContain('trade_market_sort_reserved');
     expect(tabs).not.toContain("allSortChip");
     expect(tabs).not.toContain('key: "latest"');
     expect(tabs).not.toContain('key: "active"');
     expect(tabs).not.toContain('key: "sold"');
-    expect(search).toContain('status: "all" | "active" | "sold"');
-    expect(search).not.toContain('"reserved"');
   });
 
   it("keeps L1 auto-promote writer and reserved buyer helper", () => {

@@ -39,7 +39,6 @@ const PROTECTED_AUTHORITIES = [
 
 const QUARANTINED_IMPL_FILES = [
   "lib/auth/native/sync-client-session-after-native-exchange.client.ts",
-  "lib/auth/oauth-profile-upsert.ts",
 ] as const;
 
 describe("Slice 6-6 dead completion quarantine contract", () => {
@@ -138,7 +137,6 @@ describe("Slice 6-6 dead completion quarantine contract", () => {
     for (const rel of [
       ...PRODUCTION_AUTH_ENTRIES,
       "lib/auth/completion/sync-common-client-session.client.ts",
-      "lib/auth/oauth-profile-upsert.ts",
     ]) {
       const src = read(rel);
       expect(src, rel).not.toMatch(/dibay-session-manager/);

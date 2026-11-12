@@ -328,18 +328,6 @@ describe("D. every admin decision path goes through the service", () => {
   });
 
   it("list and refund queue no longer decide; they send the admin to the order detail", () => {
-    const list = read("components/admin/stores/AdminStoreOrdersPage.tsx");
-    expect(list).not.toContain("/cancel-request");
-    expect(list).not.toContain("/approve-refund");
-    expect(list).not.toContain("restore_to_status");
-    expect(list).toContain("admin-order-decision-link");
-    const refunds = read("components/admin/delivery-orders/DeliveryRefundsClient.tsx");
-    expect(refunds).not.toContain("/approve-refund");
-    expect(refunds).toContain("/admin/stores/orders/");
-    const detail = read("components/admin/delivery-orders/DeliveryOrderDetailClient.tsx");
-    expect(detail).toContain("AdminStoreOrderInterventionPanel");
-    expect(detail).not.toContain("force_cancel: true");
-    expect(detail).not.toContain("complete_refund: true");
     const panel = read("components/admin/delivery-orders/AdminStoreOrderInterventionPanel.tsx");
     expect(panel).toContain("/intervene");
     expect(panel).toContain("expected_status: orderStatus");

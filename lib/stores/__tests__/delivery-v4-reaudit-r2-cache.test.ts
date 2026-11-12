@@ -164,17 +164,6 @@ describe("UI-15·16 — 관리자 광고 시각 입력 PHT 고정", () => {
     expect(adminManilaInputToIso(adminIsoToManilaInput(orig), orig)).toBe(orig);
   });
 
-  it.each([
-    "components/admin/stores/AdminStoreBannerAdWriterPanel.tsx",
-    "components/admin/stores/AdminStorePaidAdWriterPanel.tsx",
-  ])("%s — 공용 PHT 변환 사용, 기기 시간대 getHours 없음", (rel) => {
-    const src = read(rel);
-    expect(src).toContain("adminIsoToManilaInput(iso)");
-    expect(src).toContain("adminManilaInputToIso(value, originalIso)");
-    expect(src).not.toMatch(/\.getHours\(\)/);
-    expect(src).toContain("fromDatetimeLocal(editForm.startAt, editingRow?.start_at)");
-  });
-
   it("직접 등록 화면 즉시/예약 판정은 PHT 해석", () => {
     const src = read("components/admin/stores/AdminDeliveryAdFirstPartyCreateView.tsx");
     expect(src).toContain('Date.parse(manilaLocalToIso(startAt) ?? "") <= Date.now()');

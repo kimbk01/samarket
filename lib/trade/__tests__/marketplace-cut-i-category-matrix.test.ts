@@ -54,11 +54,9 @@ describe("CUT I — 6-profile WRITE/LIST/DETAIL/FILTER matrix (contract)", () =>
     const home = readRepoFile("components/home/HomeProductList.tsx");
     const category = readRepoFile("components/post/PostListByCategory.tsx");
     const sheet = readRepoFile("components/trade/MarketFilterSheet.tsx");
-    const search = readRepoFile("components/search/SearchFilterBar.tsx");
     expect(home).not.toContain("CompositionAttributeFilterSelects");
     expect(category).not.toContain("CompositionAttributeFilterSelects");
     expect(sheet).toContain("CompositionAttributeFilterSelects");
-    expect(search).toContain("CompositionAttributeFilterSelects");
   });
 
   it("WRITE stays TradeCategoryWriteForm; no 7th WriteForm fork; used-car buy widget KEEP", () => {

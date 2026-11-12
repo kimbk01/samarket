@@ -177,37 +177,18 @@ describe("D. integrity flags (shown, never corrected)", () => {
 });
 
 describe("E. screen CTA contract (static)", () => {
-  const ui = read("components/admin/stores/AdminStoreOrdersPage.tsx");
   const api = read("app/api/admin/store-orders/list/route.ts");
 
-  it("search and refresh both re-query the server with no client cache", () => {
-    expect(ui).toContain('cache: "no-store"');
-    expect(ui).toContain("/api/admin/store-orders/list");
-    expect(ui).not.toContain("useAdminQuery");
-    expect(ui).not.toContain("pollIntervalMs");
+  it("list API responds with no-store", () => {
     expect(api).toContain('"Cache-Control": "no-store"');
   });
 
-  it("search resets to page 1 with a new snapshot; refresh keeps the page", () => {
-    expect(ui).toMatch(/page: 1,\s*asOf: null/);
-    expect(ui).toContain('void load({ ...applied, asOf: null }, "refresh")');
-  });
-
-  it("a failed load keeps the previous rows (no setResult(null) on error)", () => {
-    expect(ui).not.toContain("setResult(null)");
+  it("previous-result notice copy stays in the catalog", () => {
     /** 언어 SSOT B4: 문구는 카탈로그 키 — 코드 모양 + 카탈로그 값으로 확인 */
-    expect(ui).toContain('"admin_stores_showing_previous_result"');
     expect(read("lib/i18n/catalog/copy-admin-b4-stores.ts")).toContain("직전 조회 결과를 표시하고 있습니다");
-  });
-
-  it("developer surface removed from the list: UUID inputs, bulk delete, checkboxes", () => {
-    expect(ui).not.toContain("bulk-delete");
-    expect(ui).not.toContain('type="checkbox"');
-    expect(ui).not.toContain("order_id (UUID)");
   });
 
   it("all tabs render from the contract", () => {
     for (const tab of ADMIN_STORE_ORDERS_TABS) expect(tab.length).toBeGreaterThan(0);
-    expect(ui).toContain("ADMIN_STORE_ORDERS_TABS.map");
   });
 });

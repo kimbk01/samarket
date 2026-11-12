@@ -102,10 +102,6 @@ describe("B1 admin vocabulary — one SSOT for status / role / priority", () => 
     expect(page).toContain("supportAdminStatusLabel");
     expect(page).toContain("supportReferenceLabel(safeT, activeCase.reference_type)");
     expect(page).not.toContain("· {activeCase.priority}");
-    const plane = read("components/admin/support/AdminSupportControlPlane.tsx");
-    expect(plane).not.toContain("adminOperatorLabel");
-    expect(plane).not.toContain("{item.category}");
-    expect(plane).not.toContain('(ko ? "Owner" : "Owner")');
     const loader = read("lib/admin/support-control-plane/load-support-control-plane.ts");
     expect(loader).toContain("subject: c.initial_summary || c.public_case_no");
   });

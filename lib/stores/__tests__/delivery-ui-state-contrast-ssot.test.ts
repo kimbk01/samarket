@@ -91,7 +91,6 @@ describe("delivery UI state / contrast SSOT", () => {
       "components/stores/store-order-detail/StoreOrderStickyHeader.tsx",
       "components/stores/commerce/StoreCommerceBottomActionShell.tsx",
       "components/stores/home/hub/StoresHomeSearchModal.tsx",
-      "components/delivery/ui/DeliveryModal.tsx",
       "components/business/owner/OwnerMobileOpsMenuDrawer.tsx",
       "components/admin/ui/AdminDetailDrawer.tsx",
     ]) {

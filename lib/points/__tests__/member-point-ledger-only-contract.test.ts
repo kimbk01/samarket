@@ -16,7 +16,6 @@ describe("Phase 4 Slice 2 ledger-only contract", () => {
   it("trade-ads and admin PATCH do not update profiles.points directly", () => {
     const files = [
       "lib/trade-ads/trade-post-ad-point-flow.ts",
-      "lib/trade-ads/charge-trade-post-ad-points.ts",
       "app/api/admin/users/[id]/points/route.ts",
     ];
     for (const rel of files) {

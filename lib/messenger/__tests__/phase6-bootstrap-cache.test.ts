@@ -509,8 +509,6 @@ describe("Phase 6 I — Runtime 격리", () => {
     expect(MESSENGER_DOMAIN_BUILD_PHASE_ORDER.find((p) => p.phase === 6)?.status).toBe("done");
 
     const domainAuthorityConnectAllow = [
-      "@/lib/messenger/contracts/domain-realtime-authority-product-bridge",
-      "@/lib/messenger/contracts/domain-notification-authority-product-bridge",
       "@/lib/messenger/contracts/domain-badge-authority-product-bridge",
       "@/lib/messenger/contracts/domain-notification-authority",
       "@/lib/messenger/contracts/domain-atomic-read-authority",

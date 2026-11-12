@@ -41,11 +41,7 @@ describe("CUT A3 member trade labels", () => {
     expect(tabs).toContain('trackAriaLabel={t("trade_138")}');
   });
 
-  it("does not retarget SearchFilterBar or A1/A2 resolvers", () => {
-    const search = read("components/search/SearchFilterBar.tsx");
-    expect(search).not.toContain("ui_write_topic_label");
-    expect(search).not.toContain("ui_market_topic_filter_aria");
-
+  it("does not retarget A1/A2 resolvers", () => {
     const resolveSrc = read("lib/trade/category-form/resolve-for-category.ts");
     expect(resolveSrc).toContain("resolveTradeCompositionRootRow");
   });

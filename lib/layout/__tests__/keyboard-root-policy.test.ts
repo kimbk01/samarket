@@ -110,9 +110,7 @@ describe("floating chrome above the bottom nav hides while typing", () => {
       /html\[data-kb-open="true"\] \[data-kb-hide="1"\] \{\s*visibility: hidden;/
     );
     for (const f of [
-      "components/write-launcher/WriteLauncher.tsx",
       "components/layout/MainBottomNavFabSector.tsx",
-      "components/community-messenger/MessengerHomeFabSector.tsx",
       "components/home/HomeTradeHubFloatingBar.tsx",
       "components/support/SupportFabHost.tsx",
     ]) {

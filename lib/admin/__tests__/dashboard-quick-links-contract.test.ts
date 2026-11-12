@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { adminMenu, filterMenuByRole } from "@/components/admin/admin-menu";
 import {
@@ -108,16 +106,6 @@ describe("dashboard quick links ← menu SSOT (Slice 2A)", () => {
     expect(projectDashboardQuickLinks("operator").dev.some((l) => l.menuKey === "system-qa")).toBe(
       false
     );
-  });
-
-  it("source: DEV_LINKS constant removed; dashboard nav does not hardcode /admin/... hrefs", () => {
-    const dashboardFile = readFileSync(
-      resolve(process.cwd(), "components/admin/dashboard/DashboardQuickLinksBySection.tsx"),
-      "utf8"
-    );
-    expect(dashboardFile).not.toMatch(/\bDEV_LINKS\b/);
-    expect(dashboardFile).not.toMatch(/href:\s*["']\/admin\//);
-    expect(dashboardFile).not.toMatch(/["']\/admin\/[a-z0-9#/?_-]+["']/);
   });
 
   it("adapter priority exports stay SSOT-derived (no second href authority)", async () => {

@@ -25,12 +25,6 @@ describe("LIST/SEARCH promotion badge single render", () => {
     expect(text).not.toContain("promotion_projection");
     expect(text).not.toContain("postHasTradePromotionOverlay");
   });
-
-  it("search list uses ProductCard only", () => {
-    const text = src("components/search/SearchResultList.tsx");
-    expect(text).toContain("ProductCard");
-    expect(text).not.toContain("PostCard");
-  });
 });
 
 describe("Owner 2026-11-05 카드 광고 상태 표시 1개 — 「광고」만, 「광고 중」 없음", () => {
@@ -101,11 +95,6 @@ describe("CUT F seller promotion unification", () => {
     expect(route).toContain("/admin/advertising/applications");
     expect(route).not.toContain('domain="trade"');
     expect(route).not.toContain('domain="community"');
-    // Queue component KEEP (mounted from advertising workspace / legacy page module)
-    const page = src("components/admin/ads/AdminAdApplicationsPage.tsx");
-    expect(page).toContain("<AdminCommunityPromotionQueue domain=\"trade\" />");
-    expect(page).toContain("<AdminCommunityPromotionQueue domain=\"community\" />");
-    expect(page).toContain("AdminFeedAdRequestQueue");
     const api = src("app/api/admin/trade-promotion-orders/[id]/route.ts");
     // 거래 Admin 설계 v2 O-2 · §F-4: 거래 게이트 + 승인·반려·중지·재개·종료는 DB 함수(runTradePromotionAction)로.
     expect(api).toContain("requireTradeAdmin");

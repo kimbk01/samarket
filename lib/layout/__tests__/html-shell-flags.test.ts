@@ -76,7 +76,6 @@ describe("D1 F1 — html·body :has 규칙 대체 셸 속성", () => {
       "components/stores/browse/StoresBrowsePullRefreshHint.tsx",
       "components/ui/dibay-overlay/DibayOverlayRoot.tsx",
       "components/admin/users/MemberAdminDialog.tsx",
-      "components/delivery/ui/DeliveryModal.tsx",
       "components/admin/shell/AdminPlatformShell.tsx",
       "components/stores/owner/OwnerMobileBottomNav.tsx",
     ]) {

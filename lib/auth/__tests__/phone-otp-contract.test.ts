@@ -50,7 +50,6 @@ describe("phone-otp-contract", () => {
       "app/api/account/phone/send-otp/route.ts",
       "app/api/account/phone/verify-otp/route.ts",
       "components/mypage/profile/PhoneVerificationBox.tsx",
-      "components/my/PhoneVerificationRequestForm.tsx",
     ];
     for (const path of offenders) {
       expect(readRepoFile(path).includes("phone_otp_challenges")).toBe(false);

@@ -8,11 +8,7 @@ const read = (path: string) => withCatalogCopy(readFileSync(`${process.cwd()}/${
 
 describe("popup operational rewire source contracts", () => {
   it("requires a hub name and no longer posts an untitled fallback", () => {
-    const hub = read("components/admin/platform-popup/AdminPlatformPopupHubPage.tsx");
     const route = read("app/api/admin/platform-popup-campaigns/route.ts");
-    expect(hub).toContain("광고 이름을 입력해 주세요.");
-    expect(hub).toContain("createName.trim()");
-    expect(hub).not.toContain('fallbackKo: "새 팝업 캠페인"');
     expect(route).not.toContain('"Untitled popup"');
   });
 

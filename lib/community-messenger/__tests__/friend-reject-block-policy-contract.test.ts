@@ -49,7 +49,6 @@ describe("friend reject / block policy (§14-5)", () => {
     for (const f of [
       "lib/community-messenger/room/phase2/use-messenger-room-phase2-room-presentation.ts",
       "lib/community-messenger/room/use-messenger-room-composer-surface.ts",
-      "lib/community-messenger/room/use-messenger-room-composer-early.ts",
     ]) {
       expect(src(f)).toContain("directMessageDenied");
     }

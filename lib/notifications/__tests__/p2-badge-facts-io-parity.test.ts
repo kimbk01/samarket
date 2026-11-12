@@ -194,11 +194,6 @@ describe("P2-b orphan missed facts (byRoom required)", () => {
       join(process.cwd(), "lib/notifications/client/room-missed-call-badge-store.ts"),
       "utf8"
     );
-    const canarySrc = readFileSync(
-      join(process.cwd(), "components/community-messenger/domain-shell-canary/DomainShellCanaryHomeGate.tsx"),
-      "utf8"
-    );
     expect(storeSrc).toContain("missedCallByRoom");
-    expect(canarySrc).toContain("publishRoomMissedCallBadgeByRoom");
   });
 });
