@@ -18,7 +18,8 @@ describe("정보교환·거래 머리글 3판 계약", () => {
     expect(tier1).toContain("<Tier1TitleWithArea");
     expect(tier1).toContain("<CommunityTier1AreaButton />");
     expect(tier1).toContain('<TradeHeaderLocationPinButton placement="title" />');
-    expect(tier1).toContain('noLeftSlot={areaHub || hub === "moim"}');
+    /** 헤더 SSOT 1단계(Owner 2026-11-13): 다섯 허브 모두 왼쪽 빈칸 없음 — 제목 시작선 통일 */
+    expect(tier1).toContain("<UnifiedTier1Shell noLeftSlot>");
     expect(read("app/sector-header.css")).toMatch(
       /\.sector-header--no-left-slot \.sector-header-bar--left-title \{\s*grid-template-columns: minmax\(0, 1fr\) auto;/
     );
