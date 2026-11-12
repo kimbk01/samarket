@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { HubActiveContext } from "@/lib/layout/hub-active-context";
 import { usePathname } from "next/navigation";
 import { GlobalLayoutRouterContext, LayoutRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
@@ -34,6 +34,8 @@ type RouterCtx = {
   pathname: React.ContextType<typeof PathnameContext>;
   searchParams: React.ContextType<typeof SearchParamsContext>;
   params: React.ContextType<typeof PathParamsContext>;
+  /** Next 전역 라우터 정보(트리·스크롤 신호) — 숨김·고정 칸은 이 값을 고정해 탭 이동마다 숨긴 허브의 Next 라우터가 다시 그려지지 않게 한다 */
+  global: React.ContextType<typeof GlobalLayoutRouterContext>;
 };
 
 /**
@@ -61,16 +63,18 @@ export function HubRetentionStack({ children }: { children: ReactNode }) {
    * 이 화면들의 스크롤 위치는 `AppScrollMemory` 가 맡는다. 예전 React Activity 에서는 숨긴 허브의 이 처리기가 깨어나지
    * 않았는데, CSS 숨김에서는 살아 있어 탭 복귀 때 복원(예: 900)을 0 으로 되돌렸다(2026-11-12 로컬 운영 빌드 확인).
    */
-  const inertScrollGlobal = useMemo(
-    () => (liveGlobal ? { ...liveGlobal, focusAndScrollRef: INERT_FOCUS_AND_SCROLL_REF } : null),
-    [liveGlobal]
-  );
   const liveCtx = useMemo<RouterCtx | null>(
     () =>
       liveLayout
-        ? { layout: liveLayout, pathname: livePathname, searchParams: liveSearchParams, params: liveParams }
+        ? {
+            layout: liveLayout,
+            pathname: livePathname,
+            searchParams: liveSearchParams,
+            params: liveParams,
+            global: liveGlobal,
+          }
         : null,
-    [liveLayout, livePathname, liveSearchParams, liveParams]
+    [liveLayout, livePathname, liveSearchParams, liveParams, liveGlobal]
   );
   const membership = useClientMembershipState("hub-retention-stack");
   const viewerKey = resolveHubRetentionViewerKey(membership);
@@ -83,6 +87,12 @@ export function HubRetentionStack({ children }: { children: ReactNode }) {
     entries: [],
   }));
   const [instanceId] = useState(allocateHubRetentionInstanceId);
+  /**
+   * D1 S2: 칸마다 마지막으로 「현재 정보로」 그린 화면 요소. 숨김·고정 칸은 이 요소를 그대로 다시 쓴다 —
+   * Next 는 이동마다 새 `children` 요소를 주므로, 그대로 넘기면 숨긴 허브 전체가 이동마다 다시 그려진다(Activity 때는
+   * 그 일이 낮은 우선순위로 미뤄졌다). 같은 요소 객체면 React 가 그 아래를 건너뛴다.
+   */
+  const lastLiveElementRef = useRef(new Map<MainTabKeepAliveHubId, ReactNode>());
 
   /** 숨긴 허브 기록 — 하단 탭 미리 받기가 보관 중 허브의 데이터를 다시 받지 않게 (60초 규칙과 같은 기준) */
   const hiddenIdsKey = state.entries
@@ -113,6 +123,9 @@ export function HubRetentionStack({ children }: { children: ReactNode }) {
     <>
       {next.entries.map((entry) => {
         const visible = entry.id === currentRetained;
+        const live = visible && entry.ctx === liveCtx;
+        if (live) lastLiveElementRef.current.set(entry.id, children);
+        const element = live ? children : (lastLiveElementRef.current.get(entry.id) ?? children);
         /** 보이는 칸: 같은 주소로 돌아온 직후면 떠나기 직전 정보(다시 만들지 않음), 그 밖에는 현재 정보 — `nextHubRetentionState` */
         return (
           /**
@@ -126,12 +139,11 @@ export function HubRetentionStack({ children }: { children: ReactNode }) {
             style={visible ? HUB_VISIBLE_STYLE : HUB_HIDDEN_STYLE}
           >
             <HubActiveContext.Provider value={visible}>
-              <InertScrollWhenFrozen
-                inert={!visible || entry.ctx !== liveCtx}
-                inertGlobal={inertScrollGlobal}
+              <GlobalLayoutRouterContext.Provider
+                value={live ? liveGlobal : frozenInertGlobal(entry.ctx)}
               >
-                <FrozenRouterContexts ctx={entry.ctx}>{children}</FrozenRouterContexts>
-              </InertScrollWhenFrozen>
+                <FrozenRouterContexts ctx={entry.ctx}>{element}</FrozenRouterContexts>
+              </GlobalLayoutRouterContext.Provider>
             </HubActiveContext.Provider>
           </div>
         );
@@ -155,22 +167,17 @@ const INERT_FOCUS_AND_SCROLL_REF: GlobalLayoutCtx["focusAndScrollRef"] = {
   onlyHashChange: false,
 };
 
-/** 같은 요소 종류를 항상 유지(inert 값만 바꿈) — 감싸는 요소가 바뀌면 아래가 다시 만들어진다 */
-function InertScrollWhenFrozen({
-  inert,
-  inertGlobal,
-  children,
-}: {
-  inert: boolean;
-  inertGlobal: GlobalLayoutCtx | null;
-  children: ReactNode;
-}) {
-  const live = useContext(GlobalLayoutRouterContext);
-  return (
-    <GlobalLayoutRouterContext.Provider value={inert && inertGlobal ? inertGlobal : live}>
-      {children}
-    </GlobalLayoutRouterContext.Provider>
-  );
+/**
+ * 숨김·고정 칸의 Next 전역 라우터 값 — 칸의 라우터 정보(`ctx`)마다 1개로 고정(같은 객체 → 탭 이동마다 다시 그리지 않음),
+ * 스크롤 신호는 비활성(`AppScrollMemory` 가 위치 담당).
+ */
+const frozenGlobalByCtx = new WeakMap<object, GlobalLayoutCtx | null>();
+function frozenInertGlobal(ctx: { global: GlobalLayoutCtx | null }): GlobalLayoutCtx | null {
+  const hit = frozenGlobalByCtx.get(ctx);
+  if (hit !== undefined) return hit;
+  const v = ctx.global ? { ...ctx.global, focusAndScrollRef: INERT_FOCUS_AND_SCROLL_REF } : null;
+  frozenGlobalByCtx.set(ctx, v);
+  return v;
 }
 
 const HUB_VISIBLE_STYLE = { display: "contents" } as const;
