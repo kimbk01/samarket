@@ -14,6 +14,7 @@ import { MoimJoinSheet } from "@/components/moim/MoimJoinSheet";
 import { MoimPostRow } from "@/components/moim/MoimPostRow";
 import { MoimScheduleDateBox, formatMoimScheduleCount, formatMoimScheduleShort } from "@/components/moim/moim-schedule-ui";
 import { MoimCover, formatMoimCount, moimCls, moimTopicOrCategoryLabel, useMoimBoardLabel } from "@/components/moim/moim-ui";
+import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 
 /** 모임 머리 — 사진 · 이름 · 카테고리·동네 · 멤버 수 · 가입 방식 · 소개 (공개·멤버 공통) */
 export function MoimHeadBlock({ moim, showIntro = true }: { moim: MoimDetailDto; showIntro?: boolean }) {
@@ -196,9 +197,9 @@ export function MoimPublicView({
       </div>
 
       {cta ? (
-        <div className="sticky bottom-0 border-t border-sam-border bg-sam-surface px-4 pb-[calc(12px+var(--safe-bottom,0px))] pt-2.5">
+        <MoimStickyFooter>
           <div className={moimCls.column}>{cta}</div>
-        </div>
+        </MoimStickyFooter>
       ) : null}
 
       <MoimJoinSheet
