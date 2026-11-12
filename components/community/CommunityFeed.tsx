@@ -136,6 +136,10 @@ import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 import { getMobileTopTier1RuleSet, resolveCommunityTradeSwitchHub } from "@/lib/layout/mobile-top-tier1-rules";
 import { CommunityTradeSwitchRow } from "@/components/layout/CommunityTradeTitleSwitch";
 import { useFitSectionTabPadding } from "@/lib/ui/use-fit-section-tab-padding";
+import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
+import { COMMUNITY_AREA_SHEET_OPEN_EVENT, publishCommunityAreaTitle } from "@/lib/community/community-area-title-store";
+import { CommunityAreaSheet } from "@/components/community/CommunityAreaSheet";
+import { PhilifeComposeFab } from "@/components/philife/PhilifeHeaderComposeButton";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 declare global {
@@ -315,9 +319,20 @@ export function CommunityFeed({
     setExplicitFilter,
   } = useCommunityLocalFilter();
   const [localFilterPickerOpen, setLocalFilterPickerOpen] = useState(false);
+  /** 1단 제목 뒤 「· 동네 ⌄」 → 「보는 동네」 시트 (Owner 「3판대로 구현」 2026-11-12) */
+  const [areaSheetOpen, setAreaSheetOpen] = useState(false);
+  useEffect(() => {
+    const onOpen = () => setAreaSheetOpen(true);
+    window.addEventListener(COMMUNITY_AREA_SHEET_OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(COMMUNITY_AREA_SHEET_OPEN_EVENT, onOpen);
+  }, []);
 
   /** Community Navigation SSOT — Latest | Popular | Topic… | Local */
   const navSelection = parseCommunityNavFromSearchParams(searchParams);
+  /** 1단 제목 뒤 「· 동네 ⌄」에 보일 값 — 상태는 피드 하나가 가진다 (`community-area-title-store`) */
+  useEffect(() => {
+    publishCommunityAreaTitle(filterLabel, navSelection.kind === "local");
+  }, [filterLabel, navSelection.kind]);
   const plan = communityNavToFeedQuery(navSelection);
   const feedSort = plan.feedSort;
 
@@ -1306,6 +1321,8 @@ export function CommunityFeed({
       beginMenuNavigation(target, "community-topic");
       writeCommunityHubState(sel);
       window.history.replaceState(null, "", target);
+      /** 선택이 실제로 바뀔 때만 짧은 진동 — 하단 탭과 같은 부품·세기 (Owner 「3판대로 구현」 2026-11-12 · 터치 기기만, iPhone 은 네이티브 진동 추가 전까지 없음) */
+      triggerInteractionFeedback("light");
       return true;
     },
     [
@@ -1413,13 +1430,6 @@ export function CommunityFeed({
       ),
     [navItems]
   );
-  const trailingNavItems = useMemo(
-    () =>
-      navItems.filter(
-        (item): item is Extract<CommunityNavComposeItem, { kind: "local" }> => item.kind === "local"
-      ),
-    [navItems]
-  );
 
   const activeTopicTabIndex = useMemo(
     () => resolveActiveNavIndex(navItems, navSelection),
@@ -1461,7 +1471,8 @@ export function CommunityFeed({
    * 2단 주제 탭 여백 자동 맞춤 (Owner 「커뮤니티 2단 탭도 같은 방식」 2026-11-12) — 여백 4px 로 한 줄에 다 들어가면 줄이고,
    * 안 들어가면(주제 10개: 한국어 390px 기준 필요 512px > 칸 282px) 기본 12px 그대로 밀어서 본다.
    */
-  useFitSectionTabPadding(topicTablistRef, [navItems, leadingNavItems, trailingNavItems, language]);
+  /** 정보교환 2단 주제 칸 여백 최대 10px — 주제 사이 24→20px (Owner 「3판대로 구현」 2026-11-12, 시안 §1) */
+  useFitSectionTabPadding(topicTablistRef, [navItems, leadingNavItems, language], { maxPadPx: 10 });
   const allSortButtonRef = useRef<HTMLButtonElement | null>(null);
   const allSortMenuRef = useRef<HTMLUListElement | null>(null);
   const lastAllSortRef = useRef<CommunityAllSort>(
@@ -1832,6 +1843,8 @@ export function CommunityFeed({
               ref={topicTablistRef}
               navRole="category"
               tier="section"
+              /** 탭 줄 안쪽 여백 0 — 「최신순」과 첫 주제 사이 36→18px (Owner 「3판대로 구현」 2026-11-12) */
+              hostClassName="[--dibay-secondary-tab-pad-x:0px]"
               /** 2단 탭 왼쪽 정렬 (Owner 「A 안」 2026-11-12) — 주제가 4개 이하여도 균등 분할·가운데 정렬 없이 글자 폭 그대로 */
               data-dibay-tab-align="start"
               bordered
@@ -1908,26 +1921,6 @@ export function CommunityFeed({
                   <span className="h-8 w-20 shrink-0 animate-pulse rounded-full bg-sam-muted/25" />
                 </span>
               ) : null}
-              {trailingNavItems.map((item) => {
-                const on = navSelection.kind === "local";
-                const label = safeT("community_feed_mode_local");
-                return (
-                  <button
-                    key={item.kind}
-                    type="button"
-                    role="tab"
-                    aria-selected={on}
-                    onClick={() => applyNavSelection(communityNavComposeItemToSelection(item))}
-                    onMouseEnter={() => prefetchNavItemByIntent(item)}
-                    onTouchStart={() => prefetchNavItemByIntent(item)}
-                    onPointerDown={() => prefetchNavItemByIntent(item)}
-                    onFocus={() => prefetchNavItemByIntent(item)}
-                    className={dibaySecondaryTabClass(on)}
-                  >
-                    <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{label}</span>
-                  </button>
-                );
-              })}
               {/* 모임 탭 (Owner D2 2026-11-12: 동네생활 상단 「모임」) — 별도 화면 /moim */}
               <button
                 key="moim"
@@ -1944,23 +1937,6 @@ export function CommunityFeed({
             </DibaySecondaryTabRow>
             {/* 머리글 3단 — 「정보교환 · 거래」 전환 탭 오른쪽 정렬 (Owner 「A 안」 2026-11-12, 1단에서 옮김) */}
             {communityTradeSwitchHub === "community" ? <CommunityTradeSwitchRow active="community" /> : null}
-            {navSelection.kind === "local" ? (
-              <div className={`${PHILIFE_FEED_FILTER_STRIP_CLASS} border-t-0`}>
-                <div className={`flex min-w-0 items-center justify-between gap-2 ${APP_MAIN_HEADER_INNER_CLASS}`}>
-                  <p className="min-w-0 truncate sam-text-body-secondary text-sam-muted">
-                    {safeT("community_local_filter_active")}
-                    {filterLabel.trim() ? ` · ${filterLabel.trim()}` : ""}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setLocalFilterPickerOpen(true)}
-                    className="shrink-0 sam-text-body font-semibold text-sam-primary"
-                  >
-                    {safeT("community_local_filter_change")}
-                  </button>
-                </div>
-              </div>
-            ) : null}
             {allSortOpen && allSortMenuPos && typeof document !== "undefined"
               ? createPortal(
                   <ul
@@ -2179,14 +2155,42 @@ export function CommunityFeed({
         </div>
         </div>
       </div>
+      {/* 떠 있는 「글쓰기」 버튼 높이만큼 — 마지막 글이 버튼에 가리지 않게 (모임 목록 `pb-28` 과 같은 방식) */}
+      <div aria-hidden className="h-14" data-philife-compose-fab-clearance="" />
       <CommunityLocalFilterPickerSheet
         open={localFilterPickerOpen}
         onClose={() => setLocalFilterPickerOpen(false)}
         initialLguId={filter?.lguId ?? ""}
         onApply={(lguId) => {
-          setExplicitFilter(lguId);
+          if (!setExplicitFilter(lguId)) return;
+          /** 「다른 동네 고르기」로 고르면 그 동네 글로 바로 (예전 2단 「동네」 탭을 누른 것과 같음) */
+          if (navSelection.kind !== "local") applyNavSelection({ kind: "local", topicSlug: "", allSort: "latest" });
         }}
       />
+      <CommunityAreaSheet
+        open={areaSheetOpen}
+        onClose={() => setAreaSheetOpen(false)}
+        localOn={navSelection.kind === "local"}
+        areaLabel={filterLabel}
+        onPickAll={() => {
+          setAreaSheetOpen(false);
+          applyNavSelection({ kind: "all", topicSlug: "", allSort: lastAllSortRef.current });
+        }}
+        onPickLocal={() => {
+          setAreaSheetOpen(false);
+          /** 보는 동네가 아직 없으면(대표 주소 없음) 먼저 고르게 한다 */
+          if (!locationKey) {
+            setLocalFilterPickerOpen(true);
+            return;
+          }
+          applyNavSelection({ kind: "local", topicSlug: "", allSort: "latest" });
+        }}
+        onPickOther={() => {
+          setAreaSheetOpen(false);
+          setLocalFilterPickerOpen(true);
+        }}
+      />
+      <PhilifeComposeFab />
     </div>
   );
 }

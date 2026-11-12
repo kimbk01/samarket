@@ -24,7 +24,9 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(header).toContain('"nav_community_switch_info"');
     expect(header).toContain('"nav_bottom_trade"');
     expect(header).not.toContain('t("marketplace_home_title")');
-    expect(header).not.toContain("TradeHeaderLocationPinButton");
+    /** 거래 지역 = 1단 제목 뒤 「· 동네 ⌄」 (Owner 「3판대로 구현」 2026-11-12, 시안 N3) — 2단 📍 는 그때 빠진다 */
+    expect(header).toContain('<TradeHeaderLocationPinButton placement="title" />');
+    expect(read("components/trade/TradePrimaryTabs.tsx")).toContain("locationInTitle ? null : <TradeHeaderLocationPinButton");
     const sticky = read("components/layout/AppStickyHeader.tsx");
     expect(sticky).toContain('<CommunityTradeSwitchRow active="trade" />');
     expect(sticky.indexOf("<TradePrimaryTabs")).toBeLessThan(sticky.indexOf('<CommunityTradeSwitchRow active="trade" />'));

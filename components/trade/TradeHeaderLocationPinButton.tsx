@@ -1,5 +1,7 @@
 "use client";
 
+import { Tier1TitleAreaButton } from "@/components/layout/Tier1TitleAreaButton";
+
 import { TRADE_MARKETPLACE_HYDRATE_RETRY_DELAYS_MS } from "@/lib/trade/location/use-trade-marketplace-location-hydrate";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MapPin } from "lucide-react";
@@ -77,7 +79,8 @@ export function buildTradeHeaderLocationHintParts(input: {
 const MY_REGION_RETRY_DELAYS_MS = TRADE_MARKETPLACE_HYDRATE_RETRY_DELAYS_MS;
 
 /** `icon-only` — 거래 상단 탭 줄(시안 v2): 📍 아이콘만, 위치 이름은 시트 안에서 본다 */
-export type TradeHeaderLocationPinPlacement = "icon-cluster" | "beside-title" | "below-title" | "icon-only";
+/** `title` — 1단 제목 뒤 「· 동네 ⌄」 (Owner 「3판대로 구현」 2026-11-12, 시안 N3) — 시트·지역 상태는 그대로 */
+export type TradeHeaderLocationPinPlacement = "icon-cluster" | "beside-title" | "below-title" | "icon-only" | "title";
 
 /**
  * Trade header MapPin — 거래 D (Owner 2026-10-28): 📍 위치 시트(`TradeBrowseLocationSheet`)를 연다.
@@ -182,23 +185,38 @@ export function TradeHeaderLocationPinButton({
     setSheetOpen(true);
   }, []);
 
+  /**
+   * 화면에 실제로 보이는 버튼만 신호를 받는다 — 1단 제목에 놓이면(`title`) 화면 전환용 머리글 사본(높이 0)에도 같은 버튼이
+   * 하나 더 그려져, 신호 하나에 시트가 두 번 열리지 않게 (Owner 「3판대로 구현」 2026-11-12 개발 서버 실측: 버튼 2개, 하나는 높이 0).
+   */
+  const anchorRef = useRef<HTMLSpanElement | null>(null);
+  const isShownOnScreen = useCallback(() => {
+    const el = anchorRef.current;
+    if (!el) return true;
+    return el.getClientRects().length > 0 && el.getBoundingClientRect().height > 0;
+  }, []);
+
   /** 다른 입구(빈 목록 「위치 선택」 등)의 열기 신호 */
   useEffect(() => {
-    const onOpen = () => setSheetOpen(true);
+    const onOpen = () => {
+      if (!isShownOnScreen()) return;
+      setSheetOpen(true);
+    };
     window.addEventListener(TRADE_LOCATION_SHEET_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(TRADE_LOCATION_SHEET_OPEN_EVENT, onOpen);
-  }, []);
+  }, [isShownOnScreen]);
 
   /** 옛 위치 화면 주소(307 → `?locSheet=1`) — 시트를 열고 주소에서 표시를 지운다 */
   const locSheetRequested = searchParams.get(TRADE_LOCATION_SHEET_QUERY_PARAM) === "1";
   useEffect(() => {
     if (!locSheetRequested) return;
+    if (!isShownOnScreen()) return;
     setSheetOpen(true);
     const next = new URLSearchParams(searchParams.toString());
     next.delete(TRADE_LOCATION_SHEET_QUERY_PARAM);
     const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [locSheetRequested, pathname, router, searchParams]);
+  }, [isShownOnScreen, locSheetRequested, pathname, router, searchParams]);
 
   const hintParts = buildTradeHeaderLocationHintParts({
     mode:
@@ -222,6 +240,29 @@ export function TradeHeaderLocationPinButton({
     : hintParts.suffix;
 
   const ariaLabel = `${t("trade_location_pin_aria")}: ${headerHintAria}`;
+
+  if (placement === "title") {
+    /** 시·군을 골랐으면 그 이름(반경이 있으면 「Pasay 5km」), 전체면 「전체」, 아직 확인 중이면 「…」(긴 안내 문구는 제목 자리에 넣지 않음) */
+    const titleLabel = locationUnset
+      ? "…"
+      : hintParts.place
+      ? committedScope.mode === "city" && committedScope.radiusKm != null
+        ? `${hintParts.place} ${hintParts.suffix}`
+        : hintParts.place
+      : hintParts.suffix;
+    return (
+      <span ref={anchorRef} className="inline-flex min-w-0">
+        <Tier1TitleAreaButton
+          label={titleLabel}
+          active={isFiltered}
+          ariaLabel={ariaLabel}
+          expanded={sheetOpen}
+          onClick={onPinClick}
+        />
+        <TradeBrowseLocationSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
+      </span>
+    );
+  }
 
   const besideTitle = placement === "beside-title";
   const belowTitle = placement === "below-title";
