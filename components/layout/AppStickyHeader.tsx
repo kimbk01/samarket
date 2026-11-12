@@ -10,7 +10,11 @@ const TradePrimaryTabs = dynamic(
   () => import("@/components/trade/TradePrimaryTabs").then((m) => m.TradePrimaryTabs),
   { ssr: false }
 );
-import { getMobileTopTier1RuleSet } from "@/lib/layout/mobile-top-tier1-rules";
+import {
+  getMobileTopTier1RuleSet,
+  resolveCommunityTradeSwitchHub,
+} from "@/lib/layout/mobile-top-tier1-rules";
+import { CommunityTradeSwitchRow } from "@/components/layout/CommunityTradeTitleSwitch";
 import { mainTier1ExtrasForPathname, useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MyManagedCtaStrip } from "@/components/my/MyManagedCtaStrip";
 import { isDeliveryConsumerPath } from "@/lib/design/delivery-chrome";
@@ -44,7 +48,7 @@ export function AppStickyHeader() {
   const isMessengerSplit = useIsMessengerSplitViewport();
   const tradeSecondaryTabs = useTradeSecondaryTabs();
   /** tier1 규칙 + 거래 탭 스택 노출 여부를 pathname 당 한 번에 계산 */
-  const { topTier1RuleSet, isTradeMenuSurface, domainId, domainStyle } = useMemo(() => {
+  const { topTier1RuleSet, isTradeMenuSurface, communityTradeSwitchHub, domainId, domainStyle } = useMemo(() => {
     const topTier1RuleSet = getMobileTopTier1RuleSet(pathname);
     const pathNoQueryForSurface = (pathname ?? "").split("?")[0] ?? "";
     /** Browse-only chrome — sell hub / location stack are not marketplace list surfaces. */
@@ -60,6 +64,7 @@ export function AppStickyHeader() {
     return {
       topTier1RuleSet,
       isTradeMenuSurface,
+      communityTradeSwitchHub: resolveCommunityTradeSwitchHub(pathname, topTier1RuleSet),
       domainId,
       domainStyle: dibayDomainChromeCssVarsForId(domainId),
     };
@@ -110,6 +115,8 @@ export function AppStickyHeader() {
           <TradeMarketPullRefreshHint />
           <MarketplaceHomeEntryChrome />
           <TradePrimaryTabs embed embedInAppHeader />
+          {/* 머리글 3단 — 「정보교환 · 거래」 전환 탭 왼쪽 정렬 (Owner 「A 안」 2026-11-12, 1단에서 옮김) */}
+          {communityTradeSwitchHub === "trade" ? <CommunityTradeSwitchRow active="trade" /> : null}
           {tradeSecondaryTabs}
         </>
       ) : null}

@@ -133,6 +133,8 @@ import { useCommunityLocalFilter } from "@/hooks/use-community-local-filter";
 import { CommunityLocalFilterPickerSheet } from "@/components/community/CommunityLocalFilterPickerSheet";
 import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import { getMobileTopTier1RuleSet, resolveCommunityTradeSwitchHub } from "@/lib/layout/mobile-top-tier1-rules";
+import { CommunityTradeSwitchRow } from "@/components/layout/CommunityTradeTitleSwitch";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 declare global {
@@ -298,6 +300,7 @@ export function CommunityFeed({
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const router = useRouter();
   const pathname = usePathname();
+  const communityTradeSwitchHub = resolveCommunityTradeSwitchHub(pathname, getMobileTopTier1RuleSet(pathname));
   const { beginMenuNavigation } = useLatestMenuNavigation();
   const searchParams = useSearchParams();
   /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있어 router.replace effect 가 무한 재실행됨 → 문자열만 의존 */
@@ -1823,6 +1826,8 @@ export function CommunityFeed({
               ref={topicTablistRef}
               navRole="category"
               tier="section"
+              /** 2단 탭 왼쪽 정렬 (Owner 「A 안」 2026-11-12) — 주제가 4개 이하여도 균등 분할·가운데 정렬 없이 글자 폭 그대로 */
+              data-dibay-tab-align="start"
               bordered
               leading={
                 <button
@@ -1931,6 +1936,8 @@ export function CommunityFeed({
                 <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{safeT("moim_tab")}</span>
               </button>
             </DibaySecondaryTabRow>
+            {/* 머리글 3단 — 「정보교환 · 거래」 전환 탭 왼쪽 정렬 (Owner 「A 안」 2026-11-12, 1단에서 옮김) */}
+            {communityTradeSwitchHub === "community" ? <CommunityTradeSwitchRow active="community" /> : null}
             {navSelection.kind === "local" ? (
               <div className={`${PHILIFE_FEED_FILTER_STRIP_CLASS} border-t-0`}>
                 <div className={`flex min-w-0 items-center justify-between gap-2 ${APP_MAIN_HEADER_INNER_CLASS}`}>

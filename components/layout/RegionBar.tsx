@@ -7,7 +7,7 @@ import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-view
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getMobileTopTier1RuleSet,
-  isTradeFloatingMenuSurface,
+  isTradeExplorationHubSurface,
   type MobileTopTier1RuleSet,
 } from "@/lib/layout/mobile-top-tier1-rules";
 import { resolveMainTabKeepAliveHub } from "@/lib/layout/resolve-main-surface";
@@ -81,10 +81,7 @@ export function RegionBar({
    * still use MAIN HUB when exploration rules match.
    */
   const keepAliveHub = resolveMainTabKeepAliveHub(pathNoQuery);
-  const isTradeExplorationSurface =
-    isTradeFloatingMenuSurface(pathNoQuery) &&
-    ruleSet.showRegionPicker &&
-    !ruleSet.showTradeHubLeading;
+  const isTradeExplorationSurface = isTradeExplorationHubSurface(pathNoQuery, ruleSet);
   /**
    * 메신저 보관함(`?section=archive`)·친구 고르기·채팅 설정·채팅 검색은 채팅 탭 화면이 아니라 하위 화면 — 허브 머리글 대신
    * 아래 공통 하위 화면 머리글 (`resolveMainTier1Subpage` 가 주소로 제목·뒤로를 정함, 채팅 시안 4판 「4」「6」「7」「8」).

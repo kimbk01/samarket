@@ -17,12 +17,27 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(isTradeMarketAllRouteActive("/market", "used-car")).toBe(false);
   });
 
-  it("거래 1단 제목 = 「정보교환 · 거래」 전환 탭 (홈 설계안 v11, 2026-11-09 — 예전 「DIBAY MARKET」 자리)", () => {
+  it("거래·커뮤니티 1단 = 제목 글자, 「정보교환 · 거래」 전환 탭 = 머리글 3단 왼쪽 정렬 (Owner 「A 안」 2026-11-12)", () => {
     expect(tradeMessages.ko.marketplace_home_title).toBe("DIBAY MARKET");
     const header = read("components/layout/RegionBarMainHubTier1.tsx");
-    expect(header).toContain("CommunityTradeTitleSwitch");
+    expect(header).not.toContain("CommunityTradeTitleSwitch");
+    expect(header).toContain('"nav_community_switch_info"');
+    expect(header).toContain('"nav_bottom_trade"');
     expect(header).not.toContain('t("marketplace_home_title")');
     expect(header).not.toContain("TradeHeaderLocationPinButton");
+    const sticky = read("components/layout/AppStickyHeader.tsx");
+    expect(sticky).toContain('<CommunityTradeSwitchRow active="trade" />');
+    expect(sticky.indexOf("<TradePrimaryTabs")).toBeLessThan(sticky.indexOf("<CommunityTradeSwitchRow"));
+    const feed = read("components/community/CommunityFeed.tsx");
+    expect(feed).toContain('<CommunityTradeSwitchRow active="community" />');
+    expect(feed.indexOf("</DibaySecondaryTabRow>")).toBeLessThan(feed.indexOf("<CommunityTradeSwitchRow"));
+    const sw = read("components/layout/CommunityTradeTitleSwitch.tsx");
+    expect(sw).toContain("justify-start");
+    expect(sw).not.toContain("justify-end");
+    expect(sw).not.toMatch(/truncate|text-ellipsis/);
+    /** 2단 탭 왼쪽 정렬 — 거래(4개 탭)·커뮤니티 모두 균등 분할 해제 */
+    expect(read("components/trade/TradePrimaryTabs.tsx")).toContain('data-dibay-tab-align="start"');
+    expect(feed).toContain('data-dibay-tab-align="start"');
   });
 
   it("HOME magnifier opens trade-only search (재설계 4-1); in-page /market?q= loader remains", () => {
