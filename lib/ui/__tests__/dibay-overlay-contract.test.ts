@@ -174,3 +174,23 @@ describe("DIBAY Overlay SSOT contract", () => {
     expect(css).toContain(".dibay-overlay-input");
   });
 });
+
+describe("공용 버튼 역할 클래스 = @layer components (QR 친구 남은 위험 R2, 2026-11-12)", () => {
+  const css = read("app/dibay-overlay.css");
+  const open = css.indexOf("@layer components {\n.dibay-overlay-btn {");
+  const close = css.indexOf("} /* @layer components — dibay-overlay-btn */");
+
+  it("버튼 규칙 전체가 층 안 — 층 밖이면 Tailwind 유틸(flex-none·h-*)이 진다", () => {
+    expect(open).toBeGreaterThan(-1);
+    expect(close).toBeGreaterThan(open);
+    const outside = css.slice(0, open) + css.slice(close);
+    // 층 밖에는 동작 줄이기(reduced-motion) 묶음 외에 버튼 규칙이 없다
+    expect(outside.replace(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?\n\}\n/g, "")).not.toMatch(/^\.dibay-overlay-btn[\w-]*[\s:{,]/m);
+  });
+
+  it("층 안으로 옮기며 살아나는 불투명도 유틸 금지 (비활성 = 회색 토큰, Owner Q4)", () => {
+    for (const f of ["components/community-messenger/CommunityMessengerHome.tsx"]) {
+      expect(read(f)).not.toMatch(/dibay-overlay-btn[^"`]*disabled:opacity-/);
+    }
+  });
+});

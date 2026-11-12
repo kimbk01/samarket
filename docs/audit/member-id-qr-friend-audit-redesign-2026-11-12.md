@@ -300,3 +300,18 @@ Owner 지시 (2026-11-12): 「남은 부분 없도록 하고, 처음 구현 계�
 - 적용 후 확인: 제약에 group, 권한(anon·authenticated 실행 불가·service_role 만), 되돌림 트랜잭션 시험 — 이미 친구 QR 추가 스캔 수 0→0(Q5), group 요청 정상(already_friend), 하루 한도 2 에서 3번째 막힘. 되돌린 뒤 운영 데이터 변화 0.
 - 롤백: 이전 정의는 `20271111160000`·`20271111170000` 의 함수 부분 재실행, 제약은 group 빼고 다시 만들기, 한도 표는 `DROP TABLE member_search_daily_quota; DROP FUNCTION member_search_quota_hit`.
 - 코드(같은 PR): 그룹 만들기·방 그룹 초대 = `group`, QR 로 친구가 되면 두 사람 친구 목록 캐시 무효화(다른 친구 경로와 같게 — 감사 중 발견).
+
+## 9. 남은 위험 확인·개선안 (Owner 「남은 위험 처리 가능한 부분 정확히 확인」 2026-11-12 14:0x PHT, 운영 main `956fd9de7`)
+
+작업자 정정: §8 이후 보고에서 「iOS Associated Domains = Owner 결정」이라 썼으나 틀렸다. 코드·설정은 이미 있다(엔타이틀먼트 `applinks:samarket.vercel.app`, 운영 `/.well-known/apple-app-site-association` 200·`com.dibay.ph` = iOS 번들). 남은 것은 빌드·설치뿐.
+
+| # | 위험 | 확인 결과 (근거) | 개선안 | 처리 |
+|---|---|---|---|---|
+| R1 | 전역 `img, video, canvas` · `svg` 규칙이 층 밖 | `app/globals.css:204-214` 층 밖. Tailwind preflight(base 층)에 `img, video {max-width:100%; height:auto}`·`display:block` 이 이미 있음 = **중복**. 높이 유틸이 지는 곳: video 6곳(통화 5: `GroupRoomCallOverlay` 2·`CommunityMessengerCallClient` 3, `OutgoingRingCameraPreview` 1) + 피드 영상 `PostVideoEmbed` 1, img 높이 유틸 99곳, svg 아이콘 다수(정사각이라 겉으론 같음) | 층 밖 규칙 삭제, preflight 에 없는 부분(canvas `height:auto`, svg `max-width/height:auto`)만 `@layer base` 로. 적용 전 img 99곳 분류(가로·세로 둘 다 지정 + object-* 없음 = 모양 바뀜 후보) | **통화 변경 규정 대상**(통화 영상 렌더 변경) — 영향 문서·Owner 승인·통화만 단독 PR·실기 행렬 |
+| R2 | `.dibay-overlay-btn` 층 밖 | `app/dibay-overlay.css:348` `flex:1; width:100%` 층 밖(같은 파일 283행에 `@layer components` 블록 있음). 사용 36곳 중 유틸이 붙은 13곳, 그중 `!` 우회 6곳(그룹 멤버 선택·이모지·거래 시트 2·`DibayFullSheet`·QR 스캔) = 같은 땜빵 반복 | 버튼 규칙 전체를 `@layer components` 로 이동. **함께 처리 필수**: `CommunityMessengerHome.tsx:4088,4103` 의 `disabled:opacity-40` — 지금은 층 밖 `opacity:1` 이 이겨 무시되지만 이동 후 적용돼 Owner Q4(불투명도 금지) 위반 → 같은 PR 에서 삭제. `!` 우회 6곳은 그대로 둬도 결과 같음 | 웹 단독 PR. 영향 화면 13곳 실기 |
+| R3 | 기기 하단 시트 360→300ms, 셸 CSS 직접 import | 다른 기기 하단 시트는 「그룹 생성」(`CommunityMessengerHome.tsx:3869`, 비율 0.86) 1개. 바뀐 것은 속도뿐(높이·위치 규칙 무변경). CSS import 는 메신저 레이아웃과 같은 파일 — 셸 사용 11곳 | 코드 변경 없음. 그룹 생성 시트 실기 1회(친구 프로필 시트 → 그룹 초대) | 실기 NOT_PROVEN — 이번에 친구 줄을 누르니 대화방으로 들어가 중단 |
+| R4 | 「다시 만들기」 버튼(층 밖 `flex:1` 의심) | Xiaomi 운영 계측(14:01 PHT, 1006×600, 로그인 zxzx11): `--text` 변형이 `flex:0 0 auto` → 버튼 478×48, QR 121 — **결함 아님** | 없음 | 닫음 |
+| R5 | 쓰이지 않는 `MypageSelfProfileView` | 그리는 곳 0, 읽는 곳은 테스트 2개(`member-id-v3-audit-fixes.test.ts:113`, `mypage-r6-customer-center-policy.test.ts:509`) | 파일 삭제 + 테스트 2곳 대상 제거, 같은 PR | 웹, 지시 시 즉시 |
+| R6 | 앱 링크·앱 이미지 저장 (S3) | Android: 매니페스트 `/f/` `autoVerify=true`, 운영 `assetlinks.json` 200. **두 시험 폰 모두 빌드 40(1.2.6)** = 앱 링크 없는 바이너리. iOS: 위 정정대로 설정 있음 | S3 = `@capacitor/filesystem` 추가 + 앱 [이미지 저장]·이미지 공유 → 일괄 빌드에 포함. 설치 후 `pm get-app-links` 로 검증 상태 확인 | 네이티브, 다음 일괄 빌드 |
+| R7 | iOS 앱 없는 사람의 `/f` 랜딩 | 운영 `app_releases` iOS 최신 1.2(20) `store_url = null` — App Store 주소 없음 | 주소 확정 시 `friend-qr-contract.ts` 에 iOS 상수 추가, 랜딩에서 iOS 는 그 주소로 | **Owner 결정**: App Store 주소(출시 여부) |
+| R8 | 운영 미확인 흐름 (QR 첫 추가·source 4종·다시 만들기·백그라운드 카메라) | 배포 뒤 새 친구 요청 0건, QR 스캔 0회 | 시험 계정 쌍으로 1회: 친구 해제(운영 데이터 변경) → QR 추가 → `source='qr'`·알림·Q4 확인 → 아이디 검색·프로필·그룹 각 1회 요청 → 취소. 백그라운드 카메라는 데이터 변경 없이 가능, 다시 만들기는 시험 계정 QR 토큰이 바뀜(운영 데이터 변경) | 데이터 변경 항목 = Owner 지시 시 |

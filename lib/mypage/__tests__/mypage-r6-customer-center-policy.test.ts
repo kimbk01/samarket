@@ -506,7 +506,6 @@ describe("잔여 — S22 매장 찜 실패 5xx · X1 프로필 시트 링크 · 
 
   it("프로필 편집 진입 = 단일 시트 주소", () => {
     for (const f of [
-      "components/mypage/profile/MypageSelfProfileView.tsx",
       "components/my/ProfileActionButtons.tsx",
     ]) {
       const src = read(f);

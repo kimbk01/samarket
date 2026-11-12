@@ -193,7 +193,6 @@ export function TradeBrowseLocationSheet({ open, onClose }: { open: boolean; onC
         <div className="flex gap-2">
           <DibayOverlayButton
             roleTone="secondary"
-            className="gap-1.5"
             loading={geoBusy}
             onClick={() => void onDeviceLocation()}
           >
@@ -202,7 +201,6 @@ export function TradeBrowseLocationSheet({ open, onClose }: { open: boolean; onC
           </DibayOverlayButton>
           <DibayOverlayButton
             roleTone="secondary"
-            className="gap-1.5"
             onClick={() => setStep("search")}
           >
             <Search className="h-4 w-4" aria-hidden />
