@@ -54,10 +54,10 @@ const ANDROID_KO_BEFORE: Record<string, string> = {
   dibay_video_camera_flip: "카메라 전환",
   dibay_video_camera_on: "카메라 켬",
   dibay_video_camera_off: "카메라 끔",
+  // Owner 2026-11-12 신호 3단계 「좋음 · 나쁨 · 아주 나쁨」 — 「보통」 삭제, 「매우 나쁨」→「아주 나쁨」 (call-video-chrome-signal-border-design D3)
   dibay_video_network_quality_good: "좋음",
-  dibay_video_network_quality_fair: "보통",
   dibay_video_network_quality_poor: "나쁨",
-  dibay_video_network_quality_very_poor: "매우 나쁨",
+  dibay_video_network_quality_very_poor: "아주 나쁨",
   dibay_call_dock_resume: "통화로 돌아가기",
   dibay_call_minimize: "통화 화면 줄이기",
   incoming_call_connecting: "연결 중…",
