@@ -246,8 +246,8 @@ export function communityMessengerRoomsSortCacheKey(rooms: CommunityMessengerRoo
   return rooms
     .map(
       (r) =>
-        /** A-8: 알림 끔만 바뀌어도 옛 방 객체를 돌려주지 않게(보관함 「알림 끔」 개수·목록 아이콘) */
-        `${r.id}\t${r.lastMessageAt}\t${r.lastMessage ?? ""}\t${r.lastMessageType ?? ""}\t${r.isPinned ? 1 : 0}\t${r.isMuted ? 1 : 0}\t${r.unreadCount}\t${r.title}\t${messengerRoomTradeThumbKeyPart(r)}\t${messengerRoomTradeListMetaSig(r)}\t${roomListVisibilityKeyPart(r)}`
+        /** A-8: 알림 끔만 바뀌어도 옛 방 객체를 돌려주지 않게(보관함 「알림 끔」 개수·목록 아이콘) · D2: 사진도 같음 */
+        `${r.id}\t${r.lastMessageAt}\t${r.lastMessage ?? ""}\t${r.lastMessageType ?? ""}\t${r.isPinned ? 1 : 0}\t${r.isMuted ? 1 : 0}\t${r.unreadCount}\t${r.title}\t${r.avatarUrl ?? ""}\t${messengerRoomTradeThumbKeyPart(r)}\t${messengerRoomTradeListMetaSig(r)}\t${roomListVisibilityKeyPart(r)}`
     )
     .join("\n");
 }
@@ -284,7 +284,7 @@ export function visibleChatListInputKey(
     const rowSig = items
       .map(
         (i) =>
-          `${i.room.id}\t${i.room.unreadCount}\t${i.room.isPinned ? 1 : 0}\t${i.room.isMuted ? 1 : 0}\t${i.room.roomType}\t${messengerRoomTradeThumbKeyPart(i.room)}\t${messengerRoomTradeListMetaSig(i.room)}\t${i.preview}\t${i.room.title}\t${i.room.subtitle}\t${i.room.summary}`
+          `${i.room.id}\t${i.room.unreadCount}\t${i.room.isPinned ? 1 : 0}\t${i.room.isMuted ? 1 : 0}\t${i.room.roomType}\t${messengerRoomTradeThumbKeyPart(i.room)}\t${messengerRoomTradeListMetaSig(i.room)}\t${i.preview}\t${i.room.title}\t${i.room.avatarUrl ?? ""}\t${i.room.subtitle}\t${i.room.summary}`
       )
       .join("\n");
     return `${items.length}|${inbox}|${kind}|${k}|${rowSig}`;
@@ -305,6 +305,8 @@ export function visibleChatListInputKey(
         messengerRoomTradeThumbKeyPart(r),
         messengerRoomTradeListMetaSig(r),
         r.title,
+        /** D2: 사진만 바뀐 행도 옛 목록을 돌려주지 않게 */
+        r.avatarUrl ?? "",
         r.subtitle,
         r.summary,
         previewTight,
@@ -711,6 +713,8 @@ export function unifiedListItemRowDisplayEqual(a: UnifiedRoomListItem, b: Unifie
     ar.isMuted === br.isMuted &&
     ar.lastMessageAt === br.lastMessageAt &&
     ar.title === br.title &&
+    /** 그룹 결함 D2: 행 사진은 `room.avatarUrl` 만 쓴다 — 빠지면 사진만 바뀐 행이 옛 행으로 재사용된다 */
+    (ar.avatarUrl ?? null) === (br.avatarUrl ?? null) &&
     ar.subtitle === br.subtitle &&
     ar.summary === br.summary &&
     ar.peerUserId === br.peerUserId &&

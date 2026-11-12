@@ -40,6 +40,11 @@ type RoomForegroundLockState = {
   blockSucceededAt: number | null;
   lastFailureAt: number | null;
   lastSilentSuccessAt: number;
+  /**
+   * 네트워크로 받은 방 부트스트랩(차단·silent 모두) 성공 시각. `lastSuccessAt` 은 캐시 스냅샷으로도 갱신되므로
+   * 「서버에서 방 정보(사진·제목)를 실제로 받았는가」 판정은 이 값만 쓴다 (그룹 결함 D3).
+   */
+  lastNetworkSuccessAt: number;
   /** D-12 ③: 캐시 재사용으로 foreground 부트스트랩을 건너뛴 시각(진입 후 상대 읽음 1회 확인용) */
   reuseSkippedAt: number;
 };
@@ -60,6 +65,7 @@ function roomState(roomId: string): RoomForegroundLockState {
       blockSucceededAt: null,
       lastFailureAt: null,
       lastSilentSuccessAt: 0,
+      lastNetworkSuccessAt: 0,
       reuseSkippedAt: 0,
     };
     stateByRoom.set(id, st);
@@ -419,6 +425,7 @@ export function markCmRoomForegroundBootstrapSuccess(args: {
   st.inflight = false;
   st.inflightReqSrc = null;
   st.lastSuccessAt = now;
+  st.lastNetworkSuccessAt = now;
   st.lastSnapshot = args.snap;
   st.lastTier = args.tier;
   st.lastSource = args.reqSrc;
@@ -428,7 +435,15 @@ export function markCmRoomForegroundBootstrapSuccess(args: {
 }
 
 export function markCmRoomSilentBootstrapSuccess(roomId: string): void {
-  roomState(roomId).lastSilentSuccessAt = Date.now();
+  const st = roomState(roomId);
+  const now = Date.now();
+  st.lastSilentSuccessAt = now;
+  st.lastNetworkSuccessAt = now;
+}
+
+/** `sinceMs` 이후 이 방의 부트스트랩을 네트워크로 받아 적용했는가 (캐시 재사용은 제외) */
+export function hasCmRoomNetworkBootstrapSucceededSince(roomId: string, sinceMs: number): boolean {
+  return roomState(roomId).lastNetworkSuccessAt >= sinceMs;
 }
 
 export function markCmRoomForegroundBootstrapFailure(roomId: string, reqSrc: CmForegroundBootstrapSource): void {
