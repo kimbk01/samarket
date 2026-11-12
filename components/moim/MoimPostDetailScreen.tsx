@@ -16,6 +16,7 @@ import type { MoimAuthorDto, MoimCommentDto, MoimPostDto } from "@/lib/moim/moim
 import { useMoimDetail } from "@/components/moim/MoimDetailScreen";
 import { MoimReportSheet, type MoimReportTarget } from "@/components/moim/MoimReportSheet";
 import { MoimAvatar, MoimErrorState, MoimListSkeleton, MoimRoleBadge, moimCls, useMoimBoardLabel, useMoimToast } from "@/components/moim/moim-ui";
+import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 
 function AuthorLine({ author, at }: { author: MoimAuthorDto; at: string }) {
   const { t, language } = useI18n();
@@ -216,7 +217,7 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
         </section>
       </article>
 
-      <div className="sticky bottom-0 border-t border-sam-border bg-sam-surface px-4 pb-[calc(10px+var(--safe-bottom,0px))] pt-2">
+      <MoimStickyFooter compact>
         <div className={moimCls.column}>
           {viewerIsMember ? (
             <div className="flex items-end gap-2">
@@ -242,7 +243,7 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
             </Link>
           )}
         </div>
-      </div>
+      </MoimStickyFooter>
 
       <DibayActionSheet open={menuOpen} onClose={() => setMenuOpen(false)} cancelLabel={t("common_cancel")} items={items} notice={items.length === 0 ? t("moim_menu_empty") : undefined} />
       <DibayActionSheet open={commentMenu != null} onClose={() => setCommentMenu(null)} cancelLabel={t("common_cancel")} items={commentItems} />

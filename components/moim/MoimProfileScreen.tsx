@@ -7,6 +7,7 @@ import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
 import { useMoimDetail } from "@/components/moim/MoimDetailScreen";
 import { useMoimImageUpload } from "@/components/moim/use-moim-image-upload";
 import { MoimAvatar, MoimEmptyState, MoimErrorState, MoimListSkeleton, moimCls, useMoimToast } from "@/components/moim/moim-ui";
+import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 
 /** 내 모임 프로필 (시안 U10 위쪽) — 이 모임에서만 쓰는 닉네임·사진·소개 */
 export function MoimProfileScreen({ moimId }: { moimId: string }) {
@@ -101,13 +102,13 @@ export function MoimProfileScreen({ moimId }: { moimId: string }) {
         <p className={moimCls.noticeInfo}>{t("moim_profile_privacy_note")}</p>
         {saveError ? <p className={moimCls.noticeBad}>{saveError}</p> : null}
       </div>
-      <div className="sticky bottom-0 border-t border-sam-border bg-sam-surface px-4 pb-[calc(12px+var(--safe-bottom,0px))] pt-2.5">
+      <MoimStickyFooter>
         <div className={moimCls.column}>
           <button type="button" className={`${moimCls.btnPrimary} w-full`} disabled={!nickname.trim() || busy || uploading} onClick={save}>
             {t("common_save")}
           </button>
         </div>
-      </div>
+      </MoimStickyFooter>
       {toast.node}
     </div>
   );

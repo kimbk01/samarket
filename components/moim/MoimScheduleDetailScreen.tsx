@@ -22,6 +22,7 @@ import {
   moimScheduleStarted,
 } from "@/components/moim/moim-schedule-ui";
 import { MoimAvatar, MoimEmptyState, MoimErrorState, MoimListSkeleton, MoimRoleBadge, moimCls, useMoimToast } from "@/components/moim/moim-ui";
+import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 
 const MOTIVATION_MIN = 8;
 const MOTIVATION_MAX = 500;
@@ -554,9 +555,9 @@ function ScheduleBody({
       </div>
 
       {cta ? (
-        <div className="sticky bottom-0 border-t border-sam-border bg-sam-surface px-4 pb-[calc(12px+var(--safe-bottom,0px))] pt-2.5">
+        <MoimStickyFooter>
           <div className={moimCls.column}>{cta}</div>
-        </div>
+        </MoimStickyFooter>
       ) : null}
 
       <MotivationSheet open={motivationOpen} onClose={() => setMotivationOpen(false)} onSubmit={submitMotivation} />

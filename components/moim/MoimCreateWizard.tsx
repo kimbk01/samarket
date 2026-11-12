@@ -12,6 +12,7 @@ import { useRegisterMainTier1Header } from "@/lib/layout/use-register-main-tier1
 import { useMoimImageUpload } from "@/components/moim/use-moim-image-upload";
 import { MoimErrorState, moimCls, useMoimToast } from "@/components/moim/moim-ui";
 import { MoimCategoryField, isMoimCategoryInputValid, normalizeMoimTopic } from "@/components/moim/MoimCategoryField";
+import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 
 const STEPS = 4;
 const MAX_QUESTIONS = 3;
@@ -329,7 +330,7 @@ export function MoimCreateWizard() {
         {error ? <p className={`${moimCls.noticeBad} mx-4 mt-4`}>{error}</p> : null}
       </div>
 
-      <div className="sticky bottom-0 border-t border-sam-border bg-sam-surface px-4 pb-[calc(12px+var(--safe-bottom,0px))] pt-2.5">
+      <MoimStickyFooter>
         <div className={`${moimCls.column} flex gap-2`}>
           {step > 1 ? (
             <button type="button" className={`${moimCls.btnSecondary} flex-1`} onClick={() => setStep(step - 1)} disabled={busy}>
@@ -340,7 +341,7 @@ export function MoimCreateWizard() {
             {step < STEPS ? t("moim_create_next_btn") : t("moim_create_submit_btn")}
           </button>
         </div>
-      </div>
+      </MoimStickyFooter>
       {toast.node}
     </div>
   );

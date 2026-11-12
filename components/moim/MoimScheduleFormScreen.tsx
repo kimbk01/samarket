@@ -11,6 +11,7 @@ import { useMoimDetail } from "@/components/moim/MoimDetailScreen";
 import { useMoimImageUpload } from "@/components/moim/use-moim-image-upload";
 import { formatMoimScheduleWhen } from "@/components/moim/moim-schedule-ui";
 import { MoimEmptyState, MoimErrorState, MoimListSkeleton, moimCls, useMoimToast } from "@/components/moim/moim-ui";
+import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 
 const TITLE_MAX = 60;
 const PLACE_MAX = 120;
@@ -361,13 +362,13 @@ export function MoimScheduleFormScreen({ moimId, scheduleId }: { moimId: string;
 
         {submitError ? <p className={moimCls.noticeBad}>{submitError}</p> : null}
       </div>
-      <div className="sticky bottom-0 border-t border-sam-border bg-sam-surface px-4 pb-[calc(12px+var(--safe-bottom,0px))] pt-2.5">
+      <MoimStickyFooter>
         <div className={moimCls.column}>
           <button type="button" className={`${moimCls.btnPrimary} w-full`} disabled={!title.trim() || !startDate || !startTime || busy || uploading} onClick={submit}>
             {editing ? t("common_save") : t("moim_schedule_form_submit_btn")}
           </button>
         </div>
-      </div>
+      </MoimStickyFooter>
       {toast.node}
     </div>
   );
