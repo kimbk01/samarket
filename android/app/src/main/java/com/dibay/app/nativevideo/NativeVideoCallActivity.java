@@ -26,6 +26,7 @@ import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.animation.DecelerateInterpolator;
 import android.view.WindowManager;
+import android.view.accessibility.AccessibilityManager;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -76,18 +77,13 @@ public class NativeVideoCallActivity extends Activity {
   private static final long APP_RETURN_AFTER_PIP_FALLBACK_MS = 800L;
   private static final int REQUEST_CODE_ACCEPT_MEDIA = 0xD1C1;
   private static final long PIP_REQUEST_TIMEOUT_MS = 1_500L; // Diagnostic only; callback is the success SSOT.
+  /** 연결·전체 화면 버튼 자동 숨김 — 마지막 조작 후 5초 (Owner 2026-11-12 · 08-31 설계값). */
   private static final long CONNECTED_CHROME_HIDE_DELAY_MS = 5_000L;
+  private static final long CONNECTED_CHROME_FADE_MS = 200L;
   private static final int LOCAL_PIP_WIDTH_DP = 120;
   private static final int LOCAL_PIP_HEIGHT_DP = 213;
   private static final int LOCAL_PIP_MARGIN_DP = 16;
   private static final int CONNECTED_CONTROLS_DESIGN_MARGIN_DP = 12;
-
-  private enum NetworkDisplayTier {
-    GOOD,
-    FAIR,
-    POOR,
-    VERY_POOR
-  }
 
   private enum PipState {
     PIP_IDLE,
@@ -136,13 +132,13 @@ public class NativeVideoCallActivity extends Activity {
   private TextView connectedPeerNameView;
   private TextView connectedDurationView;
   private TextView connectedSignalLabelView;
-  private View[] connectedSignalBars = new View[4];
+  private View[] connectedSignalBars = new View[3];
+  private CallSignalEdgeView signalEdgeView;
   private int systemBarsLeft;
   private int systemBarsTop;
   private int systemBarsRight;
   private int systemBarsBottom;
-  private NetworkDisplayTier displayedNetworkTier = NetworkDisplayTier.GOOD;
-  private int networkRecoveryStableCount;
+  private final NativeVideoNetworkTier networkTier = new NativeVideoNetworkTier();
   private boolean networkVeryPoorActive;
   private boolean cameraEnabled = true;
   private boolean micMuted = false;
@@ -1040,7 +1036,8 @@ public class NativeVideoCallActivity extends Activity {
     connectedSignalBars[0] = findViewById(R.id.native_video_call_signal_bar_1);
     connectedSignalBars[1] = findViewById(R.id.native_video_call_signal_bar_2);
     connectedSignalBars[2] = findViewById(R.id.native_video_call_signal_bar_3);
-    connectedSignalBars[3] = findViewById(R.id.native_video_call_signal_bar_4);
+    signalEdgeView = findViewById(R.id.native_video_call_signal_edge);
+    attachSignalEdgeInsetsListener();
     attachDockView();
     attachConnectedControlsInsetsListener();
     attachLocalPipInsetsListener();
@@ -1055,17 +1052,34 @@ public class NativeVideoCallActivity extends Activity {
   private void bindActions() {
     acceptButton.setOnClickListener(v -> performAccept("button"));
     declineButton.setOnClickListener(v -> NativeVideoCallRuntime.reject(this, callId));
-    endButton.setOnClickListener(v -> onEndTapped());
+    endButton.setOnClickListener(
+        v -> {
+          if (consumeTapWhileChromeHidden("end")) return;
+          onEndTapped();
+        });
     if (minimizeButton != null) {
-      minimizeButton.setOnClickListener(v -> minimizeToApp("minimize_button"));
+      minimizeButton.setOnClickListener(
+          v -> {
+            if (consumeTapWhileChromeHidden("minimize")) return;
+            minimizeToApp("minimize_button");
+          });
     }
     cameraFlipButton.setOnClickListener(
         v -> {
+          if (consumeTapWhileChromeHidden("camera_flip")) return;
           NativeVideoCallAgoraEngine.switchCameraFacing();
           showConnectedChrome("camera_flip");
         });
-    cameraButton.setOnClickListener(v -> onCameraTapped("button"));
-    micButton.setOnClickListener(v -> onMicTapped("button"));
+    cameraButton.setOnClickListener(
+        v -> {
+          if (consumeTapWhileChromeHidden("camera")) return;
+          onCameraTapped("button");
+        });
+    micButton.setOnClickListener(
+        v -> {
+          if (consumeTapWhileChromeHidden("mic")) return;
+          onMicTapped("button");
+        });
   }
 
   private void onEndTapped() {
@@ -1120,9 +1134,8 @@ public class NativeVideoCallActivity extends Activity {
       cancelConnectedChromeHide("terminal_state");
       cancelOutgoingVideoTransition("terminal_state");
       wasConnectedFullscreen = false;
-      displayedNetworkTier = NetworkDisplayTier.GOOD;
+      networkTier.reset();
       networkVeryPoorActive = false;
-      networkRecoveryStableCount = 0;
       clearPipRequestVerification();
       pipState = PipState.PIP_IDLE;
       detachDockView();
@@ -1196,6 +1209,9 @@ public class NativeVideoCallActivity extends Activity {
       updateConnectedControlChrome();
       if (!wasConnectedFullscreen) {
         showConnectedChrome("connected_enter");
+      } else if (!chromeVisible) {
+        // 자동 숨김 상태 유지 — 위 경로(발신 화면 등)가 버튼을 다시 VISIBLE 로 만든 것을 되돌린다.
+        applyConnectedChromeHidden(false);
       }
     } else {
       cancelConnectedChromeHide("state_not_connected");
@@ -1779,10 +1795,18 @@ public class NativeVideoCallActivity extends Activity {
         && !isFinishing();
   }
 
+  /**
+   * 연결·전체 화면 버튼(오른쪽 4개·라벨·줄이기) 보이기 + 5초 뒤 숨김 예약.
+   *
+   * <p>상단 이름·통화 시간·신호(connectedChromeOverlay)는 이 표시와 무관하게 항상 보인다 — {@link
+   * #syncPersistentCallStatusVisibility()}. 설계: docs/audit/call-video-chrome-signal-border-design-2026-11-12.md D1·D2.
+   */
   private void showConnectedChrome(String source) {
     cancelConnectedChromeHide("show_" + source);
+    boolean wasVisible = chromeVisible;
+    chromeVisible = true;
     setConnectedChromeViewsVisible(true);
-    if (!chromeVisible) {
+    if (!wasVisible) {
       NativeVideoCallLog.info(
           "native_video_chrome_shown",
           callId,
@@ -1793,58 +1817,119 @@ public class NativeVideoCallActivity extends Activity {
               + " presentation=fullscreen"
               + " nicknameSource=session_callerName_sanitized");
     }
-    chromeVisible = true;
-    // Option A: CONNECTED fullscreen keeps status + right FAB persistent (no auto-hide).
+    scheduleConnectedChromeHide(source);
   }
 
   private void hideConnectedChrome(String source) {
-    // Option A: do not auto-hide connected status/FAB. Keep cancel path for pending work only.
     cancelConnectedChromeHide("hide_" + source);
+    if (!isConnectedFullscreenPresentation()) return;
+    if (!chromeVisible) return;
+    if (connectedChromeAutoHideBlocked()) return;
+    chromeVisible = false;
+    applyConnectedChromeHidden(true);
+    NativeVideoCallLog.info(
+        "native_video_chrome_hidden",
+        callId,
+        "source=" + source + " connected=true presentation=fullscreen delayMs=" + CONNECTED_CHROME_HIDE_DELAY_MS);
   }
 
-  private void setConnectedChromeViewsVisible(boolean visible) {
-    int visibility = visible ? View.VISIBLE : View.GONE;
-    if (activeActions != null) {
-      activeActions.setAlpha(1f);
-      activeActions.setEnabled(visible);
-      activeActions.setVisibility(visible ? View.VISIBLE : View.GONE);
-    }
-    if (connectedControls != null) {
-      connectedControls.setAlpha(1f);
-      connectedControls.setEnabled(visible);
-      connectedControls.setVisibility(visible ? View.VISIBLE : View.GONE);
-    }
-    // Option A: status + FAB stay visible together while CONNECTED fullscreen.
+  /** 숨김 상태 적용 — 버튼 묶음·줄이기만. 상단 정보는 그대로. */
+  private void applyConnectedChromeHidden(boolean fade) {
+    fadeOutChromeView(activeActions, fade);
+    fadeOutChromeView(topBar, fade);
     syncPersistentCallStatusVisibility();
   }
 
-  /** CONNECTED + fullscreen — status and right FAB both persistent. */
+  private void fadeOutChromeView(View view, boolean fade) {
+    if (view == null) return;
+    view.animate().cancel();
+    view.setEnabled(false);
+    if (!fade || view.getVisibility() != View.VISIBLE) {
+      view.setAlpha(1f);
+      view.setVisibility(View.GONE);
+      return;
+    }
+    view.animate()
+        .alpha(0f)
+        .setDuration(CONNECTED_CHROME_FADE_MS)
+        .withEndAction(
+            () -> {
+              if (chromeVisible) return;
+              view.setVisibility(View.GONE);
+              view.setAlpha(1f);
+            })
+        .start();
+  }
+
+  /**
+   * 숨김 중(또는 사라지는 0.2초 동안) 버튼 터치 = 버튼을 보이게만 하고 동작하지 않는다(실수 종료 방지). 숨김이 아니면 false.
+   */
+  private boolean consumeTapWhileChromeHidden(String button) {
+    if (chromeVisible || !isConnectedFullscreenPresentation()) return false;
+    showConnectedChrome("tap_while_hidden_" + button);
+    return true;
+  }
+
+  /** 아주 나쁨 동안·TalkBack(터치 탐색) 켜짐 동안은 숨기지 않는다. */
+  private boolean connectedChromeAutoHideBlocked() {
+    if (networkVeryPoorActive) return true;
+    AccessibilityManager am = (AccessibilityManager) getSystemService(ACCESSIBILITY_SERVICE);
+    return am != null && am.isEnabled() && am.isTouchExplorationEnabled();
+  }
+
+  private void setConnectedChromeViewsVisible(boolean visible) {
+    if (!visible) {
+      applyConnectedChromeHidden(false);
+      return;
+    }
+    if (activeActions != null) {
+      activeActions.animate().cancel();
+      activeActions.setAlpha(1f);
+      activeActions.setEnabled(true);
+      activeActions.setVisibility(View.VISIBLE);
+    }
+    if (connectedControls != null) {
+      connectedControls.setAlpha(1f);
+      connectedControls.setEnabled(true);
+      connectedControls.setVisibility(View.VISIBLE);
+    }
+    if (topBar != null) {
+      topBar.animate().cancel();
+      topBar.setAlpha(1f);
+      topBar.setEnabled(true);
+    }
+    syncPersistentCallStatusVisibility();
+  }
+
+  /**
+   * 상단 이름·통화 시간·신호 = 연결·전체 화면에서 항상 보임(버튼 자동 숨김과 독립). 신호 테두리도 같은 조건. 버튼 묶음은 여기서
+   * 보이게 하지 않는다 — 표시 여부는 chromeVisible(show/hideConnectedChrome)만 정한다.
+   */
   private void syncPersistentCallStatusVisibility() {
-    if (connectedChromeOverlay == null) return;
     boolean show =
         currentState == NativeVideoCallRuntime.State.CONNECTED && !inPipMode && !dockMode && !isFinishing();
+    if (signalEdgeView != null) {
+      signalEdgeView.setTier(networkTier.displayed(), false);
+      signalEdgeView.setActive(show && !preparing);
+    }
+    if (connectedChromeOverlay == null) return;
     connectedChromeOverlay.setVisibility(show ? View.VISIBLE : View.GONE);
     syncMinimizeButton();
     if (show) {
       connectedChromeOverlay.bringToFront();
       connectedChromeOverlay.setTranslationZ(20f);
       if (activeActions != null) {
-        activeActions.setVisibility(View.VISIBLE);
-        activeActions.setEnabled(true);
         activeActions.bringToFront();
         activeActions.setTranslationZ(32f);
       }
-      if (connectedControls != null) {
-        connectedControls.setVisibility(View.VISIBLE);
-        connectedControls.setEnabled(true);
-      }
-      chromeVisible = true;
     }
   }
 
   private void scheduleConnectedChromeHide(String source) {
-    // Option A: auto-hide disabled for connected chrome / FAB.
-    cancelConnectedChromeHide("schedule_disabled_" + source);
+    mainHandler.removeCallbacks(chromeHideRunnable);
+    if (!isConnectedFullscreenPresentation()) return;
+    if (connectedChromeAutoHideBlocked()) return;
+    mainHandler.postDelayed(chromeHideRunnable, CONNECTED_CHROME_HIDE_DELAY_MS);
   }
 
   private void cancelConnectedChromeHide(String reason) {
@@ -2079,14 +2164,22 @@ public class NativeVideoCallActivity extends Activity {
   /** 줄이기 버튼 — 연결 후 전체화면(PiP·Dock 아님)에서만. */
   private void syncMinimizeButton() {
     if (minimizeButton == null) return;
-    boolean show =
+    boolean fullscreenConnected =
         !preparing
             && currentState == NativeVideoCallRuntime.State.CONNECTED
             && !inPipMode
             && !dockMode
             && !isFinishing();
-    minimizeButton.setVisibility(show ? View.VISIBLE : View.GONE);
-    if (topBar != null) topBar.setVisibility(show ? View.VISIBLE : View.GONE);
+    if (fullscreenConnected && !chromeVisible) {
+      // 버튼 자동 숨김 중(D1) — 줄이기는 버튼 묶음과 함께 hideConnectedChrome 의 페이드로 사라진다. 여기서 건드리지 않는다.
+      return;
+    }
+    minimizeButton.setVisibility(fullscreenConnected ? View.VISIBLE : View.GONE);
+    if (topBar != null) {
+      topBar.animate().cancel();
+      topBar.setAlpha(1f);
+      topBar.setVisibility(fullscreenConnected ? View.VISIBLE : View.GONE);
+    }
   }
 
   /** 첫 연결 시각을 callId 별로 기억 — 화면을 다시 만들어도 시간이 이어진다. */
@@ -2510,25 +2603,10 @@ public class NativeVideoCallActivity extends Activity {
 
   private void handleNetworkQualitySample(int worstQuality, int txQuality, int rxQuality) {
     if (!isConnectedFullscreenPresentation() && !dockMode) return;
-    NetworkDisplayTier previousTier = displayedNetworkTier;
-    NetworkDisplayTier instantTier = networkTierFromAgora(worstQuality);
-    NetworkDisplayTier nextTier = displayedNetworkTier;
-    if (instantTier == NetworkDisplayTier.VERY_POOR) {
-      nextTier = NetworkDisplayTier.VERY_POOR;
-      networkRecoveryStableCount = 0;
-    } else if (instantTier.ordinal() > displayedNetworkTier.ordinal()) {
-      nextTier = instantTier;
-      networkRecoveryStableCount = 0;
-    } else if (instantTier.ordinal() < displayedNetworkTier.ordinal()) {
-      networkRecoveryStableCount++;
-      if (networkRecoveryStableCount >= 2) {
-        nextTier = instantTier;
-        networkRecoveryStableCount = 0;
-      }
-    } else {
-      networkRecoveryStableCount = 0;
-    }
-    if (nextTier != displayedNetworkTier) {
+    NativeVideoNetworkTier.Tier previousTier = networkTier.displayed();
+    boolean changed = networkTier.onSample(txQuality, rxQuality);
+    NativeVideoNetworkTier.Tier nextTier = networkTier.displayed();
+    if (changed) {
       NativeVideoCallLog.info(
           "native_video_network_quality_changed",
           callId,
@@ -2536,18 +2614,24 @@ public class NativeVideoCallActivity extends Activity {
               + previousTier.name()
               + " currentQuality="
               + nextTier.name()
+              + " tx="
+              + txQuality
+              + " rx="
+              + rxQuality
               + " chromeVisible="
               + chromeVisible
               + " connected="
               + (currentState == NativeVideoCallRuntime.State.CONNECTED)
-              + " presentation=fullscreen");
-      displayedNetworkTier = nextTier;
+              + " presentation="
+              + (dockMode ? "dock" : "fullscreen"));
       updateNetworkSignalUi();
     }
-    if (nextTier == NetworkDisplayTier.VERY_POOR && previousTier != NetworkDisplayTier.VERY_POOR) {
-      showNetworkVeryPoorChrome();
-    } else if (nextTier != NetworkDisplayTier.VERY_POOR) {
+    if (nextTier == NativeVideoNetworkTier.Tier.VERY_POOR) {
+      if (previousTier != NativeVideoNetworkTier.Tier.VERY_POOR) showNetworkVeryPoorChrome();
+    } else if (networkVeryPoorActive) {
+      // 아주 나쁨에서 벗어남 — 버튼 자동 숨김을 다시 센다(D1).
       networkVeryPoorActive = false;
+      if (chromeVisible) scheduleConnectedChromeHide("network_quality_recovered");
     }
   }
 
@@ -2555,35 +2639,26 @@ public class NativeVideoCallActivity extends Activity {
     if (networkVeryPoorActive) return;
     networkVeryPoorActive = true;
     boolean chromeWasVisible = chromeVisible;
-    showConnectedChrome("network_quality_very_poor");
+    if (isConnectedFullscreenPresentation()) showConnectedChrome("network_quality_very_poor");
     NativeVideoCallLog.info(
         "native_video_network_quality_alert_shown",
         callId,
         "source=network_quality_very_poor previousQuality="
-            + displayedNetworkTier.name()
+            + networkTier.displayed().name()
             + " currentQuality=VERY_POOR chromeWasVisible="
             + chromeWasVisible
             + " connected=true presentation=fullscreen");
   }
 
-  private NetworkDisplayTier networkTierFromAgora(int worstQuality) {
-    if (worstQuality <= 2) return NetworkDisplayTier.GOOD;
-    if (worstQuality == 3) return NetworkDisplayTier.FAIR;
-    if (worstQuality == 4) return NetworkDisplayTier.POOR;
-    return NetworkDisplayTier.VERY_POOR;
-  }
-
+  /** 상단 신호 막대 3개·문구(색은 기존 값 유지) + 신호 테두리 색. 설계 D3·D5. */
   private void updateNetworkSignalUi() {
+    NativeVideoNetworkTier.Tier tier = networkTier.displayed();
+    if (signalEdgeView != null) signalEdgeView.setTier(tier, true);
     if (connectedSignalLabelView == null) return;
     int activeBars;
     int labelRes;
     int barColor;
-    switch (displayedNetworkTier) {
-      case FAIR:
-        activeBars = 3;
-        labelRes = R.string.dibay_video_network_quality_fair;
-        barColor = Color.parseColor("#D4E9E2");
-        break;
+    switch (tier) {
       case POOR:
         activeBars = 2;
         labelRes = R.string.dibay_video_network_quality_poor;
@@ -2596,7 +2671,7 @@ public class NativeVideoCallActivity extends Activity {
         break;
       case GOOD:
       default:
-        activeBars = 4;
+        activeBars = 3;
         labelRes = R.string.dibay_video_network_quality_good;
         barColor = Color.parseColor("#D4E9E2");
         break;
@@ -2669,6 +2744,29 @@ public class NativeVideoCallActivity extends Activity {
     int buttonSize = getResources().getDimensionPixelSize(R.dimen.dibay_call_btn_size_default);
     int buttonGap = getResources().getDimensionPixelSize(R.dimen.dibay_call_btn_gap);
     return buttonSize * 4 + buttonGap * 3;
+  }
+
+  /**
+   * 신호 테두리는 영상 영역 가장자리에 붙는다 — targetSdk 36 화면은 내비게이션 바 뒤까지 그리므로, 내비 바(아래·가로 화면 옆)만큼
+   * 비켜 테두리가 내비 바에 가려지지 않게 한다. 상태 바 쪽은 영상이 그 아래까지 보이므로 비키지 않는다.
+   */
+  private void attachSignalEdgeInsetsListener() {
+    if (signalEdgeView == null) return;
+    ViewCompat.setOnApplyWindowInsetsListener(
+        signalEdgeView,
+        (view, insets) -> {
+          Insets nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars());
+          ViewGroup.LayoutParams lp = view.getLayoutParams();
+          if (lp instanceof ViewGroup.MarginLayoutParams) {
+            ViewGroup.MarginLayoutParams mlp = (ViewGroup.MarginLayoutParams) lp;
+            if (mlp.leftMargin != nav.left || mlp.rightMargin != nav.right || mlp.bottomMargin != nav.bottom) {
+              mlp.setMargins(nav.left, 0, nav.right, nav.bottom);
+              view.setLayoutParams(mlp);
+            }
+          }
+          return insets;
+        });
+    ViewCompat.requestApplyInsets(signalEdgeView);
   }
 
   private void attachLocalPipInsetsListener() {
