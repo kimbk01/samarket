@@ -474,7 +474,8 @@ describe("C-48 static: HTTP-mutating QA scripts call assertQaHttpWriteTarget bef
       (rel) => !(rel in HTTP_NON_MUTATING_EXEMPT) && httpMutationIndexes(read(rel)).length > 0
     );
     // Inventory floor: the C-48 pass guarded 113 scripts — a shrinking match set means the detector broke.
-    expect(mutating.length).toBeGreaterThanOrEqual(113);
+    // 2026-11-12 죽은 코드 정리 D1: 추적 해제한 `.qa-logs/` QA 스크립트 8개 제외 → 105.
+    expect(mutating.length).toBeGreaterThanOrEqual(105);
     const offenders = mutating.filter((rel) => {
       const src = read(rel);
       const imported =
@@ -507,7 +508,8 @@ describe("C-48 static: guarded HTTP QA scripts default to a non-Production origi
 
   it("every assertQaHttpWriteTarget(<origin>) expression has no Production host default", () => {
     const guarded = httpScriptCandidates.filter((rel) => /\bassertQaHttpWriteTarget\(/.test(read(rel)));
-    expect(guarded.length).toBeGreaterThanOrEqual(113);
+    // 2026-11-12 죽은 코드 정리 D1: 추적 해제한 `.qa-logs/` QA 스크립트 3개 제외 → 110.
+    expect(guarded.length).toBeGreaterThanOrEqual(110);
     const offenders: string[] = [];
     for (const rel of guarded) {
       const src = read(rel);
@@ -533,7 +535,6 @@ describe("C-48 static: guarded HTTP QA scripts default to a non-Production origi
 describe("C-48 static: Playwright UI-action QA scripts against a live app", () => {
   /** Scripts whose UI actions commit server state → must call assertQaHttpWriteTarget before any navigation. */
   const UI_WRITE_SCRIPTS = [
-    ".qa-logs/v4-video-runtime-readonly-qa.mjs", // places real 1:1 video calls (Video call CTA → dial → accept/end)
     "scripts/qa/community-operator-import-phase-f-production-e2e.mjs", // 적용 / 게시 / 임시저장
     "scripts/qa/owner-store-os-product-lifecycle-proof.mjs", // product create (setInputFiles) / Save / sold-out
     "scripts/qa/owner-store-os-product-save-debug.mjs", // new product Save
@@ -546,8 +547,6 @@ describe("C-48 static: Playwright UI-action QA scripts against a live app", () =
    * typing without submit, and destructive CTAs opened only to inspect the confirm dialog and cancelled.
    */
   const UI_READ_ONLY_SCRIPTS = [
-    ".qa-logs/mypage-cold-network-initiator-qa.mjs",
-    ".qa-logs/mypage-runtime-product-pass-qa.mjs",
     "scripts/qa/admin-aro-ops-ux-001-w1-prod-light.mjs",
     "scripts/qa/admin-aro-ops-ux-001-w2-prod-light.mjs",
     "scripts/qa/admin-aro-ops-ux-002-b1-prod-light.mjs",
