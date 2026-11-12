@@ -20,6 +20,12 @@ import {
 import { MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
+/**
+ * 메신저 밖에서 쓰는 하단 시트 폭 — 공용 오버레이 시트(`.dibay-overlay-sheet`: 최대 32rem·가운데)와 같다.
+ * 넓은 화면(가로 태블릿 1006px)에서 화면 전체 폭으로 열려 버튼이 1000px 로 늘어나던 문제 (Xiaomi 실측 2026-11-12).
+ */
+const OUTSIDE_MESSENGER_SHEET_WIDTH_CLASS = "mx-auto max-w-[32rem]";
+
 export type MessengerHomeBottomSheetAnchor = "fit-content" | "device-bottom" | "center";
 
 /**
@@ -112,10 +118,10 @@ export function MessengerHomeBottomSheetShell({
   const deviceBottom = anchor === "device-bottom";
   const center = anchor === "center";
   const panelAnchorClass = deviceBottom
-    ? `${MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS}${splitListPane ? ` ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}` : ""}`
+    ? `${MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS}${splitListPane ? ` ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}` : ` ${OUTSIDE_MESSENGER_SHEET_WIDTH_CLASS}`}`
     : center
       ? "messenger-home-center-sheet-panel"
-      : `${MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS}${splitListPane ? ` ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}` : ""}`;
+      : `${MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS}${splitListPane ? ` ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}` : ` ${OUTSIDE_MESSENGER_SHEET_WIDTH_CLASS}`}`;
   const panelMotionClass =
     center ?
       entered ? "messenger-home-center-sheet-panel--entered" : "messenger-home-center-sheet-panel--entering"
