@@ -475,7 +475,8 @@ describe("C-48 static: HTTP-mutating QA scripts call assertQaHttpWriteTarget bef
     );
     // Inventory floor: the C-48 pass guarded 113 scripts — a shrinking match set means the detector broke.
     // 2026-11-12 죽은 코드 정리 D1: 추적 해제한 `.qa-logs/` QA 스크립트 8개 제외 → 105.
-    expect(mutating.length).toBeGreaterThanOrEqual(105);
+    // 2026-11-12 D6: 호출처 없는 고아 스크립트 1개 삭제 → 104.
+    expect(mutating.length).toBeGreaterThanOrEqual(104);
     const offenders = mutating.filter((rel) => {
       const src = read(rel);
       const imported =
@@ -509,7 +510,8 @@ describe("C-48 static: guarded HTTP QA scripts default to a non-Production origi
   it("every assertQaHttpWriteTarget(<origin>) expression has no Production host default", () => {
     const guarded = httpScriptCandidates.filter((rel) => /\bassertQaHttpWriteTarget\(/.test(read(rel)));
     // 2026-11-12 죽은 코드 정리 D1: 추적 해제한 `.qa-logs/` QA 스크립트 3개 제외 → 110.
-    expect(guarded.length).toBeGreaterThanOrEqual(110);
+    // 2026-11-12 D6: 호출처 없는 고아 스크립트 1개 삭제 → 109.
+    expect(guarded.length).toBeGreaterThanOrEqual(109);
     const offenders: string[] = [];
     for (const rel of guarded) {
       const src = read(rel);
