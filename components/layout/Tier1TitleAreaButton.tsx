@@ -5,7 +5,7 @@ import { ChevronDown } from "lucide-react";
 /**
  * 1단 제목 뒤 「· 동네 ⌄」 버튼 — 정보교환·거래 공용 모양 (Owner 「3판대로 구현」 2026-11-12, 시안 N3).
  * - 동네만 볼 때(`active`) = 브랜드 초록, 전체 볼 때 = 회색
- * - 글자 14px·굵게. 제목은 자르지 않고, 칸이 모자라면 동네 이름 끝만 「…」(영문 아주 긴 시·군 이름, 시트에 전체 이름)
+ * - 글자 = 제목과 같은 17px·600 (Owner 2026-11-13 「주소가 있는 부분도 제목의 크기로 일치」, 헤더 SSOT S8). 제목은 자르지 않고, 칸이 모자라면 동네 이름 끝만 「…」(영문 아주 긴 시·군 이름, 시트에 전체 이름)
  */
 export function Tier1TitleAreaButton({
   label,
@@ -28,7 +28,7 @@ export function Tier1TitleAreaButton({
       aria-haspopup="dialog"
       aria-expanded={expanded}
       onClick={onClick}
-      className={`inline-flex min-w-0 items-center gap-[3px] py-1 text-[14px] font-semibold leading-none [-webkit-tap-highlight-color:transparent] transition-[transform,opacity] duration-100 ease-out active:scale-[0.97] active:opacity-85 motion-reduce:transition-none motion-reduce:active:scale-100 ${
+      className={`inline-flex min-w-0 items-center gap-[3px] py-1 text-[length:var(--sector-header-title-size,17px)] font-semibold leading-none [-webkit-tap-highlight-color:transparent] transition-[transform,opacity] duration-100 ease-out active:scale-[0.97] active:opacity-85 motion-reduce:transition-none motion-reduce:active:scale-100 ${
         active ? "text-sam-primary" : "text-sam-muted"
       }`}
     >

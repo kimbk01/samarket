@@ -113,7 +113,8 @@ export function RegionBarMainHubTier1({ pathNoQuery }: { pathNoQuery: string }) 
   const rightSlot = extrasRight ?? defaultRightSlot(hub);
 
   return (
-    <UnifiedTier1Shell noLeftSlot={areaHub || hub === "moim"}>
+    /** 다섯 허브 모두 왼쪽 빈칸 없음 — 제목 시작선 통일 (헤더 SSOT 1단계, Owner 2026-11-13) */
+    <UnifiedTier1Shell noLeftSlot>
       <SectionHeader embedded titleAlign="left" title={title} rightSlot={rightSlot} />
     </UnifiedTier1Shell>
   );
