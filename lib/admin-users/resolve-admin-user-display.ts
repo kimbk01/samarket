@@ -53,7 +53,7 @@ export type AdminDisplayTestUser = {
   username?: string | null;
 };
 
-const SNS_PROVIDERS = ["google", "kakao", "apple", "naver", "facebook"] as const;
+const SNS_PROVIDERS = ["google", "kakao", "apple", "naver"] as const;
 
 function pickString(value: unknown): string | null {
   if (typeof value !== "string") return null;

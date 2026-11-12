@@ -49,7 +49,6 @@ export function normalizeStoreAuthProvider(provider: string | null | undefined):
     normalized === "kakao" ||
     normalized === "naver" ||
     normalized === "apple" ||
-    normalized === "facebook" ||
     normalized === "email"
   ) {
     return normalized;

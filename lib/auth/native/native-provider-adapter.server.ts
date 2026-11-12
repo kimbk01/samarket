@@ -339,29 +339,10 @@ export const googleNativeProviderAdapter: NativeProviderAdapter = {
   },
 };
 
-function createStubAdapter(provider: Exclude<NativeExchangeProvider, "apple" | "kakao" | "google">): NativeProviderAdapter {
-  return {
-    provider,
-    stub: true,
-    validateInput(input) {
-      return validateRequiredCredential(input);
-    },
-    async verify() {
-      throw new Error(`${provider} stub adapter must not call verify`);
-    },
-    async establishSession() {
-      throw new Error(`${provider} stub adapter must not call establishSession`);
-    },
-  };
-}
-
-export const facebookNativeProviderAdapter = createStubAdapter("facebook");
-
 const ADAPTER_BY_PROVIDER: Record<NativeExchangeProvider, NativeProviderAdapter> = {
   apple: appleNativeProviderAdapter,
   kakao: kakaoNativeProviderAdapter,
   google: googleNativeProviderAdapter,
-  facebook: facebookNativeProviderAdapter,
 };
 
 export function getNativeProviderAdapter(

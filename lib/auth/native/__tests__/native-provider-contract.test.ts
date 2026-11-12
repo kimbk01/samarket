@@ -16,7 +16,6 @@ describe("native-provider-contract", () => {
     expect(isNativeSdkImplementedProvider("kakao")).toBe(true);
     expect(isNativeSdkImplementedProvider("apple")).toBe(true);
     expect(isNativeSdkImplementedProvider("google")).toBe(true);
-    expect(isNativeSdkImplementedProvider("facebook")).toBe(false);
   });
 
   it("derives onboarding gate flags", () => {
@@ -47,7 +46,7 @@ describe("native-provider-contract", () => {
 
   it("blocks legacy OAuth on native app for major providers except naver", () => {
     expect(shouldBlockLegacyOAuthOnNativeApp("google", true)).toBe(true);
-    expect(shouldBlockLegacyOAuthOnNativeApp("facebook", true)).toBe(true);
+    expect(shouldBlockLegacyOAuthOnNativeApp("apple", true)).toBe(true);
     expect(shouldBlockLegacyOAuthOnNativeApp("kakao", true)).toBe(true);
     expect(shouldBlockLegacyOAuthOnNativeApp("naver", true)).toBe(false);
     expect(shouldBlockLegacyOAuthOnNativeApp("google", false)).toBe(false);

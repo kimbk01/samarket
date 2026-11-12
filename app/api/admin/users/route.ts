@@ -98,7 +98,7 @@ type AdminUserListItem = AdminUser & {
   roleBadges: AdminMemberRoleBadge[];
 };
 
-const SNS_ADMIN_PROVIDERS = new Set(["google", "kakao", "apple", "naver", "facebook"]);
+const SNS_ADMIN_PROVIDERS = new Set(["google", "kakao", "apple", "naver"]);
 
 /**
  * 관리자 생성 회원 — provider 가 manual 계열이거나, SNS 가 아니면서 로그인 주소가 `@manual.local`.

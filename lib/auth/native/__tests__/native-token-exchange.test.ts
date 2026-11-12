@@ -87,7 +87,7 @@ describe("native-token-exchange.server", () => {
     vi.clearAllMocks();
   });
 
-  it("normalizes apple, kakao, google, facebook providers", () => {
+  it("normalizes apple, kakao, google providers", () => {
     expect(normalizeNativeExchangeProvider("kakao")).toBe("kakao");
     expect(isNativeTokenExchangeProvider("kakao")).toBe(true);
   });

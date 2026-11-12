@@ -18,7 +18,7 @@ export type ResolvedPasswordLoginIdentifier =
         | "login_identifier_lookup_failed";
     };
 
-const SOCIAL_PROVIDER_SET = new Set(["google", "kakao", "naver", "apple", "facebook"]);
+const SOCIAL_PROVIDER_SET = new Set(["google", "kakao", "naver", "apple"]);
 
 function normalizeProvider(value: string | null | undefined): string {
   return String(value ?? "").trim().toLowerCase();

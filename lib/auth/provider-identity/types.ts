@@ -2,7 +2,7 @@ export const LINKABLE_AUTH_PROVIDERS = ["google", "kakao", "apple"] as const;
 
 export type LinkableAuthProvider = (typeof LINKABLE_AUTH_PROVIDERS)[number];
 
-export type StoredAuthProvider = LinkableAuthProvider | "naver" | "facebook" | "email";
+export type StoredAuthProvider = LinkableAuthProvider | "naver" | "email";
 
 export type UserAuthIdentityRow = {
   id: string;

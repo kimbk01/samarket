@@ -6,7 +6,6 @@ const PROVIDER_LABEL_KO: Record<StoredAuthProvider, string> = {
   kakao: "카카오",
   apple: "Apple",
   naver: "네이버",
-  facebook: "Facebook",
   email: "이메일",
 };
 
@@ -15,7 +14,6 @@ const PROVIDER_LABEL_EN: Record<StoredAuthProvider, string> = {
   kakao: "Kakao",
   apple: "Apple",
   naver: "Naver",
-  facebook: "Facebook",
   email: "Email",
 };
 

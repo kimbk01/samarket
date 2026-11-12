@@ -22,7 +22,6 @@ export type AdminAuthProvider =
   | "kakao"
   | "naver"
   | "apple"
-  | "facebook"
   | "email"
   | "manual"
   | "unknown";

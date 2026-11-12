@@ -30,8 +30,7 @@ function getProviderTitle(provider: OAuthProvider): string {
   if (provider === "google") return "Google";
   if (provider === "kakao") return "Kakao";
   if (provider === "naver") return "Naver";
-  if (provider === "apple") return "Apple";
-  return "Facebook";
+  return "Apple";
 }
 
 class AuthSettingsLoadError extends Error {

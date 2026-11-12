@@ -251,7 +251,7 @@ export function adminMemberPrivilegeFilterPlan(
 
 const MANUAL_PROVIDER_IN =
   "manual,manual_admin,manual_admin_backfill,admin_manual";
-const OTHER_PROVIDER_IN = "naver,facebook";
+const OTHER_PROVIDER_IN = "naver";
 /** 관리자 생성 회원의 로그인 주소 (provider 가 email 로 잘못 남은 회원 포함 — 설계안 ⑤) */
 const MANUAL_LOGIN_EMAIL_LIKE = "%@manual.local";
 

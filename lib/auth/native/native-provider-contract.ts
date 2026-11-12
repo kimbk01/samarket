@@ -3,7 +3,7 @@
  * Provider SDK → credential → POST /api/auth/native/exchange → sessionEstablished.
  */
 
-export const NATIVE_EXCHANGE_PROVIDERS = ["google", "kakao", "apple", "facebook"] as const;
+export const NATIVE_EXCHANGE_PROVIDERS = ["google", "kakao", "apple"] as const;
 
 export type NativeExchangeProvider = (typeof NATIVE_EXCHANGE_PROVIDERS)[number];
 
@@ -71,7 +71,7 @@ export type NativeExchangeFailureResponse = {
 
 export type NativeExchangeResponse = NativeExchangeSuccessResponse | NativeExchangeFailureResponse;
 
-/** STEP C+ Kakao · Apple · Google(Android) — Facebook 는 exchange stub */
+/** STEP C+ Kakao · Apple · Google(Android) */
 export const NATIVE_SDK_IMPLEMENTED_PROVIDERS = ["kakao", "apple", "google"] as const;
 
 export type NativeSdkImplementedProvider = (typeof NATIVE_SDK_IMPLEMENTED_PROVIDERS)[number];
@@ -123,6 +123,5 @@ export function shouldBlockLegacyOAuthOnNativeApp(
     normalized === "google"
     || normalized === "kakao"
     || normalized === "apple"
-    || normalized === "facebook"
   );
 }

@@ -62,7 +62,7 @@ function normalizeProvider(provider: string | null | undefined): string | null {
 
 /**
  * `profiles.provider` / `profiles.auth_provider` 컬럼은 운영 DB 제약 `profiles_provider_check`
- * (`'google','kakao','naver','apple','facebook','admin_manual','email'`, 운영 조회 2026-11-08)을 받는다.
+ * (`'google','kakao','naver','apple','admin_manual','email'`, 운영 조회 2026-11-13)을 받는다.
  * 관리자 생성 계열(`manual`·`admin_manual`)은 `'admin_manual'` 로 저장한다 — `'manual'` 은 제약 위반 (설계안 ⑥).
  */
 function normalizeProviderForDb(provider: string | null | undefined): string | null {
@@ -74,7 +74,6 @@ function normalizeProviderForDb(provider: string | null | undefined): string | n
     normalized === "kakao" ||
     normalized === "naver" ||
     normalized === "apple" ||
-    normalized === "facebook" ||
     normalized === "email"
   ) {
     return normalized;

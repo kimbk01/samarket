@@ -6,10 +6,10 @@ function row(provider: OAuthProvider, sort_order = 1): AuthProviderPublic {
   return { id: provider, provider, enabled: true, client_id: "x", redirect_uri: "https://e", scope: "", sort_order };
 }
 
-const all = [row("google"), row("kakao"), row("apple"), row("naver"), row("facebook")];
+const all = [row("google"), row("kakao"), row("apple"), row("naver")];
 
 describe("P1-14 filterLoginProvidersForPlatform", () => {
-  it("never shows Naver/Facebook (web)", () => {
+  it("never shows Naver (web)", () => {
     const r = filterLoginProvidersForPlatform(all, {
       shellPlatform: null,
       resolveRoutingAction: () => "web_oauth_start",

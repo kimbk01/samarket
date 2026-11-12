@@ -120,7 +120,6 @@ const SUPPORTED_PROVIDERS = new Set([
   "kakao",
   "naver",
   "apple",
-  "facebook",
   "email",
   "manual",
 ]);
