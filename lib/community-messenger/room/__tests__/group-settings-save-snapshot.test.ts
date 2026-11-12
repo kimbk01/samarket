@@ -7,6 +7,10 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { mergeCommunityMessengerSilentDeltaIntoSnapshot } from "@/lib/community-messenger/room/merge-community-messenger-silent-delta";
 import {
+  noteGroupRoomIdentitySavedLocally,
+  resetGroupRoomIdentitySavedLocallyForTests,
+} from "@/lib/community-messenger/room/group-room-identity-local-save";
+import {
   patchRoomSummaryInSnapshotCache,
   peekHotRoomSnapshot,
   peekRoomSnapshot,
@@ -43,7 +47,20 @@ function snap(room: Partial<CommunityMessengerRoomSnapshot["room"]>): CommunityM
 describe("silent_delta 병합은 방 설정 필드를 이전 스냅샷에서 유지한다", () => {
   it("저장값을 먼저 반영한 스냅샷 위에 delta 가 와도 저장값이 남는다", () => {
     const saved = snap({ allowAdminKick: false, noticeText: "b2b notice", title: "새 이름", avatarUrl: "https://x/a.png" });
-    const delta = snap({ allowAdminKick: true, noticeText: "", title: "B2B TEST", avatarUrl: null, lastMessage: "Permissions updated" });
+    /**
+     * 실제 흐름: applySavedGroupRoomFields 가 저장한 사진·제목을 기록한다(G4). 그 뒤 캐시된 옛 delta(실제 제목·옛 사진)가 와도
+     * 보호 시간 동안 저장값이 남는다. (다른 멤버가 바꾼 값을 따라가는 것은 group-photo-list-header-g3-g7.test.ts)
+     */
+    resetGroupRoomIdentitySavedLocallyForTests();
+    noteGroupRoomIdentitySavedLocally(String(saved.room.id), { title: "새 이름", avatarUrl: "https://x/a.png" });
+    const delta = snap({
+      allowAdminKick: true,
+      noticeText: "",
+      title: "B2B TEST",
+      titleFromRoom: true,
+      avatarUrl: null,
+      lastMessage: "Permissions updated",
+    });
     const merged = mergeCommunityMessengerSilentDeltaIntoSnapshot(saved, delta);
     expect(merged.room.allowAdminKick).toBe(false);
     expect(merged.room.noticeText).toBe("b2b notice");
@@ -102,6 +119,8 @@ describe("phase2 controller — 저장 성공 뒤 refresh(true) 전에 스냅샷
     const b = body("applySavedGroupRoomFields");
     expect(b).toContain("setSnapshot(");
     expect(b).toContain("patchRoomSummaryInSnapshotCache(");
+    /** G4 — 저장한 사진·제목을 기록해 캐시된 옛 silent_delta 가 되돌리지 않게 */
+    expect(b).toContain("noteGroupRoomIdentitySavedLocally(rid,");
   });
 
   it("설정 입력값 동기화 effect 는 스냅샷 객체가 아니라 방 필드 값에만 반응한다 — 입력 중 공지가 지워지지 않게", () => {

@@ -1,6 +1,7 @@
 /**
  * FBT1 full bootstrap snapshot assembly — CPU-only from precomputed RPC payload.
  */
+import { readLiteBundleRoomAvatarUrl } from "@/lib/community-messenger/lite-bundle-room-avatar";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import {
@@ -124,7 +125,8 @@ function parseLiteBundle(payload: FullBootstrapSnapshotPayloadJson) {
       is_readonly: r.is_readonly === true,
       title: (r.title as string | null) ?? null,
       summary: null,
-      avatar_url: null,
+      /** 방 사진 — lite bundle 방 객체 (20271114100000 · 그룹 목록 사진 G3). 구 DB 는 키 없음 → null */
+      avatar_url: readLiteBundleRoomAvatarUrl(r as { avatar_url?: unknown }),
       created_by: null,
       direct_key:
         r.direct_key != null && typeof r.direct_key === "string"

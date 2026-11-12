@@ -1,3 +1,4 @@
+import { readLiteBundleRoomAvatarUrl } from "@/lib/community-messenger/lite-bundle-room-avatar";
 import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
 import { normalizeTradePriceCurrency } from "@/lib/trade/trade-price-currency";
 import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
@@ -3501,7 +3502,8 @@ async function fetchBootstrapLiteMyRoomsBundleViaRpc(
     is_readonly: row.is_readonly === true,
     title: row.title ?? null,
     summary: null,
-    avatar_url: null,
+    /** 방 사진 — lite bundle 방 객체 (20271114100000 · 그룹 목록 사진 G3). 구 DB 는 키 없음 → null */
+    avatar_url: readLiteBundleRoomAvatarUrl(row as { avatar_url?: unknown }),
     created_by: null,
     direct_key:
       row.direct_key != null && typeof row.direct_key === "string"

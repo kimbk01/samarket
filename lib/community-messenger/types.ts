@@ -182,6 +182,11 @@ export type CommunityMessengerRoomSummary = {
   identityPolicy: CommunityMessengerRoomIdentityPolicy;
   isReadonly: boolean;
   title: string;
+  /**
+   * silent_delta 전용 — 제목이 방 실제 제목인지(true) 서버 대체 글자인지. 열린 그룹 방 머리글 병합이
+   * 대체 글자로 덮지 않게 한다 (group-chat-full-fix-design G4). 다른 응답에는 없음.
+   */
+  titleFromRoom?: boolean;
   subtitle: string;
   summary: string;
   avatarUrl: string | null;

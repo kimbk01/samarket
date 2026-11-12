@@ -127,6 +127,7 @@ import { buildReplyPreviewSnapshot } from "@/lib/community-messenger/message-act
 import { registerMessengerRoomComposerPhase2Bridge } from "@/lib/community-messenger/room/messenger-room-composer-phase2-bridge";
 import { scheduleMessengerComposerFocusRetain } from "@/lib/community-messenger/room/messenger-composer-focus-after-send";
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
+import { noteGroupRoomIdentitySavedLocally } from "@/lib/community-messenger/room/group-room-identity-local-save";
 import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
 import { getNotificationSoundGateSnapshot } from "@/lib/notifications/notification-sound-gate";
 import { precheckMessengerFileForUpload } from "@/lib/community-messenger/upload/messenger-file-upload-policy";
@@ -529,6 +530,17 @@ export function useMessengerRoomPhase2Controller() {
   const applySavedGroupRoomFields = useCallback(
     (patch: Partial<CommunityMessengerRoomSummary>) => {
       setSnapshot((prev) => (prev ? { ...prev, room: { ...prev.room, ...patch } } : prev));
+      /** 저장 직후 캐시된 옛 silent_delta 가 사진·제목을 되돌리지 않게 (G4 · group-room-identity-local-save) */
+      if (typeof patch.title === "string" || Object.prototype.hasOwnProperty.call(patch, "avatarUrl")) {
+        for (const rid of new Set([streamRoomId?.trim(), roomId?.trim()])) {
+          if (rid) {
+            noteGroupRoomIdentitySavedLocally(rid, {
+              ...(typeof patch.title === "string" ? { title: patch.title } : {}),
+              ...(Object.prototype.hasOwnProperty.call(patch, "avatarUrl") ? { avatarUrl: patch.avatarUrl ?? null } : {}),
+            });
+          }
+        }
+      }
       const uid = snapshot?.viewerUserId?.trim();
       if (!uid) return;
       for (const rid of new Set([streamRoomId?.trim(), roomId?.trim()])) {
@@ -2425,14 +2437,38 @@ export function useMessengerRoomPhase2Controller() {
   const uploadPrivateGroupAvatar = useCallback(
     async (file: File) => {
       if (!isPrivateGroupRoom || !canEditPrivateGroupMeta) return;
+      /**
+       * 그룹 사진 올리기 (group-chat-full-fix-design G6) — 서버 `/api/me/profile/avatar` 는 JPEG·PNG·WebP · 3MB.
+       * 형식은 올리기 전에 안내, 3MB 넘는 사진은 긴 변 2560 · JPEG 로 한 번 줄이고, 그래도 넘거나 서버가 거절하면 이유별 안내.
+       */
+      const GROUP_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+      const GROUP_PHOTO_MAX_BYTES = 3 * 1024 * 1024;
+      /** 형식을 알려 주지 않는 선택기(빈 type)는 서버 판정에 맡긴다 */
+      const pickedType = (file.type || "").toLowerCase();
+      if (pickedType && !GROUP_PHOTO_TYPES.has(pickedType)) {
+        showMessengerSnackbar(translateCmUi("cm_ui_group_photo_type_only"), { variant: "error" });
+        return;
+      }
       setBusy("private-group-avatar");
       try {
+        const { prepareCommunityImageForUpload } = await import("@/lib/philife/client-image-resize");
+        const prepared = await prepareCommunityImageForUpload(file, { skipBelowBytes: GROUP_PHOTO_MAX_BYTES });
+        if (prepared.size > GROUP_PHOTO_MAX_BYTES) {
+          showMessengerSnackbar(translateCmUi("cm_ui_group_photo_too_large"), { variant: "error" });
+          return;
+        }
         const fd = new FormData();
-        fd.set("file", file);
+        fd.set("file", prepared);
         const uploadRes = await fetch("/api/me/profile/avatar", { method: "POST", body: fd, credentials: "include" });
         const uploadJson = (await uploadRes.json().catch(() => ({}))) as { ok?: boolean; url?: string };
         if (!uploadRes.ok || !uploadJson.ok || !uploadJson.url) {
-          showMessengerSnackbar(getRoomActionErrorMessage(), { variant: "error" });
+          const message =
+            uploadRes.status === 413
+              ? translateCmUi("cm_ui_group_photo_too_large")
+              : uploadRes.status === 400
+                ? translateCmUi("cm_ui_group_photo_type_only")
+                : getRoomActionErrorMessage();
+          showMessengerSnackbar(message, { variant: "error" });
           return;
         }
         const patchRes = await fetch(`${communityMessengerGroupRoomApiPath(streamRoomId)}/profile`, {
