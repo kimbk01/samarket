@@ -38,7 +38,8 @@ describe("global search entry, adapters, back", () => {
 
   it("hub magnifiers go to /search and SearchPageClient mounts GlobalSearchView", () => {
     expect(read("app/(main)/search/SearchPageClient.tsx")).toContain("GlobalSearchView");
-    expect(read("app/(main)/search/SearchPageClient.tsx")).not.toContain('from "@/components/search/SearchView"');
+    // 옛 SearchView 는 2026-11-12 D3 에서 삭제 — 문자열 import 모양을 피해 정규식으로 재유입만 막는다 (verify:deploy-imports)
+    expect(read("app/(main)/search/SearchPageClient.tsx")).not.toMatch(/from ["']@\/components\/search\/SearchView["']/);
     expect(read("components/layout/RegionBarMainHubTier1.tsx")).toContain("openGlobalSearchFromHere");
     expect(read("components/stores/home/hub/StoresConsumerHeaderActions.tsx")).toContain("openGlobalSearchFromHere");
     expect(read("components/stores/home/hub/StoresHomeHeaderChrome.tsx")).not.toContain("StoresHomeSearchModal");
