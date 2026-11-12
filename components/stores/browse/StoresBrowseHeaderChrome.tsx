@@ -95,10 +95,7 @@ export function StoresBrowseHeaderChrome() {
   return (
     <>
       <header data-stores-browse-header data-delivery-chrome="1" className={MIRROR_HEADER_SHELL_CLASS}>
-        {/*
-          헤더 SSOT 2단계 — 하위 화면 공통 줄(높이 52 · 뒤로 48@x4 · 제목 17/600 · 아이콘 48/24).
-          오른쪽 아이콘이 4개(192px)라 제목을 화면 가운데에 두면 제목 칸이 48px 만 남는다 → 거래 검색과 같은 제목-왼쪽 줄(제목 x58 시작).
-        */}
+        {/* 헤더 SSOT 2단계 — 하위 공통 줄(52 · 뒤로 48@x4 · 제목 17/600 · 아이콘 48/24). 아이콘 4개라 제목-왼쪽 줄(제목 x58) */}
         <SectorHeaderBar
           centerAlign="left"
           left={<SectorHeaderBackButton backHref="/stores" preferHistoryBack={false} ariaLabelKey="nav_back" />}
