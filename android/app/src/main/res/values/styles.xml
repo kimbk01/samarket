@@ -47,6 +47,8 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:windowBackground">@color/dibay_incoming_deep_green</item>
+        <!-- 다크 모드 없음 (Owner 2026-11-13) — Android 강제 다크(개발자 옵션·제조사 기능) 대상에서 제외 -->
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
     </style>
 
     <style name="AppTheme.ForegroundIncomingCall" parent="Theme.AppCompat.Light.NoActionBar">
@@ -56,5 +58,7 @@
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:backgroundDimEnabled">false</item>
         <item name="android:windowAnimationStyle">@android:style/Animation</item>
+        <!-- 다크 모드 없음 (Owner 2026-11-13) — Android 강제 다크(개발자 옵션·제조사 기능) 대상에서 제외 -->
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
     </style>
 </resources>

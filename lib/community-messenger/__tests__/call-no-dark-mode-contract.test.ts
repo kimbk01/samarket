@@ -28,4 +28,13 @@ describe("통화 화면 다크 모드 없음", () => {
     expect(xml).toContain('<style name="AppTheme.IncomingCall" parent="Theme.AppCompat.Light.NoActionBar">');
     expect(xml).toContain('<style name="AppTheme.ForegroundIncomingCall" parent="Theme.AppCompat.Light.NoActionBar">');
   });
+
+  it("Android 통화 화면 테마 강제 다크 제외 (설계 2026-11-13 R2-b)", () => {
+    const xml = read("android/app/src/main/res/values/styles.xml");
+    for (const name of ["AppTheme.IncomingCall", "AppTheme.ForegroundIncomingCall"]) {
+      const start = xml.indexOf(`<style name="${name}"`);
+      const block = xml.slice(start, xml.indexOf("</style>", start));
+      expect(block, name).toContain('<item name="android:forceDarkAllowed" tools:targetApi="q">false</item>');
+    }
+  });
 });
