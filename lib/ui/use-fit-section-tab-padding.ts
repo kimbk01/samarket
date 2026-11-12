@@ -11,6 +11,8 @@ const TAB2_PAD_MIN_PX = 4;
 /** 탭 좌우 여백(px) — 칸 폭·글자 폭 합·탭 수로 계산 (12px 기본, 모자라면 최소 4px) */
 export function computeFitSectionTabPadPx(availPx: number, textPx: number, tabCount: number): number {
   if (tabCount <= 0) return TAB2_PAD_MAX_PX;
+  /** 최소 여백으로도 한 줄에 다 안 들어가면(탭이 많은 줄) 줄이지 않는다 — 기본 여백 그대로 밀어서 본다 */
+  if (availPx - textPx < TAB2_PAD_MIN_PX * 2 * tabCount) return TAB2_PAD_MAX_PX;
   return Math.max(
     TAB2_PAD_MIN_PX,
     Math.min(TAB2_PAD_MAX_PX, Math.floor((availPx - textPx) / (tabCount * 2)))
@@ -18,12 +20,13 @@ export function computeFitSectionTabPadPx(availPx: number, textPx: number, tabCo
 }
 
 /**
- * 탭 몇 개짜리 2단 줄(거래 「판매·둘러보기·내 근처·카테고리」)이 한 줄에 다 보이도록 탭 좌우 여백만 줄인다
+ * 2단 탭 줄(거래 「판매·둘러보기·내 근처·카테고리」·커뮤니티 주제)이 한 줄에 다 보이도록 탭 좌우 여백만 줄인다
  * (Owner 「거래 2단 Categories 잘림 수정」 2026-11-12 — 390px 영문: 탭 칸 267px < 글자 202px + 여백 96px).
  *
  * - 칸이 넉넉하면 기본 여백 12px 그대로(모양 변화 없음).
  * - 모자라면 여백을 4px 까지 줄여 모든 탭 이름이 화면 안에 들어오게 한다. 글자 크기·탭 구성은 바꾸지 않는다.
- * - 그래도 모자란 아주 좁은 화면은 기존대로 가로로 밀어서 본다(이름 자르기 없음 — 2단 탭 규칙).
+ * - 4px 로도 한 줄에 다 안 들어가면(탭이 많은 줄·아주 좁은 화면) 여백을 줄이지 않고 기본 12px 그대로 밀어서 본다
+ *   (이름 자르기 없음 — 2단 탭 규칙). 커뮤니티 주제 탭(10개)이 이 경우.
  * 글자 폭은 탭 안 글자 범위로 재고, 줄·탭 크기가 바뀌면(화면 회전·언어·글꼴 로드) 다시 맞춘다.
  */
 export function useFitSectionTabPadding(trackRef: RefObject<HTMLElement | null>, deps: readonly unknown[]): void {

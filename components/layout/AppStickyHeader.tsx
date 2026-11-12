@@ -115,7 +115,7 @@ export function AppStickyHeader() {
           <TradeMarketPullRefreshHint />
           <MarketplaceHomeEntryChrome />
           <TradePrimaryTabs embed embedInAppHeader />
-          {/* 머리글 3단 — 「정보교환 · 거래」 전환 탭 왼쪽 정렬 (Owner 「A 안」 2026-11-12, 1단에서 옮김) */}
+          {/* 머리글 3단 — 「정보교환 · 거래」 전환 탭 오른쪽 정렬 (Owner 「A 안」 2026-11-12, 1단에서 옮김) */}
           {communityTradeSwitchHub === "trade" ? <CommunityTradeSwitchRow active="trade" /> : null}
           {tradeSecondaryTabs}
         </>

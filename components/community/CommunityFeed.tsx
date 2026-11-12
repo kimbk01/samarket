@@ -135,6 +135,7 @@ import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 import { getMobileTopTier1RuleSet, resolveCommunityTradeSwitchHub } from "@/lib/layout/mobile-top-tier1-rules";
 import { CommunityTradeSwitchRow } from "@/components/layout/CommunityTradeTitleSwitch";
+import { useFitSectionTabPadding } from "@/lib/ui/use-fit-section-tab-padding";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 declare global {
@@ -1456,6 +1457,11 @@ export function CommunityFeed({
   const feedSwipeOn = deviceClass === "PHONE_ANDROID" || deviceClass === "PHONE_IOS";
 
   const topicTablistRef = useRef<HTMLDivElement | null>(null);
+  /**
+   * 2단 주제 탭 여백 자동 맞춤 (Owner 「커뮤니티 2단 탭도 같은 방식」 2026-11-12) — 여백 4px 로 한 줄에 다 들어가면 줄이고,
+   * 안 들어가면(주제 10개: 한국어 390px 기준 필요 512px > 칸 282px) 기본 12px 그대로 밀어서 본다.
+   */
+  useFitSectionTabPadding(topicTablistRef, [navItems, leadingNavItems, trailingNavItems, language]);
   const allSortButtonRef = useRef<HTMLButtonElement | null>(null);
   const allSortMenuRef = useRef<HTMLUListElement | null>(null);
   const lastAllSortRef = useRef<CommunityAllSort>(
@@ -1936,7 +1942,7 @@ export function CommunityFeed({
                 <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{safeT("moim_tab")}</span>
               </button>
             </DibaySecondaryTabRow>
-            {/* 머리글 3단 — 「정보교환 · 거래」 전환 탭 왼쪽 정렬 (Owner 「A 안」 2026-11-12, 1단에서 옮김) */}
+            {/* 머리글 3단 — 「정보교환 · 거래」 전환 탭 오른쪽 정렬 (Owner 「A 안」 2026-11-12, 1단에서 옮김) */}
             {communityTradeSwitchHub === "community" ? <CommunityTradeSwitchRow active="community" /> : null}
             {navSelection.kind === "local" ? (
               <div className={`${PHILIFE_FEED_FILTER_STRIP_CLASS} border-t-0`}>
