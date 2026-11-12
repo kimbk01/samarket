@@ -41,6 +41,8 @@ type MoimRow = {
   intro: string;
   cover_image_url: string | null;
   category_id: string;
+  /** 「기타」 등 직접 주제 카테고리일 때 모임장이 적은 주제 (설계 moim-category-dropdown-custom-topic §3) */
+  topic_label: string | null;
   lgu_id: string;
   join_mode: "instant" | "approval";
   capacity: number | null;
@@ -57,7 +59,7 @@ type MoimRow = {
 };
 
 const MOIM_COLS =
-  "id, name, intro, cover_image_url, category_id, lgu_id, join_mode, capacity, age_min_birth_year, age_max_birth_year, host_user_id, status, platform_state, member_count, last_activity_at, main_room_id, created_at, updated_at";
+  "id, name, intro, cover_image_url, category_id, topic_label, lgu_id, join_mode, capacity, age_min_birth_year, age_max_birth_year, host_user_id, status, platform_state, member_count, last_activity_at, main_room_id, created_at, updated_at";
 
 type MemberRow = {
   moim_id: string;
@@ -81,26 +83,25 @@ function cityLabel(lguId: string | null | undefined): string | null {
 export async function listMoimCategories(sb: SupabaseServer): Promise<MoimCategoryDto[]> {
   const { data } = await sb
     .from("moim_categories")
-    .select("id, slug, label_ko, label_en")
+    .select("id, slug, label_ko, label_en, allow_custom_topic")
     .eq("is_active", true)
     .eq("is_restricted", false)
     .order("sort_order", { ascending: true });
-  return ((data ?? []) as { id: string; slug: string; label_ko: string; label_en: string }[]).map((c) => ({
-    id: c.id,
-    slug: c.slug,
-    labelKo: c.label_ko,
-    labelEn: c.label_en,
-  }));
+  return ((data ?? []) as CategoryRow[]).map(toCategoryDto);
+}
+
+type CategoryRow = { id: string; slug: string; label_ko: string; label_en: string; allow_custom_topic: boolean };
+
+function toCategoryDto(c: CategoryRow): MoimCategoryDto {
+  return { id: c.id, slug: c.slug, labelKo: c.label_ko, labelEn: c.label_en, allowCustomTopic: c.allow_custom_topic === true };
 }
 
 async function categoryMap(sb: SupabaseServer, ids: string[]): Promise<Map<string, MoimCategoryDto>> {
   const map = new Map<string, MoimCategoryDto>();
   const uniq = [...new Set(ids)].filter(Boolean);
   if (!uniq.length) return map;
-  const { data } = await sb.from("moim_categories").select("id, slug, label_ko, label_en").in("id", uniq);
-  for (const c of (data ?? []) as { id: string; slug: string; label_ko: string; label_en: string }[]) {
-    map.set(c.id, { id: c.id, slug: c.slug, labelKo: c.label_ko, labelEn: c.label_en });
-  }
+  const { data } = await sb.from("moim_categories").select("id, slug, label_ko, label_en, allow_custom_topic").in("id", uniq);
+  for (const c of (data ?? []) as CategoryRow[]) map.set(c.id, toCategoryDto(c));
   return map;
 }
 
@@ -140,6 +141,7 @@ async function toCards(sb: SupabaseServer, rows: MoimRow[], viewerId: string | n
       intro: r.intro,
       coverImageUrl: r.cover_image_url,
       category: cats.get(r.category_id) ?? null,
+      topicLabel: r.topic_label ?? null,
       cityLabel: cityLabel(r.lgu_id),
       joinMode: r.join_mode,
       capacity: r.capacity,
@@ -185,7 +187,7 @@ export async function listLocalMoims(
     .limit(limit + 1);
   if (opts.categoryId) query = query.eq("category_id", opts.categoryId);
   const q = (opts.q ?? "").trim().replace(/[%_,()]/g, " ").slice(0, 40);
-  if (q) query = query.or(`name.ilike.%${q}%,intro.ilike.%${q}%`);
+  if (q) query = query.or(`name.ilike.%${q}%,intro.ilike.%${q}%,topic_label.ilike.%${q}%`);
   if (opts.before) query = query.lt("last_activity_at", opts.before);
   const { data } = await query;
   const rows = (data ?? []) as MoimRow[];
@@ -350,6 +352,7 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
     intro: moim.intro,
     coverImageUrl: moim.cover_image_url,
     category: cats.get(moim.category_id) ?? null,
+    topicLabel: moim.topic_label ?? null,
     cityLabel: cityLabel(moim.lgu_id),
     joinMode: moim.join_mode,
     capacity: moim.capacity,

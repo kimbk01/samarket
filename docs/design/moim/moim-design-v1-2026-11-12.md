@@ -464,6 +464,6 @@
 
 ## 12. NOT_PROVEN · 확인 못 함
 - 이 문서의 현행 사실은 코드·운영 DB 조회 근거만 있다. 실기기 확인은 하지 않았다.
-- 운영 `20261207120000_cm_group_active_membership_authority` 적용 여부는 확인 못 함(하드락 문서의 OPEN GAP 5).
-- 새 알림 항목에 네이티브 소리 파일이 필요한지 확인 못 함.
+- ~~운영 `20261207120000_cm_group_active_membership_authority` 적용 여부~~ → **확인 (2026-11-12 운영 조회)**: `schema_migrations` 기록 있음, `community_messenger_bootstrap_my_room_ids` 설명·`left_at IS NULL` 검사 운영 함수에 있음, 방·메시지 RLS 정책은 이후 `internal.cm_can_access_messenger_room`(left_at 검사 포함)으로 이어짐.
+- ~~새 알림 항목에 네이티브 소리 파일이 필요한지~~ → **필요 없음 (코드 기준 2026-11-12)**: `moim_*` 알림은 모두 커뮤니티 분류(`member-notification-domain.ts` — `metaKind.startsWith("moim_")` → community)로 기존 커뮤니티 소리·Android 채널 `dibay_community_v1` 을 쓴다. 새 소리 키 없음. 실기기 소리는 NOT_PROVEN.
 - 당근의 부모임장·운영진 권한 차이, 정원·개설 수 상한, 모임장 탈퇴 공식 절차는 공식 자료가 없다.

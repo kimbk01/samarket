@@ -4,12 +4,12 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimCardDto } from "@/lib/moim/moim-api-types";
-import { MoimCover, formatMoimCount, moimCategoryLabel, moimCls } from "@/components/moim/moim-ui";
+import { MoimCover, formatMoimCount, moimCls, moimTopicOrCategoryLabel } from "@/components/moim/moim-ui";
 
 /** 모임 목록 한 줄 (우리 동네 모임·검색·초대) */
 export function MoimCard({ moim, href }: { moim: MoimCardDto; href?: string }) {
   const { t, language } = useI18n();
-  const category = moimCategoryLabel(moim.category, language);
+  const category = moimTopicOrCategoryLabel(moim, language);
   const meta = [category, moim.cityLabel, formatMoimCount(moim.memberCount, moim.capacity, t)].filter(Boolean);
   return (
     <Link href={href ?? moimRoutes.home(moim.id)} className={`${moimCls.card} flex min-w-0 gap-3 p-3 active:bg-sam-surface-muted`}>

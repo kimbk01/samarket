@@ -5,7 +5,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { philifeUploadImageUrl } from "@/lib/philife/api";
 import { uploadCommunityImageFile } from "@/lib/philife/client-image-resize";
 import { moimApi } from "@/lib/moim/moim-client-api";
-import type { MoimCategoryDto, MoimDetailDto } from "@/lib/moim/moim-api-types";
+import type { MoimDetailDto } from "@/lib/moim/moim-api-types";
+import { MOIM_TOPIC_MAX, MOIM_TOPIC_MIN, MoimCategoryField, normalizeMoimTopic } from "@/components/moim/MoimCategoryField";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
   MoimManageFrame,
@@ -47,6 +48,7 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
   const [intro, setIntro] = useState(detail.intro);
   const [cover, setCover] = useState<string | null>(detail.coverImageUrl);
   const [categoryId, setCategoryId] = useState<string | null>(detail.category?.id ?? null);
+  const [topic, setTopic] = useState(detail.topicLabel ?? "");
   const [capacity, setCapacity] = useState(detail.capacity != null ? String(detail.capacity) : "");
   const [joinMode, setJoinMode] = useState<JoinMode>(detail.joinMode);
   const [questions, setQuestions] = useState<string[]>(detail.joinQuestions);
@@ -84,12 +86,19 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
       return toast.show(t("moim_manage_info_age_invalid_toast"), "error");
     }
     const qs = questions.map((q) => q.trim()).filter(Boolean).slice(0, QUESTIONS_MAX);
+    const catList = categories.state.status === "ready" ? categories.state.data.categories : [];
+    const customTopic = catList.find((c) => c.id === categoryId)?.allowCustomTopic === true;
+    const topicT = normalizeMoimTopic(topic);
+    if (customTopic && topicT.length === 0) return toast.showError("moim_topic_required");
+    if (customTopic && (topicT.length < MOIM_TOPIC_MIN || topicT.length > MOIM_TOPIC_MAX)) return toast.showError("moim_topic_length");
 
     const patch: Patch = {};
     if (nameT !== detail.name) patch.name = nameT;
     if (introT !== detail.intro) patch.intro = introT;
     if (cover !== detail.coverImageUrl) patch.coverImageUrl = cover;
     if (categoryId && categoryId !== (detail.category?.id ?? null)) patch.categoryId = categoryId;
+    // 직접 주제 카테고리면 주제를 보낸다. 다른 카테고리로 바꾸면 서버가 주제를 비운다.
+    if (customTopic && topicT !== (detail.topicLabel ?? "")) patch.topicLabel = topicT;
     if (cap !== detail.capacity) patch.capacity = cap;
     if (joinMode !== detail.joinMode) patch.joinMode = joinMode;
     if (!sameList(qs, detail.joinQuestions)) patch.questions = qs;
@@ -111,7 +120,6 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
 
   const label = "block text-[13px] font-semibold text-sam-fg";
   const hint = "mt-1 text-[12px] text-sam-meta";
-  const categoryLabel = (c: MoimCategoryDto) => c[language === "en" ? "labelEn" : "labelKo"];
 
   return (
     <div className="flex flex-col gap-5 px-4 pt-4">
@@ -168,27 +176,26 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
       </section>
 
       <section>
-        <span className={label}>{t("moim_manage_info_category_label")}</span>
         {categories.state.status === "ready" ? (
-          <div className="-mx-4 mt-2 flex flex-nowrap gap-1.5 overflow-x-auto px-4 pb-1">
-            {categories.state.data.categories.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                aria-pressed={categoryId === c.id}
-                className={`${categoryId === c.id ? Sam.chip.activeCombo : Sam.chip.inactiveCombo} shrink-0 whitespace-nowrap rounded-ui-rect`}
-                onClick={() => setCategoryId(c.id)}
-              >
-                {categoryLabel(c)}
-              </button>
-            ))}
-          </div>
-        ) : categories.state.status === "error" ? (
-          <button type="button" className="mt-2 text-[13px] text-sam-primary underline" onClick={categories.reload}>
-            {t("moim_manage_retry_btn")}
-          </button>
+          <MoimCategoryField
+            categories={categories.state.data.categories}
+            categoryId={categoryId}
+            onCategoryChange={setCategoryId}
+            topic={topic}
+            onTopicChange={setTopic}
+            labelClassName={label}
+          />
         ) : (
-          <p className={hint}>{t("moim_manage_loading")}</p>
+          <>
+            <span className={label}>{t("moim_manage_info_category_label")}</span>
+            {categories.state.status === "error" ? (
+              <button type="button" className="mt-2 text-[13px] text-sam-primary underline" onClick={categories.reload}>
+                {t("moim_manage_retry_btn")}
+              </button>
+            ) : (
+              <p className={hint}>{t("moim_manage_loading")}</p>
+            )}
+          </>
         )}
       </section>
 

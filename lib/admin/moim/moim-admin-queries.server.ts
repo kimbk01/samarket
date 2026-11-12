@@ -10,6 +10,7 @@ import {
   MOIM_ADMIN_PAGE_MAX,
   type MoimAdminActivityFilter,
   type MoimAdminCategoryRow,
+  type MoimAdminTopicRankRow,
   type MoimAdminDetailSection,
   type MoimAdminHostRequestStatus,
   type MoimAdminListRow,
@@ -123,7 +124,7 @@ export type MoimAdminListFilter = {
 };
 
 const LIST_COLS =
-  "id, name, status, platform_state, category_id, lgu_id, member_count, capacity, host_user_id, last_activity_at, created_at";
+  "id, name, status, platform_state, category_id, topic_label, lgu_id, member_count, capacity, host_user_id, last_activity_at, created_at";
 
 type ListRow = {
   id: string;
@@ -131,6 +132,7 @@ type ListRow = {
   status: string;
   platform_state: string;
   category_id: string;
+  topic_label: string | null;
   lgu_id: string;
   member_count: number;
   capacity: number | null;
@@ -144,7 +146,7 @@ export async function listAdminMoims(
   f: MoimAdminListFilter,
   now: Date = new Date()
 ): Promise<{ ok: true; total: number; rows: MoimAdminListRow[] } | { ok: false; error: string }> {
-  // 검색 — 모임 id(정확히) · 모임 이름 · 모임장 닉네임/DIBAY ID/아이디
+  // 검색 — 모임 id(정확히) · 모임 이름 · 직접 주제 · 모임장 닉네임/DIBAY ID/아이디
   let orFilter: string | null = null;
   let idEq: string | null = null;
   if (f.q) {
@@ -157,7 +159,7 @@ export async function listAdminMoims(
         .or(`nickname.ilike.${like},dibay_id.ilike.${like},username.ilike.${like}`)
         .limit(200);
       const hostIds = ((hosts ?? []) as { id: string }[]).map((h) => h.id);
-      orFilter = `name.ilike.${like}${hostIds.length ? `,host_user_id.in.(${hostIds.join(",")})` : ""}`;
+      orFilter = `name.ilike.${like},topic_label.ilike.${like}${hostIds.length ? `,host_user_id.in.(${hostIds.join(",")})` : ""}`;
     }
   }
   let reportIds: string[] | null = null;
@@ -220,6 +222,7 @@ export async function listAdminMoims(
       platformState: r.platform_state,
       categoryLabelKo: cats.get(r.category_id)?.labelKo ?? null,
       categoryLabelEn: cats.get(r.category_id)?.labelEn ?? null,
+      topicLabel: r.topic_label ?? null,
       lguId: r.lgu_id,
       lguLabel: lguPublicName(r.lgu_id),
       memberCount: r.member_count,
@@ -308,6 +311,7 @@ export async function loadAdminMoimInfo(sb: Sb, moimId: string) {
       intro: moim.intro as string,
       coverImageUrl: (moim.cover_image_url as string | null) ?? null,
       categoryId: moim.category_id as string,
+      topicLabel: (moim.topic_label as string | null) ?? null,
       lguId: moim.lgu_id,
       lguLabel: lguPublicName(moim.lgu_id),
       joinMode: moim.join_mode as string,
@@ -853,10 +857,10 @@ export async function listAdminMoimSanctions(
 export async function listAdminMoimCategories(sb: Sb): Promise<MoimAdminCategoryRow[]> {
   const { data } = await sb
     .from("moim_categories")
-    .select("id, slug, label_ko, label_en, sort_order, is_active, is_restricted, updated_at")
+    .select("id, slug, label_ko, label_en, sort_order, is_active, is_restricted, allow_custom_topic, updated_at")
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
-  return ((data ?? []) as { id: string; slug: string; label_ko: string; label_en: string; sort_order: number; is_active: boolean; is_restricted: boolean; updated_at: string }[]).map((c) => ({
+  return ((data ?? []) as { id: string; slug: string; label_ko: string; label_en: string; sort_order: number; is_active: boolean; is_restricted: boolean; allow_custom_topic: boolean; updated_at: string }[]).map((c) => ({
     id: c.id,
     slug: c.slug,
     labelKo: c.label_ko,
@@ -864,8 +868,24 @@ export async function listAdminMoimCategories(sb: Sb): Promise<MoimAdminCategory
     sortOrder: c.sort_order,
     isActive: c.is_active,
     isRestricted: c.is_restricted,
+    allowCustomTopic: c.allow_custom_topic === true,
     updatedAt: c.updated_at,
   }));
+}
+
+/** 직접 입력 주제 많이 쓰인 순 — 삭제되지 않은 모임, 공백·대소문자 무시로 묶어 상위 20 (설계 §3 「정식 카테고리로 올리는 근거」) */
+export async function listAdminMoimTopicRank(sb: Sb, limit = 20): Promise<MoimAdminTopicRankRow[]> {
+  const { data } = await sb.from("moims").select("topic_label").neq("status", "deleted").not("topic_label", "is", null).limit(5000);
+  const groups = new Map<string, { topic: string; moimCount: number }>();
+  for (const r of (data ?? []) as { topic_label: string | null }[]) {
+    const topic = (r.topic_label ?? "").trim();
+    if (!topic) continue;
+    const key = topic.replace(/\s+/g, "").toLowerCase();
+    const g = groups.get(key);
+    if (g) g.moimCount += 1;
+    else groups.set(key, { topic, moimCount: 1 });
+  }
+  return [...groups.values()].sort((a, b) => b.moimCount - a.moimCount || a.topic.localeCompare(b.topic)).slice(0, limit);
 }
 
 export async function loadAdminMoimPolicies(sb: Sb) {

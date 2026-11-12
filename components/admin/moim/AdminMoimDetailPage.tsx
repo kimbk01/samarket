@@ -69,6 +69,7 @@ type InfoResponse = {
     intro: string;
     coverImageUrl: string | null;
     categoryId: string;
+    topicLabel: string | null;
     lguId: string;
     lguLabel: string | null;
     joinMode: string;
@@ -179,7 +180,7 @@ function LifecycleButtons({ moimId, status, name, onSettled }: { moimId: string;
 
 /* ───────── 기본정보 (수정: 사유 · 낙관적 잠금 · 모임장 알림) ───────── */
 
-type InfoDraft = { name: string; intro: string; coverImageUrl: string; categoryId: string; capacity: string; joinMode: string; lguId: string; questions: string[] };
+type InfoDraft = { name: string; intro: string; coverImageUrl: string; categoryId: string; topicLabel: string; capacity: string; joinMode: string; lguId: string; questions: string[] };
 
 function draftOf(m: InfoResponse["moim"]): InfoDraft {
   return {
@@ -187,6 +188,7 @@ function draftOf(m: InfoResponse["moim"]): InfoDraft {
     intro: m.intro,
     coverImageUrl: m.coverImageUrl ?? "",
     categoryId: m.categoryId,
+    topicLabel: m.topicLabel ?? "",
     capacity: m.capacity == null ? "" : String(m.capacity),
     joinMode: m.joinMode,
     lguId: m.lguId,
@@ -212,6 +214,9 @@ function InfoPanel({ info, onSettled }: { info: InfoResponse; onSettled: (k: Com
   if (draft.intro !== base.intro) patch.intro = draft.intro;
   if (draft.coverImageUrl !== base.coverImageUrl) patch.coverImageUrl = draft.coverImageUrl;
   if (draft.categoryId !== base.categoryId) patch.categoryId = draft.categoryId;
+  // 직접 주제 카테고리일 때만 주제를 보낸다 (다른 카테고리로 바꾸면 서버가 비운다)
+  const draftCustomTopic = info.categories.find((c) => c.id === draft.categoryId)?.allowCustomTopic === true;
+  if (draftCustomTopic && draft.topicLabel.trim() !== base.topicLabel) patch.topicLabel = draft.topicLabel.trim();
   if (draft.capacity !== base.capacity) patch.capacity = draft.capacity === "" ? null : Number(draft.capacity);
   if (draft.joinMode !== base.joinMode) patch.joinMode = draft.joinMode;
   if (draft.lguId !== base.lguId) patch.lguId = draft.lguId;
@@ -230,7 +235,7 @@ function InfoPanel({ info, onSettled }: { info: InfoResponse; onSettled: (k: Com
           { label: t("admin_moim_col_host"), value: <MoimAdminPersonCell person={m.host} /> },
           { label: t("admin_moim_field_created_by"), value: <MoimAdminPersonCell person={m.createdBy} /> },
           { label: t("admin_moim_col_members"), value: m.capacity ? t("admin_moim_members_of", { n: m.memberCount, cap: m.capacity }) : String(m.memberCount) },
-          { label: t("admin_moim_col_category"), value: cat(m.categoryId) },
+          { label: t("admin_moim_col_category"), value: m.topicLabel ? `${cat(m.categoryId)} · ${m.topicLabel}` : cat(m.categoryId) },
           { label: t("admin_moim_col_lgu"), value: m.lguLabel ?? m.lguId },
           { label: t("admin_moim_field_join_mode"), value: t(m.joinMode === "approval" ? "moim_join_mode_approval" : "moim_join_mode_instant") },
           { label: t("admin_moim_col_reports"), value: info.reportCount == null ? "—" : String(info.reportCount) },
@@ -275,6 +280,12 @@ function InfoPanel({ info, onSettled }: { info: InfoResponse; onSettled: (k: Com
               ))}
             </select>
           </label>
+          {draftCustomTopic ? (
+            <label className="flex flex-col gap-1">
+              <span className="text-sam-muted">{t("moim_topic_label")}</span>
+              <input className={MOIM_ADMIN_FIELD} value={draft.topicLabel} maxLength={20} disabled={!editable} onChange={(e) => setDraft({ ...draft, topicLabel: e.target.value })} />
+            </label>
+          ) : null}
           <label className="flex flex-col gap-1 sm:col-span-2">
             <span className="text-sam-muted">{t("admin_moim_field_intro")}</span>
             <textarea className={`${MOIM_ADMIN_FIELD} min-h-[100px]`} value={draft.intro} maxLength={2000} disabled={!editable} onChange={(e) => setDraft({ ...draft, intro: e.target.value })} />

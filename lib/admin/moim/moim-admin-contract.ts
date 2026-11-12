@@ -129,6 +129,8 @@ export type MoimAdminListRow = {
   platformState: string;
   categoryLabelKo: string | null;
   categoryLabelEn: string | null;
+  /** 직접 주제 (「기타」 등) */
+  topicLabel: string | null;
   lguId: string;
   lguLabel: string | null;
   memberCount: number;
@@ -147,8 +149,13 @@ export type MoimAdminCategoryRow = {
   sortOrder: number;
   isActive: boolean;
   isRestricted: boolean;
+  /** 이 카테고리를 고르면 모임장이 주제를 직접 적는다 */
+  allowCustomTopic: boolean;
   updatedAt: string;
 };
+
+/** 직접 입력 주제 많이 쓰인 순 (정식 카테고리 추가 판단 자료) */
+export type MoimAdminTopicRankRow = { topic: string; moimCount: number };
 
 export function isMoimAdminListTab(v: unknown): v is MoimAdminListTab {
   return typeof v === "string" && (MOIM_ADMIN_LIST_TABS as readonly string[]).includes(v);

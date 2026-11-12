@@ -17,7 +17,7 @@ const MIGRATION = readFileSync(
 );
 /** 모임 RPC 마이그레이션 전부 (오류 코드 대조용) */
 const ALL_MOIM_SQL = readdirSync(join(process.cwd(), "supabase/migrations"))
-  .filter((f) => /_moim_m\d+[a-z]?_/.test(f) && !f.includes("drop_legacy"))
+  .filter((f) => /_moim_/.test(f) && !f.includes("drop_legacy"))
   .map((f) => readFileSync(join(process.cwd(), "supabase/migrations", f), "utf8"))
   .join("\n");
 

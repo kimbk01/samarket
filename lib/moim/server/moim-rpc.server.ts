@@ -34,6 +34,8 @@ export type MoimCreateInput = {
   name: string;
   intro: string;
   categoryId: string;
+  /** 직접 주제 카테고리(「기타」)일 때만 쓰인다 — 그 외 카테고리면 서버가 비운다 */
+  topicLabel?: string | null;
   joinMode: "instant" | "approval";
   capacity?: number | null;
   coverImageUrl?: string | null;
@@ -54,6 +56,7 @@ export function moimCreate(actorId: string, input: MoimCreateInput, sb?: Supabas
         name: input.name,
         intro: input.intro,
         category_id: input.categoryId,
+        topic_label: input.topicLabel ?? null,
         join_mode: input.joinMode,
         capacity: input.capacity ?? null,
         cover_image_url: input.coverImageUrl ?? null,
@@ -170,6 +173,7 @@ export type MoimInfoPatch = Partial<{
   name: string;
   intro: string;
   categoryId: string;
+  topicLabel: string | null;
   joinMode: "instant" | "approval";
   capacity: number | null;
   coverImageUrl: string | null;
@@ -189,6 +193,7 @@ export function moimUpdateInfo(
   if (patch.name !== undefined) p.name = patch.name;
   if (patch.intro !== undefined) p.intro = patch.intro;
   if (patch.categoryId !== undefined) p.category_id = patch.categoryId;
+  if (patch.topicLabel !== undefined) p.topic_label = patch.topicLabel ?? "";
   if (patch.joinMode !== undefined) p.join_mode = patch.joinMode;
   if (patch.capacity !== undefined) p.capacity = patch.capacity;
   if (patch.coverImageUrl !== undefined) p.cover_image_url = patch.coverImageUrl;
@@ -498,6 +503,7 @@ export type MoimAdminInfoPatch = Partial<{
   intro: string;
   coverImageUrl: string | null;
   categoryId: string;
+  topicLabel: string | null;
   capacity: number | null;
   joinMode: "instant" | "approval";
   lguId: string;
@@ -517,6 +523,7 @@ export function moimAdminUpdateInfo(
   if (patch.intro !== undefined) p.intro = patch.intro;
   if (patch.coverImageUrl !== undefined) p.cover_image_url = patch.coverImageUrl ?? "";
   if (patch.categoryId !== undefined) p.category_id = patch.categoryId;
+  if (patch.topicLabel !== undefined) p.topic_label = patch.topicLabel ?? "";
   if (patch.capacity !== undefined) p.capacity = patch.capacity;
   if (patch.joinMode !== undefined) p.join_mode = patch.joinMode;
   if (patch.lguId !== undefined) p.lgu_id = patch.lguId;
@@ -705,6 +712,8 @@ export type MoimAdminCategoryInput = {
   sortOrder: number;
   isActive: boolean;
   isRestricted: boolean;
+  /** 생략 = 새 카테고리는 끔·기존 카테고리는 그대로 */
+  allowCustomTopic?: boolean;
   expectedUpdatedAt?: string | null;
 };
 
@@ -721,6 +730,7 @@ export function moimAdminCategorySave(adminId: string, input: MoimAdminCategoryI
         sort_order: input.sortOrder,
         is_active: input.isActive,
         is_restricted: input.isRestricted,
+        ...(typeof input.allowCustomTopic === "boolean" ? { allow_custom_topic: input.allowCustomTopic } : {}),
         ...(input.expectedUpdatedAt ? { expected_updated_at: input.expectedUpdatedAt } : {}),
       },
       p_reason: reason,

@@ -2,7 +2,7 @@
 
 /**
  * 모임 목록 (설계 moim §8) — 탭: 전체·정상·추천 제외·경고·차단·종료·삭제 / 필터: 동네·카테고리·개설일·신고 수·마지막 활동 /
- * 검색: 모임 이름·모임장(닉네임·DIBAY ID)·모임 id / CSV 내보내기(감사 기록). 권한 키 `moim`.
+ * 검색: 모임 이름·직접 주제·모임장(닉네임·DIBAY ID)·모임 id / CSV 내보내기(감사 기록). 권한 키 `moim`.
  */
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -147,7 +147,10 @@ export function AdminMoimListPage() {
                   <MoimPlatformBadge value={r.platformState} />
                 </div>
               </td>
-              <td className={COMMUNITY_TD}>{(language === "en" ? r.categoryLabelEn : r.categoryLabelKo) ?? "—"}</td>
+              <td className={COMMUNITY_TD}>
+                {(language === "en" ? r.categoryLabelEn : r.categoryLabelKo) ?? "—"}
+                {r.topicLabel ? <span className="block text-[12px] text-sam-muted">{r.topicLabel}</span> : null}
+              </td>
               <td className={COMMUNITY_TD}>{r.lguLabel ?? r.lguId}</td>
               <td className={COMMUNITY_TD}>
                 {r.capacity ? t("admin_moim_members_of", { n: r.memberCount, cap: r.capacity }) : r.memberCount}
