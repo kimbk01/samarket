@@ -41,6 +41,11 @@ interface TradePrimaryTabsProps {
    * (커뮤니티 2단과 같은 45px·구분선, Owner 「3건 수정」 2026-11-12).
    */
   dividerBelow?: boolean;
+  /**
+   * 1단 제목 뒤 「· 동네 ⌄」가 거래 지역을 맡을 때 — 이 줄의 📍 를 그리지 않는다(같은 시트 두 번 금지)
+   * (Owner 「3판대로 구현」 2026-11-12, 시안 N3). 1단 허브 머리글이 없는 거래 화면에선 📍 그대로.
+   */
+  locationInTitle?: boolean;
 }
 
 /**
@@ -64,6 +69,7 @@ function TradePrimaryTabsInner({
   embed: _embed = false,
   embedInAppHeader = false,
   dividerBelow = false,
+  locationInTitle = false,
 }: TradePrimaryTabsProps) {
   const bordered = !embedInAppHeader || dividerBelow;
   const { t } = useI18n();
@@ -192,7 +198,7 @@ function TradePrimaryTabsInner({
         trailing={
           <div className={`inline-flex items-center ${SAM_TIER1_HEADER_ICON_CLUSTER_CLASS}`}>
             <span className="mx-1 h-6 w-px shrink-0 bg-sam-border" aria-hidden />
-            <TradeHeaderLocationPinButton placement="icon-only" />
+            {locationInTitle ? null : <TradeHeaderLocationPinButton placement="icon-only" />}
             <button
               type="button"
               data-marketplace-filter="true"

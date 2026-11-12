@@ -6,83 +6,65 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import {
-  SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
-  SAM_TIER1_HEADER_ICON_HIT_CLASS,
-  samTier1HeaderIconMicro,
-} from "@/lib/ui/tier1-header-icon";
+  MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS,
+  MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS,
+} from "@/lib/main-menu/bottom-nav-config";
 
 /**
- * `/philife` 1단 헤더 — 사각 연필(스타벅스 그린 배경) 글쓰기 CTA.
+ * 정보교환 글쓰기 — 오른쪽 아래 떠 있는 버튼 「✎ 글쓰기」 (Owner 「3판대로 구현」 2026-11-12, 시안 W3).
+ * 예전 1단 초록 사각 버튼(메신저 색 #006241 채움)을 1단에서 빼고, 모임 「＋ 모임 만들기」와 같은 모양으로 옮겼다.
+ * 누르면 지금과 같은 글쓰기 시트(지금 고른 주제 그대로 · 작성 중 이동 막기 그대로).
+ * 정보교환 목록(`CommunityFeed`)에서만 그린다 — 하단 탭을 바꾸면 보관된 화면과 함께 숨는다.
  */
-export function PhilifeHeaderComposeButton() {
+export function PhilifeComposeFab() {
   return (
-    <Suspense fallback={<PhilifeHeaderComposeButtonFallback />}>
-      <PhilifeHeaderComposeButtonInner />
+    <Suspense fallback={null}>
+      <PhilifeComposeFabInner />
     </Suspense>
   );
 }
 
-/** 스타벅스 그린 사각 히트 — 커뮤니티 스코프 `--cm-primary` / 전역 폴백 `#006241` */
-const COMPOSE_BTN_CLASS = [
-  SAM_TIER1_HEADER_ICON_HIT_CLASS,
-  "community-tier1-header-compose inline-flex shrink-0 items-center justify-center rounded-[9px]",
-  "bg-[var(--cm-primary,#006241)] text-white",
-  "hover:bg-[var(--cm-primary-hover,#00754a)]",
-  "disabled:opacity-50",
-  samTier1HeaderIconMicro,
+const FAB_CLASS = [
+  "fixed right-4",
+  MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS,
+  MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS,
+  "inline-flex items-center gap-1.5 rounded-full bg-sam-primary px-4 py-2.5 text-[14px] font-bold text-sam-on-primary shadow-lg",
+  "transition-[transform,background-color] duration-100 ease-out active:scale-[0.97] active:bg-sam-primary-hover",
+  "[-webkit-tap-highlight-color:transparent] motion-reduce:transition-none motion-reduce:active:scale-100",
 ].join(" ");
 
-function PhilifeHeaderComposeButtonFallback() {
-  const { t } = useI18n();
-  return (
-    <button
-      type="button"
-      className={COMPOSE_BTN_CLASS}
-      aria-label={t("tier1_community_write")}
-      disabled
-    >
-      <SquarePencilIcon />
-    </button>
-  );
-}
-
-function PhilifeHeaderComposeButtonInner() {
+function PhilifeComposeFabInner() {
   const { t } = useI18n();
   const { open: openWriteSheet } = usePhilifeWriteSheet();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const searchParams = useSearchParams();
   const category = searchParams.get("category")?.trim() ?? "";
-  const aria = t("tier1_community_write");
 
   return (
     <button
       type="button"
+      data-philife-compose-fab=""
       onClick={() => {
         if (!guardBeforeNavigate()) return;
         openWriteSheet(category);
       }}
-      className={COMPOSE_BTN_CLASS}
-      aria-label={aria}
+      className={FAB_CLASS}
+      aria-label={t("tier1_community_write")}
     >
-      <SquarePencilIcon />
+      <svg
+        className="h-4 w-4 shrink-0"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <path d="M12.5 5.5l6 6L9 21H3v-6L12.5 5.5z" />
+        <path d="M10.5 7.5l6 6" />
+      </svg>
+      <span>{t("community_compose_fab")}</span>
     </button>
-  );
-}
-
-function SquarePencilIcon() {
-  return (
-    <svg
-      className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.1}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M12.5 5.5l6 6L9 21H3v-6L12.5 5.5z" />
-      <path d="M10.5 7.5l6 6" />
-    </svg>
   );
 }

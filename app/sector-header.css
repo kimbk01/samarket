@@ -676,3 +676,16 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
     --delivery-header-icon-glyph: 23px;
   }
 }
+
+/**
+ * 정보교환·거래 1단 — 왼쪽 빈칸(`--sector-header-left-slot`) 없음 (Owner 「3판대로 구현」 2026-11-12, 시안 N3).
+ * 제목 뒤 「· 동네 ⌄」가 긴 시·군 이름도 들어가게: 운영 시·군 1,872개 중 긴 이름 50개 실측 — 빈칸 그대로면 정보교환 한국어 25개·영문 48개 잘림,
+ * 없애면 한국어 0개·영문 11개(21자 이상, 끝 「…」). 다른 허브(채팅·내정보) 1단은 그대로.
+ */
+.sector-header--no-left-slot .sector-header-bar--left-title {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.sector-header--no-left-slot .sector-header-bar--left-title .sector-header-bar__left {
+  display: none;
+}
