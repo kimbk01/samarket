@@ -2266,8 +2266,13 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
           ) : showTimelineEmptyState ? (
             <div className="px-4 py-12 text-center sam-text-body-secondary text-[color:var(--cm-room-text-muted)]">
               {vm.t("cm_ui_no_messages_yet")}
-              <br />
-              <span className="mt-1 inline-block sam-text-helper">{vm.t("cm_ui_leave_first_greeting")}</span>
+              {/* 읽기 전용 방(종료된 모임 방 등)은 보낼 수 없으므로 「첫 인사」 안내를 띄우지 않는다 — 아래 입력 줄의 「채팅을 할 수 없습니다」와 충돌 */}
+              {vm.snapshot.room.isReadonly ? null : (
+                <>
+                  <br />
+                  <span className="mt-1 inline-block sam-text-helper">{vm.t("cm_ui_leave_first_greeting")}</span>
+                </>
+              )}
             </div>
           ) : (
             <div
