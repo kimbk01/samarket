@@ -184,6 +184,26 @@ public class NativeVideoCallActivity extends Activity {
   private long connectedAtElapsedMs = 0L;
   /** 마지막 메신저 복귀 요청 시각(elapsedRealtime) — 확인 판정 기준. */
   private long appReturnRequestedAtMs = 0L;
+  /** §7 — 메신저를 연 직후 통화 화면이 받는 onUserLeaveHint 1회를 건너뛰기 위한 시각(elapsedRealtime, 0 = 없음). */
+  private long skipUserLeavePipUntilMs = 0L;
+  /** §7 — 자동 PiP 확인 대기 중인 출처(null = 대기 없음). */
+  private String autoPipPendingSource;
+  private static final long AUTO_PIP_CHECK_MS = 1_500L;
+  private static final long SKIP_USER_LEAVE_WINDOW_MS = 2_000L;
+  private final Runnable autoPipMissedCheck =
+      new Runnable() {
+        @Override
+        public void run() {
+          if (autoPipPendingSource == null) return;
+          String source = autoPipPendingSource;
+          autoPipPendingSource = null;
+          boolean pip = inPipMode || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isInPictureInPictureMode());
+          if (!pip) {
+            // 통화는 유지(판단표 KEEP) — 복귀 수단: 진행 중 알림·통화 바·최근 앱 카드.
+            NativeVideoCallLog.warn("native_video_auto_pip_missed", callId, "source=" + source + " state=" + currentState);
+          }
+        }
+      };
   private final Runnable appReturnAfterPipFallback =
       new Runnable() {
         @Override
@@ -540,6 +560,12 @@ public class NativeVideoCallActivity extends Activity {
   @Override
   public void onUserLeaveHint() {
     super.onUserLeaveHint();
+    if (skipUserLeavePipUntilMs > 0L && SystemClock.elapsedRealtime() <= skipUserLeavePipUntilMs) {
+      // §7 — 방금 메신저를 startActivity 로 열어 생긴 onUserLeaveHint: 자동 PiP 에 맡기고 PiP 를 또 요청하지 않는다.
+      skipUserLeavePipUntilMs = 0L;
+      NativeVideoCallLog.info("native_video_user_leave_skipped", callId, "reason=app_return_open");
+      return;
+    }
     minimizeConnectedCall("user_leave");
   }
 
@@ -658,6 +684,11 @@ public class NativeVideoCallActivity extends Activity {
         callId,
         buildPipLogDetails("legacy_callback"));
     syncMinimizeButton();
+    if (isInPictureInPictureMode && autoPipPendingSource != null) {
+      mainHandler.removeCallbacks(autoPipMissedCheck);
+      NativeVideoCallLog.info("native_video_auto_pip_entered", callId, "source=" + autoPipPendingSource);
+      autoPipPendingSource = null;
+    }
     if (isInPictureInPictureMode && pendingAppReturnSource != null) {
       mainHandler.removeCallbacks(appReturnAfterPipFallback);
       String source = pendingAppReturnSource;
@@ -668,6 +699,7 @@ public class NativeVideoCallActivity extends Activity {
 
   @Override
   protected void onDestroy() {
+    mainHandler.removeCallbacks(autoPipMissedCheck);
     NativeVideoCallLog.info("native_video_pip_activity_destroyed", callId, buildPipLogDetails("destroy"));
     if (isFinishing()) CallRecentsCardPresenter.apply(this, false, null, "video:destroy");
     unregisterNativeVideoBackCallback();
@@ -1978,6 +2010,10 @@ public class NativeVideoCallActivity extends Activity {
    * 앱(메신저)을 앞으로. PiP 면 PiP 창이 뜬 뒤, Dock 이면 바로. 통화 종료 없음.
    */
   private boolean minimizeToApp(String source) {
+    // 원인·설계: docs/audit/call-back-app-return-root-cause-2026-11-12.md §7
+    // PiP 를 먼저 요청하면 앱 프로세스가 「고정」으로 판정돼 메신저를 못 올리고(§1),
+    // moveToFront 는 TO_FRONT 라 PiP2 가 자동 PiP 를 안 한다(§2·§3). 그래서 고정 전에 메신저를 startActivity(OPEN)로 연다.
+    if (canOpenAppForAutoPip() && openAppThenAutoPip(source)) return true;
     if (!minimizeConnectedCall(source)) return false;
     boolean pipPath =
         inPipMode || pipState == PipState.PIP_REQUESTED || pipState == PipState.PIP_ACTIVE;
@@ -2003,6 +2039,31 @@ public class NativeVideoCallActivity extends Activity {
     pendingAppReturnSource = source;
     mainHandler.removeCallbacks(appReturnAfterPipFallback);
     mainHandler.postDelayed(appReturnAfterPipFallback, APP_RETURN_AFTER_PIP_FALLBACK_MS);
+  }
+
+  private boolean canOpenAppForAutoPip() {
+    return !inPipMode
+        && !dockMode
+        && isAutoPipEligible()
+        && NativeCallAppReturn.openAppAutoPipSupported(this);
+  }
+
+  /** §7 — 고정 전에 메신저를 startActivity(OPEN)로 열고 PiP 는 시스템 자동 PiP 에 맡긴다. 1.5초 안에 PiP 가 없으면 기록만. */
+  private boolean openAppThenAutoPip(String source) {
+    lastPipParamsKey = null; // 자동 PiP 켜짐을 확실히 다시 넘긴다
+    refreshPipParams("app_return_open");
+    appReturnRequestedAtMs = SystemClock.elapsedRealtime();
+    skipUserLeavePipUntilMs = appReturnRequestedAtMs + SKIP_USER_LEAVE_WINDOW_MS;
+    autoPipPendingSource = source;
+    NativeVideoCallLog.info("native_video_app_return_open", callId, "source=" + source);
+    if (!NativeCallAppReturn.openAppForAutoPip(this, callId, source)) {
+      skipUserLeavePipUntilMs = 0L;
+      autoPipPendingSource = null;
+      return false;
+    }
+    mainHandler.removeCallbacks(autoPipMissedCheck);
+    mainHandler.postDelayed(autoPipMissedCheck, AUTO_PIP_CHECK_MS);
+    return true;
   }
 
   /** PiP 콜백·보조 타이머: 메신저가 이미 앞으로 왔으면 아무것도 안 하고, 아니면 1회 재시도(결과는 확인 로그). */

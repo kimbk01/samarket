@@ -2,6 +2,10 @@ package com.dibay.app.call;
 
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.AppOpsManager;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Process;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -41,6 +45,48 @@ public final class NativeCallAppReturn {
   private static long confirmedAtMs;
 
   private NativeCallAppReturn() {}
+
+  /**
+   * 「메신저를 startActivity 로 열어 자동 PiP」 경로 사용 가능 여부 — Android 12+ 자동 PiP · 기기 PiP 기능 · 앱 PiP 허용.
+   * 원인·근거: docs/audit/call-back-app-return-root-cause-2026-11-12.md §1~§3·§7
+   */
+  public static boolean openAppAutoPipSupported(Activity activity) {
+    if (activity == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false;
+    try {
+      if (!activity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) return false;
+      AppOpsManager ops = (AppOpsManager) activity.getSystemService(Context.APP_OPS_SERVICE);
+      if (ops == null) return true;
+      int mode =
+          ops.unsafeCheckOpNoThrow(
+              AppOpsManager.OPSTR_PICTURE_IN_PICTURE, Process.myUid(), activity.getPackageName());
+      return mode == AppOpsManager.MODE_ALLOWED;
+    } catch (RuntimeException error) {
+      return false;
+    }
+  }
+
+  /**
+   * 통화 화면이 아직 전체 화면(고정 전)일 때 메신저를 {@code startActivity} 로 연다.
+   * - {@code startActivity} 는 호출자와 무관하게 OPEN 전환 → PiP2 가 자동 PiP 를 처리한다(AppTask.moveToFront 의
+   *   TO_FRONT 전환은 PiP2 가 무시 — 설계안 B 실패 원인).
+   * - {@code FLAG_ACTIVITY_NO_USER_ACTION} 을 붙이지 않는다 — 사용자 떠남이 켜져야 코어가 통화 화면을 PiP 후보로 본다.
+   * - MainActivity 는 singleTask → 기존 메신저 작업 재사용. 빈 인텐트라 알림 라우팅·통화 처리 없음.
+   */
+  public static boolean openAppForAutoPip(Activity from, String callId, String source) {
+    if (from == null) return false;
+    try {
+      Intent open = new Intent(from, MainActivity.class);
+      open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+      markRequested(callId, source);
+      from.startActivity(open);
+      Log.i(TAG, "[DIBAY_CALL] native_call_app_return callId=" + callId + " source=" + source + " via=start_activity_open");
+      return true;
+    } catch (RuntimeException error) {
+      Log.w(TAG, "[DIBAY_CALL] native_call_app_return_failed callId=" + callId + " via=start_activity_open err="
+          + error.getClass().getSimpleName());
+      return false;
+    }
+  }
 
   /** 순수 판정 — 요청 시각 이후 확인 창 안에 재개됐으면 confirmed. */
   static String judge(long requestedAtMs, long resumedAtMs, long windowMs) {
