@@ -130,5 +130,6 @@ Owner 지시 (2026-11-12): 「결정 필요 부분은 권장안을 따르고, �
 | §1 운영자 `moim` 권한 — `20271113500000_moim_admin_permission_for_active_operators.sql` | 14:14 PHT 운영 | 활성 운영자 2명: 18 → 19개, 추가 `moim` 만·삭제 0. 최고관리자 행 변경 없음(updated_at 그대로). 적용 후 `moim` 없는 활성 운영자 0 |
 | §3 백업 테이블 삭제 — `20271113510000_moim_m1b_backup_drop.sql` | 14:14 PHT 운영 | 적용 전 10행·의존 0·참조 뷰/함수 0 → 내보내기 `moim-m1b-backup-definitions-2026-11-12.sql` 10/10 md5 일치 → 삭제 후 `to_regclass` NULL |
 | 마이그레이션 이력 | 2건 기록 | `schema_migrations` 20271113500000·20271113510000 |
-| §2 카테고리 | 미적용 | 목록 Owner 확정 대기 |
+| §2 카테고리 13개 — 정식 함수 `moim_admin_category_save` (실행 관리자 = 활성 최고관리자 「메인관리자」, 사유 「Owner 2026-11-12 카테고리 목록 초안 등록 지시」) | 14:16 PHT 운영 (Owner 「카테고리 목록 초안대로 등록해」) | 적용 전 0행 확인 후 한 트랜잭션 등록 → 13행(순서·slug·ko·en 초안과 일치, 모두 사용·개설 허용), `audit_logs` `moim.admin_category_created` 13건. `moim_events` 는 모임 단위 기록이라 카테고리는 남지 않음(설계 그대로) |
+| 모임 탭 카테고리 칩·만들기 1단계 | NOT_PROVEN | Owner 휴대폰 화면 확인 안 함 — `/api/moim/categories` 는 사용·개설 허용 카테고리를 순서대로 반환(코드) |
 | 운영자 화면에서 모임 메뉴 보임 | NOT_PROVEN | 운영자 계정 로그인 확인 안 함 — 권한 판정 코드상 저장값 그대로 사용 |
