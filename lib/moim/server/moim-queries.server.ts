@@ -171,6 +171,12 @@ export async function listMyMoims(sb: SupabaseServer, userId: string): Promise<M
   return toCards(sb, rows, userId);
 }
 
+async function loadMoimClosedRetentionDays(sb: SupabaseServer): Promise<number | null> {
+  const { data } = await sb.from("moim_policies").select("closed_retention_days").eq("id", 1).maybeSingle();
+  const n = (data as { closed_retention_days: number | null } | null)?.closed_retention_days;
+  return typeof n === "number" && n > 0 ? n : null;
+}
+
 async function loadMoimInactiveUnlistDays(sb: SupabaseServer): Promise<number | null> {
   const { data } = await sb.from("moim_policies").select("inactive_unlist_days").eq("id", 1).maybeSingle();
   const n = (data as { inactive_unlist_days: number | null } | null)?.inactive_unlist_days;
@@ -327,7 +333,7 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
   const { moim, me, role } = access;
   const isMember = !!role;
 
-  const [cats, host, questions, boards, pendingReq, ban, transfer, pinned, recent] = await Promise.all([
+  const [cats, host, questions, boards, pendingReq, ban, transfer, pinned, recent, closedRetentionDays] = await Promise.all([
     categoryMap(sb, [moim.category_id]),
     authorMap(sb, moim.id, [moim.host_user_id]),
     sb.from("moim_join_questions").select("question, sort_order").eq("moim_id", moim.id).order("sort_order"),
@@ -351,6 +357,8 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
       if (!isMember) q = q.eq("visibility", "public");
       return q.order("created_at", { ascending: false }).limit(5);
     })(),
+    // 모임 종료 화면 안내(「기록은 멤버만 N일」) — 종료할 수 있는 모임장에게만 (운영 정책 closed_retention_days)
+    role === "host" ? loadMoimClosedRetentionDays(sb) : Promise.resolve(null),
   ]);
 
   const boardRows = ((boards.data ?? []) as { id: string; kind: MoimBoardDto["kind"]; name: string | null; write_min_role: MoimRole; sort_order: number; is_active: boolean }[]).map(
@@ -381,6 +389,7 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
     pinnedNotices: await toPosts(sb, moim.id, (pinned.data ?? []) as PostRow[], viewerId),
     recentPosts: await toPosts(sb, moim.id, (recent.data ?? []) as PostRow[], viewerId),
     upcomingSchedules: moim.status === "active" ? await listUpcomingScheduleTeasers(sb, moim.id, 3) : [],
+    closedRetentionDays,
     viewer: {
       loggedIn: !!viewerId,
       status: me?.status ?? null,

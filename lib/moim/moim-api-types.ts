@@ -89,6 +89,8 @@ export type MoimDetailDto = {
   recentPosts: MoimPostDto[];
   /** 다가오는 일정 (제목·시간·인원만 — 비멤버도 보임, 설계 §6 P2) */
   upcomingSchedules: { id: string; title: string; startsAt: string; confirmedCount: number; capacity: number | null; status: string }[];
+  /** 종료 후 멤버 열람 기간(일, 운영 정책) — 모임장에게만 채움, 정책 없음·비모임장 = null */
+  closedRetentionDays: number | null;
   viewer: {
     loggedIn: boolean;
     status: MoimMemberStatus | null;

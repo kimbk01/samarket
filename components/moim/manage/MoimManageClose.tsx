@@ -17,6 +17,12 @@ const POINTS: MessageKey[] = [
   "moim_manage_close_point_undo",
 ];
 
+/** 「기록은 멤버만 N일」 — N 은 운영 정책값(어드민에서 바꾸면 그대로 따라감), 정책이 비어 있으면 기간 없는 문구 */
+function pointText(t: ReturnType<typeof useI18n>["t"], k: MessageKey, days: number | null): string {
+  if (k !== "moim_manage_close_point_records") return t(k);
+  return days ? t(k, { days }) : t("moim_manage_close_point_records_nolimit");
+}
+
 function CloseBody({ detail }: { detail: MoimDetailDto }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -42,7 +48,7 @@ function CloseBody({ detail }: { detail: MoimDetailDto }) {
         <p className="text-[15px] font-semibold text-sam-fg">{t("moim_manage_close_heading")}</p>
         <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-5 text-[14px] text-sam-fg">
           {POINTS.map((k) => (
-            <li key={k}>{t(k)}</li>
+            <li key={k}>{pointText(t, k, detail.closedRetentionDays)}</li>
           ))}
         </ul>
       </div>
