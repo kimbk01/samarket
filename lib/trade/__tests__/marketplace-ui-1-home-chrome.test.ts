@@ -17,7 +17,7 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(isTradeMarketAllRouteActive("/market", "used-car")).toBe(false);
   });
 
-  it("거래·커뮤니티 1단 = 제목 글자, 「정보교환 · 거래」 전환 탭 = 머리글 3단 왼쪽 정렬 (Owner 「A 안」 2026-11-12)", () => {
+  it("거래·커뮤니티 1단 = 제목 글자, 「정보교환 · 거래」 전환 탭 = 머리글 3단 오른쪽 정렬 (Owner 「A 안」 2026-11-12)", () => {
     expect(tradeMessages.ko.marketplace_home_title).toBe("DIBAY MARKET");
     const header = read("components/layout/RegionBarMainHubTier1.tsx");
     expect(header).not.toContain("CommunityTradeTitleSwitch");
@@ -32,8 +32,9 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(feed).toContain('<CommunityTradeSwitchRow active="community" />');
     expect(feed.indexOf("</DibaySecondaryTabRow>")).toBeLessThan(feed.indexOf("<CommunityTradeSwitchRow"));
     const sw = read("components/layout/CommunityTradeTitleSwitch.tsx");
-    expect(sw).toContain("justify-start");
-    expect(sw).not.toContain("justify-end");
+    /** 3단 전환 탭 = 오른쪽 정렬, 2단 탭 = 왼쪽 정렬 (Owner 2026-11-12) */
+    expect(sw).toContain("justify-end");
+    expect(sw).not.toContain("justify-start");
     expect(sw).not.toMatch(/truncate|text-ellipsis/);
     /** 2단 탭 왼쪽 정렬 — 거래(4개 탭)·커뮤니티 모두 균등 분할 해제 */
     expect(read("components/trade/TradePrimaryTabs.tsx")).toContain('data-dibay-tab-align="start"');
