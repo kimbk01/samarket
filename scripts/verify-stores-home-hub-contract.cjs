@@ -524,14 +524,14 @@ assertNotIncludes(
 
 const categoryHeaderStack = read("components/stores/home/hub/StoresHomeCategoryHeaderStack.tsx");
 
-/** 배민 미러링 v6 (2026-10-30 Owner 승인) — 홈 헤더엔 주소·검색창만, 상단 탭·아이콘 판은 본문(`DeliveryHomeMenuBoard`)과 함께 스크롤 */
+/** 배달 메뉴 구성 v6 (2026-10-30 Owner 승인) — 홈 헤더엔 주소·검색창만, 상단 탭·아이콘 판은 본문(`DeliveryHomeMenuBoard`)과 함께 스크롤 */
 assertNotIncludes(
 
   read("components/layout/AppStickyHeader.tsx"),
 
   "<StoresHomeCategoryHeaderStack",
 
-  "sticky header must not mount the legacy gold category stack on /stores (Baemin mirror v6)"
+  "sticky header must not mount the legacy gold category stack on /stores (delivery menu board v6)"
 
 );
 
@@ -541,7 +541,7 @@ assertIncludes(
 
   "<DeliveryHomeMenuBoard",
 
-  "hub must mount the Baemin-mirror menu board (top tabs · icons · shortcuts) in the scroll body"
+  "hub must mount the delivery menu board (top tabs · icons · shortcuts) in the scroll body"
 
 );
 
@@ -1441,11 +1441,11 @@ assertIncludes(
   "StoresBrowseHeaderScrollCollapse",
   "browse header must use scroll collapse wrapper"
 );
-/** 배민 미러링 v6 — 스크롤 시 주소줄(2단 32px)만 접힘, 메뉴 탭(3단)은 접힘 밖 */
+/** 배달 메뉴 구성 v6 — 스크롤 시 주소줄(2단 32px)만 접힘, 메뉴 탭(3단)은 접힘 밖 */
 assertIncludes(
   browseHeaderChrome,
   "MIRROR_ADDRESS_ROW_CLASS",
-  "browse header must collapse the address row on scroll (Baemin mirror v6)"
+  "browse header must collapse the address row on scroll (delivery menu board v6)"
 );
 assertIncludes(
   browseHeaderChrome,

@@ -15,7 +15,7 @@ import {
 export type StoresHomeTaxonomyState = {
   categories: StoreTaxonomyCategory[];
   topics: StoreTaxonomyTopic[];
-  /** 고객 「메뉴」 (배민 미러링 · 업종과 별개). 없으면 업종 화면 그대로 */
+  /** 고객 「메뉴」 (배달 메뉴 구성 · 업종과 별개). 없으면 업종 화면 그대로 */
   menus?: DeliveryMenuPublic[];
 };
 

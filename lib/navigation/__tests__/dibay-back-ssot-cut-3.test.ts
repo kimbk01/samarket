@@ -259,7 +259,7 @@ describe("dibay-back-ssot-cut-3", () => {
 
   it("C16 더 담기 remains FLOW (navigateToStoreMenu push)", () => {
     const client = readFileSync(
-      join(ROOT, "components/stores/cart/baemin/StoreBaeminCartStoreBlock.tsx"),
+      join(ROOT, "components/stores/cart/sections/StoreCartStoreBlock.tsx"),
       "utf8"
     );
     expect(client).toContain("store_cart_add_menu");

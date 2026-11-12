@@ -1245,7 +1245,7 @@ export function ChatDetailView({
     setTradeEntryForceBottom(intent === "push" || intent === "default");
   }, [room.id]);
 
-  // 당근형: Realtime 이 주 경로 — HTTP 는 백업(간격·가시성으로 부하 제어)
+  // Realtime 이 주 경로 — HTTP 는 백업(간격·가시성으로 부하 제어)
   useEffect(() => {
     if (!room.id || !currentUserId) return;
     if (messagesLoading) return;
@@ -1983,7 +1983,7 @@ export function ChatDetailView({
               : undefined
         }
         showEmojiButton={!isStoreOrderBuyer}
-        variant={isStoreOrderChat || messengerAlignedTradeComposer ? "instagram" : "default"}
+        variant={isStoreOrderChat || messengerAlignedTradeComposer ? "dm" : "default"}
         onImageFilesSelected={handleImageFilesSelectedStable}
         imageSending={imageSending}
         onComposerFocusChange={
@@ -2106,7 +2106,7 @@ export function ChatDetailView({
                     messagesLoading={messagesLoading}
                     messageSoundMuted={chatMessageSoundMuted}
                     onToggleMessageSound={toggleChatMessageSoundMuted}
-                    variant={isStoreOrderChat ? "instagram" : "default"}
+                    variant={isStoreOrderChat ? "dm" : "default"}
                   />
                 ) : null}
                 {isStoreOrderSeller ? (
@@ -2204,15 +2204,15 @@ export function ChatDetailView({
               </div>
             ) : null}
             {messagesLoading ? (
-              <ChatMessagesLoadingSkeleton variant={isStoreOrderChat ? "instagram" : "default"} />
+              <ChatMessagesLoadingSkeleton variant={isStoreOrderChat ? "dm" : "default"} />
             ) : (
               <ChatMessageList
                 messages={messages}
                 currentUserId={currentUserId}
                 partnerNickname={partnerDisplayNickname}
                 partnerAvatar={partnerDisplayAvatar || undefined}
-                variant={isStoreOrderChat ? "instagram" : "default"}
-                /** 당근형 거래·통합 스레드: 긴 대화 시 블록 가상화(`ChatMessageList` 기본 variant 만) */
+                variant={isStoreOrderChat ? "dm" : "default"}
+                /** 거래·통합 스레드: 긴 대화 시 블록 가상화(`ChatMessageList` 기본 variant 만) */
                 scrollParentRef={threadScroll.viewportRef}
                 virtualize={!isStoreOrderChat}
               />

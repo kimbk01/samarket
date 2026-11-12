@@ -197,7 +197,7 @@ function SingleChatImage({
 
   /**
    * src 가 바뀌면 새 사진이 디코드될 때까지 직전에 그려진 사진을 아래에 깔아 둔다 —
-   * 빈 칸(말풍선 배경색)이 번쩍이지 않게(텔레그램·카톡과 동일하게 끊김 없이 교체).
+   * 빈 칸(말풍선 배경색)이 번쩍이지 않게(메신저 표준과 동일하게 끊김 없이 교체).
    */
   const lastPaintedSrcRef = useRef<string | null>(null);
   const [underlaySrc, setUnderlaySrc] = useState<string | null>(null);

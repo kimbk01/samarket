@@ -72,7 +72,7 @@ export const EXTERNAL_URL_MAX_LENGTH = 2048;
 
 /**
  * D-4 ⑤ 알려진 단축·리다이렉트 서비스 — 목록은 이 상수 1곳. 도메인 자신과 그 하위 도메인을 모두 막는다.
- * 클릭 뒤 실제 목적지를 숨기거나 나중에 바꿀 수 있어서 광고 목적지로 쓰지 않는다(텔레그램 광고 「단축 URL 금지」와 같은 기준).
+ * 클릭 뒤 실제 목적지를 숨기거나 나중에 바꿀 수 있어서 광고 목적지로 쓰지 않는다(광고 「단축 URL 금지」와 같은 기준).
  */
 export const EXTERNAL_URL_SHORTENER_HOSTS: readonly string[] = [
   "bit.ly",

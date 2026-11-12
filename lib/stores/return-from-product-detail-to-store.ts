@@ -11,7 +11,7 @@ import {
 import {
   resolveProductDetailReturnAction,
   type ProductDetailReturnAction,
-} from "@/lib/stores/store-menu-detail-cart-baemin-presentation";
+} from "@/lib/stores/store-menu-detail-cart-presentation";
 
 type ReturnRouter = {
   back: () => void;

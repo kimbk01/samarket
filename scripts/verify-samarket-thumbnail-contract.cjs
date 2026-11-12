@@ -35,9 +35,9 @@ if (/object-contain/.test(common) || /scale-\[/.test(common)) {
 
 const thumbnailFiles = [
   "components/stores/common/StoreProductThumbnail.tsx",
-  "components/stores/cart/baemin/StoreBaeminCartLineRow.tsx",
-  "components/stores/cart/baemin/StoreBaeminCartUpsellSection.tsx",
-  "components/stores/cart/baemin/StoreBaeminCartStoreBlock.tsx",
+  "components/stores/cart/sections/StoreCartLineRow.tsx",
+  "components/stores/cart/sections/StoreCartUpsellSection.tsx",
+  "components/stores/cart/sections/StoreCartStoreBlock.tsx",
   "components/stores/detail/ProductMenuCard.tsx",
   "components/stores/detail/RecommendedMenuSection.tsx",
   /** WP6 (2026-10-29) — PopularMenuSection 은 썸네일을 직접 그리지 않고 ProductMenuCard(위 목록)에 위임 */

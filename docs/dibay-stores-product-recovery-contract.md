@@ -58,4 +58,4 @@ Discovery candidate/ranking/sort/pagination/sub-filter · composeStoresHomeFeed 
 
 ## Visual authority
 
-`docs/dibay-stores-baemin-visual-ssot-a-vis.md`
+`docs/dibay-stores-delivery-visual-ssot-a-vis.md`

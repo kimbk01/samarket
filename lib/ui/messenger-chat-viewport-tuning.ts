@@ -41,7 +41,7 @@ export const MESSENGER_DELIVERY_COMPOSER_SIDE_SLOT_CLASS = "h-9 w-9 shrink-0";
 export const MESSENGER_DELIVERY_COMPOSER_MIC_SLOT_CLASS =
   "relative h-8 w-8 shrink-0 overflow-hidden";
 
-/** draft가 2줄 이상이면 sector를 하단 정렬(카톡형). */
+/** draft가 2줄 이상이면 sector를 하단 정렬(메신저 표준형). */
 export function messengerComposerDraftIsMultiLine(draft: string): boolean {
   return draft.includes("\n");
 }

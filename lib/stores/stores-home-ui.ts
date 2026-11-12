@@ -118,7 +118,7 @@ export const STORES_HOME_PRIMARY_CATEGORY_LABEL_SELECTED =
 export const STORES_HOME_PRIMARY_CATEGORY_LABEL_IDLE =
   "block w-full min-w-0 px-0.5 text-center text-[length:var(--delivery-fs-badge)] font-semibold leading-[1.25] line-clamp-2 text-[color:var(--delivery-text-sub)]";
 
-/** browse·row 카드 메뉴 타일 — `store-facebook-feed-tokens` 와 동기 */
+/** browse·row 카드 메뉴 타일 — `store-feed-tokens` 와 동기 */
 export const STORES_HOME_MENU_TILE = "rounded-[10px] bg-[color:var(--delivery-bg-thumb)]";
 export const STORES_HOME_MENU_TILE_MORE =
   "rounded-[10px] bg-[color:var(--delivery-bg-soft)] text-[color:var(--delivery-text-main)] transition-[transform,opacity,background-color] duration-120 active:scale-[0.98] active:bg-[color:var(--delivery-bg-muted)]";

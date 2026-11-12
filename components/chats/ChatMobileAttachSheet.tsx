@@ -11,23 +11,23 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 export function ChatMobileAttachSheet({
   open,
   onClose,
-  instagram,
+  dm,
   disabled,
   onPickCamera,
   onPickGallery,
 }: {
   open: boolean;
   onClose: () => void;
-  instagram: boolean;
+  dm: boolean;
   disabled: boolean;
   onPickCamera: () => void;
   onPickGallery: () => void;
 }) {
   const { t } = useI18n();
 
-  /** 목록 행 — 팝업 SSOT 행(48 · 16/500 · 눌림 배경만 · 비활성 회색). 인스타 테마도 같은 행 */
+  /** 목록 행 — 팝업 SSOT 행(48 · 16/500 · 눌림 배경만 · 비활성 회색). DM 테마도 같은 행 */
   const rowClass = `${OverlayUi.popoverItem} shrink-0 gap-3`;
-  void instagram;
+  void dm;
 
   const runThenPick = (pick: () => void) => {
     onClose();

@@ -42,7 +42,7 @@ describe("consent UX P0 surface (Owner mockup 2026-11-05)", () => {
     expect(src).toContain('safeT("auth_consent_dob_required")');
   });
 
-  it("PhoneVerificationBox: 텔레그램형 — 국가 줄·번호 한 줄·[계속] → 6칸 인증번호 → 완료 (Owner 2026-11-09)", () => {
+  it("PhoneVerificationBox: 단계형 — 국가 줄·번호 한 줄·[계속] → 6칸 인증번호 → 완료 (Owner 2026-11-09)", () => {
     const src = readFileSync(path.join(root, "components/mypage/profile/PhoneVerificationBox.tsx"), "utf8");
     expect(src).toContain('data-testid="phone-verify-country-code"');
     expect(src).toContain('data-testid="phone-verify-number"');

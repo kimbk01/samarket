@@ -22,7 +22,7 @@ export function MemberOrderTabs({
   active: MemberOrderTab;
   onChange: (t: MemberOrderTab) => void;
   counts: Record<MemberOrderTab, number>;
-  /** `feed`: 페이스북/메타류 하단 강조선 탭 — 본문과 동일 폰트 스택 유지 */
+  /** `feed`: 피드형 하단 강조선 탭 — 본문과 동일 폰트 스택 유지 */
   variant?: "default" | "feed";
 }) {
   const { t } = useI18n();

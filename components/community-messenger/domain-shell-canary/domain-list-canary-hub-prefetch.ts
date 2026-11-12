@@ -102,7 +102,7 @@ export function peekDomainStoreOrderUnreadRoomCount(): number | null {
   );
 }
 
-/** Cache miss only — never overwrite hydrated Domain list canary (Telegram list authority). */
+/** Cache miss only — never overwrite hydrated Domain list canary (Domain list authority). */
 export function prefetchDomainTradeListCanaryForHub(): Promise<void> {
   const uid = viewerEligible();
   if (!uid) return Promise.resolve();

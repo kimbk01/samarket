@@ -28,7 +28,7 @@ describe("P1-2 report / sanction / ad authority contract", () => {
   });
 
   it("trade report action route refuses account_* (MCC only)", () => {
-    // 거래 Admin 설계 v2 §F-3: applyReportActionDaangn 삭제 — 라우트가 account_* 를 거절하고 처리는 DB 함수로.
+    // 거래 Admin 설계 v2 §F-3: 예전 신고 처리 TS 함수 삭제 — 라우트가 account_* 를 거절하고 처리는 DB 함수로.
     const src = read("app/api/admin/reports/[reportId]/action/route.ts");
     expect(src).toMatch(/account_suspend[\s\S]{0,80}account_ban[\s\S]{0,120}account_action_in_member_screen/);
     const policy = read("lib/admin-reports/trade-report-action-policy.ts");

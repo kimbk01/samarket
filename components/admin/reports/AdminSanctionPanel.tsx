@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import type { ReportActionType } from "@/lib/types/daangn";
+import type { ReportActionType } from "@/lib/types/trade-report";
 import {
   looksLikeProfileUserId,
   TRADE_REPORT_ACCOUNT_ACTIONS_MCC_ONLY,

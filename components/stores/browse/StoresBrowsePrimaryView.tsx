@@ -214,7 +214,7 @@ export function StoresBrowsePrimaryView({
   const [listSort, setListSort] = useState<StoreBrowseSortId>(() =>
     parseStoreBrowseSortParam(searchParams?.get("sort"))
   );
-  /** 배민 「찜 많은 순」 — 서버 정렬(`default`) 뒤 찜 수로 다시 정렬 (목록 API `sort=favorites`) */
+  /** 「찜 많은 순」 — 서버 정렬(`default`) 뒤 찜 수로 다시 정렬 (목록 API `sort=favorites`) */
   const [favoritesSort, setFavoritesSort] = useState(
     () => searchParams?.get("sort")?.trim().toLowerCase() === STORES_BROWSE_FAVORITES_SORT
   );
@@ -293,7 +293,7 @@ export function StoresBrowsePrimaryView({
     [primarySlug, taxonomy]
   );
 
-  /** 배민 미러링 — `primarySlug` 가 메뉴 1단(상단 탭)이면 메뉴 페이지 */
+  /** 배달 메뉴 구성 — `primarySlug` 가 메뉴 1단(상단 탭)이면 메뉴 페이지 */
   const menuRoot = useMemo(
     () => findDeliveryMenuRoot(taxonomy?.menus, primarySlug),
     [primarySlug, taxonomy?.menus]
@@ -915,7 +915,7 @@ export function StoresBrowsePrimaryView({
   );
 
   const browseListReady = !!primary || !!menuRoot;
-  /** 「기타」 칩 — 예약 가능 매장이 있을 때만 (없으면 배민 「기타」 항목 없음 → 칩 숨김) */
+  /** 「기타」 칩 — 예약 가능 매장이 있을 때만 (없으면 「기타」 항목 없음 → 칩 숨김) */
   const showReservationFilter =
     customerFilters.reservation || (remoteRows ?? []).some((r) => r.reservationAvailable === true);
 
@@ -949,7 +949,7 @@ export function StoresBrowsePrimaryView({
     () => (
       <>
         <StoresBrowsePullRefreshHint />
-        {/* 배민 미러링 4단 — 흰 줄 58px · 칩 6개 (PTR 슬롯은 위 그대로: 3단 탭 ↔ 칩 사이) */}
+        {/* 배달 메뉴 구성 4단 — 흰 줄 58px · 칩 6개 (PTR 슬롯은 위 그대로: 3단 탭 ↔ 칩 사이) */}
         <div className="w-full shrink-0 border-b border-[color:#E4E6E8] bg-white">
           <div className="mx-auto w-full min-w-0 max-w-[768px]">
             <StoreListFilterChips

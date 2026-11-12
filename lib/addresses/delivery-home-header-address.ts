@@ -49,7 +49,7 @@ function userEnteredDetailLine(a: UserAddressDTO): string | null {
 }
 
 /**
- * 배달 홈 헤더 — 배민식 세부 주소 (동 + 사용자 상세).
+ * 배달 홈 헤더 — 배달 표준 세부 주소 (동 + 사용자 상세).
  * Google 지정 한 줄 주소는 표시하지 않는다.
  */
 export function buildDeliveryHomeHeaderAddressLine(a: UserAddressDTO | null | undefined): string | null {

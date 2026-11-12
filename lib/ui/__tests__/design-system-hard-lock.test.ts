@@ -8,7 +8,7 @@ import {
 import { MYPAGE_MOTION_MS } from "@/lib/mypage/mypage-authority-contract";
 
 describe("design-system-hard-lock (Slice 2.5)", () => {
-  it("brand is DIBAY green not karrot orange", () => {
+  it("brand is DIBAY green not orange", () => {
     expect(DESIGN_SYSTEM_BRAND.primaryHex).toBe("#0B421A");
     expect(DESIGN_SYSTEM_BRAND.primaryToken).toBe("--dibay-green");
     expect(DESIGN_SYSTEM_BRAND.forbiddenBrandNotes).toContain("karrot-orange");

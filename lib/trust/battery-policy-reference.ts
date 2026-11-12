@@ -30,14 +30,6 @@ export {
   KASAMA_NEUTRAL_BATTERY_PERCENT,
 } from "./trust-score-core";
 
-export const DAANGN_MANNER_TEMP_REFERENCE = {
-  neutralExampleC: 36.5,
-  typicalRangeC: { min: 30, max: 50 } as const,
-  citationNote:
-    "당근(Daangn/Karrot) **매너 온도**는 신뢰를 **체온(°C)** 형태로 보여 줍니다. " +
-    "DIBAY는 동일 원칙(중립 시작·행동 이력)을 따르되 UI는 Manner Battery 0~100% 를 사용합니다.",
-} as const;
-
 export const KASAMA_PERCENT_TO_TIER_FORMULA =
   "DIBAY: Manner Battery 0~100 → 구간별 1~6단 (0~19=1 … 90~100=6)";
 

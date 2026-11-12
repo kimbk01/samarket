@@ -1,8 +1,8 @@
 /**
- * 목록 4단 필터 칩 (배민 미러링) — 서버·클라이언트 공용 순수 모듈.
+ * 목록 4단 필터 칩 (배달 메뉴 구성) — 서버·클라이언트 공용 순수 모듈.
  * 정렬 시트: 기본순·주문 많은 순·별점 높은 순·가까운 순·찜 많은 순.
  * 필터: 할인·쿠폰(켜기) · 배달방식(배달/픽업) · 별점(4.5/4.0/3.5 이상) · 최소주문금액(₱ 이하) · 기타(예약가능).
- * 설계: docs/audit/delivery-baemin-mirror-design-v6-2026-10-30.html §2
+ * 설계: docs/audit/delivery-browse-chrome-design-v6-2026-10-30.html §2
  */
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 

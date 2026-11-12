@@ -1,4 +1,4 @@
-/** @mention token parser — Kakao/Telegram style @nickname in group messages. */
+/** @mention token parser — messenger-standard @nickname in group messages. */
 
 const MENTION_TOKEN_RE = /@([\p{L}\p{N}_-]{1,32})/gu;
 

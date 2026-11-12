@@ -104,7 +104,7 @@ import {
   STORE_DETAIL_POPULAR_SECTION_DOM_ID,
   STORE_MENU_CHIP_JUMP_LOCK_MS,
   STORE_MENU_SPY_POPULAR_TARGET,
-} from "@/lib/stores/store-detail-baemin-presentation";
+} from "@/lib/stores/store-detail-menu-presentation";
 import dynamic from "next/dynamic";
 import {
   readStoreFulfillmentPref,

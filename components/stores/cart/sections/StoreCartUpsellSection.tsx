@@ -1,0 +1,107 @@
+"use client";
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { StoreDetailProductCard } from "@/lib/stores/group-store-products-by-menu";
+import {
+  CART_UI_CARD_INSET_CLASS,
+  CART_UI_DIVIDER_CLASS,
+  CART_UI_TYPE,
+} from "@/lib/stores/store-cart-ui";
+import { discountPriceFromPercent } from "@/lib/stores/store-product-pricing";
+import { formatMoneyPhp } from "@/lib/utils/format";
+import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
+import { STORE_CART_UPSELL_INITIAL_COUNT } from "@/lib/stores/store-menu-detail-cart-presentation";
+
+function upsellUnitPrice(card: StoreDetailProductCard): number {
+  const price = Math.floor(Number(card.price));
+  const disc =
+    card.discount_price != null && Number.isFinite(card.discount_price)
+      ? Math.floor(card.discount_price)
+      : card.discount_percent != null
+        ? discountPriceFromPercent(price, card.discount_percent)
+        : null;
+  return disc != null && disc >= 0 ? disc : price;
+}
+
+/** WP8 — 인기 순 3개 + 「더보기」, + 누르면 메뉴 상세(시트) */
+export function StoreCartUpsellSection({
+  products,
+  expanded,
+  onToggleExpand,
+  onPickProduct,
+}: {
+  products: StoreDetailProductCard[];
+  expanded: boolean;
+  onToggleExpand: () => void;
+  onPickProduct: (productId: string) => void;
+}) {
+  const { t } = useI18n();
+  if (products.length === 0) return null;
+
+  const visible = expanded ? products : products.slice(0, STORE_CART_UPSELL_INITIAL_COUNT);
+
+  return (
+    <section className={`${CART_UI_TYPE.cardGap} ${CART_UI_TYPE.pagePadX}`}>
+      <h2 className={`mb-2 px-0.5 ${CART_UI_TYPE.sectionTitle} text-[color:var(--delivery-text-main)]`}>
+        {t("store_cart_upsell_title")}
+      </h2>
+      <div className={CART_UI_CARD_INSET_CLASS}>
+        <ul>
+          {visible.map((p, index) => {
+            const unit = upsellUnitPrice(p);
+            const hasOptions = p.has_options;
+            return (
+              <li key={p.id}>
+                {index > 0 ? <div className={CART_UI_DIVIDER_CLASS} /> : null}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => onPickProduct(p.id)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left active:opacity-80"
+                  >
+                    <StoreProductThumbnail
+                      src={p.thumbnail_url}
+                      size={56}
+                      roundedClassName="rounded-[8px]"
+                      className={CART_UI_TYPE.thumbUpsell}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className={`truncate ${CART_UI_TYPE.itemTitle} text-[color:var(--delivery-text-main)]`}>{p.title}</p>
+                      <p className={`mt-0.5 ${CART_UI_TYPE.upsellPrice} text-[color:var(--delivery-text-main)]`}>
+                        {formatMoneyPhp(unit)}
+                        {hasOptions ? "~" : ""}
+                      </p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onPickProduct(p.id)}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] text-[20px] font-medium leading-none text-[color:var(--delivery-text-main)] active:bg-[color:var(--delivery-bg-soft)]"
+                    aria-label={t("store_add_to_cart_aria", { title: p.title })}
+                  >
+                    +
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        {products.length > STORE_CART_UPSELL_INITIAL_COUNT ? (
+          <>
+            <div className={CART_UI_DIVIDER_CLASS} />
+            <button
+              type="button"
+              onClick={onToggleExpand}
+              className="flex w-full items-center justify-center gap-1 py-3 text-[14px] font-semibold text-sam-fg active:bg-sam-surface-muted"
+            >
+              {expanded ? t("store_owner_card_collapse") : t("store_show_more")}
+              <span className="text-[12px]" aria-hidden>
+                {expanded ? "\u2227" : "\u2228"}
+              </span>
+            </button>
+          </>
+        ) : null}
+      </div>
+    </section>
+  );
+}

@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
         {
           ok: false,
           error:
-            "reports 테이블 스키마가 맞지 않습니다. 마이그레이션(daangn_full_trading reports)을 적용해 주세요.",
+            "reports 테이블 스키마가 맞지 않습니다. 신고 테이블 마이그레이션을 적용해 주세요.",
         },
         { status: 500 }
       );

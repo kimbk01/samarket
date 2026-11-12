@@ -380,7 +380,7 @@ async function loadCategoryMetaByIds(
   return categoryById;
 }
 
-/** posts.service_id → 당근형 services (home_trade, real_estate, used_car …) */
+/** posts.service_id → services (home_trade, real_estate, used_car …) */
 async function loadServiceMetaByIds(
   client: any,
   serviceIds: string[]

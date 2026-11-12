@@ -31,7 +31,7 @@ import {
   DIBAY_ONBOARDING_LINK_CLASS,
   DIBAY_ONBOARDING_NOTICE_CLASS,
   DIBAY_ONBOARDING_PRIMARY_BTN,
-} from "@/lib/ui/dibay-onboarding-starbucks-styles";
+} from "@/lib/ui/dibay-onboarding-styles";
 
 /**
  * Owner-approved consent UX (mockup 2026-11-05).

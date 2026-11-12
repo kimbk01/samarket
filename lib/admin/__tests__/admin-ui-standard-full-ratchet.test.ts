@@ -33,7 +33,7 @@ const MEMBER_APP_SHARED = [
   /^components\/(?:layout|my|notifications|philife|write)\//,
   /^components\/addresses\//,
   /^components\/stores\/(?:commission|browse|home)\//,
-  /^components\/stores\/store-facebook-feed-tokens\.ts$/,
+  /^components\/stores\/store-feed-tokens\.ts$/,
   /^components\/business\/admin\/StoreOpsOnOffSwitch\.tsx$/,
   /^components\/gift-certificate\/(?:DibayGiftCertificateFace|GiftVisualCard)\.tsx$/,
   /^components\/ads\/FeedAdBannerCarousel\.tsx$/,

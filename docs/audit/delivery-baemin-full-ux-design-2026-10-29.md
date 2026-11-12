@@ -2,7 +2,7 @@
 
 - 범위: 조사·설계만. 코드·DB·운영 데이터 변경, 커밋, 배포 없음. 구현은 Owner 승인 후.
 - 이 문서가 같은 날 두 설계안을 **통합·정정**한다:
-  - `delivery-category-baemin-compare-design-2026-10-29.md` (업종 메뉴)
+  - `delivery-category-compare-design-2026-10-29.md` (업종 메뉴)
   - `delivery-store-menu-baemin-compare-design-2026-10-29.md` (목록·매장·메뉴)
   - 충돌 시 이 문서가 우선한다.
 - 코드 기준: `origin/main` `68bf39673` (다른 세션 묶음 1~4·5-A~5-G 반영 후)
@@ -213,7 +213,7 @@ DIBAY [사실]: 토스트 후 `router.push('/stores/:slug')` → 매장이 새�
 | 순서 | 배민 | DIBAY [사실] | 설계 |
 |---|---|---|---|
 | 상단 | 「장바구니」 + 탭(배달·픽업 n / 장보기·쇼핑 / 전국특가) | 매장별 장바구니 | 탭 없음 (DIBAY는 배달만) |
-| 매장 줄 | 로고 + 매장명 › + 함께주문 | `components/stores/cart/baemin/*` 배민형 블록 있음 | 로고 + 매장명 › (함께주문 제외) |
+| 매장 줄 | 로고 + 매장명 › + 함께주문 | `components/stores/cart/sections/*` 배민형 블록 있음 | 로고 + 매장명 › (함께주문 제외) |
 | 마감 안내 | 「마감임박 오후 10:30에 주문이 마감돼요」 | 없음 | 영업 종료 1시간 전부터 같은 줄 표시 (영업시간 데이터 있음) |
 | 담은 메뉴 | 이름 / 「가격 : 곱빼기 (10,000원)」 / 합계 / 사진 / [옵션 변경] [− n +] | 라인 행 있음 | 같은 배치. 수량 1에서 −는 **휴지통 아이콘, 누르면 확인 없이 삭제** |
 | + 메뉴 추가 | 매장으로 돌아감 | — | 추가 |
@@ -301,11 +301,11 @@ DIBAY [사실]: 토스트 후 `router.push('/stores/:slug')` → 매장이 새�
 | 2 | 업종 화면: 홈 1차 바로 이동, 헤더 1줄화, 2차 탭 밑줄, 주소줄 접힘 | 업종 설계안 §8 |
 | 3 | 목록 카드: 사진 줄 6 + 더보기, 4:3, 할인가, 로고 | `StoreBrowseCategoryRowCard.tsx`, `stores-browse-category-presentation-spec.ts`, `app/delivery-components.css` |
 | 4 | 매장: 4:3 배너·대체 이미지·뷰어·로고, 투명 헤더, 가게정보 화면, 정보 카드 3줄, 칩 즉시 이동·따라가기, 인기 첫 칩, 메뉴 행 평면·가격 줄, 하단 띠 「장바구니 보기」, 영업 외 + 숨김 | `StoreOrderHeroSummary.tsx`, `store-detail-hero-layout.ts`, `StoreDetailMenusSection.tsx`, `StoreMenuCategoryChips.tsx`, `PopularMenuSection.tsx`, `ProductMenuCard.tsx`, `StoreDetailBottomStrip.tsx`, 가게정보 신규 화면 1개 |
-| 5 | 메뉴 상세·장바구니: 16:9 사진, 수량 → 가격, 필수 배지 색, 버튼 스피너 → back, 장바구니 마감 안내·옵션 변경·휴지통·메뉴 추가·빈 상태 | `StoreBaeminProductDetailView.tsx`, `StoreModifierPicker.tsx`, `components/stores/cart/baemin/*` |
+| 5 | 메뉴 상세·장바구니: 16:9 사진, 수량 → 가격, 필수 배지 색, 버튼 스피너 → back, 장바구니 마감 안내·옵션 변경·휴지통·메뉴 추가·빈 상태 | `StoreBaeminProductDetailView.tsx`, `StoreModifierPicker.tsx`, `components/stores/cart/sections/*` |
 | 6 | 어드민·오너: 업종 분류 3차 「고객 미사용」 안내·신규 입력 잠금. 오너 상품 폼에 「한 줄 설명은 목록에 보입니다」 안내, 매장 배너 0장일 때 「대표 메뉴 사진이 대신 보입니다」 안내 | `AdminStoreTaxonomyManager.tsx`, `OwnerProductForm.tsx`, `OwnerStoreBannersView.tsx` |
 
 - DB 변경: **없음**.
-- 기존 SSOT 갱신: `docs/dibay-stores-baemin-visual-ssot-a-vis.md` 목록 메뉴 「4칸 밴드」 → 이 문서 §3-1.
+- 기존 SSOT 갱신: `docs/dibay-stores-delivery-visual-ssot-a-vis.md` 목록 메뉴 「4칸 밴드」 → 이 문서 §3-1.
 
 ### 실기 검증 행렬 (구현 후, 매 테스트 Production SHA 기록)
 

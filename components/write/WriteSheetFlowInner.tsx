@@ -30,7 +30,7 @@ import {
   TRADE_WRITE_FB_FIELD_LABEL,
   TRADE_WRITE_FB_SECTION,
 } from "@/lib/ui/trade-write-fb-ui";
-import { KARROT_PILL_ACTIVE, KARROT_PILL_IDLE } from "@/components/write/trade/trade-karrot-classes";
+import { TRADE_WRITE_PILL_ACTIVE, TRADE_WRITE_PILL_IDLE } from "@/components/write/trade/trade-write-classes";
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { useReleaseDroppedBlobUrls } from "@/lib/media/use-release-dropped-blob-urls";
 
@@ -510,7 +510,7 @@ export function WriteSheetFlowInner({
               maxCount={10}
               label={t("trade_write_photos")}
               compact
-              variant="karrot"
+              variant="trade"
             />
           </div>
           {/* D2: 주제를 고른 뒤 거래 폼과 같은 모양(필수 표시·가격 단위) — 고르는 순간 화면이 바뀌지 않게 */}
@@ -532,14 +532,14 @@ export function WriteSheetFlowInner({
               <div role="radiogroup" aria-label={t("trade_014")} className="flex w-full gap-2">
                 <button
                   type="button"
-                  className={`flex-1 rounded-full border px-4 py-2.5 sam-text-body font-medium transition ${!pendingFreeShare ? KARROT_PILL_ACTIVE : KARROT_PILL_IDLE}`}
+                  className={`flex-1 rounded-full border px-4 py-2.5 sam-text-body font-medium transition ${!pendingFreeShare ? TRADE_WRITE_PILL_ACTIVE : TRADE_WRITE_PILL_IDLE}`}
                   onClick={() => setPendingFreeShare(false)}
                 >
                   {t("trade_write_sell_cta")}
                 </button>
                 <button
                   type="button"
-                  className={`flex-1 rounded-full border px-4 py-2.5 sam-text-body font-medium transition ${pendingFreeShare ? KARROT_PILL_ACTIVE : KARROT_PILL_IDLE}`}
+                  className={`flex-1 rounded-full border px-4 py-2.5 sam-text-body font-medium transition ${pendingFreeShare ? TRADE_WRITE_PILL_ACTIVE : TRADE_WRITE_PILL_IDLE}`}
                   onClick={() => setPendingFreeShare(true)}
                 >
                   {t("trade_write_share_cta")}

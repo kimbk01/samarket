@@ -1,5 +1,5 @@
 /**
- * 매장 소비자 하단 액션 바 — 배민 **참고**(동일 복제 아님). 페이지별 높이·좌측 정보·CTA 활성/비활성.
+ * 매장 소비자 하단 액션 바 — 참고 앱 **참고**(동일 복제 아님). 페이지별 높이·좌측 정보·CTA 활성/비활성.
  *
  * | variant | 화면 | 좌측 | 우측 CTA |
  * | menu-cart-active | 매장 메뉴·카트 있음 | 합계(큰 글씨)·최소주문 부족 | 장바구니/주문 확인 + 수량 뱃지 |
@@ -105,7 +105,7 @@ export const STORE_COMMERCE_ACTION_BTN_ACTIVE_CLASS = [
 ].join(" ");
 
 /**
- * 비활성·처리 중 — 배민 담기/주문하기 회색. 글자 = `--delivery-btn-disabled-fg`(짙은 갈색, ≥4.5:1).
+ * 비활성·처리 중 — 참고 앱 담기/주문하기 회색. 글자 = `--delivery-btn-disabled-fg`(짙은 갈색, ≥4.5:1).
  * UI-02: 흰 글자는 회색 위 1.89:1 이라 「처리 중」·「옵션 불러오는 중」 라벨이 사라졌다.
  */
 export const STORE_COMMERCE_ACTION_BTN_DISABLED_CLASS = [
@@ -138,7 +138,7 @@ export function storeCommerceActionSideCtaClass(disabled: boolean, extra = ""): 
 /** 사이드 CTA 라벨 — 버튼 자식에 필수 */
 export const STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS = "min-w-0 truncate";
 
-/** 배민 장바구니 보기 버튼 안 검은 수량 뱃지 */
+/** 참고 앱 장바구니 보기 버튼 안 검은 수량 뱃지 */
 export const STORE_COMMERCE_ACTION_BTN_CART_BADGE_CLASS =
   "flex h-[22px] min-w-[22px] shrink-0 items-center justify-center rounded-full bg-[color:var(--delivery-dark)] px-1.5 text-[length:var(--delivery-fs-meta)] font-bold leading-none text-white";
 

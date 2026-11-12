@@ -1,6 +1,6 @@
 # 배달 배민형 전체 구현 — 완료 보고 (2026-10-30 PHT)
 
-- 계획서: `docs/audit/delivery-baemin-master-plan-2026-10-29.md` (Owner 승인 2026-10-29)
+- 계획서: `docs/audit/delivery-master-plan-2026-10-29.md` (Owner 승인 2026-10-29)
 - [배포 구분] 웹 + DB(메뉴 표 3개, 운영 적용 완료). 네이티브 재빌드 없음 — main 반영 후 앱 재시작.
 - 증거: `docs/audit/delivery-baemin-full-ux-evidence-2026-10-29/` (`s1-*`, `s2-*` 실기 캡처·녹화)
 

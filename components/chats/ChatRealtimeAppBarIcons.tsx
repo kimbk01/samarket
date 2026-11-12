@@ -6,7 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 type Props = {
   state: ChatRoomRealtimeConnectionState;
   messagesLoading: boolean;
-  variant?: "default" | "instagram";
+  variant?: "default" | "dm";
   messageSoundMuted: boolean;
   onToggleMessageSound: () => void;
 };
@@ -45,7 +45,7 @@ export function ChatRealtimeAppBarIcons({
   onToggleMessageSound,
 }: Props) {
   const { t } = useI18n();
-  const ig = variant === "instagram";
+  const ig = variant === "dm";
 
   const dotClass =
     messagesLoading || state === "disabled"

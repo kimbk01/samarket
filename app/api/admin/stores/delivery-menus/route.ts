@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * 배민 미러링 — 어드민 「배달·매장 › 메뉴 관리」 API (`/admin/delivery-menus`).
+ * 배달 메뉴 구성 — 어드민 「배달·매장 › 메뉴 관리」 API (`/admin/delivery-menus`).
  * 메뉴는 고객 화면 구성만 바꾼다 — 업종·수수료·매장 데이터는 건드리지 않는다.
  * 안전장치: 노출 매장의 마지막 메뉴 빼기·매장 남은 메뉴 삭제는 거부 (DB 트리거가 최종 방어선).
  */

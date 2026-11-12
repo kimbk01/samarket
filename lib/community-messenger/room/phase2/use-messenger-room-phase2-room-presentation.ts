@@ -357,7 +357,7 @@ export function useMessengerRoomPhase2RoomPresentation({
   const roomHeaderStatus = useMemo(() => {
     if (!snapshot) return "";
     if (isGroupRoom) {
-      // Telegram-style Members · Online; typing wins in Header statusLine
+      // messenger-standard Members · Online; typing wins in Header statusLine
       return (
         roomSubtitle ||
         (typeof snapshot.room.onlineCount === "number"

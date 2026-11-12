@@ -114,7 +114,7 @@ export function roomSummaryToListState(
 }
 
 /**
- * Telegram list authority: hub tip mirror MUST go through projectRoomActivityToHomeList.
+ * Domain list authority: hub tip mirror MUST go through projectRoomActivityToHomeList.
  * Unread/read may still use applyHomeListPatch. DO NOT call patchBootstrapRoomList* here.
  */
 function mirrorListCacheAfterEvent(event: DomainRoomEvent): void {

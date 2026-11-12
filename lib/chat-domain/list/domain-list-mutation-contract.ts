@@ -1,5 +1,5 @@
 /**
- * Telegram-style list mutation contract — field ownership + violation logs.
+ * Domain list mutation contract — field ownership + violation logs.
  * Surface reducers must call these before applying row patches.
  */
 
@@ -96,7 +96,7 @@ export function logListAuthorityViolation(
 ): void {
   if (typeof console === "undefined") return;
   // eslint-disable-next-line no-console -- list authority QA / CDP
-  console.warn(`[telegram-list-authority] ${code}`, extra ?? {});
+  console.warn(`[domain-list-authority] ${code}`, extra ?? {});
 }
 
 export function logListAuthorityMutation(payload: {
@@ -116,5 +116,5 @@ export function logListAuthorityMutation(payload: {
     return;
   }
   // eslint-disable-next-line no-console -- list authority QA
-  console.info("[telegram-list-authority:mutation]", payload);
+  console.info("[domain-list-authority:mutation]", payload);
 }

@@ -2,7 +2,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useState } from "react";
-import { blockUserDaangn } from "@/lib/reports/blockUserDaangn";
+import { requestUserBlock } from "@/lib/reports/request-user-block";
 import { dibayConfirm, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
@@ -10,7 +10,7 @@ interface BlockActionSheetProps {
   targetUserId: string;
   targetLabel: string;
   roomId?: string;
-  /** 당근형 chat_room일 때 서버에 차단 반영 (POST /api/chat/rooms/:roomId/block) */
+  /** chat_room일 때 서버에 차단 반영 (POST /api/chat/rooms/:roomId/block) */
   roomSource?: "product_chat" | "chat_room";
   currentUserId?: string;
   title?: string;
@@ -42,7 +42,7 @@ export function BlockActionSheet({
     if (!ok) return;
     setLoading(true);
     setError("");
-    const res = await blockUserDaangn(targetUserId, { roomId });
+    const res = await requestUserBlock(targetUserId, { roomId });
     if (!res.ok) {
       setLoading(false);
       setError(res.error);

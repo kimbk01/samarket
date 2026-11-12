@@ -37,7 +37,7 @@ export const TRADE_CARD_TITLE_CLASS = "min-w-0 truncate text-[14px] font-medium 
 export const TRADE_CARD_META_CLASS =
   "flex min-w-0 items-center gap-[3px] overflow-hidden whitespace-nowrap text-[12px] font-normal leading-[18px] text-sam-muted";
 
-/** 사진 왼쪽 위 상태 칩 1개 자리 (페이스북 「방금 등록된 품목」 칩 자리) */
+/** 사진 왼쪽 위 상태 칩 1개 자리 (「방금 등록된 품목」 칩 자리) */
 const TRADE_CARD_CHIP_BASE_CLASS =
   "pointer-events-none absolute left-1.5 top-1.5 z-[2] inline-flex h-[22px] items-center rounded-ui-rect px-[7px] text-[12px] font-semibold leading-none";
 export const TRADE_CARD_CHIP_NEW_CLASS = `${TRADE_CARD_CHIP_BASE_CLASS} bg-white/95 text-sam-fg shadow-[0_0_0_1px_rgba(0,0,0,0.06)]`;

@@ -277,7 +277,7 @@ import {
   TRADE_WRITE_FB_FIELD_HEAD,
   TRADE_WRITE_FB_FIELD_LABEL,
 } from "@/lib/ui/trade-write-fb-ui";
-import { KARROT_PILL_ACTIVE, KARROT_PILL_IDLE } from "./trade-karrot-classes";
+import { TRADE_WRITE_PILL_ACTIVE, TRADE_WRITE_PILL_IDLE } from "./trade-write-classes";
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import { isClientSignupComplete } from "@/lib/auth/client-signup-gate";
 import { markTradeWriteSheetGateDeparture } from "@/lib/posts/trade-write-sheet-open-marker";
@@ -468,12 +468,12 @@ function TradeMarketplaceWriteFormInner({
   const photoRestoreGuard = useTradeWriteDraftPhotoRestoreGuard();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  /** 당근형 — 자주 쓰는 문구 바텀시트 */
+  /** — 자주 쓰는 문구 바텀시트 */
   const [frequentPhrasesOpen, setFrequentPhrasesOpen] = useState(false);
   const [descriptionAppend, setDescriptionAppend] = useState("");
   /** 거래 채팅 통화(메신저) — 판매자만 설정, 구매자에게 음성/영상 버튼 노출 */
   const [tradeChatCallPolicy, setTradeChatCallPolicy] = useState<TradeChatCallPolicy>("none");
-  /** 당근형 일반 중고 — 거래 희망 장소(지도 선택, 주소록과 별도) */
+  /** 일반 중고 — 거래 희망 장소(지도 선택, 주소록과 별도) */
   const [tradeMeetSpot, setTradeMeetSpot] = useState<TradeMeetSpotValue | null>(null);
   const [tradeAddressSsot, setTradeAddressSsot] = useState<TradeWriteAddressSsotSnapshot>({
     ready: false,
@@ -539,8 +539,8 @@ function TradeMarketplaceWriteFormInner({
    * (카테고리별 플래그만으로 블록이 숨겨지면 초안·픽 복귀가 동작하지 않음)
    */
   const hasLocation = isExtendedProfile || isUsedCarSkin || isRentCarSkin ? true : (settings?.has_location ?? true);
-  /** 일반 제목 행·판매/나눔 당근형 — 부동산·중고차·렌터카는 전용 상단 필드 */
-  const isKarrotGeneral = skinKey !== "real-estate" && skinKey !== "used-car" && skinKey !== "rent-car";
+  /** 일반 제목 행·판매/나눔 — 부동산·중고차·렌터카는 전용 상단 필드 */
+  const isGeneralTradeSkin = skinKey !== "real-estate" && skinKey !== "used-car" && skinKey !== "rent-car";
 
   // 거래 종류별 meta 필드
   const [neighborhood, setNeighborhood] = useState("");
@@ -2396,7 +2396,7 @@ function TradeMarketplaceWriteFormInner({
     t,
   ]);
 
-  const karrotMeetSpotDisplayLine = useMemo(() => {
+  const meetSpotDisplayLine = useMemo(() => {
     const fromMap = tradeMeetSpot?.displayLine?.trim();
     if (fromMap) return fromMap;
     return tradeAddressSsot.displayLine?.trim() ?? "";
@@ -2429,8 +2429,8 @@ function TradeMarketplaceWriteFormInner({
             ? resolveTradePostListingLocationLine(ownerEditSnapshot?.meta ?? null, region, city, null)
             : undefined
         }
-        karrotMeetSpotUi={hasLocation}
-        meetSpotLine={karrotMeetSpotDisplayLine || null}
+        meetSpotUi={hasLocation}
+        meetSpotLine={meetSpotDisplayLine || null}
         meetSpotError={isExtendedProfile ? extendedChromeErrors.meetSpot || errors.meetSpot : errors.meetSpot}
         onBeforeMeetSpotPick={
           hasLocation && !locationLocked && !coreLocked ? () => void handleBeforeMeetSpotPick() : undefined
@@ -2516,7 +2516,7 @@ function TradeMarketplaceWriteFormInner({
           required={tradeWriteImagesRequired}
           disabled={coreLocked}
           compact={false}
-          variant="karrot"
+          variant="trade"
         />
     ),
     topic: (
@@ -2734,7 +2734,7 @@ function TradeMarketplaceWriteFormInner({
               required={tradeWriteImagesRequired}
               disabled={coreLocked}
               compact={false}
-              variant="karrot"
+              variant="trade"
             />
         ) : null}
         {errors.images ? <p className="mt-1 text-[12px] text-sam-danger">{errors.images}</p> : null}
@@ -2774,11 +2774,11 @@ function TradeMarketplaceWriteFormInner({
             {((hasFreeShare && !isUsedCarSkin) || (hasDirectDeal && !isUsedCarSkin)) && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pb-1">
                 {hasFreeShare && hasDirectDeal && !isUsedCarSkin ? (
-                  isKarrotGeneral ? (
+                  isGeneralTradeSkin ? (
                     <div role="radiogroup" aria-label={t("trade_014")} className="flex w-full gap-2">
                       <button
                         type="button"
-                        className={`flex-1 rounded-full border px-4 py-2.5 sam-text-body font-medium transition ${!isFreeShare ? KARROT_PILL_ACTIVE : KARROT_PILL_IDLE}`}
+                        className={`flex-1 rounded-full border px-4 py-2.5 sam-text-body font-medium transition ${!isFreeShare ? TRADE_WRITE_PILL_ACTIVE : TRADE_WRITE_PILL_IDLE}`}
                         onClick={() => {
                           setIsFreeShare(false);
                           setIsDirectDeal(true);
@@ -2788,7 +2788,7 @@ function TradeMarketplaceWriteFormInner({
                       </button>
                       <button
                         type="button"
-                        className={`flex-1 rounded-full border px-4 py-2.5 sam-text-body font-medium transition ${isFreeShare ? KARROT_PILL_ACTIVE : KARROT_PILL_IDLE}`}
+                        className={`flex-1 rounded-full border px-4 py-2.5 sam-text-body font-medium transition ${isFreeShare ? TRADE_WRITE_PILL_ACTIVE : TRADE_WRITE_PILL_IDLE}`}
                         onClick={() => {
                           setIsFreeShare(true);
                           setIsDirectDeal(false);
@@ -3127,7 +3127,7 @@ function TradeMarketplaceWriteFormInner({
             </div>
           </section>
         )}
-        {isKarrotGeneral ? (
+        {isGeneralTradeSkin ? (
             <GenericTradeWriteFields
               wrapperClassName={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
               fields={generalAdaptedFields}

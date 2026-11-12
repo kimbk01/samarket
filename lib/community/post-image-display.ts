@@ -35,7 +35,7 @@ export function resolvePostImageSources(raw: string, surface: PostImageSurface):
 }
 
 /**
- * 페이스북형 첨부 사진 격자 배치 — 칸 수와 각 칸 모양.
+ * 피드형 첨부 사진 격자 배치 — 칸 수와 각 칸 모양.
  * 1장은 격자가 아니라 원본 비율 한 장(`single`).
  */
 export type PostImageGridCell = { index: number; span: "full" | "half" | "third"; shape: "wide" | "square" };

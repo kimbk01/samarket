@@ -1,5 +1,5 @@
 /**
- * 당근형 사용자용 거래·상품 상태 문구 (기술적 enum 노출 최소화)
+ * 사용자용 거래·상품 상태 문구 (기술적 enum 노출 최소화)
  */
 
 import type { MessageKey } from "@/lib/i18n/messages";

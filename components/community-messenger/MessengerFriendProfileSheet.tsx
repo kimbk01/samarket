@@ -56,7 +56,7 @@ type Props = {
 
 /**
  * 친구 탭 — 탭한 사용자 프로필(시트). 라우팅 없음.
- * Telegram-style: 차단이 아니면 메시지·통화 가능. 친구 추가는 연락처 저장만.
+ * messenger-standard: 차단이 아니면 메시지·통화 가능. 친구 추가는 연락처 저장만.
  */
 export function MessengerFriendProfileSheet({
   profile,

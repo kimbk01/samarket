@@ -6,7 +6,7 @@ export const PRODUCT_DETAIL_BOTTOM_BAR = `fixed bottom-0 left-1/2 z-30 flex h-14
 export const PRODUCT_DETAIL_CTA_BUTTON =
   "flex min-h-[44px] w-full min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-signature py-3 text-center text-[16px] font-bold text-white disabled:opacity-50";
 
-// --- 거래 상세(PostDetailView) 하단 — FB 마켓플레이스형 통일 (모바일·태블릿 동일 토큰) ---
+// --- 거래 상세(PostDetailView) 하단 — 거래 표준형 통일 (모바일·태블릿 동일 토큰) ---
 
 /**
  * CONTRACT — visual `--safe-bottom`는 최하단 섹터에서 정확히 1회만.

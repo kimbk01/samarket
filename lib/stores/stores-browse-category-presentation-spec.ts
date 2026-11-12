@@ -1,11 +1,11 @@
 /**
- * BAEMIN A-VIS CATEGORY LIST presentation authority.
+ * DELIVERY A-VIS CATEGORY LIST presentation authority.
  *
- * Source: `docs/dibay-stores-baemin-visual-ssot-a-vis.md` §4–§6.5
+ * Source: `docs/dibay-stores-delivery-visual-ssot-a-vis.md` §4–§6.5
  * NOT the disproven old CUT B (56px left thumb + 40px menu peek).
  */
 export const STORES_BROWSE_CATEGORY_PRESENTATION = {
-  authorityDoc: "docs/dibay-stores-baemin-visual-ssot-a-vis.md",
+  authorityDoc: "docs/dibay-stores-delivery-visual-ssot-a-vis.md",
   anatomy: [
     "menu_band",
     "promo_bar_optional",
@@ -18,7 +18,7 @@ export const STORES_BROWSE_CATEGORY_PRESENTATION = {
   /** 사진이 하나도 없을 때 「더보기」 단독 버튼 높이 (기존 밴드 높이 유지) */
   menuBandHeightPx: 90.7,
   /**
-   * WP5 (2026-10-29 배민형 2차수) — 4칸 고정 그리드 → 가로 스크롤 사진 줄.
+   * WP5 (2026-10-29 배달 표준형 2차수) — 4칸 고정 그리드 → 가로 스크롤 사진 줄.
    * 최대 6장 + 마지막 「더보기」 타일. 데이터 상한 `BROWSE_FEATURED_ITEMS_MAX` 와 같은 값.
    */
   menuTileVisibleCount: 6,
@@ -33,7 +33,7 @@ export const STORES_BROWSE_CATEGORY_PRESENTATION = {
   menuTileWidthPx: 93.6,
   menuTileHeightPx: 79.5,
   menuTileGapPx: 0.5,
-  /** PNG pixel estimate — not Baemin brand-locked hex/radius claim */
+  /** PNG pixel estimate — not delivery reference brand-locked hex/radius claim */
   menuTileRadiusPx: 2.9,
   promoBarHeightPx: 31.2,
   contentInsetPx: 10,

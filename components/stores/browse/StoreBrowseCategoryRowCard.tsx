@@ -17,7 +17,7 @@ import { STORES_BROWSE_CATEGORY_PRESENTATION } from "@/lib/stores/stores-browse-
 import { useRouter } from "next/navigation";
 import { memo, useCallback, useMemo } from "react";
 import { StoreBrowseFeaturedMenuSkeleton } from "@/components/stores/browse/StoreBrowseFeaturedMenuSkeleton";
-import { FB } from "@/components/stores/store-facebook-feed-tokens";
+import { FEED_UI } from "@/components/stores/store-feed-tokens";
 import type { BrowseFeaturedMenuHydrationPhase } from "@/lib/stores/use-browse-featured-items-hydration";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 import { DeliveryAdCustomerAdTag } from "@/components/stores/advertising/DeliveryAdCustomerAdTag";
@@ -424,12 +424,12 @@ function StoreBrowseCategoryRowCardInner({
               data-stores-category-identity="true"
             >
               {data.nameKo}
-              <span className={`ml-2 inline-flex items-center gap-1 align-middle text-[14px] font-bold ${FB.ratingValue}`}>
-                <span className={`text-[12.5px] ${FB.ratingStar}`} aria-hidden>
+              <span className={`ml-2 inline-flex items-center gap-1 align-middle text-[14px] font-bold ${FEED_UI.ratingValue}`}>
+                <span className={`text-[12.5px] ${FEED_UI.ratingStar}`} aria-hidden>
                   ★
                 </span>
                 {data.rating.toFixed(1)}
-                <span className={FB.ratingCount}>({reviewLabel(data.reviewCount)})</span>
+                <span className={FEED_UI.ratingCount}>({reviewLabel(data.reviewCount)})</span>
               </span>
             </h3>
             {/* WP5 — 「광고」 표시는 매장명 줄 오른쪽 끝 */}
@@ -442,7 +442,7 @@ function StoreBrowseCategoryRowCardInner({
           <StoreSampleStoreBadge isSampleStore={data.isSampleStore} className="mt-1" />
 
           <div
-            className={`mt-1 flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 overflow-hidden text-[12.5px] leading-[1.02] ${FB.metaRow}`}
+            className={`mt-1 flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 overflow-hidden text-[12.5px] leading-[1.02] ${FEED_UI.metaRow}`}
             data-stores-category-metadata="true"
           >
             {couponBadgeTitle ?
@@ -454,7 +454,7 @@ function StoreBrowseCategoryRowCardInner({
               </span>
             : null}
             {timeLabel ?
-              <span className={`inline-flex shrink-0 items-center gap-1 ${FB.metaStrong}`}>
+              <span className={`inline-flex shrink-0 items-center gap-1 ${FEED_UI.metaStrong}`}>
                 <svg className="h-3.5 w-3.5 opacity-75" viewBox="0 0 24 24" fill="none" aria-hidden>
                   <path
                     d="M12 8v5l3 2"
@@ -475,31 +475,31 @@ function StoreBrowseCategoryRowCardInner({
               </span>
             : null}
             {timeLabel && (deliveryFeeUi || showBrowseStraightPin || showPinHaversine) ?
-              <span className={FB.metaDot}>·</span>
+              <span className={FEED_UI.metaDot}>·</span>
             : null}
             {distanceOutOfRangeLabel ?
               <span className={`inline-flex shrink-0 items-center font-semibold text-sam-warning`}>
                 {distanceOutOfRangeLabel}
               </span>
             : data.deliveryAvailable && deliveryFeeUi ?
-              <span className={`inline-flex shrink-0 items-center gap-1 ${FB.metaStrong}`}>
+              <span className={`inline-flex shrink-0 items-center gap-1 ${FEED_UI.metaStrong}`}>
                 {deliveryFeeUi === t("store_free_delivery_applied") ?
-                  <span className={FB.freeDelivery}>{deliveryFeeUi}</span>
+                  <span className={FEED_UI.freeDelivery}>{deliveryFeeUi}</span>
                 : <span className="font-semibold">{deliveryFeeUi}</span>}
                 {deliveryFeeStrikePhp != null && deliveryFeeStrikePhp > 0 ?
-                  <span className={FB.strike}>{formatMoneyPhp(deliveryFeeStrikePhp)}</span>
+                  <span className={FEED_UI.strike}>{formatMoneyPhp(deliveryFeeStrikePhp)}</span>
                 : null}
               </span>
             : !data.deliveryAvailable ?
-              <span className={FB.metaStrong}>{t("store_delivery_no_short")}</span>
+              <span className={FEED_UI.metaStrong}>{t("store_delivery_no_short")}</span>
             : null}
             {(timeLabel || distanceOutOfRangeLabel || deliveryFeeUi || !data.deliveryAvailable) &&
             (showBrowseStraightPin || showPinHaversine) ?
-              <span className={FB.metaDot}>·</span>
+              <span className={FEED_UI.metaDot}>·</span>
             : null}
             {showBrowseStraightPin ?
               <span
-                className={`inline-flex shrink-0 items-center gap-0.5 ${FB.metaStrong}`}
+                className={`inline-flex shrink-0 items-center gap-0.5 ${FEED_UI.metaStrong}`}
                 title={t("store_straight_distance_title")}
               >
                 <BrowseListStraightDistancePinIcon className="shrink-0" />
@@ -530,12 +530,12 @@ function StoreBrowseCategoryRowCardInner({
               </span>
             : null}
             {(timeLabel || deliveryFeeUi || showBrowseStraightPin || showPinHaversine) && minOrderShort ?
-              <span className={FB.metaDot}>·</span>
+              <span className={FEED_UI.metaDot}>·</span>
             : null}
             {minOrderShort ?
               <span className="min-w-0 truncate font-normal">
                 {t("store_min_order_short")}{" "}
-                <span className={FB.metaStrong}>{minOrderShort}</span>
+                <span className={FEED_UI.metaStrong}>{minOrderShort}</span>
               </span>
             : null}
           </div>

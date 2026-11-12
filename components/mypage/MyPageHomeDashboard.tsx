@@ -13,7 +13,7 @@ import {
 } from "@/components/mypage/home/mypage-home-values-context";
 import { useMypageHomeSummary } from "@/hooks/use-mypage-home-summary";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
-import { MYPAGE_HOME_BODY_CLASS, MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
+import { MYPAGE_HOME_BODY_CLASS, MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-styles";
 import { MYPAGE_HOME_MENU_FLOW_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";

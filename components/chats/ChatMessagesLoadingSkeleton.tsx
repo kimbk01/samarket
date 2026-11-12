@@ -1,16 +1,16 @@
 "use client";
 
-import { IG_DM_BUBBLE_ROW_MAX, IG_DM_BUBBLE_PAD } from "@/lib/chats/instagram-dm-tokens";
+import { IG_DM_BUBBLE_ROW_MAX, IG_DM_BUBBLE_PAD } from "@/lib/chats/chat-dm-tokens";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type Props = {
-  variant?: "default" | "instagram";
+  variant?: "default" | "dm";
 };
 
 /** 메시지 GET 대기 중 — 실제 말풍선 레이아웃에 맞춘 스켈레톤(전면 문구 대신 체감 속도 개선) */
 export function ChatMessagesLoadingSkeleton({ variant = "default" }: Props) {
   const { t } = useI18n();
-  const ig = variant === "instagram";
+  const ig = variant === "dm";
   const rowMax = ig
     ? IG_DM_BUBBLE_ROW_MAX
     : "max-w-[min(82vw,20rem)] sm:max-w-[72%] md:max-w-[min(75%,34rem)]";

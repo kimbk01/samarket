@@ -56,7 +56,7 @@ type ScreenUpdate =
 
 /**
  * Android-only Play In-App Updates host — ONE full-screen update screen (Owner 2026-11-03 ·
- * 페이스북 형태) from 「업데이트」 to install: intro → Play consent → 업데이트 준비 중… →
+ * 단계형 전체 화면) from 「업데이트」 to install: intro → Play consent → 업데이트 준비 중… →
  * 다운로드 중… N% → 설치 중… (auto install while the screen is open; a call holds it).
  * 「닫기」 hides the screen while Play keeps downloading; when the download finishes the screen
  * reopens as 「업데이트 준비 완료 · 설치」 (D3: 「나중에」 = this app run). Forced update = same screen

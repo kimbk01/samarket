@@ -7,7 +7,7 @@ import {
   DIBAY_ONBOARDING_DESC_CLASS,
   DIBAY_ONBOARDING_STEP_BADGE_CLASS,
   DIBAY_ONBOARDING_TITLE_CLASS,
-} from "@/lib/ui/dibay-onboarding-starbucks-styles";
+} from "@/lib/ui/dibay-onboarding-styles";
 
 type DibayOnboardingOverlayShellProps = {
   /** Omit when the flow has no further step (consent-only signup — B6: no misleading "1/2"). */

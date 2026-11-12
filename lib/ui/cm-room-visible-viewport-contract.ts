@@ -30,7 +30,7 @@ export type CmRoomShellVisualFramePx = {
 
 /**
  * iOS only — pin `.messenger-page` to the visualViewport band while keyboard is open
- * (Telegram-style: composer sits on the keyboard). Android never uses this.
+ * (messenger-standard: composer sits on the keyboard). Android never uses this.
  * `null` → clear inline band styles (closed keyboard / non-iOS).
  */
 export type CmRoomIosMessengerPageVisualBandPx = {

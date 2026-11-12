@@ -17,7 +17,7 @@ export type DeliveryHomeHeaderAddressView = DeliveryHomeHeaderAddressState & {
 };
 
 /**
- * `/stores` 홈 헤더 — 배달/대표 주소 세부 한 줄 (배민형).
+ * `/stores` 홈 헤더 — 배달/대표 주소 세부 한 줄 (배달 표준형).
  * CONTRACT: 라벨 문구는 `resolveDeliveryHomeHeaderButtonLabel` — 이 훅은 줄 데이터만.
  */
 export function useDeliveryHomeHeaderAddress(): DeliveryHomeHeaderAddressView {

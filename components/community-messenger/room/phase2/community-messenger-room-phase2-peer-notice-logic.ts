@@ -78,7 +78,7 @@ export function resolvePeerNoticeBranch(input: {
   ) {
     return "none";
   }
-  // Telegram Contact: show Add|Block for any non-friend general 1:1 (search or inbound).
+  // reference messenger Contact: show Add|Block for any non-friend general 1:1 (search or inbound).
   // Do not surface "blocked by peer" explicitly — stranger notice helper still gates exposure.
   void input.isInboundRecipient;
   if (

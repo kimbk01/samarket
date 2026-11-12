@@ -19,7 +19,7 @@ function getServerSnapshot() {
   return false;
 }
 
-/** 768px+ — 메신저 Kakao/Telegram형 master-detail (모바일 full-page와 분리) */
+/** 768px+ — 메신저 표준형 master-detail (모바일 full-page와 분리) */
 export function useIsMessengerSplitViewport() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }

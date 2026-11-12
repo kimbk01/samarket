@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CartCouponLineView } from "@/lib/stores/store-coupon-product-view";
-import { BAEMIN_CART_SECTION_CARD_CLASS } from "@/lib/stores/store-baemin-cart-ui";
+import { CART_UI_SECTION_CARD_CLASS } from "@/lib/stores/store-cart-ui";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { DELIVERY_TOUCH_HIT_EXPAND_CLASS } from "@/lib/stores/delivery-touch-target";
 
@@ -43,7 +43,7 @@ export function StoreCartCouponApplyPanel({
   // State B: owned>0, eligible=0 — collapsed entry only (no auto-promote)
   if (applicable.length === 0) {
     return (
-      <section className={`${BAEMIN_CART_SECTION_CARD_CLASS} px-4 py-3`} data-store-cart-coupon-panel="1" data-cart-coupon-state="B">
+      <section className={`${CART_UI_SECTION_CARD_CLASS} px-4 py-3`} data-store-cart-coupon-panel="1" data-cart-coupon-state="B">
         <button
           type="button"
           className="w-full text-left text-sm font-medium text-sam-fg"
@@ -80,7 +80,7 @@ export function StoreCartCouponApplyPanel({
 
   // State C/D: eligible ≥1
   return (
-    <section className={`${BAEMIN_CART_SECTION_CARD_CLASS} px-4 py-3`} data-store-cart-coupon-panel="1" data-cart-coupon-state={applicable.length > 1 ? "D" : "C"}>
+    <section className={`${CART_UI_SECTION_CARD_CLASS} px-4 py-3`} data-store-cart-coupon-panel="1" data-cart-coupon-state={applicable.length > 1 ? "D" : "C"}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-sam-fg">{sectionTitle}</h3>
         {appliedUserCouponId ? (

@@ -12,8 +12,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
 import {
-  FeedListLayoutCarrotThumbLeft,
-  FeedListLayoutCarrotThumbRight,
+  FeedListLayoutThumbLeft,
+  FeedListLayoutThumbRight,
   FeedListLayoutPlace,
   FeedListLayoutTags,
   FeedListLayoutTextOnly,
@@ -131,8 +131,8 @@ export const CommunityCard = memo(function CommunityCard({
   }
   if (skin === "compact_media_left") {
     if (!hasThumb) return <FeedListLayoutTextOnly vm={vm} />;
-    return <FeedListLayoutCarrotThumbLeft vm={vm} priorityThumb={priorityThumb} />;
+    return <FeedListLayoutThumbLeft vm={vm} priorityThumb={priorityThumb} />;
   }
   if (!hasThumb) return <FeedListLayoutTextOnly vm={vm} />;
-  return <FeedListLayoutCarrotThumbRight vm={vm} priorityThumb={priorityThumb} />;
+  return <FeedListLayoutThumbRight vm={vm} priorityThumb={priorityThumb} />;
 }, (prev, next) => prev.isAd === next.isAd && isSameCommunityCardPost(prev.post, next.post));
