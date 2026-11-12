@@ -7,6 +7,7 @@
  * the app WebView to a foreign origin.
  */
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import { IN_APP_BROWSER_TOOLBAR_COLOR } from "@/lib/platform/in-app-browser-style";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import {
@@ -45,7 +46,7 @@ export async function openExternalUrl(url: string): Promise<boolean> {
     if (!isCapacitorNativePlatform()) return openWeb();
     try {
       const { Browser } = await import("@capacitor/browser");
-      await Browser.open({ url });
+      await Browser.open({ url, toolbarColor: IN_APP_BROWSER_TOOLBAR_COLOR });
       return true;
     } catch {
       return openWeb();

@@ -11,6 +11,7 @@ import {
   withMessengerMediaRouteDownload,
 } from "@/lib/community-messenger/media/messenger-media-ref";
 import { resolveMessengerMediaUrlForExternalUse } from "@/lib/community-messenger/media/messenger-media-external-url";
+import { IN_APP_BROWSER_TOOLBAR_COLOR } from "@/lib/platform/in-app-browser-style";
 
 const SUPABASE_STORAGE_OBJECT_PATH = /\/storage\/v1\/object\/(public|sign|authenticated)\//;
 
@@ -51,7 +52,7 @@ export function openMessengerFileInNativeShellIfNeeded(url: string): boolean {
     const target = isMessengerMediaRouteUrl(url) ? await resolveMessengerMediaUrlForExternalUse(url) : url;
     try {
       const { Browser } = await import("@capacitor/browser");
-      await Browser.open({ url: target });
+      await Browser.open({ url: target, toolbarColor: IN_APP_BROWSER_TOOLBAR_COLOR });
     } catch {
       try {
         window.open(target, "_blank", "noopener,noreferrer");

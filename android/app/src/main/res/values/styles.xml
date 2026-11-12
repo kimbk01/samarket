@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Base application theme. -->
     <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
@@ -7,6 +7,8 @@
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
+        <!-- 다크 모드 없음 (Owner 2026-11-13) — Android 강제 다크(개발자 옵션·제조사 기능) 대상에서 제외 -->
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
     </style>
 
     <!-- 다크 모드 없음 (Owner 2026-11-12) — Light 고정: isLightTheme=true → WebView prefers-color-scheme 항상 light -->
@@ -14,6 +16,8 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- 다크 모드 없음 (Owner 2026-11-13) — Android 강제 다크(개발자 옵션·제조사 기능) 대상에서 제외 -->
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
     </style>
 
 
@@ -34,6 +38,8 @@
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_os_logo</item>
         <item name="android:windowSplashScreenIconBackgroundColor">@color/dibay_os_bg</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+        <!-- 다크 모드 없음 (Owner 2026-11-13) — Android 강제 다크(개발자 옵션·제조사 기능) 대상에서 제외 -->
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
     </style>
 
     <!-- 다크 모드 없음 (Owner 2026-11-12 「통화 포함 진행」) — 통화 화면도 Light 고정 -->
