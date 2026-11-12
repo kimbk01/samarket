@@ -56,6 +56,7 @@
 | 입력 | 결과 (고정) | 근거 | 현재 DIBAY |
 |---|---|---|---|
 | ◁ 뒤로 (S1 에서) | S2 PiP + 메신저(앱) 앞으로 + S6 통화 바. 통화·카메라 유지. **Android 12+·앱 PiP 허용·연결 중: 통화 화면이 고정되기 전에 메신저를 `startActivity`(OPEN 전환, NO_USER_ACTION 없음)로 열고 PiP 는 자동 PiP** — 원인·근거 `docs/audit/call-back-app-return-root-cause-2026-11-12.md`(프로세스 단위 고정 판정 · PiP2 는 OPEN 전환만 자동 PiP). 조건 밖: PiP 요청 → 복귀 / Dock | Telegram T1·Signal 소스 | 빌드 46 실기 |
+| ◁ 뒤로 — **잠긴 채**(잠금 화면에서 수락 후 해제 전) | **잠금 화면 + 진행 중 통화 알림 카드**, PiP 없음, 통화 유지. 잠금 해제 시 메신저 + 통화 바. (Android 규칙: 잠금 중에는 PiP·다른 앱 화면을 잠금 위에 띄우지 않음 — `ActivityRecord.checkEnterPictureInPictureState` 일시정지 중 `isNotLockedOrOnKeyguard`) · 잠금 해제 뒤 ◁ 는 위 행과 같음(메신저 + PiP) | 원문 + 실기 L1~L3 (`call-back-app-return-root-cause-2026-11-12.md` §8-1) | Owner 확정 2026-11-12 |
 | ○ 홈 (S1 에서) | S2 PiP. 통화·카메라 유지 | Telegram T2(1.26초) | 같음(D3, 1.28초) — 유지 |
 | \|\|\| 최근 앱 (S1 에서) | S2 PiP + 최근 앱 목록 | Telegram T3 | **FAIL(D6)**: PiP 안 됨 — 통화 화면이 일시정지·정지만 되고 `onUserLeaveHint` 가 오지 않음(19:22:00 로그). **변경**: CONNECTED 동안 `setAutoEnterEnabled(true)`(§4-1) |
 | 제스처 홈·뒤로·최근 (Xiaomi) | 위 3줄과 같은 결과 | Android PiP 가이드 | NOT_PROVEN |
