@@ -616,7 +616,7 @@ export function moimAdminSanctionRevoke(adminId: string, sanctionId: string, rea
   );
 }
 
-// ── M6 신고 처리 (20271113300000) ──────────────────────────────────────────
+// ── M6 신고 처리 (20271113400000) ──────────────────────────────────────────
 
 /** 검토 시작 (접수 → 검토 중) — 접수가 아니면 moim_conflict */
 export function moimAdminReportReview(adminId: string, reportId: string, sb?: SupabaseServer) {
