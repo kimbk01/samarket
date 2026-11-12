@@ -136,6 +136,10 @@ async function resolveMessengerInAppBannerContent(
     cachedSnapshot = snapMod.peekRoomSnapshot(roomId, viewer);
   }
   const room = row ?? cachedSnapshot?.room ?? null;
+  /** D7: 통화 기록이 만든 안 읽은 수 증가는 배너 없음(목록 행 대체 문구 포함) — 부재중 배너는 부재중 알림 행이 근거 */
+  if (latest?.ok && Array.isArray(latest.messages) && contentMod.latestIncomingMessageIsCallStub(latest.messages, viewer)) {
+    return null;
+  }
   if (latest?.ok && Array.isArray(latest.messages) && room) {
     const content = contentMod.buildMessengerInAppBannerContent({
       room,

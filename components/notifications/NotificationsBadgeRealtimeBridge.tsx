@@ -9,6 +9,10 @@ import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
 import { applyOwnerCommerceNotificationInvalidate } from "@/lib/delivery/owner/apply-owner-commerce-notification-invalidate";
 import { pushMemberInAppNotificationBannerFromRealtimeRow } from "@/lib/notifications/in-app-banner/member-in-app-notification-banner";
+import {
+  installMissedCallBannerNativeTerminalTracker,
+  pushMessengerMissedCallBannerFromRealtimeRow,
+} from "@/lib/community-messenger/notifications/missed-call-event-banner";
 import { createResumeSignalCoalescer } from "@/lib/community-messenger/realtime/friend-request-feed-sync-policy";
 import { Capacitor } from "@capacitor/core";
 
@@ -45,6 +49,10 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
    * 백그라운드 동안 다른 기기에서 읽었거나 Realtime 이 끊긴 사이의 변경을 따라잡는다(Realtime RESYNC 와 별개).
    * 한 번의 복귀에 신호가 겹쳐 와도 1회(기존 친구 요청 피드와 같은 coalescer).
    */
+  useEffect(() => {
+    if (enabled) installMissedCallBannerNativeTerminalTracker();
+  }, [enabled]);
+
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
@@ -115,6 +123,8 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
     // 고객센터 답변은 앱 사용 중 배너 없음(접수형 문의 · Owner 2026-11-10) — 고객센터 FAB 숫자로만 알린다.
     // 앱 안 알림 배너 (Owner 시안 ④) — 주문·공지·시스템·커뮤니티·거래. 채팅·부재중은 메신저 배너.
     pushMemberInAppNotificationBannerFromRealtimeRow(row);
+    // D7: 부재중 통화 배너는 부재중 알림 행 1건이 근거(발신자 취소·시간 초과 공통) — 안 읽은 수 경로는 부재중 배너를 만들지 않는다.
+    pushMessengerMissedCallBannerFromRealtimeRow(row);
     return routeNotificationInsertSound(row);
   }, []);
 
