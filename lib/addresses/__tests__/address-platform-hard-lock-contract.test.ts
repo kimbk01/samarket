@@ -129,7 +129,7 @@ describe("ADDR-005 public region no detail leak", () => {
 describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
   it("owner list surfaces share AddressUserRowLineText + formatAddressBookLine", () => {
     const listBody = read("components/addresses/AddressListRowBody.tsx");
-    const philife = read("components/philife/PhilifeHeaderAddressMenuButton.tsx");
+    const philife = read("components/philife/PhilifeAddressManageMenuItem.tsx");
     const cart = read("components/stores/cart/StoreCartCheckoutAddressRowBody.tsx");
     expect(listBody).toContain("resolveCanonicalDisplayLines");
     expect(listBody).toContain("displayInputFromDto");
@@ -165,7 +165,7 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
     const profileSettings = read("components/mypage/profile-settings/ProfileSettingsSheet.tsx");
     const storesHome = read("components/stores/home/hub/StoresHomeHeaderChrome.tsx");
     const storesBrowse = read("components/stores/browse/StoresBrowseHeaderChrome.tsx");
-    const philife = read("components/philife/PhilifeHeaderAddressMenuButton.tsx");
+    const philife = read("components/philife/PhilifeAddressManageMenuItem.tsx");
     const myPageItem = read("components/mypage/MyPageItemScreen.tsx");
     const storeTab = read("components/mypage/tabs/StoreTab.tsx");
 
@@ -175,7 +175,7 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
       ["ProfileSettingsSheet", profileSettings],
       ["StoresHomeHeaderChrome", storesHome],
       ["StoresBrowseHeaderChrome", storesBrowse],
-      ["PhilifeHeaderAddressMenuButton", philife],
+      ["PhilifeAddressManageMenuItem (정보교환 「보는 동네」 시트 「내 주소 관리」)", philife],
       ["MyPageItemScreen", myPageItem],
       ["StoreTab", storeTab],
     ] as const) {

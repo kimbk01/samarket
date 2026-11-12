@@ -36,7 +36,7 @@ export function MoimTabHome() {
   const list = useMoimLocalList({ category });
   const categoryTrackRef = useRef<HTMLDivElement | null>(null);
   /** 2단 탭 여백 — 정보교환 2단과 같은 규칙(최대 10px, 넘치면 밀어서 봄) */
-  useFitSectionTabPadding(categoryTrackRef, [categories, language], { maxPadPx: 10 });
+  useFitSectionTabPadding(categoryTrackRef, [categories, language], { maxPadPx: 10, barInsetPx: 6 });
   const pickCategory = (next: string | null) => {
     if (next === category) return;
     triggerInteractionFeedback("light");

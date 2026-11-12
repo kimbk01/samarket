@@ -1472,7 +1472,7 @@ export function CommunityFeed({
    * 안 들어가면(주제 10개: 한국어 390px 기준 필요 512px > 칸 282px) 기본 12px 그대로 밀어서 본다.
    */
   /** 정보교환 2단 주제 칸 여백 최대 10px — 주제 사이 24→20px (Owner 「3판대로 구현」 2026-11-12, 시안 §1) */
-  useFitSectionTabPadding(topicTablistRef, [navItems, leadingNavItems, language], { maxPadPx: 10 });
+  useFitSectionTabPadding(topicTablistRef, [navItems, leadingNavItems, language], { maxPadPx: 10, barInsetPx: 6 });
   const allSortButtonRef = useRef<HTMLButtonElement | null>(null);
   const allSortMenuRef = useRef<HTMLUListElement | null>(null);
   const lastAllSortRef = useRef<CommunityAllSort>(

@@ -35,10 +35,14 @@ export function computeFitSectionTabPadPx(
 export function useFitSectionTabPadding(
   trackRef: RefObject<HTMLElement | null>,
   deps: readonly unknown[],
-  /** `maxPadPx` — 이 줄의 최대 탭 여백(기본 12px = 토큰). 정보교환 2단 = 10px (Owner 「3판대로 구현」 2026-11-12) */
-  opts: { maxPadPx?: number } = {}
+  /**
+   * `maxPadPx` — 이 줄의 최대 탭 여백(기본 12px = 토큰). `barInsetPx` — 선택 밑줄 안쪽 여백(기본 8px = 토큰).
+   * 정보교환·모임 2단 = 10px · 6px (Owner 「3판대로 구현」 2026-11-12, 설계 §2-1)
+   */
+  opts: { maxPadPx?: number; barInsetPx?: number } = {}
 ): void {
   const maxPadPx = opts.maxPadPx ?? TAB2_PAD_MAX_PX;
+  const barInsetPx = opts.barInsetPx ?? TAB2_BAR_INSET_PX;
   useLayoutEffect(() => {
     const track = trackRef.current;
     if (!track || typeof window === "undefined") return;
@@ -66,7 +70,7 @@ export function useFitSectionTabPadding(
       if (pad === lastPad) return;
       lastPad = pad;
       track.style.setProperty("--dibay-tab2-pad-x", `${pad}px`);
-      track.style.setProperty("--dibay-tab2-bar-inset", `${Math.min(TAB2_BAR_INSET_PX, pad)}px`);
+      track.style.setProperty("--dibay-tab2-bar-inset", `${Math.min(barInsetPx, pad)}px`);
     };
 
     apply();
@@ -86,5 +90,5 @@ export function useFitSectionTabPadding(
       track.style.removeProperty("--dibay-tab2-bar-inset");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deps = 탭 이름(언어) 바뀔 때 다시 붙임
-  }, [...deps, maxPadPx]);
+  }, [...deps, maxPadPx, barInsetPx]);
 }
