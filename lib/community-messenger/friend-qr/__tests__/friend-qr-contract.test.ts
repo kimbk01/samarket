@@ -263,3 +263,14 @@ describe("근본 재감사 G2~G6 (2026-11-12)", () => {
   });
 });
 
+describe("Xiaomi 실측 2026-11-12 07:4x — 스캔 칸 영상·버튼", () => {
+  it("영상은 정사각형을 꽉 채운다(전역 img/video height:auto 가 층 밖이라 h-full 을 이김) · 갤러리 버튼은 flex-none", () => {
+    for (const f of ["components/community-messenger/friend-qr/FriendQrScanPanel.tsx", "components/my/settings/PcLoginScanContent.tsx"]) {
+      expect(read(f)).toContain("absolute inset-0 !h-full w-full object-cover");
+    }
+    expect(read("components/community-messenger/friend-qr/FriendQrScanPanel.tsx")).toContain(
+      'className="dibay-overlay-btn dibay-overlay-btn--secondary w-full flex-none whitespace-nowrap"',
+    );
+  });
+});
+
