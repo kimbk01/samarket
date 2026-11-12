@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 어드민 「배달·매장 › 메뉴 관리」 (배민 미러링 · 설계 v5 A~H · v6 §8).
+ * 어드민 「배달·매장 › 메뉴 관리」 (배달 메뉴 구성 · 설계 v5 A~H · v6 §8).
  * 왼쪽 = 고객 앱과 같은 미리보기, 오른쪽 = 미리보기에서 누른 것의 편집 칸.
  * 상단 탭·아이콘(메뉴)·대표 카드·배지·매장 바로가기 줄·페이지 탭·매장 지정·업종 기본 메뉴를 여기서 추가·수정·삭제한다.
  * 업종·수수료·매장 신청은 바꾸지 않는다. 노출 매장은 메뉴 1개 이상 (마지막 메뉴 빼기·매장 남은 메뉴 삭제 거부).
@@ -25,7 +25,7 @@ import {
   DELIVERY_MENU_LINK_TARGETS,
   type DeliveryMenuAdminRow,
 } from "@/lib/stores/delivery-menus/delivery-menu-types";
-import { MIRROR_GOLD } from "@/lib/design/delivery-baemin-mirror";
+import { MIRROR_GOLD } from "@/lib/design/delivery-browse-chrome";
 import {
   DeliveryMenuPreviewPhone,
   type DeliveryMenuPreviewItem,

@@ -27,13 +27,13 @@ import { readAutoBusinessHoursConfig, resolveStoreFrontCommerceState } from "@/l
 import {
   pickCartUpsellProducts,
   resolveStoreClosingSoon,
-} from "@/lib/stores/store-menu-detail-cart-baemin-presentation";
+} from "@/lib/stores/store-menu-detail-cart-presentation";
 import { parseStoreMenusPayload } from "@/lib/stores/store-detail-split-types";
 import {
   parseStoreDetailProducts,
   type StoreDetailProductCard,
 } from "@/lib/stores/group-store-products-by-menu";
-import { StoreBaeminCartUpsellSection } from "@/components/stores/cart/baemin/StoreBaeminCartUpsellSection";
+import { StoreCartUpsellSection } from "@/components/stores/cart/sections/StoreCartUpsellSection";
 import { PH_LOCAL_09_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import {
   getLocationLabelIfValid,
@@ -72,10 +72,10 @@ import { useStorePublicSlugCacheInvalidation } from "@/lib/stores/use-store-publ
 import { StoreCartCheckoutActionBar } from "@/components/stores/cart/StoreCommerceCartCheckoutActionBar";
 import { StoreCommerceCartPageShell } from "@/components/stores/cart/StoreCommerceCartPageShell";
 import { useStoreCartBack } from "@/components/stores/cart/use-store-cart-back";
-import { StoreBaeminCartFulfillmentHint } from "@/components/stores/cart/baemin/StoreBaeminCartFulfillmentHint";
-import { StoreBaeminCartOrderSummaryCard } from "@/components/stores/cart/baemin/StoreBaeminCartOrderSummaryCard";
-import { StoreBaeminCartStoreBlock } from "@/components/stores/cart/baemin/StoreBaeminCartStoreBlock";
-import { StoreBaeminCartTopBar } from "@/components/stores/cart/baemin/StoreBaeminCartTopBar";
+import { StoreCartFulfillmentHint } from "@/components/stores/cart/sections/StoreCartFulfillmentHint";
+import { StoreCartOrderSummaryCard } from "@/components/stores/cart/sections/StoreCartOrderSummaryCard";
+import { StoreCartStoreBlock } from "@/components/stores/cart/sections/StoreCartStoreBlock";
+import { StoreCartTopBar } from "@/components/stores/cart/sections/StoreCartTopBar";
 import {
   buildStoreCheckoutOrderSummaryLabel,
   buildStoreCheckoutRequestLabel,
@@ -84,13 +84,13 @@ import { openStoreProductSheetFromCart } from "@/lib/stores/open-store-product-s
 import { DELIVERY_TOUCH_TEXT_LINK_CLASS } from "@/lib/stores/delivery-touch-target";
 import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
 import {
-  BAEMIN_CART_ADDRESS_LIST_CLASS,
-  BAEMIN_CART_ADDRESS_ROW_CLASS,
-  BAEMIN_CART_ADDRESS_ROW_SELECTED_CLASS,
-  BAEMIN_CART_CHECKOUT_INNER_CLASS,
-  BAEMIN_CART_CHECKOUT_SECTION_DIVIDER_CLASS,
-  BAEMIN_CART_SECTION_CARD_CLASS,
-} from "@/lib/stores/store-baemin-cart-ui";
+  CART_UI_ADDRESS_LIST_CLASS,
+  CART_UI_ADDRESS_ROW_CLASS,
+  CART_UI_ADDRESS_ROW_SELECTED_CLASS,
+  CART_UI_CHECKOUT_INNER_CLASS,
+  CART_UI_CHECKOUT_SECTION_DIVIDER_CLASS,
+  CART_UI_SECTION_CARD_CLASS,
+} from "@/lib/stores/store-cart-ui";
 import { fetchMeProfileDeduped, peekMeProfileCached } from "@/lib/profile/fetch-me-profile-deduped";
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 import type { ProfileRow } from "@/lib/profile/types";
@@ -2062,7 +2062,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     return (
       <StoreCommerceCartPageShell
         storeSlug={storeSlug}
-        header={<StoreBaeminCartTopBar onBack={goCartBack} />}
+        header={<StoreCartTopBar onBack={goCartBack} />}
         hydrationMeasured={cartShellHydrationReady}
       >
         <div className="px-4 py-10">
@@ -2246,7 +2246,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   return (
     <StoreCommerceCartPageShell
       storeSlug={storeSlug}
-      header={<StoreBaeminCartTopBar onBack={goCartBack} />}
+      header={<StoreCartTopBar onBack={goCartBack} />}
       hydrationMeasured={cartShellHydrationReady}
       footer={
         <StoreCartCheckoutActionBar
@@ -2284,7 +2284,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           {t("store_cart_revalidated_notice")}
         </p>
       ) : null}
-      <StoreBaeminCartStoreBlock
+      <StoreCartStoreBlock
         store={shellStore}
         lines={lines}
         busy={busy}
@@ -2299,7 +2299,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         closingSoonHHmm={closingSoon?.closeHHmm ?? null}
       />
 
-      <StoreBaeminCartUpsellSection
+      <StoreCartUpsellSection
         products={upsellProducts}
         expanded={upsellExpanded}
         onToggleExpand={() => setUpsellExpanded((v) => !v)}
@@ -2365,7 +2365,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         }}
       />
 
-      <StoreBaeminCartOrderSummaryCard
+      <StoreCartOrderSummaryCard
         subtotalPhp={subtotalPhp}
         discountAmountPhp={discountAmountPhp}
         discountPercentOverall={discountPercentOverall}
@@ -2386,10 +2386,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         freeDeliveryMet={freeDeliveryMet}
       />
 
-      <StoreBaeminCartFulfillmentHint show={showFulfillmentHint} />
+      <StoreCartFulfillmentHint show={showFulfillmentHint} />
 
       {otherBuckets.length > 0 ? (
-        <div className={`${BAEMIN_CART_SECTION_CARD_CLASS} px-4 py-3 text-[13px] text-sam-meta`}>
+        <div className={`${CART_UI_SECTION_CARD_CLASS} px-4 py-3 text-[13px] text-sam-meta`}>
           {t("store_cart_other_buckets_hint")}
         </div>
       ) : null}
@@ -2433,8 +2433,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         />
       ) : null}
 
-      <div className={BAEMIN_CART_SECTION_CARD_CLASS}>
-        <div className={BAEMIN_CART_CHECKOUT_INNER_CLASS}>
+      <div className={CART_UI_SECTION_CARD_CLASS}>
+        <div className={CART_UI_CHECKOUT_INNER_CLASS}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-3">
           <div className="min-w-0 sm:max-w-[8.5rem] sm:shrink-0">
             <p className="sam-text-body font-medium text-sam-muted">{t("store_fulfillment_mode")}</p>
@@ -2481,7 +2481,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             ) : null}
           </div>
           <div
-            className={`min-w-0 flex-1 ${BAEMIN_CART_CHECKOUT_SECTION_DIVIDER_CLASS} sm:border-t-0 sm:border-l sm:border-[var(--delivery-border-section)] sm:pt-0 sm:pl-4`}
+            className={`min-w-0 flex-1 ${CART_UI_CHECKOUT_SECTION_DIVIDER_CLASS} sm:border-t-0 sm:border-l sm:border-[var(--delivery-border-section)] sm:pt-0 sm:pl-4`}
           >
             <p className="sam-text-body font-medium text-sam-muted">
               {t("store_payment_method_required")} <span className="text-sam-danger">*</span>
@@ -2540,7 +2540,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         ) : null}
 
         <div
-          className={`${BAEMIN_CART_CHECKOUT_SECTION_DIVIDER_CLASS} ${
+          className={`${CART_UI_CHECKOUT_SECTION_DIVIDER_CLASS} ${
             needsAddressAndPhone ? "flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-4" : ""
           }`}
         >
@@ -2583,26 +2583,26 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
           {needsAddressAndPhone ? (
             <div
-              className={`min-w-0 flex-1 ${BAEMIN_CART_CHECKOUT_SECTION_DIVIDER_CLASS} sm:border-t-0 sm:border-l sm:border-[var(--delivery-border-section)] sm:pt-0 sm:pl-4`}
+              className={`min-w-0 flex-1 ${CART_UI_CHECKOUT_SECTION_DIVIDER_CLASS} sm:border-t-0 sm:border-l sm:border-[var(--delivery-border-section)] sm:pt-0 sm:pl-4`}
             >
             <p className="sam-text-body font-medium text-sam-muted">
               {t("store_label_delivery_address")} <span className="text-sam-danger">*</span>
             </p>
-            <ul className={BAEMIN_CART_ADDRESS_LIST_CLASS}>
+            <ul className={CART_UI_ADDRESS_LIST_CLASS}>
               {!checkoutContactReady ? (
-                <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-sam-surface-muted`}>
+                <li className={`${CART_UI_ADDRESS_ROW_CLASS} bg-sam-surface-muted`}>
                   <p className="sam-text-helper text-sam-muted">{t("store_delivery_address_loading")}</p>
                 </li>
               ) : null}
               {checkoutContactReady && !profileSnap && savedAddresses.length === 0 ? (
-                <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-sam-warning-soft/80`}>
+                <li className={`${CART_UI_ADDRESS_ROW_CLASS} bg-sam-warning-soft/80`}>
                   <p className="sam-text-helper leading-snug text-sam-fg">
                     {t("store_cart_login_for_saved_address")}
                   </p>
                 </li>
               ) : null}
               {checkoutContactReady && legacyLsNoticeCount > 0 ? (
-                <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-[color:var(--delivery-primary-soft)]`}>
+                <li className={`${CART_UI_ADDRESS_ROW_CLASS} bg-[color:var(--delivery-primary-soft)]`}>
                   <p className="sam-text-helper leading-snug text-[color:var(--delivery-text-main)]">
                     {t("store_cart_legacy_address_notice", { count: legacyLsNoticeCount })}{" "}
                     <button
@@ -2621,7 +2621,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               {checkoutContactReady &&
               !savedAddresses.some((a) => a.isDefaultMaster) &&
               savedAddresses.length > 0 ? (
-                <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-sam-warning-soft/80`}>
+                <li className={`${CART_UI_ADDRESS_ROW_CLASS} bg-sam-warning-soft/80`}>
                   <p className="sam-text-helper leading-snug text-sam-fg">
                     {t("store_cart_pick_or_register_delivery")}{" "}
                     <button
@@ -2638,9 +2638,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               ) : null}
               {checkoutContactReady && profileSnap?.userAddressId ? (
                 <li
-                  className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} ${
+                  className={`${CART_UI_ADDRESS_ROW_CLASS} ${
                     selectedAddressId === PROFILE_DELIVERY_SELECTION_ID
-                      ? BAEMIN_CART_ADDRESS_ROW_SELECTED_CLASS
+                      ? CART_UI_ADDRESS_ROW_SELECTED_CLASS
                       : ""
                   }`}
                 >
@@ -2694,8 +2694,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   return (
                     <li
                       key={a.id}
-                      className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} ${
-                        isSel ? BAEMIN_CART_ADDRESS_ROW_SELECTED_CLASS : ""
+                      className={`${CART_UI_ADDRESS_ROW_CLASS} ${
+                        isSel ? CART_UI_ADDRESS_ROW_SELECTED_CLASS : ""
                       }`}
                     >
                       <div className="flex items-start gap-2">
@@ -2793,7 +2793,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             </div>
           ) : null}
         </div>
-        <div className={BAEMIN_CART_CHECKOUT_SECTION_DIVIDER_CLASS}>
+        <div className={CART_UI_CHECKOUT_SECTION_DIVIDER_CLASS}>
           <label htmlFor="cart-buyer-note" className="sam-text-body font-medium text-sam-muted">
             {t("store_request_optional_label")}
           </label>

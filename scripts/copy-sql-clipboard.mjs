@@ -8,7 +8,7 @@ import path from "node:path";
 
 const rel = process.argv[2];
 if (!rel) {
-  console.error("사용법: npm run sql:copy:dangnae   또는");
+  console.error("사용법: npm run sql:copy:<이름>   또는");
   console.error("  node scripts/copy-sql-clipboard.mjs supabase/scripts/파일.sql");
   process.exit(1);
 }

@@ -34,7 +34,7 @@ import {
   fabPanelBodyInlineStyle,
   fabSectorRootStyle,
 } from "@/lib/layout/main-bottom-nav-fab-sector-config";
-import { deliveryFabIconBoxStyle } from "@/lib/ui/delivery-fab-christmas-starbucks-palette";
+import { deliveryFabIconBoxStyle } from "@/lib/ui/delivery-fab-christmas-palette";
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 import { useApprovedOwnerStoreForFab } from "@/lib/stores/use-approved-owner-store-for-fab";
 import {

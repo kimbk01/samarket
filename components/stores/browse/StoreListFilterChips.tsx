@@ -25,11 +25,11 @@ import {
   MIRROR_SHEET_PANEL_CLASS,
   MIRROR_SHEET_ROW_CLASS,
   MIRROR_SHEET_TITLE_CLASS,
-} from "@/lib/design/delivery-baemin-mirror";
+} from "@/lib/design/delivery-browse-chrome";
 import type { StoreBrowseSortId } from "./StoreListFilters";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
-/** 배민 「기본순」 시트 5줄 — 찜 많은 순은 서버 정렬 뒤 찜 수로 다시 정렬 */
+/** 「기본순」 시트 5줄 — 찜 많은 순은 서버 정렬 뒤 찜 수로 다시 정렬 */
 export type StoreBrowseChipSortId = StoreBrowseSortId | "favorites";
 
 type SheetKind = "sort" | "method" | "rating" | "min_order" | "etc";
@@ -106,7 +106,7 @@ function Sheet({
   }, [onClose]);
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div className="delivery-ui" data-baemin-mirror-sheet="1">
+    <div className="delivery-ui" data-delivery-chrome-sheet="1">
       <button type="button" aria-label={title} className={MIRROR_SHEET_BACKDROP_CLASS} onClick={onClose} />
       <div role="dialog" aria-modal="true" aria-label={title} className={MIRROR_SHEET_PANEL_CLASS}>
         <div className={MIRROR_SHEET_TITLE_CLASS}>{title}</div>
@@ -133,7 +133,7 @@ function SheetRow({ label, selected, onClick }: { label: string; selected: boole
 }
 
 /**
- * 배민 미러링 4단 — 필터 칩 6개 + 아래에서 올라오는 시트 (설계 v6 §2).
+ * 배달 메뉴 구성 4단 — 필터 칩 6개 + 아래에서 올라오는 시트 (설계 v6 §2).
  * ⇅ 정렬 · ⚡ 할인·쿠폰(켜기) · 배달방식 ⌄ · ★ 별점 ⌄ · 최소주문금액 ⌄ · ☰ 기타(항목 있을 때만).
  */
 export function StoreListFilterChips({
@@ -196,7 +196,7 @@ export function StoreListFilterChips({
 
   return (
     <>
-      <div className={MIRROR_CHIP_ROW_CLASS} data-baemin-mirror-chips="1">
+      <div className={MIRROR_CHIP_ROW_CLASS} data-delivery-chrome-chips="1">
         <button
           type="button"
           className={`${MIRROR_CHIP_BASE_CLASS} ${MIRROR_CHIP_SORT_CLASS}`}

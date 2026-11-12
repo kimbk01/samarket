@@ -6,7 +6,7 @@ import { postImageGridLayout } from "@/lib/community/post-image-display";
 const SPAN_CLASS = { full: "col-span-6", half: "col-span-3", third: "col-span-2" } as const;
 
 /**
- * 첨부 사진(본문에 넣지 않은 사진) — 페이스북형 배치.
+ * 첨부 사진(본문에 넣지 않은 사진) — 피드형 배치.
  * 1장: 원본 비율 한 장 · 2장: 나란히 · 3장: 위 1 + 아래 2 · 4장: 2×2 · 5장 이상: 위 2 + 아래 3, 마지막 칸 「+n」.
  * 칸은 aspect-ratio 로 크기가 정해져 로드 전에도 자리가 잡힌다. 전체 사진은 뷰어에서 본다.
  */

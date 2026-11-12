@@ -21,7 +21,7 @@ describe("Cut A Trade Admin SSOT (S1–S5)", () => {
   });
 
   it("S3: product_hide → admin_decide_trade_report (moderation_state, no direct status write)", () => {
-    // 거래 Admin 설계 v2 §C-4: applyReportActionDaangn 삭제 — 숨김은 DB 함수 한 트랜잭션에서 moderation_state 로.
+    // 거래 Admin 설계 v2 §C-4: 예전 신고 처리 TS 함수 삭제 — 숨김은 DB 함수 한 트랜잭션에서 moderation_state 로.
     const src = read("lib/admin/trade-admin/trade-report-decision.ts");
     expect(src).toMatch(/case "product_hide":[\s\S]*decision: "hide"/);
     expect(src).toContain('"admin_decide_trade_report"');

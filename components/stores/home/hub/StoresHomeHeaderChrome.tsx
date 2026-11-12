@@ -12,7 +12,7 @@ import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-h
 import { buildDeliveryAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { openGlobalSearchFromHere } from "@/lib/search/global/global-search-navigation-ssot";
 import { STORES_HOME_HEADER_ACTIONS_CLUSTER } from "@/lib/design/stores-home-header-chrome";
-import { MIRROR_HEADER_SHELL_CLASS } from "@/lib/design/delivery-baemin-mirror";
+import { MIRROR_HEADER_SHELL_CLASS } from "@/lib/design/delivery-browse-chrome";
 import { useStoresHomeHeaderCollapsed } from "@/lib/stores/use-stores-home-header-collapsed";
 import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
 import { storesHomePtrStore } from "@/lib/stores/stores-home-pull-refresh-store";
@@ -29,7 +29,7 @@ function CaretDownIcon({ className }: { className?: string }) {
 
 
 /**
- * CONTRACT — `/stores` 배민 미러링 고정 헤더 (설계 v6 §3 ①②) + 당김 새로고침 힌트.
+ * CONTRACT — `/stores` 배달 메뉴 구성 고정 헤더 (설계 v6 §3 ①②) + 당김 새로고침 힌트.
  * ① 「주소 ▾」 굵게 · 헤더 아이콘 주문·카트·알림 — 스크롤하면 접힘
  *   (Owner 2026-11-13: 바로 아래 ② 검색창과 겹치므로 헤더 🔍 제거 — 2026-10-30 「공통 아이콘 그대로」를 이 화면만 대체)
  * ② 검색창 알약 43px · 테두리 1.5px 녹색 — 누르면 배달 검색
@@ -49,7 +49,7 @@ export function StoresHomeHeaderChrome() {
     [address, language],
   );
   return (
-    <header data-stores-home-header data-baemin-mirror="1" className={`${MIRROR_HEADER_SHELL_CLASS} z-[3]`}>
+    <header data-stores-home-header data-delivery-chrome="1" className={`${MIRROR_HEADER_SHELL_CLASS} z-[3]`}>
       <div className="mx-auto w-full min-w-0 max-w-[768px]">
         <div
           data-stores-home-address-row

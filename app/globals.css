@@ -1177,7 +1177,7 @@ a,
 }
 
 /**
- * 배달 소비자 스택 안 이동(홈·메뉴 페이지·매장·메뉴 상세·장바구니·상품권)은 0.12초 (배민 실측).
+ * 배달 소비자 스택 안 이동(홈·메뉴 페이지·매장·메뉴 상세·장바구니·상품권)은 0.12초 (참고 앱 실측).
  * `AppRouteTransition` 이 배달 경로끼리 이동할 때만 `data-delivery-stack-motion` + `--delivery-stack-push-ms` 를 단다.
  */
 [data-main-shell-push-surface][data-delivery-stack-motion="1"].main-shell-push-surface-enter-ltr,

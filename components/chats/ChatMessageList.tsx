@@ -16,9 +16,9 @@ import {
   IG_DM_BODY_TEXT,
   IG_DM_BUBBLE_PAD,
   IG_DM_BUBBLE_ROW_MAX,
-} from "@/lib/chats/instagram-dm-tokens";
+} from "@/lib/chats/chat-dm-tokens";
 
-/** 기본(당근형) 말풍선 행 — 본문 컬럼이 넓어질 때 `20rem` 고정 상한 완화 */
+/** 기본 말풍선 행 — 본문 컬럼이 넓어질 때 `20rem` 고정 상한 완화 */
 const DEFAULT_CHAT_BUBBLE_ROW_MAX =
   "max-w-[min(82vw,20rem)] sm:max-w-[72%] md:max-w-[min(75%,34rem)]";
 
@@ -30,14 +30,14 @@ interface ChatMessageListProps {
   currentUserId: string;
   partnerNickname?: string;
   partnerAvatar?: string;
-  /** `instagram`: 수신 회색 말풍선·발신 메신저 블루·날짜 필 형태 */
-  variant?: "default" | "instagram";
+  /** `dm`: 수신 회색 말풍선·발신 메신저 블루·날짜 필 형태 */
+  variant?: "default" | "dm";
   /**
    * 스크롤 컨테이너(ref.current 가 overflow-y 스크롤 요소). `virtualize` 와 함께 쓸 것.
    * 긴 스레드에서 블록 단위 가상화로 메인 스레드 비용을 줄인다.
    */
   scrollParentRef?: React.RefObject<HTMLElement | null>;
-  /** `scrollParentRef` 가 있을 때만 적용 — instagram variant 는 레이아웃 복잡도로 비활성 권장 */
+  /** `scrollParentRef` 가 있을 때만 적용 — dm variant 는 레이아웃 복잡도로 비활성 권장 */
   virtualize?: boolean;
 }
 
@@ -194,7 +194,7 @@ export function ChatMessageList({
   virtualize = false,
 }: ChatMessageListProps) {
   const { t } = useI18n();
-  const ig = variant === "instagram";
+  const ig = variant === "dm";
   const uniqueMessages = useMemo(() => {
     const seenIds = new Set<string>();
     return messages.filter((msg) => {

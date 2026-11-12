@@ -92,7 +92,7 @@
   --delivery-header-h: 52px;
   /** 1단 헤더 아이콘 히트 — sector-header 와 동기 */
   --delivery-header-action: 36px;
-  /** 1단 헤더 아이콘 간 flex gap — 배민·당근형 밀착 */
+  /** 1단 헤더 아이콘 간 flex gap — 표준형 밀착 */
   --delivery-header-action-gap: 8px;
   /** 제목 앵커: 헤더 행 좌측에서 20% (← 유무와 무관) */
   --delivery-header-title-anchor-from-left: 20%;
@@ -117,7 +117,7 @@
   --delivery-shadow-modal: 0 4px 20px rgba(0, 0, 0, 0.12);
   --delivery-shadow-order-confirm: 0 8px 24px rgba(0, 0, 0, 0.14);
   --delivery-shadow-sheet: 0 -4px 16px rgba(17, 24, 39, 0.1);
-/** 모달·시트 뒤 — blur 금지(흰 화면 뭉개짐). 배민식 반투명 딤만 — 1단 헤더 검색·알림: `.sam-tier1-header-overlay-backdrop` */
+/** 모달·시트 뒤 — blur 금지(흰 화면 뭉개짐). 배달 표준 반투명 딤만 — 1단 헤더 검색·알림: `.sam-tier1-header-overlay-backdrop` */
   --delivery-backdrop: var(--dibay-dim);
 
   --delivery-badge-h: 20px;
@@ -165,7 +165,7 @@
   --delivery-home-header-bg: var(--dibay-domain-surface, #f1f7ee);
   --delivery-home-search-bg: var(--dibay-card);
   --delivery-home-search-h: 36px;
-  /** PTR 힌트 — 배민형 상하 여백 */
+  /** PTR 힌트 — 배달 표준형 상하 여백 */
   --delivery-home-ptr-hint-min-h: 2.75rem;
 
   --delivery-home-category-icon: 45px;

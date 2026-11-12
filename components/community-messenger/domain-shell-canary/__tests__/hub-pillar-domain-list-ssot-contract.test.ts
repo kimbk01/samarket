@@ -39,7 +39,7 @@ describe("hub pillar preview SSOT = Domain list", () => {
 
   it("room→list: hydrated memory skips all refresh; Domain Gate skips fetch when cache present", () => {
     const home = read("lib/community-messenger/home/use-community-messenger-home-bootstrap.ts");
-    expect(home).toContain("Telegram list authority");
+    expect(home).toContain("Domain list authority");
     expect(home).not.toMatch(/await refreshRef\.current\(true\)/);
     expect(home).not.toMatch(/messenger:stale-resume-silent/);
     const tradeGate = read(

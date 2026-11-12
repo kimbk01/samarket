@@ -24,7 +24,7 @@ import {
 } from "@/lib/business/owner-store-stack";
 import {
   PROFILE_EDIT_FIELD_INCOMPLETE_CLASS,
-} from "@/lib/ui/profile-edit-starbucks-styles";
+} from "@/lib/ui/profile-edit-styles";
 
 type ReserveResp =
   | { ok: true; available: boolean; normalized: string }

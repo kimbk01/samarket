@@ -4,7 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useId, useState } from "react";
 import type { ReportTargetType } from "@/lib/types/report";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { submitReportDaangn } from "@/lib/reports/submitReportDaangn";
+import { submitReport } from "@/lib/reports/submitReport";
 import { REPORT_REASONS } from "@/lib/reports/report-utils";
 import { ReportReasonSelector } from "./ReportReasonSelector";
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
@@ -15,7 +15,7 @@ interface ReportActionSheetProps {
   targetId: string;
   targetUserId: string;
   targetLabel?: string;
-  /** 채팅방에서 신고 시 전달 (당근형: 채팅방 안에서 바로 처리) */
+  /** 채팅방에서 신고 시 전달 (채팅방 안에서 바로 처리) */
   roomId?: string | null;
   productId?: string | null;
   title?: string;
@@ -58,10 +58,10 @@ export function ReportActionSheet({
       return;
     }
 
-    const daangnTargetType =
+    const reportTargetType =
       targetType === "chat" ? "chat_room" : (targetType as "user" | "product" | "chat_message" | "feed_ad");
-    const res = await submitReportDaangn({
-      targetType: daangnTargetType,
+    const res = await submitReport({
+      targetType: reportTargetType,
       targetId,
       roomId: roomId ?? null,
       productId: productId ?? null,

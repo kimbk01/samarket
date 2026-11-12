@@ -33,7 +33,7 @@ export type ArtworkModalProps = {
 };
 
 /**
- * TYPE A — Artwork modal (Baemin reference #1).
+ * TYPE A — Artwork modal (delivery reference #1).
  * Floating X in reserved frame gutter (never clipped).
  * Transparent artwork may visually sit above a compact content card.
  * Default chrome: X only (no suppress footer).

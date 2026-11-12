@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveMessengerTimelineRowPaddingTopClass } from "@/lib/community-messenger/room/messenger-room-timeline-row-spacing";
 
 describe("resolveMessengerTimelineRowPaddingTopClass", () => {
-  it("keeps call_stub stack tight and reduces gap before text (Telegram service row)", () => {
+  it("keeps call_stub stack tight and reduces gap before text (reference messenger service row)", () => {
     const stub = { messageType: "call_stub", createdAt: "2026-01-01T00:00:00.000Z", isMine: true };
     const text = { messageType: "text", createdAt: "2026-01-01T00:01:00.000Z", isMine: true };
     expect(

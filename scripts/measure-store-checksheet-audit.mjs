@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Delivery/store checksheet §3 — 3-run audit (배민급 체크시트 증거).
+ * Delivery/store checksheet §3 — 3-run audit (배달 앱 수준 체크시트 증거).
  *
  * Usage:
  *   PLAYWRIGHT_NO_WEBSERVER=1 PLAYWRIGHT_BASE_URL=http://localhost:3000 \

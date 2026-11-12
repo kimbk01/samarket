@@ -14,7 +14,7 @@ import { openStoreProductSheet, useStoreProductSheetUIStore } from "@/lib/stores
 import { showStoreDetailToast, useStoreDetailToastUIStore } from "@/lib/stores/store-detail-toast-ui-store";
 import { BUYER_ORDER_SLIDE_OVERLAY_Z_CLASS } from "@/lib/stores/buyer-order-slide-panel-layout";
 import { OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
-import { BAEMIN_CART_TYPE } from "@/lib/stores/store-baemin-cart-ui";
+import { CART_UI_TYPE } from "@/lib/stores/store-cart-ui";
 import { DELIVERY_TOUCH_HIT_EXPAND_CLASS } from "@/lib/stores/delivery-touch-target";
 import { storeCommerceUiMessages } from "@/lib/i18n/catalog/store-commerce-ui";
 
@@ -132,11 +132,11 @@ describe("S2-13 · UI-15 — 장바구니 줄 삭제는 확인 후", () => {
   });
 
   /**
-   * WP8 (Owner 승인 배민형 3차수 2026-10-30) — 의도 변경: 장바구니 페이지 최소 수량 🗑 는 확인 없이 바로 삭제
-   * (`docs/audit/delivery-baemin-master-plan-2026-10-29.md` WP8). 미리보기 시트(위)는 기존 확인 유지.
+   * WP8 (Owner 승인 배달 표준형 3차수 2026-10-30) — 의도 변경: 장바구니 페이지 최소 수량 🗑 는 확인 없이 바로 삭제
+   * (`docs/audit/delivery-master-plan-2026-10-29.md` WP8). 미리보기 시트(위)는 기존 확인 유지.
    */
   it("장바구니 페이지 — 최소 수량 🗑 는 확인 없이 바로 삭제 (WP8)", () => {
-    const c = code("components/stores/cart/baemin/StoreBaeminCartLineRow.tsx");
+    const c = code("components/stores/cart/sections/StoreCartLineRow.tsx");
     expect(c).toMatch(/onClick=\{showTrash \? onRemove : onDecrease\}/);
     expect(c).not.toContain("setDeleteConfirmOpen");
     expect(code("components/stores/cart/StoreCartLineDeleteConfirmDialog.tsx")).toMatch(/confirmTone="destructive"/);
@@ -178,8 +178,8 @@ describe("UI-11 · S3-08 — 터치 영역 ≥ 44px", () => {
   });
 
   it("장바구니 스테퍼 = 44px", () => {
-    expect(BAEMIN_CART_TYPE.btnQty).toBe("h-[var(--delivery-touch-min)]");
-    expect(BAEMIN_CART_TYPE.btnQtyStep).toBe("w-[var(--delivery-touch-min)]");
+    expect(CART_UI_TYPE.btnQty).toBe("h-[var(--delivery-touch-min)]");
+    expect(CART_UI_TYPE.btnQtyStep).toBe("w-[var(--delivery-touch-min)]");
   });
 
   it("지정 지점이 터치 클래스를 쓴다", () => {

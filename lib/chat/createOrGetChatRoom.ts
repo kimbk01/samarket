@@ -53,7 +53,7 @@ export function prepareTradeChatRoom(productId: string): void {
 }
 
 /**
- * 당근형 거래 채팅: 채팅방 생성 또는 기존 방 반환
+ * 거래 채팅: 채팅방 생성 또는 기존 방 반환
  * - 동일 **상품(post id)** + 판매자 + 구매자 → 기본은 최근 `item_trade` 방 재사용(reopen)
  * - 상품이 바뀌면 다른 방(친구 관계와 무관)
  * - POST /api/trade/chat/entry/resolve 단일 계약 → 서버가 item/start + 레거시 product_chats 폴백 처리

@@ -62,7 +62,7 @@ async function sendMessageViaApi(
 }
 
 /**
- * 당근형: 채팅 메시지 전송
+ * 채팅 메시지 전송
  * - 항상 API 우선 시도 → DB 저장 보장, 판매자 화면 반영
  */
 export async function sendChatMessage(

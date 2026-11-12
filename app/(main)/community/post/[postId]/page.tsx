@@ -5,7 +5,7 @@ interface Props {
   params: Promise<{ postId: string }>;
 }
 
-/** 호환: /community/post/:id → /philife/:id (당근형 단일 경로) */
+/** 호환: /community/post/:id → /philife/:id (단일 경로) */
 export default async function CommunityLegacyPostAliasPage({ params }: Props) {
   return <CommunityLegacyPostAliasPageBody params={params} />;
 }

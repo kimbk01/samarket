@@ -13,7 +13,7 @@ import {
   MYPAGE_HOME_SEGMENT_BTN_CLASS,
   MYPAGE_HOME_SEGMENT_BTN_INACTIVE_CLASS,
   MYPAGE_HOME_SEGMENT_WRAP_CLASS,
-} from "@/lib/ui/mypage-home-starbucks-styles";
+} from "@/lib/ui/mypage-home-styles";
 
 const LANGUAGE_OPTIONS: {
   code: AppLanguageCode;

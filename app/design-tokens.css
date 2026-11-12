@@ -343,13 +343,13 @@
   --cm-room-text-muted: var(--messenger-text-secondary);
   --cm-room-divider: var(--messenger-divider);
   --cm-room-header-bg: var(--messenger-surface);
-  --cm-room-starbucks-green: #006241;
+  --cm-room-brand-green: #006241;
   /** 그룹 방 헤더 ⚙ 눌림 배경 — 기존 값 그대로 토큰화 (T-02, 신규 색 아님) */
   --cm-room-group-settings-pressed-bg: #eaf4ef;
-  --cm-room-starbucks-cream: #f1f8f4;
-  --cm-room-bubble-incoming: var(--cm-room-starbucks-cream);
+  --cm-room-brand-cream: #f1f8f4;
+  --cm-room-bubble-incoming: var(--cm-room-brand-cream);
   --cm-room-bubble-incoming-fg: #12372a;
-  --cm-room-bubble-outgoing: var(--cm-room-starbucks-green);
+  --cm-room-bubble-outgoing: var(--cm-room-brand-green);
   --cm-room-bubble-outgoing-fg: #ffffff;
   --cm-room-radius-bubble: 18px;
   --cm-room-radius-input: var(--sam-radius-sm);
@@ -380,9 +380,9 @@
   --cm-room-text: var(--delivery-dark);
   --cm-room-text-muted: var(--delivery-mocha);
   --cm-room-divider: var(--delivery-chat-chrome-border);
-  --cm-room-bubble-incoming: var(--cm-room-starbucks-cream);
+  --cm-room-bubble-incoming: var(--cm-room-brand-cream);
   --cm-room-bubble-incoming-fg: #12372a;
-  --cm-room-bubble-outgoing: var(--cm-room-starbucks-green);
+  --cm-room-bubble-outgoing: var(--cm-room-brand-green);
   --cm-room-bubble-outgoing-fg: #ffffff;
 }
 

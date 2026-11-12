@@ -10,7 +10,7 @@ import type { MessengerPrivacyListsStatus } from "@/lib/community-messenger/home
 export type MessengerPrivacyPeopleKind = "hidden" | "blocked";
 
 /**
- * 숨김친구·차단친구 목록 — 카톡 「친구 관리」 형태 단일 정의.
+ * 숨김친구·차단친구 목록 — 「친구 관리」 형태 단일 정의.
  * 사진·이름·[숨김해제]/[차단해제](확인 후 실행). 불러오는 중 / 실패(다시 시도) / 비어 있음 을 구분한다
  * (목록을 아직 모르는 상태를 "없음" 으로 보여 주지 않는다).
  * 친구 관리 시트·보관함·설정 시트가 같은 컴포넌트를 쓴다.

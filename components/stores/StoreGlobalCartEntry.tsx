@@ -6,7 +6,7 @@ import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { StoreCommerceCartPageShell } from "@/components/stores/cart/StoreCommerceCartPageShell";
 import { STORE_GLOBAL_CART_SCROLL_BODY_INNER_CLASS } from "@/lib/stores/store-cart-page-layout";
-import { StoreBaeminCartTopBar } from "@/components/stores/cart/baemin/StoreBaeminCartTopBar";
+import { StoreCartTopBar } from "@/components/stores/cart/sections/StoreCartTopBar";
 import { useStoreCartBack } from "@/components/stores/cart/use-store-cart-back";
 import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -14,7 +14,7 @@ import { sortedNonemptyCommerceBuckets } from "@/lib/stores/store-commerce-cart-
 
 /**
  * `/stores/cart` — 통합 장바구니 진입.
- * 담긴 매장이 있으면 해당 매장 카트로 replace, 없으면 배민식 빈 장바구니(하단 5탭과 동일 레일).
+ * 담긴 매장이 있으면 해당 매장 카트로 replace, 없으면 배달 표준 빈 장바구니(하단 5탭과 동일 레일).
  */
 export function StoreGlobalCartEntry() {
   const { t } = useI18n();
@@ -44,7 +44,7 @@ export function StoreGlobalCartEntry() {
     return (
       <StoreCommerceCartPageShell
         storeSlug={cartSlug || undefined}
-        header={<StoreBaeminCartTopBar onBack={goCartBack} />}
+        header={<StoreCartTopBar onBack={goCartBack} />}
         scrollInnerClassName={STORE_GLOBAL_CART_SCROLL_BODY_INNER_CLASS}
       >
         <div className="px-4 py-12 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
@@ -56,7 +56,7 @@ export function StoreGlobalCartEntry() {
     return (
       <StoreCommerceCartPageShell
         storeSlug={cartSlug}
-        header={<StoreBaeminCartTopBar onBack={goCartBack} />}
+        header={<StoreCartTopBar onBack={goCartBack} />}
         scrollInnerClassName={STORE_GLOBAL_CART_SCROLL_BODY_INNER_CLASS}
       >
         <div className="px-4 py-12 text-center sam-text-body text-sam-muted">{t("store_navigating")}</div>
@@ -66,7 +66,7 @@ export function StoreGlobalCartEntry() {
 
   return (
     <StoreCommerceCartPageShell
-      header={<StoreBaeminCartTopBar onBack={goCartBack} />}
+      header={<StoreCartTopBar onBack={goCartBack} />}
       scrollInnerClassName={STORE_GLOBAL_CART_SCROLL_BODY_INNER_CLASS}
     >
       <div className="px-4 py-10">

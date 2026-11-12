@@ -13,7 +13,7 @@ import {
   MYPAGE_HOME_ROW_CLASS,
   MYPAGE_HOME_ROW_DIVIDER_CLASS,
   MYPAGE_HOME_ROW_PRESS_CLASS,
-} from "@/lib/ui/mypage-home-starbucks-styles";
+} from "@/lib/ui/mypage-home-styles";
 
 export type MyInfoMenuTrailing = "chevron" | "value" | "badge" | "status" | "none";
 

@@ -1,5 +1,5 @@
 /**
- * S-2 H (Owner 2026-11-02) — 참가 행 기록 하한 `cleared_at`(텔레그램 「나만 대화 삭제」·카카오 나가기 후 재참가).
+ * S-2 H (Owner 2026-11-02) — 참가 행 기록 하한 `cleared_at`(「나만 대화 삭제」·나가기 후 재참가).
  * 운영 부트스트랩 RPC `get_community_messenger_room_bootstrap_snapshot` 과 같은 규칙: `created_at > cleared_at` 만 보인다.
  * null = 전체 기록. 서버의 모든 메시지 읽기 경로가 이 두 함수만 쓴다.
  */

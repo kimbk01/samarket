@@ -16,7 +16,7 @@ import { Sam } from "@/lib/ui/sam-component-classes";
 import {
   addressListRowSurfaceClass,
   resolveAddressListRowSurface,
-} from "@/lib/ui/address-list-starbucks-styles";
+} from "@/lib/ui/address-list-styles";
 
 export function AddressRowCard(props: {
   row: UserAddressDTO;
@@ -100,7 +100,7 @@ export function AddressRowCard(props: {
         </span>
       ) : null}
       <span className="block min-w-0 flex-1">
-        <AddressListRowBody row={row} approvedStoresById={approvedStoresById} badgeStyle="starbucks" />
+        <AddressListRowBody row={row} approvedStoresById={approvedStoresById} badgeStyle="brand" />
         {notice ? (
           <span className="mt-2 inline-flex items-center gap-1 rounded-ui-rect bg-sam-danger-soft px-2 py-1 sam-text-helper font-semibold text-sam-danger">
             <span aria-hidden>!</span>

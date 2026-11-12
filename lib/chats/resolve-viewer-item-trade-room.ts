@@ -13,7 +13,7 @@ export type ViewerItemTradeRoomResult = {
  * GET `/api/chat/item/room-id` 와 동일 로직 — RSC에서 선조회해 클라 왕복 1회 제거.
  * `roomId` 는 부트스트랩용 행 id(`chat_rooms` / `product_chats`), 메신저 URL 은 `messengerRoomId` 우선.
  *
- * **당근형 거래방 경계**: 친구 DM·커뮤니티 메신저와 별개(메신저 `direct_key` 가 쌍-only 가 아님).
+ * **거래방 경계**: 친구 DM·커뮤니티 메신저와 별개(메신저 `direct_key` 가 쌍-only 가 아님).
  * 동일 판매자·구매자라도 `item_id`(상품)가 다르면 다른 `item_trade` 행.
  * 동일 상품·동일 쌍은 **최근 `updated_at` 방** 하나를 반환하고 재사용한다.
  */

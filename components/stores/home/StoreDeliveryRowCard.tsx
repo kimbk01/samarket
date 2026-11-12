@@ -14,7 +14,7 @@ import { formatStoreCardOutOfRangeLabel, resolveStoreListCardBadges } from "@/li
 import { useRouter } from "next/navigation";
 import { memo, useCallback, useMemo } from "react";
 import { StoreBrowseFeaturedMenuSkeleton } from "@/components/stores/browse/StoreBrowseFeaturedMenuSkeleton";
-import { FB } from "@/components/stores/store-facebook-feed-tokens";
+import { FEED_UI } from "@/components/stores/store-feed-tokens";
 import { STORES_HOME_MENU_TILE, STORES_HOME_MENU_TILE_MORE } from "@/lib/stores/stores-home-ui";
 import type { BrowseFeaturedMenuHydrationPhase } from "@/lib/stores/use-browse-featured-items-hydration";
 import { BROWSE_FEATURED_ITEMS_PER_STORE_MAX } from "@/lib/stores/browse-featured-items-types";
@@ -331,7 +331,7 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
 }
 
 /**
- * Facebook 피드 게시물형 — 40px 아바타, 이름+메타 줄, 본문, 하단 액션 바
+ * 피드 게시물형 — 40px 아바타, 이름+메타 줄, 본문, 하단 액션 바
  */
 function StoreDeliveryRowCardInner({
   data,
@@ -621,7 +621,7 @@ function StoreDeliveryRowCardInner({
                       strokeLinejoin="round"
                     />
                   </svg>
-                  <span className={`text-[13px] font-semibold leading-none opacity-70 ${FB.ratingValue}`}>
+                  <span className={`text-[13px] font-semibold leading-none opacity-70 ${FEED_UI.ratingValue}`}>
                     {t("store_show_more")}
                   </span>
                 </div>
@@ -645,7 +645,7 @@ function StoreDeliveryRowCardInner({
                     strokeLinejoin="round"
                   />
                 </svg>
-                <span className={`text-[13px] font-semibold leading-none opacity-70 ${FB.ratingValue}`}>{t("store_show_more")}</span>
+                <span className={`text-[13px] font-semibold leading-none opacity-70 ${FEED_UI.ratingValue}`}>{t("store_show_more")}</span>
               </div>
             </button>
           )}
@@ -668,10 +668,10 @@ function StoreDeliveryRowCardInner({
             <div className="min-w-0 flex-1">
               <h3 className="delivery-store-row__title line-clamp-1 tracking-[-0.01em]">
                 {data.nameKo}
-                <span className={`ml-2 inline-flex items-center gap-1 align-middle text-[14px] font-bold ${FB.ratingValue}`}>
-                  <span className={`text-[12.5px] ${FB.ratingStar}`} aria-hidden>★</span>
+                <span className={`ml-2 inline-flex items-center gap-1 align-middle text-[14px] font-bold ${FEED_UI.ratingValue}`}>
+                  <span className={`text-[12.5px] ${FEED_UI.ratingStar}`} aria-hidden>★</span>
                   {data.rating.toFixed(1)}
-                  <span className={FB.ratingCount}>({reviewLabel(data.reviewCount)})</span>
+                  <span className={FEED_UI.ratingCount}>({reviewLabel(data.reviewCount)})</span>
                 </span>
               </h3>
               <StoreSampleStoreBadge isSampleStore={data.isSampleStore} className="mt-1" />
@@ -682,22 +682,22 @@ function StoreDeliveryRowCardInner({
                   t("store_delivery_no_short")
                 : deliveryFeeUi === t("store_free_delivery_applied") ?
                   <span className="inline-flex flex-wrap items-center gap-1.5">
-                    <span className={`text-[13px] ${FB.freeDelivery}`}>
+                    <span className={`text-[13px] ${FEED_UI.freeDelivery}`}>
                       {deliveryFeeUi}
                     </span>
                     {deliveryFeeStrikePhp != null && deliveryFeeStrikePhp > 0 ?
-                      <span className={FB.strike}>
+                      <span className={FEED_UI.strike}>
                         {formatMoneyPhp(deliveryFeeStrikePhp)}
                       </span>
                     : null}
                   </span>
                 : deliveryFeeUi ?
-                  <span className={`font-semibold ${FB.ratingValue}`}>{deliveryFeeUi}</span>
+                  <span className={`font-semibold ${FEED_UI.ratingValue}`}>{deliveryFeeUi}</span>
                 : t("store_delivery_fee_per_store")}
               </p>
-              <div className={`mt-1 flex min-w-0 items-center gap-1 overflow-hidden ${FB.metaRow}`}>
+              <div className={`mt-1 flex min-w-0 items-center gap-1 overflow-hidden ${FEED_UI.metaRow}`}>
                 {timeLabel ? (
-                  <span className={`inline-flex shrink-0 items-center gap-1 ${FB.metaStrong}`}>
+                  <span className={`inline-flex shrink-0 items-center gap-1 ${FEED_UI.metaStrong}`}>
                     <svg className="h-3.5 w-3.5 opacity-75" viewBox="0 0 24 24" fill="none" aria-hidden>
                       <path
                         d="M12 8v5l3 2"
@@ -717,10 +717,10 @@ function StoreDeliveryRowCardInner({
                     <span className="truncate">{timeLabel}</span>
                   </span>
                 ) : null}
-                {timeLabel && (showBrowseStraightPin || showPinHaversine) ? <span className={FB.metaDot}>·</span> : null}
+                {timeLabel && (showBrowseStraightPin || showPinHaversine) ? <span className={FEED_UI.metaDot}>·</span> : null}
                 {showBrowseStraightPin ? (
                   <span
-                    className={`inline-flex shrink-0 items-center gap-0.5 ${FB.metaStrong}`}
+                    className={`inline-flex shrink-0 items-center gap-0.5 ${FEED_UI.metaStrong}`}
                     title={t("store_straight_distance_title")}
                   >
                     <BrowseListStraightDistancePinIcon className="shrink-0" />
@@ -751,12 +751,12 @@ function StoreDeliveryRowCardInner({
                   </span>
                 ) : null}
                 {(timeLabel || showBrowseStraightPin || showPinHaversine) && minOrderShort ? (
-                  <span className={FB.metaDot}>·</span>
+                  <span className={FEED_UI.metaDot}>·</span>
                 ) : null}
                 {minOrderShort ? (
                   <span className="min-w-0 truncate font-normal">
                     {t("store_min_order_short")}{" "}
-                    <span className={FB.metaStrong}>{minOrderShort}</span>
+                    <span className={FEED_UI.metaStrong}>{minOrderShort}</span>
                   </span>
                 ) : null}
               </div>
@@ -772,10 +772,10 @@ function StoreDeliveryRowCardInner({
               </div>
               {paymentMethodsUi ?
                 <p
-                  className={`mt-1 ${FB.metaPayment}`}
+                  className={`mt-1 ${FEED_UI.metaPayment}`}
                   title={paymentMethodsUi}
                 >
-                  <span className={FB.metaPaymentLabel}>{t("store_label_payment")}</span> ·{" "}
+                  <span className={FEED_UI.metaPaymentLabel}>{t("store_label_payment")}</span> ·{" "}
                   {paymentMethodsUi}
                 </p>
               : null}

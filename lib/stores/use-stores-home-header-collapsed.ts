@@ -16,7 +16,7 @@ export function resolveStoresHomeHeaderCollapsed(current: boolean, scrollTop: nu
 }
 
 /**
- * 배민 미러링 — 배달 홈을 스크롤하면 주소줄만 접히고 검색창은 남는다 (2026-10-30 배민 실기).
+ * 배달 메뉴 구성 — 배달 홈을 스크롤하면 주소줄만 접히고 검색창은 남는다 (2026-10-30 참고 앱 실기).
  * 스크롤 본문 scrollTop 기준 + 히스테리시스.
  */
 export function useStoresHomeHeaderCollapsed(active: boolean): boolean {

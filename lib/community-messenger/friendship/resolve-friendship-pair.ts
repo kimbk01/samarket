@@ -1,5 +1,5 @@
 /**
- * Friendship / Contact SSOT read resolver — Telegram-style unilateral contact.
+ * Friendship / Contact SSOT read resolver — messenger-standard unilateral contact.
  * LOCK: docs/community-messenger/friend-contact-ssot-lock.md
  *
  * `resolveFriendshipPair` is the single friendship pair judgment entry.

@@ -110,7 +110,7 @@ type TradeDefaultLocationBlockProps = {
   /** Explicit TRADE_WRITE CallerContext — required for sheet/page write continuity. */
   tradeWriteRestore?: TradeWriteAddressCallerRestore | null;
   onAddressResolved?: (snapshot: TradeWriteAddressSsotSnapshot) => void;
-  karrotMeetSpotUi?: boolean;
+  meetSpotUi?: boolean;
   meetSpotLine?: string | null;
   meetSpotError?: string;
   onBeforeMeetSpotPick?: () => void | Promise<void>;
@@ -133,7 +133,7 @@ export function TradeDefaultLocationBlock({
   onBeforeNavigateToAddresses,
   tradeWriteRestore = null,
   onAddressResolved,
-  karrotMeetSpotUi = false,
+  meetSpotUi = false,
   meetSpotError,
   meetSpotHeading,
   belowMeetSpotSlot,
@@ -337,9 +337,9 @@ export function TradeDefaultLocationBlock({
     ? fixedLocationLine?.trim() || "—"
     : !ready
       ? "…"
-      : (karrotMeetSpotUi ? displayLine?.trim() : publicCityLine?.trim() || displayLine?.trim()) ||
+      : (meetSpotUi ? displayLine?.trim() : publicCityLine?.trim() || displayLine?.trim()) ||
         t("trade_write_no_rep_address");
-  const locationLabel = karrotMeetSpotUi ? heading : t("trade_write_trade_region");
+  const locationLabel = meetSpotUi ? heading : t("trade_write_trade_region");
   const errorText = error || meetSpotError || "";
 
   return (

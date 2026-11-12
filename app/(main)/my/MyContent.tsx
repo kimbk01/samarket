@@ -8,7 +8,7 @@ import { useMypageHomeModel } from "@/hooks/use-mypage-home-model";
 import { MYPAGE_MOBILE_NAV_QUERY, normalizeMyPageTab } from "@/components/mypage/mypage-nav";
 import { mapLegacyMyPageItemSlug } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
-import { MYPAGE_HOME_PAGE_BG_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
+import { MYPAGE_HOME_PAGE_BG_CLASS } from "@/lib/ui/mypage-home-styles";
 import {
   MYPAGE_INFO_HUB_SHEET_PARAM,
   MYPAGE_INFO_HUB_SHEET_VALUE,

@@ -1,7 +1,7 @@
 /**
  * 거래 글 작성 시각 표시 · NEW 판정 — 목록 카드·거래 상세가 함께 쓰는 단일 규칙 (Owner 2026-11-03 「v5대로 구현」).
  *
- * 단위 경계·반올림은 당근 웹 목록 카드와 같다(date-fns `formatDistanceToNowStrict`, roundingMethod "round"):
+ * 단위 경계·반올림은 참고 앱 웹 목록 카드와 같다(date-fns `formatDistanceToNowStrict`, roundingMethod "round"):
  * 1분 미만 = 초 · 60분 미만 = 분 · 24시간 미만 = 시간 · 30일 미만 = 일 · 12개월 미만 = 개월 · 그 뒤 = 년.
  * 날짜(「11월 3일」)로 바꾸지 않는다. 끌올 기능이 없으므로 기준 시각은 `created_at` 하나.
  */

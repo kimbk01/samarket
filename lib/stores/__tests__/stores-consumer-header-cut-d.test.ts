@@ -9,7 +9,7 @@ function read(rel: string): string {
 }
 
 describe("CUT-D stores consumer header + hub FAB", () => {
-  it("header action order — full: search · orders · cart · bell / 배민 미러링 home: bell · cart / browse: search · cart", () => {
+  it("header action order — full: search · orders · cart · bell / 배달 메뉴 구성 home: bell · cart / browse: search · cart", () => {
     const src = read("components/stores/home/hub/StoresConsumerHeaderActions.tsx");
     const homeBell = src.indexOf('data-stores-consumer-header-action="bell"');
     const search = src.indexOf('data-stores-consumer-header-action="search"');

@@ -5,7 +5,7 @@ import {
   MYPAGE_HOME_CARD_CLASS,
   MYPAGE_HOME_SECTION_HEADER_CLASS,
   MYPAGE_HOME_SECTION_LABEL_CLASS,
-} from "@/lib/ui/mypage-home-starbucks-styles";
+} from "@/lib/ui/mypage-home-styles";
 
 /**
  * Flow group surface — continuous list rhythm (not a feature-catalog card unit).

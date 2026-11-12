@@ -144,7 +144,7 @@ describe("D1~D5 글쓰기·내 매물", () => {
     const ungated = sheet.slice(sheet.indexOf('data-ui3-slot="price"'), sheet.indexOf('data-ui3-slot="item"'));
     expect(ungated).toContain('t("trade_write_sell_cta")');
     expect(ungated).toContain('t("trade_write_share_cta")');
-    expect(ungated).toContain("KARROT_PILL_ACTIVE");
+    expect(ungated).toContain("TRADE_WRITE_PILL_ACTIVE");
     expect(ungated).toContain("{!pendingFreeShare ? (");
     expect(sheet).toContain("isFreeShare: pendingFreeShare,");
     const form = src("components/write/trade/TradeWriteForm.tsx");

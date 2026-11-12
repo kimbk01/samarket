@@ -9,7 +9,7 @@ import type { MessengerSplitListScope } from "@/lib/community-messenger/messenge
 
 /**
  * 768px+ split 좌측 목록 — pathname·cm_list 로 inbox / trade / delivery 전환.
- * Telegram list authority: trade/delivery MUST use Domain canary (same as mobile),
+ * Domain list authority: trade/delivery MUST use Domain canary (same as mobile),
  * not CommunityMessengerHome pillar filter over hub bootstrap (commerce rows stripped).
  */
 function MessengerSplitListPaneBody({ scope }: { scope: MessengerSplitListScope }) {

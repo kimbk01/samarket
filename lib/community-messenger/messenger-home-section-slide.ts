@@ -3,7 +3,7 @@ import {
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
 
-/** 메신저 홈 2단 탭(친구·통화·대화·보관함) 본문 전환 — CSS animation 과 동기 (제품: Telegram ~180ms short slide+fade) */
+/** 메신저 홈 2단 탭(친구·통화·대화·보관함) 본문 전환 — CSS animation 과 동기 (제품: 참고 메신저 ~180ms short slide+fade) */
 export const MESSENGER_HOME_SECTION_ENTER_MS = 180;
 export const MESSENGER_HOME_SECTION_ENTER_EASING = "cubic-bezier(0.25, 0.1, 0.25, 1)";
 

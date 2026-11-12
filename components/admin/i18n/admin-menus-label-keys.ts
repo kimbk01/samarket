@@ -99,7 +99,7 @@ export const BOTTOM_NAV_LABEL_INACTIVE_PRESET_KEYS: Record<string, MessageKey> =
   MAIN_BOTTOM_NAV_LABEL_INACTIVE_STYLE_PRESETS,
   [
     "admin_menu_preset_label_inactive_default",
-    "admin_menu_preset_label_inactive_carrot",
+    "admin_menu_preset_label_inactive_999",
     "admin_menu_preset_label_inactive_400",
     "admin_menu_preset_label_inactive_500",
     "admin_menu_preset_label_inactive_600",

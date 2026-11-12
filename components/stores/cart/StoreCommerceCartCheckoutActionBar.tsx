@@ -46,7 +46,7 @@ function pickFooterHint(args: {
 }
 
 /**
- * 장바구니 하단 — 배민식 한 줄(결제금액 + 주문 CTA), 보조 안내는 최대 1줄.
+ * 장바구니 하단 — 배달 표준 한 줄(결제금액 + 주문 CTA), 보조 안내는 최대 1줄.
  */
 export const StoreCartCheckoutActionBar = forwardRef<HTMLElement, Props>(
   function StoreCartCheckoutActionBarInner(

@@ -48,7 +48,7 @@ import type {
   StoreOrderDashboardBuyerState,
 } from "@/components/stores/home/StoreOrderDashboardSection";
 import { STORES_HOME_SECTION_BROWSE } from "@/lib/stores/stores-home-section-browse-hrefs";
-import { FB } from "@/components/stores/store-facebook-feed-tokens";
+import { FEED_UI } from "@/components/stores/store-feed-tokens";
 import {
   STORES_HOME_BELOW_FOLD_ROOT_MARGIN,
   STORES_HOME_FEATURED_VIEWPORT_ROOT_MARGIN,
@@ -517,10 +517,10 @@ export function StoresHomeHub({
   const recruitingShown = recruiting && blockedViewerGate !== "not_service_area";
 
   const emptyFallback = (
-    <div className={`border border-dashed px-4 py-8 text-center ${FB.cardFlat} ${FB.hairline}`}>
-      <p className={FB.body}>{t("store_no_registered_stores")}</p>
+    <div className={`border border-dashed px-4 py-8 text-center ${FEED_UI.cardFlat} ${FEED_UI.hairline}`}>
+      <p className={FEED_UI.body}>{t("store_no_registered_stores")}</p>
       <div className="mt-4 flex justify-center gap-2">
-        <Link href={STORES_HOME_SECTION_BROWSE.orderNow()} prefetch={false} className={FB.secondaryBtn}>
+        <Link href={STORES_HOME_SECTION_BROWSE.orderNow()} prefetch={false} className={FEED_UI.secondaryBtn}>
           {t("store_more_food_link")}
         </Link>
       </div>
@@ -595,7 +595,7 @@ export function StoresHomeHub({
       {blockedViewerGate === "not_service_area" ? null : (
         <>
           <StoresHomeQuickCategories />
-          {/* 배민 미러링 — 상단 탭 · 아이콘 판 · 바로가기 줄 (본문과 함께 스크롤) */}
+          {/* 배달 메뉴 구성 — 상단 탭 · 아이콘 판 · 바로가기 줄 (본문과 함께 스크롤) */}
           <DeliveryHomeMenuBoard />
         </>
       )}

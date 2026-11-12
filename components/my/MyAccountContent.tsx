@@ -46,7 +46,7 @@ import {
   MYPAGE_HOME_MENU_TITLE_CLASS,
   MYPAGE_HOME_ROW_CLASS,
   MYPAGE_HOME_ROW_DIVIDER_CLASS,
-} from "@/lib/ui/mypage-home-starbucks-styles";
+} from "@/lib/ui/mypage-home-styles";
 
 type AccountAddressState = RequiredAddressResolution & { failed: boolean };
 

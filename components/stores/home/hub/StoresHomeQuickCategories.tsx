@@ -181,7 +181,7 @@ export function StoresHomeQuickCategories() {
   );
 
   /**
-   * WP3 (C1·C2) — 배민과 같이 홈 아이콘을 누르면 바로 해당 메뉴 페이지로 이동.
+   * WP3 (C1·C2) — 배달 표준과 같이 홈 아이콘을 누르면 바로 해당 메뉴 페이지로 이동.
    * 홈 안에서 2차를 펼치는 동작·기본 선택 표시는 없다 (`pickedSlug` 는 null 유지).
    */
   const handleSelectPrimary = useCallback(

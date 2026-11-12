@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * 1단계 문서 §14-5 (Owner 2026-10-25 승인, 텔레그램 기준):
+ * 1단계 문서 §14-5 (Owner 2026-10-25 승인, 메신저 표준 기준):
  * 친구 아니어도 @아이디로 대화 가능 / 상대가 내 친구 요청을 거절하거나 차단하면 대화·친구 불가.
  */
 function src(rel: string): string {

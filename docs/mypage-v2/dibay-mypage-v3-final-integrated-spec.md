@@ -52,7 +52,7 @@
 
 | 구역 | 화면 | 감사 판정 | 판정 | 핵심 작업 |
 |---|---|---|---|---|
-| 공통 | 디자인 토큰 | PARTIAL | 유지+수정 | 하드코딩 색 제거(주문 목록 28·확장 패널 38·주소·탈퇴·고객센터 18·`address-list-starbucks-styles`), 수식 클래스 3종 신규 |
+| 공통 | 디자인 토큰 | PARTIAL | 유지+수정 | 하드코딩 색 제거(주문 목록 28·확장 패널 38·주소·탈퇴·고객센터 18·`address-list-styles`), 수식 클래스 3종 신규 |
 | 공통 | 공통 부품 | NOT_IMPLEMENTED | 신규 | `components/mypage/ds/` MyScreen·MyGroup·MyRow·MyStateView·MyListPager·MyStickyCta·MyToggle·useMypageSubmitGuard·useMypageTabParam·formatMypageDate, 토스트 [되돌리기] |
 | 공통 | 진입·복귀 전환 | NOT_IMPLEMENTED | 신규 | 내정보 300ms 우→좌·역방향 (X2) |
 | 공통 | 스크롤·탭 복원 | PARTIAL | 수정·신규 | 하위 목록 복원, 홈 저장 TTL 30분 (X3 유지) |
@@ -96,7 +96,7 @@
 | 단계 | 내용 | 주요 영향 파일 | 검증 |
 |---|---|---|---|
 | R1 | 공통 부품·토큰·포맷 | 신규 `components/mypage/ds/*`, `components/mypage/MypageToastHost.tsx`(되돌리기), `lib/mypage/format-mypage-date.ts`, `app/samarket-components.css`(추가만) | 부품 렌더 테스트(스켈레톤 n행·빈·오류+재시도·더 보기 실패 재시도·변경 시만 활성·중복 제출 차단) |
-| R2 | 홈 | `MyPageHomeDashboard.tsx`, `components/mypage/home/*`, `components/mypage/myinfo/*`, `lib/mypage/mypage-home-menu-config.ts`, 신규 `app/api/me/mypage-summary/route.ts` + `lib/mypage/mypage-summary.server.ts`, `lib/ui/mypage-home-starbucks-styles.ts`, `hooks/use-mypage-home-model.ts` | 숫자 = 목적지 화면 값 일치 테스트, 실패 시 빈 값, 홈 콜드부트 계약 테스트, `verify-mypage-root-network-contract` 복구 |
+| R2 | 홈 | `MyPageHomeDashboard.tsx`, `components/mypage/home/*`, `components/mypage/myinfo/*`, `lib/mypage/mypage-home-menu-config.ts`, 신규 `app/api/me/mypage-summary/route.ts` + `lib/mypage/mypage-summary.server.ts`, `lib/ui/mypage-home-styles.ts`, `hooks/use-mypage-home-model.ts` | 숫자 = 목적지 화면 값 일치 테스트, 실패 시 빈 값, 홈 콜드부트 계약 테스트, `verify-mypage-root-network-contract` 복구 |
 | R3 | 전환·복원 | `components/route-transition/route-transition-enter-kind.ts`·`route-transition-config.ts`·`AppRouteTransition`, `app/globals.css`(내정보 종류 추가만), 하위 목록 복원 훅 | 경로쌍별 전환 종류 단위 테스트(내정보 300ms, 타 도메인 기존 종류 불변 스냅샷) |
 | R4 | S01–S19 | `components/mypage/profile-settings/*`, `components/my/edit/*`, `components/my/MyAccountContent.tsx`, `components/mypage/required/*`, `components/mypage/profile/PhoneVerificationBox.tsx`, `components/addresses/*`, `components/my/settings/*`, `components/account/AccountDeletionRequestForm.tsx`, `lib/mypage/clear-app-client-caches.ts`, `lib/platform/android-play-version-screen-cta.ts`, `MyPageItemRouteClient.tsx`, 섹션 페이지 `loadMypageServerShell` | 화면별 테스트(대표 주소 불변, 캐시 키 목록, 버전 버튼 플랫폼별, 1회 아이디 확인 시트) + 주소 HARD LOCK 계약 테스트 |
 | R5 | S20–S47 | `components/mypage/products/*`(UI-6 범위), `components/favorites/*`, `components/offers/*`, `components/mypage/reviews/*`, `components/recent-viewed/*`, `components/mypage/community-activity/*`, 커뮤니티 like/save 라우트, `lib/community-feed/list-community-posts-for-user.ts`, `components/mypage/MyStoreOrders*`, `MyStoreOrderDetailView.tsx`, 주문 시드 캐시, `app/(main)/mypage/points/**`, `components/orders/customer-commerce/*`, `app/(main)/mypage/ads/*`, 혜택 | 화면별 테스트 + 마켓 UI-6·거래 홈 불변 계약·배달 허브·주문 금액 SSOT 테스트 |
@@ -169,7 +169,7 @@
 | 시그니처(주 버튼·활성 탭 밑줄·토글 켜짐·선택 체크·행 아이콘·링크) | `--sam-primary` / `text-sam-primary` `bg-sam-primary` | `#0B421A` | `app/design-tokens.css:10,21,69` · `04-DESIGN-SYSTEM.md:20` LOCK | 유지 |
 | 행 아이콘 원형 배경 | `--sam-icon-surface` / `bg-sam-icon-surface` | `#D4E9E2` | `design-tokens.css:150` · v2.1 §3.1 | 유지 |
 | 행 눌림·선택 배경 | `--sam-pressed-surface` / `bg-sam-pressed-surface` | `#E8F3EE` | `design-tokens.css:151` | 유지 |
-| 주 버튼 위 글자 | `--sam-icon-on-primary` | 크림 `#FFFCFC` | `design-tokens.css:152` | 수정: 언어 세그먼트 활성 `text-white`(`lib/ui/mypage-home-starbucks-styles.ts:107`) → 이 토큰 |
+| 주 버튼 위 글자 | `--sam-icon-on-primary` | 크림 `#FFFCFC` | `design-tokens.css:152` | 수정: 언어 세그먼트 활성 `text-white`(`lib/ui/mypage-home-styles.ts:107`) → 이 토큰 |
 | 화면 배경 / 행 배경 | `bg-sam-app` / `bg-sam-surface` | 크림 / 흰색 | v2.1 §3.1 | 유지 |
 | 제목 / 보조 / 메타 | `text-sam-fg` / `text-sam-muted` / `text-sam-meta` | 계약 | v2.1 §3.1 | 유지 |
 | 구분선 | `border-sam-border-soft` | 계약 | 〃 | 유지 |
@@ -195,13 +195,13 @@
 |---|---|---|
 | 글꼴 | `font-sans` = `"Pretendard Variable", system-ui, …, "Noto Sans KR", "Apple SD Gothic Neo"` — 내정보 별도 글꼴 금지 | `app/globals.css:106-108`, `app/layout.tsx:101` |
 | 화면 제목 | 17/600, 헤더 52px(`--sam-header-row-height`) | `design-tokens.css:42,199` · v2.1 §3.2 |
-| 그룹 제목 | 11px bold uppercase tracking 0.08em `text-sam-muted` (현행) | `mypage-home-starbucks-styles.ts:22-23` · v2.1 §3.2 "현행" |
-| 행 제목 / 오른쪽 값 / 메타 | 15/600 / **14** `text-sam-muted` / 12 | v2.1 §3.2. 현행 값 12px(`mypage-home-starbucks-styles.ts:39-40`) → 14 로 수정 |
+| 그룹 제목 | 11px bold uppercase tracking 0.08em `text-sam-muted` (현행) | `mypage-home-styles.ts:22-23` · v2.1 §3.2 "현행" |
+| 행 제목 / 오른쪽 값 / 메타 | 15/600 / **14** `text-sam-muted` / 12 | v2.1 §3.2. 현행 값 12px(`mypage-home-styles.ts:39-40`) → 14 로 수정 |
 | 입력 글자 | ≥16px | `design-tokens.css:51` · 계약 |
 | 간격 | 화면 좌우 16(태블릿 20) · 그룹 간 8 · 행 내부 gap 12 · 섹션 제목 상16/하8 | `design-tokens.css:180-189` · v2 §7.1 |
 | 터치 | 최소 44×44(`--sam-tap-min`), 메뉴 행 52px | `design-tokens.css:241` · `04-DESIGN-SYSTEM.md` A11y |
 | 버튼 | 46px(`--sam-button-min-height`), 행 안 작은 버튼 40px | `design-tokens.css:243` |
-| 아이콘 | lucide, 행 아이콘 18px·strokeWidth 2, 36px 원(`bg-sam-icon-surface text-sam-primary`); 위험 행은 `bg-sam-danger-soft text-sam-danger`; chevron 18px `text-sam-muted/45`. **1의미 1아이콘**(D18) — 홈 아이콘 중복 0 단위 테스트 | `mypage-home-starbucks-styles.ts:63-66` · v2.1 §3.2 · v2 D18 |
+| 아이콘 | lucide, 행 아이콘 18px·strokeWidth 2, 36px 원(`bg-sam-icon-surface text-sam-primary`); 위험 행은 `bg-sam-danger-soft text-sam-danger`; chevron 18px `text-sam-muted/45`. **1의미 1아이콘**(D18) — 홈 아이콘 중복 0 단위 테스트 | `mypage-home-styles.ts:63-66` · v2.1 §3.2 · v2 D18 |
 
 **상태 규칙 (7상태 — v2.1 §3.3 그대로, 구현 위치만 고정)**
 
@@ -213,7 +213,7 @@
 | 토글 | **신규** `MyToggle` (현재 14개 파일 각자 구현 — v2.1 §3.5) | 실패 시 원위치 + 토스트 |
 | 입력 | `Sam.input` | **신규** `.sam-input--error`(빨강 테두리 + 아래 안내) |
 | 포커스 | **신규** `.sam-focus-ring` (2px `#0B421A` 바깥선, 2px 띄움) | `04-DESIGN-SYSTEM.md` "Focus visible 필수" |
-| 메뉴 행 | `MyRow`(= `MyInfoMenuItem` 확장, §1.2) | 눌림 = `active:bg-sam-pressed-surface` 즉시(현행 `mypage-home-starbucks-styles.ts:52`) |
+| 메뉴 행 | `MyRow`(= `MyInfoMenuItem` 확장, §1.2) | 눌림 = `active:bg-sam-pressed-surface` 즉시(현행 `mypage-home-styles.ts:52`) |
 | 시트 | `DibayBottomSheet` / `MypageBottomSheetShell` | K9: 내정보 280ms |
 | 확인 | `dibayConfirm` / `MobileConfirmBottomSheet` (= `DibayConfirmDialog`) | K8: 모달 200ms |
 
@@ -226,7 +226,7 @@
 | `components/mypage/MyStoreOrderExpandPanel.tsx` | 38 / 42 | 주문 |
 | `components/mypage/MyStoreOrdersView.tsx` | 28 / 29 | 주문(감사 `:164-167` 페이스북 색) — 배달 `BuyerDeliveryOrdersBody` 공용 → 배달 화면 동시 검증 |
 | `lib/mypage/customer-center-ui.ts` | 18 / — | 고객센터 |
-| `lib/ui/address-list-starbucks-styles.ts` | 14 / — | 주소(`#00704A` 등) |
+| `lib/ui/address-list-styles.ts` | 14 / — | 주소(`#00704A` 등) |
 | `components/mypage/MyStoreOrderDetailView.tsx` | 7 / 18 | 주문 상세 |
 | `components/mypage/BuyerStoreOrderCompletedReviewBlock.tsx` | 9 / 13 | |
 | `components/mypage/cs/CustomerCenterCommentsPanel.tsx` · `CustomerCenterBoardListClient.tsx` · `CustomerCenterHubClient.tsx` · `MemberCsNoteListClient.tsx` · `CustomerCenterBoardDetailClient.tsx` · `MemberCsNoteThreadClient.tsx` | 8/10 · 8/9 · 5/6 · 2/3 · 0/2 · 0/1 | |
@@ -237,7 +237,7 @@
 | `components/mypage/TradeHubSideNav.tsx:29` · `components/mypage/tabs/CommunityTab.tsx` · `StoreOrderReviewForm.tsx` · `MyStoreInquiriesView.tsx` · `MyStoreCommerceSection.tsx` · `SummaryMenu.tsx` · `sales/SalesHistoryView.tsx` · `purchases/*` · `products/MyProductActions.tsx` | 1~3 각 | |
 | `lib/mypage/store-order-receipt-image.ts` | 5 | **예외 처리**: 캔버스 이미지 생성이라 CSS 변수 직접 불가 → 한 곳 상수 + `getComputedStyle(document.documentElement)` 로 토큰 값 읽기 |
 
-- **제외(건드리지 않음)**: `components/my/settings/VersionContent.tsx:47-48` `#D1D5DB/#6B7280`(Android 업데이트 HARD LOCK 색) · `lib/ui/admin-users-starbucks-styles.ts`(관리자) · `dibay-onboarding-starbucks-styles.ts`(온보딩) · `delivery-fab-christmas-starbucks-palette.ts`(배달). 감사가 지적한 탈퇴(`LeaveContent.tsx`)는 현재 grep 0 → S19 파트에서 재확인.
+- **제외(건드리지 않음)**: `components/my/settings/VersionContent.tsx:47-48` `#D1D5DB/#6B7280`(Android 업데이트 HARD LOCK 색) · `lib/ui/admin-users-starbucks-styles.ts`(관리자) · `dibay-onboarding-styles.ts`(온보딩) · `delivery-fab-christmas-palette.ts`(배달). 감사가 지적한 탈퇴(`LeaveContent.tsx`)는 현재 grep 0 → S19 파트에서 재확인.
 - 완료 판정: 위 파일 hex·`red-*`·`amber-*`·`gray-*`·`bg-white`·`[#…]` grep 0 + `npm run verify:design-system-hard-lock` 내정보 경로 0 위반.
 
 ### 1.2 공통 부품 목록 — 위치 `components/mypage/ds/` (내정보 전용, 관리자·타 도메인 import 금지)
@@ -388,7 +388,7 @@
 
 | 구간 | 규칙 | 현재 | 근거 |
 |---|---|---|---|
-| 모바일 ≤767 | 1열, 좌우 16px, 행 52px | `px-4`(`mypage-home-starbucks-styles.ts:13`) 일치 | Phase1 §3 |
+| 모바일 ≤767 | 1열, 좌우 16px, 행 52px | `px-4`(`mypage-home-styles.ts:13`) 일치 | Phase1 §3 |
 | 태블릿 768–1199 | **같은 1열**, 가운데 정렬, 본문 최대 폭 **40rem(640px)**, 행·본문 좌우 **20px** | 폭 `max-w-[42rem]…xl:max-w-[66rem]`(`lib/ui/app-content-layout.ts:12-13`), 행 패딩 `sm:px-5`(640px부터) | v2 §5 `:277`, v2.1 `:242`, Phase1 §3(2열 금지) |
 | 데스크톱 ≥1200 | 태블릿과 동일 | 〃 | Phase1 §3 |
 
@@ -468,7 +468,7 @@
   - 오른쪽 값 없음, summary API 없음 — `MyInfoHomeMenuSections.tsx:79-107`
   - 활동 2그룹 분리 — `MyPageHomeDashboard.tsx:95-96`
   - 관리자 위치 — `MyPageAdminMenuEntry.tsx` 사용 `MyPageHomeDashboard.tsx:104`
-  - 태블릿 폭 42~66rem·패딩 `sm` 기준 — `app-content-layout.ts:12-13`, `mypage-home-starbucks-styles.ts:13,52`
+  - 태블릿 폭 42~66rem·패딩 `sm` 기준 — `app-content-layout.ts:12-13`, `mypage-home-styles.ts:13,52`
   - 홈 스켈레톤 부분적 — `MypageProfileSummary.tsx:30-45`, 필수정보는 "확인 중" 글자 `MypageRequiredInfoSummary.tsx:132-171`
   - 포인트 행 "…" 글자 로딩 — `MypagePointsAssetSummary.tsx:48-49`
   - 배너 늦게 삽입 — `MypageHomeCmsBanner.tsx:21-41`
@@ -480,7 +480,7 @@
   - 단위: summary 라우트(필드별 실패 → `unavailable`, 0 ≠ 실패, 401), `mypageStackDepth`, 전환 kind 표(§1.3-6), 홈 메뉴 순서 스냅샷(9그룹 + 관리자 끝), 아이콘 중복 0, 필수정보 표시 조건 표(8조합), `useMypageTabParam`.
   - 수동: 하위→뒤로 스크롤 위치(60초 이상 체류 포함), 하단 탭 재탭, reduced-motion.
   - 검증기 2종 PASS. 요청 수: 첫 진입 ≤4 / 재진입 0 차단.
-- **영향 파일**: `components/mypage/MyPageHomeDashboard.tsx` · `components/mypage/myinfo/MyInfoHomeMenuSections.tsx` · `MyInfoMenuItem.tsx` · `MyInfoLanguageToggleRow.tsx` · `components/mypage/home/MypageRequiredInfoSummary.tsx` · `MypageProfileSummary.tsx` · `MypagePointsAssetSummary.tsx` · `MypageHomeCmsBanner.tsx` · `lib/mypage/mypage-home-menu-config.ts` · `lib/mypage/mypage-home-hub-links.ts`(판매 행 href) · `lib/mypage/mypage-home-store.ts` · `lib/mypage/mypage-home-snapshot.ts` · `lib/profile/member-account-status.ts` · `lib/mypage/mypage-hub-scroll-restore.ts` · `lib/ui/mypage-home-starbucks-styles.ts` · `lib/ui/mypage-responsive-breakpoints.ts` · `app/(main)/my/MyContent.tsx` · 신규 `app/api/me/mypage-summary/route.ts` · `lib/mypage/load-mypage-summary-server.ts` · `hooks/use-mypage-home-summary.ts` · 추출 대상(§2.2) · `lib/i18n/catalog/mypage-components.ts`(신규 키 4) · `scripts/verify-mypage-root-network-contract.cjs`.
+- **영향 파일**: `components/mypage/MyPageHomeDashboard.tsx` · `components/mypage/myinfo/MyInfoHomeMenuSections.tsx` · `MyInfoMenuItem.tsx` · `MyInfoLanguageToggleRow.tsx` · `components/mypage/home/MypageRequiredInfoSummary.tsx` · `MypageProfileSummary.tsx` · `MypagePointsAssetSummary.tsx` · `MypageHomeCmsBanner.tsx` · `lib/mypage/mypage-home-menu-config.ts` · `lib/mypage/mypage-home-hub-links.ts`(판매 행 href) · `lib/mypage/mypage-home-store.ts` · `lib/mypage/mypage-home-snapshot.ts` · `lib/profile/member-account-status.ts` · `lib/mypage/mypage-hub-scroll-restore.ts` · `lib/ui/mypage-home-styles.ts` · `lib/ui/mypage-responsive-breakpoints.ts` · `app/(main)/my/MyContent.tsx` · 신규 `app/api/me/mypage-summary/route.ts` · `lib/mypage/load-mypage-summary-server.ts` · `hooks/use-mypage-home-summary.ts` · 추출 대상(§2.2) · `lib/i18n/catalog/mypage-components.ts`(신규 키 4) · `scripts/verify-mypage-root-network-contract.cjs`.
 
 ### 2.1 판매 행 목적지
 
@@ -580,7 +580,7 @@ type MypageSummaryResponse = {
 - 경로 / 진입 메뉴: **K1 적용 — 단일 표면 = 바텀시트** `EditPublicProfileSheet`(내정보 홈 위). 진입: 홈 프로필 [프로필 수정](`components/mypage/home/MypageProfileSummary.tsx:79` `openSheet("profile-edit")`), 프로필 설정 시트 하위 행(`ProfileSettingsSheet.tsx:92`), 계정 화면·매너 배터리 화면의 "프로필 수정" 링크. 직접 URL `/mypage/section/account/profile/edit`(쿼리 `setup=1` 없음)·`/mypage/profile/edit`·`/mypage/edit` → `/mypage?edit=profile` 로 1회 이동 후 홈에서 시트 자동 열기, 열린 뒤 `router.replace("/mypage")` 로 쿼리 제거. **`?setup=1`(로그인 직후 필수정보 온보딩, `lib/auth/profile-setup-flow.ts:4-5,21-28`)은 별도 기능으로 현행 `ProfileEditForm` 페이지 유지.** ⚠ **Owner 확인 필요**: v2.1 S01 "편집 화면 1개(페이지)"와 03-NAVIGATION "sheet 280ms = profile edit (유지 여부 LOCK)" 충돌 → 계약(우선순위 2) 우선으로 시트 단일화.
 - 구조·콘텐츠 순서: 시트 제목 "프로필 수정" → 사진(96px 원, 카메라 배지) → 닉네임 입력(2~20자, 실시간 검증 문구) → 소개 입력(글자 수 `n/60`) → 동네(읽기 전용 한 줄 + "주소 관리에서 변경" 링크 → S06, v2 S01) → 하단 고정 [저장].
 - 표시(프로필·숫자·상태): 닉네임 = `profiles.nickname`(v2.1 C-11), 사진 = `avatar_url`(없으면 기본 그림), 소개 = `bio`. 동네 = 대표 주소 공개 라벨(`formatUserAddressPublic` 수준, 본인 화면이라도 한 줄 요약).
-- 컴포넌트·토큰: `DibayBottomSheet` 계열 현행 `MypageBottomSheetShell`(`DibayUsableAreaSheet` 기반) — 핸들 표시·아래로 끌어 닫기 추가(현재 `showHandle={false}`, `MypageBottomSheetShell.tsx:33`), `MyStickyCta`(시트 하단 고정, 키보드 위), 입력 오류 `.sam-input--error`(v2.1 §3.3 신설), 사진 선택 = `DibayActionSheet`, 확인 = `MobileConfirmBottomSheet`. `PROFILE_EDIT_PRIMARY_BTN_CLASS`(`lib/ui/profile-edit-starbucks-styles`) → `Sam.btn.primaryCombo`.
+- 컴포넌트·토큰: `DibayBottomSheet` 계열 현행 `MypageBottomSheetShell`(`DibayUsableAreaSheet` 기반) — 핸들 표시·아래로 끌어 닫기 추가(현재 `showHandle={false}`, `MypageBottomSheetShell.tsx:33`), `MyStickyCta`(시트 하단 고정, 키보드 위), 입력 오류 `.sam-input--error`(v2.1 §3.3 신설), 사진 선택 = `DibayActionSheet`, 확인 = `MobileConfirmBottomSheet`. `PROFILE_EDIT_PRIMARY_BTN_CLASS`(`lib/ui/profile-edit-styles`) → `Sam.btn.primaryCombo`.
 - CTA: [저장] · 시트 하단 고정 · **변경 있을 때만 활성**(닉네임·소개가 기준값과 다르고 검증 통과) · `updateMyProfile`(PATCH `/api/me/profile`, `expected` 동시성) → 서버 재조회 확인 → 토스트 "저장했어요" + 시트 닫기 + 홈 즉시 반영. 사진은 선택 즉시 업로드·저장(현행 `ProfileImageField` 방식 유지)이므로 [저장] 활성 조건에 넣지 않음.
 - 시트·모달·확인 흐름: ① 사진 탭 → 액션시트 [앨범에서 선택] · [사진 촬영] · [기본 사진으로](사용자 사진일 때만) · [취소]. 촬영 = `<input capture="user">`(네이티브 카메라 권한은 기존 `device-permission-manager` 게이트 재사용). ② 변경 있는 상태에서 닫기(X·바깥 탭·끌어 닫기·Android 뒤로) → `MobileConfirmBottomSheet` "수정한 내용을 버릴까요?" [계속 수정]/[버리기](danger). ③ 409 → 최신값 다시 채우고 안내 "다른 기기에서 바뀌었어요. 최신 내용을 불러왔어요"(v2 S01).
 - 데이터·SSOT: PATCH `/api/me/profile` → `profiles.nickname/bio`(M1b 트리거로 `display_name` 동기), 사진 POST `/api/me/profile/avatar`(D1 L1~L3 규칙, v2.1 §4). 저장 후 `applyFreshProfileEverywhere`(boot·Supabase 캐시·홈 projection 동시 갱신, `EditPublicProfileSheet.tsx:21-29`) 유지.
@@ -675,7 +675,7 @@ type MypageSummaryResponse = {
 - 경로 / 진입 메뉴: `/mypage/addresses`. 진입 = 홈 계정 그룹 [주소](오른쪽 값 = 대표 동네), S01 동네 링크, 레거시 `store:address`·`settings:address`(`mypage-section-legacy-redirect.ts:29-30`), 거래 글쓰기·배달 등 호출 컨텍스트(`member-address-caller-context`).
 - 구조·콘텐츠 순서: 헤더 우측 [추가] → 검색 진입 행("주소 검색") + [현재 위치로 찾기] → 대표 주소(뱃지) 맨 위 → 나머지(최근 사용순, `sortAddressList` `lib/addresses/user-address-service.ts:65-75` 유지).
 - 표시: 행 = 라벨(집/회사/기타/매장) · 주소 한 줄 · 상세 · 대표 뱃지. 매장 연결 행은 대표 지정 불가(현행 규칙).
-- 컴포넌트·토큰: `MyScreen`, `MyRow`(행 ⋯), `DibayActionSheet`, `MobileConfirmBottomSheet`, `SellerHubEmptyState`, `MyStateView`. 스타일 상수 `lib/ui/address-list-starbucks-styles.ts:6-38`(#00704A 등)·`rounded-[24px]/[18px]`·`bg-white`·`amber-*`(`AddressManagementClient.tsx:299-313`) → 토큰.
+- 컴포넌트·토큰: `MyScreen`, `MyRow`(행 ⋯), `DibayActionSheet`, `MobileConfirmBottomSheet`, `SellerHubEmptyState`, `MyStateView`. 스타일 상수 `lib/ui/address-list-styles.ts:6-38`(#00704A 등)·`rounded-[24px]/[18px]`·`bg-white`·`amber-*`(`AddressManagementClient.tsx:299-313`) → 토큰.
 - CTA: [추가] · 헤더 우측 · 항상 · 검색(S08). 행 ⋯ → 액션시트 [대표로 설정](대표·매장 행 제외) · [수정](S07) · [삭제](확인). 행 본문 탭 = 호출 컨텍스트가 있으면 그 주소 선택(현행 `confirmTradeRegionPick`), 없으면 수정.
 - 시트·모달·확인 흐름: 삭제 → `dibayConfirm` danger(현행 `AddressManagementClient.tsx:170`) 유지, 실패는 토스트(현재 `dibayAlert`). 대표 지정 성공 → 토스트 "대표 주소로 설정했어요".
 - 데이터·SSOT: `/api/me/addresses`(GET/POST), `/api/me/addresses/[id]`(PATCH/DELETE) → `user_addresses`. 클라 캐시 `address-list-client-cache`(`readCachedMeAddressList`) 유지, 변경 후 `commitUserAddressListAfterMutation` + `broadcastUserAddressesChanged`.
@@ -686,7 +686,7 @@ type MypageSummaryResponse = {
 - 보존 조건: `address-platform-hard-lock-contract.test.ts`(대표 뱃지 = `isDefaultMaster` `:107-110`, 대표 지정 PATCH 본문 `isDefaultMaster: true` `:454-458`, `if (row.isDefaultMaster)` `:286`), `mypage-address-flow-exit`·`member-address-caller-context` 복귀 흐름, 거래 지역 적용 핸드오프, 매장 사장님 하단탭 숨김(`pushStoreOwnerMainBottomNavSuppressed`).
 - 현재와의 차이: 빈 목록이면 아무것도 안 그림 — `list.length === 0 && !loadErr ? null`(`AddressManagementClient.tsx:350`). 오류 박스에 재시도 없음(`:299-306`). 로딩 글자(`:346-349`). 행 버튼 3개 노출(`AddressRowCard.tsx:80-127`) — ⋯ 액션시트 아님. 하드코딩 색(위 목록).
 - 완료 검증: 캡처(390·820) 0개 빈 / 1개(대표) / 4개 / ⋯ 시트 / 삭제 확인 / 오류 재시도 / 스켈레톤. 단위: 빈·오류·캐시 있음 상태 분기, 매장 행 ⋯ 에 대표 지정 없음. 수동: 거래 글쓰기에서 진입→선택→복귀, 대표 변경 후 홈 오른쪽 값 갱신.
-- 영향 파일: `components/addresses/AddressManagementClient.tsx`, `AddressRowCard.tsx`, `AddressListRowBody.tsx`, `lib/ui/address-list-starbucks-styles.ts`, `lib/addresses/__tests__/address-platform-hard-lock-contract.test.ts`(소스 문자열 검사 갱신 필요 여부 확인), i18n.
+- 영향 파일: `components/addresses/AddressManagementClient.tsx`, `AddressRowCard.tsx`, `AddressListRowBody.tsx`, `lib/ui/address-list-styles.ts`, `lib/addresses/__tests__/address-platform-hard-lock-contract.test.ts`(소스 문자열 검사 갱신 필요 여부 확인), i18n.
 
 ### S07 주소 편집 (v2 S07) — 판정: 수정  (현재 감사 판정: PARTIAL)
 - 경로 / 진입 메뉴: `/mypage/addresses/edit`(`?id=` 수정 / 없음 = 추가). 진입 = S06 [수정]·S08 결과 선택·현재 위치.
@@ -777,7 +777,7 @@ type MypageSummaryResponse = {
 - 경로 / 진입 메뉴: 홈 계정 그룹 [언어] 행 안 인라인 토글(`MyInfoLanguageToggleRow`). 레거시 `/mypage/settings/language` → `section/settings/language`(`LanguageSettingsContent`) 유지.
 - 구조·콘텐츠 순서: **K4 — 토글 유지 + 현재 값 표시.** 행 제목 "언어" + 오른쪽 2칸 세그먼트 [한국어 | English], 선택된 칸 = 현재 값(이미 `aria-checked`, `MyInfoLanguageToggleRow.tsx:47-67`). v2.1 "선택 시트"는 기능 보존표 `language | toggle | KEEP`(우선순위 2)에 밀려 적용하지 않음.
 - 표시: 현재 값 = `languagePreference ?? language`.
-- 컴포넌트·토큰: `MyRow`(kind custom) + 세그먼트. `lib/ui/mypage-home-starbucks-styles` 세그먼트 상수 → 토큰.
+- 컴포넌트·토큰: `MyRow`(kind custom) + 세그먼트. `lib/ui/mypage-home-styles` 세그먼트 상수 → 토큰.
 - CTA: 세그먼트 탭 · 즉시 적용 · `setLanguage`.
 - 시트·모달·확인 흐름: 없음.
 - 데이터·SSOT: `user_settings.preferred_language`, 실패 시 기기 값 유지(`keepLocal`, `components/i18n/AppLanguageProvider.tsx:117,194`) — 이미 구현.
@@ -788,7 +788,7 @@ type MypageSummaryResponse = {
 - 보존 조건: `reconcile-user-settings-language.test.ts`, 관리자 언어 토글 동일 동작.
 - 현재와의 차이: 기능 일치(K4 기준). 색 상수만 토큰화. 섹션 페이지 `LanguageSettingsContent.tsx:51-63` 의 `error` state 미사용(무해).
 - 완료 검증: 캡처(390·820) 홈 행 ko/en. 단위: 탭 → `setLanguage` 1회, 같은 값 재탭 0회. 수동: 앱 재시작 후 유지, 오프라인 변경 후 재접속 동기.
-- 영향 파일: `components/mypage/myinfo/MyInfoLanguageToggleRow.tsx`, `lib/ui/mypage-home-starbucks-styles.ts`(세그먼트 상수).
+- 영향 파일: `components/mypage/myinfo/MyInfoLanguageToggleRow.tsx`, `lib/ui/mypage-home-styles.ts`(세그먼트 상수).
 
 ### S13 지역/국가 (v2 별도 행 없음, C-4) — 판정: 유지  (현재 감사 판정: PASS)
 - 경로 / 진입 메뉴: `/mypage/section/settings/country`. **홈 행 숨김**(C-4, `LEGACY-IA-FEATURE-PRESERVATION.md` "읽는 기능 없는 설정 3종 … 홈 행 HIDE", 홈 config 에 행 없음 `lib/mypage/mypage-home-menu-config.ts:150-230`). 직접 URL·레거시 `settings/country` 로만 진입.

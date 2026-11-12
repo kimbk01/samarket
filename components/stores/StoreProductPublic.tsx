@@ -54,16 +54,16 @@ import {
 } from "@/lib/stores/store-fulfillment-pref";
 import { markStoreDetailMenuTabsLanding } from "@/lib/dibay/store-detail-nav-intent";
 import { returnFromProductDetailToStore } from "@/lib/stores/return-from-product-detail-to-store";
-import { pickStoreProductMenuSeed } from "@/lib/stores/store-menu-detail-cart-baemin-presentation";
-import { StoreProductDetailEntrySkeleton } from "@/components/stores/product-detail/baemin/StoreProductDetailEntrySkeleton";
+import { pickStoreProductMenuSeed } from "@/lib/stores/store-menu-detail-cart-presentation";
+import { StoreProductDetailEntrySkeleton } from "@/components/stores/product-detail/view/StoreProductDetailEntrySkeleton";
 import { showStoreDetailToast } from "@/lib/stores/store-detail-toast-ui-store";
 import {
   dibayPerfOnCartbarUpdated,
   dibayPerfRecordAddToCartClick,
   dibayPerfRecordCartBlockedByOtherStore,
 } from "@/lib/dibay/delivery-flow-perf";
-import { StoreProductDetailPageChrome } from "@/components/stores/product-detail/baemin/StoreProductDetailPageChrome";
-import { StoreBaeminProductDetailView } from "@/components/stores/product-detail/baemin/StoreBaeminProductDetailView";
+import { StoreProductDetailPageChrome } from "@/components/stores/product-detail/view/StoreProductDetailPageChrome";
+import { StoreProductDetailView } from "@/components/stores/product-detail/view/StoreProductDetailView";
 
 type PublicStore = {
   id: string;
@@ -79,7 +79,7 @@ type PublicStore = {
   review_count?: number | null;
 };
 
-/** WP7 — 담기 버튼 안 스피너를 보여 주는 시간(배민 녹화 약 0.6초보다 짧게) */
+/** WP7 — 담기 버튼 안 스피너를 보여 주는 시간(참고 앱 녹화 약 0.6초보다 짧게) */
 const PRODUCT_ADD_SPINNER_MS = 350;
 
 function normalizeStoreSlugSegment(raw: string): string {
@@ -673,7 +673,7 @@ export function StoreProductPublic({
       onGalleryIndexChange={setDetailGalleryIdx}
       onShare={onShare}
     >
-      <StoreBaeminProductDetailView
+      <StoreProductDetailView
       title={product.title}
       summary={product.summary}
       badges={badges}

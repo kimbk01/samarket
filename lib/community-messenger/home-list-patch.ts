@@ -1081,7 +1081,7 @@ export function applyHomeListPatch(
   lastHomeListPatchStats = stats;
   logHomeListOwner(stats);
 
-  /** Telegram list authority: hub paint is GD+group only — drop commerce domain rows. */
+  /** Domain list authority: hub paint is GD+group only — drop commerce domain rows. */
   if (next) {
     next = stripCommerceDomainRowsFromHubLists(next);
     next = stripRememberedDeletedGroupRoomsFromBootstrap(next);

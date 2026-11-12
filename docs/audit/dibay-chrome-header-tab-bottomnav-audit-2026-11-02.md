@@ -83,7 +83,7 @@
 |---|---|---|---|
 | T-01 | 정본 2개 모순. `lib/ui/app-top-menu.ts:2-3` "최종 규격 = 밑줄" vs pill SSOT. `TradeManagementTabBar.tsx:26-55` 는 경로에 따라 **두 방식 모두 렌더** | — | P1 |
 | T-02 | 탭 변형 12종 (pill·pill 손조립·상태 pill·거래 상단 탭·pill-in-밑줄·밑줄·이중 밑줄·임의 밑줄 4종·배민 미러·배달홈·배달 아이콘 탭·배달 칩·임의 pill 4종·사각 칩·iOS 세그먼트) | 탭 감사 §2 | P1 |
-| T-03 | 선택색 비브랜드: #296044/#243832(도메인 accent), 검정 #181818(`delivery-components.css:1449-1477`), `bg-sam-fg`(Philife 알림 :1145), `bg-sam-ink`(모임·사장님 상품), 갈색 #362415(배민 미러) / 하드코딩 `#0B421A`(`StoresBrowseHeaderMenuTabs:224`, `delivery-baemin-mirror.ts:56,58`) | — | P1 |
+| T-03 | 선택색 비브랜드: #296044/#243832(도메인 accent), 검정 #181818(`delivery-components.css:1449-1477`), `bg-sam-fg`(Philife 알림 :1145), `bg-sam-ink`(모임·사장님 상품), 갈색 #362415(배민 미러) / 하드코딩 `#0B421A`(`StoresBrowseHeaderMenuTabs:224`, `delivery-browse-chrome.ts:56,58`) | — | P1 |
 | T-04 | 높이 6종: 32·36·40·44·48·52 / 글자 6종: 11·12·13→15·14·16·17 | — | P2 |
 | T-05 | 표시줄 5종: 3px 전폭 · 2px inset · 2px 글자폭 슬라이드 · 3.3px 48px 고정 · **이중 표시줄**(`CommunityMessengerGroupMemberPicker:193-213`) | — | P2 |
 | T-06 | 눌림 상태 없음: 밑줄 임의 4종·배민·배달홈·배달 아이콘·세그먼트·`Sam.chip`·사각 칩. pill `:active` 가 `aria-selected` 기준이라 aria 없는 `TradeManagementTabBar` 상태행은 **선택 탭도 눌림 축소** | `dibay-chrome-ssot.css:169-172` | P2 |
@@ -202,8 +202,8 @@
 
 | 문서 | 지위 |
 |---|---|
-| `docs/audit/delivery-baemin-master-plan-2026-10-29.md` | Owner 승인 2026-10-29 · 구현 보고 `delivery-baemin-impl-report-2026-10-30.md` (실기 PASS 항목 포함) |
-| `docs/audit/delivery-category-baemin-compare-design-2026-10-29.md` §2-4 (배민 실측) · §7 (동작 명세) | 위 계획서의 근거 문서 |
+| `docs/audit/delivery-master-plan-2026-10-29.md` | Owner 승인 2026-10-29 · 구현 보고 `delivery-baemin-impl-report-2026-10-30.md` (실기 PASS 항목 포함) |
+| `docs/audit/delivery-category-compare-design-2026-10-29.md` §2-4 (배민 실측) · §7 (동작 명세) | 위 계획서의 근거 문서 |
 | `docs/audit/delivery-menu-structure-design-2026-10-29.md` §1-3 | 같음 |
 
 계약 내용 (원문 요약 · 인용 위치):
@@ -222,7 +222,7 @@
 코드 대조 (2026-11-02, 코드 근거만 · 실기 NOT_PROVEN):
 - 하단 내비 고정: `lib/layout/use-bottom-nav-scroll-hide-behavior.ts` 가 `/stores`·`/stores/browse*` 를 숨김 제외 — **계약과 일치**.
 - 주소줄 접힘·탭 고정: `use-stores-home-header-collapsed.ts`(홈), `StoresBrowseHeaderScrollCollapse` 센티널(browse) — 구현 보고 `s2-04` PASS.
-- 확인 필요 1건 (고치지 않음 · 보고만): browse 2단 탭 선택 글자색이 코드상 `#362415`(배민 미러 `delivery-baemin-mirror.ts:40-43`)로, compare §7 원문 「`--sam-fg` 굵게」와 표기가 다르다. 이후 승인 문서에서 바뀐 것인지 **확인 못 함**.
+- 확인 필요 1건 (고치지 않음 · 보고만): browse 2단 탭 선택 글자색이 코드상 `#362415`(배민 미러 `delivery-browse-chrome.ts:40-43`)로, compare §7 원문 「`--sam-fg` 굵게」와 표기가 다르다. 이후 승인 문서에서 바뀐 것인지 **확인 못 함**.
 
 ## 7-2. 스크롤할 때 남는 메뉴 · 다시 보이는 메뉴 — 도메인별 계약표
 

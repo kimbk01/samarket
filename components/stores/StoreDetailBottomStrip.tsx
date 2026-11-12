@@ -36,7 +36,7 @@ import {
   storeSalesBlockedMessageKey,
   type StoreSalesBlockedReason,
 } from "@/lib/stores/store-detail-order-gate";
-import { resolveCartStripTotals } from "@/lib/stores/store-detail-baemin-presentation";
+import { resolveCartStripTotals } from "@/lib/stores/store-detail-menu-presentation";
 
 /**
  * 매장 메뉴 하단 스트립

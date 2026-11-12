@@ -25,7 +25,7 @@ export type AndroidPlayUpdateScreenProps = {
 };
 
 /**
- * Full-screen update screen (Owner 2026-11-03 · 페이스북 형태): one screen from 「업데이트」 to
+ * Full-screen update screen (Owner 2026-11-03 · 단계형 전체 화면): one screen from 「업데이트」 to
  * install — logo, title, then a progress bar whose label / percent changes per step.
  * Steps & transitions: `lib/platform/android-play-update-screen-model.ts` (state lives in the Host).
  * Android back = 「나중에」/「닫기」 (non-forced); swallowed on a forced update and while installing.

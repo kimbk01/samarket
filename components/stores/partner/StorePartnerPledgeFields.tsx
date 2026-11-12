@@ -11,7 +11,7 @@ import {
   DIBAY_ONBOARDING_CHECKBOX_CLASS,
   DIBAY_ONBOARDING_LABEL_CLASS,
   DIBAY_ONBOARDING_LINK_CLASS,
-} from "@/lib/ui/dibay-onboarding-starbucks-styles";
+} from "@/lib/ui/dibay-onboarding-styles";
 
 /**
  * 매장 입점·수수료 서약 — 조건 줄 + 체크 2개 (입점 신청서 · 사장님 재동의 시트 공용).

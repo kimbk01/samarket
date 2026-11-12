@@ -4,7 +4,7 @@ import {
   buildStoreMenuChipLabels,
   storeMenuActiveChipIndex,
   storeMenuChipTargetForIndex,
-} from "@/lib/stores/store-detail-baemin-presentation";
+} from "@/lib/stores/store-detail-menu-presentation";
 
 import type { ReactNode, RefObject } from "react";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";

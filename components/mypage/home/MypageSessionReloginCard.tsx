@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runAuthSessionExpiredExit } from "@/lib/auth/auth-exit-coordinator";
-import { MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
+import { MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-styles";
 
 /**
  * Profile API failed while local session still looks logged-in.

@@ -22,8 +22,8 @@ interface ImageUploaderProps {
   disabled?: boolean;
   /** 상단·라벨 여백 축소 (거래 글쓰기 등) */
   compact?: boolean;
-  /** 당근형 — 가로 균일 썸네일 + 대표 오버레이 + 편집 (일반 중고) */
-  variant?: "default" | "karrot";
+  /** — 가로 균일 썸네일 + 대표 오버레이 + 편집 (일반 중고) */
+  variant?: "default" | "trade";
   /** P-4 (I11): 사진 순서 바꾸기·대표 지정 — 거래 글쓰기만 켠다(다른 글쓰기 화면은 기존 그대로) */
   allowReorder?: boolean;
   /** 필수 칸 표시 `*` — 제목·가격·내용과 같은 표시 (거래 글쓰기 사진 필수 주제 · 실기 2026-11-04 F-D) */
@@ -47,7 +47,7 @@ export function ImageUploader({
   const resolvedLabel = label ?? t("trade_write_photos");
   const requiredMark = required ? <> <span className="text-sam-danger">*</span></> : null;
   const inputRef = useRef<HTMLInputElement>(null);
-  const isKarrot = variant === "karrot";
+  const isTradeVariant = variant === "trade";
   const [editorIndex, setEditorIndex] = useState<number | null>(null);
 
   const addFiles = useCallback(
@@ -129,7 +129,7 @@ export function ImageUploader({
 
   const editorUrl = editorIndex !== null ? value[editorIndex]?.url ?? "" : "";
 
-  if (isKarrot) {
+  if (isTradeVariant) {
     const showAdd = value.length < maxCount && !disabled;
     const cover = value[0];
 
