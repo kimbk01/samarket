@@ -130,3 +130,69 @@
 ### D6 구현 메모 (Owner 「D6 구현 승인」 2026-11-13)
 - 단일 판정 `lib/community-messenger/call-callee-missed.ts` — E1 서버 안 읽은 수(`callStubIncrementsCalleeUnread`, 통화 기록 보낸 사람 = 발신자일 때만), E2 앱 안 배너·E4 실시간 수신음(`isMissedCallStubForViewer`).
 - **E3 은 이번에 바꾸지 않음 (충돌 보고):** 목록 행 `callStatus` 가 만들 때 항상 `null`(`use-community-messenger-home-state.ts` 428줄) → 시간 초과 부재중도 원래 빨간색이 아님. 발신자 취소와 무관한 기존 결함이라 「범위 밖 = 보고만」. 수신자 기준으로 발신자 취소와 시간 초과는 지금도 같은 모습(둘 다 기본색).
+
+## 10. D6 반영 후 Owner 실기 (2026-11-13 05:29 PHT) — FAIL · 확인된 사실 / 확인 못 한 것
+조건: Production `fec8f2f61` · 수신자 Samsung RFCY40PY2CA 1.2.6 (50)(q테스트1) · 발신자 Xiaomi(zxzx11, Owner 조작) · 세션 `51a1b856` · 수신 05:29:15.63 → 발신자 취소 05:29:20.34 · 수신자 앱 프로세스 앞(통화 수신 화면이 DIBAY 메인 위를 덮은 상태)
+
+**확인된 사실 (기기 로그·DB 원문)**
+| # | 사실 | 증거 |
+|---|---|---|
+| F1 | 수신자 안 읽은 수 0→1 (D6 E1 동작) | `cm_participant_sound.decision prevUnread 0 → nextUnread 1` 05:29:20.405 |
+| F2 | **앱 안 배너 띄우기 결정 안 됨** | `participant_increase … banner_ms: null` 05:29:20.428 (wantBanner 가 false 일 때만 null) |
+| F3 | 부재중 푸시 수신, **시스템 알림 생략** | `data_type_detected type=missed_call` · `foreground_skip_system_notification type=missed_call` 05:29:21.252 |
+| F4 | 알림음만 재생 | `routeNotificationInsertSound type=missed_call` · `playOneShot.play` |
+| F5 | 배너 결정(05:29:20.405)은 통화 수신 화면이 닫히고 DIBAY 메인 창이 다시 보이게 되는 도중 | `NativeVoiceCallActivity` 닫힘 05:29:20.353 → 메인 창 `visible = true` 05:29:20.378 → 웹 복귀 신호 `ui_set reason=app_resume` 05:29:20.430 |
+| F6 | 결과: 수신자는 시스템 알림도 앱 안 배너도 받지 못함(소리만) | F2·F3·F4 |
+
+**확인 못 한 것 (NOT_PROVEN — 추측으로 원인 단정하지 않음)**
+- F2 에서 `wantBanner` 를 false 로 만든 조건이 무엇인지. 후보 4개(롤아웃 단계·`dedupeKey`·`showAppLevelBanner`(앱 보임 상태·같은 방·알림 끈 방)·채팅 알림 설정) 중 어느 것인지 기록이 없다. F5 의 시각 순서는 「결정 순간 웹 문서가 아직 숨김 상태였다」와 맞지만, 결정 순간의 보임 상태 값 자체는 로그에 없다.
+- 같은 상황(수신 화면 위에서 **시간 초과** 부재중)에서도 같은 결과인지 — 기준선 실측 없음.
+- 작업자 개입: 05:29 직전 작업자가 Samsung 을 2번 탭(뒤로·알림 아이콘)함. 그 탭이 수신 직전 화면 경로를 바꿨는지 확인 못 함 → 이 시험 결과는 작업자 조작이 섞인 결과.
+
+### 설계안 (측정 먼저 — 가정으로 고치지 않음)
+- M1 (진단 기록만, 동작 변화 0): 참가자 안 읽은 수 증가 판정 기록(`cm_participant_sound.decision`)에 `appVisibility`(결정 순간 보임 상태)·`activeRoom`·`showAppLevelBanner`·`wantBanner`·`communityChatEnabled`·`rolloutLevel` 을 추가. 배너 내용 단계에 `content`(있음/없음·사유) 기록. FCM `foreground_skip_system_notification` 에 앞 화면 판정 근거(`appVisible` 산출 값) 기록.
+- M2 실측 (작업자 기기 조작 없이 Owner 조작): ① 수신 화면 위 발신자 취소 ② 수신 화면 위 시간 초과 ③ 채팅 목록을 보고 있을 때(수신 화면 없이 — 통화 중이 아닌 상대 메시지) — 각 1회, M1 기록으로 막힌 조건 확정.
+- M3: 막힌 조건이 확정되면 그 조건별 수정안을 따로 보고 → 승인 후 1회 구현. (지금 수정안 미작성 — 원인 미확정)
+
+## 11. 원인 확정 (실측 2026-11-13 05:38~05:41 PHT) — §10 의 NOT_PROVEN 해소
+방법: 수신자 Xiaomi(8b37179f7d94, zxzx11, 1.2.6 (40), Production `fec8f2f61` 웹)에 WebView 디버거로 계측만 붙임(앱 코드 변경 0) — `visibilitychange`·10ms 간격 보임 상태·화면에 「부재중 전화」 글자 등장 기록. 발신자 Samsung(q테스트1)을 작업자가 조작. 수신자 화면: 채팅 목록(`/community-messenger`).
+
+### 조건별 판정 (배너 = `wantBanner` 네 조건)
+| 조건 | 판정 | 증거 |
+|---|---|---|
+| ① 배포 단계 | 배너 켬(2) | 운영 번들 `NEXT_PUBLIC_MESSENGER_NOTIFICATION_ROLLOUT` 미주입(`t.default.env…??""` → 2), 2 이상에서만 찍히는 `cm_participant_sound.decision` 기록 존재 |
+| ② 채팅 알림 설정 | 켜짐 | 운영 DB `user_notification_settings.community_chat_enabled = true`(수신자) |
+| ③ 방 알림 끔 | 아님 | 운영 DB `community_messenger_participants.is_muted = false`(수신자) |
+| ③' 같은 방 | 아님 | 05:29 Samsung `pathname:"/notifications"`, 05:39 Xiaomi `/community-messenger` |
+| ④ **앱 보임 상태** | **판정 순간 hidden → 배너 버림** | 아래 표 |
+
+| 경우 | 수신 화면이 덮음(hidden) | 안 읽은 수 판정 | 보임 복귀(visible) | 배너 |
+|---|---|---|---|---|
+| 발신자 취소 (세션 `307b6e3f`) | 05:38:50.657 | **05:39:06.230** | 05:39:06.334 | `banner_ms: null` · 화면 글자 없음 → **없음** |
+| 받지 않음 (시간 초과) | 05:40:12.772 | 05:40:42.795 | **05:40:41.978** | `banner_ms: 0` · 화면 글자 05:40:43.306 → **표시** |
+| (05:29 Owner 시험, Samsung) | — | 05:29:20.405 | 05:29:20.43 전후 | `banner_ms: null` |
+
+이어서 부재중 푸시: 05:39:07.120 / 05:40:43.328 / 05:29:21.252 모두 `foreground_skip_system_notification`(앱 프로세스 앞이라 시스템 알림 생략).
+
+### 원인 (확정)
+1. **「앱이 앞인가」 판정이 두 경로에서 다르다.** 기기 FCM(`DibayFirebaseMessagingService` `appVisible`)은 **앱 프로세스** 기준 — DIBAY 통화 화면만 떠 있어도 앞 → 시스템 알림 생략. 웹 배너(`resolveParticipantUnreadDeltaInAppEffects`)는 **WebView 문서 보임** 기준 — 통화 화면이 덮으면 뒤 → 배너 생략.
+2. **배너 판정이 「안 읽은 수가 바뀌는 순간」 1회뿐이다.** 발신자 취소는 서버가 취소·통화 기록·안 읽은 수를 한 번에 처리해, 안 읽은 수 변경이 **통화 화면이 닫히는 도중(WebView hidden)** 에 도착 → 버려지고, 보임 복귀 후 다시 판정하지 않는다. 시간 초과는 기기가 먼저 통화 화면을 닫고(보임 복귀) 서버 부재중 처리가 뒤따라 순서가 반대라 배너가 뜬다.
+3. 결과: 발신자 취소의 수신자는 「앱 앞 + 통화 화면 위」에서 시스템 알림·앱 안 배너 둘 다 받지 못하고 소리만.
+
+### 별도 사실 (이번 결함과 무관 — 보고만)
+- 앱 알림함(종)에는 대화방에 묶인 부재중 통화가 들어가지 않는다 — 설계상 제외(`member-notification-a-eligibility.ts` 74~75줄 「Gate 2 missed: room-bound → B only」). 시간 초과 부재중도 같음. 대화방 안 읽은 수·목록「부재중」으로만 알림.
+
+### D7 설계 — 부재중 배너의 근거를 「부재중 알림 이벤트 1건」으로 단일화
+| # | 바꾸는 곳 | 내용 |
+|---|---|---|
+| D7-1 | `components/notifications/NotificationsBadgeRealtimeBridge.tsx` `onInsertSound` (알림 행 실시간 수신 — 지금 부재중 알림음을 내는 같은 자리) | `type = missed_call` 이고 방에 묶인 알림이면 메신저 부재중 배너(`useMessengerInAppMessageBannerStore.pushOrMerge`, `kind:"missed_call"`, 제목·본문 = 알림 행 `title`·`body`, `dedupeKey = missed:<call_session_id>`)를 띄운다. 조건: 그 방을 보고 있지 않음 · 방 알림 끔 아님 · 채팅 알림 켜짐. |
+| D7-2 | 같은 자리 | 알림 행 도착 순간 WebView 가 hidden 이면 버리지 않고 **그 통화의 배너 1건을 보류** → 다음 보임 복귀 때 표시(그 사이 그 방을 열었거나 안 읽은 수가 0 이 됐으면 버림). 보류는 「네이티브가 이 통화의 종료를 웹에 넘긴 경우(`terminal_received … source=webview_inject` 의 callId 와 알림 행 `call_session_id` 일치)」에만 — 앱이 정말 뒤에 있던 경우는 시스템 알림이 이미 떴으므로 보류하지 않는다. |
+| D7-3 | `cm-participant-unread-full-effects.ts` / `messenger-in-app-banner-content.ts` | 안 읽은 수 증가 경로는 **통화 기록(call_stub) 부재중이면 배너를 만들지 않는다**(D7-1 과 중복 방지). 일반 메시지 배너는 그대로. |
+| D7-4 | 기기(Android·iOS) | 변경 없음. |
+
+근거: 알림 행(부재중 알림)은 세 시험 모두 보임 복귀 **뒤** 도착(취소 05:39:07.1·시간 초과 05:40:43.3·05:29:21) — 서버가 취소 응답 후 `after()` 로 만드는 순서. D7-2 가 순서가 뒤바뀐 경우까지 막는다.
+
+영향: 시간 초과 부재중 배너도 D7-1 경로로 옮겨진다(문구 같음, 표시가 약 0.5초 늦어짐). 일반 메시지 배너·시스템 알림·알림함·소리·네이티브 무변경.
+
+### 실기 검증 (구현 후 — 같은 계측)
+1 발신자 취소(수신자 채팅 목록) → 배너 1건 · 2 시간 초과 → 배너 1건(중복 없음) · 3 수신자가 그 대화방 안 → 배너 없음 · 4 수신자 앱 뒤 → 시스템 알림만 · 5 일반 메시지 배너 그대로.
