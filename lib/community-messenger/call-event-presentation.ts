@@ -56,11 +56,13 @@ function missedLine(lang: AppLanguageCode, callKind: CommunityMessengerCallKind)
 
 /**
  * 세션 해석 이벤트 + viewer 역할 → canonical.
- * 종료 결과는 **보는 사람과 무관하게 통화 결과 기준**(제품 결정 2026-10-16):
+ * 종료 결과는 통화 결과 기준(제품 결정 2026-10-16)이되, **발신자 취소만 보는 사람에 따라 나눈다**
+ * (Owner 2026-11-13 「발신 후 수신 전 취소 하면 발신자는 취소, 수신자는 부재중」 · 레거시 텔레그램 동일 —
+ * docs/audit/call-cancel-callee-missed-design-2026-11-13.md D1):
  * - 수신자가 받지 않음(시간 초과) → 부재중 (`incoming_missed`) — 발신자·수신자 동일
  * - 수신자가 거절 → 거절 (`remote_rejected`) — 동일
- * - 발신자가 취소 → 취소 (`outgoing_cancelled`) — 동일
- * 진행 중(발신 중/수신 중)만 역할로 구분한다.
+ * - 발신자가 취소 → 발신자 취소 (`outgoing_cancelled`) / **수신자 부재중** (`incoming_missed`)
+ * 진행 중(발신 중/수신 중)도 역할로 구분한다. 보는 사람을 모르면(null) 발신자 취소는 취소.
  */
 export function resolveCallEventCanonical(input: {
   resolvedEvent: CallSessionResolvedEvent | null;
@@ -87,7 +89,9 @@ export function resolveCallEventCanonical(input: {
   if (ev === "ended" || fs === "ended") return "connected_ended";
   if (ev === "rejected_by_callee" || fs === "rejected") return "remote_rejected";
   if (ev === "missed" || fs === "missed") return "incoming_missed";
-  if (ev === "cancelled_by_caller" || fs === "cancelled") return "outgoing_cancelled";
+  if (ev === "cancelled_by_caller" || fs === "cancelled") {
+    return role === "callee" ? "incoming_missed" : "outgoing_cancelled";
+  }
   if (fs === "failed") return "failed";
   return role === "callee" ? "incoming_missed" : "outgoing_cancelled";
 }

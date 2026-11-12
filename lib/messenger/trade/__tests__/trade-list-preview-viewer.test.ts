@@ -59,7 +59,8 @@ function vmFor(viewer: string, room: TradeRoomInput) {
 }
 
 describe("B-3 trade row-model preview — viewer-resolved + real message type", () => {
-  it("call_stub token resolves to the same outcome label for caller and callee, never raw token; hub matches row", () => {
+  // Owner 2026-11-13: 발신자 취소 = 발신자(SELLER) 「취소」 · 수신자(BUYER) 「부재중」
+  it("call_stub token resolves per viewer (caller 취소 · callee 부재중), never raw token; hub matches row", () => {
     /** 목록은 화면 언어(언어 SSOT 6번) — 이 기대값은 한국어 화면 */
     setRuntimeAppLanguage("ko");
     const room = tradeRoom({ lastMessage: CALL_TOKEN, lastMessageType: "call_stub", lastMessageIsSystem: true });
@@ -74,7 +75,7 @@ describe("B-3 trade row-model preview — viewer-resolved + real message type", 
       formatCmListPreviewTextForViewer({ lastMessage: CALL_TOKEN, lastMessageType: "call_stub" }, BUYER)
     );
     expect(seller.vm.previewText).toBe("음성 통화 · 취소");
-    expect(buyer.vm.previewText).toBe(seller.vm.previewText);
+    expect(buyer.vm.previewText).toBe("부재중 음성 통화");
     expect(seller.vm.previewIsSystemEvent).toBe(true);
     expect(seller.hub.previewText).toBe(seller.vm.previewText);
   });

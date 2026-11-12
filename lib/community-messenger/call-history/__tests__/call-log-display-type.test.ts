@@ -31,7 +31,8 @@ describe("call-log-display-type (통화 기록 viewer SSOT)", () => {
 
   it("maps outcome display types (same for caller and callee)", () => {
     expect(computeCallLogDisplayType("cancelled", null, true)).toBe("cancelled");
-    expect(computeCallLogDisplayType("cancelled", null, false)).toBe("cancelled");
+    // Owner 2026-11-13: 발신자 취소의 수신자 = 부재중
+    expect(computeCallLogDisplayType("cancelled", null, false)).toBe("missed_incoming");
     expect(computeCallLogDisplayType("missed", "missed_timeout", true)).toBe("missed_incoming");
     expect(computeCallLogDisplayType("missed", "missed_timeout", false)).toBe("missed_incoming");
     expect(computeCallLogDisplayType("rejected", null, true)).toBe("rejected");
@@ -54,7 +55,7 @@ describe("call-log-display-type (통화 기록 viewer SSOT)", () => {
     expect(badge("missed", true)).toBe("cm_call_status_missed");
     expect(badge("missed", false)).toBe("cm_call_status_missed");
     expect(badge("cancelled", true)).toBe("cm_call_status_cancelled");
-    expect(badge("cancelled", false)).toBe("cm_call_status_cancelled");
+    expect(badge("cancelled", false)).toBe("cm_call_status_missed");
     expect(badge("ended", true)).toBe("cm_call_status_outgoing_answered");
     expect(badge("ended", false)).toBe("cm_call_status_incoming_answered");
   });

@@ -32,10 +32,11 @@ function tipFor(meta: Record<string, unknown>, label: string) {
 }
 
 describe("call stub room tip — 결과 기준 리스트 문구, 발신자·수신자 동일 (F5)", () => {
-  it("발신 취소: 발신자·수신자 모두 '취소' (레거시 '취소됨' 원문도 재계산)", () => {
+  // Owner 2026-11-13: 발신자 취소 = 발신자 「취소」 · 수신자 「부재중」
+  it("발신 취소: 발신자 '취소' · 수신자 '부재중' (레거시 '취소됨' 원문도 재계산)", () => {
     const tip = tipFor(cancelledMeta, "음성 통화 · 취소됨");
     expect(formatCallStubRoomTipForViewer(tip, CALLER, "ko")).toBe("음성 통화 · 취소");
-    expect(formatCallStubRoomTipForViewer(tip, CALLEE, "ko")).toBe("음성 통화 · 취소");
+    expect(formatCallStubRoomTipForViewer(tip, CALLEE, "ko")).toBe("부재중 음성 통화");
   });
   it("거절: 발신자·수신자 모두 '거절' (레거시 '거절됨' 원문도 재계산)", () => {
     const tip = tipFor(
@@ -110,11 +111,12 @@ describe("call stub room tip — 결과 기준 리스트 문구, 발신자·수�
     } as CommunityMessengerRoomSummary;
     /** 홈 렌더는 화면 언어(언어 SSOT 6번) — 한국어 화면 */
     setRuntimeAppLanguage("ko");
-    expect(getRoomPreviewText(room, CALLEE)).toBe("음성 통화 · 취소");
+    expect(getRoomPreviewText(room, CALLEE)).toBe("부재중 음성 통화");
     expect(getRoomPreviewText(room, CALLER)).toBe("음성 통화 · 취소");
     expect(getRoomPreviewText(room, CALLER)).not.toContain("cmcall1");
     /** 영어 화면 */
     setRuntimeAppLanguage("en");
-    expect(getRoomPreviewText(room, CALLEE)).toBe("Voice call · Cancelled");
+    expect(getRoomPreviewText(room, CALLEE)).toBe("Missed voice call");
+    expect(getRoomPreviewText(room, CALLER)).toBe("Voice call · Cancelled");
   });
 });

@@ -6,7 +6,10 @@ import type {
   CommunityMessengerCallStatus,
   CommunityMessengerMessage,
 } from "@/lib/community-messenger/types";
-import { formatCallEventForViewer } from "@/lib/community-messenger/call-event-presentation";
+import {
+  formatCallEventForViewer,
+  resolveCallEventCanonical,
+} from "@/lib/community-messenger/call-event-presentation";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { resolveCanonicalTerminalReason } from "@/lib/community-messenger/call-authority/call-terminal-reason-authority";
 
@@ -199,6 +202,39 @@ export function getCallStubTimelineStatusLine(args: {
     durationSeconds: args.durationSeconds,
     lang: args.lang,
   }).resultLabel;
+}
+
+/** 타임라인 통화 말풍선 색 — 문구와 같은 판정(보는 사람 기준). 글자 비교로 정하지 않는다(언어 무관). */
+export type CallStubTimelineTone = "missed" | "rejected" | "cancelled" | "normal";
+
+export function getCallStubTimelineTone(args: {
+  resolvedEvent: CallSessionResolvedEvent | null;
+  callStatusFallback: CommunityMessengerCallStatus | string | null | undefined;
+  viewerUserId: string;
+  senderUserId: string | null | undefined;
+  initiatorUserId?: string | null;
+  recipientUserId?: string | null;
+}): CallStubTimelineTone {
+  const viewerRole = resolveViewerRoleForStub(args);
+  const inferred =
+    args.resolvedEvent ?? inferResolvedEventFromStoredCallStatus(args.callStatusFallback, viewerRole);
+  const canonical = resolveCallEventCanonical({
+    resolvedEvent: inferred,
+    callStatusFallback: args.callStatusFallback,
+    viewerRole,
+  });
+  switch (canonical) {
+    case "incoming_missed":
+    case "unanswered":
+      return "missed";
+    case "remote_rejected":
+    case "local_rejected":
+      return "rejected";
+    case "outgoing_cancelled":
+      return "cancelled";
+    default:
+      return "normal";
+  }
 }
 
 export function resolveCallStubEventFromMessageMetadata(meta: Record<string, unknown> | null | undefined): {

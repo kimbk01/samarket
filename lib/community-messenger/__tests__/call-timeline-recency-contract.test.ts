@@ -11,6 +11,7 @@ import {
   callStubSessionDedupeKeys,
   getCallMessageText,
   getCallStubTimelineStatusLine,
+  getCallStubTimelineTone,
 } from "@/lib/community-messenger/call-event-message";
 import {
   compareChatListRooms,
@@ -20,7 +21,8 @@ import {
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 
 describe("call-event-presentation outcome phrases (caller = callee)", () => {
-  it("caller cancel → 취소 for both caller and callee", () => {
+  // Owner 2026-11-13: 발신자 취소 = 발신자 「취소」 · 수신자 「부재중」 (레거시 텔레그램 동일)
+  it("caller cancel → 발신자 취소 · 수신자 부재중", () => {
     const caller = formatCallEventForViewer({ lang: "ko",
       callKind: "voice",
       resolvedEvent: "cancelled_by_caller",
@@ -33,10 +35,10 @@ describe("call-event-presentation outcome phrases (caller = callee)", () => {
     });
     expect(caller.resultLabel).toBe("취소");
     expect(caller.listPreview).toBe("음성 통화 · 취소");
-    expect(callee.resultLabel).toBe("취소");
-    expect(callee.listPreview).toBe("음성 통화 · 취소");
+    expect(callee.resultLabel).toBe("부재중");
+    expect(callee.listPreview).toBe("부재중 음성 통화");
     expect(caller.isMissed).toBe(false);
-    expect(callee.isMissed).toBe(false);
+    expect(callee.isMissed).toBe(true);
   });
 
   it("remote reject → 거절 for both caller and callee", () => {
@@ -120,7 +122,7 @@ describe("call-event-presentation outcome phrases (caller = callee)", () => {
     expect(formatCallEventSharedListLabel("voice", "ended", 65)).toMatch(/음성 통화 · /);
   });
 
-  it("getCallMessageText gives the same outcome text to caller and callee", () => {
+  it("getCallMessageText — 발신자 취소는 발신자 취소 · 수신자 부재중", () => {
     expect(
       getCallMessageText({ lang: "ko",
         callKind: "voice",
@@ -136,7 +138,7 @@ describe("call-event-presentation outcome phrases (caller = callee)", () => {
         viewerUserId: "callee",
         initiatorUserId: "caller",
       })
-    ).toBe("음성 통화 · 취소");
+    ).toBe("음성 통화 · 부재중");
   });
 
   it("timeline status line for ended uses duration", () => {
@@ -237,5 +239,21 @@ describe("lastActivityAt sorting", () => {
     expect(
       forwardOnlyActivityAt("2026-07-28T15:00:00.000Z", "2026-07-28T16:00:00.000Z")
     ).toBe("2026-07-28T16:00:00.000Z");
+  });
+});
+
+// D2 — 말풍선 색은 문구와 같은 판정(언어 무관). 발신자 취소 = 발신자 cancelled · 수신자 missed
+describe("getCallStubTimelineTone", () => {
+  const base = { senderUserId: "A", initiatorUserId: "A", recipientUserId: "B" };
+  it("caller cancel → caller cancelled · callee missed", () => {
+    expect(getCallStubTimelineTone({ ...base, resolvedEvent: "cancelled_by_caller", callStatusFallback: "cancelled", viewerUserId: "A" })).toBe("cancelled");
+    expect(getCallStubTimelineTone({ ...base, resolvedEvent: "cancelled_by_caller", callStatusFallback: "cancelled", viewerUserId: "B" })).toBe("missed");
+  });
+  it("missed · rejected · ended unchanged for both", () => {
+    for (const v of ["A", "B"]) {
+      expect(getCallStubTimelineTone({ ...base, resolvedEvent: "missed", callStatusFallback: "missed", viewerUserId: v })).toBe("missed");
+      expect(getCallStubTimelineTone({ ...base, resolvedEvent: "rejected_by_callee", callStatusFallback: "rejected", viewerUserId: v })).toBe("rejected");
+      expect(getCallStubTimelineTone({ ...base, resolvedEvent: "ended", callStatusFallback: "ended", viewerUserId: v })).toBe("normal");
+    }
   });
 });

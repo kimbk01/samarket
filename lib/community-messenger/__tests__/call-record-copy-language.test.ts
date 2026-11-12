@@ -1,6 +1,7 @@
 /**
  * 언어 SSOT 6번 (Owner 「계획대로 승인」 2026-11-08) — 통화 기록 문구.
  * 1) 한국어 결과 = 변경 전 함수 결과(4,032개 스냅숏)와 한 글자도 다르지 않다.
+ *    갱신 2026-11-13(Owner 「발신자 취소 → 수신자 부재중」): 바뀐 48개 = 발신자 취소 × 보는 사람이 발신자가 아님(수신자 36 · 그 밖 12)뿐.
  * 2) 영어 화면은 영어. 3) DB 저장 문장은 화면 언어와 무관하게 한국어(시간 글자 포함).
  */
 import fs from "node:fs";
@@ -67,7 +68,9 @@ describe("영어 화면", () => {
   });
   it("토큰 — 보는 사람을 알 때·모를 때 모두 영어", () => {
     const token = "cmcall1|voice|cancelled|cancelled_by_caller|A|B|0|음성 통화 · 취소";
-    expect(formatCallStubRoomTipForViewer(token, "B", "en")).toBe("Voice call · Cancelled");
+    // 수신자(B)는 발신자 취소를 부재중으로 (Owner 2026-11-13)
+    expect(formatCallStubRoomTipForViewer(token, "B", "en")).toBe("Missed voice call");
+    expect(formatCallStubRoomTipForViewer(token, "A", "en")).toBe("Voice call · Cancelled");
     expect(formatCallStubRoomTipForViewer(token, null, "en")).toBe("Voice call · Cancelled");
     expect(formatCallStubRoomTipForViewer(token, null, "ko")).toBe("음성 통화 · 취소");
   });

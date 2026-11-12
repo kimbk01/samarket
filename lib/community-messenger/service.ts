@@ -344,6 +344,7 @@ import { CALL_SERVER_HEARTBEAT_ENDED_REASON } from "@/lib/call/call-server-heart
 import {
   buildRoomBoundMissedCallNotificationInput,
   decideRoomBoundMissedCallNotification,
+  isRoomBoundMissedCallCandidate,
 } from "@/lib/community-messenger/call-authority/call-missed-notification-authority";
 import type { CallSessionResolvedEvent } from "@/lib/community-messenger/call-event-message";
 import {
@@ -1265,8 +1266,15 @@ async function notifyRoomBoundMissedCallBestEffort(
   session: CallSessionRow | DevCallSession,
   mapped: CommunityMessengerCallSession,
 ): Promise<void> {
-  if (mapped.status !== "missed") return;
   const isDbSession = "initiator_user_id" in session;
+  if (
+    !isRoomBoundMissedCallCandidate({
+      status: mapped.status,
+      endedReason: isDbSession ? (session.ended_reason ?? mapped.endedReason) : (session.endedReason ?? mapped.endedReason),
+    })
+  ) {
+    return;
+  }
   const roomId = trimText(isDbSession ? session.room_id : session.roomId);
   const callSessionId = trimText(mapped.id) || trimText(isDbSession ? session.id : session.id);
   const initiatorUserId = trimText(
@@ -22160,7 +22168,8 @@ export async function updateCommunityMessengerCallSession(input: {
           if (!existingLog) await finalizeLog(session, mapped);
           else await ensureTerminalCallStub(session, mapped);
         }
-        if (mapped.status === "missed") {
+        // 받지 않음 + 발신자 응답 전 취소 → 수신자 부재중 알림 (판정은 decideRoomBoundMissedCallNotification)
+        if (mapped.status === "missed" || mapped.status === "cancelled") {
           scheduleRoomBoundMissedCallNotification(session, mapped);
         }
         return { ok: true, session: mapped };
@@ -22338,7 +22347,7 @@ export async function updateCommunityMessengerCallSession(input: {
     if (!dev.calls.some((item) => item.sessionId === sessionId)) await finalizeLog(session, mapped);
     else await ensureTerminalCallStub(session, mapped);
   }
-  if (mapped.status === "missed") {
+  if (mapped.status === "missed" || mapped.status === "cancelled") {
     scheduleRoomBoundMissedCallNotification(session, mapped);
   }
   if (isTerminalCallSessionStatus(next.nextStatus)) {

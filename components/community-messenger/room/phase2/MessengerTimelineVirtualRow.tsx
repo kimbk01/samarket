@@ -120,6 +120,7 @@ export type MessengerTimelineVirtualRowProps = {
   voiceCallLabel: string;
   videoCallLabel: string;
   callStatusLabel: string;
+  callStatusTone?: "missed" | "rejected" | "cancelled" | "normal";
   stubBusy: boolean;
   senderLabelDisplay: string;
   onOpenImageLightbox: (urls: string[], originals: string[], index: number) => void;
@@ -170,6 +171,7 @@ function messengerTimelineVirtualRowPropsAreEqual(
     a.voiceCallLabel === b.voiceCallLabel &&
     a.videoCallLabel === b.videoCallLabel &&
     a.callStatusLabel === b.callStatusLabel &&
+    a.callStatusTone === b.callStatusTone &&
     a.stubBusy === b.stubBusy &&
     a.senderLabelDisplay === b.senderLabelDisplay &&
     a.onOpenImageLightbox === b.onOpenImageLightbox &&
@@ -212,6 +214,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   voiceCallLabel,
   videoCallLabel,
   callStatusLabel,
+  callStatusTone,
   stubBusy,
   senderLabelDisplay,
   onOpenImageLightbox,
@@ -557,6 +560,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         voiceCallLabel={voiceCallLabel}
         videoCallLabel={videoCallLabel}
         callStatusLabel={callStatusLabel}
+        callStatusTone={callStatusTone}
       />
     ) : item.messageType === "community_post_share" && communityPostShareCard ? (
       <CommunityPostShareMessageCard card={communityPostShareCard} />
