@@ -947,3 +947,11 @@ html[data-shell-bottom-nav-delivery] {
 html:not([data-shell-hydrated]) [data-app-bottom-nav] {
   pointer-events: none;
 }
+
+/**
+ * P3 (Owner 「P3 진행」 2026-11-12): 서버가 그린 본문(홈)도 시작 화면이 hydration 전에 걷히므로, hydration 전까지는
+ * 보이기만 하고 누름은 막는다(위 C5 와 같은 이유 — 링크 문서 이동·버튼 무반응 방지).
+ */
+html:not([data-shell-hydrated]) [data-main-hub-scroll-body] {
+  pointer-events: none;
+}

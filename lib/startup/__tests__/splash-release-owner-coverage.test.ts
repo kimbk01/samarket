@@ -53,8 +53,13 @@ describe("tryDismissNativeSplash — 브리지 즉시 호출", () => {
 
   it("브리지 호출은 소스상 `await import(\"@capacitor/core\")` 보다 앞에 있다", () => {
     const src = readFileSync("lib/startup/startup-metrics.ts", "utf8");
-    const fnStart = src.indexOf("export function tryDismissNativeSplash");
-    const body = src.slice(fnStart, src.indexOf("\nfunction ", fnStart));
+    /** P3 (2026-11-12): 브리지 호출은 `dismissNativeSplashBridges` 로 분리 — `tryDismissNativeSplash` 가 동기로 부른다 */
+    const tryStart = src.indexOf("export function tryDismissNativeSplash");
+    const tryBody = src.slice(tryStart, src.indexOf("\n}\n", tryStart));
+    expect(tryBody).toContain("dismissNativeSplashBridges(reason);");
+    expect(tryBody).not.toContain("await ");
+    const fnStart = src.indexOf("function dismissNativeSplashBridges");
+    const body = src.slice(fnStart, src.indexOf("\nfunction ", fnStart + 1));
     const bridgeAt = body.indexOf("bridge.dismissSplash()");
     const importAt = body.indexOf('await import("@capacitor/core")');
     expect(bridgeAt).toBeGreaterThan(0);

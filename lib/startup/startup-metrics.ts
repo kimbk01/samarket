@@ -8,6 +8,8 @@
  * shellReady is only the ConditionalAppShell-mounted metric. Native First Entry dismisses on
  * initialDestinationVisualReady, after the initial route has a nonblank browser presentation.
  * Local Boot Shell may dismiss native splash earlier via DibayBootBridge after shellPaint.
+ * P3 (2026-11-12): server-rendered-body routes (home) dismiss earlier — the frame after FCP of the
+ * server body, before hydration (`releaseNativeSplashAtServerBodyFrame`, same web dismiss signal, no timer).
  * Auth/admin/account shell-less routes: firstPaint auth_shell_fallback.
  * Root error boundary: error_boundary.
  * DO NOT: homeVisible-as-feed-gate · splash_safety_timeout · delay hide · minimum display duration.
@@ -19,6 +21,8 @@ import {
   noteLaunchOsReleased,
 } from "@/lib/launch-intro/os-release-owner";
 import { noteEntryReleased } from "@/lib/telemetry/entry-telemetry.client";
+import { getLaunchDestination } from "@/lib/launch-intro/startup-destination";
+import { isServerRenderedBodyPath } from "@/lib/layout/server-rendered-body-paths";
 
 export type DibayBootMetrics = {
   nativeStart: number | null;
@@ -39,6 +43,8 @@ export type DibayBootMetrics = {
   thumbnailDecoded: number | null;
   /** Last splash dismiss signal reason (shellReady | auth_shell_fallback | native_fallback). */
   splashDismissReason: string | null;
+  /** P3: 서버 본문 첫 프레임에서 네이티브 시작 화면을 해제한 시각(hydration 전). 없으면 null. */
+  serverBodySplashRelease: number | null;
 };
 
 declare global {
@@ -108,6 +114,7 @@ function emptyMetrics(): DibayBootMetrics {
     thumbnailLoaded: null,
     thumbnailDecoded: null,
     splashDismissReason: null,
+    serverBodySplashRelease: null,
   };
 }
 
@@ -241,6 +248,17 @@ export function tryDismissNativeSplash(reason: string): void {
   flushShellReadyWaiters();
 
   if (typeof window === "undefined") return;
+  dismissNativeSplashBridges(reason);
+}
+
+/**
+ * 네이티브 시작 화면 해제(브리지 호출)만 — 문서당 1회. P3 의 서버 본문 첫 프레임 해제가 먼저 불렀으면
+ * 화면 준비 뒤 `tryDismissNativeSplash` 는 이 부분을 건너뛰고 기록·앱 준비 처리만 한다.
+ */
+let nativeSplashBridgesDismissed = false;
+function dismissNativeSplashBridges(reason: string): void {
+  if (nativeSplashBridgesDismissed) return;
+  nativeSplashBridgesDismissed = true;
 
   /**
    * C2 (docs/audit/app-entry-resume-stabilization-plan-2026-11-08.md §4): 네이티브 브리지는 **즉시·동기로** 부른다.
@@ -333,6 +351,47 @@ export function tryDismissNativeSplash(reason: string): void {
       /* web / capacitor load 실패 — 스플래시 없음 */
     }
   })();
+}
+
+/** 서버가 그린 본문이 문서에 있는지 — 본문 자리가 회색 줄(`MainShellDocumentLoading`)이 아니어야 한다 */
+export function hasServerRenderedBody(doc: Document): boolean {
+  const body = doc.querySelector("[data-main-hub-scroll-body]");
+  return Boolean(body) && !doc.querySelector("[data-main-shell-document-loading]");
+}
+
+/**
+ * P3 (Owner 「P3 진행」 2026-11-12 · docs/audit/ssr-page-body-first-paint-design-2026-11-12.md P3):
+ * 서버가 본문까지 그린 화면(허용 목록 = 홈)은 hydration 을 기다리지 않고 **서버 본문이 그려진 다음 프레임**에서
+ * 네이티브 시작 화면을 해제한다. 해제 권한은 같은 웹 성공 신호(진입 HARD LOCK H1 ①) — 시점만 앞당김, 타이머 없음.
+ * - 인트로가 해제를 맡는 문서(계약 §9)면 하지 않는다 — 판단은 단일 모듈 `getLaunchDestination`.
+ * - 기록·앱 준비(`markAppReady`)·미뤄 둔 요청 시작은 화면 준비 뒤 기존 경로(`tryDismissNativeSplash`) 그대로.
+ * 호출: `instrumentation-client.ts`(hydration 전 실행).
+ */
+export function releaseNativeSplashAtServerBodyFrame(): void {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  if (nativeSplashBridgesDismissed || splashDismissAttempted) return;
+  if (!isServerRenderedBodyPath(window.location.pathname)) return;
+  if (getLaunchDestination().destination !== "community") return;
+  if (typeof requestAnimationFrame !== "function" || typeof performance?.getEntriesByName !== "function") return;
+  /**
+   * 「빈 화면 아닌 첫 그림」 = 첫 글자 표시(FCP) 이후 — 글꼴이 늦게 붙어 글자 없는 프레임에서 걷히지 않게.
+   * FCP 알림(PerformanceObserver)은 hydration 작업 뒤로 밀려 늦으므로, 프레임마다 FCP 기록을 직접 확인한다.
+   * 서버 본문 존재 판단도 그 시점에(이 훅은 문서 해석 중에 돌 수 있음). 타이머 없음 — 기존 경로가 먼저 해제하면 멈춘다.
+   */
+  const tick = () => {
+    if (nativeSplashBridgesDismissed || splashDismissAttempted) return;
+    if (performance.getEntriesByName("first-contentful-paint").length === 0) {
+      requestAnimationFrame(tick);
+      return;
+    }
+    if (!isServerRenderedBodyPath(window.location.pathname) || !hasServerRenderedBody(document)) return;
+    requestAnimationFrame(() => {
+      if (nativeSplashBridgesDismissed || splashDismissAttempted) return;
+      setMetric("serverBodySplashRelease", nowMs());
+      dismissNativeSplashBridges("serverBodyFirstFrame");
+    });
+  };
+  requestAnimationFrame(tick);
 }
 
 function tryAuthShellSplashFallback(): void {
