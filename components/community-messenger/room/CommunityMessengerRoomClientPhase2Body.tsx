@@ -15,7 +15,10 @@ import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrd
 import { useBuyerOrderChatSlideHost } from "@/components/mypage/BuyerOrderChatSlideHostContext";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { useMessengerRoomPhase2Controller } from "@/lib/community-messenger/room/phase2";
-import { MessengerRoomPhase2ViewProvider } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import {
+  MessengerRoomPhase2SheetsViewProvider,
+  MessengerRoomPhase2ViewProvider,
+} from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { MessengerRoomPhase2HeaderProvider } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
 import { MessengerRoomPhase2CallProvider } from "@/components/community-messenger/room/phase2/messenger-room-phase2-call-context";
 import { CommunityMessengerRoomPhase2Header } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Header";
@@ -341,6 +344,14 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
       room.reportTarget,
     ]
   );
+  /** 시트 계층 전용 — 매 렌더 최신 room (타임라인 `view` 의존성 고정과 분리 · group-chat-full-fix-design G1) */
+  const sheetsView = useMemo(
+    (): MessengerRoomPhase2ViewModel => ({
+      ...room,
+      snapshot: room.snapshot as CommunityMessengerRoomSnapshot,
+    }),
+    [room]
+  );
   const tradeViewerRole = useMemo(
     () => messengerTradeViewerRoleFromContextMeta(view.snapshot.room.contextMeta ?? undefined),
     [view.snapshot.room.contextMeta]
@@ -646,8 +657,10 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
             </MessengerRoomPhase2ComposerProvider>
           </div>
           <div className={hydrationPass >= 3 ? "contents" : "hidden"} aria-hidden={hydrationPass < 3} data-cm-room-pass3-persistent="">
-            <CommunityMessengerRoomPhase2RoomSheets />
-            <CommunityMessengerRoomPhase2MemberActionModal />
+            <MessengerRoomPhase2SheetsViewProvider value={sheetsView}>
+              <CommunityMessengerRoomPhase2RoomSheets />
+              <CommunityMessengerRoomPhase2MemberActionModal />
+            </MessengerRoomPhase2SheetsViewProvider>
             <MessengerRoomPhase2CallProvider value={callView}>
               <CommunityMessengerRoomPhase2CallLayer />
             </MessengerRoomPhase2CallProvider>

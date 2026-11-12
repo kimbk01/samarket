@@ -48,7 +48,7 @@ import {
   SeedTradeChatDetailMemoryFromSnapshot,
   VoiceMessageBubble,
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
-import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { useMessengerRoomPhase2SheetsView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommunityMessengerRoomPhase2OneToOneDotMenu } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2OneToOneDotMenu";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
@@ -87,7 +87,7 @@ const GROUP_MENU_TRAILING_CLASS =
   "ml-auto shrink-0 text-[length:var(--overlay-caption-size)] text-[color:var(--overlay-text-secondary)]";
 
 export function CommunityMessengerRoomPhase2RoomSheets() {
-  const vm = useMessengerRoomPhase2View();
+  const vm = useMessengerRoomPhase2SheetsView();
   const { safeT } = useI18n();
   const [groupOutgoingConfirmKind, setGroupOutgoingConfirmKind] = useState<null | "voice" | "video">(null);
   const [giftOfferOpen, setGiftOfferOpen] = useState(false);

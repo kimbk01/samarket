@@ -50,7 +50,7 @@ import {
   SeedTradeChatDetailMemoryFromSnapshot,
   VoiceMessageBubble,
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
-import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { useMessengerRoomPhase2SheetsView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
@@ -60,7 +60,7 @@ const MessengerCallChoiceSheetLazy = lazy(
 );
 
 export function CommunityMessengerRoomPhase2MemberActionModal() {
-  const vm = useMessengerRoomPhase2View();
+  const vm = useMessengerRoomPhase2SheetsView();
   const memberActionTarget = vm.memberActionTarget;
   /** 멤버에게 1:1 통화 — 통화 시트 (발신 창 통일 3판) */
   const [callSheetOpen, setCallSheetOpen] = useState(false);
