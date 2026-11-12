@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
       name: body.name,
       intro: typeof body.intro === "string" ? body.intro : "",
       categoryId: body.categoryId,
+      topicLabel: typeof body.topicLabel === "string" ? body.topicLabel.slice(0, 60) : null,
       joinMode: body.joinMode === "approval" ? "approval" : "instant",
       capacity: typeof body.capacity === "number" ? body.capacity : null,
       coverImageUrl: typeof body.coverImageUrl === "string" ? body.coverImageUrl : null,

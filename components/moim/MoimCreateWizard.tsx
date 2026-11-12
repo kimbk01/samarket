@@ -10,9 +10,10 @@ import type { MoimCategoryDto } from "@/lib/moim/moim-api-types";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useRegisterMainTier1Header } from "@/lib/layout/use-register-main-tier1-header";
 import { useMoimImageUpload } from "@/components/moim/use-moim-image-upload";
-import { MoimErrorState, chipClass, moimCategoryLabel, moimCls, useMoimToast } from "@/components/moim/moim-ui";
+import { MoimErrorState, moimCls, useMoimToast } from "@/components/moim/moim-ui";
+import { MoimCategoryField, isMoimCategoryInputValid, normalizeMoimTopic } from "@/components/moim/MoimCategoryField";
 
-const STEPS = 5;
+const STEPS = 4;
 const MAX_QUESTIONS = 3;
 /** 금지 모임 유형 안내 (설계 §2.5 · D10 — 당근 27663 목록) */
 export const MOIM_PROHIBITED_TYPE_KEYS: readonly MessageKey[] = [
@@ -31,9 +32,9 @@ function parseYear(v: string): number | null {
   return v.trim() && Number.isInteger(n) && n >= 1900 && n <= 2100 ? n : null;
 }
 
-/** 모임 만들기 5단계 (시안 U2 · 설계 P1) — 중간 저장 없음 */
+/** 모임 만들기 4단계 (시안 U2 · 설계 P1, 카테고리 드롭다운으로 1단계 합침 — 2026-11-12) — 중간 저장 없음 */
 export function MoimCreateWizard() {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useMoimToast();
   const { uploading, upload } = useMoimImageUpload();
@@ -44,6 +45,7 @@ export function MoimCreateWizard() {
   const [catReload, setCatReload] = useState(0);
   const [step, setStep] = useState(1);
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [topic, setTopic] = useState("");
   const [name, setName] = useState("");
   const [intro, setIntro] = useState("");
   const [cover, setCover] = useState<string | null>(null);
@@ -86,14 +88,12 @@ export function MoimCreateWizard() {
 
   const canNext =
     step === 1
-      ? !!categoryId
+      ? isMoimCategoryInputValid(categories, categoryId, topic) && name.trim().length > 0 && intro.trim().length > 0 && !uploading
       : step === 2
-        ? name.trim().length > 0 && intro.trim().length > 0 && !uploading
+        ? capValid
         : step === 3
-          ? capValid
-          : step === 4
-            ? ageValid && nickname.trim().length > 0
-            : agree;
+          ? ageValid && nickname.trim().length > 0
+          : agree;
 
   const onPickCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -112,6 +112,7 @@ export function MoimCreateWizard() {
       name: name.trim(),
       intro: intro.trim(),
       categoryId,
+      topicLabel: categories?.find((c) => c.id === categoryId)?.allowCustomTopic ? normalizeMoimTopic(topic) : null,
       joinMode,
       capacity: capNum,
       coverImageUrl: cover,
@@ -146,26 +147,20 @@ export function MoimCreateWizard() {
         </div>
 
         {step === 1 ? (
-          <section className="grid gap-3 px-4 pt-4">
-            <h2 className={moimCls.sectionTitle}>{t("moim_create_category_title")}</h2>
+          <section className="grid gap-4 px-4 pt-4">
             {categories === null ? (
-              <div className="h-20 animate-pulse rounded-ui-rect bg-sam-surface-muted" />
+              <div className="h-12 animate-pulse rounded-ui-rect bg-sam-surface-muted" />
             ) : categories.length === 0 ? (
               <p className={moimCls.noticeInfo}>{t("moim_home_categories_preparing_body")}</p>
             ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {categories.map((c) => (
-                  <button key={c.id} type="button" aria-pressed={categoryId === c.id} className={chipClass(categoryId === c.id)} onClick={() => setCategoryId(c.id)}>
-                    {moimCategoryLabel(c, language)}
-                  </button>
-                ))}
-              </div>
+              <MoimCategoryField
+                categories={categories}
+                categoryId={categoryId}
+                onCategoryChange={setCategoryId}
+                topic={topic}
+                onTopicChange={setTopic}
+              />
             )}
-          </section>
-        ) : null}
-
-        {step === 2 ? (
-          <section className="grid gap-4 px-4 pt-4">
             <label className="grid gap-1.5">
               <span className={moimCls.label}>{t("moim_create_name_label")}</span>
               <input className={moimCls.input} value={name} onChange={(e) => setName(e.target.value)} placeholder={t("moim_create_name_placeholder")} />
@@ -206,7 +201,7 @@ export function MoimCreateWizard() {
           </section>
         ) : null}
 
-        {step === 3 ? (
+        {step === 2 ? (
           <section className="grid gap-4 px-4 pt-4">
             <div className="grid gap-1.5">
               <span className={moimCls.label}>{t("moim_create_area_label")}</span>
@@ -274,7 +269,7 @@ export function MoimCreateWizard() {
           </section>
         ) : null}
 
-        {step === 4 ? (
+        {step === 3 ? (
           <section className="grid gap-4 px-4 pt-4">
             <div className="grid gap-1.5">
               <span className={moimCls.label}>{t("moim_create_age_label")}</span>
@@ -309,7 +304,7 @@ export function MoimCreateWizard() {
           </section>
         ) : null}
 
-        {step === 5 ? (
+        {step === 4 ? (
           <section className="grid gap-3 px-4 pt-4">
             <h2 className={moimCls.sectionTitle}>{t("moim_create_rules_title")}</h2>
             <p className={moimCls.hint}>{t("moim_create_rules_lead")}</p>

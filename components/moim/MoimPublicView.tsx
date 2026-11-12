@@ -13,12 +13,12 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { MoimJoinSheet } from "@/components/moim/MoimJoinSheet";
 import { MoimPostRow } from "@/components/moim/MoimPostRow";
 import { MoimScheduleDateBox, formatMoimScheduleCount, formatMoimScheduleShort } from "@/components/moim/moim-schedule-ui";
-import { MoimCover, formatMoimCount, moimCategoryLabel, moimCls, useMoimBoardLabel } from "@/components/moim/moim-ui";
+import { MoimCover, formatMoimCount, moimCls, moimTopicOrCategoryLabel, useMoimBoardLabel } from "@/components/moim/moim-ui";
 
 /** 모임 머리 — 사진 · 이름 · 카테고리·동네 · 멤버 수 · 가입 방식 · 소개 (공개·멤버 공통) */
 export function MoimHeadBlock({ moim, showIntro = true }: { moim: MoimDetailDto; showIntro?: boolean }) {
   const { t, language } = useI18n();
-  const sub = [moimCategoryLabel(moim.category, language), moim.cityLabel].filter(Boolean).join(" · ");
+  const sub = [moimTopicOrCategoryLabel(moim, language), moim.cityLabel].filter(Boolean).join(" · ");
   return (
     <div>
       <MoimCover url={moim.coverImageUrl} className="h-[140px] w-full" />

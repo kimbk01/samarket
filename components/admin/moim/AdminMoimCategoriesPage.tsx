@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * 모임 카테고리 관리 (설계 moim §8) — 추가 · 이름(ko·en) · 순서 · 사용 중지 · 개설 금지 표시. 수정은 낙관적 잠금(409 → 다시 불러오기).
+ * 모임 카테고리 관리 (설계 moim §8) — 추가 · 이름(ko·en) · 순서 · 사용 중지 · 개설 금지 표시 · 직접 주제 입력 표시(2026-11-12).
+ * 아래에 「직접 입력 주제 많이 쓰인 순」(정식 카테고리 추가 판단 자료). 수정은 낙관적 잠금(409 → 다시 불러오기).
  */
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -15,18 +16,19 @@ import { useCommunityAdminJson } from "@/components/admin/community/members/use-
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
-import type { MoimAdminCategoryRow } from "@/lib/admin/moim/moim-admin-contract";
+import type { MoimAdminCategoryRow, MoimAdminTopicRankRow } from "@/lib/admin/moim/moim-admin-contract";
 import { MOIM_ADMIN_FIELD, MOIM_ADMIN_REASON, moimAdminSend, useMoimSettleBanner } from "@/components/admin/moim/admin-moim-shared";
 
-type ListResponse = { ok?: boolean; error?: string; categories?: MoimAdminCategoryRow[] };
-type Draft = { id: string | null; slug: string; labelKo: string; labelEn: string; sortOrder: string; isActive: boolean; isRestricted: boolean; updatedAt: string | null };
+type ListResponse = { ok?: boolean; error?: string; categories?: MoimAdminCategoryRow[]; topicRank?: MoimAdminTopicRankRow[] };
+type Draft = { id: string | null; slug: string; labelKo: string; labelEn: string; sortOrder: string; isActive: boolean; isRestricted: boolean; allowCustomTopic: boolean; updatedAt: string | null };
 
-const EMPTY: Draft = { id: null, slug: "", labelKo: "", labelEn: "", sortOrder: "0", isActive: true, isRestricted: false, updatedAt: null };
+const EMPTY: Draft = { id: null, slug: "", labelKo: "", labelEn: "", sortOrder: "0", isActive: true, isRestricted: false, allowCustomTopic: false, updatedAt: null };
 
 export function AdminMoimCategoriesPage() {
   const { t } = useI18n();
   const { state, reload } = useCommunityAdminJson<ListResponse>("/api/admin/moim/categories");
   const rows = state.data?.categories ?? [];
+  const topicRank = state.data?.topicRank ?? [];
   const [draft, setDraft] = useState<Draft | null>(null);
   const { settle, node } = useMoimSettleBanner(reload);
   const valid =
@@ -67,6 +69,7 @@ export function AdminMoimCategoriesPage() {
                 <div className="flex flex-wrap gap-1">
                   <AdminToneBadge tone={c.isActive ? "success" : "neutral"}>{t(c.isActive ? "admin_moim_category_active" : "admin_moim_category_inactive")}</AdminToneBadge>
                   {c.isRestricted ? <AdminToneBadge tone="danger">{t("admin_moim_category_restricted")}</AdminToneBadge> : null}
+                  {c.allowCustomTopic ? <AdminToneBadge tone="progress">{t("admin_moim_category_custom_topic")}</AdminToneBadge> : null}
                 </div>
               </td>
               <td className={COMMUNITY_TD}>
@@ -82,6 +85,7 @@ export function AdminMoimCategoriesPage() {
                       sortOrder: String(c.sortOrder),
                       isActive: c.isActive,
                       isRestricted: c.isRestricted,
+                      allowCustomTopic: c.allowCustomTopic,
                       updatedAt: c.updatedAt,
                     })
                   }
@@ -92,6 +96,24 @@ export function AdminMoimCategoriesPage() {
             </tr>
           ))}
         </CommunityTable>
+      ) : null}
+      {state.status === "ok" ? (
+        <section className="mt-6 grid gap-2">
+          <h3 className="text-[14px] font-bold text-sam-fg">{t("admin_moim_topic_rank_title")}</h3>
+          <p className="text-[12px] text-sam-muted">{t("admin_moim_topic_rank_desc")}</p>
+          {topicRank.length === 0 ? (
+            <AdminEmptyState ko message={t("admin_moim_topic_rank_empty")} />
+          ) : (
+            <CommunityTable head={[t("admin_moim_topic_rank_col_topic"), t("admin_moim_topic_rank_col_count")]}>
+              {topicRank.map((r) => (
+                <tr key={r.topic} className="border-b border-sam-border-soft">
+                  <td className={COMMUNITY_TD}>{r.topic}</td>
+                  <td className={COMMUNITY_TD}>{r.moimCount}</td>
+                </tr>
+              ))}
+            </CommunityTable>
+          )}
+        </section>
       ) : null}
       {draft ? (
         <CommunityActionSheet
@@ -112,6 +134,7 @@ export function AdminMoimCategoriesPage() {
                 sortOrder: Number(draft.sortOrder),
                 isActive: draft.isActive,
                 isRestricted: draft.isRestricted,
+                allowCustomTopic: draft.allowCustomTopic,
                 expectedUpdatedAt: draft.updatedAt,
                 reason,
               },
@@ -150,6 +173,11 @@ export function AdminMoimCategoriesPage() {
               <input type="checkbox" checked={draft.isRestricted} onChange={(e) => setDraft({ ...draft, isRestricted: e.target.checked })} />
               <span>{t("admin_moim_category_restricted")}</span>
             </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={draft.allowCustomTopic} onChange={(e) => setDraft({ ...draft, allowCustomTopic: e.target.checked })} />
+              <span>{t("admin_moim_category_custom_topic")}</span>
+            </label>
+            <span className="text-[12px] text-sam-muted">{t("admin_moim_category_custom_topic_hint")}</span>
           </div>
         </CommunityActionSheet>
       ) : null}

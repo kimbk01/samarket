@@ -75,6 +75,7 @@ export const moimApi = {
     name: string;
     intro: string;
     categoryId: string;
+    topicLabel?: string | null;
     joinMode: "instant" | "approval";
     capacity?: number | null;
     coverImageUrl?: string | null;
@@ -93,6 +94,7 @@ export const moimApi = {
       name: string;
       intro: string;
       categoryId: string;
+      topicLabel: string | null;
       joinMode: "instant" | "approval";
       capacity: number | null;
       coverImageUrl: string | null;

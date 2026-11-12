@@ -4,7 +4,14 @@
  */
 import type { MoimAction, MoimMemberStatus, MoimPlatformState, MoimRole, MoimStatus } from "@/lib/moim/moim-permission-contract";
 
-export type MoimCategoryDto = { id: string; slug: string; labelKo: string; labelEn: string };
+export type MoimCategoryDto = {
+  id: string;
+  slug: string;
+  labelKo: string;
+  labelEn: string;
+  /** 이 카테고리를 고르면 모임장이 주제를 직접 적는다 (「기타」) */
+  allowCustomTopic: boolean;
+};
 
 export type MoimCardDto = {
   id: string;
@@ -12,6 +19,8 @@ export type MoimCardDto = {
   intro: string;
   coverImageUrl: string | null;
   category: MoimCategoryDto | null;
+  /** 직접 주제 (카드·공개 페이지에서 카테고리 대신 보인다) */
+  topicLabel: string | null;
   cityLabel: string | null;
   joinMode: "instant" | "approval";
   capacity: number | null;
@@ -58,6 +67,8 @@ export type MoimDetailDto = {
   intro: string;
   coverImageUrl: string | null;
   category: MoimCategoryDto | null;
+  /** 직접 주제 (카드·공개 페이지에서 카테고리 대신 보인다) */
+  topicLabel: string | null;
   cityLabel: string | null;
   joinMode: "instant" | "approval";
   capacity: number | null;

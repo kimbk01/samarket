@@ -52,6 +52,15 @@ export function moimCategoryLabel(c: MoimCategoryDto | null | undefined, lang: A
   return lang === "en" ? c.labelEn || c.labelKo : c.labelKo || c.labelEn;
 }
 
+/** 카드·공개 페이지 표시 — 직접 주제가 있으면 주제, 없으면 카테고리 이름 (「기타」 글자는 고객에게 보이지 않게) */
+export function moimTopicOrCategoryLabel(
+  m: { topicLabel?: string | null; category: MoimCategoryDto | null | undefined },
+  lang: AppLanguageCode
+): string {
+  const topic = (m.topicLabel ?? "").trim();
+  return topic || moimCategoryLabel(m.category, lang);
+}
+
 export function moimRoleKey(role: MoimRole): MessageKey {
   return `moim_role_${role}` as MessageKey;
 }

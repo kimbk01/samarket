@@ -1,10 +1,10 @@
 /**
  * /api/admin/moim/categories — 모임 카테고리 관리 (설계 moim §8). 권한 키 `moim`.
- * GET → { categories } · POST { id?, slug, labelKo, labelEn, sortOrder, isActive, isRestricted, expectedUpdatedAt(수정 시), reason(필수) }
+ * GET → { categories, topicRank(직접 입력 주제 많이 쓰인 순) } · POST { id?, slug, labelKo, labelEn, sortOrder, isActive, isRestricted, allowCustomTopic?, expectedUpdatedAt(수정 시), reason(필수) }
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
-import { listAdminMoimCategories } from "@/lib/admin/moim/moim-admin-queries.server";
+import { listAdminMoimCategories, listAdminMoimTopicRank } from "@/lib/admin/moim/moim-admin-queries.server";
 import { moimAdminBad, moimAdminJson, moimAdminReason, moimAdminRpcResponse, moimAdminUuid } from "@/lib/admin/moim/moim-admin-route.server";
 import { moimAdminCategorySave } from "@/lib/moim/server/moim-rpc.server";
 
@@ -14,7 +14,8 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const gate = await requireAdminPermission("moim");
   if (!gate.ok) return gate.response;
-  return NextResponse.json({ ok: true, categories: await listAdminMoimCategories(gate.sb) });
+  const [categories, topicRank] = await Promise.all([listAdminMoimCategories(gate.sb), listAdminMoimTopicRank(gate.sb)]);
+  return NextResponse.json({ ok: true, categories, topicRank });
 }
 
 export async function POST(req: NextRequest) {
@@ -38,6 +39,7 @@ export async function POST(req: NextRequest) {
       sortOrder: Number.isFinite(sortOrder) ? Math.max(-100000, Math.min(100000, sortOrder)) : 0,
       isActive: b.isActive !== false,
       isRestricted: b.isRestricted === true,
+      allowCustomTopic: typeof b.allowCustomTopic === "boolean" ? b.allowCustomTopic : undefined,
       expectedUpdatedAt: typeof b.expectedUpdatedAt === "string" ? b.expectedUpdatedAt : null,
     },
     reason,

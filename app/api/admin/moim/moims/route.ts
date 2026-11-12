@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
   if (!filter) return NextResponse.json({ ok: false, error: "invalid_period" }, { status: 400 });
 
   if (sp.get("format") === "csv") {
-    const header = ["moim_id", "name", "status", "platform_state", "category", "lgu", "members", "capacity", "host_nickname", "host_dibay_id", "reports", "last_activity_at", "created_at"];
+    const header = ["moim_id", "name", "status", "platform_state", "category", "topic", "lgu", "members", "capacity", "host_nickname", "host_dibay_id", "reports", "last_activity_at", "created_at"];
     const lines = [header.join(",")];
     let exported = 0;
     for (let offset = 0; offset < CSV_MAX_ROWS; offset += 100) {
@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
       if (!page.ok) return NextResponse.json({ ok: false, error: page.error }, { status: 500 });
       for (const r of page.rows) {
         lines.push(
-          [r.id, r.name, r.status, r.platformState, r.categoryLabelKo ?? "", r.lguLabel ?? r.lguId, r.memberCount, r.capacity ?? "", r.host?.nickname ?? "", r.host?.dibayId ?? "", r.reportCount, r.lastActivityAt, r.createdAt]
+          [r.id, r.name, r.status, r.platformState, r.categoryLabelKo ?? "", r.topicLabel ?? "", r.lguLabel ?? r.lguId, r.memberCount, r.capacity ?? "", r.host?.nickname ?? "", r.host?.dibayId ?? "", r.reportCount, r.lastActivityAt, r.createdAt]
             .map(csvCell)
             .join(",")
         );

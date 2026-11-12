@@ -2,7 +2,7 @@
  * /api/admin/moim/moims/[moimId] — 모임 상세 (설계 moim §8 「모임 상세」). 권한 키 `moim`.
  * GET  ?section=info(기본)|members|requests|posts|comments|schedules|album|chats|reports|sanctions|events|profile_history
  *      (+ limit · offset · userId(profile_history) · postId(comments))
- * PATCH { patch: {name,intro,coverImageUrl,categoryId,capacity,joinMode,lguId,questions}, expectedUpdatedAt, reason }
+ * PATCH { patch: {name,intro,coverImageUrl,categoryId,topicLabel,capacity,joinMode,lguId,questions}, expectedUpdatedAt, reason }
  *      → moim_admin_update_info (낙관적 잠금 · 사유 필수) · 모임장에게 `moim_admin_info_updated` 알림
  */
 import { NextResponse, type NextRequest } from "next/server";
@@ -64,6 +64,7 @@ function toPatch(raw: Record<string, unknown>): MoimAdminInfoPatch | null {
     if (!id) return null;
     out.categoryId = id;
   }
+  if ("topicLabel" in raw) out.topicLabel = typeof raw.topicLabel === "string" ? raw.topicLabel.slice(0, 60) : null;
   if ("capacity" in raw) {
     if (raw.capacity === null || raw.capacity === "") out.capacity = null;
     else {
