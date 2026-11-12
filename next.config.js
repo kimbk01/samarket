@@ -263,12 +263,14 @@ const nextConfig = {
     ];
   },
   /**
-   * Production Next typecheck = app/source graph only (`tsconfig.build.json`).
-   * Tests/scripts stay on `tsconfig.test.json` (CI `typecheck:test`).
-   * DO NOT set ignoreBuildErrors — source type errors must fail `next build`.
+   * 타입 검사는 CI 에서 1회만 (Owner 2026-11-12 「빼고 진행」).
+   * main 은 PR + `ci-ok` 필수이고, CI `ci:static` 이 `next typegen`(화면·주소 타입) → `typecheck:test`
+   * (tsconfig.app.json = tsconfig.build.json 과 같은 파일·옵션, `.next/types` 포함)로 같은 검사를 한다.
+   * Vercel `next build` 에서 같은 검사를 다시 하지 않는다 (빌드 214~251초 절감). 계약: verify:deploy-authority.
    */
   typescript: {
     tsconfigPath: "tsconfig.build.json",
+    ignoreBuildErrors: true,
   },
   // 개발 모드 시 좌하단 'N' 아이콘 숨김 (에러 발생 시 오버레이만 표시)
   devIndicators: false,

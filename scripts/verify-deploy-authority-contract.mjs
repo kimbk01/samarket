@@ -2,7 +2,8 @@
 /**
  * Production deploy authority + Next TS graph contract.
  * Executable CLI Production callers must stay at 0.
- * next.config must use tsconfig.build.json and must not ignoreBuildErrors.
+ * next.config must use tsconfig.build.json. 빌드 타입 검사를 끄면(ignoreBuildErrors) CI 가 같은 검사
+ * (next typegen → typecheck:test)를 반드시 해야 한다 (Owner 2026-11-12).
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, dirname, extname } from "node:path";
@@ -18,9 +19,6 @@ function read(rel) {
 const nextConfig = read("next.config.js");
 if (!/tsconfigPath:\s*["']tsconfig\.build\.json["']/.test(nextConfig)) {
   errors.push("next.config.js: missing typescript.tsconfigPath tsconfig.build.json");
-}
-if (/ignoreBuildErrors\s*:\s*true/.test(nextConfig)) {
-  errors.push("next.config.js: ignoreBuildErrors true is forbidden");
 }
 
 const pkg = JSON.parse(read("package.json"));
@@ -40,6 +38,21 @@ if (/\bnpm run build\b/.test(ci) || /\bnext build\b/.test(ci)) {
 // ci:static 은 typecheck:test 만 돈다. 그 전제(아래 parity)가 깨지면 실패.
 if (!/\btypecheck:test\b/.test(ciStatic)) {
   errors.push("package.json scripts.ci:static must run typecheck:test");
+}
+// 빌드 타입 검사 제외(ignoreBuildErrors) 의 전제: CI 가 Next 화면·주소 타입(.next/types)을 만든 뒤 검사한다.
+{
+  const iTypegen = ciStatic.search(/\bnpm run typegen\b/);
+  const iTypecheck = ciStatic.search(/\bnpm run typecheck:test\b/);
+  if (iTypegen < 0 || iTypecheck < 0 || iTypegen > iTypecheck) {
+    errors.push("package.json scripts.ci:static must run `npm run typegen` before `npm run typecheck:test` (next build 타입 검사를 CI 가 대신함)");
+  }
+  if (!/^next typegen\b/.test(String(pkg.scripts?.typegen ?? ""))) {
+    errors.push("package.json scripts.typegen must be `next typegen`");
+  }
+  const tsApp = JSON.parse(read("tsconfig.app.json"));
+  if (!(tsApp.include ?? []).includes(".next/types/**/*.ts")) {
+    errors.push("tsconfig.app.json include must contain .next/types/**/*.ts");
+  }
 }
 if (!/\bnpm run ci:static\b/.test(String(pkg.scripts?.ci ?? "")) || !/\bnpm run test:ci\b/.test(String(pkg.scripts?.ci ?? ""))) {
   errors.push("package.json scripts.ci must be ci:static + test:ci");
