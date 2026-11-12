@@ -113,11 +113,7 @@ describe("member id v3 audit fixes", () => {
     // 내 프로필 공유·아이디 복사가 있던 `MypageSelfProfileView` 는 그리는 화면이 0곳이라 삭제 (2026-11-12 R5) — 다시 생기지 않게 고정
     expect(existsSync(join(process.cwd(), "components/mypage/profile/MypageSelfProfileView.tsx"))).toBe(false);
     expect(read("components/my/settings/MemberDiscoverySettingsSection.tsx")).toContain('data-testid="member-qr-regenerate-row"');
-    for (const f of [
-      "app/api/users/by-username/[username]/public-profile/route.ts",
-      "app/api/users/by-username/[username]/community-posts/route.ts",
-      "app/(main)/u/[username]/page.tsx",
-    ]) {
+    for (const f of ["app/(main)/u/[username]/page.tsx"]) {
       expect(read(f)).toMatch(/findProfileByMemberId(<[^>]+>)?\(/);
     }
   });

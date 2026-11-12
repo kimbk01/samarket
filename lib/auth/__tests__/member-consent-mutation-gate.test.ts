@@ -99,7 +99,6 @@ describe("B3 central consent gate — enforce", () => {
       ["POST", "/api/me/profile/avatar"],
       ["POST", "/api/me/addresses"],
       ["PATCH", "/api/me/addresses/a1"],
-      ["POST", "/api/me/addresses/a1/set-default"],
       ["DELETE", "/api/me/addresses/a1"],
     ] as const) {
       expect(await enforce(req(m, p)), `${m} ${p}`).toBeNull();
@@ -111,7 +110,6 @@ describe("B3 central consent gate — enforce", () => {
     const { enforce } = await loadGate(REQUIRED);
     for (const [m, p] of [
       ["PATCH", "/api/me/stores/s1/orders/o1"],
-      ["PATCH", "/api/me/stores/s1/orders/o1/delivery"],
       ["POST", "/api/me/stores/s1/orders/o1/cancel-request"],
       ["POST", "/api/me/stores/s1/orders/o1/decide"],
       ["PATCH", "/api/me/rider/orders/o1"],

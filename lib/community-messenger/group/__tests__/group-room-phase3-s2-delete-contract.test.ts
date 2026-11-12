@@ -157,9 +157,6 @@ describe("group chat Phase3 S2-4 Delete contracts", () => {
     expect(online).not.toContain("group-room-delete-service");
     expect(online).not.toContain("deleted_at");
 
-    const ghostRoute = read("app/api/admin/community-messenger/rooms/[id]/ghost/route.ts");
-    expect(ghostRoute).toContain("isPrivateGroupRoomDeleted");
-
     const banRoute = read("app/api/community-messenger/group-rooms/[roomId]/bans/route.ts");
     expect(banRoute).toContain("isPrivateGroupRoomDeleted");
   });

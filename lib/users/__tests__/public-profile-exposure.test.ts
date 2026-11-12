@@ -84,12 +84,6 @@ async function getById() {
   return { status: res.status, json: (await res.json()) as PublicProfileJson };
 }
 
-async function getByUsername() {
-  const { GET } = await import("@/app/api/users/by-username/[username]/public-profile/route");
-  const res = await GET({} as never, { params: Promise.resolve({ username: "juan01" }) });
-  return { status: res.status, json: (await res.json()) as PublicProfileJson };
-}
-
 describe("public profile exposure", () => {
   beforeEach(() => {
     profileRow = {
@@ -105,11 +99,8 @@ describe("public profile exposure", () => {
     };
   });
 
-  it.each([
-    ["by id", getById],
-    ["by username", getByUsername],
-  ])("%s: 동네만 공개, 건물·도로·호수·연락처 미노출, @아이디 포함", async (_label, get) => {
-    const r = await get();
+  it("by id: 동네만 공개, 건물·도로·호수·연락처 미노출, @아이디 포함", async () => {
+    const r = await getById();
     expect(r.status).toBe(200);
     const line = String(r.json.profile.tradeLocationLine ?? "");
     expect(line).toContain("Makati");
@@ -124,7 +115,6 @@ describe("public profile exposure", () => {
   ])("%s 계정은 404", async (_label, patch) => {
     profileRow = { ...profileRow!, ...patch };
     expect((await getById()).status).toBe(404);
-    expect((await getByUsername()).status).toBe(404);
   });
 
   it("이용 정지(suspended) 계정은 공개 프로필 유지 — 판매글 판매자 카드가 깨지지 않도록", async () => {

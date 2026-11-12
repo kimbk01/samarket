@@ -11,14 +11,6 @@ import {
 
 const src = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
-describe("AD-04 store-settlements GET", () => {
-  it("business 권한 키로 가드한다 (isRouteAdmin 전원 허용 아님)", () => {
-    const route = src("app/api/admin/store-settlements/route.ts");
-    expect(route).toContain('requireAdminPermission("business")');
-    expect(route).not.toContain("isRouteAdmin");
-  });
-});
-
 describe("AD-05 explicit empty permission set", () => {
   it("행 없음 → 티어 기본값 · 저장된 [] → 권한 없음", () => {
     expect(resolveEffectiveStaffPermissionsFromStored(undefined, "operator")).toEqual(

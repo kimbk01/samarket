@@ -139,10 +139,6 @@ describe("CUT I Delivery Ads performance analytics", () => {
   });
 
   it("I16–I21 auth/RPC security contracts", () => {
-    const ownerPerf = readFileSync(
-      join(process.cwd(), "app/api/me/delivery-ads/performance/route.ts"),
-      "utf8"
-    );
     const ownerCamp = readFileSync(
       join(process.cwd(), "app/api/me/delivery-ads/[campaignId]/performance/route.ts"),
       "utf8"
@@ -151,14 +147,12 @@ describe("CUT I Delivery Ads performance analytics", () => {
       join(process.cwd(), "app/api/admin/delivery-ads/performance/route.ts"),
       "utf8"
     );
-    expect(ownerPerf).toContain("getRouteUserId");
     expect(ownerCamp).toContain("forbidden");
     expect(ownerCamp).toContain("owned.has");
     expect(adminPerf).toContain("requireAdminApiUser");
     expect(mig()).toMatch(/REVOKE ALL ON FUNCTION public\.get_delivery_ad_performance[\s\S]*FROM anon, authenticated/);
     expect(mig()).toContain("GRANT EXECUTE ON FUNCTION public.get_delivery_ad_performance");
     expect(mig()).toContain("TO service_role");
-    expect(ownerPerf).not.toContain("viewer_session_hash");
     expect(adminPerf).not.toContain("viewer_session_hash");
   });
 

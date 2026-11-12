@@ -207,9 +207,7 @@ const UNAUDITED_ADMIN_MUTATING_ROUTES_ALLOWLIST: readonly string[] = [];
 
 /** 변경 HTTP 메서드지만 DB·스토리지에 쓰지 않는 route (계산·미리보기·퇴역 응답). 근거 = 파일 확인 결과. */
 const NON_MUTATING_ADMIN_ROUTES: Readonly<Record<string, string>> = {
-  "app/api/admin/gift-certificates/conversions/[id]/approve/route.ts": "가드 후 410 만 반환 (await context.params 로 410 전용 판정 밖)",
   "app/api/admin/notification-campaigns/audience-preview/route.ts": "previewCampaignAudience 집계 조회만",
-  "app/api/admin/notification-sound-ssot/preview-resolver/route.ts": "설정 조회 + 메모리 resolver 만",
   "app/api/admin/point-expire/simulate/route.ts": "simulatePointExpireDb 읽기·계산만",
   "app/api/admin/point-policies/simulate/route.ts": "조회 3건 + computePointRewardSimulation 계산만",
   "app/api/admin/prelaunch-reset/dry-run/route.ts": "인증·DB 접근 전 항상 410",

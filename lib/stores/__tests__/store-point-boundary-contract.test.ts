@@ -6,17 +6,6 @@ const root = process.cwd();
 const path = (relative: string) => resolve(root, relative);
 
 describe("historical store-credit boundary", () => {
-  it("returns gone for former Owner recharge and balance APIs", () => {
-    for (const route of [
-      "app/api/me/stores/[storeId]/points/route.ts",
-      "app/api/me/stores/[storeId]/point-charges/route.ts",
-    ]) {
-      const source = readFileSync(path(route), "utf8");
-      expect(source).toContain("historical_store_credit_product_removed");
-      expect(source).toContain("status: 410");
-    }
-  });
-
   it("has no order-accept debit writer", () => {
     const transition = readFileSync(
       path("lib/stores/apply-store-order-status-transition.ts"),

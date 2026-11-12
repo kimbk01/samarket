@@ -68,31 +68,3 @@ describe("CUT B — apply-store-order-status-transition hook", () => {
     expect(coinReversalIdempotencyKeyForOrder("o1")).toBe("coin_reversal:order:o1");
   });
 });
-
-describe("CUT B — Gift conversion API freeze", () => {
-  const OWNER_POST = readFileSync(
-    join(
-      process.cwd(),
-      "app/api/me/stores/[storeId]/gift-certificates/conversions/route.ts"
-    ),
-    "utf8"
-  );
-  const ADMIN_APPROVE = readFileSync(
-    join(
-      process.cwd(),
-      "app/api/admin/gift-certificates/conversions/[id]/approve/route.ts"
-    ),
-    "utf8"
-  );
-
-  it("blocks owner POST with frozen error but keeps GET historical read", () => {
-    expect(OWNER_POST).toContain("historical_gift_conversion_read_only");
-    expect(OWNER_POST).toContain("export async function GET");
-    expect(OWNER_POST).not.toContain("giftCertificateConversionRequest");
-  });
-
-  it("blocks admin approve with frozen error", () => {
-    expect(ADMIN_APPROVE).toContain("historical_gift_conversion_read_only");
-    expect(ADMIN_APPROVE).not.toContain("giftCertificateConversionApprove");
-  });
-});

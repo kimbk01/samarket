@@ -286,10 +286,11 @@ describe("P0-R3 EXEMPT 16 exact rules", () => {
   });
 });
 
-describe("P0-R3 NON_MEMBER 18 classification", () => {
-  it("all 18 inventory NON_MEMBER rows stay NON_MEMBER", () => {
+describe("P0-R3 NON_MEMBER 17 classification", () => {
+  it("all 17 inventory NON_MEMBER rows stay NON_MEMBER", () => {
     const rows = loadMutationCsv().filter((r) => r.CLASS === "NON_MEMBER");
-    expect(rows.length).toBe(18);
+    // 2026-11-12 죽은 API 정리 D4: 삭제 라우트 제외
+    expect(rows.length).toBe(17);
     for (const row of rows) {
       expect(resolveMemberActionClassForApiMutation(row.PATH)).toBe("NON_MEMBER");
       expect(resolveMemberMutationPolicyClass(row.PATH)).toBe("NON_MEMBER");
@@ -329,15 +330,16 @@ describe("P0-R3 proxy matcher DENY coverage", () => {
     expect(proxySrc).toContain('if (pathname.startsWith("/api/"))');
   });
 
-  it("every DENY-classified route is matcher-covered (294/294 — presence EXEMPT 2026-11-01 · 푸시 전용 열람 POST 추가 2026-11-02 · 옛 모임 API 23개 삭제 2026-11-12 · 신규 모임 API 26개 2026-11-12 · 모임 일정·앨범·알림 설정 API 11개 · 미접속 모임장 변경 요청 API 1개(M5))", () => {
+  it("every DENY-classified route is matcher-covered (283/283 — presence EXEMPT 2026-11-01 · 푸시 전용 열람 POST 추가 2026-11-02 · 옛 모임 API 23개 삭제 2026-11-12 · 신규 모임 API 26개 2026-11-12 · 모임 일정·앨범·알림 설정 API 11개 · 미접속 모임장 변경 요청 API 1개(M5) · 죽은 API 11개 삭제 2026-11-12)", () => {
     const deny = loadMutationCsv().filter((r) => r.CLASS === "DENY");
-    expect(deny.length).toBe(294);
+    // 2026-11-12 죽은 API 정리 D4: 삭제 라우트 제외
+    expect(deny.length).toBe(283);
     const { covered, total, uncovered } = countDenyRoutesCoveredByProxyMatcher(
       deny.map((r) => r.PATH)
     );
     expect(uncovered).toEqual([]);
-    expect(covered).toBe(294);
-    expect(total).toBe(294);
+    expect(covered).toBe(283);
+    expect(total).toBe(283);
     expect(isPathCoveredByProxyMatcher("/api/community/posts")).toBe(true);
   });
 });

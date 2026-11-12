@@ -90,14 +90,12 @@ export const MEMBER_CONSENT_EXEMPT_RULES: readonly Rule[] = [
   R("POST", "/api/me/addresses", "profile_address_correction"),
   R("PATCH", "/api/me/addresses/[id]", "profile_address_correction"),
   R("POST", "/api/me/addresses/[id]/mark-used", "profile_address_correction"),
-  R("POST", "/api/me/addresses/[id]/set-default", "profile_address_correction"),
   R("DELETE", "/api/me/addresses/[id]", "profile_address_correction"),
   // existing order fulfillment (OWNER 1-3) — owner / rider / buyer side of an existing order
   R("PATCH", "/api/me/stores/[storeId]/orders/[orderId]", "order_fulfillment"),
   R("POST", "/api/me/stores/[storeId]/orders/[orderId]/cancel-request", "order_fulfillment"),
   // Store decides the buyer's cancel / refund request (approve or reject) — buyer rights on an existing order.
   R("POST", "/api/me/stores/[storeId]/orders/[orderId]/decide", "order_fulfillment"),
-  R("PATCH", "/api/me/stores/[storeId]/orders/[orderId]/delivery", "order_fulfillment"),
   R("POST", "/api/me/stores/[storeId]/orders/[orderId]/ensure-chat", "order_fulfillment"),
   R("POST", "/api/me/store-orders/[orderId]/ensure-chat", "order_fulfillment"),
   R("POST", "/api/me/rider/location", "order_fulfillment"),
