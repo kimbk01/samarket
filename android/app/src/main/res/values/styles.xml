@@ -36,13 +36,14 @@
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 
-    <style name="AppTheme.IncomingCall" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <!-- 다크 모드 없음 (Owner 2026-11-12 「통화 포함 진행」) — 통화 화면도 Light 고정 -->
+    <style name="AppTheme.IncomingCall" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:windowBackground">@color/dibay_incoming_deep_green</item>
     </style>
 
-    <style name="AppTheme.ForegroundIncomingCall" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <style name="AppTheme.ForegroundIncomingCall" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:windowIsTranslucent">true</item>

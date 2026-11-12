@@ -35,9 +35,9 @@ function MenuRow({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex min-h-[44px] w-full flex-col items-start justify-center border-b border-neutral-200 px-4 py-2.5 text-left sam-text-body font-medium text-neutral-900 last:border-b-0 disabled:opacity-45 dark:border-neutral-700 dark:text-neutral-100 ${
-        danger ? "text-red-600 dark:text-red-400" : ""
-      } active:bg-neutral-100 dark:active:bg-neutral-900`}
+      className={`flex min-h-[44px] w-full flex-col items-start justify-center border-b border-neutral-200 px-4 py-2.5 text-left sam-text-body font-medium text-neutral-900 last:border-b-0 disabled:opacity-45 ${
+        danger ? "text-red-600" : ""
+      } active:bg-neutral-100`}
     >
       {label}
     </button>
@@ -134,17 +134,17 @@ export function CallStubActionPopover(props: CallStubActionPopoverProps) {
       />
       <div
         ref={panelRef}
-        className="absolute z-[221] w-[min(92vw,280px)] overflow-hidden rounded-[14px] border border-neutral-200 bg-white text-neutral-900 shadow-[0_8px_32px_rgba(0,0,0,0.22)] dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+        className="absolute z-[221] w-[min(92vw,280px)] overflow-hidden rounded-[14px] border border-neutral-200 bg-white text-neutral-900 shadow-[0_8px_32px_rgba(0,0,0,0.22)]"
         style={{ top: pos.top, left: pos.left }}
         role="dialog"
         aria-modal="true"
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <div className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-          <p className="sam-text-xxs font-semibold text-neutral-500 dark:text-neutral-400">{t("cm_ui_call_message")}</p>
-          <p className="mt-0.5 line-clamp-2 sam-text-helper text-neutral-600 dark:text-neutral-300">{item.content}</p>
+        <div className="border-b border-neutral-200 px-3 py-2">
+          <p className="sam-text-xxs font-semibold text-neutral-500">{t("cm_ui_call_message")}</p>
+          <p className="mt-0.5 line-clamp-2 sam-text-helper text-neutral-600">{item.content}</p>
         </div>
-        <nav className="flex flex-col bg-white dark:bg-neutral-950" aria-label={t("cm_ui_call_log_actions")}>
+        <nav className="flex flex-col bg-white" aria-label={t("cm_ui_call_log_actions")}>
           <MenuRow
             label={t("cm_ui_redial")}
             disabled={roomUnavailable || redialDisabled}

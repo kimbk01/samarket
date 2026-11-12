@@ -30,6 +30,9 @@
 /* 단일 VF 파일 — dynamic-subset 은 다수 @font-face 로 Firefox "name records are not sorted"·preload 노이즈 유발 */
 @import "../node_modules/pretendard/dist/web/variable/pretendardvariable.css";
 @import "../node_modules/tailwindcss";
+/* 다크 모드 없음 (Owner 2026-11-12) — `dark:` 는 기기 다크(prefers-color-scheme)를 따르지 않는다.
+ * 앱은 `.dark` 클래스를 붙이지 않으므로 `dark:` 는 어디서도 적용되지 않는다. */
+@custom-variant dark (&:where(.dark, .dark *));
 /* Tailwind v4 auto-scans the repo except .gitignore. .recovery is forensic-only and
  * must not enter the class scanner — proven `/` cold peak 21GB → ~5.6GB when excluded. */
 @source not "../.recovery";

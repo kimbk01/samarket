@@ -57,9 +57,9 @@ export const CALL_UI_DANGER_BTN_CLASS =
   "bg-[#D93025] text-white shadow-[0_8px_24px_rgba(217,48,37,0.28)] transition-transform duration-[80ms] active:scale-[0.93] disabled:opacity-50";
 
 export const CALL_UI_CALL_LIST_ROW_CLASS =
-  "bg-white dark:bg-[#1F1F1F] border-b border-sam-border dark:border-white/10";
+  "bg-white border-b border-sam-border";
 
-export const CALL_UI_CALL_LIST_ROW_ACTIVE_CLASS = "active:bg-sam-primary-soft dark:active:bg-white/5";
+export const CALL_UI_CALL_LIST_ROW_ACTIVE_CLASS = "active:bg-sam-primary-soft";
 
 export function triggerIncomingCallBannerHaptic(ms = 12): void {
   if (typeof navigator === "undefined" || !("vibrate" in navigator)) return;
