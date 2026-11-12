@@ -1934,9 +1934,12 @@ public class NativeVideoCallActivity extends Activity {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
     if (callId == null || callId.isEmpty() || preparing) return;
     boolean autoEnter = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && isAutoPipEligible();
+    // callId 포함 — 같은 화면이 새 통화로 다시 쓰여도(onNewIntent) PiP 버튼이 이전 callId 를 들고 있지 않게.
     String key =
-        CallPipActionPlan.stateKey(
-            CallPipActionPlan.plan(true, cameraEnabled, maxPipActions()), micMuted, cameraEnabled, autoEnter);
+        callId
+            + "|"
+            + CallPipActionPlan.stateKey(
+                CallPipActionPlan.plan(true, cameraEnabled, maxPipActions()), micMuted, cameraEnabled, autoEnter);
     if (key.equals(lastPipParamsKey)) return;
     PictureInPictureParams params = buildPipParams(autoEnter);
     if (params == null) return;

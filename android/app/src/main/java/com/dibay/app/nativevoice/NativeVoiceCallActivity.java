@@ -717,9 +717,12 @@ public class NativeVoiceCallActivity extends Activity {
     if (callId == null || callId.isEmpty() || preparing) return;
     if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) return;
     boolean autoEnter = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && isAutoPipEligible();
+    // callId 포함 — 같은 화면이 새 통화로 다시 쓰여도(onNewIntent) PiP 버튼이 이전 callId 를 들고 있지 않게.
     String key =
-        CallPipActionPlan.stateKey(
-            CallPipActionPlan.plan(false, false, maxPipActions()), micMutedChrome, false, autoEnter);
+        callId
+            + "|"
+            + CallPipActionPlan.stateKey(
+                CallPipActionPlan.plan(false, false, maxPipActions()), micMutedChrome, false, autoEnter);
     if (key.equals(lastPipParamsKey)) return;
     PictureInPictureParams params = buildPipParams(autoEnter);
     if (params == null) return;
