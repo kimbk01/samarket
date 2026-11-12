@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-12 16:59 PHT",
+ "generatedAtPht": "2026-11-13 05:28 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -283,7 +283,6 @@
    "components/community-messenger/room/phase2/ChatRoomMoreMenu.tsx": 3,
    "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2OneToOneDotMenu.tsx": 4,
    "components/community-messenger/room/phase2/MessengerStoreOrderSummaryCard.tsx": 1,
-   "components/community-messenger/room/phase2/MessengerTimelineBubbleInners.tsx": 2,
    "components/community-messenger/room/phase2/StoreOrderDeliveryMessengerHeaderBlock.tsx": 1,
    "components/community/NeighborhoodInterleavedContent.tsx": 1,
    "components/community/post-detail/CommunityCommentItem.tsx": 4,

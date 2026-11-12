@@ -38,6 +38,9 @@ export const cmHomeListMessages = {
     cm_call_result_interrupted: "중단됨",
     cm_call_result_disconnected: "연결 끊김",
     cm_call_result_checking: "상태 확인 중",
+    /** 2026-10-15 이전 방 미리보기에 저장된 옛 결과 글자 — 옛 문장 알아보기 전용(`call-stub-room-tip.ts` D2) */
+    cm_call_legacy_result_cancelled: "취소됨",
+    cm_call_legacy_result_declined: "거절됨",
 
 
     cm_home_badge_open: "오픈",
@@ -167,6 +170,8 @@ export const cmHomeListMessages = {
     cm_call_result_interrupted: "Interrupted",
     cm_call_result_disconnected: "Disconnected",
     cm_call_result_checking: "Checking status",
+    cm_call_legacy_result_cancelled: "Cancelled",
+    cm_call_legacy_result_declined: "Declined",
 
 
     cm_home_badge_open: "Open",

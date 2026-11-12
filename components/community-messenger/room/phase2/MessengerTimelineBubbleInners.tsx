@@ -167,6 +167,7 @@ export const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallSt
   /** 문구와 같은 판정의 색 — 있으면 이것만 쓴다(보는 사람 기준·언어 무관). docs/audit/call-cancel-callee-missed-design-2026-11-13.md D2 */
   callStatusTone?: "missed" | "rejected" | "cancelled" | "normal";
 }) {
+  const { t } = useI18n();
   const CallGlyph = item.callKind === "video" ? VideoCallIcon : VoiceCallIcon;
   const kindLabel = item.callKind === "video" ? videoCallLabel : voiceCallLabel;
   const resultLabel = callStatusLabel.trim();
@@ -248,7 +249,8 @@ export const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallSt
                 : "text-[color:var(--cm-room-text-muted,#65676b)]"
           }`}
         >
-          {isMine ? "발신" : "수신"}
+          {/* 발신·수신 = 보는 사람 언어 (docs/audit/call-record-en-korean-residual-design-2026-11-13.md D1) */}
+          {t(isMine ? "cm_call_direction_outgoing" : "cm_call_direction_incoming")}
         </span>
       </span>
     </div>
