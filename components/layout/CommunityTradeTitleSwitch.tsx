@@ -70,9 +70,10 @@ export function CommunityTradeTitleSwitch({ active }: { active: "community" | "t
  * 머리글 3단 — 2단 탭 줄 바로 아래, 「정보교환 · 거래」 전환 탭을 **오른쪽 정렬**로 둔다
  * (Owner 「A 안」 2026-11-12: 「3단의 탭 메뉴는 우측 정렬, 2단 탭 메뉴는 좌측 정렬」,
  * 시안 `docs/design/community-trade-header-switch-mockup-2026-11-12.html` A).
- * 줄을 혼자 쓰므로 영문·긴 문구도 잘리지 않는다 — 폭이 모자라면 줄이 가로로 밀린다(글자 자르기 없음).
  * 좌우 여백·줄 높이 = 2단 탭 줄과 같은 토큰(`DIBAY_SECONDARY_TAB_INNER_CLASS` · `--dibay-secondary-tab-row-h`),
  * 오른쪽 끝은 `pr-1` 로 1단 아이콘(알림) 오른쪽 끝과 같은 선(화면 끝에서 12px).
+ * 오른쪽 정렬은 `justify-end` 가 아니라 자식 `ml-auto` 로 — `justify-end` + 가로 스크롤이면 넘칠 때 왼쪽이 화면 밖으로
+ * 잘려 스크롤로도 못 본다. `ml-auto` 는 넘치면 0 이 되어 왼쪽부터 밀어서 볼 수 있다 (Owner 「3건 수정」 2026-11-12).
  */
 export function CommunityTradeSwitchRow({ active }: { active: "community" | "trade" }) {
   return (
@@ -81,8 +82,10 @@ export function CommunityTradeSwitchRow({ active }: { active: "community" | "tra
       data-community-trade-switch-row
     >
       <div className={DIBAY_SECONDARY_TAB_INNER_CLASS}>
-        <div className="flex h-[length:var(--dibay-secondary-tab-row-h,44px)] min-w-0 max-w-full items-center justify-end overflow-x-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <CommunityTradeTitleSwitch active={active} />
+        <div className="flex h-[length:var(--dibay-secondary-tab-row-h,44px)] min-w-0 max-w-full items-center overflow-x-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <span className="ml-auto inline-flex shrink-0">
+            <CommunityTradeTitleSwitch active={active} />
+          </span>
         </div>
       </div>
     </div>
