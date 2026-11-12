@@ -696,6 +696,19 @@ export function moimSanctionsExpireDue(limit: number, sb?: SupabaseServer) {
   return callMoimRpc<{ refreshed: { moim_id: string; platform_state: string }[] }>("moim_sanctions_expire_due", { p_limit: limit }, sb);
 }
 
+/** 운영 정책 실행 (예약 작업) — 정책 값이 NULL 이면 서버가 아무것도 하지 않는다 */
+export function moimJoinRequestsExpireDue(limit: number, sb?: SupabaseServer) {
+  return callMoimRpc<{ expired: number; policy: number | null }>("moim_join_requests_expire_due", { p_limit: limit }, sb);
+}
+
+export function moimScheduleRoomsArchiveDue(limit: number, sb?: SupabaseServer) {
+  return callMoimRpc<{ archived: number; policy: number | null }>("moim_schedule_rooms_archive_due", { p_limit: limit }, sb);
+}
+
+export function moimClosedRetentionDue(limit: number, sb?: SupabaseServer) {
+  return callMoimRpc<{ ended: number; policy: number | null }>("moim_closed_retention_due", { p_limit: limit }, sb);
+}
+
 export function moimAdminDelete(adminId: string, moimId: string, reason: string, sb?: SupabaseServer) {
   return callMoimRpc("moim_admin_delete", { p_admin: adminId, p_moim: moimId, p_reason: reason }, sb);
 }

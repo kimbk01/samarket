@@ -56,10 +56,12 @@ type MoimRow = {
   main_room_id: string | null;
   created_at: string;
   updated_at: string;
+  /** 종료 모임 열람 기간이 끝난 시각 (예약 작업 — 운영 정책 closed_retention_days) */
+  retention_ended_at: string | null;
 };
 
 const MOIM_COLS =
-  "id, name, intro, cover_image_url, category_id, topic_label, lgu_id, join_mode, capacity, age_min_birth_year, age_max_birth_year, host_user_id, status, platform_state, member_count, last_activity_at, main_room_id, created_at, updated_at";
+  "id, name, intro, cover_image_url, category_id, topic_label, lgu_id, join_mode, capacity, age_min_birth_year, age_max_birth_year, host_user_id, status, platform_state, member_count, last_activity_at, main_room_id, created_at, updated_at, retention_ended_at";
 
 type MemberRow = {
   moim_id: string;
@@ -169,6 +171,12 @@ export async function listMyMoims(sb: SupabaseServer, userId: string): Promise<M
   return toCards(sb, rows, userId);
 }
 
+async function loadMoimInactiveUnlistDays(sb: SupabaseServer): Promise<number | null> {
+  const { data } = await sb.from("moim_policies").select("inactive_unlist_days").eq("id", 1).maybeSingle();
+  const n = (data as { inactive_unlist_days: number | null } | null)?.inactive_unlist_days;
+  return typeof n === "number" && n > 0 ? n : null;
+}
+
 /** 우리 동네 모임 — 같은 LGU · 정상 노출(normal)만 · 최근 활동순 (설계 §6 P2) */
 export async function listLocalMoims(
   sb: SupabaseServer,
@@ -186,6 +194,9 @@ export async function listLocalMoims(
     .order("last_activity_at", { ascending: false })
     .limit(limit + 1);
   if (opts.categoryId) query = query.eq("category_id", opts.categoryId);
+  // 운영 정책 inactive_unlist_days: 마지막 활동이 N일 지난 모임은 동네 목록·검색에서 뺀다 (상태 변경 없음 — 활동이 생기면 바로 다시 보임)
+  const inactiveDays = await loadMoimInactiveUnlistDays(sb);
+  if (inactiveDays) query = query.gte("last_activity_at", new Date(Date.now() - inactiveDays * 86_400_000).toISOString());
   const q = (opts.q ?? "").trim().replace(/[%_,()]/g, " ").slice(0, 40);
   if (q) query = query.or(`name.ilike.%${q}%,intro.ilike.%${q}%,topic_label.ilike.%${q}%`);
   if (opts.before) query = query.lt("last_activity_at", opts.before);
@@ -283,10 +294,10 @@ async function loadOverrides(sb: SupabaseServer, moimId: string): Promise<Partia
   return out;
 }
 
-/** 모임을 볼 수 있는가 (삭제 모임 불가, 종료 모임은 탈퇴 안 한 멤버만) */
+/** 모임을 볼 수 있는가 (삭제 모임 불가, 종료 모임은 탈퇴 안 한 멤버만 · 열람 기간(운영 정책)이 끝나면 아무도 못 봄 — 설계 P15) */
 function canViewMoim(m: MoimRow, me: MemberRow | null): boolean {
   if (m.status === "deleted") return false;
-  if (m.status === "closed") return !!me && me.status === "active";
+  if (m.status === "closed") return !m.retention_ended_at && !!me && me.status === "active";
   return true;
 }
 
