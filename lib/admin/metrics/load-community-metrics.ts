@@ -11,6 +11,7 @@ import { COMMUNITY_REPORT_ADMIN_ACTIONABLE } from "@/lib/admin/admin-ops-actiona
 import { adminDomainCountExact } from "@/lib/admin/domain-dashboard/count-exact";
 import { applyCommunityPostStatusOriginFilter } from "@/lib/admin/metrics/admin-metric-filters";
 import { manilaLastNDaysRangeUtc } from "@/lib/admin/metrics/manila-period";
+import { parseCommunityAdminPeriod } from "@/lib/admin/community-admin/community-admin-period";
 import {
   COMMUNITY_METRIC_DEFINITIONS,
   resolveCommunityDirectMetric,
@@ -126,6 +127,10 @@ export async function loadCommunityMetrics(
   const staleIso = new Date(now.getTime() - 24 * 3_600_000).toISOString();
   const last7From = manilaLastNDaysRangeUtc(7, now).rangeStartIso;
   const nowIso = now.toISOString();
+  // 모임 신규 7일 = 모임 목록 `period=7d` 와 같은 범위 (parseCommunityAdminPeriod 7d · 마닐라)
+  const moimNew7 = parseCommunityAdminPeriod({ period: "7d" }, { now });
+  const moimNew7From = moimNew7.ok && moimNew7.fromIso ? moimNew7.fromIso : last7From;
+  const moimNew7To = moimNew7.ok && moimNew7.toIso ? moimNew7.toIso : nowIso;
 
   const [queueRes, direct, statsRes] = await Promise.all([
     loadAdminActionQueueCounts({ storesSb: sbAny, notesSb: sbAny, permissionScope: scope ?? undefined }).catch(
@@ -197,6 +202,26 @@ export async function loadCommunityMetrics(
       count("promotions_running", () =>
         sbAny.from("point_promotion_orders").select("id", head).eq("domain", "community").eq("order_status", "active")
       ),
+      // 모임 (M5) — 이동 화면(/admin/community/moims*)과 같은 조건
+      count("moim_reports_received", () => sbAny.from("moim_reports").select("id", head).eq("status", "received")),
+      count("moim_host_requests_pending", () =>
+        sbAny.from("moim_host_transfers").select("id", head).eq("kind", "inactive_request").eq("status", "requested")
+      ),
+      count("moim_new_7d", () =>
+        sbAny
+          .from("moims")
+          .select("id", head)
+          .neq("status", "deleted")
+          .gte("created_at", moimNew7From)
+          .lt("created_at", moimNew7To)
+      ),
+      count("moim_active_7d", () =>
+        sbAny
+          .from("moims")
+          .select("id", head)
+          .neq("status", "deleted")
+          .gte("last_activity_at", new Date(now.getTime() - 7 * 86_400_000).toISOString())
+      ),
     ]),
     loadCommunityPeriodStats(sb, input.period.fromIso, input.period.toIso),
   ]);
@@ -215,6 +240,10 @@ export async function loadCommunityMetrics(
     restrictionsActive,
     suspendedAuthors,
     promotionsRunning,
+    moimReportsReceived,
+    moimHostRequestsPending,
+    moimNew7d,
+    moimActive7d,
   ] = direct;
   const directValues: Record<string, number | null> = {
     "community.support_waiting": supportWaiting,
@@ -230,6 +259,10 @@ export async function loadCommunityMetrics(
     "community.restrictions_active": restrictionsActive,
     "community.suspended_authors": suspendedAuthors,
     "community.promotions_running": promotionsRunning,
+    "community.moim.reports_received": moimReportsReceived,
+    "community.moim.host_requests_pending": moimHostRequestsPending,
+    "community.moim.new_7d": moimNew7d,
+    "community.moim.active_7d": moimActive7d,
   };
 
   const stats = statsRes.ok ? statsRes.stats : null;

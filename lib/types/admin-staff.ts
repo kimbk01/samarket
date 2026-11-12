@@ -23,6 +23,7 @@ export type AdminPermissionKey =
   | "reviews"     // 리뷰관리
   | "reports"     // 신고/제재관리
   | "support"     // 고객지원 (문의·지원 케이스 조회·처리 — RS-04)
+  | "moim"        // 모임(커뮤니티 모임) 조회·수정·제재 — 모임 삭제·복구·콘텐츠 삭제는 최고관리자만 (설계 moim §5.1·§8)
   | "ads"         // 광고/노출
   | "point"       // 포인트 운영
   | "settings"    // 운영 설정
@@ -48,6 +49,7 @@ export const ADMIN_PERMISSION_KEYS = [
   "reviews",
   "reports",
   "support",
+  "moim",
   "ads",
   "point",
   "settings",

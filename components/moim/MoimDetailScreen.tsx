@@ -15,6 +15,7 @@ import { MoimMemberView } from "@/components/moim/MoimMemberView";
 import { MoimPublicView } from "@/components/moim/MoimPublicView";
 import { MoimReportSheet, type MoimReportTarget } from "@/components/moim/MoimReportSheet";
 import { MoimErrorState, MoimListSkeleton, moimCls, useMoimToast } from "@/components/moim/moim-ui";
+import { canRequestMoimHostChange } from "@/components/moim/manage/MoimManageHub";
 
 /** 운영 관리 메뉴를 보여 줄 권한 (멤버 누구나 가진 권한은 제외) */
 const MANAGE_ACTIONS: readonly MoimAction[] = [
@@ -91,7 +92,8 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
   const [report, setReport] = useState<MoimReportTarget | null>(null);
 
   const isMember = moim?.viewer.status === "active";
-  const canManage = !!moim && MANAGE_ACTIONS.some((a) => moim.can[a]);
+  // 부모임장·운영진은 권한이 없어도 「모임장 변경 요청」(P8 미접속 위임) 때문에 운영 메뉴를 연다
+  const canManage = !!moim && (MANAGE_ACTIONS.some((a) => moim.can[a]) || canRequestMoimHostChange(moim));
 
   const rightSlot = useMemo(
     () =>

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { moimSchedulesClaimReminders, moimSchedulesFinishDue } from "@/lib/moim/server/moim-rpc.server";
+import { moimSanctionsExpireDue, moimSchedulesClaimReminders, moimSchedulesFinishDue } from "@/lib/moim/server/moim-rpc.server";
 import { filterMoimRecipientsByPref, moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
  * 모임 일정 예약 작업 (10분마다, vercel.json) — 설계 §6 P10
  *  1) 끝난 일정 → done · 일정 채팅방 읽기 전용 · 확정 참여자에게 후기 안내
  *  2) 시작 24시간 전 · 1시간 전 리마인드 (일정마다 한 번, 모임 알림 설정 「일정」 켠 사람만)
+ *  3) 기간이 끝난 모임 제재 반영 (M5 · 설계 §6 P14 — 실패해도 1·2 결과는 그대로)
  */
 async function run(req: Request) {
   const secret = process.env.CRON_SECRET?.trim();
@@ -54,8 +55,17 @@ async function run(req: Request) {
     }
   }
 
+  let sanctionsRefreshed: number | null = null;
+  try {
+    const expired = await moimSanctionsExpireDue(200, sb);
+    sanctionsRefreshed = expired.ok ? (expired.refreshed ?? []).length : null;
+  } catch {
+    sanctionsRefreshed = null;
+  }
+
   return NextResponse.json({
     ok: true,
+    sanctionsRefreshed,
     finished: finished.ok ? (finished.done ?? []).length : null,
     reviewSent,
     reminders24h: counts["24h"],

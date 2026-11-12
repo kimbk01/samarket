@@ -304,6 +304,10 @@ export const NOTIFICATION_ITEMS: readonly NotificationItemDefinition[] = [
         "moim_schedule_reminder_1h",
         "moim_schedule_cancelled",
         "moim_schedule_review",
+        // M5 어드민 조치 — 제재(필수) · 정보 수정 · 모임장 변경 요청 결과
+        "moim_sanctioned",
+        "moim_admin_info_updated",
+        "moim_host_request_result",
       ],
     },
     soundEventKey: "item_community_meeting",

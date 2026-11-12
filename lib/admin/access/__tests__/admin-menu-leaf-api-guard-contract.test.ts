@@ -150,6 +150,7 @@ const PERMISSION_KEYS: readonly AdminPermissionKey[] = [
   "reviews",
   "reports",
   "support",
+  "moim",
   "ads",
   "point",
   "settings",

@@ -15,7 +15,9 @@ export type CommunityAdminArea =
   /** 포인트 지급·회수·충전·포인트 정책 */
   | "points"
   /** 조회 전용 화면 (작성자·기록·통계·상위노출 목록·보상 원장) */
-  | "read";
+  | "read"
+  /** 모임 어드민 (설계 moim §8 · 권한 키 `moim`) — 커뮤니티 대시보드의 모임 지표 표시 판정 */
+  | "moim";
 
 export const COMMUNITY_ADMIN_AREA_PERMISSIONS: Record<CommunityAdminArea, readonly AdminPermissionKey[]> = {
   content: ["boards"],
@@ -23,6 +25,7 @@ export const COMMUNITY_ADMIN_AREA_PERMISSIONS: Record<CommunityAdminArea, readon
   promotion: ["ads"],
   points: ["point"],
   read: ["boards", "reports", "ads", "point"],
+  moim: ["moim"],
 };
 
 /** 영역 이름 — 카탈로그 키 (화면에서 `t(key)`) */
@@ -32,6 +35,7 @@ export const COMMUNITY_ADMIN_AREA_LABEL_KEY: Record<CommunityAdminArea, MessageK
   promotion: "admin_community_area_promotion",
   points: "admin_community_area_points",
   read: "admin_community_area_read",
+  moim: "admin_community_area_moim",
 };
 
 export function communityAreaAllowed(

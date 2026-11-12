@@ -16,6 +16,7 @@ export const adsImpl1107DeleteMessages = {
     admin_access_area_promotion: "상위노출",
     admin_access_area_points: "포인트",
     admin_access_area_read: "커뮤니티 조회",
+    admin_access_area_moim: "모임",
 
     // ── 광고 종류
     admin_ad_kind_trade_promotion: "거래 상위노출",
@@ -100,6 +101,7 @@ export const adsImpl1107DeleteMessages = {
     admin_access_area_promotion: "Promotion",
     admin_access_area_points: "Points",
     admin_access_area_read: "Community read",
+    admin_access_area_moim: "Groups",
 
     admin_ad_kind_trade_promotion: "Trade boost",
     admin_ad_kind_community_promotion: "Community boost",

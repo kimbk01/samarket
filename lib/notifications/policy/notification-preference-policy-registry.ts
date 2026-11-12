@@ -89,6 +89,9 @@ export const META_KIND_PREFERENCE_POLICY_OVERRIDES: Readonly<Record<string, Poli
   moim_schedule_decided_ok: row("member", "community_social", "mandatory", MANDATORY),
   moim_schedule_decided_no: row("member", "community_social", "mandatory", MANDATORY),
   moim_schedule_cancelled: row("member", "community_social", "mandatory", MANDATORY),
+  // M5: 플랫폼 제재 = 필수(설계 §7 · P14) · 미접속 모임장 변경 요청 결과 = 결과 통지(끌 수 없음)
+  moim_sanctioned: row("member", "community_social", "mandatory", MANDATORY),
+  moim_host_request_result: row("member", "community_social", "mandatory", MANDATORY),
 
   // Member financial (mandatory)
   user_point_charge_approved: row("member", "member_financial", "mandatory", MANDATORY),

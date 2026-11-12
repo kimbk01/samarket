@@ -279,6 +279,9 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   //   쓰기 = ads 키 (API PATCH `community-promotion-orders/[id]` = requireAdsWriteAdmin)
   { path: "/admin/community/promotions", requirement: ANY, action: perm("ads") },
   { path: "/admin/community/points", requirement: community("read"), action: perm("point") },
+  // 모임 어드민 (설계 moim §8 · M5 2026-11-12) — 조회·수정·제재 API 전부 requireAdminPermission("moim").
+  //   모임 삭제·복구·콘텐츠 삭제는 같은 화면 안 버튼이지만 API 가 requireSuperAdmin (화면은 최고관리자에게만 버튼 표시)
+  { path: "/admin/community/moims", requirement: perm("moim") },
   { path: "/admin/community", requirement: community("content") },
   { path: "/admin/philife", requirement: ANY },
 
