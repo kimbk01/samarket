@@ -18,7 +18,7 @@ describe("정보교환·거래 머리글 3판 계약", () => {
     expect(tier1).toContain("<Tier1TitleWithArea");
     expect(tier1).toContain("<CommunityTier1AreaButton />");
     expect(tier1).toContain('<TradeHeaderLocationPinButton placement="title" />');
-    expect(tier1).toContain("noLeftSlot={areaHub}");
+    expect(tier1).toContain('noLeftSlot={areaHub || hub === "moim"}');
     expect(read("app/sector-header.css")).toMatch(
       /\.sector-header--no-left-slot \.sector-header-bar--left-title \{\s*grid-template-columns: minmax\(0, 1fr\) auto;/
     );
@@ -62,5 +62,31 @@ describe("정보교환·거래 머리글 3판 계약", () => {
   it("주소 관리 입구는 「보는 동네」 시트 맨 아래로 — 같은 주소록 경로", () => {
     expect(read("components/community/CommunityAreaSheet.tsx")).toContain("usePhilifeAddressManageMenuItem");
     expect(read("components/philife/PhilifeHeaderAddressMenuButton.tsx")).toContain("buildMypageAddressesHrefFromPath");
+  });
+});
+
+describe("모임 3단 (Owner 「3판대로 구현」 2026-11-12, 설계 §2-3)", () => {
+  it("전환 줄 = 정보교환 · 거래 · 모임, 모임 → /moim", () => {
+    const sw = read("components/layout/CommunityTradeTitleSwitch.tsx");
+    expect(sw).toContain('key: "moim" as const');
+    expect(sw).toContain('href: () => "/moim"');
+  });
+
+  it("정보교환 2단에 「모임」 탭 없음", () => {
+    expect(read("components/community/CommunityFeed.tsx")).not.toContain('data-community-tab="moim"');
+  });
+
+  it("/moim = 허브 머리글(1단 모임·검색·알림) + 2단 카테고리 + 3단 모임 선택", () => {
+    const tier1 = read("components/layout/RegionBarMainHubTier1.tsx");
+    expect(tier1).toContain('if (pathNoQuery === "/moim") return "moim";');
+    expect(tier1).toContain("<MoimHeaderRightActions />");
+    expect(read("components/layout/RegionBar.tsx")).toContain('pathNoQuery === "/moim"');
+    const home = read("components/moim/MoimTabHome.tsx");
+    expect(home).toContain("data-moim-category-tabs");
+    expect(home).toContain('<CommunityTradeSwitchRow active="moim" />');
+    expect(home).not.toContain("moimRoutes.search");
+    expect(read("components/layout/AppStickyHeader.tsx")).toContain(
+      '(communityTradeSwitchHub === "community" || communityTradeSwitchHub === "moim" ? ('
+    );
   });
 });

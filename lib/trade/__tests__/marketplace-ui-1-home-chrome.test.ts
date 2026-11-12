@@ -50,7 +50,7 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(sticky).toMatch(/loading: \(\) => <DibaySecondaryTabRowSkeleton bordered \/>/);
     expect(sticky).toContain('dividerBelow={communityTradeSwitchHub === "trade"}');
     /** 커뮤니티: 피드가 2단·3단을 넘기기 전 첫 화면부터 같은 자리 */
-    expect(sticky).toMatch(/stickyBelow \?\?[\s\S]*communityTradeSwitchHub === "community"[\s\S]*<DibaySecondaryTabRowSkeleton bordered \/>[\s\S]*<CommunityTradeSwitchRow active="community" \/>/);
+    expect(sticky).toMatch(/stickyBelow \?\?[\s\S]*communityTradeSwitchHub === "community"[\s\S]*<DibaySecondaryTabRowSkeleton bordered \/>[\s\S]*<CommunityTradeSwitchRow active=\{communityTradeSwitchHub\} \/>/);
     const tabs = read("components/trade/TradePrimaryTabs.tsx");
     expect(tabs).toContain("<DibaySecondaryTabRowSkeleton bordered={!embedInAppHeader || dividerBelow} />");
     /** 거래 머리글에만 있던 빈 10px 띠 없음 → 전환 줄이 두 화면에서 같은 높이 */

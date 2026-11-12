@@ -21,6 +21,12 @@ describe("resolveCommunityTradeSwitchHub", () => {
     expect(hub("/market?sort=near")).toBe("trade");
   });
 
+  it("모임 홈 — 3단 「정보교환 · 거래 · 모임」 (Owner 「3판대로 구현」 2026-11-12)", () => {
+    expect(hub("/moim")).toBe("moim");
+    expect(hub("/moim/search")).toBeNull();
+    expect(hub("/moim/new")).toBeNull();
+  });
+
   it("허브 머리글이 아닌 화면엔 없음", () => {
     expect(hub("/market/sell")).toBeNull();
     expect(hub("/market/location")).toBeNull();
