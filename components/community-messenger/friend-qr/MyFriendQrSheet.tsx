@@ -26,16 +26,18 @@ export function MyFriendQrSheet({ onClose }: { onClose: () => void }) {
   const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
+  /** 메신저 안이면 목록 칸에 맞춰 열고, 내정보 등 밖에서는 화면 폭 그대로 */
+  const inMessenger = Boolean(pathname?.startsWith("/community-messenger"));
   const onToken = useCallback(
     (token: string) => {
       onClose();
-      if (pathname?.startsWith("/community-messenger")) {
+      if (inMessenger) {
         useFriendQrResultStore.getState().open(token);
         return;
       }
       router.push(buildFriendQrHomePath(token));
     },
-    [onClose, pathname, router]
+    [inMessenger, onClose, router]
   );
   return (
     <MessengerHomeBottomSheetShell
@@ -44,6 +46,7 @@ export function MyFriendQrSheet({ onClose }: { onClose: () => void }) {
       dialogAriaLabel={t("friend_qr_sheet_title")}
       anchor="device-bottom"
       deviceHeight={FRIEND_QR_SHEET_HEIGHT}
+      splitListPane={inMessenger}
     >
       <MessengerSheetHeaderBar title={t("friend_qr_sheet_title")} onClose={onClose} closeLabel={t("nav_close")} />
       {/** 본문 = 위아래 칸(flex). 남은 공간은 QR·카메라 칸이 채운다 — 아주 낮은 화면에서만 스크롤 */}

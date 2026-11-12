@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * 시트 모양(아래 붙음·높이·열림 움직임) CSS — 셸이 직접 불러온다.
+ * 메신저 레이아웃만 불러오면 메신저 밖(내정보 QR 코드 시트 등)에서는 CSS 가 없어 시트가 깨진다 (2026-11-12).
+ */
+import "@/app/messenger-home-bottom-sheet.css";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
@@ -39,6 +44,7 @@ export function MessengerHomeBottomSheetShell({
   anchor = "fit-content",
   deviceHeightRatio = MESSENGER_SETTINGS_SHEET_DEVICE_HEIGHT_RATIO,
   deviceHeight,
+  splitListPane = true,
 }: {
   onClose: () => void;
   closeAriaLabel: string;
@@ -53,6 +59,11 @@ export function MessengerHomeBottomSheetShell({
    * 내용이 늦게 오거나 탭마다 높이가 달라도 시트 높이가 변하지 않아야 하는 시트용 (QR 친구 근본 재감사 G1).
    */
   deviceHeight?: string;
+  /**
+   * ≥768 에서 메신저 목록 칸 폭·위치에 맞출지 (기본 켬). 메신저 밖(내정보 등)에서 쓰는 시트는 끈다 —
+   * 목록 칸이 없는 화면에서 시트가 한쪽으로 치우쳐 열리지 않게 (2026-11-12).
+   */
+  splitListPane?: boolean;
 }) {
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
@@ -101,10 +112,10 @@ export function MessengerHomeBottomSheetShell({
   const deviceBottom = anchor === "device-bottom";
   const center = anchor === "center";
   const panelAnchorClass = deviceBottom
-    ? `${MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS} ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}`
+    ? `${MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS}${splitListPane ? ` ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}` : ""}`
     : center
       ? "messenger-home-center-sheet-panel"
-      : `${MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS} ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}`;
+      : `${MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS}${splitListPane ? ` ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}` : ""}`;
   const panelMotionClass =
     center ?
       entered ? "messenger-home-center-sheet-panel--entered" : "messenger-home-center-sheet-panel--entering"

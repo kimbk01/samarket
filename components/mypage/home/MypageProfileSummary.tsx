@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, QrCode } from "lucide-react";
+import { MyFriendQrSheet } from "@/components/community-messenger/friend-qr/MyFriendQrSheet";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 import { MannerBatteryIcon } from "@/components/trust/MannerBatteryIcon";
@@ -28,8 +30,10 @@ export function MypageProfileSummary({
   /** `GET /api/me/mypage-summary` `trust` (ok 일 때만) — `/mypage/trust` 와 같은 원값 */
   summaryTrust?: MypageSummaryTrust | null;
 }) {
-  const { safeT } = useI18n();
+  const { safeT, t } = useI18n();
   const { openSheet } = useMypageProfileSheets();
+  /** 내 QR 코드 시트 (QR 친구 — Owner 「내정보 카드에 추가」 2026-11-12). 친구 탭 검색 줄 QR 아이콘과 같은 시트 */
+  const [qrOpen, setQrOpen] = useState(false);
 
   if (!projection) {
     // 실제 구조와 같은 높이: 아바타 56 + 이름 120×16 + 아이디 80×12 + 상태 160×12 + 매너 행 44px
@@ -45,6 +49,11 @@ export function MypageProfileSummary({
             <div className="h-3 w-20 rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse" />
             <div className="h-3 w-40 rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse" />
           </div>
+        </div>
+        {/* QR 코드 줄 자리 — 실제 카드와 같은 높이 (불러온 뒤 카드가 커지지 않게) */}
+        <div className="flex min-h-[44px] items-center gap-3 border-t border-sam-border-soft px-4 py-3 md:px-5">
+          <div className="h-5 w-9 rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse" />
+          <div className="h-3.5 w-20 rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse" />
         </div>
         <div className="flex min-h-[44px] items-center gap-3 border-t border-sam-border-soft px-4 py-3 md:px-5">
           <div className="h-5 w-9 rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse" />
@@ -103,6 +112,23 @@ export function MypageProfileSummary({
         </span>
       </button>
 
+      {/* 내 QR 코드 — 매너 줄과 같은 줄 모양(44px·윗줄·아이콘 칸 36px·제목·안내·화살표) */}
+      <button
+        type="button"
+        data-testid="mypage-profile-qr-row"
+        onClick={() => setQrOpen(true)}
+        className="flex min-h-[44px] w-full items-center gap-3 border-t border-sam-border-soft px-4 py-3 text-left active:bg-sam-pressed-surface md:px-5"
+      >
+        <span className="flex w-9 shrink-0 items-center justify-center text-sam-fg" aria-hidden>
+          <QrCode className="h-5 w-5" strokeWidth={1.8} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[14px] font-semibold text-sam-fg">{t("friend_qr_sheet_title")}</span>
+          <span className="mt-0.5 block text-[13px] text-sam-muted">{t("friend_qr_my_hint")}</span>
+        </span>
+        <ChevronRight className="h-4 w-4 shrink-0 text-sam-muted" aria-hidden />
+      </button>
+
       <Link
         href="/mypage/trust"
         data-testid="mypage-profile-manner-row"
@@ -140,6 +166,7 @@ export function MypageProfileSummary({
         </span>
         <ChevronRight className="h-4 w-4 shrink-0 text-sam-muted" aria-hidden />
       </Link>
+      {qrOpen ? <MyFriendQrSheet onClose={() => setQrOpen(false)} /> : null}
     </section>
   );
 }

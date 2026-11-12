@@ -58,7 +58,13 @@ describe("friend QR contract", () => {
     expect(actions).toContain("<MyFriendQrSheet");
     expect(actions).toContain('data-testid="cm-friend-qr-entry"');
     expect(read("components/community-messenger/MessengerFriendsMyProfileStrip.tsx")).not.toContain("MyFriendQrSheet");
-    expect(read("components/mypage/profile/MypageSelfProfileView.tsx")).toContain("<MyFriendQrSheet");
+    /** 마이페이지 진입 = 실제 내정보 「내 프로필」 카드(MyPageHomeDashboard 가 그림) — Owner 「내정보 카드에 추가」 2026-11-12 */
+    const summary = read("components/mypage/home/MypageProfileSummary.tsx");
+    expect(summary).toContain("<MyFriendQrSheet");
+    expect(summary).toContain('data-testid="mypage-profile-qr-row"');
+    expect(read("components/mypage/MyPageHomeDashboard.tsx")).toContain("<MypageProfileSummary");
+    /** 셸이 시트 CSS 를 직접 불러온다 — 메신저 밖에서도 시트가 깨지지 않게 */
+    expect(read("components/community-messenger/MessengerSheetUi.tsx")).toContain('import "@/app/messenger-home-bottom-sheet.css";');
     const sheet = read("components/community-messenger/friend-qr/MyFriendQrSheet.tsx");
     expect(sheet).toContain("<FriendQrTabPanel onToken={onToken} />");
     expect(sheet).toContain("useFriendQrResultStore.getState().open(token)");
