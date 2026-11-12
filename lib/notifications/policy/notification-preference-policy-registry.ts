@@ -86,6 +86,9 @@ export const META_KIND_PREFERENCE_POLICY_OVERRIDES: Readonly<Record<string, Poli
   moim_member_removed: row("member", "community_social", "mandatory", MANDATORY),
   moim_host_transfer_requested: row("member", "community_social", "mandatory", MANDATORY),
   moim_closed: row("member", "community_social", "mandatory", MANDATORY),
+  moim_schedule_decided_ok: row("member", "community_social", "mandatory", MANDATORY),
+  moim_schedule_decided_no: row("member", "community_social", "mandatory", MANDATORY),
+  moim_schedule_cancelled: row("member", "community_social", "mandatory", MANDATORY),
 
   // Member financial (mandatory)
   user_point_charge_approved: row("member", "member_financial", "mandatory", MANDATORY),

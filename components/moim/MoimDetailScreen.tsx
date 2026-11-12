@@ -150,6 +150,9 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
     items.push({ key: "invite", label: t("moim_menu_invite"), onClick: () => setInviteOpen(true) });
   }
   if (isMember) items.push({ key: "profile", label: t("moim_menu_profile"), onClick: () => router.push(moimRoutes.profile(moim.id)) });
+  if (isMember) {
+    items.push({ key: "notifications", label: t("moim_menu_notifications"), onClick: () => router.push(moimRoutes.notificationSettings(moim.id)) });
+  }
   if (isMember && canManage) items.push({ key: "manage", label: t("moim_menu_manage"), onClick: () => router.push(moimRoutes.manage(moim.id)) });
   if (moim.viewer.loggedIn) items.push({ key: "report", label: t("moim_menu_report"), onClick: () => setReport({ type: "moim", id: moim.id }) });
   if (isMember) items.push({ key: "leave", label: t("moim_menu_leave"), danger: true, onClick: () => void leave() });
@@ -162,7 +165,7 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
         </div>
       ) : null}
       {isMember ? (
-        <MoimMemberView moim={moim} onReport={setReport} />
+        <MoimMemberView moim={moim} onReport={setReport} onToast={toast.show} />
       ) : (
         <MoimPublicView moim={moim} inviteToken={inviteToken} onChanged={reload} onToast={toast.show} />
       )}

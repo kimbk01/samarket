@@ -353,3 +353,129 @@ export function moimReportCreate(
     sb
   );
 }
+
+// ---------------------------------------------------------------------------
+// M4 — 일정·앨범·모임별 알림 설정 (migration 20271113100000)
+// ---------------------------------------------------------------------------
+export type MoimScheduleInput = Partial<{
+  title: string;
+  startsAt: string;
+  endsAt: string | null;
+  placeText: string;
+  placeLat: number | null;
+  placeLng: number | null;
+  description: string;
+  images: string[];
+  capacity: number | null;
+  joinMode: "first_come" | "approval";
+  askMotivation: boolean;
+}>;
+
+function schedulePayload(input: MoimScheduleInput): Record<string, unknown> {
+  const p: Record<string, unknown> = {};
+  if (input.title !== undefined) p.title = input.title;
+  if (input.startsAt !== undefined) p.starts_at = input.startsAt;
+  if (input.endsAt !== undefined) p.ends_at = input.endsAt;
+  if (input.placeText !== undefined) p.place_text = input.placeText;
+  if (input.placeLat !== undefined) p.place_lat = input.placeLat;
+  if (input.placeLng !== undefined) p.place_lng = input.placeLng;
+  if (input.description !== undefined) p.description = input.description;
+  if (input.images !== undefined) p.images = input.images;
+  if (input.capacity !== undefined) p.capacity = input.capacity;
+  if (input.joinMode !== undefined) p.join_mode = input.joinMode;
+  if (input.askMotivation !== undefined) p.ask_motivation = input.askMotivation;
+  return p;
+}
+
+export function moimScheduleCreate(actorId: string, moimId: string, input: MoimScheduleInput, sb?: SupabaseServer) {
+  return callMoimRpc<{ schedule_id: string; room_id: string }>(
+    "moim_schedule_create",
+    { p_actor: actorId, p_moim: moimId, p: schedulePayload(input) },
+    sb
+  );
+}
+
+export function moimScheduleUpdate(actorId: string, scheduleId: string, input: MoimScheduleInput, sb?: SupabaseServer) {
+  return callMoimRpc("moim_schedule_update", { p_actor: actorId, p_schedule: scheduleId, p: schedulePayload(input) }, sb);
+}
+
+export function moimScheduleCancel(actorId: string, scheduleId: string, sb?: SupabaseServer) {
+  return callMoimRpc<{ moim_id: string; notify_user_ids: string[]; title: string }>(
+    "moim_schedule_cancel",
+    { p_actor: actorId, p_schedule: scheduleId },
+    sb
+  );
+}
+
+export function moimScheduleSetClosed(actorId: string, scheduleId: string, closed: boolean, sb?: SupabaseServer) {
+  return callMoimRpc("moim_schedule_set_closed", { p_actor: actorId, p_schedule: scheduleId, p_closed: closed }, sb);
+}
+
+export function moimScheduleJoin(actorId: string, scheduleId: string, motivation: string | null, sb?: SupabaseServer) {
+  return callMoimRpc<{ status: "confirmed" | "requested"; room_id?: string; host_user_id?: string; moim_id?: string; title?: string }>(
+    "moim_schedule_join",
+    { p_actor: actorId, p_schedule: scheduleId, p_motivation: motivation },
+    sb
+  );
+}
+
+export function moimScheduleLeave(actorId: string, scheduleId: string, sb?: SupabaseServer) {
+  return callMoimRpc("moim_schedule_leave", { p_actor: actorId, p_schedule: scheduleId }, sb);
+}
+
+export function moimScheduleDecide(actorId: string, scheduleId: string, userId: string, approve: boolean, sb?: SupabaseServer) {
+  return callMoimRpc<{ moim_id: string; title: string; approved: boolean }>(
+    "moim_schedule_decide",
+    { p_actor: actorId, p_schedule: scheduleId, p_user: userId, p_approve: approve },
+    sb
+  );
+}
+
+export function moimScheduleRemoveParticipant(actorId: string, scheduleId: string, userId: string, sb?: SupabaseServer) {
+  return callMoimRpc("moim_schedule_remove_participant", { p_actor: actorId, p_schedule: scheduleId, p_user: userId }, sb);
+}
+
+export function moimScheduleAttendance(
+  actorId: string,
+  scheduleId: string,
+  userId: string,
+  attendance: "unknown" | "present" | "absent",
+  sb?: SupabaseServer
+) {
+  return callMoimRpc("moim_schedule_attendance", { p_actor: actorId, p_schedule: scheduleId, p_user: userId, p_attendance: attendance }, sb);
+}
+
+export type MoimScheduleBatchItem = { schedule_id: string; moim_id: string; title: string; user_ids: string[]; starts_at?: string };
+
+export function moimSchedulesFinishDue(limit: number, sb?: SupabaseServer) {
+  return callMoimRpc<{ done: MoimScheduleBatchItem[] }>("moim_schedules_finish_due", { p_limit: limit }, sb);
+}
+
+export function moimSchedulesClaimReminders(window: "24h" | "1h", sb?: SupabaseServer) {
+  return callMoimRpc<{ reminders: MoimScheduleBatchItem[] }>("moim_schedules_claim_reminders", { p_window: window }, sb);
+}
+
+export function moimAlbumAdd(actorId: string, moimId: string, urls: string[], scheduleId: string | null, sb?: SupabaseServer) {
+  return callMoimRpc<{ added: number }>(
+    "moim_album_add",
+    { p_actor: actorId, p_moim: moimId, p: { urls, schedule_id: scheduleId } },
+    sb
+  );
+}
+
+export function moimAlbumRemove(actorId: string, itemId: string, sb?: SupabaseServer) {
+  return callMoimRpc<{ result: "deleted" | "hidden" }>("moim_album_remove", { p_actor: actorId, p_item: itemId }, sb);
+}
+
+export function moimAlbumPin(actorId: string, itemId: string, pinned: boolean, sb?: SupabaseServer) {
+  return callMoimRpc("moim_album_pin", { p_actor: actorId, p_item: itemId, p_pinned: pinned }, sb);
+}
+
+export function moimNotificationPrefsSet(
+  actorId: string,
+  moimId: string,
+  prefs: Partial<{ notice: boolean; posts: boolean; schedules: boolean }>,
+  sb?: SupabaseServer
+) {
+  return callMoimRpc("moim_notification_prefs_set", { p_actor: actorId, p_moim: moimId, p: prefs }, sb);
+}

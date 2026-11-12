@@ -23,7 +23,16 @@ type MoimNotifyKind =
   | "moim_host_changed"
   | "moim_notice_posted"
   | "moim_comment"
-  | "moim_closed";
+  | "moim_closed"
+  | "moim_post_new"
+  | "moim_schedule_created"
+  | "moim_schedule_requested"
+  | "moim_schedule_decided_ok"
+  | "moim_schedule_decided_no"
+  | "moim_schedule_reminder_24h"
+  | "moim_schedule_reminder_1h"
+  | "moim_schedule_cancelled"
+  | "moim_schedule_review";
 
 const ROLE_KEY: Record<MoimRole, MessageKey> = {
   host: "moim_role_host",
@@ -73,9 +82,25 @@ export async function notifyMoimMany(
   await Promise.all(uniq.map((userId) => sendOne(sb, { ...input, userId })));
 }
 
+/** 모임별 알림 설정으로 받는 사람 거르기 (행 없으면 기본값: 공지·일정 켜짐, 새 글 꺼짐 — 설계 §7 · D9) */
+export async function filterMoimRecipientsByPref(
+  sb: SupabaseServer,
+  moimId: string,
+  userIds: string[],
+  pref: "notice" | "posts" | "schedules"
+): Promise<string[]> {
+  const uniq = [...new Set(userIds)].filter(Boolean);
+  if (!uniq.length) return [];
+  const { data } = await sb.from("moim_notification_prefs").select("user_id, notice, posts, schedules").eq("moim_id", moimId).in("user_id", uniq);
+  const rows = new Map(((data ?? []) as { user_id: string; notice: boolean; posts: boolean; schedules: boolean }[]).map((r) => [r.user_id, r]));
+  const fallback = { notice: true, posts: false, schedules: true };
+  return uniq.filter((id) => (rows.get(id) ?? fallback)[pref]);
+}
+
 export const moimPaths = {
   home: (moimId: string) => `/moim/${moimId}`,
   post: (moimId: string, postId: string) => `/moim/${moimId}/posts/${postId}`,
+  schedule: (moimId: string, scheduleId: string) => `/moim/${moimId}/schedules/${scheduleId}`,
   joinRequests: (moimId: string) => `/moim/${moimId}/manage/requests`,
   members: (moimId: string) => `/moim/${moimId}/manage/members`,
   invites: () => `/moim/invites`,

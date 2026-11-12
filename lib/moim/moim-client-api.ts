@@ -14,6 +14,10 @@ import type {
   MoimMemberDto,
   MoimPostDto,
   MoimReceivedInviteDto,
+  MoimAlbumItemDto,
+  MoimNotificationPrefsDto,
+  MoimScheduleDto,
+  MoimScheduleParticipantDto,
 } from "@/lib/moim/moim-api-types";
 import type { MoimAction, MoimRole } from "@/lib/moim/moim-permission-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -164,7 +168,58 @@ export const moimApi = {
 
   report: (moimId: string, input: { targetType: string; targetId: string; reasonCode: string; detail?: string | null }) =>
     call<{ report_id: string }>(`/api/moim/${enc(moimId)}/reports`, { method: "POST", json: input }),
+
+  // M4 — 일정·앨범·모임별 알림 설정
+  schedules: (moimId: string, scope: "upcoming" | "past" = "upcoming") =>
+    call<{ items: MoimScheduleDto[] }>(`/api/moim/${enc(moimId)}/schedules?scope=${scope}`),
+  createSchedule: (moimId: string, input: MoimScheduleClientInput) =>
+    call<{ schedule_id: string; room_id: string }>(`/api/moim/${enc(moimId)}/schedules`, { method: "POST", json: input }),
+  schedule: (scheduleId: string) =>
+    call<{ schedule: MoimScheduleDto; participants: MoimScheduleParticipantDto[] }>(`/api/moim/schedules/${enc(scheduleId)}`),
+  updateSchedule: (scheduleId: string, input: MoimScheduleClientInput) =>
+    call(`/api/moim/schedules/${enc(scheduleId)}`, { method: "PATCH", json: input }),
+  cancelSchedule: (scheduleId: string) => call(`/api/moim/schedules/${enc(scheduleId)}`, { method: "DELETE" }),
+  setScheduleClosed: (scheduleId: string, closed: boolean) =>
+    call(`/api/moim/schedules/${enc(scheduleId)}/close`, { method: "POST", json: { closed } }),
+  joinSchedule: (scheduleId: string, motivation?: string | null) =>
+    call<{ status: "confirmed" | "requested"; room_id?: string }>(`/api/moim/schedules/${enc(scheduleId)}/join`, {
+      method: "POST",
+      json: { motivation: motivation ?? null },
+    }),
+  leaveSchedule: (scheduleId: string) => call(`/api/moim/schedules/${enc(scheduleId)}/join`, { method: "DELETE" }),
+  decideScheduleParticipant: (scheduleId: string, userId: string, action: "approve" | "reject" | "remove") =>
+    call(`/api/moim/schedules/${enc(scheduleId)}/participants/${enc(userId)}`, { method: "POST", json: { action } }),
+  setAttendance: (scheduleId: string, userId: string, attendance: "present" | "absent" | "unknown") =>
+    call(`/api/moim/schedules/${enc(scheduleId)}/participants/${enc(userId)}`, { method: "POST", json: { attendance } }),
+
+  album: (moimId: string, q: { before?: string | null; pinned?: boolean; scheduleId?: string | null } = {}) => {
+    const sp = new URLSearchParams();
+    if (q.before) sp.set("before", q.before);
+    if (q.pinned) sp.set("pinned", "1");
+    if (q.scheduleId) sp.set("schedule", q.scheduleId);
+    return call<{ items: MoimAlbumItemDto[]; nextBefore: string | null }>(`/api/moim/${enc(moimId)}/album?${sp}`);
+  },
+  addAlbum: (moimId: string, urls: string[], scheduleId?: string | null) =>
+    call<{ added: number }>(`/api/moim/${enc(moimId)}/album`, { method: "POST", json: { urls, scheduleId: scheduleId ?? null } }),
+  removeAlbum: (itemId: string) => call<{ result: "deleted" | "hidden" }>(`/api/moim/album/${enc(itemId)}`, { method: "DELETE" }),
+  pinAlbum: (itemId: string, pinned: boolean) => call(`/api/moim/album/${enc(itemId)}/pin`, { method: "POST", json: { pinned } }),
+
+  notificationPrefs: (moimId: string) => call<{ prefs: MoimNotificationPrefsDto }>(`/api/moim/${enc(moimId)}/notification-prefs`),
+  setNotificationPrefs: (moimId: string, prefs: Partial<MoimNotificationPrefsDto>) =>
+    call(`/api/moim/${enc(moimId)}/notification-prefs`, { method: "PATCH", json: prefs }),
 };
+
+export type MoimScheduleClientInput = Partial<{
+  title: string;
+  startsAt: string;
+  endsAt: string | null;
+  placeText: string;
+  description: string;
+  images: string[];
+  capacity: number | null;
+  joinMode: "first_come" | "approval";
+  askMotivation: boolean;
+}>;
 
 export const moimRoutes = {
   tab: "/moim",
@@ -188,4 +243,10 @@ export const moimRoutes = {
   manageTransfer: (id: string) => `/moim/${id}/manage/transfer`,
   manageClose: (id: string) => `/moim/${id}/manage/close`,
   inviteLanding: (token: string) => `/moim/i/${token}`,
+  schedules: (id: string) => `/moim/${id}?tab=schedules`,
+  schedule: (id: string, scheduleId: string) => `/moim/${id}/schedules/${scheduleId}`,
+  scheduleNew: (id: string) => `/moim/${id}/schedules/new`,
+  scheduleEdit: (id: string, scheduleId: string) => `/moim/${id}/schedules/${scheduleId}/edit`,
+  album: (id: string) => `/moim/${id}?tab=album`,
+  notificationSettings: (id: string) => `/moim/${id}/settings/notifications`,
 };

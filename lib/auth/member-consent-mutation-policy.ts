@@ -138,6 +138,8 @@ export const MEMBER_CONSENT_EXEMPT_RULES: readonly Rule[] = [
   R("POST", "/api/moim/[moimId]/reports", "report_block_support"),
   R("DELETE", "/api/moim/posts/[postId]", "delete_own_content"),
   R("DELETE", "/api/moim/comments/[commentId]", "delete_own_content"),
+  R("DELETE", "/api/moim/schedules/[scheduleId]/join", "leave"),
+  R("DELETE", "/api/moim/album/[itemId]", "delete_own_content"),
   R("DELETE", "/api/community-messenger/friends/[friendUserId]", "leave"),
   R("POST", "/api/community-messenger/friends/[friendUserId]/hidden", "leave"),
   R("DELETE", "/api/community-messenger/relations/friend", "leave"),
