@@ -1,11 +1,14 @@
 "use client";
 
 import { type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { PhilifeHeaderComposeButton } from "@/components/philife/PhilifeHeaderComposeButton";
-import { PhilifeHeaderAddressMenuButton } from "@/components/philife/PhilifeHeaderAddressMenuButton";
+import { Tier1TitleAreaButton, Tier1TitleWithArea } from "@/components/layout/Tier1TitleAreaButton";
+import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
+import { parseCommunityNavFromSearchParams } from "@/lib/community/community-nav";
+import { moimRoutes } from "@/lib/moim/moim-client-api";
+import { requestOpenCommunityAreaSheet, useCommunityAreaTitle } from "@/lib/community/community-area-title-store";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { MyMypageHeaderActions } from "@/components/my/MyMypageHeaderActions";
 import {
@@ -26,15 +29,23 @@ import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-
 import { openGlobalSearchFromHere } from "@/lib/search/global/global-search-navigation-ssot";
 import { buildTradeSearchEntryHref } from "@/lib/trade/search/trade-search-paths";
 
-function UnifiedTier1Shell({ children }: { children: React.ReactNode }) {
+function UnifiedTier1Shell({ children, noLeftSlot = false }: { children: React.ReactNode; noLeftSlot?: boolean }) {
   return (
-    <header className="w-full min-w-0 max-w-full shrink-0 overflow-x-hidden sector-header-shell sector-header-shell--embedded">
+    <header
+      className={`w-full min-w-0 max-w-full shrink-0 overflow-x-hidden sector-header-shell sector-header-shell--embedded${
+        noLeftSlot ? " sector-header--no-left-slot" : ""
+      }`}
+    >
       {children}
     </header>
   );
 }
 
-function resolveMainHubId(pathNoQuery: string): Exclude<MainTabKeepAliveHubId, "delivery"> | null {
+/** 1단 허브 머리글을 쓰는 화면 — 하단 탭 허브 + 모임 홈(커뮤니티 안 세 번째 화면, Owner 「3판대로 구현」 2026-11-12) */
+type MainHubTier1Id = Exclude<MainTabKeepAliveHubId, "delivery"> | "moim";
+
+function resolveMainHubId(pathNoQuery: string): MainHubTier1Id | null {
+  if (pathNoQuery === "/moim") return "moim";
   const hub = resolveMainTabKeepAliveHub(pathNoQuery);
   if (hub === "community" || hub === "trade" || hub === "chat" || hub === "mypage") return hub;
   /** `/market/[slug]` etc. — same MAIN HUB as Trade keep-alive */
@@ -45,7 +56,10 @@ function resolveMainHubId(pathNoQuery: string): Exclude<MainTabKeepAliveHubId, "
   return null;
 }
 
-function defaultRightSlot(hub: Exclude<MainTabKeepAliveHubId, "delivery">): ReactNode {
+function defaultRightSlot(hub: MainHubTier1Id): ReactNode {
+  if (hub === "moim") {
+    return <MoimHeaderRightActions />;
+  }
   if (hub === "community") {
     return <CommunityHeaderRightActions />;
   }
@@ -59,7 +73,8 @@ function defaultRightSlot(hub: Exclude<MainTabKeepAliveHubId, "delivery">): Reac
   return null;
 }
 
-function hubTitleKey(hub: Exclude<MainTabKeepAliveHubId, "delivery">) {
+function hubTitleKey(hub: MainHubTier1Id) {
+  if (hub === "moim") return "tier1_moim" as const;
   if (hub === "community") return BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY;
   if (hub === "trade") return BOTTOM_NAV_TRADE_TAB_LABEL_KEY;
   if (hub === "chat") return NAV_DOT_LABEL_KEYS.chat;
@@ -82,22 +97,23 @@ export function RegionBarMainHubTier1({ pathNoQuery }: { pathNoQuery: string }) 
   }
 
   /**
-   * 커뮤니티·거래 1단 = 제목 글자만 (Owner 「A 안」 2026-11-12) — 「정보교환」/「거래」.
-   * 「정보교환 · 거래」 전환 탭은 1단에서 영문이 잘려(제목칸 152px < 버튼 182px, 390px 폭 실측) 머리글 3단
-   * `CommunityTradeSwitchRow` 로 옮겼다 (커뮤니티 = `CommunityFeed` 2단 아래 · 거래 = `AppStickyHeader` 2단 아래).
+   * 정보교환·거래 1단 = 제목 + 「· 동네 ⌄」 (Owner 「3판대로 구현」 2026-11-12, 시안 N3 · 설계 §2-2).
+   * 동네 이름이 길어도 들어가게 1단 왼쪽 빈칸(40px)을 없앤다(`sector-header--no-left-slot`, 시·군 1,872개 중 긴 이름 50개 실측).
+   * 「정보교환 · 거래」 전환 탭은 머리글 3단 `CommunityTradeSwitchRow`.
    */
-  const title: ReactNode =
-    hub === "trade" || hub === "community" ? (
-      <span className="whitespace-nowrap">
-        {t(hub === "community" ? "nav_community_switch_info" : "nav_bottom_trade")}
-      </span>
-    ) : (
-      t(hubTitleKey(hub))
-    );
+  const areaHub = hub === "trade" || hub === "community";
+  const title: ReactNode = areaHub ? (
+    <Tier1TitleWithArea
+      title={t(hub === "community" ? "nav_community_switch_info" : "nav_bottom_trade")}
+      area={hub === "community" ? <CommunityTier1AreaButton /> : <TradeHeaderLocationPinButton placement="title" />}
+    />
+  ) : (
+    t(hubTitleKey(hub))
+  );
   const rightSlot = extrasRight ?? defaultRightSlot(hub);
 
   return (
-    <UnifiedTier1Shell>
+    <UnifiedTier1Shell noLeftSlot={areaHub || hub === "moim"}>
       <SectionHeader embedded titleAlign="left" title={title} rightSlot={rightSlot} />
     </UnifiedTier1Shell>
   );
@@ -117,10 +133,47 @@ function CommunityHeaderRightActions() {
       >
         <Search className="h-4 w-4 text-sam-fg" aria-hidden />
       </button>
-      <PhilifeHeaderComposeButton />
-      <PhilifeHeaderAddressMenuButton />
+      {/* 글쓰기 = 목록 오른쪽 아래 떠 있는 버튼(`PhilifeComposeFab`) · 주소 = 제목 뒤 「· 동네 ⌄」 시트 (Owner 「3판대로 구현」 2026-11-12) */}
       <Tier1NotificationAnchor surface="bottom_nav_community" />
     </div>
+  );
+}
+
+/** 모임 홈 1단 오른쪽 — 모임 찾기(본문 검색칸을 옮김) · 알림 (Owner 「3판대로 구현」 2026-11-12) */
+function MoimHeaderRightActions() {
+  const { t } = useI18n();
+  const router = useRouter();
+  return (
+    <div className={`${samTier1HeaderIconCluster} gap-2`}>
+      <button
+        type="button"
+        data-moim-search-open="true"
+        className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} rounded-ui-rect bg-sam-surface active:scale-[0.98] active:opacity-90`}
+        aria-label={t("moim_search_open_aria")}
+        onClick={() => router.push(moimRoutes.search)}
+      >
+        <Search className="h-4 w-4 text-sam-fg" aria-hidden />
+      </button>
+      <Tier1NotificationAnchor surface="bottom_nav_community" />
+    </div>
+  );
+}
+
+/** 정보교환 1단 「· 동네 ⌄」 — 값은 피드가 알려 주고(`community-area-title-store`), 누르면 피드의 「보는 동네」 시트를 연다 */
+function CommunityTier1AreaButton() {
+  const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const area = useCommunityAreaTitle();
+  /** 피드가 붙기 전 첫 화면은 주소(`nav=local`)로 판단 */
+  const active = area.active ?? parseCommunityNavFromSearchParams(searchParams).kind === "local";
+  const label = active ? area.label || t("community_feed_mode_local") : t("community_area_all");
+  return (
+    <Tier1TitleAreaButton
+      label={label}
+      active={active}
+      ariaLabel={t("community_area_title_aria", { label })}
+      onClick={requestOpenCommunityAreaSheet}
+    />
   );
 }
 

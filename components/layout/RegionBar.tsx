@@ -94,7 +94,9 @@ export function RegionBar({
       keepAliveHub === "chat" ||
       keepAliveHub === "mypage") &&
       !isMessengerArchiveSubScreen) ||
-    isTradeExplorationSurface
+    isTradeExplorationSurface ||
+    /** 모임 홈 = 정보교환·거래와 같은 허브 머리글 (3단 「정보교환 · 거래 · 모임」, Owner 「3판대로 구현」 2026-11-12) */
+    pathNoQuery === "/moim"
   ) {
     return <RegionBarMainHubTier1 pathNoQuery={pathNoQuery} />;
   }

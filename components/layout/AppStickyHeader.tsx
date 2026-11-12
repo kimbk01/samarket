@@ -115,7 +115,7 @@ export function AppStickyHeader() {
       <RegionBar tier1RuleSet={topTier1RuleSet} />
       {ctaLinks.length > 0 ? <MyManagedCtaStrip links={ctaLinks} /> : null}
       {stickyBelow ??
-        (communityTradeSwitchHub === "community" ? (
+        (communityTradeSwitchHub === "community" || communityTradeSwitchHub === "moim" ? (
           /**
            * 커뮤니티 2단·3단은 피드(`CommunityFeed`)가 붙은 뒤 `stickyBelow` 로 들어온다 — 그 전 첫 화면부터
            * 2단 자리 + 3단 전환 줄을 같은 크기로 미리 그려 본문이 늦게 밀려 내려가지 않게 한다
@@ -123,7 +123,7 @@ export function AppStickyHeader() {
            */
           <>
             <DibaySecondaryTabRowSkeleton bordered />
-            <CommunityTradeSwitchRow active="community" />
+            <CommunityTradeSwitchRow active={communityTradeSwitchHub} />
           </>
         ) : null)}
       {isTradeMenuSurface ? (
@@ -131,7 +131,12 @@ export function AppStickyHeader() {
           <TradeMarketPullRefreshHost />
           <TradeMarketPullRefreshHint />
           <MarketplaceHomeEntryChrome />
-          <TradePrimaryTabs embed embedInAppHeader dividerBelow={communityTradeSwitchHub === "trade"} />
+          <TradePrimaryTabs
+            embed
+            embedInAppHeader
+            dividerBelow={communityTradeSwitchHub === "trade"}
+            locationInTitle={communityTradeSwitchHub === "trade"}
+          />
           {/* 머리글 3단 — 「정보교환 · 거래」 전환 탭 오른쪽 정렬 (Owner 「A 안」 2026-11-12, 1단에서 옮김) */}
           {communityTradeSwitchHub === "trade" ? <CommunityTradeSwitchRow active="trade" /> : null}
           {tradeSecondaryTabs}

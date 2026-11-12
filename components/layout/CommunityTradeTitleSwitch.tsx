@@ -5,6 +5,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { peekTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
 import { resolveCommunityBottomNavEntryHref } from "@/lib/community/community-hub-state";
 import { DIBAY_SECONDARY_TAB_INNER_CLASS } from "@/lib/ui/dibay-secondary-tabs";
+import type { CommunityTradeSwitchHub } from "@/lib/layout/mobile-top-tier1-rules";
+import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
 
 /**
  * 「정보교환 · 거래」 전환 탭 (홈 설계안 v11, Owner 「구현 시작」 2026-11-09).
@@ -13,7 +15,7 @@ import { DIBAY_SECONDARY_TAB_INNER_CLASS } from "@/lib/ui/dibay-secondary-tabs";
  * - 정보교환 → 마지막 커뮤니티 주제 복원(`resolveCommunityBottomNavEntryHref`)
  * - 거래 → 마지막 거래 목록 URL 복원(`peekTradeListReturnHref`)
  */
-export function CommunityTradeTitleSwitch({ active }: { active: "community" | "trade" }) {
+export function CommunityTradeTitleSwitch({ active }: { active: CommunityTradeSwitchHub }) {
   const { t } = useI18n();
   const router = useRouter();
   const items = [
@@ -26,6 +28,12 @@ export function CommunityTradeTitleSwitch({ active }: { active: "community" | "t
       key: "trade" as const,
       label: t("nav_bottom_trade"),
       href: () => peekTradeListReturnHref() ?? "/market",
+    },
+    /** 모임 — 커뮤니티 2단 끝 탭에서 3단으로 (Owner 「3판대로 구현」 2026-11-12) */
+    {
+      key: "moim" as const,
+      label: t("moim_tab"),
+      href: () => "/moim",
     },
   ];
   /**
@@ -55,6 +63,7 @@ export function CommunityTradeTitleSwitch({ active }: { active: "community" | "t
             }`}
             onClick={() => {
               if (on) return;
+              triggerInteractionFeedback("light");
               router.push(it.href());
             }}
           >
@@ -75,7 +84,7 @@ export function CommunityTradeTitleSwitch({ active }: { active: "community" | "t
  * 오른쪽 정렬은 `justify-end` 가 아니라 자식 `ml-auto` 로 — `justify-end` + 가로 스크롤이면 넘칠 때 왼쪽이 화면 밖으로
  * 잘려 스크롤로도 못 본다. `ml-auto` 는 넘치면 0 이 되어 왼쪽부터 밀어서 볼 수 있다 (Owner 「3건 수정」 2026-11-12).
  */
-export function CommunityTradeSwitchRow({ active }: { active: "community" | "trade" }) {
+export function CommunityTradeSwitchRow({ active }: { active: CommunityTradeSwitchHub }) {
   return (
     <div
       className="w-full min-w-0 bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))]"
