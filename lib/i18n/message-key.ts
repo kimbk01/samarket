@@ -99,6 +99,7 @@ import { platformPopupUiMessages } from "./catalog/platform-popup-ui";
 import { platformPopupOwnerMessages } from "./catalog/platform-popup-owner";
 import { platformEventsUiMessages } from "./catalog/platform-events-ui";
 import { adminActionQueueMessages } from "./catalog/admin-action-queue";
+import { adminMoimMessages } from "./catalog/admin-moim";
 import { adminUsersAddressMessages } from "./catalog/admin-users-address";
 import { adminTradeRadiusMessages } from "./catalog/admin-trade-radius";
 import { storeOps3bMessages } from "./catalog/store-ops-3b";
@@ -286,6 +287,7 @@ export type MessageKey =
   | KeyOf<typeof platformPopupOwnerMessages.ko>
   | KeyOf<typeof platformEventsUiMessages.ko>
   | KeyOf<typeof adminActionQueueMessages.ko>
+  | KeyOf<typeof adminMoimMessages.ko>
   | KeyOf<typeof adminUsersAddressMessages.ko>
   | KeyOf<typeof adminTradeRadiusMessages.ko>
   | KeyOf<typeof storeOps3bMessages.ko>
@@ -423,6 +425,7 @@ type EnMessageKey =
   | KeyOf<typeof platformPopupOwnerMessages.en>
   | KeyOf<typeof platformEventsUiMessages.en>
   | KeyOf<typeof adminActionQueueMessages.en>
+  | KeyOf<typeof adminMoimMessages.en>
   | KeyOf<typeof adminUsersAddressMessages.en>
   | KeyOf<typeof adminTradeRadiusMessages.en>
   | KeyOf<typeof storeOps3bMessages.en>

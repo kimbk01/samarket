@@ -32,7 +32,11 @@ type MoimNotifyKind =
   | "moim_schedule_reminder_24h"
   | "moim_schedule_reminder_1h"
   | "moim_schedule_cancelled"
-  | "moim_schedule_review";
+  | "moim_schedule_review"
+  // M5 어드민 — 제재(필수 알림) · 어드민 정보 수정 · 미접속 모임장 변경 요청 결과
+  | "moim_sanctioned"
+  | "moim_admin_info_updated"
+  | "moim_host_request_result";
 
 const ROLE_KEY: Record<MoimRole, MessageKey> = {
   host: "moim_role_host",
@@ -51,11 +55,14 @@ async function sendOne(
     dedupeRef: string;
     vars: Record<string, string>;
     roleVar?: MoimRole;
+    /** 같은 종류 안의 문구 갈래 — 문구 키 `notify_{kind}_{variant}_title|body` (meta.kind 는 그대로) */
+    variant?: string;
   }
 ): Promise<void> {
   try {
     const lang = await loadNotificationUserLanguage(sb, input.userId);
     const vars = { ...input.vars, ...(input.roleVar ? { role: notifySafeT(lang, ROLE_KEY[input.roleVar]) } : {}) };
+    const keyBase = input.variant ? `${input.kind}_${input.variant}` : input.kind;
     await appendUserNotification(sb, {
       user_id: input.userId,
       notification_type: "status",
@@ -63,8 +70,8 @@ async function sendOne(
       domain: "community_chat",
       ref_id: input.moimId,
       dedupe_key: `moim:${input.kind}:${input.dedupeRef}:${input.userId}`,
-      title: notifySafeT(lang, `notify_${input.kind}_title` as MessageKey),
-      body: notifySafeT(lang, `notify_${input.kind}_body` as MessageKey, { vars }),
+      title: notifySafeT(lang, `notify_${keyBase}_title` as MessageKey),
+      body: notifySafeT(lang, `notify_${keyBase}_body` as MessageKey, { vars }),
       link_url: input.linkUrl,
       meta: { kind: input.kind, moim_id: input.moimId },
     });

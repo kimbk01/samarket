@@ -23,6 +23,11 @@ export function canOpenMoimTransfer(detail: MoimDetailDto): boolean {
   return detail.can.transfer_host || (detail.viewer.role === "host" && detail.status === "active" && detail.platformState === "warned");
 }
 
+/** P8 미접속 모임장 변경 요청 — 부모임장·운영진, 운영 중인 모임 (모임장 30일 미접속 판정은 서버) */
+export function canRequestMoimHostChange(detail: MoimDetailDto): boolean {
+  return (detail.viewer.role === "co_host" || detail.viewer.role === "staff") && detail.status === "active";
+}
+
 export function canOpenMoimMembers(detail: MoimDetailDto): boolean {
   const c = detail.can;
   return c.remove_member || c.ban_member || c.set_role || c.write_note;
@@ -59,6 +64,8 @@ function HubBody({ detail }: { detail: MoimDetailDto }) {
     entries.push({ key: "boards", href: moimRoutes.manageBoards(id), titleKey: "moim_manage_boards_title", descKey: "moim_manage_hub_boards_desc" });
   if (canOpenMoimTransfer(detail))
     entries.push({ key: "transfer", href: moimRoutes.manageTransfer(id), titleKey: "moim_manage_transfer_title", descKey: "moim_manage_hub_transfer_desc" });
+  if (canRequestMoimHostChange(detail))
+    entries.push({ key: "host-request", href: moimRoutes.manageHostRequest(id), titleKey: "moim_manage_host_request_title", descKey: "moim_manage_hub_host_request_desc" });
   if (c.close)
     entries.push({ key: "close", href: moimRoutes.manageClose(id), titleKey: "moim_manage_close_title", descKey: "moim_manage_hub_close_desc", danger: true });
 

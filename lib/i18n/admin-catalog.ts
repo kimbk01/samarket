@@ -43,6 +43,7 @@ import { adminStorePartnerAgreementsMessages } from "./catalog/admin-store-partn
 import { adminDeliveryLaunchMessages } from "./catalog/admin-delivery-launch";
 import { adminMessengerContactsMessages } from "./catalog/admin-messenger-contacts";
 import { adminActionQueueMessages } from "./catalog/admin-action-queue";
+import { adminMoimMessages } from "./catalog/admin-moim";
 import { adminUsersAddressMessages } from "./catalog/admin-users-address";
 import { adminTradeRadiusMessages } from "./catalog/admin-trade-radius";
 import { adminDeliveryAdsStage3Messages } from "./catalog/admin-delivery-ads-stage3";
@@ -101,6 +102,7 @@ const ADMIN_KO = {
   ...adminDeliveryLaunchMessages.ko,
   ...adminMessengerContactsMessages.ko,
   ...adminActionQueueMessages.ko,
+  ...adminMoimMessages.ko,
   ...adminUsersAddressMessages.ko,
   ...adminTradeRadiusMessages.ko,
   ...adminDeliveryAdsStage3Messages.ko,
@@ -159,6 +161,7 @@ const ADMIN_EN = {
   ...adminDeliveryLaunchMessages.en,
   ...adminMessengerContactsMessages.en,
   ...adminActionQueueMessages.en,
+  ...adminMoimMessages.en,
   ...adminUsersAddressMessages.en,
   ...adminTradeRadiusMessages.en,
   ...adminDeliveryAdsStage3Messages.en,

@@ -20,11 +20,12 @@ export const ARO_IA_001_OWNERS = {
   report: "community_reports",
 } as const;
 
-/** 커뮤니티 Admin 설계 v2 §B-2 — 9 그룹 순서 (Owner 승인). */
+/** 커뮤니티 Admin 설계 v2 §B-2 — 9 그룹 순서 (Owner 승인) + 「모임」 그룹(신규 모임 어드민 M5, 설계 moim §8 · 2026-11-12) = 10. */
 export const ARO_IA_001_COMMUNITY_SECTION_KEYS = [
   "community-section-ops",
   "community-section-moderation",
   "community-section-content",
+  "community-section-moim",
   "community-section-members",
   "community-section-promotion",
   "community-section-promo-point",

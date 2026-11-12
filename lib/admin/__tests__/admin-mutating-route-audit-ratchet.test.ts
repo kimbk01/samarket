@@ -238,6 +238,16 @@ const DB_AUDITED_ADMIN_ROUTES: Readonly<Record<string, string>> = {
   "app/api/admin/ads/undelete/route.ts": "admin_ad_undelete → audit_logs ad.undelete (20271107210001)",
   "app/api/admin/users/[id]/member-id/route.ts":
     "admin_grant_dibay_id_change → audit_logs admin_member_dibay_id_change_grant (20271111160000)",
+  // 모임 어드민 M5 (설계 moim §8) — moim__admin_log 가 같은 트랜잭션에서 moim_events + audit_logs(action moim.*) 기록 (20271113200000)
+  "app/api/admin/moim/categories/route.ts": "moim_admin_category_save → audit_logs moim.admin_category_* (20271113200000)",
+  "app/api/admin/moim/content/route.ts": "moim_admin_content → audit_logs moim.admin_<type>_<action>·admin_schedule_cancelled (20271113200000)",
+  "app/api/admin/moim/host-requests/[transferId]/route.ts": "moim_admin_host_request_decide → audit_logs moim.admin_host_request_* (20271113200000)",
+  "app/api/admin/moim/moims/[moimId]/lifecycle/route.ts": "moim_admin_delete → audit_logs moim.admin_deleted (moim_admin_restore → moim.admin_restored 도 같음, 20271113200000)",
+  "app/api/admin/moim/moims/[moimId]/members/[userId]/route.ts": "moim_admin_member_role → audit_logs moim.admin_role_changed (member_remove·member_unban·assign_host 도 같음, 20271113200000)",
+  "app/api/admin/moim/moims/[moimId]/route.ts": "moim_admin_update_info → audit_logs moim.admin_info_updated (PATCH, 20271113200000)",
+  "app/api/admin/moim/moims/[moimId]/sanctions/route.ts": "moim_admin_sanction_apply → audit_logs moim.admin_sanction_applied (20271113200000)",
+  "app/api/admin/moim/policies/route.ts": "moim_admin_policies_save → audit_logs moim.admin_policies_updated (PUT, 20271113200000)",
+  "app/api/admin/moim/sanctions/[sanctionId]/route.ts": "moim_admin_sanction_revoke → audit_logs moim.admin_sanction_revoked (20271113200000)",
 };
 
 describe("V3-12 admin mutating route audit ratchet", () => {

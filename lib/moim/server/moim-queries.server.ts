@@ -326,7 +326,7 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
       ? sb.from("moim_bans").select("id").eq("moim_id", moim.id).eq("user_id", viewerId).is("released_at", null).maybeSingle()
       : Promise.resolve({ data: null }),
     viewerId
-      ? sb.from("moim_host_transfers").select("id").eq("moim_id", moim.id).eq("to_user_id", viewerId).eq("status", "requested").maybeSingle()
+      ? sb.from("moim_host_transfers").select("id").eq("moim_id", moim.id).eq("to_user_id", viewerId).eq("kind", "direct").eq("status", "requested").maybeSingle()
       : Promise.resolve({ data: null }),
     (() => {
       let q = sb.from("moim_posts").select(POST_COLS).eq("moim_id", moim.id).eq("status", "active").eq("is_pinned", true);

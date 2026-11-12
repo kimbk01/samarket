@@ -267,6 +267,14 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "community-restrictions": "admin_menu_community_restrictions",
   "community-appeals": "admin_menu_community_appeals",
   "community-members": "admin_menu_community_members",
+  // 모임 어드민 (설계 moim §8 · M5)
+  "community-section-moim": "admin_menu_community_section_moim",
+  "community-moims": "admin_menu_community_moims",
+  "community-moim-reports": "admin_menu_community_moim_reports",
+  "community-moim-host-requests": "admin_menu_community_moim_host_requests",
+  "community-moim-sanctions": "admin_menu_community_moim_sanctions",
+  "community-moim-categories": "admin_menu_community_moim_categories",
+  "community-moim-policies": "admin_menu_community_moim_policies",
   "community-points": "admin_menu_community_points",
   "community-point-charges": "admin_menu_community_point_charges",
   "community-support": "admin_menu_community_support",
@@ -1051,6 +1059,20 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             path: "/admin/community/comments",
             status: "done",
           },
+        ],
+      },
+      // 모임 (설계 moim §8 · M5 2026-11-12) — 권한 키 `moim`
+      {
+        key: "community-section-moim",
+        title: "",
+        status: "done",
+        children: [
+          { key: "community-moims", title: "", path: "/admin/community/moims", status: "done" },
+          { key: "community-moim-reports", title: "", path: "/admin/community/moims/reports", status: "done" },
+          { key: "community-moim-host-requests", title: "", path: "/admin/community/moims/host-requests", status: "done" },
+          { key: "community-moim-sanctions", title: "", path: "/admin/community/moims/sanctions", status: "done" },
+          { key: "community-moim-categories", title: "", path: "/admin/community/moims/categories", status: "done" },
+          { key: "community-moim-policies", title: "", path: "/admin/community/moims/policies", status: "done" },
         ],
       },
       {

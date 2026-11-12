@@ -104,6 +104,7 @@ const PERMISSION_LABEL_KEY: Record<AdminPermissionKey, MessageKey> = {
   reviews: "admin_perm_reviews",
   reports: "admin_perm_reports",
   support: "admin_perm_support",
+  moim: "admin_perm_moim",
   ads: "admin_perm_ads",
   point: "admin_perm_point",
   settings: "admin_perm_settings",
@@ -118,6 +119,7 @@ const COMMUNITY_AREA_LABEL_KEY: Record<CommunityAdminArea, MessageKey> = {
   promotion: "admin_access_area_promotion",
   points: "admin_access_area_points",
   read: "admin_access_area_read",
+  moim: "admin_access_area_moim",
 };
 
 /**

@@ -78,6 +78,21 @@ export const COMMUNITY_ADMIN_PAGE_FILTERS: Readonly<Record<string, Readonly<Reco
   "/admin/community/stats": { period: ["today", "7d", "30d", "custom"], from: null, to: null },
   "/admin/community/audit": { period: null, from: null, to: null, targetType: null, actor: null },
   "/admin/community/points": { period: null, from: null, to: null, type: null, userId: null },
+  // 모임 어드민 (설계 moim §8 · M5)
+  "/admin/community/moims": {
+    tab: ["all", "normal", "unlisted", "warned", "blocked", "closed", "deleted"],
+    period: ["today", "7d", "30d"],
+    from: null,
+    to: null,
+    activity: ["7d", "30d", "idle30", "idle90"],
+    lgu: null,
+    category: null,
+    reports: null,
+    q: null,
+  },
+  "/admin/community/moims/reports": { status: ["received", "reviewing", "actioned", "dismissed"], type: null, view: ["group"] },
+  "/admin/community/moims/host-requests": { status: ["requested", "done", "declined", "cancelled", "all"] },
+  "/admin/community/moims/sanctions": { filter: ["active", "expiring", "expired", "revoked", "all"] },
 };
 
 function queueMetric(
@@ -176,6 +191,23 @@ export const COMMUNITY_METRIC_DEFINITIONS: readonly CommunityMetricDefinition[] 
   ),
 
   // ── 위험 ────────────────────────────────────────────────────────────────
+  // 모임 (설계 moim §8 대시보드 지표 · 권한 키 moim) — 처리 대기
+  direct(
+    "community.moim.reports_received",
+    "admin_moim_metric_reports_received",
+    "action",
+    "moim",
+    "/admin/community/moims/reports?status=received",
+    "moim_reports status=received = /api/admin/moim/reports?status=received total"
+  ),
+  direct(
+    "community.moim.host_requests_pending",
+    "admin_moim_metric_host_requests_pending",
+    "action",
+    "moim",
+    "/admin/community/moims/host-requests?status=requested",
+    "moim_host_transfers kind=inactive_request, status=requested = /api/admin/moim/host-requests total"
+  ),
   direct(
     "community.reports_stale_24h",
     "admin_community_metric_reports_stale_24h",
@@ -235,6 +267,22 @@ export const COMMUNITY_METRIC_DEFINITIONS: readonly CommunityMetricDefinition[] 
     "moderation",
     "/admin/community/members?account=suspended",
     "admin_community_members(p_account=suspended).total"
+  ),
+  direct(
+    "community.moim.new_7d",
+    "admin_moim_metric_new_7d",
+    "state",
+    "moim",
+    "/admin/community/moims?period=7d",
+    "moims status<>deleted, created_at ∈ last 7 Manila days = /api/admin/moim/moims?period=7d total"
+  ),
+  direct(
+    "community.moim.active_7d",
+    "admin_moim_metric_active_7d",
+    "state",
+    "moim",
+    "/admin/community/moims?activity=7d",
+    "moims status<>deleted, last_activity_at ≥ now−7d = /api/admin/moim/moims?activity=7d total"
   ),
   direct(
     "community.promotions_running",

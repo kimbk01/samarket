@@ -62,6 +62,7 @@ const COMMUNITY_ADMIN_AREA_LABEL_KEY: Record<CommunityAdminArea, MessageKey> = {
   promotion: "admin_community_area_promotion",
   points: "admin_community_area_points",
   read: "admin_community_area_read",
+  moim: "admin_community_area_moim",
 };
 
 export function useCommunityAdminAccess() {

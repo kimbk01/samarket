@@ -129,6 +129,9 @@ export const moimApi = {
 
   requestHostTransfer: (moimId: string, toUserId: string) =>
     call<{ transfer_id: string }>(`/api/moim/${enc(moimId)}/host-transfer`, { method: "POST", json: { toUserId } }),
+  /** P8 미접속 모임장 변경 요청 (부모임장·운영진) → 어드민 큐 */
+  requestInactiveHostChange: (moimId: string, toUserId: string, reason: string | null) =>
+    call<{ transfer_id: string }>(`/api/moim/${enc(moimId)}/host-inactive-request`, { method: "POST", json: { toUserId, reason } }),
   respondHostTransfer: (transferId: string, accept: boolean) =>
     call<{ accepted: boolean; moim_id?: string }>(`/api/moim/host-transfers/${enc(transferId)}`, { method: "POST", json: { accept } }),
 
@@ -241,6 +244,7 @@ export const moimRoutes = {
   manageInvite: (id: string) => `/moim/${id}/manage/invite`,
   manageBoards: (id: string) => `/moim/${id}/manage/boards`,
   manageTransfer: (id: string) => `/moim/${id}/manage/transfer`,
+  manageHostRequest: (id: string) => `/moim/${id}/manage/host-request`,
   manageClose: (id: string) => `/moim/${id}/manage/close`,
   inviteLanding: (token: string) => `/moim/i/${token}`,
   schedules: (id: string) => `/moim/${id}?tab=schedules`,

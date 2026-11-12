@@ -479,3 +479,197 @@ export function moimNotificationPrefsSet(
 ) {
   return callMoimRpc("moim_notification_prefs_set", { p_actor: actorId, p_moim: moimId, p: prefs }, sb);
 }
+
+// ---------------------------------------------------------------------------
+// M5 — 미접속 모임장 변경 요청 · 어드민 (migration 20271113200000)
+// 어드민 권한(권한 키 moim · 삭제는 최고관리자)은 API 가 판정하고 p_admin 으로 넘긴다. 모든 어드민 쓰기는 사유 필수.
+// ---------------------------------------------------------------------------
+
+export function moimHostInactiveRequest(actorId: string, moimId: string, toUserId: string, reason: string | null, sb?: SupabaseServer) {
+  return callMoimRpc<{ transfer_id: string }>(
+    "moim_host_inactive_request",
+    { p_actor: actorId, p_moim: moimId, p_to: toUserId, p_reason: reason },
+    sb
+  );
+}
+
+export type MoimAdminInfoPatch = Partial<{
+  name: string;
+  intro: string;
+  coverImageUrl: string | null;
+  categoryId: string;
+  capacity: number | null;
+  joinMode: "instant" | "approval";
+  lguId: string;
+  questions: string[];
+}>;
+
+export function moimAdminUpdateInfo(
+  adminId: string,
+  moimId: string,
+  patch: MoimAdminInfoPatch,
+  expectedUpdatedAt: string,
+  reason: string,
+  sb?: SupabaseServer
+) {
+  const p: Record<string, unknown> = {};
+  if (patch.name !== undefined) p.name = patch.name;
+  if (patch.intro !== undefined) p.intro = patch.intro;
+  if (patch.coverImageUrl !== undefined) p.cover_image_url = patch.coverImageUrl ?? "";
+  if (patch.categoryId !== undefined) p.category_id = patch.categoryId;
+  if (patch.capacity !== undefined) p.capacity = patch.capacity;
+  if (patch.joinMode !== undefined) p.join_mode = patch.joinMode;
+  if (patch.lguId !== undefined) p.lgu_id = patch.lguId;
+  if (patch.questions !== undefined) p.questions = patch.questions;
+  return callMoimRpc<{ updated_at: string; host_user_id: string; name: string }>(
+    "moim_admin_update_info",
+    { p_admin: adminId, p_moim: moimId, p, p_expected_updated_at: expectedUpdatedAt, p_reason: reason },
+    sb
+  );
+}
+
+export function moimAdminMemberRole(adminId: string, moimId: string, userId: string, role: Exclude<MoimRole, "host">, reason: string, sb?: SupabaseServer) {
+  return callMoimRpc<{ changed: boolean }>(
+    "moim_admin_member_role",
+    { p_admin: adminId, p_moim: moimId, p_user: userId, p_role: role, p_reason: reason },
+    sb
+  );
+}
+
+export function moimAdminMemberRemove(adminId: string, moimId: string, userId: string, ban: boolean, reason: string, sb?: SupabaseServer) {
+  return callMoimRpc<{ was_active: boolean }>(
+    "moim_admin_member_remove",
+    { p_admin: adminId, p_moim: moimId, p_user: userId, p_ban: ban, p_reason: reason },
+    sb
+  );
+}
+
+export function moimAdminMemberUnban(adminId: string, moimId: string, userId: string, reason: string, sb?: SupabaseServer) {
+  return callMoimRpc("moim_admin_member_unban", { p_admin: adminId, p_moim: moimId, p_user: userId, p_reason: reason }, sb);
+}
+
+export function moimAdminAssignHost(adminId: string, moimId: string, toUserId: string, reason: string, sb?: SupabaseServer) {
+  return callMoimRpc<{ moim_id: string; from_user_id: string; notify_user_ids: string[] }>(
+    "moim_admin_assign_host",
+    { p_admin: adminId, p_moim: moimId, p_to: toUserId, p_reason: reason },
+    sb
+  );
+}
+
+export function moimAdminHostRequestDecide(adminId: string, transferId: string, approve: boolean, reason: string, sb?: SupabaseServer) {
+  return callMoimRpc<{
+    approved: boolean;
+    moim_id: string;
+    requester_id: string | null;
+    from_user_id?: string;
+    to_user_id?: string;
+    notify_user_ids?: string[];
+  }>("moim_admin_host_request_decide", { p_admin: adminId, p_transfer: transferId, p_approve: approve, p_reason: reason }, sb);
+}
+
+export type MoimAdminContentType = "post" | "comment" | "album" | "schedule";
+/** restore = 숨김 해제 · undelete = 삭제 복구(최고관리자) · cancel = 일정만 */
+export type MoimAdminContentAction = "hide" | "restore" | "delete" | "undelete" | "cancel";
+
+export function moimAdminContent(
+  adminId: string,
+  type: MoimAdminContentType,
+  id: string,
+  action: MoimAdminContentAction,
+  reason: string,
+  sb?: SupabaseServer
+) {
+  return callMoimRpc<{ moim_id: string; status?: string; title?: string; notify_user_ids?: string[] }>(
+    "moim_admin_content",
+    { p_admin: adminId, p_type: type, p_id: id, p_action: action, p_reason: reason },
+    sb
+  );
+}
+
+export type MoimSanctionLevel = "unlist" | "warn" | "block";
+
+export function moimAdminSanctionApply(
+  adminId: string,
+  moimId: string,
+  input: { level: MoimSanctionLevel; reasonCode: string; reason: string; endsAt: string | null },
+  sb?: SupabaseServer
+) {
+  return callMoimRpc<{ sanction_id: string; platform_state: string; host_user_id: string; notify_user_ids: string[]; name: string }>(
+    "moim_admin_sanction_apply",
+    {
+      p_admin: adminId,
+      p_moim: moimId,
+      p_level: input.level,
+      p_reason_code: input.reasonCode,
+      p_reason: input.reason,
+      p_ends_at: input.endsAt,
+    },
+    sb
+  );
+}
+
+export function moimAdminSanctionRevoke(adminId: string, sanctionId: string, reason: string, sb?: SupabaseServer) {
+  return callMoimRpc<{ moim_id: string; platform_state: string }>(
+    "moim_admin_sanction_revoke",
+    { p_admin: adminId, p_sanction: sanctionId, p_reason: reason },
+    sb
+  );
+}
+
+export function moimSanctionsExpireDue(limit: number, sb?: SupabaseServer) {
+  return callMoimRpc<{ refreshed: { moim_id: string; platform_state: string }[] }>("moim_sanctions_expire_due", { p_limit: limit }, sb);
+}
+
+export function moimAdminDelete(adminId: string, moimId: string, reason: string, sb?: SupabaseServer) {
+  return callMoimRpc("moim_admin_delete", { p_admin: adminId, p_moim: moimId, p_reason: reason }, sb);
+}
+
+export function moimAdminRestore(adminId: string, moimId: string, reason: string, sb?: SupabaseServer) {
+  return callMoimRpc<{ status: string }>("moim_admin_restore", { p_admin: adminId, p_moim: moimId, p_reason: reason }, sb);
+}
+
+export type MoimAdminCategoryInput = {
+  id?: string | null;
+  slug: string;
+  labelKo: string;
+  labelEn: string;
+  sortOrder: number;
+  isActive: boolean;
+  isRestricted: boolean;
+  expectedUpdatedAt?: string | null;
+};
+
+export function moimAdminCategorySave(adminId: string, input: MoimAdminCategoryInput, reason: string, sb?: SupabaseServer) {
+  return callMoimRpc<{ category_id: string; updated_at: string }>(
+    "moim_admin_category_save",
+    {
+      p_admin: adminId,
+      p: {
+        ...(input.id ? { id: input.id } : {}),
+        slug: input.slug,
+        label_ko: input.labelKo,
+        label_en: input.labelEn,
+        sort_order: input.sortOrder,
+        is_active: input.isActive,
+        is_restricted: input.isRestricted,
+        ...(input.expectedUpdatedAt ? { expected_updated_at: input.expectedUpdatedAt } : {}),
+      },
+      p_reason: reason,
+    },
+    sb
+  );
+}
+
+export function moimAdminPoliciesSave(
+  adminId: string,
+  patch: Record<string, number | null | string[]>,
+  expectedUpdatedAt: string,
+  reason: string,
+  sb?: SupabaseServer
+) {
+  return callMoimRpc<{ updated_at: string }>(
+    "moim_admin_policies_save",
+    { p_admin: adminId, p: patch, p_expected_updated_at: expectedUpdatedAt, p_reason: reason },
+    sb
+  );
+}
