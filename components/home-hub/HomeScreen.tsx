@@ -33,6 +33,7 @@ import { HomeStoresSection } from "@/components/home-hub/HomeStoresSection";
 import { HomeTradeRow } from "@/components/home-hub/HomeTradeRow";
 import { HomePostsSection } from "@/components/home-hub/HomePostsSection";
 import { useHomeRotation } from "@/components/home-hub/use-home-rotation";
+import { hasSupabaseAuthTokenCookie } from "@/lib/home/home-banner-audience-hint";
 
 const SHORTCUT_ICON: Record<HomeMenuKey, LucideIcon> = {
   trade: Tag,
@@ -82,6 +83,13 @@ export function HomeScreen({
     initRotation();
   }, [initRotation]);
 
+  /** R1: 회원 확인 중 배너 대상 — 기기 로그인 쿠키 유무(마운트 후 1회, 서버 그림과 어긋나지 않게 효과에서 읽음) */
+  const [authCookieHint, setAuthCookieHint] = useState<boolean | null>(null);
+  useEffect(() => {
+    setAuthCookieHint(hasSupabaseAuthTokenCookie(document.cookie));
+  }, []);
+  const bannerAudienceMember: boolean | null = membership.status === "checking" ? authCookieHint : isMember;
+
   const reloadLayout = useCallback(async (): Promise<boolean> => {
     try {
       const res = await fetch("/api/home/layout", { cache: "no-store", credentials: "include" });
@@ -119,7 +127,10 @@ export function HomeScreen({
   );
 
   const sections = useMemo(() => resolveVisibleHomeSections(layout, !isMember), [layout, isMember]);
-  const banners = useMemo(() => resolveAudienceBanners(layout, !isMember), [layout, isMember]);
+  const banners = useMemo(
+    () => resolveAudienceBanners(layout, !(bannerAudienceMember ?? isMember)),
+    [layout, bannerAudienceMember, isMember]
+  );
   const shortcuts = layout.shortcuts.filter((x) => x.visible);
 
   const sectionTitle = (key: HomeSectionKey): string => {
@@ -202,9 +213,10 @@ export function HomeScreen({
 
       {sections.map((key) => {
         if (key === "banner") {
-          // 회원 확인 중에는 대상(회원/비로그인)을 몰라 배너를 고르지 않는다 — 비로그인용 배너가 잠깐 보이는 것 방지 (감사 E14)
+          // 회원 확인 중에는 기기 로그인 쿠키로 대상을 먼저 정해 바로 보인다(R1). 확인 결과가 다르면 그 대상 배너로 바뀐다.
+          // 쿠키를 아직 읽기 전(마운트 직후)에만 고르지 않는다 (감사 E14).
           return banners.length ? (
-            <HomeBanner key={key} banners={banners} isMember={isMember} rot={membership.status === "checking" ? null : rot} />
+            <HomeBanner key={key} banners={banners} isMember={isMember} rot={bannerAudienceMember == null ? null : rot} />
           ) : null;
         }
         if (key === "ongoing") {
