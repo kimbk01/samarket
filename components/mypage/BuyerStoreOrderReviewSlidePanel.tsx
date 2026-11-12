@@ -1,5 +1,7 @@
 "use client";
 
+import { SectorHeaderBar } from "@/components/layout/sector-header/SectorHeaderBar";
+import { SectorHeaderTitle } from "@/components/layout/sector-header/SectorHeaderTitle";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -98,18 +100,16 @@ export function BuyerStoreOrderReviewSlidePanel({
             willChange: "transform",
           }}
         >
-          <header className="flex shrink-0 items-center gap-2 border-b border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] px-2 py-2">
-            <button
-              type="button"
-              onClick={requestClose}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[color:var(--delivery-dark)] hover:bg-[color:var(--delivery-primary-soft)]"
-              aria-label={t("common_close")}
-            >
-              <X className="h-5 w-5" aria-hidden />
-            </button>
-            <p className="min-w-0 flex-1 truncate text-[15px] font-bold leading-[1.35] text-[color:var(--delivery-dark)]">
-              {title}
-            </p>
+          <header className="shrink-0 border-b border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)]">
+            {/* 헤더 SSOT 2단계 — 하위 화면 공통 줄(높이 52 · ✕ 48@x4 그림 24 · 제목 17/600 가운데) */}
+            <SectorHeaderBar
+              left={
+                <button type="button" onClick={requestClose} className="sector-header-back" aria-label={t("common_close")}>
+                  <X className="h-6 w-6" aria-hidden />
+                </button>
+              }
+              center={<SectorHeaderTitle>{title}</SectorHeaderTitle>}
+            />
           </header>
 
           <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-sam-surface">

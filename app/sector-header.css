@@ -132,8 +132,10 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
 
 /** 메인 허브(제목 왼쪽) — 기존 허브 기하 유지 (안전영역·폭 제한 해제만) */
 .sector-header-bar--left-title {
-  --sector-header-back-size: 40px;
-  --sector-header-back-icon: 24px;
+  /** 왼쪽 뒤로가 있는 제목-왼쪽 줄(거래 검색·매장 상세) — 하위 화면과 같은 터치 48 @x4 · 그림 24 @x16 (헤더 SSOT 2단계) */
+  --sector-header-back-size: var(--sector-header-touch);
+  --sector-header-back-icon: var(--sector-header-touch-icon);
+  --sector-header-left-slot: var(--sector-header-touch);
   /** 오른쪽 아이콘 = 하위 화면과 같은 터치 48 · 그림 24 · 간격 0 (SSOT S5) */
   --sector-header-action-size: var(--sector-header-touch);
   --sector-header-action-icon: var(--sector-header-touch-icon);
@@ -143,7 +145,7 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
   --delivery-header-icon-glyph: var(--sector-header-touch-icon);
   grid-template-columns: var(--sector-header-left-slot) minmax(0, 1fr) auto;
   column-gap: var(--sector-header-col-gap);
-  padding: 0 var(--sector-header-hub-pad-right) 0 var(--sector-header-hub-pad-left);
+  padding: 0 var(--sector-header-edge-pad-right) 0 var(--sector-header-edge-pad-left);
 }
 
 .sector-header-bar--with-subtitle {
