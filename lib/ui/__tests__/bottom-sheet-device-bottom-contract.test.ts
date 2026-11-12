@@ -122,8 +122,11 @@ describe("messenger split view — every bottom sheet sits on the list pane (202
     const shell = read("components/community-messenger/MessengerSheetUi.tsx");
     /** 기본 켬(splitListPane = true) — 메신저 밖에서 쓰는 시트만 끈다 (내정보 QR 코드 시트, 2026-11-12) */
     expect(shell).toContain("splitListPane = true,");
-    expect(shell).toContain('`${MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS}${splitListPane ? ` ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}` : ""}`');
-    expect(shell).toContain('`${MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS}${splitListPane ? ` ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}` : ""}`');
+    expect(shell).toContain('`${MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS}${splitListPane ? ` ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}` : ` ${OUTSIDE_MESSENGER_SHEET_WIDTH_CLASS}`}`');
+    expect(shell).toContain('`${MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS}${splitListPane ? ` ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}` : ` ${OUTSIDE_MESSENGER_SHEET_WIDTH_CLASS}`}`');
+    /** 메신저 밖 = 공용 오버레이 시트와 같은 폭(최대 32rem·가운데) */
+    expect(shell).toContain('const OUTSIDE_MESSENGER_SHEET_WIDTH_CLASS = "mx-auto max-w-[32rem]";');
+    expect(read("app/dibay-overlay.css")).toMatch(/\.dibay-overlay-sheet \{[^}]*max-width: 32rem;/);
   });
 
   it("≥768 width rule covers both panel kinds", () => {
