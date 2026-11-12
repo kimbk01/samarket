@@ -257,15 +257,10 @@ describe("P2-A6 owner/admin preference storage authority", () => {
   });
 
   it("T22 Gift/Nav files untouched by P2-A6 source imports", () => {
-    const writerOwner = readFileSync(
-      join(process.cwd(), "lib/notifications/policy/owner-notification-preference-storage.server.ts"),
-      "utf8"
-    );
     const writerAdmin = readFileSync(
       join(process.cwd(), "lib/notifications/policy/admin-notification-preference-storage.server.ts"),
       "utf8"
     );
-    expect(writerOwner).not.toMatch(/gift/i);
     expect(writerAdmin).not.toMatch(/gift/i);
   });
 

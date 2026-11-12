@@ -18,10 +18,8 @@ describe("P0-A Admin Q authority freeze", () => {
   it("documents ADMIN_Q ≠ notification unread", () => {
     const queue = read("lib/admin/admin-action-queue.ts");
     const bell = read("app/api/admin/admin-bell/route.ts");
-    const eq = read("lib/notifications/badge-equation-registry.ts");
     expect(queue).toMatch(/ADMIN_Q ≠ Member notification_events unread/);
     expect(bell).toMatch(/ADMIN_Q ≠ Member/);
-    expect(eq).toMatch(/NOT notification unread/);
   });
 
   it("Admin shell mounts one AdminOpsRealtimeBridge provider", () => {

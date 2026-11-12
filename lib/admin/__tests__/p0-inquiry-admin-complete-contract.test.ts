@@ -55,8 +55,6 @@ describe("P0-C AdminOps bridge inquiry wiring (T4/T6)", () => {
     expect(provider).toContain("resolveAdminMemberCareInquiryHref");
     expect(provider).toContain("resolveAdminPlatformInquiryHref");
     expect(provider).toContain('startedBy === "member"');
-    const carePage = read("components/admin/member-notes/AdminMemberNotesPage.tsx");
-    expect(carePage).not.toContain("postgres_changes");
     const platformPage = read("components/admin/platform-inquiries/AdminPlatformInquiriesPage.tsx");
     expect(platformPage).not.toContain("postgres_changes");
   });
@@ -101,10 +99,6 @@ describe("P0-C Admin → Member Care reply preserved (T8/T9)", () => {
 describe("P0-C Owner platform reply", () => {
   it("A2-2: platform answer API disabled; notify helper kept for archive history", () => {
     const route = read("app/api/admin/platform-inquiries/[id]/route.ts");
-    const writer = read("lib/notifications/notify-store-points.ts");
-    expect(writer).toContain("notifyStoreOwnerPlatformInquiryReplied");
-    expect(writer).not.toContain("notifyStoreOwnerPointAccountReplied");
-    expect(writer).toContain('type: "inquiry_answered"');
     expect(route).toContain("legacy_writer_disabled");
     expect(route).not.toContain("notifyStoreOwnerPlatformInquiryReplied");
   });

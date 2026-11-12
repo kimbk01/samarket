@@ -174,15 +174,6 @@ describe("common-auth-completion-contract", () => {
     expect(src).toMatch(/runCommonAuthClientCompletion/);
   });
 
-  it("upsertOAuthProfileFromUser delegates to ensureAuthProfileForLogin only", () => {
-    const src = readFileSync(
-      join(process.cwd(), "lib/auth/oauth-profile-upsert.ts"),
-      "utf8",
-    );
-    expect(src).toMatch(/ensureAuthProfileForLogin/);
-    expect(src).not.toMatch(/ensurePendingAuthProfileRow/);
-  });
-
   it("identity SSOT module resolves via user_auth_identities finder", () => {
     const src = readFileSync(
       join(process.cwd(), "lib/auth/provider-identity/resolve-provider-login.server.ts"),

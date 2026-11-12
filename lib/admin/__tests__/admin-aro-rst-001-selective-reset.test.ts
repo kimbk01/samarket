@@ -125,10 +125,4 @@ describe("ARO-RST-001 Selective Reset", () => {
     expect(gate.executeAllowed).toBe(false);
     expect(gate.dryRunAllowed).toBe(true);
   });
-
-  it("no parallel planner/executor authority invented", () => {
-    expect(read("lib/admin/prelaunch-reset/index.ts")).toContain("buildPrelaunchResetPlan");
-    expect(read("lib/admin/prelaunch-reset/index.ts")).toContain("executePrelaunchReset");
-    expect(read("lib/admin/prelaunch-reset/index.ts")).toContain("PRELAUNCH_RESET_SELECTIVE_MATRIX");
-  });
 });

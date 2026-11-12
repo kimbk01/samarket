@@ -31,9 +31,7 @@ describe("R7 — single-flight shares parsed JSON, not a one-shot Response", () 
 
   it("callers of shared flight keys no longer read a shared Response body", () => {
     for (const rel of [
-      "components/my/PhoneVerificationRequestForm.tsx",
       "components/my/edit/ProfileEditForm.tsx",
-      "components/mypage/required/RequiredInfoFlowClient.tsx",
     ]) {
       const src = read(rel);
       expect(src).toContain("fetchPhoneVerificationJson()");
@@ -44,8 +42,6 @@ describe("R7 — single-flight shares parsed JSON, not a one-shot Response", () 
     );
     expect(read("components/mypage/tabs/CommunityTab.tsx")).toContain("return res.ok && json.ok && Array.isArray(json.posts)");
     expect(read("hooks/usePromotionOrderTargets.ts")).not.toContain("await postsRes.json()");
-    expect(read("components/offers/OfferStatusBuyer.tsx")).not.toMatch(/const res = await runSingleFlight/);
-    expect(read("components/offers/useMyPriceOffersForProduct.ts")).not.toMatch(/const res = await runSingleFlight/);
   });
 
   it("dead My Info rows removed (0 imports)", () => {
@@ -58,8 +54,6 @@ describe("R7 — single-flight shares parsed JSON, not a one-shot Response", () 
     ]) {
       expect(existsSync(join(root, rel))).toBe(false);
     }
-    // 메신저가 쓰는 토글 행은 유지
-    expect(existsSync(join(root, "components/my/settings/SettingsToggleRow.tsx"))).toBe(true);
   });
 
   it("admin code may not import My Info ds components (eslint rule present)", () => {

@@ -222,11 +222,6 @@ describe("A1/A2 composition authority leak fix", () => {
     expect(split.listingCategoryId).toBe(CHILD_ID);
     expect(split.compositionOwnerId).toBe(ROOT_ID);
     expect(split.listingCategoryId).not.toBe(split.compositionOwnerId);
-
-    const searchView = readFileSync(resolve(process.cwd(), "components/search/SearchView.tsx"), "utf8");
-    expect(searchView).toContain("splitTradeListingAndCompositionOwnerIds");
-    expect(searchView).toContain("tradeMarketParentId: listingAndComposition.listingCategoryId");
-    expect(searchView).not.toMatch(/tradeMarketParentId:\s*listingAndComposition\.compositionOwnerId/);
   });
 
   it("E. six production trade roots: listing === composition owner", () => {
@@ -244,10 +239,6 @@ describe("A1/A2 composition authority leak fix", () => {
   });
 
   it("wires SearchFilterBar and Edit client to root composition helpers", () => {
-    const bar = readFileSync(resolve(process.cwd(), "components/search/SearchFilterBar.tsx"), "utf8");
-    expect(bar).toContain("resolveTradeCompositionForCategoryId");
-    expect(bar).not.toContain("resolveTradeCompositionForCategory(");
-
     const edit = readFileSync(
       resolve(process.cwd(), "components/products/ProductTradeEditPageClient.tsx"),
       "utf8"

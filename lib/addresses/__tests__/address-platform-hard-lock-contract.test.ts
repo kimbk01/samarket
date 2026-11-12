@@ -160,7 +160,6 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
   });
 
   it("product address entry surfaces use the single /mypage/addresses book", () => {
-    const myInfo = read("components/mypage/myinfo/RequiredInfoList.tsx");
     const mySummary = read("components/mypage/home/MypageRequiredInfoSummary.tsx");
     const profileSettings = read("components/mypage/profile-settings/ProfileSettingsSheet.tsx");
     const storesHome = read("components/stores/home/hub/StoresHomeHeaderChrome.tsx");
@@ -170,7 +169,6 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
     const storeTab = read("components/mypage/tabs/StoreTab.tsx");
 
     for (const [name, src] of [
-      ["RequiredInfoList", myInfo],
       ["MypageRequiredInfoSummary", mySummary],
       ["ProfileSettingsSheet", profileSettings],
       ["StoresHomeHeaderChrome", storesHome],
@@ -203,12 +201,9 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
 
   it("current address surfaces render the green map pin affordance", () => {
     for (const [name, src] of [
-      ["Tier1ExplorationTitleRow", read("components/layout/Tier1ExplorationTitleRow.tsx")],
-      ["UnifiedTier1AddressPillHeading", read("components/layout/UnifiedTier1AddressPillHeading.tsx")],
       ["StoresHomeHeaderChrome", read("components/stores/home/hub/StoresHomeHeaderChrome.tsx")],
       ["StoresBrowseHeaderChrome", read("components/stores/browse/StoresBrowseHeaderChrome.tsx")],
       ["TradeDefaultLocationBlock", read("components/write/shared/TradeDefaultLocationBlock.tsx")],
-      ["RequiredInfoList", read("components/mypage/myinfo/RequiredInfoList.tsx")],
       ["MypageRequiredInfoSummary", read("components/mypage/home/MypageRequiredInfoSummary.tsx")],
       ["MyAccountContent", read("components/my/MyAccountContent.tsx")],
       ["StoreCartCheckoutAddressRowBody", read("components/stores/cart/StoreCartCheckoutAddressRowBody.tsx")],
@@ -322,13 +317,6 @@ describe("ADDR-004 / ADDR-010 google + writer layer", () => {
 });
 
 describe("ADDR-008 store vs member", () => {
-  it("store address columns live on stores, not user_addresses fallback", () => {
-    const src = read("lib/addresses/address-source-architecture.ts");
-    expect(src).toContain("STORE ADDRESS");
-    expect(src).toContain("stores");
-    expect(src).toMatch(/Not a `user_addresses` row/);
-  });
-
   it("store list/ETA do not runtime-substitute store physical address from owner user_addresses", () => {
     const src = read("lib/stores/store-list-delivery-origin.ts");
     expect(src).toContain("Do not runtime-substitute stores.address_* with user_addresses");

@@ -66,11 +66,6 @@ describe("주문 채팅 고객 목록 — 나가기·밀기 (Owner 2026-11-10)",
       "utf8"
     );
     expect(compose).toContain("createStoreOrderCustomerLiveBootstrapSource(sb, undefined, { inboxOnly: true })");
-    const presentation = readFileSync(
-      join(process.cwd(), "lib/messenger/contracts/domain-read-room-presentation-compose.ts"),
-      "utf8"
-    );
-    expect(presentation).not.toContain("inboxOnly");
     const loader = readFileSync(
       join(process.cwd(), "lib/messenger/contracts/phase11b-live-domain-loaders.ts"),
       "utf8"

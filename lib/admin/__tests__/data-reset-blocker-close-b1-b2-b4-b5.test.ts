@@ -93,14 +93,6 @@ describe("DATA RESET BLOCKER CLOSE B2 order→gift/finance", () => {
     expect(api).not.toMatch(/\.from\("store_orders"\)[\s\S]*\.delete\(/);
     expect(api).not.toMatch(/\.from\("store_payments"\)[\s\S]*\.delete\(/);
 
-    const storesUi = read("components/admin/stores/AdminStoreOrdersPage.tsx");
-    const deliveryUi = read(
-      "components/admin/delivery-orders/DeliveryOrdersDashboardClient.tsx"
-    );
-    // Read-only oversight screen: no delete surface at all (stricter than the policy gate).
-    expect(storesUi).not.toContain("bulk-delete");
-    expect(deliveryUi).toContain("canHardDelete(ORDER_ENTITY_ACTION_POLICY)");
-
     const sql = read(
       "supabase/migrations/20261213120000_data_reset_blocker_close_b1_b2_fk.sql"
     );

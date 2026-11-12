@@ -1265,3 +1265,232 @@ lib/ui/use-mobile-keyboard-inset.ts
 lib/ui/use-swipe-tab-navigation.ts
 lib/utils/sort-products.ts
 ```
+
+## 부록 G — D3 실행 결과 (2026-11-12 · 브랜치 `chore/dead-code-cleanup-d3`, D1+D2 위에 쌓음)
+
+**삭제 169개 · 15,462줄** — 제품 코드에서 import 0, 계약 시험이 파일 내용을 문자열로 읽기만 하던 파일 (D2 에서 넘어온 62개 포함).
+
+**처음 목록 180개 중 11개는 되살림** — 남겨 둔 39개(스크립트 계약 등)가 import 하는 파일이라 지우면 타입검사가 깨짐: `lib/chat-domain/dual-write-room-domain.ts` · `components/stores/StoreTaxonomyThumb.tsx` · `hooks/use-delivery-store-search.ts` · `components/stores/home/hub/StoresHomeFoodDiscoveryRail.tsx` · `components/stores/home/hub/StoresHomeFeedList.tsx` · `lib/stores/stores-browse-sub-chip-ui.ts` · `components/favorites/FavoriteToggleButton.tsx` · `lib/community-messenger/room/use-messenger-room-composer-surface.ts` · `lib/community-messenger/room/messenger-room-composer-early-context.tsx` · `components/chats/ChatRoomListMenu.tsx` · `lib/chats/chat-list-last-message-display.ts`. 이 파일들에 대한 시험 단언도 원래대로 둠.
+
+**같이 고친 것**
+- 계약 시험 64개: 지운 파일에 대한 항목·단언만 빼고, 살아 있는 파일에 대한 단언은 그대로 둠. 삭제한 시험 파일 0, 수치 하한 변경 0. 허용목록에서 지운 파일 항목을 뺀 3곳(phase6-bootstrap-cache · shell-integration-phase45 · slice2-1-runtime-isolation)은 검사가 더 엄격해짐.
+- `lib/i18n/quality/i18n-quality-baseline.json`: 지운 파일 항목 제거 (`npm run check:i18n-quality:baseline` 로 다시 씀, 추가 0).
+
+**지우지 않고 남긴 것 (39개)**
+- 스크립트 계약: `verify-*-hard-lock`·`verify-thumbnail`·`verify-stores-home-hub`·알림 소리 잠금 목록 등이 이 파일을 계약 기준으로 읽거나 존재를 요구함 → 잠금 계약 변경은 별도 승인 대상
+- tsconfig 별칭: `lib/philife/index.ts` (`@domain/philife` 별칭 대상)
+- 통화 시험이 읽는 파일: 통화 변경 규정 → D5 에서 함께
+```
+components/admin/dashboard/AdminActionCenter.tsx  ← 스크립트 계약(scripts/verify-admin-real-operation-cut-f-placement-map-hard-lock.mjs)
+components/admin/dashboard/DashboardUrgentBlock.tsx  ← 스크립트 계약(scripts/verify-admin-real-operation-cut-e-control-plane-hard-lock.mjs)
+components/admin/finance/AdminFinanceOpsQueue.tsx  ← 스크립트 계약(scripts/verify-admin-real-operation-cut-c-ads-operation-hard-lock.mjs)
+components/admin/platform-inquiries/AdminPlatformInquiriesPage.tsx  ← 스크립트 계약(scripts/verify-three-currency-product.mjs)
+components/admin/prelaunch-reset/AdminPrelaunchResetPage.tsx  ← 스크립트 계약(scripts/verify-admin-real-operation-cut-h-prelaunch-reset-hard-lock.mjs)
+components/admin/store-points/AdminStorePointLedgerByDatePage.tsx  ← 스크립트 계약(scripts/verify-three-currency-product.mjs)
+components/chats/ChatRoomCard.tsx  ← 스크립트 계약(scripts/verify-samarket-thumbnail-contract.cjs)
+components/chats/GeneralChatRoomCard.tsx  ← 스크립트 계약(scripts/verify-samarket-thumbnail-contract.cjs)
+components/community-messenger/MessengerLineFriendRow.tsx  ← 스크립트 계약(scripts/verify-samarket-thumbnail-contract.cjs)
+components/community-messenger/room/CommunityMessengerRoomPass1ComposerShell.tsx  ← 스크립트 계약(scripts/verify-chat-domain-file-lock.cjs)
+components/delivery/navigation/DeliveryDomainSwitcherOverlay.tsx  ← 스크립트 계약(scripts/verify-delivery-dial-navigation-contract.cjs)
+components/favorites/FavoriteProductCard.tsx  ← 스크립트 계약(scripts/verify-samarket-thumbnail-contract.cjs)
+components/layout/MainDesktopSideNav.tsx  ← 스크립트 계약(scripts/verify-owner-badge-boundary.cjs)
+components/layout/RegionBarExplorationTier1.tsx  ← 스크립트 계약(scripts/verify-single-community-surface-authority.cjs)
+components/product/ProductCard.tsx  ← 스크립트 계약(scripts/verify-samarket-thumbnail-contract.cjs)
+components/stores/StoreMenuBoardPreamble.tsx  ← 스크립트 계약(scripts/verify-samarket-thumbnail-contract.cjs)
+components/stores/StorePublicMenuList.tsx  ← 스크립트 계약(scripts/verify-samarket-thumbnail-contract.cjs)
+components/stores/StoresRootTier1HeaderActions.tsx  ← 스크립트 계약(scripts/verify-owner-fab-header-contract.cjs)
+components/stores/browse/StoresBrowseHeaderPrimaryTabs.tsx  ← 스크립트 계약(scripts/verify-stores-home-hub-contract.cjs)
+components/stores/browse/StoresBrowseHeaderSubTopicChips.tsx  ← 스크립트 계약(scripts/verify-stores-home-hub-contract.cjs)
+components/stores/home/StoreHorizontalStoreTile.tsx  ← 스크립트 계약(scripts/verify-samarket-thumbnail-contract.cjs)
+components/stores/home/hub/StoresHomeCategoriesSkeleton.tsx  ← 스크립트 계약(scripts/verify-stores-home-hub-contract.cjs)
+components/stores/home/hub/StoresHomeCategoryHeaderStack.tsx  ← 스크립트 계약(scripts/verify-stores-home-hub-contract.cjs)
+components/stores/home/hub/StoresHomeCategoryStickyBelow.tsx  ← 스크립트 계약(scripts/verify-stores-home-hub-contract.cjs)
+components/stores/home/hub/StoresHomeHubBelowFold.tsx  ← 스크립트 계약(scripts/verify-stores-home-hub-contract.cjs)
+components/stores/home/hub/StoresHomeSearchModal.tsx  ← 스크립트 계약(scripts/verify-stores-home-hub-contract.cjs)
+components/stores/home/hub/StoresHomeSubCategoryPanel.tsx  ← 스크립트 계약(scripts/verify-stores-home-hub-contract.cjs)
+lib/chat-domain/create-or-find/index.ts  ← 스크립트 계약(scripts/verify-chat-domain-file-lock.cjs)
+lib/community-messenger/stores/index.ts  ← 스크립트 계약(scripts/verify-messenger-dead-hub-cleanup.cjs)
+lib/delivery/prewarm-delivery-domain-dial.ts  ← 스크립트 계약(scripts/verify-delivery-dial-navigation-contract.cjs)
+lib/gift-certificate/gift-certificate-hard-lock.ts  ← 스크립트 계약(scripts/verify-gift-certificate-hard-lock.mjs)
+lib/main-menu/main-bottom-nav-interaction-contract.ts  ← 스크립트 계약(scripts/verify-delivery-dial-navigation-contract.cjs)
+lib/ops/fallback-cleanup-verification.ts  ← 스크립트 계약(scripts/verify-legacy-fallback-cleanup-structural.mjs)
+lib/posts/getPostCountByCategory.ts  ← 스크립트 계약(scripts/verify-posts-client-db-boundary.cjs)
+lib/push/native/notification-sound-native-bridge.ts  ← 스크립트 계약(scripts/verify-notification-sound-ssot-contract.mjs)
+lib/stores/apply-admin-store-order-refund.ts  ← 스크립트 계약(scripts/verify-store-order-recovery-integrity.mjs)
+lib/stores/stores-home-sub-category-slide.ts  ← 스크립트 계약(scripts/verify-stores-home-hub-contract.cjs)
+lib/community-messenger/bootstrap-lite-policy.ts  ← 통화 시험(lib/community-messenger/__tests__/call-stub-room-tip-exposure-guard.test.ts)
+lib/philife/index.ts  ← tsconfig 별칭
+```
+
+삭제한 D3 파일:
+```
+app/(main)/group-chat/GroupChatHomePageClient.tsx
+components/admin/ads/AdminAdApplicationsPage.tsx
+components/admin/ads/AdminCommunityPromotionQueue.tsx
+components/admin/ads/AdminFeedAdRequestQueue.tsx
+components/admin/banners/AdminBannerChangeLogList.tsx
+components/admin/banners/AdminBannerDetailPage.tsx
+components/admin/banners/AdminBannerFilterBar.tsx
+components/admin/console/AdminConsoleDetailPane.tsx
+components/admin/console/AdminConsoleListPane.tsx
+components/admin/console/AdminConsoleSplitView.tsx
+components/admin/console/AdminConsoleToolbar.tsx
+components/admin/dashboard/AdminRevenueOpsStrip.tsx
+components/admin/dashboard/DashboardQuickLinksBySection.tsx
+components/admin/delivery-orders/AdminOrderTimeline.tsx
+components/admin/delivery-orders/DeliveryOrderBadges.tsx
+components/admin/delivery-orders/DeliveryOrderDetailClient.tsx
+components/admin/delivery-orders/DeliveryOrdersDashboardClient.tsx
+components/admin/delivery-orders/DeliveryOrdersKpiCards.tsx
+components/admin/delivery-orders/DeliveryOrdersProgressPanel.tsx
+components/admin/delivery-orders/DeliveryRefundsClient.tsx
+components/admin/delivery-orders/DeliverySettlementsClient.tsx
+components/admin/delivery-orders/OrderAmountCard.tsx
+components/admin/delivery-orders/OrderDetailCard.tsx
+components/admin/delivery-orders/OrderFilterBar.tsx
+components/admin/delivery-orders/OrderItemsTable.tsx
+components/admin/delivery-orders/OrderTable.tsx
+components/admin/delivery-orders/RefundRequestTable.tsx
+components/admin/delivery-orders/SettlementFilterBar.tsx
+components/admin/delivery-orders/SettlementTable.tsx
+components/admin/delivery-orders/do-admin-locale.ts
+components/admin/delivery-orders/useDoAdminStatusLabels.ts
+components/admin/member-notes/AdminMemberNotesPage.tsx
+components/admin/platform-popup/AdminPlatformPopupHubPage.tsx
+components/admin/platform-popup/AdminPlatformPopupRequestQueue.tsx
+components/admin/stores/AdminStoreBannerAdWriterPanel.tsx
+components/admin/stores/AdminStoreOrdersPage.tsx
+components/admin/stores/AdminStorePaidAdWriterPanel.tsx
+components/admin/support/AdminSupportControlPlane.tsx
+components/chat/index.ts
+components/chats/ChatHubTopTabs.tsx
+components/community-messenger/MessengerHomeFabSector.tsx
+components/community-messenger/domain-shell-canary/DomainCanaryShellRow.tsx
+components/community-messenger/domain-shell-canary/DomainShellCanaryHomeGate.tsx
+components/community-messenger/friend-list/CommunityMessengerFriendStatusBadge.tsx
+components/community-messenger/home/MessengerHomeFabPlusIcon.tsx
+components/community/CommentItem.tsx
+components/community/CommunityCommentItem.tsx
+components/delivery/ui/DeliveryAddressCard.tsx
+components/delivery/ui/DeliveryBadge.tsx
+components/delivery/ui/DeliveryButton.tsx
+components/delivery/ui/DeliveryCard.tsx
+components/delivery/ui/DeliveryDivider.tsx
+components/delivery/ui/DeliveryInfoCard.tsx
+components/delivery/ui/DeliveryInput.tsx
+components/delivery/ui/DeliveryModal.tsx
+components/delivery/ui/DeliveryPriceSummary.tsx
+components/delivery/ui/DeliverySection.tsx
+components/delivery/ui/DeliveryStickyCTA.tsx
+components/delivery/ui/DeliveryThumbnail.tsx
+components/delivery/ui/index.ts
+components/layout/Tier1ExplorationTitleRow.tsx
+components/layout/UnifiedTier1AddressPillHeading.tsx
+components/my/PhoneVerificationRequestForm.tsx
+components/my/ProfileActionButtons.tsx
+components/my/mypage/MypageDashboardPrimitives.tsx
+components/my/settings/SettingsToggleRow.tsx
+components/mypage/MessengerOverviewPanel.tsx
+components/mypage/MyPageHeader.tsx
+components/mypage/MyPointCard.tsx
+components/mypage/ServiceGrid.tsx
+components/mypage/SummaryMenu.tsx
+components/mypage/myinfo/RequiredInfoList.tsx
+components/mypage/required/RequiredInfoActiveStepPanel.tsx
+components/mypage/required/RequiredInfoFlowClient.tsx
+components/offers/OfferButton.tsx
+components/offers/OfferStatusBuyer.tsx
+components/offers/useMyPriceOffersForProduct.ts
+components/philife/index.ts
+components/reviews/ReviewCard.tsx
+components/search/RecentSearches.tsx
+components/search/SearchFilterBar.tsx
+components/search/SearchResultList.tsx
+components/search/SearchView.tsx
+components/write-launcher/WriteLauncher.tsx
+components/write-launcher/WriteLauncherGroup.tsx
+components/write-launcher/WriteLauncherItem.tsx
+components/write-launcher/WriteLauncherOverlay.tsx
+hooks/use-is-desktop-shell-viewport.ts
+hooks/usePriceOffersProductRealtime.ts
+lib/addresses/address-source-architecture.ts
+lib/addresses/unspecified-address-nickname.ts
+lib/admin-business/business-management-matrix.ts
+lib/admin-products/admin-product-utils.ts
+lib/admin-products/posts-management-label-i18n.ts
+lib/admin-products/posts-management-utils.ts
+lib/admin/admin-delivery-order-filters.ts
+lib/admin/data-reset/index.ts
+lib/admin/delivery-orders-admin/do-admin-label-i18n.ts
+lib/admin/delivery-orders-admin/labels.ts
+lib/admin/domain-control/finance-operator-ops.ts
+lib/admin/fetch-admin-store-order-detail.ts
+lib/admin/fetch-admin-store-orders-deduped.ts
+lib/admin/fetch-admin-store-orders-query-deduped.ts
+lib/admin/fetch-admin-store-orders-scoped.ts
+lib/admin/platform-admin-db.ts
+lib/admin/prelaunch-reset/index.ts
+lib/ads/ad-label-i18n.ts
+lib/ads/ad-utils.ts
+lib/auth/completion/index.ts
+lib/auth/oauth-profile-upsert.ts
+lib/auth/twilio-verify.ts
+lib/automation/automation-utils.ts
+lib/backup/backup-utils.ts
+lib/business/business-utils.ts
+lib/categories/admin-categories.ts
+lib/categories/fallback-categories.ts
+lib/categories/upsertCategorySettings.ts
+lib/chat-domain/index.ts
+lib/chat/createOrJoinRoom.ts
+lib/chat/store-order-chat-summary-body.ts
+lib/chat/store-order-chat-summary-i18n.ts
+lib/chats/surfaces/chat-hub-segment.ts
+lib/chats/surfaces/chat-hub-tab-defs.ts
+lib/chats/trade/index.ts
+lib/comments/createComment.ts
+lib/community-feed/community-feed-empty-hint.ts
+lib/community-messenger/group/group-room-file-service.ts
+lib/community-messenger/monitoring/index.ts
+lib/community-messenger/monitoring/measure-server.ts
+lib/community-messenger/monitoring/server-store.ts
+lib/community-messenger/notifications/index.ts
+lib/community-messenger/read/room-list-badge.ts
+lib/community-messenger/room/use-messenger-room-composer-early.ts
+lib/constants.ts
+lib/constants/sort.ts
+lib/datetime/format-kst-datetime.ts
+lib/env/twilio-verify.ts
+lib/member-benefits/member-visual-config.ts
+lib/messenger/contracts/domain-app-icon-badge.ts
+lib/messenger/contracts/domain-notification-authority-product-bridge.ts
+lib/messenger/contracts/domain-read-room-presentation-compose.ts
+lib/messenger/contracts/domain-realtime-authority-product-bridge.ts
+lib/messenger/index.ts
+lib/mypage-settings/store.ts
+lib/mypage/required-info-flow.ts
+lib/notifications/badge-equation-registry.ts
+lib/notifications/engine/index.ts
+lib/notifications/notify-store-points.ts
+lib/notifications/policy/owner-notification-preference-storage.server.ts
+lib/offers/pick-buyer-primary-offer.ts
+lib/platform-popup/destination-contract.ts
+lib/platform-popup/index.ts
+lib/point-policies/point-reward-simulate.ts
+lib/points/point-utils.ts
+lib/posts/seller-cancel-sale-ui.ts
+lib/release-archive/release-archive-label-i18n.ts
+lib/release-archive/release-archive-utils.ts
+lib/reports/createCommunityPostReport.ts
+lib/search/global/semantics/index.ts
+lib/search/recent-searches-local.ts
+lib/search/search-utils.ts
+lib/startup/index.ts
+lib/stores/modifiers/sample-kimchi-demo.ts
+lib/supabase.ts
+lib/system/system-utils.ts
+lib/trade-ads/charge-trade-post-ad-points.ts
+lib/trade/seller-trade-flow-client.ts
+lib/types.ts
+lib/ui/messenger-fab-palette.ts
+```

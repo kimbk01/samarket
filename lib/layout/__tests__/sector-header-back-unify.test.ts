@@ -56,7 +56,6 @@ describe("back button — own-header touch target (chrome S1)", () => {
   /** 운영에서 열리지 않는 화면(그룹채팅 → 메신저 이동, 거래 채팅 방 → 메신저 방 이동)은 변경을 되돌림 — Owner 「되돌리고」 2026-11-03 */
   it("unreachable screens were reverted (no touch class)", () => {
     expect(read("components/chats/ChatDetailView.tsx")).not.toContain("sector-header-back--touch");
-    expect(read("app/(main)/group-chat/GroupChatHomePageClient.tsx")).not.toContain("sector-header-back--touch");
   });
 
   it("delivery headers do not opt in", () => {

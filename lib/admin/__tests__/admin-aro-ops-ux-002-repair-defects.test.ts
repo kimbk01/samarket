@@ -35,14 +35,6 @@ describe("ARO-OPS-UX-002 repair — DEF-004 Cash permission", () => {
   });
 });
 
-describe("ARO-OPS-UX-002 repair — DEF-001 Order Admin Store", () => {
-  it("uses businessCcBackToStoreHref for Admin store link", () => {
-    const src = read("components/admin/delivery-orders/DeliveryOrderDetailClient.tsx");
-    expect(src).toContain("businessCcBackToStoreHref");
-    expect(src).not.toMatch(/href=\{`\/stores\/\$\{encodeURIComponent\(order\.storeSlug\)\}`\}/);
-  });
-});
-
 describe("ARO-OPS-UX-002 repair — DEF-002 Messenger count", () => {
   it("Action Center domain-chat reads the chat metric definitions (messenger_actionable queue)", () => {
     const src = read("components/admin/dashboard/AdminActionCenter.tsx");

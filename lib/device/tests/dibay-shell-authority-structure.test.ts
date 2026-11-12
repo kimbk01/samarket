@@ -50,8 +50,6 @@ describe("FD4 App Shell authority wiring", () => {
   });
 
   it("does not restore a second mounted desktop rail", () => {
-    const desktopHook = src("hooks/use-is-desktop-shell-viewport.ts");
-    expect(desktopHook).toContain("항상 false");
     const flags = src("lib/layout/conditional-app-shell-flags.ts");
     expect(flags).toContain("showMainDesktopSideNavEligible");
   });

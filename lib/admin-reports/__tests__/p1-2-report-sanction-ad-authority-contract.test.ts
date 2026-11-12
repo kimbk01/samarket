@@ -87,18 +87,8 @@ describe("P1-2 report / sanction / ad authority contract", () => {
   });
 
   it("ad applications keep separate writers (no unified ads table)", () => {
-    const src = read("components/admin/ads/AdminAdApplicationsPage.tsx");
-    /** 큐 안내 문구는 카탈로그 키로 그린다 (언어 SSOT B4) */
-    expect(src).toContain('descKey: "admin_ad_applications_trade_desc"');
     expect(MESSAGES.ko.admin_ad_applications_trade_desc).toContain("point_promotion_orders");
-    expect(src).toContain('descKey: "admin_ad_applications_feed_desc"');
     expect(MESSAGES.ko.admin_ad_applications_feed_desc).toContain("feed_ad_requests");
-    expect(src).toContain("NOT a unified ads table");
-    expect(src).toContain("AdminCommunityPromotionQueue");
-    expect(src).toContain("AdminFeedAdRequestQueue");
-    expect(src).not.toContain("unified_ads");
-    const queue = read("components/admin/ads/AdminCommunityPromotionQueue.tsx");
-    expect(queue).toContain("point_promotion_orders");
   });
 
   it("looksLikeProfileUserId accepts UUID only", () => {

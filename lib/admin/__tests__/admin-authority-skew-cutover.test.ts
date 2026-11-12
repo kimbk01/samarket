@@ -129,9 +129,8 @@ describe("ADMIN AUTHORITY — Application membership-only (post App fallback cut
     expect(isPrivilegedAdminRole(effectiveDb)).toBe(c.expectAllow);
   });
 
-  it("source: isRouteAdmin / platform-admin-db / staff list share membership helper", () => {
+  it("source: isRouteAdmin / staff list share membership helper", () => {
     const route = readFileSync(join(process.cwd(), "lib/auth/is-route-admin.ts"), "utf8");
-    const platform = readFileSync(join(process.cwd(), "lib/admin/platform-admin-db.ts"), "utf8");
     const staff = readFileSync(join(process.cwd(), "app/api/admin/staff/route.ts"), "utf8");
     const guards = readFileSync(join(process.cwd(), "lib/auth/server-guards.ts"), "utf8");
 
@@ -143,7 +142,6 @@ describe("ADMIN AUTHORITY — Application membership-only (post App fallback cut
     expect(moderation).not.toMatch(/normalizeAdminRole\(\(targetProfile/);
 
     expect(route).toMatch(/hasActiveAdminMembershipOrLegacyRole/);
-    expect(platform).toMatch(/hasActiveAdminMembershipOrLegacyRole/);
     expect(guards).toMatch(/hasActiveAdminMembershipOrLegacyRole/);
     expect(staff).toMatch(/admin_memberships/);
     expect(staff).toMatch(/status.*active|eq\("status", "active"\)/);

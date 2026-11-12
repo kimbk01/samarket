@@ -177,13 +177,6 @@ describe("CUT5 routes + UI contracts", () => {
   });
 
   it("barrel exports client-safe CUT5 modules (server writers stay out of barrel)", () => {
-    const index = readRepo("lib/platform-popup/index.ts");
-    expect(index).toContain("owner-request-types");
-    expect(index).toContain("owner-request-lifecycle");
-    expect(index).toContain("platform-popup-owner-routes");
-    expect(index).not.toContain("owner-request-writer");
-    expect(index).not.toContain("owner-request-loader");
-    expect(index).not.toContain("owner-request-approve");
     expect(existsSync(join(ROOT, "lib/platform-popup/owner-request-writer.ts"))).toBe(true);
     expect(existsSync(join(ROOT, "lib/platform-popup/owner-request-loader.ts"))).toBe(true);
     expect(existsSync(join(ROOT, "lib/platform-popup/owner-request-approve.ts"))).toBe(true);

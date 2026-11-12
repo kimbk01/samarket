@@ -31,12 +31,6 @@ describe("Admin Trade vertical relation contract", () => {
     expect(table).toContain("/admin/products/");
   });
 
-  it("Trade promo queue links Admin listing (not only /post)", () => {
-    const queue = read("components/admin/ads/AdminCommunityPromotionQueue.tsx");
-    expect(queue).toContain("/admin/products/");
-    expect(queue).toContain("admin_trade_promo_open_admin_listing");
-  });
-
   it("does not invent trade_post_ads drill from listing detail", () => {
     const detail = read("components/admin/trade/posts/TradePostDetailPage.tsx");
     expect(detail).not.toContain("/admin/trade-post-ads");

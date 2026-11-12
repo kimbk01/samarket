@@ -2,8 +2,6 @@
  * B-3 — 거래 리스트 프리뷰: viewer(role) 기준 통화 문구 + 실제 message_type 라벨.
  * B-4 — 마이페이지 메신저 개요 프리뷰는 홈 리스트 포맷터(getRoomPreviewText)와 동일.
  */
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { encodeCallStubRoomTip } from "@/lib/community-messenger/call-stub-room-tip";
 import { formatCmListPreviewTextForViewer, getRoomPreviewText } from "@/lib/community-messenger/cm-home-list-copy";
@@ -187,10 +185,5 @@ describe("B-4 MessengerOverviewPanel preview", () => {
     );
     const jsonPreview = getRoomPreviewText(room({ summary: '{"v":1,"kind":"trade"}', lastMessageType: "system" }), SELLER);
     expect(jsonPreview.startsWith("{")).toBe(false);
-  });
-  it("panel renders through getRoomPreviewText with viewer id (not raw lastMessage/summary)", () => {
-    const src = readFileSync(join(process.cwd(), "components/mypage/MessengerOverviewPanel.tsx"), "utf8");
-    expect(src).toContain("getRoomPreviewText(room, viewerUserId)");
-    expect(src).not.toContain("room.lastMessage || room.summary");
   });
 });

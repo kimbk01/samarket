@@ -50,11 +50,6 @@ const ADMIN_RAW_ID_SLICE_ALLOWLIST: Readonly<Record<string, { count: number; rea
     reason: "platform-popup 동시 수정 중 — 보류",
     concurrent: true,
   },
-  "components/admin/platform-popup/AdminPlatformPopupRequestQueue.tsx": {
-    count: 1,
-    reason: "platform-popup 동시 수정 중 — 보류",
-    concurrent: true,
-  },
 };
 
 function listSourceFiles(dir: string): string[] {

@@ -525,8 +525,6 @@ describe("Phase 4.5 — required PASS contracts (1–15)", () => {
     const wiringRoots = [path.join(ROOT, "app"), path.join(ROOT, "lib/community-messenger")];
     const importMessenger = /from\s+["'](@\/lib\/messenger(?:\/[^"']*)?)["']/g;
     const domainAuthorityConnectAllow = new Set([
-      "@/lib/messenger/contracts/domain-realtime-authority-product-bridge",
-      "@/lib/messenger/contracts/domain-notification-authority-product-bridge",
       "@/lib/messenger/contracts/domain-badge-authority-product-bridge",
       "@/lib/messenger/contracts/domain-notification-authority",
       "@/lib/messenger/contracts/domain-atomic-read-authority",
