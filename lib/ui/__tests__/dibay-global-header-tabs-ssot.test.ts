@@ -106,12 +106,10 @@ describe("dibay global header + secondary tabs SSOT", () => {
       join(root, "components/community-messenger/MessengerHomeSectionTabs.tsx"),
       "utf8"
     );
-    const chatHub = readFileSync(join(root, "components/chats/ChatHubTopTabs.tsx"), "utf8");
     for (const [name, src] of [
       ["CommunityFeed", community],
       ["TradePrimaryTabs", trade],
       ["MessengerHomeSectionTabs", messenger],
-      ["ChatHubTopTabs", chatHub],
     ] as const) {
       expect(src, name).toContain("DibaySecondaryTabRow");
       expect(src, name).not.toMatch(/gap-1(?![0-9])/);

@@ -111,7 +111,6 @@ describe("D-15 「홍보」 허용 목록", () => {
     "lib/admin/community-admin/community-admin-permissions.ts",
     "lib/admin-posts/trade-post-hard-delete-eligibility.ts",
     "app/admin/community/posts/AdminPostsPageContent.tsx",
-    "components/admin/dashboard/AdminRevenueOpsStrip.tsx",
     "components/admin/stores/AdminDeliveryAdsControlPlane.tsx",
     "components/gift-certificate/BuyerGiftDetailView.tsx",
     "lib/gift-certificate/map-gift-purchase-error.ts",

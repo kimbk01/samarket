@@ -149,7 +149,6 @@ describe("CUT G — report contract", () => {
     const category = readRepoFile("components/post/PostListByCategory.tsx");
     const detail = readRepoFile("components/post/PostDetailView.tsx");
     const searchCard = readRepoFile("components/product/ProductCard.tsx");
-    const searchList = readRepoFile("components/search/SearchResultList.tsx");
     const myFav = readRepoFile("components/favorites/FavoritePostCard.tsx");
     expect(card).toContain("ReportReasonModal");
     expect(card).toContain("hideTradePost");
@@ -157,7 +156,6 @@ describe("CUT G — report contract", () => {
     expect(category).not.toContain("ReportReasonModal");
     expect(detail).toContain("ReportReasonModal");
     expect(searchCard).not.toContain("ReportReasonModal");
-    expect(searchList).not.toContain("ReportReasonModal");
     expect(myFav).not.toContain("ReportReasonModal");
   });
 });

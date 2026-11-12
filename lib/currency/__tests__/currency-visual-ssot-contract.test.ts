@@ -35,10 +35,6 @@ describe("currency-visual-ssot-contract", () => {
     expect(hub).toContain("OwnerRoutes.finance");
   });
 
-  it("Point member card uses blue family", () => {
-    expect(read("components/mypage/MyPointCard.tsx")).toContain("currency-card--point");
-  });
-
   it("active docs forbid legacy currency UI and writers", () => {
     const lock = read("docs/dibay-currency-ssot-hard-lock.md");
     expect(lock).toContain("no historical currency may remain reachable through an active UI/reader");

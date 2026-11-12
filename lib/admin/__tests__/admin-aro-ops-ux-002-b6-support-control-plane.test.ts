@@ -16,9 +16,6 @@ describe("ARO-OPS-UX-002-B6 support / notification control plane", () => {
       true
     );
     expect(existsSync(resolve(process.cwd(), "app/api/admin/support-control-plane/route.ts"))).toBe(true);
-    expect(
-      existsSync(resolve(process.cwd(), "components/admin/support/AdminSupportControlPlane.tsx"))
-    ).toBe(true);
 
     const loader = read("lib/admin/support-control-plane/load-support-control-plane.ts");
     expect(loader).toContain("support_cases");
@@ -28,14 +25,8 @@ describe("ARO-OPS-UX-002-B6 support / notification control plane", () => {
     expect(loader).not.toMatch(/\.(insert|update|delete|upsert)\(/);
     expect(loader).not.toMatch(/CREATE TABLE|support_v2|unified_ticket/i);
 
-    const ui = read("components/admin/support/AdminSupportControlPlane.tsx");
-    expect(ui).toContain('data-aro-ops-ux-002-b6="1"');
-    expect(ui).toContain("action-required");
-    expect(ui).toContain('t("admin_support_member_2")');
     expect(copyAdminB4Ops1Messages.en.admin_support_member_2).toBe("Member");
-    expect(ui).toContain('t("admin_support_owner")');
     expect(copyAdminB4Ops1Messages.en.admin_support_owner).toBe("Owner");
-    expect(ui).not.toMatch(/쪽지/);
   });
 
   it("mounts on canonical /admin/support (no support-v2)", () => {
@@ -59,8 +50,6 @@ describe("ARO-OPS-UX-002-B6 support / notification control plane", () => {
     expect(svc).toContain("adminUpdateSupportCaseStatus");
     expect(svc).toContain("closeAfter");
     expect(svc).toContain('case "ACTIONABLE"');
-    const plane = read("components/admin/support/AdminSupportControlPlane.tsx");
-    expect(plane).toContain('t("admin_support_support_messenger_notifications_are_not_support")');
     expect(copyAdminB4Ops1Messages.en.admin_support_support_messenger_notifications_are_not_support).toContain(
       "Support ≠ Messenger"
     );

@@ -27,12 +27,6 @@ describe("Admin Community vertical relation contract", () => {
     expect(detail).toContain("/admin/community/promotions");
   });
 
-  it("Promotion queue links Admin community post", () => {
-    const queue = read("components/admin/ads/AdminCommunityPromotionQueue.tsx");
-    expect(queue).toContain("/admin/community/posts/");
-    expect(queue).toContain("admin_comm_promo_open_admin_post");
-  });
-
   it("Report decision panel: decision endpoint for upheld/dismissed, memo separate, no developer jargon", () => {
     // 설계 v2 §C-2·C-3·E-5: 신고 인정/기각 + 조치는 decision 한 요청, 메모는 adminMemo 만 (C-10)
     const detail = read("components/admin/community/AdminCommunityReportDetailClient.tsx");

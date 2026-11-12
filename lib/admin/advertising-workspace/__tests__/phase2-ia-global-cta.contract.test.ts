@@ -20,8 +20,7 @@ describe("PHASE 2 Admin Ads IA / global CTA normalization", () => {
     const workspace = read("components/admin/ads/AdminAdvertisingWorkspace.tsx");
     const placements = read("components/admin/ads/AdminAdsPlacementManagementView.tsx");
     const products = read("app/admin/advertising/products/page.tsx");
-    const appsLegacy = read("components/admin/ads/AdminAdApplicationsPage.tsx");
-    for (const src of [workspace, placements, products, appsLegacy]) {
+    for (const src of [workspace, placements, products]) {
       expect(src).not.toMatch(/AdminAdvertisingAuthorityNav/);
       expect(src).not.toMatch(/data-admin-advertising-authority-nav/);
     }

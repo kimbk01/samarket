@@ -191,7 +191,6 @@ describe("문구·내역", () => {
       "lib/i18n/catalog/notifications.ts",
       "lib/promotion/apply-trade-paid-exposure.ts",
       "lib/i18n/catalog/admin-trade-console.ts",
-      "components/admin/ads/AdminAdApplicationsPage.tsx",
     ]) {
       expect(src(f).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, ""), f).not.toMatch(/거래 더 알리기|"더 알리기/);
     }

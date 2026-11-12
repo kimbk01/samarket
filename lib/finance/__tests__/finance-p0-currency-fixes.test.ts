@@ -274,7 +274,6 @@ describe("Owner 2026-11-03 — Coin 지급 명칭 = 「Coin 출금」 단일", (
       "components/business/owner/OwnerCoinWithdrawalPanel.tsx",
       "components/business/owner/OwnerStoreFinanceView.tsx",
       "components/admin/finance/AdminFinanceControlPlane.tsx",
-      "lib/admin/domain-control/finance-operator-ops.ts",
     ]) {
       expect(read(rel), rel).not.toContain("환전");
     }

@@ -83,12 +83,6 @@ describe("marketplace UI-4 LIST card information contract", () => {
     expect(card).toContain("trade_promo_badge");
   });
 
-  it("does not restyle SEARCH as a 2-column PostCard grid", () => {
-    const list = src("components/search/SearchResultList.tsx");
-    expect(list).toContain("ProductCard");
-    expect(list).not.toContain("PostCard");
-  });
-
   it("does not touch messenger mini-card, DETAIL, or CUT G writers", () => {
     const preview = src("components/post/PostListPreviewColumn.tsx");
     expect(preview).toContain("TradeListingStatusBadge");

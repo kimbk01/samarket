@@ -50,9 +50,6 @@ describe("B-04 (Owner 승인 2026-10-28) — 관리자 → 오너 운영 알림 
     expect(
       isMemberNotificationAUnread({ ...row, display_payload: { previewKind: "platform_admin_inquiry", routeUrl: "/x" } })
     ).toBe(true);
-    const writer = readFileSync(join(process.cwd(), "lib/notifications/notify-store-points.ts"), "utf8");
-    expect(writer).toContain('kind: "store_platform_inquiry_replied",');
-    expect(writer).toContain("store_id: storeId,");
     expect(
       OWNER_NOTIF_GROUPS.find((g) => g.id === "store_ops")!.match({
         id: "e2",

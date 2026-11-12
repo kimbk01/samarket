@@ -4,7 +4,7 @@ import { Check, Globe2, MapPin, Search } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
 import { DibayMenuList, DibaySheetHeader } from "@/components/ui/dibay-overlay/DibaySheetParts";
-import { usePhilifeAddressManageMenuItem } from "@/components/philife/PhilifeHeaderAddressMenuButton";
+import { usePhilifeAddressManageMenuItem } from "@/components/philife/PhilifeAddressManageMenuItem";
 
 /**
  * 정보교환 「보는 동네」 시트 — 1단 제목 뒤 「· 동네 ⌄」를 누르면 열린다

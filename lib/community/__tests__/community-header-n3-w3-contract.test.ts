@@ -42,7 +42,7 @@ describe("정보교환·거래 머리글 3판 계약", () => {
     expect(feed).not.toContain("trailingNavItems");
     expect(feed).not.toContain('safeT("community_local_filter_active")');
     expect(feed).toContain('hostClassName="[--dibay-secondary-tab-pad-x:0px]"');
-    expect(feed).toContain("{ maxPadPx: 10 }");
+    expect(feed).toContain("{ maxPadPx: 10, barInsetPx: 6 }");
   });
 
   it("선택이 실제로 바뀔 때만 진동 — 하단 탭과 같은 부품", () => {
@@ -61,7 +61,7 @@ describe("정보교환·거래 머리글 3판 계약", () => {
 
   it("주소 관리 입구는 「보는 동네」 시트 맨 아래로 — 같은 주소록 경로", () => {
     expect(read("components/community/CommunityAreaSheet.tsx")).toContain("usePhilifeAddressManageMenuItem");
-    expect(read("components/philife/PhilifeHeaderAddressMenuButton.tsx")).toContain("buildMypageAddressesHrefFromPath");
+    expect(read("components/philife/PhilifeAddressManageMenuItem.tsx")).toContain("buildMypageAddressesHrefFromPath");
   });
 });
 

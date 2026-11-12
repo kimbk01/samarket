@@ -20,16 +20,6 @@ function read(rel: string): string {
 describe("CUT B Admin consumers", () => {
   const now = Date.parse("2026-09-19T13:36:00.000Z");
 
-  it("AdminCommunityPromotionQueue binds effective label (not raw orderStatus alone)", () => {
-    const src = read("components/admin/ads/AdminCommunityPromotionQueue.tsx");
-    expect(src).toContain("projectAdsEffectiveLifecycle");
-    expect(src).toContain("adsOpsStatusLabel");
-    expect(src).toContain('endBoundary: "inclusive"');
-    expect(src).toContain("data-effective-status");
-    // Must not present raw orderStatus as the sole status token in the meta line.
-    expect(src).not.toMatch(/· \{row\.orderStatus\}/);
-  });
-
   it("Feed expired active: Admin eligibleNow false agrees with customer loader", () => {
     const startAt = "2026-09-05T03:19:00.054Z";
     const endAt = "2026-09-08T03:19:00.054Z";

@@ -10,6 +10,7 @@ import { useMoimDetail } from "@/components/moim/MoimDetailScreen";
 import { activeMoimBoards, canWriteMoimBoard } from "@/components/moim/MoimMemberView";
 import { useMoimImageUpload } from "@/components/moim/use-moim-image-upload";
 import { MoimEmptyState, MoimErrorState, MoimListSkeleton, chipClass, moimCls, useMoimBoardLabel, useMoimToast } from "@/components/moim/moim-ui";
+import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 
 const MAX_IMAGES = 10;
 
@@ -207,13 +208,13 @@ export function MoimWriteScreen({ moimId }: { moimId: string }) {
         </div>
         {submitError ? <p className={moimCls.noticeBad}>{submitError}</p> : null}
       </div>
-      <div className="sticky bottom-0 border-t border-sam-border bg-sam-surface px-4 pb-[calc(12px+var(--safe-bottom,0px))] pt-2.5">
+      <MoimStickyFooter>
         <div className={moimCls.column}>
           <button type="button" className={`${moimCls.btnPrimary} w-full`} disabled={!boardId || !body.trim() || busy || uploading} onClick={submit}>
             {editId ? t("common_save") : t("moim_write_submit_btn")}
           </button>
         </div>
-      </div>
+      </MoimStickyFooter>
       {toast.node}
     </div>
   );

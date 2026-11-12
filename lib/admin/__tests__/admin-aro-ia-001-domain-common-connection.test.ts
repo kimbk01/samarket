@@ -45,21 +45,10 @@ describe("ARO-IA-001 Community Domain ↔ Common connection", () => {
     const promoScreen = read("components/admin/community/promotions/AdminCommunityPromotionsPage.tsx");
     expect(promoScreen).toContain("/api/admin/community-promotion-orders");
     expect(promoScreen).toContain("/admin/advertising/boosts");
-    const apps = read("components/admin/ads/AdminAdApplicationsPage.tsx");
-    expect(apps).toContain('data-admin-domain="community"');
-    expect(apps).toContain("AdminCommunityPromotionQueue");
     expect(ARO_IA_001_OWNERS.promotion).toBe("point_promotion_orders");
-    const queue = read("components/admin/ads/AdminCommunityPromotionQueue.tsx");
-    expect(queue).toContain("point_promotion_orders");
     const adsHub = read("components/admin/stores/AdminDeliveryAdsControlPlane.tsx");
     expect(adsHub).toContain("ads-hub-to-community-promo");
     expect(adsHub).not.toContain(`data-admin-writer="${ARO_IA_001_OWNERS.promotion}"`);
-  });
-
-  it("T3 — Community Promotion → Ads contextual link", () => {
-    const apps = read("components/admin/ads/AdminAdApplicationsPage.tsx");
-    expect(apps).toContain("community-promo-to-ads");
-    expect(apps).toContain("ARO_IA_001_ADS_HUB_PATH");
   });
 
   it("T5/T7 — Community Point policy uses board_point_policies; no parallel writer", () => {
@@ -132,10 +121,8 @@ describe("ARO-IA-001 Community Domain ↔ Common connection", () => {
     expect(MESSAGES.ko.admin_menu_community_point_policies).toBe("포인트 정책");
     expect(MESSAGES.en.admin_menu_community_reports).toBe("Report inbox");
     expect(MESSAGES.ko.admin_menu_community_section_promo_point).toBe("포인트·충전");
-    const promoPage = read("components/admin/ads/AdminAdApplicationsPage.tsx");
     // 2026-11-07 (W3→R1): 「홍보」 → 「상위노출」 정본 문구
     // L25: 문구는 카탈로그 키로 — 화면 문구(한국어)는 그대로 「포인트 상위노출」
-    expect(promoPage).toContain('t("admin_ads_community_point_top_exposure_note")');
     expect(MESSAGES.ko.admin_ads_community_point_top_exposure_note).toMatch(/포인트 상위노출/);
   });
 

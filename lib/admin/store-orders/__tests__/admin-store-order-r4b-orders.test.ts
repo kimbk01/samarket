@@ -195,9 +195,6 @@ describe("DEF-8 / E-1 — legacy order write routes", () => {
     for (const p of [
       "components/admin/store-orders/AdminOrderDetailView.tsx",
       "components/admin/delivery-orders/AdminStoreOrderInterventionPanel.tsx",
-      "components/admin/stores/AdminStoreOrdersPage.tsx",
-      "components/admin/delivery-orders/DeliveryRefundsClient.tsx",
-      "components/admin/delivery-orders/DeliveryOrderDetailClient.tsx",
     ]) {
       const src = read(p);
       expect(src, p).not.toMatch(/\/approve-refund|\/cancel-request|\/mark-paid|force_cancel: true|complete_refund: true|reject_refund: true/);

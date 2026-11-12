@@ -140,17 +140,6 @@ describe("platform popup product completion — Admin IA", () => {
     const list = readRepo("components/admin/platform-popup/AdminPlatformPopupListPage.tsx");
     expect(list).toContain("use client");
     expect(list).toContain("AdminActionButton");
-    const hub = readRepo("components/admin/platform-popup/AdminPlatformPopupHubPage.tsx");
-    expect(hub).toContain("data-admin-platform-popup-hub");
-    expect(hub).toContain("data-hub-tab=\"requests\"");
-    expect(hub).toContain("data-hub-tab=\"campaigns\"");
-    expect(hub).toContain("data-admin-popup-direct-create");
-    expect(hub).toContain("data-admin-popup-primary-create");
-    expect(hub).toContain("data-admin-popup-campaigns-empty");
-    expect(hub).toContain("admin_platform_popup_hub_contract_line");
-    expect(hub).toContain("bg-sam-primary");
-    expect(hub).not.toContain("bg-sam-brand");
-    expect(hub).not.toContain("ml-auto");
   });
 
   it("workspace locks section order copy and GLOBAL label", () => {

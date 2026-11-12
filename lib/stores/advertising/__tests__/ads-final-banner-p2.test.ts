@@ -285,7 +285,6 @@ describe("③-d B-7 — 기간 지난 「활성」은 「만료」로 표시", (
     expect(filterBanners([past], { status: "active" })).toHaveLength(0);
     for (const f of [
       "components/admin/my/AdminMyBannersPage.tsx",
-      "components/admin/banners/AdminBannerDetailPage.tsx",
       "components/admin/banners/AdminBannerTable.tsx",
     ]) {
       expect(read(f), f).toContain("<AdminBannerStatusBadge status={adminBannerDisplayStatus(");

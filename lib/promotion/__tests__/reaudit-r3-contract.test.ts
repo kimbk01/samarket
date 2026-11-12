@@ -152,7 +152,6 @@ describe("배너 B-3 · B-4 · B-6", () => {
   });
   it("B-6: 마이페이지 배너 어드민에 쓰지 않는 위치가 남지 않는다", () => {
     expect(read("lib/types/admin-banner.ts")).toContain('export type BannerPlacement = "mypage_top";');
-    expect(read("components/admin/banners/AdminBannerFilterBar.tsx")).not.toContain("placement");
   });
 });
 

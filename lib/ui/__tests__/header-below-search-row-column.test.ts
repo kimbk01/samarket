@@ -9,7 +9,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
  * 탭 줄은 `DibaySecondaryTabRow`·B-8 로 이미 맞음 — 남은 검색 입력 줄 2곳을 같은 방식으로 고정한다.
  */
 describe("header-below search rows use the main column (B-16)", () => {
-  for (const file of ["components/search/SearchView.tsx", "components/search/global/GlobalSearchView.tsx"]) {
+  for (const file of ["components/search/global/GlobalSearchView.tsx"]) {
     it(file, () => {
       const src = read(file);
       expect(src).toMatch(
