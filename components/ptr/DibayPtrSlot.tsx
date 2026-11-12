@@ -86,11 +86,18 @@ export function DibayPtrSlot({
     snap.phase === "PULLING" || snap.phase === "READY" || snap.phase === "REFRESHING";
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [frameWidthPx, setFrameWidthPx] = useState(0);
+  /**
+   * C4 (Owner 「C4 구현 승인」 2026-11-12): 너비는 띠 광고에만 쓴다 — 마운트 직후 `clientWidth` 를 바로 읽으면
+   * 첫 화면 그리기 중 화면 전체 배치 계산이 한 번 더 일어난다(샤오미 측정 31~39ms).
+   * ResizeObserver 의 첫 알림(배치가 끝난 뒤)에서 읽어 같은 값을 받는다. 띠 광고는 당길 때만 보이므로 그 전에 채워진다.
+   */
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (!el) return;
-    setFrameWidthPx(el.clientWidth);
-    if (typeof ResizeObserver === "undefined") return;
+    if (typeof ResizeObserver === "undefined") {
+      setFrameWidthPx(el.clientWidth);
+      return;
+    }
     const ro = new ResizeObserver(() => setFrameWidthPx(el.clientWidth));
     ro.observe(el);
     return () => ro.disconnect();

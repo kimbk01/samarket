@@ -119,8 +119,13 @@ export type MessagesTable = {
   readonly en: LocaleMessageBag;
 };
 
-/** Runtime KO bag — explicit LocaleMessageBag annotation avoids TS7056 on as-const emit. */
-const KO_MESSAGES = {
+/**
+ * Runtime KO bag — explicit LocaleMessageBag annotation avoids TS7056 on as-const emit.
+ * C4 (Owner 「C4 구현 승인」 2026-11-12): 언어별 묶음은 처음 쓰일 때 1회만 합친다 — 화면은 한 언어만 쓰므로
+ * 시작 때 두 언어를 모두 합치던 비용(샤오미 첫 진입 측정)을 줄인다. 결과·우선순위(뒤가 이김)는 그대로.
+ */
+function buildKoMessages(): LocaleMessageBag {
+  return {
   ...adminMemberSharedMessages.ko,
   ...commonMessages.ko,
   ...myMessages.ko,
@@ -230,9 +235,11 @@ const KO_MESSAGES = {
   ...memberIdV3Messages.ko,
   ...adsImpl1107LedgerMessages.ko,
   ...adsImpl1107DeleteMessages.ko,
-} as LocaleMessageBag;
+  } as LocaleMessageBag;
+}
 
-const EN_MESSAGES = {
+function buildEnMessages(): LocaleMessageBag {
+  return {
   ...adminMemberSharedMessages.en,
   ...commonMessages.en,
   ...myMessages.en,
@@ -341,16 +348,29 @@ const EN_MESSAGES = {
   ...memberIdV3Messages.en,
   ...adsImpl1107LedgerMessages.en,
   ...adsImpl1107DeleteMessages.en,
-} as LocaleMessageBag;
+  } as LocaleMessageBag;
+}
+
+let koMessagesBag: LocaleMessageBag | null = null;
+let enMessagesBag: LocaleMessageBag | null = null;
 
 export const MESSAGES: MessagesTable = {
-  ko: KO_MESSAGES,
-  en: EN_MESSAGES,
+  get ko() {
+    return (koMessagesBag ??= buildKoMessages());
+  },
+  get en() {
+    return (enMessagesBag ??= buildEnMessages());
+  },
 };
 
-const REVERSE_KO_MESSAGE_KEY = Object.fromEntries(
-  Object.entries(MESSAGES.ko).map(([key, value]) => [value, key as MessageKey])
-) as Record<string, MessageKey>;
+/** 한국어 문장 → 키 역방향 표 — `translateText`·등록에서만 쓰므로 처음 쓰일 때 1회 만든다 */
+let reverseKoMessageKeyTable: Record<string, MessageKey> | null = null;
+function reverseKoMessageKey(): Record<string, MessageKey> {
+  reverseKoMessageKeyTable ??= Object.fromEntries(
+    Object.entries(MESSAGES.ko).map(([key, value]) => [value, key as MessageKey])
+  ) as Record<string, MessageKey>;
+  return reverseKoMessageKeyTable;
+}
 
 /**
  * D 단계 (Owner 「정해진 설계안 순서대로」 2026-11-10): 어드민 전용 문구는 회원 화면 묶음에 싣지 않고
@@ -358,11 +378,13 @@ const REVERSE_KO_MESSAGE_KEY = Object.fromEntries(
  */
 let extraCatalogVersion = 0;
 export function registerExtraMessages(ko: Record<string, string>, en: Record<string, string>): void {
+  /** 역방향 표는 등록 전 회원 문구로 먼저 만든다(같은 문장이면 회원 키 우선 — 예전과 같음) */
+  const reverse = reverseKoMessageKey();
   const koBag = MESSAGES.ko as unknown as Record<string, string>;
   const enBag = MESSAGES.en as unknown as Record<string, string>;
   for (const [key, value] of Object.entries(ko)) {
     if (koBag[key] === undefined) koBag[key] = value;
-    if (REVERSE_KO_MESSAGE_KEY[value] === undefined) REVERSE_KO_MESSAGE_KEY[value] = key as MessageKey;
+    if (reverse[value] === undefined) reverse[value] = key as MessageKey;
   }
   for (const [key, value] of Object.entries(en)) {
     if (enBag[key] === undefined) enBag[key] = value;
@@ -438,7 +460,7 @@ export function translateText(
   text: string,
   vars?: Record<string, string | number>
 ): string {
-  const key = REVERSE_KO_MESSAGE_KEY[text];
+  const key = reverseKoMessageKey()[text];
   if (!key) {
     return vars
       ? Object.entries(vars).reduce<string>(
