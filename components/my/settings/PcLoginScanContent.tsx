@@ -202,7 +202,7 @@ export function PcLoginScanContent() {
         <video
           ref={videoRef}
           poster={QR_SCANNER_BLANK_POSTER}
-          className={`h-full w-full object-cover transition-opacity duration-200 ${videoReady ? "opacity-100" : "opacity-0"}`}
+          className={`absolute inset-0 !h-full w-full object-cover transition-opacity duration-200 ${videoReady ? "opacity-100" : "opacity-0"}`}
           playsInline
           muted
           autoPlay

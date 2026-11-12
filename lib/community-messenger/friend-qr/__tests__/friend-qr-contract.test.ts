@@ -263,3 +263,27 @@ describe("근본 재감사 G2~G6 (2026-11-12)", () => {
   });
 });
 
+describe("Xiaomi 실측 2026-11-12 07:4x — 스캔 칸 영상·버튼", () => {
+  it("영상은 정사각형을 꽉 채운다(전역 img/video height:auto 가 층 밖이라 h-full 을 이김) · 갤러리 버튼은 flex-none", () => {
+    for (const f of ["components/community-messenger/friend-qr/FriendQrScanPanel.tsx", "components/my/settings/PcLoginScanContent.tsx"]) {
+      expect(read(f)).toContain("absolute inset-0 !h-full w-full object-cover");
+    }
+    expect(read("components/community-messenger/friend-qr/FriendQrScanPanel.tsx")).toContain(
+      'className="dibay-overlay-btn dibay-overlay-btn--secondary w-full flex-none whitespace-nowrap"',
+    );
+  });
+});
+
+describe("전체 실기 감사 2026-11-12 08:0x — 상태별 화면", () => {
+  it("QR 끔·불러오기 실패: 「스캔하면 바로 친구」 안내 숨김, 실패면 이름·아이디 자리표시도 그리지 않음", () => {
+    const panel = read("components/community-messenger/friend-qr/MyFriendQrPanel.tsx");
+    expect(panel).toContain("{!failed && allowed ? (");
+    expect(panel.match(/\) : failed \? null : \(/g)).toHaveLength(2);
+  });
+
+  it("결과 시트 실패·내 QR: 사진 자리 아이콘 + 이름 자리 문구", () => {
+    const host = read("components/community-messenger/friend-qr/FriendQrResultHost.tsx");
+    expect(host).toContain('<QrCode className="h-8 w-8" strokeWidth={1.8} />');
+  });
+});
+
