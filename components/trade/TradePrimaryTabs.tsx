@@ -4,6 +4,7 @@ import { Suspense, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SlidersHorizontal } from "lucide-react";
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
+import { DibaySecondaryTabRowSkeleton } from "@/components/ui/DibaySecondaryTabRowSkeleton";
 import { MarketplaceMoreBrowseSheet } from "@/components/trade/MarketplaceMoreBrowseSheet";
 import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
@@ -11,7 +12,6 @@ import {
   DIBAY_CHROME_SECONDARY_HOST_BORDERED_CLASS,
   DIBAY_CHROME_SECONDARY_HOST_CLASS,
   DIBAY_SECONDARY_TAB_INNER_CLASS,
-  DIBAY_SECONDARY_TAB_ROW_CLASS,
   dibaySecondaryTabClass,
 } from "@/lib/ui/dibay-secondary-tabs";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -36,6 +36,11 @@ interface TradePrimaryTabsProps {
   embedInAppHeader?: boolean;
   /** @deprecated — 전역 `sam-tab` 단일 규칙만 사용 */
   appearance?: "pill" | "inline-text" | "community" | "orders-tab";
+  /**
+   * 머리글 안에서도 아래 구분선을 긋는다 — 바로 아래 3단 「정보교환 · 거래」 전환 줄이 있을 때
+   * (커뮤니티 2단과 같은 45px·구분선, Owner 「3건 수정」 2026-11-12).
+   */
+  dividerBelow?: boolean;
 }
 
 /**
@@ -45,28 +50,6 @@ interface TradePrimaryTabsProps {
  */
 function tradeTopTabClass(active: boolean): string {
   return dibaySecondaryTabClass(active);
-}
-
-function TradePrimaryTabsFallback({ embedInAppHeader }: { embedInAppHeader: boolean }) {
-  const skeleton = (
-    <div className={DIBAY_SECONDARY_TAB_ROW_CLASS} aria-hidden>
-      {/* 밑줄형 2단 탭 자리 — 글자 막대만 (실제 탭과 같은 44px 줄·12px 칸 여백) */}
-      <div className="flex min-w-0 flex-1 flex-nowrap items-center overflow-hidden">
-        <span className="mx-3 inline-flex h-4 w-8 animate-pulse rounded-ui-rect bg-sam-surface-muted" />
-        <span className="mx-3 inline-flex h-4 w-14 animate-pulse rounded-ui-rect bg-sam-surface-muted" />
-        <span className="mx-3 inline-flex h-4 w-8 animate-pulse rounded-ui-rect bg-sam-surface-muted" />
-        <span className="mx-3 inline-flex h-4 w-14 animate-pulse rounded-ui-rect bg-sam-surface-muted" />
-      </div>
-    </div>
-  );
-  const host = embedInAppHeader
-    ? DIBAY_CHROME_SECONDARY_HOST_CLASS
-    : DIBAY_CHROME_SECONDARY_HOST_BORDERED_CLASS;
-  return (
-    <div className={host} data-dibay-nav="secondary">
-      <div className={DIBAY_SECONDARY_TAB_INNER_CLASS}>{skeleton}</div>
-    </div>
-  );
 }
 
 /**
@@ -80,7 +63,9 @@ function TradePrimaryTabsFallback({ embedInAppHeader }: { embedInAppHeader: bool
 function TradePrimaryTabsInner({
   embed: _embed = false,
   embedInAppHeader = false,
+  dividerBelow = false,
 }: TradePrimaryTabsProps) {
+  const bordered = !embedInAppHeader || dividerBelow;
   const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
@@ -174,11 +159,7 @@ function TradePrimaryTabsInner({
   if (error) {
     return (
       <div
-        className={
-          embedInAppHeader
-            ? DIBAY_CHROME_SECONDARY_HOST_CLASS
-            : DIBAY_CHROME_SECONDARY_HOST_BORDERED_CLASS
-        }
+        className={bordered ? DIBAY_CHROME_SECONDARY_HOST_BORDERED_CLASS : DIBAY_CHROME_SECONDARY_HOST_CLASS}
         data-dibay-nav="secondary"
       >
         <div className={DIBAY_SECONDARY_TAB_INNER_CLASS}>
@@ -203,7 +184,7 @@ function TradePrimaryTabsInner({
         ref={tabTrackRef}
         trackRole="tablist"
         trackAriaLabel={t("trade_138")}
-        bordered={!embedInAppHeader}
+        bordered={bordered}
         /** 2단 탭 왼쪽 정렬 (Owner 「A 안」 2026-11-12) — 4개 탭 균등 분할·가운데 정렬 대신 글자 폭 그대로 왼쪽부터 */
         data-dibay-tab-align="start"
         /** 탭 칸 좌우 여백 0 — 첫 탭 글자가 다른 2단 줄과 같은 시작선 (탭 사이 간격은 2단 정본 = 칸 여백 12px) */
@@ -302,12 +283,12 @@ function TradePrimaryTabsInner({
 }
 
 export function TradePrimaryTabs(props: TradePrimaryTabsProps) {
-  const { embed = false, embedInAppHeader = false } = props;
+  const { embed = false, embedInAppHeader = false, dividerBelow = false } = props;
   if (!embed && !embedInAppHeader) {
     return null;
   }
   return (
-    <Suspense fallback={<TradePrimaryTabsFallback embedInAppHeader={Boolean(embedInAppHeader)} />}>
+    <Suspense fallback={<DibaySecondaryTabRowSkeleton bordered={!embedInAppHeader || dividerBelow} />}>
       <TradePrimaryTabsInner {...props} />
     </Suspense>
   );

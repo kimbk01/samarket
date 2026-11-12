@@ -27,18 +27,33 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(header).not.toContain("TradeHeaderLocationPinButton");
     const sticky = read("components/layout/AppStickyHeader.tsx");
     expect(sticky).toContain('<CommunityTradeSwitchRow active="trade" />');
-    expect(sticky.indexOf("<TradePrimaryTabs")).toBeLessThan(sticky.indexOf("<CommunityTradeSwitchRow"));
+    expect(sticky.indexOf("<TradePrimaryTabs")).toBeLessThan(sticky.indexOf('<CommunityTradeSwitchRow active="trade" />'));
     const feed = read("components/community/CommunityFeed.tsx");
     expect(feed).toContain('<CommunityTradeSwitchRow active="community" />');
     expect(feed.indexOf("</DibaySecondaryTabRow>")).toBeLessThan(feed.indexOf("<CommunityTradeSwitchRow"));
     const sw = read("components/layout/CommunityTradeTitleSwitch.tsx");
     /** 3단 전환 탭 = 오른쪽 정렬, 2단 탭 = 왼쪽 정렬 (Owner 2026-11-12) */
-    expect(sw).toContain("justify-end");
-    expect(sw).not.toContain("justify-start");
+    /** 오른쪽 정렬은 자식 `ml-auto` — `justify-end` + 가로 스크롤은 넘칠 때 왼쪽이 잘려 못 본다 (Owner 「3건 수정」 2026-11-12) */
+    expect(sw).toContain("ml-auto");
+    expect(sw).not.toMatch(/className="[^"]*justify-(end|start)/);
     expect(sw).not.toMatch(/truncate|text-ellipsis/);
     /** 2단 탭 왼쪽 정렬 — 거래(4개 탭)·커뮤니티 모두 균등 분할 해제 */
     expect(read("components/trade/TradePrimaryTabs.tsx")).toContain('data-dibay-tab-align="start"');
     expect(feed).toContain('data-dibay-tab-align="start"');
+  });
+
+  it("2단 탭이 늦게 붙어도 3단 전환 줄·본문이 밀려 내려가지 않는다 — 같은 크기 자리 미리 그림 (Owner 「3건 수정」 2026-11-12)", () => {
+    const sticky = read("components/layout/AppStickyHeader.tsx");
+    /** 거래: 늦게 불러오는 2단 탭 자리 = 구분선 포함 2단 자리 */
+    expect(sticky).toMatch(/loading: \(\) => <DibaySecondaryTabRowSkeleton bordered \/>/);
+    expect(sticky).toContain('dividerBelow={communityTradeSwitchHub === "trade"}');
+    /** 커뮤니티: 피드가 2단·3단을 넘기기 전 첫 화면부터 같은 자리 */
+    expect(sticky).toMatch(/stickyBelow \?\?[\s\S]*communityTradeSwitchHub === "community"[\s\S]*<DibaySecondaryTabRowSkeleton bordered \/>[\s\S]*<CommunityTradeSwitchRow active="community" \/>/);
+    const tabs = read("components/trade/TradePrimaryTabs.tsx");
+    expect(tabs).toContain("<DibaySecondaryTabRowSkeleton bordered={!embedInAppHeader || dividerBelow} />");
+    /** 거래 머리글에만 있던 빈 10px 띠 없음 → 전환 줄이 두 화면에서 같은 높이 */
+    const chrome = read("components/trade/MarketplaceHomeEntryChrome.tsx");
+    expect(chrome).not.toMatch(/pb-2|pt-0\.5/);
   });
 
   it("HOME magnifier opens trade-only search (재설계 4-1); in-page /market?q= loader remains", () => {

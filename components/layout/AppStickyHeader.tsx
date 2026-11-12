@@ -6,15 +6,21 @@ import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { useTradeSecondaryTabs } from "@/contexts/CategoryListHeaderContext";
 
+/**
+ * 거래 2단 탭은 늦게 불러온다 — 불러오는 동안 같은 크기의 자리(`DibaySecondaryTabRowSkeleton`)를 그려
+ * 아래 3단 전환 줄이 2단 자리에 먼저 그려졌다가 밀려 내려가지 않게 한다 (운영 실측 63→107px, Owner 「3건 수정」 2026-11-12).
+ * 거래 머리글엔 항상 3단 전환 줄이 아래에 붙으므로 자리도 구분선 포함(45px).
+ */
 const TradePrimaryTabs = dynamic(
   () => import("@/components/trade/TradePrimaryTabs").then((m) => m.TradePrimaryTabs),
-  { ssr: false }
+  { ssr: false, loading: () => <DibaySecondaryTabRowSkeleton bordered /> }
 );
 import {
   getMobileTopTier1RuleSet,
   resolveCommunityTradeSwitchHub,
 } from "@/lib/layout/mobile-top-tier1-rules";
 import { CommunityTradeSwitchRow } from "@/components/layout/CommunityTradeTitleSwitch";
+import { DibaySecondaryTabRowSkeleton } from "@/components/ui/DibaySecondaryTabRowSkeleton";
 import { mainTier1ExtrasForPathname, useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MyManagedCtaStrip } from "@/components/my/MyManagedCtaStrip";
 import { isDeliveryConsumerPath } from "@/lib/design/delivery-chrome";
@@ -108,13 +114,24 @@ export function AppStickyHeader() {
     >
       <RegionBar tier1RuleSet={topTier1RuleSet} />
       {ctaLinks.length > 0 ? <MyManagedCtaStrip links={ctaLinks} /> : null}
-      {stickyBelow}
+      {stickyBelow ??
+        (communityTradeSwitchHub === "community" ? (
+          /**
+           * 커뮤니티 2단·3단은 피드(`CommunityFeed`)가 붙은 뒤 `stickyBelow` 로 들어온다 — 그 전 첫 화면부터
+           * 2단 자리 + 3단 전환 줄을 같은 크기로 미리 그려 본문이 늦게 밀려 내려가지 않게 한다
+           * (운영 실측 본문 53→143px, Owner 「3건 수정」 2026-11-12). 피드가 붙으면 같은 자리를 그대로 이어받는다.
+           */
+          <>
+            <DibaySecondaryTabRowSkeleton bordered />
+            <CommunityTradeSwitchRow active="community" />
+          </>
+        ) : null)}
       {isTradeMenuSurface ? (
         <>
           <TradeMarketPullRefreshHost />
           <TradeMarketPullRefreshHint />
           <MarketplaceHomeEntryChrome />
-          <TradePrimaryTabs embed embedInAppHeader />
+          <TradePrimaryTabs embed embedInAppHeader dividerBelow={communityTradeSwitchHub === "trade"} />
           {/* 머리글 3단 — 「정보교환 · 거래」 전환 탭 오른쪽 정렬 (Owner 「A 안」 2026-11-12, 1단에서 옮김) */}
           {communityTradeSwitchHub === "trade" ? <CommunityTradeSwitchRow active="trade" /> : null}
           {tradeSecondaryTabs}
