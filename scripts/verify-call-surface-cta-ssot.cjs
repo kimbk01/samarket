@@ -149,17 +149,6 @@ for (const rel of [`${JAVA}/nativevideo/NativeVideoCallActivity.java`, `${JAVA}/
 }
 mustInclude(`${JAVA}/call/NativeCallAppReturn.java`, "native_call_app_return_unconfirmed", "실제 결과 기록(막혀도 성공처럼 기록 금지)");
 mustInclude(`${JAVA}/MainActivity.java`, "NativeCallAppReturn.onMainResumed()", "메신저 재개 시 복귀 결과 확인");
-console.log("⑩ 설계안 B — 메신저 먼저 → 자동 PiP (PiP 를 먼저 요청하면 고정 판정으로 복귀가 막힘, 실기 A FAIL)");
-mustInclude(`${JAVA}/call/NativeCallAppReturn.java`, "public static boolean autoPipAppReturnSupported(", "B 사용 조건 단일 함수");
-for (const [rel, tag] of [
-  [`${JAVA}/nativevideo/NativeVideoCallActivity.java`, "native_video"],
-  [`${JAVA}/nativevoice/NativeVoiceCallActivity.java`, "native_voice"],
-]) {
-  mustInclude(rel, "NativeCallAppReturn.autoPipAppReturnSupported(this)", "B 분기 조건");
-  mustInclude(rel, `"${tag}_app_return_first"`, "메신저 먼저 기록");
-  mustInclude(rel, `"${tag}_auto_pip_missed"`, "자동 PiP 실패 기록(통화 유지)");
-  mustInclude(rel, `"${tag}_auto_pip_entered"`, "자동 PiP 진입 기록");
-}
 
 if (failed) {
   console.error("verify:call-surface-cta-ssot FAILED");

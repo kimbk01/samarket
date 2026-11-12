@@ -115,24 +115,6 @@ public class NativeVoiceCallActivity extends Activity {
   private boolean finishingWithNotice;
   /** 마지막 메신저 복귀 요청 시각(elapsedRealtime) — 확인 판정 기준. */
   private long appReturnRequestedAtMs = 0L;
-  /** 설계안 B — 자동 PiP 확인 대기 중인 출처(null = 대기 없음). */
-  private String autoPipPendingSource;
-  private static final long AUTO_PIP_CHECK_MS = 1_500L;
-  private final Runnable autoPipMissedCheck =
-      new Runnable() {
-        @Override
-        public void run() {
-          if (autoPipPendingSource == null) return;
-          String source = autoPipPendingSource;
-          autoPipPendingSource = null;
-          boolean pip = inPipMode || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isInPictureInPictureMode());
-          if (!pip) {
-            // 통화는 유지(판단표 KEEP) — 복귀 수단: 진행 중 알림·통화 바·최근 앱 카드.
-            NativeVoiceCallLog.warn(
-                "native_voice_auto_pip_missed", callId, "source=" + source + " state=" + currentState);
-          }
-        }
-      };
   private final Runnable appReturnAfterPipFallback =
       new Runnable() {
         @Override
@@ -314,7 +296,6 @@ public class NativeVoiceCallActivity extends Activity {
 
   @Override
   protected void onDestroy() {
-    mainHandler.removeCallbacks(autoPipMissedCheck);
     if (isFinishing()) CallRecentsCardPresenter.apply(this, false, null, "voice:destroy");
     stopDurationTimer();
     hideDock("destroy");
@@ -367,11 +348,6 @@ public class NativeVoiceCallActivity extends Activity {
     applyPipUiMode(isInPictureInPictureMode);
     NativeVoiceCallLog.info(
         isInPictureInPictureMode ? "native_voice_pip_entered" : "native_voice_pip_exited", callId);
-    if (isInPictureInPictureMode && autoPipPendingSource != null) {
-      mainHandler.removeCallbacks(autoPipMissedCheck);
-      NativeVoiceCallLog.info("native_voice_auto_pip_entered", callId, "source=" + autoPipPendingSource);
-      autoPipPendingSource = null;
-    }
     if (isInPictureInPictureMode && pendingAppReturnSource != null) {
       mainHandler.removeCallbacks(appReturnAfterPipFallback);
       String source = pendingAppReturnSource;
@@ -968,23 +944,6 @@ public class NativeVoiceCallActivity extends Activity {
   /** 뒤로·줄이기 버튼 (CONNECTED): 기존 작게 하기(PiP→Dock) 후 앱(메신저)을 앞으로. 통화 종료 없음. */
   private boolean minimizeToApp(String source) {
     if (!isDockEligible()) return false;
-    // 설계안 B (docs/audit/call-back-app-return-bal-design-2026-11-12.md §11~§13):
-    // PiP 를 먼저 요청하면 그 순간 시스템이 통화 화면을 「고정」으로 보고 메신저 복귀를 막는다(실기 A FAIL).
-    // 그래서 통화 화면이 아직 전체 화면일 때 메신저를 먼저 올리고, PiP 는 자동 PiP(CONNECTED 동안 켜짐)에 맡긴다.
-    if (!inPipMode
-        && !dockMode
-        && isAutoPipEligible()
-        && NativeCallAppReturn.autoPipAppReturnSupported(this)) {
-      lastPipParamsKey = null; // 자동 PiP 켜짐을 확실히 다시 넘긴다
-      refreshPipParams("app_return_first");
-      appReturnRequestedAtMs = SystemClock.elapsedRealtime();
-      autoPipPendingSource = source;
-      NativeVoiceCallLog.info("native_voice_app_return_first", callId, "source=" + source);
-      NativeCallAppReturn.bringAppToFront(this, callId, source);
-      mainHandler.removeCallbacks(autoPipMissedCheck);
-      mainHandler.postDelayed(autoPipMissedCheck, AUTO_PIP_CHECK_MS);
-      return true;
-    }
     boolean pip = tryEnterPip(source);
     if (pip) {
       // 복귀 요청은 PiP 요청이 수락된 지금(통화 화면이 아직 보이고 고정되기 전) 보낸다.
