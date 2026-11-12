@@ -48,8 +48,10 @@ describe("call stub-message dead runtime caller contract", () => {
       "utf8"
     );
     expect(service).toContain("ensureTerminalCallStub");
-    expect(service).toContain('incrementUnread: stubStatus === "missed",');
-    expect(service).toContain('incrementUnread: input.status === "missed",');
+    // Owner 2026-11-13 D6: 부재중 + 발신자 응답 전 취소(수신자 부재중) — 판정은 call-callee-missed 단일 함수
+    expect(service).toMatch(/incrementUnread: callStubIncrementsCalleeUnread\(\{\s*status: stubStatus,/);
+    expect(service).toMatch(/incrementUnread: callStubIncrementsCalleeUnread\(\{\s*status: input\.status,/);
+    expect(service).not.toContain('incrementUnread: stubStatus === "missed",');
     expect(service).toContain("resolveTerminalStubActorUserId");
   });
 

@@ -136,7 +136,8 @@ describe("call start: VoIP critical path + no dialing stub (static)", () => {
     const localAppend = readRepo("lib/community-messenger/call-chat-local-append.ts");
     expect(service).toContain("resolveTerminalStubActorUserId");
     /** C-N1 (§14-9): terminal stub 은 부재중만 안 읽은 수 */
-    expect(service).toContain('incrementUnread: stubStatus === "missed",');
+    // Owner 2026-11-13 D6: 부재중 + 발신자 응답 전 취소 — call-callee-missed 단일 판정
+    expect(service).toMatch(/incrementUnread: callStubIncrementsCalleeUnread\(\{\s*status: stubStatus,/);
     expect(service).not.toContain("notifyMissedCallPipeline");
     expect(localAppend).toContain("DB terminal stub is owned by updateCommunityMessengerCallSession");
     expect(localAppend).not.toContain("persistCallStubMessageBestEffort");

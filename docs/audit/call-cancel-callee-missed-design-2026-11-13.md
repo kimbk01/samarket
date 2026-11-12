@@ -126,3 +126,7 @@
 - E4 수신음: 시간 초과 부재중과 같은 규칙(수신자만).
 - 시스템 알림: 앱 앞 화면 생략은 시간 초과 부재중과 같은 기존 규칙 그대로(바꾸지 않음).
 - 시험: 진입점 4곳 계약 시험(발신자 취소·수신자 → 부재중 처리 / 발신자 → 아님 / 통화 중 취소 → 아님) 추가.
+
+### D6 구현 메모 (Owner 「D6 구현 승인」 2026-11-13)
+- 단일 판정 `lib/community-messenger/call-callee-missed.ts` — E1 서버 안 읽은 수(`callStubIncrementsCalleeUnread`, 통화 기록 보낸 사람 = 발신자일 때만), E2 앱 안 배너·E4 실시간 수신음(`isMissedCallStubForViewer`).
+- **E3 은 이번에 바꾸지 않음 (충돌 보고):** 목록 행 `callStatus` 가 만들 때 항상 `null`(`use-community-messenger-home-state.ts` 428줄) → 시간 초과 부재중도 원래 빨간색이 아님. 발신자 취소와 무관한 기존 결함이라 「범위 밖 = 보고만」. 수신자 기준으로 발신자 취소와 시간 초과는 지금도 같은 모습(둘 다 기본색).

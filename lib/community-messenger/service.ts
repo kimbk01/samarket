@@ -346,6 +346,7 @@ import {
   decideRoomBoundMissedCallNotification,
   isRoomBoundMissedCallCandidate,
 } from "@/lib/community-messenger/call-authority/call-missed-notification-authority";
+import { callStubIncrementsCalleeUnread } from "@/lib/community-messenger/call-callee-missed";
 import type { CallSessionResolvedEvent } from "@/lib/community-messenger/call-event-message";
 import {
   canEndActiveCallForPresenceStale,
@@ -19693,8 +19694,14 @@ export async function createCommunityMessengerCallLog(input: {
      * C-N1 (1단계 문서 §14-9 · 2026-10-25 실기기): 통화 기록은 부재중만 대화방 안 읽은 수에 넣는다.
      * 받은·거절·취소 통화가 안 읽은 수를 올리면 앱이 내용 없는 「새 메시지가 도착했습니다」 배너를 띄웠다.
      * 부재중 = 대화방 안 읽은 수 규칙(call-missed-notification-authority)은 유지.
+     * Owner 2026-11-13: 발신자 응답 전 취소도 수신자에게 부재중 → 안 읽은 수(= 앱 안 부재중 배너 시작) 포함 (D6).
      */
-    incrementUnread: input.status === "missed",
+    incrementUnread: callStubIncrementsCalleeUnread({
+      status: input.status,
+      endedReason: input.endedReason,
+      stubActorUserId,
+      initiatorUserId: input.initiatorUserId ?? input.userId,
+    }),
     bumpRoomLastMessageAt: true as const,
     durationSeconds: input.durationSeconds,
     endedReason: input.endedReason ?? null,
@@ -21135,8 +21142,13 @@ export async function updateCommunityMessengerCallSession(input: {
       createdAt: stubCreatedAt,
       listActivityAt,
       replaceExisting: mapped.sessionMode === "direct",
-      /** C-N1 (§14-9): 부재중만 안 읽은 수 — 받은·거절·취소는 배너·배지를 만들지 않는다 */
-      incrementUnread: stubStatus === "missed",
+      /** C-N1 (§14-9): 부재중(+ 발신자 응답 전 취소 = 수신자 부재중, D6)만 안 읽은 수 — 받은·거절·다른 취소는 배너·배지 없음 */
+      incrementUnread: callStubIncrementsCalleeUnread({
+        status: stubStatus,
+        endedReason,
+        stubActorUserId: actorUserId,
+        initiatorUserId,
+      }),
       /** INSERT·UPDATE 모두 listActivityAt(terminal) forward-only bump */
       bumpRoomLastMessageAt: true,
       durationSeconds: resolveTerminalDurationSeconds(session, mapped),

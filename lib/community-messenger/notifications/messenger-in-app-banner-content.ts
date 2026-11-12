@@ -1,4 +1,6 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
+import { isMissedCallStubForViewer } from "@/lib/community-messenger/call-callee-missed";
+import { resolveCallStubEventFromMessageMetadata } from "@/lib/community-messenger/call-event-message";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerRoomSnapshot,
@@ -106,7 +108,22 @@ export function buildMessengerInAppBannerContent(args: {
     trimText(sender?.avatarUrl) || (room.roomType === "direct" ? trimText(room.avatarUrl) : "") || null;
 
   if (message.messageType === "call_stub") {
-    if (message.callStatus !== "missed") return null;
+    /** 부재중 + 발신자 응답 전 취소(수신자에게 부재중 — Owner 2026-11-13 D6) */
+    const stubMeta = resolveCallStubEventFromMessageMetadata(message.metadata ?? null);
+    const endedReasonMeta =
+      message.metadata && typeof message.metadata.endedReason === "string" ? message.metadata.endedReason : null;
+    if (
+      !isMissedCallStubForViewer({
+        callStatus: message.callStatus ?? null,
+        resolvedEvent: stubMeta.resolvedEvent,
+        endedReason: endedReasonMeta,
+        viewerUserId,
+        initiatorUserId: stubMeta.initiatorUserId,
+        senderUserId: message.senderId,
+      })
+    ) {
+      return null;
+    }
     const missed = buildRoomBoundMissedCallNotificationInput({
       recipientUserId: viewerUserId,
       roomId: room.id,
