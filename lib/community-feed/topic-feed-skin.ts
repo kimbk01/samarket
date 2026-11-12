@@ -21,14 +21,6 @@ export function normalizeCommunityFeedListSkin(raw: unknown): CommunityFeedListS
   return "compact_media";
 }
 
-export const COMMUNITY_FEED_LIST_SKIN_LABELS: Record<CommunityFeedListSkin, string> = {
-  compact_media: "당근형 · 제목+우측 썸네일",
-  compact_media_left: "당근형 · 제목+좌측 썸네일",
-  text_primary: "텍스트 중심 · 썸네일 숨김",
-  location_pin: "장소 강조 · 핀+장소(모임장소/지역)",
-  hashtags_below: "태그 줄 · 본문 #해시태그 미리보기",
-};
-
 /** 썸네일 열 배치(이미지 없으면 전부 text 전용과 동일 레이아웃) */
 export type FeedListThumbColumn = "none" | "left" | "right";
 

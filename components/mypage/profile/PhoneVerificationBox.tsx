@@ -9,7 +9,7 @@ import {
 import { phoneVerifyCountryOptionsFor } from "@/lib/phone/phone-country-codes";
 import { parseKoreaMobileLocal, parseKoreaMobileTyping } from "@/lib/phone/verify-phone-number";
 import { normalizePhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
-import { PROFILE_EDIT_FIELD_INCOMPLETE_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
+import { PROFILE_EDIT_FIELD_INCOMPLETE_CLASS } from "@/lib/ui/profile-edit-styles";
 import { isValidPhoneOtpCodeInput, PHONE_OTP_CODE_LENGTH } from "@/lib/auth/phone-otp-contract";
 import { resolvePhoneOtpUiError } from "@/lib/auth/phone-otp-client-errors";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
@@ -93,7 +93,7 @@ type VerifySnapshot = {
   settings?: VerificationSettings;
 };
 
-/** 텔레그램형 단계 (Owner 2026-11-09): 번호 → (국가 목록) → 6칸 인증번호 → 완료 */
+/** 단계형 단계 (Owner 2026-11-09): 번호 → (국가 목록) → 6칸 인증번호 → 완료 */
 type Step = "phone" | "country" | "code";
 
 function resolveSnapshotPhoneDb09(snapshot: VerifySnapshot): string | null {

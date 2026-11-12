@@ -22,7 +22,7 @@ function isMessengerPrewarmPath(path: string): boolean {
   return path === "/community-messenger" || path.startsWith("/community-messenger/");
 }
 
-/** 배달·주문 허브 체류 중 hover/pointerdown 메신저 warm 금지 — 탭 commit 직후만 (배민 E축 quiet) */
+/** 배달·주문 허브 체류 중 hover/pointerdown 메신저 warm 금지 — 탭 commit 직후만 (E축 quiet) */
 export function shouldDeferMessengerPrewarmOnDeliverySurface(
   pathname: string | null | undefined,
   source: BottomNavTapPrewarmSource = "pointer_intent"

@@ -100,7 +100,7 @@ assertIncludes(
 assertIncludes(
   read("lib/layout/main-bottom-nav-fab-sector-config.ts"),
   "deliveryFabChristmasPaletteCssVars",
-  "Christmas Starbucks palette lock"
+  "Christmas palette lock"
 );
 
 // --- 문서·규칙 존재 ---

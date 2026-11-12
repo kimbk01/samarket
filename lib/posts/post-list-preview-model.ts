@@ -88,7 +88,7 @@ export const POST_LIST_TRADE_PRICE_CLASS = POST_LIST_PRICE_CLASS;
 /** 부동산 금액 줄 래퍼 — 타이포는 PostListPreviewColumn 부동산 금액 렌더에서 지정 */
 export const POST_LIST_REAL_ESTATE_PRICE_ROW_CLASS = "mt-0.5 text-left";
 /**
- * 리스트 4단 메타 본문(마진 없음) — 커뮤니티 `ListMetaKarrot`(12px #6B7280)
+ * 리스트 4단 메타 본문(마진 없음) — 커뮤니티 `ListMetaCompact`(12px #6B7280)
  */
 export const POST_LIST_META_LINE_CLASS =
   "text-[12px] font-normal leading-[1.4] text-sam-muted";

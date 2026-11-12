@@ -37,7 +37,7 @@ describe("cm-room-visible-viewport-contract", () => {
     });
   });
 
-  it("iOS messenger-page band pins on keyboard open (Telegram-style); clears when closed", () => {
+  it("iOS messenger-page band pins on keyboard open (messenger-standard); clears when closed", () => {
     const frame = { heightPx: 520, offsetTopPx: 280, visualBottomPx: 800 };
     expect(resolveIosMessengerPageVisualBandPx({ keyboardOpen: true, frame })).toEqual({
       topPx: 280,

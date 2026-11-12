@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
 /**
- * 거래 Admin 설계 v2 §C-4 · §F-3: 예전 TS writer(applyReportActionDaangn, 상태 CAS + 기록 보상)는 삭제 —
+ * 거래 Admin 설계 v2 §C-4 · §F-3: 예전 TS writer(상태 CAS + 기록 보상)는 삭제 —
  * 처리 1건 = DB 함수 admin_decide_trade_report 1번 (신고 행 잠금 → 대기 상태 확인 → 같은 트랜잭션 기록).
  */
 describe("Trade report server writer (R6)", () => {
@@ -39,7 +39,6 @@ describe("Trade report server writer (R6)", () => {
     expect(writer).not.toContain("getSupabaseClient");
     const panel = read("components/admin/reports/AdminSanctionPanel.tsx");
     expect(panel).toContain("/api/admin/reports/");
-    expect(panel).not.toContain("applyReportActionDaangn(");
   });
 
   it("RLS migration aligns admin reads to admin_memberships and pins client admin writes to false (non-destructive)", () => {

@@ -96,7 +96,7 @@ assertIncludes(
   "StoreProductDetailPageChrome",
   "product /p page uses store hero chrome (50c207c)"
 );
-assertIncludes(productPublic, "StoreBaeminProductDetailView", "product /p page is cart-add only");
+assertIncludes(productPublic, "StoreProductDetailView", "product /p page is cart-add only");
 assertNotIncludes(productPublic, "postMeStoreOrder", "product /p page must not submit orders directly");
 assertIncludes(
   productPublic,
@@ -104,7 +104,7 @@ assertIncludes(
   "product /p page resolves hero media URLs"
 );
 
-const pageChrome = read("components/stores/product-detail/baemin/StoreProductDetailPageChrome.tsx");
+const pageChrome = read("components/stores/product-detail/view/StoreProductDetailPageChrome.tsx");
 assertIncludes(pageChrome, "heroGlassOverlayButtons", "product /p hero header overlays image");
 
 const consumerShell = read("components/stores/StoreConsumerShell.tsx");

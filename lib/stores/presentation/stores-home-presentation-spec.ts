@@ -1,12 +1,12 @@
 /**
  * HOME presentation geometry — A-VIS SSOT authority only.
- * `docs/dibay-stores-baemin-visual-ssot-a-vis.md` §3.1–§3.6
+ * `docs/dibay-stores-delivery-visual-ssot-a-vis.md` §3.1–§3.6
  *
  * NOT_PROVEN (non-blocker): font family · exact font weight · exact hex · some radii/gaps.
  */
 
 export const STORES_HOME_PRESENTATION_SPEC = {
-  authorityDoc: "docs/dibay-stores-baemin-visual-ssot-a-vis.md",
+  authorityDoc: "docs/dibay-stores-delivery-visual-ssot-a-vis.md",
   patterns: {
     timesaleVertical: {
       avisSection: "3.1",

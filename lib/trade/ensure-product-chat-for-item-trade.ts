@@ -3,7 +3,7 @@ import type { ProductChatRow } from "./resolve-product-chat";
 import { PRODUCT_CHAT_ROW_SELECT } from "@/lib/trade/product-chat-select";
 
 /**
- * 당근형 item/start(chat_rooms)만 있고 product_chats가 없을 때 거래 API가 깨지지 않도록 행을 맞춘다.
+ * item/start(chat_rooms)만 있고 product_chats가 없을 때 거래 API가 깨지지 않도록 행을 맞춘다.
  * UNIQUE(post_id, seller_id, buyer_id) — 동시 생성 시 한 번 더 조회한다.
  */
 export async function ensureProductChatRowForItemTrade(

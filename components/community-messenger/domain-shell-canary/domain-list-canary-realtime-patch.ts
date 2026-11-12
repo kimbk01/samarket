@@ -2,7 +2,7 @@
  * Domain List Canary (trade · store_order) — sole row mutation writers for those surfaces.
  * Bus entry stays in DomainRoomStateRealtimeHost; final mutate happens here once.
  *
- * @see docs/community-messenger/telegram-list-authority-writer-audit.md
+ * @see docs/community-messenger/domain-list-authority-writer-audit.md
  */
 import type { CmRoomLastMessageMeta } from "@/lib/community-messenger/system-message-i18n";
 import {

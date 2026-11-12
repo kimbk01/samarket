@@ -29,15 +29,15 @@ export interface AdminReview {
   reviewStatus: ReviewStatus;
   reportCount: number;
   adminMemo?: string;
-  /** 당근형: 공개 후기 타입 */
+  /** 공개 후기 타입 */
   publicReviewType?: PublicReviewType;
-  /** 당근형: 비공개 태그 */
+  /** 비공개 태그 */
   privateTags?: string[];
-  /** 당근형: 선택 긍정 태그 키 */
+  /** 선택 긍정 태그 키 */
   positiveTagKeys?: string[];
-  /** 당근형: 선택 부정 태그 키 */
+  /** 선택 부정 태그 키 */
   negativeTagKeys?: string[];
-  /** 당근형: 익명 부정평가 여부 */
+  /** 익명 부정평가 여부 */
   isAnonymousNegative?: boolean;
   /** 판매자/구매자 표시용: reviewer가 판매자면 target이 구매자 */
   sellerNickname?: string;

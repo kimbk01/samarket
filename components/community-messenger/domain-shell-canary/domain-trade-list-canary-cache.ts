@@ -10,7 +10,7 @@ import type { TradeListDto } from "@/components/community-messenger/domain-shell
  *
  * 해결: 직전에 성공적으로 받은 DTO를 세션 스토리지에 남겨두고, 다음 마운트에서는(같은 뷰어
  * 기준) stale 여부와 무관하게 즉시 그 데이터로 첫 페인트를 한다.
- * Telegram list authority: hydrated peek = memory paint; cold/empty/pull only fetch.
+ * Domain list authority: hydrated peek = memory paint; cold/empty/pull only fetch.
  * (TTL remount rewrite helpers deleted — do not resurrect isDomain*CacheFresh.)
  */
 

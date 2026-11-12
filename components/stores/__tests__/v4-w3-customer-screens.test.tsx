@@ -35,7 +35,7 @@ import { StoresHomeStoreHorizontalCard } from "@/components/stores/home/presenta
 import { StoresHomeStoreTeaserCard } from "@/components/stores/home/presentation/StoresHomeStoreTeaserCard";
 import { StoresHomeHighRatingFoodCard } from "@/components/stores/home/presentation/StoresHomeHighRatingFoodCard";
 import { StoresHomeBrandCircularCard } from "@/components/stores/home/presentation/StoresHomeBrandCircularCard";
-import { StoreBaeminProductDetailInfo } from "@/components/stores/product-detail/baemin/StoreBaeminProductDetailInfo";
+import { StoreProductDetailInfo } from "@/components/stores/product-detail/view/StoreProductDetailInfo";
 import {
   buildHomeSampleStoreIdSet,
   readHomeShelfEntryIsSample,
@@ -118,7 +118,7 @@ describe("PL-02 — 홈 선반 카드 샘플 배지", () => {
 
   it("상품 상세 정보 영역 배지 + 상품 페이지 전달", () => {
     let el = render(
-      <StoreBaeminProductDetailInfo
+      <StoreProductDetailInfo
         title="Chicken"
         summary={null}
         badges={[]}
@@ -127,7 +127,7 @@ describe("PL-02 — 홈 선반 카드 샘플 배지", () => {
     );
     expect(el.querySelector("[data-store-sample-badge]")).not.toBeNull();
     el = render(
-      <StoreBaeminProductDetailInfo
+      <StoreProductDetailInfo
         title="Chicken"
         summary={null}
         badges={[]}
@@ -209,7 +209,7 @@ describe("UI-19·UI-21 — i18n 키 ko/en", () => {
     const hero = src("components/stores/home/hub/StoresHomeHeroBanner.tsx");
     expect(hero).not.toContain('aria-label="Banner slides"');
     expect(hero).not.toContain("aria-label={`Slide ${i + 1}`}");
-    expect(src("components/stores/product-detail/baemin/StoreProductDetailPageChrome.tsx")).toContain(
+    expect(src("components/stores/product-detail/view/StoreProductDetailPageChrome.tsx")).toContain(
       'aria-label={t("ui_delivery_product_photo_thumb_aria"'
     );
     expect(src("components/delivery/navigation/DeliveryDomainSwitcherOverlay.tsx")).not.toContain(

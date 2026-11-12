@@ -9,7 +9,7 @@ import { MyInfoHomeLinkRow } from "@/components/mypage/myinfo/MyInfoHomeMenuSect
 import { MyInfoLanguageToggleRow } from "@/components/mypage/myinfo/MyInfoLanguageToggleRow";
 import { renderMypageHomeMenuIcon } from "@/components/mypage/myinfo/myinfo-menu-icon";
 import { MYPAGE_IA_GUEST_PUBLIC_ROWS } from "@/lib/mypage/mypage-ia";
-import { MYPAGE_HOME_BODY_CLASS, MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
+import { MYPAGE_HOME_BODY_CLASS, MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-styles";
 import { MYPAGE_HOME_MENU_FLOW_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 /**

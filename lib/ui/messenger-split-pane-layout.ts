@@ -1,7 +1,7 @@
 /**
  * 768px+ 메신저 master-detail 좌측 목록 pane 폭 — 전 클라이언트 공통 SSOT.
  * APK · iOS · Windows · tablet 동일: viewport ≥768 에서만 적용 (플랫폼 분기 금지).
- * Telegram 샤오미 실측(~35% / 1340→469) — clamp(360px, 35vw, 470px).
+ * 참고 메신저 샤오미 실측(~35% / 1340→469) — clamp(360px, 35vw, 470px).
  *
  * BottomNav / 홈 device-bottom 아우터 시트 left·width 는 동일 CSS 변수·오프셋 체인:
  * `app/app-bottom-nav.css` · `app/messenger-home-bottom-sheet.css`

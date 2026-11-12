@@ -1,11 +1,11 @@
 /**
  * 관리자(스태프) 타입 — 회원관리 화면에서 회원과 분리하여 관리
- * 당근 운영 분석 기준 권한 키로 세분화 권한 부여
+ * 참고 앱 운영 분석 기준 권한 키로 세분화 권한 부여
  */
 
 import type { AdminRole } from "@/lib/admin-menu-config";
 
-/** 당근형 운영 메뉴 기준 권한 키 (실질운영·광고·포인트·설정·관리/보고·개발) */
+/** 운영 메뉴 기준 권한 키 (실질운영·광고·포인트·설정·관리/보고·개발) */
 export type AdminPermissionKey =
   | "users"        // 회원관리
   | "users_edit_membership" // 회원 구분·전화인증 수정 (DB 반영)

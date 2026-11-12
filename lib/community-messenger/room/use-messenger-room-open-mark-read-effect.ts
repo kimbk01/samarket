@@ -210,7 +210,7 @@ function isRoomActuallyReadableState(args: {
   const routeMatches = currentRouteMatchesRoom(args.roomId, snapshotRoomId);
   const rendered = args.roomMessages.length > 0 || Boolean(args.snapshot?.messages?.length);
   /**
-   * Kakao/Telegram: 메시지 본문이 있으면 loading(백그라운드 보강)만으로 읽음을 막지 않는다.
+   * Messenger standard: 메시지 본문이 있으면 loading(백그라운드 보강)만으로 읽음을 막지 않는다.
    * 셸-only / placeholder / overlay 만 blocked.
    * (roomLoading∧rendered 이면 예전엔 영구 return → 리스트 unread 잔존 + list-lock 체감)
    */

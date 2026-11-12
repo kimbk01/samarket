@@ -845,7 +845,7 @@ export function useCommunityMessengerHomeBootstrap({
       }
       lastSilentRefreshAtRef.current = now;
       /**
-       * Telegram list authority: hydrated hub chats/groups must not be rewritten by
+       * Domain list authority: hydrated hub chats/groups must not be rewritten by
        * silent home_sync (critical_patch/partial_upsert). Live rows use applyHomeListPatch;
        * friends use hydrateMessengerFriends. Empty/stale cache may still silent-fetch.
        */
@@ -1673,7 +1673,7 @@ export function useCommunityMessengerHomeBootstrap({
         return;
       }
       /**
-       * Telegram list authority — Room→list remount (blank-list root cause):
+       * Domain list authority — Room→list remount (blank-list root cause):
        * Host cleanup used to clearBootstrapCache; remount then hit stale=null while
        * session foreground-claim already set → refresh skipped
        * → React data stayed null → hub list gone until hard reload.

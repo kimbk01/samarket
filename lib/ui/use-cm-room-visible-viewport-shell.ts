@@ -109,7 +109,7 @@ function applyIosDocumentScrollLock(keyboardOpen: boolean): void {
 }
 
 /**
- * Telegram/KakaoTalk-style CM room viewport shell.
+ * messenger-standard CM room viewport shell.
  * Android: adjustResize + vv.height + open padding 0.
  * iOS: keyboard open → pin `.messenger-page` to vv band; open padding 0; no focus document scroll.
  * Timeline height is flex (`flex:1; min-height:0`) — do not write a fixed timeline height CSS variable.

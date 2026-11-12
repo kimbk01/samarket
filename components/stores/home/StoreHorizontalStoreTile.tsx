@@ -7,7 +7,7 @@ import { StoreCardFavoriteIcon } from "@/components/stores/home/StoreCardFavorit
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { dibayPerfRecordStoreCardNavigationIntent } from "@/lib/dibay/delivery-flow-perf";
 
-/** 인스타그램 탐색 느낌 — 고정 폭 가로 타일 (4:5 썸네일) */
+/** 탐색형 — 고정 폭 가로 타일 (4:5 썸네일) */
 export function StoreHorizontalStoreTile({
   store,
   coverEmoji,

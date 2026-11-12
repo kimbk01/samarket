@@ -22,7 +22,7 @@ import {
 
   MYPAGE_HOME_ROW_DIVIDER_CLASS,
 
-} from "@/lib/ui/mypage-home-starbucks-styles";
+} from "@/lib/ui/mypage-home-styles";
 
 
 

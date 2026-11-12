@@ -256,7 +256,7 @@ export const adminSettingsMessages = {
     admin_settings_call_suppress_notif: "수신 통화 알림 억제(백그라운드 로컬 Notification + Web Push)",
     admin_settings_battery_ref_title: "신뢰 점수·배터리(6단) 기준",
     admin_settings_battery_ref_intro:
-      "원본은 profiles.trust_score(0~100, 기본 50)이며, 화면의 % 숫자와 6단계 배터리는 아래 규칙으로만 결정됩니다. 당근 매너온도(°C)는 참고용입니다. 구현: web/lib/trust/trust-score-core.ts (trustScoreToUiPercent, trustScoreToBatteryLevel).",
+      "원본은 profiles.trust_score(0~100, 기본 50)이며, 화면의 % 숫자와 6단계 배터리는 아래 규칙으로만 결정됩니다. 구현: web/lib/trust/trust-score-core.ts (trustScoreToUiPercent, trustScoreToBatteryLevel).",
     admin_settings_battery_ref_s0_title: "0) 배터리 %(UI 표기) 산출",
     admin_settings_battery_ref_s0_li1:
       "표시 % = 내부 신뢰 점수 s에 대해 소수 둘째 자리까지 반올림 후 0~100으로 자른 값을, 다시 정수 %로 반올림한 것과 동일합니다. (코드: clampTrustScore → trustScoreToUiPercent)",
@@ -264,28 +264,25 @@ export const adminSettingsMessages = {
       "6칸 채움·단계는 표시 %가 아니라 같은 내부 점수 s를 구간으로 나눈 trustScoreToBatteryLevel(s) 결과입니다. (아래 3) 표)",
     admin_settings_battery_ref_s0_li3:
       "trust_score가 없을 때만 레거시 필드로 점수를 만든 뒤 위와 동일하게 % · 단계를 냅니다. (아래 2))",
-    admin_settings_battery_ref_s1_title: "1) 당근 매너 온도 (참고)",
-    admin_settings_battery_ref_s1_neutral: "중립으로 자주 인용되는 예:",
-    admin_settings_battery_ref_s1_range: "체감 범위 예: 약 {min}°C ~ {max}°C (참고)",
-    admin_settings_battery_ref_s2_title: "2) 레거시 °C → 점수 (manner_temperature)",
+    admin_settings_battery_ref_s2_title: "1) 레거시 °C → 점수 (manner_temperature)",
     admin_settings_battery_ref_s2_intro:
       "trust_score가 없고 manner_temperature만 있을 때만 아래 식으로 0~100 점으로 환산합니다. manner_score 단독은 같은 점수로 간주(추가 °C 환산 없음)합니다.",
     admin_settings_battery_ref_s2_formula:
       "소수이고 0 초과 ~ {max} 이하 → round(clamp((°C ÷ {neutral}) × {percent}, 0, 100))",
     admin_settings_battery_ref_s2_else: "그 외 → 0~100 클램프 후 반올림 (정수 점수)",
-    admin_settings_battery_ref_s3_title: "3) 배터리 단계 — 점수 구간 고정 매핑",
+    admin_settings_battery_ref_s3_title: "2) 배터리 단계 — 점수 구간 고정 매핑",
     admin_settings_battery_ref_s3_intro:
       "내부 점수 s(0~100)를 6등분 ceil이 아니라 아래 고정 구간으로 단계를 정합니다. 단계 k는 채워지는 칸 수와 같습니다.",
     admin_settings_battery_ref_th_tier: "단계",
     admin_settings_battery_ref_th_segments: "채움 칸",
     admin_settings_battery_ref_th_range: "점수 구간",
     admin_settings_battery_ref_s3_example: "예: 점수 50 → 3단계(3칸) · 점수 75 → 5단계(5칸)",
-    admin_settings_battery_ref_s4_title: "4) 이벤트·가중·일일 상한 (서버 반영)",
+    admin_settings_battery_ref_s4_title: "3) 이벤트·가중·일일 상한 (서버 반영)",
     admin_settings_battery_ref_s4_li1: "가산 이벤트는 최근 30일이면 ×{mult}, 감산은 배율 없음",
     admin_settings_battery_ref_s4_li2:
       "UTC 기준 하루 가산 합은 최대 +{cap} (관리자 조정·감산은 별도)",
-    admin_settings_battery_ref_s5_title: "5) 산출 흐름 도식",
-    admin_settings_battery_ref_s6_title: "6) 단계별 아이콘 예시 (1~6칸)",
+    admin_settings_battery_ref_s5_title: "4) 산출 흐름 도식",
+    admin_settings_battery_ref_s6_title: "5) 단계별 아이콘 예시 (1~6칸)",
     admin_settings_battery_ref_tier_label: "{tier}단계",
     admin_settings_battery_ref_preview: "미리보기",
     admin_settings_battery_ref_input: "입력값",
@@ -682,7 +679,7 @@ export const adminSettingsMessages = {
     admin_settings_call_suppress_notif: "Suppress incoming call notifications (background local + Web Push)",
     admin_settings_battery_ref_title: "Trust score & battery (6 tiers)",
     admin_settings_battery_ref_intro:
-      "Source is profiles.trust_score (0–100, default 50). On-screen % and 6-tier battery follow the rules below. Daangn manner temperature (°C) is reference only. See web/lib/trust/trust-score-core.ts.",
+      "Source is profiles.trust_score (0–100, default 50). On-screen % and 6-tier battery follow the rules below. See web/lib/trust/trust-score-core.ts.",
     admin_settings_battery_ref_s0_title: "0) Battery % (UI display)",
     admin_settings_battery_ref_s0_li1:
       "Display % = internal trust score s rounded to two decimals, clamped 0–100, then rounded to integer % (clampTrustScore → trustScoreToUiPercent).",
@@ -690,27 +687,24 @@ export const adminSettingsMessages = {
       "Six fill segments/tier use trustScoreToBatteryLevel(s), not display % directly (see table in 3)).",
     admin_settings_battery_ref_s0_li3:
       "If trust_score is missing, legacy fields build the score first, then same % and tier rules apply (see 2)).",
-    admin_settings_battery_ref_s1_title: "1) Daangn manner temperature (reference)",
-    admin_settings_battery_ref_s1_neutral: "Often-cited neutral example:",
-    admin_settings_battery_ref_s1_range: "Typical range example: about {min}°C – {max}°C (reference)",
-    admin_settings_battery_ref_s2_title: "2) Legacy °C → score (manner_temperature)",
+    admin_settings_battery_ref_s2_title: "1) Legacy °C → score (manner_temperature)",
     admin_settings_battery_ref_s2_intro:
       "Only when trust_score is missing and manner_temperature exists. manner_score alone is treated as the score (no extra °C conversion).",
     admin_settings_battery_ref_s2_formula:
       "Decimal > 0 and ≤ {max} → round(clamp((°C ÷ {neutral}) × {percent}, 0, 100))",
     admin_settings_battery_ref_s2_else: "Otherwise → clamp 0–100 and round (integer score)",
-    admin_settings_battery_ref_s3_title: "3) Battery tier — fixed score bands",
+    admin_settings_battery_ref_s3_title: "2) Battery tier — fixed score bands",
     admin_settings_battery_ref_s3_intro:
       "Internal score s (0–100) maps to tiers via fixed bands, not ceil(s/6). Tier k equals filled segment count.",
     admin_settings_battery_ref_th_tier: "Tier",
     admin_settings_battery_ref_th_segments: "Filled segments",
     admin_settings_battery_ref_th_range: "Score range",
     admin_settings_battery_ref_s3_example: "e.g. score 50 → tier 3 (3 segments) · score 75 → tier 5 (5 segments)",
-    admin_settings_battery_ref_s4_title: "4) Events, weights & daily cap (server)",
+    admin_settings_battery_ref_s4_title: "3) Events, weights & daily cap (server)",
     admin_settings_battery_ref_s4_li1: "Positive events within 30 days use ×{mult}; penalties have no multiplier",
     admin_settings_battery_ref_s4_li2: "UTC daily positive sum capped at +{cap} (admin adjustments & penalties separate)",
-    admin_settings_battery_ref_s5_title: "5) Calculation flow diagram",
-    admin_settings_battery_ref_s6_title: "6) Tier icon examples (1–6 segments)",
+    admin_settings_battery_ref_s5_title: "4) Calculation flow diagram",
+    admin_settings_battery_ref_s6_title: "5) Tier icon examples (1–6 segments)",
     admin_settings_battery_ref_tier_label: "Tier {tier}",
     admin_settings_battery_ref_preview: "Preview",
     admin_settings_battery_ref_input: "Input",

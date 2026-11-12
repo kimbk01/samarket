@@ -3,7 +3,7 @@ import type { PostListPreviewModel } from "@/lib/posts/post-list-preview-model";
 /**
  * 6단계: 채팅 타입 (Supabase Realtime 연동 시 교체용)
  *
- * 당근형 정렬:
+ * 정렬:
  * - source "product_chat" = 레거시 product_chats 테이블
  * - source "chat_room" = chat_rooms (item_trade 또는 general_chat)
  * - roomStatus: active | blocked | closed | report_hold (UI/목록용)
@@ -27,7 +27,7 @@ export interface ChatProductSummary {
   status: string;
   /** posts.seller_listing_state — 판매중/문의중/예약중/판매완료 (목록·채팅·어드민 공통) */
   sellerListingState?: string;
-  /** 거래 희망 지역 등 (당근형 상단 카드) */
+  /** 거래 희망 지역 등 (상단 카드) */
   regionLabel?: string;
   /** 상대시간 표시용 (posts.updated_at 등 ISO) */
   updatedAt?: string;
@@ -53,7 +53,7 @@ export interface ChatProductSummary {
 
 export type ChatRoomStatus = "active" | "blocked" | "closed" | "report_hold";
 
-/** 당근형: 목록/상세에서 어느 백엔드 사용 중인지 (메시지·전송·읽음 API 분기용) */
+/** 목록/상세에서 어느 백엔드 사용 중인지 (메시지·전송·읽음 API 분기용) */
 export type ChatRoomSource = "product_chat" | "chat_room";
 
 /** 일반(목적형) 채팅 메타 — 거래 UI·상태 API와 분리 */
@@ -125,11 +125,11 @@ export interface ChatRoom {
   lastMessageAt: string;
   unreadCount: number;
   product: ChatProductSummary;
-  /** 당근형: room_status */
+  /** room_status */
   roomStatus?: ChatRoomStatus;
-  /** 당근형: product_chats vs chat_rooms — 메시지/전송/읽음/나가기 API 분기 */
+  /** product_chats vs chat_rooms — 메시지/전송/읽음/나가기 API 분기 */
   source?: ChatRoomSource;
-  /** 당근형 거래 채팅: inquiry | negotiating | reserved | completed | cancelled | dispute */
+  /** 거래 채팅: inquiry | negotiating | reserved | completed | cancelled | dispute */
   tradeStatus?: string;
   /** product_chats URL인데 연결된 chat_rooms가 있을 때 — 거래 상태 API만 이 ID 사용 */
   chatRoomId?: string;

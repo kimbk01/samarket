@@ -32,7 +32,7 @@ import {
   MIRROR_PAGE_TAB_ON_CLASS,
   MIRROR_PAGE_TABS_MORE_BUTTON_CLASS,
   MIRROR_PAGE_TABS_ROW_CLASS,
-} from "@/lib/design/delivery-baemin-mirror";
+} from "@/lib/design/delivery-browse-chrome";
 
 type MenuTab = {
   key: string;
@@ -45,7 +45,7 @@ type MenuTab = {
   subSlug: string | null;
 };
 
-/** 배민 실측: 밑줄 이동 약 150ms */
+/** 참고 앱 실측: 밑줄 이동 약 150ms */
 export const STORES_BROWSE_MENU_TAB_UNDERLINE_MS = 150;
 
 const HOME_TAB_KEY = "home";
@@ -59,7 +59,7 @@ function ChevronIcon({ up }: { up: boolean }) {
 }
 
 /**
- * 배민 미러링 3단 — 메뉴 페이지 텍스트 탭 「홈 · 한식 · 중식 …」 + 오른쪽 ⌄ 「메뉴 전체보기」.
+ * 배달 메뉴 구성 3단 — 메뉴 페이지 텍스트 탭 「홈 · 한식 · 중식 …」 + 오른쪽 ⌄ 「메뉴 전체보기」.
  * - 메뉴 1단 페이지(`/stores/browse/{food|pickup|shop…}`): 「홈」 + 어드민 2단 메뉴 (`?menu=`).
  * - 업종 페이지(메뉴 없음 · 이전 경로): 「전체」 + 업종 2차 (복구 스위치).
  * - 누르는 즉시 굵은 글자·밑줄 이동(150ms), 선택 탭을 가운데로 스크롤.
@@ -179,7 +179,7 @@ export function StoresBrowseHeaderMenuTabs({ primarySlug }: { primarySlug: strin
   };
 
   return (
-    <div className={MIRROR_PAGE_TABS_ROW_CLASS} data-baemin-mirror-page-tabs="1">
+    <div className={MIRROR_PAGE_TABS_ROW_CLASS} data-delivery-chrome-page-tabs="1">
       <div className="relative mx-auto w-full min-w-0 max-w-[768px]">
         <div
           ref={railRef}
@@ -236,7 +236,7 @@ export function StoresBrowseHeaderMenuTabs({ primarySlug }: { primarySlug: strin
             className={MIRROR_PAGE_TABS_MORE_BUTTON_CLASS}
             aria-expanded={allOpen}
             aria-label={t("store_browse_menu_all_view")}
-            data-baemin-mirror-menu-all="1"
+            data-delivery-chrome-menu-all="1"
             onClick={() => setAllOpen((v) => !v)}
           >
             <ChevronIcon up={allOpen} />
@@ -251,7 +251,7 @@ export function StoresBrowseHeaderMenuTabs({ primarySlug }: { primarySlug: strin
             className="fixed inset-x-0 bottom-0 top-0 z-[-1] cursor-default bg-black/45"
             onClick={() => setAllOpen(false)}
           />
-          <div className="absolute inset-x-0 top-0 z-[3] border-b border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] shadow-[var(--overlay-elevation-2)]" data-baemin-mirror-menu-all-panel="1">
+          <div className="absolute inset-x-0 top-0 z-[3] border-b border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] shadow-[var(--overlay-elevation-2)]" data-delivery-chrome-menu-all-panel="1">
             <div className="mx-auto flex h-[40px] w-full max-w-[768px] items-center justify-between px-[var(--delivery-page-x)]">
               <span className="text-[length:var(--overlay-title-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">{t("store_browse_menu_all_view")}</span>
               <button

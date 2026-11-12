@@ -18,7 +18,7 @@ type Props = {
   onPointerDown?: () => void;
 };
 
-/** 거래 상세 — FB 마켓플레이스형 인라인 메시지(카테고리 공통) */
+/** 거래 상세 — 거래 표준형 인라인 메시지(카테고리 공통) */
 export function TradeDetailInlineChatCard({
   sellerName: _sellerName,
   continueChat,

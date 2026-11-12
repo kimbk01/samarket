@@ -5,13 +5,13 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayMenuBoard } from "@/lib/stores/dibay-menu-board-tokens";
 import type { StoreDetailProductCard } from "@/lib/stores/group-store-products-by-menu";
 import { ProductMenuCard } from "@/components/stores/detail/ProductMenuCard";
-import { STORE_DETAIL_POPULAR_SECTION_DOM_ID } from "@/lib/stores/store-detail-baemin-presentation";
+import { STORE_DETAIL_POPULAR_SECTION_DOM_ID } from "@/lib/stores/store-detail-menu-presentation";
 
 /** WP6 — 첫 화면 즉시 로드 행 수 (인기 메뉴가 메뉴판 맨 위) */
 const EAGER_IMAGE_ROWS = 6;
 
 /**
- * WP6 (배민형 2차수 2026-10-29) — 인기 메뉴: 별도 순위 숫자 + 왼쪽 사진 레이아웃 제거.
+ * WP6 (배달 표준형 2차수 2026-10-29) — 인기 메뉴: 별도 순위 숫자 + 왼쪽 사진 레이아웃 제거.
  * 일반 메뉴 행(`ProductMenuCard`) + 회색 알약 「인기 n위」 배지(`ProductBadgeRow`).
  * 칩 「인기 메뉴」 이동 앵커 = `STORE_DETAIL_POPULAR_SECTION_DOM_ID`.
  */

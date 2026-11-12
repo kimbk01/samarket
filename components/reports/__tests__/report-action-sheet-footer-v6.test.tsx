@@ -14,7 +14,7 @@ vi.mock("@/components/i18n/AppLanguageProvider", () => {
 });
 vi.mock("@/lib/auth/get-current-user", () => ({ getCurrentUser: () => ({ id: "u1" }) }));
 const submit = vi.hoisted(() => vi.fn(async () => ({ ok: true })));
-vi.mock("@/lib/reports/submitReportDaangn", () => ({ submitReportDaangn: submit }));
+vi.mock("@/lib/reports/submitReport", () => ({ submitReport: submit }));
 
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 

@@ -480,7 +480,7 @@ describe("R4 S06·S07 — 대표 주소 임의 변경 금지 (최종 설계 Part
     const row = read("components/addresses/AddressRowCard.tsx");
     expect(row).toContain("DibayActionSheet");
     expect(row).toContain("onSetAsRepresentative && !row.isDefaultMaster");
-    const styles = read("lib/ui/address-list-starbucks-styles.ts");
+    const styles = read("lib/ui/address-list-styles.ts");
     const stylesBody = styles.slice(styles.indexOf("export type AddressListRowSurface"));
     expect(stylesBody).not.toMatch(/#[0-9A-Fa-f]{6}|bg-white/);
   });

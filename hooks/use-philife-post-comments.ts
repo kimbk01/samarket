@@ -27,7 +27,7 @@ function countCommentNodesFlat(nodes: NeighborhoodCommentNode[]): number {
 }
 
 /**
- * 필라이프 글 상세 댓글 — 당근형 단일 소유권.
+ * 필라이프 글 상세 댓글 — 단일 소유권.
  * - postId 변경 시에만 초기화·최초 로드
  * - 작성/답글 성공 → 서버 목록 전체 교체
  * - 공감 → 낙관 토글 + 서버 확정

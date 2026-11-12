@@ -18,7 +18,7 @@ import { commerceExtrasFromBrowseSnapshot } from "@/lib/stores/browse-store-comm
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
-import { FB } from "@/components/stores/store-facebook-feed-tokens";
+import { FEED_UI } from "@/components/stores/store-feed-tokens";
 import { deliveryStoreMenusPrewarm } from "@/lib/dibay/delivery-store-menus-prewarm";
 import { dibayPerfRecordStoreCardNavigationIntent } from "@/lib/dibay/delivery-flow-perf";
 import { writeStoreDetailListSeed } from "@/lib/dibay/store-detail-list-seed";
@@ -208,12 +208,12 @@ function StoresHomeTimesaleRowCardInner({
         <div className="min-w-0 flex-1" data-stores-home-timesale-meta="true">
           <h3 className="line-clamp-1 text-[14.5px] font-semibold leading-[1.05] tracking-[-0.01em] text-[color:var(--delivery-text-main)]">
             {store.nameKo}
-            <span className={`ml-1.5 inline-flex items-center gap-0.5 text-[13px] font-bold ${FB.ratingValue}`}>
-              <span className={FB.ratingStar} aria-hidden>
+            <span className={`ml-1.5 inline-flex items-center gap-0.5 text-[13px] font-bold ${FEED_UI.ratingValue}`}>
+              <span className={FEED_UI.ratingStar} aria-hidden>
                 ★
               </span>
               {store.rating.toFixed(1)}
-              <span className={`font-normal ${FB.ratingCount}`}>({reviewLabel(store.reviewCount)})</span>
+              <span className={`font-normal ${FEED_UI.ratingCount}`}>({reviewLabel(store.reviewCount)})</span>
             </span>
           </h3>
           <StoreSampleStoreBadge isSampleStore={store.isSampleStore} className="mt-1" />
@@ -224,31 +224,31 @@ function StoresHomeTimesaleRowCardInner({
             </p>
           : null}
 
-          <p className={`mt-1 line-clamp-1 text-[12.5px] leading-[1.02] ${FB.metaRow}`}>
+          <p className={`mt-1 line-clamp-1 text-[12.5px] leading-[1.02] ${FEED_UI.metaRow}`}>
             {outOfRangeLabel ?
               <span className="font-semibold text-sam-warning">{outOfRangeLabel}</span>
             : !store.deliveryAvailable ?
               t("store_delivery_no_short")
             : deliveryFeeUi ?
               <span className="inline-flex flex-wrap items-center gap-1">
-                <span className={FB.metaStrong}>{deliveryFeeUi}</span>
+                <span className={FEED_UI.metaStrong}>{deliveryFeeUi}</span>
                 {deliveryFeeStrikePhp != null && deliveryFeeStrikePhp > 0 ?
-                  <span className={FB.strike}>{formatMoneyPhp(deliveryFeeStrikePhp)}</span>
+                  <span className={FEED_UI.strike}>{formatMoneyPhp(deliveryFeeStrikePhp)}</span>
                 : null}
               </span>
             : null}
           </p>
 
-          <div className={`mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1 text-[12.5px] ${FB.metaRow}`}>
+          <div className={`mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1 text-[12.5px] ${FEED_UI.metaRow}`}>
             {timeLabel ?
-              <span className={FB.metaStrong}>{timeLabel}</span>
+              <span className={FEED_UI.metaStrong}>{timeLabel}</span>
             : null}
-            {timeLabel && d ? <span className={FB.metaDot}>·</span> : null}
-            {d ? <span className={FB.metaStrong}>{d}</span> : null}
-            {(timeLabel || d) && minOrderShort ? <span className={FB.metaDot}>·</span> : null}
+            {timeLabel && d ? <span className={FEED_UI.metaDot}>·</span> : null}
+            {d ? <span className={FEED_UI.metaStrong}>{d}</span> : null}
+            {(timeLabel || d) && minOrderShort ? <span className={FEED_UI.metaDot}>·</span> : null}
             {minOrderShort ?
               <span className="truncate">
-                {t("store_min_order_short")} <span className={FB.metaStrong}>{minOrderShort}</span>
+                {t("store_min_order_short")} <span className={FEED_UI.metaStrong}>{minOrderShort}</span>
               </span>
             : null}
           </div>

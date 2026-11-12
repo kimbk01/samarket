@@ -30,7 +30,7 @@ describe("resolvePostImageSources (D13)", () => {
   });
 });
 
-describe("postImageGridLayout — 페이스북형 배치", () => {
+describe("postImageGridLayout — 피드형 배치", () => {
   it("0·1장은 격자 아님", () => {
     expect(postImageGridLayout(0)).toEqual({ kind: "single" });
     expect(postImageGridLayout(1)).toEqual({ kind: "single" });

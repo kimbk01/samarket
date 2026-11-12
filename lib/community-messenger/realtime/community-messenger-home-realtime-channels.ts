@@ -455,7 +455,7 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
                 }
                 return;
               }
-              // DELETE 등 — silent full list catch-up 금지 (Telegram list authority)
+              // DELETE 등 — silent full list catch-up 금지 (Domain list authority)
             }
           ),
     });

@@ -6,7 +6,7 @@ import {
   PROFILE_EDIT_FIELD_CONTROL_CLASS,
   PROFILE_EDIT_FIELD_INCOMPLETE_CLASS,
   PROFILE_EDIT_STATUS_TEXTAREA_CLASS,
-} from "@/lib/ui/profile-edit-starbucks-styles";
+} from "@/lib/ui/profile-edit-styles";
 import { ProfileDibayIdSection } from "@/components/my/edit/ProfileDibayIdSection";
 
 const PROFILE_EDIT_NICKNAME_INPUT_ID = "profile-edit-nickname";

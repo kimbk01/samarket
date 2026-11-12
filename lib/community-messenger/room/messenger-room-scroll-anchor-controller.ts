@@ -150,7 +150,7 @@ function resolveLastVisibleTimelineMessageId(viewport: HTMLElement | null): stri
 }
 
 /**
- * Single scroll authority for CM rooms (Telegram/Kakao contract).
+ * Single scroll authority for CM rooms (messenger-standard contract).
  * - Initial anchor: room generation 당 1회, useLayoutEffect (paint 전)
  * - Resize/keyboard/chrome: settled 이후 preserve/follow 만 — 재 entry·tail settle 금지
  * - scrollTop 조작은 ChatThreadScrollEngine 만
@@ -402,7 +402,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       }
 
       if (force && reason === "fab_jump_latest") {
-        /** ↓ 버튼 — 텔레그램처럼 부드럽게 맨 아래까지(매 프레임 하단 재계산). */
+        /** ↓ 버튼 — 메신저 표준처럼 부드럽게 맨 아래까지(매 프레임 하단 재계산). */
         const reader = useMessengerRoomReaderStateStore.getState();
         stickToBottomRef.current = true;
         reader.setScrollPosition(roomId, "at-bottom");

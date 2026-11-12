@@ -318,7 +318,7 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
     const startIfReady = () => {
       const featuredProductId = readFeaturedFocusProductId();
       /**
-       * WP4 (D-3) — 배민처럼 누르는 즉시 슬라이드. 데이터 전에는 매장 화면이 `StoreDetailQuickShell`
+       * WP4 (D-3) — 배달 표준처럼 누르는 즉시 슬라이드. 데이터 전에는 매장 화면이 `StoreDetailQuickShell`
        * (헤더·히어로·메뉴 스켈레톤)을 그리므로 흰 화면이 없다. 메뉴 포커스 진입(`focusProduct`)만
        * 기존처럼 위치 확정 후 슬라이드.
        */

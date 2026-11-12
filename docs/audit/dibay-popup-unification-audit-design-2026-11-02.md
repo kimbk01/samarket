@@ -131,7 +131,7 @@
 |---|---|---|
 | `room/MessengerPhotoSelectSaveSheet.tsx:90` | 채팅방 사진 저장 | 반경 4 · 최대 폭 없음(태블릿 전폭) · 핸들 없음 · `--safe-bottom` |
 | `delivery/ui/DeliveryModal.tsx:80-118` | 배달 도메인 모달 전부 | 폭 384 · 반경 4 · 제목 22 · 버튼 52·4·15 |
-| `stores/browse/StoreListFilterChips.tsx:105` (`delivery-baemin-mirror.ts:60-69`) | 매장 목록 필터·정렬 | 반경 14 · 폭 768 · 제목 15 회색 · 행 17px 고정 높이 66 · hex `#7E8082 #362415 #F3F5F7` |
+| `stores/browse/StoreListFilterChips.tsx:105` (`delivery-browse-chrome.ts:60-69`) | 매장 목록 필터·정렬 | 반경 14 · 폭 768 · 제목 15 회색 · 행 17px 고정 높이 66 · hex `#7E8082 #362415 #F3F5F7` |
 | `business/owner/ads/OwnerPlatformPopupApplyView.tsx:846` | 사장님 팝업광고 신청 최종 확인 | 자체 루트 z 80 · 폭 448 · sm 이상 반경 4 · 흐림 없음 · 하드웨어 뒤로가기·Escape 없음 |
 | `chats/StoreOrderSellerOrderPanel.tsx:391` | 주문 채팅 판매자 패널 | 폭 512 · z 60~230 |
 | `stores/commission/StoreCommissionLedgerTable.tsx:309` | 수수료 원장 → 주문 상세 | **z 40** (사장님 하단 탭 1200 아래 가능) · 768~1023 전폭 |

@@ -41,7 +41,7 @@ export async function getFriendshipPairState(
   };
 }
 
-/** UI·guard·group invite — viewer-local contact only (Telegram unilateral). */
+/** UI·guard·group invite — viewer-local contact only (one-way contact). */
 export async function isAcceptedFriendPair(
   sb: SupabaseClient<any> | null,
   userId: string,

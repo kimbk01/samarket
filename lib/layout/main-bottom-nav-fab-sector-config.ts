@@ -1,4 +1,4 @@
-import { deliveryFabChristmasPaletteCssVars } from "@/lib/ui/delivery-fab-christmas-starbucks-palette";
+import { deliveryFabChristmasPaletteCssVars } from "@/lib/ui/delivery-fab-christmas-palette";
 
 /** 배달 FAB 섹터 — 레이아웃·투명도 단일 정의 (CSS `--fab-*` 와 동기) */
 export const FAB_SURFACE_ALPHA = 0.6;

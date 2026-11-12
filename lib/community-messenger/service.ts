@@ -10599,7 +10599,7 @@ export async function cleanupCommunityMessengerFriendGraphOnBlock(
   if (sb) {
     /**
      * §14-5 (Owner 2026-10-25 승인): 차단하면 친구가 될 수 없다 — 친구 관계를 양쪽 모두 정리한다
-     * (이전: 텔레그램식 한쪽 연락처만 삭제 → 차단당한 쪽 목록에 친구로 남았다).
+     * (이전: 한쪽만 정리 방식 한쪽 연락처만 삭제 → 차단당한 쪽 목록에 친구로 남았다).
      * 친구 삭제와 같은 SSOT(양쪽 friend 행 · 수락 요청 행 · friendships · 즐겨찾기/숨김) + 대기 요청 닫기.
      */
     const removed = await removeCommunityMessengerFriend(a, b);
@@ -10778,7 +10778,7 @@ async function ensureDirectMessengerRoomParticipantsForPair(
     toReadmit.push(peer);
   }
   /**
-   * S-2 H (Owner 2026-11-02 · 텔레그램 「나만 대화 삭제」·카카오 나가기): 나갔다가 다시 참가하는 일반 1:1 참가자는
+   * S-2 H (Owner 2026-11-02 · 「나만 대화 삭제」·나가기): 나갔다가 다시 참가하는 일반 1:1 참가자는
    * 다시 참가한 시각 이후 메시지만 본다 — 기록 하한 `cleared_at`. 새 방(메시지 0건)·거래·주문은 하한 없음.
    */
   const rejoinFloorIso =
@@ -10806,7 +10806,7 @@ async function ensureDirectMessengerRoomParticipantsForPair(
 }
 
 /**
- * S-1 (Owner 2026-11-02) — 상대가 나간 일반 1:1 에 보낼 때 저장 직전 상대를 다시 참가시킨다(텔레그램·카카오:
+ * S-1 (Owner 2026-11-02) — 상대가 나간 일반 1:1 에 보낼 때 저장 직전 상대를 다시 참가시킨다(메신저 표준:
  * 남은 쪽이 보내면 나간 쪽 목록에 방이 다시 나타남). 호출 조건(일반 1:1 · 차단·거절 통과)은 발송 게이트
  * `assertDirectRoomCommunicationNotBlocked().readmitPeerUserId` 가 정한다 — 모든 보내기 경로가 이 함수 하나를 쓴다.
  * 참가 행이 생긴 뒤 저장되므로 기존 RPC 의 안 읽음 증가·푸시·bump 가 상대에게 그대로 간다.
@@ -10822,7 +10822,7 @@ export async function readmitLeftGeneralDirectPeerForSend(input: {
   return ensureDirectMessengerRoomParticipantsForPair(input.supabase, input.roomId, input.senderUserId, peer);
 }
 
-/** Telegram-style general friend DM — sorted-pair `direct_key` only; trade/store_order 와 분리. */
+/** messenger-standard general friend DM — sorted-pair `direct_key` only; trade/store_order 와 분리. */
 export async function ensureGeneralFriendDirectRoom(
   userId: string,
   peerUserId: string
@@ -15058,7 +15058,7 @@ function clampCommunityMessengerSnapshotMessageLimit(raw: unknown): number {
   return Math.min(COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_HARD_MAX, Math.max(1, n));
 }
 
-/** instant/critical 입장 — 카카오/텔레그램형 첫 타임라인 슬라이스(과대 페이로드 방지 상한 30) */
+/** instant/critical 입장 — 메신저 표준형 첫 타임라인 슬라이스(과대 페이로드 방지 상한 30) */
 const COMMUNITY_MESSENGER_CRITICAL_MESSAGE_MIN = 20;
 const COMMUNITY_MESSENGER_CRITICAL_MESSAGE_MAX = 30;
 
@@ -16575,7 +16575,7 @@ function applyHistoryFloorToMessageQuery<Q extends { gt: (column: string, value:
 }
 
 /**
- * 하한 이전 메시지를 인용한 답장 — 인용 원문을 「삭제된 메시지」로 바꿔 내려준다(텔레그램: 지운 원문 인용은 삭제 표시).
+ * 하한 이전 메시지를 인용한 답장 — 인용 원문을 「삭제된 메시지」로 바꿔 내려준다(메신저 표준: 지운 원문 인용은 삭제 표시).
  * 하한이 없거나 답장이 없으면 조회 없이 그대로.
  */
 async function redactReplyQuotesBelowHistoryFloor(

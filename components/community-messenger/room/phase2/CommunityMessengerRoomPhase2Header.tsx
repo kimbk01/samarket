@@ -510,7 +510,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             <button
               type="button"
               onClick={() => vm.setActiveSheet("menu")}
-              className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} text-[color:var(--cm-room-starbucks-green)]`}
+              className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} text-[color:var(--cm-room-brand-green)]`}
               aria-label={vm.t("nav_messenger_open_group_settings")}
             >
               <span className={`${CM_ROOM_HEADER_TOUCH_FACE_BASE_CLASS} group-active:bg-[color:var(--cm-room-group-settings-pressed-bg)]`}>
