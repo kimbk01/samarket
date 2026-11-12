@@ -67,6 +67,18 @@ describe("video call connected chrome contract", () => {
     expect(edgeBlock).toContain('android:visibility="gone"');
   });
 
+  it("Android: 테두리는 나쁨·아주 나쁨만 (좋음 = 없음), 폭 40dp, 재연결 중 = 아주 나쁨 (Owner 2026-11-12)", () => {
+    const edge = readFileSync(
+      join(ROOT, "android/app/src/main/java/com/dibay/app/nativevideo/CallSignalEdgeView.java"),
+      "utf8",
+    );
+    expect(edge).toMatch(/case GOOD:\s*default:\s*return Color\.TRANSPARENT;/);
+    expect(edge).toContain("GLOW_DEPTH_DP = 40f");
+    expect(edge).not.toContain("COLOR_GOOD");
+    expect(androidTier).toContain("AGORA_STATE_RECONNECTING = 4");
+    expect(androidActivity).toContain("setConnectionStateObserver(this::handleAgoraConnectionState)");
+  });
+
   it("iOS: D6 전까지 현재 상태(Option A) 그대로", () => {
     const iosVc = readFileSync(
       join(ROOT, "ios/App/App/Call/Video/NativeVideoCallViewController.swift"),
