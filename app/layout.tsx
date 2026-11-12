@@ -7,6 +7,7 @@ import { LaunchIntroRoot } from "@/components/launch-intro/LaunchIntroRoot";
 import { OAuthReturnListener } from "@/components/auth/OAuthReturnListener";
 import { WindowsShellOAuthReturnListener } from "@/components/auth/WindowsShellOAuthReturnListener";
 import { CapacitorNativeMarkerBootstrap } from "@/components/platform/CapacitorNativeMarkerBootstrap";
+import { NativeSystemBarsLightBootstrap } from "@/components/platform/NativeSystemBarsLightBootstrap";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
 import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -121,6 +122,7 @@ export default async function RootLayout({
             <KeyboardViewportRootProbe />
             <SupabaseAuthSync />
             <CapacitorNativeMarkerBootstrap />
+            <NativeSystemBarsLightBootstrap />
             <OAuthReturnListener />
             <WindowsShellOAuthReturnListener />
             <CallIncomingChromeRoot />

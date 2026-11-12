@@ -73,6 +73,13 @@ const config: CapacitorConfig = {
       backgroundColor: "#FFFCFC",
       androidSplashResourceName: "ic_splash_neutral",
     },
+    /**
+     * 다크 모드 없음 (Owner 2026-11-13) — 상태 바 아이콘 = 어두운 색 고정. 기본 DEFAULT 는 기기 다크를 따라
+     * 흰 아이콘이 되어 밝은 머리글 위에서 안 보인다. 웹(NativeSystemBarsLightBootstrap)이 설치본에도 같은 값을 건다.
+     */
+    SystemBars: {
+      style: "LIGHT",
+    },
   },
   ...(useLegacyAndroidBridge
     ? {

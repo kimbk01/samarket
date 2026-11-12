@@ -10,12 +10,6 @@ import { describe, expect, it } from "vitest";
 const ROOT = join(__dirname, "../../..");
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
 
-/** 통화 영역 — 통화 단독 반영(통화 변경 규정 4번)으로 따로 정리한다. */
-const CALL_DARK_VARIANT_PENDING = new Set([
-  "components/community-messenger/room/message/CallStubActionPopover.tsx",
-  "lib/community-messenger/call-ui/incoming-call-banner-tokens.ts",
-]);
-
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(join(ROOT, dir))) {
     if (name === "node_modules" || name === "__tests__" || name.startsWith(".")) continue;
@@ -38,10 +32,8 @@ describe("다크 모드 없음 — 웹", () => {
     expect(hits).toEqual([]);
   });
 
-  it("Tailwind dark: 변형 0건 (통화 정리 대기 파일 제외)", () => {
-    const hits = WEB_FILES.filter(
-      (f) => /\.(tsx?|ts)$/.test(f) && !CALL_DARK_VARIANT_PENDING.has(f) && /(^|[\s"'`])dark:[a-z[]/m.test(read(f))
-    );
+  it("Tailwind dark: 변형 0건", () => {
+    const hits = WEB_FILES.filter((f) => /\.(tsx?|ts)$/.test(f) && /(^|[\s"'`])dark:[a-z[]/m.test(read(f)));
     expect(hits).toEqual([]);
   });
 
@@ -62,11 +54,41 @@ describe("다크 모드 없음 — 웹", () => {
   });
 });
 
+describe("다크 모드 없음 — 상태 바·인앱 브라우저 (설계 2026-11-13 R1·R3)", () => {
+  it("상태 바 LIGHT 고정 — 웹(설치본)·Capacitor 설정(새 빌드)", () => {
+    const boot = read("components/platform/NativeSystemBarsLightBootstrap.tsx");
+    expect(boot).toContain("SystemBars.setStyle({ style: SystemBarsStyle.Light })");
+    expect(read("app/layout.tsx")).toContain("<NativeSystemBarsLightBootstrap />");
+    expect(read("capacitor.config.ts")).toMatch(/SystemBars:\s*\{\s*style:\s*"LIGHT"/);
+    expect(JSON.parse(read("ios/App/App/capacitor.config.json")).plugins.SystemBars.style).toBe("LIGHT");
+  });
+
+  it("웹에서 SystemBars 를 다른 스타일로 바꾸는 호출 0건", () => {
+    const hits = WEB_FILES.filter((f) => /SystemBarsStyle\.(Dark|Default)|style:\s*["'](DARK|DEFAULT)["']/.test(read(f)));
+    expect(hits).toEqual([]);
+  });
+
+  it("인앱 브라우저 열기는 모두 툴바 색 지정", () => {
+    const calls = WEB_FILES.flatMap((f) => [...read(f).matchAll(/Browser\.open\(\{[^}]*\}\)/g)].map((m) => `${f}: ${m[0]}`));
+    expect(calls.length).toBeGreaterThan(0);
+    for (const c of calls) expect(c).toContain("toolbarColor: IN_APP_BROWSER_TOOLBAR_COLOR");
+  });
+});
+
 describe("다크 모드 없음 — 네이티브", () => {
   it("Android 메인 화면(WebView) 테마 = Light (isLightTheme=true → WebView 라이트 신호)", () => {
     expect(read("android/app/src/main/res/values/styles.xml")).toContain(
       '<style name="AppTheme.NoActionBar" parent="Theme.AppCompat.Light.NoActionBar">'
     );
+  });
+
+  it("Android 일반 테마 강제 다크 제외 (설계 2026-11-13 R2)", () => {
+    const xml = read("android/app/src/main/res/values/styles.xml");
+    for (const name of ["AppTheme", "AppTheme.NoActionBar", "AppTheme.NoActionBarLaunch"]) {
+      const start = xml.indexOf(`<style name="${name}"`);
+      const block = xml.slice(start, xml.indexOf("</style>", start));
+      expect(block, name).toContain('<item name="android:forceDarkAllowed" tools:targetApi="q">false</item>');
+    }
   });
 
   it("iOS UIUserInterfaceStyle = Light", () => {
@@ -78,5 +100,8 @@ describe("다크 모드 없음 — 네이티브", () => {
       "core.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Light;"
     );
     expect(read("windows/DibayDesktop/App.xaml")).toContain('RequestedTheme="Light"');
+    const win = read("windows/DibayDesktop/MainWindow.xaml.cs");
+    expect(win).toContain("ApplyLightTitleBar();");
+    expect(win).toContain("bar.BackgroundColor = background;");
   });
 });

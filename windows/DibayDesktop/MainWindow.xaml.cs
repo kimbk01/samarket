@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.Web.WebView2.Core;
@@ -32,6 +33,7 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         Title = AppConfig.WindowTitle;
         RestoreWindowBounds();
+        ApplyLightTitleBar();
         Closed += (_, _) => SaveWindowBounds();
         _ = InitializeWebAsync();
     }
@@ -52,6 +54,31 @@ public sealed partial class MainWindow : Window
         core.NavigationStarting += OnNavigationStarting;
         core.WebMessageReceived += OnWebMessageReceived;
         Web.Source = new Uri(AppConfig.StartUrl);
+    }
+
+    /// <summary>
+    /// 다크 모드 없음 (Owner 2026-11-13) — Windows 다크 테마여도 제목 표시줄을 라이트로 고정.
+    /// 테마 고정 속성 AppWindowTitleBar.PreferredTheme 는 Windows App SDK 1.7 부터라(이 프로젝트 1.6) 색을 직접 지정한다.
+    /// </summary>
+    private void ApplyLightTitleBar()
+    {
+        if (!AppWindowTitleBar.IsCustomizationSupported()) return;
+        var bar = AppWindow.TitleBar;
+        var background = ColorHelper.FromArgb(0xFF, 0xFF, 0xFF, 0xFF);
+        var foreground = ColorHelper.FromArgb(0xFF, 0x36, 0x24, 0x15);
+        var inactiveForeground = ColorHelper.FromArgb(0xFF, 0x8A, 0x8A, 0x8A);
+        bar.BackgroundColor = background;
+        bar.ForegroundColor = foreground;
+        bar.InactiveBackgroundColor = background;
+        bar.InactiveForegroundColor = inactiveForeground;
+        bar.ButtonBackgroundColor = background;
+        bar.ButtonForegroundColor = foreground;
+        bar.ButtonHoverBackgroundColor = ColorHelper.FromArgb(0xFF, 0xF2, 0xF2, 0xF2);
+        bar.ButtonHoverForegroundColor = foreground;
+        bar.ButtonPressedBackgroundColor = ColorHelper.FromArgb(0xFF, 0xE6, 0xE6, 0xE6);
+        bar.ButtonPressedForegroundColor = foreground;
+        bar.ButtonInactiveBackgroundColor = background;
+        bar.ButtonInactiveForegroundColor = inactiveForeground;
     }
 
     /// <summary>target=_blank · window.open — 앱 주소면 같은 창, 아니면 기본 브라우저.</summary>

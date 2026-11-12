@@ -17,6 +17,9 @@
 			"launchFadeOutDuration": 0,
 			"backgroundColor": "#FFFCFC",
 			"androidSplashResourceName": "ic_splash_neutral"
+		},
+		"SystemBars": {
+			"style": "LIGHT"
 		}
 	},
 	"packageClassList": [
