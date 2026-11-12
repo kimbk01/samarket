@@ -1,3 +1,5 @@
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const authUiMessages = {
   ko: {
     auth_login_title: "dibaY 시작하기",
@@ -212,7 +214,7 @@ export const authUiMessages = {
     auth_login_required_body_trade_report: "거래 글을 신고하려면 로그인이 필요합니다.",
     auth_login_required_body_trade_buy: "거래를 요청하려면 로그인이 필요합니다.",
     auth_login_required_body_trade_chat: "안전한 거래 채팅을 위해 로그인이 필요합니다.",
-    auth_login_required_body_messenger_open: "메신저를 사용하려면 로그인이 필요합니다.",
+    auth_login_required_body_messenger_open: `${B.LETARING}을 사용하려면 로그인이 필요합니다.`,
     auth_login_required_body_friend_add: "친구를 추가하려면 로그인이 필요합니다.",
     auth_login_required_body_friend_chat: "친구와 채팅하려면 로그인이 필요합니다.",
     auth_login_required_body_voice_call: "통화를 사용하려면 로그인과 마이크 권한이 필요합니다.",
@@ -244,7 +246,7 @@ export const authUiMessages = {
     auth_consent_marketing_link: "전문 보기",
     auth_consent_marketing_save_failed: "선택 동의를 저장하지 못했습니다. 다시 눌러 주세요.",
     auth_consent_feature_notice:
-      "선택 항목에 동의하지 않아도 가입과 서비스 이용이 가능합니다. 혜택·이벤트 알림은 내정보 › 알림 설정에서 언제든 변경할 수 있습니다.",
+      `선택 항목에 동의하지 않아도 가입과 서비스 이용이 가능합니다. 혜택·이벤트 알림은 ${B.MY} › 알림 설정에서 언제든 변경할 수 있습니다.`,
     auth_consent_safety_notice:
       "부적절한 콘텐츠, 사기, 혐오, 개인정보 노출, 불법 거래는 금지되며 신고와 차단 기능을 통해 관리됩니다.",
     auth_consent_escape_hint: "동의하지 않아도 고객센터 문의·신고, 회원탈퇴, 로그아웃은 할 수 있습니다.",
@@ -291,7 +293,7 @@ export const authUiMessages = {
     auth_onboarding_saved_redirect: "저장되었습니다. 잠시 후 자동으로 이동합니다…",
     auth_onboarding_confirm: "확정",
     auth_onboarding_profile_title: "프로필 설정",
-    auth_onboarding_profile_desc: "앱에서 사용할 닉네임을 입력해 주세요. 나중에 내정보에서 다시 바꿀 수 있습니다.",
+    auth_onboarding_profile_desc: `앱에서 사용할 닉네임을 입력해 주세요. 나중에 ${B.MY}에서 다시 바꿀 수 있습니다.`,
     auth_onboarding_nickname_label: "닉네임",
     auth_onboarding_nickname_invalid: "닉네임은 2~20자 이내로 입력해 주세요.",
     auth_onboarding_save_retry: "저장에 실패했습니다. 다시 시도해 주세요.",
@@ -519,7 +521,7 @@ export const authUiMessages = {
     auth_login_required_body_trade_report: "Sign in to report this trade post.",
     auth_login_required_body_trade_buy: "Sign in to request this trade.",
     auth_login_required_body_trade_chat: "Sign in for safe trade chat.",
-    auth_login_required_body_messenger_open: "Sign in to use Messenger.",
+    auth_login_required_body_messenger_open: `Sign in to use ${B.LETARING}.`,
     auth_login_required_body_friend_add: "Sign in to add friends.",
     auth_login_required_body_friend_chat: "Sign in to chat with friends.",
     auth_login_required_body_voice_call: "Sign in and allow microphone access to use calls.",
@@ -550,7 +552,7 @@ export const authUiMessages = {
     auth_consent_privacy_link: "View Privacy Policy",
     auth_consent_marketing_link: "View details",
     auth_consent_marketing_save_failed: "Could not save your optional choice. Please try again.",
-    auth_consent_feature_notice: "You can sign up and use the service without optional consents. Benefits & events notifications can be changed anytime in My page › Notification settings.",
+    auth_consent_feature_notice: `You can sign up and use the service without optional consents. Benefits & events notifications can be changed anytime in ${B.MY} › Notification settings.`,
     auth_consent_safety_notice:
       "Harmful content, fraud, hate speech, privacy leaks, and illegal trade are prohibited and may be reported or blocked.",
     auth_consent_escape_hint: "Without agreeing you can still contact support or report, delete your account, or log out.",
@@ -597,7 +599,7 @@ export const authUiMessages = {
     auth_onboarding_saved_redirect: "Saved. Redirecting shortly…",
     auth_onboarding_confirm: "Confirm",
     auth_onboarding_profile_title: "Profile setup",
-    auth_onboarding_profile_desc: "Choose a nickname for the app. You can change it later in My page.",
+    auth_onboarding_profile_desc: `Choose a nickname for the app. You can change it later in ${B.MY}.`,
     auth_onboarding_nickname_label: "Nickname",
     auth_onboarding_nickname_invalid: "Nickname must be 2–20 characters.",
     auth_onboarding_save_retry: "Could not save. Please try again.",

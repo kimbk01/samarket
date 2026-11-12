@@ -19,6 +19,7 @@
  */
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
+import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 
 export type AdminActionQueueCategory =
   | "store_charges"
@@ -89,8 +90,8 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     sidebarMenuKeys: ["delivery-operation-alerts"],
     titleKo: "배달 운영 알림",
     titleEn: "Delivery ops alerts",
-    domainKo: "배달",
-    domainEn: "Delivery",
+    domainKo: B.DIPICK,
+    domainEn: B.DIPICK,
     ctaKo: "알림 큐",
     ctaEn: "Alerts queue",
   },
@@ -108,8 +109,8 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     /** Operational exceptions only — cancel/refund requests are the store owner's decision (3단계). */
     titleKo: "주문 운영 예외 (관리자 개입 필요)",
     titleEn: "Order exceptions (admin action)",
-    domainKo: "배달",
-    domainEn: "Delivery",
+    domainKo: B.DIPICK,
+    domainEn: B.DIPICK,
     ctaKo: "주문 큐 열기",
     ctaEn: "Open order queue",
   },
@@ -199,8 +200,8 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     sidebarMenuKeys: ["global-reports", "reports-posts"],
     titleKo: "거래 신고 (상품·회원·채팅방)",
     titleEn: "Trade reports",
-    domainKo: "거래",
-    domainEn: "Trade",
+    domainKo: B.MARKET,
+    domainEn: B.MARKET,
     ctaKo: "거래 신고 큐",
     ctaEn: "Trade reports",
   },
@@ -217,8 +218,8 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     sidebarMenuKeys: ["global-reports", "community-feed-reports"],
     titleKo: "커뮤니티 일반 신고",
     titleEn: "Community reports",
-    domainKo: "커뮤니티",
-    domainEn: "Community",
+    domainKo: B.LOUNGE,
+    domainEn: B.LOUNGE,
     ctaKo: "신고 큐",
     ctaEn: "Reports queue",
   },
@@ -252,12 +253,12 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     // C-10 / J-AMD-4: 메신저 신고는 채팅 신고 단일 큐에서 처리 (통화 기록 화면 아님).
     listHref: "/admin/chats/reported?type=messenger",
     sidebarMenuKeys: ["chat-reported"],
-    titleKo: "메신저 신고",
-    titleEn: "Messenger reports",
-    domainKo: "채팅",
-    domainEn: "Chat",
-    ctaKo: "메신저 신고 큐",
-    ctaEn: "Messenger reports",
+    titleKo: `${B.LETARING} 신고`,
+    titleEn: `${B.LETARING} reports`,
+    domainKo: B.LETARING,
+    domainEn: B.LETARING,
+    ctaKo: `${B.LETARING} 신고 큐`,
+    ctaEn: `${B.LETARING} reports`,
   },
   {
     key: "delivery_ad_ops",
@@ -273,8 +274,8 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     sidebarMenuKeys: ["delivery-ads-ops-entry"],
     titleKo: "배달 광고 운영 대기",
     titleEn: "Delivery ads waiting",
-    domainKo: "광고 · 배달",
-    domainEn: "Ads · Delivery",
+    domainKo: `광고 · ${B.DIPICK}`,
+    domainEn: `Ads · ${B.DIPICK}`,
     ctaKo: "광고 운영 열기",
     ctaEn: "Open ads ops",
   },
@@ -309,8 +310,8 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     sidebarMenuKeys: ["ads-applications"],
     titleKo: "거래 프로모 심사",
     titleEn: "Trade promo review",
-    domainKo: "거래",
-    domainEn: "Trade",
+    domainKo: B.MARKET,
+    domainEn: B.MARKET,
     ctaKo: "신청 열기",
     ctaEn: "Open applications",
   },

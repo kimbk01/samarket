@@ -215,6 +215,7 @@ export function AdminSidebarItem({
         prefetch={false}
         className={`${linkClass} flex items-center justify-between gap-2`}
         data-admin-sidebar-leaf={leafIsActive ? "active" : "idle"}
+        aria-current={leafIsActive ? "page" : undefined}
         onClick={() => {
           onNavigate?.(item.path!);
           onClose?.();

@@ -30,7 +30,7 @@ const ROOM_STATUS: Registry = {
 const CHAT_DOMAIN: Registry = {
   general_direct: { ...catalogPair("admin_text_7"), tone: "neutral" },
   group: { ...catalogPair("admin_cm_session_mode_group"), tone: "neutral" },
-  trade: { ...catalogPair("admin_trade"), tone: "progress" },
+  trade: { ...catalogPair("admin_domain_chip_market"), tone: "progress" },
   store_order: { ...catalogPair("admin_delivery_order"), tone: "progress" },
 };
 

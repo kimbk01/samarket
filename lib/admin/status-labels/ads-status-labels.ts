@@ -11,8 +11,8 @@ import { catalogPair } from "@/lib/i18n/catalog-pair";
 registerAdminStatusLabels("ads.domain", {
   all: { ...catalogPair("admin_all"), tone: "neutral" },
   community: { ...catalogPair("admin_community"), tone: "neutral" },
-  trade: { ...catalogPair("admin_trade"), tone: "neutral" },
-  delivery: { ...catalogPair("admin_delivery"), tone: "neutral" },
+  trade: { ...catalogPair("admin_domain_chip_market"), tone: "neutral" },
+  delivery: { ...catalogPair("admin_domain_chip_dipick"), tone: "neutral" },
   popup: { ...catalogPair("admin_ad_kind_popup_campaign"), tone: "neutral" },
 });
 

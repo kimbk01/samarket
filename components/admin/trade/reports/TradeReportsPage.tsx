@@ -745,7 +745,7 @@ function TradeReportDetailSheet({
                       ? ` · ${tradeRestrictionScopeLabel(t, s(x.restriction)) ?? t("admin_trade_restrict_scope_unknown")}`
                       : "";
                     const domain =
-                      s(x.scope) === "trade" ? t("admin_trade") : s(x.scope) === "community" ? t("admin_trade_reports_domain_community") : "";
+                      s(x.scope) === "trade" ? t("admin_domain_chip_market") : s(x.scope) === "community" ? t("admin_trade_reports_domain_community") : "";
                     const period = s(x.sanction_type) === "warning" ? "" : ` · ${tradeSanctionPeriodText(t, x)}`;
                     const stKey: MessageKey =
                       st === "active"

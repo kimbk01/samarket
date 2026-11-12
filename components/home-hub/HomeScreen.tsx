@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Coins, Gift, Headset, Heart, LayoutGrid, MessageCircle, Newspaper, Receipt, Search, Tag, type LucideIcon } from "lucide-react";
+import { ChevronDown, Coins, Gift, Headset, Heart, LayoutGrid, Receipt, Search, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { serviceBrandIconSlot, type ServiceBrandIconSlotProps } from "@/components/brand/ServiceBrandIcon";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { DibayPtrSlot } from "@/components/ptr/DibayPtrSlot";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
@@ -35,11 +36,12 @@ import { HomePostsSection } from "@/components/home-hub/HomePostsSection";
 import { useHomeRotation } from "@/components/home-hub/use-home-rotation";
 import { hasSupabaseAuthTokenCookie } from "@/lib/home/home-banner-audience-hint";
 
-const SHORTCUT_ICON: Record<HomeMenuKey, LucideIcon> = {
-  trade: Tag,
-  stores: Receipt,
-  philife: Newspaper,
-  chat: MessageCircle,
+const SHORTCUT_ICON: Record<HomeMenuKey, LucideIcon | ((p: ServiceBrandIconSlotProps) => React.JSX.Element)> = {
+  /** 서비스 4개 = 브랜드 대표 아이콘 (Owner 2026-11-13) — 기능(주문·포인트 등)은 선 아이콘 그대로 */
+  trade: serviceBrandIconSlot("MARKET"),
+  stores: serviceBrandIconSlot("DIPICK"),
+  philife: serviceBrandIconSlot("FEED"),
+  chat: serviceBrandIconSlot("LETARING"),
   events: Gift,
   orders: Receipt,
   points: Coins,

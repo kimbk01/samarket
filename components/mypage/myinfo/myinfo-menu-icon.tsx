@@ -46,6 +46,7 @@ import {
   UserX,
 } from "lucide-react";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
+import { ServiceBrandIcon } from "@/components/brand/ServiceBrandIcon";
 import type { MypageHomeMenuIconId } from "@/lib/mypage/mypage-home-menu-config";
 
 const ICON_CLASS = "h-[18px] w-[18px]";
@@ -53,6 +54,12 @@ const ICON_CLASS = "h-[18px] w-[18px]";
 export function renderMypageHomeMenuIcon(icon: MypageHomeMenuIconId): ReactNode {
   const stroke = { strokeWidth: 2 as const };
   switch (icon) {
+    case "brand-market":
+      return <ServiceBrandIcon brand="MARKET" className={ICON_CLASS} />;
+    case "brand-lounge":
+      return <ServiceBrandIcon brand="LOUNGE" className={ICON_CLASS} />;
+    case "brand-dipick":
+      return <ServiceBrandIcon brand="DIPICK" className={ICON_CLASS} />;
     case "package":
       return <Package className={ICON_CLASS} {...stroke} />;
     case "heart":

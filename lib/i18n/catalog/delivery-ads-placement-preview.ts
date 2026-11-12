@@ -1,4 +1,6 @@
 /** PRODUCT CUT 2 — Placement preview UI copy */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const deliveryAdsPlacementPreviewMessages = {
   ko: {
     delivery_ads_preview_aria: "광고 고객 화면 미리보기",
@@ -20,7 +22,7 @@ export const deliveryAdsPlacementPreviewMessages = {
       "매장 홍보 광고는 기존 매장 카드와 같은 형태로 표시되며 '광고' 표시가 추가됩니다.",
     delivery_ads_preview_banner_explain: "배너 광고는 선택한 지면의 배너 영역에 표시됩니다.",
     delivery_ads_preview_home_rest_explain:
-      "배달 홈의 일반 매장 목록(나머지 매장) 사이에 표시됩니다.",
+      `${B.DIPICK} 홈의 일반 매장 목록(나머지 매장) 사이에 표시됩니다.`,
     delivery_ads_preview_search_position:
       "검색 결과 요약 아래, 유기 매장 결과 목록 바로 위에 표시됩니다.",
     delivery_ads_preview_search_relevance:
@@ -28,7 +30,7 @@ export const deliveryAdsPlacementPreviewMessages = {
     delivery_ads_preview_search_shell_title: "검색",
     delivery_ads_preview_search_shell_summary: "검색 결과",
     delivery_ads_preview_search_organic_stores: "매장 결과",
-    delivery_ads_preview_home_hero_shell: "배달 홈 · 상단 배너 영역",
+    delivery_ads_preview_home_hero_shell: `${B.DIPICK} 홈 · 상단 배너 영역`,
     delivery_ads_preview_ad_here: "광고가 여기에 표시됩니다",
     delivery_ads_preview_cta: "버튼",
     delivery_ads_preview_cta_target: "연결",
@@ -63,7 +65,7 @@ export const deliveryAdsPlacementPreviewMessages = {
       "Store sponsored ads use the same store card layout with an Ad label.",
     delivery_ads_preview_banner_explain: "Banner ads appear in the selected banner placement.",
     delivery_ads_preview_home_rest_explain:
-      "Shown between organic stores in the Delivery home rest store list.",
+      `Shown between organic stores in the ${B.DIPICK} home rest store list.`,
     delivery_ads_preview_search_position:
       "Shown below the result summary and directly above organic store results.",
     delivery_ads_preview_search_relevance:
@@ -71,7 +73,7 @@ export const deliveryAdsPlacementPreviewMessages = {
     delivery_ads_preview_search_shell_title: "Search",
     delivery_ads_preview_search_shell_summary: "Search results",
     delivery_ads_preview_search_organic_stores: "Store results",
-    delivery_ads_preview_home_hero_shell: "Delivery home · top banner area",
+    delivery_ads_preview_home_hero_shell: `${B.DIPICK} home · top banner area`,
     delivery_ads_preview_ad_here: "Ad appears here",
     delivery_ads_preview_cta: "Button",
     delivery_ads_preview_cta_target: "Destination",

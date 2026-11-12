@@ -1,4 +1,6 @@
 /** CUT F — Admin Delivery Ads control plane i18n */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const adminDeliveryAdsMessages = {
   ko: {
     admin_delivery_ads_queue_col_action: "처리",
@@ -247,7 +249,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_open_category_policy: "업종(BROWSE) 광고 정책",
     admin_delivery_ads_inventory_desc:
       "고객 화면에 실제로 팔리는 광고 위치를 관리합니다. 내부 inventory key는 보조 정보입니다.",
-    admin_ads_surface_home: "배달 홈",
+    admin_ads_surface_home: `${B.DIPICK} 홈`,
     admin_ads_surface_category: "업종별 매장 목록",
     admin_ads_surface_search: "검색",
     admin_ads_form_carousel: "형태: 슬라이드 배너",
@@ -519,7 +521,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_open_category_policy: "BROWSE category ad policy",
     admin_delivery_ads_inventory_desc:
       "Manage sellable customer placements. Internal inventory keys are secondary metadata only.",
-    admin_ads_surface_home: "Delivery Home",
+    admin_ads_surface_home: `${B.DIPICK} home`,
     admin_ads_surface_category: "Category store lists",
     admin_ads_surface_search: "Search",
     admin_ads_form_carousel: "Form: carousel banner",

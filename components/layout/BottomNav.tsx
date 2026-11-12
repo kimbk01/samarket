@@ -1,6 +1,5 @@
 "use client";
 
-import { BottomNavProfileAvatar } from "@/components/layout/BottomNavProfileAvatar";
 import Link from "next/link";
 import {
   memo,
@@ -60,7 +59,8 @@ import {
 import { syncMypageBottomNavContextFromPath } from "@/lib/main-menu/mypage-bottom-nav-origin";
 import { markBottomNavRouteIntentForBackgroundWarm } from "@/lib/navigation/mark-bottom-nav-route-intent";
 import { MainBottomNavTabIcon } from "@/components/main-menu/MainBottomNavTabIcon";
-import { MAIN_BOTTOM_NAV_TAB_ICONS, MainBottomNavHomeIcon } from "@/components/main-menu/MainBottomNavTabIcons";
+import { MAIN_BOTTOM_NAV_TAB_ICONS } from "@/components/main-menu/MainBottomNavTabIcons";
+import { ServiceBrandIcon } from "@/components/brand/ServiceBrandIcon";
 import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-nav-href";
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
 import { useShellHydrated } from "@/lib/ui/use-shell-hydrated";
@@ -225,19 +225,10 @@ function BottomNavTabIconContent({
   badgeCount: number;
 }) {
   /**
-   * 네이버형 하단 탭 (홈 설계안 v11, Owner 「구현 시작」 2026-11-09): 원형 orbit 강조를 그리지 않는다 —
-   * 선택 탭은 검은 둥근 사각형 안 흰 아이콘(CSS), 「내정보」는 프로필 사진. `emphasisKind` 는 탭 이동 주소에만 쓴다.
+   * 텔레그램형 하단 탭 (Owner 최종 승인 2026-11-13): 모든 탭 = 대표 채움 아이콘 26px(선택해도 크기 그대로),
+   * 선택 = 아이콘·글자 색만 DIBAY 그린(CSS). 「MY」도 프로필 사진이 아니라 대표 사람 아이콘 — 사진 기능은 MY 화면에 그대로.
+   * 원형 orbit 강조는 꺼져 있다 — `emphasisKind` 는 탭 이동 주소에만 쓴다.
    */
-  if (tab.id === "my") {
-    return (
-      <div className="app-bottom-nav-icon-slot">
-        <span className="app-bottom-nav-inline-icon app-bottom-nav-inline-icon--avatar">
-          <BottomNavProfileAvatar />
-          <BottomNavHubBadgeDot count={badgeCount} />
-        </span>
-      </div>
-    );
-  }
   if (BOTTOM_NAV_ORBIT_EMPHASIS_ENABLED && (emphasisKind === "domain-hub" || emphasisKind === "messenger-hub")) {
     return (
       <>
@@ -254,7 +245,7 @@ function BottomNavTabIconContent({
               .join(" ")}
           >
             <span className="app-bottom-nav-domain-hub-orbit-icon-wrap" aria-hidden>
-              <MainBottomNavHomeIcon className="app-bottom-nav-domain-hub-icon" />
+              <ServiceBrandIcon brand="HOME" className="app-bottom-nav-domain-hub-icon" />
             </span>
             <BottomNavHubBadgeDot count={badgeCount} />
           </span>

@@ -1,3 +1,4 @@
+import { DIBAY_SERVICE_BRAND } from "@/lib/brand/dibay-service-brand";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 
 /** 클립보드 JSON 블록 식별(파서·향후 붙여넣기 자동 인식용) */
@@ -42,7 +43,7 @@ export function buildCommunityMessengerInternalShareClipboard(input: {
   };
   const humanPreview = preview.slice(0, MAX_PREVIEW_HUMAN) + (preview.length > MAX_PREVIEW_HUMAN ? "…" : "");
   const human = [
-    "[사마켓 메신저 · 메시지 카드]",
+    `[${DIBAY_SERVICE_BRAND.LETARING} · 메시지 카드]`,
     `방: ${card.roomTitle}`,
     `메시지 유형: ${card.messageType}`,
     "미리보기:",

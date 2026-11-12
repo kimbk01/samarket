@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bike, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import { ServiceBrandIcon } from "@/components/brand/ServiceBrandIcon";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   fetchMeStoreOrdersHubSummaryDeduped,
@@ -45,7 +46,7 @@ export function HomeOngoingSection({ refreshSeq }: { refreshSeq: number }) {
       className="mx-3 mb-3 flex w-[calc(100%-1.5rem)] items-center gap-2.5 rounded-ui-rect bg-white px-3.5 py-3 text-left shadow-[0_1px_3px_rgba(20,40,25,0.06)] active:opacity-80"
       data-home-ongoing
     >
-      <Bike className="h-5 w-5 shrink-0 text-sam-primary" strokeWidth={1.8} aria-hidden />
+      <ServiceBrandIcon brand="DIPICK" className="h-5 w-5 shrink-0 text-sam-primary" />
       <span className="min-w-0 flex-1 truncate text-[14px] text-[#141a16]">
         <b className="font-semibold">{recent.store_name}</b>
         <span className="text-[#767676]">

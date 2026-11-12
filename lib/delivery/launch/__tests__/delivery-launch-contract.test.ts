@@ -201,7 +201,7 @@ describe("Owner 2026-11-10 — 홈에서 바로 들어오는 매장 아래 화�
 
 describe("Owner 2026-11-10 「어드민에 추가」 — 안내 띠 문구", () => {
   it("설계 기본 문구 = 앱 기본 안내 띠, 저장값은 길이 제한 안에서 그대로", () => {
-    expect(deliveryLaunchDesignTexts("ko").ribbon).toBe("배달 오픈 준비 중 · 매장을 모으고 있어요");
+    expect(deliveryLaunchDesignTexts("ko").ribbon).toBe("DIPICK 오픈 준비 중 · 매장을 모으고 있어요");
     const c = normalizeDeliveryLaunchContent({ texts: { ko: { ribbon: "1월 오픈 · 지금 입점하세요" } } });
     expect(c.texts.ko.ribbon).toBe("1월 오픈 · 지금 입점하세요");
     expect(normalizeDeliveryLaunchContent({ texts: { ko: { ribbon: "가".repeat(200) } } }).texts.ko.ribbon.length).toBeLessThanOrEqual(60);

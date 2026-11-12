@@ -70,8 +70,8 @@ export function humanPopupSurfaceShortLabel(
   const labels: Record<string, PlacementLabel> = {
     GLOBAL: catalogPair("admin_all_services"),
     COMMUNITY: catalogPair("admin_community"),
-    TRADE: catalogPair("admin_trade"),
-    DELIVERY: catalogPair("admin_delivery"),
+    TRADE: catalogPair("admin_domain_chip_market"),
+    DELIVERY: catalogPair("admin_domain_chip_dipick"),
     DELIVERY_OWNER: catalogPair("admin_delivery_owner"),
     ADMIN: catalogPair("admin_admin"),
     MYPAGE: catalogPair("admin_my_page"),

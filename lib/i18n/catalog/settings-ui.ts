@@ -1,4 +1,6 @@
 /** 내정보 · 설정 화면 UI (Phase 3) */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const settingsUiMessages = {
   ko: {
     settings_chat_push: "채팅 알림",
@@ -128,8 +130,8 @@ export const settingsUiMessages = {
     settings_device_camera: "카메라",
     settings_device_notification: "알림",
     settings_device_location_desc: "현재 위치 공유, 주변 정보, 배달 주소 찾기에 사용됩니다.",
-    settings_device_mic_desc: "메신저 음성통화와 통화 연결에 사용됩니다.",
-    settings_device_camera_desc: "메신저 영상통화와 카메라가 필요한 기능에 사용됩니다.",
+    settings_device_mic_desc: `${B.LETARING} 음성통화와 통화 연결에 사용됩니다.`,
+    settings_device_camera_desc: `${B.LETARING} 영상통화와 카메라가 필요한 기능에 사용됩니다.`,
     settings_device_notification_desc: "채팅, 통화, 주문 알림을 브라우저 알림으로 받을 때 사용됩니다.",
     settings_device_speaker: "스피커 · 출력",
     settings_device_status: "상태: {label}",
@@ -501,8 +503,8 @@ export const settingsUiMessages = {
     settings_device_camera: "Camera",
     settings_device_notification: "Notifications",
     settings_device_location_desc: "Used for current location sharing, nearby context, and delivery address lookup.",
-    settings_device_mic_desc: "Used for Messenger voice calls and call connection.",
-    settings_device_camera_desc: "Used for Messenger video calls and camera-based features.",
+    settings_device_mic_desc: `Used for ${B.LETARING} voice calls and call connection.`,
+    settings_device_camera_desc: `Used for ${B.LETARING} video calls and camera-based features.`,
     settings_device_notification_desc: "Used to receive chat, call, and order alerts as browser notifications.",
     settings_device_speaker: "Speaker · output",
     settings_device_status: "Status: {label}",

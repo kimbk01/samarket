@@ -2,6 +2,7 @@
  * Admin IA 재설계 R1 (감사 2026-10-30 · Owner 권장안 승인) — 메뉴 섹션·배너 현황 문구.
  * 경로·메뉴 key·원장은 바꾸지 않는다. messages.ts 의 ko/en 맨 끝에서 spread 된다.
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
 export const adminIaR1Messages = {
   ko: {
     // 운영 실측 (2026-10-30): 운영자 화면에 DB 테이블 이름이 보이던 문구 — 운영자 용어로 덮어쓴다 (admin.ts 원문 유지, TS7056 회피)
@@ -42,9 +43,9 @@ export const adminIaR1Messages = {
     admin_banners_overview_filter_all: "전체",
     admin_banners_overview_source_failed: "일부 배너를 불러오지 못했습니다",
     admin_banners_overview_domain_common: "공통",
-    admin_banners_overview_domain_trade: "거래",
-    admin_banners_overview_domain_community: "커뮤니티",
-    admin_banners_overview_domain_delivery: "배달",
+    admin_banners_overview_domain_trade: B.MARKET,
+    admin_banners_overview_domain_community: B.LOUNGE,
+    admin_banners_overview_domain_delivery: B.DIPICK,
     admin_feed_policy_unlinked_notice:
       "이 정책은 현재 고객 앱 화면에 연결된 것이 확인되지 않았습니다. 저장해도 앱 노출이 바뀌지 않을 수 있습니다.",
   },
@@ -85,9 +86,9 @@ export const adminIaR1Messages = {
     admin_banners_overview_filter_all: "All",
     admin_banners_overview_source_failed: "Some banners could not be loaded",
     admin_banners_overview_domain_common: "Common",
-    admin_banners_overview_domain_trade: "Trade",
-    admin_banners_overview_domain_community: "Community",
-    admin_banners_overview_domain_delivery: "Delivery",
+    admin_banners_overview_domain_trade: B.MARKET,
+    admin_banners_overview_domain_community: B.LOUNGE,
+    admin_banners_overview_domain_delivery: B.DIPICK,
     admin_feed_policy_unlinked_notice:
       "This policy is not confirmed to be connected to the customer app. Saving may not change what the app shows.",
   },

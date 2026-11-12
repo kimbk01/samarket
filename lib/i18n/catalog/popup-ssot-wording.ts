@@ -4,6 +4,8 @@
  * - 질문은 「~할까요?」, 제목은 한 문장 · 둘째 문장은 설명으로.
  * - 되돌릴 수 없는 행동은 동사 + 위험색, 되돌릴 수 있는 행동은 동사 + 주색, 안내만은 「확인」.
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const popupSsotWordingMessages = {
   ko: {
     popup_error_title: "처리하지 못했어요",
@@ -203,7 +205,7 @@ export const popupSsotWordingMessages = {
     popup_q_set_profile_name: "프로필 이름을 설정할까요?",
     popup_btn_set_name: "이름 설정",
     popup_q_fill_required_info: "필요한 정보를 입력할까요?",
-    popup_btn_go_my_info: "내정보로 이동",
+    popup_btn_go_my_info: `${B.MY}로 이동`,
     popup_q_fill_remaining_info: "남은 정보를 지금 입력할까요?",
     popup_btn_fill_in: "입력하기",
     popup_q_login_with_provider: "{provider}(으)로 로그인할까요?",
@@ -415,7 +417,7 @@ export const popupSsotWordingMessages = {
     popup_q_set_profile_name: "Set your profile name?",
     popup_btn_set_name: "Set name",
     popup_q_fill_required_info: "Fill in the required info?",
-    popup_btn_go_my_info: "Go to My page",
+    popup_btn_go_my_info: `Go to ${B.MY}`,
     popup_q_fill_remaining_info: "Fill in the rest now?",
     popup_btn_fill_in: "Fill in",
     popup_q_login_with_provider: "Sign in with {provider}?",

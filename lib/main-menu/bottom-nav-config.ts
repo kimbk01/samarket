@@ -34,6 +34,7 @@ export const BOTTOM_NAV_ICON_KEYS = [
 ] as const;
 export type BottomNavIconKey = (typeof BOTTOM_NAV_ICON_KEYS)[number];
 
+import { DIBAY_SERVICE_BRAND } from "@/lib/brand/dibay-service-brand";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { MainBottomNavFabStoredConfig } from "@/lib/main-menu/main-bottom-nav-fab-types";
 
@@ -341,18 +342,18 @@ function isBuiltinBottomNavTabId(id: string): id is BottomNavBuiltinTabId {
  * 표시 순서 = 배열 순서. 항목을 빼거나 바꾸면 탭 구성이 바뀝니다.
  */
 export const BOTTOM_NAV_ITEMS: readonly BottomNavItemConfig[] = [
-  /** 홈 설계안 v11 (Owner 「구현 시작」 2026-11-09): 홈 · 커뮤니티(정보교환·거래) · 배달 · 채팅 · 내정보 */
-  { id: "home", href: "/home", label: "Home", labelKey: "nav.home", icon: "home" },
-  { id: "community", href: "/philife", label: "Community", labelKey: "nav.community", icon: "community" },
-  { id: "stores", href: "/stores", label: "Food", labelKey: "nav.delivery", icon: "stores" },
+  /** 홈 설계안 v11 (2026-11-09) · 브랜드 명칭 SSOT (Owner 2026-11-13): HOME · LOUNGE(FEED·MARKET·CREW) · DIPICK · LETARING · MY */
+  { id: "home", href: "/home", label: DIBAY_SERVICE_BRAND.HOME, labelKey: "nav.home", icon: "home" },
+  { id: "community", href: "/philife", label: DIBAY_SERVICE_BRAND.LOUNGE, labelKey: "nav.community", icon: "community" },
+  { id: "stores", href: "/stores", label: DIBAY_SERVICE_BRAND.DIPICK, labelKey: "nav.delivery", icon: "stores" },
   {
     id: "chat",
     href: "/community-messenger?section=chats&inbox=unread",
-    label: "Chat",
+    label: DIBAY_SERVICE_BRAND.LETARING,
     labelKey: "nav.chat",
     icon: "chat",
   },
-  { id: "my", href: "/mypage", label: "My", labelKey: "nav.my", icon: "my" },
+  { id: "my", href: "/mypage", label: DIBAY_SERVICE_BRAND.MY, labelKey: "nav.my", icon: "my" },
 ];
 
 /** `BOTTOM_NAV_ITEMS` 순 — 스와이프/인접 이동용 (해당 `id` 기준) */
@@ -365,13 +366,13 @@ export function getBottomNavAdjacentHref(tabId: BottomNavTabId, direction: "next
 }
 
 /** 거래 탐색(/market·/mypage/purchases 등) 메인 1단 제목 — 거래는 하단 탭이 아니라 커뮤니티 안 탭 */
-export const BOTTOM_NAV_TRADE_TAB_LABEL: string = "Trade";
+export const BOTTOM_NAV_TRADE_TAB_LABEL: string = DIBAY_SERVICE_BRAND.MARKET;
 
 export const BOTTOM_NAV_TRADE_TAB_LABEL_KEY: MessageKey = "nav_bottom_trade";
 
 /** 커뮤니티 탭 라벨 — 1단 `Tier1ExplorationTitleRow` 등과 동기화 */
 export const BOTTOM_NAV_PHILIFE_TAB_LABEL: string =
-  BOTTOM_NAV_ITEMS.find((i) => i.id === "community")?.label ?? "Community";
+  BOTTOM_NAV_ITEMS.find((i) => i.id === "community")?.label ?? DIBAY_SERVICE_BRAND.LOUNGE;
 
 export const BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY: MessageKey = "nav_bottom_community";
 

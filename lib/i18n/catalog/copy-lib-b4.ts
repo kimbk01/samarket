@@ -2,6 +2,8 @@
  * 고객·사장님 공용 lib·컴포넌트 대체 문구 이관.
  * 언어 SSOT B4(2026-11-08): 언어 삼항·영어 짝 없는 한국어·대체 문구에서 옮긴 문구 (`docs/i18n-ssot.md` §3).
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const copyLibB4Messages = {
   ko: {
     auth_login_required_body_messenger_new_chat: "이 기능을 사용하려면 로그인이 필요합니다.",
@@ -17,7 +19,7 @@ export const copyLibB4Messages = {
     stores_menu_preview_nav_trade: "거래",
     stores_menu_preview_nav_delivery: "배달",
     stores_menu_preview_nav_chat: "채팅",
-    stores_menu_preview_nav_my: "내정보",
+    stores_menu_preview_nav_my: `${B.MY}`,
     stores_menu_preview_home: "홈",
     stores_menu_preview_sort_default: "⇅ 기본순",
     stores_menu_preview_filter_coupon: "⚡ 할인·쿠폰",

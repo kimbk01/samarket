@@ -3,10 +3,12 @@
  * 화면 전용 문구는 moim-screens.ts · moim-manage.ts.
  * 오류 키는 lib/moim/moim-error-codes.ts 의 코드마다 하나 (계약 테스트가 대조).
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const moimCoreMessages = {
   ko: {
-    tier1_moim: "모임",
-    moim_tab: "모임",
+    tier1_moim: B.CREW,
+    moim_tab: B.CREW,
     moim_room_home_btn: "모임 홈",
     moim_room_go_home: "모임 홈으로 가기",
     moim_room_managed_in_moim: "멤버 초대·내보내기·나가기는 모임 홈에서 할 수 있어요",
@@ -199,8 +201,8 @@ export const moimCoreMessages = {
     notify_moim_post_new_body: "{moim}에 새 글이 올라왔어요",
   },
   en: {
-    tier1_moim: "Groups",
-    moim_tab: "Groups",
+    tier1_moim: B.CREW,
+    moim_tab: B.CREW,
     moim_room_home_btn: "Group home",
     moim_room_go_home: "Go to group home",
     moim_room_managed_in_moim: "Invite, remove or leave from the group home",

@@ -2,6 +2,8 @@
  * components/mypage/* 및 관련 마이페이지 UI 문자열 (Phase 마이그레이션용)
  * 키 접두사: mypage_comp_
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const mypageComponentsMessages = {
   ko: {
     // KamarketPayCard
@@ -38,7 +40,7 @@ export const mypageComponentsMessages = {
     mypage_comp_interest_empty_hint: "찜한 상품이 없으면 홈에서 하트를 눌러 담을 수 있어요.",
 
     // MyInfoHeader
-    mypage_comp_myinfo_header_title_default: "내정보",
+    mypage_comp_myinfo_header_title_default: `${B.MY}`,
 
     // Profile image / address chips (hub summary)
     mypage_comp_profile_image_aria: "프로필 이미지",
@@ -208,7 +210,7 @@ export const mypageComponentsMessages = {
     my_reports_reported_at: "{date} 신고",
     my_report_not_found: "신고를 찾을 수 없어요",
     my_report_source_community: "커뮤니티 신고",
-    my_report_source_messenger: "메신저 채팅 신고",
+    my_report_source_messenger: `${B.LETARING} 채팅 신고`,
     my_report_source_trade_chat: "거래 채팅 신고",
     my_report_source_trade: "거래 신고",
     my_report_stage_received: "접수됨",
@@ -269,11 +271,11 @@ export const mypageComponentsMessages = {
     mypage_comp_nav_tab_trade_label: "거래",
     mypage_comp_nav_tab_community_label: "커뮤니티",
     mypage_comp_nav_tab_store_label: "매장 / 주문",
-    mypage_comp_nav_tab_messenger_label: "메신저",
+    mypage_comp_nav_tab_messenger_label: `${B.LETARING}`,
     mypage_comp_nav_tab_settings_label: "설정",
 
     // MyPageSidebar — sections (label / description)
-    mypage_comp_nav_sec_account_home_label: "내정보 홈",
+    mypage_comp_nav_sec_account_home_label: `${B.MY} 홈`,
     mypage_comp_nav_sec_account_home_desc: "내 계정 상태와 주요 활동을 한눈에 확인합니다.",
     mypage_comp_nav_sec_account_profile_label: "프로필",
     mypage_comp_nav_sec_account_profile_desc:
@@ -281,9 +283,9 @@ export const mypageComponentsMessages = {
     mypage_comp_nav_sec_account_basic_label: "계정 기본정보",
     mypage_comp_nav_sec_account_basic_desc: "계정 상세, 연락처 인증, 로그아웃과 탈퇴 같은 계정 단위 작업을 관리합니다.",
     mypage_comp_nav_sec_account_favorite_users_label: "친구 / 관심 사용자",
-    mypage_comp_nav_sec_account_favorite_users_desc: "모아보는 사용자를 관리합니다. 거래, 커뮤니티, 메신저에서 공통으로 참조됩니다.",
+    mypage_comp_nav_sec_account_favorite_users_desc: `모아보는 사용자를 관리합니다. 거래, 커뮤니티, ${B.LETARING}에서 공통으로 참조됩니다.`,
     mypage_comp_nav_sec_account_blocked_users_label: "차단 사용자",
-    mypage_comp_nav_sec_account_blocked_users_desc: "차단된 사용자는 거래, 커뮤니티, 메신저에서 공통으로 제한됩니다.",
+    mypage_comp_nav_sec_account_blocked_users_desc: `차단된 사용자는 거래, 커뮤니티, ${B.LETARING}에서 공통으로 제한됩니다.`,
     mypage_comp_nav_sec_account_hidden_users_label: "숨긴 사용자",
     mypage_comp_nav_sec_account_hidden_users_desc: "숨김 처리한 사용자는 피드와 일부 목록 노출에서 제외됩니다.",
 
@@ -312,7 +314,7 @@ export const mypageComponentsMessages = {
     mypage_comp_nav_sec_community_users_desc:
       "관심이웃으로 추가한 이웃을 관리합니다. 상세의 관심이웃과 같은 관계를 사용합니다.",
     mypage_comp_nav_sec_community_reports_label: "신고 내역",
-    mypage_comp_nav_sec_community_reports_desc: "커뮤니티와 메신저 신고 접수 내역을 한곳에서 확인합니다.",
+    mypage_comp_nav_sec_community_reports_desc: `커뮤니티와 ${B.LETARING} 신고 접수 내역을 한곳에서 확인합니다.`,
     mypage_comp_buyer_note_present: "요청 사항 있음",
     mypage_comp_order_chat_unread_aria: "주문 채팅 읽지 않은 메시지 {count}건",
     mypage_comp_nav_sec_store_orders_label: "주문 내역",
@@ -333,14 +335,14 @@ export const mypageComponentsMessages = {
       "라이더 전용 권한과 화면은 별도 운영 흐름이 필요해 현재는 기존 배송·주문 흐름을 유지합니다.",
 
     mypage_comp_nav_sec_messenger_dm_label: "1:1 채팅",
-    mypage_comp_nav_sec_messenger_dm_desc: "메신저 1:1 채팅과 거래·주문 채팅을 구분해서 관리합니다.",
+    mypage_comp_nav_sec_messenger_dm_desc: `${B.LETARING} 1:1 채팅과 거래·주문 채팅을 구분해서 관리합니다.`,
     mypage_comp_nav_sec_messenger_groups_label: "그룹 채팅",
     mypage_comp_nav_sec_messenger_groups_desc:
-      "공개 그룹과 비공개 그룹은 메신저 축에서 유지하되, 내정보 안에서 빠르게 진입합니다.",
+      `공개 그룹과 비공개 그룹은 ${B.LETARING} 축에서 유지하되, ${B.MY} 안에서 빠르게 진입합니다.`,
     mypage_comp_nav_sec_messenger_chat_settings_label: "채팅 설정",
-    mypage_comp_nav_sec_messenger_chat_settings_desc: "거래 채팅, 주문 채팅, 메신저가 공통으로 참조하는 채팅 설정입니다.",
+    mypage_comp_nav_sec_messenger_chat_settings_desc: `거래 채팅, 주문 채팅, ${B.LETARING}이 공통으로 참조하는 채팅 설정입니다.`,
     mypage_comp_nav_sec_messenger_alerts_label: "알림 설정",
-    mypage_comp_nav_sec_messenger_alerts_desc: "메신저 알림과 전체 서비스 알림을 함께 관리합니다.",
+    mypage_comp_nav_sec_messenger_alerts_desc: `${B.LETARING} 알림과 전체 서비스 알림을 함께 관리합니다.`,
 
     mypage_comp_nav_sec_settings_address_label: "주소 관리",
     mypage_comp_nav_sec_settings_address_desc: "생활주소, 거래주소, 배달주소를 주소 관리 한 곳에서 분리해 관리합니다.",
@@ -751,7 +753,7 @@ export const mypageComponentsMessages = {
     mypage_comp_community_liked_empty: "공감한 커뮤니티 글이 없습니다.",
     mypage_comp_community_reports_empty: "신고 접수 내역이 없습니다.",
     mypage_comp_community_channel_community: "커뮤니티",
-    mypage_comp_community_channel_messenger: "메신저",
+    mypage_comp_community_channel_messenger: `${B.LETARING}`,
     mypage_comp_community_users_empty: "관심이웃이 없습니다.",
     mypage_comp_community_unsave: "저장 해제",
     mypage_comp_community_unsaving: "해제 중…",
@@ -843,7 +845,7 @@ export const mypageComponentsMessages = {
     mypage_comp_interest_count_suffix: "{count} items",
     mypage_comp_interest_empty_hint: "Tap the heart on home to save items you care about.",
 
-    mypage_comp_myinfo_header_title_default: "My page",
+    mypage_comp_myinfo_header_title_default: `${B.MY}`,
 
     mypage_comp_profile_image_aria: "Profile photo",
     mypage_comp_address_manage_aria: "Go to address management",
@@ -1009,7 +1011,7 @@ export const mypageComponentsMessages = {
     my_reports_reported_at: "Reported {date}",
     my_report_not_found: "Report not found",
     my_report_source_community: "Community report",
-    my_report_source_messenger: "Messenger chat report",
+    my_report_source_messenger: `${B.LETARING} chat report`,
     my_report_source_trade_chat: "Trade chat report",
     my_report_source_trade: "Trade report",
     my_report_stage_received: "Received",
@@ -1065,10 +1067,10 @@ export const mypageComponentsMessages = {
     mypage_comp_nav_tab_trade_label: "Trading",
     mypage_comp_nav_tab_community_label: "Community",
     mypage_comp_nav_tab_store_label: "Store / orders",
-    mypage_comp_nav_tab_messenger_label: "Messenger",
+    mypage_comp_nav_tab_messenger_label: `${B.LETARING}`,
     mypage_comp_nav_tab_settings_label: "Settings",
 
-    mypage_comp_nav_sec_account_home_label: "My page home",
+    mypage_comp_nav_sec_account_home_label: `${B.MY} home`,
     mypage_comp_nav_sec_account_home_desc: "See your account status and key activity at a glance.",
     mypage_comp_nav_sec_account_profile_label: "Profile",
     mypage_comp_nav_sec_account_profile_desc:
@@ -1077,9 +1079,9 @@ export const mypageComponentsMessages = {
     mypage_comp_nav_sec_account_basic_desc: "Manage account details, phone verification, logout, and account deletion.",
     mypage_comp_nav_sec_account_favorite_users_label: "Friends / favorite users",
     mypage_comp_nav_sec_account_favorite_users_desc:
-      "Manage starred users used across trading, community, and messenger.",
+      `Manage starred users used across trading, community, and ${B.LETARING}.`,
     mypage_comp_nav_sec_account_blocked_users_label: "Blocked users",
-    mypage_comp_nav_sec_account_blocked_users_desc: "Blocked users are restricted across trading, community, and messenger.",
+    mypage_comp_nav_sec_account_blocked_users_desc: `Blocked users are restricted across trading, community, and ${B.LETARING}.`,
     mypage_comp_nav_sec_account_hidden_users_label: "Hidden users",
     mypage_comp_nav_sec_account_hidden_users_desc: "Hidden users are excluded from some feeds and lists.",
 
@@ -1108,7 +1110,7 @@ export const mypageComponentsMessages = {
     mypage_comp_nav_sec_community_users_desc:
       "Manage neighbors you follow. Uses the same relation as the post-detail neighbor CTA.",
     mypage_comp_nav_sec_community_reports_label: "Reports",
-    mypage_comp_nav_sec_community_reports_desc: "See reports filed in community and messenger.",
+    mypage_comp_nav_sec_community_reports_desc: `See reports filed in community and ${B.LETARING}.`,
     mypage_comp_buyer_note_present: "Has special requests",
     mypage_comp_order_chat_unread_aria: "{count} unread order chat messages",
     mypage_comp_nav_sec_store_orders_label: "Orders",
@@ -1128,13 +1130,13 @@ export const mypageComponentsMessages = {
     mypage_comp_nav_sec_store_rider_desc: "Rider permissions and screens follow a separate operational flow.",
 
     mypage_comp_nav_sec_messenger_dm_label: "1:1 chat",
-    mypage_comp_nav_sec_messenger_dm_desc: "Separate messenger 1:1 chats from trade/order chats.",
+    mypage_comp_nav_sec_messenger_dm_desc: `Separate ${B.LETARING} 1:1 chats from trade/order chats.`,
     mypage_comp_nav_sec_messenger_groups_label: "Group chats",
-    mypage_comp_nav_sec_messenger_groups_desc: "Jump quickly from My page while keeping groups in messenger.",
+    mypage_comp_nav_sec_messenger_groups_desc: `Jump quickly from ${B.MY} while keeping groups in ${B.LETARING}.`,
     mypage_comp_nav_sec_messenger_chat_settings_label: "Chat settings",
-    mypage_comp_nav_sec_messenger_chat_settings_desc: "Shared chat settings for trade, order, and messenger chats.",
+    mypage_comp_nav_sec_messenger_chat_settings_desc: `Shared chat settings for trade, order, and ${B.LETARING} chats.`,
     mypage_comp_nav_sec_messenger_alerts_label: "Notification settings",
-    mypage_comp_nav_sec_messenger_alerts_desc: "Manage messenger alerts alongside overall notifications.",
+    mypage_comp_nav_sec_messenger_alerts_desc: `Manage ${B.LETARING} alerts alongside overall notifications.`,
 
     mypage_comp_nav_sec_settings_address_label: "Addresses",
     mypage_comp_nav_sec_settings_address_desc: "Manage life, trading, and delivery addresses separately.",
@@ -1534,7 +1536,7 @@ export const mypageComponentsMessages = {
     mypage_comp_community_liked_empty: "No liked community posts.",
     mypage_comp_community_reports_empty: "No reports filed.",
     mypage_comp_community_channel_community: "Community",
-    mypage_comp_community_channel_messenger: "Messenger",
+    mypage_comp_community_channel_messenger: `${B.LETARING}`,
     mypage_comp_community_users_empty: "You're not following any neighbors yet.",
     mypage_comp_community_unsave: "Unsave",
     mypage_comp_community_unsaving: "Removing…",

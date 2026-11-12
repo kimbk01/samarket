@@ -1,4 +1,6 @@
 /** 모임 화면 문구 — 탐색·개설·공개 페이지·모임 홈·게시판·글·초대·신고 (docs/design/moim) */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const moimScreensMessages = {
   ko: {
     moim_screen_load_failed: "불러오지 못했어요",
@@ -67,7 +69,7 @@ export const moimScreensMessages = {
     moim_invite_approval_note: "링크로 들어와도 승인 후 가입 방식은 그대로예요",
     moim_invite_copied_toast: "링크를 복사했어요",
     moim_invite_copy_failed_toast: "링크를 복사하지 못했어요",
-    moim_invite_landing_home_btn: "모임 탭으로",
+    moim_invite_landing_home_btn: `${B.CREW}로`,
     moim_public_no_posts: "공개된 글이 없어요",
     moim_public_members_only_note: "멤버 목록과 멤버 전용 글은 가입 후 볼 수 있어요",
     moim_join_btn: "가입하기",
@@ -397,7 +399,7 @@ export const moimScreensMessages = {
     moim_invite_approval_note: "People who join by link still need approval",
     moim_invite_copied_toast: "Link copied",
     moim_invite_copy_failed_toast: "Couldn't copy the link",
-    moim_invite_landing_home_btn: "Go to Groups",
+    moim_invite_landing_home_btn: `Go to ${B.CREW}`,
     moim_public_no_posts: "No public posts",
     moim_public_members_only_note: "Join to see the member list and members-only posts",
     moim_join_btn: "Join",

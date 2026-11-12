@@ -9,7 +9,7 @@ import type { CommunityTradeSwitchHub } from "@/lib/layout/mobile-top-tier1-rule
 import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
 
 /**
- * 「정보교환 · 거래」 전환 탭 (홈 설계안 v11, Owner 「구현 시작」 2026-11-09).
+ * LOUNGE 안 「FEED · MARKET · CREW」 전환 탭 (브랜드 명칭 Owner 2026-11-13 — 예전 「정보교환 · 거래 · 모임」) (홈 설계안 v11, Owner 「구현 시작」 2026-11-09).
  * 거래(`/market`)는 하단 탭이 아니라 커뮤니티 안의 탭이다.
  * 자리 = 머리글 3단 `CommunityTradeSwitchRow` (Owner 「A 안」 2026-11-12 — 1단 제목 자리에선 영문이 잘려 옮김).
  * - 정보교환 → 마지막 커뮤니티 주제 복원(`resolveCommunityBottomNavEntryHref`)
@@ -37,6 +37,8 @@ export function CommunityTradeTitleSwitch({ active }: { active: CommunityTradeSw
     },
   ];
   /**
+   * 누르는 곳 44px (G-4, Owner 2026-11-13): 보이는 버튼은 32px 그대로, `before:` 로 위아래 6px 씩 넓힌다(3단 줄 높이 44px 안).
+   * 키보드 포커스 = 그린 2px 테두리.
    * 선택 버튼 모양 + 눌림 효과 (Owner 2026-11-09 「선택된 버튼 형태 · 눌림 효과」):
    * 둥근 바탕 안에 두 버튼 — 선택 = 브랜드 초록 채움·흰 글자, 나머지 = 회색 글자.
    * 누르면 살짝 작아지고(0.96) 바탕이 진해진다. 「동작 줄이기」 설정이면 크기 변화 없음.
@@ -56,7 +58,7 @@ export function CommunityTradeTitleSwitch({ active }: { active: CommunityTradeSw
             role="tab"
             aria-selected={on}
             data-active={on ? "" : undefined}
-            className={`inline-flex h-8 items-center whitespace-nowrap rounded-full px-3.5 text-[15px] leading-none transition-[transform,background-color,color] duration-100 ease-out [-webkit-tap-highlight-color:transparent] active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100 ${
+            className={`relative inline-flex h-8 items-center whitespace-nowrap rounded-full px-3.5 text-[15px] leading-none transition-[transform,background-color,color] duration-100 ease-out [-webkit-tap-highlight-color:transparent] before:absolute before:inset-x-0 before:top-[-6px] before:bottom-[-6px] before:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--sam-primary)] active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100 ${
               on
                 ? "bg-sam-primary font-bold text-white shadow-[0_1px_3px_rgba(11,66,26,0.25)] active:brightness-90"
                 : "font-semibold text-sam-muted active:bg-black/[0.08]"

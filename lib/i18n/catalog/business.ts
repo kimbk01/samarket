@@ -1,3 +1,5 @@
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const businessMessages = {
   ko: {
     business_phase7_002: "+ 카테고리 추가 관리",
@@ -730,7 +732,7 @@ export const businessMessages = {
     business_phase7_665: "심사중",
     business_phase7_666: "운영중",
     business_phase7_667: "일시중지",
-    business_phase7_668: "매장 주소 (내정보 · 주소록)",
+    business_phase7_668: `매장 주소 (${B.MY} · 주소록)`,
     business_phase7_669: "대표 주소",
     business_phase7_670:
       "이 매장에 연결된 주소록 항목이 없습니다. 주소록에서 유형을 「매장」으로 고르고 이 매장을 연결한 뒤, 지도에서 위치를 저장해 주세요.",
@@ -1521,7 +1523,7 @@ export const businessMessages = {
     business_phase7_665: "Under review",
     business_phase7_666: "Active",
     business_phase7_667: "Paused",
-    business_phase7_668: "Store address (My page · address book)",
+    business_phase7_668: `Store address (${B.MY} · address book)`,
     business_phase7_669: "Default address",
     business_phase7_670:
       "No address book entry linked to this store. Add a Store-type address, link this store, and save the map pin.",

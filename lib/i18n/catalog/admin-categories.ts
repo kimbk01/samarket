@@ -1,4 +1,6 @@
 /** Phase 11: components/admin/categories */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const adminCategoriesMessages = {
   ko: {
     admin_cat_page_title: "카테고리 관리",
@@ -93,9 +95,9 @@ export const adminCategoriesMessages = {
     admin_cat_msg_activated: "사용으로 변경되었습니다.",
     admin_cat_confirm_delete:
       "이 카테고리를 삭제하시겠습니까? (하위에 게시물이 있으면 삭제되지 않고 변경을 안내합니다.)",
-    admin_cat_type_trade: "거래",
+    admin_cat_type_trade: B.MARKET,
     admin_cat_type_service: "서비스",
-    admin_cat_type_community: "커뮤니티",
+    admin_cat_type_community: B.FEED,
     admin_cat_type_store: "스토어",
     admin_cat_menu_type_trade: "거래 (홈 상단 칩·가격·거래채팅)",
     admin_cat_menu_type_community: "동네생활·게시글 (게시판형)",
@@ -218,9 +220,9 @@ export const adminCategoriesMessages = {
     admin_cat_msg_activated: "Marked active.",
     admin_cat_confirm_delete:
       "Delete this category? (If posts exist underneath, deletion may be blocked with a notice.)",
-    admin_cat_type_trade: "Trade",
+    admin_cat_type_trade: B.MARKET,
     admin_cat_type_service: "Service",
-    admin_cat_type_community: "Community",
+    admin_cat_type_community: B.FEED,
     admin_cat_type_store: "Store",
     admin_cat_menu_type_trade: "Trade (home chips, price, trade chat)",
     admin_cat_menu_type_community: "Local life / posts (board style)",
