@@ -105,3 +105,32 @@ callingUidProcState: TOP · intent: null(AppTask.moveToFront) · balDontBringExi
 ## 10. NOT_PROVEN
 - A 순서에서 PiP 전환과 메신저 전환이 겹칠 때 One UI·Android 16 의 실제 동작(§7 1순위 위험) — 구현 후 실기로만 판정.
 - iPhone(별도 구조, 범위 밖).
+
+## 11. 실기 결과 — 설계안 A (PR #209, Android 1.2.6 (43)) = **FAIL**
+조건: main `55f540bc8` · `native:prepare` READY · Samsung 설치 20:26:33 · 운영 DB `1.2.6 (43)` 20:26:39 · 영상 통화 `f56b8b9a`(Xiaomi 1.2.6 (40) 발신, 20:28:38 연결 ~ 20:31:06 `ended_by_callee`) · 녹화 `v43a.mp4` · logcat 보존.
+
+| # | 진입 → ◁ | 결과 | 증거 |
+|---|---|---|---|
+| A-1 | 최근 앱 통화 카드 → 통화 화면 | **FAIL — 홈 화면 + PiP** | PiP 요청 수락 20:29:25.172 → 복귀 요청 25.269 → 시스템 차단 25.269 `callingUidHasVisibleNotPinnedActivity: false` → `moveTaskToFront blocked: BAL_BLOCK` → 재시도 26.138 차단 → `native_call_app_return_unconfirmed` 27.617 |
+| A-2 | 통화 바 → 통화 화면 (회귀) | PASS — 메신저 + PiP | `native_call_app_return_confirmed afterMs=158` 20:30:08.968 |
+| A-3 | 종료 후 잔류 (회귀) | PASS — 통화 알림·카메라·PiP·통화 칩 0, 최근 앱 화면에 통화 카드 없음(`recents_card visible=false` ending·destroy) | 20:31:05~06 |
+
+원인(정정): **`enterPictureInPictureMode()` 가 수락되는 그 순간 시스템은 이미 통화 화면을 「고정(PiP)」으로 본다** — 통화 화면이 일시정지되기 전(25.283)인데도 판정 값이 `VisibleNotPinned=false`. 따라서 「PiP 요청 뒤」 보내는 복귀 요청은 시점과 관계없이 모두 막힌다. §5 의 가정이 틀렸다(내 잘못 — 실측 없이 「요청 직후는 아직 고정 전」이라고 가정).
+이번 변경의 이득: 복귀 결과가 이제 정확히 기록된다(`confirmed`/`unconfirmed`). 동작은 이전 빌드와 같다(나빠지지 않음, 고쳐지지도 않음).
+
+## 12. 대안 B 실측 — 시스템 동작 성립
+- 시험(20:30:35): 최근 앱 카드로 통화 화면 진입(뒤에 홈) → 통화 화면 전체 화면·자동 PiP 켜짐 상태에서 **메신저 작업을 먼저 앞으로**(adb `am start -n com.dibay.app/.MainActivity` — 앱 대신 시스템 동작만 확인).
+- 결과: 통화 화면 일시정지 36.140 → **자동 PiP 진입 37.028** (`PICTURE_IN_PICTURE_ENTER` · `pip_callback_entered`) → 맨 앞 = MainActivity, `pinned` 유지. = 원하는 화면(메신저 + PiP).
+- 앱이 직접 올릴 때의 허용 여부: 그 시점 통화 화면은 전체 화면(고정 아님)이라 `callingUidHasVisibleNotPinnedActivity: true` 조건을 만족 → 막히지 않는 것이 Android 규칙상 맞다. **앱 코드로 실제 허용되는지는 구현 후 실기로만 PASS 판정**(adb 시험은 호출자가 셸이라 같지 않음).
+
+## 13. 설계안 B (원인별 — 순서 뒤집기)
+| 단계 | A(현재) | B |
+|---|---|---|
+| 조건 | — | CONNECTED · API 31+ · PiP 기능 있음 · 앱 PiP 허용(AppOps `OPSTR_PICTURE_IN_PICTURE`) · 자동 PiP 켜짐(`isAutoPipEligible`) |
+| 1 | `enterPictureInPictureMode` → 복귀 요청(막힘) | **복귀 요청 먼저**(통화 화면이 아직 전체 화면 = 허용) — `enterPictureInPictureMode` 를 부르지 않는다 |
+| 2 | — | 시스템이 자동 PiP(§12 실측 0.9초) |
+| 3 | PiP 콜백·타이머 = 확인·재시도 | PiP 콜백 = 확인만. 1.5초 안에 PiP 콜백이 없으면 `native_*_auto_pip_missed` 기록(통화는 유지 — 판단표 KEEP, 복귀 수단 S3·S6·S5) |
+| 조건 밖 | — | 지금 경로 그대로(API 30 이하는 백그라운드 시작 제한이 약해 기존 순서로 동작 · PiP 꺼진 기기 = Dock) |
+- 바뀌는 파일: 영상·음성 `minimizeToApp`(분기 1곳씩), `verify-call-surface-cta-ssot` ⑨ 갱신, SSOT §4 문구. Runtime·판단표·자동 PiP 설정·Dock·서버·웹 불변.
+- 위험: ① 자동 PiP 가 안 걸리는 기기(제조사 정책) → 통화 화면이 메신저 뒤로 숨기만 함 → `auto_pip_missed` 로 드러나고 통화·복귀 수단 유지. ② 메신저를 올릴 때 통화 화면이 `onUserLeaveHint` 를 받아 `tryEnterPip` 이 겹칠 수 있음 → 기존 가드(요청 중이면 소비). ③ 앱 PiP 권한을 사용자가 끈 경우 → 조건 밖(Dock 경로).
+- 실기: §9 행렬(진입 4경로 × 음성·영상) + `auto_pip_missed` 0건 + 차단 로그 0건 + 회귀(A-2·A-3·홈·최근 앱 자동 PiP·PiP X·카드 제거).
