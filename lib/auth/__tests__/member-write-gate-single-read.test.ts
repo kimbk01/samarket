@@ -119,7 +119,7 @@ describe("2-A 회원 쓰기 검사 1회 조회", () => {
     expect(body.message).toContain("연령 확인(만 14세 이상) 후 이용");
 
     for (const req of [
-      new NextRequest("http://localhost/api/community-messenger/calls/s1/end", { method: "POST" }),
+      new NextRequest("http://localhost/api/community-messenger/calls/sessions/s1", { method: "PATCH" }), // 2026-11-12 D5: 옛 calls/[id]/end 삭제 → 종료는 sessions PATCH
       new NextRequest("http://localhost/api/me/store-orders/o1", { method: "PATCH" }),
       new NextRequest("http://localhost/api/me/legal-consent", { method: "PATCH" }),
     ]) {

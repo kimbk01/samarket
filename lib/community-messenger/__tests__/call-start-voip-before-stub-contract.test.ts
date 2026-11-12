@@ -124,11 +124,9 @@ describe("call start: VoIP critical path + no dialing stub (static)", () => {
     );
   });
 
-  it("stub-message API rejects in-flight statuses", () => {
-    const route = readRepo("app/api/community-messenger/calls/stub-message/route.ts");
-    expect(route).not.toMatch(/status === "dialing"/);
-    expect(route).not.toMatch(/status === "incoming"/);
-    expect(route).toContain("in-flight dialing/incoming stub publish blocked");
+  /** 2026-11-12 D5: 직접 stub 쓰기 API(stub-message) 삭제 — 진행 중 stub 은 서버 정식 경로만 (위 단언) */
+  it("stub-message API no longer exists", () => {
+    expect(fs.existsSync(path.join(process.cwd(), "app/api/community-messenger/calls/stub-message/route.ts"))).toBe(false);
   });
 
   it("server terminal writer owns atomic unread and room-bound missed is not Bell A", () => {

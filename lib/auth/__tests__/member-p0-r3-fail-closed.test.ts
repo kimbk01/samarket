@@ -330,16 +330,17 @@ describe("P0-R3 proxy matcher DENY coverage", () => {
     expect(proxySrc).toContain('if (pathname.startsWith("/api/"))');
   });
 
-  it("every DENY-classified route is matcher-covered (283/283 — presence EXEMPT 2026-11-01 · 푸시 전용 열람 POST 추가 2026-11-02 · 옛 모임 API 23개 삭제 2026-11-12 · 신규 모임 API 26개 2026-11-12 · 모임 일정·앨범·알림 설정 API 11개 · 미접속 모임장 변경 요청 API 1개(M5) · 죽은 API 11개 삭제 2026-11-12)", () => {
+  it("every DENY-classified route is matcher-covered (279/279 — presence EXEMPT 2026-11-01 · 푸시 전용 열람 POST 추가 2026-11-02 · 옛 모임 API 23개 삭제 2026-11-12 · 신규 모임 API 26개 2026-11-12 · 모임 일정·앨범·알림 설정 API 11개 · 미접속 모임장 변경 요청 API 1개(M5) · 죽은 API 11개 삭제 2026-11-12 · 옛 통화 API 4개 삭제 2026-11-12)", () => {
     const deny = loadMutationCsv().filter((r) => r.CLASS === "DENY");
     // 2026-11-12 죽은 API 정리 D4: 삭제 라우트 제외
-    expect(deny.length).toBe(283);
+    // 2026-11-12 통화 죽은 코드 정리 D5: 삭제 라우트 제외
+    expect(deny.length).toBe(279);
     const { covered, total, uncovered } = countDenyRoutesCoveredByProxyMatcher(
       deny.map((r) => r.PATH)
     );
     expect(uncovered).toEqual([]);
-    expect(covered).toBe(283);
-    expect(total).toBe(283);
+    expect(covered).toBe(279);
+    expect(total).toBe(279);
     expect(isPathCoveredByProxyMatcher("/api/community/posts")).toBe(true);
   });
 });

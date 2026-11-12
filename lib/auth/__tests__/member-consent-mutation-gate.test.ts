@@ -179,7 +179,8 @@ describe("B3 central consent gate — enforce", () => {
     expect(resolveMemberConsentClassForApiMutation("POST", "/api/community-messenger/rooms/r/calls")).toBe(
       "CONSENT_REQUIRED",
     );
-    expect(resolveMemberConsentClassForApiMutation("POST", "/api/community-messenger/calls/s/accept")).toBe(
+    // 2026-11-12 D5: 옛 calls/[id]/accept 삭제 — 수락·종료는 sessions PATCH
+    expect(resolveMemberConsentClassForApiMutation("PATCH", "/api/community-messenger/calls/sessions/s")).toBe(
       "CONSENT_EXEMPT",
     );
     // lowercase method normalized
