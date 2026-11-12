@@ -134,3 +134,15 @@ callingUidProcState: TOP · intent: null(AppTask.moveToFront) · balDontBringExi
 - 바뀌는 파일: 영상·음성 `minimizeToApp`(분기 1곳씩), `verify-call-surface-cta-ssot` ⑨ 갱신, SSOT §4 문구. Runtime·판단표·자동 PiP 설정·Dock·서버·웹 불변.
 - 위험: ① 자동 PiP 가 안 걸리는 기기(제조사 정책) → 통화 화면이 메신저 뒤로 숨기만 함 → `auto_pip_missed` 로 드러나고 통화·복귀 수단 유지. ② 메신저를 올릴 때 통화 화면이 `onUserLeaveHint` 를 받아 `tryEnterPip` 이 겹칠 수 있음 → 기존 가드(요청 중이면 소비). ③ 앱 PiP 권한을 사용자가 끈 경우 → 조건 밖(Dock 경로).
 - 실기: §9 행렬(진입 4경로 × 음성·영상) + `auto_pip_missed` 0건 + 차단 로그 0건 + 회귀(A-2·A-3·홈·최근 앱 자동 PiP·PiP X·카드 제거).
+
+## 14. 실기 결과 — 설계안 B (PR #210, Android 1.2.6 (44)) = **FAIL + 회귀**
+조건: main `d2b5d89f7` · `native:prepare` READY · Samsung 설치 20:42:18 · 운영 DB `1.2.6 (44)` 20:42:23 · 영상 통화 `287d8d5e`(Xiaomi 1.2.6 (40) 발신, 20:43:42 연결 ~ 20:45:32 Samsung 알림 종료) · 녹화 `v44a.mp4` · logcat 보존.
+
+| # | 진입 → ◁ | 결과 | 증거 |
+|---|---|---|---|
+| B-1 | 최근 앱 통화 카드 → 통화 화면 | 메신저는 앞으로 옴(차단 0) · **PiP 없음** | `app_return_first` 20:44:13.569 → `app_return_confirmed afterMs=591` → 통화 화면 일시정지 14.910·정지 14.952 → **`native_video_auto_pip_missed` 15.111**, `pinned=0` |
+| B-2 | 통화 바 → 통화 화면 | **회귀 — 메신저만, PiP 없음** (빌드 42·43 은 메신저 + PiP) | `app_return_first` 20:44:42.831 → `auto_pip_missed` 44.346, `pinned=0` |
+| B-3 | 홈 · 최근 앱 → PiP (회귀) | PASS | `pinned=2` 각각 |
+| B-4 | 알림 종료 잔류 (회귀) | PASS — 통화 알림·카메라·PiP·통화 칩 0 | 20:45:32 |
+
+원인: **앱이 직접 메신저를 올리면 시스템 자동 PiP 가 걸리지 않는다.** §12 의 adb 시험(호출자 = 셸)에서는 자동 PiP 가 걸렸지만, 앱 호출과 같지 않았다(§12 에 「앱 코드로는 실기로만 판정」이라고 적은 위험이 실제로 일어남). 통화는 유지되고 통화 바·알림·최근 앱 카드로 돌아갈 수 있지만, 뒤로 = PiP 라는 SSOT §4 와 다르고 통화 바 경로는 빌드 42·43 보다 나빠졌다.
