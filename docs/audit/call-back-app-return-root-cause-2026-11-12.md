@@ -71,3 +71,24 @@
 | 불변 | 자동 PiP 설정·종료 판단표·Runtime·Dock·서버·웹 · 홈/최근 앱 자동 PiP 경로 | — |
 | 실기 | 진입 4경로(최근 앱 카드·알림 탭·통화 바·홈에서 수락) × 영상(+음성 1회) → 메신저 + PiP · `auto_pip_entered` · 차단 0 / 회귀: 홈·최근 앱 → PiP, PiP X·카드 제거 = 통화 유지, 종료 잔류 0 | — |
 | 실기 FAIL 이면 | 즉시 중단·되돌림, 원문 재분석 — 다른 안을 바로 시도하지 않음 | Owner 지시 |
+
+## 8. 실기 결과 — 확정 설계 (PR #212, Android 1.2.6 (46)) = **PASS**
+조건: main `a7be81c40` · `native:prepare` READY · Samsung 설치 21:07:51 · 운영 DB `1.2.6 (46)` 21:07:57 · Samsung SM-M156S 3버튼 · 상대 Xiaomi 1.2.6 (40) · 녹화 `v46a.mp4` · logcat 보존.
+
+| # | 통화 · 진입 → 동작 | 결과 | 증거 |
+|---|---|---|---|
+| 1 | 영상 `b5046403` · 최근 앱 통화 카드 → ◁ | **메신저 + PiP** (이전 빌드: 홈 화면) | 21:09:55.939 `via=start_activity_open` → 전환 #4228 **`type = OPEN`** → **`request handled by PipTransition`** → `app_return_confirmed afterMs=300` → `PICTURE_IN_PICTURE_ENTER` 57.552, `pinned`, 차단 0 |
+| 2 | 영상 · 통화 바 → ◁ (B 회귀 경로) | 메신저 + PiP | 21:10:39 #4232 PipTransition 처리, confirmed, 차단 0 |
+| 3 | 영상 · 알림 본문 탭(뒤 = 홈) → ◁ | 메신저 + PiP | 21:11:04 #4239 PipTransition 처리, confirmed |
+| 4 | 영상 · 줄이기 버튼 | 메신저 + PiP | `app_return_open source=minimize_button`, `pinned` |
+| 5 | 영상 · ○ 홈 / \|\|\| 최근 앱 (회귀) | PiP | `pinned` 각각 |
+| 6 | 영상 · PiP X (회귀) | 통화 유지 · 알림·카메라 유지 | heartbeat 200 21:12:02 |
+| 7 | 영상 · 알림 「전화 끊기」 → 잔류 | 통화 알림·PiP·통화 칩 0. 카메라는 HAL 닫힘 21:12:16.047, 카메라 서비스 목록은 +2초 시점 1 → +11초 0 | DB `ended_by_callee` 13:12:15.546Z |
+| 8 | 음성 `b19e0741` · 최근 앱 통화 카드 → ◁ | 메신저 + 음성 PiP | 21:14:28 `native_voice_app_return_open` · `start_activity_open`, `pinned`, 차단 0 |
+| 9 | 음성 · 통화 바 → ◁ | 메신저 + 음성 PiP | 21:14:35, `pinned` |
+| 10 | 음성 · 알림 「전화 끊기」 → 잔류 | 통화 알림·PiP·통화 칩 0, 최근 앱 화면 통화 카드 없음 | DB `ended_by_callee` 13:15:00.562Z |
+
+남은 것 (보고만):
+- 자동 PiP 확인 기록(`native_*_auto_pip_entered/_missed`)이 안 남음 — 1.5초 확인이 시스템 PiP 판정 뒤·앱 콜백(57.640) 전에 돌아 둘 다 건너뜀. 동작에는 영향 없음, 기록 정확도 결함.
+- 메신저를 연 직후 `onUserLeaveHint` 는 이번 측정에서 오지 않음(`user_leave_skipped` 0건) — 건너뛰기 장치는 동작하지 않았고 필요하지도 않았음(유지는 무해).
+- NOT_PROVEN: 홈 화면에서 수신 알림으로 수락한 경로, 잠금 화면 수락 경로, Xiaomi 제스처 내비, Android 11 이하(조건 밖 기존 경로).
