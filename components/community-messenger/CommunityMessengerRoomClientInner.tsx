@@ -38,7 +38,7 @@ import {
 import { tryEmitR2M11CAfterM11BPhase } from "@/lib/community-messenger/room/cm-room-r2-m11c-breakdown";
 import { shouldRunMessengerListRoutePrefetch } from "@/lib/runtime/next-js-dev-client";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
-import { beginCmRoomEntryShellFirstPass } from "@/lib/community-messenger/room/cm-room-entry-shell-first-pass";
+import { useCmRoomEntryShellFirstPassForRoom } from "@/lib/community-messenger/room/cm-room-entry-shell-first-pass";
 
 let communityMessengerListRoutesPrefetched = false;
 
@@ -57,9 +57,8 @@ export function CommunityMessengerRoomClientInner(props: {
 }) {
   recordRouteEntryElapsedMetricOnce("messenger_room_entry", "first_client_component_mount_ms");
   const phase1BoundaryRoomId = props.roomId?.trim() ?? "";
-  if (phase1BoundaryRoomId) {
-    beginCmRoomEntryShellFirstPass(phase1BoundaryRoomId);
-  }
+  /** 첫 패스 = 이 방의 첫 렌더 1회 (매 렌더 begin 금지 — group-chat-full-fix-design G2) */
+  useCmRoomEntryShellFirstPassForRoom(phase1BoundaryRoomId);
   noteR2M9Stage("inner_first_render");
   noteR2M9Stage("phase1_hook_start");
   if (phase1BoundaryRoomId) {
