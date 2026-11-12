@@ -1921,19 +1921,6 @@ export function CommunityFeed({
                   <span className="h-8 w-20 shrink-0 animate-pulse rounded-full bg-sam-muted/25" />
                 </span>
               ) : null}
-              {/* 모임 탭 (Owner D2 2026-11-12: 동네생활 상단 「모임」) — 별도 화면 /moim */}
-              <button
-                key="moim"
-                type="button"
-                role="tab"
-                aria-selected={false}
-                data-community-tab="moim"
-                onClick={() => router.push("/moim")}
-                onMouseEnter={() => router.prefetch?.("/moim")}
-                className={dibaySecondaryTabClass(false)}
-              >
-                <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{safeT("moim_tab")}</span>
-              </button>
             </DibaySecondaryTabRow>
             {/* 머리글 3단 — 「정보교환 · 거래」 전환 탭 오른쪽 정렬 (Owner 「A 안」 2026-11-12, 1단에서 옮김) */}
             {communityTradeSwitchHub === "community" ? <CommunityTradeSwitchRow active="community" /> : null}

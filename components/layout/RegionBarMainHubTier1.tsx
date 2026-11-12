@@ -7,6 +7,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Tier1TitleAreaButton, Tier1TitleWithArea } from "@/components/layout/Tier1TitleAreaButton";
 import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
 import { parseCommunityNavFromSearchParams } from "@/lib/community/community-nav";
+import { moimRoutes } from "@/lib/moim/moim-client-api";
 import { requestOpenCommunityAreaSheet, useCommunityAreaTitle } from "@/lib/community/community-area-title-store";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { MyMypageHeaderActions } from "@/components/my/MyMypageHeaderActions";
@@ -40,7 +41,11 @@ function UnifiedTier1Shell({ children, noLeftSlot = false }: { children: React.R
   );
 }
 
-function resolveMainHubId(pathNoQuery: string): Exclude<MainTabKeepAliveHubId, "delivery"> | null {
+/** 1단 허브 머리글을 쓰는 화면 — 하단 탭 허브 + 모임 홈(커뮤니티 안 세 번째 화면, Owner 「3판대로 구현」 2026-11-12) */
+type MainHubTier1Id = Exclude<MainTabKeepAliveHubId, "delivery"> | "moim";
+
+function resolveMainHubId(pathNoQuery: string): MainHubTier1Id | null {
+  if (pathNoQuery === "/moim") return "moim";
   const hub = resolveMainTabKeepAliveHub(pathNoQuery);
   if (hub === "community" || hub === "trade" || hub === "chat" || hub === "mypage") return hub;
   /** `/market/[slug]` etc. — same MAIN HUB as Trade keep-alive */
@@ -51,7 +56,10 @@ function resolveMainHubId(pathNoQuery: string): Exclude<MainTabKeepAliveHubId, "
   return null;
 }
 
-function defaultRightSlot(hub: Exclude<MainTabKeepAliveHubId, "delivery">): ReactNode {
+function defaultRightSlot(hub: MainHubTier1Id): ReactNode {
+  if (hub === "moim") {
+    return <MoimHeaderRightActions />;
+  }
   if (hub === "community") {
     return <CommunityHeaderRightActions />;
   }
@@ -65,7 +73,8 @@ function defaultRightSlot(hub: Exclude<MainTabKeepAliveHubId, "delivery">): Reac
   return null;
 }
 
-function hubTitleKey(hub: Exclude<MainTabKeepAliveHubId, "delivery">) {
+function hubTitleKey(hub: MainHubTier1Id) {
+  if (hub === "moim") return "tier1_moim" as const;
   if (hub === "community") return BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY;
   if (hub === "trade") return BOTTOM_NAV_TRADE_TAB_LABEL_KEY;
   if (hub === "chat") return NAV_DOT_LABEL_KEYS.chat;
@@ -104,7 +113,7 @@ export function RegionBarMainHubTier1({ pathNoQuery }: { pathNoQuery: string }) 
   const rightSlot = extrasRight ?? defaultRightSlot(hub);
 
   return (
-    <UnifiedTier1Shell noLeftSlot={areaHub}>
+    <UnifiedTier1Shell noLeftSlot={areaHub || hub === "moim"}>
       <SectionHeader embedded titleAlign="left" title={title} rightSlot={rightSlot} />
     </UnifiedTier1Shell>
   );
@@ -125,6 +134,26 @@ function CommunityHeaderRightActions() {
         <Search className="h-4 w-4 text-sam-fg" aria-hidden />
       </button>
       {/* 글쓰기 = 목록 오른쪽 아래 떠 있는 버튼(`PhilifeComposeFab`) · 주소 = 제목 뒤 「· 동네 ⌄」 시트 (Owner 「3판대로 구현」 2026-11-12) */}
+      <Tier1NotificationAnchor surface="bottom_nav_community" />
+    </div>
+  );
+}
+
+/** 모임 홈 1단 오른쪽 — 모임 찾기(본문 검색칸을 옮김) · 알림 (Owner 「3판대로 구현」 2026-11-12) */
+function MoimHeaderRightActions() {
+  const { t } = useI18n();
+  const router = useRouter();
+  return (
+    <div className={`${samTier1HeaderIconCluster} gap-2`}>
+      <button
+        type="button"
+        data-moim-search-open="true"
+        className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} rounded-ui-rect bg-sam-surface active:scale-[0.98] active:opacity-90`}
+        aria-label={t("moim_search_open_aria")}
+        onClick={() => router.push(moimRoutes.search)}
+      >
+        <Search className="h-4 w-4 text-sam-fg" aria-hidden />
+      </button>
       <Tier1NotificationAnchor surface="bottom_nav_community" />
     </div>
   );

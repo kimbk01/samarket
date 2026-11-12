@@ -65,16 +65,21 @@ export function isTradeExplorationHubSurface(pathNoQuery: string, ruleSet: Mobil
   return isTradeFloatingMenuSurface(pathNoQuery) && ruleSet.showRegionPicker && !ruleSet.showTradeHubLeading;
 }
 
+/** 머리글 3단 전환 줄의 세 화면 — 정보교환 · 거래 · 모임 (Owner 「3판대로 구현」 2026-11-12) */
+export type CommunityTradeSwitchHub = "community" | "trade" | "moim";
+
 /**
- * 「정보교환 · 거래」 전환 줄(머리글 3단)을 보일 허브 — 허브 머리글 1단이 커뮤니티·거래 제목을 그리는 곳과 같다
- * (`RegionBar` → `RegionBarMainHubTier1` 판정과 같은 규칙, Owner 「A 안」 2026-11-12).
+ * 「정보교환 · 거래 · 모임」 전환 줄(머리글 3단)을 보일 허브 — 허브 머리글 1단이 정보교환·거래·모임 제목을 그리는 곳과 같다
+ * (`RegionBar` → `RegionBarMainHubTier1` 판정과 같은 규칙, Owner 「A 안」 2026-11-12 · 모임 = 「3판대로 구현」 2026-11-12).
  */
 export function resolveCommunityTradeSwitchHub(
   pathname: string | null | undefined,
   ruleSet: MobileTopTier1RuleSet
-): "community" | "trade" | null {
+): CommunityTradeSwitchHub | null {
   if (!ruleSet.showRegionBar) return null;
   const pathNoQuery = normalizeAppPathnameForTier1(pathname);
+  /** 모임 홈만 — 모임 안 하위 화면(`/moim/…`)은 뒤로 가기 머리글 그대로 */
+  if (pathNoQuery === "/moim") return "moim";
   const hub = resolveMainTabKeepAliveHub(pathNoQuery);
   if (hub === "community" || hub === "trade") return hub;
   if (pathNoQuery.startsWith("/mypage/")) return null;

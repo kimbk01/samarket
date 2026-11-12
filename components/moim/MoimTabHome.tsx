@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Plus } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
@@ -12,9 +12,19 @@ import { MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS, MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS } 
 import { MoimMineItem } from "@/components/moim/MoimCard";
 import { MoimLocalList } from "@/components/moim/MoimLocalList";
 import { useMoimLocalList } from "@/components/moim/use-moim-local-list";
-import { chipClass, moimCategoryLabel, moimCls } from "@/components/moim/moim-ui";
+import { moimCategoryLabel, moimCls } from "@/components/moim/moim-ui";
+import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
+import { CommunityTradeSwitchRow } from "@/components/layout/CommunityTradeTitleSwitch";
+import { DIBAY_SECONDARY_TAB_LABEL_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
+import { useFitSectionTabPadding } from "@/lib/ui/use-fit-section-tab-padding";
+import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
 
-/** 모임 탭 홈 /moim (시안 U1) — 내 모임 · 카테고리 칩 · 우리 동네 모임 · 모임 만들기 */
+/**
+ * 모임 탭 홈 /moim (시안 U1) — 내 모임 · 우리 동네 모임 · 모임 만들기.
+ * 머리글 (Owner 「3판대로 구현」 2026-11-12): 1단 「모임」 + 검색·알림 · 2단 = 카테고리 밑줄 탭(본문 칩에서 옮김) ·
+ * 3단 = 「정보교환 · 거래 · 모임」 전환 줄(모임 선택). 본문 검색칸은 1단 검색으로 대신한다.
+ */
 export function MoimTabHome() {
   const { t, language } = useI18n();
   const router = useRouter();
@@ -24,6 +34,14 @@ export function MoimTabHome() {
   const [inviteCount, setInviteCount] = useState(0);
   const [category, setCategory] = useState<string | null>(null);
   const list = useMoimLocalList({ category });
+  const categoryTrackRef = useRef<HTMLDivElement | null>(null);
+  /** 2단 탭 여백 — 정보교환 2단과 같은 규칙(최대 10px, 넘치면 밀어서 봄) */
+  useFitSectionTabPadding(categoryTrackRef, [categories, language], { maxPadPx: 10 });
+  const pickCategory = (next: string | null) => {
+    if (next === category) return;
+    triggerInteractionFeedback("light");
+    setCategory(next);
+  };
 
   useEffect(() => {
     let alive = true;
@@ -53,17 +71,48 @@ export function MoimTabHome() {
 
   return (
     <div className={`${moimCls.page} pb-28`}>
+      <MySubpageHeader
+        registerMainTier1={false}
+        hideCtaStrip
+        stickyBelow={
+          <>
+            <DibaySecondaryTabRow
+              ref={categoryTrackRef}
+              navRole="category"
+              tier="section"
+              data-dibay-tab-align="start"
+              data-moim-category-tabs=""
+              bordered
+              hostClassName="[--dibay-secondary-tab-pad-x:0px]"
+              trackAriaLabel={t("moim_home_category_aria")}
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={category === null}
+                className={dibaySecondaryTabClass(category === null)}
+                onClick={() => pickCategory(null)}
+              >
+                <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{t("moim_home_category_all_chip")}</span>
+              </button>
+              {(categories ?? []).map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={category === c.id}
+                  className={dibaySecondaryTabClass(category === c.id)}
+                  onClick={() => pickCategory(c.id)}
+                >
+                  <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{moimCategoryLabel(c, language)}</span>
+                </button>
+              ))}
+            </DibaySecondaryTabRow>
+            <CommunityTradeSwitchRow active="moim" />
+          </>
+        }
+      />
       <div className={moimCls.column}>
-        <div className="px-4 pt-3">
-          <Link
-            href={moimRoutes.search}
-            className={`${moimCls.input} flex items-center gap-2 text-[14px] text-sam-meta`}
-            aria-label={t("moim_search_open_aria")}
-          >
-            <Search className="h-4 w-4 shrink-0" aria-hidden />
-            <span className="min-w-0">{t("moim_search_placeholder")}</span>
-          </Link>
-        </div>
 
         {inviteCount > 0 ? (
           <Link href={moimRoutes.invites} className={`${moimCls.noticeInfo} mx-4 mt-3 flex items-center justify-between gap-2`}>
@@ -86,25 +135,6 @@ export function MoimTabHome() {
           </section>
         ) : null}
 
-        {categories && categories.length > 0 ? (
-          <div className={`${moimCls.hScroll} pt-4`} role="tablist" aria-label={t("moim_home_category_aria")}>
-            <button type="button" role="tab" aria-selected={category === null} className={chipClass(category === null)} onClick={() => setCategory(null)}>
-              {t("moim_home_category_all_chip")}
-            </button>
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                role="tab"
-                aria-selected={category === c.id}
-                className={chipClass(category === c.id)}
-                onClick={() => setCategory(c.id)}
-              >
-                {moimCategoryLabel(c, language)}
-              </button>
-            ))}
-          </div>
-        ) : null}
 
         <section>
           <div className={moimCls.sectionHead}>
