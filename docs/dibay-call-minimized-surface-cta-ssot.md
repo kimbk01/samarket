@@ -55,7 +55,7 @@
 ## 4. 하단 내비·제스처 SSOT (CONNECTED 기준)
 | 입력 | 결과 (고정) | 근거 | 현재 DIBAY |
 |---|---|---|---|
-| ◁ 뒤로 (S1 에서) | S2 PiP + 메신저(앱) 앞으로 + S6 통화 바. 통화·카메라 유지 | Telegram T1(앱 위 영상 창 + 「통화로 돌아가기」 막대)·Signal 소스 | 같음(D1) — 유지 |
+| ◁ 뒤로 (S1 에서) | S2 PiP + 메신저(앱) 앞으로 + S6 통화 바. 통화·카메라 유지. **메신저 복귀 요청은 PiP 요청 수락 직후**(PiP 가 뜬 뒤면 Android 가 막음 — `docs/audit/call-back-app-return-bal-design-2026-11-12.md`), 결과는 `native_call_app_return_confirmed`/`_unconfirmed` 로 기록 | Telegram T1(앱 위 영상 창 + 「통화로 돌아가기」 막대)·Signal 소스 | 같음(D1) — 유지 |
 | ○ 홈 (S1 에서) | S2 PiP. 통화·카메라 유지 | Telegram T2(1.26초) | 같음(D3, 1.28초) — 유지 |
 | \|\|\| 최근 앱 (S1 에서) | S2 PiP + 최근 앱 목록 | Telegram T3 | **FAIL(D6)**: PiP 안 됨 — 통화 화면이 일시정지·정지만 되고 `onUserLeaveHint` 가 오지 않음(19:22:00 로그). **변경**: CONNECTED 동안 `setAutoEnterEnabled(true)`(§4-1) |
 | 제스처 홈·뒤로·최근 (Xiaomi) | 위 3줄과 같은 결과 | Android PiP 가이드 | NOT_PROVEN |

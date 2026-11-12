@@ -113,6 +113,8 @@ public class NativeVoiceCallActivity extends Activity {
   private long connectedAtElapsedMs = 0L;
   private NativeCallInAppNoticeOverlay noticeOverlay;
   private boolean finishingWithNotice;
+  /** 마지막 메신저 복귀 요청 시각(elapsedRealtime) — 확인 판정 기준. */
+  private long appReturnRequestedAtMs = 0L;
   private final Runnable appReturnAfterPipFallback =
       new Runnable() {
         @Override
@@ -121,7 +123,7 @@ public class NativeVoiceCallActivity extends Activity {
           String source = pendingAppReturnSource;
           pendingAppReturnSource = null;
           NativeVoiceCallLog.info("native_voice_app_return_after_pip_timeout", callId, "source=" + source);
-          NativeCallAppReturn.bringAppToFront(NativeVoiceCallActivity.this, callId, source);
+          confirmOrRetryAppReturn(source, "timeout");
         }
       };
   private final Runnable durationTick =
@@ -350,7 +352,7 @@ public class NativeVoiceCallActivity extends Activity {
       mainHandler.removeCallbacks(appReturnAfterPipFallback);
       String source = pendingAppReturnSource;
       pendingAppReturnSource = null;
-      NativeCallAppReturn.bringAppToFront(this, callId, source);
+      confirmOrRetryAppReturn(source, "pip_callback");
     }
   }
 
@@ -641,6 +643,16 @@ public class NativeVoiceCallActivity extends Activity {
       View videoControl = (View) videoButton.getParent();
       (videoControl != null ? videoControl : videoButton).setVisibility(View.GONE);
     }
+  }
+
+  /** PiP 콜백·보조 타이머: 메신저가 이미 앞으로 왔으면 아무것도 안 하고, 아니면 1회 재시도(결과는 확인 로그). */
+  private void confirmOrRetryAppReturn(String source, String trigger) {
+    if (NativeCallAppReturn.isConfirmedSince(callId, appReturnRequestedAtMs)) {
+      NativeVoiceCallLog.info(
+          "native_voice_app_return_already_front", callId, "source=" + source + " trigger=" + trigger);
+      return;
+    }
+    NativeCallAppReturn.bringAppToFront(this, callId, source + ":retry_" + trigger);
   }
 
   /** 통화 화면 음소거 버튼·PiP 마이크 버튼 공통 (SSOT §3 — 같은 함수). */
@@ -934,11 +946,15 @@ public class NativeVoiceCallActivity extends Activity {
     if (!isDockEligible()) return false;
     boolean pip = tryEnterPip(source);
     if (pip) {
-      // PiP 창이 뜬 뒤(onPictureInPictureModeChanged) 앱을 앞으로 — 콜백이 늦으면 보조 타이머.
+      // 복귀 요청은 PiP 요청이 수락된 지금(통화 화면이 아직 보이고 고정되기 전) 보낸다.
+      // PiP 가 뜬 뒤에 보내면 Android 가 「보이는 화면이 PiP 뿐」이라 막는다(BAL_BLOCK).
+      // PiP 콜백·보조 타이머는 확인 전용. docs/audit/call-back-app-return-bal-design-2026-11-12.md §2·§5
+      appReturnRequestedAtMs = SystemClock.elapsedRealtime();
+      NativeCallAppReturn.bringAppToFront(this, callId, source);
       pendingAppReturnSource = source;
       mainHandler.removeCallbacks(appReturnAfterPipFallback);
       mainHandler.postDelayed(appReturnAfterPipFallback, APP_RETURN_AFTER_PIP_FALLBACK_MS);
-      NativeVoiceCallLog.info("native_voice_minimize_pip", callId, "source=" + source + " appReturn=pending");
+      NativeVoiceCallLog.info("native_voice_minimize_pip", callId, "source=" + source + " appReturn=requested");
       return true;
     }
     showDock(source + "_pip_fallback");

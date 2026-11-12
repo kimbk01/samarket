@@ -1374,6 +1374,8 @@ public class MainActivity extends BridgeActivity {
   public void onResume() {
     super.onResume();
     appVisible = true;
+    // 통화 화면 → 메신저 복귀 요청의 실제 결과 기록(로그만). docs/audit/call-back-app-return-bal-design-2026-11-12.md §5
+    com.dibay.app.call.NativeCallAppReturn.onMainResumed();
     activeInstance = this;
     attachDibayWebChromeClient();
     attachDibayWebViewClient();
