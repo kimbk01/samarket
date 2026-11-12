@@ -63,7 +63,8 @@ export function FriendQrScanPanel({ onToken }: { onToken: (token: string) => voi
          * 카메라 칸 — 남은 높이를 채우고, 안의 정사각형은 칸 높이를 따르되 최대 300px.
          * 영상은 정사각형을 꽉 채운다(absolute + `!h-full`): `app/globals.css` 의 전역 `img, video, canvas { height: auto }` 가
          * 층(@layer) 밖이라 `h-full` 을 이겨 영상이 카메라 비율(4:3)로 줄고 아래가 검게 남았다 (Xiaomi 실측 267×200, 2026-11-12).
-         * [갤러리에서 선택] 은 `flex-none` — 공용 버튼 `.dibay-overlay-btn { flex: 1 }` 이 세로 칸에서 버튼을 115px 로 늘렸다.
+         * [갤러리에서 선택] 은 `!flex-none` — 공용 버튼 `.dibay-overlay-btn { flex: 1 }` 이 세로 칸에서 버튼을 115px 로 늘렸다.
+         * `dibay-overlay.css` 도 층(@layer) 밖이라 일반 `flex-none` 은 진다 (운영 실측 #170 뒤에도 116px) — 층 안 !important 로 이긴다.
          */
         <div className="flex min-h-[200px] flex-1 items-center justify-center" data-testid="friend-qr-camera-area">
           <div className="relative aspect-square h-full max-h-[300px] overflow-hidden rounded-[length:var(--overlay-radius-md)] bg-black">
@@ -108,7 +109,7 @@ export function FriendQrScanPanel({ onToken }: { onToken: (token: string) => voi
       />
       <button
         type="button"
-        className="dibay-overlay-btn dibay-overlay-btn--secondary w-full flex-none whitespace-nowrap"
+        className="dibay-overlay-btn dibay-overlay-btn--secondary w-full !flex-none whitespace-nowrap"
         onClick={() => fileRef.current?.click()}
         data-testid="friend-qr-scan-gallery"
       >
