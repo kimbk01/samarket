@@ -120,8 +120,10 @@ describe("device verify fixes (2026-11-02)", () => {
 describe("messenger split view — every bottom sheet sits on the list pane (2026-11-02 tablet)", () => {
   it("shell adds the split-list class to fit-content and device-bottom panels, not to center popups", () => {
     const shell = read("components/community-messenger/MessengerSheetUi.tsx");
-    expect(shell).toContain("`${MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS} ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}`");
-    expect(shell).toContain("`${MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS} ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}`");
+    /** 기본 켬(splitListPane = true) — 메신저 밖에서 쓰는 시트만 끈다 (내정보 QR 코드 시트, 2026-11-12) */
+    expect(shell).toContain("splitListPane = true,");
+    expect(shell).toContain('`${MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS}${splitListPane ? ` ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}` : ""}`');
+    expect(shell).toContain('`${MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS}${splitListPane ? ` ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}` : ""}`');
   });
 
   it("≥768 width rule covers both panel kinds", () => {
