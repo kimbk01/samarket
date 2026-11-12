@@ -2,6 +2,10 @@ package com.dibay.app.call;
 
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.AppOpsManager;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Process;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -41,6 +45,26 @@ public final class NativeCallAppReturn {
   private static long confirmedAtMs;
 
   private NativeCallAppReturn() {}
+
+  /**
+   * 설계안 B 사용 가능 여부 — 「메신저 먼저 → 시스템 자동 PiP」.
+   * Android 12+ 자동 PiP(setAutoEnterEnabled) · 기기 PiP 기능 · 사용자가 앱 PiP 를 끄지 않음.
+   * 조건 밖이면 기존 경로(PiP 요청 → 복귀, PiP 실패 시 Dock). docs/audit/call-back-app-return-bal-design-2026-11-12.md §12·§13
+   */
+  public static boolean autoPipAppReturnSupported(Activity activity) {
+    if (activity == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false;
+    try {
+      if (!activity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) return false;
+      AppOpsManager ops = (AppOpsManager) activity.getSystemService(Context.APP_OPS_SERVICE);
+      if (ops == null) return true;
+      int mode =
+          ops.unsafeCheckOpNoThrow(
+              AppOpsManager.OPSTR_PICTURE_IN_PICTURE, Process.myUid(), activity.getPackageName());
+      return mode == AppOpsManager.MODE_ALLOWED;
+    } catch (RuntimeException error) {
+      return false;
+    }
+  }
 
   /** 순수 판정 — 요청 시각 이후 확인 창 안에 재개됐으면 confirmed. */
   static String judge(long requestedAtMs, long resumedAtMs, long windowMs) {
