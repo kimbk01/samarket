@@ -16,11 +16,11 @@ const src = readFileSync(join(process.cwd(), "components/route-transition/AppRou
 
 describe("D1 S1 살아 있는 화면 고정", () => {
   it("두 화면 연출은 통화 화면으로 갈 때만 — 그 밖에는 같은 surface + 밑그림", () => {
-    expect(src).toContain("const liveSurfaceSlide = fallbackEligible || !isCommunityMessengerCallPath(pathKey);");
+    expect(src).toContain("const liveSurfaceSlide = fallbackEligible || !isCallSurfaceTransitionPath(pathKey);");
     expect(src).toMatch(/pushAxis &&\s*liveSurfaceSlide &&/);
     expect(src).toMatch(/deliveryStackMs \?\? mypageMotionPushDurationMs\(kind\),\s*!fallbackEligible\s*\)/);
     expect(src).toContain(
-      "!hubChromeHeader && !mainShellChildScrollLocked && !isCommunityMessengerCallPath(toPath);"
+      "!hubChromeHeader && !mainShellChildScrollLocked && !isCallSurfaceTransitionPath(toPath);"
     );
   });
 
