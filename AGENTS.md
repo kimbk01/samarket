@@ -86,6 +86,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **Philife**(`philife`): 피드·게시판 연동 DM — `lib/chats` + `app/(main)/philife`. **메신저(`/community-messenger`)와 동일 제품으로 취급하지 않는다.**
 - **스토어 쇼핑 통합 채팅 스트림**(`store`): `lib/chats` store 세그먼트. **주문 채팅(`store_order`)과 이름·도메인이 다르다** — 혼동 금지.
 - **음성·영상**: 통화 전용 — `lib/chat-domain/ports/call-signaling-boundary.ts`, `community_messenger_call_signals`. **채팅 3종의 확장이 아니다.**
+- **통화 화면 밖 표면·CTA (HARD LOCK)**: PiP·진행 중 통화 알림·최근 앱 통화 카드·Dock 과 종료·마이크·카메라 버튼은 단일 정의 **`docs/dibay-call-minimized-surface-cta-ssot.md`** (레거시 Telegram 실측 기준). 통화 CTA 에 X 모양 금지(종료 = 빨간 수화기 `ic_call_end`), PiP 닫기·카드 제거 = 통화 유지. 검사 `npm run verify:call-surface-cta-ssot`(CI) · 규칙 `.cursor/rules/dibay-call-surface-cta-ssot.mdc`.
 - **거래(마켓·피드) 목표는 가볍게**: `docs/trade-lightweight-design.md` (**§9** `/market` 목록 불변조건), `lib/trade/trade-lightweight-goals.ts` (`TRADE_HOME_LIST_INVARIANT_IDS`), `.cursor/rules/trade-home-list-invariants.mdc` — 번들·단일 페이로드·**`getPostsForHome` 단일 비행·prewarm 키 일치**·캐시/세션 peek.
 - **거래 채팅 구매자·판매자 프로세스(상세 CTA·예약·후기)**: `docs/trade-chat-buyer-seller-process.md`.
 - **Trade / Philife / Store 스트림(통합 목록) 구현 공유**: `lib/chats`, `load-chat-room-bootstrap`, `chat-room-load-contract` — 위 3종·비3종 경계는 `samarket-three-chat-pillars` 우선.

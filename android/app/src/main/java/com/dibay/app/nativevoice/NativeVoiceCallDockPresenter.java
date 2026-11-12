@@ -39,7 +39,7 @@ public final class NativeVoiceCallDockPresenter {
     String peerName = resolvePeerName(session);
     String duration = durationText != null && !durationText.trim().isEmpty() ? durationText.trim() : "00:00";
     String resumeLabel = safeString(app, R.string.dibay_call_dock_resume);
-    String endLabel = safeString(app, R.string.dibay_voice_call_end);
+    String endLabel = safeString(app, R.string.dibay_call_end_call);
     return new Model(peerName, initialFromName(peerName), duration, resumeLabel, endLabel);
   }
 

@@ -17,6 +17,9 @@
     <string name="dibay_call_control_video">Video</string>
     <string name="dibay_call_control_mute">Mute</string>
     <string name="dibay_call_control_unmute">Unmute</string>
+    <string name="dibay_call_end_call">End call</string>
+    <string name="dibay_call_recents_label">On a call · %1$s</string>
+    <string name="dibay_call_recents_label_no_name">On a call</string>
     <string name="dibay_voice_call_connecting">Connecting…</string>
     <string name="dibay_voice_call_connected">In call</string>
     <string name="dibay_voice_call_ending">Ending call…</string>

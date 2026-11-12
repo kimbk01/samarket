@@ -40,6 +40,8 @@ import com.dibay.app.IncomingCallUiInsets;
 import com.dibay.app.R;
 import com.dibay.app.DibayNativeLocale;
 import android.content.Context;
+import com.dibay.app.call.CallPipActionPlan;
+import com.dibay.app.call.CallRecentsCardPresenter;
 import com.dibay.app.call.NativeCallAppReturn;
 import com.dibay.app.nativecall.NativeCallInAppNoticeOverlay;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
@@ -113,6 +115,10 @@ public class NativeVideoCallActivity extends Activity {
   private ImageButton acceptButton;
   private ImageButton declineButton;
   private ImageButton endButton;
+  private TextView endLabelView;
+  private TextView micLabelView;
+  /** SSOT §4-1 — 마지막으로 넘긴 PiP 파라미터 키 (상태가 바뀔 때만 다시 넘김). */
+  private String lastPipParamsKey;
   private ImageButton cameraButton;
   private ImageButton micButton;
   private View dockRoot;
@@ -661,6 +667,7 @@ public class NativeVideoCallActivity extends Activity {
   @Override
   protected void onDestroy() {
     NativeVideoCallLog.info("native_video_pip_activity_destroyed", callId, buildPipLogDetails("destroy"));
+    if (isFinishing()) CallRecentsCardPresenter.apply(this, false, null, "video:destroy");
     unregisterNativeVideoBackCallback();
     clearPipRequestVerification();
     cancelConnectedChromeHide("destroy");
@@ -985,6 +992,8 @@ public class NativeVideoCallActivity extends Activity {
     endButton = findViewById(R.id.native_video_call_end);
     cameraButton = findViewById(R.id.native_video_call_camera);
     micButton = findViewById(R.id.native_video_call_mic);
+    endLabelView = findViewById(R.id.native_video_call_end_label);
+    micLabelView = findViewById(R.id.native_video_call_mic_label);
     cameraFlipButton = findViewById(R.id.native_video_call_camera_flip);
     connectedChromeOverlay = findViewById(R.id.native_video_call_connected_chrome);
     topBar = findViewById(R.id.native_video_call_top_bar);
@@ -1021,14 +1030,8 @@ public class NativeVideoCallActivity extends Activity {
           NativeVideoCallAgoraEngine.switchCameraFacing();
           showConnectedChrome("camera_flip");
         });
-    cameraButton.setOnClickListener(
-        v -> {
-          cameraEnabled = !cameraEnabled;
-          NativeVideoCallAgoraEngine.setCameraEnabled(cameraEnabled);
-          updateConnectedControlChrome();
-          showConnectedChrome("video_toggle");
-        });
-    micButton.setOnClickListener(v -> onMicTapped());
+    cameraButton.setOnClickListener(v -> onCameraTapped("button"));
+    micButton.setOnClickListener(v -> onMicTapped("button"));
   }
 
   private void onEndTapped() {
@@ -1065,6 +1068,7 @@ public class NativeVideoCallActivity extends Activity {
     if (durationView != null) durationView.setVisibility(View.GONE);
     activeActions.bringToFront();
     activeActions.setTranslationZ(32f);
+    if (endLabelView != null) endLabelView.setText(R.string.dibay_video_call_cancel);
   }
 
   private void applyState(NativeVideoCallRuntime.State state) {
@@ -1165,6 +1169,16 @@ public class NativeVideoCallActivity extends Activity {
       syncPersistentCallStatusVisibility();
     }
     wasConnectedFullscreen = connectedFullscreenNow;
+    if (endLabelView != null) endLabelView.setText(model.endButtonLabel);
+    refreshPipParams("state_" + state.name().toLowerCase(Locale.ROOT));
+    applyRecentsCard(state, session);
+  }
+
+  /** SSOT §6 — 연결된 동안만 최근 앱에 통화 카드, 그 밖(벨·연결 중·종료)은 숨김. 잔류 0. */
+  private void applyRecentsCard(NativeVideoCallRuntime.State state, NativeVideoCallRuntime.Session session) {
+    boolean visible = state == NativeVideoCallRuntime.State.CONNECTED && !isFinishing();
+    CallRecentsCardPresenter.apply(
+        this, visible, session != null ? session.callerName : null, "video:" + state.name().toLowerCase(Locale.ROOT));
   }
 
   private boolean isOutgoingVideoPresentation(NativeVideoCallRuntime.Session session) {
@@ -1818,6 +1832,9 @@ public class NativeVideoCallActivity extends Activity {
       micButton.setBackgroundResource(R.drawable.bg_call_control_neutral);
       micButton.setColorFilter(Color.WHITE);
     }
+    if (micLabelView != null) {
+      micLabelView.setText(micMuted ? R.string.dibay_call_control_unmute : R.string.dibay_call_control_mute);
+    }
     if (cameraFlipButton != null) {
       cameraFlipButton.setBackgroundResource(R.drawable.bg_call_control_neutral);
       cameraFlipButton.setColorFilter(Color.WHITE);
@@ -1826,9 +1843,20 @@ public class NativeVideoCallActivity extends Activity {
       endButton.setBackgroundResource(R.drawable.bg_call_control_danger);
       endButton.setColorFilter(Color.WHITE);
     }
+    refreshPipParams("controls");
   }
 
-  private void onMicTapped() {
+  /** 통화 화면 카메라 버튼·PiP 카메라 버튼 공통 (SSOT §3 — 같은 함수). */
+  private void onCameraTapped(String source) {
+    cameraEnabled = !cameraEnabled;
+    NativeVideoCallAgoraEngine.setCameraEnabled(cameraEnabled);
+    NativeVideoCallLog.info("native_video_camera_changed", callId, "source=" + source + " enabled=" + cameraEnabled);
+    updateConnectedControlChrome();
+    if (!inPipMode) showConnectedChrome("video_toggle");
+  }
+
+  /** 통화 화면 마이크 버튼·PiP 마이크 버튼 공통 (SSOT §3 — 같은 함수). */
+  private void onMicTapped(String source) {
     micMuted = !micMuted;
     boolean applied = NativeVideoCallAgoraEngine.setMicMuted(micMuted);
     if (!applied) {
@@ -1838,13 +1866,91 @@ public class NativeVideoCallActivity extends Activity {
     NativeVideoCallLog.info(
         "native_video_mic_muted_changed",
         callId,
-        "source=button connected="
+        "source="
+            + source
+            + " connected="
             + (currentState == NativeVideoCallRuntime.State.CONNECTED)
-            + " presentation=fullscreen requestedMuted="
+            + " presentation="
+            + (inPipMode ? "pip" : "fullscreen")
+            + " requestedMuted="
             + micMuted
             + " result="
             + applied);
-    showConnectedChrome("mic_toggle");
+    if (!inPipMode) showConnectedChrome("mic_toggle");
+  }
+
+  /**
+   * SSOT §3 — PiP 마이크·카메라 버튼. 통화 화면 버튼과 같은 함수를 부른다. 화면이 없으면(드문 경합) 아무것도 바꾸지
+   * 않고 기록만 한다(통화 상태 불변).
+   */
+  public static void onPipAction(Context context, String callId, String action) {
+    if (callId == null || action == null) return;
+    Handler main = new Handler(Looper.getMainLooper());
+    main.post(
+        () -> {
+          NativeVideoCallActivity activity = activeRef.get();
+          if (activity == null
+              || activity.isFinishing()
+              || activity.isDestroyed()
+              || !callId.equals(activity.callId)) {
+            NativeVideoCallLog.info("native_video_pip_action_ignored", callId, "action=" + action + " reason=no_surface");
+            return;
+          }
+          if (NativeVideoCallActionReceiver.ACTION_PIP_MIC.equals(action)) {
+            activity.onMicTapped("pip");
+          } else if (NativeVideoCallActionReceiver.ACTION_PIP_CAMERA.equals(action)) {
+            activity.onCameraTapped("pip");
+          }
+        });
+  }
+
+  private boolean isAutoPipEligible() {
+    return !preparing
+        && callId != null
+        && !callId.isEmpty()
+        && currentState == NativeVideoCallRuntime.State.CONNECTED
+        && !isFinishing();
+  }
+
+  private int maxPipActions() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return 0;
+    try {
+      return getMaxNumPictureInPictureActions();
+    } catch (RuntimeException error) {
+      return 3;
+    }
+  }
+
+  private PictureInPictureParams buildPipParams(boolean autoEnter) {
+    return NativeVideoCallPipPresenter.buildParams(
+        this, callId, micMuted, cameraEnabled, autoEnter, maxPipActions());
+  }
+
+  /**
+   * SSOT §4-1 — CONNECTED 동안만 자동 PiP(홈·최근 앱·제스처), 버튼 상태(마이크·카메라)가 바뀌면 PiP 버튼 갱신. 키가 같으면
+   * 다시 넘기지 않는다(깜박임 방지).
+   */
+  private void refreshPipParams(String reason) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+    if (callId == null || callId.isEmpty() || preparing) return;
+    boolean autoEnter = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && isAutoPipEligible();
+    // callId 포함 — 같은 화면이 새 통화로 다시 쓰여도(onNewIntent) PiP 버튼이 이전 callId 를 들고 있지 않게.
+    String key =
+        callId
+            + "|"
+            + CallPipActionPlan.stateKey(
+                CallPipActionPlan.plan(true, cameraEnabled, maxPipActions()), micMuted, cameraEnabled, autoEnter);
+    if (key.equals(lastPipParamsKey)) return;
+    PictureInPictureParams params = buildPipParams(autoEnter);
+    if (params == null) return;
+    try {
+      setPictureInPictureParams(params);
+      lastPipParamsKey = key;
+      NativeVideoCallLog.info("native_video_pip_params_set", callId, "reason=" + reason + " autoEnter=" + autoEnter);
+    } catch (RuntimeException error) {
+      NativeVideoCallLog.warn(
+          "native_video_pip_params_failed", callId, "err=" + error.getClass().getSimpleName());
+    }
   }
 
   private boolean minimizeConnectedCall(String source) {
@@ -1937,7 +2043,7 @@ public class NativeVideoCallActivity extends Activity {
           "native_video_pip_request_rejected", callId, buildPipLogDetails(lastPipSource) + " reason=ineligible");
       return false;
     }
-    PictureInPictureParams params = NativeVideoCallPipPresenter.buildParams(this, callId);
+    PictureInPictureParams params = buildPipParams(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && isAutoPipEligible());
     if (params == null) {
       NativeVideoCallLog.info(
           "native_video_pip_request_rejected", callId, buildPipLogDetails(lastPipSource) + " reason=params_null");

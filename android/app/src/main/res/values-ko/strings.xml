@@ -23,6 +23,9 @@
     <string name="dibay_call_control_video">영상</string>
     <string name="dibay_call_control_mute">음소거</string>
     <string name="dibay_call_control_unmute">음소거 해제</string>
+    <string name="dibay_call_end_call">통화 종료</string>
+    <string name="dibay_call_recents_label">통화 중 · %1$s</string>
+    <string name="dibay_call_recents_label_no_name">통화 중</string>
     <string name="dibay_voice_call_connecting">연결 중…</string>
     <string name="dibay_voice_call_connected">통화 중</string>
     <string name="dibay_voice_call_ending">통화 종료 중</string>

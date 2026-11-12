@@ -342,7 +342,7 @@ public class CallForegroundService extends Service {
             DibayNativeLocale.string(this, R.string.dibay_incoming_accept),
             contentIntent)
         .addAction(
-            android.R.drawable.ic_menu_close_clear_cancel,
+            R.drawable.ic_call_end,
             DibayNativeLocale.string(this, R.string.dibay_incoming_reject),
             endIntent)
         .build();
@@ -428,7 +428,7 @@ public class CallForegroundService extends Service {
         .setPriority(NotificationCompat.PRIORITY_LOW)
         .setContentIntent(contentIntent)
         .addAction(
-            android.R.drawable.ic_menu_close_clear_cancel,
+            R.drawable.ic_call_end,
             DibayNativeLocale.string(this, R.string.dibay_voice_call_end),
             endIntent)
         .build();

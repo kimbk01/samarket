@@ -90,7 +90,7 @@
                 android:contentDescription="@string/dibay_incoming_reject"
                 android:padding="16dp"
                 android:scaleType="centerInside"
-                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:src="@drawable/ic_call_end"
                 android:tint="@android:color/white" />
 
             <ImageButton

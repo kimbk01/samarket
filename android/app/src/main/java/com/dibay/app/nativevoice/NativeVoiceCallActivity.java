@@ -30,6 +30,8 @@ import com.dibay.app.IncomingCallUiInsets;
 import com.dibay.app.R;
 import com.dibay.app.DibayNativeLocale;
 import android.content.Context;
+import com.dibay.app.call.CallPipActionPlan;
+import com.dibay.app.call.CallRecentsCardPresenter;
 import com.dibay.app.call.NativeCallAppReturn;
 import com.dibay.app.nativecall.NativeCallInAppNoticeOverlay;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
@@ -82,6 +84,9 @@ public class NativeVoiceCallActivity extends Activity {
   private ImageButton muteButton;
   private ImageButton endButton;
   private TextView muteLabel;
+  private TextView endLabelView;
+  /** SSOT §4-1 — 마지막으로 넘긴 PiP 파라미터 키 (상태가 바뀔 때만 다시 넘김). */
+  private String lastPipParamsKey;
   private View dockRoot;
   private View topBar;
   private ImageButton minimizeButton;
@@ -289,6 +294,7 @@ public class NativeVoiceCallActivity extends Activity {
 
   @Override
   protected void onDestroy() {
+    if (isFinishing()) CallRecentsCardPresenter.apply(this, false, null, "voice:destroy");
     stopDurationTimer();
     hideDock("destroy");
     detachDockView();
@@ -607,6 +613,7 @@ public class NativeVoiceCallActivity extends Activity {
     muteButton = findViewById(R.id.native_voice_call_mute);
     endButton = findViewById(R.id.native_voice_call_end);
     muteLabel = findViewById(R.id.native_voice_call_mute_label);
+    endLabelView = findViewById(R.id.native_voice_call_end_label);
     topBar = findViewById(R.id.native_voice_call_top_bar);
     minimizeButton = findViewById(R.id.native_voice_call_minimize);
     IncomingCallUiInsets.applyTopSafeArea(topBar, 4);
@@ -628,32 +635,104 @@ public class NativeVoiceCallActivity extends Activity {
           NativeVoiceCallAgoraEngine.setSpeakerEnabled(speakerEnabled);
           updateControlChrome();
         });
-    muteButton.setOnClickListener(
-        v -> {
-          if (!micChromeEnabled) return;
-          // WP-3 NEW-28: apply real Agora mute first; only reflect UI/session on success.
-          NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
-          if (session == null) return;
-          boolean next = !session.micMuted;
-          if (!NativeVoiceCallAgoraEngine.setMicMuted(callId, next)) {
-            if (noticeOverlay != null) {
-              noticeOverlay.show(NativeCallInAppNoticeOverlay.Event.MIC_MUTE_FAILED);
-            }
-            return;
-          }
-          session.micMuted = next;
-          micMutedChrome = next;
-          if (muteLabel != null) {
-            muteLabel.setText(
-                getString(
-                    next ? R.string.dibay_call_control_unmute : R.string.dibay_call_control_mute));
-          }
-          updateControlChrome();
-        });
+    muteButton.setOnClickListener(v -> onMicTapped("button"));
     // WP-3 NEW-27: voice→video upgrade is unwired (dead control). Hidden until WP-10 authority.
     if (videoButton != null) {
       View videoControl = (View) videoButton.getParent();
       (videoControl != null ? videoControl : videoButton).setVisibility(View.GONE);
+    }
+  }
+
+  /** 통화 화면 음소거 버튼·PiP 마이크 버튼 공통 (SSOT §3 — 같은 함수). */
+  private void onMicTapped(String source) {
+    if (!micChromeEnabled) return;
+    // WP-3 NEW-28: apply real Agora mute first; only reflect UI/session on success.
+    NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
+    if (session == null) return;
+    boolean next = !session.micMuted;
+    if (!NativeVoiceCallAgoraEngine.setMicMuted(callId, next)) {
+      if (noticeOverlay != null) {
+        noticeOverlay.show(NativeCallInAppNoticeOverlay.Event.MIC_MUTE_FAILED);
+      }
+      return;
+    }
+    session.micMuted = next;
+    micMutedChrome = next;
+    if (muteLabel != null) {
+      muteLabel.setText(
+          getString(next ? R.string.dibay_call_control_unmute : R.string.dibay_call_control_mute));
+    }
+    NativeVoiceCallLog.info("native_voice_mic_muted_changed", callId, "source=" + source + " muted=" + next);
+    updateControlChrome();    refreshPipParams("mic");
+  }
+
+  /**
+   * SSOT §3 — PiP 마이크 버튼. 통화 화면 버튼과 같은 함수를 부른다. 화면이 없으면(드문 경합) 아무것도 바꾸지 않고
+   * 기록만 한다(통화 상태 불변).
+   */
+  public static void onPipAction(Context context, String callId, String action) {
+    if (callId == null || action == null) return;
+    new Handler(Looper.getMainLooper())
+        .post(
+            () -> {
+              NativeVoiceCallActivity activity = activeRef.get();
+              if (activity == null
+                  || activity.isFinishing()
+                  || activity.isDestroyed()
+                  || !callId.equals(activity.callId)) {
+                NativeVoiceCallLog.info(
+                    "native_voice_pip_action_ignored", callId, "action=" + action + " reason=no_surface");
+                return;
+              }
+              if (NativeVoiceCallActionReceiver.ACTION_PIP_MIC.equals(action)) {
+                activity.onMicTapped("pip");
+              }
+            });
+  }
+
+  private boolean isAutoPipEligible() {
+    return !preparing
+        && callId != null
+        && !callId.isEmpty()
+        && currentState == NativeVoiceCallRuntime.State.CONNECTED
+        && !isFinishing();
+  }
+
+  private int maxPipActions() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return 0;
+    try {
+      return getMaxNumPictureInPictureActions();
+    } catch (RuntimeException error) {
+      return 3;
+    }
+  }
+
+  private PictureInPictureParams buildPipParams(boolean autoEnter) {
+    return NativeVoiceCallPipPresenter.buildParams(this, callId, micMutedChrome, autoEnter, maxPipActions());
+  }
+
+  /** SSOT §4-1 — CONNECTED 동안만 자동 PiP, 마이크 상태가 바뀌면 PiP 버튼 갱신. 키가 같으면 다시 넘기지 않는다. */
+  private void refreshPipParams(String reason) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+    if (callId == null || callId.isEmpty() || preparing) return;
+    if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) return;
+    boolean autoEnter = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && isAutoPipEligible();
+    // callId 포함 — 같은 화면이 새 통화로 다시 쓰여도(onNewIntent) PiP 버튼이 이전 callId 를 들고 있지 않게.
+    String key =
+        callId
+            + "|"
+            + CallPipActionPlan.stateKey(
+                CallPipActionPlan.plan(false, false, maxPipActions()), micMutedChrome, false, autoEnter);
+    if (key.equals(lastPipParamsKey)) return;
+    PictureInPictureParams params = buildPipParams(autoEnter);
+    if (params == null) return;
+    try {
+      setPictureInPictureParams(params);
+      lastPipParamsKey = key;
+      NativeVoiceCallLog.info("native_voice_pip_params_set", callId, "reason=" + reason + " autoEnter=" + autoEnter);
+    } catch (RuntimeException error) {
+      NativeVoiceCallLog.warn(
+          "native_voice_pip_params_failed", callId, "err=" + error.getClass().getSimpleName());
     }
   }
 
@@ -681,6 +760,7 @@ public class NativeVoiceCallActivity extends Activity {
     stopDurationTimer();
     connectedAtElapsedMs = 0L;
     durationView.setVisibility(View.GONE);
+    if (endLabelView != null) endLabelView.setText(R.string.dibay_voice_call_cancel);
     updateControlChrome();
   }
 
@@ -724,6 +804,18 @@ public class NativeVoiceCallActivity extends Activity {
     updateControlChrome();
     syncMinimizeButton();
     if (inPipMode) applyPipUiMode(true);
+    boolean dialing =
+        session != null && session.initiator && state == NativeVoiceCallRuntime.State.CONNECTING;
+    if (endLabelView != null) {
+      endLabelView.setText(dialing ? R.string.dibay_voice_call_cancel : R.string.dibay_call_end_call);
+    }
+    refreshPipParams("state_" + state.name().toLowerCase(java.util.Locale.ROOT));
+    // SSOT §6 — 연결된 동안만 최근 앱에 통화 카드, 그 밖은 숨김(잔류 0).
+    CallRecentsCardPresenter.apply(
+        this,
+        state == NativeVoiceCallRuntime.State.CONNECTED && !isFinishing(),
+        session != null ? session.callerName : null,
+        "voice:" + state.name().toLowerCase(java.util.Locale.ROOT));
   }
 
   /** 첫 연결 시각을 callId 별로 기억 — 화면을 다시 만들어도 시간이 이어진다. */
@@ -789,7 +881,7 @@ public class NativeVoiceCallActivity extends Activity {
     }
 
     applyMediaDisk(endButton, false, false, true);
-    endButton.setImageResource(R.drawable.ic_call_end_x);
+    endButton.setImageResource(R.drawable.ic_call_end);
   }
 
   private void applyMediaDisk(ImageButton button, boolean active, boolean disabled, boolean danger) {
@@ -859,7 +951,8 @@ public class NativeVoiceCallActivity extends Activity {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false;
     if (inPipMode || isInPictureInPictureMode()) return true;
     if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) return false;
-    PictureInPictureParams params = NativeVoiceCallPipPresenter.buildParams(this, callId);
+    PictureInPictureParams params =
+        buildPipParams(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && isAutoPipEligible());
     if (params == null) return false;
     try {
       boolean entered = enterPictureInPictureMode(params);
