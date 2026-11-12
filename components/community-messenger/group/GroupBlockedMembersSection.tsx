@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type BanRow = {
   id: string;
@@ -55,20 +56,20 @@ export function GroupBlockedMembersSection({ roomId, canManage }: GroupBlockedMe
   if (!canManage) return null;
 
   return (
-    <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <p className="sam-text-body font-semibold text-sam-fg">
+    <div className="mt-3 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] p-4">
+      <p className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">
         {safeT("cm_ui_blocked_members")}
       </p>
       {!loaded ? (
-        <p className="mt-2 sam-text-helper text-sam-muted">{t("chats_spinner_loading_aria")}</p>
+        <p className={`${OverlayUi.caption} mt-1`}>{t("chats_spinner_loading_aria")}</p>
       ) : bans.length === 0 ? (
-        <p className="mt-2 sam-text-helper text-sam-muted">
+        <p className={`${OverlayUi.caption} mt-1`}>
           {safeT("cm_ui_blocked_members_empty")}
         </p>
       ) : (
         <ul className="mt-3 space-y-3">
           {bans.map((ban) => (
-            <li key={ban.id} className="flex items-start gap-3 rounded-ui-rect border border-sam-border-soft px-3 py-3">
+            <li key={ban.id} className="flex items-start gap-3 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-3 py-3">
               <SamarketThumbnail
                 src={null}
                 size={40}
@@ -97,7 +98,7 @@ export function GroupBlockedMembersSection({ roomId, canManage }: GroupBlockedMe
                 <button
                   type="button"
                   disabled={busyId === ban.userId}
-                  className="mt-2 min-h-[40px] rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper font-semibold text-sam-fg disabled:opacity-40"
+                  className={`${OverlayUi.btn.secondary} mt-2`}
                   onClick={() => void unban(ban.userId)}
                 >
                   {safeT("cm_ui_unban_member")}

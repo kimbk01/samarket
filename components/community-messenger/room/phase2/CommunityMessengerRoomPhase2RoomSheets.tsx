@@ -5,6 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
@@ -59,7 +60,7 @@ import { Crown, Image as ImageIcon, Link2, Megaphone, Search } from "lucide-reac
 import { CommunityMessengerAttachmentSheet } from "@/components/community-messenger/room/phase2/CommunityMessengerAttachmentSheet";
 import { MessengerGiftOfferFlow } from "@/components/gift-certificate/MessengerGiftOfferFlow";
 import { isCmGroupCallEnabled } from "@/lib/community-messenger/call-phase0-basics";
-import { GroupInviteLinkSection } from "@/components/community-messenger/group/GroupInviteLinkSection";
+import { GroupJoinRequestsSection } from "@/components/community-messenger/group/GroupJoinRequestsSection";
 import { GroupBlockedMembersSection } from "@/components/community-messenger/group/GroupBlockedMembersSection";
 import { GroupMemberRoleBadge } from "@/components/community-messenger/group/GroupMemberRoleBadge";
 import { GroupMemberPresenceLabel } from "@/components/community-messenger/room/phase2/GroupMemberPresenceLabel";
@@ -74,8 +75,16 @@ import { MESSENGER_GROUP_OVERLAY_SHEET_MAX_W_CLASS } from "@/lib/ui/messenger-sp
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 /** 방 정보 시트 설정·나가기 행 — 눌림 = 배경 + 0.98 · 비활성 = 회색 토큰 (불투명도 금지, UI·CTA 공통 기준 §1-4) */
-const ROOM_SHEET_ROW_PRESS_CLASS =
-  "transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)] enabled:active:bg-sam-surface-muted disabled:cursor-not-allowed disabled:border-transparent disabled:bg-[color:var(--sam-primary-disabled)]";
+/**
+ * 그룹 ⋮ 서랍 목록 묶음 — 행은 `dibay-overlay-menu__item`(눌림 = 배경만 · 팝업 SSOT §1), 묶음 테두리·반경은 오버레이 토큰.
+ * `.dibay-overlay-menu` 컨테이너는 층 밖 음수 여백(-16px)이라 서랍 패딩 안에서는 쓰지 않는다.
+ */
+const GROUP_MENU_BOX_CLASS =
+  "mt-3 overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]";
+const GROUP_MENU_GROUP_LABEL_CLASS =
+  "px-4 pb-1 pt-3 text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-text-secondary)]";
+const GROUP_MENU_TRAILING_CLASS =
+  "ml-auto shrink-0 text-[length:var(--overlay-caption-size)] text-[color:var(--overlay-text-secondary)]";
 
 export function CommunityMessengerRoomPhase2RoomSheets() {
   const vm = useMessengerRoomPhase2View();
@@ -84,6 +93,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
   const [giftOfferOpen, setGiftOfferOpen] = useState(false);
   const [giftPreselectInstanceId, setGiftPreselectInstanceId] = useState<string | null>(null);
   const [membersFilterQuery, setMembersFilterQuery] = useState("");
+  const groupAvatarFileInputRef = useRef<HTMLInputElement | null>(null);
   const composerOutboundBusy = isMessengerComposerOutboundBusy(vm.busy);
   const isGroupMenuDrawer = vm.activeSheet === "menu" && vm.isGroupRoom;
   const roomChatDomain = String(vm.snapshot?.room?.chatDomain ?? "").trim();
@@ -127,7 +137,11 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
         <div
           className={
             isGroupMenuDrawer
-              ? `fixed inset-0 ${OVERLAY_Z_CLASS.sheet} flex justify-end`
+              ? /**
+                 * 그룹 서랍은 기기 상단(상태바·노치·통화 바) 영역에 들어가지 않는다 (Owner 2026-11-12).
+                 * 딤(absolute inset-0)은 전체를 덮고, 패널(h-full)은 --safe-top 아래에서 시작·스크롤한다.
+                 */
+                `fixed inset-0 ${OVERLAY_Z_CLASS.sheet} flex justify-end pt-[var(--safe-top)]`
               : /**
                  * 방에는 하단 탭이 없다 — 시트는 기기 하단부터 (SPL-05).
                  * 이전 「탭 위」 오프셋(60+safe)은 탭 없는 방에서 시트 아래로 방이 어둡게 처리되지 않고
@@ -333,20 +347,28 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                               </span>
                             }
                           />
-                          <label className="min-h-[44px] cursor-pointer rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-2 text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-primary)] transition-colors active:bg-[color:var(--overlay-secondary)]">
+                          <button
+                            type="button"
+                            className={OverlayUi.btn.secondary}
+                            disabled={vm.busy === "private-group-avatar"}
+                            onClick={() => groupAvatarFileInputRef.current?.click()}
+                          >
                             {vm.t("cm_ui_photo_gallery")}
-                            <input
-                              type="file"
-                              accept="image/jpeg,image/png,image/webp,image/gif"
-                              className="sr-only"
-                              disabled={vm.busy === "private-group-avatar"}
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                e.target.value = "";
-                                if (file) void vm.uploadPrivateGroupAvatar(file);
-                              }}
-                            />
-                          </label>
+                          </button>
+                          <input
+                            ref={groupAvatarFileInputRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/gif"
+                            className="sr-only"
+                            tabIndex={-1}
+                            aria-hidden
+                            disabled={vm.busy === "private-group-avatar"}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              e.target.value = "";
+                              if (file) void vm.uploadPrivateGroupAvatar(file);
+                            }}
+                          />
                         </div>
                         <input
                           value={vm.privateGroupTitle}
@@ -367,11 +389,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       </div>
                     ) : null}
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => vm.setActiveSheet("members")}
-                        className="min-h-[48px] rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-3 text-left text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)] transition-colors active:bg-[color:var(--overlay-secondary)]"
-                      >
+                      <button type="button" onClick={() => vm.setActiveSheet("members")} className={OverlayUi.btn.secondary}>
                         {vm.t("nav_messenger_participants")}
                       </button>
                       <button
@@ -379,29 +397,35 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         onClick={() =>
                           vm.canInviteMembers ? vm.setActiveSheet("invite") : vm.setActiveSheet("members")
                         }
-                        className="min-h-[48px] rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-3 text-left text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)] transition-colors active:bg-[color:var(--overlay-secondary)]"
+                        className={OverlayUi.btn.secondary}
                       >
                         {vm.t("nav_messenger_invite_members")}
                       </button>
+                    </div>
+                    <div className="mt-2 flex">
                       <button
                         type="button"
                         onClick={() => void vm.toggleRoomMute()}
                         disabled={vm.busy === "room-mute"}
-                        className="min-h-[48px] rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-3 text-left text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)] transition-colors active:bg-[color:var(--overlay-secondary)] disabled:cursor-not-allowed disabled:bg-[color:var(--sm-color-primary-disabled)] disabled:text-[color:var(--overlay-text-secondary)]"
+                        className={OverlayUi.btn.secondary}
                       >
                         {vm.snapshot.room.isMuted ? vm.t("cm_ui_turn_on_room_notifications") : vm.t("cm_ui_turn_off_room_notifications")}
                       </button>
                     </div>
-                    <GroupInviteLinkSection
-                      roomId={vm.roomId}
-                      state={vm.groupInviteLinkState}
-                      loading={vm.groupInviteLinkLoading}
-                      canManage={vm.canEditPrivateGroupMeta}
-                      busy={vm.busy}
-                      onCopy={() => void vm.copyGroupInviteLink()}
-                      onRegenerate={() => void vm.regenerateGroupInviteLink()}
-                      onDisable={() => void vm.disableGroupInviteLink()}
-                    />
+                    {vm.canInviteMembers ? (
+                      /** 초대 링크 = 복사 버튼 1개 · 주소 표시 없음 (Owner 2026-11-12) */
+                      <div className="mt-2 flex">
+                        <button
+                          type="button"
+                          onClick={() => void vm.copyGroupInviteLink()}
+                          disabled={!vm.groupInviteLinkState.inviteUrl}
+                          className={OverlayUi.btn.secondary}
+                        >
+                          {vm.t("cm_ui_group_invite_copy_link")}
+                        </button>
+                      </div>
+                    ) : null}
+                    <GroupJoinRequestsSection roomId={vm.roomId} canManage={vm.canEditPrivateGroupMeta} />
                     <GroupBlockedMembersSection
                       roomId={vm.roomId}
                       canManage={vm.canKickGroupMembers}
@@ -430,98 +454,85 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   </p>
                 </div>
 
-                <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-surface">
-                  <button
-                    type="button"
-                    onClick={() => vm.setActiveSheet("media")}
-                    className="flex w-full min-h-[48px] items-center gap-3 border-b border-sam-border px-4 py-3 text-left transition active:bg-sam-app"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-700">
-                      <ImageIcon className="h-5 w-5" strokeWidth={2} aria-hidden />
+                <div className={GROUP_MENU_BOX_CLASS}>
+                  <button type="button" onClick={() => vm.setActiveSheet("media")} className="dibay-overlay-menu__item">
+                    <span className="dibay-overlay-menu__icon text-[color:var(--overlay-primary)]">
+                      <ImageIcon strokeWidth={2} aria-hidden />
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_photo_video")}</span>
-                      <span className="mt-0.5 block sam-text-helper text-sam-muted">
+                    <span className="dibay-overlay-menu__text min-w-0 flex-1">
+                      <span className="dibay-overlay-menu__label">{vm.t("cm_ui_photo_video")}</span>
+                      <span className="dibay-overlay-menu__hint">
                         {vm.t("cm_ui_photo_voice_count", { photos: vm.photoMessageCount, voices: vm.voiceMessageCount })}
                       </span>
                     </span>
-                    <span className="sam-text-page-title text-sam-meta">›</span>
+                    <span className={GROUP_MENU_TRAILING_CLASS} aria-hidden>›</span>
+                  </button>
+                  <button type="button" onClick={() => vm.setActiveSheet("files")} className="dibay-overlay-menu__item">
+                    <span className="dibay-overlay-menu__icon text-[color:var(--overlay-text-secondary)]">
+                      <FileIcon />
+                    </span>
+                    <span className="dibay-overlay-menu__text min-w-0 flex-1">
+                      <span className="dibay-overlay-menu__label">{vm.t("cm_ui_file")}</span>
+                      <span className="dibay-overlay-menu__hint">{vm.t("cm_ui_file_count", { count: vm.fileMessageCount })}</span>
+                    </span>
+                    <span className={GROUP_MENU_TRAILING_CLASS} aria-hidden>›</span>
+                  </button>
+                  <button type="button" onClick={() => vm.setActiveSheet("links")} className="dibay-overlay-menu__item">
+                    <span className="dibay-overlay-menu__icon text-[color:var(--overlay-text-secondary)]">
+                      <Link2 strokeWidth={2} aria-hidden />
+                    </span>
+                    <span className="dibay-overlay-menu__text min-w-0 flex-1">
+                      <span className="dibay-overlay-menu__label">{vm.t("cm_ui_link")}</span>
+                      <span className="dibay-overlay-menu__hint">{vm.t("cm_ui_link_count", { count: vm.linkMessageCount })}</span>
+                    </span>
+                    <span className={GROUP_MENU_TRAILING_CLASS} aria-hidden>›</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => vm.setActiveSheet("files")}
-                    className="flex w-full min-h-[48px] items-center gap-3 border-b border-sam-border px-4 py-3 text-left transition active:bg-sam-app"
+                    onClick={() =>
+                      vm.roomNotice ? vm.openInfoSheet("notice") : vm.openInfoSheet(vm.canEditGroupNotice ? "notice" : undefined)
+                    }
+                    className="dibay-overlay-menu__item"
                   >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-500/12 text-slate-700">
-                      <FileIcon className="h-5 w-5 shrink-0" />
+                    <span className="dibay-overlay-menu__icon text-[color:var(--overlay-text-secondary)]">
+                      <Megaphone strokeWidth={2} aria-hidden />
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_file")}</span>
-                      <span className="mt-0.5 block sam-text-helper text-sam-muted">{vm.t("cm_ui_file_count", { count: vm.fileMessageCount })}</span>
-                    </span>
-                    <span className="sam-text-page-title text-sam-meta">›</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => vm.setActiveSheet("links")}
-                    className="flex w-full min-h-[48px] items-center gap-3 px-4 py-3 text-left transition active:bg-sam-app"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-500/15 text-sky-700">
-                      <Link2 className="h-5 w-5" strokeWidth={2} aria-hidden />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_link")}</span>
-                      <span className="mt-0.5 block sam-text-helper text-sam-muted">{vm.t("cm_ui_link_count", { count: vm.linkMessageCount })}</span>
-                    </span>
-                    <span className="sam-text-page-title text-sam-meta">›</span>
-                  </button>
-                </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {vm.roomNotice ? (
-                    <button
-                      type="button"
-                      onClick={() => vm.openInfoSheet("notice")}
-                      className="flex min-h-[72px] flex-col items-start justify-between gap-1 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left transition active:bg-sam-app"
-                    >
-                      <Megaphone className="h-5 w-5 shrink-0 text-sky-600" strokeWidth={2} aria-hidden />
-                      <span className="sam-text-helper font-semibold text-sam-fg">{vm.t("neighborhood_notice")}</span>
-                      <span className="line-clamp-2 w-full sam-text-xxs leading-snug text-sam-muted">{vm.roomNotice}</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => vm.openInfoSheet(vm.canEditGroupNotice ? "notice" : undefined)}
-                      className="flex min-h-[72px] flex-col items-start justify-between gap-1 rounded-ui-rect border border-dashed border-sam-border bg-sam-app p-3 text-left transition active:bg-sam-surface"
-                    >
-                      <span className="sam-text-helper font-semibold text-sam-muted">{vm.t("neighborhood_notice")}</span>
-                      <span className="sam-text-xxs text-sam-muted">
-                        {vm.canEditGroupNotice ? vm.t("cm_ui_tap_to_register_edit") : vm.t("cm_ui_check_in_room_info")}
+                    <span className="dibay-overlay-menu__text min-w-0 flex-1">
+                      <span className="dibay-overlay-menu__label">{vm.t("neighborhood_notice")}</span>
+                      <span className="dibay-overlay-menu__hint line-clamp-2">
+                        {vm.roomNotice
+                          ? vm.roomNotice
+                          : vm.canEditGroupNotice
+                            ? vm.t("cm_ui_tap_to_register_edit")
+                            : vm.t("cm_ui_check_in_room_info")}
                       </span>
-                    </button>
-                  )}
+                    </span>
+                    <span className={GROUP_MENU_TRAILING_CLASS} aria-hidden>›</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
                       vm.setRoomSearchQuery("");
                       vm.setActiveSheet("search");
                     }}
-                    className="flex min-h-[72px] flex-col items-start justify-between gap-1 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left transition active:bg-sam-app"
+                    className="dibay-overlay-menu__item"
                   >
-                    <Search className="h-5 w-5 shrink-0 text-sam-muted" strokeWidth={2} aria-hidden />
-                    <span className="sam-text-helper font-semibold text-sam-fg">{vm.t("cm_ui_search_in_chat")}</span>
-                    <span className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_message_sender")}</span>
+                    <span className="dibay-overlay-menu__icon text-[color:var(--overlay-text-secondary)]">
+                      <Search strokeWidth={2} aria-hidden />
+                    </span>
+                    <span className="dibay-overlay-menu__text min-w-0 flex-1">
+                      <span className="dibay-overlay-menu__label">{vm.t("cm_ui_search_in_chat")}</span>
+                      <span className="dibay-overlay-menu__hint">{vm.t("cm_ui_message_sender")}</span>
+                    </span>
+                    <span className={GROUP_MENU_TRAILING_CLASS} aria-hidden>›</span>
+                  </button>
+                  <button type="button" onClick={() => vm.openInfoSheet()} className="dibay-overlay-menu__item">
+                    <span className="dibay-overlay-menu__text min-w-0 flex-1">
+                      <span className="dibay-overlay-menu__label">{vm.t("nav_messenger_room_info")}</span>
+                    </span>
+                    <span className={GROUP_MENU_TRAILING_CLASS} aria-hidden>›</span>
                   </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => vm.openInfoSheet()}
-                  className="mt-2 flex w-full items-center justify-between rounded-ui-rect border border-sam-border px-4 py-3 text-left transition active:bg-sam-app"
-                >
-                  <span className="sam-text-body font-semibold text-sam-fg">{vm.t("nav_messenger_room_info")}</span>
-                  <span className="sam-text-page-title text-sam-meta">›</span>
-                </button>
 
                 {/* 그룹 통화 보류(Owner 2026-11-09) — 계약 플래그 `isCmGroupCallEnabled()` 가 false 인 동안 상태·시작 버튼을 그리지 않는다. */}
                 {isCmGroupCallEnabled() ? (
@@ -562,10 +573,10 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 </>
                 ) : null}
 
-                <p className="mt-5 px-0.5 sam-text-helper font-semibold text-sam-muted">
-                  {vm.t("cm_ui_chat_partners_count", { count: vm.snapshot.room.memberCount })}
-                </p>
-                <div className="mt-2 space-y-1">
+                <div className={GROUP_MENU_BOX_CLASS}>
+                  <p className={GROUP_MENU_GROUP_LABEL_CLASS}>
+                    {vm.t("cm_ui_chat_partners_count", { count: vm.snapshot.room.memberCount })}
+                  </p>
                   {vm.sortedMembers.slice(0, 12).map((member) => {
                     const isSelf = messengerUserIdsEqual(member.id, vm.snapshot.viewerUserId);
                     const isRoomOwner =
@@ -584,18 +595,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         : member.label;
                     const raw = displayLabel.replace(/\s+/g, "");
                     const initials = (raw[0] ?? "?").toUpperCase();
-                    return (
-                      <button
-                        key={member.id}
-                        type="button"
-                        onClick={() => {
-                          if (isSelf) return;
-                          vm.setMemberActionTarget(member);
-                        }}
-                        className={`flex w-full items-center gap-3 rounded-ui-rect border border-transparent px-2 py-2 text-left transition ${
-                          isSelf ? "opacity-90" : "active:bg-sam-surface"
-                        }`}
-                      >
+                    const rowBody = (
+                      <>
                         <div className="relative h-10 w-10 shrink-0">
                           <SamarketThumbnail
                             src={avatarUrl}
@@ -607,72 +608,79 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           />
                           {isRoomOwner ? (
                             <span className="absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-sam-surface ring-1 ring-sam-border">
-                              <Crown className="h-3 w-3 text-sky-600" strokeWidth={2} aria-hidden />
+                              <Crown className="h-3 w-3 text-[color:var(--overlay-primary)]" strokeWidth={2} aria-hidden />
                             </span>
                           ) : null}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate sam-text-body font-medium text-sam-fg">
+                        <span className="dibay-overlay-menu__text min-w-0 flex-1">
+                          <span className="dibay-overlay-menu__label truncate">
                             {displayLabel}
                             {isSelf ? ` (${vm.t("nav_messenger_me")})` : ""}
-                          </p>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                          </span>
+                          <span className="mt-0.5 flex flex-wrap items-center gap-1">
                             <GroupMemberRoleBadge role={isRoomOwner ? "owner" : member.memberRole} />
-                          </div>
-                        </div>
-                        {!isSelf ? <span className="sam-text-page-title text-sam-meta">›</span> : null}
+                          </span>
+                        </span>
+                      </>
+                    );
+                    /** 내 행은 누를 동작이 없다 — 눌림 없는 행(div), 다른 멤버 = 목록 행 버튼(배경 눌림) */
+                    return isSelf ? (
+                      <div key={member.id} className="dibay-overlay-menu__item">
+                        {rowBody}
+                      </div>
+                    ) : (
+                      <button
+                        key={member.id}
+                        type="button"
+                        onClick={() => vm.setMemberActionTarget(member)}
+                        className="dibay-overlay-menu__item"
+                      >
+                        {rowBody}
+                        <span className={GROUP_MENU_TRAILING_CLASS} aria-hidden>›</span>
                       </button>
                     );
                   })}
+                  <div className="flex justify-center border-t border-[color:var(--overlay-border)] py-1">
+                    <button type="button" onClick={() => vm.setActiveSheet("members")} className={OverlayUi.textAction}>
+                      {vm.t("cm_ui_members_invites_view_all")} ›
+                    </button>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => vm.setActiveSheet("members")}
-                  className="mt-2 w-full rounded-ui-rect border border-sam-border py-2.5 sam-text-body font-medium text-sam-fg transition active:bg-sam-app"
-                >
-                  {vm.t("cm_ui_members_invites_view_all")} ›
-                </button>
 
                 {vm.managementEventMessages.length ? (
-                  <div className="mt-4 rounded-ui-rect border border-sam-border p-3">
-                    <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_operation_history")}</p>
-                    <div className="mt-2 space-y-2">
-                      {vm.managementEventMessages.map((event) => {
-                        const summary = describeManagementEvent(event.content, event.metadata);
-                        return (
-                          <button
-                            key={event.id}
-                            type="button"
-                            onClick={() => vm.scrollToRoomMessage(event.id)}
-                            className="flex w-full items-start justify-between gap-2 rounded-ui-rect bg-sam-app px-2 py-2 text-left"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <p className="sam-text-xxs font-semibold text-sam-fg">{summary.title}</p>
-                              <p className="mt-0.5 line-clamp-2 sam-text-xxs leading-snug text-sam-muted">{summary.detail}</p>
-                            </div>
-                            <span className="shrink-0 sam-text-xxs text-sam-meta">{formatTime(event.createdAt)}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                  <div className={GROUP_MENU_BOX_CLASS}>
+                    <p className={GROUP_MENU_GROUP_LABEL_CLASS}>{vm.t("cm_ui_operation_history")}</p>
+                    {vm.managementEventMessages.map((event) => {
+                      const summary = describeManagementEvent(event.content, event.metadata);
+                      return (
+                        <button
+                          key={event.id}
+                          type="button"
+                          onClick={() => vm.scrollToRoomMessage(event.id)}
+                          className="dibay-overlay-menu__item"
+                        >
+                          <span className="dibay-overlay-menu__text min-w-0 flex-1">
+                            <span className="dibay-overlay-menu__label">{summary.title}</span>
+                            <span className="dibay-overlay-menu__hint line-clamp-2">{summary.detail}</span>
+                          </span>
+                          <span className={GROUP_MENU_TRAILING_CLASS}>{formatTime(event.createdAt)}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 ) : null}
 
-                <div className="mt-4 space-y-2">
+                <div className={GROUP_MENU_BOX_CLASS}>
                   <button
                     type="button"
                     onClick={() => void vm.toggleRoomMute()}
                     disabled={vm.busy === "room-mute"}
-                    className={`flex w-full items-center justify-between rounded-ui-rect border border-sam-border px-4 py-3 text-left ${ROOM_SHEET_ROW_PRESS_CLASS}`}
+                    className="dibay-overlay-menu__item"
                   >
-                    <span className="sam-text-body font-semibold text-sam-fg">
+                    <span className="dibay-overlay-menu__label min-w-0 flex-1">
                       {vm.snapshot.room.isMuted ? vm.t("cm_ui_turn_on_room_notifications") : vm.t("cm_ui_turn_off_room_notifications")}
                     </span>
-                    <span
-                      className={`rounded-ui-rect px-2 py-1 sam-text-xxs font-semibold ${
-                        vm.snapshot.room.isMuted ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-muted"
-                      }`}
-                    >
+                    <span className={GROUP_MENU_TRAILING_CLASS}>
                       {vm.busy === "room-mute" ? vm.t("common_processing") : vm.snapshot.room.isMuted ? vm.t("cm_ui_off") : vm.t("cm_ui_on")}
                     </span>
                   </button>
@@ -680,34 +688,28 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     type="button"
                     onClick={() => void vm.toggleRoomArchive()}
                     disabled={vm.busy === "room-archive" || !communityMessengerRoomIsGloballyUsable(vm.snapshot.room)}
-                    className={`flex w-full items-center justify-between rounded-ui-rect border border-sam-border px-4 py-3 text-left ${ROOM_SHEET_ROW_PRESS_CLASS}`}
+                    className="dibay-overlay-menu__item"
                   >
-                    <span className="sam-text-body font-semibold text-sam-fg">
+                    <span className="dibay-overlay-menu__label min-w-0 flex-1">
                       {!vm.snapshot.room.isArchivedByViewer ? vm.t("cm_ui_archive_room") : vm.t("cm_ui_unarchive_room")}
                     </span>
-                    <span
-                      className={`rounded-ui-rect px-2 py-1 sam-text-xxs font-semibold ${
-                        !vm.snapshot.room.isArchivedByViewer ? "bg-sam-surface-muted text-sam-muted" : "bg-sam-ink text-white"
-                      }`}
-                    >
+                    <span className={GROUP_MENU_TRAILING_CLASS}>
                       {vm.busy === "room-archive" ? vm.t("common_processing") : !vm.snapshot.room.isArchivedByViewer ? vm.t("common_active") : vm.t("cm_ui_archived")}
                     </span>
                   </button>
                 </div>
 
                 {vm.isMoimRoom && vm.moimRoomOwner ? (
-                  <div className="mt-4 space-y-2">
-                    <a
-                      href={`/moim/${vm.moimRoomOwner.moimId}`}
-                      data-moim-room-home="menu"
-                      className={`block w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-left sam-text-body font-semibold text-sam-fg ${ROOM_SHEET_ROW_PRESS_CLASS}`}
-                    >
-                      {vm.t("moim_room_go_home")}
-                    </a>
-                    <p className="px-1 sam-text-helper text-sam-muted">{vm.t("moim_room_managed_in_moim")}</p>
+                  <div className="mt-3">
+                    <div className={`${GROUP_MENU_BOX_CLASS} !mt-0`}>
+                      <a href={`/moim/${vm.moimRoomOwner.moimId}`} data-moim-room-home="menu" className="dibay-overlay-menu__item">
+                        <span className="dibay-overlay-menu__label">{vm.t("moim_room_go_home")}</span>
+                      </a>
+                    </div>
+                    <p className={`${OverlayUi.caption} mt-1 px-1`}>{vm.t("moim_room_managed_in_moim")}</p>
                   </div>
                 ) : null}
-                <div className={vm.isMoimRoom ? "hidden" : "mt-4 space-y-2"}>
+                <div className={vm.isMoimRoom ? "hidden" : GROUP_MENU_BOX_CLASS}>
                   <button
                     type="button"
                     onClick={() => {
@@ -718,22 +720,26 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       void vm.requestLeaveRoom();
                     }}
                     disabled={vm.busy === "leave-room"}
-                    className={`w-full rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-3 text-left sam-text-body font-semibold text-red-700 ${ROOM_SHEET_ROW_PRESS_CLASS}`}
+                    className="dibay-overlay-menu__item dibay-overlay-menu__item--danger"
                   >
-                    {vm.busy === "leave-room"
-                      ? vm.t("nav_messenger_leaving")
-                      : vm.isOwner && vm.isPrivateGroupRoom
-                        ? vm.t("cm_ui_leave_after_owner_transfer")
-                        : vm.t("nav_messenger_leave_group_room")}
+                    <span className="dibay-overlay-menu__label">
+                      {vm.busy === "leave-room"
+                        ? vm.t("nav_messenger_leaving")
+                        : vm.isOwner && vm.isPrivateGroupRoom
+                          ? vm.t("cm_ui_leave_after_owner_transfer")
+                          : vm.t("nav_messenger_leave_group_room")}
+                    </span>
                   </button>
                   {vm.isOwner && vm.isPrivateGroupRoom ? (
                     <button
                       type="button"
                       onClick={() => void vm.deletePrivateGroupRoom()}
                       disabled={vm.busy === "group-delete"}
-                      className={`w-full rounded-ui-rect border border-red-600 bg-red-50 px-4 py-3 text-left sam-text-body font-semibold text-red-800 ${ROOM_SHEET_ROW_PRESS_CLASS}`}
+                      className="dibay-overlay-menu__item dibay-overlay-menu__item--danger"
                     >
-                      {vm.busy === "group-delete" ? vm.t("common_processing") : vm.t("cm_ui_delete_group")}
+                      <span className="dibay-overlay-menu__label">
+                        {vm.busy === "group-delete" ? vm.t("common_processing") : vm.t("cm_ui_delete_group")}
+                      </span>
                     </button>
                   ) : null}
                   <button
@@ -742,9 +748,9 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       vm.dismissRoomSheet();
                       void vm.reportTarget({ reportType: "room" });
                     }}
-                    className={`w-full rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-3 text-left sam-text-body font-semibold text-red-700 ${ROOM_SHEET_ROW_PRESS_CLASS}`}
+                    className="dibay-overlay-menu__item dibay-overlay-menu__item--danger"
                   >
-                    {vm.t("nav_messenger_report")}
+                    <span className="dibay-overlay-menu__label">{vm.t("nav_messenger_report")}</span>
                   </button>
                 </div>
               </>
@@ -909,7 +915,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   <button
                     type="button"
                     onClick={() => vm.setActiveSheet("menu")}
-                    className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg"
+                    className={OverlayUi.textActionMuted}
                   >
                     {vm.t("tier1_back")}
                   </button>
@@ -958,7 +964,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <button
                       type="button"
                       onClick={() => vm.setActiveSheet("members")}
-                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
+                      className={`${OverlayUi.selectCard} !flex-col !items-start !justify-center !gap-0`}
                     >
                       <p className="sam-text-xxs text-sam-muted">{vm.t("nav_messenger_participants")}</p>
                       <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.isGroupRoom ? vm.t("cm_ui_member_management") : vm.t("cm_ui_peer_info")}</p>
@@ -966,7 +972,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <button
                       type="button"
                       onClick={() => vm.setActiveSheet("media")}
-                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
+                      className={`${OverlayUi.selectCard} !flex-col !items-start !justify-center !gap-0`}
                     >
                       <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_media")}</p>
                       <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.t("cm_ui_photo_voice")}</p>
@@ -977,7 +983,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         vm.setRoomSearchQuery("");
                         vm.setActiveSheet("search");
                       }}
-                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
+                      className={`${OverlayUi.selectCard} !flex-col !items-start !justify-center !gap-0`}
                     >
                       <p className="sam-text-xxs text-sam-muted">{vm.t("common_search")}</p>
                       <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.t("cm_ui_search_in_chat")}</p>
@@ -1076,7 +1082,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       <button
                         type="button"
                         onClick={() => vm.setActiveSheet("media")}
-                        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
+                        className={`${OverlayUi.selectCard} !flex-col !items-start !justify-center !gap-0`}
                       >
                         <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_photo")}</p>
                         <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.photoMessageCount}</p>
@@ -1084,7 +1090,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       <button
                         type="button"
                         onClick={() => vm.setActiveSheet("media")}
-                        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
+                        className={`${OverlayUi.selectCard} !flex-col !items-start !justify-center !gap-0`}
                       >
                         <p className="sam-text-xxs text-sam-muted">{vm.t("nav_voice_call_label")}</p>
                         <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.voiceMessageCount}</p>
@@ -1092,7 +1098,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       <button
                         type="button"
                         onClick={() => vm.setActiveSheet("files")}
-                        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
+                        className={`${OverlayUi.selectCard} !flex-col !items-start !justify-center !gap-0`}
                       >
                         <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_file")}</p>
                         <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.fileMessageCount}</p>
@@ -1100,7 +1106,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       <button
                         type="button"
                         onClick={() => vm.setActiveSheet("links")}
-                        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
+                        className={`${OverlayUi.selectCard} !flex-col !items-start !justify-center !gap-0`}
                       >
                         <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_link")}</p>
                         <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.linkMessageCount}</p>
@@ -1140,7 +1146,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         <button
                           type="button"
                           onClick={() => vm.openInfoSheet("notice")}
-                          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
+                          className={`${OverlayUi.selectCard} !flex-col !items-start !justify-center !gap-0`}
                         >
                           <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_operation")}</p>
                           <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.t("neighborhood_notice")}</p>
@@ -1149,7 +1155,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         <button
                           type="button"
                           onClick={() => vm.openInfoSheet("permissions")}
-                          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
+                          className={`${OverlayUi.selectCard} !flex-col !items-start !justify-center !gap-0`}
                         >
                           <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_operation")}</p>
                           <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.t("cm_ui_permissions")}</p>
@@ -1158,7 +1164,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         <button
                           type="button"
                           onClick={() => vm.openInfoSheet("history")}
-                          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
+                          className={`${OverlayUi.selectCard} !flex-col !items-start !justify-center !gap-0`}
                         >
                           <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_operation")}</p>
                           <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.t("cm_ui_history")}</p>
@@ -1169,7 +1175,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         <button
                           type="button"
                           onClick={() => vm.setActiveSheet("members")}
-                          className="rounded-ui-rect border border-sam-border px-4 py-3 text-left sam-text-body-secondary font-semibold text-sam-fg"
+                          className={OverlayUi.btn.secondary}
                         >
                           {vm.isOwner ? vm.t("cm_ui_members_transfer") : vm.t("cm_ui_members_invite")}
                         </button>
@@ -1184,7 +1190,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             void vm.requestLeaveRoom();
                           }}
                           disabled={vm.busy === "leave-room"}
-                          className="rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-3 text-left sam-text-body-secondary font-semibold text-red-700 disabled:opacity-40"
+                          className={OverlayUi.btn.secondaryDanger}
                         >
                           {vm.busy === "leave-room"
                             ? vm.t("nav_messenger_leaving")
@@ -1241,7 +1247,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             type="button"
                             onClick={() => void vm.savePrivateGroupNotice()}
                             disabled={vm.busy === "group-notice"}
-                            className="rounded-ui-rect bg-sam-ink px-4 py-3 sam-text-body-secondary font-semibold text-white disabled:opacity-40"
+                            className={OverlayUi.btn.primary}
                           >
                             {vm.busy === "group-notice" ? vm.t("common_processing") : vm.t("cm_ui_save_notice")}
                           </button>
@@ -1319,7 +1325,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           type="button"
                           onClick={() => void vm.savePrivateGroupPermissions()}
                           disabled={vm.busy === "group-permissions"}
-                          className="mt-3 rounded-ui-rect bg-sam-ink px-4 py-3 sam-text-body-secondary font-semibold text-white disabled:opacity-40"
+                          className={`${OverlayUi.btn.primary} mt-3`}
                         >
                           {vm.busy === "group-permissions" ? vm.t("common_processing") : vm.t("cm_ui_save_permissions")}
                         </button>
@@ -1346,7 +1352,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                               key={`info:${event.id}`}
                               type="button"
                               onClick={() => vm.scrollToRoomMessage(event.id)}
-                              className="flex w-full items-start justify-between gap-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
+                              className={`${OverlayUi.selectCard} !items-start !justify-between`}
                             >
                               <div className="min-w-0 flex-1">
                                 <p className="sam-text-helper font-semibold text-sam-fg">{summary.title}</p>
@@ -1380,7 +1386,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             value={vm.openGroupTitle}
                             onChange={(e) => vm.setOpenGroupTitle(e.target.value)}
                             placeholder={vm.t("nav_messenger_room_title_placeholder")}
-                            className="h-11 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 sam-text-body outline-none focus:border-sam-border"
+                            className={`${OverlayUi.input} !mt-0`}
                           />
                           <textarea
                             value={vm.openGroupSummary}
@@ -1394,7 +1400,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                               <button
                                 type="button"
                                 onClick={() => vm.setOpenGroupJoinPolicy("password")}
-                                className={`rounded-ui-rect px-3 py-2 sam-text-helper font-semibold ${vm.openGroupJoinPolicy === "password" ? "bg-[#111827] text-white" : "bg-sam-surface-muted text-sam-fg"}`}
+                                className={OverlayUi.chip}
+                                aria-pressed={vm.openGroupJoinPolicy === "password"}
                               >
                                 {vm.t("nav_messenger_password_short")}
                               </button>
@@ -1404,7 +1411,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                                   vm.setOpenGroupJoinPolicy("free");
                                   vm.setOpenGroupPassword("");
                                 }}
-                                className={`rounded-ui-rect px-3 py-2 sam-text-helper font-semibold ${vm.openGroupJoinPolicy === "free" ? "bg-[#111827] text-white" : "bg-sam-surface-muted text-sam-fg"}`}
+                                className={OverlayUi.chip}
+                                aria-pressed={vm.openGroupJoinPolicy === "free"}
                               >
                                 {vm.t("nav_messenger_join_free")}
                               </button>
@@ -1413,7 +1421,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                               value={vm.openGroupMemberLimit}
                               onChange={(e) => vm.setOpenGroupMemberLimit(e.target.value.replace(/[^0-9]/g, ""))}
                               placeholder={vm.t("nav_messenger_member_limit_placeholder")}
-                              className="h-11 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 sam-text-body outline-none focus:border-sam-border"
+                              className={`${OverlayUi.input} !mt-0`}
                             />
                           </div>
                           {vm.openGroupJoinPolicy === "password" ? (
@@ -1421,21 +1429,23 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                               value={vm.openGroupPassword}
                               onChange={(e) => vm.setOpenGroupPassword(e.target.value)}
                               placeholder={vm.t("nav_messenger_new_password_placeholder")}
-                              className="h-11 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 sam-text-body outline-none focus:border-sam-border"
+                              className={`${OverlayUi.input} !mt-0`}
                             />
                           ) : null}
                           <div className="grid grid-cols-2 gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-2">
                             <button
                               type="button"
                               onClick={() => vm.setOpenGroupIdentityPolicy("real_name")}
-                              className={`rounded-ui-rect px-3 py-2 sam-text-helper font-semibold ${vm.openGroupIdentityPolicy === "real_name" ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg"}`}
+                              className={OverlayUi.chip}
+                                aria-pressed={vm.openGroupIdentityPolicy === "real_name"}
                             >
                               {vm.t("nav_messenger_identity_real")}
                             </button>
                             <button
                               type="button"
                               onClick={() => vm.setOpenGroupIdentityPolicy("alias_allowed")}
-                              className={`rounded-ui-rect px-3 py-2 sam-text-helper font-semibold ${vm.openGroupIdentityPolicy === "alias_allowed" ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg"}`}
+                              className={OverlayUi.chip}
+                                aria-pressed={vm.openGroupIdentityPolicy === "alias_allowed"}
                             >
                               {vm.t("nav_messenger_identity_alias")}
                             </button>
@@ -1456,7 +1466,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             type="button"
                             onClick={() => void vm.saveOpenGroupSettings()}
                             disabled={vm.busy === "open-group-settings" || !vm.openGroupTitle.trim()}
-                            className="rounded-ui-rect bg-[#111827] px-4 py-3 sam-text-body-secondary font-semibold text-white disabled:opacity-40"
+                            className={OverlayUi.btn.primary}
                           >
                             {vm.busy === "open-group-settings" ? vm.t("nav_messenger_saving_settings") : vm.t("nav_messenger_save_room_settings")}
                           </button>
@@ -1467,7 +1477,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             type="button"
                             onClick={() => void vm.requestLeaveRoom()}
                             disabled={vm.busy === "leave-room"}
-                            className="rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-3 sam-text-body-secondary font-semibold text-red-700 disabled:opacity-40"
+                            className={OverlayUi.btn.secondaryDanger}
                           >
                             {vm.busy === "leave-room" ? vm.t("nav_messenger_leaving") : vm.t("nav_messenger_leave_group_room")}
                           </button>

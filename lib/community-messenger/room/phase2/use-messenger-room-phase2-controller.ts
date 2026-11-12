@@ -489,7 +489,8 @@ export function useMessengerRoomPhase2Controller() {
     callPanel,
   });
 
-  const groupInviteLink = useGroupRoomInviteLink(streamRoomId, Boolean(isPrivateGroupRoom && snapshot));
+  /** 초대 링크 = 복사 버튼 1개 (Owner 2026-11-12). 초대 권한(서버 GET /invite-link 와 같은 canInviteToGroup)이 있을 때만 주소를 받는다. */
+  const groupInviteLink = useGroupRoomInviteLink(streamRoomId, Boolean(canInviteMembers && snapshot));
 
   /*
    * 방 스냅샷(critical·silent_delta·RSC 시드)은 통화를 조회하지 않아 activeCall 이 항상 null 이다 — 통화 권위가 아니다.
@@ -2476,69 +2477,6 @@ export function useMessengerRoomPhase2Controller() {
     }
   }, [groupInviteLink.state.inviteUrl, t]);
 
-  const regenerateGroupInviteLink = useCallback(async () => {
-    if (!isPrivateGroupRoom) return;
-    setBusy("group-invite");
-    try {
-      const res = await fetch(`${communityMessengerGroupRoomApiPath(streamRoomId)}/regenerate-link`, {
-        method: "POST",
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        inviteToken?: string;
-        inviteUrl?: string;
-        error?: string;
-      };
-      if (!res.ok || !json.ok) {
-        if (redirectIfMessengerAuthBlocked(res, json)) return;
-        showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
-        return;
-      }
-      groupInviteLink.setState({
-        inviteToken: json.inviteToken?.trim() || null,
-        inviteUrl: json.inviteUrl?.trim() || null,
-        enabled: true,
-      });
-      showMessengerSnackbar(t("cm_ui_group_invite_regenerate"), { variant: "success" });
-    } finally {
-      setBusy(null);
-    }
-  }, [
-    getRoomActionErrorMessage,
-    groupInviteLink,
-    isPrivateGroupRoom,
-    redirectIfMessengerAuthBlocked,
-    streamRoomId,
-    t,
-  ]);
-
-  const disableGroupInviteLink = useCallback(async () => {
-    if (!isPrivateGroupRoom) return;
-    setBusy("group-invite");
-    try {
-      const res = await fetch(`${communityMessengerGroupRoomApiPath(streamRoomId)}/invite-link`, {
-        method: "DELETE",
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || !json.ok) {
-        if (redirectIfMessengerAuthBlocked(res, json)) return;
-        showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
-        return;
-      }
-      groupInviteLink.setState({ inviteToken: null, inviteUrl: null, enabled: false });
-      showMessengerSnackbar(t("cm_ui_group_invite_disable"), { variant: "success" });
-    } finally {
-      setBusy(null);
-    }
-  }, [
-    getRoomActionErrorMessage,
-    groupInviteLink,
-    isPrivateGroupRoom,
-    redirectIfMessengerAuthBlocked,
-    streamRoomId,
-    t,
-  ]);
-
   const removeGroupMember = useCallback(
     async (targetUserId: string, label: string) => {
       if (!(await dibayConfirm({
@@ -3127,8 +3065,6 @@ export function useMessengerRoomPhase2Controller() {
     groupInviteLinkState: groupInviteLink.state,
     groupInviteLinkLoading: groupInviteLink.loading,
     copyGroupInviteLink,
-    regenerateGroupInviteLink,
-    disableGroupInviteLink,
     pinGroupMessage,
     leaveRoom,
     leaveRoomConfirmOpen,

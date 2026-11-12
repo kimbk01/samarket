@@ -1753,16 +1753,24 @@ export function useMessengerRoomClientPhase1({
     }
   }, [membersListNextOffset, membersPagingBusy, roomId, snapshot]);
 
-  /** `membersDeferred` 방: 멤버 시트로 전환되는 순간에만 첫 `/members` 페이지를 요청 */
+  /**
+   * `membersDeferred` 방: 멤버 목록을 그리는 시트로 전환되는 순간에만 첫 `/members` 페이지를 요청.
+   * 그룹 ⋮ 서랍(`menu`)도 「대화상대 N」 목록을 그린다 — 부트스트랩 일부 멤버만 그리면 N 과 행 수가 어긋난다
+   * (2026-11-12 실기: 「대화상대 2」 에 1행). 방 진입 첫 화면(부트스트랩)은 그대로.
+   */
+  const roomTypeForMemberPaging = snapshot?.room.roomType;
   useEffect(() => {
+    const listsMembers = (sheet: typeof activeSheet) =>
+      sheet === "members" ||
+      (sheet === "menu" && (roomTypeForMemberPaging === "private_group" || roomTypeForMemberPaging === "open_group"));
     const prev = prevActiveSheetRef.current;
     prevActiveSheetRef.current = activeSheet;
-    if (activeSheet !== "members") return;
-    if (prev === "members") return;
+    if (!listsMembers(activeSheet)) return;
+    if (listsMembers(prev)) return;
     if (!snapshot?.membersDeferred) return;
     if (membersListNextOffset === null) return;
     void loadMoreRoomMembers();
-  }, [activeSheet, loadMoreRoomMembers, membersListNextOffset, snapshot?.membersDeferred]);
+  }, [activeSheet, loadMoreRoomMembers, membersListNextOffset, roomTypeForMemberPaging, snapshot?.membersDeferred]);
 
   const inviteCandidates = useMemo(() => {
     if (phase1EntryLightPass) return [];
