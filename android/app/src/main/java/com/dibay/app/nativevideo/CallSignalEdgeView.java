@@ -16,22 +16,22 @@ import android.view.animation.AccelerateDecelerateInterpolator;
 /**
  * 영상 통화 신호 테두리 — 화면 네 가장자리에서 안쪽으로 은은하게 번지는 빛(선 아님).
  *
- * <p>좋음 = 녹색(통화 수락 버튼 색) 고정 · 나쁨 = 황색(「나쁨」 신호 색) 고정 · 아주 나쁨 = 적색(통화 종료 버튼 색) 1초 주기 깜빡임.
+ * <p>좋음 = 테두리 없음(Owner 2026-11-12 「정상일 때 안 나오게, 나쁨·아주 나쁨만」) · 나쁨 = 황색(「나쁨」 신호 색) 고정 · 아주 나쁨 =
+ * 적색(통화 종료 버튼 색) 1초 주기 깜빡임.
  * 색 바뀜 0.3초 교차 전환. 기기 애니메이션 끔이면 깜빡이지 않고 적색 고정. 터치를 받지 않는다.
  *
  * <p>설계·시안: docs/audit/call-video-chrome-signal-border-design-2026-11-12.md D5.
  */
 public final class CallSignalEdgeView extends View {
-  static final int COLOR_GOOD = Color.parseColor("#00754A");
   static final int COLOR_POOR = Color.parseColor("#F5C26B");
   static final int COLOR_VERY_POOR = Color.parseColor("#D93025");
-  static final float EDGE_ALPHA_GOOD = 0.6f;
   static final float EDGE_ALPHA_POOR = 0.7f;
   static final float EDGE_ALPHA_VERY_POOR = 0.85f;
   static final float BLINK_LOW_FACTOR = 0.2f / 0.85f;
   static final long BLINK_HALF_PERIOD_MS = 500L;
   static final long COLOR_CROSSFADE_MS = 300L;
-  static final float GLOW_DEPTH_DP = 70f;
+  /** 번짐 폭 — Owner 2026-11-12 「너비 줄여」 70dp → 40dp. */
+  static final float GLOW_DEPTH_DP = 40f;
 
   private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
   private final float depthPx;
@@ -74,11 +74,14 @@ public final class CallSignalEdgeView extends View {
     int target = edgeColorFor(nextTier);
     tier = nextTier;
     if (colorAnimator != null) colorAnimator.cancel();
-    if (!animate || edgeColor == Color.TRANSPARENT || !animatorsEnabled()) {
+    if (!animate || !animatorsEnabled() || (Color.alpha(edgeColor) == 0 && Color.alpha(target) == 0)) {
       edgeColor = target;
       invalidate();
     } else {
-      ValueAnimator anim = ValueAnimator.ofObject(new ArgbEvaluator(), edgeColor, target);
+      // 없음 ↔ 색: 같은 색의 투명값과 오가야 중간에 검게 비치지 않는다.
+      int from = Color.alpha(edgeColor) == 0 ? (target & 0x00FFFFFF) : edgeColor;
+      int to = Color.alpha(target) == 0 ? (edgeColor & 0x00FFFFFF) : target;
+      ValueAnimator anim = ValueAnimator.ofObject(new ArgbEvaluator(), from, to);
       anim.setDuration(COLOR_CROSSFADE_MS);
       anim.addUpdateListener(
           a -> {
@@ -99,7 +102,7 @@ public final class CallSignalEdgeView extends View {
         return withAlpha(COLOR_POOR, EDGE_ALPHA_POOR);
       case GOOD:
       default:
-        return withAlpha(COLOR_GOOD, EDGE_ALPHA_GOOD);
+        return Color.TRANSPARENT;
     }
   }
 
@@ -189,7 +192,7 @@ public final class CallSignalEdgeView extends View {
     super.onDraw(canvas);
     int w = getWidth();
     int h = getHeight();
-    if (w <= 0 || h <= 0 || edgeColor == Color.TRANSPARENT) return;
+    if (w <= 0 || h <= 0 || Color.alpha(edgeColor) == 0) return;
     ensureShaders(w, h);
     float depth = shaderDepth;
     paint.setAlpha(Math.round(255f * blinkFactor));

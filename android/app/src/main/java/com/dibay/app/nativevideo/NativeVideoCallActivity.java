@@ -454,6 +454,7 @@ public class NativeVideoCallActivity extends Activity {
     noticeOverlay = NativeCallInAppNoticeOverlay.attach(this);
     bindActions();
     NativeVideoCallAgoraEngine.setNetworkQualityObserver(this::handleNetworkQualitySample);
+    NativeVideoCallAgoraEngine.setConnectionStateObserver(this::handleAgoraConnectionState);
     logSurfaceShown();
     if (preparing) {
       applyPreparingPresentation();
@@ -703,6 +704,7 @@ public class NativeVideoCallActivity extends Activity {
     cancelConnectedChromeHide("destroy");
     cancelOutgoingVideoTransition("destroy");
     NativeVideoCallAgoraEngine.setNetworkQualityObserver(null);
+    NativeVideoCallAgoraEngine.setConnectionStateObserver(null);
     pipState = PipState.PIP_IDLE;
     stopDurationTimer();
     hideDock("destroy");
@@ -2605,25 +2607,38 @@ public class NativeVideoCallActivity extends Activity {
     if (!isConnectedFullscreenPresentation() && !dockMode) return;
     NativeVideoNetworkTier.Tier previousTier = networkTier.displayed();
     boolean changed = networkTier.onSample(txQuality, rxQuality);
+    applyNetworkTier(previousTier, changed, "agora_onNetworkQuality", "tx=" + txQuality + " rx=" + rxQuality);
+  }
+
+  /** Agora 연결 상태 4(재연결 중) = 아주 나쁨, 3(연결됨) = 품질 값 회복 규칙으로 복귀. 설계 D3. */
+  private void handleAgoraConnectionState(int state, int reason) {
+    if (currentState != NativeVideoCallRuntime.State.CONNECTED) return;
+    NativeVideoNetworkTier.Tier previousTier = networkTier.displayed();
+    boolean changed = networkTier.onConnectionState(state);
+    applyNetworkTier(previousTier, changed, "agora_connection_state", "state=" + state + " reason=" + reason);
+  }
+
+  private void applyNetworkTier(
+      NativeVideoNetworkTier.Tier previousTier, boolean changed, String source, String detail) {
     NativeVideoNetworkTier.Tier nextTier = networkTier.displayed();
     if (changed) {
       NativeVideoCallLog.info(
           "native_video_network_quality_changed",
           callId,
-          "source=agora_onNetworkQuality previousQuality="
+          "source="
+              + source
+              + " previousQuality="
               + previousTier.name()
               + " currentQuality="
               + nextTier.name()
-              + " tx="
-              + txQuality
-              + " rx="
-              + rxQuality
+              + " "
+              + detail
+              + " reconnecting="
+              + networkTier.reconnecting()
               + " chromeVisible="
               + chromeVisible
-              + " connected="
-              + (currentState == NativeVideoCallRuntime.State.CONNECTED)
               + " presentation="
-              + (dockMode ? "dock" : "fullscreen"));
+              + (dockMode ? "dock" : inPipMode ? "pip" : "fullscreen"));
       updateNetworkSignalUi();
     }
     if (nextTier == NativeVideoNetworkTier.Tier.VERY_POOR) {

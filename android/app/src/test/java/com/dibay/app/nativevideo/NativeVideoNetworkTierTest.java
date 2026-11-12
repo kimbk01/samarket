@@ -75,4 +75,33 @@ public class NativeVideoNetworkTierTest {
     t.reset();
     assertEquals(NativeVideoNetworkTier.Tier.GOOD, t.displayed());
   }
+
+  @Test
+  public void reconnectingShowsVeryPoorRegardlessOfSamples() {
+    NativeVideoNetworkTier t = new NativeVideoNetworkTier();
+    assertTrue(t.onConnectionState(NativeVideoNetworkTier.AGORA_STATE_RECONNECTING));
+    assertEquals(NativeVideoNetworkTier.Tier.VERY_POOR, t.displayed());
+    // 재연결 중 들어오는 좋은 값으로는 회복하지 않는다
+    assertFalse(t.onSample(1, 1));
+    assertFalse(t.onSample(1, 1));
+    assertEquals(NativeVideoNetworkTier.Tier.VERY_POOR, t.displayed());
+    // 다시 연결된 뒤 좋은 값 2번 → 좋음
+    assertFalse(t.onConnectionState(NativeVideoNetworkTier.AGORA_STATE_CONNECTED));
+    assertFalse(t.onSample(1, 1));
+    assertTrue(t.onSample(2, 1));
+    assertEquals(NativeVideoNetworkTier.Tier.GOOD, t.displayed());
+  }
+
+  @Test
+  public void otherConnectionStatesDoNotChangeTier() {
+    NativeVideoNetworkTier t = new NativeVideoNetworkTier();
+    assertFalse(t.onConnectionState(1));
+    assertFalse(t.onConnectionState(2));
+    assertFalse(t.onConnectionState(3));
+    assertEquals(NativeVideoNetworkTier.Tier.GOOD, t.displayed());
+    t.onConnectionState(NativeVideoNetworkTier.AGORA_STATE_RECONNECTING);
+    t.reset();
+    assertFalse(t.reconnecting());
+    assertEquals(NativeVideoNetworkTier.Tier.GOOD, t.displayed());
+  }
 }

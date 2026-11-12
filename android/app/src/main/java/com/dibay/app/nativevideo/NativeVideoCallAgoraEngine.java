@@ -35,6 +35,11 @@ public final class NativeVideoCallAgoraEngine {
     void onNetworkQuality(int worstQuality, int txQuality, int rxQuality);
   }
 
+  /** Agora 연결 상태(공식: 1 끊김 · 2 연결 중 · 3 연결됨 · 4 재연결 중 · 5 실패) — 신호 표시용. */
+  public interface ConnectionStateObserver {
+    void onConnectionState(int state, int reason);
+  }
+
   public enum RemoteReattachResult {
     SUCCESS,
     SKIPPED_INVALID_CALL_ID,
@@ -71,6 +76,10 @@ public final class NativeVideoCallAgoraEngine {
   private static String activeCallId;
   private static Listener listener;
   private static NetworkQualityObserver networkQualityObserver;
+  private static ConnectionStateObserver connectionStateObserver;
+  /** 마지막으로 기록한 내 망 품질(송신·수신) — 값이 바뀔 때만 기록. */
+  private static int lastLoggedTxQuality = -1;
+  private static int lastLoggedRxQuality = -1;
   private static Context renderContext;
   private static boolean callerJoinActive;
   private static int remoteUid;
@@ -88,8 +97,16 @@ public final class NativeVideoCallAgoraEngine {
   public static void setNetworkQualityObserver(NetworkQualityObserver observer) {
     synchronized (LOCK) {
       networkQualityObserver = observer;
+      lastLoggedTxQuality = -1;
+      lastLoggedRxQuality = -1;
     }
   }
+  public static void setConnectionStateObserver(ConnectionStateObserver observer) {
+    synchronized (LOCK) {
+      connectionStateObserver = observer;
+    }
+  }
+
 
   public static void join(
       Context context, String callId, NativeVideoCallApi.TokenConnection token, Listener nextListener) {
@@ -915,6 +932,15 @@ public final class NativeVideoCallAgoraEngine {
             sid = activeCallId;
           }
           if (observer == null || sid == null) return;
+          boolean logSample;
+          synchronized (LOCK) {
+            logSample = txQuality != lastLoggedTxQuality || rxQuality != lastLoggedRxQuality;
+            lastLoggedTxQuality = txQuality;
+            lastLoggedRxQuality = rxQuality;
+          }
+          if (logSample) {
+            NativeVideoCallLog.info("native_video_network_quality_sample", sid, "tx=" + txQuality + " rx=" + rxQuality);
+          }
           int worst = Math.max(txQuality, rxQuality);
           MAIN.post(() -> observer.onNetworkQuality(worst, txQuality, rxQuality));
         }
@@ -947,6 +973,13 @@ public final class NativeVideoCallAgoraEngine {
           }
           if (sid != null) {
             NativeVideoCallLog.info("agora_connection_state", sid, "state=" + state + " reason=" + reason);
+          }
+          ConnectionStateObserver stateObserver;
+          synchronized (LOCK) {
+            stateObserver = connectionStateObserver;
+          }
+          if (stateObserver != null && sid != null) {
+            MAIN.post(() -> stateObserver.onConnectionState(state, reason));
           }
           // 연결 실패(재연결 포기) = 치명. 끊김·재연결 중은 SDK 에 맡긴다.
           if (!com.dibay.app.nativecall.CallTerminationPolicy.isAgoraFatalConnectionState(state)) return;
