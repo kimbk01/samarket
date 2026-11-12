@@ -30,7 +30,8 @@ function CaretDownIcon({ className }: { className?: string }) {
 
 /**
  * CONTRACT — `/stores` 배민 미러링 고정 헤더 (설계 v6 §3 ①②) + 당김 새로고침 힌트.
- * ① 「주소 ▾」 굵게 · 앱 공통 헤더 아이콘(검색·주문·카트·알림, Owner 2026-10-30: 공통 아이콘 변경 금지) — 스크롤하면 접힘
+ * ① 「주소 ▾」 굵게 · 헤더 아이콘 주문·카트·알림 — 스크롤하면 접힘
+ *   (Owner 2026-11-13: 바로 아래 ② 검색창과 겹치므로 헤더 🔍 제거 — 2026-10-30 「공통 아이콘 그대로」를 이 화면만 대체)
  * ② 검색창 알약 43px · 테두리 1.5px 녹색 — 누르면 배달 검색
  * PTR 슬롯은 헤더 맨 아래 그대로 (`DibayPtrSlot`).
  * DO NOT: `store_address_manage_link` 를 버튼 라벨로 — `resolveDeliveryHomeHeaderButtonLabel` 만.
@@ -76,7 +77,7 @@ export function StoresHomeHeaderChrome() {
               <CaretDownIcon className="h-2.5 w-2.5 shrink-0" />
             </button>
             <div className={`${STORES_HOME_HEADER_ACTIONS_CLUSTER} h-full self-stretch`}>
-              <StoresConsumerHeaderActions />
+              <StoresConsumerHeaderActions hideSearch />
             </div>
           </div>
         </div>
