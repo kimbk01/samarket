@@ -98,10 +98,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     return NextResponse.json({ ok: false, error: "no_fields" }, { status: 400 });
   }
 
+  /**
+   * 저장 후 다시 읽는 칸 — `name_en` 포함. 빠지면 감사 기록 「수정 후」 영어 이름이 null 로 남고 응답에도 영어 이름이 없다
+   * (2026-11-12 운영 감사 기록 실측: 실제 값 「Life in the Philippines」 → 기록 null, Owner 「감사 기록 영어 이름 결함 수정」).
+   */
   const selectWithSkin =
-    "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, feed_list_skin";
+    "id, section_id, name, name_en, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, feed_list_skin";
   const selectNoSkin =
-    "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question";
+    "id, section_id, name, name_en, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question";
 
   try {
     const sb = getSupabaseServer();

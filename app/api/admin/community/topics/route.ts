@@ -80,10 +80,16 @@ export async function POST(req: NextRequest) {
     ? body.feed_list_skin
     : normalizeCommunityFeedListSkin(body.feed_list_skin);
 
-  const selectWithSkin =
+  /**
+   * 저장 후 다시 읽는 칸 — `name_en` 포함 (감사 기록 「만든 값」·응답에 영어 이름이 남게, Owner 「감사 기록 영어 이름 결함 수정」 2026-11-12).
+   * `name_en` 칸이 없는 DB 로 되돌아가는 경로만 `selectWithSkinNoEn`.
+   */
+  const selectWithSkinNoEn =
     "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, feed_list_skin";
+  const selectWithSkin =
+    "id, section_id, name, name_en, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, feed_list_skin";
   const selectNoSkin =
-    "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question";
+    "id, section_id, name, name_en, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question";
   const baseRow = {
     section_id,
     name,
@@ -109,7 +115,7 @@ export async function POST(req: NextRequest) {
     if (error && isMissingDbColumnError(error, "name_en")) {
       const sub = { ...baseRow, feed_list_skin } as Record<string, unknown>;
       delete sub.name_en;
-      const rEn = await sb.from("community_topics").insert(sub).select(selectWithSkin).single();
+      const rEn = await sb.from("community_topics").insert(sub).select(selectWithSkinNoEn).single();
       data = rEn.data as typeof data;
       error = rEn.error;
     }
