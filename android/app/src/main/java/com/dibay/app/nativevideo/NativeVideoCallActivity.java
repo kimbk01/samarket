@@ -182,6 +182,8 @@ public class NativeVideoCallActivity extends Activity {
   private NativeVideoCallRuntime.State currentState = NativeVideoCallRuntime.State.RINGING;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private long connectedAtElapsedMs = 0L;
+  /** 마지막 메신저 복귀 요청 시각(elapsedRealtime) — 확인 판정 기준. */
+  private long appReturnRequestedAtMs = 0L;
   private final Runnable appReturnAfterPipFallback =
       new Runnable() {
         @Override
@@ -190,7 +192,7 @@ public class NativeVideoCallActivity extends Activity {
           String source = pendingAppReturnSource;
           pendingAppReturnSource = null;
           NativeVideoCallLog.info("native_video_app_return_after_pip_timeout", callId, "source=" + source);
-          NativeCallAppReturn.bringAppToFront(NativeVideoCallActivity.this, callId, source);
+          confirmOrRetryAppReturn(source, "timeout");
         }
       };
   private final Runnable durationTick =
@@ -660,7 +662,7 @@ public class NativeVideoCallActivity extends Activity {
       mainHandler.removeCallbacks(appReturnAfterPipFallback);
       String source = pendingAppReturnSource;
       pendingAppReturnSource = null;
-      NativeCallAppReturn.bringAppToFront(this, callId, source);
+      confirmOrRetryAppReturn(source, "pip_callback");
     }
   }
 
@@ -1984,13 +1986,33 @@ public class NativeVideoCallActivity extends Activity {
         NativeCallAppReturn.bringAppToFront(this, callId, source);
         return true;
       }
-      pendingAppReturnSource = source;
-      mainHandler.removeCallbacks(appReturnAfterPipFallback);
-      mainHandler.postDelayed(appReturnAfterPipFallback, APP_RETURN_AFTER_PIP_FALLBACK_MS);
+      // 복귀 요청은 PiP 요청이 수락된 지금(통화 화면이 아직 보이고 고정되기 전) 보낸다.
+      // PiP 가 뜬 뒤에 보내면 Android 가 「보이는 화면이 PiP 뿐」이라 막는다(BAL_BLOCK).
+      // docs/audit/call-back-app-return-bal-design-2026-11-12.md §2·§5
+      requestAppReturnBeforePinned(source);
       return true;
     }
     NativeCallAppReturn.bringAppToFront(this, callId, source);
     return true;
+  }
+
+  /** PiP 요청 수락 직후 메신저 복귀 요청 + PiP 콜백·보조 타이머는 확인 전용으로 대기. */
+  private void requestAppReturnBeforePinned(String source) {
+    appReturnRequestedAtMs = SystemClock.elapsedRealtime();
+    NativeCallAppReturn.bringAppToFront(this, callId, source);
+    pendingAppReturnSource = source;
+    mainHandler.removeCallbacks(appReturnAfterPipFallback);
+    mainHandler.postDelayed(appReturnAfterPipFallback, APP_RETURN_AFTER_PIP_FALLBACK_MS);
+  }
+
+  /** PiP 콜백·보조 타이머: 메신저가 이미 앞으로 왔으면 아무것도 안 하고, 아니면 1회 재시도(결과는 확인 로그). */
+  private void confirmOrRetryAppReturn(String source, String trigger) {
+    if (NativeCallAppReturn.isConfirmedSince(callId, appReturnRequestedAtMs)) {
+      NativeVideoCallLog.info(
+          "native_video_app_return_already_front", callId, "source=" + source + " trigger=" + trigger);
+      return;
+    }
+    NativeCallAppReturn.bringAppToFront(this, callId, source + ":retry_" + trigger);
   }
 
   /** 줄이기 버튼 — 연결 후 전체화면(PiP·Dock 아님)에서만. */

@@ -140,6 +140,16 @@ mustInclude(
   "화면 소실은 SURFACE_LOST 로만 보고(종료 아님)",
 );
 
+console.log("⑨ ◁ 뒤로 메신저 복귀 = PiP 요청 수락 직후 요청, 콜백·타이머는 확인 전용 (BAL 설계 §5)");
+for (const rel of [`${JAVA}/nativevideo/NativeVideoCallActivity.java`, `${JAVA}/nativevoice/NativeVoiceCallActivity.java`]) {
+  mustInclude(rel, "private void confirmOrRetryAppReturn(", "콜백·타이머 확인 전용 함수");
+  mustInclude(rel, 'confirmOrRetryAppReturn(source, "pip_callback")', "PiP 콜백은 확인 전용");
+  mustInclude(rel, 'confirmOrRetryAppReturn(source, "timeout")', "보조 타이머는 확인 전용");
+  mustInclude(rel, "appReturnRequestedAtMs = SystemClock.elapsedRealtime();", "PiP 수락 직후 복귀 요청 시각 기록");
+}
+mustInclude(`${JAVA}/call/NativeCallAppReturn.java`, "native_call_app_return_unconfirmed", "실제 결과 기록(막혀도 성공처럼 기록 금지)");
+mustInclude(`${JAVA}/MainActivity.java`, "NativeCallAppReturn.onMainResumed()", "메신저 재개 시 복귀 결과 확인");
+
 if (failed) {
   console.error("verify:call-surface-cta-ssot FAILED");
   process.exit(1);
