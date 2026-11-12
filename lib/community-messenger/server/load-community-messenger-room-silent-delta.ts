@@ -154,6 +154,7 @@ function buildSilentDeltaRoomSummary(
     identityPolicy,
     isReadonly,
     title,
+    titleFromRoom: Boolean(roomTitle),
     subtitle,
     summary: roomSummary,
     avatarUrl: roomAvatar,

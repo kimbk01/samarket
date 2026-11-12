@@ -46,7 +46,16 @@ async function decode(file: File): Promise<{ width: number; height: number; draw
   }
 }
 
-export async function prepareCommunityImageForUpload(file: File): Promise<File> {
+/**
+ * @param opts.skipBelowBytes 서버 한도가 더 낮은 업로드(그룹 사진 = 3MB · `/api/me/profile/avatar`)는 그 값으로 —
+ *   그 크기 이하이고 긴 변 2560 이하면 원본, 넘으면 같은 규칙(긴 변 2560 · JPEG 0.92)으로 한 번 줄인다.
+ */
+export async function prepareCommunityImageForUpload(
+  file: File,
+  opts?: { skipBelowBytes?: number }
+): Promise<File> {
+  const skipBelowBytes =
+    typeof opts?.skipBelowBytes === "number" && opts.skipBelowBytes > 0 ? opts.skipBelowBytes : SKIP_BELOW_BYTES;
   if (typeof document === "undefined") return file;
   if (file.type === "image/gif") return file;
   const decoded = await decode(file);
@@ -54,7 +63,7 @@ export async function prepareCommunityImageForUpload(file: File): Promise<File> 
   try {
     const { width, height } = decoded;
     const longEdge = Math.max(width, height);
-    if (longEdge <= MAX_EDGE_PX && file.size <= SKIP_BELOW_BYTES) return file;
+    if (longEdge <= MAX_EDGE_PX && file.size <= skipBelowBytes) return file;
     const scale = longEdge > MAX_EDGE_PX ? MAX_EDGE_PX / longEdge : 1;
     const w = Math.max(1, Math.round(width * scale));
     const h = Math.max(1, Math.round(height * scale));

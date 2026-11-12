@@ -358,7 +358,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           <input
                             ref={groupAvatarFileInputRef}
                             type="file"
-                            accept="image/jpeg,image/png,image/webp,image/gif"
+                            accept="image/jpeg,image/png,image/webp"
                             className="sr-only"
                             tabIndex={-1}
                             aria-hidden
