@@ -62,7 +62,9 @@ export const MOIM_ERROR_CODES = [
   "moim_questions_too_many",
   "moim_region_required",
   "moim_reminder_window_invalid",
+  "moim_report_decision_invalid",
   "moim_report_duplicate",
+  "moim_report_not_found",
   "moim_report_reason_invalid",
   "moim_report_target_invalid",
   "moim_request_not_found",
@@ -93,6 +95,7 @@ export const MOIM_ERROR_CODES = [
   "moim_transfer_not_found",
   "moim_transfer_pending",
   "moim_transfer_stale",
+  "moim_user_restrict_failed",
   "moim_visibility_invalid",
 ] as const;
 

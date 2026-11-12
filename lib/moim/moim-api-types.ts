@@ -189,3 +189,27 @@ export type MoimAlbumItemDto = {
 };
 
 export type MoimNotificationPrefsDto = { notice: boolean; posts: boolean; schedules: boolean };
+
+// ---------------------------------------------------------------------------
+// M6 — 모임 안 신고 확인 (운영진 hide_post · 설계 P13 「모임 안 처리」). 신고자 정보는 담지 않는다.
+// ---------------------------------------------------------------------------
+export type MoimStaffReportTargetType = "post" | "comment" | "album";
+
+export type MoimStaffReportDto = {
+  targetType: MoimStaffReportTargetType;
+  targetId: string;
+  /** 열린(접수·검토 중) 신고 수 */
+  reportCount: number;
+  /** 사유 코드별 건수 (많은 순) */
+  reasons: { code: string; count: number }[];
+  latestAt: string;
+  /** 대상 상태 — active 일 때만 숨길 수 있다 */
+  status: "active" | "hidden" | "deleted" | "missing";
+  /** 글 제목(글) · 본문 일부(글·댓글) · 사진 주소(사진) */
+  title: string | null;
+  excerpt: string | null;
+  imageUrl: string | null;
+  /** 댓글이면 글 id (글로 이동) */
+  postId: string | null;
+  authorNickname: string | null;
+};

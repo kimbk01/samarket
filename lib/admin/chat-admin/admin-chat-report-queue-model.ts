@@ -102,6 +102,8 @@ export type ChatReportQueueRow = {
   reportedUserLabel: string;
   adminNote: string;
   handledAt: string | null;
+  /** 모임 채팅방(owner_domain='moim') 신고면 그 모임 id — 「모임」 배지·모임 어드민 링크 (설계 moim P11 · M6) */
+  moimId?: string | null;
 };
 
 /** 정렬 — 최신순(createdAt DESC, key DESC) · `asc` = 오래된 순(처리 대기 기본, 먼저 들어온 것부터). */

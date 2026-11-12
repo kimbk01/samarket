@@ -247,6 +247,9 @@ const DB_AUDITED_ADMIN_ROUTES: Readonly<Record<string, string>> = {
   "app/api/admin/moim/moims/[moimId]/route.ts": "moim_admin_update_info → audit_logs moim.admin_info_updated (PATCH, 20271113200000)",
   "app/api/admin/moim/moims/[moimId]/sanctions/route.ts": "moim_admin_sanction_apply → audit_logs moim.admin_sanction_applied (20271113200000)",
   "app/api/admin/moim/policies/route.ts": "moim_admin_policies_save → audit_logs moim.admin_policies_updated (PUT, 20271113200000)",
+  // 모임 신고 처리 M6 — moim__admin_log 가 같은 트랜잭션에서 moim_events + audit_logs 기록 (20271113400000)
+  "app/api/admin/moim/reports/[reportId]/decision/route.ts": "moim_admin_report_decide → audit_logs moim.admin_report_actioned·admin_report_dismissed (20271113400000)",
+  "app/api/admin/moim/reports/[reportId]/review/route.ts": "moim_admin_report_review → audit_logs moim.admin_report_reviewing (20271113400000)",
   "app/api/admin/moim/sanctions/[sanctionId]/route.ts": "moim_admin_sanction_revoke → audit_logs moim.admin_sanction_revoked (20271113200000)",
 };
 

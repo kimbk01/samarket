@@ -36,7 +36,9 @@ type MoimNotifyKind =
   // M5 어드민 — 제재(필수 알림) · 어드민 정보 수정 · 미접속 모임장 변경 요청 결과
   | "moim_sanctioned"
   | "moim_admin_info_updated"
-  | "moim_host_request_result";
+  | "moim_host_request_result"
+  // M6 신고 처리 결과 — 신고자에게 조치 여부만 (상대에게 내린 조치 내용은 알리지 않음)
+  | "moim_report_result";
 
 const ROLE_KEY: Record<MoimRole, MessageKey> = {
   host: "moim_role_host",

@@ -4,6 +4,7 @@ import type { SupabaseServer } from "@/lib/chat/supabase-server";
 import { lguPublicName } from "@/lib/neighborhood/lgu-location.server";
 import { isUuidString } from "@/lib/shared/uuid-string";
 import { manilaDayStartMs } from "@/lib/admin/community-admin/community-admin-period";
+import { resolveMoimRooms } from "@/lib/admin/moim/moim-room-ref.server";
 import {
   MOIM_ADMIN_PAGE_DEFAULT,
   MOIM_ADMIN_PAGE_MAX,
@@ -572,8 +573,17 @@ export async function loadAdminMoimReportDetail(sb: Sb, reportId: string) {
   const { data: r, error } = await sb.from("moim_reports").select("*").eq("id", reportId).maybeSingle();
   if (error) return { ok: false as const, error: error.message };
   if (!r) return { ok: false as const, error: "report_not_found" };
-  const report = r as { id: string; reporter_id: string; moim_id: string; target_type: string; target_id: string; handled_by: string | null };
-  const [history, moims, target] = await Promise.all([
+  const report = r as {
+    id: string;
+    reporter_id: string;
+    moim_id: string;
+    target_type: string;
+    target_id: string;
+    status: string;
+    action_id: string | null;
+    handled_by: string | null;
+  };
+  const [history, moims, target, openSame, warns, moimRow, sanctions] = await Promise.all([
     sb
       .from("moim_reports")
       .select("id, reporter_id, reason_code, detail, status, created_at")
@@ -583,14 +593,126 @@ export async function loadAdminMoimReportDetail(sb: Sb, reportId: string) {
       .limit(50),
     loadMoimNames(sb, [report.moim_id]),
     loadReportTargetPreview(sb, report.moim_id, report.target_type, report.target_id),
+    // M6: 같은 대상의 다른 열린 신고 수 (「같은 대상 신고 함께 처리」)
+    sb
+      .from("moim_reports")
+      .select("id", { count: "exact", head: true })
+      .eq("target_type", report.target_type)
+      .eq("target_id", report.target_id)
+      .in("status", ["received", "reviewing"])
+      .neq("id", report.id),
+    // M6: 경고 누적 (설계 P14 — 자동 차단 없음, 사람이 판단)
+    sb.from("moim_sanctions").select("id", { count: "exact", head: true }).eq("moim_id", report.moim_id).eq("level", "warn"),
+    sb.from("moims").select("host_user_id").eq("id", report.moim_id).maybeSingle(),
+    // M6: 처리 결과 — 이 신고가 근거인 조치 + 함께 닫힌 신고면 근거 신고의 조치(action_id)
+    sb
+      .from("moim_sanctions")
+      .select("id, target_kind, target_id, level, reason, source_report_id, actor_id, starts_at, ends_at, revoked_at, created_at")
+      .or(report.action_id && isUuidString(report.action_id) ? `source_report_id.eq.${report.id},id.eq.${report.action_id}` : `source_report_id.eq.${report.id}`)
+      .order("created_at", { ascending: true }),
   ]);
   const historyRows = (history.data ?? []) as { reporter_id: string }[];
-  const people = await loadAdminPeople(sb, [report.reporter_id, report.handled_by, ...historyRows.map((h) => h.reporter_id)]);
+  let sanctionRows = (sanctions.data ?? []) as { id: string; source_report_id: string | null; actor_id: string; target_id: string; target_kind: string }[];
+  // 함께 닫힌 신고: action_id 로 근거 신고를 찾아 그 신고의 조치 전체를 보여 준다
+  const sourceId = sanctionRows.find((x) => x.id === report.action_id)?.source_report_id;
+  if (sourceId && sourceId !== report.id) {
+    const { data } = await sb
+      .from("moim_sanctions")
+      .select("id, target_kind, target_id, level, reason, source_report_id, actor_id, starts_at, ends_at, revoked_at, created_at")
+      .eq("source_report_id", sourceId)
+      .order("created_at", { ascending: true });
+    sanctionRows = (data ?? sanctionRows) as typeof sanctionRows;
+  }
+  const hostUserId = (moimRow.data as { host_user_id?: string } | null)?.host_user_id ?? null;
+  const people = await loadAdminPeople(sb, [
+    report.reporter_id,
+    report.handled_by,
+    hostUserId,
+    ...historyRows.map((h) => h.reporter_id),
+    ...sanctionRows.flatMap((x) => [x.actor_id, x.target_kind === "host" || x.target_kind === "member" ? x.target_id : null]),
+  ]);
   return {
     ok: true as const,
     report: { ...report, reporter: person(people, report.reporter_id), handler: person(people, report.handled_by), moim: moims.get(report.moim_id) ?? null },
     target,
     history: historyRows.map((h) => ({ ...h, reporter: person(people, h.reporter_id) })),
+    openSameTargetCount: openSame.count ?? null,
+    warnCount: warns.count ?? null,
+    host: person(people, hostUserId),
+    resultActions: sanctionRows.map((x) => ({
+      ...x,
+      actor: person(people, x.actor_id),
+      targetPerson: x.target_kind === "host" || x.target_kind === "member" ? person(people, x.target_id) : null,
+    })),
+  };
+}
+
+// ── M6: 모임 채팅방(owner_domain='moim')의 메신저 신고 — 읽기 전용, 처리는 기존 메신저 신고 화면 ─────────
+
+/** 모임 하나의 방 id 목록 (전체 방 + 일정 방) */
+async function moimRoomIds(sb: Sb, moimId: string): Promise<string[]> {
+  const { data: sch } = await sb.from("moim_schedules").select("id").eq("moim_id", moimId);
+  const refs = [moimId, ...((sch ?? []) as { id: string }[]).map((x) => x.id)];
+  const ids: string[] = [];
+  for (let i = 0; i < refs.length; i += 200) {
+    const { data } = await sb.from("community_messenger_rooms").select("id").eq("owner_domain", "moim").in("owner_ref_id", refs.slice(i, i + 200));
+    ids.push(...((data ?? []) as { id: string }[]).map((x) => x.id));
+  }
+  return ids;
+}
+
+export async function listAdminMoimMessengerReports(
+  sb: Sb,
+  f: { messengerStatuses: readonly string[] | null; moimId: string | null; limit: number; offset: number }
+) {
+  let q = sb
+    .from("community_messenger_reports")
+    .select(
+      "id, report_type, room_id, message_id, reported_user_id, reporter_user_id, reason_type, reason_detail, status, handled_at, created_at, community_messenger_rooms!inner(owner_domain)",
+      { count: "exact" }
+    )
+    .eq("community_messenger_rooms.owner_domain", "moim");
+  if (f.moimId) {
+    const ids = await moimRoomIds(sb, f.moimId);
+    if (!ids.length) return { ok: true as const, total: 0, rows: [] };
+    q = q.in("room_id", ids.slice(0, 1000));
+  }
+  if (f.messengerStatuses) q = q.in("status", [...f.messengerStatuses]);
+  const { data, error, count } = await q.order("created_at", { ascending: false }).range(f.offset, f.offset + f.limit - 1);
+  if (error) return { ok: false as const, error: error.message };
+  type Row = {
+    id: string;
+    report_type: string;
+    room_id: string | null;
+    message_id: string | null;
+    reported_user_id: string | null;
+    reporter_user_id: string;
+    reason_type: string;
+    reason_detail: string;
+    status: string;
+    handled_at: string | null;
+    created_at: string;
+  };
+  const rows = (data ?? []) as unknown as Row[];
+  const rooms = await resolveMoimRooms(sb, rows.map((x) => x.room_id ?? ""));
+  const [people, moims] = await Promise.all([
+    loadAdminPeople(sb, rows.flatMap((x) => [x.reporter_user_id, x.reported_user_id])),
+    loadMoimNames(sb, [...rooms.values()].map((x) => x.moimId)),
+  ]);
+  return {
+    ok: true as const,
+    total: count ?? rows.length,
+    rows: rows.map((x) => {
+      const ref = x.room_id ? rooms.get(x.room_id) ?? null : null;
+      return {
+        ...x,
+        moimId: ref?.moimId ?? null,
+        scheduleId: ref?.scheduleId ?? null,
+        moim: ref ? moims.get(ref.moimId) ?? null : null,
+        reporter: person(people, x.reporter_user_id),
+        reported: person(people, x.reported_user_id),
+      };
+    }),
   };
 }
 

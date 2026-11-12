@@ -18,6 +18,7 @@ import type {
   MoimNotificationPrefsDto,
   MoimScheduleDto,
   MoimScheduleParticipantDto,
+  MoimStaffReportDto,
 } from "@/lib/moim/moim-api-types";
 import type { MoimAction, MoimRole } from "@/lib/moim/moim-permission-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -119,6 +120,8 @@ export const moimApi = {
   unban: (moimId: string, userId: string) => call(`/api/moim/${enc(moimId)}/members/${enc(userId)}/unban`, { method: "POST" }),
 
   joinRequests: (moimId: string) => call<{ requests: MoimJoinRequestDto[] }>(`/api/moim/${enc(moimId)}/join-requests`),
+  /** M6 운영진 신고 확인 (hide_post) — 대상별 묶음, 신고자 정보 없음 */
+  staffReports: (moimId: string) => call<{ reports: MoimStaffReportDto[]; capped: boolean }>(`/api/moim/${enc(moimId)}/reports`),
   decideJoin: (moimId: string, requestId: string, approve: boolean, reason?: string | null) =>
     call(`/api/moim/${enc(moimId)}/join-requests/${enc(requestId)}`, { method: "POST", json: { approve, reason: reason ?? null } }),
 
@@ -245,6 +248,7 @@ export const moimRoutes = {
   manageBoards: (id: string) => `/moim/${id}/manage/boards`,
   manageTransfer: (id: string) => `/moim/${id}/manage/transfer`,
   manageHostRequest: (id: string) => `/moim/${id}/manage/host-request`,
+  manageReports: (id: string) => `/moim/${id}/manage/reports`,
   manageClose: (id: string) => `/moim/${id}/manage/close`,
   inviteLanding: (token: string) => `/moim/i/${token}`,
   schedules: (id: string) => `/moim/${id}?tab=schedules`,

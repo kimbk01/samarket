@@ -100,6 +100,7 @@ export const SUPPORT_META_KINDS: ReadonlySet<string> = new Set([
   "chat_report_result",
   "chat_report_sanction",
   "community_report_processed",
+  "moim_report_result",
   "trade_report_processed",
   "community_sanction",
   "trade_sanction",
