@@ -16,7 +16,6 @@ import {
   subscribeMypageHomeSummary,
   type MypageHomeSummaryState,
 } from "@/lib/mypage/mypage-home-summary-client";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * `/mypage` 홈 오른쪽 값 — `GET /api/me/mypage-summary` 단일 비행(최종 설계 §2.2).
@@ -29,7 +28,6 @@ import { useHubActive } from "@/lib/layout/hub-active-context";
  *   화면이 먼저 그려져도, 복원되는 순간 조회 1회·복귀 리스너 등록 (4차 실기 F1: 처음 한 번만 읽어 「—」 고정).
  */
 export function useMypageHomeSummary(enabled: boolean): MypageHomeSummaryState | null {
-  const hubActive = useHubActive();
   const membership = useClientMembershipState("mypage-summary");
   const viewerId =
     (membership.status === "member" ? membership.profile.id : getCurrentUser()?.id)?.trim() ?? "";
@@ -43,7 +41,6 @@ export function useMypageHomeSummary(enabled: boolean): MypageHomeSummaryState |
   );
 
   useEffect(() => {
-    if (!hubActive) return;
     if (!enabled) return;
     const uid = viewerId;
     if (!uid) return;
@@ -100,7 +97,7 @@ export function useMypageHomeSummary(enabled: boolean): MypageHomeSummaryState |
       document.removeEventListener("visibilitychange", onVisible);
       unsubscribeAuth();
     };
-  }, [hubActive, enabled, viewerId]);
+  }, [enabled, viewerId]);
 
   if (!enabled) return null;
   return summary;

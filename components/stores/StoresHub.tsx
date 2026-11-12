@@ -28,7 +28,6 @@ import { resolveStoresHomeFeedQueryGate } from "@/lib/stores/stores-home-feed-qu
 import { prewarmStoresHomeRoute } from "@/lib/stores/stores-home-route-prewarm";
 import { addStoresHomePullRefreshHandler } from "@/lib/stores/stores-home-pull-refresh-store";
 import { shouldSkipStoresHomeHubSummaryFetch } from "@/lib/stores/stores-home-network-guards";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 type StoreHubSummaryResponse = {
   ok?: boolean;
@@ -64,7 +63,6 @@ function resolveBuyerHubFromJson(
 }
 
 export function StoresHub() {
-  const hubActive = useHubActive();
   const { language } = useI18n();
 
   const cachedHubSnapshot = readMeStoreOrdersHubSummaryCache();
@@ -107,13 +105,12 @@ export function StoresHub() {
   const feedReady = feedGate.ready;
 
   useLayoutEffect(() => {
-    if (!hubActive) return;
     if (!feedReady) return;
     prewarmStoresHomeRoute({
       storeHomeFeedSuffixes: querySuffix ? [querySuffix] : [],
       language,
     });
-  }, [hubActive, language, querySuffix, feedReady]);
+  }, [language, querySuffix, feedReady]);
 
   const loadBuyerHub = useCallback(async (opts?: {
     force?: boolean;
@@ -177,11 +174,10 @@ export function StoresHub() {
   }, [loadBuyerHub]);
 
   useEffect(() => {
-    if (!hubActive) return;
     const onRefresh = () => void loadBuyerHub();
     window.addEventListener(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH, onRefresh);
     return () => window.removeEventListener(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH, onRefresh);
-  }, [hubActive, loadBuyerHub]);
+  }, [loadBuyerHub]);
 
   useRefetchOnPageShowRestore(() => void loadBuyerHub({ fromBfcacheRestore: true }), {
     enableVisibilityRefetch: false,

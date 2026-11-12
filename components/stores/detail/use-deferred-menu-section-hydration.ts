@@ -11,13 +11,11 @@ import {
   MENU_DEFER_HYDRATE_BATCH,
   shouldDeferMenuSectionHydration,
 } from "@/lib/dibay/store-menu-viewport-policy";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 export function useDeferredMenuSectionHydration(
   sections: MenuSection[],
   forceHydrateThroughIndex: number | null = null
 ) {
-  const hubActive = useHubActive();
   const sectionsStructureKey = useMemo(
     () => sections.map((s) => `${s.heading}:${s.items.length}`).join("|"),
     [sections]
@@ -114,7 +112,6 @@ export function useDeferredMenuSectionHydration(
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!hubActive) return;
     if (!deferEnabled || typeof window === "undefined") return;
     let ticking = false;
     const onScroll = () => {
@@ -137,7 +134,7 @@ export function useDeferredMenuSectionHydration(
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [hubActive, deferEnabled, ensureHydratedThrough, sections.length, sectionsStructureKey]);
+  }, [deferEnabled, ensureHydratedThrough, sections.length, sectionsStructureKey]);
 
   useEffect(() => {
     if (!deferEnabled) return;

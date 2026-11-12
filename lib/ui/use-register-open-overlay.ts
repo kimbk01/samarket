@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { registerOpenOverlay } from "@/lib/ui/open-overlay-registry";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * 재감사 R3 (G-8 마무리): `DibayOverlayRoot` 를 쓰지 않는 자체 시트·대화상자·전체 화면 창도 열려 있는 동안
@@ -8,11 +7,8 @@ import { useHubActive } from "@/lib/layout/hub-active-context";
  * `open` 이 true 인 동안만 센다. 항상 마운트된 창(서랍 등)은 열림 상태를 넘긴다.
  */
 export function useRegisterOpenOverlay(open: boolean): void {
-  /** D1 S2: 숨긴 하단 탭 허브의 창은 「열린 창」으로 세지 않는다 */
-  const hubActive = useHubActive();
-  const active = open && hubActive;
   useEffect(() => {
-    if (!active) return;
+    if (!open) return;
     return registerOpenOverlay({ ad: false });
-  }, [active]);
+  }, [open]);
 }

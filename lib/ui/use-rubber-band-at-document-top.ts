@@ -14,7 +14,6 @@ import {
   touchStartedInStoreHeroHorizontalScroller,
   type RubberBandGestureLock,
 } from "@/lib/ui/rubber-band-gesture";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 export type RubberBandAtDocumentTopOptions = {
   /**
@@ -48,7 +47,6 @@ export function useRubberBandAtDocumentTop(
   maxStretchPx = 90,
   options?: RubberBandAtDocumentTopOptions
 ) {
-  const hubActive = useHubActive();
   const [stretch, setStretch] = useState(0);
   const stretchRef = useRef(0);
   const decayRaf = useRef<number>(0);
@@ -78,7 +76,6 @@ export function useRubberBandAtDocumentTop(
   const blockNativeViewportOverscroll = Boolean(options?.blockNativeViewportOverscroll);
 
   useEffect(() => {
-    if (!hubActive) return;
     const scrollTop = () => getMainAppScrollTop();
 
     const clearStretch = () => {
@@ -194,7 +191,7 @@ export function useRubberBandAtDocumentTop(
       window.removeEventListener("touchcancel", endTouch);
       cancelAnimationFrame(decayRaf.current);
     };
-  }, [hubActive, blockNativeViewportOverscroll, maxStretchPx, scheduleDecay]);
+  }, [blockNativeViewportOverscroll, maxStretchPx, scheduleDecay]);
 
   const scale = 1 + Math.min(stretch / 420, 0.085);
   return { stretch, scale };

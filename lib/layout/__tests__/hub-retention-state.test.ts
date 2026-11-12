@@ -94,8 +94,7 @@ describe("D1 셸 계약", () => {
     expect(shell).toContain("plain={!hubScrollColumn && !f.isCommunityMessengerRoom}");
     const stack = read("components/layout/HubRetentionStack.tsx");
     expect(stack).not.toContain("createPortal");
-    /** D1 S2 (2026-11-12): React Activity 대신 CSS 숨김 + 허브 활성 신호 */
-    expect(stack).toContain("<HubActiveContext.Provider value={visible}>");
+    expect(stack).toContain("<Activity");
     expect(stack).toContain("key={`hub:${next.accountGeneration}:${entry.id}`}");
     /** 허브가 아닌 화면은 로그인·로그아웃으로 다시 만들지 않음 (PR #146 Bugbot 2차) */
     expect(stack).toContain('<LiveRouteSlot key="live">');

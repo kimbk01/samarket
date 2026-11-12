@@ -4,7 +4,6 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { HubPortalGate } from "@/components/layout/HubPortalGate";
 import { StoreDetailBackLink } from "@/components/stores/StoreDetailBackRow";
 import { AppTier1HeaderRow } from "@/components/layout/AppTier1HeaderRow";
 import { APP_TIER1_HEADER_ICON_BTN_CLASS, APP_TIER1_HEADER_ROW_WRAP_CLASS } from "@/lib/layout/app-tier1-header";
@@ -252,6 +251,5 @@ export function StoreOrderStickyHeader({
       ? storeChromePortalRoot(resolvedPortalTarget)
       : null;
 
-  /** D1 S2: 포털이면 숨긴 하단 탭 허브와 같이 숨긴다(`HubPortalGate`) */
-  return portalRoot ? createPortal(<HubPortalGate>{header}</HubPortalGate>, portalRoot) : header;
+  return portalRoot ? createPortal(header, portalRoot) : header;
 }

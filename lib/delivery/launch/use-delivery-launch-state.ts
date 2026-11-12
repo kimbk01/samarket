@@ -9,7 +9,6 @@ import {
   normalizeFreeUntil,
   type DeliveryLaunchPublicState,
 } from "@/lib/delivery/launch/delivery-launch-contract";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * 배달 오픈 상태 (클라이언트) — `/api/stores/launch-state` 1회 합침 + 짧은 메모리 캐시.
@@ -101,11 +100,9 @@ export function useDeliveryLaunchState(
   enabled = true,
   opts?: { confirmedOnly?: boolean }
 ): DeliveryLaunchPublicState | null {
-  const hubActive = useHubActive();
   const [state, setState] = useState<DeliveryLaunchPublicState | null>(null);
   const confirmedOnly = opts?.confirmedOnly === true;
   useEffect(() => {
-    if (!hubActive) return;
     if (!enabled) {
       setState(null);
       return;
@@ -124,7 +121,7 @@ export function useDeliveryLaunchState(
       alive = false;
       listeners.delete(onChange);
     };
-  }, [hubActive, enabled, confirmedOnly]);
+  }, [enabled, confirmedOnly]);
   return state;
 }
 

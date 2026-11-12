@@ -154,8 +154,6 @@ import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { OWNER_NOTIF_GROUPS, type OwnerNotifTab } from "@/components/stores/owner/owner-notification-inbox-items";
 import { fetchMeOwnerStoreNotificationsDeduped } from "@/lib/me/fetch-me-owner-store-notifications";
 import { NotificationInboxRowSkeleton } from "@/components/notifications/NotificationInboxRowSkeleton";
-import { noopHubSubscribe, useHubActive } from "@/lib/layout/hub-active-context";
-import { HubPortalGate } from "@/components/layout/HubPortalGate";
 
 
 
@@ -297,7 +295,6 @@ export function PhilifeHeaderNotificationInbox({
   supplementalUnreadCount?: number;
 
 }) {
-  const hubActive = useHubActive();
 
   const pathname = usePathname();
 
@@ -417,9 +414,8 @@ export function PhilifeHeaderNotificationInbox({
 
   const rowUnread = useMemo(() => countUnread(rows), [rows]);
 
-  /** D1 S2: 숨긴 하단 탭 허브의 알림함은 배지 구독을 하지 않는다 — 첫 구독이 배지 받기·주기 갱신을 시작하므로 */
   const badgeCountSnap = useSyncExternalStore(
-    hubActive ? subscribeNotificationBadgeCount : noopHubSubscribe,
+    subscribeNotificationBadgeCount,
     getNotificationBadgeCountSnapshot,
     getNotificationBadgeCountServerSnapshot
   );
@@ -498,7 +494,6 @@ export function PhilifeHeaderNotificationInbox({
 
 
   useEffect(() => {
-if (!hubActive) return;
 
     if (open) {
 
@@ -510,7 +505,7 @@ if (!hubActive) return;
 
     }
 
-  }, [hubActive, open]);
+  }, [open]);
 
 
 
@@ -701,7 +696,6 @@ if (!hubActive) return;
 
 
   useEffect(() => {
-    if (!hubActive) return;
     const cancel = scheduleNotificationSettingsSnapshotDeferred(
       () => {
         void loadSound();
@@ -709,12 +703,11 @@ if (!hubActive) return;
       { source: "notification-settings-philife-inbox" }
     );
     return cancel;
-  }, [hubActive, loadSound]);
+  }, [loadSound]);
 
 
 
   useEffect(() => {
-if (!hubActive) return;
 
     if (deferInboxListPrefetch) return;
 
@@ -728,7 +721,7 @@ if (!hubActive) return;
 
     return cancel;
 
-  }, [hubActive, deferInboxListPrefetch, loadInbox]);
+  }, [deferInboxListPrefetch, loadInbox]);
 
 
 
@@ -736,7 +729,6 @@ if (!hubActive) return;
   // (Previously: surface change → setRows([]) → empty sheet with only Owner ops.)
 
   useEffect(() => {
-if (!hubActive) return;
 
     if (typeof window === "undefined") return;
 
@@ -773,12 +765,11 @@ if (!hubActive) return;
 
     };
 
-  }, [hubActive, loadInbox, loadSound, ownerInboxStoreId]);
+  }, [loadInbox, loadSound, ownerInboxStoreId]);
 
 
 
   useEffect(() => {
-if (!hubActive) return;
 
     if (!visible) {
 
@@ -794,12 +785,11 @@ if (!hubActive) return;
 
     return () => document.body.classList.remove("overflow-hidden");
 
-  }, [hubActive, visible]);
+  }, [visible]);
 
 
 
   useEffect(() => {
-if (!hubActive) return;
 
     if (!visible) return;
 
@@ -827,7 +817,7 @@ if (!hubActive) return;
 
     };
 
-  }, [hubActive, visible, closePanel, updateLayout]);
+  }, [visible, closePanel, updateLayout]);
 
 
 
@@ -1042,7 +1032,6 @@ if (!hubActive) return;
       ? null
       : createPortal(
 
-          <HubPortalGate>
           <div className={TIER1_HEADER_OVERLAY_SHELL_CLASS} role="presentation">
 
             <button
@@ -1252,8 +1241,7 @@ if (!hubActive) return;
 
             </div>
 
-          </div>
-          </HubPortalGate>,
+          </div>,
 
           document.body
 

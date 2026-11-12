@@ -8,7 +8,6 @@ import {
   peekDeliveryLaunchState,
   useDeliveryLaunchState,
 } from "@/lib/delivery/launch/use-delivery-launch-state";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * 배달 오픈 관리 — 매장 모집 중 고객 경로 정리 (Owner 2026-11-10 · 설계 v3.2).
@@ -65,7 +64,6 @@ export function isDeliveryOrderFlowPath(pathname: string): boolean {
 const noopSubscribe = () => () => {};
 
 export function DeliveryRecruitingRouteGuard() {
-  const hubActive = useHubActive();
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const state = useDeliveryLaunchState(true, { confirmedOnly: true });
@@ -73,9 +71,8 @@ export function DeliveryRecruitingRouteGuard() {
     (isDeliveryRecruiting(state) && isDeliveryRecruitingBlockedPath(pathname)) ||
     (isDeliveryRecruitingReviewer(state) && isDeliveryOrderFlowPath(pathname));
   useEffect(() => {
-    if (!hubActive) return;
     if (blocked) router.replace("/stores");
-  }, [hubActive, blocked, router]);
+  }, [blocked, router]);
 
   /** 매장 아래 화면 — 판정이 끝날 때까지 화면을 가린다(내용이 먼저 보이지 않게) */
   const subSlug = isDeliveryRecruiting(state) ? deliveryRecruitingStoreSubpageSlug(pathname) : null;

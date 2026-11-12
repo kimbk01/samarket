@@ -6,7 +6,6 @@ import {
   invalidateMainAppScrollRootCache,
 } from "@/lib/layout/main-app-scroll-root";
 import { clearStuckTextSelection } from "@/lib/ui/clear-stuck-text-selection";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 function blurInteractiveFocus(): void {
   const active = document.activeElement;
@@ -30,9 +29,7 @@ function blurInteractiveFocus(): void {
  * 가 1차. JS는 touchend 1회(rAF)만 — scroll root `pointermove` capture 금지(체감 지연 원인).
  */
 export function useStoresHomeTouchRelease(enabled: boolean): void {
-  const hubActive = useHubActive();
   useEffect(() => {
-    if (!hubActive) return;
     if (!enabled) return;
 
     invalidateMainAppScrollRootCache();
@@ -53,5 +50,5 @@ export function useStoresHomeTouchRelease(enabled: boolean): void {
       root.removeEventListener("touchend", release, opts);
       root.removeEventListener("touchcancel", release, opts);
     };
-  }, [hubActive, enabled]);
+  }, [enabled]);
 }

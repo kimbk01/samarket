@@ -12,7 +12,6 @@ import {
   resolveFormVisualViewportClientBand,
   restoreFormFocusOverscrollInScrollRoot,
 } from "@/lib/ui/form-keyboard-viewport-contract";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 type Options = {
   enabled?: boolean;
@@ -139,7 +138,6 @@ export function correctFocusInScrollRoot(
 }
 
 export function useFormKeyboardFocusVisibility(opts: Options): void {
-  const hubActive = useHubActive();
   const enabled = opts.enabled !== false;
   const bottom = opts.effectiveViewportBottom;
   const gap = opts.focusGapPx ?? FORM_FOCUS_GAP_PX;
@@ -154,7 +152,6 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
   const overscrollDebtRef = useRef<OverscrollDebt>({ root: null, focused: null, debtPx: 0, expectedTop: 0 });
 
   useEffect(() => {
-    if (!hubActive) return;
     if (!enabled || typeof document === "undefined") return;
 
     let resizeRo: ResizeObserver | null = null;
@@ -296,7 +293,7 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
       window.removeEventListener("orientationchange", onViewportGeometry);
       resizeRo?.disconnect();
     };
-  }, [hubActive, enabled, scrollRootRef, stickyChromeRef]);
+  }, [enabled, scrollRootRef, stickyChromeRef]);
 
   // Keyboard open/close updates band bottom without tearing listeners.
   useEffect(() => {

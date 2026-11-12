@@ -82,7 +82,6 @@ import {
 } from "@/lib/platform/capacitor-native";
 import type { FinishClientAuthLoginTermsHandoff } from "@/lib/auth/finish-client-auth-login.client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 export const OAUTH_PENDING_CLEAR_EVENT = "dibay:oauth-pending-clear";
 
@@ -329,7 +328,6 @@ async function waitForAppBackground(timeoutMs: number): Promise<void> {
 }
 
 export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
-  const hubActive = useHubActive();
   const { next = null, onAuthSuccess, onModalClose } = options;
   const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
@@ -417,7 +415,6 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
   );
 
   useEffect(() => {
-    if (!hubActive) return;
     if (!pendingOAuthProvider && !isAuthLoginBusyPhase(authPhase)) return;
 
     const handleClear = (event: Event) => {
@@ -469,7 +466,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       document.removeEventListener("visibilitychange", maybeReleaseOnForegroundReturn);
       window.removeEventListener("pageshow", maybeReleaseOnForegroundReturn);
     };
-  }, [hubActive, authPhase, clearPending, pendingOAuthProvider, resetInlineState, t]);
+  }, [authPhase, clearPending, pendingOAuthProvider, resetInlineState, t]);
 
   const handleOAuthStartFailure = useCallback(
     async (err: unknown) => {

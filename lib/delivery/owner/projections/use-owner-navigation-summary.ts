@@ -12,7 +12,6 @@ import {
   subscribeOwnerLiteStore,
   type OwnerLiteStoreState,
 } from "@/lib/stores/owner-lite-external-store";
-import { noopHubSubscribe, useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * Referentially-stable snapshot for `useSyncExternalStore`.
@@ -48,20 +47,16 @@ export function getOwnerNavigationSummarySnapshot(): OwnerNavigationSummary {
  * Do not expose Owner order list or raw ownerStores arrays through this hook.
  */
 export function useOwnerNavigationSummary(): OwnerNavigationSummary {
-  /** D1 S2: 숨긴 하단 탭 허브는 구독하지 않는다 — 첫 구독이 사장님 매장 받기를 시작하므로 */
-  const hubActive = useHubActive();
   return useSyncExternalStore(
-    hubActive ? subscribeOwnerLiteStore : noopHubSubscribe,
+    subscribeOwnerLiteStore,
     getOwnerNavigationSummarySnapshot,
     () => EMPTY_OWNER_NAVIGATION_SUMMARY
   );
 }
 
 export function useOwnerNavigationHasPreferredStore(): boolean {
-  /** D1 S2: 숨긴 하단 탭 허브는 구독하지 않는다 — 첫 구독이 사장님 매장 받기를 시작하므로 */
-  const hubActive = useHubActive();
   return useSyncExternalStore(
-    hubActive ? subscribeOwnerLiteStore : noopHubSubscribe,
+    subscribeOwnerLiteStore,
     () => Boolean(getOwnerLiteStoreSnapshot().ownerStore?.id?.trim()),
     () => false
   );

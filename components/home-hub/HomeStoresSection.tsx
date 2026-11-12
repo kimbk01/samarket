@@ -17,7 +17,6 @@ import type { HomeRotationCtl } from "@/components/home-hub/use-home-rotation";
 import { HomeSectionHead } from "@/components/home-hub/HomeSectionHead";
 import { HomeLoadError } from "@/components/home-hub/HomeLoadError";
 import { storeDisplayStatusLabelKey } from "@/lib/stores/store-display-status-label";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 type Shown = { store: StoreHomeFeedItem; menus: HomeStoreMenuItem[]; adLabel: boolean };
 type LoadState =
@@ -85,7 +84,6 @@ export function HomeStoresSection({
   rot: HomeRotationCtl | null;
   refreshSeq: number;
 }) {
-  const hubActive = useHubActive();
   const { t, language } = useI18n();
   const router = useRouter();
   const [state, setState] = useState<LoadState>({ kind: "loading" });
@@ -98,7 +96,6 @@ export function HomeStoresSection({
   const revisitGate = useHubDataRevisitGate();
 
   useEffect(() => {
-    if (!hubActive) return;
     if (!isMember) {
       setState({ kind: "gate", gate: "login_required" });
       revisitGate.reset();
@@ -177,7 +174,7 @@ export function HomeStoresSection({
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 교체는 mode·seq(새로고침)·구성 기준
-  }, [hubActive, isMember, mode, seq, cfgKey, language, retryKey]);
+  }, [isMember, mode, seq, cfgKey, language, retryKey]);
 
   if (state.kind === "gate") {
     const login = state.gate === "login_required";

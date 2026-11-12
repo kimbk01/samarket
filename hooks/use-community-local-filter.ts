@@ -16,7 +16,6 @@ import {
   type CommunityLocalFilterState,
   writeCommunityLocalFilter,
 } from "@/lib/community/community-local-filter-ssot";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 function masterFromSnapshot(snapshot: Awaited<ReturnType<typeof fetchAddressDefaultsSnapshot>>): UserAddressDTO | null {
   if (!snapshot?.ok || !snapshot.defaults?.master) return null;
@@ -36,7 +35,6 @@ export function useCommunityLocalFilter(): {
   setExplicitFilter: (lguId: string) => boolean;
   reseedFromMaster: () => Promise<void>;
 } {
-  const hubActive = useHubActive();
   const userId = useRegionViewerUserId();
   const [filter, setFilter] = useState<CommunityLocalFilterState | null>(null);
   const [ready, setReady] = useState(false);
@@ -83,24 +81,22 @@ export function useCommunityLocalFilter(): {
   );
 
   useEffect(() => {
-    if (!hubActive) return;
     setReady(false);
     void syncFromMaster();
     return () => {
       /** 언마운트·viewer 전환 — 진행 중 sync 결과 폐기 */
       syncSeqRef.current += 1;
     };
-  }, [hubActive, syncFromMaster]);
+  }, [syncFromMaster]);
 
   useEffect(() => {
-    if (!hubActive) return;
     if (typeof window === "undefined") return;
     const onAddresses = () => {
       void syncFromMaster({ force: true });
     };
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddresses);
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddresses);
-  }, [hubActive, syncFromMaster]);
+  }, [syncFromMaster]);
 
   const setExplicitFilter = useCallback(
     (lguId: string) => {

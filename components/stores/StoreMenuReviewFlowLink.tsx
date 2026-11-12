@@ -12,7 +12,6 @@ import {
   STORE_REVIEW_PREVIEW_CAROUSEL_MS,
   STORE_REVIEW_PREVIEW_ROTATE_MS,
 } from "@/lib/stores/store-review-preview-slides";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 export type { StoreMenuReviewRailProduct };
 
@@ -40,7 +39,6 @@ export function StoreMenuReviewFlowLink({
   menuProducts: StoreMenuReviewRailProduct[];
   onOpenReviews: (opts?: StoreReviewsPanelOpenOptions) => void;
 }) {
-  const hubActive = useHubActive();
   const { t } = useI18n();
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,7 +91,6 @@ export function StoreMenuReviewFlowLink({
   }, [slides.length, storeSlug]);
 
   useEffect(() => {
-    if (!hubActive) return;
     if (slides.length <= 1) return;
     const id = window.setInterval(() => {
       if (Date.now() < pauseUntilRef.current) return;
@@ -102,7 +99,7 @@ export function StoreMenuReviewFlowLink({
       window.setTimeout(() => setTransitioning(false), STORE_REVIEW_PREVIEW_CAROUSEL_MS);
     }, STORE_REVIEW_PREVIEW_ROTATE_MS);
     return () => window.clearInterval(id);
-  }, [hubActive, slides.length]);
+  }, [slides.length]);
 
   const openFromSlide = useCallback(
     (slide: (typeof slides)[number]) => {

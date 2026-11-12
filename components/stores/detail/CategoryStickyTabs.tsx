@@ -3,7 +3,6 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { HubPortalGate } from "@/components/layout/HubPortalGate";
 import { StoreMenuCategoryChips } from "@/components/stores/StoreMenuCategoryChips";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { deliveryPresentationMarkEvent } from "@/lib/dibay/delivery-presentation-evidence";
@@ -130,19 +129,16 @@ export function CategoryStickyTabs(props: {
       : null;
 
   if (portalRoot) {
-    /** D1 S2: 포털이면 숨긴 하단 탭 허브와 같이 숨긴다(`HubPortalGate`) */
     return createPortal(
-      <HubPortalGate>
-        <div
-          ref={props.measureRef}
-          className="fixed inset-x-0 z-[55] border-b border-sam-border-soft bg-white"
-          style={{ top: props.stickyTopCss }}
-          data-store-category-tabs="pinned"
-          {...scopeAttrs}
-        >
-          <div className={`${APP_MAIN_COLUMN_CLASS} bg-white`}>{bar}</div>
-        </div>
-      </HubPortalGate>,
+      <div
+        ref={props.measureRef}
+        className="fixed inset-x-0 z-[55] border-b border-sam-border-soft bg-white"
+        style={{ top: props.stickyTopCss }}
+        data-store-category-tabs="pinned"
+        {...scopeAttrs}
+      >
+        <div className={`${APP_MAIN_COLUMN_CLASS} bg-white`}>{bar}</div>
+      </div>,
       portalRoot
     );
   }

@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { HubPortalGate } from "@/components/layout/HubPortalGate";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { StoresBrowseCustomerSortAvailability } from "@/lib/stores/stores-browse-customer-sort-availability";
 import { STORES_BROWSE_CUSTOMER_SORT_AVAILABILITY_DEFAULT } from "@/lib/stores/stores-browse-customer-sort-availability";
@@ -29,7 +28,6 @@ import {
 } from "@/lib/design/delivery-baemin-mirror";
 import type { StoreBrowseSortId } from "./StoreListFilters";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /** 배민 「기본순」 시트 5줄 — 찜 많은 순은 서버 정렬 뒤 찜 수로 다시 정렬 */
 export type StoreBrowseChipSortId = StoreBrowseSortId | "favorites";
@@ -99,19 +97,15 @@ function Sheet({
   footer: ReactNode;
 }) {
   useRegisterOpenOverlay(true);
-  /** D1 S2: 숨긴 하단 탭 허브 안이면 시트를 숨기고(`HubPortalGate`) 키보드도 듣지 않는다(포털은 허브의 display:none 밖) */
-  const hubActive = useHubActive();
   useEffect(() => {
-    if (!hubActive) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, hubActive]);
+  }, [onClose]);
   if (typeof document === "undefined") return null;
   return createPortal(
-    <HubPortalGate>
     <div className="delivery-ui" data-baemin-mirror-sheet="1">
       <button type="button" aria-label={title} className={MIRROR_SHEET_BACKDROP_CLASS} onClick={onClose} />
       <div role="dialog" aria-modal="true" aria-label={title} className={MIRROR_SHEET_PANEL_CLASS}>
@@ -119,8 +113,7 @@ function Sheet({
         <div className="max-h-[60vh] overflow-y-auto">{children}</div>
         <div className={MIRROR_SHEET_FOOTER_CLASS}>{footer}</div>
       </div>
-    </div>
-    </HubPortalGate>,
+    </div>,
     document.body
   );
 }

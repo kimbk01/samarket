@@ -18,7 +18,6 @@ import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-default
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 export type RepresentativeAddressLineState =
   | { status: "loading" }
@@ -136,7 +135,6 @@ export function useRepresentativeAddressPresentation(opts?: {
  * 경로 변경 시 **이전 줄을 유지한 채** 백그라운드 갱신(TTL 캐시·`silent` fetch) — 탭 전환마다「불러오는 중」깜빡임 방지.
  */
 export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
-  const hubActive = useHubActive();
   const pathname = usePathname();
   const lastLineRef = useRef<string | null>(null);
   const requestGenerationRef = useRef(0);
@@ -179,24 +177,21 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
   }, []);
 
   useEffect(() => {
-    if (!hubActive) return;
     void load({ silent: true });
-  }, [hubActive, pathname, load]);
+  }, [pathname, load]);
 
   useEffect(() => {
-    if (!hubActive) return;
     const onPop = () => void load({ silent: true });
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, [hubActive, load]);
+  }, [load]);
 
   useEffect(() => {
-    if (!hubActive) return;
     /** 주소 관리 저장 직후 — 로딩 `…` 없이 갱신(깜빡임 방지) */
     const onAddressesUpdated = () => void load({ silent: true, force: true });
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
-  }, [hubActive, load]);
+  }, [load]);
 
   useAddressDefaultsBootRetry(
     () => void load({ silent: true, force: true }),
@@ -204,7 +199,6 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
   );
 
   useEffect(() => {
-    if (!hubActive) return;
     const onAuthChanged = () => {
       if (getCurrentUser()?.id) {
         void load({ silent: false, force: true });
@@ -215,7 +209,7 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
     };
     window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
     return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
-  }, [hubActive, load]);
+  }, [load]);
 
   return state;
 }

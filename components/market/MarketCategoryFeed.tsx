@@ -42,7 +42,6 @@ import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext"
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { useMobileHorizontalSwipePanel } from "@/lib/ui/use-mobile-horizontal-swipe-panel";
 import { capRecordByOldestTimestamps } from "@/lib/http/memory-map-prune";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * 마켓 2행 주제 칩 — `categories.parent_id = 이 메뉴 id` 인 하위만 표시.
@@ -75,7 +74,6 @@ export function MarketCategoryFeed({
     favoriteMap?: Record<string, boolean>;
   } | null;
 }) {
-  const hubActive = useHubActive();
   const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
@@ -234,7 +232,6 @@ export function MarketCategoryFeed({
    * 탭 key 기반 이웃 카테고리 피드는 idle(380ms)로 한 묶음 정리·{t("common_cancel")}.
    */
   useEffect(() => {
-    if (!hubActive) return;
     if (tabs.length === 0 || activeIndex < 0) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
@@ -322,7 +319,7 @@ export function MarketCategoryFeed({
       cancelled = true;
       cancelScheduledWhenBrowserIdle(idleId);
     };
-  }, [hubActive, tabs, activeIndex, router]);
+  }, [tabs, activeIndex, router]);
 
   const prefetchTopicFeed = useCallback(
     (topicKey: string) => {
@@ -365,7 +362,6 @@ export function MarketCategoryFeed({
    * (이전 3분할 effect 중복·정리 비용 제거)
    */
   useEffect(() => {
-    if (!hubActive) return;
     if (children.length === 0) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
@@ -420,7 +416,7 @@ export function MarketCategoryFeed({
       cancelled = true;
       cancelScheduledWhenBrowserIdle(idleId);
     };
-  }, [hubActive, children, topicRaw, prefetchTopicFeed, category.id]);
+  }, [children, topicRaw, prefetchTopicFeed, category.id]);
 
   const secondaryHeaderNode = useMemo(() => {
     const topicBlock =

@@ -11,7 +11,6 @@ import type { HomePostsConfig } from "@/lib/home/home-layout-contract";
 import { HomeSectionHead } from "@/components/home-hub/HomeSectionHead";
 import { HomeLoadError } from "@/components/home-hub/HomeLoadError";
 import { COMMUNITY_FEED_LIST_WRAP_CLASS, COMMUNITY_FONT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
-import { useHubActive } from "@/lib/layout/hub-active-context";
 
 /**
  * 「교민 이야기」 — 정보교환 게시판 목록과 **같은 카드**(`CommunityCard`)를 그대로 쓴다
@@ -28,7 +27,6 @@ export function HomePostsSection({
   title: string;
   refreshSeq: number;
 }) {
-  const hubActive = useHubActive();
   const { t } = useI18n();
   const [posts, setPosts] = useState<NeighborhoodFeedPostDTO[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -38,7 +36,6 @@ export function HomePostsSection({
   const revisitGate = useHubDataRevisitGate();
 
   useEffect(() => {
-    if (!hubActive) return;
     let alive = true;
     const url = buildPhilifeNeighborhoodFeedClientUrl({
       globalFeed: true,
@@ -67,7 +64,7 @@ export function HomePostsSection({
     return () => {
       alive = false;
     };
-  }, [hubActive, config.count, config.sort, config.topicSlug, refreshSeq, retryKey, revisitGate]);
+  }, [config.count, config.sort, config.topicSlug, refreshSeq, retryKey, revisitGate]);
 
   return (
     <section className="mt-3 pt-[18px]" data-home-posts>

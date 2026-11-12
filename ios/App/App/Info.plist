@@ -40,15 +40,15 @@
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>DibayBuildConfiguration</key>
-	<string>ci</string>
+	<string>debug</string>
 	<key>DibayBuildTimestamp</key>
-	<string>2026-11-10T01:31:36.043Z</string>
+	<string>2026-08-04T01:09:32.603Z</string>
 	<key>DibayGitDirty</key>
 	<string>false</string>
 	<key>DibayGitSha</key>
-	<string>ab0fc1498530</string>
+	<string>4b093a61645a</string>
 	<key>DibayGitShaFull</key>
-	<string>ab0fc1498530aefdb00cae6ba54a76c3711c3970</string>
+	<string>4b093a61645a3eedac1c5ca42a9fc09a401bf4f5</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>KAKAO_NATIVE_APP_KEY</key>
