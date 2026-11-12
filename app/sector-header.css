@@ -612,18 +612,6 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
   flex: 0 0 var(--sector-header-action-size);
 }
 
-/* 녹색 면적이 있는 연필은 2px 작게 잡아 지도·종과 광학 크기를 맞춤 */
-.community-tier1-header-actions .community-tier1-header-compose svg {
-  width: 20px !important;
-  height: 20px !important;
-}
-
-/* AddressKindHeadPin viewBox 24×32 — 공통 svg 정사각 강제를 해제 */
-.community-tier1-header-actions .community-tier1-header-address svg {
-  width: 16.5px !important;
-  height: 22px !important;
-}
-
 @media (max-width: 374px) {
   :root {
     --sector-header-pad-x: 10px;
@@ -649,16 +637,6 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
   .community-tier1-header-actions {
     gap: 5px;
     --sector-header-hub-touch-gap: 5px;
-  }
-
-  .community-tier1-header-actions .community-tier1-header-compose svg {
-    width: 19px !important;
-    height: 19px !important;
-  }
-
-  .community-tier1-header-actions .community-tier1-header-address svg {
-    width: 15.75px !important;
-    height: 21px !important;
   }
 }
 
