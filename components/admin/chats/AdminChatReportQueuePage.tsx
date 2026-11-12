@@ -332,6 +332,14 @@ export function AdminChatReportQueuePage() {
                     <td className="px-3 py-2.5">
                       <div className="font-medium text-sam-fg">{t(SOURCE_KEY[row.source])}</div>
                       <div className="mt-0.5 sam-text-body-secondary text-sam-muted">{target.label}</div>
+                      {row.moimId ? (
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5" data-admin-chat-report-moim={row.moimId}>
+                          <AdminToneBadge tone="progress">{t("admin_moim_chat_report_badge")}</AdminToneBadge>
+                          <Link href={`/admin/community/moims/${encodeURIComponent(row.moimId)}`} className="text-signature underline">
+                            {t("admin_moim_chat_report_open_moim")}
+                          </Link>
+                        </div>
+                      ) : null}
                       {roomHref ? (
                         <Link href={roomHref} className="mt-1 inline-block text-signature underline">
                           {t("admin_chat_reports_open_room")}

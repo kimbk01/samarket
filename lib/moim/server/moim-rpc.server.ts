@@ -616,6 +616,75 @@ export function moimAdminSanctionRevoke(adminId: string, sanctionId: string, rea
   );
 }
 
+// ── M6 신고 처리 (20271113300000) ──────────────────────────────────────────
+
+/** 검토 시작 (접수 → 검토 중) — 접수가 아니면 moim_conflict */
+export function moimAdminReportReview(adminId: string, reportId: string, sb?: SupabaseServer) {
+  return callMoimRpc("moim_admin_report_review", { p_admin: adminId, p_report: reportId }, sb);
+}
+
+export type MoimAdminReportDecision = "actioned" | "dismissed";
+
+export type MoimAdminReportDecideInput = {
+  expectedStatus: "received" | "reviewing";
+  decision: MoimAdminReportDecision;
+  reason: string;
+  contentHide: boolean;
+  moimLevel: MoimSanctionLevel | null;
+  moimEndsAt: string | null;
+  userRestrict: { who: "target" | "host"; restriction: "post" | "comment" | "all"; days: number | null } | null;
+  closeSameTarget: boolean;
+};
+
+export type MoimAdminReportDecideAction = {
+  kind: string;
+  sanction_id: string;
+  platform_state?: string;
+  user_id?: string;
+  community_sanction_id?: string | null;
+  duplicate?: boolean;
+  restriction?: "post" | "comment" | "all";
+  days?: number | null;
+  end_at?: string | null;
+};
+
+export function moimAdminReportDecide(adminId: string, reportId: string, input: MoimAdminReportDecideInput, sb?: SupabaseServer) {
+  return callMoimRpc<{
+    status: MoimAdminReportDecision;
+    moim_id: string;
+    moim_name: string | null;
+    host_user_id: string | null;
+    target_type: string;
+    target_id: string;
+    target_owner_id: string | null;
+    reporter_ids: string[];
+    closed_report_ids: string[];
+    actions: MoimAdminReportDecideAction[];
+    moim_level: MoimSanctionLevel | null;
+    moim_notify_user_ids: string[];
+    chat_room_id: string | null;
+    schedule_title: string | null;
+    schedule_notify_user_ids: string[];
+  }>(
+    "moim_admin_report_decide",
+    {
+      p_admin: adminId,
+      p_report: reportId,
+      p_expected_status: input.expectedStatus,
+      p_decision: input.decision,
+      p_reason: input.reason,
+      p: {
+        content_hide: input.contentHide,
+        moim_level: input.moimLevel,
+        moim_ends_at: input.moimEndsAt,
+        user_restrict: input.userRestrict,
+        close_same_target: input.closeSameTarget,
+      },
+    },
+    sb
+  );
+}
+
 export function moimSanctionsExpireDue(limit: number, sb?: SupabaseServer) {
   return callMoimRpc<{ refreshed: { moim_id: string; platform_state: string }[] }>("moim_sanctions_expire_due", { p_limit: limit }, sb);
 }

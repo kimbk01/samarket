@@ -1,10 +1,12 @@
 "use client";
 
 /**
- * 모임 신고 큐 (설계 moim §8 「모임 신고 처리」) — M5 = 읽기 전용. 처리(기각·숨김·제재·신고자 알림)는 M6.
- * 상태 탭(접수·검토 중·조치·기각) · 대상 유형 필터 · 같은 모임 묶음 보기 · 상세 서랍(대상 미리보기·사유·신고자·같은 대상 이력).
+ * 모임 신고 큐 (설계 moim §8 「모임 신고 처리」) — M5 읽기 + M6 처리.
+ * 상태 탭(접수·검토 중·조치·기각) · 대상 유형 필터 · 같은 모임 묶음 보기 · 상세 서랍(대상 미리보기·사유·신고자·같은 대상 이력·처리 폼).
+ * M6: 모임 채팅방 메신저 신고 보기(설계 P11 — 읽기 전용, 처리는 기존 메신저 신고 화면).
  */
 import Link from "next/link";
+import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
@@ -28,6 +30,8 @@ import {
   type MoimAdminPerson,
 } from "@/lib/admin/moim/moim-admin-contract";
 import { MoimAdminNote, MoimAdminPersonCell, MoimAdminTime, moimReasonCodeLabel, moimRoleKey } from "@/components/admin/moim/admin-moim-shared";
+import { MoimReportDecisionPanel, type MoimReportDecisionBanner, type MoimReportResultAction } from "@/components/admin/moim/AdminMoimReportDecisionForm";
+import { adminChatLabel } from "@/lib/admin/status-labels/chat-status-labels";
 
 type MoimRef = { name: string; status: string; platformState: string } | null;
 type ReportRow = {
@@ -43,12 +47,33 @@ type ReportRow = {
   moim: MoimRef;
 };
 type GroupRow = { moimId: string; count: number; latestAt: string; types: Record<string, number>; moim: MoimRef };
-type ListResponse = { ok?: boolean; error?: string; total?: number; capped?: boolean; rows?: (ReportRow | GroupRow)[] };
+/** 모임 채팅방(owner_domain='moim')의 메신저 신고 — 읽기 전용 */
+type MessengerRow = {
+  id: string;
+  report_type: string;
+  room_id: string | null;
+  message_id: string | null;
+  reason_type: string;
+  reason_detail: string;
+  status: string;
+  created_at: string;
+  moimId: string | null;
+  scheduleId: string | null;
+  moim: MoimRef;
+  reporter: MoimAdminPerson | null;
+  reported: MoimAdminPerson | null;
+};
+type ListResponse = { ok?: boolean; error?: string; total?: number; capped?: boolean; rows?: (ReportRow | GroupRow | MessengerRow)[] };
+
+/** 메신저 신고 처리 화면 (기존 메신저 신고 큐 — 방 대상으로 거름) */
+function messengerQueueHref(roomId: string): string {
+  return `/admin/chats/reported?type=messenger&status=all&target=${encodeURIComponent(roomId)}`;
+}
 
 const EXTRAS = ["type", "view", "reportId", "moimId"] as const;
 
 export function AdminMoimReportsPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const q = useCommunityListQuery({
     extras: EXTRAS,
     statuses: MOIM_ADMIN_REPORT_STATUSES,
@@ -56,7 +81,7 @@ export function AdminMoimReportsPage() {
     keepOnReset: { status: true },
   });
   const status = q.query.status || "received";
-  const view = q.query.extras.view === "group" ? "group" : "list";
+  const view = q.query.extras.view === "group" ? "group" : q.query.extras.view === "messenger" ? "messenger" : "list";
   const params = q.apiParams({ period: false, omit: ["reportId"] });
   const { state, reload } = useCommunityAdminJson<ListResponse>(`/api/admin/moim/reports?${params.toString()}`);
   const rows = state.data?.rows ?? [];
@@ -69,13 +94,18 @@ export function AdminMoimReportsPage() {
       title={t("admin_moim_reports_title")}
       description={t("admin_moim_reports_desc")}
       actions={
-        <AdminActionButton size="sm" variant="secondary" onClick={() => q.setExtra("view", view === "group" ? "" : "group")}>
-          {t(view === "group" ? "admin_moim_reports_view_list" : "admin_moim_reports_view_group")}
-        </AdminActionButton>
+        <div className="flex flex-wrap gap-2">
+          <AdminActionButton size="sm" variant="secondary" onClick={() => q.setExtra("view", view === "group" ? "" : "group")}>
+            {t(view === "group" ? "admin_moim_reports_view_list" : "admin_moim_reports_view_group")}
+          </AdminActionButton>
+          <AdminActionButton size="sm" variant="secondary" onClick={() => q.setExtra("view", view === "messenger" ? "" : "messenger")}>
+            {t(view === "messenger" ? "admin_moim_reports_view_list" : "admin_moim_reports_view_messenger")}
+          </AdminActionButton>
+        </div>
       }
       banner={
         <div className="space-y-2">
-          <MoimAdminNote>{t("admin_moim_reports_m6_note")}</MoimAdminNote>
+          {view === "messenger" ? <MoimAdminNote>{t("admin_moim_reports_messenger_note")}</MoimAdminNote> : null}
           {state.data?.capped ? <MoimAdminNote>{t("admin_moim_reports_capped_note")}</MoimAdminNote> : null}
           {moimFilter ? (
             <div className="flex items-center gap-2 text-[13px]">
@@ -106,7 +136,48 @@ export function AdminMoimReportsPage() {
       footer={<CommunityListPagination lq={q} total={total} disabled={state.status === "loading"} />}
     >
       <CommunityListBody state={state} empty={rows.length === 0} lq={q} onRetry={reload} emptyMessage={t("admin_moim_reports_empty")}>
-        {view === "group" ? (
+        {view === "messenger" ? (
+          <CommunityTable
+            head={[t("admin_moim_col_target"), t("admin_moim_col_name"), t("admin_moim_col_reason"), t("admin_moim_col_reporter"), t("admin_moim_col_status"), t("admin_moim_col_created")]}
+          >
+            {(rows as MessengerRow[]).map((r) => {
+              const ko = language === "ko";
+              return (
+                <tr key={r.id} className="border-b border-sam-border-soft align-top">
+                  <td className={COMMUNITY_TD}>
+                    <div>{adminChatLabel("report_target", r.report_type, ko).label}</div>
+                    {r.room_id ? (
+                      <Link href={messengerQueueHref(r.room_id)} className="text-[12px] text-sam-primary hover:underline">
+                        {t("admin_moim_reports_messenger_open")}
+                      </Link>
+                    ) : null}
+                  </td>
+                  <td className={COMMUNITY_TD}>
+                    {r.moimId ? (
+                      <Link href={`/admin/community/moims/${encodeURIComponent(r.moimId)}`} className="text-sam-primary hover:underline">
+                        {r.moim?.name ?? r.moimId}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                    {r.scheduleId ? <div className="text-[12px] text-sam-muted">{t("admin_moim_reports_messenger_schedule_room")}</div> : null}
+                  </td>
+                  <td className={`${COMMUNITY_TD} max-w-[320px]`}>
+                    <div>{adminChatLabel("report_reason", r.reason_type, ko).label}</div>
+                    {r.reason_detail ? <div className="whitespace-pre-wrap text-[12px] text-sam-muted [overflow-wrap:anywhere]">{r.reason_detail}</div> : null}
+                  </td>
+                  <td className={COMMUNITY_TD}>
+                    <MoimAdminPersonCell person={r.reporter} />
+                  </td>
+                  <td className={COMMUNITY_TD}>{adminChatLabel("report_status", r.status, ko).label}</td>
+                  <td className={COMMUNITY_TD}>
+                    <MoimAdminTime iso={r.created_at} />
+                  </td>
+                </tr>
+              );
+            })}
+          </CommunityTable>
+        ) : view === "group" ? (
           <CommunityTable head={[t("admin_moim_col_name"), t("admin_moim_col_reports"), t("admin_moim_col_types"), t("admin_moim_col_latest")]}>
             {(rows as GroupRow[]).map((g) => (
               <tr key={g.moimId} className="border-b border-sam-border-soft align-top">
@@ -160,7 +231,7 @@ export function AdminMoimReportsPage() {
           </CommunityTable>
         )}
       </CommunityListBody>
-      {reportId ? <ReportDrawer reportId={reportId} onClose={() => q.setExtra("reportId", "")} /> : null}
+      {reportId ? <ReportDrawer key={reportId} reportId={reportId} onClose={() => q.setExtra("reportId", "")} onChanged={reload} /> : null}
     </CommunityListShell>
   );
 }
@@ -168,9 +239,13 @@ export function AdminMoimReportsPage() {
 type DetailResponse = {
   ok?: boolean;
   error?: string;
-  report: ReportRow & { handler: MoimAdminPerson | null };
+  report: ReportRow & { handler: MoimAdminPerson | null; handled_at: string | null };
   target: Record<string, unknown> | null;
   history: { id: string; reason_code: string; detail: string | null; status: string; created_at: string; reporter: MoimAdminPerson | null }[];
+  openSameTargetCount: number | null;
+  warnCount: number | null;
+  host: MoimAdminPerson | null;
+  resultActions: MoimReportResultAction[];
 };
 
 function str(v: unknown): string | null {
@@ -229,8 +304,9 @@ function TargetPreview({ target }: { target: Record<string, unknown> | null }) {
   );
 }
 
-function ReportDrawer({ reportId, onClose }: { reportId: string; onClose: () => void }) {
+function ReportDrawer({ reportId, onClose, onChanged }: { reportId: string; onClose: () => void; onChanged: () => void }) {
   const { t } = useI18n();
+  const [banner, setBanner] = useState<MoimReportDecisionBanner>(null);
   const { state, reload } = useCommunityAdminJson<DetailResponse>(`/api/admin/moim/reports/${encodeURIComponent(reportId)}`);
   const d = state.status === "ok" ? state.data : null;
   return (
@@ -286,7 +362,25 @@ function ReportDrawer({ reportId, onClose }: { reportId: string; onClose: () => 
               ))}
             </ul>
           </section>
-          <MoimAdminNote>{t("admin_moim_reports_m6_note")}</MoimAdminNote>
+          <MoimReportDecisionPanel
+            ctx={{
+              reportId: d.report.id,
+              status: d.report.status,
+              targetType: d.report.target_type,
+              handledAt: d.report.handled_at ?? null,
+              handler: d.report.handler,
+              host: d.host ?? null,
+              warnCount: d.warnCount ?? null,
+              openSameTargetCount: d.openSameTargetCount ?? null,
+              resultActions: d.resultActions ?? [],
+            }}
+            banner={banner}
+            setBanner={setBanner}
+            onChanged={() => {
+              reload();
+              onChanged();
+            }}
+          />
         </div>
       ) : null}
     </AdminFormSheet>

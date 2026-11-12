@@ -133,6 +133,9 @@ export const moimCoreMessages = {
     moim_err_moim_sanction_not_found: "제재를 찾을 수 없거나 이미 해제됐어요",
     moim_err_moim_sanction_period_invalid: "끝나는 날은 지금 이후로 골라 주세요",
     moim_err_moim_transfer_pending: "이미 처리 중인 모임장 변경 요청이 있어요",
+    moim_err_moim_report_not_found: "신고를 찾을 수 없어요",
+    moim_err_moim_report_decision_invalid: "처리 내용을 다시 골라 주세요",
+    moim_err_moim_user_restrict_failed: "이용 제한을 적용하지 못했어요",
 
     notify_moim_sanctioned_unlist_title: "모임 노출 제한",
     notify_moim_sanctioned_unlist_body: "{moim} 모임이 운영 정책에 따라 탐색·검색에 나오지 않아요",
@@ -146,6 +149,10 @@ export const moimCoreMessages = {
     notify_moim_host_request_result_approved_body: "{moim} 모임장 변경 요청이 승인됐어요",
     notify_moim_host_request_result_declined_title: "모임장 변경 거절",
     notify_moim_host_request_result_declined_body: "{moim} 모임장 변경 요청이 거절됐어요",
+    notify_moim_report_result_actioned_title: "신고 처리 결과",
+    notify_moim_report_result_actioned_body: "{moim} 모임 신고를 검토해 운영 정책에 따라 처리했어요",
+    notify_moim_report_result_dismissed_title: "신고 처리 결과",
+    notify_moim_report_result_dismissed_body: "{moim} 모임 신고를 검토했지만 운영 정책 위반을 찾지 못했어요",
 
     notify_moim_join_requested_title: "새 가입 신청",
     notify_moim_join_requested_body: "{name}님이 {moim}에 가입을 신청했어요",
@@ -317,6 +324,9 @@ export const moimCoreMessages = {
     moim_err_moim_sanction_not_found: "Action not found or already lifted",
     moim_err_moim_sanction_period_invalid: "Choose an end date in the future",
     moim_err_moim_transfer_pending: "There is already an open organizer change request",
+    moim_err_moim_report_not_found: "Report not found",
+    moim_err_moim_report_decision_invalid: "Please check the selected actions",
+    moim_err_moim_user_restrict_failed: "Could not restrict the member",
 
     notify_moim_sanctioned_unlist_title: "Group hidden from search",
     notify_moim_sanctioned_unlist_body: "{moim} no longer shows in browse and search due to our policy",
@@ -330,6 +340,10 @@ export const moimCoreMessages = {
     notify_moim_host_request_result_approved_body: "Your organizer change request for {moim} was approved",
     notify_moim_host_request_result_declined_title: "Request declined",
     notify_moim_host_request_result_declined_body: "Your organizer change request for {moim} was declined",
+    notify_moim_report_result_actioned_title: "Report result",
+    notify_moim_report_result_actioned_body: "We reviewed your report about {moim} and took action under our policy",
+    notify_moim_report_result_dismissed_title: "Report result",
+    notify_moim_report_result_dismissed_body: "We reviewed your report about {moim} and found no policy violation",
 
     notify_moim_join_requested_title: "New join request",
     notify_moim_join_requested_body: "{name} asked to join {moim}",

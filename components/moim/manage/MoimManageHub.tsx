@@ -62,6 +62,8 @@ function HubBody({ detail }: { detail: MoimDetailDto }) {
     entries.push({ key: "invite", href: moimRoutes.manageInvite(id), titleKey: "moim_manage_invite_title", descKey: "moim_manage_hub_invite_desc" });
   if (c.manage_boards)
     entries.push({ key: "boards", href: moimRoutes.manageBoards(id), titleKey: "moim_manage_boards_title", descKey: "moim_manage_hub_boards_desc" });
+  if (c.hide_post)
+    entries.push({ key: "reports", href: moimRoutes.manageReports(id), titleKey: "moim_manage_reports_title", descKey: "moim_manage_hub_reports_desc" });
   if (canOpenMoimTransfer(detail))
     entries.push({ key: "transfer", href: moimRoutes.manageTransfer(id), titleKey: "moim_manage_transfer_title", descKey: "moim_manage_hub_transfer_desc" });
   if (canRequestMoimHostChange(detail))

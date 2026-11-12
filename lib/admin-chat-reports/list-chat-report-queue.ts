@@ -10,6 +10,7 @@
 
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isAdminUuid } from "@/lib/admin/chat-admin/admin-chat-list-url-state";
+import { resolveMoimRooms } from "@/lib/admin/moim/moim-room-ref.server";
 import {
   CHAT_REPORT_SOURCES,
   chatReportQueueAscending,
@@ -186,6 +187,17 @@ export async function listChatReportQueue(
     for (const row of rows) {
       row.reporterLabel = label(row.reporterId);
       row.reportedUserLabel = label(row.reportedUserId);
+    }
+  }
+  // 모임 채팅방(owner_domain='moim') 신고 → 「모임」 배지 + 모임 어드민 링크 (설계 moim P11 · M6). 처리 로직은 그대로.
+  const cmRoomIds = rows.filter((r) => r.source === "messenger" && r.roomId).map((r) => r.roomId as string);
+  if (cmRoomIds.length) {
+    const moimRooms = await resolveMoimRooms(sb, cmRoomIds).catch(() => null);
+    if (moimRooms?.size) {
+      for (const row of rows) {
+        const ref = row.source === "messenger" && row.roomId ? moimRooms.get(row.roomId) : undefined;
+        if (ref) row.moimId = ref.moimId;
+      }
     }
   }
   return {

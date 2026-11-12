@@ -337,9 +337,13 @@ export const NOTIFICATION_ITEMS: readonly NotificationItemDefinition[] = [
     labelKo: "커뮤니티 신고 처리 결과",
     labelEn: "Community report result",
     audience: "member",
-    match: { eventTypes: ["community_activity"], kinds: ["community_report_processed"] },
+    // 모임 신고 결과(moim_report_result, 설계 moim §7)도 같은 분류 — 신고자에게 처리 결과만
+    match: { eventTypes: ["community_activity"], kinds: ["community_report_processed", "moim_report_result"] },
     soundEventKey: "item_community_report_result",
-    samples: [{ eventType: "community_activity", kind: "community_report_processed" }],
+    samples: [
+      { eventType: "community_activity", kind: "community_report_processed" },
+      { eventType: "community_activity", kind: "moim_report_result" },
+    ],
   }),
   item({
     key: "community_promotion",

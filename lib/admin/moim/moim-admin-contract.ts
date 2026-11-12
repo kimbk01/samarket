@@ -40,6 +40,30 @@ export type MoimAdminReportStatus = (typeof MOIM_ADMIN_REPORT_STATUSES)[number];
 export const MOIM_ADMIN_REPORT_TARGET_TYPES = ["moim", "member", "post", "comment", "schedule", "album", "chat_message"] as const;
 export type MoimAdminReportTargetType = (typeof MOIM_ADMIN_REPORT_TARGET_TYPES)[number];
 
+/** M6 신고 처리 (SQL moim_admin_report_decide 와 같은 값) */
+export const MOIM_ADMIN_REPORT_DECISIONS = ["actioned", "dismissed"] as const;
+export type MoimAdminReportDecision = (typeof MOIM_ADMIN_REPORT_DECISIONS)[number];
+export const MOIM_ADMIN_RESTRICT_WHO = ["target", "host"] as const;
+export type MoimAdminRestrictWho = (typeof MOIM_ADMIN_RESTRICT_WHO)[number];
+export const MOIM_ADMIN_RESTRICTIONS = ["post", "comment", "all"] as const;
+export type MoimAdminRestriction = (typeof MOIM_ADMIN_RESTRICTIONS)[number];
+/** 이용 제한 기간(일) 선택지 — 빈 값 = 영구 */
+export const MOIM_ADMIN_RESTRICT_DAY_OPTIONS = [1, 3, 7, 14, 30, 90] as const;
+export const MOIM_ADMIN_RESTRICT_DAYS_MAX = 3650;
+/** 콘텐츠 숨김을 줄 수 없는 대상 (모임·멤버는 모임 제재·이용 제한으로 처리) */
+export const MOIM_ADMIN_NO_CONTENT_HIDE_TARGETS: readonly MoimAdminReportTargetType[] = ["moim", "member"];
+export function isMoimAdminOpenReportStatus(v: unknown): v is "received" | "reviewing" {
+  return v === "received" || v === "reviewing";
+}
+
+/** 모임 신고 큐의 「모임 채팅방 메신저 신고」 보기 — 메신저 신고 상태 → 모임 큐 탭 */
+export const MOIM_ADMIN_MESSENGER_STATUS_BY_TAB: Record<MoimAdminReportStatus, readonly string[]> = {
+  received: ["received"],
+  reviewing: ["reviewing"],
+  actioned: ["resolved", "sanctioned"],
+  dismissed: ["rejected"],
+};
+
 export const MOIM_ADMIN_HOST_REQUEST_STATUSES = ["requested", "done", "declined", "cancelled", "all"] as const;
 export type MoimAdminHostRequestStatus = (typeof MOIM_ADMIN_HOST_REQUEST_STATUSES)[number];
 
