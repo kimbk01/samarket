@@ -10,7 +10,7 @@ export type MessageReactionBarProps = {
 export function MessageReactionBar(props: MessageReactionBarProps) {
   if (!props.enabled) return null;
   return (
-    <div className="flex flex-wrap items-center justify-center gap-0.5 border-b border-neutral-200 px-2 py-2 dark:border-neutral-700">
+    <div className="flex flex-wrap items-center justify-center gap-0.5 border-b border-neutral-200 px-2 py-2">
       {MESSENGER_QUICK_REACTION_KEYS.map((k) => (
         <button
           key={k}

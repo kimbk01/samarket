@@ -2,10 +2,9 @@
  * 공용 주문 카드 색 토큰 — 내정보 주문 내역(`/mypage/store-orders`)과 배달 허브 주문 탭(`/orders`)이
  * 같은 컴포넌트(`MyStoreOrdersView` · `MyStoreOrderExpandPanel`)를 쓴다.
  *
- * - 내정보·임베드(기본): `sam-*` 토큰 (최종 설계 S30 매핑 — 다크는 sam 토큰이 처리).
+ * - 내정보·임베드(기본): `sam-*` 토큰 (최종 설계 S30 매핑).
  * - 배달 허브(`data-store-orders-surface="delivery-hub"`): 기존 하드코딩 값과 **같은 값**(X19 · C5 —
- *   배달 허브 시각 불변). 팔레트 값은 Tailwind v4 테마 값 그대로, 다크 값은 기존 `dark:` 변형
- *   (= prefers-color-scheme) 과 동일.
+ *   배달 허브 시각 불변). 팔레트 값은 Tailwind v4 테마 값 그대로. 다크 모드 없음(기기 다크여도 라이트 고정).
  * - 컴포넌트는 hex·팔레트를 직접 쓰지 않고 `var(--sol-*)` 만 참조한다.
  */
 
@@ -104,27 +103,4 @@
  */
 [data-store-orders-surface] {
   --sam-primary-disabled: color-mix(in srgb, var(--dibay-muted) 28%, var(--dibay-card));
-}
-
-@media (prefers-color-scheme: dark) {
-  [data-store-orders-surface="delivery-hub"] {
-    --sol-fg: #e4e6eb;
-    --sol-muted: #b0b3b8;
-    --sol-disabled: #6f7175;
-    --sol-divider: #3e4042;
-    --sol-divider-soft: #3e4042;
-    --sol-separator: #5f6164;
-    --sol-action-hover: #3a3b3c;
-    --sol-thumb-bg: #3a3b3c;
-    --sol-ring: #242526;
-    --sol-info-bg: color-mix(in oklab, var(--signature) 15%, transparent);
-    --sol-info-fg: var(--signature);
-    --sol-pickup-bg: color-mix(in oklab, oklch(37.8% 0.077 168.94) 25%, transparent);
-    --sol-pickup-fg: oklch(90.5% 0.093 164.15);
-    --sol-note-fg: oklch(92.4% 0.12 95.746);
-    --sol-toast-bg: #e4e6eb;
-    --sol-toast-fg: #050505;
-    --sol-box-bg: #242526;
-    --sol-warn-fg: oklch(92.4% 0.12 95.746);
-  }
 }

@@ -9,7 +9,8 @@
         <item name="colorAccent">@color/colorAccent</item>
     </style>
 
-    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <!-- 다크 모드 없음 (Owner 2026-11-12) — Light 고정: isLightTheme=true → WebView prefers-color-scheme 항상 light -->
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>

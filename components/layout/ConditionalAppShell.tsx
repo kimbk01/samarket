@@ -142,7 +142,7 @@ function MarkAppShellReadyOnce({
       typeof document !== "undefined" && document.documentElement.lang === "en" ? "en" : "ko";
     scheduleStartupShellCachePersist({
       lang,
-      theme: "system",
+      theme: "light",
       nav: BUNDLED_STARTUP_NAV.map((t) => ({ ...t })),
       route: { path, tabId: tab },
     });

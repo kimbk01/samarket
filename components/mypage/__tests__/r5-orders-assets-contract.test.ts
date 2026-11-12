@@ -53,10 +53,8 @@ describe("S30·S31 하드코딩 색 제거 — 토큰만 (X19·C5)", () => {
     ]) {
       expect(hub, v).toContain(v);
     }
-    // 다크(기존 dark: 변형)
-    for (const v of ["--sol-fg: #e4e6eb", "--sol-muted: #b0b3b8", "--sol-divider: #3e4042", "--sol-action-hover: #3a3b3c"]) {
-      expect(hub, v).toContain(v);
-    }
+    // 다크 모드 없음 — 기기 다크여도 라이트 값 그대로
+    expect(hub).not.toContain("prefers-color-scheme");
     const view = src("components/mypage/MyStoreOrdersView.tsx");
     expect(view).toContain('data-store-orders-surface={isDeliveryHub ? "delivery-hub" : "mypage"}');
     expect(view).toContain('import "@/app/store-order-list-tokens.css"');

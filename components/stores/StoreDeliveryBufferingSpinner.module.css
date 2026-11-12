@@ -37,26 +37,3 @@
     background-color: #65676b;
   }
 }
-
-:global(html.dark) .container .dot {
-  animation-name: deliveryBufferDotDark;
-}
-
-@keyframes deliveryBufferDotDark {
-  0%,
-  100% {
-    opacity: 0.3;
-    transform: rotate(var(--deg)) translateY(-1.05rem) scale(0.45);
-    background-color: #5f6062;
-  }
-  10% {
-    opacity: 1;
-    transform: rotate(var(--deg)) translateY(-1.05rem) scale(1);
-    background-color: #e4e6eb;
-  }
-  22% {
-    opacity: 0.5;
-    transform: rotate(var(--deg)) translateY(-1.05rem) scale(0.65);
-    background-color: #b0b3b8;
-  }
-}

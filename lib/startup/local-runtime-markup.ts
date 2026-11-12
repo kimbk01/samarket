@@ -69,9 +69,6 @@ html,body{margin:0;padding:0;height:100%;background:var(--sam-bg-app);color:var(
 #dibay-startup-nav button{appearance:none;border:0;background:transparent;color:var(--sam-muted);flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px 2px;font-size:10px;font-weight:600;cursor:pointer}
 #dibay-startup-nav button[aria-current="page"]{color:var(--sam-primary)}
 #dibay-startup-nav button svg{display:block}
-@media (prefers-color-scheme: dark){
-  :root{--sam-bg-app:#12161d;--sam-fg:#E8EFE9;--sam-muted:#9AA89F;--sam-border:#2A3230;--sam-surface:#1A1F24;--sam-primary:#8FCB9B}
-}
 `.trim();
 }
 
@@ -217,7 +214,7 @@ export function buildLocalRuntimeDocumentHtml(opts: LocalRuntimeBuildOptions = {
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<meta name="color-scheme" content="light dark"/>
+<meta name="color-scheme" content="light"/>
 <meta name="theme-color" content="${bg}"/>
 <title>DIBAY</title>
 <style>${css}

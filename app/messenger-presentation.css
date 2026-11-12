@@ -395,21 +395,6 @@
   display: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  [data-messenger-shell],
-  [data-cm-messenger-main],
-  [data-messenger-detail-empty],
-  [data-cm-room] {
-    --cm-wallpaper-tint: color-mix(in srgb, var(--sam-primary, #5b3a29) 10%, #1a1c1e);
-    --cm-wallpaper-dot: color-mix(in srgb, #fff 7%, transparent);
-    --cm-list-row-selected: color-mix(in srgb, #64b5f6 28%, #1a1c1e);
-  }
-
-  [data-messenger-detail-empty-pill] {
-    display: none;
-  }
-}
-
 /** composer 입력 하한 — iOS auto-zoom 방지 (메신저 스코프만) */
 [data-cm-room] .chat-composer textarea,
 [data-cm-room] textarea[data-cm-composer-input] {
