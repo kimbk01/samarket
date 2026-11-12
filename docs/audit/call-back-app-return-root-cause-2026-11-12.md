@@ -57,3 +57,17 @@
 - **앱이 호출한 `startActivity` 가 실제로 `OPEN` + 자동 PiP 를 만드는지**: 원문상 호출자와 무관(§3)이고 adb 시험이 같은 경로로 성공했지만, 앱 호출로는 아직 실측하지 않았다. 구현 후 첫 실기 1순위 항목.
 - Samsung 이 PiP2·전환 규칙을 바꿨는지: 기기 로그의 셸 동작이 AOSP 원문과 일치(§0 표)하는 것까지만 확인.
 - S2(2026-10-30) 당시 정상으로 보인 이유: 메신저가 통화 화면 바로 뒤에 있던 경로만 시험(§1) — 당시 기기 빌드가 QPR 이전이었는지는 확인 못 함.
+
+## 7. 확정 설계 (Owner 「설계·구현 진행」 2026-11-12) — 가정 없음, 각 줄 근거
+| 항목 | 내용 | 근거 |
+|---|---|---|
+| 적용 조건 | CONNECTED · Android 12+ · PiP 기능 · 앱 PiP 허용(AppOps) · 자동 PiP 켜짐 · 통화 화면 전체 화면(PiP·Dock 아님) | §2 자동 PiP 는 `isAutoEnterEnabled` 필요 |
+| 동작 | 뒤로·줄이기 → `enterPictureInPictureMode` 안 부름 → `startActivity(new Intent(this, MainActivity.class).addFlags(FLAG_ACTIVITY_NEW_TASK))` (NO_USER_ACTION 없음) | §1 고정 전이라 허용 · §3 OPEN + 사용자 떠남 · §2 PiP2 자동 PiP |
+| 메신저 쪽 영향 | `MainActivity`(singleTask) `onNewIntent` → `handleNotificationLaunchIntent`: 빈 인텐트는 알림 해제·화면 켜기·잠금 해제 모두 `dibay://call` 주소일 때만 동작(코드 확인) → 아무것도 하지 않음 | `MainActivity.java` `dismissIncomingCallNotificationFromIntent`·`applyIncomingCallWakeFlags`·`requestDismissKeyguardForCallIntent` 진입 조건 |
+| 통화 화면 쪽 영향 | 사용자 떠남이 켜져 `onUserLeaveHint` → 현재 코드는 `minimizeConnectedCall("user_leave")` → `enterPictureInPictureMode`(TRANSIT_PIP) 를 또 요청 → **이 경로로 연 직후 1회는 건너뜀**(2초 안, 같은 통화) | `NativeVideoCallActivity`·`NativeVoiceCallActivity` `onUserLeaveHint` |
+| 결과 기록 | `native_*_app_return_open` · `native_*_auto_pip_entered` / `_auto_pip_missed`(1.5초) · `native_call_app_return_confirmed` / `_unconfirmed` | — |
+| 조건 밖 | 지금 경로(PiP 요청 → 복귀 / Dock) 그대로 | — |
+| 바뀌는 파일 | `NativeCallAppReturn`(열기 함수·조건 함수), 영상·음성 Activity(분기·onUserLeaveHint 1회 건너뜀·확인 타이머), `verify-call-surface-cta-ssot` ⑩, SSOT §4, `versionCode 46` | — |
+| 불변 | 자동 PiP 설정·종료 판단표·Runtime·Dock·서버·웹 · 홈/최근 앱 자동 PiP 경로 | — |
+| 실기 | 진입 4경로(최근 앱 카드·알림 탭·통화 바·홈에서 수락) × 영상(+음성 1회) → 메신저 + PiP · `auto_pip_entered` · 차단 0 / 회귀: 홈·최근 앱 → PiP, PiP X·카드 제거 = 통화 유지, 종료 잔류 0 | — |
+| 실기 FAIL 이면 | 즉시 중단·되돌림, 원문 재분석 — 다른 안을 바로 시도하지 않음 | Owner 지시 |
