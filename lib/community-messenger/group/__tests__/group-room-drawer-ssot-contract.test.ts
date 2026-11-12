@@ -82,6 +82,17 @@ describe("group room drawer SSOT", () => {
     }
   });
 
+  it("D1: 서랍 목록 상자는 세로 flex 서랍 안에서 줄어들지 않는다(shrink-0) — overflow-hidden 상자 접힘 방지", () => {
+    const src = read(SHEETS);
+    const m = /const GROUP_MENU_BOX_CLASS =\s*"([^"]+)"/.exec(src);
+    expect(m).not.toBeNull();
+    const cls = m![1].split(/\s+/);
+    expect(cls).toContain("overflow-hidden");
+    expect(cls).toContain("shrink-0");
+    /** 서랍 패널이 세로 flex 스크롤 상자인 한 이 조건이 필요하다 */
+    expect(src).toMatch(/isGroupMenuDrawer\s*\?\s*`relative z-\[1\] flex h-full min-h-0 w-full[^`]*flex-col overflow-y-auto/);
+  });
+
   it("S4: 지연 멤버 첫 페이지는 그룹 서랍(menu)에서도 요청한다", () => {
     const p1 = read("lib/community-messenger/room/use-messenger-room-client-phase1.ts");
     expect(p1).toMatch(/sheet === "menu" && \(roomTypeForMemberPaging === "private_group" \|\| roomTypeForMemberPaging === "open_group"\)/);
