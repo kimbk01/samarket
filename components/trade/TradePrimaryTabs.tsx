@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SlidersHorizontal } from "lucide-react";
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
@@ -22,6 +22,7 @@ import { parseTradeMarketCategoryFromSearch } from "@/lib/trade/tabs/trade-marke
 import { MarketFilterSheet } from "@/components/trade/MarketFilterSheet";
 import { countMarketAppliedConditions } from "@/lib/trade/marketplace/market-applied-conditions";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useFitSectionTabPadding } from "@/lib/ui/use-fit-section-tab-padding";
 import { setMainAppScrollTop } from "@/lib/layout/main-app-scroll-root";
 import {
   SAM_TIER1_HEADER_ACTION_BTN_CLASS,
@@ -90,6 +91,7 @@ function TradePrimaryTabsInner({
   const categoryQuery = parseTradeMarketCategoryFromSearch(searchParams);
   const [filterOpen, setFilterOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
+  const tabTrackRef = useRef<HTMLDivElement | null>(null);
   const {
     error,
     tabs,
@@ -160,6 +162,15 @@ function TradePrimaryTabsInner({
     });
   };
 
+  /** 2단 탭 4개가 한 줄에 다 보이게 — 칸이 모자라면 탭 여백만 12px→최소 4px (Owner 「Categories 잘림 수정」 2026-11-12) */
+  useFitSectionTabPadding(tabTrackRef, [
+    Boolean(error),
+    t("marketplace_tab_sell"),
+    t("marketplace_tab_browse"),
+    t("marketplace_tab_nearby"),
+    t("marketplace_tab_categories"),
+  ]);
+
   if (error) {
     return (
       <div
@@ -189,6 +200,7 @@ function TradePrimaryTabsInner({
   return (
     <>
       <DibaySecondaryTabRow
+        ref={tabTrackRef}
         trackRole="tablist"
         trackAriaLabel={t("trade_138")}
         bordered={!embedInAppHeader}
