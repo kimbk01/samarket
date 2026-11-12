@@ -92,3 +92,16 @@
 - 자동 PiP 확인 기록(`native_*_auto_pip_entered/_missed`)이 안 남음 — 1.5초 확인이 시스템 PiP 판정 뒤·앱 콜백(57.640) 전에 돌아 둘 다 건너뜀. 동작에는 영향 없음, 기록 정확도 결함.
 - 메신저를 연 직후 `onUserLeaveHint` 는 이번 측정에서 오지 않음(`user_leave_skipped` 0건) — 건너뛰기 장치는 동작하지 않았고 필요하지도 않았음(유지는 무해).
 - NOT_PROVEN: 홈 화면에서 수신 알림으로 수락한 경로, 잠금 화면 수락 경로, Xiaomi 제스처 내비, Android 11 이하(조건 밖 기존 경로).
+
+### 8-1. 잠금 화면 수락 경로 (Owner 「잠금 화면 수락 경로도 실기 확인해」, 1.2.6 (46))
+조건: Samsung 잠금 = 스와이프(`CredentialType: NONE`, 비밀번호 입력 없이 측정) · 화면 끔 → `isKeyguardShowing=true` 에서 수신 · 녹화 `v46l.mp4` · logcat 보존.
+
+| # | 통화 · 순서 | 결과 | 증거 |
+|---|---|---|---|
+| L1 | 영상 `68de78ec` · 잠금 화면 수락(21:25:23, 잠금 유지) → **잠긴 채 ◁** | **잠금 화면 + 통화 알림 카드 「zxzx11 · 00:28」**, PiP 없음, 통화 유지 | 21:25:48 `OPEN` 전환으로 메신저 열기 요청 → 잠금 중이라 메신저·PiP 모두 화면에 안 나옴. 원문: `ActivityRecord.checkEnterPictureInPictureState` 일시정지 중 PiP = `isNotLockedOrOnKeyguard` 필요 |
+| L1 후 | 잠금 해제(21:26:16) | 메신저 + 통화 바(「통화 중 · 00:55」), PiP 없음 | `topResumedActivity=MainActivity`, `pinned=0` |
+| L2 | 같은 통화 · 해제 후 통화 바 → 통화 화면 → ◁ | **메신저 + PiP** | 21:26:32 #4283 `request handled by PipTransition`, confirmed, 차단 0 |
+| L3 | 영상 `8d5b34ee` · 잠금 화면 수락(21:28:29) → 통화 화면 뜬 채 잠금 해제(21:28:33) → ◁ | **메신저 + PiP** | 21:28:36 #4290 `request handled by PipTransition` → `PICTURE_IN_PICTURE_ENTER` 37.601, confirmed, 차단 0 |
+| 종료 | 두 통화 알림 「전화 끊기」 | 통화 알림·PiP·통화 칩 0 | DB `ended_by_callee` 13:26:59Z · 13:29:15Z |
+
+판정: 잠금 해제 뒤 경로(L2·L3) = SSOT §4 대로 PASS. **잠긴 채 뒤로(L1)** 는 Android 규칙상 PiP·메신저를 잠금 위에 띄울 수 없어 잠금 화면 + 통화 알림 카드가 된다 — SSOT §4 는 잠금 상태를 정하지 않았다(정의 공백). 이전 빌드(45 이하)의 L1 동작은 측정하지 않아 비교 NOT_PROVEN.
