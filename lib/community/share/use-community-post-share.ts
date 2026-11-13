@@ -1,49 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useCallback, useMemo, useState } from "react";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
+import type { ShareSheetEvent } from "@/lib/share/platform-share";
 import { logCommunityShareEvent } from "./community-share-analytics";
-import { copyTextToClipboard } from "./community-share-copy";
-import {
-  buildCommunityPostShareCardData,
-  buildCommunityPostShareNativePayload,
-} from "./community-share-payload";
-import { shareCommunityPostViaNative } from "./community-share-native";
-import { DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
+import { buildCommunityPostShareCardData, buildCommunityPostShareNativePayload } from "./community-share-payload";
 
+/**
+ * FEED 상세 공유 — 통합 공유 시트(`DibayShareSheet`)에 넘길 값만 만든다 (S3).
+ * 실행·결과 계약(취소 무반응·실패 시 자동 복사 없음)은 시트·`lib/share/platform-share.ts` 가 갖는다.
+ */
 export function useCommunityPostShare(post: NeighborhoodFeedPostDTO, categoryLabel?: string) {
-  const { t, safeT } = useI18n();
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const toastTimerRef = useRef<number | null>(null);
 
-  const card = useMemo(
-    () => buildCommunityPostShareCardData(post, categoryLabel),
-    [post, categoryLabel]
-  );
-
-  const shareErrorMessage = safeT("community_share_toast_internal_error");
-
-  const showToast = useCallback((message: string) => {
-    if (toastTimerRef.current != null) {
-      window.clearTimeout(toastTimerRef.current);
-    }
-    setToast(message);
-    toastTimerRef.current = window.setTimeout(() => {
-      toastTimerRef.current = null;
-      setToast(null);
-    }, DIBAY_TOAST_MS);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current != null) {
-        window.clearTimeout(toastTimerRef.current);
-      }
-    };
-  }, []);
+  const card = useMemo(() => buildCommunityPostShareCardData(post, categoryLabel), [post, categoryLabel]);
+  const nativePayload = useMemo(() => buildCommunityPostShareNativePayload(card), [card]);
 
   const openSheet = useCallback(() => {
     setSheetOpen(true);
@@ -54,66 +25,35 @@ export function useCommunityPostShare(post: NeighborhoodFeedPostDTO, categoryLab
     setSheetOpen(false);
   }, []);
 
-  const handleCopyLink = useCallback(async () => {
-    if (busy) return;
-    setBusy(true);
-    logCommunityShareEvent("community_share_copy_click", { postId: card.postId, platform: "copy" });
-    try {
-      const result = await copyTextToClipboard(card.canonicalUrl);
-      if (result === "failed") {
-        logCommunityShareEvent("community_share_error", { postId: card.postId, platform: "copy", result: "failed" });
-        showToast(shareErrorMessage);
-        return;
-      }
-      logCommunityShareEvent("community_share_success", { postId: card.postId, platform: "copy", result: "ok" });
-      showToast(t("community_share_toast_copied"));
-      closeSheet();
-    } finally {
-      setBusy(false);
-    }
-  }, [busy, card.canonicalUrl, card.postId, closeSheet, shareErrorMessage, showToast, t]);
-
-  const handleNativeShare = useCallback(async () => {
-    if (busy) return;
-    setBusy(true);
-    logCommunityShareEvent("community_share_native_click", { postId: card.postId, platform: "native" });
-    try {
-      const payload = buildCommunityPostShareNativePayload(card);
-      const outcome = await shareCommunityPostViaNative(payload);
-      if (outcome === "cancelled") {
-        logCommunityShareEvent("community_share_cancel", { postId: card.postId, platform: "native" });
-        return;
-      }
-      if (outcome === "copied") {
-        logCommunityShareEvent("community_share_fallback_copy", {
-          postId: card.postId,
-          platform: "native",
-          result: "copied",
+  const onShareEvent = useCallback(
+    (e: ShareSheetEvent) => {
+      const postId = card.postId;
+      if (e.channel === "copy") {
+        logCommunityShareEvent(e.result === "copied" ? "community_share_success" : "community_share_error", {
+          postId,
+          platform: "copy",
+          result: e.result,
         });
-        showToast(t("community_share_toast_native_fallback"));
-        closeSheet();
         return;
       }
-      if (outcome === "shared") {
-        logCommunityShareEvent("community_share_success", { postId: card.postId, platform: "native", result: "ok" });
-        closeSheet();
-      } else {
-        logCommunityShareEvent("community_share_error", { postId: card.postId, platform: "native", result: "failed" });
-        showToast(shareErrorMessage);
-      }
-    } finally {
-      setBusy(false);
-    }
-  }, [busy, card, closeSheet, shareErrorMessage, showToast, t]);
+      const event =
+        e.result === "handed_off"
+          ? "community_share_success"
+          : e.result === "cancelled"
+            ? "community_share_cancel"
+            : "community_share_error";
+      logCommunityShareEvent(event, { postId, platform: "native", result: e.result });
+    },
+    [card.postId]
+  );
 
   return {
     sheetOpen,
-    toast,
-    busy,
     openSheet,
     closeSheet,
-    handleCopyLink,
-    handleNativeShare,
+    card,
+    nativePayload,
+    onShareEvent,
   };
 }
 

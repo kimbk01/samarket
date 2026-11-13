@@ -2,7 +2,8 @@
 
 import { useRegionViewerUserId } from "@/hooks/useRegionViewerUserId";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { dibayAlert } from "@/components/ui/dibay-overlay";
+import { useDibayShareSheet } from "@/components/share/use-dibay-share-sheet";
+import { buildShareUrl } from "@/lib/share/share-url";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -366,23 +367,17 @@ export function StoreProductPublic({
     };
   }, [serviceabilitySlug, serviceabilityViewerId]);
 
+  /** 통합 공유 시트(S3) — 정규 주소 `/stores/{slug}/p/{productId}` · 실패·취소 시 자동 복사 없음 */
+  const { openShare, shareSheet } = useDibayShareSheet();
   const onShare = useCallback(() => {
-    if (typeof window === "undefined" || !product) return;
-    const url = window.location.href;
-    const title = product.title;
-    void (async () => {
-      try {
-        if (navigator.share) {
-          await navigator.share({ title, text: title, url });
-        } else if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(url);
-          await dibayAlert({ title: t("store_link_copied") });
-        }
-      } catch {
-        /* noop */
-      }
-    })();
-  }, [product]);
+    if (!product || !store) return;
+    openShare({
+      url: buildShareUrl({ kind: "store_product", storeSlug: store.slug || storeSlug, productId: product.id || productId }),
+      previewTitle: product.title,
+      previewSubtitle: store.store_name || undefined,
+      previewImageUrl: heroImageUrl || null,
+    });
+  }, [product, store, storeSlug, productId, heroImageUrl, openShare]);
 
   const cartBucketStats = useStoreCommerceCartBucketStats(store?.id ?? "");
   const cartTotalPhp = cartBucketStats.hydrated ? cartBucketStats.subtotalPhp : 0;
@@ -673,6 +668,7 @@ export function StoreProductPublic({
       onGalleryIndexChange={setDetailGalleryIdx}
       onShare={onShare}
     >
+      {shareSheet}
       <StoreProductDetailView
       title={product.title}
       summary={product.summary}

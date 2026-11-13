@@ -1,4 +1,4 @@
-import { DIBAY_PRODUCTION_SITE_ORIGIN } from "@/lib/platform/capacitor-server-url";
+import { resolveShareSiteOrigin } from "@/lib/share/share-url";
 
 export const COMMUNITY_SHARE_UTM = {
   utm_source: "dibay_share",
@@ -8,21 +8,12 @@ export const COMMUNITY_SHARE_UTM = {
 
 const LOCALHOST_RE = /^(localhost|127\.0\.0\.1|\[::1\])$/i;
 
-/** 공유용 production absolute origin — localhost·relative 금지 */
+/**
+ * 공유용 production absolute origin — 통합 공유 `resolveShareSiteOrigin` 하나로 (S1).
+ * 배포마다 바뀌는 `VERCEL_URL` 은 쓰지 않는다(SH-P1-11).
+ */
 export function resolveCommunityShareSiteOrigin(): string {
-  if (typeof process !== "undefined") {
-    const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
-    if (explicit && !LOCALHOST_RE.test(new URL(explicit).hostname)) return explicit;
-    const vercel = process.env.VERCEL_URL?.trim();
-    if (vercel) return `https://${vercel.replace(/^https?:\/\//, "")}`;
-    const vercelEnv = (
-      process.env.VERCEL_ENV ??
-      process.env.NEXT_PUBLIC_VERCEL_ENV ??
-      ""
-    ).toLowerCase();
-    if (vercelEnv === "production") return DIBAY_PRODUCTION_SITE_ORIGIN;
-  }
-  return DIBAY_PRODUCTION_SITE_ORIGIN;
+  return resolveShareSiteOrigin();
 }
 
 export function buildCommunityPostSharePath(postId: string): string {

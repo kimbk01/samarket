@@ -1,6 +1,7 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { dibayAlert } from "@/components/ui/dibay-overlay";
+import { useDibayShareSheet } from "@/components/share/use-dibay-share-sheet";
+import { buildShareUrl } from "@/lib/share/share-url";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -103,20 +104,15 @@ export function StoreDetailStickyTopRow({
   const initialGlyph = storeName.trim().slice(0, 1) || "?";
   const infoHref = `/stores/${encodeURIComponent(storeSlug)}/info`;
 
-  const onShare = useCallback(async () => {
-    if (typeof window === "undefined") return;
-    const url = window.location.href;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: storeName, text: storeName, url });
-      } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-        await dibayAlert({ title: t("store_link_copied") });
-      }
-    } catch {
-      /* 사용자 취소 등 */
-    }
-  }, [storeName, t]);
+  /** 통합 공유 시트(S3) — 정규 주소 `/stores/{slug}`(현재 쿼리 제외) · 실패·취소 시 자동 복사 없음 */
+  const { openShare, shareSheet } = useDibayShareSheet();
+  const onShare = useCallback(() => {
+    openShare({
+      url: buildShareUrl({ kind: "store", storeSlug }),
+      previewTitle: storeName,
+      previewImageUrl: profileImageUrl,
+    });
+  }, [openShare, storeSlug, storeName, profileImageUrl]);
 
   const segBase =
     "min-w-0 flex-1 rounded-sam-sm border border-transparent px-2 py-2 sam-text-xxs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
@@ -204,7 +200,7 @@ export function StoreDetailStickyTopRow({
             </svg>
           </button>
         ) : null}
-        <button type="button" className={iconBtnClass} aria-label={t("common_share")} onClick={() => void onShare()}>
+        <button type="button" className={iconBtnClass} aria-label={t("common_share")} onClick={onShare}>
           <svg className="h-[length:var(--delivery-header-icon-glyph)] w-[length:var(--delivery-header-icon-glyph)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <circle cx="18" cy="5" r="3" />
             <circle cx="6" cy="12" r="3" />
@@ -295,6 +291,7 @@ export function StoreDetailStickyTopRow({
           </div>
         </div>
       ) : null}
+      {shareSheet}
     </div>
   );
 }
