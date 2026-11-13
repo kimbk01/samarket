@@ -127,8 +127,6 @@ export const OverlayUi = {
   textActionMuted: "dibay-overlay-text-action dibay-overlay-text-action--muted",
   profileHeader: "dibay-overlay-profile-header",
   input: "dibay-overlay-input",
-  /** 시트 안 글 입력칸(textarea) — 글자 16px 만 (모양은 각 화면) */
-  textarea: "dibay-overlay-textarea",
   /** 칩 — 선택됨은 `aria-pressed` / `aria-checked` / `data-selected="true"` */
   chip: "dibay-overlay-chip",
   /** 선택 카드 (요금제·사유·상품) — 선택됨 표시는 칩과 같은 속성 */
