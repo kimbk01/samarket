@@ -89,7 +89,8 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
-  gap: 8px;
+  /** 헤더 SSOT — 칸 사이 0: 사진이 뒤로(48@x4) 바로 뒤 x52 에서 시작 (사진·이름 사이 8 은 제목 묶음 안에서) */
+  gap: 0;
 }
 
 .chat-composer {
