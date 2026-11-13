@@ -2912,7 +2912,7 @@ export const storeCommerceUiMessages = {
     store_cart_legacy_address_suffix: " Save a Google search address there, then select it again.",
     store_cart_profile_default_delivery: `${B.MY} · default delivery`,
     store_cart_no_saved_delivery_address:
-      "No saved delivery address. Add one in your profile or address manager.",
+      `No delivery address saved in ${B.MY}. Add one in your profile or address manager.`,
     store_cart_address_check_before_order:
       "Before ordering, ensure region and address line are at least 3 characters.",
     store_cart_saved_address_aria: "{label}, select saved address {index}",
@@ -2951,7 +2951,7 @@ export const storeCommerceUiMessages = {
     store_err_saved_address_required:
       "Delivery: select a saved address. Save one in address manager before ordering.",
     store_err_delivery_address_incomplete:
-      "Delivery: the address needs region, neighborhood, or {streetLabel} (3+ chars).",
+      `Delivery: the address needs region, neighborhood, or {streetLabel} (3+ chars). Choose another address or save one in ${B.MY}.`,
     store_checkout_phone_partial: "{phone} (incomplete)",
     store_checkout_not_entered: "(not entered)",
     store_err_payment_method: "Check payment method. Only store-allowed methods can be used.",
@@ -3046,7 +3046,7 @@ export const storeCommerceUiMessages = {
     store_owner_notif_table_missing: "The notification settings table is not ready yet.",
     store_owner_notif_load_failed: "Could not load settings.",
     store_owner_notif_settings_link_suffix:
-      " to adjust trade and community messenger alerts together.",
+      " to adjust trade and community chat alerts together.",
     store_owner_notif_push_label: "Order & store alerts",
     store_owner_notif_push_desc: "Optional alerts for new orders and store operations",
     store_owner_notif_order_label: "Order alerts",

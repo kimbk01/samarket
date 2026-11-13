@@ -1018,10 +1018,10 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
     ],
     trend: "signups_orders_daily",
     shortcuts: [
-      { labelKo: `${B.LOUNGE} 현황`, id: "community", labelEn: B.LOUNGE, href: "/admin/community" },
-      { labelKo: `${B.MARKET} 현황`, id: "trade", labelEn: B.MARKET, href: "/admin/trade" },
-      { labelKo: `${B.DIPICK} 현황`, id: "delivery", labelEn: B.DIPICK, href: "/admin/delivery" },
-      { labelKo: `${B.LETARING} 현황`, id: "messenger", labelEn: B.LETARING, href: "/admin/messenger" },
+      { id: "community", labelKo: `${B.LOUNGE} 현황`, labelEn: B.LOUNGE, href: "/admin/community" },
+      { id: "trade", labelKo: `${B.MARKET} 현황`, labelEn: B.MARKET, href: "/admin/trade" },
+      { id: "delivery", labelKo: `${B.DIPICK} 현황`, labelEn: B.DIPICK, href: "/admin/delivery" },
+      { id: "messenger", labelKo: `${B.LETARING} 현황`, labelEn: B.LETARING, href: "/admin/messenger" },
       { id: "finance", labelKo: "재무 현황", labelEn: "Finance", href: "/admin/finance#action-required" },
       { id: "support", labelKo: "고객지원", labelEn: "Support", href: "/admin/support?filter=ACTIONABLE#action-required" },
     ],
@@ -1095,7 +1095,7 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
     ],
     trend: "chat_reports_daily",
     shortcuts: [
-      { labelKo: `${B.LETARING} 대시보드`, id: "messenger", labelEn: `${B.LETARING} dashboard`, href: "/admin/messenger" },
+      { id: "messenger", labelKo: `${B.LETARING} 대시보드`, labelEn: `${B.LETARING} dashboard`, href: "/admin/messenger" },
       { id: "reported", labelKo: "채팅 신고", labelEn: "Chat reports", href: "/admin/chats/reported?status=open" },
       { id: "general", labelKo: "1:1 채팅", labelEn: "1:1 chats", href: "/admin/chats/general" },
       { id: "group", labelKo: "그룹 채팅", labelEn: "Group chats", href: "/admin/chats/group" },
@@ -1125,7 +1125,7 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
       { id: "alerts", labelKo: "배달 경고", labelEn: "Delivery alerts", href: "/admin/delivery-alerts" },
       { id: "applications", labelKo: "입점 심사", labelEn: "Applications", href: "/admin/stores?status=actionable" },
       { id: "business", labelKo: "매장 운영", labelEn: "Stores", href: "/admin/business" },
-      { labelKo: `${B.DIPICK} 대시보드`, id: "dashboard", labelEn: `${B.DIPICK} dashboard`, href: "/admin/delivery" },
+      { id: "dashboard", labelKo: `${B.DIPICK} 대시보드`, labelEn: `${B.DIPICK} dashboard`, href: "/admin/delivery" },
     ],
     pending: {
       kind: "categories",
@@ -1170,7 +1170,7 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
     shortcuts: [
       { id: "workspace", labelKo: "광고 운영", labelEn: "Advertising", href: "/admin/advertising" },
       { id: "applications", labelKo: "광고 신청 심사", labelEn: "Ad applications", href: "/admin/advertising/applications" },
-      { labelKo: `${B.DIPICK} 광고`, id: "delivery_ads", labelEn: `${B.DIPICK} ads`, href: `${DELIVERY_AD_ADMIN_ROUTES.hub}?view=actionable` },
+      { id: "delivery_ads", labelKo: `${B.DIPICK} 광고`, labelEn: `${B.DIPICK} ads`, href: `${DELIVERY_AD_ADMIN_ROUTES.hub}?view=actionable` },
       { id: "popup", labelKo: "팝업", labelEn: "Popups", href: "/admin/platform-popup" },
       { id: "events", labelKo: "이벤트", labelEn: "Events", href: "/admin/platform-events" },
     ],

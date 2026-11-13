@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BOTTOM_NAV_ICON_LABEL_KEYS } from "@/components/admin/i18n/admin-menus-label-keys";
 import { MainBottomNavTabIcon, mainBottomNavIconLabel } from "@/components/main-menu/MainBottomNavTabIcon";
+import { BOTTOM_NAV_ICON_KEY_BRAND } from "@/components/main-menu/MainBottomNavTabIcons";
 import { ADMIN_MAIN_BOTTOM_NAV_ICON_OPTIONS } from "@/lib/main-menu/admin-main-bottom-nav-icon-options";
 import type { BottomNavIconKey } from "@/lib/main-menu/bottom-nav-config";
 import {
@@ -82,6 +83,8 @@ export function MainBottomNavIconPickerModal({
 
   const lucideIcons = useMemo(() => filterLucideBottomNavIcons(query, category), [query, category]);
   const draftPreview = iconDraftToTabValue(draft);
+  /** 서비스 키(HOME·LOUNGE·MARKET·DIPICK·LETARING·MY)는 앱이 Lucide 를 무시하고 대표 아이콘을 그린다 — Lucide 선택을 막는다 */
+  const brandFixed = Boolean(BOTTOM_NAV_ICON_KEY_BRAND[draft.icon]);
   const draftChanged = !isDraftEqual(draft, committedDraft);
 
   const handleApply = () => {
@@ -129,17 +132,18 @@ export function MainBottomNavIconPickerModal({
           </div>
 
           <div className="mt-3 flex gap-1">
-            <AdminChipButton selected={tab === "lucide"} disabled={disabled} onClick={() => setTab("lucide")}>
+            <AdminChipButton selected={tab === "lucide" && !brandFixed} disabled={disabled || brandFixed} onClick={() => setTab("lucide")}>
               Lucide
             </AdminChipButton>
-            <AdminChipButton selected={tab === "builtin"} disabled={disabled} onClick={() => setTab("builtin")}>
+            <AdminChipButton selected={tab === "builtin" || brandFixed} disabled={disabled} onClick={() => setTab("builtin")}>
               {t("admin_menu_bottom_icon_builtin_heading")}
             </AdminChipButton>
           </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-          {tab === "lucide" ? (
+          {brandFixed ? <p className="mb-2 sam-text-xxs text-sam-muted">{t("admin_menu_bottom_icon_brand_fixed")}</p> : null}
+          {tab === "lucide" && !brandFixed ? (
             <>
               <div className="mb-2 flex flex-wrap gap-1">
                 {LUCIDE_CATEGORY_KEYS.map((key) => (

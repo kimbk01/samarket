@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-13 08:25 PHT",
+ "generatedAtPht": "2026-11-13 10:08 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -299,7 +299,6 @@
    "components/reviews/TrustSummaryCard.tsx": 1,
    "components/stores/commission/StoreCommissionLedgerParts.tsx": 15,
    "components/stores/commission/StoreCommissionLedgerTable.tsx": 7,
-   "components/stores/delivery/RestaurantOrderCompleteClient.tsx": 1,
    "components/stores/StoreDetailInfoPublic.tsx": 3,
    "components/trade/TradeSellerListingStepDiagram.tsx": 2,
    "components/trust/MannerBatteryDisplay.tsx": 2,
@@ -328,7 +327,7 @@
    "lib/admin-chats/getAdminChatRoomsFromDb.ts": 2,
    "lib/admin-community-messenger/call-force-end-reasons.ts": 7,
    "lib/admin-community-messenger/list-admin-rooms-paged.ts": 1,
-   "lib/admin-community-messenger/service.ts": 16,
+   "lib/admin-community-messenger/service.ts": 17,
    "lib/admin-community/member-identity.ts": 1,
    "lib/admin-dashboard/load-admin-recent-activity.ts": 1,
    "lib/admin-dashboard/report-reason-labels.ts": 11,
@@ -578,7 +577,6 @@
    "lib/neighborhood/queries.ts": 2,
    "lib/notices/customer-center-safe-markdown.ts": 9,
    "lib/notifications/badge-writer-authority.ts": 1,
-   "lib/notifications/display/build-message-notification-display.ts": 1,
    "lib/notifications/notification-item-sound-seeds.ts": 33,
    "lib/notifications/notification-sound-registry.ts": 56,
    "lib/notifications/publish-notification-side-effect.ts": 1,

@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 import type { BottomNavIconKey } from "@/lib/main-menu/bottom-nav-config";
 import type { DibayServiceBrandId } from "@/lib/brand/dibay-service-brand";
-import { ServiceBrandIcon, StorefrontFillIcon } from "@/components/brand/ServiceBrandIcon";
+import { serviceBrandIconSlot } from "@/components/brand/ServiceBrandIcon";
 
 export type MainBottomNavIconProps = { className?: string };
 
@@ -72,31 +72,19 @@ export const BOTTOM_NAV_ICON_KEY_BRAND: Partial<Record<BottomNavIconKey, DibaySe
   my: "MY",
 };
 
-function brandIcon(brand: DibayServiceBrandId): ComponentType<MainBottomNavIconProps> {
-  function BrandTabIcon({ className }: MainBottomNavIconProps) {
-    return <ServiceBrandIcon brand={brand} className={className} />;
-  }
-  BrandTabIcon.displayName = `BrandTabIcon(${brand})`;
-  return BrandTabIcon;
-}
-
-function OwnerHubFillIcon({ className }: MainBottomNavIconProps) {
-  return <StorefrontFillIcon className={className} />;
-}
-
-/** BottomNav · FAB · 배달 스위처 공통 아이콘 레지스트리 — 서비스 키 = 브랜드 채움 아이콘, 기능 키(주문·장바구니·찜) = 기존 선 아이콘 */
+/** BottomNav · FAB · 배달 스위처 공통 아이콘 레지스트리 — 서비스 키 = 브랜드 채움 아이콘(`serviceBrandIconSlot`), 기능 키(주문·장바구니·찜·매장 운영) = 기존 선 아이콘 */
 export const MAIN_BOTTOM_NAV_TAB_ICONS: Record<
   BottomNavIconKey,
   ComponentType<MainBottomNavIconProps>
 > = {
-  home: brandIcon("HOME"),
-  trade: brandIcon("MARKET"),
-  community: brandIcon("LOUNGE"),
-  stores: brandIcon("DIPICK"),
+  home: serviceBrandIconSlot("HOME"),
+  trade: serviceBrandIconSlot("MARKET"),
+  community: serviceBrandIconSlot("LOUNGE"),
+  stores: serviceBrandIconSlot("DIPICK"),
   orders: MainBottomNavOrdersIcon,
-  chat: brandIcon("LETARING"),
-  my: brandIcon("MY"),
+  chat: serviceBrandIconSlot("LETARING"),
+  my: serviceBrandIconSlot("MY"),
   cart: MainBottomNavCartIcon,
   favorites: MainBottomNavFavoritesIcon,
-  owner_hub: OwnerHubFillIcon,
+  owner_hub: StoreOpsCenterStrokeIcon,
 };
