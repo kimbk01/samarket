@@ -19,7 +19,6 @@ import { canEditMessageText } from "@/lib/community-messenger/message-actions/me
 import {
   canCopyMessageLink,
   canShareMessageExternally,
-  canShareMessageToRoom,
   canForwardMessage,
 } from "@/lib/community-messenger/message-actions/message-share-policy";
 import { MessageActionMenu } from "@/components/community-messenger/room/message/MessageActionMenu";
@@ -48,7 +47,6 @@ export type MessageLongPressPopoverProps = {
   onCopy: () => void;
   onEdit: () => void;
   onReply: () => void;
-  onShareToRoom: () => void;
   /** 「전달하기」(통합 공유 S6) — 없으면 행을 그리지 않음 */
   onForward?: () => void;
   onShareExternal: () => void;
@@ -248,10 +246,9 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
   const isVoice = item.messageType === "voice";
   const isCallStub = item.messageType === "call_stub";
 
-  const shareToRoomOk = !roomUnavailable && canShareMessageToRoom(item, roomKind);
   const shareExternalOk = !roomUnavailable && canShareMessageExternally(item, roomKind);
   const shareLinkOk = !roomUnavailable && canCopyMessageLink(item, roomKind);
-  const shareBranches = shareToRoomOk || shareExternalOk || shareLinkOk;
+  const shareBranches = shareExternalOk || shareLinkOk;
 
   const showHideForMe = !item.pending && canHide;
   const showDeleteForEveryone =
@@ -372,16 +369,6 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
           shareNested={
             shareExpanded && shareBranches
               ? {
-                  toRoom: shareToRoomOk
-                    ? {
-                        label: t("cm_ui_share_to_chat_room"),
-                        disabled: false,
-                        onClick: () => {
-                          setShareExpanded(false);
-                          props.onShareToRoom();
-                        },
-                      }
-                    : undefined,
                   external: {
                     disabled: !shareExternalOk,
                     title: !shareExternalOk ? t("cm_ui_external_share_restricted_in_trade_room") : undefined,

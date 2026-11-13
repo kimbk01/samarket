@@ -16,7 +16,6 @@ import {
   canCopyMessageLink,
   canShareMessage,
   canShareMessageExternally,
-  canShareMessageToRoom,
 } from "@/lib/community-messenger/message-actions/message-share-policy";
 import { canReactToMessage, MESSENGER_QUICK_REACTION_KEYS } from "@/lib/community-messenger/message-actions/message-reaction-policy";
 import { getMessageLongPressActions } from "@/lib/community-messenger/message-actions/message-long-press-policy";
@@ -80,7 +79,6 @@ describe("canReply / react / share", () => {
   });
   it("trade share: nothing (to-room off by SH-P0-1, link off by SH-P0-2, no external)", () => {
     const text = baseMsg({ messageType: "text" });
-    expect(canShareMessageToRoom(text, "trade")).toBe(false);
     expect(canShareMessageExternally(text, "trade")).toBe(false);
     expect(canCopyMessageLink(text, "trade")).toBe(false);
     expect(canShareMessage(text, "trade")).toBe(false);
@@ -88,7 +86,6 @@ describe("canReply / react / share", () => {
   it("SH-P0-1·P0-2: share-to-room and message link copy are off in every room kind", () => {
     const text = baseMsg({ messageType: "text" });
     for (const kind of ["direct", "group", "trade"] as const) {
-      expect(canShareMessageToRoom(text, kind)).toBe(false);
       expect(canCopyMessageLink(text, kind)).toBe(false);
     }
     expect(canShareMessageExternally(text, "direct")).toBe(true);

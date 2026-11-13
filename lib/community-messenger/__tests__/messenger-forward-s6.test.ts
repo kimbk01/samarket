@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { canForwardMessage, canShareMessageToRoom } from "@/lib/community-messenger/message-actions/message-share-policy";
+import { canForwardMessage } from "@/lib/community-messenger/message-actions/message-share-policy";
 
 const read = (rel: string) => readFileSync(path.join(process.cwd(), rel), "utf8");
 const msg = (messageType: string, extra: Record<string, unknown> = {}) =>
@@ -20,8 +20,8 @@ describe("메시지 전달 S6 (Owner G-4·G-5 2026-11-14)", () => {
     expect(canForwardMessage(msg("text"), "direct", { chatDomain: "store_order" })).toBe(false);
     expect(canForwardMessage(msg("text", { pending: true }), "direct")).toBe(false);
     expect(canForwardMessage(msg("text", { deletedForEveryoneAt: "2026-11-14T00:00:00Z" }), "direct")).toBe(false);
-    // 클립보드 「채팅방으로 공유」는 계속 꺼짐(SH-P0-1)
-    expect(canShareMessageToRoom(msg("text"), "direct")).toBe(false);
+    // 클립보드 「채팅방으로 공유」(SH-P0-1)는 코드까지 없앰 — 다른 방으로 보내기는 전달만
+    expect(read("lib/community-messenger/message-actions/message-share-policy.ts")).not.toContain("canShareMessageToRoom");
   });
 
   it("서버 — 원본 정보 없이 forwarded 표시만 · 같은 범용 전송 경로 · 결정적 중복 방지 키", () => {
