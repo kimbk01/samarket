@@ -20,7 +20,6 @@ type Props = {
   canReport?: boolean;
   onReport?: () => void;
   isOwnPost?: boolean;
-  onOwnShare?: () => void;
   onOwnDelete?: () => void;
   onOwnEdit?: () => void;
   ownDeleteBusy?: boolean;
@@ -62,7 +61,6 @@ export function CommunityAuthorRow({
   canReport,
   onReport,
   isOwnPost = false,
-  onOwnShare,
   onOwnDelete,
   onOwnEdit,
   ownDeleteBusy = false,
@@ -90,9 +88,8 @@ export function CommunityAuthorRow({
         ) : null}
         {subline ? <p className={`mt-1 ${CM_META_CLASS}`}>{subline}</p> : null}
       </div>
-      {showMoreMenu && isOwnPost && onOwnShare && onOwnDelete ? (
+      {showMoreMenu && isOwnPost && onOwnDelete ? (
         <CommunityOwnPostMoreMenu
-          onShare={onOwnShare}
           onDelete={onOwnDelete}
           onEdit={onOwnEdit}
           deleteBusy={ownDeleteBusy}

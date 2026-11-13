@@ -16,7 +16,6 @@ type Props = {
   saveBusy?: boolean;
   onLike: () => void;
   onSave: () => void;
-  onShare: () => void;
 };
 
 export function CommunityPostDetailViewLine({ viewCount }: { viewCount: number }) {
@@ -40,7 +39,6 @@ export function CommunityPostDetailStatsActions({
   saveBusy = false,
   onLike,
   onSave,
-  onShare,
 }: Props) {
   return (
     <>
@@ -54,7 +52,6 @@ export function CommunityPostDetailStatsActions({
         saveBusy={saveBusy}
         onLike={onLike}
         onSave={onSave}
-        onShare={onShare}
       />
     </>
   );

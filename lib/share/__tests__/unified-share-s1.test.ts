@@ -108,7 +108,7 @@ describe("S3 적용 — 자동 복사 경로 제거", () => {
       "components/stores/StoreDetailPublic.tsx",
       "components/stores/StoreDetailStickyTopRow.tsx",
       "components/stores/StoreProductPublic.tsx",
-      "components/moim/MoimInviteSheet.tsx",
+      "components/moim/MoimDetailScreen.tsx",
       "components/moim/manage/MoimManageInvite.tsx",
     ]) {
       const src = read(rel);
@@ -121,9 +121,9 @@ describe("S3 적용 — 자동 복사 경로 제거", () => {
     expect(ext).not.toContain("clipboard");
   });
 
-  it("MARKET 상세 공유도 통합 시트 (Owner 2026-11-14 「CUT G 열고 통합」)", () => {
+  it("MARKET 상세 공유도 통합 공유 실행 훅 (Owner 2026-11-14 「CUT G 열고 통합」 · §N-3)", () => {
     const src = read("components/post/PostDetailView.tsx");
-    expect(src).toContain("DibayShareSheet");
+    expect(src).toContain("useDibayShareSheet");
     expect(src).not.toContain("shareOrCopyTradeListing");
   });
 });

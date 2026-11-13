@@ -119,7 +119,9 @@ import {
   scheduleRouteEntryToPaint,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { recordTradeDetailTotalMs } from "@/lib/trade/trade-c2c-perf-metrics";
-import { DibayShareSheet } from "@/components/share/DibayShareSheet";
+import { useDibayShareSheet } from "@/components/share/use-dibay-share-sheet";
+import { DibayHeaderShareButton } from "@/components/share/DibayHeaderShareButton";
+import { SECTOR_HEADER_ACTION_CLASS } from "@/lib/ui/sector-header-classes";
 import { buildShareUrl } from "@/lib/share/share-url";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
@@ -361,6 +363,15 @@ export function PostDetailView({
     isOwnPost && post.type !== "community" && !["deleted", "blinded"].includes(postStatusLower);
   const isTradeDetail = post.type !== "community";
   const promoteBuyerPrimaryActions = !isOwnPost && isTradeDetail;
+  /** 지워졌거나 가려진 글은 공유하지 않는다(머리글 공유 아이콘을 그리지 않음) */
+  const canShareListing = !["deleted", "blinded"].includes(postStatusLower);
+  /**
+   * 공유 = 머리글 1곳(Owner 2026-11-14 §N-3) → 기기 공유 창 바로(`useDibayShareSheet`).
+   * 머리글은 이 아래 화면 정보(가격·지역)보다 먼저 등록되므로, 누를 때 최신 함수를 부르도록 ref 로 잇는다.
+   */
+  const { openShare, shareSheet } = useDibayShareSheet();
+  const shareActionRef = useRef<() => void>(() => {});
+  const onHeaderShare = useCallback(() => shareActionRef.current(), []);
 
   const ownerMenuPost = useMemo(
     () => ({
@@ -538,6 +549,11 @@ export function PostDetailView({
               ariaLabelKey="tier1_back"
             />
           ),
+          rightSlot: canShareListing ? (
+            <div className="flex shrink-0 items-center justify-end">
+              <DibayHeaderShareButton onClick={onHeaderShare} buttonClassName={SECTOR_HEADER_ACTION_CLASS} />
+            </div>
+          ) : undefined,
         },
       });
       return () => setMainTier1Extras(null);
@@ -569,6 +585,9 @@ export function PostDetailView({
         ),
         rightSlot: (
           <div className="flex shrink-0 items-center justify-end">
+            {canShareListing ? (
+              <DibayHeaderShareButton onClick={onHeaderShare} buttonClassName={SECTOR_HEADER_ACTION_CLASS} />
+            ) : null}
             {showBuyerMore ? (
               <SectorHeaderActionButton
                 onClick={() => setDetailMoreOpen(true)}
@@ -604,6 +623,8 @@ export function PostDetailView({
     isOwnPost,
     showSellerMoreMenu,
     tradePostDetailSlideHost,
+    canShareListing,
+    onHeaderShare,
     t,
   ]);
 
@@ -777,14 +798,6 @@ export function PostDetailView({
     }
   }, [post, post.id, requireAction, isFavorite]);
 
-  /**
-   * 통합 공유 시트(S3 · Owner 2026-11-14 「CUT G 열고 통합」) — 상단·하단 「공유」 모두 같은 시트.
-   * 주소 = 운영 `/post/{id}`(window.location 미사용) · 취소·실패 시 자동 복사 없음(복사는 「링크 복사」로).
-   */
-  const [shareSheetOpen, setShareSheetOpen] = useState(false);
-  const handleShare = useCallback(() => {
-    setShareSheetOpen(true);
-  }, []);
 
   const chatBlockedByOtherReservation = useMemo(() => {
     if (post.type === "community") return false;
@@ -1209,6 +1222,28 @@ export function PostDetailView({
             formatPrice(parseMetaAmount(reMeta.monthly), defaultCurrency)
           )
         : "";
+  const handleShare = useCallback(() => {
+    openShare({
+      url: buildShareUrl({ kind: "market", postId: post.id }),
+      previewTitle: (post.title ?? "").trim() || t("trade_detail_product_fallback"),
+      previewSubtitle:
+        [
+          post.is_free_share
+            ? t("trade_detail_free_share")
+            : post.price != null
+              ? formatPrice(post.price, defaultCurrency)
+              : "",
+          listingLocationLine ?? "",
+        ]
+          .filter(Boolean)
+          .join(" · ") || undefined,
+      previewImageUrl: imageResolveTradePostDetailImageUrls(post)[0] ?? null,
+    });
+  }, [openShare, post, t, defaultCurrency, listingLocationLine]);
+  useEffect(() => {
+    shareActionRef.current = handleShare;
+  }, [handleShare]);
+
   const postDetailSharedOverlays = (
     <>
       {chatError ? (
@@ -1227,33 +1262,12 @@ export function PostDetailView({
           onClose={() => setPromoteSheetOpen(false)}
         />
       ) : null}
-      <DibayShareSheet
-        open={shareSheetOpen}
-        onClose={() => setShareSheetOpen(false)}
-        url={buildShareUrl({ kind: "market", postId: post.id })}
-        previewTitle={(post.title ?? "").trim() || t("trade_detail_product_fallback")}
-        previewSubtitle={
-          [
-            post.is_free_share
-              ? t("trade_detail_free_share")
-              : post.price != null
-                ? formatPrice(post.price, defaultCurrency)
-                : "",
-            listingLocationLine ?? "",
-          ]
-            .filter(Boolean)
-            .join(" · ") || undefined
-        }
-        previewImageUrl={imageResolveTradePostDetailImageUrls(post)[0] ?? null}
-      />
+      {shareSheet}
       <PostDetailMoreBottomSheet
         open={detailMoreOpen}
         onClose={() => setDetailMoreOpen(false)}
         onSelectReport={() => {
           setReportOpen(true);
-        }}
-        onSelectShare={() => {
-          handleShare();
         }}
         onSelectSupport={
           isTradeDetail
@@ -1263,7 +1277,6 @@ export function PostDetailView({
         authorUserId={post.author_id}
         authorNickname={author?.nickname ?? null}
         reportEnabled={reportEnabled && !promoteBuyerPrimaryActions}
-        shareEnabled={!promoteBuyerPrimaryActions}
       />
       <PostDetailSellerMoreSheet
         open={sellerMoreOpen}
@@ -1619,10 +1632,9 @@ export function PostDetailView({
           <PostDetailSellerProfileRow author={author} regionLine={null} />
         </section>
 
-        {isTradeDetail ? (
+        {promoteBuyerPrimaryActions ? (
           <section data-ui5-slot="actions" className={TRADE_WRITE_FB_SECTION}>
-            {promoteBuyerPrimaryActions ? (
-              <div className="-mx-4 -my-3 flex">
+            <div className="-mx-4 -my-3 flex">
                 <button type="button" onClick={() => void handleFavorite()} className={ui5ActionBtnClass}>
                   <span className={isFavorite ? "text-red-500" : "text-sam-muted"}>{isFavorite ? "♥" : "♡"}</span>
                   <span>{t("ui_fav_interest")}</span>
@@ -1632,17 +1644,7 @@ export function PostDetailView({
                     {t("trade_detail_report_submit")}
                   </button>
                 ) : null}
-                <button type="button" onClick={handleShare} className={ui5ActionBtnClass}>
-                  {t("trade_detail_share")}
-                </button>
-              </div>
-            ) : isOwnPost ? (
-              <div className="-mx-4 -my-3 flex">
-                <button type="button" onClick={handleShare} className={ui5ActionBtnClass}>
-                  {t("trade_detail_share")}
-                </button>
-              </div>
-            ) : null}
+            </div>
           </section>
         ) : null}
 

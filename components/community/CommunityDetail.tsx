@@ -49,7 +49,6 @@ import { CommunityCommentSection } from "./post-detail/CommunityCommentSection";
 import { CommunityRelatedAlertTags } from "./post-detail/CommunityRelatedAlertTags";
 import { CommunityInlineAdCard } from "./post-detail/CommunityInlineAdCard";
 import { CommunitySimilarPostsSection } from "./post-detail/CommunitySimilarPostsSection";
-import { CommunityShareSheet } from "./share/CommunityShareSheet";
 import { useCommunityPostShare } from "@/lib/community/share/use-community-post-share";
 import { CommunityCard } from "./ui/CommunityCard";
 import { CommunityNeighborPrompt } from "./ui/CommunityNeighborPrompt";
@@ -460,6 +459,7 @@ export function CommunityDetail({
         titleText={tier1Title}
         backHref={backToFeedHref}
         hasEntryOriginForPost={hasEntryOriginForPost}
+        onShare={communityShare.share}
       />
 
       <article ref={articleRef} className="w-full min-w-0 px-4 pb-6">
@@ -482,7 +482,6 @@ export function CommunityDetail({
             canReport={!me?.id || me.id !== post.author_id}
             onReport={openReport}
             isOwnPost={!!me?.id && me.id === post.author_id && !isCommunityImportedOrigin(post.origin_kind)}
-            onOwnShare={() => communityShare.openSheet()}
             onOwnDelete={() => void onDeletePost()}
             onOwnEdit={canOwnEdit ? onEditPost : undefined}
             ownDeleteBusy={busy}
@@ -516,7 +515,6 @@ export function CommunityDetail({
             saveBusy={saveBusy}
             onLike={() => void onLike()}
             onSave={() => void onSave()}
-            onShare={() => communityShare.openSheet()}
           />
           {me?.id && memberPeerUserId && me.id !== memberPeerUserId ? (
             <CommunityNeighborPrompt authorName={post.author_name} targetUserId={memberPeerUserId} />
@@ -630,7 +628,7 @@ export function CommunityDetail({
           <p className={`mt-1 ${OverlayUi.caption}`} style={{ color: "var(--overlay-danger)" }}>{reportErr}</p>
         ) : null}
       </DibayDialog>
-      <CommunityShareSheet {...communityShare} />
+      {communityShare.shareSheet}
       {actionToast ? <DibayToast message={actionToast} /> : null}
     </div>
   );

@@ -4,7 +4,12 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useLayoutEffect, useMemo } from "react";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
-import { samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
+import {
+  SAM_TIER1_HEADER_ACTION_BTN_CLASS,
+  SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
+  samTier1HeaderIconCluster,
+} from "@/lib/ui/tier1-header-icon";
+import { DibayHeaderShareButton } from "@/components/share/DibayHeaderShareButton";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 import type { FixedDestinationBackOptions } from "@/lib/navigation/fixed-destination-back";
@@ -30,20 +35,29 @@ type Props = {
    * Navigation API 가 없을 때만: 이 글의 진입 기록(같은 postId 출처)이 있으면 직전 기록 = 목적지로 본다.
    */
   hasEntryOriginForPost?: boolean;
+  /** 글 공유 — 화면의 공유는 이 머리글 1곳 (Owner 2026-11-14 §N-3). 없으면 아이콘을 그리지 않는다 */
+  onShare?: () => void;
 };
 
-/** 상세 1단 우측 — 피드 목록과 동일 `bottom_nav_community` 알림함 */
-export function CommunityPostDetailHeader({ titleText, backHref, hasEntryOriginForPost = false }: Props) {
+/** 상세 1단 우측 — [공유] + 피드 목록과 동일 `bottom_nav_community` 알림함 */
+export function CommunityPostDetailHeader({ titleText, backHref, hasEntryOriginForPost = false, onShare }: Props) {
   const { t } = useI18n();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
 
   const rightSlot = useMemo(
     () => (
       <div className={samTier1HeaderIconCluster}>
+        {onShare ? (
+          <DibayHeaderShareButton
+            onClick={onShare}
+            buttonClassName={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
+            glyphClassName={SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
+          />
+        ) : null}
         <Tier1NotificationAnchor surface="bottom_nav_community" />
       </div>
     ),
-    []
+    [onShare]
   );
 
   /** FIXED 목적지(정확한 피드 출처) 유지 + settle 이동 (Q7: 상세→목록→상세 루프·목록 중복 없음) */

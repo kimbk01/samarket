@@ -16,7 +16,6 @@ type Props = {
   canReport?: boolean;
   onReport?: () => void;
   isOwnPost?: boolean;
-  onOwnShare?: () => void;
   onOwnDelete?: () => void;
   onOwnEdit?: () => void;
   ownDeleteBusy?: boolean;
@@ -34,7 +33,6 @@ export function CommunityPostDetailAuthorRow({
   canReport,
   onReport,
   isOwnPost,
-  onOwnShare,
   onOwnDelete,
   onOwnEdit,
   ownDeleteBusy,
@@ -56,7 +54,6 @@ export function CommunityPostDetailAuthorRow({
       canReport={canReport}
       onReport={onReport}
       isOwnPost={isOwnPost}
-      onOwnShare={onOwnShare}
       onOwnDelete={onOwnDelete}
       onOwnEdit={onOwnEdit}
       ownDeleteBusy={ownDeleteBusy}

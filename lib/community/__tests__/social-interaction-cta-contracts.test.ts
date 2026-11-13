@@ -29,9 +29,9 @@ describe("Community social interaction hashtag + share contracts", () => {
   });
 
   it("share sheet only exposes native + copy (no visible dead Kakao/internal)", () => {
-    // FEED 시트는 통합 공유 시트(S2)를 쓴다 — 칸 = 다른 앱으로 공유 · 링크 복사
-    const feedSheet = read("components/community/share/CommunityShareSheet.tsx");
-    expect(feedSheet).toContain("DibayShareSheet");
+    // FEED 공유는 통합 공유 실행 훅(§N-3)을 쓴다 — 기기 공유 창 바로, 없으면 시트(다른 앱으로 공유 · 링크 복사)
+    const feedSheet = read("lib/community/share/use-community-post-share.ts");
+    expect(feedSheet).toContain("useDibayShareSheet");
     const sheet = read("components/share/DibayShareSheet.tsx");
     expect(sheet).toContain("share_option_native");
     expect(sheet).toContain("share_option_copy");

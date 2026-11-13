@@ -1,7 +1,9 @@
 "use client";
 
 /**
- * DIBAY 통합 공유 시트 (S2) — FEED·MARKET·매장·메뉴 공통 「공유하기」.
+ * DIBAY 통합 공유 시트 (S2) — 기기 공유 창을 바로 열 수 없을 때만 뜨는 대체 시트.
+ * 공유 버튼은 `useDibayShareSheet().openShare` 를 부르고, 그 훅이 기기 공유 창을 먼저 연다(Owner 2026-11-14 §N-3).
+ * 이 시트가 뜨는 경우 = 데스크톱 웹 등 기기 공유 창 없음 · 기기 공유 실패 · 운영 주소 아님.
  * 설계: docs/audit/dibay-unified-share-audit-design-2026-11-14.md §D · §I-1 · 시안 1절.
  *
  * - 시트 = 오버레이 SSOT `DibayBottomSheet`(기기 맨 아래·안전 영역) + `DibaySheetHeader` + `DibayQuickActions`.

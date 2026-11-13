@@ -66,7 +66,9 @@ describe("marketplace UI-5 DETAIL visual hierarchy", () => {
     expect(view).not.toContain("TradePostDetailActionBar");
     expect(view).not.toContain("TRADE_POST_DETAIL_BOTTOM_SHELL");
     expect(view).toContain("promoteBuyerPrimaryActions");
-    expect(view).toContain("shareEnabled={!promoteBuyerPrimaryActions}");
+    // 공유 = 머리글 1곳 (Owner 2026-11-14 §N-3) — 행동 줄·⋮ 메뉴에 공유 없음
+    expect(view).not.toContain("shareEnabled");
+    expect(view).toContain("DibayHeaderShareButton");
   });
 
   it("does not change related loader or CUT G writers", () => {
@@ -74,7 +76,7 @@ describe("marketplace UI-5 DETAIL visual hierarchy", () => {
     expect(view).toContain("relatedSectionsSlot");
     expect(view).toContain("toggleFavorite");
     expect(view).toContain("ReportReasonModal");
-    expect(view).toContain("DibayShareSheet"); // 공유 = 통합 공유 시트 (Owner 2026-11-14 CUT G 열고 통합)
+    expect(view).toContain("useDibayShareSheet"); // 공유 = 통합 공유 실행 훅 (Owner 2026-11-14 §N-3)
     const related = src("app/(main)/post/[id]/post-detail-related-deferred.tsx");
     expect(related).toContain("getTradeDetailRelatedData");
   });
