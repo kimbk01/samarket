@@ -106,3 +106,8 @@ NOT_PROVEN: 각 오류의 고객 화면 영향(A·C·D), C 원장 행 DB 대조,
 - 적용 후 확인: 새 본문·참조 50줄·EXECUTE 권한 service_role(+postgres)만 · service_role·8초 제한으로 `community_post_image_gc_candidates` 1.40초, 8건(적용 전과 동일).
 - NOT_PROVEN: 다음 03:50 PHT cron 실제 성공·정리 삭제 결과 — 다음 날 Postgres 로그·cron 응답으로 확인.
 - 롤백: 적용 전 `pg_get_functiondef` 원문으로 `create or replace` 1회.
+
+### B. 작업자 임의 SQL — 작업 규칙 (Owner 「B 작업 규칙도 정리해서 진행」 2026-11-14)
+- 코드 수정 대상 아님 — PR #285 `AGENTS.md` 「Claude 작업 효율 규정」 10번 「운영 DB 임의 조회 규칙」: 컬럼 추측 금지(`information_schema`·`pg_get_functiondef` 먼저) · 읽기 전용 트랜잭션 · 가짜 id 로 운영 API 호출 금지 · 감사 때 `-- source: POST /mcp` 별도 집계.
+- PR: C #281 · D #282 · E #284 · F #283.
+- NOT_PROVEN: 규칙 반영 뒤 MCP 오류 감소 — 다음 감사에서 같은 분류로 대조.
