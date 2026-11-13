@@ -2460,12 +2460,13 @@ export function useMessengerRoomPhase2Controller() {
         const fd = new FormData();
         fd.set("file", prepared);
         const uploadRes = await fetch("/api/me/profile/avatar", { method: "POST", body: fd, credentials: "include" });
-        const uploadJson = (await uploadRes.json().catch(() => ({}))) as { ok?: boolean; url?: string };
+        const uploadJson = (await uploadRes.json().catch(() => ({}))) as { ok?: boolean; url?: string; code?: string };
         if (!uploadRes.ok || !uploadJson.ok || !uploadJson.url) {
+          /** 재감사 R5: 400 은 사유가 여럿(형식·요청 누락) — 서버 `code` 로 나눈다 */
           const message =
-            uploadRes.status === 413
+            uploadRes.status === 413 || uploadJson.code === "too_large"
               ? translateCmUi("cm_ui_group_photo_too_large")
-              : uploadRes.status === 400
+              : uploadJson.code === "unsupported_type"
                 ? translateCmUi("cm_ui_group_photo_type_only")
                 : getRoomActionErrorMessage();
           showMessengerSnackbar(message, { variant: "error" });
@@ -3099,7 +3100,6 @@ export function useMessengerRoomPhase2Controller() {
     setPrivateGroupAvatarUrl,
     uploadPrivateGroupAvatar,
     groupInviteLinkState: groupInviteLink.state,
-    groupInviteLinkLoading: groupInviteLink.loading,
     copyGroupInviteLink,
     pinGroupMessage,
     leaveRoom,
