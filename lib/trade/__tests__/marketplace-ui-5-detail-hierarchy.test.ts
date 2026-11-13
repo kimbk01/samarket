@@ -74,7 +74,7 @@ describe("marketplace UI-5 DETAIL visual hierarchy", () => {
     expect(view).toContain("relatedSectionsSlot");
     expect(view).toContain("toggleFavorite");
     expect(view).toContain("ReportReasonModal");
-    expect(view).toContain("shareOrCopyTradeListing");
+    expect(view).toContain("DibayShareSheet"); // 공유 = 통합 공유 시트 (Owner 2026-11-14 CUT G 열고 통합)
     const related = src("app/(main)/post/[id]/post-detail-related-deferred.tsx");
     expect(related).toContain("getTradeDetailRelatedData");
   });

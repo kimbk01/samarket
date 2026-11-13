@@ -119,7 +119,8 @@ import {
   scheduleRouteEntryToPaint,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { recordTradeDetailTotalMs } from "@/lib/trade/trade-c2c-perf-metrics";
-import { canonicalTradeDetailUrl, shareOrCopyTradeListing } from "@/lib/trade/share-trade-listing";
+import { DibayShareSheet } from "@/components/share/DibayShareSheet";
+import { buildShareUrl } from "@/lib/share/share-url";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import {
@@ -776,22 +777,14 @@ export function PostDetailView({
     }
   }, [post, post.id, requireAction, isFavorite]);
 
-  const handleShare = useCallback(async () => {
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const url = canonicalTradeDetailUrl(origin, post.id);
-    const result = await shareOrCopyTradeListing({ title: post.title ?? "", url });
-    if (result === "copied") {
-      await dibayAlert({
-        title: safeT("trade_detail_share_copied"),
-      });
-      return;
-    }
-    if (result === "failed") {
-      await dibayAlert({
-        title: safeT("trade_detail_share_failed"),
-      });
-    }
-  }, [post.id, post.title, safeT]);
+  /**
+   * 통합 공유 시트(S3 · Owner 2026-11-14 「CUT G 열고 통합」) — 상단·하단 「공유」 모두 같은 시트.
+   * 주소 = 운영 `/post/{id}`(window.location 미사용) · 취소·실패 시 자동 복사 없음(복사는 「링크 복사」로).
+   */
+  const [shareSheetOpen, setShareSheetOpen] = useState(false);
+  const handleShare = useCallback(() => {
+    setShareSheetOpen(true);
+  }, []);
 
   const chatBlockedByOtherReservation = useMemo(() => {
     if (post.type === "community") return false;
@@ -1234,6 +1227,25 @@ export function PostDetailView({
           onClose={() => setPromoteSheetOpen(false)}
         />
       ) : null}
+      <DibayShareSheet
+        open={shareSheetOpen}
+        onClose={() => setShareSheetOpen(false)}
+        url={buildShareUrl({ kind: "market", postId: post.id })}
+        previewTitle={(post.title ?? "").trim() || t("trade_detail_product_fallback")}
+        previewSubtitle={
+          [
+            post.is_free_share
+              ? t("trade_detail_free_share")
+              : post.price != null
+                ? formatPrice(post.price, defaultCurrency)
+                : "",
+            listingLocationLine ?? "",
+          ]
+            .filter(Boolean)
+            .join(" · ") || undefined
+        }
+        previewImageUrl={imageResolveTradePostDetailImageUrls(post)[0] ?? null}
+      />
       <PostDetailMoreBottomSheet
         open={detailMoreOpen}
         onClose={() => setDetailMoreOpen(false)}
@@ -1241,7 +1253,7 @@ export function PostDetailView({
           setReportOpen(true);
         }}
         onSelectShare={() => {
-          void handleShare();
+          handleShare();
         }}
         onSelectSupport={
           isTradeDetail
@@ -1620,13 +1632,13 @@ export function PostDetailView({
                     {t("trade_detail_report_submit")}
                   </button>
                 ) : null}
-                <button type="button" onClick={() => void handleShare()} className={ui5ActionBtnClass}>
+                <button type="button" onClick={handleShare} className={ui5ActionBtnClass}>
                   {t("trade_detail_share")}
                 </button>
               </div>
             ) : isOwnPost ? (
               <div className="-mx-4 -my-3 flex">
-                <button type="button" onClick={() => void handleShare()} className={ui5ActionBtnClass}>
+                <button type="button" onClick={handleShare} className={ui5ActionBtnClass}>
                   {t("trade_detail_share")}
                 </button>
               </div>

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { canonicalTradeDetailUrl, shareOrCopyTradeListing } from "@/lib/trade/share-trade-listing";
+import { describe, expect, it } from "vitest";
+import { buildShareUrl } from "@/lib/share/share-url";
 
 const REPO_ROOT = path.resolve(__dirname, "../../..");
 
@@ -9,37 +9,14 @@ function readRepoFile(relativePath: string): string {
   return fs.readFileSync(path.join(REPO_ROOT, relativePath), "utf8");
 }
 
-describe("CUT G — share helper", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("canonicalTradeDetailUrl is /post/[id] without query", () => {
-    expect(canonicalTradeDetailUrl("https://samarket.vercel.app/", "abc-1")).toBe(
-      "https://samarket.vercel.app/post/abc-1"
-    );
-  });
-
-  it("uses navigator.share when available", async () => {
-    const share = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal("navigator", { share });
-    const result = await shareOrCopyTradeListing({
-      title: "Honda",
-      url: "https://samarket.vercel.app/post/abc-1",
-    });
-    expect(result).toBe("shared");
-    expect(share).toHaveBeenCalledTimes(1);
-  });
-
-  it("copies canonical URL when share is unavailable", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal("navigator", { clipboard: { writeText } });
-    const result = await shareOrCopyTradeListing({
-      title: "Honda",
-      url: "https://samarket.vercel.app/post/abc-1",
-    });
-    expect(result).toBe("copied");
-    expect(writeText).toHaveBeenCalledWith("https://samarket.vercel.app/post/abc-1");
+describe("CUT G — DETAIL share (통합 공유 · Owner 2026-11-14 「CUT G 열고 통합」)", () => {
+  it("상세 공유 = 통합 공유 시트 + 운영 /post/[id] (window.location·자동 복사 없음)", () => {
+    const src = readRepoFile("components/post/PostDetailView.tsx");
+    expect(src).toContain("DibayShareSheet");
+    expect(src).toContain('buildShareUrl({ kind: "market", postId: post.id })');
+    expect(src).not.toContain("shareOrCopyTradeListing");
+    expect(src).not.toContain("navigator.share");
+    expect(buildShareUrl({ kind: "market", postId: "abc-1" })).toMatch(/^https:\/\/[^/]+\/post\/abc-1$/);
   });
 });
 
@@ -114,20 +91,12 @@ describe("CUT G — favorite / report / share surfaces", () => {
     expect(src).toContain("POST_FAVORITE_CHANGED_EVENT");
   });
 
-  it("DETAIL uses ReportReasonModal and shareOrCopyTradeListing", () => {
+  it("DETAIL uses ReportReasonModal and the unified share sheet", () => {
     const src = readRepoFile("components/post/PostDetailView.tsx");
     expect(src).toContain("ReportReasonModal");
-    expect(src).toContain("shareOrCopyTradeListing");
-    expect(src).toContain("canonicalTradeDetailUrl");
+    expect(src).toContain("DibayShareSheet");
     expect(src).not.toContain("createReport");
     expect(src).not.toContain("ui_report_reason_title");
-  });
-
-  it("trade share helper does not import community/store share", () => {
-    const src = readRepoFile("lib/trade/share-trade-listing.ts");
-    expect(src).not.toMatch(/from ["']@\/lib\/community\//);
-    expect(src).not.toMatch(/from ["']@\/lib\/stores\//);
-    expect(src).not.toMatch(/from ["']@\/components\/community\//);
   });
 
   it("reports route keeps existing writer and does not add precheck 409 dedup", () => {

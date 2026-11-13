@@ -121,9 +121,10 @@ describe("S3 적용 — 자동 복사 경로 제거", () => {
     expect(ext).not.toContain("clipboard");
   });
 
-  it("CUT G HARD LOCK — MARKET 상세 공유는 이번 단계에서 바꾸지 않는다", () => {
+  it("MARKET 상세 공유도 통합 시트 (Owner 2026-11-14 「CUT G 열고 통합」)", () => {
     const src = read("components/post/PostDetailView.tsx");
-    expect(src).toContain("shareOrCopyTradeListing");
+    expect(src).toContain("DibayShareSheet");
+    expect(src).not.toContain("shareOrCopyTradeListing");
   });
 });
 
