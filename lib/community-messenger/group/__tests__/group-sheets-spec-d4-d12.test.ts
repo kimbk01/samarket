@@ -92,10 +92,11 @@ describe("D11 그룹 만들기 버튼", () => {
 });
 
 describe("D12 서랍 그룹 사진 대체 표시", () => {
-  it("제목 첫 글자 대신 그룹 아이콘(GroupDomainAvatar) 2곳", () => {
+  /** D13(2026-11-13): 설정 카드 56px 사진을 지워 서랍 그룹 사진은 72px 1곳 */
+  it("제목 첫 글자 대신 그룹 아이콘(GroupDomainAvatar) — D13 이후 1곳", () => {
     const src = read(SHEETS);
     expect(src).not.toMatch(/room\.title\.trim\(\)\.slice\(0, 1\)/);
     expect(src).not.toMatch(/privateGroupTitle\.trim\(\)\.slice\(0, 1\)/);
-    expect(src.match(/<GroupDomainAvatar\b/g)).toHaveLength(2);
+    expect(src.match(/<GroupDomainAvatar\b/g)).toHaveLength(1);
   });
 });
