@@ -1,6 +1,7 @@
 /**
  * 채팅 Admin R1 — 도메인 동일 데이터 연동 문구.
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
 export const adminChatR1BMessages = {
   ko: {
     admin_chat_r1b_messenger_room_id: "사용자 채팅방 ID",
@@ -32,8 +33,8 @@ export const adminChatR1BMessages = {
     admin_chat_r1b_order_summary_line: "주문번호 {orderNo} · 품목 {count}개",
     admin_chat_r1b_domain_label: "채팅 유형",
     admin_chat_r1b_domain_trade: "거래 채팅",
-    admin_chat_r1b_domain_general_direct: "메신저 1:1",
-    admin_chat_r1b_domain_group: "메신저 그룹",
+    admin_chat_r1b_domain_general_direct: `${B.LETARING} 1:1`,
+    admin_chat_r1b_domain_group: `${B.LETARING} 그룹`,
     admin_chat_r1b_domain_unknown: "확인 불가",
     admin_chat_r1b_link_order: "주문 상세",
     admin_chat_r1b_link_order_chat: "주문 채팅 보기",
@@ -73,8 +74,8 @@ export const adminChatR1BMessages = {
     admin_chat_r1b_order_summary_line: "Order {orderNo} · {count} item(s)",
     admin_chat_r1b_domain_label: "Chat type",
     admin_chat_r1b_domain_trade: "Trade chat",
-    admin_chat_r1b_domain_general_direct: "Messenger 1:1",
-    admin_chat_r1b_domain_group: "Messenger group",
+    admin_chat_r1b_domain_general_direct: `${B.LETARING} 1:1`,
+    admin_chat_r1b_domain_group: `${B.LETARING} group`,
     admin_chat_r1b_domain_unknown: "Unknown",
     admin_chat_r1b_link_order: "Order detail",
     admin_chat_r1b_link_order_chat: "Order chat",

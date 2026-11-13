@@ -11,6 +11,8 @@
  * J-AMD-5: Common-menu restructure (Owner-approved 2026-10-20, design v4 O-1..O-3; menu implemented).
  */
 
+import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
+
 export const ADMIN_REAL_OPERATION_CUT_J_LOCK_ID =
   "dibay-admin-real-operation-cut-j-ia-separation-hard-lock" as const;
 
@@ -136,7 +138,7 @@ export const CUT_J_J_AMD_3_DELIVERY_TREE = [
     key: "delivery-section-home-layout",
     children: [
       "delivery-screens",
-      /** 배달 메뉴 구성 (2026-10-30 Owner 승인 v6) — 고객 메뉴 「메뉴 관리」 단독 화면 */
+      /** (2026-10-30 Owner 승인 v6) — 고객 메뉴 「메뉴 관리」 단독 화면 */
       "delivery-menus",
       "stores-home-shelves",
       "stores-industries-management",
@@ -271,7 +273,7 @@ export const CUT_J_J_AMD_5_SOURCE = "docs/admin/dibay-admin-unified-operations-d
 export const CUT_J_J_AMD_5_WORKSPACE_LABELS = [
   { key: "dashboard", titleKey: "admin_menu_home", ko: "운영 홈" },
   { key: "members", titleKey: "admin_menu_members", ko: "회원·권한" },
-  { key: "delivery", titleKey: "admin_menu_delivery", ko: "배달·매장" },
+  { key: "delivery", titleKey: "admin_menu_delivery", ko: B.DIPICK },
   { key: "finance", titleKey: "admin_menu_finance", ko: "결제·정산" },
   { key: "ads", titleKey: "admin_menu_ads", ko: "광고·배너" },
   { key: "promotion", titleKey: "admin_menu_promotion", ko: "플랫폼 운영" },

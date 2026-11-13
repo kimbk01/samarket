@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-13 07:16 PHT",
+ "generatedAtPht": "2026-11-13 08:25 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -429,6 +429,7 @@
    "lib/community-feed/banned-word-match.ts": 25,
    "lib/community-feed/list-community-posts-for-user.ts": 1,
    "lib/community-feed/queries.ts": 1,
+   "lib/community-feed/topic-feed-skin.ts": 5,
    "lib/community-messenger/call-authority/call-missed-notification-authority.ts": 5,
    "lib/community-messenger/call-browser-notification.ts": 3,
    "lib/community-messenger/call-media-stack.ts": 1,
@@ -755,7 +756,7 @@
    "lib/trade/trade-chat-call-policy.ts": 3,
    "lib/trade/trade-lifecycle-policy.ts": 8,
    "lib/trade/trade-lightweight-goals.ts": 4,
-   "lib/trust/battery-policy-reference.ts": 1,
+   "lib/trust/battery-policy-reference.ts": 3,
    "lib/trust/trust-score-core.ts": 6,
    "lib/ui/design-system-hard-lock.ts": 1,
    "lib/usage/usage-ops-db.ts": 1,

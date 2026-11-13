@@ -1,5 +1,5 @@
 /**
- * Friend List read path — viewer-local contact only (one-way contact).
+ * Friend List read path — viewer-local contact only (unilateral).
  * LOCK: docs/community-messenger/friend-contact-ssot-lock.md
  */
 

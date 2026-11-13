@@ -72,7 +72,7 @@ export function buildLocalizedDefaultDeliveryFabConfig(
       visible: true,
       label: t("store_delivery_fab_home"),
       href: "/stores",
-      icon: "home",
+      icon: "stores",
     },
   ];
   return { enabled: true, items };

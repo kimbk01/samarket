@@ -1,3 +1,4 @@
+import { DIBAY_SERVICE_BRAND } from "@/lib/brand/dibay-service-brand";
 import { APP_PRODUCT_DISPLAY_NAME } from "@/lib/brand/app-display-name";
 import {
   DIBAY_APP_ICON_180_PATH,
@@ -22,7 +23,7 @@ export function buildDibayWebAppManifest() {
      * 한 번 출시한 뒤에는 바꾸지 않는다 (바꾸면 다른 앱으로 인식된다).
      */
     id: "/",
-    description: "필리핀 거주 한국인을 위한 중고거래·커뮤니티·스토어·메신저",
+    description: `필리핀 거주 한국인을 위한 ${DIBAY_SERVICE_BRAND.MARKET}·${DIBAY_SERVICE_BRAND.LOUNGE}·${DIBAY_SERVICE_BRAND.DIPICK}·${DIBAY_SERVICE_BRAND.LETARING}`,
     start_url: "/",
     scope: "/",
     display: "standalone" as const,

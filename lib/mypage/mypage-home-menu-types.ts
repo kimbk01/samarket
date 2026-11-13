@@ -3,6 +3,10 @@ import type { MypageSummaryCountKey } from "@/lib/mypage/mypage-summary-types";
 
 /** Lucide icon ids used on mypage home menu rows */
 export type MypageHomeMenuIconId =
+  /** 서비스 브랜드 대표 아이콘 (Owner 2026-11-13 · `lib/brand/dibay-service-brand.ts`) */
+  | "brand-market"
+  | "brand-lounge"
+  | "brand-dipick"
   | "package"
   | "heart"
   | "receipt-text"

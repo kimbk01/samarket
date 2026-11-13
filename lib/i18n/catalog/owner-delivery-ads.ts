@@ -1,4 +1,6 @@
 /** CUT C — Owner Delivery Store Sponsored ads UI copy (ko/en) */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const ownerDeliveryAdsMessages = {
   ko: {
     owner_delivery_ads_hub_title: "광고 관리",
@@ -28,18 +30,18 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_hub_cta_manage_active: "광고 관리",
     owner_ads_hub_cta_resume: "광고 다시 시작",
     owner_ads_hub_cta_pay: "Cash로 결제",
-    owner_ads_launch_home_store_title: "배달 홈 매장 광고",
+    owner_ads_launch_home_store_title: `${B.DIPICK} 홈 매장 광고`,
     owner_ads_launch_home_store_help:
-      "배달 홈의 매장 목록 사이에서 내 매장이 광고로 노출됩니다.",
+      `${B.DIPICK} 홈의 매장 목록 사이에서 내 매장이 광고로 노출됩니다.`,
     owner_ads_launch_category_store_title: "업종 매장 광고",
     owner_ads_launch_category_store_help:
       "내 매장의 실제 업종 목록에서 광고로 노출됩니다. 다른 업종에는 노출되지 않습니다.",
     owner_ads_launch_home_plus_category_title: "홈 + 업종 매장 광고",
     owner_ads_launch_home_plus_category_help:
-      "배달 홈과 내 업종 목록 모두에 광고로 노출됩니다.",
-    owner_ads_launch_home_hero_title: "배달 홈 상단 배너",
+      `${B.DIPICK} 홈과 내 업종 목록 모두에 광고로 노출됩니다.`,
+    owner_ads_launch_home_hero_title: `${B.DIPICK} 홈 상단 배너`,
     owner_ads_launch_home_hero_help:
-      "배달 홈 상단에서 여러 배너가 슬라이드로 노출됩니다.",
+      `${B.DIPICK} 홈 상단에서 여러 배너가 슬라이드로 노출됩니다.`,
     owner_ads_launch_search_top_title: "검색 결과 상단 배너",
     owner_ads_launch_search_top_help:
       "검색 결과가 있을 때 매장 목록 위에 배너가 표시됩니다.",
@@ -160,11 +162,11 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_create_banner_cta: "배너 광고 만들기",
     owner_ads_product_entry_title: "어떤 광고를 만들까요?",
     owner_ads_product_store_sponsored_desc:
-      "배달 홈 또는 업종별 매장 목록에 내 매장을 광고로 노출합니다.",
+      `${B.DIPICK} 홈 또는 업종별 매장 목록에 내 매장을 광고로 노출합니다.`,
     owner_ads_product_store_sponsored_shape: "고객에게 보이는 형태: 기존 매장 카드 + 「광고」 표시",
     owner_ads_product_store_sponsored_placements: "노출 가능: 배달 홈 · 업종별 매장 목록",
     owner_ads_product_banner_desc:
-      "배달 홈 상단 또는 검색 결과 상단에 배너로 노출합니다. 배너 이미지는 관리자가 제작·설정합니다.",
+      `${B.DIPICK} 홈 상단 또는 검색 결과 상단에 배너로 노출합니다. 배너 이미지는 관리자가 제작·설정합니다.`,
     owner_ads_product_banner_shape: "고객에게 보이는 형태: 이미지 배너",
     owner_ads_product_banner_placements: "노출 가능: 배달 홈 상단 · 검색 결과 상단",
     owner_ads_business_cash_title: "광고 결제",
@@ -287,13 +289,13 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_ra_generic_title: "현재 상태",
     owner_ads_ra_generic_body: "자세한 내용은 아래 정보를 확인해 주세요.",
     owner_ads_empty_title: "아직 신청한 광고가 없습니다.",
-    owner_ads_empty_body: "DIBAY 배달에서 내 매장을 더 많은 고객에게 알려보세요.",
+    owner_ads_empty_body: `${B.DIPICK}에서 내 매장을 더 많은 고객에게 알려보세요.`,
     owner_ads_product_store_sponsored: "매장 홍보",
     owner_ads_product_banner: "배너 광고",
-    owner_ads_inventory_home_hero: "배달 홈 상단 배너",
+    owner_ads_inventory_home_hero: `${B.DIPICK} 홈 상단 배너`,
     owner_ads_inventory_search_top: "검색 결과 상단 배너",
     owner_ads_inventory_unknown: "기타 지면",
-    owner_ads_inventory_home: "배달 홈 매장 광고",
+    owner_ads_inventory_home: `${B.DIPICK} 홈 매장 광고`,
     owner_ads_inventory_category: "업종 매장 광고",
     owner_ads_banner_create_title: "배너 광고 만들기",
     owner_ads_banner_create_desc: "배달 홈 히어로 또는 검색 결과 상단에 표시될 배너를 신청합니다.",
@@ -478,18 +480,18 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_hub_cta_manage_active: "Manage ad",
     owner_ads_hub_cta_resume: "Resume ad",
     owner_ads_hub_cta_pay: "Pay with Cash",
-    owner_ads_launch_home_store_title: "Delivery home store ads",
+    owner_ads_launch_home_store_title: `${B.DIPICK} home store ads`,
     owner_ads_launch_home_store_help:
-      "Your store appears as an ad between stores on Delivery Home.",
+      `Your store appears as an ad between stores on ${B.DIPICK} home.`,
     owner_ads_launch_category_store_title: "Category store ads",
     owner_ads_launch_category_store_help:
       "Shown as an ad in your store’s real category list — not other categories.",
     owner_ads_launch_home_plus_category_title: "Home + category store ads",
     owner_ads_launch_home_plus_category_help:
-      "Shown as an ad on Delivery Home and in your category list.",
-    owner_ads_launch_home_hero_title: "Delivery home top banner",
+      `Shown as an ad on ${B.DIPICK} home and in your category list.`,
+    owner_ads_launch_home_hero_title: `${B.DIPICK} home top banner`,
     owner_ads_launch_home_hero_help:
-      "Appears in the Delivery Home top banner carousel.",
+      `Appears in the ${B.DIPICK} home top banner carousel.`,
     owner_ads_launch_search_top_title: "Search results top banner",
     owner_ads_launch_search_top_help:
       "Shown above store results when a search has matches.",
@@ -611,11 +613,11 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_create_banner_cta: "Create banner ad",
     owner_ads_product_entry_title: "Which ad do you want to create?",
     owner_ads_product_store_sponsored_desc:
-      "Promote your store in Delivery Home or category store lists.",
+      `Promote your store in ${B.DIPICK} home or category store lists.`,
     owner_ads_product_store_sponsored_shape: "Customer view: existing store card + “Ad” label",
     owner_ads_product_store_sponsored_placements: "Placements: Delivery home · Category store lists",
     owner_ads_product_banner_desc:
-      "Show a banner on Delivery Home top or search results top. Admin produces the banner image.",
+      `Show a banner on ${B.DIPICK} home top or search results top. Admin produces the banner image.`,
     owner_ads_product_banner_shape: "Customer view: image banner",
     owner_ads_product_banner_placements: "Placements: Delivery home top · Search results top",
     owner_ads_business_cash_title: "Ad payment",
@@ -738,13 +740,13 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_ra_generic_title: "Current status",
     owner_ads_ra_generic_body: "See the details below.",
     owner_ads_empty_title: "No ads yet",
-    owner_ads_empty_body: "Help more customers find your store on DIBAY Delivery.",
+    owner_ads_empty_body: `Help more customers find your store on ${B.DIPICK}.`,
     owner_ads_product_store_sponsored: "Store promotion",
     owner_ads_product_banner: "Banner ad",
-    owner_ads_inventory_home_hero: "Delivery home top banner",
+    owner_ads_inventory_home_hero: `${B.DIPICK} home top banner`,
     owner_ads_inventory_search_top: "Search results top banner",
     owner_ads_inventory_unknown: "Other placement",
-    owner_ads_inventory_home: "Delivery home store ads",
+    owner_ads_inventory_home: `${B.DIPICK} home store ads`,
     owner_ads_inventory_category: "Category store ads",
     owner_ads_banner_create_title: "Create banner ad",
     owner_ads_banner_create_desc: "Apply for a banner on Delivery home top or search results top.",

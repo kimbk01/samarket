@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 디바이 앱 세션 종료 (카카오·배민·당근형 모바일 정책)
+ * 디바이 앱 세션 종료 (카카오 모바일 정책)
  * @see docs/dibay-session-policy.md
  */
 

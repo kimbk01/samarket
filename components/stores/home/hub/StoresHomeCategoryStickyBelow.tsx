@@ -56,7 +56,7 @@ function StoresHomePrimaryCategoryRail({
   }, [hasPrimarySelection]);
 
   const tabs = primaries.map((p, index) => {
-    /** WP3 (C2) — 홈에는 선택 상태가 없다 (참고 앱 홈과 같음). 아이콘을 누르면 바로 메뉴 페이지로 이동 */
+    /** WP3 (C2) — 홈에는 선택 상태가 없다. 아이콘을 누르면 바로 메뉴 페이지로 이동 */
     const on = hasPrimarySelection && p.slug === activeSlug;
     const uploaded = storeTaxonomyUploadedImageUrl(p.image_url);
     const icon = uploaded ? resolveStoreTaxonomyImageSrc(uploaded, null) : null;

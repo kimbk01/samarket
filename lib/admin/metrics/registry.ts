@@ -30,6 +30,7 @@ import {
 import type { AdminDashboardPeriodRange } from "@/lib/admin/metrics/dashboard-period";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 
 // ── 탭 ──────────────────────────────────────────────────────────────────────
@@ -775,20 +776,20 @@ export const ADMIN_DASHBOARD_BAND: readonly AdminDashboardBandTileDef[] = [
   },
   {
     id: "trade",
-    labelKo: "거래",
-    labelEn: "Trade",
-    shortKo: "거래",
-    shortEn: "Trade",
+    labelKo: B.MARKET,
+    labelEn: B.MARKET,
+    shortKo: B.MARKET,
+    shortEn: B.MARKET,
     primaryMetricId: "trade.posts.selling",
     secondaryMetricId: "trade.posts.sold",
     tab: "community_trade",
   },
   {
     id: "delivery",
-    labelKo: "배달 주문",
-    labelEn: "Delivery",
-    shortKo: "배달",
-    shortEn: "Delivery",
+    labelKo: `${B.DIPICK} 주문`,
+    labelEn: `${B.DIPICK} orders`,
+    shortKo: B.DIPICK,
+    shortEn: B.DIPICK,
     primaryMetricId: "orders.all",
     secondaryMetricId: "orders.in_progress",
     tab: "delivery",
@@ -897,8 +898,8 @@ export const ADMIN_DASHBOARD_TRENDS: Readonly<Record<AdminDashboardTrendId, Admi
     labelEn: "Reports received",
     unit: "count",
     series: [
-      { key: "trade", labelKo: "거래", labelEn: "Trade", sourceDetail: "reports.created_at" },
-      { key: "community", labelKo: "커뮤니티", labelEn: "Community", sourceDetail: "community_reports.created_at" },
+      { key: "trade", labelKo: B.MARKET, labelEn: B.MARKET, sourceDetail: "reports.created_at" },
+      { key: "community", labelKo: B.LOUNGE, labelEn: B.LOUNGE, sourceDetail: "community_reports.created_at" },
     ],
     href: "/admin/reports",
   },
@@ -951,8 +952,8 @@ export const ADMIN_DASHBOARD_TRENDS: Readonly<Record<AdminDashboardTrendId, Admi
     series: [
       {
         key: "messenger",
-        labelKo: "메신저",
-        labelEn: "Messenger",
+        labelKo: B.LETARING,
+        labelEn: B.LETARING,
         sourceDetail: "community_messenger_reports.created_at",
       },
       {
@@ -1017,10 +1018,10 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
     ],
     trend: "signups_orders_daily",
     shortcuts: [
-      { id: "community", labelKo: "커뮤니티 현황", labelEn: "Community", href: "/admin/community" },
-      { id: "trade", labelKo: "거래 현황", labelEn: "Trade", href: "/admin/trade" },
-      { id: "delivery", labelKo: "배달 현황", labelEn: "Delivery", href: "/admin/delivery" },
-      { id: "messenger", labelKo: "채팅 현황", labelEn: "Chat", href: "/admin/messenger" },
+      { labelKo: `${B.LOUNGE} 현황`, id: "community", labelEn: B.LOUNGE, href: "/admin/community" },
+      { labelKo: `${B.MARKET} 현황`, id: "trade", labelEn: B.MARKET, href: "/admin/trade" },
+      { labelKo: `${B.DIPICK} 현황`, id: "delivery", labelEn: B.DIPICK, href: "/admin/delivery" },
+      { labelKo: `${B.LETARING} 현황`, id: "messenger", labelEn: B.LETARING, href: "/admin/messenger" },
       { id: "finance", labelKo: "재무 현황", labelEn: "Finance", href: "/admin/finance#action-required" },
       { id: "support", labelKo: "고객지원", labelEn: "Support", href: "/admin/support?filter=ACTIONABLE#action-required" },
     ],
@@ -1052,10 +1053,10 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
   },
   {
     id: "community_trade",
-    labelKo: "커뮤니티·거래",
-    labelEn: "Community · Trade",
-    shortKo: "커뮤·거래",
-    shortEn: "Comm·Trade",
+    labelKo: `${B.LOUNGE}·${B.MARKET}`,
+    labelEn: `${B.LOUNGE} · ${B.MARKET}`,
+    shortKo: `${B.LOUNGE}·${B.MARKET}`,
+    shortEn: `${B.LOUNGE}·${B.MARKET}`,
     metricIds: [
       "community.posts_active.member",
       "trade.posts.selling",
@@ -1079,10 +1080,10 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
   },
   {
     id: "chat",
-    labelKo: "채팅",
-    labelEn: "Chat",
-    shortKo: "채팅",
-    shortEn: "Chat",
+    labelKo: B.LETARING,
+    labelEn: B.LETARING,
+    shortKo: B.LETARING,
+    shortEn: B.LETARING,
     // 채팅 대시보드(/admin/messenger)와 같은 지표 id·같은 로더. 통화·방·신고 목록 = 채팅 관리 권한(`chats`).
     metricIds: [
       "chat.reports_open.messenger",
@@ -1094,7 +1095,7 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
     ],
     trend: "chat_reports_daily",
     shortcuts: [
-      { id: "messenger", labelKo: "채팅 대시보드", labelEn: "Chat dashboard", href: "/admin/messenger" },
+      { labelKo: `${B.LETARING} 대시보드`, id: "messenger", labelEn: `${B.LETARING} dashboard`, href: "/admin/messenger" },
       { id: "reported", labelKo: "채팅 신고", labelEn: "Chat reports", href: "/admin/chats/reported?status=open" },
       { id: "general", labelKo: "1:1 채팅", labelEn: "1:1 chats", href: "/admin/chats/general" },
       { id: "group", labelKo: "그룹 채팅", labelEn: "Group chats", href: "/admin/chats/group" },
@@ -1105,10 +1106,10 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
   },
   {
     id: "delivery",
-    labelKo: "배달·매장",
-    labelEn: "Delivery · Stores",
-    shortKo: "배달",
-    shortEn: "Delivery",
+    labelKo: B.DIPICK,
+    labelEn: B.DIPICK,
+    shortKo: B.DIPICK,
+    shortEn: B.DIPICK,
     metricIds: [
       "orders.all",
       "orders.in_progress",
@@ -1124,7 +1125,7 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
       { id: "alerts", labelKo: "배달 경고", labelEn: "Delivery alerts", href: "/admin/delivery-alerts" },
       { id: "applications", labelKo: "입점 심사", labelEn: "Applications", href: "/admin/stores?status=actionable" },
       { id: "business", labelKo: "매장 운영", labelEn: "Stores", href: "/admin/business" },
-      { id: "dashboard", labelKo: "배달 대시보드", labelEn: "Delivery dashboard", href: "/admin/delivery" },
+      { labelKo: `${B.DIPICK} 대시보드`, id: "dashboard", labelEn: `${B.DIPICK} dashboard`, href: "/admin/delivery" },
     ],
     pending: {
       kind: "categories",
@@ -1169,7 +1170,7 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
     shortcuts: [
       { id: "workspace", labelKo: "광고 운영", labelEn: "Advertising", href: "/admin/advertising" },
       { id: "applications", labelKo: "광고 신청 심사", labelEn: "Ad applications", href: "/admin/advertising/applications" },
-      { id: "delivery_ads", labelKo: "배달 광고", labelEn: "Delivery ads", href: `${DELIVERY_AD_ADMIN_ROUTES.hub}?view=actionable` },
+      { labelKo: `${B.DIPICK} 광고`, id: "delivery_ads", labelEn: `${B.DIPICK} ads`, href: `${DELIVERY_AD_ADMIN_ROUTES.hub}?view=actionable` },
       { id: "popup", labelKo: "팝업", labelEn: "Popups", href: "/admin/platform-popup" },
       { id: "events", labelKo: "이벤트", labelEn: "Events", href: "/admin/platform-events" },
     ],

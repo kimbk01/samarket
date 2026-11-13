@@ -1,4 +1,4 @@
--- 배달 메뉴 — 배민 미러링 (설계: docs/audit/delivery-baemin-mirror-design-v6-2026-10-30.html §4·§5·§8)
+-- 배달 메뉴 (설계: docs/audit/delivery-browse-chrome-design-v6-2026-10-30.html §4·§5·§8)
 -- 1단(parent_id null) = 홈 상단 탭 (음식배달·픽업·장보기·쇼핑·선물하기·혜택모아보기). 업종과 무관.
 -- 2단 = 아이콘·메뉴 페이지 탭. 매장은 하나씩 지정(delivery_menu_store_overrides mode='include'), 업종 제한 없음.
 -- 업종(store_categories·store_topics)·수수료는 바꾸지 않는다.
@@ -94,7 +94,7 @@ delete from public.delivery_menus;
 alter table public.delivery_menus drop constraint if exists delivery_menus_mirror_level_chk;
 alter table public.delivery_menus add constraint delivery_menus_mirror_level_chk check (primary_category_id is null);
 
--- ── 3. 상단 탭·메뉴 초기값 (배민 순서) ─────────────────────
+-- ── 3. 상단 탭·메뉴 초기값 ─────────────────────
 insert into public.delivery_menus
   (slug, name_ko, name_en, sort_order, show_on_home, home_sort_order, pickup_only, show_feature, feature_title, feature_bg, feature_link_target)
 values

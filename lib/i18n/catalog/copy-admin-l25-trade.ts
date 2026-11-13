@@ -1,6 +1,7 @@
 /**
  * 어드민 화면 문구 — 언어 SSOT L25(2026-11-08): 검사 규칙이 세지 않던 한국어 문자열(`label:`·`description=`·`<option>` 등)에서 옮긴 문구.
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
 export const copyAdminL25TradeMessages = {
   ko: {
     admin_trade_kit_no_name: "이름 없음",
@@ -296,7 +297,7 @@ export const copyAdminL25TradeMessages = {
     admin_trade_reports_siblings_title: "같은 게시물 다른 신고 ({n}건)",
     admin_trade_reports_history_empty: "처리 기록이 없습니다.",
     admin_trade_reports_prior_empty: "기존 경고·제한이 없습니다.",
-    admin_trade_reports_domain_community: "커뮤니티",
+    admin_trade_reports_domain_community: B.LOUNGE,
     admin_trade_member_tab_listings: "판매글",
     admin_trade_member_tab_buyer: "구매 채팅",
     admin_trade_member_tab_reports: "신고 받은 내역",
@@ -688,7 +689,7 @@ export const copyAdminL25TradeMessages = {
     admin_trade_reports_siblings_title: "Other reports on this listing ({n})",
     admin_trade_reports_history_empty: "No handling history.",
     admin_trade_reports_prior_empty: "No previous warnings or restrictions.",
-    admin_trade_reports_domain_community: "Community",
+    admin_trade_reports_domain_community: B.LOUNGE,
     admin_trade_member_tab_listings: "Listings",
     admin_trade_member_tab_buyer: "Buyer chats",
     admin_trade_member_tab_reports: "Reports received",

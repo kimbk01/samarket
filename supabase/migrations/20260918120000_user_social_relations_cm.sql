@@ -1,4 +1,4 @@
--- CM social graph: 단방향 friend 저장 + blocked (Telegram-style contacts, not approval-based)
+-- CM social graph: 단방향 friend 저장 + blocked (contacts, not approval-based)
 -- community_friend_requests 는 archive only — 앱 코드에서 참조 금지
 
 CREATE TABLE IF NOT EXISTS public.user_social_relations (

@@ -28,7 +28,7 @@
 ## DB
 
 1. Supabase에 `supabase/migrations` 전체 적용 (기존 커뮤니티 v2 이후).
-2. **붙여넣기 한 번에:** `supabase/scripts/paste-dangnae-community-sample.sql` (선행 테이블 검사 후 플래그 + 샘플 시드).
+2. **붙여넣기 한 번에:** `supabase/scripts/paste-community-sample.sql` (선행 테이블 검사 후 플래그 + 샘플 시드).
 3. 또는 마이그레이션 파일 분리 적용:  
    - `20260328100000_dangnae_community_sample_flags.sql`  
    - `20260328110000_dangnae_karrot_sample_seed.sql`  

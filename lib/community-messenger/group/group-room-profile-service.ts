@@ -1,5 +1,6 @@
 import { resolveMemberAvatarStorageOrigin } from "@/lib/profile/member-avatar-url-policy";
 import { GROUP_ROOM_ERROR } from "@/lib/community-messenger/group/group-room-errors";
+import { invalidateRoomBootstrapRouteCacheForRoom } from "@/lib/community-messenger/server/room-bootstrap-route-cache";
 import {
   canEditGroupRoomProfile,
   normalizeGroupRoomProfilePatch,
@@ -103,6 +104,12 @@ export async function updateGroupRoomProfile(input: {
   if (!normalized.ok) return { ok: false, error: normalized.error };
   const updated = await patchGroupRoomProfile(sb, roomId, normalized.patch);
   if (!updated.ok) return { ok: false, error: updated.error ?? GROUP_ROOM_ERROR.UPDATE_FAILED };
+  /**
+   * 재감사 R1(docs/design/group-chat-reaudit-2026-11-13.md §3-1): 저장 직후 이 서버의 방 부트스트랩 캐시(silent_delta 8초 등)를
+   * 비워 옛 사진·제목 응답을 주지 않는다 — 메시지 갱신(`publish-messenger-room-bump`)과 같은 함수.
+   * 메모리 캐시라 저장을 처리한 서버 인스턴스에만 적용되고, CDN(s-maxage·swr) 캐시는 지우지 못한다.
+   */
+  invalidateRoomBootstrapRouteCacheForRoom(roomId);
   await notifyGroupRoomProfileChangedToMembersBestEffort({ roomId, actorUserId: userId });
   return { ok: true };
 }

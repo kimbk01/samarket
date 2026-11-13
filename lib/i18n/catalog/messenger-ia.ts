@@ -1,5 +1,7 @@
 /** Phase 12b: `lib/community-messenger/messenger-ia.ts` UI labels */
 
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const messengerIaMessages = {
 
   ko: {
@@ -42,11 +44,11 @@ export const messengerIaMessages = {
 
     cm_ia_empty_trade:
 
-      "거래로 분류된 대화가 없습니다. 중고 거래채팅에서「SAMessenger에서 이 거래 열기」 또는 스토어 주문 채팅에서「SAMessenger에서 이 주문 열기」로 연결하면 맥락이 붙습니다. 친구 이름만 있는 일반 1:1은 거래 탭에 포함되지 않습니다.",
+      `거래로 분류된 대화가 없습니다. 중고 거래채팅에서「${B.LETARING}에서 이 거래 열기」 또는 스토어 주문 채팅에서「${B.LETARING}에서 이 주문 열기」로 연결하면 맥락이 붙습니다. 친구 이름만 있는 일반 1:1은 거래 탭에 포함되지 않습니다.`,
 
     cm_ia_empty_delivery:
 
-      "배달로 분류된 대화가 없습니다. 배달 주문 채팅에서 메신저로 열면 배달 맥락이 붙은 방만 이 탭에 나타납니다.",
+      `배달로 분류된 대화가 없습니다. 배달 주문 채팅에서 ${B.LETARING}으로 열면 배달 맥락이 붙은 방만 이 탭에 나타납니다.`,
 
     cm_ia_empty_default: "조건에 맞는 대화가 없습니다.",
 
@@ -102,11 +104,11 @@ export const messengerIaMessages = {
 
     cm_ia_empty_trade:
 
-      "No trade conversations yet. Open a trade from used-item chat or a store order chat in SAMessenger to link context. Plain 1:1 friend chats are not listed here.",
+      `No trade conversations yet. Open a trade from used-item chat or a store order chat in ${B.LETARING} to link context. Plain 1:1 friend chats are not listed here.`,
 
     cm_ia_empty_delivery:
 
-      "No delivery conversations yet. Open a store order chat in the messenger to see delivery context here.",
+      `No delivery conversations yet. Open a store order chat in ${B.LETARING} to see delivery context here.`,
 
     cm_ia_empty_default: "No conversations match your filters.",
 

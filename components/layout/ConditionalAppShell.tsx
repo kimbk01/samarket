@@ -349,7 +349,7 @@ export function ConditionalAppShell({
       className={`${
         /** 내정보 주소 흐름 — 로컬 헤더가 이 열 안에 있어 앱 열 폭에 묶이면 태블릿 가로·웹에서 헤더가 좁아진다.
          * 헤더는 기기 폭 기준(설계서 §12), 본문은 페이지가 640px 열을 직접 소유 → 여기선 전체 폭. */
-        /** PC(데스크톱 세로 레일) 메신저 — 본문 열 제한 없이 창 전체(PC 메신저형: 레일 | 목록 | 대화방).
+        /** PC(데스크톱 세로 레일) 메신저 — 본문 열 제한 없이 창 전체(PC형: 레일 | 목록 | 대화방).
          * 목록 칸 폭·768 분할 기준은 메신저 자체 계약 그대로 (docs/audit/messenger-desktop-wide-design-2026-11-07.md M1). */
         f.isMypageAddressFlowPage || (isDesktopSideRail && f.isCommunityMessengerSurface)
           ? "w-full min-w-0"

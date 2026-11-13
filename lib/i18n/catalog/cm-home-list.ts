@@ -127,7 +127,7 @@ export const cmHomeListMessages = {
     cm_svc_gift_certificate_preview: "상품권",
     cm_svc_photos_album_preview: "사진 {count}장",
     cm_svc_notification_preview: "알림",
-    cm_svc_room_desc_direct: "친구와 1:1로 대화하는 메신저 방",
+    cm_svc_room_desc_direct: "친구와 1:1로 대화하는 채팅방",
     cm_svc_room_desc_group: "{count}명이 함께 있는 {visibility} 그룹 채팅",
     cm_svc_room_vis_open: "공개",
     cm_svc_room_vis_private: "비공개",

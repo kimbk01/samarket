@@ -281,7 +281,7 @@ describe("messenger-room-first-unread", () => {
     });
   });
 
-  it("FAB action jumps to first unread once, then latest (reference messenger pagedown)", () => {
+  it("FAB action jumps to first unread once, then latest (pagedown)", () => {
     expect(
       resolveJumpToLatestFabAction({
         messages: msgs,

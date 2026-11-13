@@ -2,6 +2,8 @@
  * 앱 셸 공통 문구(하단 탭·헤더·화면 제목 등 점 표기 키 포함).
  * S5(언어 SSOT, 2026-11-08): `messages/ko.json`·`en.json` 에서 옮김 — 문구 원본은 `lib/i18n/catalog/*.ts` 만 (`docs/i18n-ssot.md` §3).
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const appShellCoreMessages = {
   ko: {
     "admin.title": "관리자",
@@ -19,11 +21,11 @@ export const appShellCoreMessages = {
     "header.settings": "설정",
     "header.trade": "거래",
     "mypage.language_title": "언어 설정",
-    "nav.chat": "채팅",
-    "nav.community": "커뮤니티",
-    "nav.delivery": "배달",
-    "nav.home": "홈",
-    "nav.my": "내정보",
+    "nav.chat": B.LETARING,
+    "nav.community": B.LOUNGE,
+    "nav.delivery": B.DIPICK,
+    "nav.home": B.HOME,
+    "nav.my": B.MY,
     "nav.trade": "거래",
     "trade.title": "거래",
   },
@@ -43,11 +45,11 @@ export const appShellCoreMessages = {
     "header.settings": "Settings",
     "header.trade": "Trade",
     "mypage.language_title": "Language settings",
-    "nav.chat": "Chat",
-    "nav.community": "Community",
-    "nav.delivery": "Food",
-    "nav.home": "Home",
-    "nav.my": "My",
+    "nav.chat": B.LETARING,
+    "nav.community": B.LOUNGE,
+    "nav.delivery": B.DIPICK,
+    "nav.home": B.HOME,
+    "nav.my": B.MY,
     "nav.trade": "Trade",
     "trade.title": "Trade",
   },

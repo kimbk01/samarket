@@ -1,5 +1,5 @@
 /**
- * PHASE 3 — DIBAY HOME composer slot → delivery reference A-VIS pattern mapping (evidence reference).
+ * PHASE 3 — DIBAY HOME composer slot → A-VIS pattern mapping (evidence reference).
  *
  * Runtime presentation defaults: `STORES_HOME_SHELF_PRODUCT_CATALOG` only.
  * This map must not diverge from catalog `defaultPresentation` / component owners.
@@ -86,11 +86,11 @@ export const STORES_HOME_PRESENTATION_MAP: readonly StoresHomePresentationMapRow
     dibayDataAuthority:
       "platform_popular product when qualified else owner_representative; menuAuthority flag",
     avisPattern: "§3.6 Food horizontal (no A-VIS “popular shelf” pattern)",
-    matchEvidence: "Product-card anatomy only — platform_popular is DIBAY authority label, not delivery reference pattern name",
+    matchEvidence: "Product-card anatomy only — platform_popular is DIBAY authority label, not pattern name",
     decision: "PARTIAL",
     patternId: catalogPresentation("slot2Food"),
     componentOwner: catalogOwner("slot2Food"),
-    notes: "popular_menu — Do not label as delivery reference Popular; show platform_popular badge only when menuAuthority proves it.",
+    notes: "popular_menu — Do not label as Popular; show platform_popular badge only when menuAuthority proves it.",
   },
   {
     slot: "newStoreFood",
@@ -100,7 +100,7 @@ export const STORES_HOME_PRESENTATION_MAP: readonly StoresHomePresentationMapRow
     decision: "NO_MATCH",
     patternId: catalogPresentation("newStoreFood"),
     componentOwner: catalogOwner("newStoreFood"),
-    notes: "Preserve store teaser; no invented 신규 delivery reference HOME card.",
+    notes: "Preserve store teaser; no invented 신규 HOME card.",
   },
   {
     slot: "campaignFood",
@@ -116,7 +116,7 @@ export const STORES_HOME_PRESENTATION_MAP: readonly StoresHomePresentationMapRow
     slot: "slot3Food",
     dibayDataAuthority: "deliveryFeeStrikePhp evidence required for shelf admission",
     avisPattern: "§3.6 Food horizontal; discount overlay OBSERVED on some HOME food frames",
-    matchEvidence: "Strike amount is DIBAY fee authority — not delivery reference % discount badge",
+    matchEvidence: "Strike amount is DIBAY fee authority — not % discount badge",
     decision: "PARTIAL",
     patternId: catalogPresentation("slot3Food"),
     componentOwner: catalogOwner("slot3Food"),
@@ -140,7 +140,7 @@ export const STORES_HOME_PRESENTATION_MAP: readonly StoresHomePresentationMapRow
     decision: "NO_MATCH",
     patternId: catalogPresentation("slot5Food"),
     componentOwner: catalogOwner("slot5Food"),
-    notes: "Preserve 2-col grid food card; no delivery reference claim.",
+    notes: "Preserve 2-col grid food card; no claim.",
   },
   {
     slot: "slot6NearbyStores",

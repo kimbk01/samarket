@@ -7,7 +7,7 @@ import {
   shouldApplyPolledInstallStatus,
 } from "@/lib/platform/android-play-update-screen-model";
 
-describe("update screen model — 단계형 전체 화면 단계", () => {
+describe("update screen model — 단계", () => {
   it("percent = floor(bytes / total), unknown total = indeterminate", () => {
     expect(resolveUpdateDownloadPercent(16, 100)).toBe(16);
     expect(resolveUpdateDownloadPercent(999, 1000)).toBe(99);

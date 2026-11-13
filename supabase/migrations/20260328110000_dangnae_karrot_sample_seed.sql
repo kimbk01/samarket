@@ -1,4 +1,4 @@
--- 당근형 동네 피드 샘플 데이터 (idempotent, is_sample_data = true)
+-- 동네 피드 샘플 데이터 (idempotent, is_sample_data = true)
 -- 전제: profiles≥1, community_sections(dongnae)·community_topics(slug) 시드됨
 -- 지역: Philippines / Quezon City / Diliman|Cubao, Makati / Poblacion, Cebu / IT Park
 

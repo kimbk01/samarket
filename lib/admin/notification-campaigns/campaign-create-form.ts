@@ -9,6 +9,7 @@
 import { isCustomerCenterContentPublishedNow } from "@/lib/notices/customer-center-content";
 import { translateBy } from "@/lib/i18n/translate-by";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 
 export type CampaignCreateType = "notice" | "marketing" | "system";
 
@@ -117,11 +118,11 @@ export function isCampaignSourcePickable(row: {
 
 /** 앱 화면 목적지 바로 고르기 — 서버 허용 경로 검사(`resolveApprovedMarketingLandingRoute`)를 통과하는 경로. */
 export const CAMPAIGN_APP_SCREEN_PRESETS: readonly { path: string; ko: string; en: string }[] = [
-  { path: "/", ko: "홈", en: "Home" },
-  { path: "/market", ko: "중고거래", en: "Market" },
-  { path: "/stores", ko: "배달·매장", en: "Stores" },
-  { path: "/philife", ko: "Philife", en: "Philife" },
-  { path: "/mypage", ko: "마이페이지", en: "My page" },
+  { path: "/", ko: B.HOME, en: B.HOME },
+  { path: "/market", ko: B.MARKET, en: B.MARKET },
+  { path: "/stores", ko: B.DIPICK, en: B.DIPICK },
+  { path: "/philife", ko: B.FEED, en: B.FEED },
+  { path: "/mypage", ko: B.MY, en: B.MY },
 ];
 
 const ERROR_COPY: Record<string, { ko: string; en: string }> = {

@@ -18,7 +18,7 @@ export type SupabaseNotificationsRealtimeOptions = {
   /** true면 신규 알림(INSERT) 시 MP3 재생 */
   playSoundOnInsert?: boolean;
   /**
-   * 설정되면 INSERT 시 기본 재생 대신 호출 — 도메인별 기본 스타일 제어용.
+   * 설정되면 INSERT 시 기본 재생 대신 호출 — 도메인별 제어용.
    * false 를 반환하면 무음.
    */
   onInsertSound?: (row: Record<string, unknown>) => boolean | void;

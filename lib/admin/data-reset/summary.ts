@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { countTable } from "@/lib/admin/data-reset/count-helpers";
 import type { DataResetDomainSummaryRow } from "@/lib/admin/data-reset/types";
+import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 
 export async function loadDataResetDomainSummaries(
   sb: SupabaseClient
@@ -27,8 +28,8 @@ export async function loadDataResetDomainSummaries(
   const rows: DataResetDomainSummaryRow[] = [
     {
       domain: "community",
-      labelKo: "커뮤니티",
-      labelEn: "Community",
+      labelKo: B.LOUNGE,
+      labelEn: B.LOUNGE,
       status: "ok",
       primaryCount: communityPosts,
       detailCounts: { posts: communityPosts, comments: communityComments },
@@ -36,8 +37,8 @@ export async function loadDataResetDomainSummaries(
     },
     {
       domain: "market",
-      labelKo: "거래",
-      labelEn: "Market",
+      labelKo: B.MARKET,
+      labelEn: B.MARKET,
       status: "ok",
       primaryCount: marketPosts,
       detailCounts: { listings: marketPosts },
@@ -45,8 +46,8 @@ export async function loadDataResetDomainSummaries(
     },
     {
       domain: "delivery",
-      labelKo: "배달/매장",
-      labelEn: "Delivery / Stores",
+      labelKo: B.DIPICK,
+      labelEn: B.DIPICK,
       status: "partial",
       primaryCount: products,
       detailCounts: { products, stores },
@@ -54,8 +55,8 @@ export async function loadDataResetDomainSummaries(
     },
     {
       domain: "chat",
-      labelKo: "채팅",
-      labelEn: "Chat",
+      labelKo: B.LETARING,
+      labelEn: B.LETARING,
       status: "ok",
       primaryCount: rooms,
       detailCounts: { rooms },

@@ -1,3 +1,5 @@
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const businessMessages = {
   ko: {
     business_phase7_002: "+ 카테고리 추가 관리",
@@ -678,7 +680,7 @@ export const businessMessages = {
     business_phase7_615: "승인 후: 메뉴·상품 등록 → 관리자 {v1} 시 고객에게 판매 노출",
     business_phase7_616: "관리자 보완 요청 사항을 반영한 뒤, 다시 제출·심사를 기다려 주세요.",
     business_phase7_617: "프로필에서 보완하기",
-    business_phase7_618: "내 정보로",
+    business_phase7_618: `${B.MY}로`,
     business_phase7_619: "매장 설정 (공개 페이지 미리보기용)",
     business_phase7_620: "매장이 없습니다",
     business_phase7_621:
@@ -730,7 +732,7 @@ export const businessMessages = {
     business_phase7_665: "심사중",
     business_phase7_666: "운영중",
     business_phase7_667: "일시중지",
-    business_phase7_668: "매장 주소 (내정보 · 주소록)",
+    business_phase7_668: `매장 주소 (${B.MY} · 주소록)`,
     business_phase7_669: "대표 주소",
     business_phase7_670:
       "이 매장에 연결된 주소록 항목이 없습니다. 주소록에서 유형을 「매장」으로 고르고 이 매장을 연결한 뒤, 지도에서 위치를 저장해 주세요.",
@@ -1469,7 +1471,7 @@ export const businessMessages = {
     business_phase7_615: "After approval: add menu/products → customer sales after admin {v1}",
     business_phase7_616: "Apply the admin revision request, then wait for re-review.",
     business_phase7_617: "Update profile",
-    business_phase7_618: "Go to My account",
+    business_phase7_618: `Go to ${B.MY}`,
     business_phase7_619: "Store settings (public page preview)",
     business_phase7_620: "No store yet",
     business_phase7_621:
@@ -1521,7 +1523,7 @@ export const businessMessages = {
     business_phase7_665: "Under review",
     business_phase7_666: "Active",
     business_phase7_667: "Paused",
-    business_phase7_668: "Store address (My page · address book)",
+    business_phase7_668: `Store address (${B.MY} · address book)`,
     business_phase7_669: "Default address",
     business_phase7_670:
       "No address book entry linked to this store. Add a Store-type address, link this store, and save the map pin.",

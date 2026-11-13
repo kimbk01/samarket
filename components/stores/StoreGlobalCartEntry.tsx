@@ -14,7 +14,7 @@ import { sortedNonemptyCommerceBuckets } from "@/lib/stores/store-commerce-cart-
 
 /**
  * `/stores/cart` — 통합 장바구니 진입.
- * 담긴 매장이 있으면 해당 매장 카트로 replace, 없으면 배달 표준 빈 장바구니(하단 5탭과 동일 레일).
+ * 담긴 매장이 있으면 해당 매장 카트로 replace, 없으면 빈 장바구니(하단 5탭과 동일 레일).
  */
 export function StoreGlobalCartEntry() {
   const { t } = useI18n();

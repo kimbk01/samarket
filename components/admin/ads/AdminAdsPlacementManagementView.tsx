@@ -513,7 +513,7 @@ function AdminAdsPlacementManagementViewInner() {
         className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         data-placement-domain="delivery"
       >
-        <h2 className="text-[16px] font-bold text-sam-fg">{t("common_delivery")}</h2>
+        <h2 className="text-[16px] font-bold text-sam-fg">{t("admin_domain_chip_dipick")}</h2>
         {hero ? (
           <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app p-3">
             <div className="flex flex-wrap items-start justify-between gap-2">

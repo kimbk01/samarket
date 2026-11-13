@@ -242,11 +242,11 @@ test.describe("Member Feed Ad Banner UI E2E", () => {
 
     // 2) Form surfaces
     await expect(page.getByText(/광고 영역|Domain/i).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: /거래|Trade/i }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: /커뮤니티|Community/i }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /^MARKET$/ }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /^FEED$/ }).first()).toBeVisible();
 
     // Trade → Category (wait for SSOT categories)
-    await page.getByRole("button", { name: /^거래$|^Trade$/i }).click();
+    await page.getByRole("button", { name: /^MARKET$/ }).click();
     await page.getByRole("button", { name: /^카테고리$|^Category$/i }).click();
     await expect
       .poll(
@@ -516,7 +516,7 @@ test.describe("Member Feed Ad Banner UI E2E", () => {
     // --- Reject path (separate request) ---
     await creditMemberIfNeeded(memberId, 20_000);
     await page.goto(`${origin}/mypage/ads/feed-request`);
-    await page.getByRole("button", { name: /^거래$|^Trade$/i }).click();
+    await page.getByRole("button", { name: /^MARKET$/ }).click();
     await page.getByRole("button", { name: /^카테고리$|^Category$/i }).click();
     const catSelect2 = page.locator("select").filter({ hasText: /중고|선택|Select|차량|부동산/ }).first();
     await expect(catSelect2.locator("option").nth(1)).toBeAttached({ timeout: 20_000 });
@@ -628,7 +628,7 @@ test.describe("Member Feed Ad Banner UI E2E", () => {
       .click();
     await page.getByRole("link", { name: /광고 신청하기|Request a feed ad/i }).click();
 
-    await page.getByRole("button", { name: /^커뮤니티$|^Community$/i }).click();
+    await page.getByRole("button", { name: /^FEED$/ }).click();
     await expect
       .poll(
         async () => {

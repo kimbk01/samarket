@@ -15,6 +15,7 @@ import {
 } from "@/lib/admin/metrics/delivery-metrics";
 import { loadDeliveryMetrics } from "@/lib/admin/metrics/load-delivery-metrics";
 import { translate } from "@/lib/i18n/messages";
+import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 import type {
   AdminDomainActionItem,
   AdminDomainDashboardModel,
@@ -76,8 +77,8 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
 
   return {
     domain: "delivery",
-    titleKo: "배달 대시보드",
-    titleEn: "Delivery dashboard",
+    titleKo: `${B.DIPICK} 대시보드`,
+    titleEn: `${B.DIPICK} dashboard`,
     descriptionKo: translate("ko", "admin_domain_dashboard_delivery_description"),
     descriptionEn: translate("en", "admin_domain_dashboard_delivery_description"),
     currentState: toMetrics(sectionDefs("state"), values),

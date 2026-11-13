@@ -45,6 +45,10 @@ type RoomForegroundLockState = {
    * 「서버에서 방 정보(사진·제목)를 실제로 받았는가」 판정은 이 값만 쓴다 (그룹 결함 D3).
    */
   lastNetworkSuccessAt: number;
+  /** 재감사 R2: 이 방 진입(방 화면 마운트) 시각 */
+  entryStartedAt: number;
+  /** 재감사 R2: 이번 진입에서 그룹 방 정보 확인 요청을 이미 잡은 시각 — 진입당 1회 */
+  entryIdentityClaimedAt: number;
   /** D-12 ③: 캐시 재사용으로 foreground 부트스트랩을 건너뛴 시각(진입 후 상대 읽음 1회 확인용) */
   reuseSkippedAt: number;
 };
@@ -66,6 +70,8 @@ function roomState(roomId: string): RoomForegroundLockState {
       lastFailureAt: null,
       lastSilentSuccessAt: 0,
       lastNetworkSuccessAt: 0,
+      entryStartedAt: 0,
+      entryIdentityClaimedAt: 0,
       reuseSkippedAt: 0,
     };
     stateByRoom.set(id, st);
@@ -439,6 +445,27 @@ export function markCmRoomSilentBootstrapSuccess(roomId: string): void {
   const now = Date.now();
   st.lastSilentSuccessAt = now;
   st.lastNetworkSuccessAt = now;
+}
+
+/** 재감사 R2: 방 화면 마운트 = 진입 시작. 진입당 1회 그룹 방 정보 확인의 기준 시각 */
+export function markCmRoomEntryStarted(roomId: string, nowMs: number = Date.now()): void {
+  roomState(roomId).entryStartedAt = nowMs;
+}
+
+/**
+ * 재감사 R2: 이번 진입에서 그룹 방 정보 확인을 처음 잡는 호출만 true.
+ * 진입 표시가 없으면(방 화면 밖 호출) false.
+ */
+export function claimCmRoomEntryIdentityCheck(roomId: string): boolean {
+  const st = roomState(roomId);
+  if (st.entryStartedAt <= 0) return false;
+  if (st.entryIdentityClaimedAt >= st.entryStartedAt) return false;
+  st.entryIdentityClaimedAt = Math.max(Date.now(), st.entryStartedAt);
+  return true;
+}
+
+export function getCmRoomEntryStartedAt(roomId: string): number {
+  return roomState(roomId).entryStartedAt;
 }
 
 /** `sinceMs` 이후 이 방의 부트스트랩을 네트워크로 받아 적용했는가 (캐시 재사용은 제외) */

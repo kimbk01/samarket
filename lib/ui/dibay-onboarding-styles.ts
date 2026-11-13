@@ -2,7 +2,7 @@ import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { MYPAGE_HOME_OUTLINE_BTN_CLASS } from "@/lib/ui/mypage-home-styles";
 
 /**
- * 인증 온보딩(약관·@아이디) 화면 전용 — 전역 `--sam-*` 토큰만 사용 (P2-15 UX: 브랜드 팔레트 제거).
+ * 인증 온보딩(약관·@아이디) 화면 전용 — 전역 `--sam-*` 토큰만 사용 (P2-15 UX: 팔레트 제거).
  * 파일명은 import 경로 호환을 위해 유지한다.
  */
 export const DIBAY_ONBOARDING_PAGE_BG_CLASS = "min-h-screen bg-sam-app";

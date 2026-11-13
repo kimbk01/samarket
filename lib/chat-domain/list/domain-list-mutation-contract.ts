@@ -1,5 +1,5 @@
 /**
- * Domain list mutation contract — field ownership + violation logs.
+ * list mutation contract — field ownership + violation logs.
  * Surface reducers must call these before applying row patches.
  */
 

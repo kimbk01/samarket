@@ -37,7 +37,7 @@ export const DIBAY_DEVICE_PERSISTENT_STORAGE_KEYS = new Set<string>([
 export const DIBAY_STORAGE_USER_PREFIX = "dibay:";
 
 /**
- * Session phase SSOT — Telegram/Kakao-style persistence.
+ * Session phase SSOT — Kakao-style persistence.
  *
  * - authenticated: Supabase session + app profile confirmed; FCM register allowed.
  * - recovering: boot/cold start/cookie race/network delay; never wipe/deactivate.

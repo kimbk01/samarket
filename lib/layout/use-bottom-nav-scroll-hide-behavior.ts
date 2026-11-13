@@ -69,7 +69,7 @@ export function resolveBottomNavScrollHideEnabled(
   if (pathNoQuery === "/mypage") return false;
   if (isTradeFloatingMenuSurface(pathNoQuery)) return true;
   /**
-   * WP3 — 배달 홈·업종 목록은 배달 표준과 같이 하단 탭 항상 고정 (스크롤 숨김 없음).
+   * WP3 — 배달 홈·업종 목록은 하단 탭 항상 고정 (스크롤 숨김 없음).
    * 그 밖의 `/stores/*`(매장 상세 등)는 기존 그대로.
    */
   if (pathNoQuery === "/stores" || pathNoQuery === "/stores/browse" || pathNoQuery.startsWith("/stores/browse/")) {

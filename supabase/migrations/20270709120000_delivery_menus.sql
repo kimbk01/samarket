@@ -1,6 +1,6 @@
 -- 배달 고객 화면 「메뉴」 — 업종(store_categories·store_topics)과 분리된 화면 구성.
 -- 업종 = 내부 구분·수수료 기준(변경 없음). 메뉴 = 어드민이 만드는 1단(페이지)·2단(탭).
--- 설계: docs/audit/delivery-baemin-master-plan-2026-10-29.md WP1
+-- 설계: docs/audit/delivery-master-plan-2026-10-29.md WP1
 --
 -- 1단: parent_id IS NULL, primary_category_id 필수(1차 업종 1개당 1단 메뉴 1개).
 -- 2단: parent_id = 1단, 연결 2차 업종(delivery_menu_sources) + 매장 개별 추가·제외(delivery_menu_store_overrides).

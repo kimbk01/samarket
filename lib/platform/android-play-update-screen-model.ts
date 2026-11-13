@@ -1,5 +1,5 @@
 /**
- * Full-screen Android update screen (Owner 2026-11-03 · 단계형 전체 화면) — one screen from
+ * Full-screen Android update screen (Owner 2026-11-03) — one screen from
  * 「업데이트」 to install. Pure step model: Play install events → screen step / percent / effect.
  * Design: `docs/audit/android-update-fullscreen-progress-design-2026-11-03.md`.
  */

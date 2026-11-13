@@ -2,12 +2,14 @@
  * 앱 홈(`/`·`/home`) 문구 SSOT — Owner 「이대로 구현」 2026-11-09 (홈 시안 v22).
  * 어드민 「홈 구성」 문구는 `home-hub-admin.ts`.
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const homeHubMessages = {
   ko: {
-    home_menu_trade: "거래",
-    home_menu_stores: "배달",
-    home_menu_philife: "정보교환",
-    home_menu_chat: "채팅",
+    home_menu_trade: B.MARKET,
+    home_menu_stores: B.DIPICK,
+    home_menu_philife: B.FEED,
+    home_menu_chat: B.LETARING,
     home_menu_events: "이벤트",
     home_menu_orders: "주문내역",
     home_menu_points: "포인트",
@@ -69,10 +71,10 @@ export const homeHubMessages = {
     home_retry: "다시 시도",
   },
   en: {
-    home_menu_trade: "Trade",
-    home_menu_stores: "Delivery",
-    home_menu_philife: "Community",
-    home_menu_chat: "Chat",
+    home_menu_trade: B.MARKET,
+    home_menu_stores: B.DIPICK,
+    home_menu_philife: B.FEED,
+    home_menu_chat: B.LETARING,
     home_menu_events: "Events",
     home_menu_orders: "Orders",
     home_menu_points: "Points",

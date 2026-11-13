@@ -41,7 +41,7 @@ export async function getFriendshipPairState(
   };
 }
 
-/** UI·guard·group invite — viewer-local contact only (one-way contact). */
+/** UI·guard·group invite — viewer-local contact only (unilateral). */
 export async function isAcceptedFriendPair(
   sb: SupabaseClient<any> | null,
   userId: string,

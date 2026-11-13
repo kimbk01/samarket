@@ -1,6 +1,6 @@
 /**
  * CUT 5-R — DIBAY canonical popup creative pixel size (36:25).
- * Not an external official pixel claim — DIBAY production SSOT only.
+ * Not an official pixel claim — DIBAY production SSOT only.
  */
 
 import { PLATFORM_POPUP_CREATIVE_ASPECT } from "@/lib/platform-popup/types";

@@ -1,4 +1,5 @@
 /** Phase 11: components/admin/community-messenger */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
 export const adminCommunityMessengerMessages = {
   ko: {
     admin_cm_common_loading: "불러오는 중…",
@@ -75,7 +76,7 @@ export const adminCommunityMessengerMessages = {
     admin_cm_heatmap_no_data: "집계 데이터가 없습니다.",
     admin_cm_force_end_badge: "강제 종료",
     admin_cm_page_overview_title: "커뮤니티 메신저 운영",
-    admin_cm_page_detail_title: "메신저 방 상세",
+    admin_cm_page_detail_title: `${B.LETARING} 방 상세`,
     admin_cm_page_detail_desc: "방 상태 조치, 참여자 확인, 메시지 흐름 점검",
     admin_cm_ghost_audits_title: "Ghost 감사 로그",
     admin_cm_ghost_audits_empty: "Ghost 입장/종료 기록이 없습니다.",
@@ -314,7 +315,7 @@ export const adminCommunityMessengerMessages = {
     admin_cm_heatmap_no_data: "No aggregated data.",
     admin_cm_force_end_badge: "Force end",
     admin_cm_page_overview_title: "Community messenger ops",
-    admin_cm_page_detail_title: "Messenger room detail",
+    admin_cm_page_detail_title: `${B.LETARING} room detail`,
     admin_cm_page_detail_desc: "Room actions, participants, and message flow review",
     admin_cm_ghost_audits_title: "Ghost audit log",
     admin_cm_ghost_audits_empty: "No ghost enter/exit records.",

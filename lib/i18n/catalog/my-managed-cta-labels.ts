@@ -1,4 +1,6 @@
 /** Phase 12b: `lib/my/managed-my-section-ctas.ts` */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const myManagedCtaLabelsMessages = {
   ko: {
     my_cta_trade_hub: "거래 허브",
@@ -14,7 +16,7 @@ export const myManagedCtaLabelsMessages = {
     my_cta_store_hub: "운영 허브",
     my_cta_store_my_orders: "내 주문",
     my_cta_store_apply: "매장 신청",
-    my_cta_account_home: "내정보",
+    my_cta_account_home: `${B.MY}`,
     my_cta_account: "계정",
     my_cta_notifications: "알림",
     my_cta_order_notifications: "주문알림",
@@ -35,7 +37,7 @@ export const myManagedCtaLabelsMessages = {
     my_cta_store_hub: "Owner hub",
     my_cta_store_my_orders: "My orders",
     my_cta_store_apply: "Apply for store",
-    my_cta_account_home: "My page",
+    my_cta_account_home: `${B.MY}`,
     my_cta_account: "Account",
     my_cta_notifications: "Notifications",
     my_cta_order_notifications: "Order alerts",

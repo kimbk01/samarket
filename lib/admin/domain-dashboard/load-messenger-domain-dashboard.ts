@@ -32,6 +32,7 @@ import type {
   AdminDomainMetric,
 } from "@/lib/admin/domain-dashboard/types";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 
 function sectionDefs(...sections: ChatMetricSection[]): ChatMetricDefinition[] {
   return CHAT_METRIC_DEFINITIONS.filter((d) => sections.includes(d.section));
@@ -120,8 +121,8 @@ export async function loadMessengerDomainDashboard(): Promise<AdminDomainDashboa
 
   return {
     domain: "messenger",
-    titleKo: "채팅 대시보드",
-    titleEn: "Chat dashboard",
+    titleKo: `${B.LETARING} 대시보드`,
+    titleEn: `${B.LETARING} dashboard`,
     descriptionKo: catalogPair("admin_domain_dashboard_messenger_description").ko,
     descriptionEn: catalogPair("admin_domain_dashboard_messenger_description").en,
     currentState: toMetrics(sectionDefs("state"), values),

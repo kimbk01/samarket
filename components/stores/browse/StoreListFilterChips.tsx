@@ -133,7 +133,7 @@ function SheetRow({ label, selected, onClick }: { label: string; selected: boole
 }
 
 /**
- * 배달 메뉴 구성 4단 — 필터 칩 6개 + 아래에서 올라오는 시트 (설계 v6 §2).
+ * 4단 — 필터 칩 6개 + 아래에서 올라오는 시트 (설계 v6 §2).
  * ⇅ 정렬 · ⚡ 할인·쿠폰(켜기) · 배달방식 ⌄ · ★ 별점 ⌄ · 최소주문금액 ⌄ · ☰ 기타(항목 있을 때만).
  */
 export function StoreListFilterChips({

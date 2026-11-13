@@ -1,3 +1,4 @@
+import { DIBAY_SERVICE_BRAND } from "@/lib/brand/dibay-service-brand";
 import {
   BOTTOM_NAV_ITEMS,
   type BottomNavItemConfig,
@@ -106,9 +107,10 @@ export function composeDeliveryBottomNavDisplayTabs(ownerStoreId?: string | null
     {
       id: "delivery-home-hub",
       href: "/stores",
-      label: "Delivery home",
-      labelKey: "nav.home" as MessageKey,
-      icon: "home",
+      /** DIPICK 안 「홈」 = DIPICK 서비스 홈 — 앱 HOME(`nav.home`)과 다른 키·아이콘 (Owner 2026-11-13) */
+      label: DIBAY_SERVICE_BRAND.DIPICK,
+      labelKey: "nav_bottom_dipick_home" as MessageKey,
+      icon: "stores",
     },
     {
       id: "delivery-order-chat",
@@ -120,7 +122,7 @@ export function composeDeliveryBottomNavDisplayTabs(ownerStoreId?: string | null
     {
       id: "delivery-my",
       href: "/mypage",
-      label: "My",
+      label: DIBAY_SERVICE_BRAND.MY,
       labelKey: "nav.my",
       icon: "my",
     },

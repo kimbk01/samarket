@@ -22,7 +22,7 @@ interface ImageUploaderProps {
   disabled?: boolean;
   /** 상단·라벨 여백 축소 (거래 글쓰기 등) */
   compact?: boolean;
-  /** — 가로 균일 썸네일 + 대표 오버레이 + 편집 (일반 중고) */
+  /** 가로 균일 썸네일 + 대표 오버레이 + 편집 (일반 중고) */
   variant?: "default" | "trade";
   /** P-4 (I11): 사진 순서 바꾸기·대표 지정 — 거래 글쓰기만 켠다(다른 글쓰기 화면은 기존 그대로) */
   allowReorder?: boolean;

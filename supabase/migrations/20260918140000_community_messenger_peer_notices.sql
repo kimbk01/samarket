@@ -1,4 +1,4 @@
--- CM 1:1 unknown peer notice dismiss — friend/blocked 와 분리 (Telegram-style top bar)
+-- CM 1:1 unknown peer notice dismiss — friend/blocked 와 분리 (top bar)
 
 CREATE TABLE IF NOT EXISTS public.community_messenger_peer_notices (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

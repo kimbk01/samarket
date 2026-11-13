@@ -293,7 +293,7 @@ export function StoresBrowsePrimaryView({
     [primarySlug, taxonomy]
   );
 
-  /** 배달 메뉴 구성 — `primarySlug` 가 메뉴 1단(상단 탭)이면 메뉴 페이지 */
+  /** `primarySlug` 가 메뉴 1단(상단 탭)이면 메뉴 페이지 */
   const menuRoot = useMemo(
     () => findDeliveryMenuRoot(taxonomy?.menus, primarySlug),
     [primarySlug, taxonomy?.menus]
@@ -949,7 +949,7 @@ export function StoresBrowsePrimaryView({
     () => (
       <>
         <StoresBrowsePullRefreshHint />
-        {/* 배달 메뉴 구성 4단 — 흰 줄 58px · 칩 6개 (PTR 슬롯은 위 그대로: 3단 탭 ↔ 칩 사이) */}
+        {/* 4단 — 흰 줄 58px · 칩 6개 (PTR 슬롯은 위 그대로: 3단 탭 ↔ 칩 사이) */}
         <div className="w-full shrink-0 border-b border-[color:#E4E6E8] bg-white">
           <div className="mx-auto w-full min-w-0 max-w-[768px]">
             <StoreListFilterChips

@@ -61,9 +61,9 @@ describe("community_activity presentation is community not system", () => {
     expect(resolveBellPresentationType(event())).toBe("community_activity");
   });
 
-  it("surface badge is 커뮤니티", () => {
+  it("surface badge is LOUNGE (서비스 브랜드 SSOT, Owner 2026-11-13)", () => {
     const row = mapNotificationEventToInboxRow(event());
-    expect(resolveInboxSurfaceBadge(row, "ko")).toBe("커뮤니티");
+    expect(resolveInboxSurfaceBadge(row, "ko")).toBe("LOUNGE");
   });
 
   it("heals poisoned routeUrl to canonical community post", () => {

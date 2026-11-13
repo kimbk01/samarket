@@ -12,7 +12,7 @@ export default function FeatureCategoryPage() {
     <CategoryListLayout slugOrId={slugOrId} expectedType="feature" backHref="/services">
       {(_category) => (
         <>
-          {/* TODO: feature 전용 페이지 - 혜택/간편결제 등 소개 구조 */}
+          {/* TODO: feature 전용 페이지 - 혜택 등 소개 구조 */}
           <CategoryEmptyState
             message="기능 페이지 준비 중이에요."
             subMessage="곧 만나보실 수 있습니다."

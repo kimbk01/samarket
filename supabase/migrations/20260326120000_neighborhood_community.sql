@@ -1,4 +1,4 @@
--- 당근형 동네 커뮤니티: locations, meetings, 관계, community_posts 확장, 모임–채팅 연결용 컬럼
+-- 동네 커뮤니티: locations, meetings, 관계, community_posts 확장, 모임–채팅 연결용 컬럼
 -- 적용 후 neighborhood 피드·글쓰기 API 사용. community_post_likes 는 스펙상 community_likes 와 동일 역할(물리 테이블명 유지).
 
 -- ---------- locations ----------

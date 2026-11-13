@@ -1,4 +1,6 @@
 /** Points UI messages from pre-migration literals (012d3be0^) */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const pointsUiMessages = {
   ko: {
     points_ui_admin_memo: "관리자 메모",
@@ -146,13 +148,13 @@ export const pointsUiMessages = {
     feed_ad_req_subtitle:
       "신청 시 포인트가 보류되고, 관리자 승인 시 최종 사용됩니다. 반려 시 포인트가 반환됩니다.",
     feed_ad_req_domain: "1. 광고 영역",
-    feed_ad_req_trade: "거래",
-    feed_ad_req_community: "커뮤니티",
+    feed_ad_req_trade: B.MARKET,
+    feed_ad_req_community: B.FEED,
     feed_ad_req_place: "2. 광고 위치 / 대상",
-    feed_ad_req_trade_home: "거래 홈",
-    feed_ad_req_community_home: "커뮤니티 홈",
-    feed_ad_req_trade_cat: "거래 카테고리",
-    feed_ad_req_community_topic: "커뮤니티 주제",
+    feed_ad_req_trade_home: `${B.MARKET} 홈`,
+    feed_ad_req_community_home: `${B.FEED} 홈`,
+    feed_ad_req_trade_cat: `${B.MARKET} 카테고리`,
+    feed_ad_req_community_topic: `${B.FEED} 주제`,
     feed_ad_req_trade_cat_feed: "카테고리별 피드",
     feed_ad_req_community_topic_feed: "주제별 피드",
     feed_ad_req_pick_category: "광고할 카테고리 *",
@@ -490,13 +492,13 @@ export const pointsUiMessages = {
     feed_ad_req_subtitle:
       "Point is held on submit and captured on approval. Rejected requests return Point.",
     feed_ad_req_domain: "1. Ad area",
-    feed_ad_req_trade: "Trade",
-    feed_ad_req_community: "Community",
+    feed_ad_req_trade: B.MARKET,
+    feed_ad_req_community: B.FEED,
     feed_ad_req_place: "2. Placement / target",
-    feed_ad_req_trade_home: "Trade home",
-    feed_ad_req_community_home: "Community home",
-    feed_ad_req_trade_cat: "Trade category",
-    feed_ad_req_community_topic: "Community topic",
+    feed_ad_req_trade_home: `${B.MARKET} home`,
+    feed_ad_req_community_home: `${B.FEED} home`,
+    feed_ad_req_trade_cat: `${B.MARKET} category`,
+    feed_ad_req_community_topic: `${B.FEED} topic`,
     feed_ad_req_trade_cat_feed: "Category feed",
     feed_ad_req_community_topic_feed: "Topic feed",
     feed_ad_req_pick_category: "Category *",

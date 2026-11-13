@@ -1,3 +1,5 @@
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const philifeMessages = {
   ko: {
     philife_my_title: "내 커뮤니티 활동",
@@ -22,7 +24,7 @@ export const philifeMessages = {
     philife_addr_empty: "등록된 주소가 없어요.",
     philife_addr_current_badge: "현재",
     philife_addr_changing: "변경중...",
-    philife_messenger_aria: "메신저",
+    philife_messenger_aria: `${B.LETARING}`,
     philife_write_feed_topics_admin: "피드 주제 관리",
     philife_write_topic_select_aria: "주제 선택",
     philife_write_title_label: "제목",
@@ -128,7 +130,7 @@ export const philifeMessages = {
     philife_addr_empty: "No saved address.",
     philife_addr_current_badge: "Current",
     philife_addr_changing: "Changing...",
-    philife_messenger_aria: "Messenger",
+    philife_messenger_aria: `${B.LETARING}`,
     philife_write_feed_topics_admin: "Feed topics",
     philife_write_topic_select_aria: "Choose a topic",
     philife_write_title_label: "Title",

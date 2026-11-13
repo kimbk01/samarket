@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Trade+community checksheet — 구조 lock (거래 앱 수준 회귀 방지).
+ * Trade+community checksheet — 구조 lock (회귀 방지).
  * npm run verify:trade-perf-checksheet-contract
  */
 const { spawnSync } = require("node:child_process");

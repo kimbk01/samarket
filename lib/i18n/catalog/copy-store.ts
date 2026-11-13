@@ -2,6 +2,8 @@
  * 매장·주문(구매자) 화면 문구.
  * S6(언어 SSOT, 2026-11-08): 코드 안 언어 삼항·문구 쌍·인라인 표에서 옮긴 문구 (`docs/i18n-ssot.md` §3).
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const copyStoreMessages = {
   ko: {
     stores_count_items: "{n}건",
@@ -173,9 +175,9 @@ export const copyStoreMessages = {
     stores_primary_category: "1차 업종 정책",
     stores_default: "기본",
     stores_missing_policy: "정책 없음",
-    stores_delivery_home_store_ads: "배달 홈 매장 광고",
+    stores_delivery_home_store_ads: `${B.DIPICK} 홈 매장 광고`,
     stores_category_store_ads: "업종 매장 광고",
-    stores_delivery_home_top_banner: "배달 홈 상단 배너",
+    stores_delivery_home_top_banner: `${B.DIPICK} 홈 상단 배너`,
     stores_search_results_top_banner: "검색 결과 상단 배너",
     stores_commission_owner_cash_refunded_unpaid_cancelled: "Cash 환급·미납 취소",
     stores_commission_owner_cash_refunded: "Cash 환급",
@@ -354,9 +356,9 @@ export const copyStoreMessages = {
     stores_primary_category: "Primary category",
     stores_default: "Default",
     stores_missing_policy: "Missing policy",
-    stores_delivery_home_store_ads: "Delivery home store ads",
+    stores_delivery_home_store_ads: `${B.DIPICK} home store ads`,
     stores_category_store_ads: "Category store ads",
-    stores_delivery_home_top_banner: "Delivery home top banner",
+    stores_delivery_home_top_banner: `${B.DIPICK} home top banner`,
     stores_search_results_top_banner: "Search results top banner",
     stores_commission_owner_cash_refunded_unpaid_cancelled: "Cash refunded · Unpaid cancelled",
     stores_commission_owner_cash_refunded: "Cash refunded",

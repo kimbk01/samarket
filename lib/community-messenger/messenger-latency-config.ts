@@ -160,7 +160,7 @@ export const MESSENGER_INCOMING_CALL_POLL_WHEN_HIDDEN_MS = readPublicEnvMs(
 
 /**
  * Broadcast·푸시·Realtime INSERT 가 같은 초에 겹칠 때 GET 이 여러 번 나가지 않게 — 즉시 1회 + 이(ms) 뒤 최대 1회.
- * (메신저 표준: 힌트 채널 + 단일 스냅샷 동기화에 가깝게)
+ * (카카오류: 힌트 채널 + 단일 스냅샷 동기화에 가깝게)
  */
 export const MESSENGER_INCOMING_CALL_WAKE_TRAIL_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_INCOMING_WAKE_TRAIL_MS",

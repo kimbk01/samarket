@@ -79,7 +79,7 @@ type PublicStore = {
   review_count?: number | null;
 };
 
-/** WP7 — 담기 버튼 안 스피너를 보여 주는 시간(참고 앱 녹화 약 0.6초보다 짧게) */
+/** WP7 — 담기 버튼 안 스피너를 보여 주는 시간(녹화 약 0.6초보다 짧게) */
 const PRODUCT_ADD_SPINNER_MS = 350;
 
 function normalizeStoreSlugSegment(raw: string): string {

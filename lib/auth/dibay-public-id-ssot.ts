@@ -1,5 +1,5 @@
 /**
- * DIBAY @public-id SSOT — 카톡·텔레그램식 단일 정의
+ * DIBAY @public-id SSOT — 단일 정의
  *
  * CONTRACT
  * - UI·gate·검색·메신저 subtitle 은 이 파일만 해석한다.

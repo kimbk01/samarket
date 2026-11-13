@@ -2,6 +2,7 @@
  * 어드민 광고·배너·팝업·이벤트 화면.
  * 언어 SSOT B4(2026-11-08): 언어 삼항·영어 짝 없는 한국어·대체 문구에서 옮긴 문구 (`docs/i18n-ssot.md` §3).
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
 export const copyAdminB4AdsMessages = {
   ko: {
     admin_ads_label: "「{label}」 처리할까요?",
@@ -41,8 +42,8 @@ export const copyAdminB4AdsMessages = {
     admin_ads_all_statuses: "전체 상태",
     admin_ads_approved: "승인",
     admin_ads_paused: "제재/중지",
-    admin_ads_community: "커뮤니티",
-    admin_ads_trade: "거래",
+    admin_ads_community: B.LOUNGE,
+    admin_ads_trade: B.MARKET,
     admin_ads_history_length_section_s_failed: "일부 영역({length}개)의 이력을 불러오지 못했습니다. 표시된 목록이 전체가 아닐 수 있습니다.",
     admin_ads_loaded_product_keys: "로드된 제품군 키",
     admin_ads_no_ad_history: "광고 이력이 없습니다.",
@@ -124,8 +125,8 @@ export const copyAdminB4AdsMessages = {
     admin_ads_moved_back_review_approval_required: " 노출이 멈추고 검토 대기로 돌아갔습니다 — 다시 승인이 필요합니다.",
     admin_ads_edit_period_detail_panel_then: "상세에서 시작·종료 일시를 고친 뒤 「기간 변경」을 누르세요.",
     admin_ads_boost_order_focus: "상위노출 주문 선택",
-    admin_ads_community_2: "커뮤니티",
-    admin_ads_trade_2: "거래",
+    admin_ads_community_2: B.FEED,
+    admin_ads_trade_2: B.MARKET,
     admin_ads_invalid_boost_order_id_no: "잘못된 상위노출 주문 ID입니다. 주문을 선택하지 않았습니다.",
     admin_ads_boost_order_not_found_no: "해당 상위노출 주문을 찾을 수 없습니다. 주문을 선택하지 않았습니다.",
     admin_ads_manage_intro_pull_refresh_ads: "인트로·당겨서 새로고침 광고·마이 배너·이벤트는 아래 카드에서 바로 이동해 관리합니다.",
@@ -374,8 +375,8 @@ export const copyAdminB4AdsMessages = {
     admin_ads_all_statuses: "All statuses",
     admin_ads_approved: "Approved",
     admin_ads_paused: "Paused",
-    admin_ads_community: "Community",
-    admin_ads_trade: "Trade",
+    admin_ads_community: B.LOUNGE,
+    admin_ads_trade: B.MARKET,
     admin_ads_history_length_section_s_failed: "History for {length} section(s) failed to load. The list may be incomplete.",
     admin_ads_loaded_product_keys: "Loaded product keys",
     admin_ads_no_ad_history: "No ad history.",
@@ -457,8 +458,8 @@ export const copyAdminB4AdsMessages = {
     admin_ads_moved_back_review_approval_required: " Moved back to review — approval is required again.",
     admin_ads_edit_period_detail_panel_then: "Edit the period in the detail panel, then press Change period.",
     admin_ads_boost_order_focus: "Boost order focus",
-    admin_ads_community_2: "community",
-    admin_ads_trade_2: "trade",
+    admin_ads_community_2: B.FEED,
+    admin_ads_trade_2: B.MARKET,
     admin_ads_invalid_boost_order_id_no: "Invalid Boost order id. No order selected.",
     admin_ads_boost_order_not_found_no: "Boost order not found. No order selected.",
     admin_ads_manage_intro_pull_refresh_ads: "Manage intro, pull-to-refresh ads, My page banners and events from the cards below.",

@@ -40,7 +40,7 @@ export function mannerBatteryFilledSegments(tier: MannerBatteryTier): number {
 
 /**
  * Spec [6] fill — low tiers = status (not brand); high tiers = DIBAY green HARD LOCK.
- * DO NOT use an orange as brand fill.
+ * DO NOT use product orange as brand fill.
  */
 export const MANNER_BATTERY_TIER_COLORS: Record<MannerBatteryTier, string> = {
   1: "#EF4444",

@@ -25,7 +25,7 @@ export function normalizeAdminDomainScope(raw: unknown): AdminDomainScope | "" {
 }
 
 export function adminDomainScopeLabel(scope: AdminDomainScope | "", ko: boolean): string {
-  if (scope === "delivery") return tx(ko, "common_delivery");
+  if (scope === "delivery") return tx(ko, "admin_domain_chip_dipick");
   if (scope === "trade") return tx(ko, "admin_list_query_trade");
   if (scope === "community") return tx(ko, "admin_list_query_community");
   return tx(ko, "common_all");

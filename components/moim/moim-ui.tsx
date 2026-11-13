@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Users } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { ServiceBrandIcon } from "@/components/brand/ServiceBrandIcon";
 import { DibayToast, type DibayToastTone } from "@/components/ui/dibay-overlay";
 import { DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -112,7 +112,7 @@ export function MoimCover({ url, className }: { url: string | null | undefined; 
   }
   return (
     <span className={`${className} grid place-items-center bg-sam-primary-soft text-sam-primary`} aria-hidden>
-      <Users className="h-1/2 w-1/2 max-h-8 max-w-8" strokeWidth={1.8} />
+      <ServiceBrandIcon brand="CREW" className="h-1/2 w-1/2 max-h-8 max-w-8" />
     </span>
   );
 }

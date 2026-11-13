@@ -1,5 +1,5 @@
 /**
- * WP5 (배달 표준형 2차수 2026-10-29) — 업종 목록 카드 메뉴 사진 가로 줄 순수 로직.
+ * WP5 (2차수 2026-10-29) — 업종 목록 카드 메뉴 사진 가로 줄 순수 로직.
  * 화면: `components/stores/browse/StoreBrowseCategoryRowCard.tsx`
  * 명세: `docs/audit/delivery-master-plan-2026-10-29.md` WP5
  */

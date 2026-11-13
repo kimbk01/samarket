@@ -1,4 +1,6 @@
 /** Static finish pages: 404, terms, privacy, account delete, legacy posts/new hub, shop header */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const uiFinishPagesMessages = {
   ko: {
     ui_finish_not_found_title: "페이지를 찾을 수 없어요.",
@@ -32,7 +34,7 @@ export const uiFinishPagesMessages = {
       "DIBAY(dibaY) 앱 계정을 만든 이용자는 계정과 관련 개인정보의 삭제를 요청할 수 있습니다. 본 페이지는 Google Play 등에서 앱을 설치하지 않은 상태에서도 삭제 요청 방법을 안내합니다.",
     account_delete_public_how_title: "삭제 요청 방법",
     account_delete_public_how_1:
-      "아래 「계정 삭제 계속」을 눌러 DIBAY에 로그인한 뒤, 내정보/설정의 계정 삭제 화면에서 요청을 제출합니다.",
+      `아래 「계정 삭제 계속」을 눌러 DIBAY에 로그인한 뒤, ${B.MY}/설정의 계정 삭제 화면에서 요청을 제출합니다.`,
     account_delete_public_how_2:
       "앱을 사용할 수 없는 경우 im2pact@gmail.com 로 계정 삭제 요청을 보내 주세요. 본인 확인을 위해 가입에 사용한 로그인 방식(Google/Apple/Kakao 등)과 닉네임·이메일을 함께 적어 주세요.",
     account_delete_public_cta_login: "계정 삭제 계속 (로그인)",
@@ -40,7 +42,7 @@ export const uiFinishPagesMessages = {
     account_delete_public_retain_title: "보관될 수 있는 정보",
     account_delete_public_retain_body:
       "거래·주문·신고·정산·감사·법령상 의무 이행에 필요한 기록은 목적 달성까지 보관될 수 있습니다. 자세한 내용은 개인정보처리방침을 확인하세요.",
-    account_delete_public_in_app: "앱 내 경로: 내정보 → 설정 → 계정 삭제",
+    account_delete_public_in_app: `앱 내 경로: ${B.MY} → 설정 → 계정 삭제`,
     ui_finish_posts_new_body:
       "서비스 요청·중고거래 등은 카테고리를 고른 뒤 해당 쓰기 화면에서 등록할 수 있어요.",
     ui_finish_posts_new_cta: "글쓰기 메뉴로 이동",
@@ -79,7 +81,7 @@ export const uiFinishPagesMessages = {
       "Users who created a DIBAY (dibaY) account can request deletion of the account and related personal data. This page explains how to request deletion even without reinstalling the app (for example from Google Play).",
     account_delete_public_how_title: "How to request deletion",
     account_delete_public_how_1:
-      "Tap Continue below, sign in to DIBAY, then submit a request from My / Settings → account deletion.",
+      `Tap Continue below, sign in to DIBAY, then submit a request from ${B.MY} / Settings → account deletion.`,
     account_delete_public_how_2:
       "If you cannot use the app, email im2pact@gmail.com to request account deletion. Include your sign-in method (Google/Apple/Kakao, etc.) and nickname/email for identity verification.",
     account_delete_public_cta_login: "Continue account deletion (sign in)",
@@ -87,7 +89,7 @@ export const uiFinishPagesMessages = {
     account_delete_public_retain_title: "Data that may be retained",
     account_delete_public_retain_body:
       "Records needed for trades, orders, reports, settlement, auditing, or legal duties may be kept until those purposes end. See the Privacy Policy for details.",
-    account_delete_public_in_app: "In the app: My → Settings → Delete account",
+    account_delete_public_in_app: `In the app: ${B.MY} → Settings → Delete account`,
     ui_finish_posts_new_body:
       "For service requests, used items, and more, pick a category and register on the matching write screen.",
     ui_finish_posts_new_cta: "Go to write menu",

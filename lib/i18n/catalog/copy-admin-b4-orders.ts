@@ -2,6 +2,7 @@
  * 어드민 주문·배달·신고 화면.
  * 언어 SSOT B4(2026-11-08): 언어 삼항·영어 짝 없는 한국어·대체 문구에서 옮긴 문구 (`docs/i18n-ssot.md` §3).
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
 export const copyAdminB4OrdersMessages = {
   ko: {
     admin_order_chats_look_up_chats_linked_store: "매장 주문에 연결된 채팅을 조회합니다. 거래 채팅·커뮤니티 메신저는 아래 관련 링크에서 엽니다.",
@@ -9,7 +10,7 @@ export const copyAdminB4OrdersMessages = {
     admin_order_chats_store_orders: "매장 주문",
     admin_order_chats_related_links: "관련 링크",
     admin_order_chats_trade_chats: "거래 채팅",
-    admin_order_chats_community_messenger_ops: "커뮤니티 메신저 운영",
+    admin_order_chats_community_messenger_ops: `${B.LETARING} 운영`,
     admin_delivery_alerts_this_rule: "이 규칙",
     admin_delivery_alerts_auto_actions_run_immediately_without: "승인 없이 자동 조치가 바로 실행되도록 바뀝니다.",
     admin_delivery_alerts_auto_actions_wait_approval: "자동 조치가 승인 후 실행되도록 바뀝니다.",
@@ -353,7 +354,7 @@ export const copyAdminB4OrdersMessages = {
     admin_order_chats_store_orders: "Store orders",
     admin_order_chats_related_links: "Related links",
     admin_order_chats_trade_chats: "Trade chats",
-    admin_order_chats_community_messenger_ops: "Community messenger ops",
+    admin_order_chats_community_messenger_ops: `${B.LETARING} ops`,
     admin_delivery_alerts_this_rule: "this rule",
     admin_delivery_alerts_auto_actions_run_immediately_without: "Auto actions will run immediately without approval.",
     admin_delivery_alerts_auto_actions_wait_approval: "Auto actions will wait for approval.",

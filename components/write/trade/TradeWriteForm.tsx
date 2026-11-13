@@ -468,7 +468,7 @@ function TradeMarketplaceWriteFormInner({
   const photoRestoreGuard = useTradeWriteDraftPhotoRestoreGuard();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  /** — 자주 쓰는 문구 바텀시트 */
+  /** 자주 쓰는 문구 바텀시트 */
   const [frequentPhrasesOpen, setFrequentPhrasesOpen] = useState(false);
   const [descriptionAppend, setDescriptionAppend] = useState("");
   /** 거래 채팅 통화(메신저) — 판매자만 설정, 구매자에게 음성/영상 버튼 노출 */

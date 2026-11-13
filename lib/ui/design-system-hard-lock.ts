@@ -5,12 +5,12 @@
  * Component class strings: `lib/ui/sam-component-classes.ts` → `Sam`.
  * Motion durations: `lib/mypage/mypage-authority-contract.ts` → `MYPAGE_MOTION_MS`.
  *
- * DO NOT: redesign MyPage IA (Slice 3); invent an orange brand; dual token trees.
+ * DO NOT: redesign MyPage IA (Slice 3); invent orange brand; dual token trees.
  */
 
 import { MYPAGE_MOTION_MS } from "@/lib/mypage/mypage-authority-contract";
 
-/** Brand — DIBAY green (brand-class). Orange brand forbidden. */
+/** Brand — DIBAY green. Orange forbidden. */
 export const DESIGN_SYSTEM_BRAND = {
   primaryToken: "--dibay-green",
   primaryHex: "#0B421A",

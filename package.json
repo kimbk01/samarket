@@ -294,6 +294,7 @@
     "os-launch:pull": "node scripts/generate-os-launch-assets.mjs --pull",
     "os-launch:check": "node scripts/generate-os-launch-assets.mjs --check",
     "sql:copy:community-feed": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260321120000_community_feed_daangn.sql",
+    "sql:copy:community-sample": "node scripts/copy-sql-clipboard.mjs supabase/scripts/paste-community-sample.sql",
     "sql:copy:v2": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260327100000_community_engine_v2.sql",
     "stickers:build": "node scripts/build-samarket-stickers.mjs",
     "verify:sticker-assets-contract": "node scripts/verify-sticker-assets-contract.mjs",

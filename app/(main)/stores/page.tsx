@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
     acceptLanguage: h.get("accept-language"),
   });
   return {
-    title: safeTranslate(lang, "store_feed_stores_title"),
+    title: safeTranslate(lang, "store_dipick_meta_title"),
     description: safeTranslate(lang, "store_stores_page_meta_description"),
   };
 }

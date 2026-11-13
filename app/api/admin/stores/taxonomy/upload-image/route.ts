@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
         : kind === "menu" || kind === "menu_feature"
           ? "delivery_menus"
           : "store_subtopics";
-  /** 배달 메뉴 구성 — 상단 탭 대표 카드 그림(`feature_image_url`)도 같은 버킷·교체 규칙 */
+  /** 상단 탭 대표 카드 그림(`feature_image_url`)도 같은 버킷·교체 규칙 */
   const column = kind === "menu" ? "icon_url" : kind === "menu_feature" ? "feature_image_url" : "image_url";
   const { data: prevRow } = await sb.from(table).select(column).eq("id", id).maybeSingle();
   const prevUrl = ((prevRow as Record<string, string | null> | null)?.[column] ?? null) as string | null;
@@ -201,7 +201,7 @@ export async function DELETE(req: NextRequest) {
         : kind === "menu" || kind === "menu_feature"
           ? "delivery_menus"
           : "store_subtopics";
-  /** 배달 메뉴 구성 — 상단 탭 대표 카드 그림(`feature_image_url`)도 같은 버킷·교체 규칙 */
+  /** 상단 탭 대표 카드 그림(`feature_image_url`)도 같은 버킷·교체 규칙 */
   const column = kind === "menu" ? "icon_url" : kind === "menu_feature" ? "feature_image_url" : "image_url";
   const { data: prevRow } = await sb.from(table).select(column).eq("id", id).maybeSingle();
   if (!prevRow) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });

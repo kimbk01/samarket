@@ -18,6 +18,7 @@ import { OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED } from "@/lib/platform-popup/own
 import { PLATFORM_POPUP_CONSUMER_SURFACES } from "@/lib/platform-popup/types";
 import { humanPlacementLabel } from "@/lib/admin/ads-exposure/human-placement-label";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 
 /** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
@@ -231,8 +232,8 @@ export async function loadAdsCommercialControlModel(
   const products: AdsCommercialProductCard[] = [
     {
       productKey: "community_boost",
-      domainKo: "커뮤니티",
-      domainEn: "Community",
+      domainKo: B.LOUNGE,
+      domainEn: B.LOUNGE,
       nameKo: ADS_CANONICAL_PRODUCTS.community_boost.publicNameKo,
       nameEn: ADS_CANONICAL_PRODUCTS.community_boost.publicNameEn,
       applicantKo: "회원",
@@ -251,8 +252,8 @@ export async function loadAdsCommercialControlModel(
       placements: [
         {
           key: "community_top_pin",
-          labelKo: "커뮤니티 > 게시물 상위노출",
-          labelEn: "Community > Post top exposure",
+          labelKo: `${B.FEED} > 게시물 상위노출`,
+          labelEn: `${B.FEED} > Post top exposure`,
         },
       ],
       priceLines: communityBoost.map((p) => ({
@@ -279,8 +280,8 @@ export async function loadAdsCommercialControlModel(
     },
     {
       productKey: "trade_boost",
-      domainKo: "거래",
-      domainEn: "Trade",
+      domainKo: B.MARKET,
+      domainEn: B.MARKET,
       nameKo: ADS_CANONICAL_PRODUCTS.trade_boost.publicNameKo,
       nameEn: ADS_CANONICAL_PRODUCTS.trade_boost.publicNameEn,
       applicantKo: "회원",
@@ -299,8 +300,8 @@ export async function loadAdsCommercialControlModel(
       placements: [
         {
           key: "feed_boost",
-          labelKo: "거래 > 게시물 상위노출",
-          labelEn: "Trade > Post top exposure",
+          labelKo: `${B.MARKET} > 게시물 상위노출`,
+          labelEn: `${B.MARKET} > Post top exposure`,
         },
       ],
       priceLines: tradeBoost.map((p) => ({
@@ -327,8 +328,8 @@ export async function loadAdsCommercialControlModel(
     },
     {
       productKey: "delivery_store_sponsored",
-      domainKo: "배달",
-      domainEn: "Delivery",
+      domainKo: B.DIPICK,
+      domainEn: B.DIPICK,
       nameKo: ADS_CANONICAL_PRODUCTS.delivery_store_sponsored.publicNameKo,
       nameEn: ADS_CANONICAL_PRODUCTS.delivery_store_sponsored.publicNameEn,
       applicantKo: "사장님",
@@ -366,8 +367,8 @@ export async function loadAdsCommercialControlModel(
     },
     {
       productKey: "community_banner",
-      domainKo: "커뮤니티",
-      domainEn: "Community",
+      domainKo: B.LOUNGE,
+      domainEn: B.LOUNGE,
       nameKo: ADS_CANONICAL_PRODUCTS.community_banner.publicNameKo,
       nameEn: ADS_CANONICAL_PRODUCTS.community_banner.publicNameEn,
       applicantKo: "회원 또는 운영자",
@@ -386,13 +387,13 @@ export async function loadAdsCommercialControlModel(
       placements: [
         {
           key: "COMMUNITY_HOME",
-          labelKo: "커뮤니티 홈 피드",
-          labelEn: "Community home feed",
+          labelKo: `${B.FEED} 홈 피드`,
+          labelEn: `${B.FEED} home feed`,
         },
         {
           key: "COMMUNITY_TOPIC",
-          labelKo: "커뮤니티 주제 피드",
-          labelEn: "Community topic feed",
+          labelKo: `${B.FEED} 주제 피드`,
+          labelEn: `${B.FEED} topic feed`,
         },
       ],
       priceLines: feedLines(feedProducts, "community"),
@@ -422,8 +423,8 @@ export async function loadAdsCommercialControlModel(
     },
     {
       productKey: "trade_banner",
-      domainKo: "거래",
-      domainEn: "Trade",
+      domainKo: B.MARKET,
+      domainEn: B.MARKET,
       nameKo: ADS_CANONICAL_PRODUCTS.trade_banner.publicNameKo,
       nameEn: ADS_CANONICAL_PRODUCTS.trade_banner.publicNameEn,
       applicantKo: "회원 또는 운영자",
@@ -442,13 +443,13 @@ export async function loadAdsCommercialControlModel(
       placements: [
         {
           key: "TRADE_HOME",
-          labelKo: "거래 홈 피드",
-          labelEn: "Trade home feed",
+          labelKo: `${B.MARKET} 홈 피드`,
+          labelEn: `${B.MARKET} home feed`,
         },
         {
           key: "TRADE_CATEGORY",
-          labelKo: "거래 카테고리 피드",
-          labelEn: "Trade category feed",
+          labelKo: `${B.MARKET} 카테고리 피드`,
+          labelEn: `${B.MARKET} category feed`,
         },
       ],
       priceLines: feedLines(feedProducts, "trade"),
@@ -478,8 +479,8 @@ export async function loadAdsCommercialControlModel(
     },
     {
       productKey: "delivery_home_banner",
-      domainKo: "배달",
-      domainEn: "Delivery",
+      domainKo: B.DIPICK,
+      domainEn: B.DIPICK,
       nameKo: ADS_CANONICAL_PRODUCTS.delivery_home_banner.publicNameKo,
       nameEn: ADS_CANONICAL_PRODUCTS.delivery_home_banner.publicNameEn,
       applicantKo: "사장님 또는 운영자",
@@ -498,8 +499,8 @@ export async function loadAdsCommercialControlModel(
       placements: [
         {
           key: "STORES_HOME_HERO",
-          labelKo: "배달 홈 상단 배너",
-          labelEn: "Delivery home top banner",
+          labelKo: `${B.DIPICK} 홈 상단 배너`,
+          labelEn: `${B.DIPICK} home top banner`,
         },
       ],
       priceLines: bannerPkgs,
@@ -600,8 +601,8 @@ export async function loadAdsCommercialControlModel(
       },
       {
         key: "STORES_HOME_INLINE_1",
-        labelKo: "배달 홈 중간 배너",
-        labelEn: "Delivery home inline banner",
+        labelKo: `${B.DIPICK} 홈 중간 배너`,
+        labelEn: `${B.DIPICK} home inline banner`,
         stateKo: "미출시",
         stateEn: "Not released",
       },

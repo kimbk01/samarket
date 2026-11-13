@@ -1,5 +1,5 @@
 /**
- * 매장 메뉴 썸네일 + 버튼 — WP6 (배달 표준형 2차수 2026-10-29):
+ * 매장 메뉴 썸네일 + 버튼 — WP6 (2차수 2026-10-29):
  * 흰 원 32px + 그림자 + 진한 기호, 초록 테두리 없음 (토큰 `--delivery-menu-plus-*`).
  * `@layer utilities` 로 preflight transparent 덮음.
  */
