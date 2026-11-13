@@ -24,6 +24,8 @@ final class NativeVoiceCallAgoraEngine: NSObject {
   private var localJoined = false
   private var connectedEmitted = false
   private var callerJoinActive = false
+  /// 마이크 설계 §12 (docs/audit/call-camera-off-plan-2026-11-14.md) — 통화별 음소거 상태.
+  private var micMutedByCall: [String: Bool] = [:]
 
   private override init() {
     super.init()
@@ -157,6 +159,7 @@ final class NativeVoiceCallAgoraEngine: NSObject {
     )
     listener = nil
     activeCallId = nil
+    if let sid, !sid.isEmpty { micMutedByCall.removeValue(forKey: sid) }
     localJoined = false
     connectedEmitted = false
     callerJoinActive = false
@@ -268,7 +271,20 @@ final class NativeVoiceCallAgoraEngine: NSObject {
       sessionId: sid,
       detail: "muted=\(muted) result=\(result)"
     )
+    if result == 0 {
+      lock.lock()
+      micMutedByCall[sid] = muted
+      lock.unlock()
+    }
     return result == 0
+  }
+
+  /// 마이크 설계 §12 — 음성 화면은 다시 만들어져도 이 값을 읽는다. 값이 없으면 음소거 아님.
+  func isMicMuted(callId: String) -> Bool {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    lock.lock()
+    defer { lock.unlock() }
+    return micMutedByCall[sid] ?? false
   }
 
   // MARK: - Private

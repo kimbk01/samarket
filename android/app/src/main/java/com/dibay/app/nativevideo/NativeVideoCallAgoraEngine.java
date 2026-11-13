@@ -158,12 +158,15 @@ public final class NativeVideoCallAgoraEngine {
                 if (rtc == null) return;
                 rtc.enableAudio();
                 // WP-3: engine is reused across calls/lanes — every call starts with the mic unmuted.
-                int unmute = rtc.muteLocalAudioStream(false);
-                NativeVideoCallLog.info("native_video_mic_mute_reset", sid, "result=" + unmute);
+                // 마이크 설계 §12: 새 통화는 보관소 기본값(해제). 발신 연결 중 누른 음소거는 여기서 반영된다.
+                boolean micMutedAtJoin = NativeVideoMediaState.isMicMuted(sid);
+                int unmute = rtc.muteLocalAudioStream(micMutedAtJoin);
+                NativeVideoCallLog.info(
+                    "native_video_mic_mute_reset", sid, "muted=" + micMutedAtJoin + " result=" + unmute);
                 rtc.enableVideo();
                 // 카메라 끄기 설계 §4-2: 엔진은 통화 사이에 재사용 — 매 통화 입장 때 카메라 상태를 명시 적용한다.
                 // 발신자가 연결 전에 끈 값도 보관소에 있으므로 여기서 반영된다.
-                final boolean cameraOnAtJoin = NativeVideoCameraState.isLocalCameraOn(sid);
+                final boolean cameraOnAtJoin = NativeVideoMediaState.isLocalCameraOn(sid);
                 applyLocalCameraBeforeJoin(rtc, sid, cameraOnAtJoin);
                 rtc.setDefaultAudioRoutetoSpeakerphone(true);
                 NativeVideoCallLog.info("audio_route_applied", sid, "speaker=true");
@@ -205,7 +208,7 @@ public final class NativeVideoCallAgoraEngine {
                       () -> {
                         try {
                           if (!NativeVideoCallActivity.isShowing(sid)) return;
-                          if (!NativeVideoCameraState.isLocalCameraOn(sid)) {
+                          if (!NativeVideoMediaState.isLocalCameraOn(sid)) {
                             NativeVideoCallLog.info("local_preview_skipped", sid, "reason=camera_off");
                             return;
                           }
@@ -359,7 +362,7 @@ public final class NativeVideoCallAgoraEngine {
       return LocalReattachResult.SKIPPED_INVALID_CALL_ID;
     }
     // 카메라 끄기 설계 §4-3: 판단 기준은 화면 필드가 아니라 보관소.
-    if (!NativeVideoCameraState.isLocalCameraOn(callId)) {
+    if (!NativeVideoMediaState.isLocalCameraOn(callId)) {
       logLocalReattachSkipped(callId.trim(), "camera_disabled", false, 0);
       return LocalReattachResult.SKIPPED_CAMERA_DISABLED;
     }
@@ -439,11 +442,11 @@ public final class NativeVideoCallAgoraEngine {
 
   /** 카메라 끄기 설계 §4-1 — 화면·PiP 버튼은 이 값만 읽는다. */
   public static boolean isLocalCameraOn(String callId) {
-    return NativeVideoCameraState.isLocalCameraOn(callId);
+    return NativeVideoMediaState.isLocalCameraOn(callId);
   }
 
   public static boolean isRemoteCameraOn(String callId) {
-    return NativeVideoCameraState.isRemoteCameraOn(callId);
+    return NativeVideoMediaState.isRemoteCameraOn(callId);
   }
 
   /**
@@ -455,15 +458,15 @@ public final class NativeVideoCallAgoraEngine {
     if (callId == null || callId.trim().isEmpty()) return true;
     String sid = callId.trim();
     synchronized (LOCK) {
-      boolean previous = NativeVideoCameraState.isLocalCameraOn(sid);
-      NativeVideoCameraState.setLocalCameraOn(sid, on);
+      boolean previous = NativeVideoMediaState.isLocalCameraOn(sid);
+      NativeVideoMediaState.setLocalCameraOn(sid, on);
       if (engine == null || !sid.equals(activeCallId)) {
         NativeVideoCallLog.info("camera_toggle", sid, "enabled=" + on + " applied=deferred_until_join");
         return on;
       }
       boolean ok = on ? applyLocalCameraOn(engine, sid) : applyLocalCameraOff(engine, sid);
       if (!ok) {
-        NativeVideoCameraState.setLocalCameraOn(sid, previous);
+        NativeVideoMediaState.setLocalCameraOn(sid, previous);
         NativeVideoCallLog.warn("camera_apply_failed", sid, "requested=" + on + " restored=" + previous);
         if (previous) applyLocalCameraOn(engine, sid);
         else applyLocalCameraOff(engine, sid);
@@ -514,7 +517,7 @@ public final class NativeVideoCallAgoraEngine {
   private static void reconcileLocalCameraAfterJoin(String sid) {
     synchronized (LOCK) {
       if (engine == null || !sid.equals(activeCallId)) return;
-      boolean on = NativeVideoCameraState.isLocalCameraOn(sid);
+      boolean on = NativeVideoMediaState.isLocalCameraOn(sid);
       if (on == joinPublishedCamera) return;
       NativeVideoCallLog.info("native_video_camera_join_reconcile", sid, "on=" + on);
       if (on) applyLocalCameraOn(engine, sid);
@@ -526,23 +529,41 @@ public final class NativeVideoCallAgoraEngine {
 
   /** 상대 카메라 상태 반영 (설계 §4-5). 값이 바뀔 때만 화면에 알린다. */
   private static void updateRemoteCamera(String sid, int uid, boolean on, String source) {
-    if (!NativeVideoCameraState.setRemoteCameraOn(sid, on)) return;
+    if (!NativeVideoMediaState.setRemoteCameraOn(sid, on)) return;
     NativeVideoCallLog.info("remote_camera_changed", sid, "uid=" + uid + " on=" + on + " source=" + source);
     MAIN.post(() -> NativeVideoCallActivity.onEngineCameraStateChanged(sid));
   }
 
   /** 통화 끝 — 카메라 상태 지움 (다음 통화는 항상 켜짐으로 시작). */
   public static void clearCameraState(String callId) {
-    NativeVideoCameraState.clear(callId);
+    NativeVideoMediaState.clear(callId);
   }
 
-  public static boolean setMicMuted(boolean muted) {
+  public static boolean isMicMuted(String callId) {
+    return NativeVideoMediaState.isMicMuted(callId);
+  }
+
+  /**
+   * 마이크 설계 §12 — 음소거의 유일한 함수. 입장 전(발신 연결 중)이면 상태만 저장하고 입장 때 반영한다.
+   *
+   * @return 적용 후 실제 음소거 상태 (SDK 실패 시 이전 상태)
+   */
+  public static boolean setMicMuted(String callId, boolean muted) {
+    if (callId == null || callId.trim().isEmpty()) return false;
+    String sid = callId.trim();
     synchronized (LOCK) {
-      if (engine == null || activeCallId == null) return false;
+      boolean previous = NativeVideoMediaState.isMicMuted(sid);
+      if (engine == null || !sid.equals(activeCallId)) {
+        NativeVideoMediaState.setMicMuted(sid, muted);
+        NativeVideoCallLog.info(
+            "native_video_mic_mute_applied", sid, "muted=" + muted + " applied=deferred_until_join");
+        return muted;
+      }
       int result = engine.muteLocalAudioStream(muted);
-      NativeVideoCallLog.info(
-          "native_video_mic_mute_applied", activeCallId, "muted=" + muted + " result=" + result);
-      return result == 0;
+      NativeVideoCallLog.info("native_video_mic_mute_applied", sid, "muted=" + muted + " result=" + result);
+      if (result != 0) return previous;
+      NativeVideoMediaState.setMicMuted(sid, muted);
+      return muted;
     }
   }
 
@@ -638,7 +659,7 @@ public final class NativeVideoCallAgoraEngine {
       }
       currentListener = listener;
       sid = activeCallId;
-      if (sid != null) NativeVideoCameraState.clear(sid);
+      if (sid != null) NativeVideoMediaState.clear(sid);
       listener = null;
       activeCallId = null;
       renderContext = null;
@@ -998,7 +1019,7 @@ public final class NativeVideoCallAgoraEngine {
           }
           NativeVideoCallLog.info(
               "agora_remote_video_state", sid, "uid=" + uid + " state=" + state + " reason=" + reason);
-          Boolean cameraOn = NativeVideoCameraState.remoteCameraOnFromVideoState(state, reason);
+          Boolean cameraOn = NativeVideoMediaState.remoteCameraOnFromVideoState(state, reason);
           if (cameraOn != null) updateRemoteCamera(sid, uid, cameraOn, "video_state");
         }
 

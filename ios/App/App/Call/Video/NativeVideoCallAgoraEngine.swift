@@ -45,6 +45,8 @@ final class NativeVideoCallAgoraEngine: NSObject {
   /// 화면(VC)은 PiP 복귀·최소화 복귀·잠금 해제 때 새로 만들어지므로 상태를 여기서만 읽는다. 값이 없으면 켜짐.
   private var localCameraOnByCall: [String: Bool] = [:]
   private var remoteCameraOnByCall: [String: Bool] = [:]
+  /// 마이크 설계 §12 — 통화별 음소거 상태. 값이 없으면 음소거 아님.
+  private var micMutedByCall: [String: Bool] = [:]
   /// 입장 옵션에 넣은 카메라 공개 값 — 입장 성공 시 그사이 바뀐 상태를 맞춘다.
   private var joinPublishedCamera = true
   private var networkQualityHandler: ((_ worst: Int, _ tx: Int, _ rx: Int) -> Void)?
@@ -150,6 +152,7 @@ final class NativeVideoCallAgoraEngine: NSObject {
       remoteUidByCallId.removeValue(forKey: sid)
       localCameraOnByCall.removeValue(forKey: sid)
       remoteCameraOnByCall.removeValue(forKey: sid)
+      micMutedByCall.removeValue(forKey: sid)
     }
     joinPublishedCamera = true
     generation &+= 1
@@ -355,16 +358,32 @@ final class NativeVideoCallAgoraEngine: NSObject {
     attachLocalPreviewNowIfNeeded(callId: sid)
   }
 
-  @discardableResult
-  func setMicMuted(_ muted: Bool) -> Bool {
+  func isMicMuted(callId: String) -> Bool {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
     lock.lock()
-    let sid = activeCallId
-    let rtc = engine
-    lock.unlock()
-    guard let rtc, let sid, !sid.isEmpty else { return false }
+    defer { lock.unlock() }
+    return micMutedByCall[sid] ?? false
+  }
+
+  /// 마이크 설계 §12 — 음소거의 유일한 함수. 입장 전(발신 연결 중)이면 상태만 저장하고 입장 때 반영한다.
+  /// - Returns: 적용 후 실제 음소거 상태 (SDK 실패 시 이전 상태)
+  @discardableResult
+  func setMicMuted(callId: String, muted: Bool) -> Bool {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return false }
+    lock.lock()
+    defer { lock.unlock() }
+    let previous = micMutedByCall[sid] ?? false
+    guard let rtc = engine, activeCallId == sid else {
+      micMutedByCall[sid] = muted
+      NativeVideoCallLog.info("native_video_mic_mute_applied", callId: sid, details: "muted=\(muted) applied=deferred_until_join")
+      return muted
+    }
     let result = rtc.muteLocalAudioStream(muted)
     NativeVideoCallLog.info("native_video_mic_mute_applied", callId: sid, details: "muted=\(muted) result=\(result)")
-    return result == 0
+    guard result == 0 else { return previous }
+    micMutedByCall[sid] = muted
+    return muted
   }
 
   func switchCameraFacing() {
@@ -477,6 +496,10 @@ final class NativeVideoCallAgoraEngine: NSObject {
     do {
       let rtc = try ensureEngine(appId: token.appId)
       rtc.enableAudio()
+      // 마이크 설계 §12: 새 통화는 해제로 시작, 발신 연결 중 누른 음소거는 여기서 반영.
+      let micMutedAtJoin = isMicMuted(callId: sid)
+      let micResult = rtc.muteLocalAudioStream(micMutedAtJoin)
+      NativeVideoCallLog.info("native_video_mic_mute_reset", callId: sid, details: "muted=\(micMutedAtJoin) result=\(micResult)")
       rtc.enableVideo()
       // 카메라 끄기 설계 §4-2: 엔진은 통화 사이에 재사용 — 매 입장 때 카메라 상태를 명시 적용한다.
       // 발신자가 연결 전에 끈 값도 보관소에 있으므로 여기서 반영된다.

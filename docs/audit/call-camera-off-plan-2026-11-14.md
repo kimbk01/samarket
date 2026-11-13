@@ -259,3 +259,20 @@ SSOT §3 는 버튼만 정의한다.
 - **자동 병합 등록 안 함** — 통화 변경 예외. 실기 행렬 PASS 후 Owner 확인을 받고 병합한다.
 - 빌드 번호는 설치용 빌드 때 1회 올린다. **사용자 버전(1.2.x)은 바꾸지 않는다.**
 - 지금 App Store 심사 중인 1.2.2 (34) 에는 들어가지 않는다.
+
+## 12. 추가 — 마이크 음소거 상태도 같은 구조로 (Owner 2026-11-14 「마이크 음소거도 같은 구조로 고쳐라」)
+
+3-2 X1 에서 보고만 한 결함을 카메라와 같은 구조(통화별 단일 보관소 · 단일 적용 함수 · 화면은 읽기만)로 고친다. 별도 PR(통화 원인별 분리).
+
+| 위치 | 지금 | 결함 | 수정 |
+|---|---|---|---|
+| Android 영상 `NativeVideoCallActivity` | `private boolean micMuted = false` (화면 필드) | 화면 재생성(알림 탭 복귀 등) 시 「음소거 아님」으로 돌아감. 엔진은 음소거 유지 → 버튼·PiP 버튼 어긋남 | 상태를 `NativeVideoMediaState`(카메라 보관소를 이름 변경) 통화별 값으로. 화면은 읽기만 |
+| Android 영상 엔진 `setMicMuted(boolean)` | 엔진 없으면(발신 입장 전) false 반환·무시 | 발신 연결 중 누른 음소거가 입장 때 사라짐(입장이 무조건 해제 E:159) | `setMicMuted(callId, muted)` — 입장 전이면 저장만, 입장 때 저장값 적용(새 통화 기본 = 해제 유지) |
+| iOS 영상 `NativeVideoCallViewController.micMuted` | VC 필드 | PiP 복귀·최소화 복귀·잠금 해제마다 VC 새로 생성 → 초기화 | 엔진 `micMutedByCall` 보관소, VC 는 계산 속성 |
+| iOS 영상 엔진 `setMicMuted(_:)` | 입장 전 무시 | 위와 같음 | `setMicMuted(callId:muted:)` 입장 전 저장 · 입장 시 적용 · leave 때 지움 |
+| iOS 음성 `NativeVoiceCallViewController.micMutedChrome` | VC 필드 | VC 재생성 시 초기화 (같은 구조 결함) | 음성 엔진 `micMutedByCall` 보관소(성공 시 저장, leave 때 지움), VC 는 읽기 |
+| Android 음성 | `NativeVoiceCallRuntime.Session.micMuted` 에 이미 저장 | 없음 | 변경 없음 |
+
+영향: 마이크 버튼·Android PiP 마이크 버튼·입장(join) 마이크 초기화. 서버·푸시·CallKit·웹 무변경. 구 바이너리 호환 영향 없음(상대에게 보내는 신호 동일 — muteLocalAudioStream).
+범위 밖(보고만): iOS 음성 스피커 상태 `speakerEnabledChrome` 도 VC 필드(같은 구조).
+실기: 음소거 → PiP·복귀(iOS)·알림 복귀(Android) 후 버튼 「음소거」 유지·상대에 소리 안 감 / 발신 연결 중 음소거 → 연결 후 유지 / 끊고 재발신 → 해제로 시작.

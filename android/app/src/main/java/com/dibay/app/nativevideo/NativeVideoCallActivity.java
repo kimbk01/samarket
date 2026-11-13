@@ -142,7 +142,6 @@ public class NativeVideoCallActivity extends Activity {
   private int systemBarsBottom;
   private final NativeVideoNetworkTier networkTier = new NativeVideoNetworkTier();
   private boolean networkVeryPoorActive;
-  private boolean micMuted = false;
   private boolean chromeVisible = false;
   private boolean wasConnectedFullscreen = false;
   private boolean inPipMode = false;
@@ -1969,9 +1968,9 @@ public class NativeVideoCallActivity extends Activity {
       cameraButton.setColorFilter(Color.WHITE);
     }
     if (micButton != null) {
-      micButton.setImageResource(micMuted ? R.drawable.ic_call_mic_off : R.drawable.ic_call_mic_on);
+      micButton.setImageResource(isMicMuted() ? R.drawable.ic_call_mic_off : R.drawable.ic_call_mic_on);
       micButton.setContentDescription(
-          getString(micMuted ? R.string.dibay_call_control_unmute : R.string.dibay_call_control_mute));
+          getString(isMicMuted() ? R.string.dibay_call_control_unmute : R.string.dibay_call_control_mute));
       micButton.setBackgroundResource(R.drawable.bg_call_control_neutral);
       micButton.setColorFilter(Color.WHITE);
     }
@@ -1991,6 +1990,11 @@ public class NativeVideoCallActivity extends Activity {
 
   private boolean isLocalCameraOn() {
     return NativeVideoCallAgoraEngine.isLocalCameraOn(callId);
+  }
+
+  /** 마이크 설계 §12 — 음소거 상태는 엔진 보관소만. */
+  private boolean isMicMuted() {
+    return NativeVideoCallAgoraEngine.isMicMuted(callId);
   }
 
   private boolean isRemoteCameraOn() {
@@ -2091,11 +2095,9 @@ public class NativeVideoCallActivity extends Activity {
 
   /** 통화 화면 마이크 버튼·PiP 마이크 버튼 공통 (SSOT §3 — 같은 함수). */
   private void onMicTapped(String source) {
-    micMuted = !micMuted;
-    boolean applied = NativeVideoCallAgoraEngine.setMicMuted(micMuted);
-    if (!applied) {
-      micMuted = !micMuted;
-    }
+    boolean requestedMuted = !isMicMuted();
+    boolean muted = NativeVideoCallAgoraEngine.setMicMuted(callId, requestedMuted);
+    boolean applied = muted == requestedMuted;
     updateConnectedControlChrome();
     NativeVideoCallLog.info(
         "native_video_mic_muted_changed",
@@ -2107,7 +2109,7 @@ public class NativeVideoCallActivity extends Activity {
             + " presentation="
             + (inPipMode ? "pip" : "fullscreen")
             + " requestedMuted="
-            + micMuted
+            + requestedMuted
             + " result="
             + applied);
     if (!inPipMode) showConnectedChrome("mic_toggle");
@@ -2157,7 +2159,7 @@ public class NativeVideoCallActivity extends Activity {
 
   private PictureInPictureParams buildPipParams(boolean autoEnter) {
     return NativeVideoCallPipPresenter.buildParams(
-        this, callId, micMuted, isLocalCameraOn(), autoEnter, maxPipActions());
+        this, callId, isMicMuted(), isLocalCameraOn(), autoEnter, maxPipActions());
   }
 
   /**
@@ -2173,7 +2175,7 @@ public class NativeVideoCallActivity extends Activity {
         callId
             + "|"
             + CallPipActionPlan.stateKey(
-                CallPipActionPlan.plan(true, isLocalCameraOn(), maxPipActions()), micMuted, isLocalCameraOn(), autoEnter);
+                CallPipActionPlan.plan(true, isLocalCameraOn(), maxPipActions()), isMicMuted(), isLocalCameraOn(), autoEnter);
     if (key.equals(lastPipParamsKey)) return;
     PictureInPictureParams params = buildPipParams(autoEnter);
     if (params == null) return;
