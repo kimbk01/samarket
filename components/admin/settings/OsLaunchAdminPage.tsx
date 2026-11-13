@@ -48,6 +48,19 @@ type Snapshot = {
 
 type ApiError = { ok: false; error?: string };
 
+/**
+ * 로고 검사 거부 코드 (`checkOsLaunchLogo`). 같은 이름을 다른 업로드 화면도 쓰므로
+ * `os_launch_logo_` 를 붙여 오류 문구 맵에서 이 화면 전용 문구(투명 PNG·크기 조건)를 고른다.
+ */
+const OS_LAUNCH_LOGO_REJECT_CODES = new Set<string>([
+  "no_alpha",
+  "not_png",
+  "too_small",
+  "too_big_dimensions",
+  "too_large",
+  "empty",
+]);
+
 /** Logo share of screen width in the preview (≈ iOS 106pt on a 390pt-wide phone). */
 const PREVIEW_LOGO_WIDTH = "27%";
 
@@ -194,7 +207,10 @@ export function OsLaunchAdminPage() {
         if (json.ok) {
           apply(json);
           setResult({ ok: true, message: t("admin_os_launch_saved") });
-        } else fail(json.error);
+        } else {
+          const code = json.error ?? "";
+          fail(OS_LAUNCH_LOGO_REJECT_CODES.has(code) ? `os_launch_logo_${code}` : code);
+        }
       } catch {
         fail("network_error");
       } finally {

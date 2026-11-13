@@ -308,6 +308,13 @@ export function adminOperatorErrorMessage(
     fault_required: catalogPair("admin_choose_who_is_responsible_for_ending"),
     already_ended: catalogPair("admin_this_ad_has_already_ended_refresh"),
     campaign_not_found: catalogPair("admin_ad_not_found_refresh_and_check"),
+    // OS 시작 화면 로고 검사 (lib/os-launch/contract.ts checkOsLaunchLogo) — 화면이 `os_launch_logo_` 를 붙여 넘긴다
+    os_launch_logo_no_alpha: catalogPair("admin_os_launch_err_no_alpha"),
+    os_launch_logo_not_png: catalogPair("admin_os_launch_err_not_png"),
+    os_launch_logo_too_small: catalogPair("admin_os_launch_err_too_small"),
+    os_launch_logo_too_big_dimensions: catalogPair("admin_os_launch_err_too_big_dimensions"),
+    os_launch_logo_too_large: catalogPair("admin_os_launch_err_too_large"),
+    os_launch_logo_empty: catalogPair("admin_os_launch_err_empty"),
   };
   if (known[key]) return ko ? known[key].ko : known[key].en;
   if (OPERATOR_LABELS[key]) return adminOperatorLabel(key, ko);
