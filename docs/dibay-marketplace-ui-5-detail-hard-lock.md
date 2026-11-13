@@ -72,7 +72,7 @@ OWNER: 수정 / 삭제 / 더 알리기 authority 유지 — 더 알리기 CTA �
 
 Authority: `components/post/PostDetailView.tsx` · `components/jobs/JobDetailHeader.tsx`.
 
-CUT G reuse: `toggleFavorite` · `ReportReasonModal` · `shareOrCopyTradeListing` — presentation entry is one.
+CUT G reuse: `toggleFavorite` · `ReportReasonModal` · share = 통합 공유 시트 `DibayShareSheet`(2026-11-14 Owner 「CUT G 열고 통합」, 진입점·배치 변경 없음) — presentation entry is one.
 
 ## Production runtime
 

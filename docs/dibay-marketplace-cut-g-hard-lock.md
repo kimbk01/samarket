@@ -66,10 +66,10 @@ REPORT:
 
 DETAIL 4축:
   찜 + 신고 + 공유 + 채팅
-  share = navigator.share else copy canonical /post/[id]
+  share = 통합 공유 시트 (2026-11-14 재개방 — 아래 「DETAIL SHARE 재개방」)
 ```
 
-Authority: `lib/favorites/toggleFavorite.ts` · `lib/favorites/post-favorite-events.ts` · `components/post/ReportReasonModal.tsx` · `lib/trade/share-trade-listing.ts`.
+Authority: `lib/favorites/toggleFavorite.ts` · `lib/favorites/post-favorite-events.ts` · `components/post/ReportReasonModal.tsx` · 공유 = `lib/share/*`(2026-11-14 재개방).
 
 ## Production runtime
 
@@ -103,3 +103,18 @@ npx vitest run lib/trade/__tests__/marketplace-cut-g-favorite-report-share.test.
 ## Next
 
 A later marketplace cut is a **separate cut**. Do not reopen A–G.
+
+## DETAIL SHARE 재개방 (Owner 2026-11-14 「CUT G 열고 통합」)
+
+DETAIL 공유만 CUT G 고정에서 풀어 **통합 공유**로 옮겼다. 찜·신고·채팅 고정은 그대로.
+
+```text
+DETAIL SHARE: 통합 공유 시트 (components/share/DibayShareSheet)
+  주소 = 운영 /post/[id] (lib/share/share-url · window.location 미사용)
+  칸 = 다른 앱으로 공유 · 링크 복사
+  취소 = 아무 것도 안 함 · 실패 = 안내만 (자동 복사 없음 — lib/share/platform-share)
+  진입점 = 기존 그대로 (구매자 하단 「공유」 · 내 글 「공유」 · 더보기 「공유」)
+REMOVED: lib/trade/share-trade-listing.ts (navigator.share else copy)
+```
+
+설계: `docs/audit/dibay-unified-share-audit-design-2026-11-14.md` §D·§I-1.

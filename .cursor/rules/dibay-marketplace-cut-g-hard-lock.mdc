@@ -4,7 +4,6 @@ alwaysApply: false
 globs:
   - lib/favorites/**
   - components/post/**
-  - lib/trade/share-trade-listing.ts
   - components/home/**
   - components/market/**
   - app/(main)/post/**
@@ -22,7 +21,7 @@ globs:
 - MEMBER 관심 N / posts.favorite_count DISPLAY: **REMOVED**
 - MY HUB FAVORITE COUNT: **PRESERVED** (live favorites-row metric)
 - REPORT: LIST + DETAIL `ReportReasonModal`; SEARCH after DETAIL; MY none
-- DETAIL SHARE: **LOCKED** (`navigator.share` else copy `/post/[id]`)
+- DETAIL SHARE: **REOPENED 2026-11-14 (Owner 「CUT G 열고 통합」)** → 통합 공유 시트 `components/share/DibayShareSheet` · 주소 `lib/share/share-url` · 결과 계약 `lib/share/platform-share`(취소·실패 시 자동 복사 없음)
 - REPORT DEDUP / SEARCH REPORT / COUNT BATCH: **OUT**
 - MIGRATION: **NO**
 - CUT A / B / C / D / E / F / P0–P5: **PRESERVED**
@@ -37,7 +36,7 @@ MY: 별도 신고 surface 없음
 DETAIL: 찜 + 신고 + 공유 + 채팅
 ```
 
-Authority: `lib/favorites/toggleFavorite.ts` · `components/post/ReportReasonModal.tsx` · `lib/trade/share-trade-listing.ts`.
+Authority: `lib/favorites/toggleFavorite.ts` · `components/post/ReportReasonModal.tsx` · share = `lib/share/*` (2026-11-14).
 
 This cut changed **Marketplace heart boolean + LIST/DETAIL report + DETAIL share**, not SEARCH expansion (C), LIST sell-intent (B), taxonomy (A), review UI (D), Buyer MY (E), or seller promotion (F).
 
