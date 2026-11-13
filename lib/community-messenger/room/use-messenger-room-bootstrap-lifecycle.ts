@@ -7,13 +7,11 @@ import {
 } from "@/lib/community-messenger/room-snapshot-cache";
 import {
   CM_FOREGROUND_BOOTSTRAP_REUSE_MS,
-  markCmRoomEntryStarted,
   markCmRoomForegroundReuseEntry,
 } from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
 import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
-import { requestGroupEntryIdentityAfterFirstPaint } from "@/lib/community-messenger/room/group-entry-identity-check";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { cmStrictEffectRunProbe } from "@/lib/community-messenger/room/cm-bootstrap-scheduling";
 
@@ -41,11 +39,6 @@ export function useMessengerRoomBootstrapLifecycle({
   loadedRef,
   setRoomReadyForRealtime,
 }: Args): void {
-  /** 재감사 R2: 진입 시작 표시 — 아래 효과(첫 refresh)보다 먼저 실행되도록 앞에 둔다. 방 전환은 `roomId` 로 구분 */
-  useEffect(() => {
-    markCmRoomEntryStarted(roomId);
-  }, [roomId]);
-
   useEffect(() => {
     cmStrictEffectRunProbe("useMessengerRoomBootstrapLifecycle", roomId);
     const viewerGuess = initialServerSnapshot?.viewerUserId?.trim() ?? "";
@@ -82,8 +75,6 @@ export function useMessengerRoomBootstrapLifecycle({
         seededSnapshot.membersDeferred === true ||
         seededSnapshot.bootstrapEnrichmentPending === true;
       if (!needsDeferredEnrichment) {
-        /** 재감사 R2: 네트워크 없이 시드로 끝나는 진입 — 그룹 방이면 첫 화면 뒤 방 정보 1회 */
-        requestGroupEntryIdentityAfterFirstPaint({ roomId, snapshot: seededSnapshot, refresh });
         return;
       }
       if (seededSnapshot.membersDeferred === true && !isDevSafeMode()) {

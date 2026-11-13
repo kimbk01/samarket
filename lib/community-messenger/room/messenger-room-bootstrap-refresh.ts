@@ -21,7 +21,6 @@ import {
 } from "@/lib/community-messenger/room-snapshot-cache";
 import type { CommunityMessengerMessage, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
-import { requestGroupEntryIdentityAfterFirstPaint } from "@/lib/community-messenger/room/group-entry-identity-check";
 import {
   ENTRY_SHARED_FLIGHT_DEADLINE_MS,
   isSharedFlightDeadlineError,
@@ -459,8 +458,6 @@ export function createMessengerRoomBootstrapRefresh(
         finishSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {});
         loadedRef.current = true;
         setRoomReadyForRealtime(true);
-        /** 재감사 R2 정정: 조용한 새로고침을 「최근에 받음」으로 건너뛰는 진입(Z6) — 그룹 방이면 방 정보 1회 */
-        requestGroupEntryIdentityAfterFirstPaint({ roomId, snapshot: peekSnapEarly, refresh });
         return;
       }
     }
@@ -520,11 +517,7 @@ export function createMessengerRoomBootstrapRefresh(
                 CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS,
                 viewerIdForCache
               );
-              if (secondaryFresh) {
-                /** 재감사 R2: 보강을 건너뛰는 진입(Z3) — 그룹 방이면 방 정보 1회 */
-                requestGroupEntryIdentityAfterFirstPaint({ roomId, snapshot: primed, refresh });
-                return;
-              }
+              if (secondaryFresh) return;
               await refresh(true, {
                 triggerReason: "room_bootstrap_secondary_idle",
               });
@@ -545,8 +538,6 @@ export function createMessengerRoomBootstrapRefresh(
           loadedRef.current = true;
           setRoomReadyForRealtime(true);
           setLoading(false);
-          /** 재감사 R2: 5초 캐시 재사용으로 네트워크 없이 끝나는 진입(Z2) — 그룹 방이면 첫 화면 뒤 방 정보 1회 */
-          requestGroupEntryIdentityAfterFirstPaint({ roomId, snapshot: primed, refresh });
           return;
         }
         if (typeof window !== "undefined") {
@@ -613,8 +604,6 @@ export function createMessengerRoomBootstrapRefresh(
             loadedRef.current = true;
             setRoomReadyForRealtime(true);
             finishSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {});
-            /** 재감사 R2 정정: 미리 받아 둔 방 캐시 재사용으로 끝나는 진입(Z4 — 홈 목록 진입) — 그룹 방이면 방 정보 1회 */
-            requestGroupEntryIdentityAfterFirstPaint({ roomId, snapshot: reuseAfterPrefetch, refresh });
             return;
           }
         }
@@ -661,8 +650,6 @@ export function createMessengerRoomBootstrapRefresh(
             loadedRef.current = true;
             setRoomReadyForRealtime(true);
             finishSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {});
-            /** 재감사 R2 정정: 진입 판정이 「건너뜀 + 캐시 재사용」으로 끝나는 진입(Z5) — 그룹 방이면 방 정보 1회 */
-            requestGroupEntryIdentityAfterFirstPaint({ roomId, snapshot: fg.reuseSnapshot, refresh });
             return;
           }
           /** placeholder·빈 reuse — zero-fetch 금지, blocking fetch 로 이어진다 */
