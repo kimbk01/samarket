@@ -51,7 +51,7 @@ export function canShareMessage(
 
 /**
  * 「전달하기」 가능 여부 (통합 공유 S6 · Owner G-4 2026-11-14).
- * - text·sticker 만 (사진·파일은 저장 파일 복사 설계 전까지 불가 — 원본 「모두에게서 삭제」가 파일을 지움).
+ * - text·sticker·image·file (사진·파일은 서버가 저장 객체를 대상 방으로 복사 — S6-2). 음성·통화 기록·상품권·시스템·공유 카드 불가.
  * - 거래방 불가. 배달(주문)·모임 방은 서버(`forwardCommunityMessengerMessage`)가 한 번 더 막는다.
  * - 전송 중·삭제된 메시지 불가.
  */
@@ -62,7 +62,8 @@ export function canForwardMessage(
 ): boolean {
   if (message.pending) return false;
   if (message.deletedForEveryoneAt) return false;
-  if (message.messageType !== "text" && message.messageType !== "sticker") return false;
+  const t = message.messageType;
+  if (t !== "text" && t !== "sticker" && t !== "image" && t !== "file") return false;
   if (roomKind === "trade") return false;
   const domain = room?.chatDomain ?? null;
   if (domain === "trade" || domain === "store_order") return false;

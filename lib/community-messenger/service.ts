@@ -18333,7 +18333,7 @@ export async function sendCommunityMessengerStickerMessage(input: {
  * - 중복 방지 = 호출부가 정한 결정적 clientMessageId + DB 고유 인덱스(uq_cm_messages_room_sender_client_message_id) —
  *   재시도·동시 요청은 deduped 로 돌아오고 알림을 다시 보내지 않는다(§J-2).
  */
-export const COMMUNITY_MESSENGER_FORWARDABLE_TYPES = ["text", "sticker"] as const;
+export const COMMUNITY_MESSENGER_FORWARDABLE_TYPES = ["text", "sticker", "image", "file"] as const;
 
 function cmForwardRoomAllowed(row: {
   room_type?: unknown;
@@ -18402,9 +18402,11 @@ export async function forwardCommunityMessengerMessage(input: {
     return { ok: false, error: "forward_source_not_found" };
   }
   const messageType = trimText((srcMsg as { message_type?: unknown }).message_type);
-  if (messageType !== "text" && messageType !== "sticker") return { ok: false, error: "forward_type_not_allowed" };
-  const content = trimText((srcMsg as { content?: unknown }).content);
-  if (!content) return { ok: false, error: "forward_source_not_found" };
+  if (!(COMMUNITY_MESSENGER_FORWARDABLE_TYPES as readonly string[]).includes(messageType)) {
+    return { ok: false, error: "forward_type_not_allowed" };
+  }
+  const srcContent = trimText((srcMsg as { content?: unknown }).content);
+  if (!srcContent) return { ok: false, error: "forward_source_not_found" };
   const srcMeta = ((srcMsg as { metadata?: unknown }).metadata ?? {}) as Record<string, unknown>;
 
   // 2) 대상 — 스티커 전송과 같은 송신 가드 + 일반·그룹 방만
@@ -18430,18 +18432,71 @@ export async function forwardCommunityMessengerMessage(input: {
   if (roomStatus === "archived") return { ok: false, error: "room_archived" };
   if ((roomData as { is_readonly?: unknown }).is_readonly === true) return { ok: false, error: "room_readonly" };
 
-  // 3) 새 메시지 — 원본 정보 없이 「전달됨」 표시만
-  const metadata: Record<string, unknown> = { client_message_id: clientMessageId, forwarded: true };
+  // 3) 같은 요청 재시도면 복사·저장 없이 기존 행 (사진·파일 복사 전에 거른다)
+  {
+    const { data: existing } = await db
+      .from("community_messenger_messages")
+      .select("id, message_type, content, metadata, created_at")
+      .eq("room_id", roomId)
+      .eq("sender_id", input.userId)
+      .filter("metadata->>client_message_id", "eq", clientMessageId)
+      .limit(1)
+      .maybeSingle();
+    if (existing) {
+      const ex = existing as { id?: unknown; message_type?: unknown; content?: unknown; metadata?: unknown; created_at?: unknown };
+      return {
+        ok: true,
+        deduped: true,
+        message: {
+          id: String(ex.id ?? ""),
+          roomId,
+          senderId: input.userId,
+          senderLabel: cmServiceT("common_me"),
+          messageType: String(ex.message_type ?? messageType) as CommunityMessengerMessage["messageType"],
+          content: String(ex.content ?? ""),
+          metadata: (ex.metadata ?? null) as Record<string, unknown> | null,
+          createdAt: String(ex.created_at ?? nowIso()),
+          clientMessageId,
+          isMine: true,
+          callKind: null,
+          callStatus: null,
+        },
+      };
+    }
+  }
+
+  // 4) 새 메시지 — 원본 정보 없이 「전달됨」 표시만. 사진·파일은 저장 객체를 대상 방 경로로 복사
+  let metadata: Record<string, unknown> = { client_message_id: clientMessageId, forwarded: true };
+  let content = srcContent;
+  let copiedMedia: import("@/lib/community-messenger/media/messenger-media-ref").MessengerMediaObjectRef[] = [];
   if (messageType === "sticker") {
     const stickerItemId = trimText(srcMeta.sticker_item_id);
     if (stickerItemId) metadata.sticker_item_id = stickerItemId;
+  } else if (messageType === "image" || messageType === "file") {
+    const { copyMessengerMediaForForward } = await import("@/lib/community-messenger/server/messenger-forward-media");
+    const copiedRes = await copyMessengerMediaForForward(db, {
+      userId: input.userId,
+      targetRoomId: roomId,
+      messageType,
+      content: srcContent,
+      metadata: srcMeta,
+    });
+    if (!copiedRes.ok) return { ok: false, error: copiedRes.error };
+    metadata = { ...copiedRes.metadata, client_message_id: clientMessageId, forwarded: true };
+    content = copiedRes.content;
+    copiedMedia = copiedRes.copied;
   }
+  const purgeCopies = async () => {
+    if (copiedMedia.length === 0) return;
+    const { purgeForwardedMediaCopies } = await import("@/lib/community-messenger/server/messenger-forward-media");
+    await purgeForwardedMediaCopies(db, copiedMedia, roomId);
+  };
   const createdAt = nowIso();
   const { appendTypedMessengerMessageAtomic } = await import("@/lib/community-messenger/room-unread-authority-rpc");
   const appended = await appendTypedMessengerMessageAtomic(db, {
     roomId,
     senderId: input.userId,
-    messageType,
+    messageType: messageType as "text" | "sticker" | "image" | "file",
     content,
     metadata,
     createdAt,
@@ -18450,14 +18505,26 @@ export async function forwardCommunityMessengerMessage(input: {
   });
   if (!appended.ok) {
     console.error("[cm_forward] append_failed", { roomId, error: appended.error, rpc_used: "dibay_append_room_message_atomic" });
+    await purgeCopies();
     return { ok: false, error: appended.error };
   }
+  /* 동시 2중 요청 — 먼저 저장된 행이 이긴다: 이번에 복사한 파일은 쓰이지 않으므로 지운다 */
+  if (appended.deduped) await purgeCopies();
   if (!appended.deduped) {
     const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
       roomId,
       messageId: appended.messageId,
       senderUserId: input.userId,
-      preview: messageType === "sticker" ? cmLastPreviewSticker() : content.slice(0, 120),
+      preview:
+        messageType === "sticker"
+          ? cmLastPreviewSticker()
+          : messageType === "image"
+            ? Array.isArray(metadata.image_urls) && metadata.image_urls.length > 1
+              ? cmLastPreviewPhotoAlbum(metadata.image_urls.length)
+              : cmLastPreviewImage()
+            : messageType === "file"
+              ? cmLastPreviewFile(trimText(metadata.fileName) || undefined)
+              : content.slice(0, 120),
       recipientUserIds: appended.recipientUserIds,
     });
     input.onNotifyScheduled?.(notifyDone);
