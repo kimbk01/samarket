@@ -34,6 +34,11 @@ export type CommunityMessengerGroupMemberPickerProps = {
   onFriendRequest: (user: CommunityMessengerProfileLite) => void | Promise<void>;
   friendRequestBusyUserId?: string | null;
   /** Primary CTA owned by Create/Invite wrapper (mutation stays outside picker). */
+  /**
+   * 탭 줄에 덧붙일 클래스. 공용 탭(`.sam-tabs`)은 `sticky top-0` 이라, 위 여백이 있는 스크롤 시트 안에서는
+   * 여백만큼 틈이 생겨 목록이 비친다(그룹 결함 D8) — 그 시트가 여백만큼 위로 올리는 값을 넘긴다.
+   */
+  tabsBarClassName?: string;
   primaryCta: {
     label: string;
     disabled: boolean;
@@ -65,6 +70,7 @@ export function CommunityMessengerGroupMemberPicker({
   onFriendRequest,
   friendRequestBusyUserId,
   primaryCta,
+  tabsBarClassName,
   showFriendOnlyPolicyNotice = mode === "invite",
 }: CommunityMessengerGroupMemberPickerProps) {
   const [query, setQuery] = useState("");
@@ -190,7 +196,7 @@ export function CommunityMessengerGroupMemberPicker({
         ) : null}
       </div>
 
-      <div className={`mt-3 shrink-0 ${Sam.tabs.bar}`} role="tablist">
+      <div className={`mt-3 shrink-0 ${Sam.tabs.bar}${tabsBarClassName ? ` ${tabsBarClassName}` : ""}`} role="tablist">
         <button
           type="button"
           role="tab"

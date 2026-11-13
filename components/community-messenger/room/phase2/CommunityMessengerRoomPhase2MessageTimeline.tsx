@@ -1953,7 +1953,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
             {vm.roomJoinLabel ? ` · ${vm.roomJoinLabel}` : ""}
             {vm.roomIdentityLabel ? ` · ${vm.roomIdentityLabel}` : ""}
             {vm.showTimelineMemberCountSuffix
-              ? vm.t("cm_ui_member_count_suffix", { count: vm.timelineMemberCount })
+              ? /* 그룹 결함 D4: 앞 공백이 있는 번역 값은 화면 번역에서 잘린다 — 구분자는 다른 칩 줄과 같이 코드에서 붙인다 */
+                ` · ${vm.t("cm_ui_member_count_label", { count: vm.timelineMemberCount })}`
               : ""}
             {vm.snapshot.room.myIdentityMode
               ? ` · ${vm.t("nav_messenger_my_identity", {
