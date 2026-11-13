@@ -12,7 +12,7 @@ import { DetailHeader } from "@/components/layout/sector-header";
 import { APP_TIER1_HEADER_BAR_CLASS } from "@/lib/layout/app-tier1-header";
 import { DELIVERY_LOCKED_SUBPAGE_HEADER_CLASS } from "@/lib/layout/delivery-locked-subpage-chrome";
 import { SECTOR_HEADER_SHELL_CLASS } from "@/lib/ui/sector-header-classes";
-import { getDibayDomainChromeElementProps } from "@/lib/ui/dibay-domain-chrome";
+import { useDibayDomainChromeElementProps } from "@/lib/ui/dibay-domain-chrome";
 import { usePathname } from "next/navigation";
 import { isMypageSubpageHeaderPath } from "@/lib/mypage/mypage-subpage-header-defaults";
 import { resolveMypageIaParentHref, resolveMypageIaTitleKey } from "@/lib/mypage/mypage-ia";
@@ -86,7 +86,7 @@ export function MySubpageHeader({
 }: MySubpageHeaderProps) {
   const { t, tt } = useI18n();
   const pathname = usePathname();
-  const domainChrome = getDibayDomainChromeElementProps(pathname);
+  const domainChrome = useDibayDomainChromeElementProps(pathname);
   const isMypageSub = isMypageSubpageHeaderPath(pathname);
   /** 내정보 하위 화면 — 알림 종은 홈에만 (분류 설계 2026-11-02). 다른 도메인은 기존 기본값 */
   const showHubQuickActions = isMypageSub ? false : (showHubQuickActionsProp ?? false);

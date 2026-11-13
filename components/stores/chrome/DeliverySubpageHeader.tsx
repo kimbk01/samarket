@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { DetailHeader } from "@/components/layout/sector-header";
 import { DELIVERY_LOCKED_SUBPAGE_HEADER_CLASS } from "@/lib/layout/delivery-locked-subpage-chrome";
-import { getDibayDomainChromeElementProps } from "@/lib/ui/dibay-domain-chrome";
+import { useDibayDomainChromeElementProps } from "@/lib/ui/dibay-domain-chrome";
 
 /**
  * 배달 잠금·로컬 크롬 서브페이지 상단 — safe-top OWNER (AppStickyHeader 없음).
@@ -27,7 +27,7 @@ export function DeliverySubpageHeader({
   trailing?: ReactNode;
 }) {
   const pathname = usePathname();
-  const domainChrome = getDibayDomainChromeElementProps(pathname);
+  const domainChrome = useDibayDomainChromeElementProps(pathname);
   return (
     <header
       className={`delivery-ui ${DELIVERY_LOCKED_SUBPAGE_HEADER_CLASS}`}

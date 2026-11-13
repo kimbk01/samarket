@@ -26,7 +26,7 @@ import { MyManagedCtaStrip } from "@/components/my/MyManagedCtaStrip";
 import { isDeliveryConsumerPath } from "@/lib/design/delivery-chrome";
 import {
   dibayDomainChromeCssVarsForId,
-  resolveDibayDomainChromeIdForPath,
+  useDibayDomainChromeId,
 } from "@/lib/ui/dibay-domain-chrome";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { RegionBar } from "./RegionBar";
@@ -47,14 +47,17 @@ const CustomerCommerceHubPrimaryTabs = dynamic(
 
 /**
  * 전역 스티키 헤더 스택 — **메인 1단**(`RegionBar`) + (거래 화면일 때) TRADE 메뉴·2단 카테고리.
- * Domain pale surface via resolveDibayDomainChromeIdForPath (visual only — no feature add).
+ * Domain pale surface via useDibayDomainChromeId (하단 탭 색 · 공용 화면은 들어온 탭 색, visual only).
  */
 export function AppStickyHeader() {
   const pathname = usePathname();
   const isMessengerSplit = useIsMessengerSplitViewport();
   const tradeSecondaryTabs = useTradeSecondaryTabs();
   /** tier1 규칙 + 거래 탭 스택 노출 여부를 pathname 당 한 번에 계산 */
-  const { topTier1RuleSet, isTradeMenuSurface, communityTradeSwitchHub, domainId, domainStyle } = useMemo(() => {
+  /** 헤더 SSOT 3단계 — 하단 탭 색 · 공용 화면은 들어온 탭 색 */
+  const domainId = useDibayDomainChromeId(pathname);
+  const domainStyle = useMemo(() => dibayDomainChromeCssVarsForId(domainId), [domainId]);
+  const { topTier1RuleSet, isTradeMenuSurface, communityTradeSwitchHub } = useMemo(() => {
     const topTier1RuleSet = getMobileTopTier1RuleSet(pathname);
     const pathNoQueryForSurface = (pathname ?? "").split("?")[0] ?? "";
     /** Browse-only chrome — sell hub / location stack are not marketplace list surfaces. */
@@ -66,13 +69,10 @@ export function AppStickyHeader() {
         pathNoQueryForSurface !== "/market/location" &&
         !pathNoQueryForSurface.startsWith("/market/location/") &&
         !isTradeSearchPath(pathNoQueryForSurface));
-    const domainId = resolveDibayDomainChromeIdForPath(pathname);
     return {
       topTier1RuleSet,
       isTradeMenuSurface,
       communityTradeSwitchHub: resolveCommunityTradeSwitchHub(pathname, topTier1RuleSet),
-      domainId,
-      domainStyle: dibayDomainChromeCssVarsForId(domainId),
     };
   }, [pathname]);
   const extrasOpt = useMainTier1ExtrasOptional();

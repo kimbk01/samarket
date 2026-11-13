@@ -21,7 +21,9 @@ export const MIRROR_CHIP_ROW_H_PX = 58;
 export const MIRROR_CHIP_H_PX = 36;
 
 /** 1단 — 흰 바탕 · 아래선 없음 */
-export const MIRROR_HEADER_SHELL_CLASS = "delivery-ui relative w-full shrink-0 bg-white text-[color:#362415]";
+/** 헤더 SSOT 3단계 — 바탕 = 배달 도메인 색(흰색 하드코딩 제거) · 아래 구분선 = 도메인 구분선 */
+export const MIRROR_HEADER_SHELL_CLASS =
+  "delivery-ui relative w-full shrink-0 border-b border-[color:var(--dibay-domain-divider)] bg-[color:var(--dibay-domain-surface)] text-[color:#362415]";
 
 /** 2단 — 주소 「… ▾」 14px 보통 (참고 앱 실측 글자 높이 17px÷1.33 · DIBAY 15px 탭 대비 환산) */
 export const MIRROR_ADDRESS_ROW_CLASS =

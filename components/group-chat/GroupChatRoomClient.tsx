@@ -186,7 +186,7 @@ export function GroupChatRoomClient({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-sam-app">
-      <header className="shrink-0 border-b border-sam-border bg-sam-surface">
+      <header className="shrink-0 border-b border-[color:var(--dibay-domain-divider)] bg-[color:var(--dibay-domain-surface)]">
         {/* 헤더 SSOT — 공통 줄 부품(`SectorHeaderBar` 제목-왼쪽): 뒤로 48@x4 · 방 이름 17px/600 · 인원 = 공통 부제목 */}
         <div className={`mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}>
           <SectorHeaderBar

@@ -100,7 +100,7 @@ export function BuyerStoreOrderReviewSlidePanel({
             willChange: "transform",
           }}
         >
-          <header className="shrink-0 border-b border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)]">
+          <header className="shrink-0 border-b border-[color:var(--dibay-domain-divider)] bg-[color:var(--dibay-domain-surface)]">
             {/* 헤더 SSOT 2단계 — 하위 화면 공통 줄(높이 52 · ✕ 48@x4 그림 24 · 제목 17/600 가운데) */}
             <SectorHeaderBar
               left={

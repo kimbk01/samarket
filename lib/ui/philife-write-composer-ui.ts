@@ -23,7 +23,7 @@ export const PHILIFE_COMPOSER_PAGE_LAYER_CLASS = "fixed inset-0 z-[1250] flex fl
  * 헤더 = 공통 줄 부품 `SectorHeaderBar`(높이 52 · ✕ 48@x4 · 제목 17px/600 가운데 · CTA 글자 끝 W−16).
  * ✕ 44→48 은 헤더 SSOT 권장안(Owner 「권장안대로」 2026-11-13). 이 클래스는 바탕·아래선만.
  */
-export const PHILIFE_COMPOSER_HEADER_CLASS = "shrink-0 border-b border-sam-border-soft bg-sam-surface";
+export const PHILIFE_COMPOSER_HEADER_CLASS = "shrink-0 border-b border-sam-border-soft bg-[color:var(--dibay-domain-surface)]";
 /** CTA: 준비됨 = 브랜드색, 빈 칸 있음 = 흐림(눌러서 빠진 칸 안내), 업로드 중·등록 중 = 비활성 */
 export const PHILIFE_COMPOSER_HEADER_CTA_CLASS =
   "inline-flex h-11 min-w-14 shrink-0 items-center justify-center rounded-ui-rect px-3 text-[length:var(--sm-font-button)] font-semibold active:bg-sam-surface-muted disabled:text-sam-meta";
