@@ -141,25 +141,28 @@ mustContain(
   "resolveTerminalStubActorUserId",
   "terminal-stub-actor-authority",
 );
-// C-N1 (970aed928 · §14-9 Owner 2026-10-25): terminal call_stub increments unread ONLY for missed,
+// C-N1 (970aed928 · §14-9 Owner 2026-10-25) + D6 (5350d73a9 · Owner 「D6 구현 승인」 2026-11-13):
+// terminal call_stub increments callee unread ONLY via the single judge `callStubIncrementsCalleeUnread`
+// (missed + caller-cancelled-before-answer sent by the caller; answered·rejected·other cancels never),
 // still in the same append (atomic) — not via a separate writer.
 {
   const rel = "lib/community-messenger/service.ts";
   const text = read(rel);
-  const args = [...text.matchAll(/\bincrementUnread:\s*([^,\n]+),/g)].map((m) => m[1].trim());
-  const missedGated = /^(input\.status|stubStatus)\s*===\s*"missed"$/;
+  const args = [...text.matchAll(/\bincrementUnread:\s*([^,\n]+?)(?:,|\n)/g)]
+    .map((m) => m[1].trim())
+    .filter((a) => a !== "boolean;" && !a.startsWith("boolean"));
+  const judged = /^callStubIncrementsCalleeUnread\(\{?$/;
   if (args.length < 2) {
     failures.push(
       `terminal-stub-atomic-unread: expected >=2 terminal stub incrementUnread args in ${rel}, found ${args.length}`,
     );
   }
   for (const a of args) {
-    if (!missedGated.test(a)) {
-      failures.push(`terminal-stub-atomic-unread: incrementUnread must be missed-gated, found ${JSON.stringify(a)} in ${rel}`);
+    if (!judged.test(a)) {
+      failures.push(
+        `terminal-stub-atomic-unread: incrementUnread must use callStubIncrementsCalleeUnread, found ${JSON.stringify(a)} in ${rel}`,
+      );
     }
-  }
-  for (const needle of ['incrementUnread: input.status === "missed"', 'incrementUnread: stubStatus === "missed"']) {
-    if (!text.includes(needle)) failures.push(`terminal-stub-atomic-unread: missing ${JSON.stringify(needle)} in ${rel}`);
   }
   // Atomic: the same stub append consumes the flag (unread increment + countsAsUnread on the row).
   for (const needle of [
@@ -168,6 +171,19 @@ mustContain(
     "if (shouldIncrementUnread) {",
   ]) {
     if (!text.includes(needle)) failures.push(`terminal-stub-atomic-unread: missing ${JSON.stringify(needle)} in ${rel}`);
+  }
+}
+// The single judge keeps C-N1 (missed only) + D6 (caller's own cancel) — nothing wider.
+{
+  const rel = "lib/community-messenger/call-callee-missed.ts";
+  const text = read(rel);
+  for (const needle of [
+    "export function callStubIncrementsCalleeUnread(",
+    'if (lower(input.status) === "missed") return true;',
+    'if (lower(input.status) !== "cancelled") return false;',
+    "return Boolean(actor) && Boolean(initiator) && actor === initiator;",
+  ]) {
+    if (!text.includes(needle)) failures.push(`terminal-stub-callee-unread-judge: missing ${JSON.stringify(needle)} in ${rel}`);
   }
 }
 mustNotContain(
