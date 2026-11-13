@@ -177,8 +177,8 @@ export async function loadMessengerDomainDashboard(): Promise<AdminDomainDashboa
       {
         // 프로세스 메모리 지표 — 대시보드 근거로 쓰지 않는다 (설계 C-12). 진입만 유지.
         id: "perf",
-        labelKo: `${B.LETARING} 성능`,
-        labelEn: `${B.LETARING} performance`,
+        labelKo: "메신저 성능",
+        labelEn: "Messenger performance",
         href: "/admin/chats/messenger-performance",
         frequency: "OCCASIONAL",
       },

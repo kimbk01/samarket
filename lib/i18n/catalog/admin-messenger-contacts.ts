@@ -1,6 +1,4 @@
 /** 어드민 — 메신저 › 연락처 동기화 운영 설정 (Owner 「1a 진행」 2026-11-10 · SSOT messenger-contacts-sync-plan v5 §6-5) */
-import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
-
 export const adminMessengerContactsMessages = {
   ko: {
     admin_mc_title: "연락처 동기화",
@@ -10,7 +8,7 @@ export const adminMessengerContactsMessages = {
     admin_mc_migration_missing: "운영 DB 에 연락처 동기화 표가 아직 없어요. 기능은 꺼진 상태로 동작하고 저장할 수 없어요.",
     admin_mc_key_missing: "서버 비밀키(CONTACTS_PHONE_HMAC_KEY)가 없어요. 켜도 동의·올리기가 「설정 안 됨」으로 막혀요.",
     admin_mc_enabled: "기능 켜기",
-    admin_mc_enabled_desc: `끄면 연락처 관련 모든 회원 요청이 「사용 안 함」으로 막혀요. ${B.LETARING}·친구·채팅은 영향 없어요.`,
+    admin_mc_enabled_desc: "끄면 연락처 관련 모든 회원 요청이 「사용 안 함」으로 막혀요. 메신저·친구·채팅은 영향 없어요.",
     admin_mc_join_notice: "가입 안내 보내기",
     admin_mc_join_notice_desc: "내 번호를 저장한 회원에게 가입 안내 1회 (3단계에서 사용)",
     admin_mc_join_notice_cap: "가입 1건당 안내 최대 인원",
@@ -77,7 +75,7 @@ export const adminMessengerContactsMessages = {
     admin_mc_migration_missing: "The contact sync tables aren't in the live database yet. The feature stays off and can't be saved.",
     admin_mc_key_missing: "The server key (CONTACTS_PHONE_HMAC_KEY) is missing. Even when on, consent and upload are blocked.",
     admin_mc_enabled: "Turn on",
-    admin_mc_enabled_desc: `When off, every contact request from members is blocked. ${B.LETARING}, friends and chats are not affected.`,
+    admin_mc_enabled_desc: "When off, every contact request from members is blocked. Messenger, friends and chats are not affected.",
     admin_mc_join_notice: "Send join notices",
     admin_mc_join_notice_desc: "One notice to members who saved the new member's number (used in stage 3)",
     admin_mc_join_notice_cap: "Max people per join",

@@ -73,12 +73,3 @@ export const DIBAY_SERVICE_BRAND_ICON_PATH: Record<DibayServiceBrandId, string> 
 /** 매장 사장님 하단 탭(운영) — 브랜드가 아닌 기능 아이콘이지만 같은 채움 계열로 맞춘다 (PiStorefrontFill) */
 export const DIBAY_STOREFRONT_ICON_PATH =
   "M231.69,93.81,217.35,43.6A16.07,16.07,0,0,0,202,32H54A16.07,16.07,0,0,0,38.65,43.6L24.31,93.81A7.94,7.94,0,0,0,24,96v16a40,40,0,0,0,16,32v72a8,8,0,0,0,8,8H208a8,8,0,0,0,8-8V144a40,40,0,0,0,16-32V96A7.94,7.94,0,0,0,231.69,93.81ZM88,112a24,24,0,0,1-35.12,21.26,7.88,7.88,0,0,0-1.82-1.06A24,24,0,0,1,40,112v-8H88Zm64,0a24,24,0,0,1-48,0v-8h48Zm64,0a24,24,0,0,1-11.07,20.2,8.08,8.08,0,0,0-1.8,1.05A24,24,0,0,1,168,112v-8h48Z";
-
-export function dibayServiceBrandIconSvgMarkup(
-  id: DibayServiceBrandId,
-  attrs: { className?: string; size?: number } = {}
-): string {
-  const cls = attrs.className ? ` class="${attrs.className}"` : "";
-  const size = attrs.size ? ` width="${attrs.size}" height="${attrs.size}"` : "";
-  return `<svg${cls}${size} viewBox="${DIBAY_SERVICE_BRAND_ICON_VIEWBOX}" fill="currentColor" aria-hidden="true"><path d="${DIBAY_SERVICE_BRAND_ICON_PATH[id]}"/></svg>`;
-}

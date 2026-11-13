@@ -680,7 +680,7 @@ export const businessMessages = {
     business_phase7_615: "승인 후: 메뉴·상품 등록 → 관리자 {v1} 시 고객에게 판매 노출",
     business_phase7_616: "관리자 보완 요청 사항을 반영한 뒤, 다시 제출·심사를 기다려 주세요.",
     business_phase7_617: "프로필에서 보완하기",
-    business_phase7_618: "내 정보로",
+    business_phase7_618: `${B.MY}로`,
     business_phase7_619: "매장 설정 (공개 페이지 미리보기용)",
     business_phase7_620: "매장이 없습니다",
     business_phase7_621:
@@ -1471,7 +1471,7 @@ export const businessMessages = {
     business_phase7_615: "After approval: add menu/products → customer sales after admin {v1}",
     business_phase7_616: "Apply the admin revision request, then wait for re-review.",
     business_phase7_617: "Update profile",
-    business_phase7_618: "Go to My account",
+    business_phase7_618: `Go to ${B.MY}`,
     business_phase7_619: "Store settings (public page preview)",
     business_phase7_620: "No store yet",
     business_phase7_621:

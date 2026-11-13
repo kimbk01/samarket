@@ -121,7 +121,7 @@ test.describe("stores unified bottom nav (smoke)", () => {
 
     const switcher = page.getByRole("dialog", { name: "앱 메뉴 선택" });
     await expect(switcher).toBeVisible({ timeout: 10_000 });
-    await switcher.getByRole("link", { name: "커뮤니티" }).click();
+    await switcher.getByRole("link", { name: "LOUNGE" }).click();
     await expect(page).toHaveURL(/\/philife(?:\/|\?|$)/, { timeout: 20_000 });
   });
 });

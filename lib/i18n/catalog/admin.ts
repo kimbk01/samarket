@@ -166,7 +166,7 @@ export const adminMessages = {
     admin_report_source_feed: "Community · community_reports",
     admin_report_source_db: "Trade · reports",
     admin_report_domain_ssot_banner:
-      `신고 원장 6종을 한 목록으로 봅니다. 거래·커뮤니티 신고는 「상세」에서 바로 처리할 수 있습니다 (도메인 화면과 같은 서버 처리). 매장·모임·${B.LETARING}·구 거래 채팅 신고는 여기서 조회만 하고, 각 행의 「처리 화면」에서 처리합니다. 계정 정지·차단은 회원 상세에서 합니다.`,
+      "신고 원장 6종을 한 목록으로 봅니다. 거래·커뮤니티 신고는 「상세」에서 바로 처리할 수 있습니다 (도메인 화면과 같은 서버 처리). 매장·모임·메신저·구 거래 채팅 신고는 여기서 조회만 하고, 각 행의 「처리 화면」에서 처리합니다. 계정 정지·차단은 회원 상세에서 합니다.",
     admin_report_domain_all_hint:
       "현재 도메인 필터가 전체입니다. 운영 전 Trade 또는 Community로 좁히세요.",
     admin_report_domain_entries_label: "도메인 진입",
@@ -748,7 +748,7 @@ export const adminMessages = {
     admin_banners_placement_home_middle: "홈 중단",
     admin_banners_placement_product_detail: "상품 상세",
     admin_banners_placement_search_top: "검색 상단",
-    admin_banners_placement_mypage_top: `${B.MY} 상단`,
+    admin_banners_placement_mypage_top: "마이페이지 상단",
     admin_banners_field_title_placeholder: "배너 제목",
     admin_banners_field_desc_placeholder: "내부용 설명",
     admin_banners_field_image_desktop: "이미지 URL (데스크톱)",
@@ -872,7 +872,7 @@ export const adminMessages = {
     admin_users_cc_cta_store_admin: "매장 Admin 관리",
     admin_users_cc_cta_store_orders: "주문 보기",
     admin_users_cc_cta_business_credit: "이전 매장 운영 원장 보기",
-    admin_users_cc_cta_messenger: `${B.LETARING} 운영 화면에서 보기`,
+    admin_users_cc_cta_messenger: "메신저 운영 화면에서 보기",
     admin_users_cc_cta_group_admin: "그룹 운영 화면에서 보기",
     admin_users_cc_cta_trade_chat_admin: "Trade chat 관리에서 보기",
     admin_users_cc_cta_order_room_admin: "Order room 관리에서 보기",
@@ -2422,7 +2422,7 @@ export const adminMessages = {
     admin_report_source_feed: "Community · community_reports",
     admin_report_source_db: "Trade · reports",
     admin_report_domain_ssot_banner:
-      `All six report ledgers in one list. Trade and community reports can be processed from Detail (same server action as the domain screens). Store, meeting, ${B.LETARING} and legacy trade-chat reports are view-only here — process them via each row’s domain screen. Account suspensions are done in member detail.`,
+      "All six report ledgers in one list. Trade and community reports can be processed from Detail (same server action as the domain screens). Store, meeting, messenger and legacy trade-chat reports are view-only here — process them via each row’s domain screen. Account suspensions are done in member detail.",
     admin_report_domain_all_hint:
       "Domain filter is All. Narrow to Trade or Community before acting.",
     admin_report_domain_entries_label: "Domain entry",
@@ -3005,7 +3005,7 @@ export const adminMessages = {
     admin_banners_placement_home_middle: "Home middle",
     admin_banners_placement_product_detail: "Product detail",
     admin_banners_placement_search_top: "Search top",
-    admin_banners_placement_mypage_top: `${B.MY} top`,
+    admin_banners_placement_mypage_top: "My page top",
     admin_banners_field_title_placeholder: "Banner title",
     admin_banners_field_desc_placeholder: "Internal description",
     admin_banners_field_image_desktop: "Image URL (desktop)",
@@ -3129,7 +3129,7 @@ export const adminMessages = {
     admin_users_cc_cta_store_admin: "Store admin",
     admin_users_cc_cta_store_orders: "View orders",
     admin_users_cc_cta_business_credit: "Historical store operations ledger",
-    admin_users_cc_cta_messenger: `Open ${B.LETARING} admin`,
+    admin_users_cc_cta_messenger: "Open messenger admin",
     admin_users_cc_cta_group_admin: "Open group admin",
     admin_users_cc_cta_trade_chat_admin: "Open trade chat admin",
     admin_users_cc_cta_order_room_admin: "Open order room admin",

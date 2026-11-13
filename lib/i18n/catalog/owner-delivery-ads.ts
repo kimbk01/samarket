@@ -482,16 +482,16 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_hub_cta_pay: "Pay with Cash",
     owner_ads_launch_home_store_title: `${B.DIPICK} home store ads`,
     owner_ads_launch_home_store_help:
-      "Your store appears as an ad between stores on Delivery Home.",
+      `Your store appears as an ad between stores on ${B.DIPICK} home.`,
     owner_ads_launch_category_store_title: "Category store ads",
     owner_ads_launch_category_store_help:
       "Shown as an ad in your store’s real category list — not other categories.",
     owner_ads_launch_home_plus_category_title: "Home + category store ads",
     owner_ads_launch_home_plus_category_help:
-      "Shown as an ad on Delivery Home and in your category list.",
+      `Shown as an ad on ${B.DIPICK} home and in your category list.`,
     owner_ads_launch_home_hero_title: `${B.DIPICK} home top banner`,
     owner_ads_launch_home_hero_help:
-      "Appears in the Delivery Home top banner carousel.",
+      `Appears in the ${B.DIPICK} home top banner carousel.`,
     owner_ads_launch_search_top_title: "Search results top banner",
     owner_ads_launch_search_top_help:
       "Shown above store results when a search has matches.",
@@ -613,11 +613,11 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_create_banner_cta: "Create banner ad",
     owner_ads_product_entry_title: "Which ad do you want to create?",
     owner_ads_product_store_sponsored_desc:
-      "Promote your store in Delivery Home or category store lists.",
+      `Promote your store in ${B.DIPICK} home or category store lists.`,
     owner_ads_product_store_sponsored_shape: "Customer view: existing store card + “Ad” label",
     owner_ads_product_store_sponsored_placements: "Placements: Delivery home · Category store lists",
     owner_ads_product_banner_desc:
-      "Show a banner on Delivery Home top or search results top. Admin produces the banner image.",
+      `Show a banner on ${B.DIPICK} home top or search results top. Admin produces the banner image.`,
     owner_ads_product_banner_shape: "Customer view: image banner",
     owner_ads_product_banner_placements: "Placements: Delivery home top · Search results top",
     owner_ads_business_cash_title: "Ad payment",

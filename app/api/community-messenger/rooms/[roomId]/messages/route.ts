@@ -1,5 +1,4 @@
 import { after, NextRequest, NextResponse } from "next/server";
-import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 import type { CommunityMessengerMessagesAfterPerf } from "@/lib/community-messenger/service";
 import { ensureApiRouteAuthGate } from "@/lib/auth/ensure-api-route-auth-gate";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
@@ -203,7 +202,7 @@ export async function POST(
       key: `community-messenger:message-send:${getRateLimitKey(req, userId)}`,
       limit: 30,
       windowMs: 60_000,
-      message: `${B.LETARING} 전송 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.`,
+      message: "메신저 전송 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
       code: "community_messenger_message_rate_limited",
     }),
     import("@/lib/community-messenger/server/messenger-room-canonical-resolve-api").then(

@@ -81,7 +81,7 @@ export const uiFinishPagesMessages = {
       "Users who created a DIBAY (dibaY) account can request deletion of the account and related personal data. This page explains how to request deletion even without reinstalling the app (for example from Google Play).",
     account_delete_public_how_title: "How to request deletion",
     account_delete_public_how_1:
-      "Tap Continue below, sign in to DIBAY, then submit a request from My / Settings → account deletion.",
+      `Tap Continue below, sign in to DIBAY, then submit a request from ${B.MY} / Settings → account deletion.`,
     account_delete_public_how_2:
       "If you cannot use the app, email im2pact@gmail.com to request account deletion. Include your sign-in method (Google/Apple/Kakao, etc.) and nickname/email for identity verification.",
     account_delete_public_cta_login: "Continue account deletion (sign in)",
@@ -89,7 +89,7 @@ export const uiFinishPagesMessages = {
     account_delete_public_retain_title: "Data that may be retained",
     account_delete_public_retain_body:
       "Records needed for trades, orders, reports, settlement, auditing, or legal duties may be kept until those purposes end. See the Privacy Policy for details.",
-    account_delete_public_in_app: "In the app: My → Settings → Delete account",
+    account_delete_public_in_app: `In the app: ${B.MY} → Settings → Delete account`,
     ui_finish_posts_new_body:
       "For service requests, used items, and more, pick a category and register on the matching write screen.",
     ui_finish_posts_new_cta: "Go to write menu",

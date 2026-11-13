@@ -1,5 +1,4 @@
 import { unstable_cache } from "next/cache";
-import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG = "delivery-bottom-nav";
@@ -76,7 +75,7 @@ function defaultDeliveryBottomNavItems(): DeliveryBottomNavItem[] {
     },
     {
       id: "default_user",
-      label: B.MY,
+      label: "내정보",
       icon_key: "user",
       href: "/mypage",
       sort_order: 4,

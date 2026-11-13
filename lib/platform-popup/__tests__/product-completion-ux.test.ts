@@ -153,7 +153,7 @@ describe("platform popup product completion — Admin IA", () => {
     expect(detail).toContain("data-admin-popup-preview-sticky");
     expect(detail).not.toMatch(/메신저·통화·관리자·오너 운영/);
     const surfaces = readRepo("lib/platform-popup/admin-surface-target-mode.ts");
-    expect(surfaces).toContain("전체 — ${B.HOME}·${B.LOUNGE}·${B.MARKET}·${B.DIPICK}·${B.MY}");
+    expect(surfaces).toContain("전체 — 홈·커뮤니티·거래·배달·내정보");
     const preview = readRepo("components/admin/platform-popup/AdminPlatformPopupPreview.tsx");
     expect(preview).toContain("DibayPopupAd");
     // Landscape deny marker (CUT 1 geometry) — not a soft "note".

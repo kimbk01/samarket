@@ -217,7 +217,7 @@ const REPORT_LABEL: Record<ChatReportType, { ko: string; en: string; source: Cha
 const PUSH_LABEL: Record<ChatPushEventGroup, { ko: string; en: string }> = {
   general: catalogPair("admin_text_5"),
   group: catalogPair("admin_cm_session_mode_group"),
-  trade: catalogPair("admin_domain_chip_market"),
+  trade: catalogPair("admin_trade"),
   store_order: catalogPair("admin_store_order"),
   support: catalogPair("admin_support"),
 };

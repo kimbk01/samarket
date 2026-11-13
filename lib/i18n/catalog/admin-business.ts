@@ -1,13 +1,11 @@
 /** Phase 11: components/admin/business */
-import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
-
 export const adminBusinessMessages = {
   ko: {
     admin_biz_empty_list: "조건에 맞는 상점이 없습니다.",
     admin_biz_card_info: "상점 정보",
     admin_biz_card_memo: "관리자 메모",
     admin_biz_card_history: "변경 이력",
-    admin_biz_card_delivery: `${B.DIPICK} 운영`,
+    admin_biz_card_delivery: "배달 운영",
     admin_biz_card_fee: "수수료 / 정책",
     admin_biz_card_links: "관련 관리",
     admin_biz_card_ops: "입점 / 운영 조치",
@@ -228,7 +226,7 @@ export const adminBusinessMessages = {
     admin_biz_ops_nav_hours: "영업관리",
     admin_biz_ops_nav_products: "메뉴/상품",
     admin_biz_ops_nav_orders: "주문",
-    admin_biz_ops_nav_delivery: B.DIPICK,
+    admin_biz_ops_nav_delivery: "배달",
     admin_biz_ops_nav_points: "포인트",
     admin_biz_ops_nav_fee: "수수료",
     admin_biz_ops_nav_settlement: "정산",
@@ -261,7 +259,7 @@ export const adminBusinessMessages = {
     admin_biz_ops_card_operation_links: "운영 바로가기",
     admin_biz_ops_operation_links_note:
       "Coin / Cash / 광고 / Partner / 문의는 각 canonical 화면에서 처리합니다. 이 카드는 바로가기만 제공합니다.",
-    admin_biz_ops_card_delivery: `${B.DIPICK} 현황`,
+    admin_biz_ops_card_delivery: "배달 현황",
     admin_biz_ops_card_actions: "관리자 빠른 작업",
     admin_biz_ops_hours_today: "오늘 영업시간",
     admin_biz_ops_hours_break: "휴게시간",
@@ -310,7 +308,7 @@ export const adminBusinessMessages = {
     admin_biz_card_info: "Store info",
     admin_biz_card_memo: "Admin memo",
     admin_biz_card_history: "Change history",
-    admin_biz_card_delivery: `${B.DIPICK} ops`,
+    admin_biz_card_delivery: "Delivery ops",
     admin_biz_card_fee: "Fees / policy",
     admin_biz_card_links: "Related admin",
     admin_biz_card_ops: "Onboarding / ops actions",
@@ -531,7 +529,7 @@ export const adminBusinessMessages = {
     admin_biz_ops_nav_hours: "Hours",
     admin_biz_ops_nav_products: "Menu",
     admin_biz_ops_nav_orders: "Orders",
-    admin_biz_ops_nav_delivery: B.DIPICK,
+    admin_biz_ops_nav_delivery: "Delivery",
     admin_biz_ops_nav_points: "Points",
     admin_biz_ops_nav_fee: "Fees",
     admin_biz_ops_nav_settlement: "Settlement",
@@ -564,7 +562,7 @@ export const adminBusinessMessages = {
     admin_biz_ops_card_operation_links: "Operation links",
     admin_biz_ops_operation_links_note:
       "Coin / Cash / Ads / Partner / Support are handled on their canonical screens. This card is deep-links only.",
-    admin_biz_ops_card_delivery: B.DIPICK,
+    admin_biz_ops_card_delivery: "Delivery",
     admin_biz_ops_card_actions: "Quick actions",
     admin_biz_ops_hours_today: "Hours today",
     admin_biz_ops_hours_break: "Break",

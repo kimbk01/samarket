@@ -1,6 +1,4 @@
 /** 어드민 — 배달 화면 구성 › 배달 오픈 관리 탭 (Owner 「배달 on/off·매장 모집 배너」 2026-11-10) */
-import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
-
 export const adminDeliveryLaunchMessages = {
   ko: {
     admin_dl_loading: "불러오는 중…",
@@ -110,8 +108,8 @@ export const adminDeliveryLaunchMessages = {
     admin_dl_field_schedule: "Opening schedule",
     admin_dl_field_apply: "Apply button text (shown to members without a store; owners see their approval status or “Enter store”)",
     admin_dl_field_ribbon: "Notice strip (above the dimmed store list · blank = default text)",
-    admin_dl_fab_title: `Support FAB (${B.DIPICK} home while recruiting)`,
-    admin_dl_fab_toggle: `Show the existing support FAB on the ${B.DIPICK} home while recruiting (no store: partnership inquiry · has store: store approval)`,
+    admin_dl_fab_title: "Support FAB (delivery home while recruiting)",
+    admin_dl_fab_toggle: "Show the existing support FAB on the delivery home while recruiting (no store: partnership inquiry · has store: store approval)",
     admin_dl_free_title: "Launch free period",
     admin_dl_free_label: "Free until (PH date · blank = no free offer on the application)",
     admin_dl_free_note: "The free period ends on this date regardless of mode; category fee policies apply afterwards.",

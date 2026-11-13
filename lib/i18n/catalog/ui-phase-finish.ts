@@ -1,6 +1,4 @@
 /** DIBAY phase finish: rider, favorites, product, category, market, reports, regions, home-feed, orders hub */
-import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
-
 export const uiPhaseFinishMessages = {
   ko: {
     ui_fav_filter_all: "전체",
@@ -27,7 +25,7 @@ export const uiPhaseFinishMessages = {
     ui_fav_reserved_other_title: "다른 구매자와 예약이 진행 중입니다",
     ui_fav_seller_info: "판매자 정보",
     ui_fav_seller_fallback: "판매자",
-    ui_fav_hub_segment_trade: B.MARKET,
+    ui_fav_hub_segment_trade: "중고거래",
     ui_fav_hub_segment_store: "스토어",
     ui_fav_store_unavailable_badge: "이용 불가",
     ui_fav_store_rating_line: "리뷰 {count}개",
@@ -471,7 +469,7 @@ export const uiPhaseFinishMessages = {
     ui_delivery_nav_aria: "배달 전용 메뉴",
     ui_delivery_search_back_aria: "뒤로가기",
     ui_delivery_search_input_ph: "먹고 싶은 메뉴나 가게를 찾아보세요",
-    ui_delivery_search_input_aria: `${B.DIPICK} 검색어 입력`,
+    ui_delivery_search_input_aria: "배달 검색어 입력",
     ui_delivery_search_clear_aria: "검색어 지우기",
     ui_delivery_search_searching: "검색 중…",
     ui_delivery_search_no_results_title: "검색 결과가 없습니다",
@@ -601,7 +599,7 @@ export const uiPhaseFinishMessages = {
     ui_fav_reserved_other_title: "Reserved by another buyer",
     ui_fav_seller_info: "Seller info",
     ui_fav_seller_fallback: "Seller",
-    ui_fav_hub_segment_trade: B.MARKET,
+    ui_fav_hub_segment_trade: "Marketplace",
     ui_fav_hub_segment_store: "Stores",
     ui_fav_store_unavailable_badge: "Unavailable",
     ui_fav_store_rating_line: "{count} reviews",
@@ -1041,7 +1039,7 @@ export const uiPhaseFinishMessages = {
     ui_delivery_nav_aria: "Delivery menu",
     ui_delivery_search_back_aria: "Go back",
     ui_delivery_search_input_ph: "Search for food or stores",
-    ui_delivery_search_input_aria: `${B.DIPICK} search query`,
+    ui_delivery_search_input_aria: "Delivery search query",
     ui_delivery_search_clear_aria: "Clear search",
     ui_delivery_search_searching: "Searching…",
     ui_delivery_search_no_results_title: "No results",

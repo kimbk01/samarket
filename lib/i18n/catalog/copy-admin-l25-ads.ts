@@ -1,8 +1,6 @@
 /**
  * 어드민 화면 문구 — 언어 SSOT L25(2026-11-08): 검사 규칙이 세지 않던 한국어 문자열(`label:`·`description=`·`<option>` 등)에서 옮긴 문구.
  */
-import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
-
 export const copyAdminL25AdsMessages = {
   ko: {
     admin_ads_community_point_top_exposure_note: "커뮤니티 내 포인트 상위노출입니다. Feed Ads·배달 광고 집행과는 별도입니다.",
@@ -80,7 +78,7 @@ export const copyAdminL25AdsMessages = {
     admin_ptr_app_path: "앱 내부 경로",
     admin_ptr_external_link_https: "외부 링크 (HTTPS)",
     admin_ptr_screens: "노출 화면",
-    admin_ptr_never_shown_messenger_call_payment: `${B.LETARING}·통화·결제·주문 확인 화면에는 표시되지 않습니다. 광고가 없는 화면은 일반 새로고침만 보입니다.`,
+    admin_ptr_never_shown_messenger_call_payment: "메신저·통화·결제·주문 확인 화면에는 표시되지 않습니다. 광고가 없는 화면은 일반 새로고침만 보입니다.",
     admin_ptr_schedule_frequency: "기간·빈도",
     admin_ptr_start: "시작",
     admin_ptr_frequency_per_user: "한 사용자에게 보이는 빈도",
@@ -288,7 +286,7 @@ export const copyAdminL25AdsMessages = {
     admin_ptr_app_path: "In-app path",
     admin_ptr_external_link_https: "External link (HTTPS)",
     admin_ptr_screens: "Screens",
-    admin_ptr_never_shown_messenger_call_payment: `Never shown on ${B.LETARING}, call, payment or order-confirmation screens. Screens without an ad show normal pull-to-refresh.`,
+    admin_ptr_never_shown_messenger_call_payment: "Never shown on messenger, call, payment or order-confirmation screens. Screens without an ad show normal pull-to-refresh.",
     admin_ptr_schedule_frequency: "Schedule & frequency",
     admin_ptr_start: "Start",
     admin_ptr_frequency_per_user: "Frequency per user",

@@ -253,12 +253,12 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     // C-10 / J-AMD-4: 메신저 신고는 채팅 신고 단일 큐에서 처리 (통화 기록 화면 아님).
     listHref: "/admin/chats/reported?type=messenger",
     sidebarMenuKeys: ["chat-reported"],
-    titleKo: `${B.LETARING} 신고`,
-    titleEn: `${B.LETARING} reports`,
+    titleKo: "메신저 신고",
+    titleEn: "Messenger reports",
     domainKo: B.LETARING,
     domainEn: B.LETARING,
-    ctaKo: `${B.LETARING} 신고 큐`,
-    ctaEn: `${B.LETARING} reports`,
+    ctaKo: "메신저 신고 큐",
+    ctaEn: "Messenger reports",
   },
   {
     key: "delivery_ad_ops",

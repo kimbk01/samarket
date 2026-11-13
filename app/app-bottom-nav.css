@@ -776,25 +776,17 @@ html[data-shell-bottom-nav-delivery] {
 }
 
 /* ==========================================================================
- * 텔레그램형 하단 탭 (Owner 최종 승인 2026-11-13 · 설계 docs/design/service-brand-icon-state-ssot-design-2026-11-13.md B)
- * - 바: 흰 반투명 + 옅은 경계선 + 위쪽 그림자 (홈 설계안 v11 2026-11-09 그대로)
- * - 아이콘: 대표 채움 아이콘 26px 고정 — 선택해도 크기·모양 그대로 (화면 폭·탭 수와 무관)
- * - 비선택 = 기존 회색 토큰 `--sam-icon-soft` · 선택 = 아이콘·글자 색만 `--dibay-green` #0B421A, 배경 없음
- * - 글자 10px / 500 고정 (선택도 굵기 그대로) · 눌림 = 투명도 · 비활성 = aria-disabled
- * - 배지 = 아래 빨간 숫자 규칙 그대로 (Owner 2026-11-09)
- * 위 예전 규칙(브라운 2026-11-03 · 검은 사각형 2026-11-09)보다 뒤에 두어 덮어쓴다.
+ * 하단 바 공통 (홈 설계안 v11 · 2026-11-09) — 메인·사장님 하단 탭 공통
  * ========================================================================== */
 :root {
   --app-bottom-nav-surface: rgba(255, 255, 255, 0.96);
-  --app-bottom-nav-accent: var(--dibay-green);
-  --app-bottom-nav-text-muted: var(--sam-icon-soft);
-  --app-bottom-nav-icon-muted: var(--sam-icon-soft);
+  --app-bottom-nav-accent: #111111;
+  --app-bottom-nav-text-muted: #2b2b2b;
+  --app-bottom-nav-icon-muted: #1e1e1e;
   --app-bottom-nav-active-bg: transparent;
-  --app-bottom-nav-hover-bg: transparent;
+  --app-bottom-nav-hover-bg: rgba(0, 0, 0, 0.04);
   --app-bottom-nav-border: #e1e4e2;
   --app-bottom-nav-shadow: 0 -6px 20px rgba(0, 0, 0, 0.06);
-  --app-bottom-nav-icon-size: 26px;
-  --app-bottom-nav-label-size: 10px;
 }
 
 .app-bottom-nav-shell {
@@ -806,62 +798,107 @@ html[data-shell-bottom-nav-delivery] {
   background: transparent;
 }
 
-/* 아이콘 크기 고정 — 768–1279·≤374 규칙과 선택 규칙을 모두 덮는다 */
-.app-bottom-nav-container .app-bottom-nav-icon-slot {
-  height: var(--app-bottom-nav-icon-size);
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon:not(.app-bottom-nav-inline-icon--avatar) {
+  width: 30px;
+  height: 28px;
+  border-radius: 8px;
+  background: #111111;
+  color: #ffffff;
 }
 
-.app-bottom-nav-container .app-bottom-nav-inline-icon,
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon {
-  width: var(--app-bottom-nav-icon-size);
-  height: var(--app-bottom-nav-icon-size);
-  border-radius: 0;
-  background: transparent;
-}
-
-.app-bottom-nav-container .app-bottom-nav-icon-svg,
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg {
-  width: var(--app-bottom-nav-icon-size);
-  height: var(--app-bottom-nav-icon-size);
-}
-
-/* 선 아이콘(주문·장바구니 등 기능 키)은 선택해도 두께 그대로 — 모양 변화 없음 */
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg path,
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg circle,
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg line,
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg polyline,
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg rect {
-  stroke-width: 2;
-}
-
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon {
-  color: var(--app-bottom-nav-accent);
-}
-
-.app-bottom-nav-container .app-bottom-nav-label,
-.app-bottom-nav-container .app-bottom-nav-label--delivery-tab,
-.app-bottom-nav-container .app-bottom-nav-label--trade-tab,
-.app-bottom-nav-container .app-bottom-nav-label--philife-tab {
-  font-size: var(--app-bottom-nav-label-size);
-  font-weight: 500;
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon:not(.app-bottom-nav-inline-icon--avatar) .app-bottom-nav-icon-svg {
+  width: 18px;
+  height: 18px;
 }
 
 .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label,
 .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--delivery-tab,
 .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--trade-tab,
 .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--philife-tab {
+  color: #111111;
+  font-weight: 700;
+}
+
+/* ==========================================================================
+ * 텔레그램형 하단 탭 (Owner 최종 승인 2026-11-13 · 설계 docs/design/service-brand-icon-state-ssot-design-2026-11-13.md B)
+ * - 바: 흰 반투명 + 옅은 경계선 + 위쪽 그림자 (홈 설계안 v11 2026-11-09 그대로)
+ * - 아이콘: 대표 채움 아이콘 26px 고정 — 선택해도 크기·모양 그대로 (화면 폭·탭 수와 무관)
+ * - 비선택 = 기존 회색 토큰 `--sam-icon-soft` · 선택 = 아이콘·글자 색만 `--dibay-green` #0B421A, 배경 없음
+ * - 글자 10px / 500 고정 (선택도 굵기 그대로) · 눌림 = 투명도 · 비활성 = aria-disabled
+ * - 배지 = 아래 빨간 숫자 규칙 그대로 (Owner 2026-11-09)
+ * 적용 범위 = 메인 하단 탭(`[data-app-bottom-nav]`, BottomNav.tsx) 만. 매장 사장님 하단 탭(OwnerMobileBottomNav)은
+ * 이 속성이 없어 위 2026-11-09 규칙(검은 원·크기) 그대로 — 이번 작업은 용어·대표 아이콘·메인 하단 탭 선택 상태만 바꾼다.
+ * 토큰도 :root 가 아니라 메인 하단 탭 요소에만 둔다(원형 탭 토큰은 :root 의 기존 값 유지).
+ * ========================================================================== */
+[data-app-bottom-nav] {
+  --app-bottom-nav-accent: var(--dibay-green);
+  --app-bottom-nav-text-muted: var(--sam-icon-soft);
+  --app-bottom-nav-icon-muted: var(--sam-icon-soft);
+  --app-bottom-nav-active-bg: transparent;
+  --app-bottom-nav-hover-bg: transparent;
+  --app-bottom-nav-icon-size: 26px;
+  --app-bottom-nav-label-size: 10px;
+}
+
+/* 아이콘 크기 고정 — 768–1279·≤374 규칙과 선택 규칙을 모두 덮는다 */
+[data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-icon-slot {
+  height: var(--app-bottom-nav-icon-size);
+}
+
+[data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-inline-icon,
+[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon,
+[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon:not(.app-bottom-nav-inline-icon--avatar) {
+  width: var(--app-bottom-nav-icon-size);
+  height: var(--app-bottom-nav-icon-size);
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-icon-svg,
+[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg,
+[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon:not(.app-bottom-nav-inline-icon--avatar) .app-bottom-nav-icon-svg {
+  width: var(--app-bottom-nav-icon-size);
+  height: var(--app-bottom-nav-icon-size);
+}
+
+/* 선 아이콘(주문·장바구니 등 기능 키)은 선택해도 두께 그대로 — 모양 변화 없음 */
+[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg path,
+[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg circle,
+[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg line,
+[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg polyline,
+[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg rect {
+  stroke-width: 2;
+}
+
+[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon,
+[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon:not(.app-bottom-nav-inline-icon--avatar) {
+  color: var(--app-bottom-nav-accent);
+}
+
+[data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-label,
+[data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-label--delivery-tab,
+[data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-label--trade-tab,
+[data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-label--philife-tab {
+  font-size: var(--app-bottom-nav-label-size);
+  font-weight: 500;
+}
+
+[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label,
+[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--delivery-tab,
+[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--trade-tab,
+[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--philife-tab {
   color: var(--app-bottom-nav-accent);
   font-weight: 500;
 }
 
 /* 눌림 = 투명도만 (크기 변화 없음) */
-.app-bottom-nav-item:active {
+[data-app-bottom-nav] .app-bottom-nav-item:active {
   transform: none;
   opacity: 0.55;
 }
 
 /* 비활성 — 정의만 (현재 비활성 탭 없음) */
-.app-bottom-nav-item[aria-disabled="true"] {
+[data-app-bottom-nav] .app-bottom-nav-item[aria-disabled="true"] {
   opacity: 0.38;
   pointer-events: none;
 }

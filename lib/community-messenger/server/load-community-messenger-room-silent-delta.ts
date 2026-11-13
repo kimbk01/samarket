@@ -2,7 +2,6 @@
  * `snapshotTier=silent_delta` — 방 메타 1행 + 내 참가자 1행 + (1:1 상대 읽음 위치용) 상대 참가자 최대 2행.
  * 메시지·프로필·presence·통화·trade·reactions·hides 조회 없음.
  */
-import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
@@ -243,7 +242,7 @@ export async function loadCommunityMessengerRoomSilentDeltaSnapshot(
   const summary = buildSilentDeltaRoomSummary(await resolveRequestAppLanguageOr("ko"), uid, room, me);
   const description =
     summary.roomType === "direct"
-      ? "친구와 1:1로 대화하는 채팅방"
+      ? "친구와 1:1로 대화하는 메신저 방"
       : summary.summary ||
         `${summary.memberCount}명이 함께 있는 ${summary.roomType === "open_group" ? "공개" : "비공개"} 그룹 채팅`;
 

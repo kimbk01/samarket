@@ -161,6 +161,40 @@ describe("하단 탭 선택 상태 (텔레그램형)", () => {
   });
 });
 
+describe("적용 범위 — 메인 하단 탭만 (사장님 하단 탭은 기존 2026-11-09 모양)", () => {
+  const css = read("app/app-bottom-nav.css");
+  it("텔레그램형 토큰은 :root 가 아니라 메인 하단 탭([data-app-bottom-nav])에만", () => {
+    expect(css).toMatch(/\[data-app-bottom-nav\] \{\n {2}--app-bottom-nav-accent: var\(--dibay-green\);/);
+    expect(css).toMatch(/:root \{\n {2}--app-bottom-nav-surface: rgba\(255, 255, 255, 0\.96\);\n {2}--app-bottom-nav-accent: #111111;/);
+    expect(read("components/layout/BottomNav.tsx")).toContain('data-app-bottom-nav=""');
+    expect(read("components/stores/owner/OwnerMobileBottomNav.tsx")).not.toContain("data-app-bottom-nav");
+  });
+  it("글자 10px 규칙이 탭 6개 이상 규칙(10.5px)보다 우선 (같은 특이도·뒤 순서)", () => {
+    const six = css.indexOf('.app-bottom-nav-container[data-tab-count="6"] .app-bottom-nav-label,');
+    const ten = css.indexOf("[data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-label,");
+    expect(six).toBeGreaterThan(-1);
+    expect(ten).toBeGreaterThan(six);
+  });
+});
+
+describe("설계 행·결정 값 (재감사 R2)", () => {
+  it("C7·D31·L1·M1", () => {
+    for (const lang of [ko, en]) {
+      expect(lang.notify_messenger_banner_title).toBe("LETARING");
+      expect(lang.admin_startup_config_surface_my).toBe("MY");
+      expect(lang.feed_ad_req_trade).toBe("MARKET");
+      expect(lang.feed_ad_req_community).toBe("FEED");
+    }
+    expect(ko.community_top_pin_cta).toBe("FEED 상위노출");
+    expect(ko.trade_052).toBe("MY → 구매 내역");
+  });
+  it("T3 — 오류·권한 문장 속 「메신저」 = 「채팅」, 통화 화면 공용 문구는 그대로", () => {
+    expect(ko.app_error_messenger_title).toBe("채팅을 불러오지 못했습니다.");
+    expect(ko.nav_messenger_load_failed).not.toContain("LETARING");
+    expect(ko.nav_messenger_login_required).toBe("로그인 후 메신저를 사용할 수 있습니다.");
+  });
+});
+
 describe("G-3 — /moim(CREW) 에서 LOUNGE 탭 선택", () => {
   const lounge = BOTTOM_NAV_ITEMS.find((t) => t.id === "community")!;
   const home = BOTTOM_NAV_ITEMS.find((t) => t.id === "home")!;
