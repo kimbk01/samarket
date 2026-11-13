@@ -17,6 +17,53 @@
             android:layout_height="match_parent"
             android:background="@color/dibay_call_dark_bg" />
 
+        <!-- 상대 카메라 꺼짐 표시 — 상대 영상 위·내 작은 화면 아래. videoRoot 안이라 PiP 에서도 보인다.
+             docs/audit/call-camera-off-plan-2026-11-14.md §4-5 -->
+        <LinearLayout
+            android:id="@+id/native_video_call_remote_camera_off"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/dibay_call_dark_bg"
+            android:clickable="false"
+            android:focusable="false"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/native_video_call_remote_camera_off_initial"
+                android:layout_width="@dimen/dibay_call_avatar_lg"
+                android:layout_height="@dimen/dibay_call_avatar_lg"
+                android:background="@drawable/bg_dibay_incoming_avatar"
+                android:gravity="center"
+                android:importantForAccessibility="no"
+                android:textColor="@color/dibay_call_primary_pressed"
+                android:textSize="36sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/native_video_call_remote_camera_off_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:gravity="center"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:textColor="@android:color/white"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:drawablePadding="6dp"
+                android:gravity="center"
+                android:text="@string/dibay_video_peer_camera_off"
+                android:textColor="@color/dibay_incoming_text_muted"
+                android:textSize="14sp" />
+        </LinearLayout>
+
         <FrameLayout
             android:id="@+id/native_video_call_local"
             android:layout_width="120dp"

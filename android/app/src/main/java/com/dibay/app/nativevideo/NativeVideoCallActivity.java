@@ -99,6 +99,10 @@ public class NativeVideoCallActivity extends Activity {
   private FrameLayout videoRoot;
   private FrameLayout remoteContainer;
   private FrameLayout localContainer;
+  /** 상대 카메라 꺼짐 표시 (videoRoot 안 — 전체 화면·PiP 공통). 설계 §4-5. */
+  private View remoteCameraOffView;
+  private TextView remoteCameraOffInitialView;
+  private TextView remoteCameraOffNameView;
   private LinearLayout overlayRoot;
   private LinearLayout statusPanel;
   private TextView peerNameView;
@@ -140,7 +144,6 @@ public class NativeVideoCallActivity extends Activity {
   private int systemBarsBottom;
   private final NativeVideoNetworkTier networkTier = new NativeVideoNetworkTier();
   private boolean networkVeryPoorActive;
-  private boolean cameraEnabled = true;
   private boolean micMuted = false;
   private boolean chromeVisible = false;
   private boolean wasConnectedFullscreen = false;
@@ -249,6 +252,7 @@ public class NativeVideoCallActivity extends Activity {
         () -> {
           if (!callId.equals(activity.callId) || activity.isFinishing() || activity.isDestroyed()) return;
           activity.replaceView(activity.localContainer, view, true);
+          activity.applyLocalCameraPresentation("attach_local");
           activity.applyOutgoingLocalLayoutAfterAttach("attach_local");
         };
     if (Looper.myLooper() == Looper.getMainLooper()) {
@@ -288,6 +292,13 @@ public class NativeVideoCallActivity extends Activity {
     return activity.remoteContainer != null && activity.remoteContainer.getChildCount() > 0;
   }
 
+  /** 엔진이 내·상대 카메라 상태 변화를 알림. 상태는 엔진 보관소에 있다. */
+  static void onEngineCameraStateChanged(String callId) {
+    NativeVideoCallActivity activity = activeRef.get();
+    if (activity == null || callId == null || !callId.equals(activity.callId)) return;
+    activity.runOnUiThread(() -> activity.onCameraStateChanged("engine"));
+  }
+
   public static void onOutgoingLocalFirstFrameReady(String callId, int width, int height) {
     NativeVideoCallActivity activity = activeRef.get();
     if (activity == null || callId == null || !callId.equals(activity.callId)) return;
@@ -323,7 +334,10 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   public static void finishIfActive(String callId, String reason) {
-    if (callId != null) CONNECTED_AT_BY_CALL.remove(callId.trim());
+    if (callId != null) {
+      CONNECTED_AT_BY_CALL.remove(callId.trim());
+      NativeVideoCallAgoraEngine.clearCameraState(callId);
+    }
     NativeVideoCallActivity activity = activeRef.get();
     if (activity == null || callId == null || !callId.equals(activity.callId)) return;
     // END UX: terminal surface exit must not wait for in-app notice duration (~1.6s).
@@ -862,7 +876,7 @@ public class NativeVideoCallActivity extends Activity {
       logLocalReattachSkipped("existing_local_child", localChildCount);
       return;
     }
-    if (!cameraEnabled) {
+    if (!isLocalCameraOn()) {
       logLocalReattachSkipped("camera_disabled", localChildCount);
       return;
     }
@@ -875,7 +889,7 @@ public class NativeVideoCallActivity extends Activity {
             + session.state.name()
             + " previewRunningKnown=true");
     NativeVideoCallAgoraEngine.LocalReattachResult localResult =
-        NativeVideoCallAgoraEngine.reattachLocalPreviewIfNeeded(callId, cameraEnabled);
+        NativeVideoCallAgoraEngine.reattachLocalPreviewIfNeeded(callId);
     if (localResult == NativeVideoCallAgoraEngine.LocalReattachResult.FAILED_SETUP) {
       logLocalReattachSkipped("engine_setup_failed", localChildCount);
     }
@@ -910,7 +924,7 @@ public class NativeVideoCallActivity extends Activity {
         "reason="
             + reason
             + " cameraEnabled="
-            + cameraEnabled
+            + isLocalCameraOn()
             + " localChildCount="
             + localChildCount
             + " uiMode="
@@ -1010,6 +1024,9 @@ public class NativeVideoCallActivity extends Activity {
     videoRoot = findViewById(R.id.native_video_call_video_root);
     remoteContainer = findViewById(R.id.native_video_call_remote);
     localContainer = findViewById(R.id.native_video_call_local);
+    remoteCameraOffView = findViewById(R.id.native_video_call_remote_camera_off);
+    remoteCameraOffInitialView = findViewById(R.id.native_video_call_remote_camera_off_initial);
+    remoteCameraOffNameView = findViewById(R.id.native_video_call_remote_camera_off_name);
     overlayRoot = findViewById(R.id.native_video_call_overlay);
     statusPanel = findViewById(R.id.native_video_call_status_panel);
     peerNameView = findViewById(R.id.native_video_call_peer_name);
@@ -1047,6 +1064,7 @@ public class NativeVideoCallActivity extends Activity {
     attachLocalPipDragListener();
     applyLocalPreviewLayout();
     localContainer.post(this::applyDefaultLocalPipPosition);
+    applyLocalCameraPresentation("bind_views");
     IncomingCallUiInsets.applyTopSafeArea(connectedInfoPanel, 8);
     IncomingCallUiInsets.applyBottomSafeArea(incomingActions, 32);
   }
@@ -1069,6 +1087,11 @@ public class NativeVideoCallActivity extends Activity {
     cameraFlipButton.setOnClickListener(
         v -> {
           if (consumeTapWhileChromeHidden("camera_flip")) return;
+          // 카메라 꺼짐 중에는 전환하지 않는다 (설계 §4-4, 웹 call-v4 와 같음).
+          if (!isLocalCameraOn()) {
+            showConnectedChrome("camera_flip_blocked");
+            return;
+          }
           NativeVideoCallAgoraEngine.switchCameraFacing();
           showConnectedChrome("camera_flip");
         });
@@ -1224,6 +1247,8 @@ public class NativeVideoCallActivity extends Activity {
     if (endLabelView != null) endLabelView.setText(model.endButtonLabel);
     refreshPipParams("state_" + state.name().toLowerCase(Locale.ROOT));
     applyRecentsCard(state, session);
+    applyLocalCameraPresentation("apply_state");
+    applyRemoteCameraPresentation("apply_state");
   }
 
   /** SSOT §6 — 연결된 동안만 최근 앱에 통화 카드, 그 밖(벨·연결 중·종료)은 숨김. 잔류 0. */
@@ -1260,10 +1285,10 @@ public class NativeVideoCallActivity extends Activity {
     } else if (outgoingTransitionCompleted) {
       applyConnectedLocalPipLayout("outgoing_presentation_connected");
     }
-    remoteContainer.setVisibility(outgoingRemoteFirstFrameReady ? View.VISIBLE : View.INVISIBLE);
-    remoteContainer.setAlpha(outgoingRemoteFirstFrameReady ? 1f : 0f);
-    localContainer.setVisibility(outgoingLocalFirstFrameReady ? View.VISIBLE : View.INVISIBLE);
-    localContainer.setAlpha(outgoingLocalFirstFrameReady ? 1f : 0f);
+    remoteContainer.setVisibility(isOutgoingRemoteReady() ? View.VISIBLE : View.INVISIBLE);
+    remoteContainer.setAlpha(isOutgoingRemoteReady() ? 1f : 0f);
+    localContainer.setVisibility(isOutgoingLocalReady() ? View.VISIBLE : View.INVISIBLE);
+    localContainer.setAlpha(isOutgoingLocalReady() ? 1f : 0f);
     localContainer.setEnabled(outgoingTransitionCompleted && state == NativeVideoCallRuntime.State.CONNECTED);
     activeActions.setVisibility(View.VISIBLE);
     activeActions.setEnabled(true);
@@ -1275,7 +1300,7 @@ public class NativeVideoCallActivity extends Activity {
     NativeVideoCallLog.info(
         "outgoing_end_call_visible", callId, buildOutgoingVideoLogDetails("handler=NativeVideoCallRuntime.end"));
     statusPanel.setVisibility(outgoingTransitionCompleted ? View.GONE : View.VISIBLE);
-    if (outgoingLocalFirstFrameReady) {
+    if (isOutgoingLocalReady()) {
       overlayRoot.setBackgroundColor(Color.TRANSPARENT);
       peerNameView.setTextColor(Color.WHITE);
       statusView.setTextColor(Color.LTGRAY);
@@ -1296,7 +1321,7 @@ public class NativeVideoCallActivity extends Activity {
           callId,
           buildOutgoingVideoLogDetails("phase=" + model.phase.name()));
     }
-    if (state == NativeVideoCallRuntime.State.CONNECTED && outgoingRemoteFirstFrameReady) {
+    if (state == NativeVideoCallRuntime.State.CONNECTED && isOutgoingRemoteReady()) {
       maybeStartOutgoingLocalToPipTransition("apply_state_connected");
     }
     if (outgoingTransitionCompleted) {
@@ -1314,8 +1339,8 @@ public class NativeVideoCallActivity extends Activity {
       applyConnectedLocalPipLayout("attach_local_connected");
     } else {
       applyOutgoingLocalFullscreenLayout();
-      localContainer.setVisibility(outgoingLocalFirstFrameReady ? View.VISIBLE : View.INVISIBLE);
-      localContainer.setAlpha(outgoingLocalFirstFrameReady ? 1f : 0f);
+      localContainer.setVisibility(isOutgoingLocalReady() ? View.VISIBLE : View.INVISIBLE);
+      localContainer.setAlpha(isOutgoingLocalReady() ? 1f : 0f);
     }
     NativeVideoCallLog.info(
         "outgoing_video_ui_preparing", callId, buildOutgoingVideoLogDetails("reason=" + reason));
@@ -1359,7 +1384,7 @@ public class NativeVideoCallActivity extends Activity {
       logOutgoingTransitionSkipped(reason);
       return;
     }
-    if (!outgoingLocalFirstFrameReady || !outgoingRemoteFirstFrameReady) {
+    if (!isOutgoingLocalReady() || !isOutgoingRemoteReady()) {
       logOutgoingTransitionSkipped(reason);
       return;
     }
@@ -1939,10 +1964,11 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private void updateConnectedControlChrome() {
+    boolean cameraOn = isLocalCameraOn();
     if (cameraButton != null) {
-      cameraButton.setImageResource(cameraEnabled ? R.drawable.ic_call_video : R.drawable.ic_call_video_off);
+      cameraButton.setImageResource(cameraOn ? R.drawable.ic_call_video : R.drawable.ic_call_video_off);
       cameraButton.setContentDescription(
-          getString(cameraEnabled ? R.string.dibay_video_camera_on : R.string.dibay_video_camera_off));
+          getString(cameraOn ? R.string.dibay_video_camera_on : R.string.dibay_video_camera_off));
       cameraButton.setBackgroundResource(R.drawable.bg_call_control_neutral);
       cameraButton.setColorFilter(Color.WHITE);
     }
@@ -1959,6 +1985,7 @@ public class NativeVideoCallActivity extends Activity {
     if (cameraFlipButton != null) {
       cameraFlipButton.setBackgroundResource(R.drawable.bg_call_control_neutral);
       cameraFlipButton.setColorFilter(Color.WHITE);
+      cameraFlipButton.setAlpha(cameraOn ? 1f : 0.4f);
     }
     if (endButton != null) {
       endButton.setBackgroundResource(R.drawable.bg_call_control_danger);
@@ -1967,12 +1994,105 @@ public class NativeVideoCallActivity extends Activity {
     refreshPipParams("controls");
   }
 
+  // ---- 카메라 상태 (설계 docs/audit/call-camera-off-plan-2026-11-14.md §4) ----
+
+  private boolean isLocalCameraOn() {
+    return NativeVideoCallAgoraEngine.isLocalCameraOn(callId);
+  }
+
+  private boolean isRemoteCameraOn() {
+    return NativeVideoCallAgoraEngine.isRemoteCameraOn(callId);
+  }
+
+  /** 발신 화면 전환 조건 (§4-6): 내 첫 프레임 또는 내 카메라 꺼짐. */
+  private boolean isOutgoingLocalReady() {
+    return outgoingLocalFirstFrameReady || !isLocalCameraOn();
+  }
+
+  /** 발신 화면 전환 조건 (§4-6): 상대 첫 프레임 또는 상대 카메라 꺼짐. */
+  private boolean isOutgoingRemoteReady() {
+    return outgoingRemoteFirstFrameReady || !isRemoteCameraOn();
+  }
+
+  /** 내·상대 카메라 상태가 바뀐 뒤 화면 전체를 상태대로 다시 그린다. */
+  private void onCameraStateChanged(String reason) {
+    if (isFinishing() || isDestroyed()) return;
+    applyLocalCameraPresentation(reason);
+    if (isLocalCameraOn()) ensureLocalPreviewAttached(reason);
+    if (currentState != null) applyState(currentState);
+    applyRemoteCameraPresentation(reason);
+    updateConnectedControlChrome();
+    maybeStartOutgoingLocalToPipTransition("camera_state_" + reason);
+  }
+
+  /**
+   * 내 화면 칸 내용 — 유일한 결정 함수 (§4-4). 칸의 보임 여부는 기존 레이아웃 코드가 정하고, 여기서는 칸 안 내용만 정한다.
+   * 꺼짐: 미리보기 SurfaceView 제거(미디어 오버레이라 그 위에 다른 뷰를 그릴 수 없음) + 어두운 배경 + 꺼짐 아이콘(전경,
+   * 자식 수에 안 잡힘 — 재부착 판단 {@link #localSurfaceChildCount()} 불변).
+   */
+  private void applyLocalCameraPresentation(String reason) {
+    if (localContainer == null) return;
+    boolean on = isLocalCameraOn();
+    if (on) {
+      localContainer.setBackgroundColor(Color.TRANSPARENT);
+      localContainer.setForeground(null);
+      return;
+    }
+    if (localContainer.getChildCount() > 0) {
+      localContainer.removeAllViews();
+      NativeVideoCallLog.info("native_video_local_preview_removed", callId, "reason=camera_off source=" + reason);
+    }
+    localContainer.setBackgroundColor(getResources().getColor(R.color.dibay_call_dark_bg, getTheme()));
+    android.graphics.drawable.Drawable icon = getDrawable(R.drawable.ic_call_video_off);
+    if (icon != null) {
+      icon = icon.mutate();
+      icon.setTint(Color.WHITE);
+      int size = Math.round(28f * getResources().getDisplayMetrics().density);
+      android.graphics.drawable.InsetDrawable centered =
+          new android.graphics.drawable.InsetDrawable(icon, 0);
+      android.graphics.drawable.LayerDrawable layer =
+          new android.graphics.drawable.LayerDrawable(new android.graphics.drawable.Drawable[] {centered});
+      layer.setLayerSize(0, size, size);
+      layer.setLayerGravity(0, android.view.Gravity.CENTER);
+      localContainer.setForeground(layer);
+    }
+  }
+
+  /** 카메라를 다시 켰을 때 미리보기 화면이 없으면 기존 재부착 경로로 만든다. */
+  private void ensureLocalPreviewAttached(String reason) {
+    if (callId == null || localContainer == null || localSurfaceChildCount() > 0) return;
+    if (!callId.equals(NativeVideoCallAgoraEngine.peekOccupantCallId())) return;
+    NativeVideoCallLog.info("native_video_local_preview_restore", callId, "reason=" + reason);
+    NativeVideoCallAgoraEngine.reattachLocalPreviewIfNeeded(callId);
+  }
+
+  /** 상대 카메라 꺼짐 표시 — 유일한 결정 함수 (§4-5). 연결된 동안 상대가 껐을 때만. */
+  private void applyRemoteCameraPresentation(String reason) {
+    if (remoteCameraOffView == null) return;
+    boolean show = currentState == NativeVideoCallRuntime.State.CONNECTED && !isRemoteCameraOn();
+    if (show) {
+      NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+      NativeVideoCallUiPresenter.Model model =
+          NativeVideoCallUiPresenter.build(this, session, currentState);
+      if (remoteCameraOffNameView != null) remoteCameraOffNameView.setText(model.peerName);
+      if (remoteCameraOffInitialView != null) remoteCameraOffInitialView.setText(model.avatarInitial);
+    }
+    int next = show ? View.VISIBLE : View.GONE;
+    if (remoteCameraOffView.getVisibility() != next) {
+      remoteCameraOffView.setVisibility(next);
+      NativeVideoCallLog.info("native_video_remote_camera_off_view", callId, "visible=" + show + " reason=" + reason);
+    }
+  }
+
   /** 통화 화면 카메라 버튼·PiP 카메라 버튼 공통 (SSOT §3 — 같은 함수). */
   private void onCameraTapped(String source) {
-    cameraEnabled = !cameraEnabled;
-    NativeVideoCallAgoraEngine.setCameraEnabled(cameraEnabled);
-    NativeVideoCallLog.info("native_video_camera_changed", callId, "source=" + source + " enabled=" + cameraEnabled);
-    updateConnectedControlChrome();
+    boolean requested = !isLocalCameraOn();
+    boolean applied = NativeVideoCallAgoraEngine.setLocalCameraOn(callId, requested);
+    NativeVideoCallLog.info(
+        "native_video_camera_changed",
+        callId,
+        "source=" + source + " requested=" + requested + " enabled=" + applied);
+    onCameraStateChanged("local_" + source);
     if (!inPipMode) showConnectedChrome("video_toggle");
   }
 
@@ -2044,7 +2164,7 @@ public class NativeVideoCallActivity extends Activity {
 
   private PictureInPictureParams buildPipParams(boolean autoEnter) {
     return NativeVideoCallPipPresenter.buildParams(
-        this, callId, micMuted, cameraEnabled, autoEnter, maxPipActions());
+        this, callId, micMuted, isLocalCameraOn(), autoEnter, maxPipActions());
   }
 
   /**
@@ -2060,7 +2180,7 @@ public class NativeVideoCallActivity extends Activity {
         callId
             + "|"
             + CallPipActionPlan.stateKey(
-                CallPipActionPlan.plan(true, cameraEnabled, maxPipActions()), micMuted, cameraEnabled, autoEnter);
+                CallPipActionPlan.plan(true, isLocalCameraOn(), maxPipActions()), micMuted, isLocalCameraOn(), autoEnter);
     if (key.equals(lastPipParamsKey)) return;
     PictureInPictureParams params = buildPipParams(autoEnter);
     if (params == null) return;

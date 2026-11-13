@@ -41,6 +41,12 @@ final class NativeVideoCallAgoraEngine: NSObject {
   private var localPreviewAttached = false
   private var pendingRemoteUids: [UInt] = []
   private var remoteUidByCallId: [String: UInt] = [:]
+  /// 카메라 끄기 설계 §4-1 (docs/audit/call-camera-off-plan-2026-11-14.md) — 통화 id 단위 단일 보관소.
+  /// 화면(VC)은 PiP 복귀·최소화 복귀·잠금 해제 때 새로 만들어지므로 상태를 여기서만 읽는다. 값이 없으면 켜짐.
+  private var localCameraOnByCall: [String: Bool] = [:]
+  private var remoteCameraOnByCall: [String: Bool] = [:]
+  /// 입장 옵션에 넣은 카메라 공개 값 — 입장 성공 시 그사이 바뀐 상태를 맞춘다.
+  private var joinPublishedCamera = true
   private var networkQualityHandler: ((_ worst: Int, _ tx: Int, _ rx: Int) -> Void)?
 
   private override init() {
@@ -142,7 +148,10 @@ final class NativeVideoCallAgoraEngine: NSObject {
     pendingRemoteUids.removeAll()
     if let sid, !sid.isEmpty {
       remoteUidByCallId.removeValue(forKey: sid)
+      localCameraOnByCall.removeValue(forKey: sid)
+      remoteCameraOnByCall.removeValue(forKey: sid)
     }
+    joinPublishedCamera = true
     generation &+= 1
     rtc = engine
     shouldDestroySharedEngine = ownsSharedEngineDestroy
@@ -175,14 +184,143 @@ final class NativeVideoCallAgoraEngine: NSObject {
     return activeCallId == callId.trimmingCharacters(in: .whitespacesAndNewlines) && generation == expected
   }
 
-  func setCameraEnabled(_ enabled: Bool) {
+  // MARK: - Camera state (설계 docs/audit/call-camera-off-plan-2026-11-14.md §4)
+
+  func isLocalCameraOn(callId: String) -> Bool {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
     lock.lock()
-    let sid = activeCallId
-    let rtc = engine
+    defer { lock.unlock() }
+    return localCameraOnByCall[sid] ?? true
+  }
+
+  func isRemoteCameraOn(callId: String) -> Bool {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    lock.lock()
+    defer { lock.unlock() }
+    return remoteCameraOnByCall[sid] ?? true
+  }
+
+  /// §4-2 카메라 켜기·끄기의 유일한 함수. 입장 전(발신 연결 중)이면 상태만 저장하고 입장 때 반영한다.
+  /// - Returns: 적용 후 실제 카메라 상태 (SDK 실패 시 이전 상태로 되돌린 값)
+  @discardableResult
+  func setLocalCameraOn(callId: String, on: Bool) -> Bool {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return true }
+    lock.lock()
+    let previous = localCameraOnByCall[sid] ?? true
+    localCameraOnByCall[sid] = on
+    guard let rtc = engine, activeCallId == sid else {
+      lock.unlock()
+      NativeVideoCallLog.info("camera_toggle", callId: sid, details: "enabled=\(on) applied=deferred_until_join")
+      return on
+    }
+    let ok = on ? applyLocalCameraOnLocked(rtc: rtc, callId: sid) : applyLocalCameraOffLocked(rtc: rtc, callId: sid)
+    var result = on
+    if !ok {
+      localCameraOnByCall[sid] = previous
+      if previous {
+        _ = applyLocalCameraOnLocked(rtc: rtc, callId: sid)
+      } else {
+        _ = applyLocalCameraOffLocked(rtc: rtc, callId: sid)
+      }
+      result = previous
+    }
+    // 켜기·끄기 모두 미리보기 화면을 새로 붙여야 하므로(끄기 = VC 가 화면 제거) 붙임 표시를 지운다.
+    localPreviewAttached = false
     lock.unlock()
-    guard let rtc, let sid, !sid.isEmpty else { return }
-    rtc.muteLocalVideoStream(!enabled)
-    NativeVideoCallLog.info("camera_toggle", callId: sid, details: "enabled=\(enabled)")
+    if ok {
+      NativeVideoCallLog.info("camera_toggle", callId: sid, details: "enabled=\(on) applied=engine")
+    } else {
+      NativeVideoCallLog.warn("camera_apply_failed", callId: sid, details: "requested=\(on) restored=\(previous)")
+    }
+    if result {
+      attachLocalPreviewIfUiReady(callId: sid)
+    }
+    return result
+  }
+
+  /// 입장 전(joinChannel 전) — 공개 설정은 입장 옵션이 맡는다.
+  private func applyLocalCameraBeforeJoin(rtc: AgoraRtcEngineKit, callId: String, on: Bool) {
+    let enable = rtc.enableLocalVideo(on)
+    let mute = rtc.muteLocalVideoStream(!on)
+    NativeVideoCallLog.info("native_video_camera_join_applied", callId: callId, details: "on=\(on) enable=\(enable) mute=\(mute)")
+  }
+
+  /// Agora 공식: 송출 중단 후 캡처 장치 끄기. 호출자는 lock 보유.
+  private func applyLocalCameraOffLocked(rtc: AgoraRtcEngineKit, callId: String) -> Bool {
+    let mute = rtc.muteLocalVideoStream(true)
+    let enable = rtc.enableLocalVideo(false)
+    NativeVideoCallLog.info("native_video_camera_off_applied", callId: callId, details: "mute=\(mute) enable=\(enable)")
+    return mute == 0 && enable == 0
+  }
+
+  /// Agora 공식: enableLocalVideo(true) 뒤 updateChannelMediaOptions 로 카메라 공개를 다시 지정해야 상대에게 나간다.
+  /// 호출자는 lock 보유.
+  private func applyLocalCameraOnLocked(rtc: AgoraRtcEngineKit, callId: String) -> Bool {
+    let enable = rtc.enableLocalVideo(true)
+    let preview = rtc.startPreview()
+    let options = AgoraRtcChannelMediaOptions()
+    options.publishCameraTrack = true
+    let publish = rtc.updateChannel(with: options)
+    let mute = rtc.muteLocalVideoStream(false)
+    NativeVideoCallLog.info(
+      "native_video_camera_on_applied",
+      callId: callId,
+      details: "enable=\(enable) preview=\(preview) publish=\(publish) mute=\(mute)"
+    )
+    return enable == 0 && publish == 0 && mute == 0
+  }
+
+  /// 입장 성공 — 입장 옵션을 정한 뒤 바뀐 카메라 상태를 맞춘다.
+  private func reconcileLocalCameraAfterJoin(callId: String) {
+    lock.lock()
+    guard let rtc = engine, activeCallId == callId else {
+      lock.unlock()
+      return
+    }
+    let on = localCameraOnByCall[callId] ?? true
+    guard on != joinPublishedCamera else {
+      lock.unlock()
+      return
+    }
+    if on {
+      _ = applyLocalCameraOnLocked(rtc: rtc, callId: callId)
+    } else {
+      _ = applyLocalCameraOffLocked(rtc: rtc, callId: callId)
+    }
+    joinPublishedCamera = on
+    localPreviewAttached = false
+    lock.unlock()
+    NativeVideoCallLog.info("native_video_camera_join_reconcile", callId: callId, details: "on=\(on)")
+    if on { attachLocalPreviewIfUiReady(callId: callId) }
+    NativeVideoCallUiHost.cameraStateChanged(callId: callId)
+  }
+
+  /// Agora onRemoteVideoStateChanged → 상대 카메라 상태 (Android `NativeVideoCameraState` 와 같은 규칙).
+  /// true 켜짐 · false 꺼짐 · nil 바꾸지 않음 (FROZEN·FAILED·퇴장·초기 STOPPED 등 — 네트워크 멈춤은 꺼짐 아님).
+  static func remoteCameraOn(state: Int, reason: Int) -> Bool? {
+    let stopped = 0, starting = 1, decoding = 2
+    let remoteMuted = 5, remoteUnmuted = 6
+    if state == stopped && reason == remoteMuted { return false }
+    if reason == remoteUnmuted { return true }
+    if state == starting || state == decoding { return true }
+    return nil
+  }
+
+  private func updateRemoteCamera(callId: String, uid: UInt, on: Bool, source: String) {
+    lock.lock()
+    guard activeCallId == callId else {
+      lock.unlock()
+      return
+    }
+    let previous = remoteCameraOnByCall[callId] ?? true
+    remoteCameraOnByCall[callId] = on
+    lock.unlock()
+    guard previous != on else { return }
+    NativeVideoCallLog.info("remote_camera_changed", callId: callId, details: "uid=\(uid) on=\(on) source=\(source)")
+    DispatchQueue.main.async {
+      NativeVideoCallUiHost.cameraStateChanged(callId: callId)
+    }
   }
 
   /// 통화 중 마이크·카메라 권한을 새로 허용받은 뒤 — 녹음·카메라 장치를 다시 켠다 (Owner 2026-11-08).
@@ -195,13 +333,24 @@ final class NativeVideoCallAgoraEngine: NSObject {
     guard let rtc, let sid, !sid.isEmpty, sid == requested else { return }
     let audioOff = rtc.enableLocalAudio(false)
     let audioOn = rtc.enableLocalAudio(true)
+    // 카메라 끄기 설계 §4-3: 사용자가 끈 카메라를 권한 재시작이 다시 켜지 않는다.
+    guard isLocalCameraOn(callId: sid) else {
+      NativeVideoCallLog.info(
+        "ios_native_video_local_media_restarted",
+        callId: sid,
+        details: "audio=\(audioOff)/\(audioOn) video=skipped_camera_off"
+      )
+      return
+    }
     let videoOff = rtc.enableLocalVideo(false)
-    let videoOn = rtc.enableLocalVideo(true)
-    rtc.startPreview()
+    lock.lock()
+    let ok = applyLocalCameraOnLocked(rtc: rtc, callId: sid)
+    localPreviewAttached = false
+    lock.unlock()
     NativeVideoCallLog.info(
       "ios_native_video_local_media_restarted",
       callId: sid,
-      details: "audio=\(audioOff)/\(audioOn) video=\(videoOff)/\(videoOn)"
+      details: "audio=\(audioOff)/\(audioOn) videoOff=\(videoOff) videoOn=\(ok)"
     )
     attachLocalPreviewNowIfNeeded(callId: sid)
   }
@@ -329,6 +478,10 @@ final class NativeVideoCallAgoraEngine: NSObject {
       let rtc = try ensureEngine(appId: token.appId)
       rtc.enableAudio()
       rtc.enableVideo()
+      // 카메라 끄기 설계 §4-2: 엔진은 통화 사이에 재사용 — 매 입장 때 카메라 상태를 명시 적용한다.
+      // 발신자가 연결 전에 끈 값도 보관소에 있으므로 여기서 반영된다.
+      let cameraOnAtJoin = isLocalCameraOn(callId: sid)
+      applyLocalCameraBeforeJoin(rtc: rtc, callId: sid, on: cameraOnAtJoin)
       rtc.setDefaultAudioRouteToSpeakerphone(true)
       NativeVideoCallLog.info("audio_route_applied", callId: sid, details: "speaker=true")
 
@@ -336,7 +489,9 @@ final class NativeVideoCallAgoraEngine: NSObject {
       let previewWork = { [weak self] in
         defer { previewReady.signal() }
         guard let self else { return }
-        if NativeVideoCallUiHost.isShowing(callId: sid) {
+        if !cameraOnAtJoin {
+          NativeVideoCallLog.info("local_preview_skipped", callId: sid, details: "reason=camera_off")
+        } else if NativeVideoCallUiHost.isShowing(callId: sid) {
           self.attachLocalPreviewOnMain(callId: sid, rtc: rtc, callerJoin: caller)
         } else if !NativeVideoCallUiHost.canPresentVideoSurfaces() {
           NativeVideoCallLog.info("local_camera_preview_deferred_locked", callId: sid)
@@ -360,7 +515,10 @@ final class NativeVideoCallAgoraEngine: NSObject {
       options.autoSubscribeAudio = true
       options.autoSubscribeVideo = true
       options.publishMicrophoneTrack = true
-      options.publishCameraTrack = true
+      options.publishCameraTrack = cameraOnAtJoin
+      lock.lock()
+      if activeCallId == sid { joinPublishedCamera = cameraOnAtJoin }
+      lock.unlock()
 
       let result = rtc.joinChannel(
         byToken: token.token,
@@ -453,6 +611,11 @@ final class NativeVideoCallAgoraEngine: NSObject {
     lock.unlock()
     guard let engineRtc else { return }
     if alreadyAttached { return }
+    // 카메라 끄기 설계 §4-3: 꺼진 카메라는 미리보기를 다시 시작하지 않는다 (PiP·최소화 복귀·잠금 해제·연결 모든 경로).
+    guard isLocalCameraOn(callId: sid) else {
+      NativeVideoCallLog.info("local_preview_skipped", callId: sid, details: "reason=camera_off")
+      return
+    }
     guard NativeVideoCallUiHost.canPresentVideoSurfaces() else { return }
     guard NativeVideoCallUiHost.isShowing(callId: sid) else { return }
 
@@ -532,6 +695,7 @@ extension NativeVideoCallAgoraEngine: AgoraRtcEngineDelegate {
       callId: sid,
       details: "channel=\(channel) uid=\(uid)"
     )
+    reconcileLocalCameraAfterJoin(callId: sid)
 
     if callerJoin {
       NativeVideoCallLog.info("caller_agora_local_join_success", callId: sid, details: "awaiting_remote_user")
@@ -617,6 +781,37 @@ extension NativeVideoCallAgoraEngine: AgoraRtcEngineDelegate {
       width: Int(size.width),
       height: Int(size.height)
     )
+  }
+
+  /// 카메라 끄기 설계 §4-5 — 상대 카메라 꺼짐은 STOPPED + REMOTE_MUTED(5) 만 (네트워크 멈춤 FROZEN 은 아님).
+  func rtcEngine(
+    _ engine: AgoraRtcEngineKit,
+    remoteVideoStateChangedOfUid uid: UInt,
+    state: AgoraVideoRemoteState,
+    reason: AgoraVideoRemoteReason,
+    elapsed: Int
+  ) {
+    lock.lock()
+    let sid = activeCallId
+    lock.unlock()
+    guard let sid, uid != 0 else { return }
+    NativeVideoCallLog.info(
+      "agora_remote_video_state",
+      callId: sid,
+      details: "uid=\(uid) state=\(state.rawValue) reason=\(reason.rawValue)"
+    )
+    guard let on = Self.remoteCameraOn(state: Int(state.rawValue), reason: Int(reason.rawValue)) else { return }
+    updateRemoteCamera(callId: sid, uid: uid, on: on, source: "video_state")
+  }
+
+  /// 상대가 송출을 멈춤/재개 — 이미 꺼진 상대에 늦게 입장한 경우의 보조 신호.
+  func rtcEngine(_ engine: AgoraRtcEngineKit, didVideoMuted muted: Bool, byUid uid: UInt) {
+    lock.lock()
+    let sid = activeCallId
+    lock.unlock()
+    guard let sid, uid != 0 else { return }
+    NativeVideoCallLog.info("agora_remote_user_mute_video", callId: sid, details: "uid=\(uid) muted=\(muted)")
+    updateRemoteCamera(callId: sid, uid: uid, on: !muted, source: "user_mute")
   }
 
   func rtcEngine(_ engine: AgoraRtcEngineKit, didOfflineOfUid uid: UInt, reason: AgoraUserOfflineReason) {
