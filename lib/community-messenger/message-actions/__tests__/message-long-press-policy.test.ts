@@ -78,12 +78,20 @@ describe("canReply / react / share", () => {
     expect(canReactToMessage(baseMsg({ messageType: "text", isMine: true }), "direct")).toBe(false);
     expect(canReactToMessage(baseMsg({ messageType: "text", isMine: false }), "direct")).toBe(true);
   });
-  it("trade share: to-room only, no external or link", () => {
+  it("trade share: nothing (to-room off by SH-P0-1, no external or link)", () => {
     const text = baseMsg({ messageType: "text" });
-    expect(canShareMessageToRoom(text, "trade")).toBe(true);
+    expect(canShareMessageToRoom(text, "trade")).toBe(false);
     expect(canShareMessageExternally(text, "trade")).toBe(false);
     expect(canCopyMessageLink(text, "trade")).toBe(false);
-    expect(canShareMessage(text, "trade")).toBe(true);
+    expect(canShareMessage(text, "trade")).toBe(false);
+  });
+  it("SH-P0-1: share-to-room is off in every room kind", () => {
+    const text = baseMsg({ messageType: "text" });
+    expect(canShareMessageToRoom(text, "direct")).toBe(false);
+    expect(canShareMessageToRoom(text, "trade")).toBe(false);
+    expect(canShareMessageExternally(text, "direct")).toBe(true);
+    expect(canCopyMessageLink(text, "direct")).toBe(true);
+    expect(canShareMessage(text, "direct")).toBe(true);
   });
   it("reply preview type labels", () => {
     expect(formatReplyPreviewMessageTypeLabel("text")).toBe("텍스트");
