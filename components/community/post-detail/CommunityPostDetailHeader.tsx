@@ -11,7 +11,7 @@ import {
 } from "@/lib/ui/tier1-header-icon";
 import { DibayHeaderShareButton } from "@/components/share/DibayHeaderShareButton";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
-import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import { isCommunityHomeSurfacePath, isHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 import type { FixedDestinationBackOptions } from "@/lib/navigation/fixed-destination-back";
 
 function splitHref(href: string): { path: string; search: string } {
@@ -19,14 +19,24 @@ function splitHref(href: string): { path: string; search: string } {
   return q === -1 ? { path: href, search: "" } : { path: href.slice(0, q), search: href.slice(q) };
 }
 
-/** 커뮤니티 허브 별칭(`/`·`/philife`·`/home`·`/community`)은 같은 목록 화면 */
-const COMMUNITY_FIXED_BACK_OPTIONS: FixedDestinationBackOptions = {
+/**
+ * 같은 화면 판정 — 커뮤니티 허브 별칭(`/philife`·`/community`)끼리, HOME 별칭(`/`·`/home`)끼리.
+ * (2026-11-09 앱 홈 분리로 `/`·`/home` 은 커뮤니티가 아닌 HOME 화면이다.)
+ */
+export const COMMUNITY_FIXED_BACK_OPTIONS: FixedDestinationBackOptions = {
   isSameDestination: (prev, target) => {
     const a = splitHref(prev);
     const b = splitHref(target);
-    return isCommunityHomeSurfacePath(a.path) && isCommunityHomeSurfacePath(b.path) && a.search === b.search;
+    if (a.search !== b.search) return false;
+    if (isCommunityHomeSurfacePath(a.path) && isCommunityHomeSurfacePath(b.path)) return true;
+    return isHomeSurfacePath(a.path) && isHomeSurfacePath(b.path);
   },
 };
+
+/** ‹ 읽기 이름 — 목적지가 HOME 이면 「피드로」가 아니라 「뒤로가기」 */
+export function backAriaKey(backHref: string): "nav_back" | "community_feed_back_aria" {
+  return isHomeSurfacePath(splitHref(backHref).path) ? "nav_back" : "community_feed_back_aria";
+}
 
 type Props = {
   titleText: string;
@@ -71,7 +81,7 @@ export function CommunityPostDetailHeader({ titleText, backHref, hasEntryOriginF
           ...COMMUNITY_FIXED_BACK_OPTIONS,
           assumePreviousIsTarget: () => hasEntryOriginForPost,
         }}
-        ariaLabel={t("community_feed_back_aria")}
+        ariaLabel={t(backAriaKey(backHref))}
       />
     ),
     [backHref, hasEntryOriginForPost, t]
@@ -84,7 +94,7 @@ export function CommunityPostDetailHeader({ titleText, backHref, hasEntryOriginF
         titleText: titleText || t("community_community_label"),
         backHref,
         preferHistoryBack: false,
-        ariaLabel: t("community_feed_back_aria"),
+        ariaLabel: t(backAriaKey(backHref)),
         showHubQuickActions: false,
         leftSlot,
         rightSlot,
