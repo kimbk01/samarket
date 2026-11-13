@@ -18,26 +18,6 @@ export type CommunityPostShareNativePayload = {
   url: string;
 };
 
-export type CommunityPostShareKakaoFeed = {
-  objectType: "feed";
-  content: {
-    title: string;
-    description: string;
-    imageUrl: string;
-    link: {
-      mobileWebUrl: string;
-      webUrl: string;
-    };
-  };
-  buttons: Array<{
-    title: string;
-    link: {
-      mobileWebUrl: string;
-      webUrl: string;
-    };
-  }>;
-};
-
 const DEFAULT_OG_IMAGE_PATH = "/images/brand/dibay-auth-logo.png";
 
 export function resolveCommunityPostShareOgImageUrl(
@@ -84,29 +64,6 @@ export function buildCommunityPostShareNativePayload(
     .join(" ")
     .trim();
   return { title, text, url: card.canonicalUrl };
-}
-
-export function buildCommunityPostShareKakaoFeed(
-  card: CommunityPostShareCardData,
-  defaultImageUrl: string
-): CommunityPostShareKakaoFeed {
-  const url = card.canonicalUrl;
-  const imageUrl = card.thumbnailUrl || defaultImageUrl;
-  return {
-    objectType: "feed",
-    content: {
-      title: card.title || card.categoryName || "DIBAY",
-      description: card.excerpt,
-      imageUrl,
-      link: { mobileWebUrl: url, webUrl: url },
-    },
-    buttons: [
-      {
-        title: "DIBAY에서 보기",
-        link: { mobileWebUrl: url, webUrl: url },
-      },
-    ],
-  };
 }
 
 /** 메신저 `community_post_share` metadata SSOT */
