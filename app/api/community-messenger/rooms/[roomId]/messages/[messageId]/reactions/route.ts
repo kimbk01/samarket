@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import {
   listCommunityMessengerMessageReactionParticipants,
@@ -55,7 +56,7 @@ export async function GET(
       return jsonError("잘못된 요청입니다.", 400, { code: result.error });
     }
     if (result.error === "messenger_storage_unavailable") {
-      return jsonError("메신저를 사용할 수 없습니다.", 503, { code: result.error });
+      return jsonError(`${B.LETARING}을 사용할 수 없습니다.`, 503, { code: result.error });
     }
     return jsonError("반응 목록을 불러오지 못했습니다.", 400, { code: result.error });
   }
@@ -110,7 +111,7 @@ export async function POST(
       return jsonError("잘못된 요청입니다.", 400, { code: result.error });
     }
     if (result.error === "messenger_storage_unavailable") {
-      return jsonError("메신저를 사용할 수 없습니다.", 503, { code: result.error });
+      return jsonError(`${B.LETARING}을 사용할 수 없습니다.`, 503, { code: result.error });
     }
     return jsonError("반응을 저장하지 못했습니다.", 400, { code: result.error });
   }

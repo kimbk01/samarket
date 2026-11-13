@@ -1,3 +1,4 @@
+import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import { adminServerLanguage } from "@/lib/i18n/admin-server-language";
 import type { AppLanguageCode } from "@/lib/i18n/config";
@@ -497,7 +498,7 @@ function mapCallLog(
     id: row.id,
     sessionId: row.session_id ?? null,
     roomId: row.room_id,
-    roomTitle: row.room_id ? roomMap.get(row.room_id)?.title ?? "메신저 방" : "메신저 방",
+    roomTitle: row.room_id ? roomMap.get(row.room_id)?.title ?? `${B.LETARING} 방` : `${B.LETARING} 방`,
     sessionMode,
     callerLabel: labelForProfile(profileMap.get(row.caller_user_id), row.caller_user_id),
     peerLabel: row.peer_user_id ? labelForProfile(profileMap.get(row.peer_user_id), row.peer_user_id) : "-",
@@ -515,7 +516,7 @@ function mapActiveCallSession(
   profileMap: Map<string, ProfileRow>,
   participants: CallSessionParticipantRow[]
 ): AdminCommunityMessengerActiveCallSession {
-  const roomTitle = roomMap.get(row.room_id)?.title ?? "메신저 방";
+  const roomTitle = roomMap.get(row.room_id)?.title ?? `${B.LETARING} 방`;
   const mappedParticipants = participants.map((participant) => ({
     userId: participant.user_id,
     label: labelForProfile(profileMap.get(participant.user_id), participant.user_id),
@@ -555,7 +556,7 @@ function mapCallAuditLog(
     id: row.id,
     sessionId,
     roomId,
-    roomTitle: roomId ? roomMap.get(roomId)?.title ?? "메신저 방" : "메신저 방",
+    roomTitle: roomId ? roomMap.get(roomId)?.title ?? `${B.LETARING} 방` : `${B.LETARING} 방`,
     actorLabel: actorId ? labelForProfile(profileMap.get(actorId), actorId) : row.actor_type,
     action: row.action,
     reasonCode,
@@ -576,7 +577,7 @@ function mapReport(
     id: row.id,
     reportType: row.report_type,
     roomId: row.room_id,
-    roomTitle: row.room_id ? roomMap.get(row.room_id)?.title ?? "메신저 방" : "메신저 방",
+    roomTitle: row.room_id ? roomMap.get(row.room_id)?.title ?? `${B.LETARING} 방` : `${B.LETARING} 방`,
     messageId: row.message_id,
     reportedUserId: row.reported_user_id,
     reportedUserLabel: row.reported_user_id

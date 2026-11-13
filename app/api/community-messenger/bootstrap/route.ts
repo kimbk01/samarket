@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { requireMessengerOpenAccess } from "@/lib/profile/require-profile-completion.server";
@@ -382,7 +383,7 @@ export async function GET(request: NextRequest) {
     key: `community-messenger:bootstrap:${getRateLimitKey(request, auth.userId)}`,
     limit: 90,
     windowMs: 60_000,
-    message: "메신저 초기 데이터 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    message: `${B.LETARING} 초기 데이터 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.`,
     code: "community_messenger_bootstrap_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

@@ -1,6 +1,8 @@
 /**
  * 어드민 화면 문구 — 언어 SSOT L25(2026-11-08): 검사 규칙이 세지 않던 한국어 문자열(`label:`·`description=`·`<option>` 등)에서 옮긴 문구.
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const copyAdminL25CommunityBMessages = {
   ko: {
     admin_feed_emergency_tab_policy: "장애 대응 정책",
@@ -302,7 +304,7 @@ export const copyAdminL25CommunityBMessages = {
     admin_community_rdecision_dismiss_reason: "기각 사유 (예: 신고 내용과 다름)",
     admin_community_rdecision_dismiss_button: "신고 기각",
     admin_community_rdecision_dismissed: "신고를 기각했습니다.",
-    admin_community_rdecision_restrict_notice: "활동 제한은 커뮤니티 글·댓글·신고·모임만 막습니다. 거래·배달·메신저는 그대로입니다. 회원에게 알림이 갑니다.",
+    admin_community_rdecision_restrict_notice: `활동 제한은 커뮤니티 글·댓글·신고·모임만 막습니다. 거래·배달·${B.LETARING}은 그대로입니다. 회원에게 알림이 갑니다.`,
     admin_community_rdecision_resolve_notice: "신고자에게 처리 완료 알림이 가고, 조치를 선택하면 작성자에게도 알림이 갑니다.",
     admin_community_rdecision_resolve_reason: "인정 사유 (회원 알림·운영 기록에 남습니다)",
     admin_community_rdecision_resolve_button: "신고 인정",
@@ -355,7 +357,7 @@ export const copyAdminL25CommunityBMessages = {
     admin_community_restrict_warning: "경고",
     admin_community_restrict_days: "{n}일",
     admin_community_restrict_warning_notice: "경고는 기록과 알림만 남기고 활동을 막지 않습니다.",
-    admin_community_restrict_restrict_notice: "활동 제한은 커뮤니티 글·댓글·신고·모임만 막습니다. 거래·배달·메신저는 그대로입니다. 회원에게 알림이 갑니다.",
+    admin_community_restrict_restrict_notice: `활동 제한은 커뮤니티 글·댓글·신고·모임만 막습니다. 거래·배달·${B.LETARING}은 그대로입니다. 회원에게 알림이 갑니다.`,
     admin_community_restrict_reason_placeholder: "사유 (회원 알림·운영 기록에 남습니다)",
     admin_community_restrict_searching: "찾는 중",
     admin_community_restrict_search_button: "찾기",
@@ -740,7 +742,7 @@ export const copyAdminL25CommunityBMessages = {
     admin_community_rdecision_dismiss_reason: "Dismiss reason (e.g., does not match the Report)",
     admin_community_rdecision_dismiss_button: "Dismiss report",
     admin_community_rdecision_dismissed: "Report dismissed.",
-    admin_community_rdecision_restrict_notice: "Activity restriction only blocks community posts, comments, Reports, and meetups. Trade, delivery, and messenger stay available. The Member is notified.",
+    admin_community_rdecision_restrict_notice: `Activity restriction only blocks community posts, comments, Reports, and meetups. Trade, delivery, and ${B.LETARING} stay available. The Member is notified.`,
     admin_community_rdecision_resolve_notice: "The reporter is notified that it was handled. If you choose an action, the author is notified too.",
     admin_community_rdecision_resolve_reason: "Accept reason (kept in Member notifications and operations records)",
     admin_community_rdecision_resolve_button: "Accept report",
@@ -793,7 +795,7 @@ export const copyAdminL25CommunityBMessages = {
     admin_community_restrict_warning: "Warning",
     admin_community_restrict_days: "{n} days",
     admin_community_restrict_warning_notice: "A warning only leaves a record and a notification; it does not block activity.",
-    admin_community_restrict_restrict_notice: "Activity restriction only blocks community posts, comments, Reports, and meetups. Trade, delivery, and messenger stay available. The Member is notified.",
+    admin_community_restrict_restrict_notice: `Activity restriction only blocks community posts, comments, Reports, and meetups. Trade, delivery, and ${B.LETARING} stay available. The Member is notified.`,
     admin_community_restrict_reason_placeholder: "Reason (kept in Member notifications and operations records)",
     admin_community_restrict_searching: "Searching",
     admin_community_restrict_search_button: "Search",

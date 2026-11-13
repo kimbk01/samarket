@@ -2,6 +2,8 @@
  * 어드민 매장 화면.
  * 언어 SSOT B4(2026-11-08): 언어 삼항·영어 짝 없는 한국어·대체 문구에서 옮긴 문구 (`docs/i18n-ssot.md` §3).
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const copyAdminB4StoresMessages = {
   ko: {
     admin_stores_delivery_menu_add_title: "메뉴 추가 — {name}",
@@ -313,7 +315,7 @@ export const copyAdminB4StoresMessages = {
     admin_stores_shelf_disabled: "선반을 사용안함으로 변경했습니다.",
     admin_stores_changes_reverted: "변경사항을 취소했습니다.",
     admin_stores_save_home_shelves: "홈 선반 설정을 저장할까요?",
-    admin_stores_saving_applies_shelf_order_and_visibility: "저장하면 고객 배달 홈의 선반 순서·노출에 바로 반영됩니다.",
+    admin_stores_saving_applies_shelf_order_and_visibility: `저장하면 고객 ${B.DIPICK} 홈의 선반 순서·노출에 바로 반영됩니다.`,
     admin_stores_home_shelves: "홈 선반",
     admin_stores_shown_below_hero_banner_above_remaining: "히어로 배너 아래 · 「더 많은 매장」 위에 차례로 표시됩니다.",
     admin_stores_delivery_home_management: "배달 › HOME 관리",
@@ -356,7 +358,7 @@ export const copyAdminB4StoresMessages = {
     admin_stores_review_detail: "심사 상세",
     admin_stores_menu_tables_are_not_applied_yet: "메뉴 표가 아직 운영 DB에 적용되지 않았습니다. 고객 화면은 업종 화면 그대로입니다.",
     admin_stores_build_customer_delivery_top_tabs_icons: "고객 배달 화면의 상단 탭·아이콘·매장을 배민과 같은 구조로 구성합니다. 왼쪽 미리보기를 누르면 오른쪽에서 바로 수정·삭제, 파란 점선 「+」로 추가합니다. 저장하면 고객 앱에 바로 반영됩니다. 업종·수수료는 바뀌지 않습니다.",
-    admin_stores_delivery_home: "배달 홈",
+    admin_stores_delivery_home: `${B.DIPICK} 홈`,
     admin_stores_page: "{name_ko} 페이지",
     admin_stores_category_defaults: "업종 기본 메뉴",
     admin_stores_visible_stores_without_menu: "메뉴에 없는 노출 매장 {unassigned}곳",
@@ -801,7 +803,7 @@ export const copyAdminB4StoresMessages = {
     admin_stores_shelf_disabled: "Shelf disabled.",
     admin_stores_changes_reverted: "Changes reverted.",
     admin_stores_save_home_shelves: "Save the HOME shelves?",
-    admin_stores_saving_applies_shelf_order_and_visibility: "Saving applies the shelf order and visibility to the customer delivery home right away.",
+    admin_stores_saving_applies_shelf_order_and_visibility: `Saving applies the shelf order and visibility to the customer ${B.DIPICK} home right away.`,
     admin_stores_home_shelves: "HOME shelves",
     admin_stores_shown_below_hero_banner_above_remaining: "Shown below the hero banner, above the remaining stores.",
     admin_stores_delivery_home_management: "Delivery › HOME management",
@@ -844,7 +846,7 @@ export const copyAdminB4StoresMessages = {
     admin_stores_review_detail: "Review detail",
     admin_stores_menu_tables_are_not_applied_yet: "Menu tables are not applied yet.",
     admin_stores_build_customer_delivery_top_tabs_icons: "Build the customer delivery top tabs, icons and stores. Tap the preview to edit; dashed + adds.",
-    admin_stores_delivery_home: "Delivery home",
+    admin_stores_delivery_home: `${B.DIPICK} home`,
     admin_stores_page: "{name_ko} page",
     admin_stores_category_defaults: "Category defaults",
     admin_stores_visible_stores_without_menu: "{unassigned} visible stores without a menu",

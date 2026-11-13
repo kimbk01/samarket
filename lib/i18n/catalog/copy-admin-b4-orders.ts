@@ -5,7 +5,7 @@
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
 export const copyAdminB4OrdersMessages = {
   ko: {
-    admin_order_chats_look_up_chats_linked_store: "매장 주문에 연결된 채팅을 조회합니다. 거래 채팅·커뮤니티 메신저는 아래 관련 링크에서 엽니다.",
+    admin_order_chats_look_up_chats_linked_store: `매장 주문에 연결된 채팅을 조회합니다. 거래 채팅·${B.LETARING}은 아래 관련 링크에서 엽니다.`,
     admin_order_chats_order_chats: "주문 채팅 목록",
     admin_order_chats_store_orders: "매장 주문",
     admin_order_chats_related_links: "관련 링크",
@@ -349,7 +349,7 @@ export const copyAdminB4OrdersMessages = {
     admin_store_orders_deeplink_buyer_selected: "지정 구매자",
   },
   en: {
-    admin_order_chats_look_up_chats_linked_store: "Look up chats linked to store orders. Trade chats and the community messenger open from the related links below.",
+    admin_order_chats_look_up_chats_linked_store: `Look up chats linked to store orders. Trade chats and ${B.LETARING} open from the related links below.`,
     admin_order_chats_order_chats: "Order chats",
     admin_order_chats_store_orders: "Store orders",
     admin_order_chats_related_links: "Related links",

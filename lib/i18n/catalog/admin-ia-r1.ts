@@ -17,7 +17,7 @@ export const adminIaR1Messages = {
     admin_report_sanctions_intro:
       "반려·경고·채팅 제한·게시글 숨김·계정 정지 등 처리 결과는 처리 이력에 기록되고, 제재가 걸리면 제재 기록에도 남습니다.",
     admin_report_list_description:
-      "신고 원장 6종을 한 목록으로 봅니다. 거래(reports)·커뮤니티(community_reports) 신고는 「상세」에서 처리하고, 매장·모임·메신저·구 거래 채팅 신고는 조회만 하며 각 행의 「처리 화면」에서 처리합니다. 계정 정지·차단은 회원 상세에서 합니다.",
+      `신고 원장 6종을 한 목록으로 봅니다. 거래(reports)·커뮤니티(community_reports) 신고는 「상세」에서 처리하고, 매장·모임·${B.LETARING}·구 거래 채팅 신고는 조회만 하며 각 행의 「처리 화면」에서 처리합니다. 계정 정지·차단은 회원 상세에서 합니다.`,
     admin_report_filter_domain_all: "도메인: 전체",
     admin_banners_overview_title: "배너 현황",
     admin_banners_overview_desc:
@@ -30,10 +30,10 @@ export const adminIaR1Messages = {
     admin_banners_overview_col_creative: "소재 · 연결",
     admin_banners_overview_col_policy: "중지 · 보관 · 삭제",
     admin_banners_overview_col_actions: "관리",
-    admin_banners_overview_kind_mypage: "마이페이지 배너",
+    admin_banners_overview_kind_mypage: `${B.MY} 배너`,
     admin_banners_overview_kind_promotion: "프로모션 배너",
     admin_banners_overview_kind_feed: "피드 배너",
-    admin_banners_overview_kind_delivery: "배달 홈 배너",
+    admin_banners_overview_kind_delivery: `${B.DIPICK} 홈 배너`,
     admin_banners_overview_policy_mypage: "숨김 · 보관, 노출 전 초안만 삭제",
     admin_banners_overview_policy_promotion: "배너만 중지, 보관은 이벤트 보관",
     admin_banners_overview_policy_feed: "중지 · 재개 · 종료 (삭제 없음)",
@@ -60,7 +60,7 @@ export const adminIaR1Messages = {
     admin_report_sanctions_intro:
       "Rejections, warnings, chat restrictions, hidden posts and suspensions are recorded in the action history; sanctions also appear in the sanction log.",
     admin_report_list_description:
-      "All six report ledgers in one list. Trade (reports) and community (community_reports) reports are processed from Detail; store, meeting, messenger and legacy trade-chat reports are view-only here and processed via each row’s domain screen. Account suspensions are done in member detail.",
+      `All six report ledgers in one list. Trade (reports) and community (community_reports) reports are processed from Detail; store, meeting, ${B.LETARING} and legacy trade-chat reports are view-only here and processed via each row’s domain screen. Account suspensions are done in member detail.`,
     admin_report_filter_domain_all: "Domain: all",
     admin_banners_overview_title: "Banner overview",
     admin_banners_overview_desc:
@@ -73,10 +73,10 @@ export const adminIaR1Messages = {
     admin_banners_overview_col_creative: "Creative · link",
     admin_banners_overview_col_policy: "Stop · archive · delete",
     admin_banners_overview_col_actions: "Manage",
-    admin_banners_overview_kind_mypage: "My page banner",
+    admin_banners_overview_kind_mypage: `${B.MY} banner`,
     admin_banners_overview_kind_promotion: "Promotion banner",
     admin_banners_overview_kind_feed: "Feed banner",
-    admin_banners_overview_kind_delivery: "Delivery home banner",
+    admin_banners_overview_kind_delivery: `${B.DIPICK} home banner`,
     admin_banners_overview_policy_mypage: "Hide · archive, delete unshown drafts only",
     admin_banners_overview_policy_promotion: "Stop banner only, archive via event",
     admin_banners_overview_policy_feed: "Pause · resume · end (no delete)",

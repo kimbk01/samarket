@@ -3,6 +3,7 @@
  * Presentation + capability accounting only. R4+ mutation workflows stay deferred.
  */
 
+import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 import { isDibaySyntheticAuthEmail } from "@/lib/auth/synthetic-auth-email";
 import { MEMBER_ADMIN_CAPABILITY_CATALOG } from "@/lib/admin-users/member-admin-capability-catalog";
 import type { MemberAdminActionDecision, MemberAdminActionId } from "@/lib/admin-users/member-admin-action-policy";
@@ -179,7 +180,7 @@ export const MEMBER_DETAIL_CTA_CAPABILITY_MAP: readonly MemberDetailCtaCapabilit
   },
   {
     ctaKey: "messenger",
-    ctaKo: "메신저 보기",
+    ctaKo: `${B.LETARING} 보기`,
     capId: "CAP-MSG-MESSENGER",
     currentState: "YES",
     targetPhase: "R8_PRESERVE",

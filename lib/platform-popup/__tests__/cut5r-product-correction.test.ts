@@ -69,14 +69,14 @@ describe("CUT 5-R admin surface multi-select mapping", () => {
       "MYPAGE",
     ]);
     expect(PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((o) => o.labelKo)).toEqual([
-      "전체 — 홈·커뮤니티·거래·배달·내정보",
-      "홈",
-      "커뮤니티",
-      "거래",
-      "배달",
-      "배달 오너",
+      "전체 — HOME·LOUNGE·MARKET·DIPICK·MY",
+      "HOME",
+      "LOUNGE",
+      "MARKET",
+      "DIPICK",
+      "DIPICK 오너",
       "어드민",
-      "내정보",
+      "MY",
     ]);
   });
 

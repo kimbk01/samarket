@@ -8,6 +8,7 @@
  * DB: one GLOBAL row OR one+ domain rows (never GLOBAL mixed with domains).
  */
 
+import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 import {
   PLATFORM_POPUP_CONSUMER_SURFACES,
   PLATFORM_POPUP_TARGET_SURFACES,
@@ -31,8 +32,8 @@ function isConsumerSurface(value: string): value is PlatformPopupConsumerSurface
 export const PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS = [
   {
     mode: "GLOBAL",
-    labelKo: "전체 — 홈·커뮤니티·거래·배달·내정보",
-    labelEn: "All — Home, Community, Trade, Delivery, My Page",
+    labelKo: `전체 — ${B.HOME}·${B.LOUNGE}·${B.MARKET}·${B.DIPICK}·${B.MY}`,
+    labelEn: `All — ${B.HOME}, ${B.LOUNGE}, ${B.MARKET}, ${B.DIPICK}, ${B.MY}`,
     helpKo:
       "위 다섯 영역에 동일 팝업 1개가 노출됩니다. 배달 오너·어드민 화면에는 나오지 않습니다(직접 선택한 경우만). 결제·통화·위험 작업 화면은 시스템이 잠시 가립니다.",
     helpEn:
@@ -42,8 +43,8 @@ export const PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS = [
   },
   {
     mode: "HOME",
-    labelKo: "홈",
-    labelEn: "Home",
+    labelKo: B.HOME,
+    labelEn: B.HOME,
     helpKo: "앱 홈에 노출됩니다. 다른 영역과 함께 선택할 수 있습니다.",
     helpEn: "App home. Can be combined with other areas.",
     pagesKo: "/ · /home",
@@ -51,37 +52,37 @@ export const PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS = [
   },
   {
     mode: "COMMUNITY",
-    labelKo: "커뮤니티",
-    labelEn: "Community",
-    helpKo: "커뮤니티 영역에 노출됩니다. 다른 영역과 함께 선택할 수 있습니다.",
-    helpEn: "Community area. Can be combined with other areas.",
+    labelKo: B.LOUNGE,
+    labelEn: B.LOUNGE,
+    helpKo: `${B.LOUNGE} 영역에 노출됩니다. 다른 영역과 함께 선택할 수 있습니다.`,
+    helpEn: `${B.LOUNGE} area. Can be combined with other areas.`,
     pagesKo: "/philife · /community",
     pagesEn: "/philife · /community",
   },
   {
     mode: "TRADE",
-    labelKo: "거래",
-    labelEn: "Trade",
-    helpKo: "거래 영역에 노출됩니다. 다른 영역과 함께 선택할 수 있습니다.",
-    helpEn: "Trade area. Can be combined with other areas.",
+    labelKo: B.MARKET,
+    labelEn: B.MARKET,
+    helpKo: `${B.MARKET} 영역에 노출됩니다. 다른 영역과 함께 선택할 수 있습니다.`,
+    helpEn: `${B.MARKET} area. Can be combined with other areas.`,
     pagesKo: "/market · /dibamarket · /post (글쓰기 /write 제외)",
     pagesEn: "/market · /dibamarket · /post (except writing /write)",
   },
   {
     mode: "DELIVERY",
-    labelKo: "배달",
-    labelEn: "Delivery",
-    helpKo: "배달(소비자) 영역에 노출됩니다. 다른 영역과 함께 선택할 수 있습니다.",
-    helpEn: "Consumer Delivery. Can be combined with other areas.",
+    labelKo: B.DIPICK,
+    labelEn: B.DIPICK,
+    helpKo: `${B.DIPICK}(소비자) 영역에 노출됩니다. 다른 영역과 함께 선택할 수 있습니다.`,
+    helpEn: `Consumer ${B.DIPICK}. Can be combined with other areas.`,
     pagesKo: "/stores · /delivery · /shop (장바구니·결제·주문 완료 제외)",
     pagesEn: "/stores · /delivery · /shop (except cart, checkout, order complete)",
   },
   {
     mode: "DELIVERY_OWNER",
-    labelKo: "배달 오너",
-    labelEn: "Delivery Owner",
-    helpKo: "배달 오너 화면에 노출됩니다. 결제·정산·위험 작업 화면은 시스템이 잠시 가립니다.",
-    helpEn: "Delivery Owner screens. Payment, settlement, and high-risk flows are gated automatically.",
+    labelKo: `${B.DIPICK} 오너`,
+    labelEn: `${B.DIPICK} Owner`,
+    helpKo: `${B.DIPICK} 오너 화면에 노출됩니다. 결제·정산·위험 작업 화면은 시스템이 잠시 가립니다.`,
+    helpEn: `${B.DIPICK} Owner screens. Payment, settlement, and high-risk flows are gated automatically.`,
     pagesKo: "/stores/owner · /my/business (정산·광고 캐시·주문 상세 제외)",
     pagesEn: "/stores/owner · /my/business (except settlement, ad cash, order detail)",
   },
@@ -96,10 +97,10 @@ export const PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS = [
   },
   {
     mode: "MYPAGE",
-    labelKo: "내정보",
-    labelEn: "My Page",
-    helpKo: "내정보 영역에 노출됩니다. 다른 영역과 함께 선택할 수 있습니다.",
-    helpEn: "My Page area. Can be combined with other areas.",
+    labelKo: B.MY,
+    labelEn: B.MY,
+    helpKo: `${B.MY} 영역에 노출됩니다. 다른 영역과 함께 선택할 수 있습니다.`,
+    helpEn: `${B.MY} area. Can be combined with other areas.`,
     pagesKo: "/mypage · /my (거래 채팅·매장 주문·사업자 화면 제외)",
     pagesEn: "/mypage · /my (except trade chat, store orders, business screens)",
   },

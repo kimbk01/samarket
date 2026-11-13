@@ -1,6 +1,8 @@
 /**
  * 모임 어드민 문구 (설계 docs/design/moim/moim-design-v1-2026-11-12.md §8 · M5). 어드민 전용 묶음(`lib/i18n/admin-catalog.ts`).
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const adminMoimMessages = {
   ko: {
     admin_moim_list_title: "모임 목록",
@@ -264,8 +266,8 @@ export const adminMoimMessages = {
     admin_moim_reports_title: "모임 신고",
     admin_moim_reports_desc: "모임·멤버·글·댓글·일정·사진·채팅 신고를 확인해요",
     admin_moim_reports_view_messenger: "모임 채팅 신고 보기",
-    admin_moim_reports_messenger_note: "모임 채팅방에서 들어온 메신저 신고예요. 처리는 메신저 신고 화면에서 해요",
-    admin_moim_reports_messenger_open: "메신저 신고에서 처리",
+    admin_moim_reports_messenger_note: `모임 채팅방에서 들어온 ${B.LETARING} 신고예요. 처리는 ${B.LETARING} 신고 화면에서 해요`,
+    admin_moim_reports_messenger_open: `${B.LETARING} 신고에서 처리`,
     admin_moim_reports_messenger_schedule_room: "일정 채팅방",
     admin_moim_chat_report_badge: "모임",
     admin_moim_chat_report_open_moim: "모임 관리 보기",
@@ -630,8 +632,8 @@ export const adminMoimMessages = {
     admin_moim_reports_title: "Group reports",
     admin_moim_reports_desc: "Check reports on groups, members, posts, comments, meetups, photos and chats",
     admin_moim_reports_view_messenger: "Group chat reports",
-    admin_moim_reports_messenger_note: "Messenger reports from group chats. Handle them on the messenger reports page",
-    admin_moim_reports_messenger_open: "Handle in messenger reports",
+    admin_moim_reports_messenger_note: `${B.LETARING} reports from group chats. Handle them on ${B.LETARING} reports page`,
+    admin_moim_reports_messenger_open: `Handle in ${B.LETARING} reports`,
     admin_moim_reports_messenger_schedule_room: "Meetup chat",
     admin_moim_chat_report_badge: "Group",
     admin_moim_chat_report_open_moim: "Open group admin",

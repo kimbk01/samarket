@@ -2,6 +2,8 @@
  * 어드민 고객센터·앱·회원·설정 화면.
  * 언어 SSOT B4(2026-11-08): 언어 삼항·영어 짝 없는 한국어·대체 문구에서 옮긴 문구 (`docs/i18n-ssot.md` §3).
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const copyAdminB4Ops1Messages = {
   ko: {
     admin_app_business_information: "사업자 정보 {label}",
@@ -10,7 +12,7 @@ export const copyAdminB4Ops1Messages = {
     admin_app_save_legal_document_draft: "약관 임시저장",
     admin_app_drafts_are_not_visible_to_members: "임시저장한 문서는 회원에게 노출되지 않습니다.",
     admin_app_draft_saved_not_visible_to_members: "임시저장했습니다. 회원에게는 노출되지 않습니다.",
-    admin_app_optional_consent_signup_and_my_info: "선택 동의 문서 — 게시 즉시 가입 화면·내정보 문구가 바뀌고, 이미 동의한 회원에게 다시 묻지 않습니다.",
+    admin_app_optional_consent_signup_and_my_info: `선택 동의 문서 — 게시 즉시 가입 화면·${B.MY} 문구가 바뀌고, 이미 동의한 회원에게 다시 묻지 않습니다.`,
     admin_app_english_text_is_display_only_consent: "영문 문서는 표시용이며, 동의 기준 버전은 한국어(ko) 문서를 따릅니다.",
     admin_app_publish_legal_document: "약관 게시",
     admin_app_version: "버전",
@@ -18,12 +20,12 @@ export const copyAdminB4Ops1Messages = {
     admin_app_applies_to_member_app_immediately: "게시 즉시 회원 앱에 적용됩니다.",
     admin_app_published: "게시했습니다.",
     admin_app_edit_published_text: "게시 문서 본문 수정",
-    admin_app_edits_benefits_events_consent_text_under: "같은 버전({v})으로 혜택·이벤트 동의 문구를 수정합니다. 가입 체크박스·내정보 스위치에 바로 반영되고, 이미 동의·거부한 회원에게 다시 묻지 않습니다. 보내는 내용이 바뀌면 새 버전으로 게시하세요. 수정 전후 본문 해시가 감사 로그에 남습니다.",
+    admin_app_edits_benefits_events_consent_text_under: `같은 버전({v})으로 혜택·이벤트 동의 문구를 수정합니다. 가입 체크박스·${B.MY} 스위치에 바로 반영되고, 이미 동의·거부한 회원에게 다시 묻지 않습니다. 보내는 내용이 바뀌면 새 버전으로 게시하세요. 수정 전후 본문 해시가 감사 로그에 남습니다.`,
     admin_app_edits_text_under_same_version_no: "같은 버전({v})으로 본문을 수정합니다. 회원 재동의는 발생하지 않으므로 오탈자·표현 정리 등 경미한 수정에만 사용하세요. 법적 내용·필수 동의 항목·개인정보 처리 변경은 새 버전 문서로 게시해야 합니다. 수정 전후 본문 해시가 감사 로그에 남습니다.",
     admin_app_publish_edit: "수정 게시",
     admin_app_text_updated_under_same_version: "같은 버전으로 본문을 수정했습니다.",
     admin_app_unpublish: "게시 중단",
-    admin_app_this_is_benefits_events_consent_text: "현재 가입 화면·내정보에 쓰이는 혜택·이벤트 동의 문구입니다. 게시를 중단하면 이전 게시 문서(없으면 기본 문구)가 쓰입니다. 회원의 동의·거부 기록은 바뀌지 않습니다.",
+    admin_app_this_is_benefits_events_consent_text: `현재 가입 화면·${B.MY}에 쓰이는 혜택·이벤트 동의 문구입니다. 게시를 중단하면 이전 게시 문서(없으면 기본 문구)가 쓰입니다. 회원의 동의·거부 기록은 바뀌지 않습니다.`,
     admin_app_this_is_document_currently_applied_to: "현재 회원에게 적용 중인 문서입니다. 게시를 중단하면 이전 게시 문서(없으면 기본 문구)가 적용되고, 동의 기준 버전이 바뀔 수 있습니다.",
     admin_app_removes_this_document_from_member_surface: "이 문서를 회원 화면에서 내립니다.",
     admin_app_unpublished: "게시를 중단했습니다.",
@@ -36,7 +38,7 @@ export const copyAdminB4Ops1Messages = {
     admin_app_revision_type: "개정 유형",
     admin_app_notice_only: "공지만",
     admin_app_re_consent_required: "재동의 필요",
-    admin_app_title_optional_checkbox_on_signup_consent: "제목 = 가입 동의 화면의 선택 체크박스 이름 · 내정보 「혜택·이벤트 알림」 스위치 이름. 본문 = 「전문 보기」 화면. 선택 동의라 새 버전을 게시해도 회원에게 다시 묻지 않고, 새로 동의하는 회원에게 그 버전이 기록됩니다.",
+    admin_app_title_optional_checkbox_on_signup_consent: `제목 = 가입 동의 화면의 선택 체크박스 이름 · ${B.MY} 「혜택·이벤트 알림」 스위치 이름. 본문 = 「전문 보기」 화면. 선택 동의라 새 버전을 게시해도 회원에게 다시 묻지 않고, 새로 동의하는 회원에게 그 버전이 기록됩니다.`,
     admin_app_revision_type_required_before_publishing: "개정 유형 (게시 전 필수 선택)",
     admin_app_from_effective_time_every_member_must: "시행 시점부터 모든 회원이 새 버전에 다시 동의해야 서비스를 계속 이용할 수 있습니다. 동의 전에는 글쓰기 등 동의가 필요한 기능이 제한됩니다.",
     admin_app_existing_consents_stay_valid_members_are: "기존 동의가 계속 유효하고 회원에게 다시 묻지 않습니다. 새로 동의하는 회원에게만 이 버전이 기록됩니다.",
@@ -79,7 +81,7 @@ export const copyAdminB4Ops1Messages = {
     admin_app_item: "항목",
     admin_app_role: "유형",
     admin_app_signup: "가입",
-    admin_app_my_info: "내정보",
+    admin_app_my_info: `${B.MY}`,
     admin_app_reconsent: "재동의",
     admin_app_base: "기준(A)",
     admin_app_select: "선택",
@@ -413,7 +415,7 @@ export const copyAdminB4Ops1Messages = {
     admin_app_item: "Item",
     admin_app_role: "Role",
     admin_app_signup: "Signup",
-    admin_app_my_info: "My Info",
+    admin_app_my_info: `${B.MY}`,
     admin_app_reconsent: "Reconsent",
     admin_app_base: "Base (A)",
     admin_app_select: "Select",

@@ -43,13 +43,13 @@ describe("§1-3 위치 문구 — 설계 예문 그대로 (함수 1개)", () => 
     [{ locationKey: "COMMUNITY_BOOST_TOP" }, "커뮤니티 › 목록 맨 위 1자리"],
     [{ locationKey: "TRADE_HOME" }, "거래 홈 › 피드 배너(글 4~6개마다)"],
     [{ locationKey: "COMMUNITY_TOPIC", locationTarget: "local", locationTargetName: "동네소식" }, "커뮤니티 › 주제 ‘동네소식’ 피드 배너"],
-    [{ locationKey: "STORES_HOME_HERO" }, "배달 홈 › 상단 히어로(최대 5)"],
+    [{ locationKey: "STORES_HOME_HERO" }, "DIPICK 홈 › 상단 히어로(최대 5)"],
     [{ locationKey: "STORES_CATEGORY_TOP", locationTarget: "chicken", locationTargetName: "치킨" }, "배달 › 업종 ‘치킨’ 상단"],
     [{ locationKey: "STORES_SEARCH_TOP" }, "배달 › 검색 결과 상단"],
     [{ locationKey: "STORES_HOME_FEED" }, "배달 › 매장 목록(홈) 끼움"],
-    [{ locationKey: "POPUP", locationTarget: "COMMUNITY,TRADE,DELIVERY,MYPAGE" }, "팝업 › 커뮤니티·거래·배달·내정보"],
+    [{ locationKey: "POPUP", locationTarget: "COMMUNITY,TRADE,DELIVERY,MYPAGE" }, "팝업 › LOUNGE·MARKET·DIPICK·MY"],
     [{ locationKey: "PTR", locationTarget: "GLOBAL" }, "PTR › 커뮤니티·거래·매장 홈·browse"],
-    [{ locationKey: "MYPAGE_TOP" }, "내정보 › 프로필 아래"],
+    [{ locationKey: "MYPAGE_TOP" }, "MY › 프로필 아래"],
     [{ locationKey: "APP_INTRO" }, "앱 시작 › 인트로(새로 실행할 때)"],
   ];
   it.each(cases)("%o → %s", (input, expected) => {

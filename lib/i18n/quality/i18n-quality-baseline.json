@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-13 05:28 PHT",
+ "generatedAtPht": "2026-11-13 08:05 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -499,7 +499,7 @@
    "lib/community/public-source-attribution.ts": 3,
    "lib/community/share/community-share-payload.ts": 1,
    "lib/delivery/delivery-list-oor-policy.ts": 1,
-   "lib/delivery/load-delivery-bottom-nav-items-server.ts": 5,
+   "lib/delivery/load-delivery-bottom-nav-items-server.ts": 4,
    "lib/dev-sprints/dev-sprints-db.ts": 1,
    "lib/dev-sprints/dev-sprints-state.ts": 45,
    "lib/dr/dr-db.ts": 1,

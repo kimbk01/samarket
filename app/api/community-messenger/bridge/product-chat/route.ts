@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { buildCommunityMessengerRoomUrlWithContext } from "@/lib/community-messenger/cm-ctx-url";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
     const err = ensured.error ?? "bridge_failed";
     const status = err === "not_participant" ? 403 : err === "product_chat_not_found" ? 404 : 400;
     return jsonError(
-      err === "product_chat_not_found" ? "거래 채팅을 찾을 수 없습니다." : "메신저 방을 준비하지 못했습니다.",
+      err === "product_chat_not_found" ? "거래 채팅을 찾을 수 없습니다." : `${B.LETARING} 방을 준비하지 못했습니다.`,
       { status, code: err }
     );
   }
