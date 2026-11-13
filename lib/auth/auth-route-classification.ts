@@ -14,8 +14,11 @@ const FRESH_LOGIN_DENIED_PREFIXES = [
   "/mypage/store-orders/",
   "/stores/owner/orders/",
   "/mypage/trade/chat/",
-  "/post/",
-  "/products/",
+  /**
+   * `/post/`·`/products/`(거래 상품 상세)는 2026-11-14 목록에서 뺐다 (통합 공유 S5 · Owner 「S5 로그인 복귀 진행」).
+   * 공개 상세이고 화면은 볼 때마다 서버가 로그인한 사람 기준으로 다시 그리므로, 공유 링크 → 로그인 → 상세 복귀를 허용한다.
+   * 채팅·주문·통화처럼 계정에 묶인 경로는 그대로 복원 금지.
+   */
 ] as const;
 
 function normalizePathname(pathname: string): string {

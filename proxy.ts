@@ -18,6 +18,7 @@ import {
   shouldBlockUnauthenticatedHtmlRequest,
 } from "@/lib/auth/guest-browse-access-policy";
 import { resolveProxySignupGateRedirect } from "@/lib/auth/proxy-signup-gate";
+import { buildGuestLoginRedirectSearch } from "@/lib/auth/guest-login-redirect";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 import { applyOwnerPathRequestHeader } from "@/lib/business/owner-path-request-header";
@@ -108,7 +109,12 @@ function respondGuestBlocked(request: NextRequest, reason: "auth_required" | "se
     return preventAuthPageCache(NextResponse.redirect(url, 307));
   }
   url.pathname = "/login";
-  url.search = `?reason=${reason}`;
+  /**
+   * 로그인 후 원래 화면으로 (통합 공유 S5 · Owner 2026-11-14 「S5 로그인 복귀 진행」).
+   * 공유 링크(초대·모임·프로필 등)로 들어온 비회원이 로그인 뒤 원래 주소로 돌아오게 `next` 를 붙인다.
+   * 열린 리다이렉트 차단(`sanitizeNextPath`) + 계정 의존 경로(채팅방·주문·통화 등)는 붙이지 않음(`sanitizeLoginNextPath`) — 기존 계약 그대로.
+   */
+  url.search = buildGuestLoginRedirectSearch(reason, `${blockedPath}${request.nextUrl.search}`);
   return preventAuthPageCache(NextResponse.redirect(url, 307));
 }
 

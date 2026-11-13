@@ -21,8 +21,9 @@ describe("sanitizeFreshLoginLandingPath", () => {
     expect(sanitizeFreshLoginLandingPath("/chats/room-1")).toBeNull();
     expect(sanitizeFreshLoginLandingPath("/orders/store/order-1")).toBeNull();
     expect(sanitizeFreshLoginLandingPath("/mypage/store-orders/o1")).toBeNull();
-    expect(sanitizeFreshLoginLandingPath("/post/123")).toBeNull();
-    expect(sanitizeFreshLoginLandingPath("/products/456")).toBeNull();
+    // `/post/`·`/products/`(공개 거래 상품 상세)는 복귀 허용 — 통합 공유 S5 (Owner 2026-11-14)
+    expect(sanitizeFreshLoginLandingPath("/post/123")).toBe("/post/123");
+    expect(sanitizeFreshLoginLandingPath("/products/456")).toBe("/products/456");
     expect(sanitizeFreshLoginLandingPath("/community-messenger/calls/outgoing")).toBeNull();
   });
 
