@@ -7,7 +7,7 @@ export const adminStoresProductRecoveryMessages = {
       "배달 홈 선반의 노출·순서·제목·일정·쿠폰/광고 표면 허용만 운영합니다. 멤버십·순위·캠페인 엔티티는 여기서 만들지 않습니다.",
     admin_stores_home_shelves_ranking_lock:
       "매장 선정·순위는 Discovery에서 관리합니다. 이 화면에서는 선반 운영만 설정합니다.",
-    admin_stores_home_shelves_list_title: "HOME 선반 목록",
+    admin_stores_home_shelves_list_title: `${B.DIPICK} 홈 선반 목록`,
     admin_stores_home_shelves_preview_title: "고객 화면 미리보기",
     admin_stores_home_shelves_select_hint: "왼쪽에서 선반을 선택하세요.",
     admin_stores_home_shelves_cancel: "변경 취소",
@@ -63,7 +63,7 @@ export const adminStoresProductRecoveryMessages = {
     admin_stores_browse_criterion_fast: "조리시간",
     admin_stores_browse_discovery_shelf: "탐색 선반",
     admin_stores_browse_discovery_shelf_hint:
-      "지금 보고 있는 업종 리스트와 별도로, 다른 1차 업종 매장을 가로 카드로 넣습니다. 광고·쿠폰·HOME 선반이 아닙니다. 2차 칸에서는 설정하지 않습니다.",
+      `지금 보고 있는 업종 리스트와 별도로, 다른 1차 업종 매장을 가로 카드로 넣습니다. 광고·쿠폰·${B.DIPICK} 홈 선반이 아닙니다. 2차 칸에서는 설정하지 않습니다.`,
     admin_stores_browse_discovery_how:
       "켜기 → 어느 1차 페이지에 보여줄지 → 선반에 넣을 1차 업종 → 추천/주문/평점 → 위치 → 저장. 저장 전에는 고객 화면에 안 나옵니다.",
     admin_stores_browse_discovery_not_ads:
@@ -212,7 +212,7 @@ export const adminStoresProductRecoveryMessages = {
       "Operate shelf enable/order/title/schedule and coupon/ad surface permissions only. Membership, ranking, and campaign entities are not created here.",
     admin_stores_home_shelves_ranking_lock:
       "Store selection and ranking are managed by Discovery. This screen configures shelf operation only.",
-    admin_stores_home_shelves_list_title: "HOME shelf list",
+    admin_stores_home_shelves_list_title: `${B.DIPICK} home shelf list`,
     admin_stores_home_shelves_preview_title: "Customer screen preview",
     admin_stores_home_shelves_select_hint: "Select a shelf on the left.",
     admin_stores_home_shelves_cancel: "Discard changes",
@@ -268,7 +268,7 @@ export const adminStoresProductRecoveryMessages = {
     admin_stores_browse_criterion_fast: "Prep time",
     admin_stores_browse_discovery_shelf: "Discovery shelf",
     admin_stores_browse_discovery_shelf_hint:
-      "A separate horizontal store rail. Content can come from other primary industries. Not ads, coupons, or HOME. Secondary rows cannot turn this on.",
+      `A separate horizontal store rail. Content can come from other primary industries. Not ads, coupons, or ${B.DIPICK} home. Secondary rows cannot turn this on.`,
     admin_stores_browse_discovery_how:
       "Turn on → pick which primary pages show it → pick source primaries → data type → position → Save. It will not appear until saved.",
     admin_stores_browse_discovery_not_ads:

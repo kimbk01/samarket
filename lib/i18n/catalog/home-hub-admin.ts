@@ -1,3 +1,4 @@
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
 /**
  * 어드민 「홈 구성」(`/admin/menus/home-layout`) 문구 SSOT — Owner 「이대로 구현」 2026-11-09 (홈 시안 v22).
  */
@@ -166,7 +167,7 @@ export const homeHubAdminMessages = {
     admin_home_layout_trades_rule:
       "최근 7일 글 먼저, 모자라면 이전 글로 채움 · 거래완료·숨김·삭제 제외 · 지역 = 거래 탭에서 이번에 고른 지역(없으면 전체) · 새로고침마다 안 나온 글이 먼저.",
     admin_home_layout_posts_topic: "주제",
-    admin_home_layout_posts_rule: "목록 모양은 정보교환 게시판 목록과 같습니다.",
+    admin_home_layout_posts_rule: `목록 모양은 ${B.FEED} 게시판 목록과 같습니다.`,
     admin_home_layout_header_show_address: "로고 오른쪽에 주소 보이기",
     admin_home_layout_header_placeholder: "검색창 안내 문구",
     admin_home_layout_header_placeholder_hint: "비우면 기본 문구: {text}",
@@ -358,7 +359,7 @@ export const homeHubAdminMessages = {
     admin_home_layout_trades_rule:
       "Last 7 days first, older listings fill in · no sold, hidden or deleted · area = the one picked in Trade this session (else all) · unseen listings first on refresh.",
     admin_home_layout_posts_topic: "Topic",
-    admin_home_layout_posts_rule: "Rows look the same as the Community board list.",
+    admin_home_layout_posts_rule: `Rows look the same as the ${B.FEED} board list.`,
     admin_home_layout_header_show_address: "Show address next to the logo",
     admin_home_layout_header_placeholder: "Search box hint",
     admin_home_layout_header_placeholder_hint: "Blank = default: {text}",
