@@ -51,11 +51,10 @@ const MessengerCallChoiceSheetLazy = lazy(
 );
 
 /**
- * 방 헤더 아이콘 — 보이는 원 36px(기존 그대로) · 터치 44×44 (04-DESIGN-SYSTEM Touch, T-01).
- * 눌림 배경은 안쪽 36px 원에만 (group-active) → 시각 변화 없음.
+ * 방 헤더 버튼 — 헤더 SSOT 4단계: 다른 헤더와 같은 터치 48×48 · 그림 24 (눌림 원 36px 은 그대로).
  */
 const CM_ROOM_HEADER_TOUCH_BTN_CLASS =
-  "group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full";
+  "group relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full";
 const CM_ROOM_HEADER_TOUCH_FACE_BASE_CLASS =
   "flex h-9 w-9 items-center justify-center rounded-full transition";
 const CM_ROOM_HEADER_TOUCH_FACE_CLASS = `${CM_ROOM_HEADER_TOUCH_FACE_BASE_CLASS} group-active:bg-[color:var(--cm-room-primary-soft)]`;
@@ -332,7 +331,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     <MessengerHeader
       className={
         isMessengerSplit
-          ? "min-w-0 overflow-hidden pt-[var(--safe-top)] pr-[max(12px,var(--safe-right))]"
+          ? "min-w-0 overflow-hidden pt-[var(--safe-top)]"
           : undefined
       }
     >
@@ -344,7 +343,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
         >
           <span className={CM_ROOM_HEADER_TOUCH_FACE_CLASS}>
             {buyerSlideHost ?
-              <X className="h-[18px] w-[18px]" aria-hidden />
+              <X className="h-6 w-6" aria-hidden />
             : <BackIcon />}
           </span>
         </button>
@@ -381,7 +380,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
                 </div>
               </div>
               <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 leading-tight">
-                <p className="-translate-y-[1pt] truncate sam-text-body font-semibold leading-tight text-[color:var(--cm-room-text)]">
+                <p className="truncate text-[length:var(--sector-header-title-size)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
                   {listingHeader.headerTitle}
                 </p>
                 {listingSubtitle ? (
@@ -409,7 +408,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               />
             </div>
             <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 leading-tight">
-              <p className="-translate-y-[1pt] truncate sam-text-body font-semibold leading-tight text-[color:var(--cm-room-text)]">
+              <p className="truncate text-[length:var(--sector-header-title-size)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
                 {vm.snapshot.room.title}
               </p>
               <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
@@ -438,7 +437,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               ) : null}
             </div>
             <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 leading-tight">
-              <p className="-translate-y-[1pt] truncate sam-text-body font-semibold leading-tight text-[color:var(--cm-room-text)]">
+              <p className="truncate text-[length:var(--sector-header-title-size)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
                 {vm.snapshot.room.title}
               </p>
               <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
@@ -464,14 +463,14 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 leading-tight">
               {peerTradeRoleLabel ? (
                 <p className="truncate sam-text-xxs text-[color:var(--cm-room-text-muted)]">
-                  <span className="inline-block -translate-y-[1pt] font-semibold leading-snug text-[color:var(--cm-room-text)] sam-text-helper">
+                  <span className="inline-block text-[length:var(--sector-header-title-size)] font-semibold leading-snug text-[color:var(--sector-header-title-color)]">
                     {vm.snapshot.room.title}
                   </span>
                   <span aria-hidden> | </span>
                   <span>{peerTradeRoleLabel}</span>
                 </p>
               ) : (
-                <p className="-translate-y-[1pt] truncate sam-text-body font-semibold leading-tight text-[color:var(--cm-room-text)]">
+                <p className="truncate text-[length:var(--sector-header-title-size)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
                   {vm.snapshot.room.title}
                 </p>
               )}
@@ -502,7 +501,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               aria-label={vm.t("cm_ui_search_in_chat")}
             >
               <span className={CM_ROOM_HEADER_TOUCH_FACE_CLASS}>
-                <Search className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+                <Search className="h-6 w-6" strokeWidth={2} aria-hidden />
               </span>
             </button>
           ) : null}
@@ -514,7 +513,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               aria-label={vm.t("nav_messenger_open_group_settings")}
             >
               <span className={`${CM_ROOM_HEADER_TOUCH_FACE_BASE_CLASS} group-active:bg-[color:var(--cm-room-group-settings-pressed-bg)]`}>
-                <Settings className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+                <Settings className="h-6 w-6" strokeWidth={2} aria-hidden />
               </span>
             </button>
           ) : null}
@@ -531,7 +530,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               data-cm-own-call-live={ownLiveCall ? "1" : undefined}
             >
               <span className={`${CM_ROOM_HEADER_TOUCH_FACE_CLASS} relative`}>
-                <Phone className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+                <Phone className="h-6 w-6" strokeWidth={2} aria-hidden />
                 {ownLiveCall ? (
                   <span
                     className="absolute right-1 top-1 h-2 w-2 animate-pulse rounded-full bg-[color:var(--cm-room-primary)]"
@@ -555,7 +554,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               aria-label={vm.t("nav_messenger_room_menu")}
             >
               <span className={CM_ROOM_HEADER_TOUCH_FACE_CLASS}>
-                <MoreIcon className="h-[18px] w-[18px]" />
+                <MoreIcon className="h-6 w-6" />
               </span>
             </button>
           )}

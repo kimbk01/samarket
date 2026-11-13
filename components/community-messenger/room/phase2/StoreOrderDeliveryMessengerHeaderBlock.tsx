@@ -61,7 +61,7 @@ export function StoreOrderDeliveryMessengerHeaderBlock({
       </div>
 
       <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center overflow-hidden leading-tight">
-        <p className="truncate text-[15px] font-semibold leading-tight text-[color:var(--cm-room-text)]">
+        <p className="truncate text-[length:var(--sector-header-title-size)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
           {model.title}
         </p>
         {subtitle?.trim() ? (

@@ -40,15 +40,11 @@ import { StoreOrderSellerOrderPanel } from "@/components/chats/StoreOrderSellerO
 import { storeOrderAwaitingFirstPayment } from "@/lib/stores/store-order-awaiting-payment";
 import { fetchMeStoreOrderDetailDeduped, isDeliveryPrivateScopeChangedResponse, patchMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
-import {
-  MESSENGER_CHAT_HEADER_ROW_CLASS,
-  MESSENGER_CHAT_HEADER_SECTOR_HEIGHT_CLASS,
-} from "@/components/community-messenger/line-ui";
+import { SectorHeaderBar } from "@/components/layout/sector-header/SectorHeaderBar";
 import { TradePrimaryAppBarShell } from "@/components/layout/TradePrimaryAppBarShell";
 import {
   APP_MAIN_COLUMN_MAX_WIDTH_CLASS,
   APP_MAIN_GUTTER_X_CLASS,
-  APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS,
   APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS,
 } from "@/lib/ui/app-content-layout";
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
@@ -2044,91 +2040,93 @@ export function ChatDetailView({
             className={`sticky top-0 z-30 shrink-0 ${APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}`}
           >
             <TradePrimaryAppBarShell>
-              <div
-                className={`${MESSENGER_CHAT_HEADER_ROW_CLASS} gap-2 ${MESSENGER_CHAT_HEADER_SECTOR_HEIGHT_CLASS} ${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS}`}
-              >
-                <AppBackButton
-                  preferHistoryBack
-                  backHref={effectiveListHref}
-                  ariaLabel={t("nav_back")}
-                />
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <SamarketThumbnail
-                    src={resolveUserAvatarImageSrc(partnerDisplayAvatar)}
-                    size={40}
-                    roundedClassName="rounded-full"
-                    className="bg-sam-surface/90 ring-1 ring-black/5"
-                    fallbackSrc=""
-                    fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
-                  />
-                  <div className="min-w-0 flex-1">
-                    {showTradePeerRoleInline ? (
-                      <p className="truncate sam-text-xxs leading-snug text-sam-muted">
-                        <span className="font-medium text-sam-fg">{partnerDisplayNickname}</span>
-                        <span aria-hidden> | </span>
-                        <span>{amISeller ? t("cm_ui_trade_role_buyer") : t("cm_ui_trade_role_seller")}</span>
-                      </p>
-                    ) : (
-                      <p className="truncate sam-text-body font-semibold text-sam-fg">{partnerDisplayNickname}</p>
-                    )}
-                    {partnerAtUsername ? (
-                      <p className="mt-0.5 truncate font-mono sam-text-xxs text-sam-muted tabular-nums">
-                        {partnerAtUsername}
-                      </p>
-                    ) : null}
-                    {isTradeProductPresenceRoom && tradePresenceMeta ? (
-                      <>
-                        <TradeChatPresenceHeaderRow
-                          peerSharesLive={peerSharesTradePresenceLive}
-                          peerLiveState={peerTradeLiveState}
-                          peerTyping={peerTradeTyping}
-                          peerLastSeenLabel={
-                            peerTradeLiveState === "offline" ? tradePeerLastSeenLabel : ""
-                          }
-                        />
-                        {!showTradePeerRoleInline ? (
-                          <p className="truncate sam-text-xxs text-sam-muted">{headerRoleLine}</p>
+              {/* 헤더 SSOT 4단계 — 공통 줄 부품(제목-왼쪽): 높이 52 · 뒤로 48@x4 · 사진 36 · 이름 17px/600 · 아이콘 48/24 */}
+              <SectorHeaderBar
+                centerAlign="left"
+                left={<AppBackButton preferHistoryBack backHref={effectiveListHref} ariaLabel={t("nav_back")} />}
+                center={
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <SamarketThumbnail
+                        src={resolveUserAvatarImageSrc(partnerDisplayAvatar)}
+                        size={36}
+                        roundedClassName="rounded-full"
+                        className="bg-sam-surface/90 ring-1 ring-black/5"
+                        fallbackSrc=""
+                        fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
+                      />
+                      <div className="min-w-0 flex-1">
+                        {showTradePeerRoleInline ? (
+                          <p className="truncate sam-text-xxs leading-snug text-sam-muted">
+                            <span className="font-medium text-sam-fg">{partnerDisplayNickname}</span>
+                            <span aria-hidden> | </span>
+                            <span>{amISeller ? t("cm_ui_trade_role_buyer") : t("cm_ui_trade_role_seller")}</span>
+                          </p>
+                        ) : (
+                          <p className="truncate text-[length:var(--sector-header-title-size)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">{partnerDisplayNickname}</p>
+                        )}
+                        {partnerAtUsername ? (
+                          <p className="mt-0.5 truncate font-mono sam-text-xxs text-sam-muted tabular-nums">
+                            {partnerAtUsername}
+                          </p>
                         ) : null}
-                      </>
-                    ) : showTradePeerRoleInline ? null : (
-                      <p className="truncate sam-text-helper text-sam-fg">{headerRoleLine}</p>
+                        {isTradeProductPresenceRoom && tradePresenceMeta ? (
+                          <>
+                            <TradeChatPresenceHeaderRow
+                              peerSharesLive={peerSharesTradePresenceLive}
+                              peerLiveState={peerTradeLiveState}
+                              peerTyping={peerTradeTyping}
+                              peerLastSeenLabel={
+                                peerTradeLiveState === "offline" ? tradePeerLastSeenLabel : ""
+                              }
+                            />
+                            {!showTradePeerRoleInline ? (
+                              <p className="truncate sam-text-xxs text-sam-muted">{headerRoleLine}</p>
+                            ) : null}
+                          </>
+                        ) : showTradePeerRoleInline ? null : (
+                          <p className="truncate sam-text-helper text-sam-fg">{headerRoleLine}</p>
+                        )}
+                      </div>
+                      {partnerTrustSummary ? (
+                        <div className="shrink-0 pr-0.5" aria-label={t("chats_partner_trust_aria")}>
+                          <TrustSummaryCard summary={partnerTrustSummary} variant="compact" />
+                        </div>
+                      ) : null}
+                    </div>
+                }
+                right={
+                  <div className="flex shrink-0 items-center">
+                    {isChatRoom ? (
+                      <ChatRealtimeAppBarIcons
+                        state={chatRealtimeConnState}
+                        messagesLoading={messagesLoading}
+                        messageSoundMuted={chatMessageSoundMuted}
+                        onToggleMessageSound={toggleChatMessageSoundMuted}
+                        variant={isStoreOrderChat ? "dm" : "default"}
+                      />
+                    ) : null}
+                    {isStoreOrderSeller ? (
+                      <StoreOrderSellerHamburger
+                        chatRoomId={room.id}
+                        drawerOpen={sellerDrawerOpen}
+                        onDrawerOpenChange={setSellerDrawerOpenExclusive}
+                      />
+                    ) : (
+                      <div className="relative shrink-0" ref={menuRef}>
+                        <button
+                          type="button"
+                          onClick={() => setMenuOpen((v) => !v)}
+                          className="sector-header-action"
+                          aria-label={t("chats_more_menu_aria")}
+                        >
+                          <MoreIcon className="h-5 w-5" />
+                        </button>
+                        {moreMenuPanel}
+                      </div>
                     )}
                   </div>
-                  {partnerTrustSummary ? (
-                    <div className="shrink-0 pr-0.5" aria-label={t("chats_partner_trust_aria")}>
-                      <TrustSummaryCard summary={partnerTrustSummary} variant="compact" />
-                    </div>
-                  ) : null}
-                </div>
-                {isChatRoom ? (
-                  <ChatRealtimeAppBarIcons
-                    state={chatRealtimeConnState}
-                    messagesLoading={messagesLoading}
-                    messageSoundMuted={chatMessageSoundMuted}
-                    onToggleMessageSound={toggleChatMessageSoundMuted}
-                    variant={isStoreOrderChat ? "dm" : "default"}
-                  />
-                ) : null}
-                {isStoreOrderSeller ? (
-                  <StoreOrderSellerHamburger
-                    chatRoomId={room.id}
-                    drawerOpen={sellerDrawerOpen}
-                    onDrawerOpenChange={setSellerDrawerOpenExclusive}
-                  />
-                ) : (
-                  <div className="relative shrink-0" ref={menuRef}>
-                    <button
-                      type="button"
-                      onClick={() => setMenuOpen((v) => !v)}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10"
-                      aria-label={t("chats_more_menu_aria")}
-                    >
-                      <MoreIcon className="h-5 w-5" />
-                    </button>
-                    {moreMenuPanel}
-                  </div>
-                )}
-              </div>
+                }
+              />
             </TradePrimaryAppBarShell>
           </div>
           {!isStoreOrderChat ? (

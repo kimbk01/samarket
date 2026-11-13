@@ -359,16 +359,16 @@
  */
 [data-cm-room] .chat-header,
 [data-cm-room] [data-chat-header].chat-header {
-  height: 48px !important;
-  min-height: 48px !important;
-  max-height: 48px !important;
+  height: var(--sector-header-h) !important;
+  min-height: var(--sector-header-h) !important;
+  max-height: var(--sector-header-h) !important;
   margin: 0 !important;
   width: 100% !important;
   max-width: 100% !important;
   border-radius: 0 !important;
   box-shadow: none !important;
-  padding-left: 12px;
-  padding-right: 12px;
+  padding-left: var(--sector-header-edge-pad-left);
+  padding-right: var(--sector-header-edge-pad-right);
 }
 
 [data-cm-room] .chat-composer {
@@ -412,12 +412,12 @@
   [data-messenger-responsive-shell="wide"] [data-cm-room].cm-room-shell > [data-chat-header],
   [data-messenger-responsive-shell="wide"] [data-cm-room].cm-room-shell [data-chat-header].chat-header {
     height: auto !important;
-    min-height: calc(48px + var(--safe-top, 0px)) !important;
+    min-height: calc(var(--sector-header-h) + var(--safe-top, 0px)) !important;
     max-height: none !important;
     box-sizing: border-box !important;
     padding-top: var(--safe-top, 0px) !important;
-    padding-right: max(12px, var(--safe-right, 0px)) !important;
-    padding-left: max(12px, var(--safe-left, 0px)) !important;
+    padding-right: var(--sector-header-edge-pad-right) !important;
+    padding-left: var(--sector-header-edge-pad-left) !important;
     overflow: hidden !important;
   }
 }

@@ -137,12 +137,12 @@
     width: 100% !important;
     max-width: 100% !important;
     height: auto !important;
-    min-height: calc(48px + var(--safe-top, 0px)) !important;
+    min-height: calc(var(--sector-header-h) + var(--safe-top, 0px)) !important;
     max-height: none !important;
     box-sizing: border-box !important;
     padding-top: var(--safe-top, 0px) !important;
-    padding-right: max(12px, var(--safe-right, 0px)) !important;
-    padding-left: max(12px, var(--safe-left, 0px)) !important;
+    padding-right: var(--sector-header-edge-pad-right) !important;
+    padding-left: var(--sector-header-edge-pad-left) !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     overflow: hidden !important;

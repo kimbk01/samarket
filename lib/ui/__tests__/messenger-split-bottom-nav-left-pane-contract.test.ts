@@ -74,13 +74,13 @@ describe("messenger split left-pane contract (APK/iOS/Windows/tablet viewport SS
     expect(archive).not.toContain("MessengerHomeBottomSheetShell");
   });
 
-  it("wide room header safe-top override lives after fixed 48px lock (presentation)", () => {
+  it("wide room header safe-top override lives after fixed header-height lock (presentation, 헤더 SSOT 52)", () => {
     const css = read("app/messenger-presentation.css");
-    const lockIdx = css.indexOf("max-height: 48px !important");
-    const wideIdx = css.indexOf("min-height: calc(48px + var(--safe-top, 0px))");
+    const lockIdx = css.indexOf("max-height: var(--sector-header-h) !important");
+    const wideIdx = css.indexOf("min-height: calc(var(--sector-header-h) + var(--safe-top, 0px))");
     expect(lockIdx).toBeGreaterThan(-1);
     expect(wideIdx).toBeGreaterThan(lockIdx);
-    expect(css).toContain("padding-right: max(12px, var(--safe-right, 0px))");
+    expect(css).toContain("padding-right: var(--sector-header-edge-pad-right) !important;");
   });
 
   it("trade/delivery pillar registers SplitTopBar chrome", () => {

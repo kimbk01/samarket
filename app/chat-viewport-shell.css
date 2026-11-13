@@ -67,11 +67,12 @@
   align-items: center;
   width: 100%;
   min-width: 0;
-  height: 56px;
-  min-height: 56px;
-  max-height: 56px;
-  padding: 0 12px;
-  gap: 8px;
+  /** 헤더 SSOT 4단계 — 다른 헤더와 같은 높이 52 · 끝 여백 4(뒤로 48 @x4) · 칸 사이 0 */
+  height: var(--sector-header-h);
+  min-height: var(--sector-header-h);
+  max-height: var(--sector-header-h);
+  padding: 0 var(--sector-header-edge-pad-right) 0 var(--sector-header-edge-pad-left);
+  gap: 0;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   /** 헤더 SSOT 3단계 — 채팅방 헤더 = 채팅 도메인 색 (역할별 옅은 색조 `--cm-room-header-bg` 대체) */
   background: var(--dibay-surface-chat, var(--cm-room-header-bg, #ffffff));
@@ -114,13 +115,6 @@
 }
 
 @media (min-width: 768px) {
-  .chat-header {
-    height: 60px;
-    min-height: 60px;
-    max-height: 60px;
-    padding: 0 16px;
-  }
-
   .chat-composer {
     min-height: 56px;
     padding: 6px 12px;

@@ -24,11 +24,11 @@ import {
 
 /** `CommunityMessengerRoomPhase2Header` 와 같은 값 — 계약 테스트가 일치를 확인한다. */
 export const SPLIT_ROOM_ENTRY_FRAME_HEADER_CLASS =
-  "min-w-0 overflow-hidden pt-[var(--safe-top)] pr-[max(12px,var(--safe-right))]";
+  "min-w-0 overflow-hidden pt-[var(--safe-top)]";
 /** `CommunityMessengerRoomPhase2Header` 상태 줄(statusLine)과 같은 값 — 계약 테스트가 일치를 확인한다 (B-6). */
 export const SPLIT_ROOM_ENTRY_FRAME_STATUS_LINE_CLASS =
   "truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]";
-const HEADER_TOUCH_BTN_CLASS = "group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full";
+const HEADER_TOUCH_BTN_CLASS = "group relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full";
 const HEADER_TOUCH_FACE_CLASS = "flex h-9 w-9 items-center justify-center rounded-full transition";
 
 export const MessengerSplitRoomEntryFrame = memo(function MessengerSplitRoomEntryFrame({
@@ -84,7 +84,7 @@ export const MessengerSplitRoomEntryFrame = memo(function MessengerSplitRoomEntr
               </div>
             </div>
             <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 leading-tight">
-              <p className="-translate-y-[1pt] truncate sam-text-body font-semibold leading-tight text-[color:var(--cm-room-text)]">
+              <p className="truncate text-[length:var(--sector-header-title-size)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
                 {seed.title}
               </p>
               {/* 실제 방 상단바 상태 줄(1:1 방은 항상 1줄)과 같은 높이 자리 — 문구 없이 높이만 (B-6, 이름 7px 이동 방지) */}
