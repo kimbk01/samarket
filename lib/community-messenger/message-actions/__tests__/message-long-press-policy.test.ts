@@ -78,19 +78,20 @@ describe("canReply / react / share", () => {
     expect(canReactToMessage(baseMsg({ messageType: "text", isMine: true }), "direct")).toBe(false);
     expect(canReactToMessage(baseMsg({ messageType: "text", isMine: false }), "direct")).toBe(true);
   });
-  it("trade share: nothing (to-room off by SH-P0-1, no external or link)", () => {
+  it("trade share: nothing (to-room off by SH-P0-1, link off by SH-P0-2, no external)", () => {
     const text = baseMsg({ messageType: "text" });
     expect(canShareMessageToRoom(text, "trade")).toBe(false);
     expect(canShareMessageExternally(text, "trade")).toBe(false);
     expect(canCopyMessageLink(text, "trade")).toBe(false);
     expect(canShareMessage(text, "trade")).toBe(false);
   });
-  it("SH-P0-1: share-to-room is off in every room kind", () => {
+  it("SH-P0-1·P0-2: share-to-room and message link copy are off in every room kind", () => {
     const text = baseMsg({ messageType: "text" });
-    expect(canShareMessageToRoom(text, "direct")).toBe(false);
-    expect(canShareMessageToRoom(text, "trade")).toBe(false);
+    for (const kind of ["direct", "group", "trade"] as const) {
+      expect(canShareMessageToRoom(text, kind)).toBe(false);
+      expect(canCopyMessageLink(text, kind)).toBe(false);
+    }
     expect(canShareMessageExternally(text, "direct")).toBe(true);
-    expect(canCopyMessageLink(text, "direct")).toBe(true);
     expect(canShareMessage(text, "direct")).toBe(true);
   });
   it("reply preview type labels", () => {
