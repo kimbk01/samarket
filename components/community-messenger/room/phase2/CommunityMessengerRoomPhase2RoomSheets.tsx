@@ -344,38 +344,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <p className="mt-1 text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-primary)]">{vm.t("nav_messenger_open_group_settings")}</p>
                     {vm.canEditPrivateGroupMeta ? (
                       <div className="mt-3 grid gap-2">
-                        <div className="flex items-center gap-3">
-                          {/* 그룹 결함 D12: 그룹 사진 대체 표시는 그룹 아이콘(제목 첫 글자 금지 — GroupDomainAvatar 계약) */}
-                          <GroupDomainAvatar
-                            imageUrl={vm.privateGroupAvatarUrl ?? vm.snapshot.room.avatarUrl}
-                            size={56}
-                            shape="rounded-square"
-                            roundedClassName="rounded-[12px]"
-                            className="ring-1 ring-[color:var(--overlay-border)]"
-                          />
-                          <button
-                            type="button"
-                            className={OverlayUi.btn.secondary}
-                            disabled={vm.busy === "private-group-avatar"}
-                            onClick={() => groupAvatarFileInputRef.current?.click()}
-                          >
-                            {vm.t("cm_ui_photo_gallery")}
-                          </button>
-                          <input
-                            ref={groupAvatarFileInputRef}
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            className="sr-only"
-                            tabIndex={-1}
-                            aria-hidden
-                            disabled={vm.busy === "private-group-avatar"}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              e.target.value = "";
-                              if (file) void vm.uploadPrivateGroupAvatar(file);
-                            }}
-                          />
-                        </div>
+                        {/* 그룹 결함 D13: 그룹 사진은 아래 72px 사진 1곳 — 「사진 (갤러리)」 버튼은 그 옆(시안 group-room-drawer-d13-mockup-2026-11-13) */}
                         <input
                           value={vm.privateGroupTitle}
                           onChange={(e) => vm.setPrivateGroupTitle(e.target.value)}
@@ -394,10 +363,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         </button>
                       </div>
                     ) : null}
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <button type="button" onClick={() => vm.setActiveSheet("members")} className={OverlayUi.btn.secondary}>
-                        {vm.t("nav_messenger_participants")}
-                      </button>
+                    {/* 그룹 결함 D13: 참여자 보기 = 아래 대화상대 목록·「전체 보기」, 알림 끄기 = 아래 목록 행(켜짐/꺼짐) — 카드 안 중복 버튼 없음 */}
+                    <div className="mt-3 flex">
                       <button
                         type="button"
                         onClick={() =>
@@ -406,16 +373,6 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         className={OverlayUi.btn.secondary}
                       >
                         {vm.t("nav_messenger_invite_members")}
-                      </button>
-                    </div>
-                    <div className="mt-2 flex">
-                      <button
-                        type="button"
-                        onClick={() => void vm.toggleRoomMute()}
-                        disabled={vm.busy === "room-mute"}
-                        className={OverlayUi.btn.secondary}
-                      >
-                        {vm.snapshot.room.isMuted ? vm.t("cm_ui_turn_on_room_notifications") : vm.t("cm_ui_turn_off_room_notifications")}
                       </button>
                     </div>
                     {vm.canInviteMembers ? (
@@ -440,13 +397,41 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 ) : null}
 
                 <div className="flex flex-col items-center gap-2 border-b border-sam-border-soft pb-4">
-                  <GroupDomainAvatar
-                    imageUrl={vm.snapshot.room.avatarUrl}
-                    size={72}
-                    shape="rounded-square"
-                    roundedClassName="rounded-[14px]"
-                    className="ring-1 ring-sam-border"
-                  />
+                  <div className="flex items-center gap-3" data-group-drawer-photo-row>
+                    <GroupDomainAvatar
+                      imageUrl={vm.snapshot.room.avatarUrl}
+                      size={72}
+                      shape="rounded-square"
+                      roundedClassName="rounded-[14px]"
+                      className="ring-1 ring-sam-border"
+                    />
+                    {vm.isPrivateGroupRoom && vm.canEditPrivateGroupMeta ? (
+                      <>
+                        <button
+                          type="button"
+                          className={`${OverlayUi.btn.secondary} w-auto shrink-0`}
+                          disabled={vm.busy === "private-group-avatar"}
+                          onClick={() => groupAvatarFileInputRef.current?.click()}
+                        >
+                          {vm.t("cm_ui_photo_gallery")}
+                        </button>
+                        <input
+                          ref={groupAvatarFileInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="sr-only"
+                          tabIndex={-1}
+                          aria-hidden
+                          disabled={vm.busy === "private-group-avatar"}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (file) void vm.uploadPrivateGroupAvatar(file);
+                          }}
+                        />
+                      </>
+                    ) : null}
+                  </div>
                   <h2 className="text-center sam-text-body-lg font-semibold leading-snug text-sam-fg">{vm.snapshot.room.title}</h2>
                   <p className="text-center sam-text-helper text-sam-muted">
                     {typeof vm.snapshot.room.onlineCount === "number"
