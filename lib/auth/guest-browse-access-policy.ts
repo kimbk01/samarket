@@ -91,6 +91,8 @@ export function isGuestPublicBrowsePath(pathname: string): boolean {
   if (pathname.startsWith("/.well-known/")) return true;
   /** 운영자(사업자) 정보 — 개인정보처리방침·비로그인 메뉴가 안내하는 공개 페이지 (App Store 1.5·5.1.1) */
   if (pathname === "/business-info" || pathname.startsWith("/business-info/")) return true;
+  /** 앱 공유 착지 페이지 — 공유받은 사람이 로그인 전에 앱 소개·설치 안내를 본다 (Owner G-1 2026-11-14) */
+  if (pathname === "/download") return true;
   if (pathname === "/services" || pathname.startsWith("/services/")) return true;
   if (pathname === "/features" || pathname.startsWith("/features/")) return true;
 

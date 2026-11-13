@@ -22,6 +22,7 @@ import {
   HelpCircle,
   History,
   Info,
+  Share2,
   Languages,
   Lock,
   MapPin,
@@ -112,6 +113,8 @@ export function renderMypageHomeMenuIcon(icon: MypageHomeMenuIconId): ReactNode 
       return <Trash2 className={ICON_CLASS} {...stroke} />;
     case "info":
       return <Info className={ICON_CLASS} {...stroke} />;
+    case "share":
+      return <Share2 className={ICON_CLASS} {...stroke} />;
     case "hand":
       return <Hand className={ICON_CLASS} {...stroke} />;
     case "phone":

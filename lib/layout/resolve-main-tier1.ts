@@ -802,6 +802,17 @@ function resolveMainTier1SubpageInner(
     };
   }
 
+  /** 앱 공유 착지 페이지 (Owner G-1 2026-11-14) */
+  if (p === "/download") {
+    return {
+      ...DEFAULT,
+      backHref: "/",
+      preferHistoryBack: true,
+      titleText: "share_app_page_title",
+      showHubQuickActions: false,
+    };
+  }
+
   if (p === "/business-info") {
     return {
       ...DEFAULT,

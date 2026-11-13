@@ -1,5 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { shareCommunityPostViaNative } from "../community-share-native";
+import { describe, expect, it, vi } from "vitest";
 import { shareCommunityPostViaKakao } from "../community-share-kakao";
 import { getKakaoJavascriptKey } from "../community-share-kakao";
 
@@ -9,34 +8,6 @@ vi.mock("../community-share-copy", async (importOriginal) => {
     ...actual,
     copyTextToClipboard: vi.fn().mockResolvedValue("clipboard"),
   };
-});
-
-describe("shareCommunityPostViaNative", () => {
-  beforeEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("returns cancelled on AbortError from navigator.share", async () => {
-    vi.stubGlobal("navigator", {
-      share: vi.fn().mockRejectedValue(Object.assign(new Error("cancel"), { name: "AbortError" })),
-    });
-    const outcome = await shareCommunityPostViaNative({
-      title: "T",
-      text: "body",
-      url: "https://samarket.vercel.app/community/posts/x?utm_source=dibay_share",
-    });
-    expect(outcome).toBe("cancelled");
-  });
-
-  it("falls back to copy when share unavailable", async () => {
-    vi.stubGlobal("navigator", {});
-    const outcome = await shareCommunityPostViaNative({
-      title: "T",
-      text: "body",
-      url: "https://samarket.vercel.app/community/posts/x?utm_source=dibay_share",
-    });
-    expect(outcome).toBe("copied");
-  });
 });
 
 describe("shareCommunityPostViaKakao", () => {

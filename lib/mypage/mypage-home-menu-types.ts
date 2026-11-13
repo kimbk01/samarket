@@ -33,6 +33,7 @@ export type MypageHomeMenuIconId =
   | "ellipsis-vertical"
   | "trash-2"
   | "info"
+  | "share"
   | "hand"
   | "phone"
   | "languages"

@@ -9,6 +9,13 @@ import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { MyPageAdminMenuEntry } from "@/components/mypage/MyPageAdminMenuEntry";
 import { MyInfoMenuSection } from "@/components/mypage/myinfo/MyInfoMenuSection";
+import { MyInfoMenuItem } from "@/components/mypage/myinfo/MyInfoMenuItem";
+import { renderMypageHomeMenuIcon } from "@/components/mypage/myinfo/myinfo-menu-icon";
+import { useDibayShareSheet } from "@/components/share/use-dibay-share-sheet";
+import { APP_PRODUCT_DISPLAY_NAME } from "@/lib/brand/app-display-name";
+import { DIBAY_APP_ICON_512_PATH, dibayBrandAssetUrl } from "@/lib/brand/brand-asset-paths";
+import { DIBAY_APP_LANDING_PATH } from "@/lib/share/app-store-links";
+import { buildShareUrl } from "@/lib/share/share-url";
 import {
   MyInfoCustomerCenterRow,
   MyInfoHomeLinkRow,
@@ -49,6 +56,32 @@ function PcLoginIaRow({ first }: { first: boolean }) {
       first={first}
       item={{ href: MYPAGE_PC_LOGIN_HREF, titleKey: "mypage_mnav_settings_pc_login", icon: "shield" }}
     />
+  );
+}
+
+/** 「dibaY 공유하기」 — 앱 소개·설치 페이지를 통합 공유 시트로 (Owner G-1 2026-11-14) */
+function ShareAppIaRow({ first }: { first: boolean }) {
+  const { t } = useI18n();
+  const { openShare, shareSheet } = useDibayShareSheet();
+  return (
+    <>
+      <MyInfoMenuItem
+        first={first}
+        href={DIBAY_APP_LANDING_PATH}
+        title={t("share_app_row")}
+        icon={renderMypageHomeMenuIcon("share")}
+        onPress={() =>
+          openShare({
+            url: buildShareUrl({ kind: "app" }),
+            previewTitle: APP_PRODUCT_DISPLAY_NAME,
+            previewSubtitle: t("share_app_desc"),
+            previewImageUrl: dibayBrandAssetUrl(DIBAY_APP_ICON_512_PATH),
+            shareText: t("share_app_desc"),
+          })
+        }
+      />
+      {shareSheet}
+    </>
   );
 }
 
@@ -95,6 +128,8 @@ function IaRow({
       return null;
     case "pc-login":
       return <PcLoginIaRow first={first} />;
+    case "share-app":
+      return <ShareAppIaRow first={first} />;
     default:
       return null;
   }
