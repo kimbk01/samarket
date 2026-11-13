@@ -107,11 +107,11 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_count_exposable: "활성 캠페인",
     admin_delivery_ads_count_under_review: "승인 대기",
     admin_delivery_ads_open_campaigns: "배달 광고 관리에서 보기",
-    admin_delivery_ads_home_policy_title: "HOME 매장 리스트 광고 정책",
+    admin_delivery_ads_home_policy_title: `${B.DIPICK} 홈 매장 리스트 광고 정책`,
     admin_delivery_ads_home_policy_max: "최대: {n}개",
-    admin_delivery_ads_home_banner_slot_title: "매장 목록 위 배너 (HOME 구성)",
+    admin_delivery_ads_home_banner_slot_title: `매장 목록 위 배너 (${B.DIPICK} 홈 구성)`,
     admin_delivery_ads_home_banner_slot_hint:
-      "네이티브 매장 홍보(rest_stores 삽입)와 별개입니다. HOME 구성이 물리 지면을 소유합니다.",
+      `네이티브 매장 홍보(rest_stores 삽입)와 별개입니다. ${B.DIPICK} 홈 구성이 물리 지면을 소유합니다.`,
     admin_delivery_ads_home_banner_slot_enable: "배너 지면 사용",
     admin_delivery_ads_open_banner_campaigns: "배너 캠페인 관리",
     admin_delivery_ads_browse_policy_title: "이 업종 광고 정책",
@@ -178,7 +178,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_banner_creative_state_ready: "제작 완료",
     admin_delivery_ads_banner_creative_state_needed: "제작 필요",
     admin_delivery_ads_home_policy_switch_hint:
-      "HOME 유료 삽입 켜기/끄기는 「더 많은 매장」 선반의 광고 삽입 설정 하나로 정합니다. 코드 기본값은 끄기입니다.",
+      `${B.DIPICK} 홈 유료 삽입 켜기/끄기는 「더 많은 매장」 선반의 광고 삽입 설정 하나로 정합니다. 코드 기본값은 끄기입니다.`,
     admin_delivery_ads_home_policy_open_shelves: "홈 선반에서 광고 연동 설정",
     admin_delivery_ads_first_party_title: "디바이 광고 만들기",
     admin_delivery_ads_first_party_desc: "배너 전용 · Owner 없이 DIBAY_FIRST_PARTY 캠페인 생성",
@@ -376,11 +376,11 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_count_exposable: "Active campaigns",
     admin_delivery_ads_count_under_review: "Under review",
     admin_delivery_ads_open_campaigns: "View in Delivery ads",
-    admin_delivery_ads_home_policy_title: "HOME store-list ad policy",
+    admin_delivery_ads_home_policy_title: `${B.DIPICK} home store-list ad policy`,
     admin_delivery_ads_home_policy_max: "Max: {n}",
-    admin_delivery_ads_home_banner_slot_title: "Before-rest banner (HOME composition)",
+    admin_delivery_ads_home_banner_slot_title: `Before-rest banner (${B.DIPICK} home composition)`,
     admin_delivery_ads_home_banner_slot_hint:
-      "Separate from native store promotion (rest_stores insertion). HOME composition owns this physical slot.",
+      `Separate from native store promotion (rest_stores insertion). ${B.DIPICK} home composition owns this physical slot.`,
     admin_delivery_ads_home_banner_slot_enable: "Enable banner slot",
     admin_delivery_ads_open_banner_campaigns: "Manage banner campaigns",
     admin_delivery_ads_browse_policy_title: "Category ad policy",
@@ -448,7 +448,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_banner_creative_state_ready: "Ready",
     admin_delivery_ads_banner_creative_state_needed: "Needs production",
     admin_delivery_ads_home_policy_switch_hint:
-      "HOME paid insertion is switched only by the remaining-stores shelf ad setting. Code default remains OFF.",
+      `${B.DIPICK} home paid insertion is switched only by the remaining-stores shelf ad setting. Code default remains OFF.`,
     admin_delivery_ads_home_policy_open_shelves: "Configure ad integration on home shelves",
     admin_delivery_ads_first_party_title: "Create DIBAY ad",
     admin_delivery_ads_first_party_desc:

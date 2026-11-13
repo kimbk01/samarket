@@ -97,7 +97,7 @@ export const copyShellMessages = {
     ads_source_store_application: "매장 신청",
     ads_source_member_application: "회원 신청",
     my_banner_link_required: "누르면 이동할 링크를 입력해 주세요(앱 안 경로 또는 이벤트).",
-    my_banner_external_link_forbidden: "마이 배너는 외부 링크를 쓸 수 없습니다. 앱 안 경로(/…) 또는 이벤트({event_path})를 넣어 주세요.",
+    my_banner_external_link_forbidden: `${B.MY} 배너는 외부 링크를 쓸 수 없습니다. 앱 안 경로(/…) 또는 이벤트({event_path})를 넣어 주세요.`,
     my_banner_link_invalid: "링크 형식이 올바르지 않습니다. /로 시작하는 앱 안 경로를 넣어 주세요.",
   },
   en: {
@@ -192,7 +192,7 @@ export const copyShellMessages = {
     ads_source_store_application: "Store application",
     ads_source_member_application: "Member application",
     my_banner_link_required: "Enter where the banner goes (in-app path or event).",
-    my_banner_external_link_forbidden: "My-page banners cannot use external links. Use an in-app path (/…) or an event ({event_path}).",
+    my_banner_external_link_forbidden: `${B.MY} banners cannot use external links. Use an in-app path (/…) or an event ({event_path}).`,
     my_banner_link_invalid: "Invalid link. Use an in-app path starting with /.",
   },
 } as const;
