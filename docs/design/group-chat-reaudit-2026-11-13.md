@@ -117,3 +117,11 @@
   - **43초 보호 재판정 = 유지**: 서버 방 캐시는 인스턴스별 메모리 Map(`room-bootstrap-route-cache.ts:11`)이라 저장을 처리한 인스턴스만 비워지고, 방 정보 응답에는 CDN 헤더 `s-maxage=5, stale-while-revalidate=30`(`bootstrap/route.ts:246·405`)이 붙어 서버에서 지울 수 없다 → 보호를 빼면 저장한 기기에 옛 값이 다시 보일 수 있다. 보호 제거는 §6 R1 의 CDN 처리 방법(Owner 결정) 이후.
   - `titleFromRoom` 은 캐시와 무관(서버 대체 제목 구분) — 유지.
 
+- **R1 실기 (운영 `25e57c9c4` · 09:03 PHT)**: Xiaomi(zxzx11 방장) 저장 09:03:32(DB `updated_at`) → Samsung(q테스트1, 앱 1.2.6(51), B2B TEST 방 열린 상태) 머리글 09:03:32 캡처 = 기본 아이콘, 09:03:34 캡처 = QA 사진 → **2초 안 반영 PASS**.
+  - **R1 효과 판정 = NOT_PROVEN**: 01:03:20~50 UTC 운영 로그에 Samsung 의 방 정보(bootstrap) 요청이 없음 — 머리글은 서버 방 캐시를 거치지 않는 경로로 바뀜. 수정 전 같은 방법 측정값도 없음.
+  - 복원 09:04:32 → DB 대조: title 「B2B TEST」 같음, avatar_url null 같음(updated_at 만 변경) · Samsung 머리글 09:04:49 기본 아이콘.
+  - 누수 추가: 시험 이미지 `48350c86…`(원본+썸네일) — 시험 이미지 합계 4장 8파일.
+- **R2 (Owner 「R2 진행」 09:1x PHT)** — D3 정정
+  - 대상 = **그룹 방만**(설계 정정): 운영 실측(11-13 07:4x Xiaomi, 방마다 5회) 1:1 진입은 이미 `silent_delta` 1회(약 550ms), 그룹은 0회 → 모든 방으로 넓히면 1:1 은 2회가 된다.
+  - 600ms 타이머 삭제 → **네트워크 없이 끝나는 진입 지점 3곳에서만** 첫 화면 뒤(rAF 2회) 진입당 1회: Z1 생명주기 시드 경로(보강 불필요) · Z2 새로고침 5초 캐시 재사용 · Z3 보강 예약이 「캐시 새것」으로 건너뜀. 함수 `requestGroupEntryIdentityAfterFirstPaint`, 진입 표시 `markCmRoomEntryStarted`·`claimCmRoomEntryIdentityCheck`.
+  - 시험: 렌더 시험 9건(시드 진입 1회·refresh 바뀌어도 1회·네트워크 받았으면 0·1:1 0·재진입 다시 1회·**머리글이 쓰는 `GroupDomainAvatar` 가 기본 아이콘 → 병합 뒤 서버 사진**·Z2/Z3 호출) — 수정 빼면 4건 실패. 머리글 전체 컴포넌트 렌더는 아님(화면 모델 전체 필요).

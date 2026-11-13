@@ -21,6 +21,7 @@ import {
 } from "@/lib/community-messenger/room-snapshot-cache";
 import type { CommunityMessengerMessage, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+import { requestGroupEntryIdentityAfterFirstPaint } from "@/lib/community-messenger/room/group-entry-identity-check";
 import {
   ENTRY_SHARED_FLIGHT_DEADLINE_MS,
   isSharedFlightDeadlineError,
@@ -517,7 +518,11 @@ export function createMessengerRoomBootstrapRefresh(
                 CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS,
                 viewerIdForCache
               );
-              if (secondaryFresh) return;
+              if (secondaryFresh) {
+                /** 재감사 R2: 보강을 건너뛰는 진입(Z3) — 그룹 방이면 방 정보 1회 */
+                requestGroupEntryIdentityAfterFirstPaint({ roomId, snapshot: primed, refresh });
+                return;
+              }
               await refresh(true, {
                 triggerReason: "room_bootstrap_secondary_idle",
               });
@@ -538,6 +543,8 @@ export function createMessengerRoomBootstrapRefresh(
           loadedRef.current = true;
           setRoomReadyForRealtime(true);
           setLoading(false);
+          /** 재감사 R2: 5초 캐시 재사용으로 네트워크 없이 끝나는 진입(Z2) — 그룹 방이면 첫 화면 뒤 방 정보 1회 */
+          requestGroupEntryIdentityAfterFirstPaint({ roomId, snapshot: primed, refresh });
           return;
         }
         if (typeof window !== "undefined") {
