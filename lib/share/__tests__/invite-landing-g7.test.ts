@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { isGuestPublicBrowsePath } from "@/lib/auth/guest-browse-access-policy";
+import { shareInviteMessages } from "@/lib/i18n/catalog/share-invite";
+import { inviteMembersKey } from "@/lib/share/invite-members-key";
 
 const read = (rel: string) => readFileSync(path.join(process.cwd(), rel), "utf8");
 
@@ -39,5 +41,20 @@ describe("초대 랜딩 비회원 공개 (Owner G-7 2026-11-14)", () => {
   it("초대 링크 미리보기는 검색 제외", () => {
     const src = read("lib/share/invite-landing-metadata.server.ts");
     expect(src).toContain("index: false");
+  });
+});
+
+describe("초대 인원 문구 단수·복수 (2026-11-14 실기: 멤버 1명 미리보기가 「1 members」)", () => {
+  it("1명 = 단수 키, 그 밖 = 복수 키", () => {
+    expect(inviteMembersKey(1)).toBe("share_invite_members_one");
+    expect(inviteMembersKey(0)).toBe("share_invite_members");
+    expect(inviteMembersKey(2)).toBe("share_invite_members");
+    expect(shareInviteMessages.en.share_invite_members_one).toBe("1 member");
+    expect(shareInviteMessages.ko.share_invite_members_one).toBe("멤버 1명");
+  });
+
+  it("링크 미리보기와 비회원 화면이 같은 키 선택을 쓴다", () => {
+    expect(read("lib/share/invite-landing-metadata.server.ts")).toContain("inviteMembersKey(preview.memberCount)");
+    expect(read("components/share/InviteLandingGuestCard.tsx")).toContain("inviteMembersKey(preview.memberCount)");
   });
 });

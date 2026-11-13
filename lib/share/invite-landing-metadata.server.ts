@@ -10,6 +10,7 @@ import { APP_LANGUAGE_COOKIE } from "@/lib/i18n/config";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import type { InviteLandingPreview } from "@/lib/share/invite-landing-preview.server";
+import { inviteMembersKey } from "@/lib/share/invite-members-key";
 
 const NOINDEX = { index: false, follow: false } as const;
 
@@ -23,7 +24,9 @@ export async function buildInviteLandingMetadata(
     cookieValue: cookieStore.get(APP_LANGUAGE_COOKIE)?.value,
     acceptLanguage: h.get("accept-language"),
   });
-  const description = safeTranslate(lang, "share_invite_members", { vars: { count: preview.memberCount } });
+  const description = safeTranslate(lang, inviteMembersKey(preview.memberCount), {
+    vars: { count: preview.memberCount },
+  });
   const images = preview.imageUrl ? [preview.imageUrl] : undefined;
   return {
     title: preview.title,

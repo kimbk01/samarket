@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { inviteMembersKey } from "@/lib/share/invite-members-key";
 
 export type InviteLandingGuestCardProps = {
   kind: "moim" | "group";
@@ -59,7 +60,7 @@ export function InviteLandingGuestCard({ kind, preview, loginHref }: InviteLandi
       ) : null}
       <h1 className="mt-4 break-words text-[20px] font-bold text-sam-fg">{preview.title}</h1>
       <p className="mt-1 sam-text-body-secondary text-sam-muted">
-        {t("share_invite_members", { count: preview.memberCount })}
+        {t(inviteMembersKey(preview.memberCount), { count: preview.memberCount })}
       </p>
       {preview.requiresApproval ? (
         <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("share_invite_approval_note")}</p>
