@@ -37,7 +37,9 @@ export type MypageIaRow =
   | { kind: "logout" }
   | { kind: "admin" }
   /** PC QR 로그인 — 디바이 휴대폰 앱(Android·iOS)에서만 보이는 행 (Owner 2026-11-08) */
-  | { kind: "pc-login" };
+  | { kind: "pc-login" }
+  /** 「dibaY 공유하기」 — 앱 소개·설치 페이지 링크를 통합 공유 시트로 (Owner G-1 2026-11-14) */
+  | { kind: "share-app" };
 
 export type MypageIaGroup = { titleKey: MessageKey | null; rows: MypageIaRow[] };
 
@@ -246,6 +248,7 @@ export const MYPAGE_IA_CATEGORIES: readonly MypageIaCategory[] = [
           { kind: "language-toggle", icon: "languages" },
           { kind: "pc-login" },
           link("/mypage/section/settings/cache", "settings_cache_clear", "trash-2"),
+          { kind: "share-app" },
           link("/mypage/section/settings/version", "settings_version", "info", {
             valueSource: { kind: "installed-version" },
           }),

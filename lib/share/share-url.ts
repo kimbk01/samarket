@@ -8,6 +8,7 @@
  * - 새 URL 을 만들지 않고 기존 상세 라우트만 쓴다.
  */
 import { DIBAY_PRODUCTION_SITE_ORIGIN } from "@/lib/platform/capacitor-server-url";
+import { DIBAY_APP_LANDING_PATH } from "@/lib/share/app-store-links";
 
 const LOCALHOST_RE = /^(localhost|127\.0\.0\.1|\[::1\])$/i;
 
@@ -46,6 +47,7 @@ export function isProductionShareContext(currentOrigin?: string | null): boolean
 }
 
 export type ShareTarget =
+  | { kind: "app" }
   | { kind: "feed"; postId: string }
   | { kind: "market"; postId: string }
   | { kind: "store"; storeSlug: string }
@@ -65,6 +67,8 @@ function seg(v: string): string {
 /** 대상별 정규 경로 — 기존 라우트 (§D-2) */
 export function buildSharePath(target: ShareTarget): string | null {
   switch (target.kind) {
+    case "app":
+      return DIBAY_APP_LANDING_PATH;
     case "feed":
       return target.postId.trim() ? `/community/posts/${seg(target.postId)}` : null;
     case "market":

@@ -8,10 +8,16 @@ import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
 const NON_PAGE = new Set(["api", "_providers", "dev", "debug"]);
+/**
+ * 웹 전용 공개 착지 페이지 — 앱 안으로 딥링크되지 않는다(App Links·AASA 는 `/f/` 만 선언).
+ * - `download`: 앱 공유 착지(앱 소개·설치 안내, Owner G-1 2026-11-14). 앱에서는 MY → 공유 시트로만 쓰고 이 주소로 이동하지 않는다.
+ * 네이티브 허용 목록에 넣으려면 네이티브 빌드가 필요하므로(일괄 빌드 규정) 여기서 명시적으로 뺀다.
+ */
+const WEB_ONLY_ROOTS = new Set(["download"]);
 
 function routeFolders(dir: string): string[] {
   return readdirSync(dir).filter((name) => {
-    if (name.startsWith("(") || NON_PAGE.has(name)) return false;
+    if (name.startsWith("(") || NON_PAGE.has(name) || WEB_ONLY_ROOTS.has(name)) return false;
     return statSync(path.join(dir, name)).isDirectory();
   });
 }

@@ -22,7 +22,10 @@ import {
 } from "@/lib/community-messenger/contacts/contacts-local-store";
 import { contactsNativePlatform } from "@/lib/community-messenger/contacts/contacts-native";
 import { formatRelativeTimeAgo } from "@/lib/i18n/format-relative-time";
-import { shareCommunityPostViaNative } from "@/lib/community/share/community-share-native";
+import { useDibayShareSheet } from "@/components/share/use-dibay-share-sheet";
+import { APP_PRODUCT_DISPLAY_NAME } from "@/lib/brand/app-display-name";
+import { DIBAY_APP_ICON_512_PATH, dibayBrandAssetUrl } from "@/lib/brand/brand-asset-paths";
+import { buildShareUrl } from "@/lib/share/share-url";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { MessengerContactsLoading, MessengerContactsRetry } from "@/components/community-messenger/contacts/MessengerContactsStatus";
 import {
@@ -163,12 +166,19 @@ export function MessengerContactsScreen() {
     return ok;
   };
 
-  /** 초대 — 앱 공통 공유(앱 공유 창 → 브라우저 공유 → 링크 복사) · 결과 안내 */
-  const invite = async () => {
-    const url = typeof window !== "undefined" ? window.location.origin : "";
-    const outcome = await shareCommunityPostViaNative({ title: t("cm_contacts_invite_text"), text: t("cm_contacts_invite_text"), url });
-    if (outcome === "copied") showMessengerSnackbar(t("cm_contacts_invite_copied"));
-    else if (outcome === "failed") showMessengerSnackbar(t("cm_contacts_action_failed"), { variant: "error" });
+  /**
+   * 초대 — 앱 소개·설치 페이지(`/download`) 링크를 통합 공유 시트로 (Owner G-1 2026-11-14).
+   * 실패·취소 때 링크를 몰래 복사하지 않는다(복사는 시트의 「링크 복사」로).
+   */
+  const { openShare, shareSheet } = useDibayShareSheet();
+  const invite = () => {
+    openShare({
+      url: buildShareUrl({ kind: "app" }),
+      previewTitle: APP_PRODUCT_DISPLAY_NAME,
+      previewSubtitle: t("share_app_desc"),
+      previewImageUrl: dibayBrandAssetUrl(DIBAY_APP_ICON_512_PATH),
+      shareText: t("cm_contacts_invite_text"),
+    });
   };
 
   const goBack = () => {
@@ -255,7 +265,7 @@ export function MessengerContactsScreen() {
                       {p.number}
                     </p>
                   </div>
-                  <button type="button" className={`${Sam.btn.secondaryCombo} ${MESSENGER_ROW_BTN_CLASS}`} onClick={() => void invite()}>
+                  <button type="button" className={`${Sam.btn.secondaryCombo} ${MESSENGER_ROW_BTN_CLASS}`} onClick={invite}>
                     {t("cm_contacts_invite")}
                   </button>
                 </div>
@@ -289,6 +299,7 @@ export function MessengerContactsScreen() {
           }}
         />
       ) : null}
+      {shareSheet}
     </div>
   );
 }
