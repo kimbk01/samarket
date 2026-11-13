@@ -79,3 +79,30 @@
 | B | 작업 규칙 | 운영 DB 조회 전 `information_schema.columns` 로 컬럼 확인, 가짜 id 로 운영 API 호출 금지 | 작업 절차 |
 
 NOT_PROVEN: 각 오류의 고객 화면 영향(A·C·D), C 원장 행 DB 대조, D·E 진입 화면, 11-11 감소를 만든 「수정」의 정체.
+
+## 5. 처리 결과 (2026-11-14 · Owner 「A 수정 진행」「C·D·E·F 도 순서대로 수정 진행」)
+
+| # | 상태 | 확정 원인 (감사 §2 정정 포함) | 수정 |
+|---|---|---|---|
+| A | PR #279 병합 `dd41799ad` | 그룹 읽음 수 RPC 에 `pending:` 임시 id | 훅·서버가 uuid 만 (`selectGroupReadCountMessageIds`) |
+| C | PR (포인트) | **정정**: `point-period-history.ts` 가 아니라 `project-point-financial-history.ts` `loadFeedAdHoldStatusMap` — 포인트 내역 화면이 `related_type=feed_ad_request` 줄 전부의 id 를 모으는데 환급 원장(`ad_refund`, `feed-ad-end-refund:<campaignId>`)도 같은 related_type 이라 섞임. 오류 시 빈 맵 → 그 페이지 피드 광고 보류 줄 상태가 「보류 중」으로 보일 수 있음(화면 NOT_PROVEN) | uuid 만 조회 |
+| D | PR (거래) | `lib/posts/map-post-detail-row.ts` `loadPostRowForDetail` 3단계 select 가 `showcase-<id>` 로 3번 실패(3건 = 3단계). 샘플 카드 클릭은 `PostCard` 에서 막혀 있음 — 들어온 진입 경로(주소 직접·공유 등)는 확인 못 함 | 상세 조회 공통 함수가 uuid 아니면 조회 없이 「글 없음」 |
+| E | PR (어드민 회원) | **정정**: 매장 경로가 아니라 어드민 회원 검색(`app/api/admin/users/route.ts`) — 검색어 그대로 `stores.id = 검색어` 조회. `sin`·`sinjinkim00`·`5823`·`2530` = 어드민이 입력한 검색어. API Gateway 로그 `select=owner_user_id&id=…&limit=` 확인 | uuid 검색일 때만 매장 id 조회 |
+| F | 마이그레이션 `20271114230000` · **운영 DB 적용 02:36:59 PHT** (Owner 「F 운영 DB 적용 승인」) | 아래 F | uuid 집합 대조 + 잔여만 position 재확인 |
+
+### F. 커뮤니티 이미지 정리 시간 초과 — 원인·설계안
+
+- 원인(코드 확인): `community_post_image_unreferenced(p_names)` (`supabase/migrations/20271031140000_…image_gc.sql`) 가 호출마다
+  ① 65개 열(채팅 메시지·메신저 메시지·알림·글 본문 등 **가장 큰 표 전체**)의 글자를 `refs` 로 통째 생성하고
+  ② 후보마다 `position(stem in r.t)` 로 전체 행을 다시 훑는다 → 비용 = 전체 행 × 후보 수(최대 800). 데이터가 늘수록 커져 매일 03:50 `statement timeout`. 정리 작업이 하루도 끝나지 못함.
+- 운영 측정(읽기 전용, 02:2x PHT): 참조 표 전체 46MB·약 4만 행, 정리 후보 104개, authenticator `statement_timeout=8s`. 기존 함수 실행 14.96~17.83초(> 8초 = 매일 실패 재현).
+- 운영 정의 ≠ 저장소 첫 정의: `20271112200000_moim_m1b` 가 12줄(옛 모임 9·community_chat_* 3)을 뺀 50줄이 운영 현재 — 새 마이그레이션은 운영 현재 목록 그대로.
+- 시행착오 1건: 앞보기 정규식(`(?=(...))`)은 Postgres 에서 캡처가 비어 104개 전부 「미참조」로 나옴 → 폐기(운영 적용 전 읽기 전용 비교에서 발견).
+- 설계안 (Owner 승인 · 구현은 1번만 — 2번 열 축소는 참조 누락 시 사진 삭제 위험이라 하지 않음, 3번은 1번으로 충분해 불필요):
+  1. 판정 방식 변경 — 후보마다 전체 훑기 대신 `refs` 에서 커뮤니티 이미지 파일명 형식(`/community/(import/)?<uuid>.`)만 정규식으로 **한 번** 뽑아 집합으로 만들고 후보와 해시 조인 (전체 행 × 후보 → 전체 행 1회).
+  2. 대상 열 축소 — 커뮤니티 이미지(`post-images/<uid>/community/…`)를 실제로 담을 수 있는 열만 남김(열 목록은 저장 경로별 전수 확인 후 확정).
+  3. 위 1·2 후에도 시간 초과면 cron 을 표별로 나눠 실행.
+- 적용 전후 (운영, 같은 데이터): 기존 14.96초 → 새 방식 1.47초, 결과 8건 동일. 적용 전 정의 백업 후 읽은 정의와 대조(변경 없음) → 단일 트랜잭션 적용 + `schema_migrations` 기록.
+- 적용 후 확인: 새 본문·참조 50줄·EXECUTE 권한 service_role(+postgres)만 · service_role·8초 제한으로 `community_post_image_gc_candidates` 1.40초, 8건(적용 전과 동일).
+- NOT_PROVEN: 다음 03:50 PHT cron 실제 성공·정리 삭제 결과 — 다음 날 Postgres 로그·cron 응답으로 확인.
+- 롤백: 적용 전 `pg_get_functiondef` 원문으로 `create or replace` 1회.
