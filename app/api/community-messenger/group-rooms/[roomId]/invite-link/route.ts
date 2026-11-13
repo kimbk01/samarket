@@ -2,17 +2,8 @@ import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { GROUP_ROOM_ERROR } from "@/lib/community-messenger/group/group-room-errors";
-import {
-  disableGroupInviteLink,
-  getGroupInviteLink,
-  regenerateGroupInviteLink,
-} from "@/lib/community-messenger/group/group-room-invite-link-service";
-import {
-  enforceRateLimit,
-  getRateLimitKey,
-  jsonError,
-  jsonOk,
-} from "@/lib/http/api-route";
+import { getGroupInviteLink } from "@/lib/community-messenger/group/group-room-invite-link-service";
+import { jsonError, jsonOk } from "@/lib/http/api-route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,20 +38,4 @@ export async function GET(
     inviteUrl: result.inviteUrl,
     enabled: result.enabled,
   });
-}
-
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: Promise<{ roomId: string }> }
-) {
-  const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) return auth.response;
-  const session = await validateActiveSession(auth.userId);
-  if (!session.ok) return session.response;
-  const phone = await requirePhoneVerified(auth.userId);
-  if (!phone.ok) return phone.response;
-  const { roomId } = await params;
-  const result = await disableGroupInviteLink({ userId: auth.userId, roomId: roomId.trim() });
-  if (!result.ok) return groupRoomServiceJsonError(result.error);
-  return jsonOk({ ok: true });
 }
