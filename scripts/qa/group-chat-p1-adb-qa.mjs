@@ -263,14 +263,9 @@ async function main() {
 
   log("--- invite link ---");
   const inviteGet = await prodFetch(`${groupBase}/invite-link`, cookieA, { method: "GET" });
-  const inviteRegen = await prodFetch(`${groupBase}/regenerate-link`, cookieA, { method: "POST" });
   report.checks.inviteLink =
-    inviteGet.status === 200 &&
-    inviteGet.json?.ok === true &&
-    inviteRegen.status === 200 &&
-    inviteRegen.json?.ok === true &&
-    Boolean(inviteRegen.json?.inviteUrl);
-  report.evidence.inviteLink = { get: inviteGet, regen: inviteRegen };
+    inviteGet.status === 200 && inviteGet.json?.ok === true && Boolean(inviteGet.json?.inviteUrl);
+  report.evidence.inviteLink = { get: inviteGet };
 
   log("--- media album ---");
   const mediaGet = await prodFetch(`${groupBase}/media?filter=all`, cookieA, { method: "GET" });

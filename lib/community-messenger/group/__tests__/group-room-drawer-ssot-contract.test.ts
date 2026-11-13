@@ -58,6 +58,28 @@ describe("group room drawer SSOT", () => {
     expect(joinReq).not.toContain("inviteUrl");
   });
 
+  it("D16: 화면이 안 쓰는 초대 링크 쓰기 API 없음 — 남는 것은 「초대 링크 복사」 GET 1개", () => {
+    const base = "app/api/community-messenger/group-rooms/[roomId]";
+    expect(existsSync(join(root, base, "regenerate-link/route.ts"))).toBe(false);
+    expect(existsSync(join(root, base, "invite-links/route.ts"))).toBe(false);
+    expect(existsSync(join(root, base, "invite-links/[linkId]/route.ts"))).toBe(false);
+    const route = read(`${base}/invite-link/route.ts`);
+    expect(route).toMatch(/export async function GET\(/);
+    expect(route).not.toMatch(/export async function (DELETE|POST|PATCH|PUT)\(/);
+    const svc = read("lib/community-messenger/group/group-room-invite-link-service.ts");
+    for (const name of [
+      "listGroupInviteLinks",
+      "createGroupInviteLink",
+      "updateGroupInviteLink",
+      "revokeGroupInviteLink",
+      "regenerateGroupInviteLink",
+      "disableGroupInviteLink",
+    ]) {
+      expect(svc).not.toContain(name);
+    }
+    expect(svc).toContain("export async function getGroupInviteLink(");
+  });
+
   it("S3: 서랍·방 정보 시트 — opacity 비활성·하드코딩 색·직접 행 눌림 없음, 팝업 SSOT 부품만", () => {
     const src = read(SHEETS);
     for (const part of [withoutGroupCallBlock(groupDrawerSource(src)), infoSheetSource(src)]) {

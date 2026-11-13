@@ -59,20 +59,6 @@ export async function listRoomInviteLinks(
   return ((data ?? []) as Record<string, unknown>[]).map(mapInviteLinkRow).filter(Boolean) as GroupInviteLinkRow[];
 }
 
-export async function fetchInviteLinkById(
-  sb: GroupRoomSupabase,
-  linkId: string
-): Promise<GroupInviteLinkRow | null> {
-  const id = trimText(linkId);
-  if (!id) return null;
-  const { data } = await (sb as any)
-    .from("community_messenger_group_invite_links")
-    .select(LINK_SELECT)
-    .eq("id", id)
-    .maybeSingle();
-  return mapInviteLinkRow(data as Record<string, unknown> | null);
-}
-
 export async function fetchInviteLinkByToken(
   sb: GroupRoomSupabase,
   token: string
