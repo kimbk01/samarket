@@ -30,8 +30,10 @@ import {
 import { runContactsSync, type ContactsSyncOutcome } from "@/lib/community-messenger/contacts/contacts-sync-engine";
 import { resetContactsArchiveSummary } from "@/lib/community-messenger/contacts/contacts-summary-cache";
 import { setContactsFriendTagIds } from "@/lib/community-messenger/contacts/contacts-friend-tag-store";
-import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
-import { hasOtherDeviceContacts, restoreContactsDeviceFromServer } from "@/lib/community-messenger/contacts/contacts-device-restore";
+import {
+  loadContactsDeviceSourcesOnce,
+  resetContactsDeviceSourcesOnce,
+} from "@/lib/community-messenger/contacts/contacts-device-restore";
 
 /** error = 설정을 불러오지 못함(네트워크·서버) — 기능 꺼짐(disabled)과 구분해 다시 시도를 보여 준다 */
 export type MessengerContactsPhase = "loading" | "error" | "disabled" | "consent" | "ready";
@@ -77,8 +79,6 @@ type ListCacheEntry = {
   token: string | null;
 };
 const listCache = new Map<string, ListCacheEntry>();
-/** 「다른 기기 출처 있음」 — 앱 실행 중 회원별 1번만 조회 */
-const otherDeviceSourcesCache = new Map<string, boolean>();
 /** 목록 조회 회원별 단일 비행 (§7) — 동의 직후·동기화 직후가 겹쳐도 요청 1개 */
 const listInflight = new Map<string, Promise<ListCacheEntry | null>>();
 const settingsCache = new Map<string, { at: number; settings: ContactsUserSettingsDto | null; disabled: boolean }>();
@@ -86,7 +86,7 @@ const settingsCache = new Map<string, { at: number; settings: ContactsUserSettin
 export function invalidateMessengerContactsCache(): void {
   listCache.clear();
   settingsCache.clear();
-  otherDeviceSourcesCache.clear();
+  resetContactsDeviceSourcesOnce();
   resetContactsArchiveSummary();
 }
 
@@ -224,16 +224,9 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
       if (outcome === "device_not_approved" && local && !local.newDeviceAsked) {
         // #11 「다른 기기에서 동기화한 연락처가 있어요 · 이 기기 연락처도 추가할까요?」 — 계정에 「다른」 기기 출처가 있을 때만 1번.
         // 이 기기(같은 설치)는 빼고 세며, 회원별로 앱 실행 중 1번만 묻는다 (재점검 #10)
-        let others = otherDeviceSourcesCache.get(userId);
-        if (others === undefined) {
-          const src = await contactsApi.sources(ensureClientInstanceId());
-          if (src.ok) {
-            // 번호가 1개 이상인 다른 기기만 — 0개 출처로 「동기화한 연락처가 있어요」라고 하지 않는다 (감사 2026-11-14 R3)
-            others = hasOtherDeviceContacts(src.data.sources);
-            otherDeviceSourcesCache.set(userId, others);
-          }
-        }
-        if (others !== undefined) set({ otherDeviceOnly: others });
+        // 번호가 1개 이상인 다른 기기만 (감사 2026-11-14 R3) · 조회는 시작 단계와 같은 1번을 함께 쓴다 (중복 없음)
+        const { othersWithNumbers } = await loadContactsDeviceSourcesOnce(userId);
+        if (othersWithNumbers !== undefined) set({ otherDeviceOnly: othersWithNumbers });
       }
       if (outcome === "uploaded") await loadList(true);
     },
@@ -302,11 +295,11 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
       if (nativeAvailable) {
         // 로그아웃 정리(인증 계약 §1.4)로 기기 저장값이 지워진 같은 회원 → 서버의 이 기기 출처로 되찾는다 (감사 2026-11-14 R1).
         // 기기에 출처·허락이 없을 때만 1번. 같은 응답으로 「다른 기기 연락처 있음」도 정해 afterSync 가 다시 묻지 않는다.
+        // 조회는 앱 실행 중 회원별 1번·동시 1개 (`loadContactsDeviceSourcesOnce`) — 화면을 다시 열거나 두 화면이 함께 열려도 다시 묻지 않는다
         const local = readContactsLocalState(userId);
         if (!local.sourceId && !local.deviceApproved) {
-          const restore = await restoreContactsDeviceFromServer(userId);
+          await loadContactsDeviceSourcesOnce(userId);
           if (isCancelled()) return;
-          if (restore.othersWithNumbers !== undefined) otherDeviceSourcesCache.set(userId, restore.othersWithNumbers);
         }
       }
       if (opts.autoSync !== false && nativeAvailable) await sync(false);

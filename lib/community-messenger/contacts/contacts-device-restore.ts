@@ -42,3 +42,26 @@ export async function restoreContactsDeviceFromServer(userId: string): Promise<C
   patchContactsLocalState(userId, { sourceId: mine.id, deviceApproved: true });
   return { restored: true, othersWithNumbers };
 }
+
+/** 회원별 조회 — 앱 실행 중 1번, 동시 호출은 같은 요청을 함께 쓴다 (분할 화면 친구 탭 + 연락처 화면 중복 제거 · 감사 2026-11-14) */
+const sourcesOnce = new Map<string, Promise<ContactsDeviceRestoreResult>>();
+
+/**
+ * 기기 출처 조회(+ 이 기기 출처 복구)를 앱 실행 중 회원별 1번만 한다.
+ * 실패(othersWithNumbers 없음)는 기억하지 않아 다음 진입에서 다시 시도한다.
+ */
+export function loadContactsDeviceSourcesOnce(userId: string): Promise<ContactsDeviceRestoreResult> {
+  const hit = sourcesOnce.get(userId);
+  if (hit) return hit;
+  const p = restoreContactsDeviceFromServer(userId).then((r) => {
+    if (r.othersWithNumbers === undefined) sourcesOnce.delete(userId);
+    return r;
+  });
+  sourcesOnce.set(userId, p);
+  return p;
+}
+
+/** 동의·삭제 등으로 서버 기기 출처가 바뀜 → 다음 진입에서 다시 조회 */
+export function resetContactsDeviceSourcesOnce(): void {
+  sourcesOnce.clear();
+}
