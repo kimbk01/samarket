@@ -1267,7 +1267,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             onChange={(e) => vm.setPrivateGroupNoticeDraft(e.target.value)}
                             rows={4}
                             placeholder={vm.isOpenGroupRoom ? vm.t("cm_ui_enter_meeting_notice") : vm.t("cm_ui_enter_group_notice")}
-                            className="w-full rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-3 py-3 sam-text-body outline-none focus:border-sam-border"
+                            className={`w-full rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-3 py-3 sam-text-body outline-none focus:border-sam-border ${OverlayUi.textarea}`}
                           />
                           <button
                             type="button"
@@ -1419,7 +1419,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             onChange={(e) => vm.setOpenGroupSummary(e.target.value)}
                             rows={3}
                             placeholder={vm.t("nav_messenger_room_intro_placeholder")}
-                            className="w-full rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-3 py-3 sam-text-body outline-none focus:border-sam-border"
+                            className={`w-full rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-3 py-3 sam-text-body outline-none focus:border-sam-border ${OverlayUi.textarea}`}
                           />
                           <div className="grid gap-3 md:grid-cols-2">
                             <div className="grid grid-cols-2 gap-2 rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface p-2">
