@@ -36,6 +36,7 @@ import { shouldApplyMemberNotificationReadOnPushTap } from "@/lib/notifications/
 import { removeDeliveredNotificationOnPushTap } from "@/lib/push/native/remove-delivered-notifications";
 import { suppressCmRoomEntryNotificationSound } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import { markPushLaunchIntentNavigated } from "@/lib/lifecycle/launch-intent.client";
+import { markLeavingByPushNavigation } from "@/lib/push/push-navigation-back";
 import { markLaunchPushHandled } from "@/lib/startup/launch-push-hold";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
@@ -530,6 +531,8 @@ export function PushRouteListener() {
         } else if (shouldReplaceRoute(path)) {
           router.replace(path);
         } else {
+          // 결함 E: 사용자 터치 없는 이동이라 지금 항목이 브라우저 뒤로에서 건너뛰어진다 → 다음 화면에서 뒤로를 맡도록 표시.
+          markLeavingByPushNavigation();
           router.push(path);
         }
         maybeMarkMemberAOnPushTap(path, notificationId, transport);
