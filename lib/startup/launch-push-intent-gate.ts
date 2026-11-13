@@ -56,13 +56,27 @@ export function isLaunchPushIntentExcludedPath(path: string): boolean {
   return pathnameOf(path).startsWith("/community-messenger/calls");
 }
 
+/**
+ * Android 에서만 조회한다(`NativeIncomingCall.getPendingPushRoute` 는 Android 전용, 실기 2026-11-13 PASS).
+ * 긴급 수정(2026-11-13 iOS 시뮬 실측): iOS Capacitor 브리지는 없는 플러그인 호출에 **응답을 보내지 않는다**
+ * (`CapacitorBridge.handleJSCall` — "Error loading plugin" 로그 후 return) → 조회가 끝나지 않아 스플래시가 풀리지 않았다.
+ * 그래서 플랫폼을 먼저 확인하고, Android 가 아니면 즉시 none.
+ */
 function readNativePromise(): CapacitorNativePromise | null {
   if (typeof window === "undefined") return null;
-  const cap = (window as unknown as { Capacitor?: { nativePromise?: unknown; isNativePlatform?: () => boolean } })
-    .Capacitor;
+  const cap = (
+    window as unknown as {
+      Capacitor?: {
+        nativePromise?: unknown;
+        isNativePlatform?: () => boolean;
+        getPlatform?: () => string;
+      };
+    }
+  ).Capacitor;
   if (!cap || typeof cap.nativePromise !== "function") return null;
   try {
     if (typeof cap.isNativePlatform === "function" && !cap.isNativePlatform()) return null;
+    if (typeof cap.getPlatform !== "function" || cap.getPlatform() !== "android") return null;
   } catch {
     return null;
   }

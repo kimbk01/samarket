@@ -33,14 +33,18 @@ async function load(path: string, body = "") {
 }
 
 let native: Deferred | null = null;
-function installNative(mode: "pending" | "reject" | "absent"): void {
+let platform: "android" | "ios" = "android";
+function installNative(mode: "pending" | "reject" | "absent", plat: "android" | "ios" = "android"): void {
   native = null;
+  platform = plat;
   if (mode === "absent") {
     delete (window as unknown as { Capacitor?: unknown }).Capacitor;
     return;
   }
   (window as unknown as { Capacitor: unknown }).Capacitor = {
     isNativePlatform: () => true,
+    getPlatform: () => platform,
+    isPluginAvailable: (name: string) => name === "NativeIncomingCall" && platform === "android",
     nativePromise: vi.fn(
       () =>
         new Promise((resolve, reject) => {

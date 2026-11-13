@@ -34,14 +34,18 @@ async function load(path: string, body = "") {
 }
 
 let native: Deferred | null = null;
-function installNative(mode: "pending" | "reject" | "absent"): void {
+let platform: "android" | "ios" = "android";
+function installNative(mode: "pending" | "reject" | "absent", plat: "android" | "ios" = "android"): void {
   native = null;
+  platform = plat;
   if (mode === "absent") {
     delete (window as unknown as { Capacitor?: unknown }).Capacitor;
     return;
   }
   (window as unknown as { Capacitor: unknown }).Capacitor = {
     isNativePlatform: () => true,
+    getPlatform: () => platform,
+    isPluginAvailable: (name: string) => name === "NativeIncomingCall" && platform === "android",
     nativePromise: vi.fn(
       () =>
         new Promise((resolve, reject) => {
@@ -88,6 +92,15 @@ describe("launch-push-intent-gate 상태", () => {
     native!.resolve({});
     await flush();
     expect(gate.getLaunchPushIntentState().kind).toBe("none");
+  });
+
+  it("iOS(플러그인 없음) → 네이티브를 부르지 않고 즉시 none — iOS 브리지는 없는 플러그인에 응답하지 않는다", async () => {
+    installNative("pending", "ios");
+    const { gate } = await load("/");
+    gate.startLaunchPushIntentProbe();
+    expect(gate.getLaunchPushIntentState().kind).toBe("none");
+    const cap = (window as unknown as { Capacitor: { nativePromise: ReturnType<typeof vi.fn> } }).Capacitor;
+    expect(cap.nativePromise).not.toHaveBeenCalled();
   });
 
   it("네이티브 오류(iOS 메서드 없음 등) → none", async () => {
