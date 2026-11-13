@@ -74,7 +74,9 @@ export function isValidContactsInstallId(raw: unknown): raw is string {
  */
 export function normalizeContactPhoneE164(raw: unknown, defaultCountry: VerifyPhoneCountry): string | null {
   if (typeof raw !== "string") return null;
-  const compact = raw.replace(/[\s().-]/g, "").trim();
+  // 공백·괄호·점·하이픈 + 보이지 않는 서식 문자(방향 표시 U+200E·U+202A~U+202E·U+2066~U+2069 등 \p{Cf}) 제거
+  // — 기기 연락처 번호 앞뒤에 방향 문자가 붙으면 국내 형식 판정(N1)이 빠지던 결함 (감사 2026-11-14 최종 점검)
+  const compact = raw.replace(/[\s().\-\p{Cf}]/gu, "").trim();
   if (!compact) return null;
   if (compact.startsWith("+")) {
     if (!compact.startsWith("+63") && !compact.startsWith("+82")) return null;
