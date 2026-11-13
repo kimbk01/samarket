@@ -47,6 +47,23 @@
 | /market (태블릿·Windows 가로) | 1024 | 왼쪽 세로 레일 72px, 탭 71×72, 아이콘 26px, 잘림 0 |
 | 영어(en) /home·/market·/stores | 360 | 옛 서비스 이름 0 (남은 「Food」는 운영 DB 게시판 주제 이름) |
 
+## 3-2. 로그인 화면 확인 (2026-11-13 08:00 PHT 전후, Owner 가 브라우저 창에서 직접 로그인)
+조건: 로컬 `next dev`(Turbopack, `localhost:3000`, 작업 브랜치), 운영 DB 연결 — 화면 보기만 하고 데이터를 바꾸는 버튼·대화방 열기는 하지 않음.
+
+| 계정 | 화면 | 결과 |
+|---|---|---|
+| 회원 | MY (360) | 하단 MY 선택 = 사람 아이콘 그린 26px. MY 화면 안 프로필 사진·카드 그대로. MY 카드 MARKET·LOUNGE·DIPICK 대표 아이콘, 배경색 유지. 옛 이름 0 |
+| 회원 | CREW /moim | 제목 CREW, 3단 CREW 선택, 하단 LOUNGE 선택 |
+| 회원 | LETARING 목록 | 제목 LETARING(구역 탭 대화·친구·통화), 하단 LETARING 선택 + 배지 36. 옛 이름 0 |
+| 회원 | FEED·MARKET | 3단 선택 정상, 「MARKET·Pasig City」 잘림 0 (칸 260/158px) |
+| 회원 | HOME·DIPICK | 카드·섹션 새 이름. **운영 DB 문구 3곳은 옛 이름 그대로** (아래 6절) |
+| 관리자 | Admin (1280) | 상단 DIPICK·MARKET·LOUNGE·LETARING, 운영 홈 탭, 워크스페이스 4개 머리글 = 대표 아이콘 + 새 이름, 선택 메뉴 aria-current. 확인 중 발견한 옛 이름(채팅 신고 · 메신저, 메신저 성능, 관리자 문구 89줄, 팝업 노출 대상, 광고 원장 위치)은 커밋 079018504 에서 고침 |
+| 매장 사장님 | /stores/owner (360, 영어) | 사장님 하단 탭 5개(주문·상품·홈·고객·관리) = 기능 메뉴라 브랜드 대상 아님. 가운데 홈 원 = 그린 바탕(선택색 토큰 공용). 옛 이름 0 |
+
+- 처음 계획의 「매장 사장님 6탭」은 사장님 계정에서도 나오지 않았다 — 사장님 화면은 별도 5탭이다(6탭은 Admin 이 하단 탭을 추가할 때만 생기는 가정이었음).
+- 사장님 화면 개발 도구에 기존 경고 1건(`OwnerHubMeStoresCacheSeed` 렌더 중 상태 변경). 이번 브랜치가 건드리지 않은 파일 — 보고만.
+- 사장님 하단 탭 아이콘도 공용 CSS 로 26px·회색/그린이 됐다(그림은 기존 선 아이콘 그대로).
+
 ## 4. G-1~G-7
 | # | 처리 | 근거 |
 |---|---|---|
@@ -66,7 +83,7 @@
 
 ## 6. 남은 불일치 (이번 승인 범위 밖)
 - **네이티브(N)**: 앱 시작 스켈레톤 하단 탭(홈·커뮤니티·배달·채팅·마이 + 옛 선 아이콘, `lib/startup/startup-cache.ts`·local-runtime HTML 3개), Android 알림 채널 이름, iOS 권한 문구. 설치된 앱은 새 빌드 전까지 첫 프레임에 옛 하단 탭이 잠깐 보인 뒤 바뀐다.
-- **운영 DB(D)**: HOME 배너 「필리핀 이웃과 메신저로 바로 연결돼요」(home_layout, Owner 등록 값), `ad_products` 「필라이프 …」 3행, `feed_ad_products` 「커뮤니티 피드 광고」 2행, `my_page_sections` 「거래」「매장·주문」, `community_sections`/`boards`/`services` 「동네생활」.
+- **운영 DB(D)**: HOME 배너 「필리핀 이웃과 메신저로 바로 연결돼요」(home_layout, Owner 등록 값), DIPICK 오픈 안내 본문 「DIBAY 배달이 곧 열립니다…」·리본 「배달 오픈 준비 중 · 매장 사장님을 모십니다」(`delivery_launch_settings`, 2026-11-10 Admin 저장), `ad_products` 「필라이프 …」 3행, `feed_ad_products` 「커뮤니티 피드 광고」 2행, `my_page_sections` 「거래」「매장·주문」, `community_sections`/`boards`/`services` 「동네생활」.
 - **별도 승인**: 광고·포인트 상품 공개명(N3, 금융 장부 설명), 통화 화면·CallKit·통화 푸시(T2), 법적 문서(N1).
 - **유지 결정**: 미사용 번역 키 84개(N6), 옛 앱 이름 Kasama·사마켓 회원(N5).
 
@@ -80,7 +97,7 @@
 |---|---|
 | 코드(타입·lint·테스트) | 로컬 PASS (GitHub CI NOT_PROVEN) |
 | 비로그인 화면 6개 + 영어 3개 + 1024 레일 (로컬) | PASS (위 조건 한정) |
-| 로그인 화면(CREW·LETARING 목록·MY 로그인·매장 사장님 6탭·Admin 전체) | NOT_PROVEN — 로그인 불가 |
+| 로그인 화면(회원·관리자·사장님, 로컬) | PASS (3-2절 조건 한정) — 운영 DB 문구 3곳 FAIL(6절) |
 | Android·iOS 실기기 | NOT_PROVEN — 조작 금지 지시 |
 | Production | NOT_PROVEN — 병합·배포 안 함 |
 | 전체 「같은 서비스 = 같은 이름·아이콘」 | **FAIL(부분)** — 웹 코드는 통일, 네이티브·운영 DB 잔여가 6절에 남음 |
