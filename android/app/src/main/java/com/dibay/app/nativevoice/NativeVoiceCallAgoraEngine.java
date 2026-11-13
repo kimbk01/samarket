@@ -119,12 +119,28 @@ public final class NativeVoiceCallAgoraEngine {
         .start();
   }
 
-  public static void setSpeakerEnabled(boolean enabled) {
+  /**
+   * 스피커 설계 §13 — 현재 통화에 스피커를 적용한다. 마이크(setMicMuted)와 같은 계약.
+   *
+   * @return Agora 가 받아들였을 때만 true (호출자는 그때만 세션·화면을 바꾼다)
+   */
+  public static boolean setSpeakerEnabled(String callId, boolean enabled) {
     synchronized (LOCK) {
-      if (engine == null || activeCallId == null) return;
-      engine.setEnableSpeakerphone(enabled);
-      NativeVoiceCallLog.info("speaker_toggle", activeCallId, "enabled=" + enabled);
+      if (engine == null
+          || activeCallId == null
+          || callId == null
+          || !activeCallId.equals(callId.trim())) {
+        NativeVoiceCallLog.warn(
+            "speaker_toggle_rejected",
+            callId != null ? callId : "unknown",
+            "enabled=" + enabled + " reason=not_occupant occupant=" + activeCallId);
+        return false;
+      }
+      int result = engine.setEnableSpeakerphone(enabled);
+      NativeVoiceCallLog.info("speaker_toggle", activeCallId, "enabled=" + enabled + " result=" + result);
+      if (result != 0) return false;
       NativeVoiceCallLog.info("audio_route_applied", activeCallId, "speaker=" + enabled);
+      return true;
     }
   }
 

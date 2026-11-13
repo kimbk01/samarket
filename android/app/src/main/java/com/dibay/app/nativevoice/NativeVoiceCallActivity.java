@@ -98,6 +98,7 @@ public class NativeVoiceCallActivity extends Activity {
   private boolean surfaceEstablished = false;
   /** PiP 진입 후 앱(메신저)을 앞으로 가져올 요청 출처 — null 이면 앱 복귀 안 함(홈 버튼 등). */
   private String pendingAppReturnSource;
+  /** 스피커 설계 §13 — 화면 표시값. 세션 값을 따른다(화면 재생성에도 유지). */
   private boolean speakerEnabled;
   private boolean micMutedChrome;
   private boolean videoActiveChrome;
@@ -664,11 +665,7 @@ public class NativeVoiceCallActivity extends Activity {
       minimizeButton.setOnClickListener(v -> minimizeToApp("minimize_button"));
     }
     speakerButton.setOnClickListener(
-        v -> {
-          speakerEnabled = !speakerEnabled;
-          NativeVoiceCallAgoraEngine.setSpeakerEnabled(speakerEnabled);
-          updateControlChrome();
-        });
+        v -> onSpeakerTapped());
     muteButton.setOnClickListener(v -> onMicTapped("button"));
     // WP-3 NEW-27: voice→video upgrade is unwired (dead control). Hidden until WP-10 authority.
     if (videoButton != null) {
@@ -710,6 +707,17 @@ public class NativeVoiceCallActivity extends Activity {
       return;
     }
     NativeCallAppReturn.bringAppToFront(this, callId, source + ":retry_" + trigger);
+  }
+
+  /** 스피커 설계 §13 — 엔진이 받아들였을 때만 세션·화면을 바꾼다 (마이크와 같은 계약). */
+  private void onSpeakerTapped() {
+    NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
+    if (session == null) return;
+    boolean next = !session.speakerEnabled;
+    if (!NativeVoiceCallAgoraEngine.setSpeakerEnabled(callId, next)) return;
+    session.speakerEnabled = next;
+    speakerEnabled = next;
+    updateControlChrome();
   }
 
   /** 통화 화면 음소거 버튼·PiP 마이크 버튼 공통 (SSOT §3 — 같은 함수). */
@@ -856,6 +864,8 @@ public class NativeVoiceCallActivity extends Activity {
     micChromeEnabled = model.micChromeEnabled;
     // WP-3 NEW-28: restore mute chrome from the session so Activity recreation keeps the real state.
     if (session != null) micMutedChrome = session.micMuted;
+    // 스피커 설계 §13: 화면이 다시 만들어져도 세션의 스피커 상태로 표시.
+    if (session != null) speakerEnabled = session.speakerEnabled;
     peerNameView.setText(model.peerName);
     statusView.setText(model.statusText);
     avatarInitialView.setText(model.avatarInitial);

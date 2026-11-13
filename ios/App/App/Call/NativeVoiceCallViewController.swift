@@ -5,7 +5,8 @@ final class NativeVoiceCallViewController: UIViewController {
   let boundCallId: String
 
   private let session: NativeVoiceCallSession
-  private var speakerEnabledChrome = false
+  /// 스피커 설계 §13 — 스피커 상태는 음성 엔진 보관소만 (화면이 다시 만들어져도 유지).
+  private var speakerEnabledChrome: Bool { NativeVoiceCallAgoraEngine.shared.isSpeakerOn(callId: boundCallId) }
   /// 마이크 설계 §12 — 음소거 상태는 음성 엔진 보관소만 (화면이 다시 만들어져도 유지).
   private var micMutedChrome: Bool { NativeVoiceCallAgoraEngine.shared.isMicMuted(callId: boundCallId) }
   private var connectedAt: Date?
@@ -259,7 +260,6 @@ final class NativeVoiceCallViewController: UIViewController {
     let next = !speakerEnabledChrome
     let applied = NativeVoiceCallAgoraEngine.shared.setSpeakerEnabled(next)
     guard applied else { return }
-    speakerEnabledChrome = next
     let snap = NativeVoiceCallRuntime.shared.snapshot()
     let model = NativeVoiceCallUiPresenter.build(session: snap.session, phase: snap.phase)
     updateControlChrome(micChromeEnabled: model.micChromeEnabled)
