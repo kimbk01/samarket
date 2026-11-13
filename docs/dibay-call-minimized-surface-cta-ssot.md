@@ -49,7 +49,7 @@
 규칙
 - **X 모양은 통화 CTA 에 쓰지 않는다.** X 는 OS PiP 메뉴의 「창 닫기」 전용이다(Telegram T4·T5). 현재 `ic_call_end_x`(통화 화면 종료·거절)와 `android.R.drawable.ic_menu_close_clear_cancel`(PiP 종료) 는 **모두** `ic_call_end` 로 바꾸고 `ic_call_end_x` 리소스는 삭제한다.
 - 버튼 순서(왼→오) 고정 — 영상 S1: 카메라 전환 · 카메라 · 마이크 · 통화 종료 (Telegram 「전환·영상 중단·음소거·통화 종료」, 현재 DIBAY 순서와 같음) / 음성 S1: 스피커 · 영상 · 마이크 · 통화 종료 (현재와 같음) / S2: 마이크 · 카메라(영상만) · 통화 종료.
-- 영상 S1 버튼 아래 **글자 라벨 표시**(음성과 같게, Telegram 실측 화면과 같게). 현재 영상은 아이콘만 있음.
+- 영상 S1 버튼은 **아이콘만 — 버튼 아래 글자 이름 없음** (Owner 2026-11-14 「안드로이드 우측 하단 fab … 아이콘 하단에 아이콘 이름을 없애야」. 2026-11-12 의 「글자 라벨 표시」 규칙을 대체). 접근성 설명(contentDescription)은 유지. 음성 S1 은 이 변경 범위 밖(기존 그대로).
 - 종료 CTA 는 확인 창 없이 바로 끝낸다(Telegram 동일). 종료 원인은 모든 표면에서 `USER_END` 하나. 로그 출처만 `source=screen|pip|notification` 로 구분.
 
 ## 4. 하단 내비·제스처 SSOT (CONNECTED 기준)
@@ -112,7 +112,7 @@
 | 파일 | 변경 |
 |---|---|
 | `res/drawable/ic_call_end.xml` (신규) · `ic_call_end_x.xml` (삭제) | §3 아이콘 |
-| `res/layout/activity_native_video_call.xml` | 종료·수신 거절 아이콘 → 수화기, 연결 후 버튼 4개 아래 라벨(카메라 전환·영상·음소거/음소거 해제·통화 종료/취소) |
+| `res/layout/activity_native_video_call.xml` | 종료·수신 거절 아이콘 → 수화기, 연결 후 버튼 4개는 아이콘만(아래 이름 없음, 2026-11-14), 종료 버튼 접근성 설명은 「통화 종료/취소」 |
 | `res/layout/activity_native_voice_call.xml` | 종료·거절 아이콘, 종료 라벨 키 |
 | `res/layout/activity_incoming_call.xml` | 거절 아이콘만 (수신 FSI 경로 불변) |
 | `res/values/strings.xml`·`values-ko/strings.xml` | `dibay_call_end_call`·`dibay_call_recents_label`·`dibay_call_recents_label_no_name` |

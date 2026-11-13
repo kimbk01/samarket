@@ -69,8 +69,10 @@ for (const rel of SURFACE_FILES) {
 ok("ic_call_end_x · ic_menu_close_clear_cancel 0건");
 mustInclude(`${APP}/res/layout/activity_native_video_call.xml`, '@drawable/ic_call_end"', "영상 통화 종료 = 수화기");
 mustInclude(`${APP}/res/layout/activity_native_voice_call.xml`, '@drawable/ic_call_end"', "음성 통화 종료·거절 = 수화기");
-mustInclude(`${APP}/res/layout/activity_native_video_call.xml`, "native_video_call_end_label", "영상 버튼 아래 라벨");
-mustInclude(`${APP}/res/layout/activity_native_video_call.xml`, "native_video_call_mic_label", "영상 버튼 아래 라벨");
+// Owner 2026-11-14: 영상 연결 후 버튼은 아이콘만 — 버튼 아래 이름 없음 (SSOT §3 규칙 변경).
+for (const label of ["camera_flip_label", "camera_label", "mic_label", "end_label"]) {
+  mustNotInclude(`${APP}/res/layout/activity_native_video_call.xml`, `native_video_call_${label}`, "영상 버튼 아래 이름 금지(아이콘만)");
+}
 
 console.log("② PiP 버튼 = 마이크 · 카메라(영상) · 통화 종료 (§3 · §4)");
 mustInclude(`${JAVA}/call/CallPipActionPlan.java`, "Arrays.asList(Action.MIC, Action.CAMERA, Action.END)", "화면 순서 고정");

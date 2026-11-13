@@ -247,7 +247,7 @@
             android:orientation="vertical"
             android:visibility="gone">
 
-            <!-- SSOT §3: 버튼 아래 라벨 (음성 통화 화면·Telegram 실측과 같게) -->
+            <!-- SSOT §3: 영상 연결 후 버튼은 아이콘만 — 버튼 아래 이름 없음 (Owner 2026-11-14) -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -263,20 +263,6 @@
                     android:padding="14dp"
                     android:scaleType="centerInside"
                     android:src="@android:drawable/ic_menu_rotate" />
-
-                <TextView
-                    android:id="@+id/native_video_call_camera_flip_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:gravity="center"
-                    android:maxWidth="@dimen/dibay_call_btn_size_default"
-                    android:shadowColor="#99000000"
-                    android:shadowDy="1"
-                    android:shadowRadius="3"
-                    android:text="@string/dibay_video_camera_flip"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="@dimen/dibay_call_control_label_sp" />
             </LinearLayout>
 
             <LinearLayout
@@ -295,20 +281,6 @@
                     android:padding="14dp"
                     android:scaleType="centerInside"
                     android:src="@drawable/ic_call_video" />
-
-                <TextView
-                    android:id="@+id/native_video_call_camera_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:gravity="center"
-                    android:maxWidth="@dimen/dibay_call_btn_size_default"
-                    android:shadowColor="#99000000"
-                    android:shadowDy="1"
-                    android:shadowRadius="3"
-                    android:text="@string/dibay_call_control_video"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="@dimen/dibay_call_control_label_sp" />
             </LinearLayout>
 
             <LinearLayout
@@ -327,20 +299,6 @@
                     android:padding="14dp"
                     android:scaleType="centerInside"
                     android:src="@drawable/ic_call_mic_on" />
-
-                <TextView
-                    android:id="@+id/native_video_call_mic_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:gravity="center"
-                    android:maxWidth="@dimen/dibay_call_btn_size_default"
-                    android:shadowColor="#99000000"
-                    android:shadowDy="1"
-                    android:shadowRadius="3"
-                    android:text="@string/dibay_call_control_mute"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="@dimen/dibay_call_control_label_sp" />
             </LinearLayout>
 
             <LinearLayout
@@ -359,20 +317,6 @@
                     android:padding="14dp"
                     android:scaleType="centerInside"
                     android:src="@drawable/ic_call_end" />
-
-                <TextView
-                    android:id="@+id/native_video_call_end_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:gravity="center"
-                    android:maxWidth="@dimen/dibay_call_btn_size_default"
-                    android:shadowColor="#99000000"
-                    android:shadowDy="1"
-                    android:shadowRadius="3"
-                    android:text="@string/dibay_call_end_call"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="@dimen/dibay_call_control_label_sp" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
