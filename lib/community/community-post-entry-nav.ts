@@ -11,6 +11,7 @@ import {
 } from "@/lib/community/community-nav";
 import { isCommunityHubRootPath } from "@/lib/community/community-hub-state";
 import { philifeAppPaths } from "@/lib/philife/paths";
+import { isHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 import {
   getMainAppScrollTop,
 } from "@/lib/layout/main-app-scroll-root";
@@ -105,6 +106,12 @@ export function isSafeCommunityReturnHref(href: string): boolean {
     }
     const path = (u.pathname || "").replace(/\/+$/, "") || "/";
     if (isCommunityHubRootPath(path)) return true;
+    /**
+     * HOME 「교민 이야기」도 같은 글 카드로 들어온다 (2026-11-09 앱 홈 분리 후 별도 화면).
+     * 분리 전에는 `/`·`/home` 이 커뮤니티 별칭이라 위 줄로 허용됐다 — 분리 때 빠져 ‹ 가 LOUNGE 로 가던 결함
+     * (`docs/audit/community-detail-back-from-home-2026-11-14.md`).
+     */
+    if (isHomeSurfacePath(path)) return true;
     if (path === "/mypage/community-posts") return true;
     if (path === "/search") return true;
     return false;
