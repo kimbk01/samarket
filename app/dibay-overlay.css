@@ -319,14 +319,6 @@
   outline: none;
 }
 
-/**
- * 시트·다이얼로그 안 여러 줄 입력(글 입력칸) — 글자만 팝업 입력과 같은 16px (모양은 각 화면 유지).
- * 전역 입력 규칙(globals.css, 14px)이 덮지 않도록 그 규칙에서 제외되어 있다 — 그룹 결함 D14.
- */
-.dibay-overlay-textarea {
-  font-size: 16px;
-}
-
 .dibay-overlay-input:focus-visible {
   border-color: var(--overlay-primary);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--overlay-primary) 28%, transparent);
