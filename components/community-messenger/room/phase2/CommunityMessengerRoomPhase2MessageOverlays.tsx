@@ -73,7 +73,19 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
             setForwardSource({
               roomId,
               messageId: it.id,
-              previewText: it.messageType === "sticker" ? t("cm_home_preview_sticker") : String(it.content ?? ""),
+              /** 사진·파일은 본문이 저장 주소라 그대로 쓰지 않는다(2026-11-14 실기 FAIL 수정) */
+              previewText:
+                it.messageType === "sticker"
+                  ? t("cm_home_preview_sticker")
+                  : it.messageType === "image"
+                    ? t("cm_home_preview_photo")
+                    : it.messageType === "file"
+                      ? String((it.metadata as { fileName?: unknown } | null | undefined)?.fileName ?? "").trim()
+                        ? t("cm_home_preview_file_named", {
+                            name: String((it.metadata as { fileName?: unknown }).fileName).trim(),
+                          })
+                        : t("cm_home_preview_file")
+                      : String(it.content ?? ""),
             });
             vm.setMessageActionItem(null);
           }}
