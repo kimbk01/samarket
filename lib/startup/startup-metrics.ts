@@ -23,6 +23,12 @@ import {
 import { noteEntryReleased } from "@/lib/telemetry/entry-telemetry.client";
 import { getLaunchDestination } from "@/lib/launch-intro/startup-destination";
 import { isServerRenderedBodyPath } from "@/lib/layout/server-rendered-body-paths";
+import {
+  getLaunchPushIntentState,
+  mayReleaseSplashAtPath,
+  onLaunchPushIntentChange,
+  startLaunchPushIntentProbe,
+} from "@/lib/startup/launch-push-intent-gate";
 
 export type DibayBootMetrics = {
   nativeStart: number | null;
@@ -373,6 +379,7 @@ export function releaseNativeSplashAtServerBodyFrame(): void {
   if (!isServerRenderedBodyPath(window.location.pathname)) return;
   if (getLaunchDestination().destination !== "community") return;
   if (typeof requestAnimationFrame !== "function" || typeof performance?.getEntriesByName !== "function") return;
+  startLaunchPushIntentProbe();
   /**
    * 「빈 화면 아닌 첫 그림」 = 첫 글자 표시(FCP) 이후 — 글꼴이 늦게 붙어 글자 없는 프레임에서 걷히지 않게.
    * FCP 알림(PerformanceObserver)은 hydration 작업 뒤로 밀려 늦으므로, 프레임마다 FCP 기록을 직접 확인한다.
@@ -385,6 +392,11 @@ export function releaseNativeSplashAtServerBodyFrame(): void {
       return;
     }
     if (!isServerRenderedBodyPath(window.location.pathname) || !hasServerRenderedBody(document)) return;
+    // 알림 목적지가 있는 시작이면 홈 첫 그림에서 해제하지 않는다(설계 push-tap-entry P1). 조회 중이면 다음 프레임에 다시 본다.
+    if (!mayReleaseSplashAtPath(window.location.pathname)) {
+      if (getLaunchPushIntentState().kind === "unknown") requestAnimationFrame(tick);
+      return;
+    }
     requestAnimationFrame(() => {
       if (nativeSplashBridgesDismissed || splashDismissAttempted) return;
       setMetric("serverBodySplashRelease", nowMs());
@@ -464,10 +476,35 @@ export function markInitialDestinationVisualReady(): void {
   // Intro contract §9: when the launch destination is INTRO, Community's initial-destination
   // signal does not own the OS release (Community is normally not even mounted then — DEFERRED MOUNT).
   if (getLaunchOsReleaseOwner() !== "community") return;
+  // 알림 목적지가 있는 시작: 그 목적지 화면이 그려질 때(또는 목적지 처리가 끝날 때)까지 해제하지 않는다.
+  // 표시 플래그를 세우지 않고 돌아가므로, 목적지 경로의 첫 그림·게이트 상태 변화에서 이 함수가 다시 불린다.
+  startLaunchPushIntentProbe();
+  if (typeof window !== "undefined" && !mayReleaseSplashAtPath(window.location.pathname)) {
+    armReleaseRetryOnLaunchPushIntentChange();
+    return;
+  }
   initialDestinationVisualReadyMarked = true;
   setMetric("initialDestinationVisualReady", nowMs());
   notifyNativeHomePresentationReady();
   tryDismissNativeSplash("initialDestinationVisualReady");
+}
+
+let releaseRetryArmed = false;
+/** 게이트 상태가 바뀌면(조회 완료·목적지 처리 끝) 현재 화면 기준으로 해제를 다시 판단한다 — 1회 구독. */
+function armReleaseRetryOnLaunchPushIntentChange(): void {
+  if (releaseRetryArmed) return;
+  releaseRetryArmed = true;
+  const off = onLaunchPushIntentChange(() => {
+    if (initialDestinationVisualReadyMarked) {
+      off();
+      return;
+    }
+    if (typeof window !== "undefined" && mayReleaseSplashAtPath(window.location.pathname)) {
+      off();
+      releaseRetryArmed = false;
+      markInitialDestinationVisualReady();
+    }
+  });
 }
 
 /**

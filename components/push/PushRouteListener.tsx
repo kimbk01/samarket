@@ -36,6 +36,7 @@ import { shouldApplyMemberNotificationReadOnPushTap } from "@/lib/notifications/
 import { removeDeliveredNotificationOnPushTap } from "@/lib/push/native/remove-delivered-notifications";
 import { suppressCmRoomEntryNotificationSound } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import { markPushLaunchIntentNavigated } from "@/lib/lifecycle/launch-intent.client";
+import { settleLaunchPushIntent } from "@/lib/startup/launch-push-intent-gate";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
@@ -160,6 +161,7 @@ function currentAppPath(): string {
 
 function ackChatPushRouteConsumed(path: string, notificationId?: string | null): void {
   clearPendingPushRoute();
+  settleLaunchPushIntent("route_consumed");
   void ackNativePushRouteConsumed({ path, notificationId: notificationId ?? null });
   console.info("[push-route] route_consumed", { path, notificationId: notificationId ?? null });
 }
@@ -193,6 +195,8 @@ function finalizePushRouteConsume(path: string, notificationId?: string | null):
     }
     if (Date.now() - started > 8_000) {
       window.clearInterval(timer);
+      // 시작 스플래시 보류(push-tap-entry P1)는 여기서 끝낸다 — 목적지 확인 실패여도 화면을 막아 두지 않는다.
+      settleLaunchPushIntent("consume_unconfirmed");
       console.info("[push-route] consume_unconfirmed_keep_pending", {
         path,
         current: currentAppPath(),
@@ -239,6 +243,8 @@ export function PushRouteListener() {
   useEffect(() => {
     return subscribeSessionPhase((phase) => {
       sessionPhaseRef.current = phase;
+      // 로그인 확인이 비회원·손상으로 끝나면 보류된 목적지로는 가지 않는다 → 시작 스플래시 보류 해제(push-tap-entry P1).
+      if (phase === "terminal_guest" || phase === "corrupt") settleLaunchPushIntent(`auth_${phase}`);
       if (phase !== "authenticated") return;
       const pending = readPendingPushRoute();
       if (!pending?.path) return;
@@ -249,6 +255,7 @@ export function PushRouteListener() {
             const { getBoundAuthUserId } = await import("@/lib/auth/client-instance-id");
             if (isPendingPushRouteAccountMismatch(pending, getBoundAuthUserId())) {
               console.info("[push-route] logout_replay_account_mismatch", { path: pending.path });
+              settleLaunchPushIntent("account_mismatch");
               clearPendingPushRoute();
               void clearNativePersistedPendingPushRoute();
               return;
@@ -269,6 +276,7 @@ export function PushRouteListener() {
             notificationId: pending.notificationId,
             source: "push",
           });
+          settleLaunchPushIntent(delivered.ok ? "support_modal" : "support_delivery_failed");
           if (delivered.ok) {
             markNotificationConsumed(pending.notificationId ?? undefined);
             clearPendingPushRoute();
@@ -298,6 +306,7 @@ export function PushRouteListener() {
         if (!rawPath.trim().startsWith("/")) return;
         // LINK-01: off-origin (`//host`, `/\host`) — drop and disarm replay so it cannot loop.
         console.warn("[push-route] unsafe_path_rejected", { notificationId: notificationId ?? null });
+        settleLaunchPushIntent("unsafe_path");
         clearPendingPushRoute();
         void clearNativePersistedPendingPushRoute();
         return;
@@ -359,6 +368,7 @@ export function PushRouteListener() {
           fallbackReason: sessionPhaseRef.current,
           recipientUserId: holdRecipientUserId,
         });
+        settleLaunchPushIntent("login_required");
         openLoginRequiredSheet({ actionType: "messenger_open", next: path });
         return;
       }
@@ -459,6 +469,7 @@ export function PushRouteListener() {
           notificationId: notificationId ?? null,
           source: "push",
         });
+        settleLaunchPushIntent(delivered.ok ? "support_modal" : "support_delivery_failed");
         if (!delivered.ok) {
           console.info("[push-route] support_delivery_failed", {
             path,
@@ -528,6 +539,7 @@ export function PushRouteListener() {
           }
           clearPendingPushRoute();
           void clearNativePersistedPendingPushRoute();
+          settleLaunchPushIntent("write_draft_kept");
           console.info("[push-route] write_draft_kept", { path });
         });
         return;
@@ -544,6 +556,7 @@ export function PushRouteListener() {
         const { getBoundAuthUserId } = await import("@/lib/auth/client-instance-id");
         if (isPendingPushRouteAccountMismatch(sessionPending, getBoundAuthUserId())) {
           console.info("[push-route] pending_replay_account_mismatch", { path: sessionPending.path });
+          settleLaunchPushIntent("account_mismatch");
           clearPendingPushRoute();
           void clearNativePersistedPendingPushRoute();
           return;
@@ -681,6 +694,7 @@ export function PushRouteListener() {
                     fallbackReason: decision.reason,
                     recipientUserId: payloadRecipientUserId ?? null,
                   });
+                  settleLaunchPushIntent("login_required");
                   openLoginRequiredSheet({ actionType: "messenger_open", next: path });
                   console.info("[push-route] logout_tap_saved_for_login", {
                     path,
@@ -688,6 +702,7 @@ export function PushRouteListener() {
                   });
                   return;
                 }
+                settleLaunchPushIntent("notification_tap_dropped");
                 console.info("[push-route] notification_tap_dropped", {
                   reason: decision.reason,
                   phase,
