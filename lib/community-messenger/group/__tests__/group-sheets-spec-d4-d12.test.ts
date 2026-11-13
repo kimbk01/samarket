@@ -17,12 +17,12 @@ const FRIEND_PICKER = "components/community-messenger/MessengerFriendPickerScree
 
 describe("D4 방 안내 칩 「비공개 그룹 · 2명」 띄어쓰기", () => {
   it("화면 번역은 앞뒤 공백을 자르므로 구분자는 코드에서, 숫자는 공백 없는 키로", () => {
-    expect(safeTranslate("ko", "cm_ui_member_count_suffix" as never, { vars: { count: 2 } })).toBe("· 2명");
+    /** 앞 공백이 있는 번역 값은 화면 번역(safeTranslate)이 잘라 「비공개 그룹· 2명」이 됐다 — 옛 키는 삭제 */
     expect(safeTranslate("ko", "cm_ui_member_count_label" as never, { vars: { count: 2 } })).toBe("2명");
     expect(safeTranslate("en", "cm_ui_member_count_label" as never, { vars: { count: 2 } })).toBe("2 members");
     const src = read(TIMELINE);
     expect(src).toContain('` · ${vm.t("cm_ui_member_count_label", { count: vm.timelineMemberCount })}`');
-    expect(src).not.toContain('vm.t("cm_ui_member_count_suffix"');
+    expect(src).not.toContain("cm_ui_member_count_suffix");
   });
 });
 
@@ -47,10 +47,12 @@ describe("D6 공유 항목 합계와 설명이 같은 4종", () => {
 });
 
 describe("D7 참가자 시트 멤버 사진", () => {
-  it("참가자 행에 40px 멤버 사진", () => {
+  it("참가자 행에 40px 멤버 사진 — 설계 지정 함수 resolveUserAvatarImageSrc (별칭 참여면 별칭 사진)", () => {
     const src = read(SHEETS);
-    expect(src.match(/groupMemberAvatarSrc\(member\)/g)).toHaveLength(1);
-    expect(src).toMatch(/src=\{groupMemberAvatarSrc\(member\)\}\s*size=\{40\}/);
+    expect(src).not.toContain("groupMemberAvatarSrc");
+    expect(src).toMatch(
+      /src=\{resolveUserAvatarImageSrc\(\s*member\.identityMode === "alias" \? member\.aliasProfile\?\.avatarUrl : member\.avatarUrl\s*\)\}\s*size=\{40\}/
+    );
   });
 });
 

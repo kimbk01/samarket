@@ -8,10 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  communityMessengerRoomIsGloballyUsable,
-  type CommunityMessengerProfileLite,
-} from "@/lib/community-messenger/types";
+import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { describeManagementEvent } from "@/lib/community-messenger/room/describe-management-event";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
@@ -58,6 +55,7 @@ import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messe
 import { MessengerStickerSheet } from "@/components/community-messenger/stickers/MessengerStickerSheet";
 import { ChatEmojiPicker } from "@/components/chat-ui/ChatEmojiPicker";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { GroupDomainAvatar } from "@/components/community-messenger/domain-shell-canary/GroupDomainAvatar";
 import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/messenger-composer-outbound-busy";
 import { Crown, Image as ImageIcon, Link2, Megaphone, Search } from "lucide-react";
@@ -97,16 +95,6 @@ const GROUP_MENU_GROUP_LABEL_CLASS =
   "px-4 pb-1 pt-3 text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-text-secondary)]";
 const GROUP_MENU_TRAILING_CLASS =
   "ml-auto shrink-0 text-[length:var(--overlay-caption-size)] text-[color:var(--overlay-text-secondary)]";
-
-/** 그룹 결함 D7 참가자 시트 — 서랍 대화상대 목록과 같은 규칙(별칭 참여면 별칭 사진, 아니면 프로필 사진, http 주소만) */
-function groupMemberAvatarSrc(
-  member: Pick<CommunityMessengerProfileLite, "avatarUrl" | "identityMode" | "aliasProfile">
-): string | null {
-  const aliasUrl = member.aliasProfile?.avatarUrl?.trim();
-  if (member.identityMode === "alias" && aliasUrl?.startsWith("http")) return aliasUrl;
-  const own = member.avatarUrl?.trim();
-  return own?.startsWith("http") ? own : null;
-}
 
 export function CommunityMessengerRoomPhase2RoomSheets() {
   const vm = useMessengerRoomPhase2SheetsView();
@@ -837,7 +825,9 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       <div className="flex items-start justify-between gap-3">
                         {/* 그룹 결함 D7: 서랍 대화상대 목록과 같은 40px 멤버 사진 */}
                         <SamarketThumbnail
-                          src={groupMemberAvatarSrc(member)}
+                          src={resolveUserAvatarImageSrc(
+                            member.identityMode === "alias" ? member.aliasProfile?.avatarUrl : member.avatarUrl
+                          )}
                           size={40}
                           roundedClassName="rounded-full"
                           className="shrink-0 bg-sam-surface ring-1 ring-sam-border"
