@@ -4,6 +4,7 @@ import {
   batchSetCachedGroupMessageReadCounts,
   getCachedGroupMessageReadCount,
 } from "@/lib/community-messenger/group/group-room-read-cache";
+import { selectGroupReadCountMessageIds } from "@/lib/community-messenger/group/group-read-count-message-ids";
 
 function trimText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -15,7 +16,7 @@ export async function fetchGroupMessageReadCounts(
   messageIds: string[]
 ): Promise<Map<string, number>> {
   const rid = trimText(roomId);
-  const ids = [...new Set(messageIds.map((id) => trimText(id)).filter(Boolean))];
+  const ids = selectGroupReadCountMessageIds(messageIds, Number.MAX_SAFE_INTEGER);
   const out = new Map<string, number>();
   if (!rid || !ids.length) return out;
 

@@ -1,0 +1,81 @@
+# 운영 Postgres 오류 로그 감사 (2026-11-14)
+
+- 대상: 운영 Supabase `ckdosyydvgzqwpbwuhon` (kimbk01's Project, ap-south-1) · 읽기 전용
+- 방법: Supabase 대시보드 Logs → Postgres → Severity=Error, 기간 2026-11-08 00:00 ~ 11-15 00:00 PHT. 전 행(371건) 상세를 열어 `query` 로 출처 분류
+  - `-- source: POST /mcp` = 작업자(Claude 등) Supabase MCP 임의 SQL
+  - `pgrst_source`/`pgrst_body` = PostgREST(앱 서버·스크립트가 supabase-js 로 호출)
+  - 그 외 = Supabase 내부 서비스·직접 접속
+- Logs Explorer(새 ClickHouse 엔진)는 `postgres_logs` 조회 결과 0건 — 사용 불가, 화면 뷰어로만 확인
+
+## 1. 일자별 오류 수 (PHT)
+
+| 날짜 | 전체 | 그룹 읽음 수 `pending:` | 작업자 MCP SQL | 그 외 |
+|---|---|---|---|---|
+| 11-08 | 55 | 0 | 9 | 46 (광고 환급 ID 27 등) |
+| 11-09 | 51 | 0 | 22 | 29 (Realtime 내부 19 등) |
+| 11-10 | 49 | 0 | 16 | 33 |
+| 11-11 | **19** | 0 | 8 | 11 |
+| 11-12 | **112** | **60** | 15 | 37 |
+| 11-13 | **80** | **53** | 13 | 14 |
+| 11-14 (~02시) | 3 | 0 | 0 | 3 (showcase) |
+
+→ 11-11 감소 후 11-12·13 상승분의 **거의 전부(113건)가 그룹 채팅 읽음 수 조회 오류**다.
+「수정 후 줄었다」는 그 수정이 무엇인지는 이번 로그로 특정하지 못함(확인 못 함). 11-11 감소는 MCP 오류·광고 환급 오류가 그날 적었던 결과로만 확인된다.
+
+## 2. 원인별 (출처·코드 경로)
+
+### A. 그룹 채팅 읽음 수 — 임시 메시지 ID 가 uuid 로 전달 (113건, 상승 주원인 · 앱 결함)
+- 오류: `invalid input syntax for type uuid: "pending:<방ID>:N"` / `"pending:image:<방ID>:N"`
+- SQL: RPC `community_messenger_group_message_read_counts(p_room_id uuid, p_message_ids uuid[])`
+- 경로: 그룹 방에서 내가 보낸 메시지 id 목록(`CommunityMessengerRoomPhase2MessageTimeline.tsx:627` `groupMineMessageIds`, 마지막 24개) → `useGroupMessageReadCounts` (`lib/community-messenger/group/use-group-message-read-counts.ts`) → `POST /api/community-messenger/group-rooms/[roomId]/media` → `lib/community-messenger/group/group-room-read-service.ts:30` RPC
+- 전송 중 낙관적 메시지 id(`use-messenger-room-phase2-controller.ts:1103` `pending:${room}:${n}`, `:1683` `pending:image:…`)가 걸러지지 않고 서버까지 감. 서버 라우트도 uuid 검사 없음. 배열에 하나라도 섞이면 **RPC 전체 실패** → 그 조회의 모든 메시지 읽음 수가 비게 됨(화면 영향은 NOT_PROVEN).
+- 3건씩 묶여 나오는 것 = 전송 중 방 snapshot·id 목록이 바뀔 때마다 재조회.
+- 11-12 이전에 없던 이유: 그룹 방 전송이 11-12~13 그룹 채팅 작업·실기 중에 집중됨(그 전 7일 0건). 코드는 06-19 도입분 그대로 — 새 회귀가 아니라 **잠복 결함이 그룹 사용으로 드러난 것**.
+- 이미 같은 계열 가드가 있는 곳: `messenger-room-catchup-anchor.ts:20`, `use-messenger-room-load-older-messages-fetch.ts:58` (`pending:` 제외 + `isUuidLikeString`). 읽음 수 경로만 빠져 있음.
+
+### B. 작업자 MCP 임의 SQL (83건 + 직접 접속 일부 · 사용자 무관)
+- 오류: `column … does not exist`, `relation … does not exist`, `invalid regular expression` 등
+- 출처: `-- source: POST /mcp` — 작업 세션이 스키마 확인 없이 추측 컬럼명으로 운영 DB 조회 (예: `user_devices.device_info`, `posts.hidden`, `community_messenger_rooms.last_message_id`)
+- PostgREST 경유 스크립트도 같은 성격: `user_devices.voip_token`(11-13 21:27), `community_posts` 컬럼(11-12 08시 13건), 가짜 id `verify-*`·`audit-x-*` (13건)
+- 대시보드 오류 수를 부풀리지만 고객 화면과 무관.
+
+### C. 광고 종료 환급 원장 ID 가 보류 테이블 uuid 열로 조회 (30건 · 앱 결함)
+- 오류: `invalid input syntax for type uuid: "feed-ad-end-refund:<id>"` (11-08 00시 27건, 11-10·11 3건)
+- SQL: `feed_ad_point_holds … WHERE request_id = ANY($1)`
+- 경로: `lib/points/point-period-history.ts` `pointHoldKey` → `loadCapturedPointHoldKeys` — 보류 줄의 related_id 를 그대로 uuid 열에 넣음. 오류 시 `{ ok:false }` 반환 → 그 회원의 포인트 기간 내역 요약 실패 가능(화면 NOT_PROVEN, 해당 원장 행 DB 대조 NOT_PROVEN).
+
+### D. 중고거래 샘플(showcase) 카드 id 로 posts 조회 (3건, 11-14 00:48 · 앱 결함)
+- 오류: `invalid input syntax for type uuid: "showcase-<id>"`
+- SQL: `posts … WHERE id = $1` — 샘플 카드 id(`lib/trade/showcase/trade-showcase-post.ts:24` `showcase-${id}`)가 글 상세 조회로 들어감. 정확한 진입 화면은 확인 못 함.
+
+### E. 매장 id 자리에 문자열 (16건 · 앱 결함 추정)
+- `stores.owner_user_id … WHERE stores.id = $1` 에 `"sin"`·`"sinjinkim00"`·`"5823"`·`"2530"` — 매장 경로 파라미터(슬러그·아이디)를 uuid 열에 직접 비교. 호출 코드 위치 확인 못 함.
+
+### F. 매일 03:50 PHT 문장 시간 초과 (6건, 매일 1건 · 앱/DB 결함)
+- `canceling statement due to statement timeout` — RPC `community_post_image_gc_candidates` (cron `/api/cron/community-post-images-gc`). 매일 같은 시각 실패 = 커뮤니티 이미지 정리 작업이 **매일 끝나지 못함**.
+
+### G. 외부(Supabase 플랫폼) 요인 — 유일한 외부 요인
+- 11-09 07:50 19건 `there is no unique or exclusion constraint matching the ON CONFLICT` — 쿼리 `with candidates as (select … from pg_publication_tables …)` = Supabase Realtime 내부 쿼리. 1회 몰림, 이후 재발 없음.
+
+### H. 기타 소량
+- `DELETE FROM users` FK 위반(`gift_certificate_transfers`) 3건 — 회원 삭제 시 상품권 이전 기록이 막음(Auth 관리 삭제).
+- `notification_events_user_dedupe_uidx` 중복 3건, `moim_room_*_managed_by_moim` 4건(트리거 차단 — 정상 방어), `missed:<id>` 4건(11-10).
+
+## 3. 결론
+
+- 「다시 상승」= **외부 요인 아님**. 상승분은 A(그룹 채팅 읽음 수에 임시 id 전달) — 앱 코드 결함이며 그룹 방 전송이 늘면 계속 늘어난다.
+- 상시 바닥(하루 15~50건)은 B(작업자 MCP·스크립트 추측 SQL)가 절반, 나머지는 C·D·E·F 앱 결함.
+- 외부 요인은 G(Supabase Realtime 내부, 11-09 1회)뿐.
+
+## 4. 근본 대책 (구현 전 승인 필요 · 도메인별 PR 분리)
+
+| # | 대상 | 대책 | 도메인 |
+|---|---|---|---|
+| A | 그룹 읽음 수 | 클라이언트 훅에서 uuid 가 아닌 id 제외 + 서버 라우트에서 uuid 만 RPC 로 (둘 다) | 메신저 |
+| C | 포인트 기간 내역 | 보류 키 조회 전 uuid 형식만 남김 | 포인트 |
+| D | showcase 카드 | 글 조회 진입점에서 `showcase-` id 차단(조회 전 분기) — 진입 화면 먼저 특정 | 거래 |
+| E | 매장 id | 호출처 특정 후 uuid 아니면 조회 안 함/슬러그 경로 분리 | 매장 |
+| F | 이미지 GC | RPC 실행 계획·인덱스 확인 후 대상 범위/배치 축소 | 커뮤니티·DB |
+| B | 작업 규칙 | 운영 DB 조회 전 `information_schema.columns` 로 컬럼 확인, 가짜 id 로 운영 API 호출 금지 | 작업 절차 |
+
+NOT_PROVEN: 각 오류의 고객 화면 영향(A·C·D), C 원장 행 DB 대조, D·E 진입 화면, 11-11 감소를 만든 「수정」의 정체.

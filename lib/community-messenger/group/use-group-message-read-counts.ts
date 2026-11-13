@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { communityMessengerGroupRoomApiPath } from "@/lib/community-messenger/group/group-room-deeplink";
 import { presentGroupReadReceipt } from "@/lib/community-messenger/group/group-room-read-presenter";
+import { selectGroupReadCountMessageIds } from "@/lib/community-messenger/group/group-read-count-message-ids";
 
 type GroupReadCounts = Record<string, ReturnType<typeof presentGroupReadReceipt>>;
 
@@ -17,7 +18,7 @@ const EMPTY_GROUP_READ_COUNTS: GroupReadCounts = {};
 export function useGroupMessageReadCounts(roomId: string, messageIds: string[], refreshSignal?: unknown) {
   const [counts, setCounts] = useState<GroupReadCounts>(EMPTY_GROUP_READ_COUNTS);
   const idsKey = useMemo(
-    () => [...new Set(messageIds.map((id) => id.trim()).filter(Boolean))].slice(0, 50).join(","),
+    () => selectGroupReadCountMessageIds(messageIds, 50).join(","),
     [messageIds]
   );
 
