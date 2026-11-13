@@ -26,13 +26,16 @@ describe("home-list room insert broadcast contract", () => {
     const mixedModulePath = ["@", "/lib/community-messenger/realtime/home-list-room-insert-broadcast"].join("");
     expect(svc).not.toContain(`from "${mixedModulePath}"`);
     expect(svc).not.toContain(`from '${mixedModulePath}'`);
-    expect(svc).toContain("ROOM_SUMMARY_UNAVAILABLE");
+    /** D15 2026-11-13: 일부 성공(요약만 없음)은 실패가 아니라 `room: null` 성공 — 동작은 group-create-partial-success-d15 시험 */
+    expect(svc).not.toContain("ROOM_SUMMARY_UNAVAILABLE");
     const home = readFileSync(
       join(process.cwd(), "components/community-messenger/CommunityMessengerHome.tsx"),
       "utf8"
     );
     expect(home).not.toMatch(/createPrivateGroup[\s\S]{0,800}home-summary/);
-    expect(home).toContain("json.roomId && json.room");
+    /** 요약 있으면 로컬 INSERT, 요약 없으면 서버 목록 재조회 — 판정은 resolveGroupCreateResponse 1곳 */
+    expect(home.match(/resolveGroupCreateResponse\(res\.ok, json\)/g)?.length).toBe(2);
+    expect(home).not.toContain('getMessengerActionErrorMessage("room_summary_unavailable")');
   });
 
   it("client subscribe module does not import service or server publish", () => {

@@ -62,6 +62,7 @@ import type {
   MessengerNotificationSettings,
 } from "@/lib/community-messenger/home/community-messenger-home-types";
 import { messengerHomeActionErrorMessage } from "@/lib/community-messenger/home/messenger-home-action-error-message";
+import { resolveGroupCreateResponse } from "@/lib/community-messenger/home/resolve-group-create-response";
 import { scoreKeywordMatch } from "@/lib/community-messenger/home/score-keyword-match";
 import { attachMessengerHydrationSchedulerSurface } from "@/lib/community-messenger/background-hydration-scheduler";
 import { initLongSessionStabilityMonitor } from "@/lib/ops/long-session-stability";
@@ -1909,12 +1910,13 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         roomId?: string;
-        room?: CommunityMessengerRoomSummary;
+        room?: CommunityMessengerRoomSummary | null;
         error?: string;
       };
-      if (res.ok && json.ok && json.roomId && json.room) {
+      const created = resolveGroupCreateResponse(res.ok, json);
+      if (created.kind === "insert_and_open") {
         /** ACK → local INSERT (no refresh / no post-ACK home-summary). */
-        const summary = json.room;
+        const summary = created.summary;
         commitHomeListPatch(setData, { kind: "insert_room_summary", summary }, "bootstrap");
         const uid = data?.me?.id?.trim();
         if (uid) {
@@ -1928,13 +1930,18 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         requestMessengerHubBadgeResync("direct_room_created");
         resetGroupCreateDraft();
         setGroupCreateStep("closed");
-        navigateToCommunityRoomWithViewer(json.roomId, {
+        navigateToCommunityRoomWithViewer(created.roomId, {
           roomForPrime: summary,
         });
         return;
       }
-      if (res.ok && json.ok && json.roomId && !json.room) {
-        setActionError(getMessengerActionErrorMessage("room_summary_unavailable"));
+      if (created.kind === "reload_and_open") {
+        /** 서버 일부 성공(방은 생김, 요약만 없음) — 오류 대신 서버 목록 재조회 후 그 방으로 (D15 · 오픈 그룹 참여와 같은 순서) */
+        requestMessengerHubBadgeResync("direct_room_created");
+        resetGroupCreateDraft();
+        setGroupCreateStep("closed");
+        void refresh(false);
+        navigateToCommunityRoomWithViewer(created.roomId);
         return;
       }
       if (
@@ -1959,6 +1966,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     getMessengerActionErrorMessage,
     navigateToCommunityRoomWithViewer,
     messengerListPathname,
+    refresh,
     resetGroupCreateDraft,
     router,
     setAuthRequired,
@@ -2002,12 +2010,13 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         roomId?: string;
-        room?: CommunityMessengerRoomSummary;
+        room?: CommunityMessengerRoomSummary | null;
         error?: string;
       };
-      if (res.ok && json.ok && json.roomId && json.room) {
+      const created = resolveGroupCreateResponse(res.ok, json);
+      if (created.kind === "insert_and_open") {
         /** ACK → local INSERT (no refresh / no post-ACK home-summary). */
-        const summary = json.room;
+        const summary = created.summary;
         commitHomeListPatch(setData, { kind: "insert_room_summary", summary }, "bootstrap");
         const uid = data?.me?.id?.trim();
         if (uid) {
@@ -2021,13 +2030,18 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         requestMessengerHubBadgeResync("direct_room_created");
         resetGroupCreateDraft();
         setGroupCreateStep("closed");
-        navigateToCommunityRoomWithViewer(json.roomId, {
+        navigateToCommunityRoomWithViewer(created.roomId, {
           roomForPrime: summary,
         });
         return;
       }
-      if (res.ok && json.ok && json.roomId && !json.room) {
-        setActionError(getMessengerActionErrorMessage("room_summary_unavailable"));
+      if (created.kind === "reload_and_open") {
+        /** 서버 일부 성공(방은 생김, 요약만 없음) — 오류 대신 서버 목록 재조회 후 그 방으로 (D15 · 오픈 그룹 참여와 같은 순서) */
+        requestMessengerHubBadgeResync("direct_room_created");
+        resetGroupCreateDraft();
+        setGroupCreateStep("closed");
+        void refresh(false);
+        navigateToCommunityRoomWithViewer(created.roomId);
         return;
       }
       if (
@@ -2063,6 +2077,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     openGroupSummary,
     openGroupTitle,
     messengerListPathname,
+    refresh,
     resetGroupCreateDraft,
     router,
     setAuthRequired,

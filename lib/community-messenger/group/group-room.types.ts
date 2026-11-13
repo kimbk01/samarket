@@ -25,7 +25,11 @@ export type CreateGroupRoomInput = {
 };
 
 export type CreateGroupRoomResult =
-  | { ok: true; roomId: string; room: CommunityMessengerRoomSummary }
+  /**
+   * `room: null` = 방·참여자는 저장됐으나 방 요약 조회만 실패(일부 성공). 화면은 서버 목록 재조회 후 그 방으로 이동한다
+   * (실패로 돌려주면 다시 눌러 같은 방이 또 생김 — D15 2026-11-13).
+   */
+  | { ok: true; roomId: string; room: CommunityMessengerRoomSummary | null }
   | { ok: false; error: string; roomId?: string };
 
 export type GroupRoomRow = {
