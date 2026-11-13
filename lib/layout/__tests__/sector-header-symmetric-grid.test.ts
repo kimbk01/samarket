@@ -57,24 +57,28 @@ describe("sector header — symmetric 3-column grid (v3 §12)", () => {
     expect(title).toContain("white-space: nowrap;");
   });
 
-  it("hub (left title) icons = sub-page touch 48 · glyph 24 · gap 0 (헤더 SSOT 1단계, Owner 2026-11-13)", () => {
+  it("제목-왼쪽 줄은 크기를 다시 정의하지 않고 하위 줄 값(48·24·간격 0)을 그대로 이어받는다 (헤더 SSOT 부품 정리)", () => {
+    const base = ruleBody(".sector-header-bar");
+    expect(base).toContain("--sector-header-action-size: var(--sector-header-touch);");
+    expect(base).toContain("--sector-header-back-size: var(--sector-header-touch);");
+    expect(base).toContain("--sector-header-icon-cluster-gap: 0px;");
     const hub = ruleBody(".sector-header-bar--left-title");
     expect(hub).toContain("grid-template-columns: var(--sector-header-left-slot) minmax(0, 1fr) auto;");
-    expect(hub).toContain("--sector-header-action-size: var(--sector-header-touch);");
-    expect(hub).toContain("--sector-header-action-icon: var(--sector-header-touch-icon);");
-    expect(hub).toContain("--sector-header-icon-cluster-gap: 0px;");
-    expect(hub).not.toContain("--sector-header-action-size: 36px;");
+    for (const v of ["--sector-header-action-size", "--sector-header-action-icon", "--sector-header-back-size", "--sector-header-icon-cluster-gap", "padding:"]) {
+      expect(hub, v).not.toContain(v);
+    }
     /** 허브(빈칸 없음) = 제목 시작 16px · 오른쪽은 하위 화면과 같은 끝 여백 */
     const noSlot = ruleBody(".sector-header--no-left-slot .sector-header-bar--left-title");
     expect(noSlot).toContain("padding: 0 var(--sector-header-edge-pad-right) 0 var(--sector-header-hub-title-x);");
     expect(css).toContain("--sector-header-hub-title-x: 16px;");
-    /** 화면 폭별 허브 크기 덮어쓰기 없음 · 부제목도 52 */
+    /** 화면 폭별 허브 크기 덮어쓰기 없음 · 쓰이지 않던 토큰 없음 */
     for (const q of ["@media (max-width: 374px)", "@media (min-width: 768px)"]) {
       const at = css.indexOf(q);
       expect(at, q).toBeGreaterThan(-1);
       expect(css.slice(at, css.indexOf("\n}\n", at)), q).not.toContain("left-title");
     }
-    expect(css).toContain("--sector-header-h-with-subtitle: 52px;");
+    expect(css).not.toContain("--sector-header-h-with-subtitle");
+    expect(css).not.toContain("--sector-header-hub-pad-left");
   });
 
   it("SectorHeaderBar measures both slots and writes the side var", () => {

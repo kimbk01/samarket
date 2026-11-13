@@ -131,6 +131,8 @@ function computeMobileTopTier1RuleSet(pathNoQuery: string): MobileTopTier1RuleSe
     startsWithPath(pathNoQuery, "/my/business");
 
   const isPhilifeMyPage = pathNoQuery === "/philife/my";
+  /** 커뮤니티 글쓰기 — 작성기(`PhilifeWriteComposerHeader`)가 화면 전체를 덮고 자기 헤더를 그린다. 전역 1단이 그 아래 이중으로 그려지던 것 제거 (헤더 SSOT) */
+  const isPhilifeWritePage = pathNoQuery === "/philife/write" || startsWithPath(pathNoQuery, "/philife/write");
   const isStoresSearch = pathNoQuery === "/stores/search" || startsWithPath(pathNoQuery, "/stores/search");
 
   const isCommunityOrPhilifePostDetail =
@@ -152,6 +154,7 @@ function computeMobileTopTier1RuleSet(pathNoQuery: string): MobileTopTier1RuleSe
     isMyBusinessOwnerHubSurface ||
     isCommunityOrPhilifePostDetail ||
     isPhilifeMyPage ||
+    isPhilifeWritePage ||
     isStoresSearch;
 
   const showRegionBar = !suppressMainTier1;

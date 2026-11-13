@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ChatInputBar } from "@/components/chats/ChatInputBar";
 import { ChatMessageList } from "@/components/chats/ChatMessageList";
 import { ChatMessagesLoadingSkeleton } from "@/components/chats/ChatMessagesLoadingSkeleton";
+import { SectorHeaderBar } from "@/components/layout/sector-header/SectorHeaderBar";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { useChatThreadScroll } from "@/lib/chat-thread-scroll";
@@ -186,21 +187,18 @@ export function GroupChatRoomClient({
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-sam-app">
       <header className="shrink-0 border-b border-sam-border bg-sam-surface">
-        {/* 헤더 SSOT 2단계(S11) — 높이 52 · 뒤로 48@x4(그림 x16) · 방 이름 17px/600 이 뒤로 바로 뒤에서 시작 */}
-        <div className={`mx-auto flex h-[length:var(--sector-header-h)] w-full min-w-0 items-center pl-1 pr-4 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}>
-          <AppBackButton
-            backHref={listHref}
-            preferHistoryBack={false}
-            className="sector-header-back--touch text-[color:var(--sector-header-back-color)]"
+        {/* 헤더 SSOT — 공통 줄 부품(`SectorHeaderBar` 제목-왼쪽): 뒤로 48@x4 · 방 이름 17px/600 · 인원 = 공통 부제목 */}
+        <div className={`mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}>
+          <SectorHeaderBar
+            centerAlign="left"
+            left={<AppBackButton backHref={listHref} preferHistoryBack={false} />}
+            center={
+              <div className="sector-header-title-cluster sector-header-title-cluster--left">
+                <h1 className="sector-header-title sector-header-title--left">{title || "그룹 채팅"}</h1>
+                {memberCount != null ? <p className="sector-header-subtitle">{memberCount}명</p> : null}
+              </div>
+            }
           />
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[length:var(--sector-header-title-size)] font-semibold leading-[var(--sector-header-title-lh)] text-[color:var(--sector-header-title-color)]">
-              {title || "그룹 채팅"}
-            </h1>
-            {memberCount != null ? (
-              <p className="truncate sam-text-helper text-sam-muted">{memberCount}명</p>
-            ) : null}
-          </div>
         </div>
       </header>
 

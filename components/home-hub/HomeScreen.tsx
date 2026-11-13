@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, Coins, Gift, Headset, Heart, LayoutGrid, MessageCircle, Newspaper, Receipt, Search, Tag, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
+import { SectorHeaderBar } from "@/components/layout/sector-header/SectorHeaderBar";
 import { samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
 import { DibayPtrSlot } from "@/components/ptr/DibayPtrSlot";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
@@ -152,47 +153,52 @@ export function HomeScreen({
 
       {/* 상단 — 로고 · 오른쪽 주소 · 종 (Owner 2026-11-09 「로고 우측에 주소」) */}
       <header className="bg-[#F3F5F3]" data-home-header>
-        {/* 헤더 SSOT 2단계 — 다른 허브와 같은 줄(높이 52 · 로고 시작 16px · 주소 17px/600 · 종 48/24 · 끝 그림 = 화면 끝 16px) */}
+        {/* 헤더 SSOT — 다른 허브와 같은 공통 줄 부품(`SectorHeaderBar` 제목-왼쪽 · 왼쪽 빈칸 없음) */}
         <div className="sector-header--no-left-slot" style={{ paddingTop: "var(--safe-top, 0px)" }}>
-        <div className="sector-header-bar sector-header-bar--left-title">
-          <span className="flex min-w-0 items-center gap-2">
-          <span className="flex shrink-0 items-center gap-1.5" aria-label="dibaY">
-            {/* eslint-disable-next-line @next/next/no-img-element -- 정적 브랜드 아이콘 26px */}
-            <img src="/images/brand/dibay-app-icon-180.png" alt="" width={26} height={26} className="h-[26px] w-[26px] rounded-[7px]" />
-            <span className="text-[21px] font-extrabold tracking-[-0.02em] text-sam-primary">
-              diba<span className="text-[#E0A800]">Y</span>
-            </span>
-          </span>
-          {layout.header.showAddress ? (
-            <button
-              type="button"
-              aria-label={t("home_address_change_aria")}
-              className="flex min-w-0 flex-1 items-center gap-0.5 px-1 py-1 text-left text-[length:var(--sector-header-title-size)] font-semibold leading-none text-[color:var(--sector-header-title-color)] active:opacity-60"
-              onClick={() => {
-                if (isMember) router.push("/mypage/addresses");
-                else void requireAuthAction("address_save", () => router.push("/mypage/addresses"), { next: "/home" });
-              }}
-              data-home-address
-            >
-              <span className="min-w-0 truncate">{addressLabel}</span>
-              <ChevronDown className="h-3.5 w-3.5 shrink-0" strokeWidth={2.4} aria-hidden />
-            </button>
-          ) : null}
-          </span>
-          <div className={samTier1HeaderIconCluster}>
-          {isMember ? (
-            <Tier1NotificationAnchor />
-          ) : isGuest ? (
-            <button
-              type="button"
-              className="shrink-0 rounded-full bg-sam-primary px-3.5 py-1.5 text-[13px] font-semibold text-white active:brightness-90"
-              onClick={() => router.push(buildLoginHref("/home"))}
-            >
-              {t("home_sign_in")}
-            </button>
-          ) : null}
-          </div>
-        </div>
+          <SectorHeaderBar
+            centerAlign="left"
+            center={
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="flex shrink-0 items-center gap-1.5" aria-label="dibaY">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- 정적 브랜드 아이콘 26px */}
+                  <img src="/images/brand/dibay-app-icon-180.png" alt="" width={26} height={26} className="h-[26px] w-[26px] rounded-[7px]" />
+                  <span className="text-[21px] font-extrabold tracking-[-0.02em] text-sam-primary">
+                    diba<span className="text-[#E0A800]">Y</span>
+                  </span>
+                </span>
+                {layout.header.showAddress ? (
+                  <button
+                    type="button"
+                    aria-label={t("home_address_change_aria")}
+                    className="flex min-w-0 flex-1 items-center gap-0.5 px-1 py-1 text-left text-[length:var(--sector-header-title-size)] font-semibold leading-none text-[color:var(--sector-header-title-color)] active:opacity-60"
+                    onClick={() => {
+                      if (isMember) router.push("/mypage/addresses");
+                      else void requireAuthAction("address_save", () => router.push("/mypage/addresses"), { next: "/home" });
+                    }}
+                    data-home-address
+                  >
+                    <span className="min-w-0 truncate">{addressLabel}</span>
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0" strokeWidth={2.4} aria-hidden />
+                  </button>
+                ) : null}
+              </span>
+            }
+            right={
+              <div className={samTier1HeaderIconCluster}>
+                {isMember ? (
+                  <Tier1NotificationAnchor />
+                ) : isGuest ? (
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-full bg-sam-primary px-3.5 py-1.5 text-[13px] font-semibold text-white active:brightness-90"
+                    onClick={() => router.push(buildLoginHref("/home"))}
+                  >
+                    {t("home_sign_in")}
+                  </button>
+                ) : null}
+              </div>
+            }
+          />
         </div>
         {/* 당겨서 새로고침 슬롯 — 커뮤니티·거래와 같은 공통 슬롯(1단 아래 · 시그니처 그린) */}
         <DibayPtrSlot store={homePtrStore} tone="onBrand" className="bg-signature" dataAttribute="data-home-ptr-hint" />

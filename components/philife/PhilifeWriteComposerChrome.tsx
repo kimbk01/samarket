@@ -2,6 +2,7 @@
 
 import type { CSSProperties, ReactNode, RefCallback } from "react";
 import { Check, ChevronRight, ImagePlus, Link2, Loader2, X } from "lucide-react";
+import { SectorHeaderBar } from "@/components/layout/sector-header/SectorHeaderBar";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
 import { DibayOverlayActions } from "@/components/ui/dibay-overlay/DibayOverlayActions";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
@@ -17,8 +18,6 @@ import {
   PHILIFE_COMPOSER_HEADER_CTA_CLASS,
   PHILIFE_COMPOSER_HEADER_CTA_IDLE_CLASS,
   PHILIFE_COMPOSER_HEADER_CTA_READY_CLASS,
-  PHILIFE_COMPOSER_HEADER_ICON_BTN_CLASS,
-  PHILIFE_COMPOSER_HEADER_TITLE_CLASS,
   PHILIFE_COMPOSER_SHEET_ROW_CLASS,
   PHILIFE_COMPOSER_SHEET_ROW_ON_CLASS,
   PHILIFE_COMPOSER_TOOLBAR_CLASS,
@@ -72,25 +71,32 @@ export function PhilifeWriteComposerHeader({
   return (
     <div className="shrink-0 bg-sam-surface pt-[var(--safe-top)]">
     <header className={PHILIFE_COMPOSER_HEADER_CLASS} data-testid="philife-composer-header">
-      <button type="button" onClick={onClose} aria-label={closeLabel} className={PHILIFE_COMPOSER_HEADER_ICON_BTN_CLASS}>
-        <X className="h-6 w-6" aria-hidden />
-      </button>
-      <h2 className={PHILIFE_COMPOSER_HEADER_TITLE_CLASS}>{title}</h2>
-      <button
-        type="submit"
-        form={PHILIFE_WRITE_FORM_ID}
-        disabled={ctaDisabled || busy}
-        aria-busy={busy || undefined}
-        onPointerDown={(e) => {
-          if (!(ctaDisabled || busy)) triggerInteractionFeedback("light", e);
-        }}
-        className={`${PHILIFE_COMPOSER_HEADER_CTA_CLASS} ${FORM_INTERACTIVE_PRESS_CLASS} ${
-          ctaReady ? PHILIFE_COMPOSER_HEADER_CTA_READY_CLASS : PHILIFE_COMPOSER_HEADER_CTA_IDLE_CLASS
-        }`}
-        data-testid="philife-composer-cta"
-      >
-        {busy ? <Loader2 className="h-5 w-5 animate-spin" aria-label={ctaLabel} /> : ctaLabel}
-      </button>
+      {/* 헤더 SSOT — 공통 줄 부품: ✕ 48@x4(그림 24 @x16) · 제목 17px/600 가운데 · CTA 글자 끝 W−16 */}
+      <SectorHeaderBar
+        left={
+          <button type="button" onClick={onClose} aria-label={closeLabel} className="sector-header-back">
+            <X aria-hidden />
+          </button>
+        }
+        center={<h2 className="sector-header-title">{title}</h2>}
+        right={
+          <button
+            type="submit"
+            form={PHILIFE_WRITE_FORM_ID}
+            disabled={ctaDisabled || busy}
+            aria-busy={busy || undefined}
+            onPointerDown={(e) => {
+              if (!(ctaDisabled || busy)) triggerInteractionFeedback("light", e);
+            }}
+            className={`${PHILIFE_COMPOSER_HEADER_CTA_CLASS} ${FORM_INTERACTIVE_PRESS_CLASS} ${
+              ctaReady ? PHILIFE_COMPOSER_HEADER_CTA_READY_CLASS : PHILIFE_COMPOSER_HEADER_CTA_IDLE_CLASS
+            }`}
+            data-testid="philife-composer-cta"
+          >
+            {busy ? <Loader2 className="h-5 w-5 animate-spin" aria-label={ctaLabel} /> : ctaLabel}
+          </button>
+        }
+      />
     </header>
     </div>
   );

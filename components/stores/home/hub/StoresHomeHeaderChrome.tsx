@@ -16,6 +16,7 @@ import { MIRROR_HEADER_SHELL_CLASS } from "@/lib/design/delivery-browse-chrome";
 import { useStoresHomeHeaderCollapsed } from "@/lib/stores/use-stores-home-header-collapsed";
 import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
 import { storesHomePtrStore } from "@/lib/stores/stores-home-pull-refresh-store";
+import { SectorHeaderBar } from "@/components/layout/sector-header/SectorHeaderBar";
 import { DibayPtrSlot } from "@/components/ptr/DibayPtrSlot";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
@@ -57,30 +58,35 @@ export function StoresHomeHeaderChrome() {
           aria-hidden={collapsed}
           className={`overflow-hidden ${collapsed ? "h-0" : "h-[length:var(--sector-header-h)]"}`}
         >
-          {/* 헤더 SSOT 2단계 — 다른 허브와 같은 줄(높이 52 · 주소 시작 16px · 아이콘 48/24 · 끝 아이콘 그림 = 화면 끝 16px) */}
-          <div className="sector-header-bar sector-header-bar--left-title">
-            <button
-              type="button"
-              className="inline-flex min-w-0 max-w-full items-center gap-1 justify-self-start text-[length:var(--sector-header-title-size)] font-semibold leading-none text-[color:var(--sector-header-title-color)] active:opacity-70"
-              aria-label={t("layout_neighborhood_address_aria", { line: headerLine })}
-              tabIndex={collapsed ? -1 : 0}
-              onClick={() =>
-                router.push(
-                  buildDeliveryAddressesHrefFromPath(
-                    pathname,
-                    searchParams?.toString() ? `?${searchParams.toString()}` : "",
-                  ),
-                )
-              }
-            >
-              <AddressKindHeadPin kind="master" className="h-[18px] w-[18px] shrink-0 [&_svg]:h-full [&_svg]:w-full" />
-              <span className="truncate">{headerLine}</span>
-              <CaretDownIcon className="h-3.5 w-3.5 shrink-0" />
-            </button>
-            <div className={`${STORES_HOME_HEADER_ACTIONS_CLUSTER} h-full self-stretch`}>
-              <StoresConsumerHeaderActions hideSearch />
-            </div>
-          </div>
+          {/* 헤더 SSOT — 다른 허브와 같은 공통 줄 부품(`SectorHeaderBar` 제목-왼쪽 · 왼쪽 빈칸 없음) */}
+          <SectorHeaderBar
+            centerAlign="left"
+            center={
+              <button
+                type="button"
+                className="inline-flex min-w-0 max-w-full items-center gap-1 text-[length:var(--sector-header-title-size)] font-semibold leading-none text-[color:var(--sector-header-title-color)] active:opacity-70"
+                aria-label={t("layout_neighborhood_address_aria", { line: headerLine })}
+                tabIndex={collapsed ? -1 : 0}
+                onClick={() =>
+                  router.push(
+                    buildDeliveryAddressesHrefFromPath(
+                      pathname,
+                      searchParams?.toString() ? `?${searchParams.toString()}` : "",
+                    ),
+                  )
+                    }
+                  >
+                    <AddressKindHeadPin kind="master" className="h-[18px] w-[18px] shrink-0 [&_svg]:h-full [&_svg]:w-full" />
+                    <span className="truncate">{headerLine}</span>
+                    <CaretDownIcon className="h-3.5 w-3.5 shrink-0" />
+                  </button>
+            }
+            right={
+              <div className={STORES_HOME_HEADER_ACTIONS_CLUSTER}>
+                <StoresConsumerHeaderActions hideSearch />
+              </div>
+            }
+          />
         </div>
         <div className="px-[var(--delivery-page-x)] pb-2 pt-1">
           <button

@@ -13,9 +13,8 @@
  *   부제목이 있어도 높이 52·제목 17px. 화면 폭별(≤374·≥768) 허브 크기 덮어쓰기 없음.
  */
 :root {
+  /** 줄 높이 — 부제목이 있어도 같음 (SSOT S1) */
   --sector-header-h: 52px;
-  /** 부제목이 있어도 같은 높이 (SSOT S1) */
-  --sector-header-h-with-subtitle: 52px;
   --sector-header-pad-x: 12px;
   /** 하위 화면 헤더 터치 영역·아이콘 (§12) */
   --sector-header-touch: 48px;
@@ -25,9 +24,6 @@
   /** 행 좌우 여백 — 화면 끝 기준 max(4px, 안전영역) */
   --sector-header-edge-pad-left: max(4px, var(--safe-left));
   --sector-header-edge-pad-right: max(4px, var(--safe-right));
-  /** 허브(제목 왼쪽) 행 좌우 여백 — 화면 끝 기준 max(12px, 안전영역) */
-  --sector-header-hub-pad-left: max(var(--sector-header-pad-x), var(--safe-left));
-  --sector-header-hub-pad-right: max(var(--sector-header-pad-x), var(--safe-right));
   /** 허브(왼쪽 빈칸 없음) 제목 시작선 = 화면 끝 16px — 하위 화면 ‹ 그림 상자 시작(4 + (48−24)/2)과 같은 선 */
   --sector-header-hub-title-x: 16px;
   --sector-header-col-gap: 6px;
@@ -99,8 +95,6 @@
 html.sam-main-shell-viewport-lock .main-shell-viewport-root {
   --sector-header-edge-pad-left: max(0px, calc(4px - var(--safe-left)));
   --sector-header-edge-pad-right: max(0px, calc(4px - var(--safe-right)));
-  --sector-header-hub-pad-left: var(--sector-header-pad-x);
-  --sector-header-hub-pad-right: var(--sector-header-pad-x);
   --sector-header-hub-title-x: max(0px, calc(16px - var(--safe-left)));
 }
 
@@ -130,27 +124,15 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
   box-sizing: border-box;
 }
 
-/** 메인 허브(제목 왼쪽) — 기존 허브 기하 유지 (안전영역·폭 제한 해제만) */
+/**
+ * 제목-왼쪽 줄(허브·거래 검색·매장 상세·배달 업종·그룹 채팅) — 높이·여백·아이콘·뒤로 크기는 `.sector-header-bar` 그대로 이어받고
+ * 격자만 다르다: 왼쪽 칸 48(뒤로) · 간격 6 · 제목 · 오른쪽. 허브는 아래 `.sector-header--no-left-slot` 으로 왼쪽 칸을 없앤다.
+ */
 .sector-header-bar--left-title {
-  /** 왼쪽 뒤로가 있는 제목-왼쪽 줄(거래 검색·매장 상세) — 하위 화면과 같은 터치 48 @x4 · 그림 24 @x16 (헤더 SSOT 2단계) */
-  --sector-header-back-size: var(--sector-header-touch);
-  --sector-header-back-icon: var(--sector-header-touch-icon);
   --sector-header-left-slot: var(--sector-header-touch);
-  /** 오른쪽 아이콘 = 하위 화면과 같은 터치 48 · 그림 24 · 간격 0 (SSOT S5) */
-  --sector-header-action-size: var(--sector-header-touch);
-  --sector-header-action-icon: var(--sector-header-touch-icon);
-  --sector-header-icon-cluster-gap: 0px;
   --sector-header-col-gap: 6px;
-  --delivery-header-action: var(--sector-header-touch);
-  --delivery-header-icon-glyph: var(--sector-header-touch-icon);
   grid-template-columns: var(--sector-header-left-slot) minmax(0, 1fr) auto;
   column-gap: var(--sector-header-col-gap);
-  padding: 0 var(--sector-header-edge-pad-right) 0 var(--sector-header-edge-pad-left);
-}
-
-.sector-header-bar--with-subtitle {
-  height: var(--sector-header-h-with-subtitle);
-  min-height: var(--sector-header-h-with-subtitle);
 }
 
 .sector-header-bar__left,

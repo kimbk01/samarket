@@ -629,10 +629,6 @@ function resolveMainTier1SubpageInner(
     };
   }
 
-  if (p === "/philife/write" || starts(p, "/philife/write")) {
-    return backHome({ titleText: "tier1_community_write", showHubQuickActions: false });
-  }
-
   if (p === "/philife/my") {
     return backHome({ titleText: "tier1_my_community_activity", showHubQuickActions: true });
   }

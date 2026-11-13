@@ -14,8 +14,7 @@ export const MIRROR_TOP_TAB_MUTED = "#B1B3B5";
 export const MIRROR_DIVIDER = "#E4E6E8";
 export const MIRROR_SECTION_BAND = "#F3F5F7";
 
-/** 1단 공통 헤더 54 · 2단 주소줄 32 · 3단 메뉴 탭 40 · 4단 칩 줄 58(칩 36) */
-export const MIRROR_HEADER_ROW_H_PX = 54;
+/** 1단 = 헤더 SSOT 공통 줄(52) · 2단 주소줄 32 · 3단 메뉴 탭 40 · 4단 칩 줄 58(칩 36) */
 export const MIRROR_ADDRESS_ROW_H_PX = 32;
 export const MIRROR_PAGE_TAB_ROW_H_PX = 40;
 export const MIRROR_CHIP_ROW_H_PX = 58;
@@ -23,10 +22,6 @@ export const MIRROR_CHIP_H_PX = 36;
 
 /** 1단 — 흰 바탕 · 아래선 없음 */
 export const MIRROR_HEADER_SHELL_CLASS = "delivery-ui relative w-full shrink-0 bg-white text-[color:#362415]";
-export const MIRROR_HEADER_ROW_CLASS =
-  "mx-auto grid h-[54px] w-full min-w-0 max-w-[768px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 px-[var(--delivery-page-x)]";
-export const MIRROR_HEADER_TITLE_CLASS =
-  "flex h-full min-w-0 items-center truncate text-[20px] font-extrabold leading-none tracking-[-0.4px] text-[color:#362415]";
 
 /** 2단 — 주소 「… ▾」 14px 보통 (참고 앱 실측 글자 높이 17px÷1.33 · DIBAY 15px 탭 대비 환산) */
 export const MIRROR_ADDRESS_ROW_CLASS =
