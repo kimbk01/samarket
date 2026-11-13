@@ -141,3 +141,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 7. **보고는 짧게**: 한 일·결과·남은 일만. 같은 계획·감사를 반복하지 않는다. 선택지(A/B/C)를 Owner 에게 떠넘기지 않는다.
 8. **Owner 고정 작업 방식 (2026-10-19)**: 기존 감사·설계 재사용(같은 분석 반복 금지) · 한 작업 = PR 1개·병합 1회(불필요한 분할 PR·보고 금지) · 다른 도메인 수정 혼합 금지 · 검사는 최종 HEAD 에서 1회 · Preview 는 필수 단계 아님(접근 불가 시 반복 확인 금지) · 승인 변경은 충돌·회귀 확인 후 main 반영 + Production 반영 1회 확인 (작업 환경에서 Vercel·운영 주소 접근 불가면 로컬 검증 PASS + 배포 SHA 로 보고하고 Production 은 NOT_PROVEN 1회 표기 후 Owner 확인 — 반복 확인 금지) · 웹 변경은 기존 앱 재시작으로 확인, 네이티브 변경 시에만 새 빌드 · 승인된 완료 기준 외 조건 추가 금지 · 실제 결함만 수정(개선 과제 무한 추가 금지) · 완료 보고 = 원인·수정·검증·배포 SHA·남은 위험.
 9. **시간 기준 = 필리핀 현지 시간 (2026-10-19)**: Owner 보고·일정·예약 작업의 시간은 **필리핀 시간(PHT, `Asia/Manila`, UTC+8)** 으로 표기한다 (예: `17:27 PHT`). 예약 작업 cron 은 `CRON_TZ=Asia/Manila` 로 등록한다. 서버(GitHub·Vercel·Supabase) 시계와 **DB 저장값은 UTC 그대로 두고 변경하지 않는다** — 필리핀 시간 변환은 표시 단계에서만 한다.
+10. **운영 DB 임의 조회 규칙 (Owner 2026-11-14 「B 작업 규칙도 정리해서 진행」)**: 작업자의 추측 SQL 이 운영 Postgres 오류의 절반을 차지했다(11-08~14 7일 371건 중 MCP 임의 SQL 83건 + 스크립트 가짜 id 약 30건 — `docs/audit/postgres-error-log-audit-2026-11-14.md` §2-B). 대시보드 오류 수를 부풀려 실제 결함을 가린다.
+   - **컬럼·표를 추측하지 않는다** — 운영 DB 를 처음 조회하는 표는 먼저 `information_schema.columns`(또는 `pg_get_functiondef`)로 컬럼·정의를 확인한 뒤 SELECT 를 쓴다. 저장소 마이그레이션 첫 정의와 운영 현재 정의가 다를 수 있다(뒤 마이그레이션이 바꿈) — 판단 근거는 운영 현재 정의.
+   - **읽기 전용으로 감싼다** — 임의 조회는 `begin read only; set local statement_timeout = '30s'; … rollback;` 안에서만. 쓰기는 「운영 시험 저장 규칙」(허위 보고 금지 8번)과 운영 DB 적용 승인(개발 프로세스 2번)을 따른다.
+   - **가짜 id 로 운영 API·REST 를 부르지 않는다** — `verify-*`·`audit-x-*` 같은 문자열을 uuid 열 자리에 넣지 않는다. 확인용 id 는 운영 DB 에서 실제 행을 읽어 쓴다.
+   - **오류 감사 때 작업자 오류를 구분한다** — Postgres 로그 상세 `query` 에 `-- source: POST /mcp` 가 붙은 것은 작업자 MCP 임의 SQL 이다. 앱 결함 집계에서 따로 센다.
