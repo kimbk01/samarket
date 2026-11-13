@@ -31,6 +31,7 @@ import { runContactsSync, type ContactsSyncOutcome } from "@/lib/community-messe
 import { resetContactsArchiveSummary } from "@/lib/community-messenger/contacts/contacts-summary-cache";
 import { setContactsFriendTagIds } from "@/lib/community-messenger/contacts/contacts-friend-tag-store";
 import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
+import { hasOtherDeviceContacts, restoreContactsDeviceFromServer } from "@/lib/community-messenger/contacts/contacts-device-restore";
 
 /** error = 설정을 불러오지 못함(네트워크·서버) — 기능 꺼짐(disabled)과 구분해 다시 시도를 보여 준다 */
 export type MessengerContactsPhase = "loading" | "error" | "disabled" | "consent" | "ready";
@@ -227,7 +228,8 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
         if (others === undefined) {
           const src = await contactsApi.sources(ensureClientInstanceId());
           if (src.ok) {
-            others = src.data.sources.filter((x) => !x.isThisDevice).length > 0;
+            // 번호가 1개 이상인 다른 기기만 — 0개 출처로 「동기화한 연락처가 있어요」라고 하지 않는다 (감사 2026-11-14 R3)
+            others = hasOtherDeviceContacts(src.data.sources);
             otherDeviceSourcesCache.set(userId, others);
           }
         }
@@ -297,6 +299,16 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
       }
       set({ phase: "ready", settings });
       await loadList(false);
+      if (nativeAvailable) {
+        // 로그아웃 정리(인증 계약 §1.4)로 기기 저장값이 지워진 같은 회원 → 서버의 이 기기 출처로 되찾는다 (감사 2026-11-14 R1).
+        // 기기에 출처·허락이 없을 때만 1번. 같은 응답으로 「다른 기기 연락처 있음」도 정해 afterSync 가 다시 묻지 않는다.
+        const local = readContactsLocalState(userId);
+        if (!local.sourceId && !local.deviceApproved) {
+          const restore = await restoreContactsDeviceFromServer(userId);
+          if (isCancelled()) return;
+          if (restore.othersWithNumbers !== undefined) otherDeviceSourcesCache.set(userId, restore.othersWithNumbers);
+        }
+      }
       if (opts.autoSync !== false && nativeAvailable) await sync(false);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- opts.autoSync 는 화면마다 고정
