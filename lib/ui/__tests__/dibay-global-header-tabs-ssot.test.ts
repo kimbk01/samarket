@@ -99,6 +99,10 @@ describe("dibay global header + secondary tabs SSOT", () => {
     expect(mirror).toContain("bg-[color:var(--dibay-domain-surface)]");
     expect(mirror).not.toContain("bg-white");
     expect(read("app/chat-viewport-shell.css")).toContain("background: var(--dibay-surface-chat, var(--cm-room-header-bg, #ffffff));");
+    /** C4 채팅방 상태바 — 바탕 무늬(background-image)에 덮이지 않게 안쪽 그림자로 칠한다 (운영 실측 FAIL 2026-11-13 정정) */
+    const roomShell = read("app/chat-viewport-shell.css");
+    expect(roomShell).toContain("box-shadow: inset 0 var(--safe-top) 0 0 var(--dibay-surface-chat);");
+    expect(roomShell).not.toContain("linear-gradient(var(--dibay-surface-chat)");
     expect(read("components/layout/ConditionalAppShell.tsx")).toContain("<DibayDomainChromeRootSync />");
   });
 
