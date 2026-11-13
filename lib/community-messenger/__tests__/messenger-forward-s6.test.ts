@@ -8,10 +8,12 @@ const msg = (messageType: string, extra: Record<string, unknown> = {}) =>
   ({ messageType, pending: false, ...extra }) as never;
 
 describe("메시지 전달 S6 (Owner G-4·G-5 2026-11-14)", () => {
-  it("text·sticker 만 · 거래방·주문방·전송 중·삭제 불가", () => {
+  it("text·sticker·image·file 만 · 거래방·주문방·전송 중·삭제 불가", () => {
     expect(canForwardMessage(msg("text"), "direct")).toBe(true);
     expect(canForwardMessage(msg("sticker"), "group")).toBe(true);
-    for (const t of ["image", "file", "voice", "call_stub", "gift_certificate", "system", "community_post_share"]) {
+    expect(canForwardMessage(msg("image"), "direct")).toBe(true);
+    expect(canForwardMessage(msg("file"), "group")).toBe(true);
+    for (const t of ["voice", "call_stub", "gift_certificate", "system", "community_post_share"]) {
       expect(canForwardMessage(msg(t), "direct"), t).toBe(false);
     }
     expect(canForwardMessage(msg("text"), "trade")).toBe(false);
@@ -31,7 +33,9 @@ describe("메시지 전달 S6 (Owner G-4·G-5 2026-11-14)", () => {
     expect(fn).toContain('idempotencyKey: `cm_fwd:${input.userId}:${roomId}:${clientMessageId}`');
     expect(fn).toContain('clientMessageId.startsWith("fwd:")');
     expect(fn).toContain("if (!appended.deduped)");
-    expect(fn).toContain('messageType !== "text" && messageType !== "sticker"');
+    expect(fn).toContain('COMMUNITY_MESSENGER_FORWARDABLE_TYPES = ["text", "sticker", "image", "file"]');
+    expect(fn).toContain("copyMessengerMediaForForward");
+    expect(fn).toContain("if (appended.deduped) await purgeCopies();");
     expect(fn).toContain('trimText(row.owner_domain) === "moim"');
   });
 
