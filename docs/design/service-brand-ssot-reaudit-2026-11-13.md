@@ -129,3 +129,27 @@
 1. **통화 화면이 같이 쓰는 문구**(`nav_messenger_login_required`, `cm_ui_return_to_messenger`): 통화 변경 금지 vs 이름 통일 — 그대로 둘지, 통화 절차로 따로 갈지.
 2. **G-1·G-2 실제 동작 확인 방법**: 로그인 상태 화면 확인이 운영 DB 에 세션·캐시 행을 남김 — 이 방식 허용 여부.
 3. 사장님 하단 탭 가운데 원 색: R5 대로 기존 유지가 기본안 — 다르게 원하시면 지시.
+
+## 11. 이행 결과 (2차 · 2026-11-13 PHT · 브랜치 `fix/service-brand-ssot-remaining`)
+1차 PR #230(병합 bff58823d)은 커밋 제목이 「R1~R6」이었지만 R2 일부·R3·R4·R6 혼재 검사를 하지 않았다(허위 보고). 아래가 2차에서 한 것이다.
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| R2 남은 용어 | 이행 | `admin_dl_fab_*` 「배달 첫 화면」→DIPICK 홈 · 배달 메뉴 미리보기 하단바 5키 → LOUNGE·MARKET·DIPICK·LETARING·MY · `store_owner_notif_settings_link_suffix` en messenger→chat · Admin DIPICK 홈 선반 en 8키 「HOME」→「DIPICK home」 · ko 에만 MY 가 있던 3키 en 짝 |
+| R2 광고 원장 영역·「마이 배너」 | **바꾸지 않음(계획 충돌)** | R1 이 같은 묶음(광고 원장 위치·`admin_menu_my_banners` 등)을 「D1~D33 밖」으로 되돌렸다. 되돌린 뒤 원장 화면은 영역·위치 모두 한국어라 같은 화면 혼재는 없다. R2 의 「원장 영역 정정」과 R1 이 충돌 — R1 기준 유지 |
+| R3 하단 바 CSS | 이행 | 브라운 토큰 블록 삭제, :root = v11 값 한 벌. 크기·굵기 숫자 규칙(22/24/21px·23px·stroke 2.4·11/11.5/10px·700·검은 사각형·축소)은 사장님 하단 바 전용 `:where(.app-bottom-nav-shell:not([data-app-bottom-nav]))` 로만 둠 → 메인 하단 탭은 덮어쓰기 없이 자기 블록 값만. 6탭 10.5px 규칙·아바타 `:not()` 삭제. **계산값 비교: 회원(5·6탭·DIPICK 셸·허브 원)·사장님 5탭 × 폭 360/370/800/1300 × 기본·hover·active·focus, 요소 1,244개 전 속성 차이 0** (헤드리스 Chrome, 앱 CSS + design-tokens) |
+| R3 아이콘 래퍼 | 이행 | `brandIcon()`·`OwnerHubFillIcon`·`StorefrontFillIcon`·가게 경로 상수 삭제 → `ServiceBrandIcon` + `serviceBrandIconSlot` 한 벌 |
+| R3 owner_hub 그림 | 이행 | W1 에서 내가 바꾼 하단 탭 owner_hub(채움 가게)를 원래 그림(`StoreOpsCenterStrokeIcon`)으로 되돌림 → 하단 탭·배달 스위처·/stores 머리글 같은 그림 |
+| R3 Admin 아이콘 선택 창 | 이행 | 서비스 키(HOME·LOUNGE·MARKET·DIPICK·LETARING·MY)는 Lucide 선택 막음 + 안내 문구(`admin_menu_bottom_icon_brand_fixed`), 이름 표시도 실제 그림 기준 |
+| R3 registry.ts 속성 순서·검사기 | 이행 | 속성 순서 원래대로(id 먼저 7곳), 검사기 오탐 원인(닫는 따옴표를 여는 따옴표로 다시 읽음) 수정 + 시험. 재측정으로 기준선 3파일 변경: 오탐 2건 제거, `lib/admin-community-messenger/service.ts` 16→17(한 줄의 한국어 문자열 3개 중 1개를 예전 검사기가 못 셌음 — 파일은 수정하지 않음) |
+| R3 i18n 짝 검사 | 이행 | 정규식 대신 카탈로그 TS 를 실제 실행해 값 읽음(Node 24 형식 제거) — 키 32,265개 = 앱 MESSAGES 와 같은 수 |
+| R4 `verify:service-brand-ssot` | 이행(웹 범위) | 이름 8·아이콘 경로 한 곳·그리는 곳 한 곳·하단 탭 키·옛 이름 금지. `ci:static` 에 등록. 복사 경로 넣은 음성 시험에서 FAIL 확인. **네이티브(strings.xml·시작 화면) 검사는 N 단계 미승인이라 넣지 않음** |
+| R4 용어집 | 이행 | 브랜드 8개 항목(한국어에 이름이 있으면 영어도 같은 이름), `myinfo` 설명 갱신 |
+| R4 `I18N_E2E_NAV_KEYS` | 이행 | 실제 하단 탭 키(nav.home·community·delivery·chat·my)로 교체 — 이전 목록의 nav.trade 는 하단 탭에 없음. 언어 전환 확인은 하단 바 이름(aria) |
+| R4 e2e 기대값 | 이미 1차에서 갱신(MARKET·FEED·LOUNGE). `revenue-final-regression-gate.spec.ts:181` 은 「홍보·Promotion」을 함께 찾는 넓은 패턴이라 변경 불필요. e2e 실행은 안 함 → NOT_PROVEN |
+| R6 같은 화면 혼재 전수 검사 | 이행(코드 검사 범위) | `app/`·`components/` 의 `t("키")` 화면 파일별로 브랜드 이름과 옛 이름(단독·접두)을 함께 쓰는 곳 검색 → 4파일. 통합 검색 머리글(배달 · 매장/메뉴·채팅 → DIPICK·LETARING), MY 광고 신청(커뮤니티/거래 홈 피드 → FEED/MARKET 홈 피드), 알림 설정(커뮤니티·모임 채팅 → FEED·CREW 채팅) 수정. 메신저 홈 「모임」= 메신저 오픈 그룹(기능 이름)이라 유지. **동적 키·lib 에서 만든 문구는 이 검사로 못 찾음** |
+
+### 남은 것 (2차 이후)
+- MY 하단 탭 프로필 사진: Owner 2026-11-13 「용어만 변경」 지적 — 되돌릴지 Owner 결정 대기(승인 원문에는 사진→아이콘이 있었고, 이 안은 작업자가 설계 Q1 로 권장한 것).
+- 네이티브(N)·운영 DB(D)·광고 상품명(N3)·통화 화면 문구(T2)·미사용 옛 이름 키 8개(N5·N6) — 별도 승인.
+- 화면 확인: 로그인 화면·실기기·Production 은 NOT_PROVEN.

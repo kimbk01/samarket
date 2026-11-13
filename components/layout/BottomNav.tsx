@@ -1,5 +1,6 @@
 "use client";
 
+import { BottomNavProfileAvatar } from "@/components/layout/BottomNavProfileAvatar";
 import Link from "next/link";
 import {
   memo,
@@ -226,9 +227,19 @@ function BottomNavTabIconContent({
 }) {
   /**
    * 텔레그램형 하단 탭 (Owner 최종 승인 2026-11-13): 모든 탭 = 대표 채움 아이콘 26px(선택해도 크기 그대로),
-   * 선택 = 아이콘·글자 색만 DIBAY 그린(CSS). 「MY」도 프로필 사진이 아니라 대표 사람 아이콘 — 사진 기능은 MY 화면에 그대로.
+   * 선택 = 아이콘·글자 색만 DIBAY 그린(CSS). 「MY」는 내 프로필 사진 그대로(홈 설계안 v11 · Owner 2026-11-13 「원래대로 되돌려」).
    * 원형 orbit 강조는 꺼져 있다 — `emphasisKind` 는 탭 이동 주소에만 쓴다.
    */
+  if (tab.id === "my") {
+    return (
+      <div className="app-bottom-nav-icon-slot">
+        <span className="app-bottom-nav-inline-icon app-bottom-nav-inline-icon--avatar">
+          <BottomNavProfileAvatar />
+          <BottomNavHubBadgeDot count={badgeCount} />
+        </span>
+      </div>
+    );
+  }
   if (BOTTOM_NAV_ORBIT_EMPHASIS_ENABLED && (emphasisKind === "domain-hub" || emphasisKind === "messenger-hub")) {
     return (
       <>

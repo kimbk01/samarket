@@ -7,8 +7,13 @@ import { MESSAGES, type MessageKey } from "@/lib/i18n/messages";
 export const I18N_E2E_LANGUAGE_SETTINGS_PATH = "/mypage?tab=settings&section=region-language" as const;
 export const I18N_E2E_LOGOUT_PATH = "/mypage/logout" as const;
 
+/**
+ * 하단 탭 5개 이름 키 = `BUILTIN_BOTTOM_NAV_LABEL_KEYS` (HOME·LOUNGE·DIPICK·LETARING·MY).
+ * 서비스 브랜드 SSOT(2026-11-13) 이후 탭 이름은 한국어·영어가 같다 — 언어 전환 확인은 이 키가 아니라
+ * `expectGlobalBottomNavLanguage` 의 하단 바 이름(`nav_bottom_bar_aria`, 언어별로 다름)으로 한다.
+ */
 export const I18N_E2E_NAV_KEYS = [
-  "nav.trade",
+  "nav.home",
   "nav.community",
   "nav.delivery",
   "nav.chat",

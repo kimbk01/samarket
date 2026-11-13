@@ -1,3 +1,4 @@
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
 /** 어드민 — 배달 화면 구성 › 배달 오픈 관리 탭 (Owner 「배달 on/off·매장 모집 배너」 2026-11-10) */
 export const adminDeliveryLaunchMessages = {
   ko: {
@@ -32,8 +33,8 @@ export const adminDeliveryLaunchMessages = {
     admin_dl_field_schedule: "오픈 일정 문구",
     admin_dl_field_apply: "신청 버튼 문구 (매장 없는 회원에게 보임 · 매장 있는 사장님은 「매장 승인 진행 사항」·「매장 진입」)",
     admin_dl_field_ribbon: "안내 띠 (배너 아래 흐린 매장 목록 위 · 비우면 「배달 오픈 준비 중 · 매장을 모으고 있어요」)",
-    admin_dl_fab_title: "고객센터 FAB (매장 모집 중 배달 첫 화면)",
-    admin_dl_fab_toggle: "매장 모집 중 배달 첫 화면에 기존 고객센터 FAB 켜기 (매장 없음: 매장 입점 문의 · 매장 있음: 매장 승인)",
+    admin_dl_fab_title: `고객센터 FAB (매장 모집 중 ${B.DIPICK} 홈)`,
+    admin_dl_fab_toggle: `매장 모집 중 ${B.DIPICK} 홈에 기존 고객센터 FAB 켜기 (매장 없음: 매장 입점 문의 · 매장 있음: 매장 승인)`,
     admin_dl_free_title: "오픈 기념 무료",
     admin_dl_free_label: "무료 종료일 (필리핀 날짜 · 비우면 신청서에 무료 문구 없음)",
     admin_dl_free_note: "무료는 모드가 아니라 이 날짜로 끝나요. 이후에는 업종별 수수료 정책을 따릅니다.",
@@ -108,8 +109,8 @@ export const adminDeliveryLaunchMessages = {
     admin_dl_field_schedule: "Opening schedule",
     admin_dl_field_apply: "Apply button text (shown to members without a store; owners see their approval status or “Enter store”)",
     admin_dl_field_ribbon: "Notice strip (above the dimmed store list · blank = default text)",
-    admin_dl_fab_title: "Support FAB (delivery home while recruiting)",
-    admin_dl_fab_toggle: "Show the existing support FAB on the delivery home while recruiting (no store: partnership inquiry · has store: store approval)",
+    admin_dl_fab_title: `Support FAB (${B.DIPICK} home while recruiting)`,
+    admin_dl_fab_toggle: `Show the existing support FAB on the ${B.DIPICK} home while recruiting (no store: partnership inquiry · has store: store approval)`,
     admin_dl_free_title: "Launch free period",
     admin_dl_free_label: "Free until (PH date · blank = no free offer on the application)",
     admin_dl_free_note: "The free period ends on this date regardless of mode; category fee policies apply afterwards.",

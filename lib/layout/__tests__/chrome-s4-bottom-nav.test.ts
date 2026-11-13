@@ -20,7 +20,7 @@ const read = (rel: string) => readFileSync(join(ROOT, rel), "utf8");
 const navCss = read("app/app-bottom-nav.css");
 
 describe("chrome S4 — bottom nav", () => {
-  it("원형 탭 색 1벌 (Owner 2026-11-03): 미선택 흰 바탕·브라운, 선택 브라운·골드, 그린·배달 토큰 미사용", () => {
+  it("원형 탭 색 1벌 (Owner 2026-11-03): 미선택 흰 바탕·강조색, 선택 강조색 채움·골드, 그린·배달 토큰 미사용", () => {
     const i = navCss.indexOf("--app-bottom-nav-orbit-size: 2.625rem;");
     const block = navCss.slice(navCss.lastIndexOf(":root {", i), navCss.indexOf("}", i));
     expect(block).toContain("--app-bottom-nav-orbit-bg: var(--dibay-card);");
@@ -28,7 +28,10 @@ describe("chrome S4 — bottom nav", () => {
     expect(block).toContain("--app-bottom-nav-orbit-bg-active: var(--app-bottom-nav-accent);");
     expect(block).toContain("--app-bottom-nav-orbit-fg-active: var(--dibay-gold);");
     expect(block).not.toMatch(/green|--delivery-dark|--delivery-primary|rgba\(0, 98, 65/);
-    expect(navCss).toContain("--app-bottom-nav-accent: var(--dibay-brown);");
+    // 강조색 실제 값 (재감사 R3 — 덮여서 안 쓰이던 브라운 토큰 대신 실제 화면 값을 잠근다): 기본·사장님 = #111111(v11), 메인 하단 탭 = 브랜드 그린
+    expect(navCss).toMatch(/:root \{\n {2}--app-bottom-nav-surface: rgba\(255, 255, 255, 0\.96\);\n {2}--app-bottom-nav-accent: #111111;/);
+    expect(navCss).toMatch(/\[data-app-bottom-nav\] \{\n {2}--app-bottom-nav-accent: var\(--dibay-green\);/);
+    expect(navCss).not.toContain("--dibay-brown");
     expect(navCss).not.toContain("--app-bottom-nav-main-green");
     // 배달·사장님 홈 원도 같은 토큰
     const d = navCss.indexOf(".app-bottom-nav-item--delivery-hub .app-bottom-nav-delivery-home-orbit {");

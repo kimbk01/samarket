@@ -1,17 +1,19 @@
-/** dibaY 하단 탭 — 단일 시각 토큰 (강조 = 브라운 `--app-bottom-nav-accent` · 바탕 = 크림) */
+/**
+ * 하단 바 시각 토큰 — 한 벌.
+ * - 기본값(:root) = 홈 설계안 v11(2026-11-09) 값. 매장 사장님 하단 바(OwnerMobileBottomNav)가 이 값을 쓴다.
+ * - 메인 하단 바(`[data-app-bottom-nav]`, BottomNav.tsx)는 파일 끝 「텔레그램형 하단 탭」 블록에서 토큰만 바꾼다.
+ * - 크기·굵기 숫자가 다른 규칙은 사장님 하단 바 전용(`:where(.app-bottom-nav-shell:not([data-app-bottom-nav]))`)으로만 둔다.
+ *   메인 하단 바는 덮어쓰기 없이 자기 블록 값만 받는다(2026-11-13 재감사 R3).
+ */
 :root {
-  --app-bottom-nav-surface: var(--dibay-cream);
-  /**
-   * 하단 내비 강조색 = 브라운 (Owner 2026-11-03 「녹색으로 버튼과 구분이 안 된다」) — 그린은 화면 안 실행 버튼 전용.
-   * 선택 탭 글자·원형 탭이 이 토큰 하나만 쓴다 (고객 허브·배달·사장님 하단 내비 공통).
-   */
-  --app-bottom-nav-accent: var(--dibay-brown);
-  --app-bottom-nav-text-muted: color-mix(in srgb, var(--dibay-muted) 82%, transparent);
-  --app-bottom-nav-icon-muted: color-mix(in srgb, var(--dibay-muted) 78%, transparent);
-  --app-bottom-nav-active-bg: color-mix(in srgb, var(--dibay-gold) 18%, transparent);
-  --app-bottom-nav-hover-bg: color-mix(in srgb, var(--dibay-gold) 10%, transparent);
-  --app-bottom-nav-border: color-mix(in srgb, var(--dibay-brown) 10%, transparent);
-  --app-bottom-nav-shadow: 0 -4px 14px color-mix(in srgb, var(--dibay-brown) 6%, transparent);
+  --app-bottom-nav-surface: rgba(255, 255, 255, 0.96);
+  --app-bottom-nav-accent: #111111;
+  --app-bottom-nav-text-muted: #2b2b2b;
+  --app-bottom-nav-icon-muted: #1e1e1e;
+  --app-bottom-nav-active-bg: transparent;
+  --app-bottom-nav-hover-bg: rgba(0, 0, 0, 0.04);
+  --app-bottom-nav-border: #e1e4e2;
+  --app-bottom-nav-shadow: 0 -6px 20px rgba(0, 0, 0, 0.06);
 }
 
 .app-bottom-nav-shell {
@@ -146,10 +148,6 @@
 }
 
 .app-bottom-nav-item {
-  max-width: none;
-}
-
-.app-bottom-nav-item {
   position: relative;
   display: flex;
   flex: 1 1 0;
@@ -186,13 +184,8 @@
   }
 }
 
-.app-bottom-nav-item:active {
-  transform: scale(0.97);
-}
-
 /**
- * 눌림 배경 = hover 와 같은 골드 10% (크롬 S4 B-R2, 2026-11-03) — 선택 안 된 탭만(선택 탭은 18% 유지).
- * 배달·사장님 하단 바(`--delivery` 셸)는 대상 아님.
+ * 눌림 배경 = hover 토큰 — 선택 안 된 탭만. 배달·사장님 하단 바(`--delivery` 셸)는 대상 아님.
  */
 .app-bottom-nav-shell:not(.app-bottom-nav-shell--delivery) .app-bottom-nav-item[data-active="false"]:active {
   background: var(--app-bottom-nav-hover-bg);
@@ -212,7 +205,6 @@
   position: relative;
   display: flex;
   width: 100%;
-  height: 22px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -224,8 +216,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
   flex-shrink: 0;
   color: var(--app-bottom-nav-icon-muted);
   background: transparent;
@@ -237,30 +227,12 @@
   color: var(--app-bottom-nav-accent);
 }
 
-.app-bottom-nav-icon-svg {
-  width: 22px;
-  height: 22px;
-}
-
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg {
-  width: 23px;
-  height: 23px;
-}
-
 .app-bottom-nav-icon-svg path,
 .app-bottom-nav-icon-svg circle,
 .app-bottom-nav-icon-svg line,
 .app-bottom-nav-icon-svg polyline,
 .app-bottom-nav-icon-svg rect {
   stroke-width: 2;
-}
-
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg path,
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg circle,
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg line,
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg polyline,
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg rect {
-  stroke-width: 2.4;
 }
 
 /**
@@ -285,7 +257,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--app-bottom-nav-text-muted);
-  font-size: 11px;
   font-weight: 500;
   line-height: 13px;
   letter-spacing: -0.2px;
@@ -293,86 +264,121 @@
   transition: color 140ms ease;
 }
 
-.app-bottom-nav-container[data-tab-count="6"] .app-bottom-nav-label,
-.app-bottom-nav-container[data-tab-count="6"] .app-bottom-nav-label--delivery-tab,
-.app-bottom-nav-container[data-tab-count="6"] .app-bottom-nav-label--trade-tab,
-.app-bottom-nav-container[data-tab-count="6"] .app-bottom-nav-label--philife-tab,
-.app-bottom-nav-container[data-tab-count="7"] .app-bottom-nav-label,
-.app-bottom-nav-container[data-tab-count="7"] .app-bottom-nav-label--delivery-tab,
-.app-bottom-nav-container[data-tab-count="8"] .app-bottom-nav-label,
-.app-bottom-nav-container[data-tab-count="8"] .app-bottom-nav-label--delivery-tab,
-.app-bottom-nav-container[data-tab-count="9"] .app-bottom-nav-label,
-.app-bottom-nav-container[data-tab-count="9"] .app-bottom-nav-label--delivery-tab,
-.app-bottom-nav-container[data-tab-count="10"] .app-bottom-nav-label,
-.app-bottom-nav-container[data-tab-count="10"] .app-bottom-nav-label--delivery-tab {
-  font-size: 10.5px;
-}
-
 .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label,
 .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--delivery-tab,
 .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--trade-tab,
 .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--philife-tab {
   color: var(--app-bottom-nav-accent);
+}
+
+@media (max-width: 374px) {
+  .app-bottom-nav-item {
+    gap: 2px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * 매장 사장님 하단 바 전용 크기·굵기 (OwnerMobileBottomNav — `data-app-bottom-nav` 없음)
+ * 홈 설계안 v11(2026-11-09) 그대로: 아이콘 22px(768–1279 24px · ≤374 21px) · 글자 11px(11.5 · 10) ·
+ * 선택 = 검은 사각형 30×28 + 흰 아이콘 18px · 글자 700 · 눌림 축소.
+ * `:where()` 로 감싸 특이도는 예전과 같다(뒤쪽 배달 셸·홈 원 규칙과의 우선순위 불변).
+ * -------------------------------------------------------------------------- */
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-item:active {
+  transform: scale(0.97);
+}
+
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-icon-slot {
+  height: 22px;
+}
+
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-inline-icon {
+  width: 22px;
+  height: 22px;
+}
+
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-icon-svg {
+  width: 22px;
+  height: 22px;
+}
+
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg path,
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg circle,
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg line,
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg polyline,
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg rect {
+  stroke-width: 2.4;
+}
+
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-label,
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-label--delivery-tab,
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-label--trade-tab,
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-label--philife-tab {
+  font-size: 11px;
+}
+
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label,
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--delivery-tab,
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--trade-tab,
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--philife-tab {
   font-weight: 700;
 }
 
+/* 선택 = 검은 사각형 + 흰 아이콘 18px */
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon {
+  width: 30px;
+  height: 28px;
+  border-radius: 8px;
+  background: #111111;
+  color: #ffffff;
+}
+
+:where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon .app-bottom-nav-icon-svg {
+  width: 18px;
+  height: 18px;
+}
+
 @media (min-width: 768px) and (max-width: 1279px) {
-  .app-bottom-nav-icon-slot {
+  :where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-icon-slot {
     height: 24px;
   }
 
-  .app-bottom-nav-inline-icon {
+  :where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-inline-icon {
     width: 24px;
     height: 24px;
   }
 
-  .app-bottom-nav-icon-svg {
+  :where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-icon-svg {
     width: 24px;
     height: 24px;
   }
 
-  .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg {
-    width: 24px;
-    height: 24px;
-  }
-
-  .app-bottom-nav-label,
-  .app-bottom-nav-label--delivery-tab,
-  .app-bottom-nav-label--trade-tab,
-  .app-bottom-nav-label--philife-tab {
+  :where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-label,
+  :where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-label--delivery-tab,
+  :where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-label--trade-tab,
+  :where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-label--philife-tab {
     font-size: 11.5px;
   }
 }
 
 @media (max-width: 374px) {
-  .app-bottom-nav-item {
-    max-width: none;
-    gap: 2px;
-  }
-
-  .app-bottom-nav-icon-slot {
+  :where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-icon-slot {
     height: 21px;
   }
 
-  .app-bottom-nav-inline-icon {
+  :where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-inline-icon {
     width: 21px;
     height: 21px;
   }
 
-  .app-bottom-nav-icon-svg {
+  :where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-icon-svg {
     width: 21px;
     height: 21px;
   }
 
-  .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg {
-    width: 21px;
-    height: 21px;
-  }
-
-  .app-bottom-nav-label,
-  .app-bottom-nav-label--delivery-tab,
-  .app-bottom-nav-label--trade-tab,
-  .app-bottom-nav-label--philife-tab {
+  :where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-label,
+  :where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-label--delivery-tab,
+  :where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-label--trade-tab,
+  :where(.app-bottom-nav-shell:not([data-app-bottom-nav])) .app-bottom-nav-label--philife-tab {
     font-size: 10px;
   }
 }
@@ -576,7 +582,7 @@ html[data-shell-bottom-nav-delivery] {
 /**
  * 글로벌 5탭 — 허브·메신저 orbit. 셸 높이 유지, 원형만 위로 돌출. 라벨과 orbit 사이 `--app-bottom-nav-orbit-label-gap`.
  * 원형 탭 색 1벌 (Owner 2026-11-03 · docs/audit/owner-e2e-round2-review-and-dashboard-design-2026-11-03.md §3):
- * 미선택 = 흰 바탕 + 브라운 테두리·아이콘 · 선택 = 브라운 채움 + 골드 아이콘. 그린 미사용(화면 안 버튼과 구분).
+ * 미선택 = 흰 바탕 + 강조색(`--app-bottom-nav-accent`, :root 값 #111111) 테두리·아이콘 · 선택 = 강조색 채움 + 골드 아이콘. 그린 미사용(화면 안 버튼과 구분).
  * 배달·사장님 하단 내비의 홈 원(`.app-bottom-nav-delivery-home-orbit`)도 같은 토큰.
  * (이전: S4 브랜드 그린 85%/100% → 화면 안 그린 버튼과 같은 색이라 구분 안 됨)
  */
@@ -775,20 +781,7 @@ html[data-shell-bottom-nav-delivery] {
   }
 }
 
-/* ==========================================================================
- * 하단 바 공통 (홈 설계안 v11 · 2026-11-09) — 메인·사장님 하단 탭 공통
- * ========================================================================== */
-:root {
-  --app-bottom-nav-surface: rgba(255, 255, 255, 0.96);
-  --app-bottom-nav-accent: #111111;
-  --app-bottom-nav-text-muted: #2b2b2b;
-  --app-bottom-nav-icon-muted: #1e1e1e;
-  --app-bottom-nav-active-bg: transparent;
-  --app-bottom-nav-hover-bg: rgba(0, 0, 0, 0.04);
-  --app-bottom-nav-border: #e1e4e2;
-  --app-bottom-nav-shadow: 0 -6px 20px rgba(0, 0, 0, 0.06);
-}
-
+/* 하단 바 공통 (홈 설계안 v11 · 2026-11-09) — 바 흐림·선택 탭 배경 없음 (메인·사장님 공통, 위 원형 탭 규칙보다 뒤) */
 .app-bottom-nav-shell {
   -webkit-backdrop-filter: saturate(160%) blur(14px);
   backdrop-filter: saturate(160%) blur(14px);
@@ -796,27 +789,6 @@ html[data-shell-bottom-nav-delivery] {
 
 .app-bottom-nav-item[data-active="true"] {
   background: transparent;
-}
-
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon:not(.app-bottom-nav-inline-icon--avatar) {
-  width: 30px;
-  height: 28px;
-  border-radius: 8px;
-  background: #111111;
-  color: #ffffff;
-}
-
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon:not(.app-bottom-nav-inline-icon--avatar) .app-bottom-nav-icon-svg {
-  width: 18px;
-  height: 18px;
-}
-
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-label,
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--delivery-tab,
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--trade-tab,
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--philife-tab {
-  color: #111111;
-  font-weight: 700;
 }
 
 /* ==========================================================================
@@ -840,41 +812,22 @@ html[data-shell-bottom-nav-delivery] {
   --app-bottom-nav-label-size: 10px;
 }
 
-/* 아이콘 크기 고정 — 768–1279·≤374 규칙과 선택 규칙을 모두 덮는다 */
+/* 아이콘 26px 고정 — 화면 폭·탭 수·선택과 무관 (가운데 .app-bottom-nav-container 는 배달 셸·허브 규칙보다 우선하게) */
 [data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-icon-slot {
   height: var(--app-bottom-nav-icon-size);
 }
 
-[data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-inline-icon,
-[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon,
-[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon:not(.app-bottom-nav-inline-icon--avatar) {
-  width: var(--app-bottom-nav-icon-size);
-  height: var(--app-bottom-nav-icon-size);
-  border-radius: 0;
-  background: transparent;
-}
-
-[data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-icon-svg,
-[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg,
-[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon:not(.app-bottom-nav-inline-icon--avatar) .app-bottom-nav-icon-svg {
+[data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-inline-icon {
   width: var(--app-bottom-nav-icon-size);
   height: var(--app-bottom-nav-icon-size);
 }
 
-/* 선 아이콘(주문·장바구니 등 기능 키)은 선택해도 두께 그대로 — 모양 변화 없음 */
-[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg path,
-[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg circle,
-[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg line,
-[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg polyline,
-[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg rect {
-  stroke-width: 2;
+[data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-icon-svg {
+  width: var(--app-bottom-nav-icon-size);
+  height: var(--app-bottom-nav-icon-size);
 }
 
-[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon,
-[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon:not(.app-bottom-nav-inline-icon--avatar) {
-  color: var(--app-bottom-nav-accent);
-}
-
+/* 글자 10px / 500 고정 — 선택해도 굵기 그대로 */
 [data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-label,
 [data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-label--delivery-tab,
 [data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-label--trade-tab,
@@ -883,17 +836,28 @@ html[data-shell-bottom-nav-delivery] {
   font-weight: 500;
 }
 
-[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label,
-[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--delivery-tab,
-[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--trade-tab,
-[data-app-bottom-nav] .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--philife-tab {
-  color: var(--app-bottom-nav-accent);
-  font-weight: 500;
+/* MY 탭 = 내 프로필 사진 (홈 설계안 v11 2026-11-09 값 그대로 · Owner 2026-11-13 「원래대로 되돌려」) */
+[data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-inline-icon--avatar {
+  width: 28px;
+  height: 28px;
+}
+
+.app-bottom-nav-profile-avatar {
+  display: block;
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  object-fit: cover;
+  background: #eef0ef;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-profile-avatar {
+  box-shadow: 0 0 0 2px #111111;
 }
 
 /* 눌림 = 투명도만 (크기 변화 없음) */
 [data-app-bottom-nav] .app-bottom-nav-item:active {
-  transform: none;
   opacity: 0.55;
 }
 

@@ -26,6 +26,7 @@ export function MainBottomNavTabIcon({ tab, className }: MainBottomNavTabIconPro
 }
 
 export function mainBottomNavIconLabel(tab: Pick<BottomNavItemConfig, "icon" | "lucideIcon">): string {
-  if (tab.lucideIcon) return tab.lucideIcon;
+  /** 서비스 키는 Lucide 를 무시하고 대표 아이콘을 그리므로 이름도 실제 그림(키)을 보여 준다 */
+  if (tab.lucideIcon && !BOTTOM_NAV_ICON_KEY_BRAND[tab.icon]) return tab.lucideIcon;
   return tab.icon;
 }

@@ -120,10 +120,14 @@ describe("대표 아이콘 SSOT", () => {
     );
   });
 
-  it("MY 하단 탭 = 대표 사람 아이콘 (프로필 사진 아님)", () => {
+  it("MY 하단 탭 = 내 프로필 사진 (Owner 2026-11-13 「원래대로 되돌려」 — 용어만 변경)", () => {
     const nav = read("components/layout/BottomNav.tsx");
-    expect(nav).not.toContain("BottomNavProfileAvatar");
-    expect(nav).not.toContain("app-bottom-nav-inline-icon--avatar");
+    expect(nav).toContain("<BottomNavProfileAvatar />");
+    expect(nav).toContain("app-bottom-nav-inline-icon app-bottom-nav-inline-icon--avatar");
+    expect(read("components/layout/BottomNavProfileAvatar.tsx")).toContain("useAppBootProfile");
+    const css = read("app/app-bottom-nav.css");
+    expect(css).toMatch(/\[data-app-bottom-nav\] \.app-bottom-nav-container \.app-bottom-nav-inline-icon--avatar \{\n {2}width: 28px;\n {2}height: 28px;/);
+    expect(css).toMatch(/\.app-bottom-nav-profile-avatar \{\n {2}display: block;\n {2}width: 26px;\n {2}height: 26px;/);
   });
 
   it("DIPICK FAB 진입 = DIPICK 아이콘(stores 키), 앱 HOME(home 키) 아님", () => {
@@ -150,9 +154,11 @@ describe("하단 탭 선택 상태 (텔레그램형)", () => {
   });
 
   it("선택 글자 굵기 = 500 (굵기 변화 없음), 눌림 = 투명도(크기 변화 없음)", () => {
-    const active = block.slice(block.indexOf('.app-bottom-nav-item[data-active="true"] .app-bottom-nav-label,'));
-    expect(active.slice(0, active.indexOf("}"))).toContain("font-weight: 500;");
-    expect(block).toMatch(/\.app-bottom-nav-item:active \{\n {2}transform: none;\n {2}opacity: 0\.55;/);
+    expect(block).toMatch(/\.app-bottom-nav-label--philife-tab \{\n {2}font-size: var\(--app-bottom-nav-label-size\);\n {2}font-weight: 500;/);
+    expect(block).not.toContain("font-weight: 700");
+    expect(block).toMatch(/\[data-app-bottom-nav\] \.app-bottom-nav-item:active \{\n {2}opacity: 0\.55;/);
+    // 축소(scale)는 사장님 하단 바 전용
+    expect(css).toMatch(/:where\(\.app-bottom-nav-shell:not\(\[data-app-bottom-nav\]\)\) \.app-bottom-nav-item:active \{\n {2}transform: scale\(0\.97\);/);
   });
 
   it("탭 칸 높이 48px (터치 44px 이상) · 접근성 선택 상태 aria-current", () => {
@@ -169,11 +175,15 @@ describe("적용 범위 — 메인 하단 탭만 (사장님 하단 탭은 기존
     expect(read("components/layout/BottomNav.tsx")).toContain('data-app-bottom-nav=""');
     expect(read("components/stores/owner/OwnerMobileBottomNav.tsx")).not.toContain("data-app-bottom-nav");
   });
-  it("글자 10px 규칙이 탭 6개 이상 규칙(10.5px)보다 우선 (같은 특이도·뒤 순서)", () => {
-    const six = css.indexOf('.app-bottom-nav-container[data-tab-count="6"] .app-bottom-nav-label,');
-    const ten = css.indexOf("[data-app-bottom-nav] .app-bottom-nav-container .app-bottom-nav-label,");
-    expect(six).toBeGreaterThan(-1);
-    expect(ten).toBeGreaterThan(six);
+  it("재감사 R3 — 덮어쓰기 없음: 크기·굵기 숫자 규칙은 사장님 하단 바 전용, 옛 브라운·6탭 10.5px 규칙 삭제", () => {
+    const OWNER = ":where(.app-bottom-nav-shell:not([data-app-bottom-nav]))";
+    const rules = css.split("}").map((r) => r.trim());
+    for (const decl of ["width: 22px", "width: 24px", "width: 21px", "width: 30px", "width: 18px", "stroke-width: 2.4", "font-size: 11px", "font-size: 11.5px", "font-weight: 700", "transform: scale(0.97)"]) {
+      const hits = rules.filter((r) => r.includes(decl + ";") && /\.app-bottom-nav-(item|icon-slot|inline-icon|icon-svg|label)\b/.test(r) && !/delivery|messenger-hub|domain-hub|orbit|badge/.test(r));
+      for (const h of hits) expect(h.slice(0, h.indexOf("{")), decl).toContain(OWNER);
+    }
+    expect(css).not.toContain("--dibay-brown");
+    expect(css).not.toContain('[data-tab-count="6"] .app-bottom-nav-label');
   });
 });
 
