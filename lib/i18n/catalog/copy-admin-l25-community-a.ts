@@ -1,3 +1,4 @@
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
 /**
  * 어드민 화면 문구 — 언어 SSOT L25(2026-11-08): 검사 규칙이 세지 않던 한국어 문자열(`label:`·`description=`·`<option>` 등)에서 옮긴 문구.
  */
@@ -506,7 +507,7 @@ export const copyAdminL25CommunityAMessages = {
     admin_community_mdetail_warning_reason_placeholder: "경고 사유 (회원에게 전달됩니다)",
     admin_community_mdetail_send_warning_btn: "경고 보내기",
     admin_community_mdetail_warning_sent: "경고를 보냈습니다.",
-    admin_community_mdetail_notice_restrict: "커뮤니티 글·댓글·신고·모임만 막습니다. 거래·배달·메신저는 그대로 쓸 수 있습니다.",
+    admin_community_mdetail_notice_restrict: `${B.FEED} 글·댓글·신고·모임만 막습니다. ${B.MARKET}·${B.DIPICK}·${B.LETARING}은 그대로 쓸 수 있습니다.`,
     admin_community_mdetail_restrict_reason_placeholder: "제한 사유 (회원에게 전달됩니다)",
     admin_community_mdetail_restrict_btn: "활동 제한",
     admin_community_mdetail_restricted: "활동을 제한했습니다.",
@@ -1042,7 +1043,7 @@ export const copyAdminL25CommunityAMessages = {
     admin_community_mdetail_warning_reason_placeholder: "Warning reason (sent to the member)",
     admin_community_mdetail_send_warning_btn: "Send warning",
     admin_community_mdetail_warning_sent: "Warning sent.",
-    admin_community_mdetail_notice_restrict: "Blocks only community posts, comments, reports, and meetings. Trade, delivery, and messenger still work.",
+    admin_community_mdetail_notice_restrict: `Blocks only ${B.FEED} posts, comments, reports, and meetings. ${B.MARKET}, ${B.DIPICK}, and ${B.LETARING} still work.`,
     admin_community_mdetail_restrict_reason_placeholder: "Restriction reason (sent to the member)",
     admin_community_mdetail_restrict_btn: "Restrict activity",
     admin_community_mdetail_restricted: "Activity restricted.",
