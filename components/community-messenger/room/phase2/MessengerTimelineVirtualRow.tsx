@@ -578,11 +578,14 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       />
     );
 
+  /** 사진·스티커만 있는 말풍선 = 배경 없음(media). 「전달됨」 글자 색도 이 값으로 정한다 */
+  const isMediaBubble =
+    !deletedForEveryone && (item.messageType === "image" || item.messageType === "sticker") && !replyQuote;
   const viberBubble = (
     <ViberChatBubble
       isMine={item.isMine}
       showTail={showBubbleTail}
-      media={!deletedForEveryone && (item.messageType === "image" || item.messageType === "sticker") && !replyQuote}
+      media={isMediaBubble}
     >
       <div className="flex min-w-0 max-w-full flex-col">
         {renderReplyQuoteInsideBubble()}
@@ -591,7 +594,8 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
           <p
             data-cm-forwarded=""
             className={`px-[12px] pt-1.5 sam-text-xxs leading-snug ${
-              item.isMine && item.messageType !== "sticker" ? "text-white/80" : "text-[color:var(--cm-room-text-muted)]"
+              /** 흰 글자는 내 녹색 말풍선 위에서만 — 배경 없는 사진·스티커 위에서는 안 보임(2026-11-14 실기 FAIL) */
+              item.isMine && !isMediaBubble ? "text-white/80" : "text-[color:var(--cm-room-text-muted)]"
             }`}
           >
             {t("share_forwarded_label")}
