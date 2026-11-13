@@ -66,7 +66,6 @@ import {
   cmReceiveLatencyMark,
   cmReceiveLatencyNow,
 } from "@/lib/community-messenger/monitoring/cm-receive-latency";
-import { buildCommunityMessengerInternalShareClipboard } from "@/lib/community-messenger/message-actions/message-internal-share-card";
 import {
   requestLeaveMessengerRoomClient,
   applyMessengerRoomLeftFromRoomScreen,
@@ -2783,32 +2782,7 @@ export function useMessengerRoomPhase2Controller() {
     [setMessageActionItem, streamRoomId]
   );
 
-  const shareMessageToOtherRoom = useCallback(
-    async (item: CommunityMessengerMessage & { pending?: boolean }) => {
-      const text = getMessageCopyText(item);
-      const roomTitle = snapshot?.room.title?.trim() || translateCmUi("cm_ui_chat_fallback");
-      const preview = text || translateCmUi("cm_ui_message_type_bracket", { type: item.messageType });
-      const canon = streamRoomId.trim();
-      const block = buildCommunityMessengerInternalShareClipboard({
-        roomTitle,
-        sourceRoomId: canon || item.roomId?.trim() || "",
-        item,
-        previewText: preview,
-      });
-      try {
-        await navigator.clipboard.writeText(block);
-      } catch {
-        showMessengerSnackbar(translateCmUi("cm_ui_copy_failed"), { variant: "error" });
-        return;
-      }
-      setMessageActionItem(null);
-      router.push("/community-messenger?section=chats");
-      showMessengerSnackbar(translateCmUi("cm_ui_message_card_copied_paste"), { variant: "success" });
-    },
-    [getMessageCopyText, router, setMessageActionItem, snapshot?.room.title, streamRoomId]
-  );
-
-  /** @deprecated Prefer shareMessageExternally / shareMessageToOtherRoom / shareMessageCopyDeepLink */
+  /** @deprecated Prefer shareMessageExternally / shareMessageCopyDeepLink */
   const forwardMessage = shareMessageExternally;
 
   const hideCallStubLocally = useCallback(
@@ -3142,7 +3116,6 @@ export function useMessengerRoomPhase2Controller() {
     forwardMessage,
     shareMessageExternally,
     shareMessageCopyDeepLink,
-    shareMessageToOtherRoom,
     hideCallStubLocally,
     mergeCanonicalRoomMessage,
   };

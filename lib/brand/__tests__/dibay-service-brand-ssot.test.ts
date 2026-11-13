@@ -79,7 +79,6 @@ describe("브랜드 명칭 SSOT", () => {
         expect(lang[k], k).not.toMatch(/SAMessenger|DIBAY MARKET|사마켓 메신저|Marketplace/);
       }
     }
-    expect(read("lib/community-messenger/message-actions/message-internal-share-card.ts")).not.toContain("사마켓 메신저");
   });
 
   it("기능명은 한국어 그대로 (LEVEL 2) — 거래 신고·주문 내역 등은 바꾸지 않는다", () => {

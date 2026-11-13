@@ -446,7 +446,6 @@
    "lib/community-messenger/incoming-call-realtime-preview.ts": 1,
    "lib/community-messenger/mark-read-performance-lock.ts": 1,
    "lib/community-messenger/merge-critical-home-sync-room-summary.ts": 2,
-   "lib/community-messenger/message-actions/message-internal-share-card.ts": 6,
    "lib/community-messenger/message-actions/message-long-press-policy.ts": 1,
    "lib/community-messenger/message-actions/message-reply-policy.ts": 12,
    "lib/community-messenger/messenger-trade-viewer-role.ts": 2,

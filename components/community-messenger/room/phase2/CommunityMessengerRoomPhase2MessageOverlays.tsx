@@ -65,7 +65,6 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
             void vm.toggleMessageReaction(messageActionItem.item.id, key);
             vm.setMessageActionItem(null);
           }}
-          onShareToRoom={() => void vm.shareMessageToOtherRoom(messageActionItem.item)}
           onForward={() => {
             const it = messageActionItem.item;
             const roomId = String(vm.snapshot?.room.id ?? "").trim();
