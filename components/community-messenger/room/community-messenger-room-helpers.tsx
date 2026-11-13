@@ -383,7 +383,7 @@ export function ViberChatBubble({
 }: {
   isMine: boolean;
   showTail: boolean;
-  /** 사진·스티커 단독 — 색 배경·말꼬리 없이 그린다(메신저 표준과 동일, 로드 전·전송 중 배경색이 비치지 않게). */
+  /** 사진·스티커 단독 — 색 배경·말꼬리 없이 그린다(로드 전·전송 중 배경색이 비치지 않게). */
   media?: boolean;
   children: ReactNode;
 }) {

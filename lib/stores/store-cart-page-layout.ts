@@ -1,5 +1,5 @@
 /**
- * `/stores/[slug]/cart` 레이아웃 (참고 앱·요기요식)
+ * `/stores/[slug]/cart` 레이아웃
  *
  * - `ConditionalAppShell`: 뷰포트 높이 잠금 + `main` flex (문서 스크롤 아님)
  * - 셸: 상단 헤더·하단 주문 CTA `shrink-0`, 가운데만 `overflow-y-auto`
@@ -14,7 +14,7 @@ import {
   CART_UI_STACK_CLASS,
 } from "@/lib/stores/store-cart-ui";
 
-/** 페이지 루트 — 브랜드 배경(#f6f6f6) */
+/** 페이지 루트 — 배경(#f6f6f6) */
 export const STORE_CART_PAGE_ROOT_CLASS = `flex min-h-0 flex-1 flex-col overflow-hidden w-full min-w-0 ${CART_UI_PAGE_BG}`;
 
 /** 가운데 스크롤 영역 — `h-0` flex 잠금 + iOS touch momentum */

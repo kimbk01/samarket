@@ -1,6 +1,6 @@
 /**
  * dibaY 배달 메뉴판 전용 시각 토큰.
- * 참고 앱·요기요 공식 디자인 가이드의 hex/간격 값이 아님 — 캡처 기반 보정 시 이 파일만 갱신한다.
+ * 공식 디자인 가이드의 hex/간격 값이 아님 — 캡처 기반 보정 시 이 파일만 갱신한다.
  */
 export const DibayMenuBoard = {
   pageBg: "var(--delivery-bg)",

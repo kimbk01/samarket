@@ -11,7 +11,7 @@ import { STORE_DETAIL_POPULAR_SECTION_DOM_ID } from "@/lib/stores/store-detail-m
 const EAGER_IMAGE_ROWS = 6;
 
 /**
- * WP6 (배달 표준형 2차수 2026-10-29) — 인기 메뉴: 별도 순위 숫자 + 왼쪽 사진 레이아웃 제거.
+ * WP6 (2차수 2026-10-29) — 인기 메뉴: 별도 순위 숫자 + 왼쪽 사진 레이아웃 제거.
  * 일반 메뉴 행(`ProductMenuCard`) + 회색 알약 「인기 n위」 배지(`ProductBadgeRow`).
  * 칩 「인기 메뉴」 이동 앵커 = `STORE_DETAIL_POPULAR_SECTION_DOM_ID`.
  */

@@ -1,11 +1,11 @@
 /**
- * DIBAY 메신저 presentation SSOT — 참고 메신저 반응형 밀도·전환 계약.
+ * DIBAY 메신저 presentation SSOT — 반응형 밀도·전환 계약.
  * 전역 app typography 를 바꾸지 않는다. 메신저 shell / room 스코프만.
  *
  * 행 높이 분리 (합치지 말 것):
  * - friend/contact ≈ 56dp
  * - call ≈ 64–72dp (48dp redial)
- * - chat/direct ≈ 72dp (참고 메신저 landscape ~71.4dp 기준; portrait chat 재실측 N/A)
+ * - chat/direct ≈ 72dp (landscape ~71.4dp 기준; portrait chat 재실측 N/A)
  */
 
 [data-messenger-shell],
@@ -33,13 +33,13 @@
   --cm-call-row-max-h: 72px;
   --cm-call-avatar: 48px;
   --cm-call-redial: 48px;
-  /* reference messenger selected row — soft light blue (not brand green soft) */
+  /* selected row — soft light blue (not brand green soft) */
   --cm-list-row-selected: color-mix(in srgb, #64b5f6 22%, #ffffff);
   --cm-wallpaper-tint: color-mix(in srgb, var(--sam-primary, #5b3a29) 4%, #f3f6f4);
   --cm-wallpaper-dot: color-mix(in srgb, var(--sam-primary, #5b3a29) 8%, transparent);
 }
 
-/** 가벼운 CSS pattern wallpaper — 외부 asset / 타사 저작권 패턴 금지 */
+/** 가벼운 CSS pattern wallpaper — 외부 asset 저작권 패턴 금지 */
 .cm-messenger-wallpaper {
   background-color: var(--cm-wallpaper-tint, #f3f6f4);
   background-image:
@@ -354,7 +354,7 @@
 }
 
 /**
- * reference messenger: flat full-bleed room chrome (no inset rounded cards).
+ * flat full-bleed room chrome (no inset rounded cards).
  * Header ~48dp · composer ~41–48dp — messenger scope only.
  */
 [data-cm-room] .chat-header,
@@ -390,7 +390,7 @@
   min-height: 0;
 }
 
-/** 참고 메신저 empty right — wallpaper only; pill CTA 비표시 */
+/** empty right — wallpaper only; pill CTA 비표시 */
 [data-messenger-detail-empty-pill] {
   display: none;
 }

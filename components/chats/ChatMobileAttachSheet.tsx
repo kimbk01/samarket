@@ -25,7 +25,7 @@ export function ChatMobileAttachSheet({
 }) {
   const { t } = useI18n();
 
-  /** 목록 행 — 팝업 SSOT 행(48 · 16/500 · 눌림 배경만 · 비활성 회색). DM 테마도 같은 행 */
+  /** 목록 행 — 팝업 SSOT 행(48 · 16/500 · 눌림 배경만 · 비활성 회색). 테마도 같은 행 */
   const rowClass = `${OverlayUi.popoverItem} shrink-0 gap-3`;
   void dm;
 

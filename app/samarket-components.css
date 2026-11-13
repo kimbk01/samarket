@@ -449,7 +449,7 @@
     outline: none !important;
   }
 
-  /** 매장 어드민 카드 섹션 — 헤더 배경 통일 (브랜드 tan soft) */
+  /** 매장 어드민 카드 섹션 — 헤더 배경 통일 (tan soft) */
   .owner-store-admin-dash-section__header {
     background-color: var(--biz-header-bg, color-mix(in srgb, var(--dibay-gold) 45%, var(--dibay-cream)));
     border-bottom: 1px solid var(--biz-card-border, var(--sam-border-soft));
@@ -2088,7 +2088,7 @@
     min-height: 76px;
   }
 
-  /* DIBAY incoming — brand green surface (Web + native mirror reference) */
+  /* DIBAY incoming — green surface (Web + native mirror reference) */
   .incoming-call-surface-bg {
     background:
       radial-gradient(circle at 50% 16%, rgb(0 117 74 / 0.42), transparent 48%),
@@ -2135,7 +2135,7 @@
     gap: max(20px, clamp(0.75rem, 3vw, 1rem));
   }
 
-  /* Popup — iOS-style vivid circles on brand card (banner/card stays brand green) */
+  /* Popup — iOS-style vivid circles on card (banner/card stays brand green) */
   .incoming-call-controls--compact .incoming-call-btn--accept {
     background-color: #34c759;
     box-shadow: 0 4px 16px rgb(0 0 0 / 0.28);

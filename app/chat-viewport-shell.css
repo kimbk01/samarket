@@ -1,5 +1,5 @@
 /**
- * DIBAY CM room — messenger-standard flex shell.
+ * DIBAY CM room — flex shell.
  * Shell height SSOT: `visualViewport.height` (use-cm-room-visible-viewport-shell.ts).
  * Timeline: flex:1 + min-height:0 (no JS px height writer).
  * keyboard closed: composer `safe-bottom` only.

@@ -96,7 +96,7 @@ export function MyPageAdminMenuEntry({
   asListItem = false,
   /** @deprecated `asListItem` 사용 */
   wrapInStandaloneCard = false,
-  /** 내정보 홈 브랜드 카드 행 */
+  /** 내정보 홈 카드 행 */
   homeCard = false,
   serverSeed = null,
 }: {

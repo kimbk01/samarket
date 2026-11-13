@@ -32,7 +32,7 @@ export type MyStickyCtaAction = {
 export type MyStickyCtaProps = {
   primary: MyStickyCtaAction;
   secondary?: Omit<MyStickyCtaAction, "loading">;
-  /** 변경이 있을 때만 주 버튼 활성 (v2.1 §3.2 · 메신저 표준 방식) */
+  /** 변경이 있을 때만 주 버튼 활성 (v2.1 §3.2) */
   dirty: boolean;
   /**
    * 주 버튼 색 — primary(기본) / secondary(캐시 삭제 등 보조 동작, S17) / danger(탈퇴 요청 등 위험 동작, S19)

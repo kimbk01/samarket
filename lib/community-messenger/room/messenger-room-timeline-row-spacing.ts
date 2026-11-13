@@ -27,7 +27,7 @@ function isSameSenderCluster(
 }
 
 /**
- * messenger-standard timeline row spacing — platform-neutral (flex document flow only).
+ * timeline row spacing — platform-neutral (flex document flow only).
  * call_stub = service row; text bubble cluster spacing is separate.
  */
 export function resolveMessengerTimelineRowPaddingTopClass(input: {

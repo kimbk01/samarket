@@ -111,7 +111,7 @@ describe("resolvePeerNoticeBranch — P2 A/B", () => {
     ).toBe("add_contact");
   });
 
-  it("PN-01: initiator stranger → add_contact (reference messenger Contact)", () => {
+  it("PN-01: initiator stranger → add_contact (Contact)", () => {
     expect(
       resolvePeerNoticeBranch({
         isGeneralFriendDirect: true,
@@ -172,7 +172,7 @@ describe("resolvePeerNoticeBranch — P2 A/B", () => {
 });
 
 describe("shouldHidePeerAddContactForInitiator", () => {
-  it("does not hide add for initiator on general direct (reference messenger Contact)", () => {
+  it("does not hide add for initiator on general direct (Contact)", () => {
     expect(
       shouldHidePeerAddContactForInitiator({
         isGeneralFriendDirect: true,

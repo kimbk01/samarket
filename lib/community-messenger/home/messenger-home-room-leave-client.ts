@@ -88,7 +88,7 @@ export function syncMessengerHomeAfterRoomLeave(roomId: string): void {
   }
 
   /**
-   * S-2 H: 나가기 = 이 기기의 그 방 대화 사본을 모두 버린다(메신저 표준). 순서 고정:
+   * S-2 H: 나가기 = 이 기기의 그 방 대화 사본을 모두 버린다(카카오). 순서 고정:
    * 「방금 나간 방」 표시 → 메모리 캐시·실시간 저장소·IndexedDB 제거. 표시가 있어 방 화면이 닫히며 다시 채우지 못한다.
    */
   markRoomLeftLocally(rid);

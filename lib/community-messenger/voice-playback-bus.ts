@@ -1,4 +1,4 @@
-/** 한 채팅방·탭에서 음성 말풍선 하나만 재생되도록 동기화 (메신저 표준류 UX) */
+/** 한 채팅방·탭에서 음성 말풍선 하나만 재생되도록 동기화 */
 export const COMMUNITY_MESSENGER_VOICE_PLAY_EVENT = "samarket:community-messenger-voice-play";
 
 export function dispatchCommunityMessengerVoicePlay(instanceId: string) {

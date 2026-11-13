@@ -1,5 +1,5 @@
 /**
- * 일자리(기본 스타일) — 구인(hire) / 구직(work) · 메타 키와 UI 옵션
+ * 일자리 — 구인(hire) / 구직(work) · 메타 키와 UI 옵션
  */
 
 import type { AppLanguageCode } from "@/lib/i18n/config";
@@ -113,7 +113,7 @@ export const JOB_DESCRIPTION_MAX = 2000;
 export const MIN_WAGE_2026 = 10320;
 export const MIN_WAGE_PHP_HOURLY = 100;
 
-/** 레거시 구인 유형 (기본 구인) — listing_kind 없을 때 칩 보조 */
+/** 레거시 구인 유형 — listing_kind 없을 때 칩 보조 */
 export const JOB_TYPE_OPTIONS = [
   { value: "work", labelKey: "jobs_type_work" as MessageKey, badgeKey: "jobs_badge_work" as MessageKey, example: "", icon: "work" },
   { value: "help", labelKey: "jobs_type_help" as MessageKey, badgeKey: "jobs_badge_help" as MessageKey, example: "", icon: "help" },

@@ -227,7 +227,7 @@ export function MyFriendQrPanel() {
         ) : null}
       </div>
       {/**
-       * CTA 위계 (설계안 v3 §3.6 · 메신저 표준 QR 화면): 주 [공유] + 보조 [이미지 저장] 한 줄,
+       * CTA 위계 (설계안 v3 §3.6 · 라인 내 QR 화면): 주 [공유] + 보조 [이미지 저장] 한 줄,
        * 드물고 되돌릴 수 없는 [QR 다시 만들기]는 아래 글자 버튼(확인 시트 거침). QR 허용을 끄면 둘 다 막는다.
        */}
       <div className="dibay-overlay-actions dibay-overlay-actions--row !mt-0 shrink-0">

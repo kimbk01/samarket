@@ -9,7 +9,7 @@ type GroupPinnedMessageBannerProps = {
   onClick?: () => void;
 };
 
-/** Messenger-standard single pinned notice strip above group timeline. */
+/** Kakao-style single pinned notice strip above group timeline. */
 export function GroupPinnedMessageBanner({
   previewText,
   senderLabel,

@@ -1445,7 +1445,7 @@ button.delivery-menu-plus::after,
   background: rgba(0, 0, 0, 0.72);
 }
 
-/** 매장 상세 메뉴 카테고리 — 배달 표준형 pill 탭 */
+/** 매장 상세 메뉴 카테고리 — pill 탭 */
 button.delivery-category-tab,
 .delivery-category-tab {
   display: inline-flex;
@@ -1582,7 +1582,7 @@ button.delivery-category-search.delivery-category-tab,
 }
 
 /**
- * 장바구니 비우기 — 배달 표준 가운데 확인 (전용, delivery-modal 과 분리)
+ * 장바구니 비우기 — 가운데 확인 (전용, delivery-modal 과 분리)
  */
 [data-store-cart-clear-modal] .store-cart-clear-modal__backdrop {
   position: fixed;

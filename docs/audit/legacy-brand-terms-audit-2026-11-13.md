@@ -175,3 +175,18 @@
 - 통화 코드·네이티브·설정 키 (J·K), Facebook 로그인 잔재 (H), 운영 DB 주석 (I), 마이그레이션 (L), 실제 연동 (M), 금지 색 검사 목록 `karrot-orange` (G 예외), `AndroidManifest.xml` 주석 (네이티브 일괄 빌드 때).
 - 기록용 파일: `scripts/qa/*` (과거 정리 목록), `scripts/_encoding_convert_result.json` (과거 실행 결과), `docs/` 본문 비교 표현.
 - 마이그레이션 2개(`20270709120000_delivery_menus.sql`·`20271030150000_delivery_menus_baemin_mirror.sql`) 주석의 설계 문서 경로는 옛 이름 그대로 (마이그레이션 수정 금지). 새 이름: `docs/audit/delivery-master-plan-2026-10-29.md`, `docs/audit/delivery-browse-chrome-design-v6-2026-10-30.html`.
+
+## 정정 — 재감사 반영 (2026-11-13 · `fix/legacy-terms-scope-revert`)
+
+위 「처리 결과」 중 아래는 지시 범위(용어 참조만 삭제) 밖이었고 이 브랜치에서 바로잡았다. 근거·전체 목록: `docs/audit/legacy-terms-reaudit-design-2026-11-13.md`.
+
+| 위 기록 | 정정 |
+|---|---|
+| 배터리 참고 패널 「당근 매너 온도」 절 삭제·번호 당김·`DAANGN_MANNER_TEMP_REFERENCE` 삭제 | 절·번호 복구, 지시 용어만 삭제 (`MANNER_TEMP_REFERENCE`) |
+| `COMMUNITY_FEED_LIST_SKIN_LABELS` 삭제 | 복구 (「기본형 · …」) |
+| 수동 샘플 SQL 3개·`sql:copy:dangnae` 삭제 | 복구 — `supabase/scripts/paste-community-sample.sql`·`npm run sql:copy:community-sample`, 지시 용어만 삭제 |
+| 테스트 단언(`applyReportActionDaangn(`)·색 검사 정규식(`baeminPurple`) 변경 | 원래대로 (재발 방지 검사 유지) |
+| 주석 치환에 대체어(「참고 앱」「메신저 표준」「배달 표준」「reference messenger」 등) 삽입 | 대체어 없이 지시 용어만 삭제로 다시 씀 (관리자 문구 「배달 표준 구조로」 포함) |
+| 지시 목록 밖 용어(카카오·Kakao·LINE, 운영 DB 주석 Discord·Kakao) 삭제 | 원문 복구 (DB 주석은 `20271114210000`·`20271114220000`) |
+| `lib/auth/`·`lib/admin-users/` 주석 6줄 누락 | 지시 용어 삭제 |
+| 「L. 마이그레이션 파일 — 삭제 불가」 | 함수 본문 밖 주석은 DB·드리프트 검사 영향 없음 → 주석 20줄 정리, 실행문·파일 이름은 그대로 |

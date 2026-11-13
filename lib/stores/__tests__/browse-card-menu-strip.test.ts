@@ -8,7 +8,7 @@ import {
 import { STORES_BROWSE_CATEGORY_PRESENTATION } from "@/lib/stores/stores-browse-category-presentation-spec";
 import { BROWSE_FEATURED_ITEMS_MAX } from "@/lib/stores/stores-browse-build";
 
-/** WP5 (배달 표준형 2차수 2026-10-29) — 목록 카드 가로 사진 줄 */
+/** WP5 (2차수 2026-10-29) — 목록 카드 가로 사진 줄 */
 describe("WP5 browse card menu strip", () => {
   const item = (i: number, img: string | null = `https://x/${i}.jpg`) => ({
     productId: `p${i}`,

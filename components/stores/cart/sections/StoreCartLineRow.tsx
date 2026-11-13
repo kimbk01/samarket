@@ -131,7 +131,7 @@ export function StoreCartLineRow({
           <button
             type="button"
             disabled={busy}
-            /* WP8 (Owner 승인 배달 표준형) — 최소 수량에서 🗑 를 누르면 확인 없이 바로 삭제 (이전 UI-15·S2-14 확인창 대체) */
+            /* WP8 (Owner 승인) — 최소 수량에서 🗑 를 누르면 확인 없이 바로 삭제 (이전 UI-15·S2-14 확인창 대체) */
             onClick={showTrash ? onRemove : onDecrease}
             className={`flex ${CART_UI_TYPE.btnQtyStep} items-center justify-center text-[color:var(--delivery-text-sub)] active:bg-[color:var(--delivery-bg-soft)] disabled:opacity-30`}
             aria-label={showTrash ? deleteLabel : t("store_qty_decrease_alt_aria")}

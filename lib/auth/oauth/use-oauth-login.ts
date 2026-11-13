@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * CONTRACT — OAuth login UX (배민·당근 스타일 인라인)
+ * CONTRACT — OAuth login UX (인라인)
  * - 상태 전환은 `auth-login-phase.ts` 단일 정의 (idle → provider → returned → confirming → navigating)
  * - 성공 경로에서 pending 을 해제하지 않는다 — 화면 이탈(navigation)로 끝난다. 모달만 닫힌 뒤 해제.
  * - 타이머로 pending 을 해제(=실패 판정)하지 않는다. 실패·취소는 실제 신호로만.

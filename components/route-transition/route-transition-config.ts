@@ -145,7 +145,7 @@ export function resolveCanonicalNavIndex(pathname: string | null): number | null
 export const MAIN_SHELL_ROUTE_TRANSITION_MS = 440;
 
 /**
- * 배달 소비자 스택(홈 ↔ 메뉴 페이지 ↔ 매장 ↔ 상품권몰) 슬라이드. 참고 앱 실측 3~4프레임 = 약 100~130ms
+ * 배달 소비자 스택(홈 ↔ 메뉴 페이지 ↔ 매장 ↔ 상품권몰) 슬라이드. 실측 3~4프레임 = 약 100~130ms
  * (30fps 녹화 2026-10-30, `bm1030-v01`) → 120ms. 다른 탭(거래·메신저·내정보)의 440ms 는 바꾸지 않는다.
  */
 export const DELIVERY_STACK_SLIDE_MS = 120;

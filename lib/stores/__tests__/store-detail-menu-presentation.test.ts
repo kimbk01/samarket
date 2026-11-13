@@ -14,7 +14,7 @@ import {
 import type { ParsedOptionGroup } from "@/lib/stores/modifiers/types";
 import type { AutoBusinessHoursConfig } from "@/lib/stores/store-auto-hours";
 
-/** WP6 (배달 표준형 2차수 2026-10-29) — 매장 화면 표시 규칙 */
+/** WP6 (2차수 2026-10-29) — 매장 화면 표시 규칙 */
 describe("WP6 hero source order", () => {
   it("배너 → 갤러리 → 메뉴 사진 → 단색", () => {
     expect(

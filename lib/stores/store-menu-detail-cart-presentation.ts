@@ -1,5 +1,5 @@
 /**
- * WP7·WP8 (배달 표준형 3차수 2026-10-30) — 메뉴 상세·장바구니 표시 규칙 순수 함수.
+ * WP7·WP8 (3차수 2026-10-30) — 메뉴 상세·장바구니 표시 규칙 순수 함수.
  * 명세: `docs/audit/delivery-master-plan-2026-10-29.md` WP7·WP8
  * 화면: `StoreProductPublic` · `StoreProductDetailPageChrome` · `StoreCommerceCartPageClient` · `cart/sections/*`
  */

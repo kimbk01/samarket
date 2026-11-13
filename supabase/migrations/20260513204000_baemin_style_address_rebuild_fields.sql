@@ -1,4 +1,4 @@
--- Baemin-style address rebuild: additive canonical Places fields.
+-- Address rebuild: additive canonical Places fields.
 -- Existing address/order data is preserved; legacy display columns stay in use for compatibility.
 
 ALTER TABLE public.user_addresses

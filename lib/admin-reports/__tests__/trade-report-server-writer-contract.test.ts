@@ -39,6 +39,7 @@ describe("Trade report server writer (R6)", () => {
     expect(writer).not.toContain("getSupabaseClient");
     const panel = read("components/admin/reports/AdminSanctionPanel.tsx");
     expect(panel).toContain("/api/admin/reports/");
+    expect(panel).not.toContain("applyReportActionDaangn(");
   });
 
   it("RLS migration aligns admin reads to admin_memberships and pins client admin writes to false (non-destructive)", () => {

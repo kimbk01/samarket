@@ -16,7 +16,7 @@ import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 
 const STEPS = 4;
 const MAX_QUESTIONS = 3;
-/** 금지 모임 유형 안내 (설계 §2.5 · D10 — 참고 앱 27663 목록) */
+/** 금지 모임 유형 안내 (설계 §2.5 · D10 — 27663 목록) */
 export const MOIM_PROHIBITED_TYPE_KEYS: readonly MessageKey[] = [
   "moim_rule_commercial",
   "moim_rule_religion",

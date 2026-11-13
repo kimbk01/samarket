@@ -45,7 +45,7 @@ type MenuTab = {
   subSlug: string | null;
 };
 
-/** 참고 앱 실측: 밑줄 이동 약 150ms */
+/** 실측: 밑줄 이동 약 150ms */
 export const STORES_BROWSE_MENU_TAB_UNDERLINE_MS = 150;
 
 const HOME_TAB_KEY = "home";
@@ -59,7 +59,7 @@ function ChevronIcon({ up }: { up: boolean }) {
 }
 
 /**
- * 배달 메뉴 구성 3단 — 메뉴 페이지 텍스트 탭 「홈 · 한식 · 중식 …」 + 오른쪽 ⌄ 「메뉴 전체보기」.
+ * 3단 — 메뉴 페이지 텍스트 탭 「홈 · 한식 · 중식 …」 + 오른쪽 ⌄ 「메뉴 전체보기」.
  * - 메뉴 1단 페이지(`/stores/browse/{food|pickup|shop…}`): 「홈」 + 어드민 2단 메뉴 (`?menu=`).
  * - 업종 페이지(메뉴 없음 · 이전 경로): 「전체」 + 업종 2차 (복구 스위치).
  * - 누르는 즉시 굵은 글자·밑줄 이동(150ms), 선택 탭을 가운데로 스크롤.

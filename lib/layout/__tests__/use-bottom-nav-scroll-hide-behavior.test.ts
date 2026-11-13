@@ -23,7 +23,7 @@ describe("use-bottom-nav-scroll-hide-behavior", () => {
     expect(resolveBottomNavScrollHideEnabled("/mypage", false)).toBe(false);
   });
 
-  it("WP3 — keeps bottom nav fixed on delivery home and browse (delivery), other /stores/* unchanged", () => {
+  it("WP3 — keeps bottom nav fixed on delivery home and browse, other /stores/* unchanged", () => {
     expect(resolveBottomNavScrollHideEnabled("/stores", false)).toBe(false);
     expect(resolveBottomNavScrollHideEnabled("/stores/browse/restaurant", false)).toBe(false);
     expect(resolveBottomNavScrollHideEnabled("/stores/some-store", false)).toBe(true);

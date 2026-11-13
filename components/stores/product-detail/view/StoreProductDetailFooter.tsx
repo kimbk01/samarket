@@ -31,7 +31,7 @@ function storeMinOrderGapPhp(
 }
 
 /**
- * 상품 상세 하단 — 참고 앱 참고: 좌 최소주문·카트 소계 / 우 `{금액} 담기`
+ * 상품 상세 하단 — 좌 최소주문·카트 소계 / 우 `{금액} 담기`
  * 비활성: 필수 옵션 미선택·품절·영업중단·`!commerceCart` (`StoreProductPublic` `ctaDisabled`)
  */
 export function StoreProductDetailFooter({

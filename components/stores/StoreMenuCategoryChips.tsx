@@ -10,7 +10,7 @@ import {
 } from "@/lib/stores/store-detail-menu-presentation";
 
 /**
- * 매장 메뉴 구역(배달 표준) — 가로 스크롤 카테고리 칩, 클릭 시 해당 섹션으로 스크롤.
+ * 매장 메뉴 구역 — 가로 스크롤 카테고리 칩, 클릭 시 해당 섹션으로 스크롤.
  * 모바일: 터치 스와이프·모멘텀 스크롤(`HorizontalDragScroll` + overflow-x-auto).
  */
 export function StoreMenuCategoryChips({

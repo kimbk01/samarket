@@ -26,7 +26,7 @@ import { readDeliveryMenusFromTaxonomyJson } from "@/lib/stores/delivery-menus/d
 export type StoreTaxonomySnapshot = {
   categories: StoreTaxonomyCategory[];
   topics: StoreTaxonomyTopic[];
-  /** 고객 「메뉴」 (배달 메뉴 구성 · 업종과 별개). 없으면 업종 화면 그대로 */
+  /** 고객 「메뉴」 (업종과 별개). 없으면 업종 화면 그대로 */
   menus?: DeliveryMenuPublic[];
 };
 

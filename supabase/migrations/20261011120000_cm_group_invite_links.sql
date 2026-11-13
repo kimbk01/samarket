@@ -1,4 +1,4 @@
--- Phase 3 S1 Migration 1: multi invite links (Telegram-style)
+-- Phase 3 S1 Migration 1: multi invite links
 -- Authority: community_messenger_group_invite_links
 -- Compat: community_messenger_rooms.invite_token / invite_link_enabled mirrored for default link
 

@@ -1,6 +1,6 @@
 /**
  * 매장 피드·카드 UI — delivery / dibay 토큰 단일 소스.
- * 브랜드 블루·회색 hex 직접 사용 금지 — 이 파일 또는 `stores-home-ui` 경유.
+ * blue·회색 hex 직접 사용 금지 — 이 파일 또는 `stores-home-ui` 경유.
  */
 export const FEED_UI = {
   canvas: "bg-[color:var(--delivery-bg)] text-[color:var(--delivery-text-main)]",

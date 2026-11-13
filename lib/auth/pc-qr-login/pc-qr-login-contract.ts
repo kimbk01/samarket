@@ -3,7 +3,7 @@
  *
  * QR 내용은 URL 이 아니다: `dibay-pc-login:v1:<요청 id>:<nonce>`.
  * 휴대폰 기본 카메라·다른 QR 앱이 열 수 있는 주소가 아니므로, 로그인된 **디바이 앱 안의 스캐너**에서만 의미가 있다
- * (QRLJacking 대응 — 텔레그램·왓츠앱처럼 앱 안 스캔 + 확인 화면).
+ * (QRLJacking 대응 — 앱 안 스캔 + 확인 화면).
  */
 
 export const PC_QR_LOGIN_PAYLOAD_PREFIX = "dibay-pc-login:v1:";

@@ -1,5 +1,5 @@
 /**
- * First-unread entry boundary (messenger-standard).
+ * First-unread entry boundary.
  * Enter anchors to the first unread after lastRead — never to lastRead itself.
  */
 
@@ -159,7 +159,7 @@ export function resolveJumpToLatestFabState(input: {
 }
 
 /**
- * reference messenger pagedown contract (ChatActivity.pagedownButton):
+ * pagedown contract (ChatActivity.pagedownButton):
  * - Still above first-unread boundary → jump to that message once
  * - Otherwise (catch-up below / no boundary) → jump to latest
  * Never step one-unread-at-a-time through the remaining badge count.
@@ -190,7 +190,7 @@ export function resolveJumpToLatestFabAction(input: {
     typeof input.lastVisibleMessageId === "string" ? input.lastVisibleMessageId.trim() : "";
   const visibleIdx = after ? input.messages.findIndex((row) => row.id === after) : -1;
 
-  /** Viewport has not reached the first-unread row yet → reference messenger createUnreadMessageAfterId jump. */
+  /** Viewport has not reached the first-unread row yet → createUnreadMessageAfterId jump. */
   if (visibleIdx < 0 || visibleIdx < firstIdx) {
     return { kind: "first_unread", messageId: firstUnread };
   }

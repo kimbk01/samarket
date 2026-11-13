@@ -1,5 +1,5 @@
 -- S-2 H (Owner 「S-2 전체 승인」 2026-11-02) — 1:1 나가기 후 재참가 기록 하한 `participants.cleared_at`
--- 텔레그램 「나만 대화 삭제」·카카오 나가기: 다시 참가한 사람은 다시 참가한 시각 이후 메시지만 본다.
+-- 「나만 대화 삭제」·카카오 나가기: 다시 참가한 사람은 다시 참가한 시각 이후 메시지만 본다.
 -- 규칙은 이미 운영 중인 `get_community_messenger_room_bootstrap_snapshot` 과 같다: created_at > cleared_at 만 보임.
 -- cleared_at 이 null 이면 모든 변경이 무동작(기존 기록 그대로).
 -- 설계: docs/audit/messenger-2026-11-02-s2-leave-history-call-design.md §H

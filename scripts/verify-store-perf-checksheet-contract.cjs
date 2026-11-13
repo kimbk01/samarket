@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Delivery/store checksheet — 구조 lock (배달 앱 수준 회귀 방지).
+ * Delivery/store checksheet — 구조 lock (회귀 방지).
  * npm run verify:store-perf-checksheet-contract
  */
 const { spawnSync } = require("node:child_process");

@@ -39,7 +39,7 @@ function makeSb() {
 }
 
 vi.mock("@/lib/stores/try-supabase-stores", () => ({ tryGetSupabaseForStores: () => makeSb() }));
-/** 배달 메뉴 구성 S3 메뉴 확인은 이 표의 대상 밖 — 지정 메뉴 있음으로 둔다 (별도 테스트: store-delivery-menu-guard) */
+/** S3 메뉴 확인은 이 표의 대상 밖 — 지정 메뉴 있음으로 둔다 (별도 테스트: store-delivery-menu-guard) */
 vi.mock("@/lib/stores/delivery-menus/store-delivery-menu-guard.server", () => ({
   checkStoreDeliveryMenuBeforeExpose: async () => ({ ok: true }),
 }));

@@ -355,7 +355,7 @@ export const copyAdminB4StoresMessages = {
     admin_stores_admin: "관리자",
     admin_stores_review_detail: "심사 상세",
     admin_stores_menu_tables_are_not_applied_yet: "메뉴 표가 아직 운영 DB에 적용되지 않았습니다. 고객 화면은 업종 화면 그대로입니다.",
-    admin_stores_build_customer_delivery_top_tabs_icons: "고객 배달 화면의 상단 탭·아이콘·매장을 배달 표준 구조로 구성합니다. 왼쪽 미리보기를 누르면 오른쪽에서 바로 수정·삭제, 파란 점선 「+」로 추가합니다. 저장하면 고객 앱에 바로 반영됩니다. 업종·수수료는 바뀌지 않습니다.",
+    admin_stores_build_customer_delivery_top_tabs_icons: "고객 배달 화면의 상단 탭·아이콘·매장을 구성합니다. 왼쪽 미리보기를 누르면 오른쪽에서 바로 수정·삭제, 파란 점선 「+」로 추가합니다. 저장하면 고객 앱에 바로 반영됩니다. 업종·수수료는 바뀌지 않습니다.",
     admin_stores_delivery_home: "배달 홈",
     admin_stores_page: "{name_ko} 페이지",
     admin_stores_category_defaults: "업종 기본 메뉴",

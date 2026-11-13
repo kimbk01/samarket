@@ -8,7 +8,7 @@ function read(p: string): string {
   return readFileSync(join(process.cwd(), p), "utf8");
 }
 
-describe("cm hub navigation recovery contract", () => {
+describe("cm kakao navigation recovery contract", () => {
   it("contract document defines incident root cause and 4 tiers", () => {
     const doc = read("docs/community-messenger/cm-hub-navigation-contract.md");
     expect(doc).toContain("2026-06-21 rollback");

@@ -1,5 +1,5 @@
 /**
- * Community 메신저 핫패스 계약 — 메신저 표준 구조 회귀 탐지.
+ * Community 메신저 핫패스 계약 — 구조 회귀 탐지.
  * 규칙: docs/messenger-performance-architecture.md §11 (MP-AUDIT lock)
  *
  * 사용: npm run verify:messenger-hot-path-contract

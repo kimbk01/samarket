@@ -43,7 +43,7 @@ describe("messenger-room-scroll-position-store", () => {
 });
 
 describe("messenger-room-timeline-paint-model", () => {
-  it("uses direct layout for normal rooms (reference messenger contiguous flow)", () => {
+  it("uses direct layout for normal rooms (contiguous flow)", () => {
     const model = buildMessengerRoomTimelinePaintModel({
       displayRoomMessages: [msg("1"), msg("2")],
       roomMessages: [msg("1"), msg("2")],

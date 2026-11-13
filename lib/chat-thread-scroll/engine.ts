@@ -376,7 +376,7 @@ export class ChatThreadScrollEngine {
   }
 
   /**
-   * ↓ 버튼(최신으로) — 메신저 표준처럼 부드럽게 맨 아래까지. 매 프레임 하단을 다시 읽어
+   * ↓ 버튼(최신으로) — 부드럽게 맨 아래까지. 매 프레임 하단을 다시 읽어
    * 사진 로드 등으로 높이가 바뀌어도 정확히 맨 아래에 도착한다. 끝나면 stick 유지.
    */
   animateScrollToBottom(
@@ -474,7 +474,7 @@ export class ChatThreadScrollEngine {
       if (startTop == null) {
         let from = vp.scrollTop;
         const ch = vp.clientHeight;
-        /** 멀리 떨어져 있으면 목표 한 화면 앞까지 먼저 건너뛴 뒤 부드럽게(메신저 표준 방식). */
+        /** 멀리 떨어져 있으면 목표 한 화면 앞까지 먼저 건너뛴 뒤 부드럽게. */
         if (Math.abs(target - from) > ch * 1.5) {
           from = target > from ? target - ch : target + ch;
           vp.scrollTop = from;

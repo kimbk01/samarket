@@ -15,7 +15,7 @@ export type MessengerRoomTimelinePaintModel = {
 };
 
 /**
- * messenger-standard: virtual 은 tanstack 측정 완료 + 이 임계 이상일 때만.
+ * virtual 은 tanstack 측정 완료 + 이 임계 이상일 때만.
  * 그 미만·측정 전은 direct(document flow). 추정 translateY absolute paint 금지.
  */
 export const MESSENGER_TIMELINE_VIRTUAL_MIN_MESSAGES = 2501;
@@ -32,7 +32,7 @@ export function resolveMessengerRoomTimelineLayoutMode(input: {
 }
 
 /**
- * 타임라인 paint 단일 경로 — 참고 메신저 contiguous flow 기본(direct).
+ * 타임라인 paint 단일 경로 — contiguous flow 기본(direct).
  * DO NOT: virtual + buildMessengerRoomFallbackVirtualRows 로 화면 paint (call_stub gap 회귀).
  */
 export function buildMessengerRoomTimelinePaintModel(input: {
@@ -76,7 +76,7 @@ export function selectMessengerRoomVirtualRows<T extends { index: number }>(item
 }
 
 /**
- * @deprecated render 금지 — estimate offset absolute 는 참고 메신저 gap 위반.
+ * @deprecated render 금지 — estimate offset absolute 는 gap 위반.
  * 테스트·scrollHeight hint 용도만.
  */
 export const MESSENGER_VIRTUAL_FALLBACK_TAIL_ROWS = 24;

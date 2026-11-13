@@ -595,7 +595,7 @@ export function StoresHomeHub({
       {blockedViewerGate === "not_service_area" ? null : (
         <>
           <StoresHomeQuickCategories />
-          {/* 배달 메뉴 구성 — 상단 탭 · 아이콘 판 · 바로가기 줄 (본문과 함께 스크롤) */}
+          {/* 상단 탭 · 아이콘 판 · 바로가기 줄 (본문과 함께 스크롤) */}
           <DeliveryHomeMenuBoard />
         </>
       )}
