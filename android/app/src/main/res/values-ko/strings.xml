@@ -43,6 +43,7 @@
     <string name="dibay_video_camera_flip">카메라 전환</string>
     <string name="dibay_video_camera_on">카메라 켬</string>
     <string name="dibay_video_camera_off">카메라 끔</string>
+    <string name="dibay_video_peer_camera_off">카메라 꺼짐</string>
     <string name="dibay_video_network_quality_good">좋음</string>
     <string name="dibay_video_network_quality_poor">나쁨</string>
     <string name="dibay_video_network_quality_very_poor">아주 나쁨</string>

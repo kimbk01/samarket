@@ -16,6 +16,7 @@
 "call_camera_flip" = "Flip camera";
 "call_camera_on" = "Camera on";
 "call_camera_off" = "Camera off";
+"call_peer_camera_off" = "Camera off";
 "call_minimize" = "Minimize call";
 "call_quality_good" = "Good";
 "call_quality_fair" = "Fair";

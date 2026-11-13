@@ -145,3 +145,19 @@ Xcode → Window → Devices and Simulators → B 기기 → Open Console, 필�
 - **실패:** `video_accept_fail_permission` / `_patch` / `_token` / `_join` / `_join_hang` / `_begin` / `_stale`
 - **PiP:** `native_video_pip_entered` / `_exited` / `_restore` / `_remote_reparented` / `_blocked` / `_enter_failed`
 - **발신 dangling 차단(참고):** `ios_callkit_call_started_skipped`
+
+
+## 카메라 끄기·켜기 (고정 시험 · 2026-11-14 추가)
+
+카메라 끄기가 네이티브 전환(Android 06-27·iOS 07-12) 때 송출만 멈추는 방식으로 바뀌어 죽어 있었다. 아무도 몰랐던 이유는 이 문서에 시험 항목이 없었기 때문이다. 경위와 설계: `docs/audit/call-camera-off-plan-2026-11-14.md` §1-1·§10.
+
+영상 통화 네이티브 코드를 바꾸면 아래 항목을 **양쪽 화면 녹화**로 확인한다. 아이콘만 바뀌는 것은 PASS 가 아니다.
+
+| # | 시험 | 기대 |
+|---|---|---|
+| C1 | 연결 후 끄기 → 켜기 (양쪽) | 끈 쪽: 내 작은 화면 = 꺼짐 칸, 카메라 장치 꺼짐(iOS 초록 점). 받는 쪽: 아바타·이름·「카메라 꺼짐」, 멈춘 장면 없음. 켜면 양쪽 영상 재개 |
+| C2 | 발신자가 연결 전에 끄기 | 상대에게 영상 안 나감, 연결 후 「거는 중」 화면에 멈추지 않음 |
+| C3 | 꺼진 상태로 PiP·전체 화면 복귀·잠금 해제·알림 복귀 | 「꺼짐」 유지, 카메라 다시 켜지지 않음 |
+| C4 | 꺼진 채 종료 → 바로 영상 재발신 | 새 통화는 카메라 켜진 채 시작 |
+| C5 | 네트워크 나쁨 | 「카메라 꺼짐」 아닌 기존 신호 표시만 |
+| C6 | 기기 로그 | `camera_toggle`·`native_video_camera_(on|off)_applied`(반환값 0)·`agora_remote_video_state`·`remote_camera_changed` 확인 |

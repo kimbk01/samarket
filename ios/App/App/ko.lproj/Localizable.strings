@@ -16,6 +16,7 @@
 "call_camera_flip" = "카메라 전환";
 "call_camera_on" = "카메라 켬";
 "call_camera_off" = "카메라 끔";
+"call_peer_camera_off" = "카메라 꺼짐";
 "call_minimize" = "통화 화면 줄이기";
 "call_quality_good" = "좋음";
 "call_quality_fair" = "보통";

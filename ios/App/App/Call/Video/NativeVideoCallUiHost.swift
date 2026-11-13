@@ -169,6 +169,20 @@ enum NativeVideoCallUiHost {
     }
   }
 
+  /// 카메라 끄기 설계 §4-5 — 엔진의 내·상대 카메라 상태 변화. 화면이 없으면(PiP 중) PiP 표시만 갱신한다.
+  static func cameraStateChanged(callId: String) {
+    onMain {
+      if let controller = controller(for: callId) {
+        controller.cameraStateChanged()
+        return
+      }
+      if #available(iOS 15.0, *), NativeVideoCallPipOwner.shared.isBound(to: callId) {
+        let off = !NativeVideoCallAgoraEngine.shared.isRemoteCameraOn(callId: callId)
+        NativeVideoCallPipOwner.shared.applyRemoteCameraOff(callId: callId, off: off, name: nil, initial: nil)
+      }
+    }
+  }
+
   static func outgoingLocalFirstFrameReady(callId: String, width: Int, height: Int) {
     onMain {
       controller(for: callId)?.outgoingLocalFirstFrameReady(width: width, height: height)

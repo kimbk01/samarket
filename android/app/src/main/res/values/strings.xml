@@ -37,6 +37,7 @@
     <string name="dibay_video_camera_flip">Flip camera</string>
     <string name="dibay_video_camera_on">Camera on</string>
     <string name="dibay_video_camera_off">Camera off</string>
+    <string name="dibay_video_peer_camera_off">Camera off</string>
     <string name="dibay_video_network_quality_good">Good</string>
     <string name="dibay_video_network_quality_poor">Poor</string>
     <string name="dibay_video_network_quality_very_poor">Very poor</string>

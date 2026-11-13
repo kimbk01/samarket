@@ -10,7 +10,11 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
 
   private let session: NativeVideoCallSession
   private var currentState: NativeVideoCallRuntimeState = .ringing
-  private var cameraEnabled = true
+  /// 카메라 끄기 설계 §4 — 카메라 상태는 엔진 보관소만 (VC 는 PiP 복귀 등으로 다시 만들어진다).
+  private var cameraEnabled: Bool { NativeVideoCallAgoraEngine.shared.isLocalCameraOn(callId: boundCallId) }
+  private var remoteCameraOn: Bool { NativeVideoCallAgoraEngine.shared.isRemoteCameraOn(callId: boundCallId) }
+  private let localCameraOffView = NativeVideoCameraOffView(style: .selfPreview)
+  private let remoteCameraOffView = NativeVideoCameraOffView(style: .peer)
   private var micMuted = false
   private var isChromeVisible = false
   private var chromeHideWorkItem: DispatchWorkItem?
@@ -248,12 +252,13 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
       cancelConnectedChromeHide(reason: "state_not_connected")
       isChromeVisible = false
     }
+    applyCameraPresentation(reason: "apply_state")
   }
 
   @discardableResult
   func ensureVideoRootForRemoteRender() -> Bool {
     videoRoot.isHidden = false
-    if isOutgoingVideoPresentation, !outgoingRemoteFirstFrameReadyFlag {
+    if isOutgoingVideoPresentation, !outgoingRemoteReady {
       remoteContainer.isHidden = true
       remoteContainer.alpha = 0
     } else {
@@ -268,6 +273,7 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     replaceSubview(in: localContainer, with: view, mediaOverlay: true)
     applyOutgoingLocalLayoutAfterAttach(reason: "attach_local")
     if localIsMain { applyVideoSwap() }
+    applyCameraPresentation(reason: "attach_local")
   }
 
   func attachRemoteView(_ view: UIView) {
@@ -278,6 +284,7 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     }
     replaceSubview(in: remoteContainer, with: view, mediaOverlay: false)
     if localIsMain { applyVideoSwap() }
+    applyCameraPresentation(reason: "attach_remote")
   }
 
   func clearVideoSurfaces() {
@@ -339,6 +346,11 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     session.initiator
   }
 
+  /// 발신 화면 전환 조건 (설계 §4-6): 내 첫 프레임 또는 내 카메라 꺼짐.
+  private var outgoingLocalReady: Bool { outgoingLocalFirstFrameReadyFlag || !cameraEnabled }
+  /// 발신 화면 전환 조건 (설계 §4-6): 상대 첫 프레임 또는 상대 카메라 꺼짐.
+  private var outgoingRemoteReady: Bool { outgoingRemoteFirstFrameReadyFlag || !remoteCameraOn }
+
   private func applyOutgoingVideoPresentation(
     model: NativeVideoCallUiPresenter.Model,
     state: NativeVideoCallRuntimeState
@@ -349,10 +361,10 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     } else if outgoingTransitionCompleted {
       applyConnectedLocalPipLayout(reason: "outgoing_presentation_connected")
     }
-    remoteContainer.isHidden = !outgoingRemoteFirstFrameReadyFlag
-    remoteContainer.alpha = outgoingRemoteFirstFrameReadyFlag ? 1 : 0
-    localContainer.isHidden = !outgoingLocalFirstFrameReadyFlag
-    localContainer.alpha = outgoingLocalFirstFrameReadyFlag ? 1 : 0
+    remoteContainer.isHidden = !outgoingRemoteReady
+    remoteContainer.alpha = outgoingRemoteReady ? 1 : 0
+    localContainer.isHidden = !outgoingLocalReady
+    localContainer.alpha = outgoingLocalReady ? 1 : 0
     localContainer.isUserInteractionEnabled = outgoingTransitionCompleted && state == .connected
     activeActions.isHidden = false
     connectedControls.isHidden = false
@@ -368,7 +380,7 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
       details: outgoingLogDetails("handler=NativeVideoCallRuntime.end")
     )
     statusPanel.isHidden = outgoingTransitionCompleted
-    if outgoingLocalFirstFrameReadyFlag {
+    if outgoingLocalReady {
       overlayRoot.backgroundColor = .clear
       if !outgoingTransitionCompleted {
         NativeVideoCallLog.info(
@@ -390,7 +402,7 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
         details: outgoingLogDetails("phase=\(model.phase)")
       )
     }
-    if state == .connected, outgoingRemoteFirstFrameReadyFlag {
+    if state == .connected, outgoingRemoteReady {
       maybeStartOutgoingTransition(reason: "apply_state_connected")
     }
     if outgoingTransitionCompleted {
@@ -407,8 +419,8 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
       applyConnectedLocalPipLayout(reason: "attach_local_connected")
     } else {
       applyOutgoingLocalFullscreenLayout()
-      localContainer.isHidden = !outgoingLocalFirstFrameReadyFlag
-      localContainer.alpha = outgoingLocalFirstFrameReadyFlag ? 1 : 0
+      localContainer.isHidden = !outgoingLocalReady
+      localContainer.alpha = outgoingLocalReady ? 1 : 0
     }
     NativeVideoCallLog.info(
       "outgoing_video_ui_preparing",
@@ -428,8 +440,8 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     }
     guard isOutgoingVideoPresentation,
           currentState == .connected,
-          outgoingLocalFirstFrameReadyFlag,
-          outgoingRemoteFirstFrameReadyFlag,
+          outgoingLocalReady,
+          outgoingRemoteReady,
           !outgoingTransitionRunning,
           !outgoingTransitionCompleted,
           !currentState.isTerminal else {
@@ -838,6 +850,8 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     if let remoteView = remoteRenderView {
       NativeVideoCallPipOwner.shared.adoptRemoteRenderView(remoteView)
     }
+    applyCameraPresentation(reason: "pip_reparent")
+    NativeVideoCallPipOwner.shared.bringCameraOffOverlayToFront()
     NativeVideoCallLog.info("native_video_pip_remote_reparented", callId: boundCallId, details: "target=pip")
   }
 
@@ -949,6 +963,16 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
       $0.backgroundColor = .black
       videoRoot.addSubview($0)
     }
+    // 상대 카메라 꺼짐 표시 — 상대 영상 위·내 작은 화면 아래 (설계 §4-5).
+    remoteCameraOffView.translatesAutoresizingMaskIntoConstraints = false
+    remoteCameraOffView.isHidden = true
+    videoRoot.insertSubview(remoteCameraOffView, aboveSubview: remoteContainer)
+    NSLayoutConstraint.activate([
+      remoteCameraOffView.topAnchor.constraint(equalTo: remoteContainer.topAnchor),
+      remoteCameraOffView.leadingAnchor.constraint(equalTo: remoteContainer.leadingAnchor),
+      remoteCameraOffView.trailingAnchor.constraint(equalTo: remoteContainer.trailingAnchor),
+      remoteCameraOffView.bottomAnchor.constraint(equalTo: remoteContainer.bottomAnchor),
+    ])
     let localWidth = localContainer.widthAnchor.constraint(equalToConstant: Self.localPipWidth)
     let localHeight = localContainer.heightAnchor.constraint(equalToConstant: Self.localPipHeight)
     localPipWidthConstraint = localWidth
@@ -1322,8 +1346,76 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   private func updateConnectedControlChrome() {
     cameraButton.setImage(UIImage(systemName: cameraEnabled ? "video.fill" : "video.slash.fill"), for: .normal)
     cameraButton.accessibilityLabel = cameraEnabled ? DibayNativeCopy.text("call_camera_off") : DibayNativeCopy.text("call_camera_on")
+    cameraFlipButton.alpha = cameraEnabled ? 1 : 0.4
     micButton.setImage(UIImage(systemName: micMuted ? "mic.slash.fill" : "mic.fill"), for: .normal)
     micButton.accessibilityLabel = micMuted ? DibayNativeCopy.text("call_control_unmute") : DibayNativeCopy.text("call_control_mute")
+  }
+
+  // MARK: - 카메라 상태 표시 (설계 docs/audit/call-camera-off-plan-2026-11-14.md §4-4·§4-5)
+
+  /// 엔진(UiHost 경유)이 내·상대 카메라 상태 변화를 알림.
+  func cameraStateChanged() {
+    applyCameraStateChange(reason: "engine")
+  }
+
+  private func applyCameraStateChange(reason: String) {
+    if !cameraEnabled || !remoteCameraOn, localIsMain {
+      localIsMain = false
+      applyVideoSwap()
+    }
+    applyState(currentState)
+    updateConnectedControlChrome()
+    maybeStartOutgoingTransition(reason: "camera_state_\(reason)")
+  }
+
+  /// 카메라 표시의 유일한 결정 함수. 칸의 보임 여부는 기존 레이아웃 코드가, 칸 안 내용은 여기서 정한다.
+  private func applyCameraPresentation(reason: String) {
+    // 내 화면: 꺼짐이면 미리보기 화면을 빼고 꺼짐 칸을 넣는다 (미리보기 재부착 시 칸 내용이 통째로 바뀌므로 매번 맞춘다).
+    if !cameraEnabled {
+      if let local = localRenderView, local.superview === localContainer {
+        local.removeFromSuperview()
+        localRenderView = nil
+        NativeVideoCallAgoraEngine.shared.noteLocalPreviewSurfaceReleased(callId: boundCallId)
+        NativeVideoCallLog.info("native_video_local_preview_removed", callId: boundCallId, details: "reason=camera_off source=\(reason)")
+      }
+      if localCameraOffView.superview !== localContainer {
+        localCameraOffView.removeFromSuperview()
+        localCameraOffView.translatesAutoresizingMaskIntoConstraints = false
+        localContainer.addSubview(localCameraOffView)
+        NSLayoutConstraint.activate([
+          localCameraOffView.topAnchor.constraint(equalTo: localContainer.topAnchor),
+          localCameraOffView.leadingAnchor.constraint(equalTo: localContainer.leadingAnchor),
+          localCameraOffView.trailingAnchor.constraint(equalTo: localContainer.trailingAnchor),
+          localCameraOffView.bottomAnchor.constraint(equalTo: localContainer.bottomAnchor),
+        ])
+      }
+      localContainer.bringSubviewToFront(localCameraOffView)
+    } else if localCameraOffView.superview != nil {
+      localCameraOffView.removeFromSuperview()
+    }
+
+    // 상대 화면: 연결된 동안 상대가 껐을 때만.
+    let model = NativeVideoCallUiPresenter.build(session: session, state: currentState)
+    let showRemoteOff = currentState == .connected && !remoteCameraOn
+    if showRemoteOff {
+      remoteCameraOffView.configure(name: model.peerName, initial: model.avatarInitial)
+    }
+    if remoteCameraOffView.isHidden == showRemoteOff {
+      remoteCameraOffView.isHidden = !showRemoteOff
+      NativeVideoCallLog.info(
+        "native_video_remote_camera_off_view",
+        callId: boundCallId,
+        details: "visible=\(showRemoteOff) reason=\(reason)"
+      )
+    }
+    if #available(iOS 15.0, *) {
+      NativeVideoCallPipOwner.shared.applyRemoteCameraOff(
+        callId: boundCallId,
+        off: showRemoteOff,
+        name: model.peerName,
+        initial: model.avatarInitial
+      )
+    }
   }
 
   // MARK: - R1 보조 PiP 드래그 (Android attachLocalPipDragListener 패리티)
@@ -1400,6 +1492,8 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
 
   @objc private func onLocalPipDoubleTapped() {
     guard currentState == .connected, !inPipMode else { return }
+    // 카메라 끄기 설계 §4-4: 어느 쪽이든 카메라가 꺼져 있으면 바꿀 영상이 없다.
+    guard cameraEnabled, remoteCameraOn else { return }
     localIsMain.toggle()
     applyVideoSwap()
     NativeVideoCallLog.info("native_video_local_pip_swap", callId: boundCallId, details: "localMain=\(localIsMain)")
@@ -1464,6 +1558,7 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     let host = bridge.hostView
     if host.superview === pipVC.view {
       pipVC.view.bringSubviewToFront(host)
+      NativeVideoCallPipOwner.shared.bringCameraOffOverlayToFront()
       return
     }
     host.translatesAutoresizingMaskIntoConstraints = false
@@ -1475,6 +1570,7 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
       host.trailingAnchor.constraint(equalTo: pipVC.view.trailingAnchor),
       host.bottomAnchor.constraint(equalTo: pipVC.view.bottomAnchor),
     ])
+    NativeVideoCallPipOwner.shared.bringCameraOffOverlayToFront()
   }
 
   /// 프레임 델리게이트 해제 + sample 뷰 제거. 모든 해제 경로에서 idempotent 호출.
@@ -1507,13 +1603,23 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   }
 
   @objc private func onCameraTapped() {
-    cameraEnabled.toggle()
-    NativeVideoCallAgoraEngine.shared.setCameraEnabled(cameraEnabled)
-    updateConnectedControlChrome()
+    let requested = !cameraEnabled
+    let applied = NativeVideoCallAgoraEngine.shared.setCameraEnabled(callId: boundCallId, on: requested)
+    NativeVideoCallLog.info(
+      "native_video_camera_changed",
+      callId: boundCallId,
+      details: "source=button requested=\(requested) enabled=\(applied)"
+    )
+    applyCameraStateChange(reason: "local_button")
     showConnectedChrome(source: "video_toggle")
   }
 
   @objc private func onCameraFlipTapped() {
+    // 카메라 꺼짐 중에는 전환하지 않는다 (설계 §4-4, 웹 call-v4 와 같음).
+    guard cameraEnabled else {
+      showConnectedChrome(source: "camera_flip_blocked")
+      return
+    }
     NativeVideoCallAgoraEngine.shared.switchCameraFacing()
     showConnectedChrome(source: "camera_flip")
   }
@@ -1890,5 +1996,95 @@ extension NativeVideoCallPipFrameBridge: AgoraVideoFrameDelegate {
 private extension NativeVideoCallRuntimeState {
   var isTerminal: Bool {
     self == .ending || self == .ended || self == .failed
+  }
+}
+
+// MARK: - 카메라 꺼짐 표시 (설계 docs/audit/call-camera-off-plan-2026-11-14.md §4-4·§4-5)
+
+/// 카메라 꺼짐 칸. `.peer` = 상대 화면(아바타 이니셜·이름·「카메라 꺼짐」), `.selfPreview` = 내 작은 화면(아이콘만).
+final class NativeVideoCameraOffView: UIView {
+  enum Style {
+    case peer
+    case selfPreview
+  }
+
+  private let style: Style
+  private let stack = UIStackView()
+  private let initialLabel = UILabel()
+  private let nameLabel = UILabel()
+  private let captionLabel = UILabel()
+  private let iconView = UIImageView()
+
+  init(style: Style) {
+    self.style = style
+    super.init(frame: .zero)
+    backgroundColor = UIColor(white: 0.08, alpha: 1)
+    isUserInteractionEnabled = false
+    stack.axis = .vertical
+    stack.alignment = .center
+    stack.spacing = style == .peer ? 10 : 0
+    stack.translatesAutoresizingMaskIntoConstraints = false
+    addSubview(stack)
+    NSLayoutConstraint.activate([
+      stack.centerXAnchor.constraint(equalTo: centerXAnchor),
+      stack.centerYAnchor.constraint(equalTo: centerYAnchor),
+      stack.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 8),
+      stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
+    ])
+    switch style {
+    case .selfPreview:
+      iconView.image = UIImage(systemName: "video.slash.fill")
+      iconView.tintColor = .white
+      iconView.contentMode = .scaleAspectFit
+      iconView.translatesAutoresizingMaskIntoConstraints = false
+      NSLayoutConstraint.activate([
+        iconView.widthAnchor.constraint(equalToConstant: 28),
+        iconView.heightAnchor.constraint(equalToConstant: 28),
+      ])
+      stack.addArrangedSubview(iconView)
+      isAccessibilityElement = true
+      accessibilityLabel = DibayNativeCopy.text("call_camera_off")
+    case .peer:
+      initialLabel.font = .systemFont(ofSize: 40, weight: .semibold)
+      initialLabel.textColor = .white
+      initialLabel.textAlignment = .center
+      initialLabel.backgroundColor = UIColor(white: 0.25, alpha: 1)
+      initialLabel.layer.cornerRadius = 40
+      initialLabel.clipsToBounds = true
+      initialLabel.translatesAutoresizingMaskIntoConstraints = false
+      NSLayoutConstraint.activate([
+        initialLabel.widthAnchor.constraint(equalToConstant: 80),
+        initialLabel.heightAnchor.constraint(equalToConstant: 80),
+      ])
+      nameLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+      nameLabel.textColor = .white
+      nameLabel.textAlignment = .center
+      nameLabel.lineBreakMode = .byTruncatingTail
+      captionLabel.font = .systemFont(ofSize: 14)
+      captionLabel.textColor = UIColor(white: 0.75, alpha: 1)
+      captionLabel.textAlignment = .center
+      captionLabel.text = DibayNativeCopy.text("call_peer_camera_off")
+      [initialLabel, nameLabel, captionLabel].forEach { stack.addArrangedSubview($0) }
+      isAccessibilityElement = true
+    }
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  func configure(name: String, initial: String) {
+    guard style == .peer else { return }
+    nameLabel.text = name
+    initialLabel.text = initial
+    accessibilityLabel = "\(name), \(DibayNativeCopy.text("call_peer_camera_off"))"
+  }
+
+  /// PiP 창처럼 작은 곳에서는 이름을 빼고 이니셜·문구만.
+  func setCompact(_ compact: Bool) {
+    guard style == .peer else { return }
+    nameLabel.isHidden = compact
+    initialLabel.font = .systemFont(ofSize: compact ? 22 : 40, weight: .semibold)
   }
 }

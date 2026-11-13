@@ -40,6 +40,10 @@ final class NativeVideoCallPipOwner: NSObject, AVPictureInPictureControllerDeleg
   private var restoreCompletion: ((Bool) -> Void)?
   /// Same-session restore: ContentSource still points at dismissed VC#1 source until PiP stops.
   private var needsContentSourceRebindAfterPipStop = false
+  /// 카메라 끄기 설계 §4-5 — PiP 창의 상대 카메라 꺼짐 표시. 전체 화면(VC)이 없어도 PiP 에서 보이도록 여기서 소유.
+  private let remoteCameraOffOverlay = NativeVideoCameraOffView(style: .peer)
+  private var cameraOffPeerName = ""
+  private var cameraOffPeerInitial = ""
 
   var isPictureInPictureActive: Bool {
     pipController?.isPictureInPictureActive == true
@@ -158,6 +162,43 @@ final class NativeVideoCallPipOwner: NSObject, AVPictureInPictureControllerDeleg
       view.trailingAnchor.constraint(equalTo: pipVC.view.trailingAnchor),
       view.bottomAnchor.constraint(equalTo: pipVC.view.bottomAnchor),
     ])
+    bringCameraOffOverlayToFront()
+  }
+
+  /// 상대 카메라 꺼짐 표시를 PiP 창에 맞춘다. `name`·`initial` 이 nil 이면 마지막으로 받은 값을 쓴다.
+  func applyRemoteCameraOff(callId: String, off: Bool, name: String?, initial: String?) {
+    if let name { cameraOffPeerName = name }
+    if let initial { cameraOffPeerInitial = initial }
+    guard isBound(to: callId) else { return }
+    guard let pipVC = pipContentViewController else { return }
+    if !off {
+      if remoteCameraOffOverlay.superview != nil {
+        remoteCameraOffOverlay.removeFromSuperview()
+        NativeVideoCallLog.info("native_video_pip_camera_off_overlay", callId: callId, details: "visible=false")
+      }
+      return
+    }
+    remoteCameraOffOverlay.configure(name: cameraOffPeerName, initial: cameraOffPeerInitial)
+    remoteCameraOffOverlay.setCompact(true)
+    if remoteCameraOffOverlay.superview !== pipVC.view {
+      remoteCameraOffOverlay.removeFromSuperview()
+      remoteCameraOffOverlay.translatesAutoresizingMaskIntoConstraints = false
+      pipVC.view.addSubview(remoteCameraOffOverlay)
+      NSLayoutConstraint.activate([
+        remoteCameraOffOverlay.topAnchor.constraint(equalTo: pipVC.view.topAnchor),
+        remoteCameraOffOverlay.leadingAnchor.constraint(equalTo: pipVC.view.leadingAnchor),
+        remoteCameraOffOverlay.trailingAnchor.constraint(equalTo: pipVC.view.trailingAnchor),
+        remoteCameraOffOverlay.bottomAnchor.constraint(equalTo: pipVC.view.bottomAnchor),
+      ])
+      NativeVideoCallLog.info("native_video_pip_camera_off_overlay", callId: callId, details: "visible=true")
+    }
+    pipVC.view.bringSubviewToFront(remoteCameraOffOverlay)
+  }
+
+  /// 프레임 표시층·상대 영상이 PiP 창에 붙은 뒤 호출 — 꺼짐 표시가 마지막 프레임 위에 오게 한다.
+  func bringCameraOffOverlayToFront() {
+    guard let pipVC = pipContentViewController, remoteCameraOffOverlay.superview === pipVC.view else { return }
+    pipVC.view.bringSubviewToFront(remoteCameraOffOverlay)
   }
 
   func adoptFrameBridge(_ bridge: NativeVideoCallPipFrameBridge?) {
@@ -392,6 +433,9 @@ final class NativeVideoCallPipOwner: NSObject, AVPictureInPictureControllerDeleg
     pipContentViewController = nil
     sourceAnchorView = nil
     remoteRenderView = nil
+    remoteCameraOffOverlay.removeFromSuperview()
+    cameraOffPeerName = ""
+    cameraOffPeerInitial = ""
     clearFrameBridge(reason: reason)
     boundCallId = nil
     fullscreenReleasedForPip = false
