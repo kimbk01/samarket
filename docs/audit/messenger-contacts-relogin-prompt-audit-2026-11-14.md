@@ -73,3 +73,8 @@
 - R4: `docs/design/messenger-contacts-sync-plan.md` §0-1 #12 · §8 로그아웃 행 · §10 #7.
 - 시험: `lib/community-messenger/contacts/__tests__/contacts-relogin-restore.test.ts` 5개 — 실제 로그아웃 정리 함수 실행 후 복구·스냅숏 1회·이후 변경분·서버 조회 1회·출처 없음은 기존대로 묻기·0개 출처 제외.
 - 인증 코드·DB·네이티브 변경 없음.
+
+## 7. 최종 점검 후속 (Owner 「남은 누락 ②와 중복도 수정」 2026-11-14)
+- **작업자 결함 (#289)**: 복구 조회가 「기기에 출처·허락이 없으면」 화면이 열릴 때마다 돌았다 — 이 기기 출처가 없는 회원(「나중에」·처음)은 친구 탭을 열 때마다 `GET /sources` 1회씩 반복. 분할 화면에서는 훅 2개가 동시에 조회. 예전 코드로 새 시험을 돌려 2건 실패로 확인.
+- 수정: `loadContactsDeviceSourcesOnce` — 기기 출처 조회(+복구)를 앱 실행 중 회원별 1번·동시 1개로 묶고, 시작 단계와 「다른 기기」 판정(afterSync)이 같은 결과를 함께 쓴다. 실패는 기억하지 않아 다음 진입에서 다시 시도. 동의·삭제 등(`invalidateMessengerContactsCache`) 때 초기화.
+- 누락 ② 수정: 실제 훅 `useMessengerContacts` 를 그리는 시험 `use-messenger-contacts-relogin.test.tsx` 3개 — 로그아웃 정리 뒤 훅 2개 동시 시작(조회 1번·복구·안내 없음·전체 업로드 1회) / 출처 없는 기기 재진입(조회 1번) / 다른 기기 0개(안내 없음).
