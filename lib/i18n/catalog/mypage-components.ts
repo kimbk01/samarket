@@ -2,6 +2,8 @@
  * components/mypage/* 및 관련 마이페이지 UI 문자열 (Phase 마이그레이션용)
  * 키 접두사: mypage_comp_
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const mypageComponentsMessages = {
   ko: {
     // KamarketPayCard
@@ -38,7 +40,7 @@ export const mypageComponentsMessages = {
     mypage_comp_interest_empty_hint: "찜한 상품이 없으면 홈에서 하트를 눌러 담을 수 있어요.",
 
     // MyInfoHeader
-    mypage_comp_myinfo_header_title_default: "내정보",
+    mypage_comp_myinfo_header_title_default: `${B.MY}`,
 
     // Profile image / address chips (hub summary)
     mypage_comp_profile_image_aria: "프로필 이미지",
@@ -266,14 +268,14 @@ export const mypageComponentsMessages = {
 
     // MyPageSidebar — MYPAGE_NAV tabs
     mypage_comp_nav_tab_account_label: "내 계정",
-    mypage_comp_nav_tab_trade_label: "거래",
-    mypage_comp_nav_tab_community_label: "커뮤니티",
-    mypage_comp_nav_tab_store_label: "매장 / 주문",
-    mypage_comp_nav_tab_messenger_label: "메신저",
+    mypage_comp_nav_tab_trade_label: B.MARKET,
+    mypage_comp_nav_tab_community_label: B.LOUNGE,
+    mypage_comp_nav_tab_store_label: B.DIPICK,
+    mypage_comp_nav_tab_messenger_label: B.LETARING,
     mypage_comp_nav_tab_settings_label: "설정",
 
     // MyPageSidebar — sections (label / description)
-    mypage_comp_nav_sec_account_home_label: "내정보 홈",
+    mypage_comp_nav_sec_account_home_label: `${B.MY} 홈`,
     mypage_comp_nav_sec_account_home_desc: "내 계정 상태와 주요 활동을 한눈에 확인합니다.",
     mypage_comp_nav_sec_account_profile_label: "프로필",
     mypage_comp_nav_sec_account_profile_desc:
@@ -843,7 +845,7 @@ export const mypageComponentsMessages = {
     mypage_comp_interest_count_suffix: "{count} items",
     mypage_comp_interest_empty_hint: "Tap the heart on home to save items you care about.",
 
-    mypage_comp_myinfo_header_title_default: "My page",
+    mypage_comp_myinfo_header_title_default: `${B.MY}`,
 
     mypage_comp_profile_image_aria: "Profile photo",
     mypage_comp_address_manage_aria: "Go to address management",
@@ -1062,13 +1064,13 @@ export const mypageComponentsMessages = {
     mypage_comp_sidebar_display_fallback: "My page",
 
     mypage_comp_nav_tab_account_label: "My account",
-    mypage_comp_nav_tab_trade_label: "Trading",
-    mypage_comp_nav_tab_community_label: "Community",
-    mypage_comp_nav_tab_store_label: "Store / orders",
-    mypage_comp_nav_tab_messenger_label: "Messenger",
+    mypage_comp_nav_tab_trade_label: B.MARKET,
+    mypage_comp_nav_tab_community_label: B.LOUNGE,
+    mypage_comp_nav_tab_store_label: B.DIPICK,
+    mypage_comp_nav_tab_messenger_label: B.LETARING,
     mypage_comp_nav_tab_settings_label: "Settings",
 
-    mypage_comp_nav_sec_account_home_label: "My page home",
+    mypage_comp_nav_sec_account_home_label: `${B.MY} home`,
     mypage_comp_nav_sec_account_home_desc: "See your account status and key activity at a glance.",
     mypage_comp_nav_sec_account_profile_label: "Profile",
     mypage_comp_nav_sec_account_profile_desc:

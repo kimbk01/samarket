@@ -1,3 +1,5 @@
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const myMessages = {
   ko: {
     settings_global_subtitle: "앱 전역 설정",
@@ -70,7 +72,7 @@ export const myMessages = {
     settings_update_screen_download_failed:
       "업데이트하지 못했습니다. 네트워크 연결을 확인한 뒤 다시 시도해 주세요.",
     settings_leave: "탈퇴하기",
-    account_title: "내 정보",
+    account_title: "계정 정보",
     account_subtitle: "프로필·인증·연락처",
     account_info_title: "계정 정보",
     account_edit: "프로필 수정",
@@ -145,9 +147,9 @@ export const myMessages = {
     notif_filter_all: "전체",
     notif_filter_unread: "안읽음",
     notif_filter_read: "읽음",
-    notif_filter_trade: "거래",
-    notif_filter_chat: "채팅",
-    notif_filter_community: "커뮤니티",
+    notif_filter_trade: B.MARKET,
+    notif_filter_chat: B.LETARING,
+    notif_filter_community: B.LOUNGE,
     notif_filter_cs: "고객센터",
     notif_filter_notice: "공지",
     notif_filter_marketing: "혜택·이벤트",
@@ -189,7 +191,7 @@ export const myMessages = {
     notif_detail_list_trade: "거래 내역",
     notif_detail_list_community: "커뮤니티로",
     notif_detail_list_bell: "알림으로",
-    notif_filter_delivery: "주문·배달",
+    notif_filter_delivery: B.DIPICK,
     notif_filter_system: "시스템",
     notif_filter_support: "고객센터",
     notif_filter_ops: "운영 소식",
@@ -540,7 +542,7 @@ export const myMessages = {
     settings_update_screen_download_failed:
       "Could not update. Check your network connection and try again.",
     settings_leave: "Delete account",
-    account_title: "My Info",
+    account_title: "Account",
     account_subtitle: "Profile, verification, contact",
     account_info_title: "Account information",
     account_edit: "Edit profile",
@@ -615,9 +617,9 @@ export const myMessages = {
     notif_filter_all: "All",
     notif_filter_unread: "Unread",
     notif_filter_read: "Read",
-    notif_filter_trade: "Trade",
-    notif_filter_chat: "Chat",
-    notif_filter_community: "Community",
+    notif_filter_trade: B.MARKET,
+    notif_filter_chat: B.LETARING,
+    notif_filter_community: B.LOUNGE,
     notif_filter_cs: "Support",
     notif_filter_notice: "Notices",
     notif_filter_marketing: "Benefits & events",
@@ -659,7 +661,7 @@ export const myMessages = {
     notif_detail_list_trade: "My trades",
     notif_detail_list_community: "Go to community",
     notif_detail_list_bell: "Notifications",
-    notif_filter_delivery: "Orders & delivery",
+    notif_filter_delivery: B.DIPICK,
     notif_filter_system: "System",
     notif_filter_support: "Support",
     notif_filter_ops: "DIBAY news",

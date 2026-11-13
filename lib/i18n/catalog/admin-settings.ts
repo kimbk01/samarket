@@ -1,4 +1,5 @@
 /** Phase 11: components/admin/settings i18n keys */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
 export const adminSettingsMessages = {
   ko: {
     admin_settings_notifications_domain_title: "알림·알림음 (도메인)",
@@ -401,11 +402,11 @@ export const adminSettingsMessages = {
     admin_startup_config_initial_surface: "시작 화면",
     admin_startup_config_initial_surface_hint:
       "기본값은 홈입니다. 저장 후 다음 앱 실행부터 적용됩니다.",
-    admin_startup_config_surface_home: "홈",
-    admin_startup_config_surface_community: "커뮤니티",
-    admin_startup_config_surface_trade: "거래",
-    admin_startup_config_surface_food: "배달/푸드",
-    admin_startup_config_surface_chat: "채팅",
+    admin_startup_config_surface_home: B.HOME,
+    admin_startup_config_surface_community: B.LOUNGE,
+    admin_startup_config_surface_trade: B.MARKET,
+    admin_startup_config_surface_food: B.DIPICK,
+    admin_startup_config_surface_chat: B.LETARING,
     admin_startup_config_bg: "배경색",
     admin_startup_config_show_wordmark: "메인 문구 표시",
     admin_startup_config_show_spinner: "스피너 표시",
@@ -825,11 +826,11 @@ export const adminSettingsMessages = {
     admin_startup_config_initial_surface: "Initial screen",
     admin_startup_config_initial_surface_hint:
       "Default is Home. Applies on the next app launch after save.",
-    admin_startup_config_surface_home: "Home",
-    admin_startup_config_surface_community: "Community",
-    admin_startup_config_surface_trade: "Trade",
-    admin_startup_config_surface_food: "Food / Delivery",
-    admin_startup_config_surface_chat: "Chat",
+    admin_startup_config_surface_home: B.HOME,
+    admin_startup_config_surface_community: B.LOUNGE,
+    admin_startup_config_surface_trade: B.MARKET,
+    admin_startup_config_surface_food: B.DIPICK,
+    admin_startup_config_surface_chat: B.LETARING,
     admin_startup_config_bg: "Background color",
     admin_startup_config_show_wordmark: "Show wordmark",
     admin_startup_config_show_spinner: "Show spinner",

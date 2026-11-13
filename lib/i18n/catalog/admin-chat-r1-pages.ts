@@ -1,6 +1,7 @@
 /**
  * 채팅 Admin R1 — 메뉴·페이지·신고 큐 문구.
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
 export const adminChatR1CMessages = {
   ko: {
     // C-12 메신저 성능 — 인스턴스 표본 표기
@@ -49,7 +50,7 @@ export const adminChatR1CMessages = {
     admin_chat_s3_notice_unhide: "관리자 화면의 숨김 표시를 해제합니다.",
     admin_chat_s5_title: "신고 처리",
     admin_chat_s5_member_sanction_link: "회원 제재(정지·이용 제한)는 회원 상세에서 →",
-    admin_chat_report_source_messenger: "메신저",
+    admin_chat_report_source_messenger: B.LETARING,
     admin_chat_report_source_trade_chat: "거래 채팅",
     admin_chat_report_source_trade_report: "거래 신고",
     admin_chat_s6_title: "영구 삭제 (레거시 기록)",
@@ -250,7 +251,7 @@ export const adminChatR1CMessages = {
     admin_chat_s3_notice_unhide: "Removes the hidden mark in admin.",
     admin_chat_s5_title: "Handle report",
     admin_chat_s5_member_sanction_link: "Member sanctions (suspend / restrict) are on the member page →",
-    admin_chat_report_source_messenger: "Messenger",
+    admin_chat_report_source_messenger: B.LETARING,
     admin_chat_report_source_trade_chat: "Trade chat",
     admin_chat_report_source_trade_report: "Trade report",
     admin_chat_s6_title: "Delete permanently (legacy records)",

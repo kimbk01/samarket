@@ -50,7 +50,8 @@ export const DEFAULT_DELIVERY_FAB_ITEMS: readonly MainBottomNavFabStoredItem[] =
     visible: true,
     label: "Delivery home",
     href: "/stores",
-    icon: "home",
+    /** DIPICK 서비스 진입 = DIPICK 대표 아이콘(스쿠터) — 앱 HOME(집)과 구별 (Owner 2026-11-13) */
+    icon: "stores",
   },
 ];
 

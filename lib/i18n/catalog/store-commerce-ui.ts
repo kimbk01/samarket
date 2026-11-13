@@ -1,5 +1,7 @@
 /** 매장·주문·배달 구매자 UI (phase 6) — owner/admin 제외 */
 
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const storeCommerceUiMessages = {
 
   ko: {
@@ -93,6 +95,7 @@ export const storeCommerceUiMessages = {
     store_browse_food_all: "전체",
 
     store_feed_stores_title: "매장",
+    store_dipick_meta_title: B.DIPICK,
 
     store_more_food_link: "음식 더보기",
 
@@ -342,7 +345,7 @@ export const storeCommerceUiMessages = {
     store_cart_entry_title_not_found: "장바구니를 찾을 수 없습니다",
     store_cart_option_updated_toast: "옵션을 수정했어요",
     store_chat_inquiry_menu: "채팅 문의",
-    store_checkout_phone_profile_hint_account_link: "내정보 · 계정",
+    store_checkout_phone_profile_hint_account_link: `${B.MY} · 계정`,
     store_checkout_phone_profile_hint_prefix: "연락처는",
     store_checkout_phone_profile_hint_suffix: "에서 미리 저장할 수 있어요.",
     store_commerce_summary_disclaimer: "표시 금액·시간은 매장 설정 기준이며 실제와 다를 수 있습니다.",
@@ -1061,7 +1064,7 @@ export const storeCommerceUiMessages = {
     store_delivery_fab_close_aria: "FAB 메뉴 접기",
     store_delivery_fab_store: "스토어",
     store_delivery_fab_cart: "장바구니",
-    store_delivery_fab_home: "배달 홈",
+    store_delivery_fab_home: B.DIPICK,
     store_delivery_float_order_history: "주문내역",
     store_delivery_float_order_chat: "주문채팅",
     store_delivery_float_register_store: "내 상점 등록",
@@ -1117,23 +1120,23 @@ export const storeCommerceUiMessages = {
     store_label_store_info: "매장 정보",
     store_label_delivery_address: "배송지",
     store_cart_login_for_saved_address:
-      "로그인하면 내정보에 저장한 배달 주소를 여기서 선택할 수 있습니다.",
+      `로그인하면 ${B.MY}에 저장한 배달 주소를 여기서 선택할 수 있습니다.`,
     store_cart_legacy_address_notice:
       "예전 장바구니에만 있던 배송지 {count}건은 저장되지 않습니다.",
     store_address_manage_link: "주소 관리",
     store_cart_legacy_address_suffix: "에서 Google 검색 주소를 저장한 뒤 다시 선택해 주세요.",
-    store_cart_profile_default_delivery: "내정보 · 주소 관리 기본 배달",
+    store_cart_profile_default_delivery: `${B.MY} · 주소 관리 기본 배달`,
     store_cart_no_saved_delivery_address:
-      "내정보에 저장된 배달 주소가 없습니다. 프로필에서 입력하거나 주소 관리에서 저장 주소를 추가하세요.",
+      `${B.MY}에 저장된 배달 주소가 없습니다. 프로필에서 입력하거나 주소 관리에서 저장 주소를 추가하세요.`,
     store_cart_address_check_before_order: "주문 전 지역·주소 한 줄이 3자 이상인지 확인해 주세요.",
     store_cart_saved_address_aria: "{label}, 저장 주소 {index} 선택",
-    store_cart_profile_address_manage: "내정보 · 주소 관리",
+    store_cart_profile_address_manage: `${B.MY} · 주소 관리`,
     store_cart_save_from_address_manage: "주소 관리에서 저장",
     store_cart_pick_or_register_delivery: "배달 주소를 선택하거나 등록해 주세요.",
     store_cart_verify_delivery_address:
       "선택한 배송지 내용을 확인해 주세요. 지역·동네 또는 {streetLabel}이 필요합니다.",
     store_cart_address_too_short:
-      "내정보 주소가 비어 있거나 너무 짧습니다. 프로필에서 입력을 마치거나",
+      `${B.MY} 주소가 비어 있거나 너무 짧습니다. 프로필에서 입력을 마치거나`,
     store_cart_address_add_suffix: "에서 저장 주소를 추가해 주세요.",
     store_cart_eta_ref: "예상 도착(참고): {label}",
     store_cart_eta_manual_hint: "매장 설정에서 수기 배달 시간을 입력하면 여기에 표시됩니다.",
@@ -1159,11 +1162,11 @@ export const storeCommerceUiMessages = {
     store_err_region_only_address:
       "주소: 지역만 고른 배달주소는 주문할 수 없습니다. 해당 항목을 삭제한 뒤 배송지 추가에서 동네까지 선택해 주세요.",
     store_err_select_delivery_address:
-      "배달: 내정보 주소를 확인하거나 배송지 추가 후, 라디오로 배달 주소를 선택해 주세요.",
+      `배달: ${B.MY} 주소를 확인하거나 배송지 추가 후, 라디오로 배달 주소를 선택해 주세요.`,
     store_err_saved_address_required:
       "배달: 저장된 주소를 선택해 주세요. 주소 관리를 통해 검색 주소를 저장한 뒤 주문할 수 있습니다.",
     store_err_delivery_address_incomplete:
-      "배달: 선택한 배달주소에 지역·동네 또는 {streetLabel}(3자 이상)이 필요합니다. 다른 배달주소를 선택하거나 내정보에서 주소를 저장해 주세요.",
+      `배달: 선택한 배달주소에 지역·동네 또는 {streetLabel}(3자 이상)이 필요합니다. 다른 배달주소를 선택하거나 ${B.MY}에서 주소를 저장해 주세요.`,
     store_checkout_phone_partial: "{phone} (입력 미완성)",
     store_checkout_not_entered: "(미입력)",
     store_err_payment_method:
@@ -1185,8 +1188,8 @@ export const storeCommerceUiMessages = {
     store_detail_admin_preview_order_blocked: "관리자 미리보기에서는 장바구니에 담거나 주문할 수 없어요.",
     delivery_recruiting_default_title: "매장을 신청하세요",
     delivery_recruiting_default_badge: "오픈 기념 수수료 무료",
-    delivery_recruiting_default_body: "DIBAY 배달이 곧 열립니다. 지금 매장을 신청하고 오픈을 함께 준비하세요.",
-    delivery_recruiting_ribbon: "배달 오픈 준비 중 · 매장을 모으고 있어요",
+    delivery_recruiting_default_body: `${B.DIPICK}이 곧 열립니다. 지금 매장을 신청하고 오픈을 함께 준비하세요.`,
+    delivery_recruiting_ribbon: `${B.DIPICK} 오픈 준비 중 · 매장을 모으고 있어요`,
     delivery_recruiting_reviewer_no_order: "확인용 계정 · 배달 오픈 전이라 주문할 수 없어요",
     store_err_delivery_recruiting: "배달 오픈을 준비하고 있어요. 지금은 주문할 수 없어요.",
     store_cart_delivery_address_revalidated:
@@ -1573,7 +1576,7 @@ export const storeCommerceUiMessages = {
     store_owner_aria_exit_orders: "주문 관리로 나가기",
     store_owner_aria_dashboard: "대시보드로",
     store_owner_aria_open_menu: "메뉴 열기",
-    store_owner_aria_exit_delivery_home: "배달 홈으로 나가기",
+    store_owner_aria_exit_delivery_home: `${B.DIPICK} 홈으로 나가기`,
     store_owner_aria_store_ops: "매장 운영 상태",
     store_owner_aria_select_store: "매장 선택",
     store_owner_aria_notifications: "알림 {count}건",
@@ -1583,7 +1586,7 @@ export const storeCommerceUiMessages = {
     store_owner_ops_prep_minutes: "예상조리 {minutes}분",
     store_owner_ops_set_hours: "영업 시간을 설정해 주세요",
     store_owner_expand_ops_menu: "운영 메뉴 펼치기",
-    store_owner_my_home_link: "← 내 정보(홈)",
+    store_owner_my_home_link: `← ${B.MY}`,
     store_owner_order_progress_chat_title: "주문 진행 채팅",
     store_owner_ops_order_chat_label: "운영형 주문 채팅",
     store_owner_payment_review_section: "결제·리뷰",
@@ -1879,6 +1882,7 @@ export const storeCommerceUiMessages = {
     store_browse_food_all: "All",
 
     store_feed_stores_title: "Stores",
+    store_dipick_meta_title: B.DIPICK,
 
     store_more_food_link: "More food",
 
@@ -2128,7 +2132,7 @@ export const storeCommerceUiMessages = {
     store_cart_entry_title_not_found: "Cart not found",
     store_cart_option_updated_toast: "Options updated",
     store_chat_inquiry_menu: "Chat inquiry",
-    store_checkout_phone_profile_hint_account_link: "My page · Account",
+    store_checkout_phone_profile_hint_account_link: `${B.MY} · Account`,
     store_checkout_phone_profile_hint_prefix: "Your phone number is saved in",
     store_checkout_phone_profile_hint_suffix: ".",
     store_commerce_summary_disclaimer: "Amounts and times are store estimates and may differ.",
@@ -2846,7 +2850,7 @@ export const storeCommerceUiMessages = {
     store_delivery_fab_close_aria: "Collapse FAB menu",
     store_delivery_fab_store: "Store",
     store_delivery_fab_cart: "Cart",
-    store_delivery_fab_home: "Delivery home",
+    store_delivery_fab_home: B.DIPICK,
     store_delivery_float_order_history: "Order history",
     store_delivery_float_order_chat: "Order chat",
     store_delivery_float_register_store: "Register my store",
@@ -2902,23 +2906,23 @@ export const storeCommerceUiMessages = {
     store_label_store_info: "Store info",
     store_label_delivery_address: "Delivery address",
     store_cart_login_for_saved_address:
-      "Sign in to select saved delivery addresses from My page.",
+      `Sign in to select saved delivery addresses from ${B.MY}.`,
     store_cart_legacy_address_notice: "{count} legacy cart-only addresses were not saved.",
     store_address_manage_link: "Address manager",
     store_cart_legacy_address_suffix: " Save a Google search address there, then select it again.",
-    store_cart_profile_default_delivery: "My page · default delivery",
+    store_cart_profile_default_delivery: `${B.MY} · default delivery`,
     store_cart_no_saved_delivery_address:
       "No saved delivery address. Add one in your profile or address manager.",
     store_cart_address_check_before_order:
       "Before ordering, ensure region and address line are at least 3 characters.",
     store_cart_saved_address_aria: "{label}, select saved address {index}",
-    store_cart_profile_address_manage: "My page · addresses",
+    store_cart_profile_address_manage: `${B.MY} · addresses`,
     store_cart_save_from_address_manage: "Save in address manager",
     store_cart_pick_or_register_delivery: "Select or register a delivery address.",
     store_cart_verify_delivery_address:
       "Check the selected address. Region, neighborhood, or {streetLabel} is required.",
     store_cart_address_too_short:
-      "My page address is empty or too short. Finish your profile or",
+      `${B.MY} address is empty or too short. Finish your profile or`,
     store_cart_address_add_suffix: " add a saved address.",
     store_cart_eta_ref: "ETA (estimate): {label}",
     store_cart_eta_manual_hint: "Enter manual delivery time in store settings to show ETA here.",
@@ -2943,7 +2947,7 @@ export const storeCommerceUiMessages = {
     store_err_shipping_items_in_cart: "Some cart items cannot be delivered or shipped.",
     store_err_region_only_address: "Region-only delivery addresses cannot be used. Delete it and add an address with a neighborhood.",
     store_err_select_delivery_address:
-      "Delivery: check My page addresses or add one, then select a delivery address.",
+      `Delivery: check ${B.MY} addresses or add one, then select a delivery address.`,
     store_err_saved_address_required:
       "Delivery: select a saved address. Save one in address manager before ordering.",
     store_err_delivery_address_incomplete:
@@ -2966,8 +2970,8 @@ export const storeCommerceUiMessages = {
     store_detail_admin_preview_order_blocked: "You can't add to cart or order in admin preview.",
     delivery_recruiting_default_title: "Open your store on DIBAY",
     delivery_recruiting_default_badge: "No fees at launch",
-    delivery_recruiting_default_body: "DIBAY Delivery is opening soon. Apply now and get ready for launch.",
-    delivery_recruiting_ribbon: "Delivery is opening soon · We're gathering stores",
+    delivery_recruiting_default_body: `${B.DIPICK} is opening soon. Apply now and get ready for launch.`,
+    delivery_recruiting_ribbon: `${B.DIPICK} is opening soon · We're gathering stores`,
     delivery_recruiting_reviewer_no_order: "Review account · Ordering opens when delivery launches",
     store_err_delivery_recruiting: "Delivery is getting ready to open. Ordering isn't available yet.",
     store_cart_delivery_address_revalidated:
@@ -3361,7 +3365,7 @@ export const storeCommerceUiMessages = {
     store_owner_aria_exit_orders: "Leave order chat",
     store_owner_aria_dashboard: "Back to dashboard",
     store_owner_aria_open_menu: "Open menu",
-    store_owner_aria_exit_delivery_home: "Back to delivery home",
+    store_owner_aria_exit_delivery_home: `Back to ${B.DIPICK} home`,
     store_owner_aria_store_ops: "Store operations",
     store_owner_aria_select_store: "Select store",
     store_owner_aria_notifications: "Notifications ({count})",
@@ -3371,7 +3375,7 @@ export const storeCommerceUiMessages = {
     store_owner_ops_prep_minutes: "Prep ~{minutes} min",
     store_owner_ops_set_hours: "Set business hours",
     store_owner_expand_ops_menu: "Expand operations menu",
-    store_owner_my_home_link: "← My profile (home)",
+    store_owner_my_home_link: `← ${B.MY}`,
     store_owner_order_progress_chat_title: "Order progress chat",
     store_owner_ops_order_chat_label: "Operations order chat",
     store_owner_payment_review_section: "Payment & review",

@@ -1,7 +1,8 @@
 "use client";
 
-import { Coins, Gift, Headset, Heart, MessageCircle, Newspaper, Receipt, Tag, type LucideIcon } from "lucide-react";
+import { Coins, Gift, Headset, Heart, Receipt, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { serviceBrandIconSlot, type ServiceBrandIconSlotProps } from "@/components/brand/ServiceBrandIcon";
 import {
   HOME_MENU_CATALOG,
   pickHomeText,
@@ -11,11 +12,12 @@ import {
 import { homeCatalogName, type HomeCatalog } from "@/lib/home/home-catalog-types";
 
 /** 그림을 올리지 않은 큰 카드의 선 그림 — 단색(색 칸 없음, Owner 2026-11-09 「아이콘 컬러 원하지 않음」) */
-const LINE_ICON: Record<HomeServiceKey, LucideIcon> = {
-  trade: Tag,
-  stores: Receipt,
-  philife: Newspaper,
-  chat: MessageCircle,
+const LINE_ICON: Record<HomeServiceKey, LucideIcon | ((p: ServiceBrandIconSlotProps) => React.JSX.Element)> = {
+  /** 서비스 4개 = 브랜드 대표 아이콘 (Owner 2026-11-13) — 기능(주문·포인트 등)은 선 아이콘 그대로 */
+  trade: serviceBrandIconSlot("MARKET"),
+  stores: serviceBrandIconSlot("DIPICK"),
+  philife: serviceBrandIconSlot("FEED"),
+  chat: serviceBrandIconSlot("LETARING"),
   events: Gift,
   orders: Receipt,
   points: Coins,

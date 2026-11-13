@@ -155,10 +155,10 @@ describe("P0-B Admin delivery ad commercial settings", () => {
 
   it("T14 — Korean/customer placement labels map to inventory", () => {
     expect(deliveryAdCommercialPlacementLabel("STORES_HOME_FEED", "ko")).toBe(
-      "배달 홈 매장 광고"
+      "DIPICK 홈 매장 광고"
     );
     expect(deliveryAdCommercialPlacementLabel("STORES_HOME_HERO", "ko")).toBe(
-      "배달 홈 상단 배너"
+      "DIPICK 홈 상단 배너"
     );
     expect(DELIVERY_AD_COMMERCIAL_PLACEMENT_LABELS.STORES_SEARCH_TOP.ko).toContain("검색");
   });

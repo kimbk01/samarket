@@ -1,5 +1,7 @@
 /** Phase 12b: `lib/business/business-admin-nav.ts` sidebar */
 
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const businessAdminNavMessages = {
 
   ko: {
@@ -97,7 +99,7 @@ export const businessAdminNavMessages = {
 
     biz_nav_ads: "광고",
 
-    biz_nav_ads_desc: "배달 광고 신청·관리",
+    biz_nav_ads_desc: `${B.DIPICK} 광고 신청·관리`,
 
     biz_nav_notifications: "알림함",
 
@@ -276,7 +278,7 @@ export const businessAdminNavMessages = {
 
     biz_nav_ads: "Ads",
 
-    biz_nav_ads_desc: "Apply for and manage Delivery ads",
+    biz_nav_ads_desc: `Apply for and manage ${B.DIPICK} ads`,
 
     biz_nav_notifications: "Inbox",
 

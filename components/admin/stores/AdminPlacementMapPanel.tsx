@@ -30,22 +30,23 @@ import {
 import type { DeliveryAdInventoryKey } from "@/lib/stores/advertising/delivery-ad-inventory";
 import type { PlacementMiniatureKind } from "@/lib/stores/advertising/delivery-ad-launch-placement-product";
 import type { DeliveryAdFundingStatus } from "@/lib/stores/advertising/delivery-ad-business-cash-contract";
+import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 
 const DOMAINS: { id: PlacementMapDomain | "ALL"; ko: string; en: string }[] = [
   { id: "ALL", ko: "전체", en: "All" },
-  { id: "DELIVERY", ko: "배달", en: "Delivery" },
+  { id: "DELIVERY", ko: B.DIPICK, en: B.DIPICK },
   { id: "FEED", ko: "피드", en: "Feed" },
   { id: "POPUP", ko: "팝업", en: "Popup" },
 ];
 
 const SCREENS: { id: PlacementMapScreen | "ALL"; ko: string; en: string }[] = [
   { id: "ALL", ko: "전체 화면", en: "All screens" },
-  { id: "DELIVERY_HOME", ko: "배달 홈", en: "Delivery Home" },
+  { id: "DELIVERY_HOME", ko: `${B.DIPICK} 홈`, en: `${B.DIPICK} home` },
   { id: "DELIVERY_CATEGORY", ko: "업종 목록", en: "Category" },
   { id: "DELIVERY_SEARCH", ko: "검색 결과", en: "Search results" },
   { id: "STORE_DETAIL", ko: "매장 상세", en: "Store detail" },
-  { id: "TRADE_FEED", ko: "거래 피드", en: "Trade feed" },
-  { id: "COMMUNITY_FEED", ko: "커뮤니티 피드", en: "Community feed" },
+  { id: "TRADE_FEED", ko: `${B.MARKET} 피드`, en: `${B.MARKET} feed` },
+  { id: "COMMUNITY_FEED", ko: B.FEED, en: B.FEED },
   { id: "GLOBAL_POPUP", ko: "글로벌 팝업", en: "Global popup" },
 ];
 
@@ -541,7 +542,7 @@ function AdminPlacementMapPanelInner() {
                     <div>
                       <p className="text-[12px] font-semibold text-sam-muted">
                         {row.domain === "DELIVERY"
-                          ? t("common_delivery")
+                          ? t("admin_domain_chip_dipick")
                           : row.domain === "FEED"
                             ? t("admin_stores_feed")
                             : t("admin_stores_popup")}

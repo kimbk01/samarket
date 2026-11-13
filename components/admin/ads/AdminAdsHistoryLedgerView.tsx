@@ -398,7 +398,7 @@ function AdminAdsHistoryLedgerViewInner() {
               ["all", t("common_all")],
               ["community", t("admin_ads_community")],
               ["trade", t("admin_ads_trade")],
-              ["delivery", t("common_delivery")],
+              ["delivery", t("admin_domain_chip_dipick")],
               ["popup", t("admin_ads_popup")],
             ] as const
           ).map(([id, label]) => (

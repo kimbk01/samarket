@@ -75,7 +75,7 @@ export const MYPAGE_IA_CATEGORIES: readonly MypageIaCategory[] = [
     id: "trade",
     titleKey: "mypage_ia_cat_trade",
     descKey: "mypage_ia_cat_trade_desc",
-    icon: "messages-square",
+    icon: "brand-market",
     groups: [
       {
         titleKey: "mypage_ia_grp_my_trades",
@@ -111,7 +111,7 @@ export const MYPAGE_IA_CATEGORIES: readonly MypageIaCategory[] = [
     id: "community",
     titleKey: "mypage_ia_cat_community",
     descKey: "mypage_ia_cat_community_desc",
-    icon: "users",
+    icon: "brand-lounge",
     groups: [
       {
         titleKey: "mypage_ia_grp_my_activity",
@@ -136,7 +136,7 @@ export const MYPAGE_IA_CATEGORIES: readonly MypageIaCategory[] = [
     id: "store",
     titleKey: "mypage_ia_cat_store",
     descKey: "mypage_ia_cat_store_desc",
-    icon: "shopping-bag",
+    icon: "brand-dipick",
     groups: [
       {
         titleKey: "mypage_ia_grp_orders",

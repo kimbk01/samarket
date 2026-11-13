@@ -30,6 +30,7 @@ import { adminStoresProductRecoveryMessages } from "./admin-stores-product-recov
 import { adminDeliveryAdsMessages } from "./admin-delivery-ads";
 import { adminPlatformPopupMessages } from "./admin-platform-popup";
 import { deliveryAdsPerformanceMessages } from "./delivery-ads-performance";
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
 
 export const adminMessages = {
   ko: {
@@ -181,8 +182,8 @@ export const adminMessages = {
     admin_report_mcc_target_missing:
       "계정 제재용 회원 ID가 없습니다. 대상 회원/게시글을 확인하세요.",
     admin_report_filter_domain_aria: "신고 도메인",
-    admin_report_filter_domain_trade: "Trade · reports 테이블",
-    admin_report_filter_domain_community: "Community · community_reports",
+    admin_report_filter_domain_trade: B.MARKET,
+    admin_report_filter_domain_community: B.LOUNGE,
     admin_ad_applications_desc:
       "한 경로에서 도메인을 고르면 해당 writer 큐만 표시합니다. Trade/Community=point_promotion_orders · Feed Banner(Growth)=feed_ad_requests. 레거시 trade_post_ads는 /admin/trade-post-ads.",
     admin_ad_applications_choose_title: "광고 신청 도메인 선택",
@@ -800,11 +801,11 @@ export const adminMessages = {
     admin_users_tab_all: "전체",
     admin_users_cc_tab_overview: "개요",
     admin_users_cc_tab_account: "계정·인증",
-    admin_users_cc_tab_community: "커뮤니티",
-    admin_users_cc_tab_trade: "거래",
-    admin_users_cc_tab_delivery: "배달·주문",
+    admin_users_cc_tab_community: B.LOUNGE,
+    admin_users_cc_tab_trade: B.MARKET,
+    admin_users_cc_tab_delivery: B.DIPICK,
     admin_users_cc_tab_store: "매장",
-    admin_users_cc_tab_chat: "채팅·그룹",
+    admin_users_cc_tab_chat: B.LETARING,
     admin_users_cc_tab_points: "Point",
     admin_users_cc_tab_trust: "신뢰·제재",
     admin_users_cc_tab_address: "주소",
@@ -2437,8 +2438,8 @@ export const adminMessages = {
     admin_report_mcc_target_missing:
       "No member id for MCC sanction. Check the target user/listing.",
     admin_report_filter_domain_aria: "Report domain",
-    admin_report_filter_domain_trade: "Trade · reports table",
-    admin_report_filter_domain_community: "Community · community_reports",
+    admin_report_filter_domain_trade: B.MARKET,
+    admin_report_filter_domain_community: B.LOUNGE,
     admin_ad_applications_desc:
       "Pick a domain on one route to show only that writer queue. Trade/Community=point_promotion_orders · Feed Banner(Growth)=feed_ad_requests. Legacy trade_post_ads: /admin/trade-post-ads.",
     admin_ad_applications_choose_title: "Choose ad request domain",
@@ -3057,11 +3058,11 @@ export const adminMessages = {
     admin_users_tab_all: "All",
     admin_users_cc_tab_overview: "Overview",
     admin_users_cc_tab_account: "Account",
-    admin_users_cc_tab_community: "Community",
-    admin_users_cc_tab_trade: "Trade",
-    admin_users_cc_tab_delivery: "Delivery",
+    admin_users_cc_tab_community: B.LOUNGE,
+    admin_users_cc_tab_trade: B.MARKET,
+    admin_users_cc_tab_delivery: B.DIPICK,
     admin_users_cc_tab_store: "Stores",
-    admin_users_cc_tab_chat: "Chat / Groups",
+    admin_users_cc_tab_chat: B.LETARING,
     admin_users_cc_tab_points: "Point",
     admin_users_cc_tab_trust: "Trust",
     admin_users_cc_tab_address: "Addresses",

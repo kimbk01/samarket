@@ -1,3 +1,5 @@
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const mypageHubMessages = {
   ko: {
     mypage_hub_neighborhood_unset: "동네 미설정",
@@ -189,10 +191,10 @@ export const mypageHubMessages = {
     mypage_s10_unlink_confirm_title: "{provider} 연결을 해제할까요?",
     mypage_s10_unlink_failed: "연결을 해제하지 못했어요",
     mypage_s10_unlinked_toast: "{provider} 연결을 해제했어요",
-    mypage_s11_group_community: "커뮤니티",
+    mypage_s11_group_community: B.LOUNGE,
     mypage_s11_group_order: "주문",
     mypage_s11_group_sound: "소리",
-    mypage_s11_group_trade: "거래",
+    mypage_s11_group_trade: B.MARKET,
     mypage_s14_confirm_neighbor_body: "이웃 목록에서 빠져요",
     mypage_s14_confirm_neighbor_title: "{name}님 이웃을 해제할까요?",
     mypage_s14_confirm_release: "해제",
@@ -444,10 +446,10 @@ export const mypageHubMessages = {
     mypage_s10_unlink_confirm_title: "Unlink {provider}?",
     mypage_s10_unlink_failed: "Couldn't unlink",
     mypage_s10_unlinked_toast: "{provider} unlinked",
-    mypage_s11_group_community: "Community",
+    mypage_s11_group_community: B.LOUNGE,
     mypage_s11_group_order: "Orders",
     mypage_s11_group_sound: "Sound",
-    mypage_s11_group_trade: "Trade",
+    mypage_s11_group_trade: B.MARKET,
     mypage_s14_confirm_neighbor_body: "They will be removed from your neighbors",
     mypage_s14_confirm_neighbor_title: "Remove {name} from neighbors?",
     mypage_s14_confirm_release: "Remove",

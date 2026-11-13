@@ -170,8 +170,8 @@ describe("Admin Metric Registry (설계 v4 §3 · 통합 §2.5)", () => {
       "전체 회원",
       "활성·신규",
       "처리 대기",
-      "거래",
-      "배달 주문",
+      "MARKET",
+      "DIPICK 주문",
       "결제·정산",
       "광고",
       "고객지원·알림",
@@ -199,7 +199,7 @@ describe("G-04 채팅 탭 · 전체 현황 채팅 지표", () => {
     expect(ADMIN_DASHBOARD_TAB_IDS.indexOf("chat")).toBe(ADMIN_DASHBOARD_TAB_IDS.indexOf("community_trade") + 1);
     expect(parseAdminDashboardTab("chat")).toBe("chat");
     const tab = getAdminDashboardTab("chat");
-    expect(tab).toMatchObject({ labelKo: "채팅", trend: "chat_reports_daily", access: "/admin/chats" });
+    expect(tab).toMatchObject({ labelKo: "LETARING", trend: "chat_reports_daily", access: "/admin/chats" });
     for (const id of tab.metricIds) {
       expect(ADMIN_METRIC_BY_ID.get(id)?.domain, id).toBe("chat");
       expect(CHAT_METRIC_BY_ID.has(id as ChatMetricId), id).toBe(true);

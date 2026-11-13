@@ -2,6 +2,8 @@
  * 앱 공통 화면(포인트·지원·이벤트·검색 등) 문구.
  * S6(언어 SSOT, 2026-11-08): 코드 안 언어 삼항·문구 쌍·인라인 표에서 옮긴 문구 (`docs/i18n-ssot.md` §3).
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const copyShellMessages = {
   ko: {
     home_categories_empty: "등록된 카테고리가 없습니다.",
@@ -71,8 +73,8 @@ export const copyShellMessages = {
     mypage_ads_add_image: "이미지 추가 ({count}/3)",
     mypage_ads_dest_my_post_listing: "내 게시글/상품",
     mypage_ads_dest_external_link: "외부 링크",
-    mypage_ads_community: "커뮤니티",
-    mypage_ads_trade: "거래",
+    mypage_ads_community: B.FEED,
+    mypage_ads_trade: B.MARKET,
     mypage_ads_no_eligible_community_posts: "연결 가능한 커뮤니티 글이 없습니다.",
     mypage_ads_no_eligible_trade_listings: "연결 가능한 거래 상품이 없습니다.",
     mypage_ads_days: "{n}일",
@@ -166,8 +168,8 @@ export const copyShellMessages = {
     mypage_ads_add_image: "Add image ({count}/3)",
     mypage_ads_dest_my_post_listing: "My post / listing",
     mypage_ads_dest_external_link: "External link",
-    mypage_ads_community: "Community",
-    mypage_ads_trade: "Trade",
+    mypage_ads_community: B.FEED,
+    mypage_ads_trade: B.MARKET,
     mypage_ads_no_eligible_community_posts: "No eligible community posts.",
     mypage_ads_no_eligible_trade_listings: "No eligible trade listings.",
     mypage_ads_days: "{n} days",

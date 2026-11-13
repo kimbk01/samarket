@@ -10,7 +10,7 @@ describe("resolveMainBottomNavDisplayItems", () => {
     expect(items.map((i) => i.id)).toEqual(["home", "community", "stores", "chat", "my"]);
     expect(items.find((i) => i.id === "home")).toMatchObject({
       href: "/home",
-      label: "Home",
+      label: "HOME",
       labelKey: "nav.home",
       icon: "home",
     });
@@ -87,7 +87,7 @@ describe("resolveMainBottomNavDisplayItems", () => {
         { id: "my", visible: true, label: "내정보", href: "/mypage", icon: "my" },
       ],
     });
-    expect(items.find((i) => i.id === "home")).toMatchObject({ icon: "home", href: "/home", label: "Home" });
+    expect(items.find((i) => i.id === "home")).toMatchObject({ icon: "home", href: "/home", label: "HOME" });
   });
 
   it("예전 거래(home) 저장본 href=/market 은 앱 홈 /home 으로 되돌림 — 순서·보이기만 유지 (2026-11-09)", () => {
@@ -115,7 +115,7 @@ describe("resolveMainBottomNavDisplayItems", () => {
     expect(items.map((i) => i.id)).toEqual(["community", "home", "stores", "chat", "my"]);
     expect(items.find((i) => i.id === "my")).toMatchObject({
       href: "/mypage",
-      label: "My",
+      label: "MY",
       labelKey: "nav.my",
       icon: "my",
     });

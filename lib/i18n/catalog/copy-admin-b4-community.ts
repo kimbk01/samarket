@@ -2,6 +2,7 @@
  * 어드민 커뮤니티·거래·Philife 화면.
  * 언어 SSOT B4(2026-11-08): 언어 삼항·영어 짝 없는 한국어·대체 문구에서 옮긴 문구 (`docs/i18n-ssot.md` §3).
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
 export const copyAdminB4CommunityMessages = {
   ko: {
     admin_community_posts_badge_notice: "공지",
@@ -165,7 +166,7 @@ export const copyAdminB4CommunityMessages = {
     admin_community_charges_receipt: "입금 증빙",
     admin_community_charges_no_receipt: "첨부된 증빙이 없습니다.",
     admin_community_charges_already_processed: "이미 처리된 신청입니다. 정정은 포인트 회수로 처리합니다.",
-    admin_community_dash_title: "커뮤니티 대시보드",
+    admin_community_dash_title: `${B.LOUNGE} 대시보드`,
     admin_community_dash_subtitle: "처리 대기부터 확인하세요. 기준: 필리핀 시간",
     admin_community_dash_last_updated: "마지막 갱신 {time}",
     admin_community_dash_todo_title: "지금 처리할 일",
@@ -288,7 +289,7 @@ export const copyAdminB4CommunityMessages = {
     admin_trade_audit_after: "변경 후",
     admin_trade_audit_fav_added: "추가",
     admin_trade_audit_fav_removed: "해제",
-    admin_trade_dash_title: "거래 대시보드",
+    admin_trade_dash_title: `${B.MARKET} 대시보드`,
     admin_trade_dash_subtitle: "처리 대기부터 확인하세요. 기준: 필리핀 시간",
     admin_trade_dash_last_updated: "마지막 갱신 {time}",
     admin_trade_dash_pending: "처리 대기",
@@ -628,7 +629,7 @@ export const copyAdminB4CommunityMessages = {
     admin_community_charges_receipt: "Deposit receipt",
     admin_community_charges_no_receipt: "No receipt attached.",
     admin_community_charges_already_processed: "This request was already processed. Use a point reclaim to correct it.",
-    admin_community_dash_title: "Community dashboard",
+    admin_community_dash_title: `${B.LOUNGE} dashboard`,
     admin_community_dash_subtitle: "Check pending items first. Times in Philippine time (PHT)",
     admin_community_dash_last_updated: "Last updated {time}",
     admin_community_dash_todo_title: "To do now",
@@ -751,7 +752,7 @@ export const copyAdminB4CommunityMessages = {
     admin_trade_audit_after: "After",
     admin_trade_audit_fav_added: "Added",
     admin_trade_audit_fav_removed: "Removed",
-    admin_trade_dash_title: "Trade dashboard",
+    admin_trade_dash_title: `${B.MARKET} dashboard`,
     admin_trade_dash_subtitle: "Check pending items first. Times in Philippine time",
     admin_trade_dash_last_updated: "Last updated {time}",
     admin_trade_dash_pending: "Pending",

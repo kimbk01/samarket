@@ -2,6 +2,8 @@
  * 어드민 화면 문구 — 언어 SSOT L25(2026-11-08): 검사 규칙이 세지 않던 한국어 문자열(`label:`·`description=`·`<option>` 등)에서 옮긴 문구.
  * 운영 영역 — 알림 발송·재무(Cash 원장)·매장 어드민.
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+
 export const copyAdminL25OpsMessages = {
   ko: {
     admin_biz_fee_scope_store: "매장 개별",
@@ -229,7 +231,7 @@ export const copyAdminL25OpsMessages = {
     admin_notifications_push_2: "푸시",
     admin_notifications_none_auto: "없음(자동 안내)",
     admin_notifications_read_2: "읽음",
-    admin_notifications_my_update_history: "내 정보 › 업데이트 내역 (그 버전 강조)",
+    admin_notifications_my_update_history: `${B.MY} › 업데이트 내역 (그 버전 강조)`,
     admin_notifications_ios_has_no_in_app_update: "iOS 는 앱 안 업데이트 확인이 없어 안내를 만들지 않습니다(설계).",
     admin_notifications_no_members_2: "안내 받은 회원이 없습니다.",
     admin_notifications_notified_2: "안내 시각",
@@ -313,7 +315,7 @@ export const copyAdminL25OpsMessages = {
     admin_notifications_counting: "계산 중…",
     admin_notifications_audience_push_count_failed: "알림함 {v}명 · 푸시 인원 계산 실패",
     admin_notifications_refresh: "새로고침",
-    admin_notifications_benefits_events_inbox_for_everyone_push: "혜택·이벤트 알림 — 알림함은 전원, 푸시는 혜택·이벤트 수신 동의 회원만(내정보에서 끈 회원 제외).",
+    admin_notifications_benefits_events_inbox_for_everyone_push: `혜택·이벤트 알림 — 알림함은 전원, 푸시는 혜택·이벤트 수신 동의 회원만(${B.MY}에서 끈 회원 제외).`,
     admin_notifications_member_ids_newline_or_comma: "회원 ID (줄바꿈·쉼표로 구분)",
     admin_notifications_scheduled_time_pht: "예약 시각 (PHT)",
     admin_notifications_send_time: "발송 시각",
@@ -575,7 +577,7 @@ export const copyAdminL25OpsMessages = {
     admin_notifications_push_2: "Push",
     admin_notifications_none_auto: "None (auto)",
     admin_notifications_read_2: "read",
-    admin_notifications_my_update_history: "My › Update history",
+    admin_notifications_my_update_history: `${B.MY} › Update history`,
     admin_notifications_ios_has_no_in_app_update: "iOS has no in-app update check (by design).",
     admin_notifications_no_members_2: "No members.",
     admin_notifications_notified_2: "Notified",

@@ -2,6 +2,7 @@
  * 광고 3차 재감사 + 어드민 광고 SSOT 구현 (Owner 「설계안대로 진행」 2026-11-07) — 어드민 광고 원장·위치·바로 가기·메뉴 문구. 뒤에 spread 되므로 같은 키는 이 파일 값이 우선한다.
  * 위치 문구는 설계 §1-3 예문 그대로 (`lib/admin/ads-ledger/ad-location-label.ts` 가 이 키만 읽는다).
  */
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
 export const adsImpl1107LedgerMessages = {
   ko: {
     ads_ledger_kind_trade_promotion: "거래 상위노출",
@@ -150,7 +151,7 @@ export const adsImpl1107LedgerMessages = {
     admin_menu_ads_charge_inquiry: "충전·문의",
     admin_menu_ads_ledger_domain: "광고 원장",
     admin_menu_delivery_ads_cash_queue: "Cash 충전 대기열",
-    admin_menu_delivery_ads_ops: "배달 광고 운영 목록",
+    admin_menu_delivery_ads_ops: `${B.DIPICK} 광고 운영 목록`,
     admin_menu_delivery_ads_commercial: "광고 상품·가격",
     ads_ledger_menu_delivery_ops: "배달 광고 운영 목록",
     ads_ledger_menu_cash_queue: "Cash 충전 대기열",
@@ -315,7 +316,7 @@ export const adsImpl1107LedgerMessages = {
     admin_menu_ads_charge_inquiry: "Top-ups & inquiries",
     admin_menu_ads_ledger_domain: "Ads ledger",
     admin_menu_delivery_ads_cash_queue: "Cash top-up queue",
-    admin_menu_delivery_ads_ops: "Delivery ad operations",
+    admin_menu_delivery_ads_ops: `${B.DIPICK} ad operations`,
     admin_menu_delivery_ads_commercial: "Ad products & prices",
     ads_ledger_menu_delivery_ops: "Delivery ad operations",
     ads_ledger_menu_cash_queue: "Cash top-up queue",

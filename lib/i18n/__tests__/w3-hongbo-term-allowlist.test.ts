@@ -81,7 +81,7 @@ describe("D-15 「홍보」 허용 목록", () => {
   it("D-15 목록 키는 「상위노출」로 보인다", () => {
     const ko = (MESSAGES as unknown as Record<string, Record<string, string>>).ko;
     expect(ko.admin_menu_ads_promote_group).toBe("게시물 상위노출 신청");
-    expect(ko.admin_menu_ads_community_promote).toBe("커뮤니티 게시물 상위노출");
+    expect(ko.admin_menu_ads_community_promote).toBe("FEED 게시물 상위노출");
     expect(ko.admin_comm_promo_title).toBe("게시물 상위노출 신청");
     expect(ko.apple_iap_point_use_note).toContain("광고·상위노출에만");
     expect(ko.gift_u2_detail_apple_only_note).toContain("광고·상위노출에만");
