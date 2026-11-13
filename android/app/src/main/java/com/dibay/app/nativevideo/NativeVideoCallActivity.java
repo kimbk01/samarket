@@ -2087,7 +2087,7 @@ public class NativeVideoCallActivity extends Activity {
   /** 통화 화면 카메라 버튼·PiP 카메라 버튼 공통 (SSOT §3 — 같은 함수). */
   private void onCameraTapped(String source) {
     boolean requested = !isLocalCameraOn();
-    boolean applied = NativeVideoCallAgoraEngine.setLocalCameraOn(callId, requested);
+    boolean applied = NativeVideoCallAgoraEngine.setCameraEnabled(callId, requested);
     NativeVideoCallLog.info(
         "native_video_camera_changed",
         callId,

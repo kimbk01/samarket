@@ -1604,7 +1604,7 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
 
   @objc private func onCameraTapped() {
     let requested = !cameraEnabled
-    let applied = NativeVideoCallAgoraEngine.shared.setLocalCameraOn(callId: boundCallId, on: requested)
+    let applied = NativeVideoCallAgoraEngine.shared.setCameraEnabled(callId: boundCallId, on: requested)
     NativeVideoCallLog.info(
       "native_video_camera_changed",
       callId: boundCallId,

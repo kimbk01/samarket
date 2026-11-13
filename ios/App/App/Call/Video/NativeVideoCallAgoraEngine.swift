@@ -203,7 +203,7 @@ final class NativeVideoCallAgoraEngine: NSObject {
   /// §4-2 카메라 켜기·끄기의 유일한 함수. 입장 전(발신 연결 중)이면 상태만 저장하고 입장 때 반영한다.
   /// - Returns: 적용 후 실제 카메라 상태 (SDK 실패 시 이전 상태로 되돌린 값)
   @discardableResult
-  func setLocalCameraOn(callId: String, on: Bool) -> Bool {
+  func setCameraEnabled(callId: String, on: Bool) -> Bool {
     let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else { return true }
     lock.lock()

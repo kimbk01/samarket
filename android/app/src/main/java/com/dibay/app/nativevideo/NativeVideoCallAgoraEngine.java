@@ -451,7 +451,7 @@ public final class NativeVideoCallAgoraEngine {
    *
    * @return 적용 후 실제 카메라 상태 (SDK 실패 시 이전 상태로 되돌린 값)
    */
-  public static boolean setLocalCameraOn(String callId, boolean on) {
+  public static boolean setCameraEnabled(String callId, boolean on) {
     if (callId == null || callId.trim().isEmpty()) return true;
     String sid = callId.trim();
     synchronized (LOCK) {

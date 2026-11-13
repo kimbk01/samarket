@@ -116,6 +116,7 @@ const IOS_KO_BEFORE: Record<string, string> = {
   call_perm_mic_off_title: "마이크 권한이 꺼져 있어요",
   call_perm_mic_off_body: "음성·영상 통화를 하려면 설정 > DIBAY에서 마이크를 켜 주세요.",
   call_perm_camera_off_title: "카메라 권한이 꺼져 있어요",
+  call_peer_camera_off: "카메라 꺼짐",
   call_perm_camera_off_body: "영상 통화를 하려면 설정 > DIBAY에서 카메라를 켜 주세요.",
   call_perm_later: "나중에",
   call_perm_settings: "설정",
