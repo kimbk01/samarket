@@ -147,8 +147,6 @@ import {
 
   STORES_HOME_HEADER_ICON_BTN_CLASS,
 
-  STORES_HOME_HEADER_NOTIF_BADGE_CLASS,
-
 } from "@/lib/design/stores-home-header-chrome";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { OWNER_NOTIF_GROUPS, type OwnerNotifTab } from "@/components/stores/owner/owner-notification-inbox-items";
@@ -1300,11 +1298,10 @@ export function PhilifeHeaderNotificationInbox({
 
           <span
 
+            /** 헤더 SSOT — 알림 배지는 톤과 상관없이 한 모양·한 자리 (배달 헤더도 다른 허브와 같음) */
             className={
               unreadBadgeClassName ??
-              (tone === "onPrimary"
-                ? STORES_HOME_HEADER_NOTIF_BADGE_CLASS
-                : "absolute right-0.5 top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-sam-danger px-0.5 text-[9px] font-bold leading-none text-sam-on-primary")
+              "absolute right-0.5 top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-sam-danger px-0.5 text-[9px] font-bold leading-none text-sam-on-primary"
             }
 
             aria-hidden
