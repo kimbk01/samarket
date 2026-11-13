@@ -50,6 +50,20 @@ describe("연락처 번호 정규화 (SSOT v5 §4 S4)", () => {
     expect(normalizeContactPhoneE164("917-123-4567", "KR")).toBeNull();
     expect(normalizeContactPhoneE164("917-123-4567", "PH")).toBe("+639171234567");
   });
+  it("보이지 않는 방향 문자가 붙어도 같은 번호로 판정 (감사 2026-11-14 최종 점검)", () => {
+    for (const c of ["PH", "KR"] as const) {
+      expect(normalizeContactPhoneE164("\u200e010-1234-5678", c)).toBe("+821012345678");
+      expect(normalizeContactPhoneE164("\u200e0917 123 4567", c)).toBe("+639171234567");
+      expect(normalizeContactPhoneE164("\u202a+82 10-1234-5678\u202c", c)).toBe("+821012345678");
+      expect(normalizeContactPhoneE164("\u202a+63 917 123 4567\u202c", c)).toBe("+639171234567");
+      expect(normalizeContactPhoneE164("\u2066010 1234 5678\u2069", c)).toBe("+821012345678");
+      expect(normalizeContactPhoneE164("\ufeff0917\u00a0123\u00a04567", c)).toBe("+639171234567");
+    }
+    // 서식 문자만 있으면 null
+    expect(normalizeContactPhoneE164("\u200e\u202a\u202c", "PH")).toBeNull();
+    // 다른 나라는 문자를 지워도 그대로 null
+    expect(normalizeContactPhoneE164("\u202a+1 415 555 0100\u202c", "KR")).toBeNull();
+  });
   it("다른 나라·유선·형식 불가 → null", () => {
     expect(normalizeContactPhoneE164("+1 415 555 0100", "PH")).toBeNull();
     expect(normalizeContactPhoneE164("02-123-4567", "KR")).toBeNull();
