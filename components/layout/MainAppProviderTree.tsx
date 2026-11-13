@@ -38,7 +38,6 @@ import { MainBottomNavTabsProvider } from "@/contexts/MainBottomNavTabsContext";
 import { DiBaYDevicePermissionOnboardingGate } from "@/components/permissions/DiBaYDevicePermissionOnboardingGate";
 import { NotificationPermissionSyncHost } from "@/lib/permissions/permission-manager/notification-permission-sync-host";
 import { PushRouteListener } from "@/components/push/PushRouteListener";
-import { AndroidHardwareBackOwner } from "@/components/platform/AndroidHardwareBackOwner";
 import { FriendQrAppLinkListener } from "@/components/community-messenger/friend-qr/FriendQrAppLinkListener";
 import { NotificationRouteReadSync } from "@/components/push/NotificationRouteReadSync";
 import { registerGoogleNativeRecoverBootstrap } from "@/lib/auth/native/google-native-recover-bootstrap.client";
@@ -213,7 +212,6 @@ export function MainAppProviderTree({
           <NotificationPermissionSyncHost />
           <NativePushRegistrationLazy />
           <PushRouteListener />
-          <AndroidHardwareBackOwner />
           <FriendQrAppLinkListener />
           <NotificationRouteReadSync />
           <NativeBadgeSyncLazy />
