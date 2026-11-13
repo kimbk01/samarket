@@ -115,8 +115,6 @@ public class NativeVideoCallActivity extends Activity {
   private ImageButton acceptButton;
   private ImageButton declineButton;
   private ImageButton endButton;
-  private TextView endLabelView;
-  private TextView micLabelView;
   /** SSOT §4-1 — 마지막으로 넘긴 PiP 파라미터 키 (상태가 바뀔 때만 다시 넘김). */
   private String lastPipParamsKey;
   private ImageButton cameraButton;
@@ -1041,8 +1039,6 @@ public class NativeVideoCallActivity extends Activity {
     endButton = findViewById(R.id.native_video_call_end);
     cameraButton = findViewById(R.id.native_video_call_camera);
     micButton = findViewById(R.id.native_video_call_mic);
-    endLabelView = findViewById(R.id.native_video_call_end_label);
-    micLabelView = findViewById(R.id.native_video_call_mic_label);
     cameraFlipButton = findViewById(R.id.native_video_call_camera_flip);
     connectedChromeOverlay = findViewById(R.id.native_video_call_connected_chrome);
     topBar = findViewById(R.id.native_video_call_top_bar);
@@ -1141,7 +1137,7 @@ public class NativeVideoCallActivity extends Activity {
     if (durationView != null) durationView.setVisibility(View.GONE);
     activeActions.bringToFront();
     activeActions.setTranslationZ(32f);
-    if (endLabelView != null) endLabelView.setText(R.string.dibay_video_call_cancel);
+    if (endButton != null) endButton.setContentDescription(getString(R.string.dibay_video_call_cancel));
   }
 
   private void applyState(NativeVideoCallRuntime.State state) {
@@ -1244,7 +1240,7 @@ public class NativeVideoCallActivity extends Activity {
       syncPersistentCallStatusVisibility();
     }
     wasConnectedFullscreen = connectedFullscreenNow;
-    if (endLabelView != null) endLabelView.setText(model.endButtonLabel);
+    if (endButton != null) endButton.setContentDescription(model.endButtonLabel);
     refreshPipParams("state_" + state.name().toLowerCase(Locale.ROOT));
     applyRecentsCard(state, session);
     applyLocalCameraPresentation("apply_state");
@@ -1978,9 +1974,6 @@ public class NativeVideoCallActivity extends Activity {
           getString(micMuted ? R.string.dibay_call_control_unmute : R.string.dibay_call_control_mute));
       micButton.setBackgroundResource(R.drawable.bg_call_control_neutral);
       micButton.setColorFilter(Color.WHITE);
-    }
-    if (micLabelView != null) {
-      micLabelView.setText(micMuted ? R.string.dibay_call_control_unmute : R.string.dibay_call_control_mute);
     }
     if (cameraFlipButton != null) {
       cameraFlipButton.setBackgroundResource(R.drawable.bg_call_control_neutral);
