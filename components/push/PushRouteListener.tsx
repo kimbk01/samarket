@@ -36,6 +36,7 @@ import { shouldApplyMemberNotificationReadOnPushTap } from "@/lib/notifications/
 import { removeDeliveredNotificationOnPushTap } from "@/lib/push/native/remove-delivered-notifications";
 import { suppressCmRoomEntryNotificationSound } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import { markPushLaunchIntentNavigated } from "@/lib/lifecycle/launch-intent.client";
+import { markLaunchPushHandled } from "@/lib/startup/launch-push-hold";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
@@ -193,6 +194,8 @@ function finalizePushRouteConsume(path: string, notificationId?: string | null):
     }
     if (Date.now() - started > 8_000) {
       window.clearInterval(timer);
+      // 재설계 A: 8초 안에 목적지 경로 확인이 안 되면(경로 변형·리다이렉트) 시작 화면 보류를 끝낸다 — 기존 상한 재사용.
+      markLaunchPushHandled();
       console.info("[push-route] consume_unconfirmed_keep_pending", {
         path,
         current: currentAppPath(),
@@ -239,6 +242,8 @@ export function PushRouteListener() {
   useEffect(() => {
     return subscribeSessionPhase((phase) => {
       sessionPhaseRef.current = phase;
+      // 재설계 A: 로그인 확인이 비회원·손상으로 끝나면 보류된 목적지로 가지 않는다 → 시작 화면 해제 허용.
+      if (phase === "terminal_guest" || phase === "corrupt") markLaunchPushHandled();
       if (phase !== "authenticated") return;
       const pending = readPendingPushRoute();
       if (!pending?.path) return;
@@ -287,7 +292,12 @@ export function PushRouteListener() {
   useLayoutEffect(() => {
     if (!isCapacitorNativePlatform()) return;
 
-    const navigate = (
+    /**
+     * 재설계 A — 단일 종료 지점: 한 번의 처리 결과가 「이동」·「보류(로그인 확인 중)」·「중복」이 아니면
+     * 시작 화면 해제를 허용한다(markLaunchPushHandled). 분기마다 해제를 넣지 않는다.
+     */
+    let launchOutcome: "ended" | "navigated" | "held" | "duplicate" = "ended";
+    const navigateInner = (
       rawPath: string,
       notificationId?: string,
       transport?: Pick<PushRouteDetail, "recipientScope" | "pipeline" | "type">,
@@ -302,7 +312,10 @@ export function PushRouteListener() {
         void clearNativePersistedPendingPushRoute();
         return;
       }
-      if (!opts?.skipNotificationDedupe && isDuplicateNotification(notificationId)) return;
+      if (!opts?.skipNotificationDedupe && isDuplicateNotification(notificationId)) {
+        launchOutcome = "duplicate";
+        return;
+      }
 
       // Lifecycle SSOT §8 — 이번 문서의 시작 복원·Safe Entry 가 이 목적지를 덮지 않게 표시(통화 경로 제외).
       markPushLaunchIntentNavigated(path);
@@ -312,6 +325,7 @@ export function PushRouteListener() {
       const last = lastRouteRef.current;
       if (last && last.path === path && now - last.at < ROUTE_DEDUPE_MS && !opts?.skipNotificationDedupe) {
         console.info("[push-route] duplicate_ignored", { path });
+        launchOutcome = "duplicate";
         return;
       }
       lastRouteRef.current = { path, at: now };
@@ -341,6 +355,7 @@ export function PushRouteListener() {
           fallbackReason: sessionPhaseRef.current,
           recipientUserId: holdRecipientUserId,
         });
+        launchOutcome = "held";
         console.info("[push-route] auth_resolution_hold", {
           path,
           phase: sessionPhaseRef.current,
@@ -491,6 +506,7 @@ export function PushRouteListener() {
        * 「계속 쓰기」면 이동하지 않고 대기 경로를 지운다(재시작 때 다시 열리지 않게). 통화 경로는 묻지 않는다.
        */
       const deliverRoute = () => {
+        launchOutcome = "navigated";
         markNotificationConsumed(notificationId);
 
         // PUSH OPEN → Event destination: session same-Event popup coordination.
@@ -533,6 +549,12 @@ export function PushRouteListener() {
         return;
       }
       deliverRoute();
+    };
+
+    const navigate: typeof navigateInner = (...args) => {
+      launchOutcome = "ended";
+      navigateInner(...args);
+      if (launchOutcome === "ended") markLaunchPushHandled();
     };
 
     navigateRef.current = navigate;
