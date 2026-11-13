@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { SectorHeaderBar } from "@/components/layout/sector-header/SectorHeaderBar";
+import { SectorHeaderTitle } from "@/components/layout/sector-header/SectorHeaderTitle";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import {
   formatPhMobileDisplay,
@@ -360,79 +362,82 @@ export function StoreOrderBuyerChatTop({
 
   return (
     <>
-      <div className="flex min-h-[44px] items-center gap-2 border-b border-sam-border bg-sam-surface px-2 py-1.5">
-        <AppBackButton preferHistoryBack backHref={backHref} />
-        <h1 className="min-w-0 flex-1 truncate text-center sam-text-body-lg font-semibold leading-[21px] tracking-[-0.02em] text-foreground">
-          {title}
-        </h1>
-        <div className="flex shrink-0 items-center gap-0.5">
-          <button
-            type="button"
-            onClick={() => setDrawerOpen((v) => !v)}
-            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/[0.05] active:bg-black/[0.06] ${
-              !matchAcked ? "ring-2 ring-amber-400/80 ring-offset-2 ring-offset-white" : ""
-            }`}
-            aria-expanded={drawerOpen}
-            aria-label={
-              drawerOpen ? t("store_order_history_panel_close_aria") : t("store_order_history_panel_open_aria")
-            }
-          >
-            <span className={`${!matchAcked ? "animate-pulse" : ""}`} aria-hidden>
-              <svg
-                className="h-5 w-5 text-sam-fg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
+      {/* 헤더 SSOT 4단계 — 공통 줄 부품(높이 52 · 뒤로 48@x4 · 제목 17px/600 가운데 · 아이콘 48/24) */}
+      <div className="border-b border-sam-border bg-[color:var(--dibay-domain-surface)]">
+        <SectorHeaderBar
+          left={<AppBackButton preferHistoryBack backHref={backHref} />}
+          center={<SectorHeaderTitle as="h1">{title}</SectorHeaderTitle>}
+          right={
+            <div className="flex shrink-0 items-center">
+              <button
+                type="button"
+                onClick={() => setDrawerOpen((v) => !v)}
+                className={`sector-header-action ${
+                  !matchAcked ? "ring-2 ring-amber-400/80 ring-offset-2 ring-offset-white" : ""
+                }`}
+                aria-expanded={drawerOpen}
+                aria-label={
+                  drawerOpen ? t("store_order_history_panel_close_aria") : t("store_order_history_panel_open_aria")
+                }
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onBuyerChatSoundOnChange(!buyerChatSoundOn)}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/[0.05]"
-            aria-label={buyerChatSoundOn ? t("store_chat_notify_on_aria") : t("store_chat_notify_off_aria")}
-            aria-pressed={buyerChatSoundOn}
-          >
-            {buyerChatSoundOn ? (
-              <svg
-                className="h-[22px] w-[22px] text-sam-fg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-                aria-hidden
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                />
-              </svg>
-            ) : (
-              <span className="relative inline-flex h-[22px] w-[22px] items-center justify-center" aria-hidden>
-                <svg
-                  className="h-[22px] w-[22px] text-sam-muted"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                  />
-                </svg>
-                <span className="pointer-events-none absolute -bottom-0.5 -right-1 sam-text-body-secondary leading-none">
-                  🔇
+                <span className={`${!matchAcked ? "animate-pulse" : ""}`} aria-hidden>
+                  <svg
+                    className="h-5 w-5 text-sam-fg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
                 </span>
-              </span>
-            )}
-          </button>
-        </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => onBuyerChatSoundOnChange(!buyerChatSoundOn)}
+                className="sector-header-action"
+                aria-label={buyerChatSoundOn ? t("store_chat_notify_on_aria") : t("store_chat_notify_off_aria")}
+                aria-pressed={buyerChatSoundOn}
+              >
+                {buyerChatSoundOn ? (
+                  <svg
+                    className="h-[22px] w-[22px] text-sam-fg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                    />
+                  </svg>
+                ) : (
+                  <span className="relative inline-flex h-6 w-6 items-center justify-center" aria-hidden>
+                    <svg
+                      className="h-[22px] w-[22px] text-sam-muted"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                      />
+                    </svg>
+                    <span className="pointer-events-none absolute -bottom-0.5 -right-1 sam-text-body-secondary leading-none">
+                      🔇
+                    </span>
+                  </span>
+                )}
+              </button>
+            </div>
+          }
+        />
       </div>
 
       {drawer}

@@ -45,8 +45,9 @@ describe("messenger split room entry frame (P1·P2)", () => {
   it("frame header classes match the real Phase2 header (split) — no shift when the room arrives", () => {
     const header = read("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Header.tsx");
     const frame = read("components/community-messenger/room/MessengerSplitRoomEntryFrame.tsx");
-    expect(header).toContain('"min-w-0 overflow-hidden pt-[var(--safe-top)] pr-[max(12px,var(--safe-right))]"');
-    expect(frame).toContain('"min-w-0 overflow-hidden pt-[var(--safe-top)] pr-[max(12px,var(--safe-right))]"');
+    /** 헤더 SSOT 4단계 — 오른쪽 여백은 .chat-header 공통 끝 여백(4)이 맡는다 */
+    expect(header).toContain('"min-w-0 overflow-hidden pt-[var(--safe-top)]"');
+    expect(frame).toContain('"min-w-0 overflow-hidden pt-[var(--safe-top)]"');
     const btn = header.match(/CM_ROOM_HEADER_TOUCH_BTN_CLASS =\s*"([^"]+)"/)?.[1];
     const face = header.match(/CM_ROOM_HEADER_TOUCH_FACE_BASE_CLASS =\s*"([^"]+)"/)?.[1];
     expect(btn).toBeTruthy();

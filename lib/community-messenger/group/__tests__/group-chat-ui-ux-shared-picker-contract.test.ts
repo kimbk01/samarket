@@ -65,12 +65,12 @@ describe("group chat UI/UX shared picker + surface contracts", () => {
     expect(sheetUi).not.toMatch(/splitListSheet\s*\?/);
   });
 
-  it("wide room header grows with safe-top (presentation after 48px lock)", () => {
+  it("wide room header grows with safe-top (presentation after header-height lock, 헤더 SSOT 52)", () => {
     const presentation = read("app/messenger-presentation.css");
     const transitions = read("app/messenger-view-transitions.css");
-    expect(presentation).toContain("min-height: calc(48px + var(--safe-top, 0px))");
-    expect(presentation).toContain("padding-right: max(12px, var(--safe-right, 0px))");
-    expect(transitions).toContain("min-height: calc(48px + var(--safe-top, 0px))");
+    expect(presentation).toContain("min-height: calc(var(--sector-header-h) + var(--safe-top, 0px))");
+    expect(presentation).toContain("padding-right: var(--sector-header-edge-pad-right) !important;");
+    expect(transitions).toContain("min-height: calc(var(--sector-header-h) + var(--safe-top, 0px))");
   });
 
   it("create panel remains two-step (members → details)", () => {

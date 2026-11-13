@@ -25,8 +25,8 @@ describe("room header: call button and ⋮ menu coexist (T-03)", () => {
     expect(src).toContain('onClick={() => vm.setActiveSheet("menu")}');
   });
 
-  it("header icons keep the 36px visible circle with a 44px touch box (T-01)", () => {
-    expect(src).toMatch(/CM_ROOM_HEADER_TOUCH_BTN_CLASS =\s*"group relative flex h-11 w-11/);
+  it("header icons keep the 36px visible circle with a 48px touch box (헤더 SSOT 4단계, 이전 T-01 44px)", () => {
+    expect(src).toMatch(/CM_ROOM_HEADER_TOUCH_BTN_CLASS =\s*"group relative flex h-12 w-12/);
     expect(src).toMatch(/CM_ROOM_HEADER_TOUCH_FACE_BASE_CLASS =\s*"flex h-9 w-9/);
     expect(src).not.toMatch(/className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full/);
   });
