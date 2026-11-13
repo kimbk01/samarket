@@ -424,6 +424,20 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
   line-height: var(--sector-header-title-lh);
 }
 
+/**
+ * 부제목 있는 줄(판매하기 등) — 제목 세로 자리를 부제목 없는 줄과 같게(줄 가운데) 두고 부제목은 그 아래에 둔다
+ * (헤더 SSOT, Owner 「권장안대로」 2026-11-13). 52 = 위 여백 15 + 제목 22 + 간격 1 + 부제목 13 + 1.
+ */
+.sector-header-bar--with-subtitle .sector-header-bar__center {
+  align-self: stretch;
+}
+
+.sector-header-bar--with-subtitle .sector-header-title-cluster {
+  height: 100%;
+  justify-content: flex-start;
+  padding-top: calc((var(--sector-header-h) - var(--sector-header-title-lh)) / 2);
+}
+
 .sector-header-subtitle {
   display: block;
   min-width: 0;

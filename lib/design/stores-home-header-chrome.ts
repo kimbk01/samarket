@@ -1,5 +1,4 @@
 import { APP_TIER1_HEADER_ICON_BTN_CLASS } from "@/lib/layout/app-tier1-header";
-import { STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME } from "@/components/stores/StoreCommerceCartStrokeIcon";
 import {
   DELIVERY_CONSUMER_HEADER_ACTION_GAP_PX,
   DELIVERY_CONSUMER_HEADER_ACTION_SIZE_PX,
@@ -9,14 +8,6 @@ import { SAM_TIER1_HEADER_ICON_CLUSTER_CLASS } from "@/lib/ui/tier1-header-icon"
 /** `/stores` delivery header — domain pale surface (image SSOT); existing actions only */
 export const STORES_HOME_HEADER_ICON_BTN_CLASS =
   `${APP_TIER1_HEADER_ICON_BTN_CLASS} relative text-[color:var(--sector-header-icon-color,#243832)] hover:bg-black/5 active:bg-black/10`;
-
-/** 카트·알림 수량 뱃지 */
-export const STORES_HOME_HEADER_COUNT_BADGE_CLASS =
-  `absolute -right-0.5 -top-0.5 ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME} ring-[color:var(--dibay-domain-surface,var(--delivery-home-header-bg))]`;
-
-export const STORES_HOME_HEADER_BADGE_CLASS = STORES_HOME_HEADER_COUNT_BADGE_CLASS;
-
-export const STORES_HOME_HEADER_NOTIF_BADGE_CLASS = STORES_HOME_HEADER_COUNT_BADGE_CLASS;
 
 /** `@deprecated` — `DELIVERY_CONSUMER_HEADER_ACTION_*` 와 동일 (`.delivery-ui` 전역) */
 export const STORES_HOME_HEADER_ACTIONS_GAP_PX = DELIVERY_CONSUMER_HEADER_ACTION_GAP_PX;

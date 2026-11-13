@@ -598,7 +598,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
               onClick={openCreate}
               disabled={listLocked}
               data-testid="address-header-add"
-              className={`sam-header-action inline-flex min-h-[44px] items-center gap-1 px-2 sam-text-body font-semibold text-sam-primary disabled:opacity-45 ${Sam.focusRing}`}
+              className={`sam-header-action inline-flex min-h-[44px] items-center gap-1 pl-2 pr-3 sam-text-body font-semibold text-sam-primary disabled:opacity-45 ${Sam.focusRing}`}
             >
               <Plus className="h-4 w-4" aria-hidden />
               {t("mypage_s06_header_add")}
