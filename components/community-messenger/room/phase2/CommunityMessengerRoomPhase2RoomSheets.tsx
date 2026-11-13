@@ -944,12 +944,12 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
 
                 <div className="mt-4 space-y-3">
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                    <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-4 py-3">
                       <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("nav_messenger_participants")}</p>
                       <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.t("nav_chat_count_people", { count: vm.snapshot.room.memberCount })}</p>
                       <p className="mt-1 sam-text-helper text-sam-muted">{vm.roomTypeLabel}</p>
                     </div>
-                    <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                    <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-4 py-3">
                       <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_online")}</p>
                       <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">
                         {typeof vm.snapshot.room.onlineCount === "number"
@@ -958,19 +958,19 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       </p>
                       <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_group_online_ssot_hint")}</p>
                     </div>
-                    <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                    <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-4 py-3">
                       <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_my_status")}</p>
                       <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.myRoleLabel}</p>
                       <p className="mt-1 sam-text-helper text-sam-muted">{vm.roomIdentityLabel || vm.t("cm_ui_default_profile")}</p>
                     </div>
-                    <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                    <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-4 py-3">
                       <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_join_method")}</p>
                       <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.roomJoinLabel || vm.t("cm_ui_default_join")}</p>
                       <p className="mt-1 sam-text-helper text-sam-muted">
                         {vm.isOpenGroupRoom ? (vm.snapshot.room.isDiscoverable ? vm.t("cm_ui_search_visibility") : vm.t("nav_messenger_private_group")) : vm.t("cm_ui_invite_based")}
                       </p>
                     </div>
-                    <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                    <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-4 py-3">
                       <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_shared_items")}</p>
                       <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">
                         {vm.t("cm_ui_count_items", { count: vm.photoMessageCount + vm.voiceMessageCount + vm.fileMessageCount + vm.linkMessageCount })}
@@ -1016,7 +1016,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     </button>
                   </div>
 
-                  <div className="rounded-ui-rect border border-sam-border p-4">
+                  <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border p-4">
                     <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_basic_info")}</p>
                     <p className="mt-3 sam-text-body font-semibold text-sam-fg">{vm.snapshot.room.title}</p>
                     <p className="mt-2 sam-text-body-secondary leading-5 text-sam-muted">
@@ -1081,7 +1081,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   </div>
 
                   {vm.isGroupRoom && isCmGroupCallEnabled() ? (
-                    <div className="rounded-ui-rect border border-sam-border p-4">
+                    <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border p-4">
                       <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_call_status")}</p>
                       <div className="mt-3 space-y-2 sam-text-body-secondary text-sam-fg">
                         <div className="flex items-center justify-between gap-3">
@@ -1102,7 +1102,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     </div>
                   ) : null}
 
-                  <div className="rounded-ui-rect border border-sam-border p-4">
+                  <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border p-4">
                     <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_shared_items")}</p>
                     <div className="mt-3 grid grid-cols-4 gap-2">
                       <button
@@ -1141,7 +1141,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   </div>
 
                   {vm.isPrivateGroupRoom ? (
-                    <div className="rounded-ui-rect border border-sam-border p-4">
+                    <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_operation")}</p>
@@ -1149,20 +1149,20 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             {vm.t("cm_ui_owner_admin_summary", { owner: vm.snapshot.room.ownerLabel || "-", count: vm.groupAdminCount })}
                           </p>
                         </div>
-                        <span className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs font-semibold text-sam-fg">{vm.myRoleLabel}</span>
+                        <span className="rounded-[length:var(--overlay-radius-sm)] border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs font-semibold text-sam-fg">{vm.myRoleLabel}</span>
                       </div>
                       <div className="mt-3 grid grid-cols-3 gap-2">
-                        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
+                        <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-3 py-3">
                           <p className="sam-text-xxs text-sam-muted">{vm.t("neighborhood_notice")}</p>
                           <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.privateGroupNoticeStatusLabel}</p>
                           <p className="mt-1 sam-text-xxs text-sam-meta">{vm.t("cm_ui_top_fixed_status")}</p>
                         </div>
-                        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
+                        <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-3 py-3">
                           <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_allowed_permissions")}</p>
                           <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.allowedPrivateGroupPermissionCount}/6</p>
                           <p className="mt-1 sam-text-xxs text-sam-meta">{vm.t("cm_ui_operation_settings_applied")}</p>
                         </div>
-                        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
+                        <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-3 py-3">
                           <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_operation_history")}</p>
                           <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.t("cm_ui_count_items", { count: vm.managementEventMessages.length })}</p>
                           <p className="mt-1 sam-text-xxs text-sam-meta">{vm.t("cm_ui_role_change_history")}</p>
@@ -1230,7 +1230,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   ) : null}
 
                   {vm.isPrivateGroupRoom || vm.isOpenGroupRoom ? (
-                    <div ref={vm.groupNoticeSectionRef} className="rounded-ui-rect border border-sam-border p-4">
+                    <div ref={vm.groupNoticeSectionRef} className="rounded-[length:var(--overlay-radius-md)] border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="sam-text-body font-semibold text-sam-fg">
@@ -1245,17 +1245,17 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           </p>
                         </div>
                         {vm.snapshot.room.noticeUpdatedAt ? (
-                          <span className="rounded-ui-rect bg-sam-surface-muted px-2 py-1 sam-text-xxs font-semibold text-sam-fg">
+                          <span className="rounded-[length:var(--overlay-radius-sm)] bg-sam-surface-muted px-2 py-1 sam-text-xxs font-semibold text-sam-fg">
                             {formatTime(vm.snapshot.room.noticeUpdatedAt)}
                           </span>
                         ) : null}
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-2">
-                        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
+                        <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-3 py-3">
                           <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_status")}</p>
                           <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.privateGroupNoticeStatusLabel}</p>
                         </div>
-                        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
+                        <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-3 py-3">
                           <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_visibility")}</p>
                           <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.privateGroupNotice ? vm.t("cm_ui_shown_top") : vm.t("cm_ui_not_set")}</p>
                         </div>
@@ -1267,7 +1267,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             onChange={(e) => vm.setPrivateGroupNoticeDraft(e.target.value)}
                             rows={4}
                             placeholder={vm.isOpenGroupRoom ? vm.t("cm_ui_enter_meeting_notice") : vm.t("cm_ui_enter_group_notice")}
-                            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body outline-none focus:border-sam-border"
+                            className="w-full rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-3 py-3 sam-text-body outline-none focus:border-sam-border"
                           />
                           <button
                             type="button"
@@ -1279,11 +1279,11 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           </button>
                         </div>
                       ) : vm.privateGroupNotice ? (
-                        <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
+                        <div className="mt-3 rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-3 py-3">
                           <p data-user-content="" className="whitespace-pre-wrap sam-text-body-secondary leading-5 text-sam-fg">{vm.privateGroupNotice}</p>
                         </div>
                       ) : (
-                        <div className="mt-3 rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-3 py-4 sam-text-helper text-sam-muted">
+                        <div className="mt-3 rounded-[length:var(--overlay-radius-md)] border border-dashed border-sam-border bg-sam-surface px-3 py-4 sam-text-helper text-sam-muted">
                           {vm.isOpenGroupRoom ? vm.t("cm_ui_no_registered_meeting_notice") : vm.t("cm_ui_no_registered_group_notice")}
                         </div>
                       )}
@@ -1291,25 +1291,25 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   ) : null}
 
                   {vm.isPrivateGroupRoom ? (
-                    <div ref={vm.groupPermissionsSectionRef} className="rounded-ui-rect border border-sam-border p-4">
+                    <div ref={vm.groupPermissionsSectionRef} className="rounded-[length:var(--overlay-radius-md)] border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_permission_settings")}</p>
                           <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_allowed_limited_counts", { allowed: vm.allowedPrivateGroupPermissionCount, limited: 6 - vm.allowedPrivateGroupPermissionCount })}</p>
                         </div>
-                        <span className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs font-semibold text-sam-fg">{vm.myRoleLabel}</span>
+                        <span className="rounded-[length:var(--overlay-radius-sm)] border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs font-semibold text-sam-fg">{vm.myRoleLabel}</span>
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-2">
-                        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
+                        <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-3 py-3">
                           <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_allowed")}</p>
                           <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.t("cm_ui_count_items", { count: vm.allowedPrivateGroupPermissionCount })}</p>
                         </div>
-                        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
+                        <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-3 py-3">
                           <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_limited")}</p>
                           <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.t("cm_ui_count_items", { count: 6 - vm.allowedPrivateGroupPermissionCount })}</p>
                         </div>
                       </div>
-                      <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+                      <div className="mt-3 rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface p-3">
                         <p className="sam-text-helper font-semibold text-sam-fg">{vm.t("cm_ui_permission_summary")}</p>
                         <div className="mt-2 space-y-1.5 sam-text-helper text-sam-muted">
                           {vm.privateGroupPermissionRows.map((row) => (
@@ -1321,27 +1321,27 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         </div>
                       </div>
                       <div className="mt-3 grid gap-2">
-                        <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
+                        <label className="flex items-center justify-between rounded-[length:var(--overlay-radius-md)] border border-sam-border px-3 py-3">
                           <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_member_invite")}</span>
                           <input type="checkbox" checked={vm.groupAllowMemberInvite} onChange={(e) => vm.setGroupAllowMemberInvite(e.target.checked)} disabled={!vm.canManageGroupPermissions} className={GROUP_PERMISSION_CHECKBOX_CLASS} />
                         </label>
-                        <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
+                        <label className="flex items-center justify-between rounded-[length:var(--overlay-radius-md)] border border-sam-border px-3 py-3">
                           <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_admin_invite")}</span>
                           <input type="checkbox" checked={vm.groupAllowAdminInvite} onChange={(e) => vm.setGroupAllowAdminInvite(e.target.checked)} disabled={!vm.canManageGroupPermissions} className={GROUP_PERMISSION_CHECKBOX_CLASS} />
                         </label>
-                        <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
+                        <label className="flex items-center justify-between rounded-[length:var(--overlay-radius-md)] border border-sam-border px-3 py-3">
                           <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_admin_kick")}</span>
                           <input type="checkbox" checked={vm.groupAllowAdminKick} onChange={(e) => vm.setGroupAllowAdminKick(e.target.checked)} disabled={!vm.canManageGroupPermissions} className={GROUP_PERMISSION_CHECKBOX_CLASS} />
                         </label>
-                        <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
+                        <label className="flex items-center justify-between rounded-[length:var(--overlay-radius-md)] border border-sam-border px-3 py-3">
                           <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_admin_edit_notice")}</span>
                           <input type="checkbox" checked={vm.groupAllowAdminEditNotice} onChange={(e) => vm.setGroupAllowAdminEditNotice(e.target.checked)} disabled={!vm.canManageGroupPermissions} className={GROUP_PERMISSION_CHECKBOX_CLASS} />
                         </label>
-                        <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
+                        <label className="flex items-center justify-between rounded-[length:var(--overlay-radius-md)] border border-sam-border px-3 py-3">
                           <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_member_upload")}</span>
                           <input type="checkbox" checked={vm.groupAllowMemberUpload} onChange={(e) => vm.setGroupAllowMemberUpload(e.target.checked)} disabled={!vm.canManageGroupPermissions} className={GROUP_PERMISSION_CHECKBOX_CLASS} />
                         </label>
-                        <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
+                        <label className="flex items-center justify-between rounded-[length:var(--overlay-radius-md)] border border-sam-border px-3 py-3">
                           <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_member_call")}</span>
                           <input type="checkbox" checked={vm.groupAllowMemberCall} onChange={(e) => vm.setGroupAllowMemberCall(e.target.checked)} disabled={!vm.canManageGroupPermissions} className={GROUP_PERMISSION_CHECKBOX_CLASS} />
                         </label>
@@ -1360,13 +1360,13 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   ) : null}
 
                   {vm.managementEventMessages.length ? (
-                    <div ref={vm.groupHistorySectionRef} className="rounded-ui-rect border border-sam-border p-4">
+                    <div ref={vm.groupHistorySectionRef} className="rounded-[length:var(--overlay-radius-md)] border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_operation_history")}</p>
                           <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_check_operation_history_description")}</p>
                         </div>
-                        <span className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs font-semibold text-sam-fg">
+                        <span className="rounded-[length:var(--overlay-radius-sm)] border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs font-semibold text-sam-fg">
                           {vm.t("cm_ui_count_items", { count: vm.managementEventMessages.length })}
                         </span>
                       </div>
@@ -1393,7 +1393,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   ) : null}
 
                   {vm.isOpenGroupRoom ? (
-                    <div className="rounded-ui-rect bg-sam-app p-4">
+                    <div className="rounded-[length:var(--overlay-radius-md)] bg-sam-app p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="sam-text-body font-semibold text-sam-fg">{vm.t("nav_messenger_open_group_settings")}</p>
@@ -1401,7 +1401,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             {vm.isOwner ? vm.t("nav_messenger_open_group_owner_desc") : vm.t("nav_messenger_open_group_view_desc")}
                           </p>
                         </div>
-                        <span className="rounded-ui-rect bg-sam-surface px-2 py-1 sam-text-xxs font-semibold text-sam-muted">
+                        <span className="rounded-[length:var(--overlay-radius-sm)] bg-sam-surface px-2 py-1 sam-text-xxs font-semibold text-sam-muted">
                           {vm.isOwner ? vm.t("nav_messenger_owner_label") : vm.t("nav_messenger_my_role_label", { role: vm.snapshot.myRole })}
                         </span>
                       </div>
@@ -1419,10 +1419,10 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             onChange={(e) => vm.setOpenGroupSummary(e.target.value)}
                             rows={3}
                             placeholder={vm.t("nav_messenger_room_intro_placeholder")}
-                            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body outline-none focus:border-sam-border"
+                            className="w-full rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-3 py-3 sam-text-body outline-none focus:border-sam-border"
                           />
                           <div className="grid gap-3 md:grid-cols-2">
-                            <div className="grid grid-cols-2 gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-2">
+                            <div className="grid grid-cols-2 gap-2 rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface p-2">
                               <button
                                 type="button"
                                 onClick={() => vm.setOpenGroupJoinPolicy("password")}
@@ -1458,7 +1458,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                               className={`${OverlayUi.input} !mt-0`}
                             />
                           ) : null}
-                          <div className="grid grid-cols-2 gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-2">
+                          <div className="grid grid-cols-2 gap-2 rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface p-2">
                             <button
                               type="button"
                               onClick={() => vm.setOpenGroupIdentityPolicy("real_name")}
@@ -1476,7 +1476,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                               {vm.t("nav_messenger_identity_alias")}
                             </button>
                           </div>
-                          <label className="flex items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
+                          <label className="flex items-center justify-between rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-3 py-3">
                             <div>
                               <p className="sam-text-body-secondary font-semibold text-sam-fg">{vm.t("nav_messenger_discoverable_label")}</p>
                               <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("nav_messenger_discoverable_desc")}</p>
@@ -1485,7 +1485,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                               type="checkbox"
                               checked={vm.openGroupDiscoverable}
                               onChange={(e) => vm.setOpenGroupDiscoverable(e.target.checked)}
-                              className="h-4 w-4 rounded border-sam-border text-sam-fg focus:ring-sam-border"
+                              className={`h-4 w-4 rounded border-sam-border text-sam-fg focus:ring-sam-border ${GROUP_PERMISSION_CHECKBOX_CLASS}`}
                             />
                           </label>
                           <button
