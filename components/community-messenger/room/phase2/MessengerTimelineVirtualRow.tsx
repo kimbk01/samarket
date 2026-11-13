@@ -586,6 +586,17 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     >
       <div className="flex min-w-0 max-w-full flex-col">
         {renderReplyQuoteInsideBubble()}
+        {/* 통합 공유 S6 · G-4 — 전달된 메시지는 「전달됨」만 (원본 방·원작성자 없음) */}
+        {!deletedForEveryone && (item.metadata as { forwarded?: unknown } | null | undefined)?.forwarded === true ? (
+          <p
+            data-cm-forwarded=""
+            className={`px-[12px] pt-1.5 sam-text-xxs leading-snug ${
+              item.isMine && item.messageType !== "sticker" ? "text-white/80" : "text-[color:var(--cm-room-text-muted)]"
+            }`}
+          >
+            {t("share_forwarded_label")}
+          </p>
+        ) : null}
         {!deletedForEveryone &&
         (item.messageType === "image" || item.messageType === "sticker" || item.messageType === "community_post_share") ? (
           viberInnerBody

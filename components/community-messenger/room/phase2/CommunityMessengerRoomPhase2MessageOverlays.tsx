@@ -6,10 +6,17 @@ import { MessengerPhotoSelectSaveSheet } from "@/components/community-messenger/
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { isCommunityMessengerStoreOrderDeliveryRoom } from "@/lib/community-messenger/room-context-meta";
+import { useState } from "react";
+import {
+  MessengerForwardSheet,
+  type MessengerForwardSource,
+} from "@/components/community-messenger/forward/MessengerForwardSheet";
 
 export function CommunityMessengerRoomPhase2MessageOverlays() {
   const { t } = useI18n();
   const vm = useMessengerRoomPhase2View();
+  /** 「전달하기」 대상 선택 시트 (통합 공유 S6) */
+  const [forwardSource, setForwardSource] = useState<MessengerForwardSource | null>(null);
   const messageActionItem = vm.messageActionItem;
   const actionMsg = messageActionItem?.item;
   /** 통화 기록(`call_stub`) 신고·차단은 통화 HARD LOCK 영향 분석·승인 전 제외 */
@@ -59,6 +66,17 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
             vm.setMessageActionItem(null);
           }}
           onShareToRoom={() => void vm.shareMessageToOtherRoom(messageActionItem.item)}
+          onForward={() => {
+            const it = messageActionItem.item;
+            const roomId = String(vm.snapshot?.room.id ?? "").trim();
+            if (!roomId) return;
+            setForwardSource({
+              roomId,
+              messageId: it.id,
+              previewText: it.messageType === "sticker" ? t("cm_home_preview_sticker") : String(it.content ?? ""),
+            });
+            vm.setMessageActionItem(null);
+          }}
           onShareExternal={() => void vm.shareMessageExternally(messageActionItem.item)}
           onShareCopyLink={() => void vm.shareMessageCopyDeepLink(messageActionItem.item)}
           onReply={() => {
@@ -126,6 +144,7 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
           interactionMode="blocking"
         />
       ) : null}
+      <MessengerForwardSheet source={forwardSource} onClose={() => setForwardSource(null)} />
     </>
   );
 }

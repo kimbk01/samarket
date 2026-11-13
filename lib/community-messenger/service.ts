@@ -18321,6 +18321,168 @@ export async function sendCommunityMessengerStickerMessage(input: {
   };
 }
 
+/**
+ * 메시지 「전달하기」 (통합 공유 S6 · Owner G-4 2026-11-14).
+ * 설계: docs/audit/dibay-unified-share-audit-design-2026-11-14.md §D-5 · §H-5 · §I-4 · §J-2.
+ *
+ * - 전달 = 대상 방에 **새 메시지** 1개 (스티커 전송과 같은 `dibay_append_room_message_atomic` 경로 — unread·방 tip·알림 동일).
+ * - 표시 = metadata.forwarded=true 만 (「전달됨」). 원본 방 ID·방 이름·원작성자·답장·반응은 저장하지 않는다(SH-P0-1 재발 방지).
+ * - 지원 유형 = text · sticker. 사진·파일은 원본 「모두에게서 삭제」가 저장 파일을 지우므로(purgeMessengerMediaStoragePaths)
+ *   파일 복사 설계 전까지 막는다(T-6). 음성·통화 기록·상품권·시스템·공유 카드 = 불가(G-4).
+ * - 원본·대상 방 = 일반 1:1·그룹만. 거래·배달(주문)·모임 방은 불가(G-4).
+ * - 중복 방지 = 호출부가 정한 결정적 clientMessageId + DB 고유 인덱스(uq_cm_messages_room_sender_client_message_id) —
+ *   재시도·동시 요청은 deduped 로 돌아오고 알림을 다시 보내지 않는다(§J-2).
+ */
+export const COMMUNITY_MESSENGER_FORWARDABLE_TYPES = ["text", "sticker"] as const;
+
+function cmForwardRoomAllowed(row: {
+  room_type?: unknown;
+  summary?: unknown;
+  chat_domain?: unknown;
+  owner_domain?: unknown;
+  deleted_at?: unknown;
+}): boolean {
+  if (trimText(row.deleted_at)) return false;
+  if (trimText(row.owner_domain) === "moim") return false;
+  const domain = trimText(row.chat_domain);
+  if (domain && domain !== "general_direct" && domain !== "group") return false;
+  const ctx = parseCommunityMessengerRoomContextMeta(trimText(row.summary));
+  if (ctx && (ctx.kind === "trade" || ctx.kind === "delivery")) return false;
+  return true;
+}
+
+export async function forwardCommunityMessengerMessage(input: {
+  onNotifyScheduled?: (done: Promise<void>) => void;
+  userId: string;
+  /** 대상 방 (canonical) */
+  roomId: string;
+  sourceRoomId: string;
+  sourceMessageId: string;
+  /** `fwd:{요청 UUID}:{대상 방}` — 호출부가 대상마다 결정적으로 만든다 */
+  clientMessageId: string;
+}): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string; deduped?: boolean }> {
+  const roomId = trimText(input.roomId);
+  const sourceRoomId = trimText(input.sourceRoomId);
+  const sourceMessageId = trimText(input.sourceMessageId);
+  const clientMessageId = trimText(input.clientMessageId);
+  if (!roomId || !sourceRoomId || !sourceMessageId || !clientMessageId) return { ok: false, error: "bad_request" };
+  if (!clientMessageId.startsWith("fwd:") || clientMessageId.length > 160) return { ok: false, error: "bad_request" };
+
+  const sb = getSupabaseOrNull();
+  if (!sb) return { ok: false, error: "messenger_storage_unavailable" };
+  // 이 파일의 다른 전송 함수와 같은 무형식 클라이언트(생성 DB 타입 없음) — 한 번만 변환
+  const db = sb as any;
+
+  // 1) 원본 — 보낸 사람이 지금 원본 방 참가자이고, 삭제·숨김 아닌 text·sticker 이며, 원본 방이 일반·그룹 방
+  const [{ data: srcPart }, { data: srcRoom }, { data: srcMsg }] = await Promise.all([
+    db
+      .from("community_messenger_participants")
+      .select("id")
+      .eq("room_id", sourceRoomId)
+      .eq("user_id", input.userId)
+      .maybeSingle(),
+    db
+      .from("community_messenger_rooms")
+      .select("id, room_type, summary, chat_domain, owner_domain, deleted_at")
+      .eq("id", sourceRoomId)
+      .maybeSingle(),
+    db
+      .from("community_messenger_messages")
+      .select("id, room_id, message_type, content, metadata, deleted_for_everyone_at, is_hidden_by_admin")
+      .eq("id", sourceMessageId)
+      .maybeSingle(),
+  ]);
+  if (!srcPart || !srcRoom || !srcMsg) return { ok: false, error: "forward_source_not_found" };
+  if (trimText((srcMsg as { room_id?: unknown }).room_id) !== sourceRoomId) return { ok: false, error: "forward_source_not_found" };
+  if (!cmForwardRoomAllowed(srcRoom as Record<string, unknown>)) return { ok: false, error: "forward_source_not_allowed" };
+  if (
+    trimText((srcMsg as { deleted_for_everyone_at?: unknown }).deleted_for_everyone_at) ||
+    (srcMsg as { is_hidden_by_admin?: unknown }).is_hidden_by_admin === true
+  ) {
+    return { ok: false, error: "forward_source_not_found" };
+  }
+  const messageType = trimText((srcMsg as { message_type?: unknown }).message_type);
+  if (messageType !== "text" && messageType !== "sticker") return { ok: false, error: "forward_type_not_allowed" };
+  const content = trimText((srcMsg as { content?: unknown }).content);
+  if (!content) return { ok: false, error: "forward_source_not_found" };
+  const srcMeta = ((srcMsg as { metadata?: unknown }).metadata ?? {}) as Record<string, unknown>;
+
+  // 2) 대상 — 스티커 전송과 같은 송신 가드 + 일반·그룹 방만
+  const sendGuard = await prepareMessengerRoomSend({ supabase: db, userId: input.userId, roomId });
+  if (!sendGuard.ok) return { ok: false, error: sendGuard.error };
+  const [{ data: participant }, { data: roomData }] = await Promise.all([
+    db
+      .from("community_messenger_participants")
+      .select("id")
+      .eq("room_id", roomId)
+      .eq("user_id", input.userId)
+      .maybeSingle(),
+    db
+      .from("community_messenger_rooms")
+      .select("id, room_type, summary, chat_domain, owner_domain, room_status, is_readonly, deleted_at")
+      .eq("id", roomId)
+      .maybeSingle(),
+  ]);
+  if (!participant || !roomData) return { ok: false, error: "room_not_found" };
+  if (!cmForwardRoomAllowed(roomData as Record<string, unknown>)) return { ok: false, error: "forward_target_not_allowed" };
+  const roomStatus = normalizeRoomStatus((roomData as { room_status?: unknown }).room_status);
+  if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
+  if (roomStatus === "archived") return { ok: false, error: "room_archived" };
+  if ((roomData as { is_readonly?: unknown }).is_readonly === true) return { ok: false, error: "room_readonly" };
+
+  // 3) 새 메시지 — 원본 정보 없이 「전달됨」 표시만
+  const metadata: Record<string, unknown> = { client_message_id: clientMessageId, forwarded: true };
+  if (messageType === "sticker") {
+    const stickerItemId = trimText(srcMeta.sticker_item_id);
+    if (stickerItemId) metadata.sticker_item_id = stickerItemId;
+  }
+  const createdAt = nowIso();
+  const { appendTypedMessengerMessageAtomic } = await import("@/lib/community-messenger/room-unread-authority-rpc");
+  const appended = await appendTypedMessengerMessageAtomic(db, {
+    roomId,
+    senderId: input.userId,
+    messageType,
+    content,
+    metadata,
+    createdAt,
+    clientMessageId,
+    idempotencyKey: `cm_fwd:${input.userId}:${roomId}:${clientMessageId}`,
+  });
+  if (!appended.ok) {
+    console.error("[cm_forward] append_failed", { roomId, error: appended.error, rpc_used: "dibay_append_room_message_atomic" });
+    return { ok: false, error: appended.error };
+  }
+  if (!appended.deduped) {
+    const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+      roomId,
+      messageId: appended.messageId,
+      senderUserId: input.userId,
+      preview: messageType === "sticker" ? cmLastPreviewSticker() : content.slice(0, 120),
+      recipientUserIds: appended.recipientUserIds,
+    });
+    input.onNotifyScheduled?.(notifyDone);
+    invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
+  }
+  return {
+    ok: true,
+    deduped: appended.deduped,
+    message: {
+      id: appended.messageId,
+      roomId,
+      senderId: input.userId,
+      senderLabel: cmServiceT("common_me"),
+      messageType: messageType as CommunityMessengerMessage["messageType"],
+      content,
+      metadata,
+      createdAt: appended.createdAt,
+      clientMessageId,
+      isMine: true,
+      callKind: null,
+      callStatus: null,
+    },
+  };
+}
+
 export async function sendCommunityPostShareMessage(input: {
   /**
    * 수신자 알림(notify pipeline) 시작 직후 그 완료 Promise 를 넘긴다 — 라우트가 `after()` 로 등록해
