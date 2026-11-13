@@ -48,10 +48,11 @@ export type MessageActionMenuProps = {
   shareDisabled: boolean;
   shareTitle?: string;
   onToggleShare: () => void;
+  /** toRoom·link 은 정책상 꺼지면(SH-P0-1·P0-2) 넘기지 않는다 → 행을 그리지 않음(회색 행·잘못된 안내 방지) */
   shareNested: {
-    toRoom: { label: string; disabled: boolean; title?: string; onClick: () => void };
+    toRoom?: { label: string; disabled: boolean; title?: string; onClick: () => void };
     external: { disabled: boolean; title?: string; onClick: () => void };
-    link: { disabled: boolean; title?: string; onClick: () => void };
+    link?: { disabled: boolean; title?: string; onClick: () => void };
   } | null;
   deleteForMe?: { disabled: boolean; title?: string; onClick: () => void };
   deleteForEveryone?: { disabled: boolean; title?: string; onClick: () => void };
@@ -137,13 +138,15 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
         />
         {shareExpanded && shareNested ? (
           <div className="border-t border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] pb-1">
-            <MenuRow
-              label={shareNested.toRoom.label}
-              onClick={shareNested.toRoom.onClick}
-              disabled={shareNested.toRoom.disabled}
-              title={shareNested.toRoom.title}
-              nested
-            />
+            {shareNested.toRoom ? (
+              <MenuRow
+                label={shareNested.toRoom.label}
+                onClick={shareNested.toRoom.onClick}
+                disabled={shareNested.toRoom.disabled}
+                title={shareNested.toRoom.title}
+                nested
+              />
+            ) : null}
             <MenuRow
               label={t("cm_ui_share_externally")}
               onClick={shareNested.external.onClick}
@@ -151,13 +154,15 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
               title={shareNested.external.title}
               nested
             />
-            <MenuRow
-              label={t("cm_ui_copy_link")}
-              onClick={shareNested.link.onClick}
-              disabled={shareNested.link.disabled}
-              title={shareNested.link.title}
-              nested
-            />
+            {shareNested.link ? (
+              <MenuRow
+                label={t("cm_ui_copy_link")}
+                onClick={shareNested.link.onClick}
+                disabled={shareNested.link.disabled}
+                title={shareNested.link.title}
+                nested
+              />
+            ) : null}
           </div>
         ) : null}
       </div>

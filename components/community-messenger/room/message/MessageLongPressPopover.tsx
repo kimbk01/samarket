@@ -362,15 +362,16 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
           shareNested={
             shareExpanded && shareBranches
               ? {
-                  toRoom: {
-                    label: t("cm_ui_share_to_chat_room"),
-                    disabled: !shareToRoomOk,
-                    title: !shareToRoomOk ? t("cm_ui_cannot_send_to_other_room") : undefined,
-                    onClick: () => {
-                      setShareExpanded(false);
-                      props.onShareToRoom();
-                    },
-                  },
+                  toRoom: shareToRoomOk
+                    ? {
+                        label: t("cm_ui_share_to_chat_room"),
+                        disabled: false,
+                        onClick: () => {
+                          setShareExpanded(false);
+                          props.onShareToRoom();
+                        },
+                      }
+                    : undefined,
                   external: {
                     disabled: !shareExternalOk,
                     title: !shareExternalOk ? t("cm_ui_external_share_restricted_in_trade_room") : undefined,
@@ -379,14 +380,15 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
                       void props.onShareExternal();
                     },
                   },
-                  link: {
-                    disabled: !shareLinkOk,
-                    title: !shareLinkOk ? t("cm_ui_copy_link_restricted_in_trade_room") : undefined,
-                    onClick: () => {
-                      setShareExpanded(false);
-                      void props.onShareCopyLink();
-                    },
-                  },
+                  link: shareLinkOk
+                    ? {
+                        disabled: false,
+                        onClick: () => {
+                          setShareExpanded(false);
+                          void props.onShareCopyLink();
+                        },
+                      }
+                    : undefined,
                 }
               : null
           }
