@@ -1,21 +1,19 @@
 "use client";
 
-import { useEffect, useRef, type MutableRefObject } from "react";
+import { useEffect, type MutableRefObject } from "react";
 import {
   isRoomSnapshotFreshWithin,
   peekRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
 import {
   CM_FOREGROUND_BOOTSTRAP_REUSE_MS,
-  hasCmRoomNetworkBootstrapSucceededSince,
+  markCmRoomEntryStarted,
   markCmRoomForegroundReuseEntry,
 } from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
 import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
-import {
-  isCommunityMessengerGroupRoomType,
-  type CommunityMessengerRoomSnapshot,
-} from "@/lib/community-messenger/types";
+import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
+import { requestGroupEntryIdentityAfterFirstPaint } from "@/lib/community-messenger/room/group-entry-identity-check";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { cmStrictEffectRunProbe } from "@/lib/community-messenger/room/cm-bootstrap-scheduling";
 
@@ -23,15 +21,6 @@ export type MessengerRoomBootstrapRefreshFn = (
   silent?: boolean,
   opts?: { forceSilentNetwork?: boolean; triggerReason?: string; forceForegroundBlock?: boolean }
 ) => Promise<void>;
-
-/**
- * 그룹 결함 D3 (docs/design/group-chat-audit-design-2026-11-13.md): 캐시·목록 값으로 그려진 그룹 방 진입은
- * 방 사진·제목을 서버에서 다시 받지 않아 다른 멤버가 바꾼 사진이 머리글에 안 나온다.
- * 진입 후 이 시간까지 네트워크 부트스트랩 응답이 한 번도 없으면 `silent_delta` 를 1회 받는다.
- * 기존 보강 GET 밴드(`roomBootstrapSecondaryEnrichmentDelayMs` 300~500ms) 가 끝난 뒤라 그 요청이 있으면 먼저 반영되고,
- * 첫 페인트·메시지 요청을 막지 않는다.
- */
-export const CM_ROOM_ENTRY_GROUP_IDENTITY_CHECK_DELAY_MS = 600;
 
 type Args = {
   roomId: string;
@@ -52,24 +41,9 @@ export function useMessengerRoomBootstrapLifecycle({
   loadedRef,
   setRoomReadyForRealtime,
 }: Args): void {
-  /** 진입 첫 패스가 끝나면 `refresh` 참조가 바뀐다 — 진입 1회 확인은 `roomId` 에만 묶고 최신 refresh 를 ref 로 부른다 */
-  const refreshRef = useRef(refresh);
-  refreshRef.current = refresh;
-
+  /** 재감사 R2: 진입 시작 표시 — 아래 효과(첫 refresh)보다 먼저 실행되도록 앞에 둔다. 방 전환은 `roomId` 로 구분 */
   useEffect(() => {
-    if (typeof window === "undefined" || isDevSafeMode()) return;
-    const viewerGuess = initialServerSnapshot?.viewerUserId?.trim() ?? "";
-    const seed = initialServerSnapshot ?? peekRoomSnapshot(roomId, viewerGuess || undefined) ?? null;
-    const roomType = seed?.room?.roomType;
-    if (!roomType || !isCommunityMessengerGroupRoomType(roomType)) return;
-    const enteredAt = Date.now();
-    const t = window.setTimeout(() => {
-      if (hasCmRoomNetworkBootstrapSucceededSince(roomId, enteredAt)) return;
-      void refreshRef.current(true, { triggerReason: "entry_group_identity", forceSilentNetwork: true });
-    }, CM_ROOM_ENTRY_GROUP_IDENTITY_CHECK_DELAY_MS);
-    return () => clearTimeout(t);
-    // `initialServerSnapshot` 은 아래 효과와 같은 이유로 deps 제외 — 방 전환은 `roomId` 로 구분.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- initialServerSnapshot 의도적 제외
+    markCmRoomEntryStarted(roomId);
   }, [roomId]);
 
   useEffect(() => {
@@ -108,6 +82,8 @@ export function useMessengerRoomBootstrapLifecycle({
         seededSnapshot.membersDeferred === true ||
         seededSnapshot.bootstrapEnrichmentPending === true;
       if (!needsDeferredEnrichment) {
+        /** 재감사 R2: 네트워크 없이 시드로 끝나는 진입 — 그룹 방이면 첫 화면 뒤 방 정보 1회 */
+        requestGroupEntryIdentityAfterFirstPaint({ roomId, snapshot: seededSnapshot, refresh });
         return;
       }
       if (seededSnapshot.membersDeferred === true && !isDevSafeMode()) {
