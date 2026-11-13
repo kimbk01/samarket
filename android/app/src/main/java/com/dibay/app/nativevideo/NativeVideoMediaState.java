@@ -3,12 +3,12 @@ package com.dibay.app.nativevideo;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 영상 통화 카메라 상태 단일 보관소 (통화 id 단위). 화면(Activity)은 다시 만들어져도 여기 값을 읽는다.
+ * 영상 통화 카메라·마이크 상태 단일 보관소 (통화 id 단위). 화면(Activity)은 다시 만들어져도 여기 값을 읽는다.
  *
- * <p>설계: docs/audit/call-camera-off-plan-2026-11-14.md §4-1·§4-5. 상대 카메라 판정은 Agora 공식 문서
+ * <p>설계: docs/audit/call-camera-off-plan-2026-11-14.md §4-1·§4-5·§12(마이크). 상대 카메라 판정은 Agora 공식 문서
  * (onRemoteVideoStateChanged state·reason) 기준 — 네트워크 멈춤(FROZEN)은 카메라 꺼짐이 아니다.
  */
-final class NativeVideoCameraState {
+final class NativeVideoMediaState {
   /** Agora REMOTE_VIDEO_STATE_* (4.x 공식 값). */
   static final int REMOTE_VIDEO_STATE_STOPPED = 0;
 
@@ -22,8 +22,9 @@ final class NativeVideoCameraState {
 
   private static final ConcurrentHashMap<String, Boolean> LOCAL_CAMERA_ON = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Boolean> REMOTE_CAMERA_ON = new ConcurrentHashMap<>();
+  private static final ConcurrentHashMap<String, Boolean> MIC_MUTED = new ConcurrentHashMap<>();
 
-  private NativeVideoCameraState() {}
+  private NativeVideoMediaState() {}
 
   private static String key(String callId) {
     return callId != null ? callId.trim() : "";
@@ -59,11 +60,26 @@ final class NativeVideoCameraState {
     return previousOn != on;
   }
 
+  /** 새 통화는 항상 음소거 아님. */
+  static boolean isMicMuted(String callId) {
+    String k = key(callId);
+    if (k.isEmpty()) return false;
+    Boolean muted = MIC_MUTED.get(k);
+    return muted != null && muted;
+  }
+
+  static void setMicMuted(String callId, boolean muted) {
+    String k = key(callId);
+    if (k.isEmpty()) return;
+    MIC_MUTED.put(k, muted);
+  }
+
   static void clear(String callId) {
     String k = key(callId);
     if (k.isEmpty()) return;
     LOCAL_CAMERA_ON.remove(k);
     REMOTE_CAMERA_ON.remove(k);
+    MIC_MUTED.remove(k);
   }
 
   /**

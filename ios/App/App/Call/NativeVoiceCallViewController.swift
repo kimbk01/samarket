@@ -6,7 +6,8 @@ final class NativeVoiceCallViewController: UIViewController {
 
   private let session: NativeVoiceCallSession
   private var speakerEnabledChrome = false
-  private var micMutedChrome = false
+  /// 마이크 설계 §12 — 음소거 상태는 음성 엔진 보관소만 (화면이 다시 만들어져도 유지).
+  private var micMutedChrome: Bool { NativeVoiceCallAgoraEngine.shared.isMicMuted(callId: boundCallId) }
   private var connectedAt: Date?
   private var durationTimer: Timer?
   private var endInFlight = false
@@ -271,7 +272,6 @@ final class NativeVoiceCallViewController: UIViewController {
     let next = !micMutedChrome
     let applied = NativeVoiceCallAgoraEngine.shared.setMicMuted(callId: boundCallId, muted: next)
     guard applied else { return }
-    micMutedChrome = next
     updateControlChrome(micChromeEnabled: model.micChromeEnabled)
   }
 

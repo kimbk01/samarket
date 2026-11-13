@@ -15,7 +15,8 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   private var remoteCameraOn: Bool { NativeVideoCallAgoraEngine.shared.isRemoteCameraOn(callId: boundCallId) }
   private let localCameraOffView = NativeVideoCameraOffView(style: .selfPreview)
   private let remoteCameraOffView = NativeVideoCameraOffView(style: .peer)
-  private var micMuted = false
+  /// 마이크 설계 §12 — 음소거 상태는 엔진 보관소만.
+  private var micMuted: Bool { NativeVideoCallAgoraEngine.shared.isMicMuted(callId: boundCallId) }
   private var isChromeVisible = false
   private var chromeHideWorkItem: DispatchWorkItem?
   private var connectedAt: Date?
@@ -1625,16 +1626,14 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   }
 
   @objc private func onMicTapped() {
-    micMuted.toggle()
-    let applied = NativeVideoCallAgoraEngine.shared.setMicMuted(micMuted)
-    if !applied {
-      micMuted.toggle()
-    }
+    let requested = !micMuted
+    let muted = NativeVideoCallAgoraEngine.shared.setMicMuted(callId: boundCallId, muted: requested)
+    let applied = muted == requested
     updateConnectedControlChrome()
     NativeVideoCallLog.info(
       "native_video_mic_muted_changed",
       callId: boundCallId,
-      details: "source=button connected=\(currentState == .connected) presentation=fullscreen requestedMuted=\(micMuted) result=\(applied)"
+      details: "source=button connected=\(currentState == .connected) presentation=fullscreen requestedMuted=\(requested) result=\(applied)"
     )
     showConnectedChrome(source: "mic_toggle")
   }
