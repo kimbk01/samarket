@@ -29,11 +29,17 @@ describe("Community social interaction hashtag + share contracts", () => {
   });
 
   it("share sheet only exposes native + copy (no visible dead Kakao/internal)", () => {
-    const sheet = read("components/community/share/CommunityShareSheet.tsx");
-    expect(sheet).toContain("community_share_option_native");
-    expect(sheet).toContain("community_share_option_copy");
-    expect(sheet).not.toContain("community_share_option_kakao");
-    expect(sheet).not.toContain("community_share_option_dibay");
-    expect(sheet).not.toContain("CommunityShareTargetPicker");
+    // FEED 시트는 통합 공유 시트(S2)를 쓴다 — 칸 = 다른 앱으로 공유 · 링크 복사
+    const feedSheet = read("components/community/share/CommunityShareSheet.tsx");
+    expect(feedSheet).toContain("DibayShareSheet");
+    const sheet = read("components/share/DibayShareSheet.tsx");
+    expect(sheet).toContain("share_option_native");
+    expect(sheet).toContain("share_option_copy");
+    for (const src of [feedSheet, sheet]) {
+      expect(src).not.toContain("community_share_option_kakao");
+      expect(src).not.toContain("community_share_option_dibay");
+      expect(src).not.toContain("CommunityShareTargetPicker");
+      expect(src).not.toContain("Kakao");
+    }
   });
 });

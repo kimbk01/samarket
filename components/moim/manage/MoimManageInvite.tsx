@@ -5,7 +5,9 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayConfirmDialog } from "@/components/ui/dibay-overlay";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
-import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
+import { moimApi, moimErrorKey } from "@/lib/moim/moim-client-api";
+import { canUsePlatformShare, shareViaPlatform } from "@/lib/share/platform-share";
+import { buildShareUrl, isProductionShareContext } from "@/lib/share/share-url";
 import type { MoimDetailDto, MoimInviteLinkDto } from "@/lib/moim/moim-api-types";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
@@ -31,9 +33,9 @@ const EXPIRY_OPTIONS: { days: number | null; key: MessageKey }[] = [
 
 type Toast = ReturnType<typeof useMoimManageToast>;
 
+/** 초대 링크 = 운영 주소 `/moim/i/{token}` (통합 공유 S1 — window.location 미사용) */
 function inviteUrl(token: string): string {
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  return `${origin}${moimRoutes.inviteLanding(token)}`;
+  return buildShareUrl({ kind: "moim_invite", token }) ?? "";
 }
 
 function InviteLinks({ detail, toast }: { detail: MoimDetailDto; toast: Toast }) {
@@ -50,7 +52,7 @@ function InviteLinks({ detail, toast }: { detail: MoimDetailDto; toast: Toast })
   useEffect(() => {
     const id = setTimeout(() => {
       setNow(Date.now());
-      setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
+      setCanShare(canUsePlatformShare() && isProductionShareContext());
     }, 0);
     return () => clearTimeout(id);
   }, [state]);
@@ -74,12 +76,16 @@ function InviteLinks({ detail, toast }: { detail: MoimDetailDto; toast: Toast })
     }
   };
 
+  /** 통합 공유 결과 계약(§I-1): 취소·넘김 = 아무 것도 안 함 · 실패 = 안내만(자동 복사 없음) */
   const share = async (link: MoimInviteLinkDto) => {
-    try {
-      await navigator.share({ title: detail.name, text: t("moim_manage_invite_share_text", { name: detail.name }), url: inviteUrl(link.token) });
-    } catch {
-      /* closed by the user */
-    }
+    const url = inviteUrl(link.token);
+    if (!url) return;
+    const result = await shareViaPlatform({
+      title: detail.name,
+      text: t("moim_manage_invite_share_text", { name: detail.name }),
+      url,
+    });
+    if (result === "failed" || result === "unavailable") toast.show(t("share_toast_failed"), "error");
   };
 
   const revoke = async () => {

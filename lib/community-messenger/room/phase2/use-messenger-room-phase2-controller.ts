@@ -164,6 +164,7 @@ import {
   withMessengerMediaRouteUrls,
 } from "@/lib/community-messenger/media/messenger-media-ref";
 import { isCmGroupCallEnabled } from "@/lib/community-messenger/call-phase0-basics";
+import { shareViaPlatform } from "@/lib/share/platform-share";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -2744,28 +2745,21 @@ export function useMessengerRoomPhase2Controller() {
     [getMessageCopyText, setMessageActionItem]
   );
 
+  /**
+   * 메시지 외부 공유 — 통합 공유 결과 계약(§I-1 · S3): 취소·넘김 = 아무 것도 안 함 ·
+   * 실패 = 안내만. 실패·미지원 때 클립보드에 몰래 복사하지 않는다(복사는 「복사」 메뉴로).
+   */
   const shareMessageExternally = useCallback(
     async (item: CommunityMessengerMessage & { pending?: boolean }) => {
       const text = getMessageCopyText(item);
       const payload =
         text || translateCmUi("cm_ui_message_type_bracket", { type: item.messageType });
-      try {
-        if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-          await navigator.share({
-            title: snapshot?.room.title ?? translateCmUi("cm_ui_chat_fallback"),
-            text: payload,
-          });
-        } else {
-          await navigator.clipboard.writeText(payload);
-          showMessengerSnackbar(translateCmUi("cm_ui_content_copied_clipboard"), { variant: "success" });
-        }
-      } catch {
-        try {
-          await navigator.clipboard.writeText(payload);
-          showMessengerSnackbar(translateCmUi("cm_ui_content_copied_clipboard"), { variant: "success" });
-        } catch {
-          showMessengerSnackbar(translateCmUi("cm_ui_cannot_forward_message"), { variant: "error" });
-        }
+      const result = await shareViaPlatform({
+        title: snapshot?.room.title ?? translateCmUi("cm_ui_chat_fallback"),
+        text: payload,
+      });
+      if (result === "failed" || result === "unavailable") {
+        showMessengerSnackbar(translateCmUi("share_toast_failed"), { variant: "error" });
       }
       setMessageActionItem(null);
     },

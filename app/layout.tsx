@@ -33,6 +33,7 @@ import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-con
 import { requiredConsentForClient } from "@/lib/legal/client-required-consent";
 import { DIBAY_HOST_SHELL_BOOT_SCRIPT } from "@/lib/platform/dibay-windows-shell";
 import { buildPreHydrationGuardScript } from "@/lib/startup/pre-hydration-guard-script";
+import { resolveShareSiteOrigin } from "@/lib/share/share-url";
 import "./globals.css";
 
 /** C2 — hydration 전 청크 실패 초기 가드 (빌드 SHA 고정 문자열, 요청마다 같은 값). */
@@ -66,6 +67,29 @@ export const metadata: Metadata = {
   },
   formatDetection: {
     telephone: false,
+  },
+  /**
+   * 링크 미리보기 기본값(통합 공유 S4) — 자체 미리보기가 없는 화면을 공유해도 앱 이름·대표 이미지만 보인다.
+   * 이미지는 운영 주소 절대값(전역 metadataBase 는 두지 않음 — 아이콘 등 다른 주소에 영향 주지 않기 위해).
+   */
+  openGraph: {
+    type: "website",
+    siteName: APP_PRODUCT_DISPLAY_NAME,
+    title: APP_PRODUCT_DISPLAY_NAME,
+    description: `${APP_PRODUCT_DISPLAY_NAME} marketplace`,
+    images: [
+      {
+        url: `${resolveShareSiteOrigin()}${dibayBrandAssetUrl(DIBAY_APP_ICON_512_PATH)}`,
+        width: 512,
+        height: 512,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: APP_PRODUCT_DISPLAY_NAME,
+    description: `${APP_PRODUCT_DISPLAY_NAME} marketplace`,
+    images: [`${resolveShareSiteOrigin()}${dibayBrandAssetUrl(DIBAY_APP_ICON_512_PATH)}`],
   },
   other: {
     "mobile-web-app-capable": "yes",

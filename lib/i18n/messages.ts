@@ -77,6 +77,7 @@ import { communityMessengerContactsMessages } from "./catalog/community-messenge
 import { cmMonitoringSloMessages } from "./catalog/cm-monitoring-slo";
 import { communityMessengerUiMessages } from "./catalog/community-messenger-ui";
 import { communityUiMessages } from "./catalog/community-ui";
+import { shareMessages } from "./catalog/share";
 import { philifeMessages } from "./catalog/philife";
 import { businessMessages } from "./catalog/business";
 import { ownerProductOptionsMessages } from "./catalog/owner-product-options";
@@ -190,6 +191,7 @@ function buildKoMessages(): LocaleMessageBag {
   ...cmMonitoringSloMessages.ko,
   ...communityMessengerUiMessages.ko,
   ...communityUiMessages.ko,
+  ...shareMessages.ko,
   ...philifeMessages.ko,
   ...businessMessages.ko,
   ...ownerProductOptionsMessages.ko,
@@ -304,6 +306,7 @@ function buildEnMessages(): LocaleMessageBag {
   ...cmMonitoringSloMessages.en,
   ...communityMessengerUiMessages.en,
   ...communityUiMessages.en,
+  ...shareMessages.en,
   ...philifeMessages.en,
   ...businessMessages.en,
   ...ownerProductOptionsMessages.en,

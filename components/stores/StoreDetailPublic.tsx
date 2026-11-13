@@ -8,7 +8,8 @@ import { shouldReleaseStoreMenuFocusEntry } from "@/lib/stores/store-menu-focus-
 import { resolveStoreSalesBlockedReason } from "@/lib/stores/store-detail-order-gate";
 import { useRegionViewerUserId } from "@/hooks/useRegionViewerUserId";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { dibayAlert } from "@/components/ui/dibay-overlay";
+import { useDibayShareSheet } from "@/components/share/use-dibay-share-sheet";
+import { buildShareUrl } from "@/lib/share/share-url";
 
 import type { ReactNode } from "react";
 import { StoreOwnerBannerCarousel } from "@/components/stores/StoreOwnerBannerCarousel";
@@ -1847,43 +1848,30 @@ export function StoreDetailPublic({
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [detailRevealed, showMenusSkeleton, decodedSlug, menuSectionsFiltered.length, scrollStoreSectionIntoView]);
 
+  /** 통합 공유 시트(S3) — 정규 주소 `/stores/{slug}`(현재 쿼리 제외) · 실패·취소 시 자동 복사 없음 */
+  const { openShare, shareSheet } = useDibayShareSheet();
+
   const onShareClick = useCallback(() => {
-    if (typeof window === "undefined" || !store) return;
-    const url = window.location.href;
-    void (async () => {
-      try {
-        if (navigator.share) {
-          await navigator.share({ title: store.store_name, text: store.store_name, url });
-        } else if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(url);
-          await dibayAlert({ title: t("store_link_copied") });
-        }
-      } catch {
-        /* 사용자 취소 등 */
-      }
-    })();
-  }, [store]);
+    if (!store) return;
+    const cat = Array.isArray(store.store_categories) ? store.store_categories[0] : store.store_categories;
+    openShare({
+      url: buildShareUrl({ kind: "store", storeSlug: store.slug || decodedSlug }),
+      previewTitle: store.store_name,
+      previewSubtitle: cat?.name?.trim() || undefined,
+      previewImageUrl: store.profile_image_url,
+    });
+  }, [store, decodedSlug, openShare]);
 
   const shellShareClick = useCallback(() => {
-    if (typeof window === "undefined") return;
-    const url = window.location.href;
     const title =
       decodedSlug
         .replace(/-/g, " ")
         .trim() || t("store_fallback_name");
-    void (async () => {
-      try {
-        if (navigator.share) {
-          await navigator.share({ title, text: title, url });
-        } else if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(url);
-          await dibayAlert({ title: t("store_link_copied") });
-        }
-      } catch {
-        /* noop */
-      }
-    })();
-  }, [decodedSlug, t]);
+    openShare({
+      url: buildShareUrl({ kind: "store", storeSlug: decodedSlug }),
+      previewTitle: title,
+    });
+  }, [decodedSlug, openShare, t]);
 
   const noopCartPreviewClick = useCallback(() => {}, []);
 
@@ -2006,6 +1994,7 @@ export function StoreDetailPublic({
   const viewportShell = (inner: ReactNode) => (
     <div className="relative w-full min-w-0 min-h-[100dvh] overflow-x-hidden bg-white [-webkit-overflow-scrolling:touch]">
       {inner}
+      {shareSheet}
     </div>
   );
 

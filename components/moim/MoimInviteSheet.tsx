@@ -6,6 +6,8 @@ import { Copy, Share2, UserPlus } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibaySheetHeader, DibayUsableAreaSheet } from "@/components/ui/dibay-overlay";
 import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
+import { canUsePlatformShare, shareViaPlatform } from "@/lib/share/platform-share";
+import { buildShareUrl, isProductionShareContext } from "@/lib/share/share-url";
 import type { MoimDetailDto } from "@/lib/moim/moim-api-types";
 import { moimCls } from "@/components/moim/moim-ui";
 
@@ -37,9 +39,12 @@ export function MoimInviteSheet({
   const canLink = moim.can.manage_invite_link;
   const canFriend = moim.can.send_invite;
 
+  /** 「다른 앱으로 공유」 = 앱이거나 Web Share 지원 + 운영 주소일 때만 (S1) */
+  const [nativeShareOk, setNativeShareOk] = useState(false);
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setNativeShareOk(canUsePlatformShare() && isProductionShareContext());
   }, [open]);
 
   const ensureLink = async (): Promise<string | null> => {
@@ -51,7 +56,8 @@ export function MoimInviteSheet({
       setError(t(moimErrorKey(r.error)));
       return null;
     }
-    const url = `${window.location.origin}${moimRoutes.inviteLanding(r.token)}`;
+    const url = buildShareUrl({ kind: "moim_invite", token: r.token });
+    if (!url) return null;
     setLink(url);
     return url;
   };
@@ -62,18 +68,12 @@ export function MoimInviteSheet({
     onToast((await copyText(url)) ? t("moim_invite_copied_toast") : t("moim_invite_copy_failed_toast"), "default");
   };
 
+  /** 통합 공유 결과 계약(§I-1): 취소·넘김 = 아무 것도 안 함 · 실패 = 안내만(자동 복사 없음) */
   const onShare = async () => {
     const url = await ensureLink();
     if (!url) return;
-    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-      try {
-        await navigator.share({ title: moim.name, url });
-        return;
-      } catch {
-        return;
-      }
-    }
-    onToast((await copyText(url)) ? t("moim_invite_copied_toast") : t("moim_invite_copy_failed_toast"), "default");
+    const result = await shareViaPlatform({ title: moim.name, url });
+    if (result === "failed" || result === "unavailable") onToast(t("share_toast_failed"), "error");
   };
 
   const row = "flex w-full items-center gap-3 px-1 py-3 text-left text-[15px] text-sam-fg disabled:text-sam-muted";
@@ -93,10 +93,12 @@ export function MoimInviteSheet({
               <Copy className="h-5 w-5 text-sam-primary" aria-hidden />
               {t("moim_invite_copy_btn")}
             </button>
-            <button type="button" className={row} disabled={busy} onClick={onShare}>
-              <Share2 className="h-5 w-5 text-sam-primary" aria-hidden />
-              {t("moim_invite_share_btn")}
-            </button>
+            {nativeShareOk ? (
+              <button type="button" className={row} disabled={busy} onClick={onShare}>
+                <Share2 className="h-5 w-5 text-sam-primary" aria-hidden />
+                {t("moim_invite_share_btn")}
+              </button>
+            ) : null}
           </>
         ) : null}
         {canFriend ? (
