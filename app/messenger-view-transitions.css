@@ -125,6 +125,8 @@
   /* 분할 우측 방: 셸 padding-top 0 — safe-top 은 방 Phase2Header 가 소유(`messenger-presentation.css`), 이중 inset 방지 */
   [data-messenger-responsive-shell="wide"] [data-cm-room].cm-room-shell {
     padding-top: 0 !important;
+    /** 안전영역이 헤더 안에 있으므로 셸 위 띠(상태바 색)는 끈다 — 헤더가 채팅 색으로 칠함 */
+    box-shadow: none !important;
   }
 
   /* SplitTopBar list-column-only — room Phase2Header owns safe-top.
