@@ -32,19 +32,19 @@ export async function POST(req: NextRequest) {
   try {
     form = await req.formData();
   } catch {
-    return NextResponse.json({ ok: false, error: "multipart 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "multipart 필요", code: "multipart_required" }, { status: 400 });
   }
 
   const file = form.get("file");
   if (!file || !(file instanceof File)) {
-    return NextResponse.json({ ok: false, error: "file 필드 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "file 필드 필요", code: "file_required" }, { status: 400 });
   }
   if (file.size > MAX_BYTES) {
-    return NextResponse.json({ ok: false, error: "3MB 이하만 가능합니다." }, { status: 413 });
+    return NextResponse.json({ ok: false, error: "3MB 이하만 가능합니다.", code: "too_large" }, { status: 413 });
   }
   const mime = (file.type || "").toLowerCase();
   if (!ALLOWED.has(mime)) {
-    return NextResponse.json({ ok: false, error: "JPEG, PNG, WebP만 가능합니다." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "JPEG, PNG, WebP만 가능합니다.", code: "unsupported_type" }, { status: 400 });
   }
 
   const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";

@@ -105,6 +105,11 @@ export function getMessengerRoomActionErrorMessage(
       return t("nav_messenger_peer_not_found");
     case "forbidden":
       return t("nav_messenger_forbidden");
+    /** 재감사 R5: 그룹 프로필 저장 검증(G7) 거절 사유 — 일반 문구 대신 이유 안내 */
+    case "title_required":
+      return t("nav_messenger_title_required");
+    case "invalid_avatar_url":
+      return t("cm_ui_group_photo_invalid");
     case "user_banned":
       return t("cm_ui_group_user_banned");
     case "room_deleted":
