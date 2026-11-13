@@ -499,7 +499,7 @@ async function browseCore(req: Request, override?: BrowseCoreOverride): Promise<
 }
 
 /**
- * 업종 목록 + 메뉴 페이지(배달 메뉴 구성) + 4단 필터 칩.
+ * 업종 목록 + 메뉴 페이지 + 4단 필터 칩.
  * - `primary` 가 메뉴 1단 slug(`food`·`pickup`·`shop` …)면 메뉴 페이지: 메뉴 매장을 업종별로 같은 파이프라인에 태워 합친다.
  *   `menu` = 2단(3단 탭) slug, 없으면 「홈」 탭(1단 매장 전체). 픽업 1단은 픽업 가능 매장만.
  * - 필터(`coupon`·`method`·`rating`·`min_order`·`reserve`)·「찜 많은 순」(`sort=favorites`)은 응답 캐시 뒤에서 적용

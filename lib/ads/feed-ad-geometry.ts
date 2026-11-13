@@ -111,7 +111,7 @@ export function getFeedAdCreativeSpec(density: FeedAdHostDensity) {
 }
 
 /**
- * v5 D4 (Owner 2026-11-03): 거래 격자에서는 광고가 **2칸 전체 한 줄**(피드 광고 줄과 같음).
+ * v5 D4 (Owner 2026-11-03): 거래 격자에서는 광고가 **2칸 전체 한 줄**.
  * 반쪽 칸에 3:1 배너를 넣어 옆 카드와 높이가 어긋나던 구조를 없앤다. 위·아래 구분선으로 상품 줄과 나눈다.
  */
 export function feedAdListItemClass(density: FeedAdHostDensity): string {
@@ -133,7 +133,7 @@ export function feedAdFrameClass(density: FeedAdHostDensity): string {
 }
 
 export function feedAdChromeBarClass(density: FeedAdHostDensity): string {
-  /** 거래: 광고주 머리 줄(동그라미 · 이름 · 「광고」) — 피드 광고 칸 머리와 같은 구성 */
+  /** 거래: 광고주 머리 줄(동그라미 · 이름 · 「광고」) */
   return density === "community"
     ? "flex items-center justify-between gap-2 px-3 py-1"
     : "flex min-w-0 items-center gap-2 pb-2";

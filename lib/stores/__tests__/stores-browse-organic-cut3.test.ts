@@ -195,7 +195,7 @@ describe("CUT 3 BROWSE organic contract", () => {
     expect(cmp).toBeGreaterThan(0); // a before b by slug
   });
 
-  /** WP5 (배달 표준형 2차수 2026-10-29) — 목록 카드 가로 사진 줄 최대 6장으로 계약 상한 4 → 6 */
+  /** WP5 (2차수 2026-10-29) — 목록 카드 가로 사진 줄 최대 6장으로 계약 상한 4 → 6 */
   it("T9–T10 representative product one authority + max 6 (WP5)", () => {
     expect(BROWSE_FEATURED_ITEMS_MAX).toBe(6);
     expect(BROWSE_ORGANIC_REPRESENTATIVE_PRODUCTS_MAX).toBe(6);

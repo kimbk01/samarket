@@ -33,7 +33,7 @@ export type PromotionCardModalProps = {
 };
 
 /**
- * TYPE B — Promotion card modal (delivery reference #2).
+ * TYPE B — Promotion card modal.
  * Image + optional body slot + CTA = one visual card.
  * Floating X in frame gutter. Default chrome: X only.
  */

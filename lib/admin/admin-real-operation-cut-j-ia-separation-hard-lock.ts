@@ -136,7 +136,7 @@ export const CUT_J_J_AMD_3_DELIVERY_TREE = [
     key: "delivery-section-home-layout",
     children: [
       "delivery-screens",
-      /** 배달 메뉴 구성 (2026-10-30 Owner 승인 v6) — 고객 메뉴 「메뉴 관리」 단독 화면 */
+      /** (2026-10-30 Owner 승인 v6) — 고객 메뉴 「메뉴 관리」 단독 화면 */
       "delivery-menus",
       "stores-home-shelves",
       "stores-industries-management",

@@ -12,7 +12,7 @@ import {
   OWNER_COMPACT_SHELL_SCROLL_CLASS,
 } from "@/lib/business/owner-compact-shell-layout";
 
-/** Store owner mobile operations dashboard — brand owner tokens */
+/** Store owner mobile operations dashboard — owner tokens */
 
 export const OWNER_MOBILE_BLUE = "var(--dibay-green)";
 export const OWNER_MOBILE_BLUE_SOFT = "color-mix(in srgb, var(--dibay-green) 8%, var(--dibay-cream))";

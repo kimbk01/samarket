@@ -300,7 +300,7 @@ begin
 end
 $$;
 
-/** 일정 참여자 내보내기 — 관리권자. 내보낸 사람은 그 일정에 다시 참여 못 함 (당근 21676) */
+/** 일정 참여자 내보내기 — 관리권자. 내보낸 사람은 그 일정에 다시 참여 못 함 */
 create or replace function public.moim_schedule_remove_participant(p_actor uuid, p_schedule uuid, p_user uuid) returns jsonb
 language plpgsql volatile security definer set search_path = public as $$
 declare
@@ -455,7 +455,7 @@ begin
 end
 $$;
 
-/** 앨범 상단 고정 (최대 6장, 당근 14553) — pin_notice 권한 */
+/** 앨범 상단 고정 (최대 6장) — pin_notice 권한 */
 create or replace function public.moim_album_pin(p_actor uuid, p_item uuid, p_pinned boolean) returns jsonb
 language plpgsql volatile security definer set search_path = public as $$
 declare v_i record;

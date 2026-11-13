@@ -1,4 +1,4 @@
--- Telegram-style mutual friendship SSOT for Community Messenger
+-- Mutual friendship SSOT for Community Messenger
 -- Replaces directional user_social_relations friend rows for CM friend list / requests.
 
 CREATE TABLE IF NOT EXISTS public.community_messenger_friendships (

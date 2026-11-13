@@ -759,7 +759,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             ],
             status: "done",
           },
-          /** 배달 메뉴 구성 — 고객 메뉴(상단 탭·아이콘·매장 지정)는 「배달 화면 구성」과 분리된 단독 화면 */
+          /** 고객 메뉴(상단 탭·아이콘·매장 지정)는 「배달 화면 구성」과 분리된 단독 화면 */
           {
             key: "delivery-menus",
             title: "",

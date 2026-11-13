@@ -111,7 +111,7 @@ const eslintConfig = defineConfig([
   },
   /**
    * 내정보 공통 부품(`components/mypage/ds`)은 내정보 전용 — 관리자 화면 import 금지
-   * (내정보 최종 설계 Part A §1.2, v2 §7.3). flat config 는 규칙 옵션을 합치지 않으므로 위 참고 메신저 제한을 함께 둔다.
+   * (내정보 최종 설계 Part A §1.2, v2 §7.3). flat config 는 규칙 옵션을 합치지 않으므로 위 제한을 함께 둔다.
    */
   {
     files: ["components/admin/**/*.{ts,tsx}", "app/admin/**/*.{ts,tsx}"],

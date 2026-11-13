@@ -1,7 +1,7 @@
 /**
  * Community hub last-selection SSOT (sessionStorage).
  *
- * Legacy hub-tab pattern (messenger-standard Tier 1): bottom-nav returns to the last
+ * Legacy hub-tab pattern (Kakao Tier 1): bottom-nav returns to the last
  * sub-surface (topic / local / all+sort), not bare `/philife` → flash All then replace.
  *
  * History remains replace. Visual cover uses the restored URL on first paint.

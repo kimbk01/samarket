@@ -91,7 +91,7 @@ describe("notify-then-fullscreen rules (Owner 2026-11-04 · 시안/Host 비변�
     expect(admin).toContain("/api/admin/app-releases/notify");
   });
 
-  it("does not modify full-screen step fullscreen screen or mockup", () => {
+  it("does not modify fullscreen screen or mockup", () => {
     expect(read("components/platform/AndroidPlayUpdateScreen.tsx").length).toBeGreaterThan(100);
     expect(read("docs/audit/android-update-fullscreen-progress-mockup-2026-11-03.html").slice(0, 20).toLowerCase()).toContain(
       "<!doctype"

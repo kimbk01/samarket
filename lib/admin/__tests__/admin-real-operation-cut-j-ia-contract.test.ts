@@ -405,7 +405,7 @@ describe("CUT J IA separation hard lock", () => {
     // + P-7 (2026-10-27, Owner 승인 계획안 v3) 거래 「샘플 상품」 `/admin/trade/showcase` = 196.
     // + 5-G (2026-10-29, Owner 승인 v3 설계) 배달 「배달 화면 구성」 `/admin/delivery-screens` = 197.
     // + Admin IA R1 (2026-10-30, Owner 권장안 승인) 회원 혜택 · 배달 광고 진입 · 배너 현황 · 배너 진입 2 = 202.
-    // + 배달 메뉴 구성 v6 (2026-10-30, Owner 승인) 배달 「메뉴 관리」 `/admin/delivery-menus` = 203.
+    // + v6 (2026-10-30, Owner 승인) 배달 「메뉴 관리」 `/admin/delivery-menus` = 203.
     // + 재감사 (2026-10-30 Owner 승인) 별칭 진입점: 광고·배너 11 · 리뷰 2 · 카테고리 3 · 도메인 광고(배달 3 + 거래 4 + 커뮤니티 4) = 230.
     // + 고객지원 「이의신청 (전체)」·「매장 문의 (조회)」 = 232.
     // + 재감사 B 도메인 「이벤트」 별칭 (배달·거래·커뮤니티 `/admin/platform-events?domain=`) = 235.

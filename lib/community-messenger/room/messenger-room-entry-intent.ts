@@ -274,7 +274,7 @@ export type MessengerRoomEntryScrollPlanInput = {
 };
 
 /**
- * Enter = sole scroll policy decision (reference messenger benchmark contract):
+ * Enter = sole scroll policy decision (benchmark contract):
  * - push → latest above composer
  * - return (뒤로 돌아옴 · D4 2026-11-09) → 보던 위치 (나가 있는 동안 온 새 메시지는 「아래 새 메시지」 칩)
  * - tip already consumed → latest (ignore stale unread/first-unread)

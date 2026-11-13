@@ -1,11 +1,11 @@
 /**
  * Buyer Marketplace browse radius — pairs with tradeBrowseLocation.
  *
- * PH marketplace browse presets (not the old 5/10/20/30/50 stub).
+ * PH UI parity presets (not the old 5/10/20/30/50 stub).
  * Recommended is a real applyable km value (not a fake mode).
  */
 
-/** Mid PH preset — Metro Manila city-grain browse default. Not an external algorithm. */
+/** Mid PH preset — Metro Manila city-grain browse default. */
 import { getTradeRadiusOptionsKm, snapTradeRadiusKm } from "@/lib/trade/location/trade-radius-options";
 
 export const TRADE_BROWSE_RECOMMENDED_RADIUS_KM = 64;

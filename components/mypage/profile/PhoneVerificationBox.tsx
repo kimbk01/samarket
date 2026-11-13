@@ -93,7 +93,7 @@ type VerifySnapshot = {
   settings?: VerificationSettings;
 };
 
-/** 단계형 단계 (Owner 2026-11-09): 번호 → (국가 목록) → 6칸 인증번호 → 완료 */
+/** 단계 (Owner 2026-11-09): 번호 → (국가 목록) → 6칸 인증번호 → 완료 */
 type Step = "phone" | "country" | "code";
 
 function resolveSnapshotPhoneDb09(snapshot: VerifySnapshot): string | null {

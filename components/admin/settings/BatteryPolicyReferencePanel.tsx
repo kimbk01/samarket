@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  MANNER_TEMP_REFERENCE,
   KASAMA_LEGACY_TEMP_INPUT_MAX,
   KASAMA_LEGACY_TEMP_NEUTRAL,
   KASAMA_NEUTRAL_BATTERY_PERCENT,
@@ -54,6 +55,27 @@ export function BatteryPolicyReferencePanel() {
           <li>{t("admin_settings_battery_ref_s0_li1")}</li>
           <li>{t("admin_settings_battery_ref_s0_li2")}</li>
           <li>{t("admin_settings_battery_ref_s0_li3")}</li>
+        </ul>
+      </section>
+
+      <section className="rounded-ui-rect border border-sam-surface bg-sam-surface p-4 shadow-sm">
+        <h4 className="sam-text-body-secondary font-semibold text-sam-fg">
+          {t("admin_settings_battery_ref_s1_title")}
+        </h4>
+        <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-fg">
+          {MANNER_TEMP_REFERENCE.citationNote}
+        </p>
+        <ul className="mt-2 list-inside list-disc sam-text-helper text-sam-muted">
+          <li>
+            {t("admin_settings_battery_ref_s1_neutral")}{" "}
+            <strong className="text-sam-fg">{MANNER_TEMP_REFERENCE.neutralExampleC}°C</strong>
+          </li>
+          <li>
+            {t("admin_settings_battery_ref_s1_range", {
+              min: MANNER_TEMP_REFERENCE.typicalRangeC.min,
+              max: MANNER_TEMP_REFERENCE.typicalRangeC.max,
+            })}
+          </li>
         </ul>
       </section>
 

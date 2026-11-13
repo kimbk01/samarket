@@ -14,7 +14,7 @@ const LOGO_OUTER_CLASS = "relative h-28 w-28 shrink-0";
 const LOGO_INNER_CLASS =
   "h-28 w-28 overflow-hidden rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)]";
 
-/** 배달 표준 프로필 촬영 버튼 — 썸네일 우하단에 붙는 원형 배지 */
+/** 프로필 촬영 버튼 — 썸네일 우하단에 붙는 원형 배지 */
 const CAMERA_OVERLAY_CLASS =
   "absolute bottom-0 right-0 z-10 flex h-12 w-12 translate-x-[18%] translate-y-[18%] items-center justify-center rounded-full border-2 border-[var(--biz-card-bg)] bg-[var(--biz-card-bg)] p-0 text-[var(--biz-primary)] shadow-none outline-none ring-1 ring-[var(--biz-card-border)] transition hover:text-[var(--biz-primary-hover)] active:brightness-95 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[var(--biz-primary)]/35 focus-visible:ring-offset-1";
 

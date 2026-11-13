@@ -1,5 +1,5 @@
 /**
- * WP6 (배달 표준형 2차수 2026-10-29) — 매장 화면 표시 규칙 순수 함수.
+ * WP6 (2차수 2026-10-29) — 매장 화면 표시 규칙 순수 함수.
  * 명세: `docs/audit/delivery-master-plan-2026-10-29.md` WP6
  * 화면: `StoreDetailPublic` · `StoreOrderHeroSummary` · `StoreDetailMenusSection` · `ProductMenuCard`
  */

@@ -1,4 +1,4 @@
-/** 일반 중고거래 글쓰기 — 기본 스타일 토큰 (모바일 우선, md 이상은 기존 카드 톤 유지) */
+/** 일반 중고거래 글쓰기 토큰 (모바일 우선, md 이상은 기존 카드 톤 유지) */
 export const TRADE_WRITE_SECTION =
   "max-md:border-0 max-md:bg-transparent max-md:p-0 max-md:shadow-none max-md:ring-0 sam-section";
 

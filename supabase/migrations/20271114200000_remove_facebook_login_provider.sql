@@ -1,6 +1,6 @@
--- Facebook 로그인 잔재 제거 + 운영 DB 주석의 레거시 타사 용어 교체
+-- `facebook` 로그인 잔재 제거 + 운영 DB 주석의 레거시 타사 용어 교체
 -- 근거: docs/audit/legacy-brand-terms-audit-2026-11-13.md §H·§I (Owner 「2번 묶음 진행」 2026-11-13)
--- 사전 조회(운영, 2026-11-13): Facebook 사용자 profiles·users·user_auth_identities·auth.identities 모두 0건,
+-- 사전 조회(운영, 2026-11-13): `facebook` 사용자 profiles·users·user_auth_identities·auth.identities 모두 0건,
 --   auth_providers.facebook enabled=false, auth_login_settings.facebook enabled=false, 외래키·함수 참조 0건.
 
 begin;

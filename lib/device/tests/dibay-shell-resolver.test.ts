@@ -74,7 +74,7 @@ describe("FD4 shell family is DeviceClass only", () => {
     const shell = shellOf("DESKTOP_WINDOWS", 500);
     expect(shell.shellFamily).toBe("DESKTOP");
     expect(shell.layoutMode).toBe("DESKTOP_STACKED");
-    /** Owner 2026-11-07 FD4 데스크톱 조항 해제 — 좁은 창이어도 세로 레일 (PC 메신저형) */
+    /** Owner 2026-11-07 FD4 데스크톱 조항 해제 — 좁은 창이어도 세로 레일 (PC형) */
     expect(shell.navigationPresentation).toBe("DESKTOP_SIDE_RAIL");
   });
 

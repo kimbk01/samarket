@@ -1,6 +1,6 @@
 /**
  * CUT 3 — Platform Popup geometry calibration tokens.
- * Classification: DIBAY_IMPLEMENTATION_CALIBRATION (not externally measured).
+ * Classification: DIBAY_IMPLEMENTATION_CALIBRATION (not runtime measured).
  */
 
 /** Dim backdrop — Platform Popup dim-only (Owner reopen). */

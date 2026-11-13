@@ -16,5 +16,5 @@ export function consumeBrowseMenuTabDirection(): BrowseMenuTabDirection | null {
   return d;
 }
 
-/** 참고 앱 실측 탭 본문 이동 약 130~200ms */
+/** 실측 탭 본문 이동 약 130~200ms */
 export const BROWSE_MENU_TAB_CONTENT_SLIDE_MS = 180;

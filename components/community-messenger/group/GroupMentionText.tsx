@@ -41,7 +41,7 @@ function renderMentionNodes(text: string, isMine: boolean, keyPrefix: string): R
 }
 
 /**
- * Renders message body with @mention segments highlighted (brand green).
+ * Renders message body with @mention segments highlighted (green).
  * http(s)·www 주소는 먼저 링크로 떼어 내고(주소 안의 `@` 를 멘션으로 보지 않게), 나머지 글자에만 멘션 강조를 적용한다.
  */
 export function GroupMentionText({ content, isMine = false, className = "" }: GroupMentionTextProps) {

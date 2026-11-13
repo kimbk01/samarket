@@ -1,4 +1,4 @@
--- 배민식 메뉴판: 사장님 추천·대표 메뉴 플래그 분리 (기존 is_featured 와 병행 백필)
+-- 메뉴판: 사장님 추천·대표 메뉴 플래그 분리 (기존 is_featured 와 병행 백필)
 
 alter table public.store_products
   add column if not exists is_owner_recommended boolean not null default false,

@@ -1366,7 +1366,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
 
   const virtualizerUpgradeDeferHeavy = false;
 
-  /** 참고 메신저: measured virtualItems 만 — estimate fallback absolute paint 금지 */
+  /** measured virtualItems 만 — estimate fallback absolute paint 금지 */
   const cappedVirtualRows = useMemo(() => {
     if (useDirectTimelineLayout) return [];
     const virtualItems = vm.chatVirtualizer.getVirtualItems();

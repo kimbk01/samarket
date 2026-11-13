@@ -7,7 +7,7 @@ export type GroupMessageQuotePreview = {
   previewText: string;
 };
 
-/** messenger-standard quote block for group timeline. */
+/** Quote block for group timeline. */
 export function presentGroupMessageQuote(
   message: Pick<
     CommunityMessengerMessage,

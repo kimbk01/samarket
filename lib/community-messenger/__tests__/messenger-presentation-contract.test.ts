@@ -15,7 +15,7 @@ import { simulateMessengerHomeSectionClickCycle } from "@/lib/community-messenge
 const root = resolve(process.cwd());
 
 describe("messenger presentation contract", () => {
-  it("section transition is ~180ms transform-only (reference messenger band 150–250)", () => {
+  it("section transition is ~180ms transform-only (band 150–250)", () => {
     expect(MESSENGER_HOME_SECTION_ENTER_MS).toBe(180);
     expect(MESSENGER_HOME_SECTION_ENTER_MS).toBeGreaterThanOrEqual(150);
     expect(MESSENGER_HOME_SECTION_ENTER_MS).toBeLessThanOrEqual(250);
@@ -131,7 +131,7 @@ describe("messenger presentation contract", () => {
     expect(shell).toContain("if (splitPaneMode || reducedMotion) return;");
   });
 
-  it("call slide SSOT stays in reference messenger short band", async () => {
+  it("call slide SSOT stays in short band", async () => {
     const { MESSENGER_CALL_SLIDE_ENTER_MS, MESSENGER_CALL_SLIDE_EXIT_MS } = await import(
       "@/lib/community-messenger/messenger-call-slide"
     );

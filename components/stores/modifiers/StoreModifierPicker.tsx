@@ -8,7 +8,7 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 import { STORE_ORDER_CTA_STEPPER } from "@/components/stores/store-order-detail/store-order-brand";
 
 /**
- * WP7 (배달 표준형) — 시트·메뉴 상세 옵션: 필수 = 진한 알약(`--sam-fg` 배경·흰 글자), 선택 = 회색 알약.
+ * WP7 — 시트·메뉴 상세 옵션: 필수 = 진한 알약(`--sam-fg` 배경·흰 글자), 선택 = 회색 알약.
  * 라디오·체크 선택색 = 진한색(`--sam-fg`). 브랜드 그린은 하단 담기 버튼에만.
  */
 const SHEET_BADGE_REQUIRED =
@@ -41,7 +41,7 @@ type Props = {
   value: ModifierSelectionsWire;
   onChange: (next: ModifierSelectionsWire) => void;
   disabled?: boolean;
-  /** 장바구니 시트: 피드형 리스트·포커스 블루 */
+  /** 장바구니 시트: 리스트·포커스 블루 */
   variant?: "default" | "sheet";
   /** page(기본) = 메뉴 상세 페이지 모양 · overlay = 담기 시트 안 (팝업 SSOT T3) — `variant="sheet"` 에만 적용 */
   surface?: "page" | "overlay";

@@ -12,7 +12,7 @@ const M = 60 * S;
 const H = 60 * M;
 const D = 24 * H;
 
-describe("trade listing age — 참고 앱 단위 경계(strict, round)", () => {
+describe("trade listing age — 단위 경계(strict, round)", () => {
   it.each([
     [0, "seconds", 1],
     [59 * S, "seconds", 59],

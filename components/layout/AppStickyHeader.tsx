@@ -144,7 +144,7 @@ export function AppStickyHeader() {
       ) : null}
       {/* 내정보 쿠폰·상품권은 각각 한 화면 — 주문 내역·매장 신청 탭을 섞지 않는다 (내정보 분류 설계 2026-11-02) */}
       {isCommerceHub && !pathNoQuery.startsWith("/mypage/") ? <CustomerCommerceHubPrimaryTabs /> : null}
-      {/* 배달 메뉴 구성 — 홈 상단 탭·아이콘 판은 본문(`DeliveryHomeMenuBoard`)과 함께 스크롤 (헤더엔 주소·검색창만) */}
+      {/* 홈 상단 탭·아이콘 판은 본문(`DeliveryHomeMenuBoard`)과 함께 스크롤 (헤더엔 주소·검색창만) */}
       {isStoresHubRoot ? <StoresHomePullRefreshHost /> : null}
       {isStoresBrowse ? <StoresBrowsePullRefreshHost /> : null}
     </div>

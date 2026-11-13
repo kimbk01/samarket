@@ -1,4 +1,4 @@
--- 1단계 문서 §14-5 (Owner 2026-10-25 승인, 텔레그램 기준):
+-- 1단계 문서 §14-5 (Owner 2026-10-25 승인):
 -- 상대가 내 친구 요청을 거절(rejected)하면 거절한 사람이 해제하기 전에는 다시 요청할 수 없다.
 -- 이전 정의(운영 DB 2026-10-25 19:30 PHT 조회 원문)는 rejected/cancelled/blocked 를 모두 pending 으로 되살렸다.
 -- 변경: rejected 만 'request_rejected' 로 거부. cancelled(요청 취소·친구 삭제·거절 해제) 는 기존처럼 다시 요청 가능.
