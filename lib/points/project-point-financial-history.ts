@@ -2,6 +2,7 @@
  * Load + project Point financial history from point_ledger SSOT.
  * DO NOT: invent balances, recompute promotion prices from catalog, or touch archived store-credit schema.
  */
+import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isMissingPointsTable } from "@/lib/points/admin-user-points-shared";
 import { POINT_LEDGER_ROW_SELECT } from "@/lib/points/point-query-select";
@@ -533,12 +534,14 @@ function applyFeedAdHoldCaptureProjection(
   return item;
 }
 
-async function loadFeedAdHoldStatusMap(
+export async function loadFeedAdHoldStatusMap(
   sb: SupabaseClient,
   requestIds: string[]
 ): Promise<Map<string, string>> {
   const map = new Map<string, string>();
-  const ids = [...new Set(requestIds.map((x) => x.trim()).filter(Boolean))];
+  // 같은 related_type 의 환급 원장(`feed-ad-end-refund:<campaignId>`)은 요청 id 가 아니다 — uuid 열에 넣으면
+  // Postgres uuid 오류로 조회 전체가 실패한다 (운영 로그 11-08~11 30건, docs/audit/postgres-error-log-audit-2026-11-14.md §2-C).
+  const ids = [...new Set(requestIds.map((x) => x.trim()).filter((x) => x && isUuidLikeString(x)))];
   if (!ids.length) return map;
   const { data, error } = await sb
     .from("feed_ad_point_holds")
