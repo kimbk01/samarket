@@ -46,3 +46,12 @@ describe("메시지 전달 S6 (Owner G-4·G-5 2026-11-14)", () => {
     expect(sheet).not.toContain("clipboard");
   });
 });
+
+describe("「전달됨」 표시 색 (2026-11-14 iOS 실기 FAIL — 내 사진 전달본에서 흰 글자가 안 보임)", () => {
+  it("흰 글자는 내 녹색 말풍선(사진·스티커 아닌 것)에서만, 배경 없는 사진·스티커 위는 흐린 회색", () => {
+    const row = read("components/community-messenger/room/phase2/MessengerTimelineVirtualRow.tsx");
+    expect(row).toContain("media={isMediaBubble}");
+    expect(row).toContain('item.isMine && !isMediaBubble ? "text-white/80" : "text-[color:var(--cm-room-text-muted)]"');
+    expect(row).not.toContain('item.isMine && item.messageType !== "sticker" ? "text-white/80"');
+  });
+});
