@@ -371,7 +371,8 @@ export async function GET(req: NextRequest) {
             .ilike("store_name", `%${search}%`)
             .limit(ADMIN_MEMBER_STORE_NAME_MATCH_LIMIT)
         : Promise.resolve({ data: [] as Array<{ owner_user_id?: string }>, error: null }),
-      search
+      /** 매장 id(uuid) 검색일 때만 — 아이디·숫자 검색어를 uuid 열에 넣으면 Postgres uuid 오류 (운영 로그 11-08~13 16건, docs/audit/postgres-error-log-audit-2026-11-14.md §2-E) */
+      uuidSearch
         ? supabase
             .from("stores")
             .select("owner_user_id")
