@@ -181,6 +181,9 @@ describe("i18n-quality 규칙", () => {
     expect(countAdminHangulLiterals('const b = { ko: "회원", en: "Member" }; const c = { labelKo: "저장" };')).toBe(0);
     expect(countAdminHangulLiterals('// "주석"\nconsole.warn("로그");\nthrow new Error("오류");')).toBe(0);
     expect(countAdminHangulLiterals('<option value="a">{"전체"}</option>')).toBe(1);
+    // 닫는 따옴표를 여는 따옴표로 다시 읽지 않는다 (2026-11-13): 짝 표 값만 있는 줄 = 0, 한 줄 문자열 3개 = 3
+    expect(countAdminHangulLiterals("{ id: \"community\", labelKo: `${B.LOUNGE} 현황`, labelEn: B.LOUNGE, href: \"/admin/community\" },")).toBe(0);
+    expect(countAdminHangulLiterals('(a ? "공개 그룹" : b ? `비공개 그룹 ${n}명` : "1:1 채팅")')).toBe(3);
   });
 
   it("L25 후속 — 여러 줄 JSX 한국어 글자", () => {

@@ -1,3 +1,4 @@
+import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
 /** Admin Stores Product Recovery — HOME shelves + CATEGORY scope policy */
 export const adminStoresProductRecoveryMessages = {
   ko: {
@@ -332,7 +333,7 @@ export const adminStoresProductRecoveryMessages = {
     admin_stores_home_shelves_status_available: "Available",
     admin_stores_home_shelves_status_partial: "Partial",
     admin_stores_home_shelves_status_unavailable: "Unavailable",
-    admin_stores_home_shelves_unavailable_hint: "No data authority — hidden on customer HOME",
+    admin_stores_home_shelves_unavailable_hint: `No data authority — hidden on the customer ${B.DIPICK} home`,
     admin_stores_home_shelves_save: "Save",
     admin_stores_home_shelves_reload: "Reload",
     admin_stores_home_shelves_loading: "Loading…",

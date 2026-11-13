@@ -4,7 +4,8 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { registerHooks } from "node:module";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -53,39 +54,51 @@ function classifyDomain(key) {
   return "other";
 }
 
-function extractCatalogEntries(filePath, lang) {
-  const content = fs.readFileSync(filePath, "utf8");
-  const re = new RegExp(`\\n  ${lang}: \\{([\\s\\S]*?)\\n  \\},`, "m");
-  const match = content.match(re);
-  if (!match) return [];
-  const block = match[1];
-  const out = [];
-  /**
-   * 값 = "문자열" · '문자열' · `템플릿` · 브랜드 상수 `B.MARKET` (서비스 브랜드 SSOT, Owner 2026-11-13 —
-   * 카탈로그 값이 `lib/brand/dibay-service-brand.ts` 상수를 참조). 템플릿의 `${B.X}` 는 이름 X 로 읽는다.
-   */
-  const keyValueRe =
-    /^\s+"?([a-zA-Z_][a-zA-Z0-9_.]*)"?\s*:\s*(?:\n\s*)?(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|`((?:\\.|[^`\\])*)`|B\.([A-Z]+)\b)/gm;
-  let m;
-  while ((m = keyValueRe.exec(block)) !== null) {
-    const raw = m[2] ?? m[3] ?? (m[4] != null ? m[4].replace(/\$\{B\.([A-Z]+)\}/g, "$1") : null) ?? m[5] ?? "";
-    const value = raw.replace(/\\n/g, "\n").replace(/\\"/g, '"');
-    out.push({ key: m[1], value });
+/**
+ * 카탈로그 TS 를 실제로 실행해 값을 읽는다(정규식으로 값 모양을 추측하지 않음 — 2026-11-13 재감사 R3).
+ * 값이 상수 참조(`B.MARKET`)·템플릿(`\`${B.FEED} 상위노출\``)·이어 붙이기여도 앱과 같은 최종 문자열로 검사한다.
+ * Node 24 의 TS 형식 제거(type stripping)로 읽고, 확장자 없는 상대 경로 import 만 `.ts` 로 이어 준다.
+ */
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if ((specifier.startsWith("./") || specifier.startsWith("../")) && !/\.[cm]?[jt]sx?$/.test(specifier) && context.parentURL) {
+      const candidate = new URL(`${specifier}.ts`, context.parentURL);
+      if (fs.existsSync(fileURLToPath(candidate))) return nextResolve(candidate.href, context);
+    }
+    return nextResolve(specifier, context);
+  },
+});
+const emitWarning = process.emitWarning.bind(process);
+process.emitWarning = (warning, ...rest) => {
+  const code = typeof rest[0] === "object" ? rest[0]?.code : rest[1];
+  if (code === "MODULE_TYPELESS_PACKAGE_JSON") return;
+  emitWarning(warning, ...rest);
+};
+
+async function extractCatalogEntries(filePath) {
+  const mod = await import(pathToFileURL(filePath).href);
+  const out = { ko: [], en: [] };
+  for (const exported of Object.values(mod)) {
+    if (!exported || typeof exported !== "object" || !exported.ko || !exported.en) continue;
+    for (const lang of ["ko", "en"]) {
+      for (const [key, value] of Object.entries(exported[lang])) out[lang].push({ key, value: String(value ?? "") });
+    }
   }
   return out;
 }
 
-function collectMerged(lang) {
-  const map = new Map();
+async function collectMerged() {
+  const merged = { ko: new Map(), en: new Map() };
   /** S5(2026-11-08): `messages/*.json` 폐지 — 원본은 카탈로그 TS 만 */
   const dir = path.join(ROOT, "lib", "i18n", "catalog");
-  for (const file of fs.readdirSync(dir)) {
+  for (const file of fs.readdirSync(dir).sort()) {
     if (!file.endsWith(".ts")) continue;
-    for (const { key, value } of extractCatalogEntries(path.join(dir, file), lang)) {
-      map.set(key, { value, source: `catalog/${file}` });
+    const entries = await extractCatalogEntries(path.join(dir, file));
+    for (const lang of ["ko", "en"]) {
+      for (const { key, value } of entries[lang]) merged[lang].set(key, { value, source: `catalog/${file}` });
     }
   }
-  return map;
+  return merged;
 }
 
 function pushGrouped(bucket, domain, item) {
@@ -93,8 +106,7 @@ function pushGrouped(bucket, domain, item) {
   bucket[domain].push(item);
 }
 
-const koMap = collectMerged("ko");
-const enMap = collectMerged("en");
+const { ko: koMap, en: enMap } = await collectMerged();
 const koKeys = new Set(koMap.keys());
 const enKeys = new Set(enMap.keys());
 

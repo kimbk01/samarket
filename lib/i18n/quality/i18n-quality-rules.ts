@@ -245,17 +245,20 @@ export function countHardcodedKorean(text: string): number {
 /**
  * 감사 L25 (2026-11-08) — 어드민 코드의 한국어 문자열 리터럴(위 규칙들이 세지 않던 `label:`·`description=`·`<option>`·일반 문자열).
  * 영어 짝이 있는 `ko: "…"`·`labelKo: "…"` 표 값과 주석·`console.*`·`throw` 줄은 세지 않는다.
+ * 문자열 리터럴을 왼쪽부터 차례로 읽는다(한국어 없는 문자열도 소비) — 닫는 따옴표를 여는 따옴표로 다시 읽어
+ * `{ id: "a", labelKo: \`…\`, href: "/b" }` 의 「`, labelKo: …` 」 구간을 문자열로 잘못 세던 오탐 수정(2026-11-13).
  */
-const ADMIN_HANGUL_LITERAL = /(["'`])((?:(?!\1)[^\\\n]|\\.)*[가-힣](?:(?!\1)[^\\\n]|\\.)*)\1/g;
+const ADMIN_STRING_LITERAL = /(["'`])((?:(?!\1)[^\\\n]|\\.)*)\1/g;
 export function countAdminHangulLiterals(text: string): number {
   let n = 0;
   for (const raw of text.split("\n")) {
     const t = raw.trimStart();
     if (t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")) continue;
     if (/\bconsole\.|\bthrow\b/.test(raw)) continue;
-    ADMIN_HANGUL_LITERAL.lastIndex = 0;
+    ADMIN_STRING_LITERAL.lastIndex = 0;
     let m: RegExpExecArray | null;
-    while ((m = ADMIN_HANGUL_LITERAL.exec(raw))) {
+    while ((m = ADMIN_STRING_LITERAL.exec(raw))) {
+      if (!/[가-힣]/.test(m[2])) continue;
       const before = raw.slice(0, m.index);
       if (/\b(?:ko|[A-Za-z]+Ko)\s*:\s*$/.test(before)) continue;
       n++;

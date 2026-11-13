@@ -1,7 +1,6 @@
 import {
   DIBAY_SERVICE_BRAND_ICON_PATH,
   DIBAY_SERVICE_BRAND_ICON_VIEWBOX,
-  DIBAY_STOREFRONT_ICON_PATH,
   type DibayServiceBrandId,
 } from "@/lib/brand/dibay-service-brand";
 
@@ -32,23 +31,10 @@ export function ServiceBrandIcon({ brand, className, size }: ServiceBrandIconPro
   );
 }
 
-/** 매장 사장님 운영(기능) — 브랜드 아님, 같은 채움 계열 */
-export function StorefrontFillIcon({ className, size }: { className?: string; size?: number }) {
-  return (
-    <svg
-      className={className}
-      width={size}
-      height={size}
-      viewBox={DIBAY_SERVICE_BRAND_ICON_VIEWBOX}
-      fill="currentColor"
-      aria-hidden
-    >
-      <path d={DIBAY_STOREFRONT_ICON_PATH} />
-    </svg>
-  );
-}
-
-/** 선 아이콘(lucide) 자리에 그대로 끼우는 컴포넌트 — `strokeWidth` 등은 받기만 하고 쓰지 않는다(채움 아이콘). */
+/**
+ * 아이콘 컴포넌트 자리(하단 탭 레지스트리·HOME 카드·알림함 등 lucide 와 섞인 표)에 끼우는 브랜드 아이콘.
+ * 이 파일의 `ServiceBrandIcon` 하나만 그린다. `strokeWidth` 는 lucide 와 같은 표에 넣기 위한 타입 자리이고 채움 아이콘이라 쓰지 않는다.
+ */
 export type ServiceBrandIconSlotProps = {
   className?: string;
   strokeWidth?: number | string;

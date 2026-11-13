@@ -661,7 +661,7 @@ export const copyAdminL25OpsMessages = {
     admin_notifications_counting: "Counting…",
     admin_notifications_audience_push_count_failed: "Inbox {v} · Push count failed",
     admin_notifications_refresh: "Refresh",
-    admin_notifications_benefits_events_inbox_for_everyone_push: "Benefits & events — inbox for everyone, push only for opted-in members.",
+    admin_notifications_benefits_events_inbox_for_everyone_push: `Benefits & events — inbox for everyone, push only for opted-in members (not those who turned it off in ${B.MY}).`,
     admin_notifications_member_ids_newline_or_comma: "Member IDs (newline or comma)",
     admin_notifications_scheduled_time_pht: "Scheduled time (PHT)",
     admin_notifications_send_time: "Send time",
