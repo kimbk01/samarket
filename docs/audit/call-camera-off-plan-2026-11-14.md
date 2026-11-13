@@ -276,3 +276,14 @@ SSOT §3 는 버튼만 정의한다.
 영향: 마이크 버튼·Android PiP 마이크 버튼·입장(join) 마이크 초기화. 서버·푸시·CallKit·웹 무변경. 구 바이너리 호환 영향 없음(상대에게 보내는 신호 동일 — muteLocalAudioStream).
 범위 밖(보고만): iOS 음성 스피커 상태 `speakerEnabledChrome` 도 VC 필드(같은 구조).
 실기: 음소거 → PiP·복귀(iOS)·알림 복귀(Android) 후 버튼 「음소거」 유지·상대에 소리 안 감 / 발신 연결 중 음소거 → 연결 후 유지 / 끊고 재발신 → 해제로 시작.
+
+## 13. 추가 — 음성 통화 스피커 상태도 같은 구조로 (Owner 2026-11-14 「스피커 상태도 같은 구조로 고쳐라」)
+
+| 위치 | 지금 | 결함 | 수정 |
+|---|---|---|---|
+| Android 음성 `NativeVoiceCallActivity.speakerEnabled` | 화면 필드, 버튼이 SDK 결과와 무관하게 먼저 바뀜 (`setSpeakerEnabled` void, 입장 전이면 무시) | 화면 재생성(알림 복귀 등) 시 「수화기」로 돌아감 · 입장 전·실패 때 버튼만 바뀜 | 세션 `Session.speakerEnabled` 에 저장(마이크 `micMuted` 와 같은 구조), 엔진 `setSpeakerEnabled(callId, enabled)` 가 Agora 결과 0 일 때만 true → 그때만 세션·화면 갱신 |
+| iOS 음성 `NativeVoiceCallViewController.speakerEnabledChrome` | VC 필드 | VC 재생성 시 초기화 | 음성 엔진 `speakerOnByCall`(성공 시 저장, leave 때 지움), VC 는 계산 속성 |
+
+새 통화 기본 = 수화기(기존 입장 `setDefaultAudioRoutetoSpeakerphone(false)` 유지). 입장 전 탭은 기존처럼 거부(버튼 불변). 영상 통화는 스피커 버튼 없음(항상 스피커) — 변경 없음.
+남는 한계(기존 그대로): 블루투스·유선 이어폰 연결 등 OS 가 경로를 바꾸면 버튼은 마지막으로 누른 값을 보인다.
+실기: 스피커 켬 → (Android) 알림 탭 복귀 / (iOS) 최소화 후 통화 바로 복귀 → 버튼 「스피커」 유지·실제 소리 경로 스피커.

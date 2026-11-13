@@ -26,6 +26,8 @@ final class NativeVoiceCallAgoraEngine: NSObject {
   private var callerJoinActive = false
   /// 마이크 설계 §12 (docs/audit/call-camera-off-plan-2026-11-14.md) — 통화별 음소거 상태.
   private var micMutedByCall: [String: Bool] = [:]
+  /// 스피커 설계 §13 — 통화별 스피커 상태. 값이 없으면 수화기(false).
+  private var speakerOnByCall: [String: Bool] = [:]
 
   private override init() {
     super.init()
@@ -159,7 +161,10 @@ final class NativeVoiceCallAgoraEngine: NSObject {
     )
     listener = nil
     activeCallId = nil
-    if let sid, !sid.isEmpty { micMutedByCall.removeValue(forKey: sid) }
+    if let sid, !sid.isEmpty {
+      micMutedByCall.removeValue(forKey: sid)
+      speakerOnByCall.removeValue(forKey: sid)
+    }
     localJoined = false
     connectedEmitted = false
     callerJoinActive = false
@@ -222,6 +227,9 @@ final class NativeVoiceCallAgoraEngine: NSObject {
     )
     // Agora: call after join; 0 = success. Do not claim route applied on failure.
     guard result == 0 else { return false }
+    lock.lock()
+    speakerOnByCall[sid] = enabled
+    lock.unlock()
     DibayCallLog.info(
       "audio_route_applied",
       sessionId: sid,
@@ -277,6 +285,14 @@ final class NativeVoiceCallAgoraEngine: NSObject {
       lock.unlock()
     }
     return result == 0
+  }
+
+  /// 스피커 설계 §13 — 음성 화면은 다시 만들어져도 이 값을 읽는다. 값이 없으면 수화기.
+  func isSpeakerOn(callId: String) -> Bool {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    lock.lock()
+    defer { lock.unlock() }
+    return speakerOnByCall[sid] ?? false
   }
 
   /// 마이크 설계 §12 — 음성 화면은 다시 만들어져도 이 값을 읽는다. 값이 없으면 음소거 아님.

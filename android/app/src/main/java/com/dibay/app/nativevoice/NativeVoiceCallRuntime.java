@@ -42,6 +42,11 @@ public final class NativeVoiceCallRuntime {
     public volatile State state;
     /** WP-3 NEW-28: mute lives on the session (survives Activity recreation), engine is source of truth. */
     public volatile boolean micMuted;
+    /**
+     * 스피커 상태도 세션에 (화면 재생성에도 유지, micMuted 와 같은 구조). 새 통화 = 수화기(false).
+     * 설계 docs/audit/call-camera-off-plan-2026-11-14.md §13.
+     */
+    public volatile boolean speakerEnabled;
 
     Session(
         String callId,
