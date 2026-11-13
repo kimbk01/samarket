@@ -44,6 +44,8 @@ export type MessageActionMenuProps = {
   replyDisabled: boolean;
   replyTitle?: string;
   onReply: () => void;
+  /** 「전달하기」 — 다른 방으로 실제 전송(통합 공유 S6). 전달할 수 없는 메시지는 넘기지 않음 → 행 없음 */
+  forward?: { onClick: () => void };
   shareExpanded: boolean;
   shareDisabled: boolean;
   shareTitle?: string;
@@ -78,6 +80,7 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
     replyDisabled,
     replyTitle,
     onReply,
+    forward,
     shareExpanded,
     shareDisabled,
     shareTitle,
@@ -118,6 +121,9 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
         disabled={roomUnavailable || replyDisabled}
         title={replyTitle}
       />
+      {forward ? (
+        <MenuRow label={t("share_forward_cta")} onClick={forward.onClick} disabled={roomUnavailable} />
+      ) : null}
       {photoSaveRows?.map((row) => (
         <MenuRow key={row.key} label={row.label} onClick={row.onClick} disabled={Boolean(row.disabled)} />
       ))}

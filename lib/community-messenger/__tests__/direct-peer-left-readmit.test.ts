@@ -115,10 +115,11 @@ describe("S-1 contract — every send path readmits through one function", () =>
     }
   });
 
-  it("service: text path readmits after the block gate; sticker·share use prepare", () => {
+  it("service: text path readmits after the block gate; sticker·share·forward use prepare", () => {
     const src = read("lib/community-messenger/service.ts");
     expect(src).not.toContain("assertMessengerRoomSendAllowed(");
-    expect(src.match(/prepareMessengerRoomSend\(/g)?.length).toBe(2);
+    // sticker · post share · 메시지 전달(통합 공유 S6 2026-11-14)
+    expect(src.match(/prepareMessengerRoomSend\(/g)?.length).toBe(3);
     expect(src).toContain("blockGate.readmitPeerUserId");
   });
 

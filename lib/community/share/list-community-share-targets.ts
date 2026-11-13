@@ -22,6 +22,11 @@ export async function listCommunityShareTargets(userId: string): Promise<{
     subtitle: room.subtitle,
     avatarUrl: room.avatarUrl ?? null,
     roomId: room.id,
+    forwardable:
+      room.contextMeta?.kind !== "trade" &&
+      room.contextMeta?.kind !== "delivery" &&
+      room.chatDomain !== "trade" &&
+      room.chatDomain !== "store_order",
   }));
 
   const friendProfiles = friendsResult.ok ? friendsResult.friends : [];
@@ -32,6 +37,7 @@ export async function listCommunityShareTargets(userId: string): Promise<{
     subtitle: profile.subtitle,
     avatarUrl: profile.avatarUrl ?? null,
     userId: profile.id,
+    forwardable: true,
   }));
 
   return { recent, friends };

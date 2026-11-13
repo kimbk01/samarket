@@ -60,11 +60,12 @@ describe("NOTIF-03 non-text roomKind", () => {
     expect(input.directKey).toBeNull();
   });
 
-  it("all 5 non-text senders go through the helper (no direct pipeline call)", () => {
+  it("all 6 non-text senders go through the helper (no direct pipeline call)", () => {
     const src = readFileSync(join(process.cwd(), "lib/community-messenger/service.ts"), "utf8");
-    expect(src.match(/const notifyDone = notifyCommunityMessengerMessageRecipients\(/g)?.length).toBe(5);
+    // image · sticker · post share · file · voice · 메시지 전달(통합 공유 S6 2026-11-14)
+    expect(src.match(/const notifyDone = notifyCommunityMessengerMessageRecipients\(/g)?.length).toBe(6);
     // 알림 Promise 는 라우트에 넘겨 after() 로 수명 보장(fire-and-forget 유실 방지)
-    expect(src.match(/input\.onNotifyScheduled\?\.\(notifyDone\);/g)?.length).toBe(5);
+    expect(src.match(/input\.onNotifyScheduled\?\.\(notifyDone\);/g)?.length).toBe(6);
     expect(src).not.toMatch(/void notifyCommunityMessengerMessageRecipients\(/);
   });
 

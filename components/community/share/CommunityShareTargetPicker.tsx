@@ -14,6 +14,8 @@ export type CommunityShareTargetItem = {
   avatarUrl?: string | null;
   roomId?: string;
   userId?: string;
+  /** 메시지 「전달하기」 대상 가능 여부 — 거래·배달(주문) 방은 false (통합 공유 S6 · G-4) */
+  forwardable?: boolean;
 };
 
 type Props = {

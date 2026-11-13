@@ -20,6 +20,7 @@ import {
   canCopyMessageLink,
   canShareMessageExternally,
   canShareMessageToRoom,
+  canForwardMessage,
 } from "@/lib/community-messenger/message-actions/message-share-policy";
 import { MessageActionMenu } from "@/components/community-messenger/room/message/MessageActionMenu";
 import { MessageReactionBar } from "@/components/community-messenger/room/message/MessageReactionBar";
@@ -48,6 +49,8 @@ export type MessageLongPressPopoverProps = {
   onEdit: () => void;
   onReply: () => void;
   onShareToRoom: () => void;
+  /** 「전달하기」(통합 공유 S6) — 없으면 행을 그리지 않음 */
+  onForward?: () => void;
   onShareExternal: () => void;
   onShareCopyLink: () => void;
   onReaction: (reactionKey: string) => void;
@@ -352,6 +355,13 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
           replyDisabled={!replyAction?.enabled}
           replyTitle={replyAction?.reason}
           onReply={props.onReply}
+          forward={
+            props.onForward &&
+            !roomUnavailable &&
+            canForwardMessage(item, roomKind, { chatDomain: snapshot.room.chatDomain ?? null })
+              ? { onClick: props.onForward }
+              : undefined
+          }
           shareExpanded={shareExpanded}
           shareDisabled={!shareAction?.enabled || !shareBranches}
           shareTitle={shareAction?.reason ?? (!shareBranches ? t("cm_ui_cannot_share_in_this_room") : undefined)}
