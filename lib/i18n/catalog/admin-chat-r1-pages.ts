@@ -145,7 +145,7 @@ export const adminChatR1CMessages = {
     admin_chat_member_reports_link: "이 회원 관련 채팅 신고",
     // 채팅 신고 큐 (설계 §3-2)
     admin_chat_reports_desc:
-      "메신저·거래 채팅(구)·거래 신고(채팅방·메시지)를 한 목록에서 처리합니다. 처리 대기는 먼저 들어온 신고부터 보여 줍니다.",
+      `${B.LETARING}·거래 채팅(구)·거래 신고(채팅방·메시지)를 한 목록에서 처리합니다. 처리 대기는 먼저 들어온 신고부터 보여 줍니다.`,
     admin_chat_reports_search_placeholder: "신고자·피신고자 닉네임 · 회원 ID · 방 ID",
     admin_chat_reports_filter_status: "처리 상태",
     admin_chat_reports_filter_source: "신고 원천",
@@ -344,7 +344,7 @@ export const adminChatR1CMessages = {
     admin_chat_member_open_room: "Open room",
     admin_chat_member_reports_link: "Chat reports involving this member",
     admin_chat_reports_desc:
-      "Messenger, legacy trade chat and trade reports (chat rooms · messages) in one queue. Pending reports are shown oldest first.",
+      `${B.LETARING}, legacy trade chat and trade reports (chat rooms · messages) in one queue. Pending reports are shown oldest first.`,
     admin_chat_reports_search_placeholder: "Reporter / reported nickname · member ID · room ID",
     admin_chat_reports_filter_status: "Status",
     admin_chat_reports_filter_source: "Source",
