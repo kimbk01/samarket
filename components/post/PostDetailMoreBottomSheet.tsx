@@ -31,18 +31,6 @@ function IconReportAlert({ className }: { className?: string }) {
   );
 }
 
-function IconShare({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-      />
-    </svg>
-  );
-}
-
 const rowClass = `${OverlayUi.popoverItem} gap-3`;
 const rowDangerClass = `${OverlayUi.popoverItemDanger} gap-3`;
 
@@ -50,26 +38,21 @@ export function PostDetailMoreBottomSheet({
   open,
   onClose,
   onSelectReport,
-  onSelectShare,
   onSelectSupport,
   authorUserId,
   authorNickname,
   reportEnabled = true,
-  shareEnabled = true,
 }: {
   open: boolean;
   onClose: () => void;
   /** 신고 사유 입력 단계로 */
   onSelectReport: () => void;
-  onSelectShare: () => void;
   /** 거래글 「문의하기」 (거래 문의 + 이 글 참조) — 없으면 숨김 */
   onSelectSupport?: () => void;
   authorUserId: string;
   authorNickname?: string | null;
   /** false면 시트에서 「신고하기」만 숨김 (더보기 메뉴는 계속 사용) */
   reportEnabled?: boolean;
-  /** false면 시트에서 공유 숨김 — 본문 1차 공유와 중복 금지 */
-  shareEnabled?: boolean;
 }) {
   const { t, safeT } = useI18n();
   const requireAction = useRequireAuthAction();
@@ -96,20 +79,9 @@ export function PostDetailMoreBottomSheet({
     onSelectReport();
   };
 
-  const handleShare = () => {
-    onClose();
-    onSelectShare();
-  };
-
   return (
     <DibayBottomSheet open={open} onClose={onClose} ariaLabel={t("popup_sheet_more_options_aria")}>
       <div className="overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]">
-        {shareEnabled ? (
-          <button type="button" onClick={handleShare} className={rowClass}>
-            <IconShare className="h-5 w-5 shrink-0 text-[color:var(--overlay-text-secondary)]" />
-            {safeT("trade_detail_share")}
-          </button>
-        ) : null}
         <button type="button" onClick={handleHideAuthor} className={rowClass}>
           <IconEyeSlash className="h-5 w-5 shrink-0 text-[color:var(--overlay-text-secondary)]" />
           {t("popup_menu_hide_author_posts")}

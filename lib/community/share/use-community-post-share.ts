@@ -1,29 +1,21 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
+import { useDibayShareSheet } from "@/components/share/use-dibay-share-sheet";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import type { ShareSheetEvent } from "@/lib/share/platform-share";
 import { logCommunityShareEvent } from "./community-share-analytics";
 import { buildCommunityPostShareCardData, buildCommunityPostShareNativePayload } from "./community-share-payload";
 
 /**
- * FEED 상세 공유 — 통합 공유 시트(`DibayShareSheet`)에 넘길 값만 만든다 (S3).
- * 실행·결과 계약(취소 무반응·실패 시 자동 복사 없음)은 시트·`lib/share/platform-share.ts` 가 갖는다.
+ * FEED 상세 공유 — 머리글 공유 1곳(§N-3)이 부르는 `share()` 와 화면에 한 번 그릴 `shareSheet`.
+ * 실행(기기 공유 창 바로 · 없으면 복사 시트)·결과 계약은 `useDibayShareSheet`·`lib/share/platform-share.ts` 가 갖는다.
  */
 export function useCommunityPostShare(post: NeighborhoodFeedPostDTO, categoryLabel?: string) {
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const { openShare, shareSheet } = useDibayShareSheet();
 
   const card = useMemo(() => buildCommunityPostShareCardData(post, categoryLabel), [post, categoryLabel]);
   const nativePayload = useMemo(() => buildCommunityPostShareNativePayload(card), [card]);
-
-  const openSheet = useCallback(() => {
-    setSheetOpen(true);
-    logCommunityShareEvent("community_share_sheet_open", { postId: card.postId, result: "open" });
-  }, [card.postId]);
-
-  const closeSheet = useCallback(() => {
-    setSheetOpen(false);
-  }, []);
 
   const onShareEvent = useCallback(
     (e: ShareSheetEvent) => {
@@ -47,14 +39,17 @@ export function useCommunityPostShare(post: NeighborhoodFeedPostDTO, categoryLab
     [card.postId]
   );
 
-  return {
-    sheetOpen,
-    openSheet,
-    closeSheet,
-    card,
-    nativePayload,
-    onShareEvent,
-  };
-}
+  const share = useCallback(() => {
+    logCommunityShareEvent("community_share_sheet_open", { postId: card.postId, result: "open" });
+    openShare({
+      url: card.canonicalUrl,
+      previewTitle: nativePayload.title,
+      previewSubtitle: card.categoryName || undefined,
+      previewImageUrl: card.thumbnailUrl,
+      shareText: card.excerpt || undefined,
+      onEvent: onShareEvent,
+    });
+  }, [card, nativePayload.title, onShareEvent, openShare]);
 
-export type UseCommunityPostShareReturn = ReturnType<typeof useCommunityPostShare>;
+  return { share, shareSheet };
+}

@@ -10,9 +10,9 @@ function readRepoFile(relativePath: string): string {
 }
 
 describe("CUT G — DETAIL share (통합 공유 · Owner 2026-11-14 「CUT G 열고 통합」)", () => {
-  it("상세 공유 = 통합 공유 시트 + 운영 /post/[id] (window.location·자동 복사 없음)", () => {
+  it("상세 공유 = 통합 공유 실행 훅 + 운영 /post/[id] (window.location·자동 복사 없음)", () => {
     const src = readRepoFile("components/post/PostDetailView.tsx");
-    expect(src).toContain("DibayShareSheet");
+    expect(src).toContain("useDibayShareSheet");
     expect(src).toContain('buildShareUrl({ kind: "market", postId: post.id })');
     expect(src).not.toContain("shareOrCopyTradeListing");
     expect(src).not.toContain("navigator.share");
@@ -91,10 +91,10 @@ describe("CUT G — favorite / report / share surfaces", () => {
     expect(src).toContain("POST_FAVORITE_CHANGED_EVENT");
   });
 
-  it("DETAIL uses ReportReasonModal and the unified share sheet", () => {
+  it("DETAIL uses ReportReasonModal and the unified share hook", () => {
     const src = readRepoFile("components/post/PostDetailView.tsx");
     expect(src).toContain("ReportReasonModal");
-    expect(src).toContain("DibayShareSheet");
+    expect(src).toContain("useDibayShareSheet");
     expect(src).not.toContain("createReport");
     expect(src).not.toContain("ui_report_reason_title");
   });

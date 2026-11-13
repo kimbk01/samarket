@@ -1,20 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { MoreHorizontal, Pencil, Share2, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 type Props = {
-  onShare: () => void;
   onDelete: () => void;
   onEdit?: () => void;
   deleteBusy?: boolean;
 };
 
+/** 내 글 ⋮ — 수정·삭제. 공유는 머리글 1곳(§N-3)이라 여기 두지 않는다 */
 export function CommunityOwnPostMoreMenu({
-  onShare,
   onDelete,
   onEdit,
   deleteBusy = false,
@@ -64,20 +63,6 @@ export function CommunityOwnPostMoreMenu({
                 </button>
               </li>
             ) : null}
-            <li role="none">
-              <button
-                type="button"
-                role="menuitem"
-                className={itemClass}
-                onClick={() => {
-                  setOpen(false);
-                  onShare();
-                }}
-              >
-                <Share2 className="h-4 w-4 shrink-0" />
-                {t("community_share_label")}
-              </button>
-            </li>
             <li role="none">
               <button
                 type="button"

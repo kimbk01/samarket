@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MoreVertical } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayActionSheet, dibayConfirm, type DibayActionSheetItem } from "@/components/ui/dibay-overlay";
@@ -10,7 +10,9 @@ import { SAM_TIER1_HEADER_ACTION_BTN_CLASS, SAM_TIER1_HEADER_ICON_GLYPH_CLASS, s
 import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto } from "@/lib/moim/moim-api-types";
 import type { MoimAction } from "@/lib/moim/moim-permission-contract";
-import { MoimInviteSheet } from "@/components/moim/MoimInviteSheet";
+import { DibayHeaderShareButton } from "@/components/share/DibayHeaderShareButton";
+import { useDibayShareSheet } from "@/components/share/use-dibay-share-sheet";
+import { buildShareUrl } from "@/lib/share/share-url";
 import { MoimMemberView } from "@/components/moim/MoimMemberView";
 import { MoimPublicView } from "@/components/moim/MoimPublicView";
 import { MoimReportSheet, type MoimReportTarget } from "@/components/moim/MoimReportSheet";
@@ -86,12 +88,44 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
   const { t } = useI18n();
   const router = useRouter();
   const toast = useMoimToast();
+  const showToast = toast.show;
   const { moim, error, reload } = useMoimDetail(moimId);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [inviteOpen, setInviteOpen] = useState(false);
   const [report, setReport] = useState<MoimReportTarget | null>(null);
 
   const isMember = moim?.viewer.status === "active";
+  /**
+   * 모임 상세 공유 = 초대 링크 (Owner 2026-11-14 §N-3 · G-7: 모임 상세는 비회원 비공개라 밖으로 보낼 수 있는 것은 초대 링크뿐).
+   * 초대 링크 권한(manage_invite_link)이 있는 멤버에게만 머리글 공유를 그린다. 화면에 머무는 동안 만든 링크 1개를 다시 쓴다.
+   */
+  const canShareInvite = !!moim && isMember && moim.can.manage_invite_link;
+  const { openShare, shareSheet } = useDibayShareSheet();
+  const inviteUrlRef = useRef<string | null>(null);
+  const shareBusyRef = useRef(false);
+  const shareInvite = useCallback(async () => {
+    if (!moim || shareBusyRef.current) return;
+    shareBusyRef.current = true;
+    try {
+      let url = inviteUrlRef.current;
+      if (!url) {
+        const r = await moimApi.createInviteLink(moim.id, null);
+        if (!r.ok) {
+          showToast(t(moimErrorKey(r.error)), "error");
+          return;
+        }
+        url = buildShareUrl({ kind: "moim_invite", token: r.token });
+        inviteUrlRef.current = url;
+      }
+      openShare({
+        url,
+        previewTitle: moim.name,
+        previewSubtitle: t("share_invite_kind_moim"),
+        previewImageUrl: moim.coverImageUrl,
+      });
+    } finally {
+      shareBusyRef.current = false;
+    }
+  }, [moim, openShare, t, showToast]);
   // 부모임장·운영진은 권한이 없어도 「모임장 변경 요청」(P8 미접속 위임) 때문에 운영 메뉴를 연다
   const canManage = !!moim && (MANAGE_ACTIONS.some((a) => moim.can[a]) || canRequestMoimHostChange(moim));
 
@@ -99,12 +133,19 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
     () =>
       moim ? (
         <div className={samTier1HeaderIconCluster}>
+          {canShareInvite ? (
+            <DibayHeaderShareButton
+              onClick={() => void shareInvite()}
+              buttonClassName={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
+              glyphClassName={SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
+            />
+          ) : null}
           <button type="button" className={SAM_TIER1_HEADER_ACTION_BTN_CLASS} aria-label={t("moim_menu_aria")} onClick={() => setMenuOpen(true)}>
             <MoreVertical className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} strokeWidth={2} aria-hidden />
           </button>
         </div>
       ) : null,
-    [moim, t]
+    [moim, t, canShareInvite, shareInvite]
   );
   const header = useMemo(
     () => ({ titleText: moim?.name ?? t("moim_tab"), backHref: moimRoutes.tab, rightSlot }),
@@ -148,8 +189,9 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
   }
 
   const items: DibayActionSheetItem[] = [];
-  if (isMember && (moim.can.manage_invite_link || moim.can.send_invite)) {
-    items.push({ key: "invite", label: t("moim_menu_invite"), onClick: () => setInviteOpen(true) });
+  /** 바깥 공유(초대 링크)는 머리글 1곳 — 메뉴에는 DIBAY 친구 초대(초대 관리 화면)만 */
+  if (isMember && moim.can.send_invite) {
+    items.push({ key: "invite", label: t("moim_invite_friend_btn"), onClick: () => router.push(moimRoutes.manageInvite(moim.id)) });
   }
   if (isMember) items.push({ key: "profile", label: t("moim_menu_profile"), onClick: () => router.push(moimRoutes.profile(moim.id)) });
   if (isMember) {
@@ -178,7 +220,7 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
         items={items}
         notice={items.length === 0 ? t("moim_menu_empty") : undefined}
       />
-      <MoimInviteSheet open={inviteOpen} onClose={() => setInviteOpen(false)} moim={moim} onToast={toast.show} />
+      {shareSheet}
       <MoimReportSheet moimId={moim.id} target={report} onClose={() => setReport(null)} onDone={(m) => toast.show(m, "success")} />
       {toast.node}
     </>
