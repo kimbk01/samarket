@@ -13,8 +13,9 @@ describe("기기 안 연락처 비교 (SSOT v5 §4 S4·S7 — 매번 찾지 않�
     { id: "3", name: "Foreign", numbers: ["+1 415 555 0100"] },
   ];
   it("번호표: 같은 번호 1개, 형식 불가·다른 나라 제외, 이름은 기기 안 표에만", () => {
+    // 국내 형식 휴대폰(010·09)은 기본 나라와 상관없이 들어간다 (감사 2026-11-14 N1) — 유선·다른 나라는 제외
     const ph = buildContactsNumberMap(contacts, "PH");
-    expect(Object.keys(ph.numbers)).toEqual(["+639171234567"]);
+    expect(Object.keys(ph.numbers).sort()).toEqual(["+639171234567", "+821012345678"].sort());
     const kr = buildContactsNumberMap(contacts, "KR");
     expect(Object.keys(kr.numbers).sort()).toEqual(["+639171234567", "+821012345678"].sort());
     expect(kr.names[contactsClientRef("1")]).toBe("이영희");

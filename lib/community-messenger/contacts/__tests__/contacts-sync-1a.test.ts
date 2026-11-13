@@ -32,10 +32,27 @@ describe("연락처 번호 정규화 (SSOT v5 §4 S4)", () => {
     expect(normalizeContactPhoneE164("+82 10 1234 5678", "PH")).toBe("+821012345678");
     expect(normalizeContactPhoneE164("0082 10 1234 5678", "PH")).toBe("+821012345678");
   });
+  it("국내 형식 휴대폰은 기본 나라와 상관없이 판정 (감사 2026-11-14 N1)", () => {
+    for (const raw of ["010-1234-5678", "01012345678", "010 1234 5678"]) {
+      expect(normalizeContactPhoneE164(raw, "PH")).toBe("+821012345678");
+    }
+    expect(normalizeContactPhoneE164("011-123-4567", "PH")).toBe("+82111234567");
+    for (const raw of ["0917 123 4567", "09171234567", "(0917) 123-4567"]) {
+      expect(normalizeContactPhoneE164(raw, "KR")).toBe("+639171234567");
+    }
+    // 서버 수용 형식과 일치
+    expect(isAcceptedContactE164(normalizeContactPhoneE164("010-1234-5678", "PH"))).toBe(true);
+    expect(isAcceptedContactE164(normalizeContactPhoneE164("0917 123 4567", "KR"))).toBe(true);
+    // 자릿수가 틀리면 그대로 null
+    expect(normalizeContactPhoneE164("010-123-45", "PH")).toBeNull();
+    expect(normalizeContactPhoneE164("0917 123 45", "KR")).toBeNull();
+    // 국가번호 없는 짧은 표기는 지금처럼 내 나라 기준
+    expect(normalizeContactPhoneE164("917-123-4567", "KR")).toBeNull();
+    expect(normalizeContactPhoneE164("917-123-4567", "PH")).toBe("+639171234567");
+  });
   it("다른 나라·유선·형식 불가 → null", () => {
     expect(normalizeContactPhoneE164("+1 415 555 0100", "PH")).toBeNull();
     expect(normalizeContactPhoneE164("02-123-4567", "KR")).toBeNull();
-    expect(normalizeContactPhoneE164("010-1234-5678", "PH")).toBeNull();
     expect(normalizeContactPhoneE164("12345", "PH")).toBeNull();
     expect(normalizeContactPhoneE164(undefined, "PH")).toBeNull();
   });

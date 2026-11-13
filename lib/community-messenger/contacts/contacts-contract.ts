@@ -68,7 +68,9 @@ export function isValidContactsInstallId(raw: unknown): raw is string {
 
 /**
  * 기기 연락처 번호 → E.164 (+63 휴대폰 · +82 휴대폰만). 다른 나라·유선·형식 불가 번호는 null.
- * `defaultCountry` = 내 인증 번호의 나라 — 국가번호 없이 저장된 번호를 그 나라 번호로 본다 (§4 S4).
+ * 국내 형식 휴대폰(한국 `010`·`011`·`016~019` / 필리핀 `09`)은 두 나라가 겹치지 않으므로 기본 나라와 상관없이 판정한다
+ * — 필리핀 번호 회원이 한국 지인을 `010-…` 으로 저장해도 찾는다 (감사 2026-11-14 N1).
+ * `defaultCountry` = 내 인증 번호의 나라 — 그 밖의 국가번호 없는 표기(`917…`·`10…` 등)만 그 나라 번호로 본다 (§4 S4).
  */
 export function normalizeContactPhoneE164(raw: unknown, defaultCountry: VerifyPhoneCountry): string | null {
   if (typeof raw !== "string") return null;
@@ -79,6 +81,14 @@ export function normalizeContactPhoneE164(raw: unknown, defaultCountry: VerifyPh
     return resolveVerifyPhone(compact)?.e164 ?? null;
   }
   if (compact.startsWith("00")) return normalizeContactPhoneE164(`+${compact.slice(2)}`, defaultCountry);
+  if (/^01[016789]/.test(compact)) {
+    const local = parseKoreaMobileLocal(compact);
+    return local ? `+82${local.slice(1)}` : null;
+  }
+  if (/^09/.test(compact)) {
+    const resolved = resolveVerifyPhone(compact);
+    return resolved?.country === "PH" ? resolved.e164 : null;
+  }
   if (defaultCountry === "KR") {
     const local = parseKoreaMobileLocal(compact);
     return local ? `+82${local.slice(1)}` : null;
