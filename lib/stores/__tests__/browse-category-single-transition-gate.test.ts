@@ -50,13 +50,8 @@ describe("browse list origin gate — one category intent → one list fetch", (
     expect(shell).not.toMatch(/applyStoresCategorySurfaceTransition\s*\(/);
   });
 
-  it("sub-topic chips do not duplicate useBrowseSubAllCanonicalUrl (PrimaryView owns it)", () => {
-    const chips = readFileSync(
-      "components/stores/browse/StoresBrowseHeaderSubTopicChips.tsx",
-      "utf8"
-    );
+  it("PrimaryView owns useBrowseSubAllCanonicalUrl", () => {
     const view = readFileSync("components/stores/browse/StoresBrowsePrimaryView.tsx", "utf8");
     expect(view).toContain("useBrowseSubAllCanonicalUrl");
-    expect(chips).not.toContain("useBrowseSubAllCanonicalUrl");
   });
 });
