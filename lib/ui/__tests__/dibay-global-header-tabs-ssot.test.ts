@@ -103,6 +103,9 @@ describe("dibay global header + secondary tabs SSOT", () => {
     const roomShell = read("app/chat-viewport-shell.css");
     expect(roomShell).toContain("box-shadow: inset 0 var(--safe-top) 0 0 var(--dibay-surface-chat);");
     expect(roomShell).not.toContain("linear-gradient(var(--dibay-surface-chat)");
+    /** 채팅방 안쪽 줄 칸 사이 0 — 사진 x52 (운영 실측 FAIL 2026-11-13 정정) */
+    const row = roomShell.slice(roomShell.indexOf(".chat-header__row {"), roomShell.indexOf("}", roomShell.indexOf(".chat-header__row {")));
+    expect(row).toContain("gap: 0;");
     expect(read("components/layout/ConditionalAppShell.tsx")).toContain("<DibayDomainChromeRootSync />");
   });
 
