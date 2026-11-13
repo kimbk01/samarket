@@ -89,7 +89,7 @@ describe("group chat Phase3 S2-1 ban contracts", () => {
     expect(blocked).toContain("cm_ui_blocked_members");
     expect(blocked).toContain("cm_ui_unban_member");
 
-    const preview = readFileSync(join(ROOT, "app/(main)/group/[token]/page.tsx"), "utf8");
+    const preview = readFileSync(join(ROOT, "app/(main)/group/[token]/GroupInviteJoinClient.tsx"), "utf8");
     expect(preview).toContain('viewerStatus === "banned"');
   });
 

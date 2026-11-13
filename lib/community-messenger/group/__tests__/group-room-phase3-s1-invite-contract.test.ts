@@ -28,7 +28,7 @@ describe("group chat Phase3 S1 invite/join contracts", () => {
   });
 
   it("invite preview page does not auto-join on mount", () => {
-    const page = withCatalogCopy(readFileSync(join(ROOT, "app/(main)/group/[token]/page.tsx"), "utf8"));
+    const page = withCatalogCopy(readFileSync(join(ROOT, "app/(main)/group/[token]/GroupInviteJoinClient.tsx"), "utf8"));
     expect(page).toContain("invite-preview");
     expect(page).toContain("async function joinNow");
     // Auto-join removed: mount effect only loads preview.

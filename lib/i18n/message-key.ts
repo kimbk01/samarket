@@ -85,6 +85,7 @@ import { cmMonitoringSloMessages } from "./catalog/cm-monitoring-slo";
 import { communityMessengerUiMessages } from "./catalog/community-messenger-ui";
 import { communityUiMessages } from "./catalog/community-ui";
 import { shareMessages } from "./catalog/share";
+import { shareInviteMessages } from "./catalog/share-invite";
 import { philifeMessages } from "./catalog/philife";
 import { businessMessages } from "./catalog/business";
 import { ownerProductOptionsMessages } from "./catalog/owner-product-options";
@@ -274,6 +275,7 @@ export type MessageKey =
   | KeyOf<typeof communityMessengerUiMessages.ko>
   | KeyOf<typeof communityUiMessages.ko>
   | KeyOf<typeof shareMessages.ko>
+  | KeyOf<typeof shareInviteMessages.ko>
   | KeyOf<typeof philifeMessages.ko>
   | KeyOf<typeof businessMessages.ko>
   | KeyOf<typeof ownerProductOptionsMessages.ko>
@@ -413,6 +415,7 @@ type EnMessageKey =
   | KeyOf<typeof communityMessengerUiMessages.en>
   | KeyOf<typeof communityUiMessages.en>
   | KeyOf<typeof shareMessages.en>
+  | KeyOf<typeof shareInviteMessages.en>
   | KeyOf<typeof philifeMessages.en>
   | KeyOf<typeof businessMessages.en>
   | KeyOf<typeof ownerProductOptionsMessages.en>
