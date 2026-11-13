@@ -1,6 +1,7 @@
 /**
  * `/api/posts/[id]/detail` · 상세 하단 추천 API 공통 — 게시글 행 → PostWithMeta
  */
+import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   POST_TRADE_CHAT_ABSOLUTE_MIN_SELECT,
@@ -41,6 +42,11 @@ export async function loadPostRowForDetail(
   table: string,
   id: string
 ): Promise<Record<string, unknown> | null> {
+  /**
+   * `posts.id` 는 uuid — 샘플 카드 id(`showcase-<id>`)·잘못된 주소 조각이 오면 단계마다 Postgres uuid 오류가 난다
+   * (운영 로그 2026-11-14 00:48 3건, docs/audit/postgres-error-log-audit-2026-11-14.md §2-D). 조회 없이 「글 없음」.
+   */
+  if (!isUuidLikeString(id)) return null;
   /** `select('*')` 지양 — 스키마 편차 시 단계적 명시 컬럼 (`post-query-select` 주석과 동일) */
   const tiers = [
     POST_TRADE_DETAIL_SELECT,
