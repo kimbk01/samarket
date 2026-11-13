@@ -55,6 +55,8 @@ import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messe
 import { MessengerStickerSheet } from "@/components/community-messenger/stickers/MessengerStickerSheet";
 import { ChatEmojiPicker } from "@/components/chat-ui/ChatEmojiPicker";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
+import { GroupDomainAvatar } from "@/components/community-messenger/domain-shell-canary/GroupDomainAvatar";
 import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/messenger-composer-outbound-busy";
 import { Crown, Image as ImageIcon, Link2, Megaphone, Search } from "lucide-react";
 import { CommunityMessengerAttachmentSheet } from "@/components/community-messenger/room/phase2/CommunityMessengerAttachmentSheet";
@@ -85,6 +87,10 @@ import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
  */
 const GROUP_MENU_BOX_CLASS =
   "mt-3 shrink-0 overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]";
+/** 그룹 결함 D9: 권한 체크박스 — 브라우저 기본 파랑 대신 팝업 브랜드 색 */
+const GROUP_PERMISSION_CHECKBOX_CLASS = "accent-[color:var(--overlay-primary)]";
+/** 그룹 결함 D8: 멤버 초대 시트는 위 여백 p-5(1.25rem) 스크롤 상자 — 탭 줄을 그만큼 위에 고정해 틈을 없앤다 */
+const INVITE_SHEET_TABS_STICKY_TOP_CLASS = "top-[-1.25rem]";
 const GROUP_MENU_GROUP_LABEL_CLASS =
   "px-4 pb-1 pt-3 text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-text-secondary)]";
 const GROUP_MENU_TRAILING_CLASS =
@@ -339,17 +345,13 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     {vm.canEditPrivateGroupMeta ? (
                       <div className="mt-3 grid gap-2">
                         <div className="flex items-center gap-3">
-                          <SamarketThumbnail
-                            src={vm.privateGroupAvatarUrl ?? vm.snapshot.room.avatarUrl}
+                          {/* 그룹 결함 D12: 그룹 사진 대체 표시는 그룹 아이콘(제목 첫 글자 금지 — GroupDomainAvatar 계약) */}
+                          <GroupDomainAvatar
+                            imageUrl={vm.privateGroupAvatarUrl ?? vm.snapshot.room.avatarUrl}
                             size={56}
+                            shape="rounded-square"
                             roundedClassName="rounded-[12px]"
-                            className="bg-[color:var(--overlay-surface)] ring-1 ring-[color:var(--overlay-border)]"
-                            fallbackSrc=""
-                            fallbackNode={
-                              <span className="text-[length:var(--overlay-title-2-size)] font-semibold text-[color:var(--overlay-primary)]">
-                                {vm.privateGroupTitle.trim().slice(0, 1).toUpperCase() || "?"}
-                              </span>
-                            }
+                            className="ring-1 ring-[color:var(--overlay-border)]"
                           />
                           <button
                             type="button"
@@ -438,13 +440,12 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 ) : null}
 
                 <div className="flex flex-col items-center gap-2 border-b border-sam-border-soft pb-4">
-                  <SamarketThumbnail
-                    src={vm.snapshot.room.avatarUrl}
+                  <GroupDomainAvatar
+                    imageUrl={vm.snapshot.room.avatarUrl}
                     size={72}
+                    shape="rounded-square"
                     roundedClassName="rounded-[14px]"
-                    className="bg-sam-app ring-1 ring-sam-border"
-                    fallbackSrc=""
-                    fallbackNode={<span className="sam-text-page-title font-semibold text-sam-primary">{vm.snapshot.room.title.trim().slice(0, 1).toUpperCase() || "?"}</span>}
+                    className="ring-1 ring-sam-border"
                   />
                   <h2 className="text-center sam-text-body-lg font-semibold leading-snug text-sam-fg">{vm.snapshot.room.title}</h2>
                   <p className="text-center sam-text-helper text-sam-muted">
@@ -779,7 +780,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <button
                       type="button"
                       onClick={() => vm.setActiveSheet("menu")}
-                      className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg"
+                      className={OverlayUi.textActionMuted}
                     >
                       {vm.t("tier1_back")}
                     </button>
@@ -822,6 +823,21 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-left"
                     >
                       <div className="flex items-start justify-between gap-3">
+                        {/* 그룹 결함 D7: 서랍 대화상대 목록과 같은 40px 멤버 사진 */}
+                        <SamarketThumbnail
+                          src={resolveUserAvatarImageSrc(
+                            member.identityMode === "alias" ? member.aliasProfile?.avatarUrl : member.avatarUrl
+                          )}
+                          size={40}
+                          roundedClassName="rounded-full"
+                          className="shrink-0 bg-sam-surface ring-1 ring-sam-border"
+                          fallbackSrc=""
+                          fallbackNode={
+                            <span className="sam-text-helper font-semibold text-sam-primary">
+                              {(member.label.replace(/\s+/g, "")[0] ?? "?").toUpperCase()}
+                            </span>
+                          }
+                        />
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="sam-text-body font-semibold text-sam-fg">{member.label}</p>
@@ -872,7 +888,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   <button
                     type="button"
                     onClick={() => vm.setActiveSheet("members")}
-                    className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg"
+                    className={OverlayUi.textActionMuted}
                   >
                     {vm.t("tier1_back")}
                   </button>
@@ -893,6 +909,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         : null
                     }
                     showFriendOnlyPolicyNotice
+                    tabsBarClassName={INVITE_SHEET_TABS_STICKY_TOP_CLASS}
                     primaryCta={{
                       label:
                         vm.inviteIds.length > 0
@@ -959,7 +976,12 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         {vm.t("cm_ui_count_items", { count: vm.photoMessageCount + vm.voiceMessageCount + vm.fileMessageCount + vm.linkMessageCount })}
                       </p>
                       <p className="mt-1 sam-text-helper text-sam-muted">
-                        {vm.t("cm_ui_photo_file_counts", { photos: vm.photoMessageCount, files: vm.fileMessageCount })}
+                        {vm.t("cm_ui_shared_item_counts", {
+                          photos: vm.photoMessageCount,
+                          voices: vm.voiceMessageCount,
+                          files: vm.fileMessageCount,
+                          links: vm.linkMessageCount,
+                        })}
                       </p>
                     </div>
                   </div>
@@ -1096,7 +1118,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         onClick={() => vm.setActiveSheet("media")}
                         className={`${OverlayUi.selectCard} !flex-col !items-start !justify-center !gap-0`}
                       >
-                        <p className="sam-text-xxs text-sam-muted">{vm.t("nav_voice_call_label")}</p>
+                        <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_voice_message")}</p>
                         <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.voiceMessageCount}</p>
                       </button>
                       <button
@@ -1301,27 +1323,27 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       <div className="mt-3 grid gap-2">
                         <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
                           <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_member_invite")}</span>
-                          <input type="checkbox" checked={vm.groupAllowMemberInvite} onChange={(e) => vm.setGroupAllowMemberInvite(e.target.checked)} disabled={!vm.canManageGroupPermissions} />
+                          <input type="checkbox" checked={vm.groupAllowMemberInvite} onChange={(e) => vm.setGroupAllowMemberInvite(e.target.checked)} disabled={!vm.canManageGroupPermissions} className={GROUP_PERMISSION_CHECKBOX_CLASS} />
                         </label>
                         <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
                           <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_admin_invite")}</span>
-                          <input type="checkbox" checked={vm.groupAllowAdminInvite} onChange={(e) => vm.setGroupAllowAdminInvite(e.target.checked)} disabled={!vm.canManageGroupPermissions} />
+                          <input type="checkbox" checked={vm.groupAllowAdminInvite} onChange={(e) => vm.setGroupAllowAdminInvite(e.target.checked)} disabled={!vm.canManageGroupPermissions} className={GROUP_PERMISSION_CHECKBOX_CLASS} />
                         </label>
                         <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
                           <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_admin_kick")}</span>
-                          <input type="checkbox" checked={vm.groupAllowAdminKick} onChange={(e) => vm.setGroupAllowAdminKick(e.target.checked)} disabled={!vm.canManageGroupPermissions} />
+                          <input type="checkbox" checked={vm.groupAllowAdminKick} onChange={(e) => vm.setGroupAllowAdminKick(e.target.checked)} disabled={!vm.canManageGroupPermissions} className={GROUP_PERMISSION_CHECKBOX_CLASS} />
                         </label>
                         <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
                           <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_admin_edit_notice")}</span>
-                          <input type="checkbox" checked={vm.groupAllowAdminEditNotice} onChange={(e) => vm.setGroupAllowAdminEditNotice(e.target.checked)} disabled={!vm.canManageGroupPermissions} />
+                          <input type="checkbox" checked={vm.groupAllowAdminEditNotice} onChange={(e) => vm.setGroupAllowAdminEditNotice(e.target.checked)} disabled={!vm.canManageGroupPermissions} className={GROUP_PERMISSION_CHECKBOX_CLASS} />
                         </label>
                         <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
                           <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_member_upload")}</span>
-                          <input type="checkbox" checked={vm.groupAllowMemberUpload} onChange={(e) => vm.setGroupAllowMemberUpload(e.target.checked)} disabled={!vm.canManageGroupPermissions} />
+                          <input type="checkbox" checked={vm.groupAllowMemberUpload} onChange={(e) => vm.setGroupAllowMemberUpload(e.target.checked)} disabled={!vm.canManageGroupPermissions} className={GROUP_PERMISSION_CHECKBOX_CLASS} />
                         </label>
                         <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
                           <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_member_call")}</span>
-                          <input type="checkbox" checked={vm.groupAllowMemberCall} onChange={(e) => vm.setGroupAllowMemberCall(e.target.checked)} disabled={!vm.canManageGroupPermissions} />
+                          <input type="checkbox" checked={vm.groupAllowMemberCall} onChange={(e) => vm.setGroupAllowMemberCall(e.target.checked)} disabled={!vm.canManageGroupPermissions} className={GROUP_PERMISSION_CHECKBOX_CLASS} />
                         </label>
                       </div>
                       {vm.canManageGroupPermissions ? (
@@ -1503,7 +1525,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   <button
                     type="button"
                     onClick={() => vm.setActiveSheet("menu")}
-                    className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg"
+                    className={OverlayUi.textActionMuted}
                   >
                     {vm.t("tier1_back")}
                   </button>
@@ -1547,7 +1569,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   <button
                     type="button"
                     onClick={() => vm.setActiveSheet("menu")}
-                    className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg"
+                    className={OverlayUi.textActionMuted}
                   >
                     {vm.t("tier1_back")}
                   </button>
@@ -1570,7 +1592,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_image_photo_links")}</p>
                   </div>
                   <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                    <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("nav_voice_call_label")}</p>
+                    <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_voice_message")}</p>
                     <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.voiceMessageCount}</p>
                     <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_voice_message_history")}</p>
                   </div>
@@ -1638,7 +1660,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   <button
                     type="button"
                     onClick={() => vm.setActiveSheet("menu")}
-                    className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg"
+                    className={OverlayUi.textActionMuted}
                   >
                     {vm.t("tier1_back")}
                   </button>
@@ -1693,7 +1715,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   <button
                     type="button"
                     onClick={() => vm.setActiveSheet("menu")}
-                    className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg"
+                    className={OverlayUi.textActionMuted}
                   >
                     {vm.t("tier1_back")}
                   </button>

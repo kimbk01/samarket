@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Check, Search, X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { Sam } from "@/lib/ui/sam-component-classes";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 import type { MessengerPickMode } from "@/lib/community-messenger/messenger-sub-screen-route";
@@ -198,7 +199,7 @@ export function MessengerFriendPickerScreen({
             type="button"
             onClick={onCreateGroup}
             disabled={!canCreateMessengerPickerGroup(count) || creatingGroup}
-            className="h-[50px] w-full rounded-[12px] bg-sam-primary text-[16px] font-bold text-white transition active:opacity-90 disabled:opacity-40"
+            className={`${Sam.btn.primary} h-[50px] w-full rounded-[12px] text-[16px] font-bold`}
           >
             {creatingGroup
               ? t("cm_ui_creating")
