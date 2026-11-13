@@ -1890,6 +1890,28 @@ public class MainActivity extends BridgeActivity {
     }
 
     /**
+     * 알림 목적지가 있는 시작 — 웹이 스플래시 해제를 목적지까지 미루도록 보관 경로를 **동기**로 알려 준다
+     * (재설계 docs/design/push-tap-entry-redesign-2026-11-13.md A). 읽기만 한다(지우기·통화 처리 없음).
+     * 없음·만료·통화 경로·안전하지 않은 경로 → 빈 문자열.
+     */
+    @JavascriptInterface
+    public String pendingLaunchRoutePath() {
+      try {
+        SharedPreferences prefs = getSharedPreferences(ROUTE_PREFS, MODE_PRIVATE);
+        long at = prefs.getLong(PENDING_AT_KEY, 0L);
+        if (at <= 0L || System.currentTimeMillis() - at > PENDING_ROUTE_TTL_MS) return "";
+        String path = prefs.getString(PENDING_PATH_KEY, null);
+        if (path == null) return "";
+        path = path.trim();
+        if (path.isEmpty() || path.startsWith("/community-messenger/calls")) return "";
+        if (DibayAppRouteGuard.safeAppPath(path) == null) return "";
+        return path;
+      } catch (Exception e) {
+        return "";
+      }
+    }
+
+    /**
      * Persist full StartupConfig JSON for next cold start.
      * Boot overlay is OS splash only — Product Intro persist is removed.
      */

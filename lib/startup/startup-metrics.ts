@@ -23,6 +23,7 @@ import {
 import { noteEntryReleased } from "@/lib/telemetry/entry-telemetry.client";
 import { getLaunchDestination } from "@/lib/launch-intro/startup-destination";
 import { isServerRenderedBodyPath } from "@/lib/layout/server-rendered-body-paths";
+import { mayReleaseLaunchSplashAt, onLaunchPushHandled } from "@/lib/startup/launch-push-hold";
 
 export type DibayBootMetrics = {
   nativeStart: number | null;
@@ -385,6 +386,8 @@ export function releaseNativeSplashAtServerBodyFrame(): void {
       return;
     }
     if (!isServerRenderedBodyPath(window.location.pathname) || !hasServerRenderedBody(document)) return;
+    // 재설계 A: 알림 목적지가 있는 시작이면 홈 첫 그림에서 해제하지 않는다(동기 판단 — 기다림 없음).
+    if (!mayReleaseLaunchSplashAt(window.location.pathname)) return;
     requestAnimationFrame(() => {
       if (nativeSplashBridgesDismissed || splashDismissAttempted) return;
       setMetric("serverBodySplashRelease", nowMs());
@@ -464,10 +467,23 @@ export function markInitialDestinationVisualReady(): void {
   // Intro contract §9: when the launch destination is INTRO, Community's initial-destination
   // signal does not own the OS release (Community is normally not even mounted then — DEFERRED MOUNT).
   if (getLaunchOsReleaseOwner() !== "community") return;
+  // 재설계 A: 알림 목적지가 있으면 그 경로가 그려질 때(이 함수가 경로마다 다시 불림) 또는 수신자가
+  // 이동 아닌 결과로 끝낼 때까지 해제하지 않는다. 판단은 동기 — 기다림·비동기 호출 없음.
+  if (typeof window !== "undefined" && !mayReleaseLaunchSplashAt(window.location.pathname)) {
+    armReleaseOnLaunchPushHandled();
+    return;
+  }
   initialDestinationVisualReadyMarked = true;
   setMetric("initialDestinationVisualReady", nowMs());
   notifyNativeHomePresentationReady();
   tryDismissNativeSplash("initialDestinationVisualReady");
+}
+
+let launchPushReleaseArmed = false;
+function armReleaseOnLaunchPushHandled(): void {
+  if (launchPushReleaseArmed) return;
+  launchPushReleaseArmed = true;
+  onLaunchPushHandled(() => markInitialDestinationVisualReady());
 }
 
 /**
