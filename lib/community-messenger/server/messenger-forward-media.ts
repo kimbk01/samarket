@@ -55,6 +55,16 @@ function baseName(path: string): string {
   return safe || "file";
 }
 
+/** metadata·content 안의 모든 문자열(배열 포함) — 저장 주소 후보 */
+function collectMediaUrlStrings(metadata: Record<string, unknown>, content: string): string[] {
+  const out: string[] = [content];
+  for (const v of Object.values(metadata ?? {})) {
+    if (typeof v === "string") out.push(v);
+    else if (Array.isArray(v)) for (const x of v) if (typeof x === "string") out.push(x);
+  }
+  return out;
+}
+
 /** 파생본 묶음 기준 — `{id}.thumb.webp`·`{id}.preview.webp`·`{id}.{ext}` → `{id}` (디렉터리 포함) */
 export function forwardMediaStemKey(ref: MessengerMediaObjectRef): string {
   const slash = ref.path.lastIndexOf("/");
@@ -88,7 +98,27 @@ export async function copyMessengerMediaForForward(
     metadata: Record<string, unknown>;
   }
 ): Promise<ForwardMediaCopyResult> {
-  const refs = collectMessengerMessageMediaRefs({ metadata: input.metadata, content: input.content });
+  const rawRefs = collectMessengerMessageMediaRefs({ metadata: input.metadata, content: input.content });
+  /**
+   * 버킷 판정 — 저장 주소(URL)가 실제 위치를 말한다.
+   * 2026-11-14 이전 사진은 전송 함수가 업로드 버킷을 버려 metadata.storage_bucket 이 post-images 로 잘못 저장됐다
+   * (실제 파일 messenger-media). 같은 경로가 주소로도 있으면 주소의 버킷을 쓰고, 경로 키만으로 생긴 다른 버킷 참조는 버린다.
+   */
+  const urlBucketByPath = new Map<string, MessengerMediaBucket>();
+  for (const v of collectMediaUrlStrings(input.metadata, input.content)) {
+    const r = parseMessengerStorageObjectUrl(v);
+    if (r) urlBucketByPath.set(r.path, r.bucket);
+  }
+  const seen = new Set<string>();
+  const refs: MessengerMediaObjectRef[] = [];
+  for (const r of rawRefs) {
+    const actualBucket = urlBucketByPath.get(r.path) ?? r.bucket;
+    const fixed = { bucket: actualBucket, path: r.path };
+    const k = encodeMessengerMediaObjectParam(fixed);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    refs.push(fixed);
+  }
   if (refs.length === 0) return { ok: false, error: "forward_media_missing" };
 
   const dir = messengerFinalMediaDir(input.messageType, input.userId, input.targetRoomId);
@@ -124,7 +154,9 @@ export async function copyMessengerMediaForForward(
   const remap = (v: unknown): unknown => {
     if (Array.isArray(v)) return v.map(remap);
     if (typeof v !== "string") return v;
-    const asKey = mapped.get(encodeMessengerMediaObjectParam({ bucket: keyBucket, path: v }));
+    const asKey = mapped.get(
+      encodeMessengerMediaObjectParam({ bucket: urlBucketByPath.get(v) ?? keyBucket, path: v })
+    );
     if (asKey) return asKey.ref.path;
     const asUrl = parseMessengerStorageObjectUrl(v);
     if (asUrl) {
@@ -139,6 +171,9 @@ export async function copyMessengerMediaForForward(
     if (DROP_META_KEYS.has(k)) continue;
     metadata[k] = remap(v);
   }
+  /** 복사본의 버킷을 바로 적는다 — 전달본 「모두에게서 삭제」 정리가 올바른 버킷에서 지우도록 */
+  const copiedBuckets = new Set(copied.map((c) => c.bucket));
+  if (copiedBuckets.size === 1) metadata.storage_bucket = [...copiedBuckets][0];
   const content = String(remap(input.content) ?? "");
   return { ok: true, content, metadata, copied };
 }

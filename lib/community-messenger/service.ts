@@ -17960,6 +17960,11 @@ export async function sendCommunityMessengerImageMessage(input: {
       originalPublicUrl: trimText(it.originalPublicUrl),
       originalStoragePath: trimText(it.originalStoragePath),
       originalMimeType: trimText(it.originalMimeType) || "image/jpeg",
+      /**
+       * C-4 업로드 버킷을 버리지 않는다(2026-11-14 수정) — 이 값이 빠져 모든 사진 metadata.storage_bucket 이
+       * 기본값 post-images 로 저장됐다(실제 파일은 messenger-media). 「모두에게서 삭제」 정리·전달 복사가 버킷을 잘못 봤다.
+       */
+      storageBucket: trimText(it.storageBucket) || null,
       width: messengerImagePixelDimension(it.width),
       height: messengerImagePixelDimension(it.height),
     }))

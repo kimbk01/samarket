@@ -121,6 +121,46 @@ describe("S6-2 사진·파일 전달 — 저장 객체 복사", () => {
     expect(purgeTargets.some((p) => p.includes("/r1/"))).toBe(false);
   });
 
+  it("운영 실측 metadata(2026-11-14 FAIL 재현) — storage_bucket=post-images 인데 파일·주소는 messenger-media → messenger-media 에서 복사", async () => {
+    const P = "5f875d4b/community/messenger-image/c8df6209/cf94bf79";
+    const prodMeta = {
+      mimeType: "image/jpeg",
+      image_width: 1920,
+      image_height: 1282,
+      storagePath: `${P}.jpg`,
+      storage_path: `${P}.jpg`,
+      storage_bucket: "post-images",
+      image_thumb_url: `${BASE}/${P}.thumb.webp`,
+      image_preview_url: `${BASE}/${P}.preview.webp`,
+      image_original_url: `${BASE}/${P}.jpg`,
+    };
+    const { sb, copies } = fakeSb();
+    const r = await copyMessengerMediaForForward(sb, {
+      userId: "u2",
+      targetRoomId: "r9",
+      messageType: "image",
+      content: prodMeta.image_thumb_url,
+      metadata: prodMeta,
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // 3개(원본·섬네일·미리보기)만, 전부 messenger-media 에서 — post-images 복사 시도 0
+    expect(copies).toHaveLength(3);
+    expect(copies.every(([bucket]) => bucket === "messenger-media")).toBe(true);
+    expect(r.metadata.storage_bucket).toBe("messenger-media");
+    expect(String(r.metadata.storage_path)).toMatch(/^u2\/community\/messenger-image\/r9\/fwd-/);
+    const purgeTargets = collectMessengerMediaStoragePaths({ metadata: r.metadata, content: r.content });
+    for (const [, , to] of copies) expect(purgeTargets).toContain(to);
+  });
+
+  it("근본 수정 — 사진 전송 함수가 업로드 버킷(storageBucket)을 버리지 않는다", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("lib/community-messenger/service.ts", "utf8");
+    const a = src.indexOf("export async function sendCommunityMessengerImageMessage");
+    const body = src.slice(a, src.indexOf("communityMessengerImageMessageMetadata(items)", a));
+    expect(body).toContain("storageBucket: trimText(it.storageBucket) || null");
+  });
+
   it("저장 객체가 없는 메시지는 전달 불가", async () => {
     const { sb } = fakeSb();
     const r = await copyMessengerMediaForForward(sb, {
