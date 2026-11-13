@@ -69,7 +69,7 @@ export function PhilifeWriteComposerHeader({
   busy: boolean;
 }) {
   return (
-    <div className="shrink-0 bg-sam-surface pt-[var(--safe-top)]">
+    <div className="shrink-0 bg-[color:var(--dibay-domain-surface)] pt-[var(--safe-top)]">
     <header className={PHILIFE_COMPOSER_HEADER_CLASS} data-testid="philife-composer-header">
       {/* 헤더 SSOT — 공통 줄 부품: ✕ 48@x4(그림 24 @x16) · 제목 17px/600 가운데 · CTA 글자 끝 W−16 */}
       <SectorHeaderBar

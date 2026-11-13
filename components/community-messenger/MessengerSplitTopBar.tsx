@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useMessengerSplitChrome } from "@/components/community-messenger/MessengerSplitChromeContext";
 import { SectorHeaderBackButton } from "@/components/layout/sector-header";
 import { MESSENGER_SPLIT_LIST_PANE_CLASS } from "@/lib/ui/messenger-split-pane-layout";
-import { getDibayDomainChromeElementProps } from "@/lib/ui/dibay-domain-chrome";
+import { useDibayDomainChromeElementProps } from "@/lib/ui/dibay-domain-chrome";
 import { parseCommunityMessengerRoomIdFromPathname } from "@/lib/community-messenger/messenger-room-pathname";
 
 /** 뒤로 = 자체 헤더 공통 48×48 (`sector-header-back--touch`), 행 왼쪽 여백 8px → ‹ 화면 끝 16px (크롬 S1·S2) */
@@ -26,7 +26,7 @@ const SPLIT_TITLE_CLASS =
 export function MessengerSplitTopBar({ className = "" }: { className?: string }) {
   const ctx = useMessengerSplitChrome();
   const pathname = usePathname();
-  const domainChrome = getDibayDomainChromeElementProps(pathname);
+  const domainChrome = useDibayDomainChromeElementProps(pathname);
   const roomId = parseCommunityMessengerRoomIdFromPathname(pathname);
   const roomPaneActive = Boolean(roomId);
   if (!ctx) return null;

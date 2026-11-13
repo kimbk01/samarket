@@ -8,6 +8,7 @@ import { serviceBrandIconSlot, type ServiceBrandIconSlotProps } from "@/componen
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { SectorHeaderBar } from "@/components/layout/sector-header/SectorHeaderBar";
 import { samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
+import { dibayDomainChromeElementPropsForId } from "@/lib/ui/dibay-domain-chrome";
 import { DibayPtrSlot } from "@/components/ptr/DibayPtrSlot";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
@@ -154,7 +155,12 @@ export function HomeScreen({
       <HomePullRefreshHost />
 
       {/* 상단 — 로고 · 오른쪽 주소 · 종 (Owner 2026-11-09 「로고 우측에 주소」) */}
-      <header className="bg-[#F3F5F3]" data-home-header>
+      {/* 헤더 SSOT 3단계 — 바탕 = 홈 도메인 색 · 아래 구분선 */}
+      <header
+        className="border-b border-[color:var(--dibay-domain-divider)] bg-[color:var(--dibay-domain-surface)]"
+        data-home-header
+        {...dibayDomainChromeElementPropsForId("home")}
+      >
         {/* 헤더 SSOT — 다른 허브와 같은 공통 줄 부품(`SectorHeaderBar` 제목-왼쪽 · 왼쪽 빈칸 없음) */}
         <div className="sector-header--no-left-slot" style={{ paddingTop: "var(--safe-top, 0px)" }}>
           <SectorHeaderBar

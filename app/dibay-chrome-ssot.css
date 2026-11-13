@@ -32,10 +32,23 @@
   --dibay-tab2-active-color: var(--sam-primary);
 }
 
-[data-dibay-domain="community"] {
-  --dibay-domain-surface: #ebf2ed;
-  --dibay-domain-accent: #296044;
-  --dibay-domain-tab-idle-bg: #f4f8f6;
+/**
+ * 헤더 도메인 색 (헤더 SSOT 3단계, Owner 「3단계 구현」 2026-11-13) — 하단 탭 5개. 값 = 설계 §4-3 제안 1안(Owner 「권장안대로」 2026-11-13).
+ * 값 원본 = `lib/ui/dibay-domain-chrome.ts` `DIBAY_DOMAIN_CHROME` (같음을 시험으로 고정).
+ * `--dibay-surface-*` 는 도메인 속성 밖(채팅방 헤더 등)에서도 같은 색을 쓰기 위한 이름.
+ */
+:root {
+  --dibay-surface-home: #F3F5F3;
+  --dibay-surface-community: #E3F1E7;
+  --dibay-surface-delivery: #FDEEDC;
+  --dibay-surface-chat: #E3EDFB;
+  --dibay-surface-mypage: #EFEAF6;
+}
+
+[data-dibay-domain="home"] {
+  --dibay-domain-surface: var(--dibay-surface-home);
+  --dibay-domain-accent: #0B421A;
+  --dibay-domain-tab-idle-bg: #F8F9F8;
   --dibay-domain-divider: color-mix(in srgb, #243832 10%, transparent);
   --sector-header-bg: var(--dibay-domain-surface);
   --sector-header-border: var(--dibay-domain-divider);
@@ -45,10 +58,10 @@
   --sector-header-icon-active-color: var(--dibay-domain-accent);
 }
 
-[data-dibay-domain="trade"] {
-  --dibay-domain-surface: #eaf3ee;
-  --dibay-domain-accent: #0b421a;
-  --dibay-domain-tab-idle-bg: #f3f8f5;
+[data-dibay-domain="community"] {
+  --dibay-domain-surface: var(--dibay-surface-community);
+  --dibay-domain-accent: #296044;
+  --dibay-domain-tab-idle-bg: #F1F8F3;
   --dibay-domain-divider: color-mix(in srgb, #243832 10%, transparent);
   --sector-header-bg: var(--dibay-domain-surface);
   --sector-header-border: var(--dibay-domain-divider);
@@ -59,9 +72,9 @@
 }
 
 [data-dibay-domain="delivery"] {
-  --dibay-domain-surface: #f1f7ee;
+  --dibay-domain-surface: var(--dibay-surface-delivery);
   --dibay-domain-accent: #296044;
-  --dibay-domain-tab-idle-bg: #f6faf4;
+  --dibay-domain-tab-idle-bg: #FEF6EC;
   --dibay-domain-divider: color-mix(in srgb, #243832 10%, transparent);
   --sector-header-bg: var(--dibay-domain-surface);
   --sector-header-border: var(--dibay-domain-divider);
@@ -72,9 +85,9 @@
 }
 
 [data-dibay-domain="chat"] {
-  --dibay-domain-surface: #ebf2fb;
+  --dibay-domain-surface: var(--dibay-surface-chat);
   --dibay-domain-accent: #296044;
-  --dibay-domain-tab-idle-bg: #f2f7fc;
+  --dibay-domain-tab-idle-bg: #F1F6FD;
   --dibay-domain-divider: color-mix(in srgb, #243832 10%, transparent);
   --sector-header-bg: var(--dibay-domain-surface);
   --sector-header-border: var(--dibay-domain-divider);
@@ -85,9 +98,9 @@
 }
 
 [data-dibay-domain="mypage"] {
-  --dibay-domain-surface: #f3f2eb;
+  --dibay-domain-surface: var(--dibay-surface-mypage);
   --dibay-domain-accent: #243832;
-  --dibay-domain-tab-idle-bg: #f7f6f2;
+  --dibay-domain-tab-idle-bg: #F7F4FA;
   --dibay-domain-divider: color-mix(in srgb, #243832 10%, transparent);
   --sector-header-bg: var(--dibay-domain-surface);
   --sector-header-border: var(--dibay-domain-divider);

@@ -7,6 +7,10 @@
  */
 
 [data-cm-room].cm-room-shell {
+  /** 상태바 영역(위 안전영역) = 헤더와 같은 채팅 도메인 색 (헤더 SSOT 3단계 C4) */
+  background-image: linear-gradient(var(--dibay-surface-chat), var(--dibay-surface-chat));
+  background-size: 100% var(--safe-top);
+  background-repeat: no-repeat;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -69,7 +73,8 @@
   padding: 0 12px;
   gap: 8px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  background: var(--cm-room-header-bg, #ffffff);
+  /** 헤더 SSOT 3단계 — 채팅방 헤더 = 채팅 도메인 색 (역할별 옅은 색조 `--cm-room-header-bg` 대체) */
+  background: var(--dibay-surface-chat, var(--cm-room-header-bg, #ffffff));
   overflow: hidden;
 }
 

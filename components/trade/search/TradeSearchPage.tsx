@@ -15,6 +15,7 @@ import {
   removeTradeRecentSearch,
 } from "@/lib/trade/search/trade-recent-searches";
 import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { dibayDomainChromeElementPropsForId } from "@/lib/ui/dibay-domain-chrome";
 
 /**
  * 거래 전용 찾기 (재설계 4-1). 거래 글만 찾는다 — 찾기를 누르면 지금 목록 조건을 그대로 둔 채
@@ -63,7 +64,7 @@ export function TradeSearchPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-sam-app" data-trade-search-page="true">
+    <div className="min-h-[100dvh] bg-sam-app" data-trade-search-page="true" {...dibayDomainChromeElementPropsForId("community")}>
       <form onSubmit={onFormSubmit} role="search">
         <SectorHeaderShell>
           <SectorHeaderBar

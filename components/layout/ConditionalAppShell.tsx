@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { DibayDomainChromeRootSync } from "@/components/layout/DibayDomainChromeRootSync";
 import { usePathname } from "next/navigation";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import { BootThumbnailObserver } from "@/components/app/BootThumbnailObserver";
@@ -434,6 +435,7 @@ export function ConditionalAppShell({
       occupiesClearance={bottomNavOccupiesClearance}
     >
     <SupportFabRegistryProvider>
+    <DibayDomainChromeRootSync />
     {/** 허브: `MainHubScrollColumn` + `app-shell.css` `.main-hub-scroll-*` — 1단 고정·본문 단일 스크롤 */}
     <div
       className={`app-shell w-full min-w-0 ${
