@@ -11596,7 +11596,7 @@ export async function createPrivateGroupRoom(input: {
 }): Promise<{
   ok: boolean;
   roomId?: string;
-  room?: import("@/lib/community-messenger/types").CommunityMessengerRoomSummary;
+  room?: import("@/lib/community-messenger/types").CommunityMessengerRoomSummary | null;
   error?: string;
 }> {
   const sb = getSupabaseOrNull();
@@ -11676,7 +11676,7 @@ export async function createOpenGroupRoom(input: {
 }): Promise<{
   ok: boolean;
   roomId?: string;
-  room?: import("@/lib/community-messenger/types").CommunityMessengerRoomSummary;
+  room?: import("@/lib/community-messenger/types").CommunityMessengerRoomSummary | null;
   error?: string;
 }> {
   const title = trimText(input.title);
@@ -11754,7 +11754,8 @@ export async function createOpenGroupRoom(input: {
           } catch {
             /* fall through */
           }
-          return { ok: false, error: "room_summary_unavailable", roomId: insertedId };
+          /** 일부 성공 — 방·방장·방 프로필 저장 완료, 요약 조회만 실패. 실패로 돌려주면 다시 눌러 같은 방이 또 생김(D15) */
+          return { ok: true, roomId: insertedId, room: null };
         }
         return roomProfile;
       }

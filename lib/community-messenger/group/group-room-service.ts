@@ -226,24 +226,18 @@ export async function createGroupRoom(input: CreateGroupRoomInput): Promise<Crea
   } catch {
     roomSummary = null;
   }
-  if (!roomSummary) {
-    /**
-     * Partial creation: room + participants already committed.
-     * Do not ACK success without canonical summary (client must not navigate without list INSERT).
-     */
-    return {
-      ok: false,
-      error: GROUP_ROOM_ERROR.ROOM_SUMMARY_UNAVAILABLE,
-      roomId: roomInsert.roomId,
-    };
-  }
-
+  /** 초대받은 사람 목록 INSERT — 이 함수가 받는 사람별 요약을 스스로 조회하므로 만든 사람 요약 성공 여부와 무관하게 발행 */
   void publishHomeListRoomInsertForInviteesBestEffort({
     fromUserId: userId,
     roomId: roomInsert.roomId,
     inviteeUserIds: memberIds.filter((id) => id !== userId),
   });
 
+  /**
+   * 일부 성공(방·참여자·생성 메시지·초대 알림 저장 완료, 만든 사람 요약 조회만 실패)도 성공으로 돌려준다 — `room: null`.
+   * 실패로 돌려주면 화면이 오류를 띄우고 다시 눌러 같은 방이 또 생긴다(D15 2026-11-13).
+   * 화면은 `room: null` 이면 서버 목록을 다시 받은 뒤 그 방으로 이동한다.
+   */
   return { ok: true, roomId: roomInsert.roomId, room: roomSummary };
 }
 
