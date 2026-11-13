@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, type ReactNode, type MouseEvent } from "react";
+import { useLayoutEffect, useMemo, useRef, type ReactNode, type MouseEvent } from "react";
 import Link from "next/link";
 import { ThumbsUp, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -11,7 +11,10 @@ import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
 import { communityAuthorDisplayName } from "@/lib/community/community-author-display";
 import { CM_FEED_CARD_CLASS, CM_META_CLASS } from "@/lib/community/community-ui-classes";
-import { beginCommunityPostEntryFromCard } from "@/lib/community/community-post-entry-nav";
+import {
+  beginCommunityPostEntryFromCard,
+  releaseCommunityPostSourceFade,
+} from "@/lib/community/community-post-entry-nav";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SearchHighlightText } from "@/components/search/global/SearchHighlightText";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -292,6 +295,15 @@ function ListTextStack({
 function CardShell({ href, children, boosted = false }: { href: string; children: ReactNode; boosted?: boolean }) {
   const router = useRouter();
   const articleRef = useRef<HTMLElement | null>(null);
+  /**
+   * 누른 카드의 「사라짐」 클래스 수명 = 이 카드가 화면에 보이는 동안.
+   * 허브 보관대(`Activity hidden`)가 피드를 숨길 때·카드가 없어질 때 React 가 이 정리를 실행한다 → 돌아오면 깨끗한 카드.
+   * 숨김 때 ref 는 null 로 떼어지므로 정리 대상은 효과 시작 때 잡아 둔 요소로 한다.
+   */
+  useLayoutEffect(() => {
+    const el = articleRef.current;
+    return () => releaseCommunityPostSourceFade(el);
+  }, []);
   const prefetchOnIntent = () => {
     const key = href.trim();
     if (!key) return;

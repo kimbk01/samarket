@@ -18,6 +18,16 @@ import {
 export const COMMUNITY_POST_SOURCE_FADE_MS = 140;
 export const COMMUNITY_POST_SOURCE_FADE_CLASS = "community-post-source-fade-out";
 
+/**
+ * 누른 카드의 「사라짐」 클래스를 뗀다 — 붙이기(`beginCommunityPostEntryFromCard`)와 짝.
+ * 카드 틀(`CardShell`)이 화면에서 내려갈 때(허브 보관 숨김·언마운트) 부른다.
+ * D1 허브 보관대는 피드 DOM 을 그대로 보관하므로, 떼지 않으면 돌아왔을 때 그 카드가 투명·안 눌림으로 남는다
+ * (`docs/audit/community-feed-card-blank-after-back-2026-11-14.md`).
+ */
+export function releaseCommunityPostSourceFade(el: Element | null | undefined): void {
+  el?.classList.remove(COMMUNITY_POST_SOURCE_FADE_CLASS);
+}
+
 const ORIGIN_KEY = "community_post_entry_origin_v1";
 const ORIGIN_TTL_MS = 10 * 60_000;
 
