@@ -43,15 +43,11 @@ export function resolveNativeExchangeCredential(
   if (input.provider === "google") {
     return readNonEmptyString(input.idToken ?? input.token);
   }
-  if (input.provider === "facebook") {
-    return readNonEmptyString(input.accessToken ?? input.token);
-  }
   return generic;
 }
 
 export function missingCredentialMessage(provider: NativeExchangeProvider): string {
   if (provider === "apple") return "Apple identity token is required";
   if (provider === "kakao") return "Kakao access token or id token is required";
-  if (provider === "google") return "Google id token is required";
-  return "Facebook access token is required";
+  return "Google id token is required";
 }

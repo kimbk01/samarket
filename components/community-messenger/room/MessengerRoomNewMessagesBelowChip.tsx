@@ -8,7 +8,7 @@ import {
   resolveJumpToLatestFabState,
 } from "@/lib/community-messenger/room/messenger-room-first-unread";
 /**
- * Telegram-style jump-to-latest FAB (bottom-right).
+ * messenger-standard jump-to-latest FAB (bottom-right).
  * Remaining unread above first-unread → jump first unread once; else → latest.
  */
 export function MessengerRoomNewMessagesBelowChip({

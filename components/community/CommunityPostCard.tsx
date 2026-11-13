@@ -13,8 +13,8 @@ import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleave
 import { matchCommunityGlobalSearch } from "@/lib/search/global/semantics/domain-fields";
 import { buildMatchedSnippet } from "@/lib/search/global/semantics/match";
 import {
-  FeedListLayoutCarrotThumbLeft,
-  FeedListLayoutCarrotThumbRight,
+  FeedListLayoutThumbLeft,
+  FeedListLayoutThumbRight,
   FeedListLayoutPlace,
   FeedListLayoutTags,
   FeedListLayoutTextOnly,
@@ -128,10 +128,10 @@ export const CommunityPostCard = memo(function CommunityPostCard({
   }
   if (skin === "compact_media_left") {
     if (!hasThumb) return <FeedListLayoutTextOnly vm={vm} />;
-    return <FeedListLayoutCarrotThumbLeft vm={vm} />;
+    return <FeedListLayoutThumbLeft vm={vm} />;
   }
   if (!hasThumb) return <FeedListLayoutTextOnly vm={vm} />;
-  return <FeedListLayoutCarrotThumbRight vm={vm} />;
+  return <FeedListLayoutThumbRight vm={vm} />;
 }, (prev, next) =>
   prev.highlightQuery === next.highlightQuery && isSameCommunityPostCard(prev.post, next.post)
 );

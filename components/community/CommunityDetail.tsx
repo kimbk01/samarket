@@ -10,7 +10,7 @@ import { isSameUserId } from "@/lib/auth/same-user-id";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { createCommunityFeedPostReport } from "@/lib/reports/createCommunityFeedPostReport";
 import { createCommunityFeedCommentReport } from "@/lib/reports/createCommunityFeedCommentReport";
-import { blockUserDaangn } from "@/lib/reports/blockUserDaangn";
+import { requestUserBlock } from "@/lib/reports/request-user-block";
 import { invalidateCommunityUserRelationSnapshot } from "@/lib/community/user-relation-client";
 import { isCommunityImportedOrigin } from "@/lib/community/community-post-origin";
 import { communityPostPublicDisplayClock } from "@/lib/community/community-publication-time";
@@ -372,7 +372,7 @@ export function CommunityDetail({
         confirmTone: "destructive",
       });
       if (!ok) return;
-      const res = await blockUserDaangn(authorUserId);
+      const res = await requestUserBlock(authorUserId);
       invalidateCommunityUserRelationSnapshot(authorUserId);
       if (res.ok) {
         setActionToast(t("community_block_success_toast"));

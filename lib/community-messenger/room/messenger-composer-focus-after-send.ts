@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 
-/** Send·Enter 후 textarea blur 방지 — 카톡/텔레그램: 키보드 유지 */
+/** Send·Enter 후 textarea blur 방지 — 메신저 표준: 키보드 유지 */
 export function scheduleMessengerComposerFocusRetain(
   textareaRef: RefObject<HTMLTextAreaElement | null>
 ): void {

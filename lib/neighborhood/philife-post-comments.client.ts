@@ -11,7 +11,7 @@ export type PhilifePostCommentsFetchResult = {
 
 /**
  * 필라이프 글 상세 댓글 목록 — GET 한 번 → 트리.
- * (당근: 상세 진입 시 목록 조회, 작성 후 전체 재조회)
+ * (참고 앱: 상세 진입 시 목록 조회, 작성 후 전체 재조회)
  */
 export async function fetchPhilifePostCommentTree(postId: string): Promise<PhilifePostCommentsFetchResult> {
   const pid = String(postId ?? "").trim();

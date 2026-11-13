@@ -79,8 +79,12 @@ import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
  * 그룹 ⋮ 서랍 목록 묶음 — 행은 `dibay-overlay-menu__item`(눌림 = 배경만 · 팝업 SSOT §1), 묶음 테두리·반경은 오버레이 토큰.
  * `.dibay-overlay-menu` 컨테이너는 층 밖 음수 여백(-16px)이라 서랍 패딩 안에서는 쓰지 않는다.
  */
+/**
+ * `shrink-0` 필수 — 그룹 서랍 패널은 세로 flex + overflow-y-auto 라, `overflow-hidden` 인 자식은 최소 높이가 0 이 되어
+ * 내용보다 작게 눌린다(2026-11-13 운영 실기: 아래 목록 전체가 납작한 줄로 접히고 스크롤도 안 됨 — PR #215 결함 D1).
+ */
 const GROUP_MENU_BOX_CLASS =
-  "mt-3 overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]";
+  "mt-3 shrink-0 overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]";
 const GROUP_MENU_GROUP_LABEL_CLASS =
   "px-4 pb-1 pt-3 text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-text-secondary)]";
 const GROUP_MENU_TRAILING_CLASS =

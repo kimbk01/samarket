@@ -37,8 +37,8 @@ interface ChatInputBarProps {
   placeholder?: string;
   /** false면 이모지 버튼·패널 숨김 */
   showEmojiButton?: boolean;
-  /** 인스타 DM 스타일: 흰 필·얇은 보더·블루 전송 */
-  variant?: "default" | "instagram";
+  /** DM 스타일: 흰 필·얇은 보더·블루 전송 */
+  variant?: "default" | "dm";
   /** 카메라·앨범에서 고른 이미지(여러 장 가능, 최대 MAX_CHAT_IMAGE_ATTACH) */
   onImageFilesSelected?: (files: File[]) => void;
   /** 이미지 업로드·전송 중 입력 비활성화 */
@@ -76,7 +76,7 @@ function ChatInputBarInner({
 }: ChatInputBarProps) {
   const { t } = useI18n();
   const resolvedPlaceholder = placeholder ?? t("chats_compose_input_placeholder");
-  const ig = variant === "instagram";
+  const ig = variant === "dm";
   const preferMobileImageSheet = usePreferMobileChatImagePicker();
   const [pickerStagingFiles, setPickerStagingFiles] = useState<File[] | null>(null);
   const [mobileAttachSheetOpen, setMobileAttachSheetOpen] = useState(false);
@@ -244,7 +244,7 @@ function ChatInputBarInner({
   };
 
   if (ig) {
-    const instagramFooterBottomPx =
+    const dmFooterBottomPx =
       composerBottomPadPx + (keyboardOpen ? 0 : MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX);
 
     return (
@@ -255,7 +255,7 @@ function ChatInputBarInner({
           data-form-keyboard-open={keyboardOpen ? "true" : "false"}
           className="delivery-ui relative w-full shrink-0 border-t border-[#e8e8e8] bg-white px-2 pt-0"
           style={{
-            paddingBottom: `${instagramFooterBottomPx}px`,
+            paddingBottom: `${dmFooterBottomPx}px`,
           }}
         >
           {onImageFilesSelected ? (
@@ -357,7 +357,7 @@ function ChatInputBarInner({
         <ChatMobileAttachSheet
           open={preferMobileImageSheet && mobileAttachSheetOpen}
           onClose={() => setMobileAttachSheetOpen(false)}
-          instagram={ig}
+          dm={ig}
           disabled={inputLocked}
           onPickCamera={() => cameraInputRef.current?.click()}
           onPickGallery={() => galleryInputRef.current?.click()}
@@ -562,7 +562,7 @@ function ChatInputBarInner({
     <ChatMobileAttachSheet
       open={preferMobileImageSheet && mobileAttachSheetOpen}
       onClose={() => setMobileAttachSheetOpen(false)}
-      instagram={ig}
+      dm={ig}
       disabled={inputLocked}
       onPickCamera={() => cameraInputRef.current?.click()}
       onPickGallery={() => galleryInputRef.current?.click()}
@@ -585,7 +585,7 @@ function LeaveIcon({ className }: { className?: string }) {
   );
 }
 
-/** 인스타 DM 스타일 — 왼쪽 첨부 트리거는 + 아이콘 (시각적 크게 보이도록 굵은 획) */
+/** DM 스타일 — 왼쪽 첨부 트리거는 + 아이콘 (시각적 크게 보이도록 굵은 획) */
 function PlusIcon({ className }: { className?: string }) {
   return (
     <svg

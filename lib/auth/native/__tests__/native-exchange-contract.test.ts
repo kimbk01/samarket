@@ -11,13 +11,13 @@ import {
 
 describe("native-exchange-contract.server", () => {
   it("parses all native exchange providers except naver", () => {
-    for (const provider of ["apple", "kakao", "google", "facebook"] as const) {
+    for (const provider of ["apple", "kakao", "google"] as const) {
       const parsed = parseNativeExchangeRequest({ provider, idToken: "t" });
       expect(parsed?.provider).toBe(provider);
     }
     expect(parseNativeExchangeRequest({ provider: "naver", accessToken: "t" })).toBeNull();
     expect(normalizeNativeExchangeProvider("google")).toBe("google");
-    expect(isNativeExchangeProvider("facebook")).toBe(true);
+    expect(isNativeExchangeProvider("apple")).toBe(true);
   });
 
   it("resolves provider-specific credentials", () => {
@@ -39,18 +39,12 @@ describe("native-exchange-contract.server", () => {
         idToken: "google-jwt",
       }),
     ).toBe("google-jwt");
-    expect(
-      resolveNativeExchangeCredential({
-        provider: "facebook",
-        accessToken: "fb-at",
-      }),
-    ).toBe("fb-at");
   });
 
   it("returns null credential when required token missing", () => {
     expect(
       resolveNativeExchangeCredential({ provider: "google", accessToken: "wrong-field" }),
     ).toBeNull();
-    expect(missingCredentialMessage("facebook")).toContain("Facebook");
+    expect(missingCredentialMessage("google")).toContain("Google");
   });
 });

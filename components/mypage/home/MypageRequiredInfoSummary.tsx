@@ -17,7 +17,7 @@ import {
   type MypageRequiredRowTone,
 } from "@/lib/mypage/mypage-home-required-items";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
+import { MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-styles";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
 /**

@@ -97,7 +97,7 @@ describe("resolveDeliveryChromePrimaryLabel", () => {
           buyerItems: [],
           ownerOrder: null,
           orderNo: "1",
-          orderCard: { storeName: "스타벅스" } as never,
+          orderCard: { storeName: "커피 매장" } as never,
           storeProfileImageUrl: null,
           storeSlug: null,
           storeBusinessType: null,
@@ -107,7 +107,7 @@ describe("resolveDeliveryChromePrimaryLabel", () => {
         roomTitle: "room",
         deliveryHeadline: undefined,
       })
-    ).toBe("스타벅스");
+    ).toBe("커피 매장");
   });
 });
 

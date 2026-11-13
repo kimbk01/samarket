@@ -1,4 +1,4 @@
-import type { ReportActionType } from "@/lib/types/daangn";
+import type { ReportActionType } from "@/lib/types/trade-report";
 
 /**
  * Trade report action policy — shared by client panel (CTA gating) and

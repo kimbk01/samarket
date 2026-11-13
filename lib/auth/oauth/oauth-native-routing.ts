@@ -53,7 +53,6 @@ export function isNativeProviderLoginAvailableForRouting(
 }
 
 export function resolveNativeBlockedProviderErrorCode(provider: OAuthProvider): string {
-  if (provider === "facebook") return "native_provider_not_implemented";
   if (provider === "google") return "google_native_unavailable";
   if (provider === "kakao") return "kakao_native_unavailable";
   if (provider === "apple") return "apple_native_unavailable";

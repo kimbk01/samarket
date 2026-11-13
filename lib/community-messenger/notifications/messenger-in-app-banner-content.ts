@@ -1,12 +1,9 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import { isMissedCallStubForViewer } from "@/lib/community-messenger/call-callee-missed";
-import { resolveCallStubEventFromMessageMetadata } from "@/lib/community-messenger/call-event-message";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerRoomSnapshot,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
-import { buildRoomBoundMissedCallNotificationInput } from "@/lib/community-messenger/call-authority/call-missed-notification-authority";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { buildMessageNotificationDisplay } from "@/lib/notifications/display/build-message-notification-display";
 import type { NotificationPresentation } from "@/lib/notifications/display/notification-presentation";
@@ -44,6 +41,15 @@ function roomContext(room: CommunityMessengerRoomSummary) {
     room.contextMeta ?? parseCommunityMessengerRoomContextMeta(room.summary)
   );
   return { roomKind, contextLabel };
+}
+
+/** 안 읽은 수 증가를 만든 최신 받은 메시지가 통화 기록인가 — 그러면 목록 행 대체 문구로도 배너를 만들지 않는다(D7). */
+export function latestIncomingMessageIsCallStub(
+  messages: readonly CommunityMessengerMessage[],
+  viewerUserId: string,
+  nowMs: number = Date.now()
+): boolean {
+  return latestIncomingMessage(messages, viewerUserId, nowMs)?.messageType === "call_stub";
 }
 
 function latestIncomingMessage(
@@ -107,34 +113,11 @@ export function buildMessengerInAppBannerContent(args: {
   const avatarUrl =
     trimText(sender?.avatarUrl) || (room.roomType === "direct" ? trimText(room.avatarUrl) : "") || null;
 
-  if (message.messageType === "call_stub") {
-    /** 부재중 + 발신자 응답 전 취소(수신자에게 부재중 — Owner 2026-11-13 D6) */
-    const stubMeta = resolveCallStubEventFromMessageMetadata(message.metadata ?? null);
-    const endedReasonMeta =
-      message.metadata && typeof message.metadata.endedReason === "string" ? message.metadata.endedReason : null;
-    if (
-      !isMissedCallStubForViewer({
-        callStatus: message.callStatus ?? null,
-        resolvedEvent: stubMeta.resolvedEvent,
-        endedReason: endedReasonMeta,
-        viewerUserId,
-        initiatorUserId: stubMeta.initiatorUserId,
-        senderUserId: message.senderId,
-      })
-    ) {
-      return null;
-    }
-    const missed = buildRoomBoundMissedCallNotificationInput({
-      recipientUserId: viewerUserId,
-      roomId: room.id,
-      callSessionId: trimText(message.callSessionId) || message.id,
-      actorUserId: message.senderId ?? "",
-      callKind: message.callKind === "video" ? "video" : "voice",
-      callerDisplayName: senderName,
-      chatDomain: room.chatDomain ?? null,
-    });
-    return { title: missed.title, preview: trimText(missed.body), avatarUrl, kind: "missed_call" };
-  }
+  /**
+   * D7 (2026-11-13 실측): 통화 기록은 이 경로(안 읽은 수 증가 순간)에서 배너를 만들지 않는다 — 발신자 취소는 이 순간이
+   * DIBAY 통화 화면이 닫히는 도중이라 버려졌다. 부재중 배너 근거 = 부재중 알림 행 1건(`missed-call-event-banner.ts`).
+   */
+  if (message.messageType === "call_stub") return null;
 
   const { roomKind, contextLabel } = roomContext(room);
   const display = buildMessageNotificationDisplay({
@@ -158,6 +141,8 @@ export function buildMessengerInAppBannerContentFromListRow(args: {
   chatPreviewEnabled: boolean;
 }): MessengerInAppBannerContent | null {
   const { row } = args;
+  /** D7: 통화 기록 미리보기(cmcall1 토큰 등)는 메시지 배너로 만들지 않는다 — 부재중 배너는 부재중 알림 행이 근거 */
+  if (row.lastMessageType === "call_stub") return null;
   const title = trimText(row.title);
   const lastMessage = trimText(row.lastMessage);
   if (!title || !lastMessage) return null;

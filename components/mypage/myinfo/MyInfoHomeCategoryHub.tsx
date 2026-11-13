@@ -18,7 +18,7 @@ import {
   MYPAGE_HOME_STORE_ORDERS_HREF,
 } from "@/lib/mypage/mypage-home-hub-links";
 import { TRADE_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/trade-chat-surface";
-import { MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
+import { MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-styles";
 
 /** 분류 카드 아이콘 색 — 분류마다 고정 (토큰 계열 연한 배경 + 진한 글자) */
 const CATEGORY_TONE: Record<MypageIaCategoryId, string> = {

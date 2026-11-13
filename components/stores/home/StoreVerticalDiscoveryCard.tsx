@@ -13,7 +13,7 @@ import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { StoreCardFavoriteIcon } from "./StoreCardFavoriteIcon";
-import { FB } from "@/components/stores/store-facebook-feed-tokens";
+import { FEED_UI } from "@/components/stores/store-feed-tokens";
 import { dibayPerfRecordStoreCardNavigationIntent } from "@/lib/dibay/delivery-flow-perf";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
 import {
@@ -233,14 +233,14 @@ export function StoreVerticalDiscoveryCard({
     flags.unshift({
       key: "delivery",
       label: t("store_delivery_available"),
-      className: FB.chip,
+      className: FEED_UI.chip,
     });
   }
   if (!outOfRangeLabel && store.visitAvailable) {
     flags.push({
       key: "visit",
       label: t("store_visit_available"),
-      className: FB.chip,
+      className: FEED_UI.chip,
     });
   }
 
@@ -270,12 +270,12 @@ export function StoreVerticalDiscoveryCard({
     : null;
 
   return (
-    <li className={`overflow-hidden ${FB.card}`}>
+    <li className={`overflow-hidden ${FEED_UI.card}`}>
       <Link
         ref={viewportRef}
         href={storeHref}
         prefetch={false}
-        className={`block ${FB.cardPress}`}
+        className={`block ${FEED_UI.cardPress}`}
         onPointerEnter={() => prefetchStoreDetail("pointer_enter")}
         onFocus={() => prefetchStoreDetail("focus")}
         onPointerDown={() => {
@@ -310,17 +310,17 @@ export function StoreVerticalDiscoveryCard({
           navigateToDeliveryStoreCard(router, { storeSlug: store.slug });
         }}
       >
-        <div className={`relative aspect-[5/3] w-full overflow-hidden ${FB.thumbMuted}`}>
+        <div className={`relative aspect-[5/3] w-full overflow-hidden ${FEED_UI.thumbMuted}`}>
           {store.profileImageUrl ?
             <SamarketThumbnail
               src={store.profileImageUrl}
               fill
               fetchDisplayPx={180}
               roundedClassName="rounded-none"
-              className={FB.thumbMuted}
+              className={FEED_UI.thumbMuted}
               loading="lazy"
             />
-          : <div className={FB.placeholderHero}>
+          : <div className={FEED_UI.placeholderHero}>
               <svg className="h-14 w-14 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
                 <path
                   strokeLinecap="round"
@@ -332,12 +332,12 @@ export function StoreVerticalDiscoveryCard({
           }
           <div className="absolute left-2 top-2 flex flex-wrap gap-1">
             {store.isFeatured ?
-              <span className={FB.badgeFeatured}>
+              <span className={FEED_UI.badgeFeatured}>
                 {t("store_badge_recommended")}
               </span>
             : null}
             {adHint ?
-              <span className={FB.badgeNeutral}>
+              <span className={FEED_UI.badgeNeutral}>
                 {adHint}
               </span>
             : null}
@@ -350,22 +350,22 @@ export function StoreVerticalDiscoveryCard({
         <div className="space-y-2 p-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <p className={`truncate ${FB.name}`}>{store.nameKo}</p>
-              <p className={`mt-0.5 ${FB.metaSm}`}>{categoryLine}</p>
+              <p className={`truncate ${FEED_UI.name}`}>{store.nameKo}</p>
+              <p className={`mt-0.5 ${FEED_UI.metaSm}`}>{categoryLine}</p>
               <StoreSampleStoreBadge isSampleStore={store.isSampleStore} className="mt-1" />
             </div>
             {statusBadge(store.status, t)}
           </div>
 
           {store.tagline?.trim() ?
-            <p className={`line-clamp-2 ${FB.body}`}>{store.tagline}</p>
+            <p className={`line-clamp-2 ${FEED_UI.body}`}>{store.tagline}</p>
           : null}
 
-          <div className={`flex flex-wrap gap-x-2 gap-y-1 ${FB.metaSm}`}>
-            <span className={FB.ratingValue}>★ {store.rating.toFixed(1)}</span>
+          <div className={`flex flex-wrap gap-x-2 gap-y-1 ${FEED_UI.metaSm}`}>
+            <span className={FEED_UI.ratingValue}>★ {store.rating.toFixed(1)}</span>
             <span>{t("store_reviews_count", { count: store.reviewCount.toLocaleString("en-PH") })}</span>
             {distLabel ?
-              <span className={FB.distance}>{distLabel}</span>
+              <span className={FEED_UI.distance}>{distLabel}</span>
             : null}
             {outOfRangeLabel ?
               <span className="font-semibold text-sam-warning">{outOfRangeLabel}</span>
@@ -374,11 +374,11 @@ export function StoreVerticalDiscoveryCard({
             : <span>{t("store_est_prep", { label: store.estPrepLabel })}</span>}
             {!outOfRangeLabel && store.deliveryFeeLabel === freeDeliveryLabel ?
               <span className="inline-flex flex-wrap items-center gap-1">
-                <span className={`text-[13px] ${FB.freeDelivery}`}>
+                <span className={`text-[13px] ${FEED_UI.freeDelivery}`}>
                   {freeDeliveryLabel}
                 </span>
                 {store.deliveryFeeStrikePhp != null && store.deliveryFeeStrikePhp > 0 ?
-                  <span className={FB.strike}>
+                  <span className={FEED_UI.strike}>
                     {formatMoneyPhp(store.deliveryFeeStrikePhp)}
                   </span>
                 : null}
@@ -390,14 +390,14 @@ export function StoreVerticalDiscoveryCard({
             : null}
           </div>
 
-          <p className={FB.metaSm}>{store.regionLabel}</p>
+          <p className={FEED_UI.metaSm}>{store.regionLabel}</p>
 
           {flags.length > 0 ?
             <div className="flex flex-wrap gap-1">
               {flags.map((f) => (
                 <span
                   key={f.key === "delivery" || f.key === "visit" ? f.label : `${f.key}:${f.label}`}
-                  className={f.key === "delivery" || f.key === "visit" ? FB.chip : `rounded-ui-rect px-2 py-0.5 sam-text-helper font-semibold ${f.className}`}
+                  className={f.key === "delivery" || f.key === "visit" ? FEED_UI.chip : `rounded-ui-rect px-2 py-0.5 sam-text-helper font-semibold ${f.className}`}
                 >
                   {f.label}
                 </span>
@@ -407,17 +407,17 @@ export function StoreVerticalDiscoveryCard({
 
           {store.paymentMethodsLine?.trim() ?
             <p
-              className={FB.metaPayment}
+              className={FEED_UI.metaPayment}
               title={store.paymentMethodsLine}
             >
-              <span className={FB.metaPaymentLabel}>{t("store_label_payment")}</span> · {store.paymentMethodsLine}
+              <span className={FEED_UI.metaPaymentLabel}>{t("store_label_payment")}</span> · {store.paymentMethodsLine}
             </p>
           : null}
         </div>
       </Link>
 
       {store.featuredItems.length > 0 ?
-        <ul className={`border-t px-3 pb-3 pt-2 ${FB.divider}`}>
+        <ul className={`border-t px-3 pb-3 pt-2 ${FEED_UI.divider}`}>
           {store.featuredItems.slice(0, 3).map((it) => (
             <li key={it.productId}>
               {(() => {
@@ -425,7 +425,7 @@ export function StoreVerticalDiscoveryCard({
                 return (
               <Link
                 href={productHref}
-                className={`flex justify-between gap-2 rounded-ui-rect py-1.5 sam-text-body-secondary ${FB.rowActive}`}
+                className={`flex justify-between gap-2 rounded-ui-rect py-1.5 sam-text-body-secondary ${FEED_UI.rowActive}`}
                 onPointerEnter={() => prefetchProductDetail(it.productId)}
                 onFocus={() => prefetchProductDetail(it.productId)}
                 onTouchStart={() => prefetchProductDetail(it.productId)}
@@ -445,8 +445,8 @@ export function StoreVerticalDiscoveryCard({
                   });
                 }}
               >
-                <span className={`truncate ${FB.link}`}>{it.name}</span>
-                <span className={FB.priceStrong}>
+                <span className={`truncate ${FEED_UI.link}`}>{it.name}</span>
+                <span className={FEED_UI.priceStrong}>
                   {formatMoneyPhp(it.price)}
                 </span>
               </Link>

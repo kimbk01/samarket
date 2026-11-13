@@ -22,7 +22,7 @@ SELECT * FROM public.v_auth_users_without_profile;
 --    백필 마이그레이션 직후 보통 0건. 이후에도 남아 있으면 식별 누락 의심.
 SELECT id, email, provider, auth_provider, created_at
 FROM public.profiles
-WHERE provider IN ('google', 'kakao', 'naver', 'apple', 'facebook')
+WHERE provider IN ('google', 'kakao', 'naver', 'apple')
   AND (provider_user_id IS NULL OR btrim(provider_user_id) = '');
 
 -- 6) auth.identities 매핑 확인 (실시간) — 회원이 어떤 provider 로 로그인됐는지

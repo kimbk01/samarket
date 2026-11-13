@@ -653,7 +653,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const dataRef = useRef(data);
   dataRef.current = data;
   /**
-   * Telegram list authority: hub paint is always legacy bootstrap `data` (applyHomeListPatch).
+   * Domain list authority: hub paint is always legacy bootstrap `data` (applyHomeListPatch).
    * Phase3 canonical/dual overlay is a second paint SSOT — product list forces `legacy`.
    * Writer/Realtime still use `data` (homeRoomIds 등).
    */

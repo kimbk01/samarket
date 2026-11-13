@@ -1,5 +1,5 @@
 import { Mail } from "lucide-react";
-import { SiApple, SiFacebook, SiNaver } from "react-icons/si";
+import { SiApple, SiNaver } from "react-icons/si";
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -19,7 +19,7 @@ export type OAuthLoginPrimaryStyle = {
 export type OAuthLoginButtonSurface = "page" | "overlay";
 
 const OAUTH_LOGIN_PRIMARY_STYLES: Record<
-  Exclude<OAuthProvider, "facebook">,
+  OAuthProvider,
   OAuthLoginPrimaryStyle
 > = {
   kakao: {
@@ -54,20 +54,13 @@ export const OAUTH_LOGIN_PRIMARY_BUTTON_BASE = getOAuthLoginPrimaryButtonBase("o
 export const OAUTH_LOGIN_SECONDARY_CIRCLE_BASE =
   "flex h-11 w-11 items-center justify-center rounded-full transition-transform duration-100 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100";
 
-const OAUTH_LOGIN_ICON_CLASS: Record<"naver" | "apple" | "facebook" | "email", string> = {
+const OAUTH_LOGIN_ICON_CLASS: Record<"naver" | "apple" | "email", string> = {
   naver: "text-white",
   apple: "text-white",
-  facebook: "text-white",
   email: "text-white",
 };
 
 export function getOAuthLoginPrimaryStyle(provider: OAuthProvider): OAuthLoginPrimaryStyle | null {
-  if (provider === "facebook") {
-    return {
-      buttonClassName: "bg-[#1877F2] hover:brightness-[0.98] active:brightness-95",
-      labelClassName: "text-white",
-    };
-  }
   return OAUTH_LOGIN_PRIMARY_STYLES[provider];
 }
 
@@ -75,8 +68,7 @@ export function getOAuthLoginContinueLabelKey(provider: OAuthProvider): MessageK
   if (provider === "kakao") return "auth_provider_continue_kakao";
   if (provider === "naver") return "auth_provider_continue_naver";
   if (provider === "apple") return "auth_provider_continue_apple";
-  if (provider === "google") return "auth_provider_continue_google";
-  return "auth_provider_continue_facebook";
+  return "auth_provider_continue_google";
 }
 
 /** Google 공식 4색 "G" — fill 고정 (currentColor 미사용). */
@@ -147,6 +139,6 @@ export function OAuthLoginProviderIcon({
   if (provider === "email") {
     return <Mail size={pixelSize} strokeWidth={2.2} className={iconClassName} aria-hidden />;
   }
-  const Icon = provider === "apple" ? SiApple : provider === "naver" ? SiNaver : SiFacebook;
+  const Icon = provider === "apple" ? SiApple : SiNaver;
   return <Icon size={pixelSize} className={iconClassName} aria-hidden />;
 }

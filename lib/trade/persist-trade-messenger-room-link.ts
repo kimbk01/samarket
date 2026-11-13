@@ -47,7 +47,7 @@ export async function persistProductChatMessengerRoomIdIfNull(
   await persistProductChatMessengerRoomId(sb, pc, mid);
 }
 
-/** item_trade `chat_rooms` 행과 메신저 방 ID 동기 (당근형 chat_rooms.id 로 들어오는 경로) */
+/** item_trade `chat_rooms` 행과 메신저 방 ID 동기 (chat_rooms.id 로 들어오는 경로) */
 export async function syncChatRoomMessengerLink(
   sb: SupabaseClient<any>,
   chatRoomId: string,

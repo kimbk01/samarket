@@ -45,7 +45,7 @@ export type DirectInteractionGuard = {
 };
 
 /**
- * §14-5 정책 (Owner 2026-10-25 승인, 텔레그램 기준): 상대가 내 친구 요청을 **거절**하면
+ * §14-5 정책 (Owner 2026-10-25 승인, 메신저 표준 기준): 상대가 내 친구 요청을 **거절**하면
  * 요청자 → 거절한 사람 방향 대화·통화·재요청 불가. 거절한 사람 쪽은 막지 않고, 보관함에서 해제하면 풀린다.
  * 판정 원천: `community_friend_requests` (requester=viewer, addressee=peer, status='rejected').
  */

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Trade+community checksheet §1 — 3-run audit (당근급 체크시트 증거).
+ * Trade+community checksheet §1 — 3-run audit (거래 앱 수준 체크시트 증거).
  *
  * Usage:
  *   PLAYWRIGHT_NO_WEBSERVER=1 PLAYWRIGHT_BASE_URL=http://localhost:3000 \

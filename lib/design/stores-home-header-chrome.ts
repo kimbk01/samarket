@@ -103,7 +103,7 @@ export const STORES_HOME_HEADER_BROWSE_PRIMARY_MENU_BACKDROP_CLASS =
 export const STORES_HOME_HEADER_BROWSE_SUB_CHIPS_ROW_CLASS =
   "relative z-[1] w-full shrink-0 border-b border-[color:var(--delivery-border-section)] bg-[color:var(--delivery-bg-card)] pb-2 pt-0";
 
-/** WP3 — 업종 페이지 2단 텍스트 탭 행 (배민 업종 탭). 아래 1px 구분선, 밑줄은 탭 안에서 이동 */
+/** WP3 — 업종 페이지 2단 텍스트 탭 행 (업종 탭). 아래 1px 구분선, 밑줄은 탭 안에서 이동 */
 export const STORES_HOME_HEADER_BROWSE_MENU_TABS_ROW_CLASS =
   "relative z-[1] w-full shrink-0 border-b border-[color:var(--delivery-border-section)] bg-[color:var(--delivery-bg-card)]";
 

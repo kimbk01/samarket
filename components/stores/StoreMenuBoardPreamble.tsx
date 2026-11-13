@@ -6,7 +6,7 @@ import type { StoreDetailProductCard } from "@/lib/stores/group-store-products-b
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 
 /**
- * 배민식 메뉴판 상단: 사장님 추천(가로) + 인기 메뉴(랭킹) — 카테고리 탭 위.
+ * 배달 표준 메뉴판 상단: 사장님 추천(가로) + 인기 메뉴(랭킹) — 카테고리 탭 위.
  */
 export function StoreMenuBoardPreamble({
   recommendedCards,

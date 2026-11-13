@@ -6,6 +6,7 @@ import { ChevronDown, Coins, Gift, Headset, Heart, LayoutGrid, Receipt, Search, 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { serviceBrandIconSlot, type ServiceBrandIconSlotProps } from "@/components/brand/ServiceBrandIcon";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
+import { samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
 import { DibayPtrSlot } from "@/components/ptr/DibayPtrSlot";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
@@ -50,11 +51,6 @@ const SHORTCUT_ICON: Record<HomeMenuKey, LucideIcon | ((p: ServiceBrandIconSlotP
   all: LayoutGrid,
 };
 
-/** 종 — 밝은 상단 위 검은 종(40×40 누르는 곳). 배지 = 종 그림(22px) 오른쪽 위를 가로·세로 약 30%(7px) 겹침 */
-const HOME_BELL_BTN_CLASS =
-  "relative grid h-10 w-10 shrink-0 place-items-center rounded-full text-[#141a16] transition-colors active:bg-black/[0.06]";
-const HOME_BELL_BADGE_CLASS =
-  "pointer-events-none absolute left-[24px] top-0 grid h-4 min-w-4 place-items-center rounded-full bg-[#F03A2E] px-1 text-[10px] font-bold leading-none text-white tabular-nums ring-2 ring-[#F3F5F3]";
 
 /**
  * 앱 홈 `/`·`/home` — 홈 시안 v22 (Owner 「이대로 구현」 2026-11-09).
@@ -158,7 +154,10 @@ export function HomeScreen({
 
       {/* 상단 — 로고 · 오른쪽 주소 · 종 (Owner 2026-11-09 「로고 우측에 주소」) */}
       <header className="bg-[#F3F5F3]" data-home-header>
-        <div className="flex min-h-[52px] items-center gap-2 pl-[18px] pr-3" style={{ paddingTop: "var(--safe-top, 0px)" }}>
+        {/* 헤더 SSOT 2단계 — 다른 허브와 같은 줄(높이 52 · 로고 시작 16px · 주소 17px/600 · 종 48/24 · 끝 그림 = 화면 끝 16px) */}
+        <div className="sector-header--no-left-slot" style={{ paddingTop: "var(--safe-top, 0px)" }}>
+        <div className="sector-header-bar sector-header-bar--left-title">
+          <span className="flex min-w-0 items-center gap-2">
           <span className="flex shrink-0 items-center gap-1.5" aria-label="dibaY">
             {/* eslint-disable-next-line @next/next/no-img-element -- 정적 브랜드 아이콘 26px */}
             <img src="/images/brand/dibay-app-icon-180.png" alt="" width={26} height={26} className="h-[26px] w-[26px] rounded-[7px]" />
@@ -170,7 +169,7 @@ export function HomeScreen({
             <button
               type="button"
               aria-label={t("home_address_change_aria")}
-              className="flex min-w-0 flex-1 items-center gap-0.5 px-1 py-1 text-left text-[15px] font-semibold text-[#141a16] active:opacity-60"
+              className="flex min-w-0 flex-1 items-center gap-0.5 px-1 py-1 text-left text-[length:var(--sector-header-title-size)] font-semibold leading-none text-[color:var(--sector-header-title-color)] active:opacity-60"
               onClick={() => {
                 if (isMember) router.push("/mypage/addresses");
                 else void requireAuthAction("address_save", () => router.push("/mypage/addresses"), { next: "/home" });
@@ -178,13 +177,13 @@ export function HomeScreen({
               data-home-address
             >
               <span className="min-w-0 truncate">{addressLabel}</span>
-              <ChevronDown className="h-4 w-4 shrink-0" strokeWidth={2.4} aria-hidden />
+              <ChevronDown className="h-3.5 w-3.5 shrink-0" strokeWidth={2.4} aria-hidden />
             </button>
-          ) : (
-            <span className="flex-1" />
-          )}
+          ) : null}
+          </span>
+          <div className={samTier1HeaderIconCluster}>
           {isMember ? (
-            <Tier1NotificationAnchor triggerClassName={HOME_BELL_BTN_CLASS} unreadBadgeClassName={HOME_BELL_BADGE_CLASS} />
+            <Tier1NotificationAnchor />
           ) : isGuest ? (
             <button
               type="button"
@@ -194,6 +193,8 @@ export function HomeScreen({
               {t("home_sign_in")}
             </button>
           ) : null}
+          </div>
+        </div>
         </div>
         {/* 당겨서 새로고침 슬롯 — 커뮤니티·거래와 같은 공통 슬롯(1단 아래 · 시그니처 그린) */}
         <DibayPtrSlot store={homePtrStore} tone="onBrand" className="bg-signature" dataAttribute="data-home-ptr-hint" />

@@ -12,7 +12,7 @@ export const STORE_ORDER_BRAND = {
   accentSoftText: "var(--delivery-primary)",
   accentRing: "color-mix(in srgb, var(--delivery-primary) 35%, transparent)",
   /** 레거시 이름 유지 — 값은 accent 와 동일 */
-  baeminMint: "var(--delivery-primary)",
+  deliveryMint: "var(--delivery-primary)",
   star: "#FFB400",
   starBright: "#FFC400",
   muted: "#888888",

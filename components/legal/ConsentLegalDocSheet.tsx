@@ -5,7 +5,7 @@ import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AppLegalKind } from "@/lib/legal/app-legal-documents";
 import { splitLegalBodyParagraphs } from "@/lib/legal/app-legal-documents";
-import { DIBAY_ONBOARDING_PRIMARY_BTN } from "@/lib/ui/dibay-onboarding-starbucks-styles";
+import { DIBAY_ONBOARDING_PRIMARY_BTN } from "@/lib/ui/dibay-onboarding-styles";
 
 type Props = {
   open: boolean;

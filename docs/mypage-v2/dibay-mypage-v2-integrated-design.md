@@ -415,7 +415,7 @@
 
 ### 7.2 제거 대상 (카드·테두리·그림자·하드코딩 색)
 
-- 홈 스타일 상수 `lib/ui/mypage-home-starbucks-styles.ts`(#00704A·#6F4E37·#1E3932·#D4E9E2·#F2F0EB) **전량 폐기**.
+- 홈 스타일 상수 `lib/ui/mypage-home-styles.ts`(#00704A·#6F4E37·#1E3932·#D4E9E2·#F2F0EB) **전량 폐기**.
 - 그룹을 감싼 `rounded-ui-rect border … bg-white shadow` 카드 → 테두리·그림자 없는 **그룹 리스트**(그룹 배경 surface, 그룹 사이 app 배경 8px).
 - `MyPageItemScreen` 의 messenger/friends·region·manner·terms 박스 카드, `TradeHubSectionShell`(sam-card) → 그룹 리스트/헤더.
 - 내정보 범위 하드코딩: 66개 파일 465곳(hex 281 · `text-red-600` 51 · `bg-white` 24 · amber ~40 · violet 1) → 토큰. 범위 = `app/(main)/mypage/**`, `components/mypage/**`, `components/my/**`, 내정보 전용 하위 컴포넌트(`components/points/**`, `components/addresses/**` 중 내정보 화면).
@@ -611,7 +611,7 @@
 | 단위 | 선행 | 수정 파일(주요) | 영향 | 테스트 | 병렬 |
 |---|---|---|---|---|---|
 | W1 디자인 기반 | 없음 | `components/mypage/ds/*`(신규 9), `lib/mypage/format-mypage-date.ts`, ESLint import 제한 | 신규만 | ds 컴포넌트 단위(상태·중복 제출·키보드 inset) | W3 와 병렬 |
-| W2 IA·홈 | W1 | `MyPageHomeDashboard`, `MyPageGuestHomeDashboard`, `MyInfoHomeMenuSections`(→ `MyGroup/MyRow`), `mypage-home-menu-config`, `mypage-home-quick/stat-config`(폐기), `mypage-home-starbucks-styles`(폐기), `/api/me/mypage-summary`, `mypage-section-legacy-redirect`, `next.config.js` 리다이렉트, 스크롤 복원 | 홈·리다이렉트 | 메뉴 순서·권한별 스냅샷, 리다이렉트 1회·자기참조 0, `mypage-root-network-contract.test.ts`(콜드부트) | — |
+| W2 IA·홈 | W1 | `MyPageHomeDashboard`, `MyPageGuestHomeDashboard`, `MyInfoHomeMenuSections`(→ `MyGroup/MyRow`), `mypage-home-menu-config`, `mypage-home-quick/stat-config`(폐기), `mypage-home-styles`(폐기), `/api/me/mypage-summary`, `mypage-section-legacy-redirect`, `next.config.js` 리다이렉트, 스크롤 복원 | 홈·리다이렉트 | 메뉴 순서·권한별 스냅샷, 리다이렉트 1회·자기참조 0, `mypage-root-network-contract.test.ts`(콜드부트) | — |
 | W3 DB·API | 승인된 M2–M5 | 마이그레이션, 신규·변경 API(§10.2) | 거래 상세 조회, 가격 제안, 커뮤니티 save/like DELETE | API 단위(성공·실패·경계·권한) | W1 과 병렬 |
 | W4 거래·커뮤니티 화면 | W1 W3 | S10–S23 | 찜 컴포넌트 공유 화면(홈 시트·패널) | 화면 상태·탭 URL·해제/되돌리기 | W5·W6 과 병렬 |
 | W5 주문·자산 화면 | W1 W3 | S30–S4A, `MyStoreOrdersView`, 주문 내역서 시트 | 배달 도메인 주문 목록 | 상태 라벨 10종×2, 음수·로딩·오류 금액 | 병렬 |

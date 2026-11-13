@@ -1,0 +1,78 @@
+/**
+ * dibaY 장바구니 UI — 배달 표준 카드·여백 (흰 배경 + 섹션 테두리).
+ * `/stores/[slug]/cart` 전용.
+ */
+
+import { DeliveryTheme } from "@/lib/design/delivery-theme";
+import { STORE_COMMERCE_ACTION_BTN_ACTIVE_CLASS } from "@/lib/stores/store-commerce-bottom-action-bar";
+
+/** 페이지·스크롤 영역 — #f6f6f6, 카드·헤더는 흰색 */
+export const CART_UI_PAGE_BG = "delivery-ui bg-[color:var(--delivery-bg-main)]";
+
+/** 본문 좌우 16px 통일 (philife 비대칭 inset 사용 안 함) */
+export const CART_UI_PAGE_X = "px-4";
+
+/** 섹션 카드 간 세로 간격 — 헤더 직후 공간 최소 */
+export const CART_UI_STACK_CLASS = "space-y-2";
+
+export const CART_UI_CARD_CLASS =
+  "overflow-hidden rounded-[4px] border border-[var(--delivery-border-section)] bg-[color:var(--delivery-bg-card)]";
+
+export const CART_UI_SECTION_CARD_CLASS = CART_UI_CARD_CLASS;
+export const CART_UI_SECTION_TITLE_CLASS = DeliveryTheme.sectionCard.title;
+export const CART_UI_CARD_INSET_CLASS = CART_UI_CARD_CLASS;
+export const CART_UI_DIVIDER_CLASS = "mx-4 border-t border-[var(--delivery-border-section)]";
+
+export const CART_UI_FOOTER_PROMO_CLASS =
+  "text-[length:var(--delivery-fs-sub)] font-semibold leading-[var(--delivery-lh-sub)] text-[color:var(--delivery-primary)]";
+
+/** 하단 주문 바 — 최소 주문 충족 */
+export const CART_UI_FOOTER_MIN_MET_CLASS =
+  "text-[length:var(--delivery-fs-meta)] font-semibold leading-[var(--delivery-lh-caption)] text-[color:var(--delivery-success)]";
+
+/** 하단 주문 바 — 최소 주문 미달 */
+export const CART_UI_FOOTER_MIN_SHORT_CLASS =
+  "text-[length:var(--delivery-fs-meta)] font-medium leading-[var(--delivery-lh-caption)] text-[color:var(--delivery-warning)]";
+
+/** 결제·연락처 카드 본문 */
+export const CART_UI_CHECKOUT_INNER_CLASS = "space-y-4 px-4 py-4";
+
+/** 카드 안 섹션 구분(가로선만, 세로선 없음) */
+export const CART_UI_CHECKOUT_SECTION_DIVIDER_CLASS =
+  "border-t border-[var(--delivery-border-section)] pt-4";
+
+/** 배송지 선택 — 바깥 테두리 1줄, 항목은 구분선만 */
+export const CART_UI_ADDRESS_LIST_CLASS =
+  "mt-2 list-none overflow-hidden rounded-[4px] border border-[var(--delivery-border-section)] divide-y divide-[var(--delivery-border-section)] bg-white p-0";
+
+export const CART_UI_ADDRESS_ROW_CLASS = "p-3";
+
+export const CART_UI_ADDRESS_ROW_SELECTED_CLASS =
+  "bg-[color:var(--delivery-primary-soft)] ring-1 ring-inset ring-[color:var(--delivery-primary-border)]";
+
+/** 하단 주문 CTA — `STORE_COMMERCE_ACTION_BTN_CLASS` 단일 소스 */
+export const CART_UI_ORDER_BTN_CLASS = STORE_COMMERCE_ACTION_BTN_ACTIVE_CLASS;
+
+/** 장바구니 타이포·간격 */
+export const CART_UI_TYPE = {
+  pageTitle: "text-[length:var(--delivery-fs-card-title)] font-bold leading-[1.35]",
+  storeName: "text-[length:var(--delivery-fs-button)] font-bold leading-[1.35]",
+  sectionTitle: DeliveryTheme.typo.sectionTitle,
+  itemTitle: "text-[length:var(--delivery-fs-card-title)] font-bold leading-[var(--delivery-lh-card-title)]",
+  bodyMuted: "text-[length:var(--delivery-fs-sub)] leading-[1.45] text-[var(--delivery-text-muted)]",
+  priceMeta: "text-[length:var(--delivery-fs-sub)] leading-[1.45] text-[var(--delivery-text-muted)]",
+  itemTotal: "text-[length:var(--delivery-fs-price)] font-extrabold leading-[var(--delivery-lh-price)] tabular-nums",
+  upsellPrice: "text-[length:var(--delivery-fs-body)] tabular-nums",
+  btnOption:
+    "inline-flex h-8 min-h-[var(--delivery-touch-min)] items-center justify-center rounded-[4px] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] px-3 text-[length:var(--delivery-fs-sub)] font-semibold text-[color:var(--delivery-text-main)] active:bg-[color:var(--delivery-bg-soft)]",
+  /** UI-11 — 수량 스테퍼 높이 = 터치 최소 44px (`--delivery-touch-min`) */
+  btnQty: "h-[var(--delivery-touch-min)]",
+  /** UI-11 — 스테퍼 −/+ 버튼 폭 = 터치 최소 44px */
+  btnQtyStep: "w-[var(--delivery-touch-min)]",
+  thumb: "h-[72px] w-[72px] rounded-[8px]",
+  thumbUpsell: "h-14 w-14 rounded-[8px]",
+  rowPy: "py-4",
+  storeHeaderPy: "py-3",
+  cardGap: "",
+  pagePadX: "",
+} as const;

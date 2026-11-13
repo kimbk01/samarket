@@ -7,7 +7,7 @@ import { subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager"
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenuRow";
 import { MyInfoMenuLinkRow } from "@/components/mypage/myinfo/MyInfoMenuAction";
-import { MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
+import { MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-styles";
 import type { MypageAdminMenuSeed } from "@/lib/my/load-mypage-admin-menu-seed";
 
 type AdminAccessResult = "admin" | "not_admin" | "unknown";
@@ -96,13 +96,13 @@ export function MyPageAdminMenuEntry({
   asListItem = false,
   /** @deprecated `asListItem` 사용 */
   wrapInStandaloneCard = false,
-  /** 내정보 홈 스타벅스 카드 행 */
-  starbucks = false,
+  /** 내정보 홈 브랜드 카드 행 */
+  homeCard = false,
   serverSeed = null,
 }: {
   asListItem?: boolean;
   wrapInStandaloneCard?: boolean;
-  starbucks?: boolean;
+  homeCard?: boolean;
   serverSeed?: MypageAdminMenuSeed | null;
 } = {}) {
   const { t } = useI18n();
@@ -165,7 +165,7 @@ export function MyPageAdminMenuEntry({
     </p>
   );
 
-  if (starbucks) {
+  if (homeCard) {
     const card = (
       <section className={MYPAGE_HOME_CARD_CLASS}>
         <MyInfoMenuLinkRow first href="/admin" title={t("mypage_comp_admin_entry_title")} />

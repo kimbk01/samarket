@@ -23,7 +23,7 @@ import {
   addressDesignationBadgeClass,
   addressMasterBadgeClass,
   addressStoreLinkedBadgeClass,
-} from "@/lib/ui/address-list-starbucks-styles";
+} from "@/lib/ui/address-list-styles";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 /** 주소 라벨 뱃지 글자 — 집 · 회사 · 기타 · 매장 (S06 행 표시) */
@@ -49,7 +49,7 @@ export function AddressListRowBody({
   addressMainClassName?: string;
   /** 비PH — 상세 줄을 본문에 합쳐 한 줄로 */
   preferFullAddressLine?: boolean;
-  badgeStyle?: "legacy" | "starbucks";
+  badgeStyle?: "legacy" | "brand";
 }) {
   const { t } = useI18n();
   const isPh = isPhUserAddressRow(row);
@@ -87,7 +87,7 @@ export function AddressListRowBody({
 
   const headKind = isShopLinked ? "store" : row.isDefaultMaster ? "master" : "general";
   const mainTextClass = addressMainClassName ?? "text-sam-fg";
-  const useStarbucksBadges = badgeStyle === "starbucks";
+  const useBrandBadges = badgeStyle === "brand";
 
   return (
     <>
@@ -109,7 +109,7 @@ export function AddressListRowBody({
             🇰🇷
           </span>
         ) : null}
-        {useStarbucksBadges && !isStoreAddress ?
+        {useBrandBadges && !isStoreAddress ?
           <span
             className={addressDesignationBadgeClass(row.labelType)}
             translate="no"
@@ -121,7 +121,7 @@ export function AddressListRowBody({
         {row.isDefaultMaster ?
           <span
             className={
-              useStarbucksBadges
+              useBrandBadges
                 ? addressMasterBadgeClass()
                 : `${ADDR_LIST_BADGE_BASE} border-rose-400/70 bg-rose-50 text-rose-800`
             }
@@ -133,7 +133,7 @@ export function AddressListRowBody({
         {isStoreAddress ?
           <span
             className={
-              useStarbucksBadges
+              useBrandBadges
                 ? addressStoreLinkedBadgeClass()
                 : `${ADDR_LIST_BADGE_BASE} border-slate-400/55 bg-slate-200/90 text-slate-900`
             }

@@ -7,7 +7,7 @@
  * - desktop: ≥1200 — **same 1-column** centered max-width
  *
  * FAIL: grid-cols-2 / grid-cols-3 menu parallel catalogs.
- * list+detail pane: NOT adopted (Karrot large-screen = NOT_AVAILABLE).
+ * list+detail pane: NOT adopted (reference large-screen = NOT_AVAILABLE).
  */
 import { APP_MOBILE_LAYOUT_MAX_PX } from "@/lib/ui/app-viewport-layout-breakpoints";
 

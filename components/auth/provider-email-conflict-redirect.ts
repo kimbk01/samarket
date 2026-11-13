@@ -3,7 +3,7 @@ import type { ProviderEmailConflictState } from "@/lib/auth/provider-identity/pr
 import type { StoredAuthProvider } from "@/lib/auth/provider-identity/types";
 
 const ATTEMPTED_PROVIDERS = new Set(["google", "kakao", "apple"]);
-const STORED_PROVIDERS = new Set<StoredAuthProvider>(["google", "kakao", "apple", "naver", "facebook", "email"]);
+const STORED_PROVIDERS = new Set<StoredAuthProvider>(["google", "kakao", "apple", "naver", "email"]);
 const STASH_TOKEN_MAX_LEN = 4096;
 
 /**
@@ -47,7 +47,7 @@ export type ConflictExistingLoginAction =
  * P1-15 (UX-05): "기존 방법으로 로그인" 분기.
  * - google/kakao/apple → 화면의 useOAuthLogin().startOAuthProvider (lock·completion·오류 공통)
  * - email → 내부(아이디) 로그인 폼
- * - naver/facebook/미지 → 시작하지 않고 일반 안내만
+ * - naver/미지 → 시작하지 않고 일반 안내만
  */
 export function resolveConflictExistingLoginAction(
   provider: StoredAuthProvider | string | null | undefined,

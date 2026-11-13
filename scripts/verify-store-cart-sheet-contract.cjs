@@ -7,7 +7,7 @@
  * - 카트 하단 좌측 정보 row flex / CTA min-w+nowrap 으로 기기 가로 overflow
  * - 풀폭 서브헤더에 100dvw column bleed 재적용
  *
- * (menus upsell prefetch는 매장 상세 전용 — Baemin 카트 본문은 store block + checkout)
+ * (menus upsell prefetch는 매장 상세 전용 — 카트 본문은 store block + checkout)
  */
 const fs = require("fs");
 const path = require("path");
@@ -35,7 +35,7 @@ const openFromCart = read(openFromCartFile);
 const cartPrefetch = read(cartPrefetchFile);
 
 assertIncludes(cartPage, "openStoreProductSheetFromCart", "cart page must open option sheet via cart helper");
-assertIncludes(cartPage, "StoreBaeminCartStoreBlock", "cart page must use Baemin store block");
+assertIncludes(cartPage, "StoreCartStoreBlock", "cart page must use store block");
 assertIncludes(cartPage, "checkoutMinOrderFooterLine", "cart footer must expose min-order status");
 assertIncludes(cartPage, "store_min_order_met", "cart must use min-order met i18n key");
 assertIncludes(cartPage, "minOrderLine={checkoutMinOrderFooterLine}", "cart must pass min-order line to checkout bar");

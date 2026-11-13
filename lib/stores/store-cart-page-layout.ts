@@ -1,5 +1,5 @@
 /**
- * `/stores/[slug]/cart` 레이아웃 (배민·요기요식)
+ * `/stores/[slug]/cart` 레이아웃 (참고 앱·요기요식)
  *
  * - `ConditionalAppShell`: 뷰포트 높이 잠금 + `main` flex (문서 스크롤 아님)
  * - 셸: 상단 헤더·하단 주문 CTA `shrink-0`, 가운데만 `overflow-y-auto`
@@ -9,28 +9,28 @@
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import {
-  BAEMIN_CART_PAGE_BG,
-  BAEMIN_CART_PAGE_X,
-  BAEMIN_CART_STACK_CLASS,
-} from "@/lib/stores/store-baemin-cart-ui";
+  CART_UI_PAGE_BG,
+  CART_UI_PAGE_X,
+  CART_UI_STACK_CLASS,
+} from "@/lib/stores/store-cart-ui";
 
-/** 페이지 루트 — 스타벅스 배경(#f6f6f6) */
-export const STORE_CART_PAGE_ROOT_CLASS = `flex min-h-0 flex-1 flex-col overflow-hidden w-full min-w-0 ${BAEMIN_CART_PAGE_BG}`;
+/** 페이지 루트 — 브랜드 배경(#f6f6f6) */
+export const STORE_CART_PAGE_ROOT_CLASS = `flex min-h-0 flex-1 flex-col overflow-hidden w-full min-w-0 ${CART_UI_PAGE_BG}`;
 
 /** 가운데 스크롤 영역 — `h-0` flex 잠금 + iOS touch momentum */
-export const STORE_CART_SCROLL_BODY_CLASS = `min-h-0 h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] ${BAEMIN_CART_PAGE_BG}`;
+export const STORE_CART_SCROLL_BODY_CLASS = `min-h-0 h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] ${CART_UI_PAGE_BG}`;
 
 /** 본문 — 좌우 16px 통일, 헤더~첫 카드 간격 최소 */
 /** 하단 고정 CTA에 가리지 않도록 스크롤 하단 여백 */
-export const STORE_CART_SCROLL_BODY_INNER_CLASS = `${APP_MAIN_COLUMN_CLASS} ${BAEMIN_CART_PAGE_X} pt-2 pb-4 ${BAEMIN_CART_STACK_CLASS}`;
+export const STORE_CART_SCROLL_BODY_INNER_CLASS = `${APP_MAIN_COLUMN_CLASS} ${CART_UI_PAGE_X} pt-2 pb-4 ${CART_UI_STACK_CLASS}`;
 
 /** `/stores/cart` 통합 장바구니 — 하단 5탭 clearance (슬러그 cart CTA 와 별도) */
-export const STORE_GLOBAL_CART_SCROLL_BODY_INNER_CLASS = `${APP_MAIN_COLUMN_CLASS} ${BAEMIN_CART_PAGE_X} pt-2 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} ${BAEMIN_CART_STACK_CLASS}`;
+export const STORE_GLOBAL_CART_SCROLL_BODY_INNER_CLASS = `${APP_MAIN_COLUMN_CLASS} ${CART_UI_PAGE_X} pt-2 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} ${CART_UI_STACK_CLASS}`;
 
 export const STORE_CART_SCROLL_BODY_DATA_ATTR = "store-cart-scroll";
 
-/** 상단 StoreBaeminCartTopBar 래퍼 */
-export const STORE_CART_HEADER_CHROME_CLASS = `shrink-0 z-30 ${BAEMIN_CART_PAGE_BG}`;
+/** 상단 StoreCartTopBar 래퍼 */
+export const STORE_CART_HEADER_CHROME_CLASS = `shrink-0 z-30 ${CART_UI_PAGE_BG}`;
 
 /** 하단 주문 바 래퍼 — plane·safe-area 는 `StoreCartCheckoutActionBar` 가 담당 */
 export const STORE_CART_FOOTER_CHROME_CLASS = "shrink-0 z-30 w-full min-w-0";
@@ -42,7 +42,7 @@ export const STORE_CART_CHECKOUT_ACTION_CLASS = "";
 
 export const STORE_CART_CHECKOUT_ACTION_DATA_ATTR = "store-cart-checkout-action";
 
-/** @deprecated `STORE_CART_HEADER_CHROME_CLASS` + StoreBaeminCartTopBar bleed */
+/** @deprecated `STORE_CART_HEADER_CHROME_CLASS` + StoreCartTopBar bleed */
 export const STORE_CART_HEADER_STICKY_CLASS = "";
 
 /** @deprecated 내부 스크롤 — 별도 pb 불필요 */

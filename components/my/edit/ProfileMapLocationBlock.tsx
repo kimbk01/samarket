@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { AddressListRowBody } from "@/components/addresses/AddressListRowBody";
-import { PROFILE_EDIT_SECONDARY_BTN_CLASS, PROFILE_EDIT_ADDRESS_INCOMPLETE_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
+import { PROFILE_EDIT_SECONDARY_BTN_CLASS, PROFILE_EDIT_ADDRESS_INCOMPLETE_CLASS } from "@/lib/ui/profile-edit-styles";
 
 type Props = {
   addresses: UserAddressDTO[] | null;
@@ -66,7 +66,7 @@ export function ProfileMapLocationBlock({
           aria-label={t("profile_edit_address_row_aria")}
           className="w-full rounded-ui-rect border border-sam-primary/15 bg-sam-pressed-surface/50 px-3 py-2.5 text-left active:bg-sam-icon-surface/60"
         >
-          <AddressListRowBody row={representative} badgeStyle="starbucks" />
+          <AddressListRowBody row={representative} badgeStyle="brand" />
         </button>
       )}
 

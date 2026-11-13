@@ -44,13 +44,20 @@ function OrderHistoryIcon() {
 }
 
 /**
- * 배달 고객 헤더 액션 (배민 미러링).
+ * 배달 고객 헤더 액션 (배달 메뉴 구성).
  * - `home` (배달 홈): 🔔 · 🛒 — 검색은 헤더 아래 검색창
  * - `browse` (메뉴·업종 목록): 🔍 · 🛒
  * - `full` (그 외 배달 화면): 🔍 · 주문 · 🛒 · 🔔
+ * - `hideSearch` (배달 홈 `/stores`): 바로 아래 검색창과 겹치므로 🔍 만 뺀다 (Owner 2026-11-13) — 주문 · 🛒 · 🔔 유지
  * No owner ops. No floating FAB substitute beyond these.
  */
-export function StoresConsumerHeaderActions({ variant = "full" }: { variant?: "home" | "browse" | "full" }) {
+export function StoresConsumerHeaderActions({
+  variant = "full",
+  hideSearch = false,
+}: {
+  variant?: "home" | "browse" | "full";
+  hideSearch?: boolean;
+}) {
   const { t } = useI18n();
   const router = useRouter();
   const { href: cartHref, cartCount: cartLineKindCount } = useCommerceCartNavHref(
@@ -59,7 +66,7 @@ export function StoresConsumerHeaderActions({ variant = "full" }: { variant?: "h
   /** Buyer order history only — do not route owners to ops from this consumer chrome. */
   const orderHistoryHref = resolveDeliveryOrderHistoryHref(null);
 
-  const showSearch = variant !== "home";
+  const showSearch = variant !== "home" && !hideSearch;
   const showOrders = variant === "full";
   const showBell = variant !== "browse";
 

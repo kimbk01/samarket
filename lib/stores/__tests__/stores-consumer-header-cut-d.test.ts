@@ -9,7 +9,7 @@ function read(rel: string): string {
 }
 
 describe("CUT-D stores consumer header + hub FAB", () => {
-  it("header action order — full: search · orders · cart · bell / 배민 미러링 home: bell · cart / browse: search · cart", () => {
+  it("header action order — full: search · orders · cart · bell / 배달 메뉴 구성 home: bell · cart / browse: search · cart", () => {
     const src = read("components/stores/home/hub/StoresConsumerHeaderActions.tsx");
     const homeBell = src.indexOf('data-stores-consumer-header-action="bell"');
     const search = src.indexOf('data-stores-consumer-header-action="search"');
@@ -21,10 +21,11 @@ describe("CUT-D stores consumer header + hub FAB", () => {
     expect(orders).toBeGreaterThan(search);
     expect(cart).toBeGreaterThan(orders);
     expect(fullBell).toBeGreaterThan(cart);
-    expect(src).toContain('const showSearch = variant !== "home"');
+    expect(src).toContain('const showSearch = variant !== "home" && !hideSearch');
     expect(src).toContain('const showOrders = variant === "full"');
-    /** Owner 2026-10-30 — 배달 홈·목록 헤더 아이콘은 앱 공통(검색·주문·카트·알림) 그대로 */
-    expect(read("components/stores/home/hub/StoresHomeHeaderChrome.tsx")).toContain("<StoresConsumerHeaderActions />");
+    /** Owner 2026-11-13 — 배달 홈은 바로 아래 검색창과 겹쳐 헤더 🔍 만 제거(주문·카트·알림 유지). 목록은 그대로 */
+    expect(read("components/stores/home/hub/StoresHomeHeaderChrome.tsx")).toContain("<StoresConsumerHeaderActions hideSearch />");
+    expect(read("components/stores/home/hub/StoresHomeHeaderChrome.tsx")).toContain("data-stores-home-search");
     expect(read("components/stores/browse/StoresBrowseHeaderChrome.tsx")).toContain("<StoresConsumerHeaderActions />");
   });
 

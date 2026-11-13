@@ -39,7 +39,7 @@
 }
 
 /**
- * iOS keyboard open — Telegram-style: page tracks visualViewport band.
+ * iOS keyboard open — messenger-standard: page tracks visualViewport band.
  * Vars written by useCmRoomVisibleViewportShell (Android never sets data-cm-ios-vv-band).
  */
 .messenger-page[data-cm-ios-vv-band="1"] {
@@ -350,7 +350,7 @@ html[data-call-v4-outgoing-presentation] [data-call-screen-shell] {
 
 /*
  * 메신저 홈 2단 탭 본문 — 친구·통화·대화·보관함
- * 제품: Telegram ~180ms · transform only (opacity fade 금지 — 1프레임 깜빡임 방지).
+ * 제품: 참고 메신저 ~180ms · transform only (opacity fade 금지 — 1프레임 깜빡임 방지).
  */
 @keyframes messenger-section-slide-forward {
   from {

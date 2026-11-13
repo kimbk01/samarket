@@ -25,7 +25,7 @@ import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 interface ChatRoomCardProps {
   room: ChatRoom;
-  /** 판매자용 당근 스타일(○○님이 [물품명]에 채팅) 표시에 사용 */
+  /** 판매자용 기본 스타일(○○님이 [물품명]에 채팅) 표시에 사용 */
   currentUserId?: string;
   /** 나가기·삭제 후 목록 갱신 */
   onRoomMutated?: () => void;

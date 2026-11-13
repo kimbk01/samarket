@@ -13,9 +13,8 @@ describe("P1-15 resolveConflictExistingLoginAction", () => {
   it("email existing provider opens the internal login form", () => {
     expect(resolveConflictExistingLoginAction("email")).toEqual({ kind: "internal" });
   });
-  it("naver / facebook / unknown never start a login", () => {
+  it("naver / unknown never start a login", () => {
     expect(resolveConflictExistingLoginAction("naver")).toEqual({ kind: "unsupported" });
-    expect(resolveConflictExistingLoginAction("facebook")).toEqual({ kind: "unsupported" });
     expect(resolveConflictExistingLoginAction(null)).toEqual({ kind: "unsupported" });
   });
 });

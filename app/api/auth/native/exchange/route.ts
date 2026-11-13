@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // OA-14 — 관리자 OFF 공급자는 서버에서 교환 거부 (naver/facebook 항상 거부).
+  // OA-14 — 관리자 OFF 공급자는 서버에서 교환 거부 (naver 항상 거부).
   const gate = await resolveAuthProviderLoginGate(tryCreateSupabaseServiceClient(), parsed.provider);
   if (!gate.allowed) {
     return noStoreJson(

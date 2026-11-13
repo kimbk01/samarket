@@ -50,7 +50,7 @@ function isMessengerHubListOverflowing(): boolean {
  * | 커뮤니티 피드(헤더 메신저 열림 제외)·동네 글 상세 | on | 긴 피드 |
  * | 거래 목록(플로팅 메뉴 면) | on | 긴 목록 |
  * | 메신저 허브·거래/배달 채팅 목록·통화 기록 | on | 긴 목록 (`isMessengerBottomNavScrollHideSurface`) — 목록 inset 은 숨김과 무관하게 고정(반복 방지 계약) |
- * | 배달 홈·업종 목록 | **off** | 배달 계약: 하단 내비 항상 고정 (`delivery-category-baemin-compare-design-2026-10-29.md` §7) |
+ * | 배달 홈·업종 목록 | **off** | 배달 계약: 하단 내비 항상 고정 (`delivery-category-compare-design-2026-10-29.md` §7) |
  * | 배달 그 밖(`/stores/*`) | on | 기존 그대로 (배달 계약 범위 밖 변경 금지) |
  * | 내정보 홈 `/mypage` | off | 내정보·설정 고정 (translateY 흔들림 실측) |
  */
@@ -69,7 +69,7 @@ export function resolveBottomNavScrollHideEnabled(
   if (pathNoQuery === "/mypage") return false;
   if (isTradeFloatingMenuSurface(pathNoQuery)) return true;
   /**
-   * WP3 — 배달 홈·업종 목록은 배민과 같이 하단 탭 항상 고정 (스크롤 숨김 없음).
+   * WP3 — 배달 홈·업종 목록은 배달 표준과 같이 하단 탭 항상 고정 (스크롤 숨김 없음).
    * 그 밖의 `/stores/*`(매장 상세 등)는 기존 그대로.
    */
   if (pathNoQuery === "/stores" || pathNoQuery === "/stores/browse" || pathNoQuery.startsWith("/stores/browse/")) {

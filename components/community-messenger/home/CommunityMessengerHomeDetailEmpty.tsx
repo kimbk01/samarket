@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Telegram tablet empty right: doodle wallpaper only — no CTA pill/text (recheck 2026-07-30b).
+ * reference messenger tablet empty right: doodle wallpaper only — no CTA pill/text (recheck 2026-07-30b).
  */
 export function CommunityMessengerHomeDetailEmpty() {
   return (

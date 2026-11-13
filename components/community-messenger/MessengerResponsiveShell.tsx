@@ -129,7 +129,7 @@ function MessengerResponsiveBody({ children, isWide }: Props & { isWide: boolean
 }
 
 /**
- * 768px+ — URL roomId 만 바꿔 우측 pane 에 route children 표시 (Telegram형, shell·목록 유지).
+ * 768px+ — URL roomId 만 바꿔 우측 pane 에 route children 표시 (표준형, shell·목록 유지).
  * 통화 peer 상세는 detail override 로 우측 pane 에 임베드. 통화 기록은 우측 pane, 통화 화면은 전체 화면.
  * <768 — 방 경로는 분할과 같은 트리(목록 슬롯만 숨김), 그 외는 기존 hub/page full-page.
  */

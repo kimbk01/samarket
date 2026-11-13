@@ -98,7 +98,7 @@ export const adminTradeMessages = {
     admin_trade_flow_no_logs: "로그가 없습니다.",
     admin_page_trade_post_ads: "거래 상세 광고 (trade_post_ads)",
     admin_trade_post_ads_desc:
-      "당근형 유료 광고 운영 흐름(신청→검토→기간 활성)을 여기서 처리합니다. 상품·단가 정책은 「거래 광고 정책」에서 수정하세요.",
+      "유료 광고 운영 흐름(신청→검토→기간 활성)을 여기서 처리합니다. 상품·단가 정책은 「거래 광고 정책」에서 수정하세요.",
     admin_trade_post_ads_policies_link: "거래 광고 정책 (ad_products)",
     admin_trade_post_ads_format_title: "유료 광고 형식 기준",
     admin_trade_post_ads_format_1: "광고 배지를 붙이되 일반 매물 카드와 동일 형태로 노출합니다.",

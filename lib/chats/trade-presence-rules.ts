@@ -6,7 +6,7 @@ export function parseTradePresenceAudience(raw: unknown): TradePresenceAudience 
   return null;
 }
 
-/** 마지막 접속 상호 숨김(카톡/텔레 방식) */
+/** 마지막 접속 상호 숨김(메신저 표준 방식) */
 export function tradePresenceCanSeePeerLastSeen(viewerHideLastSeen: boolean, peerHideLastSeen: boolean): boolean {
   return !viewerHideLastSeen && !peerHideLastSeen;
 }

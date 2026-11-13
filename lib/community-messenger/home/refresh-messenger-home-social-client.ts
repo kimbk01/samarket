@@ -8,7 +8,7 @@ import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-
  * W10 격리 (Runtime 증명 `W10_RUNTIME_EQUIVALENCE_CONFIRMED` — `.qa-logs/cm-w10-runtime-equivalence.json`):
  * 여기서는 `cm.home.social_sync` bus 만 발행한다.
  * - Home 마운트 시: `CommunityMessengerHome` 리스너 → `hydrateMessengerFriends` 만
- *   (채팅 리스트 silent `refresh(true)` 금지 — Telegram list authority).
+ *   (채팅 리스트 silent `refresh(true)` 금지 — Domain list authority).
  * - Home 미마운트 시: 재진입 memory paint + RT; friends 는 해당 hydrate.
  * - Multi-tab: 다른 탭 Home 이 BroadcastChannel `social_sync` 를 받아 friends hydrate.
  *

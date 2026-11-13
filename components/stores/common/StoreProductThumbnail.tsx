@@ -26,7 +26,7 @@ type StoreProductThumbnailProps = {
 };
 
 /**
- * 배민식 상품 썸네일 기준:
+ * 배달 표준 상품 썸네일 기준:
  * 정사각 프레임 고정 + 비율 유지 + center crop + skeleton + fallback.
  */
 export function StoreProductThumbnail({

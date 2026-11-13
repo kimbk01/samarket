@@ -23,7 +23,7 @@ afterEach(() => {
   host = null;
 });
 
-describe("PostImageGrid 렌더 (D1·D4 · 페이스북형)", () => {
+describe("PostImageGrid 렌더 (D1·D4 · 피드형)", () => {
   it("1장은 격자 없이 원본 비율 한 장 + 로드 전 자리(4:3)", () => {
     const { el } = render(1);
     expect(el.querySelector('[data-testid="post-image-grid"]')).toBeNull();

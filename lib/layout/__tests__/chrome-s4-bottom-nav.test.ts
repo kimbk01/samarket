@@ -9,7 +9,7 @@ import {
   resolveBodyBottomNavClearanceClass,
 } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { PHILIFE_HUB_BOTTOM_NAV_CLEARANCE_CLASS, TRADE_FEED_LIST_END_CLEARANCE_CLASS } from "@/lib/philife/philife-flat-ui-classes";
-import { MYPAGE_HOME_BOTTOM_NAV_CLEARANCE_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
+import { MYPAGE_HOME_BOTTOM_NAV_CLEARANCE_CLASS } from "@/lib/ui/mypage-home-styles";
 
 /**
  * 크롬 S4 (2026-11-02 · Owner 「S4, 권고대로」) — 하단 내비.

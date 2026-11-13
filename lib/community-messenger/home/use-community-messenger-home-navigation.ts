@@ -39,7 +39,7 @@ type Args = {
   /** 현재 메신저 목록 URL — 거래·배달·인박스와 리스트 행의 `cm_list` 를 동일 규칙으로 맞춤 */
   pathname: string;
   /**
-   * ≥768 split list — 섹션 전환 시 `/rooms/[id]` 유지 (Telegram 우측 마지막 대화).
+   * ≥768 split list — 섹션 전환 시 `/rooms/[id]` 유지 (참고 메신저 우측 마지막 대화).
    * `tabletSplitListOnly` 일 때 true.
    */
   retainRoomPathOnSectionChange?: boolean;

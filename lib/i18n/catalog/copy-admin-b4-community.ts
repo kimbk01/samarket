@@ -152,7 +152,7 @@ export const copyAdminB4CommunityMessages = {
     admin_community_import_sources_rights: "재게시 권한",
     admin_community_import_sources_attribution_required: "출처 표시 의무 있음 (해제 시 글별로 출처 숨김 가능)",
     admin_community_import_sources_rights_basis: "권한 근거",
-    admin_community_import_sources_rights_basis_placeholder: "근거 (예: 2026-10-16 운영자 카톡 허락, 라이선스 URL) — 권한 확인 시 필수",
+    admin_community_import_sources_rights_basis_placeholder: "근거 (예: 2026-10-16 운영자 메신저 허락, 라이선스 URL) — 권한 확인 시 필수",
     admin_community_import_sources_rights_save: "권한 저장",
     admin_community_import_sources_adapter_title: "수집 설정 — 비워 두면 자동 판별. 저장 후 「샘플 보기」로 결과를 확인하세요.",
     admin_community_audit_no_changes: "표시할 변경 항목이 없습니다.",

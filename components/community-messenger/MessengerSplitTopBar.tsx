@@ -16,7 +16,7 @@ const SPLIT_TITLE_CLASS =
   "min-w-0 flex-1 truncate text-left text-[length:var(--sector-header-title-size)] font-[number:var(--sector-header-title-weight)] leading-[var(--sector-header-title-lh)] tracking-[var(--sector-header-title-tracking)] text-[color:var(--sector-header-title-color,#243832)]";
 
 /**
- * 768px+ Telegram/Kakao형 — 좌측 목록 pane 너비에 뒤로·제목.
+ * 768px+ 표준형 — 좌측 목록 pane 너비에 뒤로·제목.
  *
  * Room route ownership (DOM, not CSS hide):
  * - List column: this bar overlays list pane only (`list-column-only`)

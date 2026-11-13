@@ -33,7 +33,7 @@ import { resolveCommunityBottomNavEntryHref } from "@/lib/community/community-hu
 
 /**
  * BottomNav MAIN DOMAIN history SSOT.
- * Back contract (`cm-kakao-telegram-navigation-contract`): hub tabs = same-layer **replace**;
+ * Back contract (`cm-hub-navigation-contract`): hub tabs = same-layer **replace**;
  * room/call = stack **push**. DO NOT push hub↔hub (history tangle / Back ≠ hub).
  */
 export const BOTTOM_NAV_HISTORY_MODE = "replace" as const;
@@ -110,7 +110,7 @@ export type MainBottomNavRouteCommitArgs = {
 export type MainBottomNavRouteCommitResult = "scroll_only" | "blocked" | "navigated";
 
 /**
- * 카톡/텔레그램형 — 하단 탭은 **허브 간 동기 replace/push** 만.
+ * 허브 동기 이동형 — 하단 탭은 **허브 간 동기 replace/push** 만.
  * 방·통화(deep route)는 room_forward/call_launch 가 stack 을 소유; async tab replace 금지.
  */
 export function abortPendingMainBottomNavRouteCommits(): void {

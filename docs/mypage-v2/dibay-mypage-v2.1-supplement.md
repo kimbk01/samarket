@@ -92,7 +92,7 @@
 
 - 신설 토큰 2개는 `app/design-tokens.css` 에 **추가만** 한다. 기존 토큰 값 변경 0 → 관리자·거래·배달·메신저 화면 변화 0(이 두 이름을 쓰는 곳이 없음을 구현 시 grep 0건으로 확인).
 - `--sam-primary` 위 크림 글자, 민트 위 `#0B421A` 아이콘의 명도 대비는 구현 시 측정·기록(계약 4.5:1 이상, 아이콘 3:1 이상).
-- 적용 대상 파일: `lib/ui/mypage-home-starbucks-styles.ts`·`profile-edit-starbucks-styles`·`address-list-starbucks-styles.ts`(내정보 전용 3개)의 값을 토큰 참조로 교체하고, 이 상수를 import 하는 내정보 화면에서 직접 hex 를 쓰는 곳을 토큰으로 바꾼다. 관리자·온보딩·배달 채팅방의 `#00704A` 는 **건드리지 않음**(목록만 보고).
+- 적용 대상 파일: `lib/ui/mypage-home-styles.ts`·`profile-edit-styles`·`address-list-styles.ts`(내정보 전용 3개)의 값을 토큰 참조로 교체하고, 이 상수를 import 하는 내정보 화면에서 직접 hex 를 쓰는 곳을 토큰으로 바꾼다. 관리자·온보딩·배달 채팅방의 `#00704A` 는 **건드리지 않음**(목록만 보고).
 
 ### 3.2 크기·간격·글자
 

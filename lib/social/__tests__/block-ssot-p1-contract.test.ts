@@ -33,8 +33,8 @@ describe("trade chat block SSOT contract", () => {
     expect(src).not.toContain('from("user_blocks")');
   });
 
-  it("blockUserDaangn does not insert user_blocks client-side", () => {
-    const src = read("lib/reports/blockUserDaangn.ts");
+  it("requestUserBlock does not insert user_blocks client-side", () => {
+    const src = read("lib/reports/request-user-block.ts");
     expect(src).not.toContain('from("user_blocks")');
     expect(src).toContain("/api/community/block-relations");
   });

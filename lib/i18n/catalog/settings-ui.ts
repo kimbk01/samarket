@@ -362,7 +362,7 @@ export const settingsUiMessages = {
     my_phone_err_otp_rate_limited: "잠시 후 다시 시도하거나 인증번호를 재발송해 주세요.",
     my_phone_err_otp_phone_mismatch: "요청한 번호와 일치하지 않습니다.",
     my_phone_err_otp_send_first: "먼저 인증번호를 요청해 주세요.",
-    /** 텔레그램형 전화 인증 (Owner 2026-11-09) */
+    /** 단계형 전화 인증 (Owner 2026-11-09) */
     my_phone_tg_title: "전화번호 인증",
     my_phone_tg_desc: "번호를 입력하면 문자로 6자리 인증번호를 보내 드립니다.",
     my_phone_tg_continue: "계속",

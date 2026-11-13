@@ -113,7 +113,7 @@ function SingleListBadge({ vm }: { vm: Pick<FeedListCardViewModel, "topicLabel" 
   return null;
 }
 
-/** 당근형: 말머리/질문 — 상단 한 줄(제목과 분리) */
+/** 말머리/질문 — 상단 한 줄(제목과 분리) */
 function ListCategoryPillRow({ vm }: { vm: FeedListCardViewModel }) {
   if (!hasCategoryBadge(vm)) return null;
   return (
@@ -158,7 +158,7 @@ function ListHashtagOne({ tag }: { tag: string | null | undefined }) {
 }
 
 /** 피드 메타: 작성자 강조 + 위치·시간·조회 / 공감·댓글 */
-function ListMetaKarrot({
+function ListMetaCompact({
   vm,
   placeInMeta,
   className = "",
@@ -270,7 +270,7 @@ function ListTextStack({
           </div>
           {trailingAside}
         </div>
-        <ListMetaKarrot vm={vm} placeInMeta={placeInMeta} className="!mt-2" />
+        <ListMetaCompact vm={vm} placeInMeta={placeInMeta} className="!mt-2" />
       </>
     );
   }
@@ -282,7 +282,7 @@ function ListTextStack({
           <ListTitleOnly title={vm.title} highlightQuery={vm.highlightQuery} />
           <ListBodyPreview text={vm.summary} highlightQuery={vm.highlightBody ? vm.highlightQuery : undefined} />
           {firstHashtag ? <ListHashtagOne tag={firstHashtag} /> : null}
-          <ListMetaKarrot vm={vm} placeInMeta={placeInMeta} />
+          <ListMetaCompact vm={vm} placeInMeta={placeInMeta} />
         </div>
       </div>
     </>
@@ -343,7 +343,7 @@ function CardShell({ href, children, boosted = false }: { href: string; children
 
 const placeInMetaForVm = (vm: FeedListCardViewModel) => Boolean((vm.placeLine ?? "").trim());
 
-export function FeedListLayoutCarrotThumbRight({
+export function FeedListLayoutThumbRight({
   vm,
   priorityThumb = false,
 }: {
@@ -369,8 +369,8 @@ export function FeedListLayoutCarrotThumbRight({
   );
 }
 
-/** 스킨 `compact_media_left`: 썸네일을 **텍스트 열 앞**에(당근 좌·우 톤, 좌·우는 스킨으로만 갈림) */
-export function FeedListLayoutCarrotThumbLeft({
+/** 스킨 `compact_media_left`: 썸네일을 **텍스트 열 앞**에(좌·우 톤, 좌·우는 스킨으로만 갈림) */
+export function FeedListLayoutThumbLeft({
   vm,
   priorityThumb = false,
 }: {
@@ -402,7 +402,7 @@ export function FeedListLayoutCarrotThumbLeft({
             <ListBodyPreview text={vm.summary} highlightQuery={vm.highlightBody ? vm.highlightQuery : undefined} />
           </div>
         </div>
-        <ListMetaKarrot vm={vm} placeInMeta={placeInMetaForVm(vm)} className="!mt-2" />
+        <ListMetaCompact vm={vm} placeInMeta={placeInMetaForVm(vm)} className="!mt-2" />
       </div>
     </CardShell>
   );
@@ -452,7 +452,7 @@ export function FeedListLayoutPlace({
               ) : null}
             </div>
           </div>
-          <ListMetaKarrot vm={vm} placeInMeta={pinM} className="!mt-2" />
+          <ListMetaCompact vm={vm} placeInMeta={pinM} className="!mt-2" />
         </div>
       </CardShell>
     );
@@ -509,7 +509,7 @@ export function FeedListLayoutTags({
               {one ? <ListHashtagOne tag={one} /> : null}
             </div>
           </div>
-          <ListMetaKarrot vm={vm} placeInMeta={pinM} className="!mt-2" />
+          <ListMetaCompact vm={vm} placeInMeta={pinM} className="!mt-2" />
         </div>
       </CardShell>
     );

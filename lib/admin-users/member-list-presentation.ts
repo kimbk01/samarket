@@ -186,7 +186,6 @@ export function memberListSignupOriginLabel(
   if (value === "google") return "Google";
   if (value === "apple") return "Apple";
   if (value === "naver") return translate(lang, "admin_member_list_origin_naver");
-  if (value === "facebook") return "Facebook";
   return memberAdminCopy("origin_user_signup", lang);
 }
 

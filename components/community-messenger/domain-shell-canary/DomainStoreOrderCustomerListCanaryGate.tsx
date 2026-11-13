@@ -209,7 +209,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
         }
         const syncUid = getSyncViewerUserIdForClient() ?? null;
         /**
-         * Telegram list authority: hydrated session cache → memory paint only.
+         * Domain list authority: hydrated session cache → memory paint only.
          * Remount must not network-rewrite (TTL soft-skip then fetch deleted).
          * 예외: 주문 상태 원문이 없는 옛 캐시는 한 번 새로 받는다.
          */

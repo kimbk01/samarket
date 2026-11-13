@@ -51,7 +51,7 @@ import { ProfileReadOnlyInfoCard } from "@/components/my/edit/ui/ProfileReadOnly
 import { ProfileEditHeader } from "@/components/my/edit/ui/ProfileEditHeader";
 import { ProfileEditBottomSaveBar } from "@/components/my/edit/ui/ProfileEditBottomSaveBar";
 import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
-import { PROFILE_EDIT_PAGE_BG_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
+import { PROFILE_EDIT_PAGE_BG_CLASS } from "@/lib/ui/profile-edit-styles";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import {
   buildProfileEditIncompleteBody,

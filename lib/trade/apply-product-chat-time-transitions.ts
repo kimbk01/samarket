@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * 조회 시점에 1차 시간 기반 채팅 모드 전환 (배치 없이 GET에서 idempotent 갱신).
- * - 거래완료 확인/후기대기 단계에서 기한+유예 경과 시: open → limited (당근형 제한 모드)
+ * - 거래완료 확인/후기대기 단계에서 기한+유예 경과 시: open → limited (제한 모드)
  * - 후기 완료(limited) 후 일정 기간: limited → readonly
  * - seller_marked_done 구간은 거래완료 확인 UI 유지를 위해 여기서 limited로 강등하지 않음
  */

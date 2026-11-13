@@ -17,6 +17,9 @@ function roomListFingerprintParts(rooms: CommunityMessengerRoomSummary[], prefix
       r.isMuted ? "M" : "",
       /** A-15: 다른 기기에서 고정만 바꾼 응답도 「같음」으로 버리지 않게 */
       r.isPinned ? "P" : "",
+      /** 그룹 결함 D2: 방 사진·제목만 바뀐 응답(그룹 프로필 저장·1:1 상대 사진 변경)도 「같음」으로 버리지 않게 */
+      r.avatarUrl ?? "",
+      r.title ?? "",
     ].join(":")
   );
 }

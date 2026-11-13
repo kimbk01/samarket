@@ -42,7 +42,7 @@ function menuThumbForProduct(
   return menuById.get(productId)?.thumbnail_url?.trim() || "";
 }
 
-/** 배민 매장 상단 프리뷰 — 리뷰 1건당 슬라이드 1장(썸네일+별+본문) */
+/** 참고 앱 매장 상단 프리뷰 — 리뷰 1건당 슬라이드 1장(썸네일+별+본문) */
 export function buildStoreReviewPreviewSlides(
   reviews: ReviewRow[],
   menuProducts: StoreMenuReviewRailProduct[]

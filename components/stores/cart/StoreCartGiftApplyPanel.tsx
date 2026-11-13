@@ -9,7 +9,7 @@ import {
   computeCheckoutGiftApplyPreview,
 } from "@/lib/gift-certificate/checkout-eligible-gifts";
 import { StoreCartGiftForfeitConsentDialog } from "@/components/stores/cart/StoreCartGiftForfeitConsentDialog";
-import { BAEMIN_CART_SECTION_CARD_CLASS } from "@/lib/stores/store-baemin-cart-ui";
+import { CART_UI_SECTION_CARD_CLASS } from "@/lib/stores/store-cart-ui";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { DELIVERY_TOUCH_HIT_EXPAND_CLASS } from "@/lib/stores/delivery-touch-target";
 
@@ -45,7 +45,7 @@ export function StoreCartGiftApplyPanel({
   if (gifts.length === 0) {
     return (
       <section
-        className={`${BAEMIN_CART_SECTION_CARD_CLASS} px-4 py-3`}
+        className={`${CART_UI_SECTION_CARD_CLASS} px-4 py-3`}
         data-store-cart-gift-panel="1"
         data-cart-gift-state="empty"
       >
@@ -69,7 +69,7 @@ export function StoreCartGiftApplyPanel({
 
   return (
     <section
-      className={`${BAEMIN_CART_SECTION_CARD_CLASS} px-4 py-3`}
+      className={`${CART_UI_SECTION_CARD_CLASS} px-4 py-3`}
       data-store-cart-gift-panel="1"
       data-cart-gift-state={applied ? "applied" : "pick"}
       data-cart-gift-count={String(gifts.length)}

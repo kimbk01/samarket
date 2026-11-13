@@ -38,13 +38,6 @@ describe("POST /api/auth/native/exchange provider gate (OA-14) · conflict paylo
     expect(exchangeNativeProviderToken).not.toHaveBeenCalled();
   });
 
-  it("facebook is always rejected", async () => {
-    providerRow = { provider: "facebook", enabled: true };
-    const { POST } = await import("@/app/api/auth/native/exchange/route");
-    const res = await POST(post({ provider: "facebook", accessToken: "t" }));
-    expect(res.status).toBe(403);
-  });
-
   it("conflict response never carries existingUserId", async () => {
     exchangeNativeProviderToken.mockResolvedValue({
       ok: false,

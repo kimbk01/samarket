@@ -101,7 +101,6 @@ const PROVIDER_LABEL_KEYS: Record<AdminAuthProvider, MessageKey> = {
   kakao: "admin_user_provider_kakao",
   naver: "admin_user_provider_naver",
   apple: "admin_user_provider_apple",
-  facebook: "admin_user_provider_facebook",
   email: "admin_user_provider_email",
   manual: "admin_user_provider_manual",
   unknown: "admin_user_provider_unknown",

@@ -1,7 +1,7 @@
 "use client";
 
 import type { BlockedUser } from "@/lib/types/report";
-import { blockUserDaangn } from "@/lib/reports/blockUserDaangn";
+import { requestUserBlock } from "@/lib/reports/request-user-block";
 
 type BlockedRelationItem = {
   id: string;
@@ -75,7 +75,7 @@ export async function blockUser(
   blockedUserNickname?: string
 ): Promise<BlockedUser | null> {
   if (!userId || !blockedUserId || userId === blockedUserId) return null;
-  const result = await blockUserDaangn(blockedUserId);
+  const result = await requestUserBlock(blockedUserId);
   if (!result.ok) return null;
   getSet(userId).add(blockedUserId);
   await refreshBlockedUsersFromServer(userId);

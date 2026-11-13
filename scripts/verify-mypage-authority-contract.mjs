@@ -92,7 +92,7 @@ if (/\blogout\b/.test(registry) && /id:\s*["']logout["']/.test(registry)) {
   failures.push("mypage-mobile-nav-registry: logout must not be a browse push item");
 }
 
-// 5) Live hub must not deep-link logout confirm (legacy MypageInstagramView file-read removed — Slice 10)
+// 5) Live hub must not deep-link logout confirm (legacy mypage view file-read removed — Slice 10)
 if (
   /href=["']\/mypage\/logout["']/.test(accountSection) ||
   /href=["']\/mypage\/logout["']/.test(dashboard) ||

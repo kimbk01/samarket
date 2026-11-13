@@ -7,7 +7,7 @@ import {
   PROFILE_EDIT_FIELD_LABEL_CLASS,
   PROFILE_EDIT_HEADER_BODY_OFFSET_CLASS,
   PROFILE_EDIT_ROW_DIVIDER_CLASS,
-} from "@/lib/ui/profile-edit-starbucks-styles";
+} from "@/lib/ui/profile-edit-styles";
 import { SECTOR_HEADER_CONTENT_TOP_PAD_CLASS } from "@/lib/ui/sector-header-classes";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 

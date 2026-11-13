@@ -6,6 +6,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import { SectorHeaderBackButton } from "@/components/layout/sector-header/SectorHeaderBackButton";
+import { SectorHeaderBar } from "@/components/layout/sector-header/SectorHeaderBar";
+import { SectorHeaderTitle } from "@/components/layout/sector-header/SectorHeaderTitle";
 import { StoresBrowseHeaderMenuTabs } from "@/components/stores/browse/StoresBrowseHeaderMenuTabs";
 import { useBrowsePrimaryIndustries } from "@/lib/stores/use-browse-primary-industries";
 import { useBrowseTaxonomySnapshot } from "@/lib/stores/use-browse-taxonomy-snapshot";
@@ -27,10 +29,8 @@ import {
   MIRROR_ADDRESS_BUTTON_CLASS,
   MIRROR_ADDRESS_ROW_CLASS,
   MIRROR_ADDRESS_ROW_H_PX,
-  MIRROR_HEADER_ROW_CLASS,
   MIRROR_HEADER_SHELL_CLASS,
-  MIRROR_HEADER_TITLE_CLASS,
-} from "@/lib/design/delivery-baemin-mirror";
+} from "@/lib/design/delivery-browse-chrome";
 
 function CaretDownIcon({ className }: { className?: string }) {
   return (
@@ -41,7 +41,7 @@ function CaretDownIcon({ className }: { className?: string }) {
 }
 
 /**
- * `/stores/browse/*` — 배민 미러링 메뉴 페이지 헤더 (설계 v6 §1)
+ * `/stores/browse/*` — 배달 메뉴 구성 메뉴 페이지 헤더 (설계 v6 §1)
  * 1단 54px: ← · 「{상단 탭 이름}」 · 앱 공통 헤더 아이콘(검색·주문·카트·알림 — 변경 금지) [고정, 흰 바탕]
  * 2단 32px: 「주소 ▾」 — 목록 스크롤 시 접힘 (`StoresBrowseHeaderScrollCollapse`)
  * 3단 40px: 「홈 · 메뉴 …」 텍스트 탭 + ⌄ 메뉴 전체보기 [고정] (`StoresBrowseHeaderMenuTabs`)
@@ -94,28 +94,29 @@ export function StoresBrowseHeaderChrome() {
 
   return (
     <>
-      <header data-stores-browse-header data-baemin-mirror="1" className={MIRROR_HEADER_SHELL_CLASS}>
-        <div className={MIRROR_HEADER_ROW_CLASS}>
-          <SectorHeaderBackButton
-            backHref="/stores"
-            preferHistoryBack={false}
-            className="!flex !h-[44px] !w-[36px] shrink-0 !items-center !justify-start !text-[color:#362415] active:opacity-60"
-            ariaLabelKey="nav_back"
-          />
-          <h1 className={MIRROR_HEADER_TITLE_CLASS}>
-            <span className="truncate">{title}</span>
-          </h1>
-          <div className={`${STORES_HOME_HEADER_ACTIONS_CLUSTER} h-full justify-self-end self-stretch`}>
-            <StoresConsumerHeaderActions />
-          </div>
-        </div>
+      <header data-stores-browse-header data-delivery-chrome="1" className={MIRROR_HEADER_SHELL_CLASS}>
+        {/* 헤더 SSOT 2단계 — 하위 공통 줄(52 · 뒤로 48@x4 · 제목 17/600 · 아이콘 48/24). 아이콘 4개라 제목-왼쪽 줄(제목 x58) */}
+        <SectorHeaderBar
+          centerAlign="left"
+          left={<SectorHeaderBackButton backHref="/stores" preferHistoryBack={false} ariaLabelKey="nav_back" />}
+          center={
+            <SectorHeaderTitle as="h1" align="left">
+              {title}
+            </SectorHeaderTitle>
+          }
+          right={
+            <div className={STORES_HOME_HEADER_ACTIONS_CLUSTER}>
+              <StoresConsumerHeaderActions />
+            </div>
+          }
+        />
       </header>
       {browsePrimarySlug ?
         <div
           className={`${STORES_HOME_HEADER_BROWSE_TABS_STACK_CLASS} isolate !border-t-0 !bg-white`}
           style={{ ["--dibay-secondary-tab-row-h" as string]: `${MIRROR_ADDRESS_ROW_H_PX}px` }}
         >
-          {/* 배민 — 스크롤하면 주소줄만 접히고 1단·3단·4단은 고정 */}
+          {/* 참고 앱 — 스크롤하면 주소줄만 접히고 1단·3단·4단은 고정 */}
           <StoresBrowseHeaderScrollCollapse>
             <div className={MIRROR_ADDRESS_ROW_CLASS}>
               <button

@@ -1,5 +1,5 @@
 /**
- * 배달 소비자 화면 — 상단 바·페이지 배경 단일 계약 (배민 구조 + 스타벅스 팔레트).
+ * 배달 소비자 화면 — 상단 바·페이지 배경 단일 계약 (배달 표준 구조 + 브랜드 팔레트).
  *
  * | 화면 | 바 높이 | 제목 위치 | 제목 타이포 |
  * | 앱 1단(뒤로·제목·우측) | 48px | 좌측 20% | 17px / 700 |
@@ -61,7 +61,7 @@ export const DELIVERY_TIER1_SEGMENT_TITLE_CLASS = DELIVERY_CONSUMER_HEADER_TITLE
 /** 매장 스크롤 고정 헤더(흰 배경) — `DeliveryConsumerHeaderRow` 제목 슬롯과 동일 */
 export const DELIVERY_STORE_STICKY_TITLE_CLASS = DELIVERY_CONSUMER_HEADER_TITLE_IN_SLOT_CLASS;
 
-/** `/stores` 및 하위 소비자 경로 — `sam-primary` → 스타벅스 녹색 브리지 */
+/** `/stores` 및 하위 소비자 경로 — `sam-primary` → 브랜드 녹색 브리지 */
 export function isDeliveryConsumerPath(pathname: string | null | undefined): boolean {
   const p = (pathname ?? "").split("?")[0]?.trim() || "";
   return p === "/stores" || p.startsWith("/stores/");

@@ -74,7 +74,7 @@ describe("UI-04 · UI-09 · UI-10 주문 완료 화면", () => {
 });
 
 describe("UI-09 메뉴 + · 빈 장바구니 CTA = 배달 primary", () => {
-  /** WP6 (배민형 2차수 2026-10-29) — 메뉴 + = 흰 원 32px + 그림자 + 진한 기호, 초록 테두리 제거 (의도된 계약 변경) */
+  /** WP6 (배달 표준형 2차수 2026-10-29) — 메뉴 + = 흰 원 32px + 그림자 + 진한 기호, 초록 테두리 제거 (의도된 계약 변경) */
   it("메뉴 + 버튼은 #00704A 없음 · WP6 흰 원 + 진한 기호 · 테두리 없음", () => {
     expect(src("lib/stores/store-menu-quick-add-button-styles.ts")).not.toMatch(/#00704A/i);
     const tokens = src("app/delivery-tokens.css");
@@ -95,9 +95,9 @@ describe("UI-09 메뉴 + · 빈 장바구니 CTA = 배달 primary", () => {
 describe("S3-02 배달 공유 스타일 상수 = --delivery-fs-* 토큰", () => {
   it.each([
     "lib/stores/store-commerce-bottom-action-bar.ts",
-    "components/stores/store-facebook-feed-tokens.ts",
+    "components/stores/store-feed-tokens.ts",
     "lib/stores/stores-home-ui.ts",
-    "lib/stores/store-baemin-cart-ui.ts",
+    "lib/stores/store-cart-ui.ts",
   ])("%s: text-[Npx] 리터럴 0", (rel) => {
     const s = code(rel);
     expect(s).not.toMatch(/\btext-\[\d+(?:\.\d+)?px\]/);
@@ -107,13 +107,13 @@ describe("S3-02 배달 공유 스타일 상수 = --delivery-fs-* 토큰", () => 
 
 describe("S3-09 브랜드 밖 파랑·청록·보라 제거", () => {
   it.each([
-    ["components/stores/cart/baemin/StoreBaeminCartOrderSummaryCard.tsx", /#(?:F0F9FF|0C4A6E|BAE6FD|0EA5E9)/i],
+    ["components/stores/cart/sections/StoreCartOrderSummaryCard.tsx", /#(?:F0F9FF|0C4A6E|BAE6FD|0EA5E9)/i],
     ["components/stores/StoreProductPublic.tsx", /#2386B1/i],
     ["components/stores/coupon/StoreCouponCustomerCard.tsx", /#3B82F6/i],
     ["components/mypage/BuyerStoreOrderCompletedReviewBlock.tsx", /#123B4A/i],
     ["components/stores/StoreCommerceCartPageClient.tsx", /\b(?:text|bg|border)-sky-\d{2,3}\b/],
     ["components/stores/StoreReviewsSection.tsx", /\b(?:text|bg)-(?:blue|emerald)-\d{2,3}\b/],
-    ["components/stores/store-order-detail/store-order-brand.ts", /#6B3DF4|baeminPurple/i],
+    ["components/stores/store-order-detail/store-order-brand.ts", /#6B3DF4/i],
   ] as const)("%s", (rel, re) => {
     expect(code(rel)).not.toMatch(re);
   });

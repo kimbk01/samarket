@@ -182,7 +182,7 @@ export function MyInfoIaCategoryScreen({
               ownerStoreGateSeed={ownerStoreGateSeed}
             />
           ))}
-          {hasAdminRow(category) ? <MyPageAdminMenuEntry starbucks serverSeed={adminMenuSeed} /> : null}
+          {hasAdminRow(category) ? <MyPageAdminMenuEntry homeCard serverSeed={adminMenuSeed} /> : null}
         </div>
       </MypageHomeValuesProvider>
     </MyScreen>

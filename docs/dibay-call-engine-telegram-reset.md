@@ -76,15 +76,15 @@ cd android && ./gradlew assembleDebug
 | CallEngine unit/e2e | PASS |
 | tsc | PASS |
 | Android `assembleDebug` | PASS (아래 APK 경로) |
-| `verify:cm-kakao-telegram-navigation-contract` | **기존 FAIL** (CallEngine 무관) |
+| `verify:cm-hub-navigation-contract` | **기존 FAIL** (CallEngine 무관) |
 | 실기기 QA | **PENDING** (체크리스트 아래) |
 
-### `verify:cm-kakao-telegram-navigation-contract` 기존 FAIL 분리
+### `verify:cm-hub-navigation-contract` 기존 FAIL 분리
 
 | 항목 | 내용 |
 |---|---|
 | 실패 파일 | `lib/community-messenger/call-page-host-ownership.ts` (ENOENT) |
-| 검사 스크립트 | `scripts/verify-cm-kakao-telegram-navigation-contract.mjs:102` |
+| 검사 스크립트 | `scripts/verify-cm-hub-navigation-contract.mjs:102` |
 | 이번 CallEngine 변경 | **해당 파일 import/참조 추가 없음** — `git grep call-page-host-ownership` 결과 문서·verify 스크립트·`.mdc` 규칙만 참조 |
 | main 기준 | `git show HEAD:lib/community-messenger/call-page-host-ownership.ts` → **존재하지 않음** (기존 누락) |
 | CallEngine 관련 gateway | `incoming-call-accept-gateway.ts`는 thin re-export 유지, `SSOT_CONTRACT`·`buildPostAcceptActiveCallHref`·`patchCommunityMessengerCallSession` 주석 계약 유지 |

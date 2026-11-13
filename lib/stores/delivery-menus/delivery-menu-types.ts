@@ -1,11 +1,11 @@
 /**
- * CONTRACT — 배달 고객 화면 「메뉴」 (배민 미러링, 업종과 분리).
+ * CONTRACT — 배달 고객 화면 「메뉴」 (배달 메뉴 구성, 업종과 분리).
  * - 업종(store_categories·store_topics) = 매장 신청 분류·수수료 기준. 메뉴 = 어드민이 만드는 고객 화면.
  * - 1단(parentId null) = 홈 상단 탭 (음식배달·픽업·장보기·쇼핑·선물하기·혜택모아보기).
  *   메뉴 페이지 `/stores/browse/{1단 slug}` — 3단 탭 = 2단 메뉴 (`?menu={2단 slug}`), 「홈」 탭 = 1단 전체 매장.
  * - 2단 = 홈 아이콘·페이지 탭. 매장 목록(매장 하나씩 지정, 업종 무관·중복 가능) 또는 화면 연결(`linkTarget`).
  * - 노출 매장은 항상 메뉴 1개 이상 (DB 트리거 + 승인 거부 + 업종 기본 메뉴 표시 폴백).
- * 설계: docs/audit/delivery-baemin-mirror-design-v6-2026-10-30.html
+ * 설계: docs/audit/delivery-browse-chrome-design-v6-2026-10-30.html
  */
 
 import type { MessageKey } from "@/lib/i18n/messages";

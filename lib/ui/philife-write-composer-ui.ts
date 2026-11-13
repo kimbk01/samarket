@@ -19,15 +19,20 @@ export const PHILIFE_COMPOSER_ROOT_CLASS =
  */
 export const PHILIFE_COMPOSER_PAGE_LAYER_CLASS = "fixed inset-0 z-[1250] flex flex-col bg-sam-surface";
 
-/** 헤더 52px: ✕ · 제목 · CTA */
+/**
+ * 헤더 52px: ✕ · 제목 · CTA — 헤더 SSOT 2단계(Owner 2026-11-13) 위치 규격:
+ * ✕ 누르는 칸 44(작성기 계약 그대로) 안의 그림 24 가 화면 끝 16px 에서 시작(왼쪽 여백 6 + (44−24)/2),
+ * CTA 글자 끝 = 화면 끝 16px(오른쪽 여백 4 + CTA 안쪽 12). 제목 = 공통 헤더 제목 색.
+ */
 export const PHILIFE_COMPOSER_HEADER_CLASS =
-  "flex h-13 shrink-0 items-center justify-between gap-1 border-b border-sam-border-soft bg-sam-surface px-1";
+  "flex h-13 shrink-0 items-center justify-between gap-1 border-b border-sam-border-soft bg-sam-surface pl-1.5 pr-1";
 export const PHILIFE_COMPOSER_HEADER_ICON_BTN_CLASS =
   "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg active:bg-sam-surface-muted";
-export const PHILIFE_COMPOSER_HEADER_TITLE_CLASS = "sam-text-page-title min-w-0 flex-1 truncate text-center";
+export const PHILIFE_COMPOSER_HEADER_TITLE_CLASS =
+  "sam-text-page-title min-w-0 flex-1 truncate text-center text-[color:var(--sector-header-title-color)]";
 /** CTA: 준비됨 = 브랜드색, 빈 칸 있음 = 흐림(눌러서 빠진 칸 안내), 업로드 중·등록 중 = 비활성 */
 export const PHILIFE_COMPOSER_HEADER_CTA_CLASS =
-  "inline-flex h-11 min-w-14 shrink-0 items-center justify-center rounded-ui-rect px-3 text-[length:var(--sm-font-input)] font-bold active:bg-sam-surface-muted disabled:text-sam-meta";
+  "inline-flex h-11 min-w-14 shrink-0 items-center justify-center rounded-ui-rect px-3 text-[length:var(--sm-font-button)] font-semibold active:bg-sam-surface-muted disabled:text-sam-meta";
 export const PHILIFE_COMPOSER_HEADER_CTA_READY_CLASS = "text-sam-primary";
 export const PHILIFE_COMPOSER_HEADER_CTA_IDLE_CLASS = "text-sam-primary/45";
 

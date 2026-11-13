@@ -64,18 +64,6 @@ describe("oauth-native-routing", () => {
     ).toEqual({ action: "native_provider_login" });
   });
 
-  it("blocks facebook on native app without Custom Tab fallback", () => {
-    expect(
-      resolveOAuthNativeRoutingDecision({
-        provider: "facebook",
-        isNativeAppShell: true,
-      }),
-    ).toEqual({
-      action: "native_blocked",
-      errorCode: "native_provider_not_implemented",
-    });
-  });
-
   it("routes kakao and apple to native provider login when SDK available", () => {
     expect(
       resolveOAuthNativeRoutingDecision({
