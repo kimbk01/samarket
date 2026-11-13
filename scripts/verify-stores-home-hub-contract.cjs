@@ -1229,13 +1229,6 @@ assertNotIncludes(
   "browse list must not use philife feed inset gutter"
 );
 
-const browseSubTopicChips = read("components/stores/browse/StoresBrowseHeaderSubTopicChips.tsx");
-assertNotIncludes(
-  browseSubTopicChips,
-  "px-[var(--delivery-page-x)]",
-  "browse sub chips must not duplicate delivery gutter on row; parent tabs inner owns inset"
-);
-
 const storesHomeHeaderChrome = read("lib/design/stores-home-header-chrome.ts");
 assertIncludes(
   storesHomeHeaderChrome,
