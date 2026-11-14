@@ -1,4 +1,5 @@
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 
 export const commonMessages = {
   ko: {
@@ -158,15 +159,15 @@ export const commonMessages = {
     neighborhood_notice: "공지",
     neighborhood_etc: "기타",
     global_search_title: "검색",
-    global_search_placeholder: `${B.FEED}, ${B.MARKET}, ${B.DIPICK}, ${B.LETARING} 검색`,
+    global_search_placeholder: `${BK.FEED}, ${BK.MARKET}, ${B.DIPICK}, ${B.LETARING} 검색`,
     global_search_recent: "최근 검색",
     global_search_recent_empty: "최근 검색어가 없습니다.",
     global_search_empty_title: "검색 결과가 없습니다.",
     global_search_empty_hint: "다른 검색어로 다시 시도해 보세요.",
     global_search_searching: "검색 중…",
-    global_search_section_community: B.FEED,
-    global_search_section_trade: B.MARKET,
-    global_search_trade_more: `${B.MARKET}에서 더 보기`,
+    global_search_section_community: BK.FEED,
+    global_search_section_trade: BK.MARKET,
+    global_search_trade_more: `${BK.MARKET}에서 더 보기`,
     global_search_section_delivery_store: `${B.DIPICK} · 매장`,
     global_search_section_delivery_menu: `${B.DIPICK} · 메뉴`,
     global_search_section_chat: B.LETARING,

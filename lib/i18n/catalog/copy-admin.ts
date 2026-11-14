@@ -3,6 +3,7 @@
  * S6(언어 SSOT, 2026-11-08): 코드 안 언어 삼항·문구 쌍·인라인 표에서 옮긴 문구 (`docs/i18n-ssot.md` §3).
  */
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 export const copyAdminMessages = {
   ko: {
     admin_count_items: "{n}건",
@@ -419,15 +420,15 @@ export const copyAdminMessages = {
     admin_delivery_home_inline_banner: `${B.DIPICK} > 홈 > 중간 배너`,
     admin_delivery_category_top_banner: `${B.DIPICK} > 업종 > 상단 배너`,
     admin_delivery_search_top_banner: `${B.DIPICK} > 검색 > 상단 배너`,
-    admin_trade_home_feed_banner: `${B.MARKET} > 홈 > 피드 배너`,
-    admin_trade_category_feed_banner: `${B.MARKET} > 카테고리 > 피드 배너`,
-    admin_community_home_feed_banner: `${B.FEED} > 홈 > 피드 배너`,
-    admin_community_topic_feed_banner: `${B.FEED} > 주제 > 피드 배너`,
-    admin_trade_post_top_exposure: `${B.MARKET} > 게시물 상위노출`,
-    admin_community_post_top_exposure: `${B.FEED} > 게시물 상위노출`,
+    admin_trade_home_feed_banner: `${BK.MARKET} > 홈 > 피드 배너`,
+    admin_trade_category_feed_banner: `${BK.MARKET} > 카테고리 > 피드 배너`,
+    admin_community_home_feed_banner: `${BK.FEED} > 홈 > 피드 배너`,
+    admin_community_topic_feed_banner: `${BK.FEED} > 주제 > 피드 배너`,
+    admin_trade_post_top_exposure: `${BK.MARKET} > 게시물 상위노출`,
+    admin_community_post_top_exposure: `${BK.FEED} > 게시물 상위노출`,
     admin_all_service_popup: "전체 서비스 팝업",
     admin_community_popup: `${B.LOUNGE} 팝업`,
-    admin_trade_popup: `${B.MARKET} 팝업`,
+    admin_trade_popup: `${BK.MARKET} 팝업`,
     admin_delivery_popup: `${B.DIPICK} 팝업`,
     admin_delivery_owner_popup: `${B.DIPICK} 사장님 팝업`,
     admin_admin_popup: "관리자 팝업",
@@ -795,10 +796,10 @@ export const copyAdminMessages = {
     admin_category_browse_inline_future: "업종별 목록 · 인라인 (미래)",
     admin_search_results_top_banner_2: "검색 결과 · 상단 광고",
     admin_store_detail_recommendation_blocked: "매장 상세 · 추천 배너 (차단)",
-    admin_trade_home_feed_banner_2: `${B.MARKET} 홈 · 피드 배너`,
-    admin_trade_category_feed_banner_2: `${B.MARKET} 카테고리 · 피드 배너`,
-    admin_community_home_feed_banner_2: `${B.FEED} 홈 · 피드 배너`,
-    admin_community_topic_feed_banner_2: `${B.FEED} 주제 · 피드 배너`,
+    admin_trade_home_feed_banner_2: `${BK.MARKET} 홈 · 피드 배너`,
+    admin_trade_category_feed_banner_2: `${BK.MARKET} 카테고리 · 피드 배너`,
+    admin_community_home_feed_banner_2: `${BK.FEED} 홈 · 피드 배너`,
+    admin_community_topic_feed_banner_2: `${BK.FEED} 주제 · 피드 배너`,
     admin_real_time_operations: "실시간 처리",
     admin_routine_management: "반복 관리",
     admin_occasional_handling: "가끔 처리",

@@ -1,4 +1,5 @@
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 /**
  * 고객·사장님 공용 lib·컴포넌트 대체 문구 이관.
  * 언어 SSOT B4(2026-11-08): 언어 삼항·영어 짝 없는 한국어·대체 문구에서 옮긴 문구 (`docs/i18n-ssot.md` §3).
@@ -15,7 +16,7 @@ export const copyLibB4Messages = {
     stores_menu_preview_banner_shelf: "배너 · 선반 (배달 화면 구성)",
     stores_menu_preview_no_tabs: "상단 탭이 없습니다 — 「+ 탭」",
     stores_menu_preview_nav_community: B.LOUNGE,
-    stores_menu_preview_nav_trade: B.MARKET,
+    stores_menu_preview_nav_trade: BK.MARKET,
     stores_menu_preview_nav_delivery: B.DIPICK,
     stores_menu_preview_nav_chat: B.LETARING,
     stores_menu_preview_nav_my: B.MY,

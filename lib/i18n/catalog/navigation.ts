@@ -1,10 +1,11 @@
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 
 export const navigationMessages = {
   ko: {
-    nav_bottom_trade: B.MARKET,
+    nav_bottom_trade: BK.MARKET,
     nav_bottom_dipick_home: B.DIPICK,
-    nav_community_switch_info: B.FEED,
+    nav_community_switch_info: BK.FEED,
     nav_bottom_community: "커뮤니티",
     nav_bottom_delivery: "배달",
     nav_bottom_messenger: B.LETARING,
@@ -311,7 +312,7 @@ export const navigationMessages = {
     tier1_trade_management: "거래 관리",
     tier1_purchase_detail: "구매 상세",
     tier1_my_community_posts: "내 커뮤니티 글",
-    tier1_my_community_posts_subtitle: B.FEED,
+    tier1_my_community_posts_subtitle: BK.FEED,
     tier1_member_benefits: "회원 혜택",
     tier1_member_benefits_subtitle: "이벤트·프로모션",
     tier1_my_account: "내 계정",
@@ -352,8 +353,8 @@ export const navigationMessages = {
     tier1_product_create: "상품 등록",
     tier1_product_edit: "상품 수정",
     tier1_product: "상품",
-    tier1_trade: B.MARKET,
-    tier1_community: B.FEED,
+    tier1_trade: BK.MARKET,
+    tier1_community: BK.FEED,
     tier1_address_setup: "주소 설정",
     tier1_messenger_hub_subtitle: "친구 · 채팅 · 모임",
     tier1_trade_manage_purchases_sub: "구매·예약·후기",

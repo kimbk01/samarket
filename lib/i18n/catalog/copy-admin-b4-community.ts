@@ -3,6 +3,7 @@
  * 언어 SSOT B4(2026-11-08): 언어 삼항·영어 짝 없는 한국어·대체 문구에서 옮긴 문구 (`docs/i18n-ssot.md` §3).
  */
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 export const copyAdminB4CommunityMessages = {
   ko: {
     admin_community_posts_badge_notice: "공지",
@@ -289,7 +290,7 @@ export const copyAdminB4CommunityMessages = {
     admin_trade_audit_after: "변경 후",
     admin_trade_audit_fav_added: "추가",
     admin_trade_audit_fav_removed: "해제",
-    admin_trade_dash_title: `${B.MARKET} 대시보드`,
+    admin_trade_dash_title: `${BK.MARKET} 대시보드`,
     admin_trade_dash_subtitle: "처리 대기부터 확인하세요. 기준: 필리핀 시간",
     admin_trade_dash_last_updated: "마지막 갱신 {time}",
     admin_trade_dash_pending: "처리 대기",

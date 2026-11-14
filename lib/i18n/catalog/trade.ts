@@ -1,4 +1,5 @@
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 
 export const tradeMessages = {
   ko: {
@@ -144,7 +145,7 @@ export const tradeMessages = {
     trade_market_tab_all: "전체",
     marketplace_home_title: "DIBAY MARKET",
     marketplace_search_placeholder: "DIBAY MARKET에서 검색",
-    marketplace_search_entry_aria: `${B.MARKET}에서 검색`,
+    marketplace_search_entry_aria: `${BK.MARKET}에서 검색`,
     marketplace_more_categories: "더보기",
     marketplace_more_categories_tab: "카테고리",
     marketplace_more_categories_title: "카테고리",
@@ -157,7 +158,7 @@ export const tradeMessages = {
     marketplace_more_browse_options_empty:
       "이 주제에 고를 품목 옵션이 없습니다. 적용을 누르면 목록을 봅니다.",
     marketplace_sell_hub_title: "판매",
-    marketplace_sell_hub_subtitle: B.MARKET,
+    marketplace_sell_hub_subtitle: BK.MARKET,
     marketplace_sell_hub_create: "상품 등록",
     marketplace_seller_hub_pill_listings: "내 매물",
     marketplace_seller_hub_pill_messages: "받은 메시지",
@@ -263,7 +264,7 @@ export const tradeMessages = {
     marketplace_filter_applied: "적용된 필터",
     marketplace_filter_clear_all: "전체 초기화",
     marketplace_search_chip: "검색: {q}",
-    trade_search_placeholder: `${B.MARKET}에서 물품 검색`,
+    trade_search_placeholder: `${BK.MARKET}에서 물품 검색`,
     trade_search_submit: "찾기",
     trade_search_recent_title: "최근 검색어",
     trade_search_recent_clear: "전체 삭제",
@@ -299,7 +300,7 @@ export const tradeMessages = {
     product_condition_like_new: "거의 새 것",
     product_condition_good: "좋음",
     product_condition_fair: "보통",
-    trade_detail_header_fallback: B.MARKET,
+    trade_detail_header_fallback: BK.MARKET,
     trade_detail_back_to_list: "목록으로",
     trade_detail_seller_fallback: "판매자",
     trade_detail_product_fallback: "상품",

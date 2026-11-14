@@ -3,6 +3,7 @@
  * S6(언어 SSOT, 2026-11-08): 코드 안 언어 삼항·문구 쌍·인라인 표에서 옮긴 문구 (`docs/i18n-ssot.md` §3).
  */
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 
 export const copyShellMessages = {
   ko: {
@@ -46,10 +47,10 @@ export const copyShellMessages = {
     currency_from_coin: "Coin에서 전환",
     mypage_ads_untitled: "(제목 없음)",
     mypage_ads_placement_explain: "선택한 피드에서 일반 콘텐츠 {min}~{max}개마다 중간 광고 슬롯에 노출됩니다.",
-    mypage_ads_community_home_feed: `${B.FEED} 홈 피드`,
+    mypage_ads_community_home_feed: `${BK.FEED} 홈 피드`,
     mypage_ads_select_topic_paren: "(주제 선택)",
     mypage_ads_topic_feed: "{name} 주제 피드",
-    mypage_ads_trade_home_feed: `${B.MARKET} 홈 피드`,
+    mypage_ads_trade_home_feed: `${BK.MARKET} 홈 피드`,
     mypage_ads_select_category_paren: "(카테고리 선택)",
     mypage_ads_category_feed: "{name} 카테고리 피드",
     mypage_ads_external_url: "외부 링크",
@@ -73,8 +74,8 @@ export const copyShellMessages = {
     mypage_ads_add_image: "이미지 추가 ({count}/3)",
     mypage_ads_dest_my_post_listing: "내 게시글/상품",
     mypage_ads_dest_external_link: "외부 링크",
-    mypage_ads_community: B.FEED,
-    mypage_ads_trade: B.MARKET,
+    mypage_ads_community: BK.FEED,
+    mypage_ads_trade: BK.MARKET,
     mypage_ads_no_eligible_community_posts: "연결 가능한 커뮤니티 글이 없습니다.",
     mypage_ads_no_eligible_trade_listings: "연결 가능한 거래 상품이 없습니다.",
     mypage_ads_days: "{n}일",

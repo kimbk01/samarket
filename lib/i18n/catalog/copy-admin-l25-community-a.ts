@@ -1,4 +1,5 @@
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 /**
  * 어드민 화면 문구 — 언어 SSOT L25(2026-11-08): 검사 규칙이 세지 않던 한국어 문자열(`label:`·`description=`·`<option>` 등)에서 옮긴 문구.
  */
@@ -507,7 +508,7 @@ export const copyAdminL25CommunityAMessages = {
     admin_community_mdetail_warning_reason_placeholder: "경고 사유 (회원에게 전달됩니다)",
     admin_community_mdetail_send_warning_btn: "경고 보내기",
     admin_community_mdetail_warning_sent: "경고를 보냈습니다.",
-    admin_community_mdetail_notice_restrict: `${B.FEED} 글·댓글·신고·모임만 막습니다. ${B.MARKET}·${B.DIPICK}·${B.LETARING}은 그대로 쓸 수 있습니다.`,
+    admin_community_mdetail_notice_restrict: `${BK.FEED} 글·댓글·신고·모임만 막습니다. ${BK.MARKET}·${B.DIPICK}·${B.LETARING}은 그대로 쓸 수 있습니다.`,
     admin_community_mdetail_restrict_reason_placeholder: "제한 사유 (회원에게 전달됩니다)",
     admin_community_mdetail_restrict_btn: "활동 제한",
     admin_community_mdetail_restricted: "활동을 제한했습니다.",

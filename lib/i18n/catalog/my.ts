@@ -1,4 +1,5 @@
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 
 export const myMessages = {
   ko: {
@@ -147,7 +148,7 @@ export const myMessages = {
     notif_filter_all: "전체",
     notif_filter_unread: "안읽음",
     notif_filter_read: "읽음",
-    notif_filter_trade: B.MARKET,
+    notif_filter_trade: BK.MARKET,
     notif_filter_chat: B.LETARING,
     notif_filter_community: B.LOUNGE,
     notif_filter_cs: "고객센터",

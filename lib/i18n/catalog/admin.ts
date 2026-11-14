@@ -31,6 +31,7 @@ import { adminDeliveryAdsMessages } from "./admin-delivery-ads";
 import { adminPlatformPopupMessages } from "./admin-platform-popup";
 import { deliveryAdsPerformanceMessages } from "./delivery-ads-performance";
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 
 export const adminMessages = {
   ko: {
@@ -166,7 +167,7 @@ export const adminMessages = {
     admin_report_source_feed: "Community · community_reports",
     admin_report_source_db: "Trade · reports",
     admin_report_domain_ssot_banner:
-      `신고 원장 6종을 한 목록으로 봅니다. ${B.MARKET}·${B.FEED} 신고는 「상세」에서 바로 처리할 수 있습니다 (도메인 화면과 같은 서버 처리). 매장·모임·${B.LETARING}·구 거래 채팅 신고는 여기서 조회만 하고, 각 행의 「처리 화면」에서 처리합니다. 계정 정지·차단은 회원 상세에서 합니다.`,
+      `신고 원장 6종을 한 목록으로 봅니다. ${BK.MARKET}·${BK.FEED} 신고는 「상세」에서 바로 처리할 수 있습니다 (도메인 화면과 같은 서버 처리). 매장·모임·${B.LETARING}·구 거래 채팅 신고는 여기서 조회만 하고, 각 행의 「처리 화면」에서 처리합니다. 계정 정지·차단은 회원 상세에서 합니다.`,
     admin_report_domain_all_hint:
       "현재 도메인 필터가 전체입니다. 운영 전 Trade 또는 Community로 좁히세요.",
     admin_report_domain_entries_label: "도메인 진입",
@@ -182,7 +183,7 @@ export const adminMessages = {
     admin_report_mcc_target_missing:
       "계정 제재용 회원 ID가 없습니다. 대상 회원/게시글을 확인하세요.",
     admin_report_filter_domain_aria: "신고 도메인",
-    admin_report_filter_domain_trade: B.MARKET,
+    admin_report_filter_domain_trade: BK.MARKET,
     admin_report_filter_domain_community: B.LOUNGE,
     admin_ad_applications_desc:
       "한 경로에서 도메인을 고르면 해당 writer 큐만 표시합니다. Trade/Community=point_promotion_orders · Feed Banner(Growth)=feed_ad_requests. 레거시 trade_post_ads는 /admin/trade-post-ads.",
@@ -802,7 +803,7 @@ export const adminMessages = {
     admin_users_cc_tab_overview: "개요",
     admin_users_cc_tab_account: "계정·인증",
     admin_users_cc_tab_community: B.LOUNGE,
-    admin_users_cc_tab_trade: B.MARKET,
+    admin_users_cc_tab_trade: BK.MARKET,
     admin_users_cc_tab_delivery: B.DIPICK,
     admin_users_cc_tab_store: "매장",
     admin_users_cc_tab_chat: B.LETARING,

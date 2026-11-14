@@ -2,6 +2,7 @@
  * 어드민 화면 문구 — 언어 SSOT L25(2026-11-08): 검사 규칙이 세지 않던 한국어 문자열(`label:`·`description=`·`<option>` 등)에서 옮긴 문구.
  */
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 export const copyAdminL25TradeMessages = {
   ko: {
     admin_trade_kit_no_name: "이름 없음",
@@ -141,7 +142,7 @@ export const copyAdminL25TradeMessages = {
     admin_trade_restrict_send_warning: "경고 보내기",
     admin_trade_restrict_pick_needed: "선택 필요",
     admin_trade_restrict_warning_notice: "경고는 기록과 알림만 남기고 거래 활동을 막지 않습니다.",
-    admin_trade_restrict_restrict_notice: `선택한 범위의 ${B.MARKET} 활동만 막습니다. ${B.LOUNGE}·${B.DIPICK}·${B.LETARING}은 그대로입니다. 회원에게 알림이 갑니다.`,
+    admin_trade_restrict_restrict_notice: `선택한 범위의 ${BK.MARKET} 활동만 막습니다. ${B.LOUNGE}·${B.DIPICK}·${B.LETARING}은 그대로입니다. 회원에게 알림이 갑니다.`,
     admin_trade_restrict_reason_ph: "사유 (회원 알림·운영 기록에 남습니다)",
     admin_trade_restrict_warning_sent: "경고를 보냈습니다.",
     admin_trade_restrict_restricted_ok: "거래 활동을 제한했습니다. 회원에게 알림이 갑니다.",

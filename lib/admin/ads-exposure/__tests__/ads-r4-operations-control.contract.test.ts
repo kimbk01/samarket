@@ -105,7 +105,7 @@ describe("CUT R4 placement / labels / live links", () => {
         inventoryKey: "COMMUNITY_HOME",
         feedDomain: "community",
       })
-    ).toContain("FEED");
+    ).toContain("정보 공유");
     expect(
       formatRequestedPlacement({
         kind: "feed_banner",
@@ -113,7 +113,7 @@ describe("CUT R4 placement / labels / live links", () => {
         inventoryKey: "TRADE_HOME",
         feedDomain: "trade",
       })
-    ).toMatch(/MARKET/);
+    ).toMatch(/마켓/);
   });
 
   it("kind labels match R4 domain/product matrix", () => {

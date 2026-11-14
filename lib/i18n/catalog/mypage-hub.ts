@@ -1,4 +1,5 @@
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 
 export const mypageHubMessages = {
   ko: {
@@ -194,7 +195,7 @@ export const mypageHubMessages = {
     mypage_s11_group_community: B.LOUNGE,
     mypage_s11_group_order: "주문",
     mypage_s11_group_sound: "소리",
-    mypage_s11_group_trade: B.MARKET,
+    mypage_s11_group_trade: BK.MARKET,
     mypage_s14_confirm_neighbor_body: "이웃 목록에서 빠져요",
     mypage_s14_confirm_neighbor_title: "{name}님 이웃을 해제할까요?",
     mypage_s14_confirm_release: "해제",

@@ -1,4 +1,5 @@
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 /**
  * 어드민 「홈 구성」(`/admin/menus/home-layout`) 문구 SSOT — Owner 「이대로 구현」 2026-11-09 (홈 시안 v22).
  */
@@ -167,7 +168,7 @@ export const homeHubAdminMessages = {
     admin_home_layout_trades_rule:
       "최근 7일 글 먼저, 모자라면 이전 글로 채움 · 거래완료·숨김·삭제 제외 · 지역 = 거래 탭에서 이번에 고른 지역(없으면 전체) · 새로고침마다 안 나온 글이 먼저.",
     admin_home_layout_posts_topic: "주제",
-    admin_home_layout_posts_rule: `목록 모양은 ${B.FEED} 게시판 목록과 같습니다.`,
+    admin_home_layout_posts_rule: `목록 모양은 ${BK.FEED} 게시판 목록과 같습니다.`,
     admin_home_layout_header_show_address: "로고 오른쪽에 주소 보이기",
     admin_home_layout_header_placeholder: "검색창 안내 문구",
     admin_home_layout_header_placeholder_hint: "비우면 기본 문구: {text}",

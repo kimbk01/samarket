@@ -2,6 +2,7 @@
  * 광고 3차 재감사 + 어드민 광고 SSOT 구현 (Owner 「설계안대로 진행」 2026-11-07) — 배달·도메인 어드민·문구 문구. 뒤에 spread 되므로 같은 키는 이 파일 값이 우선한다.
  */
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 export const adsImpl1107DeliveryMessages = {
   ko: {
     /* D-10 — 도메인 상위노출 시트 내부 메모 칸 */
@@ -17,7 +18,7 @@ export const adsImpl1107DeliveryMessages = {
     /* D-15 — 「홍보」 → 「상위노출」 (정본 용어 · 배달 「매장 홍보」 등 정상 용어 제외) */
     admin_ad_applications_title: "광고·상위노출 신청 (도메인 선택)",
     admin_menu_ads_promote_group: "게시물 상위노출 신청",
-    admin_menu_ads_community_promote: `${B.FEED} 게시물 상위노출`,
+    admin_menu_ads_community_promote: `${BK.FEED} 게시물 상위노출`,
     admin_comm_promo_title: "게시물 상위노출 신청",
     admin_trade_kpi_promo: "상위노출 중",
     admin_trade_dashboard_desc: "Marketplace의 게시물, 거래, 신고, 상위노출 상태를 관리합니다.",

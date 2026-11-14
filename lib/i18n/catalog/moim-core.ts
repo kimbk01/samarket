@@ -4,11 +4,12 @@
  * 오류 키는 lib/moim/moim-error-codes.ts 의 코드마다 하나 (계약 테스트가 대조).
  */
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 
 export const moimCoreMessages = {
   ko: {
-    tier1_moim: B.CREW,
-    moim_tab: B.CREW,
+    tier1_moim: BK.CREW,
+    moim_tab: BK.CREW,
     moim_room_home_btn: "모임 홈",
     moim_room_go_home: "모임 홈으로 가기",
     moim_room_managed_in_moim: "멤버 초대·내보내기·나가기는 모임 홈에서 할 수 있어요",

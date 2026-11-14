@@ -8,13 +8,14 @@ import {
   DIBAY_SERVICE_BRAND_IDS,
   DIBAY_SERVICE_BRAND_PARENT,
 } from "@/lib/brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO } from "@/lib/i18n/brand-display-ko";
 import { MESSAGES } from "@/lib/i18n/messages";
 import { BOTTOM_NAV_ITEMS } from "@/lib/main-menu/bottom-nav-config";
 import { BOTTOM_NAV_ICON_KEY_BRAND } from "@/components/main-menu/MainBottomNavTabIcons";
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
 
 /**
- * 서비스 브랜드 SSOT (Owner 최종 승인 2026-11-13) — 명칭·대표 아이콘·하단 탭 선택 상태를 잠근다.
+ * 서비스 브랜드 SSOT (Owner 최종 승인 2026-11-13 · 2026-11-14 telRING·라운지 3개 한국어 표기) — 명칭·대표 아이콘·하단 탭 선택 상태를 잠근다.
  * 설계: docs/design/service-brand-icon-state-ssot-design-2026-11-13.md
  */
 const ROOT = process.cwd();
@@ -23,7 +24,7 @@ const ko = MESSAGES.ko as unknown as Record<string, string>;
 const en = MESSAGES.en as unknown as Record<string, string>;
 
 describe("브랜드 명칭 SSOT", () => {
-  it("공식 명칭 8개 = 영문 대문자, 변경 불가", () => {
+  it("공식 명칭 8개 (메시지 = telRING) · 한국어 화면은 LOUNGE 안 3개만 한글", () => {
     expect(DIBAY_SERVICE_BRAND).toEqual({
       HOME: "HOME",
       LOUNGE: "LOUNGE",
@@ -31,30 +32,31 @@ describe("브랜드 명칭 SSOT", () => {
       MARKET: "MARKET",
       CREW: "CREW",
       DIPICK: "DIPICK",
-      LETARING: "LETARING",
+      LETARING: "telRING",
       MY: "MY",
     });
+    expect(DIBAY_SERVICE_BRAND_KO).toEqual({ ...DIBAY_SERVICE_BRAND, FEED: "정보 공유", MARKET: "마켓", CREW: "모임" });
     expect(DIBAY_SERVICE_BRAND_PARENT.FEED).toBe("LOUNGE");
     expect(DIBAY_SERVICE_BRAND_PARENT.MARKET).toBe("LOUNGE");
     expect(DIBAY_SERVICE_BRAND_PARENT.CREW).toBe("LOUNGE");
   });
 
-  it("하단 탭 5개 라벨 = HOME · LOUNGE · DIPICK · LETARING · MY (ko·en 같음)", () => {
+  it("하단 탭 5개 라벨 = HOME · LOUNGE · DIPICK · telRING · MY (ko·en 같음)", () => {
     const keys = BOTTOM_NAV_ITEMS.map((t) => t.labelKey!);
-    expect(keys.map((k) => ko[k])).toEqual(["HOME", "LOUNGE", "DIPICK", "LETARING", "MY"]);
-    expect(keys.map((k) => en[k])).toEqual(["HOME", "LOUNGE", "DIPICK", "LETARING", "MY"]);
-    expect(BOTTOM_NAV_ITEMS.map((t) => t.label)).toEqual(["HOME", "LOUNGE", "DIPICK", "LETARING", "MY"]);
+    expect(keys.map((k) => ko[k])).toEqual(["HOME", "LOUNGE", "DIPICK", "telRING", "MY"]);
+    expect(keys.map((k) => en[k])).toEqual(["HOME", "LOUNGE", "DIPICK", "telRING", "MY"]);
+    expect(BOTTOM_NAV_ITEMS.map((t) => t.label)).toEqual(["HOME", "LOUNGE", "DIPICK", "telRING", "MY"]);
   });
 
-  it("LOUNGE 안 3단 탭 = FEED · MARKET · CREW, 허브 1단 제목도 같은 이름", () => {
-    for (const lang of [ko, en]) {
-      expect(lang.nav_community_switch_info).toBe("FEED");
-      expect(lang.nav_bottom_trade).toBe("MARKET");
-      expect(lang.moim_tab).toBe("CREW");
-      expect(lang.tier1_moim).toBe("CREW");
-      expect(lang.tier1_trade).toBe("MARKET");
-      expect(lang.tier1_community).toBe("FEED");
-      expect(lang.tier1_messenger).toBe("LETARING");
+  it("LOUNGE 안 3단 탭 = ko 정보 공유·마켓·모임 / en FEED·MARKET·CREW, 허브 1단 제목도 같은 이름", () => {
+    for (const [lang, B] of [[ko, DIBAY_SERVICE_BRAND_KO], [en, DIBAY_SERVICE_BRAND]] as const) {
+      expect(lang.nav_community_switch_info).toBe(B.FEED);
+      expect(lang.nav_bottom_trade).toBe(B.MARKET);
+      expect(lang.moim_tab).toBe(B.CREW);
+      expect(lang.tier1_moim).toBe(B.CREW);
+      expect(lang.tier1_trade).toBe(B.MARKET);
+      expect(lang.tier1_community).toBe(B.FEED);
+      expect(lang.tier1_messenger).toBe("telRING");
       expect(lang.tier1_myinfo).toBe("MY");
       expect(lang.navigation_delivery).toBe("DIPICK");
     }
@@ -188,18 +190,18 @@ describe("적용 범위 — 메인 하단 탭만 (사장님 하단 탭은 기존
 
 describe("설계 행·결정 값 (재감사 R2)", () => {
   it("C7·D31·L1·M1", () => {
-    for (const lang of [ko, en]) {
-      expect(lang.notify_messenger_banner_title).toBe("LETARING");
+    for (const [lang, B] of [[ko, DIBAY_SERVICE_BRAND_KO], [en, DIBAY_SERVICE_BRAND]] as const) {
+      expect(lang.notify_messenger_banner_title).toBe("telRING");
       expect(lang.admin_startup_config_surface_my).toBe("MY");
-      expect(lang.feed_ad_req_trade).toBe("MARKET");
-      expect(lang.feed_ad_req_community).toBe("FEED");
+      expect(lang.feed_ad_req_trade).toBe(B.MARKET);
+      expect(lang.feed_ad_req_community).toBe(B.FEED);
     }
-    expect(ko.community_top_pin_cta).toBe("FEED 상위노출");
+    expect(ko.community_top_pin_cta).toBe("정보 공유 상위노출");
     expect(ko.trade_052).toBe("MY → 구매 내역");
   });
   it("T3 — 오류·권한 문장 속 「메신저」 = 「채팅」, 통화 화면 공용 문구는 그대로", () => {
     expect(ko.app_error_messenger_title).toBe("채팅을 불러오지 못했습니다.");
-    expect(ko.nav_messenger_load_failed).not.toContain("LETARING");
+    expect(ko.nav_messenger_load_failed).not.toContain("telRING");
     expect(ko.nav_messenger_login_required).toBe("로그인 후 메신저를 사용할 수 있습니다.");
   });
 });

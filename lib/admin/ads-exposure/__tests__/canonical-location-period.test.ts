@@ -63,10 +63,10 @@ describe("canonical-location-period", () => {
 
   it("boost and popup hierarchies", () => {
     expect(formatRequestedPlacement({ kind: "community_boost", ko: true })).toBe(
-      "FEED > 게시물 상위노출"
+      "정보 공유 > 게시물 상위노출"
     );
     expect(formatRequestedPlacement({ kind: "trade_boost", ko: true })).toBe(
-      "MARKET > 게시물 상위노출"
+      "마켓 > 게시물 상위노출"
     );
     expect(
       formatRequestedPlacement({ kind: "popup", ko: true, popupSurface: "GLOBAL" })
