@@ -118,25 +118,36 @@ export function HomeServiceCards({
             )}
             {heroDesc ? <span className="mt-0.5 block truncate text-[12px] text-white/90">{heroDesc}</span> : null}
           </span>
-          <span className="relative z-[1] flex shrink-0 gap-1.5">
+          <span className="relative z-[1] flex shrink-0 items-center gap-1.5">
             {(
               [
                 ["home_telring_chat", "/community-messenger?section=chats"],
                 ["home_telring_call", "/community-messenger?section=call_logs"],
               ] as const
-            ).map(([k, href]) => (
-              <button
-                key={k}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenHref("chat", href);
-                }}
-                className={`rounded-full bg-white px-3 py-1.5 text-[12.5px] font-bold text-sam-primary ${PRESS}`}
-              >
-                {t(k)}
-              </button>
-            ))}
+            ).map(([k, href]) => {
+              const btn = (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenHref("chat", href);
+                  }}
+                  className={`relative rounded-full bg-white px-3 py-1.5 text-[12.5px] font-bold text-sam-primary ${PRESS}`}
+                  data-home-telring-cta={k === "home_telring_chat" ? "chat" : "call"}
+                >
+                  {t(k)}
+                </button>
+              );
+              // 「채팅」 = 흐르는 그라데이션 테두리 + 퍼지는 빛 (Owner 2026-11-14 「누르고 싶은 충동이 생기게」) · 동작 줄이기면 멈춤
+              return k === "home_telring_chat" ? (
+                <span key={k} className="home-telring-cta-glow">
+                  {btn}
+                </span>
+              ) : (
+                btn
+              );
+            })}
           </span>
         </div>
       ) : null}
