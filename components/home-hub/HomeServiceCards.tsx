@@ -50,8 +50,6 @@ export function resolveServiceDescLines(
   return [t(HOME_MENU_CATALOG[card.key].descKey)];
 }
 
-const PRESS =
-  "transition-[transform,background-color,box-shadow,opacity] duration-100 ease-out [-webkit-tap-highlight-color:transparent] active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100";
 
 /**
  * 서비스 입구 — 홈 시안 v4 (Owner 「이 시안으로 진행」 2026-11-14 · 「중요한 도메인이 telRING」).
@@ -99,12 +97,12 @@ export function HomeServiceCards({
           onKeyDown={(e) => {
             if (e.key === "Enter") onOpen("chat");
           }}
-          className={`relative flex items-center gap-3 overflow-hidden rounded-ui-rect bg-sam-primary px-3.5 py-3.5 text-white ${PRESS} active:opacity-90`}
+          className="home-3d-hero relative flex items-center gap-3 overflow-hidden rounded-ui-rect px-3.5 py-3.5 text-white [-webkit-tap-highlight-color:transparent]"
           data-home-service="chat"
           data-home-telring-hero
         >
           <span aria-hidden className="pointer-events-none absolute -right-8 -top-8 h-[120px] w-[120px] rounded-full bg-[#E0A800]/20" />
-          <span className="grid h-[46px] w-[46px] shrink-0 place-items-center rounded-full bg-white">
+          <span className="home-3d-hero-badge grid h-[46px] w-[46px] shrink-0 place-items-center rounded-full">
             {(() => {
               const Icon = LINE_ICON.chat;
               return <Icon className="h-[26px] w-[26px] text-sam-primary" aria-hidden />;
@@ -133,7 +131,7 @@ export function HomeServiceCards({
                     e.stopPropagation();
                     onOpenHref("chat", href);
                   }}
-                  className={`relative rounded-full bg-white px-3 py-1.5 text-[12.5px] font-bold text-sam-primary ${PRESS}`}
+                  className="home-3d-pill relative rounded-full px-3 py-1.5 text-[12.5px] font-bold text-sam-primary [-webkit-tap-highlight-color:transparent]"
                   data-home-telring-cta={k === "home_telring_chat" ? "chat" : "call"}
                 >
                   {t(k)}
@@ -161,7 +159,7 @@ export function HomeServiceCards({
                 key={c.key}
                 type="button"
                 onClick={() => onOpen(c.key)}
-                className={`relative min-h-[100px] overflow-hidden rounded-ui-rect bg-sam-primary-soft px-3.5 pb-3 pt-3.5 text-left ${PRESS}`}
+                className="home-3d-tile relative min-h-[100px] overflow-hidden rounded-ui-rect px-3.5 pb-3 pt-3.5 text-left [-webkit-tap-highlight-color:transparent]"
                 data-home-service={c.key}
               >
                 <span className="block text-[17px] font-bold tracking-[-0.02em] text-[#141a16]">{title(c)}</span>
@@ -195,10 +193,10 @@ export function HomeServiceCards({
                 key={c.key}
                 type="button"
                 onClick={() => onOpen(c.key)}
-                className={`flex flex-col items-center gap-1.5 py-1 text-[12px] font-semibold text-[#333] ${PRESS}`}
+                className="home-3d-icon-btn flex flex-col items-center gap-1.5 py-1 text-[12px] font-semibold text-[#333] [-webkit-tap-highlight-color:transparent]"
                 data-home-service={c.key}
               >
-                <span className="grid h-11 w-11 place-items-center rounded-full bg-[#F1F3F0]">
+                <span className="home-3d-icon grid h-11 w-11 place-items-center rounded-full">
                   <Icon className="h-[22px] w-[22px] text-sam-primary" strokeWidth={1.8} aria-hidden />
                 </span>
                 <span className="max-w-full truncate">{title(c)}</span>
