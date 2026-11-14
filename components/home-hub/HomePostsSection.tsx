@@ -1,33 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommunityCard } from "@/components/community/CommunityCard";
 import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
 import { fetchNeighborhoodFeedShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
 import { useHubDataRevisitGate } from "@/lib/http/hub-data-freshness";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import type { HomePostsConfig } from "@/lib/home/home-layout-contract";
-import { HomeSectionHead } from "@/components/home-hub/HomeSectionHead";
-import { HomeLoadError } from "@/components/home-hub/HomeLoadError";
 import { COMMUNITY_FEED_LIST_WRAP_CLASS, COMMUNITY_FONT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 
 /**
- * 「교민 이야기」 — 정보교환 게시판 목록과 **같은 카드**(`CommunityCard`)를 그대로 쓴다
- * (Owner 2026-11-09 「게시판 리스트와 동일하게」 · 「게시판 부분의 테두리」). 카드 토큰은 `[data-community-ui]` 안에서만
- * 정의되므로 같은 범위로 감싼다(없으면 테두리가 검게 그려짐 — 운영 11-09 실기 결함). 데이터 = 정보교환 전체 피드, 공지 제외.
+ * 홈 피드의 정보 공유 글 (홈 시안 v4) — 데이터 = 정보 공유 전체 피드(어드민 정렬, 기본 인기순 — 라운지 최신순과 겹치지 않게), 공지 제외.
  * 새로고침 때 다시 받는다.
  */
-export function HomePostsSection({
+export function useHomePosts({
   config,
-  title,
   refreshSeq,
 }: {
   config: HomePostsConfig;
-  title: string;
   refreshSeq: number;
-}) {
-  const { t } = useI18n();
+}): { posts: NeighborhoodFeedPostDTO[] | null; failed: boolean; retry: () => void } {
   const [posts, setPosts] = useState<NeighborhoodFeedPostDTO[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
@@ -66,37 +58,29 @@ export function HomePostsSection({
     };
   }, [config.count, config.sort, config.topicSlug, refreshSeq, retryKey, revisitGate]);
 
+  return {
+    posts,
+    failed,
+    retry: () => {
+      setFailed(false);
+      setPosts(null);
+      setRetryKey((n) => n + 1);
+    },
+  };
+}
+
+/**
+ * 정보 공유 글 카드 — 라운지 게시판과 **같은 카드**(`CommunityCard`, Owner 2026-11-09 「게시판 리스트와 동일하게」).
+ * 카드 토큰은 `[data-community-ui]` 안에서만 정의되므로 같은 범위로 감싼다(없으면 테두리가 검게 그려짐 — 운영 11-09 실기 결함).
+ */
+export function HomePostFeedCard({ post }: { post: NeighborhoodFeedPostDTO }) {
   return (
-    <section className="mt-3 pt-[18px]" data-home-posts>
-      <HomeSectionHead title={title} />
-      {failed ? (
-        <HomeLoadError
-          onRetry={() => {
-            setFailed(false);
-            setPosts(null);
-            setRetryKey((n) => n + 1);
-          }}
-        />
-      ) : posts == null ? (
-        <div className="space-y-3 px-4 pb-5">
-          {[0, 1].map((i) => (
-            <span key={i} className="block h-[88px] animate-pulse rounded-ui-rect bg-[#eef1ee]" />
-          ))}
-        </div>
-      ) : posts.length === 0 ? (
-        <p className="px-[18px] pb-5 text-[13.5px] text-[#767676]">{t("home_posts_empty")}</p>
-      ) : (
-        /* 게시판(`CommunityFeed`)과 같은 토큰 범위·같은 목록 틀 — 테두리·모서리·간격이 게시판과 같다 */
-        <div data-community-ui className={COMMUNITY_FONT_CLASS}>
-          <ul className={`${COMMUNITY_FEED_LIST_WRAP_CLASS} !pb-0`}>
-            {posts.map((p) => (
-              <li key={p.id} className="list-none">
-                <CommunityCard post={p} />
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </section>
+    <div data-community-ui className={COMMUNITY_FONT_CLASS} data-home-feed-post={post.id}>
+      <ul className={`${COMMUNITY_FEED_LIST_WRAP_CLASS} !px-0 !pb-0 !pt-0`}>
+        <li className="list-none">
+          <CommunityCard post={post} />
+        </li>
+      </ul>
+    </div>
   );
 }

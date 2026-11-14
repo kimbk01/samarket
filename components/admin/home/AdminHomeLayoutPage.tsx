@@ -34,7 +34,6 @@ import {
   HOME_POST_SORTS,
   HOME_POSTS_MAX,
   HOME_POSTS_MIN,
-  HOME_SEARCH_PLACEHOLDER_MAX,
   HOME_SECTION_DEFAULT_TITLE_KEYS,
   HOME_SECTION_LABEL_KEYS,
   HOME_SECTION_TITLE_MAX,
@@ -44,7 +43,6 @@ import {
   HOME_SERVICE_LARGE_MAX,
   HOME_SERVICE_SMALL_MAX,
   HOME_SERVICE_TITLE_MAX,
-  HOME_SHORTCUTS_MAX_VISIBLE,
   HOME_STORE_AUTO_FILTERS,
   HOME_STORE_MANUAL_MENUS_MAX,
   HOME_STORE_MENUS_MAX,
@@ -87,11 +85,10 @@ type LoadResponse = {
   error?: string;
 };
 
-type TabKey = "banners" | "services" | "categories" | "stores" | "trades" | "posts" | "header" | "sections";
+type TabKey = "banners" | "services" | "stores" | "trades" | "posts" | "header" | "sections";
 const TABS: { key: TabKey; label: MessageKey }[] = [
   { key: "banners", label: "admin_home_layout_tab_banners" },
   { key: "services", label: "admin_home_layout_tab_services" },
-  { key: "categories", label: "admin_home_layout_tab_categories" },
   { key: "stores", label: "admin_home_layout_tab_stores" },
   { key: "trades", label: "admin_home_layout_tab_trades" },
   { key: "posts", label: "admin_home_layout_tab_posts" },
@@ -99,7 +96,7 @@ const TABS: { key: TabKey; label: MessageKey }[] = [
   { key: "sections", label: "admin_home_layout_tab_sections" },
 ];
 
-const EMPTY_CATALOG: HomeCatalog = { storeCategories: [], tradeCategories: [], communityTopics: [] };
+const EMPTY_CATALOG: HomeCatalog = { storeCategories: [], tradeCategories: [], communityTopics: [], latestNotice: null };
 const SIZE_LABEL: Record<HomeBannerSize, MessageKey> = {
   s: "admin_home_layout_size_s",
   m: "admin_home_layout_size_m",
@@ -746,11 +743,7 @@ function ServicesTab({ draft, setDraft, tr }: { draft: HomeLayoutConfig; setDraf
                     </div>
                   ) : null}
                 </Field>
-                {s.key === "chat" ? (
-                  <Field label={tr("admin_home_layout_display")}>
-                    <Check checked={s.showBadge} onChange={(v) => patch(s.key, { showBadge: v })} label={tr("admin_home_layout_show_badge")} />
-                  </Field>
-                ) : null}
+                {s.key === "chat" ? <p className="sam-text-helper text-sam-muted">{tr("admin_home_layout_chat_hero_hint")}</p> : null}
               </div>
               {s.size === "large" ? (
                 <Field label={tr("admin_home_layout_image")} hint={tr("admin_home_layout_card_image_auto")}>
@@ -761,105 +754,11 @@ function ServicesTab({ draft, setDraft, tr }: { draft: HomeLayoutConfig; setDraf
           ) : null}
         </div>
       ))}
-      <ShortcutsBox draft={draft} setDraft={setDraft} tr={tr} />
     </div>
   );
 }
 
-function ShortcutsBox({ draft, setDraft, tr }: { draft: HomeLayoutConfig; setDraft: SetDraft; tr: Tr }) {
-  const n = draft.shortcuts.filter((s) => s.visible).length;
-  return (
-    <div className={BOX_CLS}>
-      <b className="sam-text-section-title">{tr("admin_home_layout_shortcuts", { max: HOME_SHORTCUTS_MAX_VISIBLE })}</b>
-      <p className="mt-1 sam-text-helper text-sam-muted">{tr("admin_home_layout_shortcuts_hint")}</p>
-      {draft.shortcuts.map((s, i) => (
-        <div key={s.key} className="flex flex-wrap items-center gap-3 border-t border-sam-border py-2 first:border-t-0">
-          <span className="min-w-[110px] sam-text-body">{tr(HOME_MENU_CATALOG[s.key].labelKey)}</span>
-          <Check
-            checked={s.visible}
-            disabled={!s.visible && n >= HOME_SHORTCUTS_MAX_VISIBLE}
-            onChange={(v) => setDraft((d) => ({ ...d, shortcuts: d.shortcuts.map((x) => (x.key === s.key ? { ...x, visible: v } : x)) }))}
-            label={tr("admin_home_layout_visible")}
-          />
-          <span className="ml-auto">
-            <Arrows
-              tr={tr}
-              i={i}
-              n={draft.shortcuts.length}
-              onMove={(dir) => setDraft((d) => ({ ...d, shortcuts: move(d.shortcuts, i, dir) }))}
-            />
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
 
-/* ───────────── 탭: 배달 업종 줄 ───────────── */
-
-function CategoriesTab({
-  draft,
-  setDraft,
-  tr,
-  language,
-  catalog,
-}: {
-  draft: HomeLayoutConfig;
-  setDraft: SetDraft;
-  tr: Tr;
-  language: string;
-  catalog: HomeCatalog;
-}) {
-  const slugs = draft.categories.slugs;
-  const bySlug = new Map(catalog.storeCategories.map((c) => [c.slug, c] as const));
-  const setSlugs = (next: string[]) => setDraft((d) => ({ ...d, categories: { ...d.categories, slugs: next } }));
-  const rest = catalog.storeCategories.filter((c) => !slugs.includes(c.slug));
-  return (
-    <div className="space-y-3">
-      <div className={BOX_CLS}>
-        <SectionTitleField draft={draft} sectionKey="categories" setDraft={setDraft} tr={tr} />
-        <Field label={tr("admin_home_layout_categories_layout")}>
-          <Seg
-            value={draft.categories.layout}
-            onChange={(v) => setDraft((d) => ({ ...d, categories: { ...d.categories, layout: v } }))}
-            options={[
-              { value: "row", label: tr("admin_home_layout_layout_row") },
-              { value: "grid", label: tr("admin_home_layout_layout_grid") },
-            ]}
-          />
-        </Field>
-      </div>
-      <div className={BOX_CLS}>
-        <b className="sam-text-section-title">{tr("admin_home_layout_categories_pick")}</b>
-        <p className="mt-1 sam-text-helper text-sam-muted">{tr("admin_home_layout_categories_all_hint")}</p>
-        <p className="sam-text-helper text-sam-muted">{tr("admin_home_layout_categories_image_hint")}</p>
-        {slugs.map((slug, i) => {
-          const c = bySlug.get(slug);
-          return (
-            <div key={slug} className="flex items-center gap-3 border-t border-sam-border py-2 first:border-t-0">
-              <Thumb src={c?.imageUrl ?? null} size={40} round />
-              <span className="min-w-0 flex-1 truncate sam-text-body">{c ? homeCatalogName(c, language) : slug}</span>
-              <Arrows tr={tr} i={i} n={slugs.length} onMove={(dir) => setSlugs(move(slugs, i, dir))} />
-              <AdminActionButton size="sm" onClick={() => setSlugs(slugs.filter((s) => s !== slug))}>
-                {tr("admin_home_layout_remove")}
-              </AdminActionButton>
-            </div>
-          );
-        })}
-        {rest.length > 0 ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {rest.map((c) => (
-              <AdminChipButton key={c.slug} onClick={() => setSlugs([...slugs, c.slug])}>
-                <Thumb src={c.imageUrl} size={24} round />
-                {homeCatalogName(c, language)} +
-              </AdminChipButton>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
 
 /* ───────────── 탭: 추천 매장·메뉴 ───────────── */
 
@@ -1210,7 +1109,6 @@ function StoresTab({
   return (
     <div className="space-y-3">
       <div className={BOX_CLS}>
-        <SectionTitleField draft={draft} sectionKey="stores" setDraft={setDraft} tr={tr} />
         <Field label={tr("admin_home_layout_stores_mode")}>
           <Seg
             value={st.mode}
@@ -1401,7 +1299,6 @@ function TradesTab({
   const set = (p: Partial<HomeLayoutConfig["trades"]>) => setDraft((d) => ({ ...d, trades: { ...d.trades, ...p } }));
   return (
     <div className={BOX_CLS}>
-      <SectionTitleField draft={draft} sectionKey="trades" setDraft={setDraft} tr={tr} />
       <Field label={tr("admin_home_layout_count")}>
         <Seg
           value={td.count}
@@ -1450,7 +1347,6 @@ function PostsTab({
   const set = (p: Partial<HomeLayoutConfig["posts"]>) => setDraft((d) => ({ ...d, posts: { ...d.posts, ...p } }));
   return (
     <div className={BOX_CLS}>
-      <SectionTitleField draft={draft} sectionKey="posts" setDraft={setDraft} tr={tr} />
       <Field label={tr("admin_home_layout_count")}>
         <Seg
           value={ps.count}
@@ -1485,18 +1381,6 @@ function HeaderTab({ draft, setDraft, tr }: { draft: HomeLayoutConfig; setDraft:
           label={tr("admin_home_layout_header_show_address")}
         />
       </Field>
-      <Field
-        label={tr("admin_home_layout_header_placeholder")}
-        hint={tr("admin_home_layout_header_placeholder_hint", { text: tr("home_search_placeholder") })}
-      >
-        <TextPair
-          tr={tr}
-          value={draft.header.searchPlaceholder}
-          max={HOME_SEARCH_PLACEHOLDER_MAX}
-          placeholderKo={tr("home_search_placeholder")}
-          onChange={(v) => setDraft((d) => ({ ...d, header: { ...d.header, searchPlaceholder: v } }))}
-        />
-      </Field>
     </div>
   );
 }
@@ -1507,7 +1391,7 @@ function SectionsTab({ draft, setDraft, tr }: { draft: HomeLayoutConfig; setDraf
   return (
     <div className={BOX_CLS}>
       <p className="mb-2 sam-text-helper text-sam-muted">{tr("admin_home_layout_sections_hint")}</p>
-      {draft.sections.map((s, i) => {
+      {draft.sections.map((s) => {
         const memberOnly = HOME_SECTIONS_MEMBER_ONLY.has(s.key);
         return (
           <div key={s.key} className="flex flex-wrap items-center gap-3 border-t border-sam-border py-2.5 first:border-t-0">
@@ -1520,17 +1404,10 @@ function SectionsTab({ draft, setDraft, tr }: { draft: HomeLayoutConfig; setDraf
               label={tr("admin_home_layout_guest_visible")}
             />
             {memberOnly ? <span className="sam-text-helper text-sam-muted">{tr("admin_home_layout_member_only_hint")}</span> : null}
-            <span className="ml-auto">
-              <Arrows
-                tr={tr}
-                i={i}
-                n={draft.sections.length}
-                onMove={(dir) => setDraft((d) => ({ ...d, sections: move(d.sections, i, dir) }))}
-              />
-            </span>
           </div>
         );
       })}
+      <SectionTitleField draft={draft} sectionKey="feed" setDraft={setDraft} tr={tr} />
     </div>
   );
 }
@@ -1733,9 +1610,6 @@ export function AdminHomeLayoutPage() {
         <BannersTab draft={draft} setDraft={setDraft} tr={tr} language={language} focus={bannerFocus} />
       ) : null}
       {tab === "services" ? <ServicesTab draft={draft} setDraft={setDraft} tr={tr} /> : null}
-      {tab === "categories" ? (
-        <CategoriesTab draft={draft} setDraft={setDraft} tr={tr} language={language} catalog={catalog} />
-      ) : null}
       {tab === "stores" ? <StoresTab draft={draft} setDraft={setDraft} tr={tr} language={language} catalog={catalog} /> : null}
       {tab === "trades" ? <TradesTab draft={draft} setDraft={setDraft} tr={tr} language={language} catalog={catalog} /> : null}
       {tab === "posts" ? <PostsTab draft={draft} setDraft={setDraft} tr={tr} language={language} catalog={catalog} /> : null}
