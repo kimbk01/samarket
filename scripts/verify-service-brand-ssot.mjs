@@ -2,7 +2,7 @@
  * 서비스 브랜드 SSOT 검사 (설계 docs/design/service-brand-icon-state-ssot-design-2026-11-13.md F-1 · 재감사 R4).
  * Usage: node scripts/verify-service-brand-ssot.mjs
  *
- * 1) 브랜드 이름 8개가 상수(`lib/brand/dibay-service-brand.ts`)와 같다.
+ * 1) 브랜드 이름 8개가 상수(`lib/brand/dibay-service-brand.ts`)와 같다 (메시지 서비스 표시값 = telRING, 2026-11-14).
  * 2) 브랜드 아이콘 경로 데이터는 상수 파일 한 곳에만 있고, 그리는 곳은 `components/brand/ServiceBrandIcon.tsx` 하나다.
  * 3) 하단 탭 5개 이름 키(ko·en)가 브랜드 상수 값과 같다.
  * 4) 옛 서비스 이름(SAMessenger·사마켓 메신저·DIBAY MARKET·필라이프·Philife)이 카탈로그 값에 없다.
@@ -42,7 +42,12 @@ const B = brandMod.DIBAY_SERVICE_BRAND;
 
 // 1) 이름 8개
 const EXPECTED = ["HOME", "LOUNGE", "FEED", "MARKET", "CREW", "DIPICK", "LETARING", "MY"];
-for (const id of EXPECTED) if (B?.[id] !== id) fail(`브랜드 이름 ${id} 값이 다름: ${JSON.stringify(B?.[id])}`);
+/** 표시값 — 키와 같되 메시지 서비스(LETARING 키)는 telRING (Owner 2026-11-14 「TEL-RING 을 telRING 으로」) */
+const EXPECTED_VALUE = { LETARING: "telRING" };
+for (const id of EXPECTED) {
+  const want = EXPECTED_VALUE[id] ?? id;
+  if (B?.[id] !== want) fail(`브랜드 이름 ${id} 값이 다름: ${JSON.stringify(B?.[id])} (기대 ${want})`);
+}
 if (Object.keys(B ?? {}).length !== EXPECTED.length) fail(`브랜드 이름 개수 ${Object.keys(B ?? {}).length} (기대 ${EXPECTED.length})`);
 
 // 화면 코드 파일 목록 (테스트·카탈로그 제외)
