@@ -1,4 +1,5 @@
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 /** 내정보 · 설정 화면 UI (Phase 3) */
 export const settingsUiMessages = {
   ko: {
@@ -55,7 +56,7 @@ export const settingsUiMessages = {
     settings_notif_domain_hint:
       "인앱 알림(거래/커뮤니티/주문/매장) — 채팅방을 보고 있을 때는 같은 방 알림음이 울리지 않습니다.",
     settings_notif_trade_chat: "거래 채팅 알림",
-    settings_notif_community_chat: `${B.FEED}·${B.CREW} 채팅`,
+    settings_notif_community_chat: `${BK.FEED}·${BK.CREW} 채팅`,
     settings_notif_order: "주문·배달 알림",
     settings_notif_trade_events: "거래 알림(제안·예약 등)",
     settings_notif_community_social: "커뮤니티 활동(댓글·좋아요 등)",

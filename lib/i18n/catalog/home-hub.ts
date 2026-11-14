@@ -3,12 +3,13 @@
  * 어드민 「홈 구성」 문구는 `home-hub-admin.ts`.
  */
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 
 export const homeHubMessages = {
   ko: {
-    home_menu_trade: B.MARKET,
+    home_menu_trade: BK.MARKET,
     home_menu_stores: B.DIPICK,
-    home_menu_philife: B.FEED,
+    home_menu_philife: BK.FEED,
     home_menu_chat: B.LETARING,
     home_menu_events: "이벤트",
     home_menu_orders: "주문내역",
@@ -19,7 +20,7 @@ export const homeHubMessages = {
     home_menu_desc_trade: "사고 팔기",
     home_menu_desc_stores: "음식·마트 주문",
     home_menu_desc_philife: "교민 소식·질문",
-    home_menu_desc_chat: `거래·주문·${B.LETARING}`,
+    home_menu_desc_chat: "무료 채팅·통화",
     home_menu_desc_events: "혜택·쿠폰",
     home_menu_desc_orders: "주문한 내역",
     home_menu_desc_points: "적립·사용",
@@ -84,7 +85,7 @@ export const homeHubMessages = {
     home_menu_desc_trade: "Buy & sell",
     home_menu_desc_stores: "Food & mart",
     home_menu_desc_philife: "Local news & Q&A",
-    home_menu_desc_chat: `Trade, orders, ${B.LETARING}`,
+    home_menu_desc_chat: "Free chat & calls",
     home_menu_desc_events: "Perks & coupons",
     home_menu_desc_orders: "Your orders",
     home_menu_desc_points: "Earn & use",

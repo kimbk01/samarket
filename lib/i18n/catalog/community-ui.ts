@@ -1,5 +1,6 @@
 /** Philife / community feed·post·meeting UI (phase 9) */
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 
 export const communityUiMessages = {
   ko: {
@@ -123,14 +124,14 @@ export const communityUiMessages = {
     community_delete: "삭제",
     community_receive: "접수",
     community_login_for_comments: "로그인 후 댓글을 남길 수 있어요.",
-    community_community_label: B.FEED,
+    community_community_label: BK.FEED,
     community_feed_back_aria: "피드로",
     community_ad_badge: "광고",
     /** 커뮤니티 상위노출 표기 (Owner 2026-11-04 「배경 + 글자」 · 옛 O-1 「광고」 대체) */
     community_top_fix_badge: "포인트 노출",
     community_top_fix_cta: "Community 상위노출",
-    community_top_pin_cta: `${B.FEED} 상위노출`,
-    community_top_fix_apply_title: `${B.FEED} 상위노출`,
+    community_top_pin_cta: `${BK.FEED} 상위노출`,
+    community_top_fix_apply_title: `${BK.FEED} 상위노출`,
     community_top_fix_apply_done: "상위노출이 적용되었습니다. 포인트 결제 즉시 노출됩니다.",
     community_top_fix_active: "이 글은 지금 광고 중입니다.",
     community_top_fix_ends_today: "오늘 만료",

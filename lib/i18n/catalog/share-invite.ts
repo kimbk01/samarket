@@ -3,10 +3,11 @@
  * 설계: docs/audit/dibay-unified-share-audit-design-2026-11-14.md §D-6 · G-7 · 시안 4절.
  */
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 
 export const shareInviteMessages = {
   ko: {
-    share_invite_kind_moim: `${B.CREW} 모임 초대`,
+    share_invite_kind_moim: `${BK.CREW} 모임 초대`,
     share_invite_kind_group: `${B.LETARING} 그룹 채팅 초대`,
     share_invite_members: "멤버 {count}명",
     share_invite_members_one: "멤버 1명",

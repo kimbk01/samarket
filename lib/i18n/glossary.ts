@@ -153,12 +153,12 @@ export const DIBAY_GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     id: "brand-letaring",
-    ko: "LETARING",
-    en: "LETARING",
-    koMatch: /\bLETARING\b/,
+    ko: "telRING",
+    en: "telRING",
+    koMatch: /\btelRING\b/,
     forbiddenEn: /[\s\S]/,
-    requiredEn: /\bLETARING\b/,
-    note: "서비스 브랜드(lib/brand/dibay-service-brand.ts) — 한국어에 LETARING 가 있으면 영어도 같은 대문자 이름(번역 금지)",
+    requiredEn: /\btelRING\b/,
+    note: "서비스 브랜드(lib/brand/dibay-service-brand.ts) — 메시지 서비스 표시명 telRING(Owner 2026-11-14), ko·en 같은 이름(번역 금지)",
   },
   {
     id: "brand-my",

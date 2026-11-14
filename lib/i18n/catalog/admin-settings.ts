@@ -1,5 +1,6 @@
 /** Phase 11: components/admin/settings i18n keys */
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 export const adminSettingsMessages = {
   ko: {
     admin_settings_notifications_domain_title: "알림·알림음 (도메인)",
@@ -404,7 +405,7 @@ export const adminSettingsMessages = {
       "기본값은 홈입니다. 저장 후 다음 앱 실행부터 적용됩니다.",
     admin_startup_config_surface_home: B.HOME,
     admin_startup_config_surface_community: B.LOUNGE,
-    admin_startup_config_surface_trade: B.MARKET,
+    admin_startup_config_surface_trade: BK.MARKET,
     admin_startup_config_surface_food: B.DIPICK,
     admin_startup_config_surface_chat: B.LETARING,
     admin_startup_config_bg: "배경색",

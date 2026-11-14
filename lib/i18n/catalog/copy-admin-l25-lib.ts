@@ -2,6 +2,7 @@
  * 어드민 화면 문구 — 언어 SSOT L25(2026-11-08): 검사 규칙이 세지 않던 한국어 문자열(`label:`·`description=`·`<option>` 등)에서 옮긴 문구.
  */
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 export const copyAdminL25LibMessages = {
   ko: {
     admin_cut_a_op_ad_application: "광고 신청 처리",
@@ -101,21 +102,21 @@ export const copyAdminL25LibMessages = {
     admin_ads_history_new_sales_disabled: "신규 판매 비활성",
     admin_ads_history_ops_details_separate: "승인·운영 상세는 감사 기록에서 따로 확인",
     admin_ads_operator_domain_delivery: B.DIPICK,
-    admin_ads_operator_domain_trade: B.MARKET,
+    admin_ads_operator_domain_trade: BK.MARKET,
     admin_ads_operator_domain_community: B.LOUNGE,
     admin_ads_operator_domain_popup: "팝업",
     admin_banners_overview_surface_mypage_profile: `${B.MY} 홈 · 프로필 아래 1건`,
     admin_banners_overview_link_to: "연결: {target}",
     admin_banners_overview_no_link: "연결 없음",
-    admin_banners_overview_community_home: `${B.FEED} 홈`,
-    admin_banners_overview_trade_home: `${B.MARKET} 홈`,
+    admin_banners_overview_community_home: `${BK.FEED} 홈`,
+    admin_banners_overview_trade_home: `${BK.MARKET} 홈`,
     admin_banners_overview_hero: "히어로",
     admin_banners_overview_inline: "인라인",
     admin_banners_overview_surface_pair: "{surface} · {presentation}",
     admin_banners_overview_link_event_detail: "연결: 이벤트 상세",
-    admin_banners_overview_feed_trade_home: `${B.MARKET} 홈 목록`,
-    admin_banners_overview_feed_trade_category: `${B.MARKET} 카테고리 목록`,
-    admin_banners_overview_feed_community_home: `${B.FEED} 홈 피드`,
+    admin_banners_overview_feed_trade_home: `${BK.MARKET} 홈 목록`,
+    admin_banners_overview_feed_trade_category: `${BK.MARKET} 카테고리 목록`,
+    admin_banners_overview_feed_community_home: `${BK.FEED} 홈 피드`,
     admin_banners_overview_member_requested_suffix: " · 회원 신청",
     admin_banners_overview_slides_count: "{n}장",
     admin_banners_overview_delivery: B.DIPICK,

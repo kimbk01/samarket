@@ -2,7 +2,9 @@
  * DIBAY 서비스 브랜드 SSOT — 공식 명칭 · 대표 아이콘 · 서비스 계층 (Owner 최종 승인 2026-11-13).
  * 설계: `docs/design/service-brand-icon-state-ssot-design-2026-11-13.md` · 시안: `docs/design/service-brand-icon-state-mockup-2026-11-13.html`.
  *
- * - 브랜드 표기는 ko·en 모두 영문 대문자(번역하지 않음). 카탈로그 값은 이 상수를 참조한다 — 화면에 직접 쓰지 않는다.
+ * - 브랜드 표기는 ko·en 모두 이 상수(번역하지 않음). 예외: LOUNGE 안 3개(FEED·MARKET·CREW)는 한국어 화면에서
+ *   `DIBAY_SERVICE_BRAND_KO`(`lib/i18n/brand-display-ko.ts`) — Owner 2026-11-14. 카탈로그 값은 이 상수를 참조한다 — 화면에 직접 쓰지 않는다.
+ * - 메시지 서비스 표시명 = `telRING`(소문자 tel + 대문자 RING) — Owner 2026-11-14 「TEL-RING 을 telRING 으로」. 식별자 키 `LETARING` 은 유지.
  * - 기능명(거래 신고·모임 가입·주문 취소 등)은 브랜드가 아니다 → 카탈로그 한국어 문구 그대로.
  * - API·DB·라우트·이벤트 키는 이 이름과 무관하다(`trade`·`community`·`stores`·`chat` 식별자 불변).
  * - 아이콘 = Phosphor Fill(MIT, react-icons 5.6.0 `pi` 와 같은 경로 데이터) 채움 단색 · viewBox 0 0 256 256.
@@ -12,7 +14,7 @@
 export const DIBAY_SERVICE_BRAND_IDS = ["HOME", "LOUNGE", "FEED", "MARKET", "CREW", "DIPICK", "LETARING", "MY"] as const;
 export type DibayServiceBrandId = (typeof DIBAY_SERVICE_BRAND_IDS)[number];
 
-/** 공식 표시명 — 변경 불가 (Owner 2026-11-13) */
+/** 공식 표시명 (Owner 2026-11-13 · 2026-11-14 telRING) */
 export const DIBAY_SERVICE_BRAND = {
   HOME: "HOME",
   LOUNGE: "LOUNGE",
@@ -20,11 +22,11 @@ export const DIBAY_SERVICE_BRAND = {
   MARKET: "MARKET",
   CREW: "CREW",
   DIPICK: "DIPICK",
-  LETARING: "LETARING",
+  LETARING: "telRING",
   MY: "MY",
 } as const satisfies Record<DibayServiceBrandId, string>;
 
-/** 서비스 계층 — 메인 메뉴 = HOME·LOUNGE·DIPICK·LETARING·MY, LOUNGE 안 = FEED·MARKET·CREW */
+/** 서비스 계층 — 메인 메뉴 = HOME·LOUNGE·DIPICK·telRING(LETARING)·MY, LOUNGE 안 = FEED·MARKET·CREW */
 export const DIBAY_SERVICE_BRAND_PARENT: Record<DibayServiceBrandId, DibayServiceBrandId | null> = {
   HOME: null,
   LOUNGE: null,

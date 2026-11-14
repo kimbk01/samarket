@@ -3,6 +3,7 @@
  * 키 접두사: mypage_comp_
  */
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 
 export const mypageComponentsMessages = {
   ko: {
@@ -268,7 +269,7 @@ export const mypageComponentsMessages = {
 
     // MyPageSidebar — MYPAGE_NAV tabs
     mypage_comp_nav_tab_account_label: "내 계정",
-    mypage_comp_nav_tab_trade_label: B.MARKET,
+    mypage_comp_nav_tab_trade_label: BK.MARKET,
     mypage_comp_nav_tab_community_label: B.LOUNGE,
     mypage_comp_nav_tab_store_label: B.DIPICK,
     mypage_comp_nav_tab_messenger_label: B.LETARING,
@@ -283,9 +284,9 @@ export const mypageComponentsMessages = {
     mypage_comp_nav_sec_account_basic_label: "계정 기본정보",
     mypage_comp_nav_sec_account_basic_desc: "계정 상세, 연락처 인증, 로그아웃과 탈퇴 같은 계정 단위 작업을 관리합니다.",
     mypage_comp_nav_sec_account_favorite_users_label: "친구 / 관심 사용자",
-    mypage_comp_nav_sec_account_favorite_users_desc: `모아보는 사용자를 관리합니다. ${B.MARKET}, ${B.LOUNGE}, ${B.LETARING}에서 공통으로 참조됩니다.`,
+    mypage_comp_nav_sec_account_favorite_users_desc: `모아보는 사용자를 관리합니다. ${BK.MARKET}, ${B.LOUNGE}, ${B.LETARING}에서 공통으로 참조됩니다.`,
     mypage_comp_nav_sec_account_blocked_users_label: "차단 사용자",
-    mypage_comp_nav_sec_account_blocked_users_desc: `차단된 사용자는 ${B.MARKET}, ${B.LOUNGE}, ${B.LETARING}에서 공통으로 제한됩니다.`,
+    mypage_comp_nav_sec_account_blocked_users_desc: `차단된 사용자는 ${BK.MARKET}, ${B.LOUNGE}, ${B.LETARING}에서 공통으로 제한됩니다.`,
     mypage_comp_nav_sec_account_hidden_users_label: "숨긴 사용자",
     mypage_comp_nav_sec_account_hidden_users_desc: "숨김 처리한 사용자는 피드와 일부 목록 노출에서 제외됩니다.",
 
@@ -340,7 +341,7 @@ export const mypageComponentsMessages = {
     mypage_comp_nav_sec_messenger_groups_desc:
       `공개 그룹과 비공개 그룹은 ${B.LETARING} 축에서 유지하되, ${B.MY} 안에서 빠르게 진입합니다.`,
     mypage_comp_nav_sec_messenger_chat_settings_label: "채팅 설정",
-    mypage_comp_nav_sec_messenger_chat_settings_desc: `거래 채팅, 주문 채팅, ${B.LETARING}가 공통으로 참조하는 채팅 설정입니다.`,
+    mypage_comp_nav_sec_messenger_chat_settings_desc: `거래 채팅, 주문 채팅, ${B.LETARING}이 공통으로 참조하는 채팅 설정입니다.`,
     mypage_comp_nav_sec_messenger_alerts_label: "알림 설정",
     mypage_comp_nav_sec_messenger_alerts_desc: `${B.LETARING} 알림과 전체 서비스 알림을 함께 관리합니다.`,
 
@@ -752,7 +753,7 @@ export const mypageComponentsMessages = {
     mypage_comp_community_favorites_empty: "저장한 커뮤니티 글이 없습니다.",
     mypage_comp_community_liked_empty: "공감한 커뮤니티 글이 없습니다.",
     mypage_comp_community_reports_empty: "신고 접수 내역이 없습니다.",
-    mypage_comp_community_channel_community: B.FEED,
+    mypage_comp_community_channel_community: BK.FEED,
     mypage_comp_community_channel_messenger: B.LETARING,
     mypage_comp_community_users_empty: "관심이웃이 없습니다.",
     mypage_comp_community_unsave: "저장 해제",

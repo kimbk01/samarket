@@ -199,7 +199,7 @@ describe("G-04 채팅 탭 · 전체 현황 채팅 지표", () => {
     expect(ADMIN_DASHBOARD_TAB_IDS.indexOf("chat")).toBe(ADMIN_DASHBOARD_TAB_IDS.indexOf("community_trade") + 1);
     expect(parseAdminDashboardTab("chat")).toBe("chat");
     const tab = getAdminDashboardTab("chat");
-    expect(tab).toMatchObject({ labelKo: "LETARING", trend: "chat_reports_daily", access: "/admin/chats" });
+    expect(tab).toMatchObject({ labelKo: "telRING", trend: "chat_reports_daily", access: "/admin/chats" });
     for (const id of tab.metricIds) {
       expect(ADMIN_METRIC_BY_ID.get(id)?.domain, id).toBe("chat");
       expect(CHAT_METRIC_BY_ID.has(id as ChatMetricId), id).toBe(true);

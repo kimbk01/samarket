@@ -1,5 +1,6 @@
 /** Phase 12b: `/mypage/section/...` mobile nav registry */
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 
 export const mypageMobileNavMessages = {
   ko: {
@@ -12,7 +13,7 @@ export const mypageMobileNavMessages = {
     mypage_leave_submit_err: "탈퇴 신청을 접수하지 못했습니다.",
     mypage_ia_all_menu: "전체 메뉴",
     mypage_ia_all_menu_hint: "분류를 누르면 바로 이동",
-    mypage_ia_cat_trade: B.MARKET,
+    mypage_ia_cat_trade: BK.MARKET,
     mypage_ia_cat_community: B.LOUNGE,
     mypage_ia_cat_store: B.DIPICK,
     mypage_ia_cat_asset: "자산·혜택",
@@ -56,7 +57,7 @@ export const mypageMobileNavMessages = {
     mypage_req_progress: "{done}/{total} 완료",
     mypage_req_all_done: "모두 완료",
     mypage_mnav_sec_account: "내 계정",
-    mypage_mnav_sec_trade: B.MARKET,
+    mypage_mnav_sec_trade: BK.MARKET,
     mypage_mnav_sec_community: B.LOUNGE,
     mypage_mnav_sec_store: B.DIPICK,
     mypage_mnav_sec_messenger: B.LETARING,

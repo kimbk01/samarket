@@ -209,7 +209,7 @@ describe("「7. 채팅 설정」", () => {
     render(<MessengerSettingsScreen {...props} />);
     const switches = [...document.querySelectorAll('[role="switch"]')];
     expect(switches.map((s) => s.getAttribute("aria-label"))).toEqual([
-      "LETARING · 1:1 채팅",
+      "telRING · 1:1 채팅",
       "거래 채팅",
       "주문 · 배달",
       "소리 · 진동",

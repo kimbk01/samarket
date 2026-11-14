@@ -3,6 +3,7 @@
  * 경로·메뉴 key·원장은 바꾸지 않는다. messages.ts 의 ko/en 맨 끝에서 spread 된다.
  */
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 export const adminIaR1Messages = {
   ko: {
     // 운영 실측 (2026-10-30): 운영자 화면에 DB 테이블 이름이 보이던 문구 — 운영자 용어로 덮어쓴다 (admin.ts 원문 유지, TS7056 회피)
@@ -17,7 +18,7 @@ export const adminIaR1Messages = {
     admin_report_sanctions_intro:
       "반려·경고·채팅 제한·게시글 숨김·계정 정지 등 처리 결과는 처리 이력에 기록되고, 제재가 걸리면 제재 기록에도 남습니다.",
     admin_report_list_description:
-      `신고 원장 6종을 한 목록으로 봅니다. ${B.MARKET}(reports)·${B.FEED}(community_reports) 신고는 「상세」에서 처리하고, 매장·모임·${B.LETARING}·구 거래 채팅 신고는 조회만 하며 각 행의 「처리 화면」에서 처리합니다. 계정 정지·차단은 회원 상세에서 합니다.`,
+      `신고 원장 6종을 한 목록으로 봅니다. ${BK.MARKET}(reports)·${BK.FEED}(community_reports) 신고는 「상세」에서 처리하고, 매장·모임·${B.LETARING}·구 거래 채팅 신고는 조회만 하며 각 행의 「처리 화면」에서 처리합니다. 계정 정지·차단은 회원 상세에서 합니다.`,
     admin_report_filter_domain_all: "도메인: 전체",
     admin_banners_overview_title: "배너 현황",
     admin_banners_overview_desc:
@@ -43,7 +44,7 @@ export const adminIaR1Messages = {
     admin_banners_overview_filter_all: "전체",
     admin_banners_overview_source_failed: "일부 배너를 불러오지 못했습니다",
     admin_banners_overview_domain_common: "공통",
-    admin_banners_overview_domain_trade: B.MARKET,
+    admin_banners_overview_domain_trade: BK.MARKET,
     admin_banners_overview_domain_community: B.LOUNGE,
     admin_banners_overview_domain_delivery: B.DIPICK,
     admin_feed_policy_unlinked_notice:

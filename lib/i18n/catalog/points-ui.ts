@@ -1,5 +1,6 @@
 /** Points UI messages from pre-migration literals (012d3be0^) */
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 
 export const pointsUiMessages = {
   ko: {
@@ -148,13 +149,13 @@ export const pointsUiMessages = {
     feed_ad_req_subtitle:
       "신청 시 포인트가 보류되고, 관리자 승인 시 최종 사용됩니다. 반려 시 포인트가 반환됩니다.",
     feed_ad_req_domain: "1. 광고 영역",
-    feed_ad_req_trade: B.MARKET,
-    feed_ad_req_community: B.FEED,
+    feed_ad_req_trade: BK.MARKET,
+    feed_ad_req_community: BK.FEED,
     feed_ad_req_place: "2. 광고 위치 / 대상",
-    feed_ad_req_trade_home: `${B.MARKET} 홈`,
-    feed_ad_req_community_home: `${B.FEED} 홈`,
-    feed_ad_req_trade_cat: `${B.MARKET} 카테고리`,
-    feed_ad_req_community_topic: `${B.FEED} 주제`,
+    feed_ad_req_trade_home: `${BK.MARKET} 홈`,
+    feed_ad_req_community_home: `${BK.FEED} 홈`,
+    feed_ad_req_trade_cat: `${BK.MARKET} 카테고리`,
+    feed_ad_req_community_topic: `${BK.FEED} 주제`,
     feed_ad_req_trade_cat_feed: "카테고리별 피드",
     feed_ad_req_community_topic_feed: "주제별 피드",
     feed_ad_req_pick_category: "광고할 카테고리 *",

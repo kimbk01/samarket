@@ -6,6 +6,7 @@
  */
 import { APP_PRODUCT_DISPLAY_NAME as APP } from "../../brand/app-display-name";
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 
 export const shareMessages = {
   ko: {
@@ -19,7 +20,7 @@ export const shareMessages = {
     share_no_option: "지금은 공유할 수 없어요",
     /** 앱 공유 (Owner G-1 2026-11-14) — 소개 문구 = PWA 설명(`lib/pwa/dibay-web-app-manifest.ts`) 그대로 */
     share_app_row: `${APP} 공유하기`,
-    share_app_desc: `필리핀 거주 한국인을 위한 ${B.MARKET}·${B.LOUNGE}·${B.DIPICK}·${B.LETARING}`,
+    share_app_desc: `필리핀 거주 한국인을 위한 ${BK.MARKET}·${B.LOUNGE}·${B.DIPICK}·${B.LETARING}`,
     share_app_page_title: `${APP} 앱`,
     share_app_cta_install: "앱 설치하기",
     share_app_cta_app_store: "App Store",

@@ -3,6 +3,7 @@
  * 언어 SSOT B4(2026-11-08): 언어 삼항·영어 짝 없는 한국어·대체 문구에서 옮긴 문구 (`docs/i18n-ssot.md` §3).
  */
 import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
+import { DIBAY_SERVICE_BRAND_KO as BK } from "../brand-display-ko";
 export const copyAdminB4CoreMessages = {
   ko: {
     admin_business_sample: "샘플",
@@ -82,7 +83,7 @@ export const copyAdminB4CoreMessages = {
     admin_domain_control_settlement_daily_store: "정산 (일자·매장 통제)",
     admin_domain_control_unpaid_sale_fees: "미납 판매수수료",
     admin_domain_control_refund_adjustment: "환불 / 조정",
-    admin_list_query_trade: B.MARKET,
+    admin_list_query_trade: BK.MARKET,
     admin_list_query_community: B.LOUNGE,
     admin_notification_campaigns_send_failed: "발송 실패",
     admin_notification_campaigns_app_removed_or_token_expired: "{err} — 앱 삭제·토큰 만료 기기",
