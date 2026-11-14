@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Coins, Gift, Headset, Heart, LayoutGrid, Receipt, Search, type LucideIcon } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { serviceBrandIconSlot, type ServiceBrandIconSlotProps } from "@/components/brand/ServiceBrandIcon";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { SectorHeaderBar } from "@/components/layout/sector-header/SectorHeaderBar";
 import { samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
@@ -14,7 +13,6 @@ import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { buildLoginHref } from "@/lib/auth/client-access-flow";
-import { useOwnerHubBadgeTabUnreadCount } from "@/lib/chats/use-owner-hub-badge-total";
 import {
   HOME_MENU_CATALOG,
   HOME_SECTION_DEFAULT_TITLE_KEYS,
@@ -24,40 +22,22 @@ import {
   type HomeLayoutConfig,
   type HomeMenuKey,
   type HomeSectionKey,
+  type HomeServiceKey,
 } from "@/lib/home/home-layout-contract";
 import type { HomeCatalog } from "@/lib/home/home-catalog-types";
 import { addHomePullRefreshHandler, homePtrStore } from "@/lib/home/home-pull-refresh-store";
-import { openGlobalSearchFromHere } from "@/lib/search/global/global-search-navigation-ssot";
 import { HomePullRefreshHost } from "@/components/home-hub/HomePullRefreshHost";
 import { HomeBanner } from "@/components/home-hub/HomeBanner";
-import { HomeOngoingSection } from "@/components/home-hub/HomeOngoingSection";
 import { HomeServiceCards } from "@/components/home-hub/HomeServiceCards";
-import { HomeCategoryRow } from "@/components/home-hub/HomeCategoryRow";
-import { HomeStoresSection } from "@/components/home-hub/HomeStoresSection";
-import { HomeTradeRow } from "@/components/home-hub/HomeTradeRow";
-import { HomePostsSection } from "@/components/home-hub/HomePostsSection";
+import { HomeNoticeLine } from "@/components/home-hub/HomeNoticeLine";
+import { HomeDiscoverFeed } from "@/components/home-hub/HomeDiscoverFeed";
 import { useHomeRotation } from "@/components/home-hub/use-home-rotation";
 import { hasSupabaseAuthTokenCookie } from "@/lib/home/home-banner-audience-hint";
 
-const SHORTCUT_ICON: Record<HomeMenuKey, LucideIcon | ((p: ServiceBrandIconSlotProps) => React.JSX.Element)> = {
-  /** 서비스 4개 = 브랜드 대표 아이콘 (Owner 2026-11-13) — 기능(주문·포인트 등)은 선 아이콘 그대로 */
-  trade: serviceBrandIconSlot("MARKET"),
-  stores: serviceBrandIconSlot("DIPICK"),
-  philife: serviceBrandIconSlot("FEED"),
-  chat: serviceBrandIconSlot("LETARING"),
-  events: Gift,
-  orders: Receipt,
-  points: Coins,
-  favorites: Heart,
-  support: Headset,
-  all: LayoutGrid,
-};
-
-
 /**
- * 앱 홈 `/`·`/home` — 홈 시안 v22 (Owner 「이대로 구현」 2026-11-09).
- * 밝은 상단(로고 · 오른쪽 주소 · 종) → 1단 아래 당겨서 새로고침 슬롯(커뮤니티와 같은 공통 슬롯) → 큰 검색창 →
- * 어드민 「홈 구성」 칸(배너 · 진행 중 배달 · 서비스 카드 · 배달 업종 · 매장 메뉴 · 거래 · 교민 이야기 · 바로가기).
+ * 앱 홈 `/`·`/home` — 홈 시안 v4 (Owner 「이 시안으로 진행」 2026-11-14, 이전 v22 2026-11-09).
+ * 상단(로고 · 오른쪽 주소 · 종 — 헤더 SSOT 그대로) → 당겨서 새로고침 슬롯 → 서비스 입구(telRING 대표 칸) →
+ * 어드민 배너 → 공지 한 줄 → 지금 우리 동네(섞인 피드). 검색창·개인 숫자 칸 없음(통합검색 = 라운지 머리글 검색).
  * 바뀌는 때 = 당겨서 새로고침·재접속만(`useHomeRotation`). 비로그인: 읽기 가능, 개인 기능 = 기존 로그인 안내, 배달 = S-07.
  */
 export function HomeScreen({
@@ -75,7 +55,6 @@ export function HomeScreen({
   const [layout, setLayout] = useState<HomeLayoutConfig>(initialLayout);
   const [catalog, setCatalog] = useState<HomeCatalog>(initialCatalog);
   const [refreshSeq, setRefreshSeq] = useState(0);
-  const chatUnread = useOwnerHubBadgeTabUnreadCount("chat");
   const address = useRepresentativeAddressLine();
   const { ctl: rot, init: initRotation, rotateNow } = useHomeRotation();
 
@@ -125,13 +104,24 @@ export function HomeScreen({
     },
     [isMember, router]
   );
+  /** telRING 대표 칸의 채팅·통화 바로가기 — 비로그인 안내는 메뉴와 같은 규칙 */
+  const openMenuHref = useCallback(
+    (k: HomeServiceKey, href: string) => {
+      const m = HOME_MENU_CATALOG[k];
+      if (!isMember && m.guestAuthAction) {
+        void requireAuthAction(m.guestAuthAction, () => router.push(href), { next: href });
+        return;
+      }
+      router.push(href);
+    },
+    [isMember, router]
+  );
 
   const sections = useMemo(() => resolveVisibleHomeSections(layout, !isMember), [layout, isMember]);
   const banners = useMemo(
     () => resolveAudienceBanners(layout, !(bannerAudienceMember ?? isMember)),
     [layout, bannerAudienceMember, isMember]
   );
-  const shortcuts = layout.shortcuts.filter((x) => x.visible);
 
   const sectionTitle = (key: HomeSectionKey): string => {
     const cfg = layout.sections.find((s) => s.key === key);
@@ -141,7 +131,6 @@ export function HomeScreen({
     return k ? t(k) : "";
   };
 
-  const searchPlaceholder = pickHomeText(layout.header.searchPlaceholder, language) || t("home_search_placeholder");
   const addressLabel = isMember
     ? address.status === "ready" && address.line
       ? address.line
@@ -210,105 +199,44 @@ export function HomeScreen({
         </div>
         {/* 당겨서 새로고침 슬롯 — 커뮤니티·거래와 같은 공통 슬롯(1단 아래 · 시그니처 그린) */}
         <DibayPtrSlot store={homePtrStore} tone="onBrand" className="bg-signature" dataAttribute="data-home-ptr-hint" />
-        <div className="px-3.5 pb-1 pt-3">
-          <button
-            type="button"
-            aria-label={t("home_search_aria")}
-            className="flex h-[54px] w-full items-center gap-2 rounded-full bg-white pl-[22px] pr-2 text-left shadow-[0_6px_20px_rgba(20,40,25,0.10)] active:opacity-80"
-            onClick={() => openGlobalSearchFromHere(router, "/home")}
-            data-home-search
-          >
-            <span className="min-w-0 flex-1 truncate text-[15px] text-[#9aa39c]">{searchPlaceholder}</span>
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sam-primary">
-              <Search className="h-[19px] w-[19px] text-white" strokeWidth={2.6} aria-hidden />
-            </span>
-          </button>
-        </div>
       </header>
 
       {sections.map((key) => {
-        if (key === "banner") {
-          // 회원 확인 중에는 기기 로그인 쿠키로 대상을 먼저 정해 바로 보인다(R1). 확인 결과가 다르면 그 대상 배너로 바뀐다.
-          // 쿠키를 아직 읽기 전(마운트 직후)에만 고르지 않는다 (감사 E14).
-          return banners.length ? (
-            <HomeBanner key={key} banners={banners} isMember={isMember} rot={bannerAudienceMember == null ? null : rot} />
-          ) : null;
-        }
-        if (key === "ongoing") {
-          return isMember ? <HomeOngoingSection key={key} refreshSeq={refreshSeq} /> : null;
-        }
         if (key === "services") {
           return (
             <HomeServiceCards
               key={key}
               services={layout.services}
               catalog={catalog}
-              chatUnread={chatUnread}
-              isMember={isMember}
               onOpen={openMenu}
+              onOpenHref={openMenuHref}
             />
           );
         }
-        if (key === "categories") {
-          return (
-            <HomeCategoryRow
-              key={key}
-              config={layout.categories}
-              categories={catalog.storeCategories}
-              title={sectionTitle("categories")}
-            />
-          );
-        }
-        if (key === "stores") {
-          return membership.status === "checking" ? null : (
-            <HomeStoresSection
-              key={key}
-              config={layout.stores}
-              title={sectionTitle("stores")}
-              isMember={isMember}
-              rot={rot}
-              refreshSeq={refreshSeq}
-            />
-          );
-        }
-        if (key === "trades") {
-          return (
-            <HomeTradeRow
-              key={key}
-              config={layout.trades}
-              title={sectionTitle("trades")}
-              tradeCategories={catalog.tradeCategories}
-              rot={rot}
-              refreshSeq={refreshSeq}
-            />
-          );
-        }
-        if (key === "posts") {
-          return <HomePostsSection key={key} config={layout.posts} title={sectionTitle("posts")} refreshSeq={refreshSeq} />;
-        }
-        if (key === "shortcuts" && shortcuts.length) {
-          return (
-            <div
-              key={key}
-              className="mx-3 mt-3 grid rounded-ui-rect bg-white py-3"
-              style={{ gridTemplateColumns: `repeat(${shortcuts.length}, minmax(0, 1fr))` }}
-              data-home-shortcuts
-            >
-              {shortcuts.map((x) => {
-                const Icon = SHORTCUT_ICON[x.key];
-                return (
-                  <button
-                    key={x.key}
-                    type="button"
-                    onClick={() => openMenu(x.key)}
-                    className="flex flex-col items-center gap-1 text-[11.5px] text-[#333] active:opacity-60"
-                  >
-                    <Icon className="h-[19px] w-[19px] text-[#2f4a35]" strokeWidth={1.8} aria-hidden />
-                    <span>{t(HOME_MENU_CATALOG[x.key].labelKey)}</span>
-                  </button>
-                );
-              })}
+        if (key === "banner") {
+          // 회원 확인 중에는 기기 로그인 쿠키로 대상을 먼저 정해 바로 보인다(R1). 확인 결과가 다르면 그 대상 배너로 바뀐다.
+          // 쿠키를 아직 읽기 전(마운트 직후)에만 고르지 않는다 (감사 E14).
+          return banners.length ? (
+            <div key={key} className="mt-2 bg-white pt-1" data-home-banner-wrap>
+              <HomeBanner banners={banners} isMember={isMember} rot={bannerAudienceMember == null ? null : rot} />
             </div>
+          ) : null;
+        }
+        if (key === "notice") {
+          return <HomeNoticeLine key={key} notice={catalog.latestNotice} />;
+        }
+        if (key === "feed") {
+          return (
+            <HomeDiscoverFeed
+              key={key}
+              layout={layout}
+              title={sectionTitle("feed")}
+              tradeCategories={catalog.tradeCategories}
+              isMember={isMember}
+              membershipChecking={membership.status === "checking"}
+              rot={rot}
+              refreshSeq={refreshSeq}
+            />
           );
         }
         return null;

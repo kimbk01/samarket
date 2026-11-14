@@ -1,14 +1,16 @@
 /**
- * 앱 홈(`/`·`/home`) 구성 — 단일 정의 (Owner 「이대로 구현」 2026-11-09, 홈 시안 v22).
+ * 앱 홈(`/`·`/home`) 구성 — 단일 정의 (홈 시안 v4 · Owner 「이 시안으로 진행」 2026-11-14,
+ * 시안 `docs/design/home-lounge-label-mockup-2026-11-14.html`. 이전 = 홈 시안 v22 2026-11-09).
  *
- * 홈의 목적(시안 「왜 홈을 만드는가」): ① 4개 서비스 입구 ② 매일 열 이유(새 거래·교민 이야기)
- * ③ 운영자 알림(배너) ④ 로그인 전 첫 화면 ⑤ 홈에서 바로 주문(매장 메뉴). 이 5가지에 해당하지 않는 칸은 넣지 않는다.
+ * 홈이 있는 이유 3가지: ① 서비스 입구(핵심 telRING 을 맨 위 대표 칸) ② 운영자 소식(어드민 배너·공지 한 줄)
+ * ③ 지금 동네에서 볼 거리(공개 거래·글·매장·모임을 섞은 한 줄기 피드). 검색창·개인 정보 칸은 두지 않는다
+ * (지역이 같으면 모두 같은 화면 — 개인 조회를 기다리지 않음). 칸 순서는 코드 고정, 어드민은 보이기·피드 구성만 정한다.
  *
  * - 어드민 「홈 구성」(`/admin/menus/home-layout`) 이 저장하는 값과 앱 홈이 읽는 값의 모양이 같다.
  * - 저장 위치: `admin_settings` 키 `home_layout` (`value_json` = {@link HomeLayoutConfig}, schemaVersion 2).
  * - 칸의 내용·순서·개수·문구·그림은 코드에 박지 않고 여기 모양으로 어드민이 정한다.
  *   코드가 고정하는 것: 디자인 규칙(4px·색·글자), 바뀌는 때(새로고침·재접속), 배달 판정(배달 탭과 같은 판정), 비로그인 규정(S-07).
- * - 메뉴는 아래 카탈로그 안에서만 고른다. 모임은 기능이 없어 넣지 않는다(Owner 2026-11-09).
+ * - 메뉴는 아래 카탈로그 안에서만 고른다. 모임(moim)은 2026-11-14 추가.
  * - 저장값이 없거나 깨졌으면 {@link DEFAULT_HOME_LAYOUT} 을 쓴다. 예전 schemaVersion 1 저장값은 운영에 없었다(2026-11-09 조회 0행).
  */
 
@@ -61,6 +63,7 @@ export const HOME_MENU_KEYS = [
   "trade",
   "stores",
   "philife",
+  "moim",
   "chat",
   "events",
   "orders",
@@ -91,6 +94,7 @@ export const HOME_MENU_CATALOG: Readonly<Record<HomeMenuKey, HomeMenuDef>> = {
     href: "/philife",
     guestAuthAction: null,
   },
+  moim: { key: "moim", labelKey: "moim_tab", descKey: "home_menu_desc_moim", href: "/moim", guestAuthAction: null },
   chat: {
     key: "chat",
     labelKey: "home_menu_chat",
@@ -127,46 +131,30 @@ export const HOME_MENU_CATALOG: Readonly<Record<HomeMenuKey, HomeMenuDef>> = {
 /* ───────────────────────── 칸 ───────────────────────── */
 
 /**
- * 칸 — 상단(로고·주소·종)과 검색창은 늘 맨 위라 목록에 없다.
- * banner 배너 · ongoing 진행 중 배달 한 줄(회원만) · services 서비스 카드 · categories 배달 업종 줄 ·
- * stores 지금 주문할 수 있는 매장 · trades 방금 올라온 거래 · posts 교민 이야기 · shortcuts 작은 바로가기
+ * 칸 — 상단(로고·주소·종)은 늘 맨 위라 목록에 없다. 순서 = 이 배열 순서로 고정(홈 시안 v4).
+ * services 서비스 입구(telRING 대표 칸 · 큰 칸 · 작은 아이콘) · banner 어드민 배너 · notice 공지 한 줄 ·
+ * feed 지금 우리 동네(거래·정보 공유·DIPICK 매장·모임 섞은 피드 — 구성 = trades·posts·stores 설정)
  */
-export const HOME_SECTION_KEYS = [
-  "banner",
-  "ongoing",
-  "services",
-  "categories",
-  "stores",
-  "trades",
-  "posts",
-  "shortcuts",
-] as const;
+export const HOME_SECTION_KEYS = ["services", "banner", "notice", "feed"] as const;
 export type HomeSectionKey = (typeof HOME_SECTION_KEYS)[number];
 
 export const HOME_SECTION_LABEL_KEYS: Readonly<Record<HomeSectionKey, MessageKey>> = {
-  banner: "home_section_banner",
-  ongoing: "home_section_ongoing",
   services: "home_section_services",
-  categories: "home_section_categories",
-  stores: "home_section_stores",
-  trades: "home_section_trades",
-  posts: "home_section_posts",
-  shortcuts: "home_section_shortcuts",
+  banner: "home_section_banner",
+  notice: "home_section_notice",
+  feed: "home_section_feed",
 };
 
 /** 화면에 제목 줄이 있는 칸 — 어드민이 제목을 바꿀 수 있다(비우면 기본 제목) */
-export const HOME_SECTIONS_WITH_TITLE: ReadonlySet<HomeSectionKey> = new Set(["categories", "stores", "trades", "posts"]);
+export const HOME_SECTIONS_WITH_TITLE: ReadonlySet<HomeSectionKey> = new Set(["feed"]);
 
 /** 칸 제목 기본 문구 */
 export const HOME_SECTION_DEFAULT_TITLE_KEYS: Readonly<Partial<Record<HomeSectionKey, MessageKey>>> = {
-  categories: "home_title_categories",
-  stores: "home_title_stores",
-  trades: "home_title_trades",
-  posts: "home_title_posts",
+  feed: "home_title_feed",
 };
 
-/** 비로그인에게 절대 보이지 않는 칸 (개인 정보) */
-export const HOME_SECTIONS_MEMBER_ONLY: ReadonlySet<HomeSectionKey> = new Set(["ongoing"]);
+/** 비로그인에게 절대 보이지 않는 칸 (개인 정보) — v4 홈은 개인 정보 칸이 없다 */
+export const HOME_SECTIONS_MEMBER_ONLY: ReadonlySet<HomeSectionKey> = new Set<HomeSectionKey>();
 
 export type HomeSectionConfig = {
   key: HomeSectionKey;
@@ -182,7 +170,7 @@ export const HOME_SECTION_TITLE_MAX = 24;
 
 export type HomeHeaderConfig = {
   showAddress: boolean;
-  /** 검색창 안내 문구 — 비우면 기본 문구 */
+  /** 옛 검색창 안내 문구 — v4 홈은 검색창이 없어 쓰지 않는다(저장값 호환용으로만 유지) */
   searchPlaceholder: HomeText;
 };
 export const HOME_SEARCH_PLACEHOLDER_MAX = 30;
@@ -272,6 +260,9 @@ export type HomeServiceCardConfig = {
   /** 채팅 카드 안 읽음 숫자 */
   showBadge: boolean;
 };
+
+/** 저장값이 생긴 뒤 카탈로그에 추가된 서비스 — 저장값에 없으면 기본 보이기로 붙인다 */
+export const HOME_SERVICE_KEYS_ADDED_LATER: ReadonlySet<HomeServiceKey> = new Set<HomeServiceKey>(["moim"]);
 
 export const HOME_SERVICE_TITLE_MAX = 10;
 export const HOME_SERVICE_DESC_MAX = 30;
@@ -413,17 +404,7 @@ function serviceCard(key: HomeServiceKey, size: "large" | "small", visible = tru
 
 export const DEFAULT_HOME_LAYOUT: HomeLayoutConfig = {
   schemaVersion: HOME_LAYOUT_SCHEMA_VERSION,
-  sections: [
-    section("banner"),
-    section("ongoing"),
-    section("services"),
-    section("categories"),
-    section("stores"),
-    section("trades"),
-    section("posts"),
-    /** 주문내역·포인트 등은 내정보에 있어 기본 끔 — 어드민에서 켤 수 있다 */
-    section("shortcuts", false),
-  ],
+  sections: HOME_SECTION_KEYS.map((k) => section(k)),
   header: { showAddress: true, searchPlaceholder: emptyHomeText() },
   /** 기본 배너 3개 — Owner 제공 이미지(메신저·거래·배달, 2026-11-09). 어드민에서 바꾸거나 끈다 */
   banners: [
@@ -456,6 +437,7 @@ export const DEFAULT_HOME_LAYOUT: HomeLayoutConfig = {
     serviceCard("trade", "large"),
     serviceCard("stores", "large"),
     serviceCard("philife", "small"),
+    serviceCard("moim", "small"),
     serviceCard("chat", "small"),
     serviceCard("events", "small"),
     serviceCard("orders", "small", false),
@@ -473,7 +455,8 @@ export const DEFAULT_HOME_LAYOUT: HomeLayoutConfig = {
     menusPerStore: 4,
   },
   trades: { count: 10, tradeCategoryId: EMPTY, sort: "latest" },
-  posts: { count: 4, topicSlug: EMPTY, sort: "latest" },
+  /** 피드의 정보 공유 글 — 라운지 최신순과 겹치지 않게 인기순 (홈 시안 v4) */
+  posts: { count: 4, topicSlug: EMPTY, sort: "popular" },
   shortcuts: [
     { key: "orders", visible: true },
     { key: "points", visible: true },
@@ -571,26 +554,26 @@ export function isSafeHomeImageUrl(url: string): boolean {
 }
 
 function normalizeSections(raw: unknown): HomeSectionConfig[] {
-  const out: HomeSectionConfig[] = [];
-  const seen = new Set<HomeSectionKey>();
+  const stored = new Map<HomeSectionKey, Record<string, unknown>>();
   if (Array.isArray(raw)) {
     for (const item of raw) {
       if (!isRecord(item)) continue;
       const key = item.key as HomeSectionKey;
-      if (!(HOME_SECTION_KEYS as readonly string[]).includes(key) || seen.has(key)) continue;
-      seen.add(key);
-      out.push({
-        key,
-        visible: item.visible !== false,
-        guestVisible: HOME_SECTIONS_MEMBER_ONLY.has(key) ? false : item.guestVisible !== false,
-        title: normalizeText(item.title, HOME_SECTION_TITLE_MAX),
-      });
+      if (!(HOME_SECTION_KEYS as readonly string[]).includes(key) || stored.has(key)) continue;
+      stored.set(key, item);
     }
   }
-  for (const d of DEFAULT_HOME_LAYOUT.sections) {
-    if (!seen.has(d.key)) out.push({ ...d, title: { ...d.title } });
-  }
-  return out;
+  // 순서는 코드 고정(홈 시안 v4) — 저장 순서·옛 칸(ongoing·categories·stores·trades·posts·shortcuts)은 쓰지 않는다.
+  return DEFAULT_HOME_LAYOUT.sections.map((d) => {
+    const item = stored.get(d.key);
+    if (!item) return { ...d, title: { ...d.title } };
+    return {
+      key: d.key,
+      visible: item.visible !== false,
+      guestVisible: HOME_SECTIONS_MEMBER_ONLY.has(d.key) ? false : item.guestVisible !== false,
+      title: normalizeText(item.title, HOME_SECTION_TITLE_MAX),
+    };
+  });
 }
 
 function normalizeBanner(item: Record<string, unknown>): HomeBannerConfig | null {
@@ -650,9 +633,18 @@ function normalizeServices(raw: unknown): HomeServiceCardConfig[] {
       showBadge: item.showBadge === true,
     });
   }
-  // 저장값에 없는 메뉴는 꺼진 채로 뒤에 붙인다(카탈로그 확장 대비).
+  // 저장값에 없는 메뉴는 꺼진 채로 뒤에 붙인다(카탈로그 확장 대비). 나중에 추가된 서비스(모임 2026-11-14)는 기본 보이기 그대로.
   for (const d of DEFAULT_HOME_LAYOUT.services) {
-    if (!seen.has(d.key)) out.push({ ...cloneService(d), visible: false });
+    if (seen.has(d.key)) continue;
+    if (HOME_SERVICE_KEYS_ADDED_LATER.has(d.key)) {
+      // 기본 순서에서 바로 앞 메뉴 뒤에 끼운다 (모임 = 정보 공유 뒤)
+      const defaults = DEFAULT_HOME_LAYOUT.services.map((x) => x.key);
+      const prev = defaults[defaults.indexOf(d.key) - 1];
+      const at = prev ? out.findIndex((x) => x.key === prev) : -1;
+      out.splice(at >= 0 ? at + 1 : out.length, 0, cloneService(d));
+    } else {
+      out.push({ ...cloneService(d), visible: false });
+    }
   }
   return out;
 }

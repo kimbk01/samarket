@@ -10,6 +10,7 @@ import {
   type HomeServiceKey,
 } from "@/lib/home/home-layout-contract";
 import { homeCatalogName, type HomeCatalog } from "@/lib/home/home-catalog-types";
+import { DIBAY_SERVICE_BRAND } from "@/lib/brand/dibay-service-brand";
 
 /** 그림을 올리지 않은 큰 카드의 선 그림 — 단색(색 칸 없음, Owner 2026-11-09 「아이콘 컬러 원하지 않음」) */
 const LINE_ICON: Record<HomeServiceKey, LucideIcon | ((p: ServiceBrandIconSlotProps) => React.JSX.Element)> = {
@@ -17,6 +18,7 @@ const LINE_ICON: Record<HomeServiceKey, LucideIcon | ((p: ServiceBrandIconSlotPr
   trade: serviceBrandIconSlot("MARKET"),
   stores: serviceBrandIconSlot("DIPICK"),
   philife: serviceBrandIconSlot("FEED"),
+  moim: serviceBrandIconSlot("CREW"),
   chat: serviceBrandIconSlot("LETARING"),
   events: Gift,
   orders: Receipt,
@@ -48,55 +50,111 @@ export function resolveServiceDescLines(
   return [t(HOME_MENU_CATALOG[card.key].descKey)];
 }
 
+const PRESS =
+  "transition-[transform,background-color,box-shadow,opacity] duration-100 ease-out [-webkit-tap-highlight-color:transparent] active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100";
+
 /**
- * 누름 효과 (Owner 2026-11-09 「선택 시 색상 변경 · 눌림 효과」): 누르는 동안 브랜드 연초록 바탕 + 살짝 작아짐(0.97) + 그림자 없앰.
- * 「동작 줄이기」 설정이면 크기 변화 없음.
+ * 서비스 입구 — 홈 시안 v4 (Owner 「이 시안으로 진행」 2026-11-14 · 「중요한 도메인이 telRING」).
+ * ① telRING(chat) = 맨 위 대표 칸(초록 바탕 · 워드마크 tel + 굵은 RING · 채팅·통화 바로가기)
+ * ② 큰 칸(size large) 2열 ③ 작은 칸(size small) = 동그란 아이콘 줄.
+ * 홈에는 개인 숫자를 두지 않는다(안 읽음 = 하단 탭 배지만) — 지역이 같으면 모두 같은 화면.
+ * 누름 효과 (Owner 2026-11-09): 누르는 동안 살짝 작아짐(0.97) · 「동작 줄이기」면 크기 변화 없음.
  */
 export function HomeServiceCards({
   services,
   catalog,
-  chatUnread,
-  isMember,
   onOpen,
+  onOpenHref,
 }: {
   services: HomeServiceCardConfig[];
   catalog: HomeCatalog;
-  chatUnread: number;
-  isMember: boolean;
   onOpen: (key: HomeServiceKey) => void;
+  /** telRING 대표 칸의 채팅·통화 바로가기 — 비로그인 안내는 부르는 쪽(`openMenu`)과 같은 규칙 */
+  onOpenHref: (key: HomeServiceKey, href: string) => void;
 }) {
   const { t, language } = useI18n();
   const visible = services.filter((s) => s.visible);
-  const large = visible.filter((s) => s.size === "large");
-  const small = visible.filter((s) => s.size === "small");
   if (visible.length === 0) return null;
+  const hero = visible.find((s) => s.key === "chat") ?? null;
+  const rest = visible.filter((s) => s.key !== "chat");
+  const large = rest.filter((s) => s.size === "large");
+  const small = rest.filter((s) => s.size === "small");
 
   const title = (c: HomeServiceCardConfig) => pickHomeText(c.title, language) || t(HOME_MENU_CATALOG[c.key].labelKey);
-  const badgeOf = (c: HomeServiceCardConfig) => (c.showBadge && c.key === "chat" && isMember && chatUnread > 0 ? chatUnread : 0);
   const autoImage = (c: HomeServiceCardConfig): string | null => {
     if (c.imageUrl) return c.imageUrl;
     if (c.key === "stores") return catalog.storeCategories.find((x) => x.imageUrl)?.imageUrl ?? null;
     return null;
   };
+  const heroCustomTitle = hero ? pickHomeText(hero.title, language) : "";
+  const heroDesc = hero ? resolveServiceDescLines(hero, catalog, language, t)[0] ?? "" : "";
 
   return (
-    <section className="px-3" data-home-services>
+    <section className="bg-white px-3 pb-4 pt-3" data-home-services>
+      {hero ? (
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => onOpen("chat")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onOpen("chat");
+          }}
+          className={`relative flex items-center gap-3 overflow-hidden rounded-ui-rect bg-sam-primary px-3.5 py-3.5 text-white ${PRESS} active:opacity-90`}
+          data-home-service="chat"
+          data-home-telring-hero
+        >
+          <span aria-hidden className="pointer-events-none absolute -right-8 -top-8 h-[120px] w-[120px] rounded-full bg-[#E0A800]/20" />
+          <span className="grid h-[46px] w-[46px] shrink-0 place-items-center rounded-full bg-white">
+            {(() => {
+              const Icon = LINE_ICON.chat;
+              return <Icon className="h-[26px] w-[26px] text-sam-primary" aria-hidden />;
+            })()}
+          </span>
+          <span className="min-w-0 flex-1">
+            {heroCustomTitle ? (
+              <span className="block truncate text-[22px] font-extrabold leading-tight">{heroCustomTitle}</span>
+            ) : (
+              <TelRingWordmark />
+            )}
+            {heroDesc ? <span className="mt-0.5 block truncate text-[12px] text-white/90">{heroDesc}</span> : null}
+          </span>
+          <span className="relative z-[1] flex shrink-0 gap-1.5">
+            {(
+              [
+                ["home_telring_chat", "/community-messenger?section=chats"],
+                ["home_telring_call", "/community-messenger?section=call_logs"],
+              ] as const
+            ).map(([k, href]) => (
+              <button
+                key={k}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenHref("chat", href);
+                }}
+                className={`rounded-full bg-white px-3 py-1.5 text-[12.5px] font-bold text-sam-primary ${PRESS}`}
+              >
+                {t(k)}
+              </button>
+            ))}
+          </span>
+        </div>
+      ) : null}
       {large.length > 0 ? (
-        <div className="grid grid-cols-2 gap-2">
+        <div className={`grid grid-cols-2 gap-2 ${hero ? "mt-2" : ""}`}>
           {large.map((c) => {
             const img = autoImage(c);
             const Icon = LINE_ICON[c.key];
-            const badge = badgeOf(c);
             return (
               <button
                 key={c.key}
                 type="button"
                 onClick={() => onOpen(c.key)}
-                className="relative min-h-[112px] overflow-hidden rounded-ui-rect bg-white px-3.5 pb-3 pt-3.5 text-left shadow-[0_1px_3px_rgba(20,40,25,0.06)] transition-[transform,background-color,box-shadow] duration-100 ease-out [-webkit-tap-highlight-color:transparent] active:scale-[0.97] active:bg-sam-primary-soft active:shadow-none motion-reduce:transition-none motion-reduce:active:scale-100"
+                className={`relative min-h-[100px] overflow-hidden rounded-ui-rect bg-sam-primary-soft px-3.5 pb-3 pt-3.5 text-left ${PRESS}`}
                 data-home-service={c.key}
               >
                 <span className="block text-[17px] font-bold tracking-[-0.02em] text-[#141a16]">{title(c)}</span>
-                <span className="mt-1 block max-w-[72%] text-[13px] leading-[1.45] text-[#767676]">
+                <span className="mt-1 block max-w-[72%] text-[12.5px] leading-[1.45] text-[#5f6661]">
                   {resolveServiceDescLines(c, catalog, language, t).map((line) => (
                     <span key={line} className="block truncate">
                       {line}
@@ -105,32 +163,34 @@ export function HomeServiceCards({
                 </span>
                 {img ? (
                   // eslint-disable-next-line @next/next/no-img-element -- 어드민 업종·카드 그림
-                  <img src={img} alt="" className="absolute bottom-1.5 right-2 object-contain" style={{ width: 50, height: 50 }} />
+                  <img src={img} alt="" className="absolute bottom-1.5 right-2 object-contain" style={{ width: 46, height: 46 }} />
                 ) : (
-                  <Icon className="absolute bottom-3 right-3 h-9 w-9 text-[#2f4a35]" strokeWidth={1.5} aria-hidden />
+                  <Icon className="absolute bottom-3 right-3 h-8 w-8 text-sam-primary" strokeWidth={1.5} aria-hidden />
                 )}
-                {badge > 0 ? <ServiceBadge n={badge} /> : null}
               </button>
             );
           })}
         </div>
       ) : null}
       {small.length > 0 ? (
-        <div className={`grid grid-cols-3 gap-2 ${large.length > 0 ? "mt-2" : ""}`}>
+        <div
+          className="mt-3 grid"
+          style={{ gridTemplateColumns: `repeat(${Math.min(small.length, 5)}, minmax(0, 1fr))` }}
+        >
           {small.map((c) => {
-            const badge = badgeOf(c);
-            const desc = resolveServiceDescLines(c, catalog, language, t)[0] ?? "";
+            const Icon = LINE_ICON[c.key];
             return (
               <button
                 key={c.key}
                 type="button"
                 onClick={() => onOpen(c.key)}
-                className="relative rounded-ui-rect bg-white px-3 py-3 text-left shadow-[0_1px_3px_rgba(20,40,25,0.06)] transition-[transform,background-color,box-shadow] duration-100 ease-out [-webkit-tap-highlight-color:transparent] active:scale-[0.97] active:bg-sam-primary-soft active:shadow-none motion-reduce:transition-none motion-reduce:active:scale-100"
+                className={`flex flex-col items-center gap-1.5 py-1 text-[12px] font-semibold text-[#333] ${PRESS}`}
                 data-home-service={c.key}
               >
-                <span className="block truncate text-[15px] font-semibold text-[#141a16]">{title(c)}</span>
-                {desc ? <span className="mt-0.5 block truncate text-[12px] text-[#767676]">{desc}</span> : null}
-                {badge > 0 ? <ServiceBadge n={badge} /> : null}
+                <span className="grid h-11 w-11 place-items-center rounded-full bg-[#F1F3F0]">
+                  <Icon className="h-[22px] w-[22px] text-sam-primary" strokeWidth={1.8} aria-hidden />
+                </span>
+                <span className="max-w-full truncate">{title(c)}</span>
               </button>
             );
           })}
@@ -140,10 +200,20 @@ export function HomeServiceCards({
   );
 }
 
-function ServiceBadge({ n }: { n: number }) {
+/** telRING 워드마크 — tel 보통 · RING 굵게 노랑 (시안 v4). 브랜드 표시값은 SSOT 상수 그대로 나눠 그린다. */
+function TelRingWordmark() {
+  const name = DIBAY_SERVICE_BRAND.LETARING;
+  const i = name.indexOf("RING");
   return (
-    <span className="absolute right-2 top-2 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#F03A2E] px-1 text-[11px] font-bold leading-none text-white tabular-nums">
-      {n > 99 ? "99+" : n}
+    <span className="block text-[22px] leading-tight tracking-[-0.01em]" aria-label={name}>
+      {i > 0 ? (
+        <>
+          <span className="font-medium">{name.slice(0, i)}</span>
+          <span className="font-extrabold text-[#FFD23F]">{name.slice(i)}</span>
+        </>
+      ) : (
+        <span className="font-extrabold">{name}</span>
+      )}
     </span>
   );
 }

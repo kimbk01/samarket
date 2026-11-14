@@ -48,7 +48,7 @@ export async function loadHomeLayoutFromStore(): Promise<HomeLayoutServerPayload
 
 const loadHomeLayoutCachedInternal = unstable_cache(
   async (): Promise<HomeLayoutServerPayload> => loadHomeLayoutFromStore(),
-  ["home-layout:server:v1"],
+  ["home-layout:server:v2"],
   { revalidate: 300, tags: [HOME_LAYOUT_SERVER_CACHE_TAG] }
 );
 

@@ -18,18 +18,33 @@ import {
 } from "@/lib/home/home-layout-contract";
 import { homeHubMessages } from "@/lib/i18n/catalog/home-hub";
 
-describe("home layout contract (홈 시안 v22)", () => {
-  it("기본 칸 순서 — 배너 → 진행 중 → 서비스 카드 → 배달 업종 → 매장 → 거래 → 교민 이야기, 바로가기 끔", () => {
+describe("home layout contract (홈 시안 v4 · 2026-11-14)", () => {
+  it("칸 = 서비스 입구 → 배너 → 공지 한 줄 → 지금 우리 동네 (검색창·개인 칸 없음)", () => {
+    expect([...HOME_SECTION_KEYS]).toEqual(["services", "banner", "notice", "feed"]);
     expect(DEFAULT_HOME_LAYOUT.sections.map((s) => s.key)).toEqual([...HOME_SECTION_KEYS]);
-    expect(DEFAULT_HOME_LAYOUT.sections.find((s) => s.key === "shortcuts")!.visible).toBe(false);
-    expect(HOME_SECTION_KEYS as readonly string[]).not.toContain("lifeInfo");
+    expect(DEFAULT_HOME_LAYOUT.sections.every((s) => s.visible && s.guestVisible)).toBe(true);
+    expect(HOME_SECTION_KEYS as readonly string[]).not.toContain("ongoing");
   });
 
-  it("서비스 카드 — 큰 카드 거래·배달, 작은 카드 정보교환·채팅·이벤트, 모임 없음", () => {
+  it("서비스 — 큰 칸 거래·배달, 작은 칸 정보 공유·모임·telRING·이벤트 (telRING = 화면 맨 위 대표 칸)", () => {
     const v = DEFAULT_HOME_LAYOUT.services.filter((s) => s.visible);
     expect(v.filter((s) => s.size === "large").map((s) => s.key)).toEqual(["trade", "stores"]);
-    expect(v.filter((s) => s.size === "small").map((s) => s.key)).toEqual(["philife", "chat", "events"]);
-    expect(Object.keys(HOME_MENU_CATALOG).some((k) => /meet/i.test(k))).toBe(false);
+    expect(v.filter((s) => s.size === "small").map((s) => s.key)).toEqual(["philife", "moim", "chat", "events"]);
+    expect(HOME_MENU_CATALOG.moim.href).toBe("/moim");
+  });
+
+  it("옛 저장값(모임 없음)에는 모임을 기본 보이기로 붙인다 · 다른 빠진 메뉴는 꺼짐", () => {
+    const c = normalizeHomeLayout({
+      schemaVersion: 2,
+      services: [
+        { key: "trade", size: "large", visible: true },
+        { key: "philife", size: "small", visible: true },
+        { key: "events", size: "small", visible: true },
+      ],
+    });
+    expect(c.services.find((s) => s.key === "moim")!.visible).toBe(true);
+    expect(c.services.slice(0, 4).map((s) => s.key)).toEqual(["trade", "philife", "moim", "events"]);
+    expect(c.services.find((s) => s.key === "chat")!.visible).toBe(false);
   });
 
   it("기본 배너 3개(메신저·거래·배달) — 문구는 카탈로그(한/영) · 1:1 · 보통 크기", () => {
@@ -47,24 +62,20 @@ describe("home layout contract (홈 시안 v22)", () => {
     expect(normalizeHomeLayout({ schemaVersion: 1, sections: [] })).toEqual(DEFAULT_HOME_LAYOUT);
   });
 
-  it("저장 순서 유지 · 모르는 칸 버림 · 빠진 칸은 기본 순서로 뒤에", () => {
+  it("칸 순서는 코드 고정 — 저장 순서·옛 칸(v22)은 버리고 보이기·제목만 이어받음", () => {
     const c = normalizeHomeLayout({
       schemaVersion: 2,
-      sections: [{ key: "posts", visible: true, guestVisible: true }, { key: "lifeInfo" }],
+      sections: [
+        { key: "banner", visible: false, guestVisible: true },
+        { key: "ongoing", visible: true },
+        { key: "services", visible: true },
+        { key: "posts", visible: true },
+        { key: "lifeInfo" },
+      ],
     });
-    expect(c.sections[0]!.key).toBe("posts");
-    expect(c.sections.map((s) => s.key)).not.toContain("lifeInfo");
-    expect(c.sections.length).toBe(HOME_SECTION_KEYS.length);
-  });
-
-  it("진행 중 배달은 비로그인에게 절대 안 보임", () => {
-    const c = normalizeHomeLayout({
-      schemaVersion: 2,
-      sections: [{ key: "ongoing", visible: true, guestVisible: true }],
-    });
-    expect(c.sections.find((s) => s.key === "ongoing")!.guestVisible).toBe(false);
-    expect(resolveVisibleHomeSections(c, true)).not.toContain("ongoing");
-    expect(resolveVisibleHomeSections(c, false)).toContain("ongoing");
+    expect(c.sections.map((s) => s.key)).toEqual(["services", "banner", "notice", "feed"]);
+    expect(c.sections.find((s) => s.key === "banner")!.visible).toBe(false);
+    expect(resolveVisibleHomeSections(c, true)).toEqual(["services", "notice", "feed"]);
   });
 
   it("배너 대상 — 전체/회원만/비로그인만, 끈 배너 제외", () => {

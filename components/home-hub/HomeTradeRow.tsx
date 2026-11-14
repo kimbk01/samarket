@@ -15,8 +15,6 @@ import { HOME_TRADES_RECENT_DAYS, type HomeTradesConfig } from "@/lib/home/home-
 import { homeCatalogName, type HomeTradeCategory } from "@/lib/home/home-catalog-types";
 import { keepSessionPick, rotateUnseenFirst } from "@/lib/home/home-rotation";
 import type { HomeRotationCtl } from "@/components/home-hub/use-home-rotation";
-import { HomeSectionHead } from "@/components/home-hub/HomeSectionHead";
-import { HomeLoadError } from "@/components/home-hub/HomeLoadError";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -27,26 +25,20 @@ function tradePrice(n: number | null, meta: unknown): string {
 }
 
 /**
- * 「방금 올라온 거래」 — 사진 좌우 넘김.
+ * 홈 피드의 마켓 상품 (홈 시안 v4 「지금 우리 동네」) — 데이터는 옛 「방금 올라온 거래」와 같다.
  * 후보 = 판매중·예약중 거래글(거래완료·숨김 제외), 최근 7일 글 먼저 · 모자라면 오래된 글로 채움 ·
  * 지역 = 거래 탭에서 이번 실행에 고른 지역(없으면 전체 지역) ·
  * 새로고침·재접속마다 새로 받아 한 번도 안 보인 글 먼저(최신순), 이미 보인 글은 오래전에 보인 것부터 뒤에.
  */
-export function HomeTradeRow({
+export function useHomeTrades({
   config,
-  title,
-  tradeCategories,
   rot,
   refreshSeq,
 }: {
   config: HomeTradesConfig;
-  title: string;
-  tradeCategories: HomeTradeCategory[];
   rot: HomeRotationCtl | null;
   refreshSeq: number;
-}) {
-  const { t, language } = useI18n();
-  const router = useRouter();
+}): { items: PostWithMeta[] | null; failed: boolean; retry: () => void } {
   const [items, setItems] = useState<PostWithMeta[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
@@ -109,60 +101,56 @@ export function HomeTradeRow({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 교체는 mode·seq(새로고침)·구성 기준
   }, [mode, seq, config.count, config.sort, config.tradeCategoryId, retryKey]);
 
-  const catName = (id: string | null | undefined) => {
-    const c = tradeCategories.find((x) => x.id === id);
-    return c ? homeCatalogName(c, language) : "";
+  return {
+    items,
+    failed,
+    retry: () => {
+      setFailed(false);
+      setItems(null);
+      setRetryKey((n) => n + 1);
+    },
   };
+}
 
+/** 마켓 상품 카드 — 큰 사진 1장(big) 또는 2열 중 한 칸(pair). 누르면 상품 상세 */
+export function HomeTradeFeedCard({
+  post,
+  variant,
+  tradeCategories,
+}: {
+  post: PostWithMeta;
+  variant: "big" | "pair";
+  tradeCategories: HomeTradeCategory[];
+}) {
+  const { language } = useI18n();
+  const router = useRouter();
+  const img = post.thumbnail_url || post.images?.[0] || "";
+  const catId = (post as { trade_category_id?: string | null }).trade_category_id ?? post.category_id;
+  const cat = tradeCategories.find((x) => x.id === catId);
+  const meta = [cat ? homeCatalogName(cat, language) : "", formatRelativeTimeAgo(post.created_at, language as AppLanguageCode)]
+    .filter(Boolean)
+    .join(" · ");
+  const big = variant === "big";
   return (
-    <section className="mt-3 bg-white pb-5 pt-[18px]" data-home-trades>
-      <HomeSectionHead title={title} />
-      {failed ? (
-        <HomeLoadError
-          onRetry={() => {
-            setFailed(false);
-            setItems(null);
-            setRetryKey((n) => n + 1);
-          }}
-        />
-      ) : items == null ? (
-        <div className="flex gap-2.5 overflow-hidden px-4">
-          {[0, 1, 2].map((i) => (
-            <span key={i} className="h-[118px] w-[118px] shrink-0 animate-pulse rounded-ui-rect bg-[#eef1ee]" />
-          ))}
-        </div>
-      ) : items.length === 0 ? (
-        <p className="px-[18px] text-[13.5px] text-[#767676]">{t("home_trades_empty")}</p>
-      ) : (
-        <div className="flex gap-2.5 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {items.map((p) => {
-            const img = p.thumbnail_url || p.images?.[0] || "";
-            const cat = catName((p as { trade_category_id?: string | null }).trade_category_id ?? p.category_id);
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => router.push(`/post/${encodeURIComponent(p.id)}`)}
-                className="w-[118px] shrink-0 text-left active:opacity-80"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element -- 거래글 사진 */}
-                <img
-                  src={img}
-                  alt=""
-                  className="rounded-ui-rect bg-[#eef1ee] object-cover"
-                  /* 앱 전역 img height:auto 보다 앞서도록 크기는 인라인 (정사각 고정) */
-                  style={{ width: 118, height: 118 }}
-                />
-                <span className="mt-1.5 block truncate text-[14px] text-[#222]">{p.title}</span>
-                <span className="block text-[15px] font-bold text-[#141a16]">{tradePrice(p.price, (p as { meta?: unknown }).meta)}</span>
-                <span className="block truncate text-[12px] text-[#999]">
-                  {[cat, formatRelativeTimeAgo(p.created_at, language as AppLanguageCode)].filter(Boolean).join(" · ")}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </section>
+    <button
+      type="button"
+      onClick={() => router.push(`/post/${encodeURIComponent(post.id)}`)}
+      className="block w-full min-w-0 text-left active:opacity-80"
+      data-home-feed-trade={post.id}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- 거래글 사진 */}
+      <img
+        src={img}
+        alt=""
+        className="w-full rounded-ui-rect bg-[#eef1ee] object-cover"
+        /* 앱 전역 img height:auto 보다 앞서도록 높이는 인라인 */
+        style={{ height: big ? 220 : 140 }}
+      />
+      <span className={`mt-2 block font-extrabold text-[#141a16] ${big ? "text-[18px]" : "text-[15px]"}`}>
+        {tradePrice(post.price, (post as { meta?: unknown }).meta)}
+      </span>
+      <span className="block truncate text-[14px] text-[#222]">{post.title}</span>
+      {meta ? <span className="block truncate text-[12px] text-[#999]">{meta}</span> : null}
+    </button>
   );
 }
