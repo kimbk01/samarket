@@ -33,7 +33,7 @@ import { useOwnerNavigationSummary } from "@/lib/delivery/owner/projections/use-
 import { useMainBottomNavTabs } from "@/contexts/MainBottomNavTabsContext";
 import { prewarmBottomNavTapTargetClientCache } from "@/lib/main-menu/bottom-nav-tap-prewarm-data";
 import { prewarmBottomNavTapHrefResolvingStoresRegion } from "@/lib/main-menu/bottom-nav-prewarm-href";
-import { commitMainBottomNavRoute, mainBottomNavRouteUsesReplace, shouldMainBottomNavRouteScrollOnly } from "@/lib/main-menu/main-bottom-nav-route-commit";
+import { commitMainBottomNavRoute, shouldMainBottomNavRouteScrollOnly } from "@/lib/main-menu/main-bottom-nav-route-commit";
 import { scrollAppShellToTop } from "@/lib/layout/scroll-app-shell-to-top";
 import { openBottomNavHref } from "@/lib/main-menu/bottom-nav-link-open";
 import {
@@ -61,7 +61,6 @@ import { syncMypageBottomNavContextFromPath } from "@/lib/main-menu/mypage-botto
 import { markBottomNavRouteIntentForBackgroundWarm } from "@/lib/navigation/mark-bottom-nav-route-intent";
 import { MainBottomNavTabIcon } from "@/components/main-menu/MainBottomNavTabIcon";
 import { MAIN_BOTTOM_NAV_TAB_ICONS } from "@/components/main-menu/MainBottomNavTabIcons";
-import { ServiceBrandIcon } from "@/components/brand/ServiceBrandIcon";
 import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-nav-href";
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
 import { useShellHydrated } from "@/lib/ui/use-shell-hydrated";
@@ -82,7 +81,15 @@ import type {
 } from "@/contexts/LatestMenuNavigationContext";
 import { shouldDeferUnreadBadgeRepaint } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import { useRegion } from "@/contexts/RegionContext";
-import { triggerLightTapFeedback } from "@/lib/ui/light-tap-feedback";
+import { triggerBottomNavSelectionFeedback } from "@/lib/ui/light-tap-feedback";
+import {
+  beginBottomNavShowing,
+  checkBottomNavWatchdog,
+  failBottomNavShowing,
+} from "@/lib/main-menu/bottom-nav-controller";
+import { emitBottomNavResume } from "@/lib/main-menu/bottom-nav-resume-signal";
+import { registerAppResumeTask } from "@/lib/app-resume/app-resume-coordinator.client";
+import { useBottomNavShowingTarget } from "@/lib/main-menu/use-bottom-nav-controller";
 import {
   resolveMainBottomNavHubDomain,
 } from "@/lib/main-menu/main-bottom-nav-domain";
@@ -139,6 +146,8 @@ function warmBottomNavTabIntent(
 }
 
 export type BottomNavTabCommitOpts = {
+  /** 로그인 확인 등 기다림 뒤 실행 — 그 사이 시작된 방·통화 진입 잠금이 이긴다 */
+  deferredAfterAwait?: boolean;
   pathname: string | null;
   navSearch: string;
   href: string;
@@ -150,10 +159,8 @@ export type BottomNavTabCommitOpts = {
     href: string,
     source?: MenuNavigationSource,
     options?: BeginMenuNavigationOptions
-  ) => void;
+  ) => { id: number } | void;
   onNavigationIntent: (tabId: string) => void;
-  /** 이동이 나가지 못했을 때 선택 표시 되돌리기 */
-  onNavigationBlocked?: () => void;
   guardBeforeNavigate: (nextHref?: string) => boolean;
   router: Pick<ReturnType<typeof useRouter>, "prefetch" | "push" | "replace">;
   onPrewarm?: () => void;
@@ -161,8 +168,8 @@ export type BottomNavTabCommitOpts = {
 };
 
 /** 하단 탭 이동 — `commitMainBottomNavRoute` 단일 경로 */
-export function commitBottomNavTabRoute(opts: BottomNavTabCommitOpts): void {
-  commitMainBottomNavRoute({
+export function commitBottomNavTabRoute(opts: BottomNavTabCommitOpts): "scroll_only" | "blocked" | "navigated" {
+  return commitMainBottomNavRoute({
     pathname: opts.pathname,
     currentSearch: opts.navSearch,
     href: opts.href,
@@ -170,9 +177,7 @@ export function commitBottomNavTabRoute(opts: BottomNavTabCommitOpts): void {
     prefetchWhenInactive: !opts.isActive,
     beginMenuNavigation: opts.beginMenuNavigation,
     onNavigationIntent: opts.onNavigationIntent,
-    onNavigationBlocked: opts.onNavigationBlocked,
     guardBeforeNavigate: opts.guardBeforeNavigate,
-    push: (href) => opts.router.push(href),
     replace: (href) => opts.router.replace(href),
     prefetch: shouldRunApkBottomNavRoutePrefetch()
       ? (href) => {
@@ -183,6 +188,8 @@ export function commitBottomNavTabRoute(opts: BottomNavTabCommitOpts): void {
     skipPostCommitPrewarm: opts.prewarmedBeforeCommit === true,
     onCloseDomainSwitcher: opts.onCloseDomainSwitcher,
     persistMessengerOriginFromHref: isMainBottomNavUnifiedInboxTabId(opts.tabId),
+    showOnBottomNavController: true,
+    deferredAfterAwait: opts.deferredAfterAwait === true,
   });
 }
 
@@ -202,33 +209,20 @@ function runBottomNavTabClickOrOpenNew(
   commitTabRoute(tab.id, { ...opts, href, tabId: tab.id });
 }
 
-/** 네이버형 하단 탭 (홈 설계안 v11) — 원형 orbit 강조를 그리지 않는다 */
-const BOTTOM_NAV_ORBIT_EMPHASIS_ENABLED = false;
-
-function bottomNavOrbitEmphasisItemClass(emphasisKind: MainBottomNavTabEmphasisKind): string {
-  if (!BOTTOM_NAV_ORBIT_EMPHASIS_ENABLED) return "";
-  if (emphasisKind === "domain-hub") return "app-bottom-nav-item--domain-hub";
-  if (emphasisKind === "messenger-hub") return "app-bottom-nav-item--messenger-hub";
-  return "";
-}
-
 function BottomNavTabIconContent({
   tab,
   isActive,
-  emphasisKind,
   iconSize,
   badgeCount,
 }: {
   tab: BottomNavItemConfig;
   isActive: boolean;
-  emphasisKind: MainBottomNavTabEmphasisKind;
   iconSize: string;
   badgeCount: number;
 }) {
   /**
-   * 텔레그램형 하단 탭 (Owner 최종 승인 2026-11-13): 모든 탭 = 대표 채움 아이콘 26px(선택해도 크기 그대로),
-   * 선택 = 아이콘·글자 색만 DIBAY 그린(CSS). 「MY」는 내 프로필 사진 그대로(홈 설계안 v11 · Owner 2026-11-13 「원래대로 되돌려」).
-   * 원형 orbit 강조는 꺼져 있다 — `emphasisKind` 는 탭 이동 주소에만 쓴다.
+   * 하단 탭 아이콘 (계약 v2 · Owner 2026-11-15 「네이버형 채움↔외곽선」): 서비스 탭 = 선택 채움 · 비선택 외곽선 26px,
+   * 색은 선택 DIBAY 그린 · 비선택 회색(CSS). 바뀌는 순간 애니메이션 없음. 「MY」는 내 프로필 사진(선택 = 테두리).
    */
   if (tab.id === "my") {
     return (
@@ -240,34 +234,10 @@ function BottomNavTabIconContent({
       </div>
     );
   }
-  if (BOTTOM_NAV_ORBIT_EMPHASIS_ENABLED && (emphasisKind === "domain-hub" || emphasisKind === "messenger-hub")) {
-    return (
-      <>
-        <div className="app-bottom-nav-icon-slot" aria-hidden="true">
-          <span className="block h-[22px] w-[22px] shrink-0" />
-        </div>
-        <div className="app-bottom-nav-icon-slot app-bottom-nav-icon-slot--domain-hub-orbit">
-          <span
-            className={[
-              "app-bottom-nav-domain-hub-orbit",
-              isActive ? "app-bottom-nav-domain-hub-orbit--active" : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          >
-            <span className="app-bottom-nav-domain-hub-orbit-icon-wrap" aria-hidden>
-              <ServiceBrandIcon brand="HOME" className="app-bottom-nav-domain-hub-icon" />
-            </span>
-            <BottomNavHubBadgeDot count={badgeCount} />
-          </span>
-        </div>
-      </>
-    );
-  }
   return (
     <div className="app-bottom-nav-icon-slot">
-      <span className="app-bottom-nav-inline-icon" key={isActive ? "on" : "off"}>
-        <MainBottomNavTabIcon tab={tab} className={iconSize} />
+      <span className="app-bottom-nav-inline-icon">
+        <MainBottomNavTabIcon tab={tab} className={iconSize} selected={isActive} />
         <BottomNavHubBadgeDot count={badgeCount} />
       </span>
     </div>
@@ -279,7 +249,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   itemClassName = "",
   pathname,
   navSearch,
-  pendingActiveTabId,
+  showingTabId,
   onNavigationIntent,
   beginMenuNavigation,
   guardBeforeNavigate,
@@ -291,8 +261,8 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   itemClassName?: string;
   pathname: string | null;
   navSearch: string;
-  /** 탭 이동 직후 — pathname 갱신 전에도 **한 탭만** 활성으로 보이게 함(이전 경로 탭이 남는 체감 제거) */
-  pendingActiveTabId: string | null;
+  /** 하단 탭 컨트롤러가 이동 중인 탭 — 경로 확정 전에도 **누른 탭 하나만** 선택으로 보인다 */
+  showingTabId: string | null;
   onNavigationIntent: (tabId: string) => void;
   beginMenuNavigation: (
     href: string,
@@ -320,8 +290,8 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
     [pathname, searchParams, shellHydrated]
   );
   const isActive =
-    pendingActiveTabId != null
-      ? tab.id === pendingActiveTabId
+    showingTabId != null
+      ? tab.id === showingTabId
       : isMainBottomNavDisplayTabActive(pathname, tab, { searchParams, secondaryRail });
   const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
 
@@ -340,7 +310,6 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
 
   const className = [
     "app-bottom-nav-item group",
-    bottomNavOrbitEmphasisItemClass(emphasisKind),
     BOTTOM_NAV_ITEM_TOUCH_CLASS,
     itemClassName,
     tab.id === "my" || tab.id === "delivery-my" || tab.id === "philife-my" || tab.id === "trade-my"
@@ -362,7 +331,6 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       <BottomNavTabIconContent
         tab={tab}
         isActive={isActive}
-        emphasisKind={emphasisKind}
         iconSize={iconSize}
         badgeCount={tabBadgeCount}
       />
@@ -389,7 +357,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
     <Link
       href={effectiveHref}
       prefetch={shouldPrefetchMainBottomNavHref(effectiveHref, isActive)}
-      replace={mainBottomNavRouteUsesReplace(pathname ?? null, effectiveHref)}
+      replace
       scroll={false}
       className={className}
       data-bottom-nav-tab-id={tab.id}
@@ -405,9 +373,11 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       onTouchStart={() => {
         if (!isActive) warmBottomNavTabIntent(effectiveHref, { router, isActive });
       }}
-      onPointerDown={(e) => {
-        triggerLightTapFeedback(e);
-        /** `beginMenuNavigation` 은 click 한 번만 — pointerDown+click 이중 호출 방지 */
+      onPointerDown={() => {
+        /**
+         * 손을 대는 순간은 「준비」만 — 선택·햅틱·이동은 손을 뗄 때(click) 1회 (계약 v2 · Owner 2026-11-15 「너무 빨라도 안 됨」).
+         * 바 위에서 시작한 스크롤은 click 이 오지 않아 선택되지 않는다.
+         */
         if (!isActive) {
           markBottomNavRouteIntentForBackgroundWarm();
           warmBottomNavTabIntent(effectiveHref, { router, isActive });
@@ -452,7 +422,7 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
   itemClassName = "",
   pathname,
   navSearch,
-  pendingActiveTabId,
+  showingTabId,
   onNavigationIntent,
   beginMenuNavigation,
   guardBeforeNavigate,
@@ -463,7 +433,7 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
   itemClassName?: string;
   pathname: string | null;
   navSearch: string;
-  pendingActiveTabId: string | null;
+  showingTabId: string | null;
   onNavigationIntent: (tabId: string) => void;
   beginMenuNavigation: (
     href: string,
@@ -486,8 +456,8 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
   const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tt(tab.label);
   const { href: effectiveHref } = useCommerceCartNavHref(tab.href);
   const isActive =
-    pendingActiveTabId != null
-      ? tab.id === pendingActiveTabId
+    showingTabId != null
+      ? tab.id === showingTabId
       : isMainBottomNavDisplayTabActive(pathname, tab, { searchParams, secondaryRail });
   const Icon = TAB_ICONS.cart;
   const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
@@ -497,14 +467,13 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
     <Link
       href={effectiveHref}
       prefetch={shouldPrefetchMainBottomNavHref(effectiveHref, isActive)}
-      replace={mainBottomNavRouteUsesReplace(pathname ?? null, effectiveHref)}
+      replace
       scroll={false}
       className={className}
       data-bottom-nav-tab-id={tab.id}
       data-active={isActive ? "true" : "false"}
       aria-label={tabLabel}
       aria-current={isActive ? "page" : undefined}
-      onPointerDown={(e) => triggerLightTapFeedback(e)}
       onClick={(e) => {
         if (!guardBeforeNavigate(effectiveHref)) {
           e.preventDefault();
@@ -545,7 +514,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   itemClassName = "",
   pathname,
   navSearch,
-  pendingActiveTabId,
+  showingTabId,
   onNavigationIntent,
   beginMenuNavigation,
   guardBeforeNavigate,
@@ -557,7 +526,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   itemClassName?: string;
   pathname: string | null;
   navSearch: string;
-  pendingActiveTabId: string | null;
+  showingTabId: string | null;
   onNavigationIntent: (tabId: string) => void;
   beginMenuNavigation: (
     href: string,
@@ -577,8 +546,8 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount("stores");
   const _storeDeepLink = useOwnerHubBadgeStoreDeepLink();
   const isActive =
-    pendingActiveTabId != null
-      ? tab.id === pendingActiveTabId
+    showingTabId != null
+      ? tab.id === showingTabId
       : isMainBottomNavDisplayTabActive(pathname, tab);
   const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
 
@@ -601,7 +570,6 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       : "bg-transparent";
   const className = [
     "app-bottom-nav-item group",
-    bottomNavOrbitEmphasisItemClass(emphasisKind),
     BOTTOM_NAV_ITEM_TOUCH_CLASS,
     itemClassName,
     inactiveSurface,
@@ -621,7 +589,6 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       <BottomNavTabIconContent
         tab={tab}
         isActive={isActive}
-        emphasisKind={emphasisKind}
         iconSize={iconSize}
         badgeCount={tabBadgeCount}
       />
@@ -638,7 +605,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
     <Link
       href={storesTabHref}
       prefetch={shouldPrefetchMainBottomNavHref(storesTabHref, isActive)}
-      replace={mainBottomNavRouteUsesReplace(pathname ?? null, storesTabHref)}
+      replace
       scroll={false}
       className={className}
       data-bottom-nav-tab-id={tab.id}
@@ -672,8 +639,8 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
           }
         }
       }}
-      onPointerDown={(e) => {
-        triggerLightTapFeedback(e);
+      onPointerDown={() => {
+        /** 손을 대는 순간은 준비만 — 선택·햅틱·이동은 click (계약 v2) */
         if (!isActive) {
           markBottomNavRouteIntentForBackgroundWarm();
           try {
@@ -759,7 +726,6 @@ export function BottomNav({
     searchParams,
     ownerStoreId: null,
   });
-  const router = useRouter();
   const { beginMenuNavigation } = useLatestMenuNavigation();
   /**
    * 탭 단일 소스: `MainBottomNavTabsProvider`. admin 변경·storage 동기화·관리자 이탈 강제 재조회는
@@ -778,61 +744,40 @@ export function BottomNav({
   useLayoutEffect(() => {
     bottomNavPickCtxRef.current = { searchParams, ownerStoreId: ownerNav.storeId };
   }, [searchParams, ownerNav.storeId]);
-  const [pendingActiveTabId, setPendingActiveTabId] = useState<string | null>(null);
-  const tabsRef = useRef(displayTabs);
-  /** 브라우저 `window.setTimeout` id — `@types/node` 의 `ReturnType<typeof setTimeout>` 과 분리 */
-  const pendingActiveResetTimerRef = useRef<number | null>(null);
-  const lastPathnameForPendingRef = useRef<string | null>(pathname ?? null);
-  useEffect(() => {
-    tabsRef.current = displayTabs;
-  }, [displayTabs]);
-
-  const clearPendingActiveReset = useCallback(() => {
-    if (pendingActiveResetTimerRef.current != null) {
-      window.clearTimeout(pendingActiveResetTimerRef.current);
-      pendingActiveResetTimerRef.current = null;
-    }
-  }, []);
+  /**
+   * 선택 표시 단일 결정권자 = 하단 탭 컨트롤러(`bottom-nav-controller`) — 손 뗀 순간부터 경로 확정·거부·감시 전환까지
+   * 누른 탭 하나만 선택으로 보인다. 예전 `pendingActiveTabId`·1.5초 타이머·진행 막대는 지웠다(계약 v2).
+   */
+  const showing = useBottomNavShowingTarget();
+  const showingTabId = showing?.tabId ?? null;
 
   /**
-   * 재감사(2026-11-10, Owner 승인): 선택 표시는 **이동이 끝날 때(pathname 변경) 또는 이동이 나가지 못할 때까지** 유지한다.
-   * 예전 1.5초 고정 되돌림은 이동이 느릴 때(RSC 대기·배포 직후 문서 이동 수 초 — D-1 로 이전 화면 유지) 탭을 누른 표시가
-   * 사라져 「무반응」처럼 보였다(Xiaomi 실측 11-10 06:48). 문서 이동이면 새 문서가 표시를 새로 그린다.
+   * 앱 복귀 즉시(복귀 조정자 `ui` 레인 — 인증·idle 대기 없음): 이동 멈춤 감시를 다시 판정하고, 키보드·스크롤 숨김을
+   * 다시 맞춘다 (계약 v2 · 설계서 §5-5 B2·B4). 새 리스너를 따로 달지 않고 복귀 조정자 하나에 등록한다.
    */
-  const markBottomNavIntent = useCallback(
-    (tabId: string) => {
-      setPendingActiveTabId((prev) => (prev === tabId ? prev : tabId));
-      clearPendingActiveReset();
-    },
-    [clearPendingActiveReset]
+  useEffect(
+    () =>
+      registerAppResumeTask({
+        id: "bottom-nav-resume-ui",
+        lane: "ui",
+        auth: "none",
+        run: () => {
+          checkBottomNavWatchdog();
+          emitBottomNavResume();
+        },
+      }),
+    []
   );
-  const clearBottomNavIntent = useCallback(() => {
-    clearPendingActiveReset();
-    setPendingActiveTabId(null);
-  }, [clearPendingActiveReset]);
+  /** 컨트롤러가 이미 선택을 정하므로 메뉴 의도 알림은 받지 않는다(호출처 호환용 no-op) */
+  const markBottomNavIntent = useCallback((_tabId: string) => {}, []);
   /** 탭 클릭 인텐트 — 본문 슬라이드는 `route-transition-config` pathname 단일 소스 (`mainShellTabSlide` 미사용) */
   const beginBottomNavNavigation = useCallback(
     (href: string, source?: MenuNavigationSource, options?: BeginMenuNavigationOptions) => {
       dismissLoginRequiredSheet();
-      beginMenuNavigation(href, source ?? "bottom-nav", options);
+      return beginMenuNavigation(href, source ?? "bottom-nav", options);
     },
     [beginMenuNavigation]
   );
-
-  useEffect(() => {
-    const prev = lastPathnameForPendingRef.current;
-    const next = pathname ?? null;
-    lastPathnameForPendingRef.current = next;
-    if (prev === next || pendingActiveTabId == null) return;
-    clearPendingActiveReset();
-    setPendingActiveTabId(null);
-  }, [pathname, pendingActiveTabId, clearPendingActiveReset]);
-
-  useEffect(() => {
-    return () => {
-      clearPendingActiveReset();
-    };
-  }, [clearPendingActiveReset]);
 
   const [portalToBody, setPortalToBody] = useState(false);
   useLayoutEffect(() => {
@@ -852,12 +797,17 @@ export function BottomNav({
   const commitTabRoute = useCallback((tabId: string, commitOpts: BottomNavTabCommitOpts) => {
     void tabId;
     if (shouldMainBottomNavRouteScrollOnly(commitOpts.pathname, commitOpts.navSearch, commitOpts.href)) {
+      /** 같은 탭 다시 누름 = 맨 위로 + 햅틱 1회 */
+      triggerBottomNavSelectionFeedback();
       scrollAppShellToTop();
       commitOpts.onCloseDomainSwitcher?.();
       return;
     }
     const run = () => {
-      commitBottomNavTabRoute({ ...commitOpts, onNavigationBlocked: clearBottomNavIntent });
+      const result = commitBottomNavTabRoute(commitOpts);
+      /** 햅틱 = 선택이 확정된 순간 1회. 거부된 탭은 울리지 않는다 */
+      if (result !== "blocked") triggerBottomNavSelectionFeedback();
+      return result;
     };
     if (commitOpts.href.includes("/community-messenger")) {
       const boot = peekAppBootProfile();
@@ -868,27 +818,24 @@ export function BottomNav({
         return;
       }
       /**
-       * Cold Chat: profile cache may lag cookie session. Pre-arm rtl axis before await
-       * so when requireAuthAction finally commits, first-enter cover is not dropped.
+       * 프로필 캐시가 아직 없을 때(B11): 로그인 확인을 기다리는 동안에도 누른 즉시 선택·뼈대를 보인다.
+       * 회원으로 확인되면 같은 커밋으로 이동, 비회원·취소면 컨트롤러를 되돌린다(로그인 시트는 requireAuthAction 이 띄움).
        */
       const axis = computeMainBottomNavPushAxis(commitOpts.pathname, commitOpts.href);
       setMainShellPushAxisIntent(axis, pathFromHref(commitOpts.href));
-      void requireAuthAction("messenger_open", run, { next: commitOpts.href });
+      const pendingId = beginBottomNavShowing({ tabId: commitOpts.tabId, href: commitOpts.href });
+      triggerBottomNavSelectionFeedback();
+      void requireAuthAction("messenger_open", () => {
+        commitBottomNavTabRoute({ ...commitOpts, deferredAfterAwait: true });
+      }, { next: commitOpts.href }).then((ok) => {
+        if (!ok) failBottomNavShowing(pendingId);
+      }, () => {
+        failBottomNavShowing(pendingId);
+      });
       return;
     }
     run();
-  }, [clearBottomNavIntent]);
-
-  /** 이동 대기 0.3초 초과 시 하단 탭 위쪽 얇은 진행 표시 — 누른 뒤 이전 화면이 남아 있어도 반응을 보인다(재감사 2026-11-10). */
-  const [showPendingProgress, setShowPendingProgress] = useState(false);
-  useEffect(() => {
-    if (pendingActiveTabId == null) {
-      setShowPendingProgress(false);
-      return;
-    }
-    const id = window.setTimeout(() => setShowPendingProgress(true), 300);
-    return () => window.clearTimeout(id);
-  }, [pendingActiveTabId]);
+  }, []);
 
   const effectiveOuterExtra = extraOuterClassName;
   /** D1 F1 — `<html>` 셸 속성(하단 탭 유무·모양·원형 탭) 갱신. 모양은 클래스·경로(원형 강조)로 바뀐다 */
@@ -909,10 +856,10 @@ export function BottomNav({
     (tab: BottomNavItemConfig, _tabIndex: number) => {
       const groupEdgeClass = "";
       const pendingChatNav =
-        pendingActiveTabId != null && isMainBottomNavUnifiedInboxTabId(pendingActiveTabId);
+        showingTabId != null && isMainBottomNavUnifiedInboxTabId(showingTabId);
       const emphasisKind = resolveMainBottomNavTabEmphasisKind(tab.id, pathname, {
         hubDomain,
-        pendingChatNav: pendingChatNav && tab.id === pendingActiveTabId,
+        pendingChatNav: pendingChatNav && tab.id === showingTabId,
       });
       const guardNav = (nextHref?: string) => {
         dismissLoginRequiredSheet();
@@ -936,7 +883,7 @@ export function BottomNav({
             itemClassName={groupEdgeClass}
             pathname={pathname}
             navSearch={navSearch}
-            pendingActiveTabId={pendingActiveTabId}
+            showingTabId={showingTabId}
             onNavigationIntent={markBottomNavIntent}
             beginMenuNavigation={beginBottomNavNavigation}
             guardBeforeNavigate={guardNav}
@@ -953,7 +900,7 @@ export function BottomNav({
             itemClassName={groupEdgeClass}
             pathname={pathname}
             navSearch={navSearch}
-            pendingActiveTabId={pendingActiveTabId}
+            showingTabId={showingTabId}
             onNavigationIntent={markBottomNavIntent}
             beginMenuNavigation={beginBottomNavNavigation}
             guardBeforeNavigate={guardNav}
@@ -970,7 +917,7 @@ export function BottomNav({
           itemClassName={groupEdgeClass}
           pathname={pathname}
           navSearch={navSearch}
-          pendingActiveTabId={pendingActiveTabId}
+          showingTabId={showingTabId}
           onNavigationIntent={markBottomNavIntent}
           beginMenuNavigation={beginBottomNavNavigation}
           guardBeforeNavigate={guardNav}
@@ -985,7 +932,7 @@ export function BottomNav({
       navSearch,
       searchParams,
       ownerNav.storeId,
-      pendingActiveTabId,
+      showingTabId,
       markBottomNavIntent,
       beginBottomNavNavigation,
       guardBeforeNavigate,
@@ -1008,9 +955,6 @@ export function BottomNav({
       data-app-bottom-nav=""
     >
       <div className={BOTTOM_NAV_SHELL.innerBarClassName}>
-        {showPendingProgress ? (
-          <div aria-hidden data-bottom-nav-pending-progress="" className="app-bottom-nav-pending-progress" />
-        ) : null}
         <div
           className={BOTTOM_NAV_SHELL.containerClassName}
           data-tab-count={displayTabs.length}

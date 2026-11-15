@@ -33,7 +33,6 @@ describe("D1 F1 — html·body :has 규칙 대체 셸 속성", () => {
       "data-shell-bottom-nav",
       "data-shell-bottom-nav-delivery",
       "data-shell-bottom-nav-scroll-hidden",
-      "data-shell-bottom-nav-orbit",
       "data-shell-desktop-side-rail",
       "data-shell-stores-home-hub",
       "data-shell-stores-browse-ptr-hint",
@@ -55,7 +54,8 @@ describe("D1 F1 — html·body :has 규칙 대체 셸 속성", () => {
     expect(h.getAttribute("data-shell-bottom-nav")).toBe("1");
     expect(h.getAttribute("data-shell-bottom-nav-delivery")).toBe("1");
     expect(h.getAttribute("data-shell-bottom-nav-scroll-hidden")).toBe("1");
-    expect(h.getAttribute("data-shell-bottom-nav-orbit")).toBe("1");
+    /** 메인 하단 탭 원형 강조는 계약 v2(2026-11-15)에서 지웠다 — 원형 표식은 더 이상 셸 속성을 만들지 않는다 */
+    expect(h.hasAttribute("data-shell-bottom-nav-orbit")).toBe(false);
     document.body.innerHTML = "";
     syncHtmlShellFlagsFromDom(document);
     expect(h.hasAttribute("data-shell-bottom-nav-delivery")).toBe(false);

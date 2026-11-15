@@ -72,7 +72,8 @@ describe("main hub intent transition contract", () => {
     expect(art).not.toContain("data-main-shell-cover-bg");
     const host = read("components/layout/MainShellTabContentTransition.tsx");
     expect(host).toContain("pendingPushNode={null}");
-    expect(host).toContain("COVER abandoned");
+    /** 계약 v2(2026-11-15): 하단 탭은 이 호스트가 연출하지 않는다 — 컨트롤러 즉시 교체 */
+    expect(host).toContain("하단 탭 이동은 이 호스트가 연출하지 않는다");
   });
 
   it("Chat already-authed commits sync without parking axis behind requireAuthAction", () => {

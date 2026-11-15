@@ -98,6 +98,21 @@ export function triggerInteractionFeedback(
   }
 }
 
+/**
+ * 하단 탭 선택 확정 햅틱 — 계약 v2(`lib/main-menu/main-bottom-nav-interaction-contract.ts` · Owner 2026-11-15).
+ * - 손을 뗀 순간(click) 선택이 확정될 때 1회만 부른다. 손을 대는 순간(pointerdown)에는 부르지 않는다.
+ * - 소리 없음(웹 오디오 「딸깍」은 하단 탭에서 쓰지 않는다).
+ * - 지금은 웹 진동(Android 16~21ms 실측 · iPhone WebView 는 미지원). 네이티브 선택 햅틱(@capacitor/haptics)은 S4 에서 이 함수 안으로.
+ */
+export function triggerBottomNavSelectionFeedback(): void {
+  try {
+    if (!isCoarsePointerDevice()) return;
+    vibratePattern(10);
+  } catch {
+    /* noop */
+  }
+}
+
 /** @deprecated Prefer `triggerInteractionFeedback("light", ev)` */
 export function triggerLightTapFeedback(ev?: TapFeedbackEvent): void {
   triggerInteractionFeedback("light", ev);

@@ -4,7 +4,8 @@
  * 책임: 「앱이 다시 보였다」는 신호를 한 곳에서 받아 **복귀 1회(epoch)** 로 정리하고, 등록된 작업을 실행한다.
  * - 신호: `visibilitychange` · `pageshow`(bfcache 복원) · Capacitor `appStateChange`. 같은 복귀에 여러 신호가 와도 1회.
  * - 숨김 시간(`hiddenMs`)을 잰다 — 작업마다 「이만큼 숨겨졌을 때만」 조건(`minHiddenMs`)을 둘 수 있다.
- * - 레인: `auth`(즉시 병렬) / `background`(메인 스레드 idle 뒤, 내 통화가 있으면 건너뜀).
+ * - 레인: `ui`(보이는 즉시 동기 — 인증·온라인·idle 을 기다리지 않음, `auth: "none"` 만) / `auth`(즉시 병렬) /
+ *   `background`(메인 스레드 idle 뒤, 내 통화가 있으면 건너뜀). `ui` 는 화면 상태만 다시 맞추는 작업용(하단 탭 계약 v2 · 2026-11-15).
  *
  * P0-C 인증 FAIL-CLOSED (Owner 4단계 C 2026-11-09):
  * - 세션 판정 결과 6종(fresh·refreshed·pending·invalid·guest·error)으로 작업의 `auth` 등급별 실행·보류·취소.
@@ -23,7 +24,7 @@
  * 이 파일은 DOM 을 직접 만지지 않는 순수 코어다. 브라우저 연결은 `app-resume-coordinator.client.ts`.
  */
 
-export type AppResumeLane = "auth" | "background";
+export type AppResumeLane = "ui" | "auth" | "background";
 export type AppResumeAuthRequirement = "required" | "optional" | "none";
 export type AppResumeSessionOutcome = "fresh" | "refreshed" | "pending" | "invalid" | "guest" | "error";
 export type TaskDecision = "run" | "defer" | "cancel";
@@ -157,7 +158,7 @@ export function createAppResumeCoordinator(
   const dispatch = async (st: EpochState) => {
     running = true;
     try {
-      const all = [...tasks.values()].filter((t) => shouldRunForHidden(t, st.hiddenMs));
+      const all = [...tasks.values()].filter((t) => t.lane !== "ui" && shouldRunForHidden(t, st.hiddenMs));
       if (all.length === 0) return;
 
       if (!deps.isOnline()) {
@@ -223,6 +224,11 @@ export function createAppResumeCoordinator(
         deferredConsumed: false,
       };
       current = st;
+      /** `ui` 레인 — 보이는 즉시, 같은 호출 안에서 (인증 판정·온라인 대기·idle 없음). 공개 작업만 허용 */
+      for (const t of tasks.values()) {
+        if (t.lane !== "ui" || t.auth !== "none" || !shouldRunForHidden(t, hiddenMs)) continue;
+        void runOne(st, t, "fresh");
+      }
       void dispatch(st);
     },
     noteSessionEvent(_kind) {

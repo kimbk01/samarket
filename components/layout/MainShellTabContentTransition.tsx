@@ -18,20 +18,13 @@ type Props = {
 };
 
 /**
- * Bottom-nav transition host.
+ * 셸 본문 전환 호스트 (`AppRouteTransition` 래퍼).
  *
- * CONTRACT — MAIN hub shell transition (product):
- * - History: replace (unchanged SSOT)
- * - START: BottomNav MAIN intent → transition (pathname is settle only)
- * - Visual: Header + Body = ONE transform surface; BottomNav fixed
- * - Duration: 440ms (`MAIN_SHELL_ROUTE_TRANSITION_MS`)
- * - OLD does not translate (no TRUE PUSH)
- * - No frozen-DOM / body overlay clone (COVER abandoned)
- * Hub routes: single route `children` Surface only.
- * DO NOT: dual-panel Feed clone · KeepAlive multi-hub · View Transition · OLD exit translate
- * DO NOT: separate header/body animations
- * EXCEPTION (설계서 §12 「전환 중」): 내정보 스택 kind(`mypage-stack-forward/back`)만 헤더 고정 + 본문 슬라이드
- *   — `AppRouteTransition` `data-mypage-stack-header-fixed` (메인 허브·다른 도메인 전환은 위 계약 그대로)
+ * 하단 탭 이동은 이 호스트가 연출하지 않는다 — 계약 v2(`lib/main-menu/main-bottom-nav-interaction-contract.ts`,
+ * Owner 2026-11-15 「네이버형」): 손 뗀 프레임에 하단 탭 컨트롤러가 보관 화면·뼈대로 바꾸고, 경로 확정 때
+ * `AppRouteTransition` 은 하단 탭 출처를 즉시 끝낸다(슬라이드 없음). 허브 화면 보관 = `HubRetentionStack`.
+ * 링크·뒤로가기·내정보 스택·배달 스택·통화 화면 연출은 각자 기존 계약 그대로.
+ * Header + Body 는 한 surface, BottomNav 는 surface 밖 고정.
  */
 export function MainShellTabContentTransition({
   children,

@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   commitMainBottomNavRoute,
-  abortPendingMainBottomNavRouteCommits,
-  mainBottomNavRouteUsesReplace,
   shouldMainBottomNavRouteScrollOnly,
 } from "@/lib/main-menu/main-bottom-nav-route-commit";
 import {
@@ -254,13 +252,6 @@ describe("commitMainBottomNavRoute", () => {
   });
 });
 
-describe("mainBottomNavRouteUsesReplace", () => {
-  it("BottomNav hub history = always replace", () => {
-    expect(mainBottomNavRouteUsesReplace("/market", "/stores")).toBe(true);
-    expect(mainBottomNavRouteUsesReplace("/philife", "/mypage")).toBe(true);
-  });
-});
-
 describe("commitMainBottomNavRoute deep route lock", () => {
   afterEach(() => {
     resetDeepRouteNavigationLockForTests();
@@ -278,8 +269,7 @@ describe("commitMainBottomNavRoute deep route lock", () => {
     warnSpy.mockRestore();
   });
 
-  it("abortPendingMainBottomNavRouteCommits — sync commit 즉시 replace", () => {
-    abortPendingMainBottomNavRouteCommits();
+  it("sync commit 즉시 replace", () => {
     const replace = vi.fn();
     commitMainBottomNavRoute({
       pathname: "/community-messenger",
@@ -296,12 +286,31 @@ describe("commitMainBottomNavRoute deep route lock", () => {
     expect(replace).toHaveBeenCalledWith("/mypage");
   });
 
-  it("room lock 중 hub 탭 commit — /mypage replace blocked", () => {
+  it("room lock 중 사용자가 누른 hub 탭 — 잠금을 풀고 /mypage replace (Samsung 2026-11-15 거부 결함)", () => {
+    beginRoomDeepRouteNavigationLock("room-1", "/community-messenger/rooms/room-1");
+    const replace = vi.fn();
+    const result = commitMainBottomNavRoute({
+      pathname: "/community-messenger",
+      currentSearch: "",
+      href: "/mypage",
+      tabId: "mypage",
+      beginMenuNavigation: vi.fn(),
+      onNavigationIntent: vi.fn(),
+      guardBeforeNavigate: () => true,
+      replace,
+      skipPerfMark: true,
+    });
+    expect(result).toBe("navigated");
+    expect(replace).toHaveBeenCalledWith("/mypage");
+  });
+
+  it("room lock 중 기다림 뒤 실행되는 hub 탭 커밋 — 잠금이 이겨 blocked", () => {
     beginRoomDeepRouteNavigationLock("room-1", "/community-messenger/rooms/room-1");
     const replace = vi.fn();
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    commitMainBottomNavRoute({
+    const result = commitMainBottomNavRoute({
+      deferredAfterAwait: true,
       pathname: "/community-messenger",
       currentSearch: "",
       href: "/mypage",
@@ -314,6 +323,7 @@ describe("commitMainBottomNavRoute deep route lock", () => {
       skipPerfMark: true,
     });
 
+    expect(result).toBe("blocked");
     expect(replace).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();

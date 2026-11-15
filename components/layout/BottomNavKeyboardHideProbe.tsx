@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
+import { subscribeBottomNavResume } from "@/lib/main-menu/bottom-nav-resume-signal";
 import {
   resolveBottomNavKeyboardHideState,
   type BottomNavKeyboardHideState,
@@ -35,9 +36,18 @@ export function BottomNavKeyboardHideProbe({
     };
     document.addEventListener("focusin", onFocusIn, true);
     document.addEventListener("focusout", onFocusOut, true);
+    /**
+     * 앱 복귀 즉시 지금 포커스를 다시 읽는다 — 숨겨진 동안 키보드가 닫히고 focusout 을 놓치면 입력칸이 없어도
+     * 하단 탭이 숨김(+inert)으로 남던 경로를 막는다 (계약 v2 · B4). 입력칸에 포커스가 실제로 있으면 그대로 숨김.
+     */
+    const offResume = subscribeBottomNavResume(() => {
+      const active = document.activeElement;
+      setFocused(active && active !== document.body ? active : null);
+    });
     return () => {
       document.removeEventListener("focusin", onFocusIn, true);
       document.removeEventListener("focusout", onFocusOut, true);
+      offResume();
     };
   }, []);
 

@@ -38,7 +38,6 @@ import {
   dismissMessengerRoomEntrySnapshot,
 } from "@/lib/community-messenger/room/messenger-page-snapshot-transition";
 import { matchesMessengerSplitViewport } from "@/lib/ui/app-viewport-layout-breakpoints";
-import { abortPendingMainBottomNavRouteCommits } from "@/lib/main-menu/main-bottom-nav-route-commit";
 import { isRoomEntryInFlight, markRoomEntryIntent } from "@/lib/community-messenger/room/messenger-room-entry-intent";
 
 /** 클릭~라우팅 사이 스냅샷 GET 상한 — 포인터다운 프리패치가 거의 끝난 경우 짧게 합류(무한 대기 금지) */
@@ -112,7 +111,6 @@ export async function runCommunityMessengerRoomForwardNavigation(
   noteR2M10RouterPushStart(id);
   noteR2M9Stage("route_push");
   recordRouteEntryMetric("messenger_room_entry", "router_push_called_ms", 0);
-  abortPendingMainBottomNavRouteCommits();
   clearPendingMenuNavigationBridge();
   beginRoomDeepRouteNavigationLock(id, dest);
   markRoomEntryIntent(

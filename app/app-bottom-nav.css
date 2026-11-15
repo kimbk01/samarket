@@ -46,14 +46,9 @@
   height: calc(60px + var(--delivery-home-overhang, 0px) + var(--safe-bottom));
 }
 
-/** 스크롤 숨김 — 홈 원·safe-area·여유·messenger/domain hub orbit 돌출까지 완전 이탈 */
+/** 스크롤 숨김 — 홈 원·safe-area·여유까지 완전 이탈 */
 .app-bottom-nav-shell {
   --app-bottom-nav-scroll-hide-orbit-extra: 0px;
-}
-
-.app-bottom-nav-shell:has(.app-bottom-nav-item--messenger-hub .app-bottom-nav-icon-slot--domain-hub-orbit),
-.app-bottom-nav-shell:has(.app-bottom-nav-item--domain-hub .app-bottom-nav-icon-slot--domain-hub-orbit) {
-  --app-bottom-nav-scroll-hide-orbit-extra: var(--app-bottom-nav-orbit-rise, calc(2.625rem * 0.36));
 }
 
 .app-bottom-nav-shell--scroll-hidden {
@@ -571,16 +566,13 @@
 }
 
 /* D1 F1: `html:has(…)` 대신 `<html>` 셸 속성(lib/layout/html-shell-flags.ts) — 특이도는 예전과 같게 속성 반복 */
-html[data-shell-bottom-nav-orbit][data-shell-bottom-nav-orbit][data-shell-bottom-nav-orbit] {
-  --main-scroll-nav-overhang: var(--app-bottom-nav-orbit-rise, calc(2.625rem * 0.36));
-}
-
 html[data-shell-bottom-nav-delivery] {
   --main-scroll-nav-overhang: var(--delivery-home-overhang, 0px);
 }
 
 /**
- * 글로벌 5탭 — 허브·메신저 orbit. 셸 높이 유지, 원형만 위로 돌출. 라벨과 orbit 사이 `--app-bottom-nav-orbit-label-gap`.
+ * 원형 탭 토큰 — 지금은 배달·사장님 하단 내비의 홈 원(`.app-bottom-nav-delivery-home-orbit`)만 쓴다.
+ * 메인 하단 탭의 허브·메신저 원형 강조(domain-hub·messenger-hub)는 2026-11-15 계약 v2 에서 지웠다(11-09 이후 꺼져 있던 장치).
  * 원형 탭 색 1벌 (Owner 2026-11-03 · docs/audit/owner-e2e-round2-review-and-dashboard-design-2026-11-03.md §3):
  * 미선택 = 흰 바탕 + 강조색(`--app-bottom-nav-accent`, :root 값 #111111) 테두리·아이콘 · 선택 = 강조색 채움 + 골드 아이콘. 그린 미사용(화면 안 버튼과 구분).
  * 배달·사장님 하단 내비의 홈 원(`.app-bottom-nav-delivery-home-orbit`)도 같은 토큰.
@@ -600,179 +592,12 @@ html[data-shell-bottom-nav-delivery] {
   --app-bottom-nav-orbit-shadow-active: 0 4px 12px color-mix(in srgb, var(--app-bottom-nav-accent) 28%, transparent);
   --app-bottom-nav-orbit-shadow-pressed: 0 2px 6px color-mix(in srgb, var(--app-bottom-nav-accent) 18%, transparent);
   --app-bottom-nav-orbit-press-scale: 0.94;
-  /* legacy aliases */
-  --app-bottom-nav-domain-hub-orbit-size: var(--app-bottom-nav-orbit-size);
-  --app-bottom-nav-domain-hub-rise: var(--app-bottom-nav-orbit-rise);
-}
-
-.app-bottom-nav-item--domain-hub,
-.app-bottom-nav-item--messenger-hub {
-  position: relative;
-  overflow: visible;
-  z-index: 3;
-  justify-content: flex-start;
-  gap: 0;
-  padding: 6px 2px var(--delivery-tab-label-bottom-inset, 6px);
-  padding-bottom: calc(
-    var(--delivery-tab-label-bottom-inset, 6px) + var(--delivery-tab-label-line-height, 13px)
-  );
-}
-
-.app-bottom-nav-item--domain-hub:active,
-.app-bottom-nav-item--messenger-hub:active {
-  transform: none;
-}
-
-.app-bottom-nav-item--domain-hub[data-active="true"],
-.app-bottom-nav-item--messenger-hub[data-active="true"] {
-  background: transparent;
-  color: var(--app-bottom-nav-text-muted);
-}
-
-.app-bottom-nav-item--domain-hub .app-bottom-nav-label,
-.app-bottom-nav-item--domain-hub .app-bottom-nav-label--delivery-tab,
-.app-bottom-nav-item--domain-hub .app-bottom-nav-label--trade-tab,
-.app-bottom-nav-item--domain-hub .app-bottom-nav-label--philife-tab,
-.app-bottom-nav-item--messenger-hub .app-bottom-nav-label,
-.app-bottom-nav-item--messenger-hub .app-bottom-nav-label--delivery-tab,
-.app-bottom-nav-item--messenger-hub .app-bottom-nav-label--trade-tab,
-.app-bottom-nav-item--messenger-hub .app-bottom-nav-label--philife-tab {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: var(--delivery-tab-label-bottom-inset, 6px);
-  z-index: 4;
-  margin: 0;
-  padding: 0;
-  height: var(--delivery-tab-label-line-height, 13px);
-  font-size: var(--delivery-tab-label-size, 11px);
-  font-weight: 600;
-  line-height: var(--delivery-tab-label-line-height, 13px);
-  letter-spacing: -0.2px;
-  text-align: center;
-  color: var(--app-bottom-nav-text-muted);
-}
-
-.app-bottom-nav-item--domain-hub[data-active="true"] .app-bottom-nav-label,
-.app-bottom-nav-item--domain-hub[data-active="true"] .app-bottom-nav-label--delivery-tab,
-.app-bottom-nav-item--domain-hub[data-active="true"] .app-bottom-nav-label--trade-tab,
-.app-bottom-nav-item--domain-hub[data-active="true"] .app-bottom-nav-label--philife-tab,
-.app-bottom-nav-item--messenger-hub[data-active="true"] .app-bottom-nav-label,
-.app-bottom-nav-item--messenger-hub[data-active="true"] .app-bottom-nav-label--delivery-tab,
-.app-bottom-nav-item--messenger-hub[data-active="true"] .app-bottom-nav-label--trade-tab,
-.app-bottom-nav-item--messenger-hub[data-active="true"] .app-bottom-nav-label--philife-tab {
-  color: var(--app-bottom-nav-accent);
-  font-weight: 700;
-}
-
-.app-bottom-nav-item--domain-hub .app-bottom-nav-icon-slot:not(.app-bottom-nav-icon-slot--domain-hub-orbit),
-.app-bottom-nav-item--messenger-hub .app-bottom-nav-icon-slot:not(.app-bottom-nav-icon-slot--domain-hub-orbit) {
-  flex: 0 0
-    calc(
-      var(--app-bottom-nav-orbit-size) - var(--app-bottom-nav-orbit-rise) +
-        var(--app-bottom-nav-orbit-label-gap)
-    );
-  height: calc(
-    var(--app-bottom-nav-orbit-size) - var(--app-bottom-nav-orbit-rise) +
-      var(--app-bottom-nav-orbit-label-gap)
-  );
-  align-items: flex-end;
-}
-
-.app-bottom-nav-item--domain-hub .app-bottom-nav-icon-slot--domain-hub-orbit,
-.app-bottom-nav-item--messenger-hub .app-bottom-nav-icon-slot--domain-hub-orbit {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(-1 * var(--app-bottom-nav-orbit-rise));
-  z-index: 2;
-  width: 100%;
-  height: var(--app-bottom-nav-orbit-size);
-  margin-top: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: visible;
-  pointer-events: none;
-}
-
-.app-bottom-nav-item--domain-hub .app-bottom-nav-domain-hub-orbit,
-.app-bottom-nav-item--messenger-hub .app-bottom-nav-domain-hub-orbit {
-  position: relative;
-  left: auto;
-  top: auto;
-  display: flex;
-  height: var(--app-bottom-nav-orbit-size);
-  width: var(--app-bottom-nav-orbit-size);
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  border: 2px solid var(--app-bottom-nav-orbit-border);
-  background: var(--app-bottom-nav-orbit-bg);
-  color: var(--app-bottom-nav-orbit-fg);
-  box-shadow: var(--app-bottom-nav-orbit-shadow);
-  transform: none;
-  pointer-events: auto;
-  transition:
-    transform 120ms cubic-bezier(0.25, 0.9, 0.35, 1),
-    box-shadow 160ms ease,
-    background-color 160ms ease;
-}
-
-.app-bottom-nav-domain-hub-orbit-icon-wrap {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  align-items: center;
-  justify-content: center;
-  line-height: 0;
-  pointer-events: none;
-}
-
-.app-bottom-nav-domain-hub-icon {
-  display: block;
-  width: 1.35rem;
-  height: 1.35rem;
-  flex-shrink: 0;
-  margin: 0;
-}
-
-/** 선택(현재 탭) — orbit 배경·그림자 확실히 구분 */
-.app-bottom-nav-item--domain-hub[data-active="true"] .app-bottom-nav-domain-hub-orbit,
-.app-bottom-nav-item--messenger-hub[data-active="true"] .app-bottom-nav-domain-hub-orbit,
-.app-bottom-nav-domain-hub-orbit--active {
-  background: var(--app-bottom-nav-orbit-bg-active);
-  color: var(--app-bottom-nav-orbit-fg-active);
-  box-shadow: var(--app-bottom-nav-orbit-shadow-active);
-  transform: none;
-}
-
-/** 눌림 — Link :active 에서 orbit 전체 스케일(아이콘은 flex 중앙 유지) */
-.app-bottom-nav-item--domain-hub:active .app-bottom-nav-domain-hub-orbit,
-.app-bottom-nav-item--messenger-hub:active .app-bottom-nav-domain-hub-orbit {
-  transform: scale(var(--app-bottom-nav-orbit-press-scale));
-  background: var(--app-bottom-nav-orbit-bg-pressed);
-  color: var(--app-bottom-nav-orbit-fg-active);
-  box-shadow: var(--app-bottom-nav-orbit-shadow-pressed);
-}
-
-.app-bottom-nav-item--domain-hub .app-bottom-nav-domain-hub-orbit > .bottom-nav-hub-badge,
-.app-bottom-nav-item--messenger-hub .app-bottom-nav-domain-hub-orbit > .bottom-nav-hub-badge {
-  position: absolute !important;
-  top: -2px !important;
-  right: -2px !important;
-  left: auto !important;
-  bottom: auto !important;
-  transform: translate(18%, -18%) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .app-bottom-nav-item,
   .app-bottom-nav-inline-icon,
-  .app-bottom-nav-label,
-  .app-bottom-nav-domain-hub-orbit,
-  .app-bottom-nav-domain-hub-icon {
+  .app-bottom-nav-label {
     transition: none;
   }
 
@@ -792,9 +617,9 @@ html[data-shell-bottom-nav-delivery] {
 }
 
 /* ==========================================================================
- * 텔레그램형 하단 탭 (Owner 최종 승인 2026-11-13 · 설계 docs/design/service-brand-icon-state-ssot-design-2026-11-13.md B)
+ * 메인 하단 탭 (텔레그램형 바·토큰 2026-11-13 + 계약 v2 선택 모양 채움↔외곽선 2026-11-15 — 아래 「계약 v2」 블록)
  * - 바: 흰 반투명 + 옅은 경계선 + 위쪽 그림자 (홈 설계안 v11 2026-11-09 그대로)
- * - 아이콘: 대표 채움 아이콘 26px 고정 — 선택해도 크기·모양 그대로 (화면 폭·탭 수와 무관)
+ * - 아이콘: 26px 고정 — 선택 = 채움, 비선택 = 외곽선 (Owner 2026-11-15 「네이버형 채움↔외곽선」)
  * - 비선택 = 기존 회색 토큰 `--sam-icon-soft` · 선택 = 아이콘·글자 색만 `--dibay-green` #0B421A, 배경 없음
  * - 글자 10px / 500 고정 (선택도 굵기 그대로) · 눌림 = 투명도 · 비활성 = aria-disabled
  * - 배지 = 아래 빨간 숫자 규칙 그대로 (Owner 2026-11-09)
@@ -861,6 +686,34 @@ html[data-shell-bottom-nav-delivery] {
   opacity: 0.55;
 }
 
+/*
+ * 계약 v2 (Owner 2026-11-15 · lib/main-menu/main-bottom-nav-interaction-contract.ts)
+ * - 선택 모양 = 채움(선택) ↔ 외곽선(비선택) 아이콘 — 그림은 MainBottomNavTabIcon 이 고른다. 색은 위 토큰 그대로.
+ * - 바뀌는 순간 애니메이션 없음(색 전환 140ms 제거) — 손 뗀 프레임에 선택 표시가 바로 바뀐다(네이버 실측).
+ * - 누르는 영역 = 바 높이 60px 전체: 컨테이너 위아래 여백(6·5px)을 링크 안쪽으로 옮겨, 탭 위·아래 가장자리를 눌러도 그 탭이 눌린다.
+ *   배달 셸(홈 원 돌출)은 자체 높이 규칙이 있어 제외.
+ */
+[data-app-bottom-nav] .app-bottom-nav-item,
+[data-app-bottom-nav] .app-bottom-nav-inline-icon,
+[data-app-bottom-nav] .app-bottom-nav-label,
+[data-app-bottom-nav] .app-bottom-nav-label--delivery-tab,
+[data-app-bottom-nav] .app-bottom-nav-label--trade-tab,
+[data-app-bottom-nav] .app-bottom-nav-label--philife-tab {
+  transition: none;
+}
+
+[data-app-bottom-nav]:not(.app-bottom-nav-shell--delivery) .app-bottom-nav-container {
+  align-items: stretch;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+[data-app-bottom-nav]:not(.app-bottom-nav-shell--delivery) .app-bottom-nav-container .app-bottom-nav-item {
+  height: auto;
+  padding-top: 6px;
+  padding-bottom: 5px;
+}
+
 /* 비활성 — 정의만 (현재 비활성 탭 없음) */
 [data-app-bottom-nav] .app-bottom-nav-item[aria-disabled="true"] {
   opacity: 0.38;
@@ -925,43 +778,6 @@ html[data-shell-bottom-nav-delivery] {
   }
   100% {
     scale: 1;
-  }
-}
-
-/**
- * 재감사(2026-11-10, Owner 승인) — 하단 탭 이동 대기 0.3초 초과 시 탭 바 위쪽 얇은 진행 표시.
- * D-1 로 이동 중 이전 화면이 유지되므로, 누른 반응을 탭 바에서 보여 준다. 강조 토큰만 사용.
- */
-.app-bottom-nav-pending-progress {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 2px;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 1;
-}
-.app-bottom-nav-pending-progress::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -40%;
-  width: 40%;
-  background: var(--app-bottom-nav-accent);
-  animation: app-bottom-nav-pending-progress-kf 1.1s ease-in-out infinite;
-}
-@keyframes app-bottom-nav-pending-progress-kf {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(350%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .app-bottom-nav-pending-progress::before {
-    animation: none;
-    left: 0;
-    width: 100%;
-    opacity: 0.6;
   }
 }
 

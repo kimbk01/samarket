@@ -3,6 +3,11 @@
 import dynamic from "next/dynamic";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { DibayDomainChromeRootSync } from "@/components/layout/DibayDomainChromeRootSync";
+import { BottomNavShowingRouteContexts } from "@/components/layout/BottomNavShowingRouteContexts";
+import {
+  useBottomNavShowingTarget,
+  useSettleBottomNavOnLocation,
+} from "@/lib/main-menu/use-bottom-nav-controller";
 import { usePathname } from "next/navigation";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import { BootThumbnailObserver } from "@/components/app/BootThumbnailObserver";
@@ -80,7 +85,12 @@ import { SupportModalHost } from "@/components/support/SupportModalHost";
 import { MainShellDocumentLoading } from "@/components/layout/MainRouteLoading";
 import { SHELL_HYDRATED_HTML_ATTR, useShellHydrated } from "@/lib/ui/use-shell-hydrated";
 import { useDibayAppShellAuthority } from "@/lib/device/use-dibay-app-shell";
-import { isCommunityHomeSurfacePath, isHomeSurfacePath, resolveMainSurface } from "@/lib/layout/resolve-main-surface";
+import {
+  isCommunityHomeSurfacePath,
+  isHomeSurfacePath,
+  resolveMainSurface,
+  resolveMainTabKeepAliveHub,
+} from "@/lib/layout/resolve-main-surface";
 import { isServerRenderedBodyPath } from "@/lib/layout/server-rendered-body-paths";
 
 const PhilifeFeedWarmPrefetch = dynamic(
@@ -190,7 +200,17 @@ export function ConditionalAppShell({
   useLayoutEffect(() => {
     document.documentElement.setAttribute(SHELL_HYDRATED_HTML_ATTR, "");
   }, []);
-  const pathname = usePathname();
+  const routePathname = usePathname();
+  /**
+   * 하단 탭 즉시 교체 (계약 v2 · Owner 2026-11-15): 손 뗀 프레임부터 Next 경로 확정 전까지 셸(머리글·본문 열·스크롤 칸)은
+   * 목표 허브 기준으로 그린다. 본문은 `HubRetentionStack` 이 보관 화면 또는 뼈대로 같은 프레임에 바꾼다.
+   * 실제 경로가 목표에 도착하면 컨트롤러가 끝난다(아래 settle).
+   */
+  useSettleBottomNavOnLocation(routePathname);
+  const bottomNavShowing = useBottomNavShowingTarget();
+  const bottomNavShowingHubPath =
+    bottomNavShowing && resolveMainTabKeepAliveHub(bottomNavShowing.path) != null ? bottomNavShowing.path : null;
+  const pathname = bottomNavShowingHubPath ?? routePathname;
   const appShell = useDibayAppShellAuthority();
   const hostShell = useSyncExternalStore(subscribeHostShellNoop, readDibayHostShellAttr, readHostShellServerSnapshot);
   /**
@@ -377,7 +397,9 @@ export function ConditionalAppShell({
       hubChromeHeader={
         hubScrollColumn ? (
           <div className={MAIN_HUB_SCROLL_HEADER_CLASS}>
-            <AppStickyHeader />
+            <BottomNavShowingRouteContexts target={bottomNavShowingHubPath ? bottomNavShowing : null}>
+              <AppStickyHeader />
+            </BottomNavShowingRouteContexts>
           </div>
         ) : null
       }
