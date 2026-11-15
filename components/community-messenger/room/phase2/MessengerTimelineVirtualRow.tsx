@@ -315,8 +315,12 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     userSelect: "none",
   };
 
+  /**
+   * D6(2026-11-16 실기): 「모두에게서 삭제」된 메시지는 할 수 있는 동작이 없다(숨기기·수정·답장·반응·삭제 정책 모두 거부).
+   * 예전에는 길게 누르면 「이미지 주소 복사·수정·답장·공유·모두에게서 삭제」 줄이 그대로 열렸다 → 메뉴를 열지 않는다.
+   */
   const bindMessageInteraction =
-    item.messageType === "system" || item.messageType === "gift_certificate"
+    item.messageType === "system" || item.messageType === "gift_certificate" || deletedForEveryone
       ? {}
       : item.messageType === "call_stub"
         ? {
