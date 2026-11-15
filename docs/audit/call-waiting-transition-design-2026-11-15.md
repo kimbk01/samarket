@@ -148,3 +148,21 @@ Dialer 와 같이 「통화가 하나도 없을 때만 통화 화면을 닫는�
 | T1 CW6 회귀 | PASS | 1차 23:47 로그만(녹화 전에 맥 종료 지연). 재녹화(Owner 「T1 녹화 다시 해서 화면으로 확인해」) 23:55: 대기 23:55:20.857 → C 종료 → 24.581 hold → 24.873 `launched=true` → 25.501 release, 0.1초 간격 프레임에서 「통화 중」→「통화 종료 중」→「김봉기 음성 통화 수신」, 홈 0·수신 heads-up 0 (re59-t1b-tile, 녹화 4.1초에서 끊겼으나 전환 포함). 재녹화 직전 23:53:58 이미지 감사 세션 탭 2회가 통화 화면 빈 곳에 들어감(스피커·음소거 변화 없음 확인) |
 | T8 PiP (재실기 · Owner 「PiP 이어받기도 다시 실기 진행해」) | 설계대로(이어받기 안 씀) · 범위 밖 관찰 | 11-16 00:03:48 PiP 진입(B↔맥 통화) → 00:03:56.942 대기(C) `quiet=false` → 녹화: PiP + 대기 heads-up 「거절 / 종료 후 받기」 약 11초 유지 → 00:04:08 맥 종료 → hold 없음·`handover=false launched=false` → PiP·대기 알림 사라짐 → 00:04:08.679 Android `Background activity launch blocked` → 홈 화면 수신 heads-up 「수락 / 거절」 이 무응답(00:04:27.7 missed)까지 유지 (re59-t8b-tile). 전체 화면 수신 화면은 뜨지 않음 — 이번 변경 전부터의 백그라운드 경로이며 홈에서 일반 수신과 같은 모습. 1차 시도(23:58)는 맥 발신이 3분 넘게 늦게 도착(00:02:13 생성)해 무효 — 맥을 진행 중 통화 상대로, 대기는 Xiaomi 로 바꿔 재실기 |
 | 맥 클릭 처리 지연 | 원인 확인 못 함 | 23:42 맥 발신 클릭 → 맥 앱 로그 첫 줄 23:44:07, 발신 시작 23:44:16. 그 사이 맥 앱 로그 0줄 — 앱이 멈춰 있었는지 확인 못 함(시험 환경 문제 가능, 앱 결함 판정 보류) |
+
+## 8. 설계 P — PiP 중에도 대기 통화를 전체 화면으로 이어받기 (Owner 「개선 설계 진행」 2026-11-16, 승인 전 구현 금지)
+
+### 현재 동작과 원인 (59 실기 T8, 11-16 00:04 PHT, Samsung Android 16 / SDK 36)
+- PiP = 「안 보임」 → 진행 중 통화가 끝나면 `finishCallScreen` 이 PiP 통화 화면을 바로 닫음(00:04:08.405 PiP 작업 CLOSE 전환) → 0.2초 뒤 promote 가 수신 화면 시작 → 그 순간 앱에 보이는 화면이 없어 `Background activity launch blocked`(00:04:08.679) → 홈 화면 수신 heads-up 만.
+- 근거 원문(AOSP main):
+  - `BackgroundActivityStartController.checkBackgroundActivityStartAllowedByCallerInForeground` L1013 — 앱 전환 상태가 ALLOW/FG_ONLY 이고 `mCallingUidHasVisibleActivity` 면 `BAL_ALLOW_VISIBLE_WINDOW`. 보이는 판정은 `VisibleActivityProcessTracker.hasVisibleActivity` → `WindowProcessController` 의 `ACTIVITY_STATE_FLAG_IS_VISIBLE`(activity `isVisible()`/`isVisibleRequested()`) — PiP 통화 화면은 보이는 Activity.
+  - `ActivityTaskManagerService.stopAppSwitches` L4168~ — 홈 버튼 직후 `APP_SWITCH_DISALLOW`, `RESUME_FG_APP_SWITCH_MS` 뒤 `APP_SWITCH_FG_ONLY` 로 풀림 → PiP 가 떠 있으면 허용 조건을 만족.
+- 참고(기준선): AOSP Dialer 도 기기 사용 중(홈 화면) 수신은 FSI 알림이 heads-up 으로 보인다(`StatusBarNotifier`). 지금 T8 동작은 이 기준선과 같다. 설계 P 는 「이미 통화 중(PiP)인 사용자」에 한해 Dialer 의 「통화가 남아 있으면 통화 화면 유지」(§1 startOrFinishUi) 를 PiP 에도 적용하는 것이다.
+
+### 설계
+- P-1 보임 판단 분리: 띠(host)가 「앞에 보임」과 「PiP 로 보임」을 따로 보고. presenter 는 대기 알림 조용/시끄러움 판단에는 지금처럼 「앞에 보임」만 쓰고(PiP 는 띠가 숨겨지므로 시끄러운 알림 유지), 이어받기 남기기 판단(`holdCallScreenForHandover`)에는 「앞에 보임 또는 PiP」를 쓴다.
+- P-2 PiP 화면 남기기: 진행 중 통화가 끝날 때 대기 통화가 있고 통화 화면이 PiP 면 PiP 화면을 닫지 않는다(앱에 보이는 Activity 유지 → BAL 허용 조건). 화면에는 「통화 종료 중」 상태만 보인다.
+- P-3 이어받기 시작: promote 는 지금과 같이 `isHandoverLaunch` + `isInteractive` 면 앞 화면 경로(`NEW_TASK|CLEAR_TASK`)로 수신 화면 시작. 같은 종류는 PiP 작업을 다시 쓰고(`ActivityStarter` L3082~: PiP 작업 재배치는 task organizer(WM Shell)에 맡김 → PiP 해제·확대), 다른 종류는 새 작업으로 시작 후 PiP 화면 정리(B 와 같음).
+- P-4 안전장치(그대로 유지): 시작 못 하면 즉시 정리(B2-2 `handover_not_launched`), 1.2초 안에 수신 화면이 안 보이면 기존 FSI 경로(`foreground_visible_activity_start_postcheck_failed`), 5초 hold_timeout.
+- 바뀌는 파일: `NativeCallWaitingBanner`(PiP 보고), `NativeCallWaitingPresenter`(PiP host 집합·남기기 조건), 계약 테스트. 런타임·Activity·서버·웹·iOS 무변경. Android versionCode 60.
+- 확인 못 한 것(구현 전 NOT_PROVEN): PiP 작업에 CLEAR_TASK 로 넣을 때 WM Shell 이 PiP 를 전체 화면으로 펼치는 화면 모양 — 원문은 「task organizer 에 맡김」까지만 확인. 기대와 다르면 P-4 로 지금 동작(heads-up)보다 나빠지지는 않음.
+- 실기: T8(음성 PiP → 대기 → 상대 종료: 전체 화면 수신, 홈 0·heads-up 0), 영상 PiP 같은 시험, 다른 종류(음성 PiP → 영상 대기), 홈 버튼 직후 5초 안 종료(APP_SWITCH_DISALLOW → P-4 대체 경로), T1·T2·T7 회귀.
