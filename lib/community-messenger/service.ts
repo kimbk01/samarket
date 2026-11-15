@@ -372,6 +372,10 @@ import {
   storeMarkReadParticipantSnapshotsFromRow,
 } from "@/lib/community-messenger/mark-read-participant-snapshot";
 import {
+  messengerImagePixelDimension,
+  normalizeCommunityMessengerImageSendItems,
+} from "@/lib/community-messenger/messenger-image-send-items";
+import {
   messengerImageBlurDataUrlOrNull,
   messengerImageClientFieldsFromMetadata,
   peekMessengerImageMetaDiagnosticsCounts,
@@ -17946,11 +17950,6 @@ async function appendCommunityMessengerSystemMessage(input: {
 
 const COMMUNITY_MESSENGER_IMAGE_ALBUM_MAX = 10;
 
-/** 표시 픽셀 크기 — 양의 정수만(상한 100000), 그 외 null. */
-function messengerImagePixelDimension(v: unknown): number | null {
-  const n = Math.floor(Number(v));
-  return Number.isFinite(n) && n > 0 && n <= 100_000 ? n : null;
-}
 
 /** C-4: metadata.storage_bucket — 비공개 버킷 업로드만 `messenger-media`, 그 외 레거시 `post-images`. */
 function cmMediaStorageBucketValue(v: unknown): string {
@@ -18053,28 +18052,8 @@ export async function sendCommunityMessengerImageMessage(input: {
 }): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string; deduped?: boolean }> {
   const roomId = trimText(input.roomId);
   const cmUploadCid = trimText(input.clientMessageId) || null;
-  const items = (input.items ?? [])
-    .map((it) => ({
-      chatPublicUrl: trimText(it.chatPublicUrl),
-      previewPublicUrl: trimText(it.previewPublicUrl),
-      originalPublicUrl: trimText(it.originalPublicUrl),
-      originalStoragePath: trimText(it.originalStoragePath),
-      originalMimeType: trimText(it.originalMimeType) || "image/jpeg",
-      /**
-       * C-4 업로드 버킷을 버리지 않는다(2026-11-14 수정) — 이 값이 빠져 모든 사진 metadata.storage_bucket 이
-       * 기본값 post-images 로 저장됐다(실제 파일은 messenger-media). 「모두에게서 삭제」 정리·전달 복사가 버킷을 잘못 봤다.
-       */
-      storageBucket: trimText(it.storageBucket) || null,
-      width: messengerImagePixelDimension(it.width),
-      height: messengerImagePixelDimension(it.height),
-    }))
-    .filter(
-      (it) =>
-        it.chatPublicUrl &&
-        it.previewPublicUrl &&
-        it.originalPublicUrl &&
-        it.originalStoragePath
-    );
+  /** 정리 단계 단일 정의 — 업로드가 만든 필드(버킷·크기·흐린 미리보기)를 빠뜨리지 않는다 */
+  const items = normalizeCommunityMessengerImageSendItems(input.items);
   if (!roomId || items.length === 0) return { ok: false, error: "content_required" };
   if (items.length > COMMUNITY_MESSENGER_IMAGE_ALBUM_MAX) return { ok: false, error: "too_many_images" };
 

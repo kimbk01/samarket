@@ -158,7 +158,10 @@ describe("S6-2 사진·파일 전달 — 저장 객체 복사", () => {
     const src = readFileSync("lib/community-messenger/service.ts", "utf8");
     const a = src.indexOf("export async function sendCommunityMessengerImageMessage");
     const body = src.slice(a, src.indexOf("communityMessengerImageMessageMetadata(items)", a));
-    expect(body).toContain("storageBucket: trimText(it.storageBucket) || null");
+    // 정리 단계는 단일 정의(messenger-image-send-items.ts)를 쓰고, 그 정의가 버킷을 옮긴다
+    expect(body).toContain("normalizeCommunityMessengerImageSendItems(input.items)");
+    const norm = readFileSync("lib/community-messenger/messenger-image-send-items.ts", "utf8");
+    expect(norm).toContain("storageBucket: trim(it.storageBucket) || null");
   });
 
   it("저장 객체가 없는 메시지는 전달 불가", async () => {
