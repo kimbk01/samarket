@@ -102,6 +102,38 @@ describe("DibayImageViewer 계약", () => {
       expect(document.querySelector('[data-testid="image-viewer-placeholder"]')).toBeNull();
     });
 
+    it("load 뒤 디코딩이 끝날 때까지 placeholder 를 유지한다 (검은 프레임 0)", async () => {
+      let resolveDecode: () => void = () => {};
+      const proto = HTMLImageElement.prototype as unknown as { decode?: () => Promise<void> };
+      const prevDecode = proto.decode;
+      proto.decode = () => new Promise<void>((r) => (resolveDecode = r));
+      try {
+        act(() => {
+          root.render(
+            <DibayImageViewer
+              open
+              items={[{ display: "https://x.test/p.webp", original: "https://x.test/o.jpg", placeholder: "https://x.test/t.webp" }]}
+              index={0}
+              onClose={() => {}}
+            />
+          );
+        });
+        const cur = document.querySelector('[data-testid="image-viewer-current"]') as HTMLImageElement;
+        act(() => {
+          cur.dispatchEvent(new Event("load"));
+        });
+        expect(document.querySelector('[data-testid="image-viewer-placeholder"]')).not.toBeNull();
+        await act(async () => {
+          resolveDecode();
+          await Promise.resolve();
+        });
+        expect(document.querySelector('[data-testid="image-viewer-placeholder"]')).toBeNull();
+      } finally {
+        if (prevDecode) proto.decode = prevDecode;
+        else delete proto.decode;
+      }
+    });
+
     it("placeholder 가 없으면 로딩 표시", () => {
       act(() => {
         root.render(
