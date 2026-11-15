@@ -89,3 +89,12 @@ describe("resolveMessageNotificationPreviewKind", () => {
     expect(resolveMessageNotificationPreviewKind("text", "📍 위치 공유\nhttps://maps")).toBe("location");
   });
 });
+
+describe("D5(2026-11-16 실기) 스티커·음성 알림 문구", () => {
+  it("sticker → 스티커, voice → 음성 메시지 (사진·새 메시지 아님)", async () => {
+    const mod = await import("@/lib/notifications/display/build-message-notification-display");
+    expect(mod.resolveMessageNotificationPreviewKind("sticker")).toBe("sticker");
+    expect(mod.resolveMessageNotificationPreviewKind("voice")).toBe("voice");
+    expect(mod.resolveMessageNotificationPreviewKind("image")).toBe("image");
+  });
+});
