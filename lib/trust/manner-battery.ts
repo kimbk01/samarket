@@ -1,5 +1,6 @@
 /**
- * 배터리 UI: 신뢰 점수(0~100) → 6단계 시각 (구간은 trust-score-core와 동일)
+ * 신뢰 점수(0~100) → 6단계 구간 (구간은 trust-score-core와 동일).
+ * 화면 표기·색은 CREW REP 단일 정의 `lib/trust/crew-rep.ts` 만 쓴다 (배터리 아이콘·% 폐지, Owner 2026-11-16).
  */
 
 import type { TrustBatteryLevel } from "./trust-score-core";
@@ -32,38 +33,4 @@ export function mannerBatteryTier(score0to100: number): MannerBatteryTier {
  */
 export function mannerRawToPercent(raw: number): number {
   return trustScoreToUiPercent(raw);
-}
-
-export function mannerBatteryFilledSegments(tier: MannerBatteryTier): number {
-  return tier;
-}
-
-/**
- * Spec [6] fill — low tiers = status (not brand); high tiers = DIBAY green HARD LOCK.
- * DO NOT use product orange as brand fill.
- */
-export const MANNER_BATTERY_TIER_COLORS: Record<MannerBatteryTier, string> = {
-  1: "#EF4444",
-  2: "#DC2626",
-  3: "#CA8A04",
-  4: "#4D7C0F",
-  5: "#166534",
-  6: "#0B421A", // --dibay-green
-};
-
-export function mannerBatteryAccentClass(tier: MannerBatteryTier): string {
-  switch (tier) {
-    case 1:
-      return "text-red-500";
-    case 2:
-      return "text-red-600";
-    case 3:
-      return "text-yellow-600";
-    case 4:
-      return "text-lime-700";
-    case 5:
-      return "text-sam-primary";
-    default:
-      return "text-sam-primary";
-  }
 }

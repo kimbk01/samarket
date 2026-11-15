@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-16 05:34 PHT",
+ "generatedAtPht": "2026-11-16 07:46 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -279,7 +279,6 @@
    "components/community-messenger/room/phase2/ChatRoomMoreMenu.tsx": 3,
    "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2OneToOneDotMenu.tsx": 4,
    "components/community-messenger/room/phase2/MessengerStoreOrderSummaryCard.tsx": 1,
-   "components/community-messenger/room/phase2/StoreOrderDeliveryMessengerHeaderBlock.tsx": 1,
    "components/community/NeighborhoodInterleavedContent.tsx": 1,
    "components/community/post-detail/CommunityCommentItem.tsx": 4,
    "components/community/post-detail/CommunityPostDetailBody.tsx": 1,
@@ -292,13 +291,10 @@
    "components/points/PointPeriodSummary.tsx": 4,
    "components/points/PointPromotionOrderList.tsx": 1,
    "components/post/PostDetailRelatedSections.tsx": 5,
-   "components/reviews/TrustSummaryCard.tsx": 1,
    "components/stores/commission/StoreCommissionLedgerParts.tsx": 15,
    "components/stores/commission/StoreCommissionLedgerTable.tsx": 7,
    "components/stores/StoreDetailInfoPublic.tsx": 3,
    "components/trade/TradeSellerListingStepDiagram.tsx": 2,
-   "components/trust/MannerBatteryDisplay.tsx": 2,
-   "components/trust/MannerBatteryIcon.tsx": 1,
    "components/write/service/ServiceWriteForm.tsx": 1,
    "components/write/shared/image-editor-canvas.ts": 1,
    "components/write/trade/TradeWriteForm.tsx": 11,
@@ -332,7 +328,7 @@
    "lib/admin-products/admin-posts-management-data.ts": 9,
    "lib/admin-reports/admin-reports-read.server.ts": 5,
    "lib/admin-reports/map-community-reports.ts": 7,
-   "lib/admin-settings/admin-settings-utils.ts": 12,
+   "lib/admin-settings/admin-settings-utils.ts": 11,
    "lib/admin-settings/app-settings-db.ts": 1,
    "lib/admin-settings/service-categories-db.ts": 1,
    "lib/admin-settings/service-categories-state.ts": 12,

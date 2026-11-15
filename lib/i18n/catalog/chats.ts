@@ -1,7 +1,7 @@
 export const chatsMessages = {
   ko: {
     chats_change_item_status_confirm: '물품의 상태를 "{label}"으로 변경할까요?',
-    chats_partner_trust_aria: "상대방 거래 매너",
+    chats_partner_trust_aria: "상대방 CREW REP",
     chats_more_menu_aria: "더보기",
     chats_loading_previous_messages: "이전 메시지를 불러오는 중…",
     chats_save_photo_aria: "사진 저장",
@@ -89,7 +89,7 @@ export const chatsMessages = {
   },
   en: {
     chats_change_item_status_confirm: 'Change item status to "{label}"?',
-    chats_partner_trust_aria: "Counterparty trade manner",
+    chats_partner_trust_aria: "Counterparty CREW REP",
     chats_more_menu_aria: "More options",
     chats_loading_previous_messages: "Loading previous messages…",
     chats_save_photo_aria: "Save photo",

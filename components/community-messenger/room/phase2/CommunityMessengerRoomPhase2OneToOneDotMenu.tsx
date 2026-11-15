@@ -262,7 +262,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     const d = vm.snapshot.tradeChatRoomDetail;
     const n = d?.partnerTrustScore;
     if (typeof n === "number" && Number.isFinite(n)) return Math.max(0, Math.min(100, n));
-    return 50;
+    return null;
   }, [vm.snapshot.tradeChatRoomDetail]);
 
   const otherUser: OtherUserProfile = useMemo(
@@ -317,11 +317,9 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       nickname: deliveryHeaderModel.title,
       avatarUrl: deliveryHeaderModel.avatarUrl,
       avatarShape: deliveryHeaderModel.avatarRounded === "store_rect" ? "store_rect" : "circle",
-      hideMannerBattery: deliveryHeaderModel.mode === "buyer_store",
-      mannerScore,
-      buyerTrustPercent: deliveryHeaderModel.buyerTrustPercent,
+      crewRepScore: deliveryHeaderModel.mode === "owner_buyer_peer" ? deliveryHeaderModel.buyerCrewRepScore : null,
     };
-  }, [deliveryHeaderModel, isDeliveryRoom, mannerScore]);
+  }, [deliveryHeaderModel, isDeliveryRoom]);
 
   const deliveryStoreSummary = useMemo((): DeliveryStoreMenuSummary | undefined => {
     if (!isDeliveryRoom || deliveryHeaderModel.mode !== "buyer_store") return undefined;

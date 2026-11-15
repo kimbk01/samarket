@@ -13,7 +13,7 @@ import {
 } from "@/lib/trust/battery-policy-reference";
 import type { MannerBatteryTier } from "@/lib/trust/manner-battery";
 import { BATTERY_SEGMENT_COUNT } from "@/lib/trust/manner-battery";
-import { MannerBatteryIcon } from "@/components/trust/MannerBatteryIcon";
+import { CrewRepBadge } from "@/components/trust/CrewRep";
 import { BatteryPolicyFlowDiagram } from "./BatteryPolicyDiagram";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -173,7 +173,7 @@ export function BatteryPolicyReferencePanel() {
             const p = TIER_SAMPLE_SCORES[tier];
             return (
               <div key={tier} className="flex flex-col items-center gap-1">
-                <MannerBatteryIcon tier={tier as MannerBatteryTier} percent={p} size="sm" />
+                <CrewRepBadge score={p} />
                 <span className="sam-text-xxs text-sam-muted">
                   {t("admin_settings_battery_ref_tier_label", { tier })}
                 </span>
@@ -226,7 +226,7 @@ export function BatteryPolicyReferencePanel() {
                   tier: preview.tier,
                 })}
               </div>
-              <MannerBatteryIcon tier={preview.tier} percent={preview.percent} size="md" />
+              <CrewRepBadge score={preview.percent} />
             </div>
           ) : (
             <p className="sam-text-helper text-sam-danger">{t("admin_settings_battery_ref_invalid_number")}</p>

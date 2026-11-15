@@ -3,8 +3,7 @@
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
-import { MannerBatteryIcon } from "@/components/trust/MannerBatteryIcon";
-import { mannerBatteryAccentClass } from "@/lib/trust/manner-battery";
+import { CrewRepBadge } from "@/components/trust/CrewRep";
 import type { CommunityMessengerPresenceState } from "@/lib/community-messenger/types";
 import type { StoreOrderDeliveryMessengerHeaderModel } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
 
@@ -17,7 +16,7 @@ type Props = {
 };
 
 /**
- * 배달 주문 메신저 헤더 — 아바타·제목·배터리 영역 (오버플로 방지 고정 레이아웃).
+ * 배달 주문 메신저 헤더 — 아바타·제목·CREW REP 영역 (오버플로 방지 고정 레이아웃).
  */
 export function StoreOrderDeliveryMessengerHeaderBlock({
   model,
@@ -29,8 +28,7 @@ export function StoreOrderDeliveryMessengerHeaderBlock({
 
   const initial = model.title.trim().slice(0, 1).toUpperCase() || "?";
   const isUserAvatar = model.avatarRounded === "circle";
-  const showBattery =
-    model.mode === "owner_buyer_peer" && model.buyerTrustPercent != null && model.buyerTrustTier != null;
+  const showCrewRep = model.mode === "owner_buyer_peer" && model.buyerCrewRepScore != null;
 
   return (
     <>
@@ -69,18 +67,8 @@ export function StoreOrderDeliveryMessengerHeaderBlock({
         ) : null}
       </div>
 
-      {showBattery ? (
-        <div
-          className="flex max-w-[4.25rem] shrink-0 items-center gap-0.5 self-center"
-          aria-label={`주문자 신뢰 배터리 ${model.buyerTrustPercent}%`}
-        >
-          <MannerBatteryIcon tier={model.buyerTrustTier!} percent={model.buyerTrustPercent!} size="sm" />
-          <span
-            className={`truncate text-[12px] font-semibold tabular-nums leading-none ${mannerBatteryAccentClass(model.buyerTrustTier!)}`}
-          >
-            {model.buyerTrustPercent}%
-          </span>
-        </div>
+      {showCrewRep ? (
+        <CrewRepBadge score={model.buyerCrewRepScore!} variant="compact" className="self-center" />
       ) : null}
     </>
   );

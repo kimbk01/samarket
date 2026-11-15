@@ -133,8 +133,6 @@ export const adminSettingsMessages = {
       "기본 데이터는 profiles.trust_score(0~100, 기본 50)입니다. UI에 찍히는 %는 이 점수를 0~100으로 맞춘 뒤 반올림한 정수와 같습니다. 6칸 단계(색·채움)는 같은 점수를 고정 구간으로 나눈 결과입니다. 레거시 °C(manner_temperature)만 별도 환산식이 있습니다.",
     admin_settings_trust_review_enabled: "후기·신뢰도 사용",
     admin_settings_trust_battery_visible: "배터리 노출",
-    admin_settings_trust_battery_label: "배터리 표시 라벨",
-    admin_settings_trust_battery_label_hint: "표시 이름 (기본: 배터리)",
     admin_settings_trade_loading: "거래 정책 불러오는 중…",
     admin_settings_trade_title: "구매자 거래·평가 (DB 연동)",
     admin_settings_trade_desc:
@@ -200,7 +198,6 @@ export const adminSettingsMessages = {
     admin_settings_key_default_currency: "기본 통화",
     admin_settings_key_default_locale: "기본 로케일",
     admin_settings_key_alarm_sound: "알람 사운드",
-    admin_settings_key_speed_display_label: "스피드 표시 라벨",
     admin_settings_key_product_auto_expire: "상품 자동 만료(일)",
     admin_settings_key_max_product_images: "최대 상품 이미지 수",
     admin_settings_key_allow_price_offer: "가격 제안 허용",
@@ -559,8 +556,6 @@ export const adminSettingsMessages = {
       "Source data is profiles.trust_score (0–100, default 50). UI % is that score clamped to 0–100 and rounded to an integer. Six segments (color/fill) come from fixed score bands. Legacy °C (manner_temperature) uses a separate formula.",
     admin_settings_trust_review_enabled: "Enable reviews & trust",
     admin_settings_trust_battery_visible: "Show battery",
-    admin_settings_trust_battery_label: "Battery display label",
-    admin_settings_trust_battery_label_hint: "Display name (default: Battery)",
     admin_settings_trade_loading: "Loading trade policy…",
     admin_settings_trade_title: "Buyer trade & reviews (DB)",
     admin_settings_trade_desc:
@@ -626,7 +621,6 @@ export const adminSettingsMessages = {
     admin_settings_key_default_currency: "Default currency",
     admin_settings_key_default_locale: "Default locale",
     admin_settings_key_alarm_sound: "Alarm sound",
-    admin_settings_key_speed_display_label: "Speed display label",
     admin_settings_key_product_auto_expire: "Product auto-expire (days)",
     admin_settings_key_max_product_images: "Max product images",
     admin_settings_key_allow_price_offer: "Allow price offers",

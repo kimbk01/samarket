@@ -137,7 +137,7 @@ import {
   TRADE_FB_DETAIL_SELLER_NAME,
   TRADE_FB_DETAIL_CHIP,
 } from "@/lib/ui/trade-write-fb-ui";
-import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
+import { CrewRepBadge } from "@/components/trust/CrewRep";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { useTradePostDetailSlideHost } from "@/components/community-messenger/room/phase2/TradePostDetailSlideHostContext";
 import { isPostEligibleForPromotionBoost, postHasTradePromotionOverlay } from "@/lib/promotion/trade-promotion-overlay";
@@ -195,7 +195,7 @@ function PostDetailSellerProfileRow({
           {regionLine}
         </div>
       </div>
-      <MannerBatteryDisplay raw={author?.trustScore ?? 50} layout="inline" size="sm" className="shrink-0" />
+      <CrewRepBadge score={author?.trustScore ?? 50} />
     </div>
   );
 }
