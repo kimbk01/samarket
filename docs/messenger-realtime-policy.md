@@ -36,6 +36,7 @@
 | 직렬화·검증 | 서버→와이어용 `serialize…`, 수신 측 `parse…` — `fromUserId`·방 id·`messageId` 힌트와 교차 검증 후에만 UI 병합. | [`community-messenger-room-bump-message-snapshot.ts`](../lib/community-messenger/realtime/community-messenger-room-bump-message-snapshot.ts) |
 | 수신 UI | `subscribeCommunityMessengerRoomBumpBroadcast` + 즉시 `mergeRoomMessages`; bump `message` snapshot 병합 성공 시 단건 GET 은 생략하고, snapshot 이 없거나 검증 실패한 경우에만 HTTP 증분(`catchUpAfterRemoteBump`)으로 정합. `postgres_changes` 는 병행. | [`room-bump-broadcast.ts`](../lib/community-messenger/realtime/room-bump-broadcast.ts) (구독만), [`use-messenger-room-client-phase1.ts`](../lib/community-messenger/room/use-messenger-room-client-phase1.ts) |
 | 금지 | **클라이언트**가 동일 bump 채널로 메시지 알림을 발행하는 것 — 서버 bump 와 중복·지연·보안 모델이 어긋난다. | (구 `publishCommunityMessengerRoomBump*` 클라 발행 제거됨) |
+| 반응 | 반응 추가·교체·해제 뒤 **서버가** 같은 bump 를 `messageId` 만 실어 발행한다. 반응 집계는 보는 사람마다 `mine` 이 달라 **스냅샷 없음**. 새 메시지가 아니므로 `skipBadgeTargetBump`(배지·알림 없음). 받는 쪽은 `messages/{id}` 단건 정합으로 반영하고, 단건 응답은 반응이 없으면 `reactions: []` 를 실어 지운 반응을 병합에서 지운다. Realtime `postgres_changes` 로 반응 표를 구독하지 않는다(CUT-R1). (2026-11-16 실기: 상대 반응이 방에 다시 들어가야 보이고, 지운 반응 칩이 남았다) | [`reactions/route.ts`](../app/api/community-messenger/rooms/[roomId]/messages/[messageId]/reactions/route.ts), `getCommunityMessengerRoomMessageById` |
 
 ## 원칙
 

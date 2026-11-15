@@ -6,6 +6,7 @@ import {
 } from "@/lib/community-messenger/service";
 import { enforceRateLimit, getRateLimitKey, jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
+import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -113,6 +114,24 @@ export async function POST(
       return jsonError("메신저를 사용할 수 없습니다.", 503, { code: result.error });
     }
     return jsonError("반응을 저장하지 못했습니다.", 400, { code: result.error });
+  }
+
+  /**
+   * Reactions follow the room message contract (docs/messenger-realtime-policy.md): the server publishes a bump
+   * after the mutation, before the response. No snapshot — aggregates carry a per-viewer `mine` flag, so each
+   * receiver reconciles via messages/{id}. No badge/notification bump: a reaction is not a new message.
+   * Before this, peers saw reactions only after re-entering the room (device 2026-11-16).
+   */
+  try {
+    await publishMessengerRoomBumpAfterMutation({
+      rawRouteRoomId: String(rawRoomId ?? "").trim(),
+      canonicalRoomId: canon.canonicalRoomId,
+      fromUserId: auth.userId,
+      messageId: String(messageId ?? "").trim(),
+      skipBadgeTargetBump: true,
+    });
+  } catch {
+    /* best-effort — reaction is saved; peers reconcile on next load */
   }
 
   return jsonOk({ ok: true, reactions: result.reactions });

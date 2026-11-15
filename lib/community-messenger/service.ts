@@ -17279,12 +17279,17 @@ export async function getCommunityMessengerRoomMessageById(input: {
   const rx = await fetchCommunityMessengerReactionAggregatesForMessages(sb as SupabaseLike, [messageId], input.userId, {
     authorUserIdByMessageId: sid ? new Map([[messageId, sid]]) : undefined,
   });
-  const message = mapCommunityMessengerDbMessageRowToMessage({
+  const mapped = mapCommunityMessengerDbMessageRowToMessage({
     row: r,
     viewerUserId: input.userId,
     profileById,
     reactions: rx.get(messageId),
   });
+  /**
+   * Single-row reconcile is authoritative for reactions: send `[]` when none remain. The list mapper omits empty
+   * reactions, and the client merge (`{...existing, ...item}`) then kept the removed chip (device 2026-11-16).
+   */
+  const message: CommunityMessengerMessage = { ...mapped, reactions: rx.get(messageId) ?? [] };
   const [visibleMessage] = await redactReplyQuotesBelowHistoryFloor(sb, [message], participantHistoryFloorIso(myParticipant));
   return { ok: true, message: visibleMessage ?? message };
 }
