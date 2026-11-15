@@ -1,3 +1,4 @@
+import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { logNotifyOpen } from "@/lib/notifications/core/notification-logs";
 import {
   requestMessengerHubBadgeResync,
@@ -116,6 +117,12 @@ export async function postNotificationEventOpenedRead(
 ): Promise<boolean> {
   const id = notificationEventId.trim();
   if (!id) return false;
+  /**
+   * 알림 이벤트 ID 는 uuid — Android 부재중 알림 탭은 tag `missed:<callId>` 를 notificationId 로 넘긴다.
+   * 그 값으로 읽음 API 를 부르면 Postgres uuid 오류(운영 11-15 3건)만 나고 읽음 대상도 아니다 → 요청하지 않음.
+   * docs/audit/postgres-error-app-defects-design-2026-11-16.md G3.
+   */
+  if (!isUuidLikeString(id)) return false;
   logNotifyOpen("tap_received", { notificationEventId: id });
   const result = await postJson("/api/me/notifications/read", {
     notificationEventId: id,

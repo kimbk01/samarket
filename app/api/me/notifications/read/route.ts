@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import {
   markCampaignDeliveryDismissed,
   markCampaignDeliveryOpened,
@@ -42,6 +43,10 @@ export async function POST(req: NextRequest) {
   const eventId = String(body.notificationEventId ?? "").trim();
   if (!eventId) {
     return NextResponse.json({ ok: false, error: "notification_event_id_required" }, { status: 400 });
+  }
+  /** notification_events.id 는 uuid — `missed:<callId>` 등은 DB 조회 없이 거절 (구 바이너리 방어, design-2026-11-16 G3) */
+  if (!isUuidLikeString(eventId)) {
+    return NextResponse.json({ ok: false, error: "invalid_notification_event_id" }, { status: 400 });
   }
 
   if (body.requireMemberA === true) {

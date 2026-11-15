@@ -59,6 +59,15 @@ const ROWS: Record<string, Record<string, unknown>> = {
   },
 };
 
+/** 알림 이벤트 ID 는 uuid (G3 · 2026-11-16 서버가 uuid 아닌 ID 는 DB 조회 없이 거절) */
+const IDS: Record<string, string> = {
+  offerAccepted: "0a000000-0000-4000-8000-000000000001",
+  chat: "0a000000-0000-4000-8000-000000000002",
+  ownerOrder: "0a000000-0000-4000-8000-000000000003",
+  missing: "0a000000-0000-4000-8000-000000000004",
+};
+const NAME_BY_ID = Object.fromEntries(Object.entries(IDS).map(([k, v]) => [v, k]));
+
 const markNotificationRead = vi.fn(async () => true);
 /** C4 (재감사 2026-11-01): 푸시 탭(열기) = 목록 탭과 같은 읽음 함수 */
 const patchInboxNotificationIdsRead = vi.fn(async (_sb: unknown, _uid: string, ids: string[]) => ({
@@ -95,7 +104,7 @@ vi.mock("@/lib/supabase/try-supabase-server", () => ({
           return q;
         },
         maybeSingle: async () => {
-          const row = ROWS[filters.id];
+          const row = ROWS[NAME_BY_ID[filters.id] ?? filters.id];
           if (!row || row.user_id !== filters.user_id) return { data: null, error: null };
           return { data: row, error: null };
         },
@@ -124,45 +133,53 @@ describe("F2 Android tap read — server Member A gate", () => {
   });
 
   it("status notification on a room path is read (A)", async () => {
-    const j = await post({ notificationEventId: "offerAccepted", opened: true, requireMemberA: true });
+    const j = await post({ notificationEventId: IDS.offerAccepted, opened: true, requireMemberA: true });
     expect(j.ok).toBe(true);
     expect(patchInboxNotificationIdsRead).toHaveBeenCalledTimes(1);
-    expect(patchInboxNotificationIdsRead.mock.calls[0]![2]).toEqual(["offerAccepted"]);
+    expect(patchInboxNotificationIdsRead.mock.calls[0]![2]).toEqual([IDS.offerAccepted]);
     expect(eqCalls).toContainEqual(["user_id", USER]);
   });
 
   it("chat message is refused without a write (B stays on room read ACK)", async () => {
-    const j = await post({ notificationEventId: "chat", opened: true, requireMemberA: true });
+    const j = await post({ notificationEventId: IDS.chat, opened: true, requireMemberA: true });
     expect(j).toEqual({ ok: false, skipped: "not_member_a" });
     expect(markNotificationRead).not.toHaveBeenCalled();
     expect(patchInboxNotificationIdsRead).not.toHaveBeenCalled();
   });
 
   it("owner operation notification is refused without a write", async () => {
-    const j = await post({ notificationEventId: "ownerOrder", opened: true, requireMemberA: true });
+    const j = await post({ notificationEventId: IDS.ownerOrder, opened: true, requireMemberA: true });
     expect(j).toEqual({ ok: false, skipped: "not_member_a" });
     expect(markNotificationRead).not.toHaveBeenCalled();
     expect(patchInboxNotificationIdsRead).not.toHaveBeenCalled();
   });
 
   it("another member's / missing event is refused without a write", async () => {
-    const j = await post({ notificationEventId: "missing", opened: true, requireMemberA: true });
+    const j = await post({ notificationEventId: IDS.missing, opened: true, requireMemberA: true });
     expect(j.ok).toBe(false);
     expect(markNotificationRead).not.toHaveBeenCalled();
     expect(patchInboxNotificationIdsRead).not.toHaveBeenCalled();
   });
 
   it("without requireMemberA an opened tap uses the same read function as list taps (C4)", async () => {
-    const j = await post({ notificationEventId: "chat", opened: true });
+    const j = await post({ notificationEventId: IDS.chat, opened: true });
     expect(j.ok).toBe(true);
     expect(patchInboxNotificationIdsRead).toHaveBeenCalledTimes(1);
     expect(markNotificationRead).not.toHaveBeenCalled();
   });
 
   it("dismissed (swiped away, not opened) reads only that one event", async () => {
-    const j = await post({ notificationEventId: "offerAccepted", dismissed: true });
+    const j = await post({ notificationEventId: IDS.offerAccepted, dismissed: true });
     expect(j.ok).toBe(true);
     expect(markNotificationRead).toHaveBeenCalledTimes(1);
+    expect(patchInboxNotificationIdsRead).not.toHaveBeenCalled();
+  });
+
+  it("부재중 알림 tag(missed:<callId>)는 DB 조회 없이 400 (G3)", async () => {
+    const j = await post({ notificationEventId: "missed:42ed06d5-df1c-4ae7-846a-a9499f7259a3", opened: true, requireMemberA: true });
+    expect(j.ok).toBe(false);
+    expect(eqCalls).toEqual([]);
+    expect(markNotificationRead).not.toHaveBeenCalled();
     expect(patchInboxNotificationIdsRead).not.toHaveBeenCalled();
   });
 });
