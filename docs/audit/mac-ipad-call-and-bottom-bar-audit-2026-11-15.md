@@ -165,3 +165,32 @@ iPad 실기 전부 · 맥 음성 발신 · 회색 막대 원인 · + 첨부 시�
 | 빌드 번호 | iOS 35 → 36 (4곳) · `--release --ios-only` RELEASE READY | PR #307 |
 | 회색 막대 원인 계측 | 미착수(계측 빌드 필요) | §3 |
 | iPad 실기 | NOT_PROVEN(실기기 없음 — 연결 기기: iPhone 13 mini unavailable, 나머지 시뮬레이터) | — |
+
+## 8. build 36 맥 실기 (2026-11-15 PHT, 맥 김봉기 1.2.2 (36) Debug · 삼성 SM-M156S q테스트1 1.2.6 (52))
+
+설치 확인: 맥 `user_devices.app_version = 1.2.2 (36)` 11:50:29 · 앱 로그 `call_platform_capability ios_app_on_mac=true voip_push=false callkit_audio_activation=false`.
+
+| 시험 | callId | DB | 판정 |
+|---|---|---|---|
+| 삼성→맥 음성(맥 수신) | 2b96…e7df | 12:02:20 생성 · 12:02:51 missed | **FAIL** (D2 범위). 이번 VoIP 발송은 `BadDeviceToken` 400 — Debug 서명 빌드의 VoIP 토큰은 개발용인데 서버는 운영 APNs 로 보냄 → 맥 VoIP 행 비활성화됨 |
+| 맥→삼성 음성 발신 | 3731…2d22 | 12:03:35 생성 · 12:03:36 cancelled | **FAIL** — D3 gate 는 즉시 통과(`platform_no_callkit_activation`)·Agora local join 성공. 0.9초 뒤 CallKit 종료 동작으로 끝남 |
+| 맥→삼성 영상 발신 → 삼성 수락 → 맥 종료 | 7d44…bedb | 12:04:38 생성 · 12:04:54 answered · 12:04:55 connected · 12:05:25 ended_by_caller | **PASS(화면)** — 맥·삼성 양쪽 상대 카메라 영상 표시, 30초 유지, 맥 종료 후 양쪽 종료. 음성 들림은 NOT_PROVEN(청취 불가) |
+
+### 새로 확인된 원인 (D3 이후 남은 맥 발신 결함)
+맥 시스템 로그(12:03:35~36):
+1. 앱 `CXStartCallAction` → `callservicesd` 가 통화 화면용으로 **FaceTime 앱을 실행**(`launchedByLS=1`).
+2. FaceTime: `The app was launched with a URL. Terminating the app because it is not displaying anything.` → 종료.
+3. `callservicesd`: `Disconnecting all calls because wantsCallDisconnectionOnInvalidation=YES` → `disconnectCallWithReason: 41` → 앱에 `CXEndCallAction`.
+4. 음성: `termination_decision ... source=callkit_system_button` → 종료(3731…2d22). 영상: 같은 종료 동작이 12:04:39 에 왔지만 영상 경로는 종료하지 않고 계속 진행(경로별 처리 차이 — 보고만).
+
+→ 맥에서는 **CallKit 발신 보고 자체가 통화를 끊는다.** gate 제거(D3)만으로는 부족.
+
+### D3-2 설계안 (승인 대기 — 통화 변경 규정 3번)
+- 변경 1곳: `CallKitProvider.reportOutgoingCallStarted` — `DibayCallPlatformCapability` 에 `supportsCallKitCallUi`(iPhone·iPad true, Mac false) 추가, false 면 `CXStartCallAction` 을 요청하지 않고 기록만 남기고 반환(세션 추적 맵에도 넣지 않음).
+- 영향 확인(코드):
+  - 음성 로컬 종료 `handleRejectOrEnd` 는 `hasTrackedCallKitSession == false` 이면 CallKit 없이 바로 `performLocalRejectOrEnd` → 맥 종료 버튼 정상 경로 유지.
+  - 원격 종료·무응답의 `reportCallEnded` 는 추적 안 된 UUID 에 대해 CallKit 이 무시 → 무해.
+  - 호출처 3곳(음성·영상 발신 코디네이터, `NativeCallServicePlugin`) 모두 이 함수 하나를 지남.
+- iPhone·iPad: 값 true → 기존 CallKit 발신 그대로(코드 경로 무변경).
+- 맥에서 잃는 것: 맥 시스템 통화 표시(FaceTime UI·통화 기록) — 지금도 FaceTime 이 즉시 종료되어 표시되지 않음.
+- 검증: 맥→삼성 음성·영상 발신·수락·맥 종료·삼성 종료·삼성 거절·벨 중 맥 취소·무응답·재발신, iPhone 발신 회귀 1회 이상. 로그 기준 `Disconnecting all calls` 0건.
