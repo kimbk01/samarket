@@ -269,3 +269,41 @@ NOT_PROVEN: 실제 소리 들림(청취 불가) · 통화 중(busy) · 맥 영�
 - 발견(보고만, 범위 밖): 기존 `dibay:voip-token-invalidated` 처리는 `{push_provider:"voip_apns"}` 만 보내 **같은 회원의 모든 기기 VoIP 행**을 끈다(iPhone 2대면 다른 iPhone 도 꺼짐).
 - iOS build 37 → 38.
 - 맥 기대 결과: VoIP 행 비활성 → 서버가 맥을 「VoIP 없는 iOS」로 보고 통화 수신 일반 알림 발송 시도. 단 맥 알림 「끔」이라 일반 알림 등록이 없어 실제 알림은 Owner 가 알림을 켠 뒤에만 도착(D2-4).
+
+### 10-7. build 38 맥 실기 (2026-11-15 12:55~12:58 PHT · main 8c1dc6aae · 맥 1.2.2 (38) Debug · 삼성 q테스트1 1.2.6 (52))
+| 항목 | 증거 | 판정 |
+|---|---|---|
+| 맥 PushKit 미등록 | 맥 로그 12:55:32 `ios_voip_registry_start_skipped reason=platform_no_voip_push` | PASS |
+| 이 기기 VoIP 행만 비활성 | 운영 `user_devices` 맥 device_id voip_apns 2행(35·37) `is_active=false` 12:55:35 (앱 실행 3초 후) | PASS |
+| 삼성→맥 음성(61a6…86bc) 서버 발송 | `call_ringing·call_cancel·missed_call : skipped no_active_targets` — VoIP 발송 없음, 맥 `Dropping` 0 | 서버 경로 PASS / **맥 수신 FAIL**(맥 알림 「끔」→ apns 행 없음, D2-3·D2-4 범위) |
+| 맥→삼성 음성 회귀(d32f…c17f) | 12:57:18 생성 · 12:57:29 connected · 12:57:38 맥 종료 | PASS |
+| 설치 확인 | `user_devices.app_version` 으로는 38 확인 불가(맥 활성 행이 하나도 없음) — 앱 번들 `CFBundleVersion 38`·`DibayGitSha 8c1dc6aae` 로 확인 | — |
+NOT_PROVEN: iPhone VoIP 회귀(연결된 iPhone 없음).
+
+### 10-8. D2-3 범위 정정 (구현 착수 전 코드 확인 결과 — 승인 다시 필요)
+§10-2 의 「웹 수신 시트를 맥에서 켜려면 `tryClaimIosCapacitorWebIncomingOwner` 조건 하나만 제외」는 **틀렸다**. iOS 셸에서는 그 조건까지 가기 전에 막힌다(코드 확인):
+
+| # | 막는 곳 | 근거 |
+|---|---|---|
+| G1 | iOS 셸은 V4 공급자가 sync-only — 수신 탐색·수신 시트 자체가 마운트되지 않음 | `CallV4Provider.tsx:353-355, 476-478` (설계 문서 `call-v4-web-incoming-remote-terminal-root-cause-design-2026-11-08.md` E8 와 같음) |
+| G2 | 수신 탐색은 `NEXT_PUBLIC_DIBAY_CALL_V4_TELEGRAM_LANE === "1"` 일 때만 — 운영 값 확인 못 함 | `call-v4-incoming-discovery.ts:234` |
+| G3 | 캡시터 앱에서는 Realtime 수신 피드 끔 → HTTP 폴링만 | `call-v4-incoming-discovery.ts:261` |
+| G4 | 웹 주체 요청을 웹·네이티브 양쪽이 막음(네이티브 음성 레인 켜짐) | `call-v4-ios-shell-owner-client.ts:17-26`, `CallV4SurfaceOwnerBridge.swift:40-65` |
+| G5 | 시트의 「수락」은 iOS 에서 **웹 Agora 로 통화 수립**(웹 PATCH → `callV4EnsureAgoraJoined`) — 네이티브 수락 연결 없음 | `call-v4-actions.ts:1240-1254`, `call-v4-agora.ts:200-240` — 「웹뷰 통화 수립 금지」(`dibay-call-native-runtime-ssot.md:9-17`) 와 충돌 |
+
+**정정 설계 (맥만, 능력 값 `callKitCallUi=false` 로만 분기)**
+1. 웹 `CallV4Provider`: 맥이면 sync 기능은 그대로 두고 **수신 전용 묶음**(수신 탐색 + `CallV4IncomingSheet`)만 추가로 마운트. 웹 발신·웹 Agora 수립 부분은 마운트하지 않음.
+2. 수신 탐색: 맥이면 V4 플래그와 무관하게 시작(G2). 폴링 주기는 기존 탐색 규칙 그대로.
+3. 주체 요청: 맥이면 웹(`tryClaimIosCapacitorWebIncomingOwner`)·네이티브(`CallV4SurfaceOwnerBridge.shouldBlockWebIncomingOwnerClaim`) 모두 `web_in_app` 허용(G4).
+4. 「수락」: 맥이면 `callV4Accept` 가 웹 PATCH·웹 Agora 대신 새 네이티브 메서드 `acceptIncomingWithoutCallKit(callId, kind, roomId, callerId, callerName)` 호출 → 네이티브가 수신 세션 등록(`NativeVoice/VideoCallRuntime.registerIncomingSession`) → 기존 `handleAnswer`(서버 수락·토큰·Agora 네이티브) → 네이티브 통화 화면. 웹 Agora 는 맥에서 쓰지 않음(G5 계약 유지).
+5. 오디오: `prepareForNativeVoiceCall/VideoCall` 이 맥이면 `setActive(true)` 까지(D3 와 같은 원리).
+6. 거절·상대 취소·무응답: 기존 웹 시트 경로(서버 상태) 그대로 — 네이티브 세션은 수락 때만 생기므로 정리 대상 없음.
+
+영향: 웹 V4 공급자·탐색·수락 3곳 + 네이티브 2곳(주체 차단·플러그인 1개) + 오디오 준비 1곳. iPhone·iPad·Android·데스크톱 웹은 분기 값이 달라 경로 무변경 — 단위 테스트로 4플랫폼 고정. 통화 단독 PR · 네이티브 build 39.
+
+### 10-9. D2-3 구현 기록 (Owner 「정정 설계로 구현」)
+- 웹: `lib/call/native/call-platform-capability-client.ts`(능력 단일 읽기·캐시) · `CallV4Provider` 맥이면 `CallV4MacIncomingHost`(탐색 + `CallV4IncomingSheet`, 웹 수립·웹 통화 화면 없음) · `startCallV4IncomingDiscovery(userId, { macIosApp })` 플래그 무관·Realtime 병행 · `tryClaimIosCapacitorWebIncomingOwner` 맥이면 웹 쪽 `web_in_app` 선언(네이티브 왕복 없음 → `CallV4SurfaceOwnerBridge` 수정 불필요) · `callV4Accept` 맥이면 `callV4AcceptOnMacNative`(네이티브 수락 중 표면 등록 → 시트 닫힘 → `acceptIncomingWithoutCallKit` → 상태 초기화).
+- 네이티브: `DibayMacIncomingCallAcceptor`(수신 등록 + 기존 `handleAnswer` + 음성 화면 표시) · `NativeCallServicePlugin.acceptIncomingWithoutCallKit` · `prepareForNativeVoice/VideoCall` 맥이면 `setActive(true)`.
+- 계약 테스트 정정(설계 변경 반영): `call-v4-incoming-outside-surface.test.ts` F2 소스 계약 2건, `call-surface-authority-contract.test.ts` 1건 — 「Capacitor 셸 sync-only·Realtime 없음」에 맥 예외만 추가, 맥 묶음에 웹 수립·웹 통화 화면이 없음을 함께 고정.
+- 보고만: `CALL_V4_TELEGRAM_INCOMING_SURFACE_CONTRACT.capacitorNativeForeground = "native_incoming_surface"` 설명 상수는 맥 예외를 표현하지 않음(동작 영향 없음).
+- iOS build 38 → 39.

@@ -47,6 +47,7 @@ final class DibayCallAudioSessionController {
     let session = AVAudioSession.sharedInstance()
     do {
       try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth])
+      activateWithoutCallKitIfNeeded(session, detail: "video=false")
       DibayCallLog.info("ios_audio_session_prepared", detail: "video=false")
     } catch {
       DibayCallLog.info("ios_audio_session_failed", detail: "err=\(error.localizedDescription)")
@@ -62,6 +63,7 @@ final class DibayCallAudioSessionController {
         mode: .videoChat,
         options: [.allowBluetooth, .defaultToSpeaker]
       )
+      activateWithoutCallKitIfNeeded(session, detail: "video=true")
       DibayCallLog.info("ios_audio_session_prepared", detail: "video=true")
     } catch {
       DibayCallLog.info("ios_audio_session_failed", detail: "err=\(error.localizedDescription)")
@@ -238,6 +240,21 @@ final class DibayCallAudioSessionController {
   }
 
   // MARK: - Private
+
+  /// D2-3 — 수락 직후 오디오 준비. iPhone·iPad 는 CallKit `didActivate` 가 `setActive(true)` 를 맡고,
+  /// 맥은 CallKit 이 없으므로 여기서 직접 켠다(D3 발신 gate 와 같은 원리).
+  private func activateWithoutCallKitIfNeeded(_ session: AVAudioSession, detail: String) {
+    guard !DibayCallPlatformCapability.supportsCallKitAudioActivation else { return }
+    do {
+      try session.setActive(true)
+      DibayCallLog.warn("ios_audio_session_activated_without_callkit", detail: "prepare \(detail)")
+    } catch {
+      DibayCallLog.warn(
+        "ios_audio_session_activate_without_callkit_failed",
+        detail: "prepare \(detail) err=\(error.localizedDescription)"
+      )
+    }
+  }
 
   /// Mac 전용(D3) — CallKit 이 하던 `setActive(true)` 를 앱이 한다. category·mode 는 발신 링백 준비
   /// (`prepareOutgoingRingbackRoute`)가 이미 설정했으므로 바꾸지 않는다.

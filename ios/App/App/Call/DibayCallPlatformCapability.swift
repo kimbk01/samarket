@@ -16,6 +16,7 @@ import Foundation
  * 소비처: D3 — `DibayCallAudioSessionController.registerPendingOutgoingJoin`(맥 발신 오디오 gate).
  *         D3-2 — `CallKitProvider.reportOutgoingCallStarted`(맥 CallKit 발신 보고 생략).
  *         D2-1 — `VoIPPushRegistry.start`(맥 PushKit 미등록) · `DibayVoipCallPlugin.getCallPlatformCapability`(웹 노출).
+ *         D2-3 — `DibayMacIncomingCallAcceptor`(맥 수신 수락) · 오디오 준비 `setActive`.
  */
 enum DibayCallPlatformCapability {
   /// Apple Silicon Mac 에서 iOS 앱으로 실행 중인가.

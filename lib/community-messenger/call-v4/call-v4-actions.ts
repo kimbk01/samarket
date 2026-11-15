@@ -51,6 +51,7 @@ import {
 import { mapCallV4RemoteTerminalReason } from "@/lib/community-messenger/call-v4/map-call-v4-remote-terminal-reason";
 import {
   canRenderWebIncomingSheet,
+  registerCallV4NativeAcceptingSurface,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import { isNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { readCallV4SessionIdFromNativeRoute } from "@/lib/community-messenger/call-v4/call-v4-native-route";
@@ -82,7 +83,7 @@ import {
   startNativeOutgoingPreparing,
   type NativeOutgoingPreparingAbandonedPayload,
 } from "@/lib/call/native/native-outgoing-bridge";
-import { nativeCallServicePlugin } from "@/lib/call/native/native-call-service";
+import { invokeNativeCallServicePlugin, nativeCallServicePlugin } from "@/lib/call/native/native-call-service";
 import {
   abandonCallV4OutgoingAttempt,
   bindCallV4OutgoingAttempt,
@@ -112,6 +113,7 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Identity, CallV4Phase, CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
+import { isIosAppOnMacCached } from "@/lib/call/native/call-platform-capability-client";
 import { PEER_DIRECT_CALL_ROOM_SEGMENT } from "@/lib/community-messenger/peer-direct-call-room-segment";
 
 const HYDRATE_PROTECTED_PHASES = new Set<CallV4Phase>(["accepting", "joining", "connected"]);
@@ -1155,6 +1157,41 @@ export function callV4IncomingDiscovered(session: CommunityMessengerCallSession)
   useCallV4Store.getState().setPhase("incoming_ringing");
 }
 
+/**
+ * D2-3 — 맥 전용 수락: 시트를 닫고(네이티브 수락 중 표면 등록) 네이티브 `acceptIncomingWithoutCallKit` 에 넘긴다.
+ * 서버 수락·토큰·Agora·통화 화면은 네이티브 `handleAnswer` 가 맡고, 웹은 기존 sync 동반자로 상태만 따른다.
+ */
+async function callV4AcceptOnMacNative(sid: string): Promise<void> {
+  if (!tryClaimCallV4AcceptFlight(sid)) return;
+  clearCallV4MissedTimer(sid);
+  logCallV4("mac_native_accept_start", { callId: sid });
+  registerCallV4NativeAcceptingSurface(sid, "native_accepting", "mac_native_accept");
+  useCallV4Store.getState().setPhase("accepting");
+  const existing = readCallV4Identity();
+  const identity = existing?.callId === sid ? existing : await ensureCallV4CalleeIdentity(sid);
+  if (!identity) {
+    logCallV4("mac_native_accept_identity_missing", { callId: sid });
+    useCallV4Store.getState().resetToIdle();
+    return;
+  }
+  const result = await invokeNativeCallServicePlugin<{ ok?: boolean; reason?: string }>(
+    "acceptIncomingWithoutCallKit",
+    {
+      callId: sid,
+      callKind: identity.mediaType === "video" ? "video" : "voice",
+      roomId: identity.roomId,
+      callerId: identity.callerUserId,
+      callerName: identity.peerLabel ?? "",
+    },
+  ).catch(() => null);
+  logCallV4("mac_native_accept_result", {
+    callId: sid,
+    ok: result?.ok === true,
+    reason: result?.reason ?? null,
+  });
+  useCallV4Store.getState().resetToIdle();
+}
+
 export async function callV4Accept(
   callId: string,
   router: { push: (href: string) => void; replace?: (href: string) => void },
@@ -1164,6 +1201,12 @@ export async function callV4Accept(
   if (!sid) return;
   if (isLegacyWebCallEstablishmentRemoved()) {
     logCallV4("legacy_web_establishment_removed", { callId: sid, trigger: "call_v4_accept" });
+    return;
+  }
+  // D2-3 (docs/audit/mac-ipad-call-and-bottom-bar-audit-2026-11-15.md §10-8): 맥(iOS 앱)은 웹 시트가 벨만 맡고
+  // 통화 수립은 네이티브(Agora 네이티브)가 한다 — 아래 웹 PATCH·웹 Agora 경로로 내려가지 않는다.
+  if (isIosAppOnMacCached()) {
+    await callV4AcceptOnMacNative(sid);
     return;
   }
   logCallV4("call_v4_accept_enter", { callId: sid, source: options?.source ?? null });

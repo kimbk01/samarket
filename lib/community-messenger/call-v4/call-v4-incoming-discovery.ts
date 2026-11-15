@@ -230,8 +230,21 @@ function rememberBounded(set: Set<string>, id: string): void {
   set.add(id);
 }
 
-export function startCallV4IncomingDiscovery(userId: string | null): () => void {
-  if (!isCallV4TelegramLaneEnabled() || !userId) return () => {};
+export type CallV4IncomingDiscoveryOptions = {
+  /**
+   * D2-3 (docs/audit/mac-ipad-call-and-bottom-bar-audit-2026-11-15.md §10-8): 맥(iOS 앱) 수신 전용 묶음.
+   * PushKit·CallKit 이 없어 웹 탐색이 유일한 수신 경로 — V4 플래그와 무관하게 시작하고, 브라우저·PWA 와 같이
+   * Realtime 신호를 병행한다(iOS 셸 제외 사유 K4 = CallKit·웹 시트 순서 위험, 맥에는 CallKit 수신이 없음).
+   */
+  macIosApp?: boolean;
+};
+
+export function startCallV4IncomingDiscovery(
+  userId: string | null,
+  options?: CallV4IncomingDiscoveryOptions,
+): () => void {
+  const macIosApp = options?.macIosApp === true;
+  if ((!isCallV4TelegramLaneEnabled() && !macIosApp) || !userId) return () => {};
   let cancelled = false;
   let inFlight = false;
   /** 연속 실패 수(예외·HTTP 오류 공통, 상한 4). 성공(ok) 때만 0 — 오류로는 줄이지 않는다. */
@@ -258,7 +271,7 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
    */
   let deferredRealtimeBypassAtMs: number | null = null;
   /** U2: 브라우저·PWA 에서만 Realtime 신호를 병행한다(아래 acquire). */
-  const realtimeFeedActive = !isCapacitorNativePlatform();
+  const realtimeFeedActive = !isCapacitorNativePlatform() || macIosApp;
   let releaseRealtimeFeed: () => void = () => {};
   /** S4: 실시간 수신 채널 상태 — SUBSCRIBED 가 언제부터 이어졌는가 */
   let feedStatus: string | null = null;

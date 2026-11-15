@@ -43,6 +43,14 @@ export type NativeCallTerminalPayload = {
 
 export type NativeCallServicePlugin = {
   prepareAccept(options: { callId: string; callKind?: string }): Promise<{ ok: boolean }>;
+  /** D2-3 — 맥(iOS 앱) 전용: 웹 수신 시트 수락 → 네이티브 수신 등록 + handleAnswer. 1.2.2 (39)+ */
+  acceptIncomingWithoutCallKit(options: {
+    callId: string;
+    callKind: "voice" | "video";
+    roomId?: string;
+    callerId?: string;
+    callerName?: string;
+  }): Promise<{ ok: boolean; reason?: string }>;
   startCall(options: { callId: string; callKind?: string; phase?: string }): Promise<{ ok: boolean }>;
   endCall(options: { callId: string; reason?: string }): Promise<{ ok: boolean }>;
   getActiveCallId(): Promise<{ callId: string | null }>;
