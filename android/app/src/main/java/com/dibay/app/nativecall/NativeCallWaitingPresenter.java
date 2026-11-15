@@ -148,19 +148,17 @@ public final class NativeCallWaitingPresenter {
    * onDestroy 가 새 화면의 「보임」을 「안 보임」으로 덮는다(실기 CW6 22:06:25.349).
    */
   private static final Set<Object> VISIBLE_HOSTS = Collections.newSetFromMap(new IdentityHashMap<>());
-  /**
-   * PiP 로 떠 있는 통화 화면(띠 객체) — 대기 알림 조용/시끄러움 판단에는 쓰지 않고(PiP 는 띠가 숨겨짐), 이어받기 남기기
-   * 판단에만 쓴다(설계 P · Owner 「P 구현 승인」 2026-11-16). PiP 통화 화면은 보이는 Activity 라 그것이 남아 있으면
-   * AOSP BackgroundActivityStartController 의 BAL_ALLOW_VISIBLE_WINDOW 로 수신 화면을 띄울 수 있다.
-   */
-  private static final Set<Object> PIP_HOSTS = Collections.newSetFromMap(new IdentityHashMap<>());
   /** VISIBLE_HOSTS 가 비어 있지 않은지 — PiP 는 안 보임. */
   private static boolean callScreenVisible;
   private static Held held;
   /** 지금 promote 가 앞 화면 이어받기로 띄우는 통화 id(런타임이 시작 방식을 고를 때 읽음). */
   private static String handoverLaunchCallId;
-  /** 런타임이 이어받기 앞 화면 시작을 실제로 했는지(promote 1회 동안). 안 했으면 남겨 둔 화면을 바로 닫는다(설계 B2-2). */
-  private static boolean handoverLaunched;
+  /**
+   * 런타임이 이어받기 앞 화면 시작을 「요청」했는지(promote 1회 동안). 요청은 화면이 떴다는 뜻이 아니다 — 플랫폼이
+   * 막을 수 있어(Android 16 QPR2 BAL) 실제 표시는 런타임 postcheck 결과({@link #onHandoverLaunchResult})로 판정한다.
+   * 요청조차 안 했으면 남겨 둔 화면을 바로 닫는다(설계 B2-2·안 1-c).
+   */
+  private static boolean handoverLaunchRequested;
   private static Runnable heldReleaseRunnable;
   /** 지금 올라가 있는 대기 알림이 조용한 알림인지(보임 상태가 바뀔 때만 다시 올리기 위함). */
   private static Boolean postedQuiet;
@@ -238,16 +236,6 @@ public final class NativeCallWaitingPresenter {
     showNotification(app, p.callId, p.callerName, p.lane, p.liveCallId);
   }
 
-  /** 띠가 PiP 상태를 보고한다(설계 P). */
-  public static void setCallScreenInPip(Object host, boolean inPip) {
-    if (host == null) return;
-    boolean changed;
-    synchronized (LOCK) {
-      changed = inPip ? PIP_HOSTS.add(host) : PIP_HOSTS.remove(host);
-    }
-    if (changed) log("call_screen_pip", null, "inPip=" + inPip);
-  }
-
   /**
    * 런타임이 통화 화면을 닫기 직전에 묻는다. true 면 닫지 말 것 — 대기 통화가 이 화면 자리를 이어받는다(Dialer: 통화가 남아
    * 있으면 InCallActivity 를 닫지 않음). 화면이 앞에 보이지 않으면(다른 앱·PiP·꺼짐) 남길 이유가 없어 false.
@@ -258,10 +246,13 @@ public final class NativeCallWaitingPresenter {
     synchronized (LOCK) {
       if (pending == null || pending.callId.equals(sid)) return false;
       if (held != null && held.callId.equals(sid)) return true;
-      if (!callScreenVisible && PIP_HOSTS.isEmpty()) return false;
+      // PiP·다른 앱·화면 꺼짐이면 남기지 않는다. PiP 만 떠 있는 앱은 스스로 전체 화면을 띄울 수 없다 — AOSP
+      // android16-qpr2-release BackgroundActivityStartController L1170(visible NOT pinned)·BackgroundLaunchProcessController
+      // L147(!inPinnedWindow)·L158(유예는 APP_SWITCH_ALLOW 만). 안 1-a(Owner 「안 1 구현 승인」 2026-11-16).
+      if (!callScreenVisible) return false;
       held = new Held(sid, lane);
     }
-    log("handover_hold", sid, "lane=" + lane + " pip=" + !PIP_HOSTS.isEmpty());
+    log("handover_hold", sid, "lane=" + lane);
     scheduleHeldRelease("hold_timeout", HANDOVER_HOLD_MAX_MS);
     return true;
   }
@@ -274,12 +265,22 @@ public final class NativeCallWaitingPresenter {
     }
   }
 
-  /** 런타임이 이어받기 앞 화면 시작을 했음을 알린다. */
-  public static void markHandoverLaunched(String callId) {
+  /** 런타임이 이어받기 앞 화면 시작을 요청했음을 알린다(요청 ≠ 표시). */
+  public static void markHandoverLaunchRequested(String callId) {
     if (callId == null) return;
     synchronized (LOCK) {
-      if (callId.trim().equals(handoverLaunchCallId)) handoverLaunched = true;
+      if (callId.trim().equals(handoverLaunchCallId)) handoverLaunchRequested = true;
     }
+  }
+
+  /**
+   * 런타임 postcheck(시작 요청 1.2초 뒤) 결과. 화면이 안 떴으면(플랫폼 차단 등) 남겨 둔 화면을 즉시 닫는다 — 안전장치
+   * hold_timeout(5초)까지 끝난 통화 화면이 남아 새 수신 표시를 가리지 않게(60 실기 00:24:39~43 원인). 안 1-b.
+   */
+  public static void onHandoverLaunchResult(String callId, boolean shown) {
+    if (callId == null) return;
+    log(shown ? "handover_launch_shown" : "handover_launch_blocked", callId.trim(), "");
+    if (!shown) releaseHeld("handover_launch_blocked");
   }
 
   /** 통화 화면(음성·영상) onCreate — 다른 통화의 화면이 떴으면 남겨 둔 화면을 정리한다. */
@@ -414,32 +415,39 @@ public final class NativeCallWaitingPresenter {
     clearPresentation(app, p.callId);
     final boolean handover;
     synchronized (LOCK) {
-      handover = held != null && (callScreenVisible || !PIP_HOSTS.isEmpty());
+      handover = held != null && callScreenVisible;
       handoverLaunchCallId = handover ? p.callId : null;
-      handoverLaunched = false;
+      handoverLaunchRequested = false;
     }
     boolean presented;
-    final boolean launched;
+    final boolean launchRequested;
     final boolean stillHeld;
     try {
       presented = presentPromoted(app, p, accept);
     } finally {
       synchronized (LOCK) {
-        launched = handoverLaunched;
+        launchRequested = handoverLaunchRequested;
         stillHeld = held != null;
         handoverLaunchCallId = null;
-        handoverLaunched = false;
+        handoverLaunchRequested = false;
       }
     }
     log(
         "promote",
         p.callId,
-        "accept=" + accept + " presented=" + presented + " handover=" + handover + " launched=" + launched);
+        "accept="
+            + accept
+            + " presented="
+            + presented
+            + " handover="
+            + handover
+            + " launchRequested="
+            + launchRequested);
     if (!presented) {
       releaseHeld("promote_not_presented");
-    } else if (stillHeld && !launched) {
-      // 이어받기를 못 함(화면 꺼짐 등) — 남겨 둔 화면이 새 수신 표시를 가리지 않게 바로 닫는다(이전 동작과 같아짐).
-      releaseHeld("handover_not_launched");
+    } else if (stillHeld && !launchRequested) {
+      // 이어받기 시작을 요청조차 못 함(화면 꺼짐 등) — 남겨 둔 화면이 새 수신 표시를 가리지 않게 바로 닫는다.
+      releaseHeld("handover_not_requested");
     }
   }
 

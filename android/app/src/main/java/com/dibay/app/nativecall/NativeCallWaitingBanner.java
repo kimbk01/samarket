@@ -45,7 +45,6 @@ public final class NativeCallWaitingBanner implements NativeCallWaitingPresenter
   private View banner;
   private String shownCallId;
   private boolean hostResumed;
-  private boolean detached;
 
   private NativeCallWaitingBanner(Activity activity, FrameLayout host) {
     this.activity = activity;
@@ -73,7 +72,6 @@ public final class NativeCallWaitingBanner implements NativeCallWaitingPresenter
   public void detach() {
     NativeCallWaitingPresenter.removeListener(this);
     hostResumed = false;
-    detached = true;
     reportVisibility();
     remove();
   }
@@ -94,8 +92,6 @@ public final class NativeCallWaitingBanner implements NativeCallWaitingPresenter
   /** 통화 화면이 띠를 보일 수 있는 상태(앞에 있고 PiP 아님)인지 presenter 에 알린다. */
   private void reportVisibility() {
     NativeCallWaitingPresenter.setCallScreenVisible(activity, this, hostResumed && !isInPip());
-    // 설계 P: PiP 로 떠 있는 통화 화면도 이어받기 자리로 쓴다(앱에 보이는 화면 = BAL 허용 조건).
-    NativeCallWaitingPresenter.setCallScreenInPip(this, !detached && isInPip());
   }
 
   private boolean isInPip() {

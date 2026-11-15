@@ -1336,7 +1336,7 @@ public final class NativeVideoCallRuntime {
       return;
     }
     NativeVideoCallLog.info("foreground_visible_activity_start_allowed", callId, "handover=" + handover);
-    if (handover) NativeCallWaitingPresenter.markHandoverLaunched(callId);
+    if (handover) NativeCallWaitingPresenter.markHandoverLaunchRequested(callId);
     android.content.Intent intent = new android.content.Intent(context, NativeVideoCallActivity.class);
     // 대기 통화 이어받기: 끝난 통화 화면이 남아 있는 같은 작업을 비우고 새 화면을 그 자리에 넣는다(AOSP ActivityStarter
     // NEW_TASK|CLEAR_TASK = performClearTaskForReuse — 작업이 사라지지 않아 홈이 드러나지 않음). 그 밖은 기존 플래그.
@@ -1353,9 +1353,14 @@ public final class NativeVideoCallRuntime {
     NativeVideoCallLog.info("foreground_visible_activity_start_done", callId);
     MAIN.postDelayed(
         () -> {
-          if (NativeVideoCallActivity.isShowing(callId)) return;
+          if (NativeVideoCallActivity.isShowing(callId)) {
+            if (handover) NativeCallWaitingPresenter.onHandoverLaunchResult(callId, true);
+            return;
+          }
           NativeVideoCallLog.warn(
               "foreground_visible_activity_start_postcheck_failed", callId, "reason=activity_not_shown");
+          // 이어받기 시작이 막힘(플랫폼 BAL 등) — 남겨 둔 화면부터 정리한 뒤 기존 FSI 경로로(안 1-b).
+          if (handover) NativeCallWaitingPresenter.onHandoverLaunchResult(callId, false);
           PendingIntent fallback = NativeVideoCallNotification.showIncoming(context, session);
           NativeVideoCallLog.info("foreground_visible_activity_fallback_to_fsi", callId);
           scheduleSuppressNotificationWhenActivityShown(context, callId);

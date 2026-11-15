@@ -140,7 +140,10 @@ describe("Android 대기 통화 선택지 유지 (실기 CW1 FAIL 수정 · 2026
       expect(src).toContain("NativeCallWaitingPresenter.isHandoverLaunch(sid) && DibayKeyguardHelper.isInteractive(app)");
       // 잠금 해제를 요구하면 잠금 화면 이어받기가 막힘(실기 T7 FAIL) — 설계 B2-1
       expect(src).not.toMatch(/isHandoverLaunch\(sid\)\s*&& DibayKeyguardHelper\.isForegroundUnlockedInteractive/);
-      expect(src).toContain("if (handover) NativeCallWaitingPresenter.markHandoverLaunched(callId);");
+      expect(src).toContain("if (handover) NativeCallWaitingPresenter.markHandoverLaunchRequested(callId);");
+      // 시작 요청 ≠ 표시: postcheck 결과를 presenter 에 알림(안 1-b·1-c)
+      expect(src).toContain("if (handover) NativeCallWaitingPresenter.onHandoverLaunchResult(callId, true);");
+      expect(src).toContain("if (handover) NativeCallWaitingPresenter.onHandoverLaunchResult(callId, false);");
       expect(src).toMatch(
         /handover\s*\? android\.content\.Intent\.FLAG_ACTIVITY_NEW_TASK \| android\.content\.Intent\.FLAG_ACTIVITY_CLEAR_TASK/,
       );
@@ -155,16 +158,20 @@ describe("Android 대기 통화 선택지 유지 (실기 CW1 FAIL 수정 · 2026
     expect(src).toContain('releaseHeld("waiting_timeout");');
     expect(src).toContain('releaseHeld("promote_not_presented");');
     // 이어받기를 실제로 시작하지 않았으면 남겨 둔 화면을 바로 닫음(5초 대기 없음) — 설계 B2-2
-    expect(src).toContain('releaseHeld("handover_not_launched");');
-    expect(src).toMatch(/\} else if \(stillHeld && !launched\) \{/);
+    expect(src).toContain('releaseHeld("handover_not_requested");');
+    expect(src).toMatch(/\} else if \(stillHeld && !launchRequested\) \{/);
+    // 표시 실패(플랫폼 차단) 시 남긴 화면 즉시 정리 — 5초 hold_timeout 까지 남지 않음(60 실기 회귀 원인)
+    expect(src).toContain('if (!shown) releaseHeld("handover_launch_blocked");');
     expect(src).toContain('scheduleHeldRelease("next_screen_shown", HANDOVER_RELEASE_AFTER_SHOWN_MS);');
     expect(src).toContain('scheduleHeldRelease("hold_timeout", HANDOVER_HOLD_MAX_MS);');
     // 화면이 앞에 보일 때만 남김
     // 화면이 앞에 보이거나 PiP 로 떠 있을 때만 남김(설계 P)
-    expect(src).toMatch(/if \(!callScreenVisible && PIP_HOSTS\.isEmpty\(\)\) return false;\s*held = new Held\(sid, lane\);/);
-    expect(src).toContain("handover = held != null && (callScreenVisible || !PIP_HOSTS.isEmpty());");
+    // PiP 는 이어받기 자리로 쓰지 않음 — Android 16 QPR2 BAL 은 PiP 를 허용 근거로 쓰지 않음(안 1-a)
+    expect(src).toMatch(/if \(!callScreenVisible\) return false;\s*held = new Held\(sid, lane\);/);
+    expect(src).toContain("handover = held != null && callScreenVisible;");
+    expect(src).not.toContain("PIP_HOSTS");
     const banner = read("android/app/src/main/java/com/dibay/app/nativecall/NativeCallWaitingBanner.java");
-    expect(banner).toContain("NativeCallWaitingPresenter.setCallScreenInPip(this, !detached && isInPip());");
+    expect(banner).not.toContain("setCallScreenInPip");
     // 대기 알림 조용/시끄러움은 여전히 「앞에 보임」만 — PiP 는 띠가 숨겨지므로 시끄러운 알림
     expect(banner).toContain("NativeCallWaitingPresenter.setCallScreenVisible(activity, this, hostResumed && !isInPip());");
   });
