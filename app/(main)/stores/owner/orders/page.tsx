@@ -2,14 +2,14 @@
 
 import { Suspense } from "react";
 import { OwnerStoreOrdersView } from "@/components/business/owner/OwnerStoreOrdersView";
-import { OwnerStoreSuspenseFallback } from "@/components/business/owner/OwnerStoreSuspenseFallback";
+import { OwnerTabSkeleton } from "@/components/business/owner/OwnerTabSkeleton";
 
 export default function OwnerStoreOrdersPage() {
   return (
     <Suspense
       fallback={
-        <div className="pt-4">
-          <OwnerStoreSuspenseFallback className="text-sm text-sam-muted" />
+        <div>
+          <OwnerTabSkeleton kind="orders" />
         </div>
       }
     >
