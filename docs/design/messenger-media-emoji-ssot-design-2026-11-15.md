@@ -163,3 +163,4 @@
 - 응답·실시간 알림(bump)·DB 읽기 매퍼에 `imageBlurDataUrl`·`imageAlbumBlurDataUrls`(형식 `data:image/(webp|jpeg|png);base64` · 길이 검증). 전달(forward)은 metadata 를 그대로 복사하므로 따라간다. 전체삭제 때 비운다.
 - 화면: 말풍선·앨범 칸에 흐린 층을 먼저 그림(받기 전·받는 중 회색 칸 대신). 앨범 칸도 한 장과 같은 「직전 사진 깔기」(보낸 직후 회색 깜빡임 제거).
 - 설계와 다른 점(근거): ① 앨범 크기 응답 — 앨범 배치가 고정 격자(O3 미결정)라 화면에서 쓰는 곳이 없어 넣지 않음. ② 첫 화면 eager — 화면 안 사진은 lazy 여도 즉시 받는다(브라우저 기준). 지연 증거가 없어 바꾸지 않음. ③ 지난 사진(흐린 미리보기 없음)은 배경색 그대로 — 다시 채우지 않는다.
+- **S3 실기 FAIL 정정 (2026-11-16):** 운영 2f75e9bb4 에서 새로 보낸 사진에 `image_blur` 가 저장되지 않음(01:47:59 PHT 메시지 DB 조회). 원인: `sendCommunityMessengerImageMessage` 가 업로드 결과를 다시 정리할 때 `blurDataUrl` 을 빠뜨림(작업자 누락 — 11-14 storage_bucket 누락과 같은 자리). 정리 단계를 `lib/community-messenger/messenger-image-send-items.ts` 단일 정의로 옮기고, 실제 업로드 처리 → 정리 통과 시험과 「타입 필드가 늘면 컴파일 오류」 시험을 추가.
