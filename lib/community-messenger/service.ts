@@ -51,7 +51,7 @@ import { canEditMessageText } from "@/lib/community-messenger/message-actions/me
 import { messageRoomKindForActions } from "@/lib/community-messenger/message-actions/message-room-kind";
 import {
   canReactToMessage,
-  isMessengerQuickReactionKey,
+  isMessengerReactionKey,
 } from "@/lib/community-messenger/message-actions/message-reaction-policy";
 import {
   resolveAdminHiddenMessagePlaceholder,
@@ -1606,7 +1606,7 @@ async function fetchCommunityMessengerReactionAggregatesForMessages(
     const rk = trimText(row.reaction_key);
     const uid = trimText(row.user_id);
     if (!mid || !rk || !uid) continue;
-    if (!isMessengerQuickReactionKey(rk)) continue;
+    if (!isMessengerReactionKey(rk)) continue;
     const authorId = authorByMid?.get(mid);
     if (authorId && authorId === uid) continue;
 
@@ -19432,7 +19432,7 @@ export async function toggleCommunityMessengerMessageReaction(input: {
   const userId = trimText(input.userId);
   const reactionKey = trimText(input.reactionKey);
   if (!roomId || !messageId || !userId || !reactionKey) return { ok: false, error: "bad_request" };
-  if (!isMessengerQuickReactionKey(reactionKey)) return { ok: false, error: "bad_request" };
+  if (!isMessengerReactionKey(reactionKey)) return { ok: false, error: "bad_request" };
 
   const sb = getSupabaseOrNull();
   if (!sb) return { ok: false, error: "messenger_storage_unavailable" };
@@ -19526,7 +19526,7 @@ export async function listCommunityMessengerMessageReactionParticipants(input: {
   const userId = trimText(input.userId);
   const reactionKey = trimText(input.reactionKey);
   if (!roomId || !messageId || !userId || !reactionKey) return { ok: false, error: "bad_request" };
-  if (!isMessengerQuickReactionKey(reactionKey)) return { ok: false, error: "bad_request" };
+  if (!isMessengerReactionKey(reactionKey)) return { ok: false, error: "bad_request" };
 
   const sb = getSupabaseOrNull();
   if (!sb) return { ok: false, error: "messenger_storage_unavailable" };
