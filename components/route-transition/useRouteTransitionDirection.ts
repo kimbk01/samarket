@@ -5,6 +5,7 @@ import type { RouteTransitionEnterKind } from "@/components/route-transition/rou
 import { computeRouteTransitionEnterKind } from "@/components/route-transition/route-transition-enter-kind";
 import { buildCanonicalNavIndexResolver } from "@/lib/main-menu/canonical-nav-index-resolver";
 import { useMainBottomNavTabs } from "@/contexts/MainBottomNavTabsContext";
+import { subscribePopstateBeforeRouter } from "@/lib/navigation/popstate-before-router";
 
 /**
  * pathname 변경 직후(useLayoutEffect) canonical 방향을 계산해 ref 에 넣는다.
@@ -37,8 +38,8 @@ export function useRouteTransitionKindRef(pathname: string | null): MutableRefOb
     const onPopState = () => {
       popstateBackRef.current = true;
     };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
+    const offPopBefore = subscribePopstateBeforeRouter(onPopState);
+    return () => offPopBefore();
   }, []);
 
   useLayoutEffect(() => {

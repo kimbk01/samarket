@@ -12,6 +12,7 @@ import { isStoresOwnerStackPath } from "@/lib/business/owner-stack-path";
 import { consumeOwnerBottomNavTabIntent } from "@/lib/business/owner-bottom-nav-tab-intent";
 import { useBottomNavShowingTarget } from "@/lib/main-menu/use-bottom-nav-controller";
 import { OwnerTabSkeleton, resolveOwnerTabSkeletonKind } from "@/components/business/owner/OwnerTabSkeleton";
+import { subscribePopstateBeforeRouter } from "@/lib/navigation/popstate-before-router";
 
 function stripOwnerStackTransitionClasses(el: HTMLDivElement | null) {
   if (!el) return;
@@ -40,8 +41,8 @@ export function OwnerStackPageSlideShell({ children }: { children: ReactNode }) 
     const onPopState = () => {
       popstateBackRef.current = true;
     };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
+    const offPopBefore = subscribePopstateBeforeRouter(onPopState);
+    return () => offPopBefore();
   }, []);
 
   useLayoutEffect(() => {
