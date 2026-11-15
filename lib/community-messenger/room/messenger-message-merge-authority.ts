@@ -27,6 +27,8 @@ export function finalizeDeletedForEveryoneMessage<T extends CommunityMessengerMe
     !row.replyToMessageId &&
     !row.imageAlbumUrls &&
     !row.imagePreviewUrl &&
+    !row.imageBlurDataUrl &&
+    !row.imageAlbumBlurDataUrls &&
     !row.imageOriginalUrl &&
     !row.fileName &&
     row.voiceDurationSeconds == null;
@@ -45,6 +47,8 @@ export function finalizeDeletedForEveryoneMessage<T extends CommunityMessengerMe
     imageOriginalUrl: _imageOriginalUrl,
     imageWidth: _imageWidth,
     imageHeight: _imageHeight,
+    imageBlurDataUrl: _imageBlurDataUrl,
+    imageAlbumBlurDataUrls: _imageAlbumBlurDataUrls,
     fileName: _fileName,
     fileMimeType: _fileMimeType,
     fileSizeBytes: _fileSizeBytes,

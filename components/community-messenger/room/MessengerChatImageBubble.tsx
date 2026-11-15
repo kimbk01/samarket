@@ -40,6 +40,55 @@ function useViewportWidth(): number {
 /** 앨범·사진 칸 안 사진은 칸을 채운다 — `!h-full`: 층 밖 전역 `img{height:auto}` 가 `h-full` 을 이기기 때문(D2-가 운영 미적용 원인). */
 const FILL_IMG = "absolute inset-0 !h-full !w-full object-cover object-center";
 
+/**
+ * 흐린 미리보기(SSOT M3, 텔레그램 stripped thumb 역할) — 메시지에 담긴 16px 사진을 칸에 꽉 채워 흐리게 그린다.
+ * 사진을 받기 전·받는 중에 회색 칸 대신 보인다. 없는 지난 메시지는 칸 배경색만.
+ */
+function PhotoBlurLayer({ src }: { src: string | null | undefined }) {
+  if (!src) return null;
+  return (
+    <span
+      aria-hidden
+      data-cm-photo-blur=""
+      className="pointer-events-none absolute inset-0 block scale-110 bg-cover bg-center blur-md"
+      style={{ backgroundImage: `url("${src}")` }}
+    />
+  );
+}
+
+/**
+ * 같은 칸의 src 가 바뀌면(보내는 중 로컬 사진 → 서버 사진) 새 사진이 그려질 때까지 직전 사진을 아래에 깐다 —
+ * 한 장 말풍선과 같은 규칙을 앨범 칸에도(SSOT M3: 보낸 직후 앨범 회색 깜빡임 제거).
+ */
+function AlbumCellImage({ src }: { src: string }) {
+  const lastPaintedSrcRef = useRef<string | null>(null);
+  const [underlaySrc, setUnderlaySrc] = useState<string | null>(null);
+  useLayoutEffect(() => {
+    const painted = lastPaintedSrcRef.current;
+    setUnderlaySrc(painted && painted !== src ? painted : null);
+  }, [src]);
+  return (
+    <>
+      {underlaySrc ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={underlaySrc} alt="" aria-hidden className={FILL_IMG} decoding="async" />
+      ) : null}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        className={FILL_IMG}
+        loading={underlaySrc ? "eager" : "lazy"}
+        decoding="async"
+        onLoad={() => {
+          lastPaintedSrcRef.current = src;
+          setUnderlaySrc(null);
+        }}
+      />
+    </>
+  );
+}
+
 export function MessengerChatImageBubble(props: {
   item: CommunityMessengerMessage & { pending?: boolean };
   /** 공용 사진 뷰어(`DibayImageViewer`) 열기 — 화면용 1600·원본·말풍선 썸네일(먼저 그림) */
@@ -77,7 +126,15 @@ export function MessengerChatImageBubble(props: {
   if (album) {
     return (
       <div className={`${BUBBLE_MAX} max-h-[360px] bg-transparent`}>
-        <AlbumLayout urls={album} onOpenCell={openFrom} />
+        <AlbumLayout
+          urls={album}
+          blurs={
+            item.imageAlbumBlurDataUrls && item.imageAlbumBlurDataUrls.length === album.length
+              ? item.imageAlbumBlurDataUrls
+              : null
+          }
+          onOpenCell={openFrom}
+        />
         {pending ? (
           <p className="mt-1 text-center sam-text-xxs text-sam-muted">
             {t("common_sending")}
@@ -92,6 +149,7 @@ export function MessengerChatImageBubble(props: {
       src={item.content.trim()}
       width={item.imageWidth ?? null}
       height={item.imageHeight ?? null}
+      blurDataUrl={item.imageBlurDataUrl ?? null}
       pending={pending}
       onOpen={() => openFrom(0)}
     />
@@ -100,9 +158,12 @@ export function MessengerChatImageBubble(props: {
 
 function AlbumLayout({
   urls,
+  blurs,
   onOpenCell,
 }: {
   urls: string[];
+  /** 칸별 흐린 미리보기(없으면 null) */
+  blurs: string[] | null;
   onOpenCell: (i: number) => void;
 }) {
   const { t } = useI18n();
@@ -118,14 +179,8 @@ function AlbumLayout({
       data-album-index={i}
       aria-label={`${t("cm_ui_photo")} ${i + 1} ${t("cm_ui_view_photo_large")}`}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt=""
-        className={FILL_IMG}
-        loading="lazy"
-        decoding="async"
-      />
+      <PhotoBlurLayer src={blurs?.[i]} />
+      <AlbumCellImage src={src} />
     </button>
   );
 
@@ -173,14 +228,8 @@ function AlbumLayout({
           data-album-rest="1"
           aria-label={`${t("cm_ui_view")} ${restCount + 1}`}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={urls[MESSENGER_ALBUM_REST_TILE_INDEX]!}
-            alt=""
-            className={FILL_IMG}
-            loading="lazy"
-            decoding="async"
-          />
+          <PhotoBlurLayer src={blurs?.[MESSENGER_ALBUM_REST_TILE_INDEX]} />
+          <AlbumCellImage src={urls[MESSENGER_ALBUM_REST_TILE_INDEX]!} />
           <span className="absolute inset-0 flex items-center justify-center bg-black/45 sam-text-section-title font-bold text-white">
             +{restCount}
           </span>
@@ -194,10 +243,13 @@ function SingleChatImage({
   src,
   width,
   height,
+  blurDataUrl,
   pending,
   onOpen,
 }: {
   src: string;
+  /** 흐린 미리보기 data URL — 받기 전 즉시 표시 */
+  blurDataUrl: string | null;
   /** 서버가 저장한 표시 크기 — 있으면 로드 전부터 말풍선 비율을 고정한다(로드 후 커지며 하단이 잘리지 않게). */
   width: number | null;
   height: number | null;
@@ -248,6 +300,7 @@ function SingleChatImage({
           className="relative w-full overflow-hidden bg-black/10"
           style={{ height: size.height, contain: "layout" }}
         >
+          <PhotoBlurLayer src={blurDataUrl} />
           {underlaySrc ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img

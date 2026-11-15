@@ -95,4 +95,22 @@ describe("말풍선 본문 링크 · 사진 칸 크기", () => {
     const box = img.parentElement as HTMLElement;
     expect(box.style.height).toBe("460px");
   });
+
+  it("흐린 미리보기가 있으면 사진을 받기 전부터 칸에 흐린 층을 그린다 (SSOT M3)", () => {
+    const blur = "data:image/webp;base64,UklGRhQAAABXRUJQVlA4IAgAAAAwAQCdASoBAAEAAQAcJaQAA3AA/v3AgAA=";
+    const m = {
+      id: "m2",
+      roomId: "r1",
+      messageType: "image",
+      content: "https://x.supabase.co/storage/v1/object/public/post-images/u/r/1.thumb.webp",
+      isMine: false,
+      imageWidth: 1600,
+      imageHeight: 1200,
+      imageBlurDataUrl: blur,
+    } as unknown as CommunityMessengerMessage;
+    act(() => root.render(<MessengerChatImageBubble item={m} onOpenLightbox={vi.fn()} />));
+    const layer = host.querySelector("[data-cm-photo-blur]") as HTMLElement | null;
+    expect(layer).not.toBeNull();
+    expect(layer!.style.backgroundImage).toContain("data:image/webp;base64,");
+  });
 });

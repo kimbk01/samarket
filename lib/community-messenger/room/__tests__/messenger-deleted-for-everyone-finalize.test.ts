@@ -129,3 +129,20 @@ describe("병합 순서와 무관하게 삭제 확정", () => {
     expect(merged.filter((m) => m.messageType === "call_stub")).toHaveLength(1);
   });
 });
+
+describe("전체삭제 사진 — 흐린 미리보기도 남지 않는다 (SSOT M3)", () => {
+  it("finalizeDeletedForEveryoneMessage 가 imageBlurDataUrl·imageAlbumBlurDataUrls 를 비운다", () => {
+    const blur = "data:image/webp;base64,AAAA";
+    const out = finalizeDeletedForEveryoneMessage(
+      msg(5, {
+        messageType: "image",
+        content: PLACEHOLDER,
+        deletedForEveryoneAt: TOMB,
+        imageBlurDataUrl: blur,
+        imageAlbumBlurDataUrls: [blur, blur],
+      })
+    );
+    expect(out.imageBlurDataUrl).toBeUndefined();
+    expect(out.imageAlbumBlurDataUrls).toBeUndefined();
+  });
+});
