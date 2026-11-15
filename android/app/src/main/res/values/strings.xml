@@ -7,6 +7,9 @@
 
     <string name="dibay_incoming_accept">Accept</string>
     <string name="dibay_incoming_reject">Decline</string>
+    <string name="dibay_call_waiting_end_and_accept">End &amp; accept</string>
+    <string name="dibay_call_waiting_text_voice">Call waiting · Voice call</string>
+    <string name="dibay_call_waiting_text_video">Call waiting · Video call</string>
     <string name="dibay_incoming_voice_brand">DiBay voice call</string>
     <string name="dibay_incoming_video_brand">DiBay video call</string>
     <string name="dibay_incoming_default_caller">DIBAY</string>

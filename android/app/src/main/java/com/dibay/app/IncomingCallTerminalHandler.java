@@ -31,6 +31,8 @@ public final class IncomingCallTerminalHandler {
       return;
     }
     NativeCallRuntimeEndDispatcher.dispatch(app, sid, kind, "terminal_handler:" + source);
+    // WA5: 대기 통화의 종료(발신자 취소·무응답·다른 기기 응답) → 대기 알림만 닫는다. 진행 중 통화는 무변화.
+    com.dibay.app.nativecall.NativeCallWaitingPresenter.onTerminal(app, sid, kind);
 
     IncomingCallSessionCleanup.purgeCallPresentation(app, sid, consumedReason);
     DibayCallConsumedStore.mark(app, sid, consumedReason);

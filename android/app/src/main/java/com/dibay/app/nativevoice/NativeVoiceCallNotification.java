@@ -276,6 +276,12 @@ public final class NativeVoiceCallNotification {
     intent.putExtra("mediaType", session.mediaType);
   }
 
+  /** 대기 통화 알림(nativecall.NativeCallWaitingPresenter)이 같은 수신 채널을 쓰기 위한 진입점. */
+  public static void ensureIncomingChannel(Context context) {
+    if (context == null) return;
+    ensureChannel(context.getApplicationContext());
+  }
+
   private static void ensureChannel(Context context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
     NotificationManager nm = context.getSystemService(NotificationManager.class);
