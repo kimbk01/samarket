@@ -2,7 +2,7 @@
 
 - 작성: Claude · 11:20~12:15 PHT
 - 기준 코드: `origin/main` 3b54c1cc4 (하단 탭 관련 파일은 857e167c4 와 같다 — `git diff --stat` 0)
-- 상태: **S1~S3 구현(Owner 「S1~S3 구현 시작」 2026-11-15) — 웹 PR. S4(네이티브 햅틱)·S5(사장님 하단 탭)는 미착수.**
+- 상태: **S1~S5 구현 완료(2026-11-15). S1~S3 = PR #310(운영 반영), S5 = PR #312(운영 반영), S4 = PR #313(네이티브 — 다음 빌드부터).** 남은 것은 §11.
   구현 기록은 §9.
 - 증거: 캡처·녹화 프레임 23개는 Owner 대화 목록·프로필이 보여 저장소에 올리지 않고 작업 PC `docs/design/bottom-nav-naver-2026-11-15/` 에만 둔다.
 - v1(같은 날 11:45)을 이 문서로 대체한다. v1 은 코드 판정이 대부분이었고, 반복 회귀의 원인과 기존 계약 파일을 빠뜨렸다.
@@ -282,3 +282,41 @@
 
 - 개발 서버 주의: Next 16.1.7 개발 모드의 `usePathname` 은 `NavigationPromisesContext` 를 먼저 읽어 주소 덮어쓰기가 먹지 않는다(운영 빌드는 PathnameContext). 머리글 덮어쓰기는 개발에서도 같게 보완했다. 보관 칸(`FrozenRouterContexts`)은 기존 그대로 — 개발 서버에서만 숨긴 내정보 비회원 문지기가 `/mypage?next=` 로 되돌리는 현상이 보일 수 있다(운영 무관, 기존 동작).
 - 범위 밖 그대로: `npm run verify:delivery-dial-navigation-contract` 는 main 에서도 이미 실패(문자열 `args.replace(args.href)` 검사 — 코드는 `guardedClientNavigate(args.replace, …)`). `MainDesktopSideNav.tsx` 는 쓰는 곳이 없다.
+
+
+## 10. 운영 실기 · S4 · S5 (2026-11-15 오후)
+
+### 10-1. S1~S3 운영 실기 (PR #310 · main 7ec6f382a · Production 13:16:34 PHT)
+
+| 기기·조건 | 항목 | 결과 |
+|---|---|---|
+| Samsung 앱 1.2.6(52) · q테스트1 · 앱 새로 시작 · 13:19 | 탭 6번 선택 → 화면 | 6번 모두 **같은 프레임**에 선택·화면 교체 — PASS (오전 130~640ms 지연) |
+| 〃 | 햅틱 | 탭 6번 = 진동 6번(15~18ms) — PASS |
+| 〃 13:21 | 채팅방 진입 1.4초 뒤 뒤로 → MY | 진동과 함께 MY 이동 — **B3 PASS** (오전 조용히 거부) |
+| Samsung Chrome · 로컬 운영 빌드 · 13:00~13:18 | 바 위 스와이프 | 선택·진동 없음 — PASS |
+| 〃 | 7분 백그라운드 뒤 첫 탭 | 처음 여는 탭 = 같은 프레임 뼈대, 보관 탭 = 같은 프레임 화면 — PASS |
+| 〃 | LOUNGE 뼈대 | 2번 교체 → 보완 커밋 2개 뒤 1번 — PASS |
+| iPhone 운영 앱 | 전 항목 | **NOT_PROVEN** — 미러링 백그라운드 조작으로 앱 재시작 불가(옛 코드 상태 확인됨). Owner 가 DIBAY 를 완전히 종료 후 다시 열면 확인 |
+
+### 10-2. S5 사장님 하단 탭 (PR #312 · main ccc49b6d1 · Production 13:39:11 PHT)
+
+- 구현: click 1회 햅틱(소리 없음) · pointerdown 피드백 삭제 · 같은 탭 = 맨 위로 · 하단 탭 이동은 `OwnerStackPageSlideShell` 270ms 슬라이드 생략(`owner-bottom-nav-tab-intent`) · 누르는 영역 = 투명 확장(배치 변화 없음) · 복귀 작업 공용화(`use-bottom-nav-resume-ui-task`)·사장님 스크롤 숨김 복귀 해제.
+- 운영 실기(Samsung 앱 · 매장 「맛없는식당」 운영 화면 · 13:40): 탭 5번 + 탭 위 가장자리 1번 = 진동 6번 — PASS · 선택 표시 즉시 — PASS · 화면은 한 프레임에 통째로 교체(슬라이드 없음) — PASS · 탭 위 가장자리(바 위 6px 띠) = 그 탭 — PASS.
+- **FAIL(충돌 보고)**: 화면 교체가 선택 표시보다 **160~830ms 늦다**(이전 화면 유지). 원인 = 사장님 탭 `prefetch={false}` — `docs/owner-hub-cold-path-contract.md` 7번 「사장님 하위 화면 RSC 선로딩 금지」(허브 체감 속도 계약). 네이버형 즉시 교체(메인 5-2)를 사장님 탭에도 하려면 이 계약을 바꾸거나 사장님 화면 뼈대를 새로 만들어야 한다 → **Owner 결정 필요**(§11).
+
+### 10-3. S4 네이티브 햅틱 (PR #313)
+
+- `@capacitor/haptics` ^8.0.2, `cap:sync:vercel`(Android gradle · iOS SPM · packageClassList `HapticsPlugin`). App-target 계약 PASS.
+- 호출: 네이티브 앱 = `selectionStart → selectionChanged → selectionEnd`(iOS UISelectionFeedbackGenerator; Android 플러그인은 start 없이 진동하지 않음). 플러그인이 없는 설치본 = 지금처럼 웹 진동(Android)·없음(iPhone) — 먼저 배포해도 안전.
+- 빌드 번호는 설치·배포용 빌드 때 `native:prepare` 가 올린다(Owner 일괄 빌드). 실기(iPhone 햅틱·Android 파형)는 그 빌드 설치 뒤 — NOT_PROVEN.
+
+## 11. 남은 것 (2026-11-15 14:00 PHT 기준)
+
+| 항목 | 상태 | 필요한 것 |
+|---|---|---|
+| iPhone 운영 앱 실기(S1~S3) | NOT_PROVEN | Owner: iPhone 에서 DIBAY 완전 종료 → 다시 열기(1회). 이후 작업자가 미러링으로 측정 |
+| S4 실기(iPhone 햅틱·Android 파형) | NOT_PROVEN | Owner 일괄 네이티브 빌드 설치 |
+| 사장님 탭 화면 즉시 교체 | FAIL — 계약 충돌 | Owner 결정: `owner-hub-cold-path-contract` 7번 유지(지금) / 누른 탭 1개만 pointerdown 에 미리받기 허용 / 사장님 화면 뼈대 신설 |
+| 네이버 햅틱 유무 | NOT_PROVEN | Owner 손 확인 1회 |
+
+범위 밖 관찰(보고만): 메신저 방 진입 직후 뒤로가기 때 `blocked_navigation` 로그 1줄(화면은 정상 복귀) · /mypage 의 크기 0 하단 탭 복사본(사람은 누를 수 없음) · 빠른 방 진입 취소 시 목록 로딩 원이 남는 현상(Samsung A8).
