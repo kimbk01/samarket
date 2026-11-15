@@ -178,3 +178,9 @@ CallV4 경로(`components/community-messenger/call-v4/**`). 통화 중 수신 �
 
 **검증(코드):** Android `compileDebugJavaWithJavac` + 단위 시험(통화 정리·무응답·채널·대기 표시) PASS · iOS 시뮬레이터 `xcodebuild` BUILD SUCCEEDED · TS 계약 시험 713파일 4,663건 + 대기 통화 계약 8건 PASS · `verify:call-authority-contract`·native voice/video runtime·iOS caller identity 검사 PASS.
 **실기:** NOT_PROVEN — 서버(3단계)가 `waiting=true` 를 보내야 동작하므로 서버 반영 뒤 CW1~CW18.
+
+## 12. 구현 메모 — DB·서버 단계 (2026-11-15)
+- DB: `waiting` 열만 운영 적용(15:55 PHT, `20261115075522`). DB2 는 운영에 해당 제약이 없어 불필요 — `docs/audit/call-waiting-db-stage-plan-2026-11-15.md` §0 (설계 오류 정정).
+- 서버 WS1·WS2: `lib/community-messenger/call-waiting-capability.ts`(순수 판정) + `service.ts` `resolvePeerCallWaitingGate`. 기기 조건을 「활성 기기 정확히 1대」로 좁힘 — 2대 이상이면 통화 중이 아닌 기기가 평범한 수신처럼 울리므로(맥 포함) 1단계.
+- 최소 빌드 `CALL_WAITING_MIN_BUILD` = Android 55 · iOS 41(대기 통화 네이티브가 들어간 첫 설치 빌드). 실제 빌드 번호가 다르면 빌드 때 맞춘다.
+- WS3: 대기 통화는 수신 목록 정리에서 닫지 않고 목록에도 넣지 않음. WS4 불필요(§11). WS5: `other_call_active`.
