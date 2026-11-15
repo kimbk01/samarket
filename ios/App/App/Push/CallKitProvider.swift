@@ -859,6 +859,11 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     let isVideo = hasVideoBySessionId[sessionId] ?? false
     if isVideo {
       if NativeVideoCallLane.isEnabled() {
+        // 음성 분기와 같은 규칙(docs/audit/ios-video-callkit-end-failing-action-plan-2026-11-16.md): CXEnd 가 CallKit
+        // 종료 기록자 — 영상 정리의 endCallKitSession 이 fulfill 전에 reportCall(ended:) 를 보내면 시스템이 이 종료 동작을
+        // 실패 처리한다(2026-11-16 03:20:46 실기 「Failing action by system request」).
+        markTerminalSuppressed(sessionId: sessionId, reason: "callkit_end_action")
+        callKitEndCompletedSessionIds.insert(sessionId)
         NativeVideoIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: sessionId) {
           DispatchQueue.main.async {
             action.fulfill()
