@@ -279,3 +279,24 @@ NOT_PROVEN: 실제 소리 들림(청취 불가) · 통화 중(busy) · 맥 영�
 | 맥→삼성 음성 회귀(d32f…c17f) | 12:57:18 생성 · 12:57:29 connected · 12:57:38 맥 종료 | PASS |
 | 설치 확인 | `user_devices.app_version` 으로는 38 확인 불가(맥 활성 행이 하나도 없음) — 앱 번들 `CFBundleVersion 38`·`DibayGitSha 8c1dc6aae` 로 확인 | — |
 NOT_PROVEN: iPhone VoIP 회귀(연결된 iPhone 없음).
+
+### 10-8. D2-3 범위 정정 (구현 착수 전 코드 확인 결과 — 승인 다시 필요)
+§10-2 의 「웹 수신 시트를 맥에서 켜려면 `tryClaimIosCapacitorWebIncomingOwner` 조건 하나만 제외」는 **틀렸다**. iOS 셸에서는 그 조건까지 가기 전에 막힌다(코드 확인):
+
+| # | 막는 곳 | 근거 |
+|---|---|---|
+| G1 | iOS 셸은 V4 공급자가 sync-only — 수신 탐색·수신 시트 자체가 마운트되지 않음 | `CallV4Provider.tsx:353-355, 476-478` (설계 문서 `call-v4-web-incoming-remote-terminal-root-cause-design-2026-11-08.md` E8 와 같음) |
+| G2 | 수신 탐색은 `NEXT_PUBLIC_DIBAY_CALL_V4_TELEGRAM_LANE === "1"` 일 때만 — 운영 값 확인 못 함 | `call-v4-incoming-discovery.ts:234` |
+| G3 | 캡시터 앱에서는 Realtime 수신 피드 끔 → HTTP 폴링만 | `call-v4-incoming-discovery.ts:261` |
+| G4 | 웹 주체 요청을 웹·네이티브 양쪽이 막음(네이티브 음성 레인 켜짐) | `call-v4-ios-shell-owner-client.ts:17-26`, `CallV4SurfaceOwnerBridge.swift:40-65` |
+| G5 | 시트의 「수락」은 iOS 에서 **웹 Agora 로 통화 수립**(웹 PATCH → `callV4EnsureAgoraJoined`) — 네이티브 수락 연결 없음 | `call-v4-actions.ts:1240-1254`, `call-v4-agora.ts:200-240` — 「웹뷰 통화 수립 금지」(`dibay-call-native-runtime-ssot.md:9-17`) 와 충돌 |
+
+**정정 설계 (맥만, 능력 값 `callKitCallUi=false` 로만 분기)**
+1. 웹 `CallV4Provider`: 맥이면 sync 기능은 그대로 두고 **수신 전용 묶음**(수신 탐색 + `CallV4IncomingSheet`)만 추가로 마운트. 웹 발신·웹 Agora 수립 부분은 마운트하지 않음.
+2. 수신 탐색: 맥이면 V4 플래그와 무관하게 시작(G2). 폴링 주기는 기존 탐색 규칙 그대로.
+3. 주체 요청: 맥이면 웹(`tryClaimIosCapacitorWebIncomingOwner`)·네이티브(`CallV4SurfaceOwnerBridge.shouldBlockWebIncomingOwnerClaim`) 모두 `web_in_app` 허용(G4).
+4. 「수락」: 맥이면 `callV4Accept` 가 웹 PATCH·웹 Agora 대신 새 네이티브 메서드 `acceptIncomingWithoutCallKit(callId, kind, roomId, callerId, callerName)` 호출 → 네이티브가 수신 세션 등록(`NativeVoice/VideoCallRuntime.registerIncomingSession`) → 기존 `handleAnswer`(서버 수락·토큰·Agora 네이티브) → 네이티브 통화 화면. 웹 Agora 는 맥에서 쓰지 않음(G5 계약 유지).
+5. 오디오: `prepareForNativeVoiceCall/VideoCall` 이 맥이면 `setActive(true)` 까지(D3 와 같은 원리).
+6. 거절·상대 취소·무응답: 기존 웹 시트 경로(서버 상태) 그대로 — 네이티브 세션은 수락 때만 생기므로 정리 대상 없음.
+
+영향: 웹 V4 공급자·탐색·수락 3곳 + 네이티브 2곳(주체 차단·플러그인 1개) + 오디오 준비 1곳. iPhone·iPad·Android·데스크톱 웹은 분기 값이 달라 경로 무변경 — 단위 테스트로 4플랫폼 고정. 통화 단독 PR · 네이티브 build 39.
