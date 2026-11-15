@@ -339,7 +339,7 @@
 - `components/layout/MainDesktopSideNav.tsx` 는 쓰는 곳이 없다.
 - `npm run verify:delivery-dial-navigation-contract` 는 main 에서도 실패(문자열 검사가 코드와 맞지 않음).
 
-### 11.1 남은 항목 정리 (2026-11-15 15:20 PHT · chore/bottom-nav-leftovers)
+### 11-3. 남은 항목 정리 (2026-11-15 15:20 PHT · chore/bottom-nav-leftovers)
 
 | 항목 | 원인 | 처리 |
 |---|---|---|
@@ -349,3 +349,13 @@
 | `apk-remote-webview-perf.ts` 주석 「웹 Link prefetch=false」 | 사실과 다름(비선택 허브 탭은 `shouldPrefetchMainBottomNavHref` = true) | 주석 정정 |
 | /mypage 크기 0 하단 탭 복사본 | **결함 아님 — 측정 착시.** React 19.2 스트리밍 공개(`$RC`→`$RV`)가 `requestAnimationFrame` 을 기다리는데, 측정 브라우저 창이 숨김이라 rAF 가 멈춰 `div#S:0` 가 남아 있었음. rAF 1회 뒤 `S:0` 제거 확인(로컬 운영 빌드) | 코드 변경 없음. 기기 확인은 배포 뒤 |
 | 콘솔 「탭 전 navigator.vibrate 차단」 | 깨끗한 새로 열기 4회(/mypage 2·/home·/philife) 0회 — 재현 안 됨 | 코드 변경 없음 |
+### 11-4. #320 실기 FAIL → 원인 · 수정 (2026-11-15 15:40 PHT)
+
+- 실기(Production `bb51c12`, Samsung 로그인 앱): 메신저 목록에서 방 누르고 0.5초 뒤 뒤로 → 목록 사진(아바타 빈칸)+가운데 로딩 원이 **약 3초** 남음 = **FAIL**. 0.9초 뒤 뒤로(방 다 열린 뒤)는 바로 목록.
+- 재현·계측(Xiaomi WebView 디버거, 폭 384 로 맞춤): 방 경로 330ms → 방 마운트(진입 전 「enter」) 1113ms → 뒤로 1389ms → 복사본 제거 3359ms(3초 상한).
+  방 DOM 은 마지막 popstate 리스너 시점에 이미 없음(`roomDom=false`) — React 19 가 Next 라우터의 popstate 리스너 안에서 이동을 바로 반영.
+- 원인: ① 방의 popstate 리스너(`MessengerRoomSwipeBackShell`)는 Next 보다 늦게 등록 → 이벤트 도중 방이 언마운트되며 제거돼 **불리지 않음**
+  ② #320 진입 중단 감시는 방 마운트 때 꺼짐(`noteRoomEntryArrived`) → 걷을 주체 없음.
+  같은 원인으로 사장님·주문 하위 화면 슬라이드(`OwnerStackPageSlideShell`·`CommerceChildSlideShell`)·앱 전환 방향(`useRouteTransitionDirection`)의 「뒤로」 판정이 늦을 수 있음(나중에 마운트된 경우).
+- 수정: 위 다섯 곳 popstate 를 **캡처 단계**(`lib/navigation/popstate-before-router.ts`)로 등록 — 대상(window)에서 캡처가 일반 리스너보다 먼저 불려 Next 보다 먼저, 이동 전 화면에서 실행. 시험 `lib/navigation/__tests__/popstate-before-router.test.ts`.
+- 같은 유형의 다른 popstate 리스너(작성 이탈 확인·시트 닫기 등)는 레이아웃·셸에 상주해 언마운트되지 않는 곳이라 이번 수정 대상 아님 — 실기 확인 항목으로 남김.

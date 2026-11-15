@@ -12,6 +12,7 @@ import { isStoresOwnerStackPath } from "@/lib/business/owner-stack-path";
 import { consumeOwnerBottomNavTabIntent } from "@/lib/business/owner-bottom-nav-tab-intent";
 import { useBottomNavShowingTarget } from "@/lib/main-menu/use-bottom-nav-controller";
 import { OwnerTabSkeleton, resolveOwnerTabSkeletonKind } from "@/components/business/owner/OwnerTabSkeleton";
+import { POPSTATE_BEFORE_ROUTER } from "@/lib/navigation/popstate-before-router";
 
 function stripOwnerStackTransitionClasses(el: HTMLDivElement | null) {
   if (!el) return;
@@ -40,8 +41,9 @@ export function OwnerStackPageSlideShell({ children }: { children: ReactNode }) 
     const onPopState = () => {
       popstateBackRef.current = true;
     };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
+    /** 캡처 단계 = Next 라우터 popstate 보다 먼저 — React 19 는 popstate 이동을 같은 이벤트 안에서 바로 반영해, 뒤에 등록된 리스너는 이미 바뀐 화면을 보거나(방향 판정 늦음) 언마운트로 제거돼 불리지 않는다 (Xiaomi 계측 2026-11-15, `lib/navigation/popstate-before-router.ts`) */
+    window.addEventListener("popstate", onPopState, POPSTATE_BEFORE_ROUTER);
+    return () => window.removeEventListener("popstate", onPopState, POPSTATE_BEFORE_ROUTER);
   }, []);
 
   useLayoutEffect(() => {
