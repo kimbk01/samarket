@@ -575,6 +575,8 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
         self.cleanupInFlight.remove(sid)
         self.log("ios_native_video_cleanup_done", sid, "reason=\(reason)")
       }
+      // 대기 통화(WI2·K6): 진행 중 통화 정리 끝 → 기다리던 「종료 및 수락」 진행 / 일반 수신으로 전환.
+      NativeCallWaitingCoordinator.shared.onCallCleanedUp(sessionId: sid)
     }
   }
 

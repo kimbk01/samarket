@@ -107,6 +107,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     callerId: String? = nil,
     iosSoundName: String? = nil,
     ringtonePolicy: String? = nil,
+    isCallWaiting: Bool = false,
     completion: @escaping (Error?) -> Void
   ) {
     let sessionId = uuidString.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -117,7 +118,14 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     // I1 (call-termination-authority-audit): 수락 이후·연결 중·연결됨 통화가 있으면 새 수신이 그 통화를 대체하지
     // 않는다(SUPERSEDED → KEEP). 새 수신은 서버 busy 와 같은 결과로 — 울리지 않고(report-then-end, 무음) 거절도 보내지
     // 않는다(Android busy_suppressed 와 같음). 서버 busy 가 막지 못한 경합·고아 terminal 보고에서만 도달.
-    if !isTerminalSuppressed(sessionId: sessionId),
+    // 대기 통화(docs/audit/call-waiting-stage2-design-2026-11-15.md WI1): 서버가 waiting=true 로 보냈고 진행 중 통화가
+    // 연결됨이면 무음 보고·종료 대신 정상 보고 → iOS 대기 화면. 그 밖은 아래 기존 처리 그대로.
+    let waitingLiveSessionId: String? =
+      (isCallWaiting && !isTerminalSuppressed(sessionId: sessionId))
+      ? NativeCallWaitingCoordinator.shared.eligibleLiveSessionId(incoming: sessionId)
+      : nil
+    if waitingLiveSessionId == nil,
+      !isTerminalSuppressed(sessionId: sessionId),
       let live = CallTerminationPolicy.liveCallSessionId(excluding: sessionId)
     {
       CallTerminationPolicy.log(
@@ -148,7 +156,18 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     )
 
     // Phase 2 — voice only: register Native Voice Runtime before CallKit presents.
-    if !hasVideo {
+    if let waitingLive = waitingLiveSessionId {
+      // 대기 통화는 런타임에 등록하지 않는다(연결된 통화가 있어 거부됨) — 수락 때 진행 중 통화 정리 뒤 등록.
+      NativeCallWaitingCoordinator.shared.registerPending(
+        sessionId: sessionId,
+        callUUID: uuid,
+        hasVideo: hasVideo,
+        roomId: roomId,
+        callerId: callerId,
+        callerName: resolvedDisplayName,
+        liveSessionId: waitingLive
+      )
+    } else if !hasVideo {
       let session = NativeVoiceCallSession(
         sessionId: sessionId,
         callUUID: uuid,
@@ -192,6 +211,12 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     update.remoteHandle = CXHandle(type: .generic, value: resolvedRemoteHandle)
     update.hasVideo = hasVideo
     update.localizedCallerName = resolvedDisplayName
+    if waitingLiveSessionId != nil {
+      // WhatsApp 형태 — 보류·합치기 없음(「종료 및 수락」「거절」만).
+      update.supportsHolding = false
+      update.supportsGrouping = false
+      update.supportsUngrouping = false
+    }
     if terminalAlreadySeen {
       DibayCallLog.info(
         "ios_callkit_incoming_after_terminal_suppress",
@@ -208,6 +233,9 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
       guard let self else {
         completion(error)
         return
+      }
+      if waitingLiveSessionId != nil {
+        NativeCallWaitingCoordinator.shared.onReported(sessionId: sessionId, error: error)
       }
       // R4 — 수신 화면 표시 결과 사후 보고 (동작 무관 · 실패 무시)
       if terminalAlreadySeen {
@@ -294,6 +322,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     endedReason: CXCallEndedReason = .remoteEnded
   ) {
     let sid = uuidString.trimmingCharacters(in: .whitespacesAndNewlines)
+    NativeCallWaitingCoordinator.shared.onCallKitSessionEnded(sessionId: sid)
     markTerminalSuppressed(sessionId: sid, reason: "report_call_ended")
     pendingCallKitEndReasonBySessionId.removeValue(forKey: sid)
     // Snapshot video flag before map clear inside endCallKitSession.
@@ -482,6 +511,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
   ) {
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else { return }
+    NativeCallWaitingCoordinator.shared.onCallKitSessionEnded(sessionId: sid)
     if callKitEndCompletedSessionIds.contains(sid) {
       DibayCallLog.info(
         "ios_native_voice_callkit_end_idempotent",
@@ -757,6 +787,18 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
       action.fulfill()
       return
     }
+    // 대기 통화 「종료 및 수락」(WI2): 진행 중 통화 정리(같은 묶음의 CXEndCallAction)가 끝난 뒤 런타임에 등록하고
+    // 같은 answer action 을 아래 일반 경로로 다시 처리한다.
+    if NativeCallWaitingCoordinator.shared.isWaiting(sessionId: sessionId) {
+      NativeCallWaitingCoordinator.shared.prepareAnswer(sessionId: sessionId) { [weak self] ready in
+        guard let self, ready else {
+          action.fail()
+          return
+        }
+        self.provider(provider, perform: action)
+      }
+      return
+    }
 
     let isVideo = hasVideoBySessionId[sessionId] ?? false
     if isVideo {
@@ -795,6 +837,14 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     // §2-4: 앱 요청(판단 함수를 이미 거친 종료)과 시스템 종료 버튼(= USER_END)을 구분해 기록한다. 둘 다 사용자·판단된 종료라 처리 동일.
     let appRequested = appRequestedEndCallUUIDs.remove(action.callUUID) != nil
     guard let sessionId = callUuidBySessionId.first(where: { $0.value == action.callUUID })?.key else {
+      action.fulfill()
+      return
+    }
+    // 대기 통화 「거절」(WI3): 새 통화만 reject. 진행 중 통화 유지.
+    if NativeCallWaitingCoordinator.shared.isWaiting(sessionId: sessionId) {
+      NativeCallWaitingCoordinator.shared.decline(sessionId: sessionId)
+      markTerminalSuppressed(sessionId: sessionId, reason: "call_waiting_decline")
+      callKitEndCompletedSessionIds.insert(sessionId)
       action.fulfill()
       return
     }

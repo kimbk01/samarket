@@ -17,6 +17,7 @@ import com.dibay.app.IncomingCallSurfaceOwner;
 import com.dibay.app.NativeOutgoingRingbackOwner;
 import com.dibay.app.call.DibayActiveCallSessionManager;
 import com.dibay.app.call.ScreenAwakeBridge;
+import com.dibay.app.nativecall.NativeCallWaitingPresenter;
 import com.dibay.app.nativecall.CallTerminationPolicy;
 import com.dibay.app.nativecall.NativeCallEngineOwnership;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
@@ -99,6 +100,21 @@ public final class NativeVideoCallRuntime {
       String callerId,
       String callerName,
       String mediaType) {
+    return handleIncoming(context, callId, roomId, callerId, callerName, mediaType, false);
+  }
+
+  /**
+   * @param waiting 서버가 대기 통화로 울린 수신. true 이고 이 기기의 다른 통화가 연결됨이면 수신 화면 대신 대기 알림
+   *     (거절 / 종료 후 받기) — docs/audit/call-waiting-stage2-design-2026-11-15.md WA1. false 면 기존 동작 그대로.
+   */
+  public static boolean handleIncoming(
+      Context context,
+      String callId,
+      String roomId,
+      String callerId,
+      String callerName,
+      String mediaType,
+      boolean waiting) {
     if (context == null || callId == null || callId.trim().isEmpty()) return false;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
@@ -121,6 +137,18 @@ public final class NativeVideoCallRuntime {
     String busyVideo = findOtherLiveSessionCallId(sid);
     String busyVoice = NativeVoiceCallRuntime.findOtherLiveSessionCallId(sid);
     if (busyVideo != null || busyVoice != null) {
+      if (waiting
+          && NativeCallWaitingPresenter.tryPresent(
+              app,
+              sid,
+              roomId,
+              callerId,
+              callerName,
+              "video",
+              mediaType,
+              busyVideo != null ? busyVideo : busyVoice)) {
+        return true;
+      }
       NativeVideoCallLog.info(
           "incoming_busy_suppressed",
           sid,
@@ -992,6 +1020,8 @@ public final class NativeVideoCallRuntime {
       NativeCallVisibleSurfaceOwner.release(sid, reason);
       NativeVideoCallActivity.finishIfActive(sid, reason);
       reclaimOrphanResources(app, "after_cleanup:" + sid);
+      // WA3·WA4: 정리 끝 → 대기 통화가 있으면 「종료 후 받기」 이어서 수락 / 일반 수신으로 전환.
+      NativeCallWaitingPresenter.onCallCleanedUp(app, sid);
     }
   }
 

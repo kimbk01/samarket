@@ -550,6 +550,8 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     let callerId = stringField(data, keys: ["callerId", "caller_id"])
     let iosSoundName = stringField(data, keys: ["ios_sound_name", "iosSoundName", "sound"])
     let ringtonePolicy = stringField(data, keys: ["ringtone_policy", "ringtonePolicy"])
+    // 대기 통화 표시(docs/audit/call-waiting-stage2-design-2026-11-15.md WI1). 서버가 보내기 전에는 항상 false.
+    let isCallWaiting = Self.callWaitingFlag(data)
 
     NativeVideoCallLog.corr("I1", callId: sessionId, details: "event=eligibility ok=true")
     // CONTRACT: CallKit report first — WebView / surface owner enrich after report is initiated.
@@ -562,7 +564,8 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       roomId: roomId,
       callerId: callerId,
       iosSoundName: iosSoundName,
-      ringtonePolicy: ringtonePolicy
+      ringtonePolicy: ringtonePolicy,
+      isCallWaiting: isCallWaiting
     ) { error in
       if let error = error {
         DibayCallLog.infoCallV4(
@@ -635,6 +638,19 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     }
 
     return callProvider.isOutgoingSession(sid)
+  }
+
+  /// APNs JSON 의 waiting 은 Bool·숫자·문자열 어느 것으로도 올 수 있다 — true / 1 / "true" / "1" 만 참.
+  static func callWaitingFlag(_ data: [AnyHashable: Any]) -> Bool {
+    for key in ["waiting", "callWaiting", "call_waiting"] {
+      if let b = data[key] as? Bool { return b }
+      if let n = data[key] as? NSNumber { return n.boolValue }
+      if let s = data[key] as? String {
+        let v = s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return v == "true" || v == "1"
+      }
+    }
+    return false
   }
 
   private func stringField(_ data: [AnyHashable: Any], keys: [String]) -> String? {
