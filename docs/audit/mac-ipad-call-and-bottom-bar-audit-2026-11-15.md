@@ -133,3 +133,35 @@ iPad 실기 전부 · 맥 음성 발신 · 회색 막대 원인 · + 첨부 시�
 - 영향 경로: 맥 발신 시작 → Agora 참가 → 연결·종료·통화 기록. Agora iOS SDK·카메라가 맥에서 동작하는지는 **실기로만 판정**(NOT_PROVEN).
 - 맥 실기 행렬(D3): 맥→Android/iPhone 음성·영상 발신 · 상대 수락 후 양방향 음성/영상 · 맥 종료 · 상대 종료 · 상대 거절 · 벨 중 맥 취소 · 무응답 타임아웃 · 종료 후 즉시 재발신. 로그 기준: `ios_audio_session_gate_flush_immediate reason=platform_no_callkit_activation` 존재, `ios_audio_session_gate_timeout` 0건.
 - iPhone 회귀 행렬: iPhone 발신 음성·영상 각 1회 이상, 로그에 `platform_no_callkit_activation` 0건·기존 `ios_audio_session_callkit_activated` 경로.
+
+## 7. 설계 대비 구현 대조 (2026-11-15, Owner 「정확히 확인」 지시)
+
+### 7-1. 분석 문장 검증
+
+| 분석 문장 | 근거 | 판정 |
+|---|---|---|
+| 맥은 VoIP 푸시를 OS 가 버린다 | 맥 `callservicesd` 로그 `Dropping incoming message` (10:53:42·10:53:45) + 서버 발송 200 | 확인됨 |
+| 맥은 CallKit `didActivate` 가 오지 않는다 | 발신 2건 모두 8초 뒤 `ios_audio_session_gate_timeout`, `ios_audio_session_callkit_activated` 없음 | 확인됨 |
+| 맥에서도 CallKit 발신 트랜잭션 자체는 성공 | `Received reply from transaction request with error: (null)` | 확인됨 |
+| 음성·영상 발신 모두 gate 하나를 지난다 | `registerPendingOutgoingJoin` 호출처 = Voice·Video 발신 코디네이터 2곳뿐 | 확인됨(코드) |
+| gate 전에 세션이 이미 활성화된다 | `NativeOutgoingRingbackOwner.start` → `prepareOutgoingRingbackRoute` 의 `setActive(true)` 가 gate 등록 전 실행 | 확인됨(코드) |
+| 수신 코디네이터는 gate 를 쓰지 않는다 | 호출처 grep — 수신 코디네이터 0건 | 확인됨(코드) |
+| 앱이 떠 있어도 VoIP 외 수신 경로 없음 | 웹 수신 배너가 네이티브 앱에서 `suppressWebIncomingBannerForNativeAuthority: isCapacitorNativePlatform()` 로 꺼짐 | 확인됨(코드) |
+| 서버는 VoIP 행 없는 iOS 설치에 통화 일반 알림을 보낸다 | `resolveCallPushProviderPolicy` A4 — `iosVoipDeviceIds` 에 없으면 apns 통화 알림 허용 | 확인됨(코드) — 실발송 NOT_PROVEN |
+| 맥은 일반 apns 행이 없다 | 운영 `user_devices` 조회(11:10 PHT) | 확인됨 — 원인 NOT_PROVEN |
+| 회색 막대 = 맥 스크롤 막대 | 모양·세로 막대 동반 | **NOT_PROVEN**(계측 불가) |
+
+### 7-2. 설계 항목별 구현 상태
+
+| 항목 | 상태 | 위치 |
+|---|---|---|
+| D1 플랫폼 능력 단일 정의 | 구현 · 코드 PASS | `DibayCallPlatformCapability.swift`, `AppDelegate` 기록 1줄 (PR #307) |
+| D1 서버 저장(DB 열) | 설계 정정으로 **하지 않음** | §2 「D1 정정」 |
+| D3 맥 발신 오디오 | 구현 · 코드 PASS · 실기 NOT_PROVEN | `DibayCallAudioSessionController.registerPendingOutgoingJoin` (PR #307) |
+| D3 맥 수락 | D2 로 이동 · 미구현 | §6 |
+| D2 맥은 VoIP 미등록·일반 apns 등록 | 미구현 | — |
+| D2 맥 앱 실행 중 수신 화면 | 미구현 · 수신 화면 주체 Owner 결정 필요 | — |
+| D2 맥 일반 apns 행 미생성 원인 | 미확인 | — |
+| 빌드 번호 | iOS 35 → 36 (4곳) · `--release --ios-only` RELEASE READY | PR #307 |
+| 회색 막대 원인 계측 | 미착수(계측 빌드 필요) | §3 |
+| iPad 실기 | NOT_PROVEN(실기기 없음 — 연결 기기: iPhone 13 mini unavailable, 나머지 시뮬레이터) | — |
