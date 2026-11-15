@@ -72,9 +72,9 @@ describe("손 뗀 순간 → showing → 경로 확정 → idle", () => {
   it("거부 = 원래 탭으로(idle). 다른 이동 id 의 거부는 무시", () => {
     const first = beginBottomNavShowing({ tabId: "community", href: "/philife" });
     const second = beginBottomNavShowing({ tabId: "my", href: "/mypage" });
-    failBottomNavShowing(first);
+    failBottomNavShowing(first ?? undefined);
     expect(isBottomNavShowing()).toBe(true);
-    failBottomNavShowing(second);
+    failBottomNavShowing(second ?? undefined);
     expect(isBottomNavShowing()).toBe(false);
   });
 });
