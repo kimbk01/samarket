@@ -35,6 +35,7 @@
 		D1B0A7C0000000000000B004 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = D1B0A7C0000000000000B003 /* Localizable.strings */; };
 		C7CTP0012FED79650016851F /* CallTerminationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7CTP0002FED79650016851F /* CallTerminationPolicy.swift */; };
 		C7DCL0022FED79650016851F /* DibayCallLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DCL0012FED79650016851F /* DibayCallLog.swift */; };
+		C7DCP0022FED79650016851F /* DibayCallPlatformCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DCP0012FED79650016851F /* DibayCallPlatformCapability.swift */; };
 		C7DDC0022FED79650016851F /* DibayDeviceClassPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */; };
 		C7DDC0E22FED79650016851F /* DibayContactsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DDC0E12FED79650016851F /* DibayContactsPlugin.swift */; };
 		C7DEV0022FED79650016851F /* DibayCanonicalDeviceIdStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DEV0012FED79650016851F /* DibayCanonicalDeviceIdStore.swift */; };
@@ -149,6 +150,7 @@
 		D1B0A7C0000000000000B006 /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/Localizable.strings; sourceTree = "<group>"; };
 		C7CTP0002FED79650016851F /* CallTerminationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallTerminationPolicy.swift; sourceTree = "<group>"; };
 		C7DCL0012FED79650016851F /* DibayCallLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCallLog.swift; sourceTree = "<group>"; };
+		C7DCP0012FED79650016851F /* DibayCallPlatformCapability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCallPlatformCapability.swift; sourceTree = "<group>"; };
 		C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayDeviceClassPlugin.swift; sourceTree = "<group>"; };
 		C7DDC0E12FED79650016851F /* DibayContactsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayContactsPlugin.swift; sourceTree = "<group>"; };
 		C7DEV0012FED79650016851F /* DibayCanonicalDeviceIdStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCanonicalDeviceIdStore.swift; sourceTree = "<group>"; };
@@ -336,6 +338,7 @@
 				C7CTP0002FED79650016851F /* CallTerminationPolicy.swift */,
 				C7NVU0212FED79650016851F /* NativeVoiceCallViewController.swift */,
 				C7DCL0012FED79650016851F /* DibayCallLog.swift */,
+				C7DCP0012FED79650016851F /* DibayCallPlatformCapability.swift */,
 				C7DEV0012FED79650016851F /* DibayCanonicalDeviceIdStore.swift */,
 				C7MEL0012FED79650016851F /* DibayMemberEventEligibilityStore.swift */,
 				C7MIC0012FED79650016851F /* DibayVoiceMicrophonePermission.swift */,
@@ -573,6 +576,7 @@
 				C7CTP0012FED79650016851F /* CallTerminationPolicy.swift in Sources */,
 				C7NVU0222FED79650016851F /* NativeVoiceCallViewController.swift in Sources */,
 				C7DCL0022FED79650016851F /* DibayCallLog.swift in Sources */,
+				C7DCP0022FED79650016851F /* DibayCallPlatformCapability.swift in Sources */,
 				C7DEV0022FED79650016851F /* DibayCanonicalDeviceIdStore.swift in Sources */,
 				C7MEL0022FED79650016851F /* DibayMemberEventEligibilityStore.swift in Sources */,
 				C7MIC0022FED79650016851F /* DibayVoiceMicrophonePermission.swift in Sources */,

@@ -29,6 +29,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             DibayRootBridgeViewController.nativeRestoreHint,
             wasInBackground ? 1 : 0
         )
+        // D1 — 통화 플랫폼 능력(iPhone·iPad·Mac) 기록만. 동작 무변경.
+        DibayCallPlatformCapability.logOnce()
 
         if let appKey = Bundle.main.object(forInfoDictionaryKey: "KAKAO_NATIVE_APP_KEY") as? String {
             let trimmed = appKey.trimmingCharacters(in: .whitespacesAndNewlines)
