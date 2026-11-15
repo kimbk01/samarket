@@ -28,7 +28,6 @@ import {
   formatTime,
   formatVoiceRecordTenThousandths,
   getLatestCallStubForSession,
-  looksLikeDirectImageUrl,
   mergeRoomMessages,
   MicHoldIcon,
   MoreIcon,
@@ -66,6 +65,7 @@ import { GroupJoinRequestsSection } from "@/components/community-messenger/group
 import { GroupBlockedMembersSection } from "@/components/community-messenger/group/GroupBlockedMembersSection";
 import { GroupMemberRoleBadge } from "@/components/community-messenger/group/GroupMemberRoleBadge";
 import { GroupMemberPresenceLabel } from "@/components/community-messenger/room/phase2/GroupMemberPresenceLabel";
+import { useRoomMediaGallery } from "@/lib/community-messenger/media/use-room-media-gallery";
 import { GroupRoomMediaAlbumTabs } from "@/components/community-messenger/group/GroupRoomMediaAlbumPanel";
 import { messengerMediaRouteUrlFor } from "@/lib/community-messenger/media/messenger-media-ref";
 import { openMessengerFileInNativeShellIfNeeded } from "@/lib/community-messenger/messenger-file-download";
@@ -98,6 +98,16 @@ const GROUP_MENU_TRAILING_CLASS =
 
 export function CommunityMessengerRoomPhase2RoomSheets() {
   const vm = useMessengerRoomPhase2SheetsView();
+  /**
+   * 사진·음성 모음·개수 = 서버 조회(설계 M4 · 2026-11-16 실기: 1:1 모음이 불러온 메시지만 세어 「사진 0」).
+   * 메뉴·정보·모음 시트 모두 같은 서버 개수를 쓴다(진입점마다 숫자가 달라지지 않게). 받기 전에는 불러온 메시지 수.
+   */
+  const roomMediaGallery = useRoomMediaGallery(
+    vm.streamRoomId,
+    vm.activeSheet === "menu" || vm.activeSheet === "info" || vm.activeSheet === "media"
+  );
+  const mediaPhotoCount = roomMediaGallery.counts?.image ?? vm.photoMessageCount;
+  const mediaVoiceCount = roomMediaGallery.counts?.voice ?? vm.voiceMessageCount;
   const { safeT } = useI18n();
   const [groupOutgoingConfirmKind, setGroupOutgoingConfirmKind] = useState<null | "voice" | "video">(null);
   const [giftOfferOpen, setGiftOfferOpen] = useState(false);
@@ -452,7 +462,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <span className="dibay-overlay-menu__text min-w-0 flex-1">
                       <span className="dibay-overlay-menu__label">{vm.t("cm_ui_photo_video")}</span>
                       <span className="dibay-overlay-menu__hint">
-                        {vm.t("cm_ui_photo_voice_count", { photos: vm.photoMessageCount, voices: vm.voiceMessageCount })}
+                        {vm.t("cm_ui_photo_voice_count", { photos: mediaPhotoCount, voices: mediaVoiceCount })}
                       </span>
                     </span>
                     <span className={GROUP_MENU_TRAILING_CLASS} aria-hidden>›</span>
@@ -958,12 +968,12 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-4 py-3">
                       <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_shared_items")}</p>
                       <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">
-                        {vm.t("cm_ui_count_items", { count: vm.photoMessageCount + vm.voiceMessageCount + vm.fileMessageCount + vm.linkMessageCount })}
+                        {vm.t("cm_ui_count_items", { count: mediaPhotoCount + mediaVoiceCount + vm.fileMessageCount + vm.linkMessageCount })}
                       </p>
                       <p className="mt-1 sam-text-helper text-sam-muted">
                         {vm.t("cm_ui_shared_item_counts", {
-                          photos: vm.photoMessageCount,
-                          voices: vm.voiceMessageCount,
+                          photos: mediaPhotoCount,
+                          voices: mediaVoiceCount,
                           files: vm.fileMessageCount,
                           links: vm.linkMessageCount,
                         })}
@@ -1096,7 +1106,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         className={`${OverlayUi.selectCard} !flex-col !items-start !justify-center !gap-0`}
                       >
                         <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_photo")}</p>
-                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.photoMessageCount}</p>
+                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg" data-cm-media-count="image">{mediaPhotoCount}</p>
                       </button>
                       <button
                         type="button"
@@ -1104,7 +1114,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         className={`${OverlayUi.selectCard} !flex-col !items-start !justify-center !gap-0`}
                       >
                         <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_voice_message")}</p>
-                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.voiceMessageCount}</p>
+                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg" data-cm-media-count="voice">{mediaVoiceCount}</p>
                       </button>
                       <button
                         type="button"
@@ -1573,36 +1583,37 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 <div className="mt-4 grid grid-cols-2 gap-2">
                   <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
                     <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_photo")}</p>
-                    <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.photoMessageCount}</p>
+                    <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg" data-cm-media-count="image">{mediaPhotoCount}</p>
                     <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_image_photo_links")}</p>
                   </div>
                   <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
                     <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_voice_message")}</p>
-                    <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.voiceMessageCount}</p>
+                    <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg" data-cm-media-count="voice">{mediaVoiceCount}</p>
                     <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_voice_message_history")}</p>
                   </div>
                 </div>
                 <div className="mt-4 max-h-[55vh] space-y-3 overflow-y-auto">
-                  {vm.mediaGalleryMessages.length ? (
-                    vm.mediaGalleryMessages.map((m) => (
+                  {roomMediaGallery.items.length ? (
+                    roomMediaGallery.items.map((m) => (
                       <button
                         key={m.id}
                         type="button"
-                        onClick={() => vm.scrollToRoomMessage(m.id)}
+                        data-cm-media-item={m.messageType}
+                        onClick={() => {
+                          vm.dismissRoomSheet();
+                          vm.scrollToRoomMessage(m.id);
+                        }}
                         className="flex w-full gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left"
                       >
                         <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-ui-rect bg-sam-border-soft sam-text-xxs font-semibold text-sam-muted">
                           {m.messageType === "voice" ? (
                             vm.t("nav_voice_call_label")
-                          ) : m.messageType === "image" || looksLikeDirectImageUrl(m.content) ? (
+                          ) : m.thumbSrc ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={messengerMediaRouteUrlFor({
-                                roomId: m.roomId,
-                                messageId: m.id,
-                                src: m.imageAlbumUrls?.[0] ?? m.content,
-                              })}
+                              src={messengerMediaRouteUrlFor({ roomId: m.roomId, messageId: m.id, src: m.thumbSrc })}
                               alt=""
+                              loading="lazy"
                               className="h-full w-full object-cover"
                             />
                           ) : (
@@ -1615,20 +1626,32 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             {m.messageType === "voice"
                               ? vm.t("cm_ui_voice_with_optional_seconds", {
                                   seconds:
-                                    typeof m.voiceDurationSeconds === "number" && m.voiceDurationSeconds > 0
+                                    m.voiceDurationSeconds && m.voiceDurationSeconds > 0
                                       ? ` · ${m.voiceDurationSeconds}${vm.t("cm_ui_seconds_suffix")}`
                                       : "",
                                 })
-                              : m.imageAlbumUrls && m.imageAlbumUrls.length > 1
-                                ? vm.t("cm_ui_photo_count_sheets", { count: m.imageAlbumUrls.length })
+                              : m.imageCount > 1
+                                ? vm.t("cm_ui_photo_count_sheets", { count: m.imageCount })
                                 : vm.t("cm_ui_photo")}
                           </p>
                         </div>
                       </button>
                     ))
+                  ) : roomMediaGallery.loading ? (
+                    <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{vm.t("common_loading")}</p>
                   ) : (
                     <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{vm.t("cm_ui_no_media")}</p>
                   )}
+                  {roomMediaGallery.hasMore ? (
+                    <button
+                      type="button"
+                      onClick={roomMediaGallery.loadMore}
+                      disabled={roomMediaGallery.loading}
+                      className={`${OverlayUi.btn.secondary} w-full`}
+                    >
+                      {vm.t("common_emoji_show_more")}
+                    </button>
+                  ) : null}
                 </div>
                   </>
                 )}

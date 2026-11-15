@@ -44,11 +44,16 @@ export function formatVoiceRecordTenThousandths(ms: number): string {
   return `${m}:${String(s).padStart(2, "0")}.${String(tenK).padStart(4, "0")}`;
 }
 
+/**
+ * 녹음 중 실시간 파형. 2px 막대 36개는 줄지 않아 칸이 좁으면 넘친다 — 넘침은 잘라내고 최신(오른쪽) 막대를 남긴다
+ * (2026-11-16 실기: 넘친 막대가 「밀어서 취소」「잠금 녹음 중」 글자 위에 겹쳐 그려짐).
+ */
 export function VoiceRecordingLiveWaveform({ peaks, className }: { peaks: number[]; className?: string }) {
   const bars = peaks.length > 0 ? peaks : Array.from({ length: 36 }, () => 0.08);
   return (
     <div
-      className={`flex h-7 min-w-0 flex-1 items-end justify-between gap-[1px] px-0.5 ${className ?? ""}`}
+      data-cm-voice-live-waveform=""
+      className={`flex h-7 min-w-0 flex-1 items-end justify-end gap-[1px] overflow-hidden px-0.5 ${className ?? ""}`}
     >
       {bars.map((p, i) => {
         const h = 4 + Math.round(Math.min(1, p) * 22);

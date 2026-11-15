@@ -14,10 +14,17 @@ import {
   type MessengerMediaObjectRef,
 } from "@/lib/community-messenger/media/messenger-media-ref";
 
-/** 서명 URL 유효 시간 — 10분. 라우트 302 캐시(5분)보다 길어야 캐시된 리다이렉트가 만료 URL 로 가지 않는다. */
-export const MESSENGER_MEDIA_SIGNED_URL_TTL_SEC = 600;
-/** 302 응답 브라우저 캐시 — 같은 썸네일 반복 렌더 시 라우트 재호출 억제. */
-export const MESSENGER_MEDIA_REDIRECT_MAX_AGE_SEC = 300;
+/**
+ * 서명 URL 유효 시간 — 7일 (Owner 2026-11-16 설계 O4 「권장값」 결정).
+ * 라우트 302 캐시(6일)보다 길어야 캐시된 리다이렉트가 만료 URL 로 가지 않는다.
+ * 2026-11-16 실기: 10분·5분이던 때 5분 뒤 방에 다시 들어가면 서명·다운로드를 다시 해 사진이 흐린 미리보기로 약 1초 보임.
+ * 보안과 맞바꿈: 서명 주소가 밖으로 새면 최대 7일 열람 가능.
+ */
+export const MESSENGER_MEDIA_SIGNED_URL_TTL_SEC = 7 * 24 * 60 * 60;
+/** 302 응답 브라우저 캐시 — 6일. 같은 서명 주소를 다시 쓰게 해 파일 캐시(업로드 Cache-Control 1년)가 맞는다. */
+export const MESSENGER_MEDIA_REDIRECT_MAX_AGE_SEC = 6 * 24 * 60 * 60;
+/** 메신저 첨부 업로드 Cache-Control — 1년(파일 내용은 경로마다 바뀌지 않음). */
+export const MESSENGER_MEDIA_UPLOAD_CACHE_CONTROL = "31536000";
 
 export type MessengerMediaMessageRow = {
   id: string;

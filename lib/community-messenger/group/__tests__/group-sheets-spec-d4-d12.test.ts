@@ -29,8 +29,9 @@ describe("D4 방 안내 칩 「비공개 그룹 · 2명」 띄어쓰기", () => 
 describe("D5 「음성 통화」 라벨 → 음성 메시지 수", () => {
   it("방 정보·미디어 시트의 음성 메시지 수 칸은 음성 메시지 라벨", () => {
     const src = read(SHEETS);
-    expect(src).not.toMatch(/nav_voice_call_label"\)\}<\/p>\s*<p[^>]*>\{vm\.voiceMessageCount\}/);
-    expect(src.match(/\{vm\.t\("cm_ui_voice_message"\)\}<\/p>\s*<p[^>]*>\{vm\.voiceMessageCount\}/g)).toHaveLength(2);
+    /** M1(2026-11-16): 개수는 서버 조회 값(mediaVoiceCount) — 라벨 규칙은 같다 */
+    expect(src).not.toMatch(/nav_voice_call_label"\)\}<\/p>\s*<p[^>]*>\{mediaVoiceCount\}/);
+    expect(src.match(/\{vm\.t\("cm_ui_voice_message"\)\}<\/p>\s*<p[^>]*>\{mediaVoiceCount\}/g)).toHaveLength(2);
     expect(translate("ko", "cm_ui_voice_message" as never)).toBe("음성 메시지");
   });
 });
