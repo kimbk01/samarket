@@ -2,6 +2,8 @@
  * 방 진입 중 뒤로 = 진입 중단 (2026-11-15). 방이 그려지기 전 뒤로 → 목록 사진·로딩 원·우선 모드·잠금·표시 상태·의도 정리.
  * @vitest-environment jsdom
  */
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const calls: string[] = [];
@@ -52,11 +54,21 @@ describe("방 진입 중 뒤로", () => {
     window.dispatchEvent(new PopStateEvent("popstate"));
     expect(calls).toEqual([]);
   });
-  it("방이 그려진 뒤에는 감시 해제 — 뒤로는 방이 처리", () => {
+  it("방 진입이 끝난 뒤에는 감시 해제", () => {
     armRoomEntryAbortOnBack("r3");
     noteRoomEntryArrived("r3");
     window.history.replaceState(null, "", "/community-messenger");
     window.dispatchEvent(new PopStateEvent("popstate"));
     expect(calls).toEqual([]);
+  });
+  it("방이 마운트돼도 진입이 끝나기 전에는 감시 유지 — 해제는 들어오는 움직임 완료 타이머·분할/축소 모션에서만 (Xiaomi 계측 2026-11-15)", () => {
+    const src = readFileSync(
+      path.join(process.cwd(), "components/community-messenger/room/MessengerRoomSwipeBackShell.tsx"),
+      "utf8"
+    );
+    const calls = src.split("noteRoomEntryArrived(rid)").length - 1;
+    expect(calls).toBe(2);
+    expect(src).toMatch(/setPhase\(\(p\) => \(p === "enter-active" \? "idle" : p\)\);\s*const rid = roomId\?\.trim\(\);\s*if \(rid\) noteRoomEntryArrived\(rid\);/);
+    expect(src).toMatch(/if \(rid && \(splitPaneMode \|\| reducedMotion\)\) noteRoomEntryArrived\(rid\);/);
   });
 });
