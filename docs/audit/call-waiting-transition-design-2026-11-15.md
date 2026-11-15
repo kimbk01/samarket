@@ -224,3 +224,18 @@ Dialer 와 같이 「통화가 하나도 없을 때만 통화 화면을 닫는�
 
 ### 10-7. 확인 못 한 것
 - 영상 PiP 에서의 같은 차단(원문상 같다고 판단, 기기 실측 없음) · Android 15 이하 기기 동작(Xiaomi 등) · 안 1-b 의 「홈 버튼 0.5초 안」 재현 가능 여부.
+
+## 11. 안 1 결과 (Owner 「안 1 구현 승인」 2026-11-16, Android 61)
+- PR #337 → main `529b83fa3`. Samsung 1.2.7 (61) 활성 1대(user_devices 확인). 11-16 00:47~00:58 PHT. 판정 = 기기 logcat + screenrecord + 운영 DB.
+
+| 항목 | 판정 | 증거 (PHT) |
+|---|---|---|
+| ① 음성 PiP 중 대기 → 맥 종료 | PASS | hold 없음 → 00:48:24.026 `start_skipped` → 수신 알림(re61-h1s) · 「수락」 00:48:40 → `NOTIFICATION_ACCEPT` 시작 허용 → 전체 화면 「zxzx11 통화 중 00:02」(re61-h2s), 세션 bafd01ec answered 00:48:40.9 |
+| ② 영상 PiP 중 대기 → 맥 종료 | PASS | 00:49:54.890 BAL_BLOCK(원문대로 영상 PiP 도 차단) · hold 없음 · 수신 알림(re61-h3s) · 「수락」 00:50:08 → 전체 화면(re61-h4s), 0e5490d7 answered 00:50:09.1 |
+| ③ T1 앞 화면 이어받기 | PASS | 00:50:36.485 hold → 36.762 `launchRequested=true` → 37.462 release → 37.963 `handover_launch_shown` · 프레임 홈 0·알림 0 (re61-t1-tile) |
+| ③ T2 띠 종료 후 받기 | PASS | 00:54:09.721 hold → 11.365 promote → 11.856 수락 200 → 12.512 `handover_launch_shown` (re61-t2-tile) |
+| ③ T7 잠금 화면 이어받기 | PASS | isKeyguardLocked=true · 00:55:54.993 hold → 55.280 promote → 56.481 `handover_launch_shown` · 수신 heads-up 0 (re61-t7-tile) |
+| ④ 홈 버튼 직후 종료(차단 → 즉시 정리) | NOT_PROVEN | 1회 시도: 홈 키(adb 00:57:22.174)보다 수신 화면 시작(22.333, BAL_ALLOW_VISIBLE_WINDOW)이 먼저 처리돼 차단 경로가 재현되지 않음. 코드 경로는 계약 테스트로만 확인 |
+
+- 작업자 잘못: 00:56:28 C 통화가 이미 무응답으로 끝난 뒤 보낸 「수락」 좌표 탭이 DIBAY 메인 화면 아래쪽에 들어가 중고거래 상품 상세로 이동(쓰기 없음, 뒤로 가기로 복귀).
+- 기기 조율: 00:54 맥 맨 앞에 「iPhone 미러링」 창(작업자가 연 것 아님) — 건드리지 않고 DIBAY 만 앞으로.
