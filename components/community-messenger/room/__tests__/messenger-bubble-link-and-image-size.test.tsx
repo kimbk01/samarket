@@ -73,7 +73,7 @@ describe("말풍선 본문 링크 · 사진 칸 크기", () => {
     expect(host.textContent).toBe(s);
   });
 
-  it("사진 칸은 불러오기 전부터 너비가 고정되고 사진은 칸을 채우기만 한다", () => {
+  it("사진 칸은 불러오기 전부터 크기(텔레그램 높이 규칙)가 고정되고 사진은 칸을 채우기만 한다", () => {
     const m = {
       id: "m1",
       roomId: "r1",
@@ -84,12 +84,15 @@ describe("말풍선 본문 링크 · 사진 칸 크기", () => {
       imageHeight: 960,
     } as unknown as CommunityMessengerMessage;
     act(() => root.render(<MessengerChatImageBubble item={m} onOpenLightbox={vi.fn()} />));
+    // jsdom 화면 폭 1024 → 최대 폭 360 · 3:4 사진 높이 480 > 360+100 → 높이 460, 폭 460×0.75 = 345 (자르지 않음)
     const wrap = host.firstElementChild as HTMLElement;
-    expect(wrap.className).toContain("w-[min(62vw,280px)]");
+    expect(wrap.hasAttribute("data-cm-photo-bubble")).toBe(true);
+    expect(wrap.style.width).toBe("345px");
     expect(wrap.className).not.toMatch(/(^|\s)w-full(\s|$)/);
     const img = host.querySelector("img") as HTMLImageElement;
     expect(img.className).toContain("absolute inset-0");
+    expect(img.className).toContain("!h-full");
     const box = img.parentElement as HTMLElement;
-    expect(box.style.aspectRatio).toBe("0.75");
+    expect(box.style.height).toBe("460px");
   });
 });
