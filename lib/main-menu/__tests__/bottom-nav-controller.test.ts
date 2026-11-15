@@ -137,3 +137,24 @@ describe("복귀 조정자 ui 레인 — 보이는 즉시 동기 실행", () => 
     expect(order).toEqual(["ui"]);
   });
 });
+
+describe("최종 점검 (2026-11-15) — 멈춤·누수 방지", () => {
+  it("목표 경로가 지금 경로와 같으면(쿼리만 다른 이동) 시작하지 않는다 — 8초 뒤 문서 이동 방지", () => {
+    expect(
+      beginBottomNavShowing({ tabId: "orders", href: "/stores/owner/orders?tab=new", fromPath: "/stores/owner/orders/" })
+    ).toBeNull();
+    expect(isBottomNavShowing()).toBe(false);
+    vi.advanceTimersByTime(BOTTOM_NAV_SETTLE_WATCHDOG_MS * 2);
+    expect(navigated).toEqual([]);
+  });
+
+  it("이동 중 다른 경로로 가면(뒤로가기·다른 이동·리다이렉트) 그 이동이 이긴다 — 뼈대 잔존·감시 문서 이동 없음", () => {
+    beginBottomNavShowing({ tabId: "community", href: "/philife", fromPath: "/philife/post/1" });
+    settleBottomNavForLocation("/philife/post/1");
+    expect(isBottomNavShowing()).toBe(true);
+    settleBottomNavForLocation("/home");
+    expect(isBottomNavShowing()).toBe(false);
+    vi.advanceTimersByTime(BOTTOM_NAV_SETTLE_WATCHDOG_MS * 2);
+    expect(navigated).toEqual([]);
+  });
+});

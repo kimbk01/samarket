@@ -810,15 +810,20 @@ export function BottomNav({
        */
       const axis = computeMainBottomNavPushAxis(commitOpts.pathname, commitOpts.href);
       setMainShellPushAxisIntent(axis, pathFromHref(commitOpts.href));
-      const pendingId = beginBottomNavShowing({ tabId: commitOpts.tabId, href: commitOpts.href });
+      const pendingId = beginBottomNavShowing({
+        tabId: commitOpts.tabId,
+        href: commitOpts.href,
+        fromPath: commitOpts.pathname,
+      });
       triggerBottomNavSelectionFeedback();
+      const failPending = () => {
+        if (pendingId != null) failBottomNavShowing(pendingId);
+      };
       void requireAuthAction("messenger_open", () => {
         commitBottomNavTabRoute({ ...commitOpts, deferredAfterAwait: true });
       }, { next: commitOpts.href }).then((ok) => {
-        if (!ok) failBottomNavShowing(pendingId);
-      }, () => {
-        failBottomNavShowing(pendingId);
-      });
+        if (!ok) failPending();
+      }, failPending);
       return;
     }
     run();
