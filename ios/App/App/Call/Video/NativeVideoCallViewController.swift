@@ -1091,6 +1091,14 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     connectedControls.axis = .vertical
     connectedControls.spacing = 12
     connectedControls.addArrangedSubview(cameraFlipButton)
+    // 전환할 카메라가 없는 기기(맥 Designed for iPad — 카메라 1개)는 전환 버튼을 숨긴다(스택이 자리도 뺌).
+    // docs/audit/call-waiting-transition-design-2026-11-15.md 설계 C · Owner 「A·B·C 구현 승인」 2026-11-15.
+    cameraFlipButton.isHidden = !Self.hasFrontAndBackCamera
+    NativeVideoCallLog.info(
+      "camera_flip_button_visibility",
+      callId: boundCallId,
+      details: "visible=\(Self.hasFrontAndBackCamera)"
+    )
     connectedControls.addArrangedSubview(cameraButton)
     connectedControls.addArrangedSubview(micButton)
     connectedControls.addArrangedSubview(endButton)
@@ -1614,6 +1622,14 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     applyCameraStateChange(reason: "local_button")
     showConnectedChrome(source: "video_toggle")
   }
+
+  /// 앞·뒤 카메라가 모두 있는지 — Agora switchCamera 는 앞↔뒤 전환이라 둘 다 있어야 전환 버튼이 의미가 있다.
+  private static let hasFrontAndBackCamera: Bool = {
+    let types: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera]
+    let front = AVCaptureDevice.DiscoverySession(deviceTypes: types, mediaType: .video, position: .front).devices
+    let back = AVCaptureDevice.DiscoverySession(deviceTypes: types, mediaType: .video, position: .back).devices
+    return !front.isEmpty && !back.isEmpty
+  }()
 
   @objc private func onCameraFlipTapped() {
     // 카메라 꺼짐 중에는 전환하지 않는다 (설계 §4-4, 웹 call-v4 와 같음).
