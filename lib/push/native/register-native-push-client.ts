@@ -470,6 +470,8 @@ async function runRegisterNativePushOrchestration(args: {
 export function resetNativePushOrchestrationForTests(): void {
   nativePushOrchestrationInflight = null;
   nativePushOrchestrationKey = "";
+  voipUnsupportedCleanupDone = false;
+  voipUnsupportedCleanupInflight = null;
 }
 
 export function navigateFromDibayDeepLink(deepLink: string): boolean {
@@ -542,6 +544,54 @@ export function retryVoipTokenRegistration(reason: string, userId?: string): voi
   });
 }
 
+let voipUnsupportedCleanupDone = false;
+let voipUnsupportedCleanupInflight: Promise<void> | null = null;
+
+/**
+ * D2-1 (docs/audit/mac-ipad-call-and-bottom-bar-audit-2026-11-15.md §10): 맥(iOS 앱)은 OS 가 PushKit VoIP 를
+ * 버린다. 네이티브는 PushKit 을 등록하지 않고, 여기서는 구 빌드가 남긴 「이 기기」 voip_apns 행만 끈다
+ * (device_id + push_provider → 같은 회원의 iPhone·iPad VoIP 행은 유지). 능력 조회가 없는 구 바이너리는 아무것도 하지 않는다.
+ */
+async function deactivateThisDeviceVoipIfPlatformUnsupported(reason: string): Promise<void> {
+  if (voipUnsupportedCleanupDone) return;
+  if (voipUnsupportedCleanupInflight) return voipUnsupportedCleanupInflight;
+  voipUnsupportedCleanupInflight = (async () => {
+    let voipPush: boolean | undefined;
+    try {
+      const cap = await dibayVoipCallPlugin.getCallPlatformCapability();
+      voipPush = cap?.voipPush;
+    } catch {
+      return; // 구 바이너리 — 기존 VoIP 동작 유지
+    }
+    if (voipPush !== false) return;
+    const deviceId = ensureClientInstanceId();
+    try {
+      const res = await fetch("/api/me/devices/deactivate", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ device_id: deviceId, push_provider: "voip_apns" }),
+      });
+      if (res.ok) voipUnsupportedCleanupDone = true;
+      logPushRegister("voip_platform_unsupported_device_deactivate", {
+        reason,
+        push_provider: "voip_apns",
+        device_id: deviceId,
+        http_status: res.status,
+      });
+    } catch (err: unknown) {
+      logPushRegisterFail("voip_platform_unsupported_device_deactivate_exception", {
+        reason,
+        error: err instanceof Error ? err.message : String(err),
+        push_provider: "voip_apns",
+      });
+    }
+  })().finally(() => {
+    voipUnsupportedCleanupInflight = null;
+  });
+  return voipUnsupportedCleanupInflight;
+}
+
 let voipListenerAttached = false;
 
 export function isVoipPushTokenListenerAttached(): boolean {
@@ -592,11 +642,13 @@ export function attachVoipPushTokenListener(): () => void {
       if (!uid) return;
       if (event !== "SIGNED_IN" && event !== "INITIAL_SESSION") return;
       retryVoipTokenRegistration(`auth:${event}`, uid);
+      void deactivateThisDeviceVoipIfPlatformUnsupported(`auth:${event}`);
     });
   }
 
   window.addEventListener("dibay:voip-token", onToken);
   window.addEventListener("dibay:voip-token-invalidated", onInvalidated);
+  void deactivateThisDeviceVoipIfPlatformUnsupported("listener_attached");
 
   // A7 / CALL-7: native retries end at 15s; replay cached token once listener is ready.
   void dibayVoipCallPlugin

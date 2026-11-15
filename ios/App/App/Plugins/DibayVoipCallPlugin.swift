@@ -18,7 +18,17 @@ public class DibayVoipCallPlugin: CAPPlugin, CAPBridgedPlugin {
     CAPPluginMethod(name: "replayLastVoipToken", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "reportCallEnded", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "claimForegroundWebIncomingOwner", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "getCallPlatformCapability", returnType: CAPPluginReturnPromise),
   ]
+
+  /// D2-1 — 통화 플랫폼 능력(`DibayCallPlatformCapability`)을 웹에 그대로 전달. 구 바이너리엔 없음 → 웹은 기존 동작.
+  @objc func getCallPlatformCapability(_ call: CAPPluginCall) {
+    call.resolve([
+      "iosAppOnMac": DibayCallPlatformCapability.isIOSAppOnMac,
+      "voipPush": DibayCallPlatformCapability.supportsVoipPush,
+      "callKitCallUi": DibayCallPlatformCapability.supportsCallKitCallUi,
+    ])
+  }
 
   @objc func startVoipRegistration(_ call: CAPPluginCall) {
     VoIPPushRegistry.shared.start()

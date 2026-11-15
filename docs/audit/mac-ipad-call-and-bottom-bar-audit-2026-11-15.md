@@ -261,3 +261,11 @@ NOT_PROVEN: 실제 소리 들림(청취 불가) · 통화 중(busy) · 맥 영�
 
 ### 10-5. Owner 확인 필요 1건
 - 맥 알림을 켤지(현재 「끔」) — 켜야 D2-4(앱 종료 상태 수신) 시험 가능. 작업자는 설정을 바꾸지 않는다.
+
+### 10-6. D2-1 구현 기록 (Owner 「D2-1 부터 구현」)
+- 네이티브: `VoIPPushRegistry.start` — 맥(`supportsVoipPush == false`)이면 PushKit 미등록(`ios_voip_registry_start_skipped`). `DibayVoipCallPlugin.getCallPlatformCapability` 추가(웹 노출).
+- 웹: `attachVoipPushTokenListener` 부착·로그인(SIGNED_IN/INITIAL_SESSION) 때 능력이 `voipPush=false` 면 `/api/me/devices/deactivate` 에 `{device_id, push_provider:"voip_apns"}` 1회 — 구 빌드가 남긴 「이 기기」 VoIP 행만 끔. 능력 조회 없는 구 바이너리는 아무것도 안 함.
+- 서버: deactivate 라우트에 `device_id + push_provider`(토큰 없음) 분기 추가 — 그 회원·그 기기·그 제공자만. 기존 호출(토큰 증명 로그아웃·provider 단독·device scope)은 순서·조건 무변경(테스트 고정).
+- 발견(보고만, 범위 밖): 기존 `dibay:voip-token-invalidated` 처리는 `{push_provider:"voip_apns"}` 만 보내 **같은 회원의 모든 기기 VoIP 행**을 끈다(iPhone 2대면 다른 iPhone 도 꺼짐).
+- iOS build 37 → 38.
+- 맥 기대 결과: VoIP 행 비활성 → 서버가 맥을 「VoIP 없는 iOS」로 보고 통화 수신 일반 알림 발송 시도. 단 맥 알림 「끔」이라 일반 알림 등록이 없어 실제 알림은 Owner 가 알림을 켠 뒤에만 도착(D2-4).

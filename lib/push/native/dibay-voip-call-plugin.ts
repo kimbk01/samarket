@@ -13,6 +13,12 @@ export type DibayVoipCallPlugin = {
     sessionId: string;
     reason?: string;
   }): Promise<{ claimed?: boolean }>;
+  /** D2-1 — 1.2.2 (38)+ only. Older binaries reject (method missing) → caller keeps VoIP behavior. */
+  getCallPlatformCapability(): Promise<{
+    iosAppOnMac?: boolean;
+    voipPush?: boolean;
+    callKitCallUi?: boolean;
+  }>;
 };
 
 /** Single Capacitor registration — do not call registerPlugin(DibayVoipCall) elsewhere. */

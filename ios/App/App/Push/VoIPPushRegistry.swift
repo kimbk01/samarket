@@ -12,6 +12,13 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
 
   func start() {
     if registry != nil { return }
+    // D2-1 (docs/audit/mac-ipad-call-and-bottom-bar-audit-2026-11-15.md §10): 맥은 OS(callservicesd)가
+    // VoIP 푸시를 앱에 전달하지 않는다. PushKit 을 등록하지 않아 VoIP 토큰을 서버에 올리지 않는다
+    // → 서버 A4 정책상 「VoIP 없는 iOS 설치」로 통화 수신·취소가 일반 APNs 알림으로 간다.
+    guard DibayCallPlatformCapability.supportsVoipPush else {
+      DibayCallLog.warn("ios_voip_registry_start_skipped", detail: "reason=platform_no_voip_push")
+      return
+    }
     let reg = PKPushRegistry(queue: DispatchQueue.main)
     reg.delegate = self
     reg.desiredPushTypes = [.voIP]
