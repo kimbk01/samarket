@@ -6,7 +6,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreSettingsContent } from "@/components/business/owner/OwnerStoreSettingsContent";
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
-import { OwnerStoreSuspenseFallback } from "@/components/business/owner/OwnerStoreSuspenseFallback";
+import { OwnerTabSkeleton } from "@/components/business/owner/OwnerTabSkeleton";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import {
@@ -133,7 +133,8 @@ function MyBusinessSettingsPageInner() {
   );
 
   if (phase.kind === "loading") {
-    return <OwnerStoreSuspenseFallback />;
+    /** 하단 탭 이동 뼈대와 같은 그림 — 뼈대 → 글자 → 내용으로 두 번 바뀌지 않게 (하단 탭 계약 v2 · Samsung 실측 2026-11-15 14:09) */
+    return <OwnerTabSkeleton kind="manage" />;
   }
   if (phase.kind === "need_store_id") {
     return (
@@ -168,8 +169,8 @@ export default function MyBusinessSettingsPage() {
   return (
     <Suspense
       fallback={
-        <OwnerAdminPageScrollShell className="py-4">
-          <OwnerStoreSuspenseFallback />
+        <OwnerAdminPageScrollShell>
+          <OwnerTabSkeleton kind="manage" />
         </OwnerAdminPageScrollShell>
       }
     >
