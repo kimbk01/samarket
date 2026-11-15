@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { subscribeBottomNavResume } from "@/lib/main-menu/bottom-nav-resume-signal";
 import { resolveBottomNavScrollChromeAction } from "@/lib/layout/main-bottom-nav-fab-scroll-signal";
 import {
   getOwnerCompactShellScrollTopSnapshot,
@@ -16,6 +17,19 @@ export function useOwnerBottomNavScrollHide(enabled: boolean): boolean {
   const [hidden, setHidden] = useState(false);
   const lastYRef = useRef(0);
   const idleRevealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** 앱 복귀 즉시 다시 보이게 — 숨겨진 동안 스크롤 이벤트를 놓쳐 숨김으로 남지 않게 (하단 탭 계약 v2 B4·S5) */
+  useEffect(
+    () =>
+      subscribeBottomNavResume(() => {
+        if (idleRevealTimerRef.current != null) {
+          clearTimeout(idleRevealTimerRef.current);
+          idleRevealTimerRef.current = null;
+        }
+        setHidden(false);
+      }),
+    []
+  );
 
   useEffect(() => {
     if (!enabled) {

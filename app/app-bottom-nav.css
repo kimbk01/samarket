@@ -550,6 +550,20 @@
   /* 배달 5탭과 동일 셸 — overhang·높이는 `.app-bottom-nav-shell--delivery` */
 }
 
+/*
+ * 하단 탭 계약 v2 S5 (Owner 2026-11-15) — 사장님 하단 탭 누르는 영역 = 바 높이 전체.
+ * 배달 셸 배치(홈 원 돌출·글자 절대 위치)를 바꾸지 않도록 링크에 투명한 터치 확장 영역만 붙인다:
+ * 컨테이너 위 6px·아래 5px 여백(+ 48px 칸이 60px 줄 가운데 놓이며 생기는 0.5px)을 덮는다. 그림·위치 변화 없음.
+ */
+.owner-mobile-bottom-nav .app-bottom-nav-item::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  bottom: -6px;
+  left: 0;
+  right: 0;
+}
+
 /**
  * 탭 위로 돌출된 요소 높이 — 본문 하단 여백(`MAIN_SCROLL_PADDING_*`)이 실제로 있는 돌출만 반영 (N-01).
  * 돌출 없음(내정보 등) 0 · 허브/메신저 orbit = orbit rise · 배달 5탭 = 배달 홈 원 overhang.

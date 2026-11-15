@@ -83,3 +83,11 @@ export function getOwnerCompactShellScrollTopSnapshot(): number {
   }
   return max;
 }
+
+/** 사장님 하단 탭 「같은 탭 다시 누름 = 맨 위로」(하단 탭 계약 v2 S5) — 사장님 셸 스크롤 상자를 모두 맨 위로 */
+export function scrollOwnerCompactShellToTop(): void {
+  if (typeof document === "undefined") return;
+  for (const el of collectOwnerScrollTargets()) {
+    el.scrollTop = 0;
+  }
+}
