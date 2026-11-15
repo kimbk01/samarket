@@ -1,5 +1,6 @@
 "use client";
 
+import type { DibayImageViewerItem } from "@/lib/ui/dibay-image-viewer-items";
 import { withCallStubViewerDirection } from "@/lib/community-messenger/call-stub-viewer-direction";
 import {
   type CSSProperties,
@@ -123,7 +124,7 @@ export type MessengerTimelineVirtualRowProps = {
   callStatusTone?: "missed" | "rejected" | "cancelled" | "normal";
   stubBusy: boolean;
   senderLabelDisplay: string;
-  onOpenImageLightbox: (urls: string[], originals: string[], index: number) => void;
+  onOpenImageLightbox: (items: DibayImageViewerItem[], index: number) => void;
   onReactionRosterOpen: (payload: {
     messageId: string;
     reactionKey: string;

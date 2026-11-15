@@ -2,6 +2,7 @@
 
 import { memo } from "react";
 import { FileText } from "lucide-react";
+import type { DibayImageViewerItem } from "@/lib/ui/dibay-image-viewer-items";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -28,7 +29,7 @@ export const TimelineViberInnerImage = memo(function TimelineViberInnerImage({
   onOpenLightbox,
 }: {
   item: TimelineViberBubbleMessage;
-  onOpenLightbox: (urls: string[], originals: string[], index: number) => void;
+  onOpenLightbox: (items: DibayImageViewerItem[], index: number) => void;
 }) {
   return <MessengerChatImageBubble item={item} onOpenLightbox={onOpenLightbox} />;
 });

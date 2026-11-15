@@ -10,7 +10,7 @@ import { richBlocksImageUrls } from "@/lib/community/imported-content-blocks";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { CM_BODY_CLASS, CM_TITLE_CLASS } from "@/lib/community/community-ui-classes";
 import { PostImageGrid } from "@/components/community/post-detail/PostImageGrid";
-import { usePostImageViewer } from "@/components/common/media/PostImageViewer";
+import { useDibayImageViewer } from "@/components/common/media/DibayImageViewer";
 import { communityViewerDisplayUrl } from "@/lib/community/post-image-display";
 import { PostTextWithVideos } from "@/components/community/post-detail/PostTextWithVideos";
 
@@ -39,7 +39,7 @@ export function CommunityPostDetailBody({ post }: Props) {
         ? []
         : post.images.filter((u) => Boolean(u) && !bodyImageUrls?.has(u));
   const showImageGallery = galleryUrls.length > 0;
-  const { openAt, viewer } = usePostImageViewer({ displayUrlFor: communityViewerDisplayUrl });
+  const { openAt, viewer } = useDibayImageViewer({ displayUrlFor: communityViewerDisplayUrl });
 
   return (
     <div className="mt-4" data-user-content="">

@@ -7,7 +7,7 @@ import { PHILIFE_DETAIL_INTERLEAVED_TEXT_CLASS } from "@/lib/philife/philife-fla
 import { PostVideoEmbed } from "@/components/common/media/PostVideoEmbed";
 import { PostTextWithVideos } from "@/components/community/post-detail/PostTextWithVideos";
 import { PostBodyImage } from "@/components/community/post-detail/PostBodyImage";
-import { usePostImageViewer } from "@/components/common/media/PostImageViewer";
+import { useDibayImageViewer } from "@/components/common/media/DibayImageViewer";
 import { communityViewerDisplayUrl } from "@/lib/community/post-image-display";
 
 /** Import keeps a video as "thumbnail image (alt video) + ▶ link"; the link now plays in place. */
@@ -67,7 +67,7 @@ export function ImportedRichContent({ blocks }: { blocks: ImportedContentBlock[]
     });
     return { imageUrls: urls, imageIndexByBlock: byBlock };
   }, [blocks]);
-  const { openAt, viewer } = usePostImageViewer({ displayUrlFor: communityViewerDisplayUrl });
+  const { openAt, viewer } = useDibayImageViewer({ displayUrlFor: communityViewerDisplayUrl });
 
   return (
     <div className="mt-4 min-w-0 space-y-3" data-testid="imported-rich-content">

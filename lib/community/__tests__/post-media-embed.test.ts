@@ -110,7 +110,7 @@ describe("post detail renderers — no image link leaves the post", () => {
   ];
   it.each(files)("%s opens images in the viewer", (f) => {
     const src = readFileSync(f, "utf8");
-    expect(src).toContain("usePostImageViewer");
+    expect(src).toContain("useDibayImageViewer");
     expect(src).not.toMatch(/<a\s[^>]*href=\{(?:url|u|b\.url)\}/);
   });
   it("embeds only via the sandboxed player built from a validated id", () => {
@@ -121,7 +121,7 @@ describe("post detail renderers — no image link leaves the post", () => {
     expect(src).not.toContain("allow-top-navigation");
   });
   it("viewer keeps the DibayOverlayRoot back contract (no Capacitor backButton listener)", () => {
-    const src = readFileSync("components/common/media/PostImageViewer.tsx", "utf8");
+    const src = readFileSync("components/common/media/DibayImageViewer.tsx", "utf8");
     expect(src).not.toContain('addListener("backButton"');
     expect(src).toContain("...window.history.state");
   });

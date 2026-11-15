@@ -41,7 +41,8 @@ import {
   selectMessengerRoomVirtualRows,
 } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
 import { resolveMessengerRoomTimelineLoadUi } from "@/lib/community-messenger/room/messenger-room-timeline-load-ui";
-import { MessengerImageLightbox } from "@/components/community-messenger/room/MessengerImageLightbox";
+import { DibayImageViewer } from "@/components/common/media/DibayImageViewer";
+import type { DibayImageViewerItem } from "@/lib/ui/dibay-image-viewer-items";
 import {
   messengerRoomReadBlockKeyImageLightbox,
   setMessengerRoomReadBlock,
@@ -327,6 +328,8 @@ function getCmR9State(roomId: string): CmR9UpgradeState {
   return bag[id]!;
 }
 
+
+const EMPTY_IMAGE_VIEWER_ITEMS: DibayImageViewerItem[] = [];
 export function isCmR10VirtualizerUpgradeActive(roomId: string): boolean {
   if (typeof window === "undefined") return false;
   const st = window.__cmR9UpgradeStateByRoom?.[roomId.trim()];
@@ -833,8 +836,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   }
 
   const [imageLightbox, setImageLightbox] = useState<{
-    urls: string[];
-    originals: string[];
+    items: DibayImageViewerItem[];
     index: number;
   } | null>(null);
   const [reactionRoster, setReactionRoster] = useState<{
@@ -849,8 +851,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   /** F3: 통화 기록 다시 걸기 확인창·발신 공용 이름 — 매장 주문 구매자는 매장명, 아니면 방 제목 */
   const stubRedialPeerLabel = vm.storeOrderBuyerDialPeerLabel ?? (vm.snapshot.room.title?.trim() || "");
 
-  const onOpenImageLightbox = useCallback((urls: string[], originals: string[], index: number) => {
-    setImageLightbox({ urls, originals, index });
+  const onOpenImageLightbox = useCallback((items: DibayImageViewerItem[], index: number) => {
+    setImageLightbox({ items, index });
   }, []);
 
   const onReactionRosterOpen = useCallback(
@@ -2342,19 +2344,13 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         }}
         onJumpToLatest={() => vm.scrollMessengerToBottom({ reason: "fab_jump_latest", force: true })}
       />
-      <MessengerImageLightbox
+      {/* 사진 확대 = 앱 공용 뷰어 (SSOT M1 — 게시글·상품·매장과 같은 확대·넘기기·닫기·뒤로) */}
+      <DibayImageViewer
         open={imageLightbox != null}
-        urls={imageLightbox?.urls ?? []}
-        originals={imageLightbox?.originals ?? []}
+        items={imageLightbox?.items ?? EMPTY_IMAGE_VIEWER_ITEMS}
         index={imageLightbox?.index ?? 0}
+        allowSaveAll
         onClose={() => setImageLightbox((prev) => (prev === null ? prev : null))}
-        onChangeIndex={(next) =>
-          setImageLightbox((cur) => {
-            if (!cur) return cur;
-            const clamped = Math.max(0, Math.min(cur.urls.length - 1, next));
-            return { ...cur, index: clamped };
-          })
-        }
       />
       <MessageReactionRosterSheet
         open={reactionRoster}
