@@ -7,6 +7,8 @@ import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/
  * D2-1·D2-3 (docs/audit/mac-ipad-call-and-bottom-bar-audit-2026-11-15.md §10) — 네이티브 통화 플랫폼 능력 단일 읽기.
  * 네이티브 단일 정의 `DibayCallPlatformCapability` 를 그대로 받는다. iOS 셸에서만 조회하고, 메서드가 없는
  * 구 바이너리·iPhone·iPad·Android·웹은 `iosAppOnMac=false` (기존 경로).
+ * 웹에서 판정값을 읽는 곳은 이 파일 하나뿐 — `dibayVoipCallPlugin.getCallPlatformCapability` 를 다른 곳에서 직접 부르지 않는다
+ * (소스 계약 테스트 `call-platform-capability-single-reader.test.ts`).
  */
 export type CallPlatformCapability = {
   iosAppOnMac: boolean;
