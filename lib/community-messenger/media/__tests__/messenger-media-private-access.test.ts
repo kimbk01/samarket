@@ -11,6 +11,7 @@ import {
 } from "@/lib/community-messenger/media/messenger-media-ref";
 import {
   MESSENGER_MEDIA_SIGNED_URL_TTL_SEC,
+  MESSENGER_MEDIA_REDIRECT_MAX_AGE_SEC,
   resolveMessengerMediaAccess,
   sanitizeMessengerMediaDownloadName,
   type MessengerMediaAccessDeps,
@@ -170,10 +171,12 @@ describe("C-4 media access (route core)", () => {
     expect(r).toMatchObject({ ok: true, viewer: "participant", expiresInSec: MESSENGER_MEDIA_SIGNED_URL_TTL_SEC });
     expect(r.ok && r.signedUrl).toContain("/object/sign/messenger-media/");
     expect(d.createSignedUrl).toHaveBeenCalledWith(
-      expect.objectContaining({ bucket: "messenger-media", path: PRIVATE_PATH, expiresInSec: 600 })
+      expect.objectContaining({ bucket: "messenger-media", path: PRIVATE_PATH, expiresInSec: MESSENGER_MEDIA_SIGNED_URL_TTL_SEC })
     );
-    expect(MESSENGER_MEDIA_SIGNED_URL_TTL_SEC).toBeGreaterThanOrEqual(300);
-    expect(MESSENGER_MEDIA_SIGNED_URL_TTL_SEC).toBeLessThanOrEqual(900);
+    /** O4(Owner 2026-11-16): 서명 7일 · 302 캐시 6일 — 서명이 캐시보다 길어야 캐시된 리다이렉트가 만료 주소로 가지 않음 */
+    expect(MESSENGER_MEDIA_SIGNED_URL_TTL_SEC).toBe(7 * 24 * 60 * 60);
+    expect(MESSENGER_MEDIA_REDIRECT_MAX_AGE_SEC).toBe(6 * 24 * 60 * 60);
+    expect(MESSENGER_MEDIA_SIGNED_URL_TTL_SEC).toBeGreaterThan(MESSENGER_MEDIA_REDIRECT_MAX_AGE_SEC);
   });
 
   it("non-participant → 403 and no signed URL", async () => {

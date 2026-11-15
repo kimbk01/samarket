@@ -1,3 +1,4 @@
+import { MESSENGER_MEDIA_UPLOAD_CACHE_CONTROL } from "@/lib/community-messenger/server/messenger-media-access";
 import { randomUUID } from "crypto";
 import type { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
@@ -157,6 +158,7 @@ export async function sendMessengerFileUpload(input: {
   const { error: upErr } = await bucket.upload(path, input.buf, {
     contentType: validated.canonicalContentType,
     upsert: false,
+    cacheControl: MESSENGER_MEDIA_UPLOAD_CACHE_CONTROL,
   });
   if (upErr) {
     return { status: 500, body: { ok: false, error: upErr.message ?? "upload_failed" } };

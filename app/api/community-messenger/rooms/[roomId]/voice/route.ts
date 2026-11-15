@@ -1,3 +1,4 @@
+import { MESSENGER_MEDIA_UPLOAD_CACHE_CONTROL } from "@/lib/community-messenger/server/messenger-media-access";
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
@@ -138,6 +139,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
   const { error: upErr } = await sb.storage.from(bucketName).upload(path, buf, {
     contentType: mimeBase || "audio/webm",
     upsert: false,
+    cacheControl: MESSENGER_MEDIA_UPLOAD_CACHE_CONTROL,
   });
 
   if (upErr) {

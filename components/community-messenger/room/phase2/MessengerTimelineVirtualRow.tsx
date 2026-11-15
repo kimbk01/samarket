@@ -287,9 +287,10 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     bumpCmR9Counter(streamRoomId, "avatarRenderCount");
   }
 
-  // DO NOT: bindMessageInteraction 에서 onPointerMove 취소 로직·touch-action 제거 금지.
-  // 모바일 WebView 에서 스크롤 제스처가 pointercancel 을 즉시 발생시켜 520ms 타이머가 항상 취소된다.
-  // touch-action:none 으로 브라우저 스크롤을 말풍선에서 막고, 이동 거리(8px) 초과 시 직접 취소한다.
+  // DO NOT: bindMessageInteraction 에서 onPointerMove(8px 초과 취소)·onPointerCancel 취소 로직 제거 금지.
+  // touch-action 은 pan-y — 말풍선 위에서 시작한 세로 밀기도 목록을 스크롤한다(2026-11-16 실기: none 이면 말풍선 위
+  // 밀기로 목록이 전혀 안 움직임). 스크롤이 시작되면 브라우저가 pointercancel → 길게 누르기 취소(스크롤 중 메뉴 안 열림이 맞음).
+  // 가만히 누르고 있으면 pan 이 시작되지 않으므로 520ms 길게 누르기는 그대로 동작한다.
   const longPressOriginRef = useRef<{ x: number; y: number } | null>(null);
   /**
    * D3-다 (Owner 「D3 가~바 구현」 2026-11-09): 길게 누르기로 메시지 메뉴가 열린 그 동작에서 손을 떼며 생기는 click 1회를 막는다.
@@ -309,7 +310,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   };
 
   const messageBubbleTouchStyle: CSSProperties = {
-    touchAction: "none",
+    touchAction: "pan-y",
     WebkitTouchCallout: "none",
     userSelect: "none",
   };

@@ -1,3 +1,4 @@
+import { MESSENGER_MEDIA_UPLOAD_CACHE_CONTROL } from "@/lib/community-messenger/server/messenger-media-access";
 import { randomUUID } from "crypto";
 import {
   buildMessengerImageVariantBuffers,
@@ -16,7 +17,7 @@ export type MessengerImageStorageBucketLike = {
   upload: (
     path: string,
     body: Buffer,
-    opts: { contentType: string; upsert: boolean }
+    opts: { contentType: string; upsert: boolean; cacheControl?: string }
   ) => Promise<{ error: { message?: string } | null }>;
   getPublicUrl: (path: string) => { data: { publicUrl: string } };
 };
@@ -94,7 +95,11 @@ export async function processMessengerImageUploads(input: {
     const originalPath = `${baseDir}/${id}.${originalExtForMime(outMime)}`;
 
     const uploadBinary = async (path: string, body: Buffer, contentType: string) => {
-      const { error } = await bucket.upload(path, body, { contentType, upsert: false });
+      const { error } = await bucket.upload(path, body, {
+        contentType,
+        upsert: false,
+        cacheControl: MESSENGER_MEDIA_UPLOAD_CACHE_CONTROL,
+      });
       if (error) throw new Error(error.message ?? "upload_failed");
       uploadedStoragePaths.push(path);
     };
