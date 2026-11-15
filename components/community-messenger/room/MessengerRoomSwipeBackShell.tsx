@@ -35,6 +35,7 @@ import {
   MESSENGER_LIST_ROOM_EXIT_EASING,
   MESSENGER_LIST_ROOM_EXIT_MS,
 } from "@/lib/community-messenger/messenger-list-room-slide";
+import { subscribePopstateBeforeRouter } from "@/lib/navigation/popstate-before-router";
 
 const EDGE_HIT_PX = 18;
 const HORIZONTAL_LOCK_PX = 10;
@@ -173,9 +174,8 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
 
   /**
    * 방 진입이 **끝났을 때만**(들어오는 움직임 완료 = 위 타이머, 또는 움직임 없이 여는 분할·축소 모션) 진입 중 뒤로 감시를 끈다.
-   * 마운트 때 끄면 안 된다(2026-11-15 Xiaomi 계측): 이 방의 popstate 리스너는 Next 라우터보다 늦게 등록돼
-   * (window 리스너는 등록 순서대로 불림 — 캡처여도 같음, Chrome 156 실측) 뒤로 순간 React 가 방을 지우면서 함께 제거되어
-   * 불리지 않는다. 그동안은 탭 때 걸어 둔 감시(`armRoomEntryAbortOnBack`)가 이동 뒤에 불려 목록 사진·진입 상태를 정리한다.
+   * 진입 중(목록 사진이 아직 남은 동안)의 뒤로는 탭 때 걸어 둔 감시(`armRoomEntryAbortOnBack`)가 진입 상태를 정리하고,
+   * 그 뒤의 뒤로는 아래 방 퇴장 리스너가 처리한다(둘 다 Next 보다 먼저 — `lib/navigation/popstate-before-router.ts`).
    */
   useEffect(() => {
     const rid = roomId?.trim();
@@ -251,8 +251,8 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
         easing: MESSENGER_LIST_ROOM_EXIT_EASING,
       });
     };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
+    const offPopBefore = subscribePopstateBeforeRouter(onPopState);
+    return () => offPopBefore();
   }, [reducedMotion, roomId, splitPaneMode]);
 
   const requestAnimatedBack = useCallback(() => {

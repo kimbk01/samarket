@@ -33,6 +33,7 @@ import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-con
 import { requiredConsentForClient } from "@/lib/legal/client-required-consent";
 import { DIBAY_HOST_SHELL_BOOT_SCRIPT } from "@/lib/platform/dibay-windows-shell";
 import { buildPreHydrationGuardScript } from "@/lib/startup/pre-hydration-guard-script";
+import { POPSTATE_BEFORE_ROUTER_BOOT_SCRIPT } from "@/lib/navigation/popstate-before-router";
 import { resolveShareSiteOrigin } from "@/lib/share/share-url";
 import "./globals.css";
 
@@ -133,6 +134,8 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: DIBAY_HOST_SHELL_BOOT_SCRIPT }} />
         {/* C2: 앱 번들·초기 청크 실패 시 OS 시작 화면에 갇히지 않게 — 빌드당 새로고침 1회, 이후 오류 안내+해제 */}
         <script dangerouslySetInnerHTML={{ __html: PRE_HYDRATION_GUARD_SCRIPT }} />
+        {/* 뒤로(popstate)를 Next 라우터보다 먼저 받는 단일 리스너 — 화면 리스너 등록 순서 문제 제거 (`lib/navigation/popstate-before-router.ts`) */}
+        <script dangerouslySetInnerHTML={{ __html: POPSTATE_BEFORE_ROUTER_BOOT_SCRIPT }} />
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
         {/* Launch Intro (native, cached publication only): LaunchIntroRoot defers the route tree

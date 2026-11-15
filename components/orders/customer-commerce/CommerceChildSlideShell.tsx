@@ -9,6 +9,7 @@ import {
   computeCommerceChildTransitionKind,
   isCommerceConsumerChildSlideHostPath,
 } from "@/lib/delivery/customer/commerce-child-page-slide";
+import { subscribePopstateBeforeRouter } from "@/lib/navigation/popstate-before-router";
 
 function stripCommerceChildTransitionClasses(el: HTMLDivElement | null) {
   if (!el) return;
@@ -36,8 +37,8 @@ export function CommerceChildSlideShell({ children }: { children: ReactNode }) {
     const onPopState = () => {
       popstateBackRef.current = true;
     };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
+    const offPopBefore = subscribePopstateBeforeRouter(onPopState);
+    return () => offPopBefore();
   }, []);
 
   useLayoutEffect(() => {

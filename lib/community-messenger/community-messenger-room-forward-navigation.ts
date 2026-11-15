@@ -40,6 +40,7 @@ import {
 } from "@/lib/navigation/cm-deep-route-navigation-lock";
 import { clearPendingMenuNavigationBridge } from "@/lib/navigation/pending-menu-navigation-bridge";
 import { guardedClientNavigate } from "@/lib/navigation/guarded-client-navigation";
+import { subscribePopstateBeforeRouter } from "@/lib/navigation/popstate-before-router";
 import {
   beginMessengerRoomEntrySnapshot,
   dismissMessengerRoomEntrySnapshot,
@@ -177,14 +178,14 @@ export async function runCommunityMessengerRoomForwardNavigation(
 /** 방 진입 직후 뒤로를 받는 시간 — 진입 잠금(2.5초)·목록 사진 상한(3초)보다 길게 */
 const ROOM_ENTRY_ABORT_WATCH_MS = 5_000;
 
-let roomEntryAbortWatch: { roomId: string; onPop: () => void; timer: ReturnType<typeof setTimeout> } | null = null;
+let roomEntryAbortWatch: { roomId: string; off: () => void; timer: ReturnType<typeof setTimeout> } | null = null;
 
 function disarmRoomEntryAbortOnBack(): void {
   const w = roomEntryAbortWatch;
   if (!w) return;
   roomEntryAbortWatch = null;
   clearTimeout(w.timer);
-  if (typeof window !== "undefined") window.removeEventListener("popstate", w.onPop);
+  w.off();
 }
 
 function isAtRoom(roomId: string): boolean {
@@ -219,8 +220,8 @@ export function armRoomEntryAbortOnBack(roomId: string): void {
     abortCommunityMessengerRoomEntry(roomId, "user_back");
   };
   const timer = setTimeout(disarmRoomEntryAbortOnBack, ROOM_ENTRY_ABORT_WATCH_MS);
-  roomEntryAbortWatch = { roomId, onPop, timer };
-  window.addEventListener("popstate", onPop);
+  /** Next 라우터보다 먼저(`popstate-before-router`) — 방이 아직 화면에 있는 상태에서 정리 */
+  roomEntryAbortWatch = { roomId, off: subscribePopstateBeforeRouter(onPop), timer };
 }
 
 /** 방 진입이 끝났으면(들어오는 움직임 완료·움직임 없는 열기) 감시를 끈다 — 방 마운트 시점이 아님(`MessengerRoomSwipeBackShell` 주석) */
