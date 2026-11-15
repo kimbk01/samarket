@@ -372,6 +372,8 @@ import {
   storeMarkReadParticipantSnapshotsFromRow,
 } from "@/lib/community-messenger/mark-read-participant-snapshot";
 import {
+  communityMessengerBuiltImageClientMessage,
+  communityMessengerImageMessageMetadata,
   messengerImagePixelDimension,
   normalizeCommunityMessengerImageSendItems,
 } from "@/lib/community-messenger/messenger-image-send-items";
@@ -17956,88 +17958,6 @@ function cmMediaStorageBucketValue(v: unknown): string {
   return trimText(v) === MESSENGER_PRIVATE_MEDIA_BUCKET ? MESSENGER_PRIVATE_MEDIA_BUCKET : MESSENGER_LEGACY_MEDIA_BUCKET;
 }
 
-function communityMessengerImageMessageMetadata(items: CommunityMessengerImageSendItem[]): Record<string, unknown> {
-  const storageBucket = cmMediaStorageBucketValue(items[0]?.storageBucket);
-  if (items.length === 1) {
-    const f = items[0]!;
-    const w = messengerImagePixelDimension(f.width);
-    const h = messengerImagePixelDimension(f.height);
-    return {
-      storagePath: f.originalStoragePath,
-      storage_bucket: storageBucket,
-      storage_path: f.originalStoragePath,
-      mimeType: f.originalMimeType,
-      image_thumb_url: f.chatPublicUrl,
-      image_preview_url: f.previewPublicUrl,
-      image_original_url: f.originalPublicUrl,
-      // 말풍선 자리를 처음부터 고정(로드 후 커지며 하단이 잘리는 현상 방지) — 둘 다 있을 때만 저장.
-      ...(w != null && h != null ? { image_width: w, image_height: h } : {}),
-      // SSOT M3: 흐린 미리보기 — 받기 전 즉시 표시(깜빡임 0)
-      ...(messengerImageBlurDataUrlOrNull(f.blurDataUrl) ? { image_blur: messengerImageBlurDataUrlOrNull(f.blurDataUrl) } : {}),
-    };
-  }
-  return {
-    image_thumb_urls: items.map((i) => i.chatPublicUrl),
-    image_preview_urls: items.map((i) => i.previewPublicUrl),
-    image_urls: items.map((i) => i.originalPublicUrl),
-    storage_paths: items.map((i) => i.originalStoragePath),
-    mime_types: items.map((i) => i.originalMimeType),
-    image_widths: items.map((i) => messengerImagePixelDimension(i.width)),
-    image_heights: items.map((i) => messengerImagePixelDimension(i.height)),
-    ...(items.some((i) => messengerImageBlurDataUrlOrNull(i.blurDataUrl))
-      ? { image_blurs: items.map((i) => messengerImageBlurDataUrlOrNull(i.blurDataUrl) ?? "") }
-      : {}),
-    storagePath: items[0]!.originalStoragePath,
-    mimeType: items[0]!.originalMimeType,
-    storage_bucket: storageBucket,
-    storage_path: items[0]!.originalStoragePath,
-  };
-}
-
-function communityMessengerBuiltImageClientMessage(
-  items: CommunityMessengerImageSendItem[],
-  createdAt: string,
-  id: string,
-  roomId: string,
-  userId: string
-): CommunityMessengerMessage {
-  const first = items[0]!;
-  const base: CommunityMessengerMessage = {
-    id,
-    roomId,
-    senderId: userId,
-    senderLabel: cmServiceT("common_me"),
-    messageType: "image",
-    content: first.chatPublicUrl,
-    createdAt,
-    isMine: true,
-    callKind: null,
-    callStatus: null,
-  };
-  if (items.length > 1) {
-    return {
-      ...base,
-      imageAlbumUrls: items.map((i) => i.chatPublicUrl),
-      imageAlbumPreviewUrls: items.map((i) => i.previewPublicUrl),
-      imageAlbumOriginalUrls: items.map((i) => i.originalPublicUrl),
-      ...(items.some((i) => messengerImageBlurDataUrlOrNull(i.blurDataUrl))
-        ? { imageAlbumBlurDataUrls: items.map((i) => messengerImageBlurDataUrlOrNull(i.blurDataUrl) ?? "") }
-        : {}),
-    };
-  }
-  const w = messengerImagePixelDimension(first.width);
-  const h = messengerImagePixelDimension(first.height);
-  return {
-    ...base,
-    imagePreviewUrl: first.previewPublicUrl,
-    imageOriginalUrl: first.originalPublicUrl,
-    ...(w != null && h != null ? { imageWidth: w, imageHeight: h } : {}),
-    ...(messengerImageBlurDataUrlOrNull(first.blurDataUrl)
-      ? { imageBlurDataUrl: messengerImageBlurDataUrlOrNull(first.blurDataUrl) }
-      : {}),
-  };
-}
-
 export async function sendCommunityMessengerImageMessage(input: {
   /**
    * 수신자 알림(notify pipeline) 시작 직후 그 완료 Promise 를 넘긴다 — 라우트가 `after()` 로 등록해
@@ -18165,7 +18085,8 @@ export async function sendCommunityMessengerImageMessage(input: {
       appended.createdAt,
       appended.messageId,
       roomId,
-      input.userId
+      input.userId,
+      cmServiceT("common_me")
     );
     return {
       ok: true,
@@ -18204,7 +18125,7 @@ export async function sendCommunityMessengerImageMessage(input: {
   }
   return {
     ok: true,
-    message: communityMessengerBuiltImageClientMessage(items, createdAt, messageId, roomId, input.userId),
+    message: communityMessengerBuiltImageClientMessage(items, createdAt, messageId, roomId, input.userId, cmServiceT("common_me")),
   };
 }
 

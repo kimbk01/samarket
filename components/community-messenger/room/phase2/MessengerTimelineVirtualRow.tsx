@@ -612,6 +612,36 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     </ViberChatBubble>
   );
 
+  /**
+   * 사진 말풍선(인용 없는 사진·묶음)은 시간·읽음 표시를 텔레그램처럼 **사진 오른쪽 아래에 얹는다** (SSOT O10 · F2).
+   * 2026-11-16 측정: 시간(42px)·「안 읽음」(31px)이 사진 옆 같은 줄(292px)에 있어 사진 폭이 207px 로 줄었다가,
+   * 상대가 읽어 「안 읽음」이 사라지면 238px 로 늘며 묶음 높이 155→179px·위치 24px 이동. 얹으면 폭이 표시와 무관해진다.
+   */
+  const photoMetaOnPhoto = isMediaBubble && item.messageType === "image";
+  const photoMetaReadLabel = item.isMine
+    ? mineUnreadBadgeVisible
+      ? t("cm_ui_unread")
+      : groupReadReceiptLabel || ""
+    : "";
+  const photoMetaOverlay =
+    photoMetaOnPhoto && (showMessageTime || photoMetaReadLabel) ? (
+      <span
+        data-cm-photo-meta=""
+        className="pointer-events-none absolute bottom-1.5 right-1.5 z-[1] inline-flex items-center gap-1 rounded-full bg-black/45 px-1.5 py-[3px] text-[11px] leading-none tabular-nums text-white"
+      >
+        {photoMetaReadLabel ? <span>{photoMetaReadLabel}</span> : null}
+        {showMessageTime ? <span>{messengerMessageClockLabel(item)}</span> : null}
+      </span>
+    ) : null;
+  const viberBubbleWithMeta = photoMetaOnPhoto ? (
+    <div className="relative inline-block max-w-full">
+      {viberBubble}
+      {photoMetaOverlay}
+    </div>
+  ) : (
+    viberBubble
+  );
+
   const callStubTimeLabel = showMessageTime ? (
     <span
       data-cm-call-occurrence-time=""
@@ -760,24 +790,24 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
             >
               {item.isMine ? (
                 <>
-                  {showMessageTime ? (
+                  {showMessageTime && !photoMetaOnPhoto ? (
                     <span className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]">
                       {messengerMessageClockLabel(item)}
                     </span>
                   ) : null}
-                  {mineUnreadBadgeVisible ? (
+                  {photoMetaOnPhoto ? null : mineUnreadBadgeVisible ? (
                     <span className="shrink-0 pb-0.5 text-[11px] leading-none text-[#65676b]">{t("cm_ui_unread")}</span>
                   ) : groupReadReceiptLabel ? (
                     <span className="shrink-0 pb-0.5 text-[11px] leading-none text-[#65676b]">
                       {groupReadReceiptLabel}
                     </span>
                   ) : null}
-                  {renderBubbleStack(viberBubble)}
+                  {renderBubbleStack(viberBubbleWithMeta)}
                 </>
               ) : (
                 <>
-                  {renderBubbleStack(viberBubble)}
-                  {showMessageTime ? (
+                  {renderBubbleStack(viberBubbleWithMeta)}
+                  {showMessageTime && !photoMetaOnPhoto ? (
                     <span className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]">
                       {messengerMessageClockLabel(item)}
                     </span>
