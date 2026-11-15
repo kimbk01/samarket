@@ -160,7 +160,13 @@ describe("Android 대기 통화 선택지 유지 (실기 CW1 FAIL 수정 · 2026
     expect(src).toContain('scheduleHeldRelease("next_screen_shown", HANDOVER_RELEASE_AFTER_SHOWN_MS);');
     expect(src).toContain('scheduleHeldRelease("hold_timeout", HANDOVER_HOLD_MAX_MS);');
     // 화면이 앞에 보일 때만 남김
-    expect(src).toMatch(/if \(!callScreenVisible\) return false;\s*held = new Held\(sid, lane\);/);
+    // 화면이 앞에 보이거나 PiP 로 떠 있을 때만 남김(설계 P)
+    expect(src).toMatch(/if \(!callScreenVisible && PIP_HOSTS\.isEmpty\(\)\) return false;\s*held = new Held\(sid, lane\);/);
+    expect(src).toContain("handover = held != null && (callScreenVisible || !PIP_HOSTS.isEmpty());");
+    const banner = read("android/app/src/main/java/com/dibay/app/nativecall/NativeCallWaitingBanner.java");
+    expect(banner).toContain("NativeCallWaitingPresenter.setCallScreenInPip(this, !detached && isInPip());");
+    // 대기 알림 조용/시끄러움은 여전히 「앞에 보임」만 — PiP 는 띠가 숨겨지므로 시끄러운 알림
+    expect(banner).toContain("NativeCallWaitingPresenter.setCallScreenVisible(activity, this, hostResumed && !isInPip());");
   });
 });
 
