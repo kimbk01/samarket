@@ -8,9 +8,13 @@ import {
   APP_TIER1_SAFE_X_PAD_CLASS,
 } from "@/lib/ui/safe-area-layout-classes";
 
-/** 메인 컬럼 `max-w-*` 체인만 — 고정 하단 바·상세 풀폭 래퍼 등에서 본문과 동일 폭으로 맞출 때 */
-export const APP_MAIN_COLUMN_MAX_WIDTH_CLASS =
-  "max-w-[42rem] sm:max-w-[46rem] md:max-w-[52rem] lg:max-w-[60rem] xl:max-w-[66rem]";
+/**
+ * 메인 컬럼 최대 폭 — **제한 없음** (Owner 2026-11-16 「둘 다 진행」, `docs/audit/horizontal-fill-device-audit-2026-11-16.md` B1).
+ * 예전 42→66rem 단계(읽기 폭 열)는 태블릿 가로·Mac·Windows 에서 좌우 빈 띠를 만들었다. 넓은 화면 배치는
+ * 화면별 격자(허브)가 맡고, 셸·헤더·하단 고정 바·시트 열은 이 토큰 하나로 함께 창 전체 폭을 쓴다.
+ * 휴대폰은 화면이 예전 최소 단계(42rem)보다 좁아 변화 없음. 이 단계를 CSS 에 손으로 다시 적지 않는다.
+ */
+export const APP_MAIN_COLUMN_MAX_WIDTH_CLASS = "max-w-none";
 
 /** 메인 스크롤 영역 최대 폭 + 가운데 정렬 (태블릿·가로 모드에서 점진적으로 넓힘) */
 export const APP_MAIN_COLUMN_CLASS = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`;

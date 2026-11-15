@@ -12,7 +12,7 @@
  * Community + Trade share one placement ratio — no device-specific ratios.
  *
  * WIDTH AUTHORITY (Phase 2):
- *   FEED_AD_CONTENT_MAX_CLASS = STORES_HOME_CONTENT_COLUMN_CLASS (max-w-[768px])
+ *   FEED_AD_CONTENT_MAX_CLASS = STORES_HOME_BANNER_MAX_CLASS (max-w-[768px])
  *   Same token as Delivery / Event HERO banners — not an invented magic width.
  *   Trade grid cells are already narrower; the max is a no-op there.
  *
@@ -22,7 +22,7 @@
  */
 
 import { BANNER_PLACEMENT_CAPACITY_SSOT } from "@/lib/ads/banner-placement-capacity-ssot";
-import { STORES_HOME_CONTENT_COLUMN_CLASS } from "@/lib/stores/stores-home-ui";
+import { STORES_HOME_BANNER_MAX_CLASS } from "@/lib/stores/stores-home-ui";
 
 export type FeedAdHostDensity = "trade" | "community";
 
@@ -38,9 +38,9 @@ export const FEED_AD_MEDIA_ASPECT_CLASS = "aspect-[3/1]";
  * Feed INLINE banner content width — reuse Delivery/Hero content column.
  * Prevents 3:1 media from growing with APP_MAIN_COLUMN (up to 66rem) on wide/landscape.
  */
-export const FEED_AD_CONTENT_MAX_CLASS = STORES_HOME_CONTENT_COLUMN_CLASS;
+export const FEED_AD_CONTENT_MAX_CLASS = STORES_HOME_BANNER_MAX_CLASS;
 
-/** Pixel mirror of STORES_HOME_CONTENT_COLUMN max-w-[768px] for estimates/tests. */
+/** Pixel mirror of STORES_HOME_BANNER_MAX_CLASS max-w-[768px] for estimates/tests. */
 export const FEED_AD_CONTENT_MAX_WIDTH_PX = 768;
 
 /** Auto-advance interval — canonical owner: BANNER_PLACEMENT_CAPACITY_SSOT (Feed 4000ms). */

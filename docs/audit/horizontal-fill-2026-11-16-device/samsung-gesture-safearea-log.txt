@@ -1,0 +1,23 @@
+--------- beginning of main
+11-16 04:29:57.551 16646 16646 I DIBAY_SafeArea: insets_px top=114 bottom=135 left=0 right=0 css_top=41 css_bottom=48 bottom_mask=navigationBars|displayCutout
+11-16 04:31:40.248 16646 16646 I DIBAY_SafeArea: insets_px top=114 bottom=135 left=0 right=0 css_top=41 css_bottom=48 bottom_mask=navigationBars|displayCutout
+11-16 04:32:31.757 16646 16646 I DIBAY_SafeArea: insets_px top=114 bottom=135 left=0 right=0 css_top=41 css_bottom=48 bottom_mask=navigationBars|displayCutout
+11-16 04:33:09.999 16646 16646 I DIBAY_SafeArea: insets_px top=114 bottom=135 left=0 right=0 css_top=41 css_bottom=48 bottom_mask=navigationBars|displayCutout
+11-16 04:54:39.183 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=135 left=0 right=0 css_top=41 css_bottom=48 bottom_mask=navigationBars|displayCutout
+11-16 04:54:39.204 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=135 left=0 right=0 css_top=41 css_bottom=48 bottom_mask=navigationBars|displayCutout
+11-16 04:54:39.213 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=135 left=0 right=0 css_top=41 css_bottom=48 bottom_mask=navigationBars|displayCutout
+11-16 04:54:39.715 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=135 left=0 right=0 css_top=41 css_bottom=48 bottom_mask=navigationBars|displayCutout
+11-16 04:54:39.738 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=135 left=0 right=0 css_top=41 css_bottom=48 bottom_mask=navigationBars|displayCutout
+11-16 04:56:42.969 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=135 left=0 right=0 css_top=41 css_bottom=48 bottom_mask=navigationBars|displayCutout
+11-16 05:10:20.772 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=135 left=0 right=0 css_top=41 css_bottom=48 bottom_mask=navigationBars|displayCutout
+11-16 05:10:22.773 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=135 left=0 right=0 css_top=41 css_bottom=48 bottom_mask=navigationBars|displayCutout
+11-16 05:10:22.794 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=135 left=0 right=0 css_top=41 css_bottom=48 bottom_mask=navigationBars|displayCutout
+11-16 05:10:50.793 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=135 left=0 right=0 css_top=41 css_bottom=48 bottom_mask=navigationBars|displayCutout
+11-16 05:11:06.267 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=135 left=0 right=0 css_top=41 css_bottom=48 bottom_mask=navigationBars|displayCutout
+11-16 05:20:39.075 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=42 left=84 right=84 css_top=41 css_bottom=15 bottom_mask=navigationBars|displayCutout
+11-16 05:20:39.095 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=42 left=84 right=84 css_top=41 css_bottom=15 bottom_mask=navigationBars|displayCutout
+11-16 05:20:39.109 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=42 left=84 right=84 css_top=41 css_bottom=15 bottom_mask=navigationBars|displayCutout
+11-16 05:20:39.121 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=42 left=84 right=84 css_top=41 css_bottom=15 bottom_mask=navigationBars|displayCutout
+11-16 05:20:39.502 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=42 left=84 right=84 css_top=41 css_bottom=15 bottom_mask=navigationBars|displayCutout
+11-16 05:20:39.513 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=42 left=84 right=84 css_top=41 css_bottom=15 bottom_mask=navigationBars|displayCutout
+11-16 05:20:39.536 22946 22946 I DIBAY_SafeArea: insets_px top=114 bottom=42 left=84 right=84 css_top=41 css_bottom=15 bottom_mask=navigationBars|displayCutout

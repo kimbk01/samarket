@@ -4,7 +4,7 @@ import { COMMUNITY_FONT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 export default function MarketLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="sam-domain-shell">
-      <div className={`mx-auto flex min-h-0 w-full max-w-[66rem] min-w-0 flex-col text-sam-fg ${COMMUNITY_FONT_CLASS}`}>
+      <div className={`mx-auto flex min-h-0 w-full max-w-none min-w-0 flex-col text-sam-fg ${COMMUNITY_FONT_CLASS}`}>
         {children}
       </div>
     </div>

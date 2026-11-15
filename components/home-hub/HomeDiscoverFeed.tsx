@@ -30,7 +30,7 @@ function DomainTag({ brand, labelKey }: { brand: DibayServiceBrandId; labelKey: 
 
 function FeedItem({ children, first, data }: { children: ReactNode; first: boolean; data?: string }) {
   return (
-    <div className={`bg-white px-4 py-3.5 ${first ? "" : "mt-2"}`} data-home-feed-item={data}>
+    <div className={`bg-white px-4 py-3.5 ${first ? "" : "mt-2 md:mt-0"}`} data-home-feed-item={data}>
       {children}
     </div>
   );
@@ -92,7 +92,7 @@ export function HomeDiscoverFeed({
   if (trade(0)) push(`t-${trade(0)!.id}`, <><DomainTag brand="MARKET" labelKey="nav_bottom_trade" /><HomeTradeFeedCard post={trade(0)!} variant="big" tradeCategories={tradeCategories} /></>);
   if (post(0)) push(`p-${post(0)!.id}`, <><DomainTag brand="FEED" labelKey="nav_community_switch_info" /><HomePostFeedCard post={post(0)!} /></>);
   const storesBlock = membershipChecking ? null : (
-    <div key="stores" className="mt-2 [&>section]:mt-0" data-home-feed-item="stores">
+    <div key="stores" className="mt-2 md:col-span-full md:mt-0 [&>section]:mt-0" data-home-feed-item="stores">
       <HomeStoresSection config={layout.stores} title={t("navigation_delivery")} isMember={isMember} rot={rot} refreshSeq={refreshSeq} />
     </div>
   );
@@ -155,7 +155,10 @@ export function HomeDiscoverFeed({
       ) : blocks.length === 0 ? (
         <p className="px-[18px] pb-5 text-[13.5px] text-[#767676]">{t("home_feed_empty")}</p>
       ) : (
-        <div className="bg-[#F3F5F3]">{blocks}</div>
+        /* 넓은 화면(≥768) — 카드 격자 2열·xl 3열, 매장 칸은 한 줄 전체 (가로 폭 감사 B2, 2026-11-16) */
+        <div className="bg-[#F3F5F3] md:grid md:grid-cols-2 md:gap-2 xl:grid-cols-3" data-home-feed-grid>
+          {blocks}
+        </div>
       )}
     </section>
   );

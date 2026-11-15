@@ -22,7 +22,7 @@ import {
   feedAdStandardPixelLabel,
   getFeedAdCreativeSpec,
 } from "@/lib/ads/feed-ad-geometry";
-import { STORES_HOME_CONTENT_COLUMN_CLASS } from "@/lib/stores/stores-home-ui";
+import { STORES_HOME_BANNER_MAX_CLASS } from "@/lib/stores/stores-home-ui";
 import { BANNER_PLACEMENT_CAPACITY_SSOT } from "@/lib/ads/banner-placement-capacity-ssot";
 import {
   feedAdPlacementHumanLabel,
@@ -73,7 +73,7 @@ describe("feed ad geometry SSOT — placement 3:1 + cover", () => {
 
   it("Phase 2: frame width uses Delivery/Hero content column (STORES_HOME 768), not APP_MAIN 66rem", () => {
     expect(FEED_AD_CONTENT_MAX_CLASS).toContain("max-w-[768px]");
-    expect(FEED_AD_CONTENT_MAX_CLASS).toBe(STORES_HOME_CONTENT_COLUMN_CLASS);
+    expect(FEED_AD_CONTENT_MAX_CLASS).toBe(STORES_HOME_BANNER_MAX_CLASS);
     expect(FEED_AD_CONTENT_MAX_WIDTH_PX).toBe(768);
     expect(feedAdFrameClass("community")).toContain("max-w-[768px]");
     expect(feedAdFrameClass("trade")).toContain("max-w-[768px]");

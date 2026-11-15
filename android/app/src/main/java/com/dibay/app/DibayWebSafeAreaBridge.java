@@ -18,12 +18,16 @@ import com.getcapacitor.BridgeActivity;
  * Bottom layout padding uses {@link #BOTTOM_LAYOUT_INSET_TYPES} only — actual navigation
  * chrome (+ display cutout). Gesture exclusion ({@code systemGestures}/
  * {@code mandatorySystemGestures}) and {@code tappableElement} are not layout padding.
- * Top/left/right keep the legacy edge mask. IME is not consumed here (Keyboard Adapter).
+ * Top keeps the legacy edge mask. Left/right use {@link #SIDE_LAYOUT_INSET_TYPES} only — system bars
+ * (side 3-button bar in landscape) + display cutout. Gesture-nav back zones ({@code systemGestures}
+ * left/right = AOSP back edge width, 30dp x sensitivity) are NOT layout padding: they shrank the whole
+ * app by ~30dp per side on gesture-nav phones (audit 2026-11-16, Samsung gesture left=right=84px).
+ * IME is not consumed here (Keyboard Adapter).
  */
 public final class DibayWebSafeAreaBridge {
   private static final String TAG = "DIBAY_SafeArea";
 
-  /** Top / left / right — unchanged legacy edge mask. */
+  /** Top — unchanged legacy edge mask (left/right no longer read from it). */
   private static final int EDGE_INSET_TYPES =
       WindowInsetsCompat.Type.systemBars()
           | WindowInsetsCompat.Type.systemGestures()
@@ -35,6 +39,13 @@ public final class DibayWebSafeAreaBridge {
    */
   private static final int BOTTOM_LAYOUT_INSET_TYPES =
       WindowInsetsCompat.Type.navigationBars() | WindowInsetsCompat.Type.displayCutout();
+
+  /**
+   * Left / right layout padding — visual obstruction only (Android edge-to-edge guide:
+   * system gesture insets are for moving swipeable views, not for padding content).
+   */
+  private static final int SIDE_LAYOUT_INSET_TYPES =
+      WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout();
 
   private static volatile int lastTopCss;
   private static volatile int lastBottomCss;
@@ -77,10 +88,11 @@ public final class DibayWebSafeAreaBridge {
   private static void applyInsets(BridgeActivity activity, WindowInsetsCompat windowInsets) {
     Insets edge = windowInsets.getInsets(EDGE_INSET_TYPES);
     Insets bottomLayout = windowInsets.getInsets(BOTTOM_LAYOUT_INSET_TYPES);
+    Insets sideLayout = windowInsets.getInsets(SIDE_LAYOUT_INSET_TYPES);
     float density = activity.getResources().getDisplayMetrics().density;
     lastTopCss = pxToCssPx(edge.top, density);
-    lastLeftCss = pxToCssPx(edge.left, density);
-    lastRightCss = pxToCssPx(edge.right, density);
+    lastLeftCss = pxToCssPx(sideLayout.left, density);
+    lastRightCss = pxToCssPx(sideLayout.right, density);
     lastBottomCss = pxToCssPx(bottomLayout.bottom, density);
     Log.i(
         TAG,
@@ -89,14 +101,14 @@ public final class DibayWebSafeAreaBridge {
             + " bottom="
             + bottomLayout.bottom
             + " left="
-            + edge.left
+            + sideLayout.left
             + " right="
-            + edge.right
+            + sideLayout.right
             + " css_top="
             + lastTopCss
             + " css_bottom="
             + lastBottomCss
-            + " bottom_mask=navigationBars|displayCutout");
+            + " bottom_mask=navigationBars|displayCutout side_mask=systemBars|displayCutout");
     injectCachedSafeAreaCss(activity);
   }
 

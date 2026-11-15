@@ -28,7 +28,7 @@ export function CommunityUiScope({ children }: { children: ReactNode }) {
       data-app-shell="canonical-v1"
     >
       <div
-        className={`mx-auto flex min-h-0 w-full max-w-[66rem] min-w-0 flex-1 flex-col ${CM_PAGE_CLASS} ${COMMUNITY_FONT_CLASS}`}
+        className={`mx-auto flex min-h-0 w-full max-w-none min-w-0 flex-1 flex-col ${CM_PAGE_CLASS} ${COMMUNITY_FONT_CLASS}`}
       >
         {children}
       </div>

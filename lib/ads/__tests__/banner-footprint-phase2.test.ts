@@ -7,7 +7,7 @@ import {
   estimateFeedAdMediaHeightWithinContentMaxPx,
   feedAdFrameClass,
 } from "@/lib/ads/feed-ad-geometry";
-import { STORES_HOME_CONTENT_COLUMN_CLASS } from "@/lib/stores/stores-home-ui";
+import { STORES_HOME_BANNER_MAX_CLASS } from "@/lib/stores/stores-home-ui";
 import { DELIVERY_AD_BANNER_CONTENT_MAX_CLASS } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import {
   EVENT_BANNER_CAPABILITY_MATRIX,
@@ -30,9 +30,9 @@ describe("Phase 2 banner footprint / host-width authority", () => {
     expect(hero.every((r) => r.aspectW === 39 && r.aspectH === 16)).toBe(true);
   });
 
-  it("canonical width owner is STORES_HOME content column (shared with Delivery/Hero)", () => {
-    expect(FEED_AD_CONTENT_MAX_CLASS).toBe(STORES_HOME_CONTENT_COLUMN_CLASS);
-    expect(DELIVERY_AD_BANNER_CONTENT_MAX_CLASS).toBe(STORES_HOME_CONTENT_COLUMN_CLASS);
+  it("canonical width owner is STORES_HOME banner max (shared with Delivery/Hero; 본문 열은 2026-11-16 최대 폭 없음)", () => {
+    expect(FEED_AD_CONTENT_MAX_CLASS).toBe(STORES_HOME_BANNER_MAX_CLASS);
+    expect(DELIVERY_AD_BANNER_CONTENT_MAX_CLASS).toBe(STORES_HOME_BANNER_MAX_CLASS);
     expect(FEED_AD_CONTENT_MAX_WIDTH_PX).toBe(768);
     expect(feedAdFrameClass("community")).toContain(FEED_AD_CONTENT_MAX_CLASS);
   });

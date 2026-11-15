@@ -1,7 +1,16 @@
 /** `/stores` 홈 hub — delivery 토큰 기반 Tailwind 묶음 */
 
-/** 헤더 `max-w-[768px]` 과 동일 — 태블릿·APK·iOS·Windows 공통 읽기 폭 */
-export const STORES_HOME_CONTENT_COLUMN_CLASS = "mx-auto w-full min-w-0 max-w-[768px]";
+/**
+ * DIPICK 본문 열 — 최대 폭 없음 (가로 폭 감사 B2, Owner 2026-11-16 「둘 다 진행」). 예전 768px 읽기 폭은 태블릿 가로·Mac·Windows 에서
+ * 좌우 빈 띠를 만들었다. 광고·히어로 배너만 아래 `STORES_HOME_BANNER_MAX_CLASS`(768) 로 이미지 비율 계약을 지킨다.
+ */
+export const STORES_HOME_CONTENT_COLUMN_CLASS = "mx-auto w-full min-w-0 max-w-none";
+
+/**
+ * 광고·히어로 배너 최대 폭 — 업로드 권장 크기·비율 계약(`DELIVERY_AD_STAGE2_CONTENT_COLUMN.maxWidthPx`)의 기준 폭.
+ * 배너 바깥 배경은 창 전체 폭(본문 열)이라 빈 띠가 생기지 않는다.
+ */
+export const STORES_HOME_BANNER_MAX_CLASS = "mx-auto w-full min-w-0 max-w-[768px]";
 
 /** `/stores`·`/stores/browse/*` 본문·스티키 행 — 헤더 `STORES_HOME_HEADER_*_INNER` 와 동일 폭·거터 */
 export const STORES_DELIVERY_CONTENT_INNER_CLASS = `${STORES_HOME_CONTENT_COLUMN_CLASS} px-[var(--delivery-page-x)]`;
