@@ -23,6 +23,23 @@ function t(v: unknown): string {
   return String(v ?? "").trim();
 }
 
+/** 흐린 미리보기 data URL 상한(서버 생성 상한 1200 과 같게) */
+const MESSENGER_IMAGE_BLUR_MAX_CHARS = 1200;
+const MESSENGER_IMAGE_BLUR_PREFIX = /^data:image\/(?:webp|jpeg|png);base64,[A-Za-z0-9+/=]+$/;
+
+/** 흐린 미리보기 data URL 검증 — 형식·길이가 맞을 때만 그 값, 아니면 null (SSOT M3). */
+export function messengerImageBlurDataUrlOrNull(v: unknown): string | null {
+  const s = t(v);
+  return s && s.length <= MESSENGER_IMAGE_BLUR_MAX_CHARS && MESSENGER_IMAGE_BLUR_PREFIX.test(s) ? s : null;
+}
+
+function messengerImageAlbumBlursFromMetadata(metadata: Record<string, unknown>, len: number): string[] | null {
+  const raw = metadata.image_blurs;
+  if (!Array.isArray(raw) || raw.length !== len) return null;
+  const out = raw.map((x) => messengerImageBlurDataUrlOrNull(x) ?? "");
+  return out.some(Boolean) ? out : null;
+}
+
 /** `isHttpOrBlobUrl` 호출마다 리터럴 정규식 재평가 방지 — 앨범 파싱 루프·단일 URL 판별 공통 */
 const MESSENGER_IMAGE_HTTP_OR_HTTPS = /^https?:\/\//i;
 
@@ -61,7 +78,10 @@ function parseMessengerImageUrlArray(
 }
 
 type MessengerImageSingleClientFields = Partial<
-  Pick<CommunityMessengerMessage, "imagePreviewUrl" | "imageOriginalUrl" | "imageWidth" | "imageHeight">
+  Pick<
+    CommunityMessengerMessage,
+    "imagePreviewUrl" | "imageOriginalUrl" | "imageWidth" | "imageHeight" | "imageBlurDataUrl"
+  >
 >;
 
 /** `metadata.image_width`/`image_height` — 양의 정수 쌍일 때만. */
@@ -94,6 +114,8 @@ function messengerImageSingleClientFields(
     out.imageWidth = dims.imageWidth;
     out.imageHeight = dims.imageHeight;
   }
+  const blur = messengerImageBlurDataUrlOrNull(metadata.image_blur);
+  if (blur) out.imageBlurDataUrl = blur;
   return out;
 }
 
@@ -115,6 +137,8 @@ export function messengerImageClientFieldsFromMetadata(
     | "imageOriginalUrl"
     | "imageWidth"
     | "imageHeight"
+    | "imageBlurDataUrl"
+    | "imageAlbumBlurDataUrls"
   >
 > {
   messengerImageMetaDiag.imageMetaCallCount += 1;
@@ -186,10 +210,12 @@ export function messengerImageClientFieldsFromMetadata(
       const parsedOriginals = parseMessengerImageUrlArray(rawLegacy, rawLegacy.length, true);
       if (parsedOriginals.length === tl) originals = parsedOriginals;
     }
+    const blurs = messengerImageAlbumBlursFromMetadata(metadata, albumEntryLen);
     return {
       imageAlbumUrls: albumDisplay,
       imageAlbumPreviewUrls: albumPreview,
       imageAlbumOriginalUrls: originals,
+      ...(blurs ? { imageAlbumBlurDataUrls: blurs } : {}),
     };
   }
 

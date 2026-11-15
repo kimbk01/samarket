@@ -1,6 +1,7 @@
 import type { CommunityMessengerMessage, CommunityMessengerMessageType } from "@/lib/community-messenger/types";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
+import { messengerImageBlurDataUrlOrNull } from "@/lib/community-messenger/messenger-image-message-map";
 
 const MAX_BUMP_CONTENT_CHARS = 14_000;
 const MAX_BUMP_REPLY_PREVIEW_CHARS = 500;
@@ -83,6 +84,15 @@ export function serializeCommunityMessengerMessageForBump(
   if (msg.messageType === "image" && bumpDims) {
     row.imageWidth = bumpDims.w;
     row.imageHeight = bumpDims.h;
+  }
+  /** SSOT M3: 흐린 미리보기 — 받는 쪽도 사진 도착 전 즉시 그린다 */
+  if (msg.messageType === "image") {
+    const blur = messengerImageBlurDataUrlOrNull(msg.imageBlurDataUrl);
+    if (blur) row.imageBlurDataUrl = blur;
+    if (Array.isArray(msg.imageAlbumBlurDataUrls) && Array.isArray(row.imageAlbumUrls)) {
+      const blurs = msg.imageAlbumBlurDataUrls.slice(0, 10).map((x) => messengerImageBlurDataUrlOrNull(x) ?? "");
+      if (blurs.length === (row.imageAlbumUrls as string[]).length && blurs.some(Boolean)) row.imageAlbumBlurDataUrls = blurs;
+    }
   }
   /**
    * 1단계 결함 D-14 (2026-10-26): 답장 인용 — 없으면 받는 쪽이 인용 없는 행을 먼저 그리고,
@@ -200,6 +210,14 @@ export function parseCommunityMessengerBumpMessageSnapshot(
   if (dims) {
     out.imageWidth = dims.w;
     out.imageHeight = dims.h;
+  }
+  if (messageType === "image") {
+    const blur = messengerImageBlurDataUrlOrNull(m.imageBlurDataUrl);
+    if (blur) out.imageBlurDataUrl = blur;
+    if (Array.isArray(m.imageAlbumBlurDataUrls) && out.imageAlbumUrls) {
+      const blurs = m.imageAlbumBlurDataUrls.slice(0, 10).map((x) => messengerImageBlurDataUrlOrNull(x) ?? "");
+      if (blurs.length === out.imageAlbumUrls.length && blurs.some(Boolean)) out.imageAlbumBlurDataUrls = blurs;
+    }
   }
   /** D-14: 답장 인용 — 없으면(구 서버) 지금과 같이 단건 정합이 채운다. */
   const replyTo = typeof m.replyToMessageId === "string" ? m.replyToMessageId.trim() : "";

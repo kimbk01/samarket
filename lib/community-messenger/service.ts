@@ -372,6 +372,7 @@ import {
   storeMarkReadParticipantSnapshotsFromRow,
 } from "@/lib/community-messenger/mark-read-participant-snapshot";
 import {
+  messengerImageBlurDataUrlOrNull,
   messengerImageClientFieldsFromMetadata,
   peekMessengerImageMetaDiagnosticsCounts,
   resetMessengerImageMetaDiagnosticsCounts,
@@ -17972,6 +17973,8 @@ function communityMessengerImageMessageMetadata(items: CommunityMessengerImageSe
       image_original_url: f.originalPublicUrl,
       // 말풍선 자리를 처음부터 고정(로드 후 커지며 하단이 잘리는 현상 방지) — 둘 다 있을 때만 저장.
       ...(w != null && h != null ? { image_width: w, image_height: h } : {}),
+      // SSOT M3: 흐린 미리보기 — 받기 전 즉시 표시(깜빡임 0)
+      ...(messengerImageBlurDataUrlOrNull(f.blurDataUrl) ? { image_blur: messengerImageBlurDataUrlOrNull(f.blurDataUrl) } : {}),
     };
   }
   return {
@@ -17982,6 +17985,9 @@ function communityMessengerImageMessageMetadata(items: CommunityMessengerImageSe
     mime_types: items.map((i) => i.originalMimeType),
     image_widths: items.map((i) => messengerImagePixelDimension(i.width)),
     image_heights: items.map((i) => messengerImagePixelDimension(i.height)),
+    ...(items.some((i) => messengerImageBlurDataUrlOrNull(i.blurDataUrl))
+      ? { image_blurs: items.map((i) => messengerImageBlurDataUrlOrNull(i.blurDataUrl) ?? "") }
+      : {}),
     storagePath: items[0]!.originalStoragePath,
     mimeType: items[0]!.originalMimeType,
     storage_bucket: storageBucket,
@@ -18015,6 +18021,9 @@ function communityMessengerBuiltImageClientMessage(
       imageAlbumUrls: items.map((i) => i.chatPublicUrl),
       imageAlbumPreviewUrls: items.map((i) => i.previewPublicUrl),
       imageAlbumOriginalUrls: items.map((i) => i.originalPublicUrl),
+      ...(items.some((i) => messengerImageBlurDataUrlOrNull(i.blurDataUrl))
+        ? { imageAlbumBlurDataUrls: items.map((i) => messengerImageBlurDataUrlOrNull(i.blurDataUrl) ?? "") }
+        : {}),
     };
   }
   const w = messengerImagePixelDimension(first.width);
@@ -18024,6 +18033,9 @@ function communityMessengerBuiltImageClientMessage(
     imagePreviewUrl: first.previewPublicUrl,
     imageOriginalUrl: first.originalPublicUrl,
     ...(w != null && h != null ? { imageWidth: w, imageHeight: h } : {}),
+    ...(messengerImageBlurDataUrlOrNull(first.blurDataUrl)
+      ? { imageBlurDataUrl: messengerImageBlurDataUrlOrNull(first.blurDataUrl) }
+      : {}),
   };
 }
 

@@ -6,6 +6,33 @@ export const MESSENGER_IMAGE_CHAT_LONG_EDGE = 960;
 export const MESSENGER_IMAGE_PREVIEW_LONG_EDGE = 1600;
 export const MESSENGER_IMAGE_CHAT_WEBP_QUALITY = 78;
 export const MESSENGER_IMAGE_PREVIEW_WEBP_QUALITY = 86;
+/**
+ * 흐린 미리보기(텔레그램 stripped thumb 와 같은 역할): 긴 변 16px WebP → data URL 을 메시지 metadata 에 담아
+ * 사진을 받기 전에 즉시 그린다(SSOT M3 · 깜빡임 0). 수백 바이트.
+ */
+export const MESSENGER_IMAGE_BLUR_LONG_EDGE = 16;
+export const MESSENGER_IMAGE_BLUR_WEBP_QUALITY = 40;
+/** data URL 상한 — 넘으면 저장하지 않는다(실시간 알림 페이로드 보호). */
+export const MESSENGER_IMAGE_BLUR_MAX_CHARS = 1200;
+
+/** 첫 프레임 기준 흐린 미리보기 data URL. 실패·상한 초과는 null(사진 전송은 계속). */
+export async function buildMessengerImageBlurDataUrl(buf: Buffer): Promise<string | null> {
+  try {
+    const out = await sharp(buf, { failOn: "none", animated: false })
+      .rotate()
+      .resize({
+        width: MESSENGER_IMAGE_BLUR_LONG_EDGE,
+        height: MESSENGER_IMAGE_BLUR_LONG_EDGE,
+        fit: "inside",
+      })
+      .webp({ quality: MESSENGER_IMAGE_BLUR_WEBP_QUALITY, effort: 4 })
+      .toBuffer();
+    const url = `data:image/webp;base64,${out.toString("base64")}`;
+    return url.length <= MESSENGER_IMAGE_BLUR_MAX_CHARS ? url : null;
+  } catch {
+    return null;
+  }
+}
 
 export type MessengerImageVariantBuffers =
   | {
@@ -18,6 +45,8 @@ export type MessengerImageVariantBuffers =
       /** 표시 방향(EXIF 회전 반영) 기준 픽셀 크기 — 말풍선 자리를 미리 잡는 데 쓴다. 못 읽으면 null. */
       width?: number | null;
       height?: number | null;
+      /** 흐린 미리보기 data URL (못 만들면 null) */
+      blurDataUrl?: string | null;
     }
   | {
       kind: "original_only";
@@ -25,6 +54,7 @@ export type MessengerImageVariantBuffers =
       originalMime: string;
       width?: number | null;
       height?: number | null;
+      blurDataUrl?: string | null;
     }
   | {
       /** SEC-09: sharp 가 원본을 처리/소독하지 못하면 업로드 거부(원본 raw 저장 금지) */
@@ -88,7 +118,8 @@ export async function buildMessengerImageVariantBuffers(input: {
       // 애니메이션 보존 + 메타데이터 제거
       const sanitized = await sharp(input.buf, { animated: true, failOn: "none" }).gif().toBuffer();
       const dims = await readDisplayDimensions(sanitized, true);
-      return { kind: "original_only", original: sanitized, originalMime: "image/gif", ...dims };
+      const blurDataUrl = await buildMessengerImageBlurDataUrl(sanitized);
+      return { kind: "original_only", original: sanitized, originalMime: "image/gif", ...dims, blurDataUrl };
     } catch {
       return { kind: "rejected", reason: "image_unprocessable" };
     }
@@ -99,7 +130,7 @@ export async function buildMessengerImageVariantBuffers(input: {
     if (!sanitizedOriginal) {
       return { kind: "rejected", reason: "image_unprocessable" };
     }
-    const [thumb, preview] = await Promise.all([
+    const [thumb, preview, blurDataUrl] = await Promise.all([
       sharp(input.buf, { failOn: "none" })
         .rotate()
         .resize({
@@ -120,6 +151,7 @@ export async function buildMessengerImageVariantBuffers(input: {
         })
         .webp({ quality: MESSENGER_IMAGE_PREVIEW_WEBP_QUALITY, effort: 4 })
         .toBuffer(),
+      buildMessengerImageBlurDataUrl(input.buf),
     ]);
     // 소독 원본은 rotate() 로 방향이 픽셀에 구워져 있어 metadata 의 가로·세로가 곧 표시 크기다.
     const dims = await readDisplayDimensions(sanitizedOriginal.buf, false);
@@ -130,6 +162,7 @@ export async function buildMessengerImageVariantBuffers(input: {
       thumb,
       preview,
       ...dims,
+      blurDataUrl,
     };
   } catch {
     return { kind: "rejected", reason: "image_unprocessable" };

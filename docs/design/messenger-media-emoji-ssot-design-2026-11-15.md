@@ -1,6 +1,6 @@
 # 메신저 사진·이모티콘 UI·UX·CTA 단일 기준(SSOT) 설계 — 텔레그램 대조 (2026-11-15)
 
-- 상태: **S1·S2 승인·구현(Owner 「S1 구현 시작」·「S2 말풍선 크기」 2026-11-16).** S3~S8 은 Owner 승인 전 구현 금지. 감사 원본: `docs/audit/messenger-image-emoji-audit-2026-11-15.md`.
+- 상태: **S1·S2·S3 승인·구현(Owner 「S1 구현 시작」·「S2 말풍선 크기」·「S3 깜빡임 0」 2026-11-16).** S4~S8 은 Owner 승인 전 구현 금지. 감사 원본: `docs/audit/messenger-image-emoji-audit-2026-11-15.md`.
 - 기준 앱: 텔레그램 — Android 공개 소스 `DrKLO/Telegram` master 원문(파일:줄 인용) + Samsung 실기(Telegram 13.2.2, 23:36 PHT, 열람만).
 - 코드 기준: `origin/main` `6f2e405b4`.
 
@@ -156,3 +156,10 @@
 - 말풍선: 로드 전부터 위 크기로 폭·높이 고정. 크기 없는 지난 사진은 4:5 고정·로드 후 불변(밀림 0). 보내는 중 로컬 사진은 잰 비율 → 서버 크기와 같은 비율이라 교체 때 칸 불변.
 - 사진·앨범 칸 이미지 `!h-full !w-full object-cover object-center` — 전역 `img{height:auto}` 때문에 운영에서 아래만 잘리던 것(D2-가 미적용) 정정.
 - 앨범 배치는 그대로(O3).
+
+## 8. S3 구현 기록 (2026-11-16)
+
+- 서버: `buildMessengerImageBlurDataUrl` — 업로드 때 긴 변 16px WebP(q40) data URL(상한 1200자)을 만들어 `metadata.image_blur`(앨범 `image_blurs[]`, 빠진 칸 "")에 저장. GIF 는 첫 프레임. 실패해도 사진 전송은 계속.
+- 응답·실시간 알림(bump)·DB 읽기 매퍼에 `imageBlurDataUrl`·`imageAlbumBlurDataUrls`(형식 `data:image/(webp|jpeg|png);base64` · 길이 검증). 전달(forward)은 metadata 를 그대로 복사하므로 따라간다. 전체삭제 때 비운다.
+- 화면: 말풍선·앨범 칸에 흐린 층을 먼저 그림(받기 전·받는 중 회색 칸 대신). 앨범 칸도 한 장과 같은 「직전 사진 깔기」(보낸 직후 회색 깜빡임 제거).
+- 설계와 다른 점(근거): ① 앨범 크기 응답 — 앨범 배치가 고정 격자(O3 미결정)라 화면에서 쓰는 곳이 없어 넣지 않음. ② 첫 화면 eager — 화면 안 사진은 lazy 여도 즉시 받는다(브라우저 기준). 지연 증거가 없어 바꾸지 않음. ③ 지난 사진(흐린 미리보기 없음)은 배경색 그대로 — 다시 채우지 않는다.

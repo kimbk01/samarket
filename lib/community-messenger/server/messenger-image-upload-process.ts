@@ -114,6 +114,7 @@ export async function processMessengerImageUploads(input: {
           originalMimeType: variants.originalContentType,
           width: variants.width ?? null,
           height: variants.height ?? null,
+          blurDataUrl: variants.blurDataUrl ?? null,
         });
       } else {
         await uploadBinary(originalPath, variants.original, variants.originalMime);
@@ -126,6 +127,7 @@ export async function processMessengerImageUploads(input: {
           originalMimeType: variants.originalMime,
           width: variants.width ?? null,
           height: variants.height ?? null,
+          blurDataUrl: variants.blurDataUrl ?? null,
         });
       }
     } catch (e) {

@@ -366,6 +366,10 @@ export type CommunityMessengerMessage = {
   /** 단일 이미지: 표시 픽셀 크기 (`metadata.image_width`/`image_height`) — 말풍선 비율을 로드 전에 고정. */
   imageWidth?: number | null;
   imageHeight?: number | null;
+  /** 단일 이미지: 흐린 미리보기 data URL (`metadata.image_blur`) — 받기 전 즉시 표시 (SSOT M3). */
+  imageBlurDataUrl?: string | null;
+  /** 앨범: 칸별 흐린 미리보기 data URL (`metadata.image_blurs`, 없으면 "") */
+  imageAlbumBlurDataUrls?: string[] | null;
   /** 답장 대상 메시지 id — 서버 `reply_to_message_id` */
   replyToMessageId?: string | null;
   replyPreviewText?: string | null;
@@ -406,6 +410,8 @@ export type CommunityMessengerImageSendItem = {
   /** 표시 기준 픽셀 크기(서버 sharp 판독). 못 읽으면 null. */
   width?: number | null;
   height?: number | null;
+  /** 흐린 미리보기 data URL (`metadata.image_blur(s)`) — 받기 전 즉시 표시 */
+  blurDataUrl?: string | null;
 };
 
 export type CommunityMessengerReadReceipt = {
