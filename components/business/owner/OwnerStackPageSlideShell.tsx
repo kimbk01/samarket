@@ -10,6 +10,8 @@ import { computeStoresOwnerStackTransitionKind } from "@/components/route-transi
 import { OWNER_STACK_ROUTE_ENTER_CLASSES } from "@/lib/business/owner-stack-page-slide";
 import { isStoresOwnerStackPath } from "@/lib/business/owner-stack-path";
 import { consumeOwnerBottomNavTabIntent } from "@/lib/business/owner-bottom-nav-tab-intent";
+import { useBottomNavShowingTarget } from "@/lib/main-menu/use-bottom-nav-controller";
+import { OwnerTabSkeleton, resolveOwnerTabSkeletonKind } from "@/components/business/owner/OwnerTabSkeleton";
 
 function stripOwnerStackTransitionClasses(el: HTMLDivElement | null) {
   if (!el) return;
@@ -88,6 +90,15 @@ export function OwnerStackPageSlideShell({ children }: { children: ReactNode }) 
     return () => cancelAnimationFrame(raf);
   }, [pathKey]);
 
+  /**
+   * 사장님 하단 탭 즉시 교체 (하단 탭 계약 v2 · Owner 2026-11-15 「사장님 뼈대 신설」):
+   * 손 뗀 프레임부터 Next 경로 확정 전까지 지금 화면은 숨기고(언마운트하지 않음) 목적 화면 뼈대를 보인다.
+   */
+  const showing = useBottomNavShowingTarget();
+  const normalizedPath = pathKey.split("?")[0]?.replace(/\/+$/, "") ?? "";
+  const skeletonKind =
+    showing && showing.path !== normalizedPath ? resolveOwnerTabSkeletonKind(showing.path) : null;
+
   if (!isStoresOwnerStackPath(pathKey)) {
     return <>{children}</>;
   }
@@ -101,7 +112,13 @@ export function OwnerStackPageSlideShell({ children }: { children: ReactNode }) 
         stripOwnerStackTransitionClasses(hostRef.current);
       }}
     >
-      {children}
+      <div
+        className="flex min-h-0 min-w-0 flex-1 flex-col"
+        style={skeletonKind ? { display: "none" } : undefined}
+      >
+        {children}
+      </div>
+      {skeletonKind ? <OwnerTabSkeleton kind={skeletonKind} /> : null}
     </div>
   );
 }

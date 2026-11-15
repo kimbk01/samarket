@@ -32,3 +32,23 @@ describe("owner bottom nav tab intent", () => {
     expect(shell).toContain("consumeOwnerBottomNavTabIntent(pathKey)");
   });
 });
+
+describe("사장님 탭 뼈대 (Owner 2026-11-15 「사장님 뼈대 신설」)", () => {
+  it("탭 4개 목적지만 뼈대 종류가 있다", async () => {
+    const { resolveOwnerTabSkeletonKind } = await import("@/components/business/owner/OwnerTabSkeleton");
+    expect(resolveOwnerTabSkeletonKind("/stores/owner/orders")).toBe("orders");
+    expect(resolveOwnerTabSkeletonKind("/stores/owner/products/")).toBe("products");
+    expect(resolveOwnerTabSkeletonKind("/stores/owner/customer-care")).toBe("customers");
+    expect(resolveOwnerTabSkeletonKind("/stores/owner/settings?storeId=s1")).toBe("manage");
+    expect(resolveOwnerTabSkeletonKind("/stores/owner")).toBeNull();
+    expect(resolveOwnerTabSkeletonKind("/stores/owner/products/new")).toBeNull();
+  });
+  it("누른 프레임에 컨트롤러 시작 → 본문 뼈대·머리글 제목이 목적 화면 기준", () => {
+    const nav = readFileSync(join(process.cwd(), "components/stores/owner/OwnerMobileBottomNav.tsx"), "utf8");
+    expect(nav).toContain("beginBottomNavShowing({ tabId: item.id, href })");
+    const shell = readFileSync(join(process.cwd(), "components/business/owner/OwnerStackPageSlideShell.tsx"), "utf8");
+    expect(shell).toContain("<OwnerTabSkeleton kind={skeletonKind} />");
+    const admin = readFileSync(join(process.cwd(), "components/business/admin/BusinessAdminShell.tsx"), "utf8");
+    expect(admin).toContain("getBusinessAdminPageTitle(ownerShowingTarget.path, ownerShowingTarget.search)");
+  });
+});

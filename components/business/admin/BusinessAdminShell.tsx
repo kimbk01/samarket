@@ -43,6 +43,8 @@ import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeP
 import { BusinessAdminStoreProvider } from "@/components/business/admin/business-admin-store-context";
 import { OwnerMobileAdminHeaderTrailingProvider } from "@/components/business/owner/OwnerMobileAdminHeaderTrailingContext";
 import { OwnerStackPageSlideShell } from "@/components/business/owner/OwnerStackPageSlideShell";
+import { resolveOwnerTabSkeletonKind } from "@/components/business/owner/OwnerTabSkeleton";
+import { useBottomNavShowingTarget } from "@/lib/main-menu/use-bottom-nav-controller";
 import { OwnerToastHost } from "@/components/business/owner/OwnerToastHost";
 import { OwnerMobileBottomNav } from "@/components/stores/owner/OwnerMobileBottomNav";
 import { OwnerChromeHeader } from "@/components/business/owner/OwnerChromeHeader";
@@ -162,7 +164,18 @@ export function BusinessAdminShell({
     () => pathname.split("?")[0]?.replace(/\/+$/, "") ?? "",
     [pathname]
   );
-  const isOwnerHubRoute = ownerPathNorm === "/stores/owner";
+  /**
+   * 사장님 하단 탭 즉시 교체 (하단 탭 계약 v2 · Owner 2026-11-15): 손 뗀 프레임부터 경로 확정 전까지 머리글(제목·허브/페이지 모양)은
+   * 목적 화면 기준 — 본문 뼈대(`OwnerStackPageSlideShell`)와 같은 프레임에 바뀐다.
+   */
+  const bottomNavShowing = useBottomNavShowingTarget();
+  const ownerShowingTarget =
+    bottomNavShowing &&
+    bottomNavShowing.path !== ownerPathNorm &&
+    resolveOwnerTabSkeletonKind(bottomNavShowing.path) != null
+      ? bottomNavShowing
+      : null;
+  const isOwnerHubRoute = ownerPathNorm === "/stores/owner" && ownerShowingTarget == null;
   const isOwnerOrdersRoute = ownerPathNorm === "/stores/owner/orders";
   const ownerOrderChatSlideOpen = useMemo(
     () => isOwnerOrdersRoute && Boolean(searchParams.get("chat_order_id")?.trim()),
@@ -485,7 +498,9 @@ export function BusinessAdminShell({
 
   const sectionDefs = useMemo(() => buildBusinessAdminSidebar(navCtx), [navCtx]);
   const sections = useMemo(() => resolveBusinessAdminSidebar(sectionDefs, t), [sectionDefs, t]);
-  const pageTitle = getBusinessAdminPageTitle(pathname, searchParams.toString());
+  const pageTitle = ownerShowingTarget
+    ? getBusinessAdminPageTitle(ownerShowingTarget.path, ownerShowingTarget.search)
+    : getBusinessAdminPageTitle(pathname, searchParams.toString());
   const shopName = selectedRow?.store_name?.trim() || t("business_phase7_579");
   /**
    * 미리보기 — 승인 매장이면 노출이 꺼져 있어도 (사장님 본인에게는 매장 화면이 열림 · 2026-11-03).
