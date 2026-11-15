@@ -148,6 +148,12 @@ public final class NativeCallWaitingPresenter {
    * onDestroy 가 새 화면의 「보임」을 「안 보임」으로 덮는다(실기 CW6 22:06:25.349).
    */
   private static final Set<Object> VISIBLE_HOSTS = Collections.newSetFromMap(new IdentityHashMap<>());
+  /**
+   * PiP 로 떠 있는 통화 화면(띠 객체) — 대기 알림 조용/시끄러움 판단에는 쓰지 않고(PiP 는 띠가 숨겨짐), 이어받기 남기기
+   * 판단에만 쓴다(설계 P · Owner 「P 구현 승인」 2026-11-16). PiP 통화 화면은 보이는 Activity 라 그것이 남아 있으면
+   * AOSP BackgroundActivityStartController 의 BAL_ALLOW_VISIBLE_WINDOW 로 수신 화면을 띄울 수 있다.
+   */
+  private static final Set<Object> PIP_HOSTS = Collections.newSetFromMap(new IdentityHashMap<>());
   /** VISIBLE_HOSTS 가 비어 있지 않은지 — PiP 는 안 보임. */
   private static boolean callScreenVisible;
   private static Held held;
@@ -232,6 +238,16 @@ public final class NativeCallWaitingPresenter {
     showNotification(app, p.callId, p.callerName, p.lane, p.liveCallId);
   }
 
+  /** 띠가 PiP 상태를 보고한다(설계 P). */
+  public static void setCallScreenInPip(Object host, boolean inPip) {
+    if (host == null) return;
+    boolean changed;
+    synchronized (LOCK) {
+      changed = inPip ? PIP_HOSTS.add(host) : PIP_HOSTS.remove(host);
+    }
+    if (changed) log("call_screen_pip", null, "inPip=" + inPip);
+  }
+
   /**
    * 런타임이 통화 화면을 닫기 직전에 묻는다. true 면 닫지 말 것 — 대기 통화가 이 화면 자리를 이어받는다(Dialer: 통화가 남아
    * 있으면 InCallActivity 를 닫지 않음). 화면이 앞에 보이지 않으면(다른 앱·PiP·꺼짐) 남길 이유가 없어 false.
@@ -242,10 +258,10 @@ public final class NativeCallWaitingPresenter {
     synchronized (LOCK) {
       if (pending == null || pending.callId.equals(sid)) return false;
       if (held != null && held.callId.equals(sid)) return true;
-      if (!callScreenVisible) return false;
+      if (!callScreenVisible && PIP_HOSTS.isEmpty()) return false;
       held = new Held(sid, lane);
     }
-    log("handover_hold", sid, "lane=" + lane);
+    log("handover_hold", sid, "lane=" + lane + " pip=" + !PIP_HOSTS.isEmpty());
     scheduleHeldRelease("hold_timeout", HANDOVER_HOLD_MAX_MS);
     return true;
   }
@@ -398,7 +414,7 @@ public final class NativeCallWaitingPresenter {
     clearPresentation(app, p.callId);
     final boolean handover;
     synchronized (LOCK) {
-      handover = held != null && callScreenVisible;
+      handover = held != null && (callScreenVisible || !PIP_HOSTS.isEmpty());
       handoverLaunchCallId = handover ? p.callId : null;
       handoverLaunched = false;
     }
