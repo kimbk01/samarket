@@ -69,7 +69,7 @@ function fallbackItemsForDbPackSlug(slug: string, realPackId: string): StickerIt
 export async function listStickerItemsForPack(packId: string): Promise<StickerItemDto[]> {
   const pid = packId.trim();
   if (!pid) return [];
-  if (pid === "fallback-basic" || pid === "fallback-reaction") {
+  if (FALLBACK_STICKER_PACKS.some((p) => p.id === pid)) {
     return FALLBACK_STICKER_ITEMS.filter((i) => i.packId === pid);
   }
   try {

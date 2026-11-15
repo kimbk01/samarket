@@ -1,5 +1,6 @@
 "use client";
 
+import type { MessageKey } from "@/lib/i18n/message-key";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { StickerItemDto, StickerPackDto } from "@/lib/stickers/sticker-dto";
 import { readRecentStickerUrls } from "@/lib/stickers/recent-stickers-client";
@@ -112,6 +113,12 @@ export function MessengerStickerSheet({
     return [recentPack, ...(packs ?? [])];
   }, [packs, t]);
 
+  /** CC BY·CC BY-SA 출처 표시 — 고른 묶음의 그림 출처 */
+  const activeCreditKey = useMemo(
+    () => (packs ?? []).find((p) => p.id === activePackId)?.creditKey ?? null,
+    [packs, activePackId]
+  );
+
   const handlePick = useCallback(
     (fileUrl: string, stickerItemId?: string) => {
       onPick(fileUrl, stickerItemId);
@@ -168,8 +175,8 @@ export function MessengerStickerSheet({
                 ? "border-[color:var(--overlay-primary)] bg-[color:var(--overlay-secondary)]"
                 : "border-transparent bg-[color:var(--overlay-secondary)]"
             }`}
-            aria-label={p.name}
-            title={p.name}
+            aria-label={p.nameKey ? t(p.nameKey as MessageKey) : p.name}
+            title={p.nameKey ? t(p.nameKey as MessageKey) : p.name}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.iconUrl} alt="" width={28} height={28} loading="lazy" className="h-7 w-7 object-contain" />
@@ -184,6 +191,7 @@ export function MessengerStickerSheet({
             {activePackId === RECENT_PACK_ID ? t("cm_ui_no_recent_stickers") : t("cm_ui_no_stickers")}
           </p>
         ) : allItemsBroken ? null : (
+          <>
           <div className="grid grid-cols-5 gap-2 sm:grid-cols-6">
             {items.map((it) => (
               <MessengerStickerLazyImage
@@ -195,6 +203,12 @@ export function MessengerStickerSheet({
               />
             ))}
           </div>
+          {activeCreditKey ? (
+            <p data-cm-sticker-credit="" className={`pt-3 text-center ${OverlayUi.caption}`}>
+              {t(activeCreditKey as MessageKey)}
+            </p>
+          ) : null}
+          </>
         )}
       </div>
     </div>

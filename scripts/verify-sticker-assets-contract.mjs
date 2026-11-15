@@ -19,7 +19,8 @@ function read(rel) {
 
 /** fallback-sticker-catalog.ts 의 /stickers/... 경로 추출 */
 function pathsFromFallbackCatalog() {
-  const src = read("lib/stickers/fallback-sticker-catalog.ts");
+  /** OpenMoji 묶음은 생성 파일에 있다(fallback 목록이 펼쳐 넣음) */
+  const src = read("lib/stickers/fallback-sticker-catalog.ts") + read("lib/stickers/openmoji-sticker-packs.generated.ts");
   const re = /["'](\/stickers\/[^"']+\.webp)["']/g;
   const out = new Set();
   let m;
