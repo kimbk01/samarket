@@ -1362,36 +1362,39 @@ export function useMessengerRoomPhase2Controller() {
     [busy, composerTextareaRef, editRoomMessageText, editingMessage, message, replyToMessage, sendRawText, setMessage, setReplyToMessage, snapshot]
   );
 
-  /** K-4 — 수정 중 이모지 = draft 삽입. 비편집 = 기존 즉시 전송. */
-  const insertOrSendComposerEmoji = useCallback(
+  /**
+   * 이모지 고르기 = 입력창 커서 위치에 삽입 (텔레그램 기준 — 2026-11-15 실측: 누르면 입력창에 들어가고 전송은 전송 버튼).
+   * 바로 전송하지 않는다. 2026-11-16 측정: 이전 코드는 수정 중이 아닐 때 `sendMessage(emoji)` 로 바로 보내
+   * 입력창 글과 별개의 한 글자 메시지가 생겼다(docs/audit/messenger-emoji-instant-send-root-cause-2026-11-16.md).
+   * - 수정 중: 지금처럼 입력창에 넣고 초점·커서 복귀.
+   * - 그 외: 입력창에 넣고 커서만 이모지 뒤로(초점은 주지 않음 — 키보드가 갑자기 올라오지 않게).
+   */
+  const insertComposerEmoji = useCallback(
     (emoji: string) => {
       const token = String(emoji ?? "");
       if (!token) return;
-      if (editingMessage?.id) {
-        const ta = composerTextareaRef.current;
-        const current = ta?.value ?? message;
-        const { next, caret } = insertEmojiIntoComposerText({
-          current,
-          emoji: token,
-          selectionStart: ta?.selectionStart,
-          selectionEnd: ta?.selectionEnd,
-        });
-        setMessage(next);
-        queueMicrotask(() => {
-          const node = composerTextareaRef.current;
-          if (!node) return;
-          try {
-            node.focus();
-            node.setSelectionRange(caret, caret);
-          } catch {
-            /* ignore */
-          }
-        });
-        return;
-      }
-      void sendMessage(token);
+      const ta = composerTextareaRef.current;
+      const current = ta?.value ?? message;
+      const { next, caret } = insertEmojiIntoComposerText({
+        current,
+        emoji: token,
+        selectionStart: ta?.selectionStart,
+        selectionEnd: ta?.selectionEnd,
+      });
+      setMessage(next);
+      const focus = Boolean(editingMessage?.id);
+      queueMicrotask(() => {
+        const node = composerTextareaRef.current;
+        if (!node) return;
+        try {
+          if (focus) node.focus();
+          node.setSelectionRange(caret, caret);
+        } catch {
+          /* ignore */
+        }
+      });
     },
-    [composerTextareaRef, editingMessage, message, sendMessage, setMessage]
+    [composerTextareaRef, editingMessage, message, setMessage]
   );
 
   const sendSticker = useCallback(
@@ -3086,7 +3089,7 @@ export function useMessengerRoomPhase2Controller() {
     openInfoSheet,
     sendRawText,
     sendMessage,
-    insertOrSendComposerEmoji,
+    insertComposerEmoji,
     sendSticker,
     sendLocationMessage,
     sendAttachmentImagesDirect,

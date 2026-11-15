@@ -43,20 +43,23 @@ describe("§2 bundle4 composer contracts", () => {
     expect(editBody).toContain("return false");
     expect(editBody).toContain("return true");
     const sendStart = src.indexOf("const sendMessage = useCallback");
-    const sendBody = src.slice(sendStart, src.indexOf("const insertOrSendComposerEmoji = useCallback", sendStart));
+    const sendBody = src.slice(sendStart, src.indexOf("const insertComposerEmoji = useCallback", sendStart));
     expect(sendBody).toContain("const ok = await editRoomMessageText(editTarget.id, raw)");
     expect(sendBody).toContain("return ok");
     expect(sendBody).not.toMatch(/if \(editTarget\?\.id\) \{\s*setMessage\(""\)/);
   });
 
-  it("K-4 emoji pick uses insertOrSendComposerEmoji", () => {
+  it("이모지 고르기 = 입력창 삽입, 바로 전송 없음 (K-4 · 2026-11-16 측정 정정)", () => {
     const sheets = read(
       "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx"
     );
-    expect(sheets).toContain("insertOrSendComposerEmoji");
+    expect(sheets).toContain("vm.insertComposerEmoji(emoji)");
     expect(sheets).not.toContain("void vm.sendMessage(emoji)");
     const ctrl = read("lib/community-messenger/room/phase2/use-messenger-room-phase2-controller.ts");
-    expect(ctrl).toContain("insertEmojiIntoComposerText");
-    expect(ctrl).toContain("insertOrSendComposerEmoji");
+    const start = ctrl.indexOf("const insertComposerEmoji = useCallback");
+    const body = ctrl.slice(start, ctrl.indexOf("const sendSticker = useCallback", start));
+    expect(body).toContain("insertEmojiIntoComposerText");
+    expect(body).not.toMatch(/sendMessage\(/);
+    expect(ctrl).not.toContain("insertOrSendComposerEmoji");
   });
 });

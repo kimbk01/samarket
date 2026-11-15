@@ -307,8 +307,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   onPick={(emoji) => {
                     if (vm.roomUnavailable || composerOutboundBusy) return;
                     vm.dismissRoomSheet();
-                    /** K-4 — 수정 중이면 draft 삽입 · 그 외 기존 즉시 전송 */
-                    vm.insertOrSendComposerEmoji(emoji);
+                    /** 이모지 = 입력창 커서 위치에 삽입(바로 전송 안 함) — 전송은 전송 버튼 */
+                    vm.insertComposerEmoji(emoji);
                   }}
                 />
               </div>
