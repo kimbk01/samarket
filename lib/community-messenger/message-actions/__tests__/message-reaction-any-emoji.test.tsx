@@ -64,5 +64,9 @@ describe("MessageReactionBar 「+」", () => {
     act(() => buttons[0]!.click());
     expect(onPick).toHaveBeenCalledWith(MESSENGER_QUICK_REACTION_KEYS[0]);
     expect(buttons[0]!.getAttribute("aria-label")).toBe(`cm_ui_reaction_pick_aria:${MESSENGER_QUICK_REACTION_KEYS[0]}`);
+    /** 2026-11-16 실기: 「+」가 아랫줄로 밀림 → 한 줄 고정 */
+    const bar = host.querySelector("[data-cm-reaction-bar]") as HTMLElement;
+    expect(bar.className).toContain("flex-nowrap");
+    expect(bar.className).not.toContain("flex-wrap ");
   });
 });

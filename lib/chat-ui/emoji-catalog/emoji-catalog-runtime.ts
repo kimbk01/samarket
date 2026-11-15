@@ -20,6 +20,12 @@ export type EmojiItem = {
   v: number;
   /** 피부색 5종(밝음→어두움) — 없으면 피부색 없음 */
   s?: string[];
+  /**
+   * 데이터 파일 안 순번 = 검색어 묶음(search.*.json)의 같은 칸.
+   * 기기 버전으로 거른 목록의 순번과 다르므로 검색은 반드시 이 값으로 찾는다
+   * (2026-11-16 실기: 거른 뒤 순번으로 찾아 「thumbs」에 👍 가 빠지고 👎·✊ 가 나옴).
+   */
+  i: number;
 };
 
 type RawCatalog = {
@@ -56,7 +62,9 @@ export function setEmojiJsonLoaderForTests(next: EmojiJsonLoader | null): void {
 export function parseEmojiCatalog(raw: unknown): EmojiCatalog {
   const r = raw as RawCatalog;
   return {
-    items: r.items.map(([e, c, v, s]) => (s ? { e, c: c as EmojiCategoryIndex, v, s } : { e, c: c as EmojiCategoryIndex, v })),
+    items: r.items.map(([e, c, v, s], i) =>
+      s ? { e, c: c as EmojiCategoryIndex, v, s, i } : { e, c: c as EmojiCategoryIndex, v, i }
+    ),
     sentinels: r.sentinels,
   };
 }
@@ -98,14 +106,14 @@ export function searchEmojiItems(
   const words = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return [];
   const out: EmojiItem[] = [];
-  for (let i = 0; i < items.length && out.length < limit; i++) {
-    const item = items[i]!;
+  for (let n = 0; n < items.length && out.length < limit; n++) {
+    const item = items[n]!;
     if (item.e === query.trim()) {
       out.push(item);
       continue;
     }
     const hit = indexes.some((idx) => {
-      const text = idx[i] ?? "";
+      const text = idx[item.i] ?? "";
       return words.every((w) => text.includes(w));
     });
     if (hit) out.push(item);
