@@ -80,6 +80,8 @@ export type MainBottomNavRouteCommitArgs = {
   ) => { id: number } | void;
   onNavigationIntent: (tabId: string) => void;
   guardBeforeNavigate: (nextHref?: string) => boolean;
+  /** 호출처가 같은 클릭에서 `guardBeforeNavigate` 를 이미 통과시켰으면 true — 이탈 확인을 두 번 하지 않는다 */
+  guardPassed?: boolean;
   /** @deprecated 허브 탭 이력은 replace 만(`BOTTOM_NAV_HISTORY_MODE`). 호출처 호환용으로만 받는다 */
   push?: (href: string) => void;
   replace: (href: string) => void;
@@ -131,7 +133,7 @@ export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): Ma
     return "scroll_only";
   }
 
-  if (!commitArgs.guardBeforeNavigate(commitArgs.href)) {
+  if (!commitArgs.guardPassed && !commitArgs.guardBeforeNavigate(commitArgs.href)) {
     return "blocked";
   }
 

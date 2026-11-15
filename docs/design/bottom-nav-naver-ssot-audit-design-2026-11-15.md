@@ -338,3 +338,14 @@
 - /mypage 의 크기 0 하단 탭 복사본(사람은 누를 수 없음).
 - `components/layout/MainDesktopSideNav.tsx` 는 쓰는 곳이 없다.
 - `npm run verify:delivery-dial-navigation-contract` 는 main 에서도 실패(문자열 검사가 코드와 맞지 않음).
+
+### 11.1 남은 항목 정리 (2026-11-15 15:20 PHT · chore/bottom-nav-leftovers)
+
+| 항목 | 원인 | 처리 |
+|---|---|---|
+| 쓰지 않는 `MainDesktopSideNav.tsx`·숨김 CSS | 비활성 후 파일만 남음(어디서도 import 안 함) | 파일·CSS·검사 목록에서 삭제 |
+| `verify-delivery-dial-navigation-contract` 실패 | 검사가 옛 문자열 `args.replace(args.href)` 를 찾음(계약 v2 는 `guardedClientNavigate(args.replace, args.href, …)`) | 검사를 실제 코드 순서(이동 → 오버레이 닫기)로 수정, main 에서도 실패하던 것 |
+| 글쓰기 시트 이탈 확인 2회 호출 | 탭 onClick 3곳 + 커밋이 각각 `guardBeforeNavigate` | 탭 클릭 진입점(`runBottomNavTabClickOrOpenNew`) 1회 · 커밋은 `guardPassed` 면 생략(배달 다이얼 등 다른 호출처는 그대로 커밋에서 1회). 새 탭 열기는 이탈이 아니라 확인하지 않음 |
+| `apk-remote-webview-perf.ts` 주석 「웹 Link prefetch=false」 | 사실과 다름(비선택 허브 탭은 `shouldPrefetchMainBottomNavHref` = true) | 주석 정정 |
+| /mypage 크기 0 하단 탭 복사본 | **결함 아님 — 측정 착시.** React 19.2 스트리밍 공개(`$RC`→`$RV`)가 `requestAnimationFrame` 을 기다리는데, 측정 브라우저 창이 숨김이라 rAF 가 멈춰 `div#S:0` 가 남아 있었음. rAF 1회 뒤 `S:0` 제거 확인(로컬 운영 빌드) | 코드 변경 없음. 기기 확인은 배포 뒤 |
+| 콘솔 「탭 전 navigator.vibrate 차단」 | 깨끗한 새로 열기 4회(/mypage 2·/home·/philife) 0회 — 재현 안 됨 | 코드 변경 없음 |

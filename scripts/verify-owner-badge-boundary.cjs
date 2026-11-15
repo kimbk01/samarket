@@ -13,7 +13,6 @@ function read(rel) {
 
 const shellFiles = [
   "components/layout/BottomNav.tsx",
-  "components/layout/MainDesktopSideNav.tsx",
   "components/layout/MainBottomNavFabSector.tsx",
 ];
 

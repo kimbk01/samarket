@@ -21,7 +21,10 @@ export function resolveMainTabEnterPanelDeferMs(): number {
   return isApkRemoteWebViewShell() ? APK_MAIN_TAB_ENTER_DEFER_MS : WEB_MAIN_TAB_ENTER_DEFER_MS;
 }
 
-/** APK 한정 — 하단 탭 RSC `router.prefetch` (웹 Link prefetch=false 유지) */
+/**
+ * 앱(Capacitor) 한정 — 하단 탭 커밋 때 목표 RSC `router.prefetch` 추가 호출.
+ * 웹·앱 공통 `<Link prefetch>` 는 `shouldPrefetchMainBottomNavHref`(비선택 허브 탭 = true)가 정한다.
+ */
 export function shouldRunApkBottomNavRoutePrefetch(): boolean {
   return isApkRemoteWebViewShell();
 }

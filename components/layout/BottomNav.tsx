@@ -163,6 +163,8 @@ export type BottomNavTabCommitOpts = {
   router: Pick<ReturnType<typeof useRouter>, "prefetch" | "push" | "replace">;
   onPrewarm?: () => void;
   onCloseDomainSwitcher?: () => void;
+  /** 탭 클릭 진입점에서 `guardBeforeNavigate` 를 이미 통과했으면 true — 커밋에서 두 번 묻지 않는다 */
+  guardPassed?: boolean;
 };
 
 /** 하단 탭 이동 — `commitMainBottomNavRoute` 단일 경로 */
@@ -176,6 +178,7 @@ export function commitBottomNavTabRoute(opts: BottomNavTabCommitOpts): "scroll_o
     beginMenuNavigation: opts.beginMenuNavigation,
     onNavigationIntent: opts.onNavigationIntent,
     guardBeforeNavigate: opts.guardBeforeNavigate,
+    guardPassed: opts.guardPassed === true,
     replace: (href) => opts.router.replace(href),
     prefetch: shouldRunApkBottomNavRoutePrefetch()
       ? (href) => {
@@ -204,7 +207,9 @@ function runBottomNavTabClickOrOpenNew(
     return;
   }
   e.preventDefault();
-  commitTabRoute(tab.id, { ...opts, href, tabId: tab.id });
+  /** 글쓰기 시트 이탈 확인은 여기 1회 — 커밋(`commitMainBottomNavRoute`)은 다시 묻지 않는다 */
+  if (!opts.guardBeforeNavigate(href)) return;
+  commitTabRoute(tab.id, { ...opts, href, tabId: tab.id, guardPassed: true });
 }
 
 function BottomNavTabIconContent({
@@ -388,10 +393,6 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
         e.currentTarget.click();
       }}
       onClick={(e) => {
-        if (!guardBeforeNavigate(effectiveHref)) {
-          e.preventDefault();
-          return;
-        }
         runBottomNavTabClickOrOpenNew(
           e,
           tab,
@@ -473,10 +474,6 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
       aria-label={tabLabel}
       aria-current={isActive ? "page" : undefined}
       onClick={(e) => {
-        if (!guardBeforeNavigate(effectiveHref)) {
-          e.preventDefault();
-          return;
-        }
         runBottomNavTabClickOrOpenNew(
           e,
           tab,
@@ -655,10 +652,6 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
         e.currentTarget.click();
       }}
       onClick={(e) => {
-        if (!guardBeforeNavigate(storesTabHref)) {
-          e.preventDefault();
-          return;
-        }
         runBottomNavTabClickOrOpenNew(
           e,
           tab,

@@ -64,10 +64,14 @@ assertNotIncludes(overlay, 'from "next/link"', "overlay must not use Link for di
 
 assertIncludes(prewarm, "resolveDeliveryDomainDialItemHref", "prewarm must use href resolver");
 
-const pushIdx = Math.max(commit.indexOf("args.push(args.href)"), commit.indexOf("args.replace(args.href)"));
-const closeIdx = commit.indexOf("args.onCloseOverlay?.()", pushIdx);
-if (pushIdx < 0 || closeIdx < 0) {
-  fail("commitMainBottomNavRoute: push/replace must precede onCloseOverlay");
+/**
+ * 이동(replace)이 오버레이 닫기보다 먼저 — 이동은 `guardedClientNavigate(args.replace, args.href, …)` 로 나간다
+ * (하단 탭 계약 v2 · 2026-11-15: 이력 replace 단일 · 잠금 판정 경유). 예전 문자열 `args.replace(args.href)` 는 코드에 없다.
+ */
+const navIdx = commit.search(/guardedClientNavigate\(\s*args\.replace,\s*args\.href/);
+const closeIdx = navIdx < 0 ? -1 : commit.indexOf("args.onCloseOverlay?.()", navIdx);
+if (navIdx < 0 || closeIdx < 0) {
+  fail("commitMainBottomNavRoute: guardedClientNavigate(args.replace, args.href, …) must precede onCloseOverlay");
 }
 
 assertIncludes(css, "pointer-events: none", "swipe surface must not steal chip taps");
