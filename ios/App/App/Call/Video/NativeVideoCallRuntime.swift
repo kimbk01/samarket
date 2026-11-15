@@ -55,7 +55,8 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
     callerId: String,
     callerName: String,
     mediaType: String,
-    callUUID: UUID
+    callUUID: UUID,
+    missedTimeoutSeconds: TimeInterval? = nil
   ) throws -> Bool {
     try queue.sync {
       let sid = normalize(sessionId)
@@ -87,7 +88,8 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
       )
 
       try registerLocked(incoming, initialState: .ringing)
-      scheduleMissedLocked(sessionId: sid)
+      // nil = 기본 30초(일반 수신). 대기 통화 승격만 남은 울림 시간(D2).
+      scheduleMissedLocked(sessionId: sid, timeoutSeconds: missedTimeoutSeconds ?? Self.missedTimeoutSeconds)
       publishUiLocked(sessionId: sid)
       return true
     }
@@ -407,7 +409,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
     try? markMissedLocked(sessionId: sid)
   }
 
-  private func scheduleMissedLocked(sessionId: String) {
+  private func scheduleMissedLocked(sessionId: String, timeoutSeconds: TimeInterval) {
     cancelMissedLocked()
     let sid = normalize(sessionId)
     let expectedGeneration = generation
@@ -416,7 +418,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
       self.performMissedTimeoutIfCurrent(sessionId: sid, generation: expectedGeneration)
     }
     missedWorkItem = work
-    queue.asyncAfter(deadline: .now() + Self.missedTimeoutSeconds, execute: work)
+    queue.asyncAfter(deadline: .now() + timeoutSeconds, execute: work)
   }
 
   private func cancelMissedLocked() {

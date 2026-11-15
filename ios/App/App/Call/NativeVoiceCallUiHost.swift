@@ -116,6 +116,15 @@ enum NativeVoiceCallUiHost {
       renderState(callId: callId, snapshot: NativeVoiceCallRuntime.shared.snapshot(), source: "duplicate_present_skip")
       return
     }
+    // D3: 다른 통화의 화면이 남아 있으면 닫힘이 끝난 뒤 다시 표시(그 통화가 아직 이 통화일 때만).
+    if DibayCallScreenHandover.waitForOtherCallScreen(newCallId: sid, topPresenter: topPresenter(), retry: {
+      let snap = NativeVoiceCallRuntime.shared.snapshot()
+      guard let current = snap.session, current.sessionId == sid, !isTerminalPhase(snap.phase) else { return }
+      ensurePresented(callId: sid, session: current, bypassLockCheck: bypassLockCheck, userRestore: userRestore)
+      renderState(callId: sid, snapshot: NativeVoiceCallRuntime.shared.snapshot(), source: "call_screen_handover")
+    }) {
+      return
+    }
     dismissStaleControllers(exceptCallId: callId)
     if !bypassLockCheck && !canPresentVoiceSurfaces() {
       deferredCallId = callId.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -491,5 +500,62 @@ enum NativeVoiceCallUiHost {
     } else {
       DispatchQueue.main.async(execute: block)
     }
+  }
+}
+
+/**
+ * D3 (docs/audit/ios-call-waiting-end-and-accept-plan-2026-11-16.md): 새 통화 화면을 띄울 때 **다른 통화**의 화면(음성·영상)이
+ * 아직 떠 있거나 닫히는 중이면, 그 화면이 닫힌 뒤에 띄운다. 닫히는 중인 화면 위에 present 하면 UIKit 이 거부해
+ * 새 통화 화면이 안 뜬다(2026-11-16 01:58:00.417 실기 기록). 대기 통화 「종료 및 수락」·진행 중 통화 종료 직후 수신 수락.
+ * 다른 통화 화면이 없으면 아무것도 하지 않는다 — 단일 통화의 표시 경로는 그대로.
+ * 이전 통화 화면은 「통화 종료」 안내 없이 닫는다(Android 이어받기와 같은 결과: 이전 화면 → 새 화면).
+ */
+enum DibayCallScreenHandover {
+  private static let retryIntervalSeconds: TimeInterval = 0.15
+  private static let maxAttempts = 20
+  private static var attemptsByCallId: [String: Int] = [:]
+
+  /// true = 기다려야 함(다른 통화 화면 정리 뒤 `retry` 가 불린다). false = 지금 띄워도 됨.
+  static func waitForOtherCallScreen(
+    newCallId: String,
+    topPresenter: UIViewController?,
+    retry: @escaping () -> Void
+  ) -> Bool {
+    let sid = newCallId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard Thread.isMainThread, !sid.isEmpty, let top = topPresenter else { return false }
+    var root = top
+    while let presenting = root.presentingViewController { root = presenting }
+    var other: UIViewController?
+    var node: UIViewController? = root
+    while let current = node {
+      if let voice = current as? NativeVoiceCallViewController, voice.boundCallId != sid {
+        other = voice
+        break
+      }
+      if let video = current as? NativeVideoCallViewController, video.boundCallId != sid {
+        other = video
+        break
+      }
+      node = current.presentedViewController
+    }
+    guard let stale = other, let host = stale.presentingViewController else {
+      attemptsByCallId.removeValue(forKey: sid)
+      return false
+    }
+    let attempt = (attemptsByCallId[sid] ?? 0) + 1
+    guard attempt <= maxAttempts else {
+      attemptsByCallId.removeValue(forKey: sid)
+      DibayCallLog.info("ios_call_screen_handover_gave_up", sessionId: sid, detail: "attempts=\(maxAttempts)")
+      return false
+    }
+    attemptsByCallId[sid] = attempt
+    if stale.isBeingDismissed || host.transitionCoordinator != nil {
+      DibayCallLog.info("ios_call_screen_handover_wait_dismiss", sessionId: sid, detail: "attempt=\(attempt)")
+      DispatchQueue.main.asyncAfter(deadline: .now() + retryIntervalSeconds, execute: retry)
+      return true
+    }
+    DibayCallLog.info("ios_call_screen_handover_dismiss_other", sessionId: sid, detail: "attempt=\(attempt)")
+    host.dismiss(animated: true) { retry() }
+    return true
   }
 }
