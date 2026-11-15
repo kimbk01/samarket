@@ -336,6 +336,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
         style={{ top: pos.top, left: pos.left, ...(pos.maxHeight ? { maxHeight: pos.maxHeight } : {}) }}
         role="dialog"
         aria-modal="true"
+        data-cm-message-popover=""
         onPointerDown={(e) => e.stopPropagation()}
       >
         {reactionPickerOpen && reactAction?.enabled ? (

@@ -330,6 +330,14 @@ function getCmR9State(roomId: string): CmR9UpgradeState {
 
 
 const EMPTY_IMAGE_VIEWER_ITEMS: DibayImageViewerItem[] = [];
+
+/** 메시지 메뉴(롱프레스 팝오버) 안 입력칸에 포커스가 있는지 */
+export function isFocusInsideMessagePopover(): boolean {
+  if (typeof document === "undefined") return false;
+  const el = document.activeElement;
+  return Boolean(el && typeof (el as Element).closest === "function" && (el as Element).closest("[data-cm-message-popover]"));
+}
+
 export function isCmR10VirtualizerUpgradeActive(roomId: string): boolean {
   if (typeof window === "undefined") return false;
   const st = window.__cmR9UpgradeStateByRoom?.[roomId.trim()];
@@ -1174,6 +1182,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     const gracePeriod = 500;
     const now = Date.now();
     if (now - actionSheetOpenedAtRef.current < gracePeriod) return;
+    /**
+     * 메뉴 안 입력칸(반응 「+」 이모지 검색)에 포커스가 있으면 닫지 않는다 — 키보드가 올라오며 화면이 줄어
+     * 목록이 스크롤되는 것이지 사용자가 목록을 민 것이 아니다(2026-11-16 실기: 검색창을 누르면 메뉴가 닫힘).
+     */
+    if (isFocusInsideMessagePopover()) return;
     if (v.messageActionItem) v.setMessageActionItem(null);
   }, []);
 
