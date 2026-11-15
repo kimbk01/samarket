@@ -40,6 +40,8 @@ export async function sendWebPushForCommunityMessengerIncomingCall(input: {
   startedAt: string;
   /** Immutable domain snapshot — required for four-domain deep link. */
   domainEnvelope?: RoomDomainEnvelope | null;
+  /** 대기 통화(받는 사람이 다른 통화에 연결된 중) — 기기가 「거절 / 종료 후 받기」로 표시 (WS1). */
+  waiting?: boolean;
 }): Promise<void> {
   const recipient = input.recipientUserId.trim();
   const sessionId = input.sessionId.trim();
@@ -77,6 +79,7 @@ export async function sendWebPushForCommunityMessengerIncomingCall(input: {
       expires_at: expiresAt,
       ttl_ms: INCOMING_CALL_FCM_TTL_MS,
       ring_timeout_seconds: DEFAULT_INCOMING_RING_TIMEOUT_SECONDS,
+      ...(input.waiting === true ? { waiting: true } : {}),
       ...domainMeta,
     },
     link_url_absolute: absolutizeLink(link_url),

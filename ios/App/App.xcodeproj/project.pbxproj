@@ -78,6 +78,7 @@
 		C7PUSH0222FED79650016851F /* DibayPushTokenBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7PUSH0212FED79650016851F /* DibayPushTokenBridge.swift */; };
 		C7PUSH0322FED79650016851F /* IncomingCallCallerIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7PUSH0312FED79650016851F /* IncomingCallCallerIdentity.swift */; };
 		C7RING0022FED79650016851F /* NativeOutgoingRingbackOwner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7RING0012FED79650016851F /* NativeOutgoingRingbackOwner.swift */; };
+		C7CWT0022FED79650016851F /* NativeCallWaitingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7CWT0012FED79650016851F /* NativeCallWaitingCoordinator.swift */; };
 		C7SLNT0022FED79650016851F /* CallKitSilentRingtone.caf in Resources */ = {isa = PBXBuildFile; fileRef = C7SLNT0012FED79650016851F /* CallKitSilentRingtone.caf */; };
 		C7VID0022FED79650016851F /* NativeVideoCallRuntimeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0012FED79650016851F /* NativeVideoCallRuntimeState.swift */; };
 		C7VID0122FED79650016851F /* NativeVideoCallOwner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0112FED79650016851F /* NativeVideoCallOwner.swift */; };
@@ -196,6 +197,7 @@
 		C7PUSH0212FED79650016851F /* DibayPushTokenBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayPushTokenBridge.swift; sourceTree = "<group>"; };
 		C7PUSH0312FED79650016851F /* IncomingCallCallerIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingCallCallerIdentity.swift; sourceTree = "<group>"; };
 		C7RING0012FED79650016851F /* NativeOutgoingRingbackOwner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeOutgoingRingbackOwner.swift; sourceTree = "<group>"; };
+		C7CWT0012FED79650016851F /* NativeCallWaitingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCallWaitingCoordinator.swift; sourceTree = "<group>"; };
 		C7SLNT0012FED79650016851F /* CallKitSilentRingtone.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = CallKitSilentRingtone.caf; sourceTree = "<group>"; };
 		C7VID0012FED79650016851F /* NativeVideoCallRuntimeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallRuntimeState.swift; sourceTree = "<group>"; };
 		C7VID0112FED79650016851F /* NativeVideoCallOwner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallOwner.swift; sourceTree = "<group>"; };
@@ -331,6 +333,7 @@
 				C7NVC0012FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift */,
 				C7P4C0012FED79650016851F /* NativeVoiceOutgoingCallCoordinator.swift */,
 				C7RING0012FED79650016851F /* NativeOutgoingRingbackOwner.swift */,
+				C7CWT0012FED79650016851F /* NativeCallWaitingCoordinator.swift */,
 				C7P1000312FED79650016851F /* NativeVoiceCallBridge.swift */,
 				C7P4O0012FED79650016851F /* NativeVoiceCallOwner.swift */,
 				C7NVU0012FED79650016851F /* NativeVoiceCallUiHost.swift */,
@@ -570,6 +573,7 @@
 				C7NVC0022FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift in Sources */,
 				C7P4C0022FED79650016851F /* NativeVoiceOutgoingCallCoordinator.swift in Sources */,
 				C7RING0022FED79650016851F /* NativeOutgoingRingbackOwner.swift in Sources */,
+				C7CWT0022FED79650016851F /* NativeCallWaitingCoordinator.swift in Sources */,
 				C7P100042FED79650016851F /* NativeVoiceCallBridge.swift in Sources */,
 				C7P4O0022FED79650016851F /* NativeVoiceCallOwner.swift in Sources */,
 				C7NVL0022FED79650016851F /* NativeVoiceCallLane.swift in Sources */,
@@ -788,7 +792,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				DEVELOPMENT_TEAM = ATB959PF9V;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -813,7 +817,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				DEVELOPMENT_TEAM = ATB959PF9V;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -836,7 +840,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				DEVELOPMENT_TEAM = ATB959PF9V;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DibayPushServiceExtension/Info.plist;
@@ -862,7 +866,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 40;
+				CURRENT_PROJECT_VERSION = 41;
 				DEVELOPMENT_TEAM = ATB959PF9V;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DibayPushServiceExtension/Info.plist;

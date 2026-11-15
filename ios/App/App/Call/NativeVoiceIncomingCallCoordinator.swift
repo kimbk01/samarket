@@ -535,6 +535,8 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
       pendingLocalEndCompletion.removeValue(forKey: sid)
     }
     log("ios_native_voice_cleanup_done", sid, "reason=\(reason)")
+    // 대기 통화(WI2·K6): 진행 중 통화 정리 끝 → 기다리던 「종료 및 수락」 진행 / 일반 수신으로 전환.
+    NativeCallWaitingCoordinator.shared.onCallCleanedUp(sessionId: sid)
   }
 
   /// 발신 쪽 잔여(발신음·서버 종료 감시) 정지. 두 정지 모두 이 callId 가 지금 대상일 때만 동작해 수신 통화 정리에도 안전.

@@ -14,6 +14,9 @@
     <!-- 언어 SSOT S8-3: 통화 문구 — S8-3 이전 기본 values·코드의 한국어 그대로 -->
     <string name="dibay_incoming_accept">수락</string>
     <string name="dibay_incoming_reject">거절</string>
+    <string name="dibay_call_waiting_end_and_accept">종료 후 받기</string>
+    <string name="dibay_call_waiting_text_voice">대기 중인 전화 · 음성 통화</string>
+    <string name="dibay_call_waiting_text_video">대기 중인 전화 · 영상 통화</string>
     <string name="dibay_incoming_voice_brand">DiBay 음성 통화</string>
     <string name="dibay_incoming_video_brand">DiBay 영상 통화</string>
     <string name="dibay_voice_call_incoming">음성 통화 수신</string>

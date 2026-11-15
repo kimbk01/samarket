@@ -348,6 +348,12 @@ import {
   isRoomBoundMissedCallCandidate,
 } from "@/lib/community-messenger/call-authority/call-missed-notification-authority";
 import { callStubIncrementsCalleeUnread } from "@/lib/community-messenger/call-callee-missed";
+import {
+  decideCallWaitingSupport,
+  pickCallWaitingLiveRow,
+  type CallWaitingDeviceRow,
+  type CallWaitingLiveRow,
+} from "@/lib/community-messenger/call-waiting-capability";
 import type { CallSessionResolvedEvent } from "@/lib/community-messenger/call-event-message";
 import {
   canEndActiveCallForPresenceStale,
@@ -677,6 +683,8 @@ type CallSessionRow = {
   created_at: string | null;
   chat_domain?: string | null;
   domain_identity_key?: string | null;
+  /** 대기 통화로 울린 세션 (20261115075522) */
+  waiting?: boolean | null;
 };
 
 type CallSignalRow = {
@@ -1139,6 +1147,80 @@ async function userHasLiveDirectCallSessionOutsideRoom(
   return Boolean(trimText((data as { id?: string } | null)?.id ?? ""));
 }
 
+/** WS5 — 이 세션 말고 연결된(active) 1:1 통화가 있는가. */
+async function userHasOtherActiveDirectCallSession(
+  sb: SupabaseLike,
+  userId: string,
+  exceptSessionId: string
+): Promise<boolean> {
+  const u = trimText(userId);
+  if (!u) return false;
+  const { data } = await (sb as any)
+    .from("community_messenger_call_sessions")
+    .select("id")
+    .eq("session_mode", "direct")
+    .eq("status", "active")
+    .or(`initiator_user_id.eq.${u},recipient_user_id.eq.${u}`)
+    .neq("id", trimText(exceptSessionId))
+    .limit(1)
+    .maybeSingle();
+  return Boolean(trimText((data as { id?: string } | null)?.id ?? ""));
+}
+
+/**
+ * 대기 통화 판정(WS1·WS2 · docs/audit/call-waiting-stage2-design-2026-11-15.md): 받는 사람의 다른 방 live 통화와 기기 조건.
+ * - live 없음 → 평소 발신
+ * - live 가 연결된 통화 1건 + 기기 조건 충족 → 대기 통화로 울림(waiting=true)
+ * - 그 밖 → 1단계 peer_busy(통화 중 + 부재중)
+ */
+async function resolvePeerCallWaitingGate(
+  sb: SupabaseLike,
+  peerUserId: string,
+  roomId: string
+): Promise<{ busy: boolean; waiting: boolean }> {
+  const u = trimText(peerUserId);
+  const rid = trimText(roomId);
+  if (!u || !rid) return { busy: false, waiting: false };
+  const { data } = await (sb as any)
+    .from("community_messenger_call_sessions")
+    .select("id, status, answered_at, initiator_user_id, recipient_user_id, answered_device_id")
+    .eq("session_mode", "direct")
+    .neq("room_id", rid)
+    .or(`initiator_user_id.eq.${u},recipient_user_id.eq.${u}`)
+    .in("status", ["ringing", "active"])
+    .limit(5);
+  const rows = (data ?? []) as CallWaitingLiveRow[];
+  if (rows.length === 0) return { busy: false, waiting: false };
+  const live = pickCallWaitingLiveRow(rows);
+  if (!live) {
+    console.info("[cm_call] call_waiting_skipped", { peer: u.slice(0, 8), reason: "not_single_connected", live: rows.length });
+    return { busy: true, waiting: false };
+  }
+  const since = new Date(Date.now() - CALL_WAITING_DEVICE_RECENT_MS).toISOString();
+  const { data: deviceData } = await (sb as any)
+    .from("user_devices")
+    .select("device_id, platform, push_provider, app_version")
+    .eq("user_id", u)
+    .eq("is_active", true)
+    .gte("last_seen_at", since)
+    .in("push_provider", ["fcm", "apns", "voip_apns"]);
+  const decision = decideCallWaitingSupport({
+    devices: (deviceData ?? []) as CallWaitingDeviceRow[],
+    answeredDeviceIdIfRecipient: messengerUserIdsEqual(live.recipient_user_id, u)
+      ? trimText(live.answered_device_id ?? "") || null
+      : null,
+  });
+  if (!decision.ok) {
+    console.info("[cm_call] call_waiting_skipped", { peer: u.slice(0, 8), liveSessionId: live.id, reason: decision.reason });
+    return { busy: true, waiting: false };
+  }
+  console.info("[cm_call] call_waiting_allowed", { peer: u.slice(0, 8), liveSessionId: live.id, platform: decision.platform });
+  return { busy: false, waiting: true };
+}
+
+/** 대기 통화 기기 조건 — 최근 30일 안에 쓴 기기만 센다(오래된 재설치 흔적이 「여러 기기」로 잡히지 않게). */
+const CALL_WAITING_DEVICE_RECENT_MS = 30 * 24 * 60 * 60 * 1000;
+
 async function loadDirectCallSessionRowById(
   sb: SupabaseLike,
   userId: string,
@@ -1385,6 +1467,12 @@ async function filterDirectIncomingRowsForPolicy(
     for (const row of rows) {
       if (row.id === viewerLiveSessionId) continue;
       if (row.status !== "ringing") continue;
+      /**
+       * 대기 통화(WS3): 서버가 대기 통화로 울린 세션은 정리하지 않는다 — 기기가 「거절 / 종료 후 받기」로 처리하고,
+       * 응답 없으면 서버 울림 만료가 missed 로 닫는다. 목록에는 넣지 않는다(웹 수신 화면이 대기 통화를 일반 수신처럼
+       * 띄우지 않게 — 데스크톱 웹은 대기 통화 범위 밖).
+       */
+      if (row.waiting === true) continue;
       /** Busy / concurrent ringing — NOT callee_rejected (declined). */
       void updateCommunityMessengerCallSession({
         userId,
@@ -20148,6 +20236,8 @@ export type IncomingCallPushBestEffortInput = {
   callKind: CommunityMessengerCallKind;
   startedAt: string;
   domainEnvelope?: RoomDomainEnvelope | null;
+  /** 대기 통화(받는 사람이 다른 통화에 연결된 중) — 푸시 데이터 `waiting` (WS1). */
+  waiting?: boolean;
 };
 
 export async function sendIncomingCallPushBestEffort(input: IncomingCallPushBestEffortInput): Promise<void> {
@@ -20171,6 +20261,7 @@ export async function sendIncomingCallPushBestEffort(input: IncomingCallPushBest
     callerAvatar: callerProfile?.avatar_url ?? null,
     startedAt: input.startedAt,
     domainEnvelope: input.domainEnvelope ?? null,
+    waiting: input.waiting === true,
   });
 }
 
@@ -20298,7 +20389,8 @@ function resolveIncomingCallPushDispatchInput(
   session: CommunityMessengerCallSession,
   peerUserId: string | null,
   callerUserId: string,
-  domainEnvelope?: RoomDomainEnvelope | null
+  domainEnvelope?: RoomDomainEnvelope | null,
+  waiting = false
 ): IncomingCallPushBestEffortInput | null {
   if (session.sessionMode !== "direct" || session.status !== "ringing") return null;
   const recipient = trimText(peerUserId ?? session.recipientUserId ?? "");
@@ -20311,6 +20403,7 @@ function resolveIncomingCallPushDispatchInput(
     callKind: session.callKind,
     startedAt: session.startedAt,
     domainEnvelope: domainEnvelope ?? null,
+    ...(waiting ? { waiting: true } : {}),
   };
 }
 
@@ -20716,6 +20809,8 @@ export async function startCommunityMessengerCallSession(input: {
   }
 
   const tGateStart = performance.now();
+  /** 대기 통화로 울리는 세션(받는 사람이 다른 통화에 연결된 중) — WS1. */
+  let waitingCall = false;
   if (!isGroupRoom && sb && dialFresh) {
     // W6 (call-termination-authority-audit): 같은 방의 살아 있는 통화(heartbeat 생존·방금 수락)는 새 발신으로 끝내지 않는다.
     // 통화 중 같은 방 통화 버튼(웹 store 가 비어 있을 때 등)은 busy 로 거절한다. 끊긴(양쪽 heartbeat 만료) 세션 정리는 아래 그대로.
@@ -20784,15 +20879,19 @@ export async function startCommunityMessengerCallSession(input: {
             callDomainEnvelope,
           });
         }
-        if (peerUserId && (await userHasLiveDirectCallSessionOutsideRoom(sb, peerUserId, roomId))) {
-          return rejectStartCallPeerBusy({
-            userId: input.userId,
-            roomId,
-            peerUserId,
-            callKind: input.callKind,
-            busyKind: "peer",
-            callDomainEnvelope,
-          });
+        if (peerUserId) {
+          const peerGate = await resolvePeerCallWaitingGate(sb, peerUserId, roomId);
+          if (peerGate.busy) {
+            return rejectStartCallPeerBusy({
+              userId: input.userId,
+              roomId,
+              peerUserId,
+              callKind: input.callKind,
+              busyKind: "peer",
+              callDomainEnvelope,
+            });
+          }
+          waitingCall = peerGate.waiting;
         }
       } else {
         const callerBusy = await userHasLiveDirectCallSession(sb, input.userId);
@@ -20807,8 +20906,8 @@ export async function startCommunityMessengerCallSession(input: {
           });
         }
         if (peerUserId) {
-          const peerBusy = await userHasLiveDirectCallSession(sb, peerUserId);
-          if (peerBusy) {
+          const peerGate = await resolvePeerCallWaitingGate(sb, peerUserId, roomId);
+          if (peerGate.busy) {
             return rejectStartCallPeerBusy({
               userId: input.userId,
               roomId,
@@ -20818,6 +20917,7 @@ export async function startCommunityMessengerCallSession(input: {
               callDomainEnvelope,
             });
           }
+          waitingCall = peerGate.waiting;
         }
       }
     }
@@ -20851,6 +20951,7 @@ export async function startCommunityMessengerCallSession(input: {
       chat_domain: callDomainEnvelope.chatDomain,
       domain_identity_key: callDomainEnvelope.domainIdentityKey,
       ...(clientAttemptId && !isGroupRoom ? { client_attempt_id: clientAttemptId } : {}),
+      ...(waitingCall && !isGroupRoom ? { waiting: true } : {}),
     };
     const { data, error } = await (sb as any)
       .from("community_messenger_call_sessions")
@@ -20972,7 +21073,8 @@ export async function startCommunityMessengerCallSession(input: {
                 mappedSession,
                 peerUserId,
                 input.userId,
-                callDomainEnvelope
+                callDomainEnvelope,
+                waitingCall
               )
             : null,
       };
@@ -22132,6 +22234,18 @@ export async function updateCommunityMessengerCallSession(input: {
           }).catch(() => null);
           return { ok: false, error: acceptGate.error };
         }
+        /**
+         * WS5 (docs/audit/call-waiting-stage2-design-2026-11-15.md): 같은 사람의 1:1 통화 두 개가 동시에 연결되지 않게 한다.
+         * 대기 통화 「종료 후 받기」는 기기가 기존 통화를 먼저 끝낸 뒤 accept 하므로 정상 경로는 막히지 않는다.
+         * 끊긴(heartbeat 만료) 통화가 남아 막지 않도록 먼저 정리 후 다시 본다.
+         */
+        if (session.session_mode !== "group" && (await userHasOtherActiveDirectCallSession(sb, input.userId, sessionId))) {
+          await reconcileUserLiveCallSessions(input.userId, "accept_other_active_guard").catch(() => null);
+          if (await userHasOtherActiveDirectCallSession(sb, input.userId, sessionId)) {
+            console.info("[cm_call] accept_blocked_other_active", { sessionId, user: input.userId.slice(0, 8) });
+            return { ok: false, error: "other_call_active" };
+          }
+        }
       }
       const requestDeviceId = normalizeAnswerClaimDeviceId(input.answeredDeviceId);
       if (input.action === "accept" && messengerUserIdsEqual(session.recipient_user_id, input.userId)) {
@@ -22758,7 +22872,7 @@ export async function listIncomingCommunityMessengerCallSessionsResult(
       const { data: directRows, error: directError } = await (sb as any)
         .from("community_messenger_call_sessions")
         .select(
-          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
+          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at, waiting"
         )
         .eq("recipient_user_id", userId)
         .eq("session_mode", "direct")

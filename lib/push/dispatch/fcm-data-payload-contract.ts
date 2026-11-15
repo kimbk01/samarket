@@ -284,6 +284,8 @@ export function buildFcmDataFields(
           fields.mediaType = fields.callType;
           fields.kind = callKind;
         }
+        // 대기 통화(WS1) — Android `FcmPayloadResolver.isCallWaitingFlag`·iOS `VoIPPushRegistry.callWaitingFlag` 가 "true" 를 읽는다.
+        if (meta && (meta.waiting === true || meta.waiting === "true")) fields.waiting = "true";
         fields.tag = `samarket-incoming-call-${sessionId}`;
       }
       break;

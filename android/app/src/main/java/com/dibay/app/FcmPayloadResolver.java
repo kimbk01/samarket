@@ -101,7 +101,20 @@ public final class FcmPayloadResolver {
         ringtoneUrl,
         soundAssetId,
         ringtonePolicy,
-        null);
+        null)
+        .withWaiting(isCallWaitingFlag(data));
+  }
+
+  /**
+   * 대기 통화 표시 (docs/audit/call-waiting-stage2-design-2026-11-15.md WA1). FCM data 값은 문자열이라
+   * "true" / "1" 만 참. 서버가 보내기 전에는 항상 false → 기존 동작 그대로.
+   */
+  static boolean isCallWaitingFlag(Map<String, String> data) {
+    if (data == null) return false;
+    String raw = firstNonEmpty(data.get("waiting"), data.get("callWaiting"), data.get("call_waiting"));
+    if (raw == null) return false;
+    String v = raw.trim();
+    return "true".equalsIgnoreCase(v) || "1".equals(v);
   }
 
   public static boolean isExpired(Map<String, String> data) {
@@ -401,6 +414,8 @@ final class IncomingCallPayload {
   /** SSOT: custom | default | silent — never treat URL-null alone as silent. */
   final String ringtonePolicy;
   final String invalidReason;
+  /** 대기 통화(받는 사람이 다른 통화에 연결된 중) — WA1. 기본 false. */
+  final boolean waiting;
 
   IncomingCallPayload(
       String callId,
@@ -476,6 +491,41 @@ final class IncomingCallPayload {
       String soundAssetId,
       String ringtonePolicy,
       String invalidReason) {
+    this(
+        callId,
+        roomId,
+        callerId,
+        callerName,
+        callerAvatarUrl,
+        callType,
+        expiresAt,
+        title,
+        body,
+        callSoundEventKey,
+        ringtoneUrl,
+        soundAssetId,
+        ringtonePolicy,
+        invalidReason,
+        false);
+  }
+
+  IncomingCallPayload(
+      String callId,
+      String roomId,
+      String callerId,
+      String callerName,
+      String callerAvatarUrl,
+      String callType,
+      String expiresAt,
+      String title,
+      String body,
+      String callSoundEventKey,
+      String ringtoneUrl,
+      String soundAssetId,
+      String ringtonePolicy,
+      String invalidReason,
+      boolean waiting) {
+    this.waiting = waiting;
     this.callId = callId;
     this.roomId = roomId;
     this.callerId = callerId;
@@ -515,6 +565,27 @@ final class IncomingCallPayload {
         ringtoneUrl,
         soundAssetId,
         ringtonePolicy,
-        invalidReason);
+        invalidReason,
+        waiting);
+  }
+
+  IncomingCallPayload withWaiting(boolean nextWaiting) {
+    if (nextWaiting == waiting) return this;
+    return new IncomingCallPayload(
+        callId,
+        roomId,
+        callerId,
+        callerName,
+        callerAvatarUrl,
+        callType,
+        expiresAt,
+        title,
+        body,
+        callSoundEventKey,
+        ringtoneUrl,
+        soundAssetId,
+        ringtonePolicy,
+        invalidReason,
+        nextWaiting);
   }
 }
