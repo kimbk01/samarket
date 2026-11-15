@@ -194,3 +194,9 @@ iPad 실기 전부 · 맥 음성 발신 · 회색 막대 원인 · + 첨부 시�
 - iPhone·iPad: 값 true → 기존 CallKit 발신 그대로(코드 경로 무변경).
 - 맥에서 잃는 것: 맥 시스템 통화 표시(FaceTime UI·통화 기록) — 지금도 FaceTime 이 즉시 종료되어 표시되지 않음.
 - 검증: 맥→삼성 음성·영상 발신·수락·맥 종료·삼성 종료·삼성 거절·벨 중 맥 취소·무응답·재발신, iPhone 발신 회귀 1회 이상. 로그 기준 `Disconnecting all calls` 0건.
+
+### D3-2 구현 기록 (Owner 「D3-2 승인」)
+- `DibayCallPlatformCapability.supportsCallKitCallUi` 추가(맥 false) · 시작 기록에 `callkit_call_ui` 포함.
+- `CallKitProvider.reportOutgoingCallStarted` — false 면 `ios_callkit_outgoing_report_skipped` 기록 후 반환(추적 맵 미기록).
+- 영향 재확인: `reportCallEnded`/`endCallKitSession` 은 추적 안 된 UUID 에도 기존과 같은 경로(영상 여부 값은 원래 수신 보고 때만 기록 — 발신은 iPhone 에서도 false). 음성 로컬 종료는 `hasTrackedCallKitSession == false` → `performLocalRejectOrEnd`.
+- iOS build 36 → 37 (4곳).

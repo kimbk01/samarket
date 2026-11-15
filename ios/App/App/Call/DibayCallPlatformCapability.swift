@@ -14,6 +14,7 @@ import Foundation
  *   `ios_audio_session_gate_timeout`(8초)으로 발신 실패.
  *
  * 소비처: D3 — `DibayCallAudioSessionController.registerPendingOutgoingJoin`(맥 발신 오디오 gate).
+ *         D3-2 — `CallKitProvider.reportOutgoingCallStarted`(맥 CallKit 발신 보고 생략).
  *         D2(수신·수락)는 승인 후 추가.
  */
 enum DibayCallPlatformCapability {
@@ -32,12 +33,20 @@ enum DibayCallPlatformCapability {
     !isIOSAppOnMac
   }
 
+  /// CallKit 에 통화를 보고(시스템 통화 UI)해도 되는 플랫폼인가 (iPhone · iPad = true, Mac = false).
+  /// 맥 실측(2026-11-15 12:03 PHT, build 36): `CXStartCallAction` → callservicesd 가 FaceTime 실행 →
+  /// FaceTime 이 표시할 것이 없어 즉시 종료 → `Disconnecting all calls because
+  /// wantsCallDisconnectionOnInvalidation=YES` → 앱에 `CXEndCallAction` → 음성 발신 0.9초 만에 종료.
+  static var supportsCallKitCallUi: Bool {
+    !isIOSAppOnMac
+  }
+
   static func logOnce() {
     guard !didLog else { return }
     didLog = true
     DibayCallLog.warn(
       "call_platform_capability",
-      detail: "ios_app_on_mac=\(isIOSAppOnMac) voip_push=\(supportsVoipPush) callkit_audio_activation=\(supportsCallKitAudioActivation)"
+      detail: "ios_app_on_mac=\(isIOSAppOnMac) voip_push=\(supportsVoipPush) callkit_audio_activation=\(supportsCallKitAudioActivation) callkit_call_ui=\(supportsCallKitCallUi)"
     )
   }
 
