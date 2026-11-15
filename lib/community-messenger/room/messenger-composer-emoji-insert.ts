@@ -1,5 +1,5 @@
 /**
- * K-4 — 수정 모드에서 이모지를 draft에 삽입 (전송/PATCH 없음).
+ * 이모지를 입력창 글의 커서 위치에 삽입한다(전송/PATCH 없음) — 수정 중·새 글 모두 (2026-11-16 이모지 바로 전송 정정).
  */
 
 export function insertEmojiIntoComposerText(input: {
