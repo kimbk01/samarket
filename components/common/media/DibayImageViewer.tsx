@@ -515,7 +515,11 @@ export function DibayImageViewer(props: {
                 onLoad={(ev) => {
                   const el = ev.currentTarget;
                   if (el.naturalWidth > 0) setNatural((m) => (m[i] ? m : { ...m, [i]: { w: el.naturalWidth, h: el.naturalHeight } }));
-                  setLoad((cur) => (cur.status === "loaded" ? cur : { ...cur, status: "loaded" }));
+                  const markLoaded = () => setLoad((cur) => (cur.status === "loaded" ? cur : { ...cur, status: "loaded" }));
+                  // decoding="async": the image paints only after decode, not at load. Removing the placeholder
+                  // at load left one black frame (2026-11-16 Samsung recording, 0.046s) — swap after decode.
+                  if (typeof el.decode === "function") void el.decode().then(markLoaded, markLoaded);
+                  else markLoaded();
                 }}
                 onError={() =>
                   setLoad((cur) =>
