@@ -24,6 +24,7 @@ import { logPushRegister, logPushRegisterFail } from "@/lib/push/native/native-p
 import { registerPushDeviceViaNative } from "@/lib/push/native/native-push-register-bridge";
 import { persistCanonicalDeviceIdToNative } from "@/lib/push/native/persist-canonical-device-id";
 import { dibayVoipCallPlugin } from "@/lib/push/native/dibay-voip-call-plugin";
+import { loadCallPlatformCapability } from "@/lib/call/native/call-platform-capability-client";
 
 type RegisterResult = { ok: true } | { ok: false; error: string };
 
@@ -551,19 +552,15 @@ let voipUnsupportedCleanupInflight: Promise<void> | null = null;
  * D2-1 (docs/audit/mac-ipad-call-and-bottom-bar-audit-2026-11-15.md §10): 맥(iOS 앱)은 OS 가 PushKit VoIP 를
  * 버린다. 네이티브는 PushKit 을 등록하지 않고, 여기서는 구 빌드가 남긴 「이 기기」 voip_apns 행만 끈다
  * (device_id + push_provider → 같은 회원의 iPhone·iPad VoIP 행은 유지). 능력 조회가 없는 구 바이너리는 아무것도 하지 않는다.
+ * 맥 판정은 `lib/call/native/call-platform-capability-client.ts` 한 곳에서만 읽는다(직접 플러그인 호출 금지).
  */
 async function deactivateThisDeviceVoipIfPlatformUnsupported(reason: string): Promise<void> {
   if (voipUnsupportedCleanupDone) return;
   if (voipUnsupportedCleanupInflight) return voipUnsupportedCleanupInflight;
   voipUnsupportedCleanupInflight = (async () => {
-    let voipPush: boolean | undefined;
-    try {
-      const cap = await dibayVoipCallPlugin.getCallPlatformCapability();
-      voipPush = cap?.voipPush;
-    } catch {
-      return; // 구 바이너리 — 기존 VoIP 동작 유지
-    }
-    if (voipPush !== false) return;
+    // 판정값 단일 읽기(`call-platform-capability-client`) — 구 바이너리·iPhone·iPad 는 voipPush=true(기존 동작 유지).
+    const cap = await loadCallPlatformCapability();
+    if (cap.voipPush) return;
     const deviceId = ensureClientInstanceId();
     try {
       const res = await fetch("/api/me/devices/deactivate", {

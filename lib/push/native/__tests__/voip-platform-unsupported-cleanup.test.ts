@@ -24,10 +24,17 @@ vi.mock("@/lib/auth/dibay-session-manager", () => ({
 vi.mock("@/lib/push/native/dibay-voip-call-plugin", () => ({
   dibayVoipCallPlugin: {
     replayLastVoipToken: async () => ({ ok: true }),
-    getCallPlatformCapability: async () => {
-      if (h.capabilityThrows) throw new Error("not implemented");
-      return h.capability ?? {};
-    },
+  },
+}));
+/** 맥 판정은 단일 모듈(`call-platform-capability-client`)로만 읽는다 — 구 바이너리는 기본값(voipPush=true). */
+vi.mock("@/lib/call/native/call-platform-capability-client", () => ({
+  loadCallPlatformCapability: async () => {
+    if (h.capabilityThrows) return { iosAppOnMac: false, voipPush: true, callKitCallUi: true };
+    return {
+      iosAppOnMac: h.capability?.voipPush === false,
+      voipPush: h.capability?.voipPush !== false,
+      callKitCallUi: h.capability?.voipPush !== false,
+    };
   },
 }));
 
