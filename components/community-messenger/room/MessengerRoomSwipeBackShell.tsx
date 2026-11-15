@@ -35,6 +35,7 @@ import {
   MESSENGER_LIST_ROOM_EXIT_EASING,
   MESSENGER_LIST_ROOM_EXIT_MS,
 } from "@/lib/community-messenger/messenger-list-room-slide";
+import { POPSTATE_BEFORE_ROUTER } from "@/lib/navigation/popstate-before-router";
 
 const EDGE_HIT_PX = 18;
 const HORIZONTAL_LOCK_PX = 10;
@@ -243,8 +244,9 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
         easing: MESSENGER_LIST_ROOM_EXIT_EASING,
       });
     };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
+    /** 캡처 단계 = Next 라우터 popstate 보다 먼저 — React 19 는 popstate 이동을 같은 이벤트 안에서 바로 반영해, 뒤에 등록된 리스너는 이미 바뀐 화면을 보거나(방향 판정 늦음) 언마운트로 제거돼 불리지 않는다 (Xiaomi 계측 2026-11-15, `lib/navigation/popstate-before-router.ts`) */
+    window.addEventListener("popstate", onPopState, POPSTATE_BEFORE_ROUTER);
+    return () => window.removeEventListener("popstate", onPopState, POPSTATE_BEFORE_ROUTER);
   }, [reducedMotion, roomId, splitPaneMode]);
 
   const requestAnimatedBack = useCallback(() => {

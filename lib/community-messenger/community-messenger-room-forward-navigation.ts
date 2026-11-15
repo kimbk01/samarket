@@ -50,6 +50,7 @@ import {
   isRoomEntryInFlight,
   markRoomEntryIntent,
 } from "@/lib/community-messenger/room/messenger-room-entry-intent";
+import { POPSTATE_BEFORE_ROUTER } from "@/lib/navigation/popstate-before-router";
 
 export type CommunityMessengerRoomForwardNavArgs = {
   router: AppRouterInstance;
@@ -184,7 +185,7 @@ function disarmRoomEntryAbortOnBack(): void {
   if (!w) return;
   roomEntryAbortWatch = null;
   clearTimeout(w.timer);
-  if (typeof window !== "undefined") window.removeEventListener("popstate", w.onPop);
+  if (typeof window !== "undefined") window.removeEventListener("popstate", w.onPop, POPSTATE_BEFORE_ROUTER);
 }
 
 function isAtRoom(roomId: string): boolean {
@@ -220,7 +221,7 @@ export function armRoomEntryAbortOnBack(roomId: string): void {
   };
   const timer = setTimeout(disarmRoomEntryAbortOnBack, ROOM_ENTRY_ABORT_WATCH_MS);
   roomEntryAbortWatch = { roomId, onPop, timer };
-  window.addEventListener("popstate", onPop);
+  window.addEventListener("popstate", onPop, POPSTATE_BEFORE_ROUTER);
 }
 
 /** 방 화면이 그려졌으면(방이 자기 뒤로를 처리) 감시를 끈다 */
