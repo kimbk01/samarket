@@ -1,4 +1,5 @@
 import {
+  DIBAY_SERVICE_BRAND_ICON_OUTLINE_PATH,
   DIBAY_SERVICE_BRAND_ICON_PATH,
   DIBAY_SERVICE_BRAND_ICON_VIEWBOX,
   type DibayServiceBrandId,
@@ -9,13 +10,15 @@ type ServiceBrandIconProps = {
   className?: string;
   /** 숫자면 width·height 속성. 보통은 className(CSS)으로 크기를 정한다. */
   size?: number;
+  /** 기본 채움. 하단 탭 비선택만 외곽선(Owner 2026-11-15 「네이버형 채움↔외곽선」). */
+  variant?: "fill" | "outline";
 };
 
 /**
  * 서비스 대표 아이콘 — 단 하나의 그리는 곳 (`lib/brand/dibay-service-brand.ts`).
  * 채움 단색(`currentColor`) — 선 두께 없음.
  */
-export function ServiceBrandIcon({ brand, className, size }: ServiceBrandIconProps) {
+export function ServiceBrandIcon({ brand, className, size, variant = "fill" }: ServiceBrandIconProps) {
   return (
     <svg
       className={className}
@@ -25,8 +28,9 @@ export function ServiceBrandIcon({ brand, className, size }: ServiceBrandIconPro
       fill="currentColor"
       aria-hidden
       data-service-brand-icon={brand}
+      data-service-brand-icon-variant={variant}
     >
-      <path d={DIBAY_SERVICE_BRAND_ICON_PATH[brand]} />
+      <path d={variant === "outline" ? DIBAY_SERVICE_BRAND_ICON_OUTLINE_PATH[brand] : DIBAY_SERVICE_BRAND_ICON_PATH[brand]} />
     </svg>
   );
 }
@@ -37,6 +41,7 @@ export function ServiceBrandIcon({ brand, className, size }: ServiceBrandIconPro
  */
 export type ServiceBrandIconSlotProps = {
   className?: string;
+  variant?: "fill" | "outline";
   strokeWidth?: number | string;
   "aria-hidden"?: boolean | "true" | "false";
 };
@@ -46,8 +51,8 @@ const SLOT_CACHE = new Map<DibayServiceBrandId, (p: ServiceBrandIconSlotProps) =
 export function serviceBrandIconSlot(brand: DibayServiceBrandId): (p: ServiceBrandIconSlotProps) => React.JSX.Element {
   const hit = SLOT_CACHE.get(brand);
   if (hit) return hit;
-  function BrandSlotIcon({ className }: ServiceBrandIconSlotProps) {
-    return <ServiceBrandIcon brand={brand} className={className} />;
+  function BrandSlotIcon({ className, variant }: ServiceBrandIconSlotProps) {
+    return <ServiceBrandIcon brand={brand} className={className} variant={variant} />;
   }
   BrandSlotIcon.displayName = `ServiceBrandIcon(${brand})`;
   SLOT_CACHE.set(brand, BrandSlotIcon);

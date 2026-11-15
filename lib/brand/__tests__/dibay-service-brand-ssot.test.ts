@@ -138,9 +138,9 @@ describe("대표 아이콘 SSOT", () => {
   });
 });
 
-describe("하단 탭 선택 상태 (텔레그램형)", () => {
+describe("하단 탭 선택 상태 (텔레그램형 바·토큰 + 계약 v2 채움↔외곽선)", () => {
   const css = read("app/app-bottom-nav.css");
-  const start = css.indexOf("텔레그램형 하단 탭 (Owner 최종 승인 2026-11-13");
+  const start = css.indexOf("메인 하단 탭 (텔레그램형 바·토큰 2026-11-13");
   const block = css.slice(start, css.indexOf("/* 채팅·허브 배지", start));
 
   it("26px 고정 · 선택 = #0B421A(--dibay-green) · 비선택 = --sam-icon-soft · 배경 없음 · 10px/500", () => {
@@ -160,6 +160,17 @@ describe("하단 탭 선택 상태 (텔레그램형)", () => {
     expect(block).toMatch(/\[data-app-bottom-nav\] \.app-bottom-nav-item:active \{\n {2}opacity: 0\.55;/);
     // 축소(scale)는 사장님 하단 바 전용
     expect(css).toMatch(/:where\(\.app-bottom-nav-shell:not\(\[data-app-bottom-nav\]\)\) \.app-bottom-nav-item:active \{\n {2}transform: scale\(0\.97\);/);
+  });
+
+  it("계약 v2 — 선택 = 채움 · 비선택 = 외곽선(같은 Phosphor Regular 짝) · 바뀌는 순간 애니메이션 없음", () => {
+    const icon = read("components/main-menu/MainBottomNavTabIcon.tsx");
+    expect(icon).toContain('variant={selected === false ? "outline" : "fill"}');
+    expect(read("components/layout/BottomNav.tsx")).toContain("selected={isActive}");
+    const brand = read("lib/brand/dibay-service-brand.ts");
+    for (const n of ["PiHouse", "PiUsersThree", "PiShoppingBag", "PiMoped", "PiChatsCircle", "PiUserCircle"]) {
+      expect(brand).toContain(`"${n}"`);
+    }
+    expect(block).toMatch(/\[data-app-bottom-nav\] \.app-bottom-nav-item,[\s\S]*?transition: none;/);
   });
 
   it("탭 칸 높이 48px (터치 44px 이상) · 접근성 선택 상태 aria-current", () => {

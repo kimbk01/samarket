@@ -742,6 +742,21 @@ export function AppRouteTransition({
           return undefined;
         }
 
+        /**
+         * 하단 탭 = 어디서 누르든 즉시 교체 하나 (계약 v2 · Owner 2026-11-15 「네이버형」·설계서 §5-2).
+         * 허브에서·상세 화면에서·메신저에서 누른 경우 모두 슬라이드·방향·배달 120ms 없이 끝낸다. 화면은 손 뗀 프레임에
+         * 하단 탭 컨트롤러가 이미 보관 화면·뼈대로 바꿔 두었다. 활성 허브 세션도 여기서 끝낸다.
+         */
+        if (pendingMenuIntent?.source === "bottom-nav") {
+          setMypageStackMotionOnSurface(el, null);
+          setDeliveryStackMotionOnSurface(el, null);
+          forceMainHubSurfaceCleanup(el);
+          if (activeHub && isMainHubTransitionGenerationActive(activeHub.generation)) {
+            finalizeMainHubTransition(activeHub.generation);
+          }
+          return undefined;
+        }
+
         if (el && !prefersReducedMotion()) {
           if (activeHub && isMainHubTransitionGenerationActive(activeHub.generation)) {
             const settle = settleMainHubTransitionOnPathname(activeHub.generation, pathKey);

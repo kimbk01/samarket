@@ -15,6 +15,7 @@ import {
   saveAppScroll,
   scrollAppToTop,
 } from "@/lib/navigation/app-scroll-memory";
+import { isBottomNavShowing } from "@/lib/main-menu/bottom-nav-controller";
 
 const SAVE_THROTTLE_MS = 150;
 
@@ -70,6 +71,8 @@ export function AppScrollMemory() {
     const saveNow = () => {
       const k = activeKeyRef.current;
       if (!k) return;
+      /** 하단 탭 즉시 교체 중에는 화면에 다른 탭(보관 화면·뼈대)이 보인다 — 이전 화면 키로 저장하지 않는다 */
+      if (isBottomNavShowing()) return;
       lastAt = Date.now();
       saveAppScroll(k, captureAppScroll(getAppScrollRoot()));
     };

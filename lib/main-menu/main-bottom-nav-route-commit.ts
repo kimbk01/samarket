@@ -3,11 +3,7 @@ import type {
   MenuNavigationSource,
 } from "@/contexts/LatestMenuNavigationContext";
 import { computeMainBottomNavPushAxis } from "@/lib/navigation/compute-main-bottom-nav-push-axis";
-import {
-  isCrossMainShellRouteGroup,
-  armMainShellPushEnterSession,
-  pathFromHref,
-} from "@/lib/navigation/main-shell-push-session";
+import { pathFromHref } from "@/lib/navigation/main-shell-push-session";
 import { setMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
 import { scrollAppShellToTop } from "@/lib/layout/scroll-app-shell-to-top";
 import { markAppScrollNavIntent } from "@/lib/navigation/app-scroll-memory";
@@ -28,8 +24,13 @@ import {
   navPerfSetOptimisticTotalMs,
 } from "@/lib/navigation/nav-perf-browser";
 import { guardedClientNavigate } from "@/lib/navigation/guarded-client-navigation";
-import { isDeepRouteNavigationLockActive } from "@/lib/navigation/cm-deep-route-navigation-lock";
 import { resolveCommunityBottomNavEntryHref } from "@/lib/community/community-hub-state";
+import {
+  beginBottomNavShowing,
+  failBottomNavShowing,
+  parseBottomNavTarget,
+} from "@/lib/main-menu/bottom-nav-controller";
+import { clearPendingMenuNavigationBridge } from "@/lib/navigation/pending-menu-navigation-bridge";
 
 /**
  * BottomNav MAIN DOMAIN history SSOT.
@@ -37,14 +38,6 @@ import { resolveCommunityBottomNavEntryHref } from "@/lib/community/community-hu
  * room/call = stack **push**. DO NOT push hub↔hub (history tangle / Back ≠ hub).
  */
 export const BOTTOM_NAV_HISTORY_MODE = "replace" as const;
-
-/** @deprecated use BOTTOM_NAV_HISTORY_MODE — always replace for hub tabs */
-export function mainBottomNavRouteUsesReplace(
-  _pathname: string | null,
-  _targetHref: string
-): boolean {
-  return true;
-}
 
 /** 하단·다이얼 공통 — 이미 **동일 경로+쿼리**면 스크롤만. 하위 경로→허브 루트는 이동.
  * Slice 2 Authority: `/mypage` 더블탭 My → scroll_only (`isMypageDomainHubPath` + 본 함수).
@@ -85,10 +78,11 @@ export type MainBottomNavRouteCommitArgs = {
     href: string,
     source?: MenuNavigationSource,
     options?: BeginMenuNavigationOptions
-  ) => void;
+  ) => { id: number } | void;
   onNavigationIntent: (tabId: string) => void;
   guardBeforeNavigate: (nextHref?: string) => boolean;
-  push: (href: string) => void;
+  /** @deprecated 허브 탭 이력은 replace 만(`BOTTOM_NAV_HISTORY_MODE`). 호출처 호환용으로만 받는다 */
+  push?: (href: string) => void;
   replace: (href: string) => void;
   prefetch?: (href: string) => void;
   onPrewarm?: () => void;
@@ -101,21 +95,22 @@ export type MainBottomNavRouteCommitArgs = {
   /** perf 마커 — 다이얼은 overlay에서 click start 후 호출 가능 */
   skipPerfMark?: boolean;
   /**
-   * 이동이 실제로 나가지 못했을 때(deep route 잠금 등 `guardedClientNavigate` 거부) — 하단 탭 선택 표시 되돌리기용.
-   * 재감사(2026-11-10): 선택 표시를 1.5초 고정 시간으로 되돌리지 않고 「이동 완료 또는 실패」에서만 되돌린다.
+   * 이동이 실제로 나가지 못했을 때(`guardedClientNavigate` 거부) 알림. 하단 탭 선택 표시는 컨트롤러가 되돌린다.
    */
   onNavigationBlocked?: () => void;
+  /**
+   * 메인 하단 탭(BottomNav)만 true — 하단 탭 컨트롤러(`bottom-nav-controller`)로 선택 표시·화면 교체를 시작한다
+   * (계약 v2 · Owner 2026-11-15). 배달 다이얼 등 다른 진입은 false.
+   */
+  showOnBottomNavController?: boolean;
+  /**
+   * 누른 뒤 기다림(await)을 거쳐 나중에 실행되는 커밋 — 예: 채팅 탭 로그인 확인 뒤. 그 사이 방·통화 진입이 시작됐으면
+   * 잠금이 이긴다(`bottom_nav_async`). 손 뗀 그 자리에서 바로 나가는 커밋(기본)은 `bottom_nav_explicit` — 사용자 탭이 잠금을 푼다.
+   */
+  deferredAfterAwait?: boolean;
 };
 
 export type MainBottomNavRouteCommitResult = "scroll_only" | "blocked" | "navigated";
-
-/**
- * 허브 동기 이동형 — 하단 탭은 **허브 간 동기 replace/push** 만.
- * 방·통화(deep route)는 room_forward/call_launch 가 stack 을 소유; async tab replace 금지.
- */
-export function abortPendingMainBottomNavRouteCommits(): void {
-  /* sync hub commit — stale async navigation 없음. room/call 진입 훅 호환용 no-op */
-}
 
 /**
  * CONTRACT — 하단 탭·배달 홈·다이얼 칩 **단일 이동 커밋**.
@@ -148,26 +143,35 @@ export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): Ma
   if (isStoresBrowseHubPath(fromPath) && !isStoresSurfacePath(normalizedTargetPath)) {
     abortStoresBrowseAmbientPrewarm("bottom_nav_route_commit");
   }
-  const crossGroup = Boolean(pushAxis && isCrossMainShellRouteGroup(fromPath, targetPath));
   setMainShellPushAxisIntent(pushAxis, targetPath);
-
-  if (crossGroup) {
-    armMainShellPushEnterSession(pushAxis!, fromPath, targetPath);
-  }
 
   /** 스크롤 SSOT (2026-11-03): 같은 탭 하위 화면에서 누름 = 그 탭 최상위 맨 위(P3) · 다른 탭으로 = 그 탭 마지막 위치 복원(P2) */
   markAppScrollNavIntent(isBottomNavTabActive(commitArgs.pathname, commitArgs.href) ? "tab-reselect" : "tab-switch");
+  /**
+   * 하단 탭 컨트롤러 — 손 뗀 순간 선택 표시·화면 교체 시작. 같은 경로(쿼리만 다름: 커뮤니티 복원 등)는 화면 교체가 없으므로
+   * 시작하지 않는다(경로가 바뀌지 않아 확정 신호가 오지 않음).
+   */
+  const controllerId =
+    commitArgs.showOnBottomNavController && parseBottomNavTarget(commitArgs.href).path !== fromPath
+      ? beginBottomNavShowing({ tabId: commitArgs.tabId, href: commitArgs.href })
+      : null;
   commitArgs.onNavigationIntent(commitArgs.tabId);
-  commitArgs.beginMenuNavigation(commitArgs.href, "bottom-nav", {
+  const intent = commitArgs.beginMenuNavigation(commitArgs.href, "bottom-nav", {
     mainShellPushAxis: pushAxis,
-    ...(crossGroup ? { mainShellCrossGroupPush: true } : {}),
   });
 
-  commitMainBottomNavRouteNavigateSync(commitArgs);
+  const sent = commitMainBottomNavRouteNavigateSync(commitArgs);
+  if (!sent) {
+    /** 거부 — 컨트롤러·메뉴 의도를 같은 기준으로 함께 되돌린다(기다림 상태 하나) */
+    if (controllerId != null) failBottomNavShowing(controllerId);
+    clearPendingMenuNavigationBridge(intent ? intent.id : undefined);
+    commitArgs.onNavigationBlocked?.();
+    return "blocked";
+  }
   return "navigated";
 }
 
-function commitMainBottomNavRouteNavigateSync(args: MainBottomNavRouteCommitArgs): void {
+function commitMainBottomNavRouteNavigateSync(args: MainBottomNavRouteCommitArgs): boolean {
   if (args.persistMessengerOriginFromHref) {
     try {
       const u = new URL(args.href, "https://samarket.local");
@@ -194,12 +198,18 @@ function commitMainBottomNavRouteNavigateSync(args: MainBottomNavRouteCommitArgs
       /* noop */
     }
   }
-  /** deep route 진입 창 — hub 탭이 lock 을 bottom_nav_explicit 로 덮지 않게 */
-  const navSource = isDeepRouteNavigationLockActive() ? "bottom_nav_async" : "bottom_nav_explicit";
-  const sent = mainBottomNavRouteUsesReplace(args.pathname, args.href)
-    ? guardedClientNavigate(args.replace, args.href, navSource, { fromHref })
-    : guardedClientNavigate(args.push, args.href, navSource, { fromHref });
-  if (!sent) args.onNavigationBlocked?.();
+  /**
+   * 사용자가 손 뗀 자리에서 바로 나가는 하단 탭 = `bottom_nav_explicit` — 방·통화 진입 잠금을 풀고 통과한다
+   * (`cm-deep-route-navigation-lock` 계약). 예전에는 잠금 중 `bottom_nav_async` 로 바꿔 보내 사용자 탭이 조용히 거부됐다
+   * (Samsung 실측 2026-11-15 12:08 `blocked_navigation`). 허브 탭 이력 = replace(`BOTTOM_NAV_HISTORY_MODE`).
+   */
+  const sent = guardedClientNavigate(
+    args.replace,
+    args.href,
+    args.deferredAfterAwait ? "bottom_nav_async" : "bottom_nav_explicit",
+    { fromHref }
+  );
+  if (!sent) return false;
 
   args.onCloseOverlay?.();
 
@@ -223,4 +233,5 @@ function commitMainBottomNavRouteNavigateSync(args: MainBottomNavRouteCommitArgs
   if (!args.skipPerfMark) {
     navPerfSetOptimisticTotalMs(performance.now() - navClickT0);
   }
+  return true;
 }

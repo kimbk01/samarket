@@ -1,11 +1,11 @@
 /**
  * @vitest-environment node
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { computeMainBottomNavPushAxis } from "@/lib/navigation/compute-main-bottom-nav-push-axis";
-import { BOTTOM_NAV_HISTORY_MODE, mainBottomNavRouteUsesReplace } from "@/lib/main-menu/main-bottom-nav-route-commit";
+import { BOTTOM_NAV_HISTORY_MODE, commitMainBottomNavRoute } from "@/lib/main-menu/main-bottom-nav-route-commit";
 import { resolveMainSurface } from "@/lib/layout/resolve-main-surface";
 import { BOTTOM_NAV_ITEMS } from "@/lib/main-menu/bottom-nav-config";
 
@@ -51,7 +51,6 @@ describe("BottomNav 5-domain SSOT cutover contract", () => {
 
   it("history mode is replace-only", () => {
     expect(BOTTOM_NAV_HISTORY_MODE).toBe("replace");
-    expect(mainBottomNavRouteUsesReplace("/market", "/stores")).toBe(true);
   });
 
   /**
@@ -60,15 +59,27 @@ describe("BottomNav 5-domain SSOT cutover contract", () => {
    * (VIEW `/philife` atop Cap `/` is Cap dual-entry, not BottomNav push.)
    */
   it("all MAIN hub transitions use replace (no push fallback)", () => {
-    const paths = MAIN_ROOTS.map(([p]) => p);
-    for (const from of paths) {
-      for (const to of paths) {
-        expect(mainBottomNavRouteUsesReplace(from, to)).toBe(true);
+    const replace = vi.fn();
+    const push = vi.fn();
+    for (const [from] of MAIN_ROOTS) {
+      for (const [to] of MAIN_ROOTS) {
+        if (from === to) continue;
+        commitMainBottomNavRoute({
+          pathname: from,
+          currentSearch: "",
+          href: to,
+          tabId: "t",
+          beginMenuNavigation: vi.fn(),
+          onNavigationIntent: vi.fn(),
+          guardBeforeNavigate: () => true,
+          push,
+          replace,
+          skipPerfMark: true,
+        });
       }
     }
-    const commit = read("lib/main-menu/main-bottom-nav-route-commit.ts");
-    expect(commit).toContain('BOTTOM_NAV_HISTORY_MODE = "replace"');
-    expect(commit).toContain("guardedClientNavigate(args.replace");
+    expect(push).not.toHaveBeenCalled();
+    expect(replace).toHaveBeenCalled();
   });
 
   it("BottomNav has no MAIN confirm popup and Chat uses commit not bare push", () => {

@@ -21,8 +21,6 @@ export const HTML_SHELL_FLAG_ATTRS = {
   bottomNavDelivery: "data-shell-bottom-nav-delivery",
   /** `html:has(.app-bottom-nav-shell--scroll-hidden)` */
   bottomNavScrollHidden: "data-shell-bottom-nav-scroll-hidden",
-  /** `html:has(.app-bottom-nav-shell :is(.app-bottom-nav-item--domain-hub, .app-bottom-nav-item--messenger-hub) .app-bottom-nav-icon-slot--domain-hub-orbit)` */
-  bottomNavOrbit: "data-shell-bottom-nav-orbit",
   /** `html:has(.app-shell[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"])` */
   desktopSideRailShell: "data-shell-desktop-side-rail",
   /** `html:has(.stores-home-hub)` */
@@ -56,15 +54,6 @@ export function syncHtmlShellFlagsFromDom(doc: Document): void {
   set("data-shell-bottom-nav-side-rail", navHas("app-bottom-nav-shell--side-rail"));
   set("data-shell-bottom-nav-delivery", navHas("app-bottom-nav-shell--delivery"));
   set("data-shell-bottom-nav-scroll-hidden", navHas("app-bottom-nav-shell--scroll-hidden"));
-  set(
-    "data-shell-bottom-nav-orbit",
-    navs.some(
-      (n) =>
-        !!n.querySelector(
-          ".app-bottom-nav-item--domain-hub .app-bottom-nav-icon-slot--domain-hub-orbit, .app-bottom-nav-item--messenger-hub .app-bottom-nav-icon-slot--domain-hub-orbit"
-        )
-    )
-  );
   set(
     "data-shell-desktop-side-rail",
     !!doc.querySelector('.app-shell[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"]')

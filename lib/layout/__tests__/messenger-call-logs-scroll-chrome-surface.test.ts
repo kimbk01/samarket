@@ -38,10 +38,10 @@ describe("messenger bottom-nav scroll hide surface", () => {
     expect(resolveBottomNavScrollHideEnabled("/community-messenger/rooms/r1", false, "")).toBe(true);
   });
 
-  it("scroll-hidden translate includes messenger orbit rise extra", () => {
+  it("scroll-hidden translate keeps the orbit-extra slot (0 — 메인 하단 탭 원형 강조는 계약 v2 에서 삭제)", () => {
     const css = readFileSync(resolve(process.cwd(), "app/app-bottom-nav.css"), "utf8");
-    expect(css).toContain("--app-bottom-nav-scroll-hide-orbit-extra");
-    expect(css).toContain("app-bottom-nav-item--messenger-hub");
+    expect(css).toContain("--app-bottom-nav-scroll-hide-orbit-extra: 0px");
+    expect(css).not.toContain("app-bottom-nav-item--messenger-hub");
     expect(css).toMatch(/\.app-bottom-nav-shell--scroll-hidden \{[\s\S]*?scroll-hide-orbit-extra/);
   });
 });

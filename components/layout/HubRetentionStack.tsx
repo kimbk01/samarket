@@ -1,9 +1,10 @@
 "use client";
 
-import { Activity, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Activity, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { LayoutRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import {
+  NavigationPromisesContext,
   PathnameContext,
   PathParamsContext,
   SearchParamsContext,
@@ -14,6 +15,14 @@ import {
   type MainTabKeepAliveHubId,
 } from "@/lib/layout/resolve-main-surface";
 import { peekHubDataEpoch } from "@/lib/http/hub-data-epoch";
+import { useBottomNavShowingTarget } from "@/lib/main-menu/use-bottom-nav-controller";
+import { BottomNavHubSkeleton } from "@/components/layout/BottomNavHubSkeleton";
+import {
+  appScrollKey,
+  readAppScroll,
+  restoreAppScroll,
+  scrollAppToTop,
+} from "@/lib/navigation/app-scroll-memory";
 import {
   allocateHubRetentionInstanceId,
   forgetHubRetentionInstance,
@@ -83,6 +92,36 @@ export function HubRetentionStack({ children }: { children: ReactNode }) {
   }, [instanceId, hiddenIdsKey]);
   useEffect(() => () => forgetHubRetentionInstance(instanceId), [instanceId]);
 
+  /**
+   * 하단 탭 즉시 교체 (계약 v2 · Owner 2026-11-15 · 설계서 §5-2): 손 뗀 프레임부터 Next 경로 확정 전까지
+   * 목표 허브가 보관돼 있으면 그 칸을 바로 보이고, 없으면(처음 여는 허브·채팅) 그 허브 뼈대를 보인다.
+   * 이전 화면(보관 칸·지금 경로 화면)은 숨긴다. 경로가 확정되면 아래 규칙(현재 경로 기준)으로 그대로 이어진다.
+   */
+  const showingTarget = useBottomNavShowingTarget();
+  const showingHub = showingTarget ? resolveMainTabKeepAliveHub(showingTarget.path) : null;
+
+  /**
+   * 즉시 교체 때 스크롤 — 보관 화면은 그 탭 마지막 위치(P2), 뼈대는 맨 위. 경로 확정 뒤 `AppScrollMemory` 가 같은 규칙으로
+   * 다시 확인한다(같은 값이라 움직이지 않음). 이동 중에는 `AppScrollMemory` 가 저장하지 않는다(이전 화면 키 오염 방지).
+   */
+  const scrollShowingId = showingTarget && showingHub != null && showingHub !== hubId ? showingTarget.id : null;
+  const scrollShowingRetained =
+    showingHub != null && HUB_RETENTION_HUB_IDS.has(showingHub) && state.entries.some((e) => e.id === showingHub);
+  useLayoutEffect(() => {
+    if (scrollShowingId == null || !showingTarget) return;
+    if (!scrollShowingRetained) {
+      scrollAppToTop();
+      return;
+    }
+    const snap = readAppScroll(appScrollKey(showingTarget.path, showingTarget.search));
+    if (!snap || snap.y <= 0) {
+      scrollAppToTop();
+      return;
+    }
+    return restoreAppScroll(snap);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 이동 1회(id)마다 한 번
+  }, [scrollShowingId]);
+
   if (!liveCtx) return <>{children}</>;
 
   const next = nextHubRetentionState(state, {
@@ -97,10 +136,19 @@ export function HubRetentionStack({ children }: { children: ReactNode }) {
   const currentRetained: MainTabKeepAliveHubId | null =
     hubId && HUB_RETENTION_HUB_IDS.has(hubId) ? hubId : null;
 
+  const showingActive = showingHub != null && showingHub !== hubId;
+  const showingRetained =
+    showingActive && HUB_RETENTION_HUB_IDS.has(showingHub) && next.entries.some((e) => e.id === showingHub);
+  const visibleRetained: MainTabKeepAliveHubId | null = showingActive
+    ? showingRetained
+      ? showingHub
+      : null
+    : currentRetained;
+
   return (
     <>
       {next.entries.map((entry) => {
-        const visible = entry.id === currentRetained;
+        const visible = entry.id === visibleRetained;
         /** 보이는 칸: 같은 주소로 돌아온 직후면 떠나기 직전 정보(다시 만들지 않음), 그 밖에는 현재 정보 — `nextHubRetentionState` */
         return (
           <Activity key={`hub:${next.accountGeneration}:${entry.id}`} mode={visible ? "visible" : "hidden"}>
@@ -112,7 +160,12 @@ export function HubRetentionStack({ children }: { children: ReactNode }) {
        * 허브가 아닌 화면(글·매장·대화방 등)은 계정 세대를 key 에 넣지 않는다 — 그 화면에서 로그인·로그아웃해도
        * 주소가 그대로면 화면(스크롤·작성 중 내용)을 유지한다(D1 이전과 같음). 계정 세대는 보관 허브 칸에만 쓴다.
        */}
-      {currentRetained ? null : <LiveRouteSlot key="live">{children}</LiveRouteSlot>}
+      {currentRetained ? null : (
+        <Activity key="live" mode={showingActive ? "hidden" : "visible"}>
+          <LiveRouteSlot>{children}</LiveRouteSlot>
+        </Activity>
+      )}
+      {showingActive && !showingRetained && showingHub ? <BottomNavHubSkeleton hub={showingHub} /> : null}
     </>
   );
 }
@@ -121,6 +174,11 @@ function sameRouterAddress(a: RouterCtx, b: RouterCtx): boolean {
   return a.pathname === b.pathname && (a.searchParams?.toString() ?? "") === (b.searchParams?.toString() ?? "");
 }
 
+/**
+ * Next 16.1.7 개발 모드의 `usePathname`·`useSearchParams` 는 `NavigationPromisesContext`(Suspense 계측)를 먼저 읽어
+ * 고정한 주소를 무시한다(운영 빌드는 읽지 않음). 보관 칸에서는 null 로 공급해 개발에서도 운영과 같은 고정 주소를 읽게 한다 —
+ * 개발 서버에서 숨긴 내정보 비회원 문지기가 다른 탭 주소를 보고 `/mypage?next=` 로 되돌리던 현상(2026-11-15 확인).
+ */
 function FrozenRouterContexts({ ctx, children }: { ctx: RouterCtx; children: ReactNode }) {
   return (
     <LayoutRouterContext.Provider value={ctx.layout}>
