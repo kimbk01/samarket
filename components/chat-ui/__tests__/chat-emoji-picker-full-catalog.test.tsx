@@ -68,6 +68,16 @@ describe("검색 (O5 ko·en)", () => {
     expect(searchEmojiItems(items, [searchKo, searchEn], "따봉").map((x) => x.e)).toContain("👍");
     expect(searchEmojiItems(items, [searchKo, searchEn], "thumbs").map((x) => x.e)).toContain("👍");
   });
+  it("기기 버전으로 거른 목록에서도 검색이 맞는 이모지를 찾는다(2026-11-16 실기: 「thumbs」에 👍 빠짐)", () => {
+    const filtered = filterEmojiItemsByVersion(items, 14);
+    expect(filtered.length).toBeLessThan(items.length);
+    const hits = searchEmojiItems(filtered, [searchKo, searchEn], "thumbs").map((x) => x.e);
+    expect(hits).toContain("👍");
+    expect(hits).toContain("👎");
+    expect(hits).not.toContain("✊");
+    expect(searchEmojiItems(filtered, [searchKo, searchEn], "따봉").map((x) => x.e)).toEqual(["👍"]);
+  });
+
   it("「하트」 검색은 하트 여러 개, 공백만이면 0", () => {
     expect(searchEmojiItems(items, [searchKo], "하트").length).toBeGreaterThan(5);
     expect(searchEmojiItems(items, [searchKo], "   ")).toHaveLength(0);
@@ -83,7 +93,7 @@ describe("기기 버전 판정 (O6)", () => {
       width: () => 32,
     });
     expect(v).toBe(14);
-    const items = catalog.items.map(([e, c, ver]) => ({ e, c, v: ver }) as EmojiItem);
+    const items = catalog.items.map(([e, c, ver], i) => ({ e, c, v: ver, i }) as EmojiItem);
     const kept = filterEmojiItemsByVersion(items, v);
     expect(kept.every((x) => x.v <= 14)).toBe(true);
     expect(kept.length).toBeLessThan(items.length);
@@ -97,7 +107,7 @@ describe("기기 버전 판정 (O6)", () => {
   });
   it("판정 불가(캔버스 없음)면 거르지 않는다", () => {
     expect(detectMaxSupportedEmojiVersion(sentinels, null)).toBeNull();
-    expect(filterEmojiItemsByVersion([{ e: "🫠", c: 0, v: 14 }], null)).toHaveLength(1);
+    expect(filterEmojiItemsByVersion([{ e: "🫠", c: 0, v: 14, i: 0 }], null)).toHaveLength(1);
   });
 });
 
@@ -111,8 +121,8 @@ describe("최근·피부색", () => {
     expect(readRecentEmojis()).toHaveLength(EMOJI_RECENT_MAX);
   });
   it("피부색 적용", () => {
-    expect(emojiWithSkinTone({ e: "👍", c: 0, v: 0.6, s: ["👍🏻", "👍🏼", "👍🏽", "👍🏾", "👍🏿"] }, 3)).toBe("👍🏽");
-    expect(emojiWithSkinTone({ e: "😀", c: 0, v: 1 }, 3)).toBe("😀");
+    expect(emojiWithSkinTone({ e: "👍", c: 0, v: 0.6, s: ["👍🏻", "👍🏼", "👍🏽", "👍🏾", "👍🏿"], i: 0 }, 3)).toBe("👍🏽");
+    expect(emojiWithSkinTone({ e: "😀", c: 0, v: 1, i: 0 }, 3)).toBe("😀");
   });
 });
 
