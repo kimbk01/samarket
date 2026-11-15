@@ -136,3 +136,15 @@ Dialer 와 같이 「통화가 하나도 없을 때만 통화 화면을 닫는�
 - B2-2: 런타임이 이어받기 시작을 실제로 했는지 presenter 에 알리고(`markHandoverLaunched`), promote 뒤 시작하지 않았으면 남겨 둔 화면을 즉시 닫는다(5초 대기 제거) — 어떤 이유로든 이어받기를 못 하면 기존 동작(바로 닫고 백그라운드 경로)과 같아진다.
 - 바뀌는 파일: 음성·영상 런타임(조건·표시), NativeCallWaitingPresenter, 계약 테스트. Android versionCode 59. 서버·웹·iOS 무변경.
 - 실기: T7 잠금 화면 이어받기(홈·heads-up 0), T1·T2 회귀, T8 그대로.
+
+## 7. B2 결과 (Owner 「B2 구현 승인」 2026-11-15)
+- PR #333 → main `f0510bbdb` (Android versionCode 59). Samsung 1.2.7 (59) 설치 23:39 PHT.
+- 기기 조율: 이미지 감사 세션이 알린 Samsung Google 「로그인 시도 확인」 창(23:39~)은 59 설치·DIBAY 실행 뒤 창 목록에서 사라짐 — 버튼은 누르지 않음. Xiaomi 에도 Google 화면(gms OctarineActivity)이 뒤에 남아 있어 모든 탭은 「맨 앞 = DIBAY」 확인 후에만 보냄. 23:43:51 Samsung 화면이 터치로 켜짐(`reason=tap`) — 작업자 입력 아님.
+
+| 항목 | 판정 | 증거 (PHT) |
+|---|---|---|
+| T7 잠금 화면 이어받기 (재시험) | PASS | isKeyguardLocked=true · 23:44:23.656 hold → 23.882 `start_allowed handover=true` → 같은 작업 CLEAR_TASK → `launched=true` → 24.575 release. 녹화: 「통화 종료 중」→ 수신 화면, 수신 heads-up 0 (re59-t7-tile, 녹화 1.8초에서 끊겼으나 전환 포함). 이번엔 대기 도착 전 화면이 터치로 켜져 대기 알림은 조용한 알림으로 시작 |
+| T2 CW3 회귀 | PASS | 23:46:14.5 hold → 16.049 `launched=true` → 16.7 수락 200, 「통화 종료 중」→「김봉기 연결 중」→「통화 중」, 홈 0 (re59-t2-tile) |
+| T1 CW6 회귀 | PASS(로그) · 녹화 미포함 | 23:47:03.758 hold → 03.985 `handover=true` → `launched=true` → 04.668 release. 맥 종료가 늦어 14초 녹화가 전환 전에 끝남 |
+| T8 PiP | 재시험 안 함 | 이어받기 안 쓰는 경로(hold 없음)라 B2 변경 영향 없음 — 58 결과 그대로 |
+| 맥 클릭 처리 지연 | 원인 확인 못 함 | 23:42 맥 발신 클릭 → 맥 앱 로그 첫 줄 23:44:07, 발신 시작 23:44:16. 그 사이 맥 앱 로그 0줄 — 앱이 멈춰 있었는지 확인 못 함(시험 환경 문제 가능, 앱 결함 판정 보류) |
