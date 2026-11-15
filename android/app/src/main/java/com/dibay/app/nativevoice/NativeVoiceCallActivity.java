@@ -339,8 +339,15 @@ public class NativeVoiceCallActivity extends Activity {
   }
 
   @Override
+  protected void onPause() {
+    super.onPause();
+    if (waitingBanner != null) waitingBanner.onHostPaused();
+  }
+
+  @Override
   protected void onResume() {
     super.onResume();
+    if (waitingBanner != null) waitingBanner.onHostResumed();
     // WP-3 NEW-11: user returned from app Settings — resume accept if the mic is now granted and
     // the call is still ringing.
     String parked = pendingSettingsAcceptSource;
