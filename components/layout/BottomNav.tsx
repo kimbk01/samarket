@@ -81,7 +81,7 @@ import type {
 } from "@/contexts/LatestMenuNavigationContext";
 import { shouldDeferUnreadBadgeRepaint } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import { useRegion } from "@/contexts/RegionContext";
-import { triggerBottomNavSelectionFeedback } from "@/lib/ui/light-tap-feedback";
+import { prewarmBottomNavHaptics, triggerBottomNavSelectionFeedback } from "@/lib/ui/light-tap-feedback";
 import {
   beginBottomNavShowing,
   checkBottomNavWatchdog,
@@ -750,6 +750,10 @@ export function BottomNav({
    */
   const showing = useBottomNavShowingTarget();
   const showingTabId = showing?.tabId ?? null;
+  /** 네이티브 선택 햅틱 모듈 미리 불러 두기(S4) — 첫 탭부터 네이티브 햅틱 */
+  useEffect(() => {
+    prewarmBottomNavHaptics();
+  }, []);
 
   /**
    * 앱 복귀 즉시(복귀 조정자 `ui` 레인 — 인증·idle 대기 없음): 이동 멈춤 감시를 다시 판정하고, 키보드·스크롤 숨김을

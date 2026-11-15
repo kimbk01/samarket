@@ -99,13 +99,70 @@ export function triggerInteractionFeedback(
 }
 
 /**
+ * 하단 탭 선택 햅틱 — 네이티브 선택 햅틱(@capacitor/haptics, S4 2026-11-15).
+ * - iOS: UISelectionFeedbackGenerator(Apple 「선택 바뀜」 감각). Android: 플러그인 진동 파형.
+ * - Android 플러그인은 `selectionStart` 없이 `selectionChanged` 를 부르면 진동하지 않는다(8.0.2 `Haptics.java` `if (selectionStarted)`)
+ *   → 항상 start → changed → end 순서로 보낸다(브리지 메시지는 보낸 순서대로 처리).
+ * - 플러그인이 없는 설치본(S4 이전 바이너리)·웹 = 웹 진동(Android) / 없음(iPhone WebView). 모듈은 처음 한 번만 불러온다.
+ */
+type HapticsModule = typeof import("@capacitor/haptics");
+let hapticsModule: HapticsModule | null = null;
+let hapticsLoading = false;
+
+function isNativeHapticsAvailable(): boolean {
+  if (typeof window === "undefined") return false;
+  const cap = (window as Window & {
+    Capacitor?: { isNativePlatform?: () => boolean; isPluginAvailable?: (name: string) => boolean };
+  }).Capacitor;
+  try {
+    return cap?.isNativePlatform?.() === true && cap.isPluginAvailable?.("Haptics") === true;
+  } catch {
+    return false;
+  }
+}
+
+/** 하단 탭이 그려질 때 미리 불러 둔다 — 첫 탭부터 네이티브 햅틱 */
+export function prewarmBottomNavHaptics(): void {
+  if (hapticsModule || hapticsLoading || !isNativeHapticsAvailable()) return;
+  hapticsLoading = true;
+  import("@capacitor/haptics")
+    .then((m) => {
+      hapticsModule = m;
+    })
+    .catch(() => {
+      /* 불러오기 실패 — 웹 진동으로 */
+    })
+    .finally(() => {
+      hapticsLoading = false;
+    });
+}
+
+function fireNativeSelectionHaptic(m: HapticsModule): void {
+  const { Haptics } = m;
+  void Haptics.selectionStart()
+    .then(() => Haptics.selectionChanged())
+    .then(() => Haptics.selectionEnd())
+    .catch(() => {
+      /* 기기 미지원 — 조용히 무시 */
+    });
+}
+
+/**
  * 하단 탭 선택 확정 햅틱 — 계약 v2(`lib/main-menu/main-bottom-nav-interaction-contract.ts` · Owner 2026-11-15).
  * - 손을 뗀 순간(click) 선택이 확정될 때 1회만 부른다. 손을 대는 순간(pointerdown)에는 부르지 않는다.
  * - 소리 없음(웹 오디오 「딸깍」은 하단 탭에서 쓰지 않는다).
- * - 지금은 웹 진동(Android 16~21ms 실측 · iPhone WebView 는 미지원). 네이티브 선택 햅틱(@capacitor/haptics)은 S4 에서 이 함수 안으로.
+ * - 네이티브 앱(플러그인 있음) = 네이티브 선택 햅틱, 그 밖 = 웹 진동(Android 16~21ms 실측 · iPhone WebView 는 미지원).
  */
 export function triggerBottomNavSelectionFeedback(): void {
   try {
+    if (isNativeHapticsAvailable()) {
+      if (hapticsModule) {
+        fireNativeSelectionHaptic(hapticsModule);
+        return;
+      }
+      /** 아직 안 불러졌으면 이번 1회는 웹 진동, 다음부터 네이티브 */
+      prewarmBottomNavHaptics();
+    }
     if (!isCoarsePointerDevice()) return;
     vibratePattern(10);
   } catch {

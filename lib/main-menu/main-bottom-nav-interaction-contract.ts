@@ -18,7 +18,8 @@
  *    - 이력 = replace(`BOTTOM_NAV_HISTORY_MODE`). 단일 커밋 = `commitMainBottomNavRoute`.
  * 3. 선택 모양 = 채움(선택) ↔ 외곽선(비선택) 서비스 아이콘 26px, 색 선택 DIBAY 그린 · 비선택 회색, 바뀌는 순간 애니메이션 없음.
  * 4. 햅틱 = 선택이 확정될 때 1회(`triggerBottomNavSelectionFeedback`). 거부된 탭은 울리지 않는다. 소리 없음.
- *    지금 = 웹 진동(Android). 네이티브 선택 햅틱(iOS 포함)은 S4(@capacitor/haptics, 네이티브 빌드)에서 같은 함수 안으로.
+ *    네이티브 앱 = @capacitor/haptics 선택 햅틱(iOS UISelectionFeedbackGenerator, start→changed→end — S4 2026-11-15).
+ *    플러그인이 없는 설치본(S4 이전 바이너리)·웹 = 웹 진동(Android) / 없음(iPhone). 다음 네이티브 빌드부터 iPhone 햅틱.
  * 5. 거부·실패·멈춤
  *    - 사용자가 손 뗀 자리에서 바로 나가는 커밋 = `bottom_nav_explicit`(방·통화 진입 잠금을 푼다). 기다림 뒤 실행(채팅 로그인 확인 뒤) = `bottom_nav_async`.
  *    - 거부 = 결과 "blocked" + 컨트롤러·메뉴 의도를 함께 되돌림(원래 탭).

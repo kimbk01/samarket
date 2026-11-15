@@ -25,6 +25,7 @@
 	"packageClassList": [
 		"AppPlugin",
 		"CAPBrowserPlugin",
+		"HapticsPlugin",
 		"PushNotificationsPlugin",
 		"SharePlugin",
 		"SplashScreenPlugin",
