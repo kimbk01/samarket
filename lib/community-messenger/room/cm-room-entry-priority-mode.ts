@@ -15,7 +15,6 @@ import {
 import { cmMessengerPerfVerboseLog } from "@/lib/community-messenger/room/cm-messenger-perf-verbose-log";
 import {
   clearDeepRouteNavigationLock,
-  warnCmRoomRouteGuardBlocked,
 } from "@/lib/navigation/cm-deep-route-navigation-lock";
 import { isCommunityMessengerRoomPath } from "@/lib/navigation/community-messenger-deep-route-path";
 import { matchesMessengerSplitViewport } from "@/lib/ui/app-viewport-layout-breakpoints";
@@ -94,10 +93,12 @@ export function beginCmRoomEntryPriorityMode(roomId: string): void {
   }, CM_ROOM_ENTRY_PRIORITY_DURATION_MS);
 }
 
-export function endCmRoomEntryPriorityMode(reason: "duration" | "room_shell" | "room_unmount" = "duration"): void {
+export function endCmRoomEntryPriorityMode(
+  reason: "duration" | "room_shell" | "room_unmount" | "entry_aborted" = "duration"
+): void {
   if (!activeOpeningRoomId) return;
   const roomId = activeOpeningRoomId;
-  endCmRoomListRenderPause(reason === "room_unmount" ? "room_unmount" : "duration");
+  endCmRoomListRenderPause(reason === "duration" || reason === "room_shell" ? "duration" : "room_unmount");
   const durationMs = Math.round(perfNow() - priorityStartedPerf);
   if (priorityEndTimer != null) {
     clearTimeout(priorityEndTimer);
@@ -125,19 +126,23 @@ export function endCmRoomEntryPriorityMode(reason: "duration" | "room_shell" | "
     duration_ms: durationMs,
     end_reason: reason,
   });
-  if (typeof window !== "undefined") {
+  /**
+   * 우선 모드가 끝날 때 주소가 그 방이 아니면 — 「막힌 이동」이 아니라 사용자가 방을 떠난 것이다(방 닫힘·진입 중 뒤로).
+   * 예전에는 `[cm-room-route-guard] blocked_navigation` 로 남겨 실제 거부처럼 보였다(2026-11-15 Samsung 로그 오판).
+   * 진단은 별도 이름으로만 남긴다.
+   */
+  if (typeof window !== "undefined" && reason === "duration") {
     const currentPath = window.location.pathname;
     const expectedPrefix = `/community-messenger/rooms/${encodeURIComponent(roomId)}`;
     if (!isCommunityMessengerRoomPath(currentPath) || !currentPath.startsWith(expectedPrefix)) {
-      warnCmRoomRouteGuardBlocked({
+      cmMessengerPerfVerboseLog("[cm-room-entry-priority-mode] ended_off_route", {
         from: currentPath,
         target: expectedPrefix,
-        reason: "priority_mode_end_route_mismatch",
-        activeRoomEntry: roomId,
+        roomId,
       });
     }
   }
-  if (reason === "room_shell" || reason === "room_unmount") {
+  if (reason === "room_shell" || reason === "room_unmount" || reason === "entry_aborted") {
     clearDeepRouteNavigationLock(`priority_mode_${reason}`);
   }
   const merges = deferredHomeSyncMerges.splice(0, deferredHomeSyncMerges.length);

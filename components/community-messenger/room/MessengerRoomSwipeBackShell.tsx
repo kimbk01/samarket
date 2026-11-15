@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
 import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
+import { noteRoomEntryArrived } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
 import {
   resolveMessengerRoomBackNavigation,
   runMessengerRoomBackNavigation,
@@ -144,6 +145,12 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
       window.cancelAnimationFrame(raf2);
     };
   }, [splitPaneMode, reducedMotion]);
+
+  /** 방 화면이 그려졌다 — 이제 뒤로는 이 방이 처리한다(진입 중 뒤로 감시 해제, 2026-11-15) */
+  useEffect(() => {
+    const rid = roomId?.trim();
+    if (rid) noteRoomEntryArrived(rid);
+  }, [roomId]);
 
   /**
    * 방이 들어오기 시작하는 커밋(그리기 전)에 목록 복사본을 같은 시간·곡선으로 잘라 낸다 —
