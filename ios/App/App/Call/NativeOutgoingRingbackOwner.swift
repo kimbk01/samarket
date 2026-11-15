@@ -83,6 +83,18 @@ final class NativeOutgoingRingbackOwner {
     }
   }
 
+  /// 정리 경로 전용 — 이 callId 의 발신음이 지금 맡겨져 있을 때만 `stop` 한다(없으면 경로 초기화·기록도 안 함).
+  /// docs/audit/ios-outgoing-ringback-stop-design-2026-11-15.md R1~R4.
+  func stopIfActive(callId: String, reason: String) {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return }
+    lock.lock()
+    let owned = activeCallId == sid
+    lock.unlock()
+    guard owned else { return }
+    stop(callId: sid, reason: reason)
+  }
+
   // MARK: - Private
 
   private func isStillActive(callId: String, generation: UInt64) -> Bool {

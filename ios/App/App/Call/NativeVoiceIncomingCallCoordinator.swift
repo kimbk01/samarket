@@ -302,6 +302,9 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
     case .accepted, .tokenPending, .joining, .connected, .outgoingStarting:
       log("ios_native_voice_local_end", sid, "state=\(snap.phase)")
       do { try NativeVoiceCallRuntime.shared.beginEnd(sessionId: sid) } catch { /* */ }
+      // R2 (docs/audit/ios-outgoing-ringback-stop-design-2026-11-15.md): 발신자가 끊는 순간 발신음·종료 감시를
+      // 멈춘다 — 서버 end 응답(약 1초)을 기다리지 않는다. 다른 callId 면 무동작.
+      stopOutgoingResiduals(sessionId: sid, reason: "local_end_begin")
       NativeVoiceCallBridge.publishLocalTerminal(sessionId: sid, reason: "ended", source: "local_end_begin")
       NativeVoiceCallApi.endAsync(callId: sid) { [weak self] _, _, _ in
         do { try NativeVoiceCallRuntime.shared.markEnded(sessionId: sid) } catch { /* */ }
@@ -482,6 +485,11 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
 
     log("ios_native_voice_cleanup_started", sid, "reason=\(reason) \(DibayCallLog.threadTag())")
 
+    // R1 (docs/audit/ios-outgoing-ringback-stop-design-2026-11-15.md): 통화가 끝나는 모든 정리 경로에서 발신음·종료
+    // 감시를 직접 멈춘다(Android·Telegram·Signal 동일). 오디오 세션 끄기의 부수 효과에 기대지 않는다 — 시뮬레이터·
+    // 늦게 시작된 재생에서는 그 효과가 없다. 정지는 세대값을 올려 늦게 끝난 음원 준비의 재생 시작도 막는다.
+    stopOutgoingResiduals(sessionId: sid, reason: "cleanup_\(reason)")
+
     // Durable late-push authority BEFORE Runtime reset / CallKit map clear.
     // endCallKitSession is UI-only and does not mark; without this, late call_ended
     // looks like a true cold orphan and report_then_end resurrects CallKit.
@@ -527,6 +535,12 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
       pendingLocalEndCompletion.removeValue(forKey: sid)
     }
     log("ios_native_voice_cleanup_done", sid, "reason=\(reason)")
+  }
+
+  /// 발신 쪽 잔여(발신음·서버 종료 감시) 정지. 두 정지 모두 이 callId 가 지금 대상일 때만 동작해 수신 통화 정리에도 안전.
+  private func stopOutgoingResiduals(sessionId sid: String, reason: String) {
+    NativeOutgoingRingbackOwner.shared.stopIfActive(callId: sid, reason: reason)
+    NativeOutgoingTerminalWatch.shared.stop(callId: sid, reason: reason)
   }
 
   private func isCurrentAnswer(sessionId: String, generation: UInt64) -> Bool {
