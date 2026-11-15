@@ -166,3 +166,15 @@ Dialer 와 같이 「통화가 하나도 없을 때만 통화 화면을 닫는�
 - 바뀌는 파일: `NativeCallWaitingBanner`(PiP 보고), `NativeCallWaitingPresenter`(PiP host 집합·남기기 조건), 계약 테스트. 런타임·Activity·서버·웹·iOS 무변경. Android versionCode 60.
 - 확인 못 한 것(구현 전 NOT_PROVEN): PiP 작업에 CLEAR_TASK 로 넣을 때 WM Shell 이 PiP 를 전체 화면으로 펼치는 화면 모양 — 원문은 「task organizer 에 맡김」까지만 확인. 기대와 다르면 P-4 로 지금 동작(heads-up)보다 나빠지지는 않음.
 - 실기: T8(음성 PiP → 대기 → 상대 종료: 전체 화면 수신, 홈 0·heads-up 0), 영상 PiP 같은 시험, 다른 종류(음성 PiP → 영상 대기), 홈 버튼 직후 5초 안 종료(APP_SWITCH_DISALLOW → P-4 대체 경로), T1·T2·T7 회귀.
+
+## 9. 설계 P 실기 FAIL (Android 60, 11-16 00:24 PHT) — 작업자 잘못
+- PR #335 → main `fba9b848c` (versionCode 60). Samsung 1.2.7 (60) 활성 1대(user_devices 00:22:45).
+- P1 음성 PiP 중 대기(C) → 맥 종료: 00:24:38.244 `handover_hold pip=true` → 38.538 앞 화면 시작(handover=true) → **38.553 `Background activity launch blocked`** (`callingUidHasVisibleActivity: true`, `callingUidHasVisibleNotPinnedActivity: false`) → 39.777 postcheck 실패 → FSI 수신 알림 → 43.259 hold_timeout 로 PiP 정리 → 43.832 수신 화면이 **PiP 창 안에** 표시(`inPip=true`).
+- 사용자 화면(re60-p1-tile): PiP 「통화 종료 중」 약 5초 + 수신 heads-up 「수락 / 거절」 → 이후 PiP 창 안 작은 수신 화면(버튼 안 보임). 59(PiP 닫힘 + heads-up 만)보다 나쁨 = **회귀**.
+- 원인(작업자 잘못): 설계 P 근거를 AOSP `main` 원문(L1013 `mCallingUidHasVisibleActivity`)으로만 확인했다. 기기의 Android 16 QPR 원문(`android16-qpr2-release` `BackgroundActivityStartController` L1170 `mCheckCallerVisible`)은 `mCallingUidHasVisibleNotPinnedActivity` — **PiP(pinned) 화면은 허용 근거가 아니다**. 기기 버전 원문을 확인하지 않고 설계했다.
+- 결론: Android 16 QPR 에서는 PiP 만 떠 있는 상태로 앱이 전체 화면 수신 화면을 띄울 수 없다(플랫폼 규칙). 59 동작(PiP 닫고 FSI heads-up)이 이 플랫폼에서 가능한 동작이며 AOSP Dialer 기준선과 같다.
+
+### 수정 설계안 R (Owner 승인 필요) — P 되돌리기
+- #335 코드(NativeCallWaitingBanner PiP 보고·presenter PIP_HOSTS·계약 테스트 P 항목)를 되돌려 59 동작으로 복구. 문서·실기 기록은 유지.
+- Android versionCode 61(번호는 되돌리지 않음). 서버·웹·iOS 무변경.
+- 실기: PiP 중 대기 → 상대 종료 = PiP 닫히고 heads-up(59 와 같음, hold 없음), T1·T2·T7 회귀.
