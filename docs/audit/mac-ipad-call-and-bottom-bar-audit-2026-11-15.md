@@ -269,3 +269,13 @@ NOT_PROVEN: 실제 소리 들림(청취 불가) · 통화 중(busy) · 맥 영�
 - 발견(보고만, 범위 밖): 기존 `dibay:voip-token-invalidated` 처리는 `{push_provider:"voip_apns"}` 만 보내 **같은 회원의 모든 기기 VoIP 행**을 끈다(iPhone 2대면 다른 iPhone 도 꺼짐).
 - iOS build 37 → 38.
 - 맥 기대 결과: VoIP 행 비활성 → 서버가 맥을 「VoIP 없는 iOS」로 보고 통화 수신 일반 알림 발송 시도. 단 맥 알림 「끔」이라 일반 알림 등록이 없어 실제 알림은 Owner 가 알림을 켠 뒤에만 도착(D2-4).
+
+### 10-7. build 38 맥 실기 (2026-11-15 12:55~12:58 PHT · main 8c1dc6aae · 맥 1.2.2 (38) Debug · 삼성 q테스트1 1.2.6 (52))
+| 항목 | 증거 | 판정 |
+|---|---|---|
+| 맥 PushKit 미등록 | 맥 로그 12:55:32 `ios_voip_registry_start_skipped reason=platform_no_voip_push` | PASS |
+| 이 기기 VoIP 행만 비활성 | 운영 `user_devices` 맥 device_id voip_apns 2행(35·37) `is_active=false` 12:55:35 (앱 실행 3초 후) | PASS |
+| 삼성→맥 음성(61a6…86bc) 서버 발송 | `call_ringing·call_cancel·missed_call : skipped no_active_targets` — VoIP 발송 없음, 맥 `Dropping` 0 | 서버 경로 PASS / **맥 수신 FAIL**(맥 알림 「끔」→ apns 행 없음, D2-3·D2-4 범위) |
+| 맥→삼성 음성 회귀(d32f…c17f) | 12:57:18 생성 · 12:57:29 connected · 12:57:38 맥 종료 | PASS |
+| 설치 확인 | `user_devices.app_version` 으로는 38 확인 불가(맥 활성 행이 하나도 없음) — 앱 번들 `CFBundleVersion 38`·`DibayGitSha 8c1dc6aae` 로 확인 | — |
+NOT_PROVEN: iPhone VoIP 회귀(연결된 iPhone 없음).
