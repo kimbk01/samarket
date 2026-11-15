@@ -141,6 +141,17 @@ export async function POST(req: NextRequest) {
       .eq("push_provider", pushProvider)
       .eq("push_token", pushToken)
       .eq("environment", environment);
+  } else if (deviceId && pushProvider) {
+    // D2-1 (docs/audit/mac-ipad-call-and-bottom-bar-audit-2026-11-15.md §10): 이 기기의 이 제공자 행만 끈다.
+    // 맥(iOS 앱)은 PushKit VoIP 를 OS 가 버리므로 구 빌드가 남긴 voip_apns 행만 정리 — 같은 회원의
+    // iPhone·iPad VoIP 행과 이 기기의 다른 제공자(apns) 행은 건드리지 않는다.
+    await svc
+      .from("user_devices")
+      .update({ is_active: false, updated_at: now })
+      .eq("user_id", userId)
+      .eq("device_id", deviceId)
+      .eq("push_provider", pushProvider)
+      .eq("environment", environment);
   } else if (pushProvider) {
     await svc
       .from("user_devices")
