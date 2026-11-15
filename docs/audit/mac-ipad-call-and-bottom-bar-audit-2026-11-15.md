@@ -200,3 +200,20 @@ iPad 실기 전부 · 맥 음성 발신 · 회색 막대 원인 · + 첨부 시�
 - `CallKitProvider.reportOutgoingCallStarted` — false 면 `ios_callkit_outgoing_report_skipped` 기록 후 반환(추적 맵 미기록).
 - 영향 재확인: `reportCallEnded`/`endCallKitSession` 은 추적 안 된 UUID 에도 기존과 같은 경로(영상 여부 값은 원래 수신 보고 때만 기록 — 발신은 iPhone 에서도 false). 음성 로컬 종료는 `hasTrackedCallKitSession == false` → `performLocalRejectOrEnd`.
 - iOS build 36 → 37 (4곳).
+
+## 9. build 37 맥 실기 (2026-11-15 12:21~12:28 PHT · Production main c94523a51 · 맥 김봉기 1.2.2 (37) Debug · 삼성 SM-M156S q테스트1 1.2.6 (52))
+
+시작 기록: `call_platform_capability ios_app_on_mac=true voip_push=false callkit_audio_activation=false callkit_call_ui=false` (12:20:35).
+
+| # | 시험 | callId | DB (PHT) | 판정 |
+|---|---|---|---|---|
+| V1 | 맥→삼성 음성 · 삼성 수락 · 맥 종료 | a0d2…4fec | 21:47 생성 · 22:03 answered · 22:05 connected · 22:35 ended_by_caller | PASS (양쪽 「통화 중」 표시) |
+| V2 | 맥→삼성 영상 · 삼성 수락 · 삼성 종료 | 3fd1…70ee | 22:49 · 23:06 · 23:07 · 24:25 ended_by_callee | PASS (양쪽 상대 영상, 맥도 함께 종료) |
+| V3 | 맥→삼성 음성 · 삼성 거절 | ec78…2df7 | 24:41 · 24:52 rejected/declined | PASS (맥 「통화 거절」 안내) |
+| V4 | 맥→삼성 음성 · 벨 중 맥 취소 | 9119…c2ec | 25:27 · 25:39 cancelled | PASS (삼성 벨 멈춤, 20초간 재울림 없음) |
+| V5 | 맥→삼성 음성 · 무응답 | a326…1183 | 26:13 · 26:43 missed | PASS (양쪽 종료, 맥 「부재중」 기록) |
+| V6 | 종료 직후 재발신 · 수락 · 맥 종료 | 3330…0d49 | 27:43 · 27:47 · 27:48 · 28:03 ended_by_caller | PASS |
+
+맥 로그(12:20 이후): `Disconnecting all calls` 0 · `source=callkit_system_button` 0 · FaceTime 종료 0 · `ios_audio_session_gate_timeout` 0 · `ios_callkit_outgoing_report_skipped` 6 · `platform_no_callkit_activation` 6.
+
+NOT_PROVEN: 실제 소리 들림(청취 불가) · 통화 중(busy) · 맥 영상 발신 후 맥 종료(build 36 에서만 PASS) · 삼성→맥 수신 전부(D2 범위, FAIL 유지) · iPhone 발신 회귀(연결된 iPhone 없음) · iPad 실기.
