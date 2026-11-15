@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -11,6 +11,10 @@ import { recordCmPolishAttachmentDecodeMs } from "@/lib/community-messenger/moni
 import { MESSENGER_ALBUM_REST_TILE_INDEX } from "@/lib/community-messenger/attachment/messenger-photo-save-menu";
 import { withMessengerMediaRouteUrls } from "@/lib/community-messenger/media/messenger-media-ref";
 import type { DibayImageViewerItem } from "@/lib/ui/dibay-image-viewer-items";
+import {
+  messengerPhotoBubbleMaxWidthPx,
+  messengerPhotoBubbleSize,
+} from "@/lib/community-messenger/media/messenger-photo-bubble-size";
 
 /**
  * 사진 말풍선 너비는 사진을 불러오기 전부터 고정한다.
@@ -21,9 +25,20 @@ import type { DibayImageViewerItem } from "@/lib/ui/dibay-image-viewer-items";
 const BUBBLE_MAX =
   "mx-auto w-[min(62vw,280px)] max-w-full sm:w-[min(62vw,320px)] md:w-[min(62vw,360px)]";
 
-function clampAspectRatio(n: number): number {
-  return Math.min(1.5, Math.max(0.75, n));
+function subscribeViewportWidth(cb: () => void): () => void {
+  window.addEventListener("resize", cb);
+  return () => window.removeEventListener("resize", cb);
 }
+function readViewportWidth(): number {
+  return window.innerWidth;
+}
+/** 말풍선 최대 폭 기준(지금 CSS `62vw` 와 같은 화면 폭) — 회전·창 크기 변경 시 다시 계산 */
+function useViewportWidth(): number {
+  return useSyncExternalStore(subscribeViewportWidth, readViewportWidth, () => 384);
+}
+
+/** 앨범·사진 칸 안 사진은 칸을 채운다 — `!h-full`: 층 밖 전역 `img{height:auto}` 가 `h-full` 을 이기기 때문(D2-가 운영 미적용 원인). */
+const FILL_IMG = "absolute inset-0 !h-full !w-full object-cover object-center";
 
 export function MessengerChatImageBubble(props: {
   item: CommunityMessengerMessage & { pending?: boolean };
@@ -107,7 +122,7 @@ function AlbumLayout({
       <img
         src={src}
         alt=""
-        className="h-full w-full object-cover"
+        className={FILL_IMG}
         loading="lazy"
         decoding="async"
       />
@@ -162,7 +177,7 @@ function AlbumLayout({
           <img
             src={urls[MESSENGER_ALBUM_REST_TILE_INDEX]!}
             alt=""
-            className="h-full w-full object-cover"
+            className={FILL_IMG}
             loading="lazy"
             decoding="async"
           />
@@ -195,11 +210,19 @@ function SingleChatImage({
     if (!cmRenderAnalysisEnabled()) return;
     imgDecodeStartRef.current = typeof performance !== "undefined" ? performance.now() : null;
   }, [src]);
-  /** 같은 말풍선의 src 교체(보내는 중 로컬 미리보기 → 서버 사진)는 같은 사진이므로 측정 비율을 유지한다. */
-  const [loadedAr, setLoadedAr] = useState<number | null>(null);
-  const knownAr = width != null && height != null && width > 0 && height > 0 ? width / height : null;
-  const ar = knownAr ?? loadedAr;
-  const ratio = ar != null ? clampAspectRatio(ar) : 4 / 5;
+  /**
+   * 칸 크기 = `messengerPhotoBubbleSize`(텔레그램 높이 규칙). 서버 크기가 있으면 그것, 보내는 중(로컬 사진)은
+   * 로컬 사진에서 잰 비율 — 같은 말풍선이 서버 사진으로 바뀌어도 같은 비율이라 칸이 그대로다.
+   * 크기 정보 없는 지난 사진은 4:5 고정이고 불러온 뒤에도 칸을 바꾸지 않는다(밀림 0).
+   */
+  const [pendingLoadedAr, setPendingLoadedAr] = useState<number | null>(null);
+  const known = width != null && height != null && width > 0 && height > 0;
+  const viewportWidth = useViewportWidth();
+  const size = messengerPhotoBubbleSize({
+    photoWidth: known ? width : pendingLoadedAr,
+    photoHeight: known ? height : pendingLoadedAr != null ? 1 : null,
+    maxWidth: messengerPhotoBubbleMaxWidthPx(viewportWidth),
+  });
 
   /**
    * src 가 바뀌면 새 사진이 디코드될 때까지 직전에 그려진 사진을 아래에 깔아 둔다 —
@@ -213,7 +236,7 @@ function SingleChatImage({
   }, [src]);
 
   return (
-    <div className={BUBBLE_MAX}>
+    <div className="mx-auto max-w-full" style={{ width: size.width }} data-cm-photo-bubble="">
       <button
         type="button"
         onClick={onOpen}
@@ -222,8 +245,8 @@ function SingleChatImage({
         aria-label={t("cm_ui_view_photo_large")}
       >
         <div
-          className="relative max-h-[360px] w-full overflow-hidden bg-black/10"
-          style={{ aspectRatio: ratio, contain: "layout" }}
+          className="relative w-full overflow-hidden bg-black/10"
+          style={{ height: size.height, contain: "layout" }}
         >
           {underlaySrc ? (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -231,7 +254,7 @@ function SingleChatImage({
               src={underlaySrc}
               alt=""
               aria-hidden
-              className="absolute inset-0 h-full w-full object-cover"
+              className={FILL_IMG}
               decoding="async"
             />
           ) : null}
@@ -239,8 +262,8 @@ function SingleChatImage({
           <img
             src={src}
             alt=""
-            /* 칸 크기는 위 비율 상자가 정한다 — 사진은 그 칸을 채우기만 한다(원본 비율이 잘린 비율과 달라도 칸이 바뀌지 않게). */
-            className="absolute inset-0 h-full w-full object-cover"
+            /* 칸 크기는 위 상자가 정한다 — 사진은 그 칸을 가운데 기준으로 채우기만 한다(칸이 바뀌지 않게). */
+            className={FILL_IMG}
             loading={underlaySrc ? "eager" : "lazy"}
             decoding="async"
             onLoad={(e) => {
@@ -255,9 +278,9 @@ function SingleChatImage({
               }
               lastPaintedSrcRef.current = src;
               setUnderlaySrc(null);
-              if (w > 0 && h > 0) {
+              if (pending && !known && w > 0 && h > 0) {
                 const nextAr = w / h;
-                setLoadedAr((prev) => (prev === nextAr ? prev : nextAr));
+                setPendingLoadedAr((prev) => (prev === nextAr ? prev : nextAr));
               }
             }}
           />

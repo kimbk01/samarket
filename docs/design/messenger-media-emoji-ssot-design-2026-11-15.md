@@ -1,6 +1,6 @@
 # 메신저 사진·이모티콘 UI·UX·CTA 단일 기준(SSOT) 설계 — 텔레그램 대조 (2026-11-15)
 
-- 상태: **S1 승인·구현(Owner 「S1 구현 시작」 2026-11-16).** S2~S8 은 Owner 승인 전 구현 금지. 감사 원본: `docs/audit/messenger-image-emoji-audit-2026-11-15.md`.
+- 상태: **S1·S2 승인·구현(Owner 「S1 구현 시작」·「S2 말풍선 크기」 2026-11-16).** S3~S8 은 Owner 승인 전 구현 금지. 감사 원본: `docs/audit/messenger-image-emoji-audit-2026-11-15.md`.
 - 기준 앱: 텔레그램 — Android 공개 소스 `DrKLO/Telegram` master 원문(파일:줄 인용) + Samsung 실기(Telegram 13.2.2, 23:36 PHT, 열람만).
 - 코드 기준: `origin/main` `6f2e405b4`.
 
@@ -128,6 +128,7 @@
 | O7 | 큰 이모지·이모지 패널을 거래 채팅(옛 화면)에도 적용 | 같은 부품 적용 |
 | O8 | 반응: 6개 고정·1인 1개·내 메시지 불가 유지 vs 텔레그램처럼 확장 | 정책은 유지, 실시간 반영만 |
 | O9 | 움직이는 스티커·GIF·움직이는 이모지 만들지 | Owner 결정(새 기능) |
+| O10 | 사진 말풍선 시간 표시를 텔레그램처럼 사진 위(오른쪽 아래)로 옮기기 — 옮기면 텔레그램 폭 규칙(가로 사진 = 화면 − 64, 세로 = 화면 × 0.7)을 그대로 쓸 수 있음. 지금은 시간이 사진 옆이라 폭은 기존 상한(62%·280/320/360) 유지 | 옮기기(별도 단계) |
 
 ## 5. 실기 확정 결과와 남은 확인
 
@@ -148,3 +149,10 @@
 - 메신저: `MessengerChatImageBubble` 이 항목(1600 화면용 · 원본 · 썸네일)을 넘기고 타임라인이 `DibayImageViewer`(모두 저장 포함)를 연다. `MessengerImageLightbox.tsx` 와 그 계약 시험 삭제.
 - 확대 배율·두 번 탭 배율은 바꾸지 않음(O1 미결정 — 지금 공용 값 4배·2.5배 그대로).
 - 계약 시험 `components/common/media/__tests__/dibay-image-viewer-ssot-contract.test.tsx`: 진입점 6파일이 공용 뷰어만 쓰는지 · 옛 파일 없음 · placeholder 먼저 그림 · 뒤로 = 히스토리 1칸.
+
+## 7. S2 구현 기록 (2026-11-16)
+
+- `lib/community-messenger/media/messenger-photo-bubble-size.ts`: 높이 = 텔레그램 규칙(최대 폭+100 넘으면 폭 축소·비율 유지, 최소 120 그때만 가운데 자름). 최대 폭은 기존 말풍선 상한을 px 로(시간 표시 위치 때문 — O10).
+- 말풍선: 로드 전부터 위 크기로 폭·높이 고정. 크기 없는 지난 사진은 4:5 고정·로드 후 불변(밀림 0). 보내는 중 로컬 사진은 잰 비율 → 서버 크기와 같은 비율이라 교체 때 칸 불변.
+- 사진·앨범 칸 이미지 `!h-full !w-full object-cover object-center` — 전역 `img{height:auto}` 때문에 운영에서 아래만 잘리던 것(D2-가 미적용) 정정.
+- 앨범 배치는 그대로(O3).
