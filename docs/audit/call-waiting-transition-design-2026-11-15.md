@@ -89,3 +89,28 @@ Dialer 와 같이 「통화가 하나도 없을 때만 통화 화면을 닫는�
 
 ### 9초 취소 — 다음 재현 때 원인 확인 방법
 맥 앱 로그를 실기 내내 수집(`/usr/bin/log stream --predicate 'processID == <pid>'`)해 두고, 재현되면 `canceled` 직전 `[DIBAY_CALL]` 줄로 취소 출처를 확정한 뒤 설계한다. 원인 확인 전 수정하지 않는다.
+
+## 4. 구현·실기 결과 (Owner 「A·B·C 구현 승인」 2026-11-15)
+
+- A·B: PR #330 → main `5f3e3470a` (Android versionCode 58). C: PR #331 → main `6f2e405b4` (iOS build 42).
+- 조건: B = Samsung q테스트1 1.2.7 (58) 활성 1대(운영 user_devices 22:39:52 PHT), C = Xiaomi zxzx11 (53), A = 맥 김봉기. 판정 = 기기 로그 + 연속 녹화(screenrecord) 프레임 + 운영 DB.
+
+| 항목 | 판정 | 증거 (PHT) |
+|---|---|---|
+| T1 CW6 (대기 중 C 먼저 종료) | PASS | 22:46:52.401 `handover_hold` → 52.647 `start_allowed handover=true` → 같은 작업에 `NEW_TASK\|CLEAR_TASK`(flg=0x10008000) → 53.285 `handover_release`. 0.1초 간격 40프레임에 홈 0·수신 heads-up 0, 「통화 종료 중」→ 수신 화면 (re58-t1b-tile). 첫 녹화는 12.7초에서 끊겨 전환 미포함 → 재시험 |
+| T3 이어받은 화면에서 수락 뒤 새 대기 | PASS | 22:48:27.629 이후 `visible=false` 덮어쓰기 없음(설계 A). 22:49:20 새 대기 `quiet=true`, 녹화 띠만·시스템 알림 0, 띠 거절 22:49:25 → 200 (re58-t3-tile) |
+| T2 CW3 (띠 종료 후 받기) | PASS(화면·DB) · 소리 NOT_PROVEN | 22:50:20.120 hold → 21.554 같은 작업 시작 → 22.163 수락 200, 「김봉기 통화 종료 중」→「zxzx11 연결 중」→「통화 중」, 홈 0 (re58-t2-tile) |
+| T4 대기 없는 일반 종료 | PASS | 22:50:59 종료 → hold 기록 없음, 통화 화면 닫히고 앱 화면 (re58-t4-tile) |
+| T5 CW2·CW5 회귀 | PASS | CW2 = T3 의 띠 거절. CW5 22:52:33.8 cancelled → 띠만 닫힘·통화 유지 (re58-t5-tile) |
+| T6 음성 중 영상 대기 → C 종료 | PASS · 관찰 1 | 22:53:17.618 hold(voice) → 17.894 영상 화면 새 작업 → 18.537 음성 화면 정리. 홈 0. 다른 작업 사이 전환이라 시스템 전환 애니메이션(회색 바탕) 약 0.3초 (re58-t6-tile) |
+| 화면 꺼짐·잠금 중 이어받기, PiP 중 종료, 이어받기 대기 중 대기 통화 취소, 5초 안전장치 | NOT_PROVEN | 미실시 |
+| C 맥 카메라 전환 버튼 숨김 | **FAIL** | 맥 build 42(`6f2e405b4`) 23:01:33 `camera_flip_button_visibility visible=true` → 버튼 그대로. 이때 맥 카메라 2개(MacBook Pro + 연속성 카메라 「iPhonebk」 iPhone15,3, system_profiler 23:0x). 전환 23:02:21 `result=0` 이지만 상대(Samsung) 화면의 맥 영상 그대로 (re58-f01) |
+
+### C FAIL — 원인과 수정 설계안 (Owner 승인 필요)
+- 작업자 잘못: 맥이 카메라를 어떻게 보고하는지 재지 않고 「앞·뒤 카메라 둘 다 있으면 보임」으로 구현했다. 맥에 연속성 카메라(iPhone)가 잡히면 앞·뒤가 모두 보고돼 버튼이 남는다.
+- 측정 사실: 맥에서는 카메라 1개(22:19, MacBook 만)일 때도, 2개(23:02, 연속성 카메라 포함)일 때도 `switchCameraFacing` 이 `result=0` 이지만 송출 영상이 바뀌지 않는다 → 맥에서는 카메라 수와 상관없이 전환이 동작하지 않는다.
+- 설계 C′: 플랫폼 단일 정의 `DibayCallPlatformCapability` 에 `supportsCameraFacingSwitch = !isIOSAppOnMac`(위 실측 근거 기록)를 추가하고, `NativeVideoCallViewController` 는 `cameraFlipButton.isHidden = !DibayCallPlatformCapability.supportsCameraFacingSwitch` 로 바꾼다(카메라 탐색 코드 제거). iOS build 43. iPhone·iPad 는 지금과 같음.
+- 실기: 맥 영상 통화 버튼 3개(카메라·마이크·종료), 연속성 카메라가 잡힌 상태에서도 3개. iPhone 영상 통화 전환 버튼 그대로(iPhone 실기기 NOT_PROVEN 가능 — 설치 빌드 필요).
+
+### 범위 밖 관찰 (보고만)
+- T4: 통화를 끝낸 뒤 앱 화면 위에 「통화 중 · 00:36 통화 화면으로 돌아가기」 막대가 약 1초 남았다가 사라짐. 이번 변경 전에도 있었는지 확인 못 함.
