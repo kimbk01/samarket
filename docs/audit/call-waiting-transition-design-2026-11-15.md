@@ -178,3 +178,49 @@ Dialer 와 같이 「통화가 하나도 없을 때만 통화 화면을 닫는�
 - #335 코드(NativeCallWaitingBanner PiP 보고·presenter PIP_HOSTS·계약 테스트 P 항목)를 되돌려 59 동작으로 복구. 문서·실기 기록은 유지.
 - Android versionCode 61(번호는 되돌리지 않음). 서버·웹·iOS 무변경.
 - 실기: PiP 중 대기 → 상대 종료 = PiP 닫히고 heads-up(59 와 같음, hold 없음), T1·T2·T7 회귀.
+
+## 10. PiP 이어받기 — 근본 원인 확정과 계획안 (Owner 「땜빵으로 하지 말고 정확한 원인을 확인 … 정확한 계획안」 2026-11-16)
+
+### 10-1. 기기·근거 범위
+- Samsung SM-M156S `BP4A.251205.006` / `M156SKSS9DZG1`, Android 16 `sdk_full 36.1`(QPR2), 보안 패치 2026-07-05. 근거 원문 = AOSP `android16-qpr2-release`(기기와 같은 계열). §8 의 `main` 근거는 기기와 달라 폐기.
+
+### 10-2. 화면 시작 허용 판정 — 기기 로그 전수(11-15~16, 통화 화면 시작 37건)
+| 사유 | 언제 | 의미 |
+|---|---|---|
+| `BAL_ALLOW_VISIBLE_WINDOW` | 통화 화면·앱 화면이 **전체 화면으로 앞**일 때(T1·T2·T6·T7·수락 등) | 보이는 「PiP 아닌」 화면 |
+| `BAL_ALLOW_GRACE_PERIOD [realCaller]` | 57 CW6·CW3(22:06:25·22:08:35) — 홈 버튼 안 누른 상태에서 통화 화면이 막 닫힘 | 10초 유예 |
+| `BAL_ALLOW_NON_APP_VISIBLE_WINDOW [realCaller]` (realCallingUid=10064 SystemUI) | 알림 탭·FSI·알림 「수락」(22:03:42·22:08:15·23:22~23:23) | **사용자 동작·시스템이 보낸 PendingIntent** |
+| `BAL_ALLOW_FOREGROUND` | 23:53:54 | 앞 작업에 앱 화면 |
+| **`BAL_BLOCK`** | 22:07:53(홈 화면 일반 수신), 23:25:31·00:04:08(59 PiP), 00:24:38·39(60 PiP), 00:02:13 | 보이는 화면이 PiP 뿐이거나 없음 |
+
+### 10-3. 원문 조건 (`android16-qpr2-release`)
+1. `BackgroundActivityStartController.mCheckCallerVisible` L1160~1175: `appSwitch ∈ {ALLOW, FG_ONLY}` **그리고 `mCallingUidHasVisibleNotPinnedActivity`** → PiP(pinned) 는 제외.
+2. `BackgroundLaunchProcessController.areBackgroundActivityStartsAllowed` L147~153: 「앞 작업에 화면 있음」(`BAL_ALLOW_FOREGROUND`) 은 **`!inPinnedWindow`** 일 때만.
+3. 같은 함수 L156~170: 10초 유예(`BAL_ALLOW_GRACE_PERIOD`)는 **`appSwitchState == APP_SWITCH_ALLOW`** 일 때만. `ActivityTaskManagerService.stopAppSwitches`(홈 버튼) → `DISALLOW`, 500ms 뒤 `FG_ONLY`(L552·L4168~) — ALLOW 로는 돌아가지 않음(앱 화면이 다시 앞에 와야 ALLOW). 60 차단 로그 `appSwitchState: 1`(= FG_ONLY, L555~561) 로 일치.
+4. 그 밖 앱 쪽 허용: `mCheckCallerHasSawPermission` L1270(「다른 앱 위에 표시」 권한) 뿐. 사용자 탭은 SystemUI 가 보내므로 허용.
+- **결론(근본 원인)**: 홈 버튼으로 PiP 가 된 뒤에는, PiP 만 떠 있는 앱이 스스로 전체 화면 Activity 를 띄우는 것을 Android 16 QPR2 가 막는다(플랫폼 정책 — 홈 버튼 뒤 앱이 스스로 앞으로 나오는 것 차단). 앱 코드로 우회할 수 있는 경로는 「다른 앱 위에 표시」 특수 권한뿐이다.
+
+### 10-4. 60(설계 P)이 더 나빠진 원인
+- PiP 를 남김 → 시작 차단 → 1.2초 postcheck 실패로 FSI 알림 → **남긴 PiP 는 hold_timeout 5초까지 유지**(postcheck 실패가 hold 를 풀지 않음) → 차단된 시작 요청이 기존 PiP 작업 안에 화면을 만들어(`balDontBringExistingBackgroundTaskStackToFg: true`) **수신 화면이 PiP 창 안에** 표시(00:24:43.832 `inPip=true`).
+- 또 B2-2 의 `launched` 는 「시작 요청을 보냈다」일 뿐 「화면이 떴다」가 아니다(60: `launched=true` 인데 차단) — 차단을 알아채는 것은 postcheck(1.2초) 뿐.
+
+### 10-5. 잠금 문서와의 관계 (통화 축소 표면 SSOT, HARD LOCK)
+- `docs/dibay-call-minimized-surface-cta-ssot.md` §7 상태표: **RINGING(수신) = 수신 화면 / PiP 없음(—) / 수신 알림(기존)**. §3·§9: PiP 버튼은 `[MIC, CAMERA, END]` 고정(검사 `verify:call-surface-cta-ssot`). §0: 수신 벨 화면·수신 알림(FSI) 경로는 잠긴 경로.
+- 따라서 「PiP 안에서 수신(수락/거절 버튼)을 보여 주는」 방식은 HARD LOCK 변경이 필요하다(아래 안 2).
+
+### 10-6. 계획안
+**안 1 (권장) — 플랫폼·잠금 문서·Dialer 기준에 맞춘 근본 정리 (Android versionCode 61)**
+- 1-a: PiP 상태에서는 이어받기 남기기를 하지 않는다(설계 P 의 `PIP_HOSTS` 남기기·promote 조건 제거) — 원인 10-3 에 따라 PiP 에서 앱이 전체 화면을 띄울 수 없으므로 남길 이유가 없다. 결과 = SSOT §7 RINGING 행(PiP 없음 + 기존 수신 알림), Dialer(InCallUI 안 보이면 알림) 와 같음. 사용자가 알림 「수락」을 누르면 SystemUI 가 보내는 PendingIntent 라 허용(10-2 근거) → 전체 화면 연결.
+- 1-b: 이어받기 시작이 실제로 화면을 띄웠는지를 기준으로 남긴 화면을 정리 — postcheck(1.2초) 실패 시 **즉시** 남긴 화면 정리(지금은 5초 hold_timeout 까지 남음). 앞 화면에서도 홈 버튼을 누른 직후(500ms 안 `DISALLOW`) 같은 차단이 날 수 있어 공통으로 필요.
+- 1-c: `launched` 이름·뜻을 「시작 요청함」으로 바로잡고, 판정은 postcheck 결과로 한다(로그 `handover_launch_requested` / `handover_launch_shown` / `handover_launch_blocked`).
+- 바뀌는 파일: `NativeCallWaitingPresenter`(PIP_HOSTS 제거·postcheck 연동), `NativeCallWaitingBanner`(PiP 보고 제거), 음성·영상 런타임(postcheck 결과를 presenter 에 알림), 계약 테스트. 서버·웹·iOS·SSOT 무변경.
+- 실기(녹화·logcat·DB): ① 음성 PiP 중 대기 → 상대 종료 = PiP 즉시 닫힘 + 수신 heads-up, 알림 「수락」 → 전체 화면 연결 ② 영상 PiP 같은 시험 ③ 앞 화면 이어받기 T1·T2·T7 회귀 ④ 홈 버튼 누르고 0.5초 안 상대 종료(차단 → 남긴 화면 1.2초 안 정리 → heads-up).
+
+**안 2 — PiP 안에서 수신 보이기 (HARD LOCK 변경 필요 · 권장 안 함)**
+- PiP 창을 새 수신 통화로 바꿔 「거절 / 수락」 PiP 버튼을 보이고, 「수락」(SystemUI 가 보냄 → 허용)으로 전체 화면. SSOT §7(RINGING 에 PiP 없음)·§3·§9(PiP 버튼 고정)·검사 스크립트 변경 + 수신 알림과 표면 2개 문제(대기 「표면 1개」 원칙과 충돌) + 음성·영상 Activity 재바인딩(영상 카메라 미리보기 등) 범위가 크다.
+
+**안 3 — 「다른 앱 위에 표시」 권한으로 자동 전체 화면 (권장 안 함)**
+- `BAL_ALLOW_SAW_PERMISSION`(L1270) 이 유일한 앱 쪽 허용. 사용자에게 특수 권한 요청·Play 정책 신고가 필요하고, 모든 통화 경로의 화면 시작 규칙이 바뀐다.
+
+### 10-7. 확인 못 한 것
+- 영상 PiP 에서의 같은 차단(원문상 같다고 판단, 기기 실측 없음) · Android 15 이하 기기 동작(Xiaomi 등) · 안 1-b 의 「홈 버튼 0.5초 안」 재현 가능 여부.
