@@ -35,7 +35,6 @@ import {
   MESSENGER_LIST_ROOM_EXIT_EASING,
   MESSENGER_LIST_ROOM_EXIT_MS,
 } from "@/lib/community-messenger/messenger-list-room-slide";
-import { POPSTATE_BEFORE_ROUTER } from "@/lib/navigation/popstate-before-router";
 
 const EDGE_HIT_PX = 18;
 const HORIZONTAL_LOCK_PX = 10;
@@ -147,11 +146,6 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
     };
   }, [splitPaneMode, reducedMotion]);
 
-  /** 방 화면이 그려졌다 — 이제 뒤로는 이 방이 처리한다(진입 중 뒤로 감시 해제, 2026-11-15) */
-  useEffect(() => {
-    const rid = roomId?.trim();
-    if (rid) noteRoomEntryArrived(rid);
-  }, [roomId]);
 
   /**
    * 방이 들어오기 시작하는 커밋(그리기 전)에 목록 복사본을 같은 시간·곡선으로 잘라 낸다 —
@@ -171,9 +165,22 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
     if (phase !== "enter-active") return;
     const t = window.setTimeout(() => {
       setPhase((p) => (p === "enter-active" ? "idle" : p));
+      const rid = roomId?.trim();
+      if (rid) noteRoomEntryArrived(rid);
     }, MESSENGER_LIST_ROOM_ENTER_MS + 80);
     return () => window.clearTimeout(t);
-  }, [phase]);
+  }, [phase, roomId]);
+
+  /**
+   * 방 진입이 **끝났을 때만**(들어오는 움직임 완료 = 위 타이머, 또는 움직임 없이 여는 분할·축소 모션) 진입 중 뒤로 감시를 끈다.
+   * 마운트 때 끄면 안 된다(2026-11-15 Xiaomi 계측): 이 방의 popstate 리스너는 Next 라우터보다 늦게 등록돼
+   * (window 리스너는 등록 순서대로 불림 — 캡처여도 같음, Chrome 156 실측) 뒤로 순간 React 가 방을 지우면서 함께 제거되어
+   * 불리지 않는다. 그동안은 탭 때 걸어 둔 감시(`armRoomEntryAbortOnBack`)가 이동 뒤에 불려 목록 사진·진입 상태를 정리한다.
+   */
+  useEffect(() => {
+    const rid = roomId?.trim();
+    if (rid && (splitPaneMode || reducedMotion)) noteRoomEntryArrived(rid);
+  }, [roomId, splitPaneMode, reducedMotion]);
 
   const gestureRef = useRef<{
     pointerId: number;
@@ -244,9 +251,8 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
         easing: MESSENGER_LIST_ROOM_EXIT_EASING,
       });
     };
-    /** 캡처 단계 = Next 라우터 popstate 보다 먼저 — React 19 는 popstate 이동을 같은 이벤트 안에서 바로 반영해, 뒤에 등록된 리스너는 이미 바뀐 화면을 보거나(방향 판정 늦음) 언마운트로 제거돼 불리지 않는다 (Xiaomi 계측 2026-11-15, `lib/navigation/popstate-before-router.ts`) */
-    window.addEventListener("popstate", onPopState, POPSTATE_BEFORE_ROUTER);
-    return () => window.removeEventListener("popstate", onPopState, POPSTATE_BEFORE_ROUTER);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
   }, [reducedMotion, roomId, splitPaneMode]);
 
   const requestAnimatedBack = useCallback(() => {

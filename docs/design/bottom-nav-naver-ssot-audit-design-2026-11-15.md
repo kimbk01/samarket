@@ -359,3 +359,9 @@
   같은 원인으로 사장님·주문 하위 화면 슬라이드(`OwnerStackPageSlideShell`·`CommerceChildSlideShell`)·앱 전환 방향(`useRouteTransitionDirection`)의 「뒤로」 판정이 늦을 수 있음(나중에 마운트된 경우).
 - 수정: 위 다섯 곳 popstate 를 **캡처 단계**(`lib/navigation/popstate-before-router.ts`)로 등록 — 대상(window)에서 캡처가 일반 리스너보다 먼저 불려 Next 보다 먼저, 이동 전 화면에서 실행. 시험 `lib/navigation/__tests__/popstate-before-router.test.ts`.
 - 같은 유형의 다른 popstate 리스너(작성 이탈 확인·시트 닫기 등)는 레이아웃·셸에 상주해 언마운트되지 않는 곳이라 이번 수정 대상 아님 — 실기 확인 항목으로 남김.
+
+### 11-5. #323 정정 — 캡처 단계 전제 틀림 (2026-11-15 16:10 PHT)
+
+- **작업자 잘못**: #323 은 「window 대상에서 캡처 리스너가 먼저 불린다」는 전제로 popstate 를 캡처로 바꿨다. 실기 WebView(Chrome 156, Xiaomi)에서 등록 A(일반)→B(캡처) 후 이벤트 = `bub,cap` — **등록 순서대로** 불림. jsdom 시험만 통과했고 실기 효과 없음. 운영 `77ea2bb` 에서 Samsung 0.5초 뒤로 2회 중 1회 FAIL 재현(15:43), Xiaomi 계측(16:00): 방 마운트 직후 감시 해제 → 방 리스너는 Next 이후라 뒤로 순간 언마운트로 제거(리스너 제거가 popstate 마지막 리스너보다 먼저 기록됨) → 목록 사진 3.34초 잔존.
+- **수정**: #323 캡처 변경 전부 되돌림(`popstate-before-router.ts`·시험 삭제). 진입 중 뒤로 감시 해제 시점을 **방 마운트 → 방 진입 완료**(들어오는 움직임 끝 타이머, 또는 움직임 없는 분할·축소 모션)로 옮김. 그동안의 뒤로는 탭 때 건 감시가 이동 뒤에 불려 정리한다.
+- **남는 사실(기존 동작, 이번 수정 아님)**: 방이 다 열린 뒤 Android 뒤로는 방의 「밀려나는」 퇴장 그림이 불리지 않고 목록이 바로 보인다(같은 원인 — 방 리스너가 Next 이후). 사장님·주문 하위 화면 슬라이드·전환 방향 판정의 popstate 플래그도 화면이 나중에 마운트되면 Next 이후 등록 → 「뒤로」 판정이 늦을 수 있음 — 기기 미확인(NOT_PROVEN).
