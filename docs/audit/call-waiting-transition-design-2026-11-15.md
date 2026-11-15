@@ -236,6 +236,7 @@ Dialer 와 같이 「통화가 하나도 없을 때만 통화 화면을 닫는�
 | ③ T2 띠 종료 후 받기 | PASS | 00:54:09.721 hold → 11.365 promote → 11.856 수락 200 → 12.512 `handover_launch_shown` (re61-t2-tile) |
 | ③ T7 잠금 화면 이어받기 | PASS | isKeyguardLocked=true · 00:55:54.993 hold → 55.280 promote → 56.481 `handover_launch_shown` · 수신 heads-up 0 (re61-t7-tile) |
 | ④ 홈 버튼 직후 종료(차단 → 즉시 정리) | NOT_PROVEN | 1회 시도: 홈 키(adb 00:57:22.174)보다 수신 화면 시작(22.333, BAL_ALLOW_VISIBLE_WINDOW)이 먼저 처리돼 차단 경로가 재현되지 않음. 코드 경로는 계약 테스트로만 확인 |
+| ④ 재실기(Owner 「④ 홈 직후 종료도 다시 실기 진행해」) | PASS(홈 직후 남긴 화면 즉시 정리) · 하위 경로 NOT_PROVEN | 01:02:08.698 `handover_hold` 로그 감지 즉시 홈 키(`cmd input keyevent 3`, 08.795 송신) → 08.764 `visible=false`·`notice_repost_skipped` → 09.001 백그라운드 경로 → 09.078 BAL_BLOCK → 09.117 promote `handover=false launchRequested=false` → 09.118 `handover_release reason=handover_not_requested`(즉시) → 수신 heads-up 「수락 / 거절」 약 0.4초 뒤 표시, 「통화 종료 중」 잔류 프레임 0 (re61-t4b-tile). 「시작 요청 뒤 차단(handover_launch_blocked)」 하위 경로는 홈 키가 promote 판단(09.0) 뒤·시작(약 30ms 사이) 전에 들어가야 해 재현 못 함 — 계약 테스트로만 확인 |
 
 - 작업자 잘못: 00:56:28 C 통화가 이미 무응답으로 끝난 뒤 보낸 「수락」 좌표 탭이 DIBAY 메인 화면 아래쪽에 들어가 중고거래 상품 상세로 이동(쓰기 없음, 뒤로 가기로 복귀).
 - 기기 조율: 00:54 맥 맨 앞에 「iPhone 미러링」 창(작업자가 연 것 아님) — 건드리지 않고 DIBAY 만 앞으로.
