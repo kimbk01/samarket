@@ -34,6 +34,7 @@ import com.dibay.app.call.CallPipActionPlan;
 import com.dibay.app.call.CallRecentsCardPresenter;
 import com.dibay.app.call.NativeCallAppReturn;
 import com.dibay.app.nativecall.NativeCallInAppNoticeOverlay;
+import com.dibay.app.nativecall.NativeCallWaitingBanner;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.lang.ref.WeakReference;
 import java.util.Locale;
@@ -113,6 +114,8 @@ public class NativeVoiceCallActivity extends Activity {
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private long connectedAtElapsedMs = 0L;
   private NativeCallInAppNoticeOverlay noticeOverlay;
+  /** 대기 통화 띠 — 대기 통화가 있는 동안 통화 화면 위쪽에 「거절 / 종료 후 받기」. */
+  private NativeCallWaitingBanner waitingBanner;
   private boolean finishingWithNotice;
   /** 마지막 메신저 복귀 요청 시각(elapsedRealtime) — 확인 판정 기준. */
   private long appReturnRequestedAtMs = 0L;
@@ -266,6 +269,7 @@ public class NativeVoiceCallActivity extends Activity {
     setContentView(R.layout.activity_native_voice_call);
     bindViews();
     noticeOverlay = NativeCallInAppNoticeOverlay.attach(this);
+    waitingBanner = NativeCallWaitingBanner.attach(this);
     bindActions();
     logSurfaceShown();
     if (preparing) {
@@ -317,6 +321,10 @@ public class NativeVoiceCallActivity extends Activity {
 
   @Override
   protected void onDestroy() {
+    if (waitingBanner != null) {
+      waitingBanner.detach();
+      waitingBanner = null;
+    }
     mainHandler.removeCallbacks(autoPipMissedCheck);
     if (isFinishing()) CallRecentsCardPresenter.apply(this, false, null, "voice:destroy");
     stopDurationTimer();
@@ -367,6 +375,7 @@ public class NativeVoiceCallActivity extends Activity {
   public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode) {
     super.onPictureInPictureModeChanged(isInPictureInPictureMode);
     inPipMode = isInPictureInPictureMode;
+    if (waitingBanner != null) waitingBanner.onCallWaitingChanged();
     applyPipUiMode(isInPictureInPictureMode);
     NativeVoiceCallLog.info(
         isInPictureInPictureMode ? "native_voice_pip_entered" : "native_voice_pip_exited", callId);

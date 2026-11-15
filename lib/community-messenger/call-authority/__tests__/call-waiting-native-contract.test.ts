@@ -68,6 +68,39 @@ describe("Android 대기 통화", () => {
   });
 });
 
+describe("Android 대기 통화 선택지 유지 (실기 CW1 FAIL 수정 · 2026-11-15)", () => {
+  const presenter = () => read("android/app/src/main/java/com/dibay/app/nativecall/NativeCallWaitingPresenter.java");
+
+  it("대기 알림은 진행 중 통화 화면을 전체 화면 인텐트로 가진다 (heads-up 자동 내림 방지)", () => {
+    const src = presenter();
+    expect(src).toContain("builder.setContentIntent(ongoingCallScreen).setFullScreenIntent(ongoingCallScreen, true);");
+    expect(src).toContain("NativeVoiceCallNotification.ongoingCallActivityIntent(app, live)");
+    expect(src).toContain("NativeVideoCallNotification.ongoingCallActivityIntent(app, live)");
+    for (const f of [
+      "android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallNotification.java",
+      "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallNotification.java",
+    ]) {
+      expect(read(f), f).toContain("public static PendingIntent ongoingCallActivityIntent(Context context, String callId)");
+    }
+  });
+
+  it("통화 화면 대기 띠: 두 통화 화면이 붙이고·떼고, 버튼은 알림과 같은 처리", () => {
+    const banner = read("android/app/src/main/java/com/dibay/app/nativecall/NativeCallWaitingBanner.java");
+    expect(banner).toContain("NativeCallWaitingPresenter.reject(activity, callId)");
+    expect(banner).toContain("NativeCallWaitingPresenter.endAndAccept(activity, callId)");
+    expect(banner).toContain("NativeCallWaitingPresenter.addListener(view);");
+    expect(presenter()).toContain("if (pending == null || pending.acceptRequested) return null;");
+    for (const f of [
+      "android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallActivity.java",
+      "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallActivity.java",
+    ]) {
+      const src = read(f);
+      expect(src, f).toContain("waitingBanner = NativeCallWaitingBanner.attach(this);");
+      expect(src, f).toContain("waitingBanner.detach();");
+    }
+  });
+});
+
 describe("iOS 대기 통화", () => {
   const callkit = () => read("ios/App/App/Push/CallKitProvider.swift");
 

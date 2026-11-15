@@ -12,10 +12,12 @@ import android.os.Looper;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
+import java.util.concurrent.CopyOnWriteArraySet;
 import com.dibay.app.DibayNativeLocale;
 import com.dibay.app.IncomingCallUiCopy;
 import com.dibay.app.R;
 import com.dibay.app.nativevideo.NativeVideoCallApi;
+import com.dibay.app.nativevideo.NativeVideoCallNotification;
 import com.dibay.app.nativevideo.NativeVideoCallRuntime;
 import com.dibay.app.nativevoice.NativeVoiceCallApi;
 import com.dibay.app.nativevoice.NativeVoiceCallNotification;
@@ -36,6 +38,11 @@ import com.dibay.app.nativevoice.NativeVoiceCallRuntime;
  *   <li>진행 중 통화가 먼저 끝남(WA4): 대기 통화를 일반 수신 화면으로 전환.
  *   <li>대기 통화의 종료 신호(취소·무응답·다른 기기 응답, WA5) 또는 30초 경과: 대기 알림만 닫음.
  * </ul>
+ *
+ * <p>선택지 유지 (실기 CW1 FAIL 수정 · Owner 「구현 승인」 2026-11-15): 대기 알림은 진행 중 통화 화면을 전체 화면 인텐트로
+ * 가진다 — 기기 사용 중에는 SystemUI 가 FSI 알림의 heads-up 을 자동으로 내리지 않아 거절·종료 후 받기를 고를 때까지 남고,
+ * 화면이 꺼져 있으면 통화 화면을 켠다. 통화 화면 안에는 {@link NativeCallWaitingBanner} 가 같은 선택지를 계속 보인다.
+ * 기록: docs/audit/call-waiting-device-verify-2026-11-15/README.md
  */
 public final class NativeCallWaitingPresenter {
   private static final String TAG = "DIBAY_CALL_WAITING";
@@ -81,6 +88,26 @@ public final class NativeCallWaitingPresenter {
     }
   }
 
+  /** 통화 화면 대기 띠가 구독한다. 메인 스레드에서 호출된다. */
+  public interface Listener {
+    void onCallWaitingChanged();
+  }
+
+  /** 대기 띠에 그릴 정보. 종료 후 받기 진행 중이면 보이지 않는다(null). */
+  public static final class Snapshot {
+    public final String callId;
+    public final String callerName;
+    public final String lane;
+
+    Snapshot(String callId, String callerName, String lane) {
+      this.callId = callId;
+      this.callerName = callerName;
+      this.lane = lane;
+    }
+  }
+
+  private static final CopyOnWriteArraySet<Listener> LISTENERS = new CopyOnWriteArraySet<>();
+
   private static Pending pending;
   private static ToneGenerator toneGenerator;
   private static Runnable timeoutRunnable;
@@ -118,11 +145,40 @@ public final class NativeCallWaitingPresenter {
       if (pending != null) return true; // 같은 통화의 중복 푸시
       pending = new Pending(sid, roomId, callerId, callerName, lane, mediaType, live);
     }
-    showNotification(app, sid, callerName, lane);
+    showNotification(app, sid, callerName, lane, live);
     startBeep();
     scheduleTimeout(app, sid);
+    notifyChanged();
     log("present", sid, "lane=" + lane + " live=" + live);
     return true;
+  }
+
+  public static void addListener(Listener listener) {
+    if (listener != null) LISTENERS.add(listener);
+  }
+
+  public static void removeListener(Listener listener) {
+    if (listener != null) LISTENERS.remove(listener);
+  }
+
+  public static Snapshot current() {
+    synchronized (LOCK) {
+      if (pending == null || pending.acceptRequested) return null;
+      return new Snapshot(pending.callId, pending.callerName, pending.lane);
+    }
+  }
+
+  private static void notifyChanged() {
+    MAIN.post(
+        () -> {
+          for (Listener listener : LISTENERS) {
+            try {
+              listener.onCallWaitingChanged();
+            } catch (RuntimeException error) {
+              log("listener_error", null, "error=" + error.getClass().getSimpleName());
+            }
+          }
+        });
   }
 
   public static boolean isWaiting(String callId) {
@@ -162,6 +218,7 @@ public final class NativeCallWaitingPresenter {
     stopBeep();
     cancelTimeout();
     dismissNotification(app, p.callId);
+    notifyChanged();
     String live = currentLiveCallId(p.callId);
     log("end_and_accept", p.callId, "live=" + (live != null ? live : "none"));
     if (live == null) {
@@ -236,6 +293,7 @@ public final class NativeCallWaitingPresenter {
       if (pending == null || !pending.callId.equals(callId.trim())) return null;
       Pending p = pending;
       pending = null;
+      notifyChanged();
       return p;
     }
   }
@@ -298,9 +356,10 @@ public final class NativeCallWaitingPresenter {
             return;
           }
           log("end_and_accept_timeout", callId, "live_still_present");
-          showNotification(app, p.callId, p.callerName, p.lane);
+          showNotification(app, p.callId, p.callerName, p.lane, p.liveCallId);
           startBeep();
           scheduleTimeout(app, p.callId);
+          notifyChanged();
         };
     MAIN.postDelayed(acceptTimeoutRunnable, END_AND_ACCEPT_TIMEOUT_MS);
   }
@@ -365,7 +424,8 @@ public final class NativeCallWaitingPresenter {
     return NOTIFICATION_ID_BASE + Math.abs(callId.hashCode() % 1000);
   }
 
-  private static void showNotification(Context app, String callId, String callerName, String lane) {
+  private static void showNotification(
+      Context app, String callId, String callerName, String lane, String liveCallId) {
     NativeVoiceCallNotification.ensureIncomingChannel(app);
     NotificationManager nm = app.getSystemService(NotificationManager.class);
     if (nm == null) return;
@@ -376,7 +436,8 @@ public final class NativeCallWaitingPresenter {
             "video".equals(lane)
                 ? R.string.dibay_call_waiting_text_video
                 : R.string.dibay_call_waiting_text_voice);
-    Notification notification =
+    PendingIntent ongoingCallScreen = ongoingCallScreenIntent(app, liveCallId);
+    NotificationCompat.Builder builder =
         new NotificationCompat.Builder(app, NativeVoiceCallNotification.CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(name)
@@ -397,13 +458,29 @@ public final class NativeCallWaitingPresenter {
                         0,
                         DibayNativeLocale.string(app, R.string.dibay_call_waiting_end_and_accept),
                         actionIntent(app, callId, ACTION_END_AND_ACCEPT))
-                    .build())
-            .build();
+                    .build());
+    if (ongoingCallScreen != null) {
+      // FSI 가 있는 알림만 SystemUI 가 heads-up 을 자동으로 내리지 않는다(선택할 때까지 유지).
+      builder.setContentIntent(ongoingCallScreen).setFullScreenIntent(ongoingCallScreen, true);
+    } else {
+      log("fsi_unavailable", callId, "live=" + liveCallId);
+    }
+    Notification notification = builder.build();
     try {
       nm.notify(notificationId(callId), notification);
     } catch (SecurityException error) {
       log("notify_denied", callId, "error=" + error.getClass().getSimpleName());
     }
+  }
+
+  /** 진행 중 통화(음성·영상)의 통화 화면 — 그 통화 알림의 contentIntent 와 같은 것. */
+  private static PendingIntent ongoingCallScreenIntent(Context app, String liveCallId) {
+    if (liveCallId == null || liveCallId.trim().isEmpty()) return null;
+    String live = liveCallId.trim();
+    if (NativeVoiceCallRuntime.getSession(live) != null) {
+      return NativeVoiceCallNotification.ongoingCallActivityIntent(app, live);
+    }
+    return NativeVideoCallNotification.ongoingCallActivityIntent(app, live);
   }
 
   private static void dismissNotification(Context app, String callId) {

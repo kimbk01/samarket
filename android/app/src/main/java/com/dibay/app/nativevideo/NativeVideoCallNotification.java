@@ -266,6 +266,17 @@ public final class NativeVideoCallNotification {
         .build();
   }
 
+  /**
+   * 대기 통화 알림(nativecall.NativeCallWaitingPresenter)의 전체 화면 인텐트 — 진행 중 통화 화면을 연다.
+   * 진행 중 통화 알림의 contentIntent 와 같은 PendingIntent(같은 requestCode·extras). 세션이 없으면 null.
+   */
+  public static PendingIntent ongoingCallActivityIntent(Context context, String callId) {
+    if (context == null || callId == null) return null;
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    if (session == null) return null;
+    return activityIntent(context.getApplicationContext(), session);
+  }
+
   private static PendingIntent activityIntent(Context context, NativeVideoCallRuntime.Session session) {
     Intent intent = new Intent(context, NativeVideoCallActivity.class);
     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);

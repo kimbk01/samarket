@@ -1,0 +1,7 @@
+[{"id":"753174eb-5e5c-436d-9a66-9225269325a8","device_id":"438fe89e-7a8f-4cef-b3f2-92e39993d1ec","push_provider":"voip_apns","app_version":"1.2.2 (40)","is_active":true,"updated_at":"2026-11-15 07:25:40.232704+00"},
+{"id":"e6e048c3-76a1-4ddc-ad36-fe6c20371ec7","device_id":"438fe89e-7a8f-4cef-b3f2-92e39993d1ec","push_provider":"apns","app_version":"1.2.2 (40)","is_active":true,"updated_at":"2026-11-15 07:25:03.062487+00"},
+{"id":"6b7150d3-27b3-483e-89ec-6ee2d5156e2c","device_id":"921a1ca7-205a-4136-9e03-612da263961c","push_provider":"voip_apns","app_version":"1.2 (22)","is_active":true,"updated_at":"2026-11-15 07:09:35.763756+00"},
+{"id":"3f5348f4-9e19-4837-b78a-a2277acbb75d","device_id":"921a1ca7-205a-4136-9e03-612da263961c","push_provider":"apns","app_version":"1.2 (22)","is_active":true,"updated_at":"2026-11-15 06:59:23.329977+00"},
+{"id":"53582a33-bbf3-45e3-918b-454ddb3182e0","device_id":"59128501-d6db-4a1a-b0de-d2044cfb8381","push_provider":"voip_apns","app_version":"1.2 (21)","is_active":true,"updated_at":"2026-11-14 01:09:12.279855+00"},
+{"id":"db84bbff-b2bd-4466-aaf8-f17f86f9f876","device_id":"b3bdeb62-44e8-4fdf-85e1-14034e9f8a0f","push_provider":"voip_apns","app_version":"1.2 (21)","is_active":true,"updated_at":"2026-11-14 00:49:46.030677+00"},
+{"id":"932a2266-adfc-491c-9a82-0cbc07a859f2","device_id":"59128501-d6db-4a1a-b0de-d2044cfb8381","push_provider":"apns","app_version":"1.2 (21)","is_active":true,"updated_at":"2026-11-12 21:44:38.124974+00"}]
