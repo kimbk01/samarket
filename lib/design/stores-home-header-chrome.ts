@@ -25,7 +25,7 @@ export const STORES_HOME_HEADER_SHELL_CLASS =
 
 /** 홈·browse·입점 — 52px 밴드 안에 액션 행 세로 중앙 (PTR 힌트는 행 아래 추가) */
 export const STORES_HOME_HEADER_INNER_CLASS =
-  "mx-auto flex w-full min-w-0 max-w-[768px] flex-col justify-center px-[var(--delivery-page-x)] py-2";
+  "mx-auto flex w-full min-w-0 max-w-none flex-col justify-center px-[var(--delivery-page-x)] py-2";
 
 export const STORES_HOME_HEADER_ACTION_ROW_CLASS =
   "grid h-[length:var(--delivery-header-action)] items-center gap-1.5";
@@ -54,7 +54,7 @@ export const STORES_HOME_HEADER_BROWSE_ROW_CLASS = "grid-cols-[auto_minmax(0,1fr
 
 /** browse 2단 — `/stores` 와 동일 주소 형식(50% 열) */
 export const STORES_HOME_HEADER_BROWSE_INNER_CLASS =
-  "mx-auto flex w-full min-w-0 max-w-[768px] flex-col gap-1 px-[var(--delivery-page-x)] py-2";
+  "mx-auto flex w-full min-w-0 max-w-none flex-col gap-1 px-[var(--delivery-page-x)] py-2";
 
 /** browse 2단 — `/stores` 와 동일 좌측 정렬·50% 열 (뒤로 열 들여쓰기 없음) */
 export const STORES_HOME_HEADER_BROWSE_ADDRESS_ROW_CLASS =
@@ -72,7 +72,7 @@ export const STORES_HOME_HEADER_BROWSE_TABS_STACK_CLASS =
   "delivery-ui relative z-[4] w-full shrink-0 border-t border-[color:var(--dibay-domain-divider,var(--sector-header-border))] bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))]";
 
 export const STORES_HOME_HEADER_BROWSE_TABS_INNER_CLASS =
-  "relative mx-auto w-full min-w-0 max-w-[768px] px-[var(--delivery-page-x)] bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))]";
+  "relative mx-auto w-full min-w-0 max-w-none px-[var(--delivery-page-x)] bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))]";
 
 /** browse 3단 — 1차 텍스트 탭 행(▼ 패널·2차 칩보다 위) */
 export const STORES_HOME_HEADER_BROWSE_PRIMARY_TABS_ROW_CLASS =
@@ -84,7 +84,7 @@ export const STORES_HOME_HEADER_BROWSE_PRIMARY_MENU_PANEL_ANCHOR_CLASS =
 
 /** 1차 ▼ 패널 본체 */
 export const STORES_HOME_HEADER_BROWSE_PRIMARY_MENU_PANEL_CLASS =
-  "pointer-events-auto mx-auto w-full min-w-0 max-w-[768px] border-b border-[color:var(--delivery-border)] bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))] shadow-[0_8px_24px_rgba(0,0,0,0.08)]";
+  "pointer-events-auto mx-auto w-full min-w-0 max-w-none border-b border-[color:var(--delivery-border)] bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))] shadow-[0_8px_24px_rgba(0,0,0,0.08)]";
 
 /** browse ▼ 딤 */
 export const STORES_HOME_HEADER_BROWSE_PRIMARY_MENU_BACKDROP_CLASS =

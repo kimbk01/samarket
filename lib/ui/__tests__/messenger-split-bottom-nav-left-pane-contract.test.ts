@@ -26,19 +26,16 @@ describe("messenger split left-pane contract (APK/iOS/Windows/tablet viewport SS
     expect(css).toContain("@media (min-width: 768px)");
     expect(css).toContain("clamp(360px, 35vw, 470px)");
     expect(css).toContain("right: auto");
-    expect(css).toContain("min-width: 360px");
+    // 탭 바 자체 padding-left(safe-left) 만큼 폭을 더해 목록 칸과 오른쪽 끝을 맞춘다
+    expect(css).toContain("width: calc(var(--cm-split-list-pane-width) + var(--safe-left, 0px));");
   });
 
-  it("messenger-split BottomNav left tracks APP_MAIN_COLUMN mx-auto max-w chain", () => {
+  it("messenger-split BottomNav starts at shell left 0 — 본문 열 최대 폭 없음 (가로 폭 감사 B1 2026-11-16)", () => {
     const css = read("app/app-bottom-nav.css");
     const layout = read("lib/ui/app-content-layout.ts");
-    expect(layout).toContain("max-w-[52rem]");
-    expect(layout).toContain("lg:max-w-[60rem]");
-    expect(layout).toContain("xl:max-w-[66rem]");
-    expect(css).toContain("calc((100vw - min(100vw, 52rem)) / 2)");
-    expect(css).toContain("calc((100vw - min(100vw, 60rem)) / 2)");
-    expect(css).toContain("calc((100vw - min(100vw, 66rem)) / 2)");
-    expect(css).toContain("APP_MAIN_COLUMN_MAX_WIDTH_CLASS");
+    expect(layout).toContain('APP_MAIN_COLUMN_MAX_WIDTH_CLASS = "max-w-none"');
+    expect(css).toMatch(/\.app-bottom-nav-shell\.app-bottom-nav-shell--messenger-split-list \{[^}]*left: 0;/);
+    expect(css).not.toMatch(/\d+rem\)\) \/ 2\)/);
   });
 
   it("ConditionalAppShell applies messenger-split BottomNav class on messenger path (SSR-safe)", () => {
@@ -59,7 +56,7 @@ describe("messenger split left-pane contract (APK/iOS/Windows/tablet viewport SS
     expect(sheet).not.toContain('panelPositionClass = center');
     expect(sheet).not.toMatch(/splitListSheet\s*\?\s*["']absolute bottom-0/);
     expect(css).toContain(".messenger-home-bottom-sheet-panel--split-list");
-    expect(css).toContain("left: max(0px, calc((100vw - min(100vw, 52rem)) / 2)) !important");
+    expect(css).toContain("left: var(--safe-left, 0px) !important");
     expect(css).toContain("right: auto !important");
     expect(css).toContain("width: var(--cm-split-list-pane-width) !important");
   });

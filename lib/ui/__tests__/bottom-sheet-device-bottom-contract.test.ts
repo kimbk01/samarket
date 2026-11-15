@@ -135,6 +135,8 @@ describe("messenger split view — every bottom sheet sits on the list pane (202
       css.match(
         /:is\(\.messenger-home-bottom-sheet-panel, \.messenger-home-bottom-sheet-panel--device-bottom\)\.messenger-home-bottom-sheet-panel--split-list/g
       )?.length
-    ).toBe(3);
+    ).toBe(1);
+    // 본문 열 단계(lg·xl) 오프셋 규칙 없음 — 가로 폭 감사 B1 2026-11-16
+    expect(css).not.toMatch(/\d+rem\)\) \/ 2\)/);
   });
 });

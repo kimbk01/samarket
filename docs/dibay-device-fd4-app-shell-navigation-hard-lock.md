@@ -9,6 +9,11 @@
 >
 > **Owner 추가 해제 (2026-11-07 PHT, 원문 「권장 사항을 따른다」 → 「M0~M5 구현」)** — DESKTOP 세로 레일 셸의 **메신저 화면(`/community-messenger/**`) 본문 열 폭 제한만** 해제(레일 | 목록 | 대화방 창 전체).
 > 「Messenger 768」 분할 기준·목록 칸 폭(`clamp(360px,35vw,470px)`)·휴대폰/태블릿 메신저는 유지. 설계: `docs/audit/messenger-desktop-wide-design-2026-11-07.md`.
+>
+> **Owner 추가 해제 (2026-11-16 PHT, 원문 「둘 다 진행」)** — 본문 열 최대 폭(42→66rem 「읽기 폭 열」)을 **모든 기기에서** 해제한다
+> (`APP_MAIN_COLUMN_MAX_WIDTH_CLASS = max-w-none`). 태블릿 가로·Mac(iPad 앱)·Windows 의 좌우 빈 띠 제거.
+> 그래서 태블릿·Mac 메신저 분할도 창 전체 폭을 쓴다. 유지: 셸 선택(DeviceClass)·하단 탭/레일 구분·「Messenger 768」 분할 기준·목록 칸 폭.
+> 근거·실측: `docs/audit/horizontal-fill-device-audit-2026-11-16.md`.
 **Declared:** 2026-09-25  
 **Evidence:** `.tmp/fd4-shell-runtime/` (`samsung.json` · `xiaomi.json` · `iphonebk.json` · `SUMMARY.json`)
 

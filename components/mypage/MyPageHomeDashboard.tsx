@@ -13,8 +13,7 @@ import {
 } from "@/components/mypage/home/mypage-home-values-context";
 import { useMypageHomeSummary } from "@/hooks/use-mypage-home-summary";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
-import { MYPAGE_HOME_BODY_CLASS, MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-styles";
-import { MYPAGE_HOME_MENU_FLOW_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
+import { MYPAGE_HOME_BODY_CLASS, MYPAGE_HOME_CARD_CLASS, MYPAGE_HOME_WIDE_FLOW_CLASS } from "@/lib/ui/mypage-home-styles";
 import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 import type { MypageOwnerStoreGateSeed } from "@/lib/my/load-mypage-owner-store-gate-seed";
@@ -75,7 +74,7 @@ export function MyPageHomeDashboard({
   return (
     <MypageHomeValuesProvider value={homeValues}>
       <div className={MYPAGE_HOME_BODY_CLASS} data-mypage-ia="category-hub">
-        <div className={MYPAGE_HOME_MENU_FLOW_CLASS}>
+        <div className={MYPAGE_HOME_WIDE_FLOW_CLASS}>
           {needsRelogin ? (
             <MypageSessionReloginCard />
           ) : loadFailed && !projection ? (

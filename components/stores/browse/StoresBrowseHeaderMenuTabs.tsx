@@ -180,7 +180,7 @@ export function StoresBrowseHeaderMenuTabs({ primarySlug }: { primarySlug: strin
 
   return (
     <div className={MIRROR_PAGE_TABS_ROW_CLASS} data-delivery-chrome-page-tabs="1">
-      <div className="relative mx-auto w-full min-w-0 max-w-[768px]">
+      <div className="relative mx-auto w-full min-w-0 max-w-none">
         <div
           ref={railRef}
           role="tablist"
@@ -252,7 +252,7 @@ export function StoresBrowseHeaderMenuTabs({ primarySlug }: { primarySlug: strin
             onClick={() => setAllOpen(false)}
           />
           <div className="absolute inset-x-0 top-0 z-[3] border-b border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] shadow-[var(--overlay-elevation-2)]" data-delivery-chrome-menu-all-panel="1">
-            <div className="mx-auto flex h-[40px] w-full max-w-[768px] items-center justify-between px-[var(--delivery-page-x)]">
+            <div className="mx-auto flex h-[40px] w-full max-w-none items-center justify-between px-[var(--delivery-page-x)]">
               <span className="text-[length:var(--overlay-title-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">{t("store_browse_menu_all_view")}</span>
               <button
                 type="button"
@@ -263,7 +263,7 @@ export function StoresBrowseHeaderMenuTabs({ primarySlug }: { primarySlug: strin
                 <ChevronIcon up />
               </button>
             </div>
-            <div className="mx-auto grid w-full max-w-[768px] grid-cols-5 gap-x-1 gap-y-3 px-[var(--delivery-page-x)] pb-4 pt-1">
+            <div className="mx-auto grid w-full max-w-none grid-cols-5 gap-x-1 gap-y-3 px-[var(--delivery-page-x)] pb-4 pt-1">
               {tabs.map((tab) => {
                 const on = tab.key === activeKey;
                 return (

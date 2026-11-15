@@ -1,8 +1,5 @@
 import { MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
-import {
-  MYPAGE_COLUMN_MAX_WIDTH_CLASS,
-  MYPAGE_GUTTER_X_CLASS,
-} from "@/lib/ui/mypage-responsive-breakpoints";
+import { MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 
 /** 내정보 홈 — 프로필 편집과 동일 크림 배경 */
@@ -12,11 +9,20 @@ export const MYPAGE_HOME_PAGE_BG_CLASS = "min-h-0 bg-sam-app";
 export { MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS as MYPAGE_HOME_BOTTOM_NAV_CLEARANCE_CLASS };
 
 /**
- * 모바일·태블릿 본문 — 같은 1열, 가운데 정렬, 최대 40rem, 좌우 16px(모바일)/20px(md+) (최종 설계 §1.8).
- * 하단 여백은 clearance + 셸 `pb-0` 로 한 번만. 앱 공용 폭(`APP_MAIN_COLUMN_MAX_WIDTH_CLASS`)은 쓰지 않음.
+ * 내정보 홈 본문 — 창 전체 폭 (가로 폭 감사 B2, Owner 2026-11-16 「둘 다 진행」). 예전 40rem 1열은 태블릿 가로·Mac 에서
+ * 좌우 빈 띠(태블릿 실측 좌우 각 203px)를 만들었다. 넓은 화면 배치는 `MYPAGE_HOME_WIDE_FLOW_CLASS`(md 2열)가 맡는다.
+ * 하위 화면(`MyScreen`)은 B3 — 내용 폭 40rem 유지, 배경만 창 전체.
+ * 하단 여백은 clearance + 셸 `pb-0` 로 한 번만.
  */
 export const MYPAGE_HOME_BODY_CLASS =
-  `mx-auto w-full min-w-0 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS} pt-2 ${MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS}`;
+  `mx-auto w-full min-w-0 max-w-none ${MYPAGE_GUTTER_X_CLASS} pt-2 ${MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS}`;
+
+/**
+ * 내정보 홈 카드 흐름 — 휴대폰 1열(기존 `MYPAGE_HOME_MENU_FLOW_CLASS` 와 같음), 768 이상 2열 격자.
+ * 프로필·필수 정보는 나란히, 세 번째 칸부터(지금 상태 줄·배너·메뉴 격자)와 하나뿐인 카드(재로그인)는 한 줄 전체.
+ */
+export const MYPAGE_HOME_WIDE_FLOW_CLASS =
+  "flex w-full min-w-0 flex-col gap-2 md:grid md:grid-cols-2 md:items-start md:[&>*:nth-child(n+3)]:col-span-2 md:[&>*:only-child]:col-span-2";
 
 export const MYPAGE_HOME_CARD_CLASS =
   "overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface";

@@ -27,7 +27,7 @@ export function StoreReviewsPageClient({ slug }: { slug: string }) {
         onBack={onClose}
         backLabel={t("common_close")}
       />
-      {/* S3-07 — 본문 폭 = 배달 소비자 768px 열 */}
+      {/* S3-07 — 본문 폭 = 배달 소비자 본문 열(최대 폭 없음, 2026-11-16 B2) */}
       <div className={`${STORES_HOME_CONTENT_COLUMN_CLASS} bg-white px-4 pb-10 pt-3`}>
         <StoreReviewsSection
           storeSlug={keySlug}

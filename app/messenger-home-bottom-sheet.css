@@ -65,12 +65,12 @@
  * 시트만 기기 전체 폭으로 펼쳐짐).
  * BottomNav `.app-bottom-nav-shell--messenger-split-list` 와 동일 오프셋·폭.
  * `!important`: Tailwind `inset-x-0` / `w-full` 유틸을 media에서만 덮음 (<768 전폭 유지).
- * rem 체인 SSOT: `APP_MAIN_COLUMN_MAX_WIDTH_CLASS`.
+ * 본문 열 최대 폭 없음(2026-11-16 B1) → 목록 칸은 셸 왼쪽 safe-left 에서 시작.
  */
 @media (min-width: 768px) {
   :is(.messenger-home-bottom-sheet-panel, .messenger-home-bottom-sheet-panel--device-bottom).messenger-home-bottom-sheet-panel--split-list {
     --cm-split-list-pane-width: clamp(360px, 35vw, 470px);
-    left: max(0px, calc((100vw - min(100vw, 52rem)) / 2)) !important;
+    left: var(--safe-left, 0px) !important;
     right: auto !important;
     width: var(--cm-split-list-pane-width) !important;
     min-width: 360px;
@@ -79,17 +79,6 @@
   }
 }
 
-@media (min-width: 1024px) {
-  :is(.messenger-home-bottom-sheet-panel, .messenger-home-bottom-sheet-panel--device-bottom).messenger-home-bottom-sheet-panel--split-list {
-    left: max(0px, calc((100vw - min(100vw, 60rem)) / 2)) !important;
-  }
-}
-
-@media (min-width: 1280px) {
-  :is(.messenger-home-bottom-sheet-panel, .messenger-home-bottom-sheet-panel--device-bottom).messenger-home-bottom-sheet-panel--split-list {
-    left: max(0px, calc((100vw - min(100vw, 66rem)) / 2)) !important;
-  }
-}
 
 /** 친구 추가 등 — 화면 중앙 팝업 */
 .messenger-home-center-sheet-panel {

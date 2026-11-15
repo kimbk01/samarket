@@ -27,7 +27,7 @@ export const MIRROR_HEADER_SHELL_CLASS =
 
 /** 2단 — 주소 「… ▾」 14px 보통 (실측 글자 높이 17px÷1.33 · DIBAY 15px 탭 대비 환산) */
 export const MIRROR_ADDRESS_ROW_CLASS =
-  "mx-auto flex h-[32px] w-full min-w-0 max-w-[768px] items-center px-[var(--delivery-page-x)] bg-white";
+  "mx-auto flex h-[32px] w-full min-w-0 max-w-none items-center px-[var(--delivery-page-x)] bg-white";
 export const MIRROR_ADDRESS_BUTTON_CLASS =
   "inline-flex min-w-0 max-w-full items-center gap-1 text-[14px] font-normal leading-none text-[color:#362415] active:opacity-70";
 

@@ -7,7 +7,7 @@ import {
   inventorySeedByKey,
   type DeliveryAdInventoryKey,
 } from "@/lib/stores/advertising/delivery-ad-inventory";
-import { STORES_HOME_CONTENT_COLUMN_CLASS } from "@/lib/stores/stores-home-ui";
+import { STORES_HOME_BANNER_MAX_CLASS } from "@/lib/stores/stores-home-ui";
 
 export type DeliveryAdBannerRenderContext = "owner_preview" | "admin_preview" | "customer";
 
@@ -84,11 +84,11 @@ export function deliveryAdBannerObjectFit(inv: DeliveryAdBannerInventoryView): "
 }
 
 /** Tablet/desktop: reuse Stores HOME content max width — no new tablet constant. */
-export const DELIVERY_AD_BANNER_CONTENT_MAX_CLASS = STORES_HOME_CONTENT_COLUMN_CLASS;
+export const DELIVERY_AD_BANNER_CONTENT_MAX_CLASS = STORES_HOME_BANNER_MAX_CLASS;
 
 export const DELIVERY_AD_BANNER_RENDERER_CONTRACT = {
   singleComponent: "DeliveryAdBanner",
   forbiddenProps: ["isIos", "isAndroid", "tabletBanner", "iosRatio", "androidRatio"] as const,
   geometryAuthority: "delivery_ad_inventories",
-  maxWidthAuthority: "STORES_HOME_CONTENT_COLUMN_CLASS",
+  maxWidthAuthority: "STORES_HOME_BANNER_MAX_CLASS",
 } as const;
