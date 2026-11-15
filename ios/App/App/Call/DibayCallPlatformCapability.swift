@@ -13,7 +13,8 @@ import Foundation
  * - CallKit 발신: 트랜잭션은 성공하지만 `provider(_:didActivate:)` 가 오지 않아
  *   `ios_audio_session_gate_timeout`(8초)으로 발신 실패.
  *
- * D1 은 정의·기록만 한다(동작 무변경). 소비는 D3(발신·수락 오디오)·D2(수신)에서 승인 후 추가.
+ * 소비처: D3 — `DibayCallAudioSessionController.registerPendingOutgoingJoin`(맥 발신 오디오 gate).
+ *         D2(수신·수락)는 승인 후 추가.
  */
 enum DibayCallPlatformCapability {
   /// Apple Silicon Mac 에서 iOS 앱으로 실행 중인가.

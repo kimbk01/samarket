@@ -123,3 +123,13 @@ Dropping incoming message because the process assertion could not be acquired
 
 ## 5. 남은 NOT_PROVEN
 iPad 실기 전부 · 맥 음성 발신 · 회색 막대 원인 · + 첨부 시트 하단 잘림 · WEBP 디코딩 오류 162건의 화면 영향 · 홈·LOUNGE·DIPICK·telRING·MY 전체 점검.
+
+## 6. D3 구현 기록 (2026-11-15, Owner 「D3 진행」)
+
+- 바뀐 곳 1곳: `DibayCallAudioSessionController.registerPendingOutgoingJoin` — `supportsCallKitAudioActivation == false`(맥)일 때 `setActive(true)` 후 즉시 flush(=`didActivate` 도착과 같은 처리). 음성·영상 발신 둘 다 이 함수 하나를 지나므로 코디네이터는 바꾸지 않음.
+- iPhone·iPad: 분기 값 true → 기존 CallKit gate·8초 타임아웃 그대로(코드 경로 무변경).
+- 맥에서 유지되는 것: CallKit 발신 보고(`reportOutgoingCallStarted`)·종료 트랜잭션(맥에서 트랜잭션 자체는 성공 실측), 링백, 권한 확인, 원격 종료 감시.
+- **수락(수신 후 받기)은 D3 에서 제외 → D2 로 이동**: 맥은 수신 자체가 안 와서(1-1) 수락 경로를 시험할 수 없다. 시험 불가능한 코드를 먼저 넣지 않는다. 수신 계약 코드(`NativeVoiceIncomingCallCoordinator` 등)는 gate 를 쓰지 않음(확인).
+- 영향 경로: 맥 발신 시작 → Agora 참가 → 연결·종료·통화 기록. Agora iOS SDK·카메라가 맥에서 동작하는지는 **실기로만 판정**(NOT_PROVEN).
+- 맥 실기 행렬(D3): 맥→Android/iPhone 음성·영상 발신 · 상대 수락 후 양방향 음성/영상 · 맥 종료 · 상대 종료 · 상대 거절 · 벨 중 맥 취소 · 무응답 타임아웃 · 종료 후 즉시 재발신. 로그 기준: `ios_audio_session_gate_flush_immediate reason=platform_no_callkit_activation` 존재, `ios_audio_session_gate_timeout` 0건.
+- iPhone 회귀 행렬: iPhone 발신 음성·영상 각 1회 이상, 로그에 `platform_no_callkit_activation` 0건·기존 `ios_audio_session_callkit_activated` 경로.

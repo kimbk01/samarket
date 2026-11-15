@@ -183,6 +183,20 @@ final class DibayCallAudioSessionController {
 
     DibayCallLog.info("ios_audio_session_gate_registered", sessionId: sid)
 
+    // D3 (docs/audit/mac-ipad-call-and-bottom-bar-audit-2026-11-15.md): Mac 은 CallKit `didActivate` 가
+    // 오지 않는다(2026-11-15 실측 — 8초 gate timeout 으로 발신 실패). 앱이 세션을 직접 활성화하고
+    // `didActivate` 도착과 같은 flush 를 한다. iPhone·iPad 는 아래 기존 CallKit gate 그대로.
+    if !DibayCallPlatformCapability.supportsCallKitAudioActivation {
+      activateSessionWithoutCallKit(sessionId: sid)
+      DibayCallLog.warn(
+        "ios_audio_session_gate_flush_immediate",
+        sessionId: sid,
+        detail: "reason=platform_no_callkit_activation"
+      )
+      flushPendingOutgoingJoin()
+      return
+    }
+
     if alreadyActivated {
       DibayCallLog.info(
         "ios_audio_session_gate_flush_immediate",
@@ -224,6 +238,21 @@ final class DibayCallAudioSessionController {
   }
 
   // MARK: - Private
+
+  /// Mac 전용(D3) — CallKit 이 하던 `setActive(true)` 를 앱이 한다. category·mode 는 발신 링백 준비
+  /// (`prepareOutgoingRingbackRoute`)가 이미 설정했으므로 바꾸지 않는다.
+  private func activateSessionWithoutCallKit(sessionId: String) {
+    do {
+      try AVAudioSession.sharedInstance().setActive(true)
+      DibayCallLog.warn("ios_audio_session_activated_without_callkit", sessionId: sessionId)
+    } catch {
+      DibayCallLog.warn(
+        "ios_audio_session_activate_without_callkit_failed",
+        sessionId: sessionId,
+        detail: "err=\(error.localizedDescription)"
+      )
+    }
+  }
 
   private func flushPendingOutgoingJoin() {
     gateLock.lock()
