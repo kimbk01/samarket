@@ -41,6 +41,8 @@ function projectHubTipAfterCatchUpMerge(args: {
       content: args.message.content,
       metadata: args.message.metadata ?? null,
       created_at: args.message.createdAt,
+      /** D4: 단건 정합으로 받은 삭제 행도 목록 미리보기에 삭제 문구 */
+      deleted_for_everyone_at: args.message.deletedForEveryoneAt ?? null,
     },
   });
 }

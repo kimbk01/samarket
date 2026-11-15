@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { messengerSelectedOriginalUrls } from "@/lib/community-messenger/attachment/messenger-photo-save-menu";
@@ -43,6 +44,8 @@ function MessengerPhotoSelectSaveSheetPanel({
   const { t } = useI18n();
   const { slots, thumbs, preselectIndex } = request;
   useRegisterOpenOverlay(true);
+  /** D3: 뒤로 키 = 이 시트만 닫기(등록 안 하면 방을 나감) */
+  useOverlayHardwareBack(true, onClose);
   const selectable = useMemo(
     () => slots.map((u, i) => (isHttpUrl(u) ? i : -1)).filter((i) => i >= 0),
     [slots]

@@ -89,6 +89,10 @@ function fakeSb(tables: { messages: Row[]; participant: Row | null; hides: Row[]
         if (expr.startsWith("is_hidden_by_admin")) filters.push((r) => r.is_hidden_by_admin !== true);
         return chain();
       },
+      filter: (k: string, op: string, v: string) => {
+        if (op === "imatch") filters.push((r) => new RegExp(v, "i").test(String(r[k] ?? "")));
+        return chain();
+      },
       gte: (k: string, v: string) => (filters.push((r) => String(r[k]) >= v), chain()),
       in: (k: string, vs: unknown[]) => (filters.push((r) => vs.includes(r[k])), chain()),
       order: () => chain(),
@@ -142,7 +146,7 @@ describe("M1 방 사진·음성 모음 = 서버 조회·서버 개수", () => {
     const r = await listRoomMediaGallery({ userId: "u1", roomId: ROOM, sb });
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.page.counts).toEqual({ image: 2, voice: 1 });
+    expect(r.page.counts).toEqual({ image: 2, voice: 1, file: 0, link: 0 });
     expect(r.page.items.map((x) => x.id)).toEqual(["v1", "p2", "p1"]);
     expect(r.page.items[0]!.voiceDurationSeconds).toBe(4);
   });

@@ -284,6 +284,7 @@ export function useMessengerRoomBumpBroadcastSubscription({
                     content: enriched.content,
                     metadata: enriched.metadata ?? null,
                     created_at: enriched.createdAt,
+                    deleted_for_everyone_at: enriched.deletedForEveryoneAt ?? null,
                   },
                 });
               }

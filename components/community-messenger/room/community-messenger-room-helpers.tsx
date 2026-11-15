@@ -260,7 +260,16 @@ export function mergeRoomMessages(
     if (item.pending) continue;
     mergedConfirmed.set(item.id, item);
   }
+  /**
+   * D1(2026-11-16): 새로 넣는 「보내는 중」 행(pending:true)은 확정 묶음에 넣지 않고 보내는 중 묶음에 그대로 둔다.
+   * 예전에는 모든 행을 pending:false 로 덮어 「보내는 중」 표시·회전·업로드 중이 처음부터 나오지 않았다(사진 계측 회전 0회).
+   */
+  const incomingPending: Array<CommunityMessengerMessage & { pending?: boolean }> = [];
   for (const item of next) {
+    if ((item as { pending?: boolean }).pending === true) {
+      incomingPending.push(item as CommunityMessengerMessage & { pending?: boolean });
+      continue;
+    }
     let skipIncomingCallStub = false;
     const callStubKeys = callStubSessionDedupeKeys(item);
     if (callStubKeys.length > 0) {
@@ -313,9 +322,20 @@ export function mergeRoomMessages(
   }
   const mapIndexMs = typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
   const tDedupe0 = typeof performance !== "undefined" ? performance.now() : 0;
-  const pending = prev.filter((item) => item.pending);
+  const incomingPendingIds = new Set(incomingPending.map((item) => item.id));
+  const confirmedNext = next.filter((item) => (item as { pending?: boolean }).pending !== true);
+  const confirmedCids = new Set<string>();
+  for (const row of mergedConfirmed.values()) {
+    const c = typeof row.clientMessageId === "string" ? row.clientMessageId.trim() : "";
+    if (c) confirmedCids.add(c);
+  }
+  /** 같은 id 의 보내는 중 행은 새로 들어온 것(실패 표시·재전송 등)으로 바꾼다 */
+  const pending = [...prev.filter((item) => item.pending && !incomingPendingIds.has(item.id)), ...incomingPending];
   const mergedPending = pending.filter((item) => {
-    return !next.some((confirmedItem) => {
+    const cidPending = typeof item.clientMessageId === "string" ? item.clientMessageId.trim() : "";
+    /** 서버 확정 행(같은 cid)이 이미 있으면 보내는 중 행은 뺀다 — 서버 행이 먼저 온 경우의 중복 방지 */
+    if (cidPending && confirmedCids.has(cidPending)) return false;
+    return !confirmedNext.some((confirmedItem) => {
       if (confirmedItem.senderId !== item.senderId || confirmedItem.messageType !== item.messageType) return false;
       const cidA = typeof confirmedItem.clientMessageId === "string" ? confirmedItem.clientMessageId.trim() : "";
       const cidB = typeof item.clientMessageId === "string" ? item.clientMessageId.trim() : "";

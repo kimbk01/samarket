@@ -224,6 +224,7 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
               content: event.message.content,
               metadata: event.message.metadata,
               created_at: event.message.createdAt,
+              deleted_for_everyone_at: event.message.deletedForEveryoneAt ?? null,
             },
           });
           cmReceiveLatencyMark(latencyKey, { receiver_store_apply_done_ms: cmReceiveLatencyNow() });
@@ -286,6 +287,7 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
                   content: event.message.content,
                   metadata: event.message.metadata,
                   created_at: event.message.createdAt,
+                  deleted_for_everyone_at: event.message.deletedForEveryoneAt ?? null,
                 },
                 at: Date.now(),
               });

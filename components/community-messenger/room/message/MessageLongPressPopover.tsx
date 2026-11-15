@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type {
   CommunityMessengerMessage,
@@ -76,6 +77,11 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
   const [shareExpanded, setShareExpanded] = useState(false);
   /** 「+」로 연 반응용 이모지 피커 — 열리면 메뉴 대신 피커를 그린다 */
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
+  /**
+   * D3(2026-11-16 실기): 메뉴가 뒤로 키 처리 목록에 없어 뒤로 1번에 WebView 기본 뒤로(방 나감)가 실행됐다.
+   * 열린 동안 등록 — 뒤로 = 반응 피커가 열려 있으면 피커만, 아니면 메뉴만 닫는다.
+   */
+  useOverlayHardwareBack(Boolean(open), reactionPickerOpen ? () => setReactionPickerOpen(false) : onClose);
   /**
    * 사진 저장 — 메뉴 구성은 `buildMessengerPhotoSaveMenu` 단일 정의.
    * 단일 「사진 저장」 · 앨범 「이 사진 저장」(눌린 칸) · 「사진 모두 저장 (N장)」 · 「사진 선택해서 저장」.
