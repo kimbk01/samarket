@@ -19,9 +19,11 @@ import com.dibay.app.R;
 import com.dibay.app.nativevideo.NativeVideoCallApi;
 import com.dibay.app.nativevideo.NativeVideoCallNotification;
 import com.dibay.app.nativevideo.NativeVideoCallRuntime;
+import com.dibay.app.nativevideo.NativeVideoCallService;
 import com.dibay.app.nativevoice.NativeVoiceCallApi;
 import com.dibay.app.nativevoice.NativeVoiceCallNotification;
 import com.dibay.app.nativevoice.NativeVoiceCallRuntime;
+import com.dibay.app.nativevoice.NativeVoiceCallService;
 
 /**
  * 대기 통화 (WhatsApp 형태 「거절 / 종료 후 받기」, 보류 없음) — docs/audit/call-waiting-stage2-design-2026-11-15.md
@@ -42,6 +44,11 @@ import com.dibay.app.nativevoice.NativeVoiceCallRuntime;
  * <p>선택지 유지 (실기 CW1 FAIL 수정 · Owner 「구현 승인」 2026-11-15): 대기 알림은 진행 중 통화 화면을 전체 화면 인텐트로
  * 가진다 — 기기 사용 중에는 SystemUI 가 FSI 알림의 heads-up 을 자동으로 내리지 않아 거절·종료 후 받기를 고를 때까지 남고,
  * 화면이 꺼져 있으면 통화 화면을 켠다. 통화 화면 안에는 {@link NativeCallWaitingBanner} 가 같은 선택지를 계속 보인다.
+ *
+ * <p>표면 1개 (실기 「알림 2개」 FAIL 수정 · Owner 「구현 승인」 2026-11-15): AOSP Dialer
+ * {@code StatusBarNotifier} 와 같이 통화 화면이 보이면 대기 알림은 조용한 알림(진행 중 통화 채널·FSI 없음·heads-up 없음,
+ * 선택지는 통화 화면 띠 하나), 안 보이면 FSI 알림. 보임 상태는 {@link #setCallScreenVisible} 로 받고, 대기 중 바뀌면 다시
+ * 올린다(조용→시끄러움은 cancel 후 notify — setOnlyAlertOnce 때문에 갱신만으로는 heads-up 이 안 뜸).
  * 기록: docs/audit/call-waiting-device-verify-2026-11-15/README.md
  */
 public final class NativeCallWaitingPresenter {
@@ -109,6 +116,10 @@ public final class NativeCallWaitingPresenter {
   private static final CopyOnWriteArraySet<Listener> LISTENERS = new CopyOnWriteArraySet<>();
 
   private static Pending pending;
+  /** 진행 중 통화 화면(음성·영상 Activity)이 앞에 보이는지 — PiP 는 안 보임. 메인 스레드에서만 바뀐다. */
+  private static boolean callScreenVisible;
+  /** 지금 올라가 있는 대기 알림이 조용한 알림인지(보임 상태가 바뀔 때만 다시 올리기 위함). */
+  private static Boolean postedQuiet;
   private static ToneGenerator toneGenerator;
   private static Runnable timeoutRunnable;
   private static Runnable beepRunnable;
@@ -151,6 +162,23 @@ public final class NativeCallWaitingPresenter {
     notifyChanged();
     log("present", sid, "lane=" + lane + " live=" + live);
     return true;
+  }
+
+  /**
+   * 통화 화면 보임 상태 — {@link NativeCallWaitingBanner} 가 Activity onResume/onPause/PiP 변화 때 부른다. 대기 중이고 상태가
+   * 바뀌었으면 대기 알림을 그 상태에 맞게 다시 올린다.
+   */
+  public static void setCallScreenVisible(Context context, boolean visible) {
+    if (context == null) return;
+    Context app = context.getApplicationContext();
+    final Pending p;
+    synchronized (LOCK) {
+      if (callScreenVisible == visible) return;
+      callScreenVisible = visible;
+      p = pending != null && !pending.acceptRequested ? pending : null;
+    }
+    log("call_screen_visible", p != null ? p.callId : null, "visible=" + visible);
+    if (p != null) showNotification(app, p.callId, p.callerName, p.lane, p.liveCallId);
   }
 
   public static void addListener(Listener listener) {
@@ -426,9 +454,12 @@ public final class NativeCallWaitingPresenter {
 
   private static void showNotification(
       Context app, String callId, String callerName, String lane, String liveCallId) {
-    NativeVoiceCallNotification.ensureIncomingChannel(app);
     NotificationManager nm = app.getSystemService(NotificationManager.class);
     if (nm == null) return;
+    final boolean quiet;
+    synchronized (LOCK) {
+      quiet = callScreenVisible;
+    }
     String name = IncomingCallUiCopy.callerDisplayName(callerName, null, null);
     String text =
         DibayNativeLocale.string(
@@ -437,17 +468,30 @@ public final class NativeCallWaitingPresenter {
                 ? R.string.dibay_call_waiting_text_video
                 : R.string.dibay_call_waiting_text_voice);
     PendingIntent ongoingCallScreen = ongoingCallScreenIntent(app, liveCallId);
+    String channelId;
+    if (quiet) {
+      // Dialer NOTIFICATION_INCOMING_CALL_QUIET: 진행 중 통화 채널(IMPORTANCE_DEFAULT) — heads-up 없음.
+      // 그 통화의 진행 중 알림이 이미 쓰는 채널이라 존재가 보장된다.
+      channelId =
+          liveCallId != null && NativeVoiceCallRuntime.getSession(liveCallId) != null
+              ? NativeVoiceCallService.CHANNEL_ID
+              : NativeVideoCallService.CHANNEL_ID;
+    } else {
+      NativeVoiceCallNotification.ensureIncomingChannel(app);
+      channelId = NativeVoiceCallNotification.CHANNEL_ID;
+    }
     NotificationCompat.Builder builder =
-        new NotificationCompat.Builder(app, NativeVoiceCallNotification.CHANNEL_ID)
+        new NotificationCompat.Builder(app, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(name)
             .setContentText(text)
             .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(quiet ? NotificationCompat.PRIORITY_DEFAULT : NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setAutoCancel(false)
             .setOnlyAlertOnce(true)
+            .setSilent(quiet)
             .setColor(ContextCompat.getColor(app, R.color.dibay_incoming_primary))
             .addAction(
                 new NotificationCompat.Action.Builder(
@@ -460,18 +504,26 @@ public final class NativeCallWaitingPresenter {
                         actionIntent(app, callId, ACTION_END_AND_ACCEPT))
                     .build());
     if (ongoingCallScreen != null) {
-      // FSI 가 있는 알림만 SystemUI 가 heads-up 을 자동으로 내리지 않는다(선택할 때까지 유지).
-      builder.setContentIntent(ongoingCallScreen).setFullScreenIntent(ongoingCallScreen, true);
-    } else {
+      builder.setContentIntent(ongoingCallScreen);
+      // Dialer NOTIFICATION_INCOMING_CALL: FSI 가 있는 알림만 SystemUI 가 heads-up 을 자동으로 내리지 않는다.
+      if (!quiet) builder.setFullScreenIntent(ongoingCallScreen, true);
+    } else if (!quiet) {
       log("fsi_unavailable", callId, "live=" + liveCallId);
     }
     Notification notification = builder.build();
+    int id = notificationId(callId);
     try {
-      nm.notify(notificationId(callId), notification);
+      // 조용↔시끄러움 전환: 같은 id 갱신은 setOnlyAlertOnce 로 heads-up 이 다시 안 뜨고(조용→시끄러움),
+      // 이미 떠 있는 heads-up 이 남을 수 있어(시끄러움→조용) 지우고 새로 올린다.
+      if (postedQuiet != null && postedQuiet != quiet) nm.cancel(id);
+      nm.notify(id, notification);
+      postedQuiet = quiet;
+      log("notice_posted", callId, "quiet=" + quiet);
     } catch (SecurityException error) {
       log("notify_denied", callId, "error=" + error.getClass().getSimpleName());
     }
   }
+
 
   /** 진행 중 통화(음성·영상)의 통화 화면 — 그 통화 알림의 contentIntent 와 같은 것. */
   private static PendingIntent ongoingCallScreenIntent(Context app, String liveCallId) {
@@ -484,6 +536,7 @@ public final class NativeCallWaitingPresenter {
   }
 
   private static void dismissNotification(Context app, String callId) {
+    postedQuiet = null;
     NotificationManager nm = app.getSystemService(NotificationManager.class);
     if (nm != null) nm.cancel(notificationId(callId));
   }

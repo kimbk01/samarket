@@ -71,9 +71,9 @@ describe("Android 대기 통화", () => {
 describe("Android 대기 통화 선택지 유지 (실기 CW1 FAIL 수정 · 2026-11-15)", () => {
   const presenter = () => read("android/app/src/main/java/com/dibay/app/nativecall/NativeCallWaitingPresenter.java");
 
-  it("대기 알림은 진행 중 통화 화면을 전체 화면 인텐트로 가진다 (heads-up 자동 내림 방지)", () => {
+  it("대기 알림은 통화 화면이 안 보일 때만 전체 화면 인텐트 (heads-up 자동 내림 방지)", () => {
     const src = presenter();
-    expect(src).toContain("builder.setContentIntent(ongoingCallScreen).setFullScreenIntent(ongoingCallScreen, true);");
+    expect(src).toContain("if (!quiet) builder.setFullScreenIntent(ongoingCallScreen, true);");
     expect(src).toContain("NativeVoiceCallNotification.ongoingCallActivityIntent(app, live)");
     expect(src).toContain("NativeVideoCallNotification.ongoingCallActivityIntent(app, live)");
     for (const f of [
@@ -81,6 +81,24 @@ describe("Android 대기 통화 선택지 유지 (실기 CW1 FAIL 수정 · 2026
       "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallNotification.java",
     ]) {
       expect(read(f), f).toContain("public static PendingIntent ongoingCallActivityIntent(Context context, String callId)");
+    }
+  });
+
+  it("표면 1개: 통화 화면이 보이면 조용한 알림(진행 중 통화 채널·FSI 없음) — AOSP Dialer QUIET 와 같음", () => {
+    const src = presenter();
+    expect(src).toContain("public static void setCallScreenVisible(Context context, boolean visible)");
+    expect(src).toMatch(/\? NativeVoiceCallService\.CHANNEL_ID\s*: NativeVideoCallService\.CHANNEL_ID;/);
+    expect(src).toContain(".setSilent(quiet)");
+    expect(src).toContain("if (postedQuiet != null && postedQuiet != quiet) nm.cancel(id);");
+    const banner = read("android/app/src/main/java/com/dibay/app/nativecall/NativeCallWaitingBanner.java");
+    expect(banner).toContain("NativeCallWaitingPresenter.setCallScreenVisible(activity, hostResumed && !isInPip());");
+    for (const f of [
+      "android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallActivity.java",
+      "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallActivity.java",
+    ]) {
+      const src2 = read(f);
+      expect(src2, f).toContain("if (waitingBanner != null) waitingBanner.onHostResumed();");
+      expect(src2, f).toContain("if (waitingBanner != null) waitingBanner.onHostPaused();");
     }
   });
 

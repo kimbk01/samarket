@@ -27,6 +27,10 @@ import com.dibay.app.R;
  * 그리기만 하고, 버튼은 알림 버튼과 같은 처리(reject / endAndAccept)를 부른다.
  *
  * <p>실기 CW1 FAIL 수정 (Owner 「구현 승인」 2026-11-15) · docs/audit/call-waiting-device-verify-2026-11-15/README.md
+ *
+ * <p>보임 상태 보고: 통화 화면이 앞(resumed·PiP 아님)이면 이 띠가 유일한 선택지 표면이므로 presenter 에 알려 대기 알림을
+ * 조용한 알림으로 바꾸게 한다(AOSP Dialer 와 같은 「표면 1개」). Activity 가 {@link #onHostResumed}·{@link #onHostPaused}
+ * 를 부른다.
  */
 public final class NativeCallWaitingBanner implements NativeCallWaitingPresenter.Listener {
   private static final int RADIUS_DP = 20;
@@ -40,6 +44,7 @@ public final class NativeCallWaitingBanner implements NativeCallWaitingPresenter
   private final FrameLayout host;
   private View banner;
   private String shownCallId;
+  private boolean hostResumed;
 
   private NativeCallWaitingBanner(Activity activity, FrameLayout host) {
     this.activity = activity;
@@ -66,16 +71,39 @@ public final class NativeCallWaitingBanner implements NativeCallWaitingPresenter
 
   public void detach() {
     NativeCallWaitingPresenter.removeListener(this);
+    hostResumed = false;
+    reportVisibility();
     remove();
+  }
+
+  /** 통화 Activity onResume. */
+  public void onHostResumed() {
+    hostResumed = true;
+    reportVisibility();
+    onCallWaitingChanged();
+  }
+
+  /** 통화 Activity onPause. */
+  public void onHostPaused() {
+    hostResumed = false;
+    reportVisibility();
+  }
+
+  /** 통화 화면이 띠를 보일 수 있는 상태(앞에 있고 PiP 아님)인지 presenter 에 알린다. */
+  private void reportVisibility() {
+    NativeCallWaitingPresenter.setCallScreenVisible(activity, hostResumed && !isInPip());
+  }
+
+  private boolean isInPip() {
+    return Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity.isInPictureInPictureMode();
   }
 
   @Override
   public void onCallWaitingChanged() {
     if (activity.isFinishing()) return;
+    reportVisibility();
     NativeCallWaitingPresenter.Snapshot snapshot = NativeCallWaitingPresenter.current();
-    boolean pip =
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity.isInPictureInPictureMode();
-    if (snapshot == null || pip) {
+    if (snapshot == null || isInPip()) {
       remove();
       return;
     }

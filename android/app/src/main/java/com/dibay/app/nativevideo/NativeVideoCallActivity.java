@@ -510,12 +510,14 @@ public class NativeVideoCallActivity extends Activity {
   @Override
   protected void onResume() {
     super.onResume();
+    if (waitingBanner != null) waitingBanner.onHostResumed();
     NativeVideoCallLog.info("native_video_pip_activity_resumed", callId, buildPipLogDetails("resume"));
   }
 
   @Override
   protected void onPause() {
     super.onPause();
+    if (waitingBanner != null) waitingBanner.onHostPaused();
     NativeVideoCallLog.info("native_video_pip_activity_paused", callId, buildPipLogDetails("pause"));
   }
 
