@@ -63,9 +63,12 @@ export const TimelineViberInnerSticker = memo(function TimelineViberInnerSticker
 export const TimelineViberInnerVoice = memo(function TimelineViberInnerVoice({
   item,
   streamRoomId,
+  metaLabel,
 }: {
   item: TimelineViberBubbleMessage;
   streamRoomId: string;
+  /** Read state + clock drawn inside the bubble (Telegram) so the side labels never narrow it. */
+  metaLabel?: string;
 }) {
   return (
     <VoiceMessageBubble
@@ -74,8 +77,7 @@ export const TimelineViberInnerVoice = memo(function TimelineViberInnerVoice({
       isMine={item.isMine}
       pending={item.pending}
       waveformPeaks={item.voiceWaveformPeaks ?? null}
-      sentTimeLabel={undefined}
-      mineBubbleStyle={item.isMine ? "viberLight" : "signature"}
+      sentTimeLabel={metaLabel || undefined}
       fallbackSrc={
         /* C-4: 폴백도 원 저장 URL 대신 첨부 조회 라우트(참가자 확인 → 서명 URL). */
         item.pending

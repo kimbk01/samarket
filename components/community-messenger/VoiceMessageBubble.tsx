@@ -29,6 +29,15 @@ const PLAYBACK_RATES = [1, 1.5, 2] as const;
 
 const PLACEHOLDER_BARS = 40;
 
+/**
+ * Waveform seek = short tap only. The message row opens its action menu after a 520ms hold (8px slop) and
+ * captures the pointer, so seeking on pointerdown moved playback to the pressed spot whenever the user
+ * long-pressed for the menu (device 2026-11-16). Listen on window because the row's pointer capture
+ * retargets pointerup away from the waveform.
+ */
+export const VOICE_WAVEFORM_TAP_MAX_MS = 400;
+export const VOICE_WAVEFORM_TAP_SLOP_PX = 8;
+
 function placeholderPeaks(): number[] {
   return Array.from({ length: PLACEHOLDER_BARS }, () => 0.12);
 }
@@ -42,8 +51,6 @@ export function VoiceMessageBubble({
   sentTimeLabel,
   fallbackSrc,
   mediaType,
-  /** 밝은색(시안) 발신 말풍선 — Viber 등 */
-  mineBubbleStyle = "signature",
 }: {
   src: string;
   durationSeconds: number;
@@ -55,7 +62,6 @@ export function VoiceMessageBubble({
   fallbackSrc?: string | null;
   /** 오디오 MIME — 재생 요소 key 에 포함(형식 변경 시 재마운트) */
   mediaType?: string | null;
-  mineBubbleStyle?: "signature" | "viberLight";
 }) {
   const { safeT } = useI18n();
   const instanceId = useId();
@@ -185,7 +191,23 @@ export function VoiceMessageBubble({
   const onWaveformPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       if (e.button !== undefined && e.button !== 0) return;
-      seekFromClientX(e.clientX);
+      const pointerId = e.pointerId;
+      const x0 = e.clientX;
+      const y0 = e.clientY;
+      const t0 = performance.now();
+      const cleanup = () => {
+        window.removeEventListener("pointerup", onUp, true);
+        window.removeEventListener("pointercancel", cleanup, true);
+      };
+      const onUp = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return;
+        cleanup();
+        if (performance.now() - t0 > VOICE_WAVEFORM_TAP_MAX_MS) return;
+        if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > VOICE_WAVEFORM_TAP_SLOP_PX) return;
+        seekFromClientX(x0);
+      };
+      window.addEventListener("pointerup", onUp, true);
+      window.addEventListener("pointercancel", cleanup, true);
     },
     [seekFromClientX]
   );
@@ -245,9 +267,10 @@ export function VoiceMessageBubble({
       });
   }, [loadError, playbackRate]);
 
-  const mineLight = isMine && mineBubbleStyle === "viberLight";
-  const inactiveBar = isMine ? (mineLight ? "bg-sam-surface/35" : "bg-sam-surface/30") : "bg-sam-border-soft";
-  const activeBar = isMine ? (mineLight ? "bg-[color:var(--cm-room-primary)]" : "bg-sam-surface") : "bg-sam-ink";
+  /** Mine bubble is always the dark brand green (`--cm-room-bubble-outgoing`) with white text: played = white,
+   *  unplayed = translucent white. The old light-bubble variant painted played bars in the bubble's own green. */
+  const inactiveBar = isMine ? "bg-sam-surface/30" : "bg-sam-border-soft";
+  const activeBar = isMine ? "bg-sam-surface" : "bg-sam-ink";
 
   const durationLabelSec =
     playing && remainingSec != null && Number.isFinite(remainingSec) ? remainingSec : Math.max(0, durationSeconds);
@@ -261,7 +284,7 @@ export function VoiceMessageBubble({
   const playbackRateAriaLabel = safeT("nav_messenger_voice_playback_rate");
 
   return (
-    <div className="flex min-w-[220px] max-w-[min(300px,82vw)] flex-col gap-1">
+    <div data-cm-voice-bubble="" className="flex w-[220px] max-w-full flex-col gap-1">
       <div className="flex items-stretch gap-2.5">
         <button
           type="button"
@@ -269,9 +292,7 @@ export function VoiceMessageBubble({
           disabled={showBuffering || showLoadError}
           className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full shadow-sm transition active:scale-95 disabled:opacity-100 ${
             isMine
-              ? mineLight
-                ? "bg-sam-surface/25 text-white ring-2 ring-sam-surface/40"
-                : "bg-sam-surface/25 text-white ring-2 ring-sam-surface/35"
+              ? "bg-sam-surface/25 text-white ring-2 ring-sam-surface/35"
               : "bg-sam-ink text-white ring-2 ring-sam-border"
           }`}
           aria-label={showLoadError ? loadErrorAriaLabel : playAriaLabel}
@@ -333,7 +354,7 @@ export function VoiceMessageBubble({
           </div>
           <div
             className={`flex items-baseline justify-between gap-2 sam-text-xxs leading-tight ${
-              isMine ? (mineLight ? "text-white/85" : "text-white/90") : "text-sam-muted"
+              isMine ? "text-white/90" : "text-sam-muted"
             }`}
           >
             <span className="flex min-w-0 items-baseline gap-1.5 tabular-nums">
@@ -344,9 +365,7 @@ export function VoiceMessageBubble({
                   onClick={cyclePlaybackRate}
                   className={`shrink-0 rounded px-1 py-0 sam-text-xxs font-semibold uppercase tracking-wide ${
                     isMine
-                      ? mineLight
-                        ? "bg-sam-surface/20 text-white hover:bg-sam-surface/30"
-                        : "bg-sam-surface/20 text-white hover:bg-sam-surface/30"
+                      ? "bg-sam-surface/20 text-white hover:bg-sam-surface/30"
                       : "bg-sam-border-soft text-sam-fg hover:bg-sam-border"
                   }`}
                   aria-label={playbackRateAriaLabel}
@@ -356,7 +375,9 @@ export function VoiceMessageBubble({
               ) : null}
             </span>
             {sentTimeLabel ? (
-              <span className="min-w-0 truncate tabular-nums opacity-80">{sentTimeLabel}</span>
+              <span data-cm-voice-meta="" className="shrink-0 whitespace-nowrap tabular-nums opacity-80">
+                {sentTimeLabel}
+              </span>
             ) : null}
           </div>
         </div>
