@@ -539,6 +539,19 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   const communityPostShareCard =
     item.messageType === "community_post_share" ? parseCommunityPostShareMetadata(metadata) : null;
 
+  /**
+   * Voice bubble (no reply quote) draws read state + clock inside the bubble like Telegram. Beside the bubble they
+   * narrowed the 292px row so the 220px waveform overflowed the bubble edge (device 2026-11-16, same cause as F2).
+   */
+  const voiceMetaInBubble = !deletedForEveryone && item.messageType === "voice" && !replyQuote;
+  const bubbleMetaReadLabel = item.isMine
+    ? mineUnreadBadgeVisible
+      ? t("cm_ui_unread")
+      : groupReadReceiptLabel || ""
+    : "";
+  const voiceMetaLabel = voiceMetaInBubble
+    ? [bubbleMetaReadLabel, showMessageTime ? messengerMessageClockLabel(item) : ""].filter(Boolean).join(" ")
+    : "";
   const viberInnerBody: ReactNode =
     deletedForEveryone && item.messageType !== "call_stub" ? (
       <TimelineViberInnerTextDefault
@@ -551,7 +564,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     ) : item.messageType === "sticker" ? (
       <TimelineViberInnerSticker item={item} />
     ) : item.messageType === "voice" ? (
-      <TimelineViberInnerVoice item={item} streamRoomId={streamRoomId} />
+      <TimelineViberInnerVoice item={item} streamRoomId={streamRoomId} metaLabel={voiceMetaLabel} />
     ) : item.messageType === "file" ? (
       <TimelineViberInnerFile item={item} mediaAutoSaveEnabled={mediaAutoSaveEnabled} />
     ) : item.messageType === "call_stub" ? (
@@ -618,11 +631,9 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
    * 상대가 읽어 「안 읽음」이 사라지면 238px 로 늘며 묶음 높이 155→179px·위치 24px 이동. 얹으면 폭이 표시와 무관해진다.
    */
   const photoMetaOnPhoto = isMediaBubble && item.messageType === "image";
-  const photoMetaReadLabel = item.isMine
-    ? mineUnreadBadgeVisible
-      ? t("cm_ui_unread")
-      : groupReadReceiptLabel || ""
-    : "";
+  const photoMetaReadLabel = bubbleMetaReadLabel;
+  /** Photo (overlay) and voice (inline) carry their own meta — no side labels for either. */
+  const metaInsideBubble = photoMetaOnPhoto || voiceMetaInBubble;
   const photoMetaOverlay =
     photoMetaOnPhoto && (showMessageTime || photoMetaReadLabel) ? (
       <span
@@ -790,12 +801,12 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
             >
               {item.isMine ? (
                 <>
-                  {showMessageTime && !photoMetaOnPhoto ? (
+                  {showMessageTime && !metaInsideBubble ? (
                     <span className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]">
                       {messengerMessageClockLabel(item)}
                     </span>
                   ) : null}
-                  {photoMetaOnPhoto ? null : mineUnreadBadgeVisible ? (
+                  {metaInsideBubble ? null : mineUnreadBadgeVisible ? (
                     <span className="shrink-0 pb-0.5 text-[11px] leading-none text-[#65676b]">{t("cm_ui_unread")}</span>
                   ) : groupReadReceiptLabel ? (
                     <span className="shrink-0 pb-0.5 text-[11px] leading-none text-[#65676b]">
@@ -807,7 +818,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
               ) : (
                 <>
                   {renderBubbleStack(viberBubbleWithMeta)}
-                  {showMessageTime && !photoMetaOnPhoto ? (
+                  {showMessageTime && !metaInsideBubble ? (
                     <span className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]">
                       {messengerMessageClockLabel(item)}
                     </span>
