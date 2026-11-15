@@ -22,6 +22,7 @@ import { useOwnerBottomNavScrollHide } from "@/lib/layout/use-owner-bottom-nav-s
 import { useHtmlShellFlagsSync } from "@/lib/layout/use-html-shell-flags-sync";
 import { triggerBottomNavSelectionFeedback } from "@/lib/ui/light-tap-feedback";
 import { markOwnerBottomNavTabIntent } from "@/lib/business/owner-bottom-nav-tab-intent";
+import { beginBottomNavShowing } from "@/lib/main-menu/bottom-nav-controller";
 import { scrollAppShellToTop } from "@/lib/layout/scroll-app-shell-to-top";
 import { scrollOwnerCompactShellToTop } from "@/lib/layout/subscribe-owner-compact-shell-scroll";
 import { useBottomNavResumeUiTask } from "@/lib/main-menu/use-bottom-nav-resume-ui-task";
@@ -105,6 +106,9 @@ function OwnerMobileBottomNavSideTab({
           return;
         }
         markOwnerBottomNavTabIntent(href);
+        /** 손 뗀 프레임에 머리글 제목·본문 뼈대를 목적 화면으로 (하단 탭 컨트롤러 — 경로 확정·8초 감시 포함) */
+        beginBottomNavShowing({ tabId: item.id, href });
+        scrollOwnerCompactShellToTop();
         onNavigate(item.id);
       }}
     >
