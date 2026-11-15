@@ -24,13 +24,20 @@ import {
 import { beginRouteEntryPerf, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
 import { markCmRoomEntryForwardNavigation } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
 import { noteCmRoomRouteTransitionStart } from "@/lib/community-messenger/dev/cm-dev-noise-impact";
-import { beginCmRoomEntryPriorityMode } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
+import {
+  beginCmRoomEntryPriorityMode,
+  endCmRoomEntryPriorityMode,
+} from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
+import { useCmRoomOpeningOverlayStore } from "@/lib/community-messenger/room/cm-room-opening-overlay-store";
 import {
   beginCmPreRouteRoomOpeningOverlay,
   scheduleCmPreRouteRoomNavigationFollowUp,
 } from "@/lib/community-messenger/room/begin-cm-pre-route-room-opening";
 import { noteR2M11DRouterPrefetchCalled } from "@/lib/community-messenger/room/cm-room-r2-m11d-prefetch-flight";
-import { beginRoomDeepRouteNavigationLock } from "@/lib/navigation/cm-deep-route-navigation-lock";
+import {
+  beginRoomDeepRouteNavigationLock,
+  clearDeepRouteNavigationLock,
+} from "@/lib/navigation/cm-deep-route-navigation-lock";
 import { clearPendingMenuNavigationBridge } from "@/lib/navigation/pending-menu-navigation-bridge";
 import { guardedClientNavigate } from "@/lib/navigation/guarded-client-navigation";
 import {
@@ -38,18 +45,11 @@ import {
   dismissMessengerRoomEntrySnapshot,
 } from "@/lib/community-messenger/room/messenger-page-snapshot-transition";
 import { matchesMessengerSplitViewport } from "@/lib/ui/app-viewport-layout-breakpoints";
-import { isRoomEntryInFlight, markRoomEntryIntent } from "@/lib/community-messenger/room/messenger-room-entry-intent";
-
-/** 클릭~라우팅 사이 스냅샷 GET 상한 — 포인터다운 프리패치가 거의 끝난 경우 짧게 합류(무한 대기 금지) */
-const ROOM_NAV_SNAPSHOT_LEAD_MS_MIN = 0;
-const ROOM_NAV_SNAPSHOT_LEAD_MS_MAX = 112;
-
-function messengerRoomNavSnapshotLeadMs(): number {
-  return (
-    ROOM_NAV_SNAPSHOT_LEAD_MS_MIN +
-    Math.floor(Math.random() * (ROOM_NAV_SNAPSHOT_LEAD_MS_MAX - ROOM_NAV_SNAPSHOT_LEAD_MS_MIN + 1))
-  );
-}
+import {
+  clearRoomEntryIntent,
+  isRoomEntryInFlight,
+  markRoomEntryIntent,
+} from "@/lib/community-messenger/room/messenger-room-entry-intent";
 
 export type CommunityMessengerRoomForwardNavArgs = {
   router: AppRouterInstance;
@@ -148,6 +148,7 @@ export async function runCommunityMessengerRoomForwardNavigation(
   runMessengerViewTransition(() => {
     const allowed = guardedClientNavigate(navigate, dest, "room_forward");
     if (!allowed && entrySnapshot) dismissMessengerRoomEntrySnapshot();
+    if (allowed) armRoomEntryAbortOnBack(id);
   }, "room-forward");
   noteR2M10RouterPushDone(id);
 
@@ -168,4 +169,61 @@ export async function runCommunityMessengerRoomForwardNavigation(
   if (!prefetchAtTap.snapshot_fresh && !isRoomSnapshotFresh(id, vu)) {
     void prefetchCommunityMessengerRoomSnapshot(id).catch(() => false);
   }
+}
+
+
+// ─── 방 진입 중 뒤로 = 진입 중단 (2026-11-15 Owner 「남은 부분 없도록」) ─────────────────────────────
+
+/** 방 진입 직후 뒤로를 받는 시간 — 진입 잠금(2.5초)·목록 사진 상한(3초)보다 길게 */
+const ROOM_ENTRY_ABORT_WATCH_MS = 5_000;
+
+let roomEntryAbortWatch: { roomId: string; onPop: () => void; timer: ReturnType<typeof setTimeout> } | null = null;
+
+function disarmRoomEntryAbortOnBack(): void {
+  const w = roomEntryAbortWatch;
+  if (!w) return;
+  roomEntryAbortWatch = null;
+  clearTimeout(w.timer);
+  if (typeof window !== "undefined") window.removeEventListener("popstate", w.onPop);
+}
+
+function isAtRoom(roomId: string): boolean {
+  if (typeof window === "undefined") return false;
+  const prefix = `/community-messenger/rooms/${encodeURIComponent(roomId)}`;
+  const p = window.location.pathname;
+  return p === prefix || p.startsWith(`${prefix}/`);
+}
+
+/**
+ * 방 진입을 끝까지 정리한다 — 방이 그려지기 전에 사용자가 뒤로 나간 경우.
+ * 방 화면이 아직 없으면 방의 뒤로 처리(`MessengerRoomSwipeBackShell` popstate)도 없어서, 목록 사진·회색 로딩 원이
+ * 3초 상한까지 남고(실제 목록이 아닌 멈춘 사진), 진입 우선 모드·목록 그리기 멈춤·진입 잠금(2.5초)·진입 표시 상태·
+ * 진입 의도(20초)가 남았다(Samsung 실측 2026-11-15 12:08 — 로딩 원 잔존·아바타 빈칸).
+ */
+export function abortCommunityMessengerRoomEntry(roomId: string, reason: "user_back"): void {
+  void reason;
+  disarmRoomEntryAbortOnBack();
+  dismissMessengerRoomEntrySnapshot();
+  endCmRoomEntryPriorityMode("entry_aborted");
+  clearDeepRouteNavigationLock("room_entry_aborted");
+  useCmRoomOpeningOverlayStore.getState().reset("room_entry_aborted");
+  clearRoomEntryIntent(roomId);
+}
+
+/** 이동 직후 1회 — 방에 도착하기 전 뒤로(popstate)로 다른 주소가 되면 진입을 중단한다. 방에 도착한 뒤의 뒤로는 방이 처리한다. */
+export function armRoomEntryAbortOnBack(roomId: string): void {
+  if (typeof window === "undefined") return;
+  disarmRoomEntryAbortOnBack();
+  const onPop = () => {
+    if (isAtRoom(roomId)) return;
+    abortCommunityMessengerRoomEntry(roomId, "user_back");
+  };
+  const timer = setTimeout(disarmRoomEntryAbortOnBack, ROOM_ENTRY_ABORT_WATCH_MS);
+  roomEntryAbortWatch = { roomId, onPop, timer };
+  window.addEventListener("popstate", onPop);
+}
+
+/** 방 화면이 그려졌으면(방이 자기 뒤로를 처리) 감시를 끈다 */
+export function noteRoomEntryArrived(roomId: string): void {
+  if (roomEntryAbortWatch?.roomId === roomId) disarmRoomEntryAbortOnBack();
 }
