@@ -307,3 +307,22 @@ NOT_PROVEN: iPhone VoIP 회귀(연결된 iPhone 없음).
 - 계약 테스트 정정(설계 변경 반영): `call-v4-incoming-outside-surface.test.ts` F2 소스 계약 2건, `call-surface-authority-contract.test.ts` 1건 — 「Capacitor 셸 sync-only·Realtime 없음」에 맥 예외만 추가, 맥 묶음에 웹 수립·웹 통화 화면이 없음을 함께 고정.
 - 보고만: `CALL_V4_TELEGRAM_INCOMING_SURFACE_CONTRACT.capacitorNativeForeground = "native_incoming_surface"` 설명 상수는 맥 예외를 표현하지 않음(동작 영향 없음).
 - iOS build 38 → 39.
+
+### 10-10. build 39 맥 수신 실기 (2026-11-15 13:43~13:48 PHT · main 9d1ac2168 · 맥 김봉기 1.2.2 (39) Debug · 삼성 q테스트1 1.2.6 (52))
+시작 기록 13:42:02 `call_platform_capability ios_app_on_mac=true voip_push=false callkit_audio_activation=false callkit_call_ui=false`.
+
+| # | 시험 | callId | DB (PHT) | 판정 |
+|---|---|---|---|---|
+| R1 | 삼성→맥 음성 · 맥 앱 앞 · 맥 수락 · 맥 종료 | ab23…9f4f | 43:15 · answered 43:26 · connected 43:27 · ended 43:48 ended_by_callee | PASS (맥 홈 화면 위 수신 시트 → 맥 네이티브 통화 화면 · 삼성 「통화 중」) |
+| R2 | 삼성→맥 영상 · 맥 수락 · 삼성 종료 | 3419…3b46 | 44:02 · 44:12 · 44:13 · 44:31 ended_by_caller | PASS (맥에 삼성 카메라 영상, 삼성 종료 시 맥도 종료) |
+| R3 | 삼성→맥 음성 · 맥 거절 | fbf3…0a32 | 44:45 · 44:51 rejected/declined | PASS (삼성 「거절」 기록) |
+| R4 | 삼성→맥 음성 · 벨 중 삼성 취소 | 4ecb…29a8 | 45:09 · 45:17 cancelled | PASS (맥 시트 → 「부재중 전화」 안내, 15초간 재울림 없음) |
+| R5 | 삼성→맥 음성 · 무응답 | 5455…9a12 | 45:45 · 46:16 missed | PASS (양쪽 종료) |
+| R6 | 다른 앱(시스템 설정) 앞 · 삼성→맥 음성 · 맥 수락 | e3dd…183a | 46:44 · 47:14 · 47:15 · 47:31 | PASS (뒤 창에도 시트 표시). 첫 클릭은 창 활성화만 되고 두 번째 클릭에 수락(맥 비활성 창 기본 동작) |
+| R7 | 종료 직후 재수신 · 맥 수락 | 587d…2c64 | 47:39 · 47:44 · 47:46 · 48:01 | PASS |
+| 회귀 | 맥→삼성 음성 · 삼성 수락 · 맥 종료 | e90f…d3ee | 48:20 · 48:24 · 48:25 · 48:32 ended_by_caller | PASS |
+
+맥 로그: `ios_mac_incoming_accept_started` 4 · `ok=true` 4 · `ok=false` 0 · 등록 실패 0 · `activated_without_callkit` 6 · gate timeout 0 · `callkit_system_button` 0 · `Disconnecting all calls` 0.
+
+NOT_PROVEN: 실제 소리(청취 불가) · 맥 앱 종료 상태 수신(D2-4, 맥 알림 「끔」) · 통화 중(busy) 수신 · iPhone·iPad 회귀(연결 기기 없음).
+보고만(범위 밖): 수신 시트 영상 문구가 「DIBay 영상 통화」(브랜드 표기 대소문자) · 맥 앱이 켜져 있는데 삼성 대화방 머리글에 김봉기 「오프라인」 표시 · 13:42 경 삼성 DIBAY 가 매장 관리 화면에 있었음(작업자 조작 아님).
