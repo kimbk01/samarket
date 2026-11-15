@@ -137,7 +137,10 @@ describe("Android 대기 통화 선택지 유지 (실기 CW1 FAIL 수정 · 2026
       // 런타임의 통화 화면 닫기는 모두 finishCallScreen 한 곳을 지난다
       expect(src.match(new RegExp(`${cls}\\.finishIfActive\\(sid, `, "g"))?.length ?? 0).toBe(1);
       expect(src).toContain(`NativeCallWaitingPresenter.holdCallScreenForHandover(sid, "${lane}")`);
-      expect(src).toContain("NativeCallWaitingPresenter.isHandoverLaunch(sid)");
+      expect(src).toContain("NativeCallWaitingPresenter.isHandoverLaunch(sid) && DibayKeyguardHelper.isInteractive(app)");
+      // 잠금 해제를 요구하면 잠금 화면 이어받기가 막힘(실기 T7 FAIL) — 설계 B2-1
+      expect(src).not.toMatch(/isHandoverLaunch\(sid\)\s*&& DibayKeyguardHelper\.isForegroundUnlockedInteractive/);
+      expect(src).toContain("if (handover) NativeCallWaitingPresenter.markHandoverLaunched(callId);");
       expect(src).toMatch(
         /handover\s*\? android\.content\.Intent\.FLAG_ACTIVITY_NEW_TASK \| android\.content\.Intent\.FLAG_ACTIVITY_CLEAR_TASK/,
       );
@@ -151,6 +154,9 @@ describe("Android 대기 통화 선택지 유지 (실기 CW1 FAIL 수정 · 2026
     expect(src).toContain('releaseHeld("waiting_terminal");');
     expect(src).toContain('releaseHeld("waiting_timeout");');
     expect(src).toContain('releaseHeld("promote_not_presented");');
+    // 이어받기를 실제로 시작하지 않았으면 남겨 둔 화면을 바로 닫음(5초 대기 없음) — 설계 B2-2
+    expect(src).toContain('releaseHeld("handover_not_launched");');
+    expect(src).toMatch(/\} else if \(stillHeld && !launched\) \{/);
     expect(src).toContain('scheduleHeldRelease("next_screen_shown", HANDOVER_RELEASE_AFTER_SHOWN_MS);');
     expect(src).toContain('scheduleHeldRelease("hold_timeout", HANDOVER_HOLD_MAX_MS);');
     // 화면이 앞에 보일 때만 남김

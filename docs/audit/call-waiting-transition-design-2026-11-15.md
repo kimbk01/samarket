@@ -114,3 +114,25 @@ Dialer 와 같이 「통화가 하나도 없을 때만 통화 화면을 닫는�
 
 ### 범위 밖 관찰 (보고만)
 - T4: 통화를 끝낸 뒤 앱 화면 위에 「통화 중 · 00:36 통화 화면으로 돌아가기」 막대가 약 1초 남았다가 사라짐. 이번 변경 전에도 있었는지 확인 못 함.
+
+## 5. C′ 결과 (Owner 「C′ 구현 승인」 2026-11-15)
+- PR #332 → main `cd3d0a90b` (iOS build 43). 맥 앱 Xcode 실행 build 43 · DibayGitSha cd3d0a90bd8a.
+- 맥 영상 통화(김봉기 → Samsung q테스트1 58, 세션 3bfdb2e0 23:14:46~23:15:09 PHT): 23:14:37.851 `camera_flip_button_visibility visible=false`, 연결 후 버튼 3개(카메라·마이크·종료). 이때 맥 카메라 2개(MacBook Pro + 연속성 카메라 「iPhonebk」) — build 42 FAIL 조건과 같은 상태에서 PASS.
+- NOT_PROVEN: iPhone·iPad 실기기에서 전환 버튼 표시·동작(설치 빌드 필요 — 코드상 `!isIOSAppOnMac` 라 true).
+
+## 6. 화면 꺼짐·PiP 이어받기 실기 (Owner 「화면 꺼짐·PiP 이어받기 실기 진행해」 2026-11-15, Samsung 58)
+기기 조율: 이미지 감사 세션이 23:19 까지 Xiaomi CDP 계측 — 첫 B↔C 발신(23:19:22)과 겹침(발신은 정상).
+
+| 항목 | 판정 | 증거 (PHT) |
+|---|---|---|
+| T7 화면 꺼짐 중 대기 → 화면 켜짐 | PASS | 화면 끈 상태(Dozing)에서 23:23:20.119 대기 `quiet=false` → FSI 로 통화 화면 앞(20.663) → `visible=true`·조용한 알림으로 전환(20.824) |
+| T7 이어서 C 종료 → 이어받기 (잠금 화면) | **FAIL (작업자 #330 결함)** | 28.375 hold → 28.617 `start_skipped reason=not_foreground_unlocked`(잠금: isKeyguardLocked=true) → 백그라운드 경로 수신 알림 게시 → 남겨 둔 「통화 종료 중」 화면 위에 수신 heads-up 「수락 / 거절」 약 5초 → 33.395 `handover_release reason=hold_timeout` 뒤 33.591 수신 화면 (re58-t7-tile) |
+| T8 PiP 중 대기 → C 종료 | 설계대로(이어받기 안 씀) · 범위 밖 관찰 | PiP = 안 보임 → 대기 `quiet=false` heads-up + PiP 함께. C 종료 31.8 → hold 없음·`handover=false` → PiP 닫힘 → 기존 백그라운드 경로: 31.835 Android `Background activity launch blocked` → 수신은 홈 화면 heads-up 「수락 / 거절」 로만 표시 (re58-t8-tile). 이번 변경 전부터의 경로이며 홈에서 일반 수신과 같은 모습 |
+| 맥 발신 지연 | 원인 확인 못 함 | 23:20:5x 맥 음성 발신 → 서버 세션 생성 23:22:06(약 70초 뒤). 그 시각 맥 로그 미수집. 이후 로그 수집 중 재현 없음 |
+
+### T7 FAIL — 원인·수정 설계안 B2 (Owner 승인 필요)
+- 원인: 런타임 이어받기 조건이 `isHandoverLaunch && isForegroundUnlockedInteractive` 라 잠금 화면(통화 화면이 showWhenLocked 로 잠금 위에 떠 있는 상태)에서는 앞 화면 경로를 쓰지 않는다. 그런데 presenter 는 이미 화면을 남겨 둔 상태라, 백그라운드 경로의 FSI 가 화면을 띄우지 못하고(앱 화면이 앞이라 heads-up) 남겨 둔 화면이 안전장치 5초까지 유지됐다.
+- B2-1: 이어받기 조건을 「화면 켜짐(isInteractive)」으로 바꾼다 — 두 통화 화면은 `showWhenLocked`·`turnScreenOn` 이고 시작 주체가 잠금 위에 보이는 우리 통화 화면이라 잠금 해제가 필요 없다(T7 첫 단계에서 잠금 위 통화 화면 표시 확인).
+- B2-2: 런타임이 이어받기 시작을 실제로 했는지 presenter 에 알리고(`markHandoverLaunched`), promote 뒤 시작하지 않았으면 남겨 둔 화면을 즉시 닫는다(5초 대기 제거) — 어떤 이유로든 이어받기를 못 하면 기존 동작(바로 닫고 백그라운드 경로)과 같아진다.
+- 바뀌는 파일: 음성·영상 런타임(조건·표시), NativeCallWaitingPresenter, 계약 테스트. Android versionCode 59. 서버·웹·iOS 무변경.
+- 실기: T7 잠금 화면 이어받기(홈·heads-up 0), T1·T2 회귀, T8 그대로.
