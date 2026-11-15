@@ -53,6 +53,6 @@ export const TRADE_CARD_LONG_PRESS_MOVE_PX = 10;
 /** 모바일 열 수 — 열 수를 읽기 전(서버·첫 그림) 광고 줄 계산 기본값(`useGridColumnCount`) */
 export const TRADE_FEED_MOBILE_COLUMN_COUNT = 2;
 
-/** 모바일 2열 · 태블릿 3열 · 와이드 4열 — 기존 메인 컬럼 셸 안에서만 */
+/** 모바일 2열 · 태블릿 3열 · 와이드 4열 · xl 5열 · 2xl 6열 (본문 열 제한 폐지 2026-11-16 B2 — 넓은 창에서 카드가 커지지 않게) */
 export const TRADE_FEED_PRODUCT_GRID_CLASS =
-  "grid grid-cols-2 gap-x-2.5 gap-y-4 sm:grid-cols-3 lg:grid-cols-4 [&>li]:min-w-0";
+  "grid grid-cols-2 gap-x-2.5 gap-y-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 [&>li]:min-w-0";

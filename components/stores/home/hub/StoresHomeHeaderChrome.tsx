@@ -51,7 +51,7 @@ export function StoresHomeHeaderChrome() {
   );
   return (
     <header data-stores-home-header data-delivery-chrome="1" className={`${MIRROR_HEADER_SHELL_CLASS} z-[3]`}>
-      <div className="mx-auto w-full min-w-0 max-w-[768px] sector-header--no-left-slot">
+      <div className="mx-auto w-full min-w-0 max-w-none sector-header--no-left-slot">
         <div
           data-stores-home-address-row
           data-collapsed={collapsed ? "true" : "false"}

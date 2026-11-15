@@ -15,7 +15,7 @@ export const DELIVERY_AD_STAGE2_SURFACE_CONTRACT = {
   legacyBusinessCash: "LEGACY_READ_ONLY" as const,
 } as const;
 
-/** Content-column geometry SSOT (StoresHomeHub / browse share max-w-[768px] + --delivery-page-x 16px). */
+/** Banner geometry SSOT (`STORES_HOME_BANNER_MAX_CLASS` max-w-[768px] + --delivery-page-x 16px). 본문 열은 2026-11-16 부터 최대 폭 없음 — 배너만 768. */
 export const DELIVERY_AD_STAGE2_CONTENT_COLUMN = {
   maxWidthPx: 768,
   pagePaddingXPx: 16,

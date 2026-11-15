@@ -24,7 +24,7 @@ import {
   storesHomeShouldRenderEmptyFallback,
   storesHomeShouldRenderLoadError,
 } from "@/lib/stores/stores-home-feed-state-classification";
-import { STORES_HOME_CONTENT_COLUMN_CLASS } from "@/lib/stores/stores-home-ui";
+import { STORES_HOME_BANNER_MAX_CLASS, STORES_HOME_CONTENT_COLUMN_CLASS } from "@/lib/stores/stores-home-ui";
 import { notificationMessages } from "@/lib/i18n/catalog/notifications";
 
 const ROOT = join(__dirname, "..", "..", "..");
@@ -237,9 +237,10 @@ describe("S3-06 — 하위 화면 헤더·뒤로", () => {
   });
 });
 
-describe("S3-07 — 배달 소비자 본문 폭 768px 단일 상수", () => {
-  it("상수 = 홈 hub 768px", () => {
-    expect(STORES_HOME_CONTENT_COLUMN_CLASS).toContain("max-w-[768px]");
+describe("S3-07 — 배달 소비자 본문 폭 단일 상수 (2026-11-16 B2 — 최대 폭 없음, 배너만 768)", () => {
+  it("상수 = 창 전체 폭 · 배너 최대 폭은 별도 상수 768px", () => {
+    expect(STORES_HOME_CONTENT_COLUMN_CLASS).toContain("max-w-none");
+    expect(STORES_HOME_BANNER_MAX_CLASS).toContain("max-w-[768px]");
   });
   it.each([
     ["components/delivery/search/DeliverySearchPage.tsx", /max-w-lg/],

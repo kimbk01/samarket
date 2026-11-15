@@ -63,41 +63,9 @@ html[data-shell-bottom-nav-side-rail] .app-side-rail-fixed-inset {
 }
 
 /**
- * D2 — 데스크톱 1단 헤더 안쪽을 본문 열과 같은 폭으로 정렬 (배경 띠·아래 구분선은 전체 폭 유지).
- * 카테고리 줄(`dibay-category-rail-host`)은 이미 본문 열을 쓴다 → 제목줄(중첩 embedded 셸)만 맞춘다.
- * 폭 체인 SSOT: `lib/ui/app-content-layout.ts` `APP_MAIN_COLUMN_MAX_WIDTH_CLASS`
- * (42rem · sm 46rem · md 52rem · lg 60rem · xl 66rem) — 값이 바뀌면 여기와 테스트를 같이 바꾼다.
- * DESKTOP 계열에서만 적용 → 휴대폰·태블릿 헤더는 바뀌지 않는다.
+ * D2 (폐지 2026-11-16 B1) — 데스크톱 1단 헤더 안쪽을 본문 열(42→66rem)에 맞추던 규칙. 본문 열 최대 폭이 없어져
+ * 헤더·본문 모두 창 전체 폭이라 맞출 열이 없다 (`docs/audit/horizontal-fill-device-audit-2026-11-16.md`).
  */
-.app-shell[data-dibay-shell-family="DESKTOP"] [data-app-sticky-header] .sector-header-shell--embedded > .sector-header-shell--embedded {
-  width: 100%;
-  max-width: 42rem;
-  margin-inline: auto;
-}
-
-@media (min-width: 640px) {
-  .app-shell[data-dibay-shell-family="DESKTOP"] [data-app-sticky-header] .sector-header-shell--embedded > .sector-header-shell--embedded {
-    max-width: 46rem;
-  }
-}
-
-@media (min-width: 768px) {
-  .app-shell[data-dibay-shell-family="DESKTOP"] [data-app-sticky-header] .sector-header-shell--embedded > .sector-header-shell--embedded {
-    max-width: 52rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .app-shell[data-dibay-shell-family="DESKTOP"] [data-app-sticky-header] .sector-header-shell--embedded > .sector-header-shell--embedded {
-    max-width: 60rem;
-  }
-}
-
-@media (min-width: 1280px) {
-  .app-shell[data-dibay-shell-family="DESKTOP"] [data-app-sticky-header] .sector-header-shell--embedded > .sector-header-shell--embedded {
-    max-width: 66rem;
-  }
-}
 
 /**
  * 메신저 PC 전체 폭 M3 (docs/audit/messenger-desktop-wide-design-2026-11-07.md)
@@ -124,9 +92,12 @@ html[data-shell-bottom-nav-side-rail] .app-side-rail-fixed-inset {
  * PC 대화방 말풍선 영역 T1 (docs/audit/messenger-room-desktop-timeline-width-design-2026-11-07.md)
  * 원인: `.chat-timeline-sheet` 의 `max-w-[760px] mx-auto` (CommunityMessengerRoomPhase2MessageTimeline) —
  * PC 메신저 칸이 넓어지면 말풍선만 가운데 760 열에 남아 입력줄·상단바(칸 전체)와 양끝이 어긋난다.
- * DESKTOP 세로 레일 셸에서만 최대 폭을 푼다. 말풍선 1개(520px)·사진 카드·날짜 칩 최대 폭은 각자 클래스 그대로(T3).
+ * 분할 화면(≥768)에서 최대 폭을 푼다(처음엔 DESKTOP 세로 레일만, 2026-11-16 B1 에서 기기 무관). 말풍선 1개(520px)·사진 카드·날짜 칩 최대 폭은 각자 클래스 그대로(T3).
  * 높이·키보드·스크롤 계약(`app/chat-viewport-shell.css`, 방 뷰포트 문서 §0)은 건드리지 않는다.
  */
-.app-shell[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"] [data-cm-room] .chat-timeline-sheet {
-  max-width: none;
+/* 2026-11-16 B1 — 넓은 화면(분할 ≥768) 모든 기기로 확장: 태블릿 가로·Mac 앱도 대화방 칸 전체 폭 */
+@media (min-width: 768px) {
+  [data-cm-room] .chat-timeline-sheet {
+    max-width: none;
+  }
 }

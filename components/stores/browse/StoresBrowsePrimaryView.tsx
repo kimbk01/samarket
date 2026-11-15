@@ -951,7 +951,7 @@ export function StoresBrowsePrimaryView({
         <StoresBrowsePullRefreshHint />
         {/* 4단 — 흰 줄 58px · 칩 6개 (PTR 슬롯은 위 그대로: 3단 탭 ↔ 칩 사이) */}
         <div className="w-full shrink-0 border-b border-[color:#E4E6E8] bg-white">
-          <div className="mx-auto w-full min-w-0 max-w-[768px]">
+          <div className="mx-auto w-full min-w-0 max-w-none">
             <StoreListFilterChips
               sort={chipSort}
               onSortChange={handleBrowseSortChange}

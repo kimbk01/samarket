@@ -15,7 +15,8 @@ describe("Community original single-page contract C1–C12", () => {
     const scope = read("components/community/CommunityUiScope.tsx");
     const home = read("components/community/CommunityHomeSurface.tsx");
     const detail = read("app/(main)/philife/[postId]/page.tsx");
-    expect(scope).toContain("max-w-[66rem]");
+    // 본문 열 최대 폭 없음 (가로 폭 감사 B1 2026-11-16) — 단일 페이지 계약은 그대로
+    expect(scope).toContain("max-w-none");
     expect(scope).toContain("{children}");
     expect(scope).not.toContain("shouldComposeCommunityDual");
     expect(scope).not.toContain("shouldMountCommunityMasterList");

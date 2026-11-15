@@ -172,7 +172,7 @@ export function DeliveryHomeMenuBoard() {
     const cats = sortTaxonomyCategories(taxonomy.categories);
     return (
       <section className="w-full bg-white" data-delivery-home-board="taxonomy">
-        <div className="mx-auto grid w-full max-w-[768px] grid-cols-5 gap-x-1 gap-y-3 px-[var(--delivery-page-x)] py-3">
+        <div className="mx-auto grid w-full max-w-none grid-cols-5 gap-x-1 gap-y-3 px-[var(--delivery-page-x)] py-3">
           {cats.map((c) => {
             const href = `/stores/browse/${encodeURIComponent(String(c.slug))}?sub=all`;
             return (
@@ -206,7 +206,7 @@ export function DeliveryHomeMenuBoard() {
 
   return (
     <section className="w-full bg-white" data-delivery-home-board="menus" data-delivery-home-root={root.slug}>
-      <div className="mx-auto w-full max-w-[768px]">
+      <div className="mx-auto w-full max-w-none">
         {/* ③ 상단 탭 — 모두 굵게, 고른 탭 갈색 + 녹색 밑줄 3px, 나머지 #B1B3B5, 위 빨간 배지 */}
         <div
           ref={tabsRef}

@@ -38,7 +38,8 @@ describe("mypage-responsive-breakpoints (Legacy IA 1-col)", () => {
       path.resolve(__dirname, "../../../components/mypage/MyPageHomeDashboard.tsx"),
       "utf8",
     );
-    expect(src).toContain("MYPAGE_HOME_MENU_FLOW_CLASS");
+    // 휴대폰 1열 · 넓은 화면(≥768) 2열 — 가로 폭 감사 B2 2026-11-16
+    expect(src).toContain("MYPAGE_HOME_WIDE_FLOW_CLASS");
     expect(src).not.toMatch(/grid-cols-3/);
     expect(src).toContain("<MyInfoHomeCategoryGrid");
     expect(src).not.toContain("MyInfoPolicyMenuSection");

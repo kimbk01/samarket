@@ -56,27 +56,10 @@ describe("D1 desktop side rail", () => {
   });
 });
 
-describe("D2 desktop header alignment", () => {
-  it("헤더 폭 체인은 본문 열 SSOT(APP_MAIN_COLUMN_MAX_WIDTH_CLASS)와 같다", () => {
-    const chain = [...APP_MAIN_COLUMN_MAX_WIDTH_CLASS.matchAll(/max-w-\[([\d.]+rem)\]/g)].map((m) => m[1]);
-    expect(chain).toEqual(["42rem", "46rem", "52rem", "60rem", "66rem"]);
-    const cssChain = [...css.matchAll(/sector-header-shell--embedded \{\s*(?:width: 100%;\s*)?max-width: ([\d.]+rem);/g)].map(
-      (m) => m[1],
-    );
-    expect(cssChain).toEqual(chain);
-  });
-
-  it("DESKTOP 계열에서만 적용한다 (휴대폰·태블릿 헤더 무변화)", () => {
-    const rules = ((css.split("D2 —")[1] ?? "").split("메신저 PC 전체 폭 M3")[0] ?? "").replace(/\/\*[\s\S]*?\*\//g, "");
-    const selectors = rules
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l.endsWith("{") && !l.startsWith("@"))
-      .map((l) => l.slice(0, -1).trim());
-    expect(selectors.length).toBe(5);
-    for (const sel of selectors) {
-      expect(sel.startsWith('.app-shell[data-dibay-shell-family="DESKTOP"]')).toBe(true);
-    }
+describe("D2 desktop header alignment (폐지 — 가로 폭 감사 B1 2026-11-16)", () => {
+  it("본문 열 최대 폭이 없다 → 헤더를 열에 맞추는 단계 규칙도 없다", () => {
+    expect(APP_MAIN_COLUMN_MAX_WIDTH_CLASS).toBe("max-w-none");
+    expect(css).not.toMatch(/sector-header-shell--embedded \{\s*(?:width: 100%;\s*)?max-width: [\d.]+rem;/);
   });
 });
 
@@ -103,26 +86,23 @@ describe("메신저 PC 전체 폭 M1·M3 (docs/audit/messenger-desktop-wide-desi
     expect(m3).toMatch(
       /html\[data-shell-desktop-side-rail\]\[data-shell-desktop-side-rail\]\[data-shell-bottom-nav-side-rail\]\s*:is\([^)]*\)\.messenger-home-bottom-sheet-panel--split-list \{\s*left: calc\(var\(--app-side-rail-width, 72px\) \+ var\(--safe-left, 0px\)\) !important;/,
     );
-    // 휴대폰·태블릿용 기존 식은 그대로 (레일 없는 셸)
+    // 레일 없는 셸(휴대폰·태블릿·Mac 앱) — 본문 열 최대 폭이 없어 목록 칸은 셸 왼쪽 safe-left 에서 시작 (B1 2026-11-16)
     const sheetCss = src("app/messenger-home-bottom-sheet.css");
-    expect(sheetCss).toContain("left: max(0px, calc((100vw - min(100vw, 66rem)) / 2)) !important;");
+    expect(sheetCss).toContain("left: var(--safe-left, 0px) !important;");
+    expect(sheetCss).not.toMatch(/\d+rem\)\) \/ 2\)/);
   });
 });
 
 describe("PC 대화방 말풍선 영역 T1~T3 (docs/audit/messenger-room-desktop-timeline-width-design-2026-11-07.md)", () => {
-  it("T1 — DESKTOP 세로 레일 셸에서만 말풍선 시트 최대 폭을 푼다", () => {
+  it("T1 — 분할 화면(≥768)이면 기기와 상관없이 말풍선 시트 최대 폭을 푼다 (B1 2026-11-16)", () => {
     const t1 = css.split("PC 대화방 말풍선 영역 T1")[1] ?? "";
-    expect(t1).toMatch(
-      /\.app-shell\[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"\] \[data-cm-room\] \.chat-timeline-sheet \{\s*max-width: none;\s*\}/,
-    );
     const selectors = t1
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .split("\n")
       .map((l) => l.trim())
       .filter((l) => l.endsWith("{"));
-    expect(selectors).toEqual([
-      '.app-shell[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"] [data-cm-room] .chat-timeline-sheet {',
-    ]);
+    expect(selectors).toEqual(["@media (min-width: 768px) {", "[data-cm-room] .chat-timeline-sheet {"]);
+    expect(t1).toMatch(/\[data-cm-room\] \.chat-timeline-sheet \{\s*max-width: none;\s*\}/);
   });
 
   it("T2·T3 — 방 컴포넌트의 760 기본값·말풍선 520·높이 계약 CSS 는 그대로 (휴대폰·태블릿 무변화)", () => {
