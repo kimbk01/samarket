@@ -1678,8 +1678,12 @@ export function useMessengerRoomPhase2Controller() {
       );
       if (!claimed || !snapshot) return false;
       const { files: list, previews } = claimed;
-      /** SSOT M3: 로컬 사진을 먼저 디코딩(최대 0.3초) — 보내는 중 말풍선이 회색 칸으로 먼저 나오지 않게 */
-      await predecodeMessengerLocalPreviews(previews);
+      /**
+       * SSOT M3: 로컬 사진을 먼저 디코딩(최대 0.3초)하고 크기를 잰다 — 회색 칸 없이, 서버 사진과 같은 칸 크기로 처음부터.
+       * 한 장만 크기를 싣는다(묶음은 고정 격자라 크기를 쓰지 않음).
+       */
+      const localSizes = await predecodeMessengerLocalPreviews(previews);
+      const singleLocalSize = previews.length === 1 ? localSizes[0] ?? null : null;
       // C-2: 텍스트와 동일 — 낙관 행 생성 전에 cid 1개를 만들고 행·요청 본문에 같은 값을 싣는다.
       const clientMessageId = createCommunityMessengerClientMessageId();
       const tempId = `pending:image:${streamRoomId}:${pendingMessageIdRef.current++}`;
@@ -1700,6 +1704,7 @@ export function useMessengerRoomPhase2Controller() {
           : {
               imagePreviewUrl: previews[0]!,
               imageOriginalUrl: previews[0]!,
+              ...(singleLocalSize ? { imageWidth: singleLocalSize.width, imageHeight: singleLocalSize.height } : {}),
             }),
         createdAt: nextOptimisticCommunityMessengerCreatedAtIso(roomMessagesRef.current),
         clientMessageId,
