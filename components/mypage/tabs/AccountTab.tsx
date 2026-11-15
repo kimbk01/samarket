@@ -5,7 +5,7 @@ import { LogoutContent } from "@/components/my/settings/LogoutContent";
 import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
 import type { MyPageConsoleProps } from "@/components/mypage/types";
-import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
+import { CrewRepBadge } from "@/components/trust/CrewRep";
 import { buildMypageItemHref } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { MYPAGE_PROFILE_EDIT_SHEET_HREF } from "@/lib/mypage/mypage-profile-routes";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -71,7 +71,7 @@ export function AccountTab({
               })}
             </p>
             <div className="pt-1">
-              <MannerBatteryDisplay raw={mannerScore} size="sm" layout="inline" className="gap-1.5" />
+              <CrewRepBadge score={mannerScore} />
             </div>
           </div>
         </div>
@@ -143,12 +143,7 @@ export function AccountTab({
             })}
           </p>
           <div className="pt-1">
-            <MannerBatteryDisplay
-              raw={mannerScore}
-              size="sm"
-              layout="inline"
-              className="gap-1.5"
-            />
+            <CrewRepBadge score={mannerScore} />
           </div>
         </div>
       </div>

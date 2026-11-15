@@ -1,0 +1,1124 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CREW REP 시안</title>
+<style>@font-face{font-family:'Pretendard Variable';font-weight:45 920;font-display:block;src:url(https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/woff2/PretendardVariable.woff2) format('woff2-variations')}</style>
+<style>/* tailwind preflight 원문 */
+@layer theme, base, components, utilities;
+@layer base {
+/*
+  1. Prevent padding and border from affecting element width. (https://github.com/mozdevs/cssremedy/issues/4)
+  2. Remove default margins and padding
+  3. Reset all borders.
+*/
+
+*,
+::after,
+::before,
+::backdrop,
+::file-selector-button {
+  box-sizing: border-box; /* 1 */
+  margin: 0; /* 2 */
+  padding: 0; /* 2 */
+  border: 0 solid; /* 3 */
+}
+
+/*
+  1. Use a consistent sensible line-height in all browsers.
+  2. Prevent adjustments of font size after orientation changes in iOS.
+  3. Use a more readable tab size.
+  4. Use the user's configured `sans` font-family by default.
+  5. Use the user's configured `sans` font-feature-settings by default.
+  6. Use the user's configured `sans` font-variation-settings by default.
+  7. Disable tap highlights on iOS.
+*/
+
+html,
+:host {
+  line-height: 1.5; /* 1 */
+  -webkit-text-size-adjust: 100%; /* 2 */
+  tab-size: 4; /* 3 */
+  font-family: --theme(
+    --default-font-family,
+    ui-sans-serif,
+    system-ui,
+    sans-serif,
+    'Apple Color Emoji',
+    'Segoe UI Emoji',
+    'Segoe UI Symbol',
+    'Noto Color Emoji'
+  ); /* 4 */
+  font-feature-settings: --theme(--default-font-feature-settings, normal); /* 5 */
+  font-variation-settings: --theme(--default-font-variation-settings, normal); /* 6 */
+  -webkit-tap-highlight-color: transparent; /* 7 */
+}
+
+/*
+  1. Add the correct height in Firefox.
+  2. Correct the inheritance of border color in Firefox. (https://bugzilla.mozilla.org/show_bug.cgi?id=190655)
+  3. Reset the default border style to a 1px solid border.
+*/
+
+hr {
+  height: 0; /* 1 */
+  color: inherit; /* 2 */
+  border-top-width: 1px; /* 3 */
+}
+
+/*
+  Add the correct text decoration in Chrome, Edge, and Safari.
+*/
+
+abbr:where([title]) {
+  -webkit-text-decoration: underline dotted;
+  text-decoration: underline dotted;
+}
+
+/*
+  Remove the default font size and weight for headings.
+*/
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+/*
+  Reset links to optimize for opt-in styling instead of opt-out.
+*/
+
+a {
+  color: inherit;
+  -webkit-text-decoration: inherit;
+  text-decoration: inherit;
+}
+
+/*
+  Add the correct font weight in Edge and Safari.
+*/
+
+b,
+strong {
+  font-weight: bolder;
+}
+
+/*
+  1. Use the user's configured `mono` font-family by default.
+  2. Use the user's configured `mono` font-feature-settings by default.
+  3. Use the user's configured `mono` font-variation-settings by default.
+  4. Correct the odd `em` font sizing in all browsers.
+*/
+
+code,
+kbd,
+samp,
+pre {
+  font-family: --theme(
+    --default-mono-font-family,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    'Liberation Mono',
+    'Courier New',
+    monospace
+  ); /* 1 */
+  font-feature-settings: --theme(--default-mono-font-feature-settings, normal); /* 2 */
+  font-variation-settings: --theme(--default-mono-font-variation-settings, normal); /* 3 */
+  font-size: 1em; /* 4 */
+}
+
+/*
+  Add the correct font size in all browsers.
+*/
+
+small {
+  font-size: 80%;
+}
+
+/*
+  Prevent `sub` and `sup` elements from affecting the line height in all browsers.
+*/
+
+sub,
+sup {
+  font-size: 75%;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+
+sub {
+  bottom: -0.25em;
+}
+
+sup {
+  top: -0.5em;
+}
+
+/*
+  1. Remove text indentation from table contents in Chrome and Safari. (https://bugs.chromium.org/p/chromium/issues/detail?id=999088, https://bugs.webkit.org/show_bug.cgi?id=201297)
+  2. Correct table border color inheritance in all Chrome and Safari. (https://bugs.chromium.org/p/chromium/issues/detail?id=935729, https://bugs.webkit.org/show_bug.cgi?id=195016)
+  3. Remove gaps between table borders by default.
+*/
+
+table {
+  text-indent: 0; /* 1 */
+  border-color: inherit; /* 2 */
+  border-collapse: collapse; /* 3 */
+}
+
+/*
+  Use the modern Firefox focus style for all focusable elements.
+*/
+
+:-moz-focusring {
+  outline: auto;
+}
+
+/*
+  Add the correct vertical alignment in Chrome and Firefox.
+*/
+
+progress {
+  vertical-align: baseline;
+}
+
+/*
+  Add the correct display in Chrome and Safari.
+*/
+
+summary {
+  display: list-item;
+}
+
+/*
+  Make lists unstyled by default.
+*/
+
+ol,
+ul,
+menu {
+  list-style: none;
+}
+
+/*
+  1. Make replaced elements `display: block` by default. (https://github.com/mozdevs/cssremedy/issues/14)
+  2. Add `vertical-align: middle` to align replaced elements more sensibly by default. (https://github.com/jensimmons/cssremedy/issues/14#issuecomment-634934210)
+      This can trigger a poorly considered lint error in some tools but is included by design.
+*/
+
+img,
+svg,
+video,
+canvas,
+audio,
+iframe,
+embed,
+object {
+  display: block; /* 1 */
+  vertical-align: middle; /* 2 */
+}
+
+/*
+  Constrain images and videos to the parent width and preserve their intrinsic aspect ratio. (https://github.com/mozdevs/cssremedy/issues/14)
+*/
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+/*
+  1. Inherit font styles in all browsers.
+  2. Remove border radius in all browsers.
+  3. Remove background color in all browsers.
+  4. Ensure consistent opacity for disabled states in all browsers.
+*/
+
+button,
+input,
+select,
+optgroup,
+textarea,
+::file-selector-button {
+  font: inherit; /* 1 */
+  font-feature-settings: inherit; /* 1 */
+  font-variation-settings: inherit; /* 1 */
+  letter-spacing: inherit; /* 1 */
+  color: inherit; /* 1 */
+  border-radius: 0; /* 2 */
+  background-color: transparent; /* 3 */
+  opacity: 1; /* 4 */
+}
+
+/*
+  Restore default font weight.
+*/
+
+:where(select:is([multiple], [size])) optgroup {
+  font-weight: bolder;
+}
+
+/*
+  Restore indentation.
+*/
+
+:where(select:is([multiple], [size])) optgroup option {
+  padding-inline-start: 20px;
+}
+
+/*
+  Restore space after button.
+*/
+
+::file-selector-button {
+  margin-inline-end: 4px;
+}
+
+/*
+  Reset the default placeholder opacity in Firefox. (https://github.com/tailwindlabs/tailwindcss/issues/3300)
+*/
+
+::placeholder {
+  opacity: 1;
+}
+
+/*
+  Set the default placeholder color to a semi-transparent version of the current text color in browsers that do not
+  crash when using `color-mix(…)` with `currentcolor`. (https://github.com/tailwindlabs/tailwindcss/issues/17194)
+*/
+
+@supports (not (-webkit-appearance: -apple-pay-button)) /* Not Safari */ or
+  (contain-intrinsic-size: 1px) /* Safari 17+ */ {
+  ::placeholder {
+    color: color-mix(in oklab, currentcolor 50%, transparent);
+  }
+}
+
+/*
+  Prevent resizing textareas horizontally by default.
+*/
+
+textarea {
+  resize: vertical;
+}
+
+/*
+  Remove the inner padding in Chrome and Safari on macOS.
+*/
+
+::-webkit-search-decoration {
+  -webkit-appearance: none;
+}
+
+/*
+  1. Ensure date/time inputs have the same height when empty in iOS Safari.
+  2. Ensure text alignment can be changed on date/time inputs in iOS Safari.
+*/
+
+::-webkit-date-and-time-value {
+  min-height: 1lh; /* 1 */
+  text-align: inherit; /* 2 */
+}
+
+/*
+  Prevent height from changing on date/time inputs in macOS Safari when the input is set to `display: block`.
+*/
+
+::-webkit-datetime-edit {
+  display: inline-flex;
+}
+
+/*
+  Remove excess padding from pseudo-elements in date/time inputs to ensure consistent height across browsers.
+*/
+
+::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}
+
+::-webkit-datetime-edit,
+::-webkit-datetime-edit-year-field,
+::-webkit-datetime-edit-month-field,
+::-webkit-datetime-edit-day-field,
+::-webkit-datetime-edit-hour-field,
+::-webkit-datetime-edit-minute-field,
+::-webkit-datetime-edit-second-field,
+::-webkit-datetime-edit-millisecond-field,
+::-webkit-datetime-edit-meridiem-field {
+  padding-block: 0;
+}
+
+/*
+  Center dropdown marker shown on inputs with paired `<datalist>`s in Chrome. (https://github.com/tailwindlabs/tailwindcss/issues/18499)
+*/
+
+::-webkit-calendar-picker-indicator {
+  line-height: 1;
+}
+
+/*
+  Remove the additional `:invalid` styles in Firefox. (https://github.com/mozilla/gecko-dev/blob/2f9eacd9d3d995c937b4251a5557d95d494c9be1/layout/style/res/forms.css#L728-L737)
+*/
+
+:-moz-ui-invalid {
+  box-shadow: none;
+}
+
+/*
+  Correct the inability to style the border radius in iOS Safari.
+*/
+
+button,
+input:where([type='button'], [type='reset'], [type='submit']),
+::file-selector-button {
+  appearance: button;
+}
+
+/*
+  Correct the cursor style of increment and decrement buttons in Safari.
+*/
+
+::-webkit-inner-spin-button,
+::-webkit-outer-spin-button {
+  height: auto;
+}
+
+/*
+  Make elements with the HTML hidden attribute stay hidden by default.
+*/
+
+[hidden]:where(:not([hidden='until-found'])) {
+  display: none !important;
+}
+}</style><style>/* app/design-tokens.css 원문 */
+/**
+ * Samarket 전역 디자인 토큰 — 단일 소스 (`--sam-*`).
+ * 라이트 모드: LINE 계열 플랫(흰/연회색 단계·얇은 보더·그림자 최소화).
+ * `--app-*` 는 동일 값 별칭(문서·외부 스펙 정렬용).
+ * 레거시: `--ui-*`·`--messenger-*`·`--background` 등은 `var(--sam-*)` 로 연결.
+ */
+
+:root {
+  /* ----- dibaY palette (single source for color only) ----- */
+  --dibay-green: #0B421A;
+  --dibay-cream: #FFFCFC;
+  --dibay-gold: #EAC784;
+  --dibay-brown: #362415;
+  --dibay-muted: #604C4C;
+  --dibay-card: #FFFFFF;
+  --dibay-border: rgba(54, 36, 21, 0.14);
+  --dibay-dim: rgba(54, 36, 21, 0.45);
+
+  /* ----- User requested SM color tokens ----- */
+  --sm-color-primary: var(--dibay-green);
+  --sm-color-primary-strong: color-mix(in srgb, var(--dibay-green) 88%, #000000);
+  --sm-color-primary-soft: color-mix(in srgb, var(--dibay-green) 9%, var(--dibay-cream));
+  --sm-color-primary-active: color-mix(in srgb, var(--dibay-green) 78%, #000000);
+  --sm-color-primary-disabled: color-mix(in srgb, var(--dibay-muted) 38%, var(--dibay-card));
+  --store-order-ops-primary: var(--dibay-green);
+  --store-order-ops-primary-strong: var(--sm-color-primary-active);
+  --store-order-ops-primary-soft: color-mix(in srgb, var(--dibay-green) 8%, var(--dibay-cream));
+  --store-order-ops-text: var(--dibay-brown);
+  --store-order-ops-bg: var(--dibay-cream);
+  --store-order-ops-border: var(--dibay-border);
+  /* 앱 캔버스 — 전역 크림(카드·리스트 뮤트는 app-subtle-* ) */
+  --sm-color-bg-page: var(--dibay-cream);
+  --sm-color-bg-card: var(--dibay-card);
+  --sm-color-text-main: var(--dibay-brown);
+  --sm-color-text-sub: var(--dibay-muted);
+  --sm-color-text-muted: color-mix(in srgb, var(--dibay-muted) 78%, var(--dibay-card));
+  --sm-color-border: var(--dibay-border);
+  --sm-color-danger: #d45252;
+  --sm-color-success: #21885d;
+
+  /* ----- User requested SM typography tokens ----- */
+  --sm-font-page-title: 17px;
+  --sm-font-section-title: 14px;
+  --sm-font-card-title: 15px;
+  /** 본문 기본 — 리스트 설명 등은 --sm-font-body-compact */
+  --sm-font-body: 14px;
+  --sm-font-body-compact: 13px;
+  --sm-font-meta: 13px;
+  --sm-font-caption: 12px;
+  /** iOS WKWebView: focus zoom if computed size < 16px — keep inputs at least 16px */
+  --sm-font-input: 16px;
+  --sm-font-placeholder: 14px;
+  --sm-font-button: 14px;
+  --sm-font-tab: 14px;
+  /** 내정보 프로필 카드 닉네임 */
+  --sm-font-profile-display: 16px;
+  /** 커뮤니티 글쓰기 제목 칸 (Owner 확정 2026-11-01 · docs/philife-write-composer-ssot.md) */
+  --sm-font-compose-title: 20px;
+
+  --sm-lh-page-title: 1.3;
+  --sm-lh-section-title: 1.4;
+  --sm-lh-card-title: 1.4;
+  --sm-lh-body: 1.5;
+  --sm-lh-body-compact: 1.45;
+  --sm-lh-meta: 1.4;
+  --sm-lh-caption: 1.3;
+
+  /* ----- Brand / Primary (기존 사마켓 포인트 유지) ----- */
+  --sam-primary: var(--sm-color-primary);
+  --sam-primary-hover: var(--sm-color-primary-strong);
+  --sam-primary-active: var(--sm-color-primary-active);
+  /** 눌림 = 기존 active 값 alias (신규 색 없음 · 설계서 v3 §3 「눌림 --sam-primary-pressed」 · Owner Q4) */
+  --sam-primary-pressed: var(--sam-primary-active);
+  --sam-primary-soft: var(--sm-color-primary-soft);
+  --sam-primary-soft-2: color-mix(in srgb, var(--sm-color-primary-soft) 74%, var(--dibay-card));
+  /** 커뮤니티 상위노출(포인트 노출) 글 카드 배경 — 일반 글과 배경으로 구분 (Owner 2026-11-04 「배경 + 글자」) */
+  --sam-boost-card-bg: color-mix(in srgb, var(--sm-color-primary-soft) 55%, var(--dibay-card));
+  --sam-primary-border: color-mix(in srgb, var(--sm-color-primary) 22%, var(--dibay-card));
+  --sam-primary-disabled: var(--sm-color-primary-disabled);
+
+  /* ----- App 별칭 (스펙 문서와 1:1; --sam-* 와 동기) ----- */
+  --app-bg: var(--sm-color-bg-page);
+  --app-surface: var(--sm-color-bg-card);
+  /* 페이지가 흰색이므로 뮤트톤은 border 기준(회색 캔버스 단색 금지) */
+  --app-subtle-bg: color-mix(in srgb, var(--dibay-gold) 12%, var(--dibay-cream));
+  --app-subtle-bg-2: color-mix(in srgb, var(--dibay-gold) 18%, var(--dibay-cream));
+  --app-border: var(--sm-color-border);
+  --app-border-strong: color-mix(in srgb, var(--sm-color-border) 84%, #bcc7d6);
+  --app-text: var(--sm-color-text-main);
+  --app-text-2: var(--sm-color-text-sub);
+  --app-text-3: var(--sm-color-text-muted);
+  --app-primary: var(--sam-primary);
+  --app-primary-soft: var(--sam-primary-soft);
+
+  /* ----- 스펙 문서 별칭 (값 중복 없이 --sam-* 만 참조) ----- */
+  --fs-hero: var(--sam-text-hero-size);
+  --fs-title: var(--sam-text-page-title-size);
+  --fs-section: var(--sam-text-section-title-size);
+  --fs-body-lg: var(--sam-text-body-lg-size);
+  --fs-body: var(--sam-text-body-size);
+  --fs-sm: var(--sam-text-body-secondary-size);
+  --fs-xs: var(--sam-text-helper-size);
+  --fs-xxs: var(--sam-text-xxs-size);
+  --fs-placeholder: var(--sam-text-placeholder-size);
+  --fw-bold: var(--sam-fw-bold);
+  --fw-semi: var(--sam-fw-semi);
+  --fw-medium: var(--sam-fw-medium);
+  --fw-regular: var(--sam-fw-regular);
+  --r-sm: var(--sam-radius-sm);
+  --r-md: var(--sam-radius-md);
+  --r-lg: var(--sam-radius-lg);
+  --space-1: var(--sam-space-1);
+  --space-2: var(--sam-space-2);
+  --space-3: var(--sam-space-3);
+  --space-4: var(--sam-space-4);
+  --space-5: var(--sam-space-5);
+  --space-6: var(--sam-space-6);
+  /** 플로팅 액션 — 기본 그림자 최소 (토큰만 참조) */
+  --sam-fab-shadow: var(--sam-shadow-elevated);
+
+  /* ----- Background ----- */
+  --sam-bg-app: var(--app-bg);
+  --sam-bg-surface: var(--app-surface);
+  --sam-bg-surface-muted: var(--app-subtle-bg);
+  --sam-bg-chat: var(--dibay-cream);
+  --sam-bg-soft-purple: color-mix(in srgb, var(--dibay-gold) 22%, var(--dibay-cream));
+  --sam-bg-surface-dark: var(--dibay-brown);
+  --sam-bg-ink: var(--dibay-brown);
+
+  /* ----- Text ----- */
+  --sam-text-primary: var(--app-text);
+  --sam-text-secondary: var(--app-text-2);
+  --sam-text-muted: var(--app-text-3);
+  --sam-text-on-primary: var(--dibay-cream);
+
+  /* ----- Border / Divider ----- */
+  --sam-border-default: var(--app-border);
+  --sam-border-soft: color-mix(in srgb, var(--app-border) 65%, var(--app-surface));
+
+  /* ----- State ----- */
+  --sam-success: var(--sm-color-success);
+  --sam-success-soft: color-mix(in srgb, var(--sam-success) 10%, var(--dibay-cream));
+  --sam-warning: color-mix(in srgb, var(--dibay-brown) 54%, var(--dibay-gold));
+  --sam-warning-soft: color-mix(in srgb, var(--dibay-gold) 38%, var(--dibay-cream));
+  --sam-danger: var(--sm-color-danger);
+  --sam-danger-soft: #fdf0f0;
+  --sam-info: var(--sam-primary);
+  --sam-info-soft: var(--sam-primary-soft);
+
+  /* ----- Icon ----- */
+  --sam-icon-default: var(--dibay-muted);
+  --sam-icon-soft: var(--app-text-3);
+  /* 내정보 v2.1 — 시그니처 그린(#0B421A) 보조 민트: 행 아이콘 원형 배경 · 행 눌림·선택 배경 (추가 전용) */
+  --sam-icon-surface: #D4E9E2;
+  --sam-pressed-surface: #E8F3EE;
+  --sam-icon-on-primary: var(--dibay-cream);
+
+  /* ----- Radius (8~16만 사용; pill 만 full) ----- */
+  --sam-radius-xs: 4px;
+  --sam-radius-sm: 4px;
+
+  /* ----- DIBAY Currency visual tokens (CUT F) ----- */
+  /* 실기 FAIL 2026-11-03: 존재하지 않는 --sam-app / --sam-border 를 써서 세 통화 카드 배경·테두리가 모두 빈 값이었음 → 실제 토큰으로. */
+  /* POINT = 파랑 (dibay-currency-ssot-hard-lock §3). 브랜드 그린(--sam-primary)·CASH 그린과 섞이지 않게 고정값. */
+  --currency-point-accent: #2563eb;
+  --currency-point-bg: color-mix(in srgb, #2563eb 8%, var(--sam-bg-surface));
+  --currency-point-border: color-mix(in srgb, #2563eb 18%, var(--sam-border-default));
+  --currency-coin-accent: var(--dibay-gold);
+  --currency-coin-bg: color-mix(in srgb, var(--dibay-gold) 14%, var(--sam-bg-surface));
+  --currency-coin-border: color-mix(in srgb, var(--dibay-gold) 28%, var(--sam-border-default));
+  --currency-cash-accent: var(--sm-color-success);
+  --currency-cash-bg: color-mix(in srgb, var(--sm-color-success) 10%, var(--sam-bg-surface));
+  --currency-cash-border: color-mix(in srgb, var(--sm-color-success) 22%, var(--sam-border-default));
+  --sam-radius-md: 4px;
+  --sam-radius-lg: 4px;
+  --sam-radius-xl: 4px;
+  --sam-radius-pill: 999px;
+
+  /* ----- Shadow (기본 없음; 필요 시 1단계만) ----- */
+  --sam-shadow-soft: none;
+  --sam-shadow-card: none;
+  --sam-shadow-elevated: 0 4px 12px rgba(16, 24, 40, 0.08);
+  --sam-shadow-none: none;
+
+  /* ----- Spacing scale ----- */
+  --sam-space-1: 4px;
+  --sam-space-2: 8px;
+  --sam-space-3: 12px;
+  --sam-space-4: 16px;
+  --sam-space-5: 20px;
+  --sam-space-6: 24px;
+
+  /* ----- Layout ----- */
+  --sam-screen-padding-x: var(--sam-space-4);
+  --sam-section-gap: var(--sam-space-5);
+  /** 카드 ↔ 카드 세로 간격(메인 스택) */
+  --sam-stack-gap-y: 12px;
+  /**
+   * 카드·섹션·리스트 행 등 **내부** 패딩(좌·우·상·하 동일, 기본 16px).
+   * `p-3` / `px-3` 등으로 화면마다 어긋나지 않도록 이 값만 참조한다.
+   */
+  --sam-card-padding: var(--sam-space-4);
+  --sam-item-gap: var(--sam-space-3);
+  /**
+   * 터치·아이콘 치수 역할표 (S-04) — 값은 HARD LOCK·§12 그대로, 역할이 다르므로 통일하지 않는다.
+   * - 최소 터치 영역 44  : `--sam-tap-min` (04-DESIGN-SYSTEM, verify:design-system-hard-lock)
+   * - 하위 헤더 터치 48  : `--sector-header-touch` (§12, `app/sector-header.css`, 테스트 고정)
+   * - 허브 아이콘 타일 36: `--sector-header-action-size`(허브) — 터치는 `::after` 로 44~48 확장
+   * - 작은 버튼 높이 40  : 아래 `--sam-header-action-min` (`.sam-btn--sm` 시각 높이 · 헤더 안에서는 sector 치수로 덮임)
+   * - 배달 허브 타일 36  : `--delivery-header-action` (배달 UI Frozen 사본, 허브 타일과 같은 값)
+   * 새 화면은 터치 = `--sam-tap-min` 이상, 헤더 = sector 토큰만 쓴다.
+   */
+  --sam-header-action-min: 40px;
+  /** 헤더 한 줄 높이 — 정본 `--sector-header-h` (`app/sector-header.css`) 별칭 (S-03) */
+  --sam-header-row-height: var(--sector-header-h, 52px);
+  --sam-segment-tab-height: 44px;
+
+  --sam-bp-mobile-max: 767px;
+  --sam-bp-sm-tablet-min: 768px;
+  --sam-bp-sm-tablet-max: 1023px;
+  --sam-bp-lg-min: 1024px;
+
+  /* ----- Typography scale ----- */
+  --sam-text-hero-size: 18px;
+  --sam-text-hero-weight: 600;
+  --sam-text-page-title-size: var(--sm-font-page-title);
+  --sam-text-page-title-weight: 600;
+  --sam-text-section-title-size: var(--sm-font-section-title);
+  --sam-text-section-title-weight: 600;
+  --sam-text-card-title-size: var(--sm-font-card-title);
+  --sam-text-card-title-weight: 600;
+  --sam-text-body-lg-size: var(--sm-font-body);
+  --sam-text-body-lg-weight: 400;
+  --sam-text-body-size: var(--sm-font-body);
+  --sam-text-body-weight: 400;
+  --sam-text-body-secondary-size: var(--sm-font-body-compact);
+  --sam-text-body-secondary-weight: 400;
+  --sam-text-helper-size: var(--sm-font-meta);
+  --sam-text-helper-weight: 400;
+  --sam-text-xxs-size: var(--sm-font-caption);
+  --sam-text-xxs-weight: 400;
+  /** placeholder 전용(입력 본문은 --sam-text-body-size 유지) */
+  --sam-text-placeholder-size: var(--sm-font-placeholder);
+
+  --sam-fw-bold: 700;
+  --sam-fw-semi: 600;
+  --sam-fw-medium: 500;
+  --sam-fw-regular: 400;
+
+  --sam-font-body-line: var(--sm-lh-body);
+  --sam-font-page-title-line: var(--sm-lh-page-title);
+  --sam-font-section-title-line: var(--sm-lh-section-title);
+  --sam-font-card-title-line: var(--sm-lh-card-title);
+  --sam-font-body-compact-line: var(--sm-lh-body-compact);
+  --sam-font-meta-line: var(--sm-lh-meta);
+  --sam-font-caption-line: var(--sm-lh-caption);
+  --sam-tap-min: 44px;
+  --sam-input-min-height: 46px;
+  --sam-button-min-height: 46px;
+  /** 내정보 프로필 표시명 */
+  --sam-text-profile-display-size: var(--sm-font-profile-display);
+  --sam-text-profile-display-weight: 600;
+
+  /* ----- 레거시 시맨틱 브리지 ----- */
+  --ui-page-bg: var(--sam-bg-app);
+  --ui-surface: var(--sam-bg-surface);
+  --ui-text-primary: var(--sam-text-primary);
+  --ui-text-secondary: var(--sam-text-secondary);
+  --ui-text-meta: var(--sam-text-muted);
+  --ui-primary: var(--sam-primary);
+  --ui-border: var(--sam-border-default);
+  --ui-hover-surface: var(--sam-primary-soft);
+  --ui-danger: var(--sam-danger);
+  --ui-success: var(--sam-success);
+
+  --ui-radius-rect: var(--sam-radius-sm);
+  --ui-radius-sm: var(--sam-radius-sm);
+  --ui-radius-md: var(--sam-radius-md);
+  --ui-radius-lg: var(--sam-radius-lg);
+  --ui-radius-xl: var(--sam-radius-xl);
+  --ui-radius-pill: var(--sam-radius-pill);
+  --ui-tap-min: var(--sam-tap-min);
+  --ui-shadow-card: var(--sam-shadow-card);
+  --ui-font-body-line: var(--sam-font-body-line);
+
+  --background: var(--sam-bg-app);
+  --foreground: var(--sam-text-primary);
+  --signature: var(--sam-primary);
+  --sub-bg: var(--sam-bg-surface);
+  --text-muted: var(--sam-text-secondary);
+  --text-meta: var(--sam-text-muted);
+  --ig-border: var(--sam-border-default);
+  --ig-highlight: var(--sam-primary-soft);
+}
+
+/**
+ * Messenger / 채팅방 — `var(--messenger-*)` 호환.
+ */
+[data-messenger-shell],
+[data-cm-room] {
+  --messenger-primary: var(--sam-primary);
+  --messenger-primary-soft: var(--sam-primary-soft);
+  --messenger-primary-soft-2: var(--sam-primary-soft-2);
+  --messenger-bg: var(--sam-bg-app);
+  --messenger-chat-bg: var(--sam-bg-chat);
+  --messenger-surface: var(--sam-bg-surface);
+  --messenger-surface-muted: var(--sam-bg-surface-muted);
+  --messenger-text: var(--sam-text-primary);
+  --messenger-text-secondary: var(--sam-text-secondary);
+  --messenger-divider: var(--sam-border-default);
+  --messenger-icon: var(--sam-icon-default);
+  --messenger-success: var(--sam-success);
+  --messenger-danger: var(--sam-danger);
+  --messenger-radius-sm: var(--sam-radius-sm);
+  --messenger-radius-md: var(--sam-radius-md);
+  --messenger-radius-lg: var(--sam-radius-md);
+  --messenger-shadow-soft: var(--sam-shadow-none);
+  --messenger-badge-direct-bg: var(--sam-primary-soft);
+  --messenger-badge-group-bg: var(--sam-bg-surface-muted);
+  --messenger-badge-trade-bg: var(--sam-success-soft);
+  --messenger-badge-delivery-bg: var(--sam-warning-soft);
+  --messenger-badge-openchat-bg: var(--sam-info-soft);
+  /* 거래: 목록 행 + 방 배경 틴트(판매 녹 / 구매 청) */
+  --messenger-trade-room-seller-page-bg: color-mix(in srgb, var(--sam-success) 8%, var(--messenger-bg));
+  --messenger-trade-room-buyer-page-bg: color-mix(in srgb, var(--sam-info) 9%, var(--messenger-bg));
+  --messenger-trade-list-seller-bg: color-mix(in srgb, var(--sam-success) 6%, var(--messenger-bg));
+  --messenger-trade-list-buyer-bg: color-mix(in srgb, var(--sam-info) 7%, var(--messenger-bg));
+}
+
+[data-cm-room] {
+  /* dibaY 브랜드 Primary */
+  --cm-room-primary: var(--sam-primary);
+  --cm-room-primary-hover: var(--sam-primary-hover);
+  --cm-room-primary-active: var(--sam-primary-active);
+  --cm-room-primary-soft: var(--sam-primary-soft);
+  --cm-room-primary-disabled: var(--sam-primary-disabled);
+  /* 배달 채팅방과 동일 웜 그레이 — `delivery-chat-room.css` `--delivery-chat-bg` */
+  --cm-room-page-bg: #f7f6f3;
+  --messenger-chat-bg: #f7f6f3;
+  --cm-room-chat-bg: var(--messenger-chat-bg);
+  --cm-room-bg: var(--cm-room-chat-bg);
+  --cm-room-text: var(--messenger-text);
+  --cm-room-text-muted: var(--messenger-text-secondary);
+  --cm-room-divider: var(--messenger-divider);
+  --cm-room-header-bg: var(--messenger-surface);
+  --cm-room-brand-green: #006241;
+  /** 그룹 방 헤더 ⚙ 눌림 배경 — 기존 값 그대로 토큰화 (T-02, 신규 색 아님) */
+  --cm-room-group-settings-pressed-bg: #eaf4ef;
+  --cm-room-brand-cream: #f1f8f4;
+  --cm-room-bubble-incoming: var(--cm-room-brand-cream);
+  --cm-room-bubble-incoming-fg: #12372a;
+  --cm-room-bubble-outgoing: var(--cm-room-brand-green);
+  --cm-room-bubble-outgoing-fg: #ffffff;
+  --cm-room-radius-bubble: 18px;
+  --cm-room-radius-input: var(--sam-radius-sm);
+}
+
+[data-cm-room][data-trade-viewer-role="seller"] {
+  --cm-room-page-bg: var(--messenger-trade-room-seller-page-bg);
+  --cm-room-header-bg: color-mix(in srgb, var(--sam-success) 6%, var(--messenger-surface));
+}
+
+[data-cm-room][data-trade-viewer-role="buyer"] {
+  --cm-room-page-bg: var(--messenger-trade-room-buyer-page-bg);
+  --cm-room-header-bg: color-mix(in srgb, var(--sam-info) 7%, var(--messenger-surface));
+}
+
+[data-cm-room][data-delivery-viewer-role="seller"],
+[data-cm-room][data-delivery-viewer-role="buyer"] {
+  --cm-room-primary: var(--delivery-primary);
+  --cm-room-primary-hover: var(--delivery-primary-hover);
+  --cm-room-primary-active: var(--delivery-primary-active);
+  --cm-room-primary-soft: var(--delivery-primary-soft);
+  --cm-room-primary-disabled: color-mix(in srgb, var(--delivery-primary) 35%, var(--dibay-card));
+  --cm-room-page-bg: var(--delivery-chat-bg);
+  --cm-room-header-bg: var(--delivery-chat-header-bg);
+  --cm-room-delivery-chrome-bg: var(--delivery-chat-chrome-bg);
+  --cm-room-chat-bg: var(--delivery-chat-bg);
+  --cm-room-bg: var(--delivery-chat-bg);
+  --cm-room-text: var(--delivery-dark);
+  --cm-room-text-muted: var(--delivery-mocha);
+  --cm-room-divider: var(--delivery-chat-chrome-border);
+  --cm-room-bubble-incoming: var(--cm-room-brand-cream);
+  --cm-room-bubble-incoming-fg: #12372a;
+  --cm-room-bubble-outgoing: var(--cm-room-brand-green);
+  --cm-room-bubble-outgoing-fg: #ffffff;
+}
+
+:root {
+  /* 관리자 공용 부품(components/admin/ui) 토큰 기본값 — 관리자 밖(사장님 광고 성과 등)에서 쓰일 때도 같은 값. [data-admin] 에서 같은 값으로 다시 정의된다. */
+  --admin-console-surface: #ffffff;
+  --admin-console-border: #d0d7e2;
+  --admin-console-fg: #1f2937;
+  --admin-console-muted: #667085;
+  --admin-console-accent: #1d4ed8;
+  --admin-console-active-bg: color-mix(in srgb, #1d4ed8 12%, #ffffff);
+  --admin-console-hover: #eef1f6;
+  --admin-action-primary-bg: #111827;
+  --admin-action-primary-fg: #ffffff;
+  --admin-action-primary-hover: #0b1220;
+  --admin-action-primary-disabled-bg: #9ca3af;
+  --admin-action-primary-disabled-fg: #f9fafb;
+}
+
+/**
+ * 관리자 콘솔 — 소비자/피드 `var(--app-*)` 와 분리해 배경·본문 대비를 고정.
+ * `AdminShell` 루트 `data-admin` (및 이전 호환: 자식 `data-admin`).
+ */
+[data-admin] {
+  --app-bg: var(--admin-console-bg, #f4f6f9);
+  --app-surface: var(--admin-console-surface, #ffffff);
+  --app-subtle-bg: var(--admin-console-hover, #eef1f6);
+  --app-subtle-bg-2: #e8edf4;
+  --app-border: var(--admin-console-border, #d0d7e2);
+  --app-border-strong: #98a2b3;
+  --app-text: var(--admin-console-fg, #1f2937);
+  --app-text-2: var(--admin-console-muted, #667085);
+  --app-text-3: #98a2b3;
+
+  --admin-console-bg: #f4f6f9;
+  --admin-console-surface: #ffffff;
+  --admin-console-border: #d0d7e2;
+  --admin-console-fg: #1f2937;
+  --admin-console-muted: #667085;
+  --admin-console-accent: #1d4ed8;
+  --admin-console-active-bg: color-mix(in srgb, #1d4ed8 12%, #ffffff);
+  --admin-console-hover: #eef1f6;
+  /* CUT 3 — AdminActionButton PRIMARY locked contrast (not sam-primary washout) */
+  --admin-action-primary-bg: #111827;
+  --admin-action-primary-fg: #ffffff;
+  --admin-action-primary-hover: #0b1220;
+  --admin-action-primary-disabled-bg: #9ca3af;
+  --admin-action-primary-disabled-fg: #f9fafb;
+  --admin-sidebar-width: 16rem;
+
+  --sam-text-primary: var(--app-text);
+  --sam-text-secondary: var(--app-text-2);
+  --sam-text-muted: var(--app-text-3);
+  --sam-bg-app: var(--app-bg);
+  --sam-bg-surface: var(--app-surface);
+  --sam-bg-surface-muted: var(--app-subtle-bg);
+  --sam-bg-chat: var(--app-subtle-bg-2);
+  --sam-bg-ink: var(--dibay-green);
+  --sam-border-default: var(--app-border);
+  --sam-border-soft: color-mix(in srgb, var(--app-border) 52%, var(--app-surface));
+
+  --ui-page-bg: var(--sam-bg-app);
+  --ui-surface: var(--sam-bg-surface);
+  --ui-text-primary: var(--sam-text-primary);
+  --ui-text-secondary: var(--sam-text-secondary);
+  --ui-text-meta: var(--sam-text-muted);
+  --ui-border: var(--sam-border-default);
+  --ui-hover-surface: color-mix(in srgb, var(--sam-primary) 12%, var(--app-surface));
+
+  --background: var(--sam-bg-app);
+  --foreground: var(--sam-text-primary);
+  --text-muted: var(--sam-text-secondary);
+  --text-meta: var(--sam-text-muted);
+  --ig-border: var(--sam-border-default);
+  --ig-highlight: var(--sam-primary-soft);
+}
+
+/**
+ * 매장 사장님(owner) 전용 — `/stores/owner/*`·`/my/business/*` 에서 `data-biz="1"` 로 스코프.
+ * IA-19(4단계 4-6): `--biz-*` 는 별도 톤이 아니라 `--sam-*` 브리지 변수다 (값 통일·클래스/변수명 유지).
+ * 다크 모드 값은 `--sam-*` 의 다크 정의를 그대로 따른다 — 여기서 `--sam-*` 를 덮어쓰지 않는다.
+ * `:root` 에도 둔다 — 사장님 시트·다이얼로그는 `document.body` 로 포털돼 `data-biz` 밖에서 그려지므로
+ * `Biz.btnPrimary*`(`bg-[var(--biz-primary)]`)가 값 없이 투명 배경 + 흰 글자(주문 접수 시트 CTA 안 보임)가 됐다.
+ */
+:root,
+[data-biz="1"] {
+  --biz-green: var(--sam-primary);
+  --biz-cream: var(--sam-text-on-primary);
+  --biz-tan: var(--sam-bg-soft-purple);
+  --biz-brown: var(--sam-text-primary);
+  --biz-brown-muted: var(--sam-text-secondary);
+
+  --biz-brand: var(--sam-primary);
+  --biz-primary: var(--sam-primary);
+  --biz-primary-hover: var(--sam-primary-hover);
+  --biz-primary-active: var(--sam-primary-active);
+  --biz-primary-soft: var(--sam-primary-soft);
+  --biz-tan-soft: var(--sam-bg-surface-muted);
+  --biz-header-bg: var(--sam-bg-soft-purple);
+  --biz-app-bg: var(--sam-bg-app);
+  --biz-card-bg: var(--sam-bg-surface);
+  --biz-card-border: var(--sam-border-default);
+  --biz-card-shadow: var(--sam-shadow-card);
+  --biz-text: var(--sam-text-primary);
+  --biz-text-muted: var(--sam-text-secondary);
+}
+
+/* 신규 주문 카드 — 약한 펄스(매장 오너 목록) */
+@keyframes owner-new-order-pulse {
+  0%,
+  100% {
+    box-shadow: var(--biz-card-shadow, 0 1px 3px rgba(15, 23, 42, 0.06)), 0 0 0 0 rgba(11, 66, 26, 0.28);
+  }
+  50% {
+    box-shadow: var(--biz-card-shadow, 0 1px 3px rgba(15, 23, 42, 0.06)), 0 0 0 10px rgba(11, 66, 26, 0);
+  }
+}
+
+.owner-new-order-pulse {
+  animation: owner-new-order-pulse 2.8s ease-in-out infinite;
+}
+</style></head><body>
+<style>
+body{background:var(--sam-app,#f4f5f2);color:var(--sam-fg,#111);font-family:'Pretendard Variable',system-ui,sans-serif;font-size:14px}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:20px;font-weight:700;margin-bottom:4px}
+h2{font-size:15px;font-weight:700;margin:28px 0 10px}
+.note{color:var(--sam-muted,#6b7280);font-size:12px;line-height:1.5}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.phone{background:var(--sam-app,#f4f5f2);border:1px solid var(--sam-border,#ddd);border-radius:24px;overflow:hidden;width:100%;max-width:375px}
+.ph-cap{font-size:12px;font-weight:600;color:var(--sam-muted);margin-bottom:6px}
+.hdr{height:52px;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--sam-surface,#fff);border-bottom:1px solid var(--sam-border-soft,#eee);font-weight:600;font-size:16px}
+.back{width:32px;height:32px;border-radius:999px;display:grid;place-items:center;background:var(--sam-surface-muted,#f2f2f2)}
+.body{padding:12px}
+.card{background:var(--sam-surface,#fff);border:1px solid var(--sam-border-soft,#eee);border-radius:var(--sam-radius-sm,4px);padding:14px}
+.row{display:flex;align-items:center;gap:10px}
+.sp{flex:1}
+.ic{width:40px;height:40px;border-radius:var(--sam-radius-sm,4px);display:grid;place-items:center;background:color-mix(in srgb,var(--sam-primary,#0B421A) 10%,#fff)}
+.t{font-weight:700;font-size:15px;letter-spacing:.02em}
+.st{font-size:12px;color:var(--sam-muted)}
+.score{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.score small{font-size:12px;font-weight:600;color:var(--sam-muted)}
+.bar{height:10px;border-radius:999px;background:var(--sam-surface-muted,#eee);overflow:hidden;margin-top:12px}
+.bar>i{display:block;height:100%;border-radius:999px}
+.ends{display:flex;justify-content:space-between;font-size:11px;color:var(--sam-muted);margin-top:4px}
+.chip{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:700;color:#fff}
+.lst>div{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--sam-border-soft,#eee);font-size:13px}
+.lst>div:first-child{border-top:0}
+.d{font-variant-numeric:tabular-nums;font-weight:700;min-width:44px;text-align:right}
+.pos{color:#21885d}.neg{color:#d45252}.zero{color:var(--sam-muted)}
+.sec-t{font-size:13px;font-weight:700;margin:14px 0 6px}
+.dom{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;text-align:center}
+.dom div{background:var(--sam-surface);border:1px solid var(--sam-border-soft);border-radius:4px;padding:8px 2px;font-size:11px;color:var(--sam-muted)}
+.dom b{display:block;font-size:14px;color:var(--sam-fg)}
+.tbl{width:100%;border-collapse:collapse;background:var(--sam-surface);font-size:13px}
+.tbl td,.tbl th{border:1px solid var(--sam-border-soft,#eee);padding:8px;text-align:left}
+.sheet{background:var(--sam-surface,#fff);border-radius:16px 16px 0 0;padding:8px 16px 20px;box-shadow:0 -6px 24px rgba(0,0,0,.12)}
+.grab{width:36px;height:4px;border-radius:999px;background:#d6d6d6;margin:0 auto 12px}
+.mini{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700}
+.mini .mb{width:34px;height:6px;border-radius:999px;background:var(--sam-surface-muted,#eee);overflow:hidden}
+.mini .mb i{display:block;height:100%}
+.before{opacity:.9}
+.badge-old{display:inline-flex;align-items:center;gap:4px;font-weight:700}
+input[type=range]{width:100%;margin-top:14px;accent-color:var(--sam-primary)}
+.bubble{background:var(--sam-surface);border:1px solid var(--sam-border-soft);border-radius:4px;padding:10px 12px;display:flex;align-items:center;gap:10px}
+.av{width:36px;height:36px;border-radius:999px;background:#cfd8cf;flex:none}
+</style>
+
+<div class="wrap">
+<h1>CREW REP 시안 (2026-11-16)</h1>
+<p class="note">보고만 — 구현 전 시안. 수치·가중치는 제안값(승인 후 고정). v2 계산식: 축 X = 50 + 50×(X⁺−X⁻)/(X⁺+X⁻+K) · CREW REP = 50 + 0.5(T−50) + 0.3(M−50) + 0.2(P−50) − S. 시작 50(보통). 근거: docs/audit/crew-rep-manner-battery-audit-design-2026-11-16.md</p>
+
+<h2>① 지금 vs 변경 — 내 정보 첫 화면 한 줄</h2>
+<div class="grid">
+ <div><div class="ph-cap">지금 (매너 배터리 · 기기 배터리처럼 보임)</div>
+  <div class="card before"><div class="row"><span class="st">나의 배터리·신뢰</span><span class="sp"></span>
+   <svg width="15" height="33" viewBox="0 0 18 40"><rect x="6" y="0" width="6" height="3" rx="1" fill="#0001"/><rect x="1" y="4" width="16" height="35" rx="3" fill="#fff" stroke="#999"/><g fill="#CA8A04"><rect x="3.5" y="20.4" width="11" height="4.1"/><rect x="3.5" y="25.2" width="11" height="4.1"/><rect x="3.5" y="30" width="11" height="4.1"/></g><g fill="#E5E7EB"><rect x="3.5" y="6.5" width="11" height="4.1"/><rect x="3.5" y="11.2" width="11" height="4.1"/><rect x="3.5" y="15.8" width="11" height="4.1"/></g></svg>
+   <b style="color:#CA8A04">50%</b></div>
+   <p class="note" style="margin-top:6px">신규 회원도 노란 3칸 + % → 휴대폰 배터리 50%와 구분 안 됨, 등급 이름 없음</p></div></div>
+ <div><div class="ph-cap">변경 (CREW REP)</div>
+  <div class="card"><div class="row"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0B421A" stroke-width="2"><path d="M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+   <div><div class="t">CREW REP</div><div class="st">크루렙 · 회원 평판</div></div><span class="sp"></span>
+   <span class="chip" style="background:#8A94A0">보통</span><div class="score" style="color:#4b5563">50<small> / 100</small></div></div>
+   <div class="bar"><i style="width:50%;background:#8A94A0"></i></div>
+   <p class="note" style="margin-top:6px">새 크루 · 기록이 쌓이는 중 (확인된 기록 3건 미만)</p></div></div>
+</div>
+
+<h2>② 점수 미리보기 — 움직이면 등급·색이 바뀜</h2>
+<div class="card" style="max-width:760px">
+ <div class="row"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0B421A" stroke-width="2"><path d="M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+  <div><div class="t">CREW REP</div><div class="st">크루렙 · 회원 평판</div></div><span class="sp"></span>
+  <span class="chip" id="pvChip">우수</span><div class="score" id="pvScore">82<small> / 100</small></div></div>
+ <div class="bar"><i id="pvBar"></i></div>
+ <div class="ends"><span>낮은 평판</span><span>높은 평판</span></div>
+ <input type="range" min="0" max="100" value="82" id="pv">
+ <p class="note" id="pvHow"></p>
+</div>
+
+<h2>③ 등급 6단 (SSOT)</h2>
+<table class="tbl" style="max-width:760px"><tr><th>등급</th><th>범위</th><th>이름</th><th>색</th><th>도달 예 (v2 시뮬레이션)</th></tr>
+<tbody id="tiers"></tbody></table>
+
+<h2>④ 내 CREW REP 누르면 — 변경 내역</h2>
+<div class="grid">
+<div class="phone"><div class="hdr"><span class="back">‹</span>CREW REP</div><div class="body">
+ <div class="card"><div class="row"><div><div class="t">CREW REP</div><div class="st">최근 365일 확인된 기록 기준</div></div><span class="sp"></span><span class="chip" style="background:#5E9E3A">좋음</span><div class="score" style="color:#5E9E3A">62<small> / 100</small></div></div>
+  <div class="bar"><i style="width:62%;background:#5E9E3A"></i></div>
+  <div class="sec-t">최근 90일</div>
+  <svg viewBox="0 0 320 120" width="100%" height="120" role="img" aria-label="최근 90일 점수 변화">
+   <rect x="28" y="4" width="290" height="16" fill="#0B421A" opacity=".08"/><rect x="28" y="20" width="290" height="24" fill="#21885d" opacity=".08"/><rect x="28" y="44" width="290" height="24" fill="#5E9E3A" opacity=".08"/><rect x="28" y="68" width="290" height="32" fill="#8A94A0" opacity=".08"/><rect x="28" y="100" width="290" height="16" fill="#E07B39" opacity=".08"/>
+   <g font-size="9" fill="#888"><text x="0" y="23">75</text><text x="0" y="47">60</text><text x="0" y="71">50</text><text x="0" y="103">40</text></g>
+   <polyline fill="none" stroke="#5E9E3A" stroke-width="2.2" stroke-linejoin="round" points="28,84 60,84 92,80 124,77 156,74 172,76 204,70 236,66 268,62 300,60 318,58"/>
+   <circle cx="318" cy="58" r="3.5" fill="#5E9E3A"/>
+   <g font-size="9" fill="#888"><text x="28" y="116">8-18</text><text x="160" y="116">10-02</text><text x="290" y="116">11-16</text></g>
+  </svg>
+ </div>
+ <div class="sec-t">어디서 바뀌었나</div>
+ <div class="dom"><div>거래<b class="pos">+9.0</b></div><div>라운지<b class="pos">+0.9</b></div><div>모임<b class="pos">+1.0</b></div><div>채팅<b class="zero">0</b></div><div>운영<b class="neg">−2.0</b></div></div>
+ <div class="sec-t">변경 내역</div>
+ <div class="card lst">
+  <div><span class="st">11-15</span><span>T 거래 평가 「좋아요」 (r 1.0)</span><span class="sp"></span><span class="d pos">+0.9</span><span class="st">→ 67.9</span></div>
+  <div><span class="st">11-15</span><span>T 거래 평가 · 평가 공개 대기(상대 미평가)</span><span class="sp"></span><span class="d zero">보류</span><span class="st"></span></div>
+  <div><span class="st">11-14</span><span>P 주문 후 매장 후기 작성</span><span class="sp"></span><span class="d pos">+0.1</span><span class="st">→ 67.0</span></div>
+  <div><span class="st">11-13</span><span>P 라운지 글 (72시간 유지 · 다른 회원 반응 2)</span><span class="sp"></span><span class="d pos">+0.2</span><span class="st">→ 66.9</span></div>
+  <div><span class="st">11-12</span><span>P 받은 좋아요 · 하루 상한 도달</span><span class="sp"></span><span class="d zero">0</span><span class="st">→ 66.7</span></div>
+  <div><span class="st">11-10</span><span>T 「아쉬워요」 · 이의제기 인정 → 제외</span><span class="sp"></span><span class="d zero">0</span><span class="st">→ 66.7</span></div>
+  <div><span class="st">11-08</span><span>M 모임 참석 확인 (모임장)</span><span class="sp"></span><span class="d pos">+0.3</span><span class="st">→ 66.7</span></div>
+  <div><span class="st">11-05</span><span>신고 접수됨 · 운영자 기각</span><span class="sp"></span><span class="d zero">0</span><span class="st">→ 66.4</span></div>
+  <div><span class="st">11-01</span><span>M 깨끗한 활동 월 (10월)</span><span class="sp"></span><span class="d pos">+0.4</span><span class="st">→ 66.4</span></div>
+  <div><span class="st">10-21</span><span>T 같은 상대 30일 내 평가</span><span class="sp"></span><span class="d zero">0</span><span class="st">→ 66.0</span></div>
+ </div>
+ <p class="note" style="margin-top:8px">신고 「접수」만으로는 바뀌지 않아요. 운영자가 확정했을 때만 반영돼요. 날짜는 필리핀 시간.</p>
+</div></div>
+
+<div><div class="ph-cap">점수 기준 안내 (같은 화면 아래 「점수 기준」)</div>
+<div class="card lst" style="max-width:375px">
+ <div><b>T 거래 신뢰</b><span class="sp"></span><span class="st">실제 대화한 상대의 평가만 · 좋아요 +1 · 보통 +0.2 · 아쉬워요 −1 · 사기 확정 −3</span></div>
+ <div><b>M 매너·약속</b><span class="sp"></span><span class="st">깨끗한 달 +1 · 모임 참석 +0.5 · 노쇼·신고 확정·허위 신고 −2</span></div>
+ <div><b>P 참여도</b><span class="sp"></span><span class="st">글 +0.5 · 내 글 댓글 +0.1/명 · 댓글 +0.1 · 받은 좋아요 +0.05 · 매장 후기 +0.3 · 주 +5까지</span></div>
+ <div><b>S 제재</b><span class="sp"></span><span class="st">경고 −3 · 기능 제한 −8 · 정지 −15 (정지 중 최대 39)</span></div>
+ <div><span class="st">신고 접수만으로는 0 · 같은 상대 30일 1회 · 6개월 지나면 절반 · 1년 지나면 제외 · 매일 03:00 다시 계산</span></div>
+</div>
+<p class="note" style="margin-top:6px;max-width:375px">위 수치는 축 근거(X⁺·X⁻)이고, 화면 변화량은 계산식 결과입니다. 기록이 많을수록 1건당 변화가 작아집니다. 참여도만으로는 최대 60.</p></div>
+</div>
+
+<h2>⑤ 구매자가 판매자 확인 — 거래 평가를 맨 위에, 등급 색으로 구분</h2>
+<div class="grid">
+<div class="phone"><div class="hdr"><span class="back">‹</span><div><div style="font-size:15px">mika_ph</div><div class="mini"><span style="color:#21885d">CREW REP 81</span><span class="mb"><i style="width:81%;background:#21885d"></i></span></div></div></div>
+ <div class="body">
+  <div class="ph-cap">거래 채팅 목록 · 게시글 작성자 · 주문 채팅 — 같은 칩 1개</div>
+  <div style="display:grid;gap:6px" id="peers"></div>
+ </div></div>
+
+<div class="phone" style="background:#0005;display:flex;flex-direction:column;justify-content:flex-end;min-height:520px">
+ <div class="sheet">
+  <div class="grab"></div>
+  <div class="row"><div class="av"></div><div><b>mika_ph</b><div class="st">판매자 CREW REP</div></div><span class="sp"></span><span class="chip" style="background:#21885d">우수</span><div class="score" style="color:#21885d">81<small> / 100</small></div></div>
+  <div class="bar"><i style="width:81%;background:#21885d"></i></div>
+  <div class="ends"><span>낮은 평판</span><span>높은 평판</span></div>
+  <div class="sec-t">거래 평가 (T 81) — 실제 대화한 구매자 기준</div>
+  <div class="card">
+   <div class="row" style="font-size:13px"><b>받은 거래 평가 24건</b><span class="st">· 평가한 사람 22명</span><span class="sp"></span><span class="st">최근 90일 7건</span></div>
+   <div style="display:flex;height:10px;border-radius:999px;overflow:hidden;margin-top:8px"><i style="width:83%;background:#21885d"></i><i style="width:13%;background:#8A94A0"></i><i style="width:4%;background:#d45252"></i></div>
+   <div class="ends"><span style="color:#21885d">좋아요 20</span><span>보통 3</span><span style="color:#d45252">아쉬워요 1 · 「약속 시간 늦음」</span></div>
+   <div class="row" style="margin-top:8px;font-size:13px"><span>확정된 거래 신고</span><span class="sp"></span><b style="color:#21885d">0건</b></div>
+  </div>
+  <div class="sec-t">약속·참여</div>
+  <p class="note">50 + 0.5×31 + 0.3×10.7 + 0.2×13 = 81.3</p>
+  <div class="card lst">
+   <div>매너·약속 M<span class="sp"></span><b>60.7</b><span class="st">깨끗한 달 7 · 모임 노쇼 0</span></div>
+   <div>참여도 P<span class="sp"></span><b>63.0</b><span class="st">라운지·매장 후기 활동</span></div>
+  </div>
+  <p class="note" style="margin-top:8px">평가자 이름·날짜는 보이지 않아요. 평가 3건 미만이면 「거래 평가가 아직 적어요」를 함께 보여 줍니다.</p>
+ </div></div>
+</div>
+<h2>⑥ 악용 시나리오 — 계산식 결과 (v2)</h2>
+<table class="tbl" style="max-width:860px"><tr><th>상황</th><th>막는 규칙</th><th>T</th><th>M</th><th>P</th><th>CREW REP</th></tr>
+<tr><td>허위 신고 10건 (확정 0)</td><td>신고 접수 = 0, 같은 사건 여러 신고 = 1건</td><td>50</td><td>50</td><td>50</td><td><b>50</b></td></tr>
+<tr><td>실제 대화 없이 「아쉬워요」</td><td>평가 자격(양쪽 3개 이상·10분 이상) — 버튼 없음, 서버 거절</td><td>–</td><td>–</td><td>–</td><td><b>변화 없음</b></td></tr>
+<tr><td>좋아요 20건 받은 판매자에게 보복 아쉬워요 1</td><td>비공개 동시 공개 · 사유 필수 · 이의제기 14일</td><td>80.6</td><td>50</td><td>50</td><td><b>65.3</b> (−1.4, 이의 인정 시 0)</td></tr>
+<tr><td>부계정 5개로 좋아요 농사</td><td>쌍당 30일 1회·평생 3회 · 가입 14일·전화 인증 미달 r 0.5</td><td>71.4</td><td>50</td><td>50</td><td><b>60.7</b></td></tr>
+<tr><td>같은 기기 부계정 · 가입 3일 미만</td><td>r = 0</td><td>50</td><td>50</td><td>50</td><td><b>50</b></td></tr>
+<tr><td>글만 1년 내내 (매주 상한)</td><td>P 주 +5 상한 · 참여 최대 영향 +10</td><td>50</td><td>50</td><td>93.3</td><td><b>58.7</b></td></tr>
+<tr><td>쓰고 바로 지우기 · 자기 좋아요</td><td>72시간 유지 · 다른 회원 반응 필수 · 자기 반응 0</td><td>–</td><td>–</td><td>–</td><td><b>0</b></td></tr>
+<tr><td>탈퇴 후 재가입으로 초기화</td><td>같은 인증 번호면 감점만 이어받기 (Owner 결정 필요)</td><td>–</td><td>–</td><td>–</td><td><b>감점 유지</b></td></tr>
+<tr><td>허위 신고자 (운영자 확정)</td><td>신고자 M −2</td><td>50</td><td>45.5</td><td>50</td><td><b>48.6</b></td></tr>
+<tr><td>좋아요 20 + 이용 정지 중</td><td>정지 중 최대 39</td><td>83.3</td><td>50</td><td>50</td><td><b>39</b></td></tr>
+</table>
+<h2>⑦ 거래 평가 시트 (Owner 11-16 「거래 평가 살리기」 · 실제 대화한 상대만)</h2>
+<div class="grid">
+<div class="phone" style="background:#0005;display:flex;flex-direction:column;justify-content:flex-end;min-height:560px">
+ <div class="sheet">
+  <div class="grab"></div>
+  <b style="font-size:16px">mika_ph 님과의 거래 평가</b>
+  <p class="st" style="margin-top:2px">한 번만 남길 수 있고, 상대도 평가하거나 7일이 지나면 서로 공개돼요.</p>
+  <div class="sec-t">거래를 했나요?</div>
+  <div class="row"><span class="chip" style="background:#0B421A;height:34px;padding:0 16px">했어요</span><span class="chip" style="background:#fff;color:#333;border:1px solid #ddd;height:34px;padding:0 16px">대화만 했어요</span></div>
+  <div class="sec-t">어땠나요?</div>
+  <div class="row"><span class="chip" style="background:#fff;color:#21885d;border:1px solid #21885d;height:34px;padding:0 16px">좋아요</span><span class="chip" style="background:#fff;color:#555;border:1px solid #ddd;height:34px;padding:0 16px">보통</span><span class="chip" style="background:#d45252;height:34px;padding:0 16px">아쉬워요</span></div>
+  <div class="sec-t">아쉬웠던 점 (1개 이상 필수)</div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px"><span class="chip" style="background:#d45252">약속을 반복 변경했어요</span><span class="chip" style="background:#fff;color:#333;border:1px solid #ddd">노쇼했어요</span><span class="chip" style="background:#fff;color:#333;border:1px solid #ddd">상품 설명과 달라요</span><span class="chip" style="background:#fff;color:#333;border:1px solid #ddd">비매너 메시지가 있었어요</span></div>
+  <div class="sec-t">남길 말 (선택 · 운영자만 봐요)</div>
+  <div class="card st" style="height:56px">200자까지</div>
+  <div style="margin-top:14px;height:44px;border-radius:4px;background:#0B421A;color:#fff;display:grid;place-items:center;font-weight:700">평가 남기기</div>
+ </div></div>
+<div>
+ <div class="ph-cap">평가 자격 (서버가 판정 · 하나라도 빠지면 버튼 없음)</div>
+ <div class="card lst" style="max-width:375px">
+  <div>판매자·구매자 각자 메시지 3개 이상<span class="sp"></span><b class="pos">✓ 5 / 4</b></div>
+  <div>대화 기간 10분 이상<span class="sp"></span><b class="pos">✓ 2시간</b></div>
+  <div>판매완료 또는 대화 3일 경과 후 30일 안<span class="sp"></span><b class="pos">✓ 남은 기간 27일</b></div>
+  <div>같은 기기 사용 이력 없음 · 차단 아님<span class="sp"></span><b class="pos">✓</b></div>
+  <div>이 방에서 아직 평가 안 함<span class="sp"></span><b class="pos">✓</b></div>
+ </div>
+ <div class="ph-cap" style="margin-top:14px">받은 사람 — 「아쉬워요」 이의제기 (공개 후 14일 · 1회)</div>
+ <div class="card" style="max-width:375px">
+  <div class="row"><span class="chip" style="background:#d45252">아쉬워요</span><span class="st">약속을 반복 변경했어요 · 11-15 공개</span></div>
+  <p class="st" style="margin-top:8px">검토하는 동안에는 점수에 반영되지 않아요. 운영자가 인정하면 이 평가는 제외돼요.</p>
+  <div style="margin-top:10px;height:40px;border-radius:4px;border:1px solid #ccc;display:grid;place-items:center;font-weight:600">이의제기하기</div>
+ </div>
+</div>
+</div>
+</div>
+
+<script>
+const T=[[0,19,'위험','#d45252'],[20,39,'주의','#E07B39'],[40,59,'보통','#8A94A0'],[60,74,'좋음','#5E9E3A'],[75,89,'우수','#21885d'],[90,100,'최고','#0B421A']];
+const tier=s=>T.find(t=>s>=t[0]&&s<=t[1]);
+const need=s=>{if(s<=50)return null;const t=(s-50)/0.5;if(t>=50)return null;const r=t/50;return Math.ceil(10*r/(1-r))};
+function pv(){const s=+document.getElementById('pv').value,t=tier(s);
+ document.getElementById('pvScore').innerHTML=s+'<small> / 100</small>';document.getElementById('pvScore').style.color=t[3];
+ const c=document.getElementById('pvChip');c.textContent=t[2];c.style.background=t[3];
+ const b=document.getElementById('pvBar');b.style.width=s+'%';b.style.background=t[3];
+ const n=need(s);document.getElementById('pvHow').textContent=s>75?'거래 평가만으로는 75가 최대 — 약속(M)·참여(P)까지 쌓여야 도달':(n?('거래 평가 「좋아요」만으로 이 점수까지: 약 '+n+'건 (다른 축 50 기준)'):(s<50?'확정된 감점(아쉬워요·신고 확정·노쇼·제재)이 있을 때만 50 아래':'시작값 50 = 기록 없음'));}
+document.getElementById('pv').addEventListener('input',pv);pv();
+const ex={'위험':'정지 + 거래 사기 확정 누적','주의':'이용 정지 중(최대 39) · 아쉬워요 다수','보통':'시작 50 · 글만 1년(58.7)','좋음':'거래 좋아요 5~20건(58~67)','우수':'성실 1년: 거래·약속·참여 모두(82)','최고':'최상위 2년 이상 + 감점 0(89.6~)'};
+document.getElementById('tiers').innerHTML=T.map((t,i)=>`<tr><td>${i+1}</td><td>${t[0]}~${t[1]}</td><td><span class="chip" style="background:${t[3]}">${t[2]}</span></td><td><span style="display:inline-block;width:46px;height:8px;border-radius:999px;background:${t[3]}"></span> ${t[3]}</td><td>${ex[t[2]]}</td></tr>`).join('');
+const peers=[['mika_ph',81],['jun.k',93],['ana_ce',66],['newbie01',50],['leo_m',33],['x_trade',12]];
+document.getElementById('peers').innerHTML=peers.map(([n,s])=>{const t=tier(s);return `<div class="bubble"><div class="av"></div><div class="sp"><b>${n}</b><div class="st">최근 메시지…</div></div><div class="mini"><span style="color:${t[3]}">${s}</span><span class="mb"><i style="width:${s}%;background:${t[3]}"></i></span><span class="chip" style="background:${t[3]};height:18px;font-size:11px">${t[2]}</span></div></div>`}).join('');
+</script>
+</body></html>
