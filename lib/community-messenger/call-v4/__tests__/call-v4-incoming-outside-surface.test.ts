@@ -421,7 +421,7 @@ describe("F2 네이티브(Capacitor 셸) 무영향", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("Android·iOS 셸(syncOnly)은 수신 조회 호스트를 마운트하지 않는다(CallV4Provider 소스 계약)", () => {
+  it("Android·iOS 셸(syncOnly)은 수신 조회 호스트를 마운트하지 않는다 — 맥(iOS 앱) 수신 전용 묶음만 예외(CallV4Provider 소스 계약 · D2-3)", () => {
     const src = readFileSync(
       join(process.cwd(), "components/community-messenger/call-v4/CallV4Provider.tsx"),
       "utf8",
@@ -429,23 +429,36 @@ describe("F2 네이티브(Capacitor 셸) 무영향", () => {
     expect(src).toMatch(
       /const syncOnly =\s*isLegacyWebCallEstablishmentRemoved\(\) \|\|\s*\(isCapacitorNativePlatform\(\) && resolveCapacitorShellPlatform\(\) === "ios"\);/,
     );
-    expect(src).toMatch(/if \(syncOnly\) \{\s*return <>\{children\}<\/>;\s*\}/);
-    /** startCallV4IncomingDiscovery 는 CallV4WebEstablishmentHost 안에서만 호출 */
+    /** syncOnly 는 children 만 — 맥(capability iosAppOnMac)일 때만 CallV4MacIncomingHost */
+    expect(src).toMatch(
+      /if \(syncOnly\) \{\s*if \(macIncoming\) \{\s*return <CallV4MacIncomingHost userId=\{userId\}>\{children\}<\/CallV4MacIncomingHost>;\s*\}\s*return <>\{children\}<\/>;\s*\}/,
+    );
+    expect(src).toMatch(/if \(alive && cap\.iosAppOnMac\) setMacIncoming\(true\);/);
+    /** 탐색 호출은 2곳뿐: 웹 수립 호스트(기존) + 맥 수신 전용 묶음(macIosApp) */
     const hostStart = src.indexOf("function CallV4WebEstablishmentHost(");
+    const macStart = src.indexOf("function CallV4MacIncomingHost(");
     const providerStart = src.indexOf("export function CallV4Provider(");
-    const call = src.indexOf("startCallV4IncomingDiscovery(userId)");
+    const webCall = src.indexOf("startCallV4IncomingDiscovery(userId);");
+    const macCall = src.indexOf("startCallV4IncomingDiscovery(userId, { macIosApp: true });");
     expect(hostStart).toBeGreaterThan(-1);
-    expect(call).toBeGreaterThan(hostStart);
-    expect(call).toBeLessThan(providerStart);
-    expect(src.split("startCallV4IncomingDiscovery(").length - 1).toBe(1);
+    expect(webCall).toBeGreaterThan(hostStart);
+    expect(webCall).toBeLessThan(macStart);
+    expect(macCall).toBeGreaterThan(macStart);
+    expect(macCall).toBeLessThan(providerStart);
+    expect(src.split("startCallV4IncomingDiscovery(").length - 1).toBe(2);
+    /** 맥 묶음은 웹 통화 화면(웹 Agora)을 붙이지 않는다 */
+    const macBody = src.slice(macStart, providerStart);
+    expect(macBody).toContain("<CallV4IncomingSheet />");
+    expect(macBody).not.toContain("CallV4ActiveCallHost");
   });
 
-  it("수신 루프는 Capacitor 에서 피드를 획득하지 않는다(discovery 소스 계약)", () => {
+  it("수신 루프는 Capacitor 에서 피드를 획득하지 않는다 — 맥 수신 전용 묶음만 예외(discovery 소스 계약 · D2-3)", () => {
     const src = readFileSync(
       join(process.cwd(), "lib/community-messenger/call-v4/call-v4-incoming-discovery.ts"),
       "utf8",
     );
-    expect(src).toContain("const realtimeFeedActive = !isCapacitorNativePlatform();");
+    expect(src).toContain("const realtimeFeedActive = !isCapacitorNativePlatform() || macIosApp;");
+    expect(src).toContain("const macIosApp = options?.macIosApp === true;");
     expect(src).toMatch(/if \(realtimeFeedActive\) \{\s*releaseRealtimeFeed = acquireCallV4IncomingRealtimeFeed\(/);
   });
 });

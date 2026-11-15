@@ -60,7 +60,16 @@ describe("cross-platform native incoming authority (static)", () => {
     expect(chrome).toContain("CallV4IncomingChrome");
     const provider = readRepo("components/community-messenger/call-v4/CallV4Provider.tsx");
     expect(provider).toContain("syncOnly");
-    expect(provider).toMatch(/if \(syncOnly\) \{\s*return <>\{children\}<\/>;/);
+    /** D2-3: syncOnly 는 children 만 — 맥(iOS 앱)만 수신 전용 묶음(시트+탐색, 웹 수립·웹 통화 화면 없음) */
+    expect(provider).toMatch(
+      /if \(syncOnly\) \{\s*if \(macIncoming\) \{\s*return <CallV4MacIncomingHost userId=\{userId\}>\{children\}<\/CallV4MacIncomingHost>;\s*\}\s*return <>\{children\}<\/>;/,
+    );
+    const macBody = provider.slice(
+      provider.indexOf("function CallV4MacIncomingHost("),
+      provider.indexOf("export function CallV4Provider("),
+    );
+    expect(macBody).not.toContain("CallV4ActiveCallHost");
+    expect(macBody).not.toContain("CallV4WebEstablishmentHost");
   });
 
   it("1:1 start does not publish dialing stub or caller ringing tip", () => {

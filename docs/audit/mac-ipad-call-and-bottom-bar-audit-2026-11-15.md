@@ -300,3 +300,10 @@ NOT_PROVEN: iPhone VoIP 회귀(연결된 iPhone 없음).
 6. 거절·상대 취소·무응답: 기존 웹 시트 경로(서버 상태) 그대로 — 네이티브 세션은 수락 때만 생기므로 정리 대상 없음.
 
 영향: 웹 V4 공급자·탐색·수락 3곳 + 네이티브 2곳(주체 차단·플러그인 1개) + 오디오 준비 1곳. iPhone·iPad·Android·데스크톱 웹은 분기 값이 달라 경로 무변경 — 단위 테스트로 4플랫폼 고정. 통화 단독 PR · 네이티브 build 39.
+
+### 10-9. D2-3 구현 기록 (Owner 「정정 설계로 구현」)
+- 웹: `lib/call/native/call-platform-capability-client.ts`(능력 단일 읽기·캐시) · `CallV4Provider` 맥이면 `CallV4MacIncomingHost`(탐색 + `CallV4IncomingSheet`, 웹 수립·웹 통화 화면 없음) · `startCallV4IncomingDiscovery(userId, { macIosApp })` 플래그 무관·Realtime 병행 · `tryClaimIosCapacitorWebIncomingOwner` 맥이면 웹 쪽 `web_in_app` 선언(네이티브 왕복 없음 → `CallV4SurfaceOwnerBridge` 수정 불필요) · `callV4Accept` 맥이면 `callV4AcceptOnMacNative`(네이티브 수락 중 표면 등록 → 시트 닫힘 → `acceptIncomingWithoutCallKit` → 상태 초기화).
+- 네이티브: `DibayMacIncomingCallAcceptor`(수신 등록 + 기존 `handleAnswer` + 음성 화면 표시) · `NativeCallServicePlugin.acceptIncomingWithoutCallKit` · `prepareForNativeVoice/VideoCall` 맥이면 `setActive(true)`.
+- 계약 테스트 정정(설계 변경 반영): `call-v4-incoming-outside-surface.test.ts` F2 소스 계약 2건, `call-surface-authority-contract.test.ts` 1건 — 「Capacitor 셸 sync-only·Realtime 없음」에 맥 예외만 추가, 맥 묶음에 웹 수립·웹 통화 화면이 없음을 함께 고정.
+- 보고만: `CALL_V4_TELEGRAM_INCOMING_SURFACE_CONTRACT.capacitorNativeForeground = "native_incoming_surface"` 설명 상수는 맥 예외를 표현하지 않음(동작 영향 없음).
+- iOS build 38 → 39.

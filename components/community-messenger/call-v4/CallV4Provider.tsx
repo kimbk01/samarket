@@ -67,6 +67,7 @@ import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-ta
 import { CallV4IncomingSheet } from "@/components/community-messenger/call-v4/CallV4IncomingSheet";
 import { CallV4ActiveCallHost } from "@/components/community-messenger/call-v4/CallV4ActiveCallHost";
 import { NativeActiveCallBar } from "@/components/community-messenger/call-native/NativeActiveCallBar";
+import { loadCallPlatformCapability } from "@/lib/call/native/call-platform-capability-client";
 
 type CallV4ProviderProps = {
   children?: ReactNode;
@@ -345,6 +346,25 @@ function CallV4WebEstablishmentHost({ children, pathname, router, userId }: Call
   );
 }
 
+/**
+ * D2-3 (docs/audit/mac-ipad-call-and-bottom-bar-audit-2026-11-15.md §10-8) — 맥(iOS 앱) 수신 전용 묶음.
+ * 맥은 PushKit VoIP·CallKit 수신이 없어(§1-1·§8) 웹 탐색 + 수신 시트가 벨을 맡는다. 웹 발신·웹 Agora 수립·
+ * 웹 통화 화면(`CallV4ActiveCallHost`)은 붙이지 않는다 — 수락은 `callV4Accept` 맥 분기에서 네이티브로 넘어간다.
+ */
+function CallV4MacIncomingHost({ children, userId }: { children?: ReactNode; userId: string | null }) {
+  useEffect(() => {
+    if (!userId) return;
+    return startCallV4IncomingDiscovery(userId, { macIosApp: true });
+  }, [userId]);
+
+  return (
+    <>
+      <CallV4IncomingSheet />
+      {children}
+    </>
+  );
+}
+
 /** V4 lane — Android sync-only + desktop establishment. */
 export function CallV4Provider({ children }: CallV4ProviderProps) {
   const [userId, setUserId] = useState<string | null>(null);
@@ -353,6 +373,18 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
   const syncOnly =
     isLegacyWebCallEstablishmentRemoved() ||
     (isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "ios");
+  /** D2-3 — 맥(iOS 앱)이면 sync 동반자 위에 수신 전용 묶음(탐색 + 시트)을 추가로 붙인다. */
+  const [macIncoming, setMacIncoming] = useState(false);
+  useEffect(() => {
+    if (!(isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "ios")) return;
+    let alive = true;
+    void loadCallPlatformCapability().then((cap) => {
+      if (alive && cap.iosAppOnMac) setMacIncoming(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   /** D3: 인증 이벤트 처리기가 최신 값을 읽도록 */
   const userIdRef = useRef<string | null>(null);
@@ -474,6 +506,9 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
   if (!shouldMountCallV4Companion()) return children ?? null;
 
   if (syncOnly) {
+    if (macIncoming) {
+      return <CallV4MacIncomingHost userId={userId}>{children}</CallV4MacIncomingHost>;
+    }
     return <>{children}</>;
   }
 

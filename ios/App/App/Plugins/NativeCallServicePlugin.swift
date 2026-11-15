@@ -16,6 +16,7 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
   public let jsName = "NativeCallService"
   public let pluginMethods: [CAPPluginMethod] = [
     CAPPluginMethod(name: "prepareAccept", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "acceptIncomingWithoutCallKit", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "startCall", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "endCall", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "getActiveCallId", returnType: CAPPluginReturnPromise),
@@ -125,6 +126,24 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
       plugin.notifyListeners(eventNativeCallTerminal, data: payload)
     }
     DibayCallLog.info("ios_native_terminal_emit_flushed", detail: "count=\(queue.count)")
+  }
+
+  /// D2-3 — 맥 전용: 웹 수신 시트 「수락」 → 네이티브 수신 등록 + 기존 handleAnswer (CallKit 없음).
+  /// iPhone·iPad 는 `platform_has_callkit` 로 거부. 구 바이너리엔 메서드 없음 → 웹은 수락 실패로 처리.
+  @objc func acceptIncomingWithoutCallKit(_ call: CAPPluginCall) {
+    let kind = (call.getString("callKind") ?? "voice").lowercased()
+    let request = DibayMacIncomingCallAcceptor.Request(
+      callId: call.getString("callId") ?? "",
+      isVideo: kind == "video",
+      roomId: call.getString("roomId") ?? "",
+      callerId: call.getString("callerId") ?? "",
+      callerName: call.getString("callerName") ?? ""
+    )
+    DispatchQueue.main.async {
+      DibayMacIncomingCallAcceptor.accept(request) { outcome in
+        call.resolve(["ok": outcome == .accepted, "reason": outcome.rawValue])
+      }
+    }
   }
 
   @objc func prepareAccept(_ call: CAPPluginCall) {
