@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ensureProductChatRowForItemTrade } from "./ensure-product-chat-for-item-trade";
 import { PRODUCT_CHAT_ROW_SELECT } from "@/lib/trade/product-chat-select";
+import { isUuidLikeString } from "@/lib/shared/uuid-string";
 
 export type ProductChatRow = Record<string, unknown> & {
   id: string;
@@ -36,6 +37,11 @@ export async function resolveProductChat(
   sb: SupabaseClient<any>,
   roomId: string
 ): Promise<ResolveProductChatResult | null> {
+  /**
+   * `product_chats.id`·`chat_rooms.id` 는 uuid — 짧은 방 주소(`rooms/3e775b69`) 등 uuid 가 아닌 값은 조회 없이 「없음」.
+   * 운영 Postgres uuid 오류 8건(2026-11-16 01:55) — docs/audit/postgres-error-app-defects-design-2026-11-16.md G1.
+   */
+  if (!isUuidLikeString(roomId)) return null;
   const { data: pc } = await sb
     .from("product_chats")
     .select(PRODUCT_CHAT_ROW_SELECT)
