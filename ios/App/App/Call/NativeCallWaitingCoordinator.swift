@@ -27,6 +27,8 @@ final class NativeCallWaitingCoordinator {
     let callerId: String
     let callerName: String
     let liveSessionId: String
+    /** 대기 VoIP 를 받은 시각 — 승격 때 남은 울림 시간 계산(서버는 생성 시각 기준 30초에 missed). */
+    let receivedAt: Date
   }
 
   private static let ringTimeoutSeconds: TimeInterval = 30
@@ -73,7 +75,8 @@ final class NativeCallWaitingCoordinator {
         roomId: roomId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
         callerId: callerId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
         callerName: callerName,
-        liveSessionId: liveSessionId
+        liveSessionId: liveSessionId,
+        receivedAt: Date()
       )
       self.log("ios_call_waiting_pending", sessionId, "live=\(liveSessionId) video=\(hasVideo)")
     }
@@ -132,7 +135,9 @@ final class NativeCallWaitingCoordinator {
       }
       self.stopBeep()
       self.cancelTimeout()
-      if CallTerminationPolicy.liveCallSessionId(excluding: sessionId) == nil {
+      // D1 (docs/audit/ios-call-waiting-end-and-accept-plan-2026-11-16.md): 「정리 끝남」= 런타임이 진행 중 통화를 더 갖고
+      // 있지 않음. 단계(.ending = terminal)로 보면 서버 종료 전에 수락이 나가 서버가 other_call_active 로 거부한다(CW9).
+      if !Self.runtimeHolds(sessionId: current.liveSessionId) {
         completion(self.promote(current, reason: "answer_no_live"))
         return
       }
@@ -143,7 +148,7 @@ final class NativeCallWaitingCoordinator {
           let done = self.pendingAnswer
         else { return }
         self.pendingAnswer = nil
-        if CallTerminationPolicy.liveCallSessionId(excluding: sessionId) == nil {
+        if !Self.runtimeHolds(sessionId: waiting.liveSessionId) {
           done(self.promote(waiting, reason: "answer_after_timeout_check"))
         } else {
           self.log("ios_call_waiting_answer_timeout", sessionId, "live_still_present")
@@ -162,7 +167,8 @@ final class NativeCallWaitingCoordinator {
   func onCallCleanedUp(sessionId cleaned: String) {
     onMain {
       guard let current = self.pending, current.sessionId != cleaned else { return }
-      guard CallTerminationPolicy.liveCallSessionId(excluding: current.sessionId) == nil else { return }
+      // D1: 진행 중 통화의 정리(런타임 비움)가 끝났을 때만 이어서 처리한다.
+      guard !Self.runtimeHolds(sessionId: current.liveSessionId) else { return }
       if let done = self.pendingAnswer {
         self.pendingAnswer = nil
         self.answerTimeoutWork?.cancel()
@@ -193,6 +199,9 @@ final class NativeCallWaitingCoordinator {
   /// 대기 해제 + 런타임 등록(일반 수신 상태). 등록 실패면 false.
   private func promote(_ current: Pending, reason: String) -> Bool {
     clear()
+    // D2: 울림 시간은 대기 VoIP 를 받은 때부터 30초(서버·Android 와 같은 기준) — 승격 때 새로 30초를 주지 않는다.
+    let elapsed = Date().timeIntervalSince(current.receivedAt)
+    let remaining = max(1, Self.ringTimeoutSeconds - elapsed)
     var ok = false
     if current.hasVideo {
       if NativeVideoCallLane.isEnabled() {
@@ -203,7 +212,8 @@ final class NativeCallWaitingCoordinator {
             callerId: current.callerId,
             callerName: current.callerName,
             mediaType: "video",
-            callUUID: current.callUUID
+            callUUID: current.callUUID,
+            missedTimeoutSeconds: remaining
           )
         } catch {
           log("ios_call_waiting_register_failed", current.sessionId, "err=\(String(describing: error))")
@@ -220,15 +230,29 @@ final class NativeCallWaitingCoordinator {
             callerId: current.callerId,
             callerName: current.callerName,
             createdAt: Date()
-          )
+          ),
+          missedTimeoutSeconds: remaining
         )
         ok = true
       } catch {
         log("ios_call_waiting_register_failed", current.sessionId, "err=\(String(describing: error))")
       }
     }
-    log("ios_call_waiting_promote", current.sessionId, "reason=\(reason) registered=\(ok)")
+    log(
+      "ios_call_waiting_promote",
+      current.sessionId,
+      "reason=\(reason) registered=\(ok) remainingSec=\(Int(remaining.rounded()))"
+    )
     return ok
+  }
+
+  /// 음성·영상 런타임이 이 통화를 아직 갖고 있는가(단계 무관). 런타임은 정리(cleanup) 마지막 reset 에서만 비워진다.
+  private static func runtimeHolds(sessionId: String) -> Bool {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return false }
+    if NativeVoiceCallRuntime.shared.snapshot().session?.sessionId == sid { return true }
+    if NativeVideoCallRuntime.shared.snapshot().session?.sessionId == sid { return true }
+    return false
   }
 
   private func clear() {

@@ -45,11 +45,13 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
 
   // MARK: - Registration
 
-  func registerIncomingSession(_ session: NativeVoiceCallSession) throws {
+  /// `missedTimeoutSeconds`: nil = 기본 30초(일반 수신). 대기 통화 승격만 남은 울림 시간을 넘긴다
+  /// (docs/audit/ios-call-waiting-end-and-accept-plan-2026-11-16.md D2).
+  func registerIncomingSession(_ session: NativeVoiceCallSession, missedTimeoutSeconds: TimeInterval? = nil) throws {
     try queue.sync {
       try registerLocked(session, expectedDirection: .incoming, presentedPhase: .incomingPresented)
       let sid = session.sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
-      scheduleMissedLocked(sessionId: sid)
+      scheduleMissedLocked(sessionId: sid, timeoutSeconds: missedTimeoutSeconds ?? Self.missedTimeoutSeconds)
       publishUiLocked(source: "register_incoming")
     }
   }
@@ -406,7 +408,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
 
   // MARK: - Missed dismiss (NORMAL)
 
-  private func scheduleMissedLocked(sessionId: String) {
+  private func scheduleMissedLocked(sessionId: String, timeoutSeconds: TimeInterval) {
     cancelMissedLocked()
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else { return }
@@ -417,11 +419,11 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       self.performMissedTimeoutIfCurrent(sessionId: sid, generation: expectedGeneration)
     }
     missedWorkItem = work
-    queue.asyncAfter(deadline: .now() + Self.missedTimeoutSeconds, execute: work)
+    queue.asyncAfter(deadline: .now() + timeoutSeconds, execute: work)
     DibayCallLog.info(
       "ios_native_voice_missed_timer_scheduled",
       sessionId: sid,
-      detail: "timeoutSec=\(Int(Self.missedTimeoutSeconds)) generation=\(expectedGeneration)"
+      detail: "timeoutSec=\(Int(timeoutSeconds.rounded())) generation=\(expectedGeneration)"
     )
   }
 

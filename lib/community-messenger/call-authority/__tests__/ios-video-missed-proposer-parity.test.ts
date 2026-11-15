@@ -13,7 +13,7 @@ const videoApi = () =>
 describe("NORMAL iOS Video missed dismiss (source)", () => {
   it("incoming register schedules missed timer", () => {
     const src = videoRuntime();
-    expect(src).toContain("scheduleMissedLocked(sessionId: sid)");
+    expect(src).toContain("scheduleMissedLocked(sessionId: sid, timeoutSeconds: missedTimeoutSeconds ?? Self.missedTimeoutSeconds)");
     expect(src).toContain("func registerIncomingSession");
   });
 

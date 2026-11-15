@@ -102,6 +102,25 @@ enum NativeVideoCallUiHost {
       NativeVideoCallLog.info("native_video_ui_deferred_locked", callId: callId)
       return
     }
+    // D3 (docs/audit/ios-call-waiting-end-and-accept-plan-2026-11-16.md): 다른 통화의 화면이 남아 있으면 닫힘이 끝난 뒤 다시 표시.
+    if DibayCallScreenHandover.waitForOtherCallScreen(newCallId: sid, topPresenter: topPresenter(), retry: {
+      let snap = NativeVideoCallRuntime.shared.snapshot()
+      guard let current = snap.session, current.sessionId == sid else { return }
+      switch snap.state {
+      case .ending, .ended, .failed:
+        return
+      case .ringing, .accepting, .connecting, .connected:
+        break
+      }
+      ensureIncomingPresented(
+        callId: sid,
+        session: current,
+        bypassLockCheck: bypassLockCheck,
+        forceRestoreFromPip: forceRestoreFromPip
+      )
+    }) {
+      return
+    }
     guard let presenter = topPresenter() else {
       if !bypassLockCheck {
         deferredCallId = callId.trimmingCharacters(in: .whitespacesAndNewlines)
