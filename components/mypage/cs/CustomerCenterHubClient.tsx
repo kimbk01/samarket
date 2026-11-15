@@ -125,8 +125,12 @@ export function CustomerCenterHubClient() {
     <SupportContextProvider value={MEMBER_CC_CONTEXT}>
       <MyScreen
         title={safeT("mypage_comp_menu_support_cs_title")}
+        /**
+         * 뒤로 = 앞 화면으로(기록 우선), 기록이 없을 때만 분류 부모(고객지원)로.
+         * 예전 고정 이동(preferHistoryBack 끔)은 분류 부모(고객지원)를 새로 쌓아 고객지원 ↔ 고객센터가 끝없이 오갔다
+         * (2026-11-16 Samsung 실기 — docs/design/header-back-round-design-2026-11-16.md 범위 밖 관찰).
+         */
         backHref="/mypage"
-        preferHistoryBack={false}
         template="hub"
       >
         <div
