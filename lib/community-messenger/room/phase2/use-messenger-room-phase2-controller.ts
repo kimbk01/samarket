@@ -1,5 +1,6 @@
 "use client";
 
+import { predecodeMessengerLocalPreviews } from "@/lib/community-messenger/attachment/messenger-predecode-local-previews";
 import { refreshMessengerHomeSocialClient } from "@/lib/community-messenger/home/refresh-messenger-home-social-client";
 import { applyMessengerHomeRoomsHiddenByBlock } from "@/lib/community-messenger/home/messenger-home-room-leave-client";
 import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
@@ -1677,6 +1678,8 @@ export function useMessengerRoomPhase2Controller() {
       );
       if (!claimed || !snapshot) return false;
       const { files: list, previews } = claimed;
+      /** SSOT M3: 로컬 사진을 먼저 디코딩(최대 0.3초) — 보내는 중 말풍선이 회색 칸으로 먼저 나오지 않게 */
+      await predecodeMessengerLocalPreviews(previews);
       // C-2: 텍스트와 동일 — 낙관 행 생성 전에 cid 1개를 만들고 행·요청 본문에 같은 값을 싣는다.
       const clientMessageId = createCommunityMessengerClientMessageId();
       const tempId = `pending:image:${streamRoomId}:${pendingMessageIdRef.current++}`;
