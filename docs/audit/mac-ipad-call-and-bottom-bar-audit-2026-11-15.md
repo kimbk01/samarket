@@ -217,3 +217,48 @@ iPad 실기 전부 · 맥 음성 발신 · 회색 막대 원인 · + 첨부 시�
 맥 로그(12:20 이후): `Disconnecting all calls` 0 · `source=callkit_system_button` 0 · FaceTime 종료 0 · `ios_audio_session_gate_timeout` 0 · `ios_callkit_outgoing_report_skipped` 6 · `platform_no_callkit_activation` 6.
 
 NOT_PROVEN: 실제 소리 들림(청취 불가) · 통화 중(busy) · 맥 영상 발신 후 맥 종료(build 36 에서만 PASS) · 삼성→맥 수신 전부(D2 범위, FAIL 유지) · iPhone 발신 회귀(연결된 iPhone 없음) · iPad 실기.
+
+## 10. D2 설계안 — 맥 수신·수락 (2026-11-15, Owner 「D2 설계 진행」 · 구현은 승인 후)
+
+### 10-1. 현재 사실 (증거)
+| # | 사실 | 근거 |
+|---|---|---|
+| F1 | 맥은 PushKit VoIP 를 OS 가 버린다 | 맥 `callservicesd` `Dropping incoming message` (§1-1) |
+| F2 | 맥은 VoIP 등록(`voip_apns`)만 반복하고 일반 알림(`apns`) 등록 요청을 한 번도 보내지 않았다 | Vercel `/api/me/devices/register` 감사 로그 11:31~12:31 PHT — `provider=voip_apns` 만 14회, `apns` 0회 · `/devices/deactivate`·`/devices/status` 호출 0회 |
+| F3 | 일반 알림 등록은 `ensureNotificationForPushRegister` 가 권한 준비 아님이면 서버 호출 없이 멈춘다 | `register-native-push-client.ts:341-359` |
+| F4 | 맥 알림 권한 상태 = **NOT_PROVEN**. 10:51:02 권한 요청(`Requesting authorization with options 7`) 기록, 11:06 경 맥 시스템 알림 대화상자(UserNotificationCenter)가 떠 있었고 응답하지 않음 | 맥 앱 로그 · 작업자 화면 기록 |
+| F5 | 서버는 활성 VoIP 행이 있는 iOS 기기에는 통화 일반 알림을 막는다(VoIP sent 면 차단) | `resolveCallPushProviderPolicy` A4 — 맥 VoIP 는 APNs 200 으로 sent → 맥 일반 수신 알림도 막힘 |
+| F6 | 네이티브 앱에서 웹 수신 배너는 꺼져 있고, iOS 웹 수신 주체 요청도 `isNativeVoiceIncomingLaneEnabled` 면 건너뜀 | `GlobalCommunityMessengerIncomingCall.tsx:1859` · `call-v4-ios-shell-owner-client.ts:17-25` |
+| F7 | iOS 네이티브 수신 시작은 VoIP→`CallKitProvider.reportIncomingCall` 하나뿐, 수락은 `CXAnswerCallAction` → `NativeVoice/VideoIncomingCallCoordinator.handleAnswer` | `CallKitProvider.swift:101, 742-` |
+| F8 | 알림 탭은 `/community-messenger/calls/{callId}` 로 이동 | `resolve-push-route-from-fcm-data.ts:84` |
+| F9 | 서버 기기 비활성화 API 는 `push_provider` 단위로 끌 수 있다 | `app/api/me/devices/deactivate/route.ts` |
+
+### 10-2. 설계 (원인별)
+**D2-1 맥은 VoIP 를 등록하지 않는다 (F1·F5)**
+- 네이티브: `VoIPPushRegistry.start` / `DibayVoipCallPlugin.startVoipRegistration` — `DibayCallPlatformCapability.supportsVoipPush == false` 면 PushKit 등록을 시작하지 않고 기록만.
+- 웹: 같은 능력을 플러그인으로 노출(`getCallPlatformCapability`), 맥이면 이 기기의 기존 `voip_apns` 행을 `/api/me/devices/deactivate`(provider=voip_apns)로 끈다 — 구 빌드가 남긴 행 정리.
+- 효과: 서버 A4 정책상 이 기기는 「VoIP 없는 iOS 설치」 → 수신·취소가 **일반 APNs 알림**으로 간다(서버 코드 변경 없음).
+
+**D2-2 맥 일반 알림 등록 (F2·F3·F4)**
+- 먼저 맥 시스템 설정 > 알림 > DIBAY 상태를 확인(Owner 맥 설정 — 작업자가 바꾸지 않음). 허용이면 등록이 왜 멈추는지 웹 로그(`[push-register]`)를 계측 빌드로 확인 후 원인별 수정. 미허용이면 기기 설정 — 앱 결함 아님.
+- 이 항목이 PASS 되기 전에는 D2-3·D2-4 를 실기할 수 없다.
+
+**D2-3 맥 앱 실행 중 수신 화면 (F6·F7)** — 기존 계약 재사용(Android 포그라운드 `web_in_app` 계약과 같은 구조)
+- 벨 UI: 기존 웹 `CallV4IncomingSheet`. 맥이면 `tryClaimIosCapacitorWebIncomingOwner` 의 「네이티브 음성 수신 레인이면 건너뜀」 조건에서 제외(능력 값으로만 분기).
+- 수락: 웹 시트 수락 → 새 플러그인 메서드 `acceptIncomingWithoutCallKit(callId, kind)` → 네이티브 런타임에 수신 세션 등록(현재 `reportIncomingCall` 이 하는 등록 중 CallKit 부분만 제외) → `NativeVoice/VideoIncomingCallCoordinator.handleAnswer` 그대로. 미디어는 네이티브 Agora(웹 통화 수립 금지 계약 유지).
+- 거절·벨 중 상대 취소·다른 기기 수락: 웹 시트가 서버 상태로 닫힘(기존 웹 경로) + 네이티브 등록 전이면 정리 불필요.
+
+**D2-4 맥 앱이 꺼져 있을 때 (F8)**
+- 일반 알림(D2-1 결과) 탭 → 앱 실행 → `/calls/{callId}` → 서버 상태가 벨 중이면 D2-3 시트, 아니면 부재중 안내. 알림 소리·문구는 서버 기존 통화 알림 그대로.
+
+### 10-3. 영향·호환
+- iPhone·iPad: 모든 분기는 능력 값(맥만 false)으로만 → 코드 경로 무변경. 회귀 확인 = iPhone 수신·발신 각 1회 이상.
+- 구 바이너리(맥 1.2.2 (35)·(36)·(37)): 계속 VoIP 등록 → D2 빌드 설치 전까지 맥 수신 FAIL 유지.
+- 서버·DB: 코드·스키마 변경 없음(기존 비활성화 API 사용).
+- 통화 규정: 통화만 단독 PR. D2-1 → D2-2 확인 → D2-3·D2-4 순서, 단계마다 맥↔삼성 실기.
+
+### 10-4. 실기 행렬 (D2)
+삼성→맥 음성·영상: 맥 앱 앞 화면 수락 · 맥 앱 뒤(다른 앱 앞) 수락 · 맥 앱 종료 상태 알림 탭 수락 · 거절 · 벨 중 삼성 취소(재울림 없음) · 무응답 · 통화 중(busy) · 종료 후 즉시 재수신. iPhone 수신 회귀 1회 이상.
+
+### 10-5. Owner 확인 필요 1건
+- 맥 시스템 설정 > 알림 > DIBAY 가 「허용」인지 (D2-2 시작 조건).
