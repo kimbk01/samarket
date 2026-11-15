@@ -114,3 +114,65 @@ describe("말풍선 본문 링크 · 사진 칸 크기", () => {
     expect(layer!.style.backgroundImage).toContain("data:image/webp;base64,");
   });
 });
+
+describe("사진 교체 끊김 없음 (SSOT M3 · 2026-11-16 Samsung 녹화 흐림 1프레임 정정)", () => {
+  let host2: HTMLDivElement;
+  let root2: Root;
+  beforeEach(() => {
+    host2 = document.createElement("div");
+    document.body.appendChild(host2);
+    root2 = createRoot(host2);
+  });
+  afterEach(() => {
+    act(() => root2.unmount());
+    host2.remove();
+  });
+
+  it("주소가 바뀌면 이미 그려진 직전 img 요소(같은 DOM)를 그대로 두고, 새 사진 디코딩 후 뺀다", async () => {
+    let resolveDecode: () => void = () => {};
+    const proto = HTMLImageElement.prototype as unknown as { decode?: () => Promise<void> };
+    const prevDecode = proto.decode;
+    proto.decode = () => new Promise<void>((r) => (resolveDecode = r));
+    try {
+      const base = {
+        id: "m3",
+        roomId: "r1",
+        messageType: "image",
+        isMine: true,
+        imageWidth: 1600,
+        imageHeight: 1200,
+      };
+      const local = { ...base, content: "blob:local-1", pending: true } as unknown as CommunityMessengerMessage;
+      act(() => root2.render(<MessengerChatImageBubble item={local} onOpenLightbox={vi.fn()} />));
+      const first = host2.querySelector('img[src="blob:local-1"]') as HTMLImageElement;
+      act(() => {
+        first.dispatchEvent(new Event("load"));
+      });
+      await act(async () => {
+        resolveDecode();
+        await Promise.resolve();
+      });
+      const server = {
+        ...base,
+        content: "https://x.supabase.co/storage/v1/object/public/post-images/u/r/9.thumb.webp",
+      } as unknown as CommunityMessengerMessage;
+      act(() => root2.render(<MessengerChatImageBubble item={server} onOpenLightbox={vi.fn()} />));
+      // 직전 요소가 같은 DOM 노드로 남아 있다(새로 만들면 디코딩 전이라 한 프레임 비었다)
+      expect(host2.querySelector('img[src="blob:local-1"]')).toBe(first);
+      const next = [...host2.querySelectorAll("img")].find((el) => el !== first)!;
+      act(() => {
+        next.dispatchEvent(new Event("load"));
+      });
+      expect(host2.querySelector('img[src="blob:local-1"]')).toBe(first); // 디코딩 전에는 유지
+      await act(async () => {
+        resolveDecode();
+        await Promise.resolve();
+      });
+      expect(host2.querySelector('img[src="blob:local-1"]')).toBeNull();
+      expect(host2.querySelectorAll("img")).toHaveLength(1);
+    } finally {
+      if (prevDecode) proto.decode = prevDecode;
+      else delete proto.decode;
+    }
+  });
+});

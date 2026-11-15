@@ -57,34 +57,50 @@ function PhotoBlurLayer({ src }: { src: string | null | undefined }) {
 }
 
 /**
- * 같은 칸의 src 가 바뀌면(보내는 중 로컬 사진 → 서버 사진) 새 사진이 그려질 때까지 직전 사진을 아래에 깐다 —
- * 한 장 말풍선과 같은 규칙을 앨범 칸에도(SSOT M3: 보낸 직후 앨범 회색 깜빡임 제거).
+ * 사진 교체(보내는 중 로컬 사진 → 서버 사진 등)를 끊김 없이 — SSOT M3.
+ * 사진마다 **주소를 key 로 하는 img 요소**를 둔다. 주소가 바뀌면 이미 그려진 직전 요소(같은 DOM)는 그대로 두고
+ * 새 요소를 위에 얹은 뒤, 새 사진의 **디코딩까지 끝나면** 직전 요소를 뺀다.
+ * (2026-11-16 Samsung 녹화: 직전 사진을 새 요소로 다시 만들어 깔면 그 요소도 디코딩 전이라 칸마다 흐림 1프레임 0.045초)
  */
-function AlbumCellImage({ src }: { src: string }) {
-  const lastPaintedSrcRef = useRef<string | null>(null);
-  const [underlaySrc, setUnderlaySrc] = useState<string | null>(null);
-  useLayoutEffect(() => {
-    const painted = lastPaintedSrcRef.current;
-    setUnderlaySrc(painted && painted !== src ? painted : null);
-  }, [src]);
+function SwapImage({
+  src,
+  onCurrentLoad,
+}: {
+  src: string;
+  /** 현재 주소 사진의 load (크기 측정·계측용) */
+  onCurrentLoad?: (el: HTMLImageElement) => void;
+}) {
+  const [painted, setPainted] = useState<string | null>(null);
+  const layers = painted && painted !== src ? [painted, src] : [src];
+  const swapping = layers.length > 1;
   return (
     <>
-      {underlaySrc ? (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img src={underlaySrc} alt="" aria-hidden className={FILL_IMG} decoding="async" />
-      ) : null}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt=""
-        className={FILL_IMG}
-        loading={underlaySrc ? "eager" : "lazy"}
-        decoding="async"
-        onLoad={() => {
-          lastPaintedSrcRef.current = src;
-          setUnderlaySrc(null);
-        }}
-      />
+      {layers.map((layerSrc) => {
+        const isCurrent = layerSrc === src;
+        return (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={layerSrc}
+            src={layerSrc}
+            alt=""
+            aria-hidden={isCurrent ? undefined : true}
+            className={FILL_IMG}
+            loading={swapping ? "eager" : "lazy"}
+            decoding="async"
+            onLoad={
+              isCurrent
+                ? (e) => {
+                    const el = e.currentTarget;
+                    onCurrentLoad?.(el);
+                    const done = () => setPainted((cur) => (cur === layerSrc ? cur : layerSrc));
+                    if (typeof el.decode === "function") void el.decode().then(done, done);
+                    else done();
+                  }
+                : undefined
+            }
+          />
+        );
+      })}
     </>
   );
 }
@@ -180,7 +196,7 @@ function AlbumLayout({
       aria-label={`${t("cm_ui_photo")} ${i + 1} ${t("cm_ui_view_photo_large")}`}
     >
       <PhotoBlurLayer src={blurs?.[i]} />
-      <AlbumCellImage src={src} />
+      <SwapImage src={src} />
     </button>
   );
 
@@ -229,7 +245,7 @@ function AlbumLayout({
           aria-label={`${t("cm_ui_view")} ${restCount + 1}`}
         >
           <PhotoBlurLayer src={blurs?.[MESSENGER_ALBUM_REST_TILE_INDEX]} />
-          <AlbumCellImage src={urls[MESSENGER_ALBUM_REST_TILE_INDEX]!} />
+          <SwapImage src={urls[MESSENGER_ALBUM_REST_TILE_INDEX]!} />
           <span className="absolute inset-0 flex items-center justify-center bg-black/45 sam-text-section-title font-bold text-white">
             +{restCount}
           </span>
@@ -276,16 +292,6 @@ function SingleChatImage({
     maxWidth: messengerPhotoBubbleMaxWidthPx(viewportWidth),
   });
 
-  /**
-   * src 가 바뀌면 새 사진이 디코드될 때까지 직전에 그려진 사진을 아래에 깔아 둔다 —
-   * 빈 칸(말풍선 배경색)이 번쩍이지 않게 끊김 없이 교체.
-   */
-  const lastPaintedSrcRef = useRef<string | null>(null);
-  const [underlaySrc, setUnderlaySrc] = useState<string | null>(null);
-  useLayoutEffect(() => {
-    const painted = lastPaintedSrcRef.current;
-    setUnderlaySrc(painted && painted !== src ? painted : null);
-  }, [src]);
 
   return (
     <div className="mx-auto max-w-full" style={{ width: size.width }} data-cm-photo-bubble="">
@@ -301,26 +307,10 @@ function SingleChatImage({
           style={{ height: size.height, contain: "layout" }}
         >
           <PhotoBlurLayer src={blurDataUrl} />
-          {underlaySrc ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={underlaySrc}
-              alt=""
-              aria-hidden
-              className={FILL_IMG}
-              decoding="async"
-            />
-          ) : null}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          {/* 칸 크기는 위 상자가 정한다 — 사진은 그 칸을 가운데 기준으로 채우기만 한다(칸이 바뀌지 않게). */}
+          <SwapImage
             src={src}
-            alt=""
-            /* 칸 크기는 위 상자가 정한다 — 사진은 그 칸을 가운데 기준으로 채우기만 한다(칸이 바뀌지 않게). */
-            className={FILL_IMG}
-            loading={underlaySrc ? "eager" : "lazy"}
-            decoding="async"
-            onLoad={(e) => {
-              const el = e.currentTarget;
+            onCurrentLoad={(el) => {
               const w = el.naturalWidth;
               const h = el.naturalHeight;
               if (imgDecodeStartRef.current != null && typeof performance !== "undefined") {
@@ -329,8 +319,6 @@ function SingleChatImage({
                 recordCmPolishAttachmentDecodeMs(decodeMs);
                 imgDecodeStartRef.current = null;
               }
-              lastPaintedSrcRef.current = src;
-              setUnderlaySrc(null);
               if (pending && !known && w > 0 && h > 0) {
                 const nextAr = w / h;
                 setPendingLoadedAr((prev) => (prev === nextAr ? prev : nextAr));
