@@ -1,6 +1,7 @@
 "use client";
 
 import type { MainTabKeepAliveHubId } from "@/lib/layout/resolve-main-surface";
+import { CommunityFeedSkeleton } from "@/components/community/CommunityFeedSkeleton";
 
 /**
  * 하단 탭 이동 중 뼈대 — 계약 v2(`main-bottom-nav-interaction-contract.ts` · Owner 2026-11-15).
@@ -52,18 +53,12 @@ function HomeSkeleton() {
   );
 }
 
+/**
+ * LOUNGE(커뮤니티) — 피드가 자체 로딩 때 그리는 것과 **같은 뼈대**(`CommunityFeedSkeleton rows=5`)를 쓴다.
+ * 다른 모양을 그리면 경로 확정 뒤 피드 뼈대로 한 번 더 바뀌어 보인다(Samsung 실측 2026-11-15 13:00 — 뼈대 2번 교체).
+ */
 function FeedSkeleton() {
-  return (
-    <>
-      <ChipRow />
-      <div className="flex flex-col gap-2">
-        <Row thumb />
-        <Row thumb />
-        <Row thumb />
-        <Row thumb />
-      </div>
-    </>
-  );
+  return <CommunityFeedSkeleton rows={5} />;
 }
 
 function DeliverySkeleton() {
