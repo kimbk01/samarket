@@ -20,6 +20,7 @@ import {
   resolveCanonicalTerminalReason,
   type CanonicalTerminalReason,
 } from "@/lib/community-messenger/call-authority/call-terminal-reason-authority";
+import { busyKindFromEndedReason } from "@/lib/community-messenger/call-busy-attempt-record";
 import type { CallSessionResolvedEvent } from "@/lib/community-messenger/call-event-message";
 import type { CommunityMessengerCallStatus } from "@/lib/community-messenger/types";
 
@@ -139,17 +140,22 @@ export function resolveProjectionFromSession(input: {
   };
 }
 
-/** Whether this terminal session should create/update a persisted call_stub. */
+/**
+ * Whether this terminal session should create/update a persisted call_stub.
+ * 통화 중(`busy`): 상대 통화 중(`peer_busy`)만 공유 기록 — 통화 중이던 사람에게 부재중(Owner 2026-11-15 「1단계 구현 승인」,
+ * docs/audit/call-busy-missed-and-call-waiting-audit-2026-11-14.md §4 D2). 본인 통화 중(`caller_busy`)·사유 모름은 기록 안 함.
+ */
 export function shouldPersistCallStubProjection(input: {
   sessionId?: string | null;
   roomId?: string | null;
   status?: string | null;
   canonical?: CanonicalTerminalReason | null;
+  endedReason?: string | null;
 }): boolean {
   if (!trimText(input.sessionId)) return false;
   if (!trimText(input.roomId)) return false;
   if (input.canonical === "answered_elsewhere") return false;
-  if (input.canonical === "busy") return false;
+  if (input.canonical === "busy" && busyKindFromEndedReason(input.endedReason) !== "peer") return false;
   const status = trimText(input.status).toLowerCase();
   return status === "ended" || status === "rejected" || status === "missed" || status === "cancelled";
 }

@@ -67,20 +67,40 @@ export function isCallerCancelledBeforeAnswer(input: {
   return status === "cancelled" && (endedReason === "canceled" || endedReason === "cancelled");
 }
 
-/** 수신자 부재중 알림 판정 대상 상태 — 받지 않음(시간 초과) 또는 발신자 취소. 호출부 게이트도 이 함수만 쓴다. */
+/**
+ * 상대(수신자)가 다른 통화 중이라 연결되지 않은 1:1 시도 — 통화 중이던 사람에게는 부재중
+ * (Owner 2026-11-15 「1단계 구현 승인」 · 레거시 Signal 동일 — docs/audit/call-busy-missed-and-call-waiting-audit-2026-11-14.md §4 D6).
+ * 발신자 본인 통화 중(`caller_busy`)은 아님.
+ */
+export function isPeerBusyAttempt(input: {
+  status: string | null | undefined;
+  endedReason?: string | null;
+}): boolean {
+  const status = trimText(input.status).toLowerCase();
+  const endedReason = trimText(input.endedReason).toLowerCase();
+  return status === "cancelled" && (endedReason === "peer_busy" || endedReason === "callee_busy");
+}
+
+/** 수신자 부재중 알림 판정 대상 상태 — 받지 않음(시간 초과)·발신자 취소·상대 통화 중. 호출부 게이트도 이 함수만 쓴다. */
 export function isRoomBoundMissedCallCandidate(input: {
   status: string | null | undefined;
   endedReason?: string | null;
 }): boolean {
   const status = trimText(input.status).toLowerCase();
-  return status === "missed" || status === "timeout" || isCallerCancelledBeforeAnswer(input);
+  return (
+    status === "missed" ||
+    status === "timeout" ||
+    isCallerCancelledBeforeAnswer(input) ||
+    isPeerBusyAttempt(input)
+  );
 }
 
 /**
  * When to create the logical missed product notification (room-bound).
  * Callee only. Requires session.room_id. No orphan invent path.
  * 대상: 받지 않음(missed/timeout) + 발신자 응답 전 취소(cancelled + canceled) —
- * docs/audit/call-cancel-callee-missed-design-2026-11-13.md D3.
+ * docs/audit/call-cancel-callee-missed-design-2026-11-13.md D3 · 상대 통화 중(cancelled + peer_busy) —
+ * docs/audit/call-busy-missed-and-call-waiting-audit-2026-11-14.md §4 D6.
  */
 export function decideRoomBoundMissedCallNotification(input: {
   status: string | null | undefined;
@@ -94,6 +114,7 @@ export function decideRoomBoundMissedCallNotification(input: {
 }): RoomBoundMissedCallNotifyDecision {
   const status = trimText(input.status).toLowerCase();
   const callerCancelled = isCallerCancelledBeforeAnswer(input);
+  const peerBusy = isPeerBusyAttempt(input);
   if (!isRoomBoundMissedCallCandidate(input)) {
     return { notify: false, skipReason: `status_${status || "empty"}` };
   }
@@ -115,8 +136,8 @@ export function decideRoomBoundMissedCallNotification(input: {
   if (
     endedReason === "incoming_policy_superseded" ||
     endedReason === "answered_elsewhere" ||
-    endedReason === "peer_busy" ||
-    endedReason === "callee_busy" ||
+    (!peerBusy && (endedReason === "peer_busy" || endedReason === "callee_busy")) ||
+    endedReason === "caller_busy" ||
     (!callerCancelled && (endedReason === "canceled" || endedReason === "cancelled")) ||
     endedReason === "declined" ||
     endedReason === "redial_replaced"

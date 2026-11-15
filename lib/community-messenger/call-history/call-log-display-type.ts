@@ -5,6 +5,7 @@
  * - 발신자 취소: 발신자 `outgoing_cancelled`(취소됨) / 수신자 `incoming_missed`(부재중)
  * - 미응답: 발신자·수신자 모두 `incoming_missed`(부재중) — 현재 코드 기준(발신자 「응답 없음」 분리는 미구현)
  * - 거절: 수신자 `local_rejected`(거절함) / 발신자 `remote_rejected`(거절됨)
+ * - 상대 통화 중: 발신자 `remote_busy`(통화 중) / 통화 중이던 사람 `incoming_missed`(부재중)
  *
  * 서버 전용 의존성이 없어야 한다 (client presenter 에서도 import).
  */
@@ -31,7 +32,10 @@ export function resolveCallLogViewerCanonical(input: CallLogViewerInput): CallEv
   const er = typeof input.endedReason === "string" ? input.endedReason.trim().toLowerCase() : "";
   /** E-C1 — busy wire on cancelled (or any) status */
   if (er === "caller_busy") return "self_busy";
-  if (er === "peer_busy" || er === "callee_busy" || er === "busy") return "remote_busy";
+  /** 상대 통화 중: 발신자 「통화 중」 / 통화 중이던 사람 「부재중」(Owner 2026-11-15 1단계 · audit 2026-11-14 §4 D4) */
+  if (er === "peer_busy" || er === "callee_busy" || er === "busy") {
+    return input.isOutgoing ? "remote_busy" : "incoming_missed";
+  }
   /** 연결 후 종료 로그라도 세션 종료 사유가 failed_* 이면 연결 실패 */
   const resolvedEvent = status === "ended" && er.startsWith("failed_") ? "failed" : null;
   return resolveCallEventCanonical({

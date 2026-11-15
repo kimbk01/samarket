@@ -19979,6 +19979,7 @@ export async function createCommunityMessengerCallLog(input: {
       roomId,
       status: input.status,
       canonical: projection.canonical,
+      endedReason: input.endedReason,
     });
   const toCallLogResult = (
     stub: CallStubAppendResult,
@@ -20314,8 +20315,10 @@ function resolveIncomingCallPushDispatchInput(
 }
 
 /**
- * E-C1: busy gate hit → terminal (non-live) session + caller-only call_log.
- * Never ringing/active · never incoming push · never shared call_stub.
+ * E-C1: busy gate hit → terminal (non-live) session + call_log. Never ringing/active · never incoming push.
+ * Owner 2026-11-15 「1단계 구현 승인」(docs/audit/call-busy-missed-and-call-waiting-audit-2026-11-14.md §4 D1·D6, Signal 형태):
+ * - 상대 통화 중(`peer_busy`) → 공유 채팅방 기록(보낸 사람 = 발신자) + 통화 중이던 사람에게 부재중 알림 1건.
+ * - 본인 통화 중(`caller_busy`) → 지금처럼 발신자 전용(공유 기록·알림 없음).
  */
 async function persistBusyCallAttemptForCaller(input: {
   userId: string;
@@ -20363,6 +20366,7 @@ async function persistBusyCallAttemptForCaller(input: {
       return { sessionId: null, callLogId: null };
     }
     const sessionId = String(data.id);
+    const sharedWithPeer = input.busyKind === "peer";
     const logged = await createCommunityMessengerCallLog({
       userId,
       roomId,
@@ -20376,8 +20380,15 @@ async function persistBusyCallAttemptForCaller(input: {
       endedReason,
       initiatorUserId: userId,
       recipientUserId: peerUserId,
-      projectCallStub: false,
+      projectCallStub: sharedWithPeer,
     });
+    if (sharedWithPeer && peerUserId) {
+      scheduleBusyAttemptMissedCallNotification(userId, {
+        ...insertRow,
+        id: sessionId,
+        created_at: at,
+      });
+    }
     return { sessionId, callLogId: logged.callLogId ?? null };
   }
 
@@ -20411,9 +20422,26 @@ async function persistBusyCallAttemptForCaller(input: {
     endedReason,
     initiatorUserId: userId,
     recipientUserId: peerUserId,
-    projectCallStub: false,
+    projectCallStub: input.busyKind === "peer",
   });
   return { sessionId, callLogId: logged.callLogId ?? null };
+}
+
+/**
+ * 상대 통화 중 시도 → 통화 중이던 사람 부재중 알림(세션당 1건 · 판정은 decideRoomBoundMissedCallNotification).
+ * 응답 뒤 `after()` 로 끝까지 실행(scheduleRoomBoundMissedCallNotification 과 같은 이유).
+ */
+function scheduleBusyAttemptMissedCallNotification(viewerUserId: string, row: CallSessionRow): void {
+  const run = async () => {
+    const mapped = await mapCallSession(viewerUserId, row, [], undefined, true, "labels_only");
+    await notifyRoomBoundMissedCallBestEffort(row, mapped);
+  };
+  const guarded = () => run().catch(() => {});
+  try {
+    after(guarded);
+  } catch {
+    void guarded();
+  }
 }
 
 async function rejectStartCallPeerBusy(input: {
@@ -21347,6 +21375,7 @@ export async function updateCommunityMessengerCallSession(input: {
         roomId,
         status: mapped.status,
         canonical: projection.canonical,
+        endedReason,
       })
     ) {
       return;

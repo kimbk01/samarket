@@ -95,9 +95,9 @@ describe("incoming-call SSOT contract", () => {
     expect(body).toContain("runIncomingCallReject");
   });
 
-  it("Global Phase8 routes busy auto-reject through declined terminal seal", () => {
+  it("Global Phase8 routes busy auto-reject through missed terminal seal (Busy ≠ Reject)", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    expect(global).toContain('sealIncomingCallTerminal(sid, "declined", hard, "busy_auto_reject")');
+    expect(global).toContain('sealIncomingCallTerminal(sid, "missed", hard, "busy_auto_reject")');
     expect(global).toContain("canShowIncoming(sid, tombstone)");
     expect(global).not.toMatch(
       /autoRejectIds[\s\S]{0,600}dismissedIncomingSessionsAtRef/
