@@ -9,6 +9,8 @@ export const SECTOR_HEADER_BAR_WITH_SUBTITLE_CLASS = "sector-header-bar--with-su
 /** 메인 허브(제목 왼쪽) — 기존 허브 기하 유지 */
 export const SECTOR_HEADER_BAR_LEFT_TITLE_CLASS = "sector-header-bar--left-title";
 export const SECTOR_HEADER_BACK_CLASS = "sector-header-back";
+/** 헤더 뒤로 원형 — 원 36·눌림·SVG 꺾쇠 (`app/sector-header.css`, `HeaderBackRoundButton`) */
+export const SECTOR_HEADER_BACK_ROUND_CLASS = "sector-header-back--round";
 export const SECTOR_HEADER_ACTION_CLASS = "sector-header-action";
 export const SECTOR_HEADER_ACTION_PRIMARY_CLASS = "sector-header-action--primary";
 export const SECTOR_HEADER_TITLE_CLASS = "sector-header-title";

@@ -13,7 +13,8 @@ import { useTradeListCompositionMap } from "@/lib/trade/category-form/use-trade-
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { SearchHighlightText } from "@/components/search/global/SearchHighlightText";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
-import { AppBackIcon, AppCloseIcon } from "@/components/navigation/AppBackButton";
+import { AppCloseIcon } from "@/components/navigation/AppBackButton";
+import { HeaderBackRoundButton } from "@/components/navigation/HeaderBackRoundButton";
 import { SAM_TIER1_HEADER_ACTION_BTN_CLASS } from "@/lib/ui/tier1-header-icon";
 import { SECTOR_HEADER_BACK_CLASS } from "@/lib/ui/sector-header-classes";
 import {
@@ -76,15 +77,12 @@ function globalSearchHref(q: string): string {
 function GlobalSearchHeaderBackButton({ onClose }: { onClose: () => void }) {
   const { safeT } = useI18n();
   return (
-    <button
-      type="button"
+    <HeaderBackRoundButton
       data-global-search-header-back="true"
       className={SECTOR_HEADER_BACK_CLASS}
       aria-label={safeT("global_search_close")}
       onClick={onClose}
-    >
-      <AppBackIcon />
-    </button>
+    />
   );
 }
 

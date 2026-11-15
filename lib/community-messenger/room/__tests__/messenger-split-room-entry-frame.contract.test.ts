@@ -49,11 +49,12 @@ describe("messenger split room entry frame (P1·P2)", () => {
     expect(header).toContain('"min-w-0 overflow-hidden pt-[var(--safe-top)]"');
     expect(frame).toContain('"min-w-0 overflow-hidden pt-[var(--safe-top)]"');
     const btn = header.match(/CM_ROOM_HEADER_TOUCH_BTN_CLASS =\s*"([^"]+)"/)?.[1];
-    const face = header.match(/CM_ROOM_HEADER_TOUCH_FACE_BASE_CLASS =\s*"([^"]+)"/)?.[1];
     expect(btn).toBeTruthy();
-    expect(face).toBeTruthy();
     expect(frame).toContain(`const HEADER_TOUCH_BTN_CLASS = "${btn}"`);
-    expect(frame).toContain(`const HEADER_TOUCH_FACE_CLASS = "${face}"`);
+    /** 헤더 뒤로 원형(2026-11-16) — 방 헤더 뒤로와 같은 원형·SVG 꺾쇠 */
+    expect(header).toMatch(/<HeaderBackRoundButton[\s\S]*?className=\{`\$\{CM_ROOM_HEADER_TOUCH_BTN_CLASS\} self-center/);
+    expect(frame).toContain("${HEADER_TOUCH_BTN_CLASS} ${SECTOR_HEADER_BACK_ROUND_CLASS} self-center");
+    expect(frame).toContain("<AppBackChevronIcon />");
     // 같은 방 셸 스코프 — 대화 배경·상단바 CSS 를 실제 방과 공유
     expect(frame).toMatch(/data-cm-room\s/);
     expect(frame).toContain('className="cm-room-shell flex min-h-0 flex-1 flex-col overflow-hidden"');
