@@ -84,11 +84,9 @@ import { useRegion } from "@/contexts/RegionContext";
 import { triggerBottomNavSelectionFeedback } from "@/lib/ui/light-tap-feedback";
 import {
   beginBottomNavShowing,
-  checkBottomNavWatchdog,
   failBottomNavShowing,
 } from "@/lib/main-menu/bottom-nav-controller";
-import { emitBottomNavResume } from "@/lib/main-menu/bottom-nav-resume-signal";
-import { registerAppResumeTask } from "@/lib/app-resume/app-resume-coordinator.client";
+import { useBottomNavResumeUiTask } from "@/lib/main-menu/use-bottom-nav-resume-ui-task";
 import { useBottomNavShowingTarget } from "@/lib/main-menu/use-bottom-nav-controller";
 import {
   resolveMainBottomNavHubDomain,
@@ -751,23 +749,8 @@ export function BottomNav({
   const showing = useBottomNavShowingTarget();
   const showingTabId = showing?.tabId ?? null;
 
-  /**
-   * 앱 복귀 즉시(복귀 조정자 `ui` 레인 — 인증·idle 대기 없음): 이동 멈춤 감시를 다시 판정하고, 키보드·스크롤 숨김을
-   * 다시 맞춘다 (계약 v2 · 설계서 §5-5 B2·B4). 새 리스너를 따로 달지 않고 복귀 조정자 하나에 등록한다.
-   */
-  useEffect(
-    () =>
-      registerAppResumeTask({
-        id: "bottom-nav-resume-ui",
-        lane: "ui",
-        auth: "none",
-        run: () => {
-          checkBottomNavWatchdog();
-          emitBottomNavResume();
-        },
-      }),
-    []
-  );
+  /** 앱 복귀 즉시 하단 탭 상태 재정렬 — 사장님 하단 탭과 같은 작업(`use-bottom-nav-resume-ui-task`) */
+  useBottomNavResumeUiTask();
   /** 컨트롤러가 이미 선택을 정하므로 메뉴 의도 알림은 받지 않는다(호출처 호환용 no-op) */
   const markBottomNavIntent = useCallback((_tabId: string) => {}, []);
   /** 탭 클릭 인텐트 — 본문 슬라이드는 `route-transition-config` pathname 단일 소스 (`mainShellTabSlide` 미사용) */

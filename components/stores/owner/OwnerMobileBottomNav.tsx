@@ -20,7 +20,11 @@ import {
 import { DELIVERY_BOTTOM_NAV_LABEL_CLASS } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import { useOwnerBottomNavScrollHide } from "@/lib/layout/use-owner-bottom-nav-scroll-hide-behavior";
 import { useHtmlShellFlagsSync } from "@/lib/layout/use-html-shell-flags-sync";
-import { triggerLightTapFeedback } from "@/lib/ui/light-tap-feedback";
+import { triggerBottomNavSelectionFeedback } from "@/lib/ui/light-tap-feedback";
+import { markOwnerBottomNavTabIntent } from "@/lib/business/owner-bottom-nav-tab-intent";
+import { scrollAppShellToTop } from "@/lib/layout/scroll-app-shell-to-top";
+import { scrollOwnerCompactShellToTop } from "@/lib/layout/subscribe-owner-compact-shell-scroll";
+import { useBottomNavResumeUiTask } from "@/lib/main-menu/use-bottom-nav-resume-ui-task";
 import {
   isOwnerBottomNavTabActive,
   type OwnerBottomNavTabId,
@@ -88,13 +92,24 @@ function OwnerMobileBottomNavSideTab({
       aria-label={label}
       aria-current={active ? "page" : undefined}
       className={cn("app-bottom-nav-item group", BOTTOM_NAV_ITEM_TOUCH_CLASS)}
-      onPointerDown={(e) => triggerLightTapFeedback(e)}
-      onClick={() => {
-        if (!active) onNavigate(item.id);
+      onClick={(e) => {
+        /**
+         * 하단 탭 계약 v2 S5 (Owner 2026-11-15): 손 뗄 때(click) 확정 1회 — 선택 표시·햅틱. 손을 대는 순간에는 아무것도 하지 않는다.
+         * 같은 탭 다시 누름 = 맨 위로. 다른 탭 = 즉시 선택 표시 + 슬라이드 없는 이동(`owner-bottom-nav-tab-intent`).
+         */
+        triggerBottomNavSelectionFeedback();
+        if (active) {
+          e.preventDefault();
+          scrollAppShellToTop();
+          scrollOwnerCompactShellToTop();
+          return;
+        }
+        markOwnerBottomNavTabIntent(href);
+        onNavigate(item.id);
       }}
     >
       <div className="app-bottom-nav-icon-slot">
-        <span className="app-bottom-nav-inline-icon" key={active ? "on" : "off"}>
+        <span className="app-bottom-nav-inline-icon">
           <Icon className={SIDE_TAB_ICON_CLASS} aria-hidden />
           {showBadge ? (
             <span
@@ -142,11 +157,11 @@ function OwnerMobileBottomNavHomeHub({
       aria-label={homeLabel}
       aria-current={isActive ? "page" : undefined}
       aria-haspopup="dialog"
-      onPointerDown={(e) => {
-        if (e.button !== 0) return;
-        triggerLightTapFeedback(e);
+      onClick={() => {
+        /** 손 뗄 때 햅틱 1회 (하단 탭 계약 v2 S5) — 확인창이 열린다 */
+        triggerBottomNavSelectionFeedback();
+        onPress();
       }}
-      onClick={onPress}
     >
       <div className="app-bottom-nav-icon-slot app-bottom-nav-icon-slot--delivery-home">
         <span
@@ -210,6 +225,8 @@ export function OwnerMobileBottomNav({
     () => false
   );
   const hiddenByScroll = useOwnerBottomNavScrollHide(scrollHideEnabled && !footerAboveNav);
+  /** 앱 복귀 즉시 스크롤 숨김 해제 등 — 메인 하단 탭과 같은 복귀 작업(계약 v2 B4) */
+  useBottomNavResumeUiTask();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const router = useRouter();
   const [portalToBody, setPortalToBody] = useState(false);

@@ -29,6 +29,10 @@
  * DO NOT: 하단 탭 선택 표시를 다른 상태(로컬 state·타이머)로 다시 만들기 · pointerdown 에서 선택·햅틱 · 하단 탭 출처에 슬라이드 ·
  *   진행 막대·원형 강조 부활 · COVER/TRUE PUSH/dual-panel · 커밋을 microtask·setTimeout 으로 미루기.
  *
+ * 매장 사장님 하단 탭(`OwnerMobileBottomNav`, S5 2026-11-15): 같은 반응 시점(click 1회)·햅틱·누르는 영역(바 전체, 투명 확장)·
+ *   복귀 작업(`use-bottom-nav-resume-ui-task`)·전환 0ms(`owner-bottom-nav-tab-intent` → `OwnerStackPageSlideShell` 슬라이드 생략).
+ *   같은 탭 다시 누름 = 맨 위로. 모양(검은 사각형 선택·홈 원)은 바꾸지 않는다.
+ *
  * 배달 다이얼 셸(아래 7~9)은 기존 규칙 그대로 — 같은 단일 커밋(`commitMainBottomNavRoute`)을 쓰되 컨트롤러는 쓰지 않는다.
  * 7. **다이얼 있는 배달 5탭 셸** (`isDeliveryBottomNavRail`)
  *    - **홈 짧은 탭** → 도메인 다이얼 열기/닫기 (`runDeliveryHomeHubShortTap`) — 이동 없음

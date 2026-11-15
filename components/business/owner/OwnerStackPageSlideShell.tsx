@@ -9,6 +9,7 @@ import {
 import { computeStoresOwnerStackTransitionKind } from "@/components/route-transition/route-transition-enter-kind";
 import { OWNER_STACK_ROUTE_ENTER_CLASSES } from "@/lib/business/owner-stack-page-slide";
 import { isStoresOwnerStackPath } from "@/lib/business/owner-stack-path";
+import { consumeOwnerBottomNavTabIntent } from "@/lib/business/owner-bottom-nav-tab-intent";
 
 function stripOwnerStackTransitionClasses(el: HTMLDivElement | null) {
   if (!el) return;
@@ -19,6 +20,7 @@ function stripOwnerStackTransitionClasses(el: HTMLDivElement | null) {
 
 /**
  * `BusinessAdminShell` 본문 — 허브 「전체 보기」 등 스택 내부 이동 시 270ms 우→좌 / 좌→우.
+ * 하단 탭으로 옮긴 이동은 슬라이드 없음(하단 탭 계약 v2 S5 — `owner-bottom-nav-tab-intent`).
  * 메인 `AppRouteTransition` 과 이중 슬라이드 되지 않도록 `shouldSuppressOwnerStackMainShellSlide` 와 짝.
  */
 export function OwnerStackPageSlideShell({ children }: { children: ReactNode }) {
@@ -59,10 +61,14 @@ export function OwnerStackPageSlideShell({ children }: { children: ReactNode }) 
     const popBack = popstateBackRef.current;
     if (popBack) popstateBackRef.current = false;
 
-    kindRef.current = computeStoresOwnerStackTransitionKind(prev, pathKey, {
-      popstateBack: popBack,
-      lastForwardAxisRef,
-    });
+    /** 사장님 하단 탭으로 옮긴 이동 = 연출 없이 즉시 교체 (하단 탭 계약 v2 S5) */
+    const fromBottomNavTab = !popBack && consumeOwnerBottomNavTabIntent(pathKey);
+    kindRef.current = fromBottomNavTab
+      ? "none"
+      : computeStoresOwnerStackTransitionKind(prev, pathKey, {
+          popstateBack: popBack,
+          lastForwardAxisRef,
+        });
 
     stripOwnerStackTransitionClasses(el);
     try {
