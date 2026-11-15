@@ -5,7 +5,7 @@ import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/me
 import type { RoomMediaGalleryItem, RoomMediaGalleryPage } from "@/lib/community-messenger/media/room-media-gallery-service";
 
 /** 방 사진·음성 모음 — 서버 조회(설계 M4). 화면에 불러온 메시지로 세지 않는다. */
-export function useRoomMediaGallery(roomId: string, enabled: boolean) {
+export function useRoomMediaGallery(roomId: string | null | undefined, enabled: boolean) {
   const [items, setItems] = useState<RoomMediaGalleryItem[]>([]);
   const [counts, setCounts] = useState<{ image: number; voice: number } | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -15,7 +15,8 @@ export function useRoomMediaGallery(roomId: string, enabled: boolean) {
 
   const fetchPage = useCallback(
     async (cursor: string | null) => {
-      const rid = roomId.trim();
+      /** 방 id 가 아직 없을 수 있다(시트 초기·시험) — 문자열로만 다룬다 */
+      const rid = String(roomId ?? "").trim();
       if (!rid || !enabled || inFlight.current) return;
       inFlight.current = true;
       setLoading(true);

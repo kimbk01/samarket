@@ -175,3 +175,25 @@ describe("M1 방 사진·음성 모음 = 서버 조회·서버 개수", () => {
     expect(src.match(/vm\.photoMessageCount/g)?.length).toBe(1);
   });
 });
+
+describe("M1 훅은 방 id 가 없어도 깨지지 않는다(CI: group-drawer-dedupe-d13 에서 roomId.trim 오류)", () => {
+  it("roomId undefined + enabled → 요청 없음·오류 없음", async () => {
+    const { useRoomMediaGallery } = await import("@/lib/community-messenger/media/use-room-media-gallery");
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    function Probe() {
+      useRoomMediaGallery(undefined, true);
+      return null;
+    }
+    await act(async () => {
+      root.render(<Probe />);
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+    act(() => root.unmount());
+    host.remove();
+    vi.unstubAllGlobals();
+  });
+});
