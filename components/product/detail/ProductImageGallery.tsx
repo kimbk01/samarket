@@ -2,8 +2,9 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { imageResolveTradePostDetailDisplayUrl } from "@/lib/image";
 
-import { useState, useRef, useCallback } from "react";
-import { PostImageViewer } from "@/components/common/media/PostImageViewer";
+import { useState, useRef, useCallback, useMemo } from "react";
+import { DibayImageViewer } from "@/components/common/media/DibayImageViewer";
+import { dibayImageViewerItemsFromUrls } from "@/lib/ui/dibay-image-viewer-items";
 import { TradeNoPhotoPlaceholder } from "@/components/trade/media/TradeNoPhotoPlaceholder";
 
 interface ProductImageGalleryProps {
@@ -21,6 +22,7 @@ export function ProductImageGallery({ images, title }: ProductImageGalleryProps)
   const [current, setCurrent] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const list = images.length > 0 ? images : [""];
+  const viewerItems = useMemo(() => dibayImageViewerItemsFromUrls(images), [images]);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   /** 슬라이드별 상태: 0 변형본 · 1 원본 재시도 · 2 실패 */
   const [attempt, setAttempt] = useState<Record<number, 0 | 1 | 2>>({});
@@ -129,9 +131,9 @@ export function ProductImageGallery({ images, title }: ProductImageGalleryProps)
           </div>
         </>
       )}
-      <PostImageViewer
+      <DibayImageViewer
         open={viewerIndex !== null && images.length > 0}
-        urls={images}
+        items={viewerItems}
         index={viewerIndex ?? 0}
         onClose={() => setViewerIndex(null)}
       />

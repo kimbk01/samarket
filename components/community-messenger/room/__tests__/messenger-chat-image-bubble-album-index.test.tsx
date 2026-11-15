@@ -57,7 +57,10 @@ describe("MessengerChatImageBubble — album cells (D2/D3)", () => {
     expect(rest.hasAttribute("data-album-index")).toBe(false);
     expect(rest.querySelector("img")!.getAttribute("src")).toBe(album[3]);
     act(() => rest.click());
-    expect(onOpen).toHaveBeenCalledWith(album, originals, 3);
+    expect(onOpen).toHaveBeenCalledWith(
+      album.map((thumb, i) => ({ display: album[i], original: originals[i], placeholder: thumb })),
+      3
+    );
 
     // long-press start on the <img> inside a cell resolves that cell's index; +N tile → none
     const img2 = host.querySelectorAll("[data-album-index]")[2]!.querySelector("img")!;

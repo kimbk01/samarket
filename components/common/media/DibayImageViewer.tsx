@@ -1,14 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { saveMessengerPhotosWithFeedback } from "@/components/community-messenger/room/messenger-photo-save-feedback";
 import {
+  pickMessengerHttpUrl,
   resolveMessengerImageSaveMode,
   type MessengerImageSaveMode,
 } from "@/lib/community-messenger/attachment/messenger-image-save";
-import { saveMessengerPhotosWithFeedback } from "@/components/community-messenger/room/messenger-photo-save-feedback";
-import { originalImageUrl } from "@/lib/community/post-media-embed";
+import {
+  dibayImageViewerItemsFromUrls,
+  type DibayImageViewerItem,
+} from "@/lib/ui/dibay-image-viewer-items";
+
+export { dibayImageViewerItemsFromUrls, type DibayImageViewerItem };
 import {
   DOUBLE_TAP_MS,
   DOUBLE_TAP_SLOP_PX,
@@ -32,9 +38,12 @@ import {
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 /**
- * Community post image viewer — tap an image in a post → full screen over the post (no navigation).
+ * DIBAY 공용 사진 뷰어 (SSOT) — 게시글·상품·매장·메신저 사진을 누르면 같은 전체 화면 뷰어가 열린다.
+ * 설계: `docs/design/messenger-media-emoji-ssot-design-2026-11-15.md` M1. 다른 화면용 뷰어를 새로 만들지 않는다.
  *
  * CONTRACT:
+ * - Input: `items[]` = { display(화면용), original(원본 보기·저장·실패 재시도), placeholder?(이미 그려진 작은 사진 — 받는 동안 먼저 표시) }.
+ *   화면별 주소 변환(게시글 `.detail` 파생본·메신저 조회 라우트)은 부르는 쪽이 한다.
  * - Portal to `document.body`; page scroll locked while open and the post's scroll position restored on close.
  * - Back: one history entry (same URL, Next `__NA` state kept — same pattern as SupportModalHost) so
  *   Android device back / browser back / iOS edge swipe close the viewer instead of leaving the post.
@@ -43,7 +52,7 @@ import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
  * - Save reuses the messenger photo-save SSOT (native photo library / web share) — not a download link.
  */
 
-const HISTORY_KEY = "__dibayPostImageViewer";
+const HISTORY_KEY = "__dibayImageViewer";
 const ANIM_MS = 220;
 
 type Pt = { x: number; y: number };
@@ -69,19 +78,16 @@ function dist(a: Pt, b: Pt): number {
 type SlideLoad = { attempt: 0 | 1; status: "loading" | "loaded" | "error"; retryKey: number };
 const SLIDE_INITIAL: SlideLoad = { attempt: 0, status: "loading", retryKey: 0 };
 
-export function PostImageViewer(props: {
+export function DibayImageViewer(props: {
   open: boolean;
-  urls: string[];
+  items: DibayImageViewerItem[];
   index: number;
   onClose: () => void;
-  /**
-   * 화면용 주소(예: 커뮤니티 `.detail` 파생본). 실패하면 원본(`urls`)으로 1회 자동 재시도.
-   * 「원본」 보기·저장은 항상 원본. 없으면 원본만 쓴다(거래·매장 기존 동작).
-   */
-  displayUrlFor?: (url: string) => string;
+  /** 여러 장일 때 「모두 저장 (N)」 버튼 — 메신저 앨범 */
+  allowSaveAll?: boolean;
 }) {
-  const { open, urls, onClose, displayUrlFor } = props;
-  useRegisterOpenOverlay(open && urls.length > 0);
+  const { open, items, onClose, allowSaveAll = false } = props;
+  useRegisterOpenOverlay(open && items.length > 0);
   const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
   const [index, setIndex] = useState(props.index);
@@ -94,7 +100,7 @@ export function PostImageViewer(props: {
   const [natural, setNatural] = useState<Record<number, Size>>({});
   const [stage, setStage] = useState<Size>({ w: 0, h: 0 });
   const [saveMode, setSaveMode] = useState<MessengerImageSaveMode>("none");
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState<"one" | "all" | null>(null);
   /** 슬라이드별 로딩·실패·재시도 상태 (D10) — 열 때마다 초기화 */
   const [slideLoad, setSlideLoad] = useState<Record<number, SlideLoad>>({});
 
@@ -110,7 +116,7 @@ export function PostImageViewer(props: {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
-  const count = urls.length;
+  const count = items.length;
   const safeIndex = Math.max(0, Math.min(count - 1, index));
   const fitted = fitSize(natural[safeIndex] ?? stage, stage);
 
@@ -419,14 +425,16 @@ export function PostImageViewer(props: {
     if (nat) animate(() => setTransform(clampTransform({ scale: naturalSizeScale(nat, fitted), x: 0, y: 0 }, fitted, stage)));
   };
 
-  const runSave = async () => {
-    const url = urls[safeIndex];
-    if (!url || saving) return;
-    setSaving(true);
+  const runSave = async (scope: "one" | "all") => {
+    if (saving) return;
+    const pick = (it: DibayImageViewerItem | undefined) => (it ? pickMessengerHttpUrl(it.original, it.display) : "");
+    const targets = (scope === "one" ? [pick(items[safeIndex])] : items.map(pick)).filter(Boolean);
+    if (targets.length === 0) return;
+    setSaving(scope);
     try {
-      await saveMessengerPhotosWithFeedback([originalImageUrl(url)], { t });
+      await saveMessengerPhotosWithFeedback(targets, { t });
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   };
 
@@ -442,7 +450,7 @@ export function PostImageViewer(props: {
       role="dialog"
       aria-modal="true"
       aria-label={t("cm_ui_image_zoom_view")}
-      data-testid="post-image-viewer"
+      data-testid="image-viewer"
       style={{ backgroundColor: `rgba(0,0,0,${fade})` }}
     >
       <div
@@ -453,15 +461,17 @@ export function PostImageViewer(props: {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
         onWheel={onWheel}
-        data-testid="post-image-viewer-stage"
+        data-testid="image-viewer-stage"
       >
         {slides.map((i) => {
           const isCurrent = i === safeIndex;
           const tr = isCurrent ? transform : IDENTITY;
           const load = slideLoad[i] ?? SLIDE_INITIAL;
-          const original = originalImageUrl(urls[i]!);
-          const display = displayUrlFor ? displayUrlFor(urls[i]!) : urls[i]!;
+          const item = items[i]!;
+          const original = item.original || item.display;
+          const display = item.display || item.original;
           const src = (isCurrent && showOriginal) || load.attempt === 1 ? original : display;
+          const placeholder = item.placeholder && item.placeholder !== src ? item.placeholder : "";
           const setLoad = (next: (cur: SlideLoad) => SlideLoad) =>
             setSlideLoad((m) => ({ ...m, [i]: next(m[i] ?? SLIDE_INITIAL) }));
           return (
@@ -473,6 +483,26 @@ export function PostImageViewer(props: {
                 transition,
               }}
             >
+              {placeholder && load.status !== "loaded" ? (
+                /* 받는 동안 이미 그려진 작은 사진을 같은 맞춤·같은 확대로 먼저 그린다 — 검은 빈 화면 금지 (M1).
+                   크기는 인라인: 층 밖 전역 `img{height:auto}` 가 `h-full` 유틸을 이기기 때문. */
+                // eslint-disable-next-line @next/next/no-img-element -- zoom transform needs the plain element
+                <img
+                  src={placeholder}
+                  alt=""
+                  aria-hidden
+                  draggable={false}
+                  decoding="async"
+                  data-testid={isCurrent ? "image-viewer-placeholder" : undefined}
+                  className="pointer-events-none absolute inset-0 object-contain"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    transform: `translate3d(${tr.x}px, ${tr.y}px, 0) scale(${tr.scale})`,
+                    transition,
+                  }}
+                />
+              ) : null}
               {/* eslint-disable-next-line @next/next/no-img-element -- zoom transform needs the plain element */}
               <img
                 key={`${src}#${load.retryKey}`}
@@ -480,7 +510,7 @@ export function PostImageViewer(props: {
                 alt=""
                 draggable={false}
                 decoding="async"
-                data-testid={isCurrent ? "post-image-viewer-current" : undefined}
+                data-testid={isCurrent ? "image-viewer-current" : undefined}
                 data-image-status={load.status}
                 onLoad={(ev) => {
                   const el = ev.currentTarget;
@@ -492,18 +522,18 @@ export function PostImageViewer(props: {
                     cur.attempt === 0 && src !== original ? { ...cur, attempt: 1 } : { ...cur, status: "error" }
                   )
                 }
-                className="max-h-full max-w-full object-contain will-change-transform"
+                className="relative max-h-full max-w-full object-contain will-change-transform"
                 style={{ transform: `translate3d(${tr.x}px, ${tr.y}px, 0) scale(${tr.scale})`, transition }}
               />
-              {load.status === "loading" ? (
+              {load.status === "loading" && !placeholder ? (
                 <span
                   className="pointer-events-none absolute h-9 w-9 animate-spin rounded-full border-[3px] border-white/25 border-t-white"
                   aria-hidden
-                  data-testid={isCurrent ? "post-image-viewer-loading" : undefined}
+                  data-testid={isCurrent ? "image-viewer-loading" : undefined}
                 />
               ) : null}
               {load.status === "error" ? (
-                <span className="absolute flex flex-col items-center gap-3 px-6 text-center" data-testid={isCurrent ? "post-image-viewer-error" : undefined}>
+                <span className="absolute flex flex-col items-center gap-3 px-6 text-center" data-testid={isCurrent ? "image-viewer-error" : undefined}>
                   <span className="text-[14px] text-white/85">{t("community_image_load_failed")}</span>
                   <button
                     type="button"
@@ -535,11 +565,11 @@ export function PostImageViewer(props: {
             onClick={() => onCloseRef.current()}
             className="flex h-10 w-10 items-center justify-center rounded-full text-[22px] leading-none text-white active:bg-white/15"
             aria-label={t("nav_close")}
-            data-testid="post-image-viewer-close"
+            data-testid="image-viewer-close"
           >
             ✕
           </button>
-          <span className="tabular-nums text-[15px] font-medium text-white/90" data-testid="post-image-viewer-counter">
+          <span className="tabular-nums text-[15px] font-medium text-white/90" data-testid="image-viewer-counter">
             {safeIndex + 1} / {count}
           </span>
           <button
@@ -575,16 +605,28 @@ export function PostImageViewer(props: {
           </div>
         ) : null}
 
-        <div className="pointer-events-auto flex min-h-[52px] items-center justify-center bg-gradient-to-t from-black/50 to-transparent px-3 py-2">
+        <div className="pointer-events-auto flex min-h-[52px] items-center justify-center gap-2 bg-gradient-to-t from-black/50 to-transparent px-3 py-2">
           {saveMode !== "none" ? (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void runSave()}
-              className="rounded-full bg-white/15 px-5 py-2 text-[14px] font-medium text-white active:bg-white/25 disabled:opacity-50"
-            >
-              {saving ? t("cm_ui_photo_saving") : t("cm_ui_photo_save")}
-            </button>
+            <>
+              <button
+                type="button"
+                disabled={saving !== null}
+                onClick={() => void runSave("one")}
+                className="rounded-full bg-white/15 px-5 py-2 text-[14px] font-medium text-white active:bg-white/25 disabled:opacity-50"
+              >
+                {saving === "one" ? t("cm_ui_photo_saving") : t("cm_ui_photo_save")}
+              </button>
+              {allowSaveAll && count > 1 ? (
+                <button
+                  type="button"
+                  disabled={saving !== null}
+                  onClick={() => void runSave("all")}
+                  className="rounded-full bg-white/15 px-5 py-2 text-[14px] font-medium text-white active:bg-white/25 disabled:opacity-50"
+                >
+                  {saving === "all" ? t("cm_ui_photo_saving") : t("cm_ui_photo_save_all", { count })}
+                </button>
+              ) : null}
+            </>
           ) : null}
         </div>
       </div>
@@ -595,20 +637,19 @@ export function PostImageViewer(props: {
 }
 
 /** One viewer per post body: `openAt(urls, i)` from any image in that body. */
-export function usePostImageViewer(options?: { displayUrlFor?: (url: string) => string }) {
+export function useDibayImageViewer(options?: { displayUrlFor?: (url: string) => string }) {
   const [state, setState] = useState<{ urls: string[]; index: number } | null>(null);
   const openAt = useCallback((urls: string[], index: number) => {
     if (urls.length) setState({ urls, index: Math.max(0, Math.min(urls.length - 1, index)) });
   }, []);
   const close = useCallback(() => setState(null), []);
+  const displayUrlFor = options?.displayUrlFor;
+  const items = useMemo(
+    () => (state ? dibayImageViewerItemsFromUrls(state.urls, displayUrlFor) : []),
+    [state, displayUrlFor],
+  );
   const viewer = (
-    <PostImageViewer
-      open={state !== null}
-      urls={state?.urls ?? []}
-      index={state?.index ?? 0}
-      onClose={close}
-      displayUrlFor={options?.displayUrlFor}
-    />
+    <DibayImageViewer open={state !== null} items={items} index={state?.index ?? 0} onClose={close} />
   );
   return { openAt, viewer };
 }

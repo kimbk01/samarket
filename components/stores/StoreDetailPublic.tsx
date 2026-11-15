@@ -12,6 +12,7 @@ import { useDibayShareSheet } from "@/components/share/use-dibay-share-sheet";
 import { buildShareUrl } from "@/lib/share/share-url";
 
 import type { ReactNode } from "react";
+import { dibayImageViewerItemsFromUrls } from "@/lib/ui/dibay-image-viewer-items";
 import { StoreOwnerBannerCarousel } from "@/components/stores/StoreOwnerBannerCarousel";
 import { StoreOwnerNoticeCards } from "@/components/stores/StoreOwnerNoticeCards";
 import Link from "next/link";
@@ -216,8 +217,8 @@ import {
 } from "@/lib/dibay/delivery-detail-phase2-trace";
 
 /** WP6 — 히어로 누름 → 전체 화면 사진 보기 (기존 공용 뷰어 재사용, 누를 때만 로드) */
-const PostImageViewer = dynamic(
-  () => import("@/components/common/media/PostImageViewer").then((m) => m.PostImageViewer),
+const DibayImageViewer = dynamic(
+  () => import("@/components/common/media/DibayImageViewer").then((m) => m.DibayImageViewer),
   { ssr: false }
 );
 
@@ -2212,6 +2213,8 @@ export function StoreDetailPublic({
   const heroImageUrl =
     heroSource.kind === "gallery" || heroSource.kind === "menu_photo" ? heroSource.imageUrl : null;
   const heroViewerUrls = heroSource.viewerUrls;
+  /** 조기 return 뒤라 훅 없이 계산 — 뷰어 효과는 항목 동일성에 의존하지 않는다. */
+  const heroViewerItems = dibayImageViewerItemsFromUrls(heroViewerUrls);
 
   /** WP6 — 영업 종료(휴게 제외) 시 「운영안내 {다음 오픈}」 */
   const nextOpen =
@@ -2405,9 +2408,9 @@ export function StoreDetailPublic({
       />
 
       {heroViewerOpen ? (
-        <PostImageViewer
+        <DibayImageViewer
           open
-          urls={heroViewerUrls}
+          items={heroViewerItems}
           index={0}
           onClose={() => setHeroViewerOpen(false)}
         />

@@ -10,6 +10,7 @@ import {
 import { recordCmPolishAttachmentDecodeMs } from "@/lib/community-messenger/monitoring/cm-polish-analysis";
 import { MESSENGER_ALBUM_REST_TILE_INDEX } from "@/lib/community-messenger/attachment/messenger-photo-save-menu";
 import { withMessengerMediaRouteUrls } from "@/lib/community-messenger/media/messenger-media-ref";
+import type { DibayImageViewerItem } from "@/lib/ui/dibay-image-viewer-items";
 
 /**
  * 사진 말풍선 너비는 사진을 불러오기 전부터 고정한다.
@@ -26,7 +27,8 @@ function clampAspectRatio(n: number): number {
 
 export function MessengerChatImageBubble(props: {
   item: CommunityMessengerMessage & { pending?: boolean };
-  onOpenLightbox: (urls: string[], originals: string[], index: number) => void;
+  /** 공용 사진 뷰어(`DibayImageViewer`) 열기 — 화면용 1600·원본·말풍선 썸네일(먼저 그림) */
+  onOpenLightbox: (items: DibayImageViewerItem[], index: number) => void;
 }) {
   const { t } = useI18n();
   const { onOpenLightbox } = props;
@@ -45,12 +47,16 @@ export function MessengerChatImageBubble(props: {
         item.imageAlbumOriginalUrls && item.imageAlbumOriginalUrls.length === album.length
           ? item.imageAlbumOriginalUrls
           : album;
-      onOpenLightbox(previews, originals, idx);
+      onOpenLightbox(
+        album.map((thumb, i) => ({ display: previews[i]!, original: originals[i]!, placeholder: thumb })),
+        idx
+      );
       return;
     }
+    const thumb = item.content.trim();
     const u = (item.imagePreviewUrl ?? item.content).trim();
     const o = (item.imageOriginalUrl ?? item.content).trim();
-    onOpenLightbox([u], [o], 0);
+    onOpenLightbox([{ display: u, original: o, placeholder: thumb }], 0);
   };
 
   if (album) {

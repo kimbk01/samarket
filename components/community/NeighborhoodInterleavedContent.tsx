@@ -5,7 +5,7 @@ import { parseInterleavedMarkdownToSegments } from "@/lib/philife/interleaved-bo
 import { PHILIFE_DETAIL_INTERLEAVED_TEXT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { isImportedVideoLabel, splitPostTextWithVideos } from "@/lib/community/post-media-embed";
 import { PostTextWithVideos } from "@/components/community/post-detail/PostTextWithVideos";
-import { usePostImageViewer } from "@/components/common/media/PostImageViewer";
+import { useDibayImageViewer } from "@/components/common/media/DibayImageViewer";
 import { communityViewerDisplayUrl } from "@/lib/community/post-image-display";
 import { PostBodyImage } from "@/components/community/post-detail/PostBodyImage";
 
@@ -69,7 +69,7 @@ export function NeighborhoodInterleavedContent({ content }: { content: string })
     return { imageUrls: urls, imageIndexBySeg: bySeg };
   }, [segs]);
 
-  const { openAt, viewer } = usePostImageViewer({ displayUrlFor: communityViewerDisplayUrl });
+  const { openAt, viewer } = useDibayImageViewer({ displayUrlFor: communityViewerDisplayUrl });
 
   return (
     <div className="mt-4 min-w-0">
