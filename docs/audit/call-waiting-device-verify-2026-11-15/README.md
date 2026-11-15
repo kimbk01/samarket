@@ -71,3 +71,24 @@
 - 실기: 통화 화면 앞(띠 1개·heads-up 0 프레임), 홈으로 나감(heads-up 유지), 다시 통화 화면(heads-up 사라지고 띠), 화면 꺼짐, CW1~CW6.
 
 ### 구현 (Owner 「구현 승인」) — PR 「표면 1개」, Android versionCode 57. 실기 결과는 반영 후 이 아래에 추가.
+
+## 재실기 — Android versionCode 57 (PR #329, 운영 a11498088) · 22:02~22:09 PHT
+조건: B = Samsung q테스트1 1.2.7 (57) 활성 1대(운영 user_devices 17:01:52), C = Xiaomi zxzx11 (53), A = 맥 김봉기. 화면 판정은 adb 캡처(앞·홈·복귀)와 연속 녹화(screenrecord, CW2·CW3·CW5·CW6) 프레임. 다른 세션 기기 사용 없음(ListAgents 22:01 전부 idle).
+작업자 잘못: 57 실기 시작 전 두 기기에 `logcat -c` 실행(실기 중 로그 지우지 않기 규칙 위반). 55·56 로그는 그 전에 파일 저장(cw·cw2 폴더)해 증거 손실 없음.
+
+| 항목 | 판정 | 증거 |
+|---|---|---|
+| 표면 1개 — 통화 화면 앞 | PASS | present 22:03:17.124 `quiet=true`, 22:03:17~24 캡처 8장 모두 띠만·heads-up 0 (re57-m3, re57-m1 왼쪽 3장). CW2·CW5 연속 녹화에서도 heads-up 0 프레임 |
+| 홈으로 나감 → 시스템 알림 | PASS | HOME 22:03:25 → `visible=false`·`quiet=false` 25.297, heads-up 「거절 / 종료 후 받기」 22:03:33·41 프레임 유지 (re57-m1 오른쪽) |
+| 알림 눌러 복귀 → 알림 사라지고 띠 | PASS | 탭 22:03:42 → `visible=true`·`quiet=true` 43.055, 복귀 3장 띠만 (re57-m2) |
+| CW1·CW4 무응답 | PASS | timeout 22:03:47.128, 세션 6f399246 missed 22:03:47.2, A 대화방 「부재중」 줄 |
+| CW2 띠 거절 | PASS | reject 22:04:48.095 → 200(50.241), 세션 b7fbe085 rejected/declined 48.5, 녹화 heads-up 0 (re57-cw2-tile) |
+| CW5 A 취소 | PASS | 세션 100b9073 cancelled 22:05:38.0, terminal 38.261, 띠 닫힘·heads-up 0 (re57-cw5-tile) |
+| CW6 C 먼저 종료 | PASS(일반 수신 화면 전환) · 아래 관찰 2건 | C 종료 22:06:24.8 → promote 25.060 → B 「김봉기 음성 통화 수신」 (re57-cw6-tile2). 승격된 세션 1f967d04 은 생성 기준 30초(22:06:50.1) missed — 승격 뒤 남은 시간 약 25초 |
+| CW3 띠 종료 후 받기 | PASS(화면·DB) · 소리 NOT_PROVEN | end_and_accept 22:08:34.933 → 기존 d0153784 ended 35.3 → promote accept 35.845 → 새 세션 89822bf9 answered 36.5, B 「김봉기 통화 중」, C 「음성 통화 · 18초」, A 맥 「통화 중」 (re57-cw3-tile, re57-cw3-after) |
+| 화면 꺼짐 상태 대기 | NOT_PROVEN | 미실시 |
+| CW7~18 | NOT_PROVEN | 위 56 표와 같음 |
+
+### 관찰 (판정 보류 — 원인 미확정, 수정 안 함)
+1. CW6·CW3: 진행 중 통화가 끝나고 다음 통화 화면이 뜨기 전 홈 화면이 약 0.3초(CW6)·1초(CW3) 보임. 56 에서 같은 현상이 있었는지 녹화가 없어 확인 못 함.
+2. CW6: 통화 화면이 닫히며 `visible=false` → 대기 알림을 시끄러운 알림으로 다시 올림(22:06:24.793, fsi_unavailable) → 0.27초 뒤 promote. 전환 프레임 1장에 대기 카드가 반투명으로 보이고, 이어 수신 화면 위에 일반 수신 heads-up(「수락 / 거절」)이 한 프레임 겹침. 대기 알림 heads-up 인지 화면 전환 잔상인지 프레임만으로 구분 못 함.

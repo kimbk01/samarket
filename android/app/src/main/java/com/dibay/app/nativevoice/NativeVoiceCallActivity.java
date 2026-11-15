@@ -35,6 +35,7 @@ import com.dibay.app.call.CallRecentsCardPresenter;
 import com.dibay.app.call.NativeCallAppReturn;
 import com.dibay.app.nativecall.NativeCallInAppNoticeOverlay;
 import com.dibay.app.nativecall.NativeCallWaitingBanner;
+import com.dibay.app.nativecall.NativeCallWaitingPresenter;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.lang.ref.WeakReference;
 import java.util.Locale;
@@ -261,6 +262,8 @@ public class NativeVoiceCallActivity extends Activity {
     }
     activeRef = new WeakReference<>(this);
     surfaceEstablished = true;
+    // 대기 통화 이어받기 — 다른 통화의 화면이 남아 있으면 정리(설계 B).
+    NativeCallWaitingPresenter.onCallScreenShown(callId);
     if (UI_MODE_INCOMING.equals(uiMode)) {
       applyIncomingWakeFlags();
     } else {

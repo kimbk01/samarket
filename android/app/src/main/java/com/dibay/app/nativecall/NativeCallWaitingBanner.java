@@ -30,7 +30,7 @@ import com.dibay.app.R;
  *
  * <p>보임 상태 보고: 통화 화면이 앞(resumed·PiP 아님)이면 이 띠가 유일한 선택지 표면이므로 presenter 에 알려 대기 알림을
  * 조용한 알림으로 바꾸게 한다(AOSP Dialer 와 같은 「표면 1개」). Activity 가 {@link #onHostResumed}·{@link #onHostPaused}
- * 를 부른다.
+ * 를 부른다. 보임 상태는 이 띠(화면) 단위로 보고한다 — 옛 화면이 끝나며 새 화면 값을 덮지 않게.
  */
 public final class NativeCallWaitingBanner implements NativeCallWaitingPresenter.Listener {
   private static final int RADIUS_DP = 20;
@@ -91,7 +91,7 @@ public final class NativeCallWaitingBanner implements NativeCallWaitingPresenter
 
   /** 통화 화면이 띠를 보일 수 있는 상태(앞에 있고 PiP 아님)인지 presenter 에 알린다. */
   private void reportVisibility() {
-    NativeCallWaitingPresenter.setCallScreenVisible(activity, hostResumed && !isInPip());
+    NativeCallWaitingPresenter.setCallScreenVisible(activity, this, hostResumed && !isInPip());
   }
 
   private boolean isInPip() {

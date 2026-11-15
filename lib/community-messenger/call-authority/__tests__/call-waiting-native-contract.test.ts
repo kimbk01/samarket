@@ -86,12 +86,12 @@ describe("Android 대기 통화 선택지 유지 (실기 CW1 FAIL 수정 · 2026
 
   it("표면 1개: 통화 화면이 보이면 조용한 알림(진행 중 통화 채널·FSI 없음) — AOSP Dialer QUIET 와 같음", () => {
     const src = presenter();
-    expect(src).toContain("public static void setCallScreenVisible(Context context, boolean visible)");
+    expect(src).toContain("public static void setCallScreenVisible(Context context, Object host, boolean visible)");
     expect(src).toMatch(/\? NativeVoiceCallService\.CHANNEL_ID\s*: NativeVideoCallService\.CHANNEL_ID;/);
     expect(src).toContain(".setSilent(quiet)");
     expect(src).toContain("if (postedQuiet != null && postedQuiet != quiet) nm.cancel(id);");
     const banner = read("android/app/src/main/java/com/dibay/app/nativecall/NativeCallWaitingBanner.java");
-    expect(banner).toContain("NativeCallWaitingPresenter.setCallScreenVisible(activity, hostResumed && !isInPip());");
+    expect(banner).toContain("NativeCallWaitingPresenter.setCallScreenVisible(activity, this, hostResumed && !isInPip());");
     for (const f of [
       "android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallActivity.java",
       "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallActivity.java",
@@ -116,6 +116,45 @@ describe("Android 대기 통화 선택지 유지 (실기 CW1 FAIL 수정 · 2026
       expect(src, f).toContain("waitingBanner = NativeCallWaitingBanner.attach(this);");
       expect(src, f).toContain("waitingBanner.detach();");
     }
+  });
+
+  it("보임 상태는 화면별 기록 — 옛 화면이 끝나며 새 화면의 「보임」을 덮지 않음 (설계 A)", () => {
+    const src = presenter();
+    expect(src).toContain("Collections.newSetFromMap(new IdentityHashMap<>())");
+    expect(src).toContain("VISIBLE_HOSTS.remove(host);");
+    expect(src).not.toMatch(/callScreenVisible = visible;/);
+    // 진행 중 통화가 이미 정리됐으면(곧 이어받기) 시끄러운 대기 알림을 다시 올리지 않음
+    expect(src).toContain('log("notice_repost_skipped", p.callId, "reason=live_call_gone");');
+  });
+
+  for (const [lane, runtime, activity] of [
+    ["voice", `${A}/nativevoice/NativeVoiceCallRuntime.java`, `${A}/nativevoice/NativeVoiceCallActivity.java`],
+    ["video", `${A}/nativevideo/NativeVideoCallRuntime.java`, `${A}/nativevideo/NativeVideoCallActivity.java`],
+  ] as const) {
+    it(`${lane}: 대기 통화가 있으면 통화 화면을 닫지 않고 이어받기 (설계 B · Dialer startOrFinishUi)`, () => {
+      const src = read(runtime);
+      const cls = lane === "voice" ? "NativeVoiceCallActivity" : "NativeVideoCallActivity";
+      // 런타임의 통화 화면 닫기는 모두 finishCallScreen 한 곳을 지난다
+      expect(src.match(new RegExp(`${cls}\\.finishIfActive\\(sid, `, "g"))?.length ?? 0).toBe(1);
+      expect(src).toContain(`NativeCallWaitingPresenter.holdCallScreenForHandover(sid, "${lane}")`);
+      expect(src).toContain("NativeCallWaitingPresenter.isHandoverLaunch(sid)");
+      expect(src).toMatch(
+        /handover\s*\? android\.content\.Intent\.FLAG_ACTIVITY_NEW_TASK \| android\.content\.Intent\.FLAG_ACTIVITY_CLEAR_TASK/,
+      );
+      expect(read(activity)).toContain("NativeCallWaitingPresenter.onCallScreenShown(callId);");
+    });
+  }
+
+  it("남겨 둔 화면은 이어받은 화면이 뜨거나 대기 통화가 끝나면(거절·종료 신호·무응답) 닫힘", () => {
+    const src = presenter();
+    expect(src).toContain('releaseHeld("waiting_rejected");');
+    expect(src).toContain('releaseHeld("waiting_terminal");');
+    expect(src).toContain('releaseHeld("waiting_timeout");');
+    expect(src).toContain('releaseHeld("promote_not_presented");');
+    expect(src).toContain('scheduleHeldRelease("next_screen_shown", HANDOVER_RELEASE_AFTER_SHOWN_MS);');
+    expect(src).toContain('scheduleHeldRelease("hold_timeout", HANDOVER_HOLD_MAX_MS);');
+    // 화면이 앞에 보일 때만 남김
+    expect(src).toMatch(/if \(!callScreenVisible\) return false;\s*held = new Held\(sid, lane\);/);
   });
 });
 

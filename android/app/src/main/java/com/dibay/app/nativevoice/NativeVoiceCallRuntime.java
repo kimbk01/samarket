@@ -214,8 +214,11 @@ public final class NativeVoiceCallRuntime {
     SESSIONS.put(sid, session);
     DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_RINGING);
     IncomingCallRingOwner.start(app, sid);
-    if (shouldStartForegroundVisibleActivity(app)) {
-      startForegroundVisibleActivity(app, session);
+    boolean handover =
+        NativeCallWaitingPresenter.isHandoverLaunch(sid)
+            && DibayKeyguardHelper.isForegroundUnlockedInteractive(true, app);
+    if (handover || shouldStartForegroundVisibleActivity(app)) {
+      startForegroundVisibleActivity(app, session, handover);
     } else {
       NativeVoiceCallLog.info("foreground_visible_activity_start_skipped", sid, "reason=not_foreground_unlocked");
       PendingIntent fullScreenIntent = NativeVoiceCallNotification.showIncoming(app, session);
@@ -229,6 +232,18 @@ public final class NativeVoiceCallRuntime {
     }
     scheduleMissed(app, sid);
     return true;
+  }
+
+  /**
+   * 통화 화면 닫기 — 대기 통화가 있으면 닫지 않고 남겨 둔다(그 통화가 이 화면 자리를 이어받음, Dialer 와 같이 통화가 하나도
+   * 없을 때만 닫음). docs/audit/call-waiting-transition-design-2026-11-15.md 설계 B.
+   */
+  private static void finishCallScreen(String sid, String reason) {
+    if (NativeCallWaitingPresenter.holdCallScreenForHandover(sid, "voice")) {
+      NativeVoiceCallLog.info("call_screen_held_for_waiting", sid, "reason=" + safe(reason));
+      return;
+    }
+    NativeVoiceCallActivity.finishIfActive(sid, reason);
   }
 
   public static Session getSession(String callId) {
@@ -989,7 +1004,7 @@ public final class NativeVoiceCallRuntime {
       NativeVoiceCallLog.info("runtime_cleanup_idempotent_skip", sid, "reason=" + safe(reason));
       return;
     }
-    NativeVoiceCallActivity.finishIfActive(sid, reason);
+    finishCallScreen(sid, reason);
     NativeVoiceCallLog.info("runtime_cleanup_start", sid, "reason=" + safe(reason));
     try {
       com.dibay.app.call.NativeActiveCallHeartbeatOwner.stop(sid, reason);
@@ -1024,7 +1039,7 @@ public final class NativeVoiceCallRuntime {
       NativeVoiceCallLog.info("cleanup_done", sid, "reason=" + safe(reason));
       NativeVoiceCallOwner.release(sid, reason);
       NativeCallVisibleSurfaceOwner.release(sid, reason);
-      NativeVoiceCallActivity.finishIfActive(sid, reason);
+      finishCallScreen(sid, reason);
       reclaimOrphanResources(app, "after_cleanup:" + sid);
       // WA3·WA4: 정리 끝 → 대기 통화가 있으면 「종료 후 받기」 이어서 수락 / 일반 수신으로 전환.
       NativeCallWaitingPresenter.onCallCleanedUp(app, sid);
@@ -1077,7 +1092,7 @@ public final class NativeVoiceCallRuntime {
     NativeOutgoingRingbackOwner.stop(sid, action);
     if (session != null) setState(app, session, State.ENDING);
     DibayCallConsumedStore.mark(app, sid, action);
-    NativeVoiceCallActivity.finishIfActive(sid, action);
+    finishCallScreen(sid, action);
     // Release Agora at terminal intent so remote observes USER_OFFLINE promptly.
     if (!skipAgoraLeaveForTests) {
       try {
@@ -1207,7 +1222,7 @@ public final class NativeVoiceCallRuntime {
     }
     if (NativeVoiceCallActivity.isShowing(session.callId)) return;
     if (state == State.RINGING || state == State.ACCEPTING || state == State.CONNECTING) {
-      startForegroundVisibleActivity(app, session);
+      startForegroundVisibleActivity(app, session, false);
     }
   }
 
@@ -1339,18 +1354,22 @@ public final class NativeVoiceCallRuntime {
     }
   }
 
-  private static void startForegroundVisibleActivity(Context context, Session session) {
+  private static void startForegroundVisibleActivity(Context context, Session session, boolean handover) {
     String callId = session.callId;
     if (NativeVoiceCallActivity.isShowing(callId)) {
       NativeVoiceCallLog.info("foreground_visible_activity_start_done", callId, "mode=already_showing");
       return;
     }
-    NativeVoiceCallLog.info("foreground_visible_activity_start_allowed", callId);
+    NativeVoiceCallLog.info("foreground_visible_activity_start_allowed", callId, "handover=" + handover);
     android.content.Intent intent = new android.content.Intent(context, NativeVoiceCallActivity.class);
+    // 대기 통화 이어받기: 끝난 통화 화면이 남아 있는 같은 작업을 비우고 새 화면을 그 자리에 넣는다(AOSP ActivityStarter
+    // NEW_TASK|CLEAR_TASK = performClearTaskForReuse — 작업이 사라지지 않아 홈이 드러나지 않음). 그 밖은 기존 플래그.
     intent.addFlags(
-        android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-            | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
-            | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        handover
+            ? android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
+            : android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+                | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
     intent.putExtra(NativeVoiceCallActivity.EXTRA_CALL_ID, callId);
     intent.putExtra("source", "foreground_visible");
     context.startActivity(intent);

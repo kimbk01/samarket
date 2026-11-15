@@ -12,14 +12,19 @@ import android.os.Looper;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import com.dibay.app.DibayNativeLocale;
 import com.dibay.app.IncomingCallUiCopy;
 import com.dibay.app.R;
+import com.dibay.app.nativevideo.NativeVideoCallActivity;
 import com.dibay.app.nativevideo.NativeVideoCallApi;
 import com.dibay.app.nativevideo.NativeVideoCallNotification;
 import com.dibay.app.nativevideo.NativeVideoCallRuntime;
 import com.dibay.app.nativevideo.NativeVideoCallService;
+import com.dibay.app.nativevoice.NativeVoiceCallActivity;
 import com.dibay.app.nativevoice.NativeVoiceCallApi;
 import com.dibay.app.nativevoice.NativeVoiceCallNotification;
 import com.dibay.app.nativevoice.NativeVoiceCallRuntime;
@@ -50,6 +55,13 @@ import com.dibay.app.nativevoice.NativeVoiceCallService;
  * 선택지는 통화 화면 띠 하나), 안 보이면 FSI 알림. 보임 상태는 {@link #setCallScreenVisible} 로 받고, 대기 중 바뀌면 다시
  * 올린다(조용→시끄러움은 cancel 후 notify — setOnlyAlertOnce 때문에 갱신만으로는 heads-up 이 안 뜸).
  * 기록: docs/audit/call-waiting-device-verify-2026-11-15/README.md
+ *
+ * <p>통화 화면 이어받기 (실기 관찰 「홈 화면 보임·알림 겹침」 · Owner 「A·B·C 구현 승인」 2026-11-15,
+ * docs/audit/call-waiting-transition-design-2026-11-15.md): AOSP Dialer {@code InCallPresenter.startOrFinishUi} 와 같이
+ * 통화가 하나도 남지 않을 때만 통화 화면을 닫는다. 대기 통화가 있는 동안 진행 중 통화가 끝나면 런타임은
+ * {@link #holdCallScreenForHandover} 로 화면을 남겨 두고, {@link #promote} 가 새 통화 화면을 앞 화면 경로
+ * ({@code NEW_TASK|CLEAR_TASK} — 같은 작업을 다시 써서 홈이 드러나지 않음)로 띄운 뒤 남겨 둔 화면을 정리한다.
+ * 보임 상태는 화면(띠 객체)별로 기록한다 — 늦게 끝나는 옛 화면이 새 화면 값을 덮지 않게.
  */
 public final class NativeCallWaitingPresenter {
   private static final String TAG = "DIBAY_CALL_WAITING";
@@ -63,6 +75,10 @@ public final class NativeCallWaitingPresenter {
   private static final long END_AND_ACCEPT_TIMEOUT_MS = 8_000L;
   private static final long AFTER_CLEANUP_DELAY_MS = 150L;
   private static final int NOTIFICATION_ID_BASE = 97001;
+  /** 이어받기용으로 남겨 둔 화면의 최대 유지 시간 — 넘으면 닫는다(화면이 남아 멈추는 것 방지). */
+  private static final long HANDOVER_HOLD_MAX_MS = 5_000L;
+  /** 새 통화 화면이 만들어진 뒤 남겨 둔 화면을 닫기까지(다른 종류 화면이 첫 그림을 그릴 시간). */
+  private static final long HANDOVER_RELEASE_AFTER_SHOWN_MS = 500L;
 
   private static final Object LOCK = new Object();
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
@@ -115,9 +131,29 @@ public final class NativeCallWaitingPresenter {
 
   private static final CopyOnWriteArraySet<Listener> LISTENERS = new CopyOnWriteArraySet<>();
 
+  /** 이어받기용으로 닫지 않고 남겨 둔 통화 화면(끝난 통화). */
+  private static final class Held {
+    final String callId;
+    final String lane; // "voice" | "video"
+
+    Held(String callId, String lane) {
+      this.callId = callId;
+      this.lane = lane;
+    }
+  }
+
   private static Pending pending;
-  /** 진행 중 통화 화면(음성·영상 Activity)이 앞에 보이는지 — PiP 는 안 보임. 메인 스레드에서만 바뀐다. */
+  /**
+   * 앞에 보이는 통화 화면(띠 객체) — 화면마다 자기 것만 넣고 뺀다. 전역 boolean 하나로 두면 늦게 끝나는 옛 화면의
+   * onDestroy 가 새 화면의 「보임」을 「안 보임」으로 덮는다(실기 CW6 22:06:25.349).
+   */
+  private static final Set<Object> VISIBLE_HOSTS = Collections.newSetFromMap(new IdentityHashMap<>());
+  /** VISIBLE_HOSTS 가 비어 있지 않은지 — PiP 는 안 보임. */
   private static boolean callScreenVisible;
+  private static Held held;
+  /** 지금 promote 가 앞 화면 이어받기로 띄우는 통화 id(런타임이 시작 방식을 고를 때 읽음). */
+  private static String handoverLaunchCallId;
+  private static Runnable heldReleaseRunnable;
   /** 지금 올라가 있는 대기 알림이 조용한 알림인지(보임 상태가 바뀔 때만 다시 올리기 위함). */
   private static Boolean postedQuiet;
   private static ToneGenerator toneGenerator;
@@ -168,17 +204,65 @@ public final class NativeCallWaitingPresenter {
    * 통화 화면 보임 상태 — {@link NativeCallWaitingBanner} 가 Activity onResume/onPause/PiP 변화 때 부른다. 대기 중이고 상태가
    * 바뀌었으면 대기 알림을 그 상태에 맞게 다시 올린다.
    */
-  public static void setCallScreenVisible(Context context, boolean visible) {
-    if (context == null) return;
+  public static void setCallScreenVisible(Context context, Object host, boolean visible) {
+    if (context == null || host == null) return;
     Context app = context.getApplicationContext();
     final Pending p;
+    final boolean now;
     synchronized (LOCK) {
-      if (callScreenVisible == visible) return;
-      callScreenVisible = visible;
+      if (visible) {
+        VISIBLE_HOSTS.add(host);
+      } else {
+        VISIBLE_HOSTS.remove(host);
+      }
+      now = !VISIBLE_HOSTS.isEmpty();
+      if (callScreenVisible == now) return;
+      callScreenVisible = now;
       p = pending != null && !pending.acceptRequested ? pending : null;
     }
-    log("call_screen_visible", p != null ? p.callId : null, "visible=" + visible);
-    if (p != null) showNotification(app, p.callId, p.callerName, p.lane, p.liveCallId);
+    log("call_screen_visible", p != null ? p.callId : null, "visible=" + now);
+    if (p == null) return;
+    if (!now && !isLive(p.liveCallId)) {
+      // 진행 중 통화가 이미 정리됨 = 곧 이어받기(promote). 시끄러운 대기 알림을 다시 올리지 않는다.
+      log("notice_repost_skipped", p.callId, "reason=live_call_gone");
+      return;
+    }
+    showNotification(app, p.callId, p.callerName, p.lane, p.liveCallId);
+  }
+
+  /**
+   * 런타임이 통화 화면을 닫기 직전에 묻는다. true 면 닫지 말 것 — 대기 통화가 이 화면 자리를 이어받는다(Dialer: 통화가 남아
+   * 있으면 InCallActivity 를 닫지 않음). 화면이 앞에 보이지 않으면(다른 앱·PiP·꺼짐) 남길 이유가 없어 false.
+   */
+  public static boolean holdCallScreenForHandover(String endingCallId, String lane) {
+    if (endingCallId == null || endingCallId.trim().isEmpty()) return false;
+    String sid = endingCallId.trim();
+    synchronized (LOCK) {
+      if (pending == null || pending.callId.equals(sid)) return false;
+      if (held != null && held.callId.equals(sid)) return true;
+      if (!callScreenVisible) return false;
+      held = new Held(sid, lane);
+    }
+    log("handover_hold", sid, "lane=" + lane);
+    scheduleHeldRelease("hold_timeout", HANDOVER_HOLD_MAX_MS);
+    return true;
+  }
+
+  /** promote 가 띄우는 새 통화가 앞 화면 이어받기인지 — 런타임이 {@code NEW_TASK|CLEAR_TASK} 앞 화면 경로를 고른다. */
+  public static boolean isHandoverLaunch(String callId) {
+    if (callId == null) return false;
+    synchronized (LOCK) {
+      return callId.trim().equals(handoverLaunchCallId);
+    }
+  }
+
+  /** 통화 화면(음성·영상) onCreate — 다른 통화의 화면이 떴으면 남겨 둔 화면을 정리한다. */
+  public static void onCallScreenShown(String callId) {
+    if (callId == null) return;
+    synchronized (LOCK) {
+      if (held == null || held.callId.equals(callId.trim())) return;
+    }
+    scheduleHeldRelease("next_screen_shown", HANDOVER_RELEASE_AFTER_SHOWN_MS);
   }
 
   public static void addListener(Listener listener) {
@@ -223,6 +307,7 @@ public final class NativeCallWaitingPresenter {
     Pending p = take(callId);
     if (p == null) return;
     clearPresentation(app, p.callId);
+    releaseHeld("waiting_rejected");
     log("reject", p.callId, "lane=" + p.lane);
     if ("video".equals(p.lane)) {
       NativeVideoCallApi.rejectAsync(
@@ -290,6 +375,7 @@ public final class NativeCallWaitingPresenter {
     Pending p = take(callId);
     if (p == null) return;
     clearPresentation(context.getApplicationContext(), p.callId);
+    releaseHeld("waiting_terminal");
     log("terminal", p.callId, "kind=" + kind);
   }
 
@@ -300,6 +386,24 @@ public final class NativeCallWaitingPresenter {
     Pending p = take(callId);
     if (p == null) return;
     clearPresentation(app, p.callId);
+    final boolean handover;
+    synchronized (LOCK) {
+      handover = held != null && callScreenVisible;
+      handoverLaunchCallId = handover ? p.callId : null;
+    }
+    boolean presented;
+    try {
+      presented = presentPromoted(app, p, accept);
+    } finally {
+      synchronized (LOCK) {
+        handoverLaunchCallId = null;
+      }
+    }
+    log("promote", p.callId, "accept=" + accept + " presented=" + presented + " handover=" + handover);
+    if (!presented) releaseHeld("promote_not_presented");
+  }
+
+  private static boolean presentPromoted(Context app, Pending p, boolean accept) {
     boolean presented;
     if ("video".equals(p.lane)) {
       presented =
@@ -312,7 +416,44 @@ public final class NativeCallWaitingPresenter {
               app, p.callId, p.roomId, p.callerId, p.callerName, p.mediaType, false);
       if (presented && accept) NativeVoiceCallRuntime.accept(app, p.callId);
     }
-    log("promote", p.callId, "accept=" + accept + " presented=" + presented);
+    return presented;
+  }
+
+  private static boolean isLive(String callId) {
+    if (callId == null) return false;
+    return NativeVoiceCallRuntime.getSession(callId) != null || NativeVideoCallRuntime.getSession(callId) != null;
+  }
+
+  private static void scheduleHeldRelease(String reason, long delayMs) {
+    MAIN.post(
+        () -> {
+          if (heldReleaseRunnable != null) MAIN.removeCallbacks(heldReleaseRunnable);
+          heldReleaseRunnable = () -> releaseHeld(reason);
+          MAIN.postDelayed(heldReleaseRunnable, delayMs);
+        });
+  }
+
+  /** 남겨 둔 화면을 닫는다(이어받은 화면이 떴거나, 대기 통화가 끝났거나, 너무 오래 남음). */
+  private static void releaseHeld(String reason) {
+    final Held h;
+    synchronized (LOCK) {
+      h = held;
+      held = null;
+    }
+    MAIN.post(
+        () -> {
+          if (heldReleaseRunnable != null) {
+            MAIN.removeCallbacks(heldReleaseRunnable);
+            heldReleaseRunnable = null;
+          }
+        });
+    if (h == null) return;
+    log("handover_release", h.callId, "reason=" + reason);
+    if ("video".equals(h.lane)) {
+      NativeVideoCallActivity.finishIfActive(h.callId, "handover_" + reason);
+    } else {
+      NativeVoiceCallActivity.finishIfActive(h.callId, "handover_" + reason);
+    }
   }
 
   private static Pending take(String callId) {
@@ -351,6 +492,7 @@ public final class NativeCallWaitingPresenter {
           Pending p = take(callId);
           if (p == null) return;
           clearPresentation(app, p.callId);
+          releaseHeld("waiting_timeout");
           // 서버가 울림 만료로 missed 를 확정한다(부재중 알림은 서버 경로). 여기서는 표시만 닫는다.
           log("timeout", p.callId, "afterMs=" + RING_TIMEOUT_MS);
         };
