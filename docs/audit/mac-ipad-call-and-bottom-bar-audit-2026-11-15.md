@@ -226,7 +226,7 @@ NOT_PROVEN: 실제 소리 들림(청취 불가) · 통화 중(busy) · 맥 영�
 | F1 | 맥은 PushKit VoIP 를 OS 가 버린다 | 맥 `callservicesd` `Dropping incoming message` (§1-1) |
 | F2 | 맥은 VoIP 등록(`voip_apns`)만 반복하고 일반 알림(`apns`) 등록 요청을 한 번도 보내지 않았다 | Vercel `/api/me/devices/register` 감사 로그 11:31~12:31 PHT — `provider=voip_apns` 만 14회, `apns` 0회 · `/devices/deactivate`·`/devices/status` 호출 0회 |
 | F3 | 일반 알림 등록은 `ensureNotificationForPushRegister` 가 권한 준비 아님이면 서버 호출 없이 멈춘다 | `register-native-push-client.ts:341-359` |
-| F4 | 맥 알림 권한 상태 = **NOT_PROVEN**. 10:51:02 권한 요청(`Requesting authorization with options 7`) 기록, 11:06 경 맥 시스템 알림 대화상자(UserNotificationCenter)가 떠 있었고 응답하지 않음 | 맥 앱 로그 · 작업자 화면 기록 |
+| F4 | 맥 알림 권한 = **끔** (12:34 PHT 맥 시스템 설정 > 알림 > DIBAY 「끔」 직접 확인, 변경 안 함) → F3 에서 멈춤 = 일반 알림 미등록의 원인. 기기 설정이며 앱 결함 아님 | 시스템 설정 화면 |
 | F5 | 서버는 활성 VoIP 행이 있는 iOS 기기에는 통화 일반 알림을 막는다(VoIP sent 면 차단) | `resolveCallPushProviderPolicy` A4 — 맥 VoIP 는 APNs 200 으로 sent → 맥 일반 수신 알림도 막힘 |
 | F6 | 네이티브 앱에서 웹 수신 배너는 꺼져 있고, iOS 웹 수신 주체 요청도 `isNativeVoiceIncomingLaneEnabled` 면 건너뜀 | `GlobalCommunityMessengerIncomingCall.tsx:1859` · `call-v4-ios-shell-owner-client.ts:17-25` |
 | F7 | iOS 네이티브 수신 시작은 VoIP→`CallKitProvider.reportIncomingCall` 하나뿐, 수락은 `CXAnswerCallAction` → `NativeVoice/VideoIncomingCallCoordinator.handleAnswer` | `CallKitProvider.swift:101, 742-` |
@@ -240,8 +240,7 @@ NOT_PROVEN: 실제 소리 들림(청취 불가) · 통화 중(busy) · 맥 영�
 - 효과: 서버 A4 정책상 이 기기는 「VoIP 없는 iOS 설치」 → 수신·취소가 **일반 APNs 알림**으로 간다(서버 코드 변경 없음).
 
 **D2-2 맥 일반 알림 등록 (F2·F3·F4)**
-- 먼저 맥 시스템 설정 > 알림 > DIBAY 상태를 확인(Owner 맥 설정 — 작업자가 바꾸지 않음). 허용이면 등록이 왜 멈추는지 웹 로그(`[push-register]`)를 계측 빌드로 확인 후 원인별 수정. 미허용이면 기기 설정 — 앱 결함 아님.
-- 이 항목이 PASS 되기 전에는 D2-3·D2-4 를 실기할 수 없다.
+- 확인 결과 맥 알림 = 끔(F4) → 코드 수정 없음. 맥 앱 종료 상태 수신(D2-4)은 Owner 가 맥 알림을 켠 뒤에만 시험 가능. 앱 실행 중 수신(D2-3)은 알림과 무관.
 
 **D2-3 맥 앱 실행 중 수신 화면 (F6·F7)** — 기존 계약 재사용(Android 포그라운드 `web_in_app` 계약과 같은 구조)
 - 벨 UI: 기존 웹 `CallV4IncomingSheet`. 맥이면 `tryClaimIosCapacitorWebIncomingOwner` 의 「네이티브 음성 수신 레인이면 건너뜀」 조건에서 제외(능력 값으로만 분기).
@@ -261,4 +260,4 @@ NOT_PROVEN: 실제 소리 들림(청취 불가) · 통화 중(busy) · 맥 영�
 삼성→맥 음성·영상: 맥 앱 앞 화면 수락 · 맥 앱 뒤(다른 앱 앞) 수락 · 맥 앱 종료 상태 알림 탭 수락 · 거절 · 벨 중 삼성 취소(재울림 없음) · 무응답 · 통화 중(busy) · 종료 후 즉시 재수신. iPhone 수신 회귀 1회 이상.
 
 ### 10-5. Owner 확인 필요 1건
-- 맥 시스템 설정 > 알림 > DIBAY 가 「허용」인지 (D2-2 시작 조건).
+- 맥 알림을 켤지(현재 「끔」) — 켜야 D2-4(앱 종료 상태 수신) 시험 가능. 작업자는 설정을 바꾸지 않는다.
