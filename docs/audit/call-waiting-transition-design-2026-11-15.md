@@ -114,3 +114,8 @@ Dialer 와 같이 「통화가 하나도 없을 때만 통화 화면을 닫는�
 
 ### 범위 밖 관찰 (보고만)
 - T4: 통화를 끝낸 뒤 앱 화면 위에 「통화 중 · 00:36 통화 화면으로 돌아가기」 막대가 약 1초 남았다가 사라짐. 이번 변경 전에도 있었는지 확인 못 함.
+
+## 5. C′ 결과 (Owner 「C′ 구현 승인」 2026-11-15)
+- PR #332 → main `cd3d0a90b` (iOS build 43). 맥 앱 Xcode 실행 build 43 · DibayGitSha cd3d0a90bd8a.
+- 맥 영상 통화(김봉기 → Samsung q테스트1 58, 세션 3bfdb2e0 23:14:46~23:15:09 PHT): 23:14:37.851 `camera_flip_button_visibility visible=false`, 연결 후 버튼 3개(카메라·마이크·종료). 이때 맥 카메라 2개(MacBook Pro + 연속성 카메라 「iPhonebk」) — build 42 FAIL 조건과 같은 상태에서 PASS.
+- NOT_PROVEN: iPhone·iPad 실기기에서 전환 버튼 표시·동작(설치 빌드 필요 — 코드상 `!isIOSAppOnMac` 라 true).
