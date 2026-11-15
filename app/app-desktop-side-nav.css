@@ -1,11 +1,4 @@
 /**
- * 레거시 `MainDesktopSideNav` 클래스 — 컴포넌트는 마운트하지 않는다 (역호환만).
- */
-.app-desktop-side-nav {
-  display: none !important;
-}
-
-/**
  * 데스크톱 왼쪽 세로 레일 (Owner 2026-11-07 FD4 데스크톱 조항 해제 · D1)
  * 설계: docs/audit/windows-desktop-shell-rail-design-2026-11-07.md
  *
