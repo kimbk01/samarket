@@ -133,3 +133,70 @@ iPad 실기 전부 · 맥 음성 발신 · 회색 막대 원인 · + 첨부 시�
 - 영향 경로: 맥 발신 시작 → Agora 참가 → 연결·종료·통화 기록. Agora iOS SDK·카메라가 맥에서 동작하는지는 **실기로만 판정**(NOT_PROVEN).
 - 맥 실기 행렬(D3): 맥→Android/iPhone 음성·영상 발신 · 상대 수락 후 양방향 음성/영상 · 맥 종료 · 상대 종료 · 상대 거절 · 벨 중 맥 취소 · 무응답 타임아웃 · 종료 후 즉시 재발신. 로그 기준: `ios_audio_session_gate_flush_immediate reason=platform_no_callkit_activation` 존재, `ios_audio_session_gate_timeout` 0건.
 - iPhone 회귀 행렬: iPhone 발신 음성·영상 각 1회 이상, 로그에 `platform_no_callkit_activation` 0건·기존 `ios_audio_session_callkit_activated` 경로.
+
+## 7. 설계 대비 구현 대조 (2026-11-15, Owner 「정확히 확인」 지시)
+
+### 7-1. 분석 문장 검증
+
+| 분석 문장 | 근거 | 판정 |
+|---|---|---|
+| 맥은 VoIP 푸시를 OS 가 버린다 | 맥 `callservicesd` 로그 `Dropping incoming message` (10:53:42·10:53:45) + 서버 발송 200 | 확인됨 |
+| 맥은 CallKit `didActivate` 가 오지 않는다 | 발신 2건 모두 8초 뒤 `ios_audio_session_gate_timeout`, `ios_audio_session_callkit_activated` 없음 | 확인됨 |
+| 맥에서도 CallKit 발신 트랜잭션 자체는 성공 | `Received reply from transaction request with error: (null)` | 확인됨 |
+| 음성·영상 발신 모두 gate 하나를 지난다 | `registerPendingOutgoingJoin` 호출처 = Voice·Video 발신 코디네이터 2곳뿐 | 확인됨(코드) |
+| gate 전에 세션이 이미 활성화된다 | `NativeOutgoingRingbackOwner.start` → `prepareOutgoingRingbackRoute` 의 `setActive(true)` 가 gate 등록 전 실행 | 확인됨(코드) |
+| 수신 코디네이터는 gate 를 쓰지 않는다 | 호출처 grep — 수신 코디네이터 0건 | 확인됨(코드) |
+| 앱이 떠 있어도 VoIP 외 수신 경로 없음 | 웹 수신 배너가 네이티브 앱에서 `suppressWebIncomingBannerForNativeAuthority: isCapacitorNativePlatform()` 로 꺼짐 | 확인됨(코드) |
+| 서버는 VoIP 행 없는 iOS 설치에 통화 일반 알림을 보낸다 | `resolveCallPushProviderPolicy` A4 — `iosVoipDeviceIds` 에 없으면 apns 통화 알림 허용 | 확인됨(코드) — 실발송 NOT_PROVEN |
+| 맥은 일반 apns 행이 없다 | 운영 `user_devices` 조회(11:10 PHT) | 확인됨 — 원인 NOT_PROVEN |
+| 회색 막대 = 맥 스크롤 막대 | 모양·세로 막대 동반 | **NOT_PROVEN**(계측 불가) |
+
+### 7-2. 설계 항목별 구현 상태
+
+| 항목 | 상태 | 위치 |
+|---|---|---|
+| D1 플랫폼 능력 단일 정의 | 구현 · 코드 PASS | `DibayCallPlatformCapability.swift`, `AppDelegate` 기록 1줄 (PR #307) |
+| D1 서버 저장(DB 열) | 설계 정정으로 **하지 않음** | §2 「D1 정정」 |
+| D3 맥 발신 오디오 | 구현 · 코드 PASS · 실기 NOT_PROVEN | `DibayCallAudioSessionController.registerPendingOutgoingJoin` (PR #307) |
+| D3 맥 수락 | D2 로 이동 · 미구현 | §6 |
+| D2 맥은 VoIP 미등록·일반 apns 등록 | 미구현 | — |
+| D2 맥 앱 실행 중 수신 화면 | 미구현 · 수신 화면 주체 Owner 결정 필요 | — |
+| D2 맥 일반 apns 행 미생성 원인 | 미확인 | — |
+| 빌드 번호 | iOS 35 → 36 (4곳) · `--release --ios-only` RELEASE READY | PR #307 |
+| 회색 막대 원인 계측 | 미착수(계측 빌드 필요) | §3 |
+| iPad 실기 | NOT_PROVEN(실기기 없음 — 연결 기기: iPhone 13 mini unavailable, 나머지 시뮬레이터) | — |
+
+## 8. build 36 맥 실기 (2026-11-15 PHT, 맥 김봉기 1.2.2 (36) Debug · 삼성 SM-M156S q테스트1 1.2.6 (52))
+
+설치 확인: 맥 `user_devices.app_version = 1.2.2 (36)` 11:50:29 · 앱 로그 `call_platform_capability ios_app_on_mac=true voip_push=false callkit_audio_activation=false`.
+
+| 시험 | callId | DB | 판정 |
+|---|---|---|---|
+| 삼성→맥 음성(맥 수신) | 2b96…e7df | 12:02:20 생성 · 12:02:51 missed | **FAIL** (D2 범위). 이번 VoIP 발송은 `BadDeviceToken` 400 — Debug 서명 빌드의 VoIP 토큰은 개발용인데 서버는 운영 APNs 로 보냄 → 맥 VoIP 행 비활성화됨 |
+| 맥→삼성 음성 발신 | 3731…2d22 | 12:03:35 생성 · 12:03:36 cancelled | **FAIL** — D3 gate 는 즉시 통과(`platform_no_callkit_activation`)·Agora local join 성공. 0.9초 뒤 CallKit 종료 동작으로 끝남 |
+| 맥→삼성 영상 발신 → 삼성 수락 → 맥 종료 | 7d44…bedb | 12:04:38 생성 · 12:04:54 answered · 12:04:55 connected · 12:05:25 ended_by_caller | **PASS(화면)** — 맥·삼성 양쪽 상대 카메라 영상 표시, 30초 유지, 맥 종료 후 양쪽 종료. 음성 들림은 NOT_PROVEN(청취 불가) |
+
+### 새로 확인된 원인 (D3 이후 남은 맥 발신 결함)
+맥 시스템 로그(12:03:35~36):
+1. 앱 `CXStartCallAction` → `callservicesd` 가 통화 화면용으로 **FaceTime 앱을 실행**(`launchedByLS=1`).
+2. FaceTime: `The app was launched with a URL. Terminating the app because it is not displaying anything.` → 종료.
+3. `callservicesd`: `Disconnecting all calls because wantsCallDisconnectionOnInvalidation=YES` → `disconnectCallWithReason: 41` → 앱에 `CXEndCallAction`.
+4. 음성: `termination_decision ... source=callkit_system_button` → 종료(3731…2d22). 영상: 같은 종료 동작이 12:04:39 에 왔지만 영상 경로는 종료하지 않고 계속 진행(경로별 처리 차이 — 보고만).
+
+→ 맥에서는 **CallKit 발신 보고 자체가 통화를 끊는다.** gate 제거(D3)만으로는 부족.
+
+### D3-2 설계안 (승인 대기 — 통화 변경 규정 3번)
+- 변경 1곳: `CallKitProvider.reportOutgoingCallStarted` — `DibayCallPlatformCapability` 에 `supportsCallKitCallUi`(iPhone·iPad true, Mac false) 추가, false 면 `CXStartCallAction` 을 요청하지 않고 기록만 남기고 반환(세션 추적 맵에도 넣지 않음).
+- 영향 확인(코드):
+  - 음성 로컬 종료 `handleRejectOrEnd` 는 `hasTrackedCallKitSession == false` 이면 CallKit 없이 바로 `performLocalRejectOrEnd` → 맥 종료 버튼 정상 경로 유지.
+  - 원격 종료·무응답의 `reportCallEnded` 는 추적 안 된 UUID 에 대해 CallKit 이 무시 → 무해.
+  - 호출처 3곳(음성·영상 발신 코디네이터, `NativeCallServicePlugin`) 모두 이 함수 하나를 지남.
+- iPhone·iPad: 값 true → 기존 CallKit 발신 그대로(코드 경로 무변경).
+- 맥에서 잃는 것: 맥 시스템 통화 표시(FaceTime UI·통화 기록) — 지금도 FaceTime 이 즉시 종료되어 표시되지 않음.
+- 검증: 맥→삼성 음성·영상 발신·수락·맥 종료·삼성 종료·삼성 거절·벨 중 맥 취소·무응답·재발신, iPhone 발신 회귀 1회 이상. 로그 기준 `Disconnecting all calls` 0건.
+
+### D3-2 구현 기록 (Owner 「D3-2 승인」)
+- `DibayCallPlatformCapability.supportsCallKitCallUi` 추가(맥 false) · 시작 기록에 `callkit_call_ui` 포함.
+- `CallKitProvider.reportOutgoingCallStarted` — false 면 `ios_callkit_outgoing_report_skipped` 기록 후 반환(추적 맵 미기록).
+- 영향 재확인: `reportCallEnded`/`endCallKitSession` 은 추적 안 된 UUID 에도 기존과 같은 경로(영상 여부 값은 원래 수신 보고 때만 기록 — 발신은 iPhone 에서도 false). 음성 로컬 종료는 `hasTrackedCallKitSession == false` → `performLocalRejectOrEnd`.
+- iOS build 36 → 37 (4곳).

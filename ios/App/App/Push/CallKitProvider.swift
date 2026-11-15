@@ -573,6 +573,18 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
   /** P4 — outgoing/active CallKit session for connected calls */
   func reportOutgoingCallStarted(sessionId: String, hasVideo: Bool, peerName: String = "") {
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    // D3-2 (docs/audit/mac-ipad-call-and-bottom-bar-audit-2026-11-15.md §8): Mac 은 CallKit 발신 보고가
+    // FaceTime 실행·종료 → 시스템 「모든 통화 끊기」로 통화를 끊는다. 보고하지 않고 추적 맵에도 넣지 않는다
+    // (`hasTrackedCallKitSession == false` → 로컬 종료는 CallKit 없이 `performLocalRejectOrEnd`).
+    // iPhone·iPad 는 아래 기존 경로 그대로.
+    guard DibayCallPlatformCapability.supportsCallKitCallUi else {
+      DibayCallLog.warn(
+        "ios_callkit_outgoing_report_skipped",
+        sessionId: sid,
+        detail: "reason=platform_no_callkit_call_ui video=\(hasVideo)"
+      )
+      return
+    }
     let uuid = uuidFromSession(sessionId: sid)
     callUuidBySessionId[sid] = uuid
     outgoingSessionIds.insert(sid)
