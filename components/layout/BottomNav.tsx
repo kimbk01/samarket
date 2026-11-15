@@ -81,7 +81,7 @@ import type {
 } from "@/contexts/LatestMenuNavigationContext";
 import { shouldDeferUnreadBadgeRepaint } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import { useRegion } from "@/contexts/RegionContext";
-import { triggerBottomNavSelectionFeedback } from "@/lib/ui/light-tap-feedback";
+import { prewarmBottomNavHaptics, triggerBottomNavSelectionFeedback } from "@/lib/ui/light-tap-feedback";
 import {
   beginBottomNavShowing,
   failBottomNavShowing,
@@ -748,6 +748,10 @@ export function BottomNav({
    */
   const showing = useBottomNavShowingTarget();
   const showingTabId = showing?.tabId ?? null;
+  /** 네이티브 선택 햅틱 모듈 미리 불러 두기(S4) — 첫 탭부터 네이티브 햅틱 */
+  useEffect(() => {
+    prewarmBottomNavHaptics();
+  }, []);
 
   /** 앱 복귀 즉시 하단 탭 상태 재정렬 — 사장님 하단 탭과 같은 작업(`use-bottom-nav-resume-ui-task`) */
   useBottomNavResumeUiTask();
