@@ -185,9 +185,10 @@ public final class NativeVideoCallRuntime {
     SESSIONS.put(sid, session);
     DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_RINGING);
     IncomingCallRingOwner.start(app, sid);
+    // 이어받기는 잠금 화면에서도 앞 화면 경로 — 시작 주체가 잠금 위에 보이는 우리 통화 화면이고 두 통화 화면은
+    // showWhenLocked·turnScreenOn (실기 T7 FAIL 수정 설계 B2-1 · Owner 「B2 구현 승인」 2026-11-15).
     boolean handover =
-        NativeCallWaitingPresenter.isHandoverLaunch(sid)
-            && DibayKeyguardHelper.isForegroundUnlockedInteractive(true, app);
+        NativeCallWaitingPresenter.isHandoverLaunch(sid) && DibayKeyguardHelper.isInteractive(app);
     if (handover || shouldStartForegroundVisibleActivity(app)) {
       startForegroundVisibleActivity(app, session, handover);
     } else {
@@ -1335,6 +1336,7 @@ public final class NativeVideoCallRuntime {
       return;
     }
     NativeVideoCallLog.info("foreground_visible_activity_start_allowed", callId, "handover=" + handover);
+    if (handover) NativeCallWaitingPresenter.markHandoverLaunched(callId);
     android.content.Intent intent = new android.content.Intent(context, NativeVideoCallActivity.class);
     // 대기 통화 이어받기: 끝난 통화 화면이 남아 있는 같은 작업을 비우고 새 화면을 그 자리에 넣는다(AOSP ActivityStarter
     // NEW_TASK|CLEAR_TASK = performClearTaskForReuse — 작업이 사라지지 않아 홈이 드러나지 않음). 그 밖은 기존 플래그.

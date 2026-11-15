@@ -153,6 +153,8 @@ public final class NativeCallWaitingPresenter {
   private static Held held;
   /** 지금 promote 가 앞 화면 이어받기로 띄우는 통화 id(런타임이 시작 방식을 고를 때 읽음). */
   private static String handoverLaunchCallId;
+  /** 런타임이 이어받기 앞 화면 시작을 실제로 했는지(promote 1회 동안). 안 했으면 남겨 둔 화면을 바로 닫는다(설계 B2-2). */
+  private static boolean handoverLaunched;
   private static Runnable heldReleaseRunnable;
   /** 지금 올라가 있는 대기 알림이 조용한 알림인지(보임 상태가 바뀔 때만 다시 올리기 위함). */
   private static Boolean postedQuiet;
@@ -253,6 +255,14 @@ public final class NativeCallWaitingPresenter {
     if (callId == null) return false;
     synchronized (LOCK) {
       return callId.trim().equals(handoverLaunchCallId);
+    }
+  }
+
+  /** 런타임이 이어받기 앞 화면 시작을 했음을 알린다. */
+  public static void markHandoverLaunched(String callId) {
+    if (callId == null) return;
+    synchronized (LOCK) {
+      if (callId.trim().equals(handoverLaunchCallId)) handoverLaunched = true;
     }
   }
 
@@ -390,17 +400,31 @@ public final class NativeCallWaitingPresenter {
     synchronized (LOCK) {
       handover = held != null && callScreenVisible;
       handoverLaunchCallId = handover ? p.callId : null;
+      handoverLaunched = false;
     }
     boolean presented;
+    final boolean launched;
+    final boolean stillHeld;
     try {
       presented = presentPromoted(app, p, accept);
     } finally {
       synchronized (LOCK) {
+        launched = handoverLaunched;
+        stillHeld = held != null;
         handoverLaunchCallId = null;
+        handoverLaunched = false;
       }
     }
-    log("promote", p.callId, "accept=" + accept + " presented=" + presented + " handover=" + handover);
-    if (!presented) releaseHeld("promote_not_presented");
+    log(
+        "promote",
+        p.callId,
+        "accept=" + accept + " presented=" + presented + " handover=" + handover + " launched=" + launched);
+    if (!presented) {
+      releaseHeld("promote_not_presented");
+    } else if (stillHeld && !launched) {
+      // 이어받기를 못 함(화면 꺼짐 등) — 남겨 둔 화면이 새 수신 표시를 가리지 않게 바로 닫는다(이전 동작과 같아짐).
+      releaseHeld("handover_not_launched");
+    }
   }
 
   private static boolean presentPromoted(Context app, Pending p, boolean accept) {
