@@ -260,6 +260,8 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
       NativeVideoCallUiHost.publishPipEndActionIfNeeded(callId: sid)
       log("ios_native_video_local_end", sid, "state=\(snap.state)")
       do { try NativeVideoCallRuntime.shared.beginEnd(sessionId: sid) } catch { /* */ }
+      // R4 (docs/audit/ios-outgoing-ringback-stop-design-2026-11-15.md): 끊는 순간 발신음·종료 감시 정지(서버 응답 대기 없음).
+      stopOutgoingResiduals(sessionId: sid, reason: "local_end_begin")
       NativeVideoCallBridge.publishLocalTerminal(sessionId: sid, reason: "ended", source: "local_end_begin")
       NativeVideoCallApi.endAsync(callId: sid) { [weak self] _, _, _ in
         do { try NativeVideoCallRuntime.shared.markEnded(sessionId: sid) } catch { /* */ }
@@ -527,6 +529,10 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
     cancelConnectingTimeout()
     log("ios_native_video_cleanup_started", sid, "reason=\(reason)")
 
+    // R3 (docs/audit/ios-outgoing-ringback-stop-design-2026-11-15.md): 모든 정리 경로에서 발신음·종료 감시를 직접 멈춘다
+    // (Android·Telegram·Signal 동일). 오디오 세션 끄기의 부수 효과에 기대지 않는다.
+    stopOutgoingResiduals(sessionId: sid, reason: "cleanup_\(reason)")
+
     if let serverAction {
       if serverAction == "end" {
         NativeVideoCallApi.endAsync(callId: sid) { _, _, _ in }
@@ -597,6 +603,12 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
   private func isStillAccepting(sessionId: String) -> Bool {
     let snap = NativeVideoCallRuntime.shared.snapshot()
     return snap.session?.sessionId == sessionId && snap.state == .accepting
+  }
+
+  /// 발신 쪽 잔여(발신음·서버 종료 감시) 정지 — 이 callId 가 지금 대상일 때만 동작(수신 통화 정리에도 안전).
+  private func stopOutgoingResiduals(sessionId sid: String, reason: String) {
+    NativeOutgoingRingbackOwner.shared.stopIfActive(callId: sid, reason: reason)
+    NativeOutgoingTerminalWatch.shared.stop(callId: sid, reason: reason)
   }
 
   private func log(_ event: String, _ sessionId: String, _ extra: String = "") {
