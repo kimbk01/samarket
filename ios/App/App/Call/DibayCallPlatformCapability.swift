@@ -42,12 +42,20 @@ enum DibayCallPlatformCapability {
     !isIOSAppOnMac
   }
 
+  /// 영상 통화 카메라 전환(앞↔뒤)이 동작하는 플랫폼인가 (iPhone · iPad = true, Mac = false).
+  /// 맥 실측(2026-11-15 PHT): build 41 카메라 1개(22:19, MacBook 만)·build 42 카메라 2개(23:02, MacBook + 연속성 카메라
+  /// iPhone15,3) 모두 `camera_facing_switch result=0` 이지만 상대에게 보내는 영상이 바뀌지 않음 — 카메라 수와 무관.
+  /// 소비처: `NativeVideoCallViewController` 카메라 전환 버튼 표시.
+  static var supportsCameraFacingSwitch: Bool {
+    !isIOSAppOnMac
+  }
+
   static func logOnce() {
     guard !didLog else { return }
     didLog = true
     DibayCallLog.warn(
       "call_platform_capability",
-      detail: "ios_app_on_mac=\(isIOSAppOnMac) voip_push=\(supportsVoipPush) callkit_audio_activation=\(supportsCallKitAudioActivation) callkit_call_ui=\(supportsCallKitCallUi)"
+      detail: "ios_app_on_mac=\(isIOSAppOnMac) voip_push=\(supportsVoipPush) callkit_audio_activation=\(supportsCallKitAudioActivation) callkit_call_ui=\(supportsCallKitCallUi) camera_facing_switch=\(supportsCameraFacingSwitch)"
     )
   }
 
