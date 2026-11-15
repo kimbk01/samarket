@@ -23,6 +23,7 @@ import {
 } from "@/lib/community-messenger/message-actions/message-share-policy";
 import { MessageActionMenu } from "@/components/community-messenger/room/message/MessageActionMenu";
 import { MessageReactionBar } from "@/components/community-messenger/room/message/MessageReactionBar";
+import { ChatEmojiPicker } from "@/components/chat-ui/ChatEmojiPicker";
 import {
   messengerImageOriginalUrlSlots,
   resolveMessengerImageSaveMode,
@@ -73,6 +74,8 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
     left: anchorRect.left,
   });
   const [shareExpanded, setShareExpanded] = useState(false);
+  /** 「+」로 연 반응용 이모지 피커 — 열리면 메뉴 대신 피커를 그린다 */
+  const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
   /**
    * 사진 저장 — 메뉴 구성은 `buildMessengerPhotoSaveMenu` 단일 정의.
    * 단일 「사진 저장」 · 앨범 「이 사진 저장」(눌린 칸) · 「사진 모두 저장 (N장)」 · 「사진 선택해서 저장」.
@@ -335,12 +338,23 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
         aria-modal="true"
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <MessageReactionBar
-          enabled={Boolean(reactAction?.enabled)}
-          onPick={(k) => {
-            props.onReaction(k);
-          }}
-        />
+        {reactionPickerOpen && reactAction?.enabled ? (
+          <ChatEmojiPicker
+            onPick={(emoji) => {
+              setReactionPickerOpen(false);
+              props.onReaction(emoji);
+            }}
+          />
+        ) : (
+          <MessageReactionBar
+            enabled={Boolean(reactAction?.enabled)}
+            onPick={(k) => {
+              props.onReaction(k);
+            }}
+            onMore={() => setReactionPickerOpen(true)}
+          />
+        )}
+        {reactionPickerOpen ? null : (
         <MessageActionMenu
           roomUnavailable={roomUnavailable}
           showCopy={!isCallStub}
@@ -407,6 +421,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
           reportMessage={props.onReportMessage ? { onClick: props.onReportMessage } : undefined}
           blockSender={props.onBlockSender ? { onClick: props.onBlockSender } : undefined}
         />
+        )}
       </div>
     </div>
   );
