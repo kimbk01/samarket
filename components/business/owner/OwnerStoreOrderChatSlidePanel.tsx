@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { AppBackIcon } from "@/components/navigation/AppBackButton";
+import { HeaderBackRoundButton } from "@/components/navigation/HeaderBackRoundButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { CommunityMessengerRoomClient } from "@/components/community-messenger/CommunityMessengerRoomClient";
@@ -201,14 +201,11 @@ export function OwnerStoreOrderChatSlidePanel({
         >
           {awaitingRoomId ?
             <header className="flex shrink-0 items-center gap-2 border-b border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] px-2 py-2">
-              <button
-                type="button"
+              <HeaderBackRoundButton
                 onClick={requestClose}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[color:var(--delivery-dark)] hover:bg-[color:var(--delivery-primary-soft)]"
+                className="flex h-10 w-10 shrink-0 items-center justify-center text-[color:var(--delivery-dark)]"
                 aria-label={t("store_owner_aria_exit_orders")}
-              >
-                <AppBackIcon />
-              </button>
+              />
               <p className="min-w-0 flex-1 truncate text-[15px] font-bold leading-[1.35] text-[color:var(--delivery-dark)]">
                 {t("store_owner_order_progress_chat_title")}
               </p>

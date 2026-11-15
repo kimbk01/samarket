@@ -4,7 +4,8 @@ import { memo, useMemo, useState, type ReactNode } from "react";
 import { useParams } from "next/navigation";
 import { MessengerHeader } from "@/components/community-messenger/line-ui";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
-import { AppBackIcon } from "@/components/navigation/AppBackButton";
+import { AppBackChevronIcon } from "@/components/navigation/HeaderBackRoundButton";
+import { SECTOR_HEADER_BACK_ROUND_CLASS } from "@/lib/ui/sector-header-classes";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import {
@@ -29,7 +30,6 @@ export const SPLIT_ROOM_ENTRY_FRAME_HEADER_CLASS =
 export const SPLIT_ROOM_ENTRY_FRAME_STATUS_LINE_CLASS =
   "truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]";
 const HEADER_TOUCH_BTN_CLASS = "group relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full";
-const HEADER_TOUCH_FACE_CLASS = "flex h-9 w-9 items-center justify-center rounded-full transition";
 
 export const MessengerSplitRoomEntryFrame = memo(function MessengerSplitRoomEntryFrame({
   roomId,
@@ -64,10 +64,12 @@ export const MessengerSplitRoomEntryFrame = memo(function MessengerSplitRoomEntr
       className="cm-room-shell flex min-h-0 flex-1 flex-col overflow-hidden"
     >
       <MessengerHeader className={SPLIT_ROOM_ENTRY_FRAME_HEADER_CLASS}>
-        <span className={`${HEADER_TOUCH_BTN_CLASS} self-center text-[color:var(--cm-room-text)]`} aria-hidden>
-          <span className={HEADER_TOUCH_FACE_CLASS}>
-            <AppBackIcon />
-          </span>
+        {/* 장식(누를 수 없음) — 방 헤더 뒤로와 같은 원형·SVG 꺾쇠 모양만 맞춤, 눌림·소리 없음 */}
+        <span
+          className={`${HEADER_TOUCH_BTN_CLASS} ${SECTOR_HEADER_BACK_ROUND_CLASS} self-center text-[color:var(--cm-room-text)]`}
+          aria-hidden
+        >
+          <AppBackChevronIcon />
         </span>
         {seed ? (
           <div className="flex min-w-0 flex-1 items-center gap-2 self-center" aria-hidden>

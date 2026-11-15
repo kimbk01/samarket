@@ -5,7 +5,8 @@ import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useState } f
 import { useMessengerRoomCallChoice } from "@/components/community-messenger/room/phase2/use-messenger-room-call-choice";
 import { resolveStoreOrderBuyerDialPeerLabel } from "@/lib/community-messenger/room/phase2/store-order-buyer-dial-peer-label";
 import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
-import { BackIcon, MoreIcon } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import { MoreIcon } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import { HeaderBackRoundButton } from "@/components/navigation/HeaderBackRoundButton";
 import { useMessengerRoomPhase2HeaderView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
 import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
 import {
@@ -335,18 +336,24 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
           : undefined
       }
     >
-        <button
-          type="button"
-          onClick={handleBack}
-          className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} self-center text-[color:var(--cm-room-text)]`}
-          aria-label={buyerSlideHost ? vm.t("common_close") : vm.t("tier1_back")}
-        >
-          <span className={CM_ROOM_HEADER_TOUCH_FACE_CLASS}>
-            {buyerSlideHost ?
+        {buyerSlideHost ?
+          <button
+            type="button"
+            onClick={handleBack}
+            className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} self-center text-[color:var(--cm-room-text)]`}
+            aria-label={vm.t("common_close")}
+          >
+            <span className={CM_ROOM_HEADER_TOUCH_FACE_CLASS}>
               <X className="h-6 w-6" aria-hidden />
-            : <BackIcon />}
-          </span>
-        </button>
+            </span>
+          </button>
+        : /** 뒤로 = 헤더 공용 원형(원 36·눌림·소리·SVG 꺾쇠) — 이동은 handleBack 그대로. 📞·⋯ 버튼·상수 무변경 */
+          <HeaderBackRoundButton
+            onClick={handleBack}
+            className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} self-center text-[color:var(--cm-room-text)]`}
+            aria-label={vm.t("tier1_back")}
+          />
+        }
 
         {useDeliveryHeaderBlock ? (
           <StoreOrderDeliveryMessengerHeaderBlock

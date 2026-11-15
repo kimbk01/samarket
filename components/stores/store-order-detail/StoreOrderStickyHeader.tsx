@@ -162,7 +162,15 @@ export function StoreOrderStickyHeader({
           /* WP6 — 매장 화면: 「← 매장명」 왼쪽 정렬, 아이콘을 뺀 나머지 폭 전체 사용(「소담…」 잘림 결함)
            * WP7 — 메뉴 상세도 「← 메뉴명」 왼쪽 정렬 */
           centerAlign="left"
-          leading={<StoreDetailBackLink storeSlug={storeSlug} fallbackHref={fallbackHref} className={backBtnClass} />}
+          leading={
+            <StoreDetailBackLink
+              storeSlug={storeSlug}
+              fallbackHref={fallbackHref}
+              className={backBtnClass}
+              /* 흰 헤더(elevated) = 원형, 사진 위 = 지금 모양(배달 매장 헤더 계약) */
+              round={elevated}
+            />
+          }
           trailing={
             <>
               {isStoreMenu && onShareClick ? (

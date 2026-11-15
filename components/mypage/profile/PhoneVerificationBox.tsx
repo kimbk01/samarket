@@ -17,6 +17,7 @@ import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 import { resolveMemberPhoneState } from "@/lib/profile/member-account-status";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
+import { HeaderBackRoundButton } from "@/components/navigation/HeaderBackRoundButton";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import {
   fetchPhoneVerificationJson,
@@ -537,16 +538,11 @@ export function PhoneVerificationBox({
     return (
       <div className="flex flex-col" data-testid="phone-verify-country-list">
         <div className="flex h-11 items-center">
-          <button
-            type="button"
+          <HeaderBackRoundButton
             aria-label={t("nav_back")}
-            className="flex h-11 w-11 items-center justify-center"
+            className="flex h-11 w-11 items-center justify-center text-sam-fg"
             onClick={() => setStep("phone")}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M15 5l-7 7 7 7" />
-            </svg>
-          </button>
+          />
           <p className="flex-1 pr-11 text-center text-[16px] font-bold text-sam-fg">{t("my_phone_tg_country_title")}</p>
         </div>
         <div role="radiogroup" aria-label={t("my_phone_country_code_label")} className="border-t border-sam-border">

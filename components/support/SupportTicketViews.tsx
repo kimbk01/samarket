@@ -9,7 +9,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Check, X } from "lucide-react";
+import { ChevronRight, Check, X } from "lucide-react";
+import { HeaderBackRoundButton } from "@/components/navigation/HeaderBackRoundButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayOverlayButton, dibayConfirm } from "@/components/ui/dibay-overlay";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
@@ -73,15 +74,12 @@ export function SupportTicketHeader({
       data-form-keyboard-sticky-chrome="1"
     >
       {onBack ? (
-        <button
-          type="button"
+        <HeaderBackRoundButton
           className="flex h-12 w-12 items-center justify-center text-[var(--overlay-text-primary)]"
           aria-label={t("support_ticket_back_aria")}
           data-support-ticket-back="1"
           onClick={onBack}
-        >
-          <ChevronLeft className="h-6 w-6" strokeWidth={2} aria-hidden />
-        </button>
+        />
       ) : (
         <span aria-hidden />
       )}

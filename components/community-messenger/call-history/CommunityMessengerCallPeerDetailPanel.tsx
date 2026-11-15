@@ -1,7 +1,7 @@
 "use client";
 
 import { MessageCircle, MoreHorizontal } from "lucide-react";
-import { AppBackIcon } from "@/components/navigation/AppBackButton";
+import { HeaderBackRoundButton } from "@/components/navigation/HeaderBackRoundButton";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -130,14 +130,11 @@ export function CommunityMessengerCallPeerDetailPanel({
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
       <header className="flex shrink-0 items-center justify-between px-2 pb-2 pt-[max(8px,env(safe-area-inset-top))]">
-        <button
-          type="button"
+        <HeaderBackRoundButton
           aria-label={t("nav_back")}
           onClick={() => requestClose?.()}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full text-sam-fg active:bg-sam-surface-muted"
-        >
-          <AppBackIcon />
-        </button>
+          className="inline-flex h-11 w-11 items-center justify-center text-sam-fg"
+        />
         <button
           type="button"
           aria-label={t("cm_ui_call_peer_detail_more_aria")}

@@ -1,0 +1,2174 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>헤더 뒤로 원형 시안</title>
+<style>@font-face{font-family:'Pretendard Variable';font-weight:45 920;font-display:block;src:url(https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/woff2/PretendardVariable.woff2) format('woff2-variations')}</style>
+<style>/* tailwind preflight (원문 · 앱과 같이 @layer base) */
+@layer theme, base, components, utilities;
+@layer base {
+/*
+  1. Prevent padding and border from affecting element width. (https://github.com/mozdevs/cssremedy/issues/4)
+  2. Remove default margins and padding
+  3. Reset all borders.
+*/
+
+*,
+::after,
+::before,
+::backdrop,
+::file-selector-button {
+  box-sizing: border-box; /* 1 */
+  margin: 0; /* 2 */
+  padding: 0; /* 2 */
+  border: 0 solid; /* 3 */
+}
+
+/*
+  1. Use a consistent sensible line-height in all browsers.
+  2. Prevent adjustments of font size after orientation changes in iOS.
+  3. Use a more readable tab size.
+  4. Use the user's configured `sans` font-family by default.
+  5. Use the user's configured `sans` font-feature-settings by default.
+  6. Use the user's configured `sans` font-variation-settings by default.
+  7. Disable tap highlights on iOS.
+*/
+
+html,
+:host {
+  line-height: 1.5; /* 1 */
+  -webkit-text-size-adjust: 100%; /* 2 */
+  tab-size: 4; /* 3 */
+  font-family: 'Pretendard Variable', system-ui, -apple-system, sans-serif; /* 4 */
+  font-feature-settings: normal; /* 5 */
+  font-variation-settings: normal; /* 6 */
+  -webkit-tap-highlight-color: transparent; /* 7 */
+}
+
+/*
+  1. Add the correct height in Firefox.
+  2. Correct the inheritance of border color in Firefox. (https://bugzilla.mozilla.org/show_bug.cgi?id=190655)
+  3. Reset the default border style to a 1px solid border.
+*/
+
+hr {
+  height: 0; /* 1 */
+  color: inherit; /* 2 */
+  border-top-width: 1px; /* 3 */
+}
+
+/*
+  Add the correct text decoration in Chrome, Edge, and Safari.
+*/
+
+abbr:where([title]) {
+  -webkit-text-decoration: underline dotted;
+  text-decoration: underline dotted;
+}
+
+/*
+  Remove the default font size and weight for headings.
+*/
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+/*
+  Reset links to optimize for opt-in styling instead of opt-out.
+*/
+
+a {
+  color: inherit;
+  -webkit-text-decoration: inherit;
+  text-decoration: inherit;
+}
+
+/*
+  Add the correct font weight in Edge and Safari.
+*/
+
+b,
+strong {
+  font-weight: bolder;
+}
+
+/*
+  1. Use the user's configured `mono` font-family by default.
+  2. Use the user's configured `mono` font-feature-settings by default.
+  3. Use the user's configured `mono` font-variation-settings by default.
+  4. Correct the odd `em` font sizing in all browsers.
+*/
+
+code,
+kbd,
+samp,
+pre {
+  font-family: ui-monospace, monospace; /* 1 */
+  font-feature-settings: normal; /* 2 */
+  font-variation-settings: normal; /* 3 */
+  font-size: 1em; /* 4 */
+}
+
+/*
+  Add the correct font size in all browsers.
+*/
+
+small {
+  font-size: 80%;
+}
+
+/*
+  Prevent `sub` and `sup` elements from affecting the line height in all browsers.
+*/
+
+sub,
+sup {
+  font-size: 75%;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+
+sub {
+  bottom: -0.25em;
+}
+
+sup {
+  top: -0.5em;
+}
+
+/*
+  1. Remove text indentation from table contents in Chrome and Safari. (https://bugs.chromium.org/p/chromium/issues/detail?id=999088, https://bugs.webkit.org/show_bug.cgi?id=201297)
+  2. Correct table border color inheritance in all Chrome and Safari. (https://bugs.chromium.org/p/chromium/issues/detail?id=935729, https://bugs.webkit.org/show_bug.cgi?id=195016)
+  3. Remove gaps between table borders by default.
+*/
+
+table {
+  text-indent: 0; /* 1 */
+  border-color: inherit; /* 2 */
+  border-collapse: collapse; /* 3 */
+}
+
+/*
+  Use the modern Firefox focus style for all focusable elements.
+*/
+
+:-moz-focusring {
+  outline: auto;
+}
+
+/*
+  Add the correct vertical alignment in Chrome and Firefox.
+*/
+
+progress {
+  vertical-align: baseline;
+}
+
+/*
+  Add the correct display in Chrome and Safari.
+*/
+
+summary {
+  display: list-item;
+}
+
+/*
+  Make lists unstyled by default.
+*/
+
+ol,
+ul,
+menu {
+  list-style: none;
+}
+
+/*
+  1. Make replaced elements `display: block` by default. (https://github.com/mozdevs/cssremedy/issues/14)
+  2. Add `vertical-align: middle` to align replaced elements more sensibly by default. (https://github.com/jensimmons/cssremedy/issues/14#issuecomment-634934210)
+      This can trigger a poorly considered lint error in some tools but is included by design.
+*/
+
+img,
+svg,
+video,
+canvas,
+audio,
+iframe,
+embed,
+object {
+  display: block; /* 1 */
+  vertical-align: middle; /* 2 */
+}
+
+/*
+  Constrain images and videos to the parent width and preserve their intrinsic aspect ratio. (https://github.com/mozdevs/cssremedy/issues/14)
+*/
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+/*
+  1. Inherit font styles in all browsers.
+  2. Remove border radius in all browsers.
+  3. Remove background color in all browsers.
+  4. Ensure consistent opacity for disabled states in all browsers.
+*/
+
+button,
+input,
+select,
+optgroup,
+textarea,
+::file-selector-button {
+  font: inherit; /* 1 */
+  font-feature-settings: inherit; /* 1 */
+  font-variation-settings: inherit; /* 1 */
+  letter-spacing: inherit; /* 1 */
+  color: inherit; /* 1 */
+  border-radius: 0; /* 2 */
+  background-color: transparent; /* 3 */
+  opacity: 1; /* 4 */
+}
+
+/*
+  Restore default font weight.
+*/
+
+:where(select:is([multiple], [size])) optgroup {
+  font-weight: bolder;
+}
+
+/*
+  Restore indentation.
+*/
+
+:where(select:is([multiple], [size])) optgroup option {
+  padding-inline-start: 20px;
+}
+
+/*
+  Restore space after button.
+*/
+
+::file-selector-button {
+  margin-inline-end: 4px;
+}
+
+/*
+  Reset the default placeholder opacity in Firefox. (https://github.com/tailwindlabs/tailwindcss/issues/3300)
+*/
+
+::placeholder {
+  opacity: 1;
+}
+
+/*
+  Set the default placeholder color to a semi-transparent version of the current text color in browsers that do not
+  crash when using `color-mix(…)` with `currentcolor`. (https://github.com/tailwindlabs/tailwindcss/issues/17194)
+*/
+
+@supports (not (-webkit-appearance: -apple-pay-button)) /* Not Safari */ or
+  (contain-intrinsic-size: 1px) /* Safari 17+ */ {
+  ::placeholder {
+    color: color-mix(in oklab, currentcolor 50%, transparent);
+  }
+}
+
+/*
+  Prevent resizing textareas horizontally by default.
+*/
+
+textarea {
+  resize: vertical;
+}
+
+/*
+  Remove the inner padding in Chrome and Safari on macOS.
+*/
+
+::-webkit-search-decoration {
+  -webkit-appearance: none;
+}
+
+/*
+  1. Ensure date/time inputs have the same height when empty in iOS Safari.
+  2. Ensure text alignment can be changed on date/time inputs in iOS Safari.
+*/
+
+::-webkit-date-and-time-value {
+  min-height: 1lh; /* 1 */
+  text-align: inherit; /* 2 */
+}
+
+/*
+  Prevent height from changing on date/time inputs in macOS Safari when the input is set to `display: block`.
+*/
+
+::-webkit-datetime-edit {
+  display: inline-flex;
+}
+
+/*
+  Remove excess padding from pseudo-elements in date/time inputs to ensure consistent height across browsers.
+*/
+
+::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}
+
+::-webkit-datetime-edit,
+::-webkit-datetime-edit-year-field,
+::-webkit-datetime-edit-month-field,
+::-webkit-datetime-edit-day-field,
+::-webkit-datetime-edit-hour-field,
+::-webkit-datetime-edit-minute-field,
+::-webkit-datetime-edit-second-field,
+::-webkit-datetime-edit-millisecond-field,
+::-webkit-datetime-edit-meridiem-field {
+  padding-block: 0;
+}
+
+/*
+  Center dropdown marker shown on inputs with paired `<datalist>`s in Chrome. (https://github.com/tailwindlabs/tailwindcss/issues/18499)
+*/
+
+::-webkit-calendar-picker-indicator {
+  line-height: 1;
+}
+
+/*
+  Remove the additional `:invalid` styles in Firefox. (https://github.com/mozilla/gecko-dev/blob/2f9eacd9d3d995c937b4251a5557d95d494c9be1/layout/style/res/forms.css#L728-L737)
+*/
+
+:-moz-ui-invalid {
+  box-shadow: none;
+}
+
+/*
+  Correct the inability to style the border radius in iOS Safari.
+*/
+
+button,
+input:where([type='button'], [type='reset'], [type='submit']),
+::file-selector-button {
+  appearance: button;
+}
+
+/*
+  Correct the cursor style of increment and decrement buttons in Safari.
+*/
+
+::-webkit-inner-spin-button,
+::-webkit-outer-spin-button {
+  height: auto;
+}
+
+/*
+  Make elements with the HTML hidden attribute stay hidden by default.
+*/
+
+[hidden]:where(:not([hidden='until-found'])) {
+  display: none !important;
+}
+
+}</style>
+<style>/* app/design-tokens.css (원문 · origin/main dcdd8aed0) */
+/**
+ * Samarket 전역 디자인 토큰 — 단일 소스 (`--sam-*`).
+ * 라이트 모드: LINE 계열 플랫(흰/연회색 단계·얇은 보더·그림자 최소화).
+ * `--app-*` 는 동일 값 별칭(문서·외부 스펙 정렬용).
+ * 레거시: `--ui-*`·`--messenger-*`·`--background` 등은 `var(--sam-*)` 로 연결.
+ */
+
+:root {
+  /* ----- dibaY palette (single source for color only) ----- */
+  --dibay-green: #0B421A;
+  --dibay-cream: #FFFCFC;
+  --dibay-gold: #EAC784;
+  --dibay-brown: #362415;
+  --dibay-muted: #604C4C;
+  --dibay-card: #FFFFFF;
+  --dibay-border: rgba(54, 36, 21, 0.14);
+  --dibay-dim: rgba(54, 36, 21, 0.45);
+
+  /* ----- User requested SM color tokens ----- */
+  --sm-color-primary: var(--dibay-green);
+  --sm-color-primary-strong: color-mix(in srgb, var(--dibay-green) 88%, #000000);
+  --sm-color-primary-soft: color-mix(in srgb, var(--dibay-green) 9%, var(--dibay-cream));
+  --sm-color-primary-active: color-mix(in srgb, var(--dibay-green) 78%, #000000);
+  --sm-color-primary-disabled: color-mix(in srgb, var(--dibay-muted) 38%, var(--dibay-card));
+  --store-order-ops-primary: var(--dibay-green);
+  --store-order-ops-primary-strong: var(--sm-color-primary-active);
+  --store-order-ops-primary-soft: color-mix(in srgb, var(--dibay-green) 8%, var(--dibay-cream));
+  --store-order-ops-text: var(--dibay-brown);
+  --store-order-ops-bg: var(--dibay-cream);
+  --store-order-ops-border: var(--dibay-border);
+  /* 앱 캔버스 — 전역 크림(카드·리스트 뮤트는 app-subtle-* ) */
+  --sm-color-bg-page: var(--dibay-cream);
+  --sm-color-bg-card: var(--dibay-card);
+  --sm-color-text-main: var(--dibay-brown);
+  --sm-color-text-sub: var(--dibay-muted);
+  --sm-color-text-muted: color-mix(in srgb, var(--dibay-muted) 78%, var(--dibay-card));
+  --sm-color-border: var(--dibay-border);
+  --sm-color-danger: #d45252;
+  --sm-color-success: #21885d;
+
+  /* ----- User requested SM typography tokens ----- */
+  --sm-font-page-title: 17px;
+  --sm-font-section-title: 14px;
+  --sm-font-card-title: 15px;
+  /** 본문 기본 — 리스트 설명 등은 --sm-font-body-compact */
+  --sm-font-body: 14px;
+  --sm-font-body-compact: 13px;
+  --sm-font-meta: 13px;
+  --sm-font-caption: 12px;
+  /** iOS WKWebView: focus zoom if computed size < 16px — keep inputs at least 16px */
+  --sm-font-input: 16px;
+  --sm-font-placeholder: 14px;
+  --sm-font-button: 14px;
+  --sm-font-tab: 14px;
+  /** 내정보 프로필 카드 닉네임 */
+  --sm-font-profile-display: 16px;
+  /** 커뮤니티 글쓰기 제목 칸 (Owner 확정 2026-11-01 · docs/philife-write-composer-ssot.md) */
+  --sm-font-compose-title: 20px;
+
+  --sm-lh-page-title: 1.3;
+  --sm-lh-section-title: 1.4;
+  --sm-lh-card-title: 1.4;
+  --sm-lh-body: 1.5;
+  --sm-lh-body-compact: 1.45;
+  --sm-lh-meta: 1.4;
+  --sm-lh-caption: 1.3;
+
+  /* ----- Brand / Primary (기존 사마켓 포인트 유지) ----- */
+  --sam-primary: var(--sm-color-primary);
+  --sam-primary-hover: var(--sm-color-primary-strong);
+  --sam-primary-active: var(--sm-color-primary-active);
+  /** 눌림 = 기존 active 값 alias (신규 색 없음 · 설계서 v3 §3 「눌림 --sam-primary-pressed」 · Owner Q4) */
+  --sam-primary-pressed: var(--sam-primary-active);
+  --sam-primary-soft: var(--sm-color-primary-soft);
+  --sam-primary-soft-2: color-mix(in srgb, var(--sm-color-primary-soft) 74%, var(--dibay-card));
+  /** 커뮤니티 상위노출(포인트 노출) 글 카드 배경 — 일반 글과 배경으로 구분 (Owner 2026-11-04 「배경 + 글자」) */
+  --sam-boost-card-bg: color-mix(in srgb, var(--sm-color-primary-soft) 55%, var(--dibay-card));
+  --sam-primary-border: color-mix(in srgb, var(--sm-color-primary) 22%, var(--dibay-card));
+  --sam-primary-disabled: var(--sm-color-primary-disabled);
+
+  /* ----- App 별칭 (스펙 문서와 1:1; --sam-* 와 동기) ----- */
+  --app-bg: var(--sm-color-bg-page);
+  --app-surface: var(--sm-color-bg-card);
+  /* 페이지가 흰색이므로 뮤트톤은 border 기준(회색 캔버스 단색 금지) */
+  --app-subtle-bg: color-mix(in srgb, var(--dibay-gold) 12%, var(--dibay-cream));
+  --app-subtle-bg-2: color-mix(in srgb, var(--dibay-gold) 18%, var(--dibay-cream));
+  --app-border: var(--sm-color-border);
+  --app-border-strong: color-mix(in srgb, var(--sm-color-border) 84%, #bcc7d6);
+  --app-text: var(--sm-color-text-main);
+  --app-text-2: var(--sm-color-text-sub);
+  --app-text-3: var(--sm-color-text-muted);
+  --app-primary: var(--sam-primary);
+  --app-primary-soft: var(--sam-primary-soft);
+
+  /* ----- 스펙 문서 별칭 (값 중복 없이 --sam-* 만 참조) ----- */
+  --fs-hero: var(--sam-text-hero-size);
+  --fs-title: var(--sam-text-page-title-size);
+  --fs-section: var(--sam-text-section-title-size);
+  --fs-body-lg: var(--sam-text-body-lg-size);
+  --fs-body: var(--sam-text-body-size);
+  --fs-sm: var(--sam-text-body-secondary-size);
+  --fs-xs: var(--sam-text-helper-size);
+  --fs-xxs: var(--sam-text-xxs-size);
+  --fs-placeholder: var(--sam-text-placeholder-size);
+  --fw-bold: var(--sam-fw-bold);
+  --fw-semi: var(--sam-fw-semi);
+  --fw-medium: var(--sam-fw-medium);
+  --fw-regular: var(--sam-fw-regular);
+  --r-sm: var(--sam-radius-sm);
+  --r-md: var(--sam-radius-md);
+  --r-lg: var(--sam-radius-lg);
+  --space-1: var(--sam-space-1);
+  --space-2: var(--sam-space-2);
+  --space-3: var(--sam-space-3);
+  --space-4: var(--sam-space-4);
+  --space-5: var(--sam-space-5);
+  --space-6: var(--sam-space-6);
+  /** 플로팅 액션 — 기본 그림자 최소 (토큰만 참조) */
+  --sam-fab-shadow: var(--sam-shadow-elevated);
+
+  /* ----- Background ----- */
+  --sam-bg-app: var(--app-bg);
+  --sam-bg-surface: var(--app-surface);
+  --sam-bg-surface-muted: var(--app-subtle-bg);
+  --sam-bg-chat: var(--dibay-cream);
+  --sam-bg-soft-purple: color-mix(in srgb, var(--dibay-gold) 22%, var(--dibay-cream));
+  --sam-bg-surface-dark: var(--dibay-brown);
+  --sam-bg-ink: var(--dibay-brown);
+
+  /* ----- Text ----- */
+  --sam-text-primary: var(--app-text);
+  --sam-text-secondary: var(--app-text-2);
+  --sam-text-muted: var(--app-text-3);
+  --sam-text-on-primary: var(--dibay-cream);
+
+  /* ----- Border / Divider ----- */
+  --sam-border-default: var(--app-border);
+  --sam-border-soft: color-mix(in srgb, var(--app-border) 65%, var(--app-surface));
+
+  /* ----- State ----- */
+  --sam-success: var(--sm-color-success);
+  --sam-success-soft: color-mix(in srgb, var(--sam-success) 10%, var(--dibay-cream));
+  --sam-warning: color-mix(in srgb, var(--dibay-brown) 54%, var(--dibay-gold));
+  --sam-warning-soft: color-mix(in srgb, var(--dibay-gold) 38%, var(--dibay-cream));
+  --sam-danger: var(--sm-color-danger);
+  --sam-danger-soft: #fdf0f0;
+  --sam-info: var(--sam-primary);
+  --sam-info-soft: var(--sam-primary-soft);
+
+  /* ----- Icon ----- */
+  --sam-icon-default: var(--dibay-muted);
+  --sam-icon-soft: var(--app-text-3);
+  /* 내정보 v2.1 — 시그니처 그린(#0B421A) 보조 민트: 행 아이콘 원형 배경 · 행 눌림·선택 배경 (추가 전용) */
+  --sam-icon-surface: #D4E9E2;
+  --sam-pressed-surface: #E8F3EE;
+  --sam-icon-on-primary: var(--dibay-cream);
+
+  /* ----- Radius (8~16만 사용; pill 만 full) ----- */
+  --sam-radius-xs: 4px;
+  --sam-radius-sm: 4px;
+
+  /* ----- DIBAY Currency visual tokens (CUT F) ----- */
+  /* 실기 FAIL 2026-11-03: 존재하지 않는 --sam-app / --sam-border 를 써서 세 통화 카드 배경·테두리가 모두 빈 값이었음 → 실제 토큰으로. */
+  /* POINT = 파랑 (dibay-currency-ssot-hard-lock §3). 브랜드 그린(--sam-primary)·CASH 그린과 섞이지 않게 고정값. */
+  --currency-point-accent: #2563eb;
+  --currency-point-bg: color-mix(in srgb, #2563eb 8%, var(--sam-bg-surface));
+  --currency-point-border: color-mix(in srgb, #2563eb 18%, var(--sam-border-default));
+  --currency-coin-accent: var(--dibay-gold);
+  --currency-coin-bg: color-mix(in srgb, var(--dibay-gold) 14%, var(--sam-bg-surface));
+  --currency-coin-border: color-mix(in srgb, var(--dibay-gold) 28%, var(--sam-border-default));
+  --currency-cash-accent: var(--sm-color-success);
+  --currency-cash-bg: color-mix(in srgb, var(--sm-color-success) 10%, var(--sam-bg-surface));
+  --currency-cash-border: color-mix(in srgb, var(--sm-color-success) 22%, var(--sam-border-default));
+  --sam-radius-md: 4px;
+  --sam-radius-lg: 4px;
+  --sam-radius-xl: 4px;
+  --sam-radius-pill: 999px;
+
+  /* ----- Shadow (기본 없음; 필요 시 1단계만) ----- */
+  --sam-shadow-soft: none;
+  --sam-shadow-card: none;
+  --sam-shadow-elevated: 0 4px 12px rgba(16, 24, 40, 0.08);
+  --sam-shadow-none: none;
+
+  /* ----- Spacing scale ----- */
+  --sam-space-1: 4px;
+  --sam-space-2: 8px;
+  --sam-space-3: 12px;
+  --sam-space-4: 16px;
+  --sam-space-5: 20px;
+  --sam-space-6: 24px;
+
+  /* ----- Layout ----- */
+  --sam-screen-padding-x: var(--sam-space-4);
+  --sam-section-gap: var(--sam-space-5);
+  /** 카드 ↔ 카드 세로 간격(메인 스택) */
+  --sam-stack-gap-y: 12px;
+  /**
+   * 카드·섹션·리스트 행 등 **내부** 패딩(좌·우·상·하 동일, 기본 16px).
+   * `p-3` / `px-3` 등으로 화면마다 어긋나지 않도록 이 값만 참조한다.
+   */
+  --sam-card-padding: var(--sam-space-4);
+  --sam-item-gap: var(--sam-space-3);
+  /**
+   * 터치·아이콘 치수 역할표 (S-04) — 값은 HARD LOCK·§12 그대로, 역할이 다르므로 통일하지 않는다.
+   * - 최소 터치 영역 44  : `--sam-tap-min` (04-DESIGN-SYSTEM, verify:design-system-hard-lock)
+   * - 하위 헤더 터치 48  : `--sector-header-touch` (§12, `app/sector-header.css`, 테스트 고정)
+   * - 허브 아이콘 타일 36: `--sector-header-action-size`(허브) — 터치는 `::after` 로 44~48 확장
+   * - 작은 버튼 높이 40  : 아래 `--sam-header-action-min` (`.sam-btn--sm` 시각 높이 · 헤더 안에서는 sector 치수로 덮임)
+   * - 배달 허브 타일 36  : `--delivery-header-action` (배달 UI Frozen 사본, 허브 타일과 같은 값)
+   * 새 화면은 터치 = `--sam-tap-min` 이상, 헤더 = sector 토큰만 쓴다.
+   */
+  --sam-header-action-min: 40px;
+  /** 헤더 한 줄 높이 — 정본 `--sector-header-h` (`app/sector-header.css`) 별칭 (S-03) */
+  --sam-header-row-height: var(--sector-header-h, 52px);
+  --sam-segment-tab-height: 44px;
+
+  --sam-bp-mobile-max: 767px;
+  --sam-bp-sm-tablet-min: 768px;
+  --sam-bp-sm-tablet-max: 1023px;
+  --sam-bp-lg-min: 1024px;
+
+  /* ----- Typography scale ----- */
+  --sam-text-hero-size: 18px;
+  --sam-text-hero-weight: 600;
+  --sam-text-page-title-size: var(--sm-font-page-title);
+  --sam-text-page-title-weight: 600;
+  --sam-text-section-title-size: var(--sm-font-section-title);
+  --sam-text-section-title-weight: 600;
+  --sam-text-card-title-size: var(--sm-font-card-title);
+  --sam-text-card-title-weight: 600;
+  --sam-text-body-lg-size: var(--sm-font-body);
+  --sam-text-body-lg-weight: 400;
+  --sam-text-body-size: var(--sm-font-body);
+  --sam-text-body-weight: 400;
+  --sam-text-body-secondary-size: var(--sm-font-body-compact);
+  --sam-text-body-secondary-weight: 400;
+  --sam-text-helper-size: var(--sm-font-meta);
+  --sam-text-helper-weight: 400;
+  --sam-text-xxs-size: var(--sm-font-caption);
+  --sam-text-xxs-weight: 400;
+  /** placeholder 전용(입력 본문은 --sam-text-body-size 유지) */
+  --sam-text-placeholder-size: var(--sm-font-placeholder);
+
+  --sam-fw-bold: 700;
+  --sam-fw-semi: 600;
+  --sam-fw-medium: 500;
+  --sam-fw-regular: 400;
+
+  --sam-font-body-line: var(--sm-lh-body);
+  --sam-font-page-title-line: var(--sm-lh-page-title);
+  --sam-font-section-title-line: var(--sm-lh-section-title);
+  --sam-font-card-title-line: var(--sm-lh-card-title);
+  --sam-font-body-compact-line: var(--sm-lh-body-compact);
+  --sam-font-meta-line: var(--sm-lh-meta);
+  --sam-font-caption-line: var(--sm-lh-caption);
+  --sam-tap-min: 44px;
+  --sam-input-min-height: 46px;
+  --sam-button-min-height: 46px;
+  /** 내정보 프로필 표시명 */
+  --sam-text-profile-display-size: var(--sm-font-profile-display);
+  --sam-text-profile-display-weight: 600;
+
+  /* ----- 레거시 시맨틱 브리지 ----- */
+  --ui-page-bg: var(--sam-bg-app);
+  --ui-surface: var(--sam-bg-surface);
+  --ui-text-primary: var(--sam-text-primary);
+  --ui-text-secondary: var(--sam-text-secondary);
+  --ui-text-meta: var(--sam-text-muted);
+  --ui-primary: var(--sam-primary);
+  --ui-border: var(--sam-border-default);
+  --ui-hover-surface: var(--sam-primary-soft);
+  --ui-danger: var(--sam-danger);
+  --ui-success: var(--sam-success);
+
+  --ui-radius-rect: var(--sam-radius-sm);
+  --ui-radius-sm: var(--sam-radius-sm);
+  --ui-radius-md: var(--sam-radius-md);
+  --ui-radius-lg: var(--sam-radius-lg);
+  --ui-radius-xl: var(--sam-radius-xl);
+  --ui-radius-pill: var(--sam-radius-pill);
+  --ui-tap-min: var(--sam-tap-min);
+  --ui-shadow-card: var(--sam-shadow-card);
+  --ui-font-body-line: var(--sam-font-body-line);
+
+  --background: var(--sam-bg-app);
+  --foreground: var(--sam-text-primary);
+  --signature: var(--sam-primary);
+  --sub-bg: var(--sam-bg-surface);
+  --text-muted: var(--sam-text-secondary);
+  --text-meta: var(--sam-text-muted);
+  --ig-border: var(--sam-border-default);
+  --ig-highlight: var(--sam-primary-soft);
+}
+
+/**
+ * Messenger / 채팅방 — `var(--messenger-*)` 호환.
+ */
+[data-messenger-shell],
+[data-cm-room] {
+  --messenger-primary: var(--sam-primary);
+  --messenger-primary-soft: var(--sam-primary-soft);
+  --messenger-primary-soft-2: var(--sam-primary-soft-2);
+  --messenger-bg: var(--sam-bg-app);
+  --messenger-chat-bg: var(--sam-bg-chat);
+  --messenger-surface: var(--sam-bg-surface);
+  --messenger-surface-muted: var(--sam-bg-surface-muted);
+  --messenger-text: var(--sam-text-primary);
+  --messenger-text-secondary: var(--sam-text-secondary);
+  --messenger-divider: var(--sam-border-default);
+  --messenger-icon: var(--sam-icon-default);
+  --messenger-success: var(--sam-success);
+  --messenger-danger: var(--sam-danger);
+  --messenger-radius-sm: var(--sam-radius-sm);
+  --messenger-radius-md: var(--sam-radius-md);
+  --messenger-radius-lg: var(--sam-radius-md);
+  --messenger-shadow-soft: var(--sam-shadow-none);
+  --messenger-badge-direct-bg: var(--sam-primary-soft);
+  --messenger-badge-group-bg: var(--sam-bg-surface-muted);
+  --messenger-badge-trade-bg: var(--sam-success-soft);
+  --messenger-badge-delivery-bg: var(--sam-warning-soft);
+  --messenger-badge-openchat-bg: var(--sam-info-soft);
+  /* 거래: 목록 행 + 방 배경 틴트(판매 녹 / 구매 청) */
+  --messenger-trade-room-seller-page-bg: color-mix(in srgb, var(--sam-success) 8%, var(--messenger-bg));
+  --messenger-trade-room-buyer-page-bg: color-mix(in srgb, var(--sam-info) 9%, var(--messenger-bg));
+  --messenger-trade-list-seller-bg: color-mix(in srgb, var(--sam-success) 6%, var(--messenger-bg));
+  --messenger-trade-list-buyer-bg: color-mix(in srgb, var(--sam-info) 7%, var(--messenger-bg));
+}
+
+[data-cm-room] {
+  /* dibaY 브랜드 Primary */
+  --cm-room-primary: var(--sam-primary);
+  --cm-room-primary-hover: var(--sam-primary-hover);
+  --cm-room-primary-active: var(--sam-primary-active);
+  --cm-room-primary-soft: var(--sam-primary-soft);
+  --cm-room-primary-disabled: var(--sam-primary-disabled);
+  /* 배달 채팅방과 동일 웜 그레이 — `delivery-chat-room.css` `--delivery-chat-bg` */
+  --cm-room-page-bg: #f7f6f3;
+  --messenger-chat-bg: #f7f6f3;
+  --cm-room-chat-bg: var(--messenger-chat-bg);
+  --cm-room-bg: var(--cm-room-chat-bg);
+  --cm-room-text: var(--messenger-text);
+  --cm-room-text-muted: var(--messenger-text-secondary);
+  --cm-room-divider: var(--messenger-divider);
+  --cm-room-header-bg: var(--messenger-surface);
+  --cm-room-brand-green: #006241;
+  /** 그룹 방 헤더 ⚙ 눌림 배경 — 기존 값 그대로 토큰화 (T-02, 신규 색 아님) */
+  --cm-room-group-settings-pressed-bg: #eaf4ef;
+  --cm-room-brand-cream: #f1f8f4;
+  --cm-room-bubble-incoming: var(--cm-room-brand-cream);
+  --cm-room-bubble-incoming-fg: #12372a;
+  --cm-room-bubble-outgoing: var(--cm-room-brand-green);
+  --cm-room-bubble-outgoing-fg: #ffffff;
+  --cm-room-radius-bubble: 18px;
+  --cm-room-radius-input: var(--sam-radius-sm);
+}
+
+[data-cm-room][data-trade-viewer-role="seller"] {
+  --cm-room-page-bg: var(--messenger-trade-room-seller-page-bg);
+  --cm-room-header-bg: color-mix(in srgb, var(--sam-success) 6%, var(--messenger-surface));
+}
+
+[data-cm-room][data-trade-viewer-role="buyer"] {
+  --cm-room-page-bg: var(--messenger-trade-room-buyer-page-bg);
+  --cm-room-header-bg: color-mix(in srgb, var(--sam-info) 7%, var(--messenger-surface));
+}
+
+[data-cm-room][data-delivery-viewer-role="seller"],
+[data-cm-room][data-delivery-viewer-role="buyer"] {
+  --cm-room-primary: var(--delivery-primary);
+  --cm-room-primary-hover: var(--delivery-primary-hover);
+  --cm-room-primary-active: var(--delivery-primary-active);
+  --cm-room-primary-soft: var(--delivery-primary-soft);
+  --cm-room-primary-disabled: color-mix(in srgb, var(--delivery-primary) 35%, var(--dibay-card));
+  --cm-room-page-bg: var(--delivery-chat-bg);
+  --cm-room-header-bg: var(--delivery-chat-header-bg);
+  --cm-room-delivery-chrome-bg: var(--delivery-chat-chrome-bg);
+  --cm-room-chat-bg: var(--delivery-chat-bg);
+  --cm-room-bg: var(--delivery-chat-bg);
+  --cm-room-text: var(--delivery-dark);
+  --cm-room-text-muted: var(--delivery-mocha);
+  --cm-room-divider: var(--delivery-chat-chrome-border);
+  --cm-room-bubble-incoming: var(--cm-room-brand-cream);
+  --cm-room-bubble-incoming-fg: #12372a;
+  --cm-room-bubble-outgoing: var(--cm-room-brand-green);
+  --cm-room-bubble-outgoing-fg: #ffffff;
+}
+
+:root {
+  /* 관리자 공용 부품(components/admin/ui) 토큰 기본값 — 관리자 밖(사장님 광고 성과 등)에서 쓰일 때도 같은 값. [data-admin] 에서 같은 값으로 다시 정의된다. */
+  --admin-console-surface: #ffffff;
+  --admin-console-border: #d0d7e2;
+  --admin-console-fg: #1f2937;
+  --admin-console-muted: #667085;
+  --admin-console-accent: #1d4ed8;
+  --admin-console-active-bg: color-mix(in srgb, #1d4ed8 12%, #ffffff);
+  --admin-console-hover: #eef1f6;
+  --admin-action-primary-bg: #111827;
+  --admin-action-primary-fg: #ffffff;
+  --admin-action-primary-hover: #0b1220;
+  --admin-action-primary-disabled-bg: #9ca3af;
+  --admin-action-primary-disabled-fg: #f9fafb;
+}
+
+/**
+ * 관리자 콘솔 — 소비자/피드 `var(--app-*)` 와 분리해 배경·본문 대비를 고정.
+ * `AdminShell` 루트 `data-admin` (및 이전 호환: 자식 `data-admin`).
+ */
+[data-admin] {
+  --app-bg: var(--admin-console-bg, #f4f6f9);
+  --app-surface: var(--admin-console-surface, #ffffff);
+  --app-subtle-bg: var(--admin-console-hover, #eef1f6);
+  --app-subtle-bg-2: #e8edf4;
+  --app-border: var(--admin-console-border, #d0d7e2);
+  --app-border-strong: #98a2b3;
+  --app-text: var(--admin-console-fg, #1f2937);
+  --app-text-2: var(--admin-console-muted, #667085);
+  --app-text-3: #98a2b3;
+
+  --admin-console-bg: #f4f6f9;
+  --admin-console-surface: #ffffff;
+  --admin-console-border: #d0d7e2;
+  --admin-console-fg: #1f2937;
+  --admin-console-muted: #667085;
+  --admin-console-accent: #1d4ed8;
+  --admin-console-active-bg: color-mix(in srgb, #1d4ed8 12%, #ffffff);
+  --admin-console-hover: #eef1f6;
+  /* CUT 3 — AdminActionButton PRIMARY locked contrast (not sam-primary washout) */
+  --admin-action-primary-bg: #111827;
+  --admin-action-primary-fg: #ffffff;
+  --admin-action-primary-hover: #0b1220;
+  --admin-action-primary-disabled-bg: #9ca3af;
+  --admin-action-primary-disabled-fg: #f9fafb;
+  --admin-sidebar-width: 16rem;
+
+  --sam-text-primary: var(--app-text);
+  --sam-text-secondary: var(--app-text-2);
+  --sam-text-muted: var(--app-text-3);
+  --sam-bg-app: var(--app-bg);
+  --sam-bg-surface: var(--app-surface);
+  --sam-bg-surface-muted: var(--app-subtle-bg);
+  --sam-bg-chat: var(--app-subtle-bg-2);
+  --sam-bg-ink: var(--dibay-green);
+  --sam-border-default: var(--app-border);
+  --sam-border-soft: color-mix(in srgb, var(--app-border) 52%, var(--app-surface));
+
+  --ui-page-bg: var(--sam-bg-app);
+  --ui-surface: var(--sam-bg-surface);
+  --ui-text-primary: var(--sam-text-primary);
+  --ui-text-secondary: var(--sam-text-secondary);
+  --ui-text-meta: var(--sam-text-muted);
+  --ui-border: var(--sam-border-default);
+  --ui-hover-surface: color-mix(in srgb, var(--sam-primary) 12%, var(--app-surface));
+
+  --background: var(--sam-bg-app);
+  --foreground: var(--sam-text-primary);
+  --text-muted: var(--sam-text-secondary);
+  --text-meta: var(--sam-text-muted);
+  --ig-border: var(--sam-border-default);
+  --ig-highlight: var(--sam-primary-soft);
+}
+
+/**
+ * 매장 사장님(owner) 전용 — `/stores/owner/*`·`/my/business/*` 에서 `data-biz="1"` 로 스코프.
+ * IA-19(4단계 4-6): `--biz-*` 는 별도 톤이 아니라 `--sam-*` 브리지 변수다 (값 통일·클래스/변수명 유지).
+ * 다크 모드 값은 `--sam-*` 의 다크 정의를 그대로 따른다 — 여기서 `--sam-*` 를 덮어쓰지 않는다.
+ * `:root` 에도 둔다 — 사장님 시트·다이얼로그는 `document.body` 로 포털돼 `data-biz` 밖에서 그려지므로
+ * `Biz.btnPrimary*`(`bg-[var(--biz-primary)]`)가 값 없이 투명 배경 + 흰 글자(주문 접수 시트 CTA 안 보임)가 됐다.
+ */
+:root,
+[data-biz="1"] {
+  --biz-green: var(--sam-primary);
+  --biz-cream: var(--sam-text-on-primary);
+  --biz-tan: var(--sam-bg-soft-purple);
+  --biz-brown: var(--sam-text-primary);
+  --biz-brown-muted: var(--sam-text-secondary);
+
+  --biz-brand: var(--sam-primary);
+  --biz-primary: var(--sam-primary);
+  --biz-primary-hover: var(--sam-primary-hover);
+  --biz-primary-active: var(--sam-primary-active);
+  --biz-primary-soft: var(--sam-primary-soft);
+  --biz-tan-soft: var(--sam-bg-surface-muted);
+  --biz-header-bg: var(--sam-bg-soft-purple);
+  --biz-app-bg: var(--sam-bg-app);
+  --biz-card-bg: var(--sam-bg-surface);
+  --biz-card-border: var(--sam-border-default);
+  --biz-card-shadow: var(--sam-shadow-card);
+  --biz-text: var(--sam-text-primary);
+  --biz-text-muted: var(--sam-text-secondary);
+}
+
+/* 신규 주문 카드 — 약한 펄스(매장 오너 목록) */
+@keyframes owner-new-order-pulse {
+  0%,
+  100% {
+    box-shadow: var(--biz-card-shadow, 0 1px 3px rgba(15, 23, 42, 0.06)), 0 0 0 0 rgba(11, 66, 26, 0.28);
+  }
+  50% {
+    box-shadow: var(--biz-card-shadow, 0 1px 3px rgba(15, 23, 42, 0.06)), 0 0 0 10px rgba(11, 66, 26, 0);
+  }
+}
+
+.owner-new-order-pulse {
+  animation: owner-new-order-pulse 2.8s ease-in-out infinite;
+}
+
+</style>
+<style>/* app/dibay-chrome-ssot.css (원문 · origin/main dcdd8aed0) */
+/**
+ * DIBAY GLOBAL HEADER + SECONDARY TAB UI SSOT
+ * Image lock — visual only. Feature composition unchanged.
+ */
+
+:root {
+  --dibay-chrome-title: #243832;
+  --dibay-chrome-accent: #296044;
+  --dibay-chrome-divider: #e5e5e5;
+  --dibay-secondary-tab-row-h: 44px;
+  --dibay-secondary-tab-item-h: 36px;
+  --dibay-secondary-tab-pad-x: 16px;
+  --dibay-secondary-tab-pad-y: 4px;
+  --dibay-secondary-tab-gap: 8px;
+  --dibay-secondary-tab-radius: 18px;
+  --dibay-domain-surface: #f9f9f9;
+  --dibay-domain-accent: #243832;
+  --dibay-domain-accent-text: #ffffff;
+  --dibay-domain-tab-idle-bg: #f2f0eb;
+  --dibay-domain-tab-idle-fg: #243832;
+  --dibay-domain-divider: #e5e5e5;
+  /**
+   * 2단 탭(밑줄) 규격 단일 토큰 — `.dibay-secondary-tab`(section 줄)·`.sam-tab--section` 두 규칙이 같이 쓴다 (크롬 S3 중복 정리 2026-11-03).
+   * 값 변경은 여기서만 — 한쪽만 바뀌어 모양이 갈라지는 것 방지.
+   */
+  --dibay-tab2-font-size: 15px;
+  --dibay-tab2-pad-x: 12px;
+  --dibay-tab2-bar-h: 2px;
+  --dibay-tab2-bar-inset: 8px;
+  --dibay-tab2-bar-ms: 200ms;
+  --dibay-tab2-idle-color: var(--sam-text-secondary);
+  --dibay-tab2-active-color: var(--sam-primary);
+}
+
+/**
+ * 헤더 도메인 색 (헤더 SSOT 3단계, Owner 「3단계 구현」 2026-11-13) — 하단 탭 5개. 값 = 설계 §4-3 제안 1안(Owner 「권장안대로」 2026-11-13).
+ * 값 원본 = `lib/ui/dibay-domain-chrome.ts` `DIBAY_DOMAIN_CHROME` (같음을 시험으로 고정).
+ * `--dibay-surface-*` 는 도메인 속성 밖(채팅방 헤더 등)에서도 같은 색을 쓰기 위한 이름.
+ */
+:root {
+  --dibay-surface-home: #F3F5F3;
+  --dibay-surface-community: #E3F1E7;
+  --dibay-surface-delivery: #FDEEDC;
+  --dibay-surface-chat: #E3EDFB;
+  --dibay-surface-mypage: #EFEAF6;
+}
+
+[data-dibay-domain="home"] {
+  --dibay-domain-surface: var(--dibay-surface-home);
+  --dibay-domain-accent: #0B421A;
+  --dibay-domain-tab-idle-bg: #F8F9F8;
+  --dibay-domain-divider: color-mix(in srgb, #243832 10%, transparent);
+  --sector-header-bg: var(--dibay-domain-surface);
+  --sector-header-border: var(--dibay-domain-divider);
+  --sector-header-title-color: #243832;
+  --sector-header-icon-color: #243832;
+  --sector-header-back-color: #243832;
+  --sector-header-icon-active-color: var(--dibay-domain-accent);
+}
+
+[data-dibay-domain="community"] {
+  --dibay-domain-surface: var(--dibay-surface-community);
+  --dibay-domain-accent: #296044;
+  --dibay-domain-tab-idle-bg: #F1F8F3;
+  --dibay-domain-divider: color-mix(in srgb, #243832 10%, transparent);
+  --sector-header-bg: var(--dibay-domain-surface);
+  --sector-header-border: var(--dibay-domain-divider);
+  --sector-header-title-color: #243832;
+  --sector-header-icon-color: #243832;
+  --sector-header-back-color: #243832;
+  --sector-header-icon-active-color: var(--dibay-domain-accent);
+}
+
+[data-dibay-domain="delivery"] {
+  --dibay-domain-surface: var(--dibay-surface-delivery);
+  --dibay-domain-accent: #296044;
+  --dibay-domain-tab-idle-bg: #FEF6EC;
+  --dibay-domain-divider: color-mix(in srgb, #243832 10%, transparent);
+  --sector-header-bg: var(--dibay-domain-surface);
+  --sector-header-border: var(--dibay-domain-divider);
+  --sector-header-title-color: #243832;
+  --sector-header-icon-color: #243832;
+  --sector-header-back-color: #243832;
+  --sector-header-icon-active-color: var(--dibay-domain-accent);
+}
+
+[data-dibay-domain="chat"] {
+  --dibay-domain-surface: var(--dibay-surface-chat);
+  --dibay-domain-accent: #296044;
+  --dibay-domain-tab-idle-bg: #F1F6FD;
+  --dibay-domain-divider: color-mix(in srgb, #243832 10%, transparent);
+  --sector-header-bg: var(--dibay-domain-surface);
+  --sector-header-border: var(--dibay-domain-divider);
+  --sector-header-title-color: #243832;
+  --sector-header-icon-color: #243832;
+  --sector-header-back-color: #243832;
+  --sector-header-icon-active-color: var(--dibay-domain-accent);
+}
+
+[data-dibay-domain="mypage"] {
+  --dibay-domain-surface: var(--dibay-surface-mypage);
+  --dibay-domain-accent: #243832;
+  --dibay-domain-tab-idle-bg: #F7F4FA;
+  --dibay-domain-divider: color-mix(in srgb, #243832 10%, transparent);
+  --sector-header-bg: var(--dibay-domain-surface);
+  --sector-header-border: var(--dibay-domain-divider);
+  --sector-header-title-color: #243832;
+  --sector-header-icon-color: #243832;
+  --sector-header-back-color: #243832;
+  --sector-header-icon-active-color: var(--dibay-domain-accent);
+}
+
+/**
+ * 헤더 chrome 구분선 SSOT — 줄 사이 1px 한 줄, chrome 맨 아래 1px 한 줄 (S-06).
+ * 겹쳐 그려지던 선: 중첩 embedded 셸 2겹, 마지막 줄 자체 선 + 래퍼 `border-b`, 테두리 있는 탭 host 안 탭 track 선.
+ * - 래퍼(`[data-app-sticky-header].border-b`)가 맨 아래 선을 소유 → 마지막 자식과 그 안 탭 track 선은 그리지 않음.
+ * - embedded 셸 안의 embedded 셸은 바깥 셸 선만.
+ * - 테두리 있는 탭 host(`[data-dibay-nav].border-b`) 안 track 은 host 선만.
+ * 배달 chrome(래퍼 border 없음)은 대상 아님.
+ */
+.sector-header-shell--embedded .sector-header-shell--embedded {
+  border-bottom-width: 0;
+}
+
+[data-app-sticky-header].border-b > :last-child,
+[data-app-sticky-header].border-b > :last-child .dibay-secondary-tabs {
+  border-bottom-width: 0;
+}
+
+[data-dibay-nav].border-b .dibay-secondary-tabs {
+  border-bottom-width: 0;
+}
+
+/* Secondary page-nav — pill language · row 44 · item 36 */
+.dibay-secondary-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: var(--dibay-secondary-tab-gap);
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--dibay-secondary-tab-row-h);
+  min-height: var(--dibay-secondary-tab-row-h);
+  max-height: var(--dibay-secondary-tab-row-h);
+  padding: var(--dibay-secondary-tab-pad-y) var(--dibay-secondary-tab-pad-x);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  background: var(--dibay-domain-surface, var(--sector-header-bg));
+  border-bottom: 1px solid var(--dibay-domain-divider, var(--dibay-chrome-divider));
+}
+
+.dibay-secondary-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.dibay-secondary-tab {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: var(--dibay-secondary-tab-item-h);
+  min-height: var(--dibay-secondary-tab-item-h);
+  max-width: min(12rem, 70vw);
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--dibay-secondary-tab-radius);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--dibay-domain-tab-idle-fg);
+  background: var(--dibay-domain-tab-idle-bg);
+  text-decoration: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition:
+    background-color 140ms ease-out,
+    color 140ms ease-out,
+    transform 100ms ease-out,
+    opacity 100ms ease-out;
+}
+
+.dibay-secondary-tab:active:not([aria-selected="true"]):not(.dibay-secondary-tab--active):not(:disabled) {
+  transform: scale(0.97);
+  opacity: 0.88;
+}
+
+.dibay-secondary-tab[aria-selected="true"],
+.dibay-secondary-tab--active {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--dibay-domain-accent-text, #ffffff);
+  background: var(--dibay-domain-accent);
+}
+
+.dibay-secondary-tab:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dibay-secondary-tab {
+    transition: none;
+  }
+}
+
+/*
+ * 크롬 S3 (2026-11-02 · Owner 「S3, 칩 4px」) — 2단·3단 탭 정본. docs/audit/dibay-chrome-header-tab-bottomnav-audit-2026-11-02.md §2-3
+ * opt-in: 행(host)에 `data-dibay-tab-tier` 가 있을 때만 적용 → 표시 없는 행(배달 browse 헤더·사장님 알림 등)은 위 알약 그대로 (배달 계약).
+ * - filter(3단 필터·주제) = 칩: 32px · 모서리 4px · 13px(선택해도 크기 불변) · 미선택 흰 바탕+테두리 · 선택 `--sam-primary` 바탕+밝은 글자
+ * - section(2단 섹션 전환) = 밑줄: 행 44px · 15px · 선택 = 굵게 + 글자·밑줄 `--sam-primary` · 밑줄 2px(글자폭+좌우 4px) 200ms
+ *   ★ Owner 고정 (2026-11-02): 2단 탭은 이름을 절대 자르지 않고, 넘치면 항상 옆으로 스와이프된다 (메뉴가 늘어도 잘림 0).
+ *     → 탭 폭 = 글자 전체(max-content), 말줄임·최대폭 없음. 넉넉하면 같은 폭으로 채우고, 모자라면 줄이 가로 스크롤.
+ *   (section 행의 leading/trailing 컨트롤 — 예: 정렬 칩 — 은 칩 규격)
+ * 공통: 눌림 = 배경 8% 그린 + 0.97, 키보드 포커스 링.
+ */
+:is([data-dibay-tab-tier="filter"], [data-dibay-tab-tier="section"]) .dibay-secondary-tab {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--sam-border-default);
+  border-radius: var(--sam-radius-sm, 4px);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sam-text-primary);
+  background: var(--sam-bg-surface);
+}
+
+:is([data-dibay-tab-tier="filter"], [data-dibay-tab-tier="section"])
+  .dibay-secondary-tab:is([aria-selected="true"], .dibay-secondary-tab--active) {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sam-text-on-primary);
+  background: var(--sam-primary);
+  border-color: var(--sam-primary);
+}
+
+[data-dibay-tab-tier="section"] .dibay-secondary-tabs {
+  gap: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+[data-dibay-tab-tier="section"] .dibay-secondary-tabs .dibay-secondary-tab {
+  position: relative;
+  height: var(--dibay-secondary-tab-row-h);
+  min-height: var(--dibay-secondary-tab-row-h);
+  padding: 0 var(--dibay-tab2-pad-x);
+  border: 0;
+  border-radius: 0;
+  font-size: var(--dibay-tab2-font-size);
+  font-weight: 500;
+  color: var(--dibay-tab2-idle-color);
+  background: transparent;
+  flex: 0 0 auto;
+  min-width: max-content;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+/* 탭 안 글자 칸의 말줄임(`truncate`·`max-w-*`)도 2단에서는 해제 — 이름 잘림 0 */
+[data-dibay-tab-tier="section"] .dibay-secondary-tabs .dibay-secondary-tab * {
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+[data-dibay-tab-tier="section"]
+  .dibay-secondary-tabs
+  .dibay-secondary-tab:is([aria-selected="true"], .dibay-secondary-tab--active) {
+  font-size: var(--dibay-tab2-font-size);
+  font-weight: 600;
+  color: var(--dibay-tab2-active-color);
+  background: transparent;
+}
+
+[data-dibay-tab-tier="section"] .dibay-secondary-tabs .dibay-secondary-tab::after {
+  content: "";
+  position: absolute;
+  left: var(--dibay-tab2-bar-inset);
+  right: var(--dibay-tab2-bar-inset);
+  bottom: 0;
+  height: var(--dibay-tab2-bar-h);
+  border-radius: 1px;
+  background: var(--dibay-tab2-active-color);
+  transform: scaleX(0);
+  transition: transform var(--dibay-tab2-bar-ms) ease-out;
+}
+
+[data-dibay-tab-tier="section"]
+  .dibay-secondary-tabs
+  .dibay-secondary-tab:is([aria-selected="true"], .dibay-secondary-tab--active)::after {
+  transform: scaleX(1);
+}
+
+/* 4개 이하 = 남는 폭을 같이 나눔(줄지는 않음 — 글자보다 좁아지면 가로 스크롤). 5개 이상 = 글자 폭 그대로 스크롤 */
+[data-dibay-tab-tier="section"] .dibay-secondary-tabs:not(:has(> :nth-child(5))) > .dibay-secondary-tab {
+  flex: 1 0 auto;
+  justify-content: center;
+}
+
+/* 왼쪽 정렬 선택(`data-dibay-tab-align="start"`) — 메신저 대화·친구·통화 탭 (Owner 2026-11-10 「탭메뉴는 좌측 정렬」). 글자 폭 그대로 */
+[data-dibay-tab-tier="section"][data-dibay-tab-align="start"]
+  .dibay-secondary-tabs:not(:has(> :nth-child(5)))
+  > .dibay-secondary-tab {
+  flex: 0 0 auto;
+}
+
+/*
+ * 메신저 대화·친구·통화 탭 — 채팅 시안 4판 (Owner 「정확히 시안대로」 2026-11-10 · docs/design/chat-v4).
+ * 왼쪽 16px 부터 글자 폭 그대로 · 간격 22px · 15px · 선택 = 700 + 검정(--cm-chat-fg) + 글자 폭 2px 밑줄 / 나머지 = 500 + 회색(--cm-chat-sub).
+ * `data-cm-messenger-section-tabs` 줄과 채팅 검색 탭 줄(`data-cm-messenger-search-tabs`, 시안 「8. 채팅 검색」)·
+ * 거래/주문 채팅 목록 탭 줄(`data-cm-messenger-pillar-tabs`, 시안 「9」「10」)에만 적용 — 다른 화면 2단 탭은 그대로.
+ * 왼쪽 시작: 행 안쪽 여백(APP_MAIN_GUTTER_X_CLASS 10px) + 탭 track 6px = 16px.
+ */
+[data-dibay-tab-tier="section"][data-dibay-tab-align="start"]:is([data-cm-messenger-section-tabs], [data-cm-messenger-search-tabs], [data-cm-messenger-pillar-tabs]) {
+  --dibay-tab2-pad-x: 0px;
+  --dibay-tab2-bar-inset: 0px;
+  --dibay-tab2-idle-color: var(--cm-chat-sub);
+  --dibay-tab2-active-color: var(--cm-chat-fg);
+  /* 시안 탭 줄 높이 42px */
+  --dibay-secondary-tab-row-h: 42px;
+}
+
+[data-dibay-tab-tier="section"][data-dibay-tab-align="start"]:is([data-cm-messenger-section-tabs], [data-cm-messenger-search-tabs], [data-cm-messenger-pillar-tabs]) .dibay-secondary-tabs {
+  gap: 22px;
+  padding-left: 6px;
+}
+
+[data-dibay-tab-tier="section"][data-dibay-tab-align="start"]:is([data-cm-messenger-section-tabs], [data-cm-messenger-search-tabs], [data-cm-messenger-pillar-tabs])
+  .dibay-secondary-tabs
+  .dibay-secondary-tab:is([aria-selected="true"], .dibay-secondary-tab--active) {
+  font-weight: 700;
+}
+
+:is([data-dibay-tab-tier="filter"], [data-dibay-tab-tier="section"]) .dibay-secondary-tab:not(:disabled):active {
+  transform: scale(0.97);
+  opacity: 1;
+  background-color: color-mix(in srgb, var(--sam-primary) 8%, var(--sam-bg-surface));
+}
+
+:is([data-dibay-tab-tier="filter"], [data-dibay-tab-tier="section"])
+  .dibay-secondary-tab:is([aria-selected="true"], .dibay-secondary-tab--active):not(:disabled):active {
+  background-color: var(--sam-primary);
+}
+
+[data-dibay-tab-tier="section"] .dibay-secondary-tabs .dibay-secondary-tab:not(:disabled):active {
+  background-color: color-mix(in srgb, var(--sam-primary) 8%, transparent);
+}
+
+:is([data-dibay-tab-tier="filter"], [data-dibay-tab-tier="section"]) .dibay-secondary-tab:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--sam-primary) 35%, transparent);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is([data-dibay-tab-tier="filter"], [data-dibay-tab-tier="section"]) .dibay-secondary-tab:active {
+    transform: none;
+  }
+
+  [data-dibay-tab-tier="section"] .dibay-secondary-tabs .dibay-secondary-tab::after {
+    transition: none;
+  }
+}
+
+/* STATUS / FILTER — same pill family; role marker for contracts */
+.dibay-status-tabs {
+  /* inherits .dibay-secondary-tabs geometry via dual class on host */
+}
+
+/* CATEGORY RAIL host — domain surface; scroll owned by child track */
+.dibay-category-rail-host {
+  background: var(--dibay-domain-surface, var(--sector-header-bg));
+  /* Contract: host must not clip the rail; child track owns overflow-x. */
+  overflow-x: visible;
+}
+
+</style>
+<style>/* app/sector-header.css (원문 · origin/main dcdd8aed0) */
+/**
+ * dibaY 공통 섹터 헤더 — Default / Section / Detail / Search 단일 시각 계약
+ *
+ * 하위 화면(제목 가운데 · 기본) — 설계서 v3 §12:
+ * - 좌우 대칭 3열 `[side] minmax(0,1fr) [side]` → 제목은 아이콘 유무·제목 길이와 무관하게 화면 실제 중앙.
+ *   side = 좌·우 슬롯 중 넓은 쪽 (기본 48px). `SectorHeaderBar` 가 슬롯 폭을 재서 `--sector-header-side` 를 행에 기록.
+ * - 뒤로·우측 아이콘 터치 48×48 · 아이콘 24px · 터치 영역끼리 간격 0.
+ * - 행 좌우 여백 = max(4px, 좌우 안전영역) → 아이콘 바깥 가장자리가 화면 끝에서 16px.
+ * - 행 최대폭 제한 없음 (기기 폭 − 안전영역 기준).
+ * 메인 허브(제목 왼쪽 · `--left-title`) — 헤더 SSOT 1단계 (Owner 「1단계 구현」 2026-11-13, `docs/audit/header-consistency-audit-2026-11-13.md` §2):
+ *   허브 오른쪽 아이콘도 하위 화면과 같은 터치 48 · 그림 24 · 간격 0 → 허브에서 하위로 들어가도 아이콘 위치·크기가 같다.
+ *   허브(`.sector-header--no-left-slot`)는 제목이 화면 끝 16px 에서 시작(뒤로 ‹ 그림 상자와 같은 선), 오른쪽 끝 아이콘 그림도 화면 끝 16px.
+ *   부제목이 있어도 높이 52·제목 17px. 화면 폭별(≤374·≥768) 허브 크기 덮어쓰기 없음.
+ */
+:root {
+  /** 줄 높이 — 부제목이 있어도 같음 (SSOT S1) */
+  --sector-header-h: 52px;
+  --sector-header-pad-x: 12px;
+  /** 하위 화면 헤더 터치 영역·아이콘 (§12) */
+  --sector-header-touch: 48px;
+  --sector-header-touch-icon: 24px;
+  /** 대칭 격자 좌·우 열 최소 폭 — 행마다 실측값으로 덮어씀 */
+  --sector-header-side: var(--sector-header-touch);
+  /** 행 좌우 여백 — 화면 끝 기준 max(4px, 안전영역) */
+  --sector-header-edge-pad-left: max(4px, var(--safe-left));
+  --sector-header-edge-pad-right: max(4px, var(--safe-right));
+  /** 허브(왼쪽 빈칸 없음) 제목 시작선 = 화면 끝 16px — 하위 화면 ‹ 그림 상자 시작(4 + (48−24)/2)과 같은 선 */
+  --sector-header-hub-title-x: 16px;
+  --sector-header-col-gap: 6px;
+  /** 허브(제목 왼쪽) 아이콘 타일 간격 8px — 하위 화면은 `.sector-header-bar` 에서 0 (터치 48 맞닿음) */
+  --sector-header-icon-cluster-gap: 8px;
+  --sector-header-bg: color-mix(in srgb, var(--dibay-cream) 96%, transparent);
+  --sector-header-border: #e5e5e5;
+  --sector-header-shadow: none;
+  --sector-header-title-color: #243832;
+  --sector-header-subtitle-color: color-mix(in srgb, var(--dibay-muted) 78%, transparent);
+  --sector-header-icon-color: #243832;
+  --sector-header-icon-active-color: #296044;
+  --sector-header-back-color: #243832;
+  --sector-header-accent-hover: color-mix(in srgb, var(--dibay-gold) 14%, transparent);
+  --sector-header-back-size: 40px;
+  --sector-header-back-icon: 24px;
+  --sector-header-action-size: 36px;
+  --sector-header-action-icon: 22px;
+  --sector-header-title-size: 17px;
+  --sector-header-title-lh: 22px;
+  --sector-header-title-weight: 600;
+  --sector-header-title-tracking: -0.3px;
+  --sector-header-subtitle-size: 11px;
+  /** 부제목이 있어도 제목은 17px (SSOT S7) */
+  --sector-header-subtitle-title-size: var(--sector-header-title-size);
+  --sector-header-search-h: 36px;
+  --sector-header-search-bg: color-mix(in srgb, var(--dibay-gold) 16%, transparent);
+  --sector-header-left-slot: 40px;
+  --sector-header-right-min: 40px;
+}
+
+.sector-header-shell {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  flex-shrink: 0;
+  padding-top: var(--safe-top);
+  background: var(--sector-header-bg);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--sector-header-border);
+  box-shadow: var(--sector-header-shadow);
+}
+
+.sector-header-shell--embedded {
+  position: relative;
+  top: auto;
+  padding-top: 0;
+}
+
+.sector-header-shell--flat {
+  box-shadow: none;
+}
+
+.sector-header-bar-wrap {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+}
+
+/**
+ * 메인 셸 루트(`.main-shell-viewport-root`)는 이미 좌우 안전영역만큼 안쪽으로 들어와 있다
+ * (`app-shell.css`). 그 안의 헤더는 남은 차이만 더해 화면 끝 기준 max(4px, safe) 를 지킨다.
+ */
+html.sam-main-shell-viewport-lock .main-shell-viewport-root {
+  --sector-header-edge-pad-left: max(0px, calc(4px - var(--safe-left)));
+  --sector-header-edge-pad-right: max(0px, calc(4px - var(--safe-right)));
+  --sector-header-hub-title-x: max(0px, calc(16px - var(--safe-left)));
+}
+
+/** 하위 화면(기본) — 좌우 대칭 3열, 48px 터치, 간격 0 */
+.sector-header-bar {
+  --sector-header-back-size: var(--sector-header-touch);
+  --sector-header-back-icon: var(--sector-header-touch-icon);
+  --sector-header-action-size: var(--sector-header-touch);
+  --sector-header-action-icon: var(--sector-header-touch-icon);
+  --sector-header-icon-cluster-gap: 0px;
+  --sector-header-col-gap: 0px;
+  --delivery-header-action: var(--sector-header-touch);
+  --delivery-header-icon-glyph: var(--sector-header-touch-icon);
+  display: grid;
+  grid-template-columns:
+    minmax(var(--sector-header-side), max-content)
+    minmax(0, 1fr)
+    minmax(var(--sector-header-side), max-content);
+  align-items: center;
+  column-gap: 0;
+  width: 100%;
+  max-width: none;
+  height: var(--sector-header-h);
+  min-height: var(--sector-header-h);
+  margin: 0;
+  padding: 0 var(--sector-header-edge-pad-right) 0 var(--sector-header-edge-pad-left);
+  box-sizing: border-box;
+}
+
+/**
+ * 제목-왼쪽 줄(허브·거래 검색·매장 상세·배달 업종·그룹 채팅) — 높이·여백·아이콘·뒤로 크기는 `.sector-header-bar` 그대로 이어받고
+ * 격자만 다르다: 왼쪽 칸 48(뒤로) · 간격 6 · 제목 · 오른쪽. 허브는 아래 `.sector-header--no-left-slot` 으로 왼쪽 칸을 없앤다.
+ */
+.sector-header-bar--left-title {
+  --sector-header-left-slot: var(--sector-header-touch);
+  --sector-header-col-gap: 6px;
+  grid-template-columns: var(--sector-header-left-slot) minmax(0, 1fr) auto;
+  column-gap: var(--sector-header-col-gap);
+}
+
+.sector-header-bar__left,
+.sector-header-bar__right {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/** 대칭 격자: 슬롯은 내용 폭만 차지(실측 대상) — 열 폭은 `--sector-header-side` */
+.sector-header-bar__left {
+  justify-content: flex-start;
+  justify-self: start;
+  width: max-content;
+  flex-shrink: 0;
+}
+
+.sector-header-bar__right {
+  justify-content: flex-end;
+  justify-self: end;
+  width: max-content;
+  gap: var(--sector-header-icon-cluster-gap);
+  flex-shrink: 0;
+}
+
+.sector-header-bar--left-title .sector-header-bar__left {
+  justify-self: stretch;
+  width: var(--sector-header-left-slot);
+}
+
+.sector-header-bar--left-title .sector-header-bar__right {
+  justify-self: stretch;
+  width: auto;
+  min-width: var(--sector-header-right-min);
+}
+
+/**
+ * 우측 동작 — 겉모양 유지, 터치 영역만 최소 48×48 (Production 점검 F2·F4, 설계서 §12).
+ * 허브 아이콘 타일(36·38px)·텍스트 동작(「전체 삭제」 40px 등) 모두 투명 의사요소가 중심 기준으로 사방에 넓어진다.
+ * 이미 48px 이상이면 확장 0. 허브 아이콘 묶음은 아래 규칙으로 가로 확장을 간격 절반으로 제한한다.
+ */
+.sector-header-bar__right :is(a, button):not(.absolute, .fixed, .sticky) {
+  position: relative;
+}
+
+.sector-header-bar__right :is(a, button):not(.absolute, .fixed, .sticky)::after {
+  content: "";
+  position: absolute;
+  top: min(0px, calc((100% - 48px) / 2));
+  bottom: min(0px, calc((100% - 48px) / 2));
+  left: min(0px, calc((100% - 48px) / 2));
+  right: min(0px, calc((100% - 48px) / 2));
+}
+
+/**
+ * 1단 헤더 아이콘 묶음이 sector bar 밖(배달 홈·둘러보기 헤더)에 있을 때도 같은 터치 기준 —
+ * 보이는 타일은 그대로, 터치만 세로 48(sector bar 와 동일) · 가로 간격 절반까지 → 36+8 = 44 (04-DESIGN-SYSTEM 44, I-01d).
+ */
+.sam-tier1-header-icon-cluster :is(a, button):not(.absolute, .fixed, .sticky) {
+  position: relative;
+}
+
+.sam-tier1-header-icon-cluster :is(a, button):not(.absolute, .fixed, .sticky)::after {
+  content: "";
+  position: absolute;
+  top: min(0px, calc((100% - 48px) / 2));
+  bottom: min(0px, calc((100% - 48px) / 2));
+  left: calc(var(--sector-header-hub-touch-gap, 0px) / -2);
+  right: calc(var(--sector-header-hub-touch-gap, 0px) / -2);
+}
+
+/** 헤더 우측 드롭다운 메뉴 항목은 터치 확장 대상 아님 — 확장이 겹쳐 아래 항목을 누르는 오탭 방지 (I-04) */
+.sector-header-bar__right [role="menu"] :is(a, button)::after {
+  content: none;
+}
+
+/**
+ * 허브 아이콘 묶음 — 가로 확장은 간격의 절반까지만 (이웃 터치 영역끼리 맞닿고 겹치지 않음).
+ * 겹치면 뒤 형제가 앞 아이콘의 보이는 타일까지 가져가 터치 중심이 어긋난다 (≤374 커뮤니티: 2px 침범).
+ * 세로는 위 규칙대로 48px. 타일 36 + 간격 8 → 터치 폭 44.
+ */
+.sam-tier1-header-icon-cluster {
+  --sector-header-hub-touch-gap: var(--sector-header-icon-cluster-gap);
+}
+
+.community-tier1-header-actions {
+  --sector-header-hub-touch-gap: var(--sector-header-icon-cluster-gap);
+}
+
+.sector-header-bar__right .sam-tier1-header-icon-cluster :is(a, button):not(.absolute, .fixed, .sticky)::after,
+.sector-header-bar__right .community-tier1-header-actions :is(a, button):not(.absolute, .fixed, .sticky)::after {
+  left: calc(var(--sector-header-hub-touch-gap, 0px) / -2);
+  right: calc(var(--sector-header-hub-touch-gap, 0px) / -2);
+}
+
+/**
+ * 키보드 포커스 표시 — 04-DESIGN-SYSTEM Focus 계약(아이콘 전용 포함 :focus-visible 필수).
+ * `sam-focus-ring` 과 같은 2px primary 선. 헤더 overflow 에 잘리지 않도록 안쪽(-2px)에 그린다.
+ * 터치·마우스 누름에는 나타나지 않는다 (:focus-visible).
+ */
+.sector-header-back:focus-visible,
+.sector-header-action:focus-visible,
+.sam-tier1-header__icon-btn:focus-visible,
+.delivery-consumer-header__icon-btn:focus-visible,
+.sector-header-bar__right :is(a, button):focus-visible {
+  outline: 2px solid var(--sam-primary);
+  outline-offset: -2px;
+}
+
+.sector-header-bar__center {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.sector-header-bar__center--left {
+  justify-content: flex-start;
+}
+
+.sector-header-back {
+  display: inline-flex;
+  width: var(--sector-header-back-size);
+  height: var(--sector-header-back-size);
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: flex-start;
+  overflow: visible;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--sector-header-back-color);
+  text-decoration: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+@media (hover: hover) {
+  .sector-header-back:hover {
+    background: var(--sector-header-accent-hover);
+  }
+}
+
+.sector-header-back:active {
+  background: var(--sector-header-accent-hover);
+}
+
+/** 헤더 행 안 뒤로가기 — 48×48 터치 가운데 24px 아이콘 (아이콘 가장자리 = 화면 끝 16px) */
+.sector-header-bar .sector-header-back {
+  justify-content: center;
+}
+
+/**
+ * 헤더 행 밖 자체 헤더의 뒤로 — 48×48 터치 · ‹ 가운데 (2026-11-02 크롬 S1, opt-in).
+ * 크기는 덮어쓰지 말고 `-ml-*` 로만 ‹ 를 화면 끝 16px 선에 맞춘다.
+ * 배달(`/stores/**`·매장 주문 채팅·사장님) 헤더는 배달 헤더 계약 유지 — 이 클래스를 쓰지 않는다.
+ */
+.sector-header-back.sector-header-back--touch {
+  width: var(--sector-header-touch);
+  height: var(--sector-header-touch);
+  justify-content: center;
+}
+
+.sector-header-back svg {
+  width: var(--sector-header-back-icon);
+  height: var(--sector-header-back-icon);
+  flex-shrink: 0;
+}
+
+.sector-header-back svg path {
+  stroke-width: 2.2;
+}
+
+/** 헤더 뒤로가기 ‹ — AppBackIcon SSOT (레거시 CallHeader `sam-text-hero font-light` + 메신저 chevron 비율) */
+.app-back-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--sector-header-back-icon);
+  min-width: var(--sector-header-back-icon);
+  height: var(--sector-header-back-icon);
+  flex-shrink: 0;
+  overflow: visible;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: calc(var(--sector-header-back-icon) * 1.42);
+  font-weight: 300;
+  line-height: 0.82;
+  letter-spacing: 0;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+  transform: translate(-1px, 0.5px);
+}
+
+.sector-header-back .app-back-glyph {
+  width: var(--sector-header-back-icon);
+  min-width: var(--sector-header-back-icon);
+  height: var(--sector-header-back-icon);
+  font-size: calc(var(--sector-header-back-icon) * 1.42);
+}
+
+.sector-header-action {
+  display: inline-flex;
+  width: var(--sector-header-action-size);
+  height: var(--sector-header-action-size);
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--sector-header-icon-color);
+  text-decoration: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.sector-header-action[data-active="true"],
+.sector-header-action--primary {
+  color: var(--sector-header-icon-active-color);
+}
+
+@media (hover: hover) {
+  .sector-header-action:hover {
+    background: var(--sector-header-accent-hover);
+  }
+}
+
+.sector-header-action:active {
+  background: var(--sector-header-accent-hover);
+}
+
+.sector-header-action svg {
+  width: var(--sector-header-action-icon);
+  height: var(--sector-header-action-icon);
+  flex-shrink: 0;
+}
+
+.sector-header-action svg path,
+.sector-header-action svg circle,
+.sector-header-action svg line,
+.sector-header-action svg polyline,
+.sector-header-action svg rect {
+  stroke-width: 2.1;
+}
+
+.sector-header-title {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  font-size: var(--sector-header-title-size);
+  font-weight: var(--sector-header-title-weight);
+  line-height: var(--sector-header-title-lh);
+  letter-spacing: var(--sector-header-title-tracking);
+  color: var(--sector-header-title-color);
+}
+
+.sector-header-title--left {
+  text-align: left;
+}
+
+.sector-header-title-cluster {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.sector-header-title-cluster--left {
+  align-items: flex-start;
+}
+
+.sector-header-title-cluster .sector-header-title {
+  font-size: var(--sector-header-subtitle-title-size);
+  line-height: var(--sector-header-title-lh);
+}
+
+/**
+ * 부제목 있는 줄(판매하기 등) — 제목 세로 자리를 부제목 없는 줄과 같게(줄 가운데) 두고 부제목은 그 아래에 둔다
+ * (헤더 SSOT, Owner 「권장안대로」 2026-11-13). 52 = 위 여백 15 + 제목 22 + 간격 1 + 부제목 13 + 1.
+ */
+.sector-header-bar--with-subtitle .sector-header-bar__center {
+  align-self: stretch;
+}
+
+.sector-header-bar--with-subtitle .sector-header-title-cluster {
+  height: 100%;
+  justify-content: flex-start;
+  padding-top: calc((var(--sector-header-h) - var(--sector-header-title-lh)) / 2);
+}
+
+.sector-header-subtitle {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--sector-header-subtitle-size);
+  font-weight: 500;
+  line-height: 13px;
+  letter-spacing: -0.2px;
+  color: var(--sector-header-subtitle-color);
+}
+
+.sector-header-search-field {
+  display: flex;
+  min-width: 0;
+  width: 100%;
+  height: var(--sector-header-search-h);
+  align-items: center;
+}
+
+.sector-header-search-input {
+  width: 100%;
+  min-width: 0;
+  height: var(--sector-header-search-h);
+  border: 0;
+  border-radius: 4px;
+  padding: 0 12px;
+  background: var(--sector-header-search-bg);
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--sector-header-title-color);
+  outline: none;
+}
+
+.sector-header-search-input::placeholder {
+  color: color-mix(in srgb, var(--dibay-muted) 70%, transparent);
+}
+
+/** legacy tier1 class bridge — grid center title */
+.sam-tier1-header__row,
+.delivery-consumer-header__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--sector-header-left-slot) 1fr auto;
+  align-items: center;
+  column-gap: var(--sector-header-col-gap);
+  width: 100%;
+  height: var(--sector-header-h);
+  min-height: var(--sector-header-h);
+}
+
+.sam-tier1-header__leading,
+.delivery-consumer-header__leading {
+  position: static;
+  display: flex;
+  width: var(--sector-header-left-slot);
+  align-items: center;
+  justify-content: flex-start;
+  margin: 0;
+}
+
+.sam-tier1-header__title-slot,
+.delivery-consumer-header__title-slot {
+  position: static;
+  display: flex;
+  min-width: 0;
+  max-width: none;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  pointer-events: none;
+}
+
+.sam-tier1-header__title,
+.delivery-consumer-header__title {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  font-size: var(--sector-header-title-size);
+  font-weight: var(--sector-header-title-weight);
+  line-height: var(--sector-header-title-lh);
+  letter-spacing: var(--sector-header-title-tracking);
+  color: var(--sector-header-title-color);
+}
+
+.delivery-ui .sam-tier1-header__title,
+.delivery-ui .delivery-consumer-header__title {
+  color: var(--sector-header-title-color);
+}
+
+.sam-tier1-header__actions,
+.delivery-consumer-header__actions {
+  position: static;
+  display: inline-flex;
+  min-width: var(--sector-header-right-min);
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sector-header-col-gap);
+  margin: 0;
+}
+
+.sam-tier1-header__icon-btn,
+.delivery-consumer-header__icon-btn {
+  display: inline-flex;
+  width: var(--sector-header-action-size);
+  height: var(--sector-header-action-size);
+  min-width: var(--sector-header-action-size);
+  min-height: var(--sector-header-action-size);
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--sector-header-icon-color);
+  transition: background-color 140ms ease;
+}
+
+.sam-tier1-header__icon-btn:active,
+.delivery-consumer-header__icon-btn:active {
+  background: var(--sector-header-accent-hover);
+}
+
+.sam-tier1-header__icon-btn svg,
+.delivery-consumer-header__icon-btn svg {
+  width: var(--sector-header-action-icon) !important;
+  height: var(--sector-header-action-icon) !important;
+}
+
+.sam-tier1-header-icon-cluster {
+  gap: var(--sector-header-icon-cluster-gap);
+}
+
+.sam-tier1-header-icon-cluster .sam-header-action,
+.sam-tier1-header-icon-cluster .sam-tier1-header__icon-btn,
+.sam-tier1-header-icon-cluster .delivery-consumer-header__icon-btn,
+.sam-tier1-header-icon-cluster > .inline-flex > .sam-header-action,
+.sam-tier1-header-icon-cluster > .inline-flex > a.sam-header-action,
+.sam-tier1-header-icon-cluster > .relative > button {
+  width: var(--sector-header-action-size);
+  height: var(--sector-header-action-size);
+  min-width: var(--sector-header-action-size);
+  min-height: var(--sector-header-action-size);
+  border-radius: 4px;
+}
+
+.sam-tier1-header-icon-cluster svg {
+  width: var(--sector-header-action-icon) !important;
+  height: var(--sector-header-action-icon) !important;
+}
+
+.sam-tier1-header-icon-cluster > .relative {
+  width: var(--sector-header-action-size);
+}
+
+/**
+ * 커뮤니티 헤더 우측 — 다른 허브와 같은 터치 48 · 간격 0 (SSOT S5).
+ */
+.community-tier1-header-actions {
+  margin-left: auto;
+  justify-content: flex-end;
+  gap: var(--sector-header-icon-cluster-gap);
+}
+
+.community-tier1-header-actions > button,
+.community-tier1-header-actions > a,
+.community-tier1-header-actions > .inline-flex,
+.community-tier1-header-actions > .relative {
+  width: var(--sector-header-action-size);
+  min-width: var(--sector-header-action-size);
+  height: var(--sector-header-action-size);
+  flex: 0 0 var(--sector-header-action-size);
+}
+
+@media (max-width: 374px) {
+  :root {
+    --sector-header-pad-x: 10px;
+    --sector-header-col-gap: 4px;
+    --sector-header-left-slot: 38px;
+    --sector-header-back-size: 38px;
+    --sector-header-action-size: 34px;
+    --sector-header-back-icon: 21px;
+    --sector-header-action-icon: 21px;
+  }
+}
+
+/**
+ * 태블릿·웹 — 줄 밖 1단 아이콘(배달 홈 등, 헤더 SSOT 2단계 대상)만 약간 키움.
+ * 허브 줄(`--left-title`)·하위 화면 줄은 모든 기기 48·24 고정 (헤더 SSOT 1단계).
+ */
+@media (min-width: 768px) {
+  :root {
+    --sector-header-action-size: 38px;
+    --sector-header-action-icon: 23px;
+  }
+}
+
+/**
+ * 1단 허브 전부(정보교환·거래·모임·채팅·내정보) — 왼쪽 빈칸(`--sector-header-left-slot`) 없음.
+ * 정보교환·거래·모임은 Owner 「3판대로 구현」 2026-11-12, 채팅·내정보는 헤더 SSOT 1단계(Owner 2026-11-13: 제목 위치 통일).
+ * 제목 시작 = 화면 끝 16px(`--sector-header-hub-title-x`), 오른쪽 끝 아이콘 터치 = 하위 화면과 같은 끝 여백(그림 끝 = 화면 끝 16px).
+ */
+.sector-header--no-left-slot .sector-header-bar--left-title {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 0 var(--sector-header-edge-pad-right) 0 var(--sector-header-hub-title-x);
+}
+
+.sector-header--no-left-slot .sector-header-bar--left-title .sector-header-bar__left {
+  display: none;
+}
+
+</style>
+<style>/* ★ 제안 CSS — app/sector-header.css 에 들어갈 원문 그대로 */
+/**
+ * 헤더 뒤로 원형 (설계 docs/design/header-back-round-design-2026-11-16.md R1·R2)
+ * - 터치 48×48·중심 x=28 은 그대로(S4) — 원은 터치 상자 안 가운데 36×36.
+ * - 원 = ::before 한 겹(테두리 1px + 옅은 채움).
+ * - ‹ = 글자(U+2039) 대신 SVG 꺾쇠 `.app-back-chevron` — 잉크 상자(획 포함 7.5×13)가 24×24 상자 정가운데.
+ *   글자 ‹ 는 기기 글꼴마다 잉크 위치가 달라(실측 Mac 왼쪽 1.2·아래 3.5px, Samsung 왼쪽 1.0·아래 2.5px) 원 안 정중앙을 보장할 수 없다.
+ * - 눌림 = 손가락이 닿는 순간(pointerdown → data-pressed) 원이 진해지고 0.9 로 줄어듦. :active 는 보조.
+ */
+:root {
+  --sector-header-back-round: 36px;
+  --sector-header-back-round-border: color-mix(in srgb, var(--sector-header-back-color) 22%, transparent);
+  --sector-header-back-round-fill: color-mix(in srgb, #ffffff 72%, transparent);
+  --sector-header-back-round-pressed-fill: color-mix(in srgb, var(--sector-header-back-color) 16%, #ffffff);
+  --sector-header-back-round-pressed-border: color-mix(in srgb, var(--sector-header-back-color) 45%, transparent);
+}
+
+.sector-header-back.sector-header-back--round {
+  position: relative;
+  isolation: isolate;
+  justify-content: center;
+  border-radius: 9999px;
+  background: transparent;
+  transition: none;
+}
+
+.sector-header-back.sector-header-back--round::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: -1;
+  width: var(--sector-header-back-round);
+  height: var(--sector-header-back-round);
+  border: 1px solid var(--sector-header-back-round-border);
+  border-radius: 9999px;
+  background: var(--sector-header-back-round-fill);
+  box-sizing: border-box;
+  transform: translate(-50%, -50%) scale(1);
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    background-color 180ms ease,
+    border-color 180ms ease;
+}
+
+.sector-header-back.sector-header-back--round .app-back-chevron {
+  display: block;
+  width: var(--sector-header-touch-icon);
+  height: var(--sector-header-touch-icon);
+  transform: none;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* 눌림 — 누르는 순간 바로(전환 70ms), 떼면 180ms 로 돌아옴 */
+.sector-header-back.sector-header-back--round[data-pressed]::before,
+.sector-header-back.sector-header-back--round:active::before {
+  background: var(--sector-header-back-round-pressed-fill);
+  border-color: var(--sector-header-back-round-pressed-border);
+  transform: translate(-50%, -50%) scale(0.9);
+  transition-duration: 70ms;
+}
+
+.sector-header-back.sector-header-back--round[data-pressed] .app-back-chevron,
+.sector-header-back.sector-header-back--round:active .app-back-chevron {
+  transform: scale(0.9);
+  transition-duration: 70ms;
+}
+
+/* 지금의 네모 4px hover·active 배경은 원형에서는 쓰지 않음 */
+@media (hover: hover) {
+  .sector-header-back.sector-header-back--round:hover {
+    background: transparent;
+  }
+  .sector-header-back.sector-header-back--round:hover::before {
+    border-color: var(--sector-header-back-round-pressed-border);
+  }
+}
+.sector-header-back.sector-header-back--round:active {
+  background: transparent;
+}
+
+/* 움직임 줄이기 설정 — 크기 변화 없이 색만 */
+@media (prefers-reduced-motion: reduce) {
+  .sector-header-back.sector-header-back--round::before,
+  .sector-header-back.sector-header-back--round .app-back-chevron {
+    transition: none;
+  }
+  .sector-header-back.sector-header-back--round[data-pressed]::before,
+  .sector-header-back.sector-header-back--round:active::before {
+    transform: translate(-50%, -50%);
+  }
+  .sector-header-back.sector-header-back--round[data-pressed] .app-back-chevron,
+  .sector-header-back.sector-header-back--round:active .app-back-chevron {
+    transform: none;
+  }
+}
+
+/* 꺾쇠 획 2px — `.sector-header-back svg path { stroke-width: 2.2 }` 보다 구체적으로 덮음 */
+.sector-header-back.sector-header-back--round .app-back-chevron path {
+  stroke-width: 2;
+}
+
+</style>
+<style>/* 시안 배치 전용 (앱 CSS 아님) */
+:root{--safe-bottom:0px;--safe-top:0px;--safe-left:0px;--safe-right:0px}
+body{margin:0;background:#eef0ee;color:#1d1d1f;font:14px/1.55 'Pretendard Variable',system-ui,sans-serif;padding:0 16px}
+.doc{max-width:1180px;margin:0 auto;padding:20px 0 60px}
+.doc>h1{font-size:22px;font-weight:700;margin:4px 0}.doc>h2{font-size:18px;font-weight:700;margin:34px 0 6px;border-top:1px solid #ddd;padding-top:18px}
+.lead{color:#555;margin:0 0 10px;max-width:96ch}.note{background:#fff8e6;border:1px solid #f0d58a;border-radius:8px;padding:10px 12px;margin:10px 0;max-width:96ch}
+code{font-size:12px;background:#f3f3f3;padding:0 3px;border-radius:3px}
+.row{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start}
+.ph{margin:0;background:#fff;border:1px solid #e3e3e3;border-radius:8px;padding:8px;max-width:100%;overflow:auto}
+.ph figcaption{font-size:12px;font-weight:700;margin-bottom:6px}
+.b{display:inline-block;padding:0 6px;border-radius:4px;color:#fff;font-size:11px;margin-right:4px}
+.b.now{background:#8a8a8a}.b.new{background:#0B421A}
+.phone{position:relative;overflow:hidden;border:7px solid #1d2420;border-radius:30px;background:#fff;display:flex;flex-direction:column;width:404px}
+.phone.short{height:auto}
+.st{height:26px;flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:12px;font-weight:600;background:var(--sector-header-bg)}
+.scr{background:#fff;padding:12px 16px;color:#666;font-size:13px;min-height:60px}
+.pair{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.pair .lbl{font-size:12px;font-weight:700;margin:0 0 4px}
+.dom{font-size:13px;font-weight:700;margin:16px 0 6px}
+.av{width:36px;height:36px;border-radius:999px;background:linear-gradient(135deg,#f3cf9b,#d8874a);flex:0 0 auto}
+.peer{display:flex;align-items:center;gap:8px;min-width:0}.peer b{font-size:17px;font-weight:600;color:#243832;line-height:22px;display:block}.peer small{font-size:12px;color:#7a7a7a;display:block;line-height:14px}
+.chatbar{display:grid;grid-template-columns:48px 1fr 96px;align-items:center;height:52px;padding:0 4px}
+.zoom{transform:scale(3);transform-origin:0 0;width:404px;height:52px}
+.zoomwrap{width:420px;height:170px;overflow:hidden;position:relative;background:#fff;border:1px solid #e3e3e3;border-radius:8px}
+.guide{position:absolute;top:0;bottom:0;border-left:1px dashed #d33;pointer-events:none}
+.guide span{position:absolute;top:2px;left:3px;font-size:10px;color:#d33;white-space:nowrap}
+.ctl{display:flex;gap:10px;align-items:center;margin:8px 0;flex-wrap:wrap}
+.ctl button{border:1px solid #c9c9c9;background:#fff;border-radius:6px;padding:6px 12px;font:inherit;font-size:13px}
+.ctl button[aria-pressed=true]{background:#0B421A;color:#fff;border-color:#0B421A}
+.log{font:12px/1.5 ui-monospace,monospace;background:#1d2420;color:#d6f5df;border-radius:6px;padding:8px 10px;min-height:54px;max-width:404px;white-space:pre-wrap}
+.shot{display:block;width:404px;border:7px solid #1d2420;border-radius:16px}
+table.it{border-collapse:collapse;background:#fff}table.it td,table.it th{border:1px solid #e3e3e3;padding:6px 10px;text-align:left;font-size:13px;vertical-align:top}table.it th{background:#fafafa}
+
+.ok{color:#0B421A;font-weight:700}.ng{color:#c22;font-weight:700}
+
+</style></head><body><main class="doc">
+<h1>헤더 뒤로가기 — 원형 테두리 · 눌림 · 소리 시안</h1>
+<p class="lead">기준 <code>origin/main dcdd8aed0</code>. 앱 CSS 원문을 그대로 넣었습니다: Tailwind preflight, <code>app/design-tokens.css</code>, <code>app/dibay-chrome-ssot.css</code>, <code>app/sector-header.css</code>, 글꼴 Pretendard Variable 1.3.9. 「바꾼 뒤」는 위 원문에 <b>제안 CSS 1블록</b>(<code>.sector-header-back--round</code>)만 더한 것입니다. 버튼 마크업은 앱 <code>AppBackButton</code> 이 그리는 것과 같습니다(<code>button.sector-header-back</code> &gt; <code>span.app-back-glyph</code> ‹).</p>
+<div class="note"><b>Owner 지시 원문 (2026-11-16):</b> 「디바이의 헤더 뒤로가기 부분을 전체 감사 해서, 지금은 뚜렷한 구분이 없는 부분이다, 원형 테두리에 뒤로 가기를 정확한 버튼 눌림과 사운드가 들어 가는 부분을 원하는 부분이다」</div>
+
+<h2>1. 지금 — 실기 캡처</h2>
+<p class="lead">Samsung SM-M156S, 메신저 1:1 방, 06:07 PHT. ‹ 글자만 있고 테두리·바탕이 없어 버튼으로 구분되지 않습니다. 누르면 4px 네모 바탕이 140ms 깔리지만 손가락에 가려 거의 보이지 않습니다(<code>.sector-header-back:active</code>).</p>
+<img class="shot" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABDgAAAEsCAYAAAAmbwOlAAC4PElEQVR42uzdd3wU5do+cN9z3t97PEoNHQXEggUVlaqogCDSaxo1IE0B6WABQQULClIVEaQpKEjvvRNaGiWFJJCQ3ns225Lrt/fgxs1kl2x6kOuP74eQ3Zmdnd3szlxzP/fzQHiiAURERERERERE97IHuBOIiIiIiIiIiAEHEREREREREREDDiIiIiIiIiIiBhxERERERERExICDO4GIiIiIiIiIGHAQERERERERETHgICIiIiIiIiJiwEFEREREREREDDiIiIiIiIiIiBhwEBEREREREREx4CAiIiIiIiIiYsBBRERERERERAw4iIiIiIiIiIgYcBARERERERERMeAgIiIiIiIiImLAQUREREREREQMOIiIiIiIiIiIGHAQERERERERETHgICIiIiIiIiJiwEFEREREREREDDiIiIiIiIiIiBhwEBEREREREREx4CAiIiIiIiIiYsBBRERERERERAw4iIiIiIiIiIgYcBDRPSU0TgvvgAic8wzEWY8buHQtBMFR6dw3REREZLfAiFRcvh6K4+5XleMJL/9wBIQlF2ud572DceSMt03eNyK578uIvBZldXwYlqBHSGwWboSnYP/xi/j860UY9f5EuA4ejp59ndGpS4/7gjxXec7y3GUfyL6QfSLH7rKP+L5kwFEi5I/talBMmT6mvIHlzexzI0r5l29oKikevrcx/ZPP73xZvNNd0bVHXwwfNQ7b959i0EFERET5nLrkh6U/rce4STMwYMi7yrGD+TjCmvGTPsSPqzfixPlrhXqc9z6Yetf1yjrv19dg5brNyvGambwWc+cvwYETl0r0cfxvJ2HsxOnK/u7eqz92HTpbquc8QZFpSkC26Mc1ynurc9de902gURDZFwOHjsCSFeuUfSTH6TwvZMBRbPJB6uQ6FHuPni/1UENSunnfLkXPPk55Psx79XNRfi8fYAW9qdds3I6vvlteLMt//pWvfQk5du4Kjp71UYKq8t4WubIyetxkmwcNcrAi4YdcIZGkmK8fERHR/Wv34XOYPW8B+jgOuGvoUBBZfsHSVfD0CyvwMQcPG8WAw4Zvvl+h7AOnAUMxYswHGPneBOUcQUKBkgw5Vqz5Pc8+7+88uFTOe6QC6IxHgBKcSdUCA427k30k52hSgS2h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ipmb0UvVjVS0lNbFN6kekWNmZTpehhd3JftI9pXsM/7dMOAgKvthKj7BmL/oJ6VqYtjIscoVCmkwVZ6hgXwRKn1PVJUllrPzSFMvaYLFqg0iIiIqrUpXGQLOyo2iDWW/ePXWXe8j/QJlVpi73UeO9Qqa3U+G3BRniLy9F+Dk+PSsxw2lUa0cM0uVMQONv6bJNe0L2Seyb2Qfyb7ikHEGHETlRr445ErF/uMXlS+aivBFLuM/pZJDKXP8K+iQShPpxyGlozKrEF87IiIiIirLSmM5TpYLgRLgSGWJVJpI/xLngW73TaAhz1Weszx32QeyL2SfyL5hsMGAg4hskOoMCV9kRhRx/WYcS92IiIiIiIgBBxERERERERERAw4iIiIiIiIiIgYcRERERERERMSAg4iIiIiIiIiIAQcREREREREREQMOIiIiIiIiIiIGHERERERERETEgIOIiIiIiIiIiAEHEREREREREREDDiIiIiIiIiIiBhxERERERERExICDiIiIiIiIiIgBBxERERERERERAw4iIiIiIiIiIgYcRERERERERMSAg4iIiIiIiIiIAQcREREREREREQMOIiIiIiIiIiIGHERERERERETEgIOIiIiIiIiIiAEHEREREREREREDDiIiIiIiIiIiBhxERERERERExICDiIiIiIiIiIgBBxERERERERERAw4iIiIiIiIiIgYcRERERERERMSAg4iIiIiIiIiIAQcREREREREREQMOIiIiIiIiIiIGHERERERERETEgIOIiIiIiIiIiAEHEREREREREREDDiIiIiIiIiIiBhxERERERERExICDiIiIiIiIiIgBBxERERERERERAw4iIiIiIiIiIgYcRERERERERMSAg4iIiIiIiIiIAQcREREREREREQMOIiIiIiIiIiIGHERERERERETEgIOIiIiIiIiIiAEHEREREREREREDDiIiIiIiIiIiBhxERERERERExICDiIiIiIiIiIgBBxERERERERERAw4iIiIiIiIiIgYcRERERERERMSAg4iIiIiIiIiIAQcREREREREREQMOIiIiIiIiIiIGHERERERERETEgIOIiIiIiIiIiAEHEREREREREREDDiIiIiIiIiIiBhxERERERERExICDiIiIiIiIiIgBBxERERERERERAw4iIiIiIiIiIgYcRERERERE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" alt="지금 채팅방 머리글">
+
+<h2>2. 지금 / 바꾼 뒤 — 5개 도메인 색</h2>
+<p class="lead">헤더 바탕은 도메인 색(<code>data-dibay-domain</code>)마다 다릅니다. 원은 어느 바탕에서도 보이도록 <b>흰색 72% 채움 + ‹ 색 22% 테두리 1px</b> 로 만들었습니다. 터치 48×48·‹ 위치(중심 x=28)·제목 위치는 그대로입니다. <b>버튼을 직접 눌러 보세요</b> — 눌림이 바로 보입니다.</p>
+<div id="domains"></div>
+
+<h2>3. 눌림 — 고정해서 보기</h2>
+<p class="lead">왼쪽 = 평소, 가운데 = 손가락이 닿은 순간(<code>data-pressed</code>), 오른쪽 = 지금 앱의 눌림(<code>:active</code> 4px 네모). 3배 확대.</p>
+<div class="row" id="states"></div>
+
+<h2>4. 치수 (390 폭, 3배 확대)</h2>
+<div class="zoomwrap" id="zoomwrap"></div>
+<table class="it" style="margin-top:8px">
+<tr><th>항목</th><th>지금</th><th>바꾼 뒤</th></tr>
+<tr><td>터치 영역</td><td>48×48 @x4</td><td>48×48 @x4 (그대로)</td></tr>
+<tr><td>보이는 모양</td><td>‹ 글자(U+2039, 기기 글꼴) 24 상자 @x16</td><td><b>원 36×36 @x10</b> + <b>SVG 꺾쇠</b> 24 상자 @x16 — 잉크 7.5×13 이 원 정중앙</td></tr>
+<tr><td>원 테두리 / 채움</td><td>없음</td><td>1px · ‹ 색 22% / 흰색 72%</td></tr>
+<tr><td>눌림</td><td>4px 네모 바탕 · 140ms</td><td>누르는 순간 원 채움 진해짐(‹ 색 16%) · 테두리 45% · 원과 ‹ 0.9배 · 70ms, 떼면 180ms</td></tr>
+<tr><td>소리</td><td>없음 (헤더 뒤로·닫기 전체 0곳)</td><td>손을 떼서 눌림이 확정될 때(click) 1회 · 앱 기존 「딸깍」 + Android 진동 10ms · 연타는 1회 · 통화 중 안 남</td></tr>
+</table>
+
+<h2>4-1. ‹ 정중앙 — 실측</h2>
+<p class="lead">‹ 의 <b>잉크(실제로 칠해진 픽셀) 상자 중심</b>과 원(터치 상자) 중심의 차이입니다. + 는 오른쪽·아래. 측정: Mac Chrome 8배 렌더 픽셀 분석 · Samsung SM-M156S 운영 앱 캡처(06:07 PHT) 픽셀 분석.</p>
+<table class="it">
+<tr><th>모양</th><th>환경</th><th>잉크 크기</th><th>가로 차</th><th>세로 차</th><th>판정</th></tr>
+<tr><td>지금 ‹ 글자</td><td>Mac Chrome (SF 글꼴)</td><td>7.6×12.3</td><td>−1.19</td><td>+3.50</td><td class="ng">FAIL</td></tr>
+<tr><td>지금 ‹ 글자</td><td>Samsung 실기 (Roboto 계열)</td><td>6.4×12.8</td><td>−0.98</td><td>+2.53</td><td class="ng">FAIL</td></tr>
+<tr><td>바꾼 뒤 SVG 꺾쇠</td><td>Mac Chrome 배율 2·3·8</td><td>7.5×13</td><td>0.00</td><td>0.00</td><td class="ok">PASS</td></tr>
+<tr><td>바꾼 뒤 SVG 꺾쇠 · 누른 상태(0.9배)</td><td>Mac Chrome 배율 8</td><td>6.75×11.75</td><td>0.00</td><td>0.00</td><td class="ok">PASS</td></tr>
+<tr><td>바꾼 뒤 SVG 꺾쇠</td><td>Mac Chrome 배율 2.8125 (Samsung 과 같은 배율)</td><td>7.8×13.2</td><td>+0.36</td><td>−0.18</td><td>기기 화소 1개(0.36px) 이내 — 화소 맞춤 반올림</td></tr>
+<tr><td>바꾼 뒤 SVG 꺾쇠</td><td>Android·iPhone 실기</td><td colspan="4">NOT_PROVEN — 구현 후 같은 방법(기기 캡처 픽셀 분석)으로 확인</td></tr>
+</table>
+<p class="lead" style="margin-top:8px">글자 ‹ 는 글꼴이 정하는 위치라 기기마다 다르게 치우칩니다(위 두 줄). SVG 는 좌표로 그리므로 꺾쇠 끝점 (14.75, 6.5)·(14.75, 17.5), 꼭짓점 (9.25, 12), 획 2 → 잉크 x 8.25~15.75, y 5.5~18.5 → 중심 (12, 12) 이 24 상자 중심과 같습니다.</p>
+<div class="row" id="cross"></div>
+
+<h2>5. 눌러 보기 — 눌림 + 소리</h2>
+<p class="lead">아래 버튼은 실제 앱처럼 <b>누르는 순간 눌림</b>, <b>손을 떼서 눌림이 확정되면 소리</b> 1번입니다. 스크롤처럼 손가락이 밀려 취소되면 소리가 나지 않습니다. 소리는 <b>앱에 이미 있는 「딸깍」</b>(<code>lib/ui/light-tap-feedback.ts</code> — 글쓰기 CTA·FAB·전화 인증 등에서 쓰는 것, 사인 920Hz 55ms)과 같은 값입니다. 앱에서는 이 소리와 Android 짧은 진동(10ms)이 같이 나고, 손가락 터치에서만 납니다(PC 마우스는 없음 — 시안은 들어 보기 위해 마우스에도 냄).</p>
+<div class="ctl"><button id="snd" aria-pressed="true">소리 켜짐</button><span style="font-size:12px;color:#777">PC 는 마우스로, 휴대폰은 손가락으로 눌러 보세요</span></div>
+<div class="phone short" data-dibay-domain="community" id="live"></div>
+<div class="log" id="log" style="margin-top:8px">아직 누르지 않음</div>
+</main>
+<script>
+const CHEV = '<svg class="app-back-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.75 6.5 9.25 12l5.5 5.5"/></svg>';
+const BACK = (round, pressed) => `<button type="button" class="sector-header-back${round?' sector-header-back--round':''}" aria-label="뒤로"${pressed?' data-pressed=""':''}>${round?CHEV:'<span class="app-back-glyph" aria-hidden="true">‹</span>'}</button>`;
+const BELL = `<button class="sector-header-action" aria-label="알림"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button>`;
+const MORE = `<button class="sector-header-action" aria-label="더보기"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>`;
+const PHONE = `<button class="sector-header-action" aria-label="통화"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg></button>`;
+const bar = (round, title, right, pressed) => `<header class="sector-header-shell sector-header-shell--embedded"><div class="sector-header-bar-wrap"><div class="sector-header-bar"><div class="sector-header-bar__left">${BACK(round,pressed)}</div><div class="sector-header-bar__center">${title}</div><div class="sector-header-bar__right">${right}</div></div></div></header>`;
+const T = s => `<span class="sector-header-title">${s}</span>`;
+const PEER = `<div class="peer" style="justify-self:start"><div class="av"></div><div><b>zxzx11</b><small>자리 비움</small></div></div>`;
+const phone = (dom, inner, txt) => `<div class="phone short" data-dibay-domain="${dom}"><div class="st"><span>9:41</span><span>100%</span></div>${inner}<div class="scr">${txt}</div></div>`;
+const chatBar = round => `<header class="sector-header-shell sector-header-shell--embedded"><div class="sector-header-bar-wrap"><div class="sector-header-bar" style="grid-template-columns:48px minmax(0,1fr) 96px"><div class="sector-header-bar__left">${BACK(round)}</div><div class="sector-header-bar__center sector-header-bar__center--left">${PEER}</div><div class="sector-header-bar__right">${PHONE}${MORE}</div></div></div></header>`;
+const rows = [
+  ["home","홈 색 — 알림", r=>bar(r,T("알림"),""), "홈에서 들어간 공용 화면"],
+  ["community","커뮤니티 색 — FEED 글", r=>bar(r,T("FEED"),BELL), "글 상세"],
+  ["delivery","배달 색 — 매장", r=>bar(r,T("매장"),MORE), "배달 하위 화면 (배달 헤더 계약 — 설계 §5 충돌 1)"],
+  ["chat","채팅 색 — 1:1 방 (S11 아바타가 x=52 에서 시작)", r=>chatBar(r), "메신저 방"],
+  ["mypage","내정보 색 — 설정", r=>bar(r,T("설정"),""), "설정"],
+];
+document.getElementById("domains").innerHTML = rows.map(([d,l,f,c])=>`<div class="dom">${l}</div><div class="pair"><div><div class="lbl"><span class="b now">지금</span></div>${phone(d,f(false),c)}</div><div><div class="lbl"><span class="b new">바꾼 뒤</span></div>${phone(d,f(true),c)}</div></div>`).join("");
+const z = (inner,cap) => `<figure class="ph"><figcaption>${cap}</figcaption><div class="zoomwrap" style="width:170px;height:170px"><div class="zoom" data-dibay-domain="community">${inner}</div></div></figure>`;
+document.getElementById("states").innerHTML =
+  z(bar(true,"",""),'<span class="b new">바꾼 뒤</span>평소') +
+  z(bar(true,"","",true),'<span class="b new">바꾼 뒤</span>누르는 순간') +
+  `<figure class="ph"><figcaption><span class="b now">지금</span>누르는 순간(4px 네모)</figcaption><div class="zoomwrap" style="width:170px;height:170px"><div class="zoom" data-dibay-domain="community"><header class="sector-header-shell sector-header-shell--embedded"><div class="sector-header-bar-wrap"><div class="sector-header-bar"><div class="sector-header-bar__left"><button class="sector-header-back" style="background:var(--sector-header-accent-hover)"><span class="app-back-glyph">‹</span></button></div><div></div><div></div></div></div></header></div></div></figure>`;
+document.getElementById("zoomwrap").innerHTML = `<div class="zoom" data-dibay-domain="chat">${chatBar(true)}</div>` +
+  [[4*3,"터치 x4"],[10*3,"원 x10"],[16*3,"‹ 상자 x16"],[28*3,"중심 x28"],[46*3,"원 끝 x46"],[52*3,"아바타 x52"]].map(([x,s],i)=>`<div class="guide" style="left:${x}px"><span style="top:${2+i*14}px">${s}</span></div>`).join("");
+document.getElementById("live").innerHTML = `<div class="st"><span>9:41</span><span>100%</span></div>${bar(true,T("FEED"),BELL)}<div class="scr">이 화면의 ‹ 를 눌러 보세요</div>`;
+// 눌림·소리 (앱 설계 R2·R3 와 같은 순서)
+let ctx=null, soundOn=true; const log=document.getElementById("log"); let t0=0;
+function tick(){ if(!soundOn) return; /* 앱 lib/ui/light-tap-feedback.ts playLightTapClickSound 과 같은 값: 사인 920Hz · 8ms 에 0.07 · 55ms 에 꺼짐 */
+  ctx = ctx || new (window.AudioContext||window.webkitAudioContext)(); if(ctx.state==="suspended") ctx.resume(); const t=ctx.currentTime;
+  const o=ctx.createOscillator(), g=ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.type="sine"; o.frequency.value=920;
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.07,t+0.008); g.gain.exponentialRampToValueAtTime(0.0001,t+0.055); o.start(t); o.stop(t+0.06); }
+document.getElementById("snd").onclick=e=>{soundOn=!soundOn;e.target.setAttribute("aria-pressed",soundOn);e.target.textContent=soundOn?"소리 켜짐":"소리 꺼짐";};
+document.querySelectorAll(".sector-header-back--round").forEach(b=>{
+  if(b.hasAttribute("data-pressed")) return;
+  const up=()=>b.removeAttribute("data-pressed");
+  b.addEventListener("pointerdown",()=>{b.setAttribute("data-pressed","");t0=performance.now();});
+  b.addEventListener("pointerup",up);b.addEventListener("pointercancel",()=>{up();log.textContent="눌림 취소(손가락 밀림) — 소리 없음";});b.addEventListener("pointerleave",up);
+  b.addEventListener("click",()=>{tick();log.textContent=`누름 → 눌림 표시 0ms\n뗌(확정) → 소리 ${soundOn?"1회":"(꺼짐)"} · 누르고 있던 시간 ${Math.round(performance.now()-t0)}ms\n앱에서는 이 순간 뒤로 이동`;});
+});
+
+const X = (inner,cap) => `<figure class="ph"><figcaption>${cap}</figcaption><div style="position:relative;width:192px;height:192px;overflow:hidden;background:#fff"><div style="transform:scale(4);transform-origin:0 0;width:48px;height:48px;position:relative" data-dibay-domain="community">${inner}</div><div style="position:absolute;left:96px;top:0;bottom:0;border-left:1px solid #d33"></div><div style="position:absolute;top:96px;left:0;right:0;border-top:1px solid #d33"></div></div></figure>`;
+document.getElementById("cross").innerHTML =
+  X(`<button class="sector-header-back sector-header-back--round" style="width:48px;height:48px"><span class="app-back-glyph">‹</span></button>`, '<span class="b now">글자 ‹</span>원 안 — 4배, 빨간 선 = 원 중심') +
+  X(`<button class="sector-header-back sector-header-back--round" style="width:48px;height:48px">${CHEV}</button>`, '<span class="b new">SVG 꺾쇠</span>원 안 — 4배, 빨간 선 = 원 중심');
+</script>
+</body></html>

@@ -3,6 +3,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { usePathname, useRouter } from "next/navigation";
 import { AppCloseIcon } from "@/components/navigation/AppBackButton";
+import { HeaderBackRoundButton } from "@/components/navigation/HeaderBackRoundButton";
 import { DELIVERY_CONSUMER_HEADER_ICON_BTN_CLASS } from "@/lib/design/delivery-chrome";
 import { useStoreDetailAnimatedBack } from "@/lib/dibay/store-detail-animated-back-context";
 import { markStoreDetailMenuTabsLanding } from "@/lib/dibay/store-detail-nav-intent";
@@ -75,24 +76,33 @@ export function StoreDetailBackLink({
   fallbackHref: _fallbackHref,
   variant = "back",
   className,
+  round = true,
 }: {
   storeSlug?: string;
   fallbackHref?: string;
   variant?: Variant;
   className?: string;
+  /**
+   * 헤더 뒤로 원형(2026-11-16) — 흰 헤더는 원형. 매장 사진 위(투명·유리 버튼)는 배달 매장 헤더 계약(§WP6 「배너 위 투명 + 흰 아이콘」)대로
+   * 지금 모양을 유지하므로 `StoreOrderStickyHeader` 가 false 를 준다.
+   */
+  round?: boolean;
 }) {
   const { t } = useI18n();
   const label = variant === "close" ? t("common_close") : t("nav_back");
   const onBackPress = useStoreDetailBackPress(storeSlug);
+  const btnClass =
+    className ?? `${DELIVERY_CONSUMER_HEADER_ICON_BTN_CLASS} hover:bg-sam-surface-muted/90 active:bg-sam-border-soft/80`;
+
+  if (variant === "back" && round) {
+    return <HeaderBackRoundButton onClick={onBackPress} className={btnClass} aria-label={label} />;
+  }
 
   return (
     <button
       type="button"
       onClick={onBackPress}
-      className={
-        className ??
-        `${DELIVERY_CONSUMER_HEADER_ICON_BTN_CLASS} hover:bg-sam-surface-muted/90 active:bg-sam-border-soft/80`
-      }
+      className={btnClass}
       aria-label={label}
     >
       {variant === "close" ? (

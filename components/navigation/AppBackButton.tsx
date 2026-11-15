@@ -12,8 +12,14 @@ import {
 } from "@/lib/navigation/fixed-destination-back";
 import { useBackPressLock } from "@/lib/navigation/use-back-press-lock";
 import { APP_BACK_GLYPH_CHAR, APP_BACK_GLYPH_CLASS } from "@/lib/ui/app-back-glyph";
-import { SECTOR_HEADER_BACK_CLASS } from "@/lib/ui/sector-header-classes";
+import { SECTOR_HEADER_BACK_CLASS, SECTOR_HEADER_BACK_ROUND_CLASS } from "@/lib/ui/sector-header-classes";
+import { AppBackChevronIcon } from "@/components/navigation/HeaderBackRoundButton";
+import { headerBackPressHandlers, playHeaderBackPressSound } from "@/lib/ui/header-back-press-feedback";
 
+/**
+ * ‹ 글자(U+2039) 아이콘 — 통화 화면 `CallHeader` 만 쓴다(통화 코드 무변경).
+ * 헤더 뒤로 버튼은 원형 + SVG 꺾쇠(`AppBackChevronIcon`)를 쓴다 — 글자 ‹ 는 기기 글꼴마다 원 안에서 치우친다.
+ */
 export function AppBackIcon({ className }: { className?: string }) {
   return (
     <span
@@ -95,7 +101,13 @@ export function AppBackButton({
   const { t, tt } = useI18n();
   const router = useRouter();
   const runOnce = useBackPressLock();
-  const mergedClass = `${SECTOR_HEADER_BACK_CLASS} ${className ?? defaultToneClass}`.trim();
+  const isRound = variant === "back";
+  /** 뒤로 = 원형(원 36·눌림·소리·SVG 꺾쇠, 설계 docs/design/header-back-round-design-2026-11-16.md). 닫기 ✕ 는 지금 모양 그대로 */
+  const mergedClass = [SECTOR_HEADER_BACK_CLASS, isRound ? SECTOR_HEADER_BACK_ROUND_CLASS : "", className ?? defaultToneClass]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const pressProps = isRound ? headerBackPressHandlers : undefined;
   const resolvedAriaLabel = ariaLabelKey
     ? t(ariaLabelKey)
     : ariaLabel
@@ -103,7 +115,7 @@ export function AppBackButton({
       : variant === "close"
         ? t("common_close")
         : t("nav_back");
-  const Icon = variant === "close" ? AppCloseIcon : AppBackIcon;
+  const Icon = variant === "close" ? AppCloseIcon : AppBackChevronIcon;
 
   if (preferHistoryBack === false && backHref != null) {
     return (
@@ -112,7 +124,9 @@ export function AppBackButton({
         className={mergedClass}
         aria-label={resolvedAriaLabel}
         scroll={false}
+        {...pressProps}
         onClick={(e) => {
+          if (isRound) playHeaderBackPressSound(e);
           if (interceptBack?.()) {
             e.preventDefault();
             return;
@@ -135,7 +149,9 @@ export function AppBackButton({
     return (
       <button
         type="button"
-        onClick={() => {
+        {...pressProps}
+        onClick={(e) => {
+          if (isRound) playHeaderBackPressSound(e);
           if (interceptBack?.()) return;
           markAppScrollNavIntent("back");
           runOnce(() => runHistoryBackWithFallback(router, backHref));
@@ -151,7 +167,9 @@ export function AppBackButton({
   return (
     <button
       type="button"
-      onClick={() => {
+      {...pressProps}
+      onClick={(e) => {
+        if (isRound) playHeaderBackPressSound(e);
         if (interceptBack?.()) return;
         markAppScrollNavIntent("back");
         runOnce(() => (onBack ? onBack() : runHistoryBackWithFallback(router)));
