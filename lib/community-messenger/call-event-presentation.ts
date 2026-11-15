@@ -62,6 +62,8 @@ function missedLine(lang: AppLanguageCode, callKind: CommunityMessengerCallKind)
  * - 수신자가 받지 않음(시간 초과) → 부재중 (`incoming_missed`) — 발신자·수신자 동일
  * - 수신자가 거절 → 거절 (`remote_rejected`) — 동일
  * - 발신자가 취소 → 발신자 취소 (`outgoing_cancelled`) / **수신자 부재중** (`incoming_missed`)
+ * - 상대 통화 중(`peer_busy`) → 발신자 통화 중 (`remote_busy`) / **통화 중이던 사람 부재중** (`incoming_missed`)
+ *   (Owner 2026-11-15 「1단계 구현 승인」 — docs/audit/call-busy-missed-and-call-waiting-audit-2026-11-14.md §4 D4)
  * 진행 중(발신 중/수신 중)도 역할로 구분한다. 보는 사람을 모르면(null) 발신자 취소는 취소.
  */
 export function resolveCallEventCanonical(input: {
@@ -82,7 +84,8 @@ export function resolveCallEventCanonical(input: {
     return "outgoing_started";
   }
   if (fs === "incoming") return "incoming_received";
-  if (ev === "peer_busy") return "remote_busy";
+  /** 상대 통화 중: 발신자 「통화 중」 / 통화 중이던 사람(수신자) 「부재중」 — Owner 2026-11-15 1단계, Signal 동일 */
+  if (ev === "peer_busy") return role === "callee" ? "incoming_missed" : "remote_busy";
   if (ev === "caller_busy") return "self_busy";
   if (ev === "failed") return "failed";
   if (ev === "disconnected") return "interrupted";

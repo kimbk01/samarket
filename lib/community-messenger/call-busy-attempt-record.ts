@@ -1,10 +1,9 @@
 /**
- * E-C1 — busy dial attempt: caller-only durable record helpers.
+ * E-C1 — busy dial attempt record helpers.
  *
- * Shared `call_stub` is a room-wide message row (both members see it). There is no
- * per-viewer hide without schema/RPC changes. Owner policy: no stub/unread/bell/push
- * for the busy peer → persist terminal session + call_log only; chat line stays
- * caller-local (`appendLocalCallChatMessageForPeerBusy`).
+ * Owner 2026-11-15 「1단계 구현 승인」(docs/audit/call-busy-missed-and-call-waiting-audit-2026-11-14.md §4, Signal 형태):
+ * - 상대 통화 중(`peer_busy`): 공유 `call_stub` + 통화 기록을 양쪽이 본다 — 발신자 「통화 중」, 통화 중이던 사람 「부재중」.
+ * - 본인 통화 중(`caller_busy`): 지금처럼 발신자 전용(공유 기록·알림 없음, 통화 기록도 발신자만).
  */
 
 export type CallBusyKind = "peer" | "caller";
@@ -27,14 +26,14 @@ export function busyKindFromEndedReason(
   return null;
 }
 
-/** Session/call_log ended_reason values that must not appear on the peer's call history. */
+/** Session/call_log ended_reason values that must not appear on the peer's call history (본인 통화 중만). */
 export function isCallerOnlyBusyEndedReason(endedReason: string | null | undefined): boolean {
-  return busyKindFromEndedReason(endedReason) != null;
+  return busyKindFromEndedReason(endedReason) === "caller";
 }
 
 /**
- * List filter: busy attempt rows are caller-only.
- * Non-busy rows unchanged. Missing caller id → exclude busy row (fail closed).
+ * List filter: 본인 통화 중(`caller_busy`) 기록만 발신자 전용. 상대 통화 중(`peer_busy`)은 양쪽 모두.
+ * Non-busy rows unchanged. Missing caller id → exclude caller-only row (fail closed).
  */
 export function shouldIncludeCallLogRowForViewer(input: {
   viewerUserId: string;

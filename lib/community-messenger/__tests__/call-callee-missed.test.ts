@@ -3,6 +3,7 @@ import {
   callStubIncrementsCalleeUnread,
   isCallerCancelledCallStub,
   isMissedCallStubForViewer,
+  isPeerBusyCallStub,
 } from "@/lib/community-messenger/call-callee-missed";
 import { messengerRealtimeRowPlaysReceiveSound } from "@/lib/community-messenger/realtime/call-stub-receive-sound-policy";
 import { buildMessengerInAppBannerContent } from "@/lib/community-messenger/notifications/messenger-in-app-banner-content";
@@ -22,12 +23,22 @@ describe("call-callee-missed 판정", () => {
     expect(isMissedCallStubForViewer({ callStatus: "missed", viewerUserId: CALLER })).toBe(true);
     expect(isMissedCallStubForViewer({ callStatus: "missed", viewerUserId: CALLEE })).toBe(true);
   });
-  it("통화 중·거절·종료는 부재중 아님", () => {
-    for (const resolvedEvent of ["peer_busy", "caller_busy"]) {
-      expect(
-        isMissedCallStubForViewer({ callStatus: "cancelled", resolvedEvent, initiatorUserId: CALLER, viewerUserId: CALLEE }),
-      ).toBe(false);
-    }
+  it("상대 통화 중(peer_busy): 통화 중이던 사람 부재중 · 발신자는 아님 (Owner 2026-11-15 1단계)", () => {
+    expect(
+      isMissedCallStubForViewer({ callStatus: "cancelled", resolvedEvent: "peer_busy", initiatorUserId: CALLER, viewerUserId: CALLEE }),
+    ).toBe(true);
+    expect(
+      isMissedCallStubForViewer({ callStatus: "cancelled", resolvedEvent: "peer_busy", initiatorUserId: CALLER, viewerUserId: CALLER }),
+    ).toBe(false);
+    expect(
+      isMissedCallStubForViewer({ callStatus: "cancelled", endedReason: "peer_busy", initiatorUserId: CALLER, viewerUserId: CALLEE }),
+    ).toBe(true);
+    expect(isPeerBusyCallStub({ callStatus: "cancelled", endedReason: "caller_busy" })).toBe(false);
+  });
+  it("본인 통화 중·거절·종료는 부재중 아님", () => {
+    expect(
+      isMissedCallStubForViewer({ callStatus: "cancelled", resolvedEvent: "caller_busy", initiatorUserId: CALLER, viewerUserId: CALLEE }),
+    ).toBe(false);
     expect(isCallerCancelledCallStub({ callStatus: "cancelled", endedReason: "peer_busy" })).toBe(false);
     expect(isCallerCancelledCallStub({ callStatus: "cancelled", endedReason: "redial_replaced" })).toBe(false);
     expect(isMissedCallStubForViewer({ callStatus: "rejected", viewerUserId: CALLEE, initiatorUserId: CALLER })).toBe(false);
@@ -38,7 +49,7 @@ describe("call-callee-missed 판정", () => {
     expect(isMissedCallStubForViewer({ callStatus: "cancelled", senderUserId: CALLER, viewerUserId: CALLER })).toBe(false);
     expect(isMissedCallStubForViewer({ callStatus: "cancelled", viewerUserId: CALLEE })).toBe(false);
   });
-  it("서버 안 읽은 수: 부재중 + 발신자가 보낸 발신자 취소만", () => {
+  it("서버 안 읽은 수: 부재중 + 발신자가 보낸 발신자 취소·상대 통화 중만", () => {
     expect(callStubIncrementsCalleeUnread({ status: "missed" })).toBe(true);
     expect(
       callStubIncrementsCalleeUnread({ status: "cancelled", endedReason: "canceled", stubActorUserId: CALLER, initiatorUserId: CALLER }),
@@ -47,7 +58,10 @@ describe("call-callee-missed 판정", () => {
     expect(
       callStubIncrementsCalleeUnread({ status: "cancelled", endedReason: "canceled", stubActorUserId: CALLEE, initiatorUserId: CALLER }),
     ).toBe(false);
-    for (const endedReason of ["peer_busy", "caller_busy", "redial_replaced", ""]) {
+    expect(
+      callStubIncrementsCalleeUnread({ status: "cancelled", endedReason: "peer_busy", stubActorUserId: CALLER, initiatorUserId: CALLER }),
+    ).toBe(true);
+    for (const endedReason of ["caller_busy", "redial_replaced", ""]) {
       expect(
         callStubIncrementsCalleeUnread({ status: "cancelled", endedReason, stubActorUserId: CALLER, initiatorUserId: CALLER }),
       ).toBe(false);

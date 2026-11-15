@@ -186,8 +186,34 @@ describe("call-missed-notification-authority CUT5", () => {
     expect(resolveMissedCallNotificationDedupeKey("s", "b")).toBe(resolveMissedCallNotificationDedupeKey("s", "b"));
   });
 
-  it("cancelled by busy / redial / policy / group → no missed notification", () => {
-    for (const endedReason of ["peer_busy", "caller_busy", "callee_busy", "redial_replaced", "incoming_policy_superseded", "answered_elsewhere", ""]) {
+  it("상대 통화 중(peer_busy) → 통화 중이던 사람에게 부재중 알림 1건 (Owner 2026-11-15 1단계)", () => {
+    for (const endedReason of ["peer_busy", "callee_busy"]) {
+      const d = decideRoomBoundMissedCallNotification({
+        status: "cancelled",
+        endedReason,
+        roomId: "r",
+        callSessionId: "s",
+        initiatorUserId: "a",
+        recipientUserId: "b",
+        callKind: "video",
+      });
+      expect(d, endedReason).toMatchObject({ notify: true, recipientUserId: "b", actorUserId: "a", callKind: "video" });
+    }
+    /** 같은 사유라도 상태가 취소가 아니면(동시 수신 경합 등) 알림 없음 */
+    expect(
+      decideRoomBoundMissedCallNotification({
+        status: "missed",
+        endedReason: "peer_busy",
+        roomId: "r",
+        callSessionId: "s",
+        initiatorUserId: "a",
+        recipientUserId: "b",
+      }).notify,
+    ).toBe(false);
+  });
+
+  it("cancelled by self-busy / redial / policy / group → no missed notification", () => {
+    for (const endedReason of ["caller_busy", "redial_replaced", "incoming_policy_superseded", "answered_elsewhere", ""]) {
       expect(
         decideRoomBoundMissedCallNotification({
           status: "cancelled",
@@ -223,11 +249,12 @@ describe("call-missed-notification-authority CUT5", () => {
     ).toBe(false);
   });
 
-  it("candidate gate (service call site) = missed/timeout + caller cancel only", () => {
+  it("candidate gate (service call site) = missed/timeout + caller cancel + peer busy", () => {
     expect(isRoomBoundMissedCallCandidate({ status: "missed" })).toBe(true);
     expect(isRoomBoundMissedCallCandidate({ status: "timeout" })).toBe(true);
     expect(isRoomBoundMissedCallCandidate({ status: "cancelled", endedReason: "canceled" })).toBe(true);
-    expect(isRoomBoundMissedCallCandidate({ status: "cancelled", endedReason: "peer_busy" })).toBe(false);
+    expect(isRoomBoundMissedCallCandidate({ status: "cancelled", endedReason: "peer_busy" })).toBe(true);
+    expect(isRoomBoundMissedCallCandidate({ status: "cancelled", endedReason: "caller_busy" })).toBe(false);
     expect(isRoomBoundMissedCallCandidate({ status: "ended", endedReason: "canceled" })).toBe(false);
     expect(isCallerCancelledBeforeAnswer({ status: "CANCELLED", endedReason: "Canceled" })).toBe(true);
   });

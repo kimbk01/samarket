@@ -2074,13 +2074,18 @@ export function GlobalCommunityMessengerIncomingCall() {
     for (const sid of autoRejectIds) {
       const s = sessions.find((item) => item.id === sid);
       if (!s) continue;
-      sealIncomingCallTerminal(sid, "declined", hard, "busy_auto_reject");
+      /**
+       * 통화 중 새 수신 = 거절 아님(Busy ≠ Reject). 서버 동시 수신 처리(`filterDirectIncomingRowsForPolicy`)와 같은
+       * `missed` + `incoming_policy_superseded` 로 닫는다 — Owner 2026-11-15 1단계(audit 2026-11-14 §4 D7).
+       */
+      sealIncomingCallTerminal(sid, "missed", hard, "busy_auto_reject");
       suppressMissedSoundRef.current.add(sid);
       dismissAllIncomingCallNotificationsFireAndForget(sid);
       activeIncomingCallIdsRef.current.delete(sid);
       void callEngineActions.patch({
         callId: sid,
-        action: "reject",
+        action: "missed",
+        init: { clientEndedReason: "incoming_policy_superseded" },
         source: "incoming_busy_auto_reject",
         debugContext: {
           sessionStatus: s.status,
