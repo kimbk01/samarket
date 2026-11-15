@@ -24,6 +24,8 @@ export type BottomNavShowingTarget = {
   path: string;
   /** 목표 검색 문자열(`?` 제외) */
   search: string;
+  /** 누른 순간의 경로 — 이 경로에서 벗어나면(목표든 아니든) 이 이동은 끝난다 */
+  fromPath: string | null;
   startedAt: number;
 };
 
@@ -61,17 +63,26 @@ export function isBottomNavTargetReached(target: Pick<BottomNavShowingTarget, "p
 
 export function reduceBegin(
   prev: BottomNavControllerState,
-  input: { tabId: string; href: string; now: number }
+  input: { tabId: string; href: string; now: number; fromPath?: string | null }
 ): BottomNavControllerState {
   const t = parseBottomNavTarget(input.href);
   const lastId = prev.phase === "showing" ? prev.id : prev.lastSettledId;
-  return { phase: "showing", id: lastId + 1, tabId: input.tabId, ...t, startedAt: input.now };
+  const fromPath = input.fromPath != null ? normalizePath(input.fromPath) : null;
+  return { phase: "showing", id: lastId + 1, tabId: input.tabId, ...t, fromPath, startedAt: input.now };
 }
 
+/**
+ * 경로가 바뀌면 끝 — 목표에 도착했든, 그 사이 뒤로가기·다른 이동·서버 리다이렉트로 다른 곳에 갔든(그 이동이 이긴 것).
+ * 다른 곳으로 갔는데 계속 `showing` 이면 목표 뼈대가 남고 8초 뒤 누른 탭으로 다시 불러오게 된다(2026-11-15 최종 점검).
+ * 누른 순간의 경로(`fromPath`)를 모르면 목표 도착만 본다.
+ */
 export function reduceSettle(prev: BottomNavControllerState, pathname: string | null): BottomNavControllerState {
   if (prev.phase !== "showing") return prev;
-  if (!isBottomNavTargetReached(prev, pathname)) return prev;
-  return { phase: "idle", lastSettledId: prev.id };
+  if (isBottomNavTargetReached(prev, pathname)) return { phase: "idle", lastSettledId: prev.id };
+  if (pathname && prev.fromPath != null && normalizePath(pathname) !== prev.fromPath) {
+    return { phase: "idle", lastSettledId: prev.id };
+  }
+  return prev;
 }
 
 export function reduceFail(prev: BottomNavControllerState, id?: number): BottomNavControllerState {
@@ -162,9 +173,14 @@ export function getBottomNavControllerServerState(): BottomNavControllerState {
   return IDLE_SERVER_SNAPSHOT;
 }
 
-/** 손을 뗀 순간 1회 — 선택 표시·화면 교체를 시작한다. 반환값 = 이동 id */
-export function beginBottomNavShowing(input: { tabId: string; href: string }): number {
-  const next = reduceBegin(state, { ...input, now: Date.now() });
+/**
+ * 손을 뗀 순간 1회 — 선택 표시·화면 교체를 시작한다. 반환값 = 이동 id, 시작하지 않았으면 null.
+ * 목표 경로가 지금 경로와 같으면(쿼리만 다른 이동) 경로 변경 신호가 오지 않으므로 시작하지 않는다.
+ */
+export function beginBottomNavShowing(input: { tabId: string; href: string; fromPath?: string | null }): number | null {
+  const fromPath = input.fromPath ?? (typeof window !== "undefined" ? window.location.pathname : null);
+  if (fromPath != null && parseBottomNavTarget(input.href).path === normalizePath(fromPath)) return null;
+  const next = reduceBegin(state, { ...input, fromPath, now: Date.now() });
   emit(next);
   armWatchdog();
   return (next as BottomNavShowingTarget).id;

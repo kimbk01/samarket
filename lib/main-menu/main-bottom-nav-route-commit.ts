@@ -28,7 +28,6 @@ import { resolveCommunityBottomNavEntryHref } from "@/lib/community/community-hu
 import {
   beginBottomNavShowing,
   failBottomNavShowing,
-  parseBottomNavTarget,
 } from "@/lib/main-menu/bottom-nav-controller";
 import { clearPendingMenuNavigationBridge } from "@/lib/navigation/pending-menu-navigation-bridge";
 
@@ -151,10 +150,9 @@ export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): Ma
    * 하단 탭 컨트롤러 — 손 뗀 순간 선택 표시·화면 교체 시작. 같은 경로(쿼리만 다름: 커뮤니티 복원 등)는 화면 교체가 없으므로
    * 시작하지 않는다(경로가 바뀌지 않아 확정 신호가 오지 않음).
    */
-  const controllerId =
-    commitArgs.showOnBottomNavController && parseBottomNavTarget(commitArgs.href).path !== fromPath
-      ? beginBottomNavShowing({ tabId: commitArgs.tabId, href: commitArgs.href })
-      : null;
+  const controllerId = commitArgs.showOnBottomNavController
+    ? beginBottomNavShowing({ tabId: commitArgs.tabId, href: commitArgs.href, fromPath })
+    : null;
   commitArgs.onNavigationIntent(commitArgs.tabId);
   const intent = commitArgs.beginMenuNavigation(commitArgs.href, "bottom-nav", {
     mainShellPushAxis: pushAxis,
