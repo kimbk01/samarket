@@ -115,3 +115,39 @@
 ## 7. 반영
 
 통화 변경 규정 4번: 이 수정만 단독 PR·단독 main 반영(웹 무변경이라 운영 웹 영향 없음). iOS 빌드 번호 44 → 45, TestFlight 업로드는 Owner 승인 범위 안에서. 실기는 V1~V6 를 한 번에 진행하고 FAIL 이면 즉시 중단·보고.
+
+## 8. 실기 결과 (2026-11-16 02:53~03:16 PHT · iPhone 13 mini 1.2.3 (45) BK · Production 7d8f4a3aa · 상대 Samsung q테스트1·Xiaomi zxzx11)
+
+| # | 결과 | 증거 |
+|---|---|---|
+| V1 음성 「종료 및 수락」 | PASS | DB 종료 02:55:02.473 → 수락 02:55:05.415 · 앱 로그 정리 끝 04.080 → 승격 → 수락 200 → fulfill 06.069 · Xiaomi 통화 중 캡처 · Owner 화면·소리 확인 |
+| V2 영상 중 음성 대기 / 음성 중 영상 대기 | PASS | DB 02:57:50→02:57:52, 02:59:34→02:59:36 · Xiaomi 캡처 · Owner 화면·소리 확인. 카메라 전환은 NOT_PROVEN |
+| V3 CallKit 수락 보류(약 4초) | PASS(음성 V1) | 시스템 로그 「Failing action」 0건. 영상 조합은 iPhone 로그 미수집 → NOT_PROVEN |
+| V4 진행 중 통화 먼저 종료 | PASS | 받지 않음: 남은 12초 → 03:01:59.14 울림 끝(서버 missed 58.71) · 받기: 03:06:55 수락, Owner 화면·소리 확인 |
+| V5 거절·발신자 취소·무응답 | PASS | DB declined 03:09:15·canceled 03:09:54·missed 03:10:42, 기존 통화 03:08:46~03:11:01 유지 · Owner 확인 |
+| V6 기본 통화 | PASS — 발신·즉시 재발신(4.5초)·거절·벨 중 취소·무응답 (DB·Owner 화면 확인) | 앱 로그 03:13:17 이전은 기기 버퍼 밖 |
+| D3 분기 동작 | NOT_PROVEN | 이번 실기에서 이전 화면은 새 화면 전에 이미 닫힘(분기 미진입) |
+
+작업자 판정 착오: V4 첫 시도를 Owner 의 「수락 안 눌림」만 보고 FAIL 로 적었다가 Owner 정정(누르지 않음)과 로그로 PASS 정정. V4 두 번째 시도는 작업자 메시지 지연으로 Owner 가 수락 시점을 놓침(앱 무관).
+
+### 8-1. 추가 실기 (03:19~03:27 PHT, 같은 조건 · Owner 「D3 분기·카메라 전환도 실기 진행해」)
+
+| # | 결과 | 증거 |
+|---|---|---|
+| T1 영상 중 음성 대기 「종료 및 수락」 | PASS | 영상 종료 서버 200 → 정리 끝 03:20:46.367 → 승격·수락 200 46.930 · 화면 표시 거부 0 · Owner 화면·소리 확인 |
+| T2 음성 중 영상 대기 「종료 및 수락」 | PASS | DB 03:23:05 종료 → 03:23:07 수락 · Xiaomi 영상 캡처 |
+| iPhone 카메라 전환 | PASS | 앱 로그 camera_facing_switch result=0 · Xiaomi 연속 캡처 03:25:16 앞 → 03:25:19·24 뒤 → 03:25:26 앞 |
+| Xiaomi(Android) 카메라 전환 | PASS | logcat camera_facing_switch result=0 03:26:03 · Xiaomi 미리보기 전환 캡처 · Owner iPhone 화면 확인 |
+| D3 분기 | NOT_PROVEN(진입 없음) | 음성→음성·영상→음성·음성→영상 모두 이전 화면이 먼저 닫힘(영상은 대기 화면 표시 때 PiP 로 내려감 03:20:42) — 사용자 조작으로 진입 조건을 만들 수 없음 |
+| 범위 밖 관찰(보고만) | — | T1 03:20:46.368 「Failing action by system request」 = 기존 영상 통화의 종료 동작. 영상 정리 경로가 종료 동작 완료 전에 CallKit 에 종료를 먼저 보고(기존 영상 종료 경로). 새 통화 수락은 정상, 화면 영향 미확인 |
+
+작업자 판정 착오: T2 카메라 전환을 캡처 2장만 보고 FAIL 로 적었다가, 로그(03:23:11·13 두 번 전환 = 다시 앞 카메라)를 보고 철회 → 연속 캡처로 재시험 PASS.
+
+### 8-2. 영상 CallKit 종료 동작 수정 실기 (PR #349 main 28ac7d985 · iOS 1.2.3 (46) · 04:26~04:33 PHT)
+
+| # | 결과 | 증거 |
+|---|---|---|
+| E1 영상 중 음성 대기 「종료 및 수락」 | PASS | 04:27:18.120 `callkit_end_idempotent`(정리에서 종료 재보고 안 함) → 18.943 「End call action fulfilled」 · 「Failing action」 0건 · DB 04:27:16 종료→04:27:18 수락 · Owner 화면·소리 |
+| E2 잠금 화면 영상 수신 「거절」 | PASS | 04:28:46.694 「End call action fulfilled」 · 「Failing action」 0건 · DB declined 04:28:45 |
+| E3 앱 종료 버튼(a)·상대 종료(b)·무응답(c) | PASS(Owner 화면·소리 확인) | a 04:29:56 ended_by_callee · b 04:31:40 ended_by_caller · c 04:32:30 missed(31초) — 모두 기존처럼 정리에서 종료 보고, 「Failing action」 0건 |
+| E4 일반 음성 통화 | PASS(Owner 화면·소리 확인) | 04:32:55 연결 → 04:33:09 iPhone 종료, 「End call action fulfilled」 |
