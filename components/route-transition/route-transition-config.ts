@@ -5,6 +5,8 @@
 
 import { isCommunityMessengerRoomPathname } from "@/lib/layout/conditional-app-shell-flags";
 import { isCommunityHomeSurfacePath, isHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import { readDibayListDetailLayoutNow } from "@/lib/device/dibay-list-detail-layout-now";
+import { resolveListDetailSplitRoute } from "@/lib/layout/list-detail-split-paths";
 
 export { shouldSuppressOwnerStackMainShellSlide } from "@/lib/business/owner-stack-path";
 export { shouldSuppressCommerceConsumerMainShellSlide } from "@/lib/delivery/customer/commerce-child-page-slide";
@@ -96,6 +98,17 @@ export function shouldSuppressMessengerInternalHierarchyMainShellSlide(
   return (
     isMessengerInternalPageHierarchyPathname(prev) && isMessengerInternalPageHierarchyPathname(next)
   );
+}
+
+/**
+ * S4 — 넓은 창 두 칸(태블릿 768 이상·데스크톱)에서 같은 목록 허브의 목록↔상세 이동은 셸 슬라이드를 하지 않는다
+ * (상세는 오른쪽 칸에 바로 바뀌어 나온다). 한 화면이면 지금 연출 그대로.
+ */
+export function shouldSuppressListDetailSplitMainShellSlide(prev: string | null, next: string | null): boolean {
+  const a = resolveListDetailSplitRoute(prev);
+  const b = resolveListDetailSplitRoute(next);
+  if (!a || !b || a.hub !== b.hub) return false;
+  return readDibayListDetailLayoutNow() === "SPLIT";
 }
 
 /** Room OR messenger-internal hierarchy — single gate for AppRouteTransition competition. */

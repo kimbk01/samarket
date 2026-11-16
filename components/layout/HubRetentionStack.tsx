@@ -17,6 +17,9 @@ import {
 import { peekHubDataEpoch } from "@/lib/http/hub-data-epoch";
 import { useBottomNavShowingTarget } from "@/lib/main-menu/use-bottom-nav-controller";
 import { BottomNavHubSkeleton } from "@/components/layout/BottomNavHubSkeleton";
+import { ListDetailSplitFrame } from "@/components/layout/ListDetailSplitFrame";
+import { useDibayListDetailLayout } from "@/lib/device/use-dibay-list-detail-layout";
+import { resolveListDetailSplitRoute } from "@/lib/layout/list-detail-split-paths";
 import {
   appScrollKey,
   readAppScroll,
@@ -99,6 +102,9 @@ export function HubRetentionStack({ children }: { children: ReactNode }) {
    */
   const showingTarget = useBottomNavShowingTarget();
   const showingHub = showingTarget ? resolveMainTabKeepAliveHub(showingTarget.path) : null;
+  /** S4 — 넓은 창 두 칸 (기기 프로필 × 창 폭 768). 회전·창 크기 변경마다 같은 함수로 다시 계산 (R1·R2) */
+  const listDetailLayout = useDibayListDetailLayout();
+  const splitRoute = resolveListDetailSplitRoute(pathname);
 
   /**
    * 즉시 교체 때 스크롤 — 보관 화면은 그 탭 마지막 위치(P2), 뼈대는 맨 위. 경로 확정 뒤 `AppScrollMemory` 가 같은 규칙으로
@@ -139,13 +145,22 @@ export function HubRetentionStack({ children }: { children: ReactNode }) {
   const showingActive = showingHub != null && showingHub !== hubId;
   const showingRetained =
     showingActive && HUB_RETENTION_HUB_IDS.has(showingHub) && next.entries.some((e) => e.id === showingHub);
+  /**
+   * S4 두 칸 — 하단 탭 즉시 교체 중(다른 탭으로 가는 순간)에는 쓰지 않는다(그 순간은 지금처럼 한 화면).
+   * 상세 경로에서는 보관 중인 목록 허브를 목록 칸에 「보이게」 둔다 — 새 목록을 만들지 않는다(설계 D2).
+   */
+  const splitActive = listDetailLayout === "SPLIT" && splitRoute != null && !showingActive;
+  const splitHubRetained = splitRoute != null && next.entries.some((e) => e.id === splitRoute.hub);
+  const splitShowList = splitActive && (splitRoute.role === "list" || splitHubRetained);
   const visibleRetained: MainTabKeepAliveHubId | null = showingActive
     ? showingRetained
       ? showingHub
       : null
-    : currentRetained;
+    : splitShowList && splitRoute.role === "detail"
+      ? splitRoute.hub
+      : currentRetained;
 
-  return (
+  const retainedEntries = (
     <>
       {next.entries.map((entry) => {
         const visible = entry.id === visibleRetained;
@@ -156,6 +171,11 @@ export function HubRetentionStack({ children }: { children: ReactNode }) {
           </Activity>
         );
       })}
+    </>
+  );
+
+  const liveAndSkeleton = (
+    <>
       {/**
        * 허브가 아닌 화면(글·매장·대화방 등)은 계정 세대를 key 에 넣지 않는다 — 그 화면에서 로그인·로그아웃해도
        * 주소가 그대로면 화면(스크롤·작성 중 내용)을 유지한다(D1 이전과 같음). 계정 세대는 보관 허브 칸에만 쓴다.
@@ -167,6 +187,21 @@ export function HubRetentionStack({ children }: { children: ReactNode }) {
       )}
       {showingActive && !showingRetained && showingHub ? <BottomNavHubSkeleton hub={showingHub} /> : null}
     </>
+  );
+
+  /**
+   * 요소 구조는 한 화면·두 칸 모두 같다 — 보관 허브들은 목록 칸, 지금 경로 화면은 상세 칸.
+   * 한 화면이면 틀이 `display: contents` 라 지금과 같은 배치(R4: 회전해도 다시 마운트 0).
+   */
+  return (
+    <ListDetailSplitFrame
+      active={splitActive}
+      showList={splitShowList}
+      hubPath={splitRoute?.hubPath ?? null}
+      detailHeader={splitRoute?.role === "detail"}
+      list={retainedEntries}
+      detail={liveAndSkeleton}
+    />
   );
 }
 

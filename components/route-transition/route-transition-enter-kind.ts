@@ -3,6 +3,7 @@ import {
   resolveCanonicalNavIndex,
   shouldSuppressCommerceConsumerMainShellSlide,
   shouldSuppressMessengerPageMotionMainShellSlide,
+  shouldSuppressListDetailSplitMainShellSlide,
   shouldSuppressOwnerStackMainShellSlide,
   type RouteTransitionEnterKind,
 } from "@/components/route-transition/route-transition-config";
@@ -180,6 +181,8 @@ export function computeRouteTransitionEnterKind(
   if (prevPath === nextPath) {
     kind = "none";
   } else if (shouldSuppressMessengerPageMotionMainShellSlide(prevPath, nextPath)) {
+    kind = "none";
+  } else if (shouldSuppressListDetailSplitMainShellSlide(prevPath, nextPath)) {
     kind = "none";
   } else if (shouldSuppressOwnerStackMainShellSlide(prevPath, nextPath)) {
     kind = "none";

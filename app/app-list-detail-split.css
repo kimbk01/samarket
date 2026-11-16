@@ -1,0 +1,68 @@
+/**
+ * S4 — 넓은 창 목록 | 상세 두 칸 틀 (LOUNGE 먼저)
+ * 설계: docs/audit/lounge-split-s4-design-2026-11-16.md
+ *
+ * 틀 요소(`.list-detail-split` · 두 칸 `section`)는 한 화면일 때도 항상 같은 자리에 있다 — `display: contents` 로
+ * 레이아웃에서만 빠진다. 그래서 회전·창 크기로 한 화면↔두 칸이 바뀌어도 목록(보관 허브)·상세는 다시 마운트되지 않는다(R4).
+ * 목록 칸 폭 = 메신저 목록 칸 계약 `clamp(360px, 35vw, 470px)` (같은 값 — 하단 탭 `--messenger-split-list` 와 맞음).
+ */
+.list-detail-split,
+.list-detail-split > [data-list-detail-pane],
+.list-detail-split > [data-list-detail-pane] > [data-list-detail-scroll] {
+  display: contents;
+}
+
+.list-detail-split[data-list-detail-split="split"] {
+  --list-detail-list-pane-width: clamp(360px, 35vw, 470px);
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: row;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.list-detail-split[data-list-detail-split="split"] > [data-list-detail-pane] {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+/** 목록 칸 — 고정 요소(글쓰기 버튼)가 이 칸 기준으로 뜨도록 transform 로 기준 상자를 만든다 (D9) */
+.list-detail-split[data-list-detail-split="split"] > [data-list-detail-pane="list"] {
+  flex: 0 0 auto;
+  width: var(--list-detail-list-pane-width);
+  border-right: 1px solid var(--sam-border, #e5e7eb);
+  transform: translateZ(0);
+  background: var(--sam-bg-app);
+}
+
+.list-detail-split[data-list-detail-split="split"] > [data-list-detail-pane="list"][data-list-pane-empty] {
+  display: none;
+}
+
+.list-detail-split[data-list-detail-split="split"] > [data-list-detail-pane="detail"] {
+  flex: 1 1 auto;
+  background: var(--sam-bg-app);
+}
+
+.list-detail-split[data-list-detail-split="split"] > [data-list-detail-pane] > [data-list-detail-scroll] {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/** 목록 칸 아래 하단 탭(태블릿) 만큼 비운다 — 세로 메뉴(데스크톱)면 0 */
+.list-detail-split[data-list-detail-split="split"] > [data-list-detail-pane="list"] [data-list-detail-scroll] {
+  padding-bottom: var(--app-bottom-nav-clearance, 0px);
+}
+
+/** 두 칸 상세 — 목록이 옆에 있으므로 뒤로 버튼을 숨긴다(자리는 유지해 제목이 움직이지 않게) */
+.list-detail-split[data-list-detail-split="split"] > [data-list-detail-pane="detail"] .sector-header-back {
+  visibility: hidden;
+  pointer-events: none;
+}

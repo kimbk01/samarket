@@ -1,0 +1,102 @@
+[
+ {
+  "label": "A 1280 목록",
+  "w": 1280,
+  "path": "/philife",
+  "split": "split",
+  "sameDetailNode": null,
+  "listCardsVisible": 20,
+  "listPaneW": 448,
+  "headers": [
+   {
+    "t": "정보 공유 · 전체",
+    "btn": [
+     "보는 동네: 전체",
+     "검색",
+     "알림"
+    ]
+   }
+  ],
+  "navClass": "app-bottom-nav-shell app-bottom-nav-shell--side-rail",
+  "fabInList": true
+ },
+ {
+  "label": "B 1280 글 열림",
+  "w": 1280,
+  "path": "/philife/5439f751-b393-4d41-9a14-9919b53c4475",
+  "split": "split",
+  "sameDetailNode": true,
+  "listCardsVisible": 20,
+  "listPaneW": 448,
+  "headers": [
+   {
+    "t": "정보 공유 · 전체",
+    "btn": [
+     "보는 동네: 전체",
+     "검색",
+     "알림"
+    ]
+   },
+   {
+    "t": "필리핀 뉴스",
+    "btn": [
+     "피드로",
+     "공유",
+     "알림"
+    ]
+   }
+  ],
+  "navClass": "app-bottom-nav-shell app-bottom-nav-shell--side-rail",
+  "fabInList": true
+ },
+ {
+  "label": "C 700 (좁힘 = 세로 회전)",
+  "w": 700,
+  "path": "/philife/5439f751-b393-4d41-9a14-9919b53c4475",
+  "split": "stack",
+  "sameDetailNode": true,
+  "listCardsVisible": 0,
+  "listPaneW": 0,
+  "headers": [
+   {
+    "t": "필리핀 뉴스",
+    "btn": [
+     "피드로",
+     "공유",
+     "알림"
+    ]
+   }
+  ],
+  "navClass": "app-bottom-nav-shell app-bottom-nav-shell--side-rail",
+  "fabInList": true
+ },
+ {
+  "label": "D 1280 (넓힘 = 가로 회전)",
+  "w": 1280,
+  "path": "/philife/5439f751-b393-4d41-9a14-9919b53c4475",
+  "split": "split",
+  "sameDetailNode": true,
+  "listCardsVisible": 20,
+  "listPaneW": 448,
+  "headers": [
+   {
+    "t": "정보 공유 · 전체",
+    "btn": [
+     "보는 동네: 전체",
+     "검색",
+     "알림"
+    ]
+   },
+   {
+    "t": "필리핀 뉴스",
+    "btn": [
+     "피드로",
+     "공유",
+     "알림"
+    ]
+   }
+  ],
+  "navClass": "app-bottom-nav-shell app-bottom-nav-shell--side-rail",
+  "fabInList": true
+ }
+]

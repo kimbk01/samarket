@@ -178,7 +178,7 @@ const EXTRAS_REQUIRED: Readonly<Record<string, ExtrasEvidence>> = {
 export const KNOWN_TIER1_TITLE_GAPS: readonly string[] = [];
 
 const TIER1_TITLE_REGISTRATION_RE =
-  /<(?:MySubpageHeader|MyScreen)\b(?![^>]*registerMainTier1=\{false\})[^>]*\btitle(?:Key)?=|setMainTier1Extras\(\{\s*tier1:\s*\{[^}]*\btitle(?:Text)?:/;
+  /<(?:MySubpageHeader|MyScreen)\b(?![^>]*registerMainTier1=\{false\})[^>]*\btitle(?:Key)?=|setMainTier1Extras\(\{\s*tier1:\s*\{[^}]*\btitle(?:Text)?:|registered: MainTier1ExtrasState = \{\s*tier1:\s*\{[^}]*\btitle(?:Text)?:/;
 
 function hasExtrasSourceEvidence(evidence: ExtrasEvidence): boolean {
   if (evidence.kind === "redirect") {
