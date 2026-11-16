@@ -31,6 +31,20 @@ export type TradeChatRouterLike = {
   prefetch: (href: string) => Promise<void> | void;
 };
 
+/**
+ * 거래방 상품 상세 슬라이드에서 「채팅 이어가기」 대상 방이 슬라이드를 띄운 방과 같은가.
+ * 같으면 같은 경로(쿼리만 다름)로 이동하게 되어 방 화면이 새로 마운트되지 않으면
+ * 슬라이드·「이동 중…」이 남는다(2026-11-16) — 호출측은 이동 대신 슬라이드를 닫는다.
+ */
+export function isTradeChatTargetSameAsSlideHostRoom(input: {
+  hostMessengerRoomId: string | null | undefined;
+  targetMessengerRoomId: string | null | undefined;
+}): boolean {
+  const host = input.hostMessengerRoomId?.trim() ?? "";
+  const target = input.targetMessengerRoomId?.trim() ?? "";
+  return host.length > 0 && host === target;
+}
+
 export function openExistingTradeChat(
   router: TradeChatRouterLike,
   input: {

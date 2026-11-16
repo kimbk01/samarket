@@ -622,6 +622,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
     <TradePostDetailSlideHostProvider
       openPostDetail={openTradePostDetailSlide}
       closeSlide={closeTradePostDetailSlide}
+      hostMessengerRoomId={roomIdStable}
     >
     <MessengerRoomPhase2ViewProvider value={view}>
         <StoreOrderDeliveryRoomProvider
