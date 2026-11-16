@@ -138,9 +138,11 @@ describe("ConditionalAppShell keyboard-hide wiring contract", () => {
 
   it("probe mounts only with the nav (no listeners on nav-less routes)", () => {
     expect(shell).toMatch(
-      /** 데스크톱 세로 레일(2026-11-07)에는 화면 키보드 숨김이 없다 → 하단 탭일 때만 */
-      /\{showBottomNavMounted && !isDesktopSideRail \? \(\s*<BottomNavKeyboardHideProbe onStateChange=\{setBottomNavKeyboardState\} \/>/
+      /** v6 R2-3 — 세로 메뉴에도 같은 키보드 신호를 쓴다(숨김이 아니라 자리 고정) → 메뉴가 있을 때만 */
+      /\{showBottomNavMounted \? \(\s*<BottomNavKeyboardHideProbe onStateChange=\{setBottomNavKeyboardState\} \/>/
     );
+    /** 세로 메뉴는 키보드로 숨기지 않는다 */
+    expect(shell).toContain('showBottomNavMounted && !isDesktopSideRail && bottomNavKeyboardState !== "visible"');
     expect(probe).toContain("useFormKeyboardViewport()");
     expect(probe).toContain("resolveBottomNavKeyboardHideState");
   });

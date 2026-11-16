@@ -160,6 +160,18 @@ export const BOTTOM_NAV_SHELL = {
  */
 export const BOTTOM_NAV_SIDE_RAIL_CLASS = "app-bottom-nav-shell--side-rail";
 
+/**
+ * v6 R2-3 (Owner 2026-11-17 시안 v6 승인) — Android 키보드가 웹뷰 높이를 줄인 동안 세로 메뉴 높이를
+ * 「키보드 열기 전 창 높이」(`--app-side-rail-keyboard-hold-height`)로 고정한다. `app/app-desktop-side-nav.css`.
+ */
+/**
+ * v6 R2-5 — 키보드 때문에 하단 탭을 숨긴 동안만 붙는 표시(모양 없음). html 플래그 `data-shell-bottom-nav-keyboard-hidden` 로
+ * 메신저 분할 방 칸이 하단 탭 여백을 뺀다(스크롤 숨김 때는 그대로 — 방 입력칸이 들썩이지 않게).
+ */
+export const BOTTOM_NAV_KEYBOARD_HIDDEN_CLASS = "app-bottom-nav-shell--keyboard-hidden";
+
+export const BOTTOM_NAV_SIDE_RAIL_KEYBOARD_HOLD_CLASS = "app-bottom-nav-shell--side-rail-keyboard-hold";
+
 /** 레일 폭만큼 비켜야 하는 화면 고정(fixed inset-x-0) 요소 — 거래 플로팅 바·FAB 섹터 */
 export const SIDE_RAIL_FIXED_INSET_CLASS = "app-side-rail-fixed-inset";
 

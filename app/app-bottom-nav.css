@@ -85,30 +85,16 @@
 
 /**
  * CONTRACT — 탭은 컨테이너 전폭에 `flex:1` 비율 분배.
- * 기본: BottomNav shell·container 는 viewport 전폭 (max-width 금지).
- * 예외: ≥768 메신저 — `.app-bottom-nav-shell--messenger-split-list` 만 좌측 pane 폭
- * (`--cm-split-list-pane-width` = `MESSENGER_SPLIT_LIST_PANE_WIDTH_CSS`).
- * 클래스은 pathname 기준(SSR 안전); 폭은 media query 만 적용 → hydration 폭 플래시 금지.
- *
- * left 는 셸 왼쪽 끝(0)이고 목록 칸은 셸 `padding-left: safe-left` 다음에서 시작한다 → 폭에 safe-left 를 더한다
- * (탭 바 자체 padding-left 도 safe-left). 본문 열 최대 폭은 없다 (`APP_MAIN_COLUMN_MAX_WIDTH_CLASS` = max-w-none, 2026-11-16 B1).
+ * BottomNav shell·container 는 모든 탭에서 viewport 전폭 (max-width 금지).
+ * v6 R2-5 (Owner 2026-11-17 시안 v6 승인 「메뉴 통일성」) — 예전 ≥768 메신저만 목록 칸 폭으로 좁히던
+ * `.app-bottom-nav-shell--messenger-split-list` 예외를 없앴다. 대신 분할 방 칸(목록 오른쪽)이 하단 탭 높이만큼
+ * 아래 여백을 둬 입력칸이 하단 탭에 가리지 않게 한다. 세로 메뉴(하단 탭 높이 0)·키보드로 하단 탭을 숨긴 동안은 여백 없음.
+ * 스크롤로 숨긴 동안은 여백을 그대로 둔다(목록을 스크롤할 때 방 입력칸이 들썩이지 않게).
  */
 @media (min-width: 768px) {
-  .app-bottom-nav-shell.app-bottom-nav-shell--messenger-split-list {
-    --cm-split-list-pane-width: clamp(360px, 35vw, 470px);
-    left: 0;
-    right: auto;
-    width: calc(var(--cm-split-list-pane-width) + var(--safe-left, 0px));
-    min-width: 0;
-    max-width: none;
-    justify-content: stretch;
-    box-sizing: border-box;
-  }
-
-  .app-bottom-nav-shell.app-bottom-nav-shell--messenger-split-list .app-bottom-nav-container {
-    width: 100%;
-    max-width: none;
-    box-sizing: border-box;
+  html[data-shell-bottom-nav]:not([data-shell-bottom-nav-side-rail]):not([data-shell-bottom-nav-keyboard-hidden])
+    :is([data-messenger-split-room-pane], [data-messenger-split-call-peer-pane]) {
+    padding-bottom: var(--app-bottom-nav-clearance);
   }
 }
 

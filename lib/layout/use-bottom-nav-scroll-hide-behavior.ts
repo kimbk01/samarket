@@ -25,6 +25,13 @@ import { subscribeBottomNavResume } from "@/lib/main-menu/bottom-nav-resume-sign
 /** 마지막 스크롤 이후 이 시간이 지나면 (탭이 접혀 있을 때) 다시 펼침 */
 export const BOTTOM_NAV_REVEAL_AFTER_SCROLL_IDLE_MS = 1800;
 
+/**
+ * v6 R2-4 (Owner 2026-11-17 시안 v6 승인) — 창 폭이 바뀐 직후(회전·화면 나누기) 목록이 다시 배치되며 생기는 스크롤 위치
+ * 변화는 사용자 스크롤이 아니다. 이 시간 동안은 숨기지 않고 기준 위치만 다시 잡는다.
+ * 실측: Xiaomi 회전 후 목록 재배치·스크롤 이벤트가 약 0.5초 안에 끝남(11-17 녹화 73.0→73.7초). 회전 애니메이션 280ms 보다 길게.
+ */
+export const BOTTOM_NAV_WIDTH_CHANGE_SETTLE_MS = 600;
+
 const MESSENGER_HUB_LIST_SCROLL_SELECTOR = "[data-messenger-hub-list-scroll]";
 
 function readMessengerHubListScrollTop(): number | null {
@@ -128,7 +135,17 @@ export function useBottomNavScrollHide(enabled: boolean, routeScrollKey = ""): b
     const resolveOverflowing = () =>
       isMessengerHubListOverflowing() || isMainAppScrollBodyOverflowing();
 
+    /** v6 R2-4 — 창 폭 변경(회전) 직후 재배치 동안: 숨기지 않고 기준만 다시 잡는다 */
+    let lastWidth = window.innerWidth;
+    let widthSettleUntil = 0;
+    const isSettlingAfterWidthChange = () =>
+      widthSettleUntil > 0 && performance.now() < widthSettleUntil;
+
     const applyScrollChrome = (y: number) => {
+      if (isSettlingAfterWidthChange()) {
+        lastYRef.current = y;
+        return;
+      }
       if (!resolveOverflowing()) {
         setHidden(false);
         lastYRef.current = y;
@@ -148,6 +165,10 @@ export function useBottomNavScrollHide(enabled: boolean, routeScrollKey = ""): b
     const syncScrollChromeFromLayout = () => {
       invalidateMainAppScrollRootCache();
       const y = resolveScrollY();
+      if (isSettlingAfterWidthChange()) {
+        lastYRef.current = y;
+        return;
+      }
       if (
         resolveOverflowing() &&
         y >= FAB_SCROLL_TOP_REVEAL_Y_PX + FAB_SCROLL_MOVE_THRESHOLD_PX
@@ -172,6 +193,15 @@ export function useBottomNavScrollHide(enabled: boolean, routeScrollKey = ""): b
 
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const onResize = () => {
+      const width = window.innerWidth;
+      if (width !== lastWidth) {
+        /** v6 R2-4 — 회전·화면 나누기: 하단 탭을 바로 보이게 하고, 재배치가 끝날 때까지 숨기지 않는다 */
+        lastWidth = width;
+        widthSettleUntil = performance.now() + BOTTOM_NAV_WIDTH_CHANGE_SETTLE_MS;
+        clearIdleReveal();
+        setHidden(false);
+        lastYRef.current = resolveScrollY();
+      }
       if (resizeTimer != null) clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
         resizeTimer = null;

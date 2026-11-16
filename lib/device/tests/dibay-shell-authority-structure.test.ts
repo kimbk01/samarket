@@ -58,7 +58,9 @@ describe("FD4 App Shell authority wiring", () => {
     const messenger = src("hooks/use-is-messenger-split-viewport.ts");
     expect(messenger).toContain("APP_MESSENGER_SPLIT_MIN_PX");
     const shell = src("components/layout/ConditionalAppShell.tsx");
-    expect(shell).toContain("APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS");
+    /** v6 R2-5 — 하단 탭은 메신저에서도 창 전체 폭(좌측 칸 폭 클래스 폐지) */
+    expect(shell).not.toMatch(/\? APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS/);
+    expect(shell).toContain("BOTTOM_NAV_KEYBOARD_HIDDEN_CLASS");
     expect(shell).toContain("useIsMessengerSplitViewport");
   });
 });

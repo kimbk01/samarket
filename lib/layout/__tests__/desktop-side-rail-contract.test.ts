@@ -20,11 +20,11 @@ describe("D1 desktop side rail", () => {
     expect(shell.match(/<BottomNav\b/g)?.length).toBe(1);
   });
 
-  it("레일에는 스크롤·키보드 숨김과 메신저 목록 칸 폭을 쓰지 않는다", () => {
+  it("레일에는 스크롤·키보드 숨김을 쓰지 않는다 (키보드 때는 자리 고정만 — v6 R2-3)", () => {
     const shell = src("components/layout/ConditionalAppShell.tsx");
     expect(shell).toMatch(/showBottomNavMounted &&\s*!isDesktopSideRail &&\s*resolveBottomNavScrollHideEnabled/);
-    expect(shell).toContain("showBottomNavMounted && !isDesktopSideRail ? (\n        <BottomNavKeyboardHideProbe");
-    expect(shell).toMatch(/!isDesktopSideRail &&\s*\(pathname === "\/community-messenger"/);
+    expect(shell).toContain('showBottomNavMounted && !isDesktopSideRail && bottomNavKeyboardState !== "visible"');
+    expect(shell).toContain('isDesktopSideRail && bottomNavKeyboardState === "hidden_layout_resized"');
   });
 
   it("BottomNav 는 side-rail 일 때 레일 클래스만 더한다", () => {

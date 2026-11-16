@@ -78,6 +78,15 @@ html[data-shell-bottom-nav-side-rail] .app-bottom-nav-shell--side-rail .app-bott
 }
 
 /**
+ * v6 R2-3 (Owner 2026-11-17 시안 v6 승인) — Android 키보드가 웹뷰 높이를 줄인 동안만: 메뉴 높이를 키보드 열기 전 창 높이로
+ * 고정(`ConditionalAppShell` → `BottomNav` 가 값을 넣음). 메뉴 묶음은 그 자리 그대로, 키보드가 아래 항목을 덮는다.
+ */
+.app-bottom-nav-shell.app-bottom-nav-shell--side-rail.app-bottom-nav-shell--side-rail-keyboard-hold {
+  bottom: auto;
+  height: var(--app-side-rail-keyboard-hold-height);
+}
+
+/**
  * v5 (Owner 2026-11-16 「가로 세로 테블릿 및 아이패드 변경시 하단 메뉴는 자연스럽게 이동하는 애니메이션」, 시안 v5 승인) —
  * 회전으로 메뉴 형태가 바뀐 순간만(`useNavPresentationSwitchMotion`, 280ms): 하단 탭은 아래에서 올라오고, 세로 메뉴는 왼쪽에서 들어온다.
  * 움직이는 것은 안쪽 판(`.app-bottom-nav-plane`) — 바깥 셸의 스크롤·키보드 숨김 transform 과 겹치지 않게.
