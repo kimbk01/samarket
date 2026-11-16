@@ -5,6 +5,7 @@ import {
   formatKoreaMobileLocal,
   parseKoreaMobileLocal,
   resolveVerifyPhone,
+  resolveAdminProfilePhone,
 } from "@/lib/phone/verify-phone-number";
 import { parseVerifyDialCodes, phoneVerifyCountryOptionsFor } from "@/lib/phone/phone-country-codes";
 import { formatProfilePhoneForDisplay } from "@/lib/profile/admin-phone-verification-sync";
@@ -83,5 +84,30 @@ describe("Solapi 인증 헤더 — 공식 SDK 와 같은 서명", () => {
     const [, date, salt, sig] = m!;
     expect(date).toBe("2026-11-09T00:00:00Z");
     expect(sig).toBe(createHmac("sha256", "SECRET").update(date! + salt!).digest("hex"));
+  });
+});
+
+describe("어드민 회원 전화번호 수정 — 한국·필리핀", () => {
+  it("한국 국내·국제 표기 모두 +82 로 저장", () => {
+    for (const raw of ["010-1234-5678", "01012345678", "+82 10 1234 5678", "821012345678"]) {
+      expect(resolveAdminProfilePhone(raw)?.storage).toEqual({
+        phone: "+821012345678",
+        phone_country_code: "+82",
+        phone_number: "1012345678",
+      });
+    }
+  });
+  it("필리핀은 기존 09 저장 그대로", () => {
+    expect(resolveAdminProfilePhone("0917 123 4567")?.storage).toEqual({
+      phone: "09171234567",
+      phone_country_code: "+63",
+      phone_number: "9171234567",
+    });
+    expect(resolveAdminProfilePhone("+639171234567")?.country).toBe("PH");
+  });
+  it("두 나라 형식이 아니면 null", () => {
+    expect(resolveAdminProfilePhone("0812345678")).toBeNull();
+    expect(resolveAdminProfilePhone("+1 415 555 0100")).toBeNull();
+    expect(resolveAdminProfilePhone("010-123")).toBeNull();
   });
 });
