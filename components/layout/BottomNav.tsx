@@ -684,6 +684,7 @@ export function BottomNav({
   extraOuterClassName = "",
   inert = false,
   presentation = "bottom",
+  presentationEnter = null,
 }: {
   /**
    * SSR hydrate 호환을 위해 시그니처 유지 — 실제 탭 단일 소스는
@@ -700,6 +701,8 @@ export function BottomNav({
    * (`app/app-desktop-side-nav.css`). 셸 판정은 `resolveAppShell().navigationPresentation` 단일 정의.
    */
   presentation?: "bottom" | "side-rail";
+  /** v5 — 회전으로 메뉴 형태가 막 바뀐 순간(280ms) 들어오는 방향. `useNavPresentationSwitchMotion` */
+  presentationEnter?: "bottom" | "rail" | null;
 }) {
   void initialTabs;
   if (!shouldDeferUnreadBadgeRepaint()) {
@@ -831,6 +834,11 @@ export function BottomNav({
   const outerClass = [
     BOTTOM_NAV_SHELL.outerClassName,
     presentation === "side-rail" ? BOTTOM_NAV_SIDE_RAIL_CLASS : "",
+    presentationEnter === "rail"
+      ? "app-bottom-nav-shell--enter-rail"
+      : presentationEnter === "bottom"
+        ? "app-bottom-nav-shell--enter-bottom"
+        : "",
     bodyPortal || effectiveOuterExtra.length > 0 ? BOTTOM_NAV_OUTER_MOTION : "",
     effectiveOuterExtra,
   ]

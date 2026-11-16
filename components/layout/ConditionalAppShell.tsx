@@ -85,6 +85,7 @@ import { SupportModalHost } from "@/components/support/SupportModalHost";
 import { MainShellDocumentLoading } from "@/components/layout/MainRouteLoading";
 import { SHELL_HYDRATED_HTML_ATTR, useShellHydrated } from "@/lib/ui/use-shell-hydrated";
 import { useDibayAppShellAuthority } from "@/lib/device/use-dibay-app-shell";
+import { useNavPresentationSwitchMotion } from "@/lib/device/use-nav-presentation-switch-motion";
 import {
   isCommunityHomeSurfacePath,
   isHomeSurfacePath,
@@ -287,6 +288,8 @@ export function ConditionalAppShell({
   const isDesktopSideRail = appShell.navigationPresentation === "DESKTOP_SIDE_RAIL";
   /** D1 F1 — `<html>` 셸 속성(데스크톱 세로 레일 셸 여부) 갱신 */
   useHtmlShellFlagsSync(appShell.navigationPresentation);
+  /** v5 — 태블릿 회전으로 메뉴 형태가 바뀌면 들어오는 메뉴를 움직인다 */
+  const navEnter = useNavPresentationSwitchMotion(appShell.navigationPresentation, appShell.resolved);
   const mainBottomClassLive = useMemo(() => {
     if (!storeOwnerFlyoutSuppressesBottomNav) {
       return f.mainBottomClass;
@@ -508,6 +511,7 @@ export function ConditionalAppShell({
           initialTabs={initialMainBottomNavItems}
           bodyPortal={isMessengerStackSurface}
           presentation={isDesktopSideRail ? "side-rail" : "bottom"}
+          presentationEnter={navEnter}
           /** 키보드·스크롤로 숨긴 하단 탭은 누를 수도, 포커스로 닿을 수도 없게 (크롬 S4 B-04) */
           inert={bottomNavKeyboardHidden || bottomNavScrollHidden}
           extraOuterClassName={[
