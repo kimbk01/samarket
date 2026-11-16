@@ -33,6 +33,16 @@ export type TradeChatRouterLike = {
   prefetch: (href: string) => Promise<void> | void;
 };
 
+/** 브라우저 현재 주소(경로+쿼리)와 같은지 — 쿼리 순서는 무시 */
+function isCurrentLocationHref(href: string): boolean {
+  if (typeof window === "undefined") return false;
+  const a = new URL(href, window.location.origin);
+  const b = new URL(window.location.href);
+  if (a.pathname.replace(/\/+$/, "") !== b.pathname.replace(/\/+$/, "")) return false;
+  const norm = (u: URL) => [...u.searchParams.entries()].map(([k, v]) => `${k}=${v}`).sort().join("&");
+  return norm(a) === norm(b);
+}
+
 export function openExistingTradeChat(
   router: TradeChatRouterLike,
   input: {
@@ -42,6 +52,11 @@ export function openExistingTradeChat(
     /** 메신저 방 UUID — 있으면 이동 URL만 이 값 사용 */
     messengerRoomId?: string | null;
     sourceHint?: ChatRoomSource | null;
+    /**
+     * 이동할 주소가 지금 주소와 같을 때(같은 거래방 위에 띄운 상품 상세 등) — 이동은 아무 일도 일어나지 않으므로
+     * 대신 이 함수를 부른다(예: 상세 슬라이드 닫기). 없으면 기존처럼 이동.
+     */
+    onAlreadyOpen?: (() => void) | null;
   }
 ): void {
   const roomId = input.roomId.trim();
@@ -53,6 +68,10 @@ export function openExistingTradeChat(
     tradeHubChatRoomHref(navRoomId, input.sourceHint ?? null),
     matchesMessengerSplitViewport()
   );
+  if (input.onAlreadyOpen && isCurrentLocationHref(dest)) {
+    input.onAlreadyOpen();
+    return;
+  }
   startTradeChatEntryMark({
     mode: "existing",
     productId: input.productId,
