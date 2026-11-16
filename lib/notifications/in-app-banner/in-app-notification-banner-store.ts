@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { DIBAY_APP_ICON_512_PATH, dibayBrandAssetUrl } from "@/lib/brand/brand-asset-paths";
 import type { NotificationPresentation } from "@/lib/notifications/display/notification-presentation";
 import type { InboxHrefRow } from "@/lib/notifications/resolve-notification-inbox-href";
 
@@ -14,7 +15,7 @@ import type { InboxHrefRow } from "@/lib/notifications/resolve-notification-inbo
 export const IN_APP_NOTIFICATION_BANNER_AUTO_DISMISS_MS = 4_000;
 
 /** 배너 이미지 대체 — DIBAY 앱 로고 (`public/images/brand`) */
-export const IN_APP_NOTIFICATION_BANNER_LOGO_SRC = "/images/brand/dibay-app-icon.png";
+export const IN_APP_NOTIFICATION_BANNER_LOGO_SRC = dibayBrandAssetUrl(DIBAY_APP_ICON_512_PATH);
 
 export type InAppNotificationBannerTarget =
   | { type: "messenger_room"; roomId: string }

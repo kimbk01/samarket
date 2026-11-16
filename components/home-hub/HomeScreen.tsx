@@ -7,6 +7,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { SectorHeaderBar } from "@/components/layout/sector-header/SectorHeaderBar";
 import { samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
+import { DIBAY_APP_ICON_180_PATH, dibayBrandAssetUrl } from "@/lib/brand/brand-asset-paths";
 import { dibayDomainChromeElementPropsForId } from "@/lib/ui/dibay-domain-chrome";
 import { DibayPtrSlot } from "@/components/ptr/DibayPtrSlot";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
@@ -158,7 +159,7 @@ export function HomeScreen({
               <span className="flex min-w-0 items-center gap-2">
                 <span className="flex shrink-0 items-center gap-1.5" aria-label="dibaY">
                   {/* eslint-disable-next-line @next/next/no-img-element -- 정적 브랜드 아이콘 26px */}
-                  <img src="/images/brand/dibay-app-icon-180.png" alt="" width={26} height={26} className="h-[26px] w-[26px] rounded-[7px]" />
+                  <img src={dibayBrandAssetUrl(DIBAY_APP_ICON_180_PATH)} alt="" width={26} height={26} className="h-[26px] w-[26px] rounded-[7px]" />
                   <span className="text-[21px] font-extrabold tracking-[-0.02em] text-sam-primary">
                     diba<span className="text-[#E0A800]">Y</span>
                   </span>
