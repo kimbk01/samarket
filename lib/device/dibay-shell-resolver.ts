@@ -4,7 +4,7 @@
  * Consumes FD1 DeviceClass as identity.
  * Consumes FD2 LayoutMode as presentation mode only.
  * Does not infer Phone / Tablet / Desktop from width, touch, UA, or orientation.
- * Does not invent a new Tablet rail.
+ * v3 (Owner 2026-11-16): 태블릿도 왼쪽 세로 메뉴(카카오톡 태블릿 방식) — 창 600 미만이면 하단 탭. 형태(기기 종류)는 폭으로 바꾸지 않는다.
  *
  * Owner 잠금 해제 2026-11-07 (「잠금 해제·설계서 작성」 → 「D1·D2 구현」):
  * DESKTOP 계열만 왼쪽 세로 레일(`DESKTOP_SIDE_RAIL`) — 같은 `BottomNav` 를 세로로 배치한다(로직 복제 없음).
@@ -13,7 +13,7 @@
  */
 
 import type { DibayDeviceClass } from "@/lib/device/dibay-device-class";
-import { dibayDeviceProfile } from "@/lib/device/dibay-device-profile";
+import { dibayDeviceProfile, dibayUsesSideRail } from "@/lib/device/dibay-device-profile";
 import {
   layoutFamilyForDeviceClass,
   type DibayLayoutFamily,
@@ -29,6 +29,8 @@ export type DibayAppShellResolverInput = {
   deviceClass: DibayDeviceClass;
   layoutMode: DibayLayoutMode;
   windowClass?: DibayWindowClass;
+  /** v3 — 창 CSS 폭. 태블릿은 600 미만이면 하단 탭(화면 나누기) — `dibayUsesSideRail` */
+  usableWidthPx?: number;
   keyboardOpen?: boolean;
   orientation?: "portrait" | "landscape" | "unknown";
 };
@@ -56,8 +58,14 @@ export function shellFamilyForDeviceClass(deviceClass: DibayDeviceClass): DibayS
 
 export function resolveAppShell(input: DibayAppShellResolverInput): DibayAppShellResolution {
   const shellFamily = shellFamilyForDeviceClass(input.deviceClass);
-  /** 메뉴 위치는 기기 프로필 표만 읽는다 (`dibay-device-profile.ts`). */
-  const sideRail = dibayDeviceProfile(input.deviceClass).navigation === "DESKTOP_SIDE_RAIL";
+  /**
+   * 메뉴 위치는 기기 프로필 표만 읽는다 (`dibay-device-profile.ts`) — v3: 태블릿·Windows·Mac 은 왼쪽 세로 메뉴
+   * (카카오톡 태블릿 방식, 모든 탭 같은 자리), 태블릿은 창 600 미만이면 하단 탭. 폭 미전달(서버·첫 그림)이면 기기만으로.
+   */
+  const sideRail =
+    input.usableWidthPx == null
+      ? dibayDeviceProfile(input.deviceClass).navigation === "DESKTOP_SIDE_RAIL"
+      : dibayUsesSideRail(input.deviceClass, input.usableWidthPx);
   return {
     deviceClass: input.deviceClass,
     shellFamily,

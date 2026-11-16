@@ -51,9 +51,33 @@ export type DibayDeviceProfile = {
   feedTopicSwipe: boolean;
   /** 네이티브 웹뷰 배율 (S3) — Mac 만 1 ÷ 0.77 (iPad 앱 77% 축소를 되돌려 CSS 1px = Mac 1pt) */
   webViewZoom: number;
-  /** 창 최소 크기 [가로, 세로] (S3) — Mac pt. null = 제한 없음 */
+  /** 창 최소 크기 [가로, 세로] (S3) — Mac pt · Windows DIP(= CSS px). null = 제한 없음 */
   minWindowPt: readonly [number, number] | null;
+  /**
+   * 왼쪽 세로 메뉴를 쓰는 최소 창 CSS 폭 (v3). null = 쓰지 않음(하단 탭), 0 = 창 크기 무관 항상.
+   * 태블릿은 600 — 창이 그보다 좁으면(화면 나누기·Slide Over) 하단 탭. 카카오톡 iPad Slide Over · Android 가이드 600dp.
+   * 메뉴는 한 기기 안에서 모든 탭이 같다(탭마다 다른 메뉴 금지).
+   */
+  sideRailMinWidthCss: number | null;
 };
+
+/**
+ * 창 최소 크기 (v3, Owner 2026-11-16 「최소 크기가 정확히 모든 내용의 모바일 형태가 되는」) —
+ * 왼쪽 세로 메뉴 72 + 가장 작은 휴대폰 화면(iPhone SE·13 mini CSS 375×667). 이보다 줄이면 본문이 휴대폰보다 좁아 가려진다.
+ */
+export const DIBAY_SIDE_RAIL_WIDTH_CSS = 72;
+export const DIBAY_SMALLEST_PHONE_CSS = [375, 667] as const;
+export const DIBAY_DESKTOP_MIN_WINDOW: readonly [number, number] = [
+  DIBAY_SIDE_RAIL_WIDTH_CSS + DIBAY_SMALLEST_PHONE_CSS[0],
+  DIBAY_SMALLEST_PHONE_CSS[1],
+];
+
+/** 이 기기·창 폭에서 왼쪽 세로 메뉴를 쓰는가 — 셸 메뉴 판정은 이 함수 하나 */
+export function dibayUsesSideRail(deviceClass: DibayDeviceClass, usableWidthCss: number): boolean {
+  const min = dibayDeviceProfile(deviceClass).sideRailMinWidthCss;
+  if (min == null) return false;
+  return usableWidthCss >= min;
+}
 
 /** Mac 에서 iPad 앱이 그려지는 배율 (2026-11-16 실측: CSS 1056 → 814pt) */
 export const DIBAY_MAC_IPAD_APP_SCALE = 0.77;
@@ -68,11 +92,12 @@ const PHONE = {
   feedTopicSwipe: true,
   webViewZoom: 1,
   minWindowPt: null,
+  sideRailMinWidthCss: null,
 } as const;
 
 const TABLET = {
   family: "TABLET",
-  navigation: "EXISTING_MAIN_BOTTOM_NAV",
+  navigation: "DESKTOP_SIDE_RAIL",
   orientation: "PORTRAIT_AND_LANDSCAPE",
   nativePortraitLock: false,
   adminLandscapeLock: true,
@@ -80,6 +105,7 @@ const TABLET = {
   feedTopicSwipe: false,
   webViewZoom: 1,
   minWindowPt: null,
+  sideRailMinWidthCss: 600,
 } as const;
 
 const DESKTOP = {
@@ -92,6 +118,7 @@ const DESKTOP = {
   feedTopicSwipe: false,
   webViewZoom: 1,
   minWindowPt: null,
+  sideRailMinWidthCss: 0,
 } as const;
 
 const UNKNOWN = {
@@ -104,6 +131,7 @@ const UNKNOWN = {
   feedTopicSwipe: false,
   webViewZoom: 1,
   minWindowPt: null,
+  sideRailMinWidthCss: null,
 } as const;
 
 /** 기기 종류 → 프로필. 새 기기 종류는 여기 한 줄을 더하면 모든 소비처가 따라간다. */
@@ -112,7 +140,8 @@ export const DIBAY_DEVICE_PROFILES: Readonly<Record<DibayDeviceClass, DibayDevic
   PHONE_IOS: { deviceClass: "PHONE_IOS", nativeShell: "ios", ...PHONE },
   TABLET_ANDROID: { deviceClass: "TABLET_ANDROID", nativeShell: "android", ...TABLET },
   TABLET_IPAD: { deviceClass: "TABLET_IPAD", nativeShell: "ios", ...TABLET },
-  DESKTOP_WINDOWS: { deviceClass: "DESKTOP_WINDOWS", nativeShell: null, ...DESKTOP },
+  /** v3 — Windows 창 최소도 Mac 과 같은 값(Windows 셸 적용은 Windows 빌드 단계) */
+  DESKTOP_WINDOWS: { deviceClass: "DESKTOP_WINDOWS", nativeShell: null, ...DESKTOP, minWindowPt: DIBAY_DESKTOP_MIN_WINDOW },
   /** S2 — Mac 은 Windows 와 같은 데스크톱 형태(왼쪽 세로 메뉴). iOS 바이너리라 nativeShell = ios. */
   DESKTOP_MAC: {
     deviceClass: "DESKTOP_MAC",
@@ -120,7 +149,7 @@ export const DIBAY_DEVICE_PROFILES: Readonly<Record<DibayDeviceClass, DibayDevic
     ...DESKTOP,
     /** S3 — 77% 축소 되돌림 · 창 최소 380×550pt (Telegram Mac 최소 창과 같음) */
     webViewZoom: 1 / DIBAY_MAC_IPAD_APP_SCALE,
-    minWindowPt: [380, 550],
+    minWindowPt: DIBAY_DESKTOP_MIN_WINDOW,
   },
   WEB_DESKTOP: { deviceClass: "WEB_DESKTOP", nativeShell: null, ...DESKTOP },
   UNKNOWN: { deviceClass: "UNKNOWN", nativeShell: null, ...UNKNOWN },

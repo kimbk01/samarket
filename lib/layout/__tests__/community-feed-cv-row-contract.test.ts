@@ -23,6 +23,6 @@ describe("커뮤니티 피드 글 칸 content-visibility", () => {
 
   it("칸은 flow-root 인 <li> 안의 감싸기 — 음수 여백이 목록 간격과 겹치지 않게", () => {
     const feed = read("components/community/CommunityFeed.tsx");
-    expect(feed).toMatch(/<li className="list-none flow-root">\s*\{[^}]*\}\s*<div data-community-feed-cv-row="">\s*<CommunityCard/);
+    expect(feed).toMatch(/<li className="list-none flow-root" data-feed-grid-item="">\s*\{[^}]*\}\s*<div data-community-feed-cv-row="">\s*<CommunityCard/);
   });
 });

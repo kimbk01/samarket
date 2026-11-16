@@ -27,7 +27,7 @@ import {
 } from "@/lib/ui/dibay-secondary-tabs";
 import {
   PHILIFE_FEED_FILTER_STRIP_CLASS,
-  COMMUNITY_FEED_LIST_WRAP_CLASS,
+  COMMUNITY_FEED_GRID_WRAP_CLASS,
   PHILIFE_PAGE_ROOT_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
 import { PhilifePullRefreshHint } from "@/components/philife/PhilifePullRefreshHint";
@@ -2029,9 +2029,9 @@ export function CommunityFeed({
         ) : null}
 
         {operatorTopPosts.length > 0 ? (
-          <ul className={COMMUNITY_FEED_LIST_WRAP_CLASS} data-community-operator-top="1">
+          <ul className={COMMUNITY_FEED_GRID_WRAP_CLASS} data-community-operator-top="1">
             {operatorTopPosts.map((p, index) => (
-              <li key={p.id} className="list-none">
+              <li key={p.id} className="list-none" data-feed-grid-item="">
                 {/* 광고 ② PB-22: 운영 고정 글도 광고 중이면 운영 고정 칩 + 「포인트 노출」 둘 다 */}
                 <CommunityCard
                   post={p}
@@ -2046,9 +2046,9 @@ export function CommunityFeed({
         {/* 커뮤니티 상위노출 표시 재설계 (Owner 2026-11-04 「배경 + 글자」): 위쪽 고정 글도 일반 글과 같은 카드
             (작성자·지역·조회수·댓글·사진·시간) · 상위노출 배경 + 「포인트 노출」 · 남은 기간은 보이지 않는다(작성자 본인만 결제 창·마이 › 광고) */}
         {topAdsBelowOperator.length > 0 ? (
-          <ul className={COMMUNITY_FEED_LIST_WRAP_CLASS} data-community-boost-top="1">
+          <ul className={COMMUNITY_FEED_GRID_WRAP_CLASS} data-community-boost-top="1">
             {topAdsBelowOperator.map((ad, index) => (
-              <li key={ad.adId} className="list-none">
+              <li key={ad.adId} className="list-none" data-feed-grid-item="">
                 <CommunityCard post={ad.feedPost!} priorityThumb={index < FEED_LCP_PRIORITY_COUNT} isAd />
               </li>
             ))}
@@ -2101,11 +2101,11 @@ export function CommunityFeed({
           </div>
         ) : (
           <>
-            <ul ref={listRootRef} className={`${COMMUNITY_FEED_LIST_WRAP_CLASS} ${topAds.length > 0 ? "mt-1" : ""}`}>
+            <ul ref={listRootRef} className={`${COMMUNITY_FEED_GRID_WRAP_CLASS} ${topAds.length > 0 ? "mt-1" : ""}`}>
               {postsForList.map((p, index) => (
                 <Fragment key={p.id}>
                   {/* D1 F2 (2026-11-11): 화면 밖 글 칸은 스타일·배치 계산을 건너뜀 — `app/samarket-components.css` */}
-                  <li className="list-none flow-root">
+                  <li className="list-none flow-root" data-feed-grid-item="">
                     {/* D1 F2 — 화면 밖 계산 건너뛰기 칸. 카드 그림자가 잘리지 않게 칸을 그림자만큼 넓힌다(app/samarket-components.css) */}
                     <div data-community-feed-cv-row="">
                       <CommunityCard

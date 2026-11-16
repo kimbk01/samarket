@@ -55,8 +55,8 @@ enum DibayDeviceClassClassifier {
 enum DibayDeviceProfileNative {
   /// Mac 에서 iPad 앱이 그려지는 배율 (실측)
   static let macIpadAppScale: CGFloat = 0.77
-  /// 창 최소 크기 (Mac pt) — Telegram Mac 최소 창과 같음
-  static let macMinimumWindowPt = CGSize(width: 380, height: 550)
+  /// 창 최소 크기 (Mac pt) — v3: 왼쪽 세로 메뉴 72 + 가장 작은 휴대폰 화면 375×667 (본문이 휴대폰보다 좁아 가려지지 않게)
+  static let macMinimumWindowPt = CGSize(width: 447, height: 667)
 
   static func webViewPageZoom(deviceClass: String) -> CGFloat {
     deviceClass == "DESKTOP_MAC" ? 1.0 / macIpadAppScale : 1.0

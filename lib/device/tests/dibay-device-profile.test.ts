@@ -3,6 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { DIBAY_DEVICE_CLASSES, type DibayDeviceClass } from "@/lib/device/dibay-device-class";
 import {
+  DIBAY_DESKTOP_MIN_WINDOW,
   DIBAY_MAC_IPAD_APP_SCALE,
   DIBAY_DEVICE_PROFILES,
   dibayDeviceClassesWhere,
@@ -34,19 +35,19 @@ describe("기기 프로필 단일 정의 (S1)", () => {
         const p = DIBAY_DEVICE_PROFILES[dc];
         return [
           dc,
-          [p.nativeShell, p.family, p.navigation, p.orientation, p.nativePortraitLock, p.adminLandscapeLock, p.launchIntroTarget, p.feedTopicSwipe],
+          [p.nativeShell, p.family, p.navigation, p.orientation, p.nativePortraitLock, p.adminLandscapeLock, p.launchIntroTarget, p.feedTopicSwipe, p.sideRailMinWidthCss],
         ];
       }),
     );
     expect(table).toEqual({
-      PHONE_ANDROID: ["android", "PHONE", "EXISTING_MAIN_BOTTOM_NAV", "PORTRAIT_ONLY", true, false, "phone", true],
-      PHONE_IOS: ["ios", "PHONE", "EXISTING_MAIN_BOTTOM_NAV", "PORTRAIT_ONLY", true, false, "phone", true],
-      TABLET_ANDROID: ["android", "TABLET", "EXISTING_MAIN_BOTTOM_NAV", "PORTRAIT_AND_LANDSCAPE", false, true, "tablet", false],
-      TABLET_IPAD: ["ios", "TABLET", "EXISTING_MAIN_BOTTOM_NAV", "PORTRAIT_AND_LANDSCAPE", false, true, "tablet", false],
-      DESKTOP_WINDOWS: [null, "DESKTOP", "DESKTOP_SIDE_RAIL", "RESIZABLE_DESKTOP", false, false, null, false],
-      DESKTOP_MAC: ["ios", "DESKTOP", "DESKTOP_SIDE_RAIL", "RESIZABLE_DESKTOP", false, false, null, false],
-      WEB_DESKTOP: [null, "DESKTOP", "DESKTOP_SIDE_RAIL", "RESIZABLE_DESKTOP", false, false, null, false],
-      UNKNOWN: [null, "UNKNOWN", "EXISTING_MAIN_BOTTOM_NAV", "UNKNOWN_SAFE", false, false, null, false],
+      PHONE_ANDROID: ["android", "PHONE", "EXISTING_MAIN_BOTTOM_NAV", "PORTRAIT_ONLY", true, false, "phone", true, null],
+      PHONE_IOS: ["ios", "PHONE", "EXISTING_MAIN_BOTTOM_NAV", "PORTRAIT_ONLY", true, false, "phone", true, null],
+      TABLET_ANDROID: ["android", "TABLET", "DESKTOP_SIDE_RAIL", "PORTRAIT_AND_LANDSCAPE", false, true, "tablet", false, 600],
+      TABLET_IPAD: ["ios", "TABLET", "DESKTOP_SIDE_RAIL", "PORTRAIT_AND_LANDSCAPE", false, true, "tablet", false, 600],
+      DESKTOP_WINDOWS: [null, "DESKTOP", "DESKTOP_SIDE_RAIL", "RESIZABLE_DESKTOP", false, false, null, false, 0],
+      DESKTOP_MAC: ["ios", "DESKTOP", "DESKTOP_SIDE_RAIL", "RESIZABLE_DESKTOP", false, false, null, false, 0],
+      WEB_DESKTOP: [null, "DESKTOP", "DESKTOP_SIDE_RAIL", "RESIZABLE_DESKTOP", false, false, null, false, 0],
+      UNKNOWN: [null, "UNKNOWN", "EXISTING_MAIN_BOTTOM_NAV", "UNKNOWN_SAFE", false, false, null, false, null],
     });
   });
 
@@ -108,16 +109,13 @@ describe("네이티브 값이 프로필 표와 같다", () => {
 describe("S3 웹뷰 배율·창 최소 크기 = 표 값 (네이티브 일치)", () => {
   const swift = read("ios/App/App/Plugins/DibayDeviceClassClassifier.swift");
 
-  it("Mac 만 배율·최소 창, 나머지는 1·없음", () => {
+  it("배율은 Mac 만 · 창 최소는 Windows·Mac 같은 값(세로 메뉴 72 + 가장 작은 휴대폰 375×667)", () => {
+    expect(DIBAY_DESKTOP_MIN_WINDOW).toEqual([447, 667]);
     for (const dc of DIBAY_DEVICE_CLASSES) {
       const p = dibayDeviceProfile(dc);
-      if (dc === "DESKTOP_MAC") {
-        expect(p.webViewZoom).toBeCloseTo(1 / 0.77, 6);
-        expect(p.minWindowPt).toEqual([380, 550]);
-      } else {
-        expect(p.webViewZoom).toBe(1);
-        expect(p.minWindowPt).toBeNull();
-      }
+      expect(p.webViewZoom).toBe(dc === "DESKTOP_MAC" ? 1 / 0.77 : 1);
+      if (dc === "DESKTOP_MAC" || dc === "DESKTOP_WINDOWS") expect(p.minWindowPt).toEqual([447, 667]);
+      else expect(p.minWindowPt).toBeNull();
     }
   });
 
@@ -128,7 +126,8 @@ describe("S3 웹뷰 배율·창 최소 크기 = 표 값 (네이티브 일치)", 
     const zoomTargets = [...swift.matchAll(/deviceClass == "(\w+)" \? 1\.0 \/ macIpadAppScale/g)].map((m) => m[1]);
     expect(zoomTargets).toEqual(dibayDeviceClassesWhere((p) => p.webViewZoom !== 1));
     const minTargets = [...swift.matchAll(/guard deviceClass == "(\w+)" else \{ return nil \}/g)].map((m) => m[1]);
-    expect(minTargets).toEqual(dibayDeviceClassesWhere((p) => p.minWindowPt != null));
+    // iOS 바이너리가 적용하는 최소 창은 Mac 만 (Windows 는 Windows 셸)
+    expect(minTargets).toEqual(dibayDeviceClassesWhere((p) => p.minWindowPt != null && p.nativeShell === "ios"));
     expect(read("ios/App/App/DibayRootBridgeViewController.swift")).toContain("DibayDeviceProfileNative.webViewPageZoom(");
     expect(read("ios/App/App/SceneDelegate.swift")).toContain("DibayDeviceProfileNative.minimumSceneSize(");
   });
