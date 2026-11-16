@@ -116,6 +116,10 @@
     {
       "path": "/api/cron/messenger-contacts-maintenance",
       "schedule": "10 20 * * *"
+    },
+    {
+      "path": "/api/cron/crew-rep-daily-recompute",
+      "schedule": "0 19 * * *"
     }
   ]
 }
