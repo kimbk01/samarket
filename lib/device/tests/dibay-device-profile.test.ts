@@ -144,8 +144,14 @@ describe("S3 웹뷰 배율·창 최소 크기 = 표 값 (네이티브 일치)", 
     expect(swift).toContain(`static let macIpadAppScale: CGFloat = ${DIBAY_MAC_IPAD_APP_SCALE}`);
     const [w, h] = dibayDeviceProfile("DESKTOP_MAC").minWindowPt!;
     expect(swift).toContain(`static let macMinimumWindowPt = CGSize(width: ${w}, height: ${h})`);
-    const zoomTargets = [...swift.matchAll(/deviceClass == "(\w+)" \? 1\.0 \/ macIpadAppScale/g)].map((m) => m[1]);
+    /** v7 수정안 C — Mac 확대는 웹뷰 pageZoom 이 아니라 화면 폭 메타(macContentScale). 대상 기기 = 표의 webViewZoom ≠ 1 */
+    const zoomTargets = [...swift.matchAll(/deviceClass == "(\w+)" \? 1\.0 \/ macIpadAppScale : nil/g)].map((m) => m[1]);
     expect(zoomTargets).toEqual(dibayDeviceClassesWhere((p) => p.webViewZoom !== 1));
+    expect(swift).toMatch(/static func webViewPageZoom\(deviceClass: String\) -> CGFloat \{\s*1\.0\s*\}/);
+    expect(swift).toContain("initial-scale='+S+', minimum-scale='+S+', maximum-scale='+S");
+    const bridge = read("ios/App/App/DibayRootBridgeViewController.swift");
+    expect(bridge).toMatch(/override func capacitorDidLoad\(\) \{[\s\S]{0,400}installMacViewportScaleIfNeeded\(\)/);
+    expect(bridge).toContain('controller.add(self, name: "DibayMacViewport")');
     /** 최소·최대(v6) 크기 함수 모두 같은 대상 — 중복 제거 */
     const minTargets = [
       ...new Set([...swift.matchAll(/guard deviceClass == "(\w+)" else \{ return nil \}/g)].map((m) => m[1])),

@@ -58,8 +58,40 @@ enum DibayDeviceProfileNative {
   /// 창 최소 크기 (Mac pt) — v3: 왼쪽 세로 메뉴 72 + 가장 작은 휴대폰 화면 375×667 (본문이 휴대폰보다 좁아 가려지지 않게)
   static let macMinimumWindowPt = CGSize(width: 447, height: 667)
 
+  /// v7 수정안 C (Owner 2026-11-17 시안 v7 승인) — 웹뷰 `pageZoom` 은 쓰지 않는다(1 = 그대로).
+  /// iOS WebKit 은 배치 폭을 웹뷰 크기 그대로 쓰고(WKWebViewIOS.mm activeViewLayoutSize) pageZoom 은 그림만 키워,
+  /// Mac 에서 오른쪽 23% 가 잘렸다(11-17 실측: 배치 1869 · 보임 1439pt). 확대는 아래 화면 폭 메타로 한다.
   static func webViewPageZoom(deviceClass: String) -> CGFloat {
-    deviceClass == "DESKTOP_MAC" ? 1.0 / macIpadAppScale : 1.0
+    1.0
+  }
+
+  /// Mac 글자·화면 확대 배율 (1 ÷ 0.77 → CSS 1px = Mac 1pt). Mac 외 기기는 nil.
+  static func macContentScale(deviceClass: String) -> CGFloat? {
+    deviceClass == "DESKTOP_MAC" ? 1.0 / macIpadAppScale : nil
+  }
+
+  /// 문서 시작 때 넣는 스크립트 — 화면 폭 메타를 `width = 웹뷰 폭 ÷ 배율, initial = minimum = maximum = 배율` 로 고정한다.
+  /// 웹뷰 폭(iPad 좌표)은 네이티브가 `setViewWidth` 로 준다(처음: 스크립트의 요청에 응답 · 그 뒤: 창 크기 변경마다).
+  /// 웹(Next)이 메타를 다시 쓰면 바로 되돌린다. iPad 시뮬 Safari 실험(11-17): 이 방식만 innerWidth·clientWidth·100vw·
+  /// 화면 폭 조건이 모두 같은 폭(넘침 0).
+  static func macViewportScript(scale: CGFloat) -> String {
+    let s = String(format: "%.4f", Double(scale))
+    return """
+    (function(){
+      var S=\(s), W=0;
+      function want(){ return 'width='+Math.max(1,Math.round(W/S))+', initial-scale='+S+', minimum-scale='+S+', maximum-scale='+S+', viewport-fit=cover, interactive-widget=resizes-content'; }
+      function apply(){
+        if(!W) return;
+        var m=document.querySelector('meta[name="viewport"]');
+        if(!m){ if(!document.head) return; m=document.createElement('meta'); m.setAttribute('name','viewport'); document.head.appendChild(m); }
+        var c=want(); if(m.getAttribute('content')!==c) m.setAttribute('content',c);
+      }
+      window.__dibayMacViewport={scale:S,setViewWidth:function(w){ if(w>0){ W=w; apply(); } }};
+      new MutationObserver(apply).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['content']});
+      document.addEventListener('DOMContentLoaded',apply);
+      try{ window.webkit.messageHandlers.DibayMacViewport.postMessage('ready'); }catch(e){}
+    })();
+    """
   }
 
   /// v6 R6 (Owner 2026-11-17 시안 v6 승인) — 창 최대 폭 (Mac pt). 높이는 화면까지. LOUNGE 카드 3열이 끝까지 차는 폭.
