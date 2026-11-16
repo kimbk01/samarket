@@ -1,3 +1,4 @@
+import { resolveDeletedMessagePlaceholder } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import {
   bumpRoomTruthVersion,
   versionMsFromIso,
@@ -55,6 +56,8 @@ export function messengerClientMessageToInsertRow(msg: CommunityMessengerMessage
     content: msg.content ?? null,
     metadata: meta && typeof meta === "object" ? meta : null,
     created_at: msg.createdAt,
+    /** D4: 삭제 표시를 넘겨 목록 미리보기가 삭제 문구를 쓰게 한다 */
+    deleted_for_everyone_at: msg.deletedForEveryoneAt ?? null,
   };
 }
 
@@ -66,11 +69,18 @@ export function listPreviewFromMessengerMessageRow(row: Record<string, unknown>)
   /** 언어 SSOT B3 — 시스템 메시지 종류 코드(서버 트리거와 같은 규칙). 시스템이 아니면 null(지난 메타 지움) */
   lastMessageMeta: CmRoomLastMessageMeta | null;
 } | null {
+  const createdAt = trimText(row.created_at);
+  if (!createdAt) return null;
+  /**
+   * D4(2026-11-16): 「모두에게서 삭제」 행은 서버 미리보기 재계산(service recompute)과 같은 규칙 — 삭제 문구·text.
+   * 예전에는 삭제 표시를 보지 않아 메시지 변경 이벤트가 방 변경 뒤에 도착하면 「스티커」「사진」으로 다시 덮였다.
+   */
+  if (trimText(row.deleted_for_everyone_at)) {
+    return { lastMessage: resolveDeletedMessagePlaceholder(), lastMessageType: "text", lastMessageAt: createdAt, lastMessageMeta: null };
+  }
   const content = trimText(row.content);
   const mtRaw = trimText(row.message_type) || "text";
   const messageType = normalizeMessageType(mtRaw);
-  const createdAt = trimText(row.created_at);
-  if (!createdAt) return null;
   /** CONTRACT: in-flight dialing/incoming must not tip the home list ahead of CallKit. */
   if (messageType === "call_stub") {
     const meta = row.metadata;

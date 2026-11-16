@@ -13,10 +13,7 @@ import {
 } from "@/lib/store-order-chat/messenger-delivery-room-header";
 import { useStoreOrderDeliveryRoomOptional } from "@/components/community-messenger/room/phase2/store-order-delivery-room-context";
 import { useStoreOrderRoomSnapshot } from "@/lib/store-order-chat/use-store-order-room-snapshot";
-import {
-  mannerBatteryTier,
-  mannerRawToPercent,
-} from "@/lib/trust/manner-battery";
+import { crewRepDisplayScore } from "@/lib/trust/crew-rep";
 import { clampTrustScore } from "@/lib/trust/trust-score-core";
 import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-seller";
 
@@ -30,8 +27,7 @@ export type StoreOrderDeliveryMessengerHeaderModel = {
   industryPrimary: string | null;
   industrySecondary: string | null;
   showPresence: boolean;
-  buyerTrustPercent: number | null;
-  buyerTrustTier: ReturnType<typeof mannerBatteryTier> | null;
+  buyerCrewRepScore: number | null;
 };
 
 type Input = {
@@ -122,12 +118,10 @@ export function useStoreOrderDeliveryMessengerHeader(
     };
   }, [deliveryPeerUserId, mode, input.storeOrderId]);
 
-  const buyerTrustPercent = useMemo(() => {
+  const buyerCrewRepScore = useMemo(() => {
     if (buyerPublicProfile?.trustScore == null) return null;
-    return mannerRawToPercent(clampTrustScore(buyerPublicProfile.trustScore));
+    return crewRepDisplayScore(clampTrustScore(buyerPublicProfile.trustScore));
   }, [buyerPublicProfile?.trustScore]);
-
-  const buyerTrustTier = buyerTrustPercent != null ? mannerBatteryTier(buyerTrustPercent) : null;
 
   const buyerNickname = useMemo(() => {
     const fromApi =
@@ -266,8 +260,7 @@ export function useStoreOrderDeliveryMessengerHeader(
         industryPrimary: null,
         industrySecondary: null,
         showPresence: true,
-        buyerTrustPercent,
-        buyerTrustTier,
+        buyerCrewRepScore,
       };
     }
     if (mode === "buyer_store") {
@@ -281,8 +274,7 @@ export function useStoreOrderDeliveryMessengerHeader(
         industryPrimary: storeIndustryParts.primary,
         industrySecondary: storeIndustryParts.secondary,
         showPresence: true,
-        buyerTrustPercent: null,
-        buyerTrustTier: null,
+        buyerCrewRepScore: null,
       };
     }
     if (mode === "generic_delivery") {
@@ -296,8 +288,7 @@ export function useStoreOrderDeliveryMessengerHeader(
         industryPrimary: null,
         industrySecondary: null,
         showPresence: false,
-        buyerTrustPercent: null,
-        buyerTrustTier: null,
+        buyerCrewRepScore: null,
       };
     }
     return {
@@ -310,14 +301,12 @@ export function useStoreOrderDeliveryMessengerHeader(
       industryPrimary: null,
       industrySecondary: null,
       showPresence: false,
-      buyerTrustPercent: null,
-      buyerTrustTier: null,
+      buyerCrewRepScore: null,
     };
   }, [
     buyerAvatarUrl,
     buyerNickname,
-    buyerTrustPercent,
-    buyerTrustTier,
+    buyerCrewRepScore,
     input.roomTitle,
     mode,
     storeAvatarUrl,

@@ -27,11 +27,23 @@ describe("Slice4 trust surface structural", () => {
     expect(home).toContain("mypage-profile-manner-row");
   });
 
-  it("top battery tier hex matches design-system primaryHex", () => {
-    const battery = readFileSync(path.join(root, "lib/trust/manner-battery.ts"), "utf8");
+  it("CREW REP display has no battery icon or % and no admin free-text label", () => {
+    const crew = readFileSync(path.join(root, "lib/trust/crew-rep.ts"), "utf8");
     const ds = readFileSync(path.join(root, "lib/ui/design-system-hard-lock.ts"), "utf8");
     expect(ds).toContain('primaryHex: "#0B421A"');
-    expect(battery).toContain('#0B421A');
-    expect(battery).not.toContain("#EA580C");
+    expect(crew).toContain("#0B421A");
+    const surfaces = [
+      "components/trust/CrewRep.tsx",
+      "components/mypage/trust/MypageTrustContent.tsx",
+      "components/mypage/home/MypageProfileSummary.tsx",
+      "components/post/PostDetailView.tsx",
+      "components/mypage/tabs/AccountTab.tsx",
+      "components/community-messenger/room/phase2/ChatRoomMoreMenu.tsx",
+      "components/community-messenger/room/phase2/StoreOrderDeliveryMessengerHeaderBlock.tsx",
+    ].map((f) => readFileSync(path.join(root, f), "utf8"));
+    for (const src of surfaces) {
+      expect(src).not.toMatch(/MannerBattery(Icon|Display|Inline)|TrustSummaryCard|speedDisplayLabel/);
+      expect(src).not.toMatch(/°C|배터리/);
+    }
   });
 });

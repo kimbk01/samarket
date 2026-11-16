@@ -568,6 +568,7 @@ export function useMessengerRoomPhase2Controller() {
           content: msg.content,
           metadata: msg.metadata ?? null,
           created_at: msg.createdAt,
+          deleted_for_everyone_at: msg.deletedForEveryoneAt ?? null,
         },
       });
       syncMessengerHomeAfterOutboundSend({

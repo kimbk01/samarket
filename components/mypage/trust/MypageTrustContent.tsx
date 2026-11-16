@@ -7,8 +7,7 @@ import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { getCurrentUser, getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { getAppSettings } from "@/lib/app-settings";
-import { MannerBatteryIcon } from "@/components/trust/MannerBatteryIcon";
+import { CrewRepCard } from "@/components/trust/CrewRep";
 import { MYPAGE_PROFILE_EDIT_SHEET_HREF } from "@/lib/mypage/mypage-profile-routes";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
@@ -61,7 +60,7 @@ function readMemory(): TrustSnapshot | null {
 }
 
 /**
- * 매너 배터리 (최종 설계 S02) — `buildMemberTrustSurface` 1개 SSOT, `%` 하나만.
+ * CREW REP (Owner 2026-11-16 S1) — `buildMemberTrustSurface` 1개 SSOT, `82 / 100` 하나만(`%` 없음).
  * 세션 값은 첫 그림용 — API 값 도착 후 덮어쓰고 세션이 다시 덮지 못함(Slice 4).
  * API 실패: 숫자 유지 + 한 줄 오류 + [다시 시도] (조용히 무시 금지).
  */
@@ -122,32 +121,21 @@ export function MypageTrustContent() {
     };
   }, [loadFromApi]);
 
-  const batteryLabel = getAppSettings().speedDisplayLabel ?? t("mypage_trust_title");
-  // CONTRACT (Slice 4): display from profiles.trust_score; home manner row uses same buildMemberTrustSurface.
+  // CONTRACT (Slice 4): display from profiles.trust_score; home CREW REP row uses same buildMemberTrustSurface.
 
   return (
     <MyScreen title={t("mypage_trust_title")} template="detail">
-      <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-6 text-center">
-        <p className="sam-text-body-secondary text-sam-muted">
-          {batteryLabel} {t("mypage_trust_battery_label_suffix")}
-        </p>
+      <div>
         {surface ? (
-          <>
-            <div className="mt-3 flex justify-center">
-              <MannerBatteryIcon tier={surface.tier} percent={surface.percent} size="lg" />
-            </div>
-            {/* Single Member text SSOT = trust_score + `%` (no twin number). Battery icon is visual only. */}
-            <p
-              className={`mt-2 sam-text-hero font-bold tabular-nums ${surface.accentClass}`}
-              data-testid="mypage-trust-score"
-            >
-              {surface.percentLabel}
-            </p>
-          </>
+          <CrewRepCard score={surface.view.score} />
         ) : loadFailed ? null : (
-          <div className="mt-3 flex flex-col items-center gap-3" aria-busy="true" data-testid="mypage-trust-skeleton">
-            <span className="block h-12 w-12 rounded-full bg-sam-border-soft/70 motion-safe:animate-pulse" />
-            <span className="block h-7 w-20 rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse" />
+          <div
+            className="flex flex-col gap-3 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4"
+            aria-busy="true"
+            data-testid="mypage-trust-skeleton"
+          >
+            <span className="block h-10 w-40 rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse" />
+            <span className="block h-2.5 w-full rounded-full bg-sam-border-soft/70 motion-safe:animate-pulse" />
           </div>
         )}
         {surface && isNewMember ? (
@@ -168,10 +156,8 @@ export function MypageTrustContent() {
             </button>
           </div>
         ) : null}
-        <p className="mt-4 sam-text-body-secondary leading-relaxed text-sam-muted">
-          {t("mypage_trust_battery_hint_before")}{" "}
-          <strong className="text-sam-fg">{t("mypage_trust_battery_hint_days")}</strong>
-          {t("mypage_trust_battery_hint_after")}
+        <p className="mt-4 sam-text-body-secondary leading-relaxed text-sam-muted" data-testid="mypage-trust-hint">
+          {t("mypage_trust_hint")}
         </p>
       </div>
       <Link

@@ -20,8 +20,6 @@ export interface AppSettings {
   maxReportsPerTarget: number;
   trustReviewEnabled: boolean;
   mannerScoreVisible: boolean;
-  /** 프로필 배터리 표시 라벨 (기본: 배터리) */
-  speedDisplayLabel: string;
   regionMultiSelectEnabled: boolean;
   maxSavedRegions: number;
   homeRadiusKm: number;

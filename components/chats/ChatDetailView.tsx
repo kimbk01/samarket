@@ -106,7 +106,7 @@ import {
   isChatRoomMessageSoundMuted,
   setChatRoomMessageSoundMuted,
 } from "@/lib/chats/chat-room-message-sound-mute";
-import { TrustSummaryCard } from "@/components/reviews/TrustSummaryCard";
+import { CrewRepBadge } from "@/components/trust/CrewRep";
 import type { UserTrustSummary } from "@/lib/types/review";
 import { clampTrustScore } from "@/lib/trust/trust-score-core";
 import {
@@ -2089,7 +2089,7 @@ export function ChatDetailView({
                       </div>
                       {partnerTrustSummary ? (
                         <div className="shrink-0 pr-0.5" aria-label={t("chats_partner_trust_aria")}>
-                          <TrustSummaryCard summary={partnerTrustSummary} variant="compact" />
+                          <CrewRepBadge score={partnerTrustSummary.mannerScore} variant="compact" />
                         </div>
                       ) : null}
                     </div>
@@ -2314,7 +2314,7 @@ export function ChatDetailView({
             </p>
             {partnerTrustSummary ? (
               <div className="mt-3">
-                <TrustSummaryCard summary={partnerTrustSummary} variant="compact" />
+                <CrewRepBadge score={partnerTrustSummary.mannerScore} />
               </div>
             ) : null}
           </section>

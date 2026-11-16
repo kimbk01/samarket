@@ -1,3 +1,4 @@
+import { isCatalogStickerPath } from "@/lib/stickers/sticker-catalog-validate";
 import { readLiteBundleRoomAvatarUrl } from "@/lib/community-messenger/lite-bundle-room-avatar";
 import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
 import { normalizeTradePriceCurrency } from "@/lib/trade/trade-price-currency";
@@ -18149,6 +18150,8 @@ export async function sendCommunityMessengerStickerMessage(input: {
   const roomId = trimText(input.roomId);
   const path = normalizeCommunityMessengerStickerContent(input.content);
   if (!roomId || !path) return { ok: false, error: "content_required" };
+  /** D8: 스티커 목록에 있는 경로만 — 형식만 맞는 임의·없는 경로 거부 */
+  if (!isCatalogStickerPath(path)) return { ok: false, error: "sticker_not_in_catalog" };
   const clientMessageId = trimText(input.clientMessageId ?? "");
   const stickerItemId = trimText(input.stickerItemId ?? "");
   const metadata: Record<string, unknown> = {};

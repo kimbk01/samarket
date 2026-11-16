@@ -19,7 +19,6 @@ const KEY_LABEL_KEYS: Partial<Record<keyof AppSettings, MessageKey>> = {
   defaultCurrency: "admin_settings_key_default_currency",
   defaultLocale: "admin_settings_key_default_locale",
   alarmSoundDataUrl: "admin_settings_key_alarm_sound",
-  speedDisplayLabel: "admin_settings_key_speed_display_label",
   productAutoExpireDays: "admin_settings_key_product_auto_expire",
   maxProductImages: "admin_settings_key_max_product_images",
   allowPriceOffer: "admin_settings_key_allow_price_offer",

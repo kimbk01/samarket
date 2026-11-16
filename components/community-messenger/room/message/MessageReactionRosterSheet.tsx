@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CommunityMessengerMessageActionAnchorRect } from "@/lib/community-messenger/types";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
@@ -23,6 +24,8 @@ export type MessageReactionRosterSheetProps = {
 export function MessageReactionRosterSheet(props: MessageReactionRosterSheetProps) {
   const { t } = useI18n();
   const { open, streamRoomId, onClose } = props;
+  /** D3: 뒤로 키 = 이 시트만 닫기(등록 안 하면 방을 나감) */
+  useOverlayHardwareBack(Boolean(open), onClose);
   useRegisterOpenOverlay(Boolean(open));
   const [users, setUsers] = useState<Array<{ userId: string; label: string }>>([]);
   const [loading, setLoading] = useState(false);

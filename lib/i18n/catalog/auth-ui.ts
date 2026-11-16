@@ -153,6 +153,8 @@ export const authUiMessages = {
     auth_err_apple_native_invalid_audience:
       "Apple 로그인 앱 설정이 올바르지 않습니다. 잠시 후 다시 시도해 주세요.",
     auth_err_apple_native_unavailable: "Apple 로그인을 완료하지 못했습니다. 다시 시도해 주세요. 계속되면 고객센터에 문의해 주세요.",
+    auth_err_apple_native_not_completed:
+      "Apple 로그인이 완료되지 않았습니다. 잠시 후 다시 시도해 주세요. 계속되면 다른 방법으로 로그인해 주세요.",
     auth_err_kakao_native_config_error:
       "카카오 로그인을 완료하지 못했습니다. 다시 시도해 주세요. 계속되면 고객센터에 문의해 주세요.",
     auth_err_kakao_native_key_hash_required: "카카오 로그인 앱 인증에 실패했습니다. 고객센터에 문의해 주세요.",
@@ -459,6 +461,8 @@ export const authUiMessages = {
     auth_err_apple_native_invalid_audience:
       "Apple sign-in app configuration is invalid. Please try again shortly.",
     auth_err_apple_native_unavailable: "Apple sign-in could not be completed. Please try again. Contact support if it continues.",
+    auth_err_apple_native_not_completed:
+      "Apple sign-in didn't finish. Please try again in a moment. If it keeps happening, use another sign-in option.",
     auth_err_kakao_native_config_error:
       "Kakao sign-in could not be completed. Please try again. Contact support if it continues.",
     auth_err_kakao_native_key_hash_required: "Kakao sign-in app verification failed. Please contact support.",

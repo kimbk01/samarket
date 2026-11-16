@@ -34,7 +34,6 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   maxReportsPerTarget: 5,
   trustReviewEnabled: true,
   mannerScoreVisible: true,
-  speedDisplayLabel: "배터리",
   regionMultiSelectEnabled: true,
   maxSavedRegions: 2,
   homeRadiusKm: 5,
@@ -74,7 +73,7 @@ export const SECTION_KEYS: Record<SettingsSectionKey, (keyof AppSettings)[]> = {
   ],
   chat: ["chatEnabled", "allowChatAfterSold", "maxMessageLength"],
   report: ["reportEnabled", "maxReportsPerTarget"],
-  trust: ["trustReviewEnabled", "mannerScoreVisible", "speedDisplayLabel"],
+  trust: ["trustReviewEnabled", "mannerScoreVisible"],
   region: [
     "regionMultiSelectEnabled",
     "maxSavedRegions",

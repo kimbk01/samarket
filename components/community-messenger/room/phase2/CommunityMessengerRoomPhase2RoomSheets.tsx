@@ -65,7 +65,7 @@ import { GroupJoinRequestsSection } from "@/components/community-messenger/group
 import { GroupBlockedMembersSection } from "@/components/community-messenger/group/GroupBlockedMembersSection";
 import { GroupMemberRoleBadge } from "@/components/community-messenger/group/GroupMemberRoleBadge";
 import { GroupMemberPresenceLabel } from "@/components/community-messenger/room/phase2/GroupMemberPresenceLabel";
-import { useRoomMediaGallery } from "@/lib/community-messenger/media/use-room-media-gallery";
+import { useRoomMediaGallery, useRoomMessageCollection } from "@/lib/community-messenger/media/use-room-media-gallery";
 import { GroupRoomMediaAlbumTabs } from "@/components/community-messenger/group/GroupRoomMediaAlbumPanel";
 import { messengerMediaRouteUrlFor } from "@/lib/community-messenger/media/messenger-media-ref";
 import { openMessengerFileInNativeShellIfNeeded } from "@/lib/community-messenger/messenger-file-download";
@@ -104,10 +104,21 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
    */
   const roomMediaGallery = useRoomMediaGallery(
     vm.streamRoomId,
-    vm.activeSheet === "menu" || vm.activeSheet === "info" || vm.activeSheet === "media"
+    vm.activeSheet === "menu" ||
+      vm.activeSheet === "info" ||
+      vm.activeSheet === "media" ||
+      vm.activeSheet === "files" ||
+      vm.activeSheet === "links"
   );
   const mediaPhotoCount = roomMediaGallery.counts?.image ?? vm.photoMessageCount;
   const mediaVoiceCount = roomMediaGallery.counts?.voice ?? vm.voiceMessageCount;
+  /** D2(2026-11-16): 파일·링크 모음·개수도 서버 조회 — 불러온 메시지(첫 24개)만 세면 큰 방에서 적게 나온다 */
+  const mediaFileCount = roomMediaGallery.counts?.file ?? vm.fileMessageCount;
+  const mediaLinkCount = roomMediaGallery.counts?.link ?? vm.linkMessageCount;
+  const fileCollection = useRoomMessageCollection(vm.streamRoomId, "file", vm.activeSheet === "files");
+  const linkCollection = useRoomMessageCollection(vm.streamRoomId, "link", vm.activeSheet === "links");
+  const memberLabelById = (id: string | null) =>
+    (id && vm.roomMembersDisplay.find((m: { id: string; label?: string }) => m.id === id)?.label) || "";
   const { safeT } = useI18n();
   const [groupOutgoingConfirmKind, setGroupOutgoingConfirmKind] = useState<null | "voice" | "video">(null);
   const [giftOfferOpen, setGiftOfferOpen] = useState(false);
@@ -473,7 +484,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     </span>
                     <span className="dibay-overlay-menu__text min-w-0 flex-1">
                       <span className="dibay-overlay-menu__label">{vm.t("cm_ui_file")}</span>
-                      <span className="dibay-overlay-menu__hint">{vm.t("cm_ui_file_count", { count: vm.fileMessageCount })}</span>
+                      <span className="dibay-overlay-menu__hint">{vm.t("cm_ui_file_count", { count: mediaFileCount })}</span>
                     </span>
                     <span className={GROUP_MENU_TRAILING_CLASS} aria-hidden>›</span>
                   </button>
@@ -483,7 +494,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     </span>
                     <span className="dibay-overlay-menu__text min-w-0 flex-1">
                       <span className="dibay-overlay-menu__label">{vm.t("cm_ui_link")}</span>
-                      <span className="dibay-overlay-menu__hint">{vm.t("cm_ui_link_count", { count: vm.linkMessageCount })}</span>
+                      <span className="dibay-overlay-menu__hint">{vm.t("cm_ui_link_count", { count: mediaLinkCount })}</span>
                     </span>
                     <span className={GROUP_MENU_TRAILING_CLASS} aria-hidden>›</span>
                   </button>
@@ -968,14 +979,14 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-4 py-3">
                       <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_shared_items")}</p>
                       <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">
-                        {vm.t("cm_ui_count_items", { count: mediaPhotoCount + mediaVoiceCount + vm.fileMessageCount + vm.linkMessageCount })}
+                        {vm.t("cm_ui_count_items", { count: mediaPhotoCount + mediaVoiceCount + mediaFileCount + mediaLinkCount })}
                       </p>
                       <p className="mt-1 sam-text-helper text-sam-muted">
                         {vm.t("cm_ui_shared_item_counts", {
                           photos: mediaPhotoCount,
                           voices: mediaVoiceCount,
-                          files: vm.fileMessageCount,
-                          links: vm.linkMessageCount,
+                          files: mediaFileCount,
+                          links: mediaLinkCount,
                         })}
                       </p>
                     </div>
@@ -1122,7 +1133,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         className={`${OverlayUi.selectCard} !flex-col !items-start !justify-center !gap-0`}
                       >
                         <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_file")}</p>
-                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.fileMessageCount}</p>
+                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{mediaFileCount}</p>
                       </button>
                       <button
                         type="button"
@@ -1130,7 +1141,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         className={`${OverlayUi.selectCard} !flex-col !items-start !justify-center !gap-0`}
                       >
                         <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_link")}</p>
-                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.linkMessageCount}</p>
+                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{mediaLinkCount}</p>
                       </button>
                     </div>
                   </div>
@@ -1675,19 +1686,26 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 </div>
                 <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
                   <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_attached_files")}</p>
-                  <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.t("cm_ui_count_items", { count: vm.fileMessageCount })}</p>
+                  <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.t("cm_ui_count_items", { count: mediaFileCount })}</p>
                   <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_check_docs_archives_attachments")}</p>
                 </div>
                 <div className="mt-4 max-h-[55vh] space-y-3 overflow-y-auto">
-                  {vm.fileMessages.length ? (
-                    vm.fileMessages.map((m) => (
-                      <div key={m.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-                        <button type="button" onClick={() => vm.scrollToRoomMessage(m.id)} className="w-full text-left">
-                          <p className="sam-text-helper text-sam-muted">{vm.tt(m.senderLabel)} · {formatTime(m.createdAt)}</p>
+                  {fileCollection.items.length ? (
+                    fileCollection.items.map((m) => (
+                      <div key={m.id} data-cm-collection-item="file" className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            vm.dismissRoomSheet();
+                            vm.scrollToRoomMessage(m.id);
+                          }}
+                          className="w-full text-left"
+                        >
+                          <p className="sam-text-helper text-sam-muted">{memberLabelById(m.senderId)} · {formatTime(m.createdAt)}</p>
                           <p className="mt-1 truncate sam-text-body font-semibold text-sam-fg">{m.fileName?.trim() || vm.t("cm_ui_attached_files")}</p>
                           <p className="mt-1 sam-text-helper text-sam-muted">{formatFileMeta(m.fileMimeType, m.fileSizeBytes)}</p>
                         </button>
-                        {!m.pending && m.content.trim() ? (
+                        {m.content.trim() ? (
                           <a
                             href={messengerMediaRouteUrlFor({ roomId: m.roomId, messageId: m.id, src: m.content })}
                             target="_blank"
@@ -1706,9 +1724,16 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         )}
                       </div>
                     ))
+                  ) : fileCollection.loading ? (
+                    <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{vm.t("common_loading")}</p>
                   ) : (
                     <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{vm.t("cm_ui_no_files")}</p>
                   )}
+                  {fileCollection.hasMore ? (
+                    <button type="button" onClick={fileCollection.loadMore} disabled={fileCollection.loading} className={`${OverlayUi.btn.secondary} w-full`}>
+                      {vm.t("common_emoji_show_more")}
+                    </button>
+                  ) : null}
                 </div>
               </>
             ) : null}
@@ -1730,17 +1755,24 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 </div>
                 <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
                   <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_shared_links")}</p>
-                  <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.t("cm_ui_count_items", { count: vm.linkMessageCount })}</p>
+                  <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.t("cm_ui_count_items", { count: mediaLinkCount })}</p>
                   <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_collect_message_urls")}</p>
                 </div>
                 <div className="mt-4 max-h-[55vh] space-y-3 overflow-y-auto">
-                  {vm.linkThreadMessages.length ? (
-                    vm.linkThreadMessages.map((m) => {
+                  {linkCollection.items.length ? (
+                    linkCollection.items.map((m) => {
                       const urls = extractHttpUrls(m.content);
                       return (
-                        <div key={m.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-                          <button type="button" onClick={() => vm.scrollToRoomMessage(m.id)} className="w-full text-left">
-                            <p className="sam-text-helper text-sam-muted">{vm.tt(m.senderLabel)} · {formatTime(m.createdAt)}</p>
+                        <div key={m.id} data-cm-collection-item="link" className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              vm.dismissRoomSheet();
+                              vm.scrollToRoomMessage(m.id);
+                            }}
+                            className="w-full text-left"
+                          >
+                            <p className="sam-text-helper text-sam-muted">{memberLabelById(m.senderId)} · {formatTime(m.createdAt)}</p>
                             <p className="mt-1 line-clamp-2 sam-text-body-secondary text-sam-fg">{m.content}</p>
                           </button>
                           <div className="mt-2 flex flex-col gap-1.5">
@@ -1759,9 +1791,16 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         </div>
                       );
                     })
+                  ) : linkCollection.loading ? (
+                    <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{vm.t("common_loading")}</p>
                   ) : (
                     <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{vm.t("cm_ui_no_links")}</p>
                   )}
+                  {linkCollection.hasMore ? (
+                    <button type="button" onClick={linkCollection.loadMore} disabled={linkCollection.loading} className={`${OverlayUi.btn.secondary} w-full`}>
+                      {vm.t("common_emoji_show_more")}
+                    </button>
+                  ) : null}
                 </div>
               </>
             ) : null}

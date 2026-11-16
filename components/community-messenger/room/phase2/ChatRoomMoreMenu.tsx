@@ -23,6 +23,7 @@ import {
 } from "@/components/community-messenger/room/phase2/MessengerTradeProductDockRow";
 import { formatMessengerPeerPresenceLine } from "@/lib/community-messenger/realtime/presence/format-messenger-peer-presence-line";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { CrewRepBadge } from "@/components/trust/CrewRep";
 
 export type RoomType = "direct" | "trade";
 
@@ -46,7 +47,8 @@ export type OtherUserProfile = {
   id: string;
   nickname: string;
   avatarUrl?: string | null;
-  mannerScore: number;
+  /** CREW REP 점수(0~100). 모르면 null — 화면에 가짜 50 을 그리지 않는다. */
+  mannerScore: number | null;
   /** 헤더와 동일: `useCommunityMessengerPeerPresence` 결과를 넘기면 실시간 반영 */
   peerPresence?: CommunityMessengerPeerPresenceSnapshot | null;
   /** @deprecated `peerPresence`가 없을 때만(스토리북 등) */
@@ -71,10 +73,8 @@ export type ChatRoomMenuProfileOverride = {
   nickname: string;
   avatarUrl?: string | null;
   avatarShape?: "circle" | "store_rect";
-  /** 매장 프로필이면 매너 배터리 숨김 */
-  hideMannerBattery?: boolean;
-  mannerScore?: number;
-  buyerTrustPercent?: number | null;
+  /** CREW REP 점수 — 매장 프로필이거나 모르면 null(표시 안 함) */
+  crewRepScore: number | null;
 };
 
 export type ChatRoomMoreMenuProps = {
@@ -113,26 +113,6 @@ export type ChatRoomMoreMenuProps = {
   onBlockPeer?: () => void;
   disableBlockPeer?: boolean;
 };
-
-function mannerTemperatureLabel(score0to100: number): string {
-  const s = Math.max(0, Math.min(100, Number.isFinite(score0to100) ? score0to100 : 50));
-  const c = 36.5 + (s - 50) * 0.03;
-  return `${c.toFixed(1)}°C`;
-}
-
-function mannerAccentClass(score0to100: number): string {
-  const s = Math.max(0, Math.min(100, Number.isFinite(score0to100) ? score0to100 : 50));
-  if (s < 30) return "text-red-600 bg-red-50";
-  if (s < 70) return "text-amber-700 bg-amber-50";
-  return "text-emerald-700 bg-emerald-50";
-}
-
-function mannerFillClass(score0to100: number): string {
-  const s = Math.max(0, Math.min(100, Number.isFinite(score0to100) ? score0to100 : 50));
-  if (s < 30) return "bg-red-500";
-  if (s < 70) return "bg-amber-500";
-  return "bg-emerald-500";
-}
 
 function peerPresenceStatusDotClass(
   peerPresence: CommunityMessengerPeerPresenceSnapshot | null | undefined,
@@ -211,10 +191,9 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
 
   const profileNickname = menuProfile?.nickname?.trim() || otherUser.nickname;
   const profileAvatarUrl = menuProfile?.avatarUrl ?? otherUser.avatarUrl;
-  const profileMannerScore = menuProfile?.mannerScore ?? otherUser.mannerScore;
+  const profileCrewRepScore = menuProfile ? menuProfile.crewRepScore : otherUser.mannerScore;
   const profileAvatarRounded =
     menuProfile?.avatarShape === "store_rect" ? "rounded-ui-rect" : "rounded-full";
-  const showMannerBattery = !menuProfile?.hideMannerBattery;
 
   return (
     <div className="delivery-ui flex flex-col pb-[var(--safe-bottom)]">
@@ -248,26 +227,10 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
               />
               <span>{presenceLine}</span>
             </div>
-            {showMannerBattery ? (
-              <div className="mt-2 flex items-center gap-2">
-                <div className="h-1.5 max-w-[120px] flex-1 overflow-hidden rounded-full bg-[color:var(--overlay-border)]" aria-hidden>
-                  <div
-                    className={`h-full rounded-full ${mannerFillClass(profileMannerScore)}`}
-                    style={{ width: `${Math.max(0, Math.min(100, profileMannerScore))}%` }}
-                  />
-                </div>
-                <span
-                  className={`rounded-[length:var(--overlay-radius-sm)] px-1.5 py-0.5 text-[length:var(--overlay-caption-size)] font-semibold ${mannerAccentClass(
-                    profileMannerScore
-                  )}`}
-                >
-                  {mannerTemperatureLabel(profileMannerScore)}
-                </span>
+            {profileCrewRepScore != null ? (
+              <div className="mt-2">
+                <CrewRepBadge score={profileCrewRepScore} />
               </div>
-            ) : menuProfile?.buyerTrustPercent != null ? (
-              <p className="mt-1 text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-primary)]">
-                신뢰 {menuProfile.buyerTrustPercent}%
-              </p>
             ) : null}
           </div>
         </div>

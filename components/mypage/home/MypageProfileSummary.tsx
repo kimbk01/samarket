@@ -6,7 +6,7 @@ import { ChevronRight, QrCode } from "lucide-react";
 import { MyFriendQrSheet } from "@/components/community-messenger/friend-qr/MyFriendQrSheet";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
-import { MannerBatteryIcon } from "@/components/trust/MannerBatteryIcon";
+import { CrewRepIcon, CrewRepTierChip } from "@/components/trust/CrewRep";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
 import { buildMemberTrustSurface } from "@/lib/trust/member-trust-surface";
@@ -19,7 +19,7 @@ import {
 
 /**
  * Slice 3 IA: profile + manner (trust) on home.
- * Slice 4: manner row score/tier parity with `/mypage/trust` via `buildMemberTrustSurface`.
+ * Slice 4: CREW REP row score/tier parity with `/mypage/trust` via `buildMemberTrustSurface`.
  * Logout MOVE → Account section (Slice 2 Danger + modal still applies there).
  */
 export function MypageProfileSummary({
@@ -134,36 +134,39 @@ export function MypageProfileSummary({
         data-testid="mypage-profile-manner-row"
         className="flex min-h-[44px] w-full items-center gap-3 border-t border-sam-border-soft px-4 py-3 text-left active:bg-sam-pressed-surface md:px-5"
       >
-        {trust ? (
-          <MannerBatteryIcon
-            tier={trust.tier}
-            percent={trust.percent}
-            size="md"
-            className="shrink-0"
-          />
-        ) : (
-          <span aria-hidden className="h-5 w-9 shrink-0 rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse" />
-        )}
+        <span className="flex w-9 shrink-0 items-center justify-center" aria-hidden>
+          {trust ? (
+            <CrewRepIcon score={trust.view.score} />
+          ) : (
+            <span className="h-5 w-5 rounded-full bg-sam-border-soft/70 motion-safe:animate-pulse" />
+          )}
+        </span>
         <span className="min-w-0 flex-1">
           <span className="block text-[14px] font-semibold text-sam-fg">
             {safeT("mypage_trust_title")}
           </span>
-          {trust ? (
+          <span className="mt-0.5 block text-[13px] text-sam-muted">{safeT("crew_rep_subtitle")}</span>
+        </span>
+        {trust ? (
+          <span className="flex shrink-0 items-center gap-1.5">
+            <CrewRepTierChip score={trust.view.score} />
             <span
-              className={`mt-0.5 block text-[13px] tabular-nums ${trust.accentClass}`}
+              className="text-[15px] font-bold tabular-nums"
+              style={{ color: trust.view.color }}
               data-testid="mypage-profile-manner-score"
             >
-              {/* Single SSOT text — score + `%`; battery icon carries visual fill (no twin number). */}
-              {trust.percentLabel}
+              {/* Single SSOT text — integer score out of 100 (no `%`, no twin number). */}
+              {trust.view.score}
+              <span className="ml-0.5 text-[11px] font-semibold text-sam-muted">/ 100</span>
             </span>
-          ) : (
-            <span
-              aria-hidden
-              data-testid="mypage-profile-manner-score-pending"
-              className="mt-1 block h-3 w-10 rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse"
-            />
-          )}
-        </span>
+          </span>
+        ) : (
+          <span
+            aria-hidden
+            data-testid="mypage-profile-manner-score-pending"
+            className="block h-4 w-14 shrink-0 rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse"
+          />
+        )}
         <ChevronRight className="h-4 w-4 shrink-0 text-sam-muted" aria-hidden />
       </Link>
       {qrOpen ? <MyFriendQrSheet onClose={() => setQrOpen(false)} /> : null}

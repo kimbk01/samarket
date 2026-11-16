@@ -7,6 +7,8 @@ import { buildTradeLegacyChatWebPath } from "@/lib/notifications/policy/notifica
 export type MessageNotificationPreviewKind =
   | "text"
   | "image"
+  | "sticker"
+  | "voice"
   | "video"
   | "file"
   | "location"
@@ -58,7 +60,10 @@ export function resolveMessageNotificationPreviewKind(
     if (text.startsWith("📍") || /위치\s*공유|Location/i.test(text)) return "location";
     return "text";
   }
-  if (mt === "image" || mt === "sticker") return "image";
+  /** D5(2026-11-16 실기): 스티커가 「사진을 보냈습니다」, 음성이 「새 메시지」로 왔다 — 종류별 문구 */
+  if (mt === "image") return "image";
+  if (mt === "sticker") return "sticker";
+  if (mt === "voice") return "voice";
   if (mt === "video") return "video";
   if (mt === "file") return "file";
   if (mt === "location") return "location";
@@ -78,6 +83,10 @@ function resolvePreviewText(
   switch (previewKind) {
     case "image":
       return notifySafeT(language, "notify_preview_sent_photo");
+    case "sticker":
+      return notifySafeT(language, "notify_preview_sent_sticker");
+    case "voice":
+      return notifySafeT(language, "notify_preview_sent_voice");
     case "video":
       return notifySafeT(language, "notify_preview_sent_video");
     case "file":
