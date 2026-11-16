@@ -7,7 +7,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
-        guard scene is UIWindowScene else { return }
+        guard let windowScene = scene as? UIWindowScene else { return }
+        // S3 — 기기 프로필 표의 창 최소 크기 (Mac 만, 380×550 Mac pt)
+        if let minimum = DibayDeviceProfileNative.minimumSceneSize(
+            deviceClass: DibayDeviceClassClassifier.classify().deviceClass
+        ) {
+            windowScene.sizeRestrictions?.minimumSize = minimum
+            NSLog("[DibayDeviceProfile] min_scene_size=%.0fx%.0f", Double(minimum.width), Double(minimum.height))
+        }
         // SplashScreen and other plugins look up UIApplication.shared.delegate?.window first.
         (UIApplication.shared.delegate as? AppDelegate)?.window = window
 

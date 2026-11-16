@@ -9,7 +9,7 @@
  * 네이티브(Android `DibayAppOrientationPolicy.java`·iOS `DibayAppOrientationPolicy.swift`)는 같은 값을
  * 자기 언어로 갖고 있고, 계약 시험이 이 표와 일치하는지 검사한다.
  *
- * S1 은 지금 동작을 그대로 옮긴 것이다(동작 변경 0). S2 에서 `DESKTOP_MAC` 을 더했다. Mac 배율·창 최소 크기(S3)·
+ * S1 은 지금 동작을 그대로 옮긴 것이다(동작 변경 0). S2 에서 `DESKTOP_MAC`, S3 에서 웹뷰 배율·창 최소 크기를 더했다. 
  * 넓은 창 두 칸(S4)은 각 단계에서 이 표에 항목을 더한다.
  * 설계·시안: docs/audit/mac-ipad-iphone-device-layout-audit-2026-11-16.md §7,
  * docs/audit/device-shell-mockup-2026-11-16/profiles.js
@@ -49,7 +49,14 @@ export type DibayDeviceProfile = {
   launchIntroTarget: DibayDeviceLaunchIntroTarget;
   /** 커뮤니티 피드 주제 탭 좌우 스와이프 */
   feedTopicSwipe: boolean;
+  /** 네이티브 웹뷰 배율 (S3) — Mac 만 1 ÷ 0.77 (iPad 앱 77% 축소를 되돌려 CSS 1px = Mac 1pt) */
+  webViewZoom: number;
+  /** 창 최소 크기 [가로, 세로] (S3) — Mac pt. null = 제한 없음 */
+  minWindowPt: readonly [number, number] | null;
 };
+
+/** Mac 에서 iPad 앱이 그려지는 배율 (2026-11-16 실측: CSS 1056 → 814pt) */
+export const DIBAY_MAC_IPAD_APP_SCALE = 0.77;
 
 const PHONE = {
   family: "PHONE",
@@ -59,6 +66,8 @@ const PHONE = {
   adminLandscapeLock: false,
   launchIntroTarget: "phone",
   feedTopicSwipe: true,
+  webViewZoom: 1,
+  minWindowPt: null,
 } as const;
 
 const TABLET = {
@@ -69,6 +78,8 @@ const TABLET = {
   adminLandscapeLock: true,
   launchIntroTarget: "tablet",
   feedTopicSwipe: false,
+  webViewZoom: 1,
+  minWindowPt: null,
 } as const;
 
 const DESKTOP = {
@@ -79,6 +90,8 @@ const DESKTOP = {
   adminLandscapeLock: false,
   launchIntroTarget: null,
   feedTopicSwipe: false,
+  webViewZoom: 1,
+  minWindowPt: null,
 } as const;
 
 const UNKNOWN = {
@@ -89,6 +102,8 @@ const UNKNOWN = {
   adminLandscapeLock: false,
   launchIntroTarget: null,
   feedTopicSwipe: false,
+  webViewZoom: 1,
+  minWindowPt: null,
 } as const;
 
 /** 기기 종류 → 프로필. 새 기기 종류는 여기 한 줄을 더하면 모든 소비처가 따라간다. */
@@ -99,7 +114,14 @@ export const DIBAY_DEVICE_PROFILES: Readonly<Record<DibayDeviceClass, DibayDevic
   TABLET_IPAD: { deviceClass: "TABLET_IPAD", nativeShell: "ios", ...TABLET },
   DESKTOP_WINDOWS: { deviceClass: "DESKTOP_WINDOWS", nativeShell: null, ...DESKTOP },
   /** S2 — Mac 은 Windows 와 같은 데스크톱 형태(왼쪽 세로 메뉴). iOS 바이너리라 nativeShell = ios. */
-  DESKTOP_MAC: { deviceClass: "DESKTOP_MAC", nativeShell: "ios", ...DESKTOP },
+  DESKTOP_MAC: {
+    deviceClass: "DESKTOP_MAC",
+    nativeShell: "ios",
+    ...DESKTOP,
+    /** S3 — 77% 축소 되돌림 · 창 최소 380×550pt (Telegram Mac 최소 창과 같음) */
+    webViewZoom: 1 / DIBAY_MAC_IPAD_APP_SCALE,
+    minWindowPt: [380, 550],
+  },
   WEB_DESKTOP: { deviceClass: "WEB_DESKTOP", nativeShell: null, ...DESKTOP },
   UNKNOWN: { deviceClass: "UNKNOWN", nativeShell: null, ...UNKNOWN },
 };
