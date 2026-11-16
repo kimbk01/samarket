@@ -56,6 +56,7 @@ export function useDibayAppShellAuthority(): DibayAppShellAuthority {
     deviceClass: device.deviceClass,
     layoutMode: layout.layoutMode,
     windowClass: layout.windowClass,
+    usableWidthPx,
     keyboardOpen: layout.keyboardOpen,
   });
 

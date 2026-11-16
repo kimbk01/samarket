@@ -75,6 +75,15 @@ export const COMMUNITY_FEED_LIST_WRAP_CLASS =
   "m-0 list-none space-y-2 p-0 px-4 pt-1.5 pb-4 [&>li]:list-none";
 
 /**
+ * v3 (2026-11-16) — LOUNGE 글 목록 여러 열 격자. 카드 한 칸 최소 폭 358 = 휴대폰(390) 화면의 카드 폭 그대로.
+ * 휴대폰은 1열(간격 8 = 위 `space-y-2` 와 같음), 넓을수록 열이 늘어 카드 한 줄이 창 끝까지 늘어나지 않는다.
+ * 글 칸(`data-feed-grid-item`)이 아닌 것(광고 묶음 등)은 한 줄 전체.
+ * 근거: Android 적응형 가이드(피드는 분할 대신 여러 열 격자) · 네이버 카페 iPad.
+ */
+export const COMMUNITY_FEED_GRID_WRAP_CLASS =
+  "m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(min(358px,100%),1fr))] items-start gap-2 p-0 px-4 pt-1.5 pb-4 [&>li]:list-none [&>*:not([data-feed-grid-item])]:col-[1/-1]";
+
+/**
  * 거래 피드 `<ul>` — Marketplace product grid. 좌우 인셋은 philife 와 동일.
  * 하단 탭 clearance 는 `<ul>` 이 아니라 목록 묶음 맨 아래(`TRADE_FEED_LIST_END_CLEARANCE_CLASS`)에 둔다.
  */

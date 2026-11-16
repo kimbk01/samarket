@@ -1,0 +1,14 @@
+xiaomi-land /home {"rail":true,"nav":[0,0,72,601],"navGroupMidY":301,"viewportMidY":301,"feedCols":null,"cardW":[],"cardTitlePx":"15px","hScroll":false}
+xiaomi-land /philife {"rail":true,"nav":[0,0,72,601],"navGroupMidY":301,"viewportMidY":301,"feedCols":2,"cardW":[447,447,447,447],"cardTitlePx":"15px","hScroll":false}
+xiaomi-port /home {"rail":true,"nav":[0,0,72,1006],"navGroupMidY":503,"viewportMidY":503,"feedCols":null,"cardW":[],"cardTitlePx":"15px","hScroll":false}
+xiaomi-port /philife {"rail":true,"nav":[0,0,72,1006],"navGroupMidY":503,"viewportMidY":503,"feedCols":1,"cardW":[497,497,497,497],"cardTitlePx":"15px","hScroll":false}
+ipad-split /home {"rail":false,"nav":[0,760,590,60],"navGroupMidY":791,"viewportMidY":410,"feedCols":null,"cardW":[],"cardTitlePx":"15px","hScroll":false}
+ipad-split /philife {"rail":false,"nav":[0,760,590,60],"navGroupMidY":791,"viewportMidY":410,"feedCols":1,"cardW":[558,558,558,558],"cardTitlePx":"15px","hScroll":false}
+samsung /home {"rail":false,"nav":[0,772,384,60],"navGroupMidY":803,"viewportMidY":416,"feedCols":null,"cardW":[],"cardTitlePx":"15px","hScroll":false}
+samsung /philife {"rail":false,"nav":[0,772,384,60],"navGroupMidY":803,"viewportMidY":416,"feedCols":1,"cardW":[352,352,352,352],"cardTitlePx":"15px","hScroll":false}
+desktop-1600 /home {"rail":true,"nav":[0,0,72,900],"navGroupMidY":450,"viewportMidY":450,"feedCols":null,"cardW":[],"cardTitlePx":"15px","hScroll":false}
+desktop-1600 /philife {"rail":true,"nav":[0,0,72,900],"navGroupMidY":450,"viewportMidY":450,"feedCols":4,"cardW":[368,368,368,368],"cardTitlePx":"15px","hScroll":false}
+desktop-700 /home {"rail":true,"nav":[0,0,72,800],"navGroupMidY":400,"viewportMidY":400,"feedCols":null,"cardW":[],"cardTitlePx":"15px","hScroll":false}
+desktop-700 /philife {"rail":true,"nav":[0,0,72,800],"navGroupMidY":400,"viewportMidY":400,"feedCols":1,"cardW":[596,596,596,596],"cardTitlePx":"15px","hScroll":false}
+desktop-min /home {"rail":true,"nav":[0,0,72,667],"navGroupMidY":334,"viewportMidY":334,"feedCols":null,"cardW":[],"cardTitlePx":"15px","hScroll":false}
+desktop-min /philife {"rail":true,"nav":[0,0,72,667],"navGroupMidY":334,"viewportMidY":334,"feedCols":1,"cardW":[343,343,343,343],"cardTitlePx":"15px","hScroll":false}

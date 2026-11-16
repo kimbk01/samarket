@@ -14,6 +14,12 @@
 > (`APP_MAIN_COLUMN_MAX_WIDTH_CLASS = max-w-none`). 태블릿 가로·Mac(iPad 앱)·Windows 의 좌우 빈 띠 제거.
 > 그래서 태블릿·Mac 메신저 분할도 창 전체 폭을 쓴다. 유지: 셸 선택(DeviceClass)·하단 탭/레일 구분·「Messenger 768」 분할 기준·목록 칸 폭.
 > 근거·실측: `docs/audit/horizontal-fill-device-audit-2026-11-16.md`.
+> **Owner 잠금 해제 (2026-11-16 PHT 밤, 원문 「테블릿과 윈도우 맥의 좌측 메뉴 부분이 상단이 아니라 중앙부분에 유지 … 샤오미 카톡 형식으로 구성 해라」·「하단 메뉴를 어떻게 할꺼며」)** —
+> 태블릿(Android 태블릿·iPad)도 **왼쪽 세로 메뉴**(Windows·Mac 과 같은 부품)를 쓴다. 메뉴는 한 기기 안에서 모든 탭이 같은 자리.
+> 태블릿만 창 CSS 폭 600 미만(화면 나누기·Slide Over)이면 하단 탭 — 「폭으로 셸 선택 금지」 조항 중 이 경우만 해제. 형태(기기 종류)는 그대로 폭으로 바꾸지 않는다.
+> 메뉴 묶음은 세로 가운데(창 크기·회전에 자동 정렬). 근거: 카카오톡 태블릿 실측(Xiaomi 가로·세로, 모든 탭 같은 왼쪽 메뉴), 카카오톡 iPad 스크린샷(좁은 창 하단 탭), Android 적응형 가이드(600dp).
+> 단일 정의: `lib/device/dibay-device-profile.ts` `sideRailMinWidthCss`·`dibayUsesSideRail`. 시안: `docs/audit/device-shell-mockup-2026-11-16/` v3.
+
 **Declared:** 2026-09-25  
 **Evidence:** `.tmp/fd4-shell-runtime/` (`samsung.json` · `xiaomi.json` · `iphonebk.json` · `SUMMARY.json`)
 
