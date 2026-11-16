@@ -23,3 +23,42 @@
 # Play In-App Updates (App Update API) — keep when minify is enabled later.
 -keep class com.google.android.play.core.** { *; }
 -dontwarn com.google.android.play.core.**
+
+# ---- R8 (2026-11-16, docs/audit/android-r8-minify-plan-2026-11-15.md §3) ----
+# 비정상 종료 줄 번호 (mapping 파일과 함께 Play 업로드)
+-keepattributes SourceFile,LineNumberTable,*Annotation*,Signature,InnerClasses,EnclosingMethod
+
+# 통화 수신 앞 화면 판정 — NativeVoice/VideoCallRuntime 이 이름으로 찾는 리플렉션 대상
+-keep class com.dibay.app.MainActivity {
+    public static boolean isAppVisibleForIncomingCall();
+}
+
+# 웹 → 네이티브 호출 (@JavascriptInterface)
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# Kakao SDK (공식 문서 「Optional: ProGuard rules」 — R8 full mode 에서 Retrofit 제네릭 정보 보존)
+# 2026-11-16 실측: 규칙 없이 R8 빌드 시 시작 직후 종료 「Unable to create call adapter」(Kakao AppLifecycleObserver)
+-keep class com.kakao.sdk.**.model.* { <fields>; }
+-dontwarn org.bouncycastle.jsse.**
+-dontwarn org.conscrypt.*
+-dontwarn org.openjsse.**
+-if interface * { @retrofit2.http.* <methods>; }
+-keep,allowobfuscation interface <1>
+-keep,allowobfuscation,allowshrinking interface retrofit2.Call
+-keep,allowobfuscation,allowshrinking class retrofit2.Response
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
+
+# Gson (Kakao 모델 직렬화) — @SerializedName 필드·어댑터 보존
+-keepclassmembers,allowobfuscation class * { @com.google.gson.annotations.SerializedName <fields>; }
+-keep class * extends com.google.gson.TypeAdapter
+-keep class * implements com.google.gson.TypeAdapterFactory
+-keep class * implements com.google.gson.JsonSerializer
+-keep class * implements com.google.gson.JsonDeserializer
+
+# Capacitor 어노테이션 — 런타임에 플러그인 어노테이션(권한·별칭)을 읽음 (2026-11-16 실측: 없으면 getPluginAnnotation()=null 종료)
+-keepattributes RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations,AnnotationDefault
+-keep @interface com.getcapacitor.annotation.** { *; }
+-keep @interface com.getcapacitor.NativePlugin { *; }
+-keep @interface com.getcapacitor.PluginMethod { *; }
