@@ -25,7 +25,7 @@ import { MEMBER_ADMIN_TYPOGRAPHY_CLASS } from "@/lib/admin-users/member-admin-vi
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { adminMembershipRoleFromRow } from "@/lib/admin-users/member-role-badges";
-import { formatPhMobileDisplay } from "@/lib/utils/ph-mobile";
+import { adminPhoneWithCountry } from "@/lib/phone/admin-phone-country-display";
 import type { AdminUser } from "@/lib/types/admin-user";
 import { EditMemberForm } from "./EditMemberForm";
 import { EditAdminForm } from "./EditAdminForm";
@@ -157,7 +157,11 @@ export function AdminMemberMasterHeader({
       cancelled = true;
     };
   }, [user.id, meLoading, snapshot?.userId]);
-  const phone = formatPhMobileDisplay(user.contact_phone ?? "") || user.contact_phone?.trim() || empty;
+  /** 필리핀·한국 번호 모두 — 인증 패널과 같은 표시 (🇵🇭/🇰🇷 나라 · +63/+82 표기). */
+  const phone =
+    adminPhoneWithCountry(user.contact_phone, (c) =>
+      t(c === "KR" ? "my_phone_country_name_KR" : "my_phone_country_name_PH"),
+    ) || empty;
 
   const canManageMember = isSuperAdmin || hasPermission("users");
   const decisions = useMemo(() => {

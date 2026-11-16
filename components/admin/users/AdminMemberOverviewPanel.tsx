@@ -39,6 +39,7 @@ import {
   memberDetailOverviewSectionRenderPlan,
   type MemberDetailOverviewSectionId,
 } from "@/lib/admin-users/member-detail-control-center-ia";
+import { adminPhoneWithCountry } from "@/lib/phone/admin-phone-country-display";
 import Link from "next/link";
 import { translateBy } from "@/lib/i18n/translate-by";
 
@@ -200,7 +201,14 @@ export function AdminMemberOverviewPanel({
         {nicknameDistinct ? <Fact label={t("admin_users_member_nickname")} value={nicknameDistinct} /> : null}
         <Fact label={t("admin_users_member_public_id")} value={publicIdForDetailUser(user) || empty} />
         <Fact label={t("admin_users_member_login_id")} value={loginId || empty} />
-        <Fact label={t("admin_users_lite_label_phone")} value={user.contact_phone?.trim() || empty} />
+        <Fact
+          label={t("admin_users_lite_label_phone")}
+          value={
+            adminPhoneWithCountry(user.contact_phone, (c) =>
+              t(c === "KR" ? "my_phone_country_name_KR" : "my_phone_country_name_PH"),
+            ) || empty
+          }
+        />
         {contactEmail ? <Fact label={t("admin_users_member_contact_email")} value={contactEmail} /> : null}
         <Fact label={t("admin_users_col_region")} value={user.region_name?.trim() || empty} />
         <Fact label={t("admin_users_col_joined")} value={formatAdminLiteDate(user.created_at, locale, empty)} />
