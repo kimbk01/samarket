@@ -31,6 +31,10 @@ export type DibayAppShellResolverInput = {
   windowClass?: DibayWindowClass;
   /** v3 — 창 CSS 폭. 태블릿은 600 미만이면 하단 탭(화면 나누기) — `dibayUsesSideRail` */
   usableWidthPx?: number;
+  /** v4 — 창 CSS 높이(키보드로 줄지 않는 값). 태블릿은 창이 세로로 길면 하단 탭 */
+  usableHeightPx?: number;
+  /** v4 — 기기 화면 방향(`screen.orientation`). 태블릿은 세로면 하단 탭 */
+  screenOrientation?: "portrait" | "landscape" | null;
   keyboardOpen?: boolean;
   orientation?: "portrait" | "landscape" | "unknown";
 };
@@ -61,11 +65,16 @@ export function resolveAppShell(input: DibayAppShellResolverInput): DibayAppShel
   /**
    * 메뉴 위치는 기기 프로필 표만 읽는다 (`dibay-device-profile.ts`) — v3: 태블릿·Windows·Mac 은 왼쪽 세로 메뉴
    * (카카오톡 태블릿 방식, 모든 탭 같은 자리), 태블릿은 창 600 미만이면 하단 탭. 폭 미전달(서버·첫 그림)이면 기기만으로.
+   * v4: 태블릿은 가로일 때만 세로 메뉴 — 세로로 돌리면 하단 탭(휴대폰 형태).
    */
   const sideRail =
     input.usableWidthPx == null
       ? dibayDeviceProfile(input.deviceClass).navigation === "DESKTOP_SIDE_RAIL"
-      : dibayUsesSideRail(input.deviceClass, input.usableWidthPx);
+      : dibayUsesSideRail(input.deviceClass, {
+          widthCss: input.usableWidthPx,
+          heightCss: input.usableHeightPx ?? null,
+          screenOrientation: input.screenOrientation ?? null,
+        });
   return {
     deviceClass: input.deviceClass,
     shellFamily,

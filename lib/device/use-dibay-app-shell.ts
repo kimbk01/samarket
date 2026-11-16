@@ -45,6 +45,21 @@ export function useDibayAppShellAuthority(): DibayAppShellAuthority {
     return measureUsableWindow().usableWidth;
   }, [viewport.width, viewport.height, viewport.visualHeight]);
 
+  /**
+   * v4 태블릿 세로 = 하단 탭 — 창 높이는 `innerHeight`(iOS 는 키보드로 줄지 않음), 방향은 `screen.orientation`
+   * (키보드와 무관). 회전하면 viewport 크기가 바뀌어 다시 읽는다.
+   */
+  const { usableHeightPx, screenOrientation } = useMemo(() => {
+    if (typeof window === "undefined") return { usableHeightPx: 0, screenOrientation: null };
+    const type = window.screen?.orientation?.type ?? "";
+    const orient: "portrait" | "landscape" | null = type.startsWith("portrait")
+      ? "portrait"
+      : type.startsWith("landscape")
+        ? "landscape"
+        : null;
+    return { usableHeightPx: window.innerHeight, screenOrientation: orient };
+  }, [viewport.width, viewport.height]);
+
   const layout = resolveLayoutMode({
     deviceClass: device.deviceClass,
     usableWidthPx,
@@ -57,6 +72,8 @@ export function useDibayAppShellAuthority(): DibayAppShellAuthority {
     layoutMode: layout.layoutMode,
     windowClass: layout.windowClass,
     usableWidthPx,
+    usableHeightPx,
+    screenOrientation,
     keyboardOpen: layout.keyboardOpen,
   });
 

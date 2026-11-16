@@ -7,7 +7,12 @@ import type { DibayLayoutMode } from "@/lib/device/dibay-layout-resolver";
 function shellOf(
   deviceClass: DibayDeviceClass,
   usableWidthPx: number,
-  extras?: { keyboardOpen?: boolean; orientation?: "portrait" | "landscape" },
+  extras?: {
+    keyboardOpen?: boolean;
+    orientation?: "portrait" | "landscape";
+    usableHeightPx?: number;
+    screenOrientation?: "portrait" | "landscape" | null;
+  },
 ) {
   const layout = resolveLayoutMode({
     deviceClass,
@@ -21,6 +26,8 @@ function shellOf(
     layoutMode: layout.layoutMode,
     windowClass: layout.windowClass,
     usableWidthPx,
+    usableHeightPx: extras?.usableHeightPx,
+    screenOrientation: extras?.screenOrientation,
     keyboardOpen: layout.keyboardOpen,
     orientation: extras?.orientation,
   });
@@ -46,11 +53,11 @@ describe("FD4 shell family is DeviceClass only", () => {
     expect(shellOf("PHONE_IOS", 430).shellFamily).toBe("PHONE");
   });
 
-  it("TABLET_ANDROID + COMPACT(601, Xiaomi 세로) stays TABLET — v3 왼쪽 세로 메뉴", () => {
-    const shell = shellOf("TABLET_ANDROID", 601);
+  it("TABLET_ANDROID + COMPACT(601×1006, Xiaomi 세로) stays TABLET — v4 하단 탭(휴대폰 형태)", () => {
+    const shell = shellOf("TABLET_ANDROID", 601, { usableHeightPx: 1006, screenOrientation: "portrait" });
     expect(shell.shellFamily).toBe("TABLET");
     expect(shell.layoutMode).toBe("TABLET_STACKED");
-    expect(shell.navigationPresentation).toBe("DESKTOP_SIDE_RAIL");
+    expect(shell.navigationPresentation).toBe("EXISTING_MAIN_BOTTOM_NAV");
   });
 
   it("TABLET_ANDROID + MEDIUM stays TABLET, not Desktop", () => {
@@ -146,6 +153,36 @@ describe("FD4 shell resolver never invents a second nav", () => {
         expect(shell.shellFamily).toBe("TABLET");
         expect(shell.navigationPresentation).toBe("DESKTOP_SIDE_RAIL");
       }
+    }
+  });
+
+  it("v4 태블릿·iPad: 가로만 세로 메뉴, 세로로 돌리면·세로로 긴 창이면 하단 탭", () => {
+    const cases: Array<[number, number, "portrait" | "landscape" | null, string]> = [
+      [1006, 601, "landscape", "DESKTOP_SIDE_RAIL"], // Xiaomi 가로
+      [601, 1006, "portrait", "EXISTING_MAIN_BOTTOM_NAV"], // Xiaomi 세로
+      [1180, 820, "landscape", "DESKTOP_SIDE_RAIL"], // iPad 10 가로
+      [820, 1180, "portrait", "EXISTING_MAIN_BOTTOM_NAV"], // iPad 10 세로
+      [1024, 1366, "portrait", "EXISTING_MAIN_BOTTOM_NAV"], // iPad Pro 12.9 세로 — 폭이 넓어도 세로면 하단 탭
+      [780, 820, "landscape", "EXISTING_MAIN_BOTTOM_NAV"], // 가로 화면의 화면 나누기 2/3 (세로로 긴 창)
+      [590, 820, "landscape", "EXISTING_MAIN_BOTTOM_NAV"], // 화면 나누기 반쪽
+      [1006, 300, "landscape", "DESKTOP_SIDE_RAIL"], // 가로에서 키보드로 창 높이가 줄어도 그대로
+      [601, 1006, null, "EXISTING_MAIN_BOTTOM_NAV"], // 화면 방향을 못 읽으면 창 모양으로
+      [1006, 601, null, "DESKTOP_SIDE_RAIL"],
+    ];
+    for (const deviceClass of ["TABLET_ANDROID", "TABLET_IPAD"] as DibayDeviceClass[]) {
+      for (const [w, h, screenOrientation, expected] of cases) {
+        const shell = shellOf(deviceClass, w, { usableHeightPx: h, screenOrientation });
+        expect(shell.shellFamily).toBe("TABLET");
+        expect([w, h, screenOrientation, shell.navigationPresentation]).toEqual([w, h, screenOrientation, expected]);
+      }
+    }
+  });
+
+  it("v4 Windows·Mac 은 창이 세로로 길어도(최소 447×667) 세로 메뉴", () => {
+    for (const deviceClass of ["DESKTOP_WINDOWS", "DESKTOP_MAC", "WEB_DESKTOP"] as DibayDeviceClass[]) {
+      expect(shellOf(deviceClass, 447, { usableHeightPx: 667, screenOrientation: "portrait" }).navigationPresentation).toBe(
+        "DESKTOP_SIDE_RAIL",
+      );
     }
   });
 

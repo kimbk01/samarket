@@ -212,6 +212,13 @@ function ListMetaCompact({
 export const COMMUNITY_FEED_LIST_THUMB_BOX_CLASS =
   "relative h-[72px] w-[72px] shrink-0 self-start overflow-hidden rounded-2xl sm:h-20 sm:w-20 md:h-[88px] md:w-[88px]";
 
+/**
+ * v4 (Owner 2026-11-16 「라운지 게시물 썸네일이 있든 없든 카드의 높이가 동일해야」) — 카드 가운데 줄(제목·요약 | 썸네일)의
+ * 최소 높이 = 썸네일 크기(위 상자와 같은 72 → sm 80 → md 88). 제목 1줄 + 요약 최대 2줄(62)은 썸네일보다 낮으므로
+ * 썸네일이 없어도 같은 높이가 되고, 작성자·좋아요 줄은 늘 그 아래 같은 자리.
+ */
+export const COMMUNITY_FEED_LIST_MID_ROW_MIN_H_CLASS = "min-h-[72px] sm:min-h-20 md:min-h-[88px]";
+
 /** 리스트: 72~88px 정사각형 고정(세로형 원본도 object-cover, 메타행과 겹침 방지) */
 function ListThumb({
   url,
@@ -261,33 +268,19 @@ function ListTextStack({
   placeInMeta: boolean;
   trailingAside?: ReactNode;
 }) {
-  if (trailingAside) {
-    return (
-      <>
-        <ListCategoryPillRow vm={vm} />
-        <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
-          <div className="flex min-w-0 flex-1 flex-col">
-            <ListTitleOnly title={vm.title} highlightQuery={vm.highlightQuery} />
-            <ListBodyPreview text={vm.summary} highlightQuery={vm.highlightBody ? vm.highlightQuery : undefined} />
-            {firstHashtag ? <ListHashtagOne tag={firstHashtag} /> : null}
-          </div>
-          {trailingAside}
-        </div>
-        <ListMetaCompact vm={vm} placeInMeta={placeInMeta} className="!mt-2" />
-      </>
-    );
-  }
+  /* v4: 썸네일 유무와 무관하게 같은 틀 — 가운데 줄 최소 높이 = 썸네일 크기, 작성자 줄은 그 아래 */
   return (
     <>
       <ListCategoryPillRow vm={vm} />
-      <div className="flex min-w-0 items-stretch gap-2.5 sm:gap-3">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className={`flex min-w-0 items-start gap-2.5 sm:gap-3 ${COMMUNITY_FEED_LIST_MID_ROW_MIN_H_CLASS}`}>
+        <div className="flex min-w-0 flex-1 flex-col">
           <ListTitleOnly title={vm.title} highlightQuery={vm.highlightQuery} />
           <ListBodyPreview text={vm.summary} highlightQuery={vm.highlightBody ? vm.highlightQuery : undefined} />
           {firstHashtag ? <ListHashtagOne tag={firstHashtag} /> : null}
-          <ListMetaCompact vm={vm} placeInMeta={placeInMeta} />
         </div>
+        {trailingAside ?? null}
       </div>
+      <ListMetaCompact vm={vm} placeInMeta={placeInMeta} className="!mt-2" />
     </>
   );
 }
@@ -407,7 +400,7 @@ export function FeedListLayoutThumbLeft({
     <CardShell href={vm.href} boosted={vm.isAd === true}>
       <div className="min-h-[5.5rem] w-full min-w-0 sm:min-h-[5.75rem]">
         <ListCategoryPillRow vm={vm} />
-        <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
+        <div className={`flex min-w-0 items-start gap-2.5 sm:gap-3 ${COMMUNITY_FEED_LIST_MID_ROW_MIN_H_CLASS}`}>
           <ListThumb url={url} totalImages={vm.imageCount} priority={priorityThumb} />
           <div className="flex min-w-0 flex-1 flex-col">
             <ListTitleOnly title={vm.title} highlightQuery={vm.highlightQuery} />

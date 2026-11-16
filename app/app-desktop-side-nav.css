@@ -11,6 +11,7 @@
 /* D1 F1: `html:has(…)` 대신 `<html>` 셸 속성(lib/layout/html-shell-flags.ts) — 특이도는 예전과 같게 속성 반복 */
 html[data-shell-bottom-nav-side-rail] {
   --app-side-rail-width: 72px;
+  --app-side-rail-item-pitch: 66px;
   --app-bottom-nav-height: 0px !important;
   --main-scroll-nav-overhang: 0px !important;
   --delivery-home-above-nav: 0px !important;
@@ -63,10 +64,17 @@ html[data-shell-bottom-nav-side-rail] .app-side-rail-fixed-inset {
   overflow-y: auto;
 }
 
-.app-bottom-nav-shell--side-rail .app-bottom-nav-item {
+/**
+ * v4 (Owner 2026-11-16 「좌측 메뉴가 너무 뭉쳐 있다, 사이 공간을 늘려라」) — 항목 간격(중심~중심) 66 =
+ * 카카오톡 Xiaomi 가로 실측 88px ÷ 밀도 1.332. 예전 높이 72 규칙은 하단 탭 규칙
+ * `[data-app-bottom-nav]:not(…) .app-bottom-nav-container .app-bottom-nav-item { height: auto }`(특이도 0,4,0)에 져서
+ * 실제로는 글자 높이 53 이었다 → `html[data-shell-bottom-nav-side-rail]` 를 붙여 특이도 0,4,1 로 확정.
+ * 간격은 `gap` 대신 항목 높이로 둔다(누르는 영역도 66).
+ */
+html[data-shell-bottom-nav-side-rail] .app-bottom-nav-shell--side-rail .app-bottom-nav-container .app-bottom-nav-item {
   flex: 0 0 auto;
   width: 100%;
-  height: var(--app-side-rail-width, 72px);
+  height: var(--app-side-rail-item-pitch, 66px);
 }
 
 /**
