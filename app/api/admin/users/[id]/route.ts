@@ -38,16 +38,12 @@ import {
   ensureManualLoginEmailAligned,
   resolveContactEmailCredentialPatch,
 } from "@/lib/auth/manual-member-login-credential";
-import {
-  profilePhoneStorageFieldsFromDb09,
-} from "@/lib/profile/resolve-profile-phone";
 import { syncPhoneVerifiedServerCache } from "@/lib/auth/phone-otp-server-sync";
 import {
   buildPhoneVerifiedMemberPatch,
   hasPhoneForAdminManualVerify,
   loadProfilePhoneRowSlice,
 } from "@/lib/profile/admin-phone-verification-sync";
-import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 import { resolveAdminProfilePhone } from "@/lib/phone/verify-phone-number";
 import { isValidDibayIdFormat, normalizeDibayIdInput } from "@/lib/auth/dibay-id-policy";
 import {
@@ -239,11 +235,11 @@ async function _ensureProfileRow(
   const phoneRaw = tu?.contact_phone?.trim() || null;
   const nowIso = new Date().toISOString();
   const phone_verification_status = tu ? "verified" : phoneRaw ? "pending" : "unverified";
-  const phoneNorm = phoneRaw ? normalizeOptionalPhMobileDb(phoneRaw) : { ok: true as const, value: null };
-  const phoneFields =
-    phoneNorm.ok && phoneNorm.value
-      ? profilePhoneStorageFieldsFromDb09(phoneNorm.value)
-      : { phone: null, phone_country_code: null, phone_number: null };
+  /** 필리핀 `09…`·한국 `+82…` — 회원 수정·생성과 같은 저장 형식 (resolveAdminProfilePhone). */
+  const resolvedPhone = phoneRaw ? resolveAdminProfilePhone(phoneRaw) : null;
+  const phoneFields = resolvedPhone
+    ? { ...resolvedPhone.storage }
+    : { phone: null, phone_country_code: null, phone_number: null };
 
   const row: Record<string, unknown> = {
     id: userId,
