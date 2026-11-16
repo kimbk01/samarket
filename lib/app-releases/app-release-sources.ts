@@ -11,6 +11,8 @@ import { createSign } from "node:crypto";
 import type { AppReleasePlatform } from "@/lib/app-releases/app-release-version";
 
 export const APP_PACKAGE_ID = "com.dibay.app";
+/** iOS 번들 ID — Android 패키지(`com.dibay.app`)와 다르다 (`ios/App/App.xcodeproj` PRODUCT_BUNDLE_IDENTIFIER). */
+export const APP_STORE_BUNDLE_ID = "com.dibay.ph";
 
 export type CollectedRelease = {
   platform: AppReleasePlatform;
@@ -111,7 +113,7 @@ export async function collectPlayReleases(): Promise<CollectedRelease[] | null> 
 /** App Store 공개 최신 버전 1건. 출시 전이면 빈 배열. */
 export async function collectAppStoreRelease(): Promise<CollectedRelease[]> {
   for (const country of ["ph", "us", "kr"]) {
-    const res = await fetch(`https://itunes.apple.com/lookup?bundleId=${APP_PACKAGE_ID}&country=${country}`, {
+    const res = await fetch(`https://itunes.apple.com/lookup?bundleId=${APP_STORE_BUNDLE_ID}&country=${country}`, {
       cache: "no-store",
     });
     const j = (await res.json().catch(() => ({}))) as {
