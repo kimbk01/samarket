@@ -54,3 +54,32 @@ describe("messengerRoomHrefWithoutSubScreen (분할 화면 방 위 채팅 검색
     );
   });
 });
+
+describe("openExistingTradeChat — 이동 주소가 지금 주소와 같으면 이동 대신 onAlreadyOpen (#379 회귀 수정)", () => {
+  it("같은 거래방 위 상세: 이동하지 않고 onAlreadyOpen 1회", async () => {
+    const { openExistingTradeChat } = await import("@/lib/chats/trade-chat-entry-navigation");
+    const prevWindow = (globalThis as { window?: unknown }).window;
+    (globalThis as { window?: unknown }).window = {
+      location: { pathname: ROOM, search: "?cm_list=trade", origin: "https://x", href: `https://x${ROOM}?cm_list=trade` },
+      matchMedia: () => ({ matches: true }),
+      innerWidth: 1340,
+    };
+    try {
+      const calls: string[] = [];
+      const router = { push: (h: string) => calls.push(`push:${h}`), replace: () => {}, prefetch: () => {} };
+      let closed = 0;
+      openExistingTradeChat(router, {
+        productId: "p1",
+        roomId: "33a8f97f",
+        messengerRoomId: "33a8f97f",
+        onAlreadyOpen: () => {
+          closed += 1;
+        },
+      });
+      expect(closed).toBe(1);
+      expect(calls).toEqual([]);
+    } finally {
+      (globalThis as { window?: unknown }).window = prevWindow;
+    }
+  });
+});
