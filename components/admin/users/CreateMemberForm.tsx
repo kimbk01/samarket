@@ -19,11 +19,7 @@ import {
   type AdminCreateMemberFieldErrors,
   type AdminCreateMemberFormField,
 } from "@/lib/admin-users/admin-create-member-fields";
-import {
-  formatPhMobileDisplayPlus63,
-  normalizePhMobileDb,
-  parsePhMobileInput,
-} from "@/lib/utils/ph-mobile";
+import { resolveAdminProfilePhone } from "@/lib/phone/verify-phone-number";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { MemberAdminDialog } from "@/components/admin/users/MemberAdminDialog";
 import { MEMBER_ADMIN_COPY_KEY } from "@/lib/admin-users/member-admin-copy-ssot";
@@ -128,7 +124,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
         accountType,
         address,
       },
-      { addressAttempted: addressTouched, phoneRuleKey: "phone_rule" }
+      { addressAttempted: addressTouched, phoneRuleKey: "admin_users_member_verify_invalid_phone" }
     );
 
     if (Object.keys(validation).length > 0) {
@@ -162,8 +158,8 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
     const id = username.trim().toLowerCase();
     let contactPhoneOut: string | undefined;
     if (contactPhoneDigits.trim()) {
-      const n = normalizePhMobileDb(contactPhoneDigits);
-      if (n) contactPhoneOut = n;
+      const resolved = resolveAdminProfilePhone(contactPhoneDigits);
+      if (resolved) contactPhoneOut = resolved.e164;
     }
 
     const inferred = adminCreateMemberAddressHasSelection(address)
@@ -447,14 +443,14 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 type="tel"
                 inputMode="tel"
                 autoComplete="tel"
-                value={formatPhMobileDisplayPlus63(contactPhoneDigits)}
+                value={contactPhoneDigits}
                 onChange={(e) => {
-                  setContactPhoneDigits(parsePhMobileInput(e.target.value));
+                  setContactPhoneDigits(e.target.value.slice(0, 24));
                   touchField("contactPhone");
                 }}
                 aria-invalid={Boolean(resolvedFieldMessages.contactPhone)}
                 className={fieldClass(Boolean(resolvedFieldMessages.contactPhone))}
-                placeholder={PH_MOBILE_PLUS63_PLACEHOLDER}
+                placeholder={`${PH_MOBILE_PLUS63_PLACEHOLDER} / +82 10 0000 0000`}
               />
               <FieldError message={resolvedFieldMessages.contactPhone} />
             </div>
@@ -513,7 +509,7 @@ function mapServerFieldToKey(
   error?: string
 ): MessageKey {
   if (field === "nickname" && status === 409) return "admin_users_err_nickname_taken";
-  if (field === "contactPhone") return "phone_rule";
+  if (field === "contactPhone") return "admin_users_member_verify_invalid_phone";
   if (field === "addressSearch") return "addr_ui_pick_search_result";
   if (field === "addressDetail") return "addr_ui_detail_required_err";
   switch (field) {

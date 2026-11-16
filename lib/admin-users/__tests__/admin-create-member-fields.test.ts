@@ -31,3 +31,25 @@ describe("admin-create-member-fields", () => {
     expect(errors).toEqual({});
   });
 });
+
+describe("회원 생성 연락처 — 한국·필리핀 번호", () => {
+  const base = {
+    username: "krphone",
+    password: "Passw0rd!x",
+    passwordConfirm: "Passw0rd!x",
+    nickname: "kr",
+    name: "kr",
+    email: "",
+    accountType: "operations_member" as const,
+    address: emptyAdminCreateMemberAddress(),
+  };
+  const opts = { addressAttempted: false, phoneRuleKey: "admin_users_member_verify_invalid_phone" as const };
+  it("한국·필리핀 번호는 통과, 그 외는 연락처 오류", () => {
+    for (const p of ["010-1234-5678", "+82 10 1234 5678", "0917 123 4567", "+639171234567"]) {
+      expect(validateAdminCreateMemberForm({ ...base, contactPhoneDigits: p }, opts).contactPhone).toBeUndefined();
+    }
+    expect(validateAdminCreateMemberForm({ ...base, contactPhoneDigits: "0812345678" }, opts).contactPhone).toBe(
+      "admin_users_member_verify_invalid_phone",
+    );
+  });
+});

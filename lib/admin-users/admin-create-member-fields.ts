@@ -3,7 +3,7 @@ import {
   adminCreateMemberAddressHasSelection,
   type AdminCreateMemberAddressInput,
 } from "@/lib/admin-users/admin-create-member-address";
-import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
+import { resolveAdminProfilePhone } from "@/lib/phone/verify-phone-number";
 import { checkAdminSetPassword } from "@/lib/auth/admin-set-password-policy";
 
 export type AdminCreateMemberFormField =
@@ -62,8 +62,7 @@ export function validateAdminCreateMemberForm(
     errors.email = "admin_users_err_email_invalid";
   }
   if (input.contactPhoneDigits.trim()) {
-    const ph = normalizeOptionalPhMobileDb(input.contactPhoneDigits);
-    if (!ph.ok) {
+    if (!resolveAdminProfilePhone(input.contactPhoneDigits)) {
       errors.contactPhone = opts.phoneRuleKey;
     }
   }
