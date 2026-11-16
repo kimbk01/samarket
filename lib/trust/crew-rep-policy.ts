@@ -57,6 +57,28 @@ export const CREW_REP_PARTICIPATION_WEEKLY_CAP = 5;
  */
 export const CREW_REP_PARTICIPATION_START_ISO = "2026-11-16T00:00:00+08:00";
 
+/** 거래 평가(S5) — 설계 §7. 실제로 대화한 상대끼리만, 동시 공개, 아쉬워요 이의제기. */
+export const CREW_REP_TRADE_RATING = {
+  /** E2: 판매자·구매자 각자 보낸 메시지 최소 수 (시스템·삭제 메시지 제외) */
+  minMessagesEach: 3,
+  /** E3: 첫 메시지 ~ 마지막 메시지 최소 간격 */
+  minConversationMinutes: 10,
+  /** E4: 판매완료가 없을 때 평가 창이 열리는 시점 = 첫 메시지 후 */
+  openAfterFirstMessageDays: 3,
+  /** E4: 평가 창 길이 */
+  windowDays: 30,
+  /** 상대가 평가하지 않아도 공개되는 시점 = 첫 제출 후 */
+  revealAfterDays: 7,
+  /** 아쉬워요 이의제기 기간 = 공개 후 */
+  disputeDays: 14,
+  /** 남길 말 최대 길이 (운영자만 봄) */
+  commentMax: 200,
+  /** 거래 확인 가중 w */
+  weightBothYes: 1.0,
+  weightOneYes: 0.7,
+  weightChatOnly: 0.5,
+} as const;
+
 /** 매너·제재(S4) 기록 시작 — 이 시각 이후 운영자 결정·제재·모임 출석만 사건이 된다. */
 export const CREW_REP_MANNER_START_ISO = "2026-11-16T00:00:00+08:00";
 

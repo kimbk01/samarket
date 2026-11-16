@@ -22,7 +22,7 @@ import { parseTradeAdminListPage } from "@/lib/admin/trade-admin/trade-admin-lis
 import type { AdminReview } from "@/lib/types/admin-review";
 
 export const ADMIN_TRANSACTION_REVIEW_SELECT_FIELDS =
-  "id, product_id, room_id, reviewer_id, reviewee_id, role_type, public_review_type, private_manner_score, private_tags, is_anonymous_negative, created_at, positive_tag_keys, negative_tag_keys, review_comment";
+  "id, product_id, room_id, reviewer_id, reviewee_id, role_type, public_review_type, private_manner_score, private_tags, is_anonymous_negative, created_at, positive_tag_keys, negative_tag_keys, review_comment, rating_status, trade_happened, disputed_at, dispute_reason, dispute_note, dispute_decision";
 // Production has no transaction_reviews.is_hidden_by_admin — omit from SELECT.
 
 /** 검색어가 있을 때 읽는 조회 전용 뷰 (service_role 전용) */
@@ -32,7 +32,7 @@ export type AdminTransactionReviewsListParams = {
   limit: number;
   offset: number;
   q: string;
-  status: "" | "visible" | "hidden" | "reported";
+  status: "" | "visible" | "hidden" | "reported" | "disputed";
   rating: "" | 1 | 2 | 3 | 4 | 5;
   role: "" | "buyer_to_seller" | "seller_to_buyer";
 };
@@ -41,7 +41,7 @@ export type AdminTransactionReviewsListParams = {
 export function parseAdminTransactionReviewsListParams(sp: URLSearchParams): AdminTransactionReviewsListParams {
   const { limit, offset } = parseTradeAdminListPage(sp);
   const st = String(sp.get("status") ?? "").trim();
-  const status = st === "visible" || st === "hidden" || st === "reported" ? st : "";
+  const status = st === "visible" || st === "hidden" || st === "reported" || st === "disputed" ? st : "";
   const r = Number(String(sp.get("rating") ?? "").trim());
   const rating = ([1, 2, 3, 4, 5] as const).find((n) => n === r) ?? "";
   const ro = String(sp.get("role") ?? "").trim();
@@ -61,6 +61,7 @@ export async function listAdminTransactionReviewRows(
   let query = sbAny
     .from(p.q ? ADMIN_TRANSACTION_REVIEW_SEARCH_VIEW : "transaction_reviews")
     .select(ADMIN_TRANSACTION_REVIEW_SELECT_FIELDS, { count: "exact" });
+  if (p.status === "disputed") query = query.eq("rating_status", "disputed");
   if (p.rating === 5) query = query.eq("public_review_type", "good");
   else if (p.rating === 1) query = query.eq("public_review_type", "bad");
   else if (p.rating === 3) query = query.or("public_review_type.is.null,public_review_type.not.in.(good,bad)");

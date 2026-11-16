@@ -24,4 +24,6 @@ export const REVIEW_MODERATION_ACTION_KEYS: Record<string, MessageKey> = {
   restore_review: "admin_review_action_restore",
   review_only: "admin_review_action_review_only",
   recalculate_trust: "admin_review_action_recalc_trust",
+  dispute_accept: "admin_reviews_dispute_accept",
+  dispute_reject: "admin_reviews_dispute_reject",
 };
