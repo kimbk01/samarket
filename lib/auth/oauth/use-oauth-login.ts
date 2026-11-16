@@ -235,7 +235,7 @@ function isNaverProvider(provider: OAuthProvider): boolean {
   return provider === "naver";
 }
 
-function mapOAuthErrorToMessage(code: string, t: ReturnType<typeof useI18n>["t"]): string {
+export function mapOAuthErrorToMessage(code: string, t: ReturnType<typeof useI18n>["t"]): string {
   if (code === "windows_browser_open_failed") return t("auth_windows_browser_open_failed");
   if (code === "oauth_flow_in_flight") return t("auth_err_oauth_start_failed");
   if (code === "invalid_provider") return t("auth_err_invalid_provider");
@@ -265,7 +265,8 @@ function mapOAuthErrorToMessage(code: string, t: ReturnType<typeof useI18n>["t"]
   if (code === "apple_native_account_conflict") return t("auth_err_apple_native_account_conflict");
   if (code === "apple_native_invalid_audience") return t("auth_err_apple_native_invalid_audience");
   if (code === "apple_native_config_error" || code === "apple_native_token_missing") {
-    return t("auth_err_oauth_start_failed");
+    // Apple 창 안에서 끝나지 않음(서버 503 등) — 시작 실패가 아니다. ASAuthorizationError 1000 은 원인을 구분하지 못한다.
+    return t("auth_err_apple_native_not_completed");
   }
   if (code === "apple_native_unavailable") return t("auth_err_apple_native_unavailable");
   if (code === "kakao_native_exchange_not_ready") return t("auth_err_kakao_native_not_ready");
