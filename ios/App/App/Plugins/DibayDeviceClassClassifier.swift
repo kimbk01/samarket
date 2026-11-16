@@ -82,9 +82,9 @@ enum DibayDeviceProfileNative {
       function want(){ return 'width='+Math.max(1,Math.round(W/S))+', initial-scale='+S+', minimum-scale='+S+', maximum-scale='+S+', viewport-fit=cover, interactive-widget=resizes-content'; }
       function apply(){
         if(!W) return;
-        var m=document.querySelector('meta[name="viewport"]');
-        if(!m){ if(!document.head) return; m=document.createElement('meta'); m.setAttribute('name','viewport'); document.head.appendChild(m); }
-        var c=want(); if(m.getAttribute('content')!==c) m.setAttribute('content',c);
+        /* 화면 폭 메타가 여러 개면 WebKit 은 나중 것을 쓴다(11-17 실측: 메타 2개, 첫 것만 바꿔 적용 안 됨) — 모두 같은 값으로. 새로 만들지 않는다. */
+        var ms=document.querySelectorAll('meta[name="viewport"]'), c=want();
+        for(var i=0;i<ms.length;i++){ if(ms[i].getAttribute('content')!==c) ms[i].setAttribute('content',c); }
       }
       window.__dibayMacViewport={scale:S,setViewWidth:function(w){ if(w>0){ W=w; apply(); } }};
       new MutationObserver(apply).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['content']});

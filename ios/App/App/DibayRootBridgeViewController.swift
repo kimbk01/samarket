@@ -232,7 +232,7 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
   private var macContentScale: CGFloat?
   private static let macViewportProbeScript =
     "(function(){try{var m=document.querySelector('meta[name=\\\"viewport\\\"]'),v=window.visualViewport;"
-    + "return JSON.stringify({meta:m?m.getAttribute('content'):null,metas:document.querySelectorAll('meta[name=\\\"viewport\\\"]').length,"
+    + "return JSON.stringify({metas:Array.prototype.map.call(document.querySelectorAll('meta[name=\\\"viewport\\\"]'),function(x){return x.getAttribute('content');}),"
     + "iw:innerWidth,cw:document.documentElement.clientWidth,sw:document.documentElement.scrollWidth,"
     + "vvw:v&&Math.round(v.width),vvs:v&&v.scale,dpr:devicePixelRatio,hook:!!window.__dibayMacViewport});}catch(e){return 'err '+e;}})()"
   private var lastPushedMacViewWidth: CGFloat = 0
