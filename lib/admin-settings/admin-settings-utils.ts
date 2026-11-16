@@ -32,8 +32,6 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   maxMessageLength: 1000,
   reportEnabled: true,
   maxReportsPerTarget: 5,
-  trustReviewEnabled: true,
-  mannerScoreVisible: true,
   regionMultiSelectEnabled: true,
   maxSavedRegions: 2,
   homeRadiusKm: 5,
@@ -56,7 +54,7 @@ export const SETTINGS_SECTIONS: { key: SettingsSectionKey; label: string }[] = [
   { key: "product", label: "상품 정책" },
   { key: "chat", label: "채팅 정책" },
   { key: "report", label: "신고 정책" },
-  { key: "trust", label: "후기/신뢰도 정책" },
+  { key: "trust", label: "CREW REP 정책" },
   { key: "region", label: "지역/노출 정책" },
   { key: "categories", label: "카테고리 관리" },
 ];
@@ -73,7 +71,8 @@ export const SECTION_KEYS: Record<SettingsSectionKey, (keyof AppSettings)[]> = {
   ],
   chat: ["chatEnabled", "allowChatAfterSold", "maxMessageLength"],
   report: ["reportEnabled", "maxReportsPerTarget"],
-  trust: ["trustReviewEnabled", "mannerScoreVisible"],
+  /** CREW REP 정책은 코드 단일 정의 — 저장할 설정 없음 (S7, D10 정리) */
+  trust: [],
   region: [
     "regionMultiSelectEnabled",
     "maxSavedRegions",

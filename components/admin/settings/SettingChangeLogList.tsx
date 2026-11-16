@@ -29,8 +29,6 @@ const KEY_LABEL_KEYS: Partial<Record<keyof AppSettings, MessageKey>> = {
   maxMessageLength: "admin_settings_key_max_message_length",
   reportEnabled: "admin_settings_key_report_enabled",
   maxReportsPerTarget: "admin_settings_key_max_reports_per_target",
-  trustReviewEnabled: "admin_settings_key_trust_review_enabled",
-  mannerScoreVisible: "admin_settings_key_manner_score_visible",
   regionMultiSelectEnabled: "admin_settings_key_region_multi",
   maxSavedRegions: "admin_settings_key_max_saved_regions",
   homeRadiusKm: "admin_settings_key_home_radius_km",

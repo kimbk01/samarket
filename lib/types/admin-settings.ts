@@ -18,8 +18,6 @@ export interface AppSettings {
   maxMessageLength: number;
   reportEnabled: boolean;
   maxReportsPerTarget: number;
-  trustReviewEnabled: boolean;
-  mannerScoreVisible: boolean;
   regionMultiSelectEnabled: boolean;
   maxSavedRegions: number;
   homeRadiusKm: number;
