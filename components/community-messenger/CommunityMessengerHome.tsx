@@ -38,6 +38,8 @@ import {
 /** 「새 대화」 시트는 버튼을 누르자마자 열려야 한다 (채팅 시안 4판 「5. 새 대화」) — 지연 불러오기(첫 열림 약 2초) 대신 정적 */
 import { MessengerNewConversationSheet } from "@/components/community-messenger/MessengerNewConversationSheet";
 import { MessengerHomeSubScreenHost } from "@/components/community-messenger/MessengerHomeSubScreenHost";
+import { parseCommunityMessengerRoomIdFromPathname } from "@/lib/community-messenger/messenger-room-pathname";
+import { MessengerSplitListSectionProvider } from "@/components/community-messenger/MessengerSplitListSectionContext";
 import { MessengerBlockPeerConfirmModal } from "@/components/community-messenger/MessengerBlockPeerConfirmModal";
 import { samTier1HeaderRightColumn } from "@/lib/ui/tier1-header-icon";
 import { tryRedirectMessengerHomeAuthBlocked } from "@/lib/community-messenger/home/messenger-home-auth-blocked-redirect";
@@ -141,6 +143,7 @@ import {
 } from "@/lib/community-messenger/room-snapshot-cache";
 import {
   communityMessengerRoomHref,
+  resolveMessengerSplitListSection,
   MESSENGER_ENTRY_ORIGIN_QUERY_KEY,
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { leaveMessengerRoomFromHomeClient } from "@/lib/community-messenger/home/messenger-home-room-leave-client";
@@ -524,8 +527,16 @@ function CommunityMessengerHomeRouterEffectsHost({
    */
   const routerPathname = usePathname();
   /** 다른 탭에 있을 때(살아 있는 숨은 메신저 홈)는 그 탭 주소의 `section`(예: 내정보 `section=settings`)을 읽지 않는다 */
+  /**
+   * 분할 화면 왼쪽 목록은 방 주소(`/community-messenger/rooms/:id?section=search`)에서도 같은 홈이다 —
+   * 채팅 검색 결과로 방을 열어도 왼쪽 검색 화면이 닫히지 않게 분할에서는 방 주소의 `section` 도 읽는다(2026-11-16 감사 P1).
+   */
+  const subScreenPathname = (routerPathname ?? "").replace(/\/+$/, "");
+  const subScreenPathAllowed =
+    subScreenPathname === "/community-messenger" ||
+    (isMessengerSplitViewport && parseCommunityMessengerRoomIdFromPathname(subScreenPathname) != null);
   const subScreenKeyFromUrl =
-    fromPhilifeHeaderStack || pillar != null || (routerPathname ?? "").replace(/\/+$/, "") !== "/community-messenger"
+    fromPhilifeHeaderStack || pillar != null || !subScreenPathAllowed
       ? null
       : messengerSubScreenKey(parseMessengerSubScreen(searchParams));
   useLayoutEffect(() => {
@@ -924,6 +935,16 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     []
   );
 
+  /** 분할 화면 왼쪽 탭·하위 화면 — 홈에서 연 방 주소에 실어 왼쪽이 대화 탭으로 돌아가지 않게 (2026-11-16 감사 P1) */
+  const splitListSection = useMemo(
+    () =>
+      resolveMessengerSplitListSection({
+        splitList: tabletSplitListOnly && isMessengerSplitViewport,
+        mainSection,
+        subScreenKind: subScreen?.kind ?? null,
+      }),
+    [isMessengerSplitViewport, mainSection, subScreen?.kind, tabletSplitListOnly]
+  );
   const { navigateToCommunityRoom, onPrimarySectionChange, onChatListChipChange, openMessengerArchive } =
     useCommunityMessengerHomeNavigation({
       router,
@@ -938,6 +959,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       retainRoomPathOnSectionChange: tabletSplitListOnly,
       messengerEntryOrigin: entryOriginQuery,
       pendingUserSectionRef,
+      splitListSection,
     });
   const messengerViewerUserId = data?.me?.id?.trim() || null;
   const navigateToCommunityRoomWithViewer = useCallback(
@@ -3464,6 +3486,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           />
         </div>
       ) : null}
+      <MessengerSplitListSectionProvider value={splitListSection}>
       <MessengerFriendActionsProvider value={messengerFriendActions}>
       {subScreen && data ? (
         <MessengerHomeSubScreenHost
@@ -3617,6 +3640,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       />
       )}
       </MessengerFriendActionsProvider>
+      </MessengerSplitListSectionProvider>
 
       {friendSheet?.mode === "profile" && friendProfileForSheet ? (
         <MessengerFriendProfileSheet

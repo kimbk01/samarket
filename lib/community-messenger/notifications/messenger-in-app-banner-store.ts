@@ -2,6 +2,7 @@
 
 import { messengerInAppBannerPresentation } from "@/lib/community-messenger/notifications/messenger-in-app-banner-content";
 import { useInAppNotificationBannerStore } from "@/lib/notifications/in-app-banner/in-app-notification-banner-store";
+import type { MessengerRoomListSource } from "@/lib/community-messenger/messenger-entry-origin";
 
 /**
  * 메신저 → 앱 안 알림 배너 진입점. 배너 칸은 회원 알림과 같은 단일 store
@@ -19,6 +20,8 @@ export type MessengerInAppMessageBannerPush = {
   kind?: "message" | "missed_call";
   dedupeKey: string;
   count?: number;
+  /** 누르면 열 방이 속한 목록(거래·주문·대화) — 없으면 대화 */
+  listSource?: MessengerRoomListSource;
 };
 
 /** 현재 배너가 메신저 방 배너일 때 그 방 */
@@ -40,7 +43,7 @@ export function pushMessengerInAppMessageBanner(b: MessengerInAppMessageBannerPu
       kind: b.kind,
       occurredAt: new Date().toISOString(),
     }),
-    target: { type: "messenger_room", roomId: b.roomId },
+    target: { type: "messenger_room", roomId: b.roomId, listSource: b.listSource ?? "inbox" },
     dedupeKey: b.dedupeKey,
     count: b.count,
   });

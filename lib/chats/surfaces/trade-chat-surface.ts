@@ -57,7 +57,13 @@ export function tradeMessengerRoomHref(roomId: string, sourceHint?: ChatRoomSour
   const id = roomId.trim();
   if (!id) return TRADE_CHAT_MESSENGER_LIST_HREF;
   const base = `${TRADE_CHAT_MESSENGER_ROOM_BASE}/${encodeURIComponent(id)}`;
-  return appendTradeHubRoomSourceQuery(base, sourceHint);
+  /**
+   * 거래 방은 거래 채팅 목록 소속 — `cm_list=trade` (주문 방 `buildStoreOrderMessengerRoomHref`·도메인 라우터와 같은 규칙).
+   * 분할 화면 왼쪽 목록·기록 없는 뒤로가 그 방이 있는 거래 채팅 목록이 된다(2026-11-16 감사 R2).
+   */
+  const u = new URL(appendTradeHubRoomSourceQuery(base, sourceHint), "https://samarket.local");
+  u.searchParams.set("cm_list", "trade");
+  return `${u.pathname}${u.search}`;
 }
 
 /**

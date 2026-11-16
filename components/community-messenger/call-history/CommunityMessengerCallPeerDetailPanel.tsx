@@ -123,6 +123,8 @@ export function CommunityMessengerCallPeerDetailPanel({
       roomId,
       listSource: "inbox",
       fromEntryOrigin: entryOrigin,
+      /** 분할 화면 왼쪽 통화 탭 유지 — 이동 함수가 분할일 때만 싣는다 (2026-11-16 감사 P1) */
+      splitListSection: "call_logs",
       viewerUserId,
     });
   }, [entryOrigin, requestClose, router, safeT, selection.roomId, viewerUserId]);

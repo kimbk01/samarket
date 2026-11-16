@@ -3,6 +3,7 @@ import {
   communityMessengerRoomHref,
   resolveDeliveryMessengerRoomReturnHref,
   type MessengerRoomListSource,
+  type MessengerSplitListSection,
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { runMessengerViewTransition } from "@/lib/community-messenger/messenger-view-transition";
 import { isMessengerSplitFrameDirectHeaderRoom } from "@/lib/community-messenger/room/messenger-split-room-entry-frame-seed";
@@ -63,6 +64,11 @@ export type CommunityMessengerRoomForwardNavArgs = {
   roomForPrime?: CommunityMessengerRoomSummary | null;
   /** Global Search `/search?q=` restore. Existing `cm_return` sanitizer only. */
   returnHrefOverride?: string | null;
+  /**
+   * 분할 화면 왼쪽 홈 탭(친구·통화·보관함·채팅 검색) — 누른 목록이 직접 넘긴다. 분할 화면일 때만 방 주소에 싣는다.
+   * 지금 주소에서 이어 붙이지 않는다(2026-11-16 #379 실패: 배너 등 무관한 진입까지 왼쪽 상태를 물려받음).
+   */
+  splitListSection?: MessengerSplitListSection | null;
 };
 
 function currentPathname(): string {
@@ -95,7 +101,8 @@ export async function runCommunityMessengerRoomForwardNavigation(
           fromEntryOrigin: args.fromEntryOrigin,
         })
       : null);
-  const dest = communityMessengerRoomHref(id, args.fromEntryOrigin, args.listSource, returnHref);
+  const splitListSection = matchesMessengerSplitViewport() ? args.splitListSection ?? null : null;
+  const dest = communityMessengerRoomHref(id, args.fromEntryOrigin, args.listSource, returnHref, splitListSection);
   const vu = args.viewerUserId?.trim() || null;
   const room = args.roomForPrime ?? null;
 

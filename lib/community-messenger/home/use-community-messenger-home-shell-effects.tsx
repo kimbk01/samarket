@@ -38,6 +38,7 @@ import {
   isMessengerHomeSubScreenSearch,
   messengerSubScreenBackHref,
   messengerSubScreenTitleKey,
+  messengerRoomHrefWithoutSubScreen,
   parseMessengerSubScreen,
 } from "@/lib/community-messenger/messenger-sub-screen-route";
 import {
@@ -411,7 +412,14 @@ export function useCommunityMessengerHomeShellEffects({
   /**
    * 분할 화면(≥768)은 1단 머리글 대신 분할 머리글 — 친구 고르기·채팅 설정·채팅 검색은 같은 제목 + 뒤로(설정 상세 = 설정 첫 화면, 나머지 = 대화 탭).
    */
-  const splitSubScreen = pillar == null && isMessengerHubRoute ? parseMessengerSubScreen(queryString) : null;
+  /**
+   * 분할 화면 방 주소(`/community-messenger/rooms/:id?section=search`)도 왼쪽은 같은 홈 하위 화면이다 — 채팅 검색 결과로 방을 열어도
+   * 머리글이 「채팅 검색」+뒤로로 남는다. 이때 뒤로 = 방은 그대로 두고 하위 화면만 닫기(`section` 뺀 방 주소). (2026-11-16 감사 P1)
+   */
+  const splitSubScreen =
+    pillar == null && (isMessengerHubRoute || isMessengerStickyRoomSectionRoute)
+      ? parseMessengerSubScreen(queryString)
+      : null;
   const splitTitleText =
     pillar === "trade"
       ? resolveTier1BarLabel(t, tt, "nav_trade_chat_label") ?? ""
@@ -429,7 +437,9 @@ export function useCommunityMessengerHomeShellEffects({
           origin: parseMessengerEntryOrigin(fromParam || null) ?? readStoredMessengerEntryOrigin(),
         })
       : splitSubScreen
-        ? messengerSubScreenBackHref(splitSubScreen, fromParam || null)
+        ? isMessengerStickyRoomSectionRoute
+          ? messengerRoomHrefWithoutSubScreen(pathname, queryString)
+          : messengerSubScreenBackHref(splitSubScreen, fromParam || null)
         : undefined;
 
   useRegisterMessengerSplitChrome(
