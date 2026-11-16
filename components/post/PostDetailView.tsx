@@ -102,6 +102,7 @@ import { clearTradeChatPrepareTimer } from "@/lib/chats/clear-trade-chat-prepare
 import {
   openCreateTradeChat,
   openExistingTradeChat,
+  isTradeChatTargetSameAsSlideHostRoom,
   prefetchTradeChatEntry,
 } from "@/lib/chats/trade-chat-entry-navigation";
 import {
@@ -849,6 +850,21 @@ export function PostDetailView({
           return;
         }
         if (existingTradeRoomId) {
+          /**
+           * 거래방 상세 슬라이드에서 대상이 지금 방이면 이동하지 않고 슬라이드만 닫는다 —
+           * 같은 경로 이동은 방 화면이 새로 마운트되지 않아 「이동 중…」이 남는다(2026-11-16).
+           * navigated 를 올리지 않아 finally 가 이중 이동 방지를 푼다.
+           */
+          if (
+            tradePostDetailSlideHost &&
+            isTradeChatTargetSameAsSlideHostRoom({
+              hostMessengerRoomId: tradePostDetailSlideHost.hostMessengerRoomId,
+              targetMessengerRoomId: existingTradeMessengerId,
+            })
+          ) {
+            tradePostDetailSlideHost.closeSlide();
+            return;
+          }
           openExistingTradeChat(router, {
             productId: post.id,
             roomId: existingTradeRoomId,
@@ -906,6 +922,7 @@ export function PostDetailView({
     chatBlockedByCompleted,
     chatBlockedByReservedState,
     requireAction,
+    tradePostDetailSlideHost,
     t,
   ]);
 
