@@ -8,6 +8,7 @@
  */
 
 import type { DibayDeviceClass } from "@/lib/device/dibay-device-class";
+import { dibayDeviceProfile } from "@/lib/device/dibay-device-profile";
 
 export type DibayOrientationPolicy =
   | "PORTRAIT_ONLY"
@@ -15,21 +16,21 @@ export type DibayOrientationPolicy =
   | "RESIZABLE_DESKTOP"
   | "UNKNOWN_SAFE";
 
+/** 회전 정책은 기기 프로필 표만 읽는다. */
 export function orientationPolicyForDeviceClass(deviceClass: DibayDeviceClass): DibayOrientationPolicy {
-  if (deviceClass === "PHONE_ANDROID" || deviceClass === "PHONE_IOS") return "PORTRAIT_ONLY";
-  if (deviceClass === "TABLET_ANDROID" || deviceClass === "TABLET_IPAD") return "PORTRAIT_AND_LANDSCAPE";
-  if (deviceClass === "DESKTOP_WINDOWS" || deviceClass === "WEB_DESKTOP") return "RESIZABLE_DESKTOP";
-  return "UNKNOWN_SAFE";
+  return dibayDeviceProfile(deviceClass).orientation;
 }
 
 /** Android MainActivity may request portrait only for PHONE_ANDROID. */
 export function shouldRequestAndroidAppPortrait(deviceClass: DibayDeviceClass): boolean {
-  return deviceClass === "PHONE_ANDROID";
+  const profile = dibayDeviceProfile(deviceClass);
+  return profile.nativePortraitLock && profile.nativeShell === "android";
 }
 
 /** iOS root VC may lock the interface mask to portrait only for PHONE_IOS. */
 export function shouldLockIosAppPortrait(deviceClass: DibayDeviceClass): boolean {
-  return deviceClass === "PHONE_IOS";
+  const profile = dibayDeviceProfile(deviceClass);
+  return profile.nativePortraitLock && profile.nativeShell === "ios";
 }
 
 /**
@@ -46,7 +47,7 @@ export function nativeRouteModeValue(mode: DibayAppRouteOrientationMode): "admin
 
 /** Only tablets get the admin landscape lock. Phones stay portrait (web guard shows notice). */
 export function shouldRequestAdminLandscapeLock(deviceClass: DibayDeviceClass): boolean {
-  return deviceClass === "TABLET_ANDROID" || deviceClass === "TABLET_IPAD";
+  return dibayDeviceProfile(deviceClass).adminLandscapeLock;
 }
 
 /** Effective orientation policy for the app shell under a route mode. */

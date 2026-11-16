@@ -64,7 +64,8 @@ describe("Community original single-page contract C1–C12", () => {
     expect(feed).not.toContain("useDibayCommunityPresentation");
     expect(feed).not.toContain("resolveCommunityPresentation");
     expect(feed).not.toContain("max-width: 767px");
-    expect(feed).toContain("deviceClass === \"PHONE_ANDROID\"");
+    // 스와이프 대상(휴대폰만)은 기기 프로필 표 `feedTopicSwipe` 가 정한다 (S1 — dibay-device-profile.test.ts 고정표)
+    expect(feed).toContain("dibayDeviceProfile(deviceClass).feedTopicSwipe");
     const scope = read("components/community/CommunityUiScope.tsx");
     expect(scope).not.toContain("data-dibay-community-composed");
     expect(scope).not.toContain("data-dibay-community-presentation");

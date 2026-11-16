@@ -13,6 +13,7 @@
  */
 
 import type { DibayDeviceClass } from "@/lib/device/dibay-device-class";
+import { dibayDeviceProfile } from "@/lib/device/dibay-device-profile";
 import {
   layoutFamilyForDeviceClass,
   type DibayLayoutFamily,
@@ -55,7 +56,8 @@ export function shellFamilyForDeviceClass(deviceClass: DibayDeviceClass): DibayS
 
 export function resolveAppShell(input: DibayAppShellResolverInput): DibayAppShellResolution {
   const shellFamily = shellFamilyForDeviceClass(input.deviceClass);
-  const sideRail = shellFamily === "DESKTOP";
+  /** 메뉴 위치는 기기 프로필 표만 읽는다 (`dibay-device-profile.ts`). */
+  const sideRail = dibayDeviceProfile(input.deviceClass).navigation === "DESKTOP_SIDE_RAIL";
   return {
     deviceClass: input.deviceClass,
     shellFamily,

@@ -1,0 +1,329 @@
+<title>DIBAY 기기별 화면 시안</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* 배치: 권장 결정 → 기기·방향·탭 조작 시안 → 태블릿 회전 비교 → 전 기기 한눈 → 단일 정의 표 → 구현 계획 */
+@font-face{font-family:"Pretendard Variable";font-weight:45 920;font-style:normal;font-display:swap;src:url(pretendard.woff2) format("woff2-variations")}
+:root{
+  --bg:#f3f4f1; --surface:#ffffff; --fg:#17201a; --muted:#5b655e; --line:#dde2db;
+  --brand:#0B421A; --brand-soft:#e2ebe4; --on-brand:#f4efe2; --warn:#875700; --warn-soft:#fbf0d9; --fail:#a3271b; --fail-soft:#fbe6e3;
+  --font:"Pretendard Variable",system-ui,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#111513;--surface:#1a201c;--fg:#e7ebe8;--muted:#a2aca5;--line:#2d3530;--brand:#86c899;--brand-soft:#1e3125;--on-brand:#0d1a11;--warn:#e3b35c;--warn-soft:#33280f;--fail:#ef8a7e;--fail-soft:#3a1c19;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#111513;--surface:#1a201c;--fg:#e7ebe8;--muted:#a2aca5;--line:#2d3530;--brand:#86c899;--brand-soft:#1e3125;--on-brand:#0d1a11;--warn:#e3b35c;--warn-soft:#33280f;--fail:#ef8a7e;--fail-soft:#3a1c19;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;line-height:1.6;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 72px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:44px}
+h1{font-size:27px;line-height:1.3;margin:0;letter-spacing:-.01em;text-wrap:balance}
+h2{font-size:20px;line-height:1.35;margin:0;text-wrap:balance}
+h3{font-size:15px;margin:0}
+p{margin:0}
+section{display:flex;flex-direction:column;gap:14px;min-width:0}
+.lead{color:var(--muted);max-width:72ch}
+.meta{font-size:13px;color:var(--muted)}
+code{font-family:var(--mono);font-size:12.5px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+/* 결정 */
+.decisions{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px}
+.dec{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.dec .tag{font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.03em}
+.dec p{font-size:14px;color:var(--muted)}
+.dec b{color:var(--fg)}
+/* 조작 */
+.controls{display:flex;flex-direction:column;gap:12px}
+.ctl-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ctl-label{font-size:12px;font-weight:700;color:var(--muted);width:72px;flex:none;letter-spacing:.03em}
+.btn{font:inherit;font-size:13.5px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:6px 12px;cursor:pointer;transition:background-color .12s,transform .08s}
+.btn:hover{background:var(--brand-soft)}
+.btn:active{transform:scale(.97)}
+.btn[aria-pressed="true"]{background:var(--brand);color:var(--on-brand);border-color:var(--brand)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.group-name{font-size:12px;color:var(--muted);margin-right:2px}
+.viewer{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start}
+@media (max-width:900px){.viewer{grid-template-columns:minmax(0,1fr)}}
+.stage{min-width:0;display:flex;justify-content:center;align-items:flex-start;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:16px;overflow:hidden}
+.device{position:relative;overflow:hidden;background:#fff;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 0 var(--line);flex:none}
+.device iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0}
+.device.static iframe{pointer-events:none}
+.info{display:flex;flex-direction:column;gap:0;font-size:13.5px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+.info div{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line)}
+.info div:last-child{border-bottom:0}
+.info dt{color:var(--muted)}
+.info dd{margin:0;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;min-width:0;overflow-wrap:anywhere}
+.hint{font-size:13px;color:var(--muted)}
+/* 회전 비교 / 전 기기 */
+.row-frames{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end}
+figure{margin:0;display:flex;flex-direction:column;gap:6px;min-width:0}
+figcaption{font-size:12.5px;color:var(--muted);line-height:1.45;max-width:340px}
+figcaption b{color:var(--fg)}
+.fam-block{display:flex;flex-direction:column;gap:10px}
+.fam-title{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.fam-title h3{font-size:16px}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.pill.new{background:var(--brand-soft);color:var(--brand)}
+.pill.fail{background:var(--fail-soft);color:var(--fail)}
+.pill.keep{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+/* 표 */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:860px;font-size:13.5px}
+th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11.5px;letter-spacing:.04em;color:var(--muted);font-weight:700;background:var(--bg);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.k{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+ol.rules{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+ol.rules li{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px 14px;font-size:14px}
+.steps{display:flex;flex-direction:column;gap:10px}
+.step{display:grid;grid-template-columns:56px minmax(0,1fr);gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px}
+.step .id{font-weight:800;color:var(--brand);font-variant-numeric:tabular-nums}
+.step p{font-size:14px;color:var(--muted)}
+.step b{color:var(--fg)}
+.np{display:flex;flex-direction:column;gap:4px;background:var(--fail-soft);color:var(--fail);border-radius:6px;padding:12px 14px;font-size:14px}
+@media (prefers-reduced-motion: reduce){.btn{transition:none}}
+</style>
+
+<div class="wrap">
+  <header style="display:flex;flex-direction:column;gap:10px">
+    <p class="meta">감사 기준 origin/main 1be808e73 · 2026-11-16 19:00~19:40 PHT · 화면은 운영 앱 CSS(빌드 CSS 3개)·Pretendard Variable·운영 화면 DOM(비로그인·한국어, Playwright 로 렌더링해 받음)으로 그림</p>
+    <h1>DIBAY 기기별 화면 시안 — 7개 기기, 3가지 형태, 단일 정의 하나</h1>
+    <p class="lead">Android 폰·iPhone 은 「휴대폰」, Android 태블릿·iPad 는 「태블릿」, Windows·Mac·PC 브라우저는 「데스크톱(윈도우 형태)」입니다. 모든 기기의 메뉴 위치·한 화면/두 칸·회전·글자 배율·창 최소 크기는 아래 <b>기기 프로필 표 하나</b>(profiles.js)에서 정해지고, 이 시안 화면도 그 표의 값만 읽어 그립니다. 구현 때 이 표가 그대로 코드가 됩니다.</p>
+  </header>
+
+  <section>
+    <h2>1. 결정 — 권장안 그대로 적용</h2>
+    <div class="decisions">
+      <div class="dec"><span class="tag">C1 · 넓은 창 채우는 방법</span><p><b>칸으로 나눠 채움.</b> 창 끝까지 채우는 것은 유지하고, 카드 한 줄을 늘이지 않습니다(텔레그램·카톡 PC 와 같은 방식). 지금 Mac·Windows 에서 카드가 2,000 폭까지 늘어나는 결함이 없어집니다.</p></div>
+      <div class="dec"><span class="tag">C2 · 태블릿 하단 탭</span><p><b>두 칸일 때 목록 칸 아래로.</b> 지금 메신저 두 칸에서 운영 중인 방식을 모든 탭에 씁니다. 한 화면일 때는 지금처럼 창 전체.</p></div>
+      <div class="dec"><span class="tag">C3 · 메신저 외 탭 두 칸</span><p><b>LOUNGE·MY 두 칸.</b> HOME·DIPICK 은 목록-상세 구조가 아니어서 한 화면(지금 창 폭 격자 그대로).</p></div>
+      <div class="dec"><span class="tag">C4 · Mac 판정</span><p><b>Mac = 데스크톱(DESKTOP_MAC).</b> Apple 공식 값 <code>isiOSAppOnMac</code> 으로 판정. Windows 와 같은 왼쪽 세로 메뉴, 글자는 77% 축소를 되돌려 Windows 와 같은 크기.</p></div>
+      <div class="dec"><span class="tag">빈 상세 칸</span><p><b>배경만.</b> 두 칸에서 아무것도 열지 않으면 오른쪽은 배경만 보입니다(지금 메신저 빈 상세 규칙 — 문구·버튼 없음).</p></div>
+      <div class="dec"><span class="tag">태블릿 회전</span><p><b>회전해도 열어 둔 글 유지.</b> 세로(한 화면)에서 글을 보다 가로로 돌리면 목록 + 같은 글, 다시 세로로 돌리면 그 글 전체 화면. 상세는 다시 그리지 않습니다.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. 기기·방향·탭을 바꿔 보기</h2>
+    <p class="lead">기기·방향·탭 버튼을 누르거나, 시안 화면 안의 하단 탭·세로 메뉴·글 카드·뒤로 버튼을 직접 눌러 보세요. 휴대폰은 세로 고정이라 방향 버튼이 꺼지고, Mac·Windows 는 창 크기 프리셋으로 바꿉니다.</p>
+    <div class="panel">
+      <div class="controls">
+        <div class="ctl-row" id="ctl-device"><span class="ctl-label">기기</span></div>
+        <div class="ctl-row" id="ctl-orient"><span class="ctl-label">방향</span>
+          <button class="btn" type="button" id="o-portrait" aria-pressed="true">세로</button>
+          <button class="btn" type="button" id="o-landscape" aria-pressed="false">가로</button>
+          <button class="btn" type="button" id="o-rotate">회전 ⟳</button>
+        </div>
+        <div class="ctl-row" id="ctl-tab"><span class="ctl-label">탭</span></div>
+        <div class="ctl-row"><span class="ctl-label">상태</span>
+          <button class="btn" type="button" id="s-open" aria-pressed="true">글 1건 열림</button>
+          <span class="hint">LOUNGE 탭에서 글을 연 상태로 회전하면 R3 규칙을 볼 수 있습니다.</span>
+        </div>
+      </div>
+      <div class="viewer">
+        <div class="stage" id="stage"><div class="device" id="main-device"><iframe id="main-frame" title="시안 화면"></iframe></div></div>
+        <dl class="info" id="info"></dl>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3. 태블릿 회전 비교 (세로 ↔ 가로, 같은 상태)</h2>
+    <p class="lead">같은 글을 연 상태입니다. 세로가 768 보다 좁으면 한 화면(글 전체 화면, 하단 탭 창 전체), 768 이상이면 두 칸(목록 + 같은 글, 하단 탭은 목록 칸 아래)입니다. Android 태블릿과 iPad 는 같은 규칙이고, 기기마다 세로 폭만 다릅니다.</p>
+    <div id="rotation" class="steps"></div>
+  </section>
+
+  <section>
+    <h2>4. 전 기기 한눈에 (실제 크기 비율)</h2>
+    <p class="lead">모든 프레임은 같은 축척(CSS 1px = 같은 길이, Mac 은 1pt)이고, 모두 「글 1건을 연」 같은 상태입니다. 한 화면 기기는 글 전체 화면, 두 칸 기기는 목록 + 같은 글로 보입니다. 「Mac 지금」은 지금 운영 그대로 77% 로 줄어 그려지는 크기입니다.</p>
+    <div class="ctl-row" id="ctl-matrix-tab"><span class="ctl-label">탭</span></div>
+    <div id="matrix" style="display:flex;flex-direction:column;gap:26px"></div>
+  </section>
+
+  <section>
+    <h2>5. 단일 정의 — 기기 프로필 표 (profiles.js → lib/device/dibay-device-profile.ts)</h2>
+    <div class="tablewrap"><table id="t-profiles"></table></div>
+    <div class="tablewrap"><table id="t-layout"></table></div>
+    <h3 style="margin-top:6px">회전·창 크기 변경 규칙</h3>
+    <ol class="rules" id="t-rules"></ol>
+  </section>
+
+  <section>
+    <h2>6. 구현 계획 — 이 표 하나로 관리</h2>
+    <div class="steps">
+      <div class="step"><span class="id">S1</span><div><b>기기 프로필 표 코드화 (웹)</b><p><code>lib/device/dibay-device-profile.ts</code> 에 위 표를 그대로 둡니다. 셸(메뉴 위치)·한 화면/두 칸·회전 정책·시작 화면·관리자 가로 고정·커뮤니티 스와이프가 전부 이 표만 읽게 바꿉니다(지금 흩어진 판정 분기 10곳: 웹 5·iOS 3·Android 2). 계약 시험: 7개 기기 × 방향 × 폭의 결과표 고정, 기기 분기 직접 비교 금지 검사.</p></div></div>
+      <div class="step"><span class="id">S2</span><div><b>Mac 판정 + 세로 메뉴 (iOS 네이티브 + 웹, 한 반영)</b><p>iOS 판정 파일 하나에서 <code>isiOSAppOnMac</code> → <code>DESKTOP_MAC</code>. 셸은 이미 데스크톱이면 세로 메뉴라 셸 코드 변경 없음. 통화 판정 파일은 손대지 않음(통화 규정).</p></div></div>
+      <div class="step"><span class="id">S3</span><div><b>Mac 글자 배율·창 최소 크기 (iOS 네이티브, S2 와 같은 빌드)</b><p>웹뷰 배율 1 ÷ 0.77, 창 최소 380×550pt — 둘 다 표 값을 읽음. <b>배율은 측정 먼저</b>: Debug 빌드에서 창 1612pt 일 때 CSS 폭 1612, 본문 14px = 14pt 인지 확인 후 구현.</p></div></div>
+      <div class="step"><span class="id">S4</span><div><b>두 칸 공통 틀 + 태블릿 하단 탭 위치 (웹)</b><p>메신저 두 칸 틀(같은 key 슬롯·768 경계 리마운트 없음·목록 칸 아래 하단 탭)을 공통 틀로 꺼내 LOUNGE 부터 적용. 회전 규칙 R1~R7 계약 시험. 글쓰기 버튼은 목록 칸 안에 둠.</p></div></div>
+      <div class="step"><span class="id">S5</span><div><b>MY 두 칸 (웹)</b><p>메뉴 | 하위 화면. 로그인 화면이라 이번 시안에 캡처하지 않았고, 구현 전 로그인 화면 캡처로 시안 보강.</p></div></div>
+      <div class="step"><span class="id">S6</span><div><b>기기 기록 (DB, 운영 적용은 승인 후)</b><p><code>user_devices</code> 에 기기 프로필 값(<code>device_class</code>)을 함께 저장 → 회원별 실제 기기(Mac 인지 iPad 인지)를 운영 DB 로 바로 확인. 지금은 Mac 도 <code>platform=ios</code> 로만 남음.</p></div></div>
+      <div class="step"><span class="id">S7</span><div><b>실기 검증 (작업자 직접, Owner 계정)</b><p>Mac 창 400·700·1000·1612pt, Xiaomi 세로·가로 회전(글 연 상태), iPad 시뮬 세로·가로·화면 나누기, Samsung·iPhone 변화 없음, Windows 는 Owner 노트북.</p></div></div>
+    </div>
+    <div class="np"><b>확인 못 함 (NOT_PROVEN)</b><span>Mac 웹뷰 배율이 Mac 의 iPad 앱에서 실제로 먹히는지 · iPad·iPhone·Windows 실기 · 로그인 화면(telRING·MY·DIPICK 로그인 후) · 실제 회전 중 깜박임. 이 시안은 운영 CSS 로 그린 화면이고, 기기에서 본 결과가 아닙니다.</span></div>
+  </section>
+</div>
+
+<script src="profiles.js"></script>
+<script>
+(function(){
+  var S = window.DIBAY_DEVICE_SSOT;
+  var NAV_KO = { BOTTOM_FULL: "하단 탭 · 창 전체", BOTTOM_UNDER_LIST: "하단 탭 · 목록 칸 아래", SIDE_RAIL: "왼쪽 세로 메뉴 72" };
+  var FAM_KO = { PHONE: "휴대폰", TABLET: "태블릿", DESKTOP: "데스크톱(윈도우 형태)" };
+  var ROT_KO = { PORTRAIT_ONLY: "세로 고정", PORTRAIT_AND_LANDSCAPE: "세로·가로", WINDOW: "창 크기 자유" };
+  var state = { d: "xiaomi", o: "portrait", tab: "lounge", open: true };
+  try { var saved = JSON.parse(localStorage.getItem("dibay-mock-state") || "null"); if (saved && saved.d) state = saved; } catch (e) {}
+
+  function el(tag, attrs, text){ var e = document.createElement(tag); for (var k in (attrs||{})) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; }
+  function frameSrc(d, o, tab, open){ return "device.html#d=" + d + "&o=" + o + "&tab=" + tab + "&open=" + (open ? 1 : 0); }
+  function physFactor(r){ return r.preset.windowPt ? (r.pt[0] / r.css[0]) : 1; } // 화면 길이 / CSS px
+
+  // 기기 버튼
+  var devRow = document.getElementById("ctl-device");
+  var fams = { PHONE: [], TABLET: [], DESKTOP: [] };
+  S.PRESETS.forEach(function(p){ fams[p.now ? "DESKTOP" : S.DEVICE_PROFILES[p.device].family].push(p); });
+  ["PHONE","TABLET","DESKTOP"].forEach(function(f){
+    devRow.appendChild(el("span", { class: "group-name" }, FAM_KO[f]));
+    fams[f].forEach(function(p){
+      var b = el("button", { class: "btn", type: "button", "data-d": p.id, "aria-pressed": "false" }, p.name);
+      b.addEventListener("click", function(){ state.d = p.id; render(); });
+      devRow.appendChild(b);
+    });
+  });
+  // 탭 버튼
+  [document.getElementById("ctl-tab"), document.getElementById("ctl-matrix-tab")].forEach(function(row, i){
+    Object.keys(S.TAB_LAYOUT).forEach(function(t){
+      var b = el("button", { class: "btn", type: "button", "data-tab": t, "aria-pressed": "false" }, S.TAB_LAYOUT[t].label);
+      b.addEventListener("click", function(){ if (i === 0) { state.tab = t; render(); } else { matrixTab = t; renderMatrix(); } });
+      row.appendChild(b);
+    });
+  });
+  document.getElementById("o-portrait").onclick = function(){ state.o = "portrait"; render(); };
+  document.getElementById("o-landscape").onclick = function(){ state.o = "landscape"; render(); };
+  document.getElementById("o-rotate").onclick = function(){ state.o = state.o === "portrait" ? "landscape" : "portrait"; render(); };
+  document.getElementById("s-open").onclick = function(){ state.open = !state.open; render(); };
+
+  window.addEventListener("message", function(e){
+    var m = e.data && e.data.dibayMock; if (!m) return;
+    if (m.tab) state.tab = m.tab;
+    if (typeof m.open === "boolean") state.open = m.open;
+    render();
+  });
+
+  function fit(box, frame, css, factor, maxW, maxH){
+    var w = css[0] * factor, h = css[1] * factor;
+    var s = Math.min(maxW / w, maxH / h, 1.2);
+    frame.style.width = css[0] + "px"; frame.style.height = css[1] + "px";
+    frame.style.transform = "scale(" + (s * factor) + ")";
+    box.style.width = (w * s) + "px"; box.style.height = (h * s) + "px";
+  }
+
+  function render(){
+    try { localStorage.setItem("dibay-mock-state", JSON.stringify(state)); } catch (e) {}
+    var r = S.resolve(state.d, state.o);
+    var rotatable = r.profile.rotation === "PORTRAIT_AND_LANDSCAPE" && !!r.preset.landscape && r.preset.id !== "ipad-split";
+    document.querySelectorAll("#ctl-device .btn").forEach(function(b){ b.setAttribute("aria-pressed", String(b.dataset.d === state.d)); });
+    document.querySelectorAll("#ctl-tab .btn").forEach(function(b){ b.setAttribute("aria-pressed", String(b.dataset.tab === state.tab)); });
+    ["o-portrait","o-landscape","o-rotate"].forEach(function(id){ document.getElementById(id).disabled = !rotatable; });
+    document.getElementById("o-portrait").setAttribute("aria-pressed", String(rotatable && state.o === "portrait"));
+    document.getElementById("o-landscape").setAttribute("aria-pressed", String(rotatable && state.o === "landscape"));
+    document.getElementById("s-open").setAttribute("aria-pressed", String(state.open));
+    document.getElementById("s-open").textContent = state.open ? "글 1건 열림" : "아무것도 안 열림";
+
+    var frame = document.getElementById("main-frame");
+    var src = frameSrc(state.d, r.orientation || "portrait", state.tab, state.open);
+    if (frame.getAttribute("src") !== src) frame.setAttribute("src", src);
+    var stage = document.getElementById("stage");
+    var maxW = Math.max(240, stage.clientWidth - 34);
+    fit(document.getElementById("main-device"), frame, r.css, physFactor(r), maxW, 640);
+
+    var layout = S.TAB_LAYOUT[state.tab].wide;
+    var rows = [
+      ["기기 판정", r.preset.device + (r.now ? " (지금)" : "")],
+      ["판정 근거", r.profile.identity],
+      ["형태", FAM_KO[r.profile.family] + (r.now ? " → 지금은 태블릿 취급" : "")],
+      ["창 크기", r.pt ? (r.pt[0] + " × " + r.pt[1] + " pt") : (r.css[0] + " × " + r.css[1] + " CSS")],
+      ["CSS 폭", r.css[0] + " (" + (r.css[0] >= S.LAYOUT.splitMinCss ? "≥" : "<") + " " + S.LAYOUT.splitMinCss + ")"],
+      ["메뉴 위치", NAV_KO[r.nav]],
+      ["화면 배치", layout === "SINGLE" ? "한 화면 (이 탭은 항상)" : (r.wide ? "목록 칸 | 상세 칸" : "한 화면씩")],
+      ["목록 칸 폭", layout === "LIST_DETAIL" && r.wide ? Math.round(Math.min(470, Math.max(360, r.css[0] * 0.35))) + " CSS" : "—"],
+      ["회전", ROT_KO[r.profile.rotation]],
+      ["웹뷰 배율", (Math.round(r.zoom * 100) / 100).toFixed(2) + (r.preset.windowPt && !r.now ? " (77% 보정)" : r.now ? " (보정 없음 · 77%로 그려짐)" : "")],
+      ["창 최소 크기", r.profile.minWindowPt ? r.profile.minWindowPt.join(" × ") + " pt" : "—"],
+      ["관리자 가로 고정", r.profile.adminLandscapeLock && !r.now ? "예" : "아니오"],
+      ["크기 출처", r.preset.src],
+    ];
+    var info = document.getElementById("info"); info.innerHTML = "";
+    rows.forEach(function(x){ var d = el("div"); d.appendChild(el("dt", null, x[0])); d.appendChild(el("dd", null, x[1])); info.appendChild(d); });
+  }
+
+  // 3. 회전 비교
+  function renderRotation(){
+    var host = document.getElementById("rotation"); host.innerHTML = "";
+    ["xiaomi","ipad10","ipad-mini"].forEach(function(id){
+      var wrap = el("div", { class: "panel" });
+      var p = S.PRESETS.filter(function(x){ return x.id === id; })[0];
+      wrap.appendChild(el("h3", null, p.name + " · " + S.DEVICE_PROFILES[p.device].label));
+      var rowEl = el("div", { class: "row-frames" });
+      ["portrait","landscape"].forEach(function(o){
+        var r = S.resolve(id, o);
+        var fig = el("figure"); var box = el("div", { class: "device static" }); var f = el("iframe", { title: p.name + " " + o, loading: "lazy" });
+        f.setAttribute("src", frameSrc(id, o, "lounge", true)); box.appendChild(f); fig.appendChild(box);
+        fit(box, f, r.css, 0.34, 1000, 1000);
+        var cap = el("figcaption"); cap.innerHTML = "<b>" + (o === "portrait" ? "세로 " : "가로 ") + r.css[0] + " × " + r.css[1] + "</b><br>" + (r.wide ? "두 칸 · 하단 탭 목록 칸 아래" : "한 화면 · 글 전체 화면 · 하단 탭 창 전체");
+        fig.appendChild(cap); rowEl.appendChild(fig);
+      });
+      wrap.appendChild(rowEl); host.appendChild(wrap);
+    });
+  }
+
+  // 4. 전 기기 한눈에
+  var matrixTab = "lounge";
+  function renderMatrix(){
+    document.querySelectorAll("#ctl-matrix-tab .btn").forEach(function(b){ b.setAttribute("aria-pressed", String(b.dataset.tab === matrixTab)); });
+    var host = document.getElementById("matrix"); host.innerHTML = "";
+    var K = 0.2; // 모든 프레임 같은 축척: CSS 1px(Mac 은 1pt) = 0.2 화면 px
+    ["PHONE","TABLET","DESKTOP"].forEach(function(f){
+      var block = el("div", { class: "fam-block" });
+      var t = el("div", { class: "fam-title" }); t.appendChild(el("h3", null, FAM_KO[f]));
+      block.appendChild(t);
+      var rowEl = el("div", { class: "row-frames" });
+      fams[f].forEach(function(p){
+        var prof = S.DEVICE_PROFILES[p.device];
+        var orients = prof.rotation === "PORTRAIT_AND_LANDSCAPE" && p.landscape && p.id !== "ipad-split" ? ["portrait","landscape"] : ["portrait"];
+        orients.forEach(function(o){
+          var r = S.resolve(p.id, o);
+          var fig = el("figure"); var box = el("div", { class: "device static" }); var fr = el("iframe", { title: p.name, loading: "lazy" });
+          fr.setAttribute("src", frameSrc(p.id, o, matrixTab, true)); box.appendChild(fr); fig.appendChild(box);
+          var k = K * physFactor(r);
+          box.style.width = (r.css[0] * k) + "px"; box.style.height = (r.css[1] * k) + "px";
+          fr.style.width = r.css[0] + "px"; fr.style.height = r.css[1] + "px"; fr.style.transform = "scale(" + k + ")";
+          var cap = el("figcaption");
+          cap.innerHTML = (r.now ? '<span class="pill fail">지금</span> ' : "") + "<b>" + p.name + (r.orientation && p.id !== "ipad-split" ? (o === "portrait" ? " · 세로" : " · 가로") : "") + "</b><br>" + (r.pt ? r.pt.join("×") + "pt → CSS " + r.css.join("×") : "CSS " + r.css.join("×")) + " · " + NAV_KO[r.nav];
+          fig.appendChild(cap); rowEl.appendChild(fig);
+        });
+      });
+      block.appendChild(rowEl); host.appendChild(block);
+    });
+  }
+
+  // 5. 표
+  function renderTables(){
+    var t = document.getElementById("t-profiles");
+    var head = "<thead><tr><th>기기 종류</th><th>기기</th><th>형태</th><th>판정 근거</th><th>메뉴 (한 화면)</th><th>메뉴 (두 칸)</th><th>두 칸</th><th>회전</th><th>웹뷰 배율</th><th>창 최소</th><th>관리자 가로 고정</th><th>시작 화면</th></tr></thead>";
+    var body = Object.keys(S.DEVICE_PROFILES).map(function(k){
+      var p = S.DEVICE_PROFILES[k];
+      return "<tr><td class='k'>" + k + (k === "DESKTOP_MAC" ? " <span class='pill new'>새로</span>" : "") + "</td><td>" + p.label + "</td><td>" + FAM_KO[p.family] + "</td><td>" + p.identity + "</td><td>" + NAV_KO[p.navNarrow] + "</td><td>" + NAV_KO[p.navWide] + "</td><td>" + (p.split ? "CSS ≥ " + S.LAYOUT.splitMinCss : "없음") + "</td><td>" + ROT_KO[p.rotation] + "</td><td>" + (Math.round(p.webZoom * 1000) / 1000) + "</td><td>" + (p.minWindowPt ? p.minWindowPt.join("×") + "pt" : "—") + "</td><td>" + (p.adminLandscapeLock ? "예" : "아니오") + "</td><td>" + p.launchIntro + "</td></tr>";
+    }).join("");
+    t.innerHTML = head + "<tbody>" + body + "</tbody>";
+    var L = S.LAYOUT;
+    document.getElementById("t-layout").innerHTML = "<thead><tr><th>공통 값</th><th>값</th><th>출처 (지금 계약)</th></tr></thead><tbody>"
+      + "<tr><td>두 칸 시작 CSS 폭</td><td class='k'>" + L.splitMinCss + "</td><td>APP_MESSENGER_SPLIT_MIN_PX</td></tr>"
+      + "<tr><td>목록 칸 폭</td><td class='k'>" + L.listPaneWidthCss + "</td><td>메신저 목록 칸 계약</td></tr>"
+      + "<tr><td>세로 메뉴 폭</td><td class='k'>" + L.sideRailWidthCss + "</td><td>MAIN_DESKTOP_SIDE_NAV_WIDTH_PX (Owner 11-07 D1)</td></tr>"
+      + "<tr><td>하단 탭 높이</td><td class='k'>" + L.bottomNavHeightCss + "</td><td>app-bottom-nav.css</td></tr>"
+      + "<tr><td>글 상세 본문 최대 폭</td><td class='k'>" + L.detailReadingMaxCss + "</td><td>글 상세 max-w-3xl (지금 그대로)</td></tr>"
+      + "<tr><td>탭별 넓은 창</td><td class='k'>" + Object.keys(S.TAB_LAYOUT).map(function(k){ return S.TAB_LAYOUT[k].label + "=" + (S.TAB_LAYOUT[k].wide === "SINGLE" ? "한 화면" : "두 칸"); }).join(" · ") + "</td><td>권장안 C3</td></tr></tbody>";
+    var ol = document.getElementById("t-rules"); S.ROTATION_RULES.forEach(function(x){ ol.appendChild(el("li", null, x)); });
+  }
+
+  renderTables(); render(); renderRotation(); renderMatrix();
+  window.addEventListener("resize", function(){ render(); });
+})();
+</script>
