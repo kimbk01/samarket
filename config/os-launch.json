@@ -4,9 +4,9 @@
   "backgroundColor": "#075740",
   "logo": {
     "source": "public/images/brand/dibay-logo-mark.png",
-    "width": 716,
-    "height": 681,
-    "sha256": "2c6fec222d1c27236f43060f6567dc61912a8ef2f351ab5503a7633b681c1eed"
+    "width": 719,
+    "height": 705,
+    "sha256": "7b9155e1e710d1509458307ba6c57457443e24fd36315c718c354ae1c22c94b6"
   },
   "android": {
     "logoCanvasPx": 960,
