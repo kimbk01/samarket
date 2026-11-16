@@ -230,6 +230,11 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
 
   // MARK: - v7 수정안 C (Owner 2026-11-17 시안 v7 승인) — Mac 화면 폭 메타
   private var macContentScale: CGFloat?
+  private static let macViewportProbeScript =
+    "(function(){try{var m=document.querySelector('meta[name=\\\"viewport\\\"]'),v=window.visualViewport;"
+    + "return JSON.stringify({meta:m?m.getAttribute('content'):null,metas:document.querySelectorAll('meta[name=\\\"viewport\\\"]').length,"
+    + "iw:innerWidth,cw:document.documentElement.clientWidth,sw:document.documentElement.scrollWidth,"
+    + "vvw:v&&Math.round(v.width),vvs:v&&v.scale,dpr:devicePixelRatio,hook:!!window.__dibayMacViewport});}catch(e){return 'err '+e;}})()"
   private var lastPushedMacViewWidth: CGFloat = 0
 
   /// Mac 만: 문서 시작 스크립트(화면 폭 메타 고정) + 스크립트의 「ready」 요청을 받는 처리기.
@@ -260,6 +265,12 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
       completionHandler: nil
     )
     NSLog("[DibayDeviceProfile] mac_view_width=%.0f force=%d", Double(width), force ? 1 : 0)
+    // 측정용 기록(Debug·Release 공통, 값만): 실제 메타·폭·배율 — 수정안 C 가 문서에 적용됐는지 판정 근거.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak wv] in
+      wv?.evaluateJavaScript(Self.macViewportProbeScript) { result, error in
+        NSLog("[DibayDeviceProfile] mac_viewport_probe %@", String(describing: result ?? error ?? "nil"))
+      }
+    }
   }
 
   override func viewDidLayoutSubviews() {
