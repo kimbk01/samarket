@@ -24,7 +24,7 @@ import {
 import { formatMessengerPeerPresenceLine } from "@/lib/community-messenger/realtime/presence/format-messenger-peer-presence-line";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { CrewRepBadge } from "@/components/trust/CrewRep";
-import { CrewRepPeerButton } from "@/components/trust/CrewRepPeerButton";
+import { CrewRepPeerButton, useCrewRepPublicSummary } from "@/components/trust/CrewRepPeerButton";
 
 export type RoomType = "direct" | "trade";
 
@@ -192,7 +192,11 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
 
   const profileNickname = menuProfile?.nickname?.trim() || otherUser.nickname;
   const profileAvatarUrl = menuProfile?.avatarUrl ?? otherUser.avatarUrl;
-  const profileCrewRepScore = menuProfile ? menuProfile.crewRepScore : otherUser.mannerScore;
+  const snapshotCrewRepScore = menuProfile ? menuProfile.crewRepScore : otherUser.mannerScore;
+  /** 실기 결함 F2: 방 데이터에 점수가 없으면(거래 상세 없음·일반 1:1) 메뉴를 열 때 공개 요약 1회 읽기. 매장 프로필은 제외 */
+  const peerMemberId = !menuProfile && otherUser.id && otherUser.id !== "peer" ? otherUser.id : null;
+  const fetchedCrewRep = useCrewRepPublicSummary(peerMemberId, snapshotCrewRepScore == null);
+  const profileCrewRepScore = snapshotCrewRepScore ?? fetchedCrewRep?.score ?? null;
   const profileAvatarRounded =
     menuProfile?.avatarShape === "store_rect" ? "rounded-ui-rect" : "rounded-full";
 
@@ -235,6 +239,7 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
                     userId={otherUser.id}
                     score={profileCrewRepScore}
                     name={profileNickname}
+                    initialSummary={fetchedCrewRep}
                     asSeller={tradeContext ? tradeContext.viewerRole === "buyer" : true}
                   />
                 ) : (

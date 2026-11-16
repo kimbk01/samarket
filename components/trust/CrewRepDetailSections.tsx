@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildCrewRepView, CREW_REP_TIERS } from "@/lib/trust/crew-rep";
+import { buildCrewRepChartPoints } from "@/lib/trust/crew-rep-chart-points";
 import {
   crewRepAxisKey,
   crewRepCauseKey,
@@ -40,16 +41,14 @@ function ScoreChart({ history, current, nowMs }: { history: Detail["history"]; c
   const H = 120;
   const L = 26;
   const startMs = nowMs - 90 * 86_400_000;
-  const pts = [...history.map((h) => ({ t: new Date(h.at).getTime(), v: h.after })), { t: nowMs, v: current }]
-    .filter((p) => p.t >= startMs)
-    .sort((a, b) => a.t - b.t);
-  if (pts.length === 1) pts.unshift({ t: startMs, v: current });
+  // F3: 시작점 = 첫 변화의 「바뀌기 전 점수」 (lib/trust/crew-rep-chart-points.ts)
+  const pts = buildCrewRepChartPoints(history, current, nowMs);
   const x = (t: number) => L + ((t - startMs) / (nowMs - startMs)) * (W - L - 4);
   const y = (v: number) => 4 + ((100 - v) / 100) * (H - 20);
   // 계단형(재계산 시점에 바뀜)
   let d = "";
   pts.forEach((p, i) => {
-    if (i === 0) d += `M${x(startMs).toFixed(1)},${y(p.v).toFixed(1)}`;
+    if (i === 0) d += `M${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`;
     else d += ` H${x(p.t).toFixed(1)} V${y(p.v).toFixed(1)}`;
   });
   d += ` H${x(nowMs).toFixed(1)}`;

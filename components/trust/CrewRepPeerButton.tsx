@@ -5,14 +5,14 @@
  * 구매자가 판매자를 볼 때: 거래 평가(T)를 맨 위에, 그 아래 약속·참여 요약. 평가자·날짜·개별 내역은 보이지 않는다.
  * 데이터: GET /api/users/:id/crew-rep (시트를 열 때 1회).
  */
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { CrewRepBadge, CrewRepBar, CrewRepTierChip } from "@/components/trust/CrewRep";
 import { buildCrewRepView, CREW_REP_MAX } from "@/lib/trust/crew-rep";
 import { tradeReviewTagLabel } from "@/lib/trade/trade-review-tags";
 
-type Summary = {
+export type CrewRepPublicSummaryView = {
   score: number;
   axes: { trade: number; manner: number; participation: number };
   newCrew: boolean;
@@ -29,6 +29,31 @@ type Summary = {
   manner: { cleanMonths: number; moimAttended: number; moimNoShow: number; confirmedReports: number };
 };
 
+/**
+ * 상대 회원 공개 요약 1회 읽기 — 방 데이터에 점수가 없을 때(⋮ 메뉴, 실기 결함 F2).
+ * enabled 가 false 이면 요청하지 않는다. 실패하면 null(가짜 값 없음).
+ */
+export function useCrewRepPublicSummary(userId: string | null, enabled: boolean): CrewRepPublicSummaryView | null {
+  const [data, setData] = useState<CrewRepPublicSummaryView | null>(null);
+  useEffect(() => {
+    if (!enabled || !userId) return;
+    let alive = true;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/users/${encodeURIComponent(userId)}/crew-rep`, { credentials: "include" });
+        const json = (await res.json()) as { ok?: boolean } & CrewRepPublicSummaryView;
+        if (alive && res.ok && json.ok && Number.isFinite(Number(json.score))) setData(json);
+      } catch {
+        /* 점수를 모르면 표시하지 않는다 */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [enabled, userId]);
+  return data;
+}
+
 export function CrewRepPeerButton({
   userId,
   score,
@@ -37,6 +62,7 @@ export function CrewRepPeerButton({
   /** 판매자로 보이는 화면(상품 상세 등) — 거래 평가의 평가 방향(구매자→판매자) 태그 이름에 쓴다 */
   asSeller = true,
   className = "",
+  initialSummary = null,
 }: {
   userId: string;
   score: number;
@@ -44,10 +70,12 @@ export function CrewRepPeerButton({
   variant?: "full" | "compact";
   asSeller?: boolean;
   className?: string;
+  /** 이미 읽은 공개 요약 — 있으면 시트를 열 때 다시 읽지 않는다 */
+  initialSummary?: CrewRepPublicSummaryView | null;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [data, setData] = useState<Summary | null>(null);
+  const [data, setData] = useState<CrewRepPublicSummaryView | null>(initialSummary);
   const [failed, setFailed] = useState(false);
 
   const openSheet = useCallback(async () => {
@@ -56,7 +84,7 @@ export function CrewRepPeerButton({
     setFailed(false);
     try {
       const res = await fetch(`/api/users/${encodeURIComponent(userId)}/crew-rep`, { credentials: "include" });
-      const json = (await res.json()) as { ok?: boolean } & Summary;
+      const json = (await res.json()) as { ok?: boolean } & CrewRepPublicSummaryView;
       if (!res.ok || !json.ok) {
         setFailed(true);
         return;
