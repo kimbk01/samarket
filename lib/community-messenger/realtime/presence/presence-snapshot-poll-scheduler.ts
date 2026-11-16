@@ -24,7 +24,14 @@ const DUE_TOLERANCE_MS = 1_000;
 
 export type PresenceSnapshotPollSchedulerDeps = {
   fetchBatch: (ids: string[]) => Promise<Map<string, CommunityMessengerPeerPresenceSnapshot>>;
-  apply: (snapshots: Map<string, CommunityMessengerPeerPresenceSnapshot>, info: { observedAtMs: number; elapsedMs: number }) => void;
+  /**
+   * `initial` = 실시간 정상 중 처음 보는 id 의 첫 값 조회 — 적용측은 저장소에 없는 id 만 채운다(실시간 값 덮지 않음).
+   * false = 실시간 비정상 폴링 — 지금처럼 덮는다.
+   */
+  apply: (
+    snapshots: Map<string, CommunityMessengerPeerPresenceSnapshot>,
+    info: { observedAtMs: number; elapsedMs: number; initial: boolean }
+  ) => void;
   isRealtimeHealthy: () => boolean;
   /** 방 진입 우선 모드 등 — true 면 잠시 뒤로 미룸 */
   isDeferred: () => boolean;
@@ -109,11 +116,19 @@ export function createPresenceSnapshotPollScheduler(deps: PresenceSnapshotPollSc
     return due.slice(0, maxIdsPerTick).map((d) => d.id);
   };
 
+  /** 한 번도 조회하지 않은 id — 실시간 접속 채널은 지금 접속 중인 사람만 알려 주므로 첫 값은 서버에서 1회 받는다 */
+  const pickNeverFetchedIds = (): string[] =>
+    [...refs.keys()].filter((id) => !lastFetchedAt.has(id)).slice(0, maxIdsPerTick);
+
   const run = async () => {
     if (refs.size === 0) return;
     if (!deps.isDocumentVisible()) return; // notifyVisible 에서 재개
-    if (deps.isRealtimeHealthy()) {
-      // Realtime 이 정상 — 조회 중단, 저비용 health probe 만 유지
+    const healthy = deps.isRealtimeHealthy();
+    /**
+     * Realtime 이 정상 — 반복 조회는 하지 않는다. 다만 처음 보는 id 는 1회 조회한다(2026-11-16 감사 R1:
+     * 접속하지 않은 상대는 실시간으로 값이 오지 않아 1:1 머리글이 방 설명 문구로 남았다).
+     */
+    if (healthy && pickNeverFetchedIds().length === 0) {
       schedule(intervalMs);
       return;
     }
@@ -127,9 +142,9 @@ export function createPresenceSnapshotPollScheduler(deps: PresenceSnapshotPollSc
       schedule(lastRunAt + minRunGapMs - now);
       return;
     }
-    const ids = pickDueIds();
+    const ids = healthy ? pickNeverFetchedIds() : pickDueIds();
     if (ids.length === 0) {
-      schedule(nextDueDelay());
+      schedule(healthy ? intervalMs : nextDueDelay());
       return;
     }
     inFlight = true;
@@ -141,7 +156,9 @@ export function createPresenceSnapshotPollScheduler(deps: PresenceSnapshotPollSc
         const observedAtMs = deps.now();
         const visible = new Map<string, CommunityMessengerPeerPresenceSnapshot>();
         for (const [id, snap] of result) if (refs.has(id)) visible.set(id, snap);
-        if (visible.size > 0) deps.apply(visible, { observedAtMs, elapsedMs: Math.max(0, observedAtMs - now) });
+        if (visible.size > 0) {
+          deps.apply(visible, { observedAtMs, elapsedMs: Math.max(0, observedAtMs - now), initial: healthy });
+        }
       }
     } catch {
       /* 다음 주기에 재시도 */

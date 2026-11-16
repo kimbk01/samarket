@@ -61,14 +61,15 @@ describe("createPresenceSnapshotPollScheduler", () => {
     expect(calls).toHaveLength(3);
   });
 
-  it("does not fetch while realtime is healthy and resumes when it becomes unhealthy", async () => {
+  /** 2026-11-16 감사 F1: 실시간 정상이어도 처음 보는 id 는 첫 값 1회 조회 — 그 뒤 정상인 동안은 조회하지 않음 */
+  it("fetches a new id once while realtime is healthy, then stops until it becomes unhealthy", async () => {
     const { scheduler, state, calls } = setup({ healthy: true });
     scheduler.subscribe("a");
     await vi.advanceTimersByTimeAsync(30_000);
-    expect(calls).toHaveLength(0);
+    expect(calls).toEqual([["a"]]);
     state.healthy = false;
     await vi.advanceTimersByTimeAsync(12_100);
-    expect(calls).toEqual([["a"]]);
+    expect(calls).toEqual([["a"], ["a"]]);
   });
 
   it("stops the timer when the last subscriber leaves", async () => {
