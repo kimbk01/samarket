@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>device frame</title>
+<link rel="stylesheet" href="app.css">
+<style>
+html,body{margin:0;height:100%;background:var(--sam-bg-app)}
+.app-shell.mock-root{height:100vh;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.mock-single{flex:1;min-height:0;overflow:auto}
+.mock-split{flex:1;display:flex;min-height:0}
+/* 목록 칸 폭 = profiles.js LAYOUT.listPaneWidthCss (메신저 목록 칸 계약) */
+.mock-pane-list{flex:none;width:var(--mock-list-w);min-height:0;overflow:auto;border-right:1px solid var(--cm-border,#e5e7eb);position:relative;transform:translateZ(0)}
+.mock-pane-detail{flex:1 1 auto;min-width:0;min-height:0;overflow:auto;background:var(--cm-page-bg,#f7f7f5)}
+.mock-empty{height:100%}
+.mock-bottom-space{height:76px}
+[data-mock-selected]{outline:2px solid var(--cm-primary,#006241);outline-offset:-2px;border-radius:var(--cm-radius-card,12px)}
+.mock-login-note{margin:24px 16px;padding:16px;border:1px dashed var(--cm-border,#ddd);border-radius:6px;font-size:13px;color:var(--sam-muted,#666);line-height:1.5;background:#fff}
+</style>
+<script src="profiles.js"></script>
+</head>
+<body>
+<div id="root" class="app-shell mock-root" data-community-ui=""></div>
+<script>
+(function(){
+  var S = window.DIBAY_DEVICE_SSOT;
+  var q = new URLSearchParams(location.hash.slice(1));
+  var r = S.resolve(q.get("d") || "windows", q.get("o") || "portrait");
+  var tab = q.get("tab") || "lounge";
+  var open = q.get("open") === "1";
+  var root = document.getElementById("root");
+  var html = document.documentElement;
+
+  // 메뉴 위치 → html 셸 속성 (운영 CSS 의 실제 선택자)
+  html.setAttribute("data-shell-bottom-nav", "");
+  html.setAttribute("data-shell-hydrated", "");
+  if (r.nav === "SIDE_RAIL") { html.setAttribute("data-shell-bottom-nav-side-rail", ""); html.setAttribute("data-shell-desktop-side-rail", ""); }
+  root.style.setProperty("--mock-list-w", S.LAYOUT.listPaneWidthCss);
+
+  fetch("captured.json").then(function(res){ return res.json(); }).then(function(cap){
+    var ICON = {
+      home:'<path d="M219.31,108.68l-80-80a16,16,0,0,0-22.62,0l-80,80A15.87,15.87,0,0,0,32,120v96a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V160h32v56a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V120A15.87,15.87,0,0,0,219.31,108.68ZM208,208H160V152a8,8,0,0,0-8-8H104a8,8,0,0,0-8,8v56H48V120l80-80,80,80Z"></path>',
+      community:'<path d="M64.12,147.8a4,4,0,0,1-4,4.2H16a8,8,0,0,1-7.8-6.17,8.35,8.35,0,0,1,1.62-6.93A67.79,67.79,0,0,1,37,117.51a40,40,0,1,1,66.46-35.8,3.94,3.94,0,0,1-2.27,4.18A64.08,64.08,0,0,0,64,144C64,145.28,64,146.54,64.12,147.8Zm182-8.91A67.76,67.76,0,0,0,219,117.51a40,40,0,1,0-66.46-35.8,3.94,3.94,0,0,0,2.27,4.18A64.08,64.08,0,0,1,192,144c0,1.28,0,2.54-.12,3.8a4,4,0,0,0,4,4.2H240a8,8,0,0,0,7.8-6.17A8.33,8.33,0,0,0,246.17,138.89Zm-89,43.18a48,48,0,1,0-58.37,0A72.13,72.13,0,0,0,65.07,212,8,8,0,0,0,72,224H184a8,8,0,0,0,6.93-12A72.15,72.15,0,0,0,157.19,182.07Z"></path>',
+      stores:'<path d="M216,128a39.3,39.3,0,0,0-6.27.5L175.49,37.19A8,8,0,0,0,168,32H136a8,8,0,0,0,0,16h26.46l32.3,86.13a40.13,40.13,0,0,0-18,25.87H136.54l-25-66.81A8,8,0,0,0,104,88H24a8,8,0,0,0,0,16h8v13.39A56.12,56.12,0,0,0,0,168a8,8,0,0,0,8,8h8.8a40,40,0,0,0,78.4,0h81.6A40,40,0,1,0,216,128ZM42.67,130.27A8,8,0,0,0,48,122.730V104H98.46l21,56H16.81A40.07,40.07,0,0,1,42.67,130.27ZM56,192a24,24,0,0,1-22.62-16H78.62A24,24,0,0,1,56,192Zm160,0a24,24,0,0,1-15.43-42.36l7.94,21.17a8,8,0,0,0,15-5.62L215.55,144H216a24,24,0,0,1,0,48Z"></path>',
+      chat:'<path d="M232.07,186.76a80,80,0,0,0-62.5-114.17A80,80,0,1,0,23.93,138.76l-7.27,24.71a16,16,0,0,0,19.87,19.87l24.71-7.27a80.39,80.39,0,0,0,25.18,7.35,80,80,0,0,0,108.34,40.65l24.71,7.27a16,16,0,0,0,19.87-19.86ZM62,159.5a8.28,8.28,0,0,0-2.26.32L32,168l8.17-27.76a8,8,0,0,0-.63-6,64,64,0,1,1,26.26,26.26A8,8,0,0,0,62,159.5Zm153.79,28.73L224,216l-27.76-8.17a8,8,0,0,0-6,.63,64.05,64.05,0,0,1-85.87-24.880A79.93,79.93,0,0,0,174.7,89.71a64,64,0,0,1,41.75,92.48A8,8,0,0,0,215.82,188.23Z"></path>'
+    };
+    var TABMAP = { home:"home", community:"lounge", stores:"dipick", chat:"telring", my:"my" };
+    var TABID = { home:"home", lounge:"community", dipick:"stores", telring:"chat", my:"my" };
+    function navItem(id, label){
+      var active = TABID[tab] === id;
+      var icon = id === "my"
+        ? '<span class="app-bottom-nav-inline-icon app-bottom-nav-inline-icon--avatar"><img alt="" width="28" height="28" class="app-bottom-nav-profile-avatar" src="avatar.svg"></span>'
+        : '<span class="app-bottom-nav-inline-icon"><svg class="app-bottom-nav-icon-svg" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">'+ICON[id]+'</svg></span>';
+      return '<a class="app-bottom-nav-item group touch-manipulation select-none'+(id==="my"?" app-bottom-nav-item--my-menu":"")+'" data-bottom-nav-tab-id="'+id+'" data-active="'+active+'"'+(active?' aria-current="page"':'')+' href="#"><div class="app-bottom-nav-icon-slot">'+icon+'</div><span class="app-bottom-nav-label ">'+label+'</span></a>';
+    }
+    var navClass = r.nav === "SIDE_RAIL" ? "app-bottom-nav-shell--side-rail" : r.nav === "BOTTOM_UNDER_LIST" ? "app-bottom-nav-shell--messenger-split-list" : "";
+    var nav = '<nav class="app-bottom-nav-shell '+navClass+'" aria-label="주요 메뉴" data-app-bottom-nav=""><div class="app-bottom-nav-plane"><div class="app-bottom-nav-container" data-tab-count="5">'
+      + navItem("home","HOME") + navItem("community","LOUNGE") + navItem("stores","DIPICK") + navItem("chat","telRING") + navItem("my","MY")
+      + '</div></div></nav>';
+    var space = r.nav === "SIDE_RAIL" ? "" : '<div class="mock-bottom-space"></div>';
+
+    var layout = S.TAB_LAYOUT[tab].wide;
+    var listHtml, detailHtml;
+    if (tab === "home") listHtml = cap.home.html;
+    else if (tab === "dipick") listHtml = cap.stores.html;
+    else if (tab === "lounge") { listHtml = cap.lounge.html; detailHtml = cap.detail.html; }
+    else {
+      listHtml = '<div class="mock-login-note">'+(tab === "telring" ? "telRING" : "MY")+' 은 로그인 화면이라 시안 캡처에 넣지 않았습니다. 칸 배치·메뉴 위치는 다른 탭과 같은 규칙입니다. telRING 두 칸은 지금 운영에 이미 있습니다.</div>';
+      detailHtml = null;
+    }
+
+    var body;
+    if (layout === "LIST_DETAIL" && r.wide) {
+      var detail = open && detailHtml ? detailHtml : (tab === "telring" ? '<div class="cm-messenger-wallpaper mock-empty" data-messenger-detail-empty=""></div>' : '<div class="mock-empty"></div>');
+      body = '<div class="mock-split"><section class="mock-pane-list" data-mock-pane="list">'+listHtml+space+'</section><section class="mock-pane-detail" data-mock-pane="detail">'+detail+'</section></div>';
+    } else {
+      body = '<div class="mock-single">'+((layout === "LIST_DETAIL" && open && detailHtml) ? detailHtml : listHtml)+space+'</div>';
+    }
+    root.innerHTML = body + nav;
+
+    // 선택된 글 표시 (두 칸에서 상세가 열렸을 때)
+    if (layout === "LIST_DETAIL" && r.wide && open) {
+      var a = root.querySelector('[data-mock-pane="list"] a[href*="5439f751"]');
+      var art = a && a.closest("article"); if (art) art.setAttribute("data-mock-selected", "1");
+    }
+    // 두 칸 상세에는 뒤로 버튼 없음 (목록이 옆에 있음)
+    if (r.wide) root.querySelectorAll('[data-mock-pane="detail"] .sector-header-back').forEach(function(b){ b.style.visibility = "hidden"; });
+
+    // 클릭 → 부모 화면에 상태 전달 (탭 이동·글 열기·뒤로)
+    root.addEventListener("click", function(e){
+      var t = e.target.closest("a,button"); if (!t) return;
+      e.preventDefault();
+      var navId = t.getAttribute("data-bottom-nav-tab-id");
+      var msg = null;
+      if (navId) msg = { tab: TABMAP[navId], open: false };
+      else if (t.matches(".sector-header-back")) msg = { open: false };
+      else if (tab === "lounge" && t.closest("article")) msg = { open: true };
+      if (msg) parent.postMessage({ dibayMock: msg }, "*");
+    }, true);
+    document.documentElement.setAttribute("data-mock-ready", "1");
+    window.addEventListener("hashchange", function(){ location.reload(); });
+  });
+})();
+</script>
+</body>
+</html>
