@@ -17,8 +17,7 @@ import {
   buildProfileRegionNameForStorage,
 } from "@/lib/profile/profile-location";
 import { REGIONS } from "@/lib/products/form-options";
-import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
-import { profilePhoneStorageFieldsFromDb09 } from "@/lib/profile/resolve-profile-phone";
+import { resolveAdminProfilePhone } from "@/lib/phone/verify-phone-number";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
 import { escapeIlikePatternFragment } from "@/lib/community-messenger/profile-user-search-filter";
 import { adminServerText } from "@/lib/i18n/admin-server-language";
@@ -150,9 +149,9 @@ export async function POST(req: NextRequest) {
   const addressFromBody = parseAddressPayload(body.addressPayload);
   const seedNickname = String(body.addressPayload?.seedNickname ?? "home").trim() || "home";
 
-  const phNorm = normalizeOptionalPhMobileDb(contactPhoneRaw);
-  if (!phNorm.ok) {
-    return jsonFieldError("contactPhone", "phone_rule", 400);
+  const resolvedPhone = contactPhoneRaw ? resolveAdminProfilePhone(contactPhoneRaw) : null;
+  if (contactPhoneRaw && !resolvedPhone) {
+    return jsonFieldError("contactPhone", "admin_users_member_verify_invalid_phone", 400);
   }
   if (contactAddressRaw.length > 2000) {
     return jsonFieldError("address", "admin_users_err_address_too_long", 400);
@@ -187,8 +186,13 @@ export async function POST(req: NextRequest) {
     return jsonFieldError("address", "addr_ui_pick_search_result", 400);
   }
 
-  const contactPhone = phNorm.value;
-  const phoneFields = profilePhoneStorageFieldsFromDb09(contactPhone);
+  /** 필리핀 `09…`·한국 `+82…` — 전화 인증과 같은 저장 형식 (resolveAdminProfilePhone). */
+  const phoneFields = resolvedPhone
+    ? resolvedPhone.storage
+    : { phone: null, phone_country_code: null, phone_number: null };
+  /** 대표 주소 연락처 — 필리핀은 기존대로 국내 9…, 한국은 나라가 드러나게 E.164. */
+  const addressPhoneNumber =
+    resolvedPhone?.country === "KR" ? resolvedPhone.e164 : phoneFields.phone_number;
   /** Auth 로그인 식별자는 항상 loginId@manual.local. 연락 이메일은 profiles.email 만. */
   const authEmail = buildManualMemberAuthEmail(username);
   const contactEmail = emailRaw || null;
@@ -356,7 +360,7 @@ export async function POST(req: NextRequest) {
       if (addressFromBody && adminCreateMemberAddressHasSelection(addressFromBody)) {
         const payload = buildUserAddressSeedPayload(addressFromBody, {
           recipientName: name || nickname,
-          phoneNumber: phoneFields.phone_number,
+          phoneNumber: addressPhoneNumber,
           regionId,
           cityId,
         });
@@ -376,7 +380,7 @@ export async function POST(req: NextRequest) {
           labelType: "home",
           nickname: seedNickname,
           recipientName: name || nickname,
-          phoneNumber: phoneFields.phone_number,
+          phoneNumber: addressPhoneNumber,
           countryCode: "PH",
           countryName: "Philippines",
           province: provinceLabel,
