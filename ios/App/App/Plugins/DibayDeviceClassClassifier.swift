@@ -62,6 +62,18 @@ enum DibayDeviceProfileNative {
     deviceClass == "DESKTOP_MAC" ? 1.0 / macIpadAppScale : 1.0
   }
 
+  /// v6 R6 (Owner 2026-11-17 시안 v6 승인) — 창 최대 폭 (Mac pt). 높이는 화면까지. LOUNGE 카드 3열이 끝까지 차는 폭.
+  static let macMaximumWindowWidthPt: CGFloat = 1440
+
+  /// 장면 좌표(iPad 점) 기준 최대 크기 — 폭만 제한. Mac 외 기기는 nil(제한 없음).
+  static func maximumSceneSize(deviceClass: String) -> CGSize? {
+    guard deviceClass == "DESKTOP_MAC" else { return nil }
+    return CGSize(
+      width: (macMaximumWindowWidthPt / macIpadAppScale).rounded(.down),
+      height: CGFloat.greatestFiniteMagnitude
+    )
+  }
+
   /// 장면 좌표(iPad 점) 기준 최소 크기. Mac 외 기기는 nil(제한 없음).
   static func minimumSceneSize(deviceClass: String) -> CGSize? {
     guard deviceClass == "DESKTOP_MAC" else { return nil }

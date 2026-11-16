@@ -78,6 +78,15 @@ export const DIBAY_DESKTOP_MIN_WINDOW: readonly [number, number] = [
   DIBAY_SMALLEST_PHONE_CSS[1],
 ];
 
+/**
+ * v6 R6 (Owner 2026-11-17 시안 v6 승인 「맥·윈도우는 전체 화면이 아니라 최대 또는 사용자 크기」) — Windows·Mac 창.
+ * 처음 열 때 1024×768, 그 뒤로는 사용자가 마지막에 둔 크기. 최대 폭 1440(높이는 화면까지) = LOUNGE 카드 3열이 끝까지 차는 폭.
+ * 단위는 창 안쪽 CSS px (Windows DIP · Mac pt — Mac 은 배율 1÷0.77 로 CSS 1px = 1pt). 네이티브 셸이 같은 값을 갖는다:
+ * Windows `windows/DibayDesktop/WindowSizeLimits.cs` (계약 시험 `dibay-device-profile.test.ts`).
+ */
+export const DIBAY_DESKTOP_DEFAULT_WINDOW: readonly [number, number] = [1024, 768];
+export const DIBAY_DESKTOP_MAX_WINDOW_WIDTH = 1440;
+
 export type DibaySideRailWindow = {
   widthCss: number;
   /** 창 높이 CSS. 없으면(서버·시험) 폭만 본다 */

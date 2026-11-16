@@ -15,6 +15,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             windowScene.sizeRestrictions?.minimumSize = minimum
             NSLog("[DibayDeviceProfile] min_scene_size=%.0fx%.0f", Double(minimum.width), Double(minimum.height))
         }
+        // v6 R6 — 창 최대 폭 1440pt (Mac 만). 최대화(채우기)해도 이 폭을 넘지 않는다.
+        if let maximum = DibayDeviceProfileNative.maximumSceneSize(
+            deviceClass: DibayDeviceClassClassifier.classify().deviceClass
+        ) {
+            windowScene.sizeRestrictions?.maximumSize = maximum
+            NSLog("[DibayDeviceProfile] max_scene_width=%.0f", Double(maximum.width))
+        }
         // SplashScreen and other plugins look up UIApplication.shared.delegate?.window first.
         (UIApplication.shared.delegate as? AppDelegate)?.window = window
 

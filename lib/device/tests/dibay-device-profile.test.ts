@@ -3,6 +3,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { DIBAY_DEVICE_CLASSES, type DibayDeviceClass } from "@/lib/device/dibay-device-class";
 import {
+  DIBAY_DESKTOP_DEFAULT_WINDOW,
+  DIBAY_DESKTOP_MAX_WINDOW_WIDTH,
   DIBAY_DESKTOP_MIN_WINDOW,
   DIBAY_MAC_IPAD_APP_SCALE,
   DIBAY_DEVICE_PROFILES,
@@ -106,6 +108,25 @@ describe("네이티브 값이 프로필 표와 같다", () => {
   });
 });
 
+describe("v6 R6 Windows·Mac 창 처음·최대 = 표 값 (네이티브 일치)", () => {
+  it("Windows 셸 상수 = 표 (최소 447×667 · 처음 1024×768 · 최대 폭 1440)", () => {
+    const cs = read("windows/DibayDesktop/WindowSizeLimits.cs");
+    const [minW, minH] = dibayDeviceProfile("DESKTOP_WINDOWS").minWindowPt!;
+    expect(cs).toContain(`public const int MinClientWidthDip = ${minW};`);
+    expect(cs).toContain(`public const int MinClientHeightDip = ${minH};`);
+    expect(cs).toContain(`public const int MaxClientWidthDip = ${DIBAY_DESKTOP_MAX_WINDOW_WIDTH};`);
+    expect(cs).toContain(`public const int DefaultClientWidthDip = ${DIBAY_DESKTOP_DEFAULT_WINDOW[0]};`);
+    expect(cs).toContain(`public const int DefaultClientHeightDip = ${DIBAY_DESKTOP_DEFAULT_WINDOW[1]};`);
+    expect(read("windows/DibayDesktop/MainWindow.xaml.cs")).toContain("new WindowSizeLimits(this)");
+  });
+
+  it("Mac 최대 폭 Swift 상수 = 표 · 장면에 적용", () => {
+    const swift = read("ios/App/App/Plugins/DibayDeviceClassClassifier.swift");
+    expect(swift).toContain(`static let macMaximumWindowWidthPt: CGFloat = ${DIBAY_DESKTOP_MAX_WINDOW_WIDTH}`);
+    expect(read("ios/App/App/SceneDelegate.swift")).toContain("windowScene.sizeRestrictions?.maximumSize = maximum");
+  });
+});
+
 describe("S3 웹뷰 배율·창 최소 크기 = 표 값 (네이티브 일치)", () => {
   const swift = read("ios/App/App/Plugins/DibayDeviceClassClassifier.swift");
 
@@ -125,7 +146,10 @@ describe("S3 웹뷰 배율·창 최소 크기 = 표 값 (네이티브 일치)", 
     expect(swift).toContain(`static let macMinimumWindowPt = CGSize(width: ${w}, height: ${h})`);
     const zoomTargets = [...swift.matchAll(/deviceClass == "(\w+)" \? 1\.0 \/ macIpadAppScale/g)].map((m) => m[1]);
     expect(zoomTargets).toEqual(dibayDeviceClassesWhere((p) => p.webViewZoom !== 1));
-    const minTargets = [...swift.matchAll(/guard deviceClass == "(\w+)" else \{ return nil \}/g)].map((m) => m[1]);
+    /** 최소·최대(v6) 크기 함수 모두 같은 대상 — 중복 제거 */
+    const minTargets = [
+      ...new Set([...swift.matchAll(/guard deviceClass == "(\w+)" else \{ return nil \}/g)].map((m) => m[1])),
+    ];
     // iOS 바이너리가 적용하는 최소 창은 Mac 만 (Windows 는 Windows 셸)
     expect(minTargets).toEqual(dibayDeviceClassesWhere((p) => p.minWindowPt != null && p.nativeShell === "ios"));
     expect(read("ios/App/App/DibayRootBridgeViewController.swift")).toContain("DibayDeviceProfileNative.webViewPageZoom(");
