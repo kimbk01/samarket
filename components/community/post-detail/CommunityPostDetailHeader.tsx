@@ -3,7 +3,8 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useLayoutEffect, useMemo } from "react";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
-import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
+import { usePathname } from "next/navigation";
+import { useSetMainTier1ExtrasOptional, type MainTier1ExtrasState } from "@/contexts/MainTier1ExtrasContext";
 import {
   SAM_TIER1_HEADER_ACTION_BTN_CLASS,
   SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
@@ -87,9 +88,12 @@ export function CommunityPostDetailHeader({ titleText, backHref, hasEntryOriginF
     [backHref, hasEntryOriginForPost, t]
   );
 
+  /** S4 — 등록 경로를 밝힌다(두 칸에서 목록 칸 머리글과 같이 보일 때 칸마다 자기 값) */
+  const registeredPathname = usePathname() ?? undefined;
+
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
-    setMainTier1Extras({
+    const registered: MainTier1ExtrasState = {
       tier1: {
         titleText: titleText || t("community_community_label"),
         backHref,
@@ -99,9 +103,12 @@ export function CommunityPostDetailHeader({ titleText, backHref, hasEntryOriginF
         leftSlot,
         rightSlot,
       },
-    });
-    return () => setMainTier1Extras(null);
-  }, [setMainTier1Extras, titleText, backHref, leftSlot, rightSlot, t]);
+      pathname: registeredPathname,
+    };
+    setMainTier1Extras(registered);
+    /** 내가 등록한 값일 때만 지운다 (두 칸 목록 허브가 마지막으로 등록한 값을 지우지 않게) */
+    return () => setMainTier1Extras(null, registered);
+  }, [setMainTier1Extras, titleText, backHref, leftSlot, rightSlot, t, registeredPathname]);
 
   return null;
 }

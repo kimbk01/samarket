@@ -19,7 +19,7 @@ import { getMessengerRoomBackOverride } from "@/lib/community-messenger/room/mes
 import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import { isMessengerHomeSubScreenSearch } from "@/lib/community-messenger/messenger-sub-screen-route";
 import { resolveTier1BarLabel } from "@/lib/layout/resolve-tier1-bar-label";
-import { mainTier1ExtrasForPathname, useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
+import { useHeaderScopedMainTier1Extras } from "@/contexts/MainTier1ExtrasContext";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
 import { DetailHeader } from "@/components/layout/sector-header";
 import { StoresBrowseHeaderChrome } from "@/components/stores/browse/StoresBrowseHeaderChrome";
@@ -59,9 +59,8 @@ export function RegionBar({
     const q = searchParams?.toString();
     return resolveMainTier1Subpage(pathNoQuery, q ? `?${q}` : "");
   }, [pathNoQuery, searchParams]);
-  const extrasOpt = useMainTier1ExtrasOptional();
-  /** 다른 경로에서 등록된 extras(전환 중 이전 화면)는 무시 — 첫 프레임은 경로 표(resolve-main-tier1) 제목 */
-  const extras = mainTier1ExtrasForPathname(extrasOpt?.extras, pathNoQuery);
+  /** 다른 경로에서 등록된 extras(전환 중 이전 화면)는 무시 — 첫 프레임은 경로 표(resolve-main-tier1) 제목 · S4 두 칸은 칸마다 자기 경로 값 */
+  const extras = useHeaderScopedMainTier1Extras(pathNoQuery);
   if (!ruleSet.showRegionBar || isMessengerSplitSurface) {
     return null;
   }
