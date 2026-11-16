@@ -9,7 +9,7 @@
 | 정책 값(가중치·K·상한·기간) | `lib/trust/crew-rep-policy.ts` |
 | 계산기(순수 함수) | `lib/trust/crew-rep-calculator.ts` |
 | 원장(사건 이력) | `trust_events` — 지우지 않고 `status=reversed` 로만 되돌림 |
-| 기록기 | `recordTrustEvent` / `reverseTrustEvent` (`lib/trust/trust-event-ledger.ts`) · 참여도 동기화기 `lib/trust/crew-rep-participation-sync.ts`(매일, S3) |
+| 기록기 | `recordTrustEvent` / `reverseTrustEvent` (`lib/trust/trust-event-ledger.ts`) · 참여도 동기화기 `lib/trust/crew-rep-participation-sync.ts`(매일, S3) · 매너·제재 동기화기 `lib/trust/crew-rep-manner-sync.ts`(매일, S4) · 허위 신고 판정 `/api/admin/users/:id/false-reports`(어드민, S4) |
 | 투영(읽기 권한) | `member_trust_snapshots` (`manner_battery_percent` = CREW REP 점수, 열 이름은 호환 유지) |
 | 점수 이력 | `member_trust_score_history` (service role 만) |
 | 매일 재계산 | `/api/cron/crew-rep-daily-recompute` 03:00 PHT (`0 19 * * *` UTC) |
@@ -42,4 +42,11 @@ S1 표기(#364) · **S2 계산기·이력·매일 재계산(이 문서)** · S3 
 **S3 참여도 기록(2026-11-16 00:00 PHT 이후 원천만):** 매일 예약 작업이 원천을 읽어 인정 사건을 기록하고, 숨김·삭제·좋아요 취소·후기 숨김이면 되돌린다(숨김 해제면 다시 인정).
 라운지 글 = 직접 쓴 글(`origin_kind=member`)·72시간 유지·다른 회원 반응 1개 이상 · 댓글 = 남의 글·10자 이상·24시간 유지 · 받은 좋아요 = 자기 좋아요 제외 ·
 매장 후기 = 완료 주문·완료 후 14일 안·10자 이상 또는 사진·본인 매장 제외·숨김이면 되돌림.
-S4~S5 전까지 매너·제재·거래 평가 기록기는 없다.
+**S4 매너·제재 기록(2026-11-16 00:00 PHT 이후 결정만):** 신고 접수는 사건이 아니다.
+- 제재 = `sanctions`(거래·라운지·모임 이용 제한이 모두 여기로 모임) — 철회면 되돌림.
+- 신고 확정(M −2) = 운영자가 콘텐츠를 숨김·삭제했고 같은 신고로 제재가 나가지 않은 것(제재가 있으면 S 로만). 같은 대상 여러 신고 = 1건.
+- 거래 사기·노쇼(T −3) = 사유가 사기(거래 신고 fraud)·사기/노쇼/외부 결제(채팅 신고)인 신고 확정, 같은 대상 1건.
+- 모임 출석(+0.5)·노쇼(−2) = 끝난 일정에서 모임장·공동모임장이 체크, 일정 주최자 본인 제외, 노쇼는 7일 뒤 반영.
+- 허위·악의 신고(신고자 M −2) = 어드민 회원 상세 CREW REP 영역에서 반려·기각 신고를 판정(취소 가능).
+- 주문 수령 노쇼: 원천 없음(매장이 손님 노쇼를 확정하는 기능이 없음) — 미구현.
+S5 전까지 거래 평가 기록기는 없다.
