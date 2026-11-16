@@ -172,7 +172,7 @@ describe("앱 안 알림 배너 — 단일 store 병합·소멸", () => {
       bodyTone: "normal" as const,
       occurredAt: null,
     };
-    const target = { type: "messenger_room" as const, roomId: "r" };
+    const target = { type: "messenger_room" as const, roomId: "r", listSource: "inbox" as const };
     const first = mergeInAppNotificationBanner(null, { presentation: base, target, dedupeKey: "1" }, 1000);
     const next = mergeInAppNotificationBanner(
       first,

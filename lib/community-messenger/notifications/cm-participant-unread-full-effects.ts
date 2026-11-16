@@ -8,6 +8,8 @@
  * 설정·activeRoom 은 `getNotificationSoundGateSnapshot()`(+ pathname) 폴백.
  */
 
+import type { MessengerRoomListSource } from "@/lib/community-messenger/messenger-entry-origin";
+import { messengerRoomListSourceForRoom } from "@/lib/community-messenger/messenger-room-list-source-for-room";
 import type { RefObject } from "react";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import type { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -109,7 +111,7 @@ function navigateToCommunityRoomLazy(
 async function resolveMessengerInAppBannerContent(
   roomId: string,
   viewerUserId: string | null | undefined
-): Promise<MessengerInAppBannerContent | null> {
+): Promise<(MessengerInAppBannerContent & { listSource: MessengerRoomListSource }) | null> {
   const viewer = typeof viewerUserId === "string" ? viewerUserId.trim() : "";
   if (!viewer) return null;
   const language = getRuntimeAppLanguage();
@@ -140,6 +142,8 @@ async function resolveMessengerInAppBannerContent(
   if (latest?.ok && Array.isArray(latest.messages) && contentMod.latestIncomingMessageIsCallStub(latest.messages, viewer)) {
     return null;
   }
+  /** 배너를 누르면 그 방이 속한 목록으로 연다 — 이미 읽은 방 요약으로 판정, 추가 요청 없음 (2026-11-16 감사 P3) */
+  const listSource = messengerRoomListSourceForRoom(room);
   if (latest?.ok && Array.isArray(latest.messages) && room) {
     const content = contentMod.buildMessengerInAppBannerContent({
       room,
@@ -149,9 +153,10 @@ async function resolveMessengerInAppBannerContent(
       language,
       chatPreviewEnabled,
     });
-    if (content) return content;
+    if (content) return { ...content, listSource };
   }
-  return row ? contentMod.buildMessengerInAppBannerContentFromListRow({ row, language, chatPreviewEnabled }) : null;
+  const fromRow = row ? contentMod.buildMessengerInAppBannerContentFromListRow({ row, language, chatPreviewEnabled }) : null;
+  return fromRow ? { ...fromRow, listSource } : null;
 }
 
 /**
@@ -309,6 +314,7 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
         avatarUrl: content.avatarUrl,
         kind: content.kind,
         dedupeKey,
+        listSource: content.listSource,
       });
     }
     tryShowMessengerWebDesktopNotification({

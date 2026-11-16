@@ -15,6 +15,7 @@ import {
 } from "@/lib/notifications/in-app-banner/in-app-notification-banner-store";
 import { activateNotificationDestination } from "@/lib/notifications/navigate-notification-destination";
 import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
+import { communityMessengerRoomHref } from "@/lib/community-messenger/messenger-entry-origin";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
 import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
@@ -122,7 +123,7 @@ export function InAppNotificationBannerHost() {
     dismiss();
     if (target.type === "messenger_room") {
       suppressCmRoomEntryNotificationSound(target.roomId);
-      router.push(`/community-messenger/rooms/${encodeURIComponent(target.roomId)}`);
+      router.push(communityMessengerRoomHref(target.roomId, null, target.listSource));
       return;
     }
     // C4 읽음 계약: 배너 탭도 종·전체 목록·푸시 탭과 같은 읽음 함수(PATCH → patchInboxNotificationIdsRead)로

@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { DIBAY_APP_ICON_512_PATH, dibayBrandAssetUrl } from "@/lib/brand/brand-asset-paths";
 import type { NotificationPresentation } from "@/lib/notifications/display/notification-presentation";
 import type { InboxHrefRow } from "@/lib/notifications/resolve-notification-inbox-href";
+import type { MessengerRoomListSource } from "@/lib/community-messenger/messenger-entry-origin";
 
 /**
  * 앱 안 알림 배너 — 단일 store (Owner 시안 ④ 2026-10-29).
@@ -18,7 +19,12 @@ export const IN_APP_NOTIFICATION_BANNER_AUTO_DISMISS_MS = 4_000;
 export const IN_APP_NOTIFICATION_BANNER_LOGO_SRC = dibayBrandAssetUrl(DIBAY_APP_ICON_512_PATH);
 
 export type InAppNotificationBannerTarget =
-  | { type: "messenger_room"; roomId: string }
+  | {
+      type: "messenger_room";
+      roomId: string;
+      /** 방이 속한 목록 — 누르면 `cm_list` 로 실어 분할 왼쪽·뒤로가 그 목록이 된다 (2026-11-16 감사 P3) */
+      listSource: MessengerRoomListSource;
+    }
   | {
       type: "notification";
       notificationId: string | null;

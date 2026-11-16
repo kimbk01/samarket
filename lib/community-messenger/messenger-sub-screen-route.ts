@@ -114,6 +114,17 @@ export function messengerSubScreenBackHref(screen: MessengerSubScreen, from?: st
   return `/community-messenger?${qs.toString()}`;
 }
 
+/** 분할 화면 방 주소에서 하위 화면(`section`)만 닫은 주소 — 열려 있는 방과 나머지 쿼리(`cm_list`·`from` 등)는 그대로 */
+export function messengerRoomHrefWithoutSubScreen(
+  pathname: string,
+  search: string | URLSearchParams | null | undefined
+): string {
+  const qs = new URLSearchParams(toParams(search) ?? undefined);
+  qs.delete("section");
+  const q = qs.toString();
+  return q ? `${pathname}?${q}` : pathname;
+}
+
 /** 채팅 하위 화면(친구 고르기·설정·검색) 1단 머리글 — 제목과 뒤로(기록 없을 때) 주소. 하위 화면 주소가 아니면 null. */
 export function resolveMessengerSubScreenTier1(
   search: string | URLSearchParams | null | undefined

@@ -25,7 +25,8 @@ describe("offer accepted notification link", () => {
 
   it("messenger room id builds the messenger room path", () => {
     expect(tradeChatNotificationHref("ce93dfe0", "chat_room")).toBe(
-      "/community-messenger/rooms/ce93dfe0?source=chat_room"
+      /** 거래 방 = 거래 채팅 목록 소속 `cm_list=trade` (2026-11-16 분할 왼쪽 목록 감사 P2) */
+      "/community-messenger/rooms/ce93dfe0?source=chat_room&cm_list=trade"
     );
   });
 });

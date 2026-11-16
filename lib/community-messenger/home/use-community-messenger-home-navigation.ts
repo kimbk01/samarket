@@ -3,7 +3,10 @@
 import { useCallback, type MutableRefObject } from "react";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
-import { messengerRoomListSourceFromPathname } from "@/lib/community-messenger/messenger-entry-origin";
+import {
+  messengerRoomListSourceFromPathname,
+  type MessengerSplitListSection,
+} from "@/lib/community-messenger/messenger-entry-origin";
 import {
   chipToInboxKind,
   messengerChatFiltersToSearchParams,
@@ -50,6 +53,8 @@ type Args = {
    * 두 번째 transition 을 시작하지 않도록 shell effect 와 공유한다.
    */
   pendingUserSectionRef: MutableRefObject<MessengerMainSection | null>;
+  /** 분할 화면 왼쪽 탭·하위 화면 — 홈에서 연 방 주소에 싣는다(분할 아니면 null) */
+  splitListSection?: MessengerSplitListSection | null;
 };
 
 export function useCommunityMessengerHomeNavigation({
@@ -65,6 +70,7 @@ export function useCommunityMessengerHomeNavigation({
   retainRoomPathOnSectionChange = false,
   messengerEntryOrigin = null,
   pendingUserSectionRef,
+  splitListSection = null,
 }: Args) {
   const replaceMessengerSectionUrl = useCallback(
     (
@@ -115,9 +121,10 @@ export function useCommunityMessengerHomeNavigation({
         fromEntryOrigin: messengerEntryOrigin,
         viewerUserId: options?.viewerUserId,
         roomForPrime: options?.roomForPrime,
+        splitListSection,
       });
     },
-    [router, pathname, messengerEntryOrigin]
+    [router, pathname, messengerEntryOrigin, splitListSection]
   );
 
   const onPrimarySectionChange = useCallback(

@@ -334,14 +334,36 @@ export function shouldForceDirectDeliveryMessengerRoomBack(_searchParams: {
 }
 
 /**
+ * 768px+ 분할 화면 왼쪽 홈의 탭·하위 화면 — 방 주소 `section` 으로 실어 방을 열어도 왼쪽이 대화 탭으로 돌아가지 않게 한다.
+ * 대화 탭(`chats`)은 기본값이라 싣지 않는다. 값은 **누른 목록(홈)이 직접** 넘긴다 — 주소에서 이어 붙이지 않는다.
+ * @see docs/audit/messenger-split-left-list-audit-plan-2026-11-16.md
+ */
+export type MessengerSplitListSection = "friends" | "call_logs" | "archive" | "search";
+
+/** 홈 상태 → 방 주소에 실을 왼쪽 탭 값. 분할 목록이 아니면 null(휴대폰은 지금과 같음). 채팅 검색 화면이 우선. */
+export function resolveMessengerSplitListSection(args: {
+  splitList: boolean;
+  mainSection: MessengerMainSection;
+  subScreenKind: "pick" | "settings" | "search" | null | undefined;
+}): MessengerSplitListSection | null {
+  if (!args.splitList) return null;
+  if (args.subScreenKind === "search") return "search";
+  const s = args.mainSection;
+  if (s === "friends" || s === "call_logs" || s === "archive") return s;
+  return null;
+}
+
+/**
  * 목록에서 넘어올 때 `from` 과 목록 종류(`cm_list`)를 방 URL 에 실어 둔다.
  * `listSource === "inbox"` 일 때는 `cm_list` 생략(전체 채팅 목록으로 복귀).
+ * `splitListSection` — 분할 화면 왼쪽 홈 탭(`section`). 호출측이 분할일 때만 넘긴다.
  */
 export function communityMessengerRoomHref(
   roomId: string,
   fromQueryValue: string | null | undefined,
   listSource: MessengerRoomListSource = "inbox",
-  returnHref?: string | null
+  returnHref?: string | null,
+  splitListSection?: MessengerSplitListSection | null
 ): string {
   const base = `/community-messenger/rooms/${encodeURIComponent(String(roomId).trim())}`;
   const u = new URL(base, "https://samarket.local");
@@ -351,5 +373,6 @@ export function communityMessengerRoomHref(
   if (listSource === "delivery") u.searchParams.set(MESSENGER_ROOM_LIST_SOURCE_QUERY_KEY, "delivery");
   const ret = sanitizeMessengerRoomReturnHref(returnHref);
   if (ret) u.searchParams.set(MESSENGER_ROOM_RETURN_QUERY_KEY, ret);
+  if (splitListSection) u.searchParams.set("section", splitListSection);
   return `${u.pathname}${u.search}${u.hash}`;
 }

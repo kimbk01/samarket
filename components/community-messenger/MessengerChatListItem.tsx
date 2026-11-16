@@ -10,6 +10,7 @@ import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-view
 import { messengerRoomPrefetchPriorityScore } from "@/lib/community-messenger/room-prefetch-queue";
 import { armMessengerRoomRoutePrefetch } from "@/lib/community-messenger/room/arm-messenger-room-route-prefetch";
 import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
+import { useMessengerSplitListSection } from "@/components/community-messenger/MessengerSplitListSectionContext";
 import { shouldSkipMessengerNavTransitionModifiers } from "@/lib/community-messenger/messenger-view-transition";
 import { useMessengerRoomListPrefetchRefCallback } from "@/lib/community-messenger/use-messenger-room-list-prefetch-intersection";
 import {
@@ -265,9 +266,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     () => messengerRoomPrefetchPriorityScore(room.lastMessageAt),
     [room.lastMessageAt]
   );
+  /** 메신저 홈(왼쪽 목록) 안 행이면 지금 탭·하위 화면 — 분할에서만 값이 있음 (2026-11-16 감사 P1) */
+  const splitListSection = useMessengerSplitListSection();
   const roomHref = useMemo(
-    () => communityMessengerRoomHref(room.id, fromEntryOrigin, roomListSource, roomReturnHref),
-    [room.id, fromEntryOrigin, roomListSource, roomReturnHref]
+    () => communityMessengerRoomHref(room.id, fromEntryOrigin, roomListSource, roomReturnHref, splitListSection),
+    [room.id, fromEntryOrigin, roomListSource, roomReturnHref, splitListSection]
   );
   const prefetchAttach = useMessengerRoomListPrefetchRefCallback(
     room.id,
@@ -618,9 +621,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         fromEntryOrigin,
         viewerUserId,
         roomForPrime: room,
+        splitListSection,
       });
     },
-    [fromEntryOrigin, room, roomListSource, router, viewerUserId]
+    [fromEntryOrigin, room, roomListSource, router, splitListSection, viewerUserId]
   );
 
   const closeSwipe = useCallback(() => {
