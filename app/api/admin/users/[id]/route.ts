@@ -48,6 +48,7 @@ import {
   loadProfilePhoneRowSlice,
 } from "@/lib/profile/admin-phone-verification-sync";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
+import { resolveAdminProfilePhone } from "@/lib/phone/verify-phone-number";
 import { isValidDibayIdFormat, normalizeDibayIdInput } from "@/lib/auth/dibay-id-policy";
 import {
   applyUsersPatchPrivilegeChange,
@@ -780,11 +781,11 @@ export async function PATCH(
     if (!rawPhone) {
       nextPhonePatch = { phone: null, phone_country_code: null, phone_number: null };
     } else {
-      const phoneNorm = normalizeOptionalPhMobileDb(rawPhone);
-      if (!phoneNorm.ok) {
-        return NextResponse.json({ ok: false, error: phoneNorm.error ?? "invalid_phone" }, { status: 400 });
+      const resolvedPhone = resolveAdminProfilePhone(rawPhone);
+      if (!resolvedPhone) {
+        return NextResponse.json({ ok: false, error: "invalid_phone" }, { status: 400 });
       }
-      nextPhonePatch = profilePhoneStorageFieldsFromDb09(phoneNorm.value);
+      nextPhonePatch = { ...resolvedPhone.storage };
     }
   }
 

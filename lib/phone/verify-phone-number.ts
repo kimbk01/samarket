@@ -107,6 +107,19 @@ export function resolveVerifyPhone(raw: string): ResolvedVerifyPhone | null {
   return resolvePhilippines(trimmed);
 }
 
+/**
+ * 어드민 회원 전화번호 수정 — 필리핀·한국 둘 다 저장 형식으로.
+ * `resolveVerifyPhone` 에 더해 한국 국내 표기(`010-1234-5678`)도 받는다
+ * (필리핀은 `09`·`9` 로 시작하므로 `01…` 과 겹치지 않는다).
+ */
+export function resolveAdminProfilePhone(raw: string): ResolvedVerifyPhone | null {
+  const resolved = resolveVerifyPhone(raw);
+  if (resolved) return resolved;
+  const digits = String(raw ?? "").replace(/\D/g, "");
+  if (/^01[016789]/.test(digits)) return resolveKorea(digits);
+  return null;
+}
+
 /** 저장된 profiles 번호(또는 E.164)의 나라 — 표시·어드민 라벨용 */
 export function detectStoredPhoneCountry(row: {
   phone?: string | null;
