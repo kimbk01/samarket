@@ -8,6 +8,7 @@ import {
   NATIVE_APPLE_AUTH_PLUGIN_ID,
 } from "@/lib/auth/native/native-apple-auth-contract";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
+import { parseAppleAuthorizationErrorCode } from "@/lib/telemetry/auth-failure-telemetry-contract";
 import {
   isCapacitorBridgeReady,
   isCapacitorNativePlatform,
@@ -47,12 +48,22 @@ function invokeNativeAppleSignInViaBridge(
 
 export class NativeAppleAuthError extends Error {
   readonly code: NativeAppleAuthErrorCode;
+  /** ASAuthorizationError 번호 (예: 1000) — 플러그인 오류 설명에서 숫자만 뽑은 값. 실패 기록용. */
+  readonly nativeErrorCode: number | null;
 
-  constructor(code: NativeAppleAuthErrorCode, message?: string) {
+  constructor(code: NativeAppleAuthErrorCode, message?: string, nativeErrorCode: number | null = null) {
     super(message ?? code);
     this.name = code;
     this.code = code;
+    this.nativeErrorCode = nativeErrorCode;
   }
+}
+
+/** Capacitor 플러그인 오류의 code·message 중 Apple 오류 설명에서 번호만 읽는다 (설명 원문은 쓰지 않는다). */
+function readApplePluginNativeErrorCode(error: unknown): number | null {
+  if (!error || typeof error !== "object") return null;
+  const r = error as Record<string, unknown>;
+  return parseAppleAuthorizationErrorCode(r.code) ?? parseAppleAuthorizationErrorCode(r.message);
 }
 
 function normalizePluginSignInResult(raw: NativeAppleAuthPluginSignInResult): NativeAppleSignInResult {
@@ -89,8 +100,14 @@ export async function invokeNativeAppleSignIn(opts?: { nonce?: string }): Promis
     if (mapped === "apple_native_token_missing") {
       logOAuthNativeEvent("apple_native_token_missing", { provider: "apple" });
     }
-    logOAuthNativeEvent("apple_native_failed", { provider: "apple", code: mapped, pluginCode: pluginCode || mapped });
-    throw new NativeAppleAuthError(mapped, pluginCode || mapped);
+    const nativeErrorCode = readApplePluginNativeErrorCode(error);
+    logOAuthNativeEvent("apple_native_failed", {
+      provider: "apple",
+      code: mapped,
+      pluginCode: pluginCode || mapped,
+      nativeErrorCode,
+    });
+    throw new NativeAppleAuthError(mapped, pluginCode || mapped, nativeErrorCode);
   }
 }
 
