@@ -110,7 +110,10 @@ import {
   cmMgmtPermissionsMessage,
   cmStoreOrderHeadline,
 } from "@/lib/community-messenger/cm-home-list-copy";
-import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
+import {
+  buildMessengerContextMetaFromProductChatSnapshot,
+  resolveTradeContextMetaForViewer,
+} from "@/lib/community-messenger/product-chat-messenger-meta";
 import { enrichCommerceChatRoomLifecycleForList } from "@/lib/community-messenger/commerce-chat-room-lifecycle-enrich";
 import { enrichDeliveryRoomLifecycleFieldsFromStoreOrders } from "@/lib/community-messenger/delivery-chat-list/delivery-context-meta-lifecycle-enrich";
 import { enrichTradeRoomClassificationForDeferredHomeSync } from "@/lib/community-messenger/trade-chat-list/trade-room-classification-enrich";
@@ -2749,7 +2752,12 @@ function buildRoomSummaryFromHydratedMembers(
   const isReadonly = isDbRoom ? room.is_readonly === true : room.isReadonly;
   const roomTitle = trimText(isDbRoom ? room.title : room.title);
   const roomSummary = trimText(isDbRoom ? room.summary : room.summary);
-  const contextMeta = parseCommunityMessengerRoomContextMeta(roomSummary);
+  /** 거래방 역할 표기는 보는 사람 기준(거래방 진입 감사 D5) */
+  const contextMeta = resolveTradeContextMetaForViewer(
+    parseCommunityMessengerRoomContextMeta(roomSummary),
+    userId,
+    isDbRoom ? (room as RoomRow).domain_identity : null
+  );
   const roomAvatar = trimText(isDbRoom ? room.avatar_url : room.avatarUrl) || null;
   /** 통화 기록 tip 토큰 → viewer(발신/수신)별 문구 — 원문 토큰은 클라이언트로 나가지 않는다. */
   const roomLastMessage = trimText(

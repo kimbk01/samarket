@@ -7,6 +7,7 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
+import { resolveTradeContextMetaForViewer } from "@/lib/community-messenger/product-chat-messenger-meta";
 import type {
   CommunityMessengerMessageType,
   CommunityMessengerReadReceipt,
@@ -80,6 +81,8 @@ type SilentDeltaRoomRow = {
   last_message_at: string | null;
   last_message_type: string | null;
   direct_key?: string | null;
+  /** `trade:{글}:{판매자}:{상대}` — 거래방 보는 사람 역할 계산용 */
+  domain_identity?: string | null;
 };
 
 type SilentDeltaParticipantRow = {
@@ -106,7 +109,12 @@ function buildSilentDeltaRoomSummary(
   const isReadonly = room.is_readonly === true;
   const roomTitle = trimText(room.title);
   const roomSummary = trimText(room.summary);
-  const contextMeta = parseCommunityMessengerRoomContextMeta(roomSummary);
+  /** 거래방 역할 표기는 보는 사람 기준(거래방 진입 감사 D5) */
+  const contextMeta = resolveTradeContextMetaForViewer(
+    parseCommunityMessengerRoomContextMeta(roomSummary),
+    viewerUserId,
+    room.domain_identity
+  );
   const roomAvatar = trimText(room.avatar_url) || null;
   const roomLastMessage = trimText(resolveRoomLastMessageForViewer(room.last_message, viewerUserId, lang));
   const roomLastMessageTypeRaw = trimText(room.last_message_type);
@@ -180,7 +188,7 @@ function buildSilentDeltaRoomSummary(
 }
 
 const ROOM_SELECT =
-  "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, password_hash, last_message, last_message_at, last_message_type, direct_key";
+  "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, password_hash, last_message, last_message_at, last_message_type, direct_key, domain_identity";
 
 const ME_SELECT = "unread_count, is_muted, is_pinned, is_archived, role";
 
