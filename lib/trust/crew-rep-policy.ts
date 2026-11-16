@@ -51,6 +51,26 @@ export const CREW_REP_PAIR_LIFETIME_MAX = 3;
 /** 참여도 주간 합계 상한(기본점 기준). */
 export const CREW_REP_PARTICIPATION_WEEKLY_CAP = 5;
 
+/**
+ * 참여도(S3) 기록 시작 시각 — 이전 데이터는 시험 데이터로 보고 채우지 않는다(Owner: 앞으로 생기는 데이터 기준).
+ * 이 시각 이후에 만들어진 글·댓글·좋아요·매장 후기만 참여 사건이 된다.
+ */
+export const CREW_REP_PARTICIPATION_START_ISO = "2026-11-16T00:00:00+08:00";
+
+/** 참여 인정 조건 */
+export const CREW_REP_PARTICIPATION_RULES = {
+  /** 라운지 글: 이 시간 동안 유지(숨김·삭제 없음) + 다른 회원 반응 1개 이상 */
+  postHoldHours: 72,
+  /** 댓글: 이 시간 동안 유지 */
+  commentHoldHours: 24,
+  /** 댓글 최소 글자 수(앞뒤 공백 제외) */
+  commentMinChars: 10,
+  /** 매장 후기: 주문 완료 후 이 기간 안에 작성 */
+  storeReviewMaxDaysAfterComplete: 14,
+  /** 매장 후기: 글 최소 글자 수 (사진이 있으면 글자 수 무관) */
+  storeReviewMinChars: 10,
+} as const;
+
 /** 깨끗한 활동 월 1회 가점 (매너 축). */
 export const CREW_REP_CLEAN_MONTH_POINTS = 1.0;
 

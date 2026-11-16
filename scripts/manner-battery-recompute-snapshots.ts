@@ -4,8 +4,10 @@
  *
  *   npx tsx scripts/manner-battery-recompute-snapshots.ts --dry   # 쓰기 없이 전후 비교만
  *   npx tsx scripts/manner-battery-recompute-snapshots.ts         # 스냅샷·이력·trust_score 기록
+ *   --participation  재계산 전에 참여도 사건 동기화(S3)도 실행 (--dry 와 함께 쓰면 차이만 출력)
  */
 import { createClient } from "@supabase/supabase-js";
+import { syncParticipationTrustEvents } from "../lib/trust/crew-rep-participation-sync";
 import { recomputeAllCrewRep } from "../lib/trust/crew-rep-recompute-all";
 
 async function main() {
@@ -17,7 +19,12 @@ async function main() {
   }
   const dryRun = process.argv.includes("--dry");
   const sb = createClient(url, key, { auth: { persistSession: false } });
-  const result = await recomputeAllCrewRep(sb as never, { cause: "policy_migration", dryRun });
+  const asOf = new Date();
+  const participation = process.argv.includes("--participation")
+    ? await syncParticipationTrustEvents(sb as never, { asOf, dryRun })
+    : null;
+  if (participation) console.error(JSON.stringify({ participation }, null, 2));
+  const result = await recomputeAllCrewRep(sb as never, { cause: "policy_migration", dryRun, asOf });
   console.log(
     JSON.stringify(
       {
