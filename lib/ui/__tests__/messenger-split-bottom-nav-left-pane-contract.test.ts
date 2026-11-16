@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS,
   MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS,
   MESSENGER_SPLIT_LIST_PANE_WIDTH_CSS,
 } from "@/lib/ui/messenger-split-pane-layout";
@@ -14,38 +13,33 @@ function read(rel: string): string {
 }
 
 describe("messenger split left-pane contract (APK/iOS/Windows/tablet viewport SSOT)", () => {
-  it("exposes shared list-pane width + shell classes", () => {
+  it("exposes shared list-pane width + home sheet class", () => {
     expect(MESSENGER_SPLIT_LIST_PANE_WIDTH_CSS).toBe("clamp(360px, 35vw, 470px)");
-    expect(APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS).toBe("app-bottom-nav-shell--messenger-split-list");
     expect(MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS).toBe("messenger-home-bottom-sheet-panel--split-list");
   });
 
-  it("CSS constrains messenger-split BottomNav to list pane width at ≥768 only", () => {
+  it("v6 R2-5 — BottomNav 는 메신저에서도 창 전체 폭 (좌측 칸 폭 규칙 없음)", () => {
     const css = read("app/app-bottom-nav.css");
-    expect(css).toContain(".app-bottom-nav-shell--messenger-split-list");
-    expect(css).toContain("@media (min-width: 768px)");
-    expect(css).toContain("clamp(360px, 35vw, 470px)");
-    expect(css).toContain("right: auto");
-    // 탭 바 자체 padding-left(safe-left) 만큼 폭을 더해 목록 칸과 오른쪽 끝을 맞춘다
-    expect(css).toContain("width: calc(var(--cm-split-list-pane-width) + var(--safe-left, 0px));");
+    const layout = read("lib/ui/messenger-split-pane-layout.ts");
+    expect(css).not.toMatch(/\.app-bottom-nav-shell\.app-bottom-nav-shell--messenger-split-list \{/);
+    expect(layout).not.toContain("export const APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS");
   });
 
-  it("messenger-split BottomNav starts at shell left 0 — 본문 열 최대 폭 없음 (가로 폭 감사 B1 2026-11-16)", () => {
+  it("v6 R2-5 — 분할 방 칸은 하단 탭 높이만큼 아래 여백 (세로 메뉴·키보드 숨김 때는 없음)", () => {
     const css = read("app/app-bottom-nav.css");
-    const layout = read("lib/ui/app-content-layout.ts");
-    expect(layout).toContain('APP_MAIN_COLUMN_MAX_WIDTH_CLASS = "max-w-none"');
-    expect(css).toMatch(/\.app-bottom-nav-shell\.app-bottom-nav-shell--messenger-split-list \{[^}]*left: 0;/);
-    expect(css).not.toMatch(/\d+rem\)\) \/ 2\)/);
-  });
-
-  it("ConditionalAppShell applies messenger-split BottomNav class on messenger path (SSR-safe)", () => {
-    const src = read("components/layout/ConditionalAppShell.tsx");
-    expect(src).toContain("APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS");
-    expect(src).toContain('pathname === "/community-messenger"');
-    expect(src).toContain("Avoids SSR false");
-    expect(src).not.toMatch(
-      /isMessengerSplitViewport\s*&&\s*\n?\s*\(pathname === "\/community-messenger"/
+    expect(css).toContain(
+      "html[data-shell-bottom-nav]:not([data-shell-bottom-nav-side-rail]):not([data-shell-bottom-nav-keyboard-hidden])"
     );
+    expect(css).toContain(":is([data-messenger-split-room-pane], [data-messenger-split-call-peer-pane])");
+    expect(css).toContain("padding-bottom: var(--app-bottom-nav-clearance);");
+    const flags = read("lib/layout/html-shell-flags.ts");
+    expect(flags).toContain('set("data-shell-bottom-nav-keyboard-hidden", navHas("app-bottom-nav-shell--keyboard-hidden"));');
+  });
+
+  it("ConditionalAppShell marks keyboard-hidden nav and no longer narrows messenger BottomNav", () => {
+    const src = read("components/layout/ConditionalAppShell.tsx");
+    expect(src).toContain("bottomNavKeyboardHidden ? BOTTOM_NAV_KEYBOARD_HIDDEN_CLASS");
+    expect(src).not.toMatch(/\? APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS/);
     expect(src).not.toMatch(/Capacitor|isTablet|platform\.os/i);
   });
 

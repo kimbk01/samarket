@@ -14,8 +14,10 @@ export const MESSENGER_SPLIT_LIST_PANE_CLASS =
 
 export const MESSENGER_SPLIT_LIST_PANE_BORDER_CLASS = `${MESSENGER_SPLIT_LIST_PANE_CLASS} min-[768px]:border-r border-sam-border`;
 
-/** `ConditionalAppShell` → BottomNav — ≥768 에서 좌측 pane 폭만 (전폭 금지) */
-export const APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS = "app-bottom-nav-shell--messenger-split-list";
+/**
+ * v6 R2-5 (Owner 2026-11-17 시안 v6 승인) — 하단 탭을 ≥768 메신저에서 좌측 pane 폭으로 좁히던 클래스는 폐지.
+ * 하단 탭은 모든 탭에서 창 전체 폭, 분할 방 칸이 하단 탭 높이만큼 아래 여백(`app/app-bottom-nav.css`).
+ */
 
 /**
  * Group Invite/Members/Info room overlay — bounded width SSOT (phone+wide).

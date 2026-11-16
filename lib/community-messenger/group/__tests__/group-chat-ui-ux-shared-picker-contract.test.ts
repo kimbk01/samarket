@@ -58,7 +58,8 @@ describe("group chat UI/UX shared picker + surface contracts", () => {
     );
     const sheetUi = read("components/community-messenger/MessengerSheetUi.tsx");
     expect(layout).toContain("MESSENGER_GROUP_OVERLAY_SHEET_MAX_W_CLASS");
-    expect(layout).toContain("APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS");
+    /** v6 R2-5 — 하단 탭 좌측 칸 폭 클래스 폐지 (하단 탭은 창 전체 폭) */
+    expect(layout).not.toContain("export const APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS");
     expect(layout).toContain("MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS");
     expect(sheets).toContain("MESSENGER_GROUP_OVERLAY_SHEET_MAX_W_CLASS");
     expect(sheetUi).toContain("absolute inset-x-0 w-full");

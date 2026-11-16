@@ -79,9 +79,13 @@ export const COMMUNITY_FEED_LIST_WRAP_CLASS =
  * 휴대폰은 1열(간격 8 = 위 `space-y-2` 와 같음), 넓을수록 열이 늘어 카드 한 줄이 창 끝까지 늘어나지 않는다.
  * 글 칸(`data-feed-grid-item`)이 아닌 것(광고 묶음 등)은 한 줄 전체.
  * 근거: Android 적응형 가이드(피드는 분할 대신 여러 열 격자) · 네이버 카페 iPad.
+ *
+ * v6 (Owner 2026-11-17 「크기를 늘리면 바둑판처럼 보인다」, 시안 v6 승인) — 최대 3열. 한 칸 최소 폭을
+ * max(358, (줄 폭 − 간격 2개) ÷ 3) 로 두어 4열 이상이 생기지 않는다(넓은 창은 3열 카드가 넓어짐).
  */
+export const COMMUNITY_FEED_GRID_MAX_COLUMNS = 3;
 export const COMMUNITY_FEED_GRID_WRAP_CLASS =
-  "m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(min(358px,100%),1fr))] items-start gap-2 p-0 px-4 pt-1.5 pb-4 [&>li]:list-none [&>*:not([data-feed-grid-item])]:col-[1/-1]";
+  "m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(max(min(358px,100%),calc((100%_-_16px)/3)),1fr))] items-start gap-2 p-0 px-4 pt-1.5 pb-4 [&>li]:list-none [&>*:not([data-feed-grid-item])]:col-[1/-1]";
 
 /**
  * 거래 피드 `<ul>` — Marketplace product grid. 좌우 인셋은 philife 와 동일.

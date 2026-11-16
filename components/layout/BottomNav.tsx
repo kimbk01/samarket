@@ -10,6 +10,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
   type MouseEvent,
 } from "react";
@@ -20,6 +21,7 @@ import {
   BOTTOM_NAV_OUTER_MOTION,
   BOTTOM_NAV_SHELL,
   BOTTOM_NAV_SIDE_RAIL_CLASS,
+  BOTTOM_NAV_SIDE_RAIL_KEYBOARD_HOLD_CLASS,
   BOTTOM_NAV_THEME,
   bottomNavUsesDeliveryHubShell,
   type BottomNavItemConfig,
@@ -685,6 +687,7 @@ export function BottomNav({
   inert = false,
   presentation = "bottom",
   presentationEnter = null,
+  sideRailKeyboardHoldHeightPx = null,
 }: {
   /**
    * SSR hydrate 호환을 위해 시그니처 유지 — 실제 탭 단일 소스는
@@ -703,6 +706,11 @@ export function BottomNav({
   presentation?: "bottom" | "side-rail";
   /** v5 — 회전으로 메뉴 형태가 막 바뀐 순간(280ms) 들어오는 방향. `useNavPresentationSwitchMotion` */
   presentationEnter?: "bottom" | "rail" | null;
+  /**
+   * v6 R2-3 — Android 키보드가 웹뷰 높이를 줄인 동안 세로 메뉴 높이를 「키보드 열기 전 창 높이」로 고정한다
+   * (줄어든 높이에 다시 가운데 정렬되어 아래 항목이 잘리지 않게 — 키보드가 아래 항목을 덮는다). null = 고정 안 함.
+   */
+  sideRailKeyboardHoldHeightPx?: number | null;
 }) {
   void initialTabs;
   if (!shouldDeferUnreadBadgeRepaint()) {
@@ -831,6 +839,8 @@ export function BottomNav({
     `${presentation}|${extraOuterClassName}|${usesDeliveryHubShell ? 1 : 0}|${pathname}|${hubDomain ?? ""}|${displayTabs.map((t) => t.id).join(",")}`
   );
 
+  const sideRailKeyboardHoldActive =
+    presentation === "side-rail" && sideRailKeyboardHoldHeightPx != null && sideRailKeyboardHoldHeightPx > 0;
   const outerClass = [
     BOTTOM_NAV_SHELL.outerClassName,
     presentation === "side-rail" ? BOTTOM_NAV_SIDE_RAIL_CLASS : "",
@@ -940,9 +950,15 @@ export function BottomNav({
       className={[
         outerClass,
         usesDeliveryHubShell ? "app-bottom-nav-shell--delivery" : "",
+        sideRailKeyboardHoldActive ? BOTTOM_NAV_SIDE_RAIL_KEYBOARD_HOLD_CLASS : "",
       ]
         .filter(Boolean)
         .join(" ")}
+      style={
+        sideRailKeyboardHoldActive
+          ? ({ "--app-side-rail-keyboard-hold-height": `${sideRailKeyboardHoldHeightPx}px` } as CSSProperties)
+          : undefined
+      }
       aria-label={t("nav_bottom_bar_aria")}
       inert={inert || undefined}
       data-app-bottom-nav=""

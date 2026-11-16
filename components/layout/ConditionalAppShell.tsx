@@ -21,6 +21,7 @@ import {
 } from "@/lib/startup/startup-cache";
 import {
   BOTTOM_NAV_ITEMS,
+  BOTTOM_NAV_KEYBOARD_HIDDEN_CLASS,
   resolveBottomNavScrollHideOuterClass,
 } from "@/lib/main-menu/bottom-nav-config";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
@@ -43,7 +44,6 @@ import {
   subscribeSupportModalMainBottomNavSuppressed,
 } from "@/lib/support/support-modal-main-bottom-nav-suppress";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
-import { APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 import { AppScrollMemory } from "@/components/layout/AppScrollMemory";
 import {
   buildMainShellInnerRootClass,
@@ -75,6 +75,7 @@ import { RegionBar } from "./RegionBar";
 import { MainShellTabContentTransition } from "./MainShellTabContentTransition";
 import { BottomNav } from "./BottomNav";
 import { BottomNavKeyboardHideProbe } from "./BottomNavKeyboardHideProbe";
+import { readFormKeyboardClosedBaselineHeightPx } from "@/lib/ui/use-form-keyboard-viewport";
 import {
   BOTTOM_NAV_KEYBOARD_RESIZED_CLASS,
   type BottomNavKeyboardHideState,
@@ -450,6 +451,15 @@ export function ConditionalAppShell({
   const bottomNavKeyboardResized =
     showBottomNavMounted && !isDesktopSideRail && bottomNavKeyboardState === "hidden_layout_resized";
   /**
+   * v6 R2-3 (Owner 2026-11-17 시안 v6 승인) — 세로 메뉴는 키보드로 숨기지 않는다. Android 키보드가 웹뷰 높이를 줄인 동안
+   * (`hidden_layout_resized`) 메뉴 높이를 키보드 열기 전 높이로 고정해, 줄어든 높이에 다시 가운데 정렬되며 아래 항목이
+   * 잘리던 결함(Xiaomi 가로 실기 11-17)을 막는다. iPad 는 키보드가 화면을 덮을 뿐 높이가 줄지 않아 해당 없음.
+   */
+  const sideRailKeyboardHoldHeightPx =
+    showBottomNavMounted && isDesktopSideRail && bottomNavKeyboardState === "hidden_layout_resized"
+      ? readFormKeyboardClosedBaselineHeightPx() || null
+      : null;
+  /**
    * Clearance SSOT — mount only (`showBottomNavEffective`).
    * DO NOT couple to scroll-hide: hide is transform-only; coupling caused hub thrash.
    */
@@ -503,7 +513,7 @@ export function ConditionalAppShell({
         {mainBodyTransition}
       </main>
       <MarkInitialDestinationVisualReadyOnce pathname={pathname} />
-      {showBottomNavMounted && !isDesktopSideRail ? (
+      {showBottomNavMounted ? (
         <BottomNavKeyboardHideProbe onStateChange={setBottomNavKeyboardState} />
       ) : null}
       {showBottomNavMounted ? (
@@ -512,6 +522,7 @@ export function ConditionalAppShell({
           bodyPortal={isMessengerStackSurface}
           presentation={isDesktopSideRail ? "side-rail" : "bottom"}
           presentationEnter={navEnter}
+          sideRailKeyboardHoldHeightPx={sideRailKeyboardHoldHeightPx}
           /** 키보드·스크롤로 숨긴 하단 탭은 누를 수도, 포커스로 닿을 수도 없게 (크롬 S4 B-04) */
           inert={bottomNavKeyboardHidden || bottomNavScrollHidden}
           extraOuterClassName={[
@@ -522,16 +533,11 @@ export function ConditionalAppShell({
               : "",
             bottomNavKeyboardResized ? BOTTOM_NAV_KEYBOARD_RESIZED_CLASS : "",
             /**
-             * Path-based (not JS matchMedia) — CSS `@media (min-width:768px)` owns width.
-             * Avoids SSR false → full-width flash then shrink.
-             * ≥768 split: BottomNav = left list pane only (APK/iOS/Windows/tablet 동일).
-             * <768 phone: class present, media inactive → viewport 전폭.
+             * v6 R2-5 (Owner 2026-11-17 시안 v6 승인 「메뉴 통일성」) — 하단 탭은 모든 탭에서 창 전체 폭.
+             * 예전 ≥768 메신저만 목록 칸 아래로 좁히던 `APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS` 는 붙이지 않는다.
+             * 분할 방 칸은 하단 탭 높이만큼 아래 여백을 둔다(`app/app-bottom-nav.css`).
              */
-            !isDesktopSideRail &&
-            (pathname === "/community-messenger" ||
-              (pathname?.startsWith("/community-messenger/") ?? false))
-              ? APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS
-              : "",
+            bottomNavKeyboardHidden ? BOTTOM_NAV_KEYBOARD_HIDDEN_CLASS : "",
           ]
             .filter(Boolean)
             .join(" ")}

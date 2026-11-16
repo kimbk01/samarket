@@ -225,6 +225,14 @@ export function useFormKeyboardViewport(options?: { enabled?: boolean }): FormKe
   return enabled ? snap : CLOSED_SNAPSHOT;
 }
 
+/**
+ * 키보드가 열리기 전(닫힌 상태) 화면 높이 CSS px — 공유 기준값 그대로 읽기만 한다. 0 = 아직 재지 않음.
+ * v6 R2-3: Android 에서 키보드가 웹뷰 높이를 줄인 동안 왼쪽 세로 메뉴 높이를 이 값으로 고정한다.
+ */
+export function readFormKeyboardClosedBaselineHeightPx(): number {
+  return baselineClosedHeightPx;
+}
+
 /** Test-only — reset the shared store between cases. */
 export function __resetFormKeyboardViewportStoreForTests(): void {
   detach?.();

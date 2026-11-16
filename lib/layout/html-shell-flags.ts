@@ -21,6 +21,8 @@ export const HTML_SHELL_FLAG_ATTRS = {
   bottomNavDelivery: "data-shell-bottom-nav-delivery",
   /** `html:has(.app-bottom-nav-shell--scroll-hidden)` */
   bottomNavScrollHidden: "data-shell-bottom-nav-scroll-hidden",
+  /** `html:has(.app-bottom-nav-shell--keyboard-hidden)` — v6 R2-5 메신저 분할 방 칸 하단 여백 */
+  bottomNavKeyboardHidden: "data-shell-bottom-nav-keyboard-hidden",
   /** `html:has(.app-shell[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"])` */
   desktopSideRailShell: "data-shell-desktop-side-rail",
   /** `html:has(.stores-home-hub)` */
@@ -54,6 +56,7 @@ export function syncHtmlShellFlagsFromDom(doc: Document): void {
   set("data-shell-bottom-nav-side-rail", navHas("app-bottom-nav-shell--side-rail"));
   set("data-shell-bottom-nav-delivery", navHas("app-bottom-nav-shell--delivery"));
   set("data-shell-bottom-nav-scroll-hidden", navHas("app-bottom-nav-shell--scroll-hidden"));
+  set("data-shell-bottom-nav-keyboard-hidden", navHas("app-bottom-nav-shell--keyboard-hidden"));
   set(
     "data-shell-desktop-side-rail",
     !!doc.querySelector('.app-shell[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"]')

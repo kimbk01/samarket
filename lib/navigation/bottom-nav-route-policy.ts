@@ -86,7 +86,7 @@ function isStoreCheckoutOrDetailFlow(pathname: string): boolean {
 /**
  * Main bottom nav route contract.
  * `messengerSplitViewport`: 768px+ split room — room path 도 eligible.
- * BottomNav 폭은 `app-bottom-nav-shell--messenger-split-list` 로 좌측 pane 만 (전폭 금지).
+ * BottomNav 는 모든 탭에서 창 전체 폭 — 분할 방 칸이 하단 탭 높이만큼 아래 여백 (v6 R2-5, 2026-11-17).
  */
 export function isBottomNavEligibleRoute(
   pathname: string,
