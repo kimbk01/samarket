@@ -10,6 +10,7 @@
  */
 
 import type { DibayDeviceClass } from "@/lib/device/dibay-device-class";
+import { dibayDeviceProfile } from "@/lib/device/dibay-device-profile";
 import {
   getDomainTwoPaneFloorPx,
   type DibayLayoutDomain,
@@ -59,11 +60,9 @@ export type DibayLayoutResolverResult = {
   windowClassLockState: typeof DIBAY_WINDOW_CLASS_LOCK_STATE;
 };
 
+/** 형태는 기기 프로필 표(`dibay-device-profile.ts`)만 읽는다. */
 export function layoutFamilyForDeviceClass(deviceClass: DibayDeviceClass): Exclude<DibayLayoutFamily, "CALL"> {
-  if (deviceClass === "PHONE_ANDROID" || deviceClass === "PHONE_IOS") return "PHONE";
-  if (deviceClass === "TABLET_ANDROID" || deviceClass === "TABLET_IPAD") return "TABLET";
-  if (deviceClass === "DESKTOP_WINDOWS" || deviceClass === "WEB_DESKTOP") return "DESKTOP";
-  return "UNKNOWN";
+  return dibayDeviceProfile(deviceClass).family;
 }
 
 export function resolveLayoutMode(input: DibayLayoutResolverInput): DibayLayoutResolverResult {

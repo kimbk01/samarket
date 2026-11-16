@@ -47,6 +47,7 @@ import {
   writeCommunityHubState,
 } from "@/lib/community/community-hub-state";
 import { useDibayAppShellAuthority } from "@/lib/device/use-dibay-app-shell";
+import { dibayDeviceProfile } from "@/lib/device/dibay-device-profile";
 import { CommunityCard } from "./CommunityCard";
 import { CommunityFeedSkeleton } from "./CommunityFeedSkeleton";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
@@ -1464,7 +1465,7 @@ export function CommunityFeed({
   }, [navItems, activeTopicTabIndex, prefetchNavItemByIntent]);
 
   const { deviceClass } = useDibayAppShellAuthority();
-  const feedSwipeOn = deviceClass === "PHONE_ANDROID" || deviceClass === "PHONE_IOS";
+  const feedSwipeOn = dibayDeviceProfile(deviceClass).feedTopicSwipe;
 
   const topicTablistRef = useRef<HTMLDivElement | null>(null);
   /**
