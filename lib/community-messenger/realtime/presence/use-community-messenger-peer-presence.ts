@@ -12,6 +12,7 @@ import {
   type PresenceSnapshotPollScheduler,
 } from "@/lib/community-messenger/realtime/presence/presence-snapshot-poll-scheduler";
 import { resolvePresenceStateWithStaleness } from "@/lib/community-messenger/presence/presence-staleness";
+import { mergePresenceSnapshotsIntoStoreMap } from "@/lib/community-messenger/realtime/presence/merge-presence-snapshots";
 
 const PRESENCE_RUNTIME_SCOPE = "community-messenger:presence-runtime";
 /** Realtime 정상 중 online 표시 재평가 주기(realtime 단절 감지용) — 폴링 스케줄러 주기와 동일 */
@@ -27,21 +28,15 @@ function getPresenceSnapshotPollScheduler(): PresenceSnapshotPollScheduler {
   if (pollScheduler) return pollScheduler;
   const scheduler = createPresenceSnapshotPollScheduler({
     fetchBatch: (ids) => fetchCommunityMessengerPresenceSnapshotsBatchClient(ids),
-    apply: (snapshots, { observedAtMs, elapsedMs }) => {
+    apply: (snapshots, { observedAtMs, elapsedMs, initial }) => {
       const observedAtIso = new Date(observedAtMs).toISOString();
-      useMessengerPresenceStore.setState((state) => {
-        const byUserId = { ...state.byUserId };
-        for (const [userId, snap] of snapshots) {
-          const prev = byUserId[userId];
-          byUserId[userId] = {
-            userId,
-            state: snap.state,
-            lastSeenAt: snap.lastSeenAt ?? prev?.lastSeenAt ?? null,
-            updatedAt: observedAtIso,
-          };
-        }
-        return { byUserId };
-      });
+      /** 첫 값(실시간 정상 중)은 없는 id 만 채운다 — 실시간 값을 덮지 않음 (2026-11-16 감사 F1) */
+      useMessengerPresenceStore.setState((state) => ({
+        byUserId: mergePresenceSnapshotsIntoStoreMap(state.byUserId, snapshots, {
+          observedAtIso,
+          fillOnly: initial,
+        }),
+      }));
       messengerMonitorRecord({
         category: "realtime.subscription",
         metric: "presence_snapshot_fallback",
@@ -74,6 +69,8 @@ export function useCommunityMessengerPeerPresence(
   /** 전체 `byUserId` 엔트리가 아닌 표시용 primitive 만 구독 — `replacePresenceMap` 시 무관 행 리렌더 방지 */
   const liveState = useMessengerPresenceStore((state) => (id ? state.byUserId[id]?.state ?? null : null));
   const liveUpdatedAt = useMessengerPresenceStore((state) => (id ? state.byUserId[id]?.updatedAt ?? null : null));
+  /** 서버 조회·실시간 퇴장으로 들어온 마지막 접속 시각 — 머리글·점 3개 메뉴 「마지막 접속 …」 (2026-11-16 감사 F2) */
+  const liveLastSeenAt = useMessengerPresenceStore((state) => (id ? state.byUserId[id]?.lastSeenAt ?? null : null));
   useEffect(() => {
     if (!id) return;
     return getPresenceSnapshotPollScheduler().subscribe(id);
@@ -107,17 +104,18 @@ export function useCommunityMessengerPeerPresence(
   return useMemo(() => {
     if (!id) return null;
     if (displayState) {
+      const lastSeenAt = liveLastSeenAt ?? fallback?.lastSeenAt ?? null;
       const prev = snapshotStableRef.current;
-      if (prev && prev.userId === id && prev.state === displayState) return prev;
+      if (prev && prev.userId === id && prev.state === displayState && prev.lastSeenAt === lastSeenAt) return prev;
       const next: CommunityMessengerPeerPresenceSnapshot = {
         userId: id,
         state: displayState,
-        lastSeenAt: fallback?.lastSeenAt ?? null,
+        lastSeenAt: liveLastSeenAt ?? fallback?.lastSeenAt ?? null,
       };
       snapshotStableRef.current = next;
       return next;
     }
     if (!fallback) return null;
     return fallback;
-  }, [fallback, id, displayState]);
+  }, [fallback, id, displayState, liveLastSeenAt]);
 }

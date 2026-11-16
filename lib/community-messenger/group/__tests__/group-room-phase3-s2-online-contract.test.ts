@@ -89,7 +89,14 @@ describe("group chat Phase3 S2-3 Online contracts", () => {
     expect(sheets).toContain("GroupMemberPresenceLabel");
     // typing still wins for groups in Header
     expect(header).toContain("typingPeerCount");
-    expect(header).toContain('roomType !== "direct"');
+    /** 2026-11-16: 부제 규칙은 `resolveMessengerRoomHeaderStatusLine` 으로 옮김 — 그룹 입력 중 우선은 그대로 */
+    const statusLine = readFileSync(
+      join(ROOT, "lib/community-messenger/realtime/presence/resolve-room-header-status-line.ts"),
+      "utf8"
+    );
+    expect(header).toContain("resolveMessengerRoomHeaderStatusLine(");
+    expect(statusLine).toContain('roomType !== "direct"');
+    expect(statusLine).toContain("typingPeerCount");
   });
 
   it("does not change Ban / Ghost LOCK surfaces", () => {

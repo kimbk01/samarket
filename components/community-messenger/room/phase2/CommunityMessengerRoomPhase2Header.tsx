@@ -42,6 +42,7 @@ import {
 import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
 import { StoreOrderDeliveryMessengerHeaderBlock } from "@/components/community-messenger/room/phase2/StoreOrderDeliveryMessengerHeaderBlock";
 import { useTradePostDetailSlideHost } from "@/components/community-messenger/room/phase2/TradePostDetailSlideHostContext";
+import { resolveMessengerRoomHeaderStatusLine } from "@/lib/community-messenger/realtime/presence/resolve-room-header-status-line";
 import { messengerRoomShowsConfirmedDeliveryPresentation } from "@/lib/community-messenger/messenger-room-domain";
 import { logCallV3ButtonClick, logCallV3ButtonRender } from "@/lib/community-messenger/call-v3/call-v3-debug";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
@@ -173,18 +174,19 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     return n;
   });
 
-  const statusLine = useMemo(() => {
-    if (vm.snapshot.room.roomType !== "direct") {
-      if (typingPeerCount >= 2) return t("cm_ui_typing_multiple", { count: typingPeerCount });
-      if (typingPeerCount === 1) return t("chats_peer_typing");
-      return vm.roomHeaderStatus;
-    }
-    if (typingPeerCount > 0) return t("chats_peer_typing");
-    if (peerPresence) {
-      return formatMessengerPeerPresenceLine(peerPresence);
-    }
-    return vm.roomHeaderStatus;
-  }, [peerPresence, t, typingPeerCount, vm.roomHeaderStatus, vm.snapshot.room.roomType]);
+  const statusLine = useMemo(
+    () =>
+      resolveMessengerRoomHeaderStatusLine({
+        roomType: vm.snapshot.room.roomType,
+        typingPeerCount,
+        /** 준비 단계(2단계 전)에도 상대가 있으면 방 설명 문구 대신 빈칸 */
+        peerUserId: vm.snapshot.room.peerUserId ?? null,
+        peerPresence,
+        roomHeaderStatus: vm.roomHeaderStatus,
+        t,
+      }),
+    [peerPresence, t, typingPeerCount, vm.roomHeaderStatus, vm.snapshot.room.peerUserId, vm.snapshot.room.roomType]
+  );
 
   const peerTradeRoleLabel = useMemo(() => {
     const ctx = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
