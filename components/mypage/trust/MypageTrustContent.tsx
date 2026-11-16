@@ -8,6 +8,7 @@ import { getCurrentUser, getHydrationSafeCurrentUser } from "@/lib/auth/get-curr
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { CrewRepCard } from "@/components/trust/CrewRep";
+import { CrewRepDetailSections } from "@/components/trust/CrewRepDetailSections";
 import { MYPAGE_PROFILE_EDIT_SHEET_HREF } from "@/lib/mypage/mypage-profile-routes";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
@@ -159,6 +160,8 @@ export function MypageTrustContent() {
         <p className="mt-4 sam-text-body-secondary leading-relaxed text-sam-muted" data-testid="mypage-trust-hint">
           {t("mypage_trust_hint")}
         </p>
+        {/* S6 — 축별 점수 · 90일 그래프 · 점수 변화 · 반영된 기록 · 점수 기준 */}
+        <CrewRepDetailSections />
       </div>
       <Link
         href={MYPAGE_PROFILE_EDIT_SHEET_HREF}
