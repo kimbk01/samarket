@@ -59,6 +59,12 @@ export type DibayDeviceProfile = {
    * 메뉴는 한 기기 안에서 모든 탭이 같다(탭마다 다른 메뉴 금지).
    */
   sideRailMinWidthCss: number | null;
+  /**
+   * v4 (Owner 2026-11-16 「세로로 돌리면 메뉴가 하단으로 움직여서, 모바일 형태로」) — true 면 세로 메뉴는 가로일 때만:
+   * 화면이 세로(screen.orientation)이거나 창이 세로로 길면(폭 ≤ 높이, 화면 나누기 반쪽) 하단 탭.
+   * 태블릿만 true. Windows·Mac 은 창 모양과 무관하게 세로 메뉴.
+   */
+  sideRailLandscapeOnly: boolean;
 };
 
 /**
@@ -72,11 +78,24 @@ export const DIBAY_DESKTOP_MIN_WINDOW: readonly [number, number] = [
   DIBAY_SMALLEST_PHONE_CSS[1],
 ];
 
-/** 이 기기·창 폭에서 왼쪽 세로 메뉴를 쓰는가 — 셸 메뉴 판정은 이 함수 하나 */
-export function dibayUsesSideRail(deviceClass: DibayDeviceClass, usableWidthCss: number): boolean {
-  const min = dibayDeviceProfile(deviceClass).sideRailMinWidthCss;
+export type DibaySideRailWindow = {
+  widthCss: number;
+  /** 창 높이 CSS. 없으면(서버·시험) 폭만 본다 */
+  heightCss?: number | null;
+  /** 기기 화면 방향(`screen.orientation`) — 키보드로 창 높이가 줄어도 바뀌지 않는다. 없으면 창 모양만 본다 */
+  screenOrientation?: "portrait" | "landscape" | null;
+};
+
+/** 이 기기·창에서 왼쪽 세로 메뉴를 쓰는가 — 셸 메뉴 판정은 이 함수 하나 */
+export function dibayUsesSideRail(deviceClass: DibayDeviceClass, win: DibaySideRailWindow): boolean {
+  const profile = dibayDeviceProfile(deviceClass);
+  const min = profile.sideRailMinWidthCss;
   if (min == null) return false;
-  return usableWidthCss >= min;
+  if (win.widthCss < min) return false;
+  if (!profile.sideRailLandscapeOnly) return true;
+  if (win.screenOrientation === "portrait") return false;
+  if (win.heightCss != null && win.heightCss > 0 && win.widthCss <= win.heightCss) return false;
+  return true;
 }
 
 /** Mac 에서 iPad 앱이 그려지는 배율 (2026-11-16 실측: CSS 1056 → 814pt) */
@@ -93,6 +112,7 @@ const PHONE = {
   webViewZoom: 1,
   minWindowPt: null,
   sideRailMinWidthCss: null,
+  sideRailLandscapeOnly: false,
 } as const;
 
 const TABLET = {
@@ -106,6 +126,7 @@ const TABLET = {
   webViewZoom: 1,
   minWindowPt: null,
   sideRailMinWidthCss: 600,
+  sideRailLandscapeOnly: true,
 } as const;
 
 const DESKTOP = {
@@ -119,6 +140,7 @@ const DESKTOP = {
   webViewZoom: 1,
   minWindowPt: null,
   sideRailMinWidthCss: 0,
+  sideRailLandscapeOnly: false,
 } as const;
 
 const UNKNOWN = {
@@ -132,6 +154,7 @@ const UNKNOWN = {
   webViewZoom: 1,
   minWindowPt: null,
   sideRailMinWidthCss: null,
+  sideRailLandscapeOnly: false,
 } as const;
 
 /** 기기 종류 → 프로필. 새 기기 종류는 여기 한 줄을 더하면 모든 소비처가 따라간다. */

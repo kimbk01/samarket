@@ -19,6 +19,9 @@
 > 태블릿만 창 CSS 폭 600 미만(화면 나누기·Slide Over)이면 하단 탭 — 「폭으로 셸 선택 금지」 조항 중 이 경우만 해제. 형태(기기 종류)는 그대로 폭으로 바꾸지 않는다.
 > 메뉴 묶음은 세로 가운데(창 크기·회전에 자동 정렬). 근거: 카카오톡 태블릿 실측(Xiaomi 가로·세로, 모든 탭 같은 왼쪽 메뉴), 카카오톡 iPad 스크린샷(좁은 창 하단 탭), Android 적응형 가이드(600dp).
 > 단일 정의: `lib/device/dibay-device-profile.ts` `sideRailMinWidthCss`·`dibayUsesSideRail`. 시안: `docs/audit/device-shell-mockup-2026-11-16/` v3.
+> **Owner 수정 (2026-11-16 23:4x PHT, 원문 「세로로 돌리면 메뉴가 하단으로 움직여서, 모바일 형태로 해야지」·「좌측 메뉴 부분이 너무 뭉쳐 있잖아, 사이 공간을 늘려야지」, 시안 v4 「승인」)** —
+> 태블릿 세로 메뉴는 **가로일 때만**: 화면이 세로(`screen.orientation`)이거나 창이 세로로 길면(폭 ≤ 높이) 하단 탭(휴대폰 형태). Windows·Mac 은 창 모양과 무관하게 세로 메뉴.
+> 세로 메뉴 항목 간격 66(카카오톡 Xiaomi 가로 실측 88px ÷ 1.332). 단일 정의: `sideRailLandscapeOnly`·`dibayUsesSideRail(deviceClass, { widthCss, heightCss, screenOrientation })` · `--app-side-rail-item-pitch`. 시안 v4.
 
 **Declared:** 2026-09-25  
 **Evidence:** `.tmp/fd4-shell-runtime/` (`samsung.json` · `xiaomi.json` · `iphonebk.json` · `SUMMARY.json`)
