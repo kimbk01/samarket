@@ -52,10 +52,20 @@ final class NativeVoiceCallViewController: UIViewController {
     }
   }
 
+  override func viewDidAppear(_ animated: Bool) {
+    super.viewDidAppear(animated)
+    // S1 — 음성 통화 화면이 보이는 동안 자동 잠금 해제 (발신·수신·연결 모두, 결함 K5).
+    ScreenAwakeBridge.shared.pushSurface(key: screenAwakeSurfaceKey, callId: boundCallId, reason: "voice_view_did_appear")
+  }
+
   override func viewDidDisappear(_ animated: Bool) {
     super.viewDidDisappear(animated)
+    // S3·S4 — 음성 통화 화면을 벗어나면(줄이기·종료) 기기 설정대로.
+    ScreenAwakeBridge.shared.popSurface(key: screenAwakeSurfaceKey, reason: "voice_view_did_disappear")
     stopDurationTimer()
   }
+
+  private var screenAwakeSurfaceKey: String { "voice:\(ObjectIdentifier(self).hashValue)" }
 
   func applySnapshot(_ snapshot: NativeVoiceCallRuntimeSnapshot) {
     guard snapshot.session?.sessionId == boundCallId else { return }

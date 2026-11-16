@@ -140,6 +140,7 @@ public final class NativeVoiceCallAgoraEngine {
       NativeVoiceCallLog.info("speaker_toggle", activeCallId, "enabled=" + enabled + " result=" + result);
       if (result != 0) return false;
       NativeVoiceCallLog.info("audio_route_applied", activeCallId, "speaker=" + enabled);
+      com.dibay.app.call.NativeCallProximityOwner.onSpeakerChanged(evidenceContext, activeCallId, enabled);
       return true;
     }
   }
@@ -409,6 +410,20 @@ public final class NativeVoiceCallAgoraEngine {
 
   private static final IRtcEngineEventHandler EVENT_HANDLER =
       new IRtcEngineEventHandler() {
+        /** 근접 센서 S5 — 수화기일 때만 귀 근접 화면 끔 (이어폰·블루투스·스피커 전환 포함). */
+        @Override
+        public void onAudioRouteChanged(int routing) {
+          String sid;
+          Context ctx;
+          synchronized (LOCK) {
+            sid = activeCallId;
+            ctx = evidenceContext;
+          }
+          if (sid == null || sid.isEmpty()) return;
+          NativeVoiceCallLog.info("audio_route_changed", sid, "routing=" + routing);
+          com.dibay.app.call.NativeCallProximityOwner.onAudioRouteChanged(ctx, sid, routing);
+        }
+
         @Override
         public void onJoinChannelSuccess(String channel, int uid, int elapsed) {
           Listener currentListener;

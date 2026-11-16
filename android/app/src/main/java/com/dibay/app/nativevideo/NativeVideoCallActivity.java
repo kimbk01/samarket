@@ -53,7 +53,8 @@ import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Native-only video call UI. Never hosts WebView. Render-only over NativeVideoCallRuntime state. */
-public class NativeVideoCallActivity extends Activity {
+public class NativeVideoCallActivity extends Activity
+    implements com.dibay.app.call.CallScreenKeepAwakeHost {
 
   /** 언어 SSOT S8-3: 통화 화면 문구 = 앱 언어(저장값 → 없으면 기기 언어). 기기 언어와 같으면 그대로 */
   @Override
@@ -466,6 +467,8 @@ public class NativeVideoCallActivity extends Activity {
     if (UI_MODE_INCOMING.equals(uiMode)) {
       applyIncomingWakeFlags();
     }
+    // S1 — 통화 전체 화면은 준비·발신 벨·수신 벨·연결 모두 화면 유지 (발신 벨 중 꺼짐 결함 K1).
+    applyCallScreenKeepAwake("create");
     setContentView(R.layout.activity_native_video_call);
     bindViews();
     noticeOverlay = NativeCallInAppNoticeOverlay.attach(this);
@@ -514,7 +517,29 @@ public class NativeVideoCallActivity extends Activity {
   protected void onResume() {
     super.onResume();
     if (waitingBanner != null) waitingBanner.onHostResumed();
+    applyCallScreenKeepAwake("resume");
     NativeVideoCallLog.info("native_video_pip_activity_resumed", callId, buildPipLogDetails("resume"));
+  }
+
+  /**
+   * 통화 화면 유지 — 단일 정의 docs/audit/call-screen-awake-audit-2026-11-16.md §4-1.
+   *
+   * <p>S1·S2 영상 통화 화면은 전체 화면·PiP 모두 단계와 상관없이 창에 유지 (Telegram VoIPWindowView·VoIPPiPView 동일).
+   * 앱 안 Dock(메신저 화면)은 기존 {@link com.dibay.app.call.ScreenAwakeBridge} 연결 영상 경로가 맡는다.
+   */
+  private void applyCallScreenKeepAwake(String source) {
+    if (isFinishing()) return;
+    boolean held =
+        (getWindow().getAttributes().flags & WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) != 0;
+    getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    if (!held) {
+      NativeVideoCallLog.info("call_screen_keep_awake_on", callId, "source=" + source);
+    }
+  }
+
+  @Override
+  public void reapplyCallScreenKeepAwake(String source) {
+    runOnUiThread(() -> applyCallScreenKeepAwake(source));
   }
 
   @Override

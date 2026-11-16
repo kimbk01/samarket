@@ -255,6 +255,10 @@ public final class ScreenAwakeBridge {
         bridge.getWebView().setKeepScreenOn(false);
       }
     }
+    // 통화 화면은 자기 창 규칙(전체 화면 유지)을 가진다 — 브리지 해제가 그 규칙을 지우지 않게 다시 계산시킨다.
+    if (activity instanceof CallScreenKeepAwakeHost) {
+      ((CallScreenKeepAwakeHost) activity).reapplyCallScreenKeepAwake("screen_awake_bridge_clear");
+    }
   }
 
   private static void runOnMain(Runnable runnable) {

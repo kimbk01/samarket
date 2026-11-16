@@ -42,7 +42,8 @@ import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Native-only voice call UI. Never hosts WebView. Render-only over NativeVoiceCallRuntime state. */
-public class NativeVoiceCallActivity extends Activity {
+public class NativeVoiceCallActivity extends Activity
+    implements com.dibay.app.call.CallScreenKeepAwakeHost {
 
   /** 언어 SSOT S8-3: 통화 화면 문구 = 앱 언어(저장값 → 없으면 기기 언어). 기기 언어와 같으면 그대로 */
   @Override
@@ -266,9 +267,9 @@ public class NativeVoiceCallActivity extends Activity {
     NativeCallWaitingPresenter.onCallScreenShown(callId);
     if (UI_MODE_INCOMING.equals(uiMode)) {
       applyIncomingWakeFlags();
-    } else {
-      getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
+    // S1 — 통화 전체 화면은 준비·발신 벨·수신 벨·연결 모두 화면 유지 (수신·발신 구분 없음).
+    applyCallScreenKeepAwake("create");
     setContentView(R.layout.activity_native_voice_call);
     bindViews();
     noticeOverlay = NativeCallInAppNoticeOverlay.attach(this);
@@ -351,6 +352,7 @@ public class NativeVoiceCallActivity extends Activity {
   protected void onResume() {
     super.onResume();
     if (waitingBanner != null) waitingBanner.onHostResumed();
+    applyCallScreenKeepAwake("resume");
     // WP-3 NEW-11: user returned from app Settings — resume accept if the mic is now granted and
     // the call is still ringing.
     String parked = pendingSettingsAcceptSource;
@@ -387,6 +389,7 @@ public class NativeVoiceCallActivity extends Activity {
     inPipMode = isInPictureInPictureMode;
     if (waitingBanner != null) waitingBanner.onCallWaitingChanged();
     applyPipUiMode(isInPictureInPictureMode);
+    applyCallScreenKeepAwake(isInPictureInPictureMode ? "pip_entered" : "pip_exited");
     NativeVoiceCallLog.info(
         isInPictureInPictureMode ? "native_voice_pip_entered" : "native_voice_pip_exited", callId);
     if (isInPictureInPictureMode && autoPipPendingSource != null) {
@@ -640,6 +643,7 @@ public class NativeVoiceCallActivity extends Activity {
     }
   }
 
+  /** S7 — 잠금 위 표시·화면 켜기만. 화면 유지는 {@link #applyCallScreenKeepAwake} 한 곳. */
   private void applyIncomingWakeFlags() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
       setShowWhenLocked(true);
@@ -648,9 +652,36 @@ public class NativeVoiceCallActivity extends Activity {
       getWindow()
           .addFlags(
               WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
-                  | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-                  | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                  | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
     }
+  }
+
+  /**
+   * 통화 화면 유지 — 단일 정의 docs/audit/call-screen-awake-audit-2026-11-16.md §4-1.
+   *
+   * <p>S1 전체 화면이면 단계(준비·벨·연결)·방향(발신·수신)과 상관없이 창에 유지. S3 음성 축소(PiP·Dock)는 유지하지 않음
+   * (Telegram 음성은 통화 화면을 벗어나면 기기 설정대로). 창 플래그라 화면이 안 보이거나 끝나면 OS 가 적용을 멈춘다(S4).
+   */
+  private void applyCallScreenKeepAwake(String source) {
+    boolean keep = !inPipMode && !dockMode && !isFinishing();
+    boolean held =
+        (getWindow().getAttributes().flags & WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) != 0;
+    if (keep) {
+      getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    } else {
+      getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
+    if (keep != held) {
+      NativeVoiceCallLog.info(
+          keep ? "call_screen_keep_awake_on" : "call_screen_keep_awake_off",
+          callId != null ? callId : attemptId,
+          "source=" + source + " pip=" + inPipMode + " dock=" + dockMode);
+    }
+  }
+
+  @Override
+  public void reapplyCallScreenKeepAwake(String source) {
+    runOnUiThread(() -> applyCallScreenKeepAwake(source));
   }
 
   private void bindViews() {
@@ -1105,6 +1136,7 @@ public class NativeVoiceCallActivity extends Activity {
     dockMode = true;
     applyDockPresentation();
     syncMinimizeButton();
+    applyCallScreenKeepAwake("dock_shown");
     NativeVoiceCallLog.info("native_voice_dock_shown", callId, "source=" + source);
   }
 
@@ -1113,6 +1145,7 @@ public class NativeVoiceCallActivity extends Activity {
     dockMode = false;
     if (dockRoot != null) dockRoot.setVisibility(View.GONE);
     syncMinimizeButton();
+    applyCallScreenKeepAwake("dock_hidden");
     NativeVoiceCallLog.info("native_voice_dock_hidden", callId, "source=" + source);
     if (currentState != null && currentState != NativeVoiceCallRuntime.State.CONNECTED) {
       return;
