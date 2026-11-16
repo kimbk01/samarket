@@ -167,7 +167,7 @@ export function AdminSettingsPage() {
           <ReportPolicyForm values={display} onChange={handleChange} />
         )}
         {activeSection === "trust" && (
-          <TrustPolicyForm values={display} onChange={handleChange} />
+          <TrustPolicyForm />
         )}
         {activeSection === "region" && (
           <RegionPolicyForm values={display} onChange={handleChange} />
