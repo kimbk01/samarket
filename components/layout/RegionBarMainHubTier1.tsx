@@ -23,7 +23,7 @@ import {
   type MainTabKeepAliveHubId,
 } from "@/lib/layout/resolve-main-surface";
 import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules";
-import { useHeaderScopedMainTier1Extras } from "@/contexts/MainTier1ExtrasContext";
+import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { SAM_TIER1_HEADER_ACTION_BTN_CLASS } from "@/lib/ui/tier1-header-icon";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { openGlobalSearchFromHere } from "@/lib/search/global/global-search-navigation-ssot";
@@ -90,8 +90,7 @@ function hubTitleKey(hub: MainHubTier1Id) {
 export function RegionBarMainHubTier1({ pathNoQuery }: { pathNoQuery: string }) {
   const { t } = useI18n();
   const hub = resolveMainHubId(pathNoQuery);
-  /** S4 — 두 칸 목록 칸 머리글이면 그 허브 extras 만 (`MainTier1ExtrasHubScope`) */
-  const extrasRight = useHeaderScopedMainTier1Extras(pathNoQuery)?.tier1?.rightSlot;
+  const extrasRight = useMainTier1ExtrasOptional()?.extras?.tier1?.rightSlot;
 
   if (hub == null) {
     return null;
