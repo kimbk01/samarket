@@ -1,0 +1,178 @@
+(lldb) process attach --pid 16715
+Process 16715 stopped
+* thread #1, queue = 'com.apple.main-thread', stop reason = signal SIGSTOP
+      frame #0: 0x000000018d9c38a8 CoreFoundation`-[__NSCFString isEqual:]
+CoreFoundation`-[__NSCFString isEqual:]:
+->  0x18d9c38a8 <+0>:  pacibsp 
+    0x18d9c38ac <+4>:  stp    x22, x21, [sp, #-0x30]!
+    0x18d9c38b0 <+8>:  stp    x20, x19, [sp, #0x10]
+    0x18d9c38b4 <+12>: stp    x29, x30, [sp, #0x20]
+Target 0: (App) stopped.
+Executable binary set to "/private/var/folders/qr/jpm6v_pd29s_x_ywycwbxn0w0000gn/X/FFFCC7C7-32E2-5863-B132-56CF8BC0252B/d/Wrapper/App.app/App".
+Architecture set to: arm64-apple-ios-.
+(lldb) expr -l objc -O -- (id)[(id)[UIApplication sharedApplication] windows]
+<__NSArrayM 0xc5a79f2d0>(
+<UIWindow: 0x104f498b0; frame = (0 0; 2094 1402); gestureRecognizers = <NSArray: 0xc5ac7a760>; layer = <UIWindowLayer: 0xc5ac7a400>>,
+<UITextEffectsWindow: 0xc5a8a0000; frame = (0 0; 2094 1402); opaque = NO; autoresize = W+H; gestureRecognizers = <NSArray: 0xc5b1d8b00>; layer = <UIWindowLayer: 0xc5a9d0540>>,
+<UITextEffectsWindow: 0xc5a8a1e00; frame = (0 0; 1024 768); opaque = NO; autoresize = W+H; gestureRecognizers = <NSArray: 0xc5b1db6a0>; layer = <UIWindowLayer: 0xc5aa30390>>
+)
+
+(lldb) expr -l objc -O -- (id)[(id)[(id)[UIApplication sharedApplication] windows] valueForKey:@"recursiveDescription"]
+<__NSArrayI 0xc5a79f1e0>(
+<UIWindow: 0x104f498b0; frame = (0 0; 2094 1402); gestureRecognizers = <NSArray: 0xc5ac7a760>; layer = <UIWindowLayer: 0xc5ac7a400>>
+   | <UITransitionView: 0xc5ad75000; frame = (0 0; 2094 1402); autoresize = W+H; layer = <CALayer: 0xc5a998c80>>
+   |    | <UIDropShadowView: 0xc5ae80f00; frame = (0 0; 2094 1402); autoresize = W+H; layer = <CALayer: 0xc5a998d40>>
+   |    |    | <WKWebView: 0xc5a8d8800; frame = (0 0; 2094 1402); autoresize = W+H; backgroundColor = UIExtendedSRGBColorSpace 1 0.988235 0.988235 1; layer = <CALayer: 0xc5af73a20>>
+   |    |    |    | <WKScrollView: 0xc5b8c8000; baseClass = UIScrollView; frame = (0 0; 2094 1402); clipsToBounds = YES; gestureRecognizers = <NSArray: 0xc5aba7240>; backgroundColor = UIExtendedSRGBColorSpace 1 0.988235 0.988235 1; layer = <CALayer: 0xc5afd9160>; contentOffset: {0, 0}; contentSize: {2094, 1402}; adjustedContentInset: {0, 0, 44, 0} topEdge=<style=automatic backgroundCapture=color<<UIMacSystemColor: 0xc5b1d8c10; name = systemBackgroundColor>>> bottomEdge=<style=automatic backgroundCapture=color<<UIMacSystemColor: 0xc5b1d8c10; name = systemBackgroundColor>>> leftEdge=<style=automatic backgroundCapture=color<<UIMacSystemColor: 0xc5b1d8c10; name = systemBackgroundColor>>> rightEdge=<style=automatic backgroundCapture=color<<UIMacSystemColor: 0xc5b1d8c10; name = systemBackgroundColor>>>>
+   |    |    |    |    | <WKContentView: 0xc5ad14000; frame = (0 0; 2094 1402); anchorPoint = (0, 0); gestureRecognizers = <NSArray: 0xc5a79d9b0>; backgroundColor = UIExtendedSRGBColorSpace 1 0.988235 0.988235 1; layer = <CALayer: 0xc5a87bf80>>
+   |    |    |    |    |    | <UIView: 0xc5b850e00; frame = (0 0; 2094 1402); anchorPoint = (0, 0); clipsToBounds = YES; layer = <CALayer: 0xc5afda480>>
+   |    |    |    |    |    |    | <UIView: 0xc5b850fc0; frame = (0 0; 2094 1402); autoresize = W+H; layer = <CALayer: 0xc5afda3c0>>
+   |    |    |    |    |    |    |    | <WKCompositingView: 0xc5bbfe680; frame = (0 0; 2094 1402); layer = <WKCompositingLayer: 0xc5abe9120> layerID = 1 "drawing area root 8589934593"> layerID = 1 "drawing area root 8589934593"
+   |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5bbfea00; frame = (0 0; 2094 1402); anchorPoint = (0, 0); layer = <WKCompositingLayer: 0xc5abe9220> layerID = 20 "content root"> layerID = 20 "content root"
+   |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5bbfdf80; frame = (0 0; 2094 1402); anchorPoint = (0, 0); backgroundColor = kCGColorSpaceModelRGB 1 0.988235 0.988235 1; layer = <WKCompositingLayer: 0xc5abe9000> layerID = 22 "RenderView 0x11f180190"> layerID = 22 "RenderView 0x11f180190"
+   |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5bbfda40; frame = (0 0; 0 0); layer = <WKCompositingLayer: 0xc5abe8da0> layerID = 24 "TileGrid container"> layerID = 24 "TileGrid container"
+   |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe9840> (layer)
+   |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5cc60380; frame = (0 0; 2094 1402); anchorPoint = (0, 0); layer = <WKCompositingLayer: 0xc5abe9b40> layerID = 25 "Page TiledBacking containment"> layerID = 25 "Page TiledBacking containment"
+   |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5bbfddc0; frame = (0 0; 2094 1402); clipsToBounds = YES; layer = <WKCompositingLayer: 0xc5abe8fc0> layerID = 783 "ancestor clipping"> layerID = 783 "ancestor clipping"
+   |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5bbff480; frame = (0 0; 2094 1402); layer = <WKCompositingLayer: 0xc5abe9400> layerID = 167 "RenderFlexibleBox 0x14ee94630 DIV 0x11fcbe500 class='relative flex min-h-0 w-full min-w-0 flex-1 fle..."> layerID = 167 "RenderFlexibleBox 0x14ee94630 DIV 0x11fcbe500 class='relative flex min-h-0 w-full min-w-0 flex-1 fle..."
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5bbfebc0; frame = (0 0; 2094 1402); clipsToBounds = YES; layer = <WKCompositingLayer: 0xc5abe91e0> layerID = 782 "child clipping"> layerID = 782 "child clipping"
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5cc60540; frame = (0 0; 2094 1402); layer = <WKCompositingLayer: 0xc5abe98e0> layerID = 795 "RenderFlexibleBox 0x14ee947c0 DIV 0x11fcbe480 class='relative flex min-h-0 min-w-0 w-full flex-1 fle..."> layerID = 795 "RenderFlexibleBox 0x14ee947c0 DIV 0x11fcbe480 class='relative flex min-h-0 min-w-0 w-full flex-1 fle..."
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5cc60000; frame = (0 0; 0 0); layer = <WKCompositingLayer: 0xc5abe9a60> layerID = 797 "TileGrid container"> layerID = 797 "TileGrid container"
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe9700> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe8920> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe90a0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe8e60> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe8ce0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe9940> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe8f20> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe9440> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe99c0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe8d80> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe8b60> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe9740> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe9560> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe9be0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe8ea0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5bbfe140; frame = (0 0; 2094 1402); clipsToBounds = YES; layer = <WKCompositingLayer: 0xc5abe8f60> layerID = 784 "child clipping"> layerID = 784 "child clipping"
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5bbff9c0; frame = (0 0; 2094 1402); clipsToBounds = YES; layer = <WKCompositingLayer: 0xc5abe97a0> layerID = 786 "ancestor clipping"> layerID = 786 "ancestor clipping"
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5bbfef40; frame = (0 0; 2094 1402); layer = <WKCompositingLayer: 0xc5abe9320> layerID = 780 "RenderFlexibleBox 0x14ee94c70 DIV 0x11fcbdf80 class='main-shell-push-host flex min-h-0 min-w-0 flex-..."> layerID = 780 "RenderFlexibleBox 0x14ee94c70 DIV 0x11fcbdf80 class='main-shell-push-host flex min-h-0 min-w-0 flex-..."
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5cc60700; frame = (0 0; 2094 1402); clipsToBounds = YES; layer = <WKCompositingLayer: 0xc5abe9d40> layerID = 785 "child clipping"> layerID = 785 "child clipping"
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5bbffd40; frame = (0 0; 2094 1402); layer = <WKCompositingLayer: 0xc5abe9680> layerID = 169 "RenderFlexibleBox 0x14ee94e00 DIV 0x11fcbdf00 class='main-shell-push-surface relative flex min-h-0 m..."> layerID = 169 "RenderFlexibleBox 0x14ee94e00 DIV 0x11fcbdf00 class='main-shell-push-surface relative flex min-h-0 m..."
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5bbfe840; frame = (0 122; 2094 1280); layer = <WKCompositingLayer: 0xc5abe92c0> layerID = 831 "RenderFlexibleBox 0x14ee94f90 MAIN 0x11f20c700 class='main-hub-scroll-body pb-[calc(var(--app-bottom..."> layerID = 831 "RenderFlexibleBox 0x14ee94f90 MAIN 0x11f20c700 class='main-hub-scroll-body pb-[calc(var(--app-bottom..."
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5bbfd6c0; frame = (0 0; 0 0); layer = <WKCompositingLayer: 0xc5abe8ca0> layerID = 833 "TileGrid container"> layerID = 833 "TileGrid container"
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe9280> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe8e20> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe94c0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe9620> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe92e0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abebdc0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abebe40> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe8900> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe9600> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abeaf00> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abeb5c0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe9980> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe9360> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe8aa0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe9a00> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKChildScrollView: 0xc5b8c9e00; baseClass = UIScrollView; frame = (0 0; 2094 1280); clipsToBounds = YES; gestureRecognizers = <NSArray: 0xc5aba68b0>; layer = <CALayer: 0xc5a87aa40>; contentOffset: {0, 0}; contentSize: {2094, 1418}; adjustedContentInset: {0, 0, 0, 0}>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5cc61500; frame = (0 0; 2094 1418); anchorPoint = (0, 0); layer = <WKCompositingLayer: 0xc5a87a480> layerID = 1123 "scrolled contents"> layerID = 1123 "scrolled contents"
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5cc61340; frame = (0 0; 0 0); layer = <WKCompositingLayer: 0xc5a87bf40> layerID = 1125 "TileGrid container"> layerID = 1125 "TileGrid container"
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe8e40> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe8ee0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe93c0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe9a40> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5a87be20> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5a87a5a0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abeb040> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abebcc0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abebf20> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abea700> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abe9f60> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abeaf20> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abeb9e0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abea7c0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abeb720> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <_UIScrollerImpContainerView: 0xc5cc61180; frame = (0 1265; 2094 15); clipsToBounds = YES; userInteractionEnabled = NO; layer = <CALayer: 0xc5a87bc20>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <CALayer: 0xc5a879280> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <CALayer: 0xc5a879260> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <_UIScrollerImpContainerView: 0xc5cc60c40; frame = (2079 0; 15 1280); clipsToBounds = YES; userInteractionEnabled = NO; layer = <CALayer: 0xc5a87b660>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <CALayer: 0xc5a8792a0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <CALayer: 0xc5a878060> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5ccc88c0; frame = (0 0; 2094 122); layer = <WKCompositingLayer: 0xc5acb7780> layerID = 14593 "backdrop hosting: RenderBlock (relative positioned) 0x156f80ff0 DIV 0x11fcbcb80 class='relative z-20 w-full min-w-0 ma..."> layerID = 14593 "backdrop hosting: RenderBlock (relative positioned) 0x156f80ff0 DIV 0x11fcbcb80 class='relative z-20 w-full min-w-0 ma..."
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKBackdropView: 0xc5cccb480; frame = (0 0; 2094 122); anchorPoint = (0, 0); clipsToBounds = YES; layer = <CABackdropLayer: 0xc5acb7040>> layerID = 14594 "backdrop"
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5bbfdc00; frame = (0 0; 2094 122); layer = <WKCompositingLayer: 0xc5abcfb20> layerID = 14590 "RenderBlock (relative positioned) 0x156f80ff0 DIV 0x11fcbcb80 class='relative z-20 w-full min-w-0 ma..."> layerID = 14590 "RenderBlock (relative positioned) 0x156f80ff0 DIV 0x11fcbcb80 class='relative z-20 w-full min-w-0 ma..."
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5ccc9f80; frame = (0 0; 0 0); layer = <WKCompositingLayer: 0xc5acb73c0> layerID = 14592 "TileGrid container"> layerID = 14592 "TileGrid container"
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abcdac0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5acb6fc0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abcc780> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abcc4a0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5abcec60> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <_UITextSelectionHighlightView: 0xc5a4ae400; frame = (0 0; 0 0); hidden = YES; userInteractionEnabled = NO; layer = <CALayer: 0xc5abea8c0>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <_UITextSelectionRangeView: 0xc5cc60a80; frame = (0 0; 0 0); layer = <CAShapeLayer: 0xc5abea8e0>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <_UITextUnderlineView: 0xc5a4aec00; frame = (0 0; 0 0); userInteractionEnabled = NO; layer = <CALayer: 0xc5abce9c0>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <_UITextSelectionRangeView: 0xc5cc601c0; frame = (0 0; 0 0); layer = <CAShapeLayer: 0xc5abceea0>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <_UITextCursorTrailingGlowView: 0xc5a4aee00; frame = (0 0; 0 0); alpha = 0.32; userInteractionEnabled = NO; layer = <CALayer: 0xc5abcef60>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <_UIShapeView: 0xc5cc632c0; frame = (0 0; 0 0); layer = <CAShapeLayer: 0xc5abcefc0>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <UIStandardTextCursorView: 0xc5a4af000; frame = (33 87; 2 20); tintColor = kCGColorSpaceModelRGB 0.211765 0.141176 0.0823529 1; layer = <CALayer: 0xc5abcf660>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <UIView: 0xc5cc63480; frame = (0 0; 2 20); animations = { _uitcvba=<CAKeyframeAnimation: 0xc5a7882e0>; }; backgroundColor = kCGColorSpaceModelRGB 0.211765 0.141176 0.0823529 1; layer = <CALayer: 0xc5abcee20>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <_UITextSelectionRangeAdjustmentContainerView: 0xc5a4ae600; frame = (0 0; 0 0); hidden = YES; layer = <CALayer: 0xc5abcea40>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <_UITextSelectionLollipopView: 0xc5a4ae800; frame = (0 0; 0 0); hidden = YES; tintColor = UIExtendedSRGBColorSpace 0.078 0.435 0.882 1; layer = <CALayer: 0xc5abcea60>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <UIView: 0xc5cc608c0; frame = (0 0; 2 0); backgroundColor = UIExtendedSRGBColorSpace 0.078 0.435 0.882 1; layer = <CALayer: 0xc5abceaa0>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <UIView: 0xc5cc62680; frame = (-7.25 -13.5; 16.5 16.5); backgroundColor = UIExtendedSRGBColorSpace 0.078 0.435 0.882 1; layer = <CALayer: 0xc5abceae0>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <_UITextSelectionLollipopView: 0xc5a4aea00; frame = (0 0; 0 0); hidden = YES; tintColor = UIExtendedSRGBColorSpace 0.078 0.435 0.882 1; layer = <CALayer: 0xc5abceb20>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <UIView: 0xc5cc61c00; frame = (0 0; 2 0); backgroundColor = UIExtendedSRGBColorSpace 0.078 0.435 0.882 1; layer = <CALayer: 0xc5abceb60>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <UIView: 0xc5cc62840; frame = (-7.25 -13.5; 16.5 16.5); backgroundColor = UIExtendedSRGBColorSpace 0.078 0.435 0.882 1; layer = <CALayer: 0xc5abceba0>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <_UICursorAccessoryHostView: 0xc5a4af200; frame = (0 0; 2094 122); hidden = YES; layer = <CALayer: 0xc5abcf680>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <_UICursorAccessoryView: 0xc5a453480; frame = (0 0; 0 0); tintColor = kCGColorSpaceModelRGB 0.211765 0.141176 0.0823529 1; gestureRecognizers = <NSArray: 0xc5cc05120>; layer = <CALayer: 0xc5abcdca0>> clientRequestedContentView effect=none
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <_UIVisualEffectContentView: 0xc5a4af600; frame = (0 0; 0 0); autoresize = W+H; layer = <CALayer: 0xc5abcf8e0>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <UIView: 0xc5cc63800; frame = (0 0; 0 0); layer = <CALayer: 0xc5abcf800>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <UIView: 0xc5cc639c0; frame = (0 0; 0 0); hidden = YES; userInteractionEnabled = NO; layer = <CALayer: 0xc5abcf900>>
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5ccc1a40; frame = (0 -1.67772e+07; 2094 3.35544e+07); clipsToBounds = YES; layer = <WKCompositingLayer: 0xc5abcde00> layerID = 14491 "child clipping"> layerID = 14491 "child clipping"
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5ccd9880; frame = (0 1.67772e+07; 2094 52); layer = <WKCompositingLayer: 0xc5a788ce0> layerID = 17155 "backdrop hosting: RenderBlock (relative positioned) 0x3a842d870 HEADER 0x11f20c200 class='w-full min-w-0 max-w-full sh..."> layerID = 17155 "backdrop hosting: RenderBlock (relative positioned) 0x3a842d870 HEADER 0x11f20c200 class='w-full min-w-0 max-w-full sh..."
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKBackdropView: 0xc5ccdb2c0; frame = (0 0; 2094 53); anchorPoint = (0, 0); clipsToBounds = YES; layer = <CABackdropLayer: 0xc5a78a0c0>> layerID = 17156 "backdrop"
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5ccd88c0; frame = (0 0; 2094 52); layer = <WKCompositingLayer: 0xc5a788b20> layerID = 17152 "RenderBlock (relative positioned) 0x3a842d870 HEADER 0x11f20c200 class='w-full min-w-0 max-w-full sh..."> layerID = 17152 "RenderBlock (relative positioned) 0x3a842d870 HEADER 0x11f20c200 class='w-full min-w-0 max-w-full sh..."
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5ccd8540; frame = (0 0; 0 0); layer = <WKCompositingLayer: 0xc5a78a000> layerID = 17154 "TileGrid container"> layerID = 17154 "TileGrid container"
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5a788a20> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5a789cc0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5a78a040> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5a788ae0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5a788e80> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5ccda840; frame = (0 0; 2094 52); clipsToBounds = YES; layer = <WKCompositingLayer: 0xc5a788b60> layerID = 17151 "child clipping"> layerID = 17151 "child clipping"
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5ccd8fc0; frame = (0 0; 2094 52); layer = <WKCompositingLayer: 0xc5a789140> layerID = 17171 "backdrop hosting: RenderBlock (relative positioned) 0x3a842d980 DIV 0x11fcbcb00 class='sector-header-shell sector-head..."> layerID = 17171 "backdrop hosting: RenderBlock (relative positioned) 0x3a842d980 DIV 0x11fcbcb00 class='sector-header-shell sector-head..."
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKBackdropView: 0xc5ccd9dc0; frame = (0 0; 2094 52); anchorPoint = (0, 0); clipsToBounds = YES; layer = <CABackdropLayer: 0xc5a78a2e0>> layerID = 17172 "backdrop"
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5ccd8700; frame = (0 0; 2094 52); layer = <WKCompositingLayer: 0xc5a789e00> layerID = 17168 "RenderBlock (relative positioned) 0x3a842d980 DIV 0x11fcbcb00 class='sector-header-shell sector-head..."> layerID = 17168 "RenderBlock (relative positioned) 0x3a842d980 DIV 0x11fcbcb00 class='sector-header-shell sector-head..."
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingView: 0xc5ccd9180; frame = (0 0; 0 0); layer = <WKCompositingLayer: 0xc5a789ae0> layerID = 17170 "TileGrid container"> layerID = 17170 "TileGrid container"
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5a78a2a0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5a788f60> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5a789fe0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5a7899e0> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    | <WKCompositingLayer: 0xc5a788c20> (layer)
+   |    |    |    |    |    | <_UILayerHostView: 0xc5bbfcc40; frame = (0 0; 0 0); layer = <CALayerHost: 0xc5bb4ef80>>
+   |    |    |    |    |    | <_UILayerHostView: 0xc5bbfce00; frame = (0 0; 0 0); layer = <CALayerHost: 0xc5b346a40>>
+   |    |    |    |    | <UIView: 0xc5b851f80; frame = (0 0; 0 0); anchorPoint = (0, 0); opaque = NO; layer = <CALayer: 0xc5a9994c0>>
+   |    |    |    |    | <_UIScrollerImpContainerView: 0xc5b851c00; frame = (0 1343; 2094 15); clipsToBounds = YES; userInteractionEnabled = NO; layer = <CALayer: 0xc5a998fa0>>
+   |    |    |    |    |    | <CALayer: 0xc5abfc4c0> (layer)
+   |    |    |    |    |    | <CALayer: 0xc5abfc080> (layer)
+   |    |    |    |    | <_UIScrollerImpContainerView: 0xc5b851dc0; frame = (2079 20; 15 1338); clipsToBounds = YES; userInteractionEnabled = NO; layer = <CALayer: 0xc5a999020>>
+   |    |    |    |    |    | <CALayer: 0xc5abfc4a0> (layer)
+   |    |    |    |    |    | <CALayer: 0xc5abfc5e0> (layer),
+<UITextEffectsWindow: 0xc5a8a0000; frame = (0 0; 2094 1402); opaque = NO; autoresize = W+H; gestureRecognizers = <NSArray: 0xc5b1d8b00>; layer = <UIWindowLayer: 0xc5a9d0540>>
+   | <UIInputSetContainerView: 0xc5ad76e00; frame = (0 0; 2094 1402); clipsToBounds = YES; gestureRecognizers = <NSArray: 0xc5cc053a0>; layer = <CALayer: 0xc5afd8da0>>
+   |    | <UIInputSetHostView: 0xc5b93c1c0; frame = (0 1358; 2094 44); layer = <CALayer: 0xc5afd8e80>>
+   |    |    | <UIView: 0xc5ccdaf40; frame = (0 0; 2094 44); userInteractionEnabled = NO; layer = <CALayer: 0xc5a7894a0>>
+   |    |    |    | <UIKBInputBackdropView: 0xc5aaf2a00; frame = (0 0; 2094 44); userInteractionEnabled = NO; layer = <CALayer: 0xc5a788a40>>
+   |    |    |    |    | <UIKBBackdropView: 0xc5a6bd400; frame = (0 0; 2094 44); clipsToBounds = YES; backgroundColor = <UIDynamicModifiedColor: 0xc5a79e040; alpha = 0.1, baseColor = <UIMacSystemColor: 0xc5b1d8c10; name = systemBackgroundColor>>; layer = <CALayer: 0xc5a7889e0>> effect=none
+   |    |    | <UIInputView: 0xc5a6a2300; frame = (0 44; 2094 0); layer = <CALayer: 0xc5a789da0>>
+   |    |    |    | <_UIInputViewContent: 0xc5ccd9340; frame = (0 0; 1047 0); layer = <CALayer: 0xc5a789b60>>
+   |    |    |    | <_UIInputViewContent: 0xc5ccdb100; frame = (1047 0; 1047 0); autoresize = LM; layer = <CALayer: 0xc5a789d00>>
+   |    |    | <UIInputView: 0xc5a452580; frame = (0 0; 2094 44); layer = <CALayer: 0xc5aa7eae0>>
+   |    |    |    | <_UIInputViewContent: 0xc5bbfcfc0; frame = (0 0; 1047 44); layer = <CALayer: 0xc5aa7f100>>
+   |    |    |    | <_UIInputViewContent: 0xc5bbfd180; frame = (1047 0; 1047 44); autoresize = LM; layer = <CALayer: 0xc5aa7efc0>>,
+<UITextEffectsWindow: 0xc5a8a1e00; frame = (0 0; 1024 768); opaque = NO; autoresize = W+H; gestureRecognizers = <NSArray: 0xc5b1db6a0>; layer = <UIWindowLayer: 0xc5aa30390>>
+   | <UIInputSetContainerView: 0xc5a4ad600; frame = (0 0; 1024 768); clipsToBounds = YES; layer = <CALayer: 0xc5ab50360>>
+   |    | <UIInputSetHostView: 0xc5bb36f40; frame = (0 0; 0 0); layer = <CALayer: 0xc5ab50600>>
+)
+
+(lldb) detach
+Process 16715 detached
