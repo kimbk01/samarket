@@ -9,7 +9,7 @@
 | 정책 값(가중치·K·상한·기간) | `lib/trust/crew-rep-policy.ts` |
 | 계산기(순수 함수) | `lib/trust/crew-rep-calculator.ts` |
 | 원장(사건 이력) | `trust_events` — 지우지 않고 `status=reversed` 로만 되돌림 |
-| 기록기 | `recordTrustEvent` / `reverseTrustEvent` (`lib/trust/trust-event-ledger.ts`) · 참여도 동기화기 `lib/trust/crew-rep-participation-sync.ts`(매일, S3) · 매너·제재 동기화기 `lib/trust/crew-rep-manner-sync.ts`(매일, S4) · 허위 신고 판정 `/api/admin/users/:id/false-reports`(어드민, S4) |
+| 기록기 | `recordTrustEvent` / `reverseTrustEvent` (`lib/trust/trust-event-ledger.ts`) · 참여도 동기화기 `lib/trust/crew-rep-participation-sync.ts`(매일, S3) · 매너·제재 동기화기 `lib/trust/crew-rep-manner-sync.ts`(매일, S4) · 허위 신고 판정 `/api/admin/users/:id/false-reports`(어드민, S4) · 거래 평가 동기화기 `lib/trust/crew-rep-trade-rating-sync.ts`(매일, S5) |
 | 투영(읽기 권한) | `member_trust_snapshots` (`manner_battery_percent` = CREW REP 점수, 열 이름은 호환 유지) |
 | 점수 이력 | `member_trust_score_history` (service role 만) |
 | 매일 재계산 | `/api/cron/crew-rep-daily-recompute` 03:00 PHT (`0 19 * * *` UTC) |
@@ -49,4 +49,11 @@ S1 표기(#364) · **S2 계산기·이력·매일 재계산(이 문서)** · S3 
 - 모임 출석(+0.5)·노쇼(−2) = 끝난 일정에서 모임장·공동모임장이 체크, 일정 주최자 본인 제외, 노쇼는 7일 뒤 반영.
 - 허위·악의 신고(신고자 M −2) = 어드민 회원 상세 CREW REP 영역에서 반려·기각 신고를 판정(취소 가능).
 - 주문 수령 노쇼: 원천 없음(매장이 손님 노쇼를 확정하는 기능이 없음) — 미구현.
-S5 전까지 거래 평가 기록기는 없다.
+**S5 거래 평가(Owner 2026-11-16 「거래 평가 살리기」):** 구매자 지정·구매 확정 없이 **실제로 대화한 거래 상대끼리만** 양방향 평가.
+- 자격(서버 `lib/trade/trade-rating.ts` `evaluateTradeRatingEligibility`): 판매자·구매자 각자 메시지 3개↑(시스템·삭제 제외) · 대화 10분↑ · 판매완료 또는 첫 메시지 3일 뒤부터 30일 안 · 방당 1회 · 같은 기기 이력 없음 · 차단·탈퇴·정지 아님.
+- 동시 공개: 양쪽 제출 또는 첫 제출 7일 뒤(매일 예약 작업). 공개 전에는 서로 못 보고 점수 없음.
+- 아쉬워요: 아쉬운 태그 1개↑ 필수, 받은 사람 공개 후 14일 안 1회 이의제기 → 어드민 후기 상세에서 인정(제외)·기각(반영). 이의 기간이 지나거나 기각돼야 점수 반영.
+- 거래 확인 가중 w: 둘 다 「했어요」 1.0 · 한쪽만 0.7 · 대화만 0.5. 남길 말은 운영자만.
+- 권한: `transaction_reviews` 앱 사용자 INSERT·SELECT 정책 삭제(D14·D15) — 서버(service role)만.
+- API: `GET/POST /api/trade/product-chat/:roomId/rating` · `POST /api/trade/ratings/:id/dispute` · `GET /api/users/:userId/trade-rating-summary` · 어드민 `POST /api/admin/transaction-reviews/:id/action` (dispute_accept·dispute_reject).
+- 원장: `lib/trust/crew-rep-trade-rating-sync.ts`(매일) → `trade_rating_good|normal|bad`. 옛 30건은 v1 원장(`trade_review_*`) 그대로.

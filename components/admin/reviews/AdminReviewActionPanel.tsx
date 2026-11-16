@@ -21,12 +21,44 @@ interface AdminReviewActionPanelProps {
 
 export function AdminReviewActionPanel({ review, onActionSuccess }: AdminReviewActionPanelProps) {
   const { t } = useI18n();
-  const [sheet, setSheet] = useState<"hide_review" | "restore_review" | null>(null);
+  const [sheet, setSheet] = useState<"hide_review" | "restore_review" | "dispute_accept" | "dispute_reject" | null>(null);
   const hidden = review.reviewStatus === "hidden";
+  const disputed = review.ratingStatus === "disputed";
+  const sheetTitle =
+    sheet === "hide_review"
+      ? t("admin_reviews_hide_title")
+      : sheet === "restore_review"
+        ? t("admin_reviews_restore_title")
+        : sheet === "dispute_accept"
+          ? t("admin_reviews_dispute_accept")
+          : t("admin_reviews_dispute_reject");
 
   return (
     <div className="space-y-3">
+      {disputed ? (
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2 sam-text-body-secondary text-sam-fg">
+          <p className="font-semibold">{t("admin_reviews_dispute_pending")}</p>
+          <p className="mt-1 text-sam-muted">
+            {review.disputeReason ?? "—"}
+            {review.disputeNote ? ` · ${review.disputeNote}` : ""}
+          </p>
+        </div>
+      ) : review.disputeDecision ? (
+        <p className="sam-text-helper text-sam-muted">
+          {t(review.disputeDecision === "accepted" ? "admin_reviews_dispute_accepted" : "admin_reviews_dispute_rejected")}
+        </p>
+      ) : null}
       <div className="flex flex-wrap gap-2">
+        {disputed ? (
+          <>
+            <AdminActionButton variant="secondary" onClick={() => setSheet("dispute_accept")}>
+              {t("admin_reviews_dispute_accept")}
+            </AdminActionButton>
+            <AdminActionButton variant="secondary" onClick={() => setSheet("dispute_reject")}>
+              {t("admin_reviews_dispute_reject")}
+            </AdminActionButton>
+          </>
+        ) : null}
         {!hidden ? (
           <AdminActionButton variant="danger" onClick={() => setSheet("hide_review")}>
             {t("admin_reviews_action_hide")}
@@ -48,14 +80,20 @@ export function AdminReviewActionPanel({ review, onActionSuccess }: AdminReviewA
 
       {sheet ? (
         <CommunityActionSheet
-          title={sheet === "hide_review" ? t("admin_reviews_hide_title") : t("admin_reviews_restore_title")}
+          title={sheetTitle}
           rows={[
             { label: t("admin_reviews_row_review"), value: review.comment || "—" },
             { label: t("admin_reviews_row_target_member"), value: review.targetNickname || "—" },
           ]}
           reason={{ minLength: 2, placeholder: t("admin_reviews_reason_placeholder") }}
           destructive={sheet === "hide_review"}
-          confirmLabel={sheet === "hide_review" ? t("admin_reviews_hide_btn") : t("admin_reviews_restore_btn")}
+          confirmLabel={
+            sheet === "hide_review"
+              ? t("admin_reviews_hide_btn")
+              : sheet === "restore_review"
+                ? t("admin_reviews_restore_btn")
+                : sheetTitle
+          }
           onSubmit={(reason) =>
             communitySheetFetch(`/api/admin/transaction-reviews/${encodeURIComponent(review.id)}/action`, {
               method: "POST",

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import type { ReviewModerationActionType } from "@/lib/types/admin-review";
+import { decideTradeRatingDispute } from "@/lib/trade/trade-rating";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +12,8 @@ const ALLOWED: ReviewModerationActionType[] = [
   "restore_review",
   "review_only",
   "recalculate_trust",
+  "dispute_accept",
+  "dispute_reject",
 ];
 
 export async function POST(
@@ -38,7 +41,10 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "unsupported_action" }, { status: 400 });
   }
   // 숨김·복원은 사유 필수 (설계 v2 §D-5)
-  if ((action === "hide_review" || action === "restore_review") && note.length < 2) {
+  if (
+    (action === "hide_review" || action === "restore_review" || action === "dispute_accept" || action === "dispute_reject") &&
+    note.length < 2
+  ) {
     return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
   }
 
@@ -59,6 +65,17 @@ export async function POST(
   }
 
   const revieweeId = String((row as { reviewee_id?: string }).reviewee_id ?? "");
+
+  // CREW REP S5 — 받은 아쉬워요 이의 결정: 인정 = 평가 제외(reversed), 기각 = 반영(revealed). 다음 매일 동기화에서 점수 반영.
+  if (action === "dispute_accept" || action === "dispute_reject") {
+    const r = await decideTradeRatingDispute(sbAny, {
+      reviewId,
+      adminId: admin.userId,
+      decision: action === "dispute_accept" ? "accepted" : "rejected",
+      note,
+    });
+    if (!r.ok) return NextResponse.json({ ok: false, error: r.error }, { status: r.status });
+  }
 
   if (action === "hide_review" || action === "restore_review") {
     // Production SSOT: column may be absent — degrade to moderation_actions + audit only.

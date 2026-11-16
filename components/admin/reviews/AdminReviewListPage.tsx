@@ -24,7 +24,7 @@ import {
 import { useCommunityAdminJson } from "@/components/admin/community/members/use-community-admin-data";
 import { AdminReviewTable } from "./AdminReviewTable";
 
-const REVIEW_STATUSES = ["visible", "hidden", "reported"] as const;
+const REVIEW_STATUSES = ["visible", "hidden", "reported", "disputed"] as const;
 const LIST_EXTRAS = ["rating", "role"] as const;
 
 type ListResponse = { ok?: boolean; error?: string; reviews?: AdminReview[]; total?: number };

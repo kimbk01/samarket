@@ -37,6 +37,13 @@ export interface AdminReview {
   positiveTagKeys?: string[];
   /** 선택 부정 태그 키 */
   negativeTagKeys?: string[];
+  /** CREW REP S5 거래 평가 상태 (pending_reveal·revealed·disputed·reversed) */
+  ratingStatus?: string | null;
+  /** 거래 여부 응답 (yes·chat_only) — 새 거래 평가만 */
+  tradeHappened?: string | null;
+  disputeReason?: string | null;
+  disputeNote?: string | null;
+  disputeDecision?: string | null;
   /** 익명 부정평가 여부 */
   isAnonymousNegative?: boolean;
   /** 판매자/구매자 표시용: reviewer가 판매자면 target이 구매자 */
@@ -50,7 +57,10 @@ export type ReviewModerationActionType =
   | "hide_review"
   | "restore_review"
   | "review_only"
-  | "recalculate_trust";
+  | "recalculate_trust"
+  /** CREW REP S5 — 받은 아쉬워요 이의 인정(평가 제외)·기각(반영) */
+  | "dispute_accept"
+  | "dispute_reject";
 
 export interface ReviewModerationLog {
   id: string;

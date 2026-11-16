@@ -17,6 +17,12 @@ export interface TransactionReviewDbRow {
   positive_tag_keys?: unknown;
   negative_tag_keys?: unknown;
   review_comment?: string | null;
+  rating_status?: string | null;
+  trade_happened?: string | null;
+  disputed_at?: string | null;
+  dispute_reason?: string | null;
+  dispute_note?: string | null;
+  dispute_decision?: string | null;
 }
 
 const PUBLIC_TYPES = new Set(["good", "normal", "bad"]);
@@ -66,5 +72,10 @@ export function mapTransactionReviewRowToAdminReview(
     isAnonymousNegative: Boolean(r.is_anonymous_negative),
     sellerNickname: nicknameById[sellerId],
     buyerNickname: nicknameById[buyerId],
+    ratingStatus: r.rating_status ?? null,
+    tradeHappened: r.trade_happened ?? null,
+    disputeReason: r.dispute_reason ?? null,
+    disputeNote: r.dispute_note ?? null,
+    disputeDecision: r.dispute_decision ?? null,
   };
 }

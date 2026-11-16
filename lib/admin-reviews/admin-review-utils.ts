@@ -22,11 +22,13 @@ export type AdminReviewTranslate = (
   params?: Record<string, string | number>
 ) => string;
 
-export const REVIEW_STATUS_FILTER_OPTIONS: { value: ReviewStatus | ""; labelKey: MessageKey }[] = [
+export const REVIEW_STATUS_FILTER_OPTIONS: { value: ReviewStatus | "disputed" | ""; labelKey: MessageKey }[] = [
   { value: "", labelKey: "common_all" },
   { value: "visible", labelKey: REVIEW_STATUS_KEYS.visible },
   { value: "hidden", labelKey: REVIEW_STATUS_KEYS.hidden },
   { value: "reported", labelKey: REVIEW_STATUS_KEYS.reported },
+  /** CREW REP S5 — 이의제기 검토 대기 */
+  { value: "disputed", labelKey: "admin_reviews_filter_disputed" },
 ];
 
 export const RATING_FILTER_OPTIONS: { value: number | ""; labelKey: MessageKey }[] = [
