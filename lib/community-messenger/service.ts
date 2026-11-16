@@ -1,4 +1,5 @@
 import { isCatalogStickerPath } from "@/lib/stickers/sticker-catalog-validate";
+import { resolvePresenceLastSeenAtFromDbRow } from "@/lib/community-messenger/presence/presence-last-seen";
 import { readLiteBundleRoomAvatarUrl } from "@/lib/community-messenger/lite-bundle-room-avatar";
 import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
 import { normalizeTradePriceCurrency } from "@/lib/trade/trade-price-currency";
@@ -2047,7 +2048,8 @@ export async function getCommunityMessengerPresenceSnapshotsByUserIds(
   for (const row of (data ?? []) as PresenceSnapshotRow[]) {
     const userId = trimText(row.user_id);
     if (!userId) continue;
-    const lastSeenAt = trimText(row.last_seen_at) || trimText(row.updated_at) || null;
+    /** 「마지막 접속」 = 세 기록 중 가장 늦은 시각 (2026-11-16 감사 §10 H1) */
+    const lastSeenAt = resolvePresenceLastSeenAtFromDbRow(row);
     const state = derivePresenceFromDbRow({
       nowMs,
       lastPingAtIso: row.last_ping_at ?? null,
