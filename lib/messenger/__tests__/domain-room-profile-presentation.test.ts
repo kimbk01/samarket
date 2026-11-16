@@ -39,6 +39,7 @@ function tradeItem(partial: Partial<TradeListItem> & { itemId: string }): TradeL
     peerDisplayName: partial.peerDisplayName ?? "Peer",
     peerAvatarUrl: partial.peerAvatarUrl === undefined ? GOOGLE_AVATAR : partial.peerAvatarUrl,
     productChatId: partial.productChatId === undefined ? "pc-1" : partial.productChatId,
+    directKey: null,
     lastMessage: "hi",
     lastMessageIsSystem: false,
     lastMessageAt: "2026-07-14T00:00:00.000Z",

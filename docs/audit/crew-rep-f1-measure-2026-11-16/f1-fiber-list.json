@@ -1,0 +1,214 @@
+{
+  "mode": "list",
+  "samples": [
+    {
+      "t": 1500,
+      "s": {
+        "href": "https://samarket.vercel.app/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830?cm_list=trade",
+        "role": null,
+        "strip": false,
+        "cur": [
+          {
+            "ph": false,
+            "cm": {
+              "v": 1,
+              "kind": "trade",
+              "headline": "팝니다 · Toyota Vios",
+              "thumbnailUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/post-images/9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8/1793172603641-5d1940be.webp",
+              "postId": "227dcf5b-9d88-4417-8f78-b9e721824ed3",
+              "itemStateLabel": "거래완료",
+              "roleLabel": "판매",
+              "sellerId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+              "buyerId": "0c4b0a80-9755-4ebe-9a10-f8e1ced4c0cc"
+            },
+            "mdk": "trade_item:227dcf5b-9d88-4417-8f78-b9e721824ed3",
+            "msgs": 8,
+            "dock": false,
+            "pcid": ""
+          }
+        ],
+        "alt": [
+          {
+            "ph": false,
+            "cm": {
+              "v": 1,
+              "kind": "trade",
+              "headline": "팝니다 · Toyota Vios",
+              "thumbnailUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/post-images/9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8/1793172603641-5d1940be.webp",
+              "postId": "227dcf5b-9d88-4417-8f78-b9e721824ed3",
+              "itemStateLabel": "거래완료",
+              "roleLabel": "판매",
+              "sellerId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+              "buyerId": "0c4b0a80-9755-4ebe-9a10-f8e1ced4c0cc"
+            },
+            "mdk": "trade_item:227dcf5b-9d88-4417-8f78-b9e721824ed3",
+            "msgs": 8,
+            "dock": false,
+            "pcid": ""
+          }
+        ]
+      }
+    },
+    {
+      "t": 4000,
+      "s": {
+        "href": "https://samarket.vercel.app/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830?cm_list=trade",
+        "role": null,
+        "strip": false,
+        "cur": [
+          {
+            "ph": false,
+            "cm": {
+              "v": 1,
+              "kind": "trade",
+              "headline": "팝니다 · Toyota Vios",
+              "thumbnailUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/post-images/9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8/1793172603641-5d1940be.webp",
+              "postId": "227dcf5b-9d88-4417-8f78-b9e721824ed3",
+              "itemStateLabel": "거래완료",
+              "roleLabel": "판매",
+              "sellerId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+              "buyerId": "0c4b0a80-9755-4ebe-9a10-f8e1ced4c0cc"
+            },
+            "mdk": "trade_item:227dcf5b-9d88-4417-8f78-b9e721824ed3",
+            "msgs": 8,
+            "dock": false,
+            "pcid": ""
+          }
+        ],
+        "alt": [
+          {
+            "ph": false,
+            "cm": {
+              "v": 1,
+              "kind": "trade",
+              "headline": "팝니다 · Toyota Vios",
+              "thumbnailUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/post-images/9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8/1793172603641-5d1940be.webp",
+              "postId": "227dcf5b-9d88-4417-8f78-b9e721824ed3",
+              "itemStateLabel": "거래완료",
+              "roleLabel": "판매",
+              "sellerId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+              "buyerId": "0c4b0a80-9755-4ebe-9a10-f8e1ced4c0cc"
+            },
+            "mdk": "trade_item:227dcf5b-9d88-4417-8f78-b9e721824ed3",
+            "msgs": 8,
+            "dock": false,
+            "pcid": ""
+          }
+        ]
+      }
+    },
+    {
+      "t": 8000,
+      "s": {
+        "href": "https://samarket.vercel.app/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830?cm_list=trade",
+        "role": null,
+        "strip": false,
+        "cur": [
+          {
+            "ph": false,
+            "cm": {
+              "v": 1,
+              "kind": "trade",
+              "headline": "팝니다 · Toyota Vios",
+              "thumbnailUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/post-images/9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8/1793172603641-5d1940be.webp",
+              "postId": "227dcf5b-9d88-4417-8f78-b9e721824ed3",
+              "itemStateLabel": "거래완료",
+              "roleLabel": "판매",
+              "sellerId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+              "buyerId": "0c4b0a80-9755-4ebe-9a10-f8e1ced4c0cc"
+            },
+            "mdk": "trade_item:227dcf5b-9d88-4417-8f78-b9e721824ed3",
+            "msgs": 8,
+            "dock": false,
+            "pcid": ""
+          }
+        ],
+        "alt": [
+          {
+            "ph": false,
+            "cm": {
+              "v": 1,
+              "kind": "trade",
+              "headline": "팝니다 · Toyota Vios",
+              "thumbnailUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/post-images/9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8/1793172603641-5d1940be.webp",
+              "postId": "227dcf5b-9d88-4417-8f78-b9e721824ed3",
+              "itemStateLabel": "거래완료",
+              "roleLabel": "판매",
+              "sellerId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+              "buyerId": "0c4b0a80-9755-4ebe-9a10-f8e1ced4c0cc"
+            },
+            "mdk": "trade_item:227dcf5b-9d88-4417-8f78-b9e721824ed3",
+            "msgs": 8,
+            "dock": false,
+            "pcid": ""
+          }
+        ]
+      }
+    },
+    {
+      "t": 15000,
+      "s": {
+        "href": "https://samarket.vercel.app/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830?cm_list=trade",
+        "role": null,
+        "strip": false,
+        "cur": [
+          {
+            "ph": false,
+            "cm": {
+              "v": 1,
+              "kind": "trade",
+              "headline": "팝니다 · Toyota Vios",
+              "thumbnailUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/post-images/9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8/1793172603641-5d1940be.webp",
+              "postId": "227dcf5b-9d88-4417-8f78-b9e721824ed3",
+              "itemStateLabel": "거래완료",
+              "roleLabel": "판매",
+              "sellerId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+              "buyerId": "0c4b0a80-9755-4ebe-9a10-f8e1ced4c0cc"
+            },
+            "mdk": "trade_item:227dcf5b-9d88-4417-8f78-b9e721824ed3",
+            "msgs": 8,
+            "dock": false,
+            "pcid": ""
+          }
+        ],
+        "alt": [
+          {
+            "ph": false,
+            "cm": {
+              "v": 1,
+              "kind": "trade",
+              "headline": "팝니다 · Toyota Vios",
+              "thumbnailUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/post-images/9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8/1793172603641-5d1940be.webp",
+              "postId": "227dcf5b-9d88-4417-8f78-b9e721824ed3",
+              "itemStateLabel": "거래완료",
+              "roleLabel": "판매",
+              "sellerId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+              "buyerId": "0c4b0a80-9755-4ebe-9a10-f8e1ced4c0cc"
+            },
+            "mdk": "trade_item:227dcf5b-9d88-4417-8f78-b9e721824ed3",
+            "msgs": 8,
+            "dock": false,
+            "pcid": ""
+          }
+        ]
+      }
+    }
+  ],
+  "reqs": [
+    {
+      "url": "/api/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830/bootstrap?snapshotTier=silent_delta&cmReqSrc=room_silent",
+      "status": 200,
+      "tier": "silent_delta"
+    },
+    {
+      "url": "/api/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830/messages?latest=1&limit=40",
+      "status": 200,
+      "tier": null
+    },
+    {
+      "url": "/api/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830/messages?after=473720ba-2d28-4759-827c-33ed73f91990&limit=80",
+      "status": 200,
+      "tier": null
+    }
+  ]
+}

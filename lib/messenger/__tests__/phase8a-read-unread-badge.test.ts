@@ -116,6 +116,7 @@ function tradeItem(unread = 3): TradeListItem {
     peerDisplayName: "구매자",
     peerAvatarUrl: null,
     productChatId: null,
+    directKey: null,
     lastMessage: "문의",
     lastMessageIsSystem: false,
     lastMessageAt: "2026-07-14T10:00:00.000Z",

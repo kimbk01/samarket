@@ -35,6 +35,10 @@ export type DomainReadTradeListDto = Readonly<{
     sellerUserId: string;
     buyerUserId: string;
     viewerRole: "seller" | "buyer";
+    /** 실제 `product_chats.id` — 방 진입 시드의 거래 행동 줄 열쇠(없으면 null) */
+    productChatId: string | null;
+    /** 서버 원장 방 키 `community_messenger_rooms.direct_key`(없으면 null) */
+    directKey: string | null;
     productTitle: string;
     productImageUrl: string | null;
     peerLabel: string | null;
@@ -163,6 +167,8 @@ export async function composeDomainReadTradeListDto(
         sellerUserId: vm.sellerUserId,
         buyerUserId: vm.buyerUserId,
         viewerRole: vm.viewerRole,
+        productChatId: vm.productChatId,
+        directKey: vm.directKey,
         productTitle: vm.productTitle,
         productImageUrl: vm.productImageUrl,
         peerLabel: vm.peerLabel,

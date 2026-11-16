@@ -99,8 +99,10 @@ export function mergeCommunityMessengerForegroundBootstrapIntoSnapshot(
   next: CommunityMessengerRoomSnapshot
 ): CommunityMessengerRoomSnapshot {
   const roomDeltaMerged = mergeCommunityMessengerSilentDeltaIntoSnapshot(prev, next);
-  const { clientShellPlaceholder: _dropPlaceholder, ...roomCore } = roomDeltaMerged;
+  /** 서버 부트스트랩이 합쳐졌으므로 셸·목록 요약 시드 표시는 지운다 */
+  const { clientShellPlaceholder: _dropPlaceholder, listSeedPending: _dropListSeed, ...roomCore } = roomDeltaMerged;
   void _dropPlaceholder;
+  void _dropListSeed;
   const prevMessages = prev.messages ?? [];
   const nextMessages = next.messages ?? [];
   const messages =

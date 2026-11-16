@@ -16,7 +16,10 @@ import {
 } from "@/lib/community-messenger/room/cm-bootstrap-scheduling";
 import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
-import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
+import {
+  isMessengerRoomBootstrapReadySnapshot,
+  isMessengerRoomListSeedSnapshot,
+} from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import {
   applyAtomicRoomRead,
 } from "@/lib/chat-domain/room-read/atomic-room-read";
@@ -104,6 +107,17 @@ export function primeRoomSnapshot(roomId: string, snapshot: CommunityMessengerRo
   );
   const k = cacheKey(roomId, incoming.viewerUserId);
   const existing = entries.get(k);
+  if (
+    existing &&
+    isMessengerRoomListSeedSnapshot(existing.snapshot) &&
+    !isMessengerRoomListSeedSnapshot(incoming)
+  ) {
+    /** 목록 요약 시드 위에 서버 방 데이터 — 버전 비교 없이 교체(거래방 진입 감사 D2) */
+    entries.delete(k);
+    entries.set(k, { snapshot: incoming, at: Date.now() });
+    pruneIfNeeded();
+    return;
+  }
   if (existing) {
     const applied = applyAtomicRoomRead({
       prevValue: existing.snapshot,
@@ -217,12 +231,13 @@ export function getRoomSnapshotCacheAgeMs(
   const now = Date.now();
   if (typeof viewerUserId === "string" && viewerUserId.trim()) {
     const row = entries.get(cacheKey(r, viewerUserId.trim()));
-    return row ? now - row.at : null;
+    /** 목록 요약 시드는 「받아 둔 방 데이터」가 아니다 — 나이 없음으로 취급(재사용·건너뛰기 금지) */
+    return row && !isMessengerRoomListSeedSnapshot(row.snapshot) ? now - row.at : null;
   }
   const suffix = `:${r}`;
   let bestAt: number | null = null;
   for (const [k, row] of entries) {
-    if (!k.endsWith(suffix)) continue;
+    if (!k.endsWith(suffix) || isMessengerRoomListSeedSnapshot(row.snapshot)) continue;
     if (bestAt == null || row.at > bestAt) bestAt = row.at;
   }
   return bestAt != null ? now - bestAt : null;
@@ -237,13 +252,19 @@ export function isRoomSnapshotFreshWithin(
   if (!r || maxAgeMs <= 0) return false;
   if (typeof viewerUserId === "string" && viewerUserId.trim()) {
     const row = entries.get(cacheKey(r, viewerUserId.trim()));
-    return !!row && isMessengerRoomBootstrapReadySnapshot(row.snapshot) && Date.now() - row.at <= maxAgeMs;
+    return (
+      !!row &&
+      isMessengerRoomBootstrapReadySnapshot(row.snapshot) &&
+      !isMessengerRoomListSeedSnapshot(row.snapshot) &&
+      Date.now() - row.at <= maxAgeMs
+    );
   }
   const suffix = `:${r}`;
   for (const [k, row] of entries) {
     if (
       k.endsWith(suffix) &&
       isMessengerRoomBootstrapReadySnapshot(row.snapshot) &&
+      !isMessengerRoomListSeedSnapshot(row.snapshot) &&
       Date.now() - row.at <= maxAgeMs
     ) {
       return true;
@@ -268,6 +289,7 @@ export function isRoomSnapshotCurrentForListActivity(
   const suffix = `:${r}`;
   for (const [k, row] of entries) {
     if (!k.endsWith(suffix) || !isMessengerRoomBootstrapReadySnapshot(row.snapshot)) continue;
+    if (isMessengerRoomListSeedSnapshot(row.snapshot)) continue;
     const cachedMs = Date.parse(String(row.snapshot.room?.lastMessageAt ?? ""));
     if (Number.isFinite(cachedMs) && cachedMs >= listMs) return true;
   }
@@ -313,6 +335,36 @@ export function clearAllRoomSnapshotCaches(): void {
   lastPrefetchSuccessAt = 0;
 }
 
+/**
+ * 서버가 정하는 방 정체성·메타 — 목록 요약이 서버 방 데이터를 덮지 못한다(거래방 진입 감사 D2, 2026-11-16).
+ * 목록 요약에서 오는 안 읽은 수·마지막 메시지·제목 등은 지금처럼 반영한다.
+ */
+const SERVER_OWNED_ROOM_KEYS = [
+  "contextMeta",
+  "summary",
+  "messengerDirectKey",
+  "roomType",
+  "peerUserId",
+  "chatDomain",
+  "domainIdentity",
+  "domainIdentityKey",
+] as const;
+
+/** 목록 요약을 방 스냅샷 room 에 합친다 — 서버 스냅샷이면 서버 소유 키는 그대로 둔다 */
+export function mergeListSummaryIntoSnapshotRoom(
+  baseSnapshot: CommunityMessengerRoomSnapshot,
+  summary: Partial<CommunityMessengerRoomSummary>
+): CommunityMessengerRoomSnapshot["room"] {
+  const merged = { ...baseSnapshot.room, ...summary } as CommunityMessengerRoomSnapshot["room"];
+  if (isMessengerRoomListSeedSnapshot(baseSnapshot)) return merged;
+  const out = merged as Record<string, unknown>;
+  const base = baseSnapshot.room as Record<string, unknown>;
+  for (const key of SERVER_OWNED_ROOM_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(base, key)) out[key] = base[key];
+  }
+  return merged;
+}
+
 export function seedRoomSnapshotFromSummary(args: {
   room: CommunityMessengerRoomSummary;
   viewerUserId: string;
@@ -321,7 +373,26 @@ export function seedRoomSnapshotFromSummary(args: {
   const roomId = args.room.id.trim();
   const viewerUserId = args.viewerUserId.trim();
   if (!roomId || !viewerUserId) return;
-  const existing = peekRoomSnapshot(roomId, viewerUserId);
+  if (isRoomLeftLocally(roomId)) return;
+  const k = cacheKey(roomId, viewerUserId);
+  const existingRow = entries.get(k);
+  const existing = existingRow?.snapshot ?? peekHotRoomSnapshot(roomId, viewerUserId);
+  if (existing && isMessengerRoomBootstrapReadySnapshot(existing) && !isMessengerRoomListSeedSnapshot(existing)) {
+    /** 서버 방 데이터가 있으면: 서버 소유 키 유지 + 신선도(`at`) 그대로 — 「방금 받은 최신」으로 바꾸지 않는다 */
+    const next = {
+      ...existing,
+      room: mergeListSummaryIntoSnapshotRoom(existing, args.room),
+      messages: args.message ? mergeMessages(existing.messages ?? [], args.message) : existing.messages ?? [],
+    } satisfies CommunityMessengerRoomSnapshot;
+    if (existingRow) {
+      entries.set(k, { snapshot: next, at: existingRow.at });
+    }
+    if (hotEntries.has(k)) {
+      hotEntries.set(k, next);
+    }
+    return;
+  }
+  /** 서버 방 데이터 없음 → 목록 요약 시드(서버 확인 전 표시 `listSeedPending`) */
   const base: CommunityMessengerRoomSnapshot =
     existing ??
     ({
@@ -335,6 +406,7 @@ export function seedRoomSnapshotFromSummary(args: {
   const nextMessages = args.message ? mergeMessages(base.messages ?? [], args.message) : base.messages ?? [];
   const next = {
     ...base,
+    listSeedPending: true,
     room: { ...base.room, ...args.room },
     messages: nextMessages,
   } satisfies CommunityMessengerRoomSnapshot;
@@ -364,7 +436,7 @@ export function mergeMessageIntoRoomSnapshotCache(args: {
   const update = (snapshot: CommunityMessengerRoomSnapshot) =>
     ({
       ...snapshot,
-      ...(args.roomSummary ? { room: { ...snapshot.room, ...args.roomSummary } } : null),
+      ...(args.roomSummary ? { room: mergeListSummaryIntoSnapshotRoom(snapshot, args.roomSummary) } : null),
       messages: mergeMessages(snapshot.messages ?? [], args.message),
     } satisfies CommunityMessengerRoomSnapshot);
   patchEntryMap(entries, roomId, viewerUserId, update);

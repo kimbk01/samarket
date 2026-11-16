@@ -1,0 +1,102 @@
+{
+  "listInfo": {
+    "href": "https://samarket.vercel.app/community-messenger/trade-chats",
+    "matches": []
+  },
+  "clicked": "mouse@192,178",
+  "silentRoom": {
+    "topKeys": [
+      "ok",
+      "requestId",
+      "v",
+      "domain",
+      "bootstrap",
+      "viewerUnreadCount",
+      "unread",
+      "viewerUserId",
+      "room",
+      "members",
+      "membersDeferred",
+      "messages",
+      "bootstrapInitialMessageLimit",
+      "hasMoreOlderMessages",
+      "myRole",
+      "activeCall",
+      "readReceipt"
+    ],
+    "roomKeys": [
+      "id",
+      "roomType",
+      "roomStatus",
+      "visibility",
+      "joinPolicy",
+      "identityPolicy",
+      "isReadonly",
+      "title",
+      "titleFromRoom",
+      "subtitle",
+      "summary",
+      "avatarUrl",
+      "unreadCount",
+      "isMuted",
+      "isPinned",
+      "lastMessage",
+      "lastMessageType",
+      "lastMessageAt",
+      "memberCount",
+      "ownerUserId",
+      "ownerLabel",
+      "memberLimit",
+      "isDiscoverable",
+      "requiresPassword",
+      "allowMemberInvite",
+      "peerUserId",
+      "isArchivedByViewer",
+      "messengerDirectKey",
+      "contextMeta",
+      "description"
+    ],
+    "contextMeta": {
+      "v": 1,
+      "kind": "trade",
+      "headline": "팝니다 · Toyota Vios",
+      "priceLabel": "₱650,000",
+      "thumbnailUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/post-images/9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8/1793172603641-5d1940be.webp",
+      "roleLabel": "구매자",
+      "itemStateLabel": "거래완료",
+      "categoryMenuLabel": "중고차",
+      "productChatId": "f2259da3-66cf-4e78-990b-dd9236f222c2",
+      "postId": "227dcf5b-9d88-4417-8f78-b9e721824ed3",
+      "sellerDisplayName": "q테스트1",
+      "tradeFlowStatus": "chatting"
+    },
+    "messengerDirectKey": "trade_item:0fc71fc7-3f1d-4f96-9c60-bdafb6ce00a4"
+  },
+  "dom": {
+    "href": "https://samarket.vercel.app/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830?cm_list=trade",
+    "width": 384,
+    "actionStrip": false,
+    "ratingStrip": false,
+    "shellEmbedded": false,
+    "roomIdAttr": "33a8f97f-ec41-43f7-bb6e-2b666f647830",
+    "tradeRole": null
+  },
+  "apiRequests": [
+    {
+      "url": "/api/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830/messages?latest=1&limit=40",
+      "status": 200
+    },
+    {
+      "url": "/api/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830/bootstrap?snapshotTier=silent_delta&cmReqSrc=room_silent",
+      "status": 200
+    },
+    {
+      "url": "/api/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830/messages?after=473720ba-2d28-4759-827c-33ed73f91990&limit=80",
+      "status": 200
+    },
+    {
+      "url": "/api/community-messenger/presence",
+      "status": 200
+    }
+  ]
+}

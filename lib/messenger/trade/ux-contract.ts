@@ -30,6 +30,10 @@ export type TradeListViewModel = Readonly<{
   sellerUserId: string;
   buyerUserId: string;
   viewerRole: "seller" | "buyer";
+  /** 실제 `product_chats.id` — 방 거래 행동 줄 열쇠. 없으면 null */
+  productChatId: string | null;
+  /** 서버 원장 방 키 — 없으면 null */
+  directKey: string | null;
   productTitle: string;
   productImageUrl: string | null;
   peerLabel: string | null;

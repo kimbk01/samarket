@@ -25,7 +25,10 @@ import {
 } from "@/lib/trade/trade-chat-entry-journey-perf";
 import { noteTradeChatRoomBootstrapDoneForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { isAuthoritativeMessengerRoomEntrySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
+import {
+  isAuthoritativeMessengerRoomEntrySnapshot,
+  isMessengerRoomListSeedSnapshot,
+} from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 
 /**
  * 서버 일시 오류(5xx·408·429) — 접근 거부(401·403·404·410)와 구분해 재시도 가능한 실패로 전달한다.
@@ -65,7 +68,8 @@ export async function fetchCommunityMessengerRoomBootstrapClient(
     if (
       cached &&
       isAuthoritativeMessengerRoomEntrySnapshot(cached) &&
-      isRoomSnapshotFresh(rid, viewerUserId)
+      /** 목록 요약 시드는 방 화면 진입 생명주기가 서버 조회 1회로 교체한다 — 여기서 중복 요청하지 않음 */
+      (isRoomSnapshotFresh(rid, viewerUserId) || isMessengerRoomListSeedSnapshot(cached))
     ) {
       if (readTradeChatEntryMark()) {
         recordCmRoomBootstrapCacheHit(1);

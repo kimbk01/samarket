@@ -68,7 +68,10 @@ import { mergeCommunityMessengerForegroundBootstrapIntoSnapshot,
 } from "@/lib/community-messenger/room/merge-community-messenger-foreground-bootstrap";
 import { logChatRoomTimelineInitialFetch } from "@/lib/community-messenger/room/messenger-room-timeline-log";
 import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
-import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
+import {
+  isMessengerRoomBootstrapReadySnapshot,
+  isMessengerRoomListSeedSnapshot,
+} from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import { noteCmRoomR5BootstrapFingerprintSkip } from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
 import { mergePrimedTimelineSeedIntoExisting } from "@/lib/community-messenger/room/merge-primed-timeline-seed";
 import { roomMessagesTimelineFingerprint } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
@@ -326,7 +329,11 @@ export function createMessengerRoomBootstrapRefresh(
         setSnapshot((prev) => {
           if (prev && snap && !prev.clientShellPlaceholder) {
             const patched = mergeCommunityMessengerForegroundBootstrapIntoSnapshot(prev, snap);
-            if (roomBootstrapTimelineFingerprint(prev) === roomBootstrapTimelineFingerprint(patched)) {
+            /** 목록 요약 시드는 타임라인이 같아도 서버 방 데이터(contextMeta·방 키·멤버)로 바꿔야 한다 — 거래방 진입 감사 D2 */
+            if (
+              !isMessengerRoomListSeedSnapshot(prev) &&
+              roomBootstrapTimelineFingerprint(prev) === roomBootstrapTimelineFingerprint(patched)
+            ) {
               noteCmRoomR5BootstrapFingerprintSkip(roomId);
               return prev;
             }
@@ -483,7 +490,13 @@ export function createMessengerRoomBootstrapRefresh(
       });
     }
     try {
-      if (primed && isMessengerRoomBootstrapReadySnapshot(primed) && isMessengerRoomTimelineBootstrapSeedComplete(primed)) {
+      if (
+        primed &&
+        isMessengerRoomBootstrapReadySnapshot(primed) &&
+        isMessengerRoomTimelineBootstrapSeedComplete(primed) &&
+        /** 목록 요약 시드는 재사용하지 않고 서버 조회로 간다(거래방 진입 감사 D2·D6) */
+        !isMessengerRoomListSeedSnapshot(primed)
+      ) {
         setSnapshot(primed);
         const cachedSeedHit = applyPrimedTimelineSeed(primed, setRoomMessages);
         setLoading(false);

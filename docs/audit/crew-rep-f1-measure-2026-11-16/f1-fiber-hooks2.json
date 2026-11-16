@@ -1,0 +1,73 @@
+{
+  "mode": "list",
+  "t0": 1794793875260,
+  "samples": [
+    {
+      "t": 36,
+      "sig": "{\"noRoom\":true,\"href\":\"https://samarket.vercel.app/community-messenger/trade-cha"
+    },
+    {
+      "t": 148,
+      "sig": "{\"noRoom\":true,\"href\":\"https://samarket.vercel.app/community-messenger/rooms/33a"
+    },
+    {
+      "t": 541,
+      "sig": "판매||8|false|el=true|hooks=[[45,\"-\",\"NEW\"],[62,\"-\",\"old\"],[4,\"-\",\"old\"]]"
+    },
+    {
+      "t": 609,
+      "sig": "판매||8|false|el=false|hooks=[[45,\"-\",\"old\"],[62,\"-\",\"old\"],[4,\"-\",\"old\"]]"
+    },
+    {
+      "t": 880,
+      "sig": "판매||8|false|el=false|hooks=[[45,\"-\",\"NEW\"],[62,\"-\",\"old\"],[4,\"-\",\"old\"]]"
+    },
+    {
+      "t": 959,
+      "sig": "판매||8|false|el=false|hooks=[[45,\"-\",\"old\"],[62,\"-\",\"old\"],[4,\"-\",\"old\"]]"
+    }
+  ],
+  "reqs": [
+    {
+      "url": "/api/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830/bootstrap?snapshotTier=silent_delta&cmReqSrc=room_silent",
+      "status": 200,
+      "tier": "silent_delta"
+    },
+    {
+      "url": "/api/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830/messages?latest=1&limit=40",
+      "status": 200,
+      "tier": null
+    },
+    {
+      "url": "/api/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830/messages?after=473720ba-2d28-4759-827c-33ed73f91990&limit=80",
+      "status": 200,
+      "tier": null
+    }
+  ],
+  "netT": [
+    {
+      "url": "/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830?cm_list=trade&_rsc=skcpy",
+      "ts": 1704032.532629
+    },
+    {
+      "url": "/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830?cm_list=trade&_rsc=4v5p2",
+      "ts": 1704032.689199
+    },
+    {
+      "url": "/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830?cm_list=trade&_rsc=kipl3",
+      "ts": 1704032.945615
+    },
+    {
+      "url": "/api/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830/bootstrap?snapshotTier=silent_de",
+      "ts": 1704033.142818
+    },
+    {
+      "url": "/api/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830/messages?latest=1&limit=40",
+      "ts": 1704033.185352
+    },
+    {
+      "url": "/api/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830/messages?after=473720ba-2d28-475",
+      "ts": 1704033.507213
+    }
+  ]
+}
