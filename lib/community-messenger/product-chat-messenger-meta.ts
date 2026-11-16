@@ -35,6 +35,30 @@ export function tradeContextMetaRoleLabel(role: "seller" | "buyer"): string {
   return role === "seller" ? "판매자" : "구매자";
 }
 
+/**
+ * 거래방 진입 감사 D5 (2026-11-16): 방 `summary` 의 roleLabel 은 방을 만들 때 한쪽 시점으로 1회 저장된다
+ * (운영 거래방 대부분 「구매자」 고정). 방 데이터를 내려줄 때 보는 사람 기준으로 다시 정한다.
+ * 판매자 id 는 방 `domain_identity`(`trade:{글}:{판매자}:{상대}`)에서 읽는다 — 추가 조회 없음.
+ * 정체성이 없거나(옛 방) 보는 사람이 두 당사자가 아니면 저장값 그대로.
+ */
+export function resolveTradeContextMetaForViewer(
+  meta: CommunityMessengerRoomContextMetaV1 | null,
+  viewerUserId: string,
+  domainIdentity: string | null | undefined
+): CommunityMessengerRoomContextMetaV1 | null {
+  if (!meta || meta.kind !== "trade") return meta;
+  const viewer = viewerUserId.trim();
+  const parts = (domainIdentity ?? "").trim().split(":");
+  if (!viewer || parts.length !== 4 || parts[0] !== "trade") return meta;
+  const sellerUserId = parts[2]!.trim();
+  const counterpartyUserId = parts[3]!.trim();
+  if (!sellerUserId || !counterpartyUserId) return meta;
+  const role = viewer === sellerUserId ? "seller" : viewer === counterpartyUserId ? "buyer" : null;
+  if (!role) return meta;
+  const roleLabel = tradeContextMetaRoleLabel(role);
+  return meta.roleLabel === roleLabel ? meta : { ...meta, roleLabel };
+}
+
 /** 거래채팅 → 메신저 목록용 contextMeta (v1). */
 export function buildMessengerContextMetaFromProductChatSnapshot(input: {
   productChatId: string;
