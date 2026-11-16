@@ -15,7 +15,7 @@ android {
         applicationId "com.dibay.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 62
+        versionCode 63
         versionName "1.2.7"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
@@ -104,8 +104,10 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.release
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // R8 난독화·축소 (Play 「DEX 난독화 1%」 해소 — docs/audit/android-r8-minify-plan-2026-11-15.md, Owner 승인 11-15)
+            minifyEnabled true
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
     testOptions {
