@@ -68,7 +68,8 @@ export function useMessengerRoomLocalIndexedDbSnapshot({
   // 스냅샷이 갱신될 때 로컬에 persist (best-effort, LRU/TTL/상한은 DB 레이어에서 처리)
   useEffect(() => {
     const snap = snapshotRef.current;
-    if (!snap || snap.clientShellPlaceholder) return;
+    /** 목록 요약 시드(서버 확인 전)는 기기에 남기지 않는다 — 거래방 진입 감사 D2 */
+    if (!snap || snap.clientShellPlaceholder || snap.listSeedPending) return;
     const id = String(roomId ?? "").trim();
     if (!id) return;
     const latestMessageId = String(snap.messages[snap.messages.length - 1]?.id ?? "").trim();

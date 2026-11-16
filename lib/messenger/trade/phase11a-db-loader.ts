@@ -28,6 +28,8 @@ export type TradeLoaderBatchRow = Readonly<{
   peerAvatarUrl: string | null;
   /** Real `product_chats.id` for TradeProcess dock — never posts.id */
   productChatId?: string | null;
+  /** `community_messenger_rooms.direct_key` — 서버 원장 방 키 그대로 */
+  directKey?: string | null;
   unreadCount: number;
   latestMessage: DomainLoaderLatestMessageRow | null;
   roomLastMessageSummary?: string | null;
@@ -87,6 +89,7 @@ export function mapTradeLoaderBatchRows(input: {
       peerDisplayName: row.peerDisplayName,
       peerAvatarUrl: row.peerAvatarUrl,
       productChatId: row.productChatId?.trim() || null,
+      directKey: row.directKey?.trim() || null,
       lastMessage: pickAuthoritativeMessagePreview({
         latestMessage: row.latestMessage,
         roomLastMessageSummary: row.roomLastMessageSummary,

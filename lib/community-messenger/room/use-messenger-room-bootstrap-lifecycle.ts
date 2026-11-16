@@ -9,7 +9,10 @@ import {
   CM_FOREGROUND_BOOTSTRAP_REUSE_MS,
   markCmRoomForegroundReuseEntry,
 } from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
-import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
+import {
+  isMessengerRoomBootstrapReadySnapshot,
+  isMessengerRoomListSeedSnapshot,
+} from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
@@ -58,6 +61,17 @@ export function useMessengerRoomBootstrapLifecycle({
       if (!isMessengerRoomTimelineBootstrapSeedComplete(seededSnapshot)) {
         void refresh(false, {
           triggerReason: "lifecycle_incomplete_timeline_seed",
+          forceForegroundBlock: true,
+        });
+        return;
+      }
+      /**
+       * 거래방 진입 감사 D2·D6 (2026-11-16): 목록 요약으로만 만든 시드 — 첫 화면은 그대로 두고
+       * 서버 방 데이터(거래 정보·방 키·멤버)로 교체하는 조회 1회. 캐시 재사용·건너뛰기 대상이 아니다.
+       */
+      if (isMessengerRoomListSeedSnapshot(seededSnapshot)) {
+        void refresh(false, {
+          triggerReason: "lifecycle_list_seed_confirm",
           forceForegroundBlock: true,
         });
         return;

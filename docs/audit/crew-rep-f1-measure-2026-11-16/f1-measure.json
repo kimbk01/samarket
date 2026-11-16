@@ -1,0 +1,188 @@
+{
+  "before": "https://samarket.vercel.app/mypage 384x832",
+  "dom": {
+    "width": 384,
+    "href": "https://samarket.vercel.app/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830",
+    "actionStrip": true,
+    "ratingStrip": true,
+    "shellEmbedded": false,
+    "tradeRole": "buyer"
+  },
+  "apiRequests": [
+    {
+      "url": "/api/app/main-bottom-nav",
+      "status": 200
+    },
+    {
+      "url": "/api/auth/session",
+      "status": 200
+    },
+    {
+      "url": "/api/app-settings",
+      "status": 200
+    },
+    {
+      "url": "/api/me/settings",
+      "status": 200
+    },
+    {
+      "url": "/api/me/profile?lite=1",
+      "status": 200
+    },
+    {
+      "url": "/api/support/category-settings",
+      "status": 200
+    },
+    {
+      "url": "/api/me/mandatory-address-gate",
+      "status": 200
+    },
+    {
+      "url": "/api/platform-promotion/reconcile-guest",
+      "status": 200
+    },
+    {
+      "url": "/api/telemetry/entry",
+      "status": 204
+    },
+    {
+      "url": "/api/app/startup-config",
+      "status": 200
+    },
+    {
+      "url": "/api/launch-intro/live",
+      "status": 200
+    },
+    {
+      "url": "/api/app/notification-sound-ssot",
+      "status": 200
+    },
+    {
+      "url": "/api/me/store-owner-hub-badge?cmFresh=1&hubBadgeBypass=1",
+      "status": 200
+    },
+    {
+      "url": "/api/me/settings",
+      "status": 200
+    },
+    {
+      "url": "/api/community-messenger/friend-requests",
+      "status": 200
+    },
+    {
+      "url": "/api/auth/session",
+      "status": 200
+    },
+    {
+      "url": "/api/me/profile?mode=full",
+      "status": 200
+    },
+    {
+      "url": "/api/me/notifications/badge-count",
+      "status": 200
+    },
+    {
+      "url": "/api/community-messenger/presence",
+      "status": 200
+    },
+    {
+      "url": "/api/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830/bootstrap?mode=instant&memberHydration=minimal&hydration=critical&cmReqSrc=room_client_block&messages=30",
+      "status": 200
+    },
+    {
+      "url": "/api/favorites/list",
+      "status": 200
+    },
+    {
+      "url": "/api/community-messenger/friend-requests",
+      "status": 200
+    },
+    {
+      "url": "/api/community-messenger/calls/ice-servers",
+      "status": 200
+    },
+    {
+      "url": "/api/community-messenger/bootstrap?tier=critical",
+      "status": 200
+    },
+    {
+      "url": "/api/me/address-defaults",
+      "status": 200
+    },
+    {
+      "url": "/api/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830/bootstrap?snapshotTier=silent_delta&cmReqSrc=room_silent",
+      "status": 200
+    },
+    {
+      "url": "/api/trade/product-chat/f2259da3-66cf-4e78-990b-dd9236f222c2/rating",
+      "status": 200
+    },
+    {
+      "url": "/api/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830/messages?latest=1&limit=40",
+      "status": 200
+    },
+    {
+      "url": "/api/community-messenger/bootstrap?lite=1",
+      "status": 200
+    },
+    {
+      "url": "/api/chat/room/f2259da3-66cf-4e78-990b-dd9236f222c2",
+      "status": 200
+    },
+    {
+      "url": "/api/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830/messages?after=473720ba-2d28-4759-827c-33ed73f91990&limit=80",
+      "status": 200
+    },
+    {
+      "url": "/api/me/points/promotion-orders?domain=trade&targetId=227dcf5b-9d88-4417-8f78-b9e721824ed3",
+      "status": 200
+    },
+    {
+      "url": "/api/community-messenger/presence",
+      "status": 200
+    }
+  ],
+  "bootstrapRoom": {
+    "roomType": "direct",
+    "messengerDirectKey": "trade_item:0fc71fc7-3f1d-4f96-9c60-bdafb6ce00a4",
+    "peerUserId": "0c4b0a80-9755-4ebe-9a10-f8e1ced4c0cc",
+    "contextMeta": {
+      "v": 1,
+      "kind": "trade",
+      "headline": "팝니다 · Toyota Vios",
+      "priceLabel": "₱650,000",
+      "thumbnailUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/post-images/9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8/1793172603641-5d1940be.webp",
+      "roleLabel": "구매자",
+      "itemStateLabel": "거래완료",
+      "categoryMenuLabel": "중고차",
+      "productChatId": "f2259da3-66cf-4e78-990b-dd9236f222c2",
+      "postId": "227dcf5b-9d88-4417-8f78-b9e721824ed3",
+      "sellerDisplayName": "q테스트1",
+      "tradeFlowStatus": "chatting"
+    },
+    "hasTradeChatRoomDetail": false,
+    "viewerUserId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+    "topKeys": [
+      "ok",
+      "requestId",
+      "v",
+      "domain",
+      "bootstrap",
+      "viewerUnreadCount",
+      "unread",
+      "viewerUserId",
+      "room",
+      "members",
+      "membersDeferred",
+      "bootstrapEnrichmentPending",
+      "messages",
+      "bootstrapInitialMessageLimit",
+      "hasMoreOlderMessages",
+      "myRole",
+      "viewerLastReadMessageId",
+      "viewerHistoryFloorAt",
+      "readReceipt",
+      "activeCall"
+    ]
+  }
+}

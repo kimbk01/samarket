@@ -448,6 +448,11 @@ export type CommunityMessengerTradeMessagingSnapshot = {
 export type CommunityMessengerRoomSnapshot = {
   /** 클라이언트만 — HTTP 부트스트랩 전 셸·입력창용 가짜 스냅샷(실제 데이터 도착 시 교체) */
   clientShellPlaceholder?: true;
+  /**
+   * 클라이언트만 — 서버 방 데이터 없이 **목록 요약**으로 만든 스냅샷(거래방 진입 감사 D2·D6, 2026-11-16).
+   * 첫 화면은 그리되 「최신」으로 보지 않고, 방 진입 시 서버 조회 1회로 교체한 뒤 지운다.
+   */
+  listSeedPending?: true;
   viewerUserId: string;
   room: CommunityMessengerRoomSummary & {
     description?: string;

@@ -54,6 +54,8 @@ export type TradeListItem = Readonly<{
   peerAvatarUrl: string | null;
   /** Real product_chats.id when linked — dock must not use itemId */
   productChatId: string | null;
+  /** 서버 원장 방 키(`trade_item:{chat_rooms.id}` 등) — 없으면 null(지어내지 않음) */
+  directKey: string | null;
   lastMessage: string;
   /** 최신 메시지 message_type — 없으면 lastMessageIsSystem 기준(레거시) */
   lastMessageType?: string | null;

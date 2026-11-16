@@ -23,6 +23,7 @@ function tradeRow(
     peerDisplayName: "Peer",
     peerAvatarUrl: null,
     productChatId: null,
+    directKey: null,
     lastMessage: "hi",
     lastMessageIsSystem: false,
     lastMessageAt: "2026-08-03T00:00:00.000Z",

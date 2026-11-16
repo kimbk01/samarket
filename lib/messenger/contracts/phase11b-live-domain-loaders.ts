@@ -604,7 +604,7 @@ export async function fetchTradeLiveBatch(
     const q = sb
       .from("community_messenger_participants")
       .select(
-        "room_id, unread_count, community_messenger_rooms!inner(id, chat_domain, domain_identity_key, title, avatar_url, last_message)"
+        "room_id, unread_count, community_messenger_rooms!inner(id, chat_domain, domain_identity_key, direct_key, title, avatar_url, last_message)"
       )
       .eq("user_id", viewerUserId)
       .eq("community_messenger_rooms.chat_domain", "trade");
@@ -616,6 +616,8 @@ export async function fetchTradeLiveBatch(
     id: string;
     chat_domain: string;
     domain_identity_key: string | null;
+    /** `trade_item:{chat_rooms.id}` · `trade_pc:{product_chats.id}` — 방 진입 시드가 서버와 같은 방 키를 쓰도록 그대로 전달 */
+    direct_key?: string | null;
     title?: string | null;
     avatar_url?: string | null;
     last_message?: string | null;
@@ -711,6 +713,7 @@ export async function fetchTradeLiveBatch(
       peerDisplayName: prof?.name ?? null,
       peerAvatarUrl: prof?.avatar ?? null,
       productChatId,
+      directKey: room.direct_key?.trim() || null,
       tradeStatusLabel: listing?.statusBadgeLabel ?? null,
       unreadCount: resolveTradeListUnreadCount({
         participantUnreadCount: p.unread_count,

@@ -1,9 +1,11 @@
 /**
  * Domain trade-list DTO row → canonical UnifiedRoomListItem for MessengerChatListItem.
- * Preserves CM room id as action/navigation identity. Does not invent product_chats ids.
+ * Preserves CM room id as action/navigation identity. Does not invent product_chats ids or room keys:
+ * `productChatId`·`messengerDirectKey` 는 서버 DTO 값 그대로(없으면 비움) — 거래방 진입 감사 D1·D3 (2026-11-16).
  */
 import { guardRawCmListPreviewText } from "@/lib/community-messenger/cm-home-list-copy";
 import { serializeCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
+import { tradeContextMetaRoleLabel } from "@/lib/community-messenger/product-chat-messenger-meta";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
 import type { TradeListDto } from "@/components/community-messenger/domain-shell-canary/DomainTradeListCanaryGate";
@@ -23,15 +25,18 @@ export function domainTradeListRowToUnifiedItem(row: DomainTradeListRow): Unifie
   /** 방어선: 저장된 원문 통화 토큰·스티커 URI 는 홈 리스트 포맷터로 라벨화(렌더 원문 노출 금지). */
   const preview = guardRawCmListPreviewText(row.previewText, viewerUserId || null).trim();
   const domainIdentityKey = row.domainIdentityKey.trim();
+  const productChatId = (row.productChatId ?? "").trim();
+  const directKey = (row.directKey ?? "").trim();
 
   const contextMeta = {
     v: 1 as const,
     kind: "trade" as const,
     headline: productTitle,
     thumbnailUrl: row.productImageUrl,
+    ...(productChatId ? { productChatId } : {}),
     postId: itemId || undefined,
     itemStateLabel: row.statusBadge?.trim() || undefined,
-    roleLabel: viewerRole === "seller" ? "판매" : "구매",
+    roleLabel: tradeContextMetaRoleLabel(viewerRole),
     sellerId: sellerUserId || undefined,
     buyerId: buyerUserId || undefined,
     sellerDisplayName: viewerRole === "buyer" ? peerLabel || undefined : undefined,
@@ -60,7 +65,7 @@ export function domainTradeListRowToUnifiedItem(row: DomainTradeListRow): Unifie
     requiresPassword: false,
     allowMemberInvite: false,
     peerUserId,
-    messengerDirectKey: itemId ? `trade_item:${itemId}` : null,
+    messengerDirectKey: directKey || null,
     chatDomain: "trade",
     domainIdentity: domainIdentityKey || null,
     domainIdentityKey: domainIdentityKey || null,

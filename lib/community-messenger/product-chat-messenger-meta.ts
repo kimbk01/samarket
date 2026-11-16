@@ -27,6 +27,14 @@ function trimmedMetaString(input: string | null | undefined): string | undefined
   return t.length ? t : undefined;
 }
 
+/**
+ * 거래방 contextMeta `roleLabel` — 보는 사람 역할 표기 SSOT.
+ * `messengerTradeViewerRoleFromContextMeta` 가 이 두 값만 판매자/구매자로 인식한다.
+ */
+export function tradeContextMetaRoleLabel(role: "seller" | "buyer"): string {
+  return role === "seller" ? "판매자" : "구매자";
+}
+
 /** 거래채팅 → 메신저 목록용 contextMeta (v1). */
 export function buildMessengerContextMetaFromProductChatSnapshot(input: {
   productChatId: string;
@@ -80,7 +88,7 @@ export function buildMessengerContextMetaFromProductChatSnapshot(input: {
     }
     meta.priceLabel = priceLabelForMessengerSnapshot(input.price, currencyCode);
   }
-  meta.roleLabel = input.role === "seller" ? "판매자" : "구매자";
+  meta.roleLabel = tradeContextMetaRoleLabel(input.role);
   const itemStateLabel = getChatListingItemStateLabel(input.sellerListingStateRaw, input.postStatus ?? undefined);
   if (itemStateLabel) meta.itemStateLabel = itemStateLabel;
   if (input.thumbnailUrl === null) {

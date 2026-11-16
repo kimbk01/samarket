@@ -85,6 +85,7 @@ export function mapTradeListItem(
     peerDisplayName: trimOrEmpty(row.peerDisplayName) || TRADE_PEER_PLACEHOLDER,
     peerAvatarUrl: trimOrEmpty(row.peerAvatarUrl) || null,
     productChatId: trimOrEmpty(row.productChatId) || null,
+    directKey: trimOrEmpty(row.directKey) || null,
     lastMessage: trimOrEmpty(row.lastMessage),
     lastMessageType: trimOrEmpty(row.lastMessageType) || null,
     ...(row.lastMessageMeta ? { lastMessageMeta: row.lastMessageMeta } : {}),

@@ -44,6 +44,13 @@ function preferSnapshotByRoomReadVersion(
   return messageCount(candidate) > messageCount(current) ? candidate : current;
 }
 
+/** 목록 요약으로만 만든 스냅샷 — 서버 확인 전(`listSeedPending`) */
+export function isMessengerRoomListSeedSnapshot(
+  snap: Pick<CommunityMessengerRoomSnapshot, "listSeedPending"> | null | undefined
+): boolean {
+  return snap?.listSeedPending === true;
+}
+
 /** BootstrapGate·IndexedDB·foreground lock 재사용 가능한 실스냅샷(클라 셸 placeholder 제외) */
 export function isMessengerRoomBootstrapReadySnapshot(
   snap: CommunityMessengerRoomSnapshot | null | undefined
@@ -115,6 +122,13 @@ export function pickRichestAuthoritativeRoomSnapshot(
 
   let best = candidates[0]!;
   for (const candidate of candidates.slice(1)) {
+    /** 서버가 준 방 데이터가 목록 요약 시드보다 항상 우선(거래방 진입 감사 D2) */
+    const bestSeed = isMessengerRoomListSeedSnapshot(best.snap);
+    const candSeed = isMessengerRoomListSeedSnapshot(candidate.snap);
+    if (bestSeed !== candSeed) {
+      if (bestSeed) best = candidate;
+      continue;
+    }
     const next = preferSnapshotByRoomReadVersion(
       best.snap,
       candidate.snap,

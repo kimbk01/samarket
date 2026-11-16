@@ -74,6 +74,8 @@ describe("domain-read-surface-canary", () => {
           sellerUserId: "s",
           buyerUserId: "b",
           viewerRole: "seller",
+          productChatId: null,
+          directKey: null,
           productTitle: "Item",
           productImageUrl: null,
           peerLabel: "peer",

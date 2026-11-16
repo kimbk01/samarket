@@ -58,6 +58,8 @@ export function buildTradeListViewModelForLanguage(
     sellerUserId: item.sellerUserId,
     buyerUserId: item.counterpartyUserId,
     viewerRole: item.viewerRole,
+    productChatId: item.productChatId,
+    directKey: item.directKey,
     productTitle: presentation.productTitle,
     productImageUrl: presentation.productImageUrl,
     peerLabel: presentation.peerLabel,

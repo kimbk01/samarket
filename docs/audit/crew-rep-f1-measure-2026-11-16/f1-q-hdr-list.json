@@ -1,0 +1,19 @@
+{
+  "mode": "list",
+  "query": "\"x-samarket-bootstrap-tier\"",
+  "set": [
+    {
+      "url": "c/chunks/a7f2d8eb845c43c5.js",
+      "col": 24742,
+      "ok": true
+    },
+    {
+      "url": "c/chunks/a7f2d8eb845c43c5.js",
+      "col": 31540,
+      "ok": true
+    }
+  ],
+  "hits": [],
+  "hitCount": 0,
+  "dom": "{\"href\":\"https://samarket.vercel.app/community-messenger/rooms/33a8f97f-ec41-43f7-bb6e-2b666f647830?cm_list=trade\",\"strip\":false,\"role\":null}"
+}

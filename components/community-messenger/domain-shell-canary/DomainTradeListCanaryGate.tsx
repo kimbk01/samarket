@@ -77,6 +77,10 @@ export type TradeListDto = {
     sellerUserId?: string;
     buyerUserId?: string;
     viewerRole?: "seller" | "buyer";
+    /** 실제 `product_chats.id` — 세션 캐시의 옛 DTO 엔 없을 수 있음 */
+    productChatId?: string | null;
+    /** 서버 원장 방 키 — 세션 캐시의 옛 DTO 엔 없을 수 있음 */
+    directKey?: string | null;
     productTitle: string;
     productImageUrl: string | null;
     peerLabel: string | null;

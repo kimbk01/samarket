@@ -48,6 +48,7 @@ function listItem(partial: Partial<TradeListItem> & { itemId: string }): TradeLi
     peerAvatarUrl:
       partial.peerAvatarUrl === undefined ? "https://cdn.example/peer.jpg" : partial.peerAvatarUrl,
     productChatId: partial.productChatId === undefined ? null : partial.productChatId,
+    directKey: null,
     lastMessage: "hi",
     lastMessageIsSystem: false,
     lastMessageAt: "2026-07-14T00:00:00.000Z",
