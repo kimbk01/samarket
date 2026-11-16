@@ -22,6 +22,8 @@ import {
   prefetchTradeMessengerRoomSnapshotWithCap,
   tradeMessengerSnapshotPrefetchCapMs,
 } from "@/lib/chats/trade-chat-room-route-prefetch";
+import { matchesMessengerSplitViewport } from "@/lib/ui/app-viewport-layout-breakpoints";
+import { carryMessengerSplitListStateIntoRoomHrefFromLocation } from "@/lib/community-messenger/messenger-split-list-state-carry";
 import type { TradeChatComposePreviewFields } from "@/lib/chats/trade-chat-compose-preview-client";
 import { setTradeChatComposePreview } from "@/lib/chats/trade-chat-compose-preview-client";
 
@@ -46,7 +48,11 @@ export function openExistingTradeChat(
   if (!roomId) return;
   const navRoomId = input.messengerRoomId?.trim() || roomId;
   const cmId = input.messengerRoomId?.trim();
-  const dest = tradeHubChatRoomHref(navRoomId, input.sourceHint ?? null);
+  /** 분할 화면: 거래방 위 상품 상세 등에서 들어와도 왼쪽 목록(거래 채팅)이 바뀌지 않게 지금 목록 상태를 이어 붙인다 */
+  const dest = carryMessengerSplitListStateIntoRoomHrefFromLocation(
+    tradeHubChatRoomHref(navRoomId, input.sourceHint ?? null),
+    matchesMessengerSplitViewport()
+  );
   startTradeChatEntryMark({
     mode: "existing",
     productId: input.productId,

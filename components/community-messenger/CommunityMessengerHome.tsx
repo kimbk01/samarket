@@ -246,6 +246,7 @@ import {
   parseMessengerArchiveEntry,
   parseMessengerArchiveSection,
 } from "@/lib/community-messenger/messenger-archive-route";
+import { parseCommunityMessengerRoomIdFromPathname } from "@/lib/community-messenger/messenger-room-pathname";
 import {
   buildMessengerSubScreenHref,
   messengerSubScreenKey,
@@ -524,8 +525,16 @@ function CommunityMessengerHomeRouterEffectsHost({
    */
   const routerPathname = usePathname();
   /** 다른 탭에 있을 때(살아 있는 숨은 메신저 홈)는 그 탭 주소의 `section`(예: 내정보 `section=settings`)을 읽지 않는다 */
+  /**
+   * 분할 화면 왼쪽 목록은 방 주소(`/community-messenger/rooms/:id?section=search`)에서도 같은 홈이다 —
+   * 채팅 검색 결과로 방을 열어도 왼쪽 검색 화면이 닫히지 않게 방 주소의 `section` 도 읽는다.
+   */
+  const subScreenPathname = (routerPathname ?? "").replace(/\/+$/, "");
+  const subScreenPathAllowed =
+    subScreenPathname === "/community-messenger" ||
+    (isMessengerSplitViewport && parseCommunityMessengerRoomIdFromPathname(subScreenPathname) != null);
   const subScreenKeyFromUrl =
-    fromPhilifeHeaderStack || pillar != null || (routerPathname ?? "").replace(/\/+$/, "") !== "/community-messenger"
+    fromPhilifeHeaderStack || pillar != null || !subScreenPathAllowed
       ? null
       : messengerSubScreenKey(parseMessengerSubScreen(searchParams));
   useLayoutEffect(() => {
