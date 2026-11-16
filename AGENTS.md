@@ -145,4 +145,5 @@ This version has breaking changes — APIs, conventions, and file structure may 
    - **컬럼·표를 추측하지 않는다** — 운영 DB 를 처음 조회하는 표는 먼저 `information_schema.columns`(또는 `pg_get_functiondef`)로 컬럼·정의를 확인한 뒤 SELECT 를 쓴다. 저장소 마이그레이션 첫 정의와 운영 현재 정의가 다를 수 있다(뒤 마이그레이션이 바꿈) — 판단 근거는 운영 현재 정의.
    - **읽기 전용으로 감싼다** — 임의 조회는 `begin read only; set local statement_timeout = '30s'; … rollback;` 안에서만. 쓰기는 「운영 시험 저장 규칙」(허위 보고 금지 8번)과 운영 DB 적용 승인(개발 프로세스 2번)을 따른다.
    - **가짜 id 로 운영 API·REST 를 부르지 않는다** — `verify-*`·`audit-x-*` 같은 문자열을 uuid 열 자리에 넣지 않는다. 확인용 id 는 운영 DB 에서 실제 행을 읽어 쓴다.
+   - **훅이 강제한다 (2026-11-16)** — `.claude/hooks/sql-guard.mjs` 가 운영 project MCP `execute_sql` 을 보내기 전에 문법(Postgres 17 파서)·표·컬럼 이름(운영 스키마 사진)을 검사해 틀리면 거부하고 실제 이름을 알려 준다. 읽기 전용이 아닌 문장은 Owner 확인 창. 시험 실행은 `DO … RAISE` 대신 `begin; … ; rollback;`. 설계 `docs/audit/mcp-sql-guard-hook-design-2026-11-16.md`.
    - **오류 감사 때 작업자 오류를 구분한다** — Postgres 로그 상세 `query` 에 `-- source: POST /mcp` 가 붙은 것은 작업자 MCP 임의 SQL 이다. 앱 결함 집계에서 따로 센다.

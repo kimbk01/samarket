@@ -2,12 +2,22 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "mcp__Supabase__.*|mcp__claude-code-remote__send_later|ScheduleWakeup|mcp__github__actions_list|mcp__github__pull_request_read",
+        "matcher": "mcp__.*__(execute_sql|apply_migration|list_tables|list_migrations|list_extensions|query_logs|get_logs|get_advisors|generate_typescript_types|deploy_edge_function|list_edge_functions|get_edge_function|create_branch|get_project|get_project_url|get_publishable_keys|search_docs)|mcp__claude-code-remote__send_later|ScheduleWakeup|mcp__github__actions_list|mcp__github__pull_request_read",
         "hooks": [
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.sh\"",
             "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*__execute_sql",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/sql-guard.mjs\"",
+            "timeout": 30
           }
         ]
       }

@@ -12,12 +12,6 @@ deny() {
 }
 
 case "$tool" in
-  mcp__Supabase__*)
-    project="$(printf '%s' "$input" | jq -r '.tool_input.project_id // ""')"
-    case "$project" in
-      tcwnueuzuxftyomttdyu|gczyogboohpixpurckkg)
-        deny "Owner 규정: 테스트 DB(dibay-test·dibay-reset-qa) 사용 금지. 지시 없이 테스트 DB 를 조회·변경하지 않는다." ;;
-    esac ;;
   mcp__claude-code-remote__send_later|ScheduleWakeup|mcp__github__actions_list)
     deny "Owner 규정: CI·배포 반복 확인 금지. 기다리지 말고 결과는 GitHub 알림으로만 받는다. 실패 알림이 올 때만 보고한다." ;;
   mcp__github__pull_request_read)
@@ -25,6 +19,13 @@ case "$tool" in
     case "$method" in
       get_check_runs|get_status)
         deny "Owner 규정: CI 반복 확인 금지. CI 결과는 GitHub 알림으로만 받는다." ;;
+    esac ;;
+  mcp__*__*)
+    # Supabase 도구 이름은 연결 방식마다 다르다 (mcp__Supabase__… · claude.ai 연결 mcp__<uuid>__…) — project_id 로 판정
+    project="$(printf '%s' "$input" | jq -r '.tool_input.project_id // ""')"
+    case "$project" in
+      tcwnueuzuxftyomttdyu|gczyogboohpixpurckkg)
+        deny "Owner 규정: 테스트 DB(dibay-test·dibay-reset-qa) 사용 금지. 지시 없이 테스트 DB 를 조회·변경하지 않는다." ;;
     esac ;;
 esac
 exit 0
