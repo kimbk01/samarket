@@ -14,12 +14,19 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { CREW_REP_PARTICIPATION_RULES as R, CREW_REP_PARTICIPATION_START_ISO } from "@/lib/trust/crew-rep-policy";
 import {
-  CREW_REP_PARTICIPATION_RULES as R,
-  CREW_REP_PARTICIPATION_START_ISO,
-  CREW_REP_POLICY_VERSION,
-  buildCrewRepEventIdempotencyKey,
-} from "@/lib/trust/crew-rep-policy";
+  applyTrustEventDiff,
+  chunk,
+  desiredEvent,
+  diffTrustEvents,
+  fetchAll,
+  loadExistingTrustEvents,
+  type DesiredTrustEvent,
+  type ExistingTrustEvent,
+  type TrustEventDiff,
+  type TrustEventSyncResult,
+} from "@/lib/trust/crew-rep-sync-core";
 
 type Sb = SupabaseClient<any>;
 const HOUR_MS = 3_600_000;
@@ -78,17 +85,7 @@ export type ParticipationSources = {
   storeReviews: StoreReviewSource[];
 };
 
-export type DesiredTrustEvent = {
-  member_id: string;
-  domain: "community" | "delivery";
-  event_type: ParticipationEventType;
-  source_type: string;
-  source_id: string;
-  counterparty_id: string | null;
-  occurred_at: string;
-  idempotency_key: string;
-  metadata: Record<string, unknown>;
-};
+export type { DesiredTrustEvent };
 
 function postEligible(p: LoungePost | undefined): p is LoungePost {
   return Boolean(
@@ -115,8 +112,8 @@ export function planParticipationEvents(src: ParticipationSources, asOf: Date): 
   const postById = new Map(src.posts.map((p) => [p.id, p]));
   const commentById = new Map(src.comments.map((c) => [c.id, c]));
   const out: DesiredTrustEvent[] = [];
-  const add = (e: Omit<DesiredTrustEvent, "idempotency_key">) =>
-    out.push({ ...e, idempotency_key: buildCrewRepEventIdempotencyKey(e.event_type, e.source_id, e.member_id) });
+  const add = (e: Omit<DesiredTrustEvent, "idempotency_key" | "direction">) =>
+    out.push(desiredEvent({ ...e, direction: "positive" }));
 
   // 다른 회원 반응이 있는 글
   const reactedPosts = new Set<string>();
@@ -228,55 +225,15 @@ export function planParticipationEvents(src: ParticipationSources, asOf: Date): 
   return out;
 }
 
-export type ExistingParticipationEvent = {
-  id: string;
-  member_id: string;
-  idempotency_key: string;
-  status: string;
-  metadata: Record<string, unknown> | null;
-};
-
-export type ParticipationDiff = {
-  insert: DesiredTrustEvent[];
-  reverse: ExistingParticipationEvent[];
-  reconfirm: ExistingParticipationEvent[];
-};
+export type ExistingParticipationEvent = ExistingTrustEvent;
+export type ParticipationDiff = TrustEventDiff;
 
 /** 원하는 집합 ↔ 원장 비교 (순수 함수). 다른 사유로 되돌린 사건은 다시 살리지 않는다. */
 export function diffParticipationEvents(
   desired: DesiredTrustEvent[],
   existing: ExistingParticipationEvent[]
 ): ParticipationDiff {
-  const want = new Map(desired.map((d) => [d.idempotency_key, d]));
-  const have = new Map(existing.map((e) => [e.idempotency_key, e]));
-  const insert = desired.filter((d) => !have.has(d.idempotency_key));
-  const reverse = existing.filter((e) => e.status === "confirmed" && !want.has(e.idempotency_key));
-  const reconfirm = existing.filter(
-    (e) =>
-      e.status === "reversed" &&
-      want.has(e.idempotency_key) &&
-      (e.metadata as { reverse_reason?: unknown } | null)?.reverse_reason === SYNC_REVERSE_REASON
-  );
-  return { insert, reverse, reconfirm };
-}
-
-async function fetchAll<T>(build: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T[]> {
-  const page = 1000;
-  const out: T[] = [];
-  for (let from = 0; ; from += page) {
-    const { data, error } = await build(from, from + page - 1);
-    if (error) throw new Error(error.message);
-    const rows = (data ?? []) as T[];
-    out.push(...rows);
-    if (rows.length < page) break;
-  }
-  return out;
-}
-
-function chunk<T>(arr: T[], n: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
-  return out;
+  return diffTrustEvents(desired, existing, SYNC_REVERSE_REASON);
 }
 
 /** 원천 표 읽기 — 기록 시작 이후 만들어진 것 + 그것이 가리키는 글·댓글. */
@@ -385,15 +342,7 @@ export async function loadParticipationSources(sb: Sb): Promise<ParticipationSou
   };
 }
 
-export type ParticipationSyncResult = {
-  desired: number;
-  inserted: number;
-  reversed: number;
-  reconfirmed: number;
-  /** 원장이 바뀐 회원 (재계산 대상) */
-  touchedMemberIds: string[];
-  byType: Record<string, number>;
-};
+export type ParticipationSyncResult = TrustEventSyncResult;
 
 /** 원천 ↔ 원장 동기화. dryRun 이면 쓰지 않고 차이만 센다. 재계산은 호출자가 한다. */
 export async function syncParticipationTrustEvents(
@@ -403,69 +352,7 @@ export async function syncParticipationTrustEvents(
   const asOf = opts.asOf ?? new Date();
   const sources = await loadParticipationSources(sb);
   const desired = planParticipationEvents(sources, asOf);
-  const existing = await fetchAll<ExistingParticipationEvent>((a, b) =>
-    sb
-      .from("trust_events")
-      .select("id, member_id, idempotency_key, status, metadata")
-      .in("event_type", [...PARTICIPATION_EVENT_TYPES])
-      .order("id")
-      .range(a, b)
-  );
+  const existing = await loadExistingTrustEvents(sb, PARTICIPATION_EVENT_TYPES);
   const diff = diffParticipationEvents(desired, existing);
-  const byType: Record<string, number> = {};
-  for (const d of desired) byType[d.event_type] = (byType[d.event_type] ?? 0) + 1;
-  const touched = new Set<string>([
-    ...diff.insert.map((d) => d.member_id),
-    ...diff.reverse.map((e) => e.member_id),
-    ...diff.reconfirm.map((e) => e.member_id),
-  ]);
-
-  if (!opts.dryRun) {
-    const nowIso = asOf.toISOString();
-    for (const rows of chunk(diff.insert, 200)) {
-      const { error } = await sb.from("trust_events").upsert(
-        rows.map((d) => ({
-          ...d,
-          direction: "positive",
-          severity: "none",
-          status: "confirmed",
-          confirmed_at: nowIso,
-          policy_version: CREW_REP_POLICY_VERSION,
-        })) as never,
-        { onConflict: "idempotency_key", ignoreDuplicates: true }
-      );
-      if (error) throw new Error(error.message);
-    }
-    for (const e of diff.reverse) {
-      const { error } = await sb
-        .from("trust_events")
-        .update({
-          status: "reversed",
-          metadata: { ...(e.metadata ?? {}), reversed_at: nowIso, reverse_reason: SYNC_REVERSE_REASON },
-        } as never)
-        .eq("id", e.id)
-        .eq("status", "confirmed");
-      if (error) throw new Error(error.message);
-    }
-    for (const e of diff.reconfirm) {
-      const { error } = await sb
-        .from("trust_events")
-        .update({
-          status: "confirmed",
-          metadata: { ...(e.metadata ?? {}), reconfirmed_at: nowIso, reverse_reason: null },
-        } as never)
-        .eq("id", e.id)
-        .eq("status", "reversed");
-      if (error) throw new Error(error.message);
-    }
-  }
-
-  return {
-    desired: desired.length,
-    inserted: diff.insert.length,
-    reversed: diff.reverse.length,
-    reconfirmed: diff.reconfirm.length,
-    touchedMemberIds: [...touched].sort(),
-    byType,
-  };
+  return applyTrustEventDiff(sb, desired, diff, { asOf, reverseReason: SYNC_REVERSE_REASON, dryRun: opts.dryRun });
 }

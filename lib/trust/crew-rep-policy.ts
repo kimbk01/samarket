@@ -57,6 +57,18 @@ export const CREW_REP_PARTICIPATION_WEEKLY_CAP = 5;
  */
 export const CREW_REP_PARTICIPATION_START_ISO = "2026-11-16T00:00:00+08:00";
 
+/** 매너·제재(S4) 기록 시작 — 이 시각 이후 운영자 결정·제재·모임 출석만 사건이 된다. */
+export const CREW_REP_MANNER_START_ISO = "2026-11-16T00:00:00+08:00";
+
+/** 매너 인정 조건 */
+export const CREW_REP_MANNER_RULES = {
+  /** 모임 노쇼: 일정 종료 후 이 기간이 지나야 반영 (본인 확인·정정 기간) */
+  moimNoShowHoldDays: 7,
+  /** 거래 사기·노쇼로 보는 신고 사유 */
+  tradeFraudReportReasons: ["fraud"] as readonly string[],
+  tradeFraudChatReasons: ["scam", "no_show", "off_platform_payment"] as readonly string[],
+} as const;
+
 /** 참여 인정 조건 */
 export const CREW_REP_PARTICIPATION_RULES = {
   /** 라운지 글: 이 시간 동안 유지(숨김·삭제 없음) + 다른 회원 반응 1개 이상 */
@@ -186,6 +198,7 @@ export function crewRepSanctionEventType(
       return "sanction_warning";
     case "chat_ban":
     case "community_restriction":
+    case "trade_restriction":
       return "sanction_restriction";
     case "temp_suspend":
     case "permanent_ban":

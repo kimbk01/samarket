@@ -16,6 +16,7 @@ import type { AdminTrustHistoryEntry } from "@/lib/trust/admin-trust-history";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { AdminUserFalseReportPanel } from "@/components/admin/users/AdminUserFalseReportPanel";
 
 type Props = {
   userId: string;
@@ -238,6 +239,15 @@ export function AdminUserTrustSection({
             </ul>
           )}
         </div>
+
+        <AdminUserFalseReportPanel
+          userId={userId}
+          readOnly={readOnly}
+          onChanged={() => {
+            void load();
+            onUpdated?.();
+          }}
+        />
       </div>
     </div>
   );
