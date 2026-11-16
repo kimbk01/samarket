@@ -6,7 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { ManagedMySection } from "@/lib/my/managed-my-section-ctas";
 import { getManagedSectionCtas } from "@/lib/my/managed-my-section-ctas";
-import { useMainTier1ExtrasOptional, type MainTier1ExtrasState } from "@/contexts/MainTier1ExtrasContext";
+import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
 import { DetailHeader } from "@/components/layout/sector-header";
 import { APP_TIER1_HEADER_BAR_CLASS } from "@/lib/layout/app-tier1-header";
@@ -129,9 +129,8 @@ export function MySubpageHeader({
 
   useLayoutEffect(() => {
     if (inlineChrome || !setMainTier1Extras) return;
-    let registered: MainTier1ExtrasState;
     if (registerMainTier1) {
-      registered = {
+      setMainTier1Extras({
         tier1: {
           title: translatedTitle,
           subtitle: translatedSubtitle,
@@ -146,17 +145,15 @@ export function MySubpageHeader({
         ctaLinks: stripLinks.length > 0 ? stripLinks : undefined,
         stickyBelow,
         pathname: registeredPathname,
-      };
+      });
     } else {
-      registered = {
+      setMainTier1Extras({
         ctaLinks: stripLinks.length > 0 ? stripLinks : undefined,
         stickyBelow,
         pathname: registeredPathname,
-      };
+      });
     }
-    setMainTier1Extras(registered);
-    /** S4 — 내가 등록한 값일 때만 지운다(두 칸에서 목록 허브가 숨겨질 때 상세 머리글을 지우지 않게) */
-    return () => setMainTier1Extras(null, registered);
+    return () => setMainTier1Extras(null);
   }, [
     setMainTier1Extras,
     registerMainTier1,

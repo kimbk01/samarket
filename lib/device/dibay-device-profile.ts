@@ -9,14 +9,13 @@
  * 네이티브(Android `DibayAppOrientationPolicy.java`·iOS `DibayAppOrientationPolicy.swift`)는 같은 값을
  * 자기 언어로 갖고 있고, 계약 시험이 이 표와 일치하는지 검사한다.
  *
- * S1 은 지금 동작을 그대로 옮긴 것이다(동작 변경 0). S2 에서 `DESKTOP_MAC`, S3 에서 웹뷰 배율·창 최소 크기, S4 에서 두 칸을 더했다. 
+ * S1 은 지금 동작을 그대로 옮긴 것이다(동작 변경 0). S2 에서 `DESKTOP_MAC`, S3 에서 웹뷰 배율·창 최소 크기를 더했다. 
  * 넓은 창 두 칸(S4)은 각 단계에서 이 표에 항목을 더한다.
  * 설계·시안: docs/audit/mac-ipad-iphone-device-layout-audit-2026-11-16.md §7,
  * docs/audit/device-shell-mockup-2026-11-16/profiles.js
  */
 
 import type { DibayDeviceClass } from "@/lib/device/dibay-device-class";
-import { APP_MESSENGER_SPLIT_MIN_PX } from "@/lib/ui/app-viewport-layout-breakpoints";
 
 /** 화면 형태 3가지 + 판정 전. 기기 종류로만 정한다(창 폭·회전으로 바꾸지 않음 — FD4). */
 export type DibayDeviceFamily = "PHONE" | "TABLET" | "DESKTOP" | "UNKNOWN";
@@ -54,26 +53,7 @@ export type DibayDeviceProfile = {
   webViewZoom: number;
   /** 창 최소 크기 [가로, 세로] (S3) — Mac pt. null = 제한 없음 */
   minWindowPt: readonly [number, number] | null;
-  /** 넓은 창 목록 | 상세 두 칸 (S4) — 창 CSS 폭 ≥ `DIBAY_LIST_DETAIL_SPLIT_MIN_CSS` 일 때만 */
-  listDetailSplit: boolean;
 };
-
-/** 두 칸 시작 CSS 폭 — 메신저 두 칸 계약과 같은 값(`APP_MESSENGER_SPLIT_MIN_PX`) */
-export const DIBAY_LIST_DETAIL_SPLIT_MIN_CSS = APP_MESSENGER_SPLIT_MIN_PX;
-
-export type DibayListDetailLayout = "SPLIT" | "STACK";
-
-/**
- * S4 · 회전 규칙 R1·R2 — 한 화면/두 칸은 이 함수 하나로 정한다.
- * 회전·창 크기 변경은 `widthCss` 만 바꾼다(기기 종류·형태는 그대로).
- */
-export function resolveDibayListDetailLayout(input: {
-  deviceClass: DibayDeviceClass;
-  widthCss: number;
-}): DibayListDetailLayout {
-  const profile = dibayDeviceProfile(input.deviceClass);
-  return profile.listDetailSplit && input.widthCss >= DIBAY_LIST_DETAIL_SPLIT_MIN_CSS ? "SPLIT" : "STACK";
-}
 
 /** Mac 에서 iPad 앱이 그려지는 배율 (2026-11-16 실측: CSS 1056 → 814pt) */
 export const DIBAY_MAC_IPAD_APP_SCALE = 0.77;
@@ -88,7 +68,6 @@ const PHONE = {
   feedTopicSwipe: true,
   webViewZoom: 1,
   minWindowPt: null,
-  listDetailSplit: false,
 } as const;
 
 const TABLET = {
@@ -101,7 +80,6 @@ const TABLET = {
   feedTopicSwipe: false,
   webViewZoom: 1,
   minWindowPt: null,
-  listDetailSplit: true,
 } as const;
 
 const DESKTOP = {
@@ -114,7 +92,6 @@ const DESKTOP = {
   feedTopicSwipe: false,
   webViewZoom: 1,
   minWindowPt: null,
-  listDetailSplit: true,
 } as const;
 
 const UNKNOWN = {
@@ -127,7 +104,6 @@ const UNKNOWN = {
   feedTopicSwipe: false,
   webViewZoom: 1,
   minWindowPt: null,
-  listDetailSplit: false,
 } as const;
 
 /** 기기 종류 → 프로필. 새 기기 종류는 여기 한 줄을 더하면 모든 소비처가 따라간다. */

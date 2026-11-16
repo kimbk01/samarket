@@ -21,7 +21,7 @@ import {
 } from "@/lib/layout/mobile-top-tier1-rules";
 import { CommunityTradeSwitchRow } from "@/components/layout/CommunityTradeTitleSwitch";
 import { DibaySecondaryTabRowSkeleton } from "@/components/ui/DibaySecondaryTabRowSkeleton";
-import { useHeaderScopedMainTier1Extras } from "@/contexts/MainTier1ExtrasContext";
+import { mainTier1ExtrasForPathname, useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MyManagedCtaStrip } from "@/components/my/MyManagedCtaStrip";
 import { isDeliveryConsumerPath } from "@/lib/design/delivery-chrome";
 import {
@@ -75,8 +75,8 @@ export function AppStickyHeader() {
       communityTradeSwitchHub: resolveCommunityTradeSwitchHub(pathname, topTier1RuleSet),
     };
   }, [pathname]);
-  /** S4 — 두 칸이면 칸마다 자기 경로 값 (`useHeaderScopedMainTier1Extras`) */
-  const extras = useHeaderScopedMainTier1Extras(pathname);
+  const extrasOpt = useMainTier1ExtrasOptional();
+  const extras = mainTier1ExtrasForPathname(extrasOpt?.extras, pathname);
   const hideRegionBar = !topTier1RuleSet.showRegionBar;
   const isCommunityMessengerSurface =
     pathname === "/community-messenger" || (pathname?.startsWith("/community-messenger/") ?? false);

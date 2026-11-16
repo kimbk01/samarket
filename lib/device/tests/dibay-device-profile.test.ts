@@ -34,19 +34,19 @@ describe("기기 프로필 단일 정의 (S1)", () => {
         const p = DIBAY_DEVICE_PROFILES[dc];
         return [
           dc,
-          [p.nativeShell, p.family, p.navigation, p.orientation, p.nativePortraitLock, p.adminLandscapeLock, p.launchIntroTarget, p.feedTopicSwipe, p.listDetailSplit],
+          [p.nativeShell, p.family, p.navigation, p.orientation, p.nativePortraitLock, p.adminLandscapeLock, p.launchIntroTarget, p.feedTopicSwipe],
         ];
       }),
     );
     expect(table).toEqual({
-      PHONE_ANDROID: ["android", "PHONE", "EXISTING_MAIN_BOTTOM_NAV", "PORTRAIT_ONLY", true, false, "phone", true, false],
-      PHONE_IOS: ["ios", "PHONE", "EXISTING_MAIN_BOTTOM_NAV", "PORTRAIT_ONLY", true, false, "phone", true, false],
-      TABLET_ANDROID: ["android", "TABLET", "EXISTING_MAIN_BOTTOM_NAV", "PORTRAIT_AND_LANDSCAPE", false, true, "tablet", false, true],
-      TABLET_IPAD: ["ios", "TABLET", "EXISTING_MAIN_BOTTOM_NAV", "PORTRAIT_AND_LANDSCAPE", false, true, "tablet", false, true],
-      DESKTOP_WINDOWS: [null, "DESKTOP", "DESKTOP_SIDE_RAIL", "RESIZABLE_DESKTOP", false, false, null, false, true],
-      DESKTOP_MAC: ["ios", "DESKTOP", "DESKTOP_SIDE_RAIL", "RESIZABLE_DESKTOP", false, false, null, false, true],
-      WEB_DESKTOP: [null, "DESKTOP", "DESKTOP_SIDE_RAIL", "RESIZABLE_DESKTOP", false, false, null, false, true],
-      UNKNOWN: [null, "UNKNOWN", "EXISTING_MAIN_BOTTOM_NAV", "UNKNOWN_SAFE", false, false, null, false, false],
+      PHONE_ANDROID: ["android", "PHONE", "EXISTING_MAIN_BOTTOM_NAV", "PORTRAIT_ONLY", true, false, "phone", true],
+      PHONE_IOS: ["ios", "PHONE", "EXISTING_MAIN_BOTTOM_NAV", "PORTRAIT_ONLY", true, false, "phone", true],
+      TABLET_ANDROID: ["android", "TABLET", "EXISTING_MAIN_BOTTOM_NAV", "PORTRAIT_AND_LANDSCAPE", false, true, "tablet", false],
+      TABLET_IPAD: ["ios", "TABLET", "EXISTING_MAIN_BOTTOM_NAV", "PORTRAIT_AND_LANDSCAPE", false, true, "tablet", false],
+      DESKTOP_WINDOWS: [null, "DESKTOP", "DESKTOP_SIDE_RAIL", "RESIZABLE_DESKTOP", false, false, null, false],
+      DESKTOP_MAC: ["ios", "DESKTOP", "DESKTOP_SIDE_RAIL", "RESIZABLE_DESKTOP", false, false, null, false],
+      WEB_DESKTOP: [null, "DESKTOP", "DESKTOP_SIDE_RAIL", "RESIZABLE_DESKTOP", false, false, null, false],
+      UNKNOWN: [null, "UNKNOWN", "EXISTING_MAIN_BOTTOM_NAV", "UNKNOWN_SAFE", false, false, null, false],
     });
   });
 

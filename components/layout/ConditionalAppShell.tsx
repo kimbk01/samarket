@@ -85,8 +85,6 @@ import { SupportModalHost } from "@/components/support/SupportModalHost";
 import { MainShellDocumentLoading } from "@/components/layout/MainRouteLoading";
 import { SHELL_HYDRATED_HTML_ATTR, useShellHydrated } from "@/lib/ui/use-shell-hydrated";
 import { useDibayAppShellAuthority } from "@/lib/device/use-dibay-app-shell";
-import { useDibayListDetailLayout } from "@/lib/device/use-dibay-list-detail-layout";
-import { resolveListDetailSplitRoute } from "@/lib/layout/list-detail-split-paths";
 import {
   isCommunityHomeSurfacePath,
   isHomeSurfacePath,
@@ -287,12 +285,6 @@ export function ConditionalAppShell({
    * 표시 조건은 하단 탭과 동일(`showBottomNavMounted`). 레일에는 스크롤·키보드 숨김·메신저 목록 칸 폭을 쓰지 않는다.
    */
   const isDesktopSideRail = appShell.navigationPresentation === "DESKTOP_SIDE_RAIL";
-  /**
-   * S4 — 넓은 창 목록 | 상세 두 칸 (기기 프로필 × 창 폭 768, 라운지 경로). 두 칸이면 셸 본문 스크롤을 잠그고
-   * 목록 칸·상세 칸이 각자 스크롤한다. 배치는 `HubRetentionStack` → `ListDetailSplitFrame`.
-   */
-  const listDetailLayout = useDibayListDetailLayout();
-  const listDetailSplit = listDetailLayout === "SPLIT" && resolveListDetailSplitRoute(pathname) != null;
   /** D1 F1 — `<html>` 셸 속성(데스크톱 세로 레일 셸 여부) 갱신 */
   useHtmlShellFlagsSync(appShell.navigationPresentation);
   const mainBottomClassLive = useMemo(() => {
@@ -371,8 +363,7 @@ export function ConditionalAppShell({
   const fillColumnForChildScroll =
     f.isMainColumnViewportLocked ||
     f.isStoreOwnerAdminRoute ||
-    f.isCommunityMessengerHubListSurface ||
-    listDetailSplit;
+    f.isCommunityMessengerHubListSurface;
   const mainInnerColumn = (
     <div
       className={`${
@@ -404,8 +395,7 @@ export function ConditionalAppShell({
       initialNavItems={initialMainBottomNavItems}
       contentStretchClass="main-shell-push-host flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       hubChromeHeader={
-        /** S4 두 칸 — 1단 머리글은 목록 칸 위에만 (`ListDetailSplitFrame`) */
-        hubScrollColumn && !listDetailSplit ? (
+        hubScrollColumn ? (
           <div className={MAIN_HUB_SCROLL_HEADER_CLASS}>
             <BottomNavShowingRouteContexts target={bottomNavShowingHubPath ? bottomNavShowing : null}>
               <AppStickyHeader />
@@ -427,11 +417,11 @@ export function ConditionalAppShell({
         className={
           hubScrollColumn
             ? `${mainSurfaceClass}${
-                f.isCommunityMessengerHubListSurface || listDetailSplit ? " main-hub-scroll-body--child-scroll-lock" : ""
+                f.isCommunityMessengerHubListSurface ? " main-hub-scroll-body--child-scroll-lock" : ""
               }`
             : /** 방·그 밖의 화면: 기존 래퍼(div)와 같은 클래스 — 하단 여백·배경 변화 없음 */
               `min-h-0 min-w-0 flex-1 flex-col ${
-                f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute || listDetailSplit
+                f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute
                   ? "flex min-h-0 overflow-x-hidden overflow-y-hidden"
                   : mainScrollInMainColumn
                     ? MAIN_COLUMN_SCROLL_CLASS
@@ -535,9 +525,7 @@ export function ConditionalAppShell({
              */
             !isDesktopSideRail &&
             (pathname === "/community-messenger" ||
-              (pathname?.startsWith("/community-messenger/") ?? false) ||
-              /** S4 — 태블릿 두 칸: 하단 탭은 목록 칸 아래 (R5, 같은 요소·클래스만 바뀜) */
-              listDetailSplit)
+              (pathname?.startsWith("/community-messenger/") ?? false))
               ? APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS
               : "",
           ]

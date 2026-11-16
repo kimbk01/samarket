@@ -5,7 +5,6 @@ import {
   useCallback,
   useContext,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -92,73 +91,29 @@ export function sameMainTier1ExtrasState(a: MainTier1ExtrasState, b: MainTier1Ex
 
 type MainTier1ExtrasContextValue = {
   extras: MainTier1ExtrasState | null;
-  /**
-   * `next = null` 에 `onlyIfCurrent` 를 주면 지금 값이 그 등록과 같을 때만 지운다 (S4 — 두 칸에서 목록 허브가
-   * 숨겨질 때 상세가 등록한 값을 지우지 않게). 생략하면 지금처럼 무조건 지운다.
-   */
-  setMainTier1Extras: (next: MainTier1ExtrasState | null, onlyIfCurrent?: MainTier1ExtrasState) => void;
+  setMainTier1Extras: (next: MainTier1ExtrasState | null) => void;
 };
 
 const MainTier1ExtrasStateContext = createContext<MainTier1ExtrasState | null>(null);
-/**
- * S4 두 칸 — 경로를 밝혀 등록한 extras 의 경로별 값(지금 등록돼 있는 것만 — 해제 때 지운다).
- * 두 칸에서는 목록 칸·상세 칸 머리글이 동시에 보이므로 「마지막 등록 1개」만으로는 둘을 그릴 수 없다.
- * 머리글 부품은 `useHeaderScopedMainTier1Extras` 로 읽는다(마지막 등록이 이 경로 것이면 그대로 — 지금과 같음).
- */
-const MainTier1ExtrasByPathContext = createContext<ReadonlyMap<string, MainTier1ExtrasState> | null>(null);
 const MainTier1ExtrasSetterContext = createContext<
   MainTier1ExtrasContextValue["setMainTier1Extras"] | null
 >(null);
 
-function sameOrEqual(a: MainTier1ExtrasState | null | undefined, b: MainTier1ExtrasState | null | undefined): boolean {
-  if (a === b) return true;
-  if (!a || !b) return false;
-  return sameMainTier1ExtrasState(a, b);
-}
-
 export function MainTier1ExtrasProvider({ children }: { children: ReactNode }) {
   const [extras, setExtras] = useState<MainTier1ExtrasState | null>(null);
-  const [byPath, setByPath] = useState<ReadonlyMap<string, MainTier1ExtrasState>>(() => new Map());
-  const currentRef = useRef<MainTier1ExtrasState | null>(null);
-  const setMainTier1Extras = useCallback((next: MainTier1ExtrasState | null, onlyIfCurrent?: MainTier1ExtrasState) => {
-    const prev = currentRef.current;
-    if (next != null) {
-      if (next.pathname != null) {
-        const key = normalizeAppPathnameForTier1(next.pathname);
-        setByPath((m) => {
-          if (sameOrEqual(m.get(key), next)) return m;
-          const copy = new Map(m);
-          copy.set(key, next);
-          return copy;
-        });
-      }
-      if (sameOrEqual(prev, next)) return;
-      currentRef.current = next;
-      setExtras(next);
-      return;
-    }
-    /** 해제 — 해제 대상(내 등록, 없으면 지금 값)의 경로별 값도 지운다 */
-    const target = onlyIfCurrent ?? prev;
-    if (target?.pathname != null) {
-      const key = normalizeAppPathnameForTier1(target.pathname);
-      setByPath((m) => {
-        if (!sameOrEqual(m.get(key), target)) return m;
-        const copy = new Map(m);
-        copy.delete(key);
-        return copy;
-      });
-    }
-    if (prev == null) return;
-    if (onlyIfCurrent && !sameOrEqual(prev, onlyIfCurrent)) return;
-    currentRef.current = null;
-    setExtras(null);
+  const setMainTier1Extras = useCallback((next: MainTier1ExtrasState | null) => {
+    setExtras((prev) => {
+      if (prev === next) return prev;
+      if (next == null) return prev == null ? prev : null;
+      if (prev == null) return next;
+      if (sameMainTier1ExtrasState(prev, next)) return prev;
+      return next;
+    });
   }, []);
 
   return (
     <MainTier1ExtrasSetterContext.Provider value={setMainTier1Extras}>
-      <MainTier1ExtrasStateContext.Provider value={extras}>
-        <MainTier1ExtrasByPathContext.Provider value={byPath}>{children}</MainTier1ExtrasByPathContext.Provider>
-      </MainTier1ExtrasStateContext.Provider>
+      <MainTier1ExtrasStateContext.Provider value={extras}>{children}</MainTier1ExtrasStateContext.Provider>
     </MainTier1ExtrasSetterContext.Provider>
   );
 }
@@ -179,30 +134,4 @@ export function useMainTier1ExtrasOptional(): MainTier1ExtrasContextValue | null
  */
 export function useSetMainTier1ExtrasOptional(): MainTier1ExtrasContextValue["setMainTier1Extras"] | null {
   return useContext(MainTier1ExtrasSetterContext);
-}
-
-/**
- * S4 두 칸 목록 칸 머리글 범위 — 이 안의 머리글 부품은 이 허브 주소로 등록된 extras 를 읽는다.
- */
-const MainTier1ExtrasHubScopeContext = createContext<string | null>(null);
-
-export function MainTier1ExtrasHubScope({ hubPath, children }: { hubPath: string; children: ReactNode }) {
-  return <MainTier1ExtrasHubScopeContext.Provider value={hubPath}>{children}</MainTier1ExtrasHubScopeContext.Provider>;
-}
-
-/**
- * 머리글 부품(1단 머리글·1단 줄·허브 1단 오른쪽 칸)이 읽는 extras.
- * - 허브 범위(두 칸 목록 칸) 안: 그 허브 주소의 등록값.
- * - 그 밖: 마지막 등록이 이 경로에 해당하면 그 값(지금과 같음), 아니면 이 경로로 등록돼 있는 값(두 칸에서 다른 칸이
- *   마지막으로 등록한 경우), 둘 다 없으면 null(경로 표 제목).
- */
-export function useHeaderScopedMainTier1Extras(pathname: string | null | undefined): MainTier1ExtrasState | null {
-  const hubPath = useContext(MainTier1ExtrasHubScopeContext);
-  const shared = useContext(MainTier1ExtrasStateContext);
-  const byPath = useContext(MainTier1ExtrasByPathContext);
-  if (hubPath) return byPath?.get(normalizeAppPathnameForTier1(hubPath)) ?? null;
-  const filtered = mainTier1ExtrasForPathname(shared, pathname);
-  if (filtered) return filtered;
-  if (!pathname || !byPath) return null;
-  return byPath.get(normalizeAppPathnameForTier1(pathname)) ?? null;
 }
