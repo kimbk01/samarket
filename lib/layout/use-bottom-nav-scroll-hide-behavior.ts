@@ -21,6 +21,7 @@ import {
 } from "@/lib/ui/store-detail-scroll-root";
 import { isCommunityHomeSurfacePath, isHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 import { subscribeBottomNavResume } from "@/lib/main-menu/bottom-nav-resume-signal";
+import { NAV_SWITCHING_HTML_ATTR } from "@/lib/device/use-nav-presentation-switch-motion";
 
 /** 마지막 스크롤 이후 이 시간이 지나면 (탭이 접혀 있을 때) 다시 펼침 */
 export const BOTTOM_NAV_REVEAL_AFTER_SCROLL_IDLE_MS = 1800;
@@ -137,7 +138,14 @@ export function useBottomNavScrollHide(enabled: boolean, routeScrollKey = ""): b
 
     /** v6 R2-4 — 창 폭 변경(회전) 직후 재배치 동안: 숨기지 않고 기준만 다시 잡는다 */
     let lastWidth = window.innerWidth;
-    let widthSettleUntil = 0;
+    /**
+     * 세로 메뉴 → 하단 탭으로 바뀌는 순간(회전) 이 훅이 새로 켜진다 — 세로 메뉴에는 스크롤 숨김이 없어 꺼져 있었다.
+     * 그때 목록이 내려가 있어도 바로 숨기지 않게 같은 재배치 시간을 둔다. 메뉴 전환 표시는 같은 커밋의 레이아웃 효과
+     * (`useNavPresentationSwitchMotion`)가 이 효과보다 먼저 `<html>` 에 단다. 일반 화면 진입은 그대로(표시 없음).
+     */
+    let widthSettleUntil = document.documentElement.hasAttribute(NAV_SWITCHING_HTML_ATTR)
+      ? performance.now() + BOTTOM_NAV_WIDTH_CHANGE_SETTLE_MS
+      : 0;
     const isSettlingAfterWidthChange = () =>
       widthSettleUntil > 0 && performance.now() < widthSettleUntil;
 

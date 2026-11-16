@@ -38,6 +38,13 @@ describe("v6 R2-4 — 회전(창 폭 변경) 직후에는 하단 탭을 숨기�
     expect(src).toMatch(/const applyScrollChrome = \(y: number\) => \{\s*if \(isSettlingAfterWidthChange\(\)\)/);
     expect(src).toMatch(/const syncScrollChromeFromLayout = \(\) => \{[\s\S]{0,200}if \(isSettlingAfterWidthChange\(\)\)/);
     expect(BOTTOM_NAV_WIDTH_CHANGE_SETTLE_MS).toBeGreaterThan(NAV_PRESENTATION_SWITCH_MS);
+    /**
+     * 세로 메뉴 → 하단 탭: 스크롤 숨김 훅이 이때 새로 켜진다(세로 메뉴에선 꺼짐). 켜질 때 메뉴 전환 표시가 있으면
+     * 같은 재배치 시간 — 로컬 계측(11-17)에서 이 경로가 빠져 3.5초 뒤에도 숨김이던 것을 막는다.
+     */
+    expect(src).toMatch(
+      /let widthSettleUntil = document\.documentElement\.hasAttribute\(NAV_SWITCHING_HTML_ATTR\)\s*\? performance\.now\(\) \+ BOTTOM_NAV_WIDTH_CHANGE_SETTLE_MS/
+    );
   });
 });
 
