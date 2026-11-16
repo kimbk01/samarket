@@ -104,6 +104,12 @@ public final class DibayAppIconDeliveryAdapter {
     applyLauncherBadgeProvider(app, n);
     int tray = trayBadgeUnits(nm, excludedNotificationId);
     int summaryNumber = summaryNumberFor(n, tray);
+    if (summaryNumber > 0 && isSummaryUnchanged(app, nm, n, summaryNumber)) {
+      // 같은 값 재게시 금지 — 게시(갱신)마다 제조사 시스템 UI 가 화면 켜기를 다시 판단해, 화면이 꺼진 순간의 재게시가
+      // 화면을 켰다(기기 시스템 UI 기록 wakeUp:success2). 근거·실측 문서: docs/audit/ 의 2026-11-17 요약 카드 화면 켜짐 감사
+      Log.i(TAG, "summary_unchanged_skip total=" + n + " tray=" + tray + " number=" + summaryNumber);
+      return;
+    }
     if (summaryNumber <= 0) {
       // 알림창 일반 알림만으로 이미 총수 이상 — 요약 카드(최소 1로 세어짐)를 두면 더 커진다. 일반 알림이 지워지면
       // 지움 감지·앱 백그라운드 전환 때 다시 계산해 요약 카드를 되살린다.
@@ -113,6 +119,32 @@ public final class DibayAppIconDeliveryAdapter {
     }
     postOrUpdateSummary(app, nm, n, summaryNumber);
     Log.i(TAG, "summary_applied total=" + n + " tray=" + tray + " number=" + summaryNumber);
+  }
+
+  /**
+   * 알림창에 이미 같은 요약 카드(숫자·제목·본문 동일)가 있으면 참 — 이때는 다시 게시하지 않는다.
+   * 본문에 총수와 앱 언어가 들어 있으므로 총수·언어가 바뀌면 거짓이 되어 게시된다.
+   */
+  static boolean isSummaryUnchanged(Context app, NotificationManager nm, int total, int summaryNumber) {
+    try {
+      String title = DibayNativeLocale.string(app, R.string.dibay_app_icon_summary_title);
+      String body = DibayNativeLocale.string(app, R.string.dibay_app_icon_summary_body, total);
+      for (StatusBarNotification sbn : nm.getActiveNotifications()) {
+        if (sbn == null || sbn.getId() != SUMMARY_NOTIFICATION_ID || sbn.getTag() != null) continue;
+        Notification existing = sbn.getNotification();
+        if (existing == null) return false;
+        CharSequence oldTitle = existing.extras.getCharSequence(Notification.EXTRA_TITLE);
+        CharSequence oldBody = existing.extras.getCharSequence(Notification.EXTRA_TEXT);
+        return existing.number == summaryNumber
+            && oldTitle != null
+            && title.contentEquals(oldTitle)
+            && oldBody != null
+            && body.contentEquals(oldBody);
+      }
+    } catch (Throwable t) {
+      Log.w(TAG, "summary_compare_failed err=" + t.getClass().getSimpleName());
+    }
+    return false;
   }
 
   /** 요약 카드 숫자 — 런처 합(요약 + 일반 알림 몫)이 총수가 되게. 0 이하면 요약 카드를 두지 않는다. */
@@ -166,9 +198,14 @@ public final class DibayAppIconDeliveryAdapter {
    * 값을 우선 표시한다. 웹 {@code Badge.set} 만 provider 를 쓰면 백그라운드 FCM 반영 때 런처가 마지막 앞 화면
    * 값에 머문다. summary 와 같은 값을 provider 에도 쓴다(지원하지 않는 런처는 무시).
    */
+  /** 이 프로세스에서 런처 숫자 저장소에 마지막으로 쓴 값 — 같으면 다시 쓰지 않는다(Telegram setBadge 의 lastBadgeCount 와 같음). */
+  private static int lastProviderCount = -1;
+
   private static void applyLauncherBadgeProvider(Context app, int n) {
+    if (n == lastProviderCount) return;
     try {
       boolean ok = ShortcutBadger.applyCount(app, n);
+      if (ok) lastProviderCount = n;
       Log.i(TAG, "launcher_provider_applied total=" + n + " ok=" + ok);
     } catch (Throwable t) {
       Log.w(TAG, "launcher_provider_failed total=" + n + " err=" + t.getClass().getSimpleName());
