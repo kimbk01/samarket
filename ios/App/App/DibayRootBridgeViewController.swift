@@ -130,6 +130,8 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     super.capacitorDidLoad()
     registerAppTargetPlugins()
     installLaunchEpoch()
+    // v7 — 첫 문서보다 먼저 (화면 폭 메타 스크립트는 문서 시작 때 실행돼야 한다)
+    installMacViewportScaleIfNeeded()
     installStartupFaultNavigationProxy()
   }
 
@@ -217,13 +219,63 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     if webView?.isLoading == true, startupDocWaitTimer == nil { startStartupDocWait() }
   }
 
-  /// S3 — 기기 프로필 표의 웹뷰 배율 (Mac 만 1 ÷ 0.77, 그 외 1 = 변경 없음).
+  /// S3 — 기기 프로필 표의 웹뷰 배율. v7 부터 모든 기기 1(그대로) — Mac 확대는 화면 폭 메타(`installMacViewportScaleIfNeeded`).
   private func applyDeviceProfileWebViewZoom() {
     let deviceClass = DibayDeviceClassClassifier.classify().deviceClass
     let zoom = DibayDeviceProfileNative.webViewPageZoom(deviceClass: deviceClass)
     guard zoom != 1.0, let wv = webView else { return }
     wv.pageZoom = zoom
     NSLog("[DibayDeviceProfile] page_zoom=%.4f device_class=%@", Double(zoom), deviceClass)
+  }
+
+  // MARK: - v7 수정안 C (Owner 2026-11-17 시안 v7 승인) — Mac 화면 폭 메타
+  private var macContentScale: CGFloat?
+  private static let macViewportProbeScript =
+    "(function(){try{var m=document.querySelector('meta[name=\\\"viewport\\\"]'),v=window.visualViewport;"
+    + "return JSON.stringify({metas:Array.prototype.map.call(document.querySelectorAll('meta[name=\\\"viewport\\\"]'),function(x){return x.getAttribute('content');}),"
+    + "iw:innerWidth,cw:document.documentElement.clientWidth,sw:document.documentElement.scrollWidth,"
+    + "vvw:v&&Math.round(v.width),vvs:v&&v.scale,dpr:devicePixelRatio,hook:!!window.__dibayMacViewport});}catch(e){return 'err '+e;}})()"
+  private var lastPushedMacViewWidth: CGFloat = 0
+
+  /// Mac 만: 문서 시작 스크립트(화면 폭 메타 고정) + 스크립트의 「ready」 요청을 받는 처리기.
+  private func installMacViewportScaleIfNeeded() {
+    let deviceClass = DibayDeviceClassClassifier.classify().deviceClass
+    guard let scale = DibayDeviceProfileNative.macContentScale(deviceClass: deviceClass),
+          let controller = webView?.configuration.userContentController else { return }
+    macContentScale = scale
+    controller.addUserScript(
+      WKUserScript(
+        source: DibayDeviceProfileNative.macViewportScript(scale: scale),
+        injectionTime: .atDocumentStart,
+        forMainFrameOnly: true
+      )
+    )
+    controller.add(self, name: "DibayMacViewport")
+    NSLog("[DibayDeviceProfile] mac_viewport_scale=%.4f device_class=%@", Double(scale), deviceClass)
+  }
+
+  /// 웹뷰 폭(iPad 좌표)을 문서에 준다. force = 새 문서의 요청(같은 폭이어도 다시 준다).
+  private func pushMacViewWidth(force: Bool) {
+    guard macContentScale != nil, let wv = webView else { return }
+    let width = wv.bounds.width
+    guard width > 0, force || width != lastPushedMacViewWidth else { return }
+    lastPushedMacViewWidth = width
+    wv.evaluateJavaScript(
+      "window.__dibayMacViewport&&window.__dibayMacViewport.setViewWidth(\(Double(width)))",
+      completionHandler: nil
+    )
+    NSLog("[DibayDeviceProfile] mac_view_width=%.0f force=%d", Double(width), force ? 1 : 0)
+    // 측정용 기록(Debug·Release 공통, 값만): 실제 메타·폭·배율 — 수정안 C 가 문서에 적용됐는지 판정 근거.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak wv] in
+      wv?.evaluateJavaScript(Self.macViewportProbeScript) { result, error in
+        NSLog("[DibayDeviceProfile] mac_viewport_probe %@", String(describing: result ?? error ?? "nil"))
+      }
+    }
+  }
+
+  override func viewDidLayoutSubviews() {
+    super.viewDidLayoutSubviews()
+    pushMacViewWidth(force: false)
   }
 
   override func viewDidAppear(_ animated: Bool) {
@@ -354,6 +406,10 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     _ userContentController: WKUserContentController,
     didReceive message: WKScriptMessage
   ) {
+    if message.name == "DibayMacViewport" {
+      pushMacViewWidth(force: true)
+      return
+    }
     guard message.name == "DibayBootBridge" else { return }
     let body = message.body
     var action = ""

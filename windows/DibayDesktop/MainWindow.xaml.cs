@@ -12,7 +12,7 @@ namespace DibayDesktop;
 
 /// <summary>
 /// W0 셸 창 — WebView2 1개가 운영 웹을 연다.
-/// - 창 위치·크기를 기억한다.
+/// - 창 위치·크기를 기억한다. v6: 처음 1024×768 · 최소 447×667 · 최대 폭 1440 (`WindowSizeLimits`).
 /// - 앱 밖 주소(새 창·외부 링크)는 기본 브라우저로 연다.
 /// - 웹 메시지: app.info(W0) · auth.open · auth.return.request(W2). push.register 는 W3.
 /// - W2 로그인 복귀: dibay://auth/callback 을 보관 → 「auth.return.available」 알림 → 웹이 요청하면 한 번만 보내고 지운다
@@ -21,9 +21,9 @@ namespace DibayDesktop;
 public sealed partial class MainWindow : Window
 {
     private const string BoundsSettingKey = "window.bounds";
-    private const int DefaultWidth = 1280;
-    private const int DefaultHeight = 820;
-    private const int MinRestoreSize = 480;
+
+    /// <summary>v6 R6 — 창 최소 447×667 · 최대 폭 1440 · 처음 1024×768 (창 안쪽 DIP = 웹 CSS px).</summary>
+    private readonly WindowSizeLimits _sizeLimits;
 
     /// <summary>W2: 아직 웹에 넘기지 않은 로그인 복귀 주소 (한 번 보내면 지운다).</summary>
     private string? _pendingAuthReturn;
@@ -32,6 +32,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         Title = AppConfig.WindowTitle;
+        _sizeLimits = new WindowSizeLimits(this);
         RestoreWindowBounds();
         ApplyLightTitleBar();
         Closed += (_, _) => SaveWindowBounds();
@@ -218,12 +219,16 @@ public sealed partial class MainWindow : Window
             if (ApplicationData.Current.LocalSettings.Values[BoundsSettingKey] is string saved)
             {
                 var parts = saved.Split(',');
+                var min = _sizeLimits.OuterPixelsForClientDip(WindowSizeLimits.MinClientWidthDip, WindowSizeLimits.MinClientHeightDip);
+                var max = _sizeLimits.OuterPixelsForClientDip(WindowSizeLimits.MaxClientWidthDip, WindowSizeLimits.MinClientHeightDip);
                 if (parts.Length == 4 &&
                     int.TryParse(parts[0], out var x) && int.TryParse(parts[1], out var y) &&
                     int.TryParse(parts[2], out var w) && int.TryParse(parts[3], out var h) &&
-                    w >= MinRestoreSize && h >= MinRestoreSize &&
                     DisplayArea.GetFromPoint(new PointInt32(x + 40, y + 40), DisplayAreaFallback.None) is not null)
                 {
+                    // 마지막 크기 그대로 — 단 v6 최소·최대 안으로 (예전 버전이 저장한 큰 창도 최대 폭으로)
+                    w = Math.Clamp(w, min.Width, Math.Max(min.Width, max.Width));
+                    h = Math.Max(h, min.Height);
                     AppWindow.MoveAndResize(new RectInt32(x, y, w, h));
                     return;
                 }
@@ -233,7 +238,8 @@ public sealed partial class MainWindow : Window
         {
             // 패키지 신원 없이 실행된 경우 — 기본 크기로.
         }
-        AppWindow.Resize(new SizeInt32(DefaultWidth, DefaultHeight));
+        var first = _sizeLimits.OuterPixelsForClientDip(WindowSizeLimits.DefaultClientWidthDip, WindowSizeLimits.DefaultClientHeightDip);
+        AppWindow.Resize(new SizeInt32(first.Width, first.Height));
     }
 
     private void SaveWindowBounds()
