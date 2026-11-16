@@ -9,7 +9,7 @@
  * 네이티브(Android `DibayAppOrientationPolicy.java`·iOS `DibayAppOrientationPolicy.swift`)는 같은 값을
  * 자기 언어로 갖고 있고, 계약 시험이 이 표와 일치하는지 검사한다.
  *
- * S1 은 지금 동작을 그대로 옮긴 것이다(동작 변경 0). Mac 판정(S2)·Mac 배율·창 최소 크기(S3)·
+ * S1 은 지금 동작을 그대로 옮긴 것이다(동작 변경 0). S2 에서 `DESKTOP_MAC` 을 더했다. Mac 배율·창 최소 크기(S3)·
  * 넓은 창 두 칸(S4)은 각 단계에서 이 표에 항목을 더한다.
  * 설계·시안: docs/audit/mac-ipad-iphone-device-layout-audit-2026-11-16.md §7,
  * docs/audit/device-shell-mockup-2026-11-16/profiles.js
@@ -98,6 +98,8 @@ export const DIBAY_DEVICE_PROFILES: Readonly<Record<DibayDeviceClass, DibayDevic
   TABLET_ANDROID: { deviceClass: "TABLET_ANDROID", nativeShell: "android", ...TABLET },
   TABLET_IPAD: { deviceClass: "TABLET_IPAD", nativeShell: "ios", ...TABLET },
   DESKTOP_WINDOWS: { deviceClass: "DESKTOP_WINDOWS", nativeShell: null, ...DESKTOP },
+  /** S2 — Mac 은 Windows 와 같은 데스크톱 형태(왼쪽 세로 메뉴). iOS 바이너리라 nativeShell = ios. */
+  DESKTOP_MAC: { deviceClass: "DESKTOP_MAC", nativeShell: "ios", ...DESKTOP },
   WEB_DESKTOP: { deviceClass: "WEB_DESKTOP", nativeShell: null, ...DESKTOP },
   UNKNOWN: { deviceClass: "UNKNOWN", nativeShell: null, ...UNKNOWN },
 };

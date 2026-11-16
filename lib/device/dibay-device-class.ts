@@ -7,6 +7,8 @@ export type DibayDeviceClass =
   | "TABLET_ANDROID"
   | "TABLET_IPAD"
   | "DESKTOP_WINDOWS"
+  /** Apple Silicon Mac 에서 도는 iOS 앱 (iOS 네이티브 `ProcessInfo.isiOSAppOnMac`) — S2 */
+  | "DESKTOP_MAC"
   | "WEB_DESKTOP"
   | "UNKNOWN";
 
@@ -16,6 +18,8 @@ export type DibayDeviceClassSource =
   | "stableDensity"
   | "screenLayout"
   | "userInterfaceIdiom"
+  /** iOS: Apple Silicon Mac 에서 실행 중 (idiom 은 pad 여도 Mac) */
+  | "ios_app_on_mac"
   | "windows_environment"
   | "desktop_web_environment"
   | "native_plugin_unavailable"
@@ -46,6 +50,7 @@ export const DIBAY_DEVICE_CLASSES: readonly DibayDeviceClass[] = [
   "TABLET_ANDROID",
   "TABLET_IPAD",
   "DESKTOP_WINDOWS",
+  "DESKTOP_MAC",
   "WEB_DESKTOP",
   "UNKNOWN",
 ];
