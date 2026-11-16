@@ -59,6 +59,29 @@ const SENSITIVE_KEY =
 
 let activeFlow: AuthLifecycleFlow | null = null;
 
+/** 로그인 1회 종료 요약 — 관측 콜백 전용 (값으로 로그인 동작을 바꾸지 않는다). */
+export type AuthLifecycleCompletionSummary = {
+  authFlowId: string;
+  result: Exclude<AuthLifecycleResult, "in_progress">;
+  provider: string;
+  platform: string;
+  flowKind: string;
+  errorCode: string | null;
+  reason: string | null;
+  lastStage: AuthLifecycleStage | null;
+  elapsedMs: number;
+  nativeErrorCode: number | null;
+};
+
+let completionSink: ((summary: AuthLifecycleCompletionSummary) => void) | null = null;
+
+/** 관측 콜백 등록 (하나만). 반환값 없음 — 로그인 정책이 이 값에 기대지 않는다. */
+export function setAuthLifecycleCompletionSink(
+  sink: ((summary: AuthLifecycleCompletionSummary) => void) | null,
+): void {
+  completionSink = sink;
+}
+
 function emptyCounters(): AuthLifecycleCounters {
   return {
     onAuthStateChange: 0,
@@ -193,6 +216,27 @@ export function completeAuthLifecycle(
     counters: { ...activeFlow.counters },
     ...redactAuthLifecycleDetail(detail),
   });
+  const sink = completionSink;
+  if (sink) {
+    // 관측 콜백 (로그인 실패 서버 기록 — docs/audit/auth-login-failure-server-record-design-2026-11-16.md).
+    // 화이트리스트 값만 넘기고 detail 원문(summary·설명)은 넘기지 않는다. 콜백 실패는 로그인 동작에 영향 없음.
+    try {
+      sink({
+        authFlowId: activeFlow.authFlowId,
+        result,
+        provider: activeFlow.provider,
+        platform: activeFlow.platform,
+        flowKind: activeFlow.flowKind,
+        errorCode: activeFlow.errorCode,
+        reason: typeof detail.reason === "string" ? detail.reason : null,
+        lastStage: activeFlow.lastStage,
+        elapsedMs,
+        nativeErrorCode: typeof detail.nativeErrorCode === "number" ? detail.nativeErrorCode : null,
+      });
+    } catch {
+      /* Observability sink failure must not abort product Auth. */
+    }
+  }
 }
 
 export function failAuthLifecycle(errorCode: string, detail: Record<string, unknown> = {}): void {

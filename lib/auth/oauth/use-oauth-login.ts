@@ -37,6 +37,8 @@ import {
 } from "@/lib/auth/oauth/native-oauth-contract";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { startNativeProviderLogin } from "@/lib/auth/native/start-native-provider-login.client";
+import { NativeAppleAuthError } from "@/lib/auth/native/native-apple-auth-plugin";
+import { installAuthLoginFailureTelemetry } from "@/lib/telemetry/auth-failure-telemetry.client";
 import {
   clearNativeLoginInFlight,
   markNativeLoginInFlight,
@@ -84,6 +86,9 @@ import type { FinishClientAuthLoginTermsHandoff } from "@/lib/auth/finish-client
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export const OAUTH_PENDING_CLEAR_EVENT = "dibay:oauth-pending-clear";
+
+// 로그인 실패·취소 서버 기록 — 로그인 흐름 추적의 관측 콜백 (docs/audit/auth-login-failure-server-record-design-2026-11-16.md).
+installAuthLoginFailureTelemetry();
 
 export type OAuthInlineStatus = "idle" | "preparing" | "opening" | "awaiting_return";
 
@@ -488,7 +493,10 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       ownsNavigatingRef.current = false;
       clearPending();
       const code = resolveNativeProviderLoginErrorCode(err);
-      failAuthLifecycle(code, { summary: summarizeOAuthStartFailure(err) });
+      failAuthLifecycle(code, {
+        summary: summarizeOAuthStartFailure(err),
+        nativeErrorCode: err instanceof NativeAppleAuthError ? err.nativeErrorCode : null,
+      });
       console.error("[oauth] oauth_start_failed", summarizeOAuthStartFailure(err));
       if (mountedRef.current) setError(mapOAuthErrorToMessage(code, t));
     },
