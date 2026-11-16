@@ -3,6 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { DIBAY_DEVICE_CLASSES, type DibayDeviceClass } from "@/lib/device/dibay-device-class";
 import {
+  DIBAY_MAC_IPAD_APP_SCALE,
   DIBAY_DEVICE_PROFILES,
   dibayDeviceClassesWhere,
   dibayDeviceProfile,
@@ -101,6 +102,35 @@ describe("네이티브 값이 프로필 표와 같다", () => {
     const iosClasses = dibayDeviceClassesWhere((p) => p.nativeShell === "ios");
     expect(iosClasses).toEqual(["PHONE_IOS", "TABLET_IPAD", "DESKTOP_MAC"]);
     expect(dibayDeviceProfile("DESKTOP_MAC").navigation).toBe(dibayDeviceProfile("DESKTOP_WINDOWS").navigation);
+  });
+});
+
+describe("S3 웹뷰 배율·창 최소 크기 = 표 값 (네이티브 일치)", () => {
+  const swift = read("ios/App/App/Plugins/DibayDeviceClassClassifier.swift");
+
+  it("Mac 만 배율·최소 창, 나머지는 1·없음", () => {
+    for (const dc of DIBAY_DEVICE_CLASSES) {
+      const p = dibayDeviceProfile(dc);
+      if (dc === "DESKTOP_MAC") {
+        expect(p.webViewZoom).toBeCloseTo(1 / 0.77, 6);
+        expect(p.minWindowPt).toEqual([380, 550]);
+      } else {
+        expect(p.webViewZoom).toBe(1);
+        expect(p.minWindowPt).toBeNull();
+      }
+    }
+  });
+
+  it("Swift 상수·대상 기기 = 표", () => {
+    expect(swift).toContain(`static let macIpadAppScale: CGFloat = ${DIBAY_MAC_IPAD_APP_SCALE}`);
+    const [w, h] = dibayDeviceProfile("DESKTOP_MAC").minWindowPt!;
+    expect(swift).toContain(`static let macMinimumWindowPt = CGSize(width: ${w}, height: ${h})`);
+    const zoomTargets = [...swift.matchAll(/deviceClass == "(\w+)" \? 1\.0 \/ macIpadAppScale/g)].map((m) => m[1]);
+    expect(zoomTargets).toEqual(dibayDeviceClassesWhere((p) => p.webViewZoom !== 1));
+    const minTargets = [...swift.matchAll(/guard deviceClass == "(\w+)" else \{ return nil \}/g)].map((m) => m[1]);
+    expect(minTargets).toEqual(dibayDeviceClassesWhere((p) => p.minWindowPt != null));
+    expect(read("ios/App/App/DibayRootBridgeViewController.swift")).toContain("DibayDeviceProfileNative.webViewPageZoom(");
+    expect(read("ios/App/App/SceneDelegate.swift")).toContain("DibayDeviceProfileNative.minimumSceneSize(");
   });
 });
 

@@ -206,6 +206,7 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
 
   override func viewDidLoad() {
     super.viewDidLoad()
+    applyDeviceProfileWebViewZoom()
     purgeObsoleteIntroSystemStartLocalStateOnce()
     DibayWebViewKeyboardChrome.install(on: webView)
     // Continuation first, then the message handler: no dismiss can arrive before it exists.
@@ -214,6 +215,15 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     installAdminLandscapeResetOnPageLoad()
     // T_doc: 첫 문서 요청이 시작 화면보다 먼저 시작됐을 수 있다 — 로드 중이면 여기서도 관찰을 건다(문서 시작 신호가 오면 다시 시작).
     if webView?.isLoading == true, startupDocWaitTimer == nil { startStartupDocWait() }
+  }
+
+  /// S3 — 기기 프로필 표의 웹뷰 배율 (Mac 만 1 ÷ 0.77, 그 외 1 = 변경 없음).
+  private func applyDeviceProfileWebViewZoom() {
+    let deviceClass = DibayDeviceClassClassifier.classify().deviceClass
+    let zoom = DibayDeviceProfileNative.webViewPageZoom(deviceClass: deviceClass)
+    guard zoom != 1.0, let wv = webView else { return }
+    wv.pageZoom = zoom
+    NSLog("[DibayDeviceProfile] page_zoom=%.4f device_class=%@", Double(zoom), deviceClass)
   }
 
   override func viewDidAppear(_ animated: Bool) {
