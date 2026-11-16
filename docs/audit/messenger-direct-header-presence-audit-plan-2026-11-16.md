@@ -84,3 +84,38 @@ w테스트1 서버 기록(`community_messenger_presence_snapshots`, 읽기만 �
 
 - 웹만 변경(앱 재시작, 빌드 없음). PR 1개 → 자동 병합 → 병합 뒤 §6 실기 1회.
 - 실기에서 결함이 나오면 고치지 않고 원인과 계획부터 보고한다.
+
+---
+
+## 8. 실기 결과 (#388 병합 19:08:09 PHT · 운영 `2d56ed2cc` READY · Xiaomi zxzx11)
+
+| # | 항목 | 결과 | 증거 |
+|---|---|---|---|
+| 1 | 앱 재시작 → w테스트1 방 | **PASS**: 1초 뒤(19:11:37)부터 19:17:12까지 61장 모두 「마지막 접속 26-11-14 04:15」 | 화면 61장 |
+| 1-요청 | 같은 5분 30초 동안 Xiaomi 첫 값 조회 | 19:11:22 묶음 1회(대화 목록 상대 전체) | edge 로그 |
+| 2a | q테스트1 방 → Samsung telRING 열기(19:21:05) | **PASS**: 5초 안에 「온라인」(실시간 값이 첫 값을 덮음) | 화면 8장 |
+| 2b | Samsung 앱 강제 종료(19:22:03) | **FAIL**: 5초 안에 오프라인으로 바뀌었으나 시각이 「마지막 접속 26-11-16 11:06」. 실제로는 19:21까지 접속 중이었음 | 화면 12장 · DB `last_ping_at` 11:21:54Z |
+| 3 | 친구 탭 w테스트1 행 | 해당 없음: 친구 행은 상태 메시지(소개)가 있으면 소개를 보여 줌(「씨발 한방이다」). 계획의 기대값이 틀렸음 | 화면 |
+| 4 | Samsung 휴대폰 머리글 | NOT_PROVEN (실시 안 함) | — |
+| — | iPhone | NOT_PROVEN | — |
+
+## 9. 새 결함 D3 — 오프라인으로 바뀐 뒤 마지막 접속 시각이 옛 값 (FAIL)
+
+**작업자 책임**: 이 경우 #388 전에는 시각 없이 「오프라인」이었다. #388(F1 첫 값 + F2 시각 전달)부터 옛 시각이 보인다.
+
+원인 2개 (코드·DB 확인)
+- **R3 (클라이언트, #388로 드러남)**: `use-community-messenger-presence-runtime.ts:351-357` `onSync`는 상대가 나가면 `lastSeenAt: prev.lastSeenAt ?? prev.updatedAt ?? nowIso()`로 둔다. #388 첫 값이 서버의 옛 `last_seen_at`(11:06)을 넣어 두었으므로, 나간 시각(19:22) 대신 그 옛 값이 남는다.
+- **R4 (서버, 기존)**: `service.ts:2050` `lastSeenAt = last_seen_at || updated_at`이다. `last_seen_at`은 세션이 정상 종료될 때만 쓰인다(`service.ts:13674`). 그래서 앱이 강제 종료·OS 종료되면 옛 값으로 남고, 더 새로운 `last_ping_at`(19:21:54)은 쓰지 않는다. q테스트1 DB: `last_seen_at` 03:06:25Z, `last_ping_at` 11:21:54Z. 친구 목록 「마지막 접속」도 같은 함수 값이다.
+
+수정안 (PR 1개, 웹만, 승인 전 구현 안 함)
+
+| # | 파일 | 변경 |
+|---|---|---|
+| G1 (R3) | `use-community-messenger-presence-runtime.ts` `onSync` | 직전 상태가 온라인·자리 비움이던 상대가 빠지면 `lastSeenAt` = 그 순간(관측 시각). 이미 오프라인이던 항목은 지금처럼 둔다. |
+| G2 (R4) | `service.ts` `getCommunityMessengerPresenceSnapshotsByUserIds` | `lastSeenAt` = `last_seen_at`·`last_ping_at`·`updated_at` 중 가장 늦은 값. 상태 판정(`derivePresenceFromDbRow`)은 그대로 둔다. |
+
+영향
+- 사용처: 이 함수의 사용처는 서버 묶음 조회 API(`/api/community-messenger/presence`)와 방 불러오기 2단계(`service.ts:15980`)뿐이다.
+- 바뀌는 화면: 머리글·점 3개 메뉴·친구 행의 「마지막 접속」 시각이 마지막 하트비트 기준으로 바뀐다. 그룹 온라인 수·DB는 그대로다.
+- 시험: G1 오프라인 전환 시각, G2 세 값 중 최신값. 기존 시험 전체를 돌린다.
+- 실기: q테스트1 온라인 → Samsung 강제 종료 → 「마지막 접속」이 종료 시각(±15초)이 되는지 확인. 앱을 재시작한 뒤 같은 값이 나오는지(서버 값) 확인.
