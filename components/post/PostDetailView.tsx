@@ -854,8 +854,6 @@ export function PostDetailView({
             roomId: existingTradeRoomId,
             messengerRoomId: existingTradeMessengerId,
             sourceHint: existingTradeRoomSource,
-            /** 그 거래방 위에 띄운 상세에서 「채팅 이어가기」 = 같은 방 — 이동 대신 상세를 닫는다 */
-            onAlreadyOpen: tradePostDetailSlideHost?.closeSlide ?? null,
           });
           navigated = true;
           return;
@@ -909,7 +907,6 @@ export function PostDetailView({
     chatBlockedByReservedState,
     requireAction,
     t,
-    tradePostDetailSlideHost,
   ]);
 
   /** 거래 B (Owner 2026-10-28): 판매중 → 판매완료 한 방향만 — 되돌리기·구매자 지정 없음 */
