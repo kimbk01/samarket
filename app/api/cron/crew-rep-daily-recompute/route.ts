@@ -5,6 +5,7 @@ import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
 import { getTradeServiceClient } from "@/lib/trade/service-supabase";
+import { syncParticipationTrustEvents } from "@/lib/trust/crew-rep-participation-sync";
 import { recomputeAllCrewRep } from "@/lib/trust/crew-rep-recompute-all";
 
 export const runtime = "nodejs";
@@ -13,7 +14,8 @@ export const maxDuration = 300;
 
 /**
  * CREW REP 매일 재계산 — 03:00 PHT (vercel.json `0 19 * * *` UTC).
- * 기간 가중(180일 절반·365일 제외)·깨끗한 활동 월이 시간에 따라 바뀌므로 매일 다시 계산한다(D6).
+ * ① 참여도 사건 동기화(S3: 라운지 글·댓글·좋아요·매장 후기 — 유지 조건·숨김·취소 반영)
+ * ② 전체 재계산 — 기간 가중(180일 절반·365일 제외)·깨끗한 활동 월이 시간에 따라 바뀐다(D6).
  */
 async function runCrewRepDailyRecompute(req: Request) {
   const secret = process.env.CRON_SECRET?.trim();
@@ -33,10 +35,21 @@ async function runCrewRepDailyRecompute(req: Request) {
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
   try {
-    const result = await recomputeAllCrewRep(sbAny, { cause: "daily_recompute" });
-    const summary = { members: result.members, changed: result.changed, failed: result.failed };
+    const asOf = new Date();
+    const participation = await syncParticipationTrustEvents(sbAny, { asOf });
+    const result = await recomputeAllCrewRep(sbAny, { cause: "daily_recompute", asOf });
+    const summary = {
+      members: result.members,
+      changed: result.changed,
+      failed: result.failed,
+      participation: {
+        inserted: participation.inserted,
+        reversed: participation.reversed,
+        reconfirmed: participation.reconfirmed,
+      },
+    };
     // 실행 기록은 점수가 바뀌었거나 실패가 있을 때만 남긴다.
-    if (result.changed > 0 || result.failed > 0) {
+    if (result.changed > 0 || result.failed > 0 || participation.inserted + participation.reversed + participation.reconfirmed > 0) {
       const rm = getAuditRequestMeta(req);
       void appendAuditLog(sbAny, {
         actor_type: "system",
