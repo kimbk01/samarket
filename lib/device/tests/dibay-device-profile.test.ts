@@ -43,6 +43,7 @@ describe("기기 프로필 단일 정의 (S1)", () => {
       TABLET_ANDROID: ["android", "TABLET", "EXISTING_MAIN_BOTTOM_NAV", "PORTRAIT_AND_LANDSCAPE", false, true, "tablet", false],
       TABLET_IPAD: ["ios", "TABLET", "EXISTING_MAIN_BOTTOM_NAV", "PORTRAIT_AND_LANDSCAPE", false, true, "tablet", false],
       DESKTOP_WINDOWS: [null, "DESKTOP", "DESKTOP_SIDE_RAIL", "RESIZABLE_DESKTOP", false, false, null, false],
+      DESKTOP_MAC: ["ios", "DESKTOP", "DESKTOP_SIDE_RAIL", "RESIZABLE_DESKTOP", false, false, null, false],
       WEB_DESKTOP: [null, "DESKTOP", "DESKTOP_SIDE_RAIL", "RESIZABLE_DESKTOP", false, false, null, false],
       UNKNOWN: [null, "UNKNOWN", "EXISTING_MAIN_BOTTOM_NAV", "UNKNOWN_SAFE", false, false, null, false],
     });
@@ -87,6 +88,20 @@ describe("네이티브 값이 프로필 표와 같다", () => {
     const rootAdmin = [...swiftRoot.matchAll(/classify\(\)\.deviceClass == "(\w+)"/g)].map((m) => m[1]);
     expect(rootAdmin).toEqual(expectOnly("ios", (p) => p.adminLandscapeLock));
   });
+
+  it("iOS 판정: Mac 은 idiom 보다 먼저 DESKTOP_MAC (S2)", () => {
+    const classifier = read("ios/App/App/Plugins/DibayDeviceClassClassifier.swift");
+    const macAt = classifier.indexOf('if isIOSAppOnMac {');
+    const idiomAt = classifier.indexOf("switch idiom {");
+    expect(macAt).toBeGreaterThan(0);
+    expect(macAt).toBeLessThan(idiomAt);
+    expect(classifier).toContain('Result(deviceClass: "DESKTOP_MAC", source: "ios_app_on_mac"');
+    expect(classifier).toContain("isIOSAppOnMac: Bool = DibayCallPlatformCapability.isIOSAppOnMac");
+    expect(classifier).not.toContain("ProcessInfo.processInfo.isiOSAppOnMac");
+    const iosClasses = dibayDeviceClassesWhere((p) => p.nativeShell === "ios");
+    expect(iosClasses).toEqual(["PHONE_IOS", "TABLET_IPAD", "DESKTOP_MAC"]);
+    expect(dibayDeviceProfile("DESKTOP_MAC").navigation).toBe(dibayDeviceProfile("DESKTOP_WINDOWS").navigation);
+  });
 });
 
 describe("기기 종류 직접 비교 금지 (프로필 표만 읽는다)", () => {
@@ -94,7 +109,7 @@ describe("기기 종류 직접 비교 금지 (프로필 표만 읽는다)", () =
   /** 판정 자체를 하는 파일만 기기 종류 문자열을 비교할 수 있다 */
   const ALLOWED = new Set(["lib/device/dibay-device-class.ts", "lib/device/dibay-device-profile.ts"]);
   const PATTERN =
-    /(?:===|!==)\s*"(?:PHONE_ANDROID|PHONE_IOS|TABLET_ANDROID|TABLET_IPAD|DESKTOP_WINDOWS|WEB_DESKTOP)"|"(?:PHONE_ANDROID|PHONE_IOS|TABLET_ANDROID|TABLET_IPAD|DESKTOP_WINDOWS|WEB_DESKTOP)"\s*(?:===|!==)/;
+    /(?:===|!==)\s*"(?:PHONE_ANDROID|PHONE_IOS|TABLET_ANDROID|TABLET_IPAD|DESKTOP_WINDOWS|DESKTOP_MAC|WEB_DESKTOP)"|"(?:PHONE_ANDROID|PHONE_IOS|TABLET_ANDROID|TABLET_IPAD|DESKTOP_WINDOWS|DESKTOP_MAC|WEB_DESKTOP)"\s*(?:===|!==)/;
 
   function walk(dir: string, out: string[]) {
     for (const name of readdirSync(dir)) {

@@ -57,11 +57,20 @@ Do not use current window px, display px, innerWidth, screen.width, CSS px, or o
 
 | Idiom | Class |
 |---|---|
+| 조건 (위에서부터) | Class |
+|---|---|
+| `DibayCallPlatformCapability.isIOSAppOnMac` (= `ProcessInfo.isiOSAppOnMac`) | `DESKTOP_MAC` (S2) |
 | `.phone` | `PHONE_IOS` |
 | `.pad` | `TABLET_IPAD` |
 | other | `UNKNOWN` |
 
 No Mac Catalyst guess. No width.
+
+> **Owner 잠금 해제 (2026-11-16 PHT, 원문 「오너 결정 부분은 권장 사항을 제시하면 따르는 부분으로 하자」 → 「S2 진행」)** —
+> 권장안 C4: Apple Silicon Mac 에서 도는 iPad 앱은 idiom 이 항상 `.pad` 라 iPad 와 구분되지 않았다. Apple 공식 값
+> `isiOSAppOnMac` 으로 `DESKTOP_MAC` 을 판정한다(추측 아님 · 폭 아님). 프로필은 `lib/device/dibay-device-profile.ts`
+> (Windows 와 같은 데스크톱 형태). 설치된 구 바이너리(iOS build ≤ 49)는 계속 `TABLET_IPAD` 를 보고한다 — 새 iOS 빌드 설치 후 적용.
+> 설계: `docs/audit/mac-ipad-iphone-device-layout-audit-2026-11-16.md` §7.
 
 ### Windows / web
 
