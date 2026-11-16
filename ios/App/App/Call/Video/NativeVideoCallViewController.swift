@@ -144,8 +144,12 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
 
   override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
+    // S1 — 영상 통화 화면이 보이는 동안 자동 잠금 해제 (발신 벨 포함, 결함 K1·K5).
+    ScreenAwakeBridge.shared.pushSurface(key: screenAwakeSurfaceKey, callId: boundCallId, reason: "video_view_did_appear")
     configurePipIfNeeded()
   }
+
+  private var screenAwakeSurfaceKey: String { "video:\(ObjectIdentifier(self).hashValue)" }
 
   override func viewDidLayoutSubviews() {
     super.viewDidLayoutSubviews()
@@ -166,6 +170,8 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
 
   override func viewDidDisappear(_ animated: Bool) {
     super.viewDidDisappear(animated)
+    // S4 — 화면이 사라지면 표면 요청만 내린다. 연결 영상 PiP·Dock 은 connected lease(S2)가 계속 유지.
+    ScreenAwakeBridge.shared.popSurface(key: screenAwakeSurfaceKey, reason: "video_view_did_disappear")
     cancelConnectedChromeHide(reason: "view_did_disappear")
     stopDurationTimer()
     // PiP 활성 중이면 프레임 유지(백그라운드 시 view가 사라져도 브리지는 살아있어야 함). 통화 종료는 clearVideoSurfaces가 처리.

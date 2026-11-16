@@ -1,5 +1,13 @@
 # DIBAY Native Video Screen Awake — Bridge LOCK (2026-06-29)
 
+> **2026-11-17 규칙 확장 (Owner 승인 2026-11-17)** — 단일 정의는 `docs/audit/call-screen-awake-audit-2026-11-16.md` §4.
+> 화면 유지 기준을 「연결된 영상」에서 **「통화 화면이 보이는 동안」(Telegram 동일)** 으로 넓혔다.
+> - Android: `NativeVoiceCallActivity`·`NativeVideoCallActivity` 가 `CallScreenKeepAwakeHost` 로 자기 창에 유지 (음성 PiP·Dock 은 해제).
+>   브리지는 아래 계약 그대로이며, 통화 화면 창 플래그를 지운 뒤에는 그 화면이 자기 규칙으로 다시 계산한다.
+> - Android 근접: `call/NativeCallProximityOwner.java` (음성·수화기만).
+> - iOS: `ScreenAwakeBridge.swift` = 통화 화면 표면(push/pop) + 연결 영상 lease 참조 계수.
+> 아래 「DO NOT MODIFY」 의 두 Activity·`NativeVoiceCallRuntime` 은 이 승인 범위에서 위 목적으로만 바뀌었다.
+
 Status: **LOCK-SAFE bridge-only fix**
 
 Baseline: `66c0a7a2` **ScreenAwakeBridge.java hardening only** (no Native Activity restore).

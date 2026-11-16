@@ -636,6 +636,8 @@ public final class NativeVoiceCallRuntime {
     DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_CONNECTING);
     NativeVoiceCallService.startConnecting(app, sid);
     NativeOutgoingRingbackOwner.start(app, sid, "voice");
+    // 근접 S5 — Telegram startOutgoingCall 과 같이 발신 시작부터.
+    com.dibay.app.call.NativeCallProximityOwner.start(app, sid, session.speakerEnabled);
     startOutgoingDialingActivity(app, session);
     startCallerAgoraJoin(app, session);
   }
@@ -1010,6 +1012,7 @@ public final class NativeVoiceCallRuntime {
     try {
       com.dibay.app.call.NativeActiveCallHeartbeatOwner.stop(sid, reason);
       com.dibay.app.call.NativePresenceLeaseRenewOwner.stop(sid, reason);
+      com.dibay.app.call.NativeCallProximityOwner.stop(sid, reason);
       NativeOutgoingRingbackOwner.stop(sid, reason);
       cancelMissed(sid);
       if (!skipAgoraLeaveForTests) {
@@ -1164,13 +1167,17 @@ public final class NativeVoiceCallRuntime {
     session.state = state;
     if (state == State.CONNECTING) {
       DibayIncomingCallNativeStore.markState(context, session.callId, DibayIncomingCallNativeStore.STATE_CONNECTING);
+      // 근접 S5 — 수락(Telegram acceptIncomingCall)부터. 발신은 이미 시작됨(같은 통화 재호출 무시).
+      com.dibay.app.call.NativeCallProximityOwner.start(context, session.callId, session.speakerEnabled);
     } else if (state == State.CONNECTED) {
       DibayIncomingCallNativeStore.markState(context, session.callId, DibayIncomingCallNativeStore.STATE_ACTIVE);
       startActiveHeartbeat(context, session.callId);
       startPresenceRenew(context, session.callId);
+      com.dibay.app.call.NativeCallProximityOwner.start(context, session.callId, session.speakerEnabled);
     } else if (state == State.ENDING || state == State.ENDED || state == State.FAILED) {
       com.dibay.app.call.NativeActiveCallHeartbeatOwner.stop(session.callId, state.name().toLowerCase());
       com.dibay.app.call.NativePresenceLeaseRenewOwner.stop(session.callId, state.name().toLowerCase());
+      com.dibay.app.call.NativeCallProximityOwner.stop(session.callId, state.name().toLowerCase());
     }
     ensureVoiceUiVisible(context, session, state);
     NativeVoiceCallActivity.renderState(session.callId, state);
