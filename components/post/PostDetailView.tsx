@@ -138,6 +138,7 @@ import {
   TRADE_FB_DETAIL_CHIP,
 } from "@/lib/ui/trade-write-fb-ui";
 import { CrewRepBadge } from "@/components/trust/CrewRep";
+import { CrewRepPeerButton } from "@/components/trust/CrewRepPeerButton";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { useTradePostDetailSlideHost } from "@/components/community-messenger/room/phase2/TradePostDetailSlideHostContext";
 import { isPostEligibleForPromotionBoost, postHasTradePromotionOverlay } from "@/lib/promotion/trade-promotion-overlay";
@@ -195,7 +196,11 @@ function PostDetailSellerProfileRow({
           {regionLine}
         </div>
       </div>
-      <CrewRepBadge score={author?.trustScore ?? 50} />
+      {author?.id ? (
+        <CrewRepPeerButton userId={author.id} score={author.trustScore ?? 50} name={displayName} />
+      ) : (
+        <CrewRepBadge score={author?.trustScore ?? 50} />
+      )}
     </div>
   );
 }

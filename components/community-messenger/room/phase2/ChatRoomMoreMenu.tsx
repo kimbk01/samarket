@@ -24,6 +24,7 @@ import {
 import { formatMessengerPeerPresenceLine } from "@/lib/community-messenger/realtime/presence/format-messenger-peer-presence-line";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { CrewRepBadge } from "@/components/trust/CrewRep";
+import { CrewRepPeerButton } from "@/components/trust/CrewRepPeerButton";
 
 export type RoomType = "direct" | "trade";
 
@@ -229,7 +230,16 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
             </div>
             {profileCrewRepScore != null ? (
               <div className="mt-2">
-                <CrewRepBadge score={profileCrewRepScore} />
+                {!menuProfile && otherUser.id && otherUser.id !== "peer" ? (
+                  <CrewRepPeerButton
+                    userId={otherUser.id}
+                    score={profileCrewRepScore}
+                    name={profileNickname}
+                    asSeller={tradeContext ? tradeContext.viewerRole === "buyer" : true}
+                  />
+                ) : (
+                  <CrewRepBadge score={profileCrewRepScore} />
+                )}
               </div>
             ) : null}
           </div>
