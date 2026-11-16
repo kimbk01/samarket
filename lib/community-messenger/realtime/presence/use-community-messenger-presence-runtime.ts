@@ -1,5 +1,6 @@
 "use client";
 
+import { applyPresenceSyncToMap } from "@/lib/community-messenger/realtime/presence/apply-presence-sync";
 import { useEffect, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -339,24 +340,7 @@ function ensurePresenceRuntime(userId: string) {
     if (!activeChannel) return;
     const aggregated = aggregatePresenceState(activeChannel.presenceState());
     const previous = store.getState().byUserId;
-    const next = { ...previous };
-    for (const [id, entry] of Object.entries(aggregated)) {
-      next[id] = {
-        userId: id,
-        state: entry.state,
-        lastSeenAt: previous[id]?.lastSeenAt ?? null,
-        updatedAt: entry.updatedAt,
-      };
-    }
-    for (const [id, prev] of Object.entries(previous)) {
-      if (aggregated[id]) continue;
-      next[id] = {
-        ...prev,
-        state: "offline",
-        lastSeenAt: prev.lastSeenAt ?? prev.updatedAt ?? nowIso(),
-      };
-    }
-    store.getState().replacePresenceMap(next);
+    store.getState().replacePresenceMap(applyPresenceSyncToMap(previous, aggregated, nowIso()));
   };
 
   let markRealtimeSignal = () => {};
