@@ -44,3 +44,13 @@ describe("carryMessengerSplitListStateIntoRoomHref", () => {
     expect(carryMessengerSplitListStateIntoRoomHref(ROOM, { pathname: "/mypage", search: "?section=search" })).toBe(ROOM);
   });
 });
+
+describe("messengerRoomHrefWithoutSubScreen (분할 화면 방 위 채팅 검색 뒤로)", () => {
+  it("section 만 빼고 방·나머지 쿼리는 그대로", async () => {
+    const { messengerRoomHrefWithoutSubScreen } = await import("@/lib/community-messenger/messenger-sub-screen-route");
+    expect(messengerRoomHrefWithoutSubScreen(ROOM, "section=search")).toBe(ROOM);
+    expect(messengerRoomHrefWithoutSubScreen(ROOM, "from=community&section=search&cm_list=trade")).toBe(
+      `${ROOM}?from=community&cm_list=trade`
+    );
+  });
+});
