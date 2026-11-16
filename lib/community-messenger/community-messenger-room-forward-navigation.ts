@@ -46,6 +46,7 @@ import {
   dismissMessengerRoomEntrySnapshot,
 } from "@/lib/community-messenger/room/messenger-page-snapshot-transition";
 import { matchesMessengerSplitViewport } from "@/lib/ui/app-viewport-layout-breakpoints";
+import { carryMessengerSplitListStateIntoRoomHrefFromLocation } from "@/lib/community-messenger/messenger-split-list-state-carry";
 import {
   clearRoomEntryIntent,
   isRoomEntryInFlight,
@@ -95,7 +96,11 @@ export async function runCommunityMessengerRoomForwardNavigation(
           fromEntryOrigin: args.fromEntryOrigin,
         })
       : null);
-  const dest = communityMessengerRoomHref(id, args.fromEntryOrigin, args.listSource, returnHref);
+  /** 분할 화면: 방 주소에 지금 왼쪽 목록 상태(거래 채팅·채팅 검색)를 이어 붙여 왼쪽이 바뀌지 않게 */
+  const dest = carryMessengerSplitListStateIntoRoomHrefFromLocation(
+    communityMessengerRoomHref(id, args.fromEntryOrigin, args.listSource, returnHref),
+    matchesMessengerSplitViewport()
+  );
   const vu = args.viewerUserId?.trim() || null;
   const room = args.roomForPrime ?? null;
 
