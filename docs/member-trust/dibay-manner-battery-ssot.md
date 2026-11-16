@@ -1,5 +1,7 @@
 # DIBAY Manner Battery — Final SSOT
 
+> **대체됨 (2026-11-16):** 계산 권한은 `crew_rep_v2` — `docs/member-trust/dibay-crew-rep-ssot.md`. 아래는 v1 기록용.
+
 **Policy version:** `manner_trade_v1`  
 **Status:** MANNER BATTERY PRODUCT PASS — HARD LOCK (Production Closeout 2026-08-08)  
 **HARD LOCK:** ONE ledger · ONE policy · ONE calculator · ONE snapshot · ONE writer · ONE reader

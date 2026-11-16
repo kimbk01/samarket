@@ -4,8 +4,8 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { MANNER_SCORE_NEUTRAL } from "@/lib/trust/manner-battery-policy-v1";
-import { clampMannerPercent } from "@/lib/trust/manner-battery-calculator";
+import { CREW_REP_NEUTRAL } from "@/lib/trust/crew-rep-policy";
+import { clampTrustScore } from "@/lib/trust/trust-score-core";
 import { resolveTrustScoreAuthority } from "@/lib/trust/trust-score-ssot";
 
 export type MemberTrustRead = {
@@ -49,7 +49,7 @@ export async function readMemberMannerBattery(
   if (snap && (snap as { manner_battery_percent?: number }).manner_battery_percent != null) {
     const p = Number((snap as { manner_battery_percent: number }).manner_battery_percent);
     return {
-      manner_battery_percent: clampMannerPercent(p),
+      manner_battery_percent: clampTrustScore(p),
       policy_version: String((snap as { policy_version?: string }).policy_version ?? ""),
       source: "member_trust_snapshots",
     };
@@ -74,7 +74,7 @@ export async function readMemberMannerBattery(
   }
 
   return {
-    manner_battery_percent: MANNER_SCORE_NEUTRAL,
+    manner_battery_percent: CREW_REP_NEUTRAL,
     policy_version: null,
     source: "neutral_default",
   };
