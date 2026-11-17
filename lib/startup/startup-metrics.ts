@@ -10,9 +10,9 @@
  * Local Boot Shell may dismiss native splash earlier via DibayBootBridge after shellPaint.
  * P3 (2026-11-12): server-rendered-body routes (home) dismiss earlier — the frame after FCP of the
  * server body, before hydration (`releaseNativeSplashAtServerBodyFrame`, same web dismiss signal, no timer).
- * G1 (2026-11-18): the Android splash-look cover (build 69+) also hides on this P3 signal. The WebView does not
- * draw under the cover; the frame that removes the cover carries the WebView's first content draw, so the cover
- * stays on screen until that frame completes (device-measured: 0 white frames, same home time as P3 without cover).
+ * Approach A (2026-11-18): Android cover launches (`__DIBAY_NATIVE_SPLASH_COVER__ === "1"`, build 72+) skip P3 and
+ * dismiss on initialDestinationVisualReady, so the first visible frame is the hydrated screen; the native side hides
+ * the cover only after the visual-state (commit) callback. Builds without the cover (≤71 · iOS) keep P3.
  * Auth/admin/account shell-less routes: firstPaint auth_shell_fallback.
  * Root error boundary: error_boundary.
  * DO NOT: homeVisible-as-feed-gate · splash_safety_timeout · delay hide · minimum display duration.
@@ -27,7 +27,7 @@ import { noteEntryReleased } from "@/lib/telemetry/entry-telemetry.client";
 import { getLaunchDestination } from "@/lib/launch-intro/startup-destination";
 import { isServerRenderedBodyPath } from "@/lib/layout/server-rendered-body-paths";
 import { mayReleaseLaunchSplashAt, onLaunchPushHandled } from "@/lib/startup/launch-push-hold";
-import { hasServerBodyFrameMark, onServerBodyFrameMark } from "@/lib/startup/server-body-frame-mark";
+import { isNativeSplashCoverActive } from "@/lib/startup/native-splash-cover";
 import { mayReleaseForLifecycleNav, onLifecycleNavHoldSettled } from "@/lib/startup/lifecycle-nav-hold";
 
 export type DibayBootMetrics = {
@@ -262,7 +262,7 @@ export function tryDismissNativeSplash(reason: string): void {
  * 화면 준비 뒤 `tryDismissNativeSplash` 는 이 부분을 건너뛰고 기록·앱 준비 처리만 한다.
  */
 let nativeSplashBridgesDismissed = false;
-function dismissNativeSplashBridges(reason: string, opts?: { painted?: boolean }): void {
+function dismissNativeSplashBridges(reason: string): void {
   if (nativeSplashBridgesDismissed) return;
   nativeSplashBridgesDismissed = true;
 
@@ -277,16 +277,11 @@ function dismissNativeSplashBridges(reason: string, opts?: { painted?: boolean }
       window as unknown as {
         DibayBootBridge?: {
           dismissSplash?: () => void;
-          dismissSplashPainted?: () => void;
           endHandoffCover?: () => void;
         };
       }
     ).DibayBootBridge;
-    // 설계 H3: 본문이 이미 렌더러 프레임에 들어간 증거(H1)가 있을 때만 — 네이티브가 화면 커밋 콜백을 기다리지 않는다
-    if (opts?.painted && typeof bridge?.dismissSplashPainted === "function") {
-      bridge.dismissSplashPainted();
-      bridgeOk = true;
-    } else if (bridge?.dismissSplash) {
+    if (bridge?.dismissSplash) {
       bridge.dismissSplash();
       bridgeOk = true;
     }
@@ -388,36 +383,13 @@ export function releaseNativeSplashAtServerBodyFrame(): void {
   if (!isServerRenderedBodyPath(window.location.pathname)) return;
   if (getLaunchDestination().destination !== "community") return;
   /**
-   * 설계 H2 (Owner 「Approve design H」 2026-11-18 · 문서 §11·§12): 앱 WebView 에서는 ① FCP 기록이 화면 반영 알림에 묶여
-   * 덮개·시작 화면이 있는 동안 늦게 오고 ② 이 코드는 hydration 스크립트와 같은 주 스레드 줄에 서서 「다음 프레임」이 1초 넘게
-   * 오지 않는다(샤오미 실측). 서버 본문 뒤 인라인 표시(H1)가 「본문이 든 프레임이 지나감」을 이미 증명하면 FCP·다음 프레임을
-   * 기다리지 않고 바로 해제한다. 해제 판정 조건은 아래 FCP 경로와 같다. 표시·새 해제가 없으면 FCP 경로 그대로.
+   * 방식 A (Owner 「방식 A」 2026-11-18 · docs/audit/app-entry-device-fail-root-cause-design-2026-11-17.md §14-2):
+   * Android 앱 안 덮개 실행은 여기서 해제하지 않는다 — hydration 뒤 첫 목적지 화면 준비 하나로 걷어, 보이는 첫 그림이
+   * hydration 뒤 화면(지난 실행 값 F3 포함)이 되게 한다. 덮개는 네이티브가 화면 커밋 확인 뒤에 걷는다(흰 화면 0 · 실측 0/34).
+   * 서버 본문 단계에서 걷으면 첫 화면이 약 0.8초 동안 여러 번 바뀌었고(§13-3), 커밋 확인 없이 걷으면 흰 화면이 났다(§13-2).
+   * 덮개 없는 실행(통화·알림·딥링크)·빌드 70 이하·iOS 는 P3 그대로.
    */
-  const paintedReleaseAvailable = (() => {
-    try {
-      const b = (window as unknown as { DibayBootBridge?: { dismissSplashPainted?: unknown } }).DibayBootBridge;
-      return typeof b?.dismissSplashPainted === "function";
-    } catch {
-      return false;
-    }
-  })();
-  if (paintedReleaseAvailable) {
-    const releasePainted = () => {
-      if (nativeSplashBridgesDismissed || splashDismissAttempted) return;
-      const path = window.location.pathname;
-      if (!isServerRenderedBodyPath(path) || !hasServerRenderedBody(document)) return;
-      if (!mayReleaseLaunchSplashAt(path)) return;
-      if (!mayReleaseForLifecycleNav(path)) return;
-      setMetric("serverBodySplashRelease", nowMs());
-      dismissNativeSplashBridges("serverBodyPainted", { painted: true });
-    };
-    if (hasServerBodyFrameMark()) {
-      releasePainted();
-      if (nativeSplashBridgesDismissed) return;
-    } else {
-      onServerBodyFrameMark(releasePainted);
-    }
-  }
+  if (isNativeSplashCoverActive()) return;
   if (typeof requestAnimationFrame !== "function" || typeof performance?.getEntriesByName !== "function") return;
   /**
    * 「빈 화면 아닌 첫 그림」 = 첫 글자 표시(FCP) 이후 — 글꼴이 늦게 붙어 글자 없는 프레임에서 걷히지 않게.
