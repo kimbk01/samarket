@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>앱 진입 어드민 시안 v3</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,"Apple SD Gothic Neo",sans-serif;background:#e9ece9;color:#1b1f1c;font-size:13px}
+.page{width:1400px;margin:0 auto;padding:22px}
+h1{font-size:21px;margin:0 0 4px}h2{font-size:16px;margin:0 0 10px}h3{font-size:13px;margin:0 0 6px}
+.sm{font-size:12px}.xs{font-size:11px}.muted{color:#66706a}
+.warn{background:#fff3d6;border:1px solid #e8c56b;padding:6px 10px;font-weight:700;margin:8px 0}
+.board{background:#fff;border:1px solid #d6ddd7;border-radius:4px;padding:18px;margin:16px 0}
+.btitle{font-size:17px;font-weight:800;border-left:5px solid #0B421A;padding-left:10px;margin-bottom:12px}
+.row{display:flex;gap:16px}.col{flex:1;min-width:0}
+.box{border:1px solid #d6ddd7;border-radius:4px;padding:12px;background:#fbfcfb}
+.spec{background:#eef4ef;border:1px solid #cfe0d3;border-radius:4px;padding:8px 10px;font-size:12px;line-height:1.7}
+.spec b{color:#0B421A}
+.drop{border:2px dashed #9fb3a4;border-radius:6px;background:#f6faf7;height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#3d5a45;text-align:center}
+.state{border-radius:4px;padding:8px 10px;font-size:12px;margin-top:6px}
+.ok{background:#e1f3e5;color:#0B421A}.bad{background:#fde2e1;color:#a4231c}.mid{background:#fff3d6;color:#7a5200}
+.btn{display:inline-block;border:1px solid #c9d3cb;border-radius:4px;padding:5px 10px;font-size:12px;background:#fff;margin:2px 4px 2px 0}
+.btn.p{background:#0B421A;color:#fff;border-color:#0B421A}.btn.d{color:#a4231c;border-color:#e6b4b1}
+.chip{display:inline-block;border:1px solid #c9d3cb;border-radius:999px;padding:3px 10px;margin:2px 3px 2px 0;font-size:12px;background:#fff}.chip.a{background:#0B421A;color:#fff;border-color:#0B421A}
+.label{font-size:12px;color:#55605a;margin:8px 0 3px;font-weight:600}
+.input{border:1px solid #c9d3cb;border-radius:4px;padding:6px 8px;background:#fff;font-size:12px;display:flex;justify-content:space-between}
+.checker{background-image:linear-gradient(45deg,#ddd 25%,transparent 25%),linear-gradient(-45deg,#ddd 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ddd 75%),linear-gradient(-45deg,transparent 75%,#ddd 75%);background-size:12px 12px;background-position:0 0,0 6px,6px -6px,-6px 0}
+/* phones */
+.dev{display:inline-block;text-align:center;margin-right:10px;vertical-align:top}
+.ph{position:relative;border:6px solid #1d1d1d;border-radius:20px;overflow:hidden}
+.sbar{position:absolute;left:0;right:0;top:0;height:14px;background:rgba(0,0,0,.12);font-size:8px;color:#fff;text-align:left;padding-left:6px}
+.topzone{position:absolute;left:0;right:0;top:14px;height:30px;outline:1px dashed rgba(255,255,255,.55)}
+.pill{position:absolute;top:22px;background:rgba(0,0,0,.55);color:#fff;font-size:8px;border-radius:99px;padding:2px 6px}
+.imgzone{position:absolute;left:0;right:0;outline:2px solid #ffd23f;display:flex;align-items:center;justify-content:center}
+.botzone{position:absolute;left:0;right:0;height:46px;outline:1px dashed rgba(255,255,255,.55);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px}
+.botzone i{color:#E0A800;font-style:normal}
+.art{background:linear-gradient(160deg,#ff5a3c,#ffb12a);color:#fff;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;text-align:center;border-radius:2px}
+.cap{font-size:11px;color:#55605a;margin-top:4px}
+.legend span{display:inline-block;margin-right:12px}.sw{display:inline-block;width:12px;height:10px;vertical-align:middle;margin-right:3px}
+table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;color:#66706a;font-weight:700;border-bottom:1px solid #d6ddd7;padding:7px 5px}
+td{border-bottom:1px solid #eef1ee;padding:7px 5px;vertical-align:middle;font-size:12px}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+.on{background:#d9f0de;color:#0B421A}.off{background:#eceeec;color:#66706a}.wait{background:#fff3d6;color:#8a5a00}.no{background:#fde2e1;color:#a4231c}
+.sw-on{display:inline-block;width:30px;height:16px;border-radius:99px;background:#0B421A;position:relative;vertical-align:middle}.sw-on:after{content:"";position:absolute;right:2px;top:2px;width:12px;height:12px;border-radius:50%;background:#fff}
+.sw-off{display:inline-block;width:30px;height:16px;border-radius:99px;background:#c9cfca;position:relative;vertical-align:middle}.sw-off:after{content:"";position:absolute;left:2px;top:2px;width:12px;height:12px;border-radius:50%;background:#fff}
+.grip{color:#9aa49d;font-size:14px;cursor:grab}
+.typecard{border:1px solid #c9d3cb;border-radius:4px;padding:8px;background:#fff;text-align:center;font-size:11px}
+.typecard.a{border:2px solid #0B421A;background:#eef4ef}
+.mini{height:66px;background:#e6ebe7;border-radius:3px;position:relative;margin-bottom:5px;overflow:hidden}
+.num{display:inline-block;width:18px;height:18px;border-radius:50%;background:#0B421A;color:#fff;font-size:11px;text-align:center;line-height:18px;margin-right:4px}
+.cropwrap{position:relative;width:300px;height:210px;background:linear-gradient(120deg,#2a7fd4,#9cd1ff);border-radius:3px;overflow:hidden}
+.cropframe{position:absolute;left:30px;top:22px;width:240px;height:167px;outline:2px solid #ffd23f;box-shadow:0 0 0 999px rgba(0,0,0,.45)}
+.counter{float:right;font-size:11px;color:#66706a}
+</style></head><body><div class="page">
+
+<h1>앱 진입 어드민 시안 v3 — 그림 넣기 · 관리 화면</h1>
+<div class="muted">기준 값 = 지금 앱 코드(네이티브 인트로 배치 · 팝업 틀 크기 · OS 로고 크기)와 서버 검사 값. 팝업 그림 최소 크기·글자 수 제한은 대기 중인 PR #414 기준.</div>
+<div class="warn">그림 속 소재 이름·숫자·사진은 배치 예시입니다(운영 값 아님).</div>
+
+<!-- ============ 1. 공통 그림 넣기 ============ -->
+<div class="board">
+<div class="btitle">1. 모든 그림 칸이 같은 방식 — 「규격 → 올리기 → 검사 결과 → 앱 미리보기」</div>
+<div class="row">
+<div class="col">
+<div class="spec"><b>이 칸의 규격</b>(칸마다 위에 고정 표시)<br>파일: PNG(투명 가능) · JPG · WebP · 최대 5MB<br>크기: 긴 변 1080~4096px<br>권장: <b>1080×1920 (9:16)</b> — 세로로 긴 폰을 꽉 채움<br>잘림: <b>없음</b> — 그림 전체가 보이고 남는 곳은 배경색</div>
+<div class="label">① 비어 있을 때</div>
+<div class="drop"><div style="font-size:22px">⬆</div><b>그림을 끌어다 놓거나 눌러서 고르기</b><span class="xs muted">PNG·JPG·WebP · 5MB · 긴 변 1080px 이상</span></div>
+</div>
+<div class="col">
+<div class="label" style="margin-top:0">② 올린 뒤 — 검사 결과가 칸 바로 아래에</div>
+<div class="box"><div class="row" style="gap:10px"><div class="checker" style="width:80px;height:142px;border-radius:3px;display:flex;align-items:center;justify-content:center"><div class="art" style="width:70px;height:124px">그림</div></div>
+<div class="col xs" style="line-height:1.8"><b>nov-coupon.png</b><br>1080 × 1920 px · 9:16 · 612KB · 투명 있음<br><span class="btn">다른 그림</span><span class="btn d">지우기</span></div></div>
+<div class="state ok">✓ 통과 — 이 그림으로 저장할 수 있습니다</div>
+<div class="state mid">⚠ 1080×1440(3:4) 그림: 저장 가능 · 긴 폰에서 위아래에 배경색이 보입니다(미리보기 확인)</div>
+<div class="state bad">✕ 720×1280: 긴 변이 1080px보다 작아 저장할 수 없습니다 — 더 큰 그림을 올려 주세요</div>
+<div class="state bad">✕ 6.2MB: 5MB를 넘었습니다</div>
+</div>
+</div>
+<div class="col">
+<div class="label" style="margin-top:0">③ 투명 PNG 확인</div>
+<div class="box xs">격자 무늬 = 투명한 곳. 앱에서는 그 자리에 <b>배경색</b>이 보입니다(인트로) 또는 <b>뒤 화면이 비침</b>(팝업 그림형).<br><br>
+<div class="row" style="gap:8px"><div><div class="checker" style="width:70px;height:70px;border-radius:3px;display:flex;align-items:center;justify-content:center"><div class="art" style="width:46px;height:46px;border-radius:50%">캐릭터</div></div><div class="cap">올린 그림</div></div>
+<div><div style="width:70px;height:70px;border-radius:3px;background:#075740;display:flex;align-items:center;justify-content:center"><div class="art" style="width:46px;height:46px;border-radius:50%">캐릭터</div></div><div class="cap">앱 (배경색 #075740)</div></div></div>
+</div>
+<div class="label">④ 검사는 두 번</div>
+<div class="box xs">고르는 순간 화면에서 1차 검사(크기·용량·형식) → 저장할 때 서버가 같은 값으로 2차 검사. 화면과 서버 기준이 같은 표 하나에서 나옴.</div>
+</div>
+</div>
+</div>
+
+<!-- ============ 2. 인트로 편집 ============ -->
+<div class="board">
+<div class="btitle">2. 인트로 만들기 · 수정 — 그림이 앱에 어떻게 들어가는지 그대로</div>
+<div class="row">
+<div class="col" style="flex:1.05">
+<div class="label" style="margin-top:0"><span class="num">1</span>종류</div><span class="chip a">광고</span><span class="chip">이벤트</span><span class="chip">안내</span>
+<div class="label"><span class="num">2</span>이름 <span class="xs muted">(어드민에서만 보임)</span></div><div class="input">11월 배달 쿠폰 <span class="muted">8/40</span></div>
+<div class="label"><span class="num">3</span>그림 <span class="xs muted">권장 1080×1920 · 긴 변 1080~4096 · 5MB</span></div>
+<div class="box" style="padding:8px"><div class="row" style="gap:8px;align-items:center"><div class="checker" style="width:40px;height:70px"><div class="art" style="width:40px;height:70px">그림</div></div><div class="xs"><b>nov-coupon.png</b> · 1080×1920 · 612KB<br><span style="color:#0B421A">✓ 통과</span></div><div style="margin-left:auto"><span class="btn">바꾸기</span></div></div></div>
+<div class="label"><span class="num">4</span>배경색 <span class="xs muted">그림 밖 남는 곳 · 투명한 곳</span></div><div class="row" style="gap:6px;align-items:center"><span style="width:26px;height:26px;border-radius:4px;background:#E8322A;display:inline-block"></span><div class="input" style="flex:1">#E8322A</div><span class="btn">그림에서 고르기</span></div>
+<div class="label"><span class="num">5</span>표시 시간</div><span class="chip">1초</span><span class="chip">2초</span><span class="chip a">3초</span><span class="chip">4초</span><span class="chip">5초</span> <span class="xs muted">홈이 늦으면 홈 준비까지 · 최대 10초</span>
+<div class="label"><span class="num">6</span>누르면 이동</div><span class="chip">없음</span><span class="chip a">이벤트</span><span class="chip">매장</span><span class="chip">앱 화면</span><span class="chip">외부 링크</span>
+<div class="input" style="margin-top:4px">🔍 이벤트 검색 → 「배달 30% 쿠폰」 <span style="color:#0B421A">공개 중 ✓</span></div>
+<div class="label"><span class="num">7</span>「광고」 표기</div><span class="sw-on"></span> <span class="xs">켬 (종류 「광고」면 끌 수 없음)</span>
+<div class="label"><span class="num">8</span>기간 <span class="xs muted">필리핀 시간(PHT) · 비우면 항상</span></div><div class="input">2026-11-15 00:00 ~ 2026-11-30 23:59 PHT</div>
+<div style="margin-top:12px"><span class="btn">저장 (꺼진 채)</span><span class="btn p">저장하고 켜기</span></div>
+</div>
+
+<div class="col" style="flex:1.5">
+<div class="label" style="margin-top:0">미리보기 — 앱과 같은 배치 · 기기 3종 동시</div>
+<div class="legend xs muted" style="margin-bottom:6px"><span><span class="sw" style="outline:2px solid #ffd23f"></span>그림 칸(비율 유지로 맞춤)</span><span><span class="sw" style="outline:1px dashed #888"></span>고정 줄(광고·건너뛰기 / 브랜드)</span><span><span class="sw" style="background:#E8322A"></span>배경색</span></div>
+
+<div class="dev"><div class="ph" style="width:150px;height:333px;background:#E8322A">
+<div class="sbar">11:47</div><div class="topzone"></div><span class="pill" style="left:7px">광고</span><span class="pill" style="right:7px">건너뛰기</span>
+<div class="imgzone" style="top:44px;bottom:46px"><div class="art" style="width:126px;height:224px">9:16 그림<br>칸을 꽉 채움</div></div>
+<div class="botzone" style="bottom:0">diba<i>Y</i></div></div><div class="cap"><b>긴 폰 20:9</b> (갤럭시 M15 등)<br>그림 칸 ≈ 0.56 → 9:16이 딱 맞음</div></div>
+
+<div class="dev"><div class="ph" style="width:150px;height:267px;background:#E8322A">
+<div class="sbar">11:47</div><div class="topzone"></div><span class="pill" style="left:7px">광고</span><span class="pill" style="right:7px">건너뛰기</span>
+<div class="imgzone" style="top:44px;bottom:46px"><div class="art" style="width:100px;height:177px">9:16 그림<br>(줄어듦)</div></div>
+<div class="botzone" style="bottom:0">diba<i>Y</i></div></div><div class="cap"><b>보통 폰 16:9</b><br>양옆에 배경색 · 잘림 없음</div></div>
+
+<div class="dev"><div class="ph" style="width:200px;height:267px;background:#E8322A">
+<div class="sbar">11:47</div><div class="topzone"></div><span class="pill" style="left:7px">광고</span><span class="pill" style="right:7px">건너뛰기</span>
+<div class="imgzone" style="top:44px;bottom:46px"><div class="art" style="width:100px;height:177px">9:16 그림</div></div>
+<div class="botzone" style="bottom:0">diba<i>Y</i></div></div><div class="cap"><b>태블릿 4:3</b><br>양옆 넓게 배경색</div></div>
+
+<div class="spec" style="margin-top:10px"><b>앱 배치(고정)</b>: 위 56dp = 「광고」(왼쪽)·「건너뛰기」(오른쪽) · 아래 88dp = 앱 아이콘 + dibaY · 그 사이 전체가 그림 칸.<br>
+<b>잘림 없음</b>: 그림은 통째로 줄어들어 칸에 맞음(남는 곳 = 배경색). <b>글자</b>는 그림 안에 넣는다(앱이 따로 글을 쓰지 않음) — 1080px 폭 기준 글자 높이 <b>48px 이상</b>이어야 작은 폰(16:9)에서도 읽힘.<br>
+<b>[▶ 3초 재생]</b> 버튼 = 실제 표시 시간대로 미리보기 · <b>[휴대폰으로 보기]</b> = 내 기기에 테스트로 1번 띄우기(운영 노출·기록 없음)</div>
+</div>
+</div>
+</div>
+
+<!-- ============ 3. 인트로 목록 ============ -->
+<div class="board">
+<div class="btitle">3. 인트로 목록 — 매일 관리하는 화면</div>
+<div class="row" style="align-items:center;margin-bottom:8px">
+<div class="col"><span class="sw-on"></span> <b>인트로 켜기</b> &nbsp; <span class="sw-on"></span> 휴대폰이 앱을 종료한 뒤 다시 켤 때도 &nbsp;<span class="xs muted">(바꿀 때 확인창)</span></div>
+<div style="text-align:right"><span class="btn">순서 저장</span><span class="btn p">+ 새 인트로</span></div></div>
+<div class="row" style="gap:6px;margin-bottom:6px"><span class="chip a">전체 5</span><span class="chip">앱에 나오는 중 3</span><span class="chip">예약 1</span><span class="chip">안 나옴 1</span><span class="chip">광고</span><span class="chip">이벤트</span><span class="chip">안내</span><div style="margin-left:auto" class="input" >🔍 이름 검색</div></div>
+<table><thead><tr><th></th><th>순서</th><th>그림</th><th>이름 · 종류</th><th>앱에 나오나</th><th>기간 (PHT)</th><th>표시</th><th>누르면</th><th>최근 30일</th><th>켜기</th><th style="text-align:right">관리</th></tr></thead><tbody>
+<tr><td class="grip">⋮⋮</td><td>1</td><td><div style="width:34px;height:60px;background:#E8322A;display:flex;align-items:center;justify-content:center"><div class="art" style="width:30px;height:54px;font-size:8px">그림</div></div></td><td><b>11월 배달 쿠폰</b><br><span class="badge" style="background:#eef3ff;color:#2a4aa0">광고</span></td><td><span class="badge on">● 나오는 중</span><div class="xs muted">다음 실행 1순위</div></td><td>11-15 ~ 11-30</td><td>3초</td><td>이벤트 「배달 30%」</td><td>노출 1,204<br>누름 88 (7.3%)</td><td><span class="sw-on"></span></td><td style="text-align:right"><span class="btn">수정</span><span class="btn">복제</span></td></tr>
+<tr><td class="grip">⋮⋮</td><td>2</td><td><div style="width:34px;height:60px;background:#1B6CF2"></div></td><td><b>OO치킨 신규 오픈</b><br><span class="badge" style="background:#eef3ff;color:#2a4aa0">광고</span></td><td><span class="badge on">● 나오는 중</span></td><td>11-10 ~ 12-10</td><td>2초</td><td>매장 「OO치킨」</td><td>노출 980<br>누름 41 (4.2%)</td><td><span class="sw-on"></span></td><td style="text-align:right"><span class="btn">수정</span><span class="btn">복제</span></td></tr>
+<tr><td class="grip">⋮⋮</td><td>3</td><td><div style="width:34px;height:60px;background:#7A3FD1"></div></td><td><b>12월 카드 할인</b><br><span class="badge" style="background:#eef3ff;color:#2a4aa0">광고</span></td><td><span class="badge wait">◐ 예약</span><div class="xs muted">12-01 00:00 시작</div></td><td>12-01 ~ 12-31</td><td>3초</td><td>외부 링크</td><td>—</td><td><span class="sw-on"></span></td><td style="text-align:right"><span class="btn">수정</span><span class="btn">복제</span></td></tr>
+<tr><td class="grip">⋮⋮</td><td>—</td><td><div style="width:34px;height:60px;background:#999"></div></td><td>추석 안내<br><span class="badge off">안내</span></td><td><span class="badge no">✕ 안 나옴</span><div class="xs" style="color:#a4231c">기간 끝남 (10-05)</div></td><td>09-20 ~ 10-05</td><td>2초</td><td>없음</td><td>노출 3,442</td><td><span class="sw-on"></span></td><td style="text-align:right"><span class="btn">수정</span><span class="btn d">삭제</span></td></tr>
+<tr><td class="grip">⋮⋮</td><td>—</td><td><div style="width:34px;height:60px;background:#0B421A"></div></td><td>신규 가입 혜택<br><span class="badge" style="background:#f3e9ff;color:#6a2aa0">이벤트</span></td><td><span class="badge no">✕ 안 나옴</span><div class="xs" style="color:#a4231c">꺼짐</div></td><td>항상</td><td>2초</td><td>앱 화면 /signup</td><td>—</td><td><span class="sw-off"></span></td><td style="text-align:right"><span class="btn">수정</span><span class="btn d">삭제</span></td></tr>
+</tbody></table>
+<div class="spec" style="margin-top:8px">「앱에 나오나」는 서버가 앱과 같은 규칙으로 계산: 켜짐 · 기간 · 전체 설정 · 20개 상한 · 그림 상태. 안 나오면 <b>이유 1줄</b>. 순서 = 손잡이(⋮⋮)를 끌어서 바꾸고 [순서 저장] — 진입마다 위에서부터 1개씩 돌아가며. 켜기 스위치는 확인창 후 즉시 반영(기기는 다음 실행부터). 위쪽 「고급 · 장면 인트로(이전 앱용)」 탭은 따로.</div>
+</div>
+
+<!-- ============ 4. 팝업 편집 ============ -->
+<div class="board">
+<div class="btitle">4. 팝업 만들기 — 형태를 먼저 고르면, 그 형태의 그림 칸·글 칸만 나옴</div>
+<div class="label" style="margin-top:0"><span class="num">1</span>형태 (그림 칸 규격이 카드에 적혀 있음)</div>
+<div class="row" style="gap:8px">
+<div class="col typecard a"><div class="mini"><div style="position:absolute;left:14px;right:14px;top:6px;bottom:6px;background:#fff;border-radius:3px"><div style="height:34px;background:#ff8a5c"></div></div></div><b>중앙 카드</b><br><span class="muted">36:25 · 1440×1000</span></div>
+<div class="col typecard"><div class="mini"><div class="art" style="position:absolute;left:22px;right:22px;top:4px;height:40px;border-radius:50%">투명</div></div><b>그림형</b><br><span class="muted">자유 비율 · 투명</span></div>
+<div class="col typecard"><div class="mini"><div style="position:absolute;left:0;right:0;bottom:0;height:40px;background:#fff"><div style="height:22px;background:#ff8a5c"></div></div></div><b>하단 시트</b><br><span class="muted">36:25 · 1440×1000</span></div>
+<div class="col typecard"><div class="mini"><div style="position:absolute;left:14px;right:14px;top:6px;bottom:6px;background:#fff"><div style="height:30px;background:#ffd23f"></div></div></div><b>혜택</b><br><span class="muted">36:25 · 이벤트 연결</span></div>
+<div class="col typecard"><div class="mini"><div class="art" style="position:absolute;left:30px;right:30px;top:3px;bottom:10px">그림</div></div><b>그림 전체</b><br><span class="muted">권장 1080×1440 · 투명</span></div>
+<div class="col typecard"><div class="mini"><div style="position:absolute;left:16px;right:16px;top:6px;bottom:6px;background:#fff"><div style="height:18px;background:#ff8a5c"></div></div></div><b>쿠폰 카드</b><br><span class="muted">권장 1080×1080</span></div>
+<div class="col typecard"><div class="mini"><div style="position:absolute;left:0;right:0;bottom:0;height:44px;background:#fff"><div style="height:16px;background:#ff8a5c"></div></div></div><b>하단 목록</b><br><span class="muted">권장 1080×480</span></div>
+<div class="col typecard"><div class="mini"><div style="position:absolute;left:10px;top:8px;width:70px;height:20px;background:#111827;border-radius:6px"></div></div><b>말풍선</b><br><span class="muted">720×720 · 작은 아이콘</span></div>
+</div>
+
+<div class="row" style="margin-top:12px">
+<div class="col">
+<div class="label"><span class="num">2</span>그림 — 중앙 카드 <span class="xs muted">36:25 · 권장 1440×1000 · 최소 720×500 · 8MB · 4천만 화소 이하</span></div>
+<div class="box">
+<div class="xs" style="margin-bottom:6px"><b>banner-wide.jpg</b> · 2400×1200 (2:1) — 비율이 36:25가 아니어서 <b>자르기 틀</b>이 열렸습니다</div>
+<div class="cropwrap"><div class="cropframe"></div><div style="position:absolute;left:36px;top:28px;color:#fff;font-size:10px;font-weight:700">36:25 틀 — 끌어서 위치 · 모서리로 크기</div></div>
+<div style="margin-top:6px"><span class="btn">가운데로</span><span class="btn p">이 부분으로 자르기</span><span class="btn">다른 그림</span></div>
+<div class="state ok">✓ 자른 뒤 1728×1200 → 앱에는 1440×1000으로 저장</div>
+<div class="state bad">✕ 600×400: 36:25로 자르면 576×400 — 최소 720×500보다 작음</div>
+</div>
+<div class="label"><span class="num">3</span>글 <span class="xs muted">앱 기본 글꼴 · 제목 16px 굵게 · 본문 13px · 버튼 16px</span></div>
+<div class="input">제목: 배달 30% 쿠폰 받아가세요 <span class="muted">14/60</span></div>
+<div class="input" style="margin-top:4px;height:44px">본문: 이번 주 금요일까지, 첫 주문에 바로 쓰는… <span class="muted">38/160</span></div>
+<div class="input" style="margin-top:4px">버튼: 쿠폰 받기 <span class="muted">5/24</span></div>
+<div class="label"><span class="num">4</span>누르면 이동</div><span class="chip a">이벤트</span><span class="chip">매장</span><span class="chip">거래 글</span><span class="chip">커뮤니티 글</span><span class="chip">앱 화면</span><span class="chip">외부 링크</span>
+<div class="input" style="margin-top:4px">🔍 「배달 30% 쿠폰」 <span style="color:#0B421A">공개 중 ✓</span></div>
+<div class="label"><span class="num">5</span>진입 순서 · 자동 닫힘 · 빈도</div><span class="chip a">먼저(필수)</span><span class="chip">보통</span> &nbsp; <span class="chip">없음</span><span class="chip">5초</span><span class="chip a">10초</span><span class="chip">15초</span> &nbsp; <span class="chip a">하루 1번</span>
+</div>
+<div class="col">
+<div class="label">미리보기 — 앱 홈 위에 그대로</div>
+<div class="dev"><div class="ph" style="width:200px;height:420px;background:#f4f6f4">
+<div class="sbar" style="background:#e3e8e4;color:#333">11:47</div>
+<div style="position:absolute;inset:14px 0 0 0;background:rgba(0,0,0,.45)"></div>
+<div style="position:absolute;left:14px;right:14px;top:96px;background:#fff;border-radius:12px;overflow:hidden">
+<div style="position:absolute;right:4px;top:-30px;width:24px;height:24px;border-radius:50%;background:rgba(15,23,42,.72);color:#fff;text-align:center;line-height:24px">×</div>
+<div style="height:120px;background:linear-gradient(120deg,#2a7fd4,#9cd1ff);position:relative"><span style="position:absolute;left:5px;top:5px;background:rgba(0,0,0,.55);color:#fff;font-size:8px;border-radius:3px;padding:0 3px">광고</span></div>
+<div style="padding:8px 10px"><div style="font-weight:700;font-size:11px">배달 30% 쿠폰 받아가세요</div><div style="font-size:9px;color:#64748b">이번 주 금요일까지, 첫 주문에 바로 쓰는…</div>
+<div style="margin-top:6px;background:#0B421A;color:#fff;border-radius:6px;text-align:center;font-size:10px;padding:7px">쿠폰 받기</div></div></div>
+</div><div class="cap">폰 · 그림 칸 = 카드 폭 × 25/36</div></div>
+<div class="dev"><div class="ph" style="width:170px;height:240px;background:#f4f6f4"><div style="position:absolute;inset:0;background:rgba(0,0,0,.45)"></div><div style="position:absolute;left:36px;right:36px;top:40px;background:#fff;border-radius:10px;overflow:hidden"><div style="height:68px;background:linear-gradient(120deg,#2a7fd4,#9cd1ff)"></div><div style="height:60px"></div></div></div><div class="cap">태블릿 가로 · 폭 최대 480</div></div>
+<div class="spec" style="margin-top:8px">형태를 바꾸면 그림 칸 규격·글 칸·미리보기가 함께 바뀜. 카드형 → 그림형으로 바꾸면 이미 올린 그림을 그대로 쓸지 묻고, 비율이 안 맞으면 자르기 틀이 다시 열림(저장 전에). 하단 목록·쿠폰 카드는 「예시 매장/쿠폰으로 보기」 표시를 단 미리보기.</div>
+</div>
+</div>
+</div>
+
+<!-- ============ 5. OS 시작 화면 + 첫 진입 ============ -->
+<div class="board">
+<div class="btitle">5. OS 시작 화면 · 첫 진입 화면 (한 화면)</div>
+<div class="row">
+<div class="col">
+<h3>OS 시작 화면 <span class="badge wait">앱 빌드 때 반영</span></h3>
+<div class="label">로고 <span class="xs muted">투명 PNG만 · 짧은 변 512px 이상 · 긴 변 4096 이하 · 5MB · 정사각형 권장 1024×1024</span></div>
+<div class="row" style="gap:12px;align-items:flex-start">
+<div><div class="checker" style="width:110px;height:110px;border-radius:4px;position:relative"><div style="position:absolute;inset:18px;border:1.5px dashed #0B421A;border-radius:50%"></div><div style="position:absolute;left:34px;top:34px;width:42px;height:42px;background:#0B421A;border-radius:8px;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center">D</div></div><div class="cap">점선 원 = Android 안전 원<br>(바깥은 기기마다 잘릴 수 있음)</div></div>
+<div><div class="ph" style="width:96px;height:200px;background:#075740"><div style="position:absolute;left:50%;top:50%;width:42px;height:42px;margin:-21px 0 0 -21px;background:#fff;border-radius:8px;color:#075740;font-weight:800;display:flex;align-items:center;justify-content:center">D</div></div><div class="cap">Android<br>로고 = 아이콘 칸의 44%</div></div>
+<div><div class="ph" style="width:96px;height:200px;background:#075740"><div style="position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;background:#fff;border-radius:8px;color:#075740;font-weight:800;display:flex;align-items:center;justify-content:center">D</div></div><div class="cap">iOS<br>로고 폭 106pt</div></div>
+</div>
+<div class="label">배경색</div><div class="row" style="gap:6px;align-items:center"><span style="width:26px;height:26px;border-radius:4px;background:#075740;display:inline-block"></span><div class="input" style="flex:1">#075740</div></div>
+<table style="margin-top:8px"><tr><th></th><th>배경색</th><th>로고</th><th>설치된 앱</th></tr>
+<tr><td>지금 앱</td><td>#075740</td><td>v3</td><td>Android 1.2.7(66) · iOS 1.2.4(53)</td></tr>
+<tr><td>다음 빌드</td><td>#075740</td><td><b>v4 (바뀜)</b></td><td>빌드 전</td></tr></table>
+</div>
+<div class="col">
+<h3>첫 진입 화면 <span class="badge on">웹 · 각 기기 다음 실행부터</span></h3>
+<div class="label">아이콘으로 앱을 켰을 때 OS 시작 화면 · 인트로 다음 첫 화면</div>
+<div class="row" style="gap:6px;flex-wrap:wrap">
+<div class="typecard a" style="width:96px"><div class="mini" style="height:54px"></div><b>홈</b><br><span class="muted">/home</span></div>
+<div class="typecard" style="width:96px"><div class="mini" style="height:54px"></div><b>라운지</b><br><span class="muted">/philife</span></div>
+<div class="typecard" style="width:96px"><div class="mini" style="height:54px"></div><b>마켓</b><br><span class="muted">/market</span></div>
+<div class="typecard" style="width:96px"><div class="mini" style="height:54px"></div><b>DIPICK</b><br><span class="muted">/stores</span></div>
+<div class="typecard" style="width:96px"><div class="mini" style="height:54px"></div><b>telRING</b><br><span class="muted">회원만 · 비회원 → 홈</span></div>
+<div class="typecard" style="width:96px"><div class="mini" style="height:54px"></div><b>MY</b><br><span class="muted">회원만 · 비회원 → 홈</span></div>
+</div>
+<div class="spec" style="margin-top:8px">· 알림·링크로 켰을 때 → 그 화면 · OS가 종료한 뒤 다시 켬 → 보던 화면(복원)<br>· 깜빡임 없음: 고른 화면이 그려질 때까지 시작 화면(또는 인트로)을 유지 — 홈을 거쳐 가지 않음<br>· 지금 값: <b>홈</b> · 마지막 변경 2026-11-17 11:20 PHT · 메인관리자 <span class="btn">변경 기록</span></div>
+<div style="margin-top:8px"><span class="btn p">저장</span></div>
+</div>
+</div>
+</div>
+
+<!-- ============ 6. 팝업 목록 ============ -->
+<div class="board">
+<div class="btitle">6. 팝업 목록 — 한 줄로 「앱에 나오나 · 왜 안 나오나」</div>
+<div class="row" style="align-items:center;margin-bottom:8px"><div class="col"><span class="sw-on"></span> <b>앱 진입 팝업</b> &nbsp; 진입당 <span class="chip a">2</span>개 &nbsp; <span class="sw-on"></span> 가로 화면에서도</div><div><span class="btn p">+ 새 팝업</span></div></div>
+<div class="row" style="gap:6px;margin-bottom:6px"><span class="chip a">전체</span><span class="chip">앱에 나오는 중</span><span class="chip">승인 대기</span><span class="chip">안 나옴</span><span class="chip">형태 ▾</span><span class="chip">영역 ▾</span></div>
+<table><thead><tr><th>그림</th><th>이름</th><th>형태</th><th>진입 순서</th><th>자동 닫힘</th><th>노출 위치</th><th>기간 (PHT)</th><th>누르면</th><th>앱에 나오나</th><th>최근 30일</th><th style="text-align:right">관리</th></tr></thead><tbody>
+<tr><td><div style="width:52px;height:36px;background:linear-gradient(120deg,#2a7fd4,#9cd1ff)"></div></td><td><b>배달 쿠폰 팝업</b></td><td>▢ 중앙 카드</td><td><span class="badge" style="background:#eef3ff;color:#2a4aa0">먼저</span></td><td>10초</td><td>홈 · DIPICK</td><td>11-15 ~ 11-30</td><td>이벤트</td><td><span class="badge on">● 나오는 중</span></td><td>노출 2,310 · 누름 6.1%</td><td style="text-align:right"><span class="btn">수정</span><span class="btn">정지</span></td></tr>
+<tr><td><div style="width:52px;height:36px;background:#ffb12a"></div></td><td><b>신규 매장 모음</b></td><td>▭ 하단 목록</td><td><span class="badge off">보통</span></td><td>없음</td><td>홈</td><td>항상</td><td>매장 6곳</td><td><span class="badge on">● 나오는 중</span></td><td>노출 1,120</td><td style="text-align:right"><span class="btn">수정</span><span class="btn">정지</span></td></tr>
+<tr><td><div style="width:52px;height:36px;background:#7A3FD1"></div></td><td><b>쿠폰 만료 알림</b></td><td>▢ 쿠폰 카드</td><td><span class="badge" style="background:#eef3ff;color:#2a4aa0">먼저</span></td><td>없음</td><td>전체</td><td>항상</td><td>쿠폰함</td><td><span class="badge wait">◐ 조건부</span><div class="xs muted">7일 안 만료 쿠폰 있는 회원만</div></td><td>노출 214</td><td style="text-align:right"><span class="btn">수정</span><span class="btn">정지</span></td></tr>
+<tr><td><div style="width:52px;height:36px;background:#999"></div></td><td>주말 이벤트</td><td>▭ 하단 시트</td><td><span class="badge off">보통</span></td><td>5초</td><td>라운지</td><td>12-01 ~</td><td>앱 화면</td><td><span class="badge no">✕ 안 나옴</span><div class="xs" style="color:#a4231c">승인 대기</div></td><td>—</td><td style="text-align:right"><span class="btn">수정</span><span class="btn p">승인</span></td></tr>
+<tr><td><div style="width:52px;height:36px;background:#bbb"></div></td><td>OO매장 오픈</td><td>▢ 중앙 카드</td><td><span class="badge off">보통</span></td><td>없음</td><td>DIPICK</td><td>11-01 ~ 11-30</td><td>매장</td><td><span class="badge no">✕ 안 나옴</span><div class="xs" style="color:#a4231c">이동할 매장이 비공개</div></td><td>노출 88</td><td style="text-align:right"><span class="btn">수정</span><span class="btn">정지</span></td></tr>
+</tbody></table>
+<div class="spec" style="margin-top:8px">「앱에 나오나」 = 승인 · 상태 · 기간 · 소재 준비 · 목적지 공개 · 전체 설정 · 목록/쿠폰 데이터를 앱 조회와 같은 서버 함수로 계산한 결과. 안 나오면 첫 이유 1줄. 회원별 숨김(닫음·하루 1번)은 사람마다 달라 여기 넣지 않음.</div>
+</div>
+
+</div></body></html>
