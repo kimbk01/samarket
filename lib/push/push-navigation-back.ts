@@ -18,17 +18,22 @@ type NavEntry = { key: string; index: number };
 type NavigationLike = {
   currentEntry: NavEntry | null;
   entries: () => NavEntry[];
-  addEventListener: (type: "currententrychange", fn: () => void) => void;
-  removeEventListener: (type: "currententrychange", fn: () => void) => void;
+  addEventListener: (type: "currententrychange", fn: (ev?: EntryChangeEventLike) => void) => void;
+  removeEventListener: (type: "currententrychange", fn: (ev?: EntryChangeEventLike) => void) => void;
 };
+/** NavigationCurrentEntryChangeEvent 중 쓰는 필드만 */
+type EntryChangeEventLike = { navigationType?: string | null };
 
 const LEFT_BY_PUSH_STORAGE_KEY = "dibay:push-left-entries";
 const LEFT_BY_PUSH_MAX = 50;
 /** sessionStorage 를 못 쓰는 환경(사생활 모드 등)의 대체 — 지금 동작(모듈 메모리)과 같다. */
 let memoryFallback: string[] = [];
+/** 마지막 저장이 실패했으면 저장소의 옛 값 대신 메모리 값을 읽는다(쓰기 실패 뒤 옛 표시가 되살아나지 않게). */
+let storageWriteFailed = false;
 let subscribed: NavigationLike | null = null;
 
 function readLeftByPush(): string[] {
+  if (storageWriteFailed) return memoryFallback;
   try {
     const raw = window.sessionStorage.getItem(LEFT_BY_PUSH_STORAGE_KEY);
     if (raw == null) return memoryFallback;
@@ -44,8 +49,10 @@ function writeLeftByPush(keys: string[]): void {
   memoryFallback = next;
   try {
     window.sessionStorage.setItem(LEFT_BY_PUSH_STORAGE_KEY, JSON.stringify(next));
+    storageWriteFailed = false;
   } catch {
     /* 저장 불가 — memoryFallback 만 */
+    storageWriteFailed = true;
   }
 }
 
@@ -55,10 +62,26 @@ export function isEntryLeftByPushNavigation(key: string | null | undefined): boo
   return readLeftByPush().includes(key);
 }
 
+/**
+ * 표시된 항목으로 **뒤로/앞으로 돌아오면**(traverse) 그 표시를 지운다 — 이제 사용자가 그 화면에 있으므로 이후 그 화면에서
+ * 앱 안 이동으로 연 화면을 「알림 진입」으로 오판하지 않는다(P5 검토 1: 목록→A→알림 B→◁→◁(A)→배너 C 가 push 로 판정되던 결함).
+ * push·replace(Next 내부 replaceState 포함)로 같은 key 가 현재가 되는 경우는 지우지 않는다(표시 직후 이동 전 replace 대비).
+ */
+function onEntryChange(ev?: EntryChangeEventLike): void {
+  if (ev?.navigationType === "traverse") {
+    const key = readNavigation()?.currentEntry?.key;
+    if (key) {
+      const left = readLeftByPush();
+      if (left.includes(key)) writeLeftByPush(left.filter((k) => k !== key));
+    }
+  }
+  sync();
+}
+
 function subscribe(nav: NavigationLike): void {
   if (subscribed === nav) return;
-  subscribed?.removeEventListener("currententrychange", sync);
-  nav.addEventListener("currententrychange", sync);
+  subscribed?.removeEventListener("currententrychange", onEntryChange);
+  nav.addEventListener("currententrychange", onEntryChange);
   subscribed = nav;
 }
 
@@ -114,12 +137,13 @@ export function restorePushNavigationBackAfterReload(): void {
 /** Tests only. */
 export function __resetPushNavigationBackForTests(): void {
   memoryFallback = [];
+  storageWriteFailed = false;
   try {
     window.sessionStorage.removeItem(LEFT_BY_PUSH_STORAGE_KEY);
   } catch {
     /* noop */
   }
-  subscribed?.removeEventListener("currententrychange", sync);
+  subscribed?.removeEventListener("currententrychange", onEntryChange);
   subscribed = null;
   setPushNavigationBackActive(false);
 }

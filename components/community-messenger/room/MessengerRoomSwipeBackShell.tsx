@@ -13,7 +13,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type TransitionEvent as ReactTransitionEvent,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
 import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
@@ -108,6 +108,7 @@ export function MessengerRoomSwipeBackShell({
   ownerOrderChatsHref = null,
 }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useMessengerRoomUrlSearchParams();
   const reducedMotion = usePrefersReducedMotion();
   const isMessengerSplit = useIsMessengerSplitViewport();
@@ -299,7 +300,8 @@ export function MessengerRoomSwipeBackShell({
     if (target.kind !== "replace") return;
     console.info("[cm-room-back] page_back_owner", { roomId: roomId?.trim() ?? "", href: target.href });
     return setPageBackOwner(() => requestAnimatedBackRef.current());
-  }, [insideOrderChatSlide, resolveBackTarget, roomId, roomType]);
+    /** pathname: 분할 replace 등으로 같은 셸에서 주소가 바뀌면 진입 출처·목적지를 다시 판정 */
+  }, [insideOrderChatSlide, pathname, resolveBackTarget, roomId, roomType]);
 
   const onEdgePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {

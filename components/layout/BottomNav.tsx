@@ -68,7 +68,11 @@ import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-na
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
 import { useShellHydrated } from "@/lib/ui/use-shell-hydrated";
 import { isMainBottomNavUnifiedInboxTabId } from "@/lib/community-messenger/messenger-entry-origin";
-import { dismissLoginRequiredSheet, requireAuthAction } from "@/lib/auth/require-auth-action";
+import {
+  dismissLoginRequiredSheet,
+  enforceAuthGatesAfterDeferredNavigation,
+  requireAuthAction,
+} from "@/lib/auth/require-auth-action";
 import { getSessionPhase } from "@/lib/auth/dibay-session-manager";
 import { isRecoveringPhase } from "@/lib/auth/dibay-session-policy";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
@@ -823,7 +827,9 @@ export function BottomNav({
       const sessionPhase = getSessionPhase();
       if (isRecoveringPhase(sessionPhase)) {
         console.info("[bottom-nav-tap] path=sync", { reason: "session_resolving", phase: sessionPhase, href: commitOpts.href });
-        run();
+        const result = run();
+        /** 확인이 끝나면 같은 회원 게이트(가입 동의·프로필 완성)를 실행 — 비회원은 화면 게이트의 로그인 안내 */
+        if (result !== "blocked") void enforceAuthGatesAfterDeferredNavigation("messenger_open", { next: commitOpts.href });
         return;
       }
       console.info("[bottom-nav-tap] path=async", { reason: "auth_gate", phase: sessionPhase, href: commitOpts.href });

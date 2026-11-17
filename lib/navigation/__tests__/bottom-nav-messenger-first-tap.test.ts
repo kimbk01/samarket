@@ -17,7 +17,18 @@ describe("메신저 탭 첫 탭", () => {
     const gate = branch.indexOf('requireAuthAction("messenger_open"');
     expect(resolving).toBeGreaterThan(0);
     expect(gate).toBeGreaterThan(resolving);
-    expect(branch.slice(resolving, gate)).toMatch(/run\(\);\s*return;/);
+    expect(branch.slice(resolving, gate)).toMatch(/const result = run\(\);[\s\S]*?return;/);
+  });
+
+  it("먼저 이동한 뒤 확인이 끝나면 같은 회원 게이트(동의·프로필) 실행 — 로그인 시트는 띄우지 않음", () => {
+    const branch = src.slice(src.indexOf("if (isRecoveringPhase(sessionPhase)) {"));
+    expect(branch.slice(0, 600)).toContain('enforceAuthGatesAfterDeferredNavigation("messenger_open"');
+    const fn = auth.slice(auth.indexOf("export async function enforceAuthGatesAfterDeferredNavigation"));
+    const body = fn.slice(0, fn.indexOf("export async function requireAuthAction"));
+    expect(body).toContain("isClientSignupComplete(profile)");
+    expect(body).toContain("buildConsentHrefForAction(next)");
+    expect(body).toContain("requireProfileCompletionClient(");
+    expect(body).not.toContain("openLoginRequiredSheet(");
   });
 
   it("화면 게이트가 메신저 경로를 감싼다(비회원 판정 위임처)", () => {

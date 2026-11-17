@@ -5,8 +5,10 @@
  */
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resolveMessengerRoomEntryOrigin } from "@/lib/community-messenger/room/messenger-room-entry-origin-store";
 import {
   __resetPushNavigationBackForTests,
+  isEntryLeftByPushNavigation,
   isPushNavigationBackActive,
   markLeavingByPushNavigation,
   restorePushNavigationBackAfterReload,
@@ -22,28 +24,32 @@ import {
 function fakeNavigation() {
   const entries: { key: string; index: number }[] = [{ key: "k0", index: 0 }];
   let cur = 0;
-  const listeners = new Set<() => void>();
+  const listeners = new Set<(ev?: { navigationType?: string }) => void>();
   let n = 1;
   const nav = {
     get currentEntry() {
       return entries[cur] ?? null;
     },
     entries: () => entries.slice(),
-    addEventListener: (_t: string, fn: () => void) => listeners.add(fn),
-    removeEventListener: (_t: string, fn: () => void) => listeners.delete(fn),
+    addEventListener: (_t: string, fn: (ev?: { navigationType?: string }) => void) => listeners.add(fn),
+    removeEventListener: (_t: string, fn: (ev?: { navigationType?: string }) => void) => listeners.delete(fn),
   };
-  const fire = () => listeners.forEach((f) => f());
+  const fire = (navigationType: string) => listeners.forEach((f) => f({ navigationType }));
   return {
     nav,
     push() {
       entries.splice(cur + 1);
       entries.push({ key: `k${n++}`, index: entries.length });
       cur = entries.length - 1;
-      fire();
+      fire("push");
+    },
+    /** replace — 항목 key 유지 */
+    replace() {
+      fire("replace");
     },
     back() {
       if (cur > 0) cur -= 1;
-      fire();
+      fire("traverse");
     },
   };
 }
@@ -129,6 +135,43 @@ describe("알림 이동 직후 화면에서만 뒤로 담당", () => {
     markLeavingByPushNavigation();
     expect(isPushNavigationBackActive()).toBe(false);
     expect(isOverlayBackListenerInstalled()).toBe(false);
+  });
+});
+
+describe("P5 검토 1 — 표시된 항목으로 돌아오면 표시를 지운다", () => {
+  it("목록→A→알림 B→◁(목록 replace)→◁(A)→배너 C: C 는 앱 안 진입(push 오판 없음)", () => {
+    f.push(); // k1 = A (사용자 이동)
+    markLeavingByPushNavigation(); // A 표시
+    f.push(); // k2 = B (알림 진입)
+    expect(isPushNavigationBackActive()).toBe(true);
+    f.replace(); // B 의 ◁ = 방 종류 목록 replace (key k2 유지)
+    expect(isEntryLeftByPushNavigation("k1")).toBe(true);
+    d.state.onBack?.({ canGoBack: false }); // 목록에서 ◁ = 결함 E history.back → A
+    expect(f.nav.currentEntry?.key).toBe("k1");
+    expect(isEntryLeftByPushNavigation("k1")).toBe(false);
+    expect(isOverlayBackListenerInstalled()).toBe(false);
+    f.push(); // A 에서 배너로 C (사용자 이동)
+    expect(isPushNavigationBackActive()).toBe(false);
+    window.history.replaceState(null, "", "/community-messenger/rooms/C");
+    expect(resolveMessengerRoomEntryOrigin()).toBe("in_app");
+    window.sessionStorage.clear();
+  });
+
+  it("표시 직후 같은 항목의 replace(이동 전 내부 replaceState)는 표시를 지우지 않음", () => {
+    markLeavingByPushNavigation();
+    f.replace();
+    expect(isEntryLeftByPushNavigation("k0")).toBe(true);
+  });
+
+  it("저장소 쓰기 실패 뒤에는 메모리 값을 읽는다", () => {
+    markLeavingByPushNavigation(); // 저장소에 k0
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("quota");
+    });
+    f.push();
+    f.back(); // k0 으로 돌아옴 → 표시 제거(쓰기는 실패, 메모리만)
+    expect(isEntryLeftByPushNavigation("k0")).toBe(false);
+    setItem.mockRestore();
   });
 });
 
