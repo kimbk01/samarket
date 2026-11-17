@@ -28,7 +28,8 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: h.replace, push
 vi.mock("@/components/i18n/AppLanguageProvider", () => ({ useI18n: () => ({ t: (k: string) => k }) }));
 vi.mock("@/lib/launch-intro/discovery", () => ({ startLaunchIntroDiscovery: () => {} }));
 vi.mock("@/lib/launch-intro/frequency", () => ({ recordLaunchIntroShown: () => {} }));
-vi.mock("@/lib/launch-intro/launch-epoch", () => ({ markLaunchEpochShown: h.markEpoch }));
+// 시작 화면 해제 경로가 생명주기 판단(app-entry-kind → readLaunchEpoch)을 읽는다 (진입 감사 OS-2·OS-4 보류)
+vi.mock("@/lib/launch-intro/launch-epoch", () => ({ markLaunchEpochShown: h.markEpoch, readLaunchEpoch: () => null }));
 vi.mock("@/lib/lifecycle/launch-intent.client", () => ({ hasLaunchIntent: () => h.intent() }));
 vi.mock("@/lib/device/dibay-device-class", () => ({
   resolveDibayDeviceClass: async () => ({ deviceClass: "PHONE" }),
