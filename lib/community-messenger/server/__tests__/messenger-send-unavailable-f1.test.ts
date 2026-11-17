@@ -5,6 +5,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  MESSENGER_SEND_REJECTED_ERROR,
+  isMessengerSendTransientRpcError,
+  resolveMessengerSendRpcCallError,
   MESSENGER_SEND_BUSINESS_ERROR_CODES,
   MESSENGER_SEND_UNAVAILABLE_ERROR,
   isMessengerSendUnavailableError,
@@ -78,9 +81,39 @@ describe("resolveMessengerSendRpcPayloadError", () => {
       src.indexOf("export async function findCommunityMessengerMessageByClientId(")
     );
     expect(atomic).not.toContain("String(rpcErr.message");
-    expect(atomic).toMatch(/if \(rpcErr\) \{[\s\S]*?return \{ ok: false, error: MESSENGER_SEND_UNAVAILABLE_ERROR \};/);
+    expect(atomic).toMatch(/if \(rpcErr\) \{[\s\S]*?return \{ ok: false, error: resolveMessengerSendRpcCallError\(rpcErr\) \};/);
     expect(atomic).toContain("resolveMessengerSendRpcPayloadError(payload)");
     const send = src.slice(src.indexOf("export async function sendCommunityMessengerMessage("));
     expect(send).toContain("if (!readmit.ok) return { ok: false, error: MESSENGER_SEND_UNAVAILABLE_ERROR };");
   });
+});
+
+describe("PR-1 검토 #6 rpcErr 일시 오류만 503", () => {
+  it.each([
+    [{ code: "", message: "TypeError: fetch failed" }],
+    [{ message: "network" }],
+    [{ code: "40001" }],
+    [{ code: "40P01" }],
+    [{ code: "55P03" }],
+    [{ code: "57014" }],
+    [{ code: "08006" }],
+    [{ code: "08P01" }],
+    [{ code: "53300" }],
+    [{ code: "57P01" }],
+    [{ code: "57P03" }],
+    [{ code: "PGRST000" }],
+    [{ code: "PGRST003" }],
+  ])("일시 %o → unavailable(503)", (err) => {
+    expect(isMessengerSendTransientRpcError(err)).toBe(true);
+    expect(resolveMessengerSendRpcCallError(err)).toBe(MESSENGER_SEND_UNAVAILABLE_ERROR);
+  });
+
+  it.each([[{ code: "42501" }], [{ code: "23503" }], [{ code: "23514" }], [{ code: "22001" }], [{ code: "PGRST301" }], [{ code: "57P04" }]])(
+    "비일시 %o → message_send_rejected(400)",
+    (err) => {
+      expect(isMessengerSendTransientRpcError(err)).toBe(false);
+      expect(resolveMessengerSendRpcCallError(err)).toBe(MESSENGER_SEND_REJECTED_ERROR);
+      expect(isMessengerSendUnavailableError(MESSENGER_SEND_REJECTED_ERROR)).toBe(false);
+    }
+  );
 });

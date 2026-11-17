@@ -1106,10 +1106,12 @@ export function useMessengerRoomPhase2Controller() {
     failedOutboundRowIdsRef,
     getRoomActionErrorMessage,
     redirectIfMessengerAuthBlocked,
-    onTextSendConfirmed: ({ clientMessageId, message: confirmed, elapsedMs }) => {
+    onTextSendConfirmed: ({ clientMessageId, message: confirmed, elapsedMs, outsideLoadedWindow }) => {
       messengerMonitorMessageRtt(streamRoomId, elapsedMs, "text");
       bumpCommunityMessengerPresenceActivity("message_sent");
-      if (confirmed) {
+      if (outsideLoadedWindow) {
+        /** 검토 #4: 서버가 예전에 이미 저장한 글(불러온 창보다 오래됨) — 병합·재조회하지 않는다 */
+      } else if (confirmed) {
         onMessengerOutboundConfirmed(confirmed, clientMessageId);
         playMessengerMessageSentFeedbackOnce(
           messengerSentFeedbackPlayedClientIdsRef.current,

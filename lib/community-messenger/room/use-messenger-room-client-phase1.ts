@@ -816,7 +816,7 @@ export function useMessengerRoomClientPhase1({
     viewerBootstrapDedupRef,
   });
 
-  useMessengerRoomReaderScrollRoomLifecycle({ roomId });
+  useMessengerRoomReaderScrollRoomLifecycle({ roomId, streamRoomId });
 
   useEffect(() => {
     const syncPreferences = () => {

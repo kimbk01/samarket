@@ -3,10 +3,8 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import { messengerRoomShowsNewMessagesBelowChip } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
-import {
-  formatUnreadBadgeCount,
-  resolveJumpToLatestFabState,
-} from "@/lib/community-messenger/room/messenger-room-first-unread";
+import { formatUnreadBadgeCount } from "@/lib/community-messenger/room/messenger-room-first-unread";
+import { resolveMessengerRoomJumpLatestFab } from "@/lib/community-messenger/room/messenger-room-reached-latest-gate";
 /**
  * jump-to-latest FAB (bottom-right).
  * Remaining unread above first-unread → jump first unread once; else → latest.
@@ -27,8 +25,8 @@ export function MessengerRoomNewMessagesBelowChip({
   const scrollPosition = useMessengerRoomReaderStateStore((s) =>
     rid ? (s.byRoom[rid]?.scrollPosition ?? null) : null
   );
-  const atLatest = scrollPosition === "at-bottom" || scrollPosition === "near-bottom";
-  const fab = resolveJumpToLatestFabState({ atLatest, remainingUnreadCount });
+  /** PR-1 검토 #2: 진입 완료 동기화 전(위치 없음)에는 그리지 않는다 — 위치 미확정 깜빡임 방지 */
+  const fab = resolveMessengerRoomJumpLatestFab({ scrollPosition, remainingUnreadCount });
 
   if (!messengerRoomShowsNewMessagesBelowChip() || !fab.visible) return null;
 

@@ -766,7 +766,13 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
      * F2-③ (설계 2026-11-18 PR-1): 새 끝 메시지가 병합되면(따라가기 여부와 무관) 레이아웃 뒤 viewport 동기화(S3)를
      * 반드시 거친다 — 위쪽을 읽는 중 수신·따라가기 안 한 수신에서도 위치·lastVisible 이 실제와 맞는다(같은 프레임 1회로 합쳐짐).
      */
-    if (tailChanged) scheduleReaderStateSyncAfterEntry();
+    /**
+     * 내 글 전송(force) 경로는 제외 — 그 경로는 맨 아래·끝 id 를 바로 쓰고, 큰 행의 높이가 나중에 정해지면
+     * 레이아웃 보정(ResizeObserver → applyLayoutPreserve → 엔진 stick 유지 후 S2 동기화)이 정착 뒤에 맞춘다.
+     * 여기서 rAF 동기화를 더하면 높이 정착 전 viewport 를 읽어 「↓」가 잠깐 뜰 수 있다(PR-1 검토 #7).
+     */
+    const ownForceFollow = decision.scroll && decision.reason === "own_message_append";
+    if (tailChanged && !ownForceFollow) scheduleReaderStateSyncAfterEntry();
     if (last?.id) {
       prevTailMessageIdRef.current = last.id;
       prevTailClientMessageIdRef.current = last.clientMessageId ?? null;

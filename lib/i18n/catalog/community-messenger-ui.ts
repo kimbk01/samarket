@@ -1082,6 +1082,7 @@ export const communityMessengerUiMessages = {
     cm_ui_location_permission_hint:
       "설정에서 위치 권한을 확인하거나, 지도 링크 없이 주소를 입력해 주세요.",
     cm_ui_location_fetch_failed: "위치를 가져오지 못했습니다.",
+    cm_ui_failed_text_not_kept: "보내지 못한 메시지를 기기에 저장하지 못했어요. 채팅방을 나가면 사라질 수 있어요.",
     cm_ui_location_share_line: "📍 위치 공유\n{url}",
     cm_ui_album_pick_max: "한 번에 선택할 수 있는 사진은 최대 {count}장입니다.",
     cm_ui_cannot_react_own_message: "내 메시지에는 반응할 수 없습니다.",
@@ -2279,6 +2280,7 @@ export const communityMessengerUiMessages = {
     cm_ui_location_permission_hint:
       "Check location permission in settings, or enter an address without a map link.",
     cm_ui_location_fetch_failed: "Could not get your location.",
+    cm_ui_failed_text_not_kept: "Couldn't save the unsent message on this device. It may disappear if you leave the chat.",
     cm_ui_location_share_line: "📍 Location\n{url}",
     cm_ui_album_pick_max: "You can select up to {count} photos at once.",
     cm_ui_cannot_react_own_message: "You cannot react to your own message.",

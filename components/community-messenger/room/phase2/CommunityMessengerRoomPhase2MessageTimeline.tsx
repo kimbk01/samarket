@@ -151,6 +151,7 @@ import {
   type MessengerReadMode,
 } from "@/lib/community-messenger/room/messenger-outbound-read-state";
 import { useCarriedDirectPeerReadCursorKey } from "@/lib/community-messenger/room/use-carried-direct-peer-read-cursor-key";
+import { shouldClearMessengerRoomEntryUnreadOnReachedLatest } from "@/lib/community-messenger/room/messenger-room-reached-latest-gate";
 import {
   clearGroupReadCountsSnapshot,
   setGroupReadCountsSnapshot,
@@ -1088,17 +1089,29 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   });
   const atLatest = scrollPosition === "at-bottom" || scrollPosition === "near-bottom";
 
-  /** Reached latest → clear entry FAB/divider session (mark_read already handled elsewhere). */
+  /**
+   * Reached latest → clear entry FAB/divider session (mark_read already handled elsewhere).
+   * PR-1 검토 #2: 진입 스크롤 완료 뒤 + 효과 실행 시점 store 위치로만 판정(지난 방문의 at-bottom 로 지우지 않음).
+   */
   useEffect(() => {
     const rid = vm.streamRoomId.trim();
     if (!rid || !atLatest || remainingUnreadCount > 0) return;
+    if (
+      !shouldClearMessengerRoomEntryUnreadOnReachedLatest({
+        roomId: rid,
+        entryOwnerRoomIds: [vm.roomId, rid],
+        remainingUnreadCount,
+      })
+    ) {
+      return;
+    }
     clearMessengerRoomEntryUnread(rid, "reached_latest");
     const tip = vm.displayRoomMessages[vm.displayRoomMessages.length - 1]?.id?.trim();
     if (tip) {
       markMessengerRoomTimelineTipEntryConsumed(rid, tip);
       clearMessengerRoomScrollPosition(rid);
     }
-  }, [atLatest, remainingUnreadCount, vm.displayRoomMessages, vm.streamRoomId]);
+  }, [atLatest, remainingUnreadCount, vm.displayRoomMessages, vm.roomId, vm.streamRoomId]);
 
   useLayoutEffect(() => {
     if (!cmRenderAnalysisEnabled()) return;

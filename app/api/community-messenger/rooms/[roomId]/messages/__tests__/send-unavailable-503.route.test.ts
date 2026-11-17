@@ -105,7 +105,7 @@ describe("F1 글 전송 route 503 매핑", () => {
     expect(body.error).toBe("Message not sent. Tap resend to try again.");
   });
 
-  it.each(["room_readonly", "forbidden", "trade_seller_closed", "reply_target_invalid"])(
+  it.each(["room_readonly", "forbidden", "trade_seller_closed", "reply_target_invalid", "message_send_rejected"])(
     "업무 거절 %s → 400 (지금처럼 4xx)",
     async (error) => {
       state.sendResults.push({ ok: false, error });

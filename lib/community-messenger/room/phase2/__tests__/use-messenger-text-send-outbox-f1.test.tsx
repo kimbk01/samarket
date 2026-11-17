@@ -9,13 +9,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 
 const snackbar = vi.hoisted(() => ({ calls: [] as string[] }));
+vi.mock("@/lib/community-messenger/cm-ui-translate", () => ({
+  translateCmUi: (key: string) => key,
+}));
 vi.mock("@/lib/community-messenger/stores/messenger-snackbar-store", () => ({
   showMessengerSnackbar: (msg: string) => {
     snackbar.calls.push(msg);
   },
 }));
 
-import { useMessengerTextSendOutbox, type MessengerTextSendAttemptArgs } from "@/lib/community-messenger/room/phase2/use-messenger-text-send-outbox";
+import {
+  isOlderThanLoadedWindow,
+  useMessengerTextSendOutbox,
+  type MessengerTextSendAttemptArgs,
+} from "@/lib/community-messenger/room/phase2/use-messenger-text-send-outbox";
 import {
   clearMessengerFailedTextSends,
   listMessengerFailedTextSends,
@@ -36,15 +43,18 @@ const ROOM = "11111111-1111-4111-8111-111111111111";
 type Row = CommunityMessengerMessage & { pending?: boolean; sendFailed?: boolean };
 
 type Harness = {
+  unmount: () => void;
   rows: () => Row[];
   run: (args: MessengerTextSendAttemptArgs) => Promise<boolean>;
+  /** act 없이 시작만 — 응답 전 언마운트 시나리오용 */
+  runRaw: (args: MessengerTextSendAttemptArgs) => Promise<boolean>;
   setRows: (rows: Row[]) => void;
   composer: string[];
   authBlocked: { value: boolean };
 };
 
-let root: Root | null = null;
-let host: HTMLDivElement | null = null;
+let roots: Root[] = [];
+let hosts: HTMLDivElement[] = [];
 
 function mount(initialRows: Row[] = [], opts: { ready?: boolean } = {}): Harness {
   const composer: string[] = [];
@@ -81,11 +91,14 @@ function mount(initialRows: Row[] = [], opts: { ready?: boolean } = {}): Harness
     api.set = setRoomMessages;
     return null;
   }
-  host = document.createElement("div");
+  const host = document.createElement("div");
   document.body.appendChild(host);
-  root = createRoot(host);
-  act(() => root!.render(<Probe />));
+  const root = createRoot(host);
+  hosts.push(host);
+  roots.push(root);
+  act(() => root.render(<Probe />));
   return {
+    unmount: () => act(() => root.unmount()),
     rows: () => api.rows,
     run: async (args) => {
       let out = false;
@@ -94,6 +107,7 @@ function mount(initialRows: Row[] = [], opts: { ready?: boolean } = {}): Harness
       });
       return out;
     },
+    runRaw: (args) => api.ref!.current(args),
     setRows: (r) => act(() => api.set!(r)),
     composer,
     authBlocked,
@@ -129,10 +143,16 @@ beforeEach(() => {
   clearMessengerFailedTextSends();
 });
 afterEach(() => {
-  act(() => root?.unmount());
-  host?.remove();
-  root = null;
-  host = null;
+  for (const r of roots) {
+    try {
+      act(() => r.unmount());
+    } catch {
+      /* already unmounted */
+    }
+  }
+  for (const h of hosts) h.remove();
+  roots = [];
+  hosts = [];
   vi.unstubAllGlobals();
   clearMessengerFailedTextSends();
 });
@@ -300,5 +320,97 @@ describe("F1 첫 전송", () => {
     expect(h.rows().find((r) => r.id === "t4")?.sendFailed).toBe(true);
     expect(h.composer).toEqual([]);
     expect(savedCids()).toEqual(["c6"]);
+  });
+});
+
+describe("PR-1 검토 #1 응답 전에 방을 나감·재진입", () => {
+  it("첫 전송 뒤 나가고 재진입(새 인스턴스) → 4xx 가 와도 글이 사라지지 않고 새 화면에 실패 행", async () => {
+    const a = mount();
+    a.setRows([optimistic("ta", "cx", "leave me")]);
+    const generation = beginActiveComposerFailRestoreSession();
+    let resolveFetch: (r: Response) => void = () => undefined;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((r) => (resolveFetch = r)));
+    let attempt: Promise<boolean> | null = null;
+    act(() => {
+      attempt = a.runRaw({ tempId: "ta", clientMessageId: "cx", content: "leave me", replyId: "", restoreOnFail: "leave me", failRestoreGeneration: generation });
+    });
+    a.unmount();
+    const b = mount();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(b.rows().find((r) => r.clientMessageId === "cx")).toBeUndefined();
+    await act(async () => {
+      resolveFetch(jsonResponse(403, { ok: false, error: "room_readonly" }));
+      await attempt;
+    });
+    expect(a.composer).toEqual([]);
+    expect(savedCids()).toEqual(["cx"]);
+    const row = b.rows().find((r) => r.clientMessageId === "cx");
+    expect(row?.sendFailed).toBe(true);
+    expect(row?.content).toBe("leave me");
+    expect(getMessengerOutboundFailedSend(row!.id)).not.toBeNull();
+  });
+
+  it("나간 뒤 결과 불명(503)도 새 화면에 실패 행 + 보관", async () => {
+    const a = mount();
+    a.setRows([optimistic("tb", "cy", "x")]);
+    let resolveFetch: (r: Response) => void = () => undefined;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((r) => (resolveFetch = r)));
+    let attempt: Promise<boolean> | null = null;
+    act(() => {
+      attempt = a.runRaw({ tempId: "tb", clientMessageId: "cy", content: "x", replyId: "", failRestoreGeneration: 0 });
+    });
+    a.unmount();
+    const b = mount();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    await act(async () => {
+      resolveFetch(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+      await attempt;
+    });
+    expect(savedCids()).toEqual(["cy"]);
+    expect(b.rows().filter((r) => r.clientMessageId === "cy")).toHaveLength(1);
+  });
+});
+
+describe("PR-1 검토 #3 보관 실패를 알린다", () => {
+  it("기기 저장소 쓰기 거부(용량 초과) → 사유 스낵바, 화면 실패 행은 유지", async () => {
+    const h = mount();
+    h.setRows([optimistic("tq", "cq", "big")]);
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("quota", "QuotaExceededError");
+    });
+    fetchMock.mockResolvedValueOnce(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+    await h.run({ tempId: "tq", clientMessageId: "cq", content: "big", replyId: "", failRestoreGeneration: 0 });
+    spy.mockRestore();
+    expect(snackbar.calls).toContain("cm_ui_failed_text_not_kept");
+    expect(h.rows().find((r) => r.id === "tq")?.sendFailed).toBe(true);
+  });
+});
+
+describe("PR-1 검토 #4 불러온 창보다 오래된 deduped 확정 행", () => {
+  it("병합하지 않고 실패 행·보관만 제거", async () => {
+    saveMessengerFailedTextSend(ROOM, { clientMessageId: "co", content: "old", replyToMessageId: null, createdAt: "2026-11-01T00:00:00.000Z" });
+    const loaded = { ...optimistic("srv-new", "other", "newer"), pending: false, createdAt: "2026-11-18T05:00:00.000Z" } as Row;
+    const h = mount([loaded]);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    const row = h.rows().find((r) => r.clientMessageId === "co")!;
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { ok: true, message: { ...optimistic("srv-old", "co", "old"), pending: false, createdAt: "2026-11-01T00:00:00.000Z" } })
+    );
+    await retry(h, row.id);
+    expect(h.rows().map((r) => r.id)).toEqual(["srv-new"]);
+    expect(savedCids()).toEqual([]);
+  });
+
+  it("isOlderThanLoadedWindow — 확정 행 없으면 false, 같은 시각은 창 안", () => {
+    expect(isOlderThanLoadedWindow([], { createdAt: "2026-01-01T00:00:00Z" })).toBe(false);
+    const rows = [{ createdAt: "2026-11-18T00:00:00Z" }, { pending: true, createdAt: "2020-01-01T00:00:00Z" }];
+    expect(isOlderThanLoadedWindow(rows, { createdAt: "2026-11-18T00:00:00Z" })).toBe(false);
+    expect(isOlderThanLoadedWindow(rows, { createdAt: "2026-11-17T23:59:59Z" })).toBe(true);
   });
 });

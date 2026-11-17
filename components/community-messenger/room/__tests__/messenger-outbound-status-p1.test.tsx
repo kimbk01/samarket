@@ -329,7 +329,7 @@ describe("P1 글·스티커 전송 시간 제한 12초 → 결과 불명 실패"
     expect(restore).toContain("sendFailed: true");
     expect(restore).toContain("registerFailedTextRowHandlers({ tempId, clientMessageId: e.clientMessageId");
     const attempt = outbox.slice(outbox.indexOf("const runTextSendAttempt = async"), outbox.indexOf("return { runTextSendAttemptRef };"));
-    expect(attempt).toMatch(/if \(!alreadyConfirmed\) \{\s*saveMessengerFailedTextSend/);
+    expect(attempt).toMatch(/if \(!alreadyConfirmed\) \{\s*const kept = saveMessengerFailedTextSend/);
     expect(outbox).not.toContain("silentFailure:");
   });
 

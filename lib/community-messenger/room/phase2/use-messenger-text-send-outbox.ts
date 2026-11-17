@@ -36,6 +36,7 @@ import {
 } from "@/lib/community-messenger/room/messenger-outbound-failed-send";
 import { shouldRestoreActiveComposerAfterSendFail } from "@/lib/community-messenger/room/messenger-composer-fail-restore-active";
 import {
+  type MessengerFailedTextSend,
   listMessengerFailedTextSends,
   pruneMessengerFailedTextSendsConfirmed,
   removeMessengerFailedTextSend,
@@ -46,6 +47,7 @@ import {
   messengerUploadFallbackErrorCode,
 } from "@/lib/community-messenger/upload/messenger-direct-upload-policy";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 
 type RoomRow = CommunityMessengerMessage & { pending?: boolean; sendFailed?: boolean };
 
@@ -79,11 +81,32 @@ export type MessengerTextSendOutboxDeps = {
     clientMessageId: string;
     message: CommunityMessengerMessage | null;
     elapsedMs: number;
+    /** 검토 #4: 확정 행이 불러온 창보다 오래돼 병합하지 않음 — 본문 재조회 불필요 */
+    outsideLoadedWindow?: boolean;
   }) => void;
 };
 
 function trimText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
+}
+
+/** 다른(옛) 인스턴스가 실패 글을 보관했음을 같은 방 화면에 알리는 창 이벤트 */
+export const MESSENGER_FAILED_TEXT_SAVED_EVENT = "samarket:cm:failed-text-saved";
+
+/** 확정 행이 지금 불러온 확정 메시지 중 가장 오래된 것보다 오래됐는가(같은 시각은 창 안) */
+export function isOlderThanLoadedWindow(
+  rows: readonly { pending?: boolean; createdAt?: string | null }[],
+  message: { createdAt?: string | null }
+): boolean {
+  const t = new Date(String(message.createdAt ?? "")).getTime();
+  if (!Number.isFinite(t)) return false;
+  let oldest = Number.POSITIVE_INFINITY;
+  for (const r of rows) {
+    if (r.pending) continue;
+    const rt = new Date(String(r.createdAt ?? "")).getTime();
+    if (Number.isFinite(rt) && rt < oldest) oldest = rt;
+  }
+  return Number.isFinite(oldest) && t < oldest;
 }
 
 export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
@@ -173,16 +196,11 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
    * 서버가 이미 저장했다면 사용자가 재전송할 때 같은 cid 로 나가 서버 UNIQUE 멱등(deduped)으로 확정 행이 된다.
    */
   const restoredFailedTextRoomRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!restoreReady || !streamRoomId) return;
-    if (restoredFailedTextRoomRef.current === streamRoomId) return;
+  /** 보관 글 → 실패 상태 행. 같은 cid 확정 행이 있으면 보관에서 지우고, 같은 cid 행(전송 중·실패)이 있으면 건너뛴다. */
+  const restoreFailedTextRows = (roomId: string, entries: MessengerFailedTextSend[]) => {
     const d = depsRef.current;
     const sender = d.resolveOutboundSender();
-    if (!sender) return;
-    restoredFailedTextRoomRef.current = streamRoomId;
-    const entries = listMessengerFailedTextSends(streamRoomId);
-    persistedFailedTextCidsRef.current = new Set(entries.map((e) => e.clientMessageId));
-    if (entries.length === 0) return;
+    if (!sender || entries.length === 0) return;
     const current = d.roomMessagesRef.current;
     const confirmed = new Set<string>();
     const pendingCids = new Set<string>();
@@ -192,8 +210,9 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
       if (m.pending) pendingCids.add(c);
       else confirmed.add(c);
     }
+    for (const e of entries) persistedFailedTextCidsRef.current.add(e.clientMessageId);
     if (confirmed.size) {
-      pruneMessengerFailedTextSendsConfirmed(streamRoomId, confirmed);
+      pruneMessengerFailedTextSendsConfirmed(roomId, confirmed);
       for (const c of confirmed) persistedFailedTextCidsRef.current.delete(c);
     }
     const rows: RoomRow[] = [];
@@ -205,7 +224,7 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
       const replySnap = replySource ? buildReplyPreviewSnapshot(replySource) : null;
       rows.push({
         id: tempId,
-        roomId: streamRoomId,
+        roomId,
         senderId: sender.senderId,
         senderLabel: sender.senderLabel,
         messageType: "text",
@@ -231,8 +250,48 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
     }
     if (rows.length === 0) return;
     d.setRoomMessages((prev) => mergeRoomMessages(prev, rows));
+  };
+  useEffect(() => {
+    if (!restoreReady || !streamRoomId) return;
+    if (restoredFailedTextRoomRef.current === streamRoomId) return;
+    if (!depsRef.current.resolveOutboundSender()) return;
+    restoredFailedTextRoomRef.current = streamRoomId;
+    persistedFailedTextCidsRef.current = new Set();
+    restoreFailedTextRows(streamRoomId, listMessengerFailedTextSends(streamRoomId));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 방 진입 시 1회(스냅샷 준비 시점)만
   }, [restoreReady, streamRoomId]);
+
+  /**
+   * PR-1 검토 #1: 이 훅 인스턴스가 마운트돼 있는가 — 전송 응답이 왔을 때 화면(입력창·행)이 그대로인지 판단.
+   * 12초 안에 방을 나갔거나 다시 들어와(새 인스턴스) 응답을 받은 옛 인스턴스는 입력창 복원을 할 수 없다.
+   */
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  /**
+   * PR-1 검토 #1: 다른(옛) 인스턴스가 이 방의 실패 글을 보관하면, 지금 열려 있는 인스턴스가 바로 실패 행으로 보여 준다
+   * (진입 복원은 이미 끝났으므로). 같은 cid 행이 이미 있으면 건너뛴다.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onSaved = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ roomId?: string; clientMessageId?: string }>).detail;
+      const rid = depsRef.current.streamRoomId;
+      if (!detail?.roomId || detail.roomId !== rid || restoredFailedTextRoomRef.current !== rid) return;
+      const cid = trimText(detail.clientMessageId);
+      if (!cid) return;
+      const entry = listMessengerFailedTextSends(rid).find((e) => e.clientMessageId === cid);
+      if (entry) restoreFailedTextRows(rid, [entry]);
+    };
+    window.addEventListener(MESSENGER_FAILED_TEXT_SAVED_EVENT, onSaved);
+    return () => window.removeEventListener(MESSENGER_FAILED_TEXT_SAVED_EVENT, onSaved);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 최신 값은 depsRef 로 읽는다
+  }, []);
 
   /**
    * P1 B-2 #11 (appendix-P1-send-status-design.md B-4): 글 전송 1회 시도.
@@ -252,6 +311,8 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
   }: MessengerTextSendAttemptArgs): Promise<boolean> => {
     const d = depsRef.current;
     const roomId = d.streamRoomId;
+    /** 응답이 왔을 때 같은 인스턴스·같은 방인가(검토 #1) */
+    const sameScreen = () => mountedRef.current && depsRef.current.streamRoomId === roomId;
     const latencyKey = cmReceiveLatencyKey({ roomId, clientMessageId });
     cmReceiveLatencyMark(latencyKey, { send_api_start_ms: cmReceiveLatencyNow() });
     const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -289,6 +350,15 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
         clientMessageId
       );
       const confirmedMessage = json.message;
+      /**
+       * PR-1 검토 #4: deduped 재전송이 돌려준 확정 행이 지금 불러온 창의 가장 오래된 메시지보다 오래되면 병합하지 않는다
+       * (병합하면 「이전 불러오기」 커서가 그 행으로 당겨져 사이 메시지를 건너뜀). 실패 행·보관만 지운다 — 서버 저장 확인됨.
+       */
+      if (confirmedMessage?.id && isOlderThanLoadedWindow(d.roomMessagesRef.current, confirmedMessage)) {
+        d.setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+        d.onTextSendConfirmed({ clientMessageId, message: null, elapsedMs, outsideLoadedWindow: true });
+        return true;
+      }
       if (confirmedMessage?.id) {
         const withCid =
           !trimText(confirmedMessage.clientMessageId) && clientMessageId
@@ -337,7 +407,11 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
         sendGeneration: failRestoreGeneration,
         restoreOnFail,
       });
-      if (restoreComposer) {
+      /**
+       * PR-1 검토 #1: 입력창 복원은 **같은 인스턴스가 마운트돼 있고 같은 방**일 때만. 아니면(12초 안에 나감·재진입)
+       * setMessage 가 무효라 글이 사라지므로, 아래 실패 행 보관 경로로 간다.
+       */
+      if (restoreComposer && sameScreen()) {
         clearMessengerOutboundFailedSend(tempId);
         d.failedOutboundRowIdsRef.current.delete(tempId);
         forgetPersistedFailedText(clientMessageId);
@@ -358,13 +432,24 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
       (item) => !item.pending && trimText(item.clientMessageId) === clientMessageId
     );
     if (!alreadyConfirmed) {
-      saveMessengerFailedTextSend(roomId, {
+      const kept = saveMessengerFailedTextSend(roomId, {
         clientMessageId,
         content,
         replyToMessageId: replyId || null,
         createdAt: rowCreatedAt,
       });
-      persistedFailedTextCidsRef.current.add(clientMessageId);
+      if (kept) {
+        persistedFailedTextCidsRef.current.add(clientMessageId);
+        /** 검토 #1: 옛 인스턴스면 지금 열린 같은 방 화면에 실패 행으로 알린다 */
+        if (!sameScreen() && typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent(MESSENGER_FAILED_TEXT_SAVED_EVENT, { detail: { roomId, clientMessageId } })
+          );
+        }
+      } else {
+        /** 검토 #3: 기기 저장소가 거부(용량 초과·사생활 모드) — 조용히 넘기지 않고 알린다(화면 행은 유지) */
+        showMessengerSnackbar(translateCmUi("cm_ui_failed_text_not_kept"), { variant: "error" });
+      }
     }
     registerFailedTextRowHandlers({ tempId, clientMessageId, content, replyId });
     d.setRoomMessages((prev) => markMessengerOutboundRowFailed(prev, tempId));

@@ -1,5 +1,6 @@
 import {
   MESSENGER_SEND_UNAVAILABLE_ERROR,
+  resolveMessengerSendRpcCallError,
   resolveMessengerSendRpcPayloadError,
 } from "@/lib/community-messenger/server/messenger-send-unavailable";
 import { isCatalogStickerPath } from "@/lib/stickers/sticker-catalog-validate";
@@ -17453,7 +17454,8 @@ async function trySendCommunityMessengerTextAtomic(
    */
   if (rpcErr) {
     if (isCommunityMessengerSendTextRpcMissing(rpcErr)) return null;
-    return { ok: false, error: MESSENGER_SEND_UNAVAILABLE_ERROR };
+    /** PR-1 검토 #6: 일시 오류만 503(unavailable), 권한·제약 위반 등은 400(message_send_rejected) */
+    return { ok: false, error: resolveMessengerSendRpcCallError(rpcErr) };
   }
   if (rpcRaw == null || typeof rpcRaw !== "object") {
     return { ok: false, error: MESSENGER_SEND_UNAVAILABLE_ERROR };

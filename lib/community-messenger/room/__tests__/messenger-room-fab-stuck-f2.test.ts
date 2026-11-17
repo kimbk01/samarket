@@ -131,7 +131,7 @@ describe("F2 「↓」 고착", () => {
     expect(toMessage.match(/syncMessengerRoomReaderStateFromViewport\(/g)?.length).toBe(2);
     const complete = src.slice(src.indexOf("const completeEntryPhase = useCallback("), src.indexOf("const tryCompleteEntry = useCallback("));
     expect(complete).toContain("syncMessengerRoomReaderStateFromViewport(");
-    expect(src).toContain("if (tailChanged) scheduleReaderStateSyncAfterEntry();");
+    expect(src).toContain("if (tailChanged && !ownForceFollow) scheduleReaderStateSyncAfterEntry();");
     const snap = readFileSync(
       path.join(process.cwd(), "lib/community-messenger/room/messenger-room-entry-unread-snapshot.ts"),
       "utf8"
