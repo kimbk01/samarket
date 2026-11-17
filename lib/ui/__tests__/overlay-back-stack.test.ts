@@ -6,7 +6,8 @@ import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   __setOverlayBackListenerDriverForTests,
-  setNavigationRootBackActive,
+  minimizeAppForBack,
+  setRootBackAction,
   handleOverlayHardwareBack,
   isOverlayBackListenerInstalled,
   overlayBackStackDepth,
@@ -119,50 +120,53 @@ describe("overlay back stack (INAPP-07)", () => {
     expect(stack.match(/addListener\("backButton"/g)?.length).toBe(1);
   });
 
-  describe("D1 — 첫 화면 ◁ = 앱 내리기 (2026-11-17)", () => {
-    it("웹 기록 첫 항목이면 리스너를 켜고, 갈 곳이 없으면 앱을 내린다", () => {
+  describe("D1·F4 — 첫 화면 ◁ (2026-11-17)", () => {
+    it("첫 화면 처리가 지정되면 리스너를 켜고, 오버레이가 없으면 그 처리를 한다(앱 내리기)", () => {
       const { driver, state } = fakeDriver();
       __setOverlayBackListenerDriverForTests(driver);
       const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
-      setNavigationRootBackActive(true);
+      setRootBackAction(minimizeAppForBack);
       expect(isOverlayBackListenerInstalled()).toBe(true);
-      state.onBack?.({ canGoBack: false });
+      state.onBack?.({ canGoBack: true }); // 남은 기록이 있어도 첫 화면 규칙이 이긴다(Android 표준)
       expect(state.minimizes).toBe(1);
       expect(back).not.toHaveBeenCalled();
-      setNavigationRootBackActive(false);
+      setRootBackAction(null);
       expect(isOverlayBackListenerInstalled()).toBe(false);
       back.mockRestore();
     });
 
-    it("첫 화면이어도 열린 오버레이가 먼저 — 오버레이만 닫고 앱은 그대로", () => {
+    it("첫 화면이어도 열린 오버레이가 먼저 — 오버레이만 닫는다", () => {
       const { driver, state } = fakeDriver();
       __setOverlayBackListenerDriverForTests(driver);
-      setNavigationRootBackActive(true);
+      const goHome = vi.fn();
+      setRootBackAction(goHome);
       const close = vi.fn();
       const release = pushOverlayBackEntry(close);
       state.onBack?.({ canGoBack: false });
       expect(close).toHaveBeenCalledTimes(1);
+      expect(goHome).not.toHaveBeenCalled();
       expect(state.minimizes).toBe(0);
       release();
     });
 
-    it("앱 안 이전 화면이 있으면 이전 화면으로(앱을 내리지 않음)", () => {
+    it("첫 화면이 아니고 오버레이도 없으면(경합) 이전 화면 → 없으면 앱 내리기", () => {
       const { driver, state } = fakeDriver();
       __setOverlayBackListenerDriverForTests(driver);
       const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
       const release = pushOverlayBackEntry(() => {});
-      release(); // listener 제거 직전 경합 — 오버레이 없음
-      setNavigationRootBackActive(true);
-      state.onBack?.({ canGoBack: true });
+      const onBack = state.onBack;
+      release();
+      onBack?.({ canGoBack: true });
       expect(back).toHaveBeenCalledTimes(1);
-      expect(state.minimizes).toBe(0);
+      onBack?.({ canGoBack: false });
+      expect(state.minimizes).toBe(1);
       back.mockRestore();
     });
 
-    it("처리 중(busy) 오버레이는 첫 화면에서도 삼킨다(앱을 내리지 않음)", () => {
+    it("처리 중(busy) 오버레이는 첫 화면에서도 삼킨다", () => {
       const { driver, state } = fakeDriver();
       __setOverlayBackListenerDriverForTests(driver);
-      setNavigationRootBackActive(true);
+      setRootBackAction(minimizeAppForBack);
       const release = pushOverlayBackEntry(null);
       state.onBack?.({ canGoBack: false });
       expect(state.minimizes).toBe(0);
