@@ -128,6 +128,14 @@ public final class DibayBridgeWebViewClient extends BridgeWebViewClient {
     if (isMainFrameUrl(url)) {
       loadMonitor.onMainFramePageFinished(url);
     }
+    DibaySystemBackPlugin.onWebViewHistoryChanged();
+  }
+
+  /** 기기 ◁ — WebView 기록이 바뀔 때마다(SPA 이동 포함) DIBAY 가 ◁ 를 받을지 다시 정한다(공식 WebView 방식). */
+  @Override
+  public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+    super.doUpdateVisitedHistory(view, url, isReload);
+    DibaySystemBackPlugin.onWebViewHistoryChanged();
   }
 
   @Override

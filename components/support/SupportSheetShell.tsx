@@ -35,7 +35,9 @@ export function SupportSheetShell({
   return (
     <DibayUsableAreaSheet
       open={open}
-      onClose={onClose}
+      // 닫을 수 없는 시트(문의)는 닫기 함수를 넘기지 않는다 → 기기 ◁ 를 「삼킴」으로 등록하지 않음.
+      // ◁ 는 WebView 기록으로 가고, 문의 시트가 넣어 둔 기록 1개의 popstate 로 닫힌다(SupportModalHost).
+      onClose={dismissible ? onClose : undefined}
       dismissible={dismissible}
       ariaLabel={ariaLabel}
       preferredHeightRatio={SUPPORT_SHEET_HEIGHT_RATIO}

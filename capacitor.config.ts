@@ -80,6 +80,13 @@ const config: CapacitorConfig = {
     SystemBars: {
       style: "LIGHT",
     },
+    /**
+     * 기기 ◁ (Android) — Capacitor 의 상시 켜진 뒤로 처리를 끈다. 이전 페이지가 없어도 ◁ 를 소비해 첫 화면 ◁ 가
+     * 무반응이었다. 대신 DibaySystemBackPlugin 이 「받아서 할 일이 있을 때만」 받는다(S1). iOS 는 이 값을 쓰지 않는다.
+     */
+    App: {
+      disableBackButtonHandler: true,
+    },
   },
   ...(useLegacyAndroidBridge
     ? {
