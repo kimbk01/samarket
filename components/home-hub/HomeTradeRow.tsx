@@ -14,6 +14,7 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import { HOME_TRADES_RECENT_DAYS, type HomeTradesConfig } from "@/lib/home/home-layout-contract";
 import { homeCatalogName, type HomeTradeCategory } from "@/lib/home/home-catalog-types";
 import { keepSessionPick, rotateUnseenFirst } from "@/lib/home/home-rotation";
+import { HOME_FEED_IMAGE_WIDTH, homeFeedImageSrc, prefetchHomeFeedImages } from "@/lib/home/home-feed-image";
 import type { HomeRotationCtl } from "@/components/home-hub/use-home-rotation";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -93,6 +94,19 @@ export function useHomeTrades({
           : rotateUnseenFirst(pool, idOf, rot.history.log.trades, config.count);
       rot.commit({ trades: picked.map(idOf) });
       setItems(picked);
+      /**
+       * 설계 D4-2: 다음 실행이 「안 본 글 먼저」로 고를 앞 2개(이번에 고른 글을 본 것으로 친 순서)의 큰 카드 그림을 미리 받아 둔다.
+       * 다음 실행의 후보가 바뀌면(새 글) 맞지 않을 수 있다 — 빈도만 줄인다.
+       */
+      if (rot.mode !== "session") {
+        const nextPick = rotateUnseenFirst(pool, idOf, [...rot.history.log.trades, ...picked.map(idOf)], 2);
+        prefetchHomeFeedImages(
+          nextPick
+            .map((p) => p.thumbnail_url || p.images?.[0] || "")
+            .filter(Boolean)
+            .map((u) => homeFeedImageSrc(u, HOME_FEED_IMAGE_WIDTH.big))
+        );
+      }
       revisitGate.markLoaded(gateKey);
     })();
     return () => {
@@ -124,13 +138,14 @@ export function HomeTradeFeedCard({
 }) {
   const { language } = useI18n();
   const router = useRouter();
-  const img = post.thumbnail_url || post.images?.[0] || "";
+  const big = variant === "big";
+  /** 설계 D4-1 — 카드 너비에 맞춘 크기 변환 그림 */
+  const img = homeFeedImageSrc(post.thumbnail_url || post.images?.[0] || "", big ? HOME_FEED_IMAGE_WIDTH.big : HOME_FEED_IMAGE_WIDTH.pair);
   const catId = (post as { trade_category_id?: string | null }).trade_category_id ?? post.category_id;
   const cat = tradeCategories.find((x) => x.id === catId);
   const meta = [cat ? homeCatalogName(cat, language) : "", formatRelativeTimeAgo(post.created_at, language as AppLanguageCode)]
     .filter(Boolean)
     .join(" · ");
-  const big = variant === "big";
   return (
     <button
       type="button"
