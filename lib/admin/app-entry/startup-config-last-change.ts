@@ -20,6 +20,8 @@ export async function loadStartupConfigLastChange(sb: SupabaseClient): Promise<S
     sb
       .from("audit_logs")
       .select("actor_id, created_at")
+      // 빌드 전 감사 A3: target_type 이 색인 앞 열 — 없으면 운영 634ms, 있으면 0.6ms(EXPLAIN ANALYZE)
+      .eq("target_type", "admin_settings")
       .eq("action", STARTUP_CONFIG_AUDIT_ACTION)
       .eq("target_id", STARTUP_CONFIG_SETTINGS_KEY)
       .order("created_at", { ascending: false })

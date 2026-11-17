@@ -5,10 +5,13 @@
  * - 칸 위에 규격 고정 표시 · 끌어다 놓기/눌러서 고르기 · 고르는 순간 1차 검사(서버 2차 검사와 같은 값)
  * - 투명한 곳은 격자 무늬로 보여 준다. 오류가 있으면 `onAccept` 를 부르지 않는다.
  */
-import { useCallback, useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
+  ADMIN_PNG_FULL_READ_MAX_BYTES,
+  ADMIN_PNG_HEAD_READ_BYTES,
   checkAdminImage,
+  pngBytesHasAlpha,
   type AdminImageCheck,
   type AdminImageIssue,
   type AdminImageMeta,
@@ -18,7 +21,7 @@ import {
 export const ADMIN_CHECKER_BG =
   "repeating-conic-gradient(rgb(220, 223, 220) 0% 25%, rgb(255, 255, 255) 0% 50%) 50% / 14px 14px";
 
-/** 파일 → 크기·투명 여부(PNG·WebP 는 64px 로 줄여 알파를 본다) */
+/** 파일 → 크기·투명 여부. PNG 는 서버와 같은 머리 정보 규칙(빌드 전 감사 I5) · WebP 는 64px 로 줄여 알파를 본다 */
 export async function readAdminImageMeta(file: File): Promise<AdminImageMeta> {
   const url = URL.createObjectURL(file);
   try {
@@ -31,7 +34,14 @@ export async function readAdminImageMeta(file: File): Promise<AdminImageMeta> {
     const width = img.naturalWidth;
     const height = img.naturalHeight;
     let hasAlpha: boolean | null = null;
-    if (file.type === "image/png" || file.type === "image/webp") {
+    if (file.type === "image/png") {
+      try {
+        const part = file.size <= ADMIN_PNG_FULL_READ_MAX_BYTES ? file : file.slice(0, ADMIN_PNG_HEAD_READ_BYTES);
+        hasAlpha = pngBytesHasAlpha(new Uint8Array(await part.arrayBuffer()));
+      } catch {
+        hasAlpha = null;
+      }
+    } else if (file.type === "image/webp") {
       try {
         const c = document.createElement("canvas");
         const s = 64;
@@ -135,11 +145,16 @@ export type AdminImageSlotProps = {
   disabled?: boolean;
   /** 1차 검사를 통과한(경고 포함) 파일만 */
   onAccept: (file: File, meta: AdminImageMeta, check: AdminImageCheck) => void | Promise<void>;
+  /**
+   * 빌드 전 감사 I5: 고른 파일이 검사 오류(또는 읽기 실패)일 때 — 부모는 전에 받아 둔 파일을 비운다
+   * (칸에 보이는 것 = 저장되는 것). 읽기 실패면 meta·check 가 null.
+   */
+  onReject?: (meta: AdminImageMeta | null, check: AdminImageCheck | null) => void;
   /** 칸 아래 추가(자르기 틀 등) */
   children?: ReactNode;
 };
 
-export function AdminImageSlot({ spec, currentUrl, currentLabel, disabled, onAccept, children }: AdminImageSlotProps) {
+export function AdminImageSlot({ spec, currentUrl, currentLabel, disabled, onAccept, onReject, children }: AdminImageSlotProps) {
   const { t } = useI18n();
   const issueText = useAdminImageIssueText();
   const inputId = useId();
@@ -152,19 +167,45 @@ export function AdminImageSlot({ spec, currentUrl, currentLabel, disabled, onAcc
     async (file: File | null | undefined) => {
       if (!file || disabled) return;
       setReadError(false);
+      let meta: AdminImageMeta;
+      let check: AdminImageCheck;
       try {
-        const meta = await readAdminImageMeta(file);
-        const check = checkAdminImage(meta, spec);
-        setPicked((prev) => {
-          if (prev) URL.revokeObjectURL(prev.url);
-          return { url: URL.createObjectURL(file), meta, check };
-        });
-        if (check.level !== "error") await onAccept(file, meta, check);
+        meta = await readAdminImageMeta(file);
+        check = checkAdminImage(meta, spec);
+      } catch {
+        setReadError(true);
+        // 빌드 전 감사 I5: 읽지 못한 파일도 부모가 쥔 이전 파일을 비운다
+        onReject?.(null, null);
+        return;
+      }
+      setPicked((prev) => {
+        if (prev) URL.revokeObjectURL(prev.url);
+        return { url: URL.createObjectURL(file), meta, check };
+      });
+      if (check.level === "error") {
+        // 빌드 전 감사 I5: 칸은 오류 파일을 보이므로 부모도 이전 파일을 놓아야 한다
+        onReject?.(meta, check);
+        return;
+      }
+      try {
+        await onAccept(file, meta, check);
       } catch {
         setReadError(true);
       }
     },
-    [disabled, onAccept, spec]
+    [disabled, onAccept, onReject, spec]
+  );
+
+  // 빌드 전 감사 I5: 떠날 때 미리보기 blob 해제
+  const pickedUrlRef = useRef<string | null>(null);
+  useEffect(() => {
+    pickedUrlRef.current = picked?.url ?? null;
+  }, [picked]);
+  useEffect(
+    () => () => {
+      if (pickedUrlRef.current) URL.revokeObjectURL(pickedUrlRef.current);
+    },
+    []
   );
 
   const shownUrl = picked?.url ?? currentUrl ?? null;

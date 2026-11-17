@@ -195,6 +195,13 @@ describe("GET /api/admin/app-entry/overview", () => {
     const devices = H.calls.find((c) => c.table === "user_devices")!;
     expect(devices.ops.map((o) => o[0])).toEqual(["select", "eq", "in", "gte", "order", "limit"]);
     expect(devices.ops[1][1]).toEqual(["is_active", true]);
+    // 빌드 전 감사 A3: 마지막 변경 조회는 색인 앞 열 target_type 을 건다
+    const audit = H.calls.find((c) => c.table === "audit_logs")!;
+    expect(audit.ops.filter((o) => o[0] === "eq").map((o) => o[1])).toEqual([
+      ["target_type", "admin_settings"],
+      ["action", "startup_config.update"],
+      ["target_id", "startup_config_v1"],
+    ]);
     for (const c of H.calls) {
       expect(c.ops.some((o) => ["insert", "update", "upsert", "delete"].includes(o[0])), c.table).toBe(false);
     }

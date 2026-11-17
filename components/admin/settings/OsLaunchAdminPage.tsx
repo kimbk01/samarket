@@ -330,6 +330,8 @@ export function OsLaunchAdminPage() {
                     }
                     disabled={writeBlocked}
                     onAccept={(file) => upload(file)}
+                    // 빌드 전 감사 I5: 이 화면은 파일을 쥐지 않는다(통과 즉시 업로드) — 이전 「저장했습니다」 결과만 지운다
+                    onReject={() => setResult(null)}
                   />
                   {!usingBuildLogo ? (
                     <AdminActionButton

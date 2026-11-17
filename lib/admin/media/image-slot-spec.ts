@@ -10,6 +10,7 @@ import {
   OS_LAUNCH_LOGO_MAX_BYTES,
   OS_LAUNCH_LOGO_MAX_EDGE_PX,
   OS_LAUNCH_LOGO_MIN_EDGE_PX,
+  readPngInfo,
 } from "@/lib/os-launch/contract";
 import { LAUNCH_INTRO_IMAGE_MAX_BYTES, LAUNCH_INTRO_IMAGE_MAX_EDGE } from "@/lib/launch-intro/document";
 import { LAUNCH_INTRO_POOL_MIN_LONG_EDGE } from "@/lib/launch-intro/pool";
@@ -95,9 +96,22 @@ export type AdminImageMeta = {
   bytes: number;
   width: number;
   height: number;
-  /** 투명 픽셀이 있는가(PNG·WebP) — 알 수 없으면 null */
+  /** 투명 픽셀이 있는가(PNG·WebP) — 알 수 없으면 null. PNG 는 서버와 같은 머리 정보 규칙(`pngBytesHasAlpha`) */
   hasAlpha: boolean | null;
 };
+
+/**
+ * 빌드 전 감사 I5: PNG 투명 판정을 서버(`checkOsLaunchLogo` → `readPngInfo`)와 같은 규칙으로 —
+ * 색 형식 4·6(알파 채널) 또는 팔레트(3)+tRNS. IHDR·tRNS 는 IDAT 앞에 있어 파일 앞부분만 읽어도 된다.
+ * 이 크기 이하 파일은 통째로 읽는다(서버와 결과가 갈리지 않게).
+ */
+export const ADMIN_PNG_FULL_READ_MAX_BYTES = 8 * 1024 * 1024;
+export const ADMIN_PNG_HEAD_READ_BYTES = 64 * 1024;
+
+/** PNG 바이트(앞부분 또는 전체) → 투명 여부. PNG 가 아니면 null */
+export function pngBytesHasAlpha(bytes: Uint8Array): boolean | null {
+  return readPngInfo(bytes)?.hasAlpha ?? null;
+}
 
 export type AdminImageIssue =
   | { level: "error"; code: "type"; allowed: string }

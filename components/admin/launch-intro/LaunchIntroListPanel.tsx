@@ -148,7 +148,21 @@ export function LaunchIntroListPanel({ canWrite }: { canWrite: boolean }) {
     await load();
   };
 
+  /** 빌드 전 감사 I6: 저장 안 한 끌기 순서가 있으면 다시 읽기(load) 전에 버려도 되는지 묻는다 */
+  const confirmDiscardOrder = async (): Promise<boolean> => {
+    if (!order) return true;
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: t("admin_launch_intro_v3_order_discard_title"),
+      description: t("admin_launch_intro_v3_order_discard_desc"),
+      confirmLabel: t("admin_launch_intro_v3_order_discard_confirm"),
+    });
+    return confirmed.ok;
+  };
+
   const toggleItem = async (item: LaunchIntroPoolAdminItem, on: boolean) => {
+    if (!(await confirmDiscardOrder())) return;
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
@@ -170,6 +184,7 @@ export function LaunchIntroListPanel({ canWrite }: { canWrite: boolean }) {
   };
 
   const duplicate = async (item: LaunchIntroPoolAdminItem) => {
+    if (!(await confirmDiscardOrder())) return;
     setBusy(true);
     setNotice(null);
     const name = t("admin_launch_intro_v3_duplicate_name", { name: item.name }).slice(0, LAUNCH_INTRO_POOL_NAME_MAX);
@@ -181,6 +196,7 @@ export function LaunchIntroListPanel({ canWrite }: { canWrite: boolean }) {
   };
 
   const remove = async (item: LaunchIntroPoolAdminItem) => {
+    if (!(await confirmDiscardOrder())) return;
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("delete"),
       ko,
@@ -253,7 +269,6 @@ export function LaunchIntroListPanel({ canWrite }: { canWrite: boolean }) {
           <span className="inline-flex rounded-full bg-sam-success-soft px-2 py-0.5 sam-text-helper font-semibold text-sam-success">
             ● {t("admin_launch_intro_v3_applied_live")}
           </span>
-          {a.firstInRotation ? <div className="mt-0.5 sam-text-helper text-sam-muted">{t("admin_launch_intro_v3_applied_first")}</div> : null}
         </div>
       );
     }

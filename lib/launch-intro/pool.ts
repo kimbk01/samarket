@@ -21,6 +21,22 @@ export const LAUNCH_INTRO_POOL_STATUSES = ["active", "paused", "ended"] as const
 export type LaunchIntroPoolStatus = (typeof LAUNCH_INTRO_POOL_STATUSES)[number];
 export const LAUNCH_INTRO_EVENT_TYPES = ["impression", "skip", "click", "complete"] as const;
 export type LaunchIntroEventType = (typeof LAUNCH_INTRO_EVENT_TYPES)[number];
+
+/** 빌드 전 감사 I3: 기록 API 의 `platform` — android·ios·web 만, 그 외 null */
+export const LAUNCH_INTRO_EVENT_PLATFORMS = ["android", "ios", "web"] as const;
+export function normalizeLaunchIntroEventPlatform(v: unknown): (typeof LAUNCH_INTRO_EVENT_PLATFORMS)[number] | null {
+  return typeof v === "string" && (LAUNCH_INTRO_EVENT_PLATFORMS as readonly string[]).includes(v.trim())
+    ? (v.trim() as (typeof LAUNCH_INTRO_EVENT_PLATFORMS)[number])
+    : null;
+}
+
+/** 빌드 전 감사 I3: 기록 API 의 `deviceKey` — 영숫자·`_`·`-` 8~80자만, 그 외 null */
+export function normalizeLaunchIntroEventDeviceKey(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const k = v.trim();
+  return /^[0-9A-Za-z_-]{8,80}$/.test(k) ? k : null;
+}
+
 /**
  * 앱 진입 어드민 v3 §2 — 소재 종류. DB 열 `kind`(마이그레이션 20271117140000) 가 아직 없으면 모두 'ad' 로 읽는다.
  * 종류 'ad' 는 「광고」 표기를 끌 수 없다(화면·서버 같은 규칙).
@@ -130,7 +146,8 @@ export function validateLaunchIntroPoolInput(
     if (typeof v !== "string" || !Number.isFinite(Date.parse(v))) return { ok: false, error: "window_invalid" };
     row[col] = new Date(v).toISOString();
   }
-  if (typeof row.start_at === "string" && typeof row.end_at === "string" && row.start_at >= row.end_at) {
+  // 빌드 전 감사 I6: 문자열이 아니라 시각(ms)으로 비교한다
+  if (typeof row.start_at === "string" && typeof row.end_at === "string" && Date.parse(row.start_at) >= Date.parse(row.end_at)) {
     return { ok: false, error: "window_invalid" };
   }
   if (has("backgroundColor")) {
@@ -204,7 +221,7 @@ export type LaunchIntroPoolOffReason =
   | "image_missing"
   | "over_cap";
 export type LaunchIntroPoolApplied =
-  | { state: "live"; reason: null; rank: number; firstInRotation: boolean }
+  | { state: "live"; reason: null; rank: number }
   | { state: "scheduled"; reason: null; rank: number; startAt: string }
   | { state: "off"; reason: LaunchIntroPoolOffReason; endAt?: string | null };
 
@@ -237,15 +254,6 @@ export function computeLaunchIntroPoolApplied<T extends AppliedRow>(
   const out: Record<string, LaunchIntroPoolApplied> = {};
   const selected = selectLiveLaunchIntroPoolRows(rows, now);
   const rankById = new Map(selected.map((r, i) => [r.id, i] as const));
-  let firstLiveId: string | null = null;
-  if (policy.enabled) {
-    for (const r of selected) {
-      if (!(r.start_at && Date.parse(r.start_at) > t) && launchIntroPoolRowHasImage(r)) {
-        firstLiveId = r.id;
-        break;
-      }
-    }
-  }
   for (const r of rows) {
     if (r.status === "paused") out[r.id] = { state: "off", reason: "paused" };
     else if (r.status !== "active") out[r.id] = { state: "off", reason: "ended_status" };
@@ -256,7 +264,7 @@ export function computeLaunchIntroPoolApplied<T extends AppliedRow>(
     else if (r.start_at && Date.parse(r.start_at) > t) {
       out[r.id] = { state: "scheduled", reason: null, rank: rankById.get(r.id)!, startAt: r.start_at };
     } else {
-      out[r.id] = { state: "live", reason: null, rank: rankById.get(r.id)!, firstInRotation: r.id === firstLiveId };
+      out[r.id] = { state: "live", reason: null, rank: rankById.get(r.id)! };
     }
   }
   return out;
