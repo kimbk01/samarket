@@ -18,6 +18,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { StoreOrderDeliveryAddressDisplay } from "@/components/addresses/StoreOrderDeliveryAddressDisplay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 export type StoreOrderBuyerOrderPayload = {
   order_no?: string;
@@ -94,6 +95,8 @@ export function StoreOrderBuyerChatTop({
   const [statusBannerVisible, setStatusBannerVisible] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   useRegisterOpenOverlay(drawerOpen);
+  /** Android ◁ = 닫기(✕·바깥 탭과 같은 처리) — 감사 2026-11-17 D5 */
+  useOverlayHardwareBack(drawerOpen, () => setDrawerOpen(false));
   const [mounted, setMounted] = useState(false);
   const [matchAcked, setMatchAcked] = useState(false);
   const ackDoneRef = useRef(false);

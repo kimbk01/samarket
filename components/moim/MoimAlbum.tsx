@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, ImagePlus, Pin, X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import { moimApi, moimErrorKey } from "@/lib/moim/moim-client-api";
 import type { MoimAlbumItemDto, MoimDetailDto } from "@/lib/moim/moim-api-types";
 import type { MoimReportTarget } from "@/components/moim/MoimReportSheet";
@@ -150,6 +151,8 @@ function MoimAlbumViewer({
   const open = index != null && items.length > 0;
   useRegisterOpenOverlay(open);
   useEffect(() => setMounted(true), []);
+  /** Android ◁ = 닫기(✕·바깥 탭과 같은 처리) — 감사 2026-11-17 D5 */
+  useOverlayHardwareBack(open, onClose);
 
   const safe = index == null ? 0 : Math.max(0, Math.min(items.length - 1, index));
   const item = open ? items[safe] : null;

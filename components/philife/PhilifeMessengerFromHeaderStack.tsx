@@ -8,6 +8,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
 import { isMessengerFromHeaderStackSurface } from "@/lib/layout/messenger-from-header-stack-surface";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 const PANEL_MS = 480;
 const PANEL_EASE = "cubic-bezier(0.25,0.1,0.2,1)";
@@ -90,6 +91,8 @@ export function PhilifeMessengerFromHeaderStack({ children }: { children: ReactN
 
   const lock = onPath && (isOpen || exiting);
   useRegisterOpenOverlay(lock);
+  /** Android ◁ = 닫기(✕·바깥 탭과 같은 처리) — 감사 2026-11-17 D5 */
+  useOverlayHardwareBack(lock && isOpen, runClose);
   useEffect(() => {
     if (!lock) return;
     const prev = document.body.style.overflow;

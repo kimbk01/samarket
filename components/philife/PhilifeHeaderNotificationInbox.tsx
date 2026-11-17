@@ -107,6 +107,7 @@ import { NotificationBellEmptyShortcuts } from "@/components/notifications/Notif
 import { useOwnerHubBadgeBreakdownWhenEnabled } from "@/lib/chats/use-owner-hub-badge-total";
 import { useOwnerLitePreferredStoreRow } from "@/lib/stores/use-owner-lite-store";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 export type { Tier1BellBadgeSurface };
 
@@ -470,6 +471,8 @@ export function PhilifeHeaderNotificationInbox({
   const closePanel = useCallback(() => {
     setOpen(false);
   }, []);
+  /** Android ◁ = 닫기(✕·바깥 탭과 같은 처리) — 감사 2026-11-17 D5 */
+  useOverlayHardwareBack(open, closePanel);
 
   /** Kill overlay sync — see-all / row nav must not wait 240ms close motion. */
   const closePanelImmediate = useCallback(() => {

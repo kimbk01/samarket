@@ -63,6 +63,7 @@ export function ChatMobileImagePickerSheet({ open, files, onClose, onConfirm }: 
       open={open}
       onClose={onClose}
       dismissible={false}
+      backDismissible
       placement="full"
       zRole="sheet"
       zIndexClass={MAIN_BOTTOM_NAV_SHEET_Z_CLASS}
