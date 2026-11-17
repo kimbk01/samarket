@@ -24,6 +24,7 @@ import {
   CM_TEXTAREA_CLASS,
 } from "@/lib/community/community-ui-classes";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 type Props = {
   node: NeighborhoodCommentNode;
@@ -80,6 +81,8 @@ export function CommunityCommentItem({
   const [menuOpen, setMenuOpen] = useState(false);
   /** 재감사 S-2 (G-8 마무리): 메뉴가 열려 있으면 팝업 광고를 띄우지 않는다 */
   useRegisterOpenOverlay(menuOpen);
+  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
+  useOverlayHardwareBack(menuOpen, () => setMenuOpen(false));
   const [repliesOpen, setRepliesOpen] = useState(() => node.children.length === 0);
   const [replyDraft, setReplyDraft] = useState("");
   const replyComposingRef = useRef(false);

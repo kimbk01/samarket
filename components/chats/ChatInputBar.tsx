@@ -23,6 +23,7 @@ import {
   MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX,
 } from "@/lib/ui/messenger-chat-viewport-tuning";
 import { ChatEmojiPicker } from "@/components/chat-ui/ChatEmojiPicker";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 interface ChatInputBarProps {
   onSend: (message: string) => void;
@@ -80,6 +81,9 @@ function ChatInputBarInner({
   const [text, setText] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
+  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
+  useOverlayHardwareBack(showEmojiButton && emojiOpen, () => setEmojiOpen(false));
+  useOverlayHardwareBack(!preferMobileImageSheet && attachOpen, () => setAttachOpen(false));
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const emojiPanelRef = useRef<HTMLDivElement>(null);
   const attachWrapRef = useRef<HTMLDivElement>(null);

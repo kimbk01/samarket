@@ -18,6 +18,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { StoreOrderDeliveryAddressDisplay } from "@/components/addresses/StoreOrderDeliveryAddressDisplay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 export type StoreOrderBuyerOrderPayload = {
   order_no?: string;
@@ -94,6 +95,8 @@ export function StoreOrderBuyerChatTop({
   const [statusBannerVisible, setStatusBannerVisible] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   useRegisterOpenOverlay(drawerOpen);
+  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
+  useOverlayHardwareBack(drawerOpen, () => setDrawerOpen(false));
   const [mounted, setMounted] = useState(false);
   const [matchAcked, setMatchAcked] = useState(false);
   const ackDoneRef = useRef(false);

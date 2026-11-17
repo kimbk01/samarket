@@ -14,6 +14,7 @@ import {
 import { OwnerStoreOrderDeliveryActionsDrawerSection } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 export type StoreOrderSellerOrderPanelPresentation = "drawer" | "modal";
 
@@ -63,6 +64,8 @@ export function StoreOrderSellerOrderPanel({
   const [sendBusy, setSendBusy] = useState(false);
   const [sendToast, setSendToast] = useState<string | null>(null);
   useRegisterOpenOverlay(open);
+  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
+  useOverlayHardwareBack(open, () => onOpenChange(false));
 
   const titleId = `seller-order-panel-${presentation}-title-${chatRoomId}`;
   const surfaceId =

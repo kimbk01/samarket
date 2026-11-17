@@ -13,6 +13,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 export interface SalesHistoryRow {
   /** 가격 통화 — 글 meta.currency (PHP·KRW · 한국 주소 지원 3단계). 없으면 화면이 앱 기본 */
@@ -58,6 +59,8 @@ export function SalesHistoryCard({
   const { t, safeT } = useI18n();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
+  useOverlayHardwareBack(menuOpen, () => setMenuOpen(false));
   const [reportOpen, setReportOpen] = useState(false);
   const [thumbFailed, setThumbFailed] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);

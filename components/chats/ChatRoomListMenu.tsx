@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dispatchTradeChatUnreadUpdated } from "@/lib/chats/chat-channel-events";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 type Props = {
   roomId: string;
@@ -15,6 +16,8 @@ type Props = {
 export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
+  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
+  useOverlayHardwareBack(open, () => setOpen(false));
   const wrapRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
 
