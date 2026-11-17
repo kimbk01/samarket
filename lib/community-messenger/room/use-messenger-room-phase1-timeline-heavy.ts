@@ -27,6 +27,7 @@ export function useMessengerRoomPhase1TimelineHeavy({
   messageEndRef,
   stickToBottomRef,
   scrollMessengerToBottomRef,
+  isGroupRoom = false,
 }: {
   roomId: string;
   displayRoomMessages: RoomMsg[];
@@ -38,6 +39,8 @@ export function useMessengerRoomPhase1TimelineHeavy({
   scrollMessengerToBottomRef: MutableRefObject<
     (req?: { reason?: string; force?: boolean }) => void
   >;
+  /** P4 — 그룹 방이면 받은 글 추정에 발신자 이름 줄 몫을 더한다(1:1 은 이름 줄 없음) */
+  isGroupRoom?: boolean;
 }): MessengerRoomTimelineVirtualizer {
   const chatVirtualizer = useVirtualizer({
     count: displayRoomMessages.length,
@@ -48,7 +51,7 @@ export function useMessengerRoomPhase1TimelineHeavy({
      * (운영 실측: 그룹방 첫 진입 맨 아래 → 0 → 맨 아래 튐). 현재 위치를 넘겨 이동이 없게 한다.
      */
     initialOffset: () => messagesViewportRef.current?.scrollTop ?? 0,
-    estimateSize: (index) => estimateMessengerTimelineRowPx(displayRoomMessages[index]),
+    estimateSize: (index) => estimateMessengerTimelineRowPx(displayRoomMessages[index], { isGroupRoom }),
     overscan: MESSENGER_TIMELINE_VIRTUAL_OVERSCAN,
     getItemKey: (index) =>
       messengerTimelineVirtualRowKey(displayRoomMessages[index]) || `__cm_timeline_${index}`,

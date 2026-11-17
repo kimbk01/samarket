@@ -281,8 +281,7 @@ for (const marker of [
   "foreground_visible_activity_fallback_to_fsi",
   "scheduleSuppressNotificationWhenActivityShown",
   "NativeVideoCallNotification.showIncoming",
-  "shouldStartBackgroundUnlockedActivity",
-  "startBackgroundUnlockedActivity",
+  "incoming_fsi_only",
   "NativeCallVisibleSurfaceOwner.logCallOwnerClaimed",
   "closeIncomingVisualsOnConnected",
   "NativeCallVisibleSurfaceOwner.markConnected",
@@ -290,6 +289,18 @@ for (const marker of [
 ]) {
   if (!nativeVideoRuntime.includes(marker)) {
     fail(`NativeVideoCallRuntime missing Voice-parity incoming marker: ${marker}`);
+  }
+}
+
+// 안 A (Owner 승인 2026-11-18): 잠금 해제·사용 중 수신은 Android 표준 FSI(위쪽 알림)만 — 백그라운드 직접 시작 금지(음성·영상 동일).
+for (const [label, src] of [
+  ["NativeVideoCallRuntime", nativeVideoRuntime],
+  ["NativeVoiceCallRuntime", read("android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallRuntime.java")],
+]) {
+  if (src.includes("startBackgroundUnlockedActivity") || src.includes("fullScreenIntent.send()")) {
+    fail(`${label} must not start the call screen from background (Android standard FSI only)`);
+  } else {
+    pass(`${label} incoming unlocked = Android standard FSI only`);
   }
 }
 

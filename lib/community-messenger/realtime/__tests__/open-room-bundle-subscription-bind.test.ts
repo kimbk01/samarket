@@ -91,9 +91,11 @@ describe("CUT-R1 open-room bundle subscription bind", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(channelNames.some((n) => n === `global-messenger:bundle:${viewer}:0`)).toBe(true);
+    /** P2 X4: 바인드 세대 접미 `:g<n>` */
+    const bundleName = channelNames.find((n) => n.startsWith(`global-messenger:bundle:${viewer}:0:g`));
+    expect(bundleName).toMatch(new RegExp(`^global-messenger:bundle:${viewer}:0:g\\d+$`));
     expect(mockSb.channel).toHaveBeenCalledWith(
-      `global-messenger:bundle:${viewer}:0`,
+      bundleName,
       expect.objectContaining({ config: expect.objectContaining({ private: true }) })
     );
 
@@ -150,7 +152,7 @@ describe("CUT-R1 open-room bundle subscription bind", () => {
     await vi.advanceTimersByTimeAsync(80);
     await Promise.resolve();
     await Promise.resolve();
-    const afterMount = channelNames.filter((n) => n === `global-messenger:bundle:${viewer}:0`).length;
+    const afterMount = channelNames.filter((n) => n.startsWith(`global-messenger:bundle:${viewer}:0:g`)).length;
     expect(afterMount).toBeGreaterThanOrEqual(1);
 
     entry.listenersByRoom.delete(roomId);
@@ -164,7 +166,7 @@ describe("CUT-R1 open-room bundle subscription bind", () => {
     await vi.advanceTimersByTimeAsync(80);
     await Promise.resolve();
     await Promise.resolve();
-    const afterRemount = channelNames.filter((n) => n === `global-messenger:bundle:${viewer}:0`).length;
+    const afterRemount = channelNames.filter((n) => n.startsWith(`global-messenger:bundle:${viewer}:0:g`)).length;
     expect(afterRemount).toBeGreaterThan(afterMount);
 
     entry.stop();

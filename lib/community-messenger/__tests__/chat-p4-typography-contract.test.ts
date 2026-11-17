@@ -48,8 +48,8 @@ describe("P4 채팅 글자 토큰 — 전역 design-tokens.css", () => {
     }
   });
 
-  it("태블릿(≥600px): 같은 토큰만 바꾼다 — 본문 18 · 인용/발신자 15 · 서비스 16 · 시각 12 그대로", () => {
-    const m = tokens.match(/@media \(min-width: 600px\) \{\s*:root \{([^}]*)\}/);
+  it("태블릿(짧은 변 ≥600px, 레거시 isTablet): 같은 토큰만 바꾼다 — 본문 18 · 인용/발신자 15 · 서비스 16 · 시각 12 그대로", () => {
+    const m = tokens.match(/@media \(min-width: 600px\) and \(min-height: 600px\) \{\s*:root \{([^}]*)\}/);
     expect(m).not.toBeNull();
     const body = m![1];
     expect(body).toContain("--cm-chat-font-body: 18px;");
@@ -76,6 +76,13 @@ describe("P4 입력창 규칙 — 전역 파일(주문 채팅 슬라이드 콜�
     expect(read("app/globals.css")).toContain('@import "./chat-viewport-shell.css";');
   });
 
+  it("주문 채팅 입력칸(delivery-chat-room.css)도 고정 16px !important 없이 같은 토큰 — 입력 글·안내 글 일치", () => {
+    const css = read("app/delivery-chat-room.css");
+    expect(css).not.toMatch(/font-size:\s*16px\s*!important/);
+    expect(css).toContain("font-size: var(--cm-chat-font-composer, 16px) !important;");
+    expect(css).toMatch(/\[data-delivery-composer-pill\] textarea::placeholder[\s\S]{0,120}--cm-chat-font-composer/);
+  });
+
   it("입력칸 textarea 에 data-cm-composer-input 이 있다", () => {
     expect(read("components/community-messenger/line-ui/messenger-composer-sector.tsx")).toContain(
       'data-cm-composer-input=""'
@@ -93,6 +100,30 @@ describe("P4 대화 목록 기본 행 토큰", () => {
     expect(read("components/community-messenger/MessengerChatListItem.tsx")).toContain(
       "text-[length:var(--cm-chat-font-badge)]"
     );
+  });
+});
+
+describe("P4 거래·주문 목록 행 — 모든 대화 목록 같은 토큰(레거시)", () => {
+  it("trade·delivery 행도 이름 16 · 미리보기 15 · 시각 12 · 배지 12 토큰", () => {
+    const css = read("app/messenger-presentation.css");
+    expect(css).toMatch(
+      /\[data-messenger-chat-row\]\[data-cm-list-visual="trade"\],\s*\[data-messenger-chat-row\]\[data-cm-list-visual="delivery"\] \{[^}]*--cm-list-preview-size: var\(--cm-chat-font-list-preview\);[^}]*--cm-list-meta-size: var\(--cm-chat-font-list-meta\);/
+    );
+    for (const f of [
+      "components/community-messenger/trade-chat-list/TradeChatListRowContent.tsx",
+      "components/community-messenger/delivery-chat-list/DeliveryChatListRowContent.tsx",
+    ]) {
+      const src = read(f);
+      expect(src).toContain("text-[length:var(--cm-chat-font-list-preview)]");
+      expect(src).toContain("text-[length:var(--cm-chat-font-list-title)]");
+      expect(src).not.toMatch(/text-\[(13\.5|16)px\]/);
+    }
+    /** 행 높이 그대로 */
+    expect(read("components/community-messenger/trade-chat-list/TradeChatListRowContent.tsx")).toContain("h-[84px]");
+    expect(read("components/community-messenger/delivery-chat-list/DeliveryChatListRowContent.tsx")).toContain("h-[72px]");
+    const item = read("components/community-messenger/MessengerChatListItem.tsx");
+    expect(item).not.toMatch(/text-\[(11|11\.5)px\] font-(normal|bold)/);
+    expect(item.match(/text-\[length:var\(--cm-chat-font-badge\)\]/g)?.length).toBe(2);
   });
 });
 
@@ -157,5 +188,33 @@ describe("P4 행 높이 추정", () => {
     ).toBe(74);
     expect(estimateMessengerTimelineRowPx({ messageType: "text", content: "안녕", metadata: null })).toBe(55);
     expect(read("app/samarket-components.css")).toContain("contain-intrinsic-block-size: auto 68px;");
+  });
+
+  it("1:1 과 그룹 구분 — 그룹 받은 글만 이름 줄 22 더함", () => {
+    const short = { messageType: "text" as const, content: "안녕", metadata: null };
+    expect(estimateMessengerTimelineRowPx({ ...short, isMine: false })).toBe(55);
+    expect(estimateMessengerTimelineRowPx({ ...short, isMine: false }, { isGroupRoom: false })).toBe(55);
+    expect(estimateMessengerTimelineRowPx({ ...short, isMine: false }, { isGroupRoom: true })).toBe(77);
+    expect(estimateMessengerTimelineRowPx({ ...short, isMine: true }, { isGroupRoom: true })).toBe(55);
+    expect(
+      estimateMessengerTimelineRowPx({ messageType: "system", content: "x", metadata: null, isMine: false }, { isGroupRoom: true })
+    ).toBe(74);
+    expect(read("lib/community-messenger/room/use-messenger-room-phase1-timeline-heavy.ts")).toContain(
+      "estimateMessengerTimelineRowPx(displayRoomMessages[index], { isGroupRoom })"
+    );
+    expect(read("components/community-messenger/CommunityMessengerRoomClientInner.tsx")).toContain(
+      "isGroupRoom={isGroupRoomForShell}"
+    );
+  });
+
+  it("서비스 문구 줄 높이는 비율(leading-[1.4]) — 태블릿 16px 에서도 고정 20px 에 갇히지 않음", () => {
+    for (const f of [
+      "components/community-messenger/room/phase2/MessengerTimelineVirtualRow.tsx",
+      "components/community-messenger/room/phase2/MessengerTradeListingChangeSystemRow.tsx",
+    ]) {
+      const src = read(f);
+      expect(src).toContain("text-[length:var(--cm-chat-font-service)] leading-[1.4]");
+      expect(src).not.toMatch(/--cm-chat-font-service\)\] leading-5/);
+    }
   });
 });

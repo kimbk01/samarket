@@ -15,7 +15,7 @@ export type StoreOrderBuyerMessengerRoomBackInput = {
 
 /**
  * 배달·매장 주문 메신저 방 — 구매자 browse 직행 override 제거.
- * 뒤로가기는 `cm_return` → history back → delivery-chats (`resolveMessengerRoomBackNavigation`).
+ * 뒤로가기는 `cm_return` → history back → delivery-chats (`resolveMessengerRoomBackTarget` — 앱 안 진입 back, 알림·첫 기록 진입 delivery-chats).
  */
 export function resolveStoreOrderBuyerMessengerRoomBackHref(
   _input: StoreOrderBuyerMessengerRoomBackInput

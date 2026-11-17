@@ -304,6 +304,18 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const suppressTapRef = useRef(false);
   const tapNavigateArmedRef = useRef(false);
   const longPressTriggeredRef = useRef(false);
+  /** P5 §A8-3 계측 — 탭이 이동 없이 버려진 이유 코드(첫 탭 무시 원인 확정용, 동작 영향 없음) */
+  const pointerDownAtRef = useRef(0);
+  const logRowTapDropped = useCallback(
+    (reason: "lost_capture" | "pointercancel" | "suppressed_longpress" | "not_armed" | "swipe_open" | "dragging") => {
+      console.info("[cm-row-tap] dropped", {
+        reason,
+        roomId: room.id,
+        msSincePointerDown: pointerDownAtRef.current ? Math.round(performance.now() - pointerDownAtRef.current) : null,
+      });
+    },
+    [room.id]
+  );
   const releasePressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const commerceMeta = room.contextMeta;
   const isFavorite = room.peerUserId ? favoriteFriendIds.has(room.peerUserId) : false;
@@ -740,6 +752,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     suppressTapRef.current = false;
     longPressTriggeredRef.current = false;
     tapNavigateArmedRef.current = true;
+    pointerDownAtRef.current = performance.now();
     setIsPressedVisual(!swipeOpen);
     kickRoomNavPrefetchOnPointerDown();
     dragRef.current = {
@@ -808,15 +821,23 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         if (suppressTapRef.current) {
           suppressTapRef.current = false;
           tapNavigateArmedRef.current = false;
+          logRowTapDropped("dragging");
           releasePressedVisual();
           return;
         }
         if (!tapNavigateArmedRef.current) {
+          /** P5 §B5-2: 길게 누름 뒤 손을 떼는 경로에서도 억제 표시를 소비해 다음 탭이 버려지지 않게 한다 */
+          const wasLongPress = longPressTriggeredRef.current;
+          consumeClickSuppression();
+          if (!wasLongPress) logRowTapDropped("not_armed");
           releasePressedVisual();
           return;
         }
         tapNavigateArmedRef.current = false;
-        if (longPressTriggeredRef.current || consumeClickSuppression()) {
+        /** 단락 평가 없이 항상 소비 — 억제 표시가 남아 다음 탭을 버리지 않게(P5 §B5-2) */
+        const clickSuppressed = consumeClickSuppression();
+        if (longPressTriggeredRef.current || clickSuppressed) {
+          if (!longPressTriggeredRef.current) logRowTapDropped("suppressed_longpress");
           releasePressedVisual(PRESS_RELEASE_MS);
           return;
         }
@@ -824,6 +845,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         const openByParent = openedSwipeItemId === swipeItemId;
         const openByLocal = dragXRef.current < -16;
         if (openByParent || openByLocal || swipeOpen) {
+          logRowTapDropped("swipe_open");
           closeSwipe();
           releasePressedVisual();
           return;
@@ -847,6 +869,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       closeSwipe,
       compact,
       consumeClickSuppression,
+      logRowTapDropped,
       menuItemId,
       onCloseMenuItem,
       onOpenSwipeItem,
@@ -860,7 +883,14 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   );
 
   const forceCloseSwipeOnCancel = useCallback(
-    (e: React.PointerEvent) => {
+    (e: React.PointerEvent, reason: "pointercancel" | "lost_capture" = "pointercancel") => {
+      /**
+       * P5 §B5-3 계측만(동작 변경 없음): 손을 떼기 전에 탭 후보가 캡처 상실·취소로 버려지면 이유 코드를 남긴다.
+       * 원인 확정(A8-3 재현 로그) 전에는 탭 유지 등 동작을 바꾸지 않는다.
+       */
+      if (!ignoreNextLostCaptureRef.current && dragRef.current.active && !dragRef.current.dragging && tapNavigateArmedRef.current) {
+        logRowTapDropped(reason);
+      }
       if (ignoreNextLostCaptureRef.current) {
         ignoreNextLostCaptureRef.current = false;
         dragRef.current.active = false;
@@ -881,12 +911,19 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         /* noop */
       }
     },
-    [closeSwipe, releasePressedVisual]
+    [closeSwipe, logRowTapDropped, releasePressedVisual]
   );
 
   const onPointerCancel = useCallback(
     (e: React.PointerEvent) => {
-      forceCloseSwipeOnCancel(e);
+      forceCloseSwipeOnCancel(e, "pointercancel");
+    },
+    [forceCloseSwipeOnCancel]
+  );
+
+  const onLostPointerCaptureRow = useCallback(
+    (e: React.PointerEvent) => {
+      forceCloseSwipeOnCancel(e, "lost_capture");
     },
     [forceCloseSwipeOnCancel]
   );
@@ -973,13 +1010,13 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       ? commerceMeta.itemStateLabel.trim()
       : null;
 
-  /** 거래·주문 목록 오른쪽 — 카카오톡 시각 11.5 회색 + 빨간 안 읽음 배지(20px · 11px 굵게), 채팅 시안 4판 「9」「10」 */
+  /** 거래·주문 목록 오른쪽 — 시각 12 회색 + 빨간 안 읽음 배지(20px · 12px 굵게). P4: 모든 대화 목록 같은 토큰(레거시 기준) */
   const trailingBlock =
     isPillarChatListVisual ? (
       <>
         <span
           data-cm-list-meta=""
-          className="whitespace-nowrap text-right text-[11.5px] font-normal tabular-nums leading-none"
+          className="whitespace-nowrap text-right text-[length:var(--cm-chat-font-list-meta)] font-normal tabular-nums leading-none"
           style={{ color: "var(--cm-chat-sub)" }}
         >
           {listTimeLabel}
@@ -987,7 +1024,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         {displayedUnreadCount > 0 ? (
           <span
             data-cm-unread-badge="true"
-            className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[color:var(--cm-chat-unread-bg)] px-1.5 text-center text-[11px] font-bold leading-5 text-white"
+            className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[color:var(--cm-chat-unread-bg)] px-1.5 text-center text-[length:var(--cm-chat-font-badge)] font-bold leading-5 text-white"
           >
             {displayedUnreadCount > 999 ? "999+" : displayedUnreadCount}
           </span>
@@ -1150,7 +1187,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             }}
           >
             {/* P3: 상대 입력 중이면 미리보기 자리에 「입력 중」(보이는 행만 수신, 최대 15방) */}
-            <MessengerChatListTypingPreview roomId={room.id} viewerUserId={viewerUserId}>
+            <MessengerChatListTypingPreview roomId={room.id} roomType={room.roomType} viewerUserId={viewerUserId}>
               {item.preview}
             </MessengerChatListTypingPreview>
           </p>
@@ -1316,7 +1353,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         }}
         onLostPointerCapture={(e) => {
           if (!compact && !isSplitList) bind.onPointerCancel(e);
-          onPointerCancel(e);
+          onLostPointerCaptureRow(e);
         }}
       >
         <div

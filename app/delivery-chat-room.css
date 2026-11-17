@@ -156,7 +156,8 @@ footer[data-delivery-composer-host] {
 
   max-height: 100px !important;
 
-  font-size: 16px !important;
+  /* P4: 입력 글 = 본문 토큰(휴대폰 16 · 태블릿 18). 고정 16px 이면 전역 규칙(chat-viewport-shell.css)을 이겨 태블릿에서 입력 글·안내 글이 어긋남 */
+  font-size: var(--cm-chat-font-composer, 16px) !important;
 
   line-height: 1.25 !important;
 
@@ -164,6 +165,12 @@ footer[data-delivery-composer-host] {
 
   overflow-y: auto !important;
 
+}
+
+[data-cm-room].delivery-ui [data-delivery-composer-pill] textarea::placeholder,
+[data-cm-room]:has([data-delivery-composer-pill]) [data-delivery-composer-pill] textarea::placeholder,
+[data-delivery-composer-host] [data-delivery-composer-pill] textarea::placeholder {
+  font-size: var(--cm-chat-font-composer, 16px) !important;
 }
 
 

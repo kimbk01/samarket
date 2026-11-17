@@ -19,6 +19,10 @@ import {
   messengerPrivateBroadcastChannelOptions,
   primeMessengerPrivateRealtimeAuth,
 } from "@/lib/community-messenger/realtime/private-broadcast-client";
+import {
+  releaseMessengerChannel,
+  whenMessengerTopicFree,
+} from "@/lib/community-messenger/realtime/messenger-channel-topic-lease";
 
 /**
  * Subscribe to user-scoped home list INSERT broadcasts.
@@ -37,27 +41,32 @@ export function subscribeHomeListRoomInsertBroadcast(args: {
   const name = communityMessengerHomeListChannelName(userId);
   /** 비공개 토픽 `cm-home-list:<uid>` — 수신 = 본인만(`realtime.messages` SELECT 정책) */
   primeMessengerPrivateRealtimeAuth(sb);
-  const ch = sb.channel(name, messengerPrivateBroadcastChannelOptions());
-  ch.on("broadcast", { event: CM_HOME_LIST_ROOM_INSERT_EVENT }, (msg) => {
-    const payload = (msg as { payload?: unknown })?.payload;
-    if (!payload || typeof payload !== "object") return;
-    const row = payload as { room?: unknown; fromUserId?: unknown };
-    if (!isCanonicalHomeListRoomSummaryPayload(row.room)) return;
-    postCommunityMessengerBusEvent({
-      type: "cm.home.merge_room_summary",
-      viewerUserId: userId,
-      summary: row.room,
-      at: Date.now(),
+  /** X4: 같은 토픽 이전 채널 제거 완료 뒤 생성 — leaving 객체 재사용으로 조용히 죽는 것 방지 */
+  let alive = true;
+  let ch: ReturnType<typeof sb.channel> | null = null;
+  void (async () => {
+    await whenMessengerTopicFree(sb, name);
+    if (!alive) return;
+    ch = sb.channel(name, messengerPrivateBroadcastChannelOptions());
+    ch.on("broadcast", { event: CM_HOME_LIST_ROOM_INSERT_EVENT }, (msg) => {
+      const payload = (msg as { payload?: unknown })?.payload;
+      if (!payload || typeof payload !== "object") return;
+      const row = payload as { room?: unknown; fromUserId?: unknown };
+      if (!isCanonicalHomeListRoomSummaryPayload(row.room)) return;
+      postCommunityMessengerBusEvent({
+        type: "cm.home.merge_room_summary",
+        viewerUserId: userId,
+        summary: row.room,
+        at: Date.now(),
+      });
+      requestMessengerHubBadgeResync("home_list_merge_summary");
     });
-    requestMessengerHubBadgeResync("home_list_merge_summary");
-  });
-  ch.subscribe(createMessengerPrivateChannelStatusHandler({ sb, scope: "home_list_insert" }));
+    ch.subscribe(createMessengerPrivateChannelStatusHandler({ sb, scope: "home_list_insert" }));
+  })();
   return () => {
-    try {
-      void sb.removeChannel(ch);
-    } catch {
-      /* ignore */
-    }
+    alive = false;
+    releaseMessengerChannel(sb, ch);
+    ch = null;
   };
 }
 

@@ -45,6 +45,8 @@ export type CommunityMessengerSendPostAckEffects = {
   /** Stored SSOT — primary notify classification key when present. */
   chatDomain?: string | null;
   roomType?: CommunityMessengerRoomType | string | null;
+  /** P2: 전송 RPC 반환 `domain_identity`(마이그레이션 적용 뒤) — 텍스트 방 bump 가 rooms 재조회 없이 쓴다 */
+  domainIdentity?: string | null;
   directKey?: string | null;
   hasMention?: boolean;
   /** T0 Legacy write Decision Snapshots — pass-through to Engine shadow only. */
@@ -61,6 +63,11 @@ export type CommunityMessengerSendDeferredPostAckWork = {
   chatDomain: string;
   roomType: string;
   directKey: string | null;
+  /**
+   * `deferAutoRead` 옵션일 때만 채움 — 같은 방 전면이라 자동 읽음 대상인 수신자.
+   * 호출부(텍스트 route)가 배지 target bump 완료 뒤 `markRoomRead` 실행(I5).
+   */
+  autoReadRecipientIds: string[];
 };
 
 function dedupeIds(ids: string[]): string[] {
@@ -127,7 +134,12 @@ async function resolveRoomNotifyFields(
 export async function runCommunityMessengerSendDurablePreAckEffects(
   sb: SupabaseLike,
   effects: CommunityMessengerSendPostAckEffects,
-  t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace
+  t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace,
+  /**
+   * P2 opt-in (텍스트 route 만): 알림 파이프라인 수신자 병렬 처리 + 자동 읽음 지연.
+   * 기본값(미지정)은 기존 동작 그대로.
+   */
+  pipelineOpts?: { parallelRecipients?: boolean; deferAutoRead?: boolean }
 ): Promise<CommunityMessengerSendDeferredPostAckWork> {
   const roomId = effects.roomId.trim();
   const senderUserId = effects.senderUserId.trim();
@@ -156,6 +168,7 @@ export async function runCommunityMessengerSendDurablePreAckEffects(
 
   let decisionSnapshotsByRecipientId: Record<string, NotificationDecision> = {};
   let deferredPushes: CommunityMessengerSendDeferredPostAckWork["deferredPushes"] = [];
+  let autoReadRecipientIds: string[] = [];
   if (messageId) {
     const notifyT0 = performance.now();
     const pipelineResult = await notifyMessagePipeline(
@@ -171,8 +184,14 @@ export async function runCommunityMessengerSendDurablePreAckEffects(
         roomKind,
         mentionUserIds,
       },
-      { deferPush: true, _t5: t5 }
+      {
+        deferPush: true,
+        _t5: t5,
+        parallelRecipients: pipelineOpts?.parallelRecipients === true,
+        deferAutoRead: pipelineOpts?.deferAutoRead === true,
+      }
     ).catch(() => null);
+    /** 병렬 모드 파이프라인은 수신자 실패를 throw 하지 않고 부분 결과를 돌려준다(위 catch 는 공통 읽기 실패 등만) */
     if (t5) {
       const { markT5, spanT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
       spanT5(t5, "S16_notify_durable_ms", notifyT0);
@@ -180,6 +199,7 @@ export async function runCommunityMessengerSendDurablePreAckEffects(
     }
     decisionSnapshotsByRecipientId = pipelineResult?.decisionSnapshotsByRecipientId ?? {};
     deferredPushes = pipelineResult?.deferredPushes ?? [];
+    autoReadRecipientIds = pipelineResult?.autoReadRecipientIds ?? [];
   } else if (t5) {
     const { markT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
     markT5(t5, "S16");
@@ -194,6 +214,7 @@ export async function runCommunityMessengerSendDurablePreAckEffects(
     chatDomain,
     roomType,
     directKey,
+    autoReadRecipientIds,
   };
 }
 

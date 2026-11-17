@@ -22,6 +22,8 @@ type Props = {
     (req?: { reason?: string; force?: boolean }) => void
   >;
   onReady: (virtualizer: MessengerRoomTimelineVirtualizer) => void;
+  /** P4 — 행 높이 추정에서 1:1·그룹 구분 */
+  isGroupRoom?: boolean;
 };
 
 /**

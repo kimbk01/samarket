@@ -23,6 +23,8 @@ export const LAST_RUN_SNAPSHOT_VERSION = 1;
 
 const ADDRESS_LINE_MAX = 160;
 const AVATAR_URL_MAX = 1024;
+/** D3 작은 사본(data URL) 상한 — 84px JPEG 는 보통 3~6KB */
+export const AVATAR_THUMB_DATA_MAX = 12 * 1024;
 
 export type LastRunSnapshot = {
   v: typeof LAST_RUN_SNAPSHOT_VERSION;
@@ -35,6 +37,11 @@ export type LastRunSnapshot = {
   addressLine?: string | null;
   /** 프로필 사진 주소 (null = 사진 없음) */
   avatarUrl?: string | null;
+  /**
+   * 설계 D3 (Owner 「승인·사진 받기 제외」 2026-11-18 · 문서 §16-1): MY 사진 작은 사본 — 다음 실행 첫 프레임에 네트워크 없이 그린다.
+   * `src` = 사본을 만든 원본 주소(실제 주소와 같을 때만 같은 그림으로 본다) · `data` = `data:image/jpeg;base64,…`
+   */
+  avatarThumb?: { src: string; data: string } | null;
   /** 알림 종 숫자 */
   bellUnread?: number;
   /** telRING(하단 채팅 탭) 숫자 */
@@ -42,7 +49,7 @@ export type LastRunSnapshot = {
 };
 
 export type LastRunSnapshotPatch = Partial<
-  Pick<LastRunSnapshot, "member" | "addressLine" | "avatarUrl" | "bellUnread" | "telringUnread">
+  Pick<LastRunSnapshot, "member" | "addressLine" | "avatarUrl" | "avatarThumb" | "bellUnread" | "telringUnread">
 >;
 
 function storage(): Storage | null {
@@ -64,6 +71,18 @@ function textOrNull(v: unknown, max: number): string | null | undefined {
   if (typeof v !== "string") return undefined;
   const s = v.trim();
   return s ? s.slice(0, max) : null;
+}
+
+/** 작은 사본 — 모양·크기 검사. undefined = 값 없음(필드 생략) · null = 지움 */
+function avatarThumbOrNull(v: unknown): { src: string; data: string } | null | undefined {
+  if (v === null) return null;
+  if (!v || typeof v !== "object") return undefined;
+  const o = v as Record<string, unknown>;
+  const src = typeof o.src === "string" ? o.src.trim() : "";
+  const data = typeof o.data === "string" ? o.data : "";
+  if (!src || src.length > AVATAR_URL_MAX) return null;
+  if (!data.startsWith("data:image/") || data.length > AVATAR_THUMB_DATA_MAX) return null;
+  return { src, data };
 }
 
 /** 저장 JSON → 사진. 버전·모양이 다르면 null. */
@@ -90,6 +109,8 @@ export function parseLastRunSnapshot(raw: string | null): LastRunSnapshot | null
   if (addressLine !== undefined) snap.addressLine = addressLine;
   const avatarUrl = textOrNull(r.avatarUrl, AVATAR_URL_MAX);
   if (avatarUrl !== undefined) snap.avatarUrl = avatarUrl;
+  const thumb = avatarThumbOrNull(r.avatarThumb);
+  if (thumb !== undefined) snap.avatarThumb = thumb;
   const bell = count(r.bellUnread);
   if (bell !== undefined) snap.bellUnread = bell;
   const telring = count(r.telringUnread);
@@ -117,7 +138,9 @@ export function readLastRunSnapshotForCurrentAccount(): LastRunSnapshot | null {
 }
 
 function samePatchValues(base: LastRunSnapshot, patch: LastRunSnapshotPatch): boolean {
-  return (Object.keys(patch) as (keyof LastRunSnapshotPatch)[]).every((k) => base[k] === patch[k]);
+  return (Object.keys(patch) as (keyof LastRunSnapshotPatch)[]).every((k) =>
+    k === "avatarThumb" ? JSON.stringify(base[k] ?? null) === JSON.stringify(patch[k] ?? null) : base[k] === patch[k]
+  );
 }
 
 /**
@@ -135,6 +158,7 @@ export function updateLastRunSnapshot(patch: LastRunSnapshotPatch, confirmedUser
   if (patch.member !== undefined) clean.member = patch.member === true;
   if (patch.addressLine !== undefined) clean.addressLine = textOrNull(patch.addressLine, ADDRESS_LINE_MAX) ?? null;
   if (patch.avatarUrl !== undefined) clean.avatarUrl = textOrNull(patch.avatarUrl, AVATAR_URL_MAX) ?? null;
+  if (patch.avatarThumb !== undefined) clean.avatarThumb = avatarThumbOrNull(patch.avatarThumb) ?? null;
   if (patch.bellUnread !== undefined) clean.bellUnread = count(patch.bellUnread) ?? 0;
   if (patch.telringUnread !== undefined) clean.telringUnread = count(patch.telringUnread) ?? 0;
   const prev = readRaw();

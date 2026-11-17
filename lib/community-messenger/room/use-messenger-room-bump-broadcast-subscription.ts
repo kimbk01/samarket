@@ -7,18 +7,31 @@ import type { CommunityMessengerMessage, CommunityMessengerProfileLite, Communit
 import {
   communityMessengerBumpKnownRoomIds,
   communityMessengerBumpPayloadMatchesKnownRooms,
+  communityMessengerRoomBumpChannelName,
 } from "@/lib/community-messenger/realtime/community-messenger-room-bump-channel";
+import {
+  releaseMessengerChannel,
+  whenMessengerTopicFree,
+} from "@/lib/community-messenger/realtime/messenger-channel-topic-lease";
 import { parseCommunityMessengerBumpMessageSnapshot } from "@/lib/community-messenger/realtime/community-messenger-room-bump-message-snapshot";
 import { resolveRoomBumpDedupeKey } from "@/lib/chat-domain/realtime/domain-realtime-envelope";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeCommunityMessengerRoomBumpBroadcast } from "@/lib/community-messenger/realtime/room-bump-broadcast";
-import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import {
+  applyIncomingMessageEvent,
+  messengerIncomingMessageAlreadyTracked,
+} from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { resolveOwnRoomBumpDecision } from "@/lib/community-messenger/room/own-room-bump-origin-policy";
+import { shouldSkipPeerBumpSingleGet } from "@/lib/community-messenger/room/peer-bump-snapshot-skip-policy";
+import { removeMessageFromRoomSnapshotCache } from "@/lib/community-messenger/room-snapshot-cache";
+import { forgetMessengerRoomClientBootstrapFlights } from "@/lib/community-messenger/room/messenger-room-bootstrap-refresh";
 import { enqueueRoomBumpFrameItem } from "@/lib/community-messenger/room/queue-room-bump-frame";
 
 type RoomBumpListener = {
   onBump: (payload: Record<string, unknown>) => void;
+  /** 같은 토픽 이전 채널 제거를 기다린 뒤 다시 가입(SUBSCRIBED)했을 때 — 공백 구간 정합 1회 */
+  onResync?: () => void;
 };
 
 type RoomBumpEntry = {
@@ -41,26 +54,44 @@ function createRoomBumpEntry(key: string, roomIds: string[]): RoomBumpEntry {
   const authorizedRoomIds = roomIds.filter((rid) => isUuidLikeString(String(rid ?? "").trim()));
   if (!sb || authorizedRoomIds.length === 0) return entry;
 
-  const channels = authorizedRoomIds.map((rid) =>
-    subscribeCommunityMessengerRoomBumpBroadcast({
-      sb,
-      roomId: rid,
-      onBump: (payload) => {
-        for (const listener of entry.listeners) {
-          listener.current.onBump(payload);
-        }
-      },
-    })
-  );
+  /**
+   * X4: 같은 방 빠른 재진입·effect 재실행 때 같은 토픽을 await 없이 다시 만들면 leaving 객체를 받아 조용히 죽는다.
+   * 이전 제거 완료를 기다린 뒤 생성하고, 기다렸다면 첫 SUBSCRIBED 때 `after=` 정합 1회로 공백을 메운다.
+   */
+  let alive = true;
+  const channels: Array<ReturnType<typeof sb.channel>> = [];
+  for (const rid of authorizedRoomIds) {
+    void (async () => {
+      const waited = await whenMessengerTopicFree(sb, communityMessengerRoomBumpChannelName(rid));
+      if (!alive) return;
+      let resyncPending = waited;
+      channels.push(
+        subscribeCommunityMessengerRoomBumpBroadcast({
+          sb,
+          roomId: rid,
+          onBump: (payload) => {
+            for (const listener of entry.listeners) {
+              listener.current.onBump(payload);
+            }
+          },
+          onStatus: (status) => {
+            if (status !== "SUBSCRIBED" || !resyncPending) return;
+            resyncPending = false;
+            for (const listener of entry.listeners) {
+              listener.current.onResync?.();
+            }
+          },
+        })
+      );
+    })();
+  }
 
   entry.stop = () => {
+    alive = false;
     for (const ch of channels) {
-      try {
-        void sb.removeChannel(ch);
-      } catch {
-        /* ignore */
-      }
+      releaseMessengerChannel(sb, ch);
     }
+    channels.length = 0;
     roomBumpEntries.delete(key);
   };
 
@@ -184,6 +215,35 @@ export function useMessengerRoomBumpBroadcastSubscription({
         return;
       }
 
+      /**
+       * P2 (Owner 2026-11-18): 메시지 행 영구 삭제(음성) — 레거시와 같이 묘비 없이 그 행을 로컬에서 제거한다.
+       * 행이 없으므로 단건 GET(404 재시도)·after= 정합을 하지 않는다. 방 미리보기는 rooms UPDATE 경로가 갱신.
+       */
+      const messageAction = typeof payload.messageAction === "string" ? payload.messageAction.trim() : "";
+      if (messageAction === "hard_deleted") {
+        const deletedId = typeof payload.messageId === "string" ? payload.messageId.trim() : "";
+        if (deletedId) {
+          /** 화면 목록 + 방 캐시(메모리·hot) + 진행 중 bootstrap 비행 — 재진입 때 되살아나지 않게 */
+          const cacheRoomIds = new Set(
+            [
+              String(streamRoomId ?? "").trim(),
+              String(roomId ?? "").trim(),
+              String(snapshotRef.current?.room?.id ?? "").trim(),
+            ].filter(Boolean)
+          );
+          for (const rid of cacheRoomIds) {
+            removeMessageFromRoomSnapshotCache({ roomId: rid, viewerUserId: viewer, messageId: deletedId });
+            forgetMessengerRoomClientBootstrapFlights({ roomId: rid, viewerUserId: viewer });
+          }
+          setRoomMessages((prev) =>
+            prev.some((m) => String(m.id ?? "").trim() === deletedId)
+              ? prev.filter((m) => String(m.id ?? "").trim() !== deletedId)
+              : prev
+          );
+        }
+        return;
+      }
+
       const from = typeof payload.fromUserId === "string" ? payload.fromUserId.trim() : "";
       const rawMessage = payload.message;
       const messageMetadata =
@@ -252,6 +312,10 @@ export function useMessengerRoomBumpBroadcastSubscription({
           let mergedAnySnapshot = false;
           let needsCatchUp = false;
           let catchUpAlreadyMerged = false;
+          /** L1 ③ — 병합 전 로컬 id 집합(같은 배치 안 중복 id 도 「이미 있음」으로 본다) */
+          const localIdsBeforeMerge = new Set(
+            roomMessagesRef.current.map((m) => String(m.id ?? "").trim()).filter(Boolean)
+          );
           for (const item of batch) {
             /**
              * Snapshot acceleration only when parse validates (message.senderId === fromUserId).
@@ -260,7 +324,12 @@ export function useMessengerRoomBumpBroadcastSubscription({
             const pre = parseCommunityMessengerBumpMessageSnapshot(item.payload, viewer);
             let mergedSnapshot = false;
             let itemHint = item.hint;
+            let existedLocallyBeforeMerge = false;
+            let enrichedForSkip: CommunityMessengerMessage | null = null;
             if (pre) {
+              const preId = String(pre.id ?? "").trim();
+              existedLocallyBeforeMerge = Boolean(preId && localIdsBeforeMerge.has(preId));
+              if (preId) localIdsBeforeMerge.add(preId);
               const member = roomMembersDisplayRef.current.find((m) =>
                 messengerUserIdsEqual(m.id, pre.senderId ?? "")
               );
@@ -268,14 +337,18 @@ export function useMessengerRoomBumpBroadcastSubscription({
                 member?.label && member.label.trim().length > 0
                   ? { ...pre, senderLabel: member.label }
                   : pre;
+              enrichedForSkip = enriched;
               setRoomMessages((prev) => mergeRoomMessages(prev, [enriched]));
               const tipRoomId = String(enriched.roomId || streamRoomId || roomId).trim();
               if (tipRoomId) {
+                /** P3: 처음 보는 id 만 새 메시지(bump 는 수정에도 발행됨) */
+                const firstSeen = !messengerIncomingMessageAlreadyTracked(tipRoomId, String(enriched.id ?? "").trim());
                 applyIncomingMessageEvent({
                   viewerUserId: viewer,
                   roomId: tipRoomId,
                   roomSummary: snapshotRef.current?.room ?? undefined,
                   message: enriched,
+                  messageEvent: firstSeen ? "insert" : "update",
                   messageRow: {
                     id: enriched.id,
                     room_id: tipRoomId,
@@ -303,6 +376,18 @@ export function useMessengerRoomBumpBroadcastSubscription({
              */
             if (item.ownDecision === "replace_pending" && !snapshotTruncated) continue;
             if (item.ownDecision === "merge_only" && mergedSnapshot && !snapshotTruncated) continue;
+            /** L1: 상대의 새 텍스트·스티커를 검증된 스냅샷으로 병합했으면 단건 GET 생략(조건은 정책 함수) */
+            if (
+              item.ownDecision === "apply" &&
+              mergedSnapshot &&
+              shouldSkipPeerBumpSingleGet({
+                snapshot: enrichedForSkip,
+                snapshotTruncated,
+                existedLocallyBeforeMerge,
+              })
+            ) {
+              continue;
+            }
             needsCatchUp = true;
             if (itemHint) catchUpHint = itemHint;
             if (mergedSnapshot && !snapshotTruncated) catchUpAlreadyMerged = true;
@@ -316,6 +401,8 @@ export function useMessengerRoomBumpBroadcastSubscription({
       });
     };
     listenerRef.current.onBump = onBump;
+    /** 재가입 공백 보상 — 스냅샷 병합 없이 `after=` 만(새 행 없으면 refresh 로 넘어가지 않게 alreadyMergedSnapshot) */
+    listenerRef.current.onResync = () => scheduleCatchUp("", { alreadyMergedSnapshot: true });
     const registryKey = `${viewer}:${[...bumpSubscribeIds].sort().join("\0")}`;
     let entry = roomBumpEntries.get(registryKey);
     if (!entry) {

@@ -37,7 +37,11 @@ describe("CM block enforcement hotfix contract", () => {
     const src = read("app/api/community-messenger/rooms/[roomId]/messages/route.ts");
     expect(src).toContain('responsePayload.error === "blocked_target"');
     expect(src).toContain("403");
-    expect(src).not.toContain("assertDirectRoomCommunicationNotBlocked");
+    /** P2 (B3): route 가 차단 게이트를 프로필·회원 게이트와 동시에 1회 시작 → service 는 결과만 평가(중복 조회 없음) */
+    expect(src.split("assertDirectRoomCommunicationNotBlocked({").length - 1).toBe(1);
+    expect(src).toContain("gatePrefetch,");
+    const service = read("lib/community-messenger/service.ts");
+    expect(service).toContain("input.gatePrefetch?.block ??");
   });
 
   it("post-ack notify filters blocked recipients", () => {

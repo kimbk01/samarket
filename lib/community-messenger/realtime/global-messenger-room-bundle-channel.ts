@@ -21,7 +21,6 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createRealtimeAuthBridge } from "@/lib/community-messenger/realtime/community-messenger-realtime-auth-bridge";
 import { mapRealtimeMessageRow } from "@/lib/community-messenger/realtime/community-messenger-room-message-realtime-channel";
 import {
-  cmRtLogAuthEpochBump,
   cmRtLogMapRowSkipped,
   cmRtLogPostgresPayload,
   isCommunityMessengerRealtimeDebugEnabled,
@@ -29,7 +28,7 @@ import {
 import { messengerMonitorRealtimeMessageInsertDelay } from "@/lib/community-messenger/monitoring/client";
 import type { CommunityMessengerRoomRealtimeMessageEvent } from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { subscribeSamarketRealtimeTokenRefreshed } from "@/lib/supabase/realtime-auth-events";
+import { isParticipantReadOnlyUpdate } from "@/lib/community-messenger/realtime/participant-read-only-update";
 import { isStaleRealtimeBindGeneration } from "@/lib/community-messenger/realtime/realtime-bind-generation";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
@@ -251,6 +250,9 @@ export function scheduleOpenRoomTerminalCatchUpForTests(
   scheduleOpenRoomTerminalCatchUp(entry, roomKey);
 }
 
+/** X4: 방 묶음 채널 토픽 세대(탭 수명 동안 단조 증가) */
+let bundleTopicGeneration = 0;
+
 export function createGlobalMessengerRoomBundleEntry(args: {
   viewerForChannel: string;
   /** `stop()` 시 레지스트리에서 제거 */
@@ -407,7 +409,20 @@ export function createGlobalMessengerRoomBundleEntry(args: {
             unreadCount: unc,
             eventType: payload.eventType,
           });
-          getOrCreateRoomSchedulers(entry, roomKey).meta.schedule();
+          /**
+           * L2: 읽음 커서·안 읽음 수만 바뀐 UPDATE(전송 RPC 가 1:1 참가자 행 2개를 모두 갱신 · 내 mark_read 결과)는
+           * 메타 재조회(`after=`·silent refresh)를 부르지 않는다 — 새 메시지는 bump·INSERT 경로, 읽음 커서는 아래 emit 이 담당.
+           * old 행이 전체 컬럼이 아니면(REPLICA IDENTITY 미확인) 판별 불가 → 기존대로 schedule.
+           */
+          if (
+            !isParticipantReadOnlyUpdate({
+              eventType: payload.eventType,
+              oldRecord: payload.old,
+              newRecord: payload.new,
+            })
+          ) {
+            getOrCreateRoomSchedulers(entry, roomKey).meta.schedule();
+          }
           emitRoomParticipantPostgresForRoom(entry, rid, {
             eventType: payload.eventType,
             new: payload.new,
@@ -492,6 +507,7 @@ export function createGlobalMessengerRoomBundleEntry(args: {
 
   const bindFilteredPostgresSubscriptions = () => {
     const gen = ++postgresBindGeneration;
+    const topicGen = ++bundleTopicGeneration;
     const roomIds = [...entry.listenersByRoom.keys()].filter(Boolean).sort();
     const roomIdsKey = roomIds.join("\0");
     if (roomIdsKey === lastBoundRoomIdsKey && channels.length > 0) {
@@ -524,7 +540,12 @@ export function createGlobalMessengerRoomBundleEntry(args: {
 
         const roomBundle = subscribeWithRetry({
           sb,
-          name: `global-messenger:bundle:${args.viewerForChannel}:${chunkIndex}`,
+          /**
+           * X4: 바인드 세대 접미 `:g<n>`(모듈 단위 단조 증가 — 엔트리를 새로 만들어도 겹치지 않음) — 방 목록이 바뀔 때마다
+           * 새 토픽이라 leaving 객체 재사용으로 죽지 않는다.
+           * 토픽 정책 `cm_realtime_topic_first_uuid_after(topic,'global-messenger:bundle:')` 는 uuid 뒤 `(:|$)` 허용(DB 변경 없음).
+           */
+          name: `global-messenger:bundle:${args.viewerForChannel}:${chunkIndex}:g${topicGen}`,
           logStreamRoomId: args.viewerForChannel,
           scope: "community-messenger-room:global-bundle",
           channelOptions: messengerPrivateBroadcastChannelOptions(),
@@ -624,30 +645,15 @@ export function createGlobalMessengerRoomBundleEntry(args: {
     onReady: bindGlobalRoomBundle,
   });
 
-  let tokenRebindTimer: ReturnType<typeof setTimeout> | null = null;
-  let tokenRefreshGeneration = 0;
-  const unsubscribeTokenRefresh = subscribeSamarketRealtimeTokenRefreshed(() => {
-    if (cancelled || !roomBound) return;
-    if (tokenRebindTimer != null) clearTimeout(tokenRebindTimer);
-    tokenRebindTimer = setTimeout(() => {
-      tokenRebindTimer = null;
-      if (cancelled || !roomBound) return;
-      tokenRefreshGeneration += 1;
-      cmRtLogAuthEpochBump({ epoch: tokenRefreshGeneration, source: "token_refresh_room_bundle" });
-      lastBoundRoomIdsKey = "";
-      bindFilteredPostgresSubscriptions();
-    }, 50);
-  });
+  /**
+   * X4: 토큰 갱신 재바인드 삭제 — supabase-js·`lib/supabase/client.ts` 의 `realtime.setAuth` 가 가입된 채널에 새 토큰을
+   * 보내고 join payload 도 갱신한다. 재바인드는 같은 토픽을 await 없이 재생성해 채널을 죽였다.
+   */
 
   entry.stop = () => {
     cancelled = true;
     if (viewerKey && activeOpenRoomBundlesByViewer.get(viewerKey) === entry) {
       activeOpenRoomBundlesByViewer.delete(viewerKey);
-    }
-    unsubscribeTokenRefresh();
-    if (tokenRebindTimer != null) {
-      clearTimeout(tokenRebindTimer);
-      tokenRebindTimer = null;
     }
     postgresBindGeneration += 1;
     lastBoundRoomIdsKey = "";

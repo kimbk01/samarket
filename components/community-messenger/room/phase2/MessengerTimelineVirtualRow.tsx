@@ -856,7 +856,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       ) : item.messageType === "system" ? (
         <div className="max-w-[min(100%,22rem)] min-w-0 px-3">
           <div className={systemBubbleClass}>
-            <p className="whitespace-pre-line break-words text-center text-[length:var(--cm-chat-font-service)] leading-5">
+            <p className="whitespace-pre-line break-words text-center text-[length:var(--cm-chat-font-service)] leading-[1.4]">
               {resolveCmSystemMessageText({ content: item.content, metadata }, t)}
             </p>
           </div>

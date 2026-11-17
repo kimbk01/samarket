@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { messengerRoomNavigateMethod } from "@/lib/community-messenger/room/messenger-room-navigate-method";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -123,7 +124,7 @@ export function InAppNotificationBannerHost() {
     dismiss();
     if (target.type === "messenger_room") {
       suppressCmRoomEntryNotificationSound(target.roomId);
-      router.push(communityMessengerRoomHref(target.roomId, null, target.listSource));
+      messengerRoomNavigateMethod(router)(communityMessengerRoomHref(target.roomId, null, target.listSource));
       return;
     }
     // C4 읽음 계약: 배너 탭도 종·전체 목록·푸시 탭과 같은 읽음 함수(PATCH → patchInboxNotificationIdsRead)로

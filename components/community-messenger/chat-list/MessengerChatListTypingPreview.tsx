@@ -1,12 +1,17 @@
 "use client";
 
-import { memo, useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { TypingIndicatorLine } from "@/components/community-messenger/TypingIndicatorLine";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
 import { useMessengerRealtimeStore } from "@/lib/community-messenger/stores/messenger-realtime-store";
-import { selectMessengerTypingUserIdsKey } from "@/lib/community-messenger/realtime/typing/messenger-typing-select";
+import {
+  selectMessengerTypingUserIdsKey,
+  splitMessengerTypingUserIdsKey,
+} from "@/lib/community-messenger/realtime/typing/messenger-typing-select";
+import { resolveMessengerTypingLabel } from "@/lib/community-messenger/realtime/typing/resolve-messenger-typing-label";
+import { peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import {
   observeMessengerChatListRowVisibility,
   requestMessengerChatListTypingSlot,
@@ -18,10 +23,13 @@ import {
  */
 export const MessengerChatListTypingPreview = memo(function MessengerChatListTypingPreview({
   roomId,
+  roomType,
   viewerUserId,
   children,
 }: {
   roomId: string;
+  /** 그룹이면 레거시처럼 이름 규칙(1명·2명·2명 외 N명), 1:1 은 「입력 중」 */
+  roomType: string;
   viewerUserId: string | null | undefined;
   children: ReactNode;
 }) {
@@ -46,13 +54,41 @@ export const MessengerChatListTypingPreview = memo(function MessengerChatListTyp
     return requestMessengerChatListTypingSlot({ sb, roomId: rid, viewerUserId: viewer });
   }, [rid, viewer, visible]);
 
-  const typing = useMessengerTypingStore(
-    (state) => selectMessengerTypingUserIdsKey(state.byRoomId, { roomId: rid, viewerUserId: viewer }) !== ""
+  const typingIdsKey = useMessengerTypingStore((state) =>
+    selectMessengerTypingUserIdsKey(state.byRoomId, { roomId: rid, viewerUserId: viewer })
   );
 
+  /**
+   * 이름 = 목록 요약에는 멤버 이름이 없어 ① 방 스냅샷 캐시 멤버(별칭 우선) ② 실시간 저장소의 그 사람 메시지 발신자 이름 순.
+   * 못 찾으면 resolver 가 「{N}명 입력 중」.
+   */
+  const label = useMemo(() => {
+    const ids = splitMessengerTypingUserIdsKey(typingIdsKey);
+    if (ids.length === 0) return null;
+    const members = roomType === "direct" ? [] : peekRoomSnapshot(rid, viewer)?.members ?? [];
+    const messages = roomType === "direct" ? [] : useMessengerRealtimeStore.getState().messagesByRoomId[rid] ?? [];
+    return resolveMessengerTypingLabel({
+      roomType,
+      typingUserIds: ids,
+      nameOf: (userId) => {
+        const m = members.find((x) => x.id === userId);
+        if (m) {
+          if (m.identityMode === "alias" && m.aliasProfile?.displayName?.trim()) return m.aliasProfile.displayName.trim();
+          if (m.label?.trim()) return m.label.trim();
+        }
+        for (let i = messages.length - 1; i >= 0; i -= 1) {
+          const msg = messages[i]!;
+          if (msg.senderId === userId && msg.senderLabel?.trim()) return msg.senderLabel.trim();
+        }
+        return null;
+      },
+      t,
+    });
+  }, [rid, roomType, t, typingIdsKey, viewer]);
+
   return (
-    <span ref={anchorRef} data-cm-list-typing={typing ? "1" : undefined}>
-      {typing ? <TypingIndicatorLine label={t("cm_typing_direct")} /> : children}
+    <span ref={anchorRef} data-cm-list-typing={label ? "1" : undefined}>
+      {label ? <TypingIndicatorLine label={label} /> : children}
     </span>
   );
 });

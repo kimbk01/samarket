@@ -56,13 +56,75 @@ function readFromUserId(msg: unknown): string {
   return typeof payload.fromUserId === "string" ? payload.fromUserId.trim() : "";
 }
 
-function openChannel(topic: string, entry: TopicEntry): void {
+/** realtime-js 가 보관하는 같은 토픽 채널(떠나는 중·leave 실패로 남은 것 포함) */
+function staleChannelsForTopic(sb: SupabaseClient, topic: string): RealtimeChannel[] {
+  const full = `realtime:${topic}`;
+  try {
+    return (sb.getChannels?.() ?? []).filter((c) => c.topic === full);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 소켓 목록에서 채널을 확실히 뺀다 — `removeChannel` 은 leave 응답이 error/timeout 이어도 throw 하지 않고
+ * 채널을 목록에 남긴다. 남으면 다음 `sb.channel(topic)` 이 떠난 인스턴스를 돌려주고 subscribe 가 throw → 영구 수신 불가.
+ * (`_remove` 는 realtime-js 내부 함수 — 없으면 건너뜀)
+ */
+function dropFromSocket(sb: SupabaseClient, channel: RealtimeChannel): void {
+  try {
+    const rt = sb.realtime as unknown as { _remove?: (c: RealtimeChannel) => void };
+    rt._remove?.(channel);
+  } catch {
+    /* ignore */
+  }
+}
+
+async function forceRemoveChannel(sb: SupabaseClient, channel: RealtimeChannel): Promise<void> {
+  try {
+    await sb.removeChannel(channel);
+  } catch {
+    /* ignore */
+  }
+  dropFromSocket(sb, channel);
+}
+
+async function forceRemoveTopic(sb: SupabaseClient, topic: string): Promise<void> {
+  for (const c of staleChannelsForTopic(sb, topic)) await forceRemoveChannel(sb, c);
+}
+
+function stillWanted(topic: string, entry: TopicEntry): boolean {
+  return entries.get(topic) === entry && entry.refCount > 0 && !entry.channel;
+}
+
+function openChannel(topic: string, entry: TopicEntry, attempt = 0): void {
   /** 기다리는 사이 모두 해제됐거나 다른 항목으로 바뀌었으면 만들지 않는다 */
-  if (entries.get(topic) !== entry || entry.refCount <= 0 || entry.channel) return;
+  if (!stillWanted(topic, entry)) return;
+  const { sb } = entry;
+  /** 같은 토픽 잔존 채널이 있으면 먼저 확실히 제거한 뒤 연다(떠나는 인스턴스 재사용 금지) */
+  if (staleChannelsForTopic(sb, topic).length > 0) {
+    void forceRemoveTopic(sb, topic)
+      .then(() => openChannel(topic, entry, attempt))
+      .catch(() => undefined);
+    return;
+  }
+  try {
+    entry.channel = createSubscribedChannel(topic, entry);
+  } catch {
+    /** subscribe throw(이미 join 된 인스턴스 등) → 강제 제거 후 1회만 재시도 */
+    entry.channel = null;
+    if (attempt >= 1) return;
+    void forceRemoveTopic(sb, topic)
+      .then(() => openChannel(topic, entry, attempt + 1))
+      .catch(() => undefined);
+  }
+}
+
+function createSubscribedChannel(topic: string, entry: TopicEntry): RealtimeChannel {
   const { sb, roomId, viewerUserId } = entry;
   primeMessengerPrivateRealtimeAuth(sb);
   const store = useMessengerTypingStore;
-  entry.channel = sb
+  return sb
     .channel(topic, messengerPrivateBroadcastChannelOptions())
     .on("broadcast", { event: "typing:start" }, (msg) => {
       const fromUserId = readFromUserId(msg);
@@ -128,11 +190,9 @@ function releaseEntry(topic: string, entry: TopicEntry): void {
   if (!channel) return;
   const prior = leaving.get(topic) ?? Promise.resolve();
   const done: Promise<void> = prior
-    .then(() => entry.sb.removeChannel(channel))
-    .then(
-      () => undefined,
-      () => undefined
-    )
+    /** leave 응답이 error 여도 소켓 목록에서 확실히 뺀다 */
+    .then(() => forceRemoveChannel(entry.sb, channel))
+    .catch(() => undefined)
     .then(() => {
       if (leaving.get(topic) === done) leaving.delete(topic);
     });

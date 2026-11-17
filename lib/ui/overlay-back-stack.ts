@@ -14,6 +14,9 @@
  * - 예외(결함 E, Owner 승인 2026-11-13 · docs/design/push-entry-back-fix-design-2026-11-13.md): 현재 화면의 바로 앞
  *   기록이 「알림 이동으로 떠난 항목」이면(`lib/push/push-navigation-back.ts`) 오버레이가 없어도 같은 리스너를 유지하고,
  *   오버레이가 없을 때 `history.back()` 한다. 그 밖의 화면은 위 규칙 그대로(리스너 없음 → Android 기본 뒤로).
+ * - P5 페이지 뒤로 주인(2026-11-18 · docs/audit/messenger-chat-audit-2026-11-18 부록 P5 §B3-5): 화면 1개가 「◁ 의 목적지를
+ *   직접 정해야 할 때만」(메신저 방이 알림·첫 기록으로 열려 목적지가 방 종류 목록일 때) `setPageBackOwner(fn)` 로 슬롯 1개를 쓴다.
+ *   처리 순서 = 인트로 → 오버레이 → 페이지 주인 → 결함 E → canGoBack. 리스너 1개 원칙·「받을 일이 있을 때만」(S1) 유지.
  */
 
 import { useEffect, useRef } from "react";
@@ -33,6 +36,8 @@ let removeListener: (() => void) | null = null;
 let driverOverride: OverlayBackListenerDriver | null = null;
 /** 결함 E — 알림 이동 직후 화면에서만 참. */
 let pushNavigationBackActive = false;
+/** P5 — 페이지 뒤로 주인(슬롯 1개). 오버레이보다 뒤, 결함 E 보다 앞. */
+let pageBackOwner: (() => void) | null = null;
 
 type BackListenerHandle = { remove: () => void | Promise<void> };
 type NativeBackSource = {
@@ -96,6 +101,10 @@ function handleNativeBack(ev: { canGoBack?: boolean }): void {
   // 인트로 아래 웹 화면(오버레이 닫기·알림 이동 뒤로·기록 뒤로)은 움직이지 않는다(이중 방어).
   if (isNativeIntroActive()) return;
   if (handleOverlayHardwareBack()) return;
+  if (pageBackOwner) {
+    pageBackOwner();
+    return;
+  }
   if (pushNavigationBackActive && typeof window !== "undefined") {
     window.history.back();
     return;
@@ -105,7 +114,7 @@ function handleNativeBack(ev: { canGoBack?: boolean }): void {
 }
 
 function syncListener(): void {
-  const wanted = stack.length > 0 || pushNavigationBackActive;
+  const wanted = stack.length > 0 || pageBackOwner != null || pushNavigationBackActive;
   if (wanted && !removeListener) {
     removeListener = (driverOverride ?? capacitorDriver).install(handleNativeBack);
   } else if (!wanted && removeListener) {
@@ -137,6 +146,25 @@ export function setPushNavigationBackActive(active: boolean): void {
   syncListener();
 }
 
+/**
+ * P5 — 페이지 뒤로 주인 등록(슬롯 1개, 마지막 등록이 이긴다). `null` = 해제.
+ * @returns release — 이 등록이 아직 주인일 때만 해제한다(다른 화면의 등록을 지우지 않음).
+ */
+export function setPageBackOwner(owner: (() => void) | null): () => void {
+  pageBackOwner = owner;
+  syncListener();
+  return () => {
+    if (owner != null && pageBackOwner === owner) {
+      pageBackOwner = null;
+      syncListener();
+    }
+  };
+}
+
+export function hasPageBackOwner(): boolean {
+  return pageBackOwner != null;
+}
+
 /** Run the top-most overlay's back handler. @returns true when an overlay consumed the press. */
 export function handleOverlayHardwareBack(): boolean {
   const top = stack[stack.length - 1];
@@ -157,6 +185,7 @@ export function isOverlayBackListenerInstalled(): boolean {
 export function __setOverlayBackListenerDriverForTests(driver: OverlayBackListenerDriver | null): void {
   stack.length = 0;
   pushNavigationBackActive = false;
+  pageBackOwner = null;
   if (removeListener) {
     const remove = removeListener;
     removeListener = null;
