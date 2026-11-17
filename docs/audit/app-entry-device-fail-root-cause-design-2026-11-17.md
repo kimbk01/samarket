@@ -1033,3 +1033,49 @@ PO-8 위치별 켜기/끄기 · 발견 응답에 첫 화면 싣기 · 「휴대�
 - 측정 방법 주의: Xiaomi 는 녹화 중 알림창 터치를 받지 않고, WebView 디버깅을 붙이면 녹화가 멈춘다 → 녹화 실행과 DOM 실행을 나눴다.
 - 배포 직후 예열(M2): 이 배포에서 워크플로가 실제로 실행·성공(23:14:20Z). ttfb 효과는 NOT_PROVEN(다음 배포의 Vercel 관측으로 확인).
 - 확인 못 함: iOS(목적지 보류가 없는 플랫폼 · 변경 없음이 설계상 맞으나 실기 NOT_PROVEN) · 부재중 알림 탭(M3 미구현 — 지금도 덮개 없음).
+
+## 24. 최종 감사 (11-18 07:30~08:05 PHT · 운영 `d0c4426` · Android 디버그 76 실측 + 코드 · iOS 는 코드)
+기준: 결함(FAIL) · 누락 · 누수 · 병목 · 오류 · 중복. 판정은 실측 또는 코드로 확인한 것만.
+
+### 24-1. 작업자 잘못 (먼저)
+| # | 내용 | 영향 |
+|---|---|---|
+| E1 | 23-9 화면 판정이 대기 중 매 프레임 `getComputedStyle` 로 조상을 거슬러 본다(숨김 판정) · 관찰 대상에 `style` 속성 포함 → 대기 1~2초 동안 화면 변경마다 스타일 계산을 강제할 수 있다 | 덮개 시간이 전과 비슷(Xiaomi 6.2~6.8초 · 전 = 해제 4.7 + 자리 표시 1.5)해 측정상 회귀는 안 보였지만 0 이라는 증거도 없다 → 24-3 D7 로 고친다 |
+
+### 24-2. 확인된 결함·병목·중복 (실측 = Xiaomi 알림 모양 실행 · 문서 시작 기준 ms)
+실측 흐름: 문서 응답 503~945 → React 마운트 1641 → **보이지 않는 홈 데이터 13건·피드 그림** 1969~2800 → 알림 경로 결정 2260 → 채팅방 RSC 2264~3014(**2회**) · 탭 미리 받기 RSC 8건(탭마다 2회) 2269~2939 → 로그인 확인(`AuthSessionBoundary`) → 채팅방 데이터 4059 → 그림 5108 → 덮개 해제 5260.
+| # | 종류 | 내용 | 증거 |
+|---|---|---|---|
+| D1 | 병목 | 알림 진입도 시작 문서는 항상 `/`(홈) → 홈 서버 렌더·홈 데이터 13건·피드 그림·탭 미리 받기가 덮개 아래에서 먼저 돌고, 그 뒤 화면 안 이동으로 채팅방을 다시 받는다. 덮개 시간 Xiaomi 6.2~6.8초 · Samsung 4.7~5.7초 | resource timing · logcat |
+| D2 | 중복 | 같은 알림 이동이 웹에서 2번 실행(`route_resolved` 17.907·17.988 — 네이티브 이벤트 + `pending_route_replayed`) → 채팅방 RSC 같은 요청 2회 | 로그 · 호출 스택(같은 router action) |
+| D3 | 중복·오류 | 네이티브 `flushPendingAppPathIfAny` 가 호출마다 경로 이벤트를 즉시+120·450·900·2000·4000ms 에 넣고, 호출처 6곳 · 재시도는 웹 ACK 여부를 안 본다 → 1회 실행에 약 20회 주입, ACK 뒤에도 주입(35.41 ACK → 37.28 재주입). 웹은 알림 id 중복 무시로 막고 있을 뿐 | logcat `pending_route_consumed` 20여 줄 |
+| D4 | 중복·병목 | 하단 탭 미리 받기 RSC 가 탭마다 2회(1차 auto · 2차 full) — 덮개 아래에서 채팅방 RSC 와 동시에 나간다. 코드상 호출처 2곳(`BottomNavBootIdlePrewarmHost` 부팅 미리 받기 · 복귀 재예열 `PREFETCH_FULL`) — 2차가 어느 쪽인지는 로그 표식이 없어 특정 못 함 | 호출 스택 2종(서로 다른 함수) |
+| D5 | 중복 | `AuthSessionBoundary` 가 공용 세션 조회(`fetchAuthSessionNoStore` 단일 비행·3초 캐시)를 쓰지 않고 `fetch("/api/auth/session")` 를 1초마다 직접 부른다 → 다른 세션 확인과 합쳐지지 않는다. 실측: 2회 실행 중 1회 `auth/session` 2회(3276·3760), 1회는 1회 | 코드 · resource timing |
+| D6 | 결함(코드 확인 · iOS 실기 미측정) | iOS 에는 알림 목적지 보류가 없다(`pendingLaunchRoutePath` 브리지 없음 → `readLaunchPushTarget` = null) → 알림으로 켜도 홈 첫 프레임에서 시작 화면이 걷히고 그 뒤 채팅방으로 이동한다(Android 23-9 이전과 같은 구조 + 홈 노출) | 코드. 실기기 iPhone 은 이 Mac 에서 화면 캡처·터치 입력이 안 됨(개발자 디스크 이미지 미장착 · 실기 입력 주입 불가) → Owner 가 알림을 눌러야 측정 가능 |
+| D7 | 병목(작업자) | 24-1 E1 | 코드 |
+| M3 | 결함 | 부재중 알림 탭 덮개 없음(23-4) — 23-9 로 선행 조건 해결 | 코드 · §19-4 |
+| M1 | 병목 | 배포마다 홈 첫 JS 다시 받기 +0.7초(23-10) | 실측 |
+
+### 24-3. 수정 설계 (항목별 · 바뀌는 곳 · 규정)
+| # | 수정 | 바뀌는 곳 | 기대(근거) | 규정 |
+|---|---|---|---|---|
+| D1 | 알림 목적지(통화 아님)가 있는 **차가운 시작**은 시작 문서를 목적지로 바로 연다(`loadUrl(서버주소+목적지)`) — 통화 경로에 이미 있는 `loadCallRouteDirectly` 와 같은 방식. 이 경우 웹 대기 경로 다시 넣기·화면 안 이동은 하지 않는다(문서가 이미 목적지) | `MainActivity`(시작 문서 결정 1곳 · 통화 분기 그대로) · 웹 `PushRouteListener`(목적지 문서면 ACK 만) | 홈 렌더·홈 데이터 13건·채팅방 RSC 2회가 없어진다 → 덮개 시간에서 홈 단계(실측 약 2.3초 = 945→2260 홈 처리 + 2264~3014 RSC)가 빠진다 | 네이티브 → 빌드 77 · 통화 분기 무변경이면 통화 규정 해당 없음(구조 테스트로 고정) |
+| D2 | 웹: 같은 경로를 이미 이동 중이면 `pending_route_replayed` 를 무시(경로+시각 중복 판정에 다시 넣기도 포함) | `PushRouteListener` | 채팅방 RSC 1회 | 웹 |
+| D3 | 네이티브: 재시도 람다가 「지금 대기 경로 == 넣으려는 경로」일 때만 넣고, 새 flush 는 이전 재시도 묶음을 취소(통화 아닌 경로만) | `MainActivity.flushPendingAppPathIfAny` 비통화 분기 | 1회 실행 주입 20회 → 1~2회 | 네이티브 · 통화 분기 그대로 |
+| D4 | 알림 목적지 보류 중(`isLaunchPushHoldActive`)에는 하단 탭 미리 받기·재예열을 해제 뒤로 미룬다 | `BottomNavBootIdlePrewarmHost` | 덮개 아래 RSC 8건 제거 | 웹 |
+| D5 | `AuthSessionBoundary` 의 직접 fetch 를 `fetchAuthSessionNoStore("auth-session-boundary")` 로 바꾸고 1초 반복은 그대로(결과 캐시 공유) | `AuthSessionBoundary` | 세션 확인 합류 · 중복 요청 제거 | 인증 HARD LOCK 문서 범위 — 동작(판정) 무변경 · 요청 경로만 |
+| D6 | iOS: 앱이 알림 탭으로 켜졌으면(`launchOptions[.remoteNotification]`·`UNUserNotificationCenter` 응답) 그 경로를 문서 시작 스크립트로 웹에 동기 제공(`window.__DIBAY_PENDING_LAUNCH_ROUTE__`) → `readLaunchPushTarget` 이 Android 와 같은 보류를 쓴다 | `AppDelegate`/`SceneDelegate` · `DibayRootBridgeViewController` 시작 스크립트 · `launch-push-hold.ts` 읽기 1곳 | iOS 알림 진입도 목적지 그림 뒤 해제 | 네이티브 iOS → 빌드 56 · 통화(PushKit/CallKit) 경로 제외 |
+| D7 | 숨김 판정을 `getComputedStyle` 조상 순회 대신 `checkVisibility()`(없으면 `offsetParent`/`getClientRects`) 1회로 · 관찰 속성에서 `style` 제외 | `launch-destination-paint.ts` | 대기 중 강제 스타일 계산 제거 | 웹 |
+| M3 | 23-12 그대로(1줄) | `MainActivity.isCallLaunch` | 부재중 탭 흰 화면 0 | **통화 규정** — 영향 문서 승인 + Android↔iPhone 행렬(iPhone 은 Owner 조작 필요) |
+| M1 | 23-11 그대로(M1-a 번역 언어별 분리 먼저) | 23-11 | 첫 JS 카탈로그 절반 | 웹 |
+
+### 24-4. 반영 순서·검증
+1. 웹 1 PR: D2·D4·D5·D7 (같은 「알림 진입」 작업) → 두 기기 실제 알림 탭 각 3회: 채팅방 RSC 1회 · 탭 미리 받기 0(해제 전) · 덮개 시간 · 흰 프레임 0 · 아이콘 실행 회귀.
+2. 네이티브 Android PR: D1·D3 (빌드 77 설치본) → 같은 측정 + 통화 수신·수락·부재중 경로 로그 무변경 확인.
+3. iOS PR: D6 (빌드 56) → Owner 가 iPhone 에서 알림 탭 3회(작업자는 syslog·웹 검사기로 시각 기록).
+4. M3(통화 규정 승인 뒤) · M1-a(별도).
+
+### 24-5. 이번 감사에서 문제 아님으로 닫은 것 (증거)
+- 23-9 관찰자·확인 루프 누수 없음: 해제 때 관찰 끝(`stopWatchingLaunchDestinationPaint`) · 확인 루프는 ACK 뒤 해제 또는 8초에 끝(코드 + 테스트).
+- 해제 신호 중복(`dismissSplash` bridge+capacitor 2회): 네이티브가 `webSplashDismissRequested` 로 1회만 처리 — 동작 영향 없음.
+- 배포 직후 문서 본문 3.0초(23-10 D2): 그 뒤 실행 5회(r9·r10) 모두 문서 응답 0.5~0.95초 — 재현 안 됨.
