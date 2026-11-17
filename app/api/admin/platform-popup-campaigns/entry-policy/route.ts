@@ -11,6 +11,7 @@ import {
   validatePlatformPopupEntryPolicy,
 } from "@/lib/platform-popup/entry-policy";
 import { loadPlatformPopupEntryPolicyFromStore } from "@/lib/platform-popup/entry-policy-server";
+import { sameRevision } from "@/lib/admin/same-revision";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,7 +55,8 @@ export async function PUT(req: NextRequest) {
   } catch {
     return NextResponse.json({ ok: false, error: "read_failed" }, { status: 503 });
   }
-  if ((current.revision ?? null) !== (expected ?? null)) {
+  // 재감사: 판은 시각 값으로 비교(저장 응답 `…Z` · DB 읽기 `…+00:00` 이 같은 시각)
+  if (!sameRevision(current.revision, expected)) {
     return NextResponse.json({ ok: false, error: "stale_revision", revision: current.revision }, { status: 409 });
   }
 
@@ -73,7 +75,7 @@ export async function PUT(req: NextRequest) {
       .from("admin_settings")
       .update({ value_json: value, updated_at: nextUpdatedAt })
       .eq("key", PLATFORM_POPUP_ENTRY_POLICY_KEY)
-      .eq("updated_at", expected)
+      .eq("updated_at", current.revision as string)
       .select("key");
     if (error) return NextResponse.json({ ok: false, error: "save_failed" }, { status: 500 });
     if (!data || data.length === 0) return NextResponse.json({ ok: false, error: "stale_revision" }, { status: 409 });

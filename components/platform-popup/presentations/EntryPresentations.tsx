@@ -9,7 +9,7 @@
  * 닫기·숨김·노출 기록은 기존 팝업과 같은 호스트 경로(DismissSSOT) — 이 파일은 그리기만 한다.
  */
 
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ArtworkModalProps } from "@/components/platform-popup/presentations/ArtworkModalPresentation";
@@ -281,6 +281,8 @@ export function TooltipPresentation(
 ) {
   const [box, setBox] = useState<AnchorBox | null>(null);
   const { anchor, onAnchorMissing } = p;
+  const onCloseRef = useRef(p.onClose);
+  onCloseRef.current = p.onClose;
   useLayoutEffect(() => {
     const b = readAnchor(anchor);
     if (!b) {
@@ -288,12 +290,29 @@ export function TooltipPresentation(
       return;
     }
     setBox(b);
-    const onResize = () => setBox(readAnchor(anchor));
-    window.addEventListener("resize", onResize);
-    window.addEventListener("scroll", onResize, true);
+    // 재감사: 스크롤마다 다시 그리지 않고 프레임당 1번 · 자리가 사라지면 걷기
+    let raf = 0;
+    const onMove = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        const next = readAnchor(anchor);
+        if (!next) onAnchorMissing();
+        else setBox(next);
+      });
+    };
+    // 재감사: Esc 로 닫기(말풍선은 바닥 오버레이 쌓임에 없어 따로 받는다)
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") onCloseRef.current();
+    };
+    window.addEventListener("resize", onMove);
+    window.addEventListener("scroll", onMove, { capture: true, passive: true });
+    window.addEventListener("keydown", onKey);
     return () => {
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", onResize, true);
+      if (raf) window.cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onMove);
+      window.removeEventListener("scroll", onMove, { capture: true });
+      window.removeEventListener("keydown", onKey);
     };
   }, [anchor, onAnchorMissing]);
 

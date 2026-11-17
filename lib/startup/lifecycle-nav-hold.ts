@@ -20,8 +20,12 @@ function pathOnly(p: string): string {
   return (p.split(/[?#]/)[0] || "/").trim() || "/";
 }
 
-/** 로그인·약관·온보딩 — 생명주기 이동이 덮지 않는 화면 (`isLifecycleAuthSurfacePath` 와 같은 목록) */
-function isAuthSurface(p: string): boolean {
+/**
+ * 로그인·약관·온보딩 — 생명주기 이동(복원·Safe Entry)이 덮지 않는 화면. 단일 정의(재감사: 두 곳 복사본 → 1곳).
+ * `lifecycle-route-effects.client.ts` 가 이 함수를 그대로 다시 내보낸다.
+ */
+export function isLifecycleAuthSurfacePath(pathname: string): boolean {
+  const p = pathOnly(pathname);
   return (
     p === "/login" ||
     p.startsWith("/login/") ||
@@ -56,7 +60,7 @@ function computeHoldStartPath(): string | null {
     /* storage unavailable: judge below */
   }
   const current = pathOnly(window.location.pathname);
-  if (isAuthSurface(current)) return null;
+  if (isLifecycleAuthSurfacePath(current)) return null;
   if (isSameLifecycleSurface(current, d.navigateTo)) return null;
   return current;
 }

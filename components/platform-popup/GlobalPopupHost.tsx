@@ -155,6 +155,8 @@ export function GlobalPopupHost() {
     () => false
   );
   const [shellReady, setShellReady] = useState(() => isAppShellReady());
+  /** 재감사: 어드민 「가로 화면에서도 보이기」 — 조회 응답 값(없으면 기본 허용). 화면을 돌렸을 때도 같은 판단 */
+  const [allowLandscape, setAllowLandscape] = useState<boolean | undefined>(undefined);
   const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/");
 
   useEffect(() => {
@@ -197,6 +199,7 @@ export function GlobalPopupHost() {
       userId,
       isAppForeground: isForeground,
       isLandscape,
+      allowLandscape,
       incomingCall: call.incomingCall,
       activeCall: call.activeCall,
       nativeCallTransition: call.nativeCallTransition,
@@ -220,6 +223,7 @@ export function GlobalPopupHost() {
     userId,
     isForeground,
     isLandscape,
+    allowLandscape,
     call.incomingCall,
     call.activeCall,
     call.nativeCallTransition,
@@ -244,6 +248,8 @@ export function GlobalPopupHost() {
    * 닫기·자동 닫힘 뒤 연속 노출 잠금보다 먼저 다음 칸을 보인다. CTA 로 이동하면 버린다(사용자가 떠남).
    */
   const queueRestRef = useRef<ResolveWinner[]>([]);
+  /** 지금 보이는(준비 중) 칸이 대기열 몇 번째인가 — 0 = 조회 1위 */
+  const queueIndexRef = useRef(0);
   const generationRef = useRef(0);
   const identityRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -412,6 +418,9 @@ export function GlobalPopupHost() {
       .then(({ json }) => {
         // Hard contract: API must never claim impression
         if (json.impression) return;
+        if (typeof (json as { allowLandscape?: unknown }).allowLandscape === "boolean") {
+          setAllowLandscape((json as { allowLandscape: boolean }).allowLandscape);
+        }
         if (generation !== generationRef.current) return;
         /**
          * 재감사 S-1 (P-b): 응답을 버릴 때도 RESOLVING 에 머물지 않는다 — 예전에는 조회 중 화면을 옮기면
@@ -442,6 +451,7 @@ export function GlobalPopupHost() {
         }
         // 진입 대기열 나머지 — 첫 칸(winner)은 이미 받았다. 예전 서버(queue 없음)면 빈 대기열.
         const rest = Array.isArray(json.queue) ? (json.queue as ResolveWinner[]).slice(1) : [];
+        queueIndexRef.current = 0;
         queueRestRef.current = rest.filter(
           (w) => w && w.campaignId !== winnerId && w.surface === surfaceAtStart && validateWinnerHref(w.cta?.href ?? "")
         );
@@ -483,25 +493,47 @@ export function GlobalPopupHost() {
       }
       if (result === "failed") brokenCreativeCampaignIdsRef.current.add(campaignId);
       else addPlatformPopupSessionBlockedCampaign(campaignId);
-      queueRestRef.current = [];
-      setWinner(null);
-      setExposureId(null);
-      generationRef.current += 1;
-      setHostState((s) => reducePlatformPopupHostState(s, { type: "INVALIDATE" }));
+      skipCurrentRef.current();
     });
     return () => {
       cancelled = true;
     };
   }, [hostState, winner, eligible]);
 
-  const invalidateVisible = useCallback(() => {
-    queueRestRef.current = [];
-    setWinner(null);
-    setExposureId(null);
+  /**
+   * 재감사 (2026-11-17): 지금 칸을 못 보이면(그림 실패·말풍선 자리 없음·데이터 빈칸) 같은 진입 대기열의 다음 칸으로.
+   * 다음 칸이 없고 대기열 중간이었으면 연속 노출 잠금(다시 조회해 진입당 개수를 넘기지 않게).
+   * 1위 칸이고 남은 칸도 없으면 예전처럼 다시 조회(실패 캠페인은 제외 목록에 있음).
+   */
+  const skipCurrent = useCallback(() => {
+    const next = queueRestRef.current.find(
+      (w) => !isPlatformPopupSessionBlockedCampaign(w.campaignId) && !brokenCreativeCampaignIdsRef.current.has(w.campaignId)
+    );
     generationRef.current += 1;
     abortRef.current?.abort();
+    setExposureId(null);
+    if (next && isPopupRuntimeEligible(runtimeCtxRef.current)) {
+      queueRestRef.current = queueRestRef.current.slice(queueRestRef.current.indexOf(next) + 1);
+      queueIndexRef.current += 1;
+      setWinner(next);
+      setHostState((s) =>
+        s === "READY" ? s : reducePlatformPopupHostState(s === "VISIBLE" ? s : "VISIBLE", { type: "QUEUE_NEXT" })
+      );
+      return;
+    }
+    const midQueue = queueIndexRef.current > 0;
+    queueRestRef.current = [];
+    setWinner(null);
+    if (midQueue) {
+      chainLockSurfaceRef.current = navSurfaceRef.current;
+      setHostState((s) => reducePlatformPopupHostState(s, { type: "DISMISS" }));
+      return;
+    }
     setHostState((s) => reducePlatformPopupHostState(s, { type: "INVALIDATE" }));
   }, []);
+  const skipCurrentRef = useRef(skipCurrent);
+  skipCurrentRef.current = skipCurrent;
+
 
   /**
    * 노출을 끝낸다. `persist` 일 때만 서버 숨김 행을 저장한다:
@@ -531,6 +563,7 @@ export function GlobalPopupHost() {
       generationRef.current += 1;
       abortRef.current?.abort();
       if (next && runtimeCtxRef.current.surface === surfaceAtDismiss && isPopupRuntimeEligible(runtimeCtxRef.current)) {
+        queueIndexRef.current += 1;
         setWinner(next);
         setExposureId(null);
         setHostState((s) => reducePlatformPopupHostState(s, { type: "QUEUE_NEXT" }));
@@ -706,14 +739,39 @@ export function GlobalPopupHost() {
   const handleImageError = useCallback(() => {
     // 재감사 S-1 (P-a): 깨진 소재 캠페인은 이번 실행 동안 제외 → 다음 순위 또는 없음 (같은 요청 반복 방지)
     if (winner?.campaignId) brokenCreativeCampaignIdsRef.current.add(winner.campaignId);
-    invalidateVisible();
-  }, [invalidateVisible, winner]);
+    skipCurrent();
+  }, [skipCurrent, winner]);
 
   /** 말풍선 자리 없음 — 이번 실행 동안 그 캠페인만 건너뜀(숨김 기록·노출 기록 없음) */
   const handleUnavailable = useCallback(() => {
     if (winner?.campaignId) addPlatformPopupSessionBlockedCampaign(winner.campaignId);
-    invalidateVisible();
-  }, [invalidateVisible, winner]);
+    skipCurrent();
+  }, [skipCurrent, winner]);
+
+  /**
+   * 재감사: 말풍선은 화면을 막지 않아 하단 탭으로 다른 화면에 갈 수 있다 — 화면이 바뀌면 기록 없이 걷는다
+   * (예전: 옛 위치에 남아 새 화면을 덮고, 호스트가 보이는 중으로 남아 새 화면 팝업이 막힘).
+   */
+  const shownPathRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (hostState !== "VISIBLE" || !winner) {
+      shownPathRef.current = null;
+      return;
+    }
+    if (shownPathRef.current == null) {
+      shownPathRef.current = pathname;
+      return;
+    }
+    if (winner.presentationType === "tooltip" && shownPathRef.current !== pathname) {
+      shownPathRef.current = null;
+      addPlatformPopupSessionBlockedCampaign(winner.campaignId);
+      queueRestRef.current = [];
+      generationRef.current += 1;
+      setWinner(null);
+      setExposureId(null);
+      setHostState((st) => reducePlatformPopupHostState(st, { type: "INVALIDATE" }));
+    }
+  }, [hostState, winner, pathname]);
 
   const showPresentation = mayMountPlatformPopupPresentation(hostState) && winner != null;
 

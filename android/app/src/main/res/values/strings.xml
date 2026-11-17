@@ -132,4 +132,5 @@
     <!-- 진입 감사 5단계: 네이티브 인트로 -->
     <string name="native_intro_ad_label">Ad</string>
     <string name="native_intro_skip">Skip</string>
+    <string name="native_intro_wait">Just a moment…</string>
 </resources>

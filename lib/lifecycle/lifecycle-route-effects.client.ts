@@ -15,22 +15,12 @@ import {
   isSameLifecycleSurface,
   lifecycleNavHoldStartPath,
   settleLifecycleNavHold,
+  isLifecycleAuthSurfacePath,
 } from "@/lib/startup/lifecycle-nav-hold";
 import { markInitialDestinationVisualReady } from "@/lib/startup/startup-metrics";
 
-/** Auth / consent / onboarding surfaces — owned by auth SSOT, never replaced by restore or Safe Entry. */
-export function isLifecycleAuthSurfacePath(pathname: string): boolean {
-  const p = (pathname.split("?")[0] || "/").trim();
-  return (
-    p === "/login" ||
-    p.startsWith("/login/") ||
-    p === "/signup" ||
-    p.startsWith("/signup/") ||
-    p.startsWith("/auth/") ||
-    p === "/onboarding" ||
-    p.startsWith("/onboarding/")
-  );
-}
+/** Auth / consent / onboarding surfaces — owned by auth SSOT, never replaced by restore or Safe Entry. 단일 정의는 `lifecycle-nav-hold`. */
+export { isLifecycleAuthSurfacePath };
 
 export function LifecycleRouteEffects(): null {
   const pathname = usePathname() || "/";

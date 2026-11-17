@@ -121,6 +121,15 @@ public class MainActivity extends BridgeActivity {
   private static final String LIFECYCLE_PREFS = "dibay_lifecycle";
   private static final String LIFECYCLE_SESSION_PAUSED_KEY = "session_paused";
 
+  /** 진입 감사 재감사: 홈 화면 아이콘(런처)으로 켠 실행인가 — 통화·알림·딥링크 실행에는 인트로를 붙이지 않는다 */
+  static boolean isLauncherLaunch(Intent intent) {
+    if (intent == null) return false;
+    if (!Intent.ACTION_MAIN.equals(intent.getAction())) return false;
+    if (intent.getData() != null) return false;
+    java.util.Set<String> cats = intent.getCategories();
+    return cats != null && cats.contains(Intent.CATEGORY_LAUNCHER);
+  }
+
   static String computeNativeRestoreHint(android.content.Context ctx, Bundle savedInstanceState) {
     final boolean hasSavedState = savedInstanceState != null;
     SharedPreferences lifePrefs = ctx.getSharedPreferences(LIFECYCLE_PREFS, MODE_PRIVATE);
@@ -1250,7 +1259,8 @@ public class MainActivity extends BridgeActivity {
     NATIVE_RESTORE_HINT = computeNativeRestoreHint(this, savedInstanceState);
     Log.i("DibayLaunchEpoch", "native_restore_hint=" + NATIVE_RESTORE_HINT);
     // 진입 감사 5단계 IN-1·OS-3: 로딩 시간 안의 네이티브 인트로 — 소재 고르기(웹 시작 스크립트보다 먼저)
-    if (savedInstanceState == null || "restore".equals(NATIVE_RESTORE_HINT)) {
+    // 재감사: 한 프로세스에 1번(화면 다시 만들기 제외) · 아이콘 실행만(통화 수락·알림 탭·잠금화면 통화로 켜질 때 제외)
+    if (!DibayNativeIntro.processSelectionDone() && isLauncherLaunch(getIntent())) {
       DibayNativeIntro.selectForLaunch(this, NATIVE_RESTORE_HINT);
     } else {
       // 화면 다시 만들기(설정 변경 등) — 이전 실행의 인트로를 다시 그리지 않는다

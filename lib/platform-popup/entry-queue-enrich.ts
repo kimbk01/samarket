@@ -59,7 +59,8 @@ export async function loadPlatformPopupExpiringCoupons(
     .gt("expires_at", now.toISOString())
     .lte("expires_at", until.toISOString())
     .order("expires_at", { ascending: true })
-    .limit(PLATFORM_POPUP_COUPON_CARD_MAX_ROWS);
+    // 재감사: 이름 없는 쿠폰을 거른 뒤 3개를 채우도록 넉넉히 읽는다
+    .limit(PLATFORM_POPUP_COUPON_CARD_MAX_ROWS * 4);
   if (error || !data?.length) return [];
   const rows = data as Array<{ id: string; campaign_id: string | null; store_id: string | null; expires_at: string | null }>;
   const campaignIds = [...new Set(rows.map((r) => r.campaign_id).filter((v): v is string => Boolean(v)))];
@@ -87,5 +88,6 @@ export async function loadPlatformPopupExpiringCoupons(
       expiresAt: r.expires_at,
       href: PLATFORM_POPUP_COUPON_LIST_HREF,
     }))
-    .filter((c) => c.title);
+    .filter((c) => c.title)
+    .slice(0, PLATFORM_POPUP_COUPON_CARD_MAX_ROWS);
 }

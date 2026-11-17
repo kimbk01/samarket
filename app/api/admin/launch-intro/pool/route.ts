@@ -25,7 +25,7 @@ export async function GET() {
   if (!policy.ok) return NextResponse.json({ ok: false, error: policy.error }, { status: policy.status ?? 500 });
   const stats = await loadLaunchIntroPoolStats(
     sb,
-    rows.rows.map((r) => r.id)
+    rows.rows.filter((r) => r.status !== "ended").map((r) => r.id)
   );
   return NextResponse.json({
     ok: true,

@@ -5,6 +5,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import {
+  POPUP_BODY_MAX,
+  POPUP_CTA_LABEL_MAX,
+  POPUP_SOURCE_MAX_MB,
+  POPUP_TITLE_MAX,
+  popupCreativeSpecForComposition,
+} from "@/lib/platform-popup/creative-size-spec";
 import { AdminDestinationResolvedHint } from "@/components/admin/destination/AdminDestinationResolvedHint";
 import { AdminPlatformPopupPreview } from "@/components/admin/platform-popup/AdminPlatformPopupPreview";
 import {
@@ -1113,6 +1120,21 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               {safeT("admin_platform_popup_load_image")}
             </AdminActionButton>
 
+            {/* 재감사: 형태별 그림·글 규격 — 서버 검사(`creative-size-spec.ts`)와 같은 값 */}
+            <p className="mt-2 text-xs text-sam-muted" data-admin-popup-creative-spec="1">
+              {(() => {
+                const spec = popupCreativeSpecForComposition(operatorComposition);
+                return t(spec.kind === "card" ? "platform_popup_spec_card" : "platform_popup_spec_artwork", {
+                  recommended: spec.recommended,
+                  minimum: spec.minimum,
+                  output: spec.output,
+                  maxMb: POPUP_SOURCE_MAX_MB,
+                });
+              })()}
+            </p>
+            <p className="mt-1 text-xs text-sam-muted" data-admin-popup-copy-spec="1">
+              {t("platform_popup_spec_copy")}
+            </p>
             {fileMeta ? (
               <ul className="mt-3 space-y-0.5 text-xs text-sam-muted" data-admin-popup-file-meta="1">
                 <li>
@@ -1177,6 +1199,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                   <input
                     className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                     value={promoTitle}
+                    maxLength={POPUP_TITLE_MAX}
                     onChange={(e) => {
                       markDirty();
                       setPromoTitle(e.target.value);
@@ -1188,6 +1211,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                   <textarea
                     className="mt-1 h-20 w-full rounded border border-sam-border px-2 py-1.5"
                     value={promoBody}
+                    maxLength={POPUP_BODY_MAX}
                     onChange={(e) => {
                       markDirty();
                       setPromoBody(e.target.value);
@@ -1201,6 +1225,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               <input
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                 value={ctaLabel}
+                maxLength={POPUP_CTA_LABEL_MAX}
                 placeholder={translateBy(language, "admin_e_g_get_benefit")}
                 onChange={(e) => {
                   markDirty();

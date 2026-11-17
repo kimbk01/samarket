@@ -9,6 +9,7 @@ const cap = vi.hoisted(() => ({
   available: true,
   listener: null as null | ((e: Record<string, unknown>) => void),
   sync: vi.fn(async () => ({ ok: true })),
+  state: { active: true, revision: "" } as { active: boolean; revision: string },
 }));
 
 vi.mock("@capacitor/core", () => ({
@@ -19,6 +20,7 @@ vi.mock("@capacitor/core", () => ({
   },
   registerPlugin: () => ({
     sync: cap.sync,
+    getState: async () => cap.state,
     addListener: async (_: string, fn: (e: Record<string, unknown>) => void) => {
       cap.listener = fn;
       return { remove: async () => {} };
@@ -116,6 +118,7 @@ describe("네이티브 인트로 연결", () => {
     cap.available = true;
     cap.listener = null;
     cap.sync.mockClear();
+    cap.state = { active: true, revision: "" };
     window.localStorage.clear();
     delete (window as { __DIBAY_NATIVE_INTRO__?: string }).__DIBAY_NATIVE_INTRO__;
   });
@@ -147,9 +150,12 @@ describe("네이티브 인트로 연결", () => {
     expect(isNativeIntroActive()).toBe(false);
   });
 
-  it("묶음 맞추기: 같은 판이면 다시 안 함 · 서버 읽기 실패(null)면 그대로 · 플러그인 없는 앱은 안 함", async () => {
+  it("묶음 맞추기: 기기 저장 판과 같으면 안 함 · 다르면 함 · 서버 읽기 실패(null)·플러그인 없는 앱은 안 함", async () => {
     const pool = { enabled: true, showOnOsRestore: true, revision: "r1", entries: [] };
+    cap.state = { active: false, revision: "r1" };
     await syncNativeIntroPool(pool);
+    expect(cap.sync).toHaveBeenCalledTimes(0);
+    cap.state = { active: false, revision: "r0" };
     await syncNativeIntroPool(pool);
     expect(cap.sync).toHaveBeenCalledTimes(1);
     await syncNativeIntroPool(null);
@@ -157,5 +163,23 @@ describe("네이티브 인트로 연결", () => {
     cap.available = false;
     await syncNativeIntroPool({ ...pool, revision: "r2" });
     expect(cap.sync).toHaveBeenCalledTimes(1);
+  });
+
+  it("재감사 H2: 네이티브가 그리지 못했으면(getState active=false) 바로 팝업 보류를 푼다", async () => {
+    Object.defineProperty(window, "__DIBAY_NATIVE_INTRO__", { value: ID, configurable: true });
+    cap.state = { active: false, revision: "" };
+    startNativeIntroBridge(vi.fn());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(isNativeIntroActive()).toBe(false);
+  });
+
+  it("재감사 H1: 같은 실행에서 끝난 인트로는 문서를 다시 열어도 보류하지 않는다", async () => {
+    Object.defineProperty(window, "__DIBAY_NATIVE_INTRO__", { value: ID, configurable: true });
+    startNativeIntroBridge(vi.fn());
+    await Promise.resolve();
+    cap.listener!({ type: "done", creativeId: ID, exposureId: "e-123456789" });
+    expect(isNativeIntroActive()).toBe(false);
+    // 같은 프로세스의 새 문서(시작 스크립트 값은 그대로)
+    expect(readNativeIntroLaunchId()).toBeNull();
   });
 });

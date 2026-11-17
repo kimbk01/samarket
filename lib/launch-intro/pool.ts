@@ -162,9 +162,12 @@ export function selectLiveLaunchIntroPoolRows<
   T extends { status: string; start_at: string | null; end_at: string | null; sort_order: number; id: string },
 >(rows: readonly T[], now: Date = new Date()): T[] {
   const t = now.getTime();
-  return rows
-    .filter((r) => r.status === "active")
-    .filter((r) => !r.end_at || Date.parse(r.end_at) > t)
-    .sort((a, b) => a.sort_order - b.sort_order || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-    .slice(0, LAUNCH_INTRO_POOL_MAX_ACTIVE);
+  const order = (a: T, b: T) => a.sort_order - b.sort_order || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  const live = rows.filter((r) => r.status === "active").filter((r) => !r.end_at || Date.parse(r.end_at) > t);
+  // 재감사 L1: 지금 보일 소재가 먼저 — 시작 전 소재가 20개 칸을 차지해 지금 소재가 빠지지 않게
+  const startsLater = (r: T) => Boolean(r.start_at && Date.parse(r.start_at) > t);
+  return [...live.filter((r) => !startsLater(r)).sort(order), ...live.filter(startsLater).sort(order)].slice(
+    0,
+    LAUNCH_INTRO_POOL_MAX_ACTIVE
+  );
 }
