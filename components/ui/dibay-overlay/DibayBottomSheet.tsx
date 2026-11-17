@@ -13,8 +13,6 @@ export type DibayBottomSheetProps = {
   showHandle?: boolean;
   /** When false, backdrop / Escape do not close (caller X may still call onClose). */
   dismissible?: boolean;
-  /** Android ◁ 로 닫기 — `DibayOverlayRoot.backDismissible` 그대로 전달. */
-  backDismissible?: boolean;
   /**
    * Fixed sheet height as a fraction of dvh (e.g. 0.8 = ~80% usable viewport).
    * When set, overrides default max-height caps.
@@ -49,7 +47,6 @@ export function DibayBottomSheet({
   title,
   showHandle = true,
   dismissible = true,
-  backDismissible,
   heightRatio,
   children,
   footer,
@@ -124,7 +121,6 @@ export function DibayBottomSheet({
       open={open}
       onClose={onClose}
       dismissible={dismissible}
-      backDismissible={backDismissible}
       placement="sheet"
       zRole="sheet"
       zIndexClass={zIndexClass}

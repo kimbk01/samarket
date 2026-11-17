@@ -15,8 +15,6 @@ export type DibayUsableAreaSheetProps = {
   open: boolean;
   onClose: () => void;
   dismissible?: boolean;
-  /** Android ◁ 로 닫기 — `DibayOverlayRoot.backDismissible` 그대로 전달. */
-  backDismissible?: boolean;
   ariaLabel?: string;
   /**
    * Height within the usable band.
@@ -51,7 +49,6 @@ export function DibayUsableAreaSheet({
   open,
   onClose,
   dismissible = true,
-  backDismissible,
   ariaLabel,
   preferredHeightRatio,
   maxWidthClass = DIBAY_USABLE_AREA_MAX_WIDTH_CLASS,
@@ -147,7 +144,6 @@ export function DibayUsableAreaSheet({
       open={open}
       onClose={onClose}
       dismissible={dismissible}
-      backDismissible={backDismissible}
       placement="sheet"
       zRole="sheet"
       zIndexClass={zIndexClass}

@@ -15,7 +15,6 @@ import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
 import { writeTradeWriteSheetOpenMarker } from "@/lib/posts/trade-write-sheet-open-marker";
 import { recordTradeWriteSheetFirstFrame } from "@/lib/trade/trade-write-sheet-open-perf";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
-import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 const SHEET_EXIT_MS = 520;
 
@@ -147,11 +146,6 @@ export function TradeWriteBottomSheet() {
   const onHeaderClose = useCallback(() => {
     tryCloseFromFlowRef.current();
   }, []);
-  /**
-   * Android ◁ = ✕ 와 같은 처리(작성 중이면 「나갈까요?」 확인) — 감사 2026-11-17 D5.
-   * 지금까지는 ◁ 가 주소를 바꿔 시트가 확인 없이 닫혔다.
-   */
-  useOverlayHardwareBack(isOpen, onHeaderClose);
 
   if (!isOpen) return null;
 

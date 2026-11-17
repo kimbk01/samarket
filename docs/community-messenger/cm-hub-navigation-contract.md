@@ -57,7 +57,6 @@
 - **Room 진입:** `community-messenger-room-forward-navigation.ts` → `beginRoomDeepRouteNavigationLock`
 - **Call 진입:** `call-session-navigation-seed.ts` → `beginCallDeepRouteNavigationLock` + `abortPendingMainBottomNavRouteCommits`
 - **의미:** 허브 탭 = 같은 층 replace. 방/통화 = 스택 push — 뒤로가기는 허브로.
-- **Android ◁ (탭 첫 화면, Owner 2026-11-17 F4 「(가) Android 표준」):** 하단 탭으로 들어온 기록 항목에서 ◁ = 첫 번째 탭(메인 = HOME)을 누른 것과 같은 이동, 첫 번째 탭에서 ◁ = 앱 내리기. 남은 기록으로 가지 않는다. 단일 정의 `lib/ui/android-root-back.ts`(표시는 `commitBottomNavTabRoute` 의 `navigated` 때만).
 
 ### Tier 3 — Auth (consent-only HTML gate)
 
@@ -95,4 +94,3 @@
 | 날짜 | 요약 |
 |------|------|
 | 2026-06-21 | rollback 복구 후 카톡/텔레그램형 4계층 계약 문서·verify 추가 |
-| 2026-11-17 | Android ◁ 탭 첫 화면 규칙(F4) 추가 — `docs/audit/android-system-nav-2026-11-17/README.md` |

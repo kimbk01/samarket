@@ -24,7 +24,6 @@ import {
   CM_TEXTAREA_CLASS,
 } from "@/lib/community/community-ui-classes";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
-import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 type Props = {
   node: NeighborhoodCommentNode;
@@ -81,8 +80,6 @@ export function CommunityCommentItem({
   const [menuOpen, setMenuOpen] = useState(false);
   /** 재감사 S-2 (G-8 마무리): 메뉴가 열려 있으면 팝업 광고를 띄우지 않는다 */
   useRegisterOpenOverlay(menuOpen);
-  /** Android ◁ = 닫기(✕·바깥 탭과 같은 처리) — 감사 2026-11-17 D5 */
-  useOverlayHardwareBack(menuOpen, () => setMenuOpen(false));
   const [repliesOpen, setRepliesOpen] = useState(() => node.children.length === 0);
   const [replyDraft, setReplyDraft] = useState("");
   const replyComposingRef = useRef(false);

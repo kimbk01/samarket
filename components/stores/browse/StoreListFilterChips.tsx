@@ -28,7 +28,6 @@ import {
 } from "@/lib/design/delivery-browse-chrome";
 import type { StoreBrowseSortId } from "./StoreListFilters";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
-import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 /** 「기본순」 시트 5줄 — 찜 많은 순은 서버 정렬 뒤 찜 수로 다시 정렬 */
 export type StoreBrowseChipSortId = StoreBrowseSortId | "favorites";
@@ -98,8 +97,6 @@ function Sheet({
   footer: ReactNode;
 }) {
   useRegisterOpenOverlay(true);
-  /** Android ◁ = 닫기(✕·바깥 탭과 같은 처리) — 감사 2026-11-17 D5 */
-  useOverlayHardwareBack(true, onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();

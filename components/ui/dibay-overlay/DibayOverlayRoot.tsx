@@ -24,12 +24,6 @@ export type DibayOverlayRootProps = {
   onClose?: () => void;
   /** When false, backdrop click / Escape do not close. */
   dismissible?: boolean;
-  /**
-   * Android 시스템 ◁ 로 `onClose` 를 부를지. 기본 = `dismissible`.
-   * `dismissible={false}` 가 「바깥 탭·Escape 로 닫기 막기」 뜻일 뿐 ◁ 를 막을 이유가 없는 화면(X·취소 버튼이 있는 시트)은 true —
-   * ◁ 는 기기 기능이라 처리 중(busy)·강제 업데이트 외에는 삼키지 않는다(감사 2026-11-17 D6).
-   */
-  backDismissible?: boolean;
   placement: "center" | "sheet" | "full";
   zRole?: DibayOverlayZRole;
   zIndexClass?: string;
@@ -65,7 +59,6 @@ export function DibayOverlayRoot({
   open,
   onClose,
   dismissible = true,
-  backDismissible,
   placement,
   zRole = "dialog",
   zIndexClass,
@@ -85,9 +78,7 @@ export function DibayOverlayRoot({
 
   // Overlays without a close handler are not registered (back behaves as before).
   // Non-dismissible (busy) overlays swallow back so the page underneath does not navigate.
-  // `backDismissible` lets a backdrop-locked sheet still close on Android ◁ (same as its X / 취소).
-  const closesOnBack = backDismissible ?? dismissible;
-  useOverlayHardwareBack(open && Boolean(onClose), closesOnBack && onClose ? onClose : null);
+  useOverlayHardwareBack(open && Boolean(onClose), dismissible && onClose ? onClose : null);
 
   // G-8: 열린 동안 등록 — 광고가 아닌 오버레이가 열려 있으면 팝업 광고가 뜨지 않는다
   useEffect(() => {

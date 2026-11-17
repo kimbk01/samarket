@@ -6,7 +6,6 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
-import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 export type OpenGroupJoinPreviewFullScreenProps = {
   group: CommunityMessengerDiscoverableGroupSummary;
@@ -46,8 +45,6 @@ export function OpenGroupJoinPreviewFullScreen({
 }: OpenGroupJoinPreviewFullScreenProps) {
   const { t } = useI18n();
   useRegisterOpenOverlay(true);
-  /** Android ◁ = 닫기(「닫기」 버튼과 같은 처리) · 가입 요청 중에는 삼킴 — 감사 2026-11-17 D5 */
-  useOverlayHardwareBack(true, busy ? null : onClose);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const { keyboardOpen, effectiveViewportBottom, visualViewportHeight, visualViewportOffsetTop } =
     useFormKeyboardViewport();
