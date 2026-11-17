@@ -16,6 +16,7 @@
 
 import { useEffect, useRef } from "react";
 import { resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
+import { isNativeIntroActive } from "@/lib/launch-intro/native-intro-client";
 
 type OverlayBackEntry = { id: number; run: () => void };
 
@@ -57,6 +58,9 @@ const capacitorDriver: OverlayBackListenerDriver = {
 };
 
 function handleNativeBack(ev: { canGoBack?: boolean }): void {
+  // 실기 FAIL-1 (2026-11-17): 네이티브 인트로가 덮고 있는 동안 ◁ 의 주인은 인트로(네이티브 = 건너뛰기) 하나 —
+  // 웹은 아무것도 하지 않는다(예전: 첫 화면 처리로 앱이 내려감). 네이티브 순서가 바뀌어도 앱이 내려가지 않게 하는 이중 방어.
+  if (isNativeIntroActive()) return;
   if (handleOverlayHardwareBack()) return;
   if (pushNavigationBackActive && typeof window !== "undefined") {
     window.history.back();

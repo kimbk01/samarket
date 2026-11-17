@@ -312,7 +312,12 @@ public final class DibayNativeIntro {
               onSkip();
             }
           };
-      ((androidx.activity.ComponentActivity) act).getOnBackPressedDispatcher().addCallback(backCallback);
+      // 실기 FAIL-1 (2026-11-17): 소유자 없이 등록하면 onCreate 즉시 목록에 들어가, 화면 시작(onStart)에 등록되는
+      // Capacitor AppPlugin 뒤로 콜백보다 뒤에 서서 ◁ 를 못 받았다(웹 준비 뒤에는 웹이 앱을 내림). 같은 소유자 등록으로
+      // 바꿔 AppPlugin(super.onCreate 안에서 등록)보다 나중 = 먼저 받게 한다. 통화 콜백(MainActivity, 이보다 나중)은
+      // 통화가 없으면 스스로 끄고 다시 보내므로 인트로가 받는다.
+      androidx.activity.ComponentActivity owner = (androidx.activity.ComponentActivity) act;
+      owner.getOnBackPressedDispatcher().addCallback(owner, backCallback);
     }
     // 시작 화면 유지 조건은 「인트로 화면이 붙었다」로 푼다(붙기 전엔 그대로). 표시 시간은 실제 첫 그림 뒤부터(IN-2).
     overlayAttached = true;

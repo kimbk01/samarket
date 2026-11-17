@@ -77,9 +77,9 @@ describe("lifecycle-nav-hold", () => {
     expect(late).toHaveBeenCalledTimes(1);
   });
 
-  it("해제 경로 두 곳(서버 본문 첫 프레임·첫 화면 신호)이 보류를 확인하고, 생명주기 효과가 모든 미이동 분기에서 보류를 푼다", () => {
+  it("해제 경로(첫 화면 신호 — P3 서버 본문 해제는 실기 FAIL-2 로 폐기)가 보류를 확인하고, 생명주기 효과가 모든 미이동 분기에서 보류를 푼다", () => {
     const metrics = readFileSync("lib/startup/startup-metrics.ts", "utf8");
-    expect(metrics.match(/mayReleaseForLifecycleNav\(window\.location\.pathname\)/g)?.length).toBe(2);
+    expect(metrics.match(/mayReleaseForLifecycleNav\(window\.location\.pathname\)/g)?.length).toBe(1);
     const effects = readFileSync("lib/lifecycle/lifecycle-route-effects.client.ts", "utf8");
     expect(effects.match(/settleLifecycleNavHold\(\)/g)?.length).toBeGreaterThanOrEqual(5);
     expect(effects).toContain("isSameLifecycleSurface(current, target)");
