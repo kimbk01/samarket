@@ -1,12 +1,34 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ChatRoomSource } from "@/lib/types/chat";
+import { resolveTradeMessengerRoomForAdmin } from "@/lib/admin-chats/trade-messenger-room";
 
 export type ViewerItemTradeRoomResult = {
   roomId: string | null;
   source: ChatRoomSource | null;
-  /** 행의 `community_messenger_room_id` — API 응답 `messengerRoomId` 와 동일 */
+  /**
+   * 정규 메신저 방 id — 행의 `community_messenger_room_id`, 비어 있으면 Admin·내역 링크와 같은 해석기
+   * (`resolveTradeMessengerRoomForAdmin`: FK·direct_key·domain_identity_key). API 응답 `messengerRoomId` 와 동일.
+   */
   messengerRoomId: string | null;
 };
+
+/**
+ * FK 가 비어 있을 때만 같은 해석기로 정규 방 id 를 찾는다 (FK 가 있으면 추가 조회 없음).
+ * 「채팅 이어가기」가 레거시 행 id 로 방을 열면 URL 이 정규 id 로 바뀌기 전까지 방 안 알림이 날 수 있다.
+ */
+async function messengerRoomIdOrResolve(
+  sb: SupabaseClient,
+  fk: string | null,
+  legacyId: string
+): Promise<string | null> {
+  if (fk) return fk;
+  try {
+    const resolved = await resolveTradeMessengerRoomForAdmin(sb as SupabaseClient<any>, legacyId);
+    return resolved.messengerRoomId;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * 구매자·상품 기준 기존 거래 채팅 방 ID (`chat_rooms` item_trade → `product_chats`).
@@ -53,7 +75,7 @@ export async function resolveViewerItemTradeRoom(
       /** `chat_rooms.id` — 거래 부트스트랩·프리웜은 이 값으로만 호출 */
       roomId: crId,
       source: "chat_room",
-      messengerRoomId: crMid,
+      messengerRoomId: await messengerRoomIdOrResolve(sbAny, crMid, crId),
     };
   }
 
@@ -76,6 +98,6 @@ export async function resolveViewerItemTradeRoom(
     /** `product_chats.id` — 레거시 메시지 부트스트랩용 */
     roomId: pcId ?? null,
     source: pcId ? "product_chat" : null,
-    messengerRoomId: pcMid,
+    messengerRoomId: pcId ? await messengerRoomIdOrResolve(sbAny, pcMid, pcId) : pcMid,
   };
 }

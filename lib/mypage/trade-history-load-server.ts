@@ -28,13 +28,13 @@ import {
 import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
 
 const PC_SEL =
-  "id, post_id, seller_id, buyer_id, created_at, last_message_at, last_message_preview, trade_flow_status, chat_mode, seller_completed_at, buyer_confirmed_at, buyer_confirm_source";
+  "id, post_id, seller_id, buyer_id, created_at, last_message_at, last_message_preview, trade_flow_status, chat_mode, seller_completed_at, buyer_confirmed_at, buyer_confirm_source, community_messenger_room_id";
 
 /** 건수 전용 — 네트워크·파싱 부하 감소 */
 const PC_COUNT_SEL = "id, post_id, seller_id, buyer_id";
 
 const PURCHASE_SEL =
-  "id, post_id, seller_id, buyer_id, created_at, last_message_at, last_message_preview, trade_flow_status, chat_mode, seller_completed_at, buyer_confirmed_at, review_deadline_at, buyer_confirm_source";
+  "id, post_id, seller_id, buyer_id, created_at, last_message_at, last_message_preview, trade_flow_status, chat_mode, seller_completed_at, buyer_confirmed_at, review_deadline_at, buyer_confirm_source, community_messenger_room_id";
 
 const PURCHASE_COUNT_SEL = "id, post_id, seller_id, buyer_id";
 
