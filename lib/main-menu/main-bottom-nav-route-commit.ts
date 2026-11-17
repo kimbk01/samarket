@@ -35,8 +35,6 @@ import { clearPendingMenuNavigationBridge } from "@/lib/navigation/pending-menu-
  * BottomNav MAIN DOMAIN history SSOT.
  * Back contract (`cm-hub-navigation-contract`): hub tabs = same-layer **replace**;
  * room/call = stack **push**. DO NOT push hub↔hub (history tangle / Back ≠ hub).
- * Android ◁ on a tab's first screen (F4, Owner 2026-11-17): first tab (HOME) — then app minimize.
- * Owned by `lib/ui/android-root-back.ts`; do not reintroduce leftover-history back here.
  */
 export const BOTTOM_NAV_HISTORY_MODE = "replace" as const;
 
