@@ -143,6 +143,16 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { isCmGroupCallEnabled } from "@/lib/community-messenger/call-phase0-basics";
 import { useMessengerRoomCallChoice } from "@/components/community-messenger/room/phase2/use-messenger-room-call-choice";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import {
+  resolveDirectPeerReadCursorKey,
+  resolveGroupReadFloorKey,
+  resolveMessengerOutboundReadState,
+  type MessengerReadMode,
+} from "@/lib/community-messenger/room/messenger-outbound-read-state";
+import {
+  clearGroupReadCountsSnapshot,
+  setGroupReadCountsSnapshot,
+} from "@/lib/community-messenger/group/group-read-counts-snapshot";
 
 /** 통화 시트 — 말풍선을 누를 때만 불러온다 (연락처 코드를 방 진입 경로에 넣지 않음) */
 const MessengerCallChoiceSheetLazy = lazy(
@@ -640,6 +650,19 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     groupMineMessageIds,
     vm.isPrivateGroupRoom ? vm.snapshot : null
   );
+  /**
+   * P1 (Owner 2026-11-18): 그룹 「읽음 N」 라벨은 말풍선 옆에서 빠지고(상태 아이콘으로 대체),
+   * 읽은 수는 길게 누름 메뉴 「읽음 N명」 항목이 같은 결과를 읽는다(추가 조회 0).
+   */
+  useEffect(() => {
+    if (!vm.isPrivateGroupRoom) return;
+    const roomId = vm.streamRoomId;
+    setGroupReadCountsSnapshot(roomId, groupReadCounts);
+  }, [groupReadCounts, vm.isPrivateGroupRoom, vm.streamRoomId]);
+  useEffect(() => {
+    const roomId = vm.streamRoomId;
+    return () => clearGroupReadCountsSnapshot(roomId);
+  }, [vm.streamRoomId]);
   /** 거래 도크는 타임라인 안; 배달 주문 chrome·composer는 스크롤 밖 — tail class 분기 */
   const timelineInnerTailClass = hasTradeDock
     ? "chat-timeline-inner--trade"
@@ -921,108 +944,39 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   );
 
   /**
-   * 내 최신 확정 발화 id + 상대 읽음 커서 비교 — 기존에는 역순 스캔 2회 + `filter(!pending)` 전체 1회가 겹쳤다.
-   * 역순 1회로 mine id 확정 후, 읽음 판별에 필요한 두 id만 단일 순방향 스캔으로 찾는다.
-   *
-   * `readReceipt.lastReadMessageId`(및 created_at 비교)는 Postgres participant 행 외에
-   * 서버 broadcast `read_ack` → 부모 스냅샷 패치로도 갱신된다 — 동일 커서로 「안읽음/1」 제거.
+   * P1 전송 상태 SSOT (appendix-P1-send-status-design.md B-1·B-2 #10):
+   * 예전에는 「내 최신 확정 메시지 1개」에만 「안 읽음」 글자를 붙여, 새 메시지 ACK 순간 글자가 옮겨 다녔다(S3).
+   * 이제 읽음 기준 튜플 1개만 계산하고 행마다 `(createdAt, id)` 를 O(1) 비교한다.
+   * - 1:1: 상대 읽음 커서(`readReceipt` — participant 행·서버 broadcast `read_ack` 패치로 갱신)
+   * - 비공개 그룹: 읽음 수 ≥ 1 인 가장 늦은 내 메시지
+   * - 오픈 그룹: 읽음 데이터 없음 → 저장됨까지만
    */
-  const { latestReadableMineMessageId, peerHasReadMyLatestMessage } = useMemo(() => {
-    /** 1:1만 말풍선 옆 읽음/안읽음 — 그룹은 커서 스냅샷이 없어 오표시 방지 */
-    if (vm.snapshot.room.roomType !== "direct") {
-      return { latestReadableMineMessageId: null, peerHasReadMyLatestMessage: false };
-    }
-
-    const msgs = vm.displayRoomMessages;
-    let latestMineId: string | null = null;
-    for (let i = msgs.length - 1; i >= 0; i -= 1) {
-      const item = msgs[i];
-      if (item.pending) continue;
-      if (!item.isMine) continue;
-      if (item.messageType === "system") continue;
-      latestMineId = item.id;
-      break;
-    }
-
-    const readCursor = vm.snapshot.readReceipt?.lastReadMessageId?.trim() ?? "";
-    const cursorCreatedAtServer = vm.snapshot.readReceipt?.lastReadMessageCreatedAt?.trim() ?? "";
-
-    if (!readCursor) {
-      return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: false };
-    }
-    if (!latestMineId) {
-      return { latestReadableMineMessageId: null, peerHasReadMyLatestMessage: false };
-    }
-    if (readCursor === latestMineId) {
-      return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: true };
-    }
-
-    const firstRowById = new Map<string, (typeof msgs)[number]>();
-    for (let i = 0; i < msgs.length; i += 1) {
-      const m = msgs[i];
-      if (m.pending) continue;
-      if (!firstRowById.has(m.id)) {
-        firstRowById.set(m.id, m);
-      }
-      if (firstRowById.has(readCursor) && firstRowById.has(latestMineId)) {
-        break;
-      }
-    }
-    const cursorMsg = firstRowById.get(readCursor);
-    const mineLatestMsg = firstRowById.get(latestMineId);
-
-    type SnapRow = (typeof vm.snapshot.messages)[number];
-    let cMsg: (typeof msgs)[number] | SnapRow | undefined = cursorMsg;
-    let mMsg: (typeof msgs)[number] | SnapRow | undefined = mineLatestMsg;
-    if (!cMsg || !mMsg) {
-      const byId = new Map<string, SnapRow>();
-      for (let s = 0; s < vm.snapshot.messages.length; s += 1) {
-        const row = vm.snapshot.messages[s]!;
-        byId.set(row.id, row);
-      }
-      cMsg = cMsg ?? byId.get(readCursor);
-      mMsg = mMsg ?? byId.get(latestMineId);
-    }
-
-    /** 부트스트랩 메시지 창에 상대 읽음 커서 id 가 없을 때 — 서버가 내려준 커서 created_at 으로만 타임라인 비교 */
-    if (!cMsg && mMsg && cursorCreatedAtServer) {
-      const tb = new Date(mMsg.createdAt).getTime();
-      const tc = new Date(cursorCreatedAtServer).getTime();
-      if (tc > tb) {
-        return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: true };
-      }
-      if (tc < tb) {
-        return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: false };
-      }
-      return {
-        latestReadableMineMessageId: latestMineId,
-        peerHasReadMyLatestMessage: readCursor.localeCompare(latestMineId) >= 0,
-      };
-    }
-
-    if (!cMsg || !mMsg) {
-      return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: false };
-    }
-
-    const ta = new Date(cMsg.createdAt).getTime();
-    const tb = new Date(mMsg.createdAt).getTime();
-    if (ta > tb) {
-      return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: true };
-    }
-    if (ta < tb) {
-      return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: false };
-    }
-    return {
-      latestReadableMineMessageId: latestMineId,
-      peerHasReadMyLatestMessage: readCursor.localeCompare(latestMineId) >= 0,
-    };
+  const outboundReadMode: MessengerReadMode =
+    vm.snapshot.room.roomType === "direct"
+      ? "direct"
+      : vm.isPrivateGroupRoom
+        ? "private_group"
+        : "untracked";
+  const peerReadCursorKey = useMemo(() => {
+    if (outboundReadMode !== "direct") return null;
+    return resolveDirectPeerReadCursorKey({
+      lastReadMessageId: vm.snapshot.readReceipt?.lastReadMessageId,
+      lastReadMessageCreatedAt: vm.snapshot.readReceipt?.lastReadMessageCreatedAt,
+      rows: vm.displayRoomMessages,
+      fallbackRows: vm.snapshot.messages,
+    });
   }, [
+    outboundReadMode,
     vm.displayRoomMessages,
     vm.snapshot.messages,
-    vm.snapshot.room.roomType,
     vm.snapshot.readReceipt?.lastReadMessageId,
     vm.snapshot.readReceipt?.lastReadMessageCreatedAt,
   ]);
+  const groupReadFloorKey = useMemo(() => {
+    if (outboundReadMode !== "private_group") return null;
+    return resolveGroupReadFloorKey(vm.displayRoomMessages, groupReadCounts);
+  }, [outboundReadMode, vm.displayRoomMessages, groupReadCounts]);
+  const outboundReadKey = outboundReadMode === "direct" ? peerReadCursorKey : groupReadFloorKey;
 
   const roomUnreadCount = vm.snapshot.room.unreadCount ?? 0;
   /**
@@ -2108,21 +2062,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   !isCallStub &&
                   showPeerName;
                 const peerAvatar = !item.isMine ? messageRowPreamble.peerAvatarFor(item.senderId) : null;
-                const mineUnreadBadgeVisible =
-                  !vm.isPrivateGroupRoom &&
-                  item.isMine &&
-                  item.messageType !== "system" &&
-                  !isCallStub &&
-                  latestReadableMineMessageId === item.id &&
-                  !peerHasReadMyLatestMessage;
-                const groupReadReceiptLabel =
-                  vm.isPrivateGroupRoom &&
-                  item.isMine &&
-                  item.messageType !== "system" &&
-                  !isCallStub &&
-                  groupReadCounts[item.id]?.label
-                    ? groupReadCounts[item.id]!.label
-                    : undefined;
+                const outboundReadState = resolveMessengerOutboundReadState(
+                  item,
+                  outboundReadMode,
+                  outboundReadKey
+                );
                 const showMineClusterStart =
                   item.isMine &&
                   item.messageType !== "system" &&
@@ -2205,8 +2149,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     }
                     peerAvatar={peerAvatar}
                     streamRoomId={vm.streamRoomId}
-                    mineUnreadBadgeVisible={mineUnreadBadgeVisible}
-                    groupReadReceiptLabel={groupReadReceiptLabel}
+                    outboundReadState={outboundReadState}
                     highlightMentions={vm.isPrivateGroupRoom}
                     timelineHighlightMessageId={vm.timelineHighlightMessageId}
                     messageActionItemId={vm.messageActionItem?.item.id ?? null}
@@ -2215,7 +2158,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                         ? false
                         : vm.roomPreferences.mediaAutoSaveEnabled
                     }
-                    sendingLabel={vm.t("common_sending")}
                     voiceCallLabel={vm.t("nav_voice_call_label")}
                     videoCallLabel={vm.t("nav_video_call_label")}
                     callStatusLabel={

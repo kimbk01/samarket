@@ -73,6 +73,7 @@ import { resetAdminClientStateForAuthChange } from "@/lib/admin-auth/admin-me-co
 import { writeOwnerActiveStoreIdToSession } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { resetMessengerBottomChatUnreadForAuthEpoch } from "@/lib/notifications/messenger-bottom-chat-unread-projection";
 import { clearMessengerAttachmentRecent } from "@/lib/community-messenger/attachment/messenger-attachment-recent-store";
+import { clearMessengerFailedTextSends } from "@/lib/community-messenger/room/messenger-failed-text-store";
 import { clearLastRunSnapshot } from "@/lib/startup/last-run-snapshot";
 
 export type ClientSessionWipeReason = "user_logout" | "account_switched" | "pre_login_bootstrap";
@@ -172,6 +173,8 @@ function resetInMemoryClientStores(): void {
   writeOwnerActiveStoreIdToSession(null);
   /** P0-D — 이전 계정의 메신저 최근 사진(File·blob URL) 폐기 */
   clearMessengerAttachmentRecent();
+  /** P1 — 이전 계정의 메신저 실패 글(재전송 대기) 보관 폐기 */
+  clearMessengerFailedTextSends();
 }
 
 function resetAddressClientCaches(): void {

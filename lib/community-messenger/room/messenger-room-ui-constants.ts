@@ -24,3 +24,11 @@ export const MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX = 96;
  * 이전 100은 가상화 전 완충용 — 로드 더 보기·긴 스레드와 함께 쓰이면 상한을 크게 둔다.
  */
 export const MESSENGER_TIMELINE_MESSAGES_CAP = 2500;
+
+/**
+ * P1 B-5 — 글·스티커 전송 요청 시간 제한(ms). 넘으면 결과 불명(indeterminate) 실패 → 실패 행 유지 + 같은 cid 재전송.
+ * 값 근거: 앱 공통 클라이언트 fetch 기본값(`lib/http/fetch-with-timeout.ts` 12_000) · 진입 공유 요청
+ * `ENTRY_SHARED_FLIGHT_DEADLINE_MS` · 읽음 처리 `CM_MARK_READ_SERVER_TIMEOUT_MS` 와 같다.
+ * 사진·파일·음성 업로드는 파일 크기에 따라 걸리는 시간이 달라 적용하지 않는다.
+ */
+export const MESSENGER_TEXT_SEND_TIMEOUT_MS = 12_000;

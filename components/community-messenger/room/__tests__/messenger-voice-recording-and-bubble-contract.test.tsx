@@ -8,7 +8,7 @@
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { act } from "react";
+import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -70,7 +70,7 @@ describe("음성 말풍선", () => {
     vi.useRealTimers();
   });
 
-  function render(isMine = true, meta?: string) {
+  function render(isMine = true, meta?: ReactNode) {
     act(() =>
       root.render(
         <VoiceMessageBubble
@@ -78,7 +78,7 @@ describe("음성 말풍선", () => {
           durationSeconds={2}
           isMine={isMine}
           waveformPeaks={Array.from({ length: 48 }, () => 0.5)}
-          sentTimeLabel={meta}
+          sentMeta={meta}
         />
       )
     );
@@ -108,11 +108,11 @@ describe("음성 말풍선", () => {
   });
 
   it("V3 폭은 220px 고정(옆 표시와 무관), 시간·읽음은 말풍선 안에", () => {
-    render(true, "cm_ui_unread 4:18 AM");
+    render(true, <span>4:18 AM</span>);
     const box = host.querySelector("[data-cm-voice-bubble]") as HTMLElement;
     expect(box.className).toContain("w-[220px]");
     expect(box.className).toContain("max-w-full");
-    expect(host.querySelector("[data-cm-voice-meta]")!.textContent).toBe("cm_ui_unread 4:18 AM");
+    expect(host.querySelector("[data-cm-voice-meta]")!.textContent).toBe("4:18 AM");
   });
 
   it("V4 짧게 탭하면 그 위치로 이동", () => {
@@ -159,11 +159,10 @@ function rowProps(item: Record<string, unknown>, over: Partial<MessengerTimeline
     dayDividerLabel: null,
     peerAvatar: null,
     streamRoomId: "r1",
-    mineUnreadBadgeVisible: true,
+    outboundReadState: "unread",
     timelineHighlightMessageId: null,
     messageActionItemId: null,
     mediaAutoSaveEnabled: false,
-    sendingLabel: "sending",
     voiceCallLabel: "voice",
     videoCallLabel: "video",
     callStatusLabel: "",
@@ -219,22 +218,22 @@ describe("V3 음성 줄: 시간·읽음은 말풍선 안, 옆 줄에는 없음",
     expect(host.querySelector("[data-cm-voice-bubble]")).not.toBeNull();
   }
 
-  it("내 음성: 「안 읽음」·시간이 말풍선 안 표시에만 있다", async () => {
+  it("내 음성: 시간·상태 아이콘이 말풍선 안 표시에만 있다", async () => {
     await renderRow();
     const meta = host.querySelector("[data-cm-voice-meta]") as HTMLElement;
-    expect(meta.textContent).toContain("cm_ui_unread");
-    const outside = [...host.querySelectorAll("span")].filter(
-      (s) => !s.closest("[data-cm-voice-bubble]") && /cm_ui_unread/.test(s.textContent ?? "")
+    expect(meta.querySelector('[data-cm-outbound-status="sent"]')!.getAttribute("aria-label")).toBe("cm_ui_unread");
+    const outside = [...host.querySelectorAll("[data-cm-outbound-status]")].filter(
+      (s) => !s.closest("[data-cm-voice-bubble]")
     );
     expect(outside).toHaveLength(0);
   });
 
-  it("읽음이 바뀌어도 말풍선 폭 지정은 같고, 안 읽음 글자만 빠진다", async () => {
-    await renderRow({ mineUnreadBadgeVisible: true });
+  it("읽음이 바뀌어도 말풍선 폭 지정은 같고, 아이콘만 체크 2로 바뀐다", async () => {
+    await renderRow({ outboundReadState: "unread" });
     const c1 = (host.querySelector("[data-cm-voice-bubble]") as HTMLElement).className;
-    await renderRow({ mineUnreadBadgeVisible: false });
+    await renderRow({ outboundReadState: "read" });
     const c2 = (host.querySelector("[data-cm-voice-bubble]") as HTMLElement).className;
     expect(c1).toBe(c2);
-    expect(host.querySelector("[data-cm-voice-meta]")!.textContent).not.toContain("cm_ui_unread");
+    expect(host.querySelector('[data-cm-voice-meta] [data-cm-outbound-status="read"]')).not.toBeNull();
   });
 });

@@ -63,6 +63,8 @@ export type MessageLongPressPopoverProps = {
   showPin?: boolean;
   onReportMessage?: () => void;
   onBlockSender?: () => void;
+  /** 비공개 그룹 내 메시지 「읽음 N명」 정보 줄(P1) — 없으면 줄 없음 */
+  readInfoLabel?: string;
 };
 
 export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
@@ -414,6 +416,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
           deleteForEveryone={deleteForEveryone}
           deleteVoiceHard={deleteVoiceHard}
           photoSaveRows={photoSaveRows}
+          readInfoLabel={props.readInfoLabel}
           pin={
             props.showPin && props.onPin
               ? {

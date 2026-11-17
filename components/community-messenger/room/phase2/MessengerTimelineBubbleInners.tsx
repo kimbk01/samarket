@@ -20,8 +20,13 @@ import {
   openMessengerFileInNativeShellIfNeeded,
 } from "@/lib/community-messenger/messenger-file-download";
 import { messengerMediaRouteUrlFor } from "@/lib/community-messenger/media/messenger-media-ref";
+import {
+  MESSENGER_OUTBOUND_STATUS_ICON_BOX_CLASS,
+  MessengerOutboundStatusIcon,
+} from "@/components/community-messenger/room/phase2/MessengerOutboundStatusIcon";
+import type { MessengerOutboundStatus } from "@/lib/community-messenger/room/messenger-outbound-read-state";
 
-/** `sendFailed` — C-3/C-10 발신 실패(재전송 대기) 표시. pending 과 함께 true 이며 "전송 중" 라벨을 숨긴다. */
+/** `sendFailed` — C-3/C-10 발신 실패(재전송 대기) 표시. pending 과 함께 true 이며 상태 아이콘이 경고로 바뀐다. */
 export type TimelineViberBubbleMessage = CommunityMessengerMessage & { pending?: boolean; sendFailed?: boolean };
 
 export const TimelineViberInnerImage = memo(function TimelineViberInnerImage({
@@ -39,7 +44,6 @@ export const TimelineViberInnerSticker = memo(function TimelineViberInnerSticker
 }: {
   item: TimelineViberBubbleMessage;
 }) {
-  const { t } = useI18n();
   const stickerSrc = item.content.trim();
   return (
     <div className="flex flex-col items-stretch p-1">
@@ -53,9 +57,7 @@ export const TimelineViberInnerSticker = memo(function TimelineViberInnerSticker
         decoding="async"
         className="h-36 w-36 max-h-[9.5rem] max-w-[9.5rem] object-contain sm:h-40 sm:w-40 sm:max-h-[10rem] sm:max-w-[10rem]"
       />
-      {item.pending && !item.sendFailed ? (
-        <span className="mt-1 sam-text-xxs text-sam-muted">{t("common_sending")}</span>
-      ) : null}
+      {/* P1: 「전송 중」 글자 삭제 — 상태는 스티커 위 칸(`data-cm-sticker-meta`)의 아이콘이 표시 */}
     </div>
   );
 });
@@ -63,21 +65,44 @@ export const TimelineViberInnerSticker = memo(function TimelineViberInnerSticker
 export const TimelineViberInnerVoice = memo(function TimelineViberInnerVoice({
   item,
   streamRoomId,
-  metaLabel,
+  metaClock = "",
+  metaStatus = null,
+  metaReadTracked = false,
 }: {
   item: TimelineViberBubbleMessage;
   streamRoomId: string;
-  /** Read state + clock drawn inside the bubble (Telegram) so the side labels never narrow it. */
-  metaLabel?: string;
+  /**
+   * Clock + status icon drawn inside the bubble (Telegram) so side labels never narrow it.
+   * 원시 값만 받는다 — memo 비교 유지(P1 B-2 #3).
+   */
+  metaClock?: string;
+  metaStatus?: MessengerOutboundStatus | null;
+  metaReadTracked?: boolean;
 }) {
+  const { t } = useI18n();
+  const sentMeta =
+    metaClock || metaStatus ? (
+      <>
+        {metaClock ? <span>{metaClock}</span> : null}
+        {metaStatus ? (
+          <MessengerOutboundStatusIcon
+            status={metaStatus}
+            readTracked={metaReadTracked}
+            tone={item.isMine ? "bubble-mine" : "plain"}
+            t={t}
+          />
+        ) : null}
+      </>
+    ) : undefined;
   return (
     <VoiceMessageBubble
       src={communityMessengerVoiceAudioSrc(streamRoomId, item)}
       durationSeconds={item.voiceDurationSeconds ?? 0}
       isMine={item.isMine}
-      pending={item.pending}
+      /** P1 F-voice: 실패 행은 「보내는 중」 버퍼링을 그리지 않는다(실패 표시는 행 아래 `MessengerOutboundFailedActions`) */
+      pending={Boolean(item.pending) && !item.sendFailed}
       waveformPeaks={item.voiceWaveformPeaks ?? null}
-      sentTimeLabel={metaLabel || undefined}
+      sentMeta={sentMeta}
       fallbackSrc={
         /* C-4: 폴백도 원 저장 URL 대신 첨부 조회 라우트(참가자 확인 → 서명 URL). */
         item.pending
@@ -262,12 +287,18 @@ export const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallSt
 
 export const TimelineViberInnerTextDefault = memo(function TimelineViberInnerTextDefault({
   item,
-  sendingLabel,
   highlightMentions = false,
+  metaSpacerClock = "",
+  metaSpacerIcon = false,
 }: {
   item: TimelineViberBubbleMessage;
-  sendingLabel: string;
   highlightMentions?: boolean;
+  /**
+   * P1 B-3 — 말풍선 안 오른쪽 아래 시간·상태 표시(`data-cm-text-meta`, 행이 절대 위치로 그림)와 같은 폭의
+   * 보이지 않는 자리. 상태가 바뀌어도 이 자리의 폭은 같다(시간 글자 + 고정 폭 아이콘 상자). 원시 값만 받는다(memo 유지).
+   */
+  metaSpacerClock?: string;
+  metaSpacerIcon?: boolean;
 }) {
   const mineLight = item.isMine;
   const body =
@@ -278,22 +309,23 @@ export const TimelineViberInnerTextDefault = memo(function TimelineViberInnerTex
     );
   return (
     <div className="flex w-max max-w-full flex-col gap-2">
-      <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5">
-        <p
-          className={`inline-block w-fit max-w-full whitespace-pre-wrap break-words text-[14px] leading-[1.35] break-keep [overflow-wrap:break-word] ${
-            mineLight ? "text-inherit" : "text-[color:var(--cm-room-bubble-incoming-fg,#050505)]"
-          }`}
-        >
-          {body}
-        </p>
-        {item.pending && !item.sendFailed ? (
+      <p
+        className={`inline-block w-fit max-w-full whitespace-pre-wrap break-words text-[14px] leading-[1.35] break-keep [overflow-wrap:break-word] ${
+          mineLight ? "text-inherit" : "text-[color:var(--cm-room-bubble-incoming-fg,#050505)]"
+        }`}
+      >
+        {body}
+        {metaSpacerClock || metaSpacerIcon ? (
           <span
-            className={`shrink-0 text-[11px] ${mineLight ? "text-white/75" : "text-[color:var(--cm-room-text-muted)]"}`}
+            aria-hidden
+            data-cm-text-meta-spacer=""
+            className="invisible ml-2 inline-flex select-none items-center gap-1 align-bottom text-[11px] leading-none tabular-nums"
           >
-            {sendingLabel}
+            {metaSpacerClock ? <span className="whitespace-nowrap">{metaSpacerClock}</span> : null}
+            {metaSpacerIcon ? <span className={MESSENGER_OUTBOUND_STATUS_ICON_BOX_CLASS} /> : null}
           </span>
         ) : null}
-      </div>
+      </p>
     </div>
   );
 });

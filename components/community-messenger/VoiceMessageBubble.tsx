@@ -9,6 +9,7 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -48,7 +49,7 @@ export function VoiceMessageBubble({
   isMine,
   pending,
   waveformPeaks,
-  sentTimeLabel,
+  sentMeta,
   fallbackSrc,
   mediaType,
 }: {
@@ -57,7 +58,8 @@ export function VoiceMessageBubble({
   isMine: boolean;
   pending?: boolean;
   waveformPeaks?: number[] | null;
-  sentTimeLabel?: string;
+  /** 말풍선 안 시간·상태 아이콘(P1) — 호출부(TimelineViberInnerVoice)가 원시 값으로 만든다 */
+  sentMeta?: ReactNode;
   /** API 스트림 실패 시 재생용 (공개 Storage URL 등) */
   fallbackSrc?: string | null;
   /** 오디오 MIME — 재생 요소 key 에 포함(형식 변경 시 재마운트) */
@@ -374,9 +376,12 @@ export function VoiceMessageBubble({
                 </button>
               ) : null}
             </span>
-            {sentTimeLabel ? (
-              <span data-cm-voice-meta="" className="shrink-0 whitespace-nowrap tabular-nums opacity-80">
-                {sentTimeLabel}
+            {sentMeta ? (
+              <span
+                data-cm-voice-meta=""
+                className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap tabular-nums opacity-80"
+              >
+                {sentMeta}
               </span>
             ) : null}
           </div>

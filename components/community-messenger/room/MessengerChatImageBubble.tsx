@@ -106,15 +106,19 @@ function SwapImage({
 }
 
 export function MessengerChatImageBubble(props: {
-  item: CommunityMessengerMessage & { pending?: boolean };
+  item: CommunityMessengerMessage & { pending?: boolean; sendFailed?: boolean };
   /** 공용 사진 뷰어(`DibayImageViewer`) 열기 — 화면용 1600·원본·말풍선 썸네일(먼저 그림) */
   onOpenLightbox: (items: DibayImageViewerItem[], index: number) => void;
 }) {
-  const { t } = useI18n();
   const { onOpenLightbox } = props;
   /** C-4: 저장 URL(공개·비공개 버킷) → 참가자 확인 첨부 조회 라우트. 썸네일·라이트박스·원본 모두 같은 투영. */
   const item = withMessengerMediaRouteUrls(props.item);
   const pending = Boolean(item.pending);
+  /**
+   * P1 F-img: 실패 행(`pending && sendFailed`)은 「보내는 중」 회전을 그리지 않는다 — 실패 표시는 행 아래
+   * `MessengerOutboundFailedActions`. 상태 글자는 사진 위 칸(`data-cm-photo-meta`)의 아이콘이 대신한다.
+   */
+  const uploading = pending && !item.sendFailed;
   const album = item.imageAlbumUrls && item.imageAlbumUrls.length > 1 ? item.imageAlbumUrls : null;
 
   const openFrom = (idx: number) => {
@@ -151,11 +155,6 @@ export function MessengerChatImageBubble(props: {
           }
           onOpenCell={openFrom}
         />
-        {pending ? (
-          <p className="mt-1 text-center sam-text-xxs text-sam-muted">
-            {t("common_sending")}
-          </p>
-        ) : null}
       </div>
     );
   }
@@ -167,6 +166,7 @@ export function MessengerChatImageBubble(props: {
       height={item.imageHeight ?? null}
       blurDataUrl={item.imageBlurDataUrl ?? null}
       pending={pending}
+      uploading={uploading}
       onOpen={() => openFrom(0)}
     />
   );
@@ -261,6 +261,7 @@ function SingleChatImage({
   height,
   blurDataUrl,
   pending,
+  uploading,
   onOpen,
 }: {
   src: string;
@@ -270,6 +271,8 @@ function SingleChatImage({
   width: number | null;
   height: number | null;
   pending?: boolean;
+  /** 보내는 중(실패 아님) — 회전 표시 */
+  uploading?: boolean;
   onOpen: () => void;
 }) {
   const { t } = useI18n();
@@ -325,7 +328,7 @@ function SingleChatImage({
               }
             }}
           />
-          {pending ? (
+          {uploading ? (
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/25">
               <span
                 className="h-9 w-9 animate-spin rounded-full border-2 border-white/90 border-t-transparent"
@@ -335,9 +338,6 @@ function SingleChatImage({
           ) : null}
         </div>
       </button>
-      {pending ? (
-        <p className="mt-1 text-center sam-text-xxs text-sam-muted">{t("common_sending")}</p>
-      ) : null}
     </div>
   );
 }

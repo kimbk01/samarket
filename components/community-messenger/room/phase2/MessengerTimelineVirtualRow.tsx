@@ -43,6 +43,14 @@ import {
 } from "@/components/community-messenger/room/phase2/MessengerTimelineBubbleInners";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { MessengerOutboundFailedActions } from "@/components/community-messenger/room/phase2/MessengerOutboundFailedActions";
+import {
+  MessengerOutboundStatusIcon,
+  type MessengerOutboundStatusIconTone,
+} from "@/components/community-messenger/room/phase2/MessengerOutboundStatusIcon";
+import {
+  resolveMessengerOutboundStatus,
+  type MessengerOutboundReadState,
+} from "@/lib/community-messenger/room/messenger-outbound-read-state";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { isStoreOrderSummarySystemContent } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
@@ -108,16 +116,16 @@ export type MessengerTimelineVirtualRowProps = {
   unreadDividerLabel?: string | null;
   peerAvatar: ReturnType<typeof communityMessengerMemberAvatar> | null;
   streamRoomId: string;
-  /** 상대 읽음 표시 — 해당 행에만 변함 → 전 행 memo 깨짐 방지 */
-  mineUnreadBadgeVisible: boolean;
-  /** private_group — tail read count label e.g. "읽음 3" */
-  groupReadReceiptLabel?: string;
+  /**
+   * P1 전송 상태 — 확정 내 메시지의 읽음 상태(원시 문자열 → memo 비교기 유지, 커서 전진 시 바뀌는 행만 다시 그림).
+   * 보내는 중·실패는 `item`(pending·sendFailed)에서 행이 직접 판정한다.
+   */
+  outboundReadState: MessengerOutboundReadState;
   /** private_group — highlight @mentions in text bubbles */
   highlightMentions?: boolean;
   timelineHighlightMessageId: string | null;
   messageActionItemId: string | null;
   mediaAutoSaveEnabled: boolean;
-  sendingLabel: string;
   voiceCallLabel: string;
   videoCallLabel: string;
   callStatusLabel: string;
@@ -162,13 +170,11 @@ function messengerTimelineVirtualRowPropsAreEqual(
     a.unreadDividerLabel === b.unreadDividerLabel &&
     a.peerAvatar === b.peerAvatar &&
     a.streamRoomId === b.streamRoomId &&
-    a.mineUnreadBadgeVisible === b.mineUnreadBadgeVisible &&
-    a.groupReadReceiptLabel === b.groupReadReceiptLabel &&
+    a.outboundReadState === b.outboundReadState &&
     a.highlightMentions === b.highlightMentions &&
     a.timelineHighlightMessageId === b.timelineHighlightMessageId &&
     a.messageActionItemId === b.messageActionItemId &&
     a.mediaAutoSaveEnabled === b.mediaAutoSaveEnabled &&
-    a.sendingLabel === b.sendingLabel &&
     a.voiceCallLabel === b.voiceCallLabel &&
     a.videoCallLabel === b.videoCallLabel &&
     a.callStatusLabel === b.callStatusLabel &&
@@ -205,13 +211,11 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   unreadDividerLabel = null,
   peerAvatar,
   streamRoomId,
-  mineUnreadBadgeVisible,
-  groupReadReceiptLabel,
+  outboundReadState,
   highlightMentions = false,
   timelineHighlightMessageId,
   messageActionItemId,
   mediaAutoSaveEnabled,
-  sendingLabel,
   voiceCallLabel,
   videoCallLabel,
   callStatusLabel,
@@ -545,31 +549,58 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     item.messageType === "community_post_share" ? parseCommunityPostShareMetadata(metadata) : null;
 
   /**
+   * P1 전송 상태 SSOT (appendix-P1-send-status-design.md B-1·B-3):
+   * 시간 + 상태 아이콘(고정 폭 `w-4`)을 말풍선 **안** 오른쪽 아래에 둔다(받은 메시지는 시간만 — Owner 2026-11-18 양방향).
+   * 글 말풍선은 본문 끝에 같은 내용의 보이지 않는 자리(spacer)를 두어 상태·시간 표시가 바뀌어도 폭·줄바꿈·높이 변화 0.
+   * 사진·스티커는 그림 위 칸, 음성은 기존 칸(`data-cm-voice-meta`), 커뮤니티 공유 카드만 옆 줄 유지.
+   * 비공개 그룹 「읽음 N」 라벨은 말풍선 옆에서 빠지고(1명이라도 읽으면 체크 2), 읽은 수는 길게 누름 메뉴로
+   * (Owner 2026-11-18 「권장안대로 반영」, 레거시 Telegram 기준).
+   */
+  const outboundStatus = resolveMessengerOutboundStatus(item, outboundReadState);
+  const outboundReadTracked = outboundReadState === "read" || outboundReadState === "unread";
+  const clockLabel = messengerMessageClockLabel(item);
+  const renderStatusIcon = (tone: MessengerOutboundStatusIconTone) =>
+    outboundStatus ? (
+      <MessengerOutboundStatusIcon status={outboundStatus} readTracked={outboundReadTracked} tone={tone} t={t} />
+    ) : null;
+
+  /**
    * Voice bubble (no reply quote) draws read state + clock inside the bubble like Telegram. Beside the bubble they
    * narrowed the 292px row so the 220px waveform overflowed the bubble edge (device 2026-11-16, same cause as F2).
    */
   const voiceMetaInBubble = !deletedForEveryone && item.messageType === "voice" && !replyQuote;
-  const bubbleMetaReadLabel = item.isMine
-    ? mineUnreadBadgeVisible
-      ? t("cm_ui_unread")
-      : groupReadReceiptLabel || ""
-    : "";
-  const voiceMetaLabel = voiceMetaInBubble
-    ? [bubbleMetaReadLabel, showMessageTime ? messengerMessageClockLabel(item) : ""].filter(Boolean).join(" ")
-    : "";
+  /** 텍스트 기본 말풍선(글·위치·삭제 묘비 등) — 본문 끝 보이지 않는 자리 + 오른쪽 아래 절대 위치 표시 */
+  const bodyIsTextDefault =
+    (deletedForEveryone && item.messageType !== "call_stub") ||
+    !(
+      item.messageType === "image" ||
+      item.messageType === "sticker" ||
+      item.messageType === "voice" ||
+      item.messageType === "file" ||
+      item.messageType === "call_stub" ||
+      item.messageType === "gift_certificate" ||
+      (item.messageType === "community_post_share" && communityPostShareCard)
+    );
   const viberInnerBody: ReactNode =
     deletedForEveryone && item.messageType !== "call_stub" ? (
       <TimelineViberInnerTextDefault
         item={item}
-        sendingLabel={sendingLabel}
         highlightMentions={false}
+        metaSpacerClock={clockLabel}
+        metaSpacerIcon={outboundStatus != null}
       />
     ) : item.messageType === "image" ? (
       <TimelineViberInnerImage item={item} onOpenLightbox={onOpenImageLightbox} />
     ) : item.messageType === "sticker" ? (
       <TimelineViberInnerSticker item={item} />
     ) : item.messageType === "voice" ? (
-      <TimelineViberInnerVoice item={item} streamRoomId={streamRoomId} metaLabel={voiceMetaLabel} />
+      <TimelineViberInnerVoice
+        item={item}
+        streamRoomId={streamRoomId}
+        metaClock={voiceMetaInBubble && showMessageTime ? clockLabel : ""}
+        metaStatus={voiceMetaInBubble ? outboundStatus : null}
+        metaReadTracked={outboundReadTracked}
+      />
     ) : item.messageType === "file" ? (
       <TimelineViberInnerFile item={item} mediaAutoSaveEnabled={mediaAutoSaveEnabled} />
     ) : item.messageType === "call_stub" ? (
@@ -592,14 +623,57 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     ) : (
       <TimelineViberInnerTextDefault
         item={item}
-        sendingLabel={sendingLabel}
         highlightMentions={highlightMentions}
+        metaSpacerClock={clockLabel}
+        metaSpacerIcon={outboundStatus != null}
       />
     );
 
   /** 사진·스티커만 있는 말풍선 = 배경 없음(media). 「전달됨」 글자 색도 이 값으로 정한다 */
   const isMediaBubble =
     !deletedForEveryone && (item.messageType === "image" || item.messageType === "sticker") && !replyQuote;
+  /**
+   * 사진 말풍선(인용 없는 사진·묶음)은 시간·읽음 표시를 텔레그램처럼 **사진 오른쪽 아래에 얹는다** (SSOT O10 · F2).
+   * 2026-11-16 측정: 시간(42px)·「안 읽음」(31px)이 사진 옆 같은 줄(292px)에 있어 사진 폭이 207px 로 줄었다가,
+   * 상대가 읽어 「안 읽음」이 사라지면 238px 로 늘며 묶음 높이 155→179px·위치 24px 이동. 얹으면 폭이 표시와 무관해진다.
+   * P1: 인용 없는 스티커도 같은 칸(`data-cm-sticker-meta`).
+   */
+  const photoMetaOnPhoto = isMediaBubble && item.messageType === "image";
+  const stickerMetaOnSticker = isMediaBubble && item.messageType === "sticker";
+  /** 커뮤니티 공유 카드 — 옆 줄 유지(아이콘 고정 폭) */
+  const metaBesideBubble = !deletedForEveryone && item.messageType === "community_post_share";
+  /** 글 계열 말풍선 안 표시(사진·스티커 칸·음성 칸·옆 줄 제외) */
+  const textMetaInBubble = !photoMetaOnPhoto && !stickerMetaOnSticker && !voiceMetaInBubble && !metaBesideBubble;
+  const bubbleClockToneClass = item.isMine
+    ? "text-[color:var(--cm-room-bubble-outgoing-fg,#fff)] opacity-75"
+    : "text-[color:var(--cm-room-text-muted)]";
+  /** 시간은 숨겨도 자리를 유지(invisible) — 다음 메시지가 같은 분에 와서 시간이 빠져도 말풍선 폭이 바뀌지 않게 */
+  const inBubbleMetaInner = (
+    <>
+      <span className={`whitespace-nowrap ${bubbleClockToneClass} ${showMessageTime ? "" : "invisible"}`}>
+        {clockLabel}
+      </span>
+      {renderStatusIcon(item.isMine ? "bubble-mine" : "plain")}
+    </>
+  );
+  const inBubbleMetaClass = "inline-flex items-center gap-1 text-[11px] leading-none tabular-nums";
+  const textMetaOverlay =
+    textMetaInBubble && bodyIsTextDefault ? (
+      <span
+        data-cm-text-meta=""
+        className={`pointer-events-none absolute bottom-1.5 right-[10px] ${inBubbleMetaClass}`}
+      >
+        {inBubbleMetaInner}
+      </span>
+    ) : null;
+  /** 카드형 본문(파일·상품권·인용 있는 사진/음성/스티커) — 본문 아래 오른쪽 줄(고정 폭 아이콘) */
+  const textMetaTrailingRow =
+    textMetaInBubble && !bodyIsTextDefault ? (
+      <span data-cm-text-meta="" className={`pointer-events-none mt-1 flex justify-end ${inBubbleMetaClass}`}>
+        {inBubbleMetaInner}
+      </span>
+    ) : null;
+
   const viberBubble = (
     <ViberChatBubble
       isMine={item.isMine}
@@ -622,41 +696,44 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         ) : null}
         {!deletedForEveryone &&
         (item.messageType === "image" || item.messageType === "sticker" || item.messageType === "community_post_share") ? (
-          viberInnerBody
+          textMetaTrailingRow ? (
+            <>
+              {viberInnerBody}
+              <div className="px-3 pb-1.5">{textMetaTrailingRow}</div>
+            </>
+          ) : (
+            viberInnerBody
+          )
         ) : (
-          <div className={replyQuote ? "px-3 pb-2 pt-1.5" : "px-[12px] py-2"}>{viberInnerBody}</div>
+          <div className={`relative ${replyQuote ? "px-3 pb-2 pt-1.5" : "px-[12px] py-2"}`}>
+            {viberInnerBody}
+            {textMetaOverlay}
+            {textMetaTrailingRow}
+          </div>
         )}
       </div>
     </ViberChatBubble>
   );
 
-  /**
-   * 사진 말풍선(인용 없는 사진·묶음)은 시간·읽음 표시를 텔레그램처럼 **사진 오른쪽 아래에 얹는다** (SSOT O10 · F2).
-   * 2026-11-16 측정: 시간(42px)·「안 읽음」(31px)이 사진 옆 같은 줄(292px)에 있어 사진 폭이 207px 로 줄었다가,
-   * 상대가 읽어 「안 읽음」이 사라지면 238px 로 늘며 묶음 높이 155→179px·위치 24px 이동. 얹으면 폭이 표시와 무관해진다.
-   */
-  const photoMetaOnPhoto = isMediaBubble && item.messageType === "image";
-  const photoMetaReadLabel = bubbleMetaReadLabel;
-  /** Photo (overlay) and voice (inline) carry their own meta — no side labels for either. */
-  const metaInsideBubble = photoMetaOnPhoto || voiceMetaInBubble;
-  const photoMetaOverlay =
-    photoMetaOnPhoto && (showMessageTime || photoMetaReadLabel) ? (
+  const mediaMetaOverlay =
+    (photoMetaOnPhoto || stickerMetaOnSticker) && (showMessageTime || outboundStatus) ? (
       <span
-        data-cm-photo-meta=""
+        {...(photoMetaOnPhoto ? { "data-cm-photo-meta": "" } : { "data-cm-sticker-meta": "" })}
         className="pointer-events-none absolute bottom-1.5 right-1.5 z-[1] inline-flex items-center gap-1 rounded-full bg-black/45 px-1.5 py-[3px] text-[11px] leading-none tabular-nums text-white"
       >
-        {photoMetaReadLabel ? <span>{photoMetaReadLabel}</span> : null}
-        {showMessageTime ? <span>{messengerMessageClockLabel(item)}</span> : null}
+        {showMessageTime ? <span>{clockLabel}</span> : null}
+        {renderStatusIcon("on-photo")}
       </span>
     ) : null;
-  const viberBubbleWithMeta = photoMetaOnPhoto ? (
-    <div className="relative inline-block max-w-full">
-      {viberBubble}
-      {photoMetaOverlay}
-    </div>
-  ) : (
-    viberBubble
-  );
+  const viberBubbleWithMeta =
+    photoMetaOnPhoto || stickerMetaOnSticker ? (
+      <div className="relative inline-block max-w-full">
+        {viberBubble}
+        {mediaMetaOverlay}
+      </div>
+    ) : (
+      viberBubble
+    );
 
   const callStubTimeLabel = showMessageTime ? (
     <span
@@ -806,16 +883,10 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
             >
               {item.isMine ? (
                 <>
-                  {showMessageTime && !metaInsideBubble ? (
-                    <span className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]">
-                      {messengerMessageClockLabel(item)}
-                    </span>
-                  ) : null}
-                  {metaInsideBubble ? null : mineUnreadBadgeVisible ? (
-                    <span className="shrink-0 pb-0.5 text-[11px] leading-none text-[#65676b]">{t("cm_ui_unread")}</span>
-                  ) : groupReadReceiptLabel ? (
-                    <span className="shrink-0 pb-0.5 text-[11px] leading-none text-[#65676b]">
-                      {groupReadReceiptLabel}
+                  {metaBesideBubble ? (
+                    <span className="inline-flex shrink-0 grow-0 basis-auto items-center gap-1 whitespace-nowrap pb-0.5 text-[11px] tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
+                      {showMessageTime ? <span>{clockLabel}</span> : null}
+                      {renderStatusIcon("plain")}
                     </span>
                   ) : null}
                   {renderBubbleStack(viberBubbleWithMeta)}
@@ -823,9 +894,9 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
               ) : (
                 <>
                   {renderBubbleStack(viberBubbleWithMeta)}
-                  {showMessageTime && !metaInsideBubble ? (
-                    <span className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]">
-                      {messengerMessageClockLabel(item)}
+                  {showMessageTime && metaBesideBubble ? (
+                    <span className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[11px] tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
+                      {clockLabel}
                     </span>
                   ) : null}
                 </>
