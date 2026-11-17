@@ -36,7 +36,7 @@ describe("CUT1 presentation reopen — rotation + home surface", () => {
     expect(resolveDibaySurface("/philife")).toBe("COMMUNITY");
   });
 
-  it("G-4: higher priority wins over least-recently-shown (contract §6)", () => {
+  it("진입 감사 PO-5: 덜 본 팝업이 우선순위보다 먼저 — 진입마다 교체 (예전 G-4 대체)", () => {
     const r = resolvePopupAd({
       pathname: "/market",
       now: new Date("2026-06-01T00:00:00.000Z"),
@@ -54,7 +54,7 @@ describe("CUT1 presentation reopen — rotation + home surface", () => {
       ],
     });
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.winner?.campaignId).toBe("high-priority-shown");
+    if (r.ok) expect(r.winner?.campaignId).toBe("low-priority-never");
   });
 
   it("rotates to least-recently-shown among equal priority", () => {

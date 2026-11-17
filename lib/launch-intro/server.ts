@@ -17,6 +17,7 @@ import {
   LAUNCH_INTRO_VIDEO_MAX_BYTES,
   inspectLaunchIntroAsset,
   LAUNCH_INTRO_TOTAL_MAX_MS,
+  launchIntroLowResFullscreenSceneIds,
   launchIntroTotalDurationMs,
   toPublicationDocument,
   validateLaunchIntroDocument,
@@ -29,6 +30,9 @@ import {
   type LaunchIntroLivePayload,
   type LaunchIntroLiveState,
 } from "@/lib/launch-intro/document";
+
+import { extractEventIdFromHref } from "@/lib/platform-promotion-lifecycle/content-visit-contract";
+import { loadPopupEventDestinationLookups } from "@/lib/platform-popup/popup-event-destination-availability";
 
 export type Sb = ReturnType<typeof getSupabaseServer>;
 
@@ -139,6 +143,33 @@ export async function loadLaunchIntroPublication(
   return { ok: true, publication: pub };
 }
 
+/**
+ * 진입 감사 IN-7 (2026-11-17): 어드민에서 삭제한 인트로 게시본 id (삭제 표시 = audit_logs 'ad:intro' 의 최신 행이 ad.delete,
+ * DB 함수 `admin_ad_delete_mark_of` 와 같은 판단). 예전에는 이력 목록·다시 게시·같은 초안 재게시가 삭제 표시를 보지 않아
+ * 삭제한 게시본이 목록에 남고 다시 Live 가 될 수 있었다.
+ */
+export async function loadDeletedLaunchIntroPublicationIds(sb: Sb, ids: string[]): Promise<Result<{ ids: Set<string> }>> {
+  const out = new Set<string>();
+  const uniq = [...new Set(ids.filter(Boolean))];
+  if (uniq.length === 0) return { ok: true, ids: out };
+  const { data, error } = await sb
+    .from("audit_logs")
+    .select("target_id, action, created_at, id")
+    .eq("target_type", "ad:intro")
+    .in("target_id", uniq)
+    .in("action", ["ad.delete", "ad.undelete"])
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
+  if (error) return { ok: false, error: error.message };
+  const seen = new Set<string>();
+  for (const row of (data ?? []) as { target_id: string; action: string }[]) {
+    if (seen.has(row.target_id)) continue;
+    seen.add(row.target_id);
+    if (row.action === "ad.delete") out.add(row.target_id);
+  }
+  return { ok: true, ids: out };
+}
+
 export async function listLaunchIntroPublications(
   sb: Sb,
   limit = 20
@@ -151,16 +182,24 @@ export async function listLaunchIntroPublications(
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) return { ok: false, error: error.message };
+  const rows = ((data as LaunchIntroPublicationRow[]) ?? []);
+  const deleted = await loadDeletedLaunchIntroPublicationIds(sb, rows.map((r) => r.id));
+  if (!deleted.ok) return deleted;
   // 광고 감사 (인트로): 손상된 게시본 1건 때문에 목록 전체가 500 이 되지 않게 — 그 행만 표시용으로 따로 둔다.
   const publications: LaunchIntroPublicationRow[] = [];
   const invalidPublications: LaunchIntroInvalidPublicationRow[] = [];
-  for (const row of (data as LaunchIntroPublicationRow[]) ?? []) {
+  for (const row of rows.filter((r) => !deleted.ids.has(r.id))) {
     const split = splitStoredLaunchIntroPublication(row);
     if (split.publication) publications.push(split.publication);
     else invalidPublications.push(split.invalid);
   }
   const listed = publications.length + invalidPublications.length;
-  return { ok: true, publications, invalidPublications, total: typeof count === "number" ? count : listed };
+  return {
+    ok: true,
+    publications,
+    invalidPublications,
+    total: typeof count === "number" ? Math.max(listed, count - deleted.ids.size) : listed,
+  };
 }
 
 /**
@@ -393,12 +432,25 @@ export async function publishLaunchIntroDraft(
   // (version + 1, same document) so the new schedule gets its own immutable publication.
   const existing = await sb
     .from("launch_intro_publications")
-    .select("eligibility")
+    .select("id, eligibility")
     .eq("source_draft_id", draft.id)
     .eq("source_draft_version", draft.version)
     .maybeSingle();
   if (existing.error) return { ok: false, error: existing.error.message };
-  if (existing.data && !sameLaunchIntroEligibility(existing.data.eligibility as LaunchIntroEligibility, elig.eligibility)) {
+  // 진입 감사 IN-7: 같은 초안·버전의 게시본이 삭제돼 있으면 재사용하지 않고 새 게시본을 만든다(초안 다시 저장 → 버전 +1).
+  let existingDeleted = false;
+  if (existing.data) {
+    const existingId = (existing.data as { id?: string }).id;
+    if (existingId) {
+      const del = await loadDeletedLaunchIntroPublicationIds(sb, [existingId]);
+      if (!del.ok) return del;
+      existingDeleted = del.ids.has(existingId);
+    }
+  }
+  if (
+    existing.data &&
+    (existingDeleted || !sameLaunchIntroEligibility(existing.data.eligibility as LaunchIntroEligibility, elig.eligibility))
+  ) {
     const resaved = await saveLaunchIntroDraft(sb, {
       id: draft.id,
       expectedVersion: draft.version,
@@ -416,6 +468,20 @@ export async function publishLaunchIntroDraft(
   if (!asPub.ok) return { ok: false, error: asPub.error, status: 400 };
   if (launchIntroTotalDurationMs(asPub.document) > LAUNCH_INTRO_TOTAL_MAX_MS) {
     return { ok: false, error: "total_duration_too_long", status: 400 };
+  }
+  // 진입 감사 IN-5: 화면 가득 그림은 긴 변 1080px 이상
+  if (launchIntroLowResFullscreenSceneIds(asPub.document).length > 0) {
+    return { ok: false, error: "fullscreen_image_too_small", status: 400 };
+  }
+  // 진입 감사 목적지: 버튼이 이벤트로 가면 그 이벤트가 있고 지금 보이는지 게시 때 확인 (팝업 G-7 과 같은 조회)
+  const ctaEventIds = asPub.document.scenes
+    .map((sc) => (sc.cta?.action.type === "route" ? extractEventIdFromHref(sc.cta.action.path) : null))
+    .filter((id): id is string => Boolean(id));
+  if (ctaEventIds.length > 0) {
+    const lookups = await loadPopupEventDestinationLookups(sb, ctaEventIds);
+    if (ctaEventIds.some((id) => !lookups.get(id)?.visible)) {
+      return { ok: false, error: "cta_event_unavailable", status: 400 };
+    }
   }
 
   for (const img of launchIntroDocumentAllRefs(asDraft.document)) {
@@ -487,6 +553,14 @@ export async function setLaunchIntroLiveState(
       if (pub.publication && launchIntroTotalDurationMs(pub.publication.document) > LAUNCH_INTRO_TOTAL_MAX_MS) {
         return { ok: false, error: "total_duration_too_long", status: 400 };
       }
+      // 진입 감사 IN-5: 다시 Live 로 올릴 때도 화면 가득 그림 해상도 규칙
+      if (pub.publication && launchIntroLowResFullscreenSceneIds(pub.publication.document).length > 0) {
+        return { ok: false, error: "fullscreen_image_too_small", status: 400 };
+      }
+      // 진입 감사 IN-7: 삭제한 게시본은 다시 게시·재개하지 않는다
+      const del = await loadDeletedLaunchIntroPublicationIds(sb, [pubId]);
+      if (!del.ok) return del;
+      if (del.ids.has(pubId)) return { ok: false, error: "publication_deleted", status: 409 };
     }
   }
   const { error } = await sb.rpc("launch_intro_set_state", {

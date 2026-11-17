@@ -649,9 +649,11 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     linkedEventHasBenefit: linkedEventId ? benefitEligible : null,
   });
   const benefitHintLabel = popupBenefitHintLabel(benefitHint, lang);
+  // 진입 감사 PO-6: 혜택 다이얼로그 소재도 카드형(36:25)이라 서버가 자르기를 요구한다 — 자르기 판을 같이 연다
   const requiresCardAspect =
     operatorComposition === "promotion_card_modal" ||
-    operatorComposition === "bottom_promotion_sheet";
+    operatorComposition === "bottom_promotion_sheet" ||
+    operatorComposition === "benefit_dialog";
 
   // 첫 불러오기 — 캠페인이 없으면 표준 로딩 / 불러오기 실패 상태만 보여 준다
   if (!campaign) {
@@ -1024,29 +1026,34 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             <h2 className="mb-2 text-sm font-semibold">
               {safeT("admin_platform_popup_section_content")}
             </h2>
-            <label className="block text-sm">
-              {safeT("admin_platform_popup_field_title")}
-              <input
-                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                value={promoTitle}
-                onChange={(e) => {
-                  markDirty();
-                  setPromoTitle(e.target.value);
-                }}
-              />
-            </label>
-            <label className="mt-3 block text-sm">
-              {safeT("admin_platform_popup_field_body")}
-              <textarea
-                className="mt-1 h-20 w-full rounded border border-sam-border px-2 py-1.5"
-                value={promoBody}
-                onChange={(e) => {
-                  markDirty();
-                  setPromoBody(e.target.value);
-                }}
-              />
-            </label>
-            <label className="mt-3 block text-sm">
+            {/* 진입 감사 PO-6: 혜택 다이얼로그는 이벤트 혜택 제목·본문을 보인다 — 캠페인 제목·본문 칸은 화면에 안 나오므로 숨긴다 */}
+            {operatorComposition !== "benefit_dialog" ? (
+              <>
+                <label className="block text-sm">
+                  {safeT("admin_platform_popup_field_title")}
+                  <input
+                    className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
+                    value={promoTitle}
+                    onChange={(e) => {
+                      markDirty();
+                      setPromoTitle(e.target.value);
+                    }}
+                  />
+                </label>
+                <label className="mt-3 block text-sm">
+                  {safeT("admin_platform_popup_field_body")}
+                  <textarea
+                    className="mt-1 h-20 w-full rounded border border-sam-border px-2 py-1.5"
+                    value={promoBody}
+                    onChange={(e) => {
+                      markDirty();
+                      setPromoBody(e.target.value);
+                    }}
+                  />
+                </label>
+              </>
+            ) : null}
+            <label className={operatorComposition !== "benefit_dialog" ? "mt-3 block text-sm" : "block text-sm"}>
               {safeT("admin_platform_popup_field_cta_label")}
               <input
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"

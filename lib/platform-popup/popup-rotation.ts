@@ -1,7 +1,9 @@
 /**
  * CUT 1 — deterministic rotation among eligible interruptive popups.
- * No Math.random(). 계약 §6 순서(영역 지정 > 전체 → 우선순위)가 먼저이고,
- * 같은 순위 안에서만 덜 본 팝업이 먼저(로테이션) — 광고 감사 G-4 (Owner 승인 2026-11-03).
+ * No Math.random(). 영역 지정 > 전체가 먼저이고, 그 다음은 **덜 본 팝업이 먼저**(진입마다 교체).
+ * 우선순위는 같은 정도로 덜 본 후보끼리의 순서로만 쓴다.
+ * 진입 감사 PO-5 (2026-11-17 · Owner 「설계안대로 진행」): 예전(G-4)에는 우선순위가 덜 본 것보다 앞서
+ * 숫자가 높은 팝업 1개가 매번 나왔다.
  */
 
 import type { PlatformPopupCandidate } from "@/lib/platform-popup/resolve-popup-ad";
@@ -17,7 +19,7 @@ function lastShownMs(c: PlatformPopupCandidate): number {
 }
 
 /**
- * Sort: domain > GLOBAL → priority DESC → never shown first → oldest impression → start ASC → id.
+ * Sort: domain > GLOBAL → never shown first → oldest impression → priority DESC → start ASC → id.
  */
 export function comparePopupCandidatesForRotation(
   a: PlatformPopupCandidate,
@@ -27,11 +29,11 @@ export function comparePopupCandidatesForRotation(
   const bDomain = platformPopupIsDomainTargeted(b.surfaces) ? 1 : 0;
   if (aDomain !== bDomain) return bDomain - aDomain;
 
-  if (a.priority !== b.priority) return b.priority - a.priority;
-
   const aShown = lastShownMs(a);
   const bShown = lastShownMs(b);
   if (aShown !== bShown) return aShown - bShown;
+
+  if (a.priority !== b.priority) return b.priority - a.priority;
 
   const aStart = a.startAt ? new Date(a.startAt).getTime() : Number.POSITIVE_INFINITY;
   const bStart = b.startAt ? new Date(b.startAt).getTime() : Number.POSITIVE_INFINITY;

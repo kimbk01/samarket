@@ -31,6 +31,52 @@ export const LAUNCH_INTRO_TOTAL_MAX_MS = 5000;
 export function launchIntroTotalDurationMs(doc: { scenes: Array<{ durationMs: number }> }): number {
   return doc.scenes.reduce((sum, s) => sum + s.durationMs, 0);
 }
+/**
+ * 진입 감사 IN-4 (2026-11-17): 기기는 5초 규칙 이전 게시본도 그대로 재생했다(운영 게시본 10초 실측).
+ * 재생 직전에 합계를 상한으로 자른다 — 상한 안의 장면만 남기고 마지막 장면은 남은 시간만큼. 게시본(DB)은 바꾸지 않는다.
+ */
+export function clampLaunchIntroDocumentDuration<T extends { scenes: Array<{ durationMs: number }> }>(
+  doc: T,
+  maxTotalMs: number = LAUNCH_INTRO_TOTAL_MAX_MS
+): T {
+  if (launchIntroTotalDurationMs(doc) <= maxTotalMs) return doc;
+  const scenes: T["scenes"] = [];
+  let used = 0;
+  for (const scene of doc.scenes) {
+    const left = maxTotalMs - used;
+    if (left <= 0) break;
+    if (scenes.length > 0 && left < LAUNCH_INTRO_DURATION_MIN_MS) break;
+    const durationMs = Math.min(scene.durationMs, left);
+    scenes.push({ ...scene, durationMs });
+    used += durationMs;
+  }
+  return { ...doc, scenes };
+}
+
+/**
+ * 진입 감사 IN-5 (2026-11-17): 화면을 가득 채우는 그림(배경 그림 · fullbleed 메인 그림)은 긴 변 1080px 이상만 게시한다.
+ * 운영 게시본의 360×640 배경이 화면 전체로 늘어나 깨져 보였다. 게시 때만 검사한다(이미 게시된 것은 읽기 그대로).
+ */
+export const LAUNCH_INTRO_FULLSCREEN_IMAGE_MIN_LONG_EDGE = 1080;
+
+export function launchIntroLowResFullscreenSceneIds(doc: {
+  scenes: Array<{
+    id: string;
+    layout: string;
+    background: { media: { asset: { width: number; height: number } } | null };
+    media: { asset: { width: number; height: number } } | null;
+  }>;
+}): string[] {
+  const low = (a: { width: number; height: number }) =>
+    Math.max(a.width, a.height) < LAUNCH_INTRO_FULLSCREEN_IMAGE_MIN_LONG_EDGE;
+  const out: string[] = [];
+  for (const sc of doc.scenes) {
+    if (sc.background.media && low(sc.background.media.asset)) out.push(sc.id);
+    else if (sc.layout === "fullbleed" && sc.media && low(sc.media.asset)) out.push(sc.id);
+  }
+  return out;
+}
+
 /** New scenes start short (Owner: minimum by default; Admin lengthens when needed). */
 export const LAUNCH_INTRO_DURATION_DEFAULT_MS = 1500;
 /** Headline keeps the v1 text limit so every v1 document upgrades losslessly. Short copy is recommended in Admin. */

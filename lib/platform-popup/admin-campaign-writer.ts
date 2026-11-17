@@ -367,13 +367,27 @@ export async function updatePlatformPopupAdminCampaign(
   if (wantsCreativeMode || altTextRequested) {
     const { data: readyRows, error: readyErr } = await sb
       .from("platform_popup_creatives")
-      .select("creative_mode, alt_text")
+      .select("creative_mode, alt_text, aspect_w, aspect_h")
       .eq("campaign_id", campaignId)
       .eq("status", "ready");
     if (readyErr) return { ok: false, error: readyErr.message, httpStatus: 500 };
-    const rows = (readyRows ?? []) as { creative_mode: string | null; alt_text: string | null }[];
+    const rows = (readyRows ?? []) as {
+      creative_mode: string | null;
+      alt_text: string | null;
+      aspect_w: number | null;
+      aspect_h: number | null;
+    }[];
     if (wantsCreativeMode) {
       creativeModeChanged = rows.some((r) => (r.creative_mode ?? "card") !== input.patch.creativeMode);
+      // 진입 감사 PO-6 (2026-11-17): 카드형은 36:25 소재만 허용(DB CHECK `platform_popup_creatives_card_aspect_36_25`).
+      // 예전에는 캠페인 행을 먼저 바꾼 뒤 소재 형태 변경이 DB 제약에 걸려 일부만 저장됐다 — 쓰기 전에 거절한다.
+      if (
+        creativeModeChanged &&
+        input.patch.creativeMode === "card" &&
+        rows.some((r) => !(r.aspect_w === 36 && r.aspect_h === 25))
+      ) {
+        return { ok: false, error: "creative_needs_card_crop", httpStatus: 400 };
+      }
     }
     if (altTextRequested) {
       altTextChanged = rows.some((r) => (r.alt_text?.trim() || null) !== nextAltText);

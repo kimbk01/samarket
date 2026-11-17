@@ -19,6 +19,7 @@ import {
   type PlatformPopupInterruptivePresentation,
 } from "@/lib/platform-popup/presentation-contract";
 import { adminSurfaceModeLabel, type PlatformPopupAdminSurfaceMode } from "@/lib/platform-popup/admin-surface-target-mode";
+import { PLATFORM_POPUP_LANDSCAPE_ALLOWED_DEFAULT } from "@/lib/platform-popup/popup-runtime-context";
 
 export type AdminPlatformPopupPreviewSource = {
   campaignId: string;
@@ -109,7 +110,8 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
   }, [source]);
 
   const frame = FRAMES[device];
-  const landscapeDenied = device === "tablet_landscape";
+  // 진입 감사 PO-4: 가로 허용이 기본 — 앱과 같은 판단(허용이면 폭 480 으로 그대로 보인다)
+  const landscapeDenied = device === "tablet_landscape" && !PLATFORM_POPUP_LANDSCAPE_ALLOWED_DEFAULT;
   const surfaceLabel = source?.surface
     ? adminSurfaceModeLabel(
         source.surface as PlatformPopupAdminSurfaceMode,

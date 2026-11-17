@@ -177,6 +177,14 @@
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
 }
 
+/*
+ * 진입 감사 PO-1 (2026-11-17): 「광고」 표기(`absolute left-2 top-2`)의 기준 상자 = 소재 버튼.
+ * 기준이 없으면 바깥 틀(× 자리 위 여백)이 기준이 되어 표기가 소재 밖 어두운 배경·뒤쪽 홈 글자 위에 떴다(삼성 실측).
+ */
+.dibay-promo-creative {
+  position: relative;
+}
+
 .dibay-promo-creative--card {
   display: block;
   width: 100%;

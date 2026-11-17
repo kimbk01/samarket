@@ -32,6 +32,9 @@ export function formatPlatformPopupAdminError(
   if (lower === "surface_required") {
     return translateBy(lang, "platform_popup_select_at_least_one_placement");
   }
+  if (lower === "creative_needs_card_crop") {
+    return translateBy(lang, "platform_popup_card_needs_crop");
+  }
   if (lower === "stale_state") {
     return translateBy(lang, "platform_popup_this_popup_was_changed_by_someone");
   }
