@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import {
   compareMessengerReadOrderKey,
+  messengerSubMillisecondMicros,
   resolveDirectPeerReadCursorKey,
   resolveGroupReadFloorKey,
   resolveMessengerOutboundReadState,
@@ -83,6 +84,30 @@ describe("1:1 읽음 커서 (createdAt, id) 튜플", () => {
   it("오픈 그룹은 저장됨까지만", () => {
     expect(resolveMessengerOutboundReadState(rows[0]!, "untracked", null)).toBe("sent");
     expect(resolveMessengerOutboundStatus(rows[0]!, "sent")).toBe("sent");
+  });
+});
+
+describe("읽음 순서 키 — 같은 ms 안 마이크로초 (리뷰 #3)", () => {
+  it("ms 가 같으면 µs 로 비교해 서버 (created_at µs, id) 순서와 같다", () => {
+    const cursor = resolveDirectPeerReadCursorKey({
+      lastReadMessageId: "mmm",
+      lastReadMessageCreatedAt: "2026-11-18T01:00:00.123400+00:00",
+      rows: [],
+    });
+    // id 는 커서보다 작지만 µs 가 더 늦다 → 서버 기준 커서 뒤(안 읽음)
+    expect(resolveMessengerOutboundReadState(mine("aaa", "2026-11-18T01:00:00.123500+00:00"), "direct", cursor)).toBe(
+      "unread"
+    );
+    // id 는 커서보다 크지만 µs 가 더 이르다 → 읽음
+    expect(resolveMessengerOutboundReadState(mine("zzz", "2026-11-18T01:00:00.123300+00:00"), "direct", cursor)).toBe(
+      "read"
+    );
+  });
+
+  it("µs 가 없는 값은 0 — 기존 ms·id 비교 유지", () => {
+    expect(messengerSubMillisecondMicros("2026-11-18T01:00:00.123Z")).toBe(0);
+    expect(messengerSubMillisecondMicros("2026-11-18T01:00:00.123456Z")).toBe(456);
+    expect(messengerSubMillisecondMicros("2026-11-18T01:00:00Z")).toBe(0);
   });
 });
 

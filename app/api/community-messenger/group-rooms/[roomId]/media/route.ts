@@ -5,6 +5,7 @@ import { GROUP_ROOM_ERROR } from "@/lib/community-messenger/group/group-room-err
 import { listGroupRoomMedia } from "@/lib/community-messenger/group/group-room-media-service";
 import { fetchGroupMessageReadCounts } from "@/lib/community-messenger/group/group-room-read-service";
 import { presentGroupReadReceipt } from "@/lib/community-messenger/group/group-room-read-presenter";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import {
   fetchActiveParticipant,
   resolveGroupRoomSupabase,
@@ -86,9 +87,11 @@ export async function POST(
     return jsonError("권한이 없습니다.", 403, { code: GROUP_ROOM_ERROR.FORBIDDEN });
   }
   const counts = await fetchGroupMessageReadCounts(sb, roomId.trim(), messageIds.slice(0, 50));
+  /** P1: 라벨 문구는 요청 언어로(클라이언트 메뉴는 readCount 로 t() 를 다시 쓴다) */
+  const language = await resolveRequestAppLanguageOr("ko");
   const readCounts: Record<string, ReturnType<typeof presentGroupReadReceipt>> = {};
   for (const [messageId, readCount] of counts.entries()) {
-    readCounts[messageId] = presentGroupReadReceipt({ messageId, readCount, readerLabels: [] });
+    readCounts[messageId] = presentGroupReadReceipt({ messageId, readCount, readerLabels: [], language });
   }
   return jsonOk({ ok: true, readCounts });
 }

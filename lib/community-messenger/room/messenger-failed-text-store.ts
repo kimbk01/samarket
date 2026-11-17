@@ -11,6 +11,11 @@
 export const MESSENGER_FAILED_TEXT_STORAGE_KEY = "samarket:cm:failed-text-sends:v1";
 export const MESSENGER_FAILED_TEXT_PER_ROOM_MAX = 20;
 export const MESSENGER_FAILED_TEXT_TOTAL_MAX = 200;
+/**
+ * 보관 7일 — 시간 초과 뒤 서버가 실제로 저장했는데 확정 행이 첫 화면 창 밖이라 확인 못 한 경우에도
+ * 실패 행이 영구히 남지 않게(리뷰 #1). 진입 시 자동 재전송(같은 cid)이 1차 정리, 이 값은 최종 상한.
+ */
+export const MESSENGER_FAILED_TEXT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type MessengerFailedTextSend = {
   clientMessageId: string;
@@ -103,10 +108,28 @@ export function trimMessengerFailedTextStore(all: StoreShape): StoreShape {
   return out;
 }
 
-export function listMessengerFailedTextSends(roomId: string): MessengerFailedTextSend[] {
+/** 만료분(보관 7일 초과) 제거 — 바뀐 게 있으면 true */
+export function dropExpiredMessengerFailedTextSends(all: StoreShape, now: number): boolean {
+  let changed = false;
+  for (const roomId of Object.keys(all)) {
+    const list = all[roomId]!;
+    const kept = list.filter((e) => now - e.savedAt <= MESSENGER_FAILED_TEXT_TTL_MS);
+    if (kept.length !== list.length) {
+      changed = true;
+      if (kept.length) all[roomId] = kept;
+      else delete all[roomId];
+    }
+  }
+  return changed;
+}
+
+/** 방 진입 복원용 — 7일 지난 보관분은 조용히 지우고 나머지를 오래된 순으로 */
+export function listMessengerFailedTextSends(roomId: string, now: number = Date.now()): MessengerFailedTextSend[] {
   const id = roomId.trim();
   if (!id) return [];
-  return [...(readAll()[id] ?? [])].sort((a, b) => a.savedAt - b.savedAt);
+  const all = readAll();
+  if (dropExpiredMessengerFailedTextSends(all, now)) writeAll(all);
+  return [...(all[id] ?? [])].sort((a, b) => a.savedAt - b.savedAt);
 }
 
 export function saveMessengerFailedTextSend(
@@ -117,13 +140,15 @@ export function saveMessengerFailedTextSend(
   const cid = entry.clientMessageId.trim();
   if (!id || !cid) return;
   const all = readAll();
+  /** 같은 cid 재저장(자동·수동 재전송 실패)은 처음 보관 시각을 유지 — 7일 만료 기준이 밀리지 않게 */
+  const previous = (all[id] ?? []).find((e) => e.clientMessageId === cid);
   const list = (all[id] ?? []).filter((e) => e.clientMessageId !== cid);
   list.push({
     clientMessageId: cid,
     content: entry.content,
     replyToMessageId: entry.replyToMessageId ?? null,
     createdAt: entry.createdAt,
-    savedAt: entry.savedAt ?? Date.now(),
+    savedAt: entry.savedAt ?? previous?.savedAt ?? Date.now(),
   });
   all[id] = list;
   writeAll(trimMessengerFailedTextStore(all));

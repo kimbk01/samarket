@@ -569,6 +569,11 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
    * narrowed the 292px row so the 220px waveform overflowed the bubble edge (device 2026-11-16, same cause as F2).
    */
   const voiceMetaInBubble = !deletedForEveryone && item.messageType === "voice" && !replyQuote;
+  /** 커뮤니티 공유 카드 — 옆 줄 유지(아이콘 고정 폭) */
+  const metaBesideBubble = !deletedForEveryone && item.messageType === "community_post_share";
+  /** 말풍선 안 표시가 있는 글 계열만 자리 확보(카드 없는 공유 등 옆 줄 유형은 빈 폭 없음 — 리뷰 #4) */
+  const textSpacerClock = metaBesideBubble ? "" : clockLabel;
+  const textSpacerIcon = !metaBesideBubble && outboundStatus != null;
   /** 텍스트 기본 말풍선(글·위치·삭제 묘비 등) — 본문 끝 보이지 않는 자리 + 오른쪽 아래 절대 위치 표시 */
   const bodyIsTextDefault =
     (deletedForEveryone && item.messageType !== "call_stub") ||
@@ -586,8 +591,8 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       <TimelineViberInnerTextDefault
         item={item}
         highlightMentions={false}
-        metaSpacerClock={clockLabel}
-        metaSpacerIcon={outboundStatus != null}
+        metaSpacerClock={textSpacerClock}
+        metaSpacerIcon={textSpacerIcon}
       />
     ) : item.messageType === "image" ? (
       <TimelineViberInnerImage item={item} onOpenLightbox={onOpenImageLightbox} />
@@ -624,8 +629,8 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       <TimelineViberInnerTextDefault
         item={item}
         highlightMentions={highlightMentions}
-        metaSpacerClock={clockLabel}
-        metaSpacerIcon={outboundStatus != null}
+        metaSpacerClock={textSpacerClock}
+        metaSpacerIcon={textSpacerIcon}
       />
     );
 
@@ -640,8 +645,6 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
    */
   const photoMetaOnPhoto = isMediaBubble && item.messageType === "image";
   const stickerMetaOnSticker = isMediaBubble && item.messageType === "sticker";
-  /** 커뮤니티 공유 카드 — 옆 줄 유지(아이콘 고정 폭) */
-  const metaBesideBubble = !deletedForEveryone && item.messageType === "community_post_share";
   /** 글 계열 말풍선 안 표시(사진·스티커 칸·음성 칸·옆 줄 제외) */
   const textMetaInBubble = !photoMetaOnPhoto && !stickerMetaOnSticker && !voiceMetaInBubble && !metaBesideBubble;
   const bubbleClockToneClass = item.isMine

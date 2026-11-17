@@ -19,23 +19,39 @@ export type MessengerOutboundStatus = "sending" | "failed" | "sent" | "read";
  */
 export type MessengerOutboundReadState = "read" | "unread" | "sent" | "none";
 
-export type MessengerReadOrderKey = { t: number; id: string };
+/**
+ * `t` = ms(Date), `us` = ms 아래 마이크로초(0~999). Postgres `timestamptz` 는 µs 정밀도라
+ * 같은 ms 안의 두 메시지도 서버 순서 `(created_at µs, id)` 와 같게 비교한다(리뷰 #3).
+ */
+export type MessengerReadOrderKey = { t: number; us?: number; id: string };
 
 export type MessengerReadMode = "direct" | "private_group" | "untracked";
 
 type OrderRow = { id: string; createdAt: string; pending?: boolean };
+
+/** 원문 시각의 소수부에서 ms 아래 µs 3자리 — 없으면 0 */
+export function messengerSubMillisecondMicros(raw: string): number {
+  const m = /T\d{2}:\d{2}:\d{2}\.(\d+)/.exec(raw);
+  if (!m) return 0;
+  const digits = (m[1]! + "000000").slice(0, 6);
+  const us = Number(digits.slice(3, 6));
+  return Number.isFinite(us) ? us : 0;
+}
 
 export function messengerReadOrderKey(createdAt: string | null | undefined, id: string): MessengerReadOrderKey | null {
   const raw = typeof createdAt === "string" ? createdAt.trim() : "";
   if (!raw) return null;
   const t = new Date(raw).getTime();
   if (!Number.isFinite(t)) return null;
-  return { t, id };
+  return { t, us: messengerSubMillisecondMicros(raw), id };
 }
 
-/** a 가 b 보다 앞이면 음수 — 시각 오름차순, 같은 시각이면 id 문자열 오름차순(서버 `lr.id >= m.id` 와 같은 방향) */
+/** a 가 b 보다 앞이면 음수 — 시각(ms → µs) 오름차순, 같은 시각이면 id 문자열 오름차순(서버 `lr.id >= m.id` 와 같은 방향) */
 export function compareMessengerReadOrderKey(a: MessengerReadOrderKey, b: MessengerReadOrderKey): number {
   if (a.t !== b.t) return a.t - b.t;
+  const ua = a.us ?? 0;
+  const ub = b.us ?? 0;
+  if (ua !== ub) return ua - ub;
   if (a.id === b.id) return 0;
   return a.id < b.id ? -1 : 1;
 }

@@ -7,6 +7,7 @@ import {
   MESSENGER_FAILED_TEXT_PER_ROOM_MAX,
   MESSENGER_FAILED_TEXT_STORAGE_KEY,
   MESSENGER_FAILED_TEXT_TOTAL_MAX,
+  MESSENGER_FAILED_TEXT_TTL_MS,
   clearMessengerFailedTextSends,
   listMessengerFailedTextSends,
   pruneMessengerFailedTextSendsConfirmed,
@@ -14,12 +15,13 @@ import {
   saveMessengerFailedTextSend,
 } from "@/lib/community-messenger/room/messenger-failed-text-store";
 
-const entry = (cid: string, savedAt: number) => ({
+const NOW = Date.now();
+const entry = (cid: string, n: number) => ({
   clientMessageId: cid,
   content: `msg ${cid}`,
   replyToMessageId: null,
-  createdAt: new Date(savedAt).toISOString(),
-  savedAt,
+  createdAt: new Date(NOW + n).toISOString(),
+  savedAt: NOW + n,
 });
 
 afterEach(() => {
@@ -81,6 +83,27 @@ describe("실패 글 보관", () => {
       throw new Error("quota");
     });
     expect(() => saveMessengerFailedTextSend("r1", entry("c9", 9))).not.toThrow();
+  });
+
+  it("7일 지난 보관분은 조회 때 조용히 삭제 (리뷰 #1)", () => {
+    saveMessengerFailedTextSend("r1", { ...entry("old", 0), savedAt: NOW - MESSENGER_FAILED_TEXT_TTL_MS - 1 });
+    saveMessengerFailedTextSend("r1", entry("fresh", 1));
+    saveMessengerFailedTextSend("r2", { ...entry("old2", 0), savedAt: NOW - MESSENGER_FAILED_TEXT_TTL_MS - 5 });
+    expect(listMessengerFailedTextSends("r1", NOW + 10).map((e) => e.clientMessageId)).toEqual(["fresh"]);
+    const raw = JSON.parse(localStorage.getItem(MESSENGER_FAILED_TEXT_STORAGE_KEY) ?? "{}") as Record<string, unknown>;
+    expect(raw.r2).toBeUndefined();
+  });
+
+  it("같은 cid 재저장(자동 재전송 실패)은 처음 보관 시각을 유지", () => {
+    saveMessengerFailedTextSend("r1", entry("c1", 5));
+    const again = entry("c1", 999);
+    saveMessengerFailedTextSend("r1", {
+      clientMessageId: again.clientMessageId,
+      content: again.content,
+      replyToMessageId: again.replyToMessageId,
+      createdAt: again.createdAt,
+    });
+    expect(listMessengerFailedTextSends("r1")[0]!.savedAt).toBe(NOW + 5);
   });
 
   it("로그아웃 정리 목록에 등록되어 있다", async () => {

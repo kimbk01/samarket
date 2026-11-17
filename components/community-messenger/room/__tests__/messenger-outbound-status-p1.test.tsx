@@ -174,6 +174,16 @@ describe("P1 상태 아이콘", () => {
     expect(host.querySelector("[data-cm-outbound-failed]")).not.toBeNull();
   });
 
+  it("카드 없는 커뮤니티 공유(옆 줄 유형)는 말풍선 안 빈 자리를 두지 않는다 (리뷰 #4)", () => {
+    act(() =>
+      root.render(
+        <MessengerTimelineVirtualRow {...props({ ...text, id: "m-9", messageType: "community_post_share", metadata: null })} />
+      )
+    );
+    expect(host.querySelector("[data-cm-text-meta-spacer]")).toBeNull();
+    expect(host.querySelector("[data-cm-text-meta]")).toBeNull();
+  });
+
   it("스티커: 「전송 중」 글자 대신 스티커 위 칸 아이콘", () => {
     act(() =>
       root.render(
@@ -293,5 +303,32 @@ describe("P1 글·스티커 전송 시간 제한 12초 → 결과 불명 실패"
     expect(sticker).toMatch(/\} catch \{\n\s+res = null;/);
     expect(sticker).toContain("markMessengerOutboundRowFailed(prev, tempId)");
     expect(sticker).toMatch(/runStickerSendAttemptRef\.current\(\{ tempId, clientMessageId, path, stickerItemId \}\)/);
+  });
+
+  it("리뷰 #1·#2: 방 진입 복원 행은 같은 cid 로 1회 자동 재전송(조용히), 확정 행이 있으면 보관하지 않음", () => {
+    const src = readFileSync(
+      path.join(process.cwd(), "lib/community-messenger/room/phase2/use-messenger-room-phase2-controller.ts"),
+      "utf8"
+    );
+    const restore = src.slice(
+      src.indexOf("const restoredFailedTextRoomRef"),
+      src.indexOf("type TextSendAttemptArgs")
+    );
+    expect(restore).toContain("listMessengerFailedTextSends(streamRoomId)");
+    expect(restore).toMatch(/runTextSendAttemptRef\.current\(\{ \.\.\.r, failRestoreGeneration: 0, silentFailure: true \}\)/);
+    expect(restore).toContain("autoRetries.push({ tempId, clientMessageId: e.clientMessageId");
+    expect(restore).not.toContain("sendFailed: true");
+    const attempt = src.slice(src.indexOf("const runTextSendAttempt = async"), src.indexOf("const sendRawText = useCallback("));
+    expect(attempt).toMatch(/if \(!alreadyConfirmed\) \{\s*saveMessengerFailedTextSend/);
+    expect(attempt).toContain("if (authBlocked || silentFailure) return false;");
+  });
+
+  it("리뷰 #5: 그룹 읽음 API 라벨은 요청 언어", () => {
+    const src = readFileSync(
+      path.join(process.cwd(), "app/api/community-messenger/group-rooms/[roomId]/media/route.ts"),
+      "utf8"
+    );
+    expect(src).toContain('resolveRequestAppLanguageOr("ko")');
+    expect(src).toContain("readerLabels: [], language });");
   });
 });
