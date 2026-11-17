@@ -47,6 +47,11 @@ export function mayReleaseLaunchSplashAt(currentPathname: string | null | undefi
   return pathnameOf(currentPathname ?? "") === pathnameOf(t);
 }
 
+/** 알림 목적지 보류가 살아 있는가 — 목적지가 있고 수신자가 아직 끝내지 않음(설계 23-9 목적지 그림 판정의 범위). */
+export function isLaunchPushHoldActive(): boolean {
+  return readLaunchPushTarget() != null && !handled;
+}
+
 /** 알림 수신자가 목적지로 이동하지 않는 결과로 끝냄(로그인 시트·버림·모달 등) — 현재 화면에서 해제 허용. */
 export function markLaunchPushHandled(): void {
   if (handled) return;

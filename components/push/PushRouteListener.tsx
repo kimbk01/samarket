@@ -40,7 +40,8 @@ import {
   markLeavingByPushNavigation,
   restorePushNavigationBackAfterReload,
 } from "@/lib/push/push-navigation-back";
-import { markLaunchPushHandled } from "@/lib/startup/launch-push-hold";
+import { isLaunchPushHoldActive, markLaunchPushHandled } from "@/lib/startup/launch-push-hold";
+import { isInitialDestinationVisualReady } from "@/lib/startup/startup-metrics";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
@@ -184,26 +185,35 @@ function finalizePushRouteConsume(path: string, notificationId?: string | null):
     currentPath: currentAppPath(),
     authGate: "allow",
   });
-  if (decision.action === "ack") {
+  const started = Date.now();
+  let acked = false;
+  const ack = () => {
+    if (acked) return;
+    acked = true;
     ackChatPushRouteConsumed(path, notificationId);
-    return;
+  };
+  if (decision.action === "ack") {
+    ack();
+    // 알림 목적지 시작이 아니면(포그라운드 탭 등) 여기서 끝 — 이전과 같다.
+    if (!isLaunchPushHoldActive()) return;
   }
   // Navigation kicked — poll briefly for exact path before ACK; keep pending on miss.
-  const started = Date.now();
+  // 설계 23-9: 알림 목적지 시작이면 경로 확인 뒤에도 목적지가 그려져 시작 화면이 걷힐 때까지 같은 8초 안에서 지켜본다.
   const timer = window.setInterval(() => {
-    if (pathsMatchForPushConsume(currentAppPath(), path)) {
+    if (!acked && pathsMatchForPushConsume(currentAppPath(), path)) ack();
+    if (acked && (!isLaunchPushHoldActive() || isInitialDestinationVisualReady())) {
       window.clearInterval(timer);
-      ackChatPushRouteConsumed(path, notificationId);
       return;
     }
     if (Date.now() - started > 8_000) {
       window.clearInterval(timer);
       // 재설계 A: 8초 안에 목적지 경로 확인이 안 되면(경로 변형·리다이렉트) 시작 화면 보류를 끝낸다 — 기존 상한 재사용.
+      // 설계 23-9: 경로는 맞았는데 목적지 그림이 8초 안에 안 나와도 같은 상한으로 끝낸다(지금 화면에서 해제).
       markLaunchPushHandled();
-      console.info("[push-route] consume_unconfirmed_keep_pending", {
-        path,
-        current: currentAppPath(),
-      });
+      console.info(
+        acked ? "[push-route] destination_paint_unconfirmed" : "[push-route] consume_unconfirmed_keep_pending",
+        { path, current: currentAppPath() }
+      );
     }
   }, 200);
 }
