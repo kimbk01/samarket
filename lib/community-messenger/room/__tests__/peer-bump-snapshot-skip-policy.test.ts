@@ -37,6 +37,20 @@ describe("L1 shouldSkipPeerBumpSingleGet", () => {
     expect(shouldSkipPeerBumpSingleGet({ ...base, snapshot: { ...text, senderLabel: "" } })).toBe(false);
   });
 
+  it("reply quote at the serializer cap (500) may be truncated → keep GET", () => {
+    expect(
+      shouldSkipPeerBumpSingleGet({
+        snapshot: {
+          ...text,
+          replyToMessageId: "22222222-2222-4222-8222-222222222222",
+          replyPreviewText: "가".repeat(500),
+        },
+        snapshotTruncated: false,
+        existedLocallyBeforeMerge: false,
+      })
+    ).toBe(false);
+  });
+
   it("reply with quote text is skippable", () => {
     expect(
       shouldSkipPeerBumpSingleGet({

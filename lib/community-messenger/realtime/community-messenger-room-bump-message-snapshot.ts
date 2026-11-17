@@ -4,7 +4,7 @@ import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { messengerImageBlurDataUrlOrNull } from "@/lib/community-messenger/messenger-image-message-map";
 
 const MAX_BUMP_CONTENT_CHARS = 14_000;
-const MAX_BUMP_REPLY_PREVIEW_CHARS = 500;
+export const MAX_BUMP_REPLY_PREVIEW_CHARS = 500;
 
 const ALLOWED_TYPES: ReadonlySet<CommunityMessengerMessageType> = new Set([
   "text",

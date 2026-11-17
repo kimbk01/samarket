@@ -422,9 +422,18 @@ export async function notifyMessagePipeline(
       NOTIFY_MESSAGE_PIPELINE_RECIPIENT_CONCURRENCY,
       processRecipient
     );
-    /** 순차 모드와 같이 한 수신자 오류는 전파한다(첫 오류) — 다른 수신자 처리는 이미 끝난 뒤 */
-    const firstError = results.find((r) => !r.ok);
-    if (firstError && !firstError.ok) throw firstError.error;
+    /**
+     * 한 수신자 실패가 다른 수신자의 결과(이벤트·지연 푸시·자동 읽음 대상·결정 스냅샷)를 버리지 않게 —
+     * 부분 결과를 그대로 반환하고 오류는 로그만 남긴다.
+     */
+    results.forEach((r, i) => {
+      if (r.ok) return;
+      logNotifyMessage("create_done", {
+        roomId,
+        recipientUserId: recipients[i],
+        error: r.error instanceof Error ? r.error.message : String(r.error ?? "recipient_failed"),
+      });
+    });
   } else {
     for (const recipientUserId of recipients) {
       await processRecipient(recipientUserId);

@@ -6,6 +6,8 @@
  * 이런 UPDATE 는 방 메타 재조회가 필요 없다. 그 밖의 컬럼(음소거·나감·역할·보관 등)이 바뀌면 false.
  *
  * old 행이 new 행의 컬럼을 모두 갖지 않으면(PK 만 오는 경우) 판별 불가 → false(기존처럼 메타 재조회).
+ * 근거: 이 경우 결과는 P2 이전과 완전히 같다(항상 meta.schedule) — 운영은 REPLICA IDENTITY FULL(2026-11-18 확인)이라
+ * 전체 old 행이 와서 판별되지만, 설정이 바뀌어도 동작이 나빠지지 않고 이전으로 돌아갈 뿐이다.
  */
 const READ_ONLY_PARTICIPANT_COLUMNS = new Set([
   "last_read_message_id",

@@ -155,6 +155,22 @@ describe("notify-message-pipeline P2 opt-in", () => {
     expect(res.autoReadRecipientIds).toEqual(["u1"]);
   });
 
+  it("parallel mode: one recipient failure keeps other recipients' partial results (no throw)", async () => {
+    resolvePresenceSuppressDecision.mockReturnValue(autoReadDecision);
+    createAndDispatchNotificationEvent.mockImplementation(async (_sb: unknown, input: { userId: string }) => {
+      if (input.userId === "u2") throw new Error("insert failed");
+      return { ok: true, pushDeferred: true, row: { id: `evt-${input.userId}`, user_id: input.userId } };
+    });
+    const res = await notifyMessagePipeline(
+      sb,
+      { ...baseInput, recipientUserIds: ["u1", "u2", "u3"] },
+      { parallelRecipients: true, deferAutoRead: true, deferPush: true }
+    );
+    expect(res.autoReadRecipientIds.sort()).toEqual(["u1", "u3"]);
+    expect(Object.keys(res.decisionSnapshotsByRecipientId).sort()).toEqual(["u1", "u3"]);
+    expect(res.deferredPushes.map((d) => d.row.id).sort()).toEqual(["evt-u1", "evt-u3"]);
+  });
+
   it("default (no opt-in): auto-read runs inside pipeline, autoReadRecipientIds empty", async () => {
     resolvePresenceSuppressDecision.mockReturnValue(autoReadDecision);
     const res = await notifyMessagePipeline(sb, { ...baseInput, recipientUserIds: ["u1"] });

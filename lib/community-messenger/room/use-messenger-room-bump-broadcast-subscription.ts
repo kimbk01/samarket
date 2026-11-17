@@ -21,6 +21,8 @@ import { subscribeCommunityMessengerRoomBumpBroadcast } from "@/lib/community-me
 import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { resolveOwnRoomBumpDecision } from "@/lib/community-messenger/room/own-room-bump-origin-policy";
 import { shouldSkipPeerBumpSingleGet } from "@/lib/community-messenger/room/peer-bump-snapshot-skip-policy";
+import { removeMessageFromRoomSnapshotCache } from "@/lib/community-messenger/room-snapshot-cache";
+import { forgetMessengerRoomClientBootstrapFlights } from "@/lib/community-messenger/room/messenger-room-bootstrap-refresh";
 import { enqueueRoomBumpFrameItem } from "@/lib/community-messenger/room/queue-room-bump-frame";
 
 type RoomBumpListener = {
@@ -218,6 +220,18 @@ export function useMessengerRoomBumpBroadcastSubscription({
       if (messageAction === "hard_deleted") {
         const deletedId = typeof payload.messageId === "string" ? payload.messageId.trim() : "";
         if (deletedId) {
+          /** 화면 목록 + 방 캐시(메모리·hot) + 진행 중 bootstrap 비행 — 재진입 때 되살아나지 않게 */
+          const cacheRoomIds = new Set(
+            [
+              String(streamRoomId ?? "").trim(),
+              String(roomId ?? "").trim(),
+              String(snapshotRef.current?.room?.id ?? "").trim(),
+            ].filter(Boolean)
+          );
+          for (const rid of cacheRoomIds) {
+            removeMessageFromRoomSnapshotCache({ roomId: rid, viewerUserId: viewer, messageId: deletedId });
+            forgetMessengerRoomClientBootstrapFlights({ roomId: rid, viewerUserId: viewer });
+          }
           setRoomMessages((prev) =>
             prev.some((m) => String(m.id ?? "").trim() === deletedId)
               ? prev.filter((m) => String(m.id ?? "").trim() !== deletedId)

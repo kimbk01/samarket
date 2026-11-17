@@ -191,6 +191,7 @@ export async function runCommunityMessengerSendDurablePreAckEffects(
         deferAutoRead: pipelineOpts?.deferAutoRead === true,
       }
     ).catch(() => null);
+    /** 병렬 모드 파이프라인은 수신자 실패를 throw 하지 않고 부분 결과를 돌려준다(위 catch 는 공통 읽기 실패 등만) */
     if (t5) {
       const { markT5, spanT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
       spanT5(t5, "S16_notify_durable_ms", notifyT0);
