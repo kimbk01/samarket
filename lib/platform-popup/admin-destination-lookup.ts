@@ -12,6 +12,10 @@ import {
   popupCtaInputEventId,
   resolvePopupCandidateCtaLookup,
 } from "@/lib/platform-popup/popup-event-destination-availability";
+import {
+  popupStoreCtaLegacyStoreId,
+  rewritePopupStoreCtaTargetToSlug,
+} from "@/lib/platform-popup/popup-store-cta-target";
 
 export type PlatformPopupAdminDestinationLookup = {
   /** 구조 검사(형식) 통과 */
@@ -57,11 +61,28 @@ async function loadTitle(
   return null;
 }
 
+/**
+ * 빌드 전 감사 A6 (2026-11-17): 예전 매장 UUID 링크는 앱(`load-popup-candidates.ts` ADC-01)과 같이 slug 로 바꿔 확인한다.
+ * 매장 행이 없으면 앱처럼 빈 대상(null) — 앱에서 열 수 없음으로 보인다.
+ */
+async function rewriteLegacyStoreTarget(
+  sb: SupabaseClient,
+  input: { ctaType: string; ctaTarget: string }
+): Promise<string | null> {
+  const legacyId = popupStoreCtaLegacyStoreId(input);
+  if (!legacyId) return input.ctaTarget;
+  const { data, error } = await sb.from("stores").select("id, slug").eq("id", legacyId).maybeSingle();
+  const slug = !error && data ? String((data as { slug?: unknown }).slug ?? "").trim() : "";
+  if (!slug) return null;
+  return rewritePopupStoreCtaTargetToSlug({ ctaType: input.ctaType, ctaTarget: input.ctaTarget, storeId: legacyId, slug });
+}
+
 export async function lookupPlatformPopupAdminDestination(
   sb: SupabaseClient,
   input: { ctaType: string; ctaTarget: string; externalUrl: string }
 ): Promise<PlatformPopupAdminDestinationLookup> {
-  const cta = { ctaType: input.ctaType, ctaTarget: input.ctaTarget, externalUrl: input.externalUrl || null };
+  const ctaTarget = await rewriteLegacyStoreTarget(sb, input);
+  const cta = { ctaType: input.ctaType, ctaTarget, externalUrl: input.externalUrl || null };
   const normalized = normalizePlatformPopupCta(cta);
   if (!normalized.ok) {
     return { valid: false, available: false, error: normalized.error, href: null, kind: null, title: null };

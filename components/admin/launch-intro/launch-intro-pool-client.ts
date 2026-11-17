@@ -4,7 +4,12 @@
  * 앱 진입 어드민 v3 — 인트로 목록·편집 화면 공용 클라이언트 함수(요청 · 오류 문구 · 그림 색 고르기).
  */
 import type { MessageKey } from "@/lib/i18n/messages";
-import { LAUNCH_INTRO_POOL_MAX_ACTIVE, LAUNCH_INTRO_POOL_NAME_MAX } from "@/lib/launch-intro/pool";
+import {
+  LAUNCH_INTRO_POOL_DURATION_MAX_MS,
+  LAUNCH_INTRO_POOL_DURATION_MIN_MS,
+  LAUNCH_INTRO_POOL_MAX_ACTIVE,
+  LAUNCH_INTRO_POOL_NAME_MAX,
+} from "@/lib/launch-intro/pool";
 import { dominantBorderColor } from "@/lib/launch-intro/pool-admin-view";
 
 export const LAUNCH_INTRO_POOL_API = "/api/admin/launch-intro/pool";
@@ -39,6 +44,15 @@ export function launchIntroPoolErrorText(code: string, t: T): string {
       return t("admin_launch_intro_v3_err_name", { max: LAUNCH_INTRO_POOL_NAME_MAX });
     case "background_invalid":
       return t("admin_launch_intro_v3_err_background");
+    case "not_found":
+      return t("admin_launch_intro_v3_err_not_found");
+    case "duration_invalid":
+      return t("admin_launch_intro_v3_err_duration", {
+        min: LAUNCH_INTRO_POOL_DURATION_MIN_MS / 1000,
+        max: LAUNCH_INTRO_POOL_DURATION_MAX_MS / 1000,
+      });
+    case "kind_invalid":
+      return t("admin_launch_intro_v3_err_kind");
     default:
       return t("admin_launch_intro_pool_err_save");
   }

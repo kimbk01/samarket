@@ -80,6 +80,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         winner: null,
         queue: [],
         reason: policy.enabled ? "policy_landscape_off" : "policy_disabled",
+        // 빌드 전 감사 P5: 가로 금지·꺼짐 응답에도 정책 값을 준다 — 앱이 세로로 돌렸을 때 다시 조회하게
+        allowLandscape: policy.allowLandscape,
         surface,
         generation,
         impression: false,
@@ -118,6 +120,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           resolvedSurface: surface,
           candidates: remaining,
           coordinatedEventIds,
+          // 빌드 전 감사 P3: 알림 자리 말풍선은 회원만 후보
+          viewerUserId: userId,
         });
         if (!result.ok) return { kind: "error", error: result.error };
         if (!result.winner) return { kind: "none", reason: result.reason ?? null };
@@ -202,6 +206,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       winner: null,
       queue: [],
       reason: lastReason,
+      allowLandscape: policy.allowLandscape,
       surface,
       generation,
       impression: false,

@@ -51,11 +51,13 @@ import {
   adminSurfaceModeLabel,
   adminSurfacesFromDb,
   isAdminSurfaceSelected,
+  platformPopupSurfacesForPresentation,
   previewSurfaceFromAdminSelection,
   surfacesFromAdminSelection,
   toggleAdminSurfaceSelection,
   type PlatformPopupAdminSurfaceMode,
 } from "@/lib/platform-popup/admin-surface-target-mode";
+import { platformPopupMaterialEditRequiresReview } from "@/lib/platform-popup/admin-campaign-authority";
 import type { PlatformPopupTargetSurface } from "@/lib/platform-popup/types";
 import {
   decodePlatformPopupOwnerCtaDestination,
@@ -158,6 +160,15 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const [cropRequired, setCropRequired] = useState(false);
   /** 형태를 바꾸며 기존 그림을 쓰지 않기로 함 — 새 그림을 올려야 저장 가능 */
   const [replaceRequired, setReplaceRequired] = useState(false);
+  /**
+   * 빌드 전 감사 A5 (2026-11-17): 형태를 바꾼 채(저장 전) 고른·자른 그림 — 바로 올리지 않고 저장 버튼에서 그림 → 형태 순서로 함께 저장한다.
+   * 예전에는 자르기 적용이 바로 올라가 저장 안 하고 나가면 형태는 옛것, 그림은 새 비율로 어긋났다.
+   */
+  const [pendingUpload, setPendingUpload] = useState<{
+    file: File;
+    mode: "card" | "artwork";
+    cropRect: PlatformPopupCropRect | null;
+  } | null>(null);
   /** v3 ④: 저장된 전체 설정 「가로 화면에서도」 (미리보기) */
   const [allowLandscape, setAllowLandscape] = useState<boolean | undefined>(undefined);
 
@@ -295,6 +306,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     setDirty(false);
     setCropRequired(false);
     setReplaceRequired(false);
+    setPendingUpload(null);
     setCrop((prev) => {
       if (prev) URL.revokeObjectURL(prev.url);
       return null;
@@ -485,7 +497,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       setError(t("admin_popup_v3_save_needs_crop"));
       return;
     }
-    if (replaceRequired) {
+    if (replaceRequired && !pendingUpload) {
       setBusy(false);
       setError(t("admin_popup_v3_save_needs_image"));
       return;
@@ -518,7 +530,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       timezone,
       startAt: fromLocalInput(startLocal, timezone),
       endAt: fromLocalInput(endLocal, timezone),
-      surfaces: surfacesFromAdminSelection(selectedSurfaces),
+      // P3 / RA-5: 말풍선은 노출 위치 = 홈 고정(서버도 같은 함수로 홈으로 저장)
+      surfaces:
+        platformPopupSurfacesForPresentation(presentationType, surfacesFromAdminSelection(selectedSurfaces)) ??
+        surfacesFromAdminSelection(selectedSurfaces),
       suppressionMode,
       suppressionDurationSeconds: durationSec === "" ? null : Number(durationSec),
       presentationType,
@@ -543,17 +558,19 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     };
     // P-1: 바뀐 묶음만 보낸다 — 이름만 고쳐도 노출 중 팝업이 다시 승인 대기로 내려가던 문제
     const patchBody = buildPlatformPopupAdminPatch(saved, nextForm);
-    if (Object.keys(patchBody).length === 0) {
+    const upload = pendingUpload;
+    if (Object.keys(patchBody).length === 0 && !upload) {
       setBusy(false);
       setDirty(false);
       return;
     }
-    // 저장 전 확인창: 노출 중 팝업의 재검토 대상 묶음을 고쳤을 때만 경고(PTR 상세와 같은 문구)
+    // 저장 전 확인창: 노출 중 팝업의 재검토 대상 묶음을 고쳤을 때(또는 A5: 그림을 함께 올릴 때)만 경고(PTR 상세와 같은 문구)
     if (
       platformPopupPatchWouldRevertToReview(patchBody, {
         status: campaign.status,
         operatorPopup: !campaign.ownerRequestId,
-      })
+      }) ||
+      (upload != null && platformPopupMaterialEditRequiresReview(campaign.status as PlatformPopupCampaignStatus))
     ) {
       const ko = lang !== "en";
       const ok = await confirmAdminAction({
@@ -565,6 +582,20 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       });
       if (!ok.ok) {
         setBusy(false);
+        return;
+      }
+    }
+    // A5: 그림 먼저(카드형 36:25 소재가 생긴 뒤 형태를 바꿔야 서버 검사와 맞다) → 그다음 형태·나머지 칸
+    if (upload) {
+      const uploaded = await uploadCreative(upload.file, upload.mode, upload.cropRect, { reviewConfirmed: true });
+      if (!uploaded) {
+        setBusy(false);
+        return;
+      }
+      setBusy(true);
+      if (Object.keys(patchBody).length === 0) {
+        setBusy(false);
+        await load();
         return;
       }
     }
@@ -669,8 +700,30 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     await load();
   };
 
-  /** 그림 올리기 — 카드형은 자르기 틀 사각형(원본 픽셀)을 함께 보낸다. 서버가 같은 검사를 다시 한다. */
-  const uploadCreative = async (file: File, mode: "card" | "artwork", cropRect?: PlatformPopupCropRect | null) => {
+  /**
+   * 그림 올리기 — 카드형은 자르기 틀 사각형(원본 픽셀)을 함께 보낸다. 서버가 같은 검사를 다시 한다.
+   * 빌드 전 감사 A5: 노출·예약 중 팝업이면 올리기 전에 「검토 대기로 바뀝니다」 확인(저장 버튼에서 이미 물었으면 생략).
+   */
+  const uploadCreative = async (
+    file: File,
+    mode: "card" | "artwork",
+    cropRect?: PlatformPopupCropRect | null,
+    opts?: { reviewConfirmed?: boolean }
+  ) => {
+    if (
+      !opts?.reviewConfirmed &&
+      campaign &&
+      platformPopupMaterialEditRequiresReview(campaign.status as PlatformPopupCampaignStatus)
+    ) {
+      const ok = await confirmAdminAction({
+        level: adminActionLevel("save"),
+        ko: lang !== "en",
+        title: t("admin_popup_v3_upload_review_title"),
+        description: t("admin_popup_v3_upload_review_confirm"),
+        confirmLabel: t("admin_popup_v3_upload_review_yes"),
+      });
+      if (!ok.ok) return false;
+    }
     setBusy(true);
     setError(null);
     const fd = new FormData();
@@ -702,8 +755,26 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     clearCrop();
     setCropRequired(false);
     setReplaceRequired(false);
+    setPendingUpload(null);
     setPreviewOverrideUrl(null);
     await reloadCreativeOnly();
+    return true;
+  };
+
+  /**
+   * A5: 형태를 바꾼 채(저장 전)면 그림을 바로 올리지 않고 저장 때 함께 올린다. 형태가 저장값과 같으면 예전처럼 바로 올린다.
+   */
+  const acceptCreative = async (file: File, mode: "card" | "artwork", cropRect?: PlatformPopupCropRect | null) => {
+    const saved = savedFormRef.current;
+    const typeChangePending = Boolean(
+      saved && (saved.presentationType !== presentationType || saved.creativeMode !== creativeMode)
+    );
+    if (!typeChangePending) return uploadCreative(file, mode, cropRect);
+    setPendingUpload({ file, mode, cropRect: cropRect ?? null });
+    clearCrop();
+    setCropRequired(false);
+    setReplaceRequired(false);
+    markDirty();
     return true;
   };
 
@@ -746,6 +817,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       description: t(nextMode === "card" ? "admin_popup_v3_keep_image_card" : "admin_popup_v3_keep_image_artwork"),
       confirmLabel: t("admin_popup_v3_keep_image_yes"),
     });
+    // A5: 형태가 또 바뀌면 저장 대기 그림은 버린다(그 형태 규격으로 다시 고르거나 자른다)
+    setPendingUpload(null);
     if (!keep.ok) {
       clearCrop();
       setCropRequired(false);
@@ -1058,7 +1131,12 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                         await openCrop(file, meta);
                         return;
                       }
-                      await uploadCreative(file, isCardComposition ? "card" : "artwork");
+                      await acceptCreative(file, isCardComposition ? "card" : "artwork");
+                    }}
+                    onReject={() => {
+                      // 빌드 전 감사 I5: 칸에 검사 오류 파일이 보이면 저장 대기 그림·자르기 틀을 놓는다(보이는 것 = 저장되는 것)
+                      setPendingUpload(null);
+                      clearCrop();
                     }}
                   >
                     {crop && isCardComposition ? (
@@ -1069,7 +1147,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                           sourceHeight={crop.height}
                           fileName={crop.fileName}
                           disabled={writeBlocked}
-                          onConfirm={(rect) => void uploadCreative(crop.file, "card", rect)}
+                          onConfirm={(rect) => void acceptCreative(crop.file, "card", rect)}
                           onPickOther={() => {
                             clearCrop();
                           }}
@@ -1083,7 +1161,12 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                     {t("admin_popup_v3_save_needs_crop")}
                   </p>
                 ) : null}
-                {replaceRequired ? (
+                {pendingUpload ? (
+                  <p className="mt-2 text-xs text-sam-warning" role="status" data-admin-popup-pending-upload="1">
+                    {t("admin_popup_v3_upload_pending_save", { file: pendingUpload.file.name })}
+                  </p>
+                ) : null}
+                {replaceRequired && !pendingUpload ? (
                   <p className="mt-2 text-xs text-sam-warning" role="status" data-admin-popup-replace-required="1">
                     {t("admin_popup_v3_save_needs_image")}
                   </p>
@@ -1406,9 +1489,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                     );
                   })}
                 </fieldset>
-                {operatorComposition === "tooltip" &&
-                !selectedSurfaces.some((s) => s === "HOME" || s === "GLOBAL") ? (
-                  <p className="mt-2 text-xs text-sam-warning">{t("admin_popup_applied_reason_tooltip_home_only")}</p>
+                {operatorComposition === "tooltip" ? (
+                  <p className="mt-2 text-xs text-sam-warning" data-admin-popup-tooltip-home-fixed="1">
+                    {t("admin_popup_v3_tooltip_home_fixed")}
+                  </p>
                 ) : null}
               </AdminCard>
 

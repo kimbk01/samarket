@@ -6,7 +6,7 @@
  * - 후보 = `loadPlatformPopupCandidates` (앱과 같은 쿼리 · 목적지 조회 · 매장 자격) — 보는 사람 없이 부르므로 숨김·최근 노출은 비어 있다
  * - 자격 = `evaluatePlatformPopupCandidateGates` (승인·상태·기간·노출 위치·소재·이동 대상) — 영역·보는 사람 판정만 뺀다
  * - 표시 단계 = `buildPlatformPopupPresentationWinner` + 혜택(`loadPopupCandidateEventBenefit`) + 목록 매장(`loadPlatformPopupListStores`)
- * - 쿠폰 카드 = 조건부(7일 안 만료 쿠폰 있는 회원만) · 말풍선 = 홈이 없는 노출 위치면 조건부
+ * - 쿠폰 카드 = 조건부(7일 안 만료 쿠폰 있는 회원만) · 말풍선 = 홈이 없는 노출 위치면 안 나옴(자격 함수 `tooltip_home_only` · 빌드 전 감사 A1)
  * 회원별 숨김(닫음·하루 1번)·이번 실행 숨김은 사람마다 달라 넣지 않는다.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -105,9 +105,6 @@ export function computePlatformPopupAppliedStatus(input: {
   if (startsAt) return { state: "scheduled", reason: "starts_at", startsAt: startsAt.toISOString() };
 
   if (presentationType === "coupon_card") return { state: "conditional", reason: "coupon_members_only" };
-  if (presentationType === "tooltip" && !c.surfaces.some((s) => s === "HOME" || s === "GLOBAL")) {
-    return { state: "conditional", reason: "tooltip_home_only" };
-  }
   return { state: "live", reason: null };
 }
 
@@ -129,10 +126,16 @@ async function loadPolicyEnabled(): Promise<boolean> {
 /** 후보 전체의 「앱에 나오나」 — 목록 필터(「앱에 나오는 중」·「안 나옴」)와 각 행 표시가 같은 결과를 쓴다 */
 export async function loadPlatformPopupAppliedStatusIndex(
   sb: SupabaseClient,
-  opts?: { now?: Date }
+  opts?: {
+    now?: Date;
+    /** 빌드 전 감사 A4: 상세처럼 캠페인 몇 개만 볼 때 — 표시 단계 확인(혜택·목록 매장 조회)을 그 캠페인만 한다 */
+    campaignIds?: readonly string[];
+  }
 ): Promise<PlatformPopupAppliedStatusIndex> {
   const now = opts?.now ?? new Date();
-  const [policyEnabled, candidates] = await Promise.all([loadPolicyEnabled(), loadPlatformPopupCandidates(sb, {})]);
+  const [policyEnabled, loaded] = await Promise.all([loadPolicyEnabled(), loadPlatformPopupCandidates(sb, {})]);
+  const only = opts?.campaignIds ? new Set(opts.campaignIds) : null;
+  const candidates = only ? loaded.filter((c) => only.has(c.id)) : loaded;
   const byId = new Map<string, PlatformPopupAppliedStatus>();
   const extras = await Promise.all(
     candidates.map(async (c) => {

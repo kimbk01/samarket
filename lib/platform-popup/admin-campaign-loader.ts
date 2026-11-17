@@ -520,42 +520,48 @@ export async function countPlatformPopupAdminCampaigns(
 }
 
 /**
- * v3 ④ — 최근 30일 노출·누름 수 (캠페인별 건수만 읽음 · 행을 받지 않는다).
- * 인덱스 `platform_popup_campaign_events_campaign_created_idx` (campaign_id, created_at). 읽기 실패 = 그 캠페인 없음(—).
+ * v3 ④ — 최근 30일 노출·누름 수.
+ * 빌드 전 감사 A4 (2026-11-17): 쪽 안 캠페인 전체를 **조회 1번**(`in` 캠페인 + 30일 + 노출·누름 두 종류)으로 받아 메모리에서 센다.
+ * 예전에는 줄마다 개수 조회 2번(쪽당 줄 수 × 2)이었다. 행은 `campaign_id, event_type` 두 열만 받는다.
+ * 상한 `PLATFORM_POPUP_RECENT_ROW_LIMIT` 행 — 넘으면 일부만 센다(지금 30일 기록 수백 행 · 상한에 닿으면 하한값).
+ * 인덱스 `platform_popup_campaign_events_campaign_created_idx` (campaign_id, created_at). 읽기 실패 = 모두 없음(—).
  */
 export const PLATFORM_POPUP_RECENT_DAYS = 30;
+export const PLATFORM_POPUP_RECENT_ROW_LIMIT = 50_000;
 
-async function loadPlatformPopupRecent30d(
+export async function loadPlatformPopupRecent30d(
   sb: SupabaseClient,
   campaignIds: readonly string[],
   now: Date
 ): Promise<Map<string, { impressions: number; clicks: number }>> {
   const out = new Map<string, { impressions: number; clicks: number }>();
+  const ids = [...new Set(campaignIds)];
+  if (!ids.length) return out;
   const since = new Date(now.getTime() - PLATFORM_POPUP_RECENT_DAYS * 24 * 3600_000).toISOString();
-  const countOf = async (campaignId: string, eventType: "impression" | "click"): Promise<number | null> => {
-    const { count, error } = await sb
-      .from("platform_popup_campaign_events")
-      .select("id", { count: "exact", head: true })
-      .eq("campaign_id", campaignId)
-      .eq("event_type", eventType)
-      .gte("created_at", since);
-    return error ? null : (count ?? 0);
-  };
-  await Promise.all(
-    campaignIds.map(async (id) => {
-      const [impressions, clicks] = await Promise.all([countOf(id, "impression"), countOf(id, "click")]);
-      if (impressions != null && clicks != null) out.set(id, { impressions, clicks });
-    })
-  );
+  const { data, error } = await sb
+    .from("platform_popup_campaign_events")
+    .select("campaign_id, event_type")
+    .in("campaign_id", ids)
+    .in("event_type", ["impression", "click"])
+    .gte("created_at", since)
+    .limit(PLATFORM_POPUP_RECENT_ROW_LIMIT);
+  if (error) return out;
+  for (const id of ids) out.set(id, { impressions: 0, clicks: 0 });
+  for (const row of (data ?? []) as { campaign_id?: unknown; event_type?: unknown }[]) {
+    const bucket = out.get(String(row.campaign_id ?? ""));
+    if (!bucket) continue;
+    if (row.event_type === "impression") bucket.impressions += 1;
+    else if (row.event_type === "click") bucket.clicks += 1;
+  }
   return out;
 }
 
-/** 상세 — 「앱에 나오나」 (목록과 같은 계산) */
+/** 상세 — 「앱에 나오나」 (목록과 같은 계산 · A4: 표시 단계 확인은 이 캠페인만) */
 export async function loadPlatformPopupAdminAppliedStatus(
   sb: SupabaseClient,
   row: { id: string; status: string; approvalStatus: string }
 ): Promise<PlatformPopupAppliedStatus> {
-  return platformPopupAppliedStatusFor(await loadPlatformPopupAppliedStatusIndex(sb), row);
+  return platformPopupAppliedStatusFor(await loadPlatformPopupAppliedStatusIndex(sb, { campaignIds: [row.id] }), row);
 }
 
 /** 캠페인 행 → 목록 항목 (노출 위치·썸네일·연결 이벤트 보강). */

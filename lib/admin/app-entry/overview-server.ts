@@ -6,8 +6,8 @@
  * - 첫 진입 화면: `loadStartupConfigFromDb` (앱이 받는 `startup_config_v1`) · `pathForInitialAppSurface`
  * - 인트로: `buildLaunchIntroPoolPayload` (발견 응답의 `pool` — 기기가 받는 목록) · 이름은 `listLaunchIntroPoolRows`
  *   · 장면 게시본 상태 `loadLaunchIntroLive`
- * - 팝업: `loadPlatformPopupEntryPolicyFromStore` · 진입 팝업 캠페인(PTR 띠 제외) 중
- *   `isPlatformPopupStatusScheduleEligible` + `isPlatformPopupWithinScheduleWindow` 인 수
+ * - 팝업: `loadPlatformPopupEntryPolicyFromStore` · 팝업 목록과 같은 「앱에 나오나」 색인(`loadPlatformPopupAppliedStatusIndex`)에서
+ *   「앱에 나오는 중」(`isPlatformPopupAppliedShowing`) 수 (빌드 전 감사 A2 — 목록 합계와 같은 값)
  * - 설치된 앱 버전: `user_devices.app_version` (활성 · 최근 30일 · Android·iOS · 기기 1대 1번)
  *
  * 각 칸은 따로 실패한다(`ok: false` + 오류 코드) — 한 칸 실패로 다른 칸을 숨기지 않는다.
@@ -25,15 +25,8 @@ import {
 } from "@/lib/launch-intro/pool-server";
 import { loadLaunchIntroLive, type Sb as LaunchIntroSb } from "@/lib/launch-intro/server";
 import { loadPlatformPopupEntryPolicyFromStore } from "@/lib/platform-popup/entry-policy-server";
-import {
-  isPlatformPopupStatusScheduleEligible,
-  isPlatformPopupWithinScheduleWindow,
-} from "@/lib/platform-popup/campaign-lifecycle";
-import { PTR_REVEAL_PRESENTATION } from "@/lib/platform-popup/ptr-reveal-contract";
-import type {
-  PlatformPopupApprovalStatus,
-  PlatformPopupCampaignStatus,
-} from "@/lib/platform-popup/types";
+import { loadPlatformPopupAppliedStatusIndex } from "@/lib/platform-popup/admin-applied-status";
+import { isPlatformPopupAppliedShowing } from "@/lib/platform-popup/admin-applied-status-contract";
 import { loadStartupConfigLastChange } from "@/lib/admin/app-entry/startup-config-last-change";
 import {
   APP_ENTRY_INSTALL_ROW_LIMIT,
@@ -109,44 +102,21 @@ async function loadIntro(sb: Sb, now: Date): Promise<AppEntryOverviewIntro> {
   return { pool, scenes };
 }
 
-type PopupCampaignWindowRow = {
-  status: string;
-  approval_status: string;
-  start_at: string | null;
-  end_at: string | null;
-  presentation_type: string | null;
-};
-
 async function loadPopup(sb: Sb, now: Date): Promise<AppEntryOverviewPopup> {
-  const [policy, campaigns] = await Promise.all([
+  const [policy, eligible] = await Promise.all([
     loadPlatformPopupEntryPolicyFromStore().then(
       (p) => ({ ok: true as const, enabled: p.policy.enabled, maxPerEntry: p.policy.maxPerEntry, allowLandscape: p.policy.allowLandscape }),
       () => ({ ok: false as const, error: "popup_policy_read_failed" })
     ),
-    sb
-      .from("platform_popup_campaigns")
-      .select("status, approval_status, start_at, end_at, presentation_type")
-      .in("status", ["scheduled", "active"])
-      .eq("approval_status", "approved"),
+    // A2: 팝업 목록 「앱에 나오는 중」과 같은 색인·같은 판정(PTR 띠는 자격 함수에서 형태 밖으로 빠짐)
+    loadPlatformPopupAppliedStatusIndex(sb, { now }).then(
+      (index): AppEntryOverviewPopup["eligible"] => ({
+        ok: true,
+        count: [...index.byId.values()].filter((s) => isPlatformPopupAppliedShowing(s.state)).length,
+      }),
+      (): AppEntryOverviewPopup["eligible"] => ({ ok: false, error: "popup_campaigns_read_failed" })
+    ),
   ]);
-  let eligible: AppEntryOverviewPopup["eligible"];
-  if (campaigns.error) {
-    eligible = { ok: false, error: "popup_campaigns_read_failed" };
-  } else {
-    const rows = (campaigns.data ?? []) as PopupCampaignWindowRow[];
-    eligible = {
-      ok: true,
-      count: rows.filter(
-        (r) =>
-          r.presentation_type !== PTR_REVEAL_PRESENTATION &&
-          isPlatformPopupStatusScheduleEligible(
-            r.status as PlatformPopupCampaignStatus,
-            r.approval_status as PlatformPopupApprovalStatus
-          ) &&
-          isPlatformPopupWithinScheduleWindow({ now, startAt: r.start_at, endAt: r.end_at })
-      ).length,
-    };
-  }
   return { policy, eligible };
 }
 

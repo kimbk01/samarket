@@ -16,7 +16,14 @@ import {
 
 const API = "/api/admin/platform-popup-campaigns/entry-policy";
 
-export function AdminPlatformPopupEntryPolicyCard({ canWrite }: { canWrite: boolean }) {
+export function AdminPlatformPopupEntryPolicyCard({
+  canWrite,
+  onSaved,
+}: {
+  canWrite: boolean;
+  /** 빌드 전 감사 A7: 저장 성공 뒤 — 같은 화면 목록의 「앱에 나오나」를 다시 읽게 한다 */
+  onSaved?: () => void;
+}) {
   const { t } = useI18n();
   const [policy, setPolicy] = useState<PlatformPopupEntryPolicy | null>(null);
   const [revision, setRevision] = useState<string | null>(null);
@@ -63,6 +70,7 @@ export function AdminPlatformPopupEntryPolicyCard({ canWrite }: { canWrite: bool
       if (!res.ok || !json.ok) throw new Error("save");
       setRevision(json.revision ?? null);
       setNotice({ tone: "ok", text: t("admin_platform_popup_entry_policy_saved") });
+      onSaved?.();
     } catch {
       setNotice({ tone: "error", text: t("admin_platform_popup_entry_policy_failed") });
     } finally {

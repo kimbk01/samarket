@@ -267,6 +267,12 @@ export function LaunchIntroCreativeEditor({
                     setFileSize({ width: meta.width, height: meta.height });
                     setFileUrl(URL.createObjectURL(f));
                   }}
+                  onReject={() => {
+                    // 빌드 전 감사 I5: 검사에 걸린 파일을 고르면 전에 받아 둔 파일도 놓는다(저장이 이전 파일을 올리지 않게)
+                    setFile(null);
+                    setFileSize(null);
+                    setFileUrl(null);
+                  }}
                 />
               )}
             </Field>

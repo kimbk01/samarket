@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { getClientIp } from "@/lib/http/api-route";
-import { LAUNCH_INTRO_EVENT_TYPES, type LaunchIntroEventType } from "@/lib/launch-intro/pool";
+import {
+  LAUNCH_INTRO_EVENT_TYPES,
+  normalizeLaunchIntroEventDeviceKey,
+  normalizeLaunchIntroEventPlatform,
+  type LaunchIntroEventType,
+} from "@/lib/launch-intro/pool";
 import { recordLaunchIntroEvent } from "@/lib/launch-intro/pool-server";
 import { adEventRecordActorKey, enforceAdEventRecordQuota } from "@/lib/security/rate-limit-presets";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -37,8 +42,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     adEventRecordActorKey({ userId, ip: getClientIp(req) })
   );
   if (!quota.ok) return quota.response;
-  const deviceKey = typeof body.deviceKey === "string" ? body.deviceKey.trim().slice(0, 80) || null : null;
-  const platform = typeof body.platform === "string" ? body.platform.trim().slice(0, 12) || null : null;
+  // 빌드 전 감사 I3: 형식에 맞을 때만 저장(아니면 null)
+  const deviceKey = normalizeLaunchIntroEventDeviceKey(body.deviceKey);
+  const platform = normalizeLaunchIntroEventPlatform(body.platform);
   const href = typeof body.href === "string" ? body.href.slice(0, 500) : null;
   const res = await recordLaunchIntroEvent(sb, {
     creativeId,
@@ -51,8 +57,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     meta: href ? { href } : {},
   });
   if (!res.ok) {
-    // 소재가 지워졌으면 저장 생략(정상)
-    if (res.error === "creative_not_found") return NextResponse.json({ ok: true, skipped: true });
+    // 소재가 지워졌거나 꺼졌으면 저장 생략(정상) — 빌드 전 감사 I3
+    if (res.error === "creative_not_found" || res.error === "creative_not_active") {
+      return NextResponse.json({ ok: true, skipped: true });
+    }
     return NextResponse.json({ ok: false, error: "record_failed" }, { status: res.status ?? 500 });
   }
   return NextResponse.json({ ok: true });

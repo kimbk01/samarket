@@ -235,3 +235,17 @@ export function adminSurfacesSelectionLabel(
   if (list.includes("GLOBAL")) return adminSurfaceModeLabel("GLOBAL", lang);
   return list.map((m) => adminSurfaceModeLabel(m, lang)).join(lang === "en" ? " · " : " · ");
 }
+
+/**
+ * 빌드 전 감사 P3 / RA-5 (2026-11-17): 말풍선 자리는 홈 머리줄에만 있다 — 말풍선의 노출 위치는 홈으로 고정한다
+ * (다른 값을 보내도 홈으로 저장 · 어드민 상세에 「홈 고정」 안내). 말풍선이 아니면 받은 값 그대로. 서버 저장·어드민 화면 공용(순수).
+ */
+export const PLATFORM_POPUP_TOOLTIP_FIXED_SURFACES: readonly PlatformPopupTargetSurface[] = ["HOME"];
+
+export function platformPopupSurfacesForPresentation<T extends string>(
+  presentationType: string | null | undefined,
+  surfaces: T[] | undefined
+): Array<T | PlatformPopupTargetSurface> | undefined {
+  if (String(presentationType ?? "").trim().toLowerCase() === "tooltip") return [...PLATFORM_POPUP_TOOLTIP_FIXED_SURFACES];
+  return surfaces;
+}

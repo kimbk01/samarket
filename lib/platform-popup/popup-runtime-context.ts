@@ -12,6 +12,26 @@ import type { PlatformPopupResolvedSurface } from "@/lib/platform-popup/types";
  */
 export const PLATFORM_POPUP_LANDSCAPE_ALLOWED_DEFAULT = true;
 
+/**
+ * 빌드 전 감사 P5 / PO-4 (2026-11-17): 가로 허용은 태블릿만 — 화면 짧은 변이 이 값보다 작으면(휴대폰) 정책과 상관없이
+ * 가로에서 보류한다. 이 값 이상(태블릿·데스크톱)이면 어드민 「가로 화면에서도 보이기」를 따른다.
+ */
+export const PLATFORM_POPUP_LANDSCAPE_TABLET_MIN_SHORT_SIDE_PX = 600;
+
+/** 가로 화면에서 팝업을 보류하는가 (세로면 false) */
+export function isPlatformPopupLandscapeBlocked(input: {
+  isLandscape: boolean;
+  allowLandscape?: boolean;
+  viewportShortSide?: number | null;
+}): boolean {
+  if (!input.isLandscape) return false;
+  const short = input.viewportShortSide;
+  if (typeof short === "number" && Number.isFinite(short) && short > 0 && short < PLATFORM_POPUP_LANDSCAPE_TABLET_MIN_SHORT_SIDE_PX) {
+    return true;
+  }
+  return !(input.allowLandscape ?? PLATFORM_POPUP_LANDSCAPE_ALLOWED_DEFAULT);
+}
+
 export type PopupRuntimeContext = {
   pathname: string;
   surface: PlatformPopupResolvedSurface;
@@ -23,6 +43,8 @@ export type PopupRuntimeContext = {
   isLandscape: boolean;
   /** 가로 화면 표시 허용 — 없으면 `PLATFORM_POPUP_LANDSCAPE_ALLOWED_DEFAULT` */
   allowLandscape?: boolean;
+  /** 화면 짧은 변(CSS px) — 600 미만(휴대폰)이면 가로에서 늘 보류 (P5). 없으면 정책만 본다 */
+  viewportShortSide?: number | null;
 
   incomingCall: boolean;
   activeCall: boolean;
@@ -70,7 +92,7 @@ export function resolvePopupRuntimeBlockReason(
   if (ctx.startupDeferred) return "startup";
   if (ctx.launchIntroActive) return "launch_intro";
   if (!ctx.isAppForeground) return "background";
-  if (ctx.isLandscape && !(ctx.allowLandscape ?? PLATFORM_POPUP_LANDSCAPE_ALLOWED_DEFAULT)) return "landscape";
+  if (isPlatformPopupLandscapeBlocked(ctx)) return "landscape";
   if (ctx.incomingCall || ctx.activeCall || ctx.nativeCallTransition) return "call";
   if (
     ctx.paymentCritical ||

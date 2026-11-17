@@ -320,7 +320,7 @@ export function AdminPlatformPopupListPage() {
         description={safeT("admin_platform_popup_list_desc")}
       />
 
-      <AdminPlatformPopupEntryPolicyCard canWrite={adminAction.allowed} />
+      <AdminPlatformPopupEntryPolicyCard canWrite={adminAction.allowed} onSaved={refresh} />
 
       <div className="flex flex-wrap items-center gap-2" data-admin-popup-v3-filters="1">
         {STATUS_CHIPS.map((chip) => (

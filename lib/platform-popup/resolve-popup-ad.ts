@@ -33,6 +33,7 @@ import {
   normalizePlatformPopupCreativeMode,
   normalizePlatformPopupFrequencyMode,
   normalizePlatformPopupPresentationType,
+  normalizePlatformPopupTooltipAnchor,
   type PlatformPopupCreativeMode,
   type PlatformPopupFrequencyMode,
   type PlatformPopupInterruptivePresentation,
@@ -180,6 +181,8 @@ export type PlatformPopupCandidateGateReason =
   | "surface_none"
   | "surface_mismatch"
   | "presentation_out_of_scope"
+  | "tooltip_home_only"
+  | "tooltip_member_only"
   | "audience_excluded"
   | "owner_store_ineligible"
   | "creative_missing"
@@ -240,6 +243,20 @@ export function evaluatePlatformPopupCandidateGates(
     }
   } else if (!isPlatformPopupInterruptivePresentation(presentationType)) {
     return { ok: false, reason: "presentation_out_of_scope" }; // banner / ptr_reveal presentations: non-interruptive hosts
+  } else if (presentationType === "tooltip") {
+    /**
+     * 빌드 전 감사 P3 / RA-5 (2026-11-17): 말풍선 자리는 홈 머리줄에만 있다 — 홈이 아닌 화면에서는 후보가 아니다
+     * (예전: 자리 없는 말풍선이 1순위로 뽑혀 다른 팝업 자리를 먹고, 이번 실행 동안 막혀 홈에서도 안 나왔다).
+     * 어드민(영역 없음)은 노출 위치에 홈이 없으면 탈락.
+     */
+    const onHome = ctx.resolvedSurface
+      ? ctx.resolvedSurface === "HOME"
+      : platformPopupSurfaceMatches(c.surfaces, "HOME");
+    if (!onHome) return { ok: false, reason: "tooltip_home_only" };
+    // 알림 종 자리는 회원 화면에만 있다 — 보는 사람 판정이 있을 때 비회원이면 탈락
+    if (ctx.viewer && normalizePlatformPopupTooltipAnchor(c.tooltipAnchor) === "notifications" && !ctx.viewer.viewerUserId) {
+      return { ok: false, reason: "tooltip_member_only" };
+    }
   }
 
   if (c.ownerStoreEligible === false) return { ok: false, reason: "owner_store_ineligible" };

@@ -97,6 +97,12 @@ function readLandscape(): boolean {
   return window.matchMedia("(orientation: landscape)").matches;
 }
 
+/** 빌드 전 감사 P5: 화면 짧은 변(CSS px) — 600 미만 = 휴대폰(가로 늘 보류) */
+function readViewportShortSide(): number {
+  if (typeof window === "undefined") return 0;
+  return Math.min(window.innerWidth, window.innerHeight);
+}
+
 function validateWinnerHref(href: string): boolean {
   const trimmed = href.trim();
   if (!trimmed) return false;
@@ -135,6 +141,7 @@ export function GlobalPopupHost() {
     useSyncExternalStore(subscribeOpenOverlays, readNonAdOpenOverlayCount, () => 0) > 0;
   const isForeground = useSyncExternalStore(subscribeVisibility, readForeground, () => true);
   const isLandscape = useSyncExternalStore(subscribeOrientation, readLandscape, () => false);
+  const viewportShortSide = useSyncExternalStore(subscribeOrientation, readViewportShortSide, () => 0);
   const call = useSyncExternalStore(
     subscribePlatformPopupCallRuntime,
     readPlatformPopupCallRuntimeSnapshot,
@@ -200,6 +207,7 @@ export function GlobalPopupHost() {
       isAppForeground: isForeground,
       isLandscape,
       allowLandscape,
+      viewportShortSide: viewportShortSide > 0 ? viewportShortSide : null,
       incomingCall: call.incomingCall,
       activeCall: call.activeCall,
       nativeCallTransition: call.nativeCallTransition,
@@ -224,6 +232,7 @@ export function GlobalPopupHost() {
     isForeground,
     isLandscape,
     allowLandscape,
+    viewportShortSide,
     call.incomingCall,
     call.activeCall,
     call.nativeCallTransition,
@@ -257,6 +266,14 @@ export function GlobalPopupHost() {
   const chainLockSurfaceRef = useRef<string | null>(null);
   const runtimeCtxRef = useRef(runtimeCtx);
   runtimeCtxRef.current = runtimeCtx;
+  const winnerRef = useRef(winner);
+  winnerRef.current = winner;
+  const hostStateRef = useRef(hostState);
+  hostStateRef.current = hostState;
+  const exposureIdRef = useRef(exposureId);
+  exposureIdRef.current = exposureId;
+  /** 빌드 전 감사 P1·P6: 노출 기록(impression)을 보낸 노출 id — 「이미 보였다」 판정 */
+  const impressionExposureRef = useRef<string | null>(null);
   /**
    * 연속 노출 잠금은 **경로 기준 화면**으로만 푼다. 확인창·통화 등으로 surface 가 잠깐
    * ORDER_CRITICAL/CALL 로 바뀌었다 돌아와도 잠금이 풀리지 않게 한다 (G-8 과 함께 정정).
@@ -325,6 +342,13 @@ export function GlobalPopupHost() {
     }
     abortRef.current?.abort();
     queueRestRef.current = [];
+    /**
+     * 빌드 전 감사 P2 (2026-11-17): 보이던 말풍선이 「노출 불가」(당겨서 새로고침 등)로 지워지면 이번 실행 동안 막는다 —
+     * 예전에는 다시 조회해 같은 말풍선을 다시 노출로 셌다(진입당 최대 개수도 넘김). 화면을 막는 팝업은 그대로.
+     */
+    if (hostStateRef.current === "VISIBLE" && winnerRef.current?.presentationType === "tooltip") {
+      addPlatformPopupSessionBlockedCampaign(winnerRef.current.campaignId);
+    }
     setHostState((s) => {
       if (s === "VISIBLE" || s === "READY" || s === "RESOLVING") {
         setWinner(null);
@@ -423,6 +447,16 @@ export function GlobalPopupHost() {
         }
         if (generation !== generationRef.current) return;
         /**
+         * 빌드 전 감사 P5 / PO-4: 가로 금지 응답 = 「보류」 — 위에서 받은 `allowLandscape=false` 로 가로에서는 조건 불가가 되고,
+         * 세로로 돌리면 조건이 맞아 다시 조회한다(예전: 「띄울 것 없음」으로 끝나 화면을 옮기기 전까지 조회 안 함).
+         */
+        if ((json as { reason?: unknown }).reason === "policy_landscape_off") {
+          setAllowLandscape(false);
+          setWinner(null);
+          setHostState((s) => (s === "RESOLVING" ? reducePlatformPopupHostState(s, { type: "DEFER" }) : s));
+          return;
+        }
+        /**
          * 재감사 S-1 (P-b): 응답을 버릴 때도 RESOLVING 에 머물지 않는다 — 예전에는 조회 중 화면을 옮기면
          * RESOLVING 이 남아 그 실행 동안 팝업이 다시 조회되지 않았다. 화면이 바뀌었거나 조건이 안 맞으면 무효로 돌려
          * 지금 화면 기준으로 다시 판단하게 한다(조건이 안 맞으면 조회 effect 가 실행되지 않음).
@@ -503,9 +537,11 @@ export function GlobalPopupHost() {
   /**
    * 재감사 (2026-11-17): 지금 칸을 못 보이면(그림 실패·말풍선 자리 없음·데이터 빈칸) 같은 진입 대기열의 다음 칸으로.
    * 다음 칸이 없고 대기열 중간이었으면 연속 노출 잠금(다시 조회해 진입당 개수를 넘기지 않게).
-   * 1위 칸이고 남은 칸도 없으면 예전처럼 다시 조회(실패 캠페인은 제외 목록에 있음).
+   * 1위 칸이고 남은 칸도 없으면 예전처럼 다시 조회(실패 캠페인은 제외 목록에 있음) — 단 1위 칸이 이미 노출로 기록됐으면 잠금(P6).
    */
   const skipCurrent = useCallback(() => {
+    // 빌드 전 감사 P6: 지금 칸이 이미 노출로 기록됐는가(자리를 잃은 말풍선 등) — 그러면 다시 조회하지 않는다
+    const currentShown = exposureIdRef.current != null && impressionExposureRef.current === exposureIdRef.current;
     const next = queueRestRef.current.find(
       (w) => !isPlatformPopupSessionBlockedCampaign(w.campaignId) && !brokenCreativeCampaignIdsRef.current.has(w.campaignId)
     );
@@ -524,7 +560,8 @@ export function GlobalPopupHost() {
     const midQueue = queueIndexRef.current > 0;
     queueRestRef.current = [];
     setWinner(null);
-    if (midQueue) {
+    // P6: 노출된 첫 칸이 빠졌을 때도 이 화면 잠금 — 새 대기열을 다시 받아 진입당 개수를 넘기지 않게
+    if (midQueue || currentShown) {
       chainLockSurfaceRef.current = navSurfaceRef.current;
       setHostState((s) => reducePlatformPopupHostState(s, { type: "DISMISS" }));
       return;
@@ -541,6 +578,32 @@ export function GlobalPopupHost() {
    * - F-1 (DISMISS_SSOT · 2026-11-04): CTA 로 끝난 노출도 × 와 같은 빈도 숨김 행을 저장한다(`persist: true`).
    *   분석 기록은 click → landing 만 — CTA 경로는 `recordAnalytics: false` 로 suppress 분석 기록을 보내지 않는다(PU-30).
    */
+  /** 빈도 숨김 행 저장(서버) — × · CTA · 자동 닫힘 · 노출된 말풍선 화면 이동(P1) 공용. CLOSE 는 저장 없음 */
+  const persistSuppression = useCallback(
+    async (target: ResolveWinner, mode: PlatformPopupSuppressionMode) => {
+      if (mode === "CLOSE") return;
+      // 기록 실패(429 요청 제한 포함)는 화면 동작에 영향 없음 — 이미 닫혔고 세션 숨김은 메모리에 있다
+      const res = await fetch("/api/platform-popup/suppress", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          campaignId: target.campaignId,
+          mode,
+          sessionKey: appSessionId,
+          deviceKey,
+          durationSeconds: mode === "DURATION" ? target.suppressionDurationSeconds : undefined,
+          // D-2: CAMPAIGN 숨김 = 본 판(소재 + 목적지) 기준 — 이미지·목적지를 바꾸면 다시 노출 (서버 후보 revision)
+          campaignRevision: mode === "CAMPAIGN" ? target.revision ?? target.creativeId : undefined,
+        }),
+      }).catch(() => null);
+      if (res && !res.ok) {
+        console.error("[GlobalPopupHost] suppress_write_failed", res.status);
+      }
+    },
+    [appSessionId, deviceKey]
+  );
+
   const suppress = useCallback(
     async (
       mode: PlatformPopupSuppressionMode,
@@ -594,26 +657,9 @@ export function GlobalPopupHost() {
         });
       }
 
-      // 기록 실패(429 요청 제한 포함)는 화면 동작에 영향 없음 — 이미 닫혔고 세션 숨김은 메모리에 있다
-      const res = await fetch("/api/platform-popup/suppress", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          campaignId,
-          mode,
-          sessionKey: appSessionId,
-          deviceKey,
-          durationSeconds: mode === "DURATION" ? winner.suppressionDurationSeconds : undefined,
-          // D-2: CAMPAIGN 숨김 = 본 판(소재 + 목적지) 기준 — 이미지·목적지를 바꾸면 다시 노출 (서버 후보 revision)
-          campaignRevision: mode === "CAMPAIGN" ? winner.revision ?? creativeId : undefined,
-        }),
-      }).catch(() => null);
-      if (res && !res.ok) {
-        console.error("[GlobalPopupHost] suppress_write_failed", res.status);
-      }
+      await persistSuppression(winner, mode);
     },
-    [winner, appSessionId, deviceKey, exposureId]
+    [winner, deviceKey, exposureId, persistSuppression]
   );
 
   const handleClose = useCallback(() => {
@@ -725,6 +771,7 @@ export function GlobalPopupHost() {
   /** IMPRESSION only — never frequency suppress. */
   const handleImpression = useCallback(() => {
     if (!winner || !exposureId) return;
+    impressionExposureRef.current = exposureId;
     void recordPlatformPopupEvent({
       campaignId: winner.campaignId,
       creativeId: winner.creativeId,
@@ -765,13 +812,21 @@ export function GlobalPopupHost() {
     if (winner.presentationType === "tooltip" && shownPathRef.current !== pathname) {
       shownPathRef.current = null;
       addPlatformPopupSessionBlockedCampaign(winner.campaignId);
+      /**
+       * 빌드 전 감사 P1 (2026-11-17): 노출로 기록된 말풍선이면 × 와 같은 빈도 숨김 행을 저장한다(분석 「닫힘」 기록 없음) —
+       * 예전에는 이번 실행 막기만 해 「하루 1번 · 캠페인 1번」이 앱을 새로 켤 때마다 깨졌다.
+       * 화면 상태는 아래처럼 무효로 돌린다(`suppress()` 를 쓰면 새 화면에 연속 잠금이 걸려 새 화면 팝업이 막힘 · 대기열 다음 칸도 안 보임).
+       */
+      if (exposureId != null && impressionExposureRef.current === exposureId) {
+        void persistSuppression(winner, frequencyModeToDismissSuppressMode(winner.frequencyMode));
+      }
       queueRestRef.current = [];
       generationRef.current += 1;
       setWinner(null);
       setExposureId(null);
       setHostState((st) => reducePlatformPopupHostState(st, { type: "INVALIDATE" }));
     }
-  }, [hostState, winner, pathname]);
+  }, [hostState, winner, pathname, exposureId, persistSuppression]);
 
   const showPresentation = mayMountPlatformPopupPresentation(hostState) && winner != null;
 

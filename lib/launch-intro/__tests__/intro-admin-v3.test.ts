@@ -52,10 +52,10 @@ function row(id: string, over: Record<string, unknown> = {}) {
 describe("「앱에 나오나」 — 기기 발견 응답과 같은 규칙", () => {
   const on = DEFAULT_LAUNCH_INTRO_POOL_POLICY;
 
-  it("켜짐 · 기간 안 = 나오는 중, 첫 소재만 「다음 실행 1순위」", () => {
+  it("켜짐 · 기간 안 = 나오는 중 · 목록 순서(rank)만 — 「1순위」 표시 없음 (빌드 전 감사 I4)", () => {
     const a = computeLaunchIntroPoolApplied([row("a", { sort_order: 10 }), row("b", { sort_order: 20 })], on, NOW);
-    expect(a.a).toEqual({ state: "live", reason: null, rank: 0, firstInRotation: true });
-    expect(a.b).toEqual({ state: "live", reason: null, rank: 1, firstInRotation: false });
+    expect(a.a).toEqual({ state: "live", reason: null, rank: 0 });
+    expect(a.b).toEqual({ state: "live", reason: null, rank: 1 });
   });
 
   it("시작 전 = 예약(시작 시각) · 끝남 · 꺼짐 · 종료 · 그림 없음은 이유와 함께 안 나옴", () => {
@@ -187,7 +187,7 @@ describe("순서 저장 · 목록 필터", () => {
 
   it("필터: 앱에 나오나 · 종류 · 이름", () => {
     const items = [
-      { name: "11월 쿠폰", kind: "ad" as const, applied: { state: "live" as const, reason: null, rank: 0, firstInRotation: true } },
+      { name: "11월 쿠폰", kind: "ad" as const, applied: { state: "live" as const, reason: null, rank: 0 } },
       { name: "추석 안내", kind: "notice" as const, applied: { state: "off" as const, reason: "paused" as const } },
     ];
     expect(filterLaunchIntroItems(items, { state: "live", kind: "all", q: "" })).toHaveLength(1);

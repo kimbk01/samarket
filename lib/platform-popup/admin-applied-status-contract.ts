@@ -3,7 +3,7 @@
  * 계산은 서버 한 곳: `lib/platform-popup/admin-applied-status.ts` (앱 조회와 같은 자격 함수).
  *
  * - live: 앱에 나오는 중(회원별 숨김·하루 1번 등 사람마다 다른 것은 보지 않음)
- * - conditional: 조건이 맞는 회원·화면에서만 나옴(쿠폰 카드 · 홈이 없는 위치의 말풍선)
+ * - conditional: 조건이 맞는 회원에게만 나옴(쿠폰 카드). 홈이 없는 위치의 말풍선은 not_shown(빌드 전 감사 A1)
  * - scheduled: 시작 시각 전 — 다른 조건은 모두 통과
  * - not_shown: 안 나옴 — 첫 이유 1줄
  */

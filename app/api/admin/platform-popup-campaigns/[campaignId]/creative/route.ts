@@ -1,7 +1,6 @@
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { removeUnreferencedPopupCreativeFiles } from "@/lib/platform-popup/creative-storage-cleanup";
 import { NextRequest, NextResponse } from "next/server";
-import sharp from "sharp";
 import { randomUUID } from "crypto";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { validateCampaignImageFile } from "@/lib/admin/notification-campaigns/validate-campaign-image";
@@ -9,7 +8,10 @@ import {
   removePlatformPopupPtrBandVariant,
   replacePlatformPopupReadyCreative,
 } from "@/lib/platform-popup/admin-campaign-writer";
-import { processPlatformPopupCreativeToCanonical } from "@/lib/platform-popup/creative-pipeline";
+import {
+  processPlatformPopupCreativeToCanonical,
+  readPlatformPopupCreativeOrientedSize,
+} from "@/lib/platform-popup/creative-pipeline";
 import {
   DIBAY_CANONICAL_POPUP_CREATIVE_SIZE,
   POPUP_CREATIVE_SOURCE_MAX_BYTES,
@@ -111,18 +113,15 @@ export async function POST(
   const ptrBandVariant = normalizePtrBandVariant(String(form.get("variant") ?? "default"));
   const buf = Buffer.from(await file.arrayBuffer());
 
-  let width = 0;
-  let height = 0;
-  try {
-    const meta = await sharp(buf, { failOn: "none", limitInputPixels: false }).rotate().metadata();
-    width = meta.width ?? 0;
-    height = meta.height ?? 0;
-  } catch {
+  // 빌드 전 감사 A8: 보이는 방향(EXIF 회전 뒤) 크기로 규격·비율을 판단한다(헤더만 읽음 — 화소 상한 검사가 디코드 전)
+  const oriented = await readPlatformPopupCreativeOrientedSize(buf);
+  if (!oriented) {
     return NextResponse.json(
       { ok: false, error: "image_decode_failed", message: await adminServerText("admin_api_popup_creative_decode_failed") },
       { status: 400 }
     );
   }
+  const { width, height } = oriented;
   if (!(width > 0) || !(height > 0)) {
     return NextResponse.json(
       { ok: false, error: "invalid_dimensions", message: await adminServerText("admin_api_popup_creative_invalid_dimensions") },
