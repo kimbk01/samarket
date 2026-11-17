@@ -150,7 +150,8 @@ describe("P2-2 CAMPAIGN 숨김 revision = 소재 id", () => {
     );
     expect(readRepo("lib/platform-popup/load-popup-candidates.ts")).toContain("withPlatformPopupDestinationRevision(");
     expect(readRepo("components/platform-popup/GlobalPopupHost.tsx")).toContain(
-      'campaignRevision: mode === "CAMPAIGN" ? winner.revision ?? creativeId : undefined,'
+      // 빌드 전 감사 P1: 숨김 저장은 공용 `persistSuppression(target, mode)` — 같은 판 기준
+      'campaignRevision: mode === "CAMPAIGN" ? target.revision ?? target.creativeId : undefined,'
     );
   });
 

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import sharp from "sharp";
 import { randomUUID } from "crypto";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { validateActiveSession } from "@/lib/auth/server-guards";
@@ -7,7 +6,11 @@ import { validateCampaignImageFile } from "@/lib/admin/notification-campaigns/va
 import { loadPlatformPopupOwnerRequest } from "@/lib/platform-popup/owner-request-loader";
 import { isOwnerEditablePlatformPopupRequest } from "@/lib/platform-popup/owner-request-lifecycle";
 import { updatePlatformPopupOwnerDraft } from "@/lib/platform-popup/owner-request-writer";
-import { processPlatformPopupCreativeToCanonical } from "@/lib/platform-popup/creative-pipeline";
+import {
+  processPlatformPopupCreativeToCanonical,
+  readPlatformPopupCreativeOrientedSize,
+} from "@/lib/platform-popup/creative-pipeline";
+import { checkPopupCreativeSourceSize } from "@/lib/platform-popup/creative-size-spec";
 import { removeUnreferencedPopupCreativeFiles } from "@/lib/platform-popup/creative-storage-cleanup";
 import {
   DIBAY_CANONICAL_POPUP_CREATIVE_SIZE,
@@ -66,17 +69,28 @@ export async function POST(
   const altText = String(form.get("altText") ?? "").trim() || null;
   const buf = Buffer.from(await file.arrayBuffer());
 
-  let width = 0;
-  let height = 0;
-  try {
-    const meta = await sharp(buf, { failOn: "none", limitInputPixels: false }).rotate().metadata();
-    width = meta.width ?? 0;
-    height = meta.height ?? 0;
-  } catch {
+  // 빌드 전 감사 A8: 보이는 방향(EXIF 회전 뒤) 크기 — 세로로 찍은 휴대폰 사진(방향 6)도 가운데 자르기가 맞게
+  const oriented = await readPlatformPopupCreativeOrientedSize(buf);
+  if (!oriented) {
     return NextResponse.json({ ok: false, error: "image_decode_failed" }, { status: 400 });
   }
+  const { width, height } = oriented;
   if (!(width > 0) || !(height > 0)) {
     return NextResponse.json({ ok: false, error: "invalid_dimensions" }, { status: 400 });
+  }
+  // A8: 어드민 경로와 같은 원본 규격(최소 크기 · 4천만 화소 상한) — 디코드 전에 거절
+  const size = checkPopupCreativeSourceSize({ creativeMode: "card", width, height });
+  if (!size.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: size.error,
+        width,
+        height,
+        ...(size.error === "popup_image_too_small" ? { minWidth: size.minWidth, minHeight: size.minHeight } : {}),
+      },
+      { status: 400 }
+    );
   }
 
   const processed = await processPlatformPopupCreativeToCanonical({

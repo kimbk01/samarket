@@ -123,7 +123,7 @@ describe("v3 ④ 「앱에 나오나」 — 조건마다 첫 이유", () => {
     ).toBe("presentation_invalid");
   });
 
-  it("하단 목록 = 노출 자격 매장 1곳 이상 · 쿠폰 카드 = 조건부 · 말풍선 = 홈 없으면 조건부", () => {
+  it("하단 목록 = 노출 자격 매장 1곳 이상 · 쿠폰 카드 = 조건부 · 말풍선 = 홈 없으면 안 나옴(A1)", () => {
     const art = { id: "a", status: "ready" as const, aspectW: 1080, aspectH: 480, creativeMode: "artwork", assetUrl: "https://cdn.test/a.webp" };
     const list = cand({ presentationType: "list_sheet", creative: art });
     expect(applied(list, { listStoreCount: 0 })).toEqual({ state: "not_shown", reason: "list_stores_empty" });
@@ -133,10 +133,11 @@ describe("v3 ④ 「앱에 나오나」 — 조건마다 첫 이유", () => {
       reason: "coupon_members_only",
     });
     expect(applied(cand({ presentationType: "tooltip", creative: art, surfaces: ["TRADE"] }))).toEqual({
-      state: "conditional",
+      state: "not_shown",
       reason: "tooltip_home_only",
     });
     expect(applied(cand({ presentationType: "tooltip", creative: art, surfaces: ["HOME"] })).state).toBe("live");
+    expect(applied(cand({ presentationType: "tooltip", creative: art, surfaces: ["GLOBAL"] })).state).toBe("live");
   });
 
   it("회원별 숨김·같은 이벤트 조율은 보지 않는다(사람마다 다름)", () => {
@@ -168,7 +169,7 @@ describe("v3 ④ 「앱에 나오나」 — 조건마다 첫 이유", () => {
       "audience_excluded", "owner_store_ineligible", "creative_missing", "creative_mode_mismatch",
       "creative_aspect_invalid", "cta_invalid", "cta_deleted", "cta_hidden", "cta_expired", "coordinated_away",
       "suppressed", "benefit_content_required", "presentation_invalid", "list_stores_empty",
-      "coupon_members_only", "tooltip_home_only",
+      "coupon_members_only", "tooltip_home_only", "tooltip_member_only",
     ];
     const ko = MESSAGES.ko as unknown as Record<string, string>;
     const en = MESSAGES.en as unknown as Record<string, string>;

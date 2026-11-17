@@ -20,6 +20,10 @@ import type {
   PlatformPopupListStore,
 } from "@/lib/platform-popup/popup-presentation-types";
 import type { PlatformPopupTooltipAnchor } from "@/lib/platform-popup/presentation-contract";
+import {
+  PLATFORM_POPUP_TIME_LEFT_WINDOW_MS,
+  platformPopupCouponDaysLeft,
+} from "@/lib/platform-popup/coupon-days-left";
 
 export type EntryPresentationBaseProps = ArtworkModalProps & {
   ctaColors?: { bg: string | null; text: string | null } | null;
@@ -99,13 +103,6 @@ export function ArtworkFullPresentation(p: EntryPresentationBaseProps) {
   );
 }
 
-function daysUntil(iso: string | null, now: number): number | null {
-  if (!iso) return null;
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return null;
-  return Math.max(0, Math.ceil((t - now) / 86_400_000) - 0);
-}
-
 /** 쿠폰 카드 — 서버가 채운 쿠폰이 없으면 서버가 이 팝업을 대기열에서 뺀다(빈 카드 금지) */
 export function CouponCardPresentation(p: EntryPresentationBaseProps & { coupons: readonly PlatformPopupCouponRow[] }) {
   const { t } = useI18n();
@@ -128,7 +125,7 @@ export function CouponCardPresentation(p: EntryPresentationBaseProps & { coupons
           {p.body ? <p className="dibay-promo-body">{p.body}</p> : null}
           <ul className="dibay-promo-coupon__list">
             {p.coupons.map((c) => {
-              const d = daysUntil(c.expiresAt, now);
+              const d = platformPopupCouponDaysLeft(c.expiresAt, now);
               return (
                 <li key={c.id} className="dibay-promo-coupon__row">
                   <span className="min-w-0 flex-1">
@@ -174,14 +171,29 @@ function formatLeft(ms: number): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
 }
 
-/** 남은 시간 — 종료 시각이 24시간 안일 때만 보인다(먼 날짜는 숫자가 의미 없음) */
+/**
+ * 남은 시간 — 종료 시각이 24시간 안일 때만 보인다(먼 날짜는 숫자가 의미 없음).
+ * 빌드 전 감사 P6: 1초 다시 그리기는 24시간 안에 들어온 뒤에만 — 그 전에는 경계 시각에 한 번 깨어난다.
+ */
 function useTimeLeft(endsAt: string | null | undefined): number | null {
   const end = endsAt ? Date.parse(endsAt) : NaN;
   const [left, setLeft] = useState<number | null>(() => (Number.isFinite(end) ? end - Date.now() : null));
   useEffect(() => {
     if (!Number.isFinite(end)) return;
-    const id = window.setInterval(() => setLeft(end - Date.now()), 1000);
-    return () => window.clearInterval(id);
+    let intervalId: number | undefined;
+    let timeoutId: number | undefined;
+    const startTicking = () => {
+      setLeft(end - Date.now());
+      intervalId = window.setInterval(() => setLeft(end - Date.now()), 1000);
+    };
+    const untilWindow = end - Date.now() - PLATFORM_POPUP_TIME_LEFT_WINDOW_MS;
+    if (untilWindow <= 0) startTicking();
+    // setTimeout 상한(약 24.8일) 밖이면 깨우지 않는다 — 그만큼 열려 있는 팝업은 없다
+    else if (untilWindow < 2_147_483_647) timeoutId = window.setTimeout(startTicking, untilWindow);
+    return () => {
+      if (intervalId != null) window.clearInterval(intervalId);
+      if (timeoutId != null) window.clearTimeout(timeoutId);
+    };
   }, [end]);
   return left;
 }
@@ -192,7 +204,7 @@ export function ListSheetPresentation(
   const { t } = useI18n();
   const left = useTimeLeft(p.endsAt);
   const ctaLabel = p.cta.label?.trim() || null;
-  const showLeft = left != null && left <= 24 * 3600_000;
+  const showLeft = left != null && left <= PLATFORM_POPUP_TIME_LEFT_WINDOW_MS;
   return (
     <div className="dibay-promo-sheet dibay-promo-sheet--list" {...dataAttrs(p, "list_sheet")}>
       <PopupCloseControl variant="floating" label={p.closeLabel} onClose={p.onClose} className="dibay-promo-close-x--sheet" />

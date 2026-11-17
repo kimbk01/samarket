@@ -53,6 +53,8 @@ export function AdminPopupDestinationPicker({
   const [eventQuery, setEventQuery] = useState("");
   const [lookup, setLookup] = useState<PlatformPopupAdminDestinationLookup | null>(null);
   const [lookupBusy, setLookupBusy] = useState(false);
+  /** 빌드 전 감사 A6: 확인 요청 자체가 실패(HTTP 오류·연결 끊김) — 「먼저 고르세요」가 아니라 오류로 보인다 */
+  const [lookupFailed, setLookupFailed] = useState(false);
 
   const isEvent = value.ctaType === "event_detail";
   useEffect(() => {
@@ -89,12 +91,16 @@ export function AdminPopupDestinationPicker({
   useEffect(() => {
     const hasTarget = value.ctaType === "external_url" ? value.externalUrl.trim() : value.ctaTarget.trim();
     if (!hasTarget) {
+      // A6: 조회 중에 대상을 비우면 「확인 중」에서 멈추지 않게 함께 푼다
       setLookup(null);
+      setLookupBusy(false);
+      setLookupFailed(false);
       return;
     }
     let cancelled = false;
     const id = window.setTimeout(() => {
       setLookupBusy(true);
+      setLookupFailed(false);
       const qs = new URLSearchParams({
         ctaType: value.ctaType,
         ctaTarget: value.ctaTarget,
@@ -104,10 +110,14 @@ export function AdminPopupDestinationPicker({
         .then(async (res) => {
           const json = (await res.json().catch(() => ({}))) as { ok?: boolean } & Partial<PlatformPopupAdminDestinationLookup>;
           if (cancelled) return;
-          setLookup(res.ok && json.ok ? (json as PlatformPopupAdminDestinationLookup) : null);
+          const ok = res.ok && json.ok;
+          setLookup(ok ? (json as PlatformPopupAdminDestinationLookup) : null);
+          setLookupFailed(!ok);
         })
         .catch(() => {
-          if (!cancelled) setLookup(null);
+          if (cancelled) return;
+          setLookup(null);
+          setLookupFailed(true);
         })
         .finally(() => {
           if (!cancelled) setLookupBusy(false);
@@ -209,9 +219,11 @@ export function AdminPopupDestinationPicker({
         </label>
       )}
 
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2 text-xs" data-admin-popup-dest-lookup={lookup ? (lookup.available ? "ok" : "fail") : "none"}>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2 text-xs" data-admin-popup-dest-lookup={lookup ? (lookup.available ? "ok" : "fail") : lookupFailed ? "error" : "none"}>
         {lookupBusy ? (
           <span className="text-sam-muted">{t("admin_popup_v3_dest_checking")}</span>
+        ) : lookupFailed ? (
+          <span className="text-sam-danger">{t("admin_popup_v3_dest_lookup_failed")}</span>
         ) : !lookup ? (
           <span className="text-sam-muted">{t("admin_popup_v3_dest_pick_first")}</span>
         ) : lookup.available ? (
