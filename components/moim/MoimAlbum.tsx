@@ -11,6 +11,7 @@ import type { MoimAlbumItemDto, MoimDetailDto } from "@/lib/moim/moim-api-types"
 import type { MoimReportTarget } from "@/components/moim/MoimReportSheet";
 import { useMoimImageUpload } from "@/components/moim/use-moim-image-upload";
 import { MoimAvatar, MoimEmptyState, MoimErrorState, moimCls } from "@/components/moim/moim-ui";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 /** 한 번에 올릴 수 있는 사진 수 */
 export const MOIM_ALBUM_PICK_MAX = 10;
@@ -149,6 +150,8 @@ function MoimAlbumViewer({
   const touchX = useRef<number | null>(null);
   const open = index != null && items.length > 0;
   useRegisterOpenOverlay(open);
+  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
+  useOverlayHardwareBack(open, onClose);
   useEffect(() => setMounted(true), []);
 
   const safe = index == null ? 0 : Math.max(0, Math.min(items.length - 1, index));

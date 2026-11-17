@@ -22,6 +22,7 @@ import { resolveInstantStoreOrderMessengerEntrySnapshot } from "@/lib/store-orde
 import { prepareStoreOrderMessengerRoomEntryByOrder } from "@/lib/store-order-chat/store-order-messenger-room-entry-client";
 import { peekMessengerRoomViewerUserIdClient } from "@/lib/community-messenger/room/peek-messenger-room-viewer-user-id-client";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 type SlidePhase = "enter-from-right" | "open" | "exit-to-right";
 
@@ -61,6 +62,8 @@ export function OwnerStoreOrderChatSlidePanel({
   const [phase, setPhase] = useState<SlidePhase>("enter-from-right");
   const orderAtOpenRef = useRef(order);
   useRegisterOpenOverlay(true);
+  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
+  useOverlayHardwareBack(true, onClose);
   if (order && !orderAtOpenRef.current) {
     orderAtOpenRef.current = order;
   }

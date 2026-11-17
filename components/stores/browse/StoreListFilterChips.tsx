@@ -28,6 +28,7 @@ import {
 } from "@/lib/design/delivery-browse-chrome";
 import type { StoreBrowseSortId } from "./StoreListFilters";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 /** 「기본순」 시트 5줄 — 찜 많은 순은 서버 정렬 뒤 찜 수로 다시 정렬 */
 export type StoreBrowseChipSortId = StoreBrowseSortId | "favorites";
@@ -97,6 +98,8 @@ function Sheet({
   footer: ReactNode;
 }) {
   useRegisterOpenOverlay(true);
+  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
+  useOverlayHardwareBack(true, onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();

@@ -5,7 +5,7 @@ import { buildShareUrl } from "@/lib/share/share-url";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StoreDetailBackLink } from "@/components/stores/StoreDetailBackRow";
 import {
   STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME,
@@ -20,6 +20,7 @@ import {
   buildDeliveryStoreCartHref,
   navigateToDeliveryStoreCart,
 } from "@/lib/navigation/navigate-to-delivery-store-cart";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 const iconBtnClass =
   `${DELIVERY_CONSUMER_HEADER_ICON_BTN_CLASS} disabled:pointer-events-none disabled:opacity-40`;
@@ -73,6 +74,12 @@ export function StoreDetailStickyTopRow({
   const router = useRouter();
   const commerceCart = useStoreCommerceCartOptional();
   const moreRef = useRef<HTMLDetailsElement>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
+  useOverlayHardwareBack(moreOpen, () => {
+    if (moreRef.current) moreRef.current.open = false;
+    setMoreOpen(false);
+  });
 
   useEffect(() => {
     const close = () => {
@@ -208,7 +215,7 @@ export function StoreDetailStickyTopRow({
             <path strokeLinecap="round" d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" />
           </svg>
         </button>
-        <details ref={moreRef} className="relative">
+        <details ref={moreRef} className="relative" onToggle={(e) => setMoreOpen(e.currentTarget.open)}>
           <summary
             className={`${iconBtnClass} list-none [&::-webkit-details-marker]:hidden`}
             aria-label={t("store_more_aria")}

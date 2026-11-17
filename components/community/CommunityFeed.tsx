@@ -142,6 +142,7 @@ import { COMMUNITY_AREA_SHEET_OPEN_EVENT, publishCommunityAreaTitle } from "@/li
 import { CommunityAreaSheet } from "@/components/community/CommunityAreaSheet";
 import { PhilifeComposeFab } from "@/components/philife/PhilifeHeaderComposeButton";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 declare global {
   interface Window {
@@ -1484,6 +1485,8 @@ export function CommunityFeed({
       : "latest"
   );
   const [allSortOpen, setAllSortOpen] = useState(false);
+  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
+  useOverlayHardwareBack(allSortOpen, () => setAllSortOpen(false));
   const [allSortMenuPos, setAllSortMenuPos] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {

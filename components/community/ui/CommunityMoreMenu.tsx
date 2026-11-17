@@ -19,6 +19,7 @@ import {
 import { DIBAY_TOAST_ACTION_MS, DIBAY_TOAST_MS, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 type Props = {
   postId: string;
@@ -35,6 +36,8 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
   const [open, setOpen] = useState(false);
   /** 재감사 S-2 (G-8 마무리): 메뉴가 열려 있으면 팝업 광고를 띄우지 않는다 */
   useRegisterOpenOverlay(open);
+  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
+  useOverlayHardwareBack(open, () => setOpen(false));
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
   const [busy, setBusy] = useState(false);

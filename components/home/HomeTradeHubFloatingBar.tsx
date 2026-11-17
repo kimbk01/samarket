@@ -22,6 +22,7 @@ import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 /** 참고 UI: 흰 라벨 박스 (왼쪽) */
 const LABEL_BOX_CLASS =
@@ -61,6 +62,8 @@ export function HomeTradeHubFloatingBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   /** 재감사 S-2 (G-8 마무리): 메뉴가 열려 있으면 팝업 광고를 띄우지 않는다 */
   useRegisterOpenOverlay(menuOpen);
+  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
+  useOverlayHardwareBack(menuOpen, () => setMenuOpen(false));
   const [dialEntered, setDialEntered] = useState(false);
   const [hubSheet, setHubSheet] = useState<HomeTradeHubSheet | null>(null);
   const skipEnterAnimRef = useRef(true);

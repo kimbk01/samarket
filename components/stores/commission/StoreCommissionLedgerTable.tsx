@@ -30,6 +30,7 @@ import {
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 export type CommissionRowTone = "anomaly" | "review" | "approved" | "rejected" | "normal";
 
@@ -295,6 +296,8 @@ export function CommissionOrderDetailPanel({
 }) {
   const tone = commissionRowTone(row, anomaly ? new Set([row.obligationId]) : undefined);
   useRegisterOpenOverlay(true);
+  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
+  useOverlayHardwareBack(true, onClose);
   const d = row.decision;
   const refundable = row.state === "review_required" ? row.feePaidMinor + row.feeOutstandingMinor : 0;
   const net = row.feeChargedMinor - refundedMinor(row);

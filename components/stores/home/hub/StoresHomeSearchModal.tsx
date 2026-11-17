@@ -43,6 +43,7 @@ import {
 } from "@/lib/ui/tier1-header-overlay-backdrop";
 import { useOverlayScopeAttrs } from "@/components/ui/dibay-overlay/overlay-scope";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 const FALLBACK_RECOMMENDED_KEYS = [
   "store_search_chip_chicken",
@@ -111,6 +112,8 @@ export function StoresHomeSearchModal({
   const scopeAttrs = useOverlayScopeAttrs();
   const [visible, setVisible] = useState(false);
   useRegisterOpenOverlay(open);
+  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
+  useOverlayHardwareBack(open, onClose);
   const [entered, setEntered] = useState(false);
   const [layout, setLayout] = useState<PopupLayout | null>(null);
   const { keyboardOpen, effectiveViewportBottom } = useFormKeyboardViewport({ enabled: open });

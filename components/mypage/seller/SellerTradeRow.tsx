@@ -10,11 +10,14 @@ import { formatTimeAgo } from "@/lib/utils/format";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 /** Embedded buyer trade row under a listing card — compact, chat-first. */
 export function SellerTradeRow({ row }: { row: SalesHistoryRow }) {
   const { t, safeT } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
+  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
+  useOverlayHardwareBack(menuOpen, () => setMenuOpen(false));
   const [reportOpen, setReportOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
