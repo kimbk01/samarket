@@ -9,6 +9,7 @@ import type { LaunchIntroLivePayload } from "@/lib/launch-intro/document";
 import {
   acquireLaunchIntroAssets,
   collectLaunchIntroAssetGarbage,
+  expireInactiveLaunchIntroIndex,
   promoteLaunchIntroIndex,
   readLaunchIntroIndex,
   type LaunchIntroIndex,
@@ -59,7 +60,20 @@ export async function runLaunchIntroDiscovery(reason: "launch" | "resume"): Prom
 
     const current = readLaunchIntroIndex();
     // IN-P10: 게시본 손상은 revision 을 올리지 않는다(게시본 행만 손상) — 같은 revision 이어도 state 가 다르면 반영한다.
-    if (current && current.revision === live.revision && current.state === live.state) return;
+    if (current && current.revision === live.revision && current.state === live.state) {
+      // 진입 감사 IN-6: 바뀐 것이 없어도 보관 기간이 지난 비활성 게시본은 지운다.
+      const expired = expireInactiveLaunchIntroIndex(current, Date.now());
+      if (expired && promoteLaunchIntroIndex(expired)) {
+        const keep = new Set<string>();
+        for (const a of getLaunchDestination().snapshot?.publication.assets ?? []) keep.add(a.sha256);
+        await collectLaunchIntroAssetGarbage(keep);
+        console.info(`[dibay-launch-intro] expired_inactive revision=${current.revision}`);
+      }
+      return;
+    }
+    const nowIso = new Date().toISOString();
+    // 진입 감사 IN-6: active 가 아니게 된 시각(처음 한 번만 기록) — 보관 기간 계산 기준
+    const inactiveSince = live.state === "active" ? undefined : (current?.state !== "active" && current?.inactiveSince) || nowIso;
 
     let next: LaunchIntroIndex;
     if (!live.publication) {
@@ -69,15 +83,22 @@ export async function runLaunchIntroDiscovery(reason: "launch" | "resume"): Prom
         revision: live.revision,
         state: live.state,
         publication: current?.publication ?? null,
-        promotedAt: new Date().toISOString(),
+        promotedAt: nowIso,
+        inactiveSince,
       };
     } else if (current?.publication?.id === live.publication.id) {
       // Same publication (pause / resume / reactivate of the cached one): state-only, no download.
-      next = { ...current, schema: 1, revision: live.revision, state: live.state, promotedAt: new Date().toISOString() };
+      next = { ...current, schema: 1, revision: live.revision, state: live.state, promotedAt: nowIso, inactiveSince };
     } else {
       // New publication: acquire + verify everything before the atomic promotion.
       const ok = await acquireLaunchIntroAssets(live.publication.assets);
-      if (!ok) return;
+      if (!ok) {
+        // 진입 감사 IN-6: 받다 만 파일은 남기지 않는다 — 지금 색인·이번 실행이 쓰는 것만 남기고 정리
+        const keep = new Set<string>((current?.publication?.assets ?? []).map((a) => a.sha256));
+        for (const a of getLaunchDestination().snapshot?.publication.assets ?? []) keep.add(a.sha256);
+        await collectLaunchIntroAssetGarbage(keep);
+        return;
+      }
       next = {
         schema: 1,
         revision: live.revision,
@@ -88,9 +109,12 @@ export async function runLaunchIntroDiscovery(reason: "launch" | "resume"): Prom
           assets: live.publication.assets.map(({ sha256, mime, bytes, path }) => ({ sha256, mime, bytes, path })),
           eligibility: live.publication.eligibility,
         },
-        promotedAt: new Date().toISOString(),
+        promotedAt: nowIso,
+        inactiveSince,
       };
     }
+    // 진입 감사 IN-6: 비활성으로 보관 기간이 이미 지났으면 바로 비운다
+    next = expireInactiveLaunchIntroIndex(next, Date.now()) ?? next;
     if (!promoteLaunchIntroIndex(next)) return;
     console.info(
       `[dibay-launch-intro] promoted revision=${next.revision} state=${next.state} publication=${next.publication?.id ?? "none"}`

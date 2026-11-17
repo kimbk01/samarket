@@ -20,6 +20,10 @@ function mockSb(row: Record<string, unknown> | null, eventCount = 0) {
       if (table === "platform_popup_campaign_events") {
         return { select: () => ({ eq: async () => ({ count: eventCount, error: null }) }) };
       }
+      // 진입 감사 PO-9: 삭제 전에 소재 파일 경로를 읽는다(소재 없음)
+      if (table === "platform_popup_creatives") {
+        return { select: () => ({ eq: async () => ({ data: [], error: null }) }) };
+      }
       return {};
     }),
     _del: del,

@@ -8,6 +8,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { removeUnreferencedPopupCreativeFiles } from "@/lib/platform-popup/creative-storage-cleanup";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 
 const DELETABLE_STATUSES = new Set(["draft", "pending_review"]);
@@ -77,12 +78,20 @@ export async function adminDeletePlatformPopupDraftCampaign(
   const blocked = await checkDeletableRow(sb, row as { id: string });
   if (blocked) return blocked;
 
+  // 진입 감사 PO-9: 행이 지워지기 전에 소재 파일 경로를 모아 두고, 삭제 성공 뒤 참조가 없는 파일만 지운다.
+  const { data: creativeRows } = await sb
+    .from("platform_popup_creatives")
+    .select("asset_path")
+    .eq("campaign_id", campaignId);
+  const creativePaths = ((creativeRows ?? []) as { asset_path: string | null }[]).map((r) => r.asset_path);
+
   // Children (surfaces/creatives/events) use ON DELETE CASCADE; delete campaign SSOT row.
   const { error: delErr } = await sb.from("platform_popup_campaigns").delete().eq("id", campaignId);
   if (delErr) {
     console.error("[platform-popup/delete-draft] delete_failed", delErr.message);
     return { ok: false, error: "delete_failed", httpStatus: 500 };
   }
+  await removeUnreferencedPopupCreativeFiles(sb, creativePaths, "delete_draft");
 
   await appendAuditLog(sb, {
     actor_type: "admin",

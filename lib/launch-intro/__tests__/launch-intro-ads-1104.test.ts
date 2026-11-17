@@ -136,6 +136,8 @@ describe("IN-P10 — 손상 Live 게시본 → 200 unpublished", () => {
       },
       acquireLaunchIntroAssets: vi.fn(async () => true),
       collectLaunchIntroAssetGarbage: async () => {},
+      // 진입 감사 IN-6: 비활성 보관 기간 만료 검사
+      expireInactiveLaunchIntroIndex: () => null,
     }));
     vi.doMock("@/lib/launch-intro/startup-destination", () => ({
       getLaunchDestination: () => ({ destination: "community", reason: "x", snapshot: null }),
