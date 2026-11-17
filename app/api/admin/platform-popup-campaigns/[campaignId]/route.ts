@@ -70,6 +70,12 @@ export async function PATCH(
     altText?: string | null;
     audienceMode?: "all" | "allowlist" | string;
     audienceUserIds?: string[];
+    queueClass?: string;
+    autoDismissSeconds?: number | null;
+    ctaBgColor?: string | null;
+    ctaTextColor?: string | null;
+    listStoreIds?: string[];
+    tooltipAnchor?: string;
     materialTouched?: PlatformPopupMaterialField[];
   };
 

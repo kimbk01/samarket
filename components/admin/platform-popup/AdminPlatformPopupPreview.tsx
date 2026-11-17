@@ -14,6 +14,7 @@ import { resolvePlatformPopupPresentationSuppressionOptions } from "@/lib/platfo
 import type { PlatformPopupPresentationWinner } from "@/lib/platform-popup/popup-presentation-types";
 import type { PlatformPopupSuppressionMode } from "@/lib/platform-popup/types";
 import {
+  isPlatformPopupInterruptivePresentation,
   normalizePlatformPopupCreativeMode,
   normalizePlatformPopupFrequencyMode,
   type PlatformPopupInterruptivePresentation,
@@ -43,9 +44,13 @@ export type AdminPlatformPopupPreviewSource = {
   aspectW?: number;
   aspectH?: number;
   unsaved?: boolean;
+  ctaBgColor?: string | null;
+  ctaTextColor?: string | null;
   /** When false, benefit_dialog must not pretend to render. */
   benefitEligible?: boolean;
 };
+
+const PREVIEW_LIVE_DATA_ONLY: ReadonlySet<string> = new Set(["list_sheet", "coupon_card", "tooltip"]);
 
 type DeviceMode = "phone" | "tablet_portrait" | "tablet_landscape" | "desktop";
 
@@ -62,13 +67,13 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
 
   const winner: PlatformPopupPresentationWinner | null = useMemo(() => {
     if (!source?.imageUrl) return null;
-    const presentationType = (
-      source.presentationType === "bottom_sheet"
-        ? "bottom_sheet"
-        : source.presentationType === "benefit_dialog"
-          ? "benefit_dialog"
-          : "center_modal"
-    ) as PlatformPopupInterruptivePresentation;
+    const presentationType: PlatformPopupInterruptivePresentation = isPlatformPopupInterruptivePresentation(
+      String(source.presentationType ?? "")
+    )
+      ? (source.presentationType as PlatformPopupInterruptivePresentation)
+      : "center_modal";
+    // 진입 감사 PO-3: 목록·쿠폰·말풍선은 앱에서 고객·화면별 실제 데이터로 그린다 — 미리보기에 가짜 데이터를 넣지 않는다
+    if (PREVIEW_LIVE_DATA_ONLY.has(presentationType)) return null;
     if (presentationType === "benefit_dialog") {
       if (source.benefitEligible === false || !source.benefit?.title?.trim()) return null;
     }
@@ -106,6 +111,10 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
       }),
       timezone: source.timezone,
       suppressionDurationSeconds: source.suppressionDurationSeconds,
+      ctaColors:
+        source.ctaBgColor || source.ctaTextColor
+          ? { bg: source.ctaBgColor?.trim() || null, text: source.ctaTextColor?.trim() || null }
+          : null,
     };
   }, [source]);
 
@@ -196,13 +205,16 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
                   /* preview must NOT emit production impression */
                 }}
                 onImageError={() => undefined}
+                ctaColors={winner.ctaColors ?? null}
               />
             </div>
           ) : (
             <p className="px-4 text-center text-sm text-sam-muted">
               {source?.presentationType === "benefit_dialog" && source.benefitEligible === false
                 ? safeT("admin_platform_popup_benefit_requires_event")
-                : safeT("admin_platform_popup_preview_empty")}
+                : source?.imageUrl && PREVIEW_LIVE_DATA_ONLY.has(String(source.presentationType ?? ""))
+                  ? safeT("admin_platform_popup_preview_live_data_only")
+                  : safeT("admin_platform_popup_preview_empty")}
             </p>
           )}
         </div>

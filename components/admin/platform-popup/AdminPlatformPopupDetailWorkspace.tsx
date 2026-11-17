@@ -83,10 +83,17 @@ import {
   platformPopupPatchWouldRevertToReview,
   type PlatformPopupAdminForm,
 } from "@/lib/platform-popup/popup-admin-patch";
-import { PLATFORM_POPUP_FREQUENCY_MODES } from "@/lib/platform-popup/presentation-contract";
+import {
+  PLATFORM_POPUP_FREQUENCY_MODES,
+  isPlatformPopupInterruptivePresentation,
+  type PlatformPopupInterruptivePresentation,
+} from "@/lib/platform-popup/presentation-contract";
 import { translateBy } from "@/lib/i18n/translate-by";
 
 /** 광고 감사 G-10: 시작·종료 입력은 캠페인 시간대 벽시계(어드민 PC 시간대 아님) */
+/** 진입 감사 PO-2 — 자동 닫힘 선택지(서버 허용 3~60초 안). 배민 실측 약 10초. */
+const ADMIN_POPUP_AUTO_DISMISS_CHOICES = [5, 10, 15, 30] as const;
+
 function toLocalInput(iso: string | null, timezone: string): string {
   return isoToZonedLocalInput(iso, timezone);
 }
@@ -130,9 +137,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const [selectedSurfaces, setSelectedSurfaces] = useState<PlatformPopupTargetSurface[]>(["GLOBAL"]);
   const [suppressionMode, setSuppressionMode] = useState("SESSION");
   const [durationSec, setDurationSec] = useState<number | "">("");
-  const [presentationType, setPresentationType] = useState<
-    "center_modal" | "bottom_sheet" | "benefit_dialog"
-  >("center_modal");
+  const [presentationType, setPresentationType] = useState<PlatformPopupInterruptivePresentation>("center_modal");
   const [frequencyMode, setFrequencyMode] = useState("once_per_session");
   const [creativeMode, setCreativeMode] = useState<"card" | "artwork">("card");
   const [ctaType, setCtaType] = useState("internal_page");
@@ -143,6 +148,13 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const [promoTitle, setPromoTitle] = useState("");
   const [promoBody, setPromoBody] = useState("");
   const [altText, setAltText] = useState("");
+  // 진입 감사 PO-2·PO-3 (2026-11-17)
+  const [queueClass, setQueueClass] = useState<"mandatory" | "optional">("optional");
+  const [autoDismiss, setAutoDismiss] = useState<number | "">("");
+  const [ctaBgColor, setCtaBgColor] = useState("");
+  const [ctaTextColor, setCtaTextColor] = useState("");
+  const [listStoreIdsText, setListStoreIdsText] = useState("");
+  const [tooltipAnchor, setTooltipAnchor] = useState<"region" | "notifications">("region");
   const [previewOverrideUrl, setPreviewOverrideUrl] = useState<string | null>(null);
   /** P-1: 처음 불러온 값 — 저장 때 이것과 비교해 바뀐 묶음만 보낸다(PTR 상세와 같은 방식) */
   const savedFormRef = useRef<PlatformPopupAdminForm | null>(null);
@@ -169,11 +181,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     setSuppressionMode(c.suppressionMode);
     setDurationSec(c.suppressionDurationSeconds ?? "");
     setPresentationType(
-      c.presentationType === "bottom_sheet"
-        ? "bottom_sheet"
-        : c.presentationType === "benefit_dialog"
-          ? "benefit_dialog"
-          : "center_modal"
+      isPlatformPopupInterruptivePresentation(String(c.presentationType ?? ""))
+        ? (c.presentationType as PlatformPopupInterruptivePresentation)
+        : "center_modal"
     );
     setFrequencyMode(c.frequencyMode || "once_per_session");
     setCreativeMode(c.creative?.creativeMode === "artwork" ? "artwork" : "card");
@@ -185,6 +195,12 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     setPromoTitle(c.title || "");
     setPromoBody(c.body || "");
     setAltText(c.creative?.altText || "");
+    setQueueClass(c.queueClass === "mandatory" ? "mandatory" : "optional");
+    setAutoDismiss(c.autoDismissSeconds ?? "");
+    setCtaBgColor(c.ctaBgColor || "");
+    setCtaTextColor(c.ctaTextColor || "");
+    setListStoreIdsText((c.listStoreIds ?? []).join("\n"));
+    setTooltipAnchor(c.tooltipAnchor === "notifications" ? "notifications" : "region");
     {
       const tz = c.timezone || PLATFORM_POPUP_DEFAULT_TIMEZONE;
       savedFormRef.current = {
@@ -196,12 +212,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         surfaces: surfacesFromAdminSelection(adminSurfacesFromDb(c.surfaces)),
         suppressionMode: c.suppressionMode,
         suppressionDurationSeconds: c.suppressionDurationSeconds ?? null,
-        presentationType:
-          c.presentationType === "bottom_sheet"
-            ? "bottom_sheet"
-            : c.presentationType === "benefit_dialog"
-              ? "benefit_dialog"
-              : "center_modal",
+        // 진입 감사 4단계: 새 형태 4종도 그대로 기준값에 둔다(예전엔 center_modal 로 바뀌어 저장 때 형태가 늘 바뀐 것으로 잡힘)
+        presentationType: isPlatformPopupInterruptivePresentation(String(c.presentationType ?? ""))
+          ? String(c.presentationType)
+          : "center_modal",
         frequencyMode: c.frequencyMode || "once_per_session",
         creativeMode: c.creative?.creativeMode === "artwork" ? "artwork" : "card",
         ctaType: c.ctaType,
@@ -211,6 +225,12 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         title: c.title || null,
         body: c.body || null,
         altText: c.creative?.altText || null,
+        queueClass: c.queueClass === "mandatory" ? "mandatory" : "optional",
+        autoDismissSeconds: c.autoDismissSeconds ?? null,
+        ctaBgColor: c.ctaBgColor || null,
+        ctaTextColor: c.ctaTextColor || null,
+        listStoreIds: c.listStoreIds ?? [],
+        tooltipAnchor: c.tooltipAnchor === "notifications" ? "notifications" : "region",
       };
     }
     setPreviewOverrideUrl(null);
@@ -335,6 +355,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       aspectW: campaign.creative?.aspectW ?? 36,
       aspectH: campaign.creative?.aspectH ?? 25,
       unsaved: dirty || Boolean(previewOverrideUrl),
+      ctaBgColor: /^#[0-9A-Fa-f]{6}$/.test(ctaBgColor.trim()) ? ctaBgColor.trim() : null,
+      ctaTextColor: /^#[0-9A-Fa-f]{6}$/.test(ctaTextColor.trim()) ? ctaTextColor.trim() : null,
     };
   }, [
     campaign,
@@ -355,6 +377,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     frequencyMode,
     creativeMode,
     dirty,
+    ctaBgColor,
+    ctaTextColor,
   ]);
 
   const markDirty = () => {
@@ -408,6 +432,15 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       title: promoTitle.trim() || null,
       body: promoBody.trim() || null,
       altText: altText.trim() || null,
+      queueClass,
+      autoDismissSeconds: autoDismiss === "" ? null : Number(autoDismiss),
+      ctaBgColor: ctaBgColor.trim() || null,
+      ctaTextColor: ctaTextColor.trim() || null,
+      listStoreIds: listStoreIdsText
+        .split(/[\s,]+/)
+        .map((v) => v.trim())
+        .filter(Boolean),
+      tooltipAnchor,
     };
     // P-1: 바뀐 묶음만 보낸다 — 이름만 고쳐도 노출 중 팝업이 다시 승인 대기로 내려가던 문제
     const patchBody = buildPlatformPopupAdminPatch(saved, nextForm);
@@ -892,6 +925,116 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               {/* F-3: 선택한 빈도의 정본 안내문 (팝업·PTR·이벤트 배포 같은 함수) */}
               {popupFrequencyOperatorDescription(frequencyMode, lang, "popup")}
             </p>
+            <div className="mt-4 space-y-3 border-t border-sam-border pt-3" data-admin-popup-entry-fields="1">
+              <h3 className="text-sm font-semibold">{t("admin_platform_popup_entry_section")}</h3>
+              <label className="block text-sm">
+                {t("admin_platform_popup_queue_class")}
+                <select
+                  className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
+                  value={queueClass}
+                  onChange={(e) => {
+                    markDirty();
+                    setQueueClass(e.target.value === "mandatory" ? "mandatory" : "optional");
+                  }}
+                  data-admin-popup-queue-class="1"
+                >
+                  <option value="mandatory">{t("admin_platform_popup_queue_mandatory")}</option>
+                  <option value="optional">{t("admin_platform_popup_queue_optional")}</option>
+                </select>
+                <span className="mt-1 block text-xs text-sam-muted">{t("admin_platform_popup_queue_help")}</span>
+              </label>
+              <label className="block text-sm">
+                {t("admin_platform_popup_auto_dismiss")}
+                <select
+                  className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
+                  value={autoDismiss === "" ? "" : String(autoDismiss)}
+                  onChange={(e) => {
+                    markDirty();
+                    setAutoDismiss(e.target.value === "" ? "" : Number(e.target.value));
+                  }}
+                  data-admin-popup-auto-dismiss="1"
+                >
+                  <option value="">{t("admin_platform_popup_auto_dismiss_off")}</option>
+                  {ADMIN_POPUP_AUTO_DISMISS_CHOICES.map((sec) => (
+                    <option key={sec} value={String(sec)}>
+                      {t("admin_platform_popup_auto_dismiss_seconds", { seconds: sec })}
+                    </option>
+                  ))}
+                </select>
+                <span className="mt-1 block text-xs text-sam-muted">{t("admin_platform_popup_auto_dismiss_help")}</span>
+              </label>
+              {operatorComposition === "artwork_full" ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="block text-sm">
+                    {t("admin_platform_popup_cta_bg_color")}
+                    <input
+                      className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5 font-mono"
+                      value={ctaBgColor}
+                      placeholder="#RRGGBB"
+                      maxLength={7}
+                      onChange={(e) => {
+                        markDirty();
+                        setCtaBgColor(e.target.value);
+                      }}
+                      data-admin-popup-cta-bg="1"
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    {t("admin_platform_popup_cta_text_color")}
+                    <input
+                      className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5 font-mono"
+                      value={ctaTextColor}
+                      placeholder="#RRGGBB"
+                      maxLength={7}
+                      onChange={(e) => {
+                        markDirty();
+                        setCtaTextColor(e.target.value);
+                      }}
+                      data-admin-popup-cta-text="1"
+                    />
+                  </label>
+                  <span className="text-xs text-sam-muted sm:col-span-2">{t("admin_platform_popup_cta_color_help")}</span>
+                </div>
+              ) : null}
+              {operatorComposition === "list_sheet" ? (
+                <label className="block text-sm">
+                  {t("admin_platform_popup_list_store_ids")}
+                  <textarea
+                    className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5 font-mono text-xs"
+                    rows={4}
+                    value={listStoreIdsText}
+                    onChange={(e) => {
+                      markDirty();
+                      setListStoreIdsText(e.target.value);
+                    }}
+                    data-admin-popup-list-store-ids="1"
+                  />
+                  <span className="mt-1 block text-xs text-sam-muted">{t("admin_platform_popup_list_store_ids_help")}</span>
+                </label>
+              ) : null}
+              {operatorComposition === "coupon_card" ? (
+                <p className="text-xs text-sam-muted" data-admin-popup-coupon-help="1">
+                  {t("admin_platform_popup_coupon_help")}
+                </p>
+              ) : null}
+              {operatorComposition === "tooltip" ? (
+                <label className="block text-sm">
+                  {t("admin_platform_popup_tooltip_anchor")}
+                  <select
+                    className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
+                    value={tooltipAnchor}
+                    onChange={(e) => {
+                      markDirty();
+                      setTooltipAnchor(e.target.value === "notifications" ? "notifications" : "region");
+                    }}
+                    data-admin-popup-tooltip-anchor="1"
+                  >
+                    <option value="region">{t("admin_platform_popup_tooltip_anchor_region")}</option>
+                    <option value="notifications">{t("admin_platform_popup_tooltip_anchor_notifications")}</option>
+                  </select>
+                </label>
+              ) : null}
+            </div>
             <p className="mt-2 text-xs text-sam-muted" data-admin-popup-composition-note="1">
               {language === "en" ? compositionNote.bodyEn : compositionNote.bodyKo}
             </p>

@@ -2,6 +2,14 @@
  * CUT 4 — Admin list/detail/event summary loader (service_role).
  */
 
+import {
+  normalizePlatformPopupAutoDismissSeconds,
+  normalizePlatformPopupHexColor,
+  normalizePlatformPopupQueueClass,
+  normalizePlatformPopupTooltipAnchor,
+  type PlatformPopupQueueClass,
+  type PlatformPopupTooltipAnchor,
+} from "@/lib/platform-popup/presentation-contract";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolvePlatformPopupCreativePublicUrl } from "@/lib/platform-popup/resolve-popup-creative-url";
 import { isBenefitDialogEligibleForEventSections } from "@/lib/platform-popup/event-benefit-authority";
@@ -92,6 +100,13 @@ export type PlatformPopupAdminDetail = PlatformPopupAdminListItem & {
   /** ptr_reveal 제한 노출 — 기본 all. 팝업은 항상 all(컬럼 기본값). */
   audienceMode: "all" | "allowlist";
   audienceUserIds: string[];
+  /** 진입 감사 PO-2·PO-3 (2026-11-17) — 마이그레이션 전 운영 DB 면 기본값 */
+  queueClass: PlatformPopupQueueClass;
+  autoDismissSeconds: number | null;
+  ctaBgColor: string | null;
+  ctaTextColor: string | null;
+  listStoreIds: string[];
+  tooltipAnchor: PlatformPopupTooltipAnchor;
   eventSummary: Record<PlatformPopupEventType, number>;
   /** Impression/click/… counts keyed by resolved surface (nullable → "UNKNOWN"). */
   eventSummaryBySurface: Record<string, Partial<Record<PlatformPopupEventType, number>>>;
@@ -132,6 +147,12 @@ type CampaignRow = {
   updated_at: string;
   audience_mode?: string | null;
   audience_user_ids?: string[] | null;
+  queue_class?: string | null;
+  auto_dismiss_seconds?: number | null;
+  cta_bg_color?: string | null;
+  cta_text_color?: string | null;
+  list_store_ids?: string[] | null;
+  tooltip_anchor?: string | null;
 };
 
 function emptyEventSummary(): Record<PlatformPopupEventType, number> {
@@ -539,9 +560,8 @@ export async function loadPlatformPopupAdminCampaignDetail(
 
   const { data, error } = await sb
     .from("platform_popup_campaigns")
-    .select(
-      "id, name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode, cta_type, cta_target, external_url, cta_label, title, body, owner_store_id, owner_request_id, created_by, approved_by, approved_at, created_at, updated_at, audience_mode, audience_user_ids"
-    )
+    // `*` — 진입 감사 4단계 칸(queue_class 등) 마이그레이션 적용 전에도 상세가 열리도록
+    .select("*")
     .eq("id", id)
     .maybeSingle();
 
@@ -638,6 +658,12 @@ export async function loadPlatformPopupAdminCampaignDetail(
       ptrBands,
       audienceMode,
       audienceUserIds,
+      queueClass: normalizePlatformPopupQueueClass(row.queue_class),
+      autoDismissSeconds: normalizePlatformPopupAutoDismissSeconds(row.auto_dismiss_seconds),
+      ctaBgColor: normalizePlatformPopupHexColor(row.cta_bg_color),
+      ctaTextColor: normalizePlatformPopupHexColor(row.cta_text_color),
+      listStoreIds: Array.isArray(row.list_store_ids) ? row.list_store_ids.map(String) : [],
+      tooltipAnchor: normalizePlatformPopupTooltipAnchor(row.tooltip_anchor),
       eventSummary: summary,
       eventSummaryBySurface: bySurface,
       derived: {

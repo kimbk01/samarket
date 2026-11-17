@@ -7,6 +7,7 @@
  * Type E FULL_SCREEN_EVENT is a destination page — not mapped here.
  */
 
+import { translateBy } from "@/lib/i18n/translate-by";
 import {
   normalizePlatformPopupCreativeMode,
   normalizePlatformPopupPresentationType,
@@ -21,6 +22,11 @@ export const PLATFORM_POPUP_COMPOSITIONS = [
   "promotion_card_modal",
   "bottom_promotion_sheet",
   "benefit_dialog",
+  // 진입 감사 PO-3 (2026-11-17)
+  "coupon_card",
+  "artwork_full",
+  "list_sheet",
+  "tooltip",
 ] as const;
 export type PlatformPopupComposition = (typeof PLATFORM_POPUP_COMPOSITIONS)[number];
 
@@ -33,21 +39,20 @@ export function resolvePlatformPopupComposition(input: {
 
   if (presentation === "benefit_dialog") return "benefit_dialog";
   if (presentation === "bottom_sheet") return "bottom_promotion_sheet";
+  if (presentation === "coupon_card") return "coupon_card";
+  if (presentation === "artwork_full") return "artwork_full";
+  if (presentation === "list_sheet") return "list_sheet";
+  if (presentation === "tooltip") return "tooltip";
   if (creative === "artwork") return "artwork_modal";
   return "promotion_card_modal";
 }
 
 export function compositionUsesFloatingClose(kind: PlatformPopupComposition): boolean {
-  return (
-    kind === "artwork_modal" ||
-    kind === "promotion_card_modal" ||
-    kind === "bottom_promotion_sheet" ||
-    kind === "benefit_dialog"
-  );
+  return kind !== "tooltip";
 }
 
 export function compositionIsSheet(kind: PlatformPopupComposition): boolean {
-  return kind === "bottom_promotion_sheet";
+  return kind === "bottom_promotion_sheet" || kind === "list_sheet";
 }
 
 export function interruptivePresentationForComposition(
@@ -55,6 +60,7 @@ export function interruptivePresentationForComposition(
 ): PlatformPopupInterruptivePresentation {
   if (kind === "bottom_promotion_sheet") return "bottom_sheet";
   if (kind === "benefit_dialog") return "benefit_dialog";
+  if (kind === "coupon_card" || kind === "artwork_full" || kind === "list_sheet" || kind === "tooltip") return kind;
   return "center_modal";
 }
 
@@ -62,7 +68,10 @@ export function interruptivePresentationForComposition(
 export function creativeModeForComposition(
   kind: PlatformPopupComposition
 ): Extract<PlatformPopupCreativeMode, "card" | "artwork"> {
-  return kind === "artwork_modal" ? "artwork" : "card";
+  // 진입 감사 PO-3: 새 형태는 원본 비율(투명 PNG 가능) 소재 — 그림 전체형·쿠폰 아이콘·목록 머리 그림·말풍선 아이콘
+  return kind === "promotion_card_modal" || kind === "bottom_promotion_sheet" || kind === "benefit_dialog"
+    ? "card"
+    : "artwork";
 }
 
 /** Admin / docs — operator-facing composition labels (UI also uses i18n fallbacks). */
@@ -101,11 +110,30 @@ export function compositionContractNote(kind: PlatformPopupComposition): {
         bodyKo: "연결된 이벤트의 쿠폰·혜택 정보를 중심으로 보여줍니다.",
         bodyEn: "Focuses on coupon and benefit info from the linked Event.",
       };
+    // 진입 감사 PO-3 (2026-11-17) — 문구는 카탈로그 키
+    case "coupon_card":
+    case "artwork_full":
+    case "list_sheet":
+    case "tooltip":
+      return {
+        titleKo: translateBy("ko", `platform_popup_composition_${kind}_title`),
+        titleEn: translateBy("en", `platform_popup_composition_${kind}_title`),
+        bodyKo: translateBy("ko", `platform_popup_composition_${kind}_body`),
+        bodyEn: translateBy("en", `platform_popup_composition_${kind}_body`),
+      };
   }
 }
 
 export function isInterruptivePresentationType(
   value: PlatformPopupPresentationType
 ): value is PlatformPopupInterruptivePresentation {
-  return value === "center_modal" || value === "bottom_sheet" || value === "benefit_dialog";
+  return (
+    value === "center_modal" ||
+    value === "bottom_sheet" ||
+    value === "benefit_dialog" ||
+    value === "coupon_card" ||
+    value === "artwork_full" ||
+    value === "list_sheet" ||
+    value === "tooltip"
+  );
 }

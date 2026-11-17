@@ -43,7 +43,10 @@ import { canAcceptPlatformPopupWinner } from "@/lib/platform-popup/popup-stale-g
 import type { PlatformPopupPresentationWinner } from "@/lib/platform-popup/popup-presentation-types";
 import { recordPlatformPopupEvent } from "@/lib/platform-popup/record-popup-event-client";
 import type { PlatformPopupSuppressionMode } from "@/lib/platform-popup/types";
-import { fetchPlatformPopupResolveDeduped } from "@/lib/platform-popup/fetch-platform-popup-resolve-client";
+import {
+  fetchPlatformPopupResolveDeduped,
+  prefetchPlatformPopupResolve,
+} from "@/lib/platform-popup/fetch-platform-popup-resolve-client";
 import { frequencyModeToDismissSuppressMode } from "@/lib/platform-popup/dismiss-ssot";
 import { notifyDestinationOpenFailed, openDestination } from "@/lib/destination/open-destination";
 import { parseDestinationHref } from "@/lib/destination/destination-contract";
@@ -236,6 +239,11 @@ export function GlobalPopupHost() {
   const [hostState, setHostState] = useState<PlatformPopupHostState>("IDLE");
   const [winner, setWinner] = useState<ResolveWinner | null>(null);
   const [exposureId, setExposureId] = useState<string | null>(null);
+  /**
+   * 진입 감사 PO-2 (2026-11-17) — 같은 진입의 남은 대기열(서버가 어드민 「진입당 최대 개수」만큼 순서대로 준다).
+   * 닫기·자동 닫힘 뒤 연속 노출 잠금보다 먼저 다음 칸을 보인다. CTA 로 이동하면 버린다(사용자가 떠남).
+   */
+  const queueRestRef = useRef<ResolveWinner[]>([]);
   const generationRef = useRef(0);
   const identityRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -250,6 +258,29 @@ export function GlobalPopupHost() {
   const navSurface = useMemo(() => resolveDibaySurface(pathname), [pathname]);
   const navSurfaceRef = useRef(navSurface);
   navSurfaceRef.current = navSurface;
+
+  /**
+   * 진입 감사 PO-6 (2026-11-17) — 인트로가 도는 동안 팝업 조회·소재 내려받기를 미리 한다(인트로 시간을 준비에 씀).
+   * 노출 판정은 그대로 — 인트로가 끝나고 조건이 맞을 때 본 조회가 이 결과를 1회 받아 쓴다.
+   */
+  const prefetchedRef = useRef(false);
+  useEffect(() => {
+    if (!launchIntroActive || prefetchedRef.current || isAdminPath) return;
+    if (typeof window === "undefined") return;
+    prefetchedRef.current = true;
+    prefetchPlatformPopupResolve({
+      pathname,
+      sessionKey: appSessionId,
+      deviceKey,
+      landscape: isLandscape,
+      excludeCampaignIds: listPlatformPopupSessionBlockedCampaigns(),
+      preloadImage: (url) => {
+        const img = new Image();
+        img.decoding = "async";
+        img.src = url;
+      },
+    });
+  }, [launchIntroActive, isAdminPath, pathname, appSessionId, deviceKey, isLandscape]);
 
   // Auth identity isolation
   useEffect(() => {
@@ -267,6 +298,7 @@ export function GlobalPopupHost() {
     if (decision.changed) {
       abortRef.current?.abort();
       chainLockSurfaceRef.current = null;
+      queueRestRef.current = [];
       clearPlatformPopupSessionBlockedCampaigns();
       setWinner(null);
       generationRef.current += 1;
@@ -286,6 +318,7 @@ export function GlobalPopupHost() {
       return;
     }
     abortRef.current?.abort();
+    queueRestRef.current = [];
     setHostState((s) => {
       if (s === "VISIBLE" || s === "READY" || s === "RESOLVING") {
         setWinner(null);
@@ -374,6 +407,7 @@ export function GlobalPopupHost() {
         ...listPlatformPopupSessionBlockedCampaigns(),
         ...brokenCreativeCampaignIdsRef.current,
       ],
+      landscape: runtimeCtx.isLandscape,
     })
       .then(({ json }) => {
         // Hard contract: API must never claim impression
@@ -401,9 +435,16 @@ export function GlobalPopupHost() {
         }
         // 받아들일 수 없는 1위(영역 불일치·연속 잠금·잘못된 CTA 주소) = 이 경로에서 띄울 것 없음 (같은 입력 재조회 반복 방지)
         if (!acceptWinner(json.winner as ResolveWinner, generation, surfaceAtStart)) {
+          queueRestRef.current = [];
           setWinner(null);
           setHostState((s) => (s === "RESOLVING" ? reducePlatformPopupHostState(s, { type: "RESOLVE_EMPTY" }) : s));
+          return;
         }
+        // 진입 대기열 나머지 — 첫 칸(winner)은 이미 받았다. 예전 서버(queue 없음)면 빈 대기열.
+        const rest = Array.isArray(json.queue) ? (json.queue as ResolveWinner[]).slice(1) : [];
+        queueRestRef.current = rest.filter(
+          (w) => w && w.campaignId !== winnerId && w.surface === surfaceAtStart && validateWinnerHref(w.cta?.href ?? "")
+        );
       })
       .catch((err: unknown) => {
         if ((err as { name?: string })?.name === "AbortError") return;
@@ -419,6 +460,7 @@ export function GlobalPopupHost() {
     runtimeCtx.pathname,
     runtimeCtx.surface,
     runtimeCtx.userId,
+    runtimeCtx.isLandscape,
     appSessionId,
     deviceKey,
     acceptWinner,
@@ -441,6 +483,7 @@ export function GlobalPopupHost() {
       }
       if (result === "failed") brokenCreativeCampaignIdsRef.current.add(campaignId);
       else addPlatformPopupSessionBlockedCampaign(campaignId);
+      queueRestRef.current = [];
       setWinner(null);
       setExposureId(null);
       generationRef.current += 1;
@@ -452,6 +495,7 @@ export function GlobalPopupHost() {
   }, [hostState, winner, eligible]);
 
   const invalidateVisible = useCallback(() => {
+    queueRestRef.current = [];
     setWinner(null);
     setExposureId(null);
     generationRef.current += 1;
@@ -468,23 +512,39 @@ export function GlobalPopupHost() {
   const suppress = useCallback(
     async (
       mode: PlatformPopupSuppressionMode,
-      opts: { persist: boolean; recordAnalytics?: boolean } = { persist: true, recordAnalytics: true }
+      opts: { persist: boolean; recordAnalytics?: boolean; advanceQueue?: boolean; autoDismissed?: boolean } = {
+        persist: true,
+        recordAnalytics: true,
+        advanceQueue: true,
+      }
     ) => {
       if (!winner) return;
       const campaignId = winner.campaignId;
       const creativeId = winner.creativeId;
       const surfaceAtDismiss = navSurfaceRef.current;
       const currentExposure = exposureId;
-      chainLockSurfaceRef.current = surfaceAtDismiss;
-      setWinner(null);
-      setExposureId(null);
-      setHostState((s) =>
-        reducePlatformPopupHostState(s, {
-          type: mode === "CLOSE" ? "DISMISS" : "SUPPRESS",
-        })
-      );
+      // 진입 감사 PO-2: 같은 진입 대기열에 다음 칸이 있으면(이동하지 않은 닫기만) 연속 잠금 전에 그것을 보인다
+      const next = opts.advanceQueue
+        ? queueRestRef.current.find((w) => !isPlatformPopupSessionBlockedCampaign(w.campaignId))
+        : undefined;
+      queueRestRef.current = next ? queueRestRef.current.slice(queueRestRef.current.indexOf(next) + 1) : [];
       generationRef.current += 1;
       abortRef.current?.abort();
+      if (next && runtimeCtxRef.current.surface === surfaceAtDismiss && isPopupRuntimeEligible(runtimeCtxRef.current)) {
+        setWinner(next);
+        setExposureId(null);
+        setHostState((s) => reducePlatformPopupHostState(s, { type: "QUEUE_NEXT" }));
+      } else {
+        queueRestRef.current = [];
+        chainLockSurfaceRef.current = surfaceAtDismiss;
+        setWinner(null);
+        setExposureId(null);
+        setHostState((s) =>
+          reducePlatformPopupHostState(s, {
+            type: mode === "CLOSE" ? "DISMISS" : "SUPPRESS",
+          })
+        );
+      }
 
       if (!opts.persist || mode === "CLOSE") return;
 
@@ -497,7 +557,7 @@ export function GlobalPopupHost() {
           source: "dismiss_handler",
           exposureId: currentExposure,
           deviceKey,
-          meta: { mode },
+          meta: opts.autoDismissed ? { mode, reason: "auto" } : { mode },
         });
       }
 
@@ -537,6 +597,23 @@ export function GlobalPopupHost() {
     void suppress(frequencyModeToDismissSuppressMode(winner.frequencyMode));
   }, [suppress, winner]);
 
+  /**
+   * 진입 감사 PO-2 (2026-11-17 · 배민 실측: 손대지 않은 중앙 팝업이 약 10초 뒤 사라짐 — 방식은 NOT_PROVEN).
+   * 어드민이 정한 초가 지나면 × 와 같은 닫기(세션 숨김 + 빈도 숨김) — 분석 기록에 자동 닫힘 표시. 0·없음 = 자동 닫힘 없음.
+   */
+  useEffect(() => {
+    if (hostState !== "VISIBLE" || !winner || !exposureId) return;
+    const sec = winner.autoDismissSeconds ?? null;
+    if (!sec || sec <= 0) return;
+    const campaignId = winner.campaignId;
+    const mode = frequencyModeToDismissSuppressMode(winner.frequencyMode);
+    const t = window.setTimeout(() => {
+      addPlatformPopupSessionBlockedCampaign(campaignId);
+      void suppress(mode, { persist: true, recordAnalytics: true, advanceQueue: true, autoDismissed: true });
+    }, sec * 1000);
+    return () => window.clearTimeout(t);
+  }, [hostState, winner, exposureId, suppress]);
+
   const handleSuppress = useCallback(
     (mode: PlatformPopupSuppressionMode) => {
       void suppress(mode);
@@ -546,10 +623,11 @@ export function GlobalPopupHost() {
 
   /** 노출 1회당 CTA 처리 1회 — 연타로 click·landing 이 두 번 기록되지 않게(PTR R-1 과 같은 장치) */
   const ctaHandledExposureRef = useRef<string | null>(null);
-  const handleCta = useCallback(() => {
+  const handleCta = useCallback((hrefOverride?: string) => {
     if (!winner || !exposureId) return;
     if (ctaHandledExposureRef.current === exposureId) return;
-    const href = winner.cta.href.trim();
+    // 진입 감사 PO-3: 목록 시트의 매장 칸 = 서버가 만든 매장 주소(같은 click·landing·숨김 경로)
+    const href = (typeof hrefOverride === "string" && hrefOverride.trim() ? hrefOverride : winner.cta.href).trim();
     if (!validateWinnerHref(href)) {
       // DS-9: 무반응 금지 — 팝업은 그대로 두고 안내
       notifyDestinationOpenFailed();
@@ -576,6 +654,7 @@ export function GlobalPopupHost() {
       void suppress(frequencyModeToDismissSuppressMode(winner.frequencyMode), {
         persist: true,
         recordAnalytics: false,
+        advanceQueue: false,
       });
     };
 
@@ -630,6 +709,12 @@ export function GlobalPopupHost() {
     invalidateVisible();
   }, [invalidateVisible, winner]);
 
+  /** 말풍선 자리 없음 — 이번 실행 동안 그 캠페인만 건너뜀(숨김 기록·노출 기록 없음) */
+  const handleUnavailable = useCallback(() => {
+    if (winner?.campaignId) addPlatformPopupSessionBlockedCampaign(winner.campaignId);
+    invalidateVisible();
+  }, [invalidateVisible, winner]);
+
   const showPresentation = mayMountPlatformPopupPresentation(hostState) && winner != null;
 
   /*
@@ -661,9 +746,16 @@ export function GlobalPopupHost() {
           presentationType={winner.presentationType}
           onClose={handleClose}
           onSuppress={handleSuppress}
-          onCta={handleCta}
+          onCta={() => handleCta()}
           onImpression={handleImpression}
           onImageError={handleImageError}
+          ctaColors={winner.ctaColors ?? null}
+          listStores={winner.listStores ?? []}
+          listEndsAt={winner.listEndsAt ?? null}
+          coupons={winner.coupons ?? []}
+          tooltipAnchor={winner.tooltipAnchor ?? "region"}
+          onCtaHref={handleCta}
+          onUnavailable={handleUnavailable}
         />
       ) : null}
     </div>

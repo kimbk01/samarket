@@ -12,6 +12,11 @@ export const PLATFORM_POPUP_PRESENTATION_TYPES = [
   "hero_banner",
   /** 비간섭 — 당겨서 새로고침 슬롯 띠 배너 (`lib/platform-popup/ptr-reveal-contract.ts`) */
   "ptr_reveal",
+  /** 진입 감사 PO-3 (2026-11-17): 쿠폰 카드 · 그림 전체형 · 하단 목록 시트 · 안내 말풍선 */
+  "coupon_card",
+  "artwork_full",
+  "list_sheet",
+  "tooltip",
 ] as const;
 export type PlatformPopupPresentationType = (typeof PLATFORM_POPUP_PRESENTATION_TYPES)[number];
 
@@ -20,7 +25,37 @@ export const PLATFORM_POPUP_INTERRUPTIVE_PRESENTATIONS = [
   "center_modal",
   "bottom_sheet",
   "benefit_dialog",
+  "coupon_card",
+  "artwork_full",
+  "list_sheet",
+  "tooltip",
 ] as const;
+
+/** 진입 대기열 구분 (진입 감사 PO-2) — 필수가 선택보다 먼저 */
+export const PLATFORM_POPUP_QUEUE_CLASSES = ["mandatory", "optional"] as const;
+export type PlatformPopupQueueClass = (typeof PLATFORM_POPUP_QUEUE_CLASSES)[number];
+export function normalizePlatformPopupQueueClass(value: unknown): PlatformPopupQueueClass {
+  return value === "mandatory" ? "mandatory" : "optional";
+}
+
+/** 자동 닫힘 초 — 3~60, 그 밖·없음 = null(자동 닫힘 없음) */
+export function normalizePlatformPopupAutoDismissSeconds(value: unknown): number | null {
+  const n = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN;
+  if (!Number.isFinite(n)) return null;
+  const i = Math.trunc(n);
+  return i >= 3 && i <= 60 ? i : null;
+}
+
+/** 말풍선이 붙는 자리 */
+export const PLATFORM_POPUP_TOOLTIP_ANCHORS = ["region", "notifications"] as const;
+export type PlatformPopupTooltipAnchor = (typeof PLATFORM_POPUP_TOOLTIP_ANCHORS)[number];
+export function normalizePlatformPopupTooltipAnchor(value: unknown): PlatformPopupTooltipAnchor {
+  return value === "notifications" ? "notifications" : "region";
+}
+
+export function normalizePlatformPopupHexColor(value: unknown): string | null {
+  return typeof value === "string" && /^#[0-9A-Fa-f]{6}$/.test(value.trim()) ? value.trim() : null;
+}
 export type PlatformPopupInterruptivePresentation =
   (typeof PLATFORM_POPUP_INTERRUPTIVE_PRESENTATIONS)[number];
 

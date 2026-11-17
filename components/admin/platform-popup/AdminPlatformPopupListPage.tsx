@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminPlatformPopupEntryPolicyCard } from "@/components/admin/platform-popup/AdminPlatformPopupEntryPolicyCard";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
@@ -237,6 +238,8 @@ export function AdminPlatformPopupListPage() {
         title={title}
         description={safeT("admin_platform_popup_list_desc")}
       />
+
+      <AdminPlatformPopupEntryPolicyCard canWrite={adminAction.allowed} />
 
       <div className="flex items-center justify-end gap-2">
         {!adminAction.allowed && adminAction.reason ? (

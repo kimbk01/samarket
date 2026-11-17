@@ -35,6 +35,8 @@ vi.mock("@/lib/platform-promotion-lifecycle/client-record-content-visit", () => 
 }));
 vi.mock("@/lib/platform-popup/fetch-platform-popup-resolve-client", () => ({
   fetchPlatformPopupResolveDeduped: vi.fn(async () => ({ json: { ok: true, winner: h.winner, impression: false } })),
+  // 진입 감사 4단계: 인트로 동안 미리 받기 — 이 시험은 본 조회만 본다
+  prefetchPlatformPopupResolve: vi.fn(),
 }));
 vi.mock("@/lib/platform-popup/popup-image-ready", () => ({
   waitPlatformPopupImageReady: vi.fn(async () => h.imageResult),

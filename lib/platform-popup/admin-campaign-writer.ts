@@ -35,6 +35,12 @@ import {
 } from "@/lib/platform-popup/ptr-reveal-contract";
 import { platformPopupPatchReviewGroups } from "@/lib/platform-popup/popup-admin-patch";
 import {
+  PLATFORM_POPUP_TOOLTIP_ANCHORS,
+  normalizePlatformPopupAutoDismissSeconds,
+  normalizePlatformPopupHexColor,
+} from "@/lib/platform-popup/presentation-contract";
+import { PLATFORM_POPUP_LIST_SHEET_MAX_STORES } from "@/lib/platform-popup/entry-queue-enrich";
+import {
   normalizeAudienceUserIds,
   normalizePtrRevealAudienceMode,
   type PtrRevealAudienceMode,
@@ -64,7 +70,64 @@ export type PlatformPopupAdminUpsertInput = {
   /** ptr_reveal only — ignored for interruptive popup campaigns */
   audienceMode?: PtrRevealAudienceMode | string;
   audienceUserIds?: string[];
+  /** 진입 감사 PO-2·PO-3 (2026-11-17) — 진입 대기열 구분 · 자동 닫힘 초 · 그림 전체형 버튼 색 · 매장 목록 · 말풍선 위치 */
+  queueClass?: string;
+  autoDismissSeconds?: number | null;
+  ctaBgColor?: string | null;
+  ctaTextColor?: string | null;
+  listStoreIds?: string[];
+  tooltipAnchor?: string;
 };
+
+const STAGE4_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** 진입 감사 4단계 칸 검사 — 모르는 값은 거절(조용히 기본값으로 바꾸지 않음) */
+export function platformPopupEntryFieldsPatch(
+  p: PlatformPopupAdminUpsertInput
+): { ok: true; patch: Record<string, unknown> } | { ok: false; error: string } {
+  const out: Record<string, unknown> = {};
+  if (p.queueClass != null) {
+    if (p.queueClass !== "mandatory" && p.queueClass !== "optional") return { ok: false, error: "queue_class_invalid" };
+    out.queue_class = p.queueClass;
+  }
+  if ("autoDismissSeconds" in p) {
+    const v = p.autoDismissSeconds;
+    if (v == null) out.auto_dismiss_seconds = null;
+    else {
+      const n = normalizePlatformPopupAutoDismissSeconds(v);
+      if (n == null || n !== v) return { ok: false, error: "auto_dismiss_invalid" };
+      out.auto_dismiss_seconds = n;
+    }
+  }
+  for (const [k, col] of [
+    ["ctaBgColor", "cta_bg_color"],
+    ["ctaTextColor", "cta_text_color"],
+  ] as const) {
+    if (!(k in p)) continue;
+    const raw = p[k];
+    if (raw == null || String(raw).trim() === "") {
+      out[col] = null;
+      continue;
+    }
+    const c = normalizePlatformPopupHexColor(raw);
+    if (!c) return { ok: false, error: "cta_color_invalid" };
+    out[col] = c.toUpperCase();
+  }
+  if ("listStoreIds" in p) {
+    const ids = Array.isArray(p.listStoreIds) ? p.listStoreIds.map((v) => String(v).trim()).filter(Boolean) : [];
+    if (ids.some((id) => !STAGE4_UUID_RE.test(id))) return { ok: false, error: "list_store_ids_invalid" };
+    const uniq = [...new Set(ids)];
+    if (uniq.length > PLATFORM_POPUP_LIST_SHEET_MAX_STORES) return { ok: false, error: "list_store_ids_too_many" };
+    out.list_store_ids = uniq;
+  }
+  if (p.tooltipAnchor != null) {
+    if (!(PLATFORM_POPUP_TOOLTIP_ANCHORS as readonly string[]).includes(p.tooltipAnchor)) {
+      return { ok: false, error: "tooltip_anchor_invalid" };
+    }
+    out.tooltip_anchor = p.tooltipAnchor;
+  }
+  return { ok: true, patch: out };
+}
 
 /** P-6: IANA 시간대 이름인지 — `Intl.DateTimeFormat` 이 받아들이는 값만 저장한다 */
 export function isValidIanaTimezone(tz: string): boolean {
@@ -267,6 +330,10 @@ export async function updatePlatformPopupAdminCampaign(
       patch.audience_user_ids = normalized.ids;
     }
   }
+
+  const entryFields = platformPopupEntryFieldsPatch(input.patch);
+  if (!entryFields.ok) return { ok: false, error: entryFields.error, httpStatus: 400 };
+  Object.assign(patch, entryFields.patch);
 
   if ("ctaLabel" in input.patch) {
     const label = input.patch.ctaLabel?.trim() || null;

@@ -30,6 +30,8 @@ export function platformPopupPatchReviewGroups(
   if (set("ctaType") || set("ctaTarget") || has("externalUrl") || has("ctaLabel")) out.add("cta");
   if (set("presentationType") || has("title") || has("body") || has("altText")) out.add("creative");
   if (body.creativeMode === "artwork" || body.creativeMode === "card") out.add("creative");
+  // 진입 감사 PO-3 — 고객이 보는 내용(버튼 색·매장 목록·말풍선 위치)은 소재 묶음. 대기열 구분·자동 닫힘은 운영값(재검토 없음)
+  if (has("ctaBgColor") || has("ctaTextColor") || has("listStoreIds") || set("tooltipAnchor")) out.add("creative");
   return out;
 }
 
@@ -62,6 +64,13 @@ export type PlatformPopupAdminForm = {
   title: string | null;
   body: string | null;
   altText: string | null;
+  /** 진입 감사 PO-2·PO-3 (2026-11-17) */
+  queueClass?: "mandatory" | "optional";
+  autoDismissSeconds?: number | null;
+  ctaBgColor?: string | null;
+  ctaTextColor?: string | null;
+  listStoreIds?: string[];
+  tooltipAnchor?: "region" | "notifications";
 };
 
 function sameSet(a: readonly string[], b: readonly string[]): boolean {
@@ -125,5 +134,19 @@ export function buildPlatformPopupAdminPatch(
   if (norm(next.title) !== norm(saved.title)) body.title = norm(next.title) || null;
   if (norm(next.body) !== norm(saved.body)) body.body = norm(next.body) || null;
   if (norm(next.altText) !== norm(saved.altText)) body.altText = norm(next.altText) || null;
+  if ((next.queueClass ?? "optional") !== (saved.queueClass ?? "optional")) body.queueClass = next.queueClass ?? "optional";
+  if ((next.autoDismissSeconds ?? null) !== (saved.autoDismissSeconds ?? null)) {
+    body.autoDismissSeconds = next.autoDismissSeconds ?? null;
+  }
+  if (norm(next.ctaBgColor).toUpperCase() !== norm(saved.ctaBgColor).toUpperCase()) {
+    body.ctaBgColor = norm(next.ctaBgColor) || null;
+  }
+  if (norm(next.ctaTextColor).toUpperCase() !== norm(saved.ctaTextColor).toUpperCase()) {
+    body.ctaTextColor = norm(next.ctaTextColor) || null;
+  }
+  const nextIds = next.listStoreIds ?? [];
+  const savedIds = saved.listStoreIds ?? [];
+  if (nextIds.length !== savedIds.length || nextIds.some((id, i) => id !== savedIds[i])) body.listStoreIds = nextIds;
+  if ((next.tooltipAnchor ?? "region") !== (saved.tooltipAnchor ?? "region")) body.tooltipAnchor = next.tooltipAnchor ?? "region";
   return body;
 }

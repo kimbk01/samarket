@@ -82,6 +82,12 @@ export function popupCompositionOperatorLabel(
       return translateBy(lang, "admin_bottom_promotion_sheet");
     case "benefit_dialog":
       return translateBy(lang, "admin_benefit_coupon_dialog");
+    // 진입 감사 PO-3
+    case "coupon_card":
+    case "artwork_full":
+    case "list_sheet":
+    case "tooltip":
+      return translateBy(lang, `platform_popup_composition_${composition}_title`);
   }
 }
 

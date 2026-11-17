@@ -7,7 +7,15 @@ import { ArtworkModalPresentation } from "@/components/platform-popup/presentati
 import { BenefitDialogPresentation } from "@/components/platform-popup/presentations/BenefitDialogPresentation";
 import { BottomPromotionSheetPresentation } from "@/components/platform-popup/presentations/BottomPromotionSheetPresentation";
 import { PromotionCardModalPresentation } from "@/components/platform-popup/presentations/PromotionCardModalPresentation";
+import {
+  ArtworkFullPresentation,
+  CouponCardPresentation,
+  ListSheetPresentation,
+  TooltipPresentation,
+} from "@/components/platform-popup/presentations/EntryPresentations";
 import type {
+  PlatformPopupCouponRow,
+  PlatformPopupListStore,
   PlatformPopupPresentationCreative,
   PlatformPopupPresentationCta,
   PlatformPopupPresentationSuppressionOption,
@@ -17,7 +25,10 @@ import {
   PLATFORM_POPUP_TABLET_MAX_WIDTH_PX,
   PLATFORM_POPUP_Z_CLASS,
 } from "@/lib/platform-popup/popup-geometry-tokens";
-import type { PlatformPopupInterruptivePresentation } from "@/lib/platform-popup/presentation-contract";
+import type {
+  PlatformPopupInterruptivePresentation,
+  PlatformPopupTooltipAnchor,
+} from "@/lib/platform-popup/presentation-contract";
 import {
   compositionIsSheet,
   resolvePlatformPopupComposition,
@@ -44,6 +55,16 @@ export type DibayPopupAdProps = {
   /** Stable visible presentation — IMPRESSION only (never suppress). */
   onImpression: () => void;
   onImageError: () => void;
+  /** 진입 감사 PO-3 — 새 형태 4종 데이터(서버가 채움) */
+  ctaColors?: { bg: string | null; text: string | null } | null;
+  listStores?: readonly PlatformPopupListStore[];
+  listEndsAt?: string | null;
+  coupons?: readonly PlatformPopupCouponRow[];
+  tooltipAnchor?: PlatformPopupTooltipAnchor;
+  /** 목록 칸(매장) 눌림 — 같은 CTA 기록·숨김 경로로 그 주소를 연다 */
+  onCtaHref?: (href: string) => void;
+  /** 말풍선이 붙을 자리가 이 화면에 없음 — 이번 실행 건너뜀(숨김 기록 없음) */
+  onUnavailable?: () => void;
 };
 
 /**
@@ -68,6 +89,13 @@ export function DibayPopupAd({
   onCta,
   onImpression,
   onImageError,
+  ctaColors = null,
+  listStores = [],
+  listEndsAt = null,
+  coupons = [],
+  tooltipAnchor = "region",
+  onCtaHref,
+  onUnavailable,
 }: DibayPopupAdProps) {
   const { safeT } = useI18n();
   const titleId = useId();
@@ -156,6 +184,9 @@ export function DibayPopupAd({
   if (composition === "benefit_dialog" && !benefit?.title?.trim()) {
     return null;
   }
+  // 진입 감사 PO-3: 데이터가 비면 빈 틀을 그리지 않는다(서버도 대기열에서 빼지만 이중 방어)
+  if (composition === "list_sheet" && listStores.length === 0) return null;
+  if (composition === "coupon_card" && coupons.length === 0) return null;
 
   const shared = {
     campaignId,
@@ -180,8 +211,21 @@ export function DibayPopupAd({
     onImageError: () => setImageFailed(true),
   };
 
+  const entryShared = { ...shared, ctaColors, onCtaHref };
   const body =
-    composition === "artwork_modal" ? (
+    composition === "artwork_full" ? (
+      <ArtworkFullPresentation {...entryShared} />
+    ) : composition === "coupon_card" ? (
+      <CouponCardPresentation {...entryShared} coupons={coupons} />
+    ) : composition === "list_sheet" ? (
+      <ListSheetPresentation {...entryShared} stores={listStores} endsAt={listEndsAt} />
+    ) : composition === "tooltip" ? (
+      <TooltipPresentation
+        {...entryShared}
+        anchor={tooltipAnchor}
+        onAnchorMissing={onUnavailable ?? onImageError}
+      />
+    ) : composition === "artwork_modal" ? (
       <ArtworkModalPresentation {...shared} />
     ) : composition === "promotion_card_modal" ? (
       <PromotionCardModalPresentation {...shared} />
@@ -208,6 +252,15 @@ export function DibayPopupAd({
         style={shellStyle}
         data-composition={composition}
       >
+        {body}
+      </div>
+    );
+  }
+
+  // 말풍선 = 화면을 막지 않는다(배경·스크롤 잠금 없음) — 본문이 직접 body 로 portal
+  if (composition === "tooltip") {
+    return (
+      <div ref={rootRef} data-composition={composition} data-platform-popup-impression-root="1" style={shellStyle}>
         {body}
       </div>
     );
