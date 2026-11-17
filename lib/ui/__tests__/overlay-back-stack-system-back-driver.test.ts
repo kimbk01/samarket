@@ -10,6 +10,16 @@ const flush = async () => {
   for (let i = 0; i < 5; i += 1) await new Promise((r) => setTimeout(r, 0));
 };
 
+/** 실제 Capacitor 플러그인 프록시처럼 모든 속성(then 포함)에 함수를 돌려준다 — thenable 함정 재현. */
+function asCapacitorProxy<T extends object>(target: T): T {
+  return new Proxy(target, {
+    get(t, prop) {
+      if (prop in t) return (t as Record<PropertyKey, unknown>)[prop];
+      return () => new Promise(() => {});
+    },
+  });
+}
+
 function setup(systemBackAvailable: boolean) {
   const sysRemove = vi.fn();
   const sys = {
@@ -22,9 +32,9 @@ function setup(systemBackAvailable: boolean) {
   vi.doMock("@/lib/launch-intro/native-intro-client", () => ({ isNativeIntroActive: () => false }));
   vi.doMock("@capacitor/core", () => ({
     Capacitor: { isPluginAvailable: (name: string) => systemBackAvailable && name === "DibaySystemBack" },
-    registerPlugin: () => sys,
+    registerPlugin: () => asCapacitorProxy(sys),
   }));
-  vi.doMock("@capacitor/app", () => ({ App: app }));
+  vi.doMock("@capacitor/app", () => ({ App: asCapacitorProxy(app) }));
   return { sys, sysRemove, app, appRemove };
 }
 
