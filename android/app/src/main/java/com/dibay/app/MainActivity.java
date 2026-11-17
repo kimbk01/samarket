@@ -97,6 +97,10 @@ public class MainActivity extends BridgeActivity {
                 // 진입 감사 5단계: 이번 실행에 네이티브 인트로가 떠 있으면 소재 id (웹 인트로를 더하지 않고 팝업을 보류)
                 + "Object.defineProperty(window,'__DIBAY_NATIVE_INTRO__',{value:'"
                 + DibayNativeIntro.documentStartValue()
+                + "',writable:false,enumerable:false,configurable:false});"
+                // 실기 FAIL-2 F2′-b: 이번 실행에 앱 안 덮개가 있으면 "1" — 웹은 P3(hydration 전 해제)를 건너뛴다
+                + "Object.defineProperty(window,'__DIBAY_NATIVE_SPLASH_COVER__',{value:'"
+                + DibaySplashCover.documentStartValue()
                 + "',writable:false,enumerable:false,configurable:false});";
         WebViewCompat.addDocumentStartJavaScript(webView, js, Collections.singleton(origin));
         Log.i(
@@ -1268,6 +1272,11 @@ public class MainActivity extends BridgeActivity {
       DibayNativeIntro.markProcessSelectionDone();
       DibayNativeIntro.clearSelection();
     }
+    // 실기 FAIL-2 F2′-a: 시스템 시작 화면과 같은 모습의 앱 안 덮개 — 쓸지 여부는 문서 시작 스크립트 설치(super.onCreate) 전에 정한다
+    DibaySplashCover.planForLaunch(
+        isLauncherLaunch(getIntent()),
+        !DibayNativeIntro.documentStartValue().isEmpty(),
+        savedInstanceState != null);
     // Capacitor: registerPlugin must run before super.onCreate or plugins stay UNIMPLEMENTED.
     registerPlugin(BrowserPlugin.class);
     registerPlugin(NativeOAuthLauncherPlugin.class);
@@ -1301,8 +1310,14 @@ public class MainActivity extends BridgeActivity {
     // OS splash until web dismissSplash / homePresentationReady — no Intro/System Start product.
     // 진입 감사 5단계: 네이티브 인트로가 붙었으면 OS 시작 화면을 바로 걷는다(인트로가 로딩 시간을 채움)
     DibayNativeIntro.attach(this);
+    // 실기 FAIL-2 F2′-a: 인트로가 없으면 같은 모습 덮개를 붙이고 시스템 시작 화면을 바로 넘긴다 — WebView 는 덮개 아래에서
+    // 첫 그리기(실측 1.45초)를 끝낸다. 덮개는 아래 해제 권한 두 가지(웹 성공 신호 · 고장 판정)와 같은 때만 걷힌다.
+    DibaySplashCover.attach(this);
     splashScreen.setKeepOnScreenCondition(
-        () -> !webSplashDismissRequested && !DibayNativeIntro.isOverlayAttached());
+        () ->
+            !webSplashDismissRequested
+                && !DibayNativeIntro.isOverlayAttached()
+                && !DibaySplashCover.isShowing());
 
     // 진입 감사 OS-1 (2026-11-17): 시작 화면 퇴장 리스너(setOnExitAnimationListener)를 등록하지 않는다.
     // 등록하면 시스템이 시작 화면을 앱 창으로 「넘겨주기」를 하는데, 넘겨받는 순간 앱 UI 스레드가 웹 준비로
@@ -1663,6 +1678,7 @@ public class MainActivity extends BridgeActivity {
             webSplashDismissRequested = true;
             webSplashDismissPending = false;
             DibayNativeIntro.onHomeReady();
+            DibaySplashCover.hide("web_no_visual_state");
             Log.i(WEBVIEW_LOG_TAG, "dismissSplash success source=" + splashDismissSource);
             return;
           }
@@ -1677,6 +1693,7 @@ public class MainActivity extends BridgeActivity {
                   webSplashDismissRequested = true;
                   webSplashDismissPending = false;
                   DibayNativeIntro.onHomeReady();
+                  DibaySplashCover.hide("web_visual_state_ready");
                   Log.i(
                       WEBVIEW_LOG_TAG,
                       "dismissSplash visual_state_ready requestId=" + callbackRequestId);
@@ -1696,6 +1713,8 @@ public class MainActivity extends BridgeActivity {
   static void forceReleaseSplash(String source) {
     // 진입 감사 5단계: 시작 고장(오류 화면) — 네이티브 인트로도 즉시 걷는다
     DibayNativeIntro.onStartupFault();
+    // 실기 FAIL-2 F2′-a: 오류 화면이 덮개 아래에 갇히지 않게 덮개도 즉시 걷는다
+    DibaySplashCover.hide("fault");
     if (webSplashDismissRequested) return;
     webSplashDismissRequested = true;
     webSplashDismissPending = false;

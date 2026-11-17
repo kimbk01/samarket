@@ -97,6 +97,12 @@ describe("목적지 읽기 (동기)", () => {
 });
 
 describe("iOS — 브리지 객체 없음: 기존 동작 그대로, 기다림 없음", () => {
+  it("P3 홈 서버 본문 첫 그림에서 바로 해제", async () => {
+    const { metrics, hold, postMessage } = await loadIos("/", SERVER_BODY);
+    metrics.releaseNativeSplashAtServerBodyFrame();
+    expect(hold.readLaunchPushTarget()).toBeNull();
+    expect(postMessage).toHaveBeenCalled();
+  });
   it("첫 목적지 신호에서 바로 해제", async () => {
     const { metrics } = await loadIos("/", "");
     metrics.markInitialDestinationVisualReady();
@@ -105,6 +111,11 @@ describe("iOS — 브리지 객체 없음: 기존 동작 그대로, 기다림 �
 });
 
 describe("Android — 알림 목적지 시작", () => {
+  it("P3: 홈 서버 본문 첫 그림에서 해제하지 않음", async () => {
+    const { metrics, bridge } = await load("/", SERVER_BODY, ROOM);
+    metrics.releaseNativeSplashAtServerBodyFrame();
+    expect(bridge.dismissSplash).not.toHaveBeenCalled();
+  });
   it("첫 목적지 신호: 홈에서는 보류, 목적지 경로가 그려지면 해제", async () => {
     const { metrics, bridge } = await load("/", "", ROOM);
     metrics.markInitialDestinationVisualReady();
@@ -120,9 +131,9 @@ describe("Android — 알림 목적지 시작", () => {
     hold.markLaunchPushHandled();
     expect(bridge.dismissSplash).toHaveBeenCalledTimes(1);
   });
-  it("알림 없는 시작(빈 값) → 첫 목적지 신호에 홈에서 해제 (P3 폐기 · 실기 FAIL-2)", async () => {
+  it("알림 없는 시작(빈 값) → 기존처럼 홈에서 해제", async () => {
     const { metrics, bridge } = await load("/", SERVER_BODY, "");
-    metrics.markInitialDestinationVisualReady();
+    metrics.releaseNativeSplashAtServerBodyFrame();
     expect(bridge.dismissSplash).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,6 +1,8 @@
 import { HomeScreen } from "@/components/home-hub/HomeScreen";
 import { loadHomeLayoutServerCached } from "@/lib/home/load-home-layout-server";
 import { loadHomeCatalogServerCached } from "@/lib/home/load-home-catalog-server";
+import { HomeAboveFoldImagePreload } from "@/components/home-hub/HomeAboveFoldImagePreload";
+import { resolveHomeAboveFoldBannerImageUrls } from "@/lib/home/home-above-fold-preload";
 
 /**
  * 앱 홈 단일 권한 — `/` · `/home` (Owner 「이대로 구현」 2026-11-09, 홈 시안 v22).
@@ -9,5 +11,11 @@ import { loadHomeCatalogServerCached } from "@/lib/home/load-home-catalog-server
  */
 export async function HomeSurface() {
   const [{ config }, catalog] = await Promise.all([loadHomeLayoutServerCached(), loadHomeCatalogServerCached()]);
-  return <HomeScreen initialLayout={config} initialCatalog={catalog} />;
+  return (
+    <>
+      {/* 앱 진입 실기 F3-b — 첫 화면 배너 그림 미리 받기 (서버 HTML) */}
+      <HomeAboveFoldImagePreload urls={resolveHomeAboveFoldBannerImageUrls(config)} />
+      <HomeScreen initialLayout={config} initialCatalog={catalog} />
+    </>
+  );
 }

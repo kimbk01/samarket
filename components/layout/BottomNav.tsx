@@ -1,6 +1,7 @@
 "use client";
 
 import { BottomNavProfileAvatar } from "@/components/layout/BottomNavProfileAvatar";
+import { useBottomNavChatBadgeWithLastRunSeed } from "@/components/layout/use-bottom-nav-chat-badge-seed";
 import Link from "next/link";
 import {
   memo,
@@ -281,7 +282,9 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
 }) {
   const { tt, t, safeT } = useI18n();
   const router = useRouter();
-  const tabBadgeCount = useOwnerHubBadgeTabUnreadCount(tab.icon);
+  const liveTabBadgeCount = useOwnerHubBadgeTabUnreadCount(tab.icon);
+  /** 앱 진입 실기 F3-a — telRING 탭은 진짜 값 전까지 지난 실행 숫자 */
+  const tabBadgeCount = useBottomNavChatBadgeWithLastRunSeed(tab.icon, liveTabBadgeCount);
   const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tt(tab.label);
   const ownerNav = useOwnerNavigationSummary();
   const searchParams = useSearchParams();

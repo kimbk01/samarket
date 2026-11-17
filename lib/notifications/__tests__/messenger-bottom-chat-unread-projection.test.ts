@@ -3,6 +3,8 @@ import {
   __resetMessengerBottomChatUnreadForTest,
   applyMessengerBottomChatUnread,
   getMessengerBottomChatUnreadCount,
+  hasMessengerBottomChatUnreadApplied,
+  resetMessengerBottomChatUnreadForAuthEpoch,
   subscribeMessengerBottomChatUnread,
 } from "@/lib/notifications/messenger-bottom-chat-unread-projection";
 
@@ -41,5 +43,19 @@ describe("messenger-bottom-chat-unread-projection", () => {
     applyMessengerBottomChatUnread(2);
     applyMessengerBottomChatUnread(0);
     expect(onChange).toHaveBeenCalledTimes(3);
+  });
+
+  it("F3-a: first apply marks applied and notifies even when the value is 0; auth epoch reset clears it", () => {
+    const onChange = vi.fn();
+    subscribeMessengerBottomChatUnread(onChange);
+    expect(hasMessengerBottomChatUnreadApplied()).toBe(false);
+    applyMessengerBottomChatUnread(0);
+    expect(hasMessengerBottomChatUnreadApplied()).toBe(true);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    applyMessengerBottomChatUnread(0);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    resetMessengerBottomChatUnreadForAuthEpoch();
+    expect(hasMessengerBottomChatUnreadApplied()).toBe(false);
+    expect(getMessengerBottomChatUnreadCount()).toBe(0);
   });
 });

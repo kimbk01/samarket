@@ -2,7 +2,8 @@
 /**
  * 실기 FAIL-1·FAIL-2 (Owner 「설계대로 진행 승인」 2026-11-17 · docs/audit/app-entry-device-fail-root-cause-design-2026-11-17.md)
  * F1: 인트로가 덮고 있는 동안 ◁ 의 주인은 인트로 하나 — 네이티브 등록 순서 + 웹 이중 방어.
- * F2: 앱 시작 화면은 hydration 전에 걷지 않는다(P3 폐기) — 해제 경로는 `tryDismissNativeSplash` 하나.
+ * F2(P3 폐기)는 빌드 68 실측 FAIL(흰 화면 그대로 · 홈만 늦어짐) → F2′(§6): Android 앱 안 덮개가 있는 실행만 P3 를 건너뛰고,
+ * 덮개 없는 설치 앱은 P3 그대로. 동작 시험은 server-body-splash-release.test.ts.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -70,20 +71,25 @@ describe("F1-b 웹 — 네이티브 인트로가 덮고 있으면 웹 ◁ 처리
   });
 });
 
-describe("F2 — 앱 시작 화면 해제는 hydration 뒤 단일 경로", () => {
-  it("hydration 전 해제 진입점(instrumentation-client · P3 함수)이 없다", () => {
-    expect(existsSync(join(root, "instrumentation-client.ts"))).toBe(false);
-    const metrics = read("lib/startup/startup-metrics.ts");
-    expect(metrics).not.toContain("releaseNativeSplashAtServerBodyFrame");
-    expect(metrics).not.toContain('"serverBodyFirstFrame"');
+describe("F2′ — P3 는 앱 안 덮개가 없는 실행에서만", () => {
+  it("hydration 전 해제 진입점(instrumentation-client → P3 함수)이 있다", () => {
+    expect(existsSync(join(root, "instrumentation-client.ts"))).toBe(true);
+    expect(read("instrumentation-client.ts")).toContain("releaseNativeSplashAtServerBodyFrame()");
   });
 
-  it("네이티브 브리지 해제 호출은 tryDismissNativeSplash 한 곳뿐", () => {
+  it("P3 함수는 덮개 확인을 맨 앞에서 한다", () => {
     const metrics = read("lib/startup/startup-metrics.ts");
-    const calls = metrics.match(/dismissNativeSplashBridges\(/g) ?? [];
-    // 정의 1 + 호출 1
-    expect(calls.length).toBe(2);
-    const body = metrics.slice(metrics.indexOf("function tryDismissNativeSplash"), metrics.indexOf("function dismissNativeSplashBridges"));
-    expect(body).toContain("dismissNativeSplashBridges(reason)");
+    const body = metrics.slice(metrics.indexOf("export function releaseNativeSplashAtServerBodyFrame"));
+    const firstGuard = body.indexOf("if (isNativeSplashCoverActive()) return;");
+    expect(firstGuard).toBeGreaterThan(0);
+    expect(firstGuard).toBeLessThan(body.indexOf("requestAnimationFrame(tick)"));
+  });
+
+  it("Android: 덮개 표시 값은 문서 시작 스크립트로 넣고, 덮개는 웹 해제·고장 해제 때 걷는다", () => {
+    const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    expect(main).toContain("__DIBAY_NATIVE_SPLASH_COVER__");
+    expect(main).toContain("DibaySplashCover.documentStartValue()");
+    expect(main).toContain("DibaySplashCover.isShowing()");
+    expect((main.match(/DibaySplashCover\.hide\(/g) ?? []).length).toBeGreaterThanOrEqual(3);
   });
 });

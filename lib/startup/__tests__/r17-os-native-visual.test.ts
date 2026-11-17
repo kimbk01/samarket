@@ -48,8 +48,10 @@ describe("R17-OS Android TRUE OS splash resources", () => {
     const main = src("android/app/src/main/java/com/dibay/app/MainActivity.java");
     // 진입 감사 5단계 (Owner 2026-11-17 「설계안대로 진행」 · LIFECYCLE §10·§11 개정): 네이티브 인트로가 붙으면 시작 화면을 걷는다
     // (인트로가 로딩 시간을 채움). 웹 신호 해제는 그대로 · 인트로는 홈 준비(웹 신호) 또는 고장 판정 때만 걷힌다.
+    // 실기 FAIL-2 F2′-a (Owner 「수정 설계 승인」 2026-11-17): 같은 모습 앱 안 덮개가 붙어도 시작 화면을 넘긴다 —
+    // 덮개는 웹 해제(화면 커밋 뒤)·고장 해제 때만 걷힌다.
     expect(main).toContain(
-      "setKeepOnScreenCondition(\n        () -> !webSplashDismissRequested && !DibayNativeIntro.isOverlayAttached());"
+      "setKeepOnScreenCondition(\n        () ->\n            !webSplashDismissRequested\n                && !DibayNativeIntro.isOverlayAttached()\n                && !DibaySplashCover.isShowing());"
     );
     expect(main).toContain("postVisualStateCallback");
     // 표시 타이머 금지 유지
