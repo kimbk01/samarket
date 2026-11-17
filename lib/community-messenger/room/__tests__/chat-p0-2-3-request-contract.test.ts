@@ -65,7 +65,11 @@ describe("P0-2 구조 계약(소스)", () => {
   });
 
   it("D-12 ③ entry_silent 결과로 같은 부트스트랩을 바로 다시 받지 않는다", () => {
-    expect(phase1).toMatch(/if \(applySource !== "entry_silent"\) \{\s*queueMicrotask\(\(\) => \{\s*forgetMessengerRoomClientBootstrapFlights/);
+    /** P2 L3: 읽음 신호마다 강제 bootstrap 없음 — entry_silent 아니고 커서 메시지가 로컬에 없을 때만 1초 디바운스 1회 */
+    expect(phase1).toMatch(
+      /if \(applySource !== "entry_silent" && lrmStr && !messageCreatedAtById\.has\(lrmStr\)\) \{[\s\S]{0,400}forgetMessengerRoomClientBootstrapFlights/
+    );
+    expect(phase1).not.toContain("read_patch_force_network");
   });
 
   it("목록 주소 미리 받기는 브라우저 idle 에", () => {

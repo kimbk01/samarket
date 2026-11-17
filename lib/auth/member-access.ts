@@ -616,6 +616,25 @@ export async function ensureAuthProfileRow(
   });
 }
 
+/** `loadMemberAccessState` 가 읽는 profiles 컬럼(SSOT — 프로필 게이트와 합쳐 1회 읽을 때도 이 목록을 쓴다) */
+export const MEMBER_ACCESS_PROFILE_SELECT =
+  "id, email, display_name, username, nickname, avatar_url, role, is_admin, member_type, status, member_status, phone, phone_country_code, phone_number, phone_verified, phone_verified_at, phone_verification_method, phone_verification_status, auth_login_email, provider, auth_provider, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version";
+
+type MemberAccessProfileRow = {
+  [key: string]: unknown;
+  email?: string | null;
+  display_name?: string | null;
+  username?: string | null;
+  nickname?: string | null;
+  role?: string | null;
+  member_type?: string | null;
+  status?: string | null;
+  phone?: string | null;
+  phone_verified?: boolean | null;
+  phone_verification_status?: string | null;
+  auth_provider?: string | null;
+};
+
 export async function loadMemberAccessState(
   sb: SupabaseClient,
   userId: string,
@@ -624,15 +643,17 @@ export async function loadMemberAccessState(
     fallbackUsername?: string | null;
     fallbackNickname?: string | null;
     fallbackProvider?: string | null;
+    /**
+     * P2 (B3): 호출부가 `MEMBER_ACCESS_PROFILE_SELECT` 컬럼을 포함해 이미 읽은 profiles 행(없으면 null).
+     * undefined 면 기존대로 여기서 읽는다.
+     */
+    prefetchedProfile?: Record<string, unknown> | null;
   }
 ): Promise<MemberAccessState> {
-  const { data: profile } = await sb
-    .from("profiles")
-    .select(
-      "id, email, display_name, username, nickname, avatar_url, role, is_admin, member_type, status, member_status, phone, phone_country_code, phone_number, phone_verified, phone_verified_at, phone_verification_method, phone_verification_status, auth_login_email, provider, auth_provider, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version"
-    )
-    .eq("id", userId)
-    .maybeSingle();
+  const profile =
+    opts?.prefetchedProfile !== undefined
+      ? (opts.prefetchedProfile as MemberAccessProfileRow | null)
+      : (await sb.from("profiles").select(MEMBER_ACCESS_PROFILE_SELECT).eq("id", userId).maybeSingle()).data;
 
   const email = pickTrimmed(profile?.email) ?? opts?.fallbackEmail ?? null;
   const username = pickTrimmed(profile?.username) ?? opts?.fallbackUsername ?? null;
@@ -767,9 +788,15 @@ export function canUseVerifiedMemberFeatures(state: MemberAccessState | null | u
 
 export async function assertVerifiedMemberForAction(
   sb: SupabaseClient,
-  userId: string
+  userId: string,
+  /** P2 (B3): 미리 읽은 profiles 행(`MEMBER_ACCESS_PROFILE_SELECT` 포함). undefined 면 기존대로 읽음 */
+  prefetchedProfile?: Record<string, unknown> | null
 ): Promise<{ ok: true; state: MemberAccessState } | { ok: false; status: number; error: string; state?: MemberAccessState }> {
-  const state = await loadMemberAccessState(sb, userId);
+  const state = await loadMemberAccessState(
+    sb,
+    userId,
+    prefetchedProfile !== undefined ? { prefetchedProfile } : undefined
+  );
   const { assertMemberProductAction } = await import("@/lib/auth/member-action-policy");
   const decision = assertMemberProductAction({ status: state.status, deleted_at: null }, "PRODUCT_WRITE");
   if (!decision.ok) {

@@ -9,6 +9,10 @@ import {
   primeMessengerPrivateRealtimeAuth,
   sendMessengerPrivateBroadcastFromClient,
 } from "@/lib/community-messenger/realtime/private-broadcast-client";
+import {
+  releaseMessengerChannel,
+  whenMessengerTopicFree,
+} from "@/lib/community-messenger/realtime/messenger-channel-topic-lease";
 
 /**
  * 타이핑 — 방 단위 **비공개** 토픽 `community-messenger-typing:<roomId>`.
@@ -40,35 +44,45 @@ export function useCommunityMessengerRoomTypingRuntime(args: {
     if (!sb) return;
     const typingStore = useMessengerTypingStore;
     primeMessengerPrivateRealtimeAuth(sb);
-    const channel = sb
-      .channel(communityMessengerTypingChannelName(roomId), messengerPrivateBroadcastChannelOptions())
-      .on("broadcast", { event: "typing:start" }, (msg) => {
-        const payload = (msg as { payload?: Record<string, unknown> }).payload ?? {};
-        const fromUserId = typeof payload.fromUserId === "string" ? payload.fromUserId.trim() : "";
-        if (!fromUserId || fromUserId === viewerUserId) return;
-        if (peerUserId && fromUserId !== peerUserId) return;
-        typingStore.getState().setTyping(roomId, fromUserId, TYPING_TTL_MS);
-      })
-      .on("broadcast", { event: "typing:stop" }, (msg) => {
-        const payload = (msg as { payload?: Record<string, unknown> }).payload ?? {};
-        const fromUserId = typeof payload.fromUserId === "string" ? payload.fromUserId.trim() : "";
-        if (!fromUserId || fromUserId === viewerUserId) return;
-        if (peerUserId && fromUserId !== peerUserId) return;
-        typingStore.getState().clearTyping(roomId, fromUserId);
-      })
-      .subscribe(createMessengerPrivateChannelStatusHandler({ sb, scope: "typing" }));
-    channelRef.current = channel;
+    const topic = communityMessengerTypingChannelName(roomId);
+    /** X4: 같은 토픽 이전 채널 제거가 끝난 뒤 새 채널 생성 — leaving 객체 재사용으로 조용히 죽는 것 방지 */
+    let alive = true;
+    let channel: ReturnType<typeof sb.channel> | null = null;
     const pruneTimer = window.setInterval(() => {
       typingStore.getState().clearExpired();
     }, 1500);
+    void (async () => {
+      await whenMessengerTopicFree(sb, topic);
+      if (!alive) return;
+      channel = sb
+        .channel(topic, messengerPrivateBroadcastChannelOptions())
+        .on("broadcast", { event: "typing:start" }, (msg) => {
+          const payload = (msg as { payload?: Record<string, unknown> }).payload ?? {};
+          const fromUserId = typeof payload.fromUserId === "string" ? payload.fromUserId.trim() : "";
+          if (!fromUserId || fromUserId === viewerUserId) return;
+          if (peerUserId && fromUserId !== peerUserId) return;
+          typingStore.getState().setTyping(roomId, fromUserId, TYPING_TTL_MS);
+        })
+        .on("broadcast", { event: "typing:stop" }, (msg) => {
+          const payload = (msg as { payload?: Record<string, unknown> }).payload ?? {};
+          const fromUserId = typeof payload.fromUserId === "string" ? payload.fromUserId.trim() : "";
+          if (!fromUserId || fromUserId === viewerUserId) return;
+          if (peerUserId && fromUserId !== peerUserId) return;
+          typingStore.getState().clearTyping(roomId, fromUserId);
+        })
+        .subscribe(createMessengerPrivateChannelStatusHandler({ sb, scope: "typing" }));
+      channelRef.current = channel;
+    })();
     return () => {
+      alive = false;
       if (stopTimerRef.current != null) {
         window.clearTimeout(stopTimerRef.current);
         stopTimerRef.current = null;
       }
       window.clearInterval(pruneTimer);
       channelRef.current = null;
-      void sb.removeChannel(channel);
+      releaseMessengerChannel(sb, channel);
+      channel = null;
       const bucket = typingStore.getState().byRoomId[roomId];
       if (bucket) {
         for (const uid of Object.keys(bucket)) {

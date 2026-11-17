@@ -443,6 +443,31 @@ export function mergeMessageIntoRoomSnapshotCache(args: {
   patchHotMap(roomId, viewerUserId, update);
 }
 
+/**
+ * P2 (Owner 2026-11-18): 메시지 행 영구 삭제(음성) — 방 캐시(메모리·hot)에서도 그 id 를 지워 재진입 첫 화면에
+ * 되살아나지 않게 한다. TTL 시각은 그대로.
+ */
+export function removeMessageFromRoomSnapshotCache(args: {
+  roomId: string;
+  viewerUserId: string;
+  messageId: string;
+}): void {
+  const roomId = args.roomId.trim();
+  const viewerUserId = args.viewerUserId.trim();
+  const messageId = args.messageId.trim();
+  if (!roomId || !viewerUserId || !messageId) return;
+  const update = (snapshot: CommunityMessengerRoomSnapshot): CommunityMessengerRoomSnapshot => {
+    const list = snapshot.messages ?? [];
+    if (!list.some((m) => String(m.id ?? "").trim() === messageId)) return snapshot;
+    return { ...snapshot, messages: list.filter((m) => String(m.id ?? "").trim() !== messageId) };
+  };
+  const key = cacheKey(roomId, viewerUserId);
+  const row = entries.get(key);
+  if (row) entries.set(key, { snapshot: update(row.snapshot), at: row.at });
+  const hot = hotEntries.get(key);
+  if (hot) hotEntries.set(key, update(hot));
+}
+
 export function patchRoomSummaryInSnapshotCache(args: {
   roomId: string;
   viewerUserId: string;
