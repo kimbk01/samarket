@@ -14,6 +14,10 @@ import {
   saveStartupConfigToDb,
 } from "@/lib/startup/startup-config-db";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import {
+  STARTUP_CONFIG_AUDIT_ACTION,
+  loadStartupConfigLastChange,
+} from "@/lib/admin/app-entry/startup-config-last-change";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +37,9 @@ export async function GET() {
     }
     return NextResponse.json({ ok: false, error: loaded.message ?? "error" }, { status: 500 });
   }
-  return NextResponse.json({ ok: true as const, source: loaded.source, config: loaded.config });
+  // 앱 진입 어드민 v3 §5: 마지막 변경 시각·관리자 (admin_settings.updated_at · audit_logs 최신 저장 행)
+  const lastChange = await loadStartupConfigLastChange(sb);
+  return NextResponse.json({ ok: true as const, source: loaded.source, config: loaded.config, lastChange });
 }
 
 export async function PUT(req: NextRequest) {
@@ -75,10 +81,11 @@ export async function PUT(req: NextRequest) {
   }
 
   const meta = getAuditRequestMeta(req);
-  void appendAuditLog(sb, {
+  // 기록을 남긴 뒤 마지막 변경(관리자)을 다시 읽어 응답에 싣는다 — 실패해도 저장 결과에는 영향 없음
+  await appendAuditLog(sb, {
     actor_type: "admin",
     actor_id: userId,
-    action: "startup_config.update",
+    action: STARTUP_CONFIG_AUDIT_ACTION,
     target_type: "admin_settings",
     target_id: STARTUP_CONFIG_SETTINGS_KEY,
     before_json: beforeRow?.value_json != null ? { value_json: beforeRow.value_json } : null,
@@ -91,9 +98,10 @@ export async function PUT(req: NextRequest) {
     user_agent: meta.userAgent,
   });
 
-  const reloaded = await loadStartupConfigFromDb(sb);
+  const [reloaded, lastChange] = await Promise.all([loadStartupConfigFromDb(sb), loadStartupConfigLastChange(sb)]);
   return NextResponse.json({
     ok: true as const,
     config: reloaded.ok ? reloaded.config : config,
+    lastChange,
   });
 }

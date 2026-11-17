@@ -133,6 +133,8 @@ const VIEW_CONTRACT: { page: string; route: string; method?: string }[] = [
   // G-15: 거래 회원 조회 = 중앙 회원과 같은 users 키
   { page: "/admin/trade/members", route: "trade/members/route.ts" },
   { page: "/admin/trade/members/abc", route: "trade/members/[id]/trade/route.ts" },
+  // 앱 진입 어드민 v3 §B 「한눈에 보기」 (조회 전용)
+  { page: "/admin/platform-promotion/entry", route: "app-entry/overview/route.ts" },
 ];
 
 /** 쓰기 작업 가드가 더 강한 화면 — `action` 이 실제 쓰기 API 가드와 같다. */
@@ -243,8 +245,15 @@ describe("admin route access — API 가드 계약", () => {
       const redirectOnly = existsSync(page) && /\bredirect\(/.test(readFileSync(page, "utf8"));
       const seen = new Set<string>();
       // 재감사 D-5: 목록 화면에는 쓰기가 없고 상세(하위 page)에서만 쓰는 경우(사장님 이벤트 신청 심사)도 본다
+      // 앱 진입 어드민 v3 (2026-11-17): 옛 화면을 다른 화면으로 합친 경우(이동 전용 page) — 이동한 화면의 폐포에서 찾는다
+      const redirectTarget = redirectOnly
+        ? /\bredirect\(\s*"(\/admin\/[^"?#]+)"/.exec(readFileSync(page, "utf8"))?.[1]
+        : undefined;
       const stack = redirectOnly
-        ? descendantPages(path.join(ROOT, "app", rule.path))
+        ? [
+            ...descendantPages(path.join(ROOT, "app", rule.path)),
+            ...(redirectTarget ? [path.join(ROOT, "app", redirectTarget, "page.tsx")] : []),
+          ]
         : [page, ...descendantPages(path.join(ROOT, "app", rule.path))];
       let found = false;
       while (stack.length && !found) {
