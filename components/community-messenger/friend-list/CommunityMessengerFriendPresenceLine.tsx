@@ -4,8 +4,8 @@ import { memo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import {
-  formatMessengerLastSeenYyMmDdHhMm,
   formatMessengerPeerPresenceLine,
+  parseMessengerLastSeenAt,
 } from "@/lib/community-messenger/realtime/presence/format-messenger-peer-presence-line";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { useMessengerPresenceStore } from "@/lib/community-messenger/stores/useMessengerPresenceStore";
@@ -42,7 +42,7 @@ export const CommunityMessengerFriendPresenceLine = memo(function CommunityMesse
   const hasPresence =
     snapshot != null &&
     (snapshot.state === "online" ||
-      Boolean(snapshot.lastSeenAt && formatMessengerLastSeenYyMmDdHhMm(snapshot.lastSeenAt)));
+      parseMessengerLastSeenAt(snapshot.lastSeenAt) != null);
   return (
     <p data-cm-list-preview="" className="truncate" style={{ color: "var(--cm-chat-sub)" }}>
       {hasPresence || !fallbackText ? formatMessengerPeerPresenceLine(snapshot, t) : fallbackText}

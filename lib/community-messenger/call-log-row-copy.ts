@@ -123,13 +123,13 @@ export function enrichCommunityMessengerCallLogsWithProfiles(
   });
 }
 
-/** 카카오톡 통화목록형 — 오늘·어제·이전 모두 시·분(AM/PM SSOT) 표시 */
+/** 카카오톡 통화목록형 — 오늘·어제·이전 모두 시·분 표시 (P4-B: 시각은 메신저 시각 1형식, 화면 언어 따름) */
 export function formatCallLogListTime(
   iso: string,
   lang: AppLanguageCode,
   yesterdayLabel: string
 ): string {
-  const timePart = formatMessengerClockTime(iso);
+  const timePart = formatMessengerClockTime(iso, lang);
   if (!timePart) return "";
   const date = new Date(iso.trim());
 
@@ -153,7 +153,10 @@ export function formatCallLogListTime(
   return `${datePart} ${timePart}`;
 }
 
-/** 상대 통화 상세 이력 행 — 시각만 (AM/PM SSOT) */
-export function formatCallPeerDetailRowTime(iso: string, _lang: AppLanguageCode): string {
-  return formatMessengerClockTime(iso);
+/**
+ * 상대 통화 상세 이력 행 — 시각만. P4-B (Owner 2026-11-18): 화면 언어 따름 — ko 「오전 2:16」 / en 「2:16 AM」.
+ * 표시 문자열만 — 통화 신호·세션·푸시와 무관.
+ */
+export function formatCallPeerDetailRowTime(iso: string, lang: AppLanguageCode): string {
+  return formatMessengerClockTime(iso, lang);
 }

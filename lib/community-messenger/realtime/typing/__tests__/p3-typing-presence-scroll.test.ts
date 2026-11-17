@@ -210,11 +210,12 @@ describe("접속 — 「자리 비움」 없음 (레거시 안 B)", () => {
     expect(formatMessengerPeerPresenceLine({ userId: "u", state: "online", lastSeenAt: null }, ko)).toBe("온라인");
     expect(formatMessengerPeerPresenceLine({ userId: "u", state: "away", lastSeenAt: null }, ko)).toBe("오프라인");
     expect(formatMessengerPeerPresenceLine(null, en)).toBe("Offline");
+    /** P4-B: 레거시 「…까지 접속함」 / 「last seen …」 (상세는 format-messenger-peer-presence-line 시험) */
     expect(formatMessengerPeerPresenceLine({ userId: "u", state: "offline", lastSeenAt: "2026-11-13T20:15:17Z" }, ko)).toMatch(
-      /^마지막 접속 \d{2}-\d{2}-\d{2} \d{2}:\d{2}$/
+      /까지 접속함$/
     );
     expect(formatMessengerPeerPresenceLine({ userId: "u", state: "offline", lastSeenAt: "2026-11-13T20:15:17Z" }, en)).toMatch(
-      /^Last seen /
+      /^last seen /
     );
   });
 });

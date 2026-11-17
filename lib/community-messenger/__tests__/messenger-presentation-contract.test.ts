@@ -75,18 +75,27 @@ describe("messenger presentation contract", () => {
     expect(backward).not.toMatch(/opacity:\s*0\./);
   });
 
-  it("AM/PM clock time is single SSOT authority", () => {
+  /** P4-B (Owner 2026-11-18 「권장안대로 반영」 · 레거시 Telegram): 시각 1형식, 화면 언어 따름 (예전 en-US 고정 폐기) */
+  it("clock time is single SSOT authority — ko 「오후 3:05」 / en 「3:05 PM」", () => {
     const iso = new Date(2026, 6, 30, 15, 5, 0).toISOString();
-    const label = formatMessengerClockTime(iso);
-    expect(label).toMatch(/^\d{1,2}:\d{2}\s*(AM|PM)$/i);
+    expect(formatMessengerClockTime(iso, "ko")).toBe("오후 3:05");
+    expect(formatMessengerClockTime(iso, "en")).toBe("3:05 PM");
     const helpers = readFileSync(
       resolve(root, "components/community-messenger/room/community-messenger-room-helpers.tsx"),
       "utf8"
     );
     expect(helpers).toContain('export { formatMessengerClockTime as formatTime }');
     const callCopy = readFileSync(resolve(root, "lib/community-messenger/call-log-row-copy.ts"), "utf8");
-    expect(callCopy).toContain("formatMessengerClockTime");
+    expect(callCopy).toContain("formatMessengerClockTime(iso, lang)");
     expect(callCopy).not.toMatch(/hour12:\s*lang\s*===\s*"ko"/);
+    const clock = readFileSync(resolve(root, "lib/community-messenger/messenger-clock-time.ts"), "utf8");
+    expect(clock).toContain("formatClock");
+    expect(clock).not.toMatch(/"en-US"/);
+    const timeline = readFileSync(
+      resolve(root, "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx"),
+      "utf8"
+    );
+    expect(timeline).not.toMatch(/Intl\.DateTimeFormat\("ko-KR"/);
   });
 
   it("call stub occurrence time is nowrap + non-shrink; no vw max-width", () => {

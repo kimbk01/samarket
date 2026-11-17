@@ -74,13 +74,19 @@ describe("채팅 P0-1 — 병합 참조 유지", () => {
 });
 
 describe("채팅 P0-1 — 시각 포맷터 1개", () => {
-  it("formatMessengerClockTime 은 여러 번 불러도 Intl.DateTimeFormat 을 1번만 만든다", async () => {
+  it("formatMessengerClockTime·날짜 구분선은 여러 번 불러도 Intl.DateTimeFormat 을 만들지 않는다 (P4-B: 카탈로그 키)", async () => {
     vi.resetModules();
     const spy = vi.spyOn(Intl, "DateTimeFormat");
-    const { formatMessengerClockTime } = await import("@/lib/community-messenger/messenger-clock-time");
-    for (let i = 0; i < 50; i += 1) formatMessengerClockTime("2026-11-11T01:00:00.000Z");
-    expect(spy.mock.calls.length).toBeLessThanOrEqual(1);
-    expect(formatMessengerClockTime("2026-11-11T13:05:00.000Z")).toMatch(/\d{1,2}:05\s?(AM|PM)/);
+    const { formatMessengerClockTime, formatMessengerCalendarDate, messengerTranslatorFor } = await import(
+      "@/lib/community-messenger/messenger-clock-time"
+    );
+    for (let i = 0; i < 50; i += 1) {
+      formatMessengerClockTime("2026-11-11T01:00:00.000Z", "ko");
+      formatMessengerCalendarDate(new Date("2026-11-11T01:00:00.000Z"), messengerTranslatorFor("en"), "long");
+    }
+    expect(spy.mock.calls.length).toBe(0);
+    expect(formatMessengerClockTime("2026-11-11T13:05:00.000Z", "en")).toMatch(/^\d{1,2}:05 (AM|PM)$/);
+    expect(formatMessengerClockTime("2026-11-11T13:05:00.000Z", "ko")).toMatch(/^오[전후] \d{1,2}:05$/);
     spy.mockRestore();
   });
 });
