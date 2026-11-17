@@ -149,13 +149,14 @@ describe("CUT 5-R admin surface multi-select mapping", () => {
 describe("CUT 5-R file contracts", () => {
   it("Admin detail uses multi-select + PC load + crop preview + DibayPopupAd", () => {
     const detail = readRepo("components/admin/platform-popup/AdminPlatformPopupDetailWorkspace.tsx");
-    expect(detail).toContain("이미지 불러오기");
+    // 앱 진입 어드민 v3 ④: 그림 칸 = 공통 `AdminImageSlot`(끌어다 놓기·고르기) · 가운데 자르기 확인 → 36:25 자르기 틀(끌기·모서리)
+    expect(detail).toContain("<AdminImageSlot");
     expect(detail).toContain("data-admin-popup-creative-spec");
     expect(detail).toContain("data-admin-popup-surface-select");
     expect(detail).toContain('type={isGlobal ? "radio" : "checkbox"}');
     expect(detail).toContain("toggleAdminSurfaceSelection");
     expect(detail).toContain("surfacesFromAdminSelection");
-    expect(detail).toContain("buildPlatformPopupCenterCropPreviewUrl");
+    expect(detail).toContain("<AdminPopupCropFrame");
     expect(detail).toContain("DIBAY_CANONICAL_POPUP_CREATIVE_SIZE");
   });
 

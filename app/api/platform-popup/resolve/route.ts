@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { buildPlatformPopupPresentationWinner } from "@/lib/platform-popup/build-presentation-winner";
-import { extractPlatformEventBenefitContent } from "@/lib/platform-popup/event-benefit-authority";
+import { loadPopupCandidateEventBenefit } from "@/lib/platform-popup/popup-present-requirements";
 import { assertNotImpressionFromResolver } from "@/lib/platform-popup/events";
 import { loadPlatformPopupCandidates } from "@/lib/platform-popup/load-popup-candidates";
 import {
@@ -129,15 +129,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
         let eventBenefit = null;
         if (winner.presentationType === "benefit_dialog") {
-          const eventId =
-            candidate.ctaType === "event_detail" ? String(candidate.ctaTarget ?? "").trim() : "";
-          if (!eventId) return { ok: false, reason: "benefit_content_required" };
-          const { data: eventRow } = await sb
-            .from("platform_events")
-            .select("sections")
-            .eq("id", eventId)
-            .maybeSingle();
-          eventBenefit = extractPlatformEventBenefitContent(eventRow?.sections ?? null);
+          // v3 ④: 어드민 「앱에 나오나」와 같은 함수
+          eventBenefit = await loadPopupCandidateEventBenefit(sb, candidate);
           if (!eventBenefit) return { ok: false, reason: "benefit_content_required" };
         }
 

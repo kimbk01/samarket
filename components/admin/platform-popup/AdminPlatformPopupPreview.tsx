@@ -11,7 +11,12 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { PLATFORM_POPUP_TABLET_MAX_WIDTH_PX } from "@/lib/platform-popup/popup-geometry-tokens";
 import { resolvePlatformPopupPresentationSuppressionOptions } from "@/lib/platform-popup/popup-suppression-ui";
-import type { PlatformPopupPresentationWinner } from "@/lib/platform-popup/popup-presentation-types";
+import type {
+  PlatformPopupCouponRow,
+  PlatformPopupListStore,
+  PlatformPopupPresentationWinner,
+} from "@/lib/platform-popup/popup-presentation-types";
+import type { MessageKey } from "@/lib/i18n/message-key";
 import type { PlatformPopupSuppressionMode } from "@/lib/platform-popup/types";
 import {
   isPlatformPopupInterruptivePresentation,
@@ -48,9 +53,40 @@ export type AdminPlatformPopupPreviewSource = {
   ctaTextColor?: string | null;
   /** When false, benefit_dialog must not pretend to render. */
   benefitEligible?: boolean;
+  /** v3 ④ — 말풍선 자리(예시 홈 머리줄의 지역·알림) */
+  tooltipAnchor?: "region" | "notifications";
 };
 
-const PREVIEW_LIVE_DATA_ONLY: ReadonlySet<string> = new Set(["list_sheet", "coupon_card", "tooltip"]);
+/**
+ * v3 ④: 목록·쿠폰·말풍선은 앱에서 회원·화면별 실제 데이터로 그린다 — 미리보기는 「예시」 표시를 단 예시 데이터로 그린다.
+ * 예시 데이터는 이 화면 안에서만 쓴다(저장·앱 전송 없음).
+ */
+const PREVIEW_SAMPLE_DATA: ReadonlySet<string> = new Set(["list_sheet", "coupon_card", "tooltip"]);
+
+function sampleListStores(t: (key: MessageKey, vars?: Record<string, string | number>) => string): PlatformPopupListStore[] {
+  return [1, 2, 3].map((n) => ({
+    id: `sample-store-${n}`,
+    slug: `sample-store-${n}`,
+    name: t("platform_popup_preview_sample_store_name", { n }),
+    imageUrl: null,
+    href: "#",
+  }));
+}
+
+function sampleCoupons(t: (key: MessageKey, vars?: Record<string, string | number>) => string): PlatformPopupCouponRow[] {
+  const day = 24 * 3600_000;
+  return [2, 5].map((d, i) => ({
+    id: `sample-coupon-${i + 1}`,
+    title: t("platform_popup_preview_sample_coupon_title", { n: i + 1 }),
+    storeName: t("platform_popup_preview_sample_store_name", { n: i + 1 }),
+    // 미리보기 고정 시각 기준 — 「며칠 남음」 표시용
+    expiresAt: new Date(SAMPLE_NOW_MS + d * day).toISOString(),
+    href: "#",
+  }));
+}
+
+/** 예시 쿠폰 만료 기준 시각(화면을 열 때 1번) */
+const SAMPLE_NOW_MS = Date.now();
 
 type DeviceMode = "phone" | "tablet_portrait" | "tablet_landscape" | "desktop";
 
@@ -61,8 +97,15 @@ const FRAMES: Record<DeviceMode, { w: number; h: number; safeBottom: number }> =
   desktop: { w: 1280, h: 800, safeBottom: 0 },
 };
 
-export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPopupPreviewSource | null }) {
-  const { safeT, language } = useI18n();
+export function AdminPlatformPopupPreview({
+  source,
+  allowLandscape = PLATFORM_POPUP_LANDSCAPE_ALLOWED_DEFAULT,
+}: {
+  source: AdminPlatformPopupPreviewSource | null;
+  /** v3 ④: 저장된 전체 설정 「가로 화면에서도」 — 없으면 기본값 */
+  allowLandscape?: boolean;
+}) {
+  const { safeT, language, t } = useI18n();
   const [device, setDevice] = useState<DeviceMode>("phone");
 
   const winner: PlatformPopupPresentationWinner | null = useMemo(() => {
@@ -72,8 +115,6 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
     )
       ? (source.presentationType as PlatformPopupInterruptivePresentation)
       : "center_modal";
-    // 진입 감사 PO-3: 목록·쿠폰·말풍선은 앱에서 고객·화면별 실제 데이터로 그린다 — 미리보기에 가짜 데이터를 넣지 않는다
-    if (PREVIEW_LIVE_DATA_ONLY.has(presentationType)) return null;
     if (presentationType === "benefit_dialog") {
       if (source.benefitEligible === false || !source.benefit?.title?.trim()) return null;
     }
@@ -119,8 +160,12 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
   }, [source]);
 
   const frame = FRAMES[device];
-  // 진입 감사 PO-4: 가로 허용이 기본 — 앱과 같은 판단(허용이면 폭 480 으로 그대로 보인다)
-  const landscapeDenied = device === "tablet_landscape" && !PLATFORM_POPUP_LANDSCAPE_ALLOWED_DEFAULT;
+  // 진입 감사 PO-4 · v3 ④: 저장된 전체 설정 「가로 화면에서도」 그대로 — 허용이면 폭 480 으로 보인다
+  const landscapeDenied = device === "tablet_landscape" && !allowLandscape;
+  const sampleKind = winner && PREVIEW_SAMPLE_DATA.has(winner.presentationType) ? winner.presentationType : null;
+  const sampleStores = useMemo(() => sampleListStores(t), [t]);
+  const sampleCouponRows = useMemo(() => sampleCoupons(t), [t]);
+  const tooltipAnchor = source?.tooltipAnchor === "notifications" ? "notifications" : "region";
   const surfaceLabel = source?.surface
     ? adminSurfaceModeLabel(
         source.surface as PlatformPopupAdminSurfaceMode,
@@ -184,7 +229,38 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
               {safeT("admin_platform_popup_preview_landscape_deny")}
             </p>
           ) : winner ? (
-            <div className="w-full max-w-full px-3">
+            <div
+              className={`relative w-full max-w-full px-3 ${sampleKind === "tooltip" ? "self-start pt-2" : ""}`}
+              data-admin-popup-preview-sample={sampleKind ?? undefined}
+            >
+              {sampleKind ? (
+                <span
+                  className="absolute right-4 top-1 z-10 rounded-ui-rect bg-sam-warning px-2 py-0.5 text-[12px] font-semibold text-sam-surface"
+                  data-admin-popup-sample-badge="1"
+                >
+                  {t(
+                    sampleKind === "list_sheet"
+                      ? "platform_popup_preview_sample_badge_store"
+                      : sampleKind === "coupon_card"
+                        ? "platform_popup_preview_sample_badge_coupon"
+                        : "platform_popup_preview_sample_badge_home"
+                  )}
+                </span>
+              ) : null}
+              {sampleKind === "tooltip" ? (
+                /* 말풍선은 홈 머리줄의 자리(지역·알림) 옆에 붙는다 — 예시 홈 머리줄 */
+                <div
+                  className="flex items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg"
+                  data-admin-popup-mock-home-header="1"
+                >
+                  <span data-popup-anchor="region" className="font-semibold">
+                    {t("platform_popup_preview_sample_region")} ▾
+                  </span>
+                  <span data-popup-anchor="notifications" className="text-xs text-sam-muted">
+                    {t("platform_popup_preview_sample_alerts")}
+                  </span>
+                </div>
+              ) : null}
               <DibayPopupAd
                 key={`${winner.presentationType}-${winner.creative.creativeMode}-${winner.benefit?.title ?? ""}-${winner.title ?? ""}`}
                 campaignId={winner.campaignId}
@@ -206,15 +282,17 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
                 }}
                 onImageError={() => undefined}
                 ctaColors={winner.ctaColors ?? null}
+                listStores={sampleKind === "list_sheet" ? sampleStores : undefined}
+                coupons={sampleKind === "coupon_card" ? sampleCouponRows : undefined}
+                tooltipAnchor={tooltipAnchor}
+                onUnavailable={() => undefined}
               />
             </div>
           ) : (
             <p className="px-4 text-center text-sm text-sam-muted">
               {source?.presentationType === "benefit_dialog" && source.benefitEligible === false
                 ? safeT("admin_platform_popup_benefit_requires_event")
-                : source?.imageUrl && PREVIEW_LIVE_DATA_ONLY.has(String(source.presentationType ?? ""))
-                  ? safeT("admin_platform_popup_preview_live_data_only")
-                  : safeT("admin_platform_popup_preview_empty")}
+                : safeT("admin_platform_popup_preview_empty")}
             </p>
           )}
         </div>

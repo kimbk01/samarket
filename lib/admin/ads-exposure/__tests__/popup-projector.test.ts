@@ -33,6 +33,8 @@ const campaign: PlatformPopupAdminListItem = {
   linkedEventId: null,
   linkedEventTitle: null,
   linkedEventHasBenefit: null,
+  queueClass: "optional",
+  autoDismissSeconds: null,
 };
 
 describe("popup campaign action item", () => {

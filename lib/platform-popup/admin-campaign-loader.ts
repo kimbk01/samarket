@@ -31,6 +31,16 @@ import {
   sanitizeAdminListSearch,
 } from "@/lib/admin/pagination/parse-admin-list-page";
 import { applyPostgrestAndGroup } from "@/lib/posts/apply-postgrest-and-group";
+import {
+  loadPlatformPopupAppliedStatusIndex,
+  platformPopupAppliedStatusFor,
+  type PlatformPopupAppliedStatusIndex,
+} from "@/lib/platform-popup/admin-applied-status";
+import {
+  PLATFORM_POPUP_APPLIED_NOT_SHOWN_FILTER,
+  isPlatformPopupAppliedShowing,
+  type PlatformPopupAppliedStatus,
+} from "@/lib/platform-popup/admin-applied-status-contract";
 import type {
   PlatformPopupApprovalStatus,
   PlatformPopupCampaignStatus,
@@ -70,6 +80,13 @@ export type PlatformPopupAdminListItem = {
   linkedEventId: string | null;
   linkedEventTitle: string | null;
   linkedEventHasBenefit: boolean | null;
+  /** 진입 감사 PO-2 — 목록 「진입 순서」·「자동 닫힘」 (마이그레이션 전 운영 DB 면 기본값) */
+  queueClass: PlatformPopupQueueClass;
+  autoDismissSeconds: number | null;
+  /** v3 ④ — 서버 「앱에 나오나」 (`admin-applied-status.ts`) · 목록/상세 API 가 채운다 */
+  appliedStatus?: PlatformPopupAppliedStatus;
+  /** v3 ④ — 최근 30일 노출·누름 (목록 API) */
+  recent30d?: { impressions: number; clicks: number } | null;
 };
 
 export type PlatformPopupAdminDetail = PlatformPopupAdminListItem & {
@@ -100,9 +117,7 @@ export type PlatformPopupAdminDetail = PlatformPopupAdminListItem & {
   /** ptr_reveal 제한 노출 — 기본 all. 팝업은 항상 all(컬럼 기본값). */
   audienceMode: "all" | "allowlist";
   audienceUserIds: string[];
-  /** 진입 감사 PO-2·PO-3 (2026-11-17) — 마이그레이션 전 운영 DB 면 기본값 */
-  queueClass: PlatformPopupQueueClass;
-  autoDismissSeconds: number | null;
+  /** 진입 감사 PO-3 (2026-11-17) — 마이그레이션 전 운영 DB 면 기본값 */
   ctaBgColor: string | null;
   ctaTextColor: string | null;
   listStoreIds: string[];
@@ -211,14 +226,19 @@ function mapListItem(
     linkedEventId: linked.eventId,
     linkedEventTitle: linked.eventTitle,
     linkedEventHasBenefit: linked.hasBenefit,
+    queueClass: normalizePlatformPopupQueueClass(row.queue_class),
+    autoDismissSeconds: normalizePlatformPopupAutoDismissSeconds(row.auto_dismiss_seconds),
   };
 }
 
 /** 목록 범위 — `popup`(기본): 팝업만, `ptr`: 당겨서 새로고침 띠 광고만. 두 메뉴가 서로의 캠페인을 보이지 않게 분리. */
 export type PlatformPopupAdminListScope = "popup" | "ptr";
 
-const PLATFORM_POPUP_ADMIN_LIST_COLUMNS =
-  "id, name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode, cta_type, cta_target, external_url, cta_label, title, body, owner_store_id, owner_request_id, created_by, approved_by, approved_at, created_at, updated_at";
+/**
+ * v3 ④: `*` — 진입 순서·자동 닫힘 열(20271117120000)이 운영에 적용되기 전에도 목록이 열리도록(없는 열 = 기본값).
+ * 상세·후보 조회와 같은 방식.
+ */
+const PLATFORM_POPUP_ADMIN_LIST_COLUMNS = "*";
 
 export async function listPlatformPopupAdminCampaigns(
   sb: SupabaseClient,
@@ -290,6 +310,8 @@ export type PlatformPopupAdminListFilter = {
   domain?: string | null;
   /** 「지금」 기준 시각 (테스트·대시보드 동일 시각용). 기본 현재. */
   nowIso?: string;
+  /** v3 ④ — 미리 읽은 「앱에 나오나」 (없으면 필요할 때 서버가 읽는다) */
+  appliedIndex?: PlatformPopupAppliedStatusIndex;
 };
 
 const POPUP_INTERRUPTIVE_CENTER_TYPES = ["center_modal", "inline_banner", "hero_banner"] as const;
@@ -349,8 +371,11 @@ async function applyPlatformPopupAdminListFilter<Q extends FilterableQuery>(
   sb: SupabaseClient,
   query: Q,
   filter: PlatformPopupAdminListFilter
-): Promise<{ ok: true; query: Q } | { ok: false; error: string }> {
+): Promise<
+  { ok: true; query: Q; appliedIndex: PlatformPopupAppliedStatusIndex | null } | { ok: false; error: string }
+> {
   let q = query;
+  let appliedIndex: PlatformPopupAppliedStatusIndex | null = filter.appliedIndex ?? null;
   const groups: string[] = [];
   const scope = filter.scope === "ptr" ? "ptr" : "popup";
   if (scope === "ptr") {
@@ -360,7 +385,22 @@ async function applyPlatformPopupAdminListFilter<Q extends FilterableQuery>(
   }
 
   const status = String(filter.status ?? "").trim();
-  if (status === PLATFORM_POPUP_LIVE_STATUS_FILTER) {
+  if (
+    scope === "popup" &&
+    (status === PLATFORM_POPUP_LIVE_STATUS_FILTER || status === PLATFORM_POPUP_APPLIED_NOT_SHOWN_FILTER)
+  ) {
+    // v3 ④: 「앱에 나오는 중」·「안 나옴」 = 서버 「앱에 나오나」 결과 (앱 조회와 같은 자격 함수) — 상태·날짜만 보지 않는다
+    appliedIndex =
+      appliedIndex ??
+      (await loadPlatformPopupAppliedStatusIndex(sb, filter.nowIso ? { now: new Date(filter.nowIso) } : undefined));
+    if (status === PLATFORM_POPUP_LIVE_STATUS_FILTER) {
+      const ids = [...appliedIndex.byId].filter(([, v]) => isPlatformPopupAppliedShowing(v.state)).map(([id]) => id);
+      q = q.in("id", ids.length ? ids : [NO_CAMPAIGN_ID]) as Q;
+    } else {
+      const ids = [...appliedIndex.byId].filter(([, v]) => v.state !== "not_shown").map(([id]) => id);
+      if (ids.length) groups.push(`id.not.in.(${ids.join(",")})`);
+    }
+  } else if (status === PLATFORM_POPUP_LIVE_STATUS_FILTER) {
     const now = quotePostgrestOrValue(filter.nowIso ?? new Date().toISOString());
     q = q.eq("status", "active") as Q;
     groups.push(`or(start_at.is.null,start_at.lte.${now})`);
@@ -375,6 +415,14 @@ async function applyPlatformPopupAdminListFilter<Q extends FilterableQuery>(
       q = q.eq("presentation_type", "benefit_dialog") as Q;
     } else if (composition === "bottom_promotion_sheet") {
       groups.push("or(presentation_type.is.null,presentation_type.eq.bottom_sheet)");
+    } else if (
+      composition === "coupon_card" ||
+      composition === "artwork_full" ||
+      composition === "list_sheet" ||
+      composition === "tooltip"
+    ) {
+      // v3 ④: 진입 감사 PO-3 새 형태 4종은 프레젠테이션 값이 곧 형태 (예전에는 중앙 모달로 묶였다)
+      q = q.eq("presentation_type", composition) as Q;
     } else {
       q = q.in("presentation_type", POPUP_INTERRUPTIVE_CENTER_TYPES) as Q;
       const art = await loadArtworkCampaignIds(sb);
@@ -401,7 +449,7 @@ async function applyPlatformPopupAdminListFilter<Q extends FilterableQuery>(
   }
 
   if (groups.length) applyPostgrestAndGroup(q, `(${groups.join(",")})`);
-  return { ok: true, query: q };
+  return { ok: true, query: q, appliedIndex };
 }
 
 /**
@@ -430,6 +478,24 @@ export async function listPlatformPopupAdminCampaignPage(
   if (error) return { ok: false, error: error.message };
   const rows = (data ?? []) as CampaignRow[];
   const items = rows.length ? await buildPlatformPopupAdminListItems(sb, rows) : [];
+  if (items.length && input.filter.scope !== "ptr") {
+    // v3 ④: 행마다 「앱에 나오나」 + 최근 30일 노출·누름
+    const index =
+      applied.appliedIndex ??
+      (await loadPlatformPopupAppliedStatusIndex(
+        sb,
+        input.filter.nowIso ? { now: new Date(input.filter.nowIso) } : undefined
+      ));
+    const recent = await loadPlatformPopupRecent30d(
+      sb,
+      items.map((i) => i.id),
+      input.filter.nowIso ? new Date(input.filter.nowIso) : new Date()
+    );
+    for (const item of items) {
+      item.appliedStatus = platformPopupAppliedStatusFor(index, item);
+      item.recent30d = recent.get(item.id) ?? null;
+    }
+  }
   return { ok: true, items, total: count ?? rows.length };
 }
 
@@ -451,6 +517,45 @@ export async function countPlatformPopupAdminCampaigns(
   }>));
   if (error) return { ok: false, error: error.message };
   return { ok: true, total: count ?? 0 };
+}
+
+/**
+ * v3 ④ — 최근 30일 노출·누름 수 (캠페인별 건수만 읽음 · 행을 받지 않는다).
+ * 인덱스 `platform_popup_campaign_events_campaign_created_idx` (campaign_id, created_at). 읽기 실패 = 그 캠페인 없음(—).
+ */
+export const PLATFORM_POPUP_RECENT_DAYS = 30;
+
+async function loadPlatformPopupRecent30d(
+  sb: SupabaseClient,
+  campaignIds: readonly string[],
+  now: Date
+): Promise<Map<string, { impressions: number; clicks: number }>> {
+  const out = new Map<string, { impressions: number; clicks: number }>();
+  const since = new Date(now.getTime() - PLATFORM_POPUP_RECENT_DAYS * 24 * 3600_000).toISOString();
+  const countOf = async (campaignId: string, eventType: "impression" | "click"): Promise<number | null> => {
+    const { count, error } = await sb
+      .from("platform_popup_campaign_events")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_id", campaignId)
+      .eq("event_type", eventType)
+      .gte("created_at", since);
+    return error ? null : (count ?? 0);
+  };
+  await Promise.all(
+    campaignIds.map(async (id) => {
+      const [impressions, clicks] = await Promise.all([countOf(id, "impression"), countOf(id, "click")]);
+      if (impressions != null && clicks != null) out.set(id, { impressions, clicks });
+    })
+  );
+  return out;
+}
+
+/** 상세 — 「앱에 나오나」 (목록과 같은 계산) */
+export async function loadPlatformPopupAdminAppliedStatus(
+  sb: SupabaseClient,
+  row: { id: string; status: string; approvalStatus: string }
+): Promise<PlatformPopupAppliedStatus> {
+  return platformPopupAppliedStatusFor(await loadPlatformPopupAppliedStatusIndex(sb), row);
 }
 
 /** 캠페인 행 → 목록 항목 (노출 위치·썸네일·연결 이벤트 보강). */
