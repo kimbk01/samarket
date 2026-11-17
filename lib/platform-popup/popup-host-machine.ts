@@ -26,7 +26,9 @@ export type PlatformPopupHostEvent =
   | { type: "DISMISS" }
   | { type: "SUPPRESS" }
   | { type: "INVALIDATE" }
-  | { type: "RESET" };
+  | { type: "RESET" }
+  /** 진입 감사 PO-2 — 같은 진입 대기열의 다음 팝업으로(닫은·자동 닫힌 직후). 이미지 준비 단계(READY)부터 다시 */
+  | { type: "QUEUE_NEXT" };
 
 export function reducePlatformPopupHostState(
   state: PlatformPopupHostState,
@@ -59,6 +61,8 @@ export function reducePlatformPopupHostState(
       return "DISMISSED";
     case "SUPPRESS":
       return "SUPPRESSED";
+    case "QUEUE_NEXT":
+      return state === "VISIBLE" || state === "DISMISSED" || state === "SUPPRESSED" ? "READY" : state;
     default:
       return state;
   }

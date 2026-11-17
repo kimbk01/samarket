@@ -12,8 +12,12 @@ import type {
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
 import { PLATFORM_POPUP_DEFAULT_TIMEZONE } from "@/lib/platform-popup/types";
 import {
+  normalizePlatformPopupAutoDismissSeconds,
   normalizePlatformPopupCreativeMode,
   normalizePlatformPopupFrequencyMode,
+  normalizePlatformPopupHexColor,
+  normalizePlatformPopupQueueClass,
+  normalizePlatformPopupTooltipAnchor,
 } from "@/lib/platform-popup/presentation-contract";
 import {
   assertBenefitDialogContent,
@@ -102,5 +106,17 @@ export function buildPlatformPopupPresentationWinner(
         ? campaignRow.suppressionDurationSeconds
         : null,
     revision: candidate.campaignRevision ?? null,
+    // 진입 감사 PO-2·PO-3
+    queueClass: normalizePlatformPopupQueueClass(candidate.queueClass),
+    autoDismissSeconds: normalizePlatformPopupAutoDismissSeconds(candidate.autoDismissSeconds),
+    ctaColors:
+      winner.presentationType === "artwork_full"
+        ? {
+            bg: normalizePlatformPopupHexColor(candidate.ctaBgColor),
+            text: normalizePlatformPopupHexColor(candidate.ctaTextColor),
+          }
+        : null,
+    tooltipAnchor:
+      winner.presentationType === "tooltip" ? normalizePlatformPopupTooltipAnchor(candidate.tooltipAnchor) : undefined,
   };
 }

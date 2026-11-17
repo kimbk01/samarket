@@ -55,6 +55,13 @@ type CampaignRow = {
   /** ptr_reveal 마이그레이션 이후 — interruptive 쿼리에는 포함하지 않음 */
   audience_mode?: string | null;
   audience_user_ids?: string[] | null;
+  /** 진입 감사 4단계 (20271117120000) — 적용 전에는 없음 */
+  queue_class?: string | null;
+  auto_dismiss_seconds?: number | null;
+  cta_bg_color?: string | null;
+  cta_text_color?: string | null;
+  list_store_ids?: string[] | null;
+  tooltip_anchor?: string | null;
 };
 
 type CreativeRow = {
@@ -113,9 +120,9 @@ export async function loadPlatformPopupCandidates(
         .eq("presentation_type", PTR_REVEAL_PRESENTATION)
     : sb
         .from("platform_popup_campaigns")
-        .select(
-          "id, status, approval_status, priority, start_at, end_at, timezone, cta_type, cta_target, external_url, cta_label, title, body, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode, owner_store_id"
-        )
+        // 진입 감사 4단계: `*` — 대기열·자동 닫힘·형태 열(20271117120000)이 운영에 적용되기 전에도 같은 코드가 동작한다
+        // (없는 열은 기본값). ptr_reveal 범위와 같은 방식.
+        .select("*")
         .in("status", ["scheduled", "active"])
         .eq("approval_status", "approved");
   const { data: campaigns, error } = await campaignQuery.order("priority", { ascending: false });
@@ -278,6 +285,12 @@ export async function loadPlatformPopupCandidates(
         ctaInputOf(c)
       ),
       lastImpressionAt: lastImpressions.get(c.id) ?? null,
+      queueClass: c.queue_class ?? null,
+      autoDismissSeconds: c.auto_dismiss_seconds ?? null,
+      ctaBgColor: c.cta_bg_color ?? null,
+      ctaTextColor: c.cta_text_color ?? null,
+      listStoreIds: Array.isArray(c.list_store_ids) ? c.list_store_ids : null,
+      tooltipAnchor: c.tooltip_anchor ?? null,
       ...(isPtr
         ? {
             ptrBands: ptrBandsByCampaign.get(c.id) ?? {},

@@ -494,3 +494,308 @@
   outline: 2px solid var(--overlay-primary, #085c3f);
   outline-offset: -2px;
 }
+
+/* ── 진입 감사 PO-3 (2026-11-17) — 새 형태 4종 ─────────────────────── */
+/* 공통: 투명 PNG 를 자르지 않고(contain) 그대로 — 카드 36:25 · 겹침 여백 없음 */
+.dibay-promo-creative--entry {
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  overflow: visible;
+}
+
+.dibay-promo-creative--entry .dibay-promo-creative__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  background: transparent;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 그림 전체형 — 틀 없는 그림 + 아래 버튼 */
+.dibay-promo-frame--artwork-full {
+  max-width: min(92vw, 400px);
+}
+
+.dibay-promo-artwork-full {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.dibay-promo-creative--artwork_full .dibay-promo-creative__img {
+  max-height: min(68vh, 560px);
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.18));
+}
+
+.dibay-promo-cta--artwork-full {
+  width: 100%;
+}
+
+/* 쿠폰 카드 */
+.dibay-promo-frame--coupon-card {
+  max-width: min(92vw, 360px);
+}
+
+.dibay-promo-coupon {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--overlay-radius-lg);
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
+}
+
+.dibay-promo-creative--coupon_card .dibay-promo-creative__img {
+  max-height: 180px;
+}
+
+.dibay-promo-coupon__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px 6px;
+}
+
+.dibay-promo-coupon__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dibay-promo-coupon__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px dashed var(--sam-border, #e2e8f0);
+  border-radius: var(--sam-radius-sm, 4px);
+}
+
+.dibay-promo-coupon__name {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--sam-fg, #111);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dibay-promo-coupon__store {
+  display: block;
+  font-size: 12px;
+  color: var(--sam-muted, #64748b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dibay-promo-coupon__due {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sam-danger, #dc2626);
+}
+
+.dibay-promo-coupon .dibay-promo-cta--in-card {
+  margin: 8px 0 4px;
+  width: 100%;
+}
+
+/* 하단 목록 시트 */
+.dibay-promo-creative--list_sheet .dibay-promo-creative__img {
+  max-height: 160px;
+}
+
+.dibay-promo-list__left {
+  margin: 2px 0 0;
+  padding: 0 2px;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--sam-danger, #dc2626);
+}
+
+.dibay-promo-list {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0 0;
+  padding: 0 14px 2px;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dibay-promo-list::-webkit-scrollbar {
+  display: none;
+}
+
+.dibay-promo-list__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 72px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dibay-promo-list__thumb {
+  display: block;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--sam-radius-sm, 4px);
+  overflow: hidden;
+  background: var(--sam-surface-muted, #f1f5f9);
+}
+
+.dibay-promo-list__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dibay-promo-list__name {
+  width: 100%;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--sam-fg, #111);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 말풍선 — 배경 없음 · 화면 막지 않음 */
+.dibay-promo-tooltip {
+  position: fixed;
+  z-index: 60;
+  border-radius: 12px;
+  background: #111827;
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  animation: dibay-promo-tooltip-in 160ms ease-out;
+}
+
+.dibay-promo-tooltip::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: calc(var(--dibay-tooltip-arrow-left, 24px) - 6px);
+  border: 6px solid transparent;
+  border-top: 0;
+  border-bottom-color: #111827;
+}
+
+.dibay-promo-tooltip__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px 8px 10px;
+}
+
+.dibay-promo-creative--tooltip {
+  flex: 0 0 40px;
+  width: 40px;
+}
+
+.dibay-promo-creative--tooltip .dibay-promo-creative__img {
+  width: 40px;
+  height: 40px;
+}
+
+.dibay-promo-tooltip__text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dibay-promo-tooltip__ad {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.dibay-promo-tooltip__title {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.dibay-promo-tooltip__body {
+  font-size: 12px;
+  line-height: 1.35;
+  opacity: 0.85;
+}
+
+.dibay-promo-close-x.dibay-promo-tooltip__close {
+  position: static;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  font-size: 18px;
+  background: transparent;
+  box-shadow: none;
+}
+
+@keyframes dibay-promo-tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.dibay-promo-frame--artwork-full,
+.dibay-promo-frame--coupon-card {
+  transform: scale(0.96);
+  opacity: 0;
+  transition:
+    transform var(--overlay-motion-enter, 200ms) ease-out,
+    opacity var(--overlay-motion-enter, 200ms) ease-out;
+}
+
+.dibay-promo-root[data-entered="true"] .dibay-promo-frame--artwork-full,
+.dibay-promo-root[data-entered="true"] .dibay-promo-frame--coupon-card,
+.dibay-promo-embedded .dibay-promo-frame--artwork-full,
+.dibay-promo-embedded .dibay-promo-frame--coupon-card {
+  transform: none;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dibay-promo-frame--artwork-full,
+  .dibay-promo-frame--coupon-card,
+  .dibay-promo-tooltip {
+    transition: none;
+    animation: none;
+    transform: none;
+    opacity: 1;
+  }
+}

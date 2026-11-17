@@ -93,6 +93,14 @@ export type PlatformPopupCandidate = {
   /** ptr_reveal 제한 노출 — 기본 all (팝업·공개 PTR). allowlist 는 앱 리졸버에서만 적용. */
   audienceMode?: string | null;
   audienceUserIds?: readonly string[] | null;
+  /** 진입 감사 PO-2 — 진입 대기열 구분(없음 = optional) · 자동 닫힘 초(없음 = 없음) */
+  queueClass?: string | null;
+  autoDismissSeconds?: number | null;
+  /** 진입 감사 PO-3 — 그림 전체형 버튼 색 · 목록 시트 매장 · 말풍선 자리 */
+  ctaBgColor?: string | null;
+  ctaTextColor?: string | null;
+  listStoreIds?: readonly string[] | null;
+  tooltipAnchor?: string | null;
 };
 
 export type PlatformPopupPtrBandAsset = {

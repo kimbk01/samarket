@@ -174,6 +174,7 @@ export function HomeScreen({
                       else void requireAuthAction("address_save", () => router.push("/mypage/addresses"), { next: "/home" });
                     }}
                     data-home-address
+                    data-popup-anchor="region"
                   >
                     <span className="min-w-0 truncate">{addressLabel}</span>
                     <ChevronDown className="h-3.5 w-3.5 shrink-0" strokeWidth={2.4} aria-hidden />
@@ -184,7 +185,10 @@ export function HomeScreen({
             right={
               <div className={samTier1HeaderIconCluster}>
                 {isMember ? (
-                  <Tier1NotificationAnchor />
+                  /* 진입 감사 PO-3: 팝업 말풍선이 붙는 자리 */
+                  <span data-popup-anchor="notifications" className="inline-flex">
+                    <Tier1NotificationAnchor />
+                  </span>
                 ) : isGuest ? (
                   <button
                     type="button"

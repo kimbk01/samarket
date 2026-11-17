@@ -19,12 +19,17 @@ function lastShownMs(c: PlatformPopupCandidate): number {
 }
 
 /**
- * Sort: domain > GLOBAL → never shown first → oldest impression → priority DESC → start ASC → id.
+ * Sort: mandatory > optional → domain > GLOBAL → never shown first → oldest impression → priority DESC → start ASC → id.
  */
 export function comparePopupCandidatesForRotation(
   a: PlatformPopupCandidate,
   b: PlatformPopupCandidate
 ): number {
+  // 진입 감사 PO-2: 필수(공지·쿠폰 만료 등)가 선택(프로모션)보다 먼저 — 진입 대기열 순서
+  const aMandatory = a.queueClass === "mandatory" ? 1 : 0;
+  const bMandatory = b.queueClass === "mandatory" ? 1 : 0;
+  if (aMandatory !== bMandatory) return bMandatory - aMandatory;
+
   const aDomain = platformPopupIsDomainTargeted(a.surfaces) ? 1 : 0;
   const bDomain = platformPopupIsDomainTargeted(b.surfaces) ? 1 : 0;
   if (aDomain !== bDomain) return bDomain - aDomain;

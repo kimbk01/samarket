@@ -13,6 +13,11 @@ import type { PlatformPopupPresentationWinner } from "@/lib/platform-popup/popup
 import { resolveFirstPresentablePopupCandidate } from "@/lib/platform-popup/resolve-first-presentable";
 import { loadSessionCoordinatedEventIds } from "@/lib/platform-promotion-lifecycle/load-content-visits";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { loadPlatformPopupEntryPolicyCached } from "@/lib/platform-popup/entry-policy-server";
+import {
+  loadPlatformPopupExpiringCoupons,
+  loadPlatformPopupListStores,
+} from "@/lib/platform-popup/entry-queue-enrich";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -77,93 +82,140 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   });
 
   /**
+   * 진입 감사 PO-8·PO-4 (2026-11-17): 어드민 전체 스위치 — 꺼짐이면 0, 가로 화면 금지면 가로 요청에 0.
+   */
+  const policy = await loadPlatformPopupEntryPolicyCached();
+  if (!policy.enabled || (url.searchParams.get("landscape") === "1" && !policy.allowLandscape)) {
+    return NextResponse.json(
+      {
+        ok: true,
+        winner: null,
+        queue: [],
+        reason: policy.enabled ? "policy_landscape_off" : "policy_disabled",
+        surface,
+        generation,
+        impression: false,
+      },
+      { headers: NO_STORE }
+    );
+  }
+
+  /**
    * 광고 최종 점검 P2: 1위가 표시 단계에서 무효(혜택 내용 없음·소재 주소 없음 등)면 그 캠페인만 빼고
    * 다음 순위를 고른다 — 예전에는 `winner: null` 로 끝나 같은 영역의 다른 팝업까지 나오지 않았다.
    */
   const now = new Date();
-  const picked = await resolveFirstPresentablePopupCandidate<
-    ResolvePopupAdWinner,
-    PlatformPopupPresentationWinner
-  >({
-    candidates,
-    select: (remaining) => {
-      const result = resolvePopupAd({
-        pathname,
-        now,
-        sessionKey,
-        resolvedSurface: surface,
-        candidates: remaining,
-        coordinatedEventIds,
-      });
-      if (!result.ok) return { kind: "error", error: result.error };
-      if (!result.winner) return { kind: "none", reason: result.reason ?? null };
-      return { kind: "winner", campaignId: result.winner.campaignId, winner: result.winner };
-    },
-    present: async (winner, candidate) => {
-      const creative = candidate.creative;
-      if (!creative) return { ok: false, reason: "winner_creative_missing" };
+  const pickNext = (remainingCandidates: typeof candidates) =>
+    resolveFirstPresentablePopupCandidate<ResolvePopupAdWinner, PlatformPopupPresentationWinner>({
+      candidates: remainingCandidates,
+      select: (remaining) => {
+        const result = resolvePopupAd({
+          pathname,
+          now,
+          sessionKey,
+          resolvedSurface: surface,
+          candidates: remaining,
+          coordinatedEventIds,
+        });
+        if (!result.ok) return { kind: "error", error: result.error };
+        if (!result.winner) return { kind: "none", reason: result.reason ?? null };
+        return { kind: "winner", campaignId: result.winner.campaignId, winner: result.winner };
+      },
+      present: async (winner, candidate) => {
+        const creative = candidate.creative;
+        if (!creative) return { ok: false, reason: "winner_creative_missing" };
 
-      let eventBenefit = null;
-      if (winner.presentationType === "benefit_dialog") {
-        const eventId =
-          candidate.ctaType === "event_detail" ? String(candidate.ctaTarget ?? "").trim() : "";
-        if (!eventId) return { ok: false, reason: "benefit_content_required" };
-        const { data: eventRow } = await sb
-          .from("platform_events")
-          .select("sections")
-          .eq("id", eventId)
-          .maybeSingle();
-        eventBenefit = extractPlatformEventBenefitContent(eventRow?.sections ?? null);
-        if (!eventBenefit) return { ok: false, reason: "benefit_content_required" };
+        let eventBenefit = null;
+        if (winner.presentationType === "benefit_dialog") {
+          const eventId =
+            candidate.ctaType === "event_detail" ? String(candidate.ctaTarget ?? "").trim() : "";
+          if (!eventId) return { ok: false, reason: "benefit_content_required" };
+          const { data: eventRow } = await sb
+            .from("platform_events")
+            .select("sections")
+            .eq("id", eventId)
+            .maybeSingle();
+          eventBenefit = extractPlatformEventBenefitContent(eventRow?.sections ?? null);
+          if (!eventBenefit) return { ok: false, reason: "benefit_content_required" };
+        }
+
+        const presentation = buildPlatformPopupPresentationWinner(
+          winner,
+          candidate,
+          {
+            assetUrl: creative.assetUrl ?? null,
+            assetPath: creative.assetPath ?? null,
+            altText: creative.altText ?? null,
+          },
+          {
+            suppressionMode: candidate.suppressionMode,
+            suppressionDurationSeconds: candidate.suppressionDurationSeconds,
+            timezone: candidate.timezone,
+            ctaLabel: candidate.ctaLabel ?? null,
+            title: candidate.title ?? null,
+            body: candidate.body ?? null,
+            frequencyMode: candidate.frequencyMode,
+          },
+          eventBenefit
+        );
+        if (!presentation) return { ok: false, reason: "presentation_invalid" };
+
+        // 진입 감사 PO-3: 목록 시트·쿠폰 카드는 실제 데이터를 채우고, 비면 이 팝업을 빼고 다음 순위로
+        if (winner.presentationType === "list_sheet") {
+          const listStores = await loadPlatformPopupListStores(sb, candidate.listStoreIds ?? null);
+          if (!listStores.length) return { ok: false, reason: "list_stores_empty" };
+          return { ok: true, value: { ...presentation, listStores, listEndsAt: candidate.endAt ? new Date(candidate.endAt).toISOString() : null } };
+        }
+        if (winner.presentationType === "coupon_card") {
+          const coupons = await loadPlatformPopupExpiringCoupons(sb, userId, now);
+          if (!coupons.length) return { ok: false, reason: "coupons_empty" };
+          return { ok: true, value: { ...presentation, coupons } };
+        }
+        return { ok: true, value: presentation };
+      },
+    });
+
+  /** 진입 감사 PO-2: 한 번 진입에 순서대로 보일 팝업 목록(최대 `policy.maxPerEntry`) — 필수가 먼저 */
+  const queue: PlatformPopupPresentationWinner[] = [];
+  let remainingCandidates = candidates;
+  let lastReason: string | null = null;
+  for (let i = 0; i < policy.maxPerEntry; i++) {
+    const picked = await pickNext(remainingCandidates);
+    if (picked.kind === "error") {
+      if (queue.length === 0) {
+        return NextResponse.json(
+          { ok: false, error: picked.error, impression: false },
+          { status: 500, headers: NO_STORE }
+        );
       }
-
-      const presentation = buildPlatformPopupPresentationWinner(
-        winner,
-        candidate,
-        {
-          assetUrl: creative.assetUrl ?? null,
-          assetPath: creative.assetPath ?? null,
-          altText: creative.altText ?? null,
-        },
-        {
-          suppressionMode: candidate.suppressionMode,
-          suppressionDurationSeconds: candidate.suppressionDurationSeconds,
-          timezone: candidate.timezone,
-          ctaLabel: candidate.ctaLabel ?? null,
-          title: candidate.title ?? null,
-          body: candidate.body ?? null,
-          frequencyMode: candidate.frequencyMode,
-        },
-        eventBenefit
-      );
-      if (!presentation) return { ok: false, reason: "presentation_invalid" };
-      return { ok: true, value: presentation };
-    },
-  });
-
-  if (picked.kind === "error") {
-    return NextResponse.json(
-      { ok: false, error: picked.error, impression: false },
-      { status: 500, headers: NO_STORE }
-    );
+      break;
+    }
+    if (picked.kind === "none") {
+      lastReason = picked.reason;
+      break;
+    }
+    queue.push(picked.value);
+    const takenId = picked.value.campaignId;
+    remainingCandidates = remainingCandidates.filter((c) => c.id !== takenId);
   }
 
-  if (picked.kind === "none") {
+  if (queue.length === 0) {
     return NextResponse.json({
       ok: true,
       winner: null,
-      reason: picked.reason,
+      queue: [],
+      reason: lastReason,
       surface,
       generation,
       impression: false,
     }, { headers: NO_STORE });
   }
 
-  const presentation = picked.value;
-
   return NextResponse.json({
     ok: true,
-    winner: presentation,
+    /** 이전 앱 번들 호환 — 대기열 첫 번째 */
+    winner: queue[0],
+    queue,
     reason: null,
     surface,
     generation,

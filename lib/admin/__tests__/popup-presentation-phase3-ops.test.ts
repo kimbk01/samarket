@@ -27,12 +27,17 @@ const ROOT = process.cwd();
 const read = (path: string) => withCatalogCopy(readFileSync(`${ROOT}/${path}`, "utf8"));
 
 describe("Phase 3 — Popup 4-presentation operational clarity", () => {
-  it("exposes exactly four operator compositions", () => {
+  // 진입 감사 4단계 (Owner 2026-11-17 「설계안대로 진행」): 배민 실측 형태 4종 추가 — 쿠폰·그림 전체·목록 시트·말풍선
+  it("exposes the operator compositions (4 original + 4 entry-audit kinds)", () => {
     expect(PLATFORM_POPUP_COMPOSITIONS).toEqual([
       "artwork_modal",
       "promotion_card_modal",
       "bottom_promotion_sheet",
       "benefit_dialog",
+      "coupon_card",
+      "artwork_full",
+      "list_sheet",
+      "tooltip",
     ]);
   });
 
