@@ -23,8 +23,9 @@ import java.lang.ref.WeakReference;
  * 흰 프레임 0(빌드 69·70 실측 0/34). 덮개는 시작 화면 해제 권한(웹 성공 신호 → 화면 커밋 콜백 뒤 · 네이티브 고장
  * 판정)과 같은 때만 걷는다 — 표시 타이머 없음. 커밋 확인 없이 걷으면 흰 화면이 난다(빌드 71 실측 5/24 · 문서 §13-2).
  *
- * <p>범위: 아이콘 실행만(인트로와 같은 판단 {@link MainActivity#isLauncherLaunch}) · 인트로를 고른 실행 제외(인트로가
- * 덮음) · 설정 변경으로 화면을 다시 만들 때 제외(시스템 시작 화면이 없음). 통화·알림·딥링크 실행은 지금 그대로.
+ * <p>범위: 아이콘 실행 + 통화 아닌 알림 탭·딥링크({@link MainActivity#isSplashCoverLaunch} · 설계 R2-1 2026-11-18 —
+ * 알림 탭 실행 실측 흰 화면 삼성 0.1초 3/3 · 샤오미 0.4~0.5초) · 인트로를 고른 실행 제외(인트로가 덮음) · 설정 변경으로
+ * 화면을 다시 만들 때 제외(시스템 시작 화면이 없음). 통화 실행({@link MainActivity#isCallLaunch})은 지금 그대로(덮개 없음).
  */
 final class DibaySplashCover {
   private static final String TAG = "DibaySplashCover";
@@ -46,17 +47,17 @@ final class DibaySplashCover {
    * <p>설정 변경 다시 만들기 = 같은 프로세스 + 저장 상태 있음. 프로세스가 죽은 뒤 복원(새 프로세스)은 시스템 시작 화면이
    * 뜨므로 덮개를 쓴다.
    */
-  static void planForLaunch(boolean launcherLaunch, boolean introSelected, boolean hasSavedState) {
+  static void planForLaunch(boolean coverLaunch, boolean introSelected, boolean hasSavedState) {
     boolean configRecreate = hasSavedState && activityCreatedInProcess;
     activityCreatedInProcess = true;
-    planned = launcherLaunch && !introSelected && !configRecreate;
+    planned = coverLaunch && !introSelected && !configRecreate;
     showing = false;
     Log.i(
         TAG,
         "plan cover="
             + planned
-            + " launcher="
-            + launcherLaunch
+            + " launch="
+            + coverLaunch
             + " intro="
             + introSelected
             + " recreate="

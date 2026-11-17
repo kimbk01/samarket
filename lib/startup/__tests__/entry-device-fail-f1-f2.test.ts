@@ -99,3 +99,33 @@ describe("방식 A — 덮개 실행은 hydration 뒤 해제 · 네이티브는 
     expect((main.match(/DibaySplashCover\.hide\(/g) ?? []).length).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe("설계 R2-1 — 덮개 = 아이콘 실행 + 통화 아닌 알림 탭·딥링크 (§19-2)", () => {
+  const main = () => read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+  const fnBody = (src: string, sig: string) => {
+    const s = src.slice(src.indexOf(sig));
+    return s.slice(0, s.indexOf("\n  }\n"));
+  };
+
+  it("덮개 계획은 isSplashCoverLaunch 로 정한다(인트로는 지금처럼 아이콘 실행만)", () => {
+    const src = main();
+    expect(src).toContain("DibaySplashCover.planForLaunch(\n        isSplashCoverLaunch(getIntent()),");
+    expect(src).toContain("if (!DibayNativeIntro.processSelectionDone() && isLauncherLaunch(getIntent())) {");
+  });
+
+  it("통화 실행 판별 — dibay://call·call-v4 · V4 잠금 수락 · 통화 FCM 키 · 종류에 call", () => {
+    const body = fnBody(main(), "static boolean isCallLaunch(Intent intent)");
+    expect(body).toContain('"call".equals(host) || "call-v4".equals(host)');
+    expect(body).toContain("CallV4IntentHelper.EXTRA_V4_LOCK_BACKGROUND_HYDRATION");
+    for (const k of ["call_push_kind", "dibay_call", "call_id", "callId"]) expect(body).toContain(`"${k}"`);
+    expect(body).toContain('.contains("call")');
+  });
+
+  it("덮개 실행 — 통화면 먼저 제외 · VIEW(로그인 되돌아오기 제외) · 경로 없는 알림 MAIN+notificationId", () => {
+    const body = fnBody(main(), "static boolean isSplashCoverLaunch(Intent intent)");
+    expect(body.indexOf("isCallLaunch(intent)")).toBeGreaterThan(0);
+    expect(body.indexOf("isCallLaunch(intent)")).toBeLessThan(body.indexOf("Intent.ACTION_VIEW.equals(action)"));
+    expect(body).toContain('"auth".equals(data.getHost())');
+    expect(body).toContain('ex.containsKey("notificationId")');
+  });
+});

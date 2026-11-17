@@ -135,6 +135,51 @@ public class MainActivity extends BridgeActivity {
     return cats != null && cats.contains(Intent.CATEGORY_LAUNCHER);
   }
 
+  /**
+   * 설계 R2-1 (Owner 「R2-1 진행」 2026-11-18 · docs/audit/app-entry-device-fail-root-cause-design-2026-11-17.md §19-2):
+   * 통화 경로 실행인가 — 통화 실행은 덮개를 쓰지 않는다(통화 변경 규정 · 통화 경로 동작 무변경). 넓게(보수적으로) 판단한다:
+   * `dibay://call…`·`dibay://call-v4…` · V4 잠금 수락 표식 · 통화 FCM 데이터 키 · 종류 값에 「call」이 들어간 알림(부재중 등).
+   */
+  static boolean isCallLaunch(Intent intent) {
+    if (intent == null) return false;
+    Uri data = intent.getData();
+    if (data != null && "dibay".equals(data.getScheme())) {
+      String host = data.getHost();
+      if ("call".equals(host) || "call-v4".equals(host)) return true;
+    }
+    if (intent.getBooleanExtra(CallV4IntentHelper.EXTRA_V4_LOCK_BACKGROUND_HYDRATION, false)) return true;
+    Bundle ex = intent.getExtras();
+    if (ex == null) return false;
+    for (String k : new String[] {"call_push_kind", "dibay_call", "call_id", "callId", "call_type", "callType"}) {
+      if (ex.containsKey(k)) return true;
+    }
+    for (String k : new String[] {"type", "notificationType", "notification_type"}) {
+      Object v = ex.get(k);
+      if (v instanceof String && ((String) v).toLowerCase(java.util.Locale.ROOT).contains("call")) return true;
+    }
+    return false;
+  }
+
+  /**
+   * 설계 R2-1: 시작 화면 덮개를 쓰는 실행 — 아이콘 실행 + 통화 아닌 알림 탭·딥링크.
+   * 알림 탭 = `ACTION_VIEW`(경로 있음) 또는 경로 없는 알림의 `ACTION_MAIN`+`notificationId`(DibayFirebaseMessagingService).
+   * 로그인 되돌아오기(`dibay://auth`)는 제외(지금 그대로).
+   */
+  static boolean isSplashCoverLaunch(Intent intent) {
+    if (isLauncherLaunch(intent)) return true;
+    if (intent == null || isCallLaunch(intent)) return false;
+    String action = intent.getAction();
+    if (Intent.ACTION_VIEW.equals(action)) {
+      Uri data = intent.getData();
+      return !(data != null && "dibay".equals(data.getScheme()) && "auth".equals(data.getHost()));
+    }
+    if (Intent.ACTION_MAIN.equals(action) && intent.getData() == null) {
+      Bundle ex = intent.getExtras();
+      return ex != null && ex.containsKey("notificationId");
+    }
+    return false;
+  }
+
   static String computeNativeRestoreHint(android.content.Context ctx, Bundle savedInstanceState) {
     final boolean hasSavedState = savedInstanceState != null;
     SharedPreferences lifePrefs = ctx.getSharedPreferences(LIFECYCLE_PREFS, MODE_PRIVATE);
@@ -1274,8 +1319,9 @@ public class MainActivity extends BridgeActivity {
       DibayNativeIntro.clearSelection();
     }
     // 실기 FAIL-2 F2′-a: 시스템 시작 화면과 같은 모습의 앱 안 덮개 — 쓸지 여부는 문서 시작 스크립트 설치(super.onCreate) 전에 정한다
+    // 설계 R2-1: 아이콘 실행 + 통화 아닌 알림 탭·딥링크
     DibaySplashCover.planForLaunch(
-        isLauncherLaunch(getIntent()),
+        isSplashCoverLaunch(getIntent()),
         !DibayNativeIntro.documentStartValue().isEmpty(),
         savedInstanceState != null);
     // Capacitor: registerPlugin must run before super.onCreate or plugins stay UNIMPLEMENTED.
