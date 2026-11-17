@@ -38,13 +38,17 @@ public class DibayNativeIntroPlugin: CAPPlugin, CAPBridgedPlugin {
 
   @objc func getState(_ call: CAPPluginCall) {
     let s = DibayNativeIntro.shared
-    call.resolve([
-      "supported": true,
-      "active": s.selected != nil && !s.finished,
-      "creativeId": s.selected?.id as Any,
-      "exposureId": s.exposureId as Any,
-      "revision": s.manifestRevision(),
-    ])
+    let revision = s.manifestRevision()
+    // 빌드 전 감사 N3: 메인 스레드가 쓰는 상태는 메인에서 읽는다
+    DispatchQueue.main.async {
+      call.resolve([
+        "supported": true,
+        "active": s.selected != nil && !s.finished,
+        "creativeId": s.selected?.id as Any,
+        "exposureId": s.exposureId as Any,
+        "revision": revision,
+      ])
+    }
   }
 }
 
@@ -69,6 +73,8 @@ final class DibayNativeIntro {
   private let lastIdKey = "dibay_native_intro_last_shown_id"
   /** 재감사 A4: 홈 준비가 끝내 안 와도 이 시간 뒤 걷는다 */
   private let hardCapMs = 10_000
+  /** 재감사 RA-7: 기기에 저장하는 인트로 그림 합계 상한(정렬 순서 앞쪽부터) */
+  private let storeCapBytes = 30 * 1024 * 1024
   /** 재감사 I4: 동기화는 한 줄로(겹치면 서로 받은 파일을 지움) */
   private let syncQueue = DispatchQueue(label: "dibay.native-intro.sync")
   private var skipButton: UIButton?
@@ -81,6 +87,10 @@ final class DibayNativeIntro {
   private var drawnAt: Date?
   private var homeReady = false
   private var skipRequested = false
+  /** 빌드 전 감사 N4: 홈 준비 전에 소재를 누름 — 준비되는 즉시(또는 상한에) 이동 */
+  private var clickPending = false
+  /** 빌드 전 감사 N2: 한 프로세스에서 소재 고르기는 1번(장면 다시 연결에 다시 고르지 않음) */
+  private var processSelectionDone = false
   private weak var plugin: DibayNativeIntroPlugin?
   private var pending: [[String: Any]] = []
 
@@ -101,6 +111,13 @@ final class DibayNativeIntro {
 
   /** restoreHint: fresh | restore | unknown */
   func selectForLaunch(restoreHint: String) {
+    // 빌드 전 감사 N2: 두 번째 호출부터는 고르지 않는다 — 떠 있던 인트로는 기록 없이 닫는다(Android clearSelection 과 같음)
+    if processSelectionDone {
+      if selected != nil && !finished { finish(reason: "recreate", href: nil) }
+      selected = nil
+      return
+    }
+    processSelectionDone = true
     // 재감사: 통화(CallKit·VoIP)로 백그라운드에서 켜진 실행에는 붙이지 않는다
     if specialLaunch || UIApplication.shared.applicationState == .background {
       selected = nil
@@ -111,6 +128,7 @@ final class DibayNativeIntro {
     finished = false
     homeReady = false
     skipRequested = false
+    clickPending = false
     drawnAt = nil
     guard let m = readManifest(), m["enabled"] as? Bool == true else { return }
     if restoreHint == "restore" && (m["showOnOsRestore"] as? Bool) != true { return }
@@ -177,9 +195,12 @@ final class DibayNativeIntro {
       brand.addArrangedSubview(iv)
     }
     let word = UILabel()
+    // 빌드 전 감사 N6: 밝은 배경이면 짙은 녹색(Y 는 노랑 유지)
+    let wordColor =
+      Self.luminance(e.bgColor) > 0.6 ? UIColor(red: 0x0B / 255, green: 0x42 / 255, blue: 0x1A / 255, alpha: 1) : UIColor.white
     let text = NSMutableAttributedString(
       string: "dibaY",
-      attributes: [.font: UIFont.systemFont(ofSize: 22, weight: .heavy), .foregroundColor: UIColor.white])
+      attributes: [.font: UIFont.systemFont(ofSize: 22, weight: .heavy), .foregroundColor: wordColor])
     text.addAttribute(.foregroundColor, value: UIColor(red: 0xE0 / 255, green: 0xA8 / 255, blue: 0, alpha: 1), range: NSRange(location: 4, length: 1))
     word.attributedText = text
     brand.addArrangedSubview(word)
@@ -214,9 +235,11 @@ final class DibayNativeIntro {
     root.layer.zPosition = 10_000
     host.addSubview(root)
     overlay = root
-    // 재감사 A4: 상한
+    // 재감사 A4: 상한. 빌드 전 감사 N2: 이 노출에만 건다(다음 노출을 일찍 끊지 않음)
+    let capExposureId = exposureId
     DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(hardCapMs)) { [weak self] in
-      self?.finish(reason: "timeout", href: nil)
+      guard let self, self.exposureId == capExposureId else { return }
+      self.onHardCap()
     }
     // 표시 시간 = 첫 그림이 화면에 나간 다음부터(IN-2)
     DispatchQueue.main.async { [weak self] in
@@ -262,8 +285,19 @@ final class DibayNativeIntro {
     return UIImage(cgImage: cg, scale: UIScreen.main.scale, orientation: .up)
   }
 
+  /** WCAG 상대 휘도(0~1) */
+  private static func luminance(_ c: UIColor) -> CGFloat {
+    var r: CGFloat = 0
+    var g: CGFloat = 0
+    var b: CGFloat = 0
+    var a: CGFloat = 0
+    guard c.getRed(&r, green: &g, blue: &b, alpha: &a) else { return 0 }
+    func ch(_ v: CGFloat) -> CGFloat { v <= 0.03928 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+    return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b)
+  }
+
   private static func pill(_ title: String) -> UIButton {
-    let b = UIButton(type: .custom)
+    let b = TouchTargetButton(type: .custom)
     b.setTitle(title, for: .normal)
     b.setTitleColor(.white, for: .normal)
     b.titleLabel?.font = .systemFont(ofSize: 12, weight: .bold)
@@ -302,7 +336,13 @@ final class DibayNativeIntro {
   }
 
   private func maybeFinish() {
-    guard !finished, let e = selected, let drawnAt else { return }
+    guard !finished, let e = selected else { return }
+    // 빌드 전 감사 N4: 홈 준비 전에 누른 소재는 준비되는 즉시 이동
+    if clickPending && homeReady {
+      finish(reason: "click", href: e.ctaHref)
+      return
+    }
+    guard let drawnAt else { return }
     let elapsed = Date().timeIntervalSince(drawnAt) * 1000 >= Double(e.durationMs)
     if homeReady && (elapsed || skipRequested) { finish(reason: skipRequested ? "skip" : "complete", href: nil) }
   }
@@ -311,6 +351,10 @@ final class DibayNativeIntro {
     skipRequested = true
     maybeFinish()
     // 재감사 A5: 홈 준비 전이면 누른 표시(준비되는 즉시 걷힘)
+    showWaiting()
+  }
+
+  private func showWaiting() {
     if !finished, let b = skipButton {
       b.setTitle(Self.localized(ko: "잠시만요…", en: "Just a moment…"), for: .normal)
       b.alpha = 0.6
@@ -326,8 +370,26 @@ final class DibayNativeIntro {
   }
 
   @objc private func onCta() {
-    guard let e = selected, !finished else { return }
-    finish(reason: "click", href: e.ctaHref)
+    guard let e = selected, !finished, !clickPending else { return }
+    // 빌드 전 감사 N4: 홈 준비 전이면 바로 걷지 않고(준비 안 된 화면 노출 방지) 「잠시만요」 뒤 준비되는 즉시 이동
+    if homeReady {
+      finish(reason: "click", href: e.ctaHref)
+      return
+    }
+    clickPending = true
+    showWaiting()
+  }
+
+  /** 재감사 A4 상한. 빌드 전 감사 N4: 누른 소재·건너뛰기는 사용자가 고른 끝으로 기록한다 */
+  private func onHardCap() {
+    guard !finished, let e = selected else { return }
+    if clickPending {
+      finish(reason: "click", href: e.ctaHref)
+    } else if skipRequested {
+      finish(reason: "skip", href: nil)
+    } else {
+      finish(reason: "timeout", href: nil)
+    }
   }
 
   private func finish(reason: String, href: String?) {
@@ -443,6 +505,8 @@ final class DibayNativeIntro {
     do { try fm.createDirectory(at: dir, withIntermediateDirectories: true) } catch { return false }
     excludeFromBackup()
     var anyFailed = false
+    // 재감사 RA-7: 저장 그림 합계(목록 순서 = 정렬 순서)
+    var stored = 0
     let enabled = req["enabled"] as? Bool == true
     var out: [[String: Any]] = []
     var keep = Set<String>()
@@ -461,8 +525,13 @@ final class DibayNativeIntro {
         let file = "\(sha).\(ext)"
         let dest = dir.appendingPathComponent(file)
         let existing = try? Data(contentsOf: dest)
-        if existing == nil || sha256Hex(existing!) != sha {
-          // 재감사 A8: 한 소재 실패가 전체 갱신을 막지 않는다
+        var size = 0
+        if let existing, sha256Hex(existing) == sha {
+          size = existing.count
+        } else {
+          // 재감사 RA-7: 상한이 이미 찼으면 받지 않는다(실패 아님)
+          if stored >= storeCapBytes { continue }
+          // 재감사 A8: 한 소재 실패가 전체 갱신을 막지 않는다 — 그 소재만 뺀다(판 기록은 아래 N1)
           guard let data = download(url, sha256: sha) else {
             anyFailed = true
             continue
@@ -471,7 +540,12 @@ final class DibayNativeIntro {
             anyFailed = true
             continue
           }
+          size = data.count
         }
+        // 재감사 RA-7: 넣으면 30MB 를 넘는 소재는 뺀다(실패 아님 · 파일은 아래 정리에서 지움). 같은 그림은 한 번만 센다
+        if keep.contains(file) { size = 0 }
+        if stored + size > storeCapBytes { continue }
+        stored += size
         out.append([
           "id": id, "sha256": sha, "file": file,
           "bgColor": o["bgColor"] as? String ?? "#075740",
@@ -489,7 +563,9 @@ final class DibayNativeIntro {
       "schema": 1,
       "enabled": enabled && !out.isEmpty,
       "showOnOsRestore": req["showOnOsRestore"] as? Bool == true,
-      "revision": req["revision"] as? String ?? "",
+      // 빌드 전 감사 N1: 하나라도 실패하면 판을 비운다 — 웹은 판이 같으면 sync 를 건너뛰므로 빈 판이어야 다음 발견 때
+      // 다시 맞춘다(이미 받은 그림은 sha 가 같아 다시 받지 않음)
+      "revision": anyFailed ? "" : (req["revision"] as? String ?? ""),
       "entries": out,
     ]
     guard let data = try? JSONSerialization.data(withJSONObject: manifest) else { return false }
@@ -500,5 +576,14 @@ final class DibayNativeIntro {
     }
     NSLog("[DibayNativeIntro] synced entries=%d failed=%d", out.count, anyFailed ? 1 : 0)
     return !anyFailed
+  }
+}
+
+/** 빌드 전 감사 N6: 보이는 알약 크기는 그대로, 누르는 영역만 최소 44pt */
+private final class TouchTargetButton: UIButton {
+  override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+    let dx = min(0, (bounds.width - 44) / 2)
+    let dy = min(0, (bounds.height - 44) / 2)
+    return bounds.insetBy(dx: dx, dy: dy).contains(point)
   }
 }

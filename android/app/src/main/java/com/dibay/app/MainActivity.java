@@ -1264,6 +1264,8 @@ public class MainActivity extends BridgeActivity {
       DibayNativeIntro.selectForLaunch(this, NATIVE_RESTORE_HINT);
     } else {
       // 화면 다시 만들기(설정 변경 등) — 이전 실행의 인트로를 다시 그리지 않는다
+      // 빌드 전 감사 N2: 첫 실행이 통화·알림이었어도 이 프로세스의 「1회 고르기」는 쓴 것으로 표시
+      DibayNativeIntro.markProcessSelectionDone();
       DibayNativeIntro.clearSelection();
     }
     // Capacitor: registerPlugin must run before super.onCreate or plugins stay UNIMPLEMENTED.

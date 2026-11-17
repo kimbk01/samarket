@@ -8,6 +8,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.InsetDrawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -72,6 +73,10 @@ public final class DibayNativeIntro {
   private static final int SCHEMA = 1;
   /** 재감사 A4: 홈이 끝내 준비되지 않아도 인트로는 이 시간 뒤 걷는다(광고가 화면을 붙잡지 않게) */
   private static final long HARD_CAP_MS = 10_000;
+  /** 재감사 RA-7: 기기에 저장하는 인트로 그림 합계 상한(정렬 순서 앞쪽부터) */
+  private static final long STORE_CAP_BYTES = 30L * 1024 * 1024;
+  /** 빌드 전 감사 N6: 밝은 배경에서 브랜드 글자색(짙은 녹색) */
+  private static final int BRAND_DARK = Color.parseColor("#0B421A");
 
   private static final ExecutorService IO = Executors.newSingleThreadExecutor();
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
@@ -84,10 +89,11 @@ public final class DibayNativeIntro {
   private static volatile boolean homeReady = false;
   private static volatile boolean finished = false;
   private static volatile boolean skipRequested = false;
+  /** 빌드 전 감사 N4: 홈 준비 전에 소재를 누름 — 준비되는 즉시(또는 상한에) 이동 */
+  private static volatile boolean clickPending = false;
   private static volatile long drawnAtMs = 0;
   private static View overlay = null;
   private static TextView skipView = null;
-  private static ViewTreeObserver drawObserver = null;
   private static ViewTreeObserver.OnDrawListener drawListener = null;
   private static androidx.activity.OnBackPressedCallback backCallback = null;
   /** 재감사 A2: 한 프로세스에서 소재 고르기는 1번 — 화면 다시 만들기(렌더러 복구·설정 변경)에 다시 고르지 않는다 */
@@ -119,6 +125,11 @@ public final class DibayNativeIntro {
     return processSelectionDone;
   }
 
+  /** 빌드 전 감사 N2: 아이콘 실행이 아닌 첫 실행(통화·알림)도 「1회 고르기」를 쓴 것으로 표시 */
+  static void markProcessSelectionDone() {
+    processSelectionDone = true;
+  }
+
   static void selectForLaunch(Context ctx, String restoreHint) {
     processSelectionDone = true;
     selected = null;
@@ -129,6 +140,7 @@ public final class DibayNativeIntro {
     homeReady = false;
     finished = false;
     skipRequested = false;
+    clickPending = false;
     try {
       JSONObject m = readManifest(ctx);
       if (m == null) return;
@@ -193,7 +205,8 @@ public final class DibayNativeIntro {
 
   static void attach(Activity act) {
     final Entry e = selected;
-    if (e == null) return;
+    // 빌드 전 감사 B1: 끝난 인트로는 다시 붙이지 않는다(화면 다시 만들기·오류 화면 다시 시도)
+    if (e == null || finished) return;
     Bitmap bmp = decode(act, e);
     if (bmp == null) {
       Log.w(TAG, "decode_failed id=" + e.id);
@@ -234,7 +247,8 @@ public final class DibayNativeIntro {
     SpannableString s = new SpannableString("dibaY");
     s.setSpan(new ForegroundColorSpan(Color.parseColor("#E0A800")), 4, 5, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
     word.setText(s);
-    word.setTextColor(Color.WHITE);
+    // 빌드 전 감사 N6: 밝은 배경이면 짙은 녹색(Y 는 노랑 유지)
+    word.setTextColor(luminance(e.bgColor) > 0.6 ? BRAND_DARK : Color.WHITE);
     word.setTypeface(Typeface.DEFAULT_BOLD);
     word.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
     LinearLayout.LayoutParams wordLp =
@@ -256,20 +270,28 @@ public final class DibayNativeIntro {
       root.addView(ad, adLp);
     }
     TextView skip = pill(act, DibayNativeLocale.string(ui, R.string.native_intro_skip), dp);
-    skip.setMinHeight((int) (36 * dp));
+    // 빌드 전 감사 N6: 터치 영역 48dp — 보이는 알약(36dp)은 위아래 6dp 안쪽 여백으로 그대로
+    int touchInset = (int) (6 * dp);
+    skip.setMinHeight((int) (48 * dp));
+    skip.setMinWidth((int) (48 * dp));
+    skip.setBackground(new InsetDrawable(skip.getBackground(), 0, touchInset, 0, touchInset));
     skip.setOnClickListener(v -> onSkip());
     skipView = skip;
     FrameLayout.LayoutParams skipLp =
         new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
-    skipLp.topMargin = (int) (12 * dp);
+    skipLp.topMargin = (int) (12 * dp) - touchInset;
     skipLp.rightMargin = (int) (12 * dp);
     root.addView(skip, skipLp);
 
     root.setOnApplyWindowInsetsListener(
         (v, insets) -> {
+          // 빌드 전 감사 N6: 좌우 안전 영역(가로 노치)도 반영
           v.setPadding(
-              0, insets.getSystemWindowInsetTop(), 0, insets.getSystemWindowInsetBottom());
+              insets.getSystemWindowInsetLeft(),
+              insets.getSystemWindowInsetTop(),
+              insets.getSystemWindowInsetRight(),
+              insets.getSystemWindowInsetBottom());
           return insets;
         });
 
@@ -309,19 +331,21 @@ public final class DibayNativeIntro {
                 MAIN.postDelayed(DibayNativeIntro::maybeFinish, e.durationMs);
               });
         };
-    drawObserver = root.getViewTreeObserver();
     drawListener = holder[0];
-    drawObserver.addOnDrawListener(drawListener);
+    root.getViewTreeObserver().addOnDrawListener(drawListener);
     // 재감사 A4: 상한 — 홈 준비가 끝내 안 와도(고장 판정 전) 광고가 화면을 붙잡지 않는다
-    MAIN.postDelayed(() -> finish("timeout", null), HARD_CAP_MS);
+    MAIN.postDelayed(DibayNativeIntro::onHardCap, HARD_CAP_MS);
   }
 
-  /** 창의 그리기 감시를 뗀다 — 화면에서 떨어진 뒤에는 떠도는 관찰자라 창 것을 따로 들고 있다(재감사 A6) */
+  /**
+   * 그리기 감시를 뗀다(재감사 A6). 빌드 전 감사 N3: 붙기 전 관찰자는 창에 붙을 때 창 관찰자로 합쳐져 그걸로는 못 뗀다 —
+   * 떼는 때 인트로 화면의 지금 관찰자(창 것)로 뗀다. finish 는 화면을 내리기 전에 부른다.
+   */
   private static void detachDrawListener() {
-    ViewTreeObserver o = drawObserver;
+    View root = overlay;
     ViewTreeObserver.OnDrawListener l = drawListener;
-    drawObserver = null;
     drawListener = null;
+    ViewTreeObserver o = root != null ? root.getViewTreeObserver() : null;
     if (o != null && l != null && o.isAlive()) {
       try {
         o.removeOnDrawListener(l);
@@ -329,6 +353,16 @@ public final class DibayNativeIntro {
         // 이미 떨어진 창
       }
     }
+  }
+
+  /** WCAG 상대 휘도(0~1) */
+  private static double luminance(int color) {
+    return 0.2126 * channel(Color.red(color)) + 0.7152 * channel(Color.green(color)) + 0.0722 * channel(Color.blue(color));
+  }
+
+  private static double channel(int v) {
+    double c = v / 255.0;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
   }
 
   private static TextView pill(Context ctx, String text, float dp) {
@@ -383,7 +417,13 @@ public final class DibayNativeIntro {
 
   private static void maybeFinish() {
     Entry e = selected;
-    if (finished || e == null || !overlayDrawn) return;
+    if (finished || e == null) return;
+    // 빌드 전 감사 N4: 홈 준비 전에 누른 소재는 준비되는 즉시 이동
+    if (clickPending && homeReady) {
+      finish("click", e.ctaHref);
+      return;
+    }
+    if (!overlayDrawn) return;
     // 위: 아직 안 그려졌으면 그린 뒤 타이머가 다시 부른다
     boolean elapsed = SystemClock.uptimeMillis() - drawnAtMs >= e.durationMs;
     if (homeReady && (elapsed || skipRequested)) finish(skipRequested ? "skip" : "complete", null);
@@ -393,6 +433,10 @@ public final class DibayNativeIntro {
     skipRequested = true;
     maybeFinish();
     // 재감사 A5: 홈 준비 전이면 누른 표시(준비되는 즉시 걷힘)
+    showWaiting();
+  }
+
+  private static void showWaiting() {
     TextView sv = skipView;
     if (!finished && sv != null) {
       sv.setText(DibayNativeLocale.string(sv.getContext(), R.string.native_intro_wait));
@@ -403,9 +447,23 @@ public final class DibayNativeIntro {
 
   private static void onCta() {
     Entry e = selected;
-    if (e == null || finished) return;
-    // 목적지는 웹이 연다(홈 준비 뒤) — 인트로는 바로 걷는다
-    finish("click", e.ctaHref);
+    if (e == null || finished || clickPending) return;
+    // 목적지는 웹이 연다. 빌드 전 감사 N4: 홈 준비 전이면 바로 걷지 않고(준비 안 된 화면 노출 방지) 「잠시만요」 뒤 준비되는 즉시 이동
+    if (homeReady) {
+      finish("click", e.ctaHref);
+      return;
+    }
+    clickPending = true;
+    showWaiting();
+  }
+
+  /** 재감사 A4 상한. 빌드 전 감사 N4: 누른 소재·건너뛰기는 사용자가 고른 끝으로 기록한다 */
+  private static void onHardCap() {
+    Entry e = selected;
+    if (finished || e == null) return;
+    if (clickPending) finish("click", e.ctaHref);
+    else if (skipRequested) finish("skip", null);
+    else finish("timeout", null);
   }
 
   private static void finish(String reason, String href) {
@@ -425,6 +483,8 @@ public final class DibayNativeIntro {
     // 고장·화면 다시 만들기·상한은 사용자가 고른 끝이 아니라 기록하지 않는다(done 만)
     if (!"fault".equals(reason) && !"recreate".equals(reason) && !"timeout".equals(reason)) emit(reason, href);
     emit("done", null);
+    // 빌드 전 감사 B1: 기록을 보낸 뒤 고른 소재를 비운다(emit 이 selected 를 읽음) — 다음 문서 시작 값도 빈 값
+    selected = null;
   }
 
   // ── 웹으로 보내기 ─────────────────────────────────────────────────────
@@ -558,44 +618,65 @@ public final class DibayNativeIntro {
     JSONArray out = new JSONArray();
     Set<String> keep = new HashSet<>();
     boolean anyFailed = false;
+    // 재감사 RA-7: 저장 그림 합계(목록 순서 = 정렬 순서)
+    long stored = 0;
     try {
       if (enabled && in != null) {
         for (int i = 0; i < Math.min(in.length(), 20); i++) {
           JSONObject o = in.optJSONObject(i);
           if (o == null) continue;
-          String sha = o.optString("sha256", "");
-          String ext = extFor(o.optString("mime", ""));
-          String url = o.optString("url", "");
-          if (!sha.matches("[0-9a-f]{64}") || ext == null || url.isEmpty()) continue;
-          String file = sha + "." + ext;
-          File dest = new File(dir, file);
-          if (!dest.isFile() || !sha.equals(sha256Hex(dest))) {
-            // 재감사 A8: 한 소재 실패가 전체 갱신을 막지 않는다 — 그 소재만 빼고, 실패 표시로 웹이 다음 발견 때 다시 맞춘다
-            if (!download(url, dest, sha, 5L * 1024 * 1024)) {
+          // 빌드 전 감사 N5: 소재 1개 오류(id 없음 등)는 그 소재만 실패로 세고 나머지는 계속
+          try {
+            String id = o.optString("id", "");
+            if (id.isEmpty()) {
               anyFailed = true;
               continue;
             }
+            String sha = o.optString("sha256", "");
+            String ext = extFor(o.optString("mime", ""));
+            String url = o.optString("url", "");
+            if (!sha.matches("[0-9a-f]{64}") || ext == null || url.isEmpty()) continue;
+            String file = sha + "." + ext;
+            File dest = new File(dir, file);
+            boolean have = dest.isFile() && sha.equals(sha256Hex(dest));
+            if (!have) {
+              // 재감사 RA-7: 상한이 이미 찼으면 받지 않는다(실패 아님)
+              if (stored >= STORE_CAP_BYTES) continue;
+              // 재감사 A8: 한 소재 실패가 전체 갱신을 막지 않는다 — 그 소재만 뺀다(판 기록은 아래 N1)
+              if (!download(url, dest, sha, 5L * 1024 * 1024)) {
+                anyFailed = true;
+                continue;
+              }
+            }
+            // 재감사 RA-7: 넣으면 30MB 를 넘는 소재는 뺀다(실패 아님 · 파일은 아래 정리에서 지움). 같은 그림은 한 번만 센다
+            long size = keep.contains(file) ? 0 : dest.length();
+            if (stored + size > STORE_CAP_BYTES) continue;
+            stored += size;
+            JSONObject e = new JSONObject();
+            e.put("id", id);
+            e.put("sha256", sha);
+            e.put("file", file);
+            e.put("bgColor", o.optString("bgColor", "#075740"));
+            e.put("durationMs", o.optLong("durationMs", 2000));
+            e.put("ctaHref", o.optString("ctaHref", ""));
+            e.put("showAdLabel", o.optBoolean("showAdLabel", true));
+            e.put("startAtMs", o.optLong("startAtMs", 0));
+            e.put("endAtMs", o.optLong("endAtMs", 0));
+            e.put("sortOrder", o.optInt("sortOrder", 0));
+            out.put(e);
+            keep.add(file);
+          } catch (Exception entryErr) {
+            anyFailed = true;
           }
-          JSONObject e = new JSONObject();
-          e.put("id", o.getString("id"));
-          e.put("sha256", sha);
-          e.put("file", file);
-          e.put("bgColor", o.optString("bgColor", "#075740"));
-          e.put("durationMs", o.optLong("durationMs", 2000));
-          e.put("ctaHref", o.optString("ctaHref", ""));
-          e.put("showAdLabel", o.optBoolean("showAdLabel", true));
-          e.put("startAtMs", o.optLong("startAtMs", 0));
-          e.put("endAtMs", o.optLong("endAtMs", 0));
-          e.put("sortOrder", o.optInt("sortOrder", 0));
-          out.put(e);
-          keep.add(file);
         }
       }
       JSONObject m = new JSONObject();
       m.put("schema", SCHEMA);
       m.put("enabled", enabled && out.length() > 0);
       m.put("showOnOsRestore", req.optBoolean("showOnOsRestore", false));
-      m.put("revision", req.optString("revision", ""));
+      // 빌드 전 감사 N1: 하나라도 실패하면 판을 비운다 — 웹은 판이 같으면 sync 를 건너뛰므로 빈 판이어야 다음 발견 때
+      // 다시 맞춘다(이미 받은 그림은 sha 가 같아 다시 받지 않음)
+      m.put("revision", anyFailed ? "" : req.optString("revision", ""));
       m.put("entries", out);
       File tmp = new File(dir, MANIFEST + ".tmp");
       try (FileOutputStream fo = new FileOutputStream(tmp)) {
@@ -604,6 +685,7 @@ public final class DibayNativeIntro {
       }
       if (!tmp.renameTo(new File(dir, MANIFEST))) return false;
       // 저장 누수 방지(IN-6): 목록에 없는 그림 삭제 — 지금 화면에 떠 있는 소재 그림은 이번 실행이 끝날 때까지 둔다
+      // (빌드 전 감사 B1: 끝나면 selected 가 비어 그 그림도 정리 대상)
       Entry showing = selected;
       File[] files = dir.listFiles();
       if (files != null) {
@@ -635,6 +717,15 @@ public final class DibayNativeIntro {
         pendingEvents.clear();
       }
       for (JSObject o : drain) MAIN.post(() -> send(o));
+    }
+
+    /** 빌드 전 감사 N3: 사라진 화면의 플러그인을 쥐고 있지 않는다(다음 load 전 이벤트는 대기열로) */
+    @Override
+    protected void handleOnDestroy() {
+      synchronized (pendingEvents) {
+        if (pluginInstance == this) pluginInstance = null;
+      }
+      super.handleOnDestroy();
     }
 
     void send(JSObject o) {
