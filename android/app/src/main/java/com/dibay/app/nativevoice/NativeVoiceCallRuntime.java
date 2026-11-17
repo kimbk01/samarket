@@ -1,7 +1,6 @@
 package com.dibay.app.nativevoice;
 
 import android.content.Context;
-import android.app.PendingIntent;
 import android.os.Handler;
 import android.os.Looper;
 import com.dibay.app.DibayCallConsumedStore;
@@ -222,14 +221,12 @@ public final class NativeVoiceCallRuntime {
       startForegroundVisibleActivity(app, session, handover);
     } else {
       NativeVoiceCallLog.info("foreground_visible_activity_start_skipped", sid, "reason=not_foreground_unlocked");
-      PendingIntent fullScreenIntent = NativeVoiceCallNotification.showIncoming(app, session);
+      // 안 A (Owner 승인 2026-11-18 · docs/audit/android-system-nav-2026-11-17/incoming-fullscreen-bal-design.md):
+      // Android 표준 — 기기를 쓰는 중이면 FSI 는 위쪽 알림(수락·거절), 잠김·화면 꺼짐이면 시스템이 전체 화면.
+      // 백그라운드에서 화면을 직접 띄우는 시도는 하지 않는다(Android 16 BAL — Samsung 런처 상태에 따라 될 때도 안 될 때도 있었음).
+      NativeVoiceCallNotification.showIncoming(app, session);
       scheduleSuppressNotificationWhenActivityShown(app, sid);
-      if (shouldStartBackgroundUnlockedActivity(app)) {
-        startBackgroundUnlockedActivity(sid, fullScreenIntent);
-      } else {
-        NativeVoiceCallLog.info(
-            "background_unlocked_notification_fallback_kept", sid, "reason=not_background_unlocked");
-      }
+      NativeVoiceCallLog.info("incoming_fsi_only", sid, "reason=android_standard_fsi");
     }
     scheduleMissed(app, sid);
     return true;
@@ -1368,11 +1365,6 @@ public final class NativeVoiceCallRuntime {
     return DibayKeyguardHelper.isForegroundUnlockedInteractive(appVisible, context);
   }
 
-  private static boolean shouldStartBackgroundUnlockedActivity(Context context) {
-    boolean appVisible = isAppVisibleForIncomingCall();
-    return !appVisible && !DibayKeyguardHelper.isKeyguardLocked(context) && DibayKeyguardHelper.isInteractive(context);
-  }
-
   private static boolean isAppVisibleForIncomingCall() {
     try {
       Class<?> mainActivity = Class.forName("com.dibay.app.MainActivity");
@@ -1416,44 +1408,12 @@ public final class NativeVoiceCallRuntime {
               "foreground_visible_activity_start_postcheck_failed", callId, "reason=activity_not_shown");
           // 이어받기 시작이 막힘(플랫폼 BAL 등) — 남겨 둔 화면부터 정리한 뒤 기존 FSI 경로로(안 1-b).
           if (handover) NativeCallWaitingPresenter.onHandoverLaunchResult(callId, false);
-          PendingIntent fallback = NativeVoiceCallNotification.showIncoming(context, session);
+          // 안 A: FSI 게시만(백그라운드 직접 시작 재시도 없음 — Android 표준).
+          NativeVoiceCallNotification.showIncoming(context, session);
           NativeVoiceCallLog.info("foreground_visible_activity_fallback_to_fsi", callId);
           scheduleSuppressNotificationWhenActivityShown(context, callId);
-          startBackgroundUnlockedActivity(callId, fallback);
         },
         1_200L);
-  }
-
-  private static void startBackgroundUnlockedActivity(String callId, PendingIntent fullScreenIntent) {
-    NativeVoiceCallLog.info("background_unlocked_activity_start_attempt", callId);
-    if (NativeVoiceCallActivity.isShowing(callId)) {
-      NativeVoiceCallLog.info(
-          "background_unlocked_pending_intent_send_done", callId, "mode=already_showing");
-      return;
-    }
-    if (fullScreenIntent == null) {
-      NativeVoiceCallLog.warn("background_unlocked_activity_start_blocked", callId, "reason=no_pending_intent");
-      NativeVoiceCallLog.info("background_unlocked_notification_fallback_kept", callId);
-      return;
-    }
-    try {
-      NativeVoiceCallLog.info("background_unlocked_pending_intent_send_start", callId);
-      fullScreenIntent.send();
-      NativeVoiceCallLog.info("background_unlocked_pending_intent_send_done", callId);
-      MAIN.postDelayed(
-          () -> {
-            if (!NativeVoiceCallActivity.isShowing(callId)) {
-              NativeVoiceCallLog.warn(
-                  "background_unlocked_activity_start_blocked", callId, "reason=activity_not_shown");
-              NativeVoiceCallLog.info("background_unlocked_notification_fallback_kept", callId);
-            }
-          },
-          2_500L);
-    } catch (PendingIntent.CanceledException | RuntimeException error) {
-      NativeVoiceCallLog.warn(
-          "background_unlocked_activity_start_blocked", callId, "reason=" + safe(error.getClass().getSimpleName()));
-      NativeVoiceCallLog.info("background_unlocked_notification_fallback_kept", callId);
-    }
   }
 
   private static String safe(String value) {
