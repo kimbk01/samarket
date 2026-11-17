@@ -1,4 +1,5 @@
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { removeUnreferencedPopupCreativeFiles } from "@/lib/platform-popup/creative-storage-cleanup";
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 import { randomUUID } from "crypto";
@@ -213,6 +214,8 @@ export async function POST(
     ptrBandVariant: processed.creativeMode === "ptr_band" ? ptrBandVariant : undefined,
   });
   if (!replaced.ok) {
+    // 진입 감사 PO-9: 연결에 실패한 새 파일은 지운다(예전에는 남아 저장소에 쌓였다)
+    await removeUnreferencedPopupCreativeFiles(sb, [path], "admin_replace_failed");
     return NextResponse.json(
       { ok: false, error: replaced.error },
       { status: replaced.httpStatus ?? 400 }

@@ -18,6 +18,10 @@ function makeSb(rows: Array<Record<string, unknown>>, eventCounts: Record<string
           },
         };
       }
+      // 진입 감사 PO-9: 삭제 전에 소재 파일 경로를 읽는다(소재 없음)
+      if (name === "platform_popup_creatives") {
+        return { select: () => ({ eq: async () => ({ data: [], error: null }) }) };
+      }
       if (name !== "platform_popup_campaigns") throw new Error(`unexpected ${name}`);
       return {
         select() {

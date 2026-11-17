@@ -32,7 +32,23 @@ export type LaunchIntroIndex = {
   /** Kept on pause / unpublish (state-only promotion); replaced only by a verified acquisition. */
   publication: LaunchIntroCachedPublication | null;
   promotedAt: string;
+  /**
+   * 진입 감사 IN-6 (2026-11-17): Live 가 active 가 아니게 된 시각. 보관 기간(`LAUNCH_INTRO_INACTIVE_RETENTION_MS`)이
+   * 지나면 게시본·이미지를 지운다. 예전에는 게시 중단 뒤에도 이미지가 기한 없이 남았다(실측 9개 1.09MB).
+   */
+  inactiveSince?: string;
 };
+
+/** 게시 중단·일시정지 뒤 기기에 이미지를 남겨 두는 기간 — 그 안에 다시 켜면 다시 받지 않는다. */
+export const LAUNCH_INTRO_INACTIVE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** 보관 기간이 지난 비활성 색인이면 게시본을 뺀 색인을 돌려준다(아니면 null). */
+export function expireInactiveLaunchIntroIndex(index: LaunchIntroIndex, nowMs: number): LaunchIntroIndex | null {
+  if (index.state === "active" || !index.publication) return null;
+  const since = index.inactiveSince ? Date.parse(index.inactiveSince) : NaN;
+  if (!Number.isFinite(since) || nowMs - since < LAUNCH_INTRO_INACTIVE_RETENTION_MS) return null;
+  return { ...index, publication: null };
+}
 
 /**
  * Structural check + document normalization. Cached documents may be schema v1 (promoted before the

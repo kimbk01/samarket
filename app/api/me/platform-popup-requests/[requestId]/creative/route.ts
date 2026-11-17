@@ -8,6 +8,7 @@ import { loadPlatformPopupOwnerRequest } from "@/lib/platform-popup/owner-reques
 import { isOwnerEditablePlatformPopupRequest } from "@/lib/platform-popup/owner-request-lifecycle";
 import { updatePlatformPopupOwnerDraft } from "@/lib/platform-popup/owner-request-writer";
 import { processPlatformPopupCreativeToCanonical } from "@/lib/platform-popup/creative-pipeline";
+import { removeUnreferencedPopupCreativeFiles } from "@/lib/platform-popup/creative-storage-cleanup";
 import {
   DIBAY_CANONICAL_POPUP_CREATIVE_SIZE,
   POPUP_CREATIVE_SOURCE_MAX_BYTES,
@@ -131,10 +132,17 @@ export async function POST(
     },
   });
   if (!updated.ok) {
+    // 진입 감사 PO-9: 연결에 실패한 새 파일은 지운다
+    await removeUnreferencedPopupCreativeFiles(sb, [path], "owner_request_update_failed");
     return NextResponse.json(
       { ok: false, error: updated.error },
       { status: updated.httpStatus ?? 400 }
     );
+  }
+  // 진입 감사 PO-9: 교체 전 소재 파일 — 다른 행(승인된 캠페인 소재 등)이 참조하지 않을 때만 지운다
+  const previousPath = row.creativeAssetPath?.trim() || null;
+  if (previousPath && previousPath !== path) {
+    await removeUnreferencedPopupCreativeFiles(sb, [previousPath], "owner_request_replaced");
   }
 
   return NextResponse.json({
