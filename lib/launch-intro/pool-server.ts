@@ -156,9 +156,50 @@ export async function listLaunchIntroPoolRows(sb: Sb): Promise<R<{ rows: LaunchI
   return { ok: true, rows: (data ?? []).map(normalizeLaunchIntroPoolRow) };
 }
 
+/** 발견 응답이 쓰는 열만 (빌드 전 감사 I2 — `kind` 등 없을 수 있는 열은 넣지 않는다) */
+export const LAUNCH_INTRO_POOL_LIVE_COLS =
+  "id, status, sort_order, start_at, end_at, image_path, image_sha256, image_mime, background_color, duration_ms, cta_href, show_ad_label, created_at";
+
+export type LaunchIntroPoolLiveRow = Pick<
+  LaunchIntroPoolRow,
+  | "id"
+  | "status"
+  | "sort_order"
+  | "start_at"
+  | "end_at"
+  | "image_path"
+  | "image_sha256"
+  | "image_mime"
+  | "background_color"
+  | "duration_ms"
+  | "cta_href"
+  | "show_ad_label"
+  | "created_at"
+>;
+
+/**
+ * 빌드 전 감사 I2: 앱 시작·복귀마다 부르는 발견 응답 전용 조회 — 켜진(`active`) 행만 · 필요한 열만.
+ * 순서·상한은 어드민 목록과 같다. 표가 없으면(마이그레이션 전) 빈 목록.
+ */
+export async function listLiveLaunchIntroPoolRows(sb: Sb): Promise<R<{ rows: LaunchIntroPoolLiveRow[] }>> {
+  const { data, error } = await sb
+    .from("launch_intro_creatives")
+    .select(LAUNCH_INTRO_POOL_LIVE_COLS)
+    .eq("status", "active")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) {
+    return error.code === "42P01" || error.code === "PGRST205"
+      ? { ok: true, rows: [] }
+      : { ok: false, error: "pool_read_failed", status: 500 };
+  }
+  return { ok: true, rows: (data ?? []) as unknown as LaunchIntroPoolLiveRow[] };
+}
+
 /** 발견 응답의 `pool` — 읽기 실패면 null(기기는 이전 저장을 유지) */
 export async function buildLaunchIntroPoolPayload(sb: Sb): Promise<LaunchIntroPoolPayload | null> {
-  const [policy, rows] = await Promise.all([loadLaunchIntroPoolPolicy(sb), listLaunchIntroPoolRows(sb)]);
+  const [policy, rows] = await Promise.all([loadLaunchIntroPoolPolicy(sb), listLiveLaunchIntroPoolRows(sb)]);
   if (!policy.ok || !rows.ok) return null;
   const live = policy.policy.enabled ? selectLiveLaunchIntroPoolRows(rows.rows) : [];
   const entries = live.map((r) => ({
@@ -254,7 +295,10 @@ export async function updateLaunchIntroPoolCreative(
   const before = normalizeLaunchIntroPoolRow(cur.data);
   if (!expectedUpdatedAt || !sameRevision(before.updated_at, expectedUpdatedAt)) return { ok: false, error: "stale_revision", status: 409 };
   const next = { ...before, ...v.row } as LaunchIntroPoolRow;
-  if (next.start_at && next.end_at && next.start_at >= next.end_at) return { ok: false, error: "window_invalid", status: 400 };
+  // 빌드 전 감사 I6: DB 값(+00:00)과 입력 값(Z)은 형식이 달라 문자열 비교가 틀린다 — 시각(ms)으로 비교
+  if (next.start_at && next.end_at && Date.parse(next.start_at) >= Date.parse(next.end_at)) {
+    return { ok: false, error: "window_invalid", status: 400 };
+  }
   // 종류·표기를 바꾸는 저장만 검사(표기를 끈 예전 소재의 순서·켜기 저장은 막지 않는다)
   if (("kind" in v.row || "show_ad_label" in v.row) && next.kind === "ad" && next.show_ad_label === false) {
     return { ok: false, error: "ad_label_required", status: 400 };
@@ -402,8 +446,13 @@ export async function reorderLaunchIntroPoolCreatives(
   return { ok: true, before, after };
 }
 
-/** 그림 파일을 아무도 안 쓸 때만 지운다. 확인 못 하면 지우지 않는다(실패 시 보존). */
-async function removeUnreferencedLaunchIntroImage(sb: Sb, path: string, sha256: string): Promise<void> {
+/** 게시본 `assets` jsonb 포함 검사 값 — PostgREST `cs.[{"sha256":"…"}]` (시험용 export) */
+export function launchIntroAssetsContainsValue(sha256: string): string {
+  return JSON.stringify([{ sha256 }]);
+}
+
+/** 그림 파일을 아무도 안 쓸 때만 지운다. 확인 못 하면 지우지 않는다(실패 시 보존). (시험용 export) */
+export async function removeUnreferencedLaunchIntroImage(sb: Sb, path: string, sha256: string): Promise<void> {
   try {
     const pool = await sb.from("launch_intro_creatives").select("id").eq("image_sha256", sha256).limit(1);
     if (pool.error || (pool.data?.length ?? 0) > 0) return;
@@ -411,7 +460,8 @@ async function removeUnreferencedLaunchIntroImage(sb: Sb, path: string, sha256: 
     const pubs = await sb
       .from("launch_intro_publications")
       .select("id")
-      .contains("assets", [{ sha256 }])
+      // 빌드 전 감사 I1: 객체 배열을 그대로 넘기면 `cs.{[object Object]}` 가 된다 — JSON 문자열로 넘긴다
+      .contains("assets", launchIntroAssetsContainsValue(sha256))
       .limit(1);
     if (pubs.error || (pubs.data?.length ?? 0) > 0) return;
     await sb.storage.from(LAUNCH_INTRO_PUBLIC_BUCKET).remove([path]);
@@ -460,7 +510,11 @@ export async function recordLaunchIntroEvent(
     meta?: Record<string, unknown>;
   }
 ): Promise<R<object>> {
-  // 재감사 L6: 존재 확인은 외래 키(23503)로 — 조회 1번 줄임
+  // 빌드 전 감사 I3 / 재감사 RA-6: 켜진(active) 소재만 기록한다 — 없거나 꺼진 소재는 저장 생략
+  const cur = await sb.from("launch_intro_creatives").select("id, status").eq("id", input.creativeId).maybeSingle();
+  if (cur.error) return { ok: false, error: "read_failed", status: 500 };
+  if (!cur.data) return { ok: false, error: "creative_not_found", status: 404 };
+  if ((cur.data as { status?: string }).status !== "active") return { ok: false, error: "creative_not_active", status: 409 };
   const { error } = await sb.from("launch_intro_events").insert({
     creative_id: input.creativeId,
     event_type: input.eventType,
