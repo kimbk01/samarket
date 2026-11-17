@@ -229,7 +229,6 @@ public class MainActivity extends BridgeActivity {
   private static volatile String splashDismissSource = "none";
   /** Meaningful Home presentation ready — not shellReady / dismissSplash alias. */
   private static volatile boolean homePresentationReady = false;
-  private Runnable splashExitRemover = null;
   private SplashScreen installedSplashScreen = null;
   /** Match web `--sam-bg-app` (#FFFCFC) — avoid pure white WebView flash before first HTML. */
   private static final int WEBVIEW_BACKGROUND_COLOR = Color.parseColor("#FFFCFC");
@@ -1278,19 +1277,11 @@ public class MainActivity extends BridgeActivity {
     // OS splash until web dismissSplash / homePresentationReady — no Intro/System Start product.
     splashScreen.setKeepOnScreenCondition(() -> !webSplashDismissRequested);
 
-    // CUT 1: skip Android 12+ splash icon exit zoom — reveal Native cover instantly (no logo blink).
-    splashScreen.setOnExitAnimationListener(
-        splashScreenViewProvider -> {
-          splashExitRemover =
-              () -> {
-                try {
-                  splashScreenViewProvider.remove();
-                } catch (Exception ignored) {
-                  /* ignore */
-                }
-              };
-          splashExitRemover.run();
-        });
+    // 진입 감사 OS-1 (2026-11-17): 시작 화면 퇴장 리스너(setOnExitAnimationListener)를 등록하지 않는다.
+    // 등록하면 시스템이 시작 화면을 앱 창으로 「넘겨주기」를 하는데, 넘겨받는 순간 앱 UI 스레드가 웹 준비로
+    // 막혀 있으면(실측 Davey 1.3~2.1초) 넘겨주기 제한 2초를 다 채운 뒤에야 걷혔다
+    // (샤오미 실측: 해제 08:12:17.004 → "Activity transferring splash screen timeout" 19.155 → 퇴장 완료 19.353).
+    // 리스너가 없으면 시스템이 첫 창이 그려진 직후 시작 화면을 바로 걷는다.
     registerActiveCallBackPressedCallback();
     Log.i(WEBVIEW_LOG_TAG, "app_start package=" + getPackageName());
     String serverOrigin = DibayServerOrigin.resolve(this);

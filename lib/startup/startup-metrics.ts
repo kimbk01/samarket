@@ -24,6 +24,7 @@ import { noteEntryReleased } from "@/lib/telemetry/entry-telemetry.client";
 import { getLaunchDestination } from "@/lib/launch-intro/startup-destination";
 import { isServerRenderedBodyPath } from "@/lib/layout/server-rendered-body-paths";
 import { mayReleaseLaunchSplashAt, onLaunchPushHandled } from "@/lib/startup/launch-push-hold";
+import { mayReleaseForLifecycleNav, onLifecycleNavHoldSettled } from "@/lib/startup/lifecycle-nav-hold";
 
 export type DibayBootMetrics = {
   nativeStart: number | null;
@@ -388,6 +389,8 @@ export function releaseNativeSplashAtServerBodyFrame(): void {
     if (!isServerRenderedBodyPath(window.location.pathname) || !hasServerRenderedBody(document)) return;
     // 재설계 A: 알림 목적지가 있는 시작이면 홈 첫 그림에서 해제하지 않는다(동기 판단 — 기다림 없음).
     if (!mayReleaseLaunchSplashAt(window.location.pathname)) return;
+    // 진입 감사 OS-2·OS-4: 직전 화면 복원·안전 진입으로 옮겨 갈 문서는 시작 주소에서 해제하지 않는다.
+    if (!mayReleaseForLifecycleNav(window.location.pathname)) return;
     requestAnimationFrame(() => {
       if (nativeSplashBridgesDismissed || splashDismissAttempted) return;
       setMetric("serverBodySplashRelease", nowMs());
@@ -473,10 +476,22 @@ export function markInitialDestinationVisualReady(): void {
     armReleaseOnLaunchPushHandled();
     return;
   }
+  // 진입 감사 OS-2·OS-4: 생명주기 이동이 예정이면 시작 주소에서는 해제하지 않는다 — 이동하지 않기로 정해지면 그때 해제.
+  if (typeof window !== "undefined" && !mayReleaseForLifecycleNav(window.location.pathname)) {
+    armReleaseOnLifecycleNavSettled();
+    return;
+  }
   initialDestinationVisualReadyMarked = true;
   setMetric("initialDestinationVisualReady", nowMs());
   notifyNativeHomePresentationReady();
   tryDismissNativeSplash("initialDestinationVisualReady");
+}
+
+let lifecycleNavReleaseArmed = false;
+function armReleaseOnLifecycleNavSettled(): void {
+  if (lifecycleNavReleaseArmed) return;
+  lifecycleNavReleaseArmed = true;
+  onLifecycleNavHoldSettled(() => markInitialDestinationVisualReady());
 }
 
 let launchPushReleaseArmed = false;
