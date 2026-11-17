@@ -95,7 +95,9 @@ describe("IN-P10 — 손상 Live 게시본 → 200 unpublished", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("Cache-Control")).toContain("no-store");
     const body = await res.json();
-    expect(body).toEqual({ ok: true, revision: 7, state: "unpublished", publication: null });
+    // 진입 감사 5단계: 응답에 소재 묶음(pool) 덧붙임 — 이 시험의 가짜 DB 에는 묶음이 없어 읽기 결과만 다름
+    const { pool: _pool, ...rest } = body as Record<string, unknown>;
+    expect(rest).toEqual({ ok: true, revision: 7, state: "unpublished", publication: null });
   });
 
   it("정상 문서 → 그대로 active + publication (회귀 없음)", async () => {

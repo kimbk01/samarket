@@ -9,12 +9,14 @@
  */
 
 import { getLaunchOsReleaseOwner, isLaunchOsReleased } from "@/lib/launch-intro/os-release-owner";
+import { isNativeIntroActive, subscribeNativeIntro } from "@/lib/launch-intro/native-intro-client";
 
 export const LAUNCH_INTRO_OVERLAY_SELECTOR = "[data-launch-intro-overlay]";
 
-/** 인트로 오버레이가 지금 화면에 있는가 (showing·exiting) */
+/** 인트로 오버레이가 지금 화면에 있는가 (showing·exiting) · 진입 감사 5단계: 네이티브 인트로가 덮고 있는 동안도 */
 export function readLaunchIntroOverlayActive(): boolean {
   if (typeof document === "undefined") return false;
+  if (isNativeIntroActive()) return true;
   return document.querySelector(LAUNCH_INTRO_OVERLAY_SELECTOR) != null;
 }
 
@@ -27,6 +29,8 @@ export function resetLaunchIntroGateForTest(): void {
 
 export function subscribeLaunchIntroOverlay(onChange: () => void): () => void {
   if (typeof document === "undefined" || typeof MutationObserver === "undefined") return () => {};
+  // 네이티브 인트로(웹 인트로와 같은 실행에 함께 나오지 않음) — 끝 신호(done)만 기다린다
+  if (isNativeIntroActive()) return subscribeNativeIntro(onChange);
   if (introSettled) return () => {};
   const present = readLaunchIntroOverlayActive();
   // 오버레이가 없고 (인트로가 OS 해제 주인이 아니거나 · 이미 OS 해제 = 인트로가 그려졌다 끝남) → 이 실행에서 더 볼 인트로 없음

@@ -220,7 +220,8 @@ export type AdEventRecordRoute =
   | "platform_popup_events"
   | "platform_popup_suppress"
   | "feed_ad_events"
-  | "delivery_ad_impression";
+  | "delivery_ad_impression"
+  | "launch_intro_events";
 
 export const AD_EVENT_RECORD_QUOTA = { limit: 120, windowMs: 60_000 } as const;
 

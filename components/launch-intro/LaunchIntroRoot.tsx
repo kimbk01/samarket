@@ -24,6 +24,9 @@ import {
   launchIntroDocumentVideoRefs,
 } from "@/lib/launch-intro/document";
 import { startLaunchIntroDiscovery } from "@/lib/launch-intro/discovery";
+import { startNativeIntroBridge } from "@/lib/launch-intro/native-intro-client";
+import { openDestination } from "@/lib/destination/open-destination";
+import { parseDestinationHref } from "@/lib/destination/destination-contract";
 import { resolveDibayDeviceClass } from "@/lib/device/dibay-device-class";
 import { recordLaunchIntroShown } from "@/lib/launch-intro/frequency";
 import { launchIntroTargetMatches } from "@/lib/launch-intro/target";
@@ -353,7 +356,17 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
 
 function LaunchIntroHost() {
   const [snapshot, setSnapshot] = useState<LaunchIntroSnapshot | null>(null);
+  const router = useRouter();
   useEffect(() => {
+    // 진입 감사 5단계: 네이티브 인트로(로딩 시간 안) 기록·누름 목적지 — 웹 인트로 CTA 와 같은 기록(INTRO)·이동 경로
+    startNativeIntroBridge((href) => {
+      const parsed = parseDestinationHref(href);
+      if (!parsed.ok) return;
+      if (parsed.ref.kind !== "external_url") {
+        recordPromotionContentVisitClient({ hrefOrEventId: href, sourceChannel: "INTRO" });
+      }
+      openDestination(parsed.ref, router);
+    });
     startLaunchIntroDiscovery();
     const d = getLaunchDestination();
     if (d.destination === "intro" && d.snapshot) setSnapshot(d.snapshot);

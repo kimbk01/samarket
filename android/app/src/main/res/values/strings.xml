@@ -129,4 +129,7 @@
     <string name="dibay_call_ch_voice_ongoing_desc">Shows a voice call in progress</string>
     <string name="dibay_call_ch_video_ongoing_name">Video call in progress</string>
     <string name="dibay_call_ch_video_ongoing_desc">Shows a video call in progress</string>
+    <!-- 진입 감사 5단계: 네이티브 인트로 -->
+    <string name="native_intro_ad_label">Ad</string>
+    <string name="native_intro_skip">Skip</string>
 </resources>

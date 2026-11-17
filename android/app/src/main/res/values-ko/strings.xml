@@ -116,4 +116,7 @@
     <string name="dibay_call_ch_voice_ongoing_desc">음성 통화 중 상태 표시</string>
     <string name="dibay_call_ch_video_ongoing_name">영상 통화 중</string>
     <string name="dibay_call_ch_video_ongoing_desc">영상 통화 중 상태 표시</string>
+    <!-- 진입 감사 5단계: 네이티브 인트로 -->
+    <string name="native_intro_ad_label">광고</string>
+    <string name="native_intro_skip">건너뛰기</string>
 </resources>
