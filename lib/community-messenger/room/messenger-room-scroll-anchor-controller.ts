@@ -6,6 +6,7 @@ import { CM_ROOM_CHROME_HEIGHT_SYNC_EVENT } from "@/lib/ui/cm-room-visible-viewp
 import { createChatThreadScrollEngine, type ChatThreadScrollEngine } from "@/lib/chat-thread-scroll/engine";
 import type { ChatThreadScrollRestoreSnapshot, ChatThreadVirtualizer } from "@/lib/chat-thread-scroll/types";
 import {
+  resolveAckReplacedLastVisibleMessageId,
   resolveMessengerRoomMessagesAutoScroll,
   shouldScheduleTailReaderStateSync,
 } from "@/lib/community-messenger/room/messenger-room-messages-auto-scroll";
@@ -785,6 +786,14 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
      * 레이아웃 보정(ResizeObserver → applyLayoutPreserve → 엔진 stick 유지 후 S2 동기화)이 정착 뒤에 맞춘다.
      * 여기서 rAF 동기화를 더하면 높이 정착 전 viewport 를 읽어 「↓」가 잠깐 뜰 수 있다(PR-1 검토 #7).
      */
+    /** 감사 #2: ack 로 끝 id 가 바뀌면 lastVisible 의 옛 tempId 만 새 id 로(S3 없음) */
+    const ackLastVisible = resolveAckReplacedLastVisibleMessageId({
+      decision,
+      previousTailMessageId: prevTailMessageIdRef.current,
+      currentTailMessageId: last?.id ?? null,
+      lastVisibleMessageId: useMessengerRoomReaderStateStore.getState().byRoom[readerKey]?.lastVisibleMessageId ?? null,
+    });
+    if (ackLastVisible) useMessengerRoomReaderStateStore.getState().setLastVisibleMessageId(readerKey, ackLastVisible);
     if (
       shouldScheduleTailReaderStateSync({
         tailChanged,
@@ -799,7 +808,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       prevTailMessageIdRef.current = last.id;
       prevTailClientMessageIdRef.current = last.clientMessageId ?? null;
     }
-  }, [engine, roomMessages, scheduleReaderStateSyncAfterEntry, scrollMessengerToBottom]);
+  }, [engine, readerKey, roomMessages, scheduleReaderStateSyncAfterEntry, scrollMessengerToBottom]);
 
   /**
    * Seeded snapshot merge(BootstrapGate 캐시 → background refresh)가 상단에 과거 메시지를

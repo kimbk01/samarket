@@ -19,6 +19,7 @@ vi.mock("@/lib/community-messenger/stores/messenger-snackbar-store", () => ({
 }));
 
 import {
+  __resetMessengerTextSendInflightForTest,
   isOlderThanLoadedWindow,
   useMessengerTextSendOutbox,
   type MessengerTextSendAttemptArgs,
@@ -149,6 +150,7 @@ function jsonResponse(status: number, body: unknown) {
 
 const fetchMock = vi.fn();
 beforeEach(() => {
+  __resetMessengerTextSendInflightForTest();
   snackbar.calls = [];
   fetchMock.mockReset();
   vi.stubGlobal("fetch", fetchMock);
@@ -397,7 +399,8 @@ describe("PR-1 검토 #3 보관 실패를 알린다", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
     await h.run({ tempId: "tq", clientMessageId: "cq", content: "big", replyId: "", failRestoreGeneration: 0 });
     spy.mockRestore();
-    expect(snackbar.calls).toContain("cm_ui_failed_text_not_kept");
+    /** 감사 #1·#3: 시작 때 보관 거부는 조용히, 실패 응답 때 1회만 */
+    expect(snackbar.calls.filter((c) => c === "cm_ui_failed_text_not_kept")).toHaveLength(1);
     expect(h.rows().find((r) => r.id === "tq")?.sendFailed).toBe(true);
   });
 });
@@ -471,5 +474,80 @@ describe("PR-1 재검토(차단) tempId 가 화면 인스턴스 사이에서 겹
     expect(b.rows().map((r) => r.clientMessageId)).toEqual(["c-hello"]);
     // 옛 화면(A)은 언마운트 뒤 핸들러를 등록하지 않는다
     expect(getMessengerOutboundFailedSend(tA)).toBeNull();
+  });
+});
+
+describe("PR-1 감사 #1 첫 전송 중 앱 종료·새로고침", () => {
+  it("전송 시작 → 응답 없이 언마운트 + 메모리 초기화(앱 종료) → 재진입 → 실패 행 1개·추가 요청 0건", async () => {
+    const a = mount();
+    const t = a.nextTempId();
+    a.setRows([optimistic(t, "c-quit", "dont lose me")]);
+    fetchMock.mockImplementationOnce(() => new Promise<Response>(() => undefined));
+    act(() => {
+      void a.runRaw({ tempId: t, clientMessageId: "c-quit", content: "dont lose me", replyId: "", restoreOnFail: "dont lose me", failRestoreGeneration: beginActiveComposerFailRestoreSession() });
+    });
+    expect(savedCids()).toEqual(["c-quit"]);
+    a.unmount();
+    __resetMessengerTextSendInflightForTest();
+    const b = mount();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    const rows = b.rows().filter((r) => r.clientMessageId === "c-quit");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.sendFailed).toBe(true);
+    expect(rows[0]!.content).toBe("dont lose me");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("같은 앱 실행에서 요청 중에 재진입 → 그 글의 행을 만들지 않는다(진행 중 건너뜀)", async () => {
+    const a = mount();
+    const t = a.nextTempId();
+    a.setRows([optimistic(t, "c-fly", "flying")]);
+    fetchMock.mockImplementationOnce(() => new Promise<Response>(() => undefined));
+    act(() => {
+      void a.runRaw({ tempId: t, clientMessageId: "c-fly", content: "flying", replyId: "", failRestoreGeneration: 0 });
+    });
+    a.unmount();
+    const b = mount();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(b.rows().filter((r) => r.clientMessageId === "c-fly")).toHaveLength(0);
+    expect(savedCids()).toEqual(["c-fly"]);
+  });
+
+  it("성공 → 시작 때 보관한 분이 남지 않는다", async () => {
+    const h = mount();
+    h.setRows([optimistic("ts", "c-ok", "fine")]);
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { ok: true, message: { ...optimistic("srv-ok", "c-ok", "fine"), pending: false } })
+    );
+    await h.run({ tempId: "ts", clientMessageId: "c-ok", content: "fine", replyId: "", failRestoreGeneration: 0 });
+    expect(savedCids()).toEqual([]);
+    expect(h.rows().map((r) => r.id)).toEqual(["srv-ok"]);
+  });
+
+  it("늦게 온 같은 cid 확정 행은 보내는 중 행을 대체하고 보관분을 지운다", async () => {
+    const h = mount();
+    h.setRows([optimistic("tl", "c-late", "late")]);
+    let resolveFetch: (r: Response) => void = () => undefined;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((r) => (resolveFetch = r)));
+    let attempt: Promise<boolean> | null = null;
+    act(() => {
+      attempt = h.runRaw({ tempId: "tl", clientMessageId: "c-late", content: "late", replyId: "", failRestoreGeneration: 0 });
+    });
+    expect(savedCids()).toEqual(["c-late"]);
+    // 실시간으로 확정 행이 먼저 도착
+    h.setRows([...h.rows(), { ...optimistic("srv-late", "c-late", "late"), pending: false } as Row]);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(savedCids()).toEqual([]);
+    await act(async () => {
+      resolveFetch(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+      await attempt;
+    });
+    expect(savedCids()).toEqual([]);
   });
 });

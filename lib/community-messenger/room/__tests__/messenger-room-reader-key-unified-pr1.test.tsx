@@ -135,7 +135,8 @@ describe("PR-1 F2 키 통일 — 라우트 id(거래 채팅 id) ≠ 스트림 id
 
   /**
    * 방 안 읽음 판정(`activeRoomActuallyReadable`)은 `activeRoomId === roomId` 로 본다. `activeRoomId` 는 phase1 이 라우트 id 로
-   * 설정하므로 거래 채팅 id 로 연 방의 방 안 소리·배너 판정은 기존과 같다(미해결, 범위 밖 — 보고만). 여기서는 연결만 확인.
+   * 설정한다. 거래 채팅 id URL 방은 스냅샷 뒤 URL 이 정규 id 로 replace 되어 다시 마운트되므로 어긋나는 구간은 스냅샷 전뿐이고,
+   * 그 구간의 판정은 main 과 같다. 여기서는 연결만 확인.
    */
   it("연결: phase1 이 정규 스트림 id 를 읽기 키로 넘기고, 방 안 읽음 판정은 열린 방(activeRoomId) 비교", () => {
     const read = (f: string) => readFileSync(path.join(process.cwd(), f), "utf8");

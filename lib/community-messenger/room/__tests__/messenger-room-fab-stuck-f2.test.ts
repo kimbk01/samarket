@@ -17,9 +17,11 @@ import {
 } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import { syncMessengerRoomReaderStateFromViewport } from "@/lib/community-messenger/room/messenger-room-scroll-near-bottom";
 import {
+  resolveAckReplacedLastVisibleMessageId,
   resolveMessengerRoomMessagesAutoScroll,
   shouldScheduleTailReaderStateSync,
 } from "@/lib/community-messenger/room/messenger-room-messages-auto-scroll";
+import { resolveMessengerRoomJumpLatestFab } from "@/lib/community-messenger/room/messenger-room-reached-latest-gate";
 import {
   countUnreadMessagesBelow,
   resolveJumpToLatestFabState,
@@ -169,5 +171,60 @@ describe("F2-③ 끝 메시지 S3 예약 규칙 (재검토)", () => {
     expect(shouldScheduleTailReaderStateSync({ tailChanged: true, decision: peer, engineStickToBottom: true })).toBe(true);
     expect(shouldScheduleTailReaderStateSync({ tailChanged: true, decision: peer, engineStickToBottom: false })).toBe(true);
     expect(shouldScheduleTailReaderStateSync({ tailChanged: false, decision: peer, engineStickToBottom: false })).toBe(false);
+  });
+});
+
+describe("PR-1 감사 #2 ack 로 끝 id 가 바뀌면 lastVisible 의 옛 tempId 를 새 id 로", () => {
+  it("lastVisible 이 옛 tempId 와 같을 때만 새 id 반환(그 밖은 null)", () => {
+    const decision = resolveMessengerRoomMessagesAutoScroll({
+      previousTailMessageId: "pending:r:7",
+      currentTailMessageId: "srv-7",
+      currentTailIsMine: true,
+      previousTailClientMessageId: "c7",
+      currentTailClientMessageId: "c7",
+    });
+    const base = { decision, previousTailMessageId: "pending:r:7", currentTailMessageId: "srv-7" };
+    expect(resolveAckReplacedLastVisibleMessageId({ ...base, lastVisibleMessageId: "pending:r:7" })).toBe("srv-7");
+    expect(resolveAckReplacedLastVisibleMessageId({ ...base, lastVisibleMessageId: "m3" })).toBeNull();
+    expect(resolveAckReplacedLastVisibleMessageId({ ...base, lastVisibleMessageId: null })).toBeNull();
+    const peer = resolveMessengerRoomMessagesAutoScroll({
+      previousTailMessageId: "m1",
+      currentTailMessageId: "m2",
+      currentTailIsMine: false,
+    });
+    expect(
+      resolveAckReplacedLastVisibleMessageId({ decision: peer, previousTailMessageId: "m1", currentTailMessageId: "m2", lastVisibleMessageId: "m1" })
+    ).toBeNull();
+  });
+
+  it("옮긴 뒤 안 읽음 계산이 새 id 기준(구분선·배지 0)", () => {
+    const rows = [
+      { id: "m1", isMine: false },
+      { id: "srv-7", isMine: true },
+    ];
+    useMessengerRoomReaderStateStore.getState().setScrollPosition(ROOM, "at-bottom");
+    useMessengerRoomReaderStateStore.getState().setLastVisibleMessageId(ROOM, "srv-7");
+    expect(countUnreadMessagesBelow({ messages: rows, lastReadMessageId: "m1", afterMessageId: "srv-7" })).toBe(0);
+    expect(fab(rows, "m1")).toEqual({ visible: false, badgeCount: 0 });
+  });
+});
+
+describe("PR-1 감사 #3 위치를 모르면 만들어 내지 않는다", () => {
+  it("항목이 없을 때 lastVisible·대기 수 쓰기는 위치를 null 로 둔다 → 「↓」 안 그림", () => {
+    const st = useMessengerRoomReaderStateStore.getState();
+    st.setLastVisibleMessageId(ROOM, "m5");
+    expect(useMessengerRoomReaderStateStore.getState().byRoom[ROOM]?.scrollPosition).toBeNull();
+    st.bumpPendingNewFromOthers(ROOM, 2);
+    expect(useMessengerRoomReaderStateStore.getState().byRoom[ROOM]?.scrollPosition).toBeNull();
+    expect(useMessengerRoomReaderStateStore.getState().getScrollPositionForPolicy(ROOM)).toBeNull();
+    expect(resolveMessengerRoomJumpLatestFab({ scrollPosition: null, remainingUnreadCount: 3 }).visible).toBe(false);
+  });
+
+  it("위치가 이미 있으면 그대로 유지", () => {
+    const st = useMessengerRoomReaderStateStore.getState();
+    st.setScrollPosition(ROOM, "reading-history");
+    st.setLastVisibleMessageId(ROOM, "m5");
+    st.bumpPendingNewFromOthers(ROOM, 1);
+    expect(useMessengerRoomReaderStateStore.getState().byRoom[ROOM]?.scrollPosition).toBe("reading-history");
   });
 });

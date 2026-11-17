@@ -135,9 +135,10 @@ function activeRoomActuallyReadable(roomId: string, activeRoomId: string | null)
   const routeRoom = messengerRoomRouteRoomIdNormFromPathname();
   /**
    * PR-1: 위치는 정규 방 id 로 읽는다(읽기 상태 저장소 키 통일). 방 판정은 `activeRoomId === roomId` 로 하고 URL 은 방 라우트
-   * 위인지만 본다. 주의(사실): `activeRoomId` 는 phase1 이 **라우트 id** 로 설정한다(`setActiveMessengerRealtimeRoom(roomId)`).
-   * 그래서 거래 채팅 id(product_chats.id) URL 로 연 방은 정규 id 와 달라 방 안 소리·배너 판정이 기존과 같다(늘 「읽을 수 없음」) —
-   * 미해결, 범위 밖(보고만). 일반 방(URL = 정규 id)은 예전과 같은 결과.
+   * 위인지만 본다. `activeRoomId` 는 phase1 이 **라우트 id** 로 설정한다(`setActiveMessengerRealtimeRoom(roomId)`).
+   * 거래 채팅 id(product_chats.id) URL 로 연 방은 스냅샷이 오면 URL 이 정규 id 로 replace 되어
+   * (`use-messenger-room-url-sync-effects.ts`) 방 화면이 정규 id 로 다시 마운트되므로, 두 id 가 어긋나는 구간은 **스냅샷 전뿐**이고
+   * 그 구간의 판정은 main 과 같다(「읽을 수 없음」). 일반 방(URL = 정규 id)은 예전과 같은 결과.
    */
   if (!routeRoom) return false;
   if (activeRoomId !== roomId || !currentDocumentVisibleAndFocused()) return false;

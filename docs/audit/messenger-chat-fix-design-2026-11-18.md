@@ -81,6 +81,7 @@
 
 **수정(SSOT = 「병합·레이아웃 뒤 viewport 동기화 1회」만 위치·lastVisible 을 씀)**
 1. capture 에서 위치 쓰기 삭제(스냅샷 기록만). 진입 전 낡은 위치 정리는 기존 `useMessengerRoomReaderScrollRoomLifecycle`(phase1 `:819`)이 이미 함 — 새 정리 지점 추가하지 않음(위치 null 이면 FAB 가 보이는 회귀 방지).
+   - **구현 차이(PR #442, §11-1)**: 기존 정리는 떠날 때만·rollout level ≥3 에서만 돌아(기본 level 2) 정리 지점을 **추가**했다 — 방이 열릴 때(layout effect) level 무관하게 정리, 위치 null 이면 「↓」 미표시로 FAB 회귀를 막았다.
 2. 첫 안 읽음 이동 `onDone`·애니메이션 없는 이동 끝에서 `syncMessengerRoomReaderStateFromViewport`(위치+lastVisible) 호출.
 3. 상대 글 병합 뒤 동기화는 기존 S3(`scheduleReaderStateSyncAfterEntry`)가 위치·lastVisible 을 모두 쓰는지 확인하고, 수신 병합 경로가 반드시 S3 를 지나게 연결(1판의 S6 교체안은 병합 **전** 실행이라 효과 없음 — 삭제).
 4. 진입 완료(`completeEntryPhase`)는 `stickToBottomRef` 대신 viewport 를 읽어 기록(스크롤 이벤트 없는 짧은 방).
@@ -233,3 +234,16 @@
 - 감사 확정본의 「도착 때 약 1초 튐」, 오픈 그룹 ‹/◁ 불일치, 분할 화면 직접 push 5곳이 P3·P5 로 해결됐는지 **실기기 미측정**(코드 반영은 P3·P5 에 있음).
 - iPhone 전 항목, 그룹방, 분할 화면.
 - D1·D2 원인.
+
+## 11. PR-1 구현에서 설계와 달라진 점 (PR #442, 2026-11-18)
+1. **F2-1 진입 시 정리 지점 추가** (`use-messenger-room-reader-scroll-room-lifecycle.ts:24-35`).
+   - 이유: 설계는 「기존 lifecycle 이 이미 정리 — 새 정리 지점 추가하지 않음」이었으나, 기존 정리는 **떠날 때·rollout level ≥3** 에서만 돈다(기본 level 2, `messenger-notification-rollout.ts`). level 2 에서는 직전 방문의 at-bottom 이 남아, capture 의 위치 쓰기를 지운 뒤 재진입 첫 그림에서 「reached latest」 효과가 진입 미읽음 세션·구분선을 지울 수 있었다.
+   - 수정: 방이 열릴 때(layout effect, 라우트·스트림 id 각 세션 1회) level 무관하게 그 방 읽기 상태 정리. 설계가 걱정한 「위치 null 이면 FAB 가 보이는 회귀」는 위치가 null 이면 「↓」를 그리지 않게(`resolveMessengerRoomJumpLatestFab`) 막고, 「reached latest」 정리는 진입 스크롤 완료 + 효과 시점 store 위치로만.
+   - 영향: rollout 2 에서 직전 at-bottom 잔존 제거. 진입 완료 전(위치 null) 방 안 판정은 「읽을 수 없음」 → 그 사이 들어온 메시지는 소리·배너가 날 수 있다(기존과 같은 동작). 거래·주문 canary +1 은 자동 읽음으로 0 복귀 — PR #442 감사 결과 인용(작업자 재측정 안 함).
+2. **읽기 상태 저장소 키 = 정규 스트림 id 로 통일** — 진입 스크롤 controller·열기 읽음 효과가 라우트 id 로 쓰던 것을 `readerRoomId` 로. 라우트 id(product_chats.id) ≠ 정규 id 인 방은 스냅샷 뒤 URL 이 정규 id 로 replace 되어 다시 마운트되므로 어긋남은 스냅샷 전 구간뿐.
+3. **위치를 모르면 만들어 내지 않음** — `setLastVisibleMessageId`·`bumpPendingNewFromOthers` 가 항목이 없을 때 위치를 「reading-history」로 만들던 것을 null 로.
+4. **F2-③ S3 예약 규칙** — 내 글 force 전송·ack id 교체(엔진 stick)에서는 끝 메시지 S3 생략(높이 정착 뒤 RO→S2). ack id 교체 때 lastVisible 의 옛 tempId 는 새 id 로 옮김.
+5. **F1 무손실 보강** — 보관 7일 만료·건수 상한 삭제 제거 / definitive 행 제거는 「같은 화면에서 입력창 복원 성공」일 때만 / 전송 **시작 때** 보관(앱 종료·새로고침 대비, 진행 중 cid 는 복원·저장 이벤트에서 건너뜀, 자동 재전송 없음) / 옛 화면의 늦은 실패는 보관 + 창 이벤트만 / 보관 실패는 실패 응답 때 1회 스낵바 / 보내는 중 행 tempId 순번을 앱 전체 하나로 / 불러온 창보다 오래된 deduped 확정 행은 병합 안 함 / rpcErr 는 일시 오류만 503.
+6. **F3 ② 보류** — 전역 bundle 채널 DELETE 는 통화 인접 파일이라 PR-C 로.
+7. **범위 밖 기존 결함(보고만)** — 거래 채팅 id(product_chats.id) URL 로 방을 여는 링크 생성처 6곳(SalesHistoryCard:73, SellerTradeRow:25, mypage/philife purchases/[chatId], trade-hub-paths:33, trade-chat-entry-navigation:61).
+

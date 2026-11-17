@@ -23,7 +23,10 @@ import {
 } from "@/lib/community-messenger/monitoring/cm-receive-latency";
 import { pickMessengerApiErrorField } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 import { MESSENGER_TEXT_SEND_TIMEOUT_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
-import { fetchMessengerSendJson } from "@/lib/community-messenger/room/messenger-send-fetch-json";
+import {
+  fetchMessengerSendJson,
+  type MessengerSendFetchJsonResult,
+} from "@/lib/community-messenger/room/messenger-send-fetch-json";
 import {
   clearMessengerOutboundFailedSend,
   isMessengerOutboundRowDisplayed,
@@ -88,6 +91,21 @@ export type MessengerTextSendOutboxDeps = {
 
 function trimText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
+}
+
+/**
+ * PR-1 감사 #1: 지금 요청 중인 글(방:cid) — 앱 실행(메모리) 동안만. 전송을 시작할 때 글을 기기에 미리 보관하므로,
+ * 다른 화면의 진입 복원·저장 이벤트가 요청 중인 글을 실패 행으로 만들지 않게 건너뛰는 데 쓴다.
+ * 앱이 종료되면 비므로 다음 실행에서는 보관 글이 실패 행(요청 0건)으로 복원된다(자동 재전송 없음 — Owner 승인 §6-1 #1).
+ */
+const inflightTextSendKeys = new Set<string>();
+const inflightKey = (roomId: string, cid: string) => `${roomId.trim()}:${cid.trim()}`;
+export function isMessengerTextSendInflight(roomId: string, clientMessageId: string): boolean {
+  return inflightTextSendKeys.has(inflightKey(roomId, clientMessageId));
+}
+/** 테스트 전용 — 앱 종료(메모리 초기화) 흉내 */
+export function __resetMessengerTextSendInflightForTest(): void {
+  inflightTextSendKeys.clear();
 }
 
 /** 다른(옛) 인스턴스가 실패 글을 보관했음을 같은 방 화면에 알리는 창 이벤트 */
@@ -210,6 +228,9 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
       if (m.pending) pendingCids.add(c);
       else confirmed.add(c);
     }
+    /** 감사 #1: 다른 화면(같은 앱 실행)에서 아직 요청 중인 글은 복원하지 않는다 — 그 요청의 결과가 처리한다 */
+    entries = entries.filter((e) => !isMessengerTextSendInflight(roomId, e.clientMessageId));
+    if (entries.length === 0) return;
     for (const e of entries) persistedFailedTextCidsRef.current.add(e.clientMessageId);
     if (confirmed.size) {
       pruneMessengerFailedTextSendsConfirmed(roomId, confirmed);
@@ -317,12 +338,30 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
     cmReceiveLatencyMark(latencyKey, { send_api_start_ms: cmReceiveLatencyNow() });
     const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
     /**
+     * PR-1 감사 #1: 전송을 **시작할 때** 글을 기기에 보관한다 — 입력창·초안은 이미 비워졌으므로, 응답 전에 앱이 종료·새로고침되면
+     * 예전에는 글이 어디에도 남지 않았다. 성공·입력창 복원은 이 보관분을 지운다(`forgetPersistedFailedText`).
+     * 여기서 저장소가 거부해도 스낵바는 띄우지 않는다(실패 응답 때 1회만).
+     */
+    const inflight = inflightKey(roomId, clientMessageId);
+    inflightTextSendKeys.add(inflight);
+    const startRow = d.roomMessagesRef.current.find((item) => item.id === tempId);
+    if (
+      saveMessengerFailedTextSend(roomId, {
+        clientMessageId,
+        content,
+        replyToMessageId: replyId || null,
+        createdAt: startRow?.createdAt ?? new Date().toISOString(),
+      })
+    ) {
+      persistedFailedTextCidsRef.current.add(clientMessageId);
+    }
+    /**
      * F8: 응답 본문 읽기까지 같은 12초 안에서 끝낸다.
      * CHAT-03: fetch 예외(네트워크/비행기 모드/시간 초과 abort) — res null, 서버 커밋 여부 불명(indeterminate).
      */
-    const sent = await fetchMessengerSendJson<{ ok?: boolean; error?: string; message?: CommunityMessengerMessage }>(
-      `${communityMessengerRoomResourcePath(roomId)}/messages`,
-      {
+    let sent: MessengerSendFetchJsonResult<{ ok?: boolean; error?: string; message?: CommunityMessengerMessage }>;
+    try {
+      sent = await fetchMessengerSendJson(`${communityMessengerRoomResourcePath(roomId)}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -331,8 +370,11 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
           ...(replyId ? { replyToMessageId: replyId } : {}),
         }),
         timeoutMs: MESSENGER_TEXT_SEND_TIMEOUT_MS,
-      }
-    );
+      });
+    } finally {
+      /** 요청이 끝나면(성공·실패·예외 모두) 진행 중에서 뺀다 — 이후 처리(보관·창 이벤트)는 진행 중이 아님 */
+      inflightTextSendKeys.delete(inflight);
+    }
     const res = sent.res;
     const jsonParsed = sent.jsonParsed;
     const json = sent.json as { ok?: boolean; error?: string; code?: string; message?: CommunityMessengerMessage };
@@ -431,7 +473,10 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
     const alreadyConfirmed = d.roomMessagesRef.current.some(
       (item) => !item.pending && trimText(item.clientMessageId) === clientMessageId
     );
-    if (!alreadyConfirmed) {
+    if (alreadyConfirmed) {
+      /** 시작 때 보관한 분 — 서버 확정 행이 있으므로 지운다 */
+      forgetPersistedFailedText(clientMessageId);
+    } else {
       const kept = saveMessengerFailedTextSend(roomId, {
         clientMessageId,
         content,

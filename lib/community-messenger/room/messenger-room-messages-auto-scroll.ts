@@ -66,3 +66,22 @@ export function shouldScheduleTailReaderStateSync(input: {
   }
   return true;
 }
+
+/**
+ * PR-1 감사 #2: 내 글 ack 로 끝 행 id 가 tempId → 서버 id 로 바뀌면(`skip_ack_id_replace`), 전송 경로가 lastVisible 로
+ * 써 둔 tempId 를 새 id 로 옮긴다. 옛 tempId 가 남으면 안 읽음 계산·구분선이 그 사이 잘못 보일 수 있다.
+ * S3(viewport 읽기)는 부르지 않는다 — 옮길 값이면 새 id, 아니면 null.
+ */
+export function resolveAckReplacedLastVisibleMessageId(input: {
+  decision: MessengerRoomMessagesAutoScrollDecision;
+  previousTailMessageId: string | null;
+  currentTailMessageId: string | null;
+  lastVisibleMessageId: string | null;
+}): string | null {
+  if (input.decision.scroll || input.decision.reason !== "skip_ack_id_replace") return null;
+  const prev = input.previousTailMessageId?.trim() ?? "";
+  const cur = input.currentTailMessageId?.trim() ?? "";
+  const lastVisible = input.lastVisibleMessageId?.trim() ?? "";
+  if (!prev || !cur || !lastVisible || lastVisible !== prev) return null;
+  return cur;
+}
