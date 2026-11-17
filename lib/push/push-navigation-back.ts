@@ -124,33 +124,6 @@ export function markLeavingByPushNavigation(): void {
 }
 
 /**
- * N1(docs/audit/messenger-chat-fix-design-2026-11-18.md PR-2) — 메신저 방 ◁·‹ 가 「방 종류 목록 replace」로 실행되기
- * **직전**에 호출(`runMessengerRoomBackTarget`). replace 는 기록 위치를 바꾸지 않으므로 목록이 된 지금 항목의 바로 앞이 여전히
- * 「알림으로 떠난 항목」(이전 방 B·같은 목록)이고, 표시가 남으면 목록의 ◁ 가 `history.back()` 으로 그 항목에 간다.
- * 그래서 바로 앞 항목의 표시를 지워 목록의 ◁ 를 WebView 기본 뒤로(건너뛰기 항목을 넘어 그 앞 화면)에 맡긴다.
- *
- * 지우지 않는 경우(지금 동작 유지): 바로 앞 표시 항목이 첫 기록이거나 그 앞 항목도 알림으로 떠난 항목일 때
- * (콜드 알림 진입 [HOME*, 방] 등). 이때 지우면 앞 항목이 모두 건너뛰기라 WebView canGoBack=false → ◁ 무반응
- * (`docs/design/push-entry-back-fix-design-2026-11-13.md` §1). 표시를 남겨 지금처럼 `history.back()` 으로 그 화면에 간다.
- * Navigation API 가 없으면 아무것도 하지 않는다(표시 자체가 없음).
- */
-export function clearPushNavigationMarkBeforeListReplace(): void {
-  const nav = readNavigation();
-  if (!nav) return;
-  const cur = nav.currentEntry;
-  if (!cur || typeof cur.index !== "number" || cur.index <= 0) return;
-  const left = readLeftByPush();
-  if (left.length === 0) return;
-  const entries = nav.entries();
-  const prev = entries[cur.index - 1];
-  if (!prev || !left.includes(prev.key)) return;
-  const beforePrev = cur.index - 2 >= 0 ? entries[cur.index - 2] : undefined;
-  if (!beforePrev || left.includes(beforePrev.key)) return;
-  writeLeftByPush(left.filter((k) => k !== prev.key));
-  sync();
-}
-
-/**
  * 문서 reload 뒤 1회 — 저장된 표시가 있으면 구독을 다시 걸고 지금 화면의 담당을 맞춘다(A7).
  * 표시가 없으면 아무것도 하지 않는다(지금 동작).
  */

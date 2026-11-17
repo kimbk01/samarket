@@ -24,6 +24,7 @@ import {
   type MessengerRoomListKind,
 } from "@/lib/community-messenger/room/messenger-room-back-target";
 import { setPageBackOwner } from "@/lib/ui/overlay-back-stack";
+import { isCommunityMessengerRoomRoutePathname } from "@/lib/community-messenger/messenger-room-pathname";
 import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
 import { useBuyerOrderChatSlideHost } from "@/components/mypage/BuyerOrderChatSlideHostContext";
 import {
@@ -298,6 +299,8 @@ export function MessengerRoomSwipeBackShell({
    */
   useEffect(() => {
     if (insideOrderChatSlide) return;
+    /** N1: 목록으로 이동해 주소가 방이 아니게 된 뒤(언마운트 직전 재실행)에는 등록하지 않는다 — 목록의 웹 뒤로 담당을 덮지 않게. */
+    if (!isCommunityMessengerRoomRoutePathname(pathname)) return;
     const target = resolveBackTarget();
     if (target.kind !== "replace") return;
     console.info("[cm-room-back] page_back_owner", { roomId: roomId?.trim() ?? "", href: target.href });

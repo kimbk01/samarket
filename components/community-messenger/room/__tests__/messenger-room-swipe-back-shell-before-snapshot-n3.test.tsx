@@ -4,7 +4,6 @@
  * 셸이 페이지 뒤로 주인을 등록하고, 목적지는 누른 순간 계산한다(roomType 없으면 URL `cm_list` → 없으면 대화 목록).
  * 「방을 찾을 수 없음」 버튼도 같은 함수(셸 requestAnimatedBack → resolveBackTarget)를 쓴다.
  */
-import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -24,8 +23,21 @@ vi.mock("@/hooks/use-is-messenger-split-viewport", () => ({
 vi.mock("@/lib/community-messenger/room/messenger-room-entry-origin-store", () => ({
   resolveMessengerRoomEntryOrigin: () => entryOrigin.value,
 }));
+/** 「방을 찾을 수 없음」 화면만 — 스냅샷 없음·로딩 끝 */
+vi.mock("@/lib/community-messenger/room/phase2", () => ({
+  useMessengerRoomPhase2Controller: () => ({
+    snapshot: null,
+    loading: false,
+    t: (key: string) => key,
+    router,
+  }),
+}));
+vi.mock("@/lib/community-messenger/realtime/typing/use-community-messenger-room-typing", () => ({
+  useCommunityMessengerRoomTypingRuntime: () => {},
+}));
 
 import { MessengerRoomSwipeBackShell } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
+import CommunityMessengerRoomClientPhase2Body from "@/components/community-messenger/room/CommunityMessengerRoomClientPhase2Body";
 import { buildMessengerRoomListBackHref } from "@/lib/community-messenger/messenger-entry-origin";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import {
@@ -134,19 +146,57 @@ describe("N3 — 스냅샷 전 ◁", () => {
   });
 });
 
-describe("N3 — 「방을 찾을 수 없음」 버튼 = 같은 함수", () => {
-  const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-  const body = strip(readFileSync("components/community-messenger/room/CommunityMessengerRoomClientPhase2Body.tsx", "utf8"));
-  const shell = strip(readFileSync("components/community-messenger/room/MessengerRoomSwipeBackShell.tsx", "utf8"));
+describe("N3 — 「방을 찾을 수 없음」 버튼 = 같은 함수(렌더)", () => {
+  function notFoundButton(): HTMLButtonElement {
+    const btn = container.querySelector("button");
+    if (!(btn instanceof HTMLButtonElement)) throw new Error("not-found button missing");
+    return btn;
+  }
 
-  it("버튼은 셸 requestAnimatedBack(= ◁ 주인과 같은 commitNavigation → resolveBackTarget) 우선, 없으면 같은 목적지 함수", () => {
-    expect(body).toMatch(
-      /cm_ui_cannot_find_chat_room[\s\S]*?if \(requestAnimatedBack\) \{\s*requestAnimatedBack\(\);\s*return;\s*\}\s*runMessengerRoomBackTarget\(\s*room\.router,\s*resolveMessengerRoomBackTargetNow\(\{ roomType: null, listKind: null, searchParams \}\)/
+  it("셸 안: 버튼 = ◁ 와 같은 목적지(roomType 없음 → 대화 목록 replace 1회)", () => {
+    act(() => {
+      root.render(
+        <MessengerRoomSwipeBackShell roomId="room-1" roomType={null}>
+          <CommunityMessengerRoomClientPhase2Body />
+        </MessengerRoomSwipeBackShell>
+      );
+    });
+    expect(container.textContent).toContain("cm_ui_cannot_find_chat_room");
+    act(() => notFoundButton().click());
+    expect(router.replace).toHaveBeenCalledTimes(1);
+    const viaButton = router.replace.mock.calls[0];
+
+    router.replace.mockReset();
+    act(() => root.unmount());
+    root = createRoot(container);
+    render(null);
+    pressSystemBack();
+    expect(router.replace.mock.calls[0]).toEqual(viaButton);
+    expect(viaButton).toEqual(["/community-messenger?section=chats", { scroll: false }]);
+  });
+
+  it("셸 안 + URL cm_list: 버튼 = cm_list 목록", () => {
+    window.history.replaceState(null, "", "/community-messenger/rooms/room-1?cm_list=trade");
+    act(() => {
+      root.render(
+        <MessengerRoomSwipeBackShell roomId="room-1" roomType={null}>
+          <CommunityMessengerRoomClientPhase2Body />
+        </MessengerRoomSwipeBackShell>
+      );
+    });
+    act(() => notFoundButton().click());
+    expect(router.replace).toHaveBeenCalledWith(
+      buildMessengerRoomListBackHref(new URLSearchParams("cm_list=trade")),
+      { scroll: false }
     );
   });
 
-  it("셸 주인 등록에 roomType == null 조건 없음", () => {
-    expect(shell).not.toMatch(/if \(roomType == null \|\| insideOrderChatSlide\) return;/);
-    expect(shell).toMatch(/setPageBackOwner\(\(\) => requestAnimatedBackRef\.current\(\)\)/);
+  it("셸 밖(requestAnimatedBack 없음): 같은 목적지 함수로 대화 목록 replace", () => {
+    act(() => {
+      root.render(<CommunityMessengerRoomClientPhase2Body />);
+    });
+    act(() => notFoundButton().click());
+    expect(router.replace).toHaveBeenCalledWith("/community-messenger?section=chats", { scroll: false });
+    expect(router.back).not.toHaveBeenCalled();
   });
 });
