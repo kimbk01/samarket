@@ -303,6 +303,11 @@ export function WriteSheetFlowInner({
   }, []);
 
   const tryClose = useCallback(() => {
+    /** 확인창이 이미 떠 있을 때 다시 닫기 요청(Android ◁) = 「계속 쓰기」 — 감사 2026-11-17 D5 */
+    if (leaveConfirmOpen) {
+      setLeaveConfirmOpen(false);
+      return;
+    }
     const shouldConfirm =
       selectedCategory &&
       (isFormDirty || (selectedCategory.type === "trade" && meaningfulTradeDraft));
@@ -324,6 +329,7 @@ export function WriteSheetFlowInner({
     })();
   }, [
     isFormDirty,
+    leaveConfirmOpen,
     meaningfulTradeDraft,
     onUserRequestClose,
     selectedCategory,

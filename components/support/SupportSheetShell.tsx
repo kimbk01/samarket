@@ -17,6 +17,8 @@ export type SupportSheetShellProps = {
   open: boolean;
   onClose: () => void;
   dismissible?: boolean;
+  /** Android ◁ 로 닫기 — 공용 시트의 backDismissible 로 그대로 전달. */
+  backDismissible?: boolean;
   ariaLabel: string;
   children: ReactNode;
 };
@@ -29,6 +31,7 @@ export function SupportSheetShell({
   open,
   onClose,
   dismissible = true,
+  backDismissible,
   ariaLabel,
   children,
 }: SupportSheetShellProps) {
@@ -37,6 +40,7 @@ export function SupportSheetShell({
       open={open}
       onClose={onClose}
       dismissible={dismissible}
+      backDismissible={backDismissible}
       ariaLabel={ariaLabel}
       preferredHeightRatio={SUPPORT_SHEET_HEIGHT_RATIO}
       maxWidthClass={SUPPORT_SHEET_MAX_W_CLASS}

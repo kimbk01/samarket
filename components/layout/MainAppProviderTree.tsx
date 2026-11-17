@@ -1,5 +1,6 @@
 "use client";
 
+import { AndroidRootBackHost } from "@/components/layout/providers/AndroidRootBackHost";
 import { TradeWriteSheetLoadingFrame } from "@/components/trade/TradeWriteSheetLoadingFrame";
 import { MandatoryAddressGate } from "@/components/addresses/MandatoryAddressGate";
 import type { ReactNode } from "react";
@@ -212,6 +213,7 @@ export function MainAppProviderTree({
           <NotificationPermissionSyncHost />
           <NativePushRegistrationLazy />
           <PushRouteListener />
+          <AndroidRootBackHost />
           <FriendQrAppLinkListener />
           <NotificationRouteReadSync />
           <NativeBadgeSyncLazy />

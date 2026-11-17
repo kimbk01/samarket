@@ -127,7 +127,7 @@ describe("OwnerMobileOpsMenuDrawer keyboard a11y (IA-20)", () => {
   });
 
   it("Android hardware back closes the open drawer (overlay back stack), and releases the entry when closed", () => {
-    __setOverlayBackListenerDriverForTests({ install: () => () => {} });
+    __setOverlayBackListenerDriverForTests({ install: () => () => {}, minimize: () => {} });
     try {
       expect(overlayBackStackDepth()).toBe(0);
       openFromOpener();

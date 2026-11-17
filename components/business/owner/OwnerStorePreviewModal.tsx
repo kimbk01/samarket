@@ -7,6 +7,7 @@ import { acquireOwnerOverlayBodyLock } from "@/lib/business/owner-overlay-body-l
 import { OWNER_MOBILE_ORDER_DETAIL_OVERLAY_SHELL_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
 import { X, ExternalLink } from "lucide-react";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 /**
  * Owner Store Preview — PRIMARY stays in Owner context.
@@ -50,6 +51,8 @@ export function OwnerStorePreviewModal({
   }, [slug, open]);
 
   useRegisterOpenOverlay(open && Boolean(publicHref));
+  /** Android ◁ = 닫기(✕·바깥 탭과 같은 처리) — 감사 2026-11-17 D5 */
+  useOverlayHardwareBack(open && Boolean(publicHref), onClose);
   if (!open || !publicHref) return null;
 
   return (
