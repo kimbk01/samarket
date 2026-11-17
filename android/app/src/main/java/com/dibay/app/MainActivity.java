@@ -97,10 +97,6 @@ public class MainActivity extends BridgeActivity {
                 // 진입 감사 5단계: 이번 실행에 네이티브 인트로가 떠 있으면 소재 id (웹 인트로를 더하지 않고 팝업을 보류)
                 + "Object.defineProperty(window,'__DIBAY_NATIVE_INTRO__',{value:'"
                 + DibayNativeIntro.documentStartValue()
-                + "',writable:false,enumerable:false,configurable:false});"
-                // 실기 FAIL-2 F2′-b: 이번 실행에 앱 안 덮개가 있으면 "1" — 웹은 P3(hydration 전 해제)를 건너뛴다
-                + "Object.defineProperty(window,'__DIBAY_NATIVE_SPLASH_COVER__',{value:'"
-                + DibaySplashCover.documentStartValue()
                 + "',writable:false,enumerable:false,configurable:false});";
         WebViewCompat.addDocumentStartJavaScript(webView, js, Collections.singleton(origin));
         Log.i(
@@ -1311,8 +1307,9 @@ public class MainActivity extends BridgeActivity {
     // OS splash until web dismissSplash / homePresentationReady — no Intro/System Start product.
     // 진입 감사 5단계: 네이티브 인트로가 붙었으면 OS 시작 화면을 바로 걷는다(인트로가 로딩 시간을 채움)
     DibayNativeIntro.attach(this);
-    // 실기 FAIL-2 F2′-a: 인트로가 없으면 같은 모습 덮개를 붙이고 시스템 시작 화면을 바로 넘긴다 — WebView 는 덮개 아래에서
-    // 첫 그리기(실측 1.45초)를 끝낸다. 덮개는 아래 해제 권한 두 가지(웹 성공 신호 · 고장 판정)와 같은 때만 걷힌다.
+    // 실기 FAIL-2 F2′-a: 인트로가 없으면 같은 모습 덮개를 붙이고 시스템 시작 화면을 바로 넘긴다 — 덮개를 걷는 프레임에
+    // WebView 내용 그리기가 함께 일어나 그 프레임이 끝날 때까지 덮개가 남는다(문서 §8). 덮개는 아래 해제 권한(웹 성공 신호 ·
+    // 고장 판정)과 같은 때만 걷힌다.
     DibaySplashCover.attach(this);
     splashScreen.setKeepOnScreenCondition(
         () ->
@@ -1708,6 +1705,24 @@ public class MainActivity extends BridgeActivity {
   }
 
   /**
+   * 설계 H3 (Owner 「Approve design H」 2026-11-18 · docs/audit/app-entry-device-fail-root-cause-design-2026-11-17.md §11·§12):
+   * 웹 성공 신호 중 「서버 본문이 이미 렌더러 프레임에 들어갔다」는 증명(서버 HTML 인라인 표시 H1)이 있을 때의 해제 —
+   * 화면 커밋 콜백(postVisualStateCallback)을 기다리지 않는다. 그 콜백은 렌더러 주 스레드 커밋이 필요해 hydration 스크립트가
+   * 연달아 도는 동안(샤오미 실측 1초+) 막힌다. 덮개를 걷는 프레임이 끝날 때까지 덮개가 화면에 남는 구조는 그대로다.
+   * 해제 권한은 여전히 웹 성공 신호 하나 — 시점만 앞당김, 타이머 없음.
+   */
+  static void requestWebSplashDismissPainted(String source) {
+    if (webSplashDismissRequested) return;
+    webSplashDismissRequested = true;
+    webSplashDismissPending = false;
+    splashDismissSource = source != null ? source : "unknown";
+    DibayNativeIntro.onHomeReady();
+    DibaySplashCover.hide("web_painted");
+    Log.i(WEBVIEW_LOG_TAG, "dismissSplash painted source=" + splashDismissSource);
+    Log.i(WEBVIEW_LOG_TAG, "dismissSplash success source=" + splashDismissSource);
+  }
+
+  /**
    * C1: 고장 경로 전용 즉시 해제 — 화면 커밋을 기다리지 않는다(오류 화면을 그려야 하므로).
    * 이전에는 오류 화면도 requestWebSplashDismiss 를 불러, 앞선 요청이 pending 이면 무시되어 오류 화면이 시작 화면 뒤에 갇혔다.
    */
@@ -1887,6 +1902,16 @@ public class MainActivity extends BridgeActivity {
           () -> {
             Log.i(WEBVIEW_LOG_TAG, "dismissSplash start bridge_js");
             requestWebSplashDismiss("DibayBootBridge");
+          });
+    }
+
+    /** 설계 H3 — 웹이 「서버 본문이 든 렌더러 프레임이 지나감」을 증명했을 때만 부른다(화면 커밋 콜백 대기 없음). */
+    @JavascriptInterface
+    public void dismissSplashPainted() {
+      mainHandler.post(
+          () -> {
+            Log.i(WEBVIEW_LOG_TAG, "dismissSplash start bridge_js painted");
+            requestWebSplashDismissPainted("DibayBootBridge.painted");
           });
     }
 

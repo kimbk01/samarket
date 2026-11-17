@@ -27,6 +27,7 @@ import { noteEntryReleased } from "@/lib/telemetry/entry-telemetry.client";
 import { getLaunchDestination } from "@/lib/launch-intro/startup-destination";
 import { isServerRenderedBodyPath } from "@/lib/layout/server-rendered-body-paths";
 import { mayReleaseLaunchSplashAt, onLaunchPushHandled } from "@/lib/startup/launch-push-hold";
+import { hasServerBodyFrameMark, onServerBodyFrameMark } from "@/lib/startup/server-body-frame-mark";
 import { mayReleaseForLifecycleNav, onLifecycleNavHoldSettled } from "@/lib/startup/lifecycle-nav-hold";
 
 export type DibayBootMetrics = {
@@ -261,7 +262,7 @@ export function tryDismissNativeSplash(reason: string): void {
  * 화면 준비 뒤 `tryDismissNativeSplash` 는 이 부분을 건너뛰고 기록·앱 준비 처리만 한다.
  */
 let nativeSplashBridgesDismissed = false;
-function dismissNativeSplashBridges(reason: string): void {
+function dismissNativeSplashBridges(reason: string, opts?: { painted?: boolean }): void {
   if (nativeSplashBridgesDismissed) return;
   nativeSplashBridgesDismissed = true;
 
@@ -276,11 +277,16 @@ function dismissNativeSplashBridges(reason: string): void {
       window as unknown as {
         DibayBootBridge?: {
           dismissSplash?: () => void;
+          dismissSplashPainted?: () => void;
           endHandoffCover?: () => void;
         };
       }
     ).DibayBootBridge;
-    if (bridge?.dismissSplash) {
+    // 설계 H3: 본문이 이미 렌더러 프레임에 들어간 증거(H1)가 있을 때만 — 네이티브가 화면 커밋 콜백을 기다리지 않는다
+    if (opts?.painted && typeof bridge?.dismissSplashPainted === "function") {
+      bridge.dismissSplashPainted();
+      bridgeOk = true;
+    } else if (bridge?.dismissSplash) {
       bridge.dismissSplash();
       bridgeOk = true;
     }
@@ -381,6 +387,37 @@ export function releaseNativeSplashAtServerBodyFrame(): void {
   if (nativeSplashBridgesDismissed || splashDismissAttempted) return;
   if (!isServerRenderedBodyPath(window.location.pathname)) return;
   if (getLaunchDestination().destination !== "community") return;
+  /**
+   * 설계 H2 (Owner 「Approve design H」 2026-11-18 · 문서 §11·§12): 앱 WebView 에서는 ① FCP 기록이 화면 반영 알림에 묶여
+   * 덮개·시작 화면이 있는 동안 늦게 오고 ② 이 코드는 hydration 스크립트와 같은 주 스레드 줄에 서서 「다음 프레임」이 1초 넘게
+   * 오지 않는다(샤오미 실측). 서버 본문 뒤 인라인 표시(H1)가 「본문이 든 프레임이 지나감」을 이미 증명하면 FCP·다음 프레임을
+   * 기다리지 않고 바로 해제한다. 해제 판정 조건은 아래 FCP 경로와 같다. 표시·새 해제가 없으면 FCP 경로 그대로.
+   */
+  const paintedReleaseAvailable = (() => {
+    try {
+      const b = (window as unknown as { DibayBootBridge?: { dismissSplashPainted?: unknown } }).DibayBootBridge;
+      return typeof b?.dismissSplashPainted === "function";
+    } catch {
+      return false;
+    }
+  })();
+  if (paintedReleaseAvailable) {
+    const releasePainted = () => {
+      if (nativeSplashBridgesDismissed || splashDismissAttempted) return;
+      const path = window.location.pathname;
+      if (!isServerRenderedBodyPath(path) || !hasServerRenderedBody(document)) return;
+      if (!mayReleaseLaunchSplashAt(path)) return;
+      if (!mayReleaseForLifecycleNav(path)) return;
+      setMetric("serverBodySplashRelease", nowMs());
+      dismissNativeSplashBridges("serverBodyPainted", { painted: true });
+    };
+    if (hasServerBodyFrameMark()) {
+      releasePainted();
+      if (nativeSplashBridgesDismissed) return;
+    } else {
+      onServerBodyFrameMark(releasePainted);
+    }
+  }
   if (typeof requestAnimationFrame !== "function" || typeof performance?.getEntriesByName !== "function") return;
   /**
    * 「빈 화면 아닌 첫 그림」 = 첫 글자 표시(FCP) 이후 — 글꼴이 늦게 붙어 글자 없는 프레임에서 걷히지 않게.
