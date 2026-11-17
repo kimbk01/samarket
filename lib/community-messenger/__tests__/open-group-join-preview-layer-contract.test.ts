@@ -32,6 +32,12 @@ describe("모임 참여 미리보기 층", () => {
     expect(zOf("MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS")).toBeGreaterThan(zOf("MAIN_BOTTOM_NAV_SHEET_Z_CLASS"));
   });
 
+  it("포털 루트가 메신저 색·입력 토큰 범위([data-messenger-shell])를 직접 단다", () => {
+    // 범위 없이 body 에 그리면 --messenger-bg 가 비어 배경이 투명해진다(실기 2026-11-18 06:45 PHT).
+    expect(preview).toContain('data-messenger-shell=""');
+    expect(readFileSync("app/design-tokens.css", "utf8")).toMatch(/\[data-messenger-shell\][^{]*\{[^}]*--messenger-bg:/);
+  });
+
   it("◁ 등록은 그대로(떠 있는 동안 이 창만 닫음)", () => {
     expect(preview).toContain("useOverlayHardwareBack(true, onClose)");
   });

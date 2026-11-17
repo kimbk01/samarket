@@ -86,6 +86,9 @@ export function OpenGroupJoinPreviewFullScreen({
       role="dialog"
       aria-modal="true"
       data-keyboard-tap-dismiss="1"
+      /* body 포털이라 메신저 홈 루트의 색·입력 토큰(`[data-messenger-shell]` 범위)을 상속받지 못한다 —
+         시트(`MessengerHomeBottomSheetShell`)와 같이 같은 범위를 직접 단다. 없으면 배경이 투명(실기 2026-11-18 06:45 PHT). */
+      data-messenger-shell=""
     >
       <header className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2 pt-[max(0.5rem,var(--safe-top))]">
         <button
