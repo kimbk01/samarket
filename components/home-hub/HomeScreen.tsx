@@ -12,6 +12,8 @@ import { dibayDomainChromeElementPropsForId } from "@/lib/ui/dibay-domain-chrome
 import { DibayPtrSlot } from "@/components/ptr/DibayPtrSlot";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
+import { useLastRunSnapshot } from "@/hooks/use-last-run-snapshot";
+import { updateLastRunSnapshot } from "@/lib/startup/last-run-snapshot";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { buildLoginHref } from "@/lib/auth/client-access-flow";
 import {
@@ -137,14 +139,40 @@ export function HomeScreen({
    * 회원 확인 중에는 비회원 문구를 먼저 그리지 않는다 — 같은 자리 회색 칸(비회원 확정이면 「전체 지역」, 회원이면 주소)으로
    * 한 번만 바뀐다. 알림 자리도 미리 비워 둬 머리줄이 밀리지 않는다.
    */
-  const headerPending = membership.status === "checking" ? authCookieHint !== false : isMember && address.status === "loading";
+  /**
+   * 앱 진입 실기 F3-a (2026-11-17 삼성: 주소 +1.1초 · 종 +1.3초): 같은 계정의 지난 실행 값으로 첫 그림부터 회원 머리줄
+   * (주소 한 줄 · 종 자리)을 그린다. 서버·hydration 첫 렌더는 사진 없음(null) — 첫 클라이언트 커밋에서만 반영.
+   * 확인 결과가 비회원이면 그때 비회원 머리줄로, 주소가 다르면 새 주소로 바뀐다.
+   */
+  const lastRun = useLastRunSnapshot();
+  const membershipChecking = membership.status === "checking";
+  const seededMember = membershipChecking && lastRun?.member === true;
+  const headerMember = isMember || seededMember;
+  const seededAddressLine = headerMember ? lastRun?.addressLine?.trim() || null : null;
+  /**
+   * 조회된 주소 한 줄. 회원 확정 직후 주소 훅이 아직 사용자 없이 만든 「준비됨·없음」일 수 있어(부팅 재시도 전),
+   * 없음이면 지난 실행 줄을 계속 보인다(회원은 주소 필수 — MandatoryAddressGate). 다른 주소가 오면 그 주소로 바뀐다.
+   */
+  const liveAddressLine = !membershipChecking && address.status === "ready" ? address.line?.trim() || null : null;
+  const headerPending = membershipChecking
+    ? !seededAddressLine && (seededMember || authCookieHint !== false)
+    : isMember && address.status === "loading" && !seededAddressLine;
   const addressLabel = headerPending
     ? null
-    : isMember
-      ? address.status === "ready" && address.line
-        ? address.line
-        : t("home_address_unset")
+    : headerMember
+      ? (liveAddressLine ?? seededAddressLine ?? t("home_address_unset"))
       : t("home_address_all");
+
+  /** F3-a 기록 — 회원 확정·주소 조회 성공 뒤 (계정 = 로그인 쿠키 · 확정 사용자 id 와 같을 때만 · 주소는 있는 줄만) */
+  const memberProfileId = membership.status === "member" ? membership.profile.id : null;
+  useEffect(() => {
+    if (!memberProfileId) return;
+    updateLastRunSnapshot({ member: true }, memberProfileId);
+  }, [memberProfileId]);
+  useEffect(() => {
+    if (!memberProfileId || !liveAddressLine) return;
+    updateLastRunSnapshot({ addressLine: liveAddressLine }, memberProfileId);
+  }, [memberProfileId, liveAddressLine]);
 
   return (
     <div className="min-h-full bg-[#F3F5F3]" data-home-screen>
@@ -182,10 +210,13 @@ export function HomeScreen({
                     data-home-address
                     data-popup-anchor="region"
                   >
+                    {/* F3-c: 글자 칸은 회색 칸과 같은 최소 너비(w-24)를 늘 잡는다 — 글자가 와도 `⌄` 가 왼쪽으로 당겨지지 않는다 */}
                     {addressLabel == null ? (
-                      <span aria-hidden className="inline-block h-[14px] w-24 rounded-ui-rect bg-white/25" data-home-address-pending />
+                      <span aria-hidden className="inline-block h-[14px] w-24 shrink-0 rounded-ui-rect bg-white/25" data-home-address-pending />
                     ) : (
-                      <span className="min-w-0 truncate">{addressLabel}</span>
+                      <span className="min-w-24 truncate" data-home-address-line>
+                        {addressLabel}
+                      </span>
                     )}
                     <ChevronDown className="h-3.5 w-3.5 shrink-0" strokeWidth={2.4} aria-hidden />
                   </button>
@@ -194,8 +225,8 @@ export function HomeScreen({
             }
             right={
               <div className={samTier1HeaderIconCluster}>
-                {isMember ? (
-                  /* 진입 감사 PO-3: 팝업 말풍선이 붙는 자리 */
+                {headerMember ? (
+                  /* 진입 감사 PO-3: 팝업 말풍선이 붙는 자리 · F3-a: 지난 실행이 회원이면 확인 중에도 종을 바로 그린다 */
                   <span data-popup-anchor="notifications" className="inline-flex">
                     <Tier1NotificationAnchor />
                   </span>

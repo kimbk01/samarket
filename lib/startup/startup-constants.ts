@@ -21,4 +21,6 @@ export const STARTUP_CACHE_KEYS = {
   user: "dibay:startup:user",
   nav: "dibay:startup:nav",
   route: "dibay:startup:route",
+  /** 지난 실행 값 사진 (계정 묶음 · `lib/startup/last-run-snapshot.ts`) */
+  lastRun: "dibay:startup:last-run",
 } as const;

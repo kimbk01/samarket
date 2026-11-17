@@ -8,9 +8,11 @@
  * shellReady is only the ConditionalAppShell-mounted metric. Native First Entry dismisses on
  * initialDestinationVisualReady, after the initial route has a nonblank browser presentation.
  * Local Boot Shell may dismiss native splash earlier via DibayBootBridge after shellPaint.
- * P3 (2026-11-12, pre-hydration dismiss on the server body) was removed 2026-11-17 (device FAIL-2: in the app
- * WebView the window could not draw during hydration → 0.2–1.2s blank white). Home dismisses on
- * initialDestinationVisualReady like every other route.
+ * P3 (2026-11-12): server-rendered-body routes (home) dismiss earlier — the frame after FCP of the
+ * server body, before hydration (`releaseNativeSplashAtServerBodyFrame`, same web dismiss signal, no timer).
+ * F2′ (2026-11-17): skipped when the Android app put its splash-look cover over the WebView this launch
+ * (`isNativeSplashCoverActive`) — the WebView finishes its first draw under the cover, so home dismisses on
+ * initialDestinationVisualReady. Builds without the cover (≤68 · iOS) keep P3.
  * Auth/admin/account shell-less routes: firstPaint auth_shell_fallback.
  * Root error boundary: error_boundary.
  * DO NOT: homeVisible-as-feed-gate · splash_safety_timeout · delay hide · minimum display duration.
@@ -22,6 +24,9 @@ import {
   noteLaunchOsReleased,
 } from "@/lib/launch-intro/os-release-owner";
 import { noteEntryReleased } from "@/lib/telemetry/entry-telemetry.client";
+import { getLaunchDestination } from "@/lib/launch-intro/startup-destination";
+import { isServerRenderedBodyPath } from "@/lib/layout/server-rendered-body-paths";
+import { isNativeSplashCoverActive } from "@/lib/startup/native-splash-cover";
 import { mayReleaseLaunchSplashAt, onLaunchPushHandled } from "@/lib/startup/launch-push-hold";
 import { mayReleaseForLifecycleNav, onLifecycleNavHoldSettled } from "@/lib/startup/lifecycle-nav-hold";
 
@@ -44,6 +49,8 @@ export type DibayBootMetrics = {
   thumbnailDecoded: number | null;
   /** Last splash dismiss signal reason (shellReady | auth_shell_fallback | native_fallback). */
   splashDismissReason: string | null;
+  /** P3: 서버 본문 첫 프레임에서 네이티브 시작 화면을 해제한 시각(hydration 전). 없으면 null. */
+  serverBodySplashRelease: number | null;
 };
 
 declare global {
@@ -113,6 +120,7 @@ function emptyMetrics(): DibayBootMetrics {
     thumbnailLoaded: null,
     thumbnailDecoded: null,
     splashDismissReason: null,
+    serverBodySplashRelease: null,
   };
 }
 
@@ -249,7 +257,10 @@ export function tryDismissNativeSplash(reason: string): void {
   dismissNativeSplashBridges(reason);
 }
 
-/** 네이티브 시작 화면 해제(브리지 호출)만 — 문서당 1회. 부르는 곳은 `tryDismissNativeSplash` 하나(실기 FAIL-2 · P3 폐기). */
+/**
+ * 네이티브 시작 화면 해제(브리지 호출)만 — 문서당 1회. P3 의 서버 본문 첫 프레임 해제가 먼저 불렀으면
+ * 화면 준비 뒤 `tryDismissNativeSplash` 는 이 부분을 건너뛰고 기록·앱 준비 처리만 한다.
+ */
 let nativeSplashBridgesDismissed = false;
 function dismissNativeSplashBridges(reason: string): void {
   if (nativeSplashBridgesDismissed) return;
@@ -348,12 +359,54 @@ function dismissNativeSplashBridges(reason: string): void {
   })();
 }
 
+/** 서버가 그린 본문이 문서에 있는지 — 본문 자리가 회색 줄(`MainShellDocumentLoading`)이 아니어야 한다 */
+export function hasServerRenderedBody(doc: Document): boolean {
+  const body = doc.querySelector("[data-main-hub-scroll-body]");
+  return Boolean(body) && !doc.querySelector("[data-main-shell-document-loading]");
+}
+
 /**
- * 실기 FAIL-2 (Owner 「설계대로 진행 승인」 2026-11-17 · docs/audit/app-entry-device-fail-root-cause-design-2026-11-17.md §2):
- * P3(11-12 「서버 본문 첫 그림에서 해제」)를 폐기했다. 앱 WebView 에서는 hydration 전에 시작 화면을 걷으면 hydration 동안
- * 앱 창 첫 그림을 못 내 흰 빈 화면이 0.2~1.2초 보였다(샤오미 `Skipped 72 frames` 실측). 해제는 첫 목적지 화면 준비
- * (hydration 뒤 + 2프레임) 단일 경로 `tryDismissNativeSplash` 만 쓴다.
+ * P3 (Owner 「P3 진행」 2026-11-12 · docs/audit/ssr-page-body-first-paint-design-2026-11-12.md P3):
+ * 서버가 본문까지 그린 화면(허용 목록 = 홈)은 hydration 을 기다리지 않고 **서버 본문이 그려진 다음 프레임**에서
+ * 네이티브 시작 화면을 해제한다. 해제 권한은 같은 웹 성공 신호(진입 HARD LOCK H1 ①) — 시점만 앞당김, 타이머 없음.
+ * - 인트로가 해제를 맡는 문서(계약 §9)면 하지 않는다 — 판단은 단일 모듈 `getLaunchDestination`.
+ * - 기록·앱 준비(`markAppReady`)·미뤄 둔 요청 시작은 화면 준비 뒤 기존 경로(`tryDismissNativeSplash`) 그대로.
+ * - F2′ (2026-11-17 · docs/audit/app-entry-device-fail-root-cause-design-2026-11-17.md §6): Android 앱 안 덮개가 있는
+ *   실행이면 하지 않는다 — 덮개가 WebView 첫 그리기(실측 1.45초)를 가리고, 해제는 화면 준비 뒤 기존 경로 하나.
+ *   덮개 없는 설치 앱(빌드 68 이하·iOS)은 P3 그대로(빌드 68 실측: P3 를 빼면 홈이 0.3~2.4초 늦어지고 흰 화면은 그대로).
+ * 호출: `instrumentation-client.ts`(hydration 전 실행).
  */
+export function releaseNativeSplashAtServerBodyFrame(): void {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  if (isNativeSplashCoverActive()) return;
+  if (nativeSplashBridgesDismissed || splashDismissAttempted) return;
+  if (!isServerRenderedBodyPath(window.location.pathname)) return;
+  if (getLaunchDestination().destination !== "community") return;
+  if (typeof requestAnimationFrame !== "function" || typeof performance?.getEntriesByName !== "function") return;
+  /**
+   * 「빈 화면 아닌 첫 그림」 = 첫 글자 표시(FCP) 이후 — 글꼴이 늦게 붙어 글자 없는 프레임에서 걷히지 않게.
+   * FCP 알림(PerformanceObserver)은 hydration 작업 뒤로 밀려 늦으므로, 프레임마다 FCP 기록을 직접 확인한다.
+   * 서버 본문 존재 판단도 그 시점에(이 훅은 문서 해석 중에 돌 수 있음). 타이머 없음 — 기존 경로가 먼저 해제하면 멈춘다.
+   */
+  const tick = () => {
+    if (nativeSplashBridgesDismissed || splashDismissAttempted) return;
+    if (performance.getEntriesByName("first-contentful-paint").length === 0) {
+      requestAnimationFrame(tick);
+      return;
+    }
+    if (!isServerRenderedBodyPath(window.location.pathname) || !hasServerRenderedBody(document)) return;
+    // 재설계 A: 알림 목적지가 있는 시작이면 홈 첫 그림에서 해제하지 않는다(동기 판단 — 기다림 없음).
+    if (!mayReleaseLaunchSplashAt(window.location.pathname)) return;
+    // 진입 감사 OS-2·OS-4: 직전 화면 복원·안전 진입으로 옮겨 갈 문서는 시작 주소에서 해제하지 않는다.
+    if (!mayReleaseForLifecycleNav(window.location.pathname)) return;
+    requestAnimationFrame(() => {
+      if (nativeSplashBridgesDismissed || splashDismissAttempted) return;
+      setMetric("serverBodySplashRelease", nowMs());
+      dismissNativeSplashBridges("serverBodyFirstFrame");
+    });
+  };
+  requestAnimationFrame(tick);
+}
 
 function tryAuthShellSplashFallback(): void {
   if (splashDismissAttempted) return;

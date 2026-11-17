@@ -73,6 +73,7 @@ import { resetAdminClientStateForAuthChange } from "@/lib/admin-auth/admin-me-co
 import { writeOwnerActiveStoreIdToSession } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { resetMessengerBottomChatUnreadForAuthEpoch } from "@/lib/notifications/messenger-bottom-chat-unread-projection";
 import { clearMessengerAttachmentRecent } from "@/lib/community-messenger/attachment/messenger-attachment-recent-store";
+import { clearLastRunSnapshot } from "@/lib/startup/last-run-snapshot";
 
 export type ClientSessionWipeReason = "user_logout" | "account_switched" | "pre_login_bootstrap";
 
@@ -286,6 +287,8 @@ async function runWipeClientSessionState(
   void deleteTradeWriteDraftPhotoDatabase();
   resetAuthClientCaches(previousUserId);
   resetSignupGateSessionFlags();
+  /** F3-a 지난 실행 값 사진 — 이전 계정 값이 다음 첫 그림에 보이지 않게 (아래 일괄 삭제와 별도로 명시) */
+  clearLastRunSnapshot();
   clearEphemeralLocalStorage();
   clearBoundAuthUserId();
   /**

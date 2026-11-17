@@ -98,6 +98,8 @@ import {
   getNotificationBadgeCountServerSnapshot,
   subscribeNotificationBadgeCount,
 } from "@/lib/notifications/notification-badge-count-store";
+import { useLastRunSnapshot } from "@/hooks/use-last-run-snapshot";
+import { updateLastRunSnapshot } from "@/lib/startup/last-run-snapshot";
 import {
   hasOwnerBellOperationRows,
   OwnerBellOperationSummary,
@@ -418,11 +420,26 @@ export function PhilifeHeaderNotificationInbox({
     getNotificationBadgeCountServerSnapshot
   );
 
+  /**
+   * 앱 진입 실기 F3-a (종 숫자 +1.5초): 배지 store 가 첫 값을 받기 전에는 같은 계정의 지난 실행 숫자를 보인다.
+   * 표시 씨앗일 뿐 store 에 넣지 않는다(Boot 첫 조회 계약 `snap == null` 유지). store 가 한 번이라도 알리면(값·401 지움) 씨앗을 버린다.
+   */
+  const lastRun = useLastRunSnapshot();
+  const [bellSeedDismissed, setBellSeedDismissed] = useState(false);
+  useEffect(() => subscribeNotificationBadgeCount(() => setBellSeedDismissed(true)), []);
+  const bellSeedTotal =
+    !ownerInboxStoreId && badgeCountSnap == null && !bellSeedDismissed ? (lastRun?.bellUnread ?? null) : null;
+  const memberBadgeTotalForSnapshot = !ownerInboxStoreId && badgeCountSnap != null ? badgeCountSnap.total : null;
+  useEffect(() => {
+    if (memberBadgeTotalForSnapshot == null) return;
+    updateLastRunSnapshot({ bellUnread: memberBadgeTotalForSnapshot }, getSyncViewerUserIdForClient());
+  }, [memberBadgeTotalForSnapshot]);
+
   const memberBellTotal = useMemo(
     () =>
       resolveTier1HeaderBellBadgeTotal({
         surface: resolvedSurface,
-        badgeCountTotal: badgeCountSnap?.total,
+        badgeCountTotal: badgeCountSnap?.total ?? bellSeedTotal,
         rowUnread,
         listSynced,
         open,
@@ -431,6 +448,7 @@ export function PhilifeHeaderNotificationInbox({
       }),
     [
       badgeCountSnap?.total,
+      bellSeedTotal,
       listSynced,
       loading,
       open,
