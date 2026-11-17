@@ -10,9 +10,9 @@
  * Local Boot Shell may dismiss native splash earlier via DibayBootBridge after shellPaint.
  * P3 (2026-11-12): server-rendered-body routes (home) dismiss earlier — the frame after FCP of the
  * server body, before hydration (`releaseNativeSplashAtServerBodyFrame`, same web dismiss signal, no timer).
- * F2′ (2026-11-17): skipped when the Android app put its splash-look cover over the WebView this launch
- * (`isNativeSplashCoverActive`) — the WebView finishes its first draw under the cover, so home dismisses on
- * initialDestinationVisualReady. Builds without the cover (≤68 · iOS) keep P3.
+ * G1 (2026-11-18): the Android splash-look cover (build 69+) also hides on this P3 signal. The WebView does not
+ * draw under the cover; the frame that removes the cover carries the WebView's first content draw, so the cover
+ * stays on screen until that frame completes (device-measured: 0 white frames, same home time as P3 without cover).
  * Auth/admin/account shell-less routes: firstPaint auth_shell_fallback.
  * Root error boundary: error_boundary.
  * DO NOT: homeVisible-as-feed-gate · splash_safety_timeout · delay hide · minimum display duration.
@@ -26,7 +26,6 @@ import {
 import { noteEntryReleased } from "@/lib/telemetry/entry-telemetry.client";
 import { getLaunchDestination } from "@/lib/launch-intro/startup-destination";
 import { isServerRenderedBodyPath } from "@/lib/layout/server-rendered-body-paths";
-import { isNativeSplashCoverActive } from "@/lib/startup/native-splash-cover";
 import { mayReleaseLaunchSplashAt, onLaunchPushHandled } from "@/lib/startup/launch-push-hold";
 import { mayReleaseForLifecycleNav, onLifecycleNavHoldSettled } from "@/lib/startup/lifecycle-nav-hold";
 
@@ -371,14 +370,14 @@ export function hasServerRenderedBody(doc: Document): boolean {
  * 네이티브 시작 화면을 해제한다. 해제 권한은 같은 웹 성공 신호(진입 HARD LOCK H1 ①) — 시점만 앞당김, 타이머 없음.
  * - 인트로가 해제를 맡는 문서(계약 §9)면 하지 않는다 — 판단은 단일 모듈 `getLaunchDestination`.
  * - 기록·앱 준비(`markAppReady`)·미뤄 둔 요청 시작은 화면 준비 뒤 기존 경로(`tryDismissNativeSplash`) 그대로.
- * - F2′ (2026-11-17 · docs/audit/app-entry-device-fail-root-cause-design-2026-11-17.md §6): Android 앱 안 덮개가 있는
- *   실행이면 하지 않는다 — 덮개가 WebView 첫 그리기(실측 1.45초)를 가리고, 해제는 화면 준비 뒤 기존 경로 하나.
- *   덮개 없는 설치 앱(빌드 68 이하·iOS)은 P3 그대로(빌드 68 실측: P3 를 빼면 홈이 0.3~2.4초 늦어지고 흰 화면은 그대로).
+ * - G1 (Owner 2026-11-18 승인 · docs/audit/app-entry-device-fail-root-cause-design-2026-11-17.md §8·§9): Android 앱 안
+ *   덮개(빌드 69~)가 있는 실행도 이 신호로 걷는다. WebView 는 덮개 아래에서 그리지 않고, 덮개를 걷는 프레임에 첫 내용
+ *   그리기(샤오미 0.6~1.1초)가 함께 일어나 그 프레임이 끝날 때까지 덮개가 남는다 → 흰 화면 0 · 홈 시간은 덮개 없는 P3 와 같음.
+ *   (빌드 69 + 「덮개면 P3 건너뜀」 실측: 덮개가 hydration 뒤에 걷혀 홈이 0.3~1.1초 늦었다.)
  * 호출: `instrumentation-client.ts`(hydration 전 실행).
  */
 export function releaseNativeSplashAtServerBodyFrame(): void {
   if (typeof window === "undefined" || typeof document === "undefined") return;
-  if (isNativeSplashCoverActive()) return;
   if (nativeSplashBridgesDismissed || splashDismissAttempted) return;
   if (!isServerRenderedBodyPath(window.location.pathname)) return;
   if (getLaunchDestination().destination !== "community") return;

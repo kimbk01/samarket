@@ -2,8 +2,8 @@
 /**
  * 실기 FAIL-1·FAIL-2 (Owner 「설계대로 진행 승인」 2026-11-17 · docs/audit/app-entry-device-fail-root-cause-design-2026-11-17.md)
  * F1: 인트로가 덮고 있는 동안 ◁ 의 주인은 인트로 하나 — 네이티브 등록 순서 + 웹 이중 방어.
- * F2(P3 폐기)는 빌드 68 실측 FAIL(흰 화면 그대로 · 홈만 늦어짐) → F2′(§6): Android 앱 안 덮개가 있는 실행만 P3 를 건너뛰고,
- * 덮개 없는 설치 앱은 P3 그대로. 동작 시험은 server-body-splash-release.test.ts.
+ * F2(P3 폐기)는 빌드 68 실측 FAIL → F2′(§6) Android 앱 안 덮개(빌드 69) → G1(§8·§9): 덮개 실행도 P3 신호로 걷는다
+ * (덮개 아래에서 WebView 는 그리지 않고, 덮개를 걷는 프레임에 첫 내용 그리기가 함께 일어난다). 동작 시험은 server-body-splash-release.test.ts.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -71,24 +71,21 @@ describe("F1-b 웹 — 네이티브 인트로가 덮고 있으면 웹 ◁ 처리
   });
 });
 
-describe("F2′ — P3 는 앱 안 덮개가 없는 실행에서만", () => {
+describe("G1 — P3 는 앱 안 덮개가 있는 실행에도 쓴다 (§8·§9)", () => {
   it("hydration 전 해제 진입점(instrumentation-client → P3 함수)이 있다", () => {
     expect(existsSync(join(root, "instrumentation-client.ts"))).toBe(true);
     expect(read("instrumentation-client.ts")).toContain("releaseNativeSplashAtServerBodyFrame()");
   });
 
-  it("P3 함수는 덮개 확인을 맨 앞에서 한다", () => {
+  it("웹은 덮개 값을 읽지 않는다 — 덮개 실행도 P3 신호로 걷힌다", () => {
+    expect(existsSync(join(root, "lib/startup/native-splash-cover.ts"))).toBe(false);
     const metrics = read("lib/startup/startup-metrics.ts");
-    const body = metrics.slice(metrics.indexOf("export function releaseNativeSplashAtServerBodyFrame"));
-    const firstGuard = body.indexOf("if (isNativeSplashCoverActive()) return;");
-    expect(firstGuard).toBeGreaterThan(0);
-    expect(firstGuard).toBeLessThan(body.indexOf("requestAnimationFrame(tick)"));
+    expect(metrics).not.toContain("isNativeSplashCoverActive");
+    expect(metrics).not.toContain("__DIBAY_NATIVE_SPLASH_COVER__");
   });
 
-  it("Android: 덮개 표시 값은 문서 시작 스크립트로 넣고, 덮개는 웹 해제·고장 해제 때 걷는다", () => {
+  it("Android: 덮개는 시작 화면 유지 조건에 들어가고, 웹 해제(화면 커밋 뒤)·고장 해제 때 걷는다", () => {
     const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
-    expect(main).toContain("__DIBAY_NATIVE_SPLASH_COVER__");
-    expect(main).toContain("DibaySplashCover.documentStartValue()");
     expect(main).toContain("DibaySplashCover.isShowing()");
     expect((main.match(/DibaySplashCover\.hide\(/g) ?? []).length).toBeGreaterThanOrEqual(3);
   });

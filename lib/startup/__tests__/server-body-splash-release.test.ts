@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 /** P3 — 서버 본문 첫 프레임 시작 화면 해제 (Owner 「P3 진행」 2026-11-12) */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import "@/lib/startup/native-splash-cover"; // window.__DIBAY_NATIVE_SPLASH_COVER__ 타입
 
 const destination = vi.hoisted(() => ({ value: "community" as "community" | "intro" }));
 vi.mock("@/lib/launch-intro/startup-destination", () => ({
@@ -40,7 +39,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   delete (window as unknown as { DibayBootBridge?: Bridge }).DibayBootBridge;
-  delete window.__DIBAY_NATIVE_SPLASH_COVER__;
+  delete (window as unknown as { __DIBAY_NATIVE_SPLASH_COVER__?: string }).__DIBAY_NATIVE_SPLASH_COVER__;
 });
 
 describe("releaseNativeSplashAtServerBodyFrame", () => {
@@ -94,19 +93,12 @@ describe("releaseNativeSplashAtServerBodyFrame", () => {
     expect(bridge.dismissSplash).not.toHaveBeenCalled();
   });
 
-  it("F2′: Android 앱 안 덮개가 있는 실행이면 앞당겨 해제하지 않고, 화면 준비 뒤 기존 경로가 1회 해제", async () => {
-    window.__DIBAY_NATIVE_SPLASH_COVER__ = "1";
+  it("G1: Android 앱 안 덮개가 있는 실행(빌드 69 문서 시작 값 \"1\")도 P3 로 해제 1회 · 화면 준비 뒤 다시 부르지 않음", async () => {
+    (window as unknown as { __DIBAY_NATIVE_SPLASH_COVER__?: string }).__DIBAY_NATIVE_SPLASH_COVER__ = "1";
     const { mod, bridge } = await load("/home", SERVER_BODY);
     mod.releaseNativeSplashAtServerBodyFrame();
-    expect(bridge.dismissSplash).not.toHaveBeenCalled();
-    mod.tryDismissNativeSplash("initialDestinationVisualReady");
     expect(bridge.dismissSplash).toHaveBeenCalledTimes(1);
-  });
-
-  it("F2′: 덮개 값이 \"1\" 이 아니면(덮개 없는 설치 앱) P3 그대로", async () => {
-    window.__DIBAY_NATIVE_SPLASH_COVER__ = "";
-    const { mod, bridge } = await load("/home", SERVER_BODY);
-    mod.releaseNativeSplashAtServerBodyFrame();
+    mod.tryDismissNativeSplash("initialDestinationVisualReady");
     expect(bridge.dismissSplash).toHaveBeenCalledTimes(1);
   });
 
