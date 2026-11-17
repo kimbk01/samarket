@@ -16,8 +16,11 @@ export const CM_MARK_READ_SCROLL_DEBOUNCE_MS = 350;
 /** 타임라인 `@tanstack/react-virtual` — 빠른 스크롤·append 시 빈 틈 완화(10→14) */
 export const MESSENGER_TIMELINE_VIRTUAL_OVERSCAN = 14;
 
-/** 초기 행 높이 추정(px). 실제 높이는 `measureElement` 로 보정 */
-export const MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX = 96;
+/**
+ * 초기 행 높이 추정(px). 실제 높이는 `measureElement` 로 보정.
+ * P4: 본문 14→16px(2~3줄 기준 +2.7×1.5) 반영 96→100. 태블릿(본문 18)은 실측 보정.
+ */
+export const MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX = 100;
 
 /**
  * 타임라인 메시지 배열 상한(메모리·클라 diff 비용). DOM은 가상 스크롤로 일정하게 유지.

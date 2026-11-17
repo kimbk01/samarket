@@ -1027,8 +1027,8 @@
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
-    /* 채팅 P0-5: 그려질 때마다 실제 높이를 기억(auto) — 건너뛸 때 이 크기를 쓴다 */
-    contain-intrinsic-block-size: auto 64px;
+    /* 채팅 P0-5: 그려질 때마다 실제 높이를 기억(auto) — 건너뛸 때 이 크기를 쓴다. P4 본문 16px 반영 64→68 */
+    contain-intrinsic-block-size: auto 68px;
   }
 
   /**

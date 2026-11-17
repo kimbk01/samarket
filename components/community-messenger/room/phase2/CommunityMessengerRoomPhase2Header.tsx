@@ -404,11 +404,11 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
                 </div>
               </div>
               <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 leading-tight">
-                <p className="truncate text-[length:var(--sector-header-title-size)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
+                <p className="truncate text-[length:var(--cm-chat-font-header-title)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
                   {listingHeader.headerTitle}
                 </p>
                 {listingSubtitle ? (
-                  <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">
+                  <p className="truncate text-[length:var(--cm-chat-font-header-status)] leading-tight text-[color:var(--cm-room-text-muted)]">
                     {listingSubtitle}
                   </p>
                 ) : null}
@@ -432,10 +432,10 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               />
             </div>
             <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 leading-tight">
-              <p className="truncate text-[length:var(--sector-header-title-size)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
+              <p className="truncate text-[length:var(--cm-chat-font-header-title)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
                 {vm.snapshot.room.title}
               </p>
-              <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
+              <p className="truncate text-[length:var(--cm-chat-font-header-status)] leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
             </div>
           </button>
         ) : canOpenPeerFriendProfile ? (
@@ -461,10 +461,10 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               ) : null}
             </div>
             <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 leading-tight">
-              <p className="truncate text-[length:var(--sector-header-title-size)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
+              <p className="truncate text-[length:var(--cm-chat-font-header-title)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
                 {vm.snapshot.room.title}
               </p>
-              <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
+              <p className="truncate text-[length:var(--cm-chat-font-header-status)] leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
             </div>
           </button>
         ) : (
@@ -486,19 +486,19 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             </div>
             <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 leading-tight">
               {peerTradeRoleLabel ? (
-                <p className="truncate sam-text-xxs text-[color:var(--cm-room-text-muted)]">
-                  <span className="inline-block text-[length:var(--sector-header-title-size)] font-semibold leading-snug text-[color:var(--sector-header-title-color)]">
+                <p className="truncate text-[length:var(--cm-chat-font-header-status)] text-[color:var(--cm-room-text-muted)]">
+                  <span className="inline-block text-[length:var(--cm-chat-font-header-title)] font-semibold leading-snug text-[color:var(--sector-header-title-color)]">
                     {vm.snapshot.room.title}
                   </span>
                   <span aria-hidden> | </span>
                   <span>{peerTradeRoleLabel}</span>
                 </p>
               ) : (
-                <p className="truncate text-[length:var(--sector-header-title-size)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
+                <p className="truncate text-[length:var(--cm-chat-font-header-title)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
                   {vm.snapshot.room.title}
                 </p>
               )}
-              <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
+              <p className="truncate text-[length:var(--cm-chat-font-header-status)] leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
             </div>
           </>
         )}

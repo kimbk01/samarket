@@ -1019,7 +1019,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             {displayedUnreadCount > 0 ? (
               <span
                 data-cm-unread-badge="true"
-                className="bg-[color:var(--cm-chat-unread-bg)] text-center text-[11px] font-bold leading-[20px] text-white"
+                className="bg-[color:var(--cm-chat-unread-bg)] text-center text-[length:var(--cm-chat-font-badge)] font-bold leading-[20px] text-white"
               >
                 {displayedUnreadCount > 999 ? "999+" : displayedUnreadCount}
               </span>
