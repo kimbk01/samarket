@@ -15,7 +15,6 @@ import {
   buildMessengerRoomListBackHref,
   shouldForceDirectDeliveryMessengerRoomBack,
 } from "@/lib/community-messenger/messenger-entry-origin";
-import { getMessengerRoomBackOverride } from "@/lib/community-messenger/room/messenger-room-back-navigation";
 import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import { isMessengerHomeSubScreenSearch } from "@/lib/community-messenger/messenger-sub-screen-route";
 import { resolveTier1BarLabel } from "@/lib/layout/resolve-tier1-bar-label";
@@ -119,24 +118,19 @@ export function RegionBar({
   const o = extras?.tier1;
   const hideBack = o?.hideBack ?? base.hideBack ?? false;
   const isMessengerRoom = /^\/community-messenger\/rooms\/[^/]+$/.test(pathNoQuery);
-  const messengerRoomId = isMessengerRoom
-    ? decodeURIComponent(pathNoQuery.split("/").pop() ?? "").trim()
-    : "";
-  const messengerRoomBackOverride =
-    messengerRoomId ? getMessengerRoomBackOverride(messengerRoomId) : null;
   /**
    * 메신저 채팅방 뒤로가기:
-   * - 배달 주문(`cm_list=delivery`)·override 는 **메신저 목록을 거치지 않고** `backHref` 로 직행.
+   * - 배달 주문(`cm_list=delivery`)은 **메신저 목록을 거치지 않고** `backHref` 로 직행.
    * - 그 외 방은 히스토리 back 우선(`runHistoryBackWithFallback`).
    */
   const backHref = isMessengerRoom
-    ? (messengerRoomBackOverride?.href ?? buildMessengerRoomListBackHref(searchParams))
+    ? buildMessengerRoomListBackHref(searchParams)
     : o?.backHref ?? base.backHref;
   const deliveryRoomForceDirect =
     isMessengerRoom && shouldForceDirectDeliveryMessengerRoomBack(searchParams);
   const preferHistoryBack =
     isMessengerRoom ?
-      messengerRoomBackOverride || deliveryRoomForceDirect ? false
+      deliveryRoomForceDirect ? false
       : true
     : o?.preferHistoryBack ?? base.preferHistoryBack;
   const ariaLabel = resolveTier1BarLabel(t, tt, o?.ariaLabel ?? base.ariaLabel) ?? safeT("tier1_back");

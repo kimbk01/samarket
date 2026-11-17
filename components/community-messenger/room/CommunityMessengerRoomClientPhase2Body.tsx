@@ -61,9 +61,9 @@ import {
 } from "@/lib/community-messenger/monitoring/cm-render-analysis";
 import { useMessengerRoomAnimatedBack } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
 import {
-  resolveMessengerRoomBackNavigation,
-  runMessengerRoomBackNavigation,
-} from "@/lib/community-messenger/room/messenger-room-back-navigation";
+  resolveMessengerRoomBackTargetNow,
+  runMessengerRoomBackTarget,
+} from "@/lib/community-messenger/room/messenger-room-back-target";
 import { messengerDeliveryViewerRole } from "@/lib/community-messenger/messenger-delivery-viewer-role";
 import { generalFriendDirectRoomGate } from "@/lib/community-messenger/messenger-room-domain";
 import {
@@ -725,11 +725,11 @@ const CommunityMessengerRoomClientPhase2Hydrated = memo(function CommunityMessen
               requestAnimatedBack();
               return;
             }
-            const plan = resolveMessengerRoomBackNavigation({
-              roomId: room.snapshot?.room.id ?? "",
-              searchParams,
-            });
-            runMessengerRoomBackNavigation(room.router, plan);
+            /** P5 — 방 정보 없음: 방 종류 모름 → 규칙 2 기본 목록(대화 목록) 또는 앱 안 직전 화면 */
+            runMessengerRoomBackTarget(
+              room.router,
+              resolveMessengerRoomBackTargetNow({ roomType: null, listKind: null, searchParams })
+            );
           }}
           className="rounded-ui-rect bg-ui-fg px-4 py-3 sam-text-body font-semibold text-ui-surface"
         >

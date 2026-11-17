@@ -1,6 +1,7 @@
 "use client";
 
 import { predecodeMessengerLocalPreviews } from "@/lib/community-messenger/attachment/messenger-predecode-local-previews";
+import { messengerRoomNavigateMethod } from "@/lib/community-messenger/room/messenger-room-navigate-method";
 import { refreshMessengerHomeSocialClient } from "@/lib/community-messenger/home/refresh-messenger-home-social-client";
 import { applyMessengerHomeRoomsHiddenByBlock } from "@/lib/community-messenger/home/messenger-home-room-leave-client";
 import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
@@ -2336,7 +2337,7 @@ export function useMessengerRoomPhase2Controller() {
               return;
             }
             setMemberActionTarget(null);
-            router.push(`/community-messenger/rooms/${encodeURIComponent(String(json.roomId))}`);
+            messengerRoomNavigateMethod(router)(`/community-messenger/rooms/${encodeURIComponent(String(json.roomId))}`);
           } finally {
             setBusy(null);
           }

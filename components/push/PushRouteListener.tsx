@@ -36,7 +36,10 @@ import { shouldApplyMemberNotificationReadOnPushTap } from "@/lib/notifications/
 import { removeDeliveredNotificationOnPushTap } from "@/lib/push/native/remove-delivered-notifications";
 import { suppressCmRoomEntryNotificationSound } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import { markPushLaunchIntentNavigated } from "@/lib/lifecycle/launch-intent.client";
-import { markLeavingByPushNavigation } from "@/lib/push/push-navigation-back";
+import {
+  markLeavingByPushNavigation,
+  restorePushNavigationBackAfterReload,
+} from "@/lib/push/push-navigation-back";
 import { markLaunchPushHandled } from "@/lib/startup/launch-push-hold";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
@@ -239,6 +242,11 @@ export function PushRouteListener() {
       ) => void)
     | null
   >(null);
+
+  /** 결함 E·P5 §A7 — 문서 reload 뒤에도 알림 이동 표시(sessionStorage)로 같은 화면의 뒤로 담당을 되살린다. */
+  useEffect(() => {
+    restorePushNavigationBackAfterReload();
+  }, []);
 
   useEffect(() => {
     return subscribeSessionPhase((phase) => {
