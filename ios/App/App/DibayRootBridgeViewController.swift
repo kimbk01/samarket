@@ -129,6 +129,8 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
   override func capacitorDidLoad() {
     super.capacitorDidLoad()
     registerAppTargetPlugins()
+    // 진입 감사 5단계 IN-1·OS-3: 로딩 시간 안의 네이티브 인트로 — 소재 고르기(웹 시작 스크립트보다 먼저)
+    DibayNativeIntro.shared.selectForLaunch(restoreHint: Self.nativeRestoreHint)
     installLaunchEpoch()
     // v7 — 첫 문서보다 먼저 (화면 폭 메타 스크립트는 문서 시작 때 실행돼야 한다)
     installMacViewportScaleIfNeeded()
@@ -175,6 +177,8 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
       DibayStoreKitPlugin(),
       // Messenger contact sync — read phone contacts (SSOT messenger-contacts-sync-plan v5)
       DibayContactsPlugin(),
+      // 진입 감사 5단계 — 로딩 시간 안의 네이티브 인트로(소재 저장·기록 신호)
+      DibayNativeIntroPlugin(),
     ]
   }
 
@@ -200,6 +204,8 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     let source =
       "Object.defineProperty(window,'__DIBAY_LAUNCH_EPOCH__',{value:'\(Self.launchEpoch)',writable:false,enumerable:false,configurable:false});"
       + "Object.defineProperty(window,'__DIBAY_NATIVE_RESTORE_HINT__',{value:'\(hint)',writable:false,enumerable:false,configurable:false});"
+      // 진입 감사 5단계: 이번 실행에 네이티브 인트로가 떠 있으면 소재 id (웹 인트로를 더하지 않고 팝업을 보류)
+      + "Object.defineProperty(window,'__DIBAY_NATIVE_INTRO__',{value:'\(DibayNativeIntro.shared.documentStartValue)',writable:false,enumerable:false,configurable:false});"
     controller.addUserScript(
       WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
     )
@@ -213,6 +219,8 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     DibayWebViewKeyboardChrome.install(on: webView)
     // Continuation first, then the message handler: no dismiss can arrive before it exists.
     installLaunchContinuationIfNeeded()
+    // 진입 감사 5단계: 네이티브 인트로는 시작 화면 이어 보이기 위에 — 홈 준비(dismissSplash)·고장 때 걷힌다
+    if let host = view { DibayNativeIntro.shared.attach(to: host) }
     installBootBridgeIfNeeded()
     installAdminLandscapeResetOnPageLoad()
     // T_doc: 첫 문서 요청이 시작 화면보다 먼저 시작됐을 수 있다 — 로드 중이면 여기서도 관찰을 건다(문서 시작 신호가 오면 다시 시작).
@@ -420,6 +428,8 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     }
     if action == "dismissSplash" {
       removeLaunchContinuation(reason: "web_dismissSplash")
+      // 진입 감사 5단계: 홈 준비 — 네이티브 인트로는 표시 시간을 채운 뒤 걷힌다
+      DibayNativeIntro.shared.onHomeReady()
       stopStartupFaultProbe()
       return
     }
@@ -680,12 +690,15 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     }
     installLaunchContinuationIfNeeded()
     NSLog("[DibayRootBridge] webcontent_terminated_continuation_reinstalled")
+    DibayNativeIntro.shared.bringToFront()
   }
 
   enum StartupErrorKind { case offline, network, web }
 
   private func showStartupErrorView(kind: StartupErrorKind, reason: String) {
     removeLaunchContinuation(reason: "startup_fault_\(reason)")
+    // 진입 감사 5단계: 시작 고장 — 네이티브 인트로도 즉시 걷는다(오류 안내가 보이게)
+    DibayNativeIntro.shared.onStartupFault()
     hideStartupErrorView()
     guard let host = view else { return }
     let en = (Locale.preferredLanguages.first ?? "ko").lowercased().hasPrefix("en")

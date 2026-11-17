@@ -17,6 +17,8 @@ import {
 import { LAUNCH_INTRO_DOCUMENT_ID, readLaunchEpoch } from "@/lib/launch-intro/launch-epoch";
 import { onLaunchOsReleased } from "@/lib/launch-intro/os-release-owner";
 import { getLaunchDestination } from "@/lib/launch-intro/startup-destination";
+import { syncNativeIntroPool } from "@/lib/launch-intro/native-intro-client";
+import type { LaunchIntroPoolPayload } from "@/lib/launch-intro/pool";
 
 let started = false;
 let inflight = false;
@@ -57,6 +59,8 @@ export async function runLaunchIntroDiscovery(reason: "launch" | "resume"): Prom
     if (!res.ok) return;
     const live = (await res.json()) as unknown;
     if (!isPayload(live)) return;
+    // 진입 감사 5단계 IN-3: 소재 묶음 → 네이티브 저장소(다음 「새로 켬」의 로딩 시간 안 인트로). 게시본 판과 별개로 맞춘다.
+    void syncNativeIntroPool((live as { pool?: LaunchIntroPoolPayload | null }).pool ?? null);
 
     const current = readLaunchIntroIndex();
     // IN-P10: 게시본 손상은 revision 을 올리지 않는다(게시본 행만 손상) — 같은 revision 이어도 state 가 다르면 반영한다.

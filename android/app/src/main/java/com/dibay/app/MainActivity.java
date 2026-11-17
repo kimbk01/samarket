@@ -93,6 +93,10 @@ public class MainActivity extends BridgeActivity {
                 + "',writable:false,enumerable:false,configurable:false});"
                 + "Object.defineProperty(window,'__DIBAY_NATIVE_RESTORE_HINT__',{value:'"
                 + hint
+                + "',writable:false,enumerable:false,configurable:false});"
+                // 진입 감사 5단계: 이번 실행에 네이티브 인트로가 떠 있으면 소재 id (웹 인트로를 더하지 않고 팝업을 보류)
+                + "Object.defineProperty(window,'__DIBAY_NATIVE_INTRO__',{value:'"
+                + DibayNativeIntro.documentStartValue()
                 + "',writable:false,enumerable:false,configurable:false});";
         WebViewCompat.addDocumentStartJavaScript(webView, js, Collections.singleton(origin));
         Log.i(
@@ -1245,6 +1249,13 @@ public class MainActivity extends BridgeActivity {
     // Lifecycle SSOT: classify before Bridge injects document-start scripts.
     NATIVE_RESTORE_HINT = computeNativeRestoreHint(this, savedInstanceState);
     Log.i("DibayLaunchEpoch", "native_restore_hint=" + NATIVE_RESTORE_HINT);
+    // 진입 감사 5단계 IN-1·OS-3: 로딩 시간 안의 네이티브 인트로 — 소재 고르기(웹 시작 스크립트보다 먼저)
+    if (savedInstanceState == null || "restore".equals(NATIVE_RESTORE_HINT)) {
+      DibayNativeIntro.selectForLaunch(this, NATIVE_RESTORE_HINT);
+    } else {
+      // 화면 다시 만들기(설정 변경 등) — 이전 실행의 인트로를 다시 그리지 않는다
+      DibayNativeIntro.clearSelection();
+    }
     // Capacitor: registerPlugin must run before super.onCreate or plugins stay UNIMPLEMENTED.
     registerPlugin(BrowserPlugin.class);
     registerPlugin(NativeOAuthLauncherPlugin.class);
@@ -1266,6 +1277,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(DibayAppOrientationPlugin.class);
     registerPlugin(DibayPlayInAppUpdatePlugin.class);
     registerPlugin(LaunchEpochPlugin.class);
+    registerPlugin(DibayNativeIntro.NativeIntroPlugin.class);
     // FD3: one native app-shell orientation request, before WebView first frame.
     // Consumes FD1 classifier. TABLET_ANDROID / UNKNOWN must not receive a request.
     DibayAppOrientationPolicy.applyToAppShell(this);
@@ -1275,7 +1287,10 @@ public class MainActivity extends BridgeActivity {
     super.onCreate(savedInstanceState);
     purgeObsoleteIntroSystemStartLocalStateOnce();
     // OS splash until web dismissSplash / homePresentationReady — no Intro/System Start product.
-    splashScreen.setKeepOnScreenCondition(() -> !webSplashDismissRequested);
+    // 진입 감사 5단계: 네이티브 인트로가 붙었으면 OS 시작 화면을 바로 걷는다(인트로가 로딩 시간을 채움)
+    DibayNativeIntro.attach(this);
+    splashScreen.setKeepOnScreenCondition(
+        () -> !webSplashDismissRequested && !DibayNativeIntro.isOverlayAttached());
 
     // 진입 감사 OS-1 (2026-11-17): 시작 화면 퇴장 리스너(setOnExitAnimationListener)를 등록하지 않는다.
     // 등록하면 시스템이 시작 화면을 앱 창으로 「넘겨주기」를 하는데, 넘겨받는 순간 앱 UI 스레드가 웹 준비로
@@ -1635,6 +1650,7 @@ public class MainActivity extends BridgeActivity {
           if (webView == null || deadWebView || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             webSplashDismissRequested = true;
             webSplashDismissPending = false;
+            DibayNativeIntro.onHomeReady();
             Log.i(WEBVIEW_LOG_TAG, "dismissSplash success source=" + splashDismissSource);
             return;
           }
@@ -1648,6 +1664,7 @@ public class MainActivity extends BridgeActivity {
                   if (webSplashDismissRequested) return;
                   webSplashDismissRequested = true;
                   webSplashDismissPending = false;
+                  DibayNativeIntro.onHomeReady();
                   Log.i(
                       WEBVIEW_LOG_TAG,
                       "dismissSplash visual_state_ready requestId=" + callbackRequestId);
@@ -1665,6 +1682,8 @@ public class MainActivity extends BridgeActivity {
    * 이전에는 오류 화면도 requestWebSplashDismiss 를 불러, 앞선 요청이 pending 이면 무시되어 오류 화면이 시작 화면 뒤에 갇혔다.
    */
   static void forceReleaseSplash(String source) {
+    // 진입 감사 5단계: 시작 고장(오류 화면) — 네이티브 인트로도 즉시 걷는다
+    DibayNativeIntro.onStartupFault();
     if (webSplashDismissRequested) return;
     webSplashDismissRequested = true;
     webSplashDismissPending = false;

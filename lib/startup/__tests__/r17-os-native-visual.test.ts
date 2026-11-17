@@ -46,7 +46,11 @@ describe("R17-OS Android TRUE OS splash resources", () => {
    */
   it("Android: web signal + visual-state fence stay the normal release; fault judgment is the only other release", () => {
     const main = src("android/app/src/main/java/com/dibay/app/MainActivity.java");
-    expect(main).toContain("setKeepOnScreenCondition(() -> !webSplashDismissRequested)");
+    // 진입 감사 5단계 (Owner 2026-11-17 「설계안대로 진행」 · LIFECYCLE §10·§11 개정): 네이티브 인트로가 붙으면 시작 화면을 걷는다
+    // (인트로가 로딩 시간을 채움). 웹 신호 해제는 그대로 · 인트로는 홈 준비(웹 신호) 또는 고장 판정 때만 걷힌다.
+    expect(main).toContain(
+      "setKeepOnScreenCondition(\n        () -> !webSplashDismissRequested && !DibayNativeIntro.isOverlayAttached());"
+    );
     expect(main).toContain("postVisualStateCallback");
     // 표시 타이머 금지 유지
     expect(main).not.toMatch(/SPLASH_MAX_KEEP_MS|minimumVisibleMs/);

@@ -18,6 +18,7 @@ import {
   handLaunchOsReleaseToCommunity,
 } from "@/lib/launch-intro/os-release-owner";
 import { appEntryAllowsIntro, getAppEntryDecision } from "@/lib/lifecycle/app-entry-kind";
+import { readNativeIntroLaunchId } from "@/lib/launch-intro/native-intro-client";
 
 export type LaunchIntroSnapshot = {
   epoch: string;
@@ -52,6 +53,8 @@ function frequencyAllows(pub: LaunchIntroCachedPublication): boolean {
 function decide(): LaunchDestinationDecision {
   const community = (reason: string): LaunchDestinationDecision => ({ destination: "community", reason, snapshot: null });
   if (typeof window === "undefined") return community("server");
+  // 진입 감사 5단계 IN-1: 이번 실행은 네이티브 인트로가 로딩 시간 안에 이미 맡았다 — 웹 인트로를 더하지 않는다
+  if (readNativeIntroLaunchId()) return community("native_intro");
   // Lifecycle SSOT: Intro only on USER_COLD (native hint FRESH). Classify before content gate.
   const entry = getAppEntryDecision();
   if (!appEntryAllowsIntro()) {

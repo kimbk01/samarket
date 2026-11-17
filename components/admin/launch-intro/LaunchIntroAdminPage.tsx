@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { LaunchIntroPoolAdminSection } from "@/components/admin/launch-intro/LaunchIntroPoolAdminSection";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
@@ -1001,6 +1002,8 @@ export function LaunchIntroAdminPage() {
       <AdminCard>
         <p className="px-4 py-3.5 sam-text-body text-sam-fg sm:px-5">{t("admin_launch_intro_propagation_note")}</p>
       </AdminCard>
+      {/* 진입 감사 5단계: 소재 묶음(네이티브 인트로 · 진입마다 다음 소재) */}
+      <LaunchIntroPoolAdminSection canWrite={adminAction.allowed} />
 
       <div data-launch-intro-tabs="">
         <AdminTabs

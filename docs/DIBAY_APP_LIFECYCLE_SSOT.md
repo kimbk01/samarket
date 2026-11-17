@@ -395,3 +395,15 @@ Admin Intro ON/OFF = 기존 Live `active|paused|unpublished` + cache — **CMS �
 
 - §7 「UNPUBLISHED: state-only promotion, publication kept」 정정 — 기기는 Live 가 active 가 아니게 된 시각(`inactiveSince`)부터 **7일**(`LAUNCH_INTRO_INACTIVE_RETENTION_MS`)만 게시본·이미지를 보관하고, 지나면 색인에서 게시본을 빼고 Cache Storage 이미지를 지운다(변화가 없는 조회 때도 검사). 그 안에 다시 켜면 다시 받지 않는다. 실측 근거: 게시 중단 뒤 이미지 9개 1.09MB 무기한 유지.
 - 새 게시본을 받다 실패하면 받다 만 파일을 바로 정리한다(지금 색인·이번 실행이 쓰는 것만 남김).
+
+## Amendment 2026-11-17-C (진입 감사 5단계 · 로딩 시간 안의 네이티브 인트로 · Owner 「설계안대로 진행」)
+
+- 근거: `docs/audit/intro-popup-entry-audit-2026-11-17.md` §2 IN-1·IN-2·IN-3·IN-8·OS-3·OS-5 (샤오미 실측: 인트로가 웹 준비 뒤 시작해 홈 8.7초 → 14.5초) · §4 계약 충돌표.
+- **§10·§11 「Splash product화 금지 · 인트로 = 웹」 정정** — 새 앱 버전(Android `DibayNativeIntro` · iOS `DibayNativeIntroPlugin`)은 앱을 새로 켤 때 **웹이 뜨기 전에** 기기에 받아 둔 인트로 소재(그림 1장 + 배경색 + 고정 브랜드 줄 · 「광고」 표기 · 건너뛰기)를 네이티브 화면으로 그린다. 인트로가 붙으면 OS 시작 화면을 바로 걷고(인트로가 로딩 시간을 채움), 그 뒤에서 웹(홈)이 로드된다.
+  - 걷히는 때 = max(어드민 표시 시간 1~5초, 홈 준비 = 웹 `dismissSplash`). 표시 시간은 **첫 그림이 화면에 나간 순간부터** 센다(IN-2). 건너뛰기 = 홈 준비 뒤 즉시. 시작 고장(오류 화면) = 즉시.
+  - 「표시 타이머 금지」(Owner 결정 4)는 **OS 시작 화면**에 그대로 적용된다 — 시작 화면 해제는 여전히 웹 신호·고장 판정·인트로 부착뿐이다. 인트로 표시 시간은 어드민이 정한 광고 표시 시간이다.
+  - 이 실행의 소재 id 는 문서 시작 스크립트 `window.__DIBAY_NATIVE_INTRO__` 로 웹에 알린다. 그 실행에서 웹 인트로는 나오지 않고(`startup-destination` reason `native_intro`), 팝업은 네이티브 인트로가 끝날 때까지 보류한다(CX-01).
+- **§2 정책 A 정정 (OS-3)** — 네이티브 인트로는 USER_COLD 뿐 아니라 **OS 가 앱을 종료한 뒤 아이콘으로 다시 켤 때(restore)** 도 보인다(어드민 「휴대폰이 앱을 종료한 뒤 다시 켤 때도 보이기」, 기본 켬). 복원 이동은 인트로 뒤에서 그대로 진행된다. 웹 인트로(게시본)는 지금처럼 USER_COLD 만.
+- **소재 묶음 (IN-3)** — DB `launch_intro_creatives`. 켜진 소재가 진입마다 정렬 순서대로 바뀐다(기기 회전). 소재 목록·그림은 웹이 발견(`/api/launch-intro/live` 의 `pool`) 뒤 네이티브에 넘기고, 네이티브가 직접 받아 sha256 검사 후 목록을 원자 교체한다. 목록에 없는 그림은 지운다(IN-6 저장 누수 방지). 다음 실행부터 반영.
+- **기록 (IN-8)** — 노출·건너뛰기·누름·완료를 `launch_intro_events` 에 기록(같은 노출의 같은 종류 1회).
+- 예전 앱(이 플러그인이 없는 바이너리)·웹은 지금과 같다(게시본 웹 인트로).

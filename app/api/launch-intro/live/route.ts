@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildLaunchIntroLivePayload } from "@/lib/launch-intro/server";
+import { buildLaunchIntroPoolPayload } from "@/lib/launch-intro/pool-server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -33,8 +34,9 @@ export async function GET(req: NextRequest) {
 
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503, headers: NO_STORE });
-  const built = await buildLaunchIntroLivePayload(sb);
+  const [built, pool] = await Promise.all([buildLaunchIntroLivePayload(sb), buildLaunchIntroPoolPayload(sb)]);
   // 500 = DB 조회 실패(일시 장애)만. Live 게시본 문서 손상은 200 `unpublished`(인트로 없음) — 광고 ② IN-P10.
   if (!built.ok) return NextResponse.json({ ok: false, error: built.error }, { status: 500, headers: NO_STORE });
-  return NextResponse.json(built.payload, { headers: NO_STORE });
+  // 진입 감사 5단계 IN-3: 소재 묶음(네이티브 인트로용). 덧붙이기만 — 예전 앱은 무시한다. 읽기 실패 = null(기기는 이전 저장 유지)
+  return NextResponse.json({ ...built.payload, pool }, { headers: NO_STORE });
 }
