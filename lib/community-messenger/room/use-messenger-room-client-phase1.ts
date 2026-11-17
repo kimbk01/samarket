@@ -77,7 +77,10 @@ import {
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { cmReadUiLog } from "@/lib/community-messenger/read/cm-read-ui-log";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
-import { shouldAdvancePeerReadReceiptCursor } from "@/lib/community-messenger/room/messenger-peer-read-cursor-guard";
+import {
+  applyPeerReadReceiptRealtimePatch,
+  shouldAdvancePeerReadReceiptCursor,
+} from "@/lib/community-messenger/room/messenger-peer-read-cursor-guard";
 import {
   createMessengerRoomBootstrapRefresh,
   forgetMessengerRoomClientBootstrapFlights,
@@ -1296,14 +1299,14 @@ export function useMessengerRoomClientPhase1({
 
       setSnapshot((prev) => {
         if (!prev || String(prev.room.id) !== String(snap.room.id) || !prev.readReceipt) return prev;
+        /** P1 S3-(e): 새 커서 id 의 created_at 을 못 찾으면 옛 시각을 섞지 않고 비운다 */
         return {
           ...prev,
-          readReceipt: {
-            ...prev.readReceipt,
-            ...(lrmStr ? { lastReadMessageId: lrmStr } : {}),
-            ...(lraStr ? { lastReadAt: lraStr } : {}),
-            ...(createdAtForCursor != null ? { lastReadMessageCreatedAt: createdAtForCursor } : {}),
-          },
+          readReceipt: applyPeerReadReceiptRealtimePatch(prev.readReceipt, {
+            lastReadMessageId: lrmStr || null,
+            lastReadAt: lraStr || null,
+            createdAtForCursor: createdAtForCursor ?? null,
+          }),
         };
       });
       /** D-12: 같은 값을 방 캐시에도 — 나갔다 다시 들어올 때 옛 「안 읽음」으로 먼저 그리지 않게 */

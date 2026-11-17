@@ -134,14 +134,36 @@ export function nextOptimisticCommunityMessengerCreatedAtIso(
 ): string {
   const now = Date.now();
   let maxTs = 0;
+  /**
+   * P1 B-2 #13: 보내는 중 행끼리 같은 시각 금지 — 기기 시계가 느릴 때 연속 전송한 두 낙관 행이 모두
+   * `maxConfirmed + 1` 이 되어 id 문자열 비교(`…:10` < `…:9`)로 순서가 뒤집혔다. 보내는 중 행 최대 시각 + 1 도 하한에 넣는다.
+   */
+  let maxPendingTs = 0;
   for (const m of prev) {
-    if (m.pending) continue;
     const id = String(m.id ?? "").trim();
-    if (!id || id.startsWith("pending:")) continue;
+    if (!id) continue;
     const t = new Date(m.createdAt).getTime();
-    if (Number.isFinite(t)) maxTs = Math.max(maxTs, t);
+    if (!Number.isFinite(t)) continue;
+    if (m.pending || id.startsWith("pending:")) {
+      maxPendingTs = Math.max(maxPendingTs, t);
+      continue;
+    }
+    maxTs = Math.max(maxTs, t);
   }
-  return new Date(Math.max(now, maxTs + 1)).toISOString();
+  return new Date(Math.max(now, maxTs + 1, maxPendingTs + 1)).toISOString();
+}
+
+/**
+ * 낙관 행 생성 순번 — 보내는 중 행 id(`pending:…:<n>`)의 끝 숫자(`pendingMessageIdRef` 값).
+ * 같은 시각 보내는 중 행 정렬에 쓴다(문자열 비교는 9→10 경계에서 뒤집힌다).
+ */
+export function communityMessengerOptimisticSeq(id: unknown): number | null {
+  const raw = String(id ?? "");
+  if (!raw.startsWith("pending:")) return null;
+  const m = /:(\d+)$/.exec(raw);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n : null;
 }
 
 function mergeCommunityMessageMetadata(
@@ -369,6 +391,12 @@ export function mergeRoomMessages(
     if (ta !== tb) return ta - tb;
     // Stable order for equal timestamps: pending at end, then by id.
     if (Boolean((a as any).pending) !== Boolean((b as any).pending)) return (a as any).pending ? 1 : -1;
+    /** P1 B-2 #13: 둘 다 보내는 중이면 생성 순번(보낸 순서) 오름차순 */
+    if ((a as any).pending && (b as any).pending) {
+      const sa = communityMessengerOptimisticSeq(a.id);
+      const sb = communityMessengerOptimisticSeq(b.id);
+      if (sa != null && sb != null && sa !== sb) return sa - sb;
+    }
     return String(a.id ?? "").localeCompare(String(b.id ?? ""));
   });
   const sortMs = typeof performance !== "undefined" ? Math.round(performance.now() - tSort0) : 0;

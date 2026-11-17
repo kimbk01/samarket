@@ -35,11 +35,10 @@ function props(item: Record<string, unknown>, over: Partial<MessengerTimelineVir
     dayDividerLabel: null,
     peerAvatar: null,
     streamRoomId: "r1",
-    mineUnreadBadgeVisible: true,
+    outboundReadState: "unread",
     timelineHighlightMessageId: null,
     messageActionItemId: null,
     mediaAutoSaveEnabled: false,
-    sendingLabel: "sending",
     voiceCallLabel: "voice",
     videoCallLabel: "video",
     callStatusLabel: "",
@@ -85,36 +84,64 @@ describe("사진 위 시간·읽음 (F2)", () => {
     host.remove();
   });
 
-  it("내 사진: 시간·「안 읽음」이 사진 위 칸 안에 있고, 사진 옆 줄에는 없다", () => {
+  it("내 사진: 시간·상태 아이콘이 사진 위 칸 안에 있고, 사진 옆 줄에는 없다", () => {
     act(() => root.render(<MessengerTimelineVirtualRow {...props(photo)} />));
     const meta = host.querySelector("[data-cm-photo-meta]") as HTMLElement | null;
     expect(meta).not.toBeNull();
-    expect(meta!.textContent).toContain("cm_ui_unread");
+    expect(meta!.querySelector('[data-cm-outbound-status="sent"]')!.getAttribute("aria-label")).toBe("cm_ui_unread");
     // 사진 말풍선 칸 안(같은 상대 위치 상자)에 들어 있다
     expect(meta!.parentElement!.querySelector("[data-cm-photo-bubble]")).not.toBeNull();
-    // 사진 옆 줄의 독립 시간·읽음 글자는 없다(읽음 변화가 폭을 바꾸지 않게)
-    const sideTexts = [...host.querySelectorAll("span")].filter(
-      (s) => !s.closest("[data-cm-photo-meta]") && /cm_ui_unread/.test(s.textContent ?? "")
-    );
-    expect(sideTexts).toHaveLength(0);
+    // 사진 옆 줄의 독립 상태 표시는 없다(읽음 변화가 폭을 바꾸지 않게)
+    const side = [...host.querySelectorAll("[data-cm-outbound-status]")].filter((s) => !s.closest("[data-cm-photo-meta]"));
+    expect(side).toHaveLength(0);
   });
 
   it("읽음 표시가 바뀌어도 사진 말풍선 폭 지정이 같다", () => {
-    act(() => root.render(<MessengerTimelineVirtualRow {...props(photo, { mineUnreadBadgeVisible: true })} />));
+    act(() => root.render(<MessengerTimelineVirtualRow {...props(photo, { outboundReadState: "unread" })} />));
     const w1 = (host.querySelector("[data-cm-photo-bubble]") as HTMLElement).style.width;
-    act(() => root.render(<MessengerTimelineVirtualRow {...props(photo, { mineUnreadBadgeVisible: false })} />));
+    act(() => root.render(<MessengerTimelineVirtualRow {...props(photo, { outboundReadState: "read" })} />));
     const w2 = (host.querySelector("[data-cm-photo-bubble]") as HTMLElement).style.width;
     expect(w1).toBe(w2);
-    expect(host.querySelector("[data-cm-photo-meta]")!.textContent).not.toContain("cm_ui_unread");
+    expect(host.querySelector('[data-cm-photo-meta] [data-cm-outbound-status="read"]')).not.toBeNull();
   });
 
-  it("글 말풍선은 지금처럼 옆 줄에 시간·읽음 (사진만 바뀜)", () => {
+  it("P1: 글 말풍선도 시간·상태를 말풍선 안 오른쪽 아래에 (옆 줄 없음)", () => {
     act(() =>
       root.render(
         <MessengerTimelineVirtualRow {...props({ ...photo, messageType: "text", content: "hi", imageWidth: undefined })} />
       )
     );
     expect(host.querySelector("[data-cm-photo-meta]")).toBeNull();
-    expect(host.textContent).toContain("cm_ui_unread");
+    const meta = host.querySelector("[data-cm-text-meta]") as HTMLElement;
+    expect(meta).not.toBeNull();
+    expect(meta.closest("[data-cm-message-id]")).not.toBeNull();
+    expect(host.textContent).not.toContain("cm_ui_unread");
+    expect(meta.querySelector('[data-cm-outbound-status="sent"]')).not.toBeNull();
+  });
+
+  it("P1 F-img: 실패한 사진 행은 회전·「전송 중」 없이 실패 표시", () => {
+    act(() =>
+      root.render(
+        <MessengerTimelineVirtualRow
+          {...props({ ...photo, id: "pending:image:r1:3", pending: true, sendFailed: true }, { outboundReadState: "none" })}
+        />
+      )
+    );
+    expect(host.querySelector(".animate-spin")).toBeNull();
+    expect(host.textContent).not.toContain("common_sending");
+    expect(host.querySelector('[data-cm-photo-meta] [data-cm-outbound-status="failed"]')).not.toBeNull();
+    expect(host.querySelector("[data-cm-outbound-failed]")).not.toBeNull();
+  });
+
+  it("보내는 중 사진 행은 회전 표시 + 시계 아이콘", () => {
+    act(() =>
+      root.render(
+        <MessengerTimelineVirtualRow
+          {...props({ ...photo, id: "pending:image:r1:4", pending: true }, { outboundReadState: "none" })}
+        />
+      )
+    );
+    expect(host.querySelector(".animate-spin")).not.toBeNull();
+    expect(host.querySelector('[data-cm-photo-meta] [data-cm-outbound-status="sending"]')).not.toBeNull();
   });
 });

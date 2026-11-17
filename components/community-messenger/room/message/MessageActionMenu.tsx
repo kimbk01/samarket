@@ -64,6 +64,8 @@ export type MessageActionMenuProps = {
   /** 상대 메시지 신고·보낸 사람 차단 — 방을 쓸 수 없어도 신고·차단은 가능해야 한다 */
   reportMessage?: { onClick: () => void };
   blockSender?: { onClick: () => void };
+  /** 비공개 그룹 내 메시지 「읽음 N명」(P1 — 말풍선 옆 라벨에서 이동). 누르는 동작 없는 정보 줄 */
+  readInfoLabel?: string;
 };
 
 export function MessageActionMenu(props: MessageActionMenuProps) {
@@ -92,12 +94,21 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
     photoSaveRows,
     reportMessage,
     blockSender,
+    readInfoLabel,
   } = props;
 
   const hasDeleteRows = Boolean(deleteForMe || deleteForEveryone || deleteVoiceHard);
 
   return (
     <nav className="flex flex-col bg-[color:var(--overlay-surface)]" aria-label={t("cm_ui_message_actions")}>
+      {readInfoLabel ? (
+        <p
+          data-cm-group-read-info=""
+          className="border-b border-[color:var(--overlay-border)] px-4 py-2.5 text-[13px] leading-snug text-[color:var(--overlay-text-secondary)]"
+        >
+          {readInfoLabel}
+        </p>
+      ) : null}
       {showCopy ? (
         <MenuRow
           label={copyLabel}

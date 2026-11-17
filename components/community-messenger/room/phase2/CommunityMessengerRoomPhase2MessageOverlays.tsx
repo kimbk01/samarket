@@ -8,6 +8,11 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { isCommunityMessengerStoreOrderDeliveryRoom } from "@/lib/community-messenger/room-context-meta";
 import { useState } from "react";
 import {
+  getGroupReadCountForMessage,
+  shouldShowGroupReadReceiptMenuRow,
+} from "@/lib/community-messenger/group/group-read-counts-snapshot";
+import { formatGroupReadReceiptLabel } from "@/lib/community-messenger/group/group-room-read-presenter";
+import {
   MessengerForwardSheet,
   type MessengerForwardSource,
 } from "@/components/community-messenger/forward/MessengerForwardSheet";
@@ -28,6 +33,25 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
       actionMsg.messageType !== "call_stub" &&
       String(actionMsg.senderId ?? "").trim()
   );
+  /**
+   * P1 (Owner 2026-11-18): 비공개 그룹 「읽음 N명」 — 말풍선 옆 라벨에서 길게 누름 메뉴로 이동.
+   * 타임라인이 이미 조회한 읽음 수를 재사용하고, 100명 이하 그룹에서만 보인다(레거시 chatReadMarkSizeThreshold).
+   */
+  const groupReadRow =
+    actionMsg && vm.snapshot ? getGroupReadCountForMessage(vm.streamRoomId, actionMsg.id) : null;
+  const readInfoLabel =
+    actionMsg &&
+    vm.snapshot &&
+    groupReadRow &&
+    shouldShowGroupReadReceiptMenuRow({
+      isPrivateGroupRoom: vm.isPrivateGroupRoom,
+      memberCount: vm.snapshot.room.memberCount ?? 0,
+      isMine: Boolean(actionMsg.isMine),
+      pending: Boolean(actionMsg.pending),
+      readCount: groupReadRow.readCount,
+    })
+      ? formatGroupReadReceiptLabel(groupReadRow, t)
+      : undefined;
   const canBlockPeerSender =
     canReportPeerMessage &&
     vm.snapshot?.room.roomType === "direct" &&
@@ -41,6 +65,7 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
           busy={vm.busy}
           roomUnavailable={vm.roomUnavailable}
           snapshot={vm.snapshot}
+          readInfoLabel={readInfoLabel}
           onClose={() => vm.setMessageActionItem(null)}
           onCopy={() => void vm.copyMessageText(messageActionItem.item)}
           onDeleteVoice={
