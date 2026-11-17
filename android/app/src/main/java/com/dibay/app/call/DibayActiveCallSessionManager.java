@@ -49,6 +49,26 @@ public final class DibayActiveCallSessionManager {
 
   private DibayActiveCallSessionManager() {}
 
+  /**
+   * S2 (Owner 승인 2026-11-18 · docs/audit/android-system-nav-2026-11-17/s2-s4-design.md §3):
+   * 통화 상태가 바뀌면 MainActivity 가 ◁ 처리를 켤지 다시 계산한다(웹 통화 연결 중에만 켬).
+   * 통화 상태·로직은 바꾸지 않는다 — 알림만 보낸다.
+   */
+  private static volatile Runnable stateListener;
+
+  public static void setStateListener(Runnable listener) {
+    stateListener = listener;
+  }
+
+  public static void clearStateListener(Runnable listener) {
+    if (stateListener == listener) stateListener = null;
+  }
+
+  public static void notifyStateChanged() {
+    Runnable listener = stateListener;
+    if (listener != null) listener.run();
+  }
+
   public static String getActiveCallId() {
     String id = ACTIVE_CALL_ID.get();
     return id != null ? id : "";
@@ -81,6 +101,7 @@ public final class DibayActiveCallSessionManager {
       IncomingCallActionCoordinator.cancelMissedTimeout(sid);
       DibayCallLog.once("active_call_connected", sid, "media=" + MEDIA_TYPE.get());
     }
+    notifyStateChanged();
   }
 
   public static void transitionPhase(String nextPhase, String source) {
@@ -97,6 +118,7 @@ public final class DibayActiveCallSessionManager {
       }
     }
     Log.i(TAG, "[DIBAY_CALL] active_call_phase " + prev + " -> " + nextPhase + " source=" + source);
+    notifyStateChanged();
   }
 
   public static void onAppForeground(Context context, String callId) {
@@ -240,6 +262,7 @@ public final class DibayActiveCallSessionManager {
     LOCAL_END_SENT.set(false);
     REMOTE_END_RECEIVED.set(false);
     PHASE.set(PHASE_IDLE);
+    notifyStateChanged();
   }
 
   public static void syncFromForegroundService(String callId, String kind) {

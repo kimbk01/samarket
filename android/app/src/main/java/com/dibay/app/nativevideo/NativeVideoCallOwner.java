@@ -19,6 +19,7 @@ public final class NativeVideoCallOwner {
     String prev = OWNERS.putIfAbsent(sid, "native_video");
     if (prev == null) {
       NativeVideoCallLog.info("owner_claimed_native_video", sid, "reason=" + safe(reason));
+      com.dibay.app.call.DibayActiveCallSessionManager.notifyStateChanged();
       return true;
     }
     NativeVideoCallLog.warn("duplicate_runtime_blocked", sid, "reason=already_owned_native_video");
@@ -35,6 +36,7 @@ public final class NativeVideoCallOwner {
     String prev = OWNERS.remove(sid);
     TERMINAL.put(sid, Boolean.TRUE);
     NativeVideoCallLog.info("owner_released", sid, "owner=" + prev + " reason=" + safe(reason));
+    com.dibay.app.call.DibayActiveCallSessionManager.notifyStateChanged();
   }
 
   private static String safe(String value) {
