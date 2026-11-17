@@ -2070,7 +2070,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     next.messageType === "system" ||
                     next.isMine !== item.isMine ||
                     (vm.isGroupRoom && (next.senderId ?? "") !== (item.senderId ?? "")) ||
-                    messengerMessageClockLabel(next) !== messengerMessageClockLabel(item));
+                    messengerMessageClockLabel(next, callLineLanguage) !==
+                      messengerMessageClockLabel(item, callLineLanguage));
 
                 const stubBusy =
                   item.messageType === "call_stub" &&
@@ -2186,6 +2187,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     focusTimelineMessage={vm.focusTimelineMessage}
                     tt={vm.tt}
                     t={vm.t}
+                    clockLanguage={callLineLanguage}
                     onGiftMessageMerge={vm.mergeCanonicalRoomMessage}
                   />
                 );

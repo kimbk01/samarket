@@ -119,7 +119,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
   const linkCollection = useRoomMessageCollection(vm.streamRoomId, "link", vm.activeSheet === "links");
   const memberLabelById = (id: string | null) =>
     (id && vm.roomMembersDisplay.find((m: { id: string; label?: string }) => m.id === id)?.label) || "";
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
   const [groupOutgoingConfirmKind, setGroupOutgoingConfirmKind] = useState<null | "voice" | "video">(null);
   const [giftOfferOpen, setGiftOfferOpen] = useState(false);
   const [giftPreselectInstanceId, setGiftPreselectInstanceId] = useState<string | null>(null);
@@ -674,7 +674,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             <span className="dibay-overlay-menu__label">{summary.title}</span>
                             <span className="dibay-overlay-menu__hint line-clamp-2">{summary.detail}</span>
                           </span>
-                          <span className={GROUP_MENU_TRAILING_CLASS}>{formatTime(event.createdAt)}</span>
+                          <span className={GROUP_MENU_TRAILING_CLASS}>{formatTime(event.createdAt, language)}</span>
                         </button>
                       );
                     })}
@@ -1252,7 +1252,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         </div>
                         {vm.snapshot.room.noticeUpdatedAt ? (
                           <span className="rounded-[length:var(--overlay-radius-sm)] bg-sam-surface-muted px-2 py-1 sam-text-xxs font-semibold text-sam-fg">
-                            {formatTime(vm.snapshot.room.noticeUpdatedAt)}
+                            {formatTime(vm.snapshot.room.noticeUpdatedAt, language)}
                           </span>
                         ) : null}
                       </div>
@@ -1390,7 +1390,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                                 <p className="sam-text-helper font-semibold text-sam-fg">{summary.title}</p>
                                 <p className="mt-1 line-clamp-2 sam-text-helper leading-5 text-sam-muted">{summary.detail}</p>
                               </div>
-                              <span className="shrink-0 sam-text-xxs text-sam-meta">{formatTime(event.createdAt)}</span>
+                              <span className="shrink-0 sam-text-xxs text-sam-meta">{formatTime(event.createdAt, language)}</span>
                             </button>
                           );
                         })}
@@ -1552,7 +1552,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         onClick={() => vm.scrollToRoomMessage(m.id)}
                         className="w-full rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-3 text-left"
                       >
-                        <p className="sam-text-helper font-medium text-sam-muted">{vm.tt(m.senderLabel)} · {formatTime(m.createdAt)}</p>
+                        <p className="sam-text-helper font-medium text-sam-muted">{vm.tt(m.senderLabel)} · {formatTime(m.createdAt, language)}</p>
                         <p className="mt-1 line-clamp-2 sam-text-body text-sam-fg">{communityMessengerMessageSearchText(m)}</p>
                       </button>
                     ))
@@ -1632,7 +1632,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="sam-text-helper text-sam-muted">{formatTime(m.createdAt)}</p>
+                          <p className="sam-text-helper text-sam-muted">{formatTime(m.createdAt, language)}</p>
                           <p className="mt-0.5 truncate sam-text-body text-sam-fg">
                             {m.messageType === "voice"
                               ? vm.t("cm_ui_voice_with_optional_seconds", {
@@ -1701,7 +1701,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           }}
                           className="w-full text-left"
                         >
-                          <p className="sam-text-helper text-sam-muted">{memberLabelById(m.senderId)} · {formatTime(m.createdAt)}</p>
+                          <p className="sam-text-helper text-sam-muted">{memberLabelById(m.senderId)} · {formatTime(m.createdAt, language)}</p>
                           <p className="mt-1 truncate sam-text-body font-semibold text-sam-fg">{m.fileName?.trim() || vm.t("cm_ui_attached_files")}</p>
                           <p className="mt-1 sam-text-helper text-sam-muted">{formatFileMeta(m.fileMimeType, m.fileSizeBytes)}</p>
                         </button>
@@ -1772,7 +1772,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             }}
                             className="w-full text-left"
                           >
-                            <p className="sam-text-helper text-sam-muted">{memberLabelById(m.senderId)} · {formatTime(m.createdAt)}</p>
+                            <p className="sam-text-helper text-sam-muted">{memberLabelById(m.senderId)} · {formatTime(m.createdAt, language)}</p>
                             <p className="mt-1 line-clamp-2 sam-text-body-secondary text-sam-fg">{m.content}</p>
                           </button>
                           <div className="mt-2 flex flex-col gap-1.5">

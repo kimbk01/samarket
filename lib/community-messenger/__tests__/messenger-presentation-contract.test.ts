@@ -91,11 +91,21 @@ describe("messenger presentation contract", () => {
     const clock = readFileSync(resolve(root, "lib/community-messenger/messenger-clock-time.ts"), "utf8");
     expect(clock).toContain("formatClock");
     expect(clock).not.toMatch(/"en-US"/);
+    /** 검토 반영: 시각 언어는 호출처가 화면 언어를 넘긴다 — 전역 런타임 언어 기본값 의존 금지 */
+    expect(clock).not.toContain("getRuntimeAppLanguage");
+    expect(helpers).toMatch(/messengerMessageClockLabel\(message: \{ createdAt: string \}, lang: AppLanguageCode\)/);
+    const row = readFileSync(
+      resolve(root, "components/community-messenger/room/phase2/MessengerTimelineVirtualRow.tsx"),
+      "utf8"
+    );
+    expect(row).toContain("messengerMessageClockLabel(item, clockLanguage)");
+    expect(row).toContain("a.clockLanguage === b.clockLanguage");
     const timeline = readFileSync(
       resolve(root, "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx"),
       "utf8"
     );
     expect(timeline).not.toMatch(/Intl\.DateTimeFormat\("ko-KR"/);
+    expect(timeline).toContain("clockLanguage={callLineLanguage}");
   });
 
   it("call stub occurrence time is nowrap + non-shrink; no vw max-width", () => {

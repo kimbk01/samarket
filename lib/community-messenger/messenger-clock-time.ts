@@ -1,6 +1,5 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
-import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { formatClock, type ChatListTimeTranslate } from "@/lib/community-messenger/chat-list/chat-list-kakao-time";
 
 /**
@@ -9,7 +8,7 @@ import { formatClock, type ChatListTimeTranslate } from "@/lib/community-messeng
  *
  * P4-B (Owner 2026-11-18 「권장안대로 반영」, 레거시 Telegram 기준): 화면 언어를 따른다 —
  * ko 「오전 2:16」 / en 「2:16 AM」. 대화 목록·통화 탭과 같은 함수(`chat-list-kakao-time.ts` `formatClock`).
- * 언어 원천 = `getRuntimeAppLanguage()` (`cm-ui-translate.ts` 와 같음). 예전 「en-US 고정」 규칙은 폐기.
+ * 언어 = 호출처가 넘기는 화면 언어(`useI18n().language`). 예전 「en-US 고정」 규칙은 폐기.
  *
  * 채팅 P0-1 (Owner 「채팅 P0 승인」 2026-11-11): 호출마다 포맷터 생성 금지 — 이제 `Intl` 을 아예 만들지 않는다.
  * 기기 24시간 설정은 웹에서 읽을 수 없어 12시간 고정(`formatClock` 주석).
@@ -18,7 +17,8 @@ export function formatMessengerClock(date: Date, lang: AppLanguageCode): string 
   return formatClock(date, messengerTranslatorFor(lang));
 }
 
-export function formatMessengerClockTime(iso: string, lang: AppLanguageCode = getRuntimeAppLanguage()): string {
+/** `lang` 은 필수 — 호출처가 화면 언어(`useI18n().language`)를 넘긴다(전역 기본값 의존 금지: SSR·언어 전환 순간 혼재 방지). */
+export function formatMessengerClockTime(iso: string, lang: AppLanguageCode): string {
   const raw = iso.trim();
   if (!raw) return "";
   const date = new Date(raw);

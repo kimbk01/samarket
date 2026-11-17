@@ -89,6 +89,16 @@ describe("채팅 P0-1 — 시각 포맷터 1개", () => {
     expect(formatMessengerClockTime("2026-11-11T13:05:00.000Z", "ko")).toMatch(/^오[전후] \d{1,2}:05$/);
     spy.mockRestore();
   });
+
+  it("메시지 시각 캐시는 넘긴 화면 언어별로 계산 (언어 전환 시 다시 계산)", async () => {
+    const { messengerMessageClockLabel } = await import(
+      "@/components/community-messenger/room/community-messenger-room-helpers"
+    );
+    const msg = { createdAt: new Date(2026, 10, 18, 2, 16).toISOString() };
+    expect(messengerMessageClockLabel(msg, "ko")).toBe("오전 2:16");
+    expect(messengerMessageClockLabel(msg, "en")).toBe("2:16 AM");
+    expect(messengerMessageClockLabel(msg, "ko")).toBe("오전 2:16");
+  });
 });
 
 describe("채팅 P0-1 — 구조 계약(소스)", () => {
