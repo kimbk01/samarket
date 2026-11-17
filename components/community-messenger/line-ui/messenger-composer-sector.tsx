@@ -219,6 +219,7 @@ export function MessengerComposerSector({
                 onFocus={onTextareaFocus}
                 onBlur={onTextareaBlur}
                 rows={1}
+                data-cm-composer-input=""
                 disabled={textareaDisabled}
                 placeholder={placeholder}
                 className="max-h-[100px] min-h-[20px] w-full min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent p-0 text-[16px] leading-[1.25] text-[color:var(--delivery-dark)] shadow-none outline-none ring-0 placeholder:text-[color:var(--delivery-text-muted)] focus:border-0 focus:shadow-none focus:outline-none focus:ring-0 focus-visible:shadow-none focus-visible:outline-none focus-visible:ring-0 disabled:opacity-50"

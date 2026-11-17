@@ -205,7 +205,9 @@
 }
 
 /**
- * 대화 목록 기본 행 (`listVisual="default"`) — 높이 72 · 좌우 16 · 간격 12 · 사진 48 · 이름 16 · 미리보기 13.5 · 시각 11.5.
+ * 대화 목록 기본 행 (`listVisual="default"`) — 높이 72 · 좌우 16 · 간격 12 · 사진 48.
+ * 글자: 이름 16 · 미리보기 15 · 시각 12 · 배지 12 — 전역 토큰 `--cm-chat-font-list-*`(`app/design-tokens.css`).
+ * P4 (Owner 2026-11-18 「권장안대로 반영」, 레거시 DialogCell 이름 16·미리보기 15)가 시안 4판 값(미리보기 13.5·시각 11.5)을 대체.
  * 거래·주문 목록 행(`trade`·`delivery`)은 이 값을 쓰지 않는다.
  */
 [data-messenger-chat-row][data-cm-list-visual="default"],
@@ -215,11 +217,11 @@
   --cm-list-avatar: 48px;
   --cm-list-gap: 12px;
   --cm-list-pad-x: 16px;
-  --cm-list-title-size: 16px;
+  --cm-list-title-size: var(--cm-chat-font-list-title);
   --cm-list-title-lh: 1.3;
-  --cm-list-preview-size: 13.5px;
+  --cm-list-preview-size: var(--cm-chat-font-list-preview);
   --cm-list-preview-lh: 1.35;
-  --cm-list-meta-size: 11.5px;
+  --cm-list-meta-size: var(--cm-chat-font-list-meta);
 }
 
 /*
@@ -231,6 +233,21 @@
 [data-messenger-chat-row][data-cm-list-visual="default"][data-cm-swipe-row] > [data-cm-swipe-fg] {
   padding-left: 0;
   padding-right: 0;
+}
+
+/**
+ * 거래·주문 채팅 목록 행 (`listVisual="trade"`·`"delivery"`) — P4: 레거시는 모든 대화 목록이 같은 글자 크기.
+ * 기본 대화 행과 같은 전역 토큰(이름 16 · 미리보기 15 · 시각 12). 배지는 컴포넌트에서 `--cm-chat-font-badge`.
+ * 행 높이는 그대로(거래 84 · 주문 72): 거래 20.8+3+16.25+3+20.25 ≈ 63 ≤ 84, 주문 20.8+3+20.25 ≈ 44 ≤ 72.
+ * (이전에는 셸 기본값 이름 15 · 미리보기 13 이 컴포넌트 글자 클래스를 덮어 실제 표시는 15/13/12 였다.)
+ */
+[data-messenger-chat-row][data-cm-list-visual="trade"],
+[data-messenger-chat-row][data-cm-list-visual="delivery"] {
+  --cm-list-title-size: var(--cm-chat-font-list-title);
+  --cm-list-title-lh: 1.3;
+  --cm-list-preview-size: var(--cm-chat-font-list-preview);
+  --cm-list-preview-lh: 1.35;
+  --cm-list-meta-size: var(--cm-chat-font-list-meta);
 }
 
 /**
@@ -395,12 +412,7 @@
   display: none;
 }
 
-/** composer 입력 하한 — iOS auto-zoom 방지 (메신저 스코프만) */
-[data-cm-room] .chat-composer textarea,
-[data-cm-room] textarea[data-cm-composer-input] {
-  font-size: 16px !important;
-  line-height: 1.25;
-}
+/* composer 입력 글자 규칙은 전역 `app/chat-viewport-shell.css` 로 이동(P4 — 주문 채팅 슬라이드 콜드 진입에서도 적용). */
 
 /**
  * ≥768 wide split — room Phase2Header owns safe-top (list SplitTopBar is list-column-only).

@@ -110,6 +110,11 @@ export type MessengerTimelineVirtualRowProps = {
   rowPaddingTopClass: string;
   showPeerName: boolean;
   showPeerAvatar: boolean;
+  /**
+   * P4 — 받은 말풍선 왼쪽 사진 칸(34px) 유무. 그룹 방만 true.
+   * 1:1(거래·주문 1:1 포함)은 레거시처럼 사진·이름·사진 자리 없이 왼쪽 여백에 붙는다. 기본 false.
+   */
+  peerAvatarColumn?: boolean;
   showBubbleTail: boolean;
   showMessageTime: boolean;
   dayDividerLabel: string | null;
@@ -164,6 +169,7 @@ function messengerTimelineVirtualRowPropsAreEqual(
     a.rowPaddingTopClass === b.rowPaddingTopClass &&
     a.showPeerName === b.showPeerName &&
     a.showPeerAvatar === b.showPeerAvatar &&
+    a.peerAvatarColumn === b.peerAvatarColumn &&
     a.showBubbleTail === b.showBubbleTail &&
     a.showMessageTime === b.showMessageTime &&
     a.dayDividerLabel === b.dayDividerLabel &&
@@ -205,6 +211,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   rowPaddingTopClass,
   showPeerName,
   showPeerAvatar,
+  peerAvatarColumn = false,
   showBubbleTail,
   showMessageTime,
   dayDividerLabel,
@@ -465,12 +472,12 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         aria-label={t("cm_ui_jump_to_original_message", { label: replyQuote.senderLabel })}
       >
         <p
-          className={`sam-text-xxs font-bold leading-snug ${mine ? "text-white" : "text-[color:var(--cm-room-primary)]"}`}
+          className={`text-[length:var(--cm-chat-font-quote)] font-bold leading-snug ${mine ? "text-white" : "text-[color:var(--cm-room-primary)]"}`}
         >
           {formatReplyQuoteKakaoHeader(tt(replyQuote.senderLabel))}
         </p>
         <p
-          className={`mt-0.5 line-clamp-2 sam-text-xxs leading-snug ${
+          className={`mt-0.5 line-clamp-2 text-[length:var(--cm-chat-font-quote)] leading-snug ${
             mine ? "text-white/85" : "text-[color:var(--cm-room-text-muted)]"
           }`}
         >
@@ -504,7 +511,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
               <button
                 key={`${item.id}:${r.reactionKey}`}
                 type="button"
-                className={`inline-flex items-center gap-0.5 border-0 bg-transparent px-0.5 py-0 sam-text-xxs font-medium transition active:opacity-75 ${
+                className={`inline-flex items-center gap-0.5 border-0 bg-transparent px-0.5 py-0 text-[length:var(--cm-chat-font-meta)] font-medium transition active:opacity-75 ${
                   item.isMine ? "text-[color:var(--cm-room-bubble-outgoing-fg,#fff)]" : "text-[color:var(--cm-room-text)]"
                 }`}
                 onClick={(e) => {
@@ -659,7 +666,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       {renderStatusIcon(item.isMine ? "bubble-mine" : "plain")}
     </>
   );
-  const inBubbleMetaClass = "inline-flex items-center gap-1 text-[11px] leading-none tabular-nums";
+  const inBubbleMetaClass = "inline-flex items-center gap-1 text-[length:var(--cm-chat-font-meta)] leading-none tabular-nums";
   const textMetaOverlay =
     textMetaInBubble && bodyIsTextDefault ? (
       <span
@@ -689,7 +696,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         {!deletedForEveryone && (item.metadata as { forwarded?: unknown } | null | undefined)?.forwarded === true ? (
           <p
             data-cm-forwarded=""
-            className={`px-[12px] pt-1.5 sam-text-xxs leading-snug ${
+            className={`px-[12px] pt-1.5 text-[length:var(--cm-chat-font-quote)] leading-snug ${
               /** 흰 글자는 내 녹색 말풍선 위에서만 — 배경 없는 사진·스티커 위에서는 안 보임(2026-11-14 실기 FAIL) */
               item.isMine && !isMediaBubble ? "text-white/80" : "text-[color:var(--cm-room-text-muted)]"
             }`}
@@ -722,7 +729,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     (photoMetaOnPhoto || stickerMetaOnSticker) && (showMessageTime || outboundStatus) ? (
       <span
         {...(photoMetaOnPhoto ? { "data-cm-photo-meta": "" } : { "data-cm-sticker-meta": "" })}
-        className="pointer-events-none absolute bottom-1.5 right-1.5 z-[1] inline-flex items-center gap-1 rounded-full bg-black/45 px-1.5 py-[3px] text-[11px] leading-none tabular-nums text-white"
+        className="pointer-events-none absolute bottom-1.5 right-1.5 z-[1] inline-flex items-center gap-1 rounded-full bg-black/45 px-1.5 py-[3px] text-[length:var(--cm-chat-font-meta)] leading-none tabular-nums text-white"
       >
         {showMessageTime ? <span>{clockLabel}</span> : null}
         {renderStatusIcon("on-photo")}
@@ -741,7 +748,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   const callStubTimeLabel = showMessageTime ? (
     <span
       data-cm-call-occurrence-time=""
-      className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]"
+      className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[length:var(--cm-chat-font-meta)] tabular-nums leading-none text-[#65676b]"
     >
       {messengerMessageClockLabel(item)}
     </span>
@@ -800,7 +807,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     >
       {dayDividerLabel ? (
         <div className="flex w-full justify-center pb-2 pt-0.5">
-          <span className="rounded-full bg-[#e4e6eb] px-2.5 py-1 text-center text-[12px] leading-tight text-[#65676b]">
+          <span className="rounded-full bg-[#e4e6eb] px-2.5 py-1 text-center text-[length:var(--cm-chat-font-service)] font-[number:var(--cm-chat-font-service-weight-date)] leading-tight text-[#65676b]">
             {dayDividerLabel}
           </span>
         </div>
@@ -813,7 +820,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
           aria-label={unreadDividerLabel}
         >
           <div className="h-px flex-1 bg-[color:var(--cm-room-primary,#2AABEE)]/35" />
-          <span className="shrink-0 text-[12px] font-medium leading-none text-[color:var(--cm-room-primary,#2AABEE)]">
+          <span className="shrink-0 text-[length:var(--cm-chat-font-service)] font-medium leading-none text-[color:var(--cm-room-primary,#2AABEE)]">
             {unreadDividerLabel}
           </span>
           <div className="h-px flex-1 bg-[color:var(--cm-room-primary,#2AABEE)]/35" />
@@ -844,7 +851,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       ) : item.messageType === "system" ? (
         <div className="max-w-[min(100%,22rem)] min-w-0 px-3">
           <div className={systemBubbleClass}>
-            <p className="whitespace-pre-line break-words text-center sam-text-helper leading-5">
+            <p className="whitespace-pre-line break-words text-center text-[length:var(--cm-chat-font-service)] leading-[1.4]">
               {resolveCmSystemMessageText({ content: item.content, metadata }, t)}
             </p>
           </div>
@@ -855,7 +862,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         <div
           className={`flex w-full min-w-0 max-w-full gap-2 ${item.isMine ? "items-end justify-end" : "items-start justify-start"}`}
         >
-          {!item.isMine ? (
+          {!item.isMine && peerAvatarColumn ? (
             <div className="relative z-[1] w-[34px] shrink-0 pt-[2px]">
               {renderPeerAvatar ? (
                 <SamarketThumbnail
@@ -874,7 +881,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
 
           <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${item.isMine ? "items-end" : "items-start"}`}>
             {!item.isMine && showPeerName ? (
-              <p className="mb-[3px] max-w-full pl-0.5 text-[12px] font-medium leading-snug text-[#4b5563]">
+              <p className="mb-[3px] max-w-full pl-0.5 text-[length:var(--cm-chat-font-sender)] font-medium leading-snug text-[#4b5563]">
                 {senderLabelDisplay}
               </p>
             ) : null}
@@ -887,7 +894,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
               {item.isMine ? (
                 <>
                   {metaBesideBubble ? (
-                    <span className="inline-flex shrink-0 grow-0 basis-auto items-center gap-1 whitespace-nowrap pb-0.5 text-[11px] tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
+                    <span className="inline-flex shrink-0 grow-0 basis-auto items-center gap-1 whitespace-nowrap pb-0.5 text-[length:var(--cm-chat-font-meta)] tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
                       {showMessageTime ? <span>{clockLabel}</span> : null}
                       {renderStatusIcon("plain")}
                     </span>
@@ -898,7 +905,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
                 <>
                   {renderBubbleStack(viberBubbleWithMeta)}
                   {showMessageTime && metaBesideBubble ? (
-                    <span className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[11px] tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
+                    <span className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[length:var(--cm-chat-font-meta)] tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
                       {clockLabel}
                     </span>
                   ) : null}
@@ -948,7 +955,7 @@ function StoreOrderOpsSystemRow({
         : "font-semibold text-[color:var(--delivery-dark)]";
   return (
     <div className="delivery-ui flex w-full justify-center px-4 py-0.5">
-      <p className="max-w-[min(100%,20rem)] text-center text-[12px] leading-[1.5] text-[color:var(--delivery-text-muted)] [overflow-wrap:anywhere]">
+      <p className="max-w-[min(100%,20rem)] text-center text-[length:var(--cm-chat-font-service)] leading-[1.5] text-[color:var(--delivery-text-muted)] [overflow-wrap:anywhere]">
         {title ? (
           <>
             <span className={titleClass}>{title}</span>

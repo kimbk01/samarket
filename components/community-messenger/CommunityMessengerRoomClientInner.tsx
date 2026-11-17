@@ -178,6 +178,7 @@ export function CommunityMessengerRoomClientInner(props: {
       {phase1.timelineHeavyLive ? (
         <MessengerRoomPhase1TimelineHeavyHost
           {...phase1.timelineHeavyHostInput}
+          isGroupRoom={isGroupRoomForShell}
           onReady={phase1.onTimelineHeavyReady}
         />
       ) : null}

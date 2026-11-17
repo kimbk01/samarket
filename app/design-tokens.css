@@ -504,3 +504,49 @@
 .owner-new-order-pulse {
   animation: owner-new-order-pulse 2.8s ease-in-out infinite;
 }
+
+/**
+ * 채팅 글자 토큰 1벌 (P4 · Owner 2026-11-18 「권장안대로 반영」 — 레거시 Telegram 기준).
+ * 설계: docs/audit/messenger-chat-audit-2026-11-18/appendix-P4-typography-clock-design.md PART B (B-1~B-5)
+ *       + docs/audit/messenger-chat-full-audit-ssot-design-2026-11-18.md §6-1.
+ * 레거시 근거: SharedConfig fontSize 휴대폰 16 / 태블릿 18, Theme 본문 dp(fontSize)·인용/이름 (2×fontSize+10)/3,
+ *   서비스 문구 max(16,fontSize)−2, 시각 12, ChatAvatarContainer 제목 18·상태 14, DialogCell 이름 16·미리보기 15.
+ * - 전역(:root)에 둔다 — 메신저 레이아웃 CSS 가 안 실리는 주문 채팅 슬라이드(콜드 진입)에서도 같은 값.
+ * - 필라이프 `[data-community-ui]` 의 `--cm-font-*`(본문 15 등)와 섞이지 않도록 이름은 `--cm-chat-font-*`.
+ * - OS 글자 크기 배율은 반영하지 않는다(레거시도 dp 고정) — 네이티브 변경 없음.
+ * - 태블릿 = 화면 짧은 변 600px 이상(레거시 isTablet 과 같은 기준 — 휴대폰 가로 회전은 휴대폰 값 유지).
+ *   아래 @media 에서 같은 토큰 값만 바꾼다(컴포넌트별 분기 없음). 데스크톱 웹 큰 창도 태블릿 값(의도).
+ */
+:root {
+  /* 대화방 — 본문(말풍선·입력창) */
+  --cm-chat-font-body: 16px;
+  --cm-chat-font-body-lh: 1.35;
+  /* 서비스 문구 — 날짜 구분(굵게)·시스템·「여기까지 읽음」·주문 상태 줄·거래 글 변경 줄 */
+  --cm-chat-font-service: 14px;
+  --cm-chat-font-service-weight-date: 600;
+  /* 답장 인용·전달됨·입력창 답장 미리보기 */
+  --cm-chat-font-quote: 14px;
+  /* 그룹 방 발신자 이름 */
+  --cm-chat-font-sender: 14px;
+  /* 시각·읽음 수·반응 수·「안 읽음」 */
+  --cm-chat-font-meta: 12px;
+  /* 입력창 = 본문 */
+  --cm-chat-font-composer: var(--cm-chat-font-body);
+  /* 대화방 머리글 (메신저 방 머리글 전용 — 다른 머리글의 --sector-header-title-size 17 은 그대로) */
+  --cm-chat-font-header-title: 18px;
+  --cm-chat-font-header-status: 14px;
+  /* 대화 목록 기본 행 (`data-cm-list-surface="chat"`) */
+  --cm-chat-font-list-title: 16px;
+  --cm-chat-font-list-preview: 15px;
+  --cm-chat-font-list-meta: 12px;
+  --cm-chat-font-badge: 12px;
+}
+
+@media (min-width: 600px) and (min-height: 600px) {
+  :root {
+    --cm-chat-font-body: 18px;
+    --cm-chat-font-quote: 15px;
+    --cm-chat-font-sender: 15px;
+    --cm-chat-font-service: 16px;
+  }
+}

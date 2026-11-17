@@ -125,6 +125,24 @@
   }
 }
 
+/**
+ * 메신저 입력창 글자 = 본문 토큰 `--cm-chat-font-composer` (휴대폰 16 · 태블릿 18, `app/design-tokens.css`).
+ * P4: `messenger-presentation.css`(메신저 레이아웃에서만 실림)에서 이 전역 파일로 이동 — 주문 채팅 슬라이드(콜드 진입)에서도 적용.
+ * `globals.css` 의 레이어 밖 입력 14px 규칙을 이기려고 !important (iOS 입력 확대 방지 16px 하한과 같거나 큼).
+ * 안내 글(placeholder)도 같은 크기(이전: 전역 14px).
+ */
+[data-cm-room] .chat-composer textarea,
+[data-cm-room] textarea[data-cm-composer-input] {
+  font-size: var(--cm-chat-font-composer, 16px) !important;
+  line-height: 1.25;
+}
+
+[data-cm-room] .chat-composer textarea::placeholder,
+[data-cm-room] textarea[data-cm-composer-input]::placeholder {
+  /* 전역 `:is(input:not(...)…, textarea)::placeholder` 는 :not 10개로 우선순위가 높아 !important 필요 */
+  font-size: var(--cm-chat-font-composer, 16px) !important;
+}
+
 /** 타임라인 — composer 는 scroll 밖 flex sibling */
 [data-cm-room] .chat-timeline-scroll {
   overflow-y: auto;

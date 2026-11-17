@@ -1999,7 +1999,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   prev.messageType !== "call_stub" &&
                   !isCallStub &&
                   (prev.senderId ?? "") !== (item.senderId ?? "");
-                const showPeerName =
+                /** 받은 말풍선 묶음의 첫 줄 — 꼬리 모양 기준(1:1·그룹 공통) */
+                const peerClusterStart =
                   !item.isMine &&
                   item.messageType !== "system" &&
                   !isCallStub &&
@@ -2009,6 +2010,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     prev.isMine ||
                     peerSenderChanged ||
                     isNewClusterFromTime);
+                /**
+                 * P4 (Owner 2026-11-18 「권장안대로 반영」 · 레거시 Telegram): 상대 이름·사진은 그룹 방에서만.
+                 * 1:1(거래·주문 1:1 포함)은 이름·사진·사진 자리 없이 받은 말풍선이 왼쪽 여백에 붙는다.
+                 */
+                const showPeerName = vm.isGroupRoom && peerClusterStart;
                 const nextGapMs =
                   next && next.messageType !== "system" && next.messageType !== "call_stub" && item.messageType !== "system" && !isCallStub
                     ? Math.max(0, new Date(next.createdAt).getTime() - new Date(item.createdAt).getTime())
@@ -2027,7 +2033,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   item.messageType !== "system" &&
                   !isCallStub &&
                   showPeerName;
-                const peerAvatar = !item.isMine ? messageRowPreamble.peerAvatarFor(item.senderId) : null;
+                const peerAvatar =
+                  !item.isMine && vm.isGroupRoom ? messageRowPreamble.peerAvatarFor(item.senderId) : null;
                 const outboundReadState = resolveMessengerOutboundReadState(
                   item,
                   outboundReadMode,
@@ -2048,7 +2055,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   item.messageType !== "system" &&
                   !isCallStub &&
                   (!next || next.messageType === "system" || next.messageType === "call_stub" || nextSenderChanged || isClusterEndFromTime);
-                const showBubbleTail = item.isMine ? showMineClusterStart : showPeerName;
+                const showBubbleTail = item.isMine ? showMineClusterStart : peerClusterStart;
                 const isDayBoundary =
                   !prev ||
                   messengerTimelineCalendarDayKey(prev.createdAt) !== messengerTimelineCalendarDayKey(item.createdAt);
@@ -2107,6 +2114,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     rowPaddingTopClass={rowPaddingTopClass}
                     showPeerName={showPeerName}
                     showPeerAvatar={showPeerAvatar}
+                    peerAvatarColumn={vm.isGroupRoom}
                     showBubbleTail={showBubbleTail}
                     showMessageTime={showMessageTime}
                     dayDividerLabel={dayDividerLabel}

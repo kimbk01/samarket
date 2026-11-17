@@ -355,7 +355,7 @@ export function VoiceMessageBubble({
             })}
           </div>
           <div
-            className={`flex items-baseline justify-between gap-2 sam-text-xxs leading-tight ${
+            className={`flex items-baseline justify-between gap-2 text-[length:var(--cm-chat-font-meta)] leading-tight ${
               isMine ? "text-white/90" : "text-sam-muted"
             }`}
           >
@@ -365,7 +365,7 @@ export function VoiceMessageBubble({
                 <button
                   type="button"
                   onClick={cyclePlaybackRate}
-                  className={`shrink-0 rounded px-1 py-0 sam-text-xxs font-semibold uppercase tracking-wide ${
+                  className={`shrink-0 rounded px-1 py-0 text-[length:var(--cm-chat-font-meta)] font-semibold uppercase tracking-wide ${
                     isMine
                       ? "bg-sam-surface/20 text-white hover:bg-sam-surface/30"
                       : "bg-sam-border-soft text-sam-fg hover:bg-sam-border"

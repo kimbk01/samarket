@@ -30,11 +30,11 @@ export function MessengerTradeListingChangeSystemRow({
   return (
     <div className="flex w-full justify-center px-3" data-cm-system-row="trade-listing-change">
       <div className="flex max-w-[min(100%,22rem)] min-w-0 flex-col items-center gap-0.5 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-2 text-center">
-        <p className="flex flex-wrap items-center justify-center gap-1.5 sam-text-helper leading-5 text-sam-fg">
+        <p className="flex flex-wrap items-center justify-center gap-1.5 text-[length:var(--cm-chat-font-service)] leading-[1.4] text-sam-fg">
           <span>{t("trade_listing_change_system_title")}</span>
           <span className={`rounded-ui-rect px-1.5 py-px font-bold ${CHIP_TONE[state]}`}>{stateLabel}</span>
         </p>
-        {timeLabel ? <p className="sam-text-xxs tabular-nums text-sam-muted">{timeLabel}</p> : null}
+        {timeLabel ? <p className="text-[length:var(--cm-chat-font-meta)] tabular-nums text-sam-muted">{timeLabel}</p> : null}
       </div>
     </div>
   );

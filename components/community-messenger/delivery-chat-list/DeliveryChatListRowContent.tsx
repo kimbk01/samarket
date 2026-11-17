@@ -34,7 +34,7 @@ export function DeliveryChatListRowContent({
         <div className="flex min-w-0 items-center gap-[5px]">
           <p
             data-cm-list-title=""
-            className="min-w-0 truncate text-[16px] font-semibold leading-[1.3] tracking-[-0.2px]"
+            className="min-w-0 truncate text-[length:var(--cm-chat-font-list-title)] font-semibold leading-[1.3] tracking-[-0.2px]"
             style={{ color: "var(--cm-chat-fg)" }}
           >
             {storeName}
@@ -43,7 +43,7 @@ export function DeliveryChatListRowContent({
         </div>
         <p
           data-cm-list-preview=""
-          className="min-w-0 truncate text-[13.5px] leading-[1.35]"
+          className="min-w-0 truncate text-[length:var(--cm-chat-font-list-preview)] leading-[1.35]"
           style={{ color: unread ? "var(--cm-chat-fg)" : "var(--cm-chat-sub)" }}
         >
           {previewLine || " "}

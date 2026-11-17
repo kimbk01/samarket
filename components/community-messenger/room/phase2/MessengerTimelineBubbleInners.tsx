@@ -142,10 +142,10 @@ export const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
           <FileText className="h-5 w-5" strokeWidth={2} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className={`truncate text-[14px] font-semibold leading-snug ${item.isMine ? "text-white" : "text-[#050505]"}`}>
+          <p className={`truncate text-[length:var(--cm-chat-font-body)] font-semibold leading-snug ${item.isMine ? "text-white" : "text-[#050505]"}`}>
             {item.fileName?.trim() || t("common_attached_file")}
           </p>
-          <p className={`mt-1 text-[12px] leading-snug ${item.isMine ? "text-white/80" : "text-[#6b7280]"}`}>
+          <p className={`mt-1 text-[length:var(--cm-chat-font-meta)] leading-snug ${item.isMine ? "text-white/80" : "text-[#6b7280]"}`}>
             {formatFileMeta(item.fileMimeType, item.fileSizeBytes)}
           </p>
         </div>
@@ -153,7 +153,7 @@ export const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
       <div className="mt-3">
         {item.pending ? (
           item.sendFailed ? null : (
-            <span className={`sam-text-helper ${item.isMine ? "text-sam-muted" : "text-sam-muted"}`}>{t("common_uploading")}</span>
+            <span className={`text-[length:var(--cm-chat-font-meta)] ${item.isMine ? "text-sam-muted" : "text-sam-muted"}`}>{t("common_uploading")}</span>
           )
         ) : fileUrl ? (
           <a
@@ -165,7 +165,7 @@ export const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
               /* Capacitor 셸: WebView 는 다운로드를 처리하지 못함 → 인앱 브라우저(@capacitor/browser) */
               if (openMessengerFileInNativeShellIfNeeded(fileHref)) e.preventDefault();
             }}
-            className={`inline-flex rounded-[10px] border px-3 py-1.5 sam-text-helper font-semibold ${
+            className={`inline-flex rounded-[10px] border px-3 py-1.5 text-[length:var(--cm-chat-font-meta)] font-semibold ${
               item.isMine
                 ? "border-white/35 bg-white/15 text-white"
                 : "border-[color:var(--cm-room-divider)] bg-sam-surface text-[color:var(--cm-room-text)]"
@@ -265,9 +265,9 @@ export const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallSt
         <CallGlyph className="h-4 w-4" />
       </span>
       <span className="min-w-0 flex flex-col gap-0.5">
-        <span className="truncate text-[13px] font-semibold leading-snug tracking-tight">{displayLabel}</span>
+        <span className="truncate text-[length:var(--cm-chat-font-quote)] font-semibold leading-snug tracking-tight">{displayLabel}</span>
         <span
-          className={`text-[11px] font-medium leading-none ${
+          className={`text-[length:var(--cm-chat-font-meta)] font-medium leading-none ${
             isMissed
               ? isMine
                 ? "text-white/80"
@@ -310,7 +310,7 @@ export const TimelineViberInnerTextDefault = memo(function TimelineViberInnerTex
   return (
     <div className="flex w-max max-w-full flex-col gap-2">
       <p
-        className={`inline-block w-fit max-w-full whitespace-pre-wrap break-words text-[14px] leading-[1.35] break-keep [overflow-wrap:break-word] ${
+        className={`inline-block w-fit max-w-full whitespace-pre-wrap break-words text-[length:var(--cm-chat-font-body)] leading-[var(--cm-chat-font-body-lh)] break-keep [overflow-wrap:break-word] ${
           mineLight ? "text-inherit" : "text-[color:var(--cm-room-bubble-incoming-fg,#050505)]"
         }`}
       >
@@ -319,7 +319,7 @@ export const TimelineViberInnerTextDefault = memo(function TimelineViberInnerTex
           <span
             aria-hidden
             data-cm-text-meta-spacer=""
-            className="invisible ml-2 inline-flex select-none items-center gap-1 align-bottom text-[11px] leading-none tabular-nums"
+            className="invisible ml-2 inline-flex select-none items-center gap-1 align-bottom text-[length:var(--cm-chat-font-meta)] leading-none tabular-nums"
           >
             {metaSpacerClock ? <span className="whitespace-nowrap">{metaSpacerClock}</span> : null}
             {metaSpacerIcon ? <span className={MESSENGER_OUTBOUND_STATUS_ICON_BOX_CLASS} /> : null}

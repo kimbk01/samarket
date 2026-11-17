@@ -63,15 +63,15 @@ export function StoreOrderDeliveryMessengerHeaderBlock({
       </div>
 
       <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center overflow-hidden leading-tight">
-        <p className="truncate text-[length:var(--sector-header-title-size)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
+        <p className="truncate text-[length:var(--cm-chat-font-header-title)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
           {model.title}
         </p>
         {typingLabel ? (
-          <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">
+          <p className="truncate text-[length:var(--cm-chat-font-header-status)] leading-tight text-[color:var(--cm-room-text-muted)]">
             <TypingIndicatorLine label={typingLabel} />
           </p>
         ) : subtitle?.trim() ? (
-          <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">{subtitle}</p>
+          <p className="truncate text-[length:var(--cm-chat-font-header-status)] leading-tight text-[color:var(--cm-room-text-muted)]">{subtitle}</p>
         ) : null}
       </div>
 
