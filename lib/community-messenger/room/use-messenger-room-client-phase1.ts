@@ -1598,6 +1598,7 @@ export function useMessengerRoomClientPhase1({
 
   useMessengerRoomOpenMarkReadEffect({
     roomId,
+    readerRoomId: streamRoomId,
     snapshotRef,
     roomOpenMarkReadRef,
     stickToBottomRef,
@@ -1900,6 +1901,8 @@ export function useMessengerRoomClientPhase1({
     updateStickToBottomFromScroll,
   } = useMessengerRoomReaderScrollBottom({
     roomId,
+    /** 읽기 상태 저장소 키 = 정규 스트림 id(Timeline·「↓」·실시간 수신과 같은 키) */
+    readerRoomId: streamRoomId,
     activeSheet,
     stickToBottomRef,
     messagesViewportRef,

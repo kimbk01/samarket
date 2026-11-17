@@ -14,6 +14,7 @@ type VirtualizerLike = Pick<Virtualizer<HTMLDivElement, Element>, "scrollToIndex
  */
 export function useMessengerRoomReaderScrollBottom({
   roomId,
+  readerRoomId,
   activeSheet,
   stickToBottomRef,
   messagesViewportRef,
@@ -30,6 +31,8 @@ export function useMessengerRoomReaderScrollBottom({
   lastReadMessageId = null,
 }: {
   roomId: string;
+  /** 읽기 상태 저장소 키 — 정규 스트림 id(PR-1 F2 키 통일) */
+  readerRoomId?: string;
   activeSheet:
     | null
     | "attach"
@@ -68,6 +71,7 @@ export function useMessengerRoomReaderScrollBottom({
   void messageEndRef;
   const controller = useMessengerRoomScrollAnchorController({
     roomId,
+    readerRoomId,
     activeSheet,
     stickToBottomRef,
     messagesViewportRef,

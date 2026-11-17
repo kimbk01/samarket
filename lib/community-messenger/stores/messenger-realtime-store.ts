@@ -133,7 +133,11 @@ function messengerRoomRouteRoomIdNormFromPathname(): string | null {
 
 function activeRoomActuallyReadable(roomId: string, activeRoomId: string | null): boolean {
   const routeRoom = messengerRoomRouteRoomIdNormFromPathname();
-  if (!routeRoom || routeRoom !== roomId) return false;
+  /**
+   * PR-1 F2 키 통일: 방 판정 키 = 정규 방 id(`activeRoomId` — 열린 방이 스트림 id 로 설정). 라우트 세그먼트가 거래 채팅 id
+   * (product_chats.id)인 방은 URL 과 정규 id 가 달라 예전에는 늘 「읽을 수 없음」이었다 — 방 라우트 위인지만 URL 로 본다.
+   */
+  if (!routeRoom) return false;
   if (activeRoomId !== roomId || !currentDocumentVisibleAndFocused()) return false;
   const position = useMessengerRoomReaderStateStore.getState().getScrollPositionForPolicy(roomId);
   return position === "at-bottom" || position === "near-bottom";

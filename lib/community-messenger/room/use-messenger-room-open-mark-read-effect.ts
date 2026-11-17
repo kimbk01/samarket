@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type MutableRefObject, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import {
   buildCommunityMessengerMarkReadPatchBody,
@@ -347,6 +347,8 @@ function dispatchOrderChatReadRefresh(roomId: string, role?: "owner" | "customer
  */
 export function useMessengerRoomOpenMarkReadEffect(args: {
   roomId: string;
+  /** 읽기 상태 저장소 키 — 정규 스트림 id(PR-1 F2 키 통일). 없으면 roomId */
+  readerRoomId?: string;
   snapshotRef: RefObject<CommunityMessengerRoomSnapshot | null>;
   roomOpenMarkReadRef: MessengerRoomOpenMarkReadPhaseRef;
   stickToBottomRef: MutableRefObject<boolean>;
@@ -365,6 +367,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
 }): void {
   const {
     roomId,
+    readerRoomId,
     snapshotRef,
     roomOpenMarkReadRef,
     stickToBottomRef,
@@ -388,6 +391,11 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
   const earlyOptimisticMessageIdRef = useRef<string | null>(null);
   /** 낙관적 제거 직전 스냅샷 unread — 스크롤 업·blur 등으로 PATCH 전 조건 이탈 시 복원 */
   const preOptimisticUnreadRef = useRef<number | null>(null);
+  /** 읽기 상태 저장소 키(정규 스트림 id) — 효과 재실행 없이 최신 값만 읽는다 */
+  const readerRoomIdRef = useRef("");
+  useLayoutEffect(() => {
+    readerRoomIdRef.current = (readerRoomId ?? "").trim();
+  }, [readerRoomId]);
 
   useEffect(() => {
     const id = roomId?.trim();
@@ -453,7 +461,9 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         viewerLastReadMessageId: lastReadMessageId,
       });
       if (lastReadMessageId) {
-        useMessengerRoomReaderStateStore.getState().setLastVisibleMessageId(id, lastReadMessageId);
+        useMessengerRoomReaderStateStore
+          .getState()
+          .setLastVisibleMessageId(readerRoomIdRef.current || id, lastReadMessageId);
       }
       if (remainingUnread === 0) {
         postCommunityMessengerBusEvent({

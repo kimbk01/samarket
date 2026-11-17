@@ -57,6 +57,8 @@ type VirtualizerLike = Pick<Virtualizer<HTMLDivElement, Element>, "scrollToIndex
 
 type ScrollAnchorControllerOpts = {
   roomId: string;
+  /** 읽기 상태 저장소 키 — 정규 스트림 id. 없으면 roomId(PR-1 F2 키 통일) */
+  readerRoomId?: string;
   activeSheet:
     | null
     | "attach"
@@ -156,6 +158,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
 } {
   const {
     roomId,
+    readerRoomId: readerRoomIdOpt,
     activeSheet,
     stickToBottomRef,
     messagesViewportRef,
@@ -170,6 +173,12 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     unreadCount = 0,
     lastReadMessageId = null,
   } = opts;
+  /**
+   * PR-1 검토(F2 키 통일): 읽기 상태 저장소(reader store) 키 = 정규 스트림 id(`community_messenger_rooms.id`).
+   * 진입 스크롤 소유·스크롤 저장·진입 의도는 라우트 id(`roomId`) 그대로. 라우트 id 가 거래 채팅 id(product_chats.id)인
+   * 방에서는 두 id 가 달라, 예전에는 이 컨트롤러가 라우트 id 로 쓰고 「↓」·Timeline 은 스트림 id 로 읽어 어긋났다.
+   */
+  const readerKey = (readerRoomIdOpt ?? "").trim() || roomId.trim();
 
   void opts.messageEndRef;
 
@@ -269,11 +278,11 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         syncMessengerRoomReaderStateFromViewport({
           viewport: entryViewport,
           stickToBottomRef: { current: stickToBottomRef.current },
-          roomId: rid,
+          roomId: readerKey,
           activeSheet,
         });
       } else if (messengerRoomTracksScrollPosition() && stickToBottomRef.current) {
-        useMessengerRoomReaderStateStore.getState().setScrollPosition(rid, "at-bottom");
+        useMessengerRoomReaderStateStore.getState().setScrollPosition(readerKey, "at-bottom");
       }
       /** Latest land → tip consumed so same-tip re-entry cannot revive stale first-unread. */
       if (stickToBottomRef.current || isMessengerEntryBottomLoadReason(reason)) {
@@ -284,7 +293,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         }
       }
     },
-    [activeSheet, engine, markCmScrollRun, messagesViewportRef, roomId, roomMessages, stickToBottomRef]
+    [activeSheet, engine, markCmScrollRun, messagesViewportRef, readerKey, roomId, roomMessages, stickToBottomRef]
   );
 
   const tryCompleteEntry = useCallback(
@@ -350,10 +359,10 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     scheduleMessengerRoomReaderStateSync({
       viewport: messagesViewportRef.current,
       stickToBottomRef,
-      roomId,
+      roomId: readerKey,
       activeSheet,
     });
-  }, [activeSheet, engine, messagesViewportRef, roomId, stickToBottomRef]);
+  }, [activeSheet, engine, messagesViewportRef, readerKey, stickToBottomRef]);
 
   /**
    * Single layout/keyboard correction writer.
@@ -422,7 +431,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         /** ↓ 버튼 — 부드럽게 맨 아래까지(매 프레임 하단 재계산). */
         const reader = useMessengerRoomReaderStateStore.getState();
         stickToBottomRef.current = true;
-        reader.setScrollPosition(roomId, "at-bottom");
+        reader.setScrollPosition(readerKey, "at-bottom");
         const started = engine.animateScrollToBottom(buildCtx(), {
           onDone: () => {
             stickToBottomRef.current = engine.readStickToBottom();
@@ -430,7 +439,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
             syncMessengerRoomReaderStateFromViewport({
               viewport: messagesViewportRef.current,
               stickToBottomRef,
-              roomId,
+              roomId: readerKey,
               activeSheet,
             });
           },
@@ -445,8 +454,8 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         stickToBottomRef.current = true;
         const tip = roomMessages[roomMessages.length - 1]?.id?.trim() || null;
         const reader = useMessengerRoomReaderStateStore.getState();
-        reader.setScrollPosition(roomId, "at-bottom");
-        if (tip) reader.setLastVisibleMessageId(roomId, tip);
+        reader.setScrollPosition(readerKey, "at-bottom");
+        if (tip) reader.setLastVisibleMessageId(readerKey, tip);
         markCmScrollRun(reason, reason === "own_message_append" ? "self_send_follow" : "explicit");
         return;
       }
@@ -466,6 +475,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       markCmScrollRun,
       messageCount,
       messagesViewportRef,
+      readerKey,
       roomId,
       roomMessages,
       scheduleReaderStateSyncAfterEntry,
@@ -502,8 +512,8 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         if (vpA && rowA && vpA.contains(rowA)) {
           stickToBottomRef.current = false;
           const reader = useMessengerRoomReaderStateStore.getState();
-          reader.setScrollPosition(roomId, "reading-history");
-          reader.setLastVisibleMessageId(roomId, mid);
+          reader.setScrollPosition(readerKey, "reading-history");
+          reader.setLastVisibleMessageId(readerKey, mid);
           engine.animateScrollToElement(ctx, rowA, align, {
             topInsetPx: MESSENGER_JUMP_TO_MESSAGE_TOP_INSET_PX,
             onDone: () => {
@@ -515,7 +525,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
               syncMessengerRoomReaderStateFromViewport({
                 viewport: messagesViewportRef.current,
                 stickToBottomRef: { current: stickToBottomRef.current },
-                roomId,
+                roomId: readerKey,
                 activeSheet,
               });
             },
@@ -549,22 +559,22 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       if (applied) {
         stickToBottomRef.current = false;
         const reader = useMessengerRoomReaderStateStore.getState();
-        reader.setScrollPosition(roomId, "reading-history");
+        reader.setScrollPosition(readerKey, "reading-history");
         /** FAB math must advance immediately — do not wait for a user scroll event. */
-        reader.setLastVisibleMessageId(roomId, mid);
+        reader.setLastVisibleMessageId(readerKey, mid);
         /** F2-② 애니메이션 없는 이동 끝 — 레이아웃 뒤 실제 위치로 위치·lastVisible 동기화 */
         window.requestAnimationFrame(() => {
           syncMessengerRoomReaderStateFromViewport({
             viewport: messagesViewportRef.current,
             stickToBottomRef: { current: stickToBottomRef.current },
-            roomId,
+            roomId: readerKey,
             activeSheet,
           });
         });
       }
       return applied;
     },
-    [activeSheet, buildCtx, engine, messageCount, messagesViewportRef, roomId, roomMessages, stickToBottomRef]
+    [activeSheet, buildCtx, engine, messageCount, messagesViewportRef, readerKey, roomId, roomMessages, stickToBottomRef]
   );
 
   const updateStickToBottomFromScroll = useCallback(() => {
@@ -576,7 +586,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     syncMessengerRoomReaderStateFromViewport({
       viewport: messagesViewportRef.current,
       stickToBottomRef,
-      roomId,
+      roomId: readerKey,
       activeSheet,
       emitScrollLogs: true,
     });
@@ -587,7 +597,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       scrollTop: messagesViewportRef.current?.scrollTop,
       roomGeneration: roomGenerationRef.current,
     });
-  }, [activeSheet, buildCtx, engine, messagesViewportRef, persistScrollPosition, roomId, stickToBottomRef]);
+  }, [activeSheet, buildCtx, engine, messagesViewportRef, persistScrollPosition, readerKey, roomId, stickToBottomRef]);
 
   useLayoutEffect(() => {
     const rid = roomId.trim();
@@ -616,8 +626,9 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     return () => {
       /** P3 — 떠나는 방의 예약된 읽기 상태 동기화 취소 */
       if (rid) cancelMessengerRoomReaderStateSync(rid);
+      if (readerKey && readerKey !== rid) cancelMessengerRoomReaderStateSync(readerKey);
     };
-  }, [engine, roomId, stickToBottomRef]);
+  }, [engine, readerKey, roomId, stickToBottomRef]);
 
   /** Initial anchor — room generation 당 1회, layoutEffect(paint 전). composer/fingerprint 재실행 금지. */
   useLayoutEffect(() => {
