@@ -17,6 +17,10 @@ import {
 } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import { syncMessengerRoomReaderStateFromViewport } from "@/lib/community-messenger/room/messenger-room-scroll-near-bottom";
 import {
+  resolveMessengerRoomMessagesAutoScroll,
+  shouldScheduleTailReaderStateSync,
+} from "@/lib/community-messenger/room/messenger-room-messages-auto-scroll";
+import {
   countUnreadMessagesBelow,
   resolveJumpToLatestFabState,
 } from "@/lib/community-messenger/room/messenger-room-first-unread";
@@ -131,11 +135,39 @@ describe("F2 「↓」 고착", () => {
     expect(toMessage.match(/syncMessengerRoomReaderStateFromViewport\(/g)?.length).toBe(2);
     const complete = src.slice(src.indexOf("const completeEntryPhase = useCallback("), src.indexOf("const tryCompleteEntry = useCallback("));
     expect(complete).toContain("syncMessengerRoomReaderStateFromViewport(");
-    expect(src).toContain("if (tailChanged && !ownForceFollow) scheduleReaderStateSyncAfterEntry();");
+    expect(src).toMatch(/shouldScheduleTailReaderStateSync\(\{\s*tailChanged,\s*decision,/);
     const snap = readFileSync(
       path.join(process.cwd(), "lib/community-messenger/room/messenger-room-entry-unread-snapshot.ts"),
       "utf8"
     );
     expect(snap).not.toContain("setScrollPosition(");
+  });
+});
+
+describe("F2-③ 끝 메시지 S3 예약 규칙 (재검토)", () => {
+  const decide = (prev: { id: string; cid: string | null }, cur: { id: string; cid: string | null; mine: boolean }) =>
+    resolveMessengerRoomMessagesAutoScroll({
+      previousTailMessageId: prev.id,
+      currentTailMessageId: cur.id,
+      currentTailIsMine: cur.mine,
+      previousTailClientMessageId: prev.cid,
+      currentTailClientMessageId: cur.cid,
+    });
+
+  it("내 글 ack 로 id 만 바뀜(skip_ack_id_replace) + 엔진 맨 아래 고정 → 건너뜀(높이 정착 전 viewport 읽기 방지)", () => {
+    const decision = decide({ id: "pending:r:1", cid: "c1" }, { id: "srv-1", cid: "c1", mine: true });
+    expect(decision).toEqual({ scroll: false, reason: "skip_ack_id_replace" });
+    expect(shouldScheduleTailReaderStateSync({ tailChanged: true, decision, engineStickToBottom: true })).toBe(false);
+    // 위쪽을 읽는 중이면(엔진 stick 아님) 예약 — 실제 위치로 맞춤
+    expect(shouldScheduleTailReaderStateSync({ tailChanged: true, decision, engineStickToBottom: false })).toBe(true);
+  });
+
+  it("내 글 전송(force) 건너뜀 · 상대 글 수신은 예약 · 끝 id 그대로면 안 함", () => {
+    const own = decide({ id: "m1", cid: null }, { id: "pending:r:2", cid: "c2", mine: true });
+    expect(shouldScheduleTailReaderStateSync({ tailChanged: true, decision: own, engineStickToBottom: true })).toBe(false);
+    const peer = decide({ id: "m1", cid: null }, { id: "m2", cid: null, mine: false });
+    expect(shouldScheduleTailReaderStateSync({ tailChanged: true, decision: peer, engineStickToBottom: true })).toBe(true);
+    expect(shouldScheduleTailReaderStateSync({ tailChanged: true, decision: peer, engineStickToBottom: false })).toBe(true);
+    expect(shouldScheduleTailReaderStateSync({ tailChanged: false, decision: peer, engineStickToBottom: false })).toBe(false);
   });
 });

@@ -5,7 +5,10 @@ import type { Virtualizer } from "@tanstack/react-virtual";
 import { CM_ROOM_CHROME_HEIGHT_SYNC_EVENT } from "@/lib/ui/cm-room-visible-viewport-contract";
 import { createChatThreadScrollEngine, type ChatThreadScrollEngine } from "@/lib/chat-thread-scroll/engine";
 import type { ChatThreadScrollRestoreSnapshot, ChatThreadVirtualizer } from "@/lib/chat-thread-scroll/types";
-import { resolveMessengerRoomMessagesAutoScroll } from "@/lib/community-messenger/room/messenger-room-messages-auto-scroll";
+import {
+  resolveMessengerRoomMessagesAutoScroll,
+  shouldScheduleTailReaderStateSync,
+} from "@/lib/community-messenger/room/messenger-room-messages-auto-scroll";
 import {
   consumeMessengerRoomEntryIntent,
   isMessengerEntryBottomLoadReason,
@@ -782,8 +785,16 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
      * 레이아웃 보정(ResizeObserver → applyLayoutPreserve → 엔진 stick 유지 후 S2 동기화)이 정착 뒤에 맞춘다.
      * 여기서 rAF 동기화를 더하면 높이 정착 전 viewport 를 읽어 「↓」가 잠깐 뜰 수 있다(PR-1 검토 #7).
      */
-    const ownForceFollow = decision.scroll && decision.reason === "own_message_append";
-    if (tailChanged && !ownForceFollow) scheduleReaderStateSyncAfterEntry();
+    if (
+      shouldScheduleTailReaderStateSync({
+        tailChanged,
+        decision,
+        /** 재검토: 내 글 ack 로 id 만 바뀌는 단계도 엔진이 맨 아래 고정이면 건너뜀 */
+        engineStickToBottom: engine.readStickToBottom(),
+      })
+    ) {
+      scheduleReaderStateSyncAfterEntry();
+    }
     if (last?.id) {
       prevTailMessageIdRef.current = last.id;
       prevTailClientMessageIdRef.current = last.clientMessageId ?? null;

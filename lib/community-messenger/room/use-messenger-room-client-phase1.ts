@@ -166,6 +166,7 @@ import { useMessengerRoomEagerOlderHistoryHydration } from "@/lib/community-mess
 import { useMessengerRoomReaderScrollBottom } from "@/lib/community-messenger/room/use-messenger-room-reader-scroll-bottom";
 import { roomMessagesTimelineFingerprint } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
 import { useMessengerRoomReaderScrollRoomLifecycle } from "@/lib/community-messenger/room/use-messenger-room-reader-scroll-room-lifecycle";
+import { useMessengerPendingRowSeqRef } from "@/lib/community-messenger/room/messenger-pending-row-seq";
 import { useMessengerRoomVisibilityBusCatchup } from "@/lib/community-messenger/room/use-messenger-room-visibility-bus-catchup";
 import {
   onCommunityMessengerBusEvent,
@@ -299,7 +300,8 @@ export function useMessengerRoomClientPhase1({
   const sheetInfoFromUrlHandledRef = useRef(false);
   const autoHandledSessionRef = useRef<string | null>(null);
   const autoAcceptInFlightRef = useRef<string | null>(null);
-  const pendingMessageIdRef = useRef(0);
+  /** PR-1 재검토: 보내는 중 행 순번은 앱 전체 하나(화면마다 0부터 다시 시작하면 tempId 가 겹침) */
+  const pendingMessageIdRef = useMessengerPendingRowSeqRef();
   const loadedRef = useRef((() => {
     const cached = peekRoomSnapshot(roomId, initialViewerId || undefined);
     if (isMessengerRoomBootstrapReadySnapshot(cached)) return true;

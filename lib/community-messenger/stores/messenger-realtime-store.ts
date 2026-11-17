@@ -134,8 +134,10 @@ function messengerRoomRouteRoomIdNormFromPathname(): string | null {
 function activeRoomActuallyReadable(roomId: string, activeRoomId: string | null): boolean {
   const routeRoom = messengerRoomRouteRoomIdNormFromPathname();
   /**
-   * PR-1 F2 키 통일: 방 판정 키 = 정규 방 id(`activeRoomId` — 열린 방이 스트림 id 로 설정). 라우트 세그먼트가 거래 채팅 id
-   * (product_chats.id)인 방은 URL 과 정규 id 가 달라 예전에는 늘 「읽을 수 없음」이었다 — 방 라우트 위인지만 URL 로 본다.
+   * PR-1: 위치는 정규 방 id 로 읽는다(읽기 상태 저장소 키 통일). 방 판정은 `activeRoomId === roomId` 로 하고 URL 은 방 라우트
+   * 위인지만 본다. 주의(사실): `activeRoomId` 는 phase1 이 **라우트 id** 로 설정한다(`setActiveMessengerRealtimeRoom(roomId)`).
+   * 그래서 거래 채팅 id(product_chats.id) URL 로 연 방은 정규 id 와 달라 방 안 소리·배너 판정이 기존과 같다(늘 「읽을 수 없음」) —
+   * 미해결, 범위 밖(보고만). 일반 방(URL = 정규 id)은 예전과 같은 결과.
    */
   if (!routeRoom) return false;
   if (activeRoomId !== roomId || !currentDocumentVisibleAndFocused()) return false;

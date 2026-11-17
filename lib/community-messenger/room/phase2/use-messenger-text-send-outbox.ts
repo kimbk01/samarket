@@ -451,6 +451,14 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
         showMessengerSnackbar(translateCmUi("cm_ui_failed_text_not_kept"), { variant: "error" });
       }
     }
+    /**
+     * PR-1 재검토(차단): 옛 화면(언마운트·다른 방)은 행·핸들러를 만들지 않는다 — 보관 + 창 이벤트만.
+     * 언마운트 정리 뒤 등록하면 전역 레지스트리에 남고, 지금 열린 화면이 그 글을 자기 행으로 복원한다.
+     */
+    if (!sameScreen()) {
+      clearMessengerOutboundFailedSend(tempId);
+      return false;
+    }
     registerFailedTextRowHandlers({ tempId, clientMessageId, content, replyId });
     d.setRoomMessages((prev) => markMessengerOutboundRowFailed(prev, tempId));
     return false;

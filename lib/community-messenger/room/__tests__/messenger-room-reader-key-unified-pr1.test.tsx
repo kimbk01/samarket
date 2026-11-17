@@ -133,7 +133,11 @@ describe("PR-1 F2 키 통일 — 라우트 id(거래 채팅 id) ≠ 스트림 id
     expect(fab()).toBeNull();
   });
 
-  it("연결: phase1 이 정규 스트림 id 를 읽기 키로 넘기고, 방 안 읽음 판정은 URL 세그먼트 대신 열린 방(정규 id)으로", () => {
+  /**
+   * 방 안 읽음 판정(`activeRoomActuallyReadable`)은 `activeRoomId === roomId` 로 본다. `activeRoomId` 는 phase1 이 라우트 id 로
+   * 설정하므로 거래 채팅 id 로 연 방의 방 안 소리·배너 판정은 기존과 같다(미해결, 범위 밖 — 보고만). 여기서는 연결만 확인.
+   */
+  it("연결: phase1 이 정규 스트림 id 를 읽기 키로 넘기고, 방 안 읽음 판정은 열린 방(activeRoomId) 비교", () => {
     const read = (f: string) => readFileSync(path.join(process.cwd(), f), "utf8");
     const phase1 = read("lib/community-messenger/room/use-messenger-room-client-phase1.ts");
     expect(phase1).toMatch(/useMessengerRoomReaderScrollBottom\(\{\s*roomId,\s*\/\*\*[^*]*\*\/\s*readerRoomId: streamRoomId,/);

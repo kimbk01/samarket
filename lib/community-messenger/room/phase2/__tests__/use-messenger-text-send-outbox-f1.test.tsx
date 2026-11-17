@@ -32,6 +32,7 @@ import {
   getMessengerOutboundFailedSend,
   type MessengerUnconfirmedTextSend,
 } from "@/lib/community-messenger/room/messenger-outbound-failed-send";
+import { useMessengerPendingRowSeqRef } from "@/lib/community-messenger/room/messenger-pending-row-seq";
 import {
   beginActiveComposerFailRestoreSession,
   markActiveComposerDraftEditedDuringOutbound,
@@ -46,6 +47,8 @@ type Harness = {
   unmount: () => void;
   rows: () => Row[];
   run: (args: MessengerTextSendAttemptArgs) => Promise<boolean>;
+  /** 컨트롤러와 같은 규칙의 다음 보내는 중 행 id */
+  nextTempId: () => string;
   /** act 없이 시작만 — 응답 전 언마운트 시나리오용 */
   runRaw: (args: MessengerTextSendAttemptArgs) => Promise<boolean>;
   setRows: (rows: Row[]) => void;
@@ -59,18 +62,26 @@ let hosts: HTMLDivElement[] = [];
 function mount(initialRows: Row[] = [], opts: { ready?: boolean } = {}): Harness {
   const composer: string[] = [];
   const authBlocked = { value: false };
-  const api: { rows: Row[]; ref: { current: (a: MessengerTextSendAttemptArgs) => Promise<boolean> } | null; set: ((r: Row[]) => void) | null } = {
+  const api: {
+    rows: Row[];
+    ref: { current: (a: MessengerTextSendAttemptArgs) => Promise<boolean> } | null;
+    set: ((r: Row[]) => void) | null;
+    nextTempId: () => string;
+  } = {
     rows: initialRows,
     ref: null,
     set: null,
+    nextTempId: () => "",
   };
-  let seq = 0;
   function Probe() {
     const [roomMessages, setRoomMessages] = useState<Row[]>(initialRows);
     const roomMessagesRef = useRef<Row[]>(roomMessages);
     roomMessagesRef.current = roomMessages;
     const unconfirmed = useRef<MessengerUnconfirmedTextSend | null>(null);
     const failedIds = useRef<Set<string>>(new Set());
+    /** 실제 화면과 같은 순번 규칙(phase1 `pendingMessageIdRef`) — 컨트롤러와 같은 tempId 형식 */
+    const seqRef = useMessengerPendingRowSeqRef();
+    api.nextTempId = () => `pending:${ROOM}:${seqRef.current++}`;
     const { runTextSendAttemptRef } = useMessengerTextSendOutbox({
       streamRoomId: ROOM,
       restoreReady: opts.ready !== false,
@@ -79,7 +90,7 @@ function mount(initialRows: Row[] = [], opts: { ready?: boolean } = {}): Harness
       setRoomMessages,
       setMessage: (v) => composer.push(v),
       resolveOutboundSender: () => ({ senderId: "me", senderLabel: "me" }),
-      nextPendingRowId: () => `pending:${ROOM}:${seq++}`,
+      nextPendingRowId: () => `pending:${ROOM}:${seqRef.current++}`,
       unconfirmedTextSendRef: unconfirmed,
       failedOutboundRowIdsRef: failedIds,
       getRoomActionErrorMessage: (e) => `err:${e ?? ""}`,
@@ -108,6 +119,7 @@ function mount(initialRows: Row[] = [], opts: { ready?: boolean } = {}): Harness
       return out;
     },
     runRaw: (args) => api.ref!.current(args),
+    nextTempId: () => api.nextTempId(),
     setRows: (r) => act(() => api.set!(r)),
     composer,
     authBlocked,
@@ -412,5 +424,52 @@ describe("PR-1 검토 #4 불러온 창보다 오래된 deduped 확정 행", () =
     const rows = [{ createdAt: "2026-11-18T00:00:00Z" }, { pending: true, createdAt: "2020-01-01T00:00:00Z" }];
     expect(isOlderThanLoadedWindow(rows, { createdAt: "2026-11-18T00:00:00Z" })).toBe(false);
     expect(isOlderThanLoadedWindow(rows, { createdAt: "2026-11-17T23:59:59Z" })).toBe(true);
+  });
+});
+
+describe("PR-1 재검토(차단) tempId 가 화면 인스턴스 사이에서 겹치지 않는다", () => {
+  it("A 에서 보낸 글이 나간 뒤 실패해도 B 의 다른 실패 행 「삭제」·「재전송」이 A 글에 적용되지 않는다", async () => {
+    const a = mount();
+    const tA = a.nextTempId();
+    a.setRows([optimistic(tA, "c-hello", "hello")]);
+    let resolveA: (r: Response) => void = () => undefined;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((r) => (resolveA = r)));
+    let attemptA: Promise<boolean> | null = null;
+    act(() => {
+      attemptA = a.runRaw({ tempId: tA, clientMessageId: "c-hello", content: "hello", replyId: "", failRestoreGeneration: 0 });
+    });
+    a.unmount();
+
+    const b = mount();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    const tB = b.nextTempId();
+    expect(tB).not.toBe(tA);
+    b.setRows([optimistic(tB, "c-msg1", "msg1")]);
+    fetchMock.mockResolvedValueOnce(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+    await b.run({ tempId: tB, clientMessageId: "c-msg1", content: "msg1", replyId: "", failRestoreGeneration: 0 });
+
+    // A 의 요청이 시간 초과(결과 불명)로 끝남 → 보관 + 창 이벤트 → B 가 hello 를 복원
+    await act(async () => {
+      resolveA(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+      await attemptA;
+    });
+    expect(b.rows().find((r) => r.clientMessageId === "c-hello")?.sendFailed).toBe(true);
+    expect(new Set(savedCids())).toEqual(new Set(["c-hello", "c-msg1"]));
+
+    // msg1 행의 「재전송」은 msg1 을 보낸다
+    fetchMock.mockResolvedValueOnce(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+    await retry(b, tB);
+    const lastBody = JSON.parse(String((fetchMock.mock.calls.at(-1)![1] as RequestInit).body));
+    expect(lastBody.content).toBe("msg1");
+    expect(lastBody.clientMessageId).toBe("c-msg1");
+
+    // msg1 행의 「삭제」는 msg1 만 지운다 — hello 보관·행 유지
+    act(() => getMessengerOutboundFailedSend(tB)!.discard());
+    expect(savedCids()).toEqual(["c-hello"]);
+    expect(b.rows().map((r) => r.clientMessageId)).toEqual(["c-hello"]);
+    // 옛 화면(A)은 언마운트 뒤 핸들러를 등록하지 않는다
+    expect(getMessengerOutboundFailedSend(tA)).toBeNull();
   });
 });
