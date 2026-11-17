@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
-import { parseRoomId } from "@/lib/validate-params";
+import { resolveLegacyPurchaseDetailRedirectHref } from "@/lib/mypage/legacy-purchase-detail-redirect-server";
 
 interface PageProps {
   params: Promise<{ chatId: string }>;
@@ -9,9 +8,6 @@ interface PageProps {
 /** CUT E — philife purchase detail → Messenger trade room. */
 export default async function PhilifePurchaseDetailLegacyRedirectPage({ params }: PageProps) {
   const { chatId: raw } = await params;
-  const chatId = parseRoomId(raw);
-  if (!chatId) {
-    redirect(tradeHubChatRoomHref(""));
-  }
-  redirect(tradeHubChatRoomHref(chatId, "product_chat"));
+  /** 정규 메신저 방 id 우선 — 없을 때만 product_chats.id 경로 (lib/mypage/legacy-purchase-detail-redirect-server.ts) */
+  redirect(await resolveLegacyPurchaseDetailRedirectHref(raw));
 }

@@ -16,6 +16,7 @@ import { fetchFirstThumbnailByPostIds } from "@/lib/mypage/fetch-first-post-thum
 import { applyBuyerAutoConfirmAllDue } from "@/lib/trade/apply-buyer-auto-confirm";
 import { loadPurchaseHistoryRows } from "@/lib/mypage/trade-history-load-server";
 import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
+import { resolveProductChatMessengerRoomIds } from "@/lib/trade/trade-messenger-room-link-server";
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest) {
 
   const roomIds = rows.map((r) => String(r.id));
   const postIds = [...new Set(rows.map((r) => String(r.post_id)).filter(Boolean))];
-  const [revRows, posts] = await Promise.all([
+  const [revRows, posts, messengerRoomIdByChatId] = await Promise.all([
     sbAny
       .from("transaction_reviews")
       .select("room_id")
@@ -73,6 +74,8 @@ export async function GET(req: NextRequest) {
       .then(
         ({ data }: { data: Record<string, unknown>[] | null }) => data ?? []
       ),
+    /** 링크는 정규 메신저 방 id 로 — 없을 때만 화면이 `chatId`(product_chats.id) 경로 유지 */
+    resolveProductChatMessengerRoomIds(sbAny, rows, { userId, role: "buyer" }),
   ]);
 
   const reviewedRooms = new Set(revRows.map((x) => x.room_id).filter(Boolean));
@@ -130,6 +133,7 @@ export async function GET(req: NextRequest) {
     const listingOwnerId = postAuthorUserId(post) ?? String(r.seller_id ?? "");
     return {
       chatId: rid,
+      messengerRoomId: messengerRoomIdByChatId.get(rid) ?? null,
       postId,
       sellerId: listingOwnerId,
       sellerNickname:

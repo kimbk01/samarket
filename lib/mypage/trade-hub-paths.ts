@@ -27,10 +27,28 @@ export function tradeSalesPath(_mode?: TradeHubLinkMode): string {
   return "/mypage/trade/sales";
 }
 
-/** 구매 흐름 상세 — trade hub chat room (product_chat bootstrap) */
-export function tradePurchaseDetailPath(_mode: TradeHubLinkMode, chatId: string): string {
-  const raw = chatId.trim();
-  return tradeHubChatRoomHref(raw, "product_chat");
+/**
+ * 판매·구매 내역 행 → 거래 채팅방 URL.
+ * `/api/my/sales`·`/api/my/purchases` 의 `messengerRoomId`(정규 `community_messenger_rooms.id`)가 있으면
+ * 처음부터 그 id 로 연다 — `product_chats.id` 로 열면 URL 이 정규 id 로 바뀌기 전까지 방 안인데도
+ * 소리·안 읽음·배너가 날 수 있다. 정규 id 가 없을 때만 기존 `product_chats.id` 경로를 유지한다.
+ */
+export function tradeHistoryChatRoomHref(row: {
+  chatId: string;
+  messengerRoomId?: string | null;
+}): string {
+  const messengerRoomId = row.messengerRoomId?.trim();
+  if (messengerRoomId) return tradeHubChatRoomHref(messengerRoomId);
+  return tradeHubChatRoomHref(row.chatId.trim(), "product_chat");
+}
+
+/** 구매 흐름 상세 — 정규 메신저 방 id 우선, 없으면 product_chat 경로 */
+export function tradePurchaseDetailPath(
+  _mode: TradeHubLinkMode,
+  chatId: string,
+  messengerRoomId?: string | null
+): string {
+  return tradeHistoryChatRoomHref({ chatId, messengerRoomId });
 }
 
 /** Legacy purchase detail URL KEEP (deep links / bookmarks) */

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import { sellerEmbeddedTradeRowStatusLabel } from "@/lib/mypage/sales-history-ui";
-import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
+import { tradeHistoryChatRoomHref } from "@/lib/mypage/trade-hub-paths";
 import { formatTimeAgo } from "@/lib/utils/format";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
@@ -22,7 +22,7 @@ export function SellerTradeRow({ row }: { row: SalesHistoryRow }) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   const hasChat = Boolean(row.chatId?.trim()) && !row.noActiveChat;
-  const chatHref = hasChat ? tradeHubChatRoomHref(row.chatId, "product_chat") : "#";
+  const chatHref = hasChat ? tradeHistoryChatRoomHref(row) : "#";
   const tradeStatusLabel = sellerEmbeddedTradeRowStatusLabel(t, row);
   const buyerLabel = row.buyerNickname?.trim()
     ? row.buyerNickname.trim()

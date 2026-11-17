@@ -63,10 +63,12 @@ describe("CUT E — buyer purchase surface removal", () => {
       "app/(main)/philife/purchases/[chatId]/page.tsx",
     ]) {
       const src = readRepoFile(rel);
-      expect(src).toContain("tradeHubChatRoomHref");
+      // 목적지(정규 메신저 방 id 우선 · 없으면 product_chat 경로)는 공용 서버 헬퍼가 만든다
+      expect(src).toContain("resolveLegacyPurchaseDetailRedirectHref");
       expect(src).toContain("redirect");
       expect(src).not.toContain("PurchaseDetailView");
     }
+    expect(readRepoFile("lib/mypage/legacy-purchase-detail-redirect-server.ts")).toContain("tradeHubChatRoomHref");
   });
 
   it("TradeHubTopTabs has no buyer purchase tab", () => {

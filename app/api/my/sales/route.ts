@@ -18,6 +18,7 @@ import {
   pickItemTradeRoomForProductChat,
   type ItemTradeRoomPair,
 } from "@/lib/mypage/sales-history-scope";
+import { resolveProductChatMessengerRoomIds } from "@/lib/trade/trade-messenger-room-link-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,7 +75,7 @@ export async function GET(req: NextRequest) {
   }
 
   const roomIds = rows.map((r) => String(r.id)).filter(Boolean);
-  const [tradeRoomRows, firstImageFromPostImages, buyerReviewRows] = await Promise.all([
+  const [tradeRoomRows, firstImageFromPostImages, buyerReviewRows, messengerRoomIdByChatId] = await Promise.all([
     sbAny
       .from("chat_rooms")
       .select("item_id, seller_id, buyer_id")
@@ -94,6 +95,8 @@ export async function GET(req: NextRequest) {
             ({ data }: { data: { room_id: string }[] | null }) => data ?? []
           )
       : Promise.resolve([] as { room_id: string }[]),
+    /** 링크는 정규 메신저 방 id 로 — 없을 때만 화면이 `chatId`(product_chats.id) 경로 유지 */
+    resolveProductChatMessengerRoomIds(sbAny, rows, { userId, role: "seller" }),
   ]);
 
   const tradeRooms = tradeRoomRows.map((r: Record<string, unknown>) => ({
@@ -161,6 +164,7 @@ export async function GET(req: NextRequest) {
 
     return {
       chatId: rid,
+      messengerRoomId: messengerRoomIdByChatId.get(rid) ?? null,
       postId,
       noActiveChat: false,
       sellerId: ownerId,
@@ -198,6 +202,7 @@ export async function GET(req: NextRequest) {
       "";
     items.push({
       chatId: "",
+      messengerRoomId: null,
       postId: pid,
       noActiveChat: true,
       sellerId: userId,

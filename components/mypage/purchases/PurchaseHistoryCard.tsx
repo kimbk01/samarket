@@ -7,7 +7,6 @@ import {
   tradeHubModeFromPathname,
   tradePurchaseDetailPath,
 } from "@/lib/mypage/trade-hub-paths";
-import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import { formatPrice } from "@/lib/utils/format";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import {
@@ -25,6 +24,8 @@ export interface PurchaseHistoryRow {
   /** 가격 통화 — 글 meta.currency (PHP·KRW · 한국 주소 지원 3단계). 없으면 화면이 앱 기본 */
   currency?: string;
   chatId: string;
+  /** 정규 메신저 방 id (`/api/my/purchases`) — 있으면 채팅 링크가 이 id 로 연다 */
+  messengerRoomId?: string | null;
   postId: string;
   sellerId: string;
   sellerNickname: string;
@@ -65,7 +66,11 @@ export function PurchaseHistoryCard({
   const [thumbFailed, setThumbFailed] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname() ?? "";
-  const purchaseDetailHref = tradePurchaseDetailPath(tradeHubModeFromPathname(pathname), row.chatId);
+  const purchaseDetailHref = tradePurchaseDetailPath(
+    tradeHubModeFromPathname(pathname),
+    row.chatId,
+    row.messengerRoomId
+  );
 
   const rowLike = {
     tradeFlowStatus: row.tradeFlowStatus,
@@ -170,7 +175,7 @@ export function PurchaseHistoryCard({
           {menuOpen ? (
             <div className="absolute right-0 top-9 z-[60] min-w-[180px] max-w-[min(92vw,280px)] overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)]">
               <MenuLink
-                href={tradeHubChatRoomHref(row.chatId, "product_chat")}
+                href={purchaseDetailHref}
                 onNavigate={() => setMenuOpen(false)}
               >
                 {t("mypage_comp_order_chat_view")}

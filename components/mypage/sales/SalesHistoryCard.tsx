@@ -7,7 +7,7 @@ import { formatPrice } from "@/lib/utils/format";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import { salesTradeStatusBadge } from "@/lib/mypage/sales-history-ui";
 import { formatTradeListDatetime } from "@/lib/mypage/format-trade-datetime";
-import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
+import { tradeHistoryChatRoomHref } from "@/lib/mypage/trade-hub-paths";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -19,6 +19,8 @@ export interface SalesHistoryRow {
   /** 가격 통화 — 글 meta.currency (PHP·KRW · 한국 주소 지원 3단계). 없으면 화면이 앱 기본 */
   currency?: string;
   chatId: string;
+  /** 정규 메신저 방 id (`/api/my/sales`) — 있으면 채팅 링크가 이 id 로 연다 */
+  messengerRoomId?: string | null;
   postId: string;
   /** product_chats 행이 없을 때 true — 채팅/거래완료 등 비활성 */
   noActiveChat?: boolean;
@@ -70,7 +72,7 @@ export function SalesHistoryCard({
   const tradeBadge = salesTradeStatusBadge(t, row.tradeFlowStatus ?? "chatting");
   const tradeAt = row.buyerConfirmedAt || row.sellerCompletedAt || row.createdAt || row.lastMessageAt;
   const detailHref = `/post/${row.postId}`;
-  const chatHref = hasChat ? tradeHubChatRoomHref(row.chatId, "product_chat") : detailHref;
+  const chatHref = hasChat ? tradeHistoryChatRoomHref(row) : detailHref;
 
   useEffect(() => {
     setThumbFailed(false);
