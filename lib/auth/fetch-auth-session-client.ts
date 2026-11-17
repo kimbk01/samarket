@@ -36,6 +36,18 @@ function setAuthSessionClientCacheOk(): void {
   sessionOkClientCache = { expiresAt: Date.now() + SESSION_CLIENT_OK_TTL_MS };
 }
 
+/**
+ * 설계 §24 D5 (Auth HARD LOCK Amendment 2026-11-18) — 이 캐시와 같은 의미(3초 안 「로그인 확인됨」)를
+ * 직접 확인하는 곳(`AuthSessionBoundary`)과 공유한다. 판정 의미 없음: 200 확인만 기록·조회, 401·비회원 처리는 건드리지 않는다.
+ */
+export function peekAuthSessionClientOk(): boolean {
+  return peekAuthSessionClientCacheHit();
+}
+
+export function noteAuthSessionClientOk(): void {
+  setAuthSessionClientCacheOk();
+}
+
 export function clearAuthSessionClientCache(): void {
   sessionOkClientCache = null;
 }

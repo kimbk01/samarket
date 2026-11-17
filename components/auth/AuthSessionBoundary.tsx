@@ -19,6 +19,7 @@ import { isRecoveringPhase } from "@/lib/auth/dibay-session-policy";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { noteAuthSessionClientOk, peekAuthSessionClientOk } from "@/lib/auth/fetch-auth-session-client";
 
 type Props = {
   children: ReactNode;
@@ -95,10 +96,19 @@ export function AuthSessionBoundary({ children }: Props) {
     if (sessionApiAuthenticated) return;
     let cancelled = false;
     const probe = () => {
+      // 설계 §24 D5 (Auth HARD LOCK Amendment 2026-11-18): 다른 세션 확인이 3초 안에 「로그인됨」을 확인했으면 요청하지 않고 같은 결과를 쓴다.
+      if (peekAuthSessionClientOk()) {
+        void Promise.resolve().then(() => {
+          if (!cancelled) setSessionApiAuthenticated(true);
+        });
+        return;
+      }
       void fetch("/api/auth/session", { credentials: "include" })
         .then(async (res) => {
           const json = (await res.json().catch(() => null)) as { authenticated?: boolean } | null;
           if (!cancelled && res.ok && json?.authenticated === true) {
+            // 같은 확인 결과를 공용 캐시에 남겨 뒤따르는 세션 확인(`fetchAuthSessionNoStore`)이 다시 묻지 않게 한다.
+            noteAuthSessionClientOk();
             setSessionApiAuthenticated(true);
           }
         })

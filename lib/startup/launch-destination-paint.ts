@@ -18,6 +18,9 @@ export const CM_ROOM_ENTRY_BUFFERING_SELECTOR = "[data-cm-room-entry-buffering]"
 export const CM_ROOM_SHELL_SELECTOR = "[data-cm-room]";
 
 function isShown(el: Element): boolean {
+  // 설계 §24 D7: 브라우저의 한 번 판정(`checkVisibility` — Chrome 105+/WebView) 우선. 없을 때만 조상 순회.
+  const check = (el as Element & { checkVisibility?: () => boolean }).checkVisibility;
+  if (typeof check === "function") return check.call(el);
   for (let node: Element | null = el; node; node = node.parentElement) {
     if (typeof getComputedStyle === "function" && getComputedStyle(node).display === "none") return false;
   }

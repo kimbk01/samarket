@@ -88,6 +88,7 @@ describe("main hub intent transition contract", () => {
   it("inactive MAIN hub Links enable Next prefetch", () => {
     const nav = read("components/layout/BottomNav.tsx");
     expect(nav).toContain("shouldPrefetchMainBottomNavHref");
-    expect(nav).toContain("prefetch={shouldPrefetchMainBottomNavHref");
+    // 설계 §24 D4: 알림 목적지 대기(덮개 아래) 중에만 끈다 — 그 밖에는 이전과 같이 비활성 탭 미리 받기
+    expect(nav).toContain("prefetch={!launchPushPending && shouldPrefetchMainBottomNavHref");
   });
 });
