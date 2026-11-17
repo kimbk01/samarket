@@ -132,13 +132,19 @@ export function HomeScreen({
     return k ? t(k) : "";
   };
 
-  const addressLabel = isMember
-    ? address.status === "ready" && address.line
-      ? address.line
-      : address.status === "loading"
-        ? ""
+  /**
+   * 앱 진입 v3 ① (실측 2026-11-17 삼성: 첫 그림 뒤 「전체 지역」→빈칸→실제 주소 3단계 · 알림 종이 늦게 끼어들어 자리 이동).
+   * 회원 확인 중에는 비회원 문구를 먼저 그리지 않는다 — 같은 자리 회색 칸(비회원 확정이면 「전체 지역」, 회원이면 주소)으로
+   * 한 번만 바뀐다. 알림 자리도 미리 비워 둬 머리줄이 밀리지 않는다.
+   */
+  const headerPending = membership.status === "checking" ? authCookieHint !== false : isMember && address.status === "loading";
+  const addressLabel = headerPending
+    ? null
+    : isMember
+      ? address.status === "ready" && address.line
+        ? address.line
         : t("home_address_unset")
-    : t("home_address_all");
+      : t("home_address_all");
 
   return (
     <div className="min-h-full bg-[#F3F5F3]" data-home-screen>
@@ -176,7 +182,11 @@ export function HomeScreen({
                     data-home-address
                     data-popup-anchor="region"
                   >
-                    <span className="min-w-0 truncate">{addressLabel}</span>
+                    {addressLabel == null ? (
+                      <span aria-hidden className="inline-block h-[14px] w-24 rounded-ui-rect bg-white/25" data-home-address-pending />
+                    ) : (
+                      <span className="min-w-0 truncate">{addressLabel}</span>
+                    )}
                     <ChevronDown className="h-3.5 w-3.5 shrink-0" strokeWidth={2.4} aria-hidden />
                   </button>
                 ) : null}
@@ -189,6 +199,9 @@ export function HomeScreen({
                   <span data-popup-anchor="notifications" className="inline-flex">
                     <Tier1NotificationAnchor />
                   </span>
+                ) : membership.status === "checking" && authCookieHint !== false ? (
+                  /* 회원 확인 중 — 알림 자리를 미리 비워 둔다(머리줄 밀림 방지) */
+                  <span aria-hidden className="inline-block h-10 w-10" data-home-bell-pending />
                 ) : isGuest ? (
                   <button
                     type="button"

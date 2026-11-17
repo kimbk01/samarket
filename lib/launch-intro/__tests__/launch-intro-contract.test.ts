@@ -487,8 +487,11 @@ describe("launch intro static contract", () => {
   it("route tree is deferred while the Intro owns the launch (DEFERRED MOUNT)", () => {
     const layout = src("app/layout.tsx");
     const gate = layout.slice(layout.indexOf("<LaunchIntroRoot>"), layout.indexOf("</LaunchIntroRoot>"));
-    expect(gate).toContain("<InitialSurfaceBootstrap />");
     expect(gate).toContain("{children}");
+    // 앱 진입 v3 ① (2026-11-17): 생명주기 이동(첫 진입 화면 포함)은 인트로 보류 밖 — 인트로 동안 먼저 이동해
+    // 인트로가 끝난 뒤 홈이 한 번 보이지 않게. 첫 진입 화면 설정 저장(InitialSurfaceBootstrap)도 밖.
+    expect(layout.indexOf("<LifecycleRouteEffects />")).toBeLessThan(layout.indexOf("<LaunchIntroRoot>"));
+    expect(layout.indexOf("<InitialSurfaceBootstrap />")).toBeLessThan(layout.indexOf("<LaunchIntroRoot>"));
     const root = src("components/launch-intro/LaunchIntroRoot.tsx");
     expect(root).toContain("<Suspense fallback={null}>");
     expect(root).toContain("if (pending) use(pending);");

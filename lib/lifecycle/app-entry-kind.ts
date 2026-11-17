@@ -15,7 +15,9 @@ import {
   validateRestoreEnvelope,
   type RestoreEnvelope,
 } from "@/lib/lifecycle/restore-envelope";
-import { pathForInitialAppSurface, DEFAULT_INITIAL_APP_SURFACE } from "@/lib/startup/initial-app-surface";
+import { resolveColdEntrySurfacePath } from "@/lib/startup/initial-app-surface";
+import { readStartupConfigCache } from "@/lib/startup/startup-cache";
+import { getSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 
 export type AppEntryKind =
   | "warm_resume"
@@ -38,9 +40,27 @@ export type AppEntryDecision = {
 const BOOT_EPOCH_KEY = "dibay:lifecycle:boot-epoch";
 const DECISION_KEY = "__dibayAppEntryDecision";
 
-/** Safe Entry = default community surface (`/philife`). Admin Initial Surface applies on USER_COLD only. */
+/**
+ * 앱 진입 v3 ① (Owner 2026-11-17 「첫 진입을 어디로 할지 어드민에서」): 새로 켤 때·안전 진입의 첫 화면 =
+ * 어드민 「첫 진입 화면」(기기에 저장된 값 — 기다리는 조회 없음). 비회원 + 회원 전용 화면이면 홈.
+ * 예전: 안전 진입은 항상 홈, 새로 켬은 홈을 그린 뒤 이동(깜빡임).
+ */
 function safeEntryPath(): string {
-  return pathForInitialAppSurface(DEFAULT_INITIAL_APP_SURFACE);
+  let isMember = false;
+  try {
+    isMember = Boolean(getSupabaseProfileCache()?.id);
+  } catch {
+    isMember = false;
+  }
+  return resolveColdEntrySurfacePath({
+    adminInitialSurface: readStartupConfigCache().initialSurface,
+    isMember,
+  });
+}
+
+/** 지금 문서가 앱 홈(`/`·`/home`) 으로 열렸는가 — 아이콘 실행의 진입점 */
+function isHomeEntryDocument(path: string): boolean {
+  return path === "/" || path === "/home";
 }
 
 function currentDocumentPath(): string {
@@ -184,10 +204,16 @@ function decide(): AppEntryDecision {
   // USER_COLD: FRESH only
   if (hint === "fresh") {
     discardRestoreEnvelope();
+    // 앱 진입 v3 ①: 아이콘으로 홈 진입점이 열렸고 어드민 첫 화면이 홈이 아니면 그 화면으로 — 생명주기 이동으로 처리해
+    // 시작 화면(또는 인트로)이 덮은 채 이동한다(홈을 먼저 그리지 않음). 딥링크 등 다른 주소로 열렸으면 그대로.
+    const coldTarget = safeEntryPath();
+    const coldPath = currentDocumentPath();
+    const coldNavigate =
+      isHomeEntryDocument(coldPath) && !isHomeEntryDocument(coldTarget.split("?")[0] || coldTarget) ? coldTarget : null;
     return {
       kind: "user_cold",
       reason: "hint_fresh",
-      navigateTo: null, // Initial Surface after Intro (or immediately if Intro OFF)
+      navigateTo: coldNavigate,
       allowIntro: true,
       envelope: null,
       hint,

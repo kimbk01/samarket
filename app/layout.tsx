@@ -155,11 +155,11 @@ export default async function RootLayout({
             <CallIncomingChromeRoot />
             <NotificationSoundLeaderBootstrap />
             <DeferredMainShellMessengerParticipantBridge regionBarInLayout={true} />
-            <LaunchIntroRoot>
-              <LifecycleRouteEffects />
-              <InitialSurfaceBootstrap />
-              {children}
-            </LaunchIntroRoot>
+            {/* 앱 진입 v3 ①: 생명주기 이동(복원·안전 진입·첫 진입 화면)은 인트로가 화면을 덮는 동안에도 먼저 일어나야
+                인트로가 끝난 뒤 홈이 한 번 보이지 않는다 — 인트로 보류 밖에 둔다 */}
+            <LifecycleRouteEffects />
+            <InitialSurfaceBootstrap />
+            <LaunchIntroRoot>{children}</LaunchIntroRoot>
           </AppBootProvider>
           </DibayAppDialogProvider>
         </AppLanguageProvider>
