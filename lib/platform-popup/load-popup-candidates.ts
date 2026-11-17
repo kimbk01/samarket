@@ -5,10 +5,11 @@
 import { ptrRevealCampaignRevision } from "@/lib/platform-popup/ptr-reveal-payload";
 import { withPlatformPopupDestinationRevision } from "@/lib/platform-popup/popup-campaign-revision";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type {
-  PlatformPopupCandidate,
-  PlatformPopupPresentationScope,
-  PlatformPopupPtrBandAsset,
+import {
+  evaluatePlatformPopupCandidateGates,
+  type PlatformPopupCandidate,
+  type PlatformPopupPresentationScope,
+  type PlatformPopupPtrBandAsset,
 } from "@/lib/platform-popup/resolve-popup-ad";
 import { normalizePtrBandVariant, PTR_REVEAL_PRESENTATION } from "@/lib/platform-popup/ptr-reveal-contract";
 import type {
@@ -170,7 +171,7 @@ export async function loadPlatformPopupCandidates(
     .map((c) => popupCtaInputEntityKey(ctaInputOf(c)))
     .filter((k): k is string => Boolean(k));
 
-  const [{ data: creatives }, { data: surfaces }, suppressions, lastImpressions, eventLookups, entityLookups] =
+  const [{ data: creatives }, { data: surfaces }, suppressions, eventLookups, entityLookups] =
     await Promise.all([
       sb
         .from("platform_popup_creatives")
@@ -186,7 +187,6 @@ export async function loadPlatformPopupCandidates(
         .select("campaign_id, surface")
         .in("campaign_id", ids),
       loadSuppressions(sb, ids, input),
-      loadLastImpressions(sb, ids, input),
       loadPopupEventDestinationLookups(sb, eventIds),
       loadPopupEntityDestinationLookups(sb, entityKeys),
     ]);
@@ -235,7 +235,7 @@ export async function loadPlatformPopupCandidates(
     suppressByCampaign.set(row.campaign_id, list);
   }
 
-  return (campaigns as unknown as CampaignRow[]).map((c) => {
+  const candidates: PlatformPopupCandidate[] = (campaigns as unknown as CampaignRow[]).map((c) => {
     const cr = creativeByCampaign.get(c.id) ?? null;
     return {
       id: c.id,
@@ -284,7 +284,7 @@ export async function loadPlatformPopupCandidates(
         isPtr ? ptrRevealCampaignRevision(ptrBandsByCampaign.get(c.id)) ?? cr?.id ?? null : cr?.id ?? null,
         ctaInputOf(c)
       ),
-      lastImpressionAt: lastImpressions.get(c.id) ?? null,
+      lastImpressionAt: null,
       queueClass: c.queue_class ?? null,
       autoDismissSeconds: c.auto_dismiss_seconds ?? null,
       ctaBgColor: c.cta_bg_color ?? null,
@@ -300,6 +300,31 @@ export async function loadPlatformPopupCandidates(
         : {}),
     };
   });
+
+  /**
+   * 빌드 전 감사 P4 (2026-11-17): 마지막 노출(교체 순서)은 보는 사람과 무관한 자격(승인·상태·기간·노출 위치·형태·소재·
+   * 이동 대상)을 통과한 후보만 읽는다 — 조회 수 = 실제 나올 수 있는 후보 수(보통 1~3). 예전에는 불러온 캠페인 전부
+   * (최대 50)마다 1번씩 읽었다. 탈락 후보는 어차피 1위가 될 수 없어 결과는 같다.
+   */
+  const now = new Date();
+  const scope: PlatformPopupPresentationScope = isPtr ? "ptr_reveal" : "interruptive";
+  const survivorIds = selectPlatformPopupLastImpressionCandidateIds(candidates, { now, scope });
+  const lastImpressions = await loadLastImpressions(sb, survivorIds, input);
+  for (const cand of candidates) {
+    const at = lastImpressions.get(cand.id);
+    if (at) cand.lastImpressionAt = at;
+  }
+  return candidates;
+}
+
+/** P4: 마지막 노출을 읽을 후보 — 보는 사람 판정·영역 판정을 뺀 자격 함수(`evaluatePlatformPopupCandidateGates`)를 통과한 것 */
+export function selectPlatformPopupLastImpressionCandidateIds(
+  candidates: readonly PlatformPopupCandidate[],
+  ctx: { now: Date; scope: PlatformPopupPresentationScope }
+): string[] {
+  return candidates
+    .filter((c) => evaluatePlatformPopupCandidateGates(c, { now: ctx.now, scope: ctx.scope, resolvedSurface: null, viewer: null }).ok)
+    .map((c) => c.id);
 }
 
 /** ADC-01 — 매장 UUID → slug (기존 UUID CTA 행 해석용). 조회 오류 → 빈 맵(해당 CTA 미노출). */
@@ -387,6 +412,7 @@ async function loadLastImpressions(
   if (!campaignIds.length) return out;
   if (!input.userId && !input.anonymousDeviceKey) return out;
 
+  // 상한은 자격 통과 후보(P4)에 적용 — 보통 1~3개
   const ids = campaignIds.slice(0, 50);
   const rows = await Promise.all(
     ids.map(async (campaignId) => {

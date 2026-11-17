@@ -14,6 +14,7 @@ const H = vi.hoisted(() => ({
   poolRows: { ok: true, rows: [] } as unknown,
   live: { ok: true, live: { publication_id: "pub-1", state: "paused", revision: 3, updated_at: "2026-11-17T01:00:00.000Z" } } as unknown,
   popupPolicy: { policy: { enabled: true, maxPerEntry: 2, allowLandscape: true }, revision: null } as unknown,
+  popupIndex: null as unknown,
   startup: { ok: true, config: { version: 3, initialSurface: "community", updatedAt: "x" }, source: "db" } as unknown,
 }));
 
@@ -79,6 +80,13 @@ vi.mock("@/lib/platform-popup/entry-policy-server", () => ({
     return H.popupPolicy;
   },
 }));
+// A2: 「한눈에 보기」 팝업 수 = 목록과 같은 「앱에 나오나」 색인의 나오는 중(live·conditional) 수
+vi.mock("@/lib/platform-popup/admin-applied-status", () => ({
+  loadPlatformPopupAppliedStatusIndex: async () => {
+    if (H.popupIndex === "fail") throw new Error("index_failed");
+    return H.popupIndex;
+  },
+}));
 vi.mock("@/lib/admin/store-orders/load-admin-store-order-detail", () => ({
   loadAdminUserLabels: async (_sb: unknown, ids: string[]) => new Map(ids.map((id) => [id, "메인관리자"])),
 }));
@@ -93,6 +101,17 @@ beforeEach(() => {
   H.admin = { ok: true };
   H.calls = [];
   H.popupPolicy = { policy: { enabled: true, maxPerEntry: 2, allowLandscape: true }, revision: null };
+  H.popupIndex = {
+    policyEnabled: true,
+    byId: new Map([
+      ["p1", { state: "live", reason: null }],
+      ["p2", { state: "conditional", reason: "coupon_members_only" }],
+      // 예약 · 안 나옴(말풍선 홈 없음 · PTR 띠) → 빠짐
+      ["p3", { state: "scheduled", reason: "starts_at" }],
+      ["p4", { state: "not_shown", reason: "tooltip_home_only" }],
+      ["p5", { state: "not_shown", reason: "presentation_out_of_scope" }],
+    ]),
+  };
   H.poolPayload = {
     enabled: true,
     showOnOsRestore: false,
@@ -210,6 +229,13 @@ describe("GET /api/admin/app-entry/overview", () => {
     expect(json.popup.policy).toEqual({ ok: false, error: "popup_policy_read_failed" });
     expect(json.popup.eligible).toEqual({ ok: true, count: 2 });
     expect(json.os.ok).toBe(true);
+  });
+
+  it("A2: 팝업 색인 실패면 팝업 수만 오류 코드", async () => {
+    H.popupIndex = "fail";
+    const json = (await (await GET()).json()) as any;
+    expect(json.popup.eligible).toEqual({ ok: false, error: "popup_campaigns_read_failed" });
+    expect(json.popup.policy.ok).toBe(true);
   });
 });
 

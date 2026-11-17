@@ -34,6 +34,7 @@ import {
   type PtrBandVariant,
 } from "@/lib/platform-popup/ptr-reveal-contract";
 import { platformPopupPatchReviewGroups } from "@/lib/platform-popup/popup-admin-patch";
+import { platformPopupSurfacesForPresentation } from "@/lib/platform-popup/admin-surface-target-mode";
 import { checkPopupCopyLengths } from "@/lib/platform-popup/creative-size-spec";
 import {
   PLATFORM_POPUP_TOOLTIP_ANCHORS,
@@ -175,7 +176,9 @@ export async function createPlatformPopupAdminCampaign(
     return { ok: false, error: "presentation_invalid", httpStatus: 400 };
   }
 
-  const surfaces = normalizeSurfaces(input.surfaces?.length ? input.surfaces : ["GLOBAL"]);
+  const surfaces = normalizeSurfaces(
+    platformPopupSurfacesForPresentation(presentationType, input.surfaces?.length ? input.surfaces : ["GLOBAL"])
+  );
   if ("error" in surfaces) return { ok: false, error: surfaces.error, httpStatus: 400 };
   const createTz = (input.timezone ?? PLATFORM_POPUP_DEFAULT_TIMEZONE).trim() || PLATFORM_POPUP_DEFAULT_TIMEZONE;
   if (!isValidIanaTimezone(createTz)) return { ok: false, error: "timezone_invalid", httpStatus: 400 };
@@ -399,8 +402,13 @@ export async function updatePlatformPopupAdminCampaign(
   }
 
   let surfacesChanged = false;
-  if (input.patch.surfaces) {
-    const surfaces = normalizeSurfaces(input.patch.surfaces);
+  // P3 / RA-5: 바꾼 뒤 형태가 말풍선이면 노출 위치 = 홈 고정(이미 홈이면 아래 「같으면 안 바꿈」으로 그대로)
+  const requestedSurfaces = platformPopupSurfacesForPresentation(
+    (patch.presentation_type as string | undefined) ?? (current.presentation_type as string | null),
+    input.patch.surfaces
+  );
+  if (requestedSurfaces) {
+    const surfaces = normalizeSurfaces(requestedSurfaces);
     if ("error" in surfaces) return { ok: false, error: surfaces.error, httpStatus: 400 };
     if (!surfaces.length) return { ok: false, error: "surface_required", httpStatus: 400 };
     // P-1: 지금 저장된 노출 위치와 같으면 바꾸지 않는다(재검토 사유 아님)
@@ -476,6 +484,7 @@ export async function updatePlatformPopupAdminCampaign(
   const effectiveBody: Record<string, unknown> = { ...input.patch };
   delete effectiveBody.materialTouched;
   if (!surfacesChanged) delete effectiveBody.surfaces;
+  else effectiveBody.surfaces = requestedSurfaces;
   if (!creativeModeChanged) delete effectiveBody.creativeMode;
   if (!altTextChanged) delete effectiveBody.altText;
   const material = platformPopupPatchReviewGroups(effectiveBody, { operatorPopup });

@@ -59,7 +59,7 @@ export type AppEntryOverviewIntro = {
 
 export type AppEntryOverviewPopup = {
   policy: { ok: true; enabled: boolean; maxPerEntry: number; allowLandscape: boolean } | AppEntryFail;
-  /** 승인 + 노출·예약 상태 + 지금 기간 안인 진입 팝업 캠페인 수 */
+  /** 팝업 목록 「앱에 나오는 중」 수(같은 「앱에 나오나」 색인 · 빌드 전 감사 A2) */
   eligible: { ok: true; count: number } | AppEntryFail;
 };
 

@@ -29,6 +29,25 @@ export {
   type PlatformPopupCenterCropBox,
 } from "@/lib/platform-popup/creative-pipeline-geometry";
 
+/**
+ * 빌드 전 감사 A8 (2026-11-17): 보이는 방향 기준 크기 — EXIF 방향 5~8 은 90° 돌린 그림이라 가로·세로를 바꾼다.
+ * `sharp().rotate().metadata()` 는 회전 전(파일) 크기를 돌려준다 — 예전 업로드 경로가 이 값으로 비율·가운데 자르기 상자를
+ * 계산해, 세로로 찍은 휴대폰 사진(방향 6)을 가운데 자르기하면 `bad extract area` 로 실패했다.
+ * 헤더만 읽는다(픽셀 디코드 없음) — 화소 상한 검사를 디코드 전에 할 수 있다. 읽기 실패 = null.
+ */
+export async function readPlatformPopupCreativeOrientedSize(
+  buffer: Buffer
+): Promise<{ width: number; height: number } | null> {
+  try {
+    const meta = await sharp(buffer, { failOn: "none", limitInputPixels: false }).metadata();
+    const w = meta.width ?? 0;
+    const h = meta.height ?? 0;
+    return (meta.orientation ?? 1) >= 5 ? { width: h, height: w } : { width: w, height: h };
+  } catch {
+    return null;
+  }
+}
+
 /** ARTWORK max edge — preserve aspect; do not flatten alpha onto a fill color. */
 const ARTWORK_MAX_EDGE_PX = 1600;
 
@@ -102,16 +121,9 @@ export async function processPlatformPopupCreativeToCanonical(input: {
 
   // v3 ④: 운영자가 고른 자르기 틀(원본 픽셀 · 화면에 보이는 방향 기준) — 있으면 가운데 자르기 대신 그 부분을 쓴다
   if (input.cropRect) {
-    let oriented: { width: number; height: number };
-    try {
-      const meta = await sharp(input.buffer, { failOn: "none", limitInputPixels: false }).metadata();
-      const w = meta.width ?? input.width;
-      const h = meta.height ?? input.height;
-      // EXIF 방향 5~8 = 90° 돌린 그림 — 브라우저가 보이는 방향(가로·세로 바뀜)으로 틀을 골랐다
-      oriented = (meta.orientation ?? 1) >= 5 ? { width: h, height: w } : { width: w, height: h };
-    } catch {
-      return { ok: false, error: "crop_failed" };
-    }
+    // EXIF 방향 5~8 = 90° 돌린 그림 — 브라우저가 보이는 방향(가로·세로 바뀜)으로 틀을 골랐다
+    const oriented = await readPlatformPopupCreativeOrientedSize(input.buffer);
+    if (!oriented || !(oriented.width > 0) || !(oriented.height > 0)) return { ok: false, error: "crop_failed" };
     const checked = validatePlatformPopupCropRect(input.cropRect, oriented);
     if (!checked.ok) return { ok: false, error: checked.error };
     try {
@@ -128,12 +140,17 @@ export async function processPlatformPopupCreativeToCanonical(input: {
     }
   }
 
-  const ratioOk = isPlatformPopupCreativeRatioOk(input.width, input.height);
+  // A8: 비율·가운데 자르기 상자는 회전 뒤(보이는 방향) 크기로 — `.rotate()` 뒤 `.extract()` 는 돌린 그림 기준
+  const orientedSize = (await readPlatformPopupCreativeOrientedSize(input.buffer)) ?? {
+    width: input.width,
+    height: input.height,
+  };
+  const ratioOk = isPlatformPopupCreativeRatioOk(orientedSize.width, orientedSize.height);
   if (!ratioOk && !input.applyCenterCrop) {
     return {
       ok: false,
       error: "needs_crop",
-      proposedCrop: centerCropBoxTo3625(input.width, input.height),
+      proposedCrop: centerCropBoxTo3625(orientedSize.width, orientedSize.height),
     };
   }
 
@@ -141,7 +158,7 @@ export async function processPlatformPopupCreativeToCanonical(input: {
     let pipeline = sharp(input.buffer, { failOn: "none", limitInputPixels: false }).rotate();
     let cropped = false;
     if (!ratioOk && input.applyCenterCrop) {
-      const crop = centerCropBoxTo3625(input.width, input.height);
+      const crop = centerCropBoxTo3625(orientedSize.width, orientedSize.height);
       pipeline = pipeline.extract(crop);
       cropped = true;
     }
