@@ -120,6 +120,10 @@ const TITLE_SOURCE_BY_LEAF: Readonly<Record<string, string>> = {
   // 설계 ads-admin-ssot §5 (2026-11-07): 공통 「충전·문의」
   "ads-authority-charge-inquiry": "components/admin/ads/AdminAdsChargeInquiryHub.tsx",
   "ads-banners-overview": "components/admin/banners-overview/AdminBannersOverviewPage.tsx",
+  // 앱 진입 어드민 v3 (2026-11-17): 광고·배너 › 앱 진입
+  "ads-entry-overview": "components/admin/app-entry/AdminAppEntryOverviewPage.tsx",
+  "ads-startup-os": "components/admin/settings/OsLaunchAdminPage.tsx",
+  "ads-startup-intro": "components/admin/launch-intro/LaunchIntroAdminPage.tsx",
   "delivery-ads-ops": "components/admin/stores/AdminDeliveryAdsControlPlane.tsx",
   "ads-placement-map": "components/admin/stores/AdminDeliveryAdInventoryManagementView.tsx",
   "ads-feed-products": "components/admin/ads/AdminFeedAdProductsClient.tsx",
@@ -130,9 +134,6 @@ const TITLE_SOURCE_BY_LEAF: Readonly<Record<string, string>> = {
   "promotion-popup": "components/admin/platform-popup/AdminPlatformPopupListPage.tsx",
   "promotion-banners": "components/admin/platform-promotion/AdminPromotionBannerListClient.tsx",
   "promotion-owner-requests": "components/admin/platform-events/AdminPlatformEventOwnerRequestQueueClient.tsx",
-  "settings-os-start": "components/admin/settings/OsLaunchAdminPage.tsx",
-  "settings-intro": "components/admin/launch-intro/LaunchIntroAdminPage.tsx",
-  "settings-startup-config": "components/admin/settings/StartupConfigAdminPage.tsx",
   "menu-main-bottom-nav": "components/admin/menus/AdminMainBottomNavPage.tsx",
   "menu-home-layout": "components/admin/home/AdminHomeLayoutPage.tsx",
   "my-banners": "components/admin/my/AdminMyBannersPage.tsx",

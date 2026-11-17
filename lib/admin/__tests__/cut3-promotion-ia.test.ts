@@ -67,9 +67,7 @@ describe("CUT3 Promotion IA navigation", () => {
     expect(
       (findAdminMenuByKey(adminMenu, "settings-startup")?.children ?? []).map((c) => c.key)
     ).toEqual([
-      "settings-os-start",
-      "settings-intro",
-      "settings-startup-config",
+      // 앱 진입 어드민 v3 (2026-11-17): OS 시작 화면·인트로·앱 첫 진입 화면 → 광고·배너 › 앱 진입
       "menu-main-bottom-nav",
       "menu-home-layout",
       "my-banners",
@@ -100,9 +98,8 @@ describe("CUT3 Promotion IA navigation", () => {
     expect(resolveActiveWorkspace("/admin/platform-event-owner-requests", "master").id).toBe(
       "promotion"
     );
-    expect(resolveActiveWorkspace("/admin/platform-promotion/os-start", "master").id).toBe(
-      "promotion"
-    );
+    // 앱 진입 어드민 v3 (2026-11-17): OS 시작 화면은 광고·배너 › 앱 진입
+    expect(resolveActiveWorkspace("/admin/platform-promotion/os-start", "master").id).toBe("ads");
     expect(resolveActiveWorkspace("/admin/advertising", "master").id).toBe("ads");
     expect(resolveActiveWorkspace("/admin/advertising/placements", "master").id).toBe("ads");
   });

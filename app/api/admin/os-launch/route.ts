@@ -16,6 +16,7 @@ import {
   signOsLaunchLogoUrl,
 } from "@/lib/os-launch/server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { loadAppEntryInstalls } from "@/lib/admin/app-entry/overview-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,9 +42,13 @@ export async function GET() {
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
-  const loaded = await loadOsLaunchPending(sb);
+  const [loaded, installs] = await Promise.all([
+    loadOsLaunchPending(sb),
+    // 앱 진입 어드민 v3 §5: 「지금 앱」 줄의 설치된 앱 버전 (user_devices.app_version · 「한눈에 보기」와 같은 함수)
+    loadAppEntryInstalls(sb).catch(() => ({ ok: false as const, error: "user_devices_read_failed" })),
+  ]);
   if (!loaded.ok) return NextResponse.json({ ok: false, error: loaded.error }, { status: 500 });
-  return NextResponse.json(await snapshot(sb, loaded.pending));
+  return NextResponse.json({ ...(await snapshot(sb, loaded.pending)), installs });
 }
 
 /**

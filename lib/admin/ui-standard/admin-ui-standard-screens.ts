@@ -65,7 +65,7 @@ export const ADMIN_UI_STANDARD_SCREENS: Readonly<Record<string, readonly string[
     "/admin/platform-event-owner-requests",
     "/admin/platform-promotion/os-start",
     "/admin/platform-promotion/intro",
-    "/admin/settings/startup-config",
+    "/admin/platform-promotion/entry",
     "/admin/menus/main-bottom-nav",
     "/admin/my/banners",
     "/admin/my/sections",

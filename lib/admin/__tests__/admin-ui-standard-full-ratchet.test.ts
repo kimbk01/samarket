@@ -65,6 +65,7 @@ const RULE_EXEMPT: Readonly<Record<string, string>> = {
   "lib/admin/platform/platform-launch-default-colors.ts::rawColor": "저장 데이터 기본값(#RRGGBB) — 서버가 hex 만 받음",
   "lib/admin/operator-ux/admin-confirm-action.ts::directConfirm": "확인 엔진 자체 — 관리자 셸 밖에서 앱 대화상자로 대체하는 경로",
   "components/admin/ptr-reveal/AdminPtrRevealListPage.tsx::confirmPath": "새 광고 이름 입력 폼(prompt) — 확인 단계가 아닌 입력 폼",
+  "components/admin/media/AdminImageSlot.tsx::rawColor": "투명 확인 격자 무늬(회색·흰색 체크) — 그림의 투명한 곳 표시용 고정 무늬, 화면 색 아님 (앱 진입 어드민 v3 §1)",
 };
 /** 확인창 호스트·엔진 자체. */
 const CONFIRM_ENGINE = /^(?:components\/admin\/ui\/|lib\/admin\/operator-ux\/)/;

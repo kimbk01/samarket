@@ -189,6 +189,8 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   // API: os-launch PUT·logo / launch-intro PUT·DELETE·publish·state·upload = requireAdminPermission("ads")
   { path: "/admin/platform-promotion/os-start", requirement: ANY, action: perm("ads") },
   { path: "/admin/platform-promotion/intro", requirement: ANY, action: perm("ads") },
+  // 앱 진입 어드민 v3 §B 「한눈에 보기」: 조회 전용 (GET /api/admin/app-entry/overview = requireAdminApiUser) · 쓰기 없음
+  { path: "/admin/platform-promotion/entry", requirement: ANY },
   { path: "/admin/menus/main-bottom-nav", requirement: ANY, action: perm("settings") },
   // 홈 구성 (Owner 「구현 시작」 2026-11-09): 조회 전원 · 저장 = settings (API PUT /api/admin/home-layout)
   { path: "/admin/menus/home-layout", requirement: ANY, action: perm("settings") },

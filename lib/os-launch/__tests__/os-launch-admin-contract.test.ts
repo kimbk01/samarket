@@ -70,9 +70,10 @@ describe("R17-OS admin contract", () => {
 });
 
 describe("R17-OS admin boundaries", () => {
-  it("menu: Startup group under Promotion holds OS start screen + separate launch Intro", () => {
+  // 앱 진입 어드민 v3 (2026-11-17): OS 시작 화면·인트로는 광고·배너 › 앱 진입 한 묶음(프로모션 쪽 중복 leaf 삭제)
+  it("menu: 앱 진입 group holds OS start screen + separate launch Intro", () => {
     const menu = src("components/admin/admin-menu.ts");
-    expect(menu).toContain('key: "settings-startup"');
+    expect(menu).toContain('key: "ads-section-startup"');
     expect(menu).toContain('path: "/admin/platform-promotion/os-start"');
     expect(menu).not.toContain('path: "/admin/settings/os-start"');
     expect(menu).not.toContain("/admin/settings/intro");
@@ -92,7 +93,10 @@ describe("R17-OS admin boundaries", () => {
           const allowed =
             rel.startsWith("lib/os-launch/") ||
             rel.startsWith("app/api/admin/os-launch/") ||
-            rel === "components/admin/settings/OsLaunchAdminPage.tsx";
+            rel === "components/admin/settings/OsLaunchAdminPage.tsx" ||
+            // 앱 진입 어드민 v3 (2026-11-17): 어드민 전용 — 공통 그림 칸 규격(서버 검사 값) · 「한눈에 보기」 서버 조회
+            rel === "lib/admin/media/image-slot-spec.ts" ||
+            rel === "lib/admin/app-entry/overview-server.ts";
           const text = readFileSync(p, "utf8");
           if (!allowed && (text.includes("@/lib/os-launch") || text.includes("/api/admin/os-launch"))) {
             offenders.push(rel);
