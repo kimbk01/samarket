@@ -1,9 +1,12 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import type { CommunityMessengerMessagesAfterPerf } from "@/lib/community-messenger/service";
 import { ensureApiRouteAuthGate } from "@/lib/auth/ensure-api-route-auth-gate";
-import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
+import { assertVerifiedMemberForAction, MEMBER_ACCESS_PROFILE_SELECT } from "@/lib/auth/member-access";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
+import {
+  PROFILE_FIELDS_GATE_SELECT as MESSENGER_SEND_PROFILE_GATE_SELECT,
+  requireProfileFieldsForAction,
+} from "@/lib/profile/require-profile-completion.server";
 import {
   enforceRateLimit,
   getRateLimitKey,
@@ -17,6 +20,16 @@ import { pruneByAtMaxAgeAndMaxSize } from "@/lib/http/memory-map-prune";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** P2 (B3): 프로필 게이트 + 회원 게이트 profiles 컬럼 합집합(중복 제거) — 1회 읽기 */
+const MESSENGER_SEND_GATE_PROFILE_UNION_SELECT = [
+  ...new Set(
+    `${MESSENGER_SEND_PROFILE_GATE_SELECT},${MEMBER_ACCESS_PROFILE_SELECT}`
+      .split(",")
+      .map((c) => c.trim())
+      .filter(Boolean)
+  ),
+].join(",");
 
 const SEND_DEDUPE_TTL_MS = 2500;
 const SEND_DEDUPE_MAX_ENTRIES = 20_000;
@@ -220,16 +233,60 @@ export async function POST(
   } catch {
     return jsonError("server_config", 503);
   }
-  /** S2→S3 opt-in substages (x-samarket-t5-trace). Do not change notify/after ordering. */
+  /**
+   * P2 (B3) 게이트 병합 — 읽기만 하는 게이트를 동시에 시작하고, 결과는 기존 오류 우선순위(I6)대로 평가한다:
+   * 프로필 → 인증 회원 → (service) 그룹 → 차단 → RPC.
+   * - profiles 는 1회만 읽어 프로필 게이트·회원 게이트가 함께 쓴다(합집합 컬럼). 읽기 오류면 기존 경로로 폴백.
+   * - 그룹 게이트는 방 확인에서 이미 읽은 방 종류(`canon.access.roomType`)를 넘겨 rooms 재조회를 없앤다.
+   * - 1:1 차단 게이트도 같이 시작 → service 는 결과만 평가(`gatePrefetch`).
+   */
+  const sbGate = sbSend as import("@supabase/supabase-js").SupabaseClient;
+  const roomTypeHint =
+    canon.access && typeof canon.access.roomType === "string" && canon.access.roomType.trim()
+      ? canon.access.roomType.trim()
+      : null;
+  const gatePrefetchPromise = (async () => {
+    const [{ assertActiveGroupMembershipIfGroup }, { assertDirectRoomCommunicationNotBlocked }] = await Promise.all([
+      import("@/lib/community-messenger/group/group-active-membership-gate"),
+      import("@/lib/community-messenger/direct-room-communication-gate"),
+    ]);
+    const [group, block] = await Promise.all([
+      assertActiveGroupMembershipIfGroup({
+        userId,
+        roomId: canon.canonicalRoomId,
+        supabase: sbGate,
+        roomType: roomTypeHint,
+      }),
+      assertDirectRoomCommunicationNotBlocked({
+        viewerUserId: userId,
+        roomId: canon.canonicalRoomId,
+        supabase: sbGate,
+        _t5: t5 ?? undefined,
+      }),
+    ]);
+    return { group, block };
+  })();
+  gatePrefetchPromise.catch(() => undefined);
+  /** S2→S3 opt-in substages (x-samarket-t5-trace). */
   const profileT0 = performance.now();
+  const { data: gateProfileRow, error: gateProfileErr } = await sbGate
+    .from("profiles")
+    .select(MESSENGER_SEND_GATE_PROFILE_UNION_SELECT)
+    .eq("id", userId)
+    .maybeSingle();
   const profileGate = await requireProfileFieldsForAction(
-    sbSend as import("@supabase/supabase-js").SupabaseClient,
+    sbGate,
     userId,
-    "messenger_send_message"
+    "messenger_send_message",
+    gateProfileErr ? undefined : ((gateProfileRow as Record<string, unknown> | null) ?? undefined)
   );
   if (t5) spanT5(t5, "S2_profile_ms", profileT0);
   if (!profileGate.ok) return profileGate.response;
-  const memberWriteGate = await assertVerifiedMemberForAction(sbSend as import("@supabase/supabase-js").SupabaseClient, userId);
+  const memberWriteGate = await assertVerifiedMemberForAction(
+    sbGate,
+    userId,
+    gateProfileErr ? undefined : ((gateProfileRow as Record<string, unknown> | null) ?? null)
+  );
   if (!memberWriteGate.ok) {
     return NextResponse.json(
       { ok: false, error: memberWriteGate.error, code: "member_activity_restricted" },
@@ -283,6 +340,7 @@ export async function POST(
     const serviceModT0 = performance.now();
     const cm = await sendServiceImport;
     if (t5) spanT5(t5, "S2_service_mod_ms", serviceModT0);
+    const gatePrefetch = await gatePrefetchPromise;
     const r = await cm.sendCommunityMessengerMessage({
       userId,
       roomId: canonicalRoomId,
@@ -290,6 +348,7 @@ export async function POST(
       clientMessageId: clientMessageId || undefined,
       replyToMessageId: replyToMessageId || undefined,
       membershipPreflightDone: true,
+      gatePrefetch,
       _t5: t5 ?? undefined,
     });
     const tStore = Date.now();
@@ -308,84 +367,125 @@ export async function POST(
       messageId: typeof msg?.id === "string" ? msg.id : undefined,
       messageCreatedAt: typeof msg?.createdAt === "string" ? msg.createdAt : undefined,
       messageForBump: result.message ?? null,
-      skipBadgeTargetBump: true as const,
+      /** 전송 RPC 반환(마이그레이션 적용 뒤) — 없으면 publishTextSendRoomBump 가 기존 함수로 폴백 */
+      prefetched: postAckEffects
+        ? {
+            roomType: typeof postAckEffects.roomType === "string" ? postAckEffects.roomType : null,
+            chatDomain: typeof postAckEffects.chatDomain === "string" ? postAckEffects.chatDomain : null,
+            domainIdentity: typeof postAckEffects.domainIdentity === "string" ? postAckEffects.domainIdentity : null,
+            recipientUserIds: Array.isArray(postAckEffects.recipientUserIds) ? postAckEffects.recipientUserIds : null,
+          }
+        : null,
     };
     /**
-     * Domain Badge Authority SSOT = notification_targets.
-     * Await target bump BEFORE ACK so a fast room-open mark_read cannot clear before
-     * the unread write lands (measured group/SO race: after() bump after mark_read).
-     *
-     * Durable notification_events accept BEFORE ACK (44e7073fe — after() historically
-     * stalled event inserts ~2026-07-22). FCM/OS push + item_trade mirror run in after()
-     * so slow external delivery does not block sender ACK (T5). Realtime room bump stays
-     * in after(); skipBadgeTargetBump prevents a second target write.
+     * P2 서버 순서 (보수안 — 의미는 기존과 같음, 응답 전 대기만 줄임):
+     *  ① 배지 target bump(새 병렬 함수) ‖ durable 알림(notification_events, `parallelRecipients`·`deferAutoRead`)
+     *     — 서로 다른 표(notification_targets vs notification_events)라 동시 시작. 공유 쓰기는 자동 읽음뿐 → 미룸.
+     *  ② await target (I1: 배지 bump 가 mark_read 보다 먼저 — 실측 group/SO 경합)
+     *  ③ await durable (I2: 44e7073fe — after() 에서 event insert 가 멈췄던 이력)
+     *  ④ 방 bump 시작 → `after(promise)` (I4: target 뒤. 응답은 기다리지 않음)
+     *  ⑤ 자동 읽음(markRoomRead) — target 완료 뒤(I5), 응답 전(기존과 같음)
+     *  ⑥ 응답 → after(): FCM/OS push·item_trade 미러(기존 그대로)
      */
     let deferredPostAck: import("@/lib/community-messenger/server/community-messenger-send-post-ack-effects").CommunityMessengerSendDeferredPostAckWork | null =
       null;
+    let roomBumpStarted = false;
     try {
-      const { bumpMessengerRoomTargetsForRecipients } = await import(
-        "@/lib/notifications/notification-target-messenger-bridge"
-      );
-      const { resolveServiceSupabaseForApi } = await import(
-        "@/lib/supabase/resolve-service-supabase-for-api"
-      );
+      const [{ bumpMessengerRoomTargetsForRecipientsParallel }, { resolveServiceSupabaseForApi }] = await Promise.all([
+        import("@/lib/notifications/notification-target-messenger-bridge"),
+        import("@/lib/supabase/resolve-service-supabase-for-api"),
+      ]);
       const sb = resolveServiceSupabaseForApi();
       if (sb) {
         if (t5) markT5(t5, "S9");
         const bumpT0 = performance.now();
-        await bumpMessengerRoomTargetsForRecipients(sb, {
+        const targetPromise = bumpMessengerRoomTargetsForRecipientsParallel(sb, {
           roomId: canonicalRoomId,
           fromUserId: userId,
           _t5: t5 ?? undefined,
         });
+        targetPromise.catch(() => undefined);
+        let durablePromise: Promise<
+          import("@/lib/community-messenger/server/community-messenger-send-post-ack-effects").CommunityMessengerSendDeferredPostAckWork | null
+        > = Promise.resolve(null);
+        const effectsT0 = performance.now();
+        if (postAckEffects) {
+          if (t5) markT5(t5, "S11");
+          durablePromise = import("@/lib/community-messenger/server/community-messenger-send-post-ack-effects").then(
+            ({ runCommunityMessengerSendDurablePreAckEffects }) =>
+              runCommunityMessengerSendDurablePreAckEffects(sb, postAckEffects, t5 ?? undefined, {
+                parallelRecipients: true,
+                deferAutoRead: true,
+              })
+          );
+          durablePromise.catch(() => undefined);
+        }
+        try {
+          await targetPromise;
+        } catch {
+          /* best-effort — target 실패가 durable·bump 를 막지 않는다 */
+        }
         if (t5) {
           spanT5(t5, "S10_target_bump_ms", bumpT0);
           markT5(t5, "S10");
         }
-        if (postAckEffects) {
-          if (t5) markT5(t5, "S11");
-          const { runCommunityMessengerSendDurablePreAckEffects } = await import(
-            "@/lib/community-messenger/server/community-messenger-send-post-ack-effects"
-          );
-          const effectsT0 = performance.now();
-          deferredPostAck = await runCommunityMessengerSendDurablePreAckEffects(
-            sb,
-            postAckEffects,
-            t5 ?? undefined
-          );
-          if (t5) {
-            spanT5(t5, "S12_pre_ack_effects_ms", effectsT0);
-            markT5(t5, "S12");
-          }
-        } else if (t5) {
-          markT5(t5, "S11");
+        try {
+          deferredPostAck = await durablePromise;
+        } catch {
+          deferredPostAck = null;
+        }
+        if (t5) {
+          if (postAckEffects) spanT5(t5, "S12_pre_ack_effects_ms", effectsT0);
+          else markT5(t5, "S11");
           markT5(t5, "S12");
+        }
+        /** ④ 방 bump — target·durable 뒤 시작, 응답은 기다리지 않는다 */
+        roomBumpStarted = true;
+        const bumpPromise = (async () => {
+          if (t5) markT5(t5, "S14");
+          try {
+            const { publishTextSendRoomBump } = await import(
+              "@/lib/community-messenger/server/publish-text-send-room-bump"
+            );
+            const bumpPubT0 = performance.now();
+            await publishTextSendRoomBump(bumpArgs);
+            if (t5) {
+              spanT5(t5, "S17_room_bump_ms", bumpPubT0);
+              markT5(t5, "S17");
+            }
+          } catch {
+            /* best-effort: 수신측은 Postgres Realtime·재요청으로 정합 */
+          }
+        })();
+        after(bumpPromise);
+        /** ⑤ 자동 읽음 — target bump 완료 뒤(I5) */
+        const autoReadIds = deferredPostAck?.autoReadRecipientIds ?? [];
+        if (autoReadIds.length > 0) {
+          const { markRoomRead } = await import("@/lib/notifications/pipeline/notify-read-service");
+          await Promise.all(
+            autoReadIds.map((rid) => markRoomRead(sb, rid, canonicalRoomId).catch(() => undefined))
+          );
         }
       }
     } catch {
       /* best-effort — do not fail the send ACK */
     }
     if (t5) markT5(t5, "S13");
-    after(async () => {
-      /**
-       * M-1 — room bump before deferred FCM/mirror in after().
-       * Failures are isolated: bump error must not skip FCM; FCM error must not imply bump ran.
-       * ACK remains non-blocking (bump stays in after(), not awaited pre-ACK).
-       */
-      if (t5) markT5(t5, "S14");
-      try {
-        const { publishMessengerRoomBumpAfterMutation } = await import(
-          "@/lib/community-messenger/server/publish-messenger-room-bump"
-        );
-        const bumpPubT0 = performance.now();
-        await publishMessengerRoomBumpAfterMutation(bumpArgs);
-        if (t5) {
-          spanT5(t5, "S17_room_bump_ms", bumpPubT0);
-          markT5(t5, "S17");
+    if (!roomBumpStarted) {
+      /** 서비스 클라이언트 없음 등 — 기존과 같이 after() 안에서 방 bump */
+      after(async () => {
+        try {
+          const { publishTextSendRoomBump } = await import(
+            "@/lib/community-messenger/server/publish-text-send-room-bump"
+          );
+          await publishTextSendRoomBump(bumpArgs);
+        } catch {
+          /* best-effort */
         }
-      } catch {
-        /* best-effort: 수신측은 Postgres Realtime·재요청으로 정합 */
-      }
+      });
+    }
+    after(async () => {
+      /** FCM/OS push + item_trade 미러 — 방 bump 와 실패 격리(기존 M-1 과 같음) */
       try {
         const { resolveServiceSupabaseForApi } = await import(
           "@/lib/supabase/resolve-service-supabase-for-api"

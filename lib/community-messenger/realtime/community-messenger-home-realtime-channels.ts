@@ -72,6 +72,12 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
   includeMeta?: boolean;
   /** `extraRoomIds`(거래·배달 리스트 visible) 개수 — 구독 집합 진단용 */
   visibleTradeRoomCount?: number;
+  /**
+   * X4: rooms-in 토픽 세대 접미(`:g<n>`) — 지문 재바인드마다 새 토픽이라 leaving 객체 재사용으로 죽지 않는다.
+   * 토픽 정책 `cm_realtime_topic_first_uuid_after(topic,'community-messenger-home:rooms-in:')` 는 uuid 뒤 `(:|$)` 허용.
+   * meta 토픽은 정책이 `suffix_uuid`(접미 불가)라 붙이지 않는다(meta 엔트리는 지문 재바인드 대상 아님).
+   */
+  roomsInTopicGeneration?: number;
   messageInsertHintRef: MutableRefObject<((hint: CommunityMessengerHomeRealtimeMessageInsertHint) => void) | undefined>;
   messageUpdateHintRef: MutableRefObject<((hint: CommunityMessengerHomeRealtimeMessageUpdateHint) => void) | undefined>;
   roomTipUpdateHintRef: MutableRefObject<((hint: CommunityMessengerHomeRealtimeRoomTipUpdateHint) => void) | undefined>;
@@ -320,7 +326,10 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
     let roomBundleFirstSubscribedSeen = false;
     const roomBundle = subscribeWithRetry({
       sb: args.sb,
-      name: `community-messenger-home:rooms-in:${args.userId}:${offset}`,
+      name:
+        typeof args.roomsInTopicGeneration === "number"
+          ? `community-messenger-home:rooms-in:${args.userId}:${offset}:g${args.roomsInTopicGeneration}`
+          : `community-messenger-home:rooms-in:${args.userId}:${offset}`,
       scope: `community-messenger-home:rooms-in`,
       channelOptions: messengerPrivateBroadcastChannelOptions(),
       isCancelled: cancelled,

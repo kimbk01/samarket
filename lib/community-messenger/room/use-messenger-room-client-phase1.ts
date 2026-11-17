@@ -1151,6 +1151,17 @@ export function useMessengerRoomClientPhase1({
    * 상대 `community_messenger_participants` UPDATE 가 오면 읽음 커서를 스냅샷에 즉시 반영한다.
    * `refresh(true)` 만 기다리면 silent 부트스트랩 400ms coalesce 등으로 라벨이 늦거나 유실될 수 있다.
    */
+  /** L3: 커서 메시지가 로컬에 없을 때만 쓰는 silent 정합 디바운스 타이머 */
+  const readCursorMissingRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (readCursorMissingRefreshTimerRef.current != null) {
+        clearTimeout(readCursorMissingRefreshTimerRef.current);
+        readCursorMissingRefreshTimerRef.current = null;
+      }
+    },
+    []
+  );
   const onParticipantPostgresForPeerRead = useCallback(
     (
       payload: {
@@ -1376,14 +1387,19 @@ export function useMessengerRoomClientPhase1({
           at: Date.now(),
         });
         /**
-         * 채팅 P0-2 (Owner 「채팅 P0 승인」 2026-11-11): `entry_silent` 는 방금 받은 silent_delta(D-12 ③) 결과다 —
-         * 같은 부트스트랩을 바로 다시 받지 않는다(실측: 진입마다 `cmReqSrc=room_silent` 2회).
+         * L3 (P2): 읽음 신호마다 하던 강제 silent bootstrap 을 없앤다 — 위 스냅샷 패치가 즉시 반영한다.
+         * 커서 메시지가 로컬에 없을 때만(창 밖·숨김 등) 1초 디바운스로 silent 정합 1회.
+         * `entry_silent` 는 방금 받은 silent_delta(D-12 ③) 결과라 다시 받지 않는다(채팅 P0-2).
          */
-        if (applySource !== "entry_silent") {
-          queueMicrotask(() => {
+        if (applySource !== "entry_silent" && lrmStr && !messageCreatedAtById.has(lrmStr)) {
+          if (readCursorMissingRefreshTimerRef.current != null) {
+            clearTimeout(readCursorMissingRefreshTimerRef.current);
+          }
+          readCursorMissingRefreshTimerRef.current = setTimeout(() => {
+            readCursorMissingRefreshTimerRef.current = null;
             forgetMessengerRoomClientBootstrapFlights({ roomId: ledgerRoomId, viewerUserId: uid });
-            void refresh(true, { forceSilentNetwork: true, triggerReason: "read_patch_force_network" });
-          });
+            void refresh(true, { forceSilentNetwork: true, triggerReason: "read_cursor_missing_silent" });
+          }, 1_000);
         }
       }
     },

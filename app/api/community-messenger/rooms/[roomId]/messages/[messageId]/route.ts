@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import {
   deleteCommunityMessengerVoiceMessage,
@@ -190,6 +190,27 @@ export async function DELETE(
             : 400;
     return NextResponse.json({ ok: false, error: result.error }, { status });
   }
+
+  /**
+   * P2 (Owner 2026-11-18): 음성 영구 삭제 — 상대 열린 방에서도 즉시 사라지게 서버 bump(`messageAction: hard_deleted`)
+   * + 캐시 무효화. 응답을 막지 않는다(after). 실패해도 상대는 다음 정합(after=·진입)에서 반영.
+   */
+  const deletedMessageId = String(messageId ?? "").trim();
+  after(async () => {
+    try {
+      const { publishMessageHardDeletedRoomBump } = await import(
+        "@/lib/community-messenger/server/publish-message-hard-deleted-room-bump"
+      );
+      await publishMessageHardDeletedRoomBump({
+        rawRouteRoomId: canon.rawRouteRoomId,
+        canonicalRoomId: canon.canonicalRoomId,
+        fromUserId: auth.userId,
+        messageId: deletedMessageId,
+      });
+    } catch {
+      /* best-effort */
+    }
+  });
 
   return NextResponse.json({ ok: true });
 }
