@@ -1,12 +1,14 @@
 "use client";
 
 import type { CommunityMessengerDiscoverableGroupSummary } from "@/lib/community-messenger/types";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
+import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 
 export type OpenGroupJoinPreviewFullScreenProps = {
   group: CommunityMessengerDiscoverableGroupSummary;
@@ -49,6 +51,14 @@ export function OpenGroupJoinPreviewFullScreen({
   // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
   useOverlayHardwareBack(true, onClose);
   const bodyRef = useRef<HTMLDivElement | null>(null);
+  /**
+   * 「모임 찾기」 시트(body 포털·z 1300) 위에서 열리므로 같은 body 포털 + 시트 위 중첩 층(1305)에 그린다.
+   * 이전에는 트리 안(층 55)에 그려 시트 아래에 깔려 보이지 않았다(실기 2026-11-18 06:23 PHT).
+   */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const { keyboardOpen, effectiveViewportBottom, visualViewportHeight, visualViewportOffsetTop } =
     useFormKeyboardViewport();
   useFormKeyboardFocusVisibility({ scrollRootRef: bodyRef, effectiveViewportBottom });
@@ -59,9 +69,11 @@ export function OpenGroupJoinPreviewFullScreen({
     (group.joinPolicy === "password" && !joinPassword.trim()) ||
     (joinIdentityMode === "alias" && group.identityPolicy === "alias_allowed" && !joinAliasName.trim());
 
-  return (
+  if (!mounted || typeof document === "undefined" || !document.body) return null;
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-[55] flex flex-col bg-[color:var(--messenger-bg)]"
+      className={`fixed inset-0 ${MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS} flex flex-col bg-[color:var(--messenger-bg)]`}
       style={
         kbBand
           ? {
@@ -189,6 +201,7 @@ export function OpenGroupJoinPreviewFullScreen({
           {busy ? t("cm_ui_entering") : t("cm_ui_join_meeting")}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
