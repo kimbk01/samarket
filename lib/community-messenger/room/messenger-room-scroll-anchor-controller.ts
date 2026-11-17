@@ -447,6 +447,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       scheduleReaderStateSyncAfterEntry();
     },
     [
+      activeSheet,
       applyLayoutPreserve,
       buildCtx,
       engine,
@@ -455,6 +456,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       messagesViewportRef,
       roomId,
       roomMessages,
+      scheduleReaderStateSyncAfterEntry,
       stickToBottomRef,
       tryCompleteEntry,
     ]

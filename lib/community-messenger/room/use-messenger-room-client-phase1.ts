@@ -548,6 +548,8 @@ export function useMessengerRoomClientPhase1({
           viewerUserId: viewerId,
           roomId: rid,
           messageRow: ev.messageRow,
+          /** 버스 incoming_message = INSERT 만 발행 */
+          messageEvent: "insert",
           roomSummary: snapshotRef.current?.room ?? initialServerSnapshot?.room ?? undefined,
         });
       } else if (ev.type === "cm.room.read") {

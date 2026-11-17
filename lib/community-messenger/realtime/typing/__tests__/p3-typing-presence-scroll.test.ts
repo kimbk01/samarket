@@ -135,6 +135,70 @@ describe("입력 중 수신 토픽 등록부 — 토픽당 채널 1개 + 참조 
   });
 });
 
+describe("등록부 — leave 실패로 남은 채널·subscribe throw 복구(검토 2)", () => {
+  it("같은 토픽 잔존 채널을 강제 제거한 뒤 새로 열고, subscribe throw 는 1회 재시도, 거부는 새지 않는다", async () => {
+    const topic = "community-messenger-typing:room-stale";
+    const sockets: { topic: string; joined: boolean }[] = [{ topic: `realtime:${topic}`, joined: true }];
+    let subscribeThrowsOnce = true;
+    const removeCalls: string[] = [];
+    const unhandled: unknown[] = [];
+    const onUnhandled = (e: unknown) => unhandled.push(e);
+    process.on("unhandledRejection", onUnhandled);
+    const sb = {
+      realtime: {
+        accessTokenValue: "jwt",
+        _remove: (c: { topic: string }) => {
+          const i = sockets.findIndex((x) => x === c || x.topic === c.topic);
+          if (i >= 0) sockets.splice(i, 1);
+        },
+      },
+      getChannels: () => sockets,
+      channel: (t: string) => {
+        const full = `realtime:${t}`;
+        const existing = sockets.find((x) => x.topic === full);
+        if (existing) {
+          /** realtime-js 처럼 남아 있는 인스턴스를 돌려줌 → subscribe throw */
+          return { ...existing, on() { return this; }, subscribe() { throw new Error("tried to subscribe multiple times"); } };
+        }
+        const ch = { topic: full, joined: false } as { topic: string; joined: boolean };
+        sockets.push(ch);
+        return {
+          ...ch,
+          on() {
+            return this;
+          },
+          subscribe() {
+            if (subscribeThrowsOnce) {
+              subscribeThrowsOnce = false;
+              throw new Error("boom");
+            }
+            ch.joined = true;
+            return this;
+          },
+        };
+      },
+      /** leave 응답 error — throw 없이 끝나고 채널은 목록에 남음(realtime-js 동작) */
+      removeChannel: (c: { topic: string }) => {
+        removeCalls.push(c.topic);
+        return Promise.resolve("error");
+      },
+    };
+    const rel = acquireMessengerTypingTopic({ sb: sb as never, roomId: "room-stale", viewerUserId: "me" });
+    for (let i = 0; i < 6; i += 1) await new Promise((r) => setTimeout(r, 0));
+    const open = __messengerTypingTopicRegistryStateForTests().topics.find((x) => x.topic === topic);
+    expect(open?.open).toBe(true);
+    expect(sockets.filter((x) => x.topic === `realtime:${topic}`)).toHaveLength(1);
+    expect(sockets[0]!.joined).toBe(true);
+    expect(removeCalls.length).toBeGreaterThanOrEqual(2);
+    rel();
+    for (let i = 0; i < 4; i += 1) await new Promise((r) => setTimeout(r, 0));
+    /** 해제 뒤 leave 가 error 여도 소켓 목록에서 빠짐 */
+    expect(sockets).toHaveLength(0);
+    process.off("unhandledRejection", onUnhandled);
+    expect(unhandled).toEqual([]);
+  });
+});
+
 describe("대화 목록 행 수신 슬롯 — 최대 15방", () => {
   it("16번째는 대기, 앞 행이 빠지면 받는다", () => {
     const { sb } = fakeSb();
@@ -151,21 +215,46 @@ describe("대화 목록 행 수신 슬롯 — 최대 15방", () => {
 
 describe("상대 메시지 도착 → 그 사람 입력 중 해제", () => {
   beforeEach(() => resetMessengerTypingStore());
-  it("최근 메시지면 해제, 내 메시지·오래된 메시지는 유지", () => {
+  it("새 메시지(INSERT)면 해제, 오래된 메시지·수정(UPDATE)·종류 모름은 유지", () => {
     const store = useMessengerTypingStore.getState();
     store.setTyping("room-m", "peer", 60_000);
+    const nowIso = new Date().toISOString();
     applyIncomingMessageEvent({
       viewerUserId: "me",
       roomId: "room-m",
+      messageEvent: "insert",
       messageRow: { id: "m-old", room_id: "room-m", sender_id: "peer", created_at: new Date(Date.now() - 60_000).toISOString() },
+    });
+    expect(useMessengerTypingStore.getState().byRoomId["room-m"]?.peer).toBeTruthy();
+    /** 검토 1: 링크 미리보기·반응 등 UPDATE 는 입력 중을 지우지 않는다 */
+    applyIncomingMessageEvent({
+      viewerUserId: "me",
+      roomId: "room-m",
+      messageEvent: "update",
+      messageRow: { id: "m-0", room_id: "room-m", sender_id: "peer", created_at: nowIso },
+    });
+    applyIncomingMessageEvent({
+      viewerUserId: "me",
+      roomId: "room-m",
+      messageRow: { id: "m-0", room_id: "room-m", sender_id: "peer", created_at: nowIso },
     });
     expect(useMessengerTypingStore.getState().byRoomId["room-m"]?.peer).toBeTruthy();
     applyIncomingMessageEvent({
       viewerUserId: "me",
       roomId: "room-m",
-      messageRow: { id: "m-1", room_id: "room-m", sender_id: "peer", created_at: new Date().toISOString() },
+      messageEvent: "insert",
+      messageRow: { id: "m-1", room_id: "room-m", sender_id: "peer", created_at: nowIso },
     });
     expect(useMessengerTypingStore.getState().byRoomId["room-m"]?.peer).toBeUndefined();
+  });
+
+  it("호출처: 방 ingest·목록 INSERT·버스·bump 만 insert 를 넘긴다(소스 계약)", () => {
+    const ingest = readFileSync(join(ROOT, "lib/community-messenger/room/use-messenger-room-realtime-message-ingest.ts"), "utf8");
+    expect(ingest).toContain('messageEvent: event.eventType === "INSERT" ? "insert" : "update"');
+    const bump = readFileSync(join(ROOT, "lib/community-messenger/room/use-messenger-room-bump-broadcast-subscription.ts"), "utf8");
+    expect(bump).toContain('messageEvent: firstSeen ? "insert" : "update"');
+    const catchup = readFileSync(join(ROOT, "lib/community-messenger/room/use-messenger-room-remote-catchup.ts"), "utf8");
+    expect(catchup).not.toContain("messageEvent");
   });
 });
 
@@ -188,8 +277,12 @@ describe("접속 — 「자리 비움」 없음 (레거시 안 B)", () => {
     const base = { nowMs: now, lastPingAtIso: iso(now - 5_000), lastSeenAtIso: null, updatedAtIso: null };
     expect(derivePresenceFromDbRow({ ...base, lastActivityAtIso: iso(now - 180_000), appVisibility: "foreground" })).toBe("online");
     expect(derivePresenceFromDbRow({ ...base, lastActivityAtIso: iso(now), appVisibility: "background" })).toBe("offline");
+    /** 검토 5: 하트비트 1회 지연(20초)은 온라인 유지, 30초 초과면 오프라인 */
     expect(
       derivePresenceFromDbRow({ ...base, lastPingAtIso: iso(now - 20_000), lastActivityAtIso: null, appVisibility: "foreground" })
+    ).toBe("online");
+    expect(
+      derivePresenceFromDbRow({ ...base, lastPingAtIso: iso(now - 31_000), lastActivityAtIso: null, appVisibility: "foreground" })
     ).toBe("offline");
     expect(deriveLivePresenceFromSignals({ nowMs: now, channelSubscribed: true, documentVisible: true, lastActivityMs: now - 600_000 })).toBe("online");
     expect(deriveLivePresenceFromSignals({ nowMs: now, channelSubscribed: true, documentVisible: false, lastActivityMs: now })).toBe("offline");

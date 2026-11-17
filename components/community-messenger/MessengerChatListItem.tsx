@@ -1150,7 +1150,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             }}
           >
             {/* P3: 상대 입력 중이면 미리보기 자리에 「입력 중」(보이는 행만 수신, 최대 15방) */}
-            <MessengerChatListTypingPreview roomId={room.id} viewerUserId={viewerUserId}>
+            <MessengerChatListTypingPreview roomId={room.id} roomType={room.roomType} viewerUserId={viewerUserId}>
               {item.preview}
             </MessengerChatListTypingPreview>
           </p>
