@@ -925,6 +925,29 @@ public final class NativeVoiceCallRuntime {
     return decision;
   }
 
+  /**
+   * §2-3 불변식 — 수신 벨 중 ◁ 로 수신 화면만 내리고 앱으로 갔을 때(화면은 파괴되지 않음 → SURFACE_LOST 아님).
+   * 수신 화면이 보일 때 지운 수신 알림(받기·거절)을 다시 올린다. 벨·부재중 30초 타이머·통화 상태는 그대로.
+   * 근거: 실기 FAIL 2026-11-18 02:04 PHT (docs/audit/android-system-nav-2026-11-17/incoming-back-return-path-plan.md).
+   */
+  public static boolean ensureIncomingReturnPathAfterLeave(Context context, String callId, String source) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return false;
+    Context app = context.getApplicationContext();
+    String sid = callId.trim();
+    Session session = SESSIONS.get(sid);
+    if (session == null || session.initiator || session.state != State.RINGING) {
+      NativeVoiceCallLog.info(
+          "incoming_leave_return_path_skipped",
+          sid,
+          "source=" + safe(source) + " state=" + (session == null ? "none" : session.state + " initiator=" + session.initiator));
+      return false;
+    }
+    NativeVoiceCallNotification.dismiss(app, sid);
+    NativeVoiceCallNotification.showIncoming(app, session);
+    NativeVoiceCallLog.info("incoming_leave_return_path", sid, "returnPath=incoming_notification source=" + safe(source));
+    return true;
+  }
+
   /** §2-3 불변식: 살아 있는 통화에는 사용자가 돌아가 끊을 수단이 항상 있어야 한다. */
   private static void ensureReturnPathAfterSurfaceLost(Context app, Session session) {
     if (app == null || session == null) return;
