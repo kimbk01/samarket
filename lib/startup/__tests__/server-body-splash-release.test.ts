@@ -108,3 +108,85 @@ describe("releaseNativeSplashAtServerBodyFrame", () => {
     expect(bridge.dismissSplash).toHaveBeenCalledTimes(1);
   });
 });
+
+/** 설계 H (Owner 「Approve design H」 2026-11-18 · 문서 §11·§12) */
+describe("H1·H2 — 서버 본문 프레임 표시가 있으면 FCP·다음 프레임 없이 즉시 새 해제", () => {
+  type MarkWin = { __DIBAY_SERVER_BODY_FRAME__?: boolean; __dibayServerBodyFrame?: () => void };
+  async function loadPainted(path: string, body: string) {
+    const r = await load(path, body);
+    const painted = vi.fn();
+    (window as unknown as { DibayBootBridge: Bridge & { dismissSplashPainted: () => void } }).DibayBootBridge.dismissSplashPainted =
+      painted;
+    return { ...r, painted };
+  }
+  afterEach(() => {
+    delete (window as unknown as MarkWin).__DIBAY_SERVER_BODY_FRAME__;
+    delete (window as unknown as MarkWin).__dibayServerBodyFrame;
+  });
+
+  it("표시가 이미 있으면 FCP 가 없어도 즉시 새 해제 1회 · 기존 해제는 부르지 않음 · 화면 준비 뒤 다시 부르지 않음", async () => {
+    fcp.painted = false;
+    vi.stubGlobal("requestAnimationFrame", () => 0); // 다음 프레임이 오지 않는 상황(hydration 스크립트 연속 실행)
+    (window as unknown as MarkWin).__DIBAY_SERVER_BODY_FRAME__ = true;
+    const { mod, bridge, painted } = await loadPainted("/home", SERVER_BODY);
+    mod.releaseNativeSplashAtServerBodyFrame();
+    expect(painted).toHaveBeenCalledTimes(1);
+    expect(bridge.dismissSplash).not.toHaveBeenCalled();
+    mod.tryDismissNativeSplash("initialDestinationVisualReady");
+    expect(painted).toHaveBeenCalledTimes(1);
+    expect(bridge.dismissSplash).not.toHaveBeenCalled();
+    expect(mod.getAppReadySnapshot()).toBe(true);
+  });
+
+  it("표시가 아직 없으면 기다렸다가 표시가 생길 때 새 해제", async () => {
+    fcp.painted = false;
+    vi.stubGlobal("requestAnimationFrame", () => 0);
+    const { mod, bridge, painted } = await loadPainted("/home", SERVER_BODY);
+    mod.releaseNativeSplashAtServerBodyFrame();
+    expect(painted).not.toHaveBeenCalled();
+    (window as unknown as MarkWin).__DIBAY_SERVER_BODY_FRAME__ = true;
+    (window as unknown as MarkWin).__dibayServerBodyFrame?.();
+    expect(painted).toHaveBeenCalledTimes(1);
+    expect(bridge.dismissSplash).not.toHaveBeenCalled();
+  });
+
+  it("회색 줄 본문 · 인트로 문서면 새 해제도 하지 않음", async () => {
+    (window as unknown as MarkWin).__DIBAY_SERVER_BODY_FRAME__ = true;
+    const a = await loadPainted("/home", SKELETON);
+    a.mod.releaseNativeSplashAtServerBodyFrame();
+    expect(a.painted).not.toHaveBeenCalled();
+    destination.value = "intro";
+    const b = await loadPainted("/home", SERVER_BODY);
+    b.mod.releaseNativeSplashAtServerBodyFrame();
+    expect(b.painted).not.toHaveBeenCalled();
+  });
+
+  it("새 해제가 없는 설치 앱(≤70)은 표시가 있어도 FCP 경로 그대로", async () => {
+    (window as unknown as MarkWin).__DIBAY_SERVER_BODY_FRAME__ = true;
+    const { mod, bridge } = await load("/home", SERVER_BODY);
+    mod.releaseNativeSplashAtServerBodyFrame();
+    expect(bridge.dismissSplash).toHaveBeenCalledTimes(1);
+  });
+
+  it("H1 인라인 스크립트: 새 해제가 있는 앱에서만 프레임 2번 뒤 표시 + 등록된 함수 호출", async () => {
+    const { SERVER_BODY_FRAME_MARK_SCRIPT } = await import("@/lib/startup/server-body-frame-mark");
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    const w = window as unknown as MarkWin & { DibayBootBridge?: Record<string, unknown> };
+    w.DibayBootBridge = { dismissSplash: vi.fn() };
+    new Function(SERVER_BODY_FRAME_MARK_SCRIPT)();
+    expect(frames.length).toBe(0); // 구 설치 앱 — 무동작
+    const listener = vi.fn();
+    w.__dibayServerBodyFrame = listener;
+    w.DibayBootBridge = { dismissSplash: vi.fn(), dismissSplashPainted: vi.fn() };
+    new Function(SERVER_BODY_FRAME_MARK_SCRIPT)();
+    frames.shift()?.(0);
+    expect(w.__DIBAY_SERVER_BODY_FRAME__).toBeUndefined();
+    frames.shift()?.(0);
+    expect(w.__DIBAY_SERVER_BODY_FRAME__).toBe(true);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+});

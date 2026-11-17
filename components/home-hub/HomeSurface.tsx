@@ -3,6 +3,7 @@ import { loadHomeLayoutServerCached } from "@/lib/home/load-home-layout-server";
 import { loadHomeCatalogServerCached } from "@/lib/home/load-home-catalog-server";
 import { HomeAboveFoldImagePreload } from "@/components/home-hub/HomeAboveFoldImagePreload";
 import { resolveHomeAboveFoldBannerImageUrls } from "@/lib/home/home-above-fold-preload";
+import { SERVER_BODY_FRAME_MARK_SCRIPT } from "@/lib/startup/server-body-frame-mark";
 
 /**
  * 앱 홈 단일 권한 — `/` · `/home` (Owner 「이대로 구현」 2026-11-09, 홈 시안 v22).
@@ -16,6 +17,8 @@ export async function HomeSurface() {
       {/* 앱 진입 실기 F3-b — 첫 화면 배너 그림 미리 받기 (서버 HTML) */}
       <HomeAboveFoldImagePreload urls={resolveHomeAboveFoldBannerImageUrls(config)} />
       <HomeScreen initialLayout={config} initialCatalog={catalog} />
+      {/* 설계 H1 — 서버 본문 뒤: 본문이 렌더러 프레임에 들어간 표시(Android 71~ 앱만 · hydration 스크립트보다 먼저) */}
+      <script dangerouslySetInnerHTML={{ __html: SERVER_BODY_FRAME_MARK_SCRIPT }} />
     </>
   );
 }

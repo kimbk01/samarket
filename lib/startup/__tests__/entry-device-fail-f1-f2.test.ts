@@ -90,3 +90,22 @@ describe("G1 — P3 는 앱 안 덮개가 있는 실행에도 쓴다 (§8·§9)"
     expect((main.match(/DibaySplashCover\.hide\(/g) ?? []).length).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe("H1·H3·H4 — 서버 본문 프레임 표시 · 네이티브 즉시 해제 · 덮개 값 정리 (§12)", () => {
+  it("홈 서버 화면 뒤에 표시 스크립트가 있다", () => {
+    const home = read("components/home-hub/HomeSurface.tsx");
+    expect(home).toContain("SERVER_BODY_FRAME_MARK_SCRIPT");
+    expect(home.indexOf("<HomeScreen")).toBeLessThan(home.indexOf("SERVER_BODY_FRAME_MARK_SCRIPT }}"));
+  });
+
+  it("Android: dismissSplashPainted 는 화면 커밋 콜백 없이 해제하고 덮개를 걷는다 · 덮개 값 문서 시작 스크립트는 없다", () => {
+    const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    expect(main).toContain("public void dismissSplashPainted()");
+    const fn = main.slice(main.indexOf("static void requestWebSplashDismissPainted"));
+    const body = fn.slice(0, fn.indexOf("\n  }\n"));
+    expect(body).not.toContain("postVisualStateCallback");
+    expect(body).toContain('DibaySplashCover.hide("web_painted")');
+    expect(main).not.toContain("__DIBAY_NATIVE_SPLASH_COVER__");
+    expect(read("android/app/src/main/java/com/dibay/app/DibaySplashCover.java")).not.toContain("documentStartValue");
+  });
+});
