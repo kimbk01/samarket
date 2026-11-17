@@ -384,3 +384,9 @@ Admin Intro ON/OFF = 기존 Live `active|paused|unpublished` + cache — **CMS �
 - §6-3 이행: restore / Safe Entry 는 auth·약관·온보딩 경로(`/auth/*`, `/login`, `/signup`, `/onboarding/*`)로 부팅된 문서를 **덮지 않는다** (`isLifecycleAuthSurfacePath`). 근거: 약관 화면이 `doc_reset` 으로 `/philife` 에 덮여 미동의 상태로 남는 경로(감사 B1).
 - §4 accountKey 이행: 세션은 `@supabase/ssr` 쿠키에 있으므로 accountKey 는 쿠키의 user id 로 읽는다(이전엔 항상 `guest`).
 - 상세: `docs/dibay-first-entry-legal-consent-ssot.md`.
+
+## Amendment 2026-11-17 (진입 감사 1단계 · Owner 「설계안대로 진행」)
+
+- 근거: `docs/audit/intro-popup-entry-audit-2026-11-17.md` §2 OS-1·OS-2·OS-4 (샤오미 실측).
+- **OS-1 (Android)**: `MainActivity` 는 `SplashScreen.setOnExitAnimationListener` 를 등록하지 않는다. 등록하면 시스템이 시작 화면을 앱 창으로 넘겨주는데, UI 스레드가 웹 준비로 막혀 있으면 넘겨주기 제한(2초)까지 녹색 화면이 남았다(`Activity transferring splash screen timeout`).
+- **OS-2·OS-4 (웹)**: §6 「무한 로딩·흰 화면 금지」 이행 — 생명주기 이동(복원·Safe Entry)이 예정된 문서는 **시작 주소에서 시작 화면을 해제하지 않고**, 주소가 바뀐 뒤 그려진 화면에서 해제한다(`lib/startup/lifecycle-nav-hold.ts`). 이동하지 않기로 정해지면(의도 목적지·사용자 이동·같은 화면·조회 실패) 보류를 푼다. 주소가 바뀌었는데 목적지가 해제 신호를 보내지 않아도 두 프레임 뒤 해제한다. `/` 와 `/home` 은 같은 앱 홈이라 이동하지 않는다. 타이머 없음.
