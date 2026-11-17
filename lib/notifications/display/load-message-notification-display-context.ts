@@ -60,45 +60,55 @@ async function loadMessageRow(
   };
 }
 
-async function loadRoomContext(
-  sb: SupabaseClient<any>,
-  roomId: string,
-  roomKind: NotificationMessageRoomKind,
-  language: Awaited<ReturnType<typeof loadNotificationUserLanguage>>
-): Promise<{
+type CmRoomRowForNotify = {
+  title?: string | null;
+  room_type?: string | null;
+  direct_key?: string | null;
+  summary?: string | null;
+  chat_domain?: string | null;
+  domain_identity_key?: string | null;
+  domain_identity?: string | null;
+};
+
+type RoomContext = {
   name: string | null;
   contextLabel: string | null;
   roomType: string | null;
   directKey: string | null;
   chatDomain: string | null;
   domainIdentityKey: string | null;
-}> {
-  const id = roomId.trim();
-  if (!id) {
-    return {
-      name: null,
-      contextLabel: null,
-      roomType: null,
-      directKey: null,
-      chatDomain: null,
-      domainIdentityKey: null,
-    };
-  }
+};
 
+const EMPTY_ROOM_CONTEXT: RoomContext = {
+  name: null,
+  contextLabel: null,
+  roomType: null,
+  directKey: null,
+  chatDomain: null,
+  domainIdentityKey: null,
+};
+
+async function loadCmRoomRowForNotify(sb: SupabaseClient<any>, roomId: string): Promise<CmRoomRowForNotify | null> {
+  const id = roomId.trim();
+  if (!id) return null;
   const { data: cmRoom } = await sb
     .from("community_messenger_rooms")
     .select("title, room_type, direct_key, summary, chat_domain, domain_identity_key, domain_identity")
     .eq("id", id)
     .maybeSingle();
-  const row = cmRoom as {
-    title?: string | null;
-    room_type?: string | null;
-    direct_key?: string | null;
-    summary?: string | null;
-    chat_domain?: string | null;
-    domain_identity_key?: string | null;
-    domain_identity?: string | null;
-  } | null;
+  return (cmRoom as CmRoomRowForNotify | null) ?? null;
+}
+
+/** 방 행(있으면) → 표시 맥락. 행이 같으면 roomKind 에 따라 이름(그룹 대체 이름)만 달라지는 순수 변환. */
+async function roomContextFromRow(
+  sb: SupabaseClient<any>,
+  roomId: string,
+  row: CmRoomRowForNotify | null,
+  roomKind: NotificationMessageRoomKind,
+  language: Awaited<ReturnType<typeof loadNotificationUserLanguage>>
+): Promise<RoomContext> {
+  const id = roomId.trim();
+  if (!id) return EMPTY_ROOM_CONTEXT;
 
   if (row) {
     const meta = parseCommunityMessengerRoomContextMeta(row.summary);
@@ -149,14 +159,17 @@ async function loadRoomContext(
     }
   }
 
-  return {
-    name: null,
-    contextLabel: null,
-    roomType: null,
-    directKey: null,
-    chatDomain: null,
-    domainIdentityKey: null,
-  };
+  return EMPTY_ROOM_CONTEXT;
+}
+
+async function loadRoomContext(
+  sb: SupabaseClient<any>,
+  roomId: string,
+  roomKind: NotificationMessageRoomKind,
+  language: Awaited<ReturnType<typeof loadNotificationUserLanguage>>
+): Promise<RoomContext> {
+  const row = await loadCmRoomRowForNotify(sb, roomId);
+  return roomContextFromRow(sb, roomId, row, roomKind, language);
 }
 
 async function loadChatPreviewEnabledByUserIds(
@@ -211,6 +224,54 @@ export async function loadMessageNotificationDisplaySharedContext(
     directKey?: string | null;
   }
 ): Promise<MessageNotificationDisplaySharedContext> {
+  /**
+   * P2: `trade_legacy` 가 아니면 메시지 행은 항상 `community_messenger_messages`(resolvedRoomKind 가 trade_legacy 로
+   * 바뀌는 경우는 입력 roomKind 가 trade_legacy 일 때뿐) → 방 행·보낸 사람·메시지·미리보기 설정을 **1왕복**으로 읽고,
+   * 방 맥락은 같은 방 행을 resolvedRoomKind 로 다시 변환한다(이전: 방 행을 순차 1회 + 병렬 1회 = 2왕복, 결과 동일).
+   */
+  if (input.roomKind !== "trade_legacy") {
+    const [roomRow, { data: senderRowFast }, messageRowFast, chatPreviewFast] = await Promise.all([
+      loadCmRoomRowForNotify(sb, input.roomId),
+      sb
+        .from("profiles")
+        .select(`${MEMBER_IDENTITY_PROFILE_SELECT}`)
+        .eq("id", input.senderUserId.trim())
+        .maybeSingle(),
+      loadMessageRow(sb, input.messageId, input.roomKind ?? "direct"),
+      loadChatPreviewEnabledByUserIds(sb, input.recipientUserIds),
+    ]);
+    const bootstrapRoomFast = await roomContextFromRow(sb, input.roomId, roomRow, input.roomKind ?? "direct", "ko");
+    const resolvedRoomKindFast = resolveEffectiveRoomKind({
+      roomKind: input.roomKind,
+      directKey: input.directKey ?? bootstrapRoomFast.directKey,
+      roomType: bootstrapRoomFast.roomType,
+      chatDomain: bootstrapRoomFast.chatDomain,
+    });
+    const roomFast =
+      resolvedRoomKindFast === (input.roomKind ?? "direct")
+        ? bootstrapRoomFast
+        : await roomContextFromRow(sb, input.roomId, roomRow, resolvedRoomKindFast, "ko");
+    const senderProfileFast = senderRowFast as MemberIdentityProfileFields | null;
+    return {
+      resolvedRoomKind: resolvedRoomKindFast,
+      messageType: messageRowFast.messageType,
+      textContent: messageRowFast.textContent ?? (trimText(input.preview) || null),
+      sender: {
+        displayName:
+          resolveSenderDisplayName(senderProfileFast) ||
+          notifySafeT("ko", "notify_peer_fallback"),
+        avatarUrl: trimText(senderProfileFast?.avatar_url) || null,
+      },
+      room: {
+        name: roomFast.name,
+        contextLabel: roomFast.contextLabel,
+      },
+      chatPreviewByUserId: chatPreviewFast,
+      chatDomain: roomFast.chatDomain ?? bootstrapRoomFast.chatDomain,
+      domainIdentityKey: roomFast.domainIdentityKey ?? bootstrapRoomFast.domainIdentityKey,
+    };
+  }
+
   const bootstrapRoom = await loadRoomContext(sb, input.roomId, input.roomKind ?? "direct", "ko");
   const resolvedRoomKind = resolveEffectiveRoomKind({
     roomKind: input.roomKind,
@@ -255,7 +316,9 @@ export async function loadMessageNotificationDisplaySharedContext(
 export async function buildRecipientMessageNotificationDisplay(
   sb: SupabaseClient<any>,
   input: BuildRecipientMessageNotificationDisplayInput,
-  shared?: MessageNotificationDisplaySharedContext
+  shared?: MessageNotificationDisplaySharedContext,
+  /** P2: 호출부가 다른 판정과 병렬로 미리 읽은 수신자 언어(없으면 여기서 읽음 — 기존 동작) */
+  preloadedLanguage?: Awaited<ReturnType<typeof loadNotificationUserLanguage>>
 ): Promise<MessageNotificationDisplayPayload> {
   const ctx =
     shared ??
@@ -268,7 +331,7 @@ export async function buildRecipientMessageNotificationDisplay(
       roomKind: input.roomKind,
       directKey: input.directKey,
     }));
-  const language = await loadNotificationUserLanguage(sb, input.recipientUserId);
+  const language = preloadedLanguage ?? (await loadNotificationUserLanguage(sb, input.recipientUserId));
   const chatPreviewEnabled = ctx.chatPreviewByUserId.get(input.recipientUserId.trim()) !== false;
 
   return buildMessageNotificationDisplay({

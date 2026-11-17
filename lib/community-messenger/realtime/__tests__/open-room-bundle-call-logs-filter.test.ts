@@ -108,7 +108,9 @@ describe("CUT-R1 call_logs single-owner (Home → open-room fanout)", () => {
     const roomId = "c202326f-8109-4ce4-aa61-394f0a799e7d";
     await bindOpenRoom(viewer, roomId);
 
-    expect(channelNames).toEqual([`global-messenger:bundle:${viewer}:0`]);
+    expect(channelNames).toHaveLength(1);
+    /** P2 X4: 바인드 세대 접미 `:g<n>` */
+    expect(channelNames[0]).toMatch(new RegExp(`^global-messenger:bundle:${viewer}:0:g\\d+$`));
 
     const callLogOns = onCalls.filter(
       (c) => c.event === "postgres_changes" && c.opts.table === "community_messenger_call_logs"

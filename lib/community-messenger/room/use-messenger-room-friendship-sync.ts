@@ -24,6 +24,10 @@ import {
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
+import {
+  releaseMessengerChannel,
+  whenMessengerTopicFree,
+} from "@/lib/community-messenger/realtime/messenger-channel-topic-lease";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 /** general pair direct_key — legacy contextMeta.trade 잔재여도 friendship RT·refresh 유지 */
@@ -77,6 +81,9 @@ export function useMessengerRoomFriendshipSync({
   );
   /** §17-5 R-4: 관계 값 다시 받기 — 아래 effect 가 채우고, 친구 실시간 신호도 같은 함수를 부른다. */
   const syncPeerRelationRef = useRef<(() => void) | null>(null);
+  /** X4: refresh 식별자 변화로 채널을 재구독하지 않도록 ref 경유(구독 대상·처리 함수는 그대로) */
+  const refreshRef = useRef<RefreshFn>(refresh);
+  refreshRef.current = refresh;
 
   useEffect(() => {
     const rid = String(roomId ?? "").trim();
@@ -160,7 +167,7 @@ export function useMessengerRoomFriendshipSync({
         debounceTimer = null;
         /** silent refresh 는 관계 값을 다시 받지 않는다(§17-5) — ③ 친구·차단 실시간 신호도 관계 값을 다시 받는다 */
         syncPeerRelationRef.current?.();
-        void refresh(true, { triggerReason: "friendship_sync" });
+        void refreshRef.current(true, { triggerReason: "friendship_sync" });
       }, 180);
     };
 
@@ -171,13 +178,17 @@ export function useMessengerRoomFriendshipSync({
     };
 
     /** F-9 — Contact SSOT user_social_relations (owner=viewer). Legacy friendships table 구독 제거. */
-    const channel = sb
-      ? sb
-          .channel(
-            /** 비공개 채널 허용 토픽 `cm-room-friendship:<viewer>:…` (구 이름 cm-room-social-relation 은 거부됨 — D-14) */
-            `cm-room-friendship:${viewerUserId}:${peerUserId}`,
-            messengerPrivateBroadcastChannelOptions()
-          )
+    /** 비공개 채널 허용 토픽 `cm-room-friendship:<viewer>:…` (구 이름 cm-room-social-relation 은 거부됨 — D-14) */
+    const topic = `cm-room-friendship:${viewerUserId}:${peerUserId}`;
+    let alive = true;
+    let channel: ReturnType<NonNullable<typeof sb>["channel"]> | null = null;
+    if (sb) {
+      /** X4: 같은 토픽 이전 채널 제거 완료 뒤 생성 */
+      void (async () => {
+        await whenMessengerTopicFree(sb, topic);
+        if (!alive) return;
+        channel = sb
+          .channel(topic, messengerPrivateBroadcastChannelOptions())
           .on(
             "postgres_changes",
             {
@@ -191,8 +202,9 @@ export function useMessengerRoomFriendshipSync({
               if (row) onSocialRelationPayload(row, payload.eventType);
             }
           )
-          .subscribe()
-      : null;
+          .subscribe();
+      })();
+    }
 
     const unsubBus = onCommunityMessengerBusEvent((ev) => {
       if (ev.type === "cm.home.social_sync") scheduleRefresh(false);
@@ -201,16 +213,11 @@ export function useMessengerRoomFriendshipSync({
     return () => {
       if (debounceTimer != null) clearTimeout(debounceTimer);
       unsubBus();
-      if (sb && channel) {
-        try {
-          void sb.removeChannel(channel);
-        } catch {
-          /* ignore */
-        }
-      }
+      alive = false;
+      if (sb && channel) releaseMessengerChannel(sb, channel);
+      channel = null;
     };
   }, [
-    refresh,
     roomId,
     roomReadyForRealtime,
     setSnapshot,

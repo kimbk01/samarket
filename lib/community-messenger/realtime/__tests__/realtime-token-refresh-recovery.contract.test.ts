@@ -17,16 +17,16 @@ describe("T4 TOKEN_REFRESHED realtime recovery", () => {
     expect(src).toContain("realtime.setAuth");
   });
 
-  it("home, room bundle, and read-ack resubscribe on the token refresh event", () => {
+  it("home, room bundle, and read-ack do NOT resubscribe on token refresh (setAuth propagates — P2 X4)", () => {
     const home = read("lib/community-messenger/use-community-messenger-realtime.ts");
     const bundle = read("lib/community-messenger/realtime/global-messenger-room-bundle-channel.ts");
     const readAck = read("lib/community-messenger/realtime/cm-read-ack-broadcast-client.ts");
-    expect(home).toContain("subscribeSamarketRealtimeTokenRefreshed");
-    expect(home).toContain("token_refresh_rebind");
-    expect(bundle).toContain("subscribeSamarketRealtimeTokenRefreshed");
-    expect(bundle).toContain('lastBoundRoomIdsKey = ""');
-    expect(readAck).toContain("subscribeSamarketRealtimeTokenRefreshed");
-    expect(readAck).toContain("subscribeReadAckChannel");
+    for (const src of [home, bundle, readAck]) {
+      expect(src).not.toContain("subscribeSamarketRealtimeTokenRefreshed");
+    }
+    expect(home).not.toContain("token_refresh_rebind");
+    /** 가입 채널은 realtime-js 가 access_token push + join payload 갱신 — 앱은 setAuth 만 호출 */
+    expect(read("lib/supabase/client.ts")).toContain("realtime.setAuth");
   });
 
   it("token refresh event helpers exist and never log access_token", () => {

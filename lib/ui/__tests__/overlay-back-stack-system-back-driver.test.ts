@@ -91,4 +91,17 @@ describe("overlay-back-stack 기본 driver (S1)", () => {
     expect(m.sysRemove).toHaveBeenCalledTimes(1);
     expect(m.sys.setActive).not.toHaveBeenCalled();
   });
+
+  it("P5 페이지 뒤로 주인: 등록 동안만 받기를 켜고 해제하면 끈다(리스너 1개)", async () => {
+    const m = setup(true);
+    const stack = await import("@/lib/ui/overlay-back-stack");
+    const release = stack.setPageBackOwner(() => {});
+    await flush();
+    expect(m.sys.addListener).toHaveBeenCalledTimes(1);
+    expect(m.sys.setActive).toHaveBeenLastCalledWith({ active: true });
+    release();
+    await flush();
+    expect(m.sysRemove).toHaveBeenCalledTimes(1);
+    expect(m.sys.setActive).toHaveBeenLastCalledWith({ active: false });
+  });
 });

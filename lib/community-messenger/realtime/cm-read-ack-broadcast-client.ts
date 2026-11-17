@@ -20,11 +20,20 @@ import {
   messengerPrivateBroadcastChannelOptions,
 } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { subscribeSamarketRealtimeTokenRefreshed } from "@/lib/supabase/realtime-auth-events";
+import {
+  releaseMessengerChannel,
+  whenMessengerTopicFree,
+} from "@/lib/community-messenger/realtime/messenger-channel-topic-lease";
 
 export { CM_READ_ACK_BROADCAST_EVENT, communityMessengerReadAckChannelName };
 
 type ReadAckEntry = { refcount: number; stop: () => void };
+
+/** read-ack 재구독 백오프 — 1s → 2s → 5s → 10s(상한). realtime-js rejoin 간격과 같은 단계 */
+export function readAckResubscribeDelayMs(attempt: number): number {
+  const steps = [1_000, 2_000, 5_000, 10_000];
+  return steps[Math.min(Math.max(0, Math.floor(attempt)), steps.length - 1)]!;
+}
 const readAckEntries = new Map<string, ReadAckEntry>();
 
 function subscribeCmReadAckBroadcast(viewerUserId: string, subscribeRoomId: string): () => void {
@@ -70,21 +79,70 @@ function subscribeCmReadAckBroadcast(viewerUserId: string, subscribeRoomId: stri
     });
   };
 
+  const topic = communityMessengerReadAckChannelName(subscribeRoomId);
+  /**
+   * X4: 같은 토픽 이전 채널 제거 완료 뒤 생성(세대 번호로 취소 확인).
+   * 토큰 갱신 재구독은 하지 않는다 — supabase-js/`lib/supabase/client.ts` 의 `realtime.setAuth` 가
+   * 가입된 채널에 새 토큰을 보내고 join payload 도 갱신한다(재구독이 오히려 채널을 죽였음).
+   */
+  /**
+   * 안전망(토큰 갱신 재구독 삭제 뒤): 서버가 채널을 닫거나(CLOSED) 가입 실패(CHANNEL_ERROR·TIMED_OUT)가
+   * 회복되지 않으면 같은 세대일 때만 백오프 뒤 다시 구독한다. realtime-js 의 rejoin 으로 이미 joined/joining 이면 건너뜀.
+   * 우리가 스스로 제거한 채널의 CLOSED 는 세대가 바뀌었거나 cancelled 라 무시된다.
+   */
+  let recoveryAttempt = 0;
+  let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  const clearRecoveryTimer = () => {
+    if (recoveryTimer != null) {
+      clearTimeout(recoveryTimer);
+      recoveryTimer = null;
+    }
+  };
+  const scheduleRecovery = (bindGen: number) => {
+    if (cancelled || bindGen !== readAckGeneration || recoveryTimer != null) return;
+    const delay = readAckResubscribeDelayMs(recoveryAttempt);
+    recoveryAttempt += 1;
+    recoveryTimer = setTimeout(() => {
+      recoveryTimer = null;
+      if (cancelled || bindGen !== readAckGeneration) return;
+      const state = ch ? String((ch as { state?: unknown }).state ?? "") : "";
+      if (state === "joined" || state === "joining") return;
+      subscribeReadAckChannel();
+    }, delay);
+  };
+
   const subscribeReadAckChannel = () => {
     if (cancelled) return;
     const bindGen = ++readAckGeneration;
+    clearRecoveryTimer();
     if (ch) {
-      try {
-        void sb.removeChannel(ch);
-      } catch {
-        /* ignore */
-      }
+      releaseMessengerChannel(sb, ch);
       ch = null;
     }
-    ch = sb
-      .channel(communityMessengerReadAckChannelName(subscribeRoomId), messengerPrivateBroadcastChannelOptions())
-      .on("broadcast", { event: CM_READ_ACK_BROADCAST_EVENT }, (msg) => onBroadcast(msg, bindGen))
-      .subscribe(createMessengerPrivateChannelStatusHandler({ sb, scope: "read_ack" }));
+    void (async () => {
+      await whenMessengerTopicFree(sb, topic);
+      if (cancelled || bindGen !== readAckGeneration) return;
+      ch = sb
+        .channel(topic, messengerPrivateBroadcastChannelOptions())
+        .on("broadcast", { event: CM_READ_ACK_BROADCAST_EVENT }, (msg) => onBroadcast(msg, bindGen))
+        .subscribe(
+          createMessengerPrivateChannelStatusHandler({
+            sb,
+            scope: "read_ack",
+            onStatus: (status) => {
+              if (cancelled || bindGen !== readAckGeneration) return;
+              if (status === "SUBSCRIBED") {
+                recoveryAttempt = 0;
+                clearRecoveryTimer();
+                return;
+              }
+              if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+                scheduleRecovery(bindGen);
+              }
+            },
+          })
+        );
+    })();
   };
 
   const bridgeCleanup = createRealtimeAuthBridge({
@@ -93,21 +151,12 @@ function subscribeCmReadAckBroadcast(viewerUserId: string, subscribeRoomId: stri
     onReady: subscribeReadAckChannel,
   });
 
-  const unsubscribeTokenRefresh = subscribeSamarketRealtimeTokenRefreshed(() => {
-    if (cancelled) return;
-    subscribeReadAckChannel();
-  });
-
   return () => {
     cancelled = true;
-    unsubscribeTokenRefresh();
+    clearRecoveryTimer();
     bridgeCleanup();
     if (ch) {
-      try {
-        void sb.removeChannel(ch);
-      } catch {
-        /* ignore */
-      }
+      releaseMessengerChannel(sb, ch);
       ch = null;
     }
   };

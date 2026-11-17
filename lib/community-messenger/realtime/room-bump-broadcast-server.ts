@@ -41,6 +41,11 @@ export async function publishCommunityMessengerRoomBumpFromServer(args: {
   /** Soft-delete: hub list remove (no message tip) */
   listAction?: "remove" | null;
   reason?: "group_deleted" | null;
+  /**
+   * P2 (Owner 2026-11-18): 메시지 행 영구 삭제(음성 삭제) — 수신 측은 `messageId` 행을 로컬에서 제거하고
+   * 단건 GET(404 재시도)을 하지 않는다. 선택 필드(v2 그대로) — 구 클라이언트는 모르는 키를 무시(기존 경로로 정합).
+   */
+  messageAction?: "hard_deleted" | null;
 }): Promise<void> {
   const channelKey = args.channelRoomId.trim();
   const canonicalRoomId = args.canonicalRoomId.trim();
@@ -63,6 +68,9 @@ export async function publishCommunityMessengerRoomBumpFromServer(args: {
   }
   if (args.reason === "group_deleted") {
     payload.reason = "group_deleted";
+  }
+  if (args.messageAction === "hard_deleted") {
+    payload.messageAction = "hard_deleted";
   }
   if (rawTagged && rawTagged.toLowerCase() !== canonicalRoomId.toLowerCase()) {
     payload.rawRouteRoomId = rawTagged;

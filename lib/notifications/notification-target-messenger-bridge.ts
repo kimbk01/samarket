@@ -9,6 +9,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildTradeTargetId } from "@/lib/notifications/badge-target-policy";
+import { runWithConcurrencyLimit } from "@/lib/shared/run-with-concurrency-limit";
 import {
   bumpChatRoomTargetFromMessengerParticipant,
   bumpNotificationTarget,
@@ -344,4 +345,134 @@ export async function bumpTradeTargetForMessengerRoomRecipients(
       _t5: opts._t5,
     });
   }
+}
+
+/** P2: 텍스트 전송 경로 전용 target bump 동시 실행 상한(큰 그룹에서 PostgREST 동시성 폭주 방지) */
+export const MESSENGER_TARGET_BUMP_PARALLEL_CONCURRENCY = 8;
+
+export type MessengerRoomTargetBumpParallelResult = {
+  roomType: string;
+  kind: MessengerRoomBadgeKind;
+  directKey: string | null;
+  recipientIds: string[];
+};
+
+/**
+ * P2 — `POST /rooms/[roomId]/messages`(텍스트) 전용 병렬 target bump.
+ *
+ * 기존 `bumpMessengerRoomTargetsForRecipients`(통화 기록 bump 경로 `publish-messenger-room-bump.ts` 가 공유)는
+ * 그대로 두고 이 함수만 텍스트 route 가 쓴다(통화 무접촉 I7).
+ *
+ * 기존과 같은 것: 수신자 집합 판정(그룹 = 활성 그룹 수신자), 종류별 target(trade/delivery/general·group),
+ * 같은 upsert RPC·같은 인자. 수신자마다 다른 행(user_id)이라 순서 무관.
+ * 다른 것: ① 수신자끼리 동시 실행(상한 8) ② 거래 방은 `product_chats` 를 1회만 읽음
+ * ③ 비그룹 분기에서 나간 참가자(`left_at`)는 제외(B8 — 나간 사람 배지 bump 결함).
+ * 한 수신자 실패가 다른 수신자 bump 를 멈추지 않는다.
+ */
+export async function bumpMessengerRoomTargetsForRecipientsParallel(
+  sb: SupabaseClient<any>,
+  opts: {
+    roomId: string;
+    fromUserId: string;
+    _t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace;
+  }
+): Promise<MessengerRoomTargetBumpParallelResult | null> {
+  const roomId = opts.roomId.trim();
+  const fromUserId = opts.fromUserId.trim();
+  if (!roomId || !fromUserId) return null;
+  const t5 = opts._t5;
+  let spanT5:
+    | ((
+        trace: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace,
+        name: string,
+        startedAtWall: number
+      ) => number)
+    | null = null;
+  if (t5) {
+    spanT5 = (await import("@/lib/community-messenger/monitoring/t5-send-stage-trace")).spanT5;
+  }
+
+  const parallelT0 = performance.now();
+  const [{ data: roomRow }, { data: participants }, orderCtx] = await Promise.all([
+    sb.from("community_messenger_rooms").select("room_type, direct_key").eq("id", roomId).maybeSingle(),
+    sb.from("community_messenger_participants").select("user_id, left_at").eq("room_id", roomId),
+    loadStoreOrderRoomContext(sb, roomId),
+  ]);
+  if (t5 && spanT5) spanT5(t5, "TB_parallel_load_ms", parallelT0);
+
+  const row =
+    roomRow && typeof roomRow === "object" ? (roomRow as { room_type?: unknown; direct_key?: unknown }) : null;
+  const roomType = typeof row?.room_type === "string" ? row.room_type.trim() : "";
+  const directKey = typeof row?.direct_key === "string" ? row.direct_key.trim() || null : null;
+  const isGroupRoom = roomType === "private_group" || roomType === "open_group";
+  const kind = resolveMessengerRoomBadgeKind(orderCtx, directKey, roomType);
+
+  let recipientIds: string[];
+  if (isGroupRoom) {
+    const recipT0 = performance.now();
+    const { listActiveGroupRecipientUserIds } = await import(
+      "@/lib/community-messenger/group/group-active-membership-gate"
+    );
+    recipientIds =
+      (await listActiveGroupRecipientUserIds({
+        roomId,
+        excludeUserId: fromUserId,
+        roomType,
+        supabase: sb,
+      })) ?? [];
+    if (t5 && spanT5) spanT5(t5, "TB_group_recipients_ms", recipT0);
+  } else {
+    recipientIds = [];
+    for (const p of (participants ?? []) as Array<{ user_id?: unknown; left_at?: unknown }>) {
+      const uid = typeof p.user_id === "string" ? p.user_id.trim() : "";
+      if (!uid || uid === fromUserId) continue;
+      /** B8: 나간 참가자는 배지 bump 대상이 아니다(방 목록에 없는 방의 배지) */
+      if (typeof p.left_at === "string" && p.left_at.trim()) continue;
+      recipientIds.push(uid);
+    }
+  }
+
+  const writesT0 = performance.now();
+  if (kind === "trade") {
+    const { data: pc } = await sb
+      .from("product_chats")
+      .select("post_id, seller_id, buyer_id")
+      .eq("community_messenger_room_id", roomId)
+      .maybeSingle();
+    const pcRow =
+      pc && typeof pc === "object" ? (pc as { post_id?: unknown; seller_id?: unknown; buyer_id?: unknown }) : null;
+    const postId = typeof pcRow?.post_id === "string" ? pcRow.post_id.trim() : "";
+    const sellerId = typeof pcRow?.seller_id === "string" ? pcRow.seller_id.trim() : "";
+    const buyerId = typeof pcRow?.buyer_id === "string" ? pcRow.buyer_id.trim() : "";
+    if (postId && sellerId && buyerId) {
+      const targetId = buildTradeTargetId(postId, sellerId, buyerId);
+      await runWithConcurrencyLimit(recipientIds, MESSENGER_TARGET_BUMP_PARALLEL_CONCURRENCY, (uid) =>
+        bumpNotificationTarget(sb, {
+          userId: uid,
+          targetType: "trade",
+          targetId,
+          scope: "consumer",
+          actorUserId: fromUserId,
+          roomId,
+          _t5: t5,
+        })
+      );
+    }
+  } else if (kind === "delivery") {
+    await runWithConcurrencyLimit(recipientIds, MESSENGER_TARGET_BUMP_PARALLEL_CONCURRENCY, (uid) =>
+      bumpDeliveryTargetForRecipient(sb, { userId: uid, roomId, orderCtx, directKey })
+    );
+  } else {
+    await runWithConcurrencyLimit(recipientIds, MESSENGER_TARGET_BUMP_PARALLEL_CONCURRENCY, (uid) =>
+      bumpChatRoomTargetFromMessengerParticipant(sb, {
+        userId: uid,
+        roomId,
+        isOwnerOrderChat: false,
+        storeId: null,
+        _t5: t5,
+      })
+    );
+  }
+  if (t5 && spanT5) spanT5(t5, "TB_bump_writes_ms", writesT0);
+  return { roomType, kind, directKey, recipientIds };
 }

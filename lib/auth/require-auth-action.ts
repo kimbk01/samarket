@@ -150,6 +150,34 @@ async function ensureDevicePermissions(actionType: RequireAuthActionType): Promi
   return true;
 }
 
+/**
+ * P5 검토 2 (2026-11-18) — 하단 메신저 탭이 로그인 확인 중(loading·recovering)에 문지기 없이 먼저 이동한 경우,
+ * 확인이 끝난 뒤 `requireAuthAction` 과 **같은 회원 게이트**(가입 동의 → 프로필 완성)를 실행한다. 이동은 다시 하지 않는다.
+ * 비회원·확인 실패는 화면 게이트(CommunityMessengerGuestGate → GuestLoginRequiredPanel)가 맡으므로 로그인 시트를 띄우지 않는다.
+ */
+export async function enforceAuthGatesAfterDeferredNavigation(
+  actionType: RequireAuthActionType,
+  options: { next?: string } = {},
+): Promise<void> {
+  const next = options.next?.trim() || currentHrefFallback();
+  const health = await ensureSessionHealthy(`deferredGate:${actionType}`);
+  if (!health.ok) {
+    console.info("[requireAuthAction] deferred_gate_skip", { actionType, reason: "not_authenticated", phase: health.phase });
+    return;
+  }
+  const profile = await resolveClientProfile();
+  if (!profile?.id) return;
+  if (!isClientSignupComplete(profile)) {
+    console.info("[requireAuthAction] denied", { actionType, reason: "consent", deferred: true });
+    if (typeof window !== "undefined") window.location.assign(buildConsentHrefForAction(next));
+    return;
+  }
+  const profileActionType = toProfileActionType(actionType);
+  if (!profileActionType) return;
+  const ok = await requireProfileCompletionClient(profile, profileActionType, { next });
+  if (!ok) console.info("[requireAuthAction] denied", { actionType, reason: "profile", deferred: true });
+}
+
 export async function requireAuthAction(
   actionType: RequireAuthActionType,
   nextAction: PendingAction,
@@ -169,6 +197,7 @@ export async function requireAuthAction(
           actionType,
           phase: health.phase,
         });
+        console.info("[requireAuthAction] denied", { actionType, reason: "auth_resolution_hold" });
         return false;
       }
     }
@@ -179,10 +208,12 @@ export async function requireAuthAction(
       await requireAuthAction(actionType, nextAction, options);
     });
     openLoginRequiredSheet({ actionType, next, token });
+    console.info("[requireAuthAction] denied", { actionType, reason: "login_sheet" });
     return false;
   }
 
   if (!isClientSignupComplete(profile)) {
+    console.info("[requireAuthAction] denied", { actionType, reason: "consent" });
     if (typeof window !== "undefined") {
       window.location.assign(buildConsentHrefForAction(next));
     }
@@ -196,7 +227,10 @@ export async function requireAuthAction(
       await requireAuthAction(actionType, nextAction, options);
     });
     const ok = await requireProfileCompletionClient(profile, profileActionType, { next, token });
-    if (!ok) return false;
+    if (!ok) {
+      console.info("[requireAuthAction] denied", { actionType, reason: "profile" });
+      return false;
+    }
     pendingActions.delete(token);
   }
 

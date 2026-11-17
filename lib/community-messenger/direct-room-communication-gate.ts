@@ -173,6 +173,12 @@ export async function assertDirectRoomCommunicationNotBlocked(input: {
   const { shouldApplyCommunityDirectSocialBlockGate } = await import(
     "@/lib/community-messenger/server/community-direct-social-block-gate"
   );
+  /**
+   * P2 (B3): 도메인 증거(3쿼리)와 상대 판정(2쿼리)은 둘 다 roomId 만 필요 → 동시에 시작(1왕복).
+   * 소셜 차단 게이트 비대상(거래·주문)이면 상대 판정 결과는 버린다(읽기만 — 결과 동일).
+   */
+  const peerPromise = resolveDirectRoomPeer(roomId, viewer, sb, input._t5);
+  peerPromise.catch(() => undefined);
   let domainEvidence = input.domainEvidence;
   if (!domainEvidence) {
     const [{ data: room }, { data: pc }, { data: so }] = await Promise.all([
@@ -206,7 +212,7 @@ export async function assertDirectRoomCommunicationNotBlocked(input: {
     return { ok: true, peerUserId: null };
   }
 
-  const { peerUserId, peerParticipating } = await resolveDirectRoomPeer(roomId, viewer, sb, input._t5);
+  const { peerUserId, peerParticipating } = await peerPromise;
   if (!peerUserId) return { ok: true, peerUserId: null };
 
   const blockTotalT0 = performance.now();
@@ -224,7 +230,13 @@ export async function assertDirectRoomCommunicationNotBlocked(input: {
     queryMs: 0,
     transformMs: 0,
   };
-  const { fetchBlockedPairFromSb } = await import("@/lib/social/user-block-ssot");
+  const [{ fetchBlockedPairFromSb }, { fetchFriendRequestRejectedByPeer }] = await Promise.all([
+    import("@/lib/social/user-block-ssot"),
+    import("@/lib/community-messenger/social-relations"),
+  ]);
+  /** P2 (B3): 차단·거절 조회를 동시에(1왕복). 평가는 기존 순서 — 차단 먼저, 그다음 거절(오류 우선순위 I6). */
+  const rejectedPromise = fetchFriendRequestRejectedByPeer(sb, viewer, peerUserId);
+  rejectedPromise.catch(() => undefined);
   const rel = await fetchBlockedPairFromSb(sb, viewer, peerUserId, timing);
   if (input._t5 && spanT5) {
     input._t5.spans.BG_block_query_ms = timing.queryMs;
@@ -234,8 +246,7 @@ export async function assertDirectRoomCommunicationNotBlocked(input: {
   if (rel.blockedEitherWay) {
     return { ok: false, error: "blocked_target", peerUserId };
   }
-  const { fetchFriendRequestRejectedByPeer } = await import("@/lib/community-messenger/social-relations");
-  if (await fetchFriendRequestRejectedByPeer(sb, viewer, peerUserId)) {
+  if (await rejectedPromise) {
     return { ok: false, error: "rejected_by_peer", peerUserId };
   }
   const { isMessengerGeneralFriendDirectKey } = await import("@/lib/community-messenger/messenger-room-domain");

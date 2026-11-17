@@ -6,35 +6,44 @@ const src = readFileSync(
   join(process.cwd(), "app/api/community-messenger/rooms/[roomId]/messages/route.ts"),
   "utf8"
 );
+const respondIdx = src.indexOf("let responsePayload");
 
-describe("CM message send Domain target bump before ACK", () => {
-  it("awaits bumpMessengerRoomTargetsForRecipients before after()", () => {
-    expect(src).toContain("bumpMessengerRoomTargetsForRecipients");
-    const syncBump = src.indexOf("await bumpMessengerRoomTargetsForRecipients");
-    const afterCall = src.indexOf("after(async () => {");
-    expect(syncBump).toBeGreaterThan(-1);
-    expect(afterCall).toBeGreaterThan(-1);
-    expect(syncBump).toBeLessThan(afterCall);
+describe("CM message send Domain target bump before ACK (P2 보수안)", () => {
+  it("awaits the parallel target bump (text route only) before ACK", () => {
+    expect(src).toContain("bumpMessengerRoomTargetsForRecipientsParallel(sb, {");
+    const awaitTarget = src.indexOf("await targetPromise");
+    expect(awaitTarget).toBeGreaterThan(-1);
+    expect(awaitTarget).toBeLessThan(respondIdx);
+    /** 통화 기록 bump 경로가 공유하는 기존 순차 함수는 텍스트 route 가 부르지 않는다(I7) */
+    expect(src).not.toMatch(/bumpMessengerRoomTargetsForRecipients\(/);
   });
 
-  it("awaits durable notification accept before after(); defers FCM+mirror to after()", () => {
-    const durable = src.indexOf("await runCommunityMessengerSendDurablePreAckEffects");
-    const afterCall = src.indexOf("after(async () => {");
-    expect(durable).toBeGreaterThan(-1);
-    expect(afterCall).toBeGreaterThan(-1);
-    expect(durable).toBeLessThan(afterCall);
-    const afterBlock = src.slice(afterCall);
-    expect(afterBlock).toContain("runCommunityMessengerSendDeferredPostAckEffects");
-    expect(afterBlock).not.toContain("runCommunityMessengerSendDurablePreAckEffects");
-    // Full sync bundle must not be the only path before ACK anymore.
+  it("awaits durable notification accept before ACK with opt-in parallel + deferred auto-read; FCM+mirror in after()", () => {
+    expect(src).toContain("runCommunityMessengerSendDurablePreAckEffects(sb, postAckEffects, t5 ?? undefined, {");
+    expect(src).toMatch(/parallelRecipients: true,\s*\n\s*deferAutoRead: true/);
+    const awaitDurable = src.indexOf("deferredPostAck = await durablePromise");
+    expect(awaitDurable).toBeGreaterThan(-1);
+    expect(awaitDurable).toBeLessThan(respondIdx);
+    const fcm = src.lastIndexOf("runCommunityMessengerSendDeferredPostAckEffects(sb, deferredPostAck");
+    expect(src.lastIndexOf("after(async () => {", fcm)).toBeGreaterThan(-1);
     expect(src.indexOf("await runCommunityMessengerSendPostAckEffects")).toBe(-1);
   });
 
-  it("keeps realtime publishMessengerRoomBumpAfterMutation in after() with skipBadgeTargetBump", () => {
-    const afterCall = src.indexOf("after(async () => {");
-    const publish = src.indexOf("publishMessengerRoomBumpAfterMutation", afterCall);
-    expect(publish).toBeGreaterThan(afterCall);
-    expect(src).toContain("skipBadgeTargetBump: true");
+  it("auto-read (markRoomRead) runs only after target bump completes", () => {
+    const awaitTarget = src.indexOf("await targetPromise");
+    const autoRead = src.indexOf("markRoomRead(sb, rid, canonicalRoomId)");
+    expect(autoRead).toBeGreaterThan(awaitTarget);
+    expect(autoRead).toBeLessThan(respondIdx);
+  });
+
+  it("room bump goes through publishTextSendRoomBump (fallback keeps skipBadgeTargetBump)", () => {
+    expect(src).toContain("publishTextSendRoomBump(bumpArgs)");
+    const textBumpSrc = readFileSync(
+      join(process.cwd(), "lib/community-messenger/server/publish-text-send-room-bump.ts"),
+      "utf8"
+    );
+    expect(textBumpSrc).toContain("publishMessengerRoomBumpAfterMutation({");
+    expect(textBumpSrc).toContain("skipBadgeTargetBump: true");
   });
 });
 
@@ -72,7 +81,6 @@ describe("Trade item_trade ledger mirror single authority (post-ack)", () => {
     expect(sendFn).toContain("itemTradeLedgerId");
     expect(sendFn).toContain("postAckEffects:");
     expect(sendFn).toContain("itemTradeChatRoomIdFromMessengerDirectKey");
-    // Exactly one mirror call site lives in deferred post-ack effects (not service).
     const mirrorCallsInPostAck = postAckSrc.split("mirrorCommunityMessengerTextToItemTradeLedger(").length - 1;
     expect(mirrorCallsInPostAck).toBe(1);
     expect(postAckSrc).toContain("if (effects.itemTradeLedgerId)");
@@ -80,11 +88,8 @@ describe("Trade item_trade ledger mirror single authority (post-ack)", () => {
     expect(postAckSrc).toContain("deferPush: true");
   });
 
-  it("message POST awaits durable pre-ack once; mirror only in after()", () => {
-    const awaitDurable = src.split("await runCommunityMessengerSendDurablePreAckEffects").length - 1;
-    expect(awaitDurable).toBe(1);
-    const afterCall = src.indexOf("after(async () => {");
-    expect(src.slice(afterCall)).toContain("runCommunityMessengerSendDeferredPostAckEffects");
-    expect(src.slice(0, afterCall)).not.toContain("mirrorCommunityMessengerTextToItemTradeLedger");
+  it("message POST runs durable pre-ack once; mirror only in after()", () => {
+    expect(src.split("runCommunityMessengerSendDurablePreAckEffects(").length - 1).toBe(1);
+    expect(src.slice(0, respondIdx)).not.toContain("mirrorCommunityMessengerTextToItemTradeLedger");
   });
 });
