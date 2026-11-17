@@ -4,6 +4,7 @@
 import "server-only";
 import { createHash } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sameRevision } from "@/lib/admin/same-revision";
 import {
   LAUNCH_INTRO_DRAFT_BUCKET,
   LAUNCH_INTRO_PUBLIC_BUCKET,
@@ -75,7 +76,7 @@ export async function saveLaunchIntroPoolPolicy(
 ): Promise<R<{ revision: string; before: LaunchIntroPoolPolicy }>> {
   const cur = await loadLaunchIntroPoolPolicy(sb);
   if (!cur.ok) return cur;
-  if ((cur.revision ?? null) !== (expectedRevision ?? null)) return { ok: false, error: "stale_revision", status: 409 };
+  if (!sameRevision(cur.revision, expectedRevision)) return { ok: false, error: "stale_revision", status: 409 };
   const now = new Date().toISOString();
   if (expectedRevision === null) {
     const { error } = await sb
@@ -87,7 +88,7 @@ export async function saveLaunchIntroPoolPolicy(
       .from("admin_settings")
       .update({ value_json: policy, updated_at: now })
       .eq("key", LAUNCH_INTRO_POOL_POLICY_KEY)
-      .eq("updated_at", expectedRevision)
+      .eq("updated_at", cur.revision as string)
       .select("key");
     if (error) return { ok: false, error: "save_failed", status: 500 };
     if (!data?.length) return { ok: false, error: "stale_revision", status: 409 };
@@ -143,21 +144,25 @@ export async function createLaunchIntroPoolCreative(
   input: LaunchIntroPoolInput & { draftPath?: unknown },
   actor: string | null
 ): Promise<R<{ row: LaunchIntroPoolRow }>> {
-  const v = validateLaunchIntroPoolInput(input, { partial: false });
-  if (!v.ok) return { ok: false, error: v.error, status: 400 };
   const draftPath = input.draftPath;
-  if (typeof draftPath !== "string" || !/^draft\/[0-9a-f-]{36}\.(png|jpg|webp)$/.test(draftPath)) {
-    return { ok: false, error: "image_required", status: 400 };
-  }
-  const dl = await sb.storage.from(LAUNCH_INTRO_DRAFT_BUCKET).download(draftPath);
+  const validDraft = typeof draftPath === "string" && /^draft\/[0-9a-f-]{36}\.(png|jpg|webp|gif|mp4)$/.test(draftPath);
+  // 재감사 M1: 거절해도 방금 올린 초안 파일은 지운다(초안 저장소 누수)
+  const rejectWithDraftCleanup = async (error: string, status = 400) => {
+    if (validDraft) await sb.storage.from(LAUNCH_INTRO_DRAFT_BUCKET).remove([draftPath as string]);
+    return { ok: false as const, error, status };
+  };
+  const v = validateLaunchIntroPoolInput(input, { partial: false });
+  if (!v.ok) return rejectWithDraftCleanup(v.error);
+  if (!validDraft || !/\.(png|jpg|webp)$/.test(draftPath as string)) return rejectWithDraftCleanup("image_type_invalid");
+  const dl = await sb.storage.from(LAUNCH_INTRO_DRAFT_BUCKET).download(draftPath as string);
   if (dl.error || !dl.data) return { ok: false, error: "draft_image_missing", status: 400 };
   const bytes = new Uint8Array(await dl.data.arrayBuffer());
   const info = inspectLaunchIntroAsset(bytes);
   if (!info.ok || info.kind !== "image" || !(LAUNCH_INTRO_POOL_IMAGE_MIMES as readonly string[]).includes(info.mime)) {
-    return { ok: false, error: "image_type_invalid", status: 400 };
+    return rejectWithDraftCleanup("image_type_invalid");
   }
   if (Math.max(info.width, info.height) < LAUNCH_INTRO_POOL_MIN_LONG_EDGE) {
-    return { ok: false, error: "fullscreen_image_too_small", status: 400 };
+    return rejectWithDraftCleanup("fullscreen_image_too_small");
   }
   const mime = info.mime as LaunchIntroPoolImageMime;
   const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -165,7 +170,7 @@ export async function createLaunchIntroPoolCreative(
   const up = await sb.storage
     .from(LAUNCH_INTRO_PUBLIC_BUCKET)
     .upload(path, bytes, { contentType: mime, cacheControl: "31536000", upsert: false });
-  if (up.error && !/exists|duplicate/i.test(up.error.message)) return { ok: false, error: "asset_copy_failed", status: 500 };
+  if (up.error && !/exists|duplicate/i.test(up.error.message)) return rejectWithDraftCleanup("asset_copy_failed", 500);
   const { data, error } = await sb
     .from("launch_intro_creatives")
     .insert({
@@ -185,7 +190,7 @@ export async function createLaunchIntroPoolCreative(
     await removeUnreferencedLaunchIntroImage(sb, path, sha256);
     return { ok: false, error: "save_failed", status: 500 };
   }
-  await sb.storage.from(LAUNCH_INTRO_DRAFT_BUCKET).remove([draftPath]);
+  await sb.storage.from(LAUNCH_INTRO_DRAFT_BUCKET).remove([draftPath as string]);
   return { ok: true, row: data as LaunchIntroPoolRow };
 }
 
@@ -202,14 +207,14 @@ export async function updateLaunchIntroPoolCreative(
   if (cur.error) return { ok: false, error: "read_failed", status: 500 };
   if (!cur.data) return { ok: false, error: "not_found", status: 404 };
   const before = cur.data as LaunchIntroPoolRow;
-  if (!expectedUpdatedAt || before.updated_at !== expectedUpdatedAt) return { ok: false, error: "stale_revision", status: 409 };
+  if (!expectedUpdatedAt || !sameRevision(before.updated_at, expectedUpdatedAt)) return { ok: false, error: "stale_revision", status: 409 };
   const next = { ...before, ...v.row } as LaunchIntroPoolRow;
   if (next.start_at && next.end_at && next.start_at >= next.end_at) return { ok: false, error: "window_invalid", status: 400 };
   const { data, error } = await sb
     .from("launch_intro_creatives")
     .update({ ...v.row, updated_at: new Date().toISOString() })
     .eq("id", id)
-    .eq("updated_at", expectedUpdatedAt)
+    .eq("updated_at", before.updated_at)
     .select(COLS);
   if (error) return { ok: false, error: "save_failed", status: 500 };
   if (!data?.length) return { ok: false, error: "stale_revision", status: 409 };
@@ -234,11 +239,13 @@ async function removeUnreferencedLaunchIntroImage(sb: Sb, path: string, sha256: 
   try {
     const pool = await sb.from("launch_intro_creatives").select("id").eq("image_sha256", sha256).limit(1);
     if (pool.error || (pool.data?.length ?? 0) > 0) return;
-    const pubs = await sb.from("launch_intro_publications").select("id, assets").limit(1000);
-    if (pubs.error) return;
-    for (const p of (pubs.data ?? []) as Array<{ assets: unknown }>) {
-      if (Array.isArray(p.assets) && p.assets.some((a) => (a as { sha256?: string })?.sha256 === sha256)) return;
-    }
+    // 재감사 L2: 게시본 전체(개수 제한 없이)에서 같은 그림을 쓰는지 — jsonb 포함 검사
+    const pubs = await sb
+      .from("launch_intro_publications")
+      .select("id")
+      .contains("assets", [{ sha256 }])
+      .limit(1);
+    if (pubs.error || (pubs.data?.length ?? 0) > 0) return;
     await sb.storage.from(LAUNCH_INTRO_PUBLIC_BUCKET).remove([path]);
   } catch {
     /* 보존 */
@@ -248,10 +255,13 @@ async function removeUnreferencedLaunchIntroImage(sb: Sb, path: string, sha256: 
 /** 소재별 노출·건너뛰기·누름·완료 수(최근 30일) */
 export async function loadLaunchIntroPoolStats(
   sb: Sb,
-  ids: string[]
+  idsIn: string[]
 ): Promise<Record<string, Record<LaunchIntroEventType, number>>> {
   const out: Record<string, Record<LaunchIntroEventType, number>> = {};
+  let ids = idsIn;
   if (!ids.length) return out;
+  // 재감사 M2: 소재 × 4 개수 조회 — 목록 화면에서 켜짐·꺼짐 소재 최대 20개만(종료 소재는 0 표시)
+  ids = ids.slice(0, 20);
   const since = new Date(Date.now() - 30 * 24 * 3600_000).toISOString();
   await Promise.all(
     ids.flatMap((id) =>
@@ -282,9 +292,7 @@ export async function recordLaunchIntroEvent(
     meta?: Record<string, unknown>;
   }
 ): Promise<R<object>> {
-  const exists = await sb.from("launch_intro_creatives").select("id").eq("id", input.creativeId).maybeSingle();
-  if (exists.error) return { ok: false, error: "read_failed", status: 500 };
-  if (!exists.data) return { ok: false, error: "creative_not_found", status: 404 };
+  // 재감사 L6: 존재 확인은 외래 키(23503)로 — 조회 1번 줄임
   const { error } = await sb.from("launch_intro_events").insert({
     creative_id: input.creativeId,
     event_type: input.eventType,
@@ -296,6 +304,7 @@ export async function recordLaunchIntroEvent(
     meta: input.meta ?? {},
   });
   // 같은 노출의 같은 기록 = 이미 저장됨(정상)
+  if (error?.code === "23503") return { ok: false, error: "creative_not_found", status: 404 };
   if (error && error.code !== "23505") return { ok: false, error: "save_failed", status: 500 };
   return { ok: true };
 }

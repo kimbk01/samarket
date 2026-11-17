@@ -1,6 +1,7 @@
 import Capacitor
 import CryptoKit
 import Foundation
+import ImageIO
 import UIKit
 
 /**
@@ -32,10 +33,7 @@ public class DibayNativeIntroPlugin: CAPPlugin, CAPBridgedPlugin {
 
   @objc func sync(_ call: CAPPluginCall) {
     let options = call.options as? [String: Any] ?? [:]
-    DispatchQueue.global(qos: .utility).async {
-      let ok = DibayNativeIntro.shared.sync(options)
-      call.resolve(["ok": ok])
-    }
+    DibayNativeIntro.shared.runSync(options) { ok in call.resolve(["ok": ok]) }
   }
 
   @objc func getState(_ call: CAPPluginCall) {
@@ -45,6 +43,7 @@ public class DibayNativeIntroPlugin: CAPPlugin, CAPBridgedPlugin {
       "active": s.selected != nil && !s.finished,
       "creativeId": s.selected?.id as Any,
       "exposureId": s.exposureId as Any,
+      "revision": s.manifestRevision(),
     ])
   }
 }
@@ -68,6 +67,12 @@ final class DibayNativeIntro {
   private let dirName = "native-intro"
   private let manifestName = "manifest.json"
   private let lastIdKey = "dibay_native_intro_last_shown_id"
+  /** 재감사 A4: 홈 준비가 끝내 안 와도 이 시간 뒤 걷는다 */
+  private let hardCapMs = 10_000
+  /** 재감사 I4: 동기화는 한 줄로(겹치면 서로 받은 파일을 지움) */
+  private let syncQueue = DispatchQueue(label: "dibay.native-intro.sync")
+  private var skipButton: UIButton?
+  private var specialLaunch = false
 
   private(set) var selected: Entry?
   private(set) var exposureId: String?
@@ -84,10 +89,23 @@ final class DibayNativeIntro {
       .appendingPathComponent(dirName, isDirectory: true)
   }
 
+  /** 재감사 I6: iCloud 백업 제외(다시 받을 수 있는 광고 그림) */
+  private func excludeFromBackup() {
+    var url = dir
+    var values = URLResourceValues()
+    values.isExcludedFromBackup = true
+    try? url.setResourceValues(values)
+  }
+
   // MARK: 선택
 
   /** restoreHint: fresh | restore | unknown */
   func selectForLaunch(restoreHint: String) {
+    // 재감사: 통화(CallKit·VoIP)로 백그라운드에서 켜진 실행에는 붙이지 않는다
+    if specialLaunch || UIApplication.shared.applicationState == .background {
+      selected = nil
+      return
+    }
     selected = nil
     exposureId = nil
     finished = false
@@ -126,7 +144,7 @@ final class DibayNativeIntro {
 
   func attach(to host: UIView) {
     guard let e = selected else { return }
-    guard let image = UIImage(contentsOfFile: dir.appendingPathComponent(e.file).path) else {
+    guard let image = Self.downsampled(dir.appendingPathComponent(e.file), maxPixel: Self.screenMaxPixel()) else {
       NSLog("[DibayNativeIntro] decode_failed id=%@", e.id)
       selected = nil
       return
@@ -169,6 +187,7 @@ final class DibayNativeIntro {
 
     let skip = Self.pill(Self.localized(ko: "건너뛰기", en: "Skip"))
     skip.addTarget(self, action: #selector(onSkip), for: .touchUpInside)
+    skipButton = skip
     root.addSubview(skip)
 
     let g = root.safeAreaLayoutGuide
@@ -195,6 +214,10 @@ final class DibayNativeIntro {
     root.layer.zPosition = 10_000
     host.addSubview(root)
     overlay = root
+    // 재감사 A4: 상한
+    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(hardCapMs)) { [weak self] in
+      self?.finish(reason: "timeout", href: nil)
+    }
     // 표시 시간 = 첫 그림이 화면에 나간 다음부터(IN-2)
     DispatchQueue.main.async { [weak self] in
       CATransaction.setCompletionBlock { [weak self] in self?.markDrawn() }
@@ -217,6 +240,26 @@ final class DibayNativeIntro {
     DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(e.durationMs)) { [weak self] in
       self?.maybeFinish()
     }
+  }
+
+  /** 재감사 I1: 화면 긴 변 픽셀 이하로 줄여 읽는다(큰 그림 → 메모리 종료 방지) */
+  private static func screenMaxPixel() -> CGFloat {
+    let b = UIScreen.main.bounds
+    return max(b.width, b.height) * UIScreen.main.scale
+  }
+
+  private static func downsampled(_ url: URL, maxPixel: CGFloat) -> UIImage? {
+    let opts = [kCGImageSourceShouldCache: false] as CFDictionary
+    guard let src = CGImageSourceCreateWithURL(url as CFURL, opts) else { return nil }
+    let thumbOpts =
+      [
+        kCGImageSourceCreateThumbnailFromImageAlways: true,
+        kCGImageSourceShouldCacheImmediately: true,
+        kCGImageSourceCreateThumbnailWithTransform: true,
+        kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+      ] as CFDictionary
+    guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, thumbOpts) else { return nil }
+    return UIImage(cgImage: cg, scale: UIScreen.main.scale, orientation: .up)
   }
 
   private static func pill(_ title: String) -> UIButton {
@@ -267,6 +310,19 @@ final class DibayNativeIntro {
   @objc private func onSkip() {
     skipRequested = true
     maybeFinish()
+    // 재감사 A5: 홈 준비 전이면 누른 표시(준비되는 즉시 걷힘)
+    if !finished, let b = skipButton {
+      b.setTitle(Self.localized(ko: "잠시만요…", en: "Just a moment…"), for: .normal)
+      b.alpha = 0.6
+      b.isEnabled = false
+    }
+  }
+
+  /** 알림·링크로 켜진 실행 — 떠 있는 인트로를 기록 없이 닫는다(목적지로 바로) */
+  func cancelForSpecialLaunch() {
+    specialLaunch = true
+    guard selected != nil else { return }
+    DispatchQueue.main.async { [weak self] in self?.finish(reason: "recreate", href: nil) }
   }
 
   @objc private func onCta() {
@@ -279,8 +335,9 @@ final class DibayNativeIntro {
     finished = true
     overlay?.removeFromSuperview()
     overlay = nil
+    skipButton = nil
     NSLog("[DibayNativeIntro] finished reason=%@", reason)
-    if reason != "fault" { emit(reason, href: href) }
+    if reason != "fault" && reason != "recreate" && reason != "timeout" { emit(reason, href: href) }
     emit("done", href: nil)
   }
 
@@ -305,6 +362,8 @@ final class DibayNativeIntro {
   }
 
   // MARK: 저장소
+
+  func manifestRevision() -> String { (readManifest()?["revision"] as? String) ?? "" }
 
   private func readManifest() -> [String: Any]? {
     let url = dir.appendingPathComponent(manifestName)
@@ -349,22 +408,41 @@ final class DibayNativeIntro {
   private func download(_ urlString: String, sha256: String) -> Data? {
     guard let url = URL(string: urlString), url.scheme == "https" else { return nil }
     let sem = DispatchSemaphore(value: 0)
+    let lock = NSLock()
     var out: Data?
     var req = URLRequest(url: url)
     req.timeoutInterval = 30
-    URLSession.shared.dataTask(with: req) { data, resp, _ in
-      if let data, (resp as? HTTPURLResponse)?.statusCode == 200, data.count <= 5 * 1024 * 1024 { out = data }
+    let task = URLSession.shared.dataTask(with: req) { data, resp, _ in
+      if let data, (resp as? HTTPURLResponse)?.statusCode == 200, data.count <= 5 * 1024 * 1024 {
+        lock.lock()
+        out = data
+        lock.unlock()
+      }
       sem.signal()
-    }.resume()
-    _ = sem.wait(timeout: .now() + 45)
-    guard let d = out, sha256Hex(d) == sha256 else { return nil }
+    }
+    task.resume()
+    if sem.wait(timeout: .now() + 45) == .timedOut { task.cancel() }
+    lock.lock()
+    let got = out
+    lock.unlock()
+    guard let d = got, sha256Hex(d) == sha256 else { return nil }
     return d
   }
 
+  func runSync(_ req: [String: Any], done: @escaping (Bool) -> Void) {
+    // 지금 떠 있는 소재 파일 이름은 메인에서 한 번 읽어 넘긴다(재감사 I4 — 다른 스레드에서 상태를 읽지 않음)
+    DispatchQueue.main.async {
+      let showing = (!self.finished ? self.selected?.file : nil)
+      self.syncQueue.async { done(self.sync(req, showing: showing)) }
+    }
+  }
+
   /** 웹이 넘긴 목록으로 저장소를 맞춘다. 모두 성공해야 목록 교체 · 교체 뒤 목록 밖 그림 삭제(저장 누수 방지). */
-  func sync(_ req: [String: Any]) -> Bool {
+  private func sync(_ req: [String: Any], showing: String?) -> Bool {
     let fm = FileManager.default
     do { try fm.createDirectory(at: dir, withIntermediateDirectories: true) } catch { return false }
+    excludeFromBackup()
+    var anyFailed = false
     let enabled = req["enabled"] as? Bool == true
     var out: [[String: Any]] = []
     var keep = Set<String>()
@@ -384,8 +462,15 @@ final class DibayNativeIntro {
         let dest = dir.appendingPathComponent(file)
         let existing = try? Data(contentsOf: dest)
         if existing == nil || sha256Hex(existing!) != sha {
-          guard let data = download(url, sha256: sha) else { return false }
-          do { try data.write(to: dest, options: .atomic) } catch { return false }
+          // 재감사 A8: 한 소재 실패가 전체 갱신을 막지 않는다
+          guard let data = download(url, sha256: sha) else {
+            anyFailed = true
+            continue
+          }
+          do { try data.write(to: dest, options: .atomic) } catch {
+            anyFailed = true
+            continue
+          }
         }
         out.append([
           "id": id, "sha256": sha, "file": file,
@@ -409,12 +494,11 @@ final class DibayNativeIntro {
     ]
     guard let data = try? JSONSerialization.data(withJSONObject: manifest) else { return false }
     do { try data.write(to: dir.appendingPathComponent(manifestName), options: .atomic) } catch { return false }
-    let showing = (!finished ? selected?.file : nil)
     for name in (try? fm.contentsOfDirectory(atPath: dir.path)) ?? [] {
       if name == manifestName || keep.contains(name) || name == showing { continue }
       try? fm.removeItem(at: dir.appendingPathComponent(name))
     }
-    NSLog("[DibayNativeIntro] synced entries=%d", out.count)
-    return true
+    NSLog("[DibayNativeIntro] synced entries=%d failed=%d", out.count, anyFailed ? 1 : 0)
+    return !anyFailed
   }
 }

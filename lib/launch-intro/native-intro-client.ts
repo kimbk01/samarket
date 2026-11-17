@@ -9,6 +9,7 @@
  */
 import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 import type { LaunchIntroPoolPayload } from "@/lib/launch-intro/pool";
+import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
 
 type IntroEvent = {
   type: "impression" | "skip" | "click" | "complete" | "done";
@@ -19,6 +20,7 @@ type IntroEvent = {
 
 type DibayNativeIntroPlugin = {
   sync(options: LaunchIntroPoolPayload): Promise<{ ok: boolean }>;
+  getState(): Promise<{ active?: boolean; creativeId?: string | null; revision?: string }>;
   addListener(event: "introEvent", cb: (e: IntroEvent) => void): Promise<PluginListenerHandle>;
 };
 
@@ -28,7 +30,27 @@ function plugin(): DibayNativeIntroPlugin {
   nativeIntro ??= registerPlugin<DibayNativeIntroPlugin>("DibayNativeIntro");
   return nativeIntro;
 }
-const SYNCED_REVISION_KEY = "dibay:native-intro:synced-revision";
+/** 이 실행(launch epoch)에서 끝난 네이티브 인트로 — 같은 프로세스의 문서 다시 열기에서 팝업을 다시 막지 않는다 */
+const DONE_KEY = "dibay:native-intro:done";
+/** 끝 신호가 끝내 안 와도 팝업 보류를 푸는 상한(네이티브 상한 10초 + 여유) */
+export const NATIVE_INTRO_WEB_HOLD_CAP_MS = 15_000;
+
+function launchEpoch(): string {
+  const v = (window as unknown as { __DIBAY_LAUNCH_EPOCH__?: unknown }).__DIBAY_LAUNCH_EPOCH__;
+  return typeof v === "string" ? v : "";
+}
+
+function doneMarker(id: string): string {
+  return `${launchEpoch()}:${id}`;
+}
+
+function readDoneMarker(): string | null {
+  try {
+    return window.sessionStorage.getItem(DONE_KEY);
+  } catch {
+    return null;
+  }
+}
 
 declare global {
   interface Window {
@@ -43,7 +65,10 @@ const listeners = new Set<() => void>();
 export function readNativeIntroLaunchId(): string | null {
   if (typeof window === "undefined") return null;
   const v = window.__DIBAY_NATIVE_INTRO__;
-  return typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v) ? v : null;
+  if (typeof v !== "string" || !/^[0-9a-f-]{36}$/i.test(v)) return null;
+  // 재감사 H1: 문서 시작 값은 같은 프로세스의 모든 문서에 다시 들어간다 — 이 실행에서 이미 끝난 인트로면 없음
+  if (readDoneMarker() === doneMarker(v)) return null;
+  return v;
 }
 
 /** 지금 네이티브 인트로가 화면을 덮고 있는가 — 팝업 보류 판단 */
@@ -58,7 +83,15 @@ export function subscribeNativeIntro(cb: () => void): () => void {
 
 function markDone(): void {
   if (doneThisDocument) return;
+  const id = typeof window !== "undefined" ? window.__DIBAY_NATIVE_INTRO__ : undefined;
   doneThisDocument = true;
+  if (typeof id === "string" && id) {
+    try {
+      window.sessionStorage.setItem(DONE_KEY, doneMarker(id));
+    } catch {
+      /* 저장소 없음 — 이 문서만 */
+    }
+  }
   for (const cb of [...listeners]) cb();
 }
 
@@ -74,19 +107,10 @@ function hasNativePlugin(): boolean {
 export async function syncNativeIntroPool(pool: LaunchIntroPoolPayload | null | undefined): Promise<void> {
   if (!pool || !hasNativePlugin()) return;
   try {
-    if (window.localStorage.getItem(SYNCED_REVISION_KEY) === pool.revision) return;
-  } catch {
-    /* 저장소 없음 — 매번 맞춘다 */
-  }
-  try {
-    const r = await plugin().sync(pool);
-    if (r?.ok) {
-      try {
-        window.localStorage.setItem(SYNCED_REVISION_KEY, pool.revision);
-      } catch {
-        /* ignore */
-      }
-    }
+    // 재감사 L4: 기기 저장소의 판과 비교한다(웹 저장 표시가 아니라) — 네이티브 저장이 지워졌으면 다시 맞춘다
+    const state = await plugin().getState();
+    if (state?.revision === pool.revision) return;
+    await plugin().sync(pool);
   } catch {
     /* 다음 발견 때 다시 */
   }
@@ -94,6 +118,14 @@ export async function syncNativeIntroPool(pool: LaunchIntroPoolPayload | null | 
 
 function platformTag(): string {
   return Capacitor.getPlatform();
+}
+
+function safeDeviceKey(): string | undefined {
+  try {
+    return ensureClientInstanceId();
+  } catch {
+    return undefined;
+  }
 }
 
 function postEvent(e: IntroEvent): void {
@@ -108,6 +140,7 @@ function postEvent(e: IntroEvent): void {
       renderer: "native",
       exposureId: e.exposureId,
       platform: platformTag(),
+      deviceKey: safeDeviceKey(),
       href: e.href ?? undefined,
     }),
     keepalive: true,
@@ -138,10 +171,24 @@ export function startNativeIntroBridge(openHref: (href: string) => void): void {
     if (e.type === "click" && typeof e.href === "string" && e.href) openHref(e.href);
     if (e.type === "done") markDone();
   }).catch(() => markDone());
+  // 재감사 H2: 네이티브가 그리지 못했거나(그림 오류) 이미 끝났으면 바로 푼다
+  void plugin()
+    .getState()
+    .then((st) => {
+      if (!st?.active) markDone();
+    })
+    .catch(() => markDone());
+  // 끝 신호가 끝내 안 와도 팝업을 영원히 막지 않는다
+  window.setTimeout(markDone, NATIVE_INTRO_WEB_HOLD_CAP_MS);
 }
 
 /** @internal vitest */
 export function __resetNativeIntroClientForTests(): void {
+  try {
+    window.sessionStorage.removeItem(DONE_KEY);
+  } catch {
+    /* ignore */
+  }
   doneThisDocument = false;
   bridgeStarted = false;
   listeners.clear();

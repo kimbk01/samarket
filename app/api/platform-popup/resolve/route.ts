@@ -68,21 +68,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }, { headers: NO_STORE });
   }
 
-  const loadedCandidates = await loadPlatformPopupCandidates(sb, {
-    userId,
-    anonymousDeviceKey: userId ? null : anonymousDeviceKey,
-    sessionKey,
-  });
-  const candidates = exclude.size ? loadedCandidates.filter((c) => !exclude.has(c.id)) : loadedCandidates;
-
-  const coordinatedEventIds = await loadSessionCoordinatedEventIds(sb, {
-    sessionKey,
-    userId,
-    anonymousDeviceKey: userId ? null : anonymousDeviceKey,
-  });
-
   /**
    * 진입 감사 PO-8·PO-4 (2026-11-17): 어드민 전체 스위치 — 꺼짐이면 0, 가로 화면 금지면 가로 요청에 0.
+   * 재감사: 후보를 읽기 전에 판단(꺼짐·가로 금지에 후보 조회 0회).
    */
   const policy = await loadPlatformPopupEntryPolicyCached();
   if (!policy.enabled || (url.searchParams.get("landscape") === "1" && !policy.allowLandscape)) {
@@ -99,6 +87,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       { headers: NO_STORE }
     );
   }
+
+  const loadedCandidates = await loadPlatformPopupCandidates(sb, {
+    userId,
+    anonymousDeviceKey: userId ? null : anonymousDeviceKey,
+    sessionKey,
+  });
+  const candidates = exclude.size ? loadedCandidates.filter((c) => !exclude.has(c.id)) : loadedCandidates;
+
+  const coordinatedEventIds = await loadSessionCoordinatedEventIds(sb, {
+    sessionKey,
+    userId,
+    anonymousDeviceKey: userId ? null : anonymousDeviceKey,
+  });
+
 
   /**
    * 광고 최종 점검 P2: 1위가 표시 단계에서 무효(혜택 내용 없음·소재 주소 없음 등)면 그 캠페인만 빼고
@@ -196,7 +198,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
     queue.push(picked.value);
     const takenId = picked.value.campaignId;
-    remainingCandidates = remainingCandidates.filter((c) => c.id !== takenId);
+    // 재감사: 이번 고르기에서 건너뛴 후보(목록·쿠폰 비었음 등)는 다음 칸에서 다시 검사하지 않는다(조회 반복 제거)
+    const dropped = new Set([takenId, ...picked.skippedCampaignIds]);
+    remainingCandidates = remainingCandidates.filter((c) => !dropped.has(c.id));
   }
 
   if (queue.length === 0) {
@@ -216,6 +220,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     /** 이전 앱 번들 호환 — 대기열 첫 번째 */
     winner: queue[0],
     queue,
+    // 재감사: 앱이 화면을 가로로 돌렸을 때도 같은 설정을 쓴다
+    allowLandscape: policy.allowLandscape,
     reason: null,
     surface,
     generation,

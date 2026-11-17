@@ -6,7 +6,7 @@
 export const adminLaunchIntroMessages = {
   ko: {
     admin_launch_intro_desc:
-      "앱(Android·iOS)을 새로 켤 때 OS 시작 화면 다음에 한 번 보여주는 화면입니다. 웹·Windows에는 나오지 않습니다. DIBAY 자체 안내·브랜드 화면만 올립니다 — 매장·외부 업체 광고는 넣지 않습니다(Google Play: 앱 로딩 전 전면 광고 금지).",
+      "앱(Android·iOS)을 새로 켤 때 OS 시작 화면 다음에 보여주는 화면입니다. 웹·Windows에는 나오지 않습니다. 광고·이벤트·안내 모두 올릴 수 있습니다. 광고는 「광고」 표기를 켜 두세요. 건너뛰기는 항상 나오고, 어떤 경우에도 10초 안에 걷힙니다.",
     admin_launch_intro_propagation_note:
       "게시·일시중지·게시 중단은 서버에 즉시 저장되지만, 각 기기에는 그 기기가 서버와 다시 확인한 뒤의 다음 실행부터 적용됩니다. 즉시 중단이 아닙니다. 오프라인 기기는 연결될 때까지 이전 상태를 유지합니다.",
     admin_launch_intro_live_title: "게시 상태 (Live)",
@@ -17,7 +17,7 @@ export const adminLaunchIntroMessages = {
     admin_launch_intro_pool_empty: "등록한 소재가 없습니다.",
     admin_launch_intro_pool_new: "새 소재",
     admin_launch_intro_pool_name: "이름",
-    admin_launch_intro_pool_image_help: "PNG(투명 가능)·JPG·WebP, 긴 변 1080px 이상, 5MB 이하. 새 소재는 꺼진 상태로 만들어집니다.",
+    admin_launch_intro_pool_image_help: "PNG(투명 가능)·JPG·WebP · 긴 변 1080~4096px · 5MB 이하 · 권장 1080×1440(3:4). 화면 위 줄(광고·건너뛰기)과 아래 브랜드 줄 사이에 비율 그대로 맞춰 보이고 남는 곳은 배경색입니다. 글은 그림 안에 넣어 주세요(별도 글 칸 없음). 새 소재는 꺼진 상태로 만들어집니다.",
     admin_launch_intro_pool_add: "소재 추가",
     admin_launch_intro_pool_status: "상태",
     admin_launch_intro_pool_status_active: "켜짐",
@@ -63,7 +63,7 @@ export const adminLaunchIntroMessages = {
     admin_launch_intro_create: "새 Intro 만들기",
     admin_launch_intro_background: "배경색",
     admin_launch_intro_image: "이미지",
-    admin_launch_intro_image_hint: "PNG·JPG·WebP·GIF, 64~4096px, 5MB 이하. 메인·배경은 MP4(H.264, 5MB·30초 이하)도 가능 — 첫 화면(포스터)은 자동으로 만들어집니다. 비율은 유지됩니다.",
+    admin_launch_intro_image_hint: "PNG(투명 가능)·JPG·WebP·GIF, 64~4096px, 5MB 이하. 화면을 가득 채우는 그림(배경·꽉 채우기)은 긴 변 1080px 이상(권장 1080×1920, 9:16). 메인·배경은 MP4(H.264, 5MB·30초 이하)도 가능 — 첫 화면(포스터)은 자동으로 만들어집니다. 비율은 유지됩니다.",
     admin_launch_intro_upload: "이미지 업로드",
     admin_launch_intro_remove_image: "이미지 빼기",
     admin_launch_intro_text_color: "문구 색",
@@ -278,7 +278,7 @@ export const adminLaunchIntroMessages = {
   },
   en: {
     admin_launch_intro_desc:
-      "Shown once after the OS start screen when the app (Android/iOS) is newly launched. Not shown on web or Windows. Use it only for DIBAY's own notices and brand screens — no store or third-party ads (Google Play: no full-screen ads before the app loads).",
+      "Shown after the OS start screen when the app (Android/iOS) is newly launched. Not shown on web or Windows. You can post ads, events, or notices. Keep the Ad label on for ads. Skip always shows, and it always closes within 10 seconds.",
     admin_launch_intro_propagation_note:
       "Publish, pause and unpublish are saved on the server immediately, but each device applies them from its next launch after it has checked with the server. This is not an immediate stop. Offline devices keep the previous state until they reconnect.",
     admin_launch_intro_live_title: "Live state",
@@ -289,7 +289,7 @@ export const adminLaunchIntroMessages = {
     admin_launch_intro_pool_empty: "No creatives yet.",
     admin_launch_intro_pool_new: "New creative",
     admin_launch_intro_pool_name: "Name",
-    admin_launch_intro_pool_image_help: "PNG (transparency OK), JPG, or WebP. Long side 1080px or more, up to 5MB. New creatives start off.",
+    admin_launch_intro_pool_image_help: "PNG (transparency OK), JPG, or WebP · long side 1080–4096px · up to 5MB · recommended 1080×1440 (3:4). Shown at its own ratio between the top row (Ad, Skip) and the bottom brand row; the rest is the background color. Put text inside the picture (no separate text field). New creatives start off.",
     admin_launch_intro_pool_add: "Add creative",
     admin_launch_intro_pool_status: "Status",
     admin_launch_intro_pool_status_active: "On",
@@ -335,7 +335,7 @@ export const adminLaunchIntroMessages = {
     admin_launch_intro_create: "Create Intro",
     admin_launch_intro_background: "Background",
     admin_launch_intro_image: "Image",
-    admin_launch_intro_image_hint: "PNG/JPG/WebP/GIF, 64–4096px, up to 5MB. Main and background also accept MP4 (H.264, up to 5MB and 30s); the poster frame is generated automatically. Aspect ratio is kept.",
+    admin_launch_intro_image_hint: "PNG (transparency OK)/JPG/WebP/GIF, 64–4096px, up to 5MB. Full-screen pictures (background or fill) need a long side of 1080px or more (recommended 1080×1920, 9:16). Main and background also accept MP4 (H.264, up to 5MB and 30s); the poster frame is generated automatically. Aspect ratio is kept.",
     admin_launch_intro_upload: "Upload image",
     admin_launch_intro_remove_image: "Remove image",
     admin_launch_intro_text_color: "Text color",

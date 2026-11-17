@@ -119,4 +119,5 @@
     <!-- 진입 감사 5단계: 네이티브 인트로 -->
     <string name="native_intro_ad_label">광고</string>
     <string name="native_intro_skip">건너뛰기</string>
+    <string name="native_intro_wait">잠시만요…</string>
 </resources>

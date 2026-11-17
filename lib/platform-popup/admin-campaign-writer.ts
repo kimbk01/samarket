@@ -34,6 +34,7 @@ import {
   type PtrBandVariant,
 } from "@/lib/platform-popup/ptr-reveal-contract";
 import { platformPopupPatchReviewGroups } from "@/lib/platform-popup/popup-admin-patch";
+import { checkPopupCopyLengths } from "@/lib/platform-popup/creative-size-spec";
 import {
   PLATFORM_POPUP_TOOLTIP_ANCHORS,
   normalizePlatformPopupAutoDismissSeconds,
@@ -335,6 +336,15 @@ export async function updatePlatformPopupAdminCampaign(
   if (!entryFields.ok) return { ok: false, error: entryFields.error, httpStatus: 400 };
   Object.assign(patch, entryFields.patch);
 
+  // 재감사: 제목·본문·버튼 글 길이(`creative-size-spec.ts`) — 넘으면 거절(조용히 자르지 않음)
+  {
+    const copy = checkPopupCopyLengths({
+      title: "title" in input.patch ? input.patch.title : null,
+      body: "body" in input.patch ? input.patch.body : null,
+      ctaLabel: "ctaLabel" in input.patch ? input.patch.ctaLabel : null,
+    });
+    if (!copy.ok) return { ok: false, error: copy.error, httpStatus: 400 };
+  }
   if ("ctaLabel" in input.patch) {
     const label = input.patch.ctaLabel?.trim() || null;
     patch.cta_label = label;
@@ -741,7 +751,8 @@ export async function copyPlatformPopupAdminCampaign(
   const { data: src, error: srcErr } = await sb
     .from("platform_popup_campaigns")
     .select(
-      "name, priority, timezone, suppression_mode, suppression_duration_seconds, cta_type, cta_target, external_url, cta_label, title, body, presentation_type, frequency_mode, owner_store_id"
+      // 재감사: `*` — 진입 감사 4단계 칸(진입 순서·자동 닫힘·버튼 색·매장 목록·말풍선 위치)도 복사
+      "*"
     )
     .eq("id", sourceId)
     .maybeSingle();
@@ -786,6 +797,12 @@ export async function copyPlatformPopupAdminCampaign(
       body: s.body ?? null,
       presentation_type: s.presentation_type,
       frequency_mode: s.frequency_mode ?? "once_per_session",
+      queue_class: s.queue_class ?? "optional",
+      auto_dismiss_seconds: s.auto_dismiss_seconds ?? null,
+      cta_bg_color: s.cta_bg_color ?? null,
+      cta_text_color: s.cta_text_color ?? null,
+      list_store_ids: s.list_store_ids ?? null,
+      tooltip_anchor: s.tooltip_anchor ?? null,
       created_by: input.adminUserId,
       ...(audienceCopy ?? {}),
     })

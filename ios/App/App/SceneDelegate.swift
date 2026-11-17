@@ -8,6 +8,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
+        // 진입 감사 재감사: 알림 탭·링크로 켜진 실행은 네이티브 인트로를 붙이지 않는다(바로 목적지)
+        if connectionOptions.notificationResponse != nil || !connectionOptions.urlContexts.isEmpty
+            || !connectionOptions.userActivities.isEmpty {
+            DibayNativeIntro.shared.cancelForSpecialLaunch()
+        }
         // S3 — 기기 프로필 표의 창 최소 크기 (Mac 만, 380×550 Mac pt)
         if let minimum = DibayDeviceProfileNative.minimumSceneSize(
             deviceClass: DibayDeviceClassClassifier.classify().deviceClass

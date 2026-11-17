@@ -70,6 +70,8 @@ public final class DibayNativeIntro {
   private static final long MAX_DURATION_MS = 5000;
   private static final long MIN_DURATION_MS = 1000;
   private static final int SCHEMA = 1;
+  /** 재감사 A4: 홈이 끝내 준비되지 않아도 인트로는 이 시간 뒤 걷는다(광고가 화면을 붙잡지 않게) */
+  private static final long HARD_CAP_MS = 10_000;
 
   private static final ExecutorService IO = Executors.newSingleThreadExecutor();
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
@@ -84,6 +86,12 @@ public final class DibayNativeIntro {
   private static volatile boolean skipRequested = false;
   private static volatile long drawnAtMs = 0;
   private static View overlay = null;
+  private static TextView skipView = null;
+  private static ViewTreeObserver drawObserver = null;
+  private static ViewTreeObserver.OnDrawListener drawListener = null;
+  private static androidx.activity.OnBackPressedCallback backCallback = null;
+  /** 재감사 A2: 한 프로세스에서 소재 고르기는 1번 — 화면 다시 만들기(렌더러 복구·설정 변경)에 다시 고르지 않는다 */
+  private static boolean processSelectionDone = false;
   private static Plugin pluginInstance = null;
   private static final List<JSObject> pendingEvents = new ArrayList<>();
 
@@ -107,7 +115,12 @@ public final class DibayNativeIntro {
   /**
    * @param restoreHint {@code fresh | restore | unknown} (MainActivity 판정)
    */
+  static boolean processSelectionDone() {
+    return processSelectionDone;
+  }
+
   static void selectForLaunch(Context ctx, String restoreHint) {
+    processSelectionDone = true;
     selected = null;
     exposureId = null;
     overlayDrawn = false;
@@ -126,7 +139,7 @@ public final class DibayNativeIntro {
       long now = System.currentTimeMillis();
       JSONArray arr = m.optJSONArray("entries");
       if (arr == null) return;
-      File dir = new File(ctx.getFilesDir(), DIR);
+      File dir = new File(ctx.getNoBackupFilesDir(), DIR);
       for (int i = 0; i < arr.length(); i++) {
         Entry e = parseEntry(arr.optJSONObject(i));
         if (e == null) continue;
@@ -159,10 +172,9 @@ public final class DibayNativeIntro {
     }
   }
 
+  /** 화면 다시 만들기 — 이전 화면의 인트로는 기록 없이 닫고, 다시 그리지 않는다 */
   static void clearSelection() {
-    if (!finished && overlay != null) return; // 지금 떠 있는 인트로는 그대로(같은 창)
-    selected = null;
-    exposureId = null;
+    if (selected != null && !finished) finish("recreate", null);
     overlayAttached = false;
   }
 
@@ -246,6 +258,7 @@ public final class DibayNativeIntro {
     TextView skip = pill(act, DibayNativeLocale.string(ui, R.string.native_intro_skip), dp);
     skip.setMinHeight((int) (36 * dp));
     skip.setOnClickListener(v -> onSkip());
+    skipView = skip;
     FrameLayout.LayoutParams skipLp =
         new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
@@ -268,27 +281,54 @@ public final class DibayNativeIntro {
     content.addView(
         root, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     overlay = root;
+    // 재감사 A7: 인트로 중 뒤로 가기 = 건너뛰기(웹으로 새지 않음)
+    if (act instanceof androidx.activity.ComponentActivity) {
+      backCallback =
+          new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+              onSkip();
+            }
+          };
+      ((androidx.activity.ComponentActivity) act).getOnBackPressedDispatcher().addCallback(backCallback);
+    }
     // 시작 화면 유지 조건은 「인트로 화면이 붙었다」로 푼다(붙기 전엔 그대로). 표시 시간은 실제 첫 그림 뒤부터(IN-2).
     overlayAttached = true;
     final ViewTreeObserver.OnDrawListener[] holder = new ViewTreeObserver.OnDrawListener[1];
     holder[0] =
         () -> {
-          if (drawnAtMs != 0) return;
+          if (finished || drawnAtMs != 0) return;
           drawnAtMs = SystemClock.uptimeMillis();
           MAIN.post(
               () -> {
-                try {
-                  root.getViewTreeObserver().removeOnDrawListener(holder[0]);
-                } catch (Exception ignored) {
-                  // 이미 떨어진 화면
-                }
+                detachDrawListener();
+                if (finished) return;
                 overlayDrawn = true;
                 Log.i(TAG, "drawn id=" + e.id);
                 emit("impression", null);
                 MAIN.postDelayed(DibayNativeIntro::maybeFinish, e.durationMs);
               });
         };
-    root.getViewTreeObserver().addOnDrawListener(holder[0]);
+    drawObserver = root.getViewTreeObserver();
+    drawListener = holder[0];
+    drawObserver.addOnDrawListener(drawListener);
+    // 재감사 A4: 상한 — 홈 준비가 끝내 안 와도(고장 판정 전) 광고가 화면을 붙잡지 않는다
+    MAIN.postDelayed(() -> finish("timeout", null), HARD_CAP_MS);
+  }
+
+  /** 창의 그리기 감시를 뗀다 — 화면에서 떨어진 뒤에는 떠도는 관찰자라 창 것을 따로 들고 있다(재감사 A6) */
+  private static void detachDrawListener() {
+    ViewTreeObserver o = drawObserver;
+    ViewTreeObserver.OnDrawListener l = drawListener;
+    drawObserver = null;
+    drawListener = null;
+    if (o != null && l != null && o.isAlive()) {
+      try {
+        o.removeOnDrawListener(l);
+      } catch (Exception ignored) {
+        // 이미 떨어진 창
+      }
+    }
   }
 
   private static TextView pill(Context ctx, String text, float dp) {
@@ -310,7 +350,7 @@ public final class DibayNativeIntro {
 
   private static Bitmap decode(Activity act, Entry e) {
     try {
-      File f = new File(new File(act.getFilesDir(), DIR), e.file);
+      File f = new File(new File(act.getNoBackupFilesDir(), DIR), e.file);
       BitmapFactory.Options bounds = new BitmapFactory.Options();
       bounds.inJustDecodeBounds = true;
       BitmapFactory.decodeFile(f.getAbsolutePath(), bounds);
@@ -318,7 +358,8 @@ public final class DibayNativeIntro {
       DisplayMetrics dm = act.getResources().getDisplayMetrics();
       int target = Math.max(dm.widthPixels, dm.heightPixels);
       int sample = 1;
-      while (Math.max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= target) sample *= 2;
+      // 재감사 A1: 화면 긴 변 이하로 줄여 읽는다(큰 그림 = 수백 MB 비트맵 → 실행 때 충돌)
+      while (Math.max(bounds.outWidth, bounds.outHeight) / sample > target) sample *= 2;
       BitmapFactory.Options o = new BitmapFactory.Options();
       o.inSampleSize = sample;
       return BitmapFactory.decodeFile(f.getAbsolutePath(), o);
@@ -351,6 +392,13 @@ public final class DibayNativeIntro {
   private static void onSkip() {
     skipRequested = true;
     maybeFinish();
+    // 재감사 A5: 홈 준비 전이면 누른 표시(준비되는 즉시 걷힘)
+    TextView sv = skipView;
+    if (!finished && sv != null) {
+      sv.setText(DibayNativeLocale.string(sv.getContext(), R.string.native_intro_wait));
+      sv.setAlpha(0.6f);
+      sv.setEnabled(false);
+    }
   }
 
   private static void onCta() {
@@ -363,13 +411,19 @@ public final class DibayNativeIntro {
   private static void finish(String reason, String href) {
     if (finished) return;
     finished = true;
+    detachDrawListener();
+    androidx.activity.OnBackPressedCallback cb = backCallback;
+    backCallback = null;
+    if (cb != null) cb.remove();
+    skipView = null;
     View v = overlay;
     overlay = null;
     if (v != null && v.getParent() instanceof ViewGroup) {
       ((ViewGroup) v.getParent()).removeView(v);
     }
     Log.i(TAG, "finished reason=" + reason);
-    if (!"fault".equals(reason)) emit(reason, href);
+    // 고장·화면 다시 만들기·상한은 사용자가 고른 끝이 아니라 기록하지 않는다(done 만)
+    if (!"fault".equals(reason) && !"recreate".equals(reason) && !"timeout".equals(reason)) emit(reason, href);
     emit("done", null);
   }
 
@@ -401,7 +455,7 @@ public final class DibayNativeIntro {
   // ── 저장소 ────────────────────────────────────────────────────────────
 
   private static JSONObject readManifest(Context ctx) {
-    File f = new File(new File(ctx.getFilesDir(), DIR), MANIFEST);
+    File f = new File(new File(ctx.getNoBackupFilesDir(), DIR), MANIFEST);
     if (!f.isFile()) return null;
     try (FileInputStream in = new FileInputStream(f)) {
       byte[] buf = new byte[(int) Math.min(f.length(), 256 * 1024)];
@@ -497,12 +551,13 @@ public final class DibayNativeIntro {
    * 교체 뒤 목록에 없는 그림은 지운다. 꺼짐·빈 목록이면 그림을 모두 지운다.
    */
   static boolean sync(Context ctx, JSONObject req) {
-    File dir = new File(ctx.getFilesDir(), DIR);
+    File dir = new File(ctx.getNoBackupFilesDir(), DIR);
     if (!dir.isDirectory() && !dir.mkdirs()) return false;
     boolean enabled = req.optBoolean("enabled", false);
     JSONArray in = req.optJSONArray("entries");
     JSONArray out = new JSONArray();
     Set<String> keep = new HashSet<>();
+    boolean anyFailed = false;
     try {
       if (enabled && in != null) {
         for (int i = 0; i < Math.min(in.length(), 20); i++) {
@@ -515,7 +570,11 @@ public final class DibayNativeIntro {
           String file = sha + "." + ext;
           File dest = new File(dir, file);
           if (!dest.isFile() || !sha.equals(sha256Hex(dest))) {
-            if (!download(url, dest, sha, 5L * 1024 * 1024)) return false;
+            // 재감사 A8: 한 소재 실패가 전체 갱신을 막지 않는다 — 그 소재만 빼고, 실패 표시로 웹이 다음 발견 때 다시 맞춘다
+            if (!download(url, dest, sha, 5L * 1024 * 1024)) {
+              anyFailed = true;
+              continue;
+            }
           }
           JSONObject e = new JSONObject();
           e.put("id", o.getString("id"));
@@ -556,8 +615,8 @@ public final class DibayNativeIntro {
           f.delete();
         }
       }
-      Log.i(TAG, "synced entries=" + out.length() + " enabled=" + (enabled && out.length() > 0));
-      return true;
+      Log.i(TAG, "synced entries=" + out.length() + " enabled=" + (enabled && out.length() > 0) + " failed=" + anyFailed);
+      return !anyFailed;
     } catch (Exception e) {
       Log.w(TAG, "sync_failed " + e.getClass().getSimpleName());
       return false;
@@ -591,6 +650,8 @@ public final class DibayNativeIntro {
       r.put("active", e != null && !finished);
       r.put("creativeId", e != null ? e.id : null);
       r.put("exposureId", exposureId);
+      JSONObject m = readManifest(getContext());
+      r.put("revision", m != null ? m.optString("revision", "") : "");
       call.resolve(r);
     }
 

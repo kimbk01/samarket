@@ -21,6 +21,7 @@ import {
   PTR_BAND_SPECS,
 } from "@/lib/platform-popup/ptr-reveal-contract";
 import { adminServerLanguage, adminServerText } from "@/lib/i18n/admin-server-language";
+import { checkPopupCreativeSourceSize } from "@/lib/platform-popup/creative-size-spec";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -105,6 +106,23 @@ export async function POST(
       { ok: false, error: "invalid_dimensions", message: await adminServerText("admin_api_popup_creative_invalid_dimensions") },
       { status: 400 }
     );
+  }
+
+  // 재감사: 카드·그림형 원본 최소 해상도 · 최대 화소 (`creative-size-spec.ts`) — PTR 띠는 아래 자체 규격
+  if (creativeMode === "card" || creativeMode === "artwork") {
+    const size = checkPopupCreativeSourceSize({ creativeMode, width, height });
+    if (!size.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: size.error,
+          width,
+          height,
+          ...(size.error === "popup_image_too_small" ? { minWidth: size.minWidth, minHeight: size.minHeight } : {}),
+        },
+        { status: 400 }
+      );
+    }
   }
 
   if (creativeMode === "ptr_band") {

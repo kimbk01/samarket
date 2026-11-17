@@ -112,6 +112,14 @@ export function DibayPopupAd({
   const ctaAria = safeT("platform_popup_cta_aria");
   const backdropAria = safeT("platform_popup_backdrop_close_aria");
 
+  const earlyComposition = resolvePlatformPopupComposition({ presentationType, creativeMode: creative.creativeMode });
+  const dataMissing =
+    (earlyComposition === "list_sheet" && listStores.length === 0) ||
+    (earlyComposition === "coupon_card" && coupons.length === 0);
+  useEffect(() => {
+    if (dataMissing && !embedded) (onUnavailable ?? onImageError)();
+  }, [dataMissing, embedded, onUnavailable, onImageError]);
+
   const markMediaReady = useCallback(() => {
     setMediaReady(true);
   }, []);
@@ -174,6 +182,8 @@ export function DibayPopupAd({
   }, [mediaReady, imageFailed, onImpression, exposureId]);
 
   if (imageFailed) return null;
+  // 진입 감사 PO-3: 목록·쿠폰 데이터가 비면 빈 틀을 그리지 않는다 — 재감사: 호스트에 알려 다음 칸으로
+  if (dataMissing) return null;
 
   const composition = resolvePlatformPopupComposition({
     presentationType,
@@ -184,9 +194,6 @@ export function DibayPopupAd({
   if (composition === "benefit_dialog" && !benefit?.title?.trim()) {
     return null;
   }
-  // 진입 감사 PO-3: 데이터가 비면 빈 틀을 그리지 않는다(서버도 대기열에서 빼지만 이중 방어)
-  if (composition === "list_sheet" && listStores.length === 0) return null;
-  if (composition === "coupon_card" && coupons.length === 0) return null;
 
   const shared = {
     campaignId,

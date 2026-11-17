@@ -9,6 +9,8 @@ export type PlatformPopupResolveClientJson = {
   winner?: unknown;
   /** 진입 감사 PO-2 — 한 번 진입에 순서대로 보일 팝업(첫 칸 = winner). 예전 서버는 없음 */
   queue?: unknown[];
+  /** 어드민 가로 화면 허용 */
+  allowLandscape?: boolean;
   reason?: string | null;
   surface?: string;
   generation?: string | null;
@@ -65,6 +67,8 @@ export async function fetchPlatformPopupResolveDeduped(input: {
     throw err;
   }
 
+  // 재감사: 쓰이지 않은 오래된 미리 받기는 지운다(조건이 바뀌어 다시 안 불리는 키)
+  for (const [k, v] of prefetched) if (Date.now() - v.at >= PREFETCH_TTL_MS) prefetched.delete(k);
   const pre = prefetched.get(key);
   if (pre) prefetched.delete(key);
   const flight =

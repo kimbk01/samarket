@@ -32,6 +32,12 @@ export function formatPlatformPopupAdminError(
   if (lower === "surface_required") {
     return translateBy(lang, "platform_popup_select_at_least_one_placement");
   }
+  // 재감사: 그림 크기·문구 길이 (`creative-size-spec.ts`)
+  if (lower === "popup_image_too_small") return translateBy(lang, "platform_popup_image_too_small_spec");
+  if (lower === "popup_image_too_many_pixels") return translateBy(lang, "platform_popup_image_too_many_pixels");
+  if (lower === "title_too_long") return translateBy(lang, "platform_popup_title_too_long");
+  if (lower === "body_too_long") return translateBy(lang, "platform_popup_body_too_long");
+  if (lower === "cta_label_too_long") return translateBy(lang, "platform_popup_cta_label_too_long");
   if (lower === "creative_needs_card_crop") {
     return translateBy(lang, "platform_popup_card_needs_crop");
   }
