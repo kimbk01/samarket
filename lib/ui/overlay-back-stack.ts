@@ -50,14 +50,16 @@ let systemBackSource: NativeBackSource | null = null;
  * S1 (docs/audit/android-system-nav-2026-11-17/s1-s3-design.md): 새 설치본은 DibaySystemBack 가 ◁ 를
  * 「받아서 할 일이 있을 때만」 받는다 — 리스너를 붙인 동안만 setActive(true). 플러그인이 없는 구 설치본은 지금처럼 App.
  */
-async function resolveNativeBackSource(): Promise<NativeBackSource> {
+async function resolveNativeBackSource(): Promise<{ source: NativeBackSource }> {
+  // Capacitor 플러그인 객체는 모든 속성(then 포함)에 함수를 돌려주는 프록시라 Promise 값으로 그대로 반환하면
+  // thenable 로 처리되어 영원히 풀리지 않는다 — 반드시 객체로 감싸서 반환한다.
   const { Capacitor, registerPlugin } = await import("@capacitor/core");
   if (Capacitor.isPluginAvailable("DibaySystemBack")) {
     if (!systemBackSource) systemBackSource = registerPlugin<NativeBackSource>("DibaySystemBack");
-    return systemBackSource;
+    return { source: systemBackSource };
   }
   const { App } = await import("@capacitor/app");
-  return App;
+  return { source: App };
 }
 
 /** Default driver — Android only (DibaySystemBack, else @capacitor/app on older installs). */
@@ -68,7 +70,7 @@ const capacitorDriver: OverlayBackListenerDriver = {
     let handle: BackListenerHandle | null = null;
     let source: NativeBackSource | null = null;
     void resolveNativeBackSource()
-      .then(async (src) => {
+      .then(async ({ source: src }) => {
         const h = await src.addListener("backButton", onBack);
         if (removed) {
           void h.remove();
