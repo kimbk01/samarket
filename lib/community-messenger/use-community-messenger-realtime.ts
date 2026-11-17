@@ -17,8 +17,6 @@ import type {
   CommunityMessengerRoomRealtimeMessageEvent,
 } from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { subscribeSamarketRealtimeTokenRefreshed } from "@/lib/supabase/realtime-auth-events";
-import { cmRtLogAuthEpochBump } from "@/lib/community-messenger/realtime/community-messenger-realtime-debug";
 import {
   bumpMessengerRealtimeLocalUnreadForRoom,
   clearMessengerRealtimeLocalUnreadForRoom,
@@ -453,6 +451,9 @@ function notifyMessengerHomeRealtimeMessageInsert(args: {
   });
 }
 
+/** X4: 홈 rooms-in 토픽 세대(탭 수명 동안 단조 증가 — 엔트리를 새로 만들어도 겹치지 않음) */
+let homeRoomsInTopicGeneration = 0;
+
 function createHomeRealtimeEntry(args: {
   key: string;
   userId: string;
@@ -520,6 +521,7 @@ function createHomeRealtimeEntry(args: {
       channelBindRole: args.channelBindRole,
       includeMeta: args.includeMeta,
       visibleTradeRoomCount: pendingVisibleTradeRoomCount,
+      roomsInTopicGeneration: isRoomsInEntry ? ++homeRoomsInTopicGeneration : undefined,
       messageInsertHintRef: {
         current: (hint) => {
           notifyMessengerHomeRealtimeMessageInsert({ viewerUserId: args.userId, hint });
@@ -599,28 +601,14 @@ function createHomeRealtimeEntry(args: {
     onReady: bindHomeChannels,
   });
 
-  let tokenRebindTimer: ReturnType<typeof setTimeout> | null = null;
-  let tokenRefreshGeneration = 0;
-  const unsubscribeTokenRefresh = subscribeSamarketRealtimeTokenRefreshed(() => {
-    if (cancelled || !homeBound) return;
-    if (tokenRebindTimer != null) clearTimeout(tokenRebindTimer);
-    tokenRebindTimer = setTimeout(() => {
-      tokenRebindTimer = null;
-      if (cancelled || !homeBound) return;
-      tokenRefreshGeneration += 1;
-      cmRtLogAuthEpochBump({ epoch: tokenRefreshGeneration, source: "token_refresh_home" });
-      attachChannelsForFingerprint(pendingFingerprint, "token_refresh_rebind");
-    }, 50);
-  });
+  /**
+   * X4: 토큰 갱신 재바인드 삭제 — supabase-js·`lib/supabase/client.ts` 의 `realtime.setAuth` 가 가입된 채널에 새 토큰을
+   * 보내고 join payload 도 갱신한다. 재바인드는 같은 토픽을 await 없이 재생성해 채널을 죽였다.
+   */
 
   entry.stop = () => {
     clearMessengerHomeDeferredPhysicalStopForAnyKey(args.key);
     cancelled = true;
-    unsubscribeTokenRefresh();
-    if (tokenRebindTimer != null) {
-      clearTimeout(tokenRebindTimer);
-      tokenRebindTimer = null;
-    }
     if (rebindCoalesceTimer != null) {
       clearTimeout(rebindCoalesceTimer);
       rebindCoalesceTimer = null;

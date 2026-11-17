@@ -17485,6 +17485,8 @@ async function trySendCommunityMessengerTextAtomic(
       directKey: directKeyStr,
       roomType: typeof payload.room_type === "string" ? payload.room_type : null,
       chatDomain: typeof payload.chat_domain === "string" ? payload.chat_domain : null,
+      /** P2: RPC 반환(마이그레이션 적용 뒤) — 방 bump 의 rooms 재조회 제거 재료. 없으면 null → 기존 폴백 */
+      domainIdentity: typeof payload.domain_identity === "string" ? payload.domain_identity : null,
       hasMention: /@\S/.test(content),
     };
   }
@@ -17535,6 +17537,14 @@ export async function sendCommunityMessengerMessage(input: {
    * 동일 RTT 내 `community_messenger_participants` 존재 조회를 한 번 줄인다.
    */
   membershipPreflightDone?: boolean;
+  /**
+   * P2 (B3): route 가 프로필·회원 게이트와 **동시에** 시작한 그룹·차단 게이트 결과.
+   * 있으면 다시 조회하지 않고 같은 순서(그룹 → 차단)·같은 오류 매핑으로 평가한다.
+   */
+  gatePrefetch?: {
+    group: import("@/lib/community-messenger/group/group-active-membership-gate").GroupActiveMembershipResult;
+    block: Awaited<ReturnType<typeof assertDirectRoomCommunicationNotBlocked>>;
+  } | null;
   /** Opt-in T5 stage trace (route header `x-samarket-t5-trace: 1`). */
   _t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace;
 }): Promise<{
@@ -17567,11 +17577,13 @@ export async function sendCommunityMessengerMessage(input: {
     const { assertActiveGroupMembershipIfGroup } = await import(
       "@/lib/community-messenger/group/group-active-membership-gate"
     );
-    const groupGate = await assertActiveGroupMembershipIfGroup({
-      userId: input.userId,
-      roomId,
-      supabase: sb,
-    });
+    const groupGate =
+      input.gatePrefetch?.group ??
+      (await assertActiveGroupMembershipIfGroup({
+        userId: input.userId,
+        roomId,
+        supabase: sb,
+      }));
     if (t5 && spanT5) spanT5(t5, "S3_group_gate_ms", groupT0);
     if (!groupGate.ok) {
       return { ok: false, error: groupGate.error === "user_banned" ? "forbidden" : groupGate.error };
@@ -17579,12 +17591,14 @@ export async function sendCommunityMessengerMessage(input: {
   }
   if (sb) {
     const blockT0 = performance.now();
-    const blockGate = await assertDirectRoomCommunicationNotBlocked({
-      viewerUserId: input.userId,
-      roomId,
-      supabase: sb,
-      _t5: t5,
-    });
+    const blockGate =
+      input.gatePrefetch?.block ??
+      (await assertDirectRoomCommunicationNotBlocked({
+        viewerUserId: input.userId,
+        roomId,
+        supabase: sb,
+        _t5: t5,
+      }));
     if (t5 && spanT5) spanT5(t5, "S3_block_gate_ms", blockT0);
     if (!blockGate.ok) {
       return { ok: false, error: blockGate.error };

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { CommunityMessengerRoomClient } from "@/components/community-messenger/CommunityMessengerRoomClient";
 import { CommunityMessengerRoomEntryEmpty } from "@/components/community-messenger/room/CommunityMessengerRoomEntryEmpty";
 import { MessengerRoomSwipeBackShell } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
+import { communityMessengerRoomInboxGroupKind } from "@/lib/community-messenger/messenger-room-domain";
+import { resolveOwnerOrderChatsBackHref } from "@/lib/community-messenger/room/messenger-room-back-target";
 import { redirectResourceAccessDenied } from "@/lib/auth/resource-access-denied-flow";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { decodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
@@ -291,6 +293,8 @@ export function CommunityMessengerRoomBootstrapGate({
     <MessengerRoomSwipeBackShell
       roomId={roomId}
       roomType={entrySnapshot?.room?.roomType ?? null}
+      roomListKind={entrySnapshot?.room ? communityMessengerRoomInboxGroupKind(entrySnapshot.room) : null}
+      ownerOrderChatsHref={resolveOwnerOrderChatsBackHref(entrySnapshot?.room, entrySnapshot?.myRole)}
     >
       {cold ? (
         <CommunityMessengerRoomEntryEmpty

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { messengerRoomNavigateMethod } from "@/lib/community-messenger/room/messenger-room-navigate-method";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import { MessengerSnackbarHost } from "@/components/community-messenger/MessengerSnackbarHost";
@@ -95,7 +96,7 @@ export function GlobalIncomingFriendRequestHost({ enabled }: { enabled: boolean 
                   onDismiss={() => dismissGroupInviteIfId(invite.id)}
                   onOpen={() => {
                     dismissGroupInviteIfId(invite.id);
-                    router.push(`/community-messenger/rooms/${encodeURIComponent(invite.roomId)}`);
+                    messengerRoomNavigateMethod(router)(`/community-messenger/rooms/${encodeURIComponent(invite.roomId)}`);
                   }}
                 />
               ))}

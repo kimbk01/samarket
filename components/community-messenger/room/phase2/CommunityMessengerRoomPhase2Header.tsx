@@ -10,9 +10,10 @@ import { HeaderBackRoundButton } from "@/components/navigation/HeaderBackRoundBu
 import { useMessengerRoomPhase2HeaderView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
 import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
 import {
-  resolveMessengerRoomBackNavigation,
-  runMessengerRoomBackNavigation,
-} from "@/lib/community-messenger/room/messenger-room-back-navigation";
+  resolveMessengerRoomBackTargetNow,
+  resolveOwnerOrderChatsBackHref,
+  runMessengerRoomBackTarget,
+} from "@/lib/community-messenger/room/messenger-room-back-target";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { formatMessengerPeerPresenceLine } from "@/lib/community-messenger/realtime/presence/format-messenger-peer-presence-line";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
@@ -25,7 +26,6 @@ import { resolveMessengerTypingLabel } from "@/lib/community-messenger/realtime/
 import { TypingIndicatorLine } from "@/components/community-messenger/TypingIndicatorLine";
 import { MessengerHeader } from "@/components/community-messenger/line-ui";
 import { Phone, Search, Settings, X } from "lucide-react";
-import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { messengerDeliveryViewerRole } from "@/lib/community-messenger/messenger-delivery-viewer-role";
@@ -49,7 +49,10 @@ import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use
 import { StoreOrderDeliveryMessengerHeaderBlock } from "@/components/community-messenger/room/phase2/StoreOrderDeliveryMessengerHeaderBlock";
 import { useTradePostDetailSlideHost } from "@/components/community-messenger/room/phase2/TradePostDetailSlideHostContext";
 import { resolveMessengerRoomHeaderStatusLine } from "@/lib/community-messenger/realtime/presence/resolve-room-header-status-line";
-import { messengerRoomShowsConfirmedDeliveryPresentation } from "@/lib/community-messenger/messenger-room-domain";
+import {
+  communityMessengerRoomInboxGroupKind,
+  messengerRoomShowsConfirmedDeliveryPresentation,
+} from "@/lib/community-messenger/messenger-room-domain";
 import { logCallV3ButtonClick, logCallV3ButtonRender } from "@/lib/community-messenger/call-v3/call-v3-debug";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 
@@ -240,6 +243,15 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     tradePostDetailSlide.openPostDetail(postId);
   };
 
+  /** P5 — 머리글 ‹ 목적지(셸 가장자리 스와이프·Android ◁ 와 같은 함수). */
+  const resolveRoomBackTarget = () =>
+    resolveMessengerRoomBackTargetNow({
+      roomType: vm.snapshot.room.roomType,
+      listKind: communityMessengerRoomInboxGroupKind(vm.snapshot.room),
+      searchParams,
+      ownerOrderChatsHref: resolveOwnerOrderChatsBackHref(vm.snapshot.room, vm.snapshot.myRole),
+    });
+
   const handleBack = () => {
     if (ownerSlideHost?.closeSlide) {
       ownerSlideHost.closeSlide();
@@ -254,19 +266,11 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
         roomId: vm.snapshot.room.id,
         viewerUserId: vm.snapshot.viewerUserId,
       });
-      if (vm.snapshot.room.roomType === "open_group") {
-        vm.router.replace(SAMARKET_ROUTES.chat.messengerMeetingsHub, { scroll: false });
-        return;
-      }
-      const plan = resolveMessengerRoomBackNavigation({
-        roomId: vm.snapshot.room.id,
-        searchParams,
-      });
       /**
-       * 분할에서도 모바일과 같은 계획 — history back(+폴백). 방 전환은 replace 라 기록 = [허브, 방] →
-       * 헤더 ← 와 Android 시스템 뒤로 결과가 같다 (BK-06). 계획 자체의 forceDirect(override·배달)는 유지.
+       * 분할에서도 모바일과 같은 목적지(P5 단일 정의) — 앱 안 진입 = back 1회, 알림·첫 기록 진입 = 방 종류 목록 replace 1회.
+       * 방 전환은 replace 라 기록 = [허브, 방] → 헤더 ← 와 Android 시스템 뒤로 결과가 같다 (BK-06).
        */
-      runMessengerRoomBackNavigation(vm.router, plan);
+      runMessengerRoomBackTarget(vm.router, resolveRoomBackTarget());
       return;
     }
     if (requestAnimatedBack) {
@@ -277,15 +281,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
       roomId: vm.snapshot.room.id,
       viewerUserId: vm.snapshot.viewerUserId,
     });
-    if (vm.snapshot.room.roomType === "open_group") {
-      vm.router.replace(SAMARKET_ROUTES.chat.messengerMeetingsHub, { scroll: false });
-      return;
-    }
-    const plan = resolveMessengerRoomBackNavigation({
-      roomId: vm.snapshot.room.id,
-      searchParams,
-    });
-    runMessengerRoomBackNavigation(vm.router, plan);
+    runMessengerRoomBackTarget(vm.router, resolveRoomBackTarget());
   };
 
   const voiceConfirmPeerLabel = useMemo(() => {

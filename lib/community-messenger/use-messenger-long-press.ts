@@ -64,6 +64,11 @@ export function useMessengerLongPress(onLongPress: () => void, options?: { thres
     onPointerDown: (e) => {
       if (!e.isPrimary) return;
       clearTimer();
+      /**
+       * P5 §A8-2 (ii): 새 누름이 시작되면 지난 길게 누름의 클릭 억제 표시를 지운다. 이전에는 길게 누름 뒤
+       * 손을 뗄 때 억제를 소비하지 않는 경로가 있어 다음 정상 탭 1회가 이동 없이 버려졌다.
+       */
+      suppressNextClickRef.current = false;
       startRef.current = { x: e.clientX, y: e.clientY };
       pointerIdRef.current = e.pointerId;
       timerRef.current = setTimeout(() => {

@@ -30,6 +30,8 @@ export function subscribeCommunityMessengerRoomBumpBroadcast(args: {
   sb: SupabaseClient;
   roomId: string;
   onBump: (payload: Record<string, unknown>) => void;
+  /** 선택: 구독 상태 콜백(SUBSCRIBED 시 공백 보상 정합 등) */
+  onStatus?: Parameters<typeof createMessengerPrivateChannelStatusHandler>[0]["onStatus"];
 }): ReturnType<SupabaseClient["channel"]> {
   const roomId = args.roomId.trim();
   const name = communityMessengerRoomBumpChannelName(roomId);
@@ -44,5 +46,7 @@ export function subscribeCommunityMessengerRoomBumpBroadcast(args: {
       }
       args.onBump(typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {});
     })
-    .subscribe(createMessengerPrivateChannelStatusHandler({ sb: args.sb, scope: "room_bump" }));
+    .subscribe(
+      createMessengerPrivateChannelStatusHandler({ sb: args.sb, scope: "room_bump", onStatus: args.onStatus })
+    );
 }

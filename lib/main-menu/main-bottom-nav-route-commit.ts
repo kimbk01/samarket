@@ -209,7 +209,16 @@ function commitMainBottomNavRouteNavigateSync(args: MainBottomNavRouteCommitArgs
     args.deferredAfterAwait ? "bottom_nav_async" : "bottom_nav_explicit",
     { fromHref }
   );
-  if (!sent) return false;
+  if (!sent) {
+    /** P5 §A8-3 계측 — 하단 탭 이동이 막힌 이유(딥 경로 잠금 등)를 이유 코드로 남긴다 */
+    console.info("[bottom-nav-tap] blocked", {
+      reason: "navigation_guard",
+      trigger: args.deferredAfterAwait ? "bottom_nav_async" : "bottom_nav_explicit",
+      href: args.href,
+      fromHref,
+    });
+    return false;
+  }
 
   args.onCloseOverlay?.();
 

@@ -123,4 +123,17 @@ describe("last-run-snapshot (F3-a)", () => {
     updateLastRunSnapshot({ bellUnread: 5 }, "user-a");
     expect(localStorage.getItem(LAST_RUN_SNAPSHOT_KEY)).toBe(first);
   });
+
+  it("설계 D3: MY 작은 사본(data URL) — 저장·읽기 · 모양/크기 틀리면 버림 · null 은 지움", () => {
+    signIn("user-a");
+    const data = "data:image/jpeg;base64," + "A".repeat(200);
+    updateLastRunSnapshot({ avatarThumb: { src: "https://cdn.example/a.jpg", data } }, "user-a");
+    expect(readLastRunSnapshotForCurrentAccount()?.avatarThumb).toEqual({ src: "https://cdn.example/a.jpg", data });
+    updateLastRunSnapshot({ avatarThumb: { src: "https://cdn.example/a.jpg", data: "data:image/jpeg;base64," + "A".repeat(20000) } }, "user-a");
+    expect(readLastRunSnapshotForCurrentAccount()?.avatarThumb).toBeNull();
+    updateLastRunSnapshot({ avatarThumb: { src: "https://cdn.example/a.jpg", data } }, "user-a");
+    updateLastRunSnapshot({ avatarThumb: null }, "user-a");
+    expect(readLastRunSnapshotForCurrentAccount()?.avatarThumb).toBeNull();
+    expect(parseLastRunSnapshot(JSON.stringify({ v: LAST_RUN_SNAPSHOT_VERSION, account: "user-a", writtenAt: 1, avatarThumb: { src: "x", data: "javascript:1" } }))?.avatarThumb).toBeNull();
+  });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { messengerRoomNavigateMethod } from "@/lib/community-messenger/room/messenger-room-navigate-method";
 import { useRouter } from "next/navigation";
 import { Ban, Check, EyeOff, MessageCircle, Phone, UserPlus, X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -97,7 +98,7 @@ export function MessengerContactsMemberSheet({
         showMessengerSnackbar(t("cm_contacts_action_failed"), { variant: "error" });
         return false;
       }
-      router.push(`/community-messenger/rooms/${encodeURIComponent(j.roomId)}`);
+      messengerRoomNavigateMethod(router)(`/community-messenger/rooms/${encodeURIComponent(j.roomId)}`);
       return true;
     });
 

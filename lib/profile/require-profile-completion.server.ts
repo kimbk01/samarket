@@ -29,6 +29,10 @@ export type ProfileFieldsGateResult =
   | { ok: true }
   | { ok: false; response: NextResponse; missingFields: string[] };
 
+/** 프로필 필수 항목 게이트가 읽는 profiles 컬럼(SSOT — 다른 게이트와 합쳐 1회 읽을 때도 이 목록을 쓴다) */
+export const PROFILE_FIELDS_GATE_SELECT =
+  "id,dibay_id,dibay_id_locked,dibay_id_auto_assigned,dibay_id_changed_once,username,username_confirmed,display_name,nickname,phone_verified,phone_verified_at,phone_verification_method,role,provider,auth_provider,email";
+
 export async function requireProfileFieldsForAction(
   sb: SupabaseClient,
   userId: string,
@@ -43,9 +47,7 @@ export async function requireProfileFieldsForAction(
   if (!row) {
     const { data, error } = await sb
       .from("profiles")
-      .select(
-        "id,dibay_id,dibay_id_locked,dibay_id_auto_assigned,dibay_id_changed_once,username,username_confirmed,display_name,nickname,phone_verified,phone_verified_at,phone_verification_method,role,provider,auth_provider,email"
-      )
+      .select(PROFILE_FIELDS_GATE_SELECT)
       .eq("id", userId)
       .maybeSingle();
     if (error) {
