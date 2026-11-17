@@ -12,7 +12,10 @@ const src = fs.readFileSync(path.join(process.cwd(), "lib/offers/price-offers.se
 
 describe("offer accepted notification link", () => {
   it("links to the messenger room, falling back to the trade room only when none exists", () => {
-    expect(src).toContain("const linkRoomId = args.messengerRoomId?.trim() || args.chatRoomId;");
+    // 2026-11-18: ensure 가 메신저 방 id 를 못 주면 같은 해석기로 찾고, 그래도 없을 때만 거래방 id
+    expect(src).toContain(
+      "const linkRoomId = await resolveTradeNotificationMessengerRoomId(sb, args.messengerRoomId, args.chatRoomId);"
+    );
     expect(src).toContain("link_url: tradeChatNotificationHref(linkRoomId, args.chatRoomSource),");
     expect(src).not.toContain("link_url: tradeChatNotificationHref(args.chatRoomId, args.chatRoomSource),");
   });

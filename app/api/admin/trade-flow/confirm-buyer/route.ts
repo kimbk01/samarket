@@ -13,6 +13,7 @@ import { getServiceOrAnonClient } from "@/lib/admin/verify-admin-user-server";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { fetchOpsTradePolicy, reviewDeadlineIsoFromNow } from "@/lib/trade/ops-trade-policy";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
+import { resolveTradeNotificationMessengerRoomId } from "@/lib/notifications/trade-notification-room-id-server";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
@@ -115,11 +116,14 @@ export async function POST(req: NextRequest) {
       // 4절 문구 — 문구 모음 사용(받는 사람 언어)
       title: notifySafeT(confirmLang, "notify_trade_admin_buyer_confirmed_title"),
       body: notifySafeT(confirmLang, "notify_trade_admin_buyer_confirmed_body"),
-      // B-08: 메신저 방 id 가 있으면 그 방으로(buyer-issue 와 같은 방식), 없을 때만 거래방 id.
+      // B-08: 메신저 방 id 가 있으면 그 방으로(buyer-issue 와 같은 방식). FK 가 비면 내역·Admin 과 같은
+      // 해석기로 정규 방 id 를 찾고, 그래도 없을 때만 거래방(product_chats) id.
       link_url: tradeChatNotificationHref(
-        String(
-          (pc as { community_messenger_room_id?: string | null }).community_messenger_room_id ?? ""
-        ).trim() || roomId,
+        await resolveTradeNotificationMessengerRoomId(
+          sbAny,
+          (pc as { community_messenger_room_id?: string | null }).community_messenger_room_id,
+          roomId
+        ),
         "product_chat"
       ),
       domain: "trade_chat",

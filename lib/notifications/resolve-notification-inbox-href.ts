@@ -57,6 +57,13 @@ function tradeOfferMessengerHref(roomId: string, roomSource: unknown): string {
   return tradeMessengerRoomHref(roomId, src);
 }
 
+/** 앱 안 메신저 방 경로(`/community-messenger/rooms/<id>`, 쿼리 허용)인가 — 외부 URL 은 아님 */
+function isMessengerRoomHref(href: string): boolean {
+  if (!href.startsWith("/") || href.startsWith("//")) return false;
+  const path = href.split(/[?#]/)[0] ?? "";
+  return /^\/community-messenger\/rooms\/[^/]+$/.test(path);
+}
+
 function trimText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
@@ -165,6 +172,12 @@ function resolveTradeOfferInboxHref(r: InboxHrefRow): string | null {
   }
 
   if (event === "offer_accepted") {
+    /**
+     * 저장된 link_url 이 메신저 방 주소면 그대로 쓴다 — 서버가 정규 메신저 방 id 로 만든 링크(76739dc38)를
+     * meta.chat_room_id(`chat_rooms.id`)로 다시 만들면 레거시 id 로 방이 열려, URL 이 정규 id 로 바뀌기 전까지
+     * 방 안인데도 소리·안 읽음이 날 수 있다. 메신저 방 링크가 없을 때만 meta 로 만든다.
+     */
+    if (isMessengerRoomHref(linkTrim)) return linkTrim;
     const roomId =
       (typeof m.chat_room_id === "string" && m.chat_room_id.trim()) ||
       (typeof m.room_id === "string" && m.room_id.trim()) ||
