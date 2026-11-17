@@ -51,6 +51,17 @@ export function expireInactiveLaunchIntroIndex(index: LaunchIntroIndex, nowMs: n
 }
 
 /**
+ * 빌드 전 감사 W2 (2026-11-17): 이 기록(`inactiveSince`)이 생기기 전에 이미 꺼져 있던 색인은 시작 시각이 없어 영영 만료되지
+ * 않았다(판이 그대로면 승격 경로를 안 탄다). 비활성 + 게시본 있음 + 시작 시각 없음 → 지금부터 보관 기간을 센다.
+ * 바꿀 것이 없으면 null.
+ */
+export function startInactiveRetentionClock(index: LaunchIntroIndex, nowIso: string): LaunchIntroIndex | null {
+  if (index.state === "active" || !index.publication) return null;
+  if (index.inactiveSince && Number.isFinite(Date.parse(index.inactiveSince))) return null;
+  return { ...index, inactiveSince: nowIso };
+}
+
+/**
  * Structural check + document normalization. Cached documents may be schema v1 (promoted before the
  * v2 runtime) or v2; both normalize through the one validator. Anything else is not a candidate.
  */

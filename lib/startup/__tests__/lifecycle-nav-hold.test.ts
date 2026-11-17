@@ -6,9 +6,9 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const decision = { navigateTo: null as string | null };
+const decision = { navigateTo: null as string | null, kind: "os_restore" as string };
 vi.mock("@/lib/lifecycle/app-entry-kind", () => ({
-  getAppEntryDecision: () => ({ kind: "os_restore", reason: "test", navigateTo: decision.navigateTo }),
+  getAppEntryDecision: () => ({ kind: decision.kind, reason: "test", navigateTo: decision.navigateTo }),
   appEntryAllowsIntro: () => false,
 }));
 vi.mock("@capacitor/core", () => ({ Capacitor: { isNativePlatform: () => false, getPlatform: () => "web" } }));
@@ -16,9 +16,10 @@ vi.mock("@/lib/launch-intro/startup-destination", () => ({
   getLaunchDestination: () => ({ destination: "community", reason: "test", snapshot: null }),
 }));
 
-async function loadHold(path: string, navigateTo: string | null, applied = false) {
+async function loadHold(path: string, navigateTo: string | null, applied = false, kind = "os_restore") {
   vi.resetModules();
   decision.navigateTo = navigateTo;
+  decision.kind = kind;
   window.history.replaceState(null, "", path);
   window.sessionStorage.clear();
   if (applied) window.sessionStorage.setItem("dibay:lifecycle:nav-applied", "1");
@@ -54,6 +55,11 @@ describe("lifecycle-nav-hold", () => {
     expect((await loadHold("/", null)).lifecycleNavHoldStartPath()).toBeNull();
     expect((await loadHold("/", "/philife", true)).lifecycleNavHoldStartPath()).toBeNull();
     expect((await loadHold("/login", "/philife")).lifecycleNavHoldStartPath()).toBeNull();
+  });
+
+  it("빌드 전 감사 W3: 새로 켬 첫 화면 이동(user_cold)은 「적용함」 표시와 상관없이 보류한다(표시는 복원·안전 진입 전용)", async () => {
+    const h = await loadHold("/", "/philife", true, "user_cold");
+    expect(h.lifecycleNavHoldStartPath()).toBe("/");
   });
 
   it("판단은 문서당 1회 — 나중에 적용 표시가 써져도 보류는 유지되고, settle 로만 풀린다", async () => {

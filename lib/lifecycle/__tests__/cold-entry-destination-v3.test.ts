@@ -19,7 +19,7 @@ describe("첫 진입 화면 경로", () => {
   it("시작 판정이 새로 켬·안전 진입 모두 어드민 값을 쓴다 · 홈 먼저 그린 뒤 이동하던 코드는 없음", () => {
     const kind = readFileSync(join(process.cwd(), "lib/lifecycle/app-entry-kind.ts"), "utf8");
     expect(kind).toContain("resolveColdEntrySurfacePath(");
-    expect(kind).toContain("navigateTo: coldNavigate,");
+    expect(kind).toContain("navigateTo: coldEntryNavigateTo(),");
     const boot = readFileSync(join(process.cwd(), "components/app/InitialSurfaceBootstrap.tsx"), "utf8");
     expect(boot).not.toContain("useRouter");
   });
