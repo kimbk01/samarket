@@ -1299,6 +1299,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(DibayPlayInAppUpdatePlugin.class);
     registerPlugin(LaunchEpochPlugin.class);
     registerPlugin(DibayNativeIntro.NativeIntroPlugin.class);
+    registerPlugin(DibaySystemBackPlugin.class);
     // FD3: one native app-shell orientation request, before WebView first frame.
     // Consumes FD1 classifier. TABLET_ANDROID / UNKNOWN must not receive a request.
     DibayAppOrientationPolicy.applyToAppShell(this);

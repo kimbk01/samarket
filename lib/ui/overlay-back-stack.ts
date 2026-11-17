@@ -6,6 +6,8 @@
  * - Exactly ONE native back listener exists app-wide, and only while the stack is non-empty.
  *   With no overlay open there is no listener → Android default back (WebView history / native
  *   call screen OnBackPressedCallback / messenger screens) is untouched.
+ *   새 설치본(S1): 리스너가 있는 동안만 DibaySystemBack.setActive(true) — 없으면 네이티브가 ◁ 를 받지 않아
+ *   이전 페이지가 없는 화면의 ◁ 는 Android 가 처리한다.
  * - A back press runs the top-most entry only. A non-dismissible overlay (busy) swallows the
  *   press so the page underneath does not navigate away.
  * - Web / iOS: no listener is ever installed (Escape / backdrop keep working).
@@ -32,20 +34,49 @@ let driverOverride: OverlayBackListenerDriver | null = null;
 /** 결함 E — 알림 이동 직후 화면에서만 참. */
 let pushNavigationBackActive = false;
 
-/** Default driver — @capacitor/app on Android only. */
+type BackListenerHandle = { remove: () => void | Promise<void> };
+type NativeBackSource = {
+  addListener: (
+    eventName: "backButton",
+    listener: (ev: { canGoBack?: boolean }) => void,
+  ) => Promise<BackListenerHandle>;
+  /** DibaySystemBack 만 — 네이티브가 「◁ 를 받을지」 정하는 데 쓰는 신호(S1). 구 설치본(App 플러그인)에는 없음. */
+  setActive?: (opts: { active: boolean }) => Promise<void>;
+};
+
+let systemBackSource: NativeBackSource | null = null;
+
+/**
+ * S1 (docs/audit/android-system-nav-2026-11-17/s1-s3-design.md): 새 설치본은 DibaySystemBack 가 ◁ 를
+ * 「받아서 할 일이 있을 때만」 받는다 — 리스너를 붙인 동안만 setActive(true). 플러그인이 없는 구 설치본은 지금처럼 App.
+ */
+async function resolveNativeBackSource(): Promise<NativeBackSource> {
+  const { Capacitor, registerPlugin } = await import("@capacitor/core");
+  if (Capacitor.isPluginAvailable("DibaySystemBack")) {
+    if (!systemBackSource) systemBackSource = registerPlugin<NativeBackSource>("DibaySystemBack");
+    return systemBackSource;
+  }
+  const { App } = await import("@capacitor/app");
+  return App;
+}
+
+/** Default driver — Android only (DibaySystemBack, else @capacitor/app on older installs). */
 const capacitorDriver: OverlayBackListenerDriver = {
   install(onBack) {
     if (resolveCapacitorShellPlatform() !== "android") return () => {};
     let removed = false;
-    let handle: { remove: () => void | Promise<void> } | null = null;
-    void import("@capacitor/app")
-      .then(({ App }) => App.addListener("backButton", onBack))
-      .then((h) => {
+    let handle: BackListenerHandle | null = null;
+    let source: NativeBackSource | null = null;
+    void resolveNativeBackSource()
+      .then(async (src) => {
+        const h = await src.addListener("backButton", onBack);
         if (removed) {
           void h.remove();
           return;
         }
         handle = h;
+        source = src;
+        void src.setActive?.({ active: true }).catch(() => {});
       })
       .catch(() => {
         /* plugin missing — default back stays */
@@ -53,6 +84,7 @@ const capacitorDriver: OverlayBackListenerDriver = {
     return () => {
       removed = true;
       void handle?.remove();
+      void source?.setActive?.({ active: false }).catch(() => {});
     };
   },
 };

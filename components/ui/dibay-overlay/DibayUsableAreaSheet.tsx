@@ -13,7 +13,8 @@ import { DibayOverlayRoot, useOverlayTitleIds } from "./DibayOverlayRoot";
 
 export type DibayUsableAreaSheetProps = {
   open: boolean;
-  onClose: () => void;
+  /** 없으면 기기 ◁ 에 등록하지 않는다(DibayOverlayRoot 와 같음). */
+  onClose?: () => void;
   dismissible?: boolean;
   ariaLabel?: string;
   /**
