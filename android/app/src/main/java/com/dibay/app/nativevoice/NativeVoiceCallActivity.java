@@ -61,6 +61,8 @@ public class NativeVoiceCallActivity extends Activity
   public static final String UI_MODE_INCOMING = "incoming";
   public static final String UI_MODE_OUTGOING = "outgoing";
 
+  /** ◁ 로 수신 화면을 내리며 수신 알림을 다시 올렸음 — 이 화면으로 돌아오면(onResume) 알림 시각 표시를 다시 지운다. */
+  private boolean incomingReturnPathPosted = false;
   private static WeakReference<NativeVoiceCallActivity> activeRef = new WeakReference<>(null);
   /** S2 — 화면이 다시 만들어져도(PiP 닫은 뒤 복귀) 통화 시간이 이어지도록 callId 별 연결 시각. UI 전용. */
   private static final ConcurrentHashMap<String, Long> CONNECTED_AT_BY_CALL = new ConcurrentHashMap<>();
@@ -351,6 +353,15 @@ public class NativeVoiceCallActivity extends Activity
   @Override
   protected void onResume() {
     super.onResume();
+    if (incomingReturnPathPosted) {
+      // 다시 올린 수신 알림으로(또는 최근 앱 등으로) 수신 화면에 돌아옴 — 처음 표시 때와 같이 알림 시각 표시를 지운다.
+      incomingReturnPathPosted = false;
+      NativeVoiceCallRuntime.Session returned = NativeVoiceCallRuntime.getSession(callId);
+      if (returned != null && !returned.initiator && returned.state == NativeVoiceCallRuntime.State.RINGING) {
+        NativeVoiceCallLog.info("incoming_leave_returned_suppress", callId);
+        NativeVoiceCallNotification.suppressVisualAfterActivityShown(this, callId);
+      }
+    }
     if (waitingBanner != null) waitingBanner.onHostResumed();
     applyCallScreenKeepAwake("resume");
     // WP-3 NEW-11: user returned from app Settings — resume accept if the mic is now granted and
@@ -475,7 +486,12 @@ public class NativeVoiceCallActivity extends Activity
     }
     NativeVoiceCallLog.info(
         "native_voice_back_minimize_pre_connected", callId, "state=" + state + " source=" + source);
-    return NativeCallAppReturn.bringAppToFront(this, callId, "back_pre_connected:" + source);
+    boolean left = NativeCallAppReturn.bringAppToFront(this, callId, "back_pre_connected:" + source);
+    // 수신 벨 중이면 받기·거절 수단(수신 알림)을 다시 올린다 — 화면은 살아 있어 SURFACE_LOST 경로가 돌지 않는다.
+    if (left && NativeVoiceCallRuntime.ensureIncomingReturnPathAfterLeave(this, callId, "back_pre_connected:" + source)) {
+      incomingReturnPathPosted = true;
+    }
+    return left;
   }
 
   private boolean isLiveConnectedSession() {
