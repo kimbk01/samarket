@@ -1,5 +1,6 @@
 "use client";
 import { formatMessengerClockTime as formatMessengerClockTimeForMessage } from "@/lib/community-messenger/messenger-clock-time";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 
 /**
  * `CommunityMessengerRoomClient` 전용 뷰·포맷·아이콘 — 본 파일은 상태·실시간·전송 오케스트레이션에 집중한다.
@@ -592,14 +593,16 @@ export { formatMessengerClockTime as formatTime } from "@/lib/community-messenge
 /**
  * 채팅 P0-1: 메시지 1개당 시각 라벨은 1번만 계산한다(병합이 행 참조를 유지하므로 같은 객체 = 같은 라벨).
  * 타임라인 줄 계산(다음 줄과 시각 비교)·행 표시가 같은 값을 쓴다.
+ * P4-B: 라벨이 화면 언어를 따르므로(ko 「오전 2:16」/en 「2:16 AM」) 언어도 함께 저장해 바뀌면 다시 계산.
+ * 언어는 호출처가 `useI18n().language` 로 넘긴다(전역 기본값 의존 없음 — SSR·언어 전환 순간 혼재 방지).
  */
-const messengerMessageClockLabelCache = new WeakMap<object, { createdAt: string; label: string }>();
+const messengerMessageClockLabelCache = new WeakMap<object, { createdAt: string; lang: string; label: string }>();
 
-export function messengerMessageClockLabel(message: { createdAt: string }): string {
+export function messengerMessageClockLabel(message: { createdAt: string }, lang: AppLanguageCode): string {
   const hit = messengerMessageClockLabelCache.get(message);
-  if (hit && hit.createdAt === message.createdAt) return hit.label;
-  const label = formatMessengerClockTimeForMessage(message.createdAt);
-  messengerMessageClockLabelCache.set(message, { createdAt: message.createdAt, label });
+  if (hit && hit.createdAt === message.createdAt && hit.lang === lang) return hit.label;
+  const label = formatMessengerClockTimeForMessage(message.createdAt, lang);
+  messengerMessageClockLabelCache.set(message, { createdAt: message.createdAt, lang, label });
   return label;
 }
 

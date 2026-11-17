@@ -76,6 +76,7 @@ function props(item: Record<string, unknown>, over: Partial<MessengerTimelineVir
     focusTimelineMessage: vi.fn(),
     tt: ((s: string) => s) as never,
     t: t as never,
+    clockLanguage: "ko",
     ...over,
   };
 }

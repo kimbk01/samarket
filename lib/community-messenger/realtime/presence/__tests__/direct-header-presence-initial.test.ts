@@ -99,7 +99,7 @@ describe("F2·F3 — 머리글 부제", () => {
     const snap = { userId: "w", state: "offline" as const, lastSeenAt: "2026-11-13T20:15:17.561Z" };
     const line = resolveMessengerRoomHeaderStatusLine({ ...base, peerUserId: "w", peerPresence: snap });
     expect(line).toEqual({ kind: "text", text: formatMessengerPeerPresenceLine(snap, t) });
-    expect(line.kind === "text" && line.text.startsWith("cm_presence_last_seen_at:")).toBe(true);
+    expect(line.kind === "text" && /^cm_presence_last_seen_(today|yesterday|date)$/.test(line.text)).toBe(true);
   });
   it("그룹방은 지금과 같음", () => {
     expect(

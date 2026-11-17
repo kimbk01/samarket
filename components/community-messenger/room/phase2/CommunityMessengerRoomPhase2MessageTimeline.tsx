@@ -139,6 +139,8 @@ import {
 import { noteTradeChatRoomFirstMessageReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import { useTradeCounterpartyRole } from "@/lib/community-messenger/room/phase2/use-trade-counterparty-role";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { formatMessengerCalendarDate, messengerTranslatorFor } from "@/lib/community-messenger/messenger-clock-time";
 import { isCmGroupCallEnabled } from "@/lib/community-messenger/call-phase0-basics";
 import { useMessengerRoomCallChoice } from "@/components/community-messenger/room/phase2/use-messenger-room-call-choice";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
@@ -564,20 +566,15 @@ function messengerTimelineCalendarDayKey(iso: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** 채팅 P0-1: 날짜 구분선 포맷터도 모듈 1개 (예전 `toLocaleDateString` = 호출마다 포맷터 생성) */
-let messengerTimelineDayDividerFormatter: Intl.DateTimeFormat | null = null;
-
-function messengerTimelineDayDividerLabel(iso: string): string {
+/**
+ * 날짜 구분선 — P4-B (Owner 2026-11-18 「권장안대로 반영」, 레거시 `chatDate` MMMM d · 다른 해만 연도).
+ * 화면 언어를 따른다: 올해 ko 「11월 12일」/en 「November 12」, 다른 해 ko 「2025년 11월 12일」/en 「November 12, 2025」.
+ * 예전 「ko-KR」 고정(영어 화면에도 한국어)은 폐기. 채팅 P0-1: `Intl` 생성 없음(카탈로그 키).
+ */
+function messengerTimelineDayDividerLabel(iso: string, lang: AppLanguageCode): string {
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) return "";
-  if (!messengerTimelineDayDividerFormatter) {
-    messengerTimelineDayDividerFormatter = new Intl.DateTimeFormat("ko-KR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  }
-  return messengerTimelineDayDividerFormatter.format(d);
+  return formatMessengerCalendarDate(d, messengerTranslatorFor(lang), "long");
 }
 
 /** 직접 배치(가상 스크롤 없음) 행 — 측정할 것 없음. 고정 참조라 행 memo 를 깨지 않는다. */
@@ -2059,7 +2056,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 const isDayBoundary =
                   !prev ||
                   messengerTimelineCalendarDayKey(prev.createdAt) !== messengerTimelineCalendarDayKey(item.createdAt);
-                const dayDividerLabel = isDayBoundary ? messengerTimelineDayDividerLabel(item.createdAt) : null;
+                const dayDividerLabel = isDayBoundary ? messengerTimelineDayDividerLabel(item.createdAt, callLineLanguage) : null;
                 const rowPaddingTopClass = resolveMessengerTimelineRowPaddingTopClass({
                   item,
                   prev,
@@ -2073,7 +2070,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     next.messageType === "system" ||
                     next.isMine !== item.isMine ||
                     (vm.isGroupRoom && (next.senderId ?? "") !== (item.senderId ?? "")) ||
-                    messengerMessageClockLabel(next) !== messengerMessageClockLabel(item));
+                    messengerMessageClockLabel(next, callLineLanguage) !==
+                      messengerMessageClockLabel(item, callLineLanguage));
 
                 const stubBusy =
                   item.messageType === "call_stub" &&
@@ -2189,6 +2187,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     focusTimelineMessage={vm.focusTimelineMessage}
                     tt={vm.tt}
                     t={vm.t}
+                    clockLanguage={callLineLanguage}
                     onGiftMessageMerge={vm.mergeCanonicalRoomMessage}
                   />
                 );

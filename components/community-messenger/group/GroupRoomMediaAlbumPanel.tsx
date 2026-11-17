@@ -24,7 +24,7 @@ export function GroupRoomMediaAlbumPanel({
   enabled,
   onOpenMessage,
 }: GroupRoomMediaAlbumPanelProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { items, loading, loadingMore, hasMore, loadMore } = useGroupRoomMediaAlbum(roomId, filter, enabled);
   const parentRef = useRef<HTMLDivElement | null>(null);
 
@@ -85,7 +85,7 @@ export function GroupRoomMediaAlbumPanel({
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="sam-text-helper text-sam-muted">{formatTime(item.createdAt)}</p>
+                <p className="sam-text-helper text-sam-muted">{formatTime(item.createdAt, language)}</p>
                 <p className="mt-0.5 truncate sam-text-body text-sam-fg">
                   {isImage ? t("cm_ui_photo") : t("cm_ui_file")}
                 </p>

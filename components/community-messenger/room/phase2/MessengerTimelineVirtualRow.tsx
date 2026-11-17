@@ -68,6 +68,7 @@ import {
   resolveStoreOrderOpsTitleText,
 } from "@/lib/store-order-chat/store-order-ops-i18n";
 import type { MessageKey } from "@/lib/i18n/messages";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import { extractMessengerAlbumIndexFromTarget } from "@/lib/community-messenger/attachment/messenger-photo-save-menu";
 
 function bumpCmR9Counter(roomId: string, key: "avatarRenderCount" | "mediaDeferCount" | "linkPreviewDeferCount"): void {
@@ -152,6 +153,8 @@ export type MessengerTimelineVirtualRowProps = {
   focusTimelineMessage: (messageId: string) => void | Promise<void>;
   tt: MessengerRoomPhase2ViewModel["tt"];
   t: (key: MessageKey, vars?: Record<string, string | number>) => string;
+  /** P4-B: 시각 표기 언어 = 화면 언어(`useI18n().language`, 타임라인이 넘김) */
+  clockLanguage: AppLanguageCode;
   onGiftMessageMerge?: (message: import("@/lib/community-messenger/types").CommunityMessengerMessage) => void;
 };
 
@@ -196,7 +199,8 @@ function messengerTimelineVirtualRowPropsAreEqual(
     a.focusTimelineMessage === b.focusTimelineMessage &&
     a.onGiftMessageMerge === b.onGiftMessageMerge &&
     a.tt === b.tt &&
-    a.t === b.t
+    a.t === b.t &&
+    a.clockLanguage === b.clockLanguage
   );
 }
 
@@ -238,6 +242,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   focusTimelineMessage,
   tt,
   t,
+  clockLanguage,
   onGiftMessageMerge,
 }: MessengerTimelineVirtualRowProps) {
   /** call_stub: 정렬·톤·「발신/수신」을 통화 발신자(initiator) 기준 viewer 방향으로 (작성자 기준 아님) */
@@ -565,7 +570,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
    */
   const outboundStatus = resolveMessengerOutboundStatus(item, outboundReadState);
   const outboundReadTracked = outboundReadState === "read" || outboundReadState === "unread";
-  const clockLabel = messengerMessageClockLabel(item);
+  const clockLabel = messengerMessageClockLabel(item, clockLanguage);
   const renderStatusIcon = (tone: MessengerOutboundStatusIconTone) =>
     outboundStatus ? (
       <MessengerOutboundStatusIcon status={outboundStatus} readTracked={outboundReadTracked} tone={tone} t={t} />
@@ -750,7 +755,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       data-cm-call-occurrence-time=""
       className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[length:var(--cm-chat-font-meta)] tabular-nums leading-none text-[#65676b]"
     >
-      {messengerMessageClockLabel(item)}
+      {clockLabel}
     </span>
   ) : null;
 
@@ -845,7 +850,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       ) : tradeListingChangeState ? (
         <MessengerTradeListingChangeSystemRow
           state={tradeListingChangeState}
-          timeLabel={messengerMessageClockLabel(item)}
+          timeLabel={clockLabel}
           t={t}
         />
       ) : item.messageType === "system" ? (

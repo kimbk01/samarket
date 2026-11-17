@@ -8,13 +8,13 @@ import { resolvePresenceLastSeenAtFromDbRow } from "@/lib/community-messenger/pr
 import { applyPresenceSyncToMap } from "@/lib/community-messenger/realtime/presence/apply-presence-sync";
 import { mergePresenceSnapshotsIntoStoreMap } from "@/lib/community-messenger/realtime/presence/merge-presence-snapshots";
 import { resolveMessengerRoomHeaderStatusLine } from "@/lib/community-messenger/realtime/presence/resolve-room-header-status-line";
-import { formatMessengerLastSeenYyMmDdHhMm } from "@/lib/community-messenger/realtime/presence/format-messenger-peer-presence-line";
+import { formatMessengerLastSeenLine } from "@/lib/community-messenger/realtime/presence/format-messenger-peer-presence-line";
 import type { CommunityMessengerPeerPresenceSnapshot } from "@/lib/community-messenger/types";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 
 type Entry = { userId: string; state: "online" | "away" | "offline"; lastSeenAt: string | null; updatedAt: string | null };
-/** ko 카탈로그와 같은 문구를 돌려주는 시험용 t (P3: 접속 문구 i18n 키) */
-const t = (k: string, vars?: Record<string, string | number>) =>
-  k === "cm_presence_online" ? "온라인" : k === "cm_presence_last_seen_at" ? `마지막 접속 ${vars?.stamp}` : "오프라인";
+/** ko 카탈로그 그대로 (P3: 접속 문구 i18n 키 · P4-B: 「…까지 접속함」) */
+const t = (k: MessageKey, vars?: Record<string, string | number>) => translate("ko", k, vars);
 const header = (map: Record<string, Entry>, id: string) => {
   const e = map[id];
   const r = resolveMessengerRoomHeaderStatusLine({
@@ -27,7 +27,7 @@ const header = (map: Record<string, Entry>, id: string) => {
   });
   return r.kind === "text" ? r.text : r.label;
 };
-const lastSeenLine = (iso: string) => `마지막 접속 ${formatMessengerLastSeenYyMmDdHhMm(iso)}`;
+const lastSeenLine = (iso: string) => formatMessengerLastSeenLine(new Date(iso), t);
 const serverSnap = (id: string, row: Parameters<typeof resolvePresenceLastSeenAtFromDbRow>[0]) =>
   new Map<string, CommunityMessengerPeerPresenceSnapshot>([
     [id, { userId: id, state: "offline", lastSeenAt: resolvePresenceLastSeenAtFromDbRow(row) }],
