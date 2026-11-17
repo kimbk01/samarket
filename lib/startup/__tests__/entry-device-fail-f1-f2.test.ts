@@ -71,41 +71,31 @@ describe("F1-b 웹 — 네이티브 인트로가 덮고 있으면 웹 ◁ 처리
   });
 });
 
-describe("G1 — P3 는 앱 안 덮개가 있는 실행에도 쓴다 (§8·§9)", () => {
-  it("hydration 전 해제 진입점(instrumentation-client → P3 함수)이 있다", () => {
+describe("방식 A — 덮개 실행은 hydration 뒤 해제 · 네이티브는 커밋 확인 뒤 덮개를 걷는다 (§14-2)", () => {
+  it("hydration 전 해제 진입점(instrumentation-client → P3 함수)은 덮개 없는 실행용으로 남는다", () => {
     expect(existsSync(join(root, "instrumentation-client.ts"))).toBe(true);
     expect(read("instrumentation-client.ts")).toContain("releaseNativeSplashAtServerBodyFrame()");
   });
 
-  it("웹은 덮개 값을 읽지 않는다 — 덮개 실행도 P3 신호로 걷힌다", () => {
-    expect(existsSync(join(root, "lib/startup/native-splash-cover.ts"))).toBe(false);
+  it("P3 함수는 덮개 실행이면 하지 않는다 · 설계 H(인라인 표시·즉시 해제)는 없다", () => {
     const metrics = read("lib/startup/startup-metrics.ts");
-    expect(metrics).not.toContain("isNativeSplashCoverActive");
-    expect(metrics).not.toContain("__DIBAY_NATIVE_SPLASH_COVER__");
+    const body = metrics.slice(metrics.indexOf("export function releaseNativeSplashAtServerBodyFrame"));
+    const guard = body.indexOf("if (isNativeSplashCoverActive()) return;");
+    expect(guard).toBeGreaterThan(0);
+    expect(guard).toBeLessThan(body.indexOf("requestAnimationFrame(tick)"));
+    expect(metrics).not.toContain("dismissSplashPainted");
+    expect(existsSync(join(root, "lib/startup/server-body-frame-mark.ts"))).toBe(false);
+    expect(read("components/home-hub/HomeSurface.tsx")).not.toContain("SERVER_BODY_FRAME_MARK");
   });
 
-  it("Android: 덮개는 시작 화면 유지 조건에 들어가고, 웹 해제(화면 커밋 뒤)·고장 해제 때 걷는다", () => {
+  it("Android: 덮개 값 문서 시작 스크립트 · 모든 웹 해제는 화면 커밋 콜백 경로(dismissSplashPainted 도 같은 경로)", () => {
     const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    expect(main).toContain("__DIBAY_NATIVE_SPLASH_COVER__");
+    expect(main).toContain("DibaySplashCover.documentStartValue()");
     expect(main).toContain("DibaySplashCover.isShowing()");
+    expect(main).not.toContain("requestWebSplashDismissPainted");
+    const painted = main.slice(main.indexOf("public void dismissSplashPainted()"));
+    expect(painted.slice(0, painted.indexOf("\n    }\n"))).toContain('requestWebSplashDismiss("DibayBootBridge.painted")');
     expect((main.match(/DibaySplashCover\.hide\(/g) ?? []).length).toBeGreaterThanOrEqual(3);
-  });
-});
-
-describe("H1·H3·H4 — 서버 본문 프레임 표시 · 네이티브 즉시 해제 · 덮개 값 정리 (§12)", () => {
-  it("홈 서버 화면 뒤에 표시 스크립트가 있다", () => {
-    const home = read("components/home-hub/HomeSurface.tsx");
-    expect(home).toContain("SERVER_BODY_FRAME_MARK_SCRIPT");
-    expect(home.indexOf("<HomeScreen")).toBeLessThan(home.indexOf("SERVER_BODY_FRAME_MARK_SCRIPT }}"));
-  });
-
-  it("Android: dismissSplashPainted 는 화면 커밋 콜백 없이 해제하고 덮개를 걷는다 · 덮개 값 문서 시작 스크립트는 없다", () => {
-    const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
-    expect(main).toContain("public void dismissSplashPainted()");
-    const fn = main.slice(main.indexOf("static void requestWebSplashDismissPainted"));
-    const body = fn.slice(0, fn.indexOf("\n  }\n"));
-    expect(body).not.toContain("postVisualStateCallback");
-    expect(body).toContain('DibaySplashCover.hide("web_painted")');
-    expect(main).not.toContain("__DIBAY_NATIVE_SPLASH_COVER__");
-    expect(read("android/app/src/main/java/com/dibay/app/DibaySplashCover.java")).not.toContain("documentStartValue");
   });
 });
