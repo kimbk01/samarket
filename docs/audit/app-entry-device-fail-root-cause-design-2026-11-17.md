@@ -1079,3 +1079,12 @@ PO-8 위치별 켜기/끄기 · 발견 응답에 첫 화면 싣기 · 「휴대�
 - 23-9 관찰자·확인 루프 누수 없음: 해제 때 관찰 끝(`stopWatchingLaunchDestinationPaint`) · 확인 루프는 ACK 뒤 해제 또는 8초에 끝(코드 + 테스트).
 - 해제 신호 중복(`dismissSplash` bridge+capacitor 2회): 네이티브가 `webSplashDismissRequested` 로 1회만 처리 — 동작 영향 없음.
 - 배포 직후 문서 본문 3.0초(23-10 D2): 그 뒤 실행 5회(r9·r10) 모두 문서 응답 0.5~0.95초 — 재현 안 됨.
+
+### 24-6. 순서 1 구현 (Owner 「1부터 진행」 2026-11-18 · 웹만)
+| # | 구현 | 파일 |
+|---|---|---|
+| D2 | 실제 이동(`deliverRoute`)한 경로·시각을 따로 기록 → 2초 안 같은 경로는 다시 넣기(`skipNotificationDedupe`)여도 `duplicate_delivery_ignored` · 통화 경로 제외 | `components/push/PushRouteListener.tsx` |
+| D4 | `launch-push-destination-pending.ts`(신규): 알림 목적지 보류 중 && 덮개 해제 전. 하단 탭 링크 3곳 `prefetch` 를 그동안 끔 · 부팅 유휴 예열은 해제 뒤로 미룸 · 복귀 재예열은 그동안 건너뜀 | `BottomNav.tsx` · `BottomNavBootIdlePrewarmHost.tsx` |
+| D5 | 경계 probe: 3초 「로그인됨」 캐시가 살아 있으면 요청 0 · 직접 확인 성공은 캐시에 기록. 401·비회원·Supabase 경로 불변(공용 조회 함수 교체는 401 때 비회원 표식이 생겨 판정이 바뀌므로 하지 않음) — Auth HARD LOCK Amendment 2026-11-18 | `AuthSessionBoundary.tsx` · `fetch-auth-session-client.ts` · `docs/auth-hard-lock.md` |
+| D7 | 숨김 판정 `checkVisibility()` 우선(없을 때만 조상 순회) | `launch-destination-paint.ts` |
+- 기존 구조 테스트 1건(`main-hub-intent-transition-contract` 「prefetch={shouldPrefetch…」 문자열)을 대기 조건이 붙은 형태로 바꿨다(의도: 비활성 탭 미리 받기 — 그대로).

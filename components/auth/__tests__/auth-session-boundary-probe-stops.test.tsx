@@ -78,3 +78,33 @@ describe("AuthSessionBoundary 세션 확인 반복", () => {
     expect(container.querySelector("[data-testid=child]")).not.toBeNull();
   });
 });
+
+describe("설계 §24 D5 — 로그인 확인 결과 공유 (Auth HARD LOCK Amendment 2026-11-18)", () => {
+  it("다른 확인이 3초 안에 「로그인됨」을 남겼으면 요청 없이 화면을 연다", async () => {
+    const cache = await import("@/lib/auth/fetch-auth-session-client");
+    cache.clearAuthSessionClientCache();
+    cache.noteAuthSessionClientOk();
+    state.authenticated = false; // 요청이 나가면 미인증 — 요청 없이 열려야 통과
+    await renderAndAdvance(0);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(container.querySelector("[data-testid=child]")).not.toBeNull();
+    cache.clearAuthSessionClientCache();
+  });
+
+  it("직접 확인이 「로그인됨」이면 공용 캐시에 남긴다 · 미인증이면 남기지 않는다", async () => {
+    const cache = await import("@/lib/auth/fetch-auth-session-client");
+    cache.clearAuthSessionClientCache();
+    state.authenticated = false;
+    await renderAndAdvance(1000);
+    expect(cache.peekAuthSessionClientOk()).toBe(false);
+    act(() => root.unmount());
+    root = createRoot(container);
+    state.authenticated = true;
+    await renderAndAdvance(1000);
+    expect(cache.peekAuthSessionClientOk()).toBe(true);
+    cache.clearAuthSessionClientCache();
+  });
+});

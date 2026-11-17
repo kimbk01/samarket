@@ -106,6 +106,7 @@ import {
   type MainBottomNavTabEmphasisKind,
 } from "@/lib/main-menu/main-bottom-nav-tab-emphasis";
 import { shouldPrefetchMainBottomNavHref } from "@/lib/main-menu/main-bottom-nav-link-prefetch-eligibility";
+import { useLaunchPushDestinationPending } from "@/lib/startup/launch-push-destination-pending";
 import { useHtmlShellFlagsSync } from "@/lib/layout/use-html-shell-flags-sync";
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
@@ -288,6 +289,8 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
 }) {
   const { tt, t, safeT } = useI18n();
   const router = useRouter();
+  /** 설계 §24 D4 — 알림 목적지 대기(덮개 아래) 중에는 탭 미리 받기를 멈춘다 */
+  const launchPushPending = useLaunchPushDestinationPending();
   const liveTabBadgeCount = useOwnerHubBadgeTabUnreadCount(tab.icon);
   /** 앱 진입 실기 F3-a — telRING 탭은 진짜 값 전까지 지난 실행 숫자 */
   const tabBadgeCount = useBottomNavChatBadgeWithLastRunSeed(tab.icon, liveTabBadgeCount);
@@ -370,7 +373,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   return (
     <Link
       href={effectiveHref}
-      prefetch={shouldPrefetchMainBottomNavHref(effectiveHref, isActive)}
+      prefetch={!launchPushPending && shouldPrefetchMainBottomNavHref(effectiveHref, isActive)}
       replace
       scroll={false}
       className={className}
@@ -456,6 +459,8 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
 }) {
   const { tt, safeT } = useI18n();
   const router = useRouter();
+  /** 설계 §24 D4 — 알림 목적지 대기(덮개 아래) 중에는 탭 미리 받기를 멈춘다 */
+  const launchPushPending = useLaunchPushDestinationPending();
   const searchParams = useSearchParams();
   /** C3 — 위와 같음: 저장값 레일 판정은 hydration 이후 */
   const shellHydrated = useShellHydrated();
@@ -476,7 +481,7 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
   return (
     <Link
       href={effectiveHref}
-      prefetch={shouldPrefetchMainBottomNavHref(effectiveHref, isActive)}
+      prefetch={!launchPushPending && shouldPrefetchMainBottomNavHref(effectiveHref, isActive)}
       replace
       scroll={false}
       className={className}
@@ -546,6 +551,8 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
 }) {
   const { tt, t, safeT } = useI18n();
   const router = useRouter();
+  /** 설계 §24 D4 — 알림 목적지 대기(덮개 아래) 중에는 탭 미리 받기를 멈춘다 */
+  const launchPushPending = useLaunchPushDestinationPending();
   const ownerNav = useOwnerNavigationSummary();
   const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tt(tab.label);
   const { primaryRegion } = useRegion();
@@ -610,7 +617,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   return (
     <Link
       href={storesTabHref}
-      prefetch={shouldPrefetchMainBottomNavHref(storesTabHref, isActive)}
+      prefetch={!launchPushPending && shouldPrefetchMainBottomNavHref(storesTabHref, isActive)}
       replace
       scroll={false}
       className={className}

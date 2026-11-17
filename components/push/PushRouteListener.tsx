@@ -242,6 +242,8 @@ export function resolvePushAuthGate(
 export function PushRouteListener() {
   const router = useRouter();
   const lastRouteRef = useRef<{ path: string; at: number } | null>(null);
+  /** 설계 §24 D2 — 실제로 이동(deliverRoute)한 마지막 경로. 보류(로그인 확인)·중복은 기록하지 않는다. */
+  const lastDeliveredRouteRef = useRef<{ path: string; at: number } | null>(null);
   const sessionPhaseRef = useRef(getSessionPhase());
   const navigateRef = useRef<
     | ((
@@ -341,6 +343,19 @@ export function PushRouteListener() {
       suppressCmRoomEntryNotificationSound(path);
 
       const now = Date.now();
+      // 설계 §24 D2: 같은 경로로 방금 「실제로 이동」했으면 다시 넣은 경로(`pending_route_replayed`, skip 옵션)도 무시한다.
+      // 실측: 네이티브 이벤트 + 대기 경로 다시 넣기가 0.08초 차로 둘 다 이동 → 채팅방 RSC 2회. 통화 경로는 대상 아님(불변).
+      const delivered = lastDeliveredRouteRef.current;
+      if (
+        delivered &&
+        delivered.path === path &&
+        now - delivered.at < ROUTE_DEDUPE_MS &&
+        !isCallPushRoutePath(path)
+      ) {
+        console.info("[push-route] duplicate_delivery_ignored", { path });
+        launchOutcome = "duplicate";
+        return;
+      }
       const last = lastRouteRef.current;
       if (last && last.path === path && now - last.at < ROUTE_DEDUPE_MS && !opts?.skipNotificationDedupe) {
         console.info("[push-route] duplicate_ignored", { path });
@@ -526,6 +541,7 @@ export function PushRouteListener() {
        */
       const deliverRoute = () => {
         launchOutcome = "navigated";
+        lastDeliveredRouteRef.current = { path, at: Date.now() };
         markNotificationConsumed(notificationId);
 
         // PUSH OPEN → Event destination: session same-Event popup coordination.

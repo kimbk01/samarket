@@ -380,3 +380,13 @@ Session / Destination / Completion / Profile 의미 불변.
   - 무변경: 세션 수명 소유(`dibay-session-manager`), Route Handler 인증·갱신, 401 계약, Amendment (6) 게이트.
 - **설계:** `docs/audit/phase3-auth-request-structure-design-2026-11-08.md` §7
 - **Evidence:** `lib/auth/__tests__/session-freshness-fetch-gate.test.ts`. Production: auth 로그 서버 갱신 비중(목표 20% 이하)·`already_used` 0·`/api` 401 불변·C8 해제 시각 악화 없음 (배포 후 측정).
+
+---
+
+## Amendment 2026-11-18 — 로그인 확인 결과 공유 (Owner 승인 2026-11-18 「1부터 진행」 · 설계 `docs/audit/app-entry-device-fail-root-cause-design-2026-11-17.md` §24 D5)
+
+First Break (11-18 Xiaomi 실측 · 채팅 알림 진입): `components/auth/AuthSessionBoundary.tsx` 의 1초 probe 가 공용 세션 조회(`fetchAuthSessionNoStore` 단일 비행·3초 「로그인됨」 캐시)와 결과를 공유하지 않아, 같은 순간 다른 확인과 `/api/auth/session` 이 따로 나간다(2회 측정 중 1회 연속 2회 · 3276ms·3760ms).
+Contract delta: **판정 의미 없음** — 3초 캐시의 의미(200 「로그인됨」 확인)만 읽고 쓴다.
+- probe 시작 때 캐시가 살아 있으면 요청 없이 같은 결과(확인됨)를 쓴다 · probe 가 `authenticated: true` 를 받으면 캐시에 기록한다.
+- 401·비회원 표식(`noteGuest401`)·재시도·Supabase `getSession` 경로는 바꾸지 않는다(공용 조회 함수로 바꾸면 401 때 비회원 표식이 생겨 판정이 바뀌므로 쓰지 않음).
+Session / Destination / Completion / Profile 불변.
