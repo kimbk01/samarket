@@ -53,7 +53,7 @@ const ENTRIES = [
     descEn: "Manage Push delivery and in-app notification inbox.",
   },
   {
-    key: "settings-os-start",
+    key: "ads-startup-os",
     href: "/admin/platform-promotion/os-start",
     ko: "OS 시작 화면",
     en: "OS start screen",
@@ -61,7 +61,7 @@ const ENTRIES = [
     descEn: "Set the background color and logo the OS shows first when the app opens. Applies from the next app build.",
   },
   {
-    key: "settings-intro",
+    key: "ads-startup-intro",
     href: "/admin/platform-promotion/intro",
     ko: "Intro",
     en: "Intro",

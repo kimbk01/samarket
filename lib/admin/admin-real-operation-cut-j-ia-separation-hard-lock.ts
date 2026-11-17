@@ -343,9 +343,8 @@ export const CUT_J_J_AMD_5_PROMOTION_TREE = [
   {
     key: "settings-startup",
     children: [
-      "settings-os-start",
-      "settings-intro",
-      "settings-startup-config",
+      // 앱 진입 어드민 v3 §A (Owner 2026-11-17 「v3대로 진행」): OS 시작 화면·인트로·앱 첫 진입 화면 leaf →
+      // 광고·배너 › 앱 진입 (CUT_J_APP_ENTRY_V3_MOVED_LEAVES)
       "menu-main-bottom-nav",
       // 앱 홈 「홈 구성」 (Owner 「구현 시작」 2026-11-09 · 홈 설계안 v11 §7)
       "menu-home-layout",
@@ -509,7 +508,7 @@ export const CUT_J_J_AMD_5_REMOVED_LEAVES = [
 
 /** J-AMD-5 — leaves moved from system into promotion (same keys / paths). */
 export const CUT_J_J_AMD_5_MOVED_INTO_PROMOTION = [
-  "settings-startup-config",
+  // settings-startup-config: 앱 진입 어드민 v3 (2026-11-17) 에서 OS 시작 화면과 한 화면 → CUT_J_APP_ENTRY_V3_MOVED_LEAVES
   "menu-main-bottom-nav",
   "my-banners",
   "my-sections",
@@ -524,6 +523,22 @@ export const CUT_J_J_AMD_5_MOVED_INTO_PROMOTION = [
   "cp-faq",
   "cp-legal",
   "cp-business",
+] as const;
+
+/**
+ * 앱 진입 어드민 v3 §A (Owner 2026-11-17 「v3대로 진행」) — 광고·배너 › 앱 진입(`ads-section-startup`) 한 묶음.
+ * 옛 leaf key 는 메뉴에서 없어지고, 같은 URL 은 새 key 가 맡는다(옛 주소는 그대로 열림 · startup-config 는 이동).
+ */
+export const CUT_J_APP_ENTRY_V3_SECTION = {
+  key: "ads-section-startup",
+  children: ["ads-entry-overview", "ads-startup-os", "ads-startup-intro", "ads-popups-popup"],
+} as const;
+
+export const CUT_J_APP_ENTRY_V3_MOVED_LEAVES = [
+  { oldKey: "settings-os-start", newKey: "ads-startup-os", path: "/admin/platform-promotion/os-start" },
+  { oldKey: "settings-intro", newKey: "ads-startup-intro", path: "/admin/platform-promotion/intro" },
+  // OS 시작 화면과 한 화면 — 옛 주소는 page.tsx 서버 이동(redirect) · 메뉴 강조는 matchPaths
+  { oldKey: "settings-startup-config", newKey: "ads-startup-os", path: "/admin/settings/startup-config" },
 ] as const;
 
 /** J-AMD-5 — old section nodes removed once empty (i18n keys kept). */

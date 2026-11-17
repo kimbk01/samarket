@@ -1,5 +1,12 @@
 "use client";
 
+/**
+ * 팝업 만들기·수정 — 앱 진입 어드민 v3 §4 (Owner 2026-11-17 「v3대로 진행」).
+ * ① 형태 8종(카드마다 그림 규격) → ② 그 형태의 그림 칸(공통 `AdminImageSlot` · 카드형은 36:25 자르기 틀) →
+ * ③ 글(글자 수 표시) → ④ 누르면 이동(찾아서 고르기 · 저장 전 공개 확인) → ⑤ 진입 순서 · 자동 닫힘 · 빈도.
+ * 오른쪽 = 앱과 같은 렌더러 미리보기(목록·쿠폰·말풍선은 「예시」 데이터 · 저장·앱 전송 없음).
+ */
+
 import { isoToZonedLocalInput, zonedLocalInputToIso } from "@/lib/platform-popup/zoned-local-time";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -8,21 +15,25 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import {
   POPUP_BODY_MAX,
   POPUP_CTA_LABEL_MAX,
-  POPUP_SOURCE_MAX_MB,
   POPUP_TITLE_MAX,
   popupCreativeSpecForComposition,
 } from "@/lib/platform-popup/creative-size-spec";
-import { AdminDestinationResolvedHint } from "@/components/admin/destination/AdminDestinationResolvedHint";
 import { AdminPlatformPopupPreview } from "@/components/admin/platform-popup/AdminPlatformPopupPreview";
 import {
   AdminPlatformPopupAuditHistory,
   type AdminPlatformPopupAuditRow,
 } from "@/components/admin/platform-popup/AdminPlatformPopupAuditHistory";
+import { AdminPopupCropFrame } from "@/components/admin/platform-popup/AdminPopupCropFrame";
+import { AdminPopupDestinationPicker } from "@/components/admin/platform-popup/AdminPopupDestinationPicker";
+import { AdminImageSlot, readAdminImageMeta } from "@/components/admin/media/AdminImageSlot";
+import { POPUP_CARD_SLOT, popupArtworkSlot } from "@/lib/admin/media/image-slot-spec";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { AdminAdDeleteAction } from "@/components/admin/ads/AdminAdDeleteAction";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
@@ -32,7 +43,6 @@ import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
 import { formatPlatformPopupAdminError } from "@/lib/platform-popup/format-platform-popup-admin-error";
 import type { PlatformPopupAdminDetail } from "@/lib/platform-popup/admin-campaign-loader";
 import {
-  PLATFORM_POPUP_CTA_TYPES,
   PLATFORM_POPUP_DEFAULT_TIMEZONE,
   type PlatformPopupCampaignStatus,
 } from "@/lib/platform-popup/types";
@@ -40,7 +50,6 @@ import {
   PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS,
   adminSurfaceModeLabel,
   adminSurfacesFromDb,
-  adminSurfacesSelectionLabel,
   isAdminSurfaceSelected,
   previewSurfaceFromAdminSelection,
   surfacesFromAdminSelection,
@@ -52,28 +61,31 @@ import {
   decodePlatformPopupOwnerCtaDestination,
   encodePlatformPopupOwnerCtaDestination,
 } from "@/lib/platform-popup/popup-cta-destination-ux";
-import {
-  DIBAY_CANONICAL_POPUP_CREATIVE_SIZE,
-  PLATFORM_POPUP_CREATIVE_ALLOWED_MIME_LABELS,
-  POPUP_CREATIVE_SOURCE_MAX_BYTES,
-} from "@/lib/platform-popup/creative-pixel-ssot";
-import {
-  buildPlatformPopupCenterCropPreviewUrl,
-  readPlatformPopupImageMeta,
-  type PlatformPopupClientImageMeta,
-} from "@/lib/platform-popup/client-creative-crop-preview";
+import { DIBAY_CANONICAL_POPUP_CREATIVE_SIZE } from "@/lib/platform-popup/creative-pixel-ssot";
+import { isPlatformPopupCreativeRatioOk, type PlatformPopupCropRect } from "@/lib/platform-popup/creative-pipeline-geometry";
 import {
   PLATFORM_POPUP_COMPOSITIONS,
-  compositionContractNote,
   creativeModeForComposition,
   interruptivePresentationForComposition,
   resolvePlatformPopupComposition,
   type PlatformPopupComposition,
 } from "@/lib/platform-popup/resolve-presentation-composition";
 import {
-  resolvePopupOperatorStatus,
+  ADMIN_POPUP_COMPOSITION_PICK_ORDER,
+  popupArtworkRecommendedSize,
+  popupCompositionIsCard,
+  popupCompositionShortLabelKey,
+  popupCompositionSpecLine,
+} from "@/lib/platform-popup/admin-composition-ui";
+import {
+  platformPopupAppliedReasonKey,
+  platformPopupAppliedStateKey,
+  platformPopupAppliedTone,
+} from "@/lib/platform-popup/admin-applied-status-contract";
+import {
   promotionOperatorStatusLabel,
   formatPromotionAdminSchedule,
+  resolvePopupOperatorStatus,
 } from "@/lib/admin/promotion-operation-status";
 import {
   eventEditHref,
@@ -97,10 +109,12 @@ import {
 } from "@/lib/platform-popup/presentation-contract";
 import { translateBy } from "@/lib/i18n/translate-by";
 
-/** 광고 감사 G-10: 시작·종료 입력은 캠페인 시간대 벽시계(어드민 PC 시간대 아님) */
-/** 진입 감사 PO-2 — 자동 닫힘 선택지(서버 허용 3~60초 안). 배민 실측 약 10초. */
-const ADMIN_POPUP_AUTO_DISMISS_CHOICES = [5, 10, 15, 30] as const;
+/** v3 §4 — 자동 닫힘 선택지(서버 허용 3~60초 안). 저장된 값이 이 밖이면 그 값도 칩으로 보인다. */
+const ADMIN_POPUP_AUTO_DISMISS_CHOICES = [5, 10, 15] as const;
 
+const INPUT = "mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 text-sm text-sam-fg";
+
+/** 광고 감사 G-10: 시작·종료 입력은 캠페인 시간대 벽시계(어드민 PC 시간대 아님) */
 function toLocalInput(iso: string | null, timezone: string): string {
   return isoToZonedLocalInput(iso, timezone);
 }
@@ -110,7 +124,14 @@ function fromLocalInput(v: string, timezone: string): string | null {
   return zonedLocalInputToIso(v, timezone);
 }
 
+function charCount(v: string): number {
+  return [...v].length;
+}
+
 type AuditRow = AdminPlatformPopupAuditRow;
+
+/** 자르기 틀에 연 그림(새로 고른 파일 · 또는 형태를 카드형으로 바꿔 다시 자르는 기존 그림) */
+type CropSource = { file: File; url: string; width: number; height: number; fileName: string };
 
 export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: string }) {
   const { safeT, language, t } = useI18n();
@@ -128,13 +149,17 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   /** G-18: 팝업 캠페인 쓰기(저장·소재·승인·상태·삭제) = ads 키 (접근표 action — API 403 과 같은 판정) */
   const adminAction = useAdminRouteAction("/admin/platform-popup");
   const writeBlocked = busy || !adminAction.allowed;
-  // AL-15: 승인·운영 버튼은 PTR 상세와 같은 상태 조건을 함께 본다(검토 요청 = 초안 · 승인 = 종료·노출 중 아님 · 중지 = 노출·예약 중)
   const [dirty, setDirty] = useState(false);
-  const [needsCrop, setNeedsCrop] = useState(false);
-  const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
-  const [fileMeta, setFileMeta] = useState<PlatformPopupClientImageMeta | null>(null);
-  const [cropPreviewUrl, setCropPreviewUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  /** v3 §4: 새 팝업은 형태부터 고른다 — 고르기 전에는 다른 칸을 숨긴다 */
+  const [compositionChosen, setCompositionChosen] = useState(() => searchParams.get("new") !== "1");
+  /** 자르기 틀(카드형 36:25) */
+  const [crop, setCrop] = useState<CropSource | null>(null);
+  /** 형태를 카드형으로 바꿔 기존 그림을 다시 잘라야 저장 가능 */
+  const [cropRequired, setCropRequired] = useState(false);
+  /** 형태를 바꾸며 기존 그림을 쓰지 않기로 함 — 새 그림을 올려야 저장 가능 */
+  const [replaceRequired, setReplaceRequired] = useState(false);
+  /** v3 ④: 저장된 전체 설정 「가로 화면에서도」 (미리보기) */
+  const [allowLandscape, setAllowLandscape] = useState<boolean | undefined>(undefined);
 
   const [name, setName] = useState("");
   const [priority, setPriority] = useState(0);
@@ -176,6 +201,32 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       node.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [searchParams, campaignId, campaign?.id]);
+
+  // v3 ④: 미리보기 가로 화면 = 저장된 전체 설정 (읽기 실패면 미리보기 기본값)
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/platform-popup-campaigns/entry-policy", { credentials: "same-origin" });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; policy?: { allowLandscape?: boolean } };
+        if (!cancelled && res.ok && json.ok && typeof json.policy?.allowLandscape === "boolean") {
+          setAllowLandscape(json.policy.allowLandscape);
+        }
+      } catch {
+        /* 미리보기 기본값 */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const clearCrop = useCallback(() => {
+    setCrop((prev) => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+  }, []);
 
   const hydrate = useCallback((c: PlatformPopupAdminDetail) => {
     setCampaign(c);
@@ -242,52 +293,78 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     }
     setPreviewOverrideUrl(null);
     setDirty(false);
-    setNeedsCrop(false);
-    setPendingCropFile(null);
-    setFileMeta(null);
-    setCropPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
+    setCropRequired(false);
+    setReplaceRequired(false);
+    setCrop((prev) => {
+      if (prev) URL.revokeObjectURL(prev.url);
       return null;
     });
   }, []);
 
-  const load = useCallback(async () => {
-    setError(null);
-    setLoadErr(null);
-    let detailRes: Response;
-    let auditRes: Response;
+  const fetchDetail = useCallback(async (): Promise<
+    { ok: true; campaign: PlatformPopupAdminDetail } | { ok: false; failure: AdminLoadFailure; error: string }
+  > => {
+    let res: Response;
     try {
-      [detailRes, auditRes] = await Promise.all([
-        fetch(`/api/admin/platform-popup-campaigns/${campaignId}`, { credentials: "same-origin" }),
-        fetch(`/api/admin/platform-popup-campaigns/${campaignId}/audit`, { credentials: "same-origin" }),
-      ]);
+      res = await fetch(`/api/admin/platform-popup-campaigns/${campaignId}`, { credentials: "same-origin" });
     } catch {
-      setLoadErr({ code: "network_error" });
-      return;
+      return { ok: false, failure: { code: "network_error" }, error: "network_error" };
     }
-    const detailJson = (await detailRes.json().catch(() => ({}))) as {
+    const json = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       campaign?: PlatformPopupAdminDetail;
       error?: string;
     };
-    if (!detailRes.ok || !detailJson.ok || !detailJson.campaign) {
-      setLoadErr({ code: adminSafeErrorCode(detailJson.error, "load_failed"), httpStatus: detailRes.status });
-      setError(
-        formatPlatformPopupAdminError(detailJson.error || "load_failed", language === "en" ? "en" : "ko")
-      );
+    if (!res.ok || !json.ok || !json.campaign) {
+      return {
+        ok: false,
+        failure: { code: adminSafeErrorCode(json.error, "load_failed"), httpStatus: res.status },
+        error: json.error || "load_failed",
+      };
+    }
+    return { ok: true, campaign: json.campaign };
+  }, [campaignId]);
+
+  const load = useCallback(async () => {
+    setError(null);
+    setLoadErr(null);
+    const [detail, auditRes] = await Promise.all([
+      fetchDetail(),
+      fetch(`/api/admin/platform-popup-campaigns/${campaignId}/audit`, { credentials: "same-origin" }).catch(() => null),
+    ]);
+    if (!detail.ok) {
+      setLoadErr(detail.failure);
+      setError(formatPlatformPopupAdminError(detail.error, language === "en" ? "en" : "ko"));
       return;
     }
-    hydrate(detailJson.campaign);
-    const auditJson = (await auditRes.json().catch(() => ({}))) as {
-      ok?: boolean;
-      items?: AuditRow[];
-    };
+    hydrate(detail.campaign);
+    const auditJson = auditRes
+      ? ((await auditRes.json().catch(() => ({}))) as { ok?: boolean; items?: AuditRow[] })
+      : {};
     if (auditJson.ok) setAudit(auditJson.items ?? []);
-  }, [campaignId, hydrate]);
+  }, [campaignId, fetchDetail, hydrate, language]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * 그림만 새로 올린 뒤 — 캠페인(그림·상태·앱에 나오나)만 다시 읽고 입력 중인 다른 칸은 그대로 둔다.
+   * 저장 기준값의 그림 형태·대체 글도 서버 값으로 맞춘다(같은 값을 다시 보내지 않게).
+   */
+  const reloadCreativeOnly = useCallback(async () => {
+    const detail = await fetchDetail();
+    if (!detail.ok) return;
+    const c = detail.campaign;
+    setCampaign(c);
+    if (savedFormRef.current) {
+      savedFormRef.current = {
+        ...savedFormRef.current,
+        creativeMode: c.creative?.creativeMode === "artwork" ? "artwork" : "card",
+        altText: c.creative?.altText || null,
+      };
+    }
+  }, [fetchDetail]);
 
   const ctaHrefPreview = useMemo(() => {
     const r = validatePlatformPopupCta({
@@ -337,7 +414,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const benefitEligible = Boolean(eventBenefit?.title?.trim());
 
   const previewSource = useMemo(() => {
-    const imageUrl = previewOverrideUrl || campaign?.creative?.imageUrl || "";
+    const imageUrl = previewOverrideUrl || (replaceRequired ? "" : campaign?.creative?.imageUrl) || "";
     if (!imageUrl || !campaign) return null;
     return {
       campaignId: campaign.id,
@@ -359,15 +436,17 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       presentationType,
       frequencyMode,
       creativeMode,
-      aspectW: campaign.creative?.aspectW ?? 36,
-      aspectH: campaign.creative?.aspectH ?? 25,
+      aspectW: previewOverrideUrl && creativeMode === "card" ? 36 : campaign.creative?.aspectW ?? 36,
+      aspectH: previewOverrideUrl && creativeMode === "card" ? 25 : campaign.creative?.aspectH ?? 25,
       unsaved: dirty || Boolean(previewOverrideUrl),
       ctaBgColor: /^#[0-9A-Fa-f]{6}$/.test(ctaBgColor.trim()) ? ctaBgColor.trim() : null,
       ctaTextColor: /^#[0-9A-Fa-f]{6}$/.test(ctaTextColor.trim()) ? ctaTextColor.trim() : null,
+      tooltipAnchor,
     };
   }, [
     campaign,
     previewOverrideUrl,
+    replaceRequired,
     altText,
     ctaHrefPreview,
     ctaType,
@@ -386,6 +465,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     dirty,
     ctaBgColor,
     ctaTextColor,
+    tooltipAnchor,
   ]);
 
   const markDirty = () => {
@@ -393,11 +473,23 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     setSaveNotice(null);
   };
 
+  const lang = language === "en" ? "en" : "ko";
+
   const save = async () => {
     setBusy(true);
     setError(null);
     setSaveNotice(null);
-    const lang = language === "en" ? "en" : "ko";
+    // v3 §4: 형태를 바꾼 뒤 그림 처리가 끝나야 저장 — 카드형은 자르기, 「쓰지 않기」는 새 그림
+    if (cropRequired) {
+      setBusy(false);
+      setError(t("admin_popup_v3_save_needs_crop"));
+      return;
+    }
+    if (replaceRequired) {
+      setBusy(false);
+      setError(t("admin_popup_v3_save_needs_image"));
+      return;
+    }
     // DS-5: 앱 안 경로 CTA 빈칸 = 저장 거부(cta_target_required) · 기본값으로 바꾸지 않는다
     if (ctaType === "internal_page" && !String(ctaTarget).trim()) {
       setBusy(false);
@@ -577,14 +669,20 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     await load();
   };
 
-  const uploadCreative = async (file: File, applyCrop: boolean) => {
+  /** 그림 올리기 — 카드형은 자르기 틀 사각형(원본 픽셀)을 함께 보낸다. 서버가 같은 검사를 다시 한다. */
+  const uploadCreative = async (file: File, mode: "card" | "artwork", cropRect?: PlatformPopupCropRect | null) => {
     setBusy(true);
     setError(null);
     const fd = new FormData();
     fd.set("file", file);
-    if (applyCrop) fd.set("applyCrop", "center");
+    if (cropRect) {
+      fd.set("cropX", String(cropRect.x));
+      fd.set("cropY", String(cropRect.y));
+      fd.set("cropW", String(cropRect.width));
+      fd.set("cropH", String(cropRect.height));
+    }
     if (altText) fd.set("altText", altText);
-    fd.set("creativeMode", creativeMode);
+    fd.set("creativeMode", mode);
     const res = await fetch(`/api/admin/platform-popup-campaigns/${campaignId}/creative`, {
       method: "POST",
       credentials: "same-origin",
@@ -597,70 +695,90 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       message?: string;
     };
     setBusy(false);
-    if (json.error === "needs_crop") {
-      setNeedsCrop(true);
-      setPendingCropFile(file);
-      setError(json.message || t("admin_popup_use_36_25_image"));
-      return;
-    }
     if (!res.ok || !json.ok) {
-      setError(json.message || json.error || "upload_failed");
-      return;
+      setError(json.message || formatPlatformPopupAdminError(json.error || "upload_failed", lang));
+      return false;
     }
-    setNeedsCrop(false);
-    setPendingCropFile(null);
-    setFileMeta(null);
+    clearCrop();
+    setCropRequired(false);
+    setReplaceRequired(false);
     setPreviewOverrideUrl(null);
-    setCropPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
-    });
-    await load();
+    await reloadCreativeOnly();
+    return true;
   };
 
-  const onPickFile = async (file: File | null) => {
-    if (!file) return;
-    setError(null);
-    setNeedsCrop(false);
-    setPendingCropFile(null);
-    setCropPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
+  const openCrop = async (file: File, meta?: { width: number; height: number }) => {
+    const m = meta ?? (await readAdminImageMeta(file));
+    const url = URL.createObjectURL(file);
+    setCrop((prev) => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return { file, url, width: m.width, height: m.height, fileName: file.name };
     });
     setPreviewOverrideUrl(null);
+  };
 
-    if (file.size > POPUP_CREATIVE_SOURCE_MAX_BYTES) {
-      const maxMb = Math.round(POPUP_CREATIVE_SOURCE_MAX_BYTES / (1024 * 1024));
-      setError(t("admin_popup_image_too_large", { maxMb }));
-      setFileMeta(null);
+  const operatorComposition: PlatformPopupComposition = resolvePlatformPopupComposition({
+    presentationType,
+    creativeMode,
+  });
+  const isCardComposition = popupCompositionIsCard(operatorComposition);
+  const imageSlotSpec = isCardComposition
+    ? POPUP_CARD_SLOT
+    : popupArtworkSlot(popupArtworkRecommendedSize(operatorComposition));
+
+  /** v3 §4 — 형태 바꾸기. 카드형 ↔ 그림형으로 바뀌고 이미 그림이 있으면 그대로 쓸지 묻는다. */
+  const pickComposition = async (kind: PlatformPopupComposition) => {
+    if (!(PLATFORM_POPUP_COMPOSITIONS as readonly string[]).includes(kind)) return;
+    const nextMode = creativeModeForComposition(kind);
+    const existing = campaign?.creative ?? null;
+    const familyChanges = nextMode !== creativeMode;
+    setCompositionChosen(true);
+    if (kind === operatorComposition) return;
+    markDirty();
+    setPresentationType(interruptivePresentationForComposition(kind));
+    setCreativeMode(nextMode);
+    if (!familyChanges || (!existing && !crop)) return;
+
+    const keep = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko: lang !== "en",
+      title: t("admin_popup_v3_keep_image_title"),
+      description: t(nextMode === "card" ? "admin_popup_v3_keep_image_card" : "admin_popup_v3_keep_image_artwork"),
+      confirmLabel: t("admin_popup_v3_keep_image_yes"),
+    });
+    if (!keep.ok) {
+      clearCrop();
+      setCropRequired(false);
+      setReplaceRequired(true);
       return;
     }
-    const mime = (file.type || "").toLowerCase();
-    if (!["image/jpeg", "image/png", "image/webp"].includes(mime)) {
-      setError(t("admin_popup_only_jpg_png_webp"));
-      setFileMeta(null);
+    setReplaceRequired(false);
+    if (nextMode !== "card") {
+      clearCrop();
+      setCropRequired(false);
       return;
     }
-
-    try {
-      const meta = await readPlatformPopupImageMeta(file);
-      setFileMeta(meta);
-      const forceCardAspect =
-        creativeMode !== "artwork" &&
-        (presentationType === "center_modal" || presentationType === "bottom_sheet");
-      if (forceCardAspect && !meta.ratioOk) {
-        const preview = await buildPlatformPopupCenterCropPreviewUrl(file);
-        setCropPreviewUrl(preview.objectUrl);
-        setPreviewOverrideUrl(preview.objectUrl);
-        setNeedsCrop(true);
-        setPendingCropFile(file);
-        setError(t("admin_popup_not_36_25_check_crop"));
-        return;
+    // 카드형(36:25)인데 비율이 안 맞으면 저장 전에 자르기 틀을 다시 연다
+    if (crop) {
+      setCropRequired(true);
+      return;
+    }
+    if (existing && !(existing.aspectW === 36 && existing.aspectH === 25)) {
+      setCropRequired(true);
+      try {
+        const blob = await (await fetch(existing.imageUrl, { mode: "cors" })).blob();
+        const file = new File([blob], "current-image.webp", { type: blob.type || "image/webp" });
+        const meta = await readAdminImageMeta(file);
+        if (isPlatformPopupCreativeRatioOk(meta.width, meta.height)) {
+          setCropRequired(false);
+          return;
+        }
+        await openCrop(file, meta);
+      } catch {
+        setError(t("admin_popup_v3_keep_image_fetch_failed"));
+        setCropRequired(false);
+        setReplaceRequired(true);
       }
-      await uploadCreative(file, false);
-    } catch {
-      setError(t("admin_popup_could_not_read_image"));
-      setFileMeta(null);
     }
   };
 
@@ -669,17 +787,13 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const canDeleteDraft =
     isAdminDirect &&
     (status === "draft" || status === "pending_review");
-  const lang = language === "en" ? "en" : "ko";
-  const operatorComposition: PlatformPopupComposition = resolvePlatformPopupComposition({
-    presentationType,
-    creativeMode,
-  });
-  const compositionNote = compositionContractNote(operatorComposition);
   const exposureOp = resolvePopupOperatorStatus({
     status: campaign?.status ?? "draft",
     startsAt: campaign?.startAt ?? null,
     endsAt: campaign?.endAt ?? null,
   });
+  const applied = campaign?.appliedStatus ?? null;
+  const appliedReasonKey = applied ? platformPopupAppliedReasonKey(applied) : null;
   const linkedEventId =
     ctaType === "event_detail" ? String(ctaTarget ?? "").trim() : "";
   const benefitHint = resolvePopupBenefitOperationalHint({
@@ -689,11 +803,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     linkedEventHasBenefit: linkedEventId ? benefitEligible : null,
   });
   const benefitHintLabel = popupBenefitHintLabel(benefitHint, lang);
-  // 진입 감사 PO-6: 혜택 다이얼로그 소재도 카드형(36:25)이라 서버가 자르기를 요구한다 — 자르기 판을 같이 연다
-  const requiresCardAspect =
-    operatorComposition === "promotion_card_modal" ||
-    operatorComposition === "bottom_promotion_sheet" ||
-    operatorComposition === "benefit_dialog";
+  const showBody = operatorComposition !== "benefit_dialog" && operatorComposition !== "artwork_full";
+  const showTitle = operatorComposition !== "benefit_dialog";
+  const autoDismissChoices: number[] = [...ADMIN_POPUP_AUTO_DISMISS_CHOICES];
+  if (typeof autoDismiss === "number" && !autoDismissChoices.includes(autoDismiss)) autoDismissChoices.push(autoDismiss);
 
   // 첫 불러오기 — 캠페인이 없으면 표준 로딩 / 불러오기 실패 상태만 보여 준다
   if (!campaign) {
@@ -714,6 +827,22 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     );
   }
 
+  const step = (n: number, title: string, extra?: string) => (
+    <h2 className="mb-2 flex flex-wrap items-baseline gap-2 text-sm font-semibold">
+      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-sam-primary text-[12px] text-sam-surface">
+        {n}
+      </span>
+      {title}
+      {extra ? <span className="text-xs font-normal text-sam-muted">{extra}</span> : null}
+    </h2>
+  );
+
+  const counter = (value: string, max: number) => (
+    <span className={`text-xs tabular-nums ${charCount(value) > max ? "text-sam-danger" : "text-sam-muted"}`}>
+      {charCount(value)}/{max}
+    </span>
+  );
+
   return (
     <div className="space-y-4" data-admin-platform-popup-detail="1">
       <AdminPageHeader
@@ -727,7 +856,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       />
 
       {error ? (
-        <p className="rounded border border-sam-danger/30 bg-sam-danger-soft px-3 py-2 text-sm text-sam-danger" role="alert">
+        <p className="rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft px-3 py-2 text-sm text-sam-danger" role="alert">
           {error}
         </p>
       ) : null}
@@ -735,8 +864,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         <p
           className={
             saveNoticeWarn
-              ? "rounded border border-sam-warning/40 bg-sam-warning-soft px-3 py-2 text-sm font-medium text-sam-warning"
-              : "rounded border border-sam-primary/30 bg-sam-primary/5 px-3 py-2 text-sm font-medium text-sam-fg"
+              ? "rounded-ui-rect border border-sam-warning/40 bg-sam-warning-soft px-3 py-2 text-sm font-medium text-sam-warning"
+              : "rounded-ui-rect border border-sam-primary/30 bg-sam-primary/5 px-3 py-2 text-sm font-medium text-sam-fg"
           }
           role="status"
           data-admin-popup-save-notice="1"
@@ -747,10 +876,24 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       ) : null}
 
       <div
-        className="sticky top-0 z-10 rounded border border-sam-border bg-sam-surface/95 px-3 py-2 text-xs shadow-sm backdrop-blur"
+        className="sticky top-0 z-10 rounded-ui-rect border border-sam-border bg-sam-surface/95 px-3 py-2 text-xs shadow-sm backdrop-blur"
         data-admin-popup-ops-summary="1"
       >
-        <div className="flex flex-wrap gap-x-3 gap-y-1">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {applied ? (
+            <span className="inline-flex items-center gap-1" data-admin-popup-summary-applied={applied.state}>
+              <AdminToneBadge tone={platformPopupAppliedTone(applied.state)}>
+                {safeT(platformPopupAppliedStateKey(applied.state))}
+              </AdminToneBadge>
+              {appliedReasonKey ? (
+                <span className={applied.state === "not_shown" ? "text-sam-danger" : "text-sam-muted"}>
+                  {safeT(appliedReasonKey, {
+                    vars: { at: applied.startsAt ? formatPromotionAdminSchedule(applied.startsAt, lang) : "" },
+                  })}
+                </span>
+              ) : null}
+            </span>
+          ) : null}
           <span data-admin-popup-summary-composition="1">
             {translateBy(lang, "admin_form")}:{" "}
             {popupCompositionOperatorLabel(operatorComposition, lang)}
@@ -759,18 +902,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             {translateBy(lang, "admin_approval")}:{" "}
             {popupApprovalStatusLabel(campaign?.approvalStatus, lang)}
           </span>
-          <span data-admin-popup-summary-exposure="1">
-            {translateBy(lang, "admin_exposure")}:{" "}
-            {promotionOperatorStatusLabel(exposureOp, lang)}
-          </span>
           <span data-admin-popup-summary-period="1">
             {translateBy(lang, "admin_period")}:{" "}
             {formatPromotionAdminSchedule(campaign?.startAt ?? null, lang)} –{" "}
             {formatPromotionAdminSchedule(campaign?.endAt ?? null, lang)}
-          </span>
-          <span data-admin-popup-summary-event="1">
-            {translateBy(lang, "admin_event")}:{" "}
-            {linkedEventId ? linkedEventId.slice(0, 8) : translateBy(lang, "admin_text_3")}
           </span>
           <span data-admin-popup-summary-destination="1">
             {translateBy(lang, "admin_destination")}:{" "}
@@ -787,13 +922,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
         <div className="space-y-4">
           <AdminCard>
-            <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_basic")}
-            </h2>
             <label className="block text-sm">
               {safeT("admin_platform_popup_field_name")}
               <input
-                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
+                className={INPUT}
                 value={name}
                 onChange={(e) => {
                   markDirty();
@@ -803,24 +935,20 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             </label>
             <div className="mt-3 grid gap-2 sm:grid-cols-2" data-admin-popup-status-split="1">
               <div
-                className="rounded border border-sam-border bg-sam-app/40 px-3 py-2 text-sm"
+                className="rounded-ui-rect border border-sam-border bg-sam-app/40 px-3 py-2 text-sm"
                 data-admin-popup-approval-status="1"
               >
-                <div className="text-xs text-sam-muted">
-                  {safeT("admin_platform_popup_approval_line")}
-                </div>
-                <div className="font-medium">
-                  {popupApprovalStatusLabel(campaign?.approvalStatus, lang)}
-                </div>
+                <div className="text-xs text-sam-muted">{safeT("admin_platform_popup_approval_line")}</div>
+                <div className="font-medium">{popupApprovalStatusLabel(campaign?.approvalStatus, lang)}</div>
               </div>
               <div
-                className="rounded border border-sam-border bg-sam-app/40 px-3 py-2 text-sm"
+                className="rounded-ui-rect border border-sam-border bg-sam-app/40 px-3 py-2 text-sm"
                 data-admin-popup-exposure-status="1"
               >
-                <div className="text-xs text-sam-muted">
-                  {safeT("admin_platform_popup_exposure_line")}
+                <div className="text-xs text-sam-muted">{t("admin_popup_v3_applied_line")}</div>
+                <div className="font-medium">
+                  {applied ? safeT(platformPopupAppliedStateKey(applied.state)) : promotionOperatorStatusLabel(exposureOp, lang)}
                 </div>
-                <div className="font-medium">{promotionOperatorStatusLabel(exposureOp, lang)}</div>
               </div>
             </div>
             {campaign?.ownerStoreId || campaign?.ownerRequestId ? (
@@ -831,68 +959,51 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             ) : null}
           </AdminCard>
 
+          {/* ① 형태 — 카드마다 그림 칸 규격 */}
           <AdminCard>
-            <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_presentation")}
-            </h2>
-            <p className="mb-2 text-xs text-sam-muted">
-              {safeT("admin_platform_popup_presentation_pick_help")}
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2" data-admin-popup-presentation-picker="1">
-              {PLATFORM_POPUP_COMPOSITIONS.map((kind) => {
-                const note = compositionContractNote(kind);
-                const selected = operatorComposition === kind;
-                const benefitDisabled =
-                  kind === "benefit_dialog" && !benefitEligible && !eventBenefitLoading;
+            {step(1, t("admin_popup_v3_step_composition"), t("admin_popup_v3_step_composition_hint"))}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-admin-popup-presentation-picker="1">
+              {ADMIN_POPUP_COMPOSITION_PICK_ORDER.map((kind) => {
+                const selected = compositionChosen && operatorComposition === kind;
+                const spec = popupCompositionSpecLine(kind);
                 return (
                   <AdminListItemButton
                     key={kind}
-                    disabled={benefitDisabled}
-                    aria-disabled={benefitDisabled}
                     selected={selected}
+                    disabled={writeBlocked}
                     data-admin-popup-composition={kind}
                     data-benefit-dialog-eligible={
                       kind === "benefit_dialog" ? (benefitEligible ? "1" : "0") : undefined
                     }
-                    className={`border px-3 text-sm ${
-                      benefitDisabled ? "cursor-not-allowed border-sam-border/60" : "border-sam-border"
-                    }`}
-                    onClick={() => {
-                      if (benefitDisabled) return;
-                      markDirty();
-                      setPresentationType(interruptivePresentationForComposition(kind));
-                      setCreativeMode(creativeModeForComposition(kind));
-                    }}
+                    className="flex flex-col items-start border border-sam-border px-3 py-2 text-left text-sm"
+                    onClick={() => void pickComposition(kind)}
                   >
-                    <div className="font-semibold">
-                      {language === "en" ? note.titleEn : note.titleKo}
-                    </div>
-                    <div className="mt-0.5 text-xs text-sam-muted">
-                      {language === "en" ? note.bodyEn : note.bodyKo}
-                    </div>
-                    {kind === "benefit_dialog" && benefitDisabled ? (
-                      <div className="mt-1 text-xs text-sam-danger" data-benefit-dialog-reason="1">
-                        {benefitHintLabel ||
-                          safeT("admin_platform_popup_benefit_requires_event_benefit")}
-                      </div>
-                    ) : null}
-                    {kind === "benefit_dialog" && eventBenefitLoading ? (
-                      <div className="mt-1 text-xs text-sam-muted">
-                        {safeT("admin_platform_popup_benefit_checking")}
-                      </div>
-                    ) : null}
+                    <span className="font-semibold">{t(popupCompositionShortLabelKey(kind))}</span>
+                    <span className="mt-0.5 text-xs text-sam-muted" data-admin-popup-composition-spec={kind}>
+                      {t(spec.key, spec.vars)}
+                    </span>
                   </AdminListItemButton>
                 );
               })}
             </div>
-            {operatorComposition === "benefit_dialog" || benefitHint !== "none" ? (
+            {!compositionChosen ? (
+              <p className="mt-2 text-xs text-sam-muted" data-admin-popup-pick-first="1">
+                {t("admin_popup_v3_pick_composition_first")}
+              </p>
+            ) : null}
+            {compositionChosen && (operatorComposition === "benefit_dialog" || benefitHint !== "none") ? (
               <div
-                className="mt-3 rounded border border-sam-warning/30 bg-sam-warning-soft/80 px-3 py-2 text-sm"
+                className="mt-3 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft/80 px-3 py-2 text-sm"
                 data-admin-popup-benefit-gate="1"
               >
-                <p className="text-xs text-sam-muted">
-                  {safeT("admin_platform_popup_benefit_contract")}
-                </p>
+                <p className="text-xs text-sam-muted">{safeT("admin_platform_popup_benefit_contract")}</p>
+                {eventBenefitLoading ? (
+                  <p className="mt-1 text-xs text-sam-muted">{safeT("admin_platform_popup_benefit_checking")}</p>
+                ) : !benefitEligible ? (
+                  <p className="mt-1 text-sm text-sam-danger" data-benefit-dialog-reason="1">
+                    {benefitHintLabel || safeT("admin_platform_popup_benefit_requires_event_benefit")}
+                  </p>
+                ) : null}
                 {benefitHint === "event_link_needed" ? (
                   <p className="mt-1 text-sm text-sam-danger" data-admin-popup-benefit-next="event">
                     {safeT("admin_platform_popup_benefit_need_event")}
@@ -900,568 +1011,466 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 ) : null}
                 {benefitHint === "benefit_info_needed" && linkedEventId ? (
                   <p className="mt-1 text-sm" data-admin-popup-benefit-next="benefit">
-                    <a
-                      href={eventEditHref(linkedEventId)}
-                      className="font-medium text-sam-fg underline"
-                    >
+                    <a href={eventEditHref(linkedEventId)} className="font-medium text-sam-fg underline">
                       {safeT("admin_platform_popup_benefit_edit_event")}
                     </a>
                   </p>
                 ) : null}
               </div>
             ) : null}
-            <label className="mt-3 block text-sm">
-              {safeT("admin_platform_popup_frequency_mode")}
-              <select
-                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                value={frequencyMode}
-                onChange={(e) => {
-                  markDirty();
-                  setFrequencyMode(e.target.value);
-                }}
-                data-admin-popup-frequency="1"
-              >
-                {PLATFORM_POPUP_FREQUENCY_MODES.map((m) => (
-                  <option key={m} value={m}>
-                    {popupFrequencyOperatorLabel(m, lang)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <p className="mt-1 text-xs text-sam-muted" data-admin-popup-frequency-help="1">
-              {/* F-3: 선택한 빈도의 정본 안내문 (팝업·PTR·이벤트 배포 같은 함수) */}
-              {popupFrequencyOperatorDescription(frequencyMode, lang, "popup")}
-            </p>
-            <div className="mt-4 space-y-3 border-t border-sam-border pt-3" data-admin-popup-entry-fields="1">
-              <h3 className="text-sm font-semibold">{t("admin_platform_popup_entry_section")}</h3>
-              <label className="block text-sm">
-                {t("admin_platform_popup_queue_class")}
-                <select
-                  className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
-                  value={queueClass}
-                  onChange={(e) => {
-                    markDirty();
-                    setQueueClass(e.target.value === "mandatory" ? "mandatory" : "optional");
-                  }}
-                  data-admin-popup-queue-class="1"
-                >
-                  <option value="mandatory">{t("admin_platform_popup_queue_mandatory")}</option>
-                  <option value="optional">{t("admin_platform_popup_queue_optional")}</option>
-                </select>
-                <span className="mt-1 block text-xs text-sam-muted">{t("admin_platform_popup_queue_help")}</span>
-              </label>
-              <label className="block text-sm">
-                {t("admin_platform_popup_auto_dismiss")}
-                <select
-                  className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
-                  value={autoDismiss === "" ? "" : String(autoDismiss)}
-                  onChange={(e) => {
-                    markDirty();
-                    setAutoDismiss(e.target.value === "" ? "" : Number(e.target.value));
-                  }}
-                  data-admin-popup-auto-dismiss="1"
-                >
-                  <option value="">{t("admin_platform_popup_auto_dismiss_off")}</option>
-                  {ADMIN_POPUP_AUTO_DISMISS_CHOICES.map((sec) => (
-                    <option key={sec} value={String(sec)}>
-                      {t("admin_platform_popup_auto_dismiss_seconds", { seconds: sec })}
-                    </option>
-                  ))}
-                </select>
-                <span className="mt-1 block text-xs text-sam-muted">{t("admin_platform_popup_auto_dismiss_help")}</span>
-              </label>
-              {operatorComposition === "artwork_full" ? (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <label className="block text-sm">
-                    {t("admin_platform_popup_cta_bg_color")}
-                    <input
-                      className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5 font-mono"
-                      value={ctaBgColor}
-                      placeholder="#RRGGBB"
-                      maxLength={7}
-                      onChange={(e) => {
-                        markDirty();
-                        setCtaBgColor(e.target.value);
-                      }}
-                      data-admin-popup-cta-bg="1"
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    {t("admin_platform_popup_cta_text_color")}
-                    <input
-                      className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5 font-mono"
-                      value={ctaTextColor}
-                      placeholder="#RRGGBB"
-                      maxLength={7}
-                      onChange={(e) => {
-                        markDirty();
-                        setCtaTextColor(e.target.value);
-                      }}
-                      data-admin-popup-cta-text="1"
-                    />
-                  </label>
-                  <span className="text-xs text-sam-muted sm:col-span-2">{t("admin_platform_popup_cta_color_help")}</span>
-                </div>
-              ) : null}
-              {operatorComposition === "list_sheet" ? (
-                <label className="block text-sm">
-                  {t("admin_platform_popup_list_store_ids")}
-                  <textarea
-                    className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5 font-mono text-xs"
-                    rows={4}
-                    value={listStoreIdsText}
-                    onChange={(e) => {
-                      markDirty();
-                      setListStoreIdsText(e.target.value);
-                    }}
-                    data-admin-popup-list-store-ids="1"
-                  />
-                  <span className="mt-1 block text-xs text-sam-muted">{t("admin_platform_popup_list_store_ids_help")}</span>
-                </label>
-              ) : null}
-              {operatorComposition === "coupon_card" ? (
-                <p className="text-xs text-sam-muted" data-admin-popup-coupon-help="1">
-                  {t("admin_platform_popup_coupon_help")}
-                </p>
-              ) : null}
-              {operatorComposition === "tooltip" ? (
-                <label className="block text-sm">
-                  {t("admin_platform_popup_tooltip_anchor")}
-                  <select
-                    className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
-                    value={tooltipAnchor}
-                    onChange={(e) => {
-                      markDirty();
-                      setTooltipAnchor(e.target.value === "notifications" ? "notifications" : "region");
-                    }}
-                    data-admin-popup-tooltip-anchor="1"
-                  >
-                    <option value="region">{t("admin_platform_popup_tooltip_anchor_region")}</option>
-                    <option value="notifications">{t("admin_platform_popup_tooltip_anchor_notifications")}</option>
-                  </select>
-                </label>
-              ) : null}
-            </div>
-            <p className="mt-2 text-xs text-sam-muted" data-admin-popup-composition-note="1">
-              {language === "en" ? compositionNote.bodyEn : compositionNote.bodyKo}
-            </p>
           </AdminCard>
 
-          <AdminCard>
-            <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_creative")}
-            </h2>
-            <div
-              className="mb-3 rounded border border-sam-border bg-sam-app/60 px-3 py-2 text-sm"
-              data-admin-popup-creative-spec="1"
-              data-admin-popup-creative-mode={
-                operatorComposition === "artwork_modal" ? "artwork" : "card"
-              }
-            >
-              {operatorComposition === "artwork_modal" ? (
-                <>
-                  <p>
-                    {safeT("admin_platform_popup_artwork_spec_geometry")}
-                  </p>
-                  <p className="text-xs text-sam-muted">
-                    {safeT("admin_platform_popup_artwork_spec_note")}
-                  </p>
-                </>
-              ) : operatorComposition === "benefit_dialog" ? (
-                <>
-                  <p>
-                    {safeT("admin_platform_popup_benefit_spec")}
-                  </p>
-                  <p className="text-xs text-sam-muted">
-                    {safeT("admin_platform_popup_benefit_spec_image")}
-                  </p>
-                </>
-              ) : operatorComposition === "bottom_promotion_sheet" ? (
-                <>
-                  <p>
-                    {safeT("admin_platform_popup_sheet_spec")}
-                  </p>
-                  <p className="text-xs text-sam-muted">
-                    {safeT("admin_platform_popup_sheet_spec_safe")}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p>
-                    {safeT("admin_platform_popup_creative_spec_size")}
-                  </p>
-                  <p>
-                    {safeT("admin_platform_popup_creative_spec_ratio")}
-                  </p>
-                </>
-              )}
-              <p className="text-xs text-sam-muted">
-                {safeT("admin_platform_popup_creative_spec_formats")}
-              </p>
-            </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="sr-only"
-              onChange={(e) => {
-                const f = e.target.files?.[0] ?? null;
-                e.target.value = "";
-                void onPickFile(f);
-              }}
-            />
-            <AdminActionButton
-              variant="secondary"
-              size="sm"
-              disabled={writeBlocked}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {safeT("admin_platform_popup_load_image")}
-            </AdminActionButton>
-
-            {/* 재감사: 형태별 그림·글 규격 — 서버 검사(`creative-size-spec.ts`)와 같은 값 */}
-            <p className="mt-2 text-xs text-sam-muted" data-admin-popup-creative-spec="1">
-              {(() => {
-                const spec = popupCreativeSpecForComposition(operatorComposition);
-                return t(spec.kind === "card" ? "platform_popup_spec_card" : "platform_popup_spec_artwork", {
-                  recommended: spec.recommended,
-                  minimum: spec.minimum,
-                  output: spec.output,
-                  maxMb: POPUP_SOURCE_MAX_MB,
-                });
-              })()}
-            </p>
-            <p className="mt-1 text-xs text-sam-muted" data-admin-popup-copy-spec="1">
-              {t("platform_popup_spec_copy")}
-            </p>
-            {fileMeta ? (
-              <ul className="mt-3 space-y-0.5 text-xs text-sam-muted" data-admin-popup-file-meta="1">
-                <li>
-                  {fileMeta.fileName} · {(fileMeta.fileSize / 1024).toFixed(1)} KB
-                </li>
-                <li>
-                  {fileMeta.width} × {fileMeta.height} px · ratio {fileMeta.ratio.toFixed(3)}
-                  {requiresCardAspect
-                    ? fileMeta.ratioOk
-                      ? " · 36:25 OK"
-                      : " · needs crop"
-                    : translateBy(lang, "admin_intrinsic_ok")}
-                </li>
-              </ul>
-            ) : null}
-
-            {requiresCardAspect && needsCrop && pendingCropFile && cropPreviewUrl ? (
-              <div className="mt-3 space-y-2 rounded border border-sam-warning/40 bg-sam-warning-soft/80 p-3">
-                <p className="text-xs font-medium text-sam-fg">
-                  {safeT("admin_platform_popup_crop_confirm")}
-                </p>
-                {/* Admin crop confirm uses blob URL — raw img OK for ephemeral object URL */}
-                <img
-                  src={cropPreviewUrl}
-                  alt="36:25 crop preview"
-                  className="w-full max-w-md border border-sam-border bg-white"
-                  style={{ aspectRatio: "36 / 25" }}
-                />
-                <AdminActionButton
-                  variant="secondary"
-                  size="sm"
-                  disabled={writeBlocked}
-                  onClick={() => void uploadCreative(pendingCropFile, true)}
-                >
-                  {safeT("admin_platform_popup_apply_center_crop")}
-                </AdminActionButton>
-              </div>
-            ) : null}
-
-            <label className="mt-3 block text-sm">
-              {safeT("admin_platform_popup_alt_text")}
-              <input
-                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                value={altText}
-                onChange={(e) => {
-                  markDirty();
-                  setAltText(e.target.value);
-                }}
-              />
-            </label>
-          </AdminCard>
-
-          <AdminCard>
-            <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_content")}
-            </h2>
-            {/* 진입 감사 PO-6: 혜택 다이얼로그는 이벤트 혜택 제목·본문을 보인다 — 캠페인 제목·본문 칸은 화면에 안 나오므로 숨긴다 */}
-            {operatorComposition !== "benefit_dialog" ? (
-              <>
-                <label className="block text-sm">
-                  {safeT("admin_platform_popup_field_title")}
-                  <input
-                    className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                    value={promoTitle}
-                    maxLength={POPUP_TITLE_MAX}
-                    onChange={(e) => {
-                      markDirty();
-                      setPromoTitle(e.target.value);
-                    }}
-                  />
-                </label>
-                <label className="mt-3 block text-sm">
-                  {safeT("admin_platform_popup_field_body")}
-                  <textarea
-                    className="mt-1 h-20 w-full rounded border border-sam-border px-2 py-1.5"
-                    value={promoBody}
-                    maxLength={POPUP_BODY_MAX}
-                    onChange={(e) => {
-                      markDirty();
-                      setPromoBody(e.target.value);
-                    }}
-                  />
-                </label>
-              </>
-            ) : null}
-            <label className={operatorComposition !== "benefit_dialog" ? "mt-3 block text-sm" : "block text-sm"}>
-              {safeT("admin_platform_popup_field_cta_label")}
-              <input
-                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                value={ctaLabel}
-                maxLength={POPUP_CTA_LABEL_MAX}
-                placeholder={translateBy(language, "admin_e_g_get_benefit")}
-                onChange={(e) => {
-                  markDirty();
-                  setCtaLabel(e.target.value);
-                }}
-              />
-            </label>
-            <p className="mt-2 text-xs text-sam-muted">
-              {safeT("admin_platform_popup_content_live_preview_hint")}
-            </p>
-          </AdminCard>
-
-          <AdminCard>
-            <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_placement")}
-            </h2>
-            <p className="mb-3 text-xs text-sam-muted">
-              {safeT("admin_platform_popup_placement_system_note")}
-            </p>
-            <fieldset className="space-y-2" data-admin-popup-surface-select="1">
-              {PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((opt) => {
-                const selected = isAdminSurfaceSelected(selectedSurfaces, opt.mode);
-                const isGlobal = opt.mode === "GLOBAL";
-                return (
-                  <label
-                    key={opt.mode}
-                    className={`flex cursor-pointer items-start gap-2 rounded border px-3 py-2 text-sm transition-colors ${
-                      selected
-                        ? "border-sam-primary bg-sam-primary/10 text-sam-fg"
-                        : "border-sam-border bg-sam-surface text-sam-fg"
-                    }`}
-                    data-admin-popup-surface-option={opt.mode}
-                    data-selected={selected ? "1" : "0"}
-                  >
-                    <input
-                      type={isGlobal ? "radio" : "checkbox"}
-                      name={isGlobal ? "platform-popup-surface-global" : undefined}
-                      className="mt-1 accent-[var(--sam-primary)]"
-                      checked={selected}
-                      onChange={() => {
-                        markDirty();
-                        setSelectedSurfaces((prev) =>
-                          toggleAdminSurfaceSelection(prev, opt.mode, isGlobal ? true : !selected)
-                        );
-                      }}
-                    />
-                    <span>
-                      <span className={`font-medium ${selected ? "text-sam-primary" : ""}`}>
-                        {language === "en" ? opt.labelEn : opt.labelKo}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-sam-muted">
-                        {language === "en" ? opt.helpEn : opt.helpKo}
-                      </span>
-                      <span className="mt-0.5 block font-mono text-[12px] text-sam-muted">
-                        {language === "en" ? opt.pagesEn : opt.pagesKo}
-                      </span>
-                    </span>
-                  </label>
-                );
-              })}
-            </fieldset>
-            <p className="mt-2 text-xs text-sam-muted">
-              {safeT("admin_platform_popup_placement_current")}
-              {dirty
-                ? ` · ${safeT("admin_platform_popup_unsaved")}`
-                : ""}
-            </p>
-          </AdminCard>
-
-          <AdminCard>
-            <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_cta")}
-            </h2>
-            {campaign?.ownerStoreId ? (
-              <fieldset className="mb-3 space-y-2" data-admin-popup-cta-product="1">
-                {(
-                  [
-                    ["store", "admin_popup_cta_go_store"],
-                    ["menu", "admin_popup_cta_go_menu_section"],
-                    ["promotion", "admin_popup_cta_go_promo_section"],
-                  ] as const
-                ).map(([kind, labelKey]) => (
-                  <label key={kind} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name="admin-popup-cta-product"
-                      checked={
-                        decodePlatformPopupOwnerCtaDestination({
-                          ctaType,
-                          ctaTarget,
-                          storeId: campaign.ownerStoreId || "",
-                        }) === kind &&
-                        (ctaType === "store" || ctaType === "internal_page")
+          {compositionChosen ? (
+            <>
+              {/* ② 그림 — 형태의 그림 칸만 */}
+              <AdminCard>
+                {(() => {
+                  const spec = popupCreativeSpecForComposition(operatorComposition);
+                  return step(
+                    2,
+                    t("admin_popup_v3_step_image", { name: t(popupCompositionShortLabelKey(operatorComposition)) }),
+                    t(spec.kind === "card" ? "platform_popup_spec_card" : "platform_popup_spec_artwork", {
+                      recommended: spec.recommended,
+                      minimum: spec.minimum,
+                      output: spec.output,
+                      maxMb: Math.round(imageSlotSpec.maxBytes / 1048576),
+                    })
+                  );
+                })()}
+                <div data-admin-popup-creative-spec="1" data-admin-popup-creative-mode={creativeMode !== "artwork" ? "card" : "artwork"}>
+                  <AdminImageSlot
+                    key={imageSlotSpec.id}
+                    spec={imageSlotSpec}
+                    currentUrl={replaceRequired ? null : campaign.creative?.imageUrl ?? null}
+                    currentLabel={
+                      campaign.creative
+                        ? t("admin_popup_v3_current_image", {
+                            w: isCardComposition ? DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.width : campaign.creative.aspectW,
+                            h: isCardComposition ? DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.height : campaign.creative.aspectH,
+                          })
+                        : null
+                    }
+                    disabled={writeBlocked}
+                    onAccept={async (file, meta, check) => {
+                      setError(null);
+                      if (isCardComposition && check.issues.some((i) => i.code === "needs_crop")) {
+                        // 36:25 가 아니면 자르기 틀 — 운영자가 고른 부분을 서버가 같은 검사 후 자른다
+                        await openCrop(file, meta);
+                        return;
                       }
-                      onChange={() => {
-                        const enc = encodePlatformPopupOwnerCtaDestination({
-                          kind,
-                          storeId: campaign.ownerStoreId || "",
-                        });
-                        if (!enc.ok) return;
+                      await uploadCreative(file, isCardComposition ? "card" : "artwork");
+                    }}
+                  >
+                    {crop && isCardComposition ? (
+                      <div className="rounded-ui-rect border border-sam-warning/40 bg-sam-warning-soft/60 p-3">
+                        <AdminPopupCropFrame
+                          imageUrl={crop.url}
+                          sourceWidth={crop.width}
+                          sourceHeight={crop.height}
+                          fileName={crop.fileName}
+                          disabled={writeBlocked}
+                          onConfirm={(rect) => void uploadCreative(crop.file, "card", rect)}
+                          onPickOther={() => {
+                            clearCrop();
+                          }}
+                        />
+                      </div>
+                    ) : null}
+                  </AdminImageSlot>
+                </div>
+                {cropRequired && !crop ? (
+                  <p className="mt-2 text-xs text-sam-warning" role="status">
+                    {t("admin_popup_v3_save_needs_crop")}
+                  </p>
+                ) : null}
+                {replaceRequired ? (
+                  <p className="mt-2 text-xs text-sam-warning" role="status" data-admin-popup-replace-required="1">
+                    {t("admin_popup_v3_save_needs_image")}
+                  </p>
+                ) : null}
+                <label className="mt-3 block text-sm">
+                  {safeT("admin_platform_popup_alt_text")}
+                  <input
+                    className={INPUT}
+                    value={altText}
+                    onChange={(e) => {
+                      markDirty();
+                      setAltText(e.target.value);
+                    }}
+                  />
+                </label>
+                {operatorComposition === "artwork_full" ? (
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <label className="block text-sm">
+                      {t("admin_platform_popup_cta_bg_color")}
+                      <input
+                        className={`${INPUT} font-mono`}
+                        value={ctaBgColor}
+                        placeholder="#RRGGBB"
+                        maxLength={7}
+                        onChange={(e) => {
+                          markDirty();
+                          setCtaBgColor(e.target.value);
+                        }}
+                        data-admin-popup-cta-bg="1"
+                      />
+                    </label>
+                    <label className="block text-sm">
+                      {t("admin_platform_popup_cta_text_color")}
+                      <input
+                        className={`${INPUT} font-mono`}
+                        value={ctaTextColor}
+                        placeholder="#RRGGBB"
+                        maxLength={7}
+                        onChange={(e) => {
+                          markDirty();
+                          setCtaTextColor(e.target.value);
+                        }}
+                        data-admin-popup-cta-text="1"
+                      />
+                    </label>
+                    <span className="text-xs text-sam-muted sm:col-span-2">{t("admin_platform_popup_cta_color_help")}</span>
+                  </div>
+                ) : null}
+                {operatorComposition === "list_sheet" ? (
+                  <label className="mt-3 block text-sm">
+                    {t("admin_platform_popup_list_store_ids")}
+                    <textarea
+                      className={`${INPUT} font-mono text-xs`}
+                      rows={4}
+                      value={listStoreIdsText}
+                      onChange={(e) => {
                         markDirty();
-                        setCtaType(enc.value.ctaType);
-                        setCtaTarget(enc.value.ctaTarget);
-                        setExternalUrl("");
+                        setListStoreIdsText(e.target.value);
+                      }}
+                      data-admin-popup-list-store-ids="1"
+                    />
+                    <span className="mt-1 block text-xs text-sam-muted">{t("admin_platform_popup_list_store_ids_help")}</span>
+                  </label>
+                ) : null}
+                {operatorComposition === "coupon_card" ? (
+                  <p className="mt-3 text-xs text-sam-muted" data-admin-popup-coupon-help="1">
+                    {t("admin_platform_popup_coupon_help")}
+                  </p>
+                ) : null}
+                {operatorComposition === "tooltip" ? (
+                  <div className="mt-3 text-sm">
+                    <span className="block">{t("admin_platform_popup_tooltip_anchor")}</span>
+                    <div className="mt-1 flex flex-wrap gap-1.5" data-admin-popup-tooltip-anchor="1">
+                      {(["region", "notifications"] as const).map((a) => (
+                        <AdminChipButton
+                          key={a}
+                          selected={tooltipAnchor === a}
+                          onClick={() => {
+                            markDirty();
+                            setTooltipAnchor(a);
+                          }}
+                        >
+                          {t(a === "region" ? "admin_platform_popup_tooltip_anchor_region" : "admin_platform_popup_tooltip_anchor_notifications")}
+                        </AdminChipButton>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </AdminCard>
+
+              {/* ③ 글 — 글자 수 · 앱 글꼴 */}
+              <AdminCard>
+                {step(3, t("admin_popup_v3_step_copy"), t("admin_popup_v3_font_note"))}
+                {showTitle ? (
+                  <label className="block text-sm">
+                    <span className="flex items-center justify-between">
+                      {safeT("admin_platform_popup_field_title")}
+                      {counter(promoTitle, POPUP_TITLE_MAX)}
+                    </span>
+                    <input
+                      className={INPUT}
+                      value={promoTitle}
+                      maxLength={POPUP_TITLE_MAX}
+                      onChange={(e) => {
+                        markDirty();
+                        setPromoTitle(e.target.value);
+                      }}
+                      data-admin-popup-title="1"
+                    />
+                  </label>
+                ) : null}
+                {showBody ? (
+                  <label className="mt-3 block text-sm">
+                    <span className="flex items-center justify-between">
+                      {safeT("admin_platform_popup_field_body")}
+                      {counter(promoBody, POPUP_BODY_MAX)}
+                    </span>
+                    <textarea
+                      className={`${INPUT} h-20`}
+                      value={promoBody}
+                      maxLength={POPUP_BODY_MAX}
+                      onChange={(e) => {
+                        markDirty();
+                        setPromoBody(e.target.value);
+                      }}
+                      data-admin-popup-body="1"
+                    />
+                  </label>
+                ) : null}
+                <label className={showTitle ? "mt-3 block text-sm" : "block text-sm"}>
+                  <span className="flex items-center justify-between">
+                    {safeT("admin_platform_popup_field_cta_label")}
+                    {counter(ctaLabel, POPUP_CTA_LABEL_MAX)}
+                  </span>
+                  <input
+                    className={INPUT}
+                    value={ctaLabel}
+                    maxLength={POPUP_CTA_LABEL_MAX}
+                    placeholder={translateBy(language, "admin_e_g_get_benefit")}
+                    onChange={(e) => {
+                      markDirty();
+                      setCtaLabel(e.target.value);
+                    }}
+                    data-admin-popup-cta-label="1"
+                  />
+                </label>
+                {operatorComposition === "benefit_dialog" ? (
+                  <p className="mt-2 text-xs text-sam-muted">{t("admin_popup_v3_benefit_copy_note")}</p>
+                ) : null}
+              </AdminCard>
+
+              {/* ④ 누르면 이동 */}
+              <AdminCard>
+                {step(4, t("admin_popup_v3_step_destination"))}
+                {campaign?.ownerStoreId ? (
+                  <fieldset className="mb-3 space-y-2" data-admin-popup-cta-product="1">
+                    {(
+                      [
+                        ["store", "admin_popup_cta_go_store"],
+                        ["menu", "admin_popup_cta_go_menu_section"],
+                        ["promotion", "admin_popup_cta_go_promo_section"],
+                      ] as const
+                    ).map(([kind, labelKey]) => (
+                      <label key={kind} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="radio"
+                          name="admin-popup-cta-product"
+                          checked={
+                            decodePlatformPopupOwnerCtaDestination({
+                              ctaType,
+                              ctaTarget,
+                              storeId: campaign.ownerStoreId || "",
+                            }) === kind &&
+                            (ctaType === "store" || ctaType === "internal_page")
+                          }
+                          onChange={() => {
+                            const enc = encodePlatformPopupOwnerCtaDestination({
+                              kind,
+                              storeId: campaign.ownerStoreId || "",
+                            });
+                            if (!enc.ok) return;
+                            markDirty();
+                            setCtaType(enc.value.ctaType);
+                            setCtaTarget(enc.value.ctaTarget);
+                            setExternalUrl("");
+                          }}
+                        />
+                        <span>{t(labelKey)}</span>
+                      </label>
+                    ))}
+                  </fieldset>
+                ) : null}
+                <AdminPopupDestinationPicker
+                  value={{ ctaType, ctaTarget, externalUrl }}
+                  disabled={writeBlocked}
+                  onChange={(next) => {
+                    markDirty();
+                    setCtaType(next.ctaType);
+                    setCtaTarget(next.ctaTarget);
+                    setExternalUrl(next.externalUrl);
+                  }}
+                />
+              </AdminCard>
+
+              {/* ⑤ 진입 순서 · 자동 닫힘 · 빈도 */}
+              <AdminCard>
+                {step(5, t("admin_popup_v3_step_entry"))}
+                <div className="space-y-3" data-admin-popup-entry-fields="1">
+                  <div>
+                    <span className="block text-sm">{t("admin_platform_popup_queue_class")}</span>
+                    <div className="mt-1 flex flex-wrap gap-1.5" data-admin-popup-queue-class="1">
+                      {(["mandatory", "optional"] as const).map((q) => (
+                        <AdminChipButton
+                          key={q}
+                          selected={queueClass === q}
+                          onClick={() => {
+                            markDirty();
+                            setQueueClass(q);
+                          }}
+                        >
+                          {t(q === "mandatory" ? "admin_popup_v3_queue_first_required" : "admin_popup_v3_queue_normal")}
+                        </AdminChipButton>
+                      ))}
+                    </div>
+                    <span className="mt-1 block text-xs text-sam-muted">{t("admin_platform_popup_queue_help")}</span>
+                  </div>
+                  <div>
+                    <span className="block text-sm">{t("admin_platform_popup_auto_dismiss")}</span>
+                    <div className="mt-1 flex flex-wrap gap-1.5" data-admin-popup-auto-dismiss="1">
+                      <AdminChipButton
+                        selected={autoDismiss === ""}
+                        onClick={() => {
+                          markDirty();
+                          setAutoDismiss("");
+                        }}
+                      >
+                        {t("admin_popup_v3_none")}
+                      </AdminChipButton>
+                      {autoDismissChoices.map((sec) => (
+                        <AdminChipButton
+                          key={sec}
+                          selected={autoDismiss === sec}
+                          onClick={() => {
+                            markDirty();
+                            setAutoDismiss(sec);
+                          }}
+                        >
+                          {t("admin_popup_v3_seconds", { seconds: sec })}
+                        </AdminChipButton>
+                      ))}
+                    </div>
+                    <span className="mt-1 block text-xs text-sam-muted">{t("admin_platform_popup_auto_dismiss_help")}</span>
+                  </div>
+                  <div>
+                    <span className="block text-sm">{safeT("admin_platform_popup_frequency_mode")}</span>
+                    <div className="mt-1 flex flex-wrap gap-1.5" data-admin-popup-frequency="1">
+                      {PLATFORM_POPUP_FREQUENCY_MODES.map((m) => (
+                        <AdminChipButton
+                          key={m}
+                          selected={frequencyMode === m}
+                          onClick={() => {
+                            markDirty();
+                            setFrequencyMode(m);
+                          }}
+                        >
+                          {popupFrequencyOperatorLabel(m, lang)}
+                        </AdminChipButton>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-sam-muted" data-admin-popup-frequency-help="1">
+                      {/* F-3: 선택한 빈도의 정본 안내문 (팝업·PTR·이벤트 배포 같은 함수) */}
+                      {popupFrequencyOperatorDescription(frequencyMode, lang, "popup")}
+                    </p>
+                  </div>
+                </div>
+              </AdminCard>
+
+              <AdminCard>
+                <h2 className="mb-2 text-sm font-semibold">{safeT("admin_platform_popup_section_placement")}</h2>
+                <p className="mb-3 text-xs text-sam-muted">{safeT("admin_platform_popup_placement_system_note")}</p>
+                <fieldset className="space-y-2" data-admin-popup-surface-select="1">
+                  {PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((opt) => {
+                    const selected = isAdminSurfaceSelected(selectedSurfaces, opt.mode);
+                    const isGlobal = opt.mode === "GLOBAL";
+                    return (
+                      <label
+                        key={opt.mode}
+                        className={`flex cursor-pointer items-start gap-2 rounded-ui-rect border px-3 py-2 text-sm transition-colors ${
+                          selected
+                            ? "border-sam-primary bg-sam-primary/10 text-sam-fg"
+                            : "border-sam-border bg-sam-surface text-sam-fg"
+                        }`}
+                        data-admin-popup-surface-option={opt.mode}
+                        data-selected={selected ? "1" : "0"}
+                      >
+                        <input
+                          type={isGlobal ? "radio" : "checkbox"}
+                          name={isGlobal ? "platform-popup-surface-global" : undefined}
+                          className="mt-1 accent-[var(--sam-primary)]"
+                          checked={selected}
+                          onChange={() => {
+                            markDirty();
+                            setSelectedSurfaces((prev) =>
+                              toggleAdminSurfaceSelection(prev, opt.mode, isGlobal ? true : !selected)
+                            );
+                          }}
+                        />
+                        <span>
+                          <span className={`font-medium ${selected ? "text-sam-primary" : ""}`}>
+                            {language === "en" ? opt.labelEn : opt.labelKo}
+                          </span>
+                          <span className="mt-0.5 block text-xs text-sam-muted">
+                            {language === "en" ? opt.helpEn : opt.helpKo}
+                          </span>
+                          <span className="mt-0.5 block font-mono text-[12px] text-sam-muted">
+                            {language === "en" ? opt.pagesEn : opt.pagesKo}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </fieldset>
+                {operatorComposition === "tooltip" &&
+                !selectedSurfaces.some((s) => s === "HOME" || s === "GLOBAL") ? (
+                  <p className="mt-2 text-xs text-sam-warning">{t("admin_popup_applied_reason_tooltip_home_only")}</p>
+                ) : null}
+              </AdminCard>
+
+              <AdminCard>
+                <h2 className="mb-2 text-sm font-semibold">{safeT("admin_platform_popup_section_schedule")}</h2>
+                <p className="mb-2 text-xs text-sam-muted">{safeT("admin_platform_popup_schedule_help")}</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="text-sm">
+                    {translateBy(language, "admin_start_campaign_timezone")}
+                    <input
+                      type="datetime-local"
+                      className={INPUT}
+                      value={startLocal}
+                      onChange={(e) => {
+                        markDirty();
+                        setStartLocal(e.target.value);
                       }}
                     />
-                    <span>{t(labelKey)}</span>
                   </label>
-                ))}
-              </fieldset>
-            ) : null}
-            <label className="block text-sm text-sam-muted">
-              {safeT("admin_platform_popup_cta_advanced")}
-              <select
-                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sam-fg"
-                value={ctaType}
-                onChange={(e) => {
-                  markDirty();
-                  const next = e.target.value;
-                  setCtaType(next);
-                }}
-              >
-                {PLATFORM_POPUP_CTA_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t === "store"
-                      ? translateBy(language, "admin_store")
-                      : t === "internal_page"
-                        ? translateBy(language, "admin_internal_page")
-                        : t === "trade_listing"
-                          ? translateBy(language, "admin_trade_listing")
-                          : t === "community_post"
-                            ? translateBy(language, "admin_community_post")
-                            : t === "event_detail"
-                              ? translateBy(language, "admin_event_detail")
-                              : translateBy(language, "admin_platform_events_field_cta_external_url")}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {ctaType === "external_url" ? (
-              <label className="mt-2 block text-sm">
-                HTTPS URL
-                <input
-                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                  value={externalUrl}
-                  onChange={(e) => {
-                    markDirty();
-                    setExternalUrl(e.target.value);
-                  }}
-                />
-              </label>
-            ) : (
-              <label className="mt-2 block text-sm">
-                {translateBy(language, "admin_target_path")}
-                <input
-                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                  value={ctaTarget}
-                  onChange={(e) => {
-                    markDirty();
-                    setCtaTarget(e.target.value);
-                  }}
-                />
-              </label>
-            )}
-            <p className="mt-1 text-xs text-sam-muted">
-              {translateBy(language, "admin_landing")} → {ctaHrefPreview || "(invalid)"}
-            </p>
-            {ctaHrefPreview ? (
-              <AdminDestinationResolvedHint
-                href={ctaHrefPreview}
-                language={language === "en" ? "en" : "ko"}
-              />
-            ) : null}
-          </AdminCard>
-
-          <AdminCard>
-            <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_schedule")}
-            </h2>
-            <p className="mb-2 text-xs text-sam-muted">
-              {safeT("admin_platform_popup_schedule_help")}
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label className="text-sm">
-                {translateBy(language, "admin_start_campaign_timezone")}
-                <input
-                  type="datetime-local"
-                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                  value={startLocal}
-                  onChange={(e) => {
-                    markDirty();
-                    setStartLocal(e.target.value);
-                  }}
-                />
-              </label>
-              <label className="text-sm">
-                {translateBy(language, "admin_end_campaign_timezone")}
-                <input
-                  type="datetime-local"
-                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                  value={endLocal}
-                  onChange={(e) => {
-                    markDirty();
-                    setEndLocal(e.target.value);
-                  }}
-                />
-              </label>
-              <label className="text-sm">
-                {translateBy(language, "admin_timezone")}
-                <input
-                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                  value={timezone}
-                  onChange={(e) => {
-                    markDirty();
-                    setTimezone(e.target.value);
-                  }}
-                />
-              </label>
-              <label className="text-sm">
-                {translateBy(language, "admin_priority")}
-                <input
-                  type="number"
-                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                  value={priority}
-                  onChange={(e) => {
-                    markDirty();
-                    setPriority(Number(e.target.value));
-                  }}
-                />
-              </label>
-            </div>
-          </AdminCard>
+                  <label className="text-sm">
+                    {translateBy(language, "admin_end_campaign_timezone")}
+                    <input
+                      type="datetime-local"
+                      className={INPUT}
+                      value={endLocal}
+                      onChange={(e) => {
+                        markDirty();
+                        setEndLocal(e.target.value);
+                      }}
+                    />
+                  </label>
+                  <label className="text-sm">
+                    {translateBy(language, "admin_timezone")}
+                    <input
+                      className={INPUT}
+                      value={timezone}
+                      onChange={(e) => {
+                        markDirty();
+                        setTimezone(e.target.value);
+                      }}
+                    />
+                  </label>
+                  <label className="text-sm">
+                    {translateBy(language, "admin_priority")}
+                    <input
+                      type="number"
+                      className={INPUT}
+                      value={priority}
+                      onChange={(e) => {
+                        markDirty();
+                        setPriority(Number(e.target.value));
+                      }}
+                    />
+                  </label>
+                </div>
+              </AdminCard>
+            </>
+          ) : null}
 
           {/*
            * 광고 감사 G-5: 「닫은 뒤 다시 안 보기」(suppression_mode) 입력 칸 제거 — 앱은 이 값을 쓰지 않고
-           * 닫기·CTA 뒤 숨김을 「7. 빈도」(frequency_mode) 하나로 정한다(Owner FINAL `dibay-promotion-program-ssot-lock.md`
+           * 닫기·CTA 뒤 숨김을 「빈도」(frequency_mode) 하나로 정한다(Owner FINAL `dibay-promotion-program-ssot-lock.md`
            * FREQUENCY_SSOT). 저장된 기존 값은 그대로 두고(읽기·저장 유지) 화면에서만 뺀다.
            */}
 
@@ -1571,72 +1580,64 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
           </AdminCard>
 
           <AdminCard>
-            <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_reporting")}
-            </h2>
+            <h2 className="mb-2 text-sm font-semibold">{safeT("admin_platform_popup_reporting")}</h2>
             {campaign ? (
               <>
-              <ul className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
-                <li>
-                  {translateBy(language, "admin_rec_exp_metrics_impressions")}: {campaign.eventSummary.impression}
-                </li>
-                <li>
-                  {translateBy(language, "admin_rec_exp_metrics_clicks")}: {campaign.eventSummary.click}
-                </li>
-                <li>
-                  CTR:{" "}
-                  {campaign.derived.ctr == null ? "—" : `${(campaign.derived.ctr * 100).toFixed(1)}%`}
-                </li>
-                <li>
-                  {translateBy(language, "admin_dismiss")}: {campaign.eventSummary.dismiss}
-                </li>
-                <li>
-                  {translateBy(language, "admin_suppress")}: {campaign.eventSummary.suppress}
-                </li>
-                <li>
-                  {translateBy(language, "admin_landing_ok")}:{" "}
-                  {campaign.eventSummary.landing_success}
-                </li>
-                <li>
-                  {translateBy(language, "admin_landing_fail")}:{" "}
-                  {campaign.eventSummary.landing_failure}
-                </li>
-                <li>
-                  {translateBy(language, "admin_eligible")}: {campaign.eventSummary.eligible}
-                </li>
-              </ul>
-              {Object.keys(campaign.eventSummaryBySurface ?? {}).length > 0 ? (
-                <div className="mt-3 space-y-1 text-xs" data-admin-popup-surface-breakdown="1">
-                  <p className="font-semibold text-sam-fg">
-                    {translateBy(language, "admin_by_surface")}
-                  </p>
-                  {Object.entries(campaign.eventSummaryBySurface).map(([surf, counts]) => {
-                    const label =
-                      surf === "UNKNOWN"
-                        ? translateBy(language, "admin_unknown")
-                        : adminSurfaceModeLabel(surf as PlatformPopupAdminSurfaceMode, language === "en" ? "en" : "ko");
-                    return (
-                      <p key={surf} className="text-sam-muted">
-                        {label}: {translateBy(language, "admin_imp")} {counts.impression ?? 0} ·{" "}
-                        {translateBy(language, "admin_clk")} {counts.click ?? 0}
-                      </p>
-                    );
-                  })}
-                </div>
-              ) : null}
+                <ul className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+                  <li>
+                    {translateBy(language, "admin_rec_exp_metrics_impressions")}: {campaign.eventSummary.impression}
+                  </li>
+                  <li>
+                    {translateBy(language, "admin_rec_exp_metrics_clicks")}: {campaign.eventSummary.click}
+                  </li>
+                  <li>
+                    CTR:{" "}
+                    {campaign.derived.ctr == null ? "—" : `${(campaign.derived.ctr * 100).toFixed(1)}%`}
+                  </li>
+                  <li>
+                    {translateBy(language, "admin_dismiss")}: {campaign.eventSummary.dismiss}
+                  </li>
+                  <li>
+                    {translateBy(language, "admin_suppress")}: {campaign.eventSummary.suppress}
+                  </li>
+                  <li>
+                    {translateBy(language, "admin_landing_ok")}: {campaign.eventSummary.landing_success}
+                  </li>
+                  <li>
+                    {translateBy(language, "admin_landing_fail")}: {campaign.eventSummary.landing_failure}
+                  </li>
+                  <li>
+                    {translateBy(language, "admin_eligible")}: {campaign.eventSummary.eligible}
+                  </li>
+                </ul>
+                {Object.keys(campaign.eventSummaryBySurface ?? {}).length > 0 ? (
+                  <div className="mt-3 space-y-1 text-xs" data-admin-popup-surface-breakdown="1">
+                    <p className="font-semibold text-sam-fg">{translateBy(language, "admin_by_surface")}</p>
+                    {Object.entries(campaign.eventSummaryBySurface).map(([surf, counts]) => {
+                      const label =
+                        surf === "UNKNOWN"
+                          ? translateBy(language, "admin_unknown")
+                          : adminSurfaceModeLabel(surf as PlatformPopupAdminSurfaceMode, lang);
+                      return (
+                        <p key={surf} className="text-sam-muted">
+                          {label}: {translateBy(language, "admin_imp")} {counts.impression ?? 0} ·{" "}
+                          {translateBy(language, "admin_clk")} {counts.click ?? 0}
+                        </p>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </>
             ) : null}
           </AdminCard>
 
-          <AdminPlatformPopupAuditHistory items={audit} lang={language === "en" ? "en" : "ko"} />
+          <AdminPlatformPopupAuditHistory items={audit} lang={lang} />
         </div>
 
         <div className="lg:sticky lg:top-4 lg:self-start" data-admin-popup-preview-sticky="1">
           <AdminCard>
-            <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_preview")}
-            </h2>
-            <AdminPlatformPopupPreview source={previewSource} />
+            <h2 className="mb-2 text-sm font-semibold">{safeT("admin_platform_popup_section_preview")}</h2>
+            <AdminPlatformPopupPreview source={compositionChosen ? previewSource : null} allowLandscape={allowLandscape} />
           </AdminCard>
         </div>
       </div>

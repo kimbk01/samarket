@@ -85,3 +85,20 @@ export function resolveInitialAppSurfacePath(
   const surface = normalizeInitialAppSurface(input.adminInitialSurface);
   return pathForInitialAppSurface(surface);
 }
+
+/**
+ * 앱 진입 v3 ① (Owner 2026-11-17) — 회원만 쓸 수 있는 첫 화면(telRING·MY). 비회원이면 홈으로(로그인 화면으로 한 번 더 넘어가지 않게).
+ */
+export const MEMBER_ONLY_INITIAL_SURFACES: readonly InitialAppSurface[] = ["chat", "my"];
+
+/** 새로 켤 때(아이콘) 첫 화면 경로 — 어드민 값 · 회원 여부(기기 저장 프로필) 기준. 기다리는 조회 없음. */
+export function resolveColdEntrySurfacePath(input: {
+  adminInitialSurface: InitialAppSurface | null | undefined;
+  isMember: boolean;
+}): string {
+  const surface = normalizeInitialAppSurface(input.adminInitialSurface);
+  if (!input.isMember && MEMBER_ONLY_INITIAL_SURFACES.includes(surface)) {
+    return pathForInitialAppSurface("home");
+  }
+  return pathForInitialAppSurface(surface);
+}

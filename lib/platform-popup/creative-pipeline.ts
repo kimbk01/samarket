@@ -8,7 +8,10 @@ import { DIBAY_CANONICAL_POPUP_CREATIVE_SIZE } from "@/lib/platform-popup/creati
 import {
   centerCropBoxTo3625,
   isPlatformPopupCreativeRatioOk,
+  validatePlatformPopupCropRect,
   type PlatformPopupCenterCropBox,
+  type PlatformPopupCropRect,
+  type PlatformPopupCropRectError,
 } from "@/lib/platform-popup/creative-pipeline-geometry";
 import type { PlatformPopupCreativeMode } from "@/lib/platform-popup/presentation-contract";
 import {
@@ -42,6 +45,8 @@ export async function processPlatformPopupCreativeToCanonical(input: {
   creativeMode?: PlatformPopupCreativeMode;
   /** creativeMode=ptr_band 전용 — 기본 default(휴대폰 띠) */
   ptrBandVariant?: PtrBandVariant;
+  /** v3 ④ — 카드 전용: 운영자가 고른 36:25 자르기 틀(원본 픽셀). 없으면 기존(비율 맞음 · 가운데 자르기) 그대로 */
+  cropRect?: PlatformPopupCropRect | null;
 }): Promise<
   | {
       ok: true;
@@ -52,7 +57,11 @@ export async function processPlatformPopupCreativeToCanonical(input: {
       creativeMode: PlatformPopupCreativeMode;
       hasAlpha: boolean;
     }
-  | { ok: false; error: "needs_crop" | "crop_failed"; proposedCrop?: PlatformPopupCenterCropBox }
+  | {
+      ok: false;
+      error: "needs_crop" | "crop_failed" | PlatformPopupCropRectError;
+      proposedCrop?: PlatformPopupCenterCropBox;
+    }
 > {
   if (input.creativeMode === "ptr_band") {
     return processPtrBandCreative({ ...input, variant: input.ptrBandVariant ?? "default" });
@@ -88,6 +97,37 @@ export async function processPlatformPopupCreativeToCanonical(input: {
     }
   }
 
+  const targetW = DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.width;
+  const targetH = DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.height;
+
+  // v3 ④: 운영자가 고른 자르기 틀(원본 픽셀 · 화면에 보이는 방향 기준) — 있으면 가운데 자르기 대신 그 부분을 쓴다
+  if (input.cropRect) {
+    let oriented: { width: number; height: number };
+    try {
+      const meta = await sharp(input.buffer, { failOn: "none", limitInputPixels: false }).metadata();
+      const w = meta.width ?? input.width;
+      const h = meta.height ?? input.height;
+      // EXIF 방향 5~8 = 90° 돌린 그림 — 브라우저가 보이는 방향(가로·세로 바뀜)으로 틀을 골랐다
+      oriented = (meta.orientation ?? 1) >= 5 ? { width: h, height: w } : { width: w, height: h };
+    } catch {
+      return { ok: false, error: "crop_failed" };
+    }
+    const checked = validatePlatformPopupCropRect(input.cropRect, oriented);
+    if (!checked.ok) return { ok: false, error: checked.error };
+    try {
+      const { x, y, width, height } = checked.rect;
+      const buffer = await sharp(input.buffer, { failOn: "none", limitInputPixels: false })
+        .rotate()
+        .extract({ left: x, top: y, width, height })
+        .resize(targetW, targetH, { fit: "fill" })
+        .webp({ quality: 88 })
+        .toBuffer();
+      return { ok: true, buffer, width: targetW, height: targetH, cropped: true, creativeMode: "card", hasAlpha: false };
+    } catch {
+      return { ok: false, error: "crop_failed" };
+    }
+  }
+
   const ratioOk = isPlatformPopupCreativeRatioOk(input.width, input.height);
   if (!ratioOk && !input.applyCenterCrop) {
     return {
@@ -96,9 +136,6 @@ export async function processPlatformPopupCreativeToCanonical(input: {
       proposedCrop: centerCropBoxTo3625(input.width, input.height),
     };
   }
-
-  const targetW = DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.width;
-  const targetH = DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.height;
 
   try {
     let pipeline = sharp(input.buffer, { failOn: "none", limitInputPixels: false }).rotate();

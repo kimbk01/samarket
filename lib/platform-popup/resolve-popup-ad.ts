@@ -159,6 +159,164 @@ export type PlatformPopupEligibleSelection =
   | { ok: true; winner: null; reason: string };
 
 /**
+ * v3 ④ (앱 진입 어드민 · Owner 2026-11-17 「v3대로 진행」) — 후보 1개 자격 판정. 탈락하면 첫 이유를 돌려준다.
+ * 앱 조회(`selectPlatformPopupEligibleWinner`)와 어드민 「앱에 나오나」(`admin-applied-status.ts`)가 이 함수 하나를 쓴다
+ * (두 곳이 따로 판정해 어긋나지 않게).
+ *
+ * - `resolvedSurface: null` = 영역 판정 생략(어드민: 보는 화면마다 다름) — 대신 노출 위치가 하나도 없으면 탈락.
+ * - `viewer: null` = 보는 사람별 판정 생략(PTR 제한 노출 · 같은 이벤트 조율 · 빈도 숨김).
+ */
+export type PlatformPopupGateViewer = {
+  viewerUserId?: string | null;
+  coordinatedEventIds?: ReadonlySet<string> | readonly string[] | null;
+  sessionKey?: string | null;
+};
+
+export type PlatformPopupCandidateGateReason =
+  | "not_approved"
+  | "status_inactive"
+  | "schedule_not_started"
+  | "schedule_ended"
+  | "surface_none"
+  | "surface_mismatch"
+  | "presentation_out_of_scope"
+  | "audience_excluded"
+  | "owner_store_ineligible"
+  | "creative_missing"
+  | "creative_mode_mismatch"
+  | "creative_aspect_invalid"
+  | "cta_invalid"
+  | "coordinated_away"
+  | "suppressed";
+
+export type PlatformPopupCandidateGateResult =
+  | { ok: true; href: string }
+  | { ok: false; reason: PlatformPopupCandidateGateReason; ctaError?: string };
+
+export function evaluatePlatformPopupCandidateGates(
+  c: PlatformPopupCandidate,
+  ctx: {
+    now: Date;
+    scope: PlatformPopupPresentationScope;
+    resolvedSurface: PlatformPopupConsumerSurface | null;
+    viewer: PlatformPopupGateViewer | null;
+  }
+): PlatformPopupCandidateGateResult {
+  if (!isPlatformPopupStatusScheduleEligible(c.status, c.approvalStatus)) {
+    return { ok: false, reason: c.approvalStatus !== "approved" ? "not_approved" : "status_inactive" };
+  }
+  if (
+    !isPlatformPopupWithinScheduleWindow({
+      now: ctx.now,
+      startAt: c.startAt,
+      endAt: c.endAt,
+    })
+  ) {
+    const start = c.startAt == null ? null : c.startAt instanceof Date ? c.startAt : new Date(c.startAt);
+    const notStarted = start != null && !Number.isNaN(start.getTime()) && ctx.now.getTime() < start.getTime();
+    return { ok: false, reason: notStarted ? "schedule_not_started" : "schedule_ended" };
+  }
+  if (ctx.resolvedSurface) {
+    if (!platformPopupSurfaceMatches(c.surfaces, ctx.resolvedSurface)) return { ok: false, reason: "surface_mismatch" };
+  } else if (c.surfaces.length === 0) {
+    return { ok: false, reason: "surface_none" };
+  }
+
+  const presentationType = normalizePlatformPopupPresentationType(c.presentationType);
+  if (ctx.scope === "ptr_reveal") {
+    if (!isPlatformPopupPtrRevealPresentation(presentationType)) {
+      return { ok: false, reason: "presentation_out_of_scope" };
+    }
+    // Fail-closed allowlist — empty list / anonymous / miss → skip. Interruptive scope ignores this.
+    if (
+      ctx.viewer &&
+      !isPtrRevealAudienceAllowed({
+        audienceMode: c.audienceMode,
+        audienceUserIds: c.audienceUserIds,
+        viewerUserId: ctx.viewer.viewerUserId,
+      })
+    ) {
+      return { ok: false, reason: "audience_excluded" };
+    }
+  } else if (!isPlatformPopupInterruptivePresentation(presentationType)) {
+    return { ok: false, reason: "presentation_out_of_scope" }; // banner / ptr_reveal presentations: non-interruptive hosts
+  }
+
+  if (c.ownerStoreEligible === false) return { ok: false, reason: "owner_store_ineligible" };
+
+  const creative = c.creative;
+  if (!creative || creative.status !== "ready") return { ok: false, reason: "creative_missing" };
+  const creativeMode = normalizePlatformPopupCreativeMode(creative.creativeMode);
+  // 소재 계열 일치 — PTR 은 ptr_band 만, 팝업은 ptr_band 금지
+  if ((ctx.scope === "ptr_reveal") !== (creativeMode === "ptr_band")) {
+    return { ok: false, reason: "creative_mode_mismatch" };
+  }
+  // Same aspect authority as Admin approval (Artwork intrinsic / Card 36:25).
+  if (!isPlatformPopupCreativeAspectValid(creative.aspectW, creative.aspectH, creativeMode)) {
+    return { ok: false, reason: "creative_aspect_invalid" };
+  }
+
+  const cta = validatePlatformPopupCta(
+    {
+      ctaType: c.ctaType,
+      ctaTarget: c.ctaTarget,
+      externalUrl: c.externalUrl,
+    },
+    c.ctaLookup
+  );
+  if (!cta.ok) return { ok: false, reason: "cta_invalid", ctaError: cta.error };
+
+  if (ctx.viewer) {
+    if (
+      isPopupCandidateCoordinatedAway({
+        ctaType: c.ctaType,
+        ctaTarget: c.ctaTarget,
+        href: cta.value.href,
+        coordinatedEventIds: ctx.viewer.coordinatedEventIds,
+      })
+    ) {
+      return { ok: false, reason: "coordinated_away" };
+    }
+
+    // F-2: 지금 빈도가 인정하는 숨김 행만 본다 (예전 빈도로 남은 행은 무시)
+    const honoredModes = suppressionModesHonoredByFrequency(c.frequencyMode);
+    const viewer = ctx.viewer;
+    const suppressed = (c.suppressions ?? []).some((row) =>
+      honoredModes.has(row.mode) &&
+      isPlatformPopupSuppressionActive(row, {
+        now: ctx.now,
+        currentSessionKey: viewer.sessionKey,
+        currentCampaignRevision: c.campaignRevision,
+        timezone: c.timezone,
+      })
+    );
+    if (suppressed) return { ok: false, reason: "suppressed" };
+  }
+
+  return { ok: true, href: cta.value.href };
+}
+
+/** 후보 + 이동 주소 + 영역 → 조회 1위 모양 (앱 조회 · 어드민 「앱에 나오나」 공용) */
+export function toResolvePopupAdWinner(
+  winner: PlatformPopupCandidate,
+  surface: PlatformPopupConsumerSurface,
+  href: string
+): ResolvePopupAdWinner | null {
+  if (!winner.creative) return null;
+  return {
+    campaignId: winner.id,
+    creativeId: winner.creative.id,
+    surface,
+    href,
+    presentationType: normalizePlatformPopupPresentationType(
+      winner.presentationType
+    ) as PlatformPopupInterruptivePresentation,
+    frequencyMode: normalizePlatformPopupFrequencyMode(winner.frequencyMode),
+    creativeMode: normalizePlatformPopupCreativeMode(winner.creative.creativeMode),
+  };
+}
+
+/**
  * 공통 자격 판정(승인·기간·대상 화면·소재 비율·CTA·이벤트 조율·빈도 억제) + 회전 정렬 → 0|1 후보.
  */
 export function selectPlatformPopupEligibleWinner(
@@ -182,85 +340,21 @@ export function selectPlatformPopupEligibleWinner(
   }
 
   const eligible: PlatformPopupCandidate[] = [];
+  const viewer: PlatformPopupGateViewer = {
+    viewerUserId: input.viewerUserId,
+    coordinatedEventIds: input.coordinatedEventIds,
+    sessionKey: input.sessionKey,
+  };
 
   for (const c of input.candidates) {
-    if (!isPlatformPopupStatusScheduleEligible(c.status, c.approvalStatus)) continue;
-    if (
-      !isPlatformPopupWithinScheduleWindow({
-        now: input.now,
-        startAt: c.startAt,
-        endAt: c.endAt,
-      })
-    ) {
-      continue;
-    }
-    if (!platformPopupSurfaceMatches(c.surfaces, resolved)) continue;
-
-    const presentationType = normalizePlatformPopupPresentationType(c.presentationType);
-    if (scope === "ptr_reveal") {
-      if (!isPlatformPopupPtrRevealPresentation(presentationType)) continue;
-      // Fail-closed allowlist — empty list / anonymous / miss → skip. Interruptive scope ignores this.
-      if (
-        !isPtrRevealAudienceAllowed({
-          audienceMode: c.audienceMode,
-          audienceUserIds: c.audienceUserIds,
-          viewerUserId: input.viewerUserId,
-        })
-      ) {
-        continue;
-      }
-    } else if (!isPlatformPopupInterruptivePresentation(presentationType)) {
-      continue; // banner / ptr_reveal presentations: non-interruptive hosts
-    }
-
-    if (c.ownerStoreEligible === false) continue;
-
-    const creative = c.creative;
-    if (!creative || creative.status !== "ready") continue;
-    const creativeMode = normalizePlatformPopupCreativeMode(creative.creativeMode);
-    // 소재 계열 일치 — PTR 은 ptr_band 만, 팝업은 ptr_band 금지
-    if ((scope === "ptr_reveal") !== (creativeMode === "ptr_band")) continue;
-    // Same aspect authority as Admin approval (Artwork intrinsic / Card 36:25).
-    if (
-      !isPlatformPopupCreativeAspectValid(creative.aspectW, creative.aspectH, creativeMode)
-    ) {
-      continue;
-    }
-
-    const cta = validatePlatformPopupCta(
-      {
-        ctaType: c.ctaType,
-        ctaTarget: c.ctaTarget,
-        externalUrl: c.externalUrl,
-      },
-      c.ctaLookup
-    );
-    if (!cta.ok) continue;
-
-    if (
-      isPopupCandidateCoordinatedAway({
-        ctaType: c.ctaType,
-        ctaTarget: c.ctaTarget,
-        href: cta.value.href,
-        coordinatedEventIds: input.coordinatedEventIds,
-      })
-    ) {
-      continue;
-    }
-
-    // F-2: 지금 빈도가 인정하는 숨김 행만 본다 (예전 빈도로 남은 행은 무시)
-    const honoredModes = suppressionModesHonoredByFrequency(c.frequencyMode);
-    const suppressed = (c.suppressions ?? []).some((row) =>
-      honoredModes.has(row.mode) &&
-      isPlatformPopupSuppressionActive(row, {
-        now: input.now,
-        currentSessionKey: input.sessionKey,
-        currentCampaignRevision: c.campaignRevision,
-        timezone: c.timezone,
-      })
-    );
-    if (suppressed) continue;
-
+    // v3 ④: 자격 판정은 이유를 돌려주는 한 함수 — 어드민 「앱에 나오나」와 같은 함수(`admin-applied-status.ts`)
+    const gate = evaluatePlatformPopupCandidateGates(c, {
+      now: input.now,
+      scope,
+      resolvedSurface: resolved,
+      viewer,
+    });
+    if (!gate.ok) continue;
     eligible.push(c);
   }
 
@@ -288,24 +382,7 @@ export function resolvePopupAd(input: ResolvePopupAdInput): ResolvePopupAdResult
   const selected = selectPlatformPopupEligibleWinner(input, "interruptive");
   if (!selected.winner) return { ok: true, winner: null, reason: selected.reason };
   const { winner, href, surface: resolved } = selected;
-  if (!winner.creative) return { ok: true, winner: null, reason: "winner_cta_invalid" };
-
-  const presentationType = normalizePlatformPopupPresentationType(
-    winner.presentationType
-  ) as PlatformPopupInterruptivePresentation;
-  const frequencyMode = normalizePlatformPopupFrequencyMode(winner.frequencyMode);
-  const creativeMode = normalizePlatformPopupCreativeMode(winner.creative.creativeMode);
-
-  return {
-    ok: true,
-    winner: {
-      campaignId: winner.id,
-      creativeId: winner.creative.id,
-      surface: resolved,
-      href,
-      presentationType,
-      frequencyMode,
-      creativeMode,
-    },
-  };
+  const mapped = toResolvePopupAdWinner(winner, resolved, href);
+  if (!mapped) return { ok: true, winner: null, reason: "winner_cta_invalid" };
+  return { ok: true, winner: mapped };
 }

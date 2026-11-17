@@ -38,6 +38,8 @@ import {
   CUT_J_J_AMD_5_MASTER_ONLY_SYSTEM_LEAVES,
   CUT_J_J_AMD_5_MEMBERS_LEAVES,
   CUT_J_IA_R1_MEMBERS_TREE,
+  CUT_J_APP_ENTRY_V3_MOVED_LEAVES,
+  CUT_J_APP_ENTRY_V3_SECTION,
   CUT_J_J_AMD_5_ADDED_STAFF_LEAF,
   CUT_J_J_AMD_5_MOVED_INTO_PROMOTION,
   CUT_J_J_AMD_5_PROMOTION_TREE,
@@ -398,7 +400,12 @@ describe("CUT J IA separation hard lock", () => {
       );
       const removed = removedByPath.get(old.path);
       expect(direct != null || removed != null, `uncovered ${old.path}`).toBe(true);
-      if (!removed) expect(findAdminMenuByKey(adminMenu, old.key)?.key, old.key).toBe(old.key);
+      // 앱 진입 어드민 v3 (2026-11-17): 옮긴 leaf 는 새 key 가 같은 URL 을 맡는다
+      const moved = CUT_J_APP_ENTRY_V3_MOVED_LEAVES.find((m) => m.oldKey === old.key);
+      if (!removed) {
+        const expectedKey = moved?.newKey ?? old.key;
+        expect(findAdminMenuByKey(adminMenu, expectedKey)?.key, old.key).toBe(expectedKey);
+      }
       expect(activeLeafKeys(old.path).length, `not highlightable ${old.path}`).toBeGreaterThan(0);
     }
     // J-AMD-5 added the two member sub-screen leaves + F3 「관리자 계정·권한」 (195 − 3 removed + 3 added = 195).
@@ -421,12 +428,41 @@ describe("CUT J IA separation hard lock", () => {
     // − 시스템 「배포」 `/admin/system/deploy` (수동 Promote 폐지, 배포 구조 7단계 2026-11-11) = 253.
     // − 커뮤니티 모임 leaf 3개(모임 신고·모임 관리·모임 기록) — 옛 모임 기능 삭제 (Owner 2026-11-12) = 250.
     // + 커뮤니티 「모임」 6개(모임 목록·모임 신고·모임장 변경 요청·제재 이력·카테고리·운영 정책) — 신규 모임 어드민 M5 (설계 moim §8, 2026-11-12) = 256.
-    expect(leaves).toHaveLength(256);
+    // 앱 진입 어드민 v3 (Owner 2026-11-17 「v3대로 진행」): 프로모션 › 앱 화면 구성의 OS 시작 화면·인트로·앱 첫 진입 화면 3개 삭제
+    //   + 광고·배너 별칭 「앱 첫 진입 화면」 삭제 + 「한눈에 보기」 추가 = 253.
+    expect(leaves).toHaveLength(253);
     // 원래 메뉴 leaf = 203 − (`?from=` 진입점 3개[프로모션·마이페이지 배너, 배달 광고]가 별칭으로 바뀜) + 고객지원 보기 2개 = 202
     // + Apple 결제 검토 = 203 · + 광고 「충전·문의」·Cash 충전 대기열(숨김)(2026-11-07) = 205
     // + 홈 구성 = 206 · + 입점 계약 = 207 · + 매장 공지 = 208 · + 고객지원 문의 유형 관리 = 209 · − 배포 = 208 · − 모임 3 = 205
     // + 신규 모임 어드민 6 (M5) = 211
+    // 앱 진입 v3: 프로모션 원래 메뉴 3개 삭제 − 3 · 광고·배너 OS 시작 화면·인트로가 원래 메뉴로 + 2 · 한눈에 보기 + 1 = 211
     expect(leaves.filter((l) => !l.entryAlias)).toHaveLength(211);
+  });
+
+  it("앱 진입 어드민 v3 §A — 광고·배너 › 앱 진입 한 묶음 · 중복 leaf 없음 · 옛 주소 이동", () => {
+    const section = findAdminMenuByKey(adminMenu, CUT_J_APP_ENTRY_V3_SECTION.key);
+    expect(section?.path).toBeUndefined();
+    expect((section?.children ?? []).map((c) => c.key)).toEqual([...CUT_J_APP_ENTRY_V3_SECTION.children]);
+    const entries = collectAdminMenuPathEntries(adminMenu);
+    for (const p of ["/admin/platform-promotion/os-start", "/admin/platform-promotion/intro", "/admin/platform-promotion/entry"]) {
+      expect(entries.filter((e) => e.path === p).map((e) => e.key), p).toHaveLength(1);
+      expect(workspaceOf(p), p).toBe("ads");
+    }
+    expect(entries.some((e) => e.path === "/admin/settings/startup-config")).toBe(false);
+    for (const m of CUT_J_APP_ENTRY_V3_MOVED_LEAVES) {
+      expect(findAdminMenuByKey(adminMenu, m.oldKey), m.oldKey).toBeUndefined();
+      expect(activeLeafKeys(m.path), m.path).toEqual([m.newKey]);
+    }
+    const legacy = readFileSync(path.join(ROOT, "app/admin/settings/startup-config/page.tsx"), "utf8");
+    expect(legacy).toContain('redirect("/admin/platform-promotion/os-start")');
+    // 팝업 = 같은 목록(원래 메뉴는 플랫폼 운영 › 프로모션 › 팝업) — 별칭 · 도메인 별칭(배달·거래·커뮤니티)도 같은 목록 + 영역 거름
+    const popup = findAdminMenuByKey(adminMenu, "ads-popups-popup");
+    expect(popup?.path).toBe("/admin/platform-popup");
+    expect(popup?.entryAlias).toBe(true);
+    expect(findAdminMenuByKey(adminMenu, "promotion-popup")?.entryAlias).toBeUndefined();
+    for (const d of ["delivery", "trade", "community"]) {
+      expect(findAdminMenuByKey(adminMenu, `${d}-popups`)?.path).toBe(`/admin/platform-popup?domain=${d}`);
+    }
   });
 
   it("J21–J34 operational findability primary paths", () => {

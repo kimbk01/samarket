@@ -1,7 +1,11 @@
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { loadPlatformPopupAdminCampaignDetail } from "@/lib/platform-popup/admin-campaign-loader";
+import {
+  loadPlatformPopupAdminAppliedStatus,
+  loadPlatformPopupAdminCampaignDetail,
+} from "@/lib/platform-popup/admin-campaign-loader";
+import { PTR_REVEAL_PRESENTATION } from "@/lib/platform-popup/ptr-reveal-contract";
 import { updatePlatformPopupAdminCampaign } from "@/lib/platform-popup/admin-campaign-writer";
 import type { PlatformPopupMaterialField } from "@/lib/platform-popup/admin-campaign-authority";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -30,7 +34,12 @@ export async function GET(
       { status: result.httpStatus ?? 400 }
     );
   }
-  return NextResponse.json({ ok: true, campaign: result.campaign });
+  // v3 ④: 상세도 목록과 같은 서버 「앱에 나오나」 — PTR 띠 캠페인은 팝업 조회 대상이 아니라 넣지 않는다
+  const campaign =
+    result.campaign.presentationType === PTR_REVEAL_PRESENTATION
+      ? result.campaign
+      : { ...result.campaign, appliedStatus: await loadPlatformPopupAdminAppliedStatus(sb, result.campaign) };
+  return NextResponse.json({ ok: true, campaign });
 }
 
 /** PATCH /api/admin/platform-popup-campaigns/[campaignId] — explicit Save */

@@ -169,13 +169,22 @@ describe("GET /api/admin/app-notices", () => {
 describe("팝업 / 당겨서 새로고침 목록 — listPlatformPopupAdminCampaignPage · countPlatformPopupAdminCampaigns", () => {
   const NOW = "2026-10-20T04:00:00.000Z";
 
-  it("「지금 노출 중」 필터: status=active + 시작 ≤ 지금 + 종료 없음/≥ 지금, 목록과 건수가 같은 조건", async () => {
+  it("v3 ④ 팝업 「앱에 나오는 중」·「안 나옴」 필터 = 서버 「앱에 나오나」 결과 id, 목록과 건수가 같은 조건", async () => {
     const { listPlatformPopupAdminCampaignPage, countPlatformPopupAdminCampaigns } = await import(
       "@/lib/platform-popup/admin-campaign-loader"
     );
+    const appliedIndex = {
+      policyEnabled: true,
+      byId: new Map([
+        ["a-live", { state: "live" as const, reason: null }],
+        ["b-cond", { state: "conditional" as const, reason: "coupon_members_only" as const }],
+        ["c-sched", { state: "scheduled" as const, reason: "starts_at" as const }],
+        ["d-off", { state: "not_shown" as const, reason: "cta_invalid" as const }],
+      ]),
+    };
     const page = fakeSb({ platform_popup_campaigns: { data: [], count: 3 } });
     const r = await listPlatformPopupAdminCampaignPage(page.sb as never, {
-      filter: { status: "live", nowIso: NOW },
+      filter: { status: "live", nowIso: NOW, appliedIndex },
       limit: 20,
       offset: 40,
     });
@@ -183,18 +192,57 @@ describe("팝업 / 당겨서 새로고침 목록 — listPlatformPopupAdminCampa
     const listCalls = callsOf(page.log, "platform_popup_campaigns");
     expect(argsOf(listCalls, "range")).toEqual([40, 59]);
     expect(has(listCalls, "limit")).toBe(false);
-    expect(argsOf(listCalls, "eq")).toEqual(["status", "active"]);
+    // 상태·날짜만 보지 않는다 — 나오는 중 + 조건부 id
+    expect(has(listCalls, "eq")).toBe(false);
+    expect(argsOf(listCalls, "in")).toEqual(["id", ["a-live", "b-cond"]]);
     const listAnd = page.log[0]!.url.searchParams.get("and");
+    expect(listAnd).toContain("presentation_type.neq.ptr_reveal");
 
     const count = fakeSb({ platform_popup_campaigns: { data: [], count: 3 } });
-    const c = await countPlatformPopupAdminCampaigns(count.sb as never, { status: "live", nowIso: NOW });
+    const c = await countPlatformPopupAdminCampaigns(count.sb as never, { status: "live", nowIso: NOW, appliedIndex });
     expect(c).toEqual({ ok: true, total: 3 });
     const countCalls = callsOf(count.log, "platform_popup_campaigns");
     expect(argsOf(countCalls, "select")).toEqual(["id", { count: "exact", head: true }]);
+    expect(argsOf(countCalls, "in")).toEqual(["id", ["a-live", "b-cond"]]);
     expect(count.log[0]!.url.searchParams.get("and")).toBe(listAnd);
-    expect(listAnd).toContain("presentation_type.neq.ptr_reveal");
+
+    // 「안 나옴」 = 나오는 중·조건부·예약이 아닌 캠페인
+    const off = fakeSb({ platform_popup_campaigns: { data: [], count: 1 } });
+    await listPlatformPopupAdminCampaignPage(off.sb as never, {
+      filter: { status: "not_shown", nowIso: NOW, appliedIndex },
+      limit: 20,
+      offset: 0,
+    });
+    expect(off.log[0]!.url.searchParams.get("and")).toContain("id.not.in.(a-live,b-cond,c-sched)");
+  });
+
+  it("당겨서 새로고침 「지금 노출 중」: status=active + 시작 ≤ 지금 + 종료 없음/≥ 지금 (그대로)", async () => {
+    const { listPlatformPopupAdminCampaignPage } = await import("@/lib/platform-popup/admin-campaign-loader");
+    const page = fakeSb({ platform_popup_campaigns: { data: [], count: 0 } });
+    await listPlatformPopupAdminCampaignPage(page.sb as never, {
+      filter: { scope: "ptr", status: "live", nowIso: NOW },
+      limit: 20,
+      offset: 0,
+    });
+    const listCalls = callsOf(page.log, "platform_popup_campaigns");
+    expect(listCalls.filter((c) => c[0] === "eq").map((c) => c.slice(1))).toEqual([
+      ["presentation_type", "ptr_reveal"],
+      ["status", "active"],
+    ]);
+    const listAnd = page.log[0]!.url.searchParams.get("and") ?? "";
     expect(listAnd).toContain(`start_at.lte."${NOW}"`);
     expect(listAnd).toContain(`end_at.gte."${NOW}"`);
+  });
+
+  it("v3 ④ 형태 필터 — 새 형태 4종은 각각 자기 값(중앙 모달로 묶이지 않음)", async () => {
+    const { listPlatformPopupAdminCampaignPage } = await import("@/lib/platform-popup/admin-campaign-loader");
+    for (const kind of ["coupon_card", "artwork_full", "list_sheet", "tooltip"]) {
+      const { sb, log } = fakeSb({ platform_popup_campaigns: { data: [], count: 0 } });
+      await listPlatformPopupAdminCampaignPage(sb as never, { filter: { composition: kind }, limit: 20, offset: 0 });
+      const eqs = callsOf(log, "platform_popup_campaigns").filter((c) => c[0] === "eq").map((c) => c.slice(1));
+      expect(eqs).toEqual([["presentation_type", kind]]);
+      expect(has(callsOf(log, "platform_popup_campaigns"), "in")).toBe(false);
+    }
   });
 
   it("scope=ptr + 검색어 → ptr_reveal 만 + 이름·문구·이동 경로 ilike", async () => {

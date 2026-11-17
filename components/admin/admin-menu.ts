@@ -175,16 +175,17 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "ads-section-popups": "admin_menu_ads_section_popups",
   "ads-section-promotions": "admin_menu_ads_section_promotions",
   "ads-section-startup": "admin_menu_ads_section_startup",
-  "ads-popups-popup": "admin_menu_promotion_popup",
   "ads-popups-ptr": "admin_menu_promotion_ptr_ads",
   "ads-promo-events": "admin_menu_promotion_events",
   "ads-promo-owner-requests": "admin_menu_promotion_owner_requests",
   "ads-promo-coupons": "admin_menu_store_coupon_control_center",
   "ads-promo-gift": "admin_menu_gift_certificates",
   "ads-promo-discovery": "admin_menu_store_promo_control",
-  "ads-startup-os": "admin_menu_settings_os_start",
+  // 앱 진입 어드민 v3 (Owner 2026-11-17 「v3대로 진행」): 광고·배너 › 앱 진입 = 한눈에 보기 · OS 시작·첫 진입 · 인트로 · 팝업
+  "ads-entry-overview": "admin_menu_app_entry_overview",
+  "ads-startup-os": "admin_menu_app_entry_os_first_entry",
   "ads-startup-intro": "admin_menu_settings_intro",
-  "ads-startup-config": "admin_menu_settings_startup_config",
+  "ads-popups-popup": "admin_menu_promotion_popup",
   "members-reviews-store": "admin_menu_store_reviews",
   "members-reviews-trade": "admin_menu_trade_reviews",
   "promotion-section-taxonomy": "admin_menu_promotion_section_taxonomy",
@@ -416,10 +417,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
 
   // App Config
   "settings-general": "admin_menu_settings_general",
-  "settings-startup-config": "admin_menu_settings_startup_config",
   "settings-startup": "admin_menu_settings_startup_group",
-  "settings-os-start": "admin_menu_settings_os_start",
-  "settings-intro": "admin_menu_settings_intro",
   "settings-auth": "admin_menu_settings_auth",
   "settings-notifications": "admin_menu_settings_notifications",
   "menu-main-bottom-nav": "admin_menu_main_bottom_nav",
@@ -1484,14 +1482,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "done",
         children: [
           {
-            key: "ads-popups-popup",
-            title: "",
-            path: "/admin/platform-popup",
-            entryAlias: true,
-            matchPaths: ["/admin/platform-popup/"],
-            status: "done",
-          },
-          {
             key: "ads-popups-ptr",
             title: "",
             path: "/admin/ptr-reveal-ads",
@@ -1546,29 +1536,39 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         ],
       },
       {
+        // 앱 진입 어드민 v3 §A (Owner 2026-11-17 「v3대로 진행」): 「앱 진입」 한 묶음 — 아이콘 → OS → 첫 화면 → 인트로 → 팝업.
+        // OS 시작 화면·인트로의 원래 메뉴는 여기(「프로모션 › 앱 화면 구성」 중복 leaf 삭제).
+        // 「앱 첫 진입 화면」(/admin/settings/startup-config)은 OS 시작 화면과 한 화면 — 옛 주소는 이 화면으로 이동.
+        // 팝업은 원래 메뉴(플랫폼 운영 › 프로모션 › 팝업)와 같은 목록을 여는 별칭.
         key: "ads-section-startup",
         title: "",
         status: "done",
         children: [
           {
+            key: "ads-entry-overview",
+            title: "",
+            path: "/admin/platform-promotion/entry",
+            status: "done",
+          },
+          {
             key: "ads-startup-os",
             title: "",
             path: "/admin/platform-promotion/os-start",
-            entryAlias: true,
+            matchPaths: ["/admin/settings/startup-config"],
             status: "done",
           },
           {
             key: "ads-startup-intro",
             title: "",
             path: "/admin/platform-promotion/intro",
-            entryAlias: true,
             status: "done",
           },
           {
-            key: "ads-startup-config",
+            key: "ads-popups-popup",
             title: "",
-            path: "/admin/settings/startup-config",
+            path: "/admin/platform-popup",
             entryAlias: true,
+            matchPaths: ["/admin/platform-popup/"],
             status: "done",
           },
         ],
@@ -1727,24 +1727,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         key: "settings-startup",
         title: "",
         children: [
-          {
-            key: "settings-os-start",
-            title: "",
-            path: "/admin/platform-promotion/os-start",
-            status: "done",
-          },
-          {
-            key: "settings-intro",
-            title: "",
-            path: "/admin/platform-promotion/intro",
-            status: "done",
-          },
-          {
-            key: "settings-startup-config",
-            title: "",
-            path: "/admin/settings/startup-config",
-            status: "done",
-          },
+          // 앱 진입 어드민 v3 §A (2026-11-17): OS 시작 화면·인트로·앱 첫 진입 화면 leaf 는 광고·배너 › 앱 진입 한 곳으로 옮김.
           {
             key: "menu-main-bottom-nav",
             title: "",
