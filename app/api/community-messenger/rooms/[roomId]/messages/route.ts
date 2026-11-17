@@ -17,6 +17,12 @@ import {
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
 import { pruneByAtMaxAgeAndMaxSize } from "@/lib/http/memory-map-prune";
+import {
+  isMessengerSendUnavailableError,
+  MESSENGER_SEND_UNAVAILABLE_ERROR,
+} from "@/lib/community-messenger/server/messenger-send-unavailable";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -313,28 +319,14 @@ export async function POST(
   const now = Date.now();
   pruneByAtMaxAgeAndMaxSize(sendDedupe, now, SEND_DEDUPE_TTL_MS, SEND_DEDUPE_MAX_ENTRIES);
   const cached = sendDedupe.get(key);
-  if (cached && now - cached.at <= SEND_DEDUPE_TTL_MS) {
+  /** F1: dedupe 캐시에는 성공 응답만 저장한다(실패를 2.5초 재생해 재전송을 막지 않도록) */
+  if (cached && cached.res.ok && now - cached.at <= SEND_DEDUPE_TTL_MS) {
     recordMessengerApiTiming(
       "POST /api/community-messenger/rooms/[roomId]/messages",
       Math.round(performance.now() - t0),
-      cached.res.ok ? 200 : cached.res.error === "blocked_target" || cached.res.error === "rejected_by_peer" ? 403 : 400
+      200
     );
-    if (cached.res.ok) return jsonOk(cached.res);
-    if (cached.res.error === "blocked_target") {
-      return jsonError("차단된 사용자와는 메시지를 주고받을 수 없습니다.", 403, {
-        ...cached.res,
-        code: "blocked_target",
-        error: "blocked_target",
-      });
-    }
-    if (cached.res.error === "rejected_by_peer") {
-      return jsonError("상대가 친구 요청을 거절해 메시지를 보낼 수 없습니다.", 403, {
-        ...cached.res,
-        code: "rejected_by_peer",
-        error: "rejected_by_peer",
-      });
-    }
-    return jsonError(cached.res.error ?? "메시지 전송에 실패했습니다.", 400, cached.res);
+    return jsonOk(cached.res);
   }
   const result = await runSingleFlight(key, async () => {
     const serviceModT0 = performance.now();
@@ -351,9 +343,11 @@ export async function POST(
       gatePrefetch,
       _t5: t5 ?? undefined,
     });
-    const tStore = Date.now();
-    sendDedupe.set(key, { at: tStore, res: r as any });
-    pruneByAtMaxAgeAndMaxSize(sendDedupe, tStore, SEND_DEDUPE_TTL_MS, SEND_DEDUPE_MAX_ENTRIES);
+    if (r.ok) {
+      const tStore = Date.now();
+      sendDedupe.set(key, { at: tStore, res: r as any });
+      pruneByAtMaxAgeAndMaxSize(sendDedupe, tStore, SEND_DEDUPE_TTL_MS, SEND_DEDUPE_MAX_ENTRIES);
+    }
     return r;
   });
   const postAckEffects = result.ok ? result.postAckEffects : undefined;
@@ -513,7 +507,8 @@ export async function POST(
     if (reread) {
       responsePayload = { ok: true, message: reread };
     } else {
-      responsePayload = { ok: false, error: "message_send_failed" };
+      /** F1: 확정 행 재조회 실패 — 저장 여부를 알 수 없음 → 503 */
+      responsePayload = { ok: false, error: MESSENGER_SEND_UNAVAILABLE_ERROR };
     }
   }
   if (t5 && responsePayload.ok) {
@@ -521,14 +516,17 @@ export async function POST(
   }
   const handlerMs = Math.round(performance.now() - t0);
   const routeMs = Math.round(performance.now() - wall0);
+  const sendUnavailable = !responsePayload.ok && isMessengerSendUnavailableError(responsePayload.error);
   recordMessengerApiTiming(
     "POST /api/community-messenger/rooms/[roomId]/messages",
     handlerMs,
     responsePayload.ok
       ? 200
-      : responsePayload.error === "blocked_target" || responsePayload.error === "rejected_by_peer"
-        ? 403
-        : 400
+      : sendUnavailable
+        ? 503
+        : responsePayload.error === "blocked_target" || responsePayload.error === "rejected_by_peer"
+          ? 403
+          : 400
   );
   const ackHeaders: Record<string, string> = {
     "x-samarket-send-route-ms": String(routeMs),
@@ -539,6 +537,15 @@ export async function POST(
   if (t5) {
     ackHeaders["x-samarket-t5"] = t5TraceToHeader(t5);
     ackHeaders["x-samarket-t5-cid"] = t5.correlationId;
+  }
+  if (sendUnavailable) {
+    /** F1: 서버 저장 여부 불명 → 503 + 코드 `message_send_unavailable`(문구는 요청 언어) — 클라이언트는 실패 행 유지 */
+    const language = await resolveRequestAppLanguageOr("ko");
+    return jsonError(
+      translateBy(language, "nav_messenger_send_unavailable"),
+      { status: 503, headers: ackHeaders },
+      { code: MESSENGER_SEND_UNAVAILABLE_ERROR }
+    );
   }
   return responsePayload.ok
     ? jsonOk(responsePayload, { headers: ackHeaders })

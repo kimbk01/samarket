@@ -81,21 +81,31 @@ export function selectMessengerRoomVirtualRows<T extends { index: number }>(item
  */
 export const MESSENGER_VIRTUAL_FALLBACK_TAIL_ROWS = 24;
 
+/**
+ * F6 (설계 2026-11-18 PR-1): 가상 스크롤 `estimateSize` 와 같은 규칙 — 그룹 방이면 받은 글에 발신자 이름 줄 몫을 더한다.
+ * 예전에는 이 합계(앞쪽 추가 높이·전체 높이 힌트)만 `isGroupRoom` 없이 계산해 그룹 방에서 두 경로가 어긋났다.
+ */
 export function estimateMessengerRoomTimelineTotalHeight(
-  messages: ReadonlyArray<Pick<CommunityMessengerMessage, "messageType" | "content" | "metadata">>
+  messages: ReadonlyArray<
+    Pick<CommunityMessengerMessage, "messageType" | "content" | "metadata"> & { isMine?: boolean }
+  >,
+  opts: { isGroupRoom: boolean }
 ): number {
   let total = 0;
   for (let i = 0; i < messages.length; i += 1) {
-    total += estimateMessengerTimelineRowPx(messages[i]);
+    total += estimateMessengerTimelineRowPx(messages[i], { isGroupRoom: opts.isGroupRoom });
   }
   return total;
 }
 
 /** @deprecated UI render 에 사용 금지 — direct layout 또는 measured virtualItems 만 */
 export function buildMessengerRoomFallbackVirtualRows(
-  messages: ReadonlyArray<Pick<CommunityMessengerMessage, "messageType" | "content" | "metadata">>,
-  opts?: { maxRows?: number }
+  messages: ReadonlyArray<
+    Pick<CommunityMessengerMessage, "messageType" | "content" | "metadata"> & { isMine?: boolean }
+  >,
+  opts?: { maxRows?: number; isGroupRoom?: boolean }
 ): Array<{ index: number; start: number }> {
+  const estimateOpts = { isGroupRoom: opts?.isGroupRoom === true };
   const messageCount = messages.length;
   if (messageCount <= 0) return [];
   const maxRows = Math.max(1, opts?.maxRows ?? MESSENGER_VIRTUAL_FALLBACK_TAIL_ROWS);
@@ -103,11 +113,11 @@ export function buildMessengerRoomFallbackVirtualRows(
   const rows: Array<{ index: number; start: number }> = [];
   let offset = 0;
   for (let i = 0; i < startIndex; i += 1) {
-    offset += estimateMessengerTimelineRowPx(messages[i]);
+    offset += estimateMessengerTimelineRowPx(messages[i], estimateOpts);
   }
   for (let i = startIndex; i < messageCount; i += 1) {
     rows.push({ index: i, start: offset });
-    offset += estimateMessengerTimelineRowPx(messages[i]);
+    offset += estimateMessengerTimelineRowPx(messages[i], estimateOpts);
   }
   return rows;
 }

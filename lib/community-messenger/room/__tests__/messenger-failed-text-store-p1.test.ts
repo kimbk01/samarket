@@ -4,10 +4,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  MESSENGER_FAILED_TEXT_PER_ROOM_MAX,
   MESSENGER_FAILED_TEXT_STORAGE_KEY,
-  MESSENGER_FAILED_TEXT_TOTAL_MAX,
-  MESSENGER_FAILED_TEXT_TTL_MS,
   clearMessengerFailedTextSends,
   listMessengerFailedTextSends,
   pruneMessengerFailedTextSendsConfirmed,
@@ -47,23 +44,19 @@ describe("실패 글 보관", () => {
     expect(list[0]!.content).toBe("edited");
   });
 
-  it("방당 20건 상한 — 오래된 것부터 삭제", () => {
-    for (let i = 0; i < MESSENGER_FAILED_TEXT_PER_ROOM_MAX + 3; i += 1) saveMessengerFailedTextSend("r1", entry(`c${i}`, i));
+  it("F1: 건수 상한으로 지우지 않는다 — 방당 20건·전체 200건을 넘어도 모두 보관", () => {
+    for (let i = 0; i < 23; i += 1) saveMessengerFailedTextSend("r1", entry(`c${i}`, i));
     const list = listMessengerFailedTextSends("r1");
-    expect(list).toHaveLength(MESSENGER_FAILED_TEXT_PER_ROOM_MAX);
-    expect(list[0]!.clientMessageId).toBe("c3");
-  });
-
-  it("전체 200건 상한 — 오래된 것부터 삭제", () => {
-    let t = 0;
+    expect(list).toHaveLength(23);
+    expect(list[0]!.clientMessageId).toBe("c0");
+    let t = 100;
     for (let r = 0; r < 11; r += 1) {
       for (let i = 0; i < 20; i += 1) saveMessengerFailedTextSend(`room${r}`, entry(`r${r}c${i}`, t++));
     }
     const raw = JSON.parse(localStorage.getItem(MESSENGER_FAILED_TEXT_STORAGE_KEY) ?? "{}") as Record<string, unknown[]>;
     const total = Object.values(raw).reduce((n, l) => n + l.length, 0);
-    expect(total).toBe(MESSENGER_FAILED_TEXT_TOTAL_MAX);
-    expect(listMessengerFailedTextSends("room0")).toEqual([]);
-    expect(listMessengerFailedTextSends("room10")).toHaveLength(20);
+    expect(total).toBe(23 + 220);
+    expect(listMessengerFailedTextSends("room0")).toHaveLength(20);
   });
 
   it("같은 cid 확정 행이 오면 보관에서 제거", () => {
@@ -85,16 +78,14 @@ describe("실패 글 보관", () => {
     expect(() => saveMessengerFailedTextSend("r1", entry("c9", 9))).not.toThrow();
   });
 
-  it("7일 지난 보관분은 조회 때 조용히 삭제 (리뷰 #1)", () => {
-    saveMessengerFailedTextSend("r1", { ...entry("old", 0), savedAt: NOW - MESSENGER_FAILED_TEXT_TTL_MS - 1 });
+  it("F1: 시간이 지나도 지우지 않는다 (7일 만료 삭제 없음)", () => {
+    const old = NOW - 30 * 24 * 60 * 60 * 1000;
+    saveMessengerFailedTextSend("r1", { ...entry("old", 0), savedAt: old });
     saveMessengerFailedTextSend("r1", entry("fresh", 1));
-    saveMessengerFailedTextSend("r2", { ...entry("old2", 0), savedAt: NOW - MESSENGER_FAILED_TEXT_TTL_MS - 5 });
-    expect(listMessengerFailedTextSends("r1", NOW + 10).map((e) => e.clientMessageId)).toEqual(["fresh"]);
-    const raw = JSON.parse(localStorage.getItem(MESSENGER_FAILED_TEXT_STORAGE_KEY) ?? "{}") as Record<string, unknown>;
-    expect(raw.r2).toBeUndefined();
+    expect(listMessengerFailedTextSends("r1").map((e) => e.clientMessageId)).toEqual(["old", "fresh"]);
   });
 
-  it("같은 cid 재저장(자동 재전송 실패)은 처음 보관 시각을 유지", () => {
+  it("같은 cid 재저장(재전송 실패)은 처음 보관 시각을 유지", () => {
     saveMessengerFailedTextSend("r1", entry("c1", 5));
     const again = entry("c1", 999);
     saveMessengerFailedTextSend("r1", {

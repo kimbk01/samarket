@@ -9,7 +9,6 @@
  */
 
 import { create } from "zustand";
-import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 
 export type MessengerRoomEntryUnreadSnapshot = {
   roomId: string;
@@ -84,10 +83,12 @@ export const useMessengerRoomEntryUnreadStore = create<State>((set, get) => ({
     };
     set((s) => ({ byRoom: { ...s.byRoom, [roomId]: snap } }));
     /**
-     * Avoid stale at-bottom from a prior visit clearing the FAB on the same tick
-     * as first-unread entry (before the user reaches latest).
+     * F2 (설계 2026-11-18 PR-1): 스냅샷 기록만 한다 — 읽기 위치(scrollPosition)는 쓰지 않는다.
+     * 예전에는 viewport 와 무관하게 「reading-history」로 덮어써서, 맨 아래에서 상대 글이 와 unreadCount 1 로
+     * capture 되면 위치가 「읽는 중」이 되어 「↓」가 고착됐다. 위치·lastVisible 은 「병합·레이아웃 뒤 viewport 동기화」
+     * (`syncMessengerRoomReaderStateFromViewport`)만 쓴다. 진입 전 낡은 위치 정리는 기존
+     * `useMessengerRoomReaderScrollRoomLifecycle` 가 맡는다.
      */
-    useMessengerRoomReaderStateStore.getState().setScrollPosition(roomId, "reading-history");
     return snap;
   },
 

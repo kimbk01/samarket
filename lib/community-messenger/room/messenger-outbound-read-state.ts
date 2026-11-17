@@ -86,6 +86,30 @@ export function resolveDirectPeerReadCursorKey(args: {
   return messengerReadOrderKey(args.lastReadMessageCreatedAt, cursorId);
 }
 
+/**
+ * F4 (설계 2026-11-18 PR-1): 새 커서 id 의 행을 아직 못 찾아(상대 participant 갱신이 메시지 행보다 먼저 도착) 키를
+ * 계산할 수 없으면 **직전에 계산한 키(시각·id 둘 다)** 를 그대로 쓴다 — 예전에는 null 이 되어 내 메시지 전부가
+ * 체크2→체크1 로 내려갔다. 옛 시각 + 새 id 조합은 만들지 않는다. 행이 도착하면 `resolveDirectPeerReadCursorKey` 가
+ * 렌더마다 다시 찾으므로 자동으로 전진한다(별도 보류값 없음). 커서 자체가 없으면 null.
+ */
+export function carryDirectPeerReadCursorKey(args: {
+  resolved: MessengerReadOrderKey | null;
+  cursorId: string | null | undefined;
+  previous: MessengerReadOrderKey | null;
+}): MessengerReadOrderKey | null {
+  if (args.resolved) return args.resolved;
+  const cursorId = typeof args.cursorId === "string" ? args.cursorId.trim() : "";
+  if (!cursorId) return null;
+  return args.previous;
+}
+
+/** 같은 키인가(시각·µs·id) — 렌더 사이 직전 키 갱신 판단용 */
+export function sameMessengerReadOrderKey(a: MessengerReadOrderKey | null, b: MessengerReadOrderKey | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return a.t === b.t && (a.us ?? 0) === (b.us ?? 0) && a.id === b.id;
+}
+
 /** 비공개 그룹 — 읽음 수 ≥ 1 인 내 확정 메시지 중 가장 늦은 튜플. 없으면 null(전부 저장됨). */
 export function resolveGroupReadFloorKey(
   rows: readonly (OrderRow & { isMine?: boolean })[],

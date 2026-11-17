@@ -662,6 +662,31 @@ export function getMessengerRealtimeRoomMessages(roomId: string): CommunityMesse
 }
 
 /**
+ * F3 (설계 2026-11-18 PR-1): 메시지 행 영구 삭제(음성 hard_deleted) — 실시간 사본에서도 그 행을 뺀다.
+ * 예전에는 화면 목록만 지워 재진입 병합(`mergePrimedTimelineSeedIntoExisting` 가 이 사본을 base 로 씀)에서 되살아났다.
+ * 수신 중복 판정(seen id)은 그대로 둔다 — 늦게 온 같은 id INSERT 가 다시 넣지 않게.
+ */
+export function removeMessengerRealtimeRoomMessage(roomId: string, messageId: string): boolean {
+  const rid = normalizeRoomId(roomId);
+  const mid = String(messageId ?? "").trim();
+  if (!rid || !mid) return false;
+  let removed = false;
+  useMessengerRealtimeStore.setState((state) => {
+    const list = state.messagesByRoomId[rid];
+    if (!list || !list.some((m) => String(m.id ?? "").trim() === mid)) return state;
+    removed = true;
+    return {
+      ...state,
+      messagesByRoomId: {
+        ...state.messagesByRoomId,
+        [rid]: list.filter((m) => String(m.id ?? "").trim() !== mid),
+      },
+    };
+  });
+  return removed;
+}
+
+/**
  * 터미널 이벤트 직전 — 같은 세션의 링 스텁(`dialing`/`incoming`)만 제거해 최종 한 줄로 치환된다.
  */
 export function removeRingingCallStubsForSessionKeys(input: {

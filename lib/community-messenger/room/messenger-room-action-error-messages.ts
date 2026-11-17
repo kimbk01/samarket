@@ -162,6 +162,8 @@ export function getMessengerRoomActionErrorMessage(
     case "upload_failed":
     case "server_config":
       return t("nav_messenger_voice_upload_failed");
+    case "message_send_unavailable":
+      return t("nav_messenger_send_unavailable");
     case "message_send_failed":
     case "unread_update_failed":
     case "community_messenger_sticker_rate_limited":

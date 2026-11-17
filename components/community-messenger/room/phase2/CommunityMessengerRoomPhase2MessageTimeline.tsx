@@ -150,6 +150,7 @@ import {
   resolveMessengerOutboundReadState,
   type MessengerReadMode,
 } from "@/lib/community-messenger/room/messenger-outbound-read-state";
+import { useCarriedDirectPeerReadCursorKey } from "@/lib/community-messenger/room/use-carried-direct-peer-read-cursor-key";
 import {
   clearGroupReadCountsSnapshot,
   setGroupReadCountsSnapshot,
@@ -543,8 +544,15 @@ function selectTimelineVirtualRows<T extends { index: number }>(items: T[], hydr
 
 /** virtualizer scroll root 미부착 시 tail 행 — DO NOT: 주문·배달 방 단독 렌더 경로로 쓰지 말 것(resolveUseDirectMessengerTimelineLayout 우선). */
 function buildTimelineFallbackVirtualRows(
-  messages: ReadonlyArray<{ messageType: CommunityMessengerMessage["messageType"]; content: string; metadata?: CommunityMessengerMessage["metadata"] }>,
-  hydrationPass: number
+  messages: ReadonlyArray<{
+    messageType: CommunityMessengerMessage["messageType"];
+    content: string;
+    metadata?: CommunityMessengerMessage["metadata"];
+    isMine?: boolean;
+  }>,
+  hydrationPass: number,
+  /** F6: estimateSize 와 같은 규칙(그룹 받은 글 이름 줄) */
+  isGroupRoom: boolean
 ): Array<{ index: number; start: number }> {
   const messageCount = messages.length;
   if (messageCount <= 0) return [];
@@ -555,7 +563,7 @@ function buildTimelineFallbackVirtualRows(
   let offset = 0;
   for (let i = startIndex; i < messageCount; i += 1) {
     rows.push({ index: i, start: offset });
-    offset += estimateMessengerTimelineRowPx(messages[i]);
+    offset += estimateMessengerTimelineRowPx(messages[i], { isGroupRoom });
   }
   return rows;
 }
@@ -953,7 +961,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       : vm.isPrivateGroupRoom
         ? "private_group"
         : "untracked";
-  const peerReadCursorKey = useMemo(() => {
+  const resolvedPeerReadCursorKey = useMemo(() => {
     if (outboundReadMode !== "direct") return null;
     return resolveDirectPeerReadCursorKey({
       lastReadMessageId: vm.snapshot.readReceipt?.lastReadMessageId,
@@ -968,6 +976,12 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     vm.snapshot.readReceipt?.lastReadMessageId,
     vm.snapshot.readReceipt?.lastReadMessageCreatedAt,
   ]);
+  /** F4: 새 커서 행이 아직 없으면 직전 키 유지(체크2→체크1 역행 방지) — 행이 오면 위 계산이 자동 전진 */
+  const peerReadCursorKey = useCarriedDirectPeerReadCursorKey({
+    roomId: vm.streamRoomId,
+    resolved: resolvedPeerReadCursorKey,
+    cursorId: outboundReadMode === "direct" ? vm.snapshot.readReceipt?.lastReadMessageId : null,
+  });
   const groupReadFloorKey = useMemo(() => {
     if (outboundReadMode !== "private_group") return null;
     return resolveGroupReadFloorKey(vm.displayRoomMessages, groupReadCounts);
@@ -1345,8 +1359,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     const total = vm.chatVirtualizer.getTotalSize();
     if (total > 0) return total;
     if (vm.displayRoomMessages.length <= 0) return 0;
-    return estimateMessengerRoomTimelineTotalHeight(vm.displayRoomMessages);
-  }, [useDirectTimelineLayout, vm.chatVirtualizer, vm.displayRoomMessages]);
+    return estimateMessengerRoomTimelineTotalHeight(vm.displayRoomMessages, { isGroupRoom: vm.isGroupRoom });
+  }, [useDirectTimelineLayout, vm.chatVirtualizer, vm.displayRoomMessages, vm.isGroupRoom]);
 
   useLayoutEffect(() => {
     if (hydrationPass < 2) return;

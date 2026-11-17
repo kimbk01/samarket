@@ -287,41 +287,50 @@ describe("P1 글·스티커 전송 시간 제한 12초 → 결과 불명 실패"
     expect(classifyMessengerSendFailure({ status: 403, jsonParsed: true })).toBe("definitive");
   });
 
-  it("컨트롤러: 글·스티커 모두 시간 제한 + 결과 불명은 실패 행 유지·같은 cid 재전송, 스티커 catch 있음", () => {
+  it("컨트롤러: 글·스티커 모두 시간 제한 + 결과 불명은 실패 행 유지·같은 cid 재전송", () => {
     const src = readFileSync(
       path.join(process.cwd(), "lib/community-messenger/room/phase2/use-messenger-room-phase2-controller.ts"),
       "utf8"
     );
-    const text = src.slice(src.indexOf("const runTextSendAttempt = async"), src.indexOf("const sendRawText = useCallback("));
+    /** F1: 글 전송 시도·실패 행·보관은 `use-messenger-text-send-outbox.ts` 로 분리(동작 테스트 대상) */
+    const outbox = readFileSync(
+      path.join(process.cwd(), "lib/community-messenger/room/phase2/use-messenger-text-send-outbox.ts"),
+      "utf8"
+    );
+    expect(src).toContain("useMessengerTextSendOutbox({");
+    const text = outbox.slice(outbox.indexOf("const runTextSendAttempt = async"), outbox.indexOf("return { runTextSendAttemptRef };"));
     expect(text).toContain("timeoutMs: MESSENGER_TEXT_SEND_TIMEOUT_MS");
-    expect(text).toContain('failure === "definitive" || authBlocked');
+    expect(text).toContain("fetchMessengerSendJson");
+    expect(text).toContain('failure === "definitive" && !authBlocked');
     expect(text).toContain("markMessengerOutboundRowFailed(prev, tempId)");
-    expect(text).toContain("saveMessengerFailedTextSend(streamRoomId");
-    const reg = src.slice(src.indexOf("const registerFailedTextRowHandlers = ("), src.indexOf("useLayoutEffect(() => {\n    runTextSendAttemptRef.current"));
+    expect(text).toContain("saveMessengerFailedTextSend(roomId");
+    const reg = outbox.slice(outbox.indexOf("const registerFailedTextRowHandlers = ("), outbox.indexOf("const restoredFailedTextRoomRef"));
     expect(reg).toMatch(/runTextSendAttemptRef\.current\(\{\s*tempId,\s*clientMessageId,/);
     const sticker = src.slice(src.indexOf("const runStickerSendAttempt = async"), src.indexOf("const sendSticker = useCallback("));
     expect(sticker).toContain("timeoutMs: MESSENGER_TEXT_SEND_TIMEOUT_MS");
-    expect(sticker).toMatch(/\} catch \{\n\s+res = null;/);
+    /** F8: 본문 읽기까지 같은 시간 제한 — 예외는 함수 안에서 res null 로 바뀐다 */
+    expect(sticker).toContain("fetchMessengerSendJson(");
     expect(sticker).toContain("markMessengerOutboundRowFailed(prev, tempId)");
     expect(sticker).toMatch(/runStickerSendAttemptRef\.current\(\{ tempId, clientMessageId, path, stickerItemId \}\)/);
   });
 
-  it("리뷰 #1·#2: 방 진입 복원 행은 같은 cid 로 1회 자동 재전송(조용히), 확정 행이 있으면 보관하지 않음", () => {
-    const src = readFileSync(
-      path.join(process.cwd(), "lib/community-messenger/room/phase2/use-messenger-room-phase2-controller.ts"),
+  it("F1: 방 진입 복원 행은 자동 재전송 없이 실패 행(재전송·삭제), 확정 행이 있으면 보관하지 않음", () => {
+    const outbox = readFileSync(
+      path.join(process.cwd(), "lib/community-messenger/room/phase2/use-messenger-text-send-outbox.ts"),
       "utf8"
     );
-    const restore = src.slice(
-      src.indexOf("const restoredFailedTextRoomRef"),
-      src.indexOf("type TextSendAttemptArgs")
+    const restore = outbox.slice(
+      outbox.indexOf("const restoredFailedTextRoomRef"),
+      outbox.indexOf("const runTextSendAttempt = async")
     );
     expect(restore).toContain("listMessengerFailedTextSends(streamRoomId)");
-    expect(restore).toMatch(/runTextSendAttemptRef\.current\(\{ \.\.\.r, failRestoreGeneration: 0, silentFailure: true \}\)/);
-    expect(restore).toContain("autoRetries.push({ tempId, clientMessageId: e.clientMessageId");
-    expect(restore).not.toContain("sendFailed: true");
-    const attempt = src.slice(src.indexOf("const runTextSendAttempt = async"), src.indexOf("const sendRawText = useCallback("));
+    expect(restore).not.toContain("runTextSendAttemptRef.current(");
+    expect(restore).not.toContain("silentFailure");
+    expect(restore).toContain("sendFailed: true");
+    expect(restore).toContain("registerFailedTextRowHandlers({ tempId, clientMessageId: e.clientMessageId");
+    const attempt = outbox.slice(outbox.indexOf("const runTextSendAttempt = async"), outbox.indexOf("return { runTextSendAttemptRef };"));
     expect(attempt).toMatch(/if \(!alreadyConfirmed\) \{\s*saveMessengerFailedTextSend/);
-    expect(attempt).toContain("if (authBlocked || silentFailure) return false;");
+    expect(outbox).not.toContain("silentFailure:");
   });
 
   it("리뷰 #5: 그룹 읽음 API 라벨은 요청 언어", () => {

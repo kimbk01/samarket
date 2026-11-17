@@ -3,19 +3,16 @@
  * 레거시(Telegram) 근거: SendMessagesHelper 가 실패 상태를 메시지에 저장해 다시 열어도 실패 말풍선(재전송)이 남는다.
  *
  * - 기기 저장소(localStorage) 1개 키에 방별 목록 — 모든 접근은 try/catch(사생활 모드·용량 초과·차단 시 조용히 무시).
- * - 방당 20건 · 전체 200건 상한, 넘으면 오래된 것부터 삭제.
  * - 재전송은 같은 clientMessageId(서버 UNIQUE 멱등) → 같은 cid 확정 행이 오면 보관에서 제거.
  * - 로그아웃 시 지움(`lib/auth/client-session-wipe.ts`).
+ *
+ * F1 (설계 2026-11-18 PR-1 「사용자 조작 없이 글이 사라지는 경로 0」): 보관분은 **사용자 「삭제」 또는 같은 cid 확정 행**으로만
+ * 지운다. 예전의 7일 만료·방당 20건/전체 200건 초과 시 오래된 것 삭제는 사용자 모르게 글을 지우는 경로라 없앴다
+ * (7일 만료의 근거였던 진입 자동 재전송도 F1 에서 삭제). 저장소가 쓰기를 거부하면(용량 초과 등) 새 보관만 실패하고
+ * 기존 보관분은 그대로 남는다 — 화면의 실패 행도 그대로.
  */
 
 export const MESSENGER_FAILED_TEXT_STORAGE_KEY = "samarket:cm:failed-text-sends:v1";
-export const MESSENGER_FAILED_TEXT_PER_ROOM_MAX = 20;
-export const MESSENGER_FAILED_TEXT_TOTAL_MAX = 200;
-/**
- * 보관 7일 — 시간 초과 뒤 서버가 실제로 저장했는데 확정 행이 첫 화면 창 밖이라 확인 못 한 경우에도
- * 실패 행이 영구히 남지 않게(리뷰 #1). 진입 시 자동 재전송(같은 cid)이 1차 정리, 이 값은 최종 상한.
- */
-export const MESSENGER_FAILED_TEXT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type MessengerFailedTextSend = {
   clientMessageId: string;
@@ -23,7 +20,7 @@ export type MessengerFailedTextSend = {
   replyToMessageId: string | null;
   /** 낙관 행 시각(ISO) — 복원 시 타임라인 위치 */
   createdAt: string;
-  /** 보관 시각(ms) — 상한 초과 시 오래된 것부터 삭제 */
+  /** 보관 시각(ms) — 복원 순서 */
   savedAt: number;
 };
 
@@ -88,47 +85,11 @@ function writeAll(all: StoreShape): void {
   }
 }
 
-/** 상한 적용 — 방당 20 · 전체 200, 오래된(savedAt 작은) 것부터 삭제 */
-export function trimMessengerFailedTextStore(all: StoreShape): StoreShape {
-  const out: StoreShape = {};
-  for (const [roomId, list] of Object.entries(all)) {
-    const sorted = [...list].sort((a, b) => a.savedAt - b.savedAt);
-    out[roomId] = sorted.slice(Math.max(0, sorted.length - MESSENGER_FAILED_TEXT_PER_ROOM_MAX));
-  }
-  const flat: Array<{ roomId: string; entry: MessengerFailedTextSend }> = [];
-  for (const [roomId, list] of Object.entries(out)) for (const entry of list) flat.push({ roomId, entry });
-  if (flat.length > MESSENGER_FAILED_TEXT_TOTAL_MAX) {
-    flat.sort((a, b) => a.entry.savedAt - b.entry.savedAt);
-    const drop = flat.slice(0, flat.length - MESSENGER_FAILED_TEXT_TOTAL_MAX);
-    for (const d of drop) {
-      out[d.roomId] = (out[d.roomId] ?? []).filter((e) => e !== d.entry);
-    }
-  }
-  for (const k of Object.keys(out)) if (!out[k]!.length) delete out[k];
-  return out;
-}
-
-/** 만료분(보관 7일 초과) 제거 — 바뀐 게 있으면 true */
-export function dropExpiredMessengerFailedTextSends(all: StoreShape, now: number): boolean {
-  let changed = false;
-  for (const roomId of Object.keys(all)) {
-    const list = all[roomId]!;
-    const kept = list.filter((e) => now - e.savedAt <= MESSENGER_FAILED_TEXT_TTL_MS);
-    if (kept.length !== list.length) {
-      changed = true;
-      if (kept.length) all[roomId] = kept;
-      else delete all[roomId];
-    }
-  }
-  return changed;
-}
-
-/** 방 진입 복원용 — 7일 지난 보관분은 조용히 지우고 나머지를 오래된 순으로 */
-export function listMessengerFailedTextSends(roomId: string, now: number = Date.now()): MessengerFailedTextSend[] {
+/** 방 진입 복원용 — 오래된 순(보관 시각) */
+export function listMessengerFailedTextSends(roomId: string): MessengerFailedTextSend[] {
   const id = roomId.trim();
   if (!id) return [];
   const all = readAll();
-  if (dropExpiredMessengerFailedTextSends(all, now)) writeAll(all);
   return [...(all[id] ?? [])].sort((a, b) => a.savedAt - b.savedAt);
 }
 
@@ -140,7 +101,7 @@ export function saveMessengerFailedTextSend(
   const cid = entry.clientMessageId.trim();
   if (!id || !cid) return;
   const all = readAll();
-  /** 같은 cid 재저장(자동·수동 재전송 실패)은 처음 보관 시각을 유지 — 7일 만료 기준이 밀리지 않게 */
+  /** 같은 cid 재저장(재전송 실패)은 처음 보관 시각을 유지 — 복원 순서가 바뀌지 않게 */
   const previous = (all[id] ?? []).find((e) => e.clientMessageId === cid);
   const list = (all[id] ?? []).filter((e) => e.clientMessageId !== cid);
   list.push({
@@ -151,7 +112,7 @@ export function saveMessengerFailedTextSend(
     savedAt: entry.savedAt ?? previous?.savedAt ?? Date.now(),
   });
   all[id] = list;
-  writeAll(trimMessengerFailedTextStore(all));
+  writeAll(all);
 }
 
 export function removeMessengerFailedTextSend(roomId: string, clientMessageId: string): void {

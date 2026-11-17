@@ -37,7 +37,6 @@ import {
 } from "@/lib/community-messenger/room/messenger-room-return-entry";
 import {
   cancelMessengerRoomReaderStateSync,
-  resolveLastVisibleTimelineMessageId,
   scheduleMessengerRoomReaderStateSync,
   syncMessengerRoomReaderStateFromViewport,
 } from "@/lib/community-messenger/room/messenger-room-scroll-near-bottom";
@@ -260,7 +259,20 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         scrollHeight: messagesViewportRef.current?.scrollHeight,
         clientHeight: messagesViewportRef.current?.clientHeight,
       });
-      if (messengerRoomTracksScrollPosition() && stickToBottomRef.current) {
+      /**
+       * F2-④ (설계 2026-11-18 PR-1): 진입 완료 시 읽기 상태(위치·lastVisible)는 stickToBottomRef 가 아니라
+       * **viewport 를 읽어** 기록한다 — 스크롤 이벤트가 없는 짧은 방·첫 안 읽음 앵커 진입도 실제 위치와 맞는다.
+       * 엔진 기준 stickToBottomRef 는 바꾸지 않도록 임시 ref 로 읽는다. viewport 가 없으면 예전 규칙.
+       */
+      const entryViewport = messagesViewportRef.current;
+      if (entryViewport) {
+        syncMessengerRoomReaderStateFromViewport({
+          viewport: entryViewport,
+          stickToBottomRef: { current: stickToBottomRef.current },
+          roomId: rid,
+          activeSheet,
+        });
+      } else if (messengerRoomTracksScrollPosition() && stickToBottomRef.current) {
         useMessengerRoomReaderStateStore.getState().setScrollPosition(rid, "at-bottom");
       }
       /** Latest land → tip consumed so same-tip re-entry cannot revive stale first-unread. */
@@ -272,7 +284,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         }
       }
     },
-    [engine, markCmScrollRun, messagesViewportRef, roomId, roomMessages, stickToBottomRef]
+    [activeSheet, engine, markCmScrollRun, messagesViewportRef, roomId, roomMessages, stickToBottomRef]
   );
 
   const tryCompleteEntry = useCallback(
@@ -496,8 +508,16 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
             topInsetPx: MESSENGER_JUMP_TO_MESSAGE_TOP_INSET_PX,
             onDone: () => {
               stickToBottomRef.current = engine.readStickToBottom();
-              const resolved = resolveLastVisibleTimelineMessageId(messagesViewportRef.current);
-              if (resolved) useMessengerRoomReaderStateStore.getState().setLastVisibleMessageId(roomId, resolved);
+              /**
+               * F2-② (설계 2026-11-18 PR-1): 이동 중 scroll 이벤트는 버려지므로(`engine.isAnimating()`) 도착한 실제 위치로
+               * 위치·lastVisible 을 함께 동기화한다(예전엔 lastVisible 만 → 맨 아래 도착해도 「읽는 중」 고착).
+               */
+              syncMessengerRoomReaderStateFromViewport({
+                viewport: messagesViewportRef.current,
+                stickToBottomRef: { current: stickToBottomRef.current },
+                roomId,
+                activeSheet,
+              });
             },
           });
           return true;
@@ -532,16 +552,19 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         reader.setScrollPosition(roomId, "reading-history");
         /** FAB math must advance immediately — do not wait for a user scroll event. */
         reader.setLastVisibleMessageId(roomId, mid);
+        /** F2-② 애니메이션 없는 이동 끝 — 레이아웃 뒤 실제 위치로 위치·lastVisible 동기화 */
         window.requestAnimationFrame(() => {
-          const resolved = resolveLastVisibleTimelineMessageId(messagesViewportRef.current);
-          if (resolved) {
-            useMessengerRoomReaderStateStore.getState().setLastVisibleMessageId(roomId, resolved);
-          }
+          syncMessengerRoomReaderStateFromViewport({
+            viewport: messagesViewportRef.current,
+            stickToBottomRef: { current: stickToBottomRef.current },
+            roomId,
+            activeSheet,
+          });
         });
       }
       return applied;
     },
-    [buildCtx, engine, messageCount, messagesViewportRef, roomId, roomMessages, stickToBottomRef]
+    [activeSheet, buildCtx, engine, messageCount, messagesViewportRef, roomId, roomMessages, stickToBottomRef]
   );
 
   const updateStickToBottomFromScroll = useCallback(() => {
@@ -724,6 +747,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
    */
   useLayoutEffect(() => {
     const last = roomMessages[roomMessages.length - 1];
+    const tailChanged = Boolean(last?.id) && last?.id !== prevTailMessageIdRef.current;
     const decision = resolveMessengerRoomMessagesAutoScroll({
       previousTailMessageId: prevTailMessageIdRef.current,
       currentTailMessageId: last?.id ?? null,
@@ -738,11 +762,16 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         scrollMessengerToBottom({ reason: "peer_message_near_bottom" });
       }
     }
+    /**
+     * F2-③ (설계 2026-11-18 PR-1): 새 끝 메시지가 병합되면(따라가기 여부와 무관) 레이아웃 뒤 viewport 동기화(S3)를
+     * 반드시 거친다 — 위쪽을 읽는 중 수신·따라가기 안 한 수신에서도 위치·lastVisible 이 실제와 맞는다(같은 프레임 1회로 합쳐짐).
+     */
+    if (tailChanged) scheduleReaderStateSyncAfterEntry();
     if (last?.id) {
       prevTailMessageIdRef.current = last.id;
       prevTailClientMessageIdRef.current = last.clientMessageId ?? null;
     }
-  }, [engine, roomMessages, scrollMessengerToBottom]);
+  }, [engine, roomMessages, scheduleReaderStateSyncAfterEntry, scrollMessengerToBottom]);
 
   /**
    * Seeded snapshot merge(BootstrapGate 캐시 → background refresh)가 상단에 과거 메시지를
