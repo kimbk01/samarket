@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import {
   formatMessengerLastSeenYyMmDdHhMm,
@@ -12,7 +13,7 @@ import { useMessengerPresenceStore } from "@/lib/community-messenger/stores/useM
 type Props = {
   peerUserId: string;
   /**
-   * 접속 정보(온라인·자리 비움·마지막 접속)가 없을 때 대신 보일 글 — 친구 행 @아이디 (채팅 시안 4판 「2. 친구 탭」:
+   * 접속 정보(온라인·마지막 접속)가 없을 때 대신 보일 글 — 친구 행 @아이디 (채팅 시안 4판 「2. 친구 탭」:
    * 상태 글 → 마지막 접속 → @아이디). 없으면 지금처럼 기본 문구.
    */
   fallbackText?: string | null;
@@ -26,6 +27,7 @@ export const CommunityMessengerFriendPresenceLine = memo(function CommunityMesse
   peerUserId,
   fallbackText = null,
 }: Props) {
+  const { t } = useI18n();
   const peerPresence = useCommunityMessengerPeerPresence(peerUserId);
   const storeLastSeenAt = useMessengerPresenceStore((s) =>
     peerUserId ? s.byUserId[peerUserId]?.lastSeenAt ?? null : null
@@ -40,11 +42,10 @@ export const CommunityMessengerFriendPresenceLine = memo(function CommunityMesse
   const hasPresence =
     snapshot != null &&
     (snapshot.state === "online" ||
-      snapshot.state === "away" ||
       Boolean(snapshot.lastSeenAt && formatMessengerLastSeenYyMmDdHhMm(snapshot.lastSeenAt)));
   return (
     <p data-cm-list-preview="" className="truncate" style={{ color: "var(--cm-chat-sub)" }}>
-      {hasPresence || !fallbackText ? formatMessengerPeerPresenceLine(snapshot) : fallbackText}
+      {hasPresence || !fallbackText ? formatMessengerPeerPresenceLine(snapshot, t) : fallbackText}
     </p>
   );
 });
@@ -53,7 +54,7 @@ type DotProps = {
   peerUserId: string;
 };
 
-/** 친구 행 아바타 우하단 — online/away 녹·노랑점 */
+/** 친구 행 아바타 우하단 — online 녹색 점 (P3: 「자리 비움」 노랑점 없음) */
 export const CommunityMessengerFriendPresenceDot = memo(function CommunityMessengerFriendPresenceDot({
   peerUserId,
 }: DotProps) {

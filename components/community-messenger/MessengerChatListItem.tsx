@@ -52,6 +52,7 @@ import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-me
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 import { MessengerChatListItemPresenceDot } from "@/components/community-messenger/MessengerChatListItemPresenceDot";
 import { MessengerListRow } from "@/components/community-messenger/line-ui";
+import { MessengerChatListTypingPreview } from "@/components/community-messenger/chat-list/MessengerChatListTypingPreview";
 import {
   MessengerPeerRelationAvatar,
   messengerPeerRelationRowClass,
@@ -1148,7 +1149,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
                   : "var(--cm-chat-sub)",
             }}
           >
-            {item.preview}
+            {/* P3: 상대 입력 중이면 미리보기 자리에 「입력 중」(보이는 행만 수신, 최대 15방) */}
+            <MessengerChatListTypingPreview roomId={room.id} viewerUserId={viewerUserId}>
+              {item.preview}
+            </MessengerChatListTypingPreview>
           </p>
         </div>
       </MessengerListRow>

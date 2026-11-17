@@ -81,27 +81,35 @@ describe("F1 — 첫 값은 저장소에 없을 때만", () => {
 });
 
 describe("F2·F3 — 머리글 부제", () => {
-  const t = (k: string) => k;
-  const base = { roomType: "direct", typingPeerCount: 0, roomHeaderStatus: "1:1 대화 · 설명", t };
+  const t = (k: string, vars?: Record<string, string | number>) => (vars?.stamp ? `${k}:${vars.stamp}` : k);
+  const base = { roomType: "direct", typingLabel: null, roomHeaderStatus: "1:1 대화 · 설명", t };
   it("값 없음 + 상대 id → 빈칸 (방 설명 문구 금지)", () => {
-    expect(resolveMessengerRoomHeaderStatusLine({ ...base, peerUserId: "w", peerPresence: null })).toBe("");
+    expect(resolveMessengerRoomHeaderStatusLine({ ...base, peerUserId: "w", peerPresence: null })).toEqual({
+      kind: "text",
+      text: "",
+    });
   });
   it("상대 id 가 없으면 지금처럼 대체 문구", () => {
-    expect(resolveMessengerRoomHeaderStatusLine({ ...base, peerUserId: null, peerPresence: null })).toBe("1:1 대화 · 설명");
-  });
-  it("오프라인 + 마지막 접속 시각 → 「마지막 접속 …」", () => {
-    const line = resolveMessengerRoomHeaderStatusLine({
-      ...base,
-      peerUserId: "w",
-      peerPresence: { userId: "w", state: "offline", lastSeenAt: "2026-11-13T20:15:17.561Z" },
+    expect(resolveMessengerRoomHeaderStatusLine({ ...base, peerUserId: null, peerPresence: null })).toEqual({
+      kind: "text",
+      text: "1:1 대화 · 설명",
     });
-    expect(line).toBe(formatMessengerPeerPresenceLine({ userId: "w", state: "offline", lastSeenAt: "2026-11-13T20:15:17.561Z" }));
-    expect(line.startsWith("마지막 접속 ")).toBe(true);
+  });
+  it("오프라인 + 마지막 접속 시각 → 「마지막 접속 …」(i18n 키)", () => {
+    const snap = { userId: "w", state: "offline" as const, lastSeenAt: "2026-11-13T20:15:17.561Z" };
+    const line = resolveMessengerRoomHeaderStatusLine({ ...base, peerUserId: "w", peerPresence: snap });
+    expect(line).toEqual({ kind: "text", text: formatMessengerPeerPresenceLine(snap, t) });
+    expect(line.kind === "text" && line.text.startsWith("cm_presence_last_seen_at:")).toBe(true);
   });
   it("그룹방은 지금과 같음", () => {
     expect(
       resolveMessengerRoomHeaderStatusLine({ ...base, roomType: "private_group", peerUserId: null, peerPresence: null })
-    ).toBe("1:1 대화 · 설명");
+    ).toEqual({ kind: "text", text: "1:1 대화 · 설명" });
+  });
+  it("P3: 입력 중이면 어떤 방이든 typing 결과", () => {
+    expect(
+      resolveMessengerRoomHeaderStatusLine({ ...base, typingLabel: "입력 중", peerUserId: "w", peerPresence: null })
+    ).toEqual({ kind: "typing", label: "입력 중" });
   });
   it("훅은 저장소 lastSeenAt 을 우선 넘긴다(소스 계약)", () => {
     const src = fs.readFileSync(

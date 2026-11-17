@@ -147,7 +147,7 @@ export class ChatThreadScrollEngine {
     /** 하단으로 이동 중이면 애니메이션이 매 프레임 새 하단을 다시 읽어 따라간다. */
     if (this.animation) return this.state.stickToBottom;
     if (!this.state.stickToBottom) return false;
-    return this.applyScrollToBottom(ctx, { force: false });
+    return this.applyAppendFollowToBottom(ctx);
   }
 
   notifyPrependComplete(
@@ -315,6 +315,21 @@ export class ChatThreadScrollEngine {
     this.state.stickToBottom = true;
     this.captureGeom(vp);
     return vp.scrollHeight > 0 || count === 0;
+  }
+
+  /**
+   * 새 메시지 따라가기 전용 — DOM `scrollTop` 쓰기만 (P3 2026-11-18 감사 N2).
+   * `virtualizer.scrollToIndex` 는 최대 5초 reconcile 을 걸어 그 사이 내용 높이가 바뀌면 사용자가 위로 올린 뒤에도
+   * 맨 아래로 다시 끌어내릴 수 있다. 따라가기의 맨 아래 유지는 이 쓰기 + 내용 ResizeObserver(controller)가 맡는다.
+   * 진입·명시 이동(↓·내 전송)은 측정 전 위치 보장이 필요해 `applyScrollToBottom`(scrollToIndex 포함) 그대로.
+   */
+  private applyAppendFollowToBottom(ctx: ChatThreadScrollViewportContext): boolean {
+    const vp = ctx.viewport;
+    if (!vp) return false;
+    if (!this.state.stickToBottom) return false;
+    vp.scrollTop = vp.scrollHeight;
+    this.captureGeom(vp);
+    return vp.scrollHeight > 0 || ctx.messageCount === 0;
   }
 
   private preserveScrollDistance(ctx: ChatThreadScrollViewportContext): boolean {

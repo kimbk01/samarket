@@ -4,6 +4,8 @@ import { filterMessagesByHistoryFloor } from "@/lib/community-messenger/room/mes
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { broadcastMessengerActiveRoomCrossTab } from "@/lib/community-messenger/consistency/messenger-consistency-cross-tab";
 import { create } from "zustand";
+import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
+import { MESSENGER_TYPING_CLEAR_ON_MESSAGE_MAX_AGE_MS } from "@/lib/community-messenger/realtime/typing/messenger-typing-timing";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerCallKind,
@@ -623,6 +625,28 @@ export function setActiveMessengerRealtimeRoom(roomId: string | null): void {
 
 export function applyIncomingMessageEvent(input: IncomingMessageEventInput): void {
   useMessengerRealtimeStore.getState().applyIncomingMessageEvent(input);
+  clearPeerTypingOnIncomingMessage(input);
+}
+
+/**
+ * P3(레거시 Telegram 동작): 상대 메시지가 도착하면 그 사람의 「입력 중」을 즉시 해제 — `typing:stop` 이 유실돼도
+ * 메시지와 입력 중이 함께 보이지 않게. 방 화면·대화 목록·bump·따라잡기 경로가 모두 이 함수를 지난다.
+ * 오래된 메시지(따라잡기 재적용)는 지금 입력 중인 사람을 지우지 않도록 제외.
+ */
+function clearPeerTypingOnIncomingMessage(input: IncomingMessageEventInput): void {
+  const row = input.messageRow ?? null;
+  const senderRaw = row?.sender_id ?? input.message?.senderId ?? null;
+  const senderId = typeof senderRaw === "string" ? senderRaw.trim() : "";
+  if (!senderId) return;
+  if (input.viewerUserId && messengerUserIdsEqual(senderId, input.viewerUserId)) return;
+  const createdRaw = row?.created_at ?? input.message?.createdAt ?? null;
+  const createdMs = typeof createdRaw === "string" ? new Date(createdRaw).getTime() : NaN;
+  if (Number.isFinite(createdMs) && Date.now() - createdMs > MESSENGER_TYPING_CLEAR_ON_MESSAGE_MAX_AGE_MS) return;
+  const rid = normalizeRoomId(input.roomId);
+  if (!rid) return;
+  const typing = useMessengerTypingStore.getState();
+  if (!typing.byRoomId[rid]?.[senderId]) return;
+  typing.clearTyping(rid, senderId);
 }
 
 export function getMessengerRealtimeRoomMessages(roomId: string): CommunityMessengerMessage[] {

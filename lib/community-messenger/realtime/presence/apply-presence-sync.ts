@@ -18,10 +18,15 @@ export function applyPresenceSyncToMap(
 ): Record<string, PresenceEntry> {
   const next: Record<string, PresenceEntry> = { ...previous };
   for (const [id, entry] of Object.entries(aggregated)) {
+    const prev = previous[id];
+    /**
+     * P3(레거시 기준): 채널에 남아 있어도 백그라운드로 가면 오프라인 track — 온라인에서 바뀐 순간 = 마지막 접속.
+     */
+    const wentOffline = entry.state === "offline" && prev != null && prev.state !== "offline";
     next[id] = {
       userId: id,
       state: entry.state,
-      lastSeenAt: previous[id]?.lastSeenAt ?? null,
+      lastSeenAt: wentOffline ? observedAtIso : prev?.lastSeenAt ?? null,
       updatedAt: entry.updatedAt,
     };
   }

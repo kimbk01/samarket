@@ -35,7 +35,12 @@ import {
   clearMessengerRoomReturnEntry,
   peekMessengerRoomReturnEntry,
 } from "@/lib/community-messenger/room/messenger-room-return-entry";
-import { syncMessengerRoomStickToBottomFromViewport } from "@/lib/community-messenger/room/messenger-room-scroll-near-bottom";
+import {
+  cancelMessengerRoomReaderStateSync,
+  resolveLastVisibleTimelineMessageId,
+  scheduleMessengerRoomReaderStateSync,
+  syncMessengerRoomReaderStateFromViewport,
+} from "@/lib/community-messenger/room/messenger-room-scroll-near-bottom";
 import { messengerRoomTracksScrollPosition } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import {
@@ -130,23 +135,6 @@ function mapInitialSource(reason: CmScrollOwnerReason, forceBottom: boolean, has
     return "initial_latest";
   }
   return String(reason);
-}
-
-function resolveLastVisibleTimelineMessageId(viewport: HTMLElement | null): string | null {
-  if (!viewport) return null;
-  const viewportRect = viewport.getBoundingClientRect();
-  const rows = viewport.querySelectorAll<HTMLElement>(
-    '[data-cm-timeline-message-row][id^="cm-room-msg-"]'
-  );
-  let lastVisible: string | null = null;
-  for (const row of rows) {
-    const rect = row.getBoundingClientRect();
-    const overlap = Math.min(viewportRect.bottom, rect.bottom) - Math.max(viewportRect.top, rect.top);
-    if (overlap <= 0) continue;
-    const id = row.id.replace(/^cm-room-msg-/, "").trim();
-    if (id) lastVisible = id;
-  }
-  return lastVisible;
 }
 
 /**
@@ -342,6 +330,20 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   );
 
   /**
+   * P3 — 진입 완료(settled + 첫 anchor 적용) 뒤의 프로그램 스크롤·레이아웃 변화만 읽기 상태를 다시 맞춘다.
+   * 진입 단계(E1·E2: 첫 안 읽음·구분선·진입 미읽음 캡처)는 건드리지 않는다.
+   */
+  const scheduleReaderStateSyncAfterEntry = useCallback(() => {
+    if (!engine.isSettled() || !hasAppliedInitialAnchorRef.current) return;
+    scheduleMessengerRoomReaderStateSync({
+      viewport: messagesViewportRef.current,
+      stickToBottomRef,
+      roomId,
+      activeSheet,
+    });
+  }, [activeSheet, engine, messagesViewportRef, roomId, stickToBottomRef]);
+
+  /**
    * Single layout/keyboard correction writer.
    * Does **not** re-decide Enter policy or flip stick from viewport noise —
    * only preserves stick (bottom) vs non-stick (distance) set at Enter / user scroll / send.
@@ -365,6 +367,8 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         stickToBottomRef.current ? "keyboard_preserve" : "chrome_resize_preserve"
       );
       if (!stickToBottomRef.current) persistScrollPosition();
+      /** S2 — 레이아웃 보정 뒤 읽기 상태 동기화(진입 완료 뒤만) */
+      scheduleReaderStateSyncAfterEntry();
     },
     [
       buildCtx,
@@ -374,6 +378,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       markCmScrollRun,
       messageCount,
       persistScrollPosition,
+      scheduleReaderStateSyncAfterEntry,
       stickToBottomRef,
     ]
   );
@@ -409,8 +414,13 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         const started = engine.animateScrollToBottom(buildCtx(), {
           onDone: () => {
             stickToBottomRef.current = engine.readStickToBottom();
-            const tip = resolveLastVisibleTimelineMessageId(messagesViewportRef.current);
-            if (tip) useMessengerRoomReaderStateStore.getState().setLastVisibleMessageId(roomId, tip);
+            /** S5 — 도착한 실제 위치로 읽기 상태 동기화 */
+            syncMessengerRoomReaderStateFromViewport({
+              viewport: messagesViewportRef.current,
+              stickToBottomRef,
+              roomId,
+              activeSheet,
+            });
           },
         });
         if (!started) engine.scrollToBottomExplicit(buildCtx());
@@ -433,6 +443,8 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       if (engine.readStickToBottom()) {
         markCmScrollRun(reason, "realtime_follow");
       }
+      /** S3 — 자동 따라가기 뒤 읽기 상태(「↓」) 를 실제 위치로. scrollTop 이 안 바뀌어 scroll 이벤트가 없어도 맞춘다 */
+      scheduleReaderStateSyncAfterEntry();
     },
     [
       applyLayoutPreserve,
@@ -535,7 +547,8 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     if (engine.isAnimating()) return;
     engine.notifyUserScroll(buildCtx());
     stickToBottomRef.current = engine.readStickToBottom();
-    syncMessengerRoomStickToBottomFromViewport({
+    /** S1 — 「↓」·읽기 상태 SSOT 1회 (scrollPosition·stick·lastVisible) */
+    syncMessengerRoomReaderStateFromViewport({
       viewport: messagesViewportRef.current,
       stickToBottomRef,
       roomId,
@@ -543,12 +556,6 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       emitScrollLogs: true,
     });
     persistScrollPosition();
-    useMessengerRoomReaderStateStore
-      .getState()
-      .setLastVisibleMessageId(
-        roomId,
-        resolveLastVisibleTimelineMessageId(messagesViewportRef.current)
-      );
     noteCmScrollAuthorityEvent("scroll_command", {
       roomId,
       source: "user_scroll",
@@ -581,6 +588,10 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     } else {
       stickToBottomRef.current = peekMessengerRoomScrollPosition(rid)?.stickToBottom ?? true;
     }
+    return () => {
+      /** P3 — 떠나는 방의 예약된 읽기 상태 동기화 취소 */
+      if (rid) cancelMessengerRoomReaderStateSync(rid);
+    };
   }, [engine, roomId, stickToBottomRef]);
 
   /** Initial anchor — room generation 당 1회, layoutEffect(paint 전). composer/fingerprint 재실행 금지. */
@@ -705,7 +716,11 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     return () => window.removeEventListener(CM_ROOM_CHROME_HEIGHT_SYNC_EVENT, onChromeHeightSynced);
   }, [applyLayoutPreserve, engine, roomId, tryCompleteEntry]);
 
-  useEffect(() => {
+  /**
+   * 새 메시지 따라가기 — P3: paint 전(useLayoutEffect). 새 행이 화면 밖인 프레임이 한 번 그려진 뒤 움직이는
+   * 「튐」·「↓ 가 메시지보다 먼저 뜸」을 없앤다(계약: paint 후 correct 금지).
+   */
+  useLayoutEffect(() => {
     const last = roomMessages[roomMessages.length - 1];
     const decision = resolveMessengerRoomMessagesAutoScroll({
       previousTailMessageId: prevTailMessageIdRef.current,
@@ -743,7 +758,9 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     if (!hasAppliedInitialAnchorRef.current || !engine.isSettled()) return;
     if (loadingOlderMessages || engine.state.prependInFlight) return;
     engine.notifyLayoutResize(buildCtx());
-  }, [buildCtx, engine, loadingOlderMessages, roomMessages]);
+    /** S4 */
+    scheduleReaderStateSyncAfterEntry();
+  }, [buildCtx, engine, loadingOlderMessages, roomMessages, scheduleReaderStateSyncAfterEntry]);
 
   useLayoutEffect(() => {
     const el = messagesViewportRef.current;

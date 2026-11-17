@@ -225,7 +225,8 @@ function postPresenceHeartbeatHttp(): boolean {
 }
 
 function parseIncomingState(raw: unknown): CommunityMessengerPresenceState {
-  if (raw === "online" || raw === "away" || raw === "offline") return raw;
+  /** P3: 구 클라이언트의 `away` 는 오프라인으로 본다(「자리 비움」 표시 없음) */
+  if (raw === "online") return "online";
   return "offline";
 }
 

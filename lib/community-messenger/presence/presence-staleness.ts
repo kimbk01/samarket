@@ -1,8 +1,5 @@
 import type { CommunityMessengerPresenceState } from "@/lib/community-messenger/types";
-import {
-  SAMARKET_PRESENCE_PING_OFFLINE_MS,
-  SAMARKET_PRESENCE_PING_ONLINE_MAX_MS,
-} from "@/lib/community-messenger/presence/presence-policy";
+import { SAMARKET_PRESENCE_PING_ONLINE_MAX_MS } from "@/lib/community-messenger/presence/presence-policy";
 
 export type PresenceStalenessInput = {
   state: CommunityMessengerPresenceState;
@@ -20,8 +17,7 @@ export type PresenceStalenessResult = {
 /**
  * 표시용 presence 신선도 보정 — `online` 관측이 policy 의 ping 창을 넘기면 그대로 두지 않는다.
  * - 관측 경과 ≤ `SAMARKET_PRESENCE_PING_ONLINE_MAX_MS` → online 유지
- * - 그 이후 ≤ `SAMARKET_PRESENCE_PING_OFFLINE_MS` → away
- * - 그 이후 → offline
+ * - 그 이후 → offline (P3 2026-11-18: 「자리 비움」 단계 삭제)
  * `away`/`offline` 관측이나 관측 시각이 없는 값은 건드리지 않는다(정보 없음 ≠ 오래됨).
  */
 export function resolvePresenceStateWithStaleness(input: PresenceStalenessInput): PresenceStalenessResult {
@@ -30,9 +26,7 @@ export function resolvePresenceStateWithStaleness(input: PresenceStalenessInput)
   const observedMs = raw ? Date.parse(raw) : Number.NaN;
   if (!Number.isFinite(observedMs)) return { state: "online", nextChangeAtMs: null };
   const age = input.nowMs - observedMs;
-  if (age > SAMARKET_PRESENCE_PING_OFFLINE_MS) return { state: "offline", nextChangeAtMs: null };
-  if (age > SAMARKET_PRESENCE_PING_ONLINE_MAX_MS) {
-    return { state: "away", nextChangeAtMs: observedMs + SAMARKET_PRESENCE_PING_OFFLINE_MS + 1 };
-  }
+  /** P3(레거시 기준): 중간 단계 「자리 비움」 없음 — 하트비트 창을 넘긴 online 관측은 바로 오프라인 */
+  if (age > SAMARKET_PRESENCE_PING_ONLINE_MAX_MS) return { state: "offline", nextChangeAtMs: null };
   return { state: "online", nextChangeAtMs: observedMs + SAMARKET_PRESENCE_PING_ONLINE_MAX_MS + 1 };
 }

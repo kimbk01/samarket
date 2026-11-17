@@ -180,12 +180,12 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
 
   const presenceLine =
     otherUser.peerPresence != null
-      ? formatMessengerPeerPresenceLine(otherUser.peerPresence)
+      ? formatMessengerPeerPresenceLine(otherUser.peerPresence, t)
       : otherUser.isOnline === true
         ? t("cm_ui_online")
         : otherUser.isOnline === false
           ? t("cm_ui_offline")
-          : formatMessengerPeerPresenceLine(null);
+          : formatMessengerPeerPresenceLine(null, t);
 
   const friendLabelNone = roomType === "direct" ? t("cm_ui_add_friend") : t("cm_ui_friend_request");
 

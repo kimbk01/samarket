@@ -104,6 +104,73 @@ export function syncMessengerRoomStickToBottomFromViewport(input: {
   return nearBottom;
 }
 
+/** 화면에 실제로 걸친 마지막 타임라인 메시지 id (DOM 판정 — 읽기만) */
+export function resolveLastVisibleTimelineMessageId(viewport: HTMLElement | null): string | null {
+  if (!viewport) return null;
+  const viewportRect = viewport.getBoundingClientRect();
+  const rows = viewport.querySelectorAll<HTMLElement>(
+    '[data-cm-timeline-message-row][id^="cm-room-msg-"]'
+  );
+  let lastVisible: string | null = null;
+  for (const row of rows) {
+    const rect = row.getBoundingClientRect();
+    const overlap = Math.min(viewportRect.bottom, rect.bottom) - Math.max(viewportRect.top, rect.top);
+    if (overlap <= 0) continue;
+    const id = row.id.replace(/^cm-room-msg-/, "").trim();
+    if (id) lastVisible = id;
+  }
+  return lastVisible;
+}
+
+type MessengerRoomReaderStateSyncInput = Parameters<typeof syncMessengerRoomStickToBottomFromViewport>[0];
+
+/**
+ * 「↓」·읽기 상태 SSOT (P3 2026-11-18 · 감사 D6-a/X2) — viewport 기준으로 한 번에:
+ * stickToBottomRef + reader store `scrollPosition` + `lastVisibleMessageId`.
+ * 사용자 스크롤뿐 아니라 프로그램 스크롤(따라가기·레이아웃 보정)·「↓」 완료 뒤에도 이 함수로 맞춘다.
+ * 스크롤 쓰기 없음(읽기만).
+ */
+export function syncMessengerRoomReaderStateFromViewport(input: MessengerRoomReaderStateSyncInput): boolean {
+  const nearBottom = syncMessengerRoomStickToBottomFromViewport(input);
+  const id = input.roomId.trim();
+  if (id && input.viewport) {
+    useMessengerRoomReaderStateStore
+      .getState()
+      .setLastVisibleMessageId(id, resolveLastVisibleTimelineMessageId(input.viewport));
+  }
+  return nearBottom;
+}
+
+const pendingReaderStateSync = new Map<string, { input: MessengerRoomReaderStateSyncInput; raf: number }>();
+
+/** 같은 방의 여러 요청을 다음 프레임 1회로 합친다 — 레이아웃이 끝난 뒤 실제 위치로 동기화 */
+export function scheduleMessengerRoomReaderStateSync(input: MessengerRoomReaderStateSyncInput): void {
+  const id = input.roomId.trim();
+  if (!id || typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") return;
+  const existing = pendingReaderStateSync.get(id);
+  if (existing) {
+    existing.input = input;
+    return;
+  }
+  const entry = {
+    input,
+    raf: window.requestAnimationFrame(() => {
+      pendingReaderStateSync.delete(id);
+      syncMessengerRoomReaderStateFromViewport(entry.input);
+    }),
+  };
+  pendingReaderStateSync.set(id, entry);
+}
+
+/** 방을 떠날 때 예약된 동기화 취소 */
+export function cancelMessengerRoomReaderStateSync(roomId: string): void {
+  const id = roomId.trim();
+  const existing = pendingReaderStateSync.get(id);
+  if (!existing) return;
+  pendingReaderStateSync.delete(id);
+  if (typeof window !== "undefined") window.cancelAnimationFrame(existing.raf);
+}
+
 export function resolveMessengerRoomNearBottomForAutoScroll(input: {
   viewport: HTMLElement | null;
   stickToBottomRef: MutableRefObject<boolean>;
