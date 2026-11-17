@@ -9,6 +9,7 @@ import {
   __resetPushNavigationBackForTests,
   isPushNavigationBackActive,
   markLeavingByPushNavigation,
+  restorePushNavigationBackAfterReload,
 } from "@/lib/push/push-navigation-back";
 import {
   __setOverlayBackListenerDriverForTests,
@@ -128,6 +129,34 @@ describe("알림 이동 직후 화면에서만 뒤로 담당", () => {
     markLeavingByPushNavigation();
     expect(isPushNavigationBackActive()).toBe(false);
     expect(isOverlayBackListenerInstalled()).toBe(false);
+  });
+});
+
+describe("P5 §A7 — reload 뒤 유지(sessionStorage)", () => {
+  it("표시는 sessionStorage 에 남고, reload 뒤 복원하면 같은 화면에서 뒤로 담당", () => {
+    markLeavingByPushNavigation();
+    f.push();
+    expect(window.sessionStorage.getItem("dibay:push-left-entries")).toBe(JSON.stringify(["k0"]));
+    // reload 모사: 리스너·활성 상태만 초기화(저장소는 유지)
+    __setOverlayBackListenerDriverForTests(d.driver);
+    expect(isOverlayBackListenerInstalled()).toBe(false);
+    restorePushNavigationBackAfterReload();
+    expect(isPushNavigationBackActive()).toBe(true);
+    expect(isOverlayBackListenerInstalled()).toBe(true);
+  });
+
+  it("표시가 없으면 복원은 아무것도 하지 않음", () => {
+    restorePushNavigationBackAfterReload();
+    expect(isOverlayBackListenerInstalled()).toBe(false);
+  });
+
+  it("상한 50", () => {
+    for (let i = 0; i < 55; i += 1) {
+      markLeavingByPushNavigation();
+      f.push();
+    }
+    const saved = JSON.parse(window.sessionStorage.getItem("dibay:push-left-entries") ?? "[]") as string[];
+    expect(saved).toHaveLength(50);
   });
 });
 

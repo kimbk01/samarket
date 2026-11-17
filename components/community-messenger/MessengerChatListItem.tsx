@@ -303,6 +303,18 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const suppressTapRef = useRef(false);
   const tapNavigateArmedRef = useRef(false);
   const longPressTriggeredRef = useRef(false);
+  /** P5 §A8-3 계측 — 탭이 이동 없이 버려진 이유 코드(첫 탭 무시 원인 확정용, 동작 영향 없음) */
+  const pointerDownAtRef = useRef(0);
+  const logRowTapDropped = useCallback(
+    (reason: "lost_capture" | "pointercancel" | "suppressed_longpress" | "not_armed" | "swipe_open" | "dragging") => {
+      console.info("[cm-row-tap] dropped", {
+        reason,
+        roomId: room.id,
+        msSincePointerDown: pointerDownAtRef.current ? Math.round(performance.now() - pointerDownAtRef.current) : null,
+      });
+    },
+    [room.id]
+  );
   const releasePressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const commerceMeta = room.contextMeta;
   const isFavorite = room.peerUserId ? favoriteFriendIds.has(room.peerUserId) : false;
@@ -739,6 +751,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     suppressTapRef.current = false;
     longPressTriggeredRef.current = false;
     tapNavigateArmedRef.current = true;
+    pointerDownAtRef.current = performance.now();
     setIsPressedVisual(!swipeOpen);
     kickRoomNavPrefetchOnPointerDown();
     dragRef.current = {
@@ -807,15 +820,23 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         if (suppressTapRef.current) {
           suppressTapRef.current = false;
           tapNavigateArmedRef.current = false;
+          logRowTapDropped("dragging");
           releasePressedVisual();
           return;
         }
         if (!tapNavigateArmedRef.current) {
+          /** P5 §B5-2: 길게 누름 뒤 손을 떼는 경로에서도 억제 표시를 소비해 다음 탭이 버려지지 않게 한다 */
+          const wasLongPress = longPressTriggeredRef.current;
+          consumeClickSuppression();
+          if (!wasLongPress) logRowTapDropped("not_armed");
           releasePressedVisual();
           return;
         }
         tapNavigateArmedRef.current = false;
-        if (longPressTriggeredRef.current || consumeClickSuppression()) {
+        /** 단락 평가 없이 항상 소비 — 억제 표시가 남아 다음 탭을 버리지 않게(P5 §B5-2) */
+        const clickSuppressed = consumeClickSuppression();
+        if (longPressTriggeredRef.current || clickSuppressed) {
+          if (!longPressTriggeredRef.current) logRowTapDropped("suppressed_longpress");
           releasePressedVisual(PRESS_RELEASE_MS);
           return;
         }
@@ -823,6 +844,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         const openByParent = openedSwipeItemId === swipeItemId;
         const openByLocal = dragXRef.current < -16;
         if (openByParent || openByLocal || swipeOpen) {
+          logRowTapDropped("swipe_open");
           closeSwipe();
           releasePressedVisual();
           return;
@@ -846,6 +868,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       closeSwipe,
       compact,
       consumeClickSuppression,
+      logRowTapDropped,
       menuItemId,
       onCloseMenuItem,
       onOpenSwipeItem,
@@ -859,7 +882,14 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   );
 
   const forceCloseSwipeOnCancel = useCallback(
-    (e: React.PointerEvent) => {
+    (e: React.PointerEvent, reason: "pointercancel" | "lost_capture" = "pointercancel") => {
+      /**
+       * P5 §B5-3 계측만(동작 변경 없음): 손을 떼기 전에 탭 후보가 캡처 상실·취소로 버려지면 이유 코드를 남긴다.
+       * 원인 확정(A8-3 재현 로그) 전에는 탭 유지 등 동작을 바꾸지 않는다.
+       */
+      if (!ignoreNextLostCaptureRef.current && dragRef.current.active && !dragRef.current.dragging && tapNavigateArmedRef.current) {
+        logRowTapDropped(reason);
+      }
       if (ignoreNextLostCaptureRef.current) {
         ignoreNextLostCaptureRef.current = false;
         dragRef.current.active = false;
@@ -880,12 +910,19 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         /* noop */
       }
     },
-    [closeSwipe, releasePressedVisual]
+    [closeSwipe, logRowTapDropped, releasePressedVisual]
   );
 
   const onPointerCancel = useCallback(
     (e: React.PointerEvent) => {
-      forceCloseSwipeOnCancel(e);
+      forceCloseSwipeOnCancel(e, "pointercancel");
+    },
+    [forceCloseSwipeOnCancel]
+  );
+
+  const onLostPointerCaptureRow = useCallback(
+    (e: React.PointerEvent) => {
+      forceCloseSwipeOnCancel(e, "lost_capture");
     },
     [forceCloseSwipeOnCancel]
   );
@@ -1312,7 +1349,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         }}
         onLostPointerCapture={(e) => {
           if (!compact && !isSplitList) bind.onPointerCancel(e);
-          onPointerCancel(e);
+          onLostPointerCaptureRow(e);
         }}
       >
         <div

@@ -169,6 +169,7 @@ export async function requireAuthAction(
           actionType,
           phase: health.phase,
         });
+        console.info("[requireAuthAction] denied", { actionType, reason: "auth_resolution_hold" });
         return false;
       }
     }
@@ -179,10 +180,12 @@ export async function requireAuthAction(
       await requireAuthAction(actionType, nextAction, options);
     });
     openLoginRequiredSheet({ actionType, next, token });
+    console.info("[requireAuthAction] denied", { actionType, reason: "login_sheet" });
     return false;
   }
 
   if (!isClientSignupComplete(profile)) {
+    console.info("[requireAuthAction] denied", { actionType, reason: "consent" });
     if (typeof window !== "undefined") {
       window.location.assign(buildConsentHrefForAction(next));
     }
@@ -196,7 +199,10 @@ export async function requireAuthAction(
       await requireAuthAction(actionType, nextAction, options);
     });
     const ok = await requireProfileCompletionClient(profile, profileActionType, { next, token });
-    if (!ok) return false;
+    if (!ok) {
+      console.info("[requireAuthAction] denied", { actionType, reason: "profile" });
+      return false;
+    }
     pendingActions.delete(token);
   }
 

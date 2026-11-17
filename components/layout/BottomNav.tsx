@@ -69,6 +69,8 @@ import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav
 import { useShellHydrated } from "@/lib/ui/use-shell-hydrated";
 import { isMainBottomNavUnifiedInboxTabId } from "@/lib/community-messenger/messenger-entry-origin";
 import { dismissLoginRequiredSheet, requireAuthAction } from "@/lib/auth/require-auth-action";
+import { getSessionPhase } from "@/lib/auth/dibay-session-manager";
+import { isRecoveringPhase } from "@/lib/auth/dibay-session-policy";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { isClientSignupComplete } from "@/lib/auth/client-signup-gate";
 import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
@@ -808,9 +810,23 @@ export function BottomNav({
       const cached =
         getCurrentUser() ?? (boot?.id ? profileRowToClientProfile(boot) : null);
       if (cached?.id && isClientSignupComplete(cached)) {
+        console.info("[bottom-nav-tap] path=sync", { reason: "profile_cached", href: commitOpts.href });
         run();
         return;
       }
+      /**
+       * P5 §B5-1 (첫 탭 무시): 로그인 확인 중(`loading`·`recovering`)이고 프로필 캐시만 없을 때는 문지기로 기다리지 않고
+       * 누른 즉시 이동(`bottom_nav_explicit`)한다. 회원·비회원 판정은 메신저 경로의 화면 게이트(CommunityMessengerGuestGate)가 맡는다.
+       * 예전에는 `requireAuthAction` 이 확인 실패 시 조용히 false(auth_resolution_hold) → 탭이 되돌아가고, 통과해도
+       * `bottom_nav_async` 로 방 진입 잠금에 막힐 수 있었다. 비회원 확정 등 그 밖의 상태는 아래 기존 경로(로그인 시트).
+       */
+      const sessionPhase = getSessionPhase();
+      if (isRecoveringPhase(sessionPhase)) {
+        console.info("[bottom-nav-tap] path=sync", { reason: "session_resolving", phase: sessionPhase, href: commitOpts.href });
+        run();
+        return;
+      }
+      console.info("[bottom-nav-tap] path=async", { reason: "auth_gate", phase: sessionPhase, href: commitOpts.href });
       /**
        * 프로필 캐시가 아직 없을 때(B11): 로그인 확인을 기다리는 동안에도 누른 즉시 선택·뼈대를 보인다.
        * 회원으로 확인되면 같은 커밋으로 이동, 비회원·취소면 컨트롤러를 되돌린다(로그인 시트는 requireAuthAction 이 띄움).

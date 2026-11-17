@@ -19,10 +19,13 @@ import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/
 import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
 import { noteRoomEntryArrived } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
 import {
-  resolveMessengerRoomBackNavigation,
-  runMessengerRoomBackNavigation,
-} from "@/lib/community-messenger/room/messenger-room-back-navigation";
-import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
+  resolveMessengerRoomBackTargetNow,
+  runMessengerRoomBackTarget,
+  type MessengerRoomListKind,
+} from "@/lib/community-messenger/room/messenger-room-back-target";
+import { setPageBackOwner } from "@/lib/ui/overlay-back-stack";
+import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
+import { useBuyerOrderChatSlideHost } from "@/components/mypage/BuyerOrderChatSlideHostContext";
 import {
   dismissMessengerRoomEntrySnapshot,
   hasMessengerRoomEntrySnapshot,
@@ -62,6 +65,10 @@ type Props = {
   roomId: string | null | undefined;
   /** 스냅샷 전에는 비활성 */
   roomType: string | null | undefined;
+  /** P5 — 방 종류 목록(`communityMessengerRoomInboxGroupKind`). 스냅샷 전 null */
+  roomListKind?: MessengerRoomListKind | null;
+  /** P5 — 주문 방을 사장님이 볼 때 사장님 주문 채팅 목록(`resolveOwnerOrderChatsBackHref`) */
+  ownerOrderChatsHref?: string | null;
 };
 
 function usePrefersReducedMotion(): boolean {
@@ -91,21 +98,28 @@ export function useMessengerRoomAnimatedBack(): (() => void) | null {
 
 /**
  * 채팅방: 화면 **왼쪽 가장자리**에서 오른쪽으로 드래그하면 목록으로 돌아가는 방향과 동일하게 화면이 손가락을 따라 이동.
- * 임계값 이상이면 복귀, 미만이면 스냅백. 헤더 뒤로와 동일한 `runMessengerRoomBackNavigation` 규칙.
+ * 임계값 이상이면 복귀, 미만이면 스냅백. 헤더 뒤로와 동일한 목적지(`messenger-room-back-target` — P5 단일 정의).
  */
-export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Props) {
+export function MessengerRoomSwipeBackShell({
+  children,
+  roomId,
+  roomType,
+  roomListKind = null,
+  ownerOrderChatsHref = null,
+}: Props) {
   const router = useRouter();
   const searchParams = useMessengerRoomUrlSearchParams();
   const reducedMotion = usePrefersReducedMotion();
   const isMessengerSplit = useIsMessengerSplitViewport();
   const splitPaneMode = isMessengerSplit;
-  const backPlan = useMemo(
-    () =>
-      resolveMessengerRoomBackNavigation({
-        roomId: roomId?.trim() ?? "",
-        searchParams,
-      }),
-    [roomId, searchParams]
+  /** 주문 채팅 슬라이드 안이면 ◁ 는 슬라이드 쪽 몫 — 페이지 뒤로 주인을 등록하지 않는다(P5 §B6). */
+  const ownerSlideHost = useOwnerOrderChatSlideHost();
+  const buyerSlideHost = useBuyerOrderChatSlideHost();
+  const insideOrderChatSlide = ownerSlideHost != null || buyerSlideHost != null;
+  /** P5 — 머리글 ‹·가장자리 스와이프·Android ◁ 공용 목적지. 누른 순간의 기록 항목으로 판정. */
+  const resolveBackTarget = useCallback(
+    () => resolveMessengerRoomBackTargetNow({ roomType, listKind: roomListKind, searchParams, ownerOrderChatsHref }),
+    [roomType, roomListKind, searchParams, ownerOrderChatsHref]
   );
 
   const [phase, setPhase] = useState<AnimPhase>("idle");
@@ -192,6 +206,8 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
   const edgeRef = useRef<HTMLDivElement | null>(null);
   const pendingNavRef = useRef(false);
   const committedNavRef = useRef(false);
+  /** P5 — 페이지 뒤로 주인이 부르는 최신 `requestAnimatedBack` */
+  const requestAnimatedBackRef = useRef<() => void>(() => {});
 
   const widthRef = useRef(
     typeof window !== "undefined" ? window.innerWidth : 400
@@ -208,13 +224,12 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
     if (committedNavRef.current) return;
     committedNavRef.current = true;
     markCommunityMessengerHomeReturn({ roomId });
-    if (roomType === "open_group") {
-      router.replace(SAMARKET_ROUTES.chat.messengerMeetingsHub, { scroll: false });
-      return;
-    }
-    /** 헤더 ← 와 같은 계획 (분할 포함) — Android 시스템 뒤로와 결과 일치 (BK-06) */
-    runMessengerRoomBackNavigation(router, backPlan);
-  }, [router, backPlan, roomType, roomId]);
+    /**
+     * 헤더 ← 와 같은 목적지 (분할 포함) — Android 시스템 뒤로와 결과 일치 (BK-06).
+     * 이동 1회: 앱 안 진입 = back, 알림·첫 기록 진입 = 방 종류 목록 replace (오픈 그룹 특례·280ms 폴백 없음).
+     */
+    runMessengerRoomBackTarget(router, resolveBackTarget());
+  }, [router, resolveBackTarget, roomId]);
 
   /**
    * 방 화면 복사본을 고정한 채 즉시 목록으로 이동하고, 목록이 그려지면 복사본을 오른쪽으로 밀어낸다
@@ -269,6 +284,22 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
     setPhase("snap-away");
     setDragPx(w);
   }, [commitNavigation, exitWithSnapshot, roomId, reducedMotion, splitPaneMode]);
+  useEffect(() => {
+    requestAnimatedBackRef.current = requestAnimatedBack;
+  }, [requestAnimatedBack]);
+
+  /**
+   * P5 Android ◁ — 목적지가 「방 종류 목록 replace」(알림·첫 기록 진입)일 때만 페이지 뒤로 주인으로 등록한다.
+   * 앱 안 진입(history back)이면 등록하지 않아 ◁ 는 지금처럼 네이티브 WebView 뒤로 → 위 popstate 퇴장 그림(S1 유지).
+   * 스냅샷 전(roomType 없음)·주문 채팅 슬라이드 안은 등록하지 않는다. 처리 순서: 오버레이(시트) → 이 주인 → 결함 E.
+   */
+  useEffect(() => {
+    if (roomType == null || insideOrderChatSlide) return;
+    const target = resolveBackTarget();
+    if (target.kind !== "replace") return;
+    console.info("[cm-room-back] page_back_owner", { roomId: roomId?.trim() ?? "", href: target.href });
+    return setPageBackOwner(() => requestAnimatedBackRef.current());
+  }, [insideOrderChatSlide, resolveBackTarget, roomId, roomType]);
 
   const onEdgePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
