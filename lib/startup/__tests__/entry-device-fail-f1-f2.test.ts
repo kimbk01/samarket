@@ -41,7 +41,6 @@ describe("F1-b 웹 — 네이티브 인트로가 덮고 있으면 웹 ◁ 처리
   async function setup() {
     const stack = await import("@/lib/ui/overlay-back-stack");
     let onBack: ((ev: { canGoBack?: boolean }) => void) | null = null;
-    const minimize = vi.fn();
     stack.__setOverlayBackListenerDriverForTests({
       install: (cb) => {
         onBack = cb;
@@ -49,21 +48,18 @@ describe("F1-b 웹 — 네이티브 인트로가 덮고 있으면 웹 ◁ 처리
           onBack = null;
         };
       },
-      minimize,
     });
     const close = vi.fn();
     stack.pushOverlayBackEntry(close);
-    const root = vi.fn();
-    stack.setRootBackAction(root);
-    return { press: () => onBack?.({ canGoBack: false }), close, root, minimize };
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    return { press: () => onBack?.({ canGoBack: true }), close, back };
   }
 
-  it("인트로 중 ◁ → 오버레이 닫기·첫 화면 처리·앱 내리기 모두 안 함(네이티브가 건너뛰기)", async () => {
+  it("인트로 중 ◁ → 오버레이 닫기·기록 뒤로 모두 안 함(네이티브가 건너뛰기)", async () => {
     const t = await setup();
     t.press();
     expect(t.close).not.toHaveBeenCalled();
-    expect(t.root).not.toHaveBeenCalled();
-    expect(t.minimize).not.toHaveBeenCalled();
+    expect(t.back).not.toHaveBeenCalled();
   });
 
   it("인트로가 끝난 실행(끝 표시)이면 지금 규칙 그대로 — 맨 위 오버레이부터", async () => {
@@ -71,7 +67,6 @@ describe("F1-b 웹 — 네이티브 인트로가 덮고 있으면 웹 ◁ 처리
     const t = await setup();
     t.press();
     expect(t.close).toHaveBeenCalledTimes(1);
-    expect(t.minimize).not.toHaveBeenCalled();
   });
 });
 
