@@ -12,6 +12,7 @@ import {
   type PresenceSnapshotPollScheduler,
 } from "@/lib/community-messenger/realtime/presence/presence-snapshot-poll-scheduler";
 import { resolvePresenceStateWithStaleness } from "@/lib/community-messenger/presence/presence-staleness";
+import { normalizeLegacyPresenceState } from "@/lib/community-messenger/presence/presence-policy";
 import { mergePresenceSnapshotsIntoStoreMap } from "@/lib/community-messenger/realtime/presence/merge-presence-snapshots";
 
 const PRESENCE_RUNTIME_SCOPE = "community-messenger:presence-runtime";
@@ -67,7 +68,10 @@ export function useCommunityMessengerPeerPresence(
 ): CommunityMessengerPeerPresenceSnapshot | null {
   const id = typeof userId === "string" ? userId.trim() : "";
   /** 전체 `byUserId` 엔트리가 아닌 표시용 primitive 만 구독 — `replacePresenceMap` 시 무관 행 리렌더 방지 */
-  const liveState = useMessengerPresenceStore((state) => (id ? state.byUserId[id]?.state ?? null : null));
+  /** P3: 서버 첫 값·구 클라이언트의 `away` 도 오프라인으로 (「자리 비움」 없음) */
+  const liveState = useMessengerPresenceStore((state) =>
+    id ? normalizeLegacyPresenceState(state.byUserId[id]?.state) : null
+  );
   const liveUpdatedAt = useMessengerPresenceStore((state) => (id ? state.byUserId[id]?.updatedAt ?? null : null));
   /** 서버 조회·실시간 퇴장으로 들어온 마지막 접속 시각 — 머리글·점 3개 메뉴 「마지막 접속 …」 (2026-11-16 감사 F2) */
   const liveLastSeenAt = useMessengerPresenceStore((state) => (id ? state.byUserId[id]?.lastSeenAt ?? null : null));

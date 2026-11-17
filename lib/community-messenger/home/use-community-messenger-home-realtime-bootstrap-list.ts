@@ -556,6 +556,8 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           viewerUserId: me || null,
           roomId: rid,
           messageRow: hint.newRecord,
+          /** INSERT 힌트 배치 */
+          messageEvent: "insert",
         });
       }
       setData((prev) => {
@@ -1010,6 +1012,8 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           viewerUserId: me,
           roomId: ev.roomId,
           messageRow: ev.messageRow,
+          /** 버스 incoming_message = INSERT 만 발행 */
+          messageEvent: "insert",
         });
         shadowDispatch?.dispatchPatch("realtime", nextShadowGeneration(), patchFromRealtimeMessageRow(ev.roomId, ev.messageRow));
         const tip = roomActivityFromMessageRow({

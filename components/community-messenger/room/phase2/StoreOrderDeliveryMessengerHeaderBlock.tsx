@@ -4,6 +4,7 @@ import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import { CrewRepBadge } from "@/components/trust/CrewRep";
+import { TypingIndicatorLine } from "@/components/community-messenger/TypingIndicatorLine";
 import type { CommunityMessengerPresenceState } from "@/lib/community-messenger/types";
 import type { StoreOrderDeliveryMessengerHeaderModel } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
 
@@ -11,8 +12,10 @@ type Props = {
   model: StoreOrderDeliveryMessengerHeaderModel;
   presenceState: CommunityMessengerPresenceState | null;
   showPresence: boolean;
-  /** 접속·입력 중 등 — delivery 헤더에서도 subtitle 유지 */
+  /** 접속·업종 등 — delivery 헤더 subtitle */
   subtitle?: string | null;
+  /** 입력 중 문구(P3) — 있으면 subtitle 대신 `TypingIndicatorLine` */
+  typingLabel?: string | null;
 };
 
 /**
@@ -23,6 +26,7 @@ export function StoreOrderDeliveryMessengerHeaderBlock({
   presenceState,
   showPresence,
   subtitle,
+  typingLabel = null,
 }: Props) {
   if (model.mode === "none" || !model.showAvatar) return null;
 
@@ -62,7 +66,11 @@ export function StoreOrderDeliveryMessengerHeaderBlock({
         <p className="truncate text-[length:var(--sector-header-title-size)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
           {model.title}
         </p>
-        {subtitle?.trim() ? (
+        {typingLabel ? (
+          <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">
+            <TypingIndicatorLine label={typingLabel} />
+          </p>
+        ) : subtitle?.trim() ? (
           <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">{subtitle}</p>
         ) : null}
       </div>

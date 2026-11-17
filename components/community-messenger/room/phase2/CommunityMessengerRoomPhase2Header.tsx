@@ -1,7 +1,7 @@
 "use client";
 
 import { useOwnLiveCall } from "@/lib/call/own-live-call";
-import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { useMessengerRoomCallChoice } from "@/components/community-messenger/room/phase2/use-messenger-room-call-choice";
 import { resolveStoreOrderBuyerDialPeerLabel } from "@/lib/community-messenger/room/phase2/store-order-buyer-dial-peer-label";
 import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
@@ -18,6 +18,12 @@ import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/rea
 import { formatMessengerPeerPresenceLine } from "@/lib/community-messenger/realtime/presence/format-messenger-peer-presence-line";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
+import {
+  selectMessengerTypingUserIdsKey,
+  splitMessengerTypingUserIdsKey,
+} from "@/lib/community-messenger/realtime/typing/messenger-typing-select";
+import { resolveMessengerTypingLabel } from "@/lib/community-messenger/realtime/typing/resolve-messenger-typing-label";
+import { TypingIndicatorLine } from "@/components/community-messenger/TypingIndicatorLine";
 import { MessengerHeader } from "@/components/community-messenger/line-ui";
 import { Phone, Search, Settings, X } from "lucide-react";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
@@ -156,39 +162,50 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     bindPresenceAndTyping ? (vm.snapshot.peerPresence ?? null) : null
   );
 
-  const typingPeerCount = useMessengerTypingStore((state) => {
-    if (!bindPresenceAndTyping) return 0;
-    const roomId = vm.snapshot.room.id.trim().toLowerCase();
-    const viewerId = vm.snapshot.viewerUserId ?? "";
-    const now = Date.now();
-    if (!roomId) return 0;
-    if (vm.snapshot.room.roomType === "direct") {
-      const peerUserId = vm.snapshot.room.peerUserId ?? "";
-      if (!peerUserId) return 0;
-      const entry = state.byRoomId[roomId]?.[peerUserId];
-      return entry && entry.expiresAt > now ? 1 : 0;
-    }
-    const bucket = state.byRoomId[roomId] ?? {};
-    let n = 0;
-    for (const [uid, entry] of Object.entries(bucket)) {
-      if (uid === viewerId) continue;
-      if (entry.expiresAt > now) n += 1;
-    }
-    return n;
-  });
+  /**
+   * P3: 입력 중 구독은 준비 단계 게이트 없이 바로 — 수신 채널(Body)도 게이트가 없어 진입 초기에 놓치지 않는다.
+   * (접속 점·문구의 `bindPresenceAndTyping` 게이트는 유지)
+   */
+  const typingIdsKey = useMessengerTypingStore((state) =>
+    selectMessengerTypingUserIdsKey(state.byRoomId, {
+      roomId: vm.snapshot.room.id,
+      viewerUserId: vm.snapshot.viewerUserId,
+      peerUserId: vm.snapshot.room.roomType === "direct" ? vm.snapshot.room.peerUserId ?? "" : null,
+    })
+  );
+  const isDirectRoom = vm.snapshot.room.roomType === "direct";
+  const typingLabel = useMemo(() => {
+    if (isDirectRoom && !(vm.snapshot.room.peerUserId ?? "").trim()) return null;
+    const members = vm.snapshot.members;
+    return resolveMessengerTypingLabel({
+      roomType: vm.snapshot.room.roomType,
+      typingUserIds: splitMessengerTypingUserIdsKey(typingIdsKey),
+      nameOf: (userId) => {
+        const m = members.find((x) => x.id === userId);
+        if (!m) return null;
+        if (m.identityMode === "alias" && m.aliasProfile?.displayName?.trim()) return m.aliasProfile.displayName.trim();
+        return m.label?.trim() || null;
+      },
+      t,
+    });
+  }, [isDirectRoom, t, typingIdsKey, vm.snapshot.members, vm.snapshot.room.peerUserId, vm.snapshot.room.roomType]);
 
-  const statusLine = useMemo(
+  const headerStatus = useMemo(
     () =>
       resolveMessengerRoomHeaderStatusLine({
         roomType: vm.snapshot.room.roomType,
-        typingPeerCount,
+        typingLabel,
         /** 준비 단계(2단계 전)에도 상대가 있으면 방 설명 문구 대신 빈칸 */
         peerUserId: vm.snapshot.room.peerUserId ?? null,
         peerPresence,
         roomHeaderStatus: vm.roomHeaderStatus,
         t,
       }),
-    [peerPresence, t, typingPeerCount, vm.roomHeaderStatus, vm.snapshot.room.peerUserId, vm.snapshot.room.roomType]
+    [peerPresence, t, typingLabel, vm.roomHeaderStatus, vm.snapshot.room.peerUserId, vm.snapshot.room.roomType]
+  );
+  const statusLine: ReactNode = useMemo(
+    () => (headerStatus.kind === "typing" ? <TypingIndicatorLine label={headerStatus.label} /> : headerStatus.text),
+    [headerStatus]
   );
 
   const peerTradeRoleLabel = useMemo(() => {
@@ -211,14 +228,14 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
 
   const listingHeader = vm.tradeListingHeader;
   const tradePostDetailSlide = useTradePostDetailSlideHost();
-  const listingSubtitle = useMemo(() => {
+  const listingSubtitle: ReactNode = useMemo(() => {
     if (!listingHeader) return statusLine;
-    if (typingPeerCount > 0) return t("chats_peer_typing");
+    if (typingLabel) return <TypingIndicatorLine label={typingLabel} />;
     if (vm.snapshot.room.roomType === "direct" && peerPresence) {
-      return formatMessengerPeerPresenceLine(peerPresence);
+      return formatMessengerPeerPresenceLine(peerPresence, t);
     }
     return "";
-  }, [listingHeader, peerPresence, statusLine, t, typingPeerCount, vm.snapshot.room.roomType]);
+  }, [listingHeader, peerPresence, statusLine, t, typingLabel, vm.snapshot.room.roomType]);
 
   const openListingDetailSlide = () => {
     const postId = listingHeader?.postId?.trim();
@@ -294,12 +311,11 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     peerPresence;
 
   const deliveryHeaderSubtitle = useMemo(() => {
-    if (!useDeliveryHeaderBlock) return statusLine;
-    if (typingPeerCount > 0) return t("chats_peer_typing");
+    if (!useDeliveryHeaderBlock) return null;
     if (deliveryHeaderModel.mode === "buyer_store") {
       const presenceLine =
         bindPresenceAndTyping && vm.snapshot.room.roomType === "direct"
-          ? formatMessengerPeerPresenceLine(peerPresence)
+          ? formatMessengerPeerPresenceLine(peerPresence, t)
           : null;
       return formatDeliveryMessengerPresenceIndustrySubtitle({
         presenceLine,
@@ -308,7 +324,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
       });
     }
     if (bindPresenceAndTyping && vm.snapshot.room.roomType === "direct" && peerPresence) {
-      return formatMessengerPeerPresenceLine(peerPresence);
+      return formatMessengerPeerPresenceLine(peerPresence, t);
     }
     return deliveryHeaderModel.subtitle?.trim() || null;
   }, [
@@ -318,9 +334,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     deliveryHeaderModel.mode,
     deliveryHeaderModel.subtitle,
     peerPresence,
-    statusLine,
     t,
-    typingPeerCount,
     useDeliveryHeaderBlock,
     vm.snapshot.room.roomType,
   ]);
@@ -359,6 +373,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             presenceState={showDeliveryPresence ? peerPresence.state : null}
             showPresence={Boolean(showDeliveryPresence)}
             subtitle={deliveryHeaderSubtitle}
+            typingLabel={typingLabel}
           />
         ) : listingHeader ? (
           <>

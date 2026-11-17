@@ -1,165 +1,145 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
+import { sendMessengerPrivateBroadcastFromClient } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import {
-  createMessengerPrivateChannelStatusHandler,
-  messengerPrivateBroadcastChannelOptions,
-  primeMessengerPrivateRealtimeAuth,
-  sendMessengerPrivateBroadcastFromClient,
-} from "@/lib/community-messenger/realtime/private-broadcast-client";
+  acquireMessengerTypingTopic,
+  communityMessengerTypingChannelName,
+} from "@/lib/community-messenger/realtime/typing/messenger-typing-topic-registry";
 import {
-  releaseMessengerChannel,
-  whenMessengerTopicFree,
-} from "@/lib/community-messenger/realtime/messenger-channel-topic-lease";
+  MESSENGER_TYPING_IDLE_MS,
+  MESSENGER_TYPING_RESEND_MS,
+} from "@/lib/community-messenger/realtime/typing/messenger-typing-timing";
 
 /**
  * 타이핑 — 방 단위 **비공개** 토픽 `community-messenger-typing:<roomId>`.
- * 수신: private 채널 join(SELECT 정책 = 방 접근 가능자). 발신: REST broadcast + 사용자 JWT(INSERT 정책).
- * 발신 쪽이 같은 토픽 채널을 따로 만들지 않으므로 removeChannel 이 수신 채널을 끊는 공유 인스턴스 충돌이 없다.
+ * 수신: private 채널 join(SELECT 정책 = 방 접근 가능자) — 토픽 공유 등록부(`messenger-typing-topic-registry`)로
+ * 방 화면·대화 목록 행이 같은 채널 1개를 함께 쓴다. 발신: REST broadcast + 사용자 JWT(INSERT 정책).
  */
-export function communityMessengerTypingChannelName(roomId: string): string {
-  return `community-messenger-typing:${String(roomId ?? "").trim().toLowerCase()}`;
-}
-
-const TYPING_IDLE_MS = 2600;
-const TYPING_TTL_MS = 3200;
+export { communityMessengerTypingChannelName };
 
 export function useCommunityMessengerRoomTypingRuntime(args: {
   roomId: string | null | undefined;
   viewerUserId: string | null | undefined;
-  /** 1:1 일 때만 상대 id. 그룹·오픈은 빈 값 — 다른 참가자 전원의 타이핑을 받는다. */
-  peerUserId: string | null | undefined;
+  /**
+   * 1:1 상대 id(호환용 — 지금은 쓰지 않음). 토픽 발신 권한이 방 참가자로 제한되므로 1:1 방에서 본인 외 발신자는
+   * 상대뿐이고, 표시 쪽(머리글)이 상대 id 로만 읽는다.
+   */
+  peerUserId?: string | null | undefined;
 }): void {
-  const stopTimerRef = useRef<number | null>(null);
-  const channelRef = useRef<ReturnType<NonNullable<ReturnType<typeof getSupabaseClient>>["channel"]> | null>(null);
-
   useEffect(() => {
     const roomId = typeof args.roomId === "string" ? args.roomId.trim().toLowerCase() : "";
     const viewerUserId = typeof args.viewerUserId === "string" ? args.viewerUserId.trim() : "";
-    const peerUserId = typeof args.peerUserId === "string" ? args.peerUserId.trim() : "";
     if (!roomId || !viewerUserId) return;
     const sb = getSupabaseClient();
     if (!sb) return;
-    const typingStore = useMessengerTypingStore;
-    primeMessengerPrivateRealtimeAuth(sb);
-    const topic = communityMessengerTypingChannelName(roomId);
-    /** X4: 같은 토픽 이전 채널 제거가 끝난 뒤 새 채널 생성 — leaving 객체 재사용으로 조용히 죽는 것 방지 */
-    let alive = true;
-    let channel: ReturnType<typeof sb.channel> | null = null;
-    const pruneTimer = window.setInterval(() => {
-      typingStore.getState().clearExpired();
-    }, 1500);
-    void (async () => {
-      await whenMessengerTopicFree(sb, topic);
-      if (!alive) return;
-      channel = sb
-        .channel(topic, messengerPrivateBroadcastChannelOptions())
-        .on("broadcast", { event: "typing:start" }, (msg) => {
-          const payload = (msg as { payload?: Record<string, unknown> }).payload ?? {};
-          const fromUserId = typeof payload.fromUserId === "string" ? payload.fromUserId.trim() : "";
-          if (!fromUserId || fromUserId === viewerUserId) return;
-          if (peerUserId && fromUserId !== peerUserId) return;
-          typingStore.getState().setTyping(roomId, fromUserId, TYPING_TTL_MS);
-        })
-        .on("broadcast", { event: "typing:stop" }, (msg) => {
-          const payload = (msg as { payload?: Record<string, unknown> }).payload ?? {};
-          const fromUserId = typeof payload.fromUserId === "string" ? payload.fromUserId.trim() : "";
-          if (!fromUserId || fromUserId === viewerUserId) return;
-          if (peerUserId && fromUserId !== peerUserId) return;
-          typingStore.getState().clearTyping(roomId, fromUserId);
-        })
-        .subscribe(createMessengerPrivateChannelStatusHandler({ sb, scope: "typing" }));
-      channelRef.current = channel;
-    })();
-    return () => {
-      alive = false;
-      if (stopTimerRef.current != null) {
-        window.clearTimeout(stopTimerRef.current);
-        stopTimerRef.current = null;
-      }
-      window.clearInterval(pruneTimer);
-      channelRef.current = null;
-      releaseMessengerChannel(sb, channel);
-      channel = null;
-      const bucket = typingStore.getState().byRoomId[roomId];
-      if (bucket) {
-        for (const uid of Object.keys(bucket)) {
-          typingStore.getState().clearTyping(roomId, uid);
-        }
-      }
-    };
-  }, [args.peerUserId, args.roomId, args.viewerUserId]);
+    return acquireMessengerTypingTopic({ sb, roomId, viewerUserId });
+  }, [args.roomId, args.viewerUserId]);
 }
 
+type TypingEventName = "typing:start" | "typing:stop";
+
+function sendTypingSignal(roomId: string, viewerUserId: string, event: TypingEventName): void {
+  if (!roomId || !viewerUserId) return;
+  const sb = getSupabaseClient();
+  if (!sb) return;
+  void sendMessengerPrivateBroadcastFromClient({
+    sb,
+    topic: communityMessengerTypingChannelName(roomId),
+    event,
+    payload: { roomId, fromUserId: viewerUserId, at: new Date().toISOString() },
+    scope: "typing",
+    timeoutMs: 3_000,
+  });
+}
+
+/** 발신 조건 — 화면 보임 + 이 입력창에 포커스 (레거시: 입력창에서 글자가 바뀔 때만) */
+export function messengerTypingCanSignal(input: HTMLElement | null | undefined): boolean {
+  if (typeof document === "undefined" || !input) return false;
+  if (document.visibilityState !== "visible") return false;
+  return document.activeElement === input;
+}
+
+type TypingPublisherState = {
+  /** start 를 보낸 방·사용자 — stop 은 반드시 같은 대상으로 */
+  active: { roomId: string; viewerUserId: string } | null;
+  lastSentAt: number;
+  stopTimer: number | null;
+};
+
+function stopTypingPublisher(st: TypingPublisherState): void {
+  if (st.stopTimer != null) {
+    window.clearTimeout(st.stopTimer);
+    st.stopTimer = null;
+  }
+  const active = st.active;
+  st.active = null;
+  st.lastSentAt = 0;
+  if (active) sendTypingSignal(active.roomId, active.viewerUserId, "typing:stop");
+}
+
+/**
+ * 입력 중 발신 (P3 · 레거시 Telegram 기준).
+ * - 초안이 바뀔 때(키 입력 구동)만: 보임 + 포커스 + 초안 있음 → 처음이거나 마지막 발신 5초 경과면 `typing:start`.
+ * - 2.6초 무입력 · 초안 비움(전송 포함) · 입력창 blur · 화면 숨김 · pagehide · 방 나감 → `typing:stop` 1회.
+ * - 저장 초안 복원만으로는 보내지 않는다(포커스 없음).
+ */
 export function useCommunityMessengerRoomTypingPublisher(args: {
   roomId: string | null | undefined;
   viewerUserId: string | null | undefined;
   draft: string;
+  inputRef: RefObject<HTMLTextAreaElement | null>;
 }): void {
-  const lastStateRef = useRef<"idle" | "typing">("idle");
-  const stopTimerRef = useRef<number | null>(null);
+  const stateRef = useRef<TypingPublisherState>({ active: null, lastSentAt: 0, stopTimer: null });
+  const { roomId: roomIdRaw, viewerUserId: viewerUserIdRaw, draft, inputRef } = args;
 
-  const sendTyping = (roomIdRaw: string | null | undefined, viewerRaw: string | null | undefined, event: "typing:start" | "typing:stop") => {
-    const roomId = typeof roomIdRaw === "string" ? roomIdRaw.trim().toLowerCase() : "";
-    const viewerUserId = typeof viewerRaw === "string" ? viewerRaw.trim() : "";
-    if (!roomId || !viewerUserId) return;
-    const sb = getSupabaseClient();
-    if (!sb) return;
-    void sendMessengerPrivateBroadcastFromClient({
-      sb,
-      topic: communityMessengerTypingChannelName(roomId),
-      event,
-      payload: { roomId, fromUserId: viewerUserId, at: new Date().toISOString() },
-      scope: "typing",
-      timeoutMs: 3_000,
-    });
-  };
+  const roomId = typeof roomIdRaw === "string" ? roomIdRaw.trim().toLowerCase() : "";
+  const viewerUserId = typeof viewerUserIdRaw === "string" ? viewerUserIdRaw.trim() : "";
 
   useEffect(() => {
-    const roomId = typeof args.roomId === "string" ? args.roomId.trim().toLowerCase() : "";
-    const viewerUserId = typeof args.viewerUserId === "string" ? args.viewerUserId.trim() : "";
     if (!roomId || !viewerUserId) return;
-
-    const hasDraft = args.draft.trim().length > 0;
-    if (hasDraft) {
-      if (lastStateRef.current !== "typing") {
-        lastStateRef.current = "typing";
-        sendTyping(roomId, viewerUserId, "typing:start");
-      }
-      if (stopTimerRef.current != null) window.clearTimeout(stopTimerRef.current);
-      stopTimerRef.current = window.setTimeout(() => {
-        lastStateRef.current = "idle";
-        sendTyping(roomId, viewerUserId, "typing:stop");
-      }, TYPING_IDLE_MS);
+    const hasDraft = draft.trim().length > 0;
+    const st = stateRef.current;
+    if (!hasDraft || !messengerTypingCanSignal(inputRef.current)) {
+      stopTypingPublisher(st);
       return;
     }
-
-    if (stopTimerRef.current != null) {
-      window.clearTimeout(stopTimerRef.current);
-      stopTimerRef.current = null;
+    const now = Date.now();
+    const active = st.active;
+    const sameTarget = Boolean(active && active.roomId === roomId && active.viewerUserId === viewerUserId);
+    if (!sameTarget || now - st.lastSentAt >= MESSENGER_TYPING_RESEND_MS) {
+      if (active && !sameTarget) stopTypingPublisher(st);
+      st.active = { roomId, viewerUserId };
+      st.lastSentAt = now;
+      sendTypingSignal(roomId, viewerUserId, "typing:start");
     }
-    if (lastStateRef.current === "typing") {
-      lastStateRef.current = "idle";
-      sendTyping(roomId, viewerUserId, "typing:stop");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- sendTyping is stateless (reads client per call)
-  }, [args.draft, args.roomId, args.viewerUserId]);
+    if (st.stopTimer != null) window.clearTimeout(st.stopTimer);
+    st.stopTimer = window.setTimeout(() => {
+      st.stopTimer = null;
+      stopTypingPublisher(st);
+    }, MESSENGER_TYPING_IDLE_MS);
+  }, [draft, inputRef, roomId, viewerUserId]);
 
+  /** blur · 화면 숨김 · pagehide · 방 나감(언마운트/방 전환) → stop */
   useEffect(() => {
-    const roomId = args.roomId;
-    const viewerUserId = args.viewerUserId;
-    return () => {
-      if (stopTimerRef.current != null) {
-        window.clearTimeout(stopTimerRef.current);
-        stopTimerRef.current = null;
-      }
-      if (lastStateRef.current === "typing") {
-        sendTyping(roomId, viewerUserId, "typing:stop");
-      }
-      lastStateRef.current = "idle";
+    if (typeof document === "undefined") return;
+    const st = stateRef.current;
+    const onFocusOut = (ev: FocusEvent) => {
+      if (ev.target === inputRef.current) stopTypingPublisher(st);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup per room/viewer
-  }, [args.roomId, args.viewerUserId]);
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") stopTypingPublisher(st);
+    };
+    const onPageHide = () => stopTypingPublisher(st);
+    document.addEventListener("focusout", onFocusOut, true);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      document.removeEventListener("focusout", onFocusOut, true);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onPageHide);
+      stopTypingPublisher(st);
+    };
+  }, [inputRef, roomId, viewerUserId]);
 }

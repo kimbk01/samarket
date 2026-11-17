@@ -171,7 +171,19 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     const rid = streamRoomId?.trim();
     const viewportMetrics = readMessengerRoomNearBottomFromViewport(messagesViewportRef.current);
     let nearBottomForIngest: boolean;
-    if (viewportMetrics) {
+    if (viewportMetrics && rid) {
+      /**
+       * S6(P3 2026-11-18): 병합 전 위치를 ref 와 reader store 에 함께 기록 — ref 만 쓰고 store 는 옛 값으로 남던
+       * 갈림 제거. 검색 시트로 이동해 있던 상태(jumped-by-search)는 유지.
+       */
+      const currentPos = useMessengerRoomReaderStateStore.getState().byRoom[rid]?.scrollPosition ?? null;
+      nearBottomForIngest = syncMessengerRoomStickToBottomFromViewport({
+        viewport: messagesViewportRef.current,
+        stickToBottomRef,
+        roomId: rid,
+        activeSheet: currentPos === "jumped-by-search" ? "search" : null,
+      });
+    } else if (viewportMetrics) {
       nearBottomForIngest = viewportMetrics.nearBottom;
       stickToBottomRef.current = nearBottomForIngest;
     } else if (rid) {
@@ -216,6 +228,7 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
             roomId: streamRoomId.trim(),
             roomSummary: snap.room,
             message: mapped,
+            messageEvent: event.eventType === "INSERT" ? "insert" : "update",
             messageRow: {
               id: event.message.id,
               room_id: event.message.roomId,

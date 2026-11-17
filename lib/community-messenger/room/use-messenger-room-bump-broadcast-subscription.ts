@@ -18,7 +18,10 @@ import { resolveRoomBumpDedupeKey } from "@/lib/chat-domain/realtime/domain-real
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeCommunityMessengerRoomBumpBroadcast } from "@/lib/community-messenger/realtime/room-bump-broadcast";
-import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import {
+  applyIncomingMessageEvent,
+  messengerIncomingMessageAlreadyTracked,
+} from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { resolveOwnRoomBumpDecision } from "@/lib/community-messenger/room/own-room-bump-origin-policy";
 import { shouldSkipPeerBumpSingleGet } from "@/lib/community-messenger/room/peer-bump-snapshot-skip-policy";
 import { removeMessageFromRoomSnapshotCache } from "@/lib/community-messenger/room-snapshot-cache";
@@ -338,11 +341,14 @@ export function useMessengerRoomBumpBroadcastSubscription({
               setRoomMessages((prev) => mergeRoomMessages(prev, [enriched]));
               const tipRoomId = String(enriched.roomId || streamRoomId || roomId).trim();
               if (tipRoomId) {
+                /** P3: 처음 보는 id 만 새 메시지(bump 는 수정에도 발행됨) */
+                const firstSeen = !messengerIncomingMessageAlreadyTracked(tipRoomId, String(enriched.id ?? "").trim());
                 applyIncomingMessageEvent({
                   viewerUserId: viewer,
                   roomId: tipRoomId,
                   roomSummary: snapshotRef.current?.room ?? undefined,
                   message: enriched,
+                  messageEvent: firstSeen ? "insert" : "update",
                   messageRow: {
                     id: enriched.id,
                     room_id: tipRoomId,

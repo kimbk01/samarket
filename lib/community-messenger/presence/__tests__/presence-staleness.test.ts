@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolvePresenceStateWithStaleness } from "@/lib/community-messenger/presence/presence-staleness";
-import {
-  SAMARKET_PRESENCE_PING_OFFLINE_MS,
-  SAMARKET_PRESENCE_PING_ONLINE_MAX_MS,
-} from "@/lib/community-messenger/presence/presence-policy";
+import { SAMARKET_PRESENCE_ONLINE_GRACE_MS } from "@/lib/community-messenger/presence/presence-policy";
 
 const T0 = Date.parse("2026-10-15T00:00:00.000Z");
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -12,24 +9,14 @@ describe("resolvePresenceStateWithStaleness", () => {
   it("keeps fresh online and schedules the downgrade at the policy window", () => {
     const r = resolvePresenceStateWithStaleness({ state: "online", updatedAtIso: iso(T0), nowMs: T0 + 5_000 });
     expect(r.state).toBe("online");
-    expect(r.nextChangeAtMs).toBe(T0 + SAMARKET_PRESENCE_PING_ONLINE_MAX_MS + 1);
+    expect(r.nextChangeAtMs).toBe(T0 + SAMARKET_PRESENCE_ONLINE_GRACE_MS + 1);
   });
 
-  it("downgrades online older than the online window to away", () => {
+  it("P3: 「자리 비움」 단계 없이 online 창을 넘기면 바로 offline", () => {
     const r = resolvePresenceStateWithStaleness({
       state: "online",
       updatedAtIso: iso(T0),
-      nowMs: T0 + SAMARKET_PRESENCE_PING_ONLINE_MAX_MS + 1,
-    });
-    expect(r.state).toBe("away");
-    expect(r.nextChangeAtMs).toBe(T0 + SAMARKET_PRESENCE_PING_OFFLINE_MS + 1);
-  });
-
-  it("downgrades online older than the offline window to offline", () => {
-    const r = resolvePresenceStateWithStaleness({
-      state: "online",
-      updatedAtIso: iso(T0),
-      nowMs: T0 + SAMARKET_PRESENCE_PING_OFFLINE_MS + 1,
+      nowMs: T0 + SAMARKET_PRESENCE_ONLINE_GRACE_MS + 1,
     });
     expect(r).toEqual({ state: "offline", nextChangeAtMs: null });
   });

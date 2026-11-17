@@ -74,7 +74,11 @@ export const useMessengerRoomReaderStateStore = create<State>((set, get) => ({
         byRoom: {
           ...s.byRoom,
           [id]: {
-            scrollPosition: "reading-history",
+            /**
+             * P3(2026-11-18 감사 X2): 위치는 viewport 동기화(`syncMessengerRoomReaderStateFromViewport`)만 쓴다 —
+             * 여기서 reading-history 로 덮으면 맨 아래인데도 「↓」·방 안 알림 판단이 어긋난다. 대기 수만 늘린다.
+             */
+            scrollPosition: prev?.scrollPosition ?? "reading-history",
             pendingNewBelow: (prev?.pendingNewBelow ?? 0) + delta,
             lastVisibleMessageId: prev?.lastVisibleMessageId ?? null,
             updatedAt: Date.now(),

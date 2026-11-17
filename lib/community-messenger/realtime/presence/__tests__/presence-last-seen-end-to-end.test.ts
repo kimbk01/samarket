@@ -12,17 +12,20 @@ import { formatMessengerLastSeenYyMmDdHhMm } from "@/lib/community-messenger/rea
 import type { CommunityMessengerPeerPresenceSnapshot } from "@/lib/community-messenger/types";
 
 type Entry = { userId: string; state: "online" | "away" | "offline"; lastSeenAt: string | null; updatedAt: string | null };
-const t = (k: string) => k;
+/** ko 카탈로그와 같은 문구를 돌려주는 시험용 t (P3: 접속 문구 i18n 키) */
+const t = (k: string, vars?: Record<string, string | number>) =>
+  k === "cm_presence_online" ? "온라인" : k === "cm_presence_last_seen_at" ? `마지막 접속 ${vars?.stamp}` : "오프라인";
 const header = (map: Record<string, Entry>, id: string) => {
   const e = map[id];
-  return resolveMessengerRoomHeaderStatusLine({
+  const r = resolveMessengerRoomHeaderStatusLine({
     roomType: "direct",
-    typingPeerCount: 0,
+    typingLabel: null,
     peerUserId: id,
     peerPresence: e ? { userId: id, state: e.state, lastSeenAt: e.lastSeenAt } : null,
     roomHeaderStatus: "1:1 대화 · 설명",
     t,
   });
+  return r.kind === "text" ? r.text : r.label;
 };
 const lastSeenLine = (iso: string) => `마지막 접속 ${formatMessengerLastSeenYyMmDdHhMm(iso)}`;
 const serverSnap = (id: string, row: Parameters<typeof resolvePresenceLastSeenAtFromDbRow>[0]) =>

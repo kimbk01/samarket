@@ -211,7 +211,6 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   const composerFrameLoggedRef = useRef(false);
   const composerEffectCountRef = useRef(0);
   const seededSilentHoldReleasedRef = useRef(false);
-  const [typingPublisherEnabled, setTypingPublisherEnabled] = useState(false);
   const [composerHeavyEnabled, setComposerHeavyEnabled] = useState(false);
 
   useLayoutEffect(() => {
@@ -238,16 +237,6 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
 
   useLayoutEffect(() => {
     seededSilentHoldReleasedRef.current = false;
-    setTypingPublisherEnabled(false);
-    const t =
-      typeof window !== "undefined"
-        ? window.setTimeout(() => {
-            scheduleWhenBrowserIdle(() => setTypingPublisherEnabled(true), 600);
-          }, 0)
-        : 0;
-    return () => {
-      if (t !== 0) clearTimeout(t);
-    };
   }, [roomKey]);
 
   useLayoutEffect(() => {
@@ -351,10 +340,15 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     notifyComposerTextareaVisibleForSeededBootstrap,
     vm.composerTextareaRef,
   ]);
+  /**
+   * P3(2026-11-18 레거시 기준): 진입 600ms 대기 삭제 — 「화면 보임 + 입력창 포커스」 조건이 대신한다
+   * (저장 초안 복원만으로 입력 중을 보내지 않음).
+   */
   useCommunityMessengerRoomTypingPublisher({
-    roomId: typingPublisherEnabled ? vm.snapshot.room.id : null,
-    viewerUserId: typingPublisherEnabled ? vm.snapshot.viewerUserId : null,
-    draft: typingPublisherEnabled ? draft : "",
+    roomId: vm.snapshot.room.id,
+    viewerUserId: vm.snapshot.viewerUserId,
+    draft,
+    inputRef: vm.composerTextareaRef,
   });
 
   const deliveryCtx = useMemo(

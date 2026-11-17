@@ -121,6 +121,12 @@ export const Sam = {
     incoming: "sam-bubble sam-bubble--incoming",
     system: "sam-bubble sam-bubble--system",
   },
+  /** 입력 중 표시(머리글·대화 목록 행) — `TypingIndicatorLine` 전용 (P3) */
+  typing: {
+    line: "sam-typing-line",
+    label: "sam-typing-label",
+    dots: "sam-typing-dots",
+  },
   settings: {
     sectionTitle: "sam-settings-section-title",
     group: "sam-settings-group",
