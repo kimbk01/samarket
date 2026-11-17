@@ -20,7 +20,7 @@ function asCapacitorProxy<T extends object>(target: T): T {
   });
 }
 
-function setup(systemBackAvailable: boolean) {
+async function setup(systemBackAvailable: boolean) {
   const sysRemove = vi.fn();
   const sys = {
     addListener: vi.fn(async () => ({ remove: sysRemove })),
@@ -35,6 +35,10 @@ function setup(systemBackAvailable: boolean) {
     registerPlugin: () => asCapacitorProxy(sys),
   }));
   vi.doMock("@capacitor/app", () => ({ App: asCapacitorProxy(app) }));
+  // 모의 모듈을 미리 불러 둔다 — 시험 대상의 동적 import 가 캐시에서 바로 끝나 CI 부하와 무관해진다
+  // (2026-11-18 main CI test(2/2) 에서 「구 설치본」 경우가 첫 불러오기 지연으로 실패).
+  await import("@capacitor/core");
+  await import("@capacitor/app");
   return { sys, sysRemove, app, appRemove };
 }
 
@@ -48,7 +52,7 @@ afterEach(() => {
 
 describe("overlay-back-stack 기본 driver (S1)", () => {
   it("새 설치본: 창이 열린 동안만 DibaySystemBack 에 ◁ 받기를 켠다", async () => {
-    const m = setup(true);
+    const m = await setup(true);
     const stack = await import("@/lib/ui/overlay-back-stack");
     const release = stack.pushOverlayBackEntry(() => {});
     await flush();
@@ -63,7 +67,7 @@ describe("overlay-back-stack 기본 driver (S1)", () => {
   });
 
   it("창이 없으면 리스너도 받기 신호도 없다", async () => {
-    const m = setup(true);
+    const m = await setup(true);
     await import("@/lib/ui/overlay-back-stack");
     await flush();
     expect(m.sys.addListener).not.toHaveBeenCalled();
@@ -71,7 +75,7 @@ describe("overlay-back-stack 기본 driver (S1)", () => {
   });
 
   it("구 설치본(플러그인 없음): 지금처럼 App backButton 을 쓴다", async () => {
-    const m = setup(false);
+    const m = await setup(false);
     const stack = await import("@/lib/ui/overlay-back-stack");
     const release = stack.pushOverlayBackEntry(() => {});
     await flush();
@@ -83,7 +87,7 @@ describe("overlay-back-stack 기본 driver (S1)", () => {
   });
 
   it("붙기 전에 닫히면 리스너를 바로 떼고 받기를 켜지 않는다", async () => {
-    const m = setup(true);
+    const m = await setup(true);
     const stack = await import("@/lib/ui/overlay-back-stack");
     const release = stack.pushOverlayBackEntry(() => {});
     release();
@@ -93,7 +97,7 @@ describe("overlay-back-stack 기본 driver (S1)", () => {
   });
 
   it("P5 페이지 뒤로 주인: 등록 동안만 받기를 켜고 해제하면 끈다(리스너 1개)", async () => {
-    const m = setup(true);
+    const m = await setup(true);
     const stack = await import("@/lib/ui/overlay-back-stack");
     const release = stack.setPageBackOwner(() => {});
     await flush();
