@@ -338,13 +338,7 @@ export function SupportModalHost() {
   }
 
   return (
-    <SupportSheetShell
-      open={open}
-      onClose={handleClose}
-      dismissible={false}
-      backDismissible={!submitting}
-      ariaLabel={ariaLabel}
-    >
+    <SupportSheetShell open={open} onClose={handleClose} dismissible={false} ariaLabel={ariaLabel}>
       <div className="flex min-h-0 flex-1 flex-col" data-support-sheet-chrome="1">
         {body}
       </div>

@@ -28,7 +28,6 @@ import {
   type CommissionLang,
 } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
-import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
 import { translateBy } from "@/lib/i18n/translate-by";
 
@@ -297,8 +296,6 @@ export function CommissionOrderDetailPanel({
   const tone = commissionRowTone(row, anomaly ? new Set([row.obligationId]) : undefined);
   useRegisterOpenOverlay(true);
   const d = row.decision;
-  /** Android ◁ = 닫기(✕·바깥 탭과 같은 처리) — 감사 2026-11-17 D5 */
-  useOverlayHardwareBack(true, onClose);
   const refundable = row.state === "review_required" ? row.feePaidMinor + row.feeOutstandingMinor : 0;
   const net = row.feeChargedMinor - refundedMinor(row);
   const b = row.feeBreakdown;

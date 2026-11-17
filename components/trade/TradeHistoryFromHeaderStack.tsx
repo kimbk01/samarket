@@ -8,7 +8,6 @@ import { useTradeHeaderTradeHistoryStack } from "@/contexts/TradeHeaderTradeHist
 import { isTradeHistoryFromHeaderStackSurface } from "@/lib/layout/trade-history-from-header-stack-surface";
 import dynamic from "next/dynamic";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
-import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 const TradeHistoryStackPanel = dynamic(
   () => import("@/components/trade/TradeHistoryStackPanel").then((m) => m.TradeHistoryStackPanel),
@@ -92,8 +91,6 @@ export function TradeHistoryFromHeaderStack({ children }: { children: ReactNode 
 
   const lock = onPath && (isOpen || exiting);
   useRegisterOpenOverlay(lock);
-  /** Android ◁ = 닫기(✕·바깥 탭과 같은 처리) — 감사 2026-11-17 D5 */
-  useOverlayHardwareBack(lock && isOpen, runClose);
   useEffect(() => {
     if (!lock) return;
     const prev = document.body.style.overflow;

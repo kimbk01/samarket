@@ -22,7 +22,6 @@ import { resolveInstantStoreOrderMessengerEntrySnapshot } from "@/lib/store-orde
 import { prepareStoreOrderMessengerRoomEntryByOrder } from "@/lib/store-order-chat/store-order-messenger-room-entry-client";
 import { peekMessengerRoomViewerUserIdClient } from "@/lib/community-messenger/room/peek-messenger-room-viewer-user-id-client";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
-import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 type SlidePhase = "enter-from-right" | "open" | "exit-to-right";
 
@@ -86,8 +85,6 @@ export function OwnerStoreOrderChatSlidePanel({
     setPhase("exit-to-right");
     window.setTimeout(() => onClose(), OWNER_ORDER_CHAT_SLIDE_MS);
   }, [onClose, phase]);
-  /** Android ◁ = 닫기(뒤로 버튼과 같은 처리) — 감사 2026-11-17 D5 */
-  useOverlayHardwareBack(true, requestClose);
 
   useLayoutEffect(() => {
     const id = requestAnimationFrame(() => setPhase("open"));

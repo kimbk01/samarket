@@ -48,12 +48,7 @@ function fakeNavigation() {
 }
 
 function fakeDriver() {
-  const state = {
-    installs: 0,
-    removes: 0,
-    minimizes: 0,
-    onBack: null as null | ((ev: { canGoBack?: boolean }) => void),
-  };
+  const state = { installs: 0, removes: 0, onBack: null as null | ((ev: { canGoBack?: boolean }) => void) };
   const driver: OverlayBackListenerDriver = {
     install(onBack) {
       state.installs += 1;
@@ -62,9 +57,6 @@ function fakeDriver() {
         state.removes += 1;
         state.onBack = null;
       };
-    },
-    minimize() {
-      state.minimizes += 1;
     },
   };
   return { driver, state };

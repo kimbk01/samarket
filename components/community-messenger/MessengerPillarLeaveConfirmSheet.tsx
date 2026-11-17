@@ -17,7 +17,7 @@ type Props = {
  * 거래·주문 채팅 목록 「나가기」 확인 — 채팅 시안 4판 「10-3」 (아래에서 올라오는 시트).
  * 제목 18/700 · 설명 15 회색 · 버튼 2개 나란히(높이 50 · 모서리 12): 「취소」 회색 채움 · 「나가기」 빨강 채움 흰 16/700.
  * 앱 공용 `MobileConfirmBottomSheet`(31개 화면이 쓰는 가운데 확인창)는 바꾸지 않고 메신저 거래·주문 목록 전용으로 둔다.
- * 바깥 탭으로는 닫지 않는다. Android ◁ = 「취소」(처리 중에는 삼킴 — 감사 2026-11-17 D6).
+ * 버튼으로만 닫는다(기존 `interactionMode="blocking"` 과 같은 동작).
  */
 export function MessengerPillarLeaveConfirmSheet({ title, description, busy = false, onCancel, onConfirm }: Props) {
   const { t } = useI18n();
@@ -26,7 +26,6 @@ export function MessengerPillarLeaveConfirmSheet({ title, description, busy = fa
       open
       onClose={onCancel}
       dismissible={false}
-      backDismissible={!busy}
       zIndexClass="z-[70]"
       ariaLabel={t("cm_ui_leave_confirm_aria")}
     >
