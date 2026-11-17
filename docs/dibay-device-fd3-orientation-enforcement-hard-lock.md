@@ -65,7 +65,7 @@ No `supportedInterfaceOrientations` override in Call VCs. Untouched.
 |---|---|---|
 | `use-app-viewport-size` orientationchange + 5-tier | LEGACY_SHADOW | FD4 |
 | keyboard / CM room `orientationchange` | DETECTION_ONLY | existing keyboard locks |
-| `GlobalPopupHost` landscape deny | POPUP presentation | FD9 |
+| `GlobalPopupHost` landscape (2026-11-17 진입 감사 PO-4: deny → 표시, `PLATFORM_POPUP_LANDSCAPE_ALLOWED_DEFAULT`) | POPUP presentation | FD9 |
 | `owner-compact-shell.css` landscape media | VISUAL_TUNING | Owner shell |
 | CallScreenShell / PiP orientation listeners | CALL_PRESENTATION | FD8 |
 

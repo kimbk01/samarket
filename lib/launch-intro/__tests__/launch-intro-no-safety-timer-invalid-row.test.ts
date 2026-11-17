@@ -32,6 +32,8 @@ function fakeSb(tables: Record<string, { list?: Row[]; byId?: Record<string, Row
         return q;
       },
       limit: () => q,
+      // 진입 감사 IN-7: 목록이 audit_logs 삭제 표시를 `.in(...)` 으로 읽는다
+      in: () => q,
       maybeSingle: async () => ({
         data: id != null && t.byId ? (t.byId[id] ?? null) : (t.single ?? null),
         error: null,

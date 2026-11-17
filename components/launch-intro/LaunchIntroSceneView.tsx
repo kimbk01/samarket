@@ -83,14 +83,26 @@ function textStyle(t: LaunchIntroTextStyle, align: "center" | "left"): CSSProper
   };
 }
 
+/**
+ * 진입 감사 IN-5 (2026-11-17): 아래쪽 장식은 화면 맨 아래 모서리(3cqh)에 둔다. 예전에는 아래에서 20cqh 위라
+ * 가운데 정렬 문구와 겹쳤다(실측 장면 2: 장식 y 553~649 가 보조 문구 줄 위). 버튼(가로 24~76cqw)과도 안 겹치게
+ * 아래쪽 장식은 가장자리 3cqw · 최대 18cqmin.
+ */
+const BOTTOM_DECORATION_MAX_CQMIN = 18;
+
 function slotStyle(slot: LaunchIntroDecorationSlot, safeArea: boolean): CSSProperties {
   const [v, h] = slot.split("-") as ["top" | "bottom", "left" | "right"];
-  const edge = v === "top" ? "10cqh" : "20cqh";
+  const edge = v === "top" ? "10cqh" : "3cqh";
   return {
     position: "absolute",
     [v]: safeArea ? `calc(${edge} + var(--safe-${v}, 0px))` : edge,
-    [h]: "5cqw",
+    [h]: v === "top" ? "5cqw" : "3cqw",
   };
+}
+
+function decorationSizeCqmin(slot: LaunchIntroDecorationSlot, size: keyof typeof DECORATION_SIZE_CQMIN): number {
+  const base = DECORATION_SIZE_CQMIN[size];
+  return slot.startsWith("bottom") ? Math.min(base, BOTTOM_DECORATION_MAX_CQMIN) : base;
 }
 
 function Img({
@@ -324,7 +336,7 @@ export function LaunchIntroSceneView({
       {scene.decorations.map((d) => {
         const dsrc = src(d.asset);
         if (!dsrc) return null;
-        const size = `${DECORATION_SIZE_CQMIN[d.size]}cqmin`;
+        const size = `${decorationSizeCqmin(d.slot, d.size)}cqmin`;
         return (
           <div key={d.slot} className={enter} style={{ ...slotStyle(d.slot, safeArea), animationDelay: `${STAGGER.text}ms` }}>
             {floating(<Img src={dsrc} fit="contain" style={{ maxWidth: size, maxHeight: size }} />)}

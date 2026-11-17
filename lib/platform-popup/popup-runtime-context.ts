@@ -4,6 +4,14 @@
 
 import type { PlatformPopupResolvedSurface } from "@/lib/platform-popup/types";
 
+/**
+ * 진입 감사 PO-4 (2026-11-17 · Owner 「설계안대로 진행」): 가로 화면(태블릿 가로·데스크톱)에서도 팝업을 보인다.
+ * 폭은 태블릿 최대 폭 토큰(480px)으로 제한된다. 예전에는 `matchMedia(orientation: landscape)` 하나로 모든 가로 화면을
+ * 막아, 계약(태블릿 가로만 보류)보다 넓게 차단했고 샤오미 태블릿 가로에서는 어드민 팝업이 하나도 나오지 않았다.
+ * 어드민 전체 스위치(4단계)가 생기면 그 값이 `allowLandscape` 로 들어온다.
+ */
+export const PLATFORM_POPUP_LANDSCAPE_ALLOWED_DEFAULT = true;
+
 export type PopupRuntimeContext = {
   pathname: string;
   surface: PlatformPopupResolvedSurface;
@@ -13,6 +21,8 @@ export type PopupRuntimeContext = {
 
   isAppForeground: boolean;
   isLandscape: boolean;
+  /** 가로 화면 표시 허용 — 없으면 `PLATFORM_POPUP_LANDSCAPE_ALLOWED_DEFAULT` */
+  allowLandscape?: boolean;
 
   incomingCall: boolean;
   activeCall: boolean;
@@ -60,7 +70,7 @@ export function resolvePopupRuntimeBlockReason(
   if (ctx.startupDeferred) return "startup";
   if (ctx.launchIntroActive) return "launch_intro";
   if (!ctx.isAppForeground) return "background";
-  if (ctx.isLandscape) return "landscape";
+  if (ctx.isLandscape && !(ctx.allowLandscape ?? PLATFORM_POPUP_LANDSCAPE_ALLOWED_DEFAULT)) return "landscape";
   if (ctx.incomingCall || ctx.activeCall || ctx.nativeCallTransition) return "call";
   if (
     ctx.paymentCritical ||

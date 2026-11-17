@@ -359,7 +359,12 @@ async function loadSuppressions(
   return (data ?? []) as SuppressionRow[];
 }
 
-/** Latest impression per campaign for this actor — rotation authority. */
+/**
+ * Latest impression per campaign for this actor — rotation authority.
+ * 진입 감사 PO-5 (2026-11-17): 캠페인마다 최신 1행을 따로 읽는다. 예전에는 전체에서 `캠페인 수 × 3` 행만 읽어,
+ * 한 캠페인의 노출이 많으면 다른 캠페인의 마지막 노출이 빠져 「안 본 것」으로 잡혔다(교체 순서 왜곡).
+ * 인덱스 `platform_popup_campaign_events_campaign_created_idx` (campaign_id, created_at).
+ */
 async function loadLastImpressions(
   sb: SupabaseClient,
   campaignIds: string[],
@@ -369,23 +374,27 @@ async function loadLastImpressions(
   if (!campaignIds.length) return out;
   if (!input.userId && !input.anonymousDeviceKey) return out;
 
-  let q = sb
-    .from("platform_popup_campaign_events")
-    .select("campaign_id, created_at")
-    .in("campaign_id", campaignIds)
-    .eq("event_type", "impression")
-    .order("created_at", { ascending: false })
-    .limit(Math.min(campaignIds.length * 3, 200));
-
-  if (input.userId) {
-    q = q.eq("user_id", input.userId);
-  } else if (input.anonymousDeviceKey) {
-    q = q.eq("anonymous_device_key", input.anonymousDeviceKey);
-  }
-
-  const { data } = await q;
-  for (const row of (data ?? []) as ImpressionRow[]) {
-    if (!out.has(row.campaign_id)) out.set(row.campaign_id, row.created_at);
+  const ids = campaignIds.slice(0, 50);
+  const rows = await Promise.all(
+    ids.map(async (campaignId) => {
+      let q = sb
+        .from("platform_popup_campaign_events")
+        .select("campaign_id, created_at")
+        .eq("campaign_id", campaignId)
+        .eq("event_type", "impression")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (input.userId) {
+        q = q.eq("user_id", input.userId);
+      } else if (input.anonymousDeviceKey) {
+        q = q.eq("anonymous_device_key", input.anonymousDeviceKey);
+      }
+      const { data } = await q;
+      return ((data ?? []) as ImpressionRow[])[0] ?? null;
+    })
+  );
+  for (const row of rows) {
+    if (row && !out.has(row.campaign_id)) out.set(row.campaign_id, row.created_at);
   }
   return out;
 }

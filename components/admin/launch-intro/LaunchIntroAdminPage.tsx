@@ -79,6 +79,9 @@ import { launchIntroInvalidPublicationReasonKey } from "@/lib/launch-intro/inval
 const LAUNCH_INTRO_ERROR_KEYS = {
   scene_empty: "admin_launch_intro_err_scene_empty",
   total_duration_too_long: "admin_launch_intro_err_total_duration_too_long",
+  fullscreen_image_too_small: "admin_launch_intro_err_fullscreen_image_too_small",
+  publication_deleted: "admin_launch_intro_err_publication_deleted",
+  cta_event_unavailable: "admin_launch_intro_err_cta_event_unavailable",
   version_conflict: "admin_launch_intro_err_version_conflict",
   draft_not_found: "admin_launch_intro_err_draft_not_found",
   draft_image_missing: "admin_launch_intro_err_draft_image_missing",

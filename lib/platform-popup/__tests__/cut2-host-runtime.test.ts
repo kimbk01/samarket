@@ -148,8 +148,9 @@ describe("CUT2 runtime eligibility", () => {
     expect(resolvePopupRuntimeBlockReason(baseCtx())).toBeNull();
   });
 
-  it("landscape L1 suppresses", () => {
-    expect(resolvePopupRuntimeBlockReason(baseCtx({ isLandscape: true }))).toBe("landscape");
+  it("landscape: 허용(기본)이면 보이고, 허용 꺼지면 막는다 (진입 감사 PO-4)", () => {
+    expect(resolvePopupRuntimeBlockReason(baseCtx({ isLandscape: true }))).toBeNull();
+    expect(resolvePopupRuntimeBlockReason(baseCtx({ isLandscape: true, allowLandscape: false }))).toBe("landscape");
   });
 
   it("background suppresses", () => {

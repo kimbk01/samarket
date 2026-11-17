@@ -10,6 +10,7 @@
  * (DEFERRED MOUNT, contract §10). It resolves exactly once: on Intro exit or INTRO → COMMUNITY.
  */
 import { readLaunchIntroIndex, type LaunchIntroCachedPublication } from "@/lib/launch-intro/cache";
+import { clampLaunchIntroDocumentDuration } from "@/lib/launch-intro/document";
 import { launchIntroFrequencyAllows, readLaunchIntroSeen } from "@/lib/launch-intro/frequency";
 import { LAUNCH_INTRO_DOCUMENT_ID, readLaunchEpoch, readShownLaunchEpoch } from "@/lib/launch-intro/launch-epoch";
 import {
@@ -69,7 +70,12 @@ function decide(): LaunchDestinationDecision {
   return {
     destination: "intro",
     reason: "snapshot",
-    snapshot: { epoch, revision: index.revision, publication: index.publication },
+    // 진입 감사 IN-4: 합계 5초 상한을 재생 직전에 적용 (5초 규칙 이전 게시본 포함)
+    snapshot: {
+      epoch,
+      revision: index.revision,
+      publication: { ...index.publication, document: clampLaunchIntroDocumentDuration(index.publication.document) },
+    },
   };
 }
 
