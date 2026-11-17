@@ -1133,6 +1133,11 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                       }
                       await acceptCreative(file, isCardComposition ? "card" : "artwork");
                     }}
+                    onReject={() => {
+                      // 빌드 전 감사 I5: 칸에 검사 오류 파일이 보이면 저장 대기 그림·자르기 틀을 놓는다(보이는 것 = 저장되는 것)
+                      setPendingUpload(null);
+                      clearCrop();
+                    }}
                   >
                     {crop && isCardComposition ? (
                       <div className="rounded-ui-rect border border-sam-warning/40 bg-sam-warning-soft/60 p-3">
