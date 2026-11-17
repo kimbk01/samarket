@@ -22,11 +22,20 @@ import {
 } from "@/lib/platform-popup/ptr-reveal-contract";
 import { adminServerLanguage, adminServerText } from "@/lib/i18n/admin-server-language";
 import { checkPopupCreativeSourceSize } from "@/lib/platform-popup/creative-size-spec";
+import { parsePlatformPopupCropRectFields } from "@/lib/platform-popup/creative-pipeline-geometry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const BUCKET = "platform-popup-creatives";
+
+/** v3 ④ — 자르기 틀 검사 오류 → 안내 문구 */
+const CROP_RECT_MESSAGE_KEY = {
+  crop_rect_invalid: "admin_api_popup_creative_crop_rect_invalid",
+  crop_rect_out_of_bounds: "admin_api_popup_creative_crop_rect_out_of_bounds",
+  crop_rect_ratio: "admin_api_popup_creative_crop_rect_ratio",
+  crop_rect_too_small: "admin_api_popup_creative_crop_rect_too_small",
+} as const;
 
 /**
  * POST multipart `file` (+ optional applyCrop=center, altText)
@@ -82,6 +91,19 @@ export async function POST(
   }
 
   const applyCrop = String(form.get("applyCrop") ?? "").trim().toLowerCase() === "center";
+  // v3 ④: 자르기 틀(원본 픽셀 cropX·cropY·cropW·cropH) — 카드 소재만. 없으면 기존 가운데 자르기 그대로
+  const cropParsed = parsePlatformPopupCropRectFields({
+    x: form.get("cropX"),
+    y: form.get("cropY"),
+    width: form.get("cropW"),
+    height: form.get("cropH"),
+  });
+  if (!cropParsed.ok) {
+    return NextResponse.json(
+      { ok: false, error: cropParsed.error, message: await adminServerText("admin_api_popup_creative_crop_rect_invalid") },
+      { status: 400 }
+    );
+  }
   const altText = String(form.get("altText") ?? "").trim() || null;
   const creativeModeRaw = String(form.get("creativeMode") ?? "card").trim().toLowerCase();
   const creativeMode =
@@ -158,9 +180,27 @@ export async function POST(
     applyCenterCrop: applyCrop,
     creativeMode,
     ptrBandVariant,
+    cropRect: creativeMode === "card" ? cropParsed.rect : null,
   });
 
   if (!processed.ok) {
+    if (
+      processed.error === "crop_rect_invalid" ||
+      processed.error === "crop_rect_out_of_bounds" ||
+      processed.error === "crop_rect_ratio" ||
+      processed.error === "crop_rect_too_small"
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: processed.error,
+          width,
+          height,
+          message: await adminServerText(CROP_RECT_MESSAGE_KEY[processed.error]),
+        },
+        { status: 400 }
+      );
+    }
     if (processed.error === "needs_crop" && creativeMode === "ptr_band") {
       const spec = PTR_BAND_SPECS[ptrBandVariant];
       return NextResponse.json(
