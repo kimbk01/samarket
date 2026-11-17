@@ -33,17 +33,24 @@ export function LifecycleRouteEffects(): null {
     lifecycleNavHoldStartPath();
     const d = getAppEntryDecision();
     if (!d.navigateTo) return;
-    try {
-      if (sessionStorage.getItem(NAV_APPLIED_KEY) === "1") return;
-    } catch {
-      /* continue */
+    // 빌드 전 감사 W3: 「적용함」 표시는 복원·안전 진입에만 쓴다. 새로 켬 첫 화면 이동(user_cold)은 이 문서에서 한 번
+    // (`navigated` ref) — 같은 세션의 다음 문서 다시 열기(DOC_RESET) 복원을 막지 않게.
+    const recordsApplied = d.kind !== "user_cold";
+    if (recordsApplied) {
+      try {
+        if (sessionStorage.getItem(NAV_APPLIED_KEY) === "1") return;
+      } catch {
+        /* continue */
+      }
     }
     const current = (pathname.split("?")[0] || "/") as string;
     const target = d.navigateTo.split("?")[0] || d.navigateTo;
-    try {
-      sessionStorage.setItem(NAV_APPLIED_KEY, "1");
-    } catch {
-      /* ignore */
+    if (recordsApplied) {
+      try {
+        sessionStorage.setItem(NAV_APPLIED_KEY, "1");
+      } catch {
+        /* ignore */
+      }
     }
     navigated.current = true;
     // Lifecycle SSOT §6 — never bypass auth: a document that booted on a login / terms / onboarding

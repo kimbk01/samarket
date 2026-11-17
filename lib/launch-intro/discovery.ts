@@ -10,6 +10,7 @@ import {
   acquireLaunchIntroAssets,
   collectLaunchIntroAssetGarbage,
   expireInactiveLaunchIntroIndex,
+  startInactiveRetentionClock,
   promoteLaunchIntroIndex,
   readLaunchIntroIndex,
   type LaunchIntroIndex,
@@ -65,6 +66,12 @@ export async function runLaunchIntroDiscovery(reason: "launch" | "resume"): Prom
     const current = readLaunchIntroIndex();
     // IN-P10: 게시본 손상은 revision 을 올리지 않는다(게시본 행만 손상) — 같은 revision 이어도 state 가 다르면 반영한다.
     if (current && current.revision === live.revision && current.state === live.state) {
+      // 빌드 전 감사 W2: 시작 시각 없는 예전 비활성 색인 — 보관 기간을 지금부터 센다(7일 뒤 아래에서 지워짐).
+      const clocked = startInactiveRetentionClock(current, new Date().toISOString());
+      if (clocked) {
+        promoteLaunchIntroIndex(clocked);
+        return;
+      }
       // 진입 감사 IN-6: 바뀐 것이 없어도 보관 기간이 지난 비활성 게시본은 지운다.
       const expired = expireInactiveLaunchIntroIndex(current, Date.now());
       if (expired && promoteLaunchIntroIndex(expired)) {

@@ -55,7 +55,8 @@ function computeHoldStartPath(): string | null {
   const d = getAppEntryDecision();
   if (!d.navigateTo) return null;
   try {
-    if (window.sessionStorage.getItem(LIFECYCLE_NAV_APPLIED_KEY) === "1") return null;
+    // 빌드 전 감사 W3: 「적용함」 표시는 복원·안전 진입만 쓴다(새로 켬 이동은 표시를 남기지 않음 — route effects 와 같은 규칙)
+    if (d.kind !== "user_cold" && window.sessionStorage.getItem(LIFECYCLE_NAV_APPLIED_KEY) === "1") return null;
   } catch {
     /* storage unavailable: judge below */
   }

@@ -15,9 +15,10 @@ import {
   validateRestoreEnvelope,
   type RestoreEnvelope,
 } from "@/lib/lifecycle/restore-envelope";
-import { resolveColdEntrySurfacePath } from "@/lib/startup/initial-app-surface";
+import { pathForInitialAppSurface, resolveColdEntrySurfacePath } from "@/lib/startup/initial-app-surface";
 import { readStartupConfigCache } from "@/lib/startup/startup-cache";
 import { getSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
+import { hasSupabaseAuthTokenCookie } from "@/lib/home/home-banner-audience-hint";
 
 export type AppEntryKind =
   | "warm_resume"
@@ -46,16 +47,40 @@ const DECISION_KEY = "__dibayAppEntryDecision";
  * 예전: 안전 진입은 항상 홈, 새로 켬은 홈을 그린 뒤 이동(깜빡임).
  */
 function safeEntryPath(): string {
-  let isMember = false;
-  try {
-    isMember = Boolean(getSupabaseProfileCache()?.id);
-  } catch {
-    isMember = false;
-  }
   return resolveColdEntrySurfacePath({
     adminInitialSurface: readStartupConfigCache().initialSurface,
-    isMember,
+    isMember: readEntryMemberHint(),
   });
+}
+
+/**
+ * 빌드 전 감사 B3 (2026-11-17): 첫 판정은 문서당 1번 · 프로필 응답보다 먼저 일어난다 — 메모리 프로필 캐시는 그때 늘 비어 있다.
+ * 기기에 남은 로그인 쿠키 유무(홈 배너 R1 과 같은 동기 판정 · 값은 읽지 않음)를 함께 본다. 로그아웃하면 쿠키가 지워진다.
+ */
+function readEntryMemberHint(): boolean {
+  try {
+    if (getSupabaseProfileCache()?.id) return true;
+  } catch {
+    /* 캐시 없음 */
+  }
+  try {
+    return typeof document !== "undefined" && hasSupabaseAuthTokenCookie(document.cookie || "");
+  } catch {
+    return false;
+  }
+}
+
+/** 앱 홈 경로(어드민 값과 무관) — 문서 다시 열기 「현재 유지」 판정의 기준(v3 이전 의미) */
+const HOME_ENTRY_PATH = pathForInitialAppSurface("home");
+
+/**
+ * 아이콘 실행으로 홈 진입점이 열렸고 어드민 첫 화면이 홈이 아니면 그 화면 — 아니면 null(그대로).
+ * 새로 켬(`hint_fresh`)·구 앱(`legacy_native_no_hint`) 공통.
+ */
+function coldEntryNavigateTo(): string | null {
+  const coldTarget = safeEntryPath();
+  const coldPath = currentDocumentPath();
+  return isHomeEntryDocument(coldPath) && !isHomeEntryDocument(coldTarget.split("?")[0] || coldTarget) ? coldTarget : null;
 }
 
 /** 지금 문서가 앱 홈(`/`·`/home`) 으로 열렸는가 — 아이콘 실행의 진입점 */
@@ -94,7 +119,8 @@ function cameFromInAppDocument(path: string): boolean {
  */
 function docResetKeepsCurrentDocument(path: string): boolean {
   if (path.startsWith("/community-messenger/calls")) return false;
-  if (path !== "/" && path !== safeEntryPath()) return true;
+  // 빌드 전 감사 W3: 기준 = 앱 홈(어드민 첫 화면 값으로 바뀌지 않게 — v3 이전 의미)
+  if (path !== "/" && path !== HOME_ENTRY_PATH) return true;
   return cameFromInAppDocument(path);
 }
 
@@ -140,7 +166,8 @@ function decide(): AppEntryDecision {
     return {
       kind: "user_cold",
       reason: "legacy_native_no_hint",
-      navigateTo: null,
+      // 빌드 전 감사 W1: 구 앱도 어드민 첫 화면으로(v3 전 `InitialSurfaceBootstrap` 이 하던 이동 — SSOT 기존 설치 앱 보호)
+      navigateTo: coldEntryNavigateTo(),
       allowIntro: true,
       envelope: null,
       hint: "unknown",
@@ -206,14 +233,10 @@ function decide(): AppEntryDecision {
     discardRestoreEnvelope();
     // 앱 진입 v3 ①: 아이콘으로 홈 진입점이 열렸고 어드민 첫 화면이 홈이 아니면 그 화면으로 — 생명주기 이동으로 처리해
     // 시작 화면(또는 인트로)이 덮은 채 이동한다(홈을 먼저 그리지 않음). 딥링크 등 다른 주소로 열렸으면 그대로.
-    const coldTarget = safeEntryPath();
-    const coldPath = currentDocumentPath();
-    const coldNavigate =
-      isHomeEntryDocument(coldPath) && !isHomeEntryDocument(coldTarget.split("?")[0] || coldTarget) ? coldTarget : null;
     return {
       kind: "user_cold",
       reason: "hint_fresh",
-      navigateTo: coldNavigate,
+      navigateTo: coldEntryNavigateTo(),
       allowIntro: true,
       envelope: null,
       hint,
