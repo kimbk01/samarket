@@ -21,6 +21,17 @@ export const LAUNCH_INTRO_POOL_STATUSES = ["active", "paused", "ended"] as const
 export type LaunchIntroPoolStatus = (typeof LAUNCH_INTRO_POOL_STATUSES)[number];
 export const LAUNCH_INTRO_EVENT_TYPES = ["impression", "skip", "click", "complete"] as const;
 export type LaunchIntroEventType = (typeof LAUNCH_INTRO_EVENT_TYPES)[number];
+/**
+ * 앱 진입 어드민 v3 §2 — 소재 종류. DB 열 `kind`(마이그레이션 20271117140000) 가 아직 없으면 모두 'ad' 로 읽는다.
+ * 종류 'ad' 는 「광고」 표기를 끌 수 없다(화면·서버 같은 규칙).
+ */
+export const LAUNCH_INTRO_POOL_KINDS = ["ad", "event", "notice"] as const;
+export type LaunchIntroPoolKind = (typeof LAUNCH_INTRO_POOL_KINDS)[number];
+export const LAUNCH_INTRO_POOL_NAME_MAX = 80;
+
+export function normalizeLaunchIntroPoolKind(raw: unknown): LaunchIntroPoolKind {
+  return (LAUNCH_INTRO_POOL_KINDS as readonly unknown[]).includes(raw) ? (raw as LaunchIntroPoolKind) : "ad";
+}
 
 export type LaunchIntroPoolPolicy = { enabled: boolean; showOnOsRestore: boolean };
 /** 기본: 켜짐(소재가 하나도 없으면 아무것도 안 나옴) · OS 종료 후 실행에도 보임(설계 OS-3 「포함한다」) */
@@ -79,6 +90,7 @@ export type LaunchIntroPoolInput = {
   durationMs?: unknown;
   ctaHref?: unknown;
   showAdLabel?: unknown;
+  kind?: unknown;
 };
 
 /** 어드민 입력 → DB 열. 모르는 값은 거절(조용히 바꾸지 않음). `partial` = 수정(온 칸만). */
@@ -90,7 +102,7 @@ export function validateLaunchIntroPoolInput(
   const has = (k: keyof LaunchIntroPoolInput) => k in input && input[k] !== undefined;
   if (has("name") || !opts.partial) {
     const name = typeof input.name === "string" ? input.name.trim() : "";
-    if (!name || name.length > 80) return { ok: false, error: "name_invalid" };
+    if (!name || name.length > LAUNCH_INTRO_POOL_NAME_MAX) return { ok: false, error: "name_invalid" };
     row.name = name;
   }
   if (has("status")) {
@@ -154,6 +166,12 @@ export function validateLaunchIntroPoolInput(
     if (typeof input.showAdLabel !== "boolean") return { ok: false, error: "ad_label_invalid" };
     row.show_ad_label = input.showAdLabel;
   }
+  if (has("kind")) {
+    if (!(LAUNCH_INTRO_POOL_KINDS as readonly unknown[]).includes(input.kind)) return { ok: false, error: "kind_invalid" };
+    row.kind = input.kind;
+  }
+  // 종류 「광고」 = 「광고」 표기 필수 (새 소재는 표기 기본값이 켜짐이라 생략 = 켜짐)
+  if (row.kind === "ad" && row.show_ad_label === false) return { ok: false, error: "ad_label_required" };
   return { ok: true, row };
 }
 
@@ -170,4 +188,76 @@ export function selectLiveLaunchIntroPoolRows<
     0,
     LAUNCH_INTRO_POOL_MAX_ACTIVE
   );
+}
+
+/**
+ * 앱 진입 어드민 v3 §3 「앱에 나오나」 — 기기가 받는 발견 응답(`buildLaunchIntroPoolPayload`)과 같은 규칙으로 계산한다.
+ * 규칙: 전체 설정 켜짐 · 상태 켜짐 · 기간(끝나지 않음) · 20개 상한(`selectLiveLaunchIntroPoolRows`) · 그림(sha256 · 형식).
+ * 시작 전이면 「예약」(목록에는 들어가 기기가 시작 시각부터 보인다). 시간 기준은 시각(ms) — 표시만 PHT.
+ */
+export type LaunchIntroPoolAppliedState = "live" | "scheduled" | "off";
+export type LaunchIntroPoolOffReason =
+  | "policy_off"
+  | "paused"
+  | "ended_status"
+  | "window_ended"
+  | "image_missing"
+  | "over_cap";
+export type LaunchIntroPoolApplied =
+  | { state: "live"; reason: null; rank: number; firstInRotation: boolean }
+  | { state: "scheduled"; reason: null; rank: number; startAt: string }
+  | { state: "off"; reason: LaunchIntroPoolOffReason; endAt?: string | null };
+
+type AppliedRow = {
+  id: string;
+  status: string;
+  start_at: string | null;
+  end_at: string | null;
+  sort_order: number;
+  image_path?: string | null;
+  image_sha256?: string | null;
+  image_mime?: string | null;
+};
+
+/** 기기가 받아들이는 그림인가 — 네이티브는 sha256 64자 hex 가 아니면 소재를 버린다 */
+export function launchIntroPoolRowHasImage(r: AppliedRow): boolean {
+  return (
+    Boolean(r.image_path && String(r.image_path).trim()) &&
+    /^[0-9a-f]{64}$/.test(String(r.image_sha256 ?? "")) &&
+    (LAUNCH_INTRO_POOL_IMAGE_MIMES as readonly string[]).includes(String(r.image_mime ?? ""))
+  );
+}
+
+export function computeLaunchIntroPoolApplied<T extends AppliedRow>(
+  rows: readonly T[],
+  policy: LaunchIntroPoolPolicy,
+  now: Date = new Date()
+): Record<string, LaunchIntroPoolApplied> {
+  const t = now.getTime();
+  const out: Record<string, LaunchIntroPoolApplied> = {};
+  const selected = selectLiveLaunchIntroPoolRows(rows, now);
+  const rankById = new Map(selected.map((r, i) => [r.id, i] as const));
+  let firstLiveId: string | null = null;
+  if (policy.enabled) {
+    for (const r of selected) {
+      if (!(r.start_at && Date.parse(r.start_at) > t) && launchIntroPoolRowHasImage(r)) {
+        firstLiveId = r.id;
+        break;
+      }
+    }
+  }
+  for (const r of rows) {
+    if (r.status === "paused") out[r.id] = { state: "off", reason: "paused" };
+    else if (r.status !== "active") out[r.id] = { state: "off", reason: "ended_status" };
+    else if (r.end_at && Date.parse(r.end_at) <= t) out[r.id] = { state: "off", reason: "window_ended", endAt: r.end_at };
+    else if (!launchIntroPoolRowHasImage(r)) out[r.id] = { state: "off", reason: "image_missing" };
+    else if (!policy.enabled) out[r.id] = { state: "off", reason: "policy_off" };
+    else if (!rankById.has(r.id)) out[r.id] = { state: "off", reason: "over_cap" };
+    else if (r.start_at && Date.parse(r.start_at) > t) {
+      out[r.id] = { state: "scheduled", reason: null, rank: rankById.get(r.id)!, startAt: r.start_at };
+    } else {
+      out[r.id] = { state: "live", reason: null, rank: rankById.get(r.id)!, firstInRotation: r.id === firstLiveId };
+    }
+  }
+  return out;
 }

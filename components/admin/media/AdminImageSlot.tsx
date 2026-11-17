@@ -16,7 +16,7 @@ import {
 } from "@/lib/admin/media/image-slot-spec";
 
 export const ADMIN_CHECKER_BG =
-  "repeating-conic-gradient(#dcdfdc 0% 25%, #ffffff 0% 50%) 50% / 14px 14px";
+  "repeating-conic-gradient(rgb(220, 223, 220) 0% 25%, rgb(255, 255, 255) 0% 50%) 50% / 14px 14px";
 
 /** 파일 → 크기·투명 여부(PNG·WebP 는 64px 로 줄여 알파를 본다) */
 export async function readAdminImageMeta(file: File): Promise<AdminImageMeta> {

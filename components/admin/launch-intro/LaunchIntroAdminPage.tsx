@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { LaunchIntroPoolAdminSection } from "@/components/admin/launch-intro/LaunchIntroPoolAdminSection";
+import { LaunchIntroListPanel } from "@/components/admin/launch-intro/LaunchIntroListPanel";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
@@ -472,7 +472,53 @@ function DevicePreview({
   );
 }
 
+/**
+ * 앱 진입 어드민 v3 (Owner 2026-11-17 「v3대로 진행」) — 인트로 화면 = 탭 2개.
+ * [인트로 목록(기본) | 고급 · 장면 인트로(이전 앱용)]. 목록 = 소재 묶음(새 앱 네이티브 인트로) 관리,
+ * 고급 = 이전 장면 편집기·게시 상태·기록(동작 그대로). 새 앱에서는 목록 소재가 하나라도 나오는 중이면 장면 인트로는 안 나온다.
+ */
 export function LaunchIntroAdminPage() {
+  const { t } = useI18n();
+  const adminAction = useAdminRouteAction("/admin/platform-promotion/intro");
+  const [tab, setTab] = useState<"list" | "advanced">("list");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("tab") === "advanced") setTab("advanced");
+  }, []);
+  return (
+    <div className="space-y-4">
+      <AdminPageHeader titleKey="admin_menu_settings_intro" description={t("admin_launch_intro_desc")} />
+      <div data-launch-intro-top-tabs="">
+        <AdminTabs
+          tabs={[
+            { id: "list", label: t("admin_launch_intro_v3_tab_list") },
+            { id: "advanced", label: t("admin_launch_intro_v3_tab_advanced") },
+          ]}
+          ariaLabel={t("admin_menu_settings_intro")}
+          value={tab}
+          defaultValue="list"
+          param="tab"
+          resetParams={["view"]}
+          onChange={(id) => setTab(id === "advanced" ? "advanced" : "list")}
+        />
+      </div>
+      {tab === "list" ? (
+        <LaunchIntroListPanel canWrite={adminAction.allowed} />
+      ) : (
+        <>
+          <AdminCard>
+            <p className="px-4 py-3.5 sam-text-body text-sam-fg sm:px-5" data-launch-intro-advanced-note="">
+              {t("admin_launch_intro_v3_advanced_note")}
+            </p>
+          </AdminCard>
+          <LaunchIntroScenePanel />
+        </>
+      )}
+    </div>
+  );
+}
+
+/** 고급 · 장면 인트로(이전 앱용) — 예전 장면 편집기 + 게시 상태·기록. 동작은 바꾸지 않았다(위치만 고급 탭으로). */
+function LaunchIntroScenePanel() {
   const { t, language } = useI18n();
   const ko = language !== "en";
   const [snap, setSnap] = useState<Snapshot | null>(null);
@@ -998,12 +1044,9 @@ export function LaunchIntroAdminPage() {
           {t("admin_launch_intro_working")}
         </div>
       ) : null}
-      <AdminPageHeader titleKey="admin_menu_settings_intro" description={t("admin_launch_intro_desc")} />
       <AdminCard>
         <p className="px-4 py-3.5 sam-text-body text-sam-fg sm:px-5">{t("admin_launch_intro_propagation_note")}</p>
       </AdminCard>
-      {/* 진입 감사 5단계: 소재 묶음(네이티브 인트로 · 진입마다 다음 소재) */}
-      <LaunchIntroPoolAdminSection canWrite={adminAction.allowed} />
 
       <div data-launch-intro-tabs="">
         <AdminTabs
