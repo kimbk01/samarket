@@ -2,6 +2,12 @@ import type { CommunityMessengerPresenceState } from "@/lib/community-messenger/
 
 /** Heartbeat가 이 안이면 “즉시 응답 가능” 신호로 ONLINE 후보 */
 export const SAMARKET_PRESENCE_PING_ONLINE_MAX_MS = 15_000;
+/**
+ * P3 검토 반영(2026-11-18): 「자리 비움」이 없어진 뒤 온라인 ↔ 오프라인 판정 창 — 하트비트(12초) × 2 이상.
+ * 15초 창이면 하트비트 1회 지연만으로 「온라인 ↔ 마지막 접속」이 깜빡인다. 레거시(Telegram)도 55초 주기 갱신 +
+ * 앱 멈춤 시 즉시 오프라인 신호 — 백그라운드 전환의 즉시 오프라인(`appVisibility`·실시간 track)은 그대로.
+ */
+export const SAMARKET_PRESENCE_ONLINE_GRACE_MS = 30_000;
 /** 이를 넘기면 연결/세션 종료로 간주하고 OFFLINE */
 export const SAMARKET_PRESENCE_PING_OFFLINE_MS = 90_000;
 
@@ -54,7 +60,7 @@ export function derivePresenceFromDbRow(row: DbPresenceRowInput): CommunityMesse
    */
   const vis = typeof row.appVisibility === "string" ? row.appVisibility.trim().toLowerCase() : "";
   if (vis === "background") return "offline";
-  if (pingAge > SAMARKET_PRESENCE_PING_ONLINE_MAX_MS) return "offline";
+  if (pingAge > SAMARKET_PRESENCE_ONLINE_GRACE_MS) return "offline";
   return "online";
 }
 

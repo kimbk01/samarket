@@ -228,6 +228,7 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
             roomId: streamRoomId.trim(),
             roomSummary: snap.room,
             message: mapped,
+            messageEvent: event.eventType === "INSERT" ? "insert" : "update",
             messageRow: {
               id: event.message.id,
               room_id: event.message.roomId,

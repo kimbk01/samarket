@@ -58,6 +58,11 @@ type IncomingMessageEventInput = {
   roomSummary?: CommunityMessengerRoomSummary | null;
   message?: CommunityMessengerMessage | null;
   messageRow?: Record<string, unknown> | null;
+  /**
+   * P3: 새 메시지(INSERT) 도착이면 "insert". 수정(UPDATE — 링크 미리보기·반응·삭제 표시 등)·따라잡기·내 전송 확인은
+   * 생략(= 입력 중을 지우지 않음).
+   */
+  messageEvent?: "insert" | "update";
 };
 
 export type MessengerRealtimeState = {
@@ -629,11 +634,14 @@ export function applyIncomingMessageEvent(input: IncomingMessageEventInput): voi
 }
 
 /**
- * P3(레거시 Telegram 동작): 상대 메시지가 도착하면 그 사람의 「입력 중」을 즉시 해제 — `typing:stop` 이 유실돼도
- * 메시지와 입력 중이 함께 보이지 않게. 방 화면·대화 목록·bump·따라잡기 경로가 모두 이 함수를 지난다.
+ * P3(레거시 Telegram 동작): 상대 **새** 메시지가 도착하면 그 사람의 「입력 중」을 즉시 해제 — `typing:stop` 이 유실돼도
+ * 메시지와 입력 중이 함께 보이지 않게. 호출처가 INSERT 임을 아는 경로만 `messageEvent: "insert"` 를 넘긴다
+ * (방 ingest INSERT · 대화 목록 INSERT 힌트 · 버스 incoming_message · bump 스냅샷 중 처음 보는 id).
  * 오래된 메시지(따라잡기 재적용)는 지금 입력 중인 사람을 지우지 않도록 제외.
  */
 function clearPeerTypingOnIncomingMessage(input: IncomingMessageEventInput): void {
+  /** 새 메시지(INSERT)일 때만 — 수정 이벤트(링크 미리보기·반응 등)로 입력 중을 지우지 않는다 */
+  if (input.messageEvent !== "insert") return;
   const row = input.messageRow ?? null;
   const senderRaw = row?.sender_id ?? input.message?.senderId ?? null;
   const senderId = typeof senderRaw === "string" ? senderRaw.trim() : "";
