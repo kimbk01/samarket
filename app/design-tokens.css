@@ -514,7 +514,8 @@
  * - 전역(:root)에 둔다 — 메신저 레이아웃 CSS 가 안 실리는 주문 채팅 슬라이드(콜드 진입)에서도 같은 값.
  * - 필라이프 `[data-community-ui]` 의 `--cm-font-*`(본문 15 등)와 섞이지 않도록 이름은 `--cm-chat-font-*`.
  * - OS 글자 크기 배율은 반영하지 않는다(레거시도 dp 고정) — 네이티브 변경 없음.
- * - 태블릿(화면 폭 600px 이상)은 아래 @media 에서 같은 토큰 값만 바꾼다(컴포넌트별 분기 없음).
+ * - 태블릿 = 화면 짧은 변 600px 이상(레거시 isTablet 과 같은 기준 — 휴대폰 가로 회전은 휴대폰 값 유지).
+ *   아래 @media 에서 같은 토큰 값만 바꾼다(컴포넌트별 분기 없음). 데스크톱 웹 큰 창도 태블릿 값(의도).
  */
 :root {
   /* 대화방 — 본문(말풍선·입력창) */
@@ -541,7 +542,7 @@
   --cm-chat-font-badge: 12px;
 }
 
-@media (min-width: 600px) {
+@media (min-width: 600px) and (min-height: 600px) {
   :root {
     --cm-chat-font-body: 18px;
     --cm-chat-font-quote: 15px;
