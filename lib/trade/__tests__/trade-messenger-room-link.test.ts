@@ -103,7 +103,7 @@ describe("resolveProductChatMessengerRoomIds — 판매·구매 내역 행 배�
       { id: PC2, post_id: ITEM2, seller_id: SELLER, buyer_id: BUYER, community_messenger_room_id: null },
       { id: PC3, post_id: ITEM, seller_id: SELLER, buyer_id: BUYER2, community_messenger_room_id: null },
       { id: PC4, post_id: ITEM, seller_id: SELLER, buyer_id: OTHER, community_messenger_room_id: "dm-polluted" },
-    ]);
+    ], { userId: SELLER, role: "seller" });
     expect(map.get(PC)).toBe(CM);
     expect(map.get(PC2)).toBe(CM2);
     expect(map.get(PC3)).toBe(CM3);
@@ -112,8 +112,27 @@ describe("resolveProductChatMessengerRoomIds — 판매·구매 내역 행 배�
 
   it("빈 입력은 조회하지 않는다", async () => {
     const { sb, calls } = fakeSb({});
-    expect((await resolveProductChatMessengerRoomIds(sb, [])).size).toBe(0);
+    expect((await resolveProductChatMessengerRoomIds(sb, [], { userId: BUYER, role: "buyer" })).size).toBe(0);
     expect(calls).toHaveLength(0);
+  });
+
+  it("짝 chat_rooms 조회를 열람자 역할로 좁힌다 (남의 거래 행 미조회)", async () => {
+    const { sb, calls } = fakeSb({
+      chat_rooms: [
+        { id: CR, room_type: "item_trade", item_id: ITEM2, seller_id: SELLER, buyer_id: OTHER, community_messenger_room_id: CM2 },
+      ],
+      community_messenger_rooms: [
+        { id: CM2, chat_domain: "trade", direct_key: `trade_item:${CR}`, room_type: "direct" },
+      ],
+    });
+    const map = await resolveProductChatMessengerRoomIds(
+      sb,
+      [{ id: PC2, post_id: ITEM2, seller_id: SELLER, buyer_id: BUYER, community_messenger_room_id: null }],
+      { userId: BUYER, role: "buyer" }
+    );
+    expect(map.has(PC2)).toBe(false);
+    const crCall = calls.find((c) => c.table === "chat_rooms");
+    expect(crCall?.filters).toContainEqual({ op: "eq", col: "buyer_id", val: BUYER });
   });
 });
 
@@ -171,6 +190,7 @@ describe("링크 생성처 배선", () => {
       const src = read(p);
       expect(src).toContain("resolveProductChatMessengerRoomIds");
       expect(src).toContain("messengerRoomId: messengerRoomIdByChatId.get(rid) ?? null");
+      expect(src).toMatch(/resolveProductChatMessengerRoomIds\(sbAny, rows, \{ userId, role: "(seller|buyer)" \}\)/);
     }
     expect(read("lib/mypage/trade-history-load-server.ts").match(/community_messenger_room_id/g)?.length).toBe(2);
   });

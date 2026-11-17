@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
           )
       : Promise.resolve([] as { room_id: string }[]),
     /** 링크는 정규 메신저 방 id 로 — 없을 때만 화면이 `chatId`(product_chats.id) 경로 유지 */
-    resolveProductChatMessengerRoomIds(sbAny, rows),
+    resolveProductChatMessengerRoomIds(sbAny, rows, { userId, role: "seller" }),
   ]);
 
   const tradeRooms = tradeRoomRows.map((r: Record<string, unknown>) => ({

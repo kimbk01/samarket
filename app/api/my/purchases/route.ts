@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
         ({ data }: { data: Record<string, unknown>[] | null }) => data ?? []
       ),
     /** 링크는 정규 메신저 방 id 로 — 없을 때만 화면이 `chatId`(product_chats.id) 경로 유지 */
-    resolveProductChatMessengerRoomIds(sbAny, rows),
+    resolveProductChatMessengerRoomIds(sbAny, rows, { userId, role: "buyer" }),
   ]);
 
   const reviewedRooms = new Set(revRows.map((x) => x.room_id).filter(Boolean));

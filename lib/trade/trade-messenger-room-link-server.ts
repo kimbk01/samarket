@@ -32,7 +32,9 @@ export type ProductChatRowForMessengerLink = Record<string, unknown>;
  */
 export async function resolveProductChatMessengerRoomIds(
   sb: SupabaseClient<any>,
-  rows: readonly ProductChatRowForMessengerLink[]
+  rows: readonly ProductChatRowForMessengerLink[],
+  /** 열람자 역할로 짝 `chat_rooms` 조회를 좁힌다 — 판매 내역 `seller`, 구매 내역 `buyer` (인기 상품의 남의 거래 행을 읽지 않음) */
+  viewer: { userId: string; role: "seller" | "buyer" }
 ): Promise<Map<string, string>> {
   const pcRows = rows
     .map((r) => ({
@@ -47,13 +49,22 @@ export async function resolveProductChatMessengerRoomIds(
 
   const items = [...new Set(pcRows.map((r) => r.item).filter(Boolean))];
   const crByTriple = new Map<string, { id: string; fk: string }>();
-  for (const chunk of chunkIds(items, CHAT_ROOM_ID_IN_CHUNK_SIZE)) {
-    const { data, error } = await sb
-      .from("chat_rooms")
-      .select("id, item_id, seller_id, buyer_id, community_messenger_room_id")
-      .eq("room_type", "item_trade")
-      .in("item_id", chunk)
-      .order("updated_at", { ascending: false });
+  const viewerCol = viewer.role === "seller" ? "seller_id" : "buyer_id";
+  const viewerId = s(viewer.userId);
+  const results = viewerId
+    ? await Promise.all(
+        chunkIds(items, CHAT_ROOM_ID_IN_CHUNK_SIZE).map((chunk) =>
+          sb
+            .from("chat_rooms")
+            .select("id, item_id, seller_id, buyer_id, community_messenger_room_id")
+            .eq("room_type", "item_trade")
+            .eq(viewerCol, viewerId)
+            .in("item_id", chunk)
+            .order("updated_at", { ascending: false })
+        )
+      )
+    : [];
+  for (const { data, error } of results) {
     if (error) continue;
     for (const cr of (data ?? []) as Array<Record<string, unknown>>) {
       const key = tripleKey(s(cr.item_id), s(cr.seller_id), s(cr.buyer_id));
