@@ -973,13 +973,13 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       ? commerceMeta.itemStateLabel.trim()
       : null;
 
-  /** 거래·주문 목록 오른쪽 — 카카오톡 시각 11.5 회색 + 빨간 안 읽음 배지(20px · 11px 굵게), 채팅 시안 4판 「9」「10」 */
+  /** 거래·주문 목록 오른쪽 — 시각 12 회색 + 빨간 안 읽음 배지(20px · 12px 굵게). P4: 모든 대화 목록 같은 토큰(레거시 기준) */
   const trailingBlock =
     isPillarChatListVisual ? (
       <>
         <span
           data-cm-list-meta=""
-          className="whitespace-nowrap text-right text-[11.5px] font-normal tabular-nums leading-none"
+          className="whitespace-nowrap text-right text-[length:var(--cm-chat-font-list-meta)] font-normal tabular-nums leading-none"
           style={{ color: "var(--cm-chat-sub)" }}
         >
           {listTimeLabel}
@@ -987,7 +987,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         {displayedUnreadCount > 0 ? (
           <span
             data-cm-unread-badge="true"
-            className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[color:var(--cm-chat-unread-bg)] px-1.5 text-center text-[11px] font-bold leading-5 text-white"
+            className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[color:var(--cm-chat-unread-bg)] px-1.5 text-center text-[length:var(--cm-chat-font-badge)] font-bold leading-5 text-white"
           >
             {displayedUnreadCount > 999 ? "999+" : displayedUnreadCount}
           </span>

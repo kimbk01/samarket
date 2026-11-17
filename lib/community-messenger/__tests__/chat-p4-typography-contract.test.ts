@@ -96,6 +96,30 @@ describe("P4 대화 목록 기본 행 토큰", () => {
   });
 });
 
+describe("P4 거래·주문 목록 행 — 모든 대화 목록 같은 토큰(레거시)", () => {
+  it("trade·delivery 행도 이름 16 · 미리보기 15 · 시각 12 · 배지 12 토큰", () => {
+    const css = read("app/messenger-presentation.css");
+    expect(css).toMatch(
+      /\[data-messenger-chat-row\]\[data-cm-list-visual="trade"\],\s*\[data-messenger-chat-row\]\[data-cm-list-visual="delivery"\] \{[^}]*--cm-list-preview-size: var\(--cm-chat-font-list-preview\);[^}]*--cm-list-meta-size: var\(--cm-chat-font-list-meta\);/
+    );
+    for (const f of [
+      "components/community-messenger/trade-chat-list/TradeChatListRowContent.tsx",
+      "components/community-messenger/delivery-chat-list/DeliveryChatListRowContent.tsx",
+    ]) {
+      const src = read(f);
+      expect(src).toContain("text-[length:var(--cm-chat-font-list-preview)]");
+      expect(src).toContain("text-[length:var(--cm-chat-font-list-title)]");
+      expect(src).not.toMatch(/text-\[(13\.5|16)px\]/);
+    }
+    /** 행 높이 그대로 */
+    expect(read("components/community-messenger/trade-chat-list/TradeChatListRowContent.tsx")).toContain("h-[84px]");
+    expect(read("components/community-messenger/delivery-chat-list/DeliveryChatListRowContent.tsx")).toContain("h-[72px]");
+    const item = read("components/community-messenger/MessengerChatListItem.tsx");
+    expect(item).not.toMatch(/text-\[(11|11\.5)px\] font-(normal|bold)/);
+    expect(item.match(/text-\[length:var\(--cm-chat-font-badge\)\]/g)?.length).toBe(2);
+  });
+});
+
 describe("P4 대화방 글자 — 고정 px·sam-text 크기 클래스 래칫", () => {
   const files = [
     "components/community-messenger/room/phase2/MessengerTimelineBubbleInners.tsx",
