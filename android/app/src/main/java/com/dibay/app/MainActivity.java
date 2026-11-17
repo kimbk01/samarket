@@ -1456,6 +1456,7 @@ public class MainActivity extends BridgeActivity {
   public void onResume() {
     super.onResume();
     appVisible = true;
+    refreshActiveCallBackPressedEnabled();
     // 통화 화면 → 메신저 복귀 요청의 실제 결과 기록(로그만). docs/audit/call-back-app-return-bal-design-2026-11-12.md §5
     com.dibay.app.call.NativeCallAppReturn.onMainResumed();
     activeInstance = this;
@@ -1485,6 +1486,13 @@ public class MainActivity extends BridgeActivity {
   @Override
   public void onPause() {
     super.onPause();
+  }
+
+  @Override
+  public void onDestroy() {
+    // S2: 화면이 사라지면 통화 상태 알림 대상에서 뺀다(다음 MainActivity 가 다시 등록).
+    DibayActiveCallSessionManager.clearStateListener(activeCallBackStateListener);
+    super.onDestroy();
   }
 
   @Override
@@ -1532,13 +1540,16 @@ public class MainActivity extends BridgeActivity {
    * navigating/dismissing the WebView call screen. Reuses tryEnterVideoCallPip() verbatim
    * (the same method already wired from onUserLeaveHint), so this never touches
    * DibayActiveCallSessionManager/Agora/signaling — pure UI back-routing.
-   * When no call is connected, this callback disables itself and immediately re-dispatches,
-   * so normal WebView back-navigation (owned by Capacitor's AppPlugin) is completely unaffected.
+   *
+   * <p>S2 (Owner 승인 2026-11-18 · docs/audit/android-system-nav-2026-11-17/s2-s4-design.md §3): Android 기준
+   * 「할 일이 있을 때만 앱이 ◁ 를 받는다」. 이 처리는 웹 통화가 연결된 동안에만 켜고, 그 밖에는 꺼서 Android 가
+   * 직접 처리하게 한다(첫 화면 = TYPE_RETURN_TO_HOME). 켜짐은 통화 상태·소유권이 바뀔 때마다 다시 계산한다.
+   * 누를 때의 판단·동작(통화 중 PiP·뒤로 보내기, 아니면 다시 넘김)은 그대로다.
    */
   private void registerActiveCallBackPressedCallback() {
     if (activeCallBackPressedCallback != null) return;
     activeCallBackPressedCallback =
-        new OnBackPressedCallback(true) {
+        new OnBackPressedCallback(false) {
           @Override
           public void handleOnBackPressed() {
             String callId = DibayActiveCallSessionManager.getActiveCallId();
@@ -1548,9 +1559,10 @@ public class MainActivity extends BridgeActivity {
             boolean nativeOwned =
                 callActive && com.dibay.app.call.NativeCallAppReturn.isNativeOwnedCall(callId);
             if (!callActive || nativeOwned) {
+              // 켜짐 상태가 늦게 바뀐 경우의 안전장치 — 끄고 다음 처리(또는 Android)로 넘긴다.
               setEnabled(false);
               getOnBackPressedDispatcher().onBackPressed();
-              setEnabled(true);
+              refreshActiveCallBackPressedEnabled();
               return;
             }
             Log.i("DIBAY_CALL", "[DIBAY_CALL] main_activity_back_pressed_call_active callId=" + callId);
@@ -1561,6 +1573,25 @@ public class MainActivity extends BridgeActivity {
           }
         };
     getOnBackPressedDispatcher().addCallback(this, activeCallBackPressedCallback);
+    DibayActiveCallSessionManager.setStateListener(activeCallBackStateListener);
+    refreshActiveCallBackPressedEnabled();
+  }
+
+  private final Runnable activeCallBackStateListener =
+      () -> runOnUiThread(this::refreshActiveCallBackPressedEnabled);
+
+  /** 웹 통화(네이티브 통화 화면 소유가 아닌 통화)가 연결된 동안에만 켠다. UI 스레드에서 부른다. */
+  private void refreshActiveCallBackPressedEnabled() {
+    OnBackPressedCallback cb = activeCallBackPressedCallback;
+    if (cb == null) return;
+    String callId = DibayActiveCallSessionManager.getActiveCallId();
+    boolean callActive =
+        callId != null && !callId.isEmpty() && DibayActiveCallSessionManager.isConnected();
+    boolean enabled = callActive && !com.dibay.app.call.NativeCallAppReturn.isNativeOwnedCall(callId);
+    if (cb.isEnabled() != enabled) {
+      Log.i("DIBAY_CALL", "[DIBAY_CALL] main_back_callback_enabled=" + enabled + " callId=" + callId);
+      cb.setEnabled(enabled);
+    }
   }
 
   /** Bridge entry — video active call system PiP */

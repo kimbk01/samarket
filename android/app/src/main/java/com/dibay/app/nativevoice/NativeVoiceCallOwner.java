@@ -19,6 +19,7 @@ public final class NativeVoiceCallOwner {
     String prev = OWNERS.putIfAbsent(sid, "native_voice");
     if (prev == null) {
       NativeVoiceCallLog.info("owner_claimed_native_voice", sid, "reason=" + safe(reason));
+      com.dibay.app.call.DibayActiveCallSessionManager.notifyStateChanged();
       return true;
     }
     if ("native_voice".equals(prev)) {
@@ -53,6 +54,7 @@ public final class NativeVoiceCallOwner {
     if (prev != null) {
       TERMINAL_CALLS.put(sid, Boolean.TRUE);
       NativeVoiceCallLog.info("owner_released", sid, "owner=" + prev + " reason=" + safe(reason));
+      com.dibay.app.call.DibayActiveCallSessionManager.notifyStateChanged();
     }
   }
 
