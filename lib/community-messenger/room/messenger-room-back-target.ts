@@ -33,6 +33,7 @@ import {
   resolveMessengerRoomEntryOrigin,
   type MessengerRoomEntryOrigin,
 } from "@/lib/community-messenger/room/messenger-room-entry-origin-store";
+import { clearPushNavigationMarkBeforeListReplace } from "@/lib/push/push-navigation-back";
 
 /** 방 종류 목록 — `communityMessengerRoomInboxGroupKind`(목록 분류 SSOT) 값 그대로. 스냅샷 전이면 null. */
 export type MessengerRoomListKind = "trade" | "delivery" | "general";
@@ -92,7 +93,10 @@ export function resolveMessengerRoomBackTarget(args: {
   return { kind: "replace", href: resolveMessengerRoomListHref(args) };
 }
 
-/** 목적지 실행 — 이동 1회(back 또는 replace 중 하나). */
+/**
+ * 목적지 실행 — 이동 1회(back 또는 replace 중 하나).
+ * replace(목록) 직전에 바로 앞 「알림으로 떠난 항목」 표시를 정리한다(N1 — 목록의 ◁ 가 이전 방·같은 목록으로 가지 않게).
+ */
 export function runMessengerRoomBackTarget(
   router: { back: () => void; replace: (href: string, options?: { scroll?: boolean }) => void },
   target: MessengerRoomBackTarget
@@ -101,6 +105,7 @@ export function runMessengerRoomBackTarget(
     router.back();
     return;
   }
+  clearPushNavigationMarkBeforeListReplace();
   router.replace(target.href, { scroll: false });
 }
 
