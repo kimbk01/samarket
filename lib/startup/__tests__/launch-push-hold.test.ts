@@ -121,6 +121,8 @@ describe("Android — 알림 목적지 시작", () => {
     metrics.markInitialDestinationVisualReady();
     expect(bridge.dismissSplash).not.toHaveBeenCalled();
     window.history.replaceState(null, "", ROOM);
+    // 설계 23-9: 경로만 맞는 것이 아니라 채팅방 화면이 그려져 있어야 한다
+    document.body.innerHTML = '<div data-messenger-shell data-cm-room class="cm-room-shell"></div>';
     metrics.markInitialDestinationVisualReady();
     expect(bridge.dismissSplash).toHaveBeenCalledTimes(1);
   });

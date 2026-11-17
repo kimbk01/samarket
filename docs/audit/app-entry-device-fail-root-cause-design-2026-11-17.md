@@ -957,9 +957,9 @@ PO-8 위치별 켜기/끄기 · 발견 응답에 첫 화면 싣기 · 「휴대�
 2. 그 커밋의 채팅방 자리는 **목적지 그림이 아니다**: 차가운 시작이라 로그인 확인 중 → `components/auth/AuthSessionBoundary.tsx` 가 「불러오는 중…」(`data-auth-session-boundary="blocked"`)을 그린다 → 풀린 뒤에도 채팅방 첫 단계는 「채팅방 입장 중…」(`CommunityMessengerRoomEntryEmpty`)이다.
 3. 홈(`/`)·목록(`/community-messenger`)은 로그인 막음이 없어 같은 신호에서 진짜 화면이 나온다 → §19-6 PASS 와 모순 없음. 계정 화면(로그인 막음)이 목적지인 알림만 FAIL.
 
-**수정안(구현 안 함 — 승인 범위 밖 · 별도 승인 필요)**
+**수정안** (Owner 「23-9 진행」 2026-11-18 승인 → 23-14 구현)
 - `markInitialDestinationVisualReady` 의 「목적지 경로」 판정에 **화면 조건**을 더한다: 목적지 경로이더라도 `[data-auth-session-boundary="blocked"]` 가 있거나 채팅방이 입장 단계면 해제하지 않고, 그 상태가 풀리는 커밋에서 다시 판정한다(대기·타이머 없음 · 이벤트로 재판정). 채팅방은 첫 대화(캐시 포함) 프레임이 그려진 커밋에서 한 번 신호를 낸다.
-- 상한: 기존 고장 판정(T_release)·8초 경로 확인 상한을 그대로 쓴다(새 타이머 없음).
+- 상한: 알림 수신자의 기존 8초 경로 확인 루프(200ms)를 「목적지가 그려져 해제될 때까지」로 늘려 같은 8초 안에 묶는다(새 상한 없음). 넘으면 `markLaunchPushHandled` → 지금 화면에서 해제. 네이티브 고장 판정(15초)은 그대로.
 - 바뀌는 곳: `lib/startup/startup-metrics.ts` · `components/auth/AuthSessionBoundary.tsx`(풀림 신호) · 채팅방 첫 그림 신호 1곳. 메신저 방 계약(실시간·스크롤)은 건드리지 않는다. 통화 경로는 이미 목적지 보류 대상에서 빠져 있다(`/community-messenger/calls` 제외) → 통화 규정 해당 없음.
 - 영향: 채팅방 알림 탭에서 덮개가 약 1.5~2초 더 길어진다(그 대신 흰 화면·자리 표시 0). 홈·목록·아이콘 실행은 변화 없음.
 - 검증: 실제 알림 탭(채팅방) 두 기기 6회씩 흰 프레임 0 · 덮개 걷힌 첫 프레임 = 대화 · 아이콘 실행·목록 알림 회귀 없음.
@@ -993,8 +993,8 @@ PO-8 위치별 켜기/끄기 · 발견 응답에 첫 화면 싣기 · 「휴대�
 ### 23-13. 남은 항목 (지금 상태 · 막힌 이유)
 | 항목 | 상태 | 막힌 이유 / 다음 |
 |---|---|---|
-| M2 예열 | 구현(브랜치 `fix/entry-post-deploy-warm` b3d945e) · 미반영 | CI 설정만이라 단독 반영 금지(개발 프로세스 2번) → 23-9 수정 또는 M1-a 코드 PR 에 함께 |
-| 23-9 채팅방 알림 흰 화면 | FAIL · 원인 확정 · 수정안 | Owner 승인 |
+| M2 예열 | 구현 · 23-9 PR 에 함께 반영 | 효과(배포 직후 ttfb)는 반영 뒤 다음 배포에서 확인 |
+| 23-9 채팅방 알림 흰 화면 | FAIL · 원인 확정 · 구현(23-14, 이 PR) | 배포 뒤 실기 확인 |
 | M1 | 승인 설계 무효 · 재설계안(23-11) | Owner 승인 |
 | M3 | 결함 확정 · 영향 문서(23-12) | Owner 승인 · 23-9 먼저 · iPhone |
 | M4 B2 | 재현 안 됨 → 삭제 | — |
@@ -1005,3 +1005,14 @@ PO-8 위치별 켜기/끄기 · 발견 응답에 첫 화면 싣기 · 「휴대�
 | V6 팝업 P1~P6 | NOT_PROVEN | 시험 팝업 생성에 어드민 로그인 필요 |
 | V7 어드민 화면 | NOT_PROVEN | Owner 어드민 로그인 |
 | V8 iOS | NOT_PROVEN | iPhone 미연결 |
+
+### 23-14. 23-9 구현 (Owner 「23-9 진행」 · 브랜치 `fix/entry-push-room-cover-hold` · 웹만)
+| 파일 | 바뀜 |
+|---|---|
+| `lib/startup/launch-destination-paint.ts`(신규) | 「지금 보이는 화면이 목적지 자리 표시인가」 동기 판정: 보이는 `data-auth-session-boundary="blocked"` · 보이는 `data-cm-room-entry-buffering` · 채팅방 경로인데 보이는 `data-cm-room`(입장 대기 아님) 없음. 숨긴 보관 화면(`display:none` 조상) 제외. 다시 판정은 MutationObserver(타이머 없음) |
+| `lib/startup/startup-metrics.ts` | 해제 판정을 `releaseForInitialDestination` 으로 분리(화면 프레임 기록은 기존 호출에서만). 알림 목적지 보류 중 + 목적지 자리 표시면 해제 보류 → 화면 변경 때 한 프레임에 한 번 다시 판정. 해제되면 관찰 끝 |
+| `lib/startup/launch-push-hold.ts` | `isLaunchPushHoldActive()`(목적지 있음 · 아직 안 끝남) |
+| `components/push/PushRouteListener.tsx` | 통화 아닌 알림 경로 확인 루프: 경로 확인(ACK) 뒤에도 알림 목적지 시작이면 해제될 때까지 같은 8초 안에서 지켜보고, 넘으면 `markLaunchPushHandled`. 통화 경로는 루프 앞에서 끝(변화 없음) · 포그라운드 탭(보류 없음)은 ACK 뒤 바로 끝(이전과 같음) |
+- 메신저 화면·로그인 경계 코드는 바꾸지 않았다(이미 있는 표식만 읽음). iOS 는 목적지 읽기 브리지가 없어 보류가 없음 → 변화 없음. 아이콘 실행·목록 알림 → 변화 없음(테스트로 고정).
+- 기존 테스트 1건(`launch-push-hold.test.ts` 「목적지 경로가 그려지면 해제」)은 빈 화면에서 해제되는 동작을 정상으로 고정하고 있었다 → 채팅방 화면이 그려진 조건으로 바꿨다(이번 결함 그 자체).
+- 통화 규정: 통화 경로·통화 푸시 분류·통화 화면 코드는 바꾸지 않았다(`finalizePushRouteConsume` 의 통화 분기 앞단 그대로 · 구조 테스트로 고정).
