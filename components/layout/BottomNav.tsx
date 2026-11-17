@@ -100,6 +100,7 @@ import {
 } from "@/lib/main-menu/main-bottom-nav-tab-emphasis";
 import { shouldPrefetchMainBottomNavHref } from "@/lib/main-menu/main-bottom-nav-link-prefetch-eligibility";
 import { useHtmlShellFlagsSync } from "@/lib/layout/use-html-shell-flags-sync";
+import { markBottomNavTabRootEntry, registerRootBackTabBar } from "@/lib/ui/android-root-back";
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
   "touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
@@ -171,7 +172,7 @@ export type BottomNavTabCommitOpts = {
 
 /** 하단 탭 이동 — `commitMainBottomNavRoute` 단일 경로 */
 export function commitBottomNavTabRoute(opts: BottomNavTabCommitOpts): "scroll_only" | "blocked" | "navigated" {
-  return commitMainBottomNavRoute({
+  const result = commitMainBottomNavRoute({
     pathname: opts.pathname,
     currentSearch: opts.navSearch,
     href: opts.href,
@@ -194,6 +195,9 @@ export function commitBottomNavTabRoute(opts: BottomNavTabCommitOpts): "scroll_o
     showOnBottomNavController: true,
     deferredAfterAwait: opts.deferredAfterAwait === true,
   });
+  /** F4 — 하단 탭으로 실제 이동한 기록 항목 = 그 탭의 첫 화면(Android ◁ 판정) */
+  if (result === "navigated") markBottomNavTabRootEntry(opts.tabId);
+  return result;
 }
 
 function runBottomNavTabClickOrOpenNew(
@@ -945,8 +949,38 @@ export function BottomNav({
     ]
   );
 
+  /**
+   * F4 (Owner 「(가) Android 표준」 2026-11-17) — 하단 탭 첫 화면 ◁ = 첫 번째 탭(시작 탭)을 누른 것과 같은 이동.
+   * 이 막대가 보이는 동안만 등록. 이동은 시작 탭 버튼 클릭 그대로(이탈 확인·햅틱·선택 표시 같은 경로).
+   */
+  const navElRef = useRef<HTMLElement | null>(null);
+  const startTabId = displayTabs[0]?.id ?? null;
+  const tabRootPathsKey = displayTabs.map((tab) => `${tab.id}=${tab.href}`).join("|");
+  useEffect(() => {
+    if (!startTabId) return;
+    const tabRootPaths = tabRootPathsKey
+      .split("|")
+      .map((pair) => {
+        const at = pair.indexOf("=");
+        return { tabId: pair.slice(0, at), path: pair.slice(at + 1) };
+      });
+    return registerRootBackTabBar({
+      startTabId,
+      tabRootPaths,
+      goStartTab: () => {
+        const el = navElRef.current?.querySelector<HTMLElement>(
+          `[data-bottom-nav-tab-id="${CSS.escape(startTabId)}"]`
+        );
+        if (!el) return false;
+        el.click();
+        return true;
+      },
+    });
+  }, [startTabId, tabRootPathsKey]);
+
   const nav = (
     <nav
+      ref={navElRef}
       className={[
         outerClass,
         usesDeliveryHubShell ? "app-bottom-nav-shell--delivery" : "",
