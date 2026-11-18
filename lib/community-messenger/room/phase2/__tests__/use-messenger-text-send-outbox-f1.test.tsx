@@ -902,13 +902,16 @@ describe("PR #442 감사 D-2·D-3", () => {
     expect(savedCids()).toEqual(["c-acct"]);
   });
 
-  it("D-3: 사용자 id 없는 옛 항목은 복원하지 않고 지우지도 않는다", async () => {
+  it("D-3 정정: 사용자 id 없는 옛 항목(main 이 저장) → 진입 복원 → 실패 행 1, 사용자 id 를 채워 다시 저장하지 않음", async () => {
     saveMessengerFailedTextSend(ROOM, { clientMessageId: "c-legacy", content: "old", replyToMessageId: null, createdAt: "2026-11-18T01:00:00.000Z" });
-    const h = mount();
+    const h = mount([], { viewer: "user-x" });
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
     });
-    expect(h.rows().filter((r) => r.clientMessageId === "c-legacy")).toHaveLength(0);
-    expect(savedCids()).toEqual(["c-legacy"]);
+    const rows = h.rows().filter((r) => r.clientMessageId === "c-legacy");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.sendFailed).toBe(true);
+    const raw = JSON.parse(localStorage.getItem(MESSENGER_FAILED_TEXT_STORAGE_KEY) ?? "{}") as Record<string, Array<Record<string, unknown>>>;
+    expect(raw[ROOM]?.[0]?.senderUserId).toBeUndefined();
   });
 });

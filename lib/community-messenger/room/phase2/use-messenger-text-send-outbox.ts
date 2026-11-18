@@ -264,7 +264,7 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
     const d = depsRef.current;
     const sender = d.resolveOutboundSender();
     if (!sender || entries.length === 0) return;
-    /** 감사 D-3: 지금 사용자가 보낸 항목만(사용자 id 없는 옛 항목은 복원도 삭제도 하지 않음) */
+    /** 감사 D-3: 보낸 사용자 id 가 있으면 지금 사용자 것만, 없는 옛 항목은 main 과 같이 복원(다시 저장하지 않음) */
     const viewer = d.viewerUserId.trim();
     entries = entries.filter((e) => isMessengerFailedTextSendOwnedBy(e, viewer));
     if (entries.length === 0) return;

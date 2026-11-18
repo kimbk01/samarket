@@ -26,8 +26,10 @@ export type MessengerFailedTextSend = {
   /** 보관 시각(ms) — 복원 순서 */
   savedAt: number;
   /**
-   * PR #442 감사 D-3: 보낸 사용자 id — 복원은 현재 사용자와 같은 항목만(요청 중 로그아웃·계정 전환 뒤 늦은 실패 응답이
-   * 다른 계정 화면에 「내 실패 행」으로 보이지 않게). 키 형식은 그대로, 이 값이 없는 옛 항목은 복원하지 않고 지우지도 않는다.
+   * PR #442 감사 D-3: 보낸 사용자 id — 이 값이 있는 항목은 같은 사용자에게만 복원한다(요청 중 로그아웃·계정 전환 뒤
+   * 늦은 실패 응답이 다른 계정 화면에 「내 실패 행」으로 보이지 않게). 키 형식은 그대로.
+   * 이 값이 없는 옛 항목(main 이 이미 저장한 것)은 main 과 같이 현재 사용자에게 복원하고, 사용자 id 를 채워 다시 저장하지 않는다
+   * — 계정 섞임 방지는 이 값을 넣기 시작한 뒤 저장되는 항목부터 적용된다.
    */
   senderUserId?: string | null;
 };
@@ -57,11 +59,16 @@ function isEntry(v: unknown): v is MessengerFailedTextSend {
   );
 }
 
-/** 감사 D-3: 이 항목을 지금 사용자에게 복원해도 되는가 — 보낸 사용자 id 가 있고 같을 때만 */
+/**
+ * 감사 D-3: 이 항목을 지금 사용자에게 복원해도 되는가.
+ * - 보낸 사용자 id 가 있으면 같을 때만
+ * - 없으면(옛 항목) main 과 같이 복원 — 사용자 구분 없음
+ */
 export function isMessengerFailedTextSendOwnedBy(entry: MessengerFailedTextSend, viewerUserId: string): boolean {
   const owner = typeof entry.senderUserId === "string" ? entry.senderUserId.trim() : "";
+  if (!owner) return true;
   const viewer = viewerUserId.trim();
-  return Boolean(owner && viewer && owner === viewer);
+  return Boolean(viewer && owner === viewer);
 }
 
 /** 감사 D-2: 기기 저장소(localStorage)에 그 cid 보관분이 이미 있는가 — 메모리 보관소는 보지 않는다 */
