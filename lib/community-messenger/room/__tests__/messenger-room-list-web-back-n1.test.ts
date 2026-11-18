@@ -19,8 +19,10 @@ import {
   runMessengerRoomBackTarget,
 } from "@/lib/community-messenger/room/messenger-room-back-target";
 import {
+  __dropMessengerListWebBackMemoryForTests,
   __resetMessengerListWebBackForTests,
   MESSENGER_LIST_WEB_BACK_STORAGE_KEY,
+  restoreMessengerListWebBackAfterReload,
 } from "@/lib/community-messenger/room/messenger-list-web-back";
 import { isCommunityMessengerRoomRoutePathname } from "@/lib/community-messenger/messenger-room-pathname";
 import {
@@ -61,7 +63,7 @@ const driver: OverlayBackListenerDriver = {
  * 기록 + Navigation API 흉내.
  * `shellFirst`: 이동 때 방 셸 해제·등록을 currententrychange 보다 먼저(true) 또는 나중(false) — 두 순서 모두 시험.
  */
-function makeWorld(opts: { shellFirst?: boolean } = {}) {
+function makeWorld(opts: { shellFirst?: boolean; traverse?: "ok" | "throw" | "reject" } = {}) {
   const origin = window.location.origin;
   const entries: Entry[] = [];
   let cur = -1;
@@ -80,6 +82,10 @@ function makeWorld(opts: { shellFirst?: boolean } = {}) {
     entries: () => entries.map(view),
     traverseTo: (key: string) => {
       traverseCalls.push(key);
+      if (opts.traverse === "throw") throw new Error("InvalidStateError");
+      if (opts.traverse === "reject") {
+        return { committed: Promise.reject(new Error("AbortError")), finished: Promise.reject(new Error("AbortError")) };
+      }
       const i = entries.findIndex((e) => e.key === key);
       if (i >= 0) {
         cur = i;
@@ -161,6 +167,21 @@ function makeWorld(opts: { shellFirst?: boolean } = {}) {
       if (cur > 0) cur -= 1;
       apply("traverse");
     },
+    historyGo(delta: number) {
+      const next = cur + delta;
+      if (next >= 0 && next < entries.length) {
+        cur = next;
+        apply("traverse");
+      }
+    },
+    /** 문서 reload 흉내 — 메모리 상태(방 셸·목록 담당 구독·주인)만 사라지고 sessionStorage·기록은 남는다. */
+    reload(restore = true) {
+      releaseShell?.();
+      releaseShell = null;
+      __dropMessengerListWebBackMemoryForTests();
+      if (restore) restoreMessengerListWebBackAfterReload();
+      syncShell();
+    },
     pressSystemBack(): PressResult {
       if (isOverlayBackListenerInstalled()) {
         driverState.onBack?.({ canGoBack: true });
@@ -180,7 +201,7 @@ function makeWorld(opts: { shellFirst?: boolean } = {}) {
 
 let w: ReturnType<typeof makeWorld>;
 
-function setup(opts: { shellFirst?: boolean } = {}) {
+function setup(opts: { shellFirst?: boolean; traverse?: "ok" | "throw" | "reject" } = {}) {
   w = makeWorld(opts);
 }
 
@@ -190,6 +211,7 @@ beforeEach(() => {
   __setOverlayBackListenerDriverForTests(driver);
   vi.spyOn(console, "info").mockImplementation(() => {});
   vi.spyOn(window.history, "back").mockImplementation(() => w.historyBack());
+  vi.spyOn(window.history, "go").mockImplementation((d?: number) => w.historyGo(d ?? 0));
   setup();
 });
 afterEach(() => {
@@ -198,6 +220,7 @@ afterEach(() => {
   __setOverlayBackListenerDriverForTests(null);
   vi.restoreAllMocks();
   delete (window as unknown as { navigation?: unknown }).navigation;
+  delete (window as unknown as { Capacitor?: unknown }).Capacitor;
 });
 
 /** ◁ 를 누르며 지나간 화면 — 무반응(no_back)은 즉시 실패 */
@@ -386,5 +409,130 @@ describe("N1 — 9. Navigation API 없음", () => {
     const router = { back: vi.fn(), replace: vi.fn() };
     runMessengerRoomBackTarget(router, { kind: "replace", href: LIST });
     expect(router.replace).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe.each([
+  ["활성화 없음", false],
+  ["활성화 있음", true],
+] as const)("D1 — 문서 reload 뒤 (%s)", (_l, activation) => {
+  it("방 B → 알림 C → ◁ = 목록 → reload → ◁ = HOME(B 아님)", () => {
+    w.start(HOME);
+    w.tap(ROOM_B);
+    w.notification(ROOM_C, activation);
+    expect(pressPath()).toBe(LIST);
+    w.reload();
+    expect(hasPageBackOwner()).toBe(true);
+    expect(pressPath()).toBe(HOME);
+  });
+
+  it("reload 뒤 다른 화면에서 ◁ 로 목록에 돌아와도 담당 → ◁ = HOME", () => {
+    w.start(HOME);
+    w.tap(ROOM_B);
+    w.notification(ROOM_C, activation);
+    expect(pressPath()).toBe(LIST);
+    w.tap("/stores");
+    w.reload();
+    expect(hasPageBackOwner()).toBe(false);
+    expect(pressPath()).toBe(LIST);
+    expect(hasPageBackOwner()).toBe(true);
+    expect(pressPath()).toBe(HOME);
+  });
+
+  it("(대조) 복원을 부르지 않으면 결함 E 가 ◁ 를 B 로 보낸다 — 복원이 필요한 이유", () => {
+    w.start(HOME);
+    w.tap(ROOM_B);
+    w.notification(ROOM_C, activation);
+    w.pressSystemBack();
+    w.reload(false);
+    expect(hasPageBackOwner()).toBe(false);
+    w.pressSystemBack();
+    expect(w.path).toBe(ROOM_B);
+  });
+});
+
+describe.each([
+  ["활성화 없음", false],
+  ["활성화 있음", true],
+] as const)("D2 — 앱 안에서 들른 방은 건너뛰지 않음 (%s)", (_l, activation) => {
+  it("traverse 도착: HOME → 방 X → 목록 → 알림 C → ◁ = 목록 → ◁ = X", () => {
+    w.start(HOME);
+    w.tap(ROOM_B);
+    w.tap(LIST);
+    w.notification(ROOM_C, activation);
+    expect(pressPath()).toBe(LIST);
+    expect(w.index).toBe(2);
+    expect(pressPath()).toBe(ROOM_B);
+  });
+
+  it("replace 도착: HOME → 방 X → (앱 안) 방 Y → 알림 C → ◁ = 목록 → ◁ = X(알림 직전 방 Y 만 건너뜀)", () => {
+    w.start(HOME);
+    w.tap(ROOM_B);
+    w.tap(ROOM_D);
+    w.notification(ROOM_C, activation);
+    expect(pressPath()).toBe(LIST);
+    expect(pressPath()).toBe(ROOM_B);
+  });
+
+  it("replace 도착: 알림으로 열린 방 사이(B → 알림 D → 알림 C) 는 모두 건너뜀 → HOME", () => {
+    w.start(HOME);
+    w.tap(ROOM_B);
+    w.notification(ROOM_D, activation);
+    w.notification(ROOM_C, activation);
+    expect(pressPath()).toBe(LIST);
+    expect(pressPath()).toBe(HOME);
+  });
+});
+
+describe("D3 — traverseTo 실패 시 대체 이동(무반응 없음)", () => {
+  it("동기 예외: 방 ◁ = 목록 replace, 목록 ◁ = history.go 로 HOME", () => {
+    setup({ traverse: "throw" });
+    w.start(HOME);
+    w.tap(LIST);
+    w.notification(ROOM_C, false);
+    expect(pressPath()).toBe(LIST);
+    expect(w.index).toBe(2); // traverse 실패 → replace
+    expect(pressPath()).toBe(HOME);
+  });
+
+  it("committed reject: 아직 방이면 목록 replace 로 대체", async () => {
+    setup({ traverse: "reject" });
+    w.start(HOME);
+    w.tap(LIST);
+    w.notification(ROOM_C, false);
+    expect(w.pressSystemBack()).toBe("web");
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(w.path).toBe(LIST);
+    expect(w.replaceCalls).toEqual([LIST]);
+  });
+
+  it("목록 ◁ 의 committed reject → history.go 로 대체", async () => {
+    setup({ traverse: "reject" });
+    w.start(HOME);
+    w.tap(ROOM_B);
+    w.notification(ROOM_C, false);
+    w.pressSystemBack(); // replace 도착
+    expect(w.path).toBe(LIST);
+    w.pressSystemBack();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(w.path).toBe(HOME);
+  });
+});
+
+describe("D5 — iOS 앱은 지금 동작(replace 만, 새 이동·담당 없음)", () => {
+  it("앞쪽에 같은 목록이 있어도 replace, 기록·주인 없음, 복원도 아무것도 안 함", () => {
+    (window as unknown as { Capacitor: unknown }).Capacitor = { getPlatform: () => "ios" };
+    w.start(HOME);
+    w.tap(LIST);
+    w.notification(ROOM_C, false);
+    const router = { back: vi.fn(), replace: vi.fn() };
+    runMessengerRoomBackTarget(router, { kind: "replace", href: LIST });
+    expect(router.replace).toHaveBeenCalledWith(LIST, { scroll: false });
+    expect(w.traverseCalls).toEqual([]);
+    expect(window.sessionStorage.getItem(MESSENGER_LIST_WEB_BACK_STORAGE_KEY)).toBeNull();
+    restoreMessengerListWebBackAfterReload();
+    expect(hasPageBackOwner()).toBe(true); // 방 셸 주인(지금 동작) — 목록 담당 아님
   });
 });
