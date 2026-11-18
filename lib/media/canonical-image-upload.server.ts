@@ -144,7 +144,12 @@ export async function uploadPostImageWithDerivatives(input: {
     originalBuf: optimized.buf,
     originalContentType: optimized.contentType,
     surfaces: input.surfaces ?? POST_IMAGE_UPLOAD_SURFACES,
-    cacheControl: input.cacheControl,
+    /**
+     * D9 (2026-11-19) — 기본 1년. 호출처 5곳 모두 경로가 매번 새 uuid·`upsert:false` 라 같은 주소의 내용이 바뀌지 않는다.
+     * 이전에는 거래 글·매장 후기·운영자 가져오기가 값을 넘기지 않아 Storage 기본 3600(1시간)이 저장돼,
+     * 앱이 같은 사진을 1시간마다 다시 받았다(운영 11-18: 사진 1장 하루 최대 275회, post-images 9,063개 = max-age=3600).
+     */
+    cacheControl: input.cacheControl ?? COMMUNITY_POST_IMAGE_CACHE_CONTROL,
   });
 }
 
