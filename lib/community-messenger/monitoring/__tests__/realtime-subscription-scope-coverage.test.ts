@@ -73,7 +73,8 @@ describe("실시간 구독 scope 집계 표 누락 검사 (D1)", () => {
   const found = collectScopes();
 
   it("구독 호출을 실제로 찾는다(검색이 비어 통과하는 것 방지)", () => {
-    expect(found.length).toBeGreaterThanOrEqual(19);
+    /** D1 2단계(2026-11-19): 전역 presence 채널 구독 제거로 19 → 18 */
+    expect(found.length).toBeGreaterThanOrEqual(18);
     expect(found.some((f) => f.file.startsWith("hooks/"))).toBe(true);
   });
 

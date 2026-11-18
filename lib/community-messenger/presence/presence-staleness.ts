@@ -16,7 +16,7 @@ export type PresenceStalenessResult = {
 
 /**
  * 표시용 presence 신선도 보정 — `online` 관측이 policy 의 ping 창을 넘기면 그대로 두지 않는다.
- * - 관측 경과 ≤ `SAMARKET_PRESENCE_ONLINE_GRACE_MS`(30초, 하트비트×2 이상) → online 유지
+ * - 관측 경과 ≤ `SAMARKET_PRESENCE_ONLINE_GRACE_MS`(150초, keepalive 60초 × 2.5) → online 유지
  * - 그 이후 → offline (P3 2026-11-18: 「자리 비움」 단계 삭제)
  * `away`/`offline` 관측이나 관측 시각이 없는 값은 건드리지 않는다(정보 없음 ≠ 오래됨).
  */

@@ -1,15 +1,20 @@
 import type { CommunityMessengerPresenceState } from "@/lib/community-messenger/types";
 
-/** Heartbeat가 이 안이면 “즉시 응답 가능” 신호로 ONLINE 후보 */
+/**
+ * D1 2단계(Owner 승인 2026-11-19) — 레거시(Telegram) 구조: 앱이 앞화면인 동안 **약 1분마다** 상태 갱신(keepalive),
+ * 앞/뒤 전환·종료는 즉시 전송. 푸시 판단은 1단계에서 presence 와 분리됐으므로(서버는 항상 보냄) 12초 주기 제약이 없다.
+ * 근거: docs/audit/supabase-request-surge-2026-11-18/d1-presence-push-structure-analysis-2026-11-19.md
+ */
+export const SAMARKET_PRESENCE_KEEPALIVE_MS = 60_000;
+/** (구) 짧은 신선도 창 — 서버 판정에는 쓰지 않는다. 호환 export */
 export const SAMARKET_PRESENCE_PING_ONLINE_MAX_MS = 15_000;
 /**
- * P3 검토 반영(2026-11-18): 「자리 비움」이 없어진 뒤 온라인 ↔ 오프라인 판정 창 — 하트비트(12초) × 2 이상.
- * 15초 창이면 하트비트 1회 지연만으로 「온라인 ↔ 마지막 접속」이 깜빡인다. 레거시(Telegram)도 55초 주기 갱신 +
- * 앱 멈춤 시 즉시 오프라인 신호 — 백그라운드 전환의 즉시 오프라인(`appVisibility`·실시간 track)은 그대로.
+ * 온라인 ↔ 오프라인 판정 창 — keepalive(60초) × 2.5. 한 번 늦어도 깜빡이지 않고, 강제 종료·연결 끊김은 이 시간 뒤 오프라인.
+ * (P3 「자리 비움」 없음 유지 — 중간 단계 없이 온라인/마지막 접속)
  */
-export const SAMARKET_PRESENCE_ONLINE_GRACE_MS = 30_000;
-/** 이를 넘기면 연결/세션 종료로 간주하고 OFFLINE */
-export const SAMARKET_PRESENCE_PING_OFFLINE_MS = 90_000;
+export const SAMARKET_PRESENCE_ONLINE_GRACE_MS = 150_000;
+/** 이를 넘기면 연결/세션 종료로 간주하고 OFFLINE (판정 창과 같게) */
+export const SAMARKET_PRESENCE_PING_OFFLINE_MS = 150_000;
 
 export type SamarketAppVisibility = "foreground" | "background" | "unknown";
 

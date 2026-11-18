@@ -1,147 +1,52 @@
 "use client";
 
-import { applyPresenceSyncToMap } from "@/lib/community-messenger/realtime/presence/apply-presence-sync";
+/**
+ * D1 2단계 (Owner 승인 2026-11-19) — 내 접속 상태 보고 (레거시 Telegram 구조).
+ *
+ * 이전: 전역 Realtime 채널 `community-messenger:presence` 에 12초마다 track(접속자 N² 전파) +
+ *       12초마다 HTTP 하트비트(DB upsert). 채널 정상 판정이 그 신호에 묶여 있었다.
+ * 지금:
+ *  - **전환은 즉시** 1회 POST(`transition: true`): 앞화면 진입 · 백그라운드 · 유휴에서 복귀 · 세션 종료(beacon).
+ *    서버가 그 사용자 비공개 토픽(`cm-presence-user:<id>`)에 1건 발행 → 실시간으로 보고 있는 상대만 받는다.
+ *  - 앞화면이고 사람이 쓰는 동안만 **60초 keepalive** POST(발행 없음) — 강제 종료·연결 끊김은 판정 창(150초) 뒤 오프라인.
+ *  - 손대지 않고 켜 둔 화면은 keepalive 정지(방 밖 5분 · 방 안 30분), 활동 시 즉시 재개.
+ *  - 전역 presence 채널 구독·track 없음 → 채널 정상 판정·폴백 폴링과 무관.
+ * 푸시 표시 판단은 1단계(#485)에서 presence 와 분리됐다(서버 항상 발송 · 기기 판단).
+ *
+ * 근거: docs/audit/supabase-request-surge-2026-11-18/d1-presence-push-structure-analysis-2026-11-19.md
+ */
+
 import { useEffect, useRef } from "react";
-import type { RealtimeChannel } from "@supabase/supabase-js";
-import { getSupabaseClient } from "@/lib/supabase/client";
-import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
-import type { CommunityMessengerPresenceState } from "@/lib/community-messenger/types";
-import { useMessengerPresenceStore } from "@/lib/community-messenger/stores/useMessengerPresenceStore";
-import { deriveLivePresenceFromSignals, mergePresenceStates } from "@/lib/community-messenger/presence/presence-policy";
 import { recordRouteEntryElapsedMetric, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
 import { noteTradeChatRoomPresenceReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
-import {
-  cmDebugTailUserId,
-  pushCmBrowserDebugEvent,
-} from "@/lib/community-messenger/realtime/cm-browser-debug-buffer";
-import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
-import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
-import { cmRtPresenceIsolatedError } from "@/lib/community-messenger/realtime/cm-rt-loop-guard";
 import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
+import { SAMARKET_PRESENCE_KEEPALIVE_MS } from "@/lib/community-messenger/presence/presence-policy";
+import { isPresenceHeartbeatIdle } from "@/lib/community-messenger/realtime/presence/presence-heartbeat-idle";
 
-type PresencePayload = {
-  userId?: unknown;
-  state?: unknown;
-  updatedAt?: unknown;
-};
-
-const HEARTBEAT_MS = 12_000;
 const ACTIVITY_THROTTLE_MS = 20_000;
-/**
- * Realtime `channel.track` 최소 간격 — HTTP 하트비트(12s)와 별개.
- * SUBSCRIBED·visibility·focus·online 이 짧은 시간에 겹치면 track 이 폭주해
- * `ClientPresenceRateLimitReached` 가 난다. 주기를 늘리는 것이 아니라 중복 track 만 막는다.
- */
-const PRESENCE_TRACK_MIN_GAP_MS = 10_000;
+/** 같은 가시성으로 이 간격 안에 keepalive 를 다시 보내지 않는다(focus·online 이 겹칠 때). 전환은 항상 즉시. */
+const PRESENCE_HTTP_MIN_GAP_MS = 5_000;
+const PRESENCE_ENDPOINT = "/api/community-messenger/presence";
 
 let runtimeRefCount = 0;
 let runtimeUserId = "";
-let presenceHeartbeatTimer: ReturnType<typeof setTimeout> | null = null;
+let keepaliveTimer: ReturnType<typeof setTimeout> | null = null;
 let presenceCleanup: (() => void) | null = null;
 let lastActivityMs = Date.now();
 let lastActivityThrottleAt = 0;
-let channelSubscribed = false;
-let lastPresenceTrackAt = 0;
-let lastPresenceTrackFingerprint = "";
-const PRESENCE_RUNTIME_SCOPE = "community-messenger:presence-runtime";
+let lastPostAt = 0;
+let lastPostVisibility: "foreground" | "background" | null = null;
+/** 유휴로 keepalive 가 멈춘 상태 — 다음 활동에서 전환 POST + 주기 재개 */
+let keepaliveIdlePaused = false;
+let resumeFromIdle: (() => void) | null = null;
 
 function nowIso() {
   return new Date().toISOString();
 }
 
-export function bumpCommunityMessengerPresenceActivity(_reason?: string): void {
-  const t = Date.now();
-  lastActivityMs = t;
-  lastActivityThrottleAt = t;
-}
-
-function maybeRecordThrottledActivity() {
-  const t = Date.now();
-  if (t - lastActivityThrottleAt < ACTIVITY_THROTTLE_MS) return;
-  lastActivityThrottleAt = t;
-  lastActivityMs = t;
-}
-
 function currentDocumentVisible(): boolean {
   if (typeof document === "undefined") return true;
   return document.visibilityState === "visible";
-}
-
-function clearPresenceHeartbeatTimer() {
-  if (presenceHeartbeatTimer != null) {
-    clearTimeout(presenceHeartbeatTimer);
-    presenceHeartbeatTimer = null;
-  }
-}
-
-let lastPresenceHttpPostAt = 0;
-let lastPresenceHttpPostVisibility: "foreground" | "background" | null = null;
-/**
- * 같은 가시성으로 이 간격 안에 다시 POST 하지 않는다 — SUBSCRIBED·focus·online 등 off-cadence 트리거가
- * 12s 하트비트와 겹쳐 요청이 2배가 되지 않게 한다. 가시성 전환(foreground↔background)은 항상 즉시 전송.
- */
-const PRESENCE_HTTP_MIN_GAP_MS = 5_000;
-
-function logPresenceHttpFailure(kind: string, args: { status: number; bodySnippet: string; deltaMs: number; payloadNote?: string }) {
-  if (!isDebugMessengerEnabled()) return;
-  try {
-    // eslint-disable-next-line no-console -- presence 400/네트워크 진단
-    console.warn("[cm-presence-client]", {
-      kind,
-      ...args,
-      viewerUserIdNull: !runtimeUserId,
-      runtimeUserIdLen: runtimeUserId.length,
-    });
-  } catch {
-    /* ignore */
-  }
-  pushCmBrowserDebugEvent({
-    label: "cm-presence-client",
-    scope: null,
-    channelName: null,
-    reason: kind,
-    status: String(args.status),
-    bodySnippet: args.bodySnippet ? args.bodySnippet.slice(0, 2000) : null,
-    payload: { deltaMs: args.deltaMs, payloadNote: args.payloadNote ?? null },
-    stopSourceStack: null,
-    fingerprint: null,
-    userIdTail: cmDebugTailUserId(runtimeUserId),
-  });
-}
-
-function isTerminalPresencePostBody(body: Record<string, unknown>): boolean {
-  if (body.sessionEnd === true) return true;
-  if (body.appVisibility === "background") return true;
-  return false;
-}
-
-function persistLastSeenSessionEnd(lastSeenAt: string) {
-  if (typeof navigator === "undefined") return;
-  const body = JSON.stringify({ lastSeenAt, sessionEnd: true });
-  try {
-    const blob = new Blob([body], { type: "application/json" });
-    navigator.sendBeacon?.("/api/community-messenger/presence", blob);
-  } catch {
-    void fetch("/api/community-messenger/presence", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-      keepalive: true,
-      credentials: "include",
-    })
-      .then(async (res) => {
-        if (res.ok) return;
-        const bodySnippet = (await res.text().catch(() => "")).slice(0, 2000);
-        logPresenceHttpFailure("session_end_fetch_failed", {
-          status: res.status,
-          bodySnippet,
-          deltaMs: -1,
-          payloadNote: "sessionEnd:true",
-        });
-      })
-      .catch(() => {});
-  }
 }
 
 function activeRoomIdFromPathname(): string | null {
@@ -150,292 +55,205 @@ function activeRoomIdFromPathname(): string | null {
   return m?.[1] ? decodeURIComponent(m[1]) : null;
 }
 
+function keepaliveIdleNow(): boolean {
+  return isPresenceHeartbeatIdle({
+    nowMs: Date.now(),
+    lastActivityMs,
+    inRoom: activeRoomIdFromPathname() != null,
+  });
+}
+
+function clearKeepaliveTimer() {
+  if (keepaliveTimer != null) {
+    clearTimeout(keepaliveTimer);
+    keepaliveTimer = null;
+  }
+}
+
+/** 메시지 전송 등 앱 동작 — 유휴 정지 중이면 즉시 재개 */
+export function bumpCommunityMessengerPresenceActivity(_reason?: string): void {
+  const t = Date.now();
+  lastActivityMs = t;
+  lastActivityThrottleAt = t;
+  if (keepaliveIdlePaused) resumeFromIdle?.();
+}
+
+function recordActivity() {
+  const t = Date.now();
+  if (keepaliveIdlePaused) {
+    lastActivityThrottleAt = t;
+    lastActivityMs = t;
+    resumeFromIdle?.();
+    return;
+  }
+  if (t - lastActivityThrottleAt < ACTIVITY_THROTTLE_MS) return;
+  lastActivityThrottleAt = t;
+  lastActivityMs = t;
+}
+
+function logPresenceHttpFailure(kind: string, status: number) {
+  if (!isDebugMessengerEnabled()) return;
+  try {
+    console.warn("[cm-presence-client]", { kind, status, runtimeUserIdLen: runtimeUserId.length });
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
- * DB `last_ping_at`·`app_visibility` 하트비트 — Realtime 채널 구독 여부와 **무관하게** 보낸다
- * (채널이 끊겨도 서버 presence·notification-presence-policy 가 stale 해지지 않도록).
- * @returns 실제로 POST 를 보냈으면 true (최소 간격으로 생략되면 false)
+ * @param transition true = 상태 전환(서버가 사용자 토픽에 발행). false = keepalive(DB 갱신만).
+ * @returns 실제로 보냈으면 true
  */
-function postPresenceHeartbeatHttp(): boolean {
+function postPresence(transition: boolean): boolean {
   const now = Date.now();
   const appVisibility = currentDocumentVisible() ? "foreground" : "background";
-  if (
-    lastPresenceHttpPostAt > 0 &&
-    appVisibility === lastPresenceHttpPostVisibility &&
-    now - lastPresenceHttpPostAt < PRESENCE_HTTP_MIN_GAP_MS
-  ) {
-    return false;
-  }
-  const deltaMs = lastPresenceHttpPostAt ? now - lastPresenceHttpPostAt : -1;
-  lastPresenceHttpPostAt = now;
-  lastPresenceHttpPostVisibility = appVisibility;
-  if (deltaMs >= 0 && deltaMs < 90) {
-    if (isDebugMessengerEnabled()) {
-      try {
-        // eslint-disable-next-line no-console -- 연속 POST(중복/race) 힌트
-        console.warn("[cm-presence-client]", {
-          kind: "heartbeat_burst",
-          deltaMs,
-          runtimeUserIdLen: runtimeUserId.length,
-        });
-      } catch {
-        /* ignore */
-      }
+  if (!transition) {
+    if (appVisibility === "foreground" && keepaliveIdleNow()) return false;
+    if (
+      lastPostAt > 0 &&
+      appVisibility === lastPostVisibility &&
+      now - lastPostAt < PRESENCE_HTTP_MIN_GAP_MS
+    ) {
+      return false;
     }
   }
+  lastPostAt = now;
+  lastPostVisibility = appVisibility;
   const payload = {
     lastPingAt: nowIso(),
     lastActivityAt: new Date(lastActivityMs).toISOString(),
     appVisibility,
     activeRoomId: appVisibility === "foreground" ? activeRoomIdFromPathname() : null,
-  } as const;
-  const bodyObj = payload as unknown as Record<string, unknown>;
-  // NEW-22: 백그라운드 전환 신호는 페이지 freeze/hide 에도 살아남도록 keepalive 로 보낸다
-  // (realtime 채널이 끊겨 있어도 서버 last_ping_at/background 가 갱신됨).
-  const terminalBody = isTerminalPresencePostBody(bodyObj);
-  const postOnce = () =>
-    fetch("/api/community-messenger/presence", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      ...(terminalBody ? { keepalive: true } : {}),
-    }).then(async (res) => {
-      if (res.ok) return true;
-      const bodySnippet = (await res.text().catch(() => "")).slice(0, 2000);
-      logPresenceHttpFailure("heartbeat_http_failed", {
-        status: res.status,
-        bodySnippet,
-        deltaMs,
-        payloadNote: JSON.stringify(payload),
-      });
-      return false;
-    });
-
-  if (!isDevSafeMode() || isTerminalPresencePostBody(bodyObj)) {
-    void postOnce().catch(() => {});
-    return true;
-  }
-
-  const surface = payload.appVisibility === "foreground" ? "heartbeat-fg" : "heartbeat-bg";
-  const dedupeKey = `${runtimeUserId}|cm-presence|${surface}`;
-  void runDevSafeSingleFlight(dedupeKey, 90_000, () => postOnce(), {
-    onlyCacheIf: (ok) => ok === true,
-  }).catch(() => {});
+    transition,
+  };
+  /** 백그라운드 전환은 페이지 freeze/hide 에도 살아남도록 keepalive fetch */
+  void fetch(PRESENCE_ENDPOINT, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    ...(appVisibility === "background" ? { keepalive: true } : {}),
+  })
+    .then((res) => {
+      if (!res.ok) logPresenceHttpFailure("presence_post_failed", res.status);
+    })
+    .catch(() => {});
   return true;
 }
 
-function parseIncomingState(raw: unknown): CommunityMessengerPresenceState {
-  /** P3: 구 클라이언트의 `away` 는 오프라인으로 본다(「자리 비움」 표시 없음) */
-  if (raw === "online") return "online";
-  return "offline";
-}
-
-function aggregatePresenceState(raw: Record<string, unknown>) {
-  const next: Record<
-    string,
-    {
-      userId: string;
-      state: CommunityMessengerPresenceState;
-      lastSeenAt: string | null;
-      updatedAt: string | null;
-    }
-  > = {};
-  for (const entries of Object.values(raw)) {
-    if (!Array.isArray(entries)) continue;
-    for (const item of entries) {
-      const payload = item as PresencePayload;
-      const userId = typeof payload.userId === "string" ? payload.userId.trim() : "";
-      if (!userId) continue;
-      const incomingState = parseIncomingState(payload.state);
-      const updatedAt = typeof payload.updatedAt === "string" ? payload.updatedAt : null;
-      const prev = next[userId];
-      if (!prev) {
-        next[userId] = {
-          userId,
-          state: incomingState,
-          lastSeenAt: null,
-          updatedAt,
-        };
-        continue;
-      }
-      const merged = mergePresenceStates(prev.state, incomingState);
-      let nextUpdated = prev.updatedAt;
-      if (updatedAt && prev.updatedAt) {
-        nextUpdated = new Date(updatedAt) > new Date(prev.updatedAt) ? updatedAt : prev.updatedAt;
-      } else {
-        nextUpdated = updatedAt ?? prev.updatedAt;
-      }
-      next[userId] = { ...prev, state: merged, updatedAt: nextUpdated };
-    }
+function postSessionEndBeacon(lastSeenAt: string) {
+  if (typeof navigator === "undefined") return;
+  const body = JSON.stringify({ lastSeenAt, sessionEnd: true, transition: true });
+  try {
+    const blob = new Blob([body], { type: "application/json" });
+    if (navigator.sendBeacon?.(PRESENCE_ENDPOINT, blob)) return;
+  } catch {
+    /* fall through */
   }
-  return next;
+  void fetch(PRESENCE_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+    keepalive: true,
+    credentials: "include",
+  }).catch(() => {});
 }
 
 function ensurePresenceRuntime(userId: string) {
   if (presenceCleanup && runtimeUserId === userId) return;
   presenceCleanup?.();
-  const sb = getSupabaseClient();
-  if (!sb) return;
   runtimeUserId = userId;
   lastActivityMs = Date.now();
   lastActivityThrottleAt = 0;
-  channelSubscribed = false;
-  lastPresenceHttpPostAt = 0;
-  lastPresenceHttpPostVisibility = null;
-  lastPresenceTrackAt = 0;
-  lastPresenceTrackFingerprint = "";
-  const store = useMessengerPresenceStore;
-  let activeChannel: RealtimeChannel | null = null;
+  lastPostAt = 0;
+  lastPostVisibility = null;
+  keepaliveIdlePaused = false;
 
-  const syncOwnState = async () => {
-    /** HTTP 하트비트는 채널과 독립 — Realtime 이 끊겨도 DB ping·background 신호 유지 */
-    postPresenceHeartbeatHttp();
-    if (!channelSubscribed || !activeChannel) return;
-    const state = deriveLivePresenceFromSignals({
-      nowMs: Date.now(),
-      channelSubscribed,
-      documentVisible: currentDocumentVisible(),
-      lastActivityMs,
-    });
-    const lastActivityAt = new Date(lastActivityMs).toISOString();
-    const fingerprint = `${userId}|${state}|${currentDocumentVisible() ? "fg" : "bg"}`;
-    const now = Date.now();
-    const identical = fingerprint === lastPresenceTrackFingerprint;
-    const withinGap = lastPresenceTrackAt > 0 && now - lastPresenceTrackAt < PRESENCE_TRACK_MIN_GAP_MS;
-    /** 동일 상태 중복 track 만 억제. 온라인/away/offline·가시성 변경은 gap 안이어도 즉시 전송. */
-    if (identical && withinGap) return;
-    lastPresenceTrackAt = now;
-    lastPresenceTrackFingerprint = fingerprint;
-    try {
-      await activeChannel.track({
-        userId,
-        state,
-        updatedAt: nowIso(),
-        lastActivityAt,
-      });
-    } catch (err) {
-      cmRtPresenceIsolatedError("track_failed", {
-        userIdTail: userId.length > 8 ? userId.slice(-8) : userId,
-        state,
-        message: err instanceof Error ? err.message : String(err),
-      });
-    }
-  };
-
-  /** 마지막 HTTP POST 기준 HEARTBEAT_MS 주기 — off-cadence 전송이 있어도 간격이 12s 를 넘지 않게 앵커링 */
-  const scheduleHeartbeat = () => {
-    clearPresenceHeartbeatTimer();
+  /** 마지막 POST 기준 60초 — 전환 POST 가 있어도 간격이 주기를 넘지 않게 앵커링 */
+  const scheduleKeepalive = () => {
+    clearKeepaliveTimer();
     if (!currentDocumentVisible()) return;
-    const sinceLastPost = lastPresenceHttpPostAt > 0 ? Date.now() - lastPresenceHttpPostAt : 0;
-    const delayMs = Math.min(HEARTBEAT_MS, Math.max(0, HEARTBEAT_MS - sinceLastPost));
-    presenceHeartbeatTimer = setTimeout(() => {
-      presenceHeartbeatTimer = null;
+    if (keepaliveIdleNow()) {
+      keepaliveIdlePaused = true;
+      return;
+    }
+    keepaliveIdlePaused = false;
+    const sinceLast = lastPostAt > 0 ? Date.now() - lastPostAt : 0;
+    const delayMs = Math.min(
+      SAMARKET_PRESENCE_KEEPALIVE_MS,
+      Math.max(0, SAMARKET_PRESENCE_KEEPALIVE_MS - sinceLast)
+    );
+    keepaliveTimer = setTimeout(() => {
+      keepaliveTimer = null;
       if (!currentDocumentVisible()) return;
-      void syncOwnState().finally(() => {
-        scheduleHeartbeat();
-      });
+      if (keepaliveIdleNow()) {
+        keepaliveIdlePaused = true;
+        return;
+      }
+      postPresence(false);
+      scheduleKeepalive();
     }, delayMs);
   };
 
-  const onSync = () => {
-    if (!activeChannel) return;
-    const aggregated = aggregatePresenceState(activeChannel.presenceState());
-    const previous = store.getState().byUserId;
-    store.getState().replacePresenceMap(applyPresenceSyncToMap(previous, aggregated, nowIso()));
+  resumeFromIdle = () => {
+    if (!keepaliveIdlePaused || !currentDocumentVisible()) return;
+    keepaliveIdlePaused = false;
+    /** 판정 창이 지나 상대에게 오프라인으로 보였을 수 있다 → 전환으로 보낸다 */
+    postPresence(true);
+    scheduleKeepalive();
   };
-
-  let markRealtimeSignal = () => {};
-  const sub = subscribeWithRetry({
-    sb,
-    name: "community-messenger:presence",
-    scope: PRESENCE_RUNTIME_SCOPE,
-    channelOptions: messengerPrivateBroadcastChannelOptions(),
-    isCancelled: () => runtimeRefCount <= 0,
-    silentAfterMs: 18_000,
-    onStatus: (status) => {
-      channelSubscribed = status === "SUBSCRIBED";
-      if (channelSubscribed) {
-        // 즉시 track — HTTP 는 최소 간격 안이면 생략되어 이중 전송 없음
-        void syncOwnState();
-      }
-      // 채널 상태와 무관하게 HTTP 하트비트 주기 유지 (끊김 시 타이머를 멈추지 않는다)
-      scheduleHeartbeat();
-    },
-    build: (channel) => {
-      /**
-       * subscribeWithRetry가 내부적으로 채널을 재생성할 때
-       * 새 채널은 아직 join 이전 상태이므로 즉시 track/untrack를 막는다.
-       */
-      channelSubscribed = false;
-      activeChannel = channel;
-      return channel.on("presence", { event: "sync" }, () => {
-        markRealtimeSignal();
-        onSync();
-      });
-    },
-  });
-  markRealtimeSignal = sub.markSignal;
 
   const onVisibility = () => {
     if (currentDocumentVisible()) {
+      const wasHidden = lastPostVisibility === "background";
       lastActivityMs = Date.now();
-      void syncOwnState();
-      scheduleHeartbeat();
+      keepaliveIdlePaused = false;
+      postPresence(wasHidden || lastPostAt === 0);
+      scheduleKeepalive();
     } else {
-      clearPresenceHeartbeatTimer();
-      void syncOwnState();
+      clearKeepaliveTimer();
+      postPresence(true);
     }
+  };
+  const onFocusOrOnline = () => {
+    if (!currentDocumentVisible()) return;
+    recordActivity();
+    /** 오프라인 동안 놓친 keepalive 보충 — 최소 간격 안이면 생략 */
+    postPresence(false);
+    scheduleKeepalive();
   };
   const onPageHide = () => {
-    const lastSeenAt = nowIso();
-    store.getState().upsertPresence(userId, { state: "offline", lastSeenAt, updatedAt: lastSeenAt });
-    persistLastSeenSessionEnd(lastSeenAt);
-    if (channelSubscribed && activeChannel) {
-      void activeChannel.untrack().catch((err) => {
-        cmRtPresenceIsolatedError("untrack_failed", {
-          message: err instanceof Error ? err.message : String(err),
-        });
-      });
-    }
+    clearKeepaliveTimer();
+    postSessionEndBeacon(nowIso());
   };
-
-  const onActivity = () => maybeRecordThrottledActivity();
+  const onActivity = () => recordActivity();
 
   document.addEventListener("visibilitychange", onVisibility);
-  window.addEventListener("focus", onVisibility);
-  window.addEventListener("online", onVisibility);
+  window.addEventListener("focus", onFocusOrOnline);
+  window.addEventListener("online", onFocusOrOnline);
   window.addEventListener("pagehide", onPageHide);
   document.addEventListener("pointerdown", onActivity, { capture: true, passive: true });
   document.addEventListener("keydown", onActivity);
-  window.addEventListener("scroll", onActivity, { passive: true });
+  /** 메신저 목록·타임라인은 안쪽 스크롤 상자라 window scroll 이 오지 않는다 → capture 로 받는다 */
+  document.addEventListener("scroll", onActivity, { capture: true, passive: true });
 
-  /** 첫 HTTP 하트비트 — Realtime SUBSCRIBED 를 기다리지 않는다 */
-  void syncOwnState();
-  scheduleHeartbeat();
+  /** 시작 = 앞화면 진입 전환 */
+  if (currentDocumentVisible()) {
+    postPresence(true);
+    scheduleKeepalive();
+  }
 
   presenceCleanup = () => {
-    clearPresenceHeartbeatTimer();
+    clearKeepaliveTimer();
     document.removeEventListener("visibilitychange", onVisibility);
-    window.removeEventListener("focus", onVisibility);
-    window.removeEventListener("online", onVisibility);
+    window.removeEventListener("focus", onFocusOrOnline);
+    window.removeEventListener("online", onFocusOrOnline);
     window.removeEventListener("pagehide", onPageHide);
     document.removeEventListener("pointerdown", onActivity, true);
     document.removeEventListener("keydown", onActivity);
-    window.removeEventListener("scroll", onActivity);
-    const ch = activeChannel;
-    const wasSubscribed = channelSubscribed;
-    channelSubscribed = false;
-    lastPresenceTrackAt = 0;
-    lastPresenceTrackFingerprint = "";
-    if (wasSubscribed && ch) {
-      void ch.untrack().catch((err) => {
-        cmRtPresenceIsolatedError("untrack_failed", {
-          message: err instanceof Error ? err.message : String(err),
-        });
-      });
-    }
-    sub.stop();
-    activeChannel = null;
+    document.removeEventListener("scroll", onActivity, true);
+    resumeFromIdle = null;
+    keepaliveIdlePaused = false;
   };
 }
 
@@ -444,7 +262,6 @@ function releasePresenceRuntime() {
   presenceCleanup?.();
   presenceCleanup = null;
   runtimeUserId = "";
-  channelSubscribed = false;
 }
 
 export function useCommunityMessengerPresenceRuntime(userId: string | null | undefined): void {
