@@ -381,6 +381,31 @@ describe("FAIL-2 감사 2 — 인증 종료로 다시 차단", () => {
   });
 });
 
+describe("FAIL-2 감사 2차 — 셸 전 구간 앱 안 이동(X1)·인증 종료 직후 ◁(X5)", () => {
+  it("X1: 알림 room-1 차단 해제(셸 suspend) → 앱 안 이동 room-2(in_app) → 옛 등록 해제, ◁ 가 주인을 거치지 않음", async () => {
+    armSuspense();
+    await renderBoundary("/community-messenger/rooms/room-1");
+    await unblock();
+    expect(state.ownerTag).toBe(PRE_SHELL_TAG);
+    state.entryOrigin = "in_app";
+    await renderBoundary("/community-messenger/rooms/room-2");
+    expect(container.querySelector("[data-testid=room-loading]")).not.toBeNull();
+    expect(hasPageBackOwner()).toBe(false);
+    pressSystemBack();
+    expect(router.back).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it("X5: 차단 중 주인 → 인증 종료 플래그만 켜짐(다시 그리기 전) → ◁ 아무것도 안 함", async () => {
+    await renderBoundary("/community-messenger/rooms/room-1");
+    expect(state.ownerTag).toBe(PRE_SHELL_TAG);
+    state.authExit = true;
+    pressSystemBack();
+    expect(router.replace).not.toHaveBeenCalled();
+    expect(router.back).not.toHaveBeenCalled();
+  });
+});
+
 describe("FAIL-2 감사 3 — 이동 1회 표시는 주소가 바뀌면 다시 열림", () => {
   it("◁ 1회 뒤 같은 요소에서 주소가 다른 방으로 바뀌면 ◁ 가 다시 이동", async () => {
     await renderBoundary("/community-messenger/rooms/room-1");
@@ -394,7 +419,7 @@ describe("FAIL-2 감사 3 — 이동 1회 표시는 주소가 바뀌면 다시 �
   });
 });
 
-describe("FAIL-2 감사 4 — 통화 경로 화면 트리 정체성(main 과 같음)", () => {
+describe("FAIL-2 회귀 가드 — 통화·경로 이동 화면 트리 정체성(main 판에서도 같은 결과)", () => {
   it("A: 통화 경로(세션 확인됨) → 방 경로 → 목록 경로 이동에도 화면 트리 마운트 1회, 통화 경로에서 주인 없음", async () => {
     clearAuthSessionClientCache();
     await renderBoundary("/community-messenger/calls/call-1");

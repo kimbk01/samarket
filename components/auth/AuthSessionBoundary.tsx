@@ -143,24 +143,8 @@ export function AuthSessionBoundary({ children }: Props) {
     };
   }, [dependent, membership.status, pathname, sessionApiAuthenticated]);
 
-  /**
-   * FAIL-2 — 메신저 방 경로에서만 「차단」 화면 동안 ◁ 주인(`MessengerRoomPreShellBackOwner`). 통화·그 밖 경로는 null.
-   * 모든 반환을 같은 모양(`[화면, 주인 칸]`)으로 둔다 — 모양이 경로마다 달라지면 경로 이동 때 `children` 이 다시 마운트되고,
-   * 차단이 풀릴 때 주인 요소가 같은 자리에 남아야 방 셸 등록 뒤에 해제된다(리스너 재설치 없음).
-   */
-  const path = pathname.trim() || (typeof window !== "undefined" ? window.location.pathname : "");
-  /** 인증 종료 이동 중에는 주인 요소를 그리지 않는다(언마운트 = 자기 등록 해제) — ◁ 가 로그인 이탈 이동과 겹치지 않게 */
-  const withPreShellBackSlot = (node: ReactNode, blocked: boolean) => (
-    <>
-      {node}
-      {isMessengerRoomPreShellBackPath(path) && !isAuthExitNavigateStarted() ? (
-        <MessengerRoomPreShellBackOwner active={blocked} />
-      ) : null}
-    </>
-  );
-
   if (!dependent) {
-    return withPreShellBackSlot(children, false);
+    return <>{children}</>;
   }
 
   const phase = getSessionPhase();
@@ -180,8 +164,16 @@ export function AuthSessionBoundary({ children }: Props) {
    */
   const isDeliveryActivityHub = pathForOwnerGate === "/orders/activity";
   if ((isOwnerAdminRoute || isDeliveryActivityHub) && !isAuthExitNavigateStarted()) {
-    return withPreShellBackSlot(children, false);
+    return <>{children}</>;
   }
+
+  /**
+   * FAIL-2 — 메신저 방 경로(통화 경로 제외)에서만 ◁ 주인 요소를 화면 뒤 형제로 둔다. 차단 화면 동안 등록(active)하고,
+   * 차단이 풀려도 같은 자리에 남아 방 셸이 칸을 가져갈 때까지 주인을 유지한다(셸 전 Suspense 구간 포함, 리스너 재설치 없음).
+   * 인증 종료 이동 중에는 그리지 않는다(언마운트 = 자기 등록 해제). 그 밖 경로의 반환은 main 과 같다.
+   */
+  const roomPreShellBackSlot =
+    isMessengerRoomPreShellBackPath(pathForOwnerGate) && !isAuthExitNavigateStarted();
 
   /**
    * Messenger room/call — middleware already requires auth. Same fail-open as owner shell:
@@ -192,7 +184,15 @@ export function AuthSessionBoundary({ children }: Props) {
     sessionApiAuthenticated &&
     !isAuthExitNavigateStarted()
   ) {
-    return withPreShellBackSlot(children, false);
+    if (roomPreShellBackSlot) {
+      return (
+        <>
+          {children}
+          <MessengerRoomPreShellBackOwner active={false} />
+        </>
+      );
+    }
+    return <>{children}</>;
   }
 
   const holdForRecovery =
@@ -215,17 +215,33 @@ export function AuthSessionBoundary({ children }: Props) {
   });
 
   if (blockPrivateTree) {
-    return withPreShellBackSlot(
+    const blockedScreen = (
       <div
         className="flex min-h-[40vh] items-center justify-center bg-sam-app px-4"
         aria-busy="true"
         data-auth-session-boundary="blocked"
       >
         <p className="sam-text-body text-sam-muted">{t("mypage_comp_loading_ellipsis")}</p>
-      </div>,
-      true
+      </div>
     );
+    if (roomPreShellBackSlot) {
+      return (
+        <>
+          {blockedScreen}
+          <MessengerRoomPreShellBackOwner active />
+        </>
+      );
+    }
+    return blockedScreen;
   }
 
-  return withPreShellBackSlot(children, false);
+  if (roomPreShellBackSlot) {
+    return (
+      <>
+        {children}
+        <MessengerRoomPreShellBackOwner active={false} />
+      </>
+    );
+  }
+  return <>{children}</>;
 }

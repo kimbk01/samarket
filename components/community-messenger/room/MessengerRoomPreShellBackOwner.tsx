@@ -8,6 +8,7 @@ import {
   runMessengerRoomBackTarget,
 } from "@/lib/community-messenger/room/messenger-room-back-target";
 import { hasPageBackOwner, setPageBackOwner } from "@/lib/ui/overlay-back-stack";
+import { isAuthExitNavigateStarted } from "@/lib/auth/auth-exit-coordinator";
 
 /** 메신저 방 경로(`/community-messenger/rooms/…`)만 — 통화 경로(`/community-messenger/calls/…`)는 대상 아님. */
 export function isMessengerRoomPreShellBackPath(pathname: string): boolean {
@@ -30,7 +31,8 @@ type Props = {
  *  - 방 셸이 등록하면 칸을 덮어쓴다(마지막 등록이 이김) → 이 등록은 더 이상 주인이 아니고, 이후 해제는 자기 등록이 아니라 무동작.
  *  - 셸이 아직 없으면 이 요소가 계속 주인 → ◁ = 목록(결함 E 의 HOME 으로 새지 않음).
  *  - 방 경로를 떠나거나(부모가 이 요소를 그리지 않음) 언마운트되면 자기 등록만 해제.
- *  - 진입 출처가 바뀌어 목적지가 history back 이 되면(차단 중) 해제.
+ *  - 진입 출처가 바뀌어 목적지가 history back 이 되면(차단 중·해제 뒤 모두) 해제.
+ *  - 인증 종료 이동이 시작됐으면 누른 ◁ 는 아무것도 하지 않는다(로그인 이동과 겹치지 않게).
  * 따라서 차단 해제 → 셸 등록 사이에 칸 공백·네이티브 리스너 재설치가 없다(#454 감사의 재설치 공백).
  * 타이머·재시도·대체 이동·전역 이동 상태 없음.
  */
@@ -53,6 +55,8 @@ export function MessengerRoomPreShellBackOwner({ active }: Props) {
   const runBackRef = useRef<() => void>(() => {});
   useEffect(() => {
     runBackRef.current = () => {
+      /** 인증 종료 이동이 시작됐으면(다시 그리기 전이라도) 로그인 이동과 겹치지 않게 아무것도 하지 않는다 */
+      if (isAuthExitNavigateStarted()) return;
       if (committedNavRef.current) return;
       committedNavRef.current = true;
       runMessengerRoomBackTarget(router, resolveBackTarget());
@@ -61,10 +65,9 @@ export function MessengerRoomPreShellBackOwner({ active }: Props) {
 
   const pageBackOwnerReleaseRef = useRef<(() => void) | null>(null);
   useEffect(() => {
-    /** 차단이 풀렸다고 해제하지 않는다 — 셸이 칸을 가져가면 이 등록은 자연히 무효, 셸 전 구간은 계속 주인 */
-    if (!active) return;
     const target = resolveBackTarget();
     const held = pageBackOwnerReleaseRef.current;
+    /** 목적지가 history back(앱 안 진입)이 되면 차단 여부와 상관없이 자기 등록만 해제(예: 셸 전 구간에 앱 안 이동으로 다른 방) */
     if (target.kind !== "replace") {
       if (held) {
         pageBackOwnerReleaseRef.current = null;
@@ -72,6 +75,8 @@ export function MessengerRoomPreShellBackOwner({ active }: Props) {
       }
       return;
     }
+    /** 차단이 풀렸다고 해제하지 않는다 — 셸이 칸을 가져가면 이 등록은 자연히 무효, 셸 전 구간은 계속 주인 */
+    if (!active) return;
     if (held && hasPageBackOwner()) return;
     pageBackOwnerReleaseRef.current = null;
     console.info("[cm-room-back] pre_shell_page_back_owner", { href: target.href });
