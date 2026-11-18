@@ -299,6 +299,7 @@ import {
   isStaleRingingRow,
   terminalStaleRingingDirectSessionsForUser,
 } from "@/lib/community-messenger/call-stale-ringing-cleanup";
+import { runIncomingListReconcileIfDue } from "@/lib/community-messenger/call-incoming-list-reconcile-gate";
 import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-community-messenger-incoming-call-push";
 import { sendWebPushForCommunityMessengerCallTerminal } from "@/lib/push/send-community-messenger-call-canceled-push";
 import { sendWebPushForCommunityMessengerCallAnsweredElsewhere } from "@/lib/push/send-community-messenger-call-answered-elsewhere-push";
@@ -1458,7 +1459,15 @@ async function filterDirectIncomingRowsForPolicy(
   policy: MessengerCallAdminPolicy
 ): Promise<CallSessionRow[]> {
   if (!rows.length) return [];
-  await reconcileUserLiveCallSessions(userId, "incoming_policy");
+  /**
+   * 실제 ringing 행이 있을 때만 탄다 — 정책(busy·대기·대체) 전에 정리를 강제한다.
+   * 목록 폴링의 N초 묶기와 달리, 벨이 울리는 순간의 동등성을 우선한다.
+   */
+  await runIncomingListReconcileIfDue(
+    userId,
+    () => reconcileUserLiveCallSessions(userId, "incoming_policy"),
+    { force: true },
+  );
   let viewerLiveSessionId = await getViewerIncomingBlockingLiveSessionId(sb, userId);
   if (viewerLiveSessionId && rows.some((row) => row.id !== viewerLiveSessionId)) {
     const { data: blockingRow } = await (sb as any)
@@ -22814,14 +22823,23 @@ export async function listIncomingCommunityMessengerCallSessionsResult(
   options?: { directOnly?: boolean }
 ): Promise<IncomingCallSessionsListResult> {
   const policy = await getMessengerCallAdminPolicyCached();
-  await reconcileUserLiveCallSessions(userId, "incoming_api");
+  /**
+   * Phase A1 (Owner 승인 2026-11-18 · cursor-root-cause-and-fundamental-fix):
+   * 매 폴링마다 전체 reconcile(R1~R3) + 중복 stale 정리를 돌리지 않는다.
+   * - 사용자당 N초(기본 30초)에 최대 1회 전체 reconcile — 정리 결과는 동일, 시점만 ≤N초.
+   * - 그 사이 폴링은 수신 목록 SELECT 1회만 (응답·D1 오류 계약 동일).
+   * - 11-08 §6 BLOCKED(쿼리 조각 삭제)를 피하고, 보완서가 허용한 「호출 횟수 묶기」로 구현.
+   * - cron `stale-cleanup`(2분)이 폴링 없는 기기의 만료도 처리한다.
+   */
+  await runIncomingListReconcileIfDue(userId, () =>
+    reconcileUserLiveCallSessions(userId, "incoming_api"),
+  );
   const sb = getSupabaseOrNull();
   /** D1: 운영 배포에서 DB 클라이언트가 없으면 개발용 메모리 상태로 떨어지지 않고 오류로 알린다. */
   if (!sb && resolveServerDeployTier(process.env) === "production") {
     return { ok: false, reason: "db_unavailable" };
   }
   if (sb) {
-    await terminalStaleRingingDirectSessionsForUser(sb, userId, policy).catch(() => 0);
     if (options?.directOnly) {
       const { data: directRows, error: directError } = await (sb as any)
         .from("community_messenger_call_sessions")
