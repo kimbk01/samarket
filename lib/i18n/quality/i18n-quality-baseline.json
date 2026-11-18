@@ -405,7 +405,6 @@
    "lib/chat/chat-room-admin-suspend.ts": 1,
    "lib/chat/postSellerListingChangeNotice.ts": 1,
    "lib/chat/sendChatMessage.ts": 4,
-   "lib/chats/chat-list-last-message-display.ts": 1,
    "lib/chats/chat-list-preview-trim.ts": 1,
    "lib/chats/chat-product-from-post.ts": 3,
    "lib/chats/chat-rooms-list-core.ts": 2,
