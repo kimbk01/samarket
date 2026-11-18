@@ -12,7 +12,7 @@ import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/noti
  * 재진입 첫 그림에서 「reached latest」 효과가 진입 미읽음 세션·구분선을 지울 수 있었다.
  * 방(라우트 id·스트림 id)이 열릴 때 level 과 무관하게 그 방 읽기 상태를 지운다 — paint 전(layout effect).
  * 위치는 진입 완료 viewport 동기화가 다시 쓴다. 그 전에는 위치가 없으므로 「↓」를 그리지 않는다
- * (`resolveMessengerRoomJumpLatestFabVisible`).
+ * (`resolveMessengerRoomJumpLatestFab`).
  */
 export function useMessengerRoomReaderScrollRoomLifecycle({
   roomId,

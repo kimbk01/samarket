@@ -25,6 +25,7 @@ import {
   type MessengerTextSendAttemptArgs,
 } from "@/lib/community-messenger/room/phase2/use-messenger-text-send-outbox";
 import {
+  MESSENGER_FAILED_TEXT_STORAGE_KEY,
   clearMessengerFailedTextSends,
   listMessengerFailedTextSends,
   saveMessengerFailedTextSend,
@@ -721,7 +722,9 @@ describe("설계 3판 B-D2 복원 전에 온 실패 이벤트", () => {
       await attemptA;
     });
     spy.mockRestore();
-    expect(savedCids()).toEqual([]);
+    /** 감사 D1 이후: 기기 저장소에는 없고 메모리 보관소에 있다 */
+    expect(localStorage.getItem(MESSENGER_FAILED_TEXT_STORAGE_KEY)).toBeNull();
+    expect(savedCids()).toEqual(["c-early"]);
     expect(b.rows()).toHaveLength(0);
     b.setReady(true);
     await act(async () => {
@@ -739,5 +742,110 @@ describe("설계 3판 B-D2 복원 전에 온 실패 이벤트", () => {
     expect(b.rows().filter((r) => r.clientMessageId === "c-early")).toHaveLength(1);
     act(() => getMessengerOutboundFailedSend(id)!.discard());
     expect(b.rows().filter((r) => r.clientMessageId === "c-early")).toHaveLength(0);
+  });
+});
+
+describe("PR #442 감사 D1·D2 기기 저장소 거부 시 메모리 보관소", () => {
+  it("D1: 저장 거부 + 응답 전 나감(같은 방 화면 없음) + 503 → 재진입 → 실패 행 1, 재전송·삭제 동작", async () => {
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("quota", "QuotaExceededError");
+    });
+    const a = mount();
+    const t = a.nextTempId();
+    a.setRows([optimistic(t, "c-d1", "d1 text")]);
+    let resolveA: (r: Response) => void = () => undefined;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((r) => (resolveA = r)));
+    let attemptA: Promise<boolean> | null = null;
+    act(() => {
+      attemptA = a.runRaw({ tempId: t, clientMessageId: "c-d1", content: "d1 text", replyId: "", failRestoreGeneration: 0 });
+    });
+    a.unmount();
+    await act(async () => {
+      resolveA(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+      await attemptA;
+    });
+    spy.mockRestore();
+    const b = mount();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    const rows = b.rows().filter((r) => r.clientMessageId === "c-d1");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.sendFailed).toBe(true);
+    const id = rows[0]!.id;
+    fetchMock.mockResolvedValueOnce(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+    await retry(b, id);
+    const body = JSON.parse(String((fetchMock.mock.calls.at(-1)![1] as RequestInit).body));
+    expect(body).toMatchObject({ clientMessageId: "c-d1", content: "d1 text" });
+    act(() => getMessengerOutboundFailedSend(id)!.discard());
+    expect(b.rows().filter((r) => r.clientMessageId === "c-d1")).toHaveLength(0);
+    expect(savedCids()).toEqual([]);
+  });
+
+  it("D2: 라우트 id 로 연 새 화면 + 저장 거부 + 복원 전 실패 이벤트(정규 id) → 스냅샷(정규 id) 뒤 실패 행 1", async () => {
+    const ROUTE_ID = "pc-route-trade-1";
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("quota", "QuotaExceededError");
+    });
+    const a = mount();
+    const t = a.nextTempId();
+    a.setRows([optimistic(t, "c-d2", "d2 text")]);
+    let resolveA: (r: Response) => void = () => undefined;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((r) => (resolveA = r)));
+    let attemptA: Promise<boolean> | null = null;
+    act(() => {
+      attemptA = a.runRaw({ tempId: t, clientMessageId: "c-d2", content: "d2 text", replyId: "", failRestoreGeneration: 0 });
+    });
+    a.unmount();
+    // 새 화면: 스냅샷 전이라 스트림 id = 라우트 id(거래 채팅 id)
+    const ctl: { setRoom: ((r: string) => void) | null; rows: Row[] } = { setRoom: null, rows: [] };
+    function Probe() {
+      const [roomId, setRoomId] = useState(ROUTE_ID);
+      const [rows, setRows] = useState<Row[]>([]);
+      const rowsRef = useRef<Row[]>(rows);
+      rowsRef.current = rows;
+      const unconfirmed = useRef<MessengerUnconfirmedTextSend | null>(null);
+      const failedIds = useRef<Set<string>>(new Set());
+      const seqRef = useMessengerPendingRowSeqRef();
+      useMessengerTextSendOutbox({
+        streamRoomId: roomId,
+        restoreReady: roomId === ROOM,
+        roomMessages: rows,
+        roomMessagesRef: rowsRef,
+        setRoomMessages: setRows,
+        setMessage: () => undefined,
+        resolveOutboundSender: () => ({ senderId: "me", senderLabel: "me" }),
+        nextPendingRowId: () => `pending:${roomId}:${seqRef.current++}`,
+        unconfirmedTextSendRef: unconfirmed,
+        failedOutboundRowIdsRef: failedIds,
+        getRoomActionErrorMessage: (e) => `err:${e ?? ""}`,
+        redirectIfMessengerAuthBlocked: () => false,
+        onTextSendConfirmed: () => undefined,
+      });
+      ctl.setRoom = setRoomId;
+      ctl.rows = rows;
+      return null;
+    }
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    roots.push(root);
+    hosts.push(host);
+    act(() => root.render(<Probe />));
+    // 복원 전(라우트 id 화면)에 정규 id 로 실패 이벤트 → 방 id 불일치로 이 화면 대기열에는 안 들어감
+    await act(async () => {
+      resolveA(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+      await attemptA;
+    });
+    spy.mockRestore();
+    expect(ctl.rows).toHaveLength(0);
+    // 스냅샷 도착 → 스트림 id 가 정규 id 로 바뀌고 진입 복원 실행
+    act(() => ctl.setRoom!(ROOM));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    const rows = ctl.rows.filter((r) => r.clientMessageId === "c-d2");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.sendFailed).toBe(true);
   });
 });

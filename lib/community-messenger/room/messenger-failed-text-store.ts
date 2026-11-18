@@ -2,14 +2,16 @@
  * P1 (Owner 2026-11-18 「권장안대로 반영」): 결과 불명(indeterminate) 실패 글 행을 방을 나갔다 와도 유지한다.
  * 레거시(Telegram) 근거: SendMessagesHelper 가 실패 상태를 메시지에 저장해 다시 열어도 실패 말풍선(재전송)이 남는다.
  *
- * - 기기 저장소(localStorage) 1개 키에 방별 목록 — 모든 접근은 try/catch(사생활 모드·용량 초과·차단 시 조용히 무시).
+ * - 기기 저장소(localStorage) 1개 키에 방별 목록 — 모든 접근은 try/catch. 쓰기가 거부되면(사생활 모드·용량 초과·차단)
+ *   `saveMessengerFailedTextSend` 가 false 를 돌려주고(호출부가 사유 스낵바), 같은 항목을 **앱 실행 중 메모리 보관소**에 둔다
+ *   (PR #442 감사 D1 — 앱이 실행 중인 동안은 방을 나갔다 와도 실패 행으로 복원, 앱 종료·새로고침 때만 사라진다).
  * - 재전송은 같은 clientMessageId(서버 UNIQUE 멱등) → 같은 cid 확정 행이 오면 보관에서 제거.
  * - 로그아웃 시 지움(`lib/auth/client-session-wipe.ts`).
  *
  * F1 (설계 2026-11-18 PR-1 「사용자 조작 없이 글이 사라지는 경로 0」): 보관분은 **사용자 「삭제」 또는 같은 cid 확정 행**으로만
  * 지운다. 예전의 7일 만료·방당 20건/전체 200건 초과 시 오래된 것 삭제는 사용자 모르게 글을 지우는 경로라 없앴다
  * (7일 만료의 근거였던 진입 자동 재전송도 F1 에서 삭제). 저장소가 쓰기를 거부하면(용량 초과 등) 새 보관만 실패하고
- * 기존 보관분은 그대로 남는다 — 화면의 실패 행도 그대로이며, 호출부가 i18n 사유 스낵바로 알린다(PR-1 검토 #3).
+ * 기존 보관분은 그대로 남는다 — 새 글은 메모리 보관소에 두고, 호출부가 i18n 사유 스낵바로 알린다(PR-1 검토 #3·감사 D1).
  * 서버 글 길이 상한: 전송 RPC·route 모두 「빈 글」만 거절하고 길이 상한이 없다(2026-11-18 코드 확인) → 길이로 거르지 않는다.
  */
 
@@ -88,12 +90,32 @@ function writeAll(all: StoreShape): boolean {
   }
 }
 
-/** 방 진입 복원용 — 오래된 순(보관 시각) */
+/**
+ * 감사 D1: 기기 저장소가 쓰기를 거부한 글의 메모리 보관소(방 id → 항목). 앱 실행 중에만 유지.
+ * 읽기·지우기는 기기 저장소와 같은 규칙으로 함께 다룬다(같은 cid 는 기기 저장소 쪽 우선).
+ */
+const memoryFallbackByRoom = new Map<string, MessengerFailedTextSend[]>();
+
+function memoryRemove(roomId: string, cids: ReadonlySet<string>): string[] {
+  const list = memoryFallbackByRoom.get(roomId);
+  if (!list?.length) return [];
+  const removed = list.filter((e) => cids.has(e.clientMessageId)).map((e) => e.clientMessageId);
+  if (!removed.length) return [];
+  const kept = list.filter((e) => !cids.has(e.clientMessageId));
+  if (kept.length) memoryFallbackByRoom.set(roomId, kept);
+  else memoryFallbackByRoom.delete(roomId);
+  return removed;
+}
+
+/** 방 진입 복원용 — 기기 저장소 + 메모리 보관소(cid 중복 제외), 오래된 순(보관 시각) */
 export function listMessengerFailedTextSends(roomId: string): MessengerFailedTextSend[] {
   const id = roomId.trim();
   if (!id) return [];
   const all = readAll();
-  return [...(all[id] ?? [])].sort((a, b) => a.savedAt - b.savedAt);
+  const stored = all[id] ?? [];
+  const storedCids = new Set(stored.map((e) => e.clientMessageId));
+  const memory = (memoryFallbackByRoom.get(id) ?? []).filter((e) => !storedCids.has(e.clientMessageId));
+  return [...stored, ...memory].sort((a, b) => a.savedAt - b.savedAt);
 }
 
 /** 보관 성공 여부 반환 — false 면 기기 저장소가 거부(용량 초과·사생활 모드). 화면 행은 그대로 둔다. */
@@ -106,23 +128,35 @@ export function saveMessengerFailedTextSend(
   if (!id || !cid) return false;
   const all = readAll();
   /** 같은 cid 재저장(재전송 실패)은 처음 보관 시각을 유지 — 복원 순서가 바뀌지 않게 */
-  const previous = (all[id] ?? []).find((e) => e.clientMessageId === cid);
-  const list = (all[id] ?? []).filter((e) => e.clientMessageId !== cid);
-  list.push({
+  const previous =
+    (all[id] ?? []).find((e) => e.clientMessageId === cid) ??
+    (memoryFallbackByRoom.get(id) ?? []).find((e) => e.clientMessageId === cid);
+  const record: MessengerFailedTextSend = {
     clientMessageId: cid,
     content: entry.content,
     replyToMessageId: entry.replyToMessageId ?? null,
     createdAt: entry.createdAt,
     savedAt: entry.savedAt ?? previous?.savedAt ?? Date.now(),
-  });
+  };
+  const list = (all[id] ?? []).filter((e) => e.clientMessageId !== cid);
+  list.push(record);
   all[id] = list;
-  return writeAll(all);
+  if (writeAll(all)) {
+    memoryRemove(id, new Set([cid]));
+    return true;
+  }
+  /** 감사 D1: 기기 저장소 거부 — 앱 실행 중 메모리 보관소에 같은 형식으로 둔다(false 반환 → 호출부 스낵바) */
+  const mem = (memoryFallbackByRoom.get(id) ?? []).filter((e) => e.clientMessageId !== cid);
+  mem.push(record);
+  memoryFallbackByRoom.set(id, mem);
+  return false;
 }
 
 export function removeMessengerFailedTextSend(roomId: string, clientMessageId: string): void {
   const id = roomId.trim();
   const cid = clientMessageId.trim();
   if (!id || !cid) return;
+  memoryRemove(id, new Set([cid]));
   const all = readAll();
   const list = all[id];
   if (!list || !list.some((e) => e.clientMessageId === cid)) return;
@@ -137,18 +171,20 @@ export function pruneMessengerFailedTextSendsConfirmed(
 ): string[] {
   const id = roomId.trim();
   if (!id || confirmedClientMessageIds.size === 0) return [];
+  const removedMemory = memoryRemove(id, confirmedClientMessageIds);
   const all = readAll();
   const list = all[id];
-  if (!list?.length) return [];
+  if (!list?.length) return removedMemory;
   const removed = list.filter((e) => confirmedClientMessageIds.has(e.clientMessageId)).map((e) => e.clientMessageId);
-  if (!removed.length) return [];
+  if (!removed.length) return removedMemory;
   all[id] = list.filter((e) => !confirmedClientMessageIds.has(e.clientMessageId));
   writeAll(all);
-  return removed;
+  return [...new Set([...removed, ...removedMemory])];
 }
 
-/** 로그아웃·계정 전환 */
+/** 로그아웃·계정 전환 — 기기 저장소와 메모리 보관소 모두 */
 export function clearMessengerFailedTextSends(): void {
+  memoryFallbackByRoom.clear();
   const s = storage();
   if (!s) return;
   try {

@@ -482,16 +482,14 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
     const inflight = inflightKey(roomId, clientMessageId);
     inflightTextSendKeys.add(inflight);
     const startRow = d.roomMessagesRef.current.find((item) => item.id === tempId);
-    if (
-      saveMessengerFailedTextSend(roomId, {
-        clientMessageId,
-        content,
-        replyToMessageId: replyId || null,
-        createdAt: startRow?.createdAt ?? new Date().toISOString(),
-      })
-    ) {
-      persistedFailedTextCidsRef.current.add(clientMessageId);
-    }
+    saveMessengerFailedTextSend(roomId, {
+      clientMessageId,
+      content,
+      replyToMessageId: replyId || null,
+      createdAt: startRow?.createdAt ?? new Date().toISOString(),
+    });
+    /** 감사 D1: 기기 저장소가 거부해도 메모리 보관소에 들어가므로 항상 추적(확정 행이 오면 prune 이 두 곳 모두 지움) */
+    persistedFailedTextCidsRef.current.add(clientMessageId);
     /**
      * F8: 응답 본문 읽기까지 같은 12초 안에서 끝낸다.
      * CHAT-03: fetch 예외(네트워크/비행기 모드/시간 초과 abort) — res null, 서버 커밋 여부 불명(indeterminate).
@@ -633,10 +631,10 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
         replyToMessageId: replyId || null,
         createdAt: rowCreatedAt,
       });
-      if (kept) {
-        persistedFailedTextCidsRef.current.add(clientMessageId);
-      } else {
-        /** 검토 #3: 기기 저장소가 거부(용량 초과·사생활 모드) — 조용히 넘기지 않고 알린다(화면 행은 유지) */
+      /** 감사 D1: 거부돼도 메모리 보관소(앱 실행 중)에 있으므로 추적은 항상 */
+      persistedFailedTextCidsRef.current.add(clientMessageId);
+      if (!kept) {
+        /** 검토 #3: 기기 저장소가 거부(용량 초과·사생활 모드) — 앱을 닫으면 사라질 수 있음을 알린다(메모리 보관·화면 행은 유지) */
         showMessengerSnackbar(translateCmUi("cm_ui_failed_text_not_kept"), { variant: "error" });
       }
       /**
