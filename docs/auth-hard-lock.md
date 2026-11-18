@@ -390,3 +390,10 @@ Contract delta: **판정 의미 없음** — 3초 캐시의 의미(200 「로그
 - probe 시작 때 캐시가 살아 있으면 요청 없이 같은 결과(확인됨)를 쓴다 · probe 가 `authenticated: true` 를 받으면 캐시에 기록한다.
 - 401·비회원 표식(`noteGuest401`)·재시도·Supabase `getSession` 경로는 바꾸지 않는다(공용 조회 함수로 바꾸면 401 때 비회원 표식이 생겨 판정이 바뀌므로 쓰지 않음).
 Session / Destination / Completion / Profile 불변.
+
+---
+
+## Amendment 2026-11-18 (2) — 진행 중 확인에 합류 (위 Amendment 의 보완 · 같은 승인 「1부터 진행」 · 설계 §24 D5)
+
+First Break (11-18 Xiaomi·Samsung 운영 `4d4a1da` 실측 · 요청 헤더 기록): 위 Amendment 뒤에도 6회 중 5회 `/api/auth/session` 2회 — 세션 관리자(`ensureHealthy:bindAuthListener`)의 공용 조회가 먼저 시작해 Supabase 준비(최대 320ms)를 기다리는 사이 경계 확인(헤더 없음)이 나가고, 공용 조회는 기다린 뒤 캐시를 다시 보지 않고 요청했다.
+Contract delta: **판정 의미 없음** — 공용 조회가 요청 직전에 ① 캐시를 다시 보고 ② 진행 중인 경계 확인 결과를 기다린다. 결과가 「로그인됨」일 때만 캐시 적중과 같은 200 · 아니면(401·실패·예외) 지금처럼 직접 요청하고 401 재시도·비회원 표식 그대로.
