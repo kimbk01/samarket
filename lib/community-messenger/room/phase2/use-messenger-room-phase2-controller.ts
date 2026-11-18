@@ -1106,9 +1106,12 @@ export function useMessengerRoomPhase2Controller() {
     failedOutboundRowIdsRef,
     getRoomActionErrorMessage,
     redirectIfMessengerAuthBlocked,
-    onTextSendConfirmed: ({ clientMessageId, message: confirmed, elapsedMs, outsideLoadedWindow }) => {
-      messengerMonitorMessageRtt(streamRoomId, elapsedMs, "text");
-      bumpCommunityMessengerPresenceActivity("message_sent");
+    onTextSendConfirmed: ({ clientMessageId, message: confirmed, elapsedMs, outsideLoadedWindow, fromOtherScreen }) => {
+      /** 최종 검토 #2: 다른(옛) 화면의 성공을 반영할 때는 전송 지표·presence 생략 */
+      if (!fromOtherScreen) {
+        messengerMonitorMessageRtt(streamRoomId, elapsedMs, "text");
+        bumpCommunityMessengerPresenceActivity("message_sent");
+      }
       if (outsideLoadedWindow) {
         /** 검토 #4: 서버가 예전에 이미 저장한 글(불러온 창보다 오래됨) — 병합·재조회하지 않는다 */
       } else if (confirmed) {

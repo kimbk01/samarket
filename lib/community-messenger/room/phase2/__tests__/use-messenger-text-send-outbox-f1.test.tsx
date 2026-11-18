@@ -353,7 +353,11 @@ describe("PR-1 검토 #1 응답 전에 방을 나감·재진입", () => {
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
     });
-    expect(b.rows().find((r) => r.clientMessageId === "cx")).toBeUndefined();
+    /** 최종 검토 #2: 요청 중에는 새 화면에 「보내는 중」 행(실패 버튼 없음) */
+    const sendingRow = b.rows().find((r) => r.clientMessageId === "cx");
+    expect(sendingRow?.pending).toBe(true);
+    expect(sendingRow?.sendFailed).toBeFalsy();
+    expect(getMessengerOutboundFailedSend(sendingRow!.id)).toBeNull();
     await act(async () => {
       resolveFetch(jsonResponse(403, { ok: false, error: "room_readonly" }));
       await attempt;
@@ -500,21 +504,80 @@ describe("PR-1 감사 #1 첫 전송 중 앱 종료·새로고침", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("같은 앱 실행에서 요청 중에 재진입 → 그 글의 행을 만들지 않는다(진행 중 건너뜀)", async () => {
+  /** 최종 검토 #2: 요청 중 재진입 → 「보내는 중」 행 1개(요청 0건) → 옛 화면 결과로 확정 1개 또는 실패 행 */
+  async function startThenReenter(cid: string, content: string) {
     const a = mount();
     const t = a.nextTempId();
-    a.setRows([optimistic(t, "c-fly", "flying")]);
-    fetchMock.mockImplementationOnce(() => new Promise<Response>(() => undefined));
+    a.setRows([optimistic(t, cid, content)]);
+    let resolveA: (r: Response) => void = () => undefined;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((r) => (resolveA = r)));
+    let attemptA: Promise<boolean> | null = null;
     act(() => {
-      void a.runRaw({ tempId: t, clientMessageId: "c-fly", content: "flying", replyId: "", failRestoreGeneration: 0 });
+      attemptA = a.runRaw({ tempId: t, clientMessageId: cid, content, replyId: "", failRestoreGeneration: 0 });
     });
     a.unmount();
     const b = mount();
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
     });
-    expect(b.rows().filter((r) => r.clientMessageId === "c-fly")).toHaveLength(0);
+    const finish = async (res: Response) => {
+      await act(async () => {
+        resolveA(res);
+        await attemptA;
+      });
+    };
+    return { b, finish };
+  }
+
+  it("같은 앱 실행에서 요청 중에 재진입 → 「보내는 중」 행 1개(실패 버튼 없음)·요청 0건", async () => {
+    const { b } = await startThenReenter("c-fly", "flying");
+    const rows = b.rows().filter((r) => r.clientMessageId === "c-fly");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.pending).toBe(true);
+    expect(rows[0]!.sendFailed).toBeFalsy();
+    expect(getMessengerOutboundFailedSend(rows[0]!.id)).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(savedCids()).toEqual(["c-fly"]);
+  });
+
+  it("옛 화면 성공 → 새 화면은 확정 행 1개만(보내는 중 행·보관분 없음, 실시간 없이도)", async () => {
+    const { b, finish } = await startThenReenter("c-win", "win");
+    await finish(jsonResponse(200, { ok: true, message: { ...optimistic("srv-win", "c-win", "win"), pending: false } }));
+    const rows = b.rows().filter((r) => r.clientMessageId === "c-win");
+    expect(rows.map((r) => [r.id, Boolean(r.pending)])).toEqual([["srv-win", false]]);
+    expect(savedCids()).toEqual([]);
+  });
+
+  it("옛 화면 실패 → 새 화면의 그 행이 실패 행(재전송·삭제 동작), 중복 행 0", async () => {
+    const { b, finish } = await startThenReenter("c-lose", "lose");
+    const sendingId = b.rows().find((r) => r.clientMessageId === "c-lose")!.id;
+    await finish(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+    const rows = b.rows().filter((r) => r.clientMessageId === "c-lose");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.id).toBe(sendingId);
+    expect(rows[0]!.sendFailed).toBe(true);
+    const handlers = getMessengerOutboundFailedSend(sendingId);
+    expect(handlers).not.toBeNull();
+    fetchMock.mockResolvedValueOnce(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+    await retry(b, sendingId);
+    const body = JSON.parse(String((fetchMock.mock.calls.at(-1)![1] as RequestInit).body));
+    expect(body).toMatchObject({ clientMessageId: "c-lose", content: "lose" });
+    expect(b.rows().filter((r) => r.clientMessageId === "c-lose")).toHaveLength(1);
+    act(() => getMessengerOutboundFailedSend(sendingId)!.discard());
+    expect(b.rows().filter((r) => r.clientMessageId === "c-lose")).toHaveLength(0);
+    expect(savedCids()).toEqual([]);
+  });
+
+  it("옛 화면 실패 + 저장소 거부여도 새 화면에 실패 행(글을 이벤트로 전달)", async () => {
+    const { b, finish } = await startThenReenter("c-q", "quota");
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("quota", "QuotaExceededError");
+    });
+    await finish(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+    spy.mockRestore();
+    const rows = b.rows().filter((r) => r.clientMessageId === "c-q");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.sendFailed).toBe(true);
   });
 
   it("성공 → 시작 때 보관한 분이 남지 않는다", async () => {
@@ -549,5 +612,67 @@ describe("PR-1 감사 #1 첫 전송 중 앱 종료·새로고침", () => {
       await attempt;
     });
     expect(savedCids()).toEqual([]);
+  });
+});
+
+describe("PR-1 최종 검토 #3 보관분은 전송 시작 때의 방 id 로 지운다", () => {
+  it("요청 중 화면이 다른 방으로 바뀐 뒤 성공 → 처음 방의 보관분이 지워진다", async () => {
+    const OTHER = "22222222-2222-4222-8222-222222222222";
+    const ctl: { setRoom: ((r: string) => void) | null; run: ((a: MessengerTextSendAttemptArgs) => Promise<boolean>) | null } = {
+      setRoom: null,
+      run: null,
+    };
+    function Probe() {
+      const [roomId, setRoomId] = useState(ROOM);
+      const [rows, setRows] = useState<Row[]>([optimistic("tr", "c-room", "room")]);
+      const rowsRef = useRef<Row[]>(rows);
+      rowsRef.current = rows;
+      const unconfirmed = useRef<MessengerUnconfirmedTextSend | null>(null);
+      const failedIds = useRef<Set<string>>(new Set());
+      const seqRef = useMessengerPendingRowSeqRef();
+      const { runTextSendAttemptRef } = useMessengerTextSendOutbox({
+        streamRoomId: roomId,
+        restoreReady: true,
+        roomMessages: rows,
+        roomMessagesRef: rowsRef,
+        setRoomMessages: setRows,
+        setMessage: () => undefined,
+        resolveOutboundSender: () => ({ senderId: "me", senderLabel: "me" }),
+        nextPendingRowId: () => `pending:${roomId}:${seqRef.current++}`,
+        unconfirmedTextSendRef: unconfirmed,
+        failedOutboundRowIdsRef: failedIds,
+        getRoomActionErrorMessage: (e) => `err:${e ?? ""}`,
+        redirectIfMessengerAuthBlocked: () => false,
+        onTextSendConfirmed: () => undefined,
+      });
+      ctl.setRoom = setRoomId;
+      ctl.run = (a) => runTextSendAttemptRef.current(a);
+      return null;
+    }
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    roots.push(root);
+    hosts.push(host);
+    act(() => root.render(<Probe />));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    let resolveFetch: (r: Response) => void = () => undefined;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((r) => (resolveFetch = r)));
+    let attempt: Promise<boolean> | null = null;
+    act(() => {
+      attempt = ctl.run!({ tempId: "tr", clientMessageId: "c-room", content: "room", replyId: "", failRestoreGeneration: 0 });
+    });
+    expect(listMessengerFailedTextSends(ROOM).map((e) => e.clientMessageId)).toEqual(["c-room"]);
+    act(() => ctl.setRoom!(OTHER));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    await act(async () => {
+      resolveFetch(jsonResponse(200, { ok: true, message: { ...optimistic("srv-room", "c-room", "room"), pending: false } }));
+      await attempt;
+    });
+    expect(listMessengerFailedTextSends(ROOM)).toEqual([]);
   });
 });
