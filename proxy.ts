@@ -3,9 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import {
-  markProxySignupComplete,
   peekProxyAuthSessionCache,
-  peekProxySignupComplete,
   proxyAuthCookieFingerprint,
   runProxyAuthResolveSingleFlight,
   setProxyAuthSessionCache,
@@ -19,10 +17,7 @@ import {
   shouldAllowUnauthenticatedHtmlRequest,
   shouldBlockUnauthenticatedHtmlRequest,
 } from "@/lib/auth/guest-browse-access-policy";
-import {
-  isHtmlPrefetchRequest,
-  resolveProxySignupGateRedirect,
-} from "@/lib/auth/proxy-signup-gate";
+import { resolveProxySignupGateRedirect } from "@/lib/auth/proxy-signup-gate";
 import { buildGuestLoginRedirectSearch } from "@/lib/auth/guest-login-redirect";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
@@ -88,19 +83,11 @@ async function maybeRedirectIncompleteSignup(
   request: NextRequest,
   supabase: ReturnType<typeof createServerClient>,
   userId: string,
-  pathname: string,
-  authFp: string
+  pathname: string
 ): Promise<NextResponse | null> {
   try {
-    /** B4 / D-2 — prefetch RSC 는 가입 확인 생략(실제 문서 이동 때 확인). */
-    if (isHtmlPrefetchRequest(request)) return null;
-    if (peekProxySignupComplete(authFp)) return null;
-    const gate = await resolveProxySignupGateRedirect(supabase, userId, pathname);
-    if (gate.action === "pass") {
-      if (gate.rememberComplete) markProxySignupComplete(authFp);
-      return null;
-    }
-    const redirectPath = gate.path;
+    const redirectPath = await resolveProxySignupGateRedirect(supabase, userId, pathname);
+    if (!redirectPath) return null;
     const url = request.nextUrl.clone();
     const qIdx = redirectPath.indexOf("?");
     url.pathname = qIdx >= 0 ? redirectPath.slice(0, qIdx) : redirectPath;
@@ -291,8 +278,7 @@ export async function proxy(request: NextRequest) {
         request,
         supabase,
         userId,
-        pathname,
-        authFp
+        pathname
       );
       if (signupRedirect) return signupRedirect;
       if (shouldLogProxyPerf) {
@@ -320,8 +306,7 @@ export async function proxy(request: NextRequest) {
         request,
         supabase,
         userId,
-        pathname,
-        authFp
+        pathname
       );
       if (signupRedirect) return signupRedirect;
       if (shouldLogProxyPerf) {

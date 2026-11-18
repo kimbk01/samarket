@@ -397,14 +397,3 @@ Session / Destination / Completion / Profile 불변.
 
 First Break (11-18 Xiaomi·Samsung 운영 `4d4a1da` 실측 · 요청 헤더 기록): 위 Amendment 뒤에도 6회 중 5회 `/api/auth/session` 2회 — 세션 관리자(`ensureHealthy:bindAuthListener`)의 공용 조회가 먼저 시작해 Supabase 준비(최대 320ms)를 기다리는 사이 경계 확인(헤더 없음)이 나가고, 공용 조회는 기다린 뒤 캐시를 다시 보지 않고 요청했다.
 Contract delta: **판정 의미 없음** — 공용 조회가 요청 직전에 ① 캐시를 다시 보고 ② 진행 중인 경계 확인 결과를 기다린다. 결과가 「로그인됨」일 때만 캐시 적중과 같은 200 · 아니면(401·실패·예외) 지금처럼 직접 요청하고 401 재시도·비회원 표식 그대로.
-
----
-
-## Amendment 2026-11-18 (3) — B4 proxy 가입 완료 기억 · lifecycle Redis 공유 (Reopen §4 trigger 4 · Owner surge Phase B4)
-
-- **Trigger:** Production Supabase 요청 폭증 — proxy HTML 가입 확인·API 읽기 lifecycle 이 인스턴스 로컬 5초만 써서 타 인스턴스·간격>5초 호출마다 `profiles` 를 다시 읽음. Owner 승인 설계 `docs/audit/supabase-request-surge-2026-11-18/cursor-root-cause-and-fundamental-fix-2026-11-18.md` Phase B4 · 세부 `b4-auth-lifecycle-share-design.md`.
-- **Contract delta (판정 의미 없음):**
-  - HTML signup gate: **완료만** proxy 신원 캐시(12초)에 기억. 미완료는 매번 확인. prefetch RSC 는 게이트 생략.
-  - API 읽기 lifecycle: Upstash 키 `sm:mla:{userId}` 에 status/deleted_at 공유(벽시계 TTL 없음). 모더레이션 무효화 시 키 삭제 → 타 인스턴스 DB 재조회. Redis 없으면 기존 로컬 5초. **TTL만 연장하지 않음.**
-  - PRODUCT_WRITE `bypassCache`·fail-closed 불변.
-- Session / Destination / Completion / Profile writer 불변.

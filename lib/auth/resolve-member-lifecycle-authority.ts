@@ -9,21 +9,15 @@
  */
 
 import {
-  getMemberLifecycleEpoch,
   peekMemberLifecycleAuthority,
   setMemberLifecycleAuthority,
 } from "@/lib/auth/member-lifecycle-authority-cache";
-import {
-  readMemberLifecycleAuthorityShared,
-  writeMemberLifecycleAuthorityShared,
-} from "@/lib/auth/member-lifecycle-authority-shared";
 import {
   MEMBER_ACCOUNT_STATE_UNAVAILABLE,
   resolveMemberAccountLifecycle,
   type MemberAccountLifecycle,
   type MemberAccountProfileLike,
 } from "@/lib/auth/member-account-state";
-import { getOptionalRateLimitRedis } from "@/lib/http/rate-limit-redis";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 
@@ -89,38 +83,15 @@ export async function resolveMemberLifecycleAuthority(
   }
 
   if (!options?.bypassCache) {
-    /**
-     * B4 / D-3 — Redis available: shared key is authority (delete on moderation).
-     * Do not fall back to process-local after a Redis miss (would keep 5s cross-isolate lag).
-     * Redis unavailable: keep process-local 5s (prior behavior).
-     */
-    if (getOptionalRateLimitRedis()) {
-      const shared = await readMemberLifecycleAuthorityShared(uid);
-      if (shared) {
-        const profile: MemberAccountProfileLike = {
-          status: shared.status,
-          deleted_at: shared.deleted_at,
-        };
-        setMemberLifecycleAuthority(uid, profile);
-        const lifecycle = resolveMemberAccountLifecycle(profile);
-        return {
-          kind: "RESOLVED",
-          profile,
-          lifecycle,
-          source: "cache",
-        };
-      }
-    } else {
-      const cached = peekMemberLifecycleAuthority(uid);
-      if (cached.hit) {
-        const lifecycle = resolveMemberAccountLifecycle(cached.profile);
-        return {
-          kind: "RESOLVED",
-          profile: cached.profile,
-          lifecycle,
-          source: "cache",
-        };
-      }
+    const cached = peekMemberLifecycleAuthority(uid);
+    if (cached.hit) {
+      const lifecycle = resolveMemberAccountLifecycle(cached.profile);
+      return {
+        kind: "RESOLVED",
+        profile: cached.profile,
+        lifecycle,
+        source: "cache",
+      };
     }
   }
 
@@ -161,9 +132,6 @@ export async function resolveMemberLifecycleAuthority(
   };
   const lifecycle = resolveMemberAccountLifecycle(profile);
   setMemberLifecycleAuthority(uid, profile);
-  if (!options?.bypassCache) {
-    void writeMemberLifecycleAuthorityShared(uid, profile, getMemberLifecycleEpoch(uid));
-  }
   return {
     kind: "RESOLVED",
     profile,
