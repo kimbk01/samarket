@@ -1140,7 +1140,7 @@ PO-8 위치별 켜기/끄기 · 발견 응답에 첫 화면 싣기 · 「휴대�
 - E2 `flushPendingAppPathIfAny` — 통화 아닌 경로만: 메인 스레드에서 flush 차례를 올리고, 즉시 시도·재시도 직전에 「마지막 차례 && 넣으려는 경로 == 지금 대기 경로」일 때만 넣는다. 통화 경로 판정(`isCallPathForPendingFlush`)은 `navigateWebViewToAppPathNow` 의 통화 판정과 같은 조건이고, 통화 경로는 이전과 같다.
 - 통화 무변경 고정: 구조 테스트 `lib/push/__tests__/android-entry-e1-e2-native-contract.test.ts`.
 
-### 24-15. M3 영향 문서 개정 (23-12 보완 · 통화 변경 규정 3번 · **Owner 승인 전 구현 안 함**)
+### 24-15. M3 영향 문서 개정 (23-12 보완 · 통화 변경 규정 3번 · **Owner 승인 2026-11-18 「M3 승인」 → 빌드 79 구현**)
 23-12 이후 바뀐 사실 2가지:
 1. `isCallLaunch` 호출처가 2곳이 된다 — 덮개 계획(`isSplashCoverLaunch`) + E1(`shouldSkipRestoredLaunchRoute`). M3 를 하면 복원 실행의 옛 부재중 의도도 건너뛴다(경로는 저장소에서 다시 넣음 · 통화 화면 경로 아님).
 2. 부재중 알림의 목적지는 3가지다(코드 확인):
