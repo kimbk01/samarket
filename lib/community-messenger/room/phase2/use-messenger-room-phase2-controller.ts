@@ -150,7 +150,10 @@ import {
   runMessengerSequentialSends,
   type MessengerUnconfirmedTextSend,
 } from "@/lib/community-messenger/room/messenger-outbound-failed-send";
-import { beginActiveComposerFailRestoreSession } from "@/lib/community-messenger/room/messenger-composer-fail-restore-active";
+import {
+  beginActiveComposerFailRestoreSession,
+  resolveSendRestoreOnFail,
+} from "@/lib/community-messenger/room/messenger-composer-fail-restore-active";
 import {
   isMessengerMediaRouteUrl,
   messengerMediaRouteUrlFor,
@@ -378,6 +381,7 @@ export function useMessengerRoomPhase2Controller() {
     setMembersListNextOffset,
     setMembersPagingBusy,
     setMessage,
+    restoreComposerMessage,
     setMessageActionItem,
     setOpenGroupDiscoverable,
     setOpenGroupIdentityPolicy,
@@ -1099,7 +1103,8 @@ export function useMessengerRoomPhase2Controller() {
     roomMessages,
     roomMessagesRef,
     setRoomMessages,
-    setMessage,
+    /** FAIL-1 감사 #2: 거절 복원은 1회성 신호(composerRestoreNonce)와 함께 */
+    restoreComposerMessage,
     resolveOutboundSender: () => (snapshot ? optimisticOutboundSender(snapshot, roomMembersDisplay) : null),
     /** 감사 D-3: 보관 항목의 보낸 사용자 · 복원 대상 판정 */
     viewerUserId: snapshot?.viewerUserId ?? "",
@@ -1295,8 +1300,12 @@ export function useMessengerRoomPhase2Controller() {
     [composerTextareaRef, setEditingMessage, setMessage, setMessageActionItem, setReplyToMessage]
   );
 
+  /**
+   * FAIL-1 감사 #1: `fromComposer` — 입력창에서 시작한 전송만 실패 시 입력창 복원·방별 초안 저장 대상(restoreOnFail).
+   * 입력창 밖 전송(주문 채팅 안내·매칭 확인 등)은 거절돼도 입력창·초안을 건드리지 않고 실패 행으로 남는다.
+   */
   const sendMessage = useCallback(
-    async (textOverride?: string): Promise<boolean> => {
+    async (textOverride?: string, opts?: { fromComposer?: boolean }): Promise<boolean> => {
       const raw = (textOverride ?? message).trim();
       if (!raw || !snapshot) return false;
       if (isMessengerComposerOutboundBusy(busy)) return false;
@@ -1311,7 +1320,7 @@ export function useMessengerRoomPhase2Controller() {
       const replyId = replyTarget?.id?.trim() ?? "";
       setMessage("");
       setReplyToMessage(null);
-      return sendRawText(raw, raw, replyId || null, replyId ? replyTarget : null);
+      return sendRawText(raw, resolveSendRestoreOnFail(raw, opts), replyId || null, replyId ? replyTarget : null);
     },
     [busy, composerTextareaRef, editRoomMessageText, editingMessage, message, replyToMessage, sendRawText, setMessage, setReplyToMessage, snapshot]
   );

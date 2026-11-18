@@ -30,11 +30,7 @@ import {
   noteR2M9SyncWork,
   scheduleR2M9LayoutAfterTextarea,
 } from "@/lib/community-messenger/room/cm-room-r2-m9-entry-profile";
-import {
-  getActiveComposerFailRestoreGeneration,
-  markActiveComposerDraftEditedDuringOutbound,
-  shouldRestoreActiveComposerAfterSendFail,
-} from "@/lib/community-messenger/room/messenger-composer-fail-restore-active";
+import { markActiveComposerDraftEditedDuringOutbound } from "@/lib/community-messenger/room/messenger-composer-fail-restore-active";
 
 function isDomTextareaLikelyVisible(el: HTMLTextAreaElement): boolean {
   const st = window.getComputedStyle(el);
@@ -91,7 +87,8 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
 
   useLayoutEffect(() => {
     setDraft(vm?.message ?? "");
-  }, [roomKey, vm?.message]);
+    /** FAIL-1 감사 #2: 실패 복원 1회성 신호 — `vm.message` 값이 그대로여도 다시 맞춘다 */
+  }, [roomKey, vm?.message, vm?.composerRestoreNonce]);
 
   useLayoutEffect(() => {
     const rid = String(roomKey).trim();
@@ -155,18 +152,8 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
     if (!text || vm.roomUnavailable) return;
     setDraft("");
     setPhase1Message?.("");
-    const genBefore = getActiveComposerFailRestoreGeneration();
-    const sendPromise = vm.sendMessage(text);
-    const sendGen = getActiveComposerFailRestoreGeneration();
-    const ok = await sendPromise;
-    if (
-      !ok &&
-      sendGen > genBefore &&
-      shouldRestoreActiveComposerAfterSendFail({ sendGeneration: sendGen, restoreOnFail: text })
-    ) {
-      setDraft(text);
-      setPhase1Message?.(text);
-    }
+    /** FAIL-1(2026-11-18): 실패 시 입력창 복원은 outbox 한 곳만 정한다(확실한 거절 → setMessage → 위 vm.message 동기화). */
+    await vm.sendMessage(text, { fromComposer: true });
   }, [draft, setPhase1Message, vm]);
 
   if (!vm) return null;

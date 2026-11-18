@@ -38,6 +38,7 @@ import {
   type MessengerUnconfirmedTextSend,
 } from "@/lib/community-messenger/room/messenger-outbound-failed-send";
 import { shouldRestoreActiveComposerAfterSendFail } from "@/lib/community-messenger/room/messenger-composer-fail-restore-active";
+import { writeRoomComposerDraft } from "@/lib/community-messenger/room/messenger-room-composer-draft-storage";
 import {
   type MessengerFailedTextSend,
   listMessengerFailedTextSends,
@@ -74,7 +75,8 @@ export type MessengerTextSendOutboxDeps = {
   roomMessages: readonly RoomRow[];
   roomMessagesRef: MutableRefObject<RoomRow[]>;
   setRoomMessages: Dispatch<SetStateAction<RoomRow[]>>;
-  setMessage: (value: string) => void;
+  /** 입력창 복원(값 + 1회성 신호) — FAIL-1 감사 #2 */
+  restoreComposerMessage: (value: string) => void;
   /** 복원 행의 보낸 사람(낙관 행과 같은 규칙) */
   resolveOutboundSender: () => { senderId: string; senderLabel: string } | null;
   /** 감사 D-3: 현재 로그인 사용자 id — 보관 항목에 넣고, 복원은 같은 사용자 항목만. 비어 있으면 복원을 미룬다 */
@@ -637,7 +639,12 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
         d.failedOutboundRowIdsRef.current.delete(tempId);
         forgetPersistedFailedText(roomId, clientMessageId);
         d.setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-        d.setMessage(restoreOnFail!);
+        d.restoreComposerMessage(restoreOnFail!);
+        /**
+         * FAIL-1: 방을 나갔다 와도 되돌린 글이 입력창에 남도록 방별 초안에도 저장한다
+         * (전에는 Phase2 입력창의 자체 복원 블록이 하던 일 — 입력창 동기화 effect 는 초안을 쓰지 않는다).
+         */
+        writeRoomComposerDraft(roomId, restoreOnFail!);
         showMessengerSnackbar(failureMessage(), { variant: "error" });
         return false;
       }
@@ -652,10 +659,19 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
     /**
      * 최종 감사 D2: 요청 중 로그아웃(wipe)·계정 전환 뒤 늦게 온 실패 응답은 보낸 사용자 ≠ 지금 바인딩된 사용자(또는 세션 없음)
      * → 보관·저장 실패 안내·창 이벤트 모두 하지 않는다(이전 계정 글을 기기·메모리에 다시 쓰지 않게).
+     * FAIL-1 감사(2026-11-18): **보관만** 건너뛴다. 같은 화면이 남아 있으면(바인딩을 못 읽음 등) 실패 행·재전송·삭제는
+     * 그대로 둔다 — 입력창은 이미 비었으므로 행까지 「보내는 중」으로 멈추면 글이 화면 어디에도 쓸 수 없게 남는다.
+     * 계정 전환·로그아웃은 wipe 뒤 대화방(계정 의존 경로)을 하드 이동으로 떠나므로 이 행이 새 계정 화면에 이어지지 않는다
+     * (`SupabaseAuthSync` → `isAccountDependentPath` → `runAuthAccountSwitchExit` → `window.location.replace`).
      */
     if (!canPersistFailedTextForSender(senderUserId)) {
-      clearMessengerOutboundFailedSend(tempId);
-      d.failedOutboundRowIdsRef.current.delete(tempId);
+      if (!sameScreen()) {
+        clearMessengerOutboundFailedSend(tempId);
+        d.failedOutboundRowIdsRef.current.delete(tempId);
+        return false;
+      }
+      registerFailedTextRowHandlers({ tempId, clientMessageId, content, replyId });
+      d.setRoomMessages((prev) => markMessengerOutboundRowFailed(prev, tempId));
       return false;
     }
     /** P1 (Owner 2026-11-18): 방을 나갔다 와도 실패 행이 남도록 기기 저장소에 보관 */

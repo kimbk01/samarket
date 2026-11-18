@@ -449,6 +449,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
     () => ({
       snapshot: room.snapshot as CommunityMessengerRoomSnapshot,
       message: room.message,
+      composerRestoreNonce: room.composerRestoreNonce,
       roomUnavailable: room.roomUnavailable,
       busy: room.busy,
       sendMessage: room.sendMessage,
@@ -470,6 +471,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
     [
       room.snapshot,
       room.message,
+      room.composerRestoreNonce,
       room.roomUnavailable,
       room.busy,
       room.sendMessage,
