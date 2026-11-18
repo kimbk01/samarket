@@ -24,6 +24,7 @@ import {
   type MessengerRoomListKind,
 } from "@/lib/community-messenger/room/messenger-room-back-target";
 import { setPageBackOwner } from "@/lib/ui/overlay-back-stack";
+import { syncMessengerListWebBack } from "@/lib/community-messenger/room/messenger-list-web-back";
 import { isCommunityMessengerRoomRoutePathname } from "@/lib/community-messenger/messenger-room-pathname";
 import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
 import { useBuyerOrderChatSlideHost } from "@/components/mypage/BuyerOrderChatSlideHostContext";
@@ -304,7 +305,12 @@ export function MessengerRoomSwipeBackShell({
     const target = resolveBackTarget();
     if (target.kind !== "replace") return;
     console.info("[cm-room-back] page_back_owner", { roomId: roomId?.trim() ?? "", href: target.href });
-    return setPageBackOwner(() => requestAnimatedBackRef.current());
+    const release = setPageBackOwner(() => requestAnimatedBackRef.current());
+    return () => {
+      release();
+      /** 이 주인이 목록의 웹 뒤로 담당을 덮었다면 해제 직후 다시 등록되게(N1 슬롯 경합). */
+      syncMessengerListWebBack();
+    };
     /** pathname: 분할 replace 등으로 같은 셸에서 주소가 바뀌면 진입 출처·목적지를 다시 판정 */
   }, [insideOrderChatSlide, pathname, resolveBackTarget, roomId]);
 

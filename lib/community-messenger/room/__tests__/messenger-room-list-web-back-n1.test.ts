@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 /**
- * N1 (docs/audit/messenger-chat-fix-design-2026-11-18.md PR-2 · 독립 검토 반영 2판) — 알림 진입 방 → ◁ = 목록 →
+ * N1 (docs/audit/messenger-chat-fix-design-2026-11-18.md PR-2 · 구현 기록 docs/audit/messenger-chat-fix-pr2-n1-implementation-2026-11-18.md
+ * · 독립 검토 반영 4판) — 알림 진입 방 → ◁ = 목록 →
  * ◁ = 목록 이전 화면. 같은 목록·이전 방이 다시 나오거나 무반응이면 실패.
  *
  * 모델:
@@ -10,7 +11,8 @@
  *   없음 → Chromium 이 떠난 항목을 「건너뛰기」로 표시(웹이 지울 수 없고 이후 터치로도 안 풀림 — 11-13 실측).
  *   있음 → 건너뛰기 아님.
  * - Android 기본 뒤로(웹 리스너 없음)는 건너뛰기 아닌 가장 가까운 앞 항목으로. 없으면 첫 기록이면 「나감」, 아니면 「무반응」.
- * - `history.back()`·`navigation.traverseTo()`(웹 호출)는 건너뛰기 영향 없음(11-13 의 history.back 실측. traverseTo 실기 NOT_PROVEN).
+ * - `history.back()`·`history.go()`·`navigation.traverseTo()`(웹 호출)는 건너뛰기 영향 없음
+ *   (Chromium `GoToIndex` 는 건너뛰기 미적용 — 소스 기준. 실기 NOT_PROVEN).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMessengerRoomEntryOriginForTests } from "@/lib/community-messenger/room/messenger-room-entry-origin-store";
@@ -22,7 +24,9 @@ import {
   __dropMessengerListWebBackMemoryForTests,
   __resetMessengerListWebBackForTests,
   MESSENGER_LIST_WEB_BACK_STORAGE_KEY,
+  MESSENGER_LIST_TRAVERSE_CONFIRM_MS,
   restoreMessengerListWebBackAfterReload,
+  syncMessengerListWebBack,
 } from "@/lib/community-messenger/room/messenger-list-web-back";
 import { isCommunityMessengerRoomRoutePathname } from "@/lib/community-messenger/messenger-room-pathname";
 import {
@@ -47,6 +51,8 @@ const ROOM_D = "/community-messenger/rooms/D";
 const OPEN_G = "/community-messenger/rooms/G";
 
 type Entry = { key: string; path: string };
+/** ok: 즉시 이동 · throw: 동기 예외 · reject: committed reject · ignore: 응답 없음(Chromium 무시) · deferred: 늦게 이동 */
+type TraverseMode = "ok" | "throw" | "reject" | "ignore" | "deferred";
 type PressResult = "web" | "webview" | "exit" | "no_back";
 
 const driverState = { onBack: null as null | ((ev: { canGoBack?: boolean }) => void) };
@@ -63,12 +69,16 @@ const driver: OverlayBackListenerDriver = {
  * 기록 + Navigation API 흉내.
  * `shellFirst`: 이동 때 방 셸 해제·등록을 currententrychange 보다 먼저(true) 또는 나중(false) — 두 순서 모두 시험.
  */
-function makeWorld(opts: { shellFirst?: boolean; traverse?: "ok" | "throw" | "reject" } = {}) {
+function makeWorld(opts: { shellFirst?: boolean; traverse?: TraverseMode } = {}) {
   const origin = window.location.origin;
   const entries: Entry[] = [];
   let cur = -1;
   let n = 0;
-  const listeners = new Set<(ev?: { navigationType?: string }) => void>();
+  type Listener = (ev?: { navigationType?: string }) => void;
+  const listeners = new Set<{ type: string; fn: Listener }>();
+  const fire = (type: string, navigationType: string) =>
+    [...listeners].filter((l) => l.type === type).forEach((l) => l.fn({ navigationType }));
+  let pendingTraverse: string | null = null;
   const skippable = new Set<string>();
   const traverseCalls: string[] = [];
   const replaceCalls: string[] = [];
@@ -86,6 +96,11 @@ function makeWorld(opts: { shellFirst?: boolean; traverse?: "ok" | "throw" | "re
       if (opts.traverse === "reject") {
         return { committed: Promise.reject(new Error("AbortError")), finished: Promise.reject(new Error("AbortError")) };
       }
+      if (opts.traverse === "ignore" || opts.traverse === "deferred") {
+        if (opts.traverse === "deferred") pendingTraverse = key;
+        const never = new Promise<void>(() => {});
+        return { committed: never, finished: never };
+      }
       const i = entries.findIndex((e) => e.key === key);
       if (i >= 0) {
         cur = i;
@@ -93,8 +108,12 @@ function makeWorld(opts: { shellFirst?: boolean; traverse?: "ok" | "throw" | "re
       }
       return { committed: Promise.resolve(), finished: Promise.resolve() };
     },
-    addEventListener: (_t: string, fn: (ev?: { navigationType?: string }) => void) => listeners.add(fn),
-    removeEventListener: (_t: string, fn: (ev?: { navigationType?: string }) => void) => listeners.delete(fn),
+    addEventListener: (type: string, fn: Listener) => {
+      listeners.add({ type, fn });
+    },
+    removeEventListener: (type: string, fn: Listener) => {
+      for (const l of listeners) if (l.type === type && l.fn === fn) listeners.delete(l);
+    },
   };
   (window as unknown as { navigation: unknown }).navigation = nav;
 
@@ -127,9 +146,10 @@ function makeWorld(opts: { shellFirst?: boolean; traverse?: "ok" | "throw" | "re
   }
 
   function apply(navigationType: string): void {
+    fire("navigate", navigationType);
     window.history.replaceState(null, "", entries[cur]!.path);
     if (opts.shellFirst) syncShell();
-    listeners.forEach((fn) => fn({ navigationType }));
+    fire("currententrychange", navigationType);
     if (!opts.shellFirst) syncShell();
   }
 
@@ -142,6 +162,15 @@ function makeWorld(opts: { shellFirst?: boolean; traverse?: "ok" | "throw" | "re
 
   return {
     entries,
+    /** deferred: 늦게 도착한 traverse 를 이제 반영 */
+    completePendingTraverse() {
+      const i = entries.findIndex((e) => e.key === pendingTraverse);
+      pendingTraverse = null;
+      if (i >= 0) {
+        cur = i;
+        apply("traverse");
+      }
+    },
     traverseCalls,
     replaceCalls,
     router,
@@ -201,7 +230,7 @@ function makeWorld(opts: { shellFirst?: boolean; traverse?: "ok" | "throw" | "re
 
 let w: ReturnType<typeof makeWorld>;
 
-function setup(opts: { shellFirst?: boolean; traverse?: "ok" | "throw" | "reject" } = {}) {
+function setup(opts: { shellFirst?: boolean; traverse?: TraverseMode } = {}) {
   w = makeWorld(opts);
 }
 
@@ -534,5 +563,91 @@ describe("D5 — iOS 앱은 지금 동작(replace 만, 새 이동·담당 없음
     expect(window.sessionStorage.getItem(MESSENGER_LIST_WEB_BACK_STORAGE_KEY)).toBeNull();
     restoreMessengerListWebBackAfterReload();
     expect(hasPageBackOwner()).toBe(true); // 방 셸 주인(지금 동작) — 목록 담당 아님
+  });
+});
+
+describe.each([
+  ["활성화 없음", false],
+  ["활성화 있음", true],
+] as const)("검토 4판 1 — 알림 때 보던 방 아닌 화면을 건너뛰지 않음 (%s)", (_l, activation) => {
+  it("(가) HOME → 목록 → /stores(앱 안) → 알림 C → ◁ = 목록 → ◁ = /stores → ◁ = 목록 → ◁ = HOME", () => {
+    w.start(HOME);
+    w.tap(LIST);
+    w.tap("/stores");
+    w.notification(ROOM_C, activation);
+    expect(pressPath()).toBe(LIST);
+    expect(pressPath()).toBe("/stores");
+    expect(pressPath()).toBe(LIST);
+    expect(pressPath()).toBe(HOME);
+  });
+
+  it("(나) 목록 → 방 B → /products/1 → 알림 C → ◁ = 목록 → ◁ = /products/1", () => {
+    w.start(HOME);
+    w.tap(LIST);
+    w.tap(ROOM_B);
+    w.tap("/products/1");
+    w.notification(ROOM_C, activation);
+    expect(pressPath()).toBe(LIST);
+    expect(pressPath()).toBe("/products/1");
+  });
+});
+
+describe("검토 4판 2 — 슬롯 경합: 덮기 → 해제 → 다시 등록", () => {
+  it("다른 주인이 목록 담당을 덮었다가 해제하면 sync 로 다시 등록되고 ◁ = HOME", () => {
+    w.start(HOME);
+    w.tap(ROOM_B);
+    w.notification(ROOM_C, false);
+    w.pressSystemBack();
+    expect(w.path).toBe(LIST);
+    const other = vi.fn();
+    const releaseOther = setPageBackOwner(other);
+    releaseOther();
+    expect(hasPageBackOwner()).toBe(false);
+    syncMessengerListWebBack(); // 방 셸은 해제 직후 이 함수를 부른다
+    expect(hasPageBackOwner()).toBe(true);
+    expect(pressPath()).toBe(HOME);
+    expect(other).not.toHaveBeenCalled();
+  });
+});
+
+describe("검토 4판 3 — traverseTo 무응답(Chromium 무시)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("방 ◁: 확인 시간 뒤 router.replace 1회, 목록 ◁: 확인 시간 뒤 history.go 1회 — 무반응 없음", async () => {
+    setup({ traverse: "ignore" });
+    w.start(HOME);
+    w.tap(LIST);
+    w.notification(ROOM_C, false);
+    expect(w.pressSystemBack()).toBe("web");
+    expect(w.path).toBe(ROOM_C);
+    await vi.advanceTimersByTimeAsync(MESSENGER_LIST_TRAVERSE_CONFIRM_MS);
+    expect(w.replaceCalls).toEqual([LIST]);
+    expect(w.path).toBe(LIST);
+    expect(w.pressSystemBack()).toBe("web");
+    await vi.advanceTimersByTimeAsync(MESSENGER_LIST_TRAVERSE_CONFIRM_MS);
+    expect(w.path).toBe(HOME);
+    await vi.advanceTimersByTimeAsync(MESSENGER_LIST_TRAVERSE_CONFIRM_MS * 3);
+    expect(w.replaceCalls).toEqual([LIST]);
+    expect(w.path).toBe(HOME);
+  });
+
+  it("늦게라도 이동이 시작되면 대체 이동 없음(이중 이동 방지)", async () => {
+    setup({ traverse: "deferred" });
+    w.start(HOME);
+    w.tap(LIST);
+    w.notification(ROOM_C, false);
+    w.pressSystemBack();
+    await vi.advanceTimersByTimeAsync(MESSENGER_LIST_TRAVERSE_CONFIRM_MS - 1);
+    w.completePendingTraverse();
+    expect(w.path).toBe(LIST);
+    await vi.advanceTimersByTimeAsync(MESSENGER_LIST_TRAVERSE_CONFIRM_MS * 3);
+    expect(w.replaceCalls).toEqual([]);
+    expect(w.path).toBe(LIST);
+    expect(w.index).toBe(1);
   });
 });

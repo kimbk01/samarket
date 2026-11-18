@@ -4,17 +4,18 @@
  *
  * 원칙: Chromium 「건너뛰기」 항목을 추측하지 않는다(웹이 볼 수 없고, 사용자 터치가 있으면 생기지 않으며 traverse 뒤에도 남는다).
  * Navigation API `navigation.entries()`(url·key·index)로 웹이 목적지를 정해 `navigation.traverseTo(key)` 로 이동한다.
- * 웹이 부르는 이동은 건너뛰기 규칙과 무관하다는 근거는 `history.back()` 실측(docs/design/push-entry-back-fix-design-2026-11-13.md §1)뿐
- * — traverseTo 실기 동작은 NOT_PROVEN.
+ * 근거(Chromium 소스): Blink `NavigationApi::traverseTo` → `RenderFrameHostImpl::NavigateToNavigationApiKey` →
+ * `NavigationControllerImpl::NavigateToNavigationApiKey` → `GoToIndex`, `history.go` → `GoToOffsetFromRenderer` → `GoToIndex`.
+ * `GoToIndex` 는 건너뛰기를 적용하지 않는다(건너뛰기는 `CanGoBack`·`GoBack`·`GoToOffsetWithSkipping` 만). 실기기는 NOT_PROVEN.
  *
  * (a) 방 → 목록: 현재 항목 앞쪽에서 목록 주소(경로 + 목록 구분 쿼리)가 같은 가장 가까운 항목 j 를 찾고, j 와 현재 사이가 메신저 방
- *     항목·알림으로 떠난 항목뿐이면 `traverseTo(j)`(기록 mode traverse). 아니면 `router.replace`(기록 mode replace).
- *     traverseTo 가 동기 예외·committed reject 이면(아직 방에 있을 때만) `router.replace` 로 대체 이동(D3).
+ *     항목뿐이면 `traverseTo(j)`(기록 mode traverse). 아니면 `router.replace`(기록 mode replace).
+ *     traverseTo 가 동기 예외·committed reject·확인 시간 안 무응답이면(아직 방에 있을 때만) `router.replace` 로 대체 이동(D3).
  * (b) 도착한 목록 항목에 「웹 뒤로 담당」 기록(sessionStorage `dibay:cm-list-web-back`, 상한 50). 그 목록이 현재 항목인 동안
  *     페이지 뒤로 주인(`overlay-back-stack` P5 슬롯)으로 등록한다. ◁ 목적지(D2):
  *     - traverse 로 온 목록: 바로 앞 항목 중 같은 목록이 아닌 첫 항목(앱 안에서 들른 방도 그대로 — 지금 기록 그대로 뒤로).
  *     - replace 로 온 목록: 알림 진입 직전의 방(알림으로 떠난 방·알림으로 열린 방)만 건너뛴 뒤, 같은 목록이 아닌 첫 항목.
- *     목적지가 없으면(첫 기록 목록) 등록하지 않는다 — 지금 동작. traverseTo 실패 시 `history.go(차이)` 로 대체(D3).
+ *     목적지가 없으면(첫 기록 목록) 등록하지 않는다 — 지금 동작. traverseTo 실패·무응답 시 `history.go(차이)` 로 대체(D3).
  * (c) Navigation API(traverseTo 포함)가 없거나 iOS 앱(D5 — N2 「iPhone 측정 먼저」)이면 지금 동작(`router.replace`)만 — 기록 없음.
  * (d) 문서 reload 뒤에는 `restoreMessengerListWebBackAfterReload()`(앱 전역 `MessengerListWebBackRestore` 마운트 1회)가
  *     저장된 기록으로 구독·등록을 되살린다(D1).
@@ -26,7 +27,8 @@
 import { isCommunityMessengerRoomRoutePathname } from "@/lib/community-messenger/messenger-room-pathname";
 import { hasLikelyIosCapacitorShell, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 import { isEntryLeftByPushNavigation } from "@/lib/push/push-navigation-back";
-import { setPageBackOwner } from "@/lib/ui/overlay-back-stack";
+import { hasPageBackOwner, setPageBackOwner } from "@/lib/ui/overlay-back-stack";
+import { BACK_PRESS_LOCK_RELEASE_MS } from "@/lib/navigation/use-back-press-lock";
 
 type NavEntry = { key: string; index: number; url: string | null };
 type TraverseResult = { committed?: Promise<unknown>; finished?: Promise<unknown> } | undefined;
@@ -34,8 +36,8 @@ type NavigationLike = {
   currentEntry: NavEntry | null;
   entries: () => NavEntry[];
   traverseTo: (key: string) => TraverseResult;
-  addEventListener: (type: "currententrychange", fn: () => void) => void;
-  removeEventListener: (type: "currententrychange", fn: () => void) => void;
+  addEventListener: (type: "currententrychange" | "navigate", fn: () => void) => void;
+  removeEventListener: (type: "currententrychange" | "navigate", fn: () => void) => void;
 };
 
 export type MessengerListArrival = "traverse" | "replace";
@@ -134,13 +136,35 @@ function isLeftByPush(entry: NavEntry | undefined): boolean {
 }
 
 /**
- * 웹이 정한 항목으로 이동. 동기 예외·committed reject 이면 — 아직 이동 전 항목에 있을 때만 — `fallback`(D3).
+ * traverseTo 가 응답 없이 무시될 때(Chromium `RenderFrameHostImpl::NavigateToNavigationApiKey` — 다른 이동 진행 중 +
+ * 사용자 제스처 없음이면 아무 응답 없이 return → committed 가 끝나지 않음)의 확인 시간.
+ * 「누른 뒤 이동이 없으면 푼다」는 머리글 뒤로 잠금 해제 시간과 같은 값을 쓴다(`BACK_PRESS_LOCK_RELEASE_MS`).
+ */
+export const MESSENGER_LIST_TRAVERSE_CONFIRM_MS = BACK_PRESS_LOCK_RELEASE_MS;
+
+/**
+ * 웹이 정한 항목으로 이동(D3). 출발 항목에 그대로 있을 때만 `fallback` 1회:
+ * - traverseTo 동기 예외 · committed reject · 확인 시간 안에 이동이 시작되지 않음(Chromium 무응답 무시).
+ * 이동이 시작되거나(`navigate`) 항목이 바뀌거나(`currententrychange`) committed 가 끝나면 확인을 끝낸다 — 이중 이동 없음.
  */
 function traverseOrFallback(nav: NavigationLike, key: string, fallback: () => void): void {
   const startKey = nav.currentEntry?.key ?? null;
+  let settled = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const finish = () => {
+    if (settled) return;
+    settled = true;
+    if (timer != null) clearTimeout(timer);
+    nav.removeEventListener("navigate", finish);
+    nav.removeEventListener("currententrychange", finish);
+  };
   const fallbackIfStill = () => {
+    if (settled) return;
+    finish();
     if (nav.currentEntry?.key === startKey) fallback();
   };
+  nav.addEventListener("navigate", finish);
+  nav.addEventListener("currententrychange", finish);
   let r: TraverseResult;
   try {
     r = nav.traverseTo(key);
@@ -148,8 +172,10 @@ function traverseOrFallback(nav: NavigationLike, key: string, fallback: () => vo
     fallbackIfStill();
     return;
   }
-  r?.committed?.catch(fallbackIfStill);
   r?.finished?.catch(() => {});
+  if (settled) return;
+  timer = setTimeout(fallbackIfStill, MESSENGER_LIST_TRAVERSE_CONFIRM_MS);
+  r?.committed?.then(finish, fallbackIfStill);
 }
 
 function findRecord(key: string | null | undefined): ListWebBackRecord | null {
@@ -207,12 +233,17 @@ function runListWebBack(): void {
   traverseOrFallback(nav, target.key, () => window.history.go(delta));
 }
 
-/** 현재 항목 기준으로 페이지 뒤로 주인 등록·해제(중복 등록 없음). */
+/**
+ * 현재 항목 기준으로 페이지 뒤로 주인 등록·해제(중복 등록 없음).
+ * 등록 여부는 「내 등록이 있고 슬롯이 비어 있지 않음」으로 본다 — 다른 주인(방 셸)이 슬롯을 덮었다가 해제하면
+ * 슬롯이 비므로 다음 sync 에서 다시 등록한다. 방 셸은 해제 직후 이 함수를 부른다(`MessengerRoomSwipeBackShell`).
+ */
 export function syncMessengerListWebBack(): void {
   const nav = readNavigation();
   const rec = nav ? currentListRecord(nav) : null;
   const wanted = Boolean(nav && rec && resolveListBackEntry(nav, rec));
-  if (wanted && !releaseOwner) {
+  const registered = releaseOwner != null && hasPageBackOwner();
+  if (wanted && !registered) {
     releaseOwner = setPageBackOwner(runListWebBack);
   } else if (!wanted && releaseOwner) {
     const release = releaseOwner;
@@ -257,7 +288,8 @@ export function navigateMessengerRoomToList(
       traverseOrFallback(nav, e.key, replaceToList);
       return;
     }
-    if (!isRoomEntry(e) && !isLeftByPush(e)) break;
+    /** 방이 아닌 화면(알림 때 보던 화면 포함)을 넘어 더 앞 목록으로 가지 않는다 — 그 화면이 ◁ 목적지에 남게 replace. */
+    if (!isRoomEntry(e)) break;
   }
   replaceToList();
 }

@@ -17,9 +17,13 @@
 
 ## 2. 새 방식과 근거
 - Chromium 건너뛰기를 추측하지 않는다. `navigation.entries()`(url·key·index)로 웹이 목적지를 정해 `navigation.traverseTo(key)` 로 이동한다.
-- 근거: 웹이 부르는 이동(`history.back()`)은 건너뛰기 영향이 없다(`docs/design/push-entry-back-fix-design-2026-11-13.md` §1 실측). traverseTo 는 같은 「웹 호출 이동」으로 보고 썼다 — **소스 경로 미확인·실기 미측정(NOT_PROVEN)**.
+- 근거 (Chromium 소스 기준 PASS · 실기기 NOT_PROVEN):
+  - Blink `NavigationApi::traverseTo` → `RenderFrameHostImpl::NavigateToNavigationApiKey` → `NavigationControllerImpl::NavigateToNavigationApiKey` → `GoToIndex`.
+  - `history.go` → `GoToOffsetFromRenderer` → `GoToIndex`.
+  - `GoToIndex` 는 건너뛰기를 적용하지 않는다. 건너뛰기는 `CanGoBack`·`GoBack`·`GoToOffsetWithSkipping` 에만 있다.
+  - 실측 보강: `history.back()` 은 건너뛰기 영향이 없다(`docs/design/push-entry-back-fix-design-2026-11-13.md` §1).
 - 구현 `lib/community-messenger/room/messenger-list-web-back.ts`:
-  - (a) 방 → 목록: 앞쪽에서 같은 목록 주소(경로 + `section`(기본 chats)·`storeId`) 항목 j 를 찾는다. j 와 현재 사이가 메신저 방·알림 항목뿐이면 `traverseTo(j)`, 아니면 `router.replace`.
+  - (a) 방 → 목록: 앞쪽에서 같은 목록 주소(경로 + `section`(기본 chats)·`storeId`) 항목 j 를 찾는다. j 와 현재 사이가 메신저 방 항목뿐이면 `traverseTo(j)`, 아니면 `router.replace`. 방이 아닌 화면(알림 때 보던 `/stores`·상품 등)이 사이에 있으면 replace 해서 그 화면이 ◁ 목적지로 남게 한다(검토 4판 1).
   - (b) 도착한 목록 항목에 「웹 뒤로 담당」 기록을 남긴다(sessionStorage `dibay:cm-list-web-back`, 상한 50, key·목록 구분·도착 방식).
     - 그 목록이 현재 항목인 동안 `overlay-back-stack` 페이지 뒤로 주인으로 등록한다.
     - 처리 순서가 오버레이 → 페이지 주인 → 결함 E 라서 결함 E 의 `history.back()` 보다 먼저 처리된다.
@@ -36,8 +40,18 @@
 
 traverse 로 온 목록에도 주인을 두는 이유: 바로 앞 항목이 Chromium 건너뛰기인지 웹이 알 수 없다. 건너뛰기면 WebView 기본 뒤로가 무반응이거나 더 앞 화면으로 간다(경로 5). 웹이 목적지를 정해야 결과가 기기 상태와 무관하다. 바로 앞 항목에 결함 E 표시가 있으면 결함 E 의 목적지와 같다.
 
-## 4. 남은 NOT_PROVEN·위험
-- traverseTo 와 Chromium 건너뛰기의 관계(소스 경로 미확인) — Android WebView 실기 측정 필요. iOS 는 이번 변경 대상 아님(N2 측정 대기).
+## 4. 독립 검토(3판 1f885d7ef) 결함 처리
+| 결함 | 처리 |
+|---|---|
+| 1 (회귀) 방 아닌 화면 건너뜀 | (a) 의 사이 판정을 「방 항목만」으로. HOME → 목록 → /stores → 알림 C, 목록 → B → /products/1 → 알림 C 에서 ◁◁ = [목록, 그 화면]. |
+| 2 슬롯 경합 | 등록 여부 = 내 등록이 있고 슬롯이 비어 있지 않음(`hasPageBackOwner`). 슬롯을 쓰는 다른 주인은 방 셸뿐이라, 방 셸이 해제 직후 `syncMessengerListWebBack()` 을 부른다. overlay-back-stack 무수정. |
+| 3 traverseTo 무응답 | Chromium `RenderFrameHostImpl::NavigateToNavigationApiKey` 는 다른 이동 진행 중 + 사용자 제스처 없음이면 응답 없이 return → committed 미완. 확인 시간 `BACK_PRESS_LOCK_RELEASE_MS`(700ms, 「누른 뒤 이동 없으면 푼다」 머리글 잠금과 같은 값) 뒤에도 출발 항목이면 대체 이동(방 `router.replace`, 목록 `history.go(차이)`). `navigate`·`currententrychange`·committed 완료 중 하나가 먼저 오면 확인을 끝내 이중 이동 없음. |
+
+타이머 주의: 방 뒤로 목적지 계약(`messenger-room-back-target.ts`, 「280ms 폴백·타이머 없음」)과 긴장이 있다. 옛 280ms 폴백은 「뒤로가 타이머 뒤에 끝나면 두 번째 이동」이 실기에서 확인된 결함이었다. 이번 타이머는 이동이 시작되면(`navigate`) 바로 취소되므로 같은 경합은 없다고 판단했다. 다만 실기 확인 전이다(NOT_PROVEN).
+
+## 5. 남은 NOT_PROVEN·위험
+- traverseTo·history.go 가 건너뛰기와 무관한 것은 Chromium 소스 기준 PASS 이고, Android WebView 실기는 NOT_PROVEN 이다. iOS 는 이번 변경 대상 아님(N2 측정 대기).
+- 700ms 확인 시간 안에 `navigate` 이벤트가 오지 않는 느린 기기에서 대체 이동과 원래 이동이 겹칠 가능성(실기 미측정).
 - Next 라우터가 traverse(popstate) 뒤 화면을 제대로 복원하는지 실기 미확인.
 - `cm_return` 에 쿼리로 목록을 가르는 주소(`section`·`storeId` 밖의 쿼리)가 실리면 다른 목록을 같은 목록으로 판정할 수 있다.
-- 페이지 뒤로 주인은 슬롯 1개다. 다른 화면이 목록 위에서 같은 슬롯을 썼다가 해제하면, 목록을 떠났다 돌아올 때까지 목록 담당이 빠질 수 있다.
+- 페이지 뒤로 주인 슬롯을 쓰는 화면이 앞으로 늘면, 그 화면도 해제 직후 `syncMessengerListWebBack()` 을 불러야 한다.
