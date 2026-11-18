@@ -144,19 +144,27 @@ describe("notify-message-pipeline P2 opt-in", () => {
     expect(order.slice(0, 2)).toEqual(["read", "read"]);
   });
 
-  it("deferAutoRead: no markRoomRead inside pipeline; returns autoReadRecipientIds", async () => {
+  it("D1: server never reads presence nor auto-reads (deferAutoRead is a no-op)", async () => {
     resolvePresenceSuppressDecision.mockReturnValue(autoReadDecision);
     const res = await notifyMessagePipeline(
       sb,
       { ...baseInput, recipientUserIds: ["u1"] },
       { parallelRecipients: true, deferAutoRead: true }
     );
+    expect(loadRecipientPresenceSnapshot).not.toHaveBeenCalled();
     expect(markRoomRead).not.toHaveBeenCalled();
-    expect(res.autoReadRecipientIds).toEqual(["u1"]);
+    expect(res.autoReadRecipientIds).toEqual([]);
+    const created = createAndDispatchNotificationEvent.mock.calls[0]?.[1] as {
+      unread: boolean;
+      appState: string;
+      pushSuppressedReason: string | null;
+    };
+    expect(created.unread).toBe(true);
+    expect(created.appState).toBe("background");
+    expect(created.pushSuppressedReason).toBeNull();
   });
 
   it("parallel mode: one recipient failure keeps other recipients' partial results (no throw)", async () => {
-    resolvePresenceSuppressDecision.mockReturnValue(autoReadDecision);
     createAndDispatchNotificationEvent.mockImplementation(async (_sb: unknown, input: { userId: string }) => {
       if (input.userId === "u2") throw new Error("insert failed");
       return { ok: true, pushDeferred: true, row: { id: `evt-${input.userId}`, user_id: input.userId } };
@@ -166,15 +174,15 @@ describe("notify-message-pipeline P2 opt-in", () => {
       { ...baseInput, recipientUserIds: ["u1", "u2", "u3"] },
       { parallelRecipients: true, deferAutoRead: true, deferPush: true }
     );
-    expect(res.autoReadRecipientIds.sort()).toEqual(["u1", "u3"]);
+    expect(res.autoReadRecipientIds).toEqual([]);
     expect(Object.keys(res.decisionSnapshotsByRecipientId).sort()).toEqual(["u1", "u3"]);
     expect(res.deferredPushes.map((d) => d.row.id).sort()).toEqual(["evt-u1", "evt-u3"]);
   });
 
-  it("default (no opt-in): auto-read runs inside pipeline, autoReadRecipientIds empty", async () => {
-    resolvePresenceSuppressDecision.mockReturnValue(autoReadDecision);
+  it("default (no opt-in): no auto-read, badge cache invalidated per recipient", async () => {
     const res = await notifyMessagePipeline(sb, { ...baseInput, recipientUserIds: ["u1"] });
-    expect(markRoomRead).toHaveBeenCalledWith(sb, "u1", "room-g");
+    expect(markRoomRead).not.toHaveBeenCalled();
+    expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("u1");
     expect(res.autoReadRecipientIds).toEqual([]);
   });
 });

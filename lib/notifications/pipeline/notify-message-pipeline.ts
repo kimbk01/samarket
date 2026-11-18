@@ -19,11 +19,6 @@ import {
 } from "@/lib/notifications/engine/notification-decision";
 import { isNotificationBlockedForRecipient } from "@/lib/notifications/policy/notification-block-policy";
 import { isRoomMutedForUser } from "@/lib/notifications/policy/notification-mute-policy";
-import {
-  loadRecipientPresenceSnapshot,
-  resolveOsPushAppStateFromPresence,
-  resolvePresenceSuppressDecision,
-} from "@/lib/notifications/policy/notification-presence-policy";
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
 import type { NotificationEventRow } from "@/lib/notifications/core/notification-event-schema";
 import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
@@ -32,7 +27,6 @@ import {
   markChatPushHandoffPending,
 } from "@/lib/notifications/chat-notification-push-handoff";
 import type { NotificationRuntimeAppState } from "@/lib/notifications/policy/notification-policy-profiles";
-import { markRoomRead } from "@/lib/notifications/pipeline/notify-read-service";
 import { isChatDomain } from "@/lib/chat-domain/realtime/domain-realtime-envelope";
 import { generalDirectRoomIdentity, groupRoomIdentity } from "@/lib/chat-domain/room-identity";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
@@ -56,11 +50,19 @@ export type NotifyMessagePipelineResult = {
   /** Rows that need `dispatchNotificationEvent` when `deferPush` was set. */
   deferredPushes: Array<{ row: NotificationEventRow; appState: NotificationRuntimeAppState }>;
   /**
-   * `deferAutoRead: true` 일 때만 채움 — 같은 방 전면(presence)이라 자동 읽음 대상인 수신자.
-   * 호출부가 배지 target bump 완료 뒤 `markRoomRead` 를 실행해야 한다(I5).
+   * D1 1단계(Owner 승인 2026-11-19) 이후 **항상 빈 배열**. 서버는 수신자 presence 로 자동 읽음을 추측하지 않는다 —
+   * 방을 보고 있는 클라이언트가 새 메시지를 그릴 때 읽음 처리한다(`use-messenger-room-open-mark-read-effect` incoming-visible).
+   * 호출부 계약(`deferAutoRead`) 호환을 위해 필드만 유지.
    */
   autoReadRecipientIds: string[];
 };
+
+/**
+ * D1 1단계 — 서버는 항상 보낸다. 앞화면 표시 여부는 기기가 판단한다:
+ * Android `DibayFirebaseMessagingService` 앞화면 채팅 트레이 생략 · iOS 앞화면 presentationOptions `[]` ·
+ * 웹 `public/sw.js` 보이는 창이 같은 방이면 생략. 근거: docs/audit/supabase-request-surge-2026-11-18/d1-presence-push-structure-analysis-2026-11-19.md
+ */
+const MESSAGE_PUSH_APP_STATE: NotificationRuntimeAppState = "background";
 
 /** P2: `parallelRecipients` 일 때 수신자 동시 처리 상한 */
 export const NOTIFY_MESSAGE_PIPELINE_RECIPIENT_CONCURRENCY = 8;
@@ -157,13 +159,12 @@ export async function notifyMessagePipeline(
      */
     deferPush?: boolean;
     /**
-     * P2 opt-in (기본 false = 기존 순차 동작): 수신자별 읽기 판정(차단·음소거·presence·언어)을 동시에 읽고
+     * P2 opt-in (기본 false = 기존 순차 동작): 수신자별 읽기 판정(차단·음소거·언어)을 동시에 읽고
      * 수신자끼리도 동시 처리(상한 8). 판정 입력은 모두 읽기라 결과는 순차와 같다.
      */
     parallelRecipients?: boolean;
     /**
-     * P2 opt-in (기본 false): 자동 읽음(`auto_read_same_room`)의 `markRoomRead` 를 실행하지 않고
-     * `autoReadRecipientIds` 로 돌려준다 — 호출부가 배지 target bump 완료 뒤 실행(I5).
+     * D1 1단계 이후 효과 없음(서버 자동 읽음 없음 · `autoReadRecipientIds` 항상 빈 배열). 호출부 계약 호환용.
      */
     deferAutoRead?: boolean;
     /** Opt-in T5 durable-path substages (`x-samarket-t5-trace`). */
@@ -174,7 +175,6 @@ export async function notifyMessagePipeline(
   const deferredPushes: Array<{ row: NotificationEventRow; appState: NotificationRuntimeAppState }> = [];
   const autoReadRecipientIds: string[] = [];
   const parallelRecipients = opts?.parallelRecipients === true;
-  const deferAutoRead = opts?.deferAutoRead === true;
   const roomId = input.roomId.trim();
   const messageId = input.messageId.trim();
   const senderUserId = input.senderUserId.trim();
@@ -241,21 +241,18 @@ export async function notifyMessagePipeline(
 
     let blocked: boolean;
     let muted: boolean;
-    let presence: Awaited<ReturnType<typeof loadRecipientPresenceSnapshot>>;
     let preloadedLanguage: Awaited<ReturnType<typeof loadNotificationUserLanguage>> | undefined;
     if (parallelRecipients) {
-      /** P2: 판정 읽기 4개를 1왕복으로(모두 읽기 — 순차와 같은 값). 차단이면 결과만 버린다. */
+      /** P2: 판정 읽기 3개를 1왕복으로(모두 읽기 — 순차와 같은 값). 차단이면 결과만 버린다. */
       const readsT0 = performance.now();
-      const [blockedR, mutedR, presenceR, languageR] = await Promise.all([
+      const [blockedR, mutedR, languageR] = await Promise.all([
         isNotificationBlockedForRecipient(sb, recipientUserId, senderUserId),
         isMentioned ? Promise.resolve(false) : isRoomMutedForUser(sb, recipientUserId, roomId),
-        loadRecipientPresenceSnapshot(sb, recipientUserId),
         loadNotificationUserLanguage(sb, recipientUserId),
       ]);
       addSpan("ND_recipient_reads_ms", readsT0);
       blocked = blockedR;
       muted = mutedR;
-      presence = presenceR;
       preloadedLanguage = languageR;
       if (blocked) {
         logNotifyMessage("blocked_suppressed", { roomId, recipientUserId, senderUserId });
@@ -272,9 +269,6 @@ export async function notifyMessagePipeline(
       const mutedT0 = performance.now();
       muted = isMentioned ? false : await isRoomMutedForUser(sb, recipientUserId, roomId);
       addSpan("ND_muted_ms", mutedT0);
-      const presenceT0 = performance.now();
-      presence = await loadRecipientPresenceSnapshot(sb, recipientUserId);
-      addSpan("ND_presence_ms", presenceT0);
     }
 
     const eventType = isMentioned ? ("mention_message" as const) : baseEventType;
@@ -283,18 +277,15 @@ export async function notifyMessagePipeline(
       ? buildMentionDedupeKey(roomId, messageId, recipientUserId)
       : buildMessageDedupeKey(roomId, messageId);
 
-    const presenceDecision = resolvePresenceSuppressDecision(presence, roomId);
-
+    /** D1 1단계 — presence 추측 없음. 음소거·차단(위)·알림 설정(발송 단계)만 적용한다. */
     const suppressReasons: string[] = [];
     if (muted) suppressReasons.push("room_muted");
-    if (presenceDecision.reason) suppressReasons.push(presenceDecision.reason);
-    if (presenceDecision.autoRead) suppressReasons.push("auto_read_same_room");
 
     const decisionSnapshot = createNotificationDecision({
-      playSound: !muted && !presenceDecision.suppressSound,
-      showBottomBadge: !presenceDecision.suppressBadge,
-      showListBadge: !presenceDecision.suppressBadge,
-      push: !muted && !presenceDecision.suppressPush,
+      playSound: !muted,
+      showBottomBadge: true,
+      showListBadge: true,
+      push: !muted,
       persist: true,
       suppressReasons,
     });
@@ -303,9 +294,6 @@ export async function notifyMessagePipeline(
     const soundSuppressedReason = pushSuppressedReason;
 
     if (muted) logNotifyMessage("muted_sound_suppressed", { roomId, recipientUserId });
-    if (presenceDecision.reason === "same_room_foreground") {
-      logNotifyMessage("suppressed_same_room", { roomId, recipientUserId });
-    }
 
     const displayT0 = performance.now();
     const display = await buildRecipientMessageNotificationDisplay(
@@ -358,7 +346,7 @@ export async function notifyMessagePipeline(
       return;
     }
 
-    const appState = resolveOsPushAppStateFromPresence(presence);
+    const appState = MESSAGE_PUSH_APP_STATE;
     const insertT0 = performance.now();
     const created = await createAndDispatchNotificationEvent(
       sb,
@@ -405,15 +393,7 @@ export async function notifyMessagePipeline(
     // Freeze only after successful Legacy write — same Snapshot used for write above.
     decisionSnapshotsByRecipientId[recipientUserId] = decisionSnapshot;
 
-    if (decisionSnapshot.suppressReasons.includes("auto_read_same_room")) {
-      if (deferAutoRead) {
-        autoReadRecipientIds.push(recipientUserId);
-      } else {
-        await markRoomRead(sb, recipientUserId, roomId);
-      }
-    } else {
-      invalidateNotificationBadgeCache(recipientUserId);
-    }
+    invalidateNotificationBadgeCache(recipientUserId);
   };
 
   if (parallelRecipients) {

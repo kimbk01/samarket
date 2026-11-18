@@ -218,7 +218,7 @@ describe("notify-message-pipeline", () => {
     );
   });
 
-  it("auto-reads and suppresses push for same-room foreground", async () => {
+  it("D1: same-room foreground is not guessed on the server — always sends, no auto-read", async () => {
     resolvePresenceSuppressDecision.mockReturnValue(
       defaultPresenceDecision({
         suppressPush: true,
@@ -235,12 +235,13 @@ describe("notify-message-pipeline", () => {
       recipientUserIds: ["user-b"],
       preview: "hello",
     });
+    expect(loadRecipientPresenceSnapshot).not.toHaveBeenCalled();
     expect(createAndDispatchNotificationEvent).toHaveBeenCalledWith(
       sb,
-      expect.objectContaining({ unread: false, pushSuppressedReason: "same_room_foreground" }),
+      expect.objectContaining({ unread: true, pushSuppressedReason: null, appState: "background" }),
       expect.objectContaining({ deferPush: false })
     );
-    expect(markRoomRead).toHaveBeenCalledWith(sb, "user-b", "room-1");
+    expect(markRoomRead).not.toHaveBeenCalled();
   });
 
   it("creates separate events for consecutive messages", async () => {
