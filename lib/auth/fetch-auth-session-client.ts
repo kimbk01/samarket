@@ -48,6 +48,22 @@ export function noteAuthSessionClientOk(): void {
   setAuthSessionClientCacheOk();
 }
 
+/**
+ * 설계 §24 D5 보완 (Auth HARD LOCK Amendment 2026-11-18 (2)) — 경계 컴포넌트의 직접 확인이 진행 중이면 공용 조회가
+ * 요청 직전에 그 결과를 기다려 합류한다. 실측(11-18 Xiaomi): 세션 관리자 조회가 먼저 시작해 Supabase 준비를 기다리는 사이
+ * 경계 확인이 나가고, 기다린 뒤 캐시를 다시 보지 않아 /api/auth/session 이 2회 나갔다(6회 중 5회).
+ * 판정 의미 없음: 합류 결과가 「로그인됨」일 때만 캐시 적중과 같은 응답 · 아니면 지금처럼 직접 요청(401·비회원 처리 그대로).
+ */
+let boundaryProbeInflight: Promise<boolean> | null = null;
+
+export function trackAuthSessionBoundaryProbe(probe: Promise<boolean>): void {
+  const tracked = probe.catch(() => false);
+  boundaryProbeInflight = tracked;
+  void tracked.then(() => {
+    if (boundaryProbeInflight === tracked) boundaryProbeInflight = null;
+  });
+}
+
 export function clearAuthSessionClientCache(): void {
   sessionOkClientCache = null;
 }
@@ -117,6 +133,22 @@ async function fetchAuthSessionFlight(signal: AbortSignal, clientCallSource?: st
   bumpAppWidePerf("auth_session_resolve_start");
   const t0 = performance.now();
   await awaitClientSupabaseSessionReady(SESSION_PREFETCH_WAIT_MS);
+  // 설계 §24 D5 보완: 기다린 사이 다른 확인이 「로그인됨」을 남겼거나 경계 확인이 진행 중이면 그 결과로 끝낸다.
+  const joinedProbe = boundaryProbeInflight;
+  if (peekAuthSessionClientCacheHit() || (joinedProbe && (await joinedProbe))) {
+    if (signal.aborted) throw new Error("fetchAuthSessionNoStore: deadline aborted");
+    setAuthSessionClientCacheOk();
+    bumpAppWidePerf("auth_session_resolve_success");
+    recordAppWidePhaseLastMs("auth_session_resolve_ms", Math.round(performance.now() - t0));
+    return new Response(JSON.stringify({ ok: true, authenticated: true }), {
+      status: 200,
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "x-samarket-session-client-cache-hit": "1",
+        ...(clientCallSource ? { "x-samarket-client-call-source": clientCallSource } : {}),
+      },
+    });
+  }
   for (let attempt = 0; attempt < 2; attempt++) {
     if (signal.aborted) throw new Error("fetchAuthSessionNoStore: deadline aborted");
     try {
