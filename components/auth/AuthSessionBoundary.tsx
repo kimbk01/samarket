@@ -17,6 +17,10 @@ import { exposeResetAuthStateForDev } from "@/lib/auth/reset-auth-state";
 import { getSessionPhase } from "@/lib/auth/dibay-session-manager";
 import { isRecoveringPhase } from "@/lib/auth/dibay-session-policy";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import {
+  isMessengerRoomPreShellBackPath,
+  MessengerRoomPreShellBackOwner,
+} from "@/components/community-messenger/room/MessengerRoomPreShellBackOwner";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
@@ -139,8 +143,21 @@ export function AuthSessionBoundary({ children }: Props) {
     };
   }, [dependent, membership.status, pathname, sessionApiAuthenticated]);
 
+  /**
+   * FAIL-2 — 메신저 방 경로에서만 「차단」 화면 동안 ◁ 주인(`MessengerRoomPreShellBackOwner`). 통화·그 밖 경로는 null.
+   * 모든 반환을 같은 모양(`[화면, 주인 칸]`)으로 둔다 — 모양이 경로마다 달라지면 경로 이동 때 `children` 이 다시 마운트되고,
+   * 차단이 풀릴 때 주인 요소가 같은 자리에 남아야 방 셸 등록 뒤에 해제된다(리스너 재설치 없음).
+   */
+  const path = pathname.trim() || (typeof window !== "undefined" ? window.location.pathname : "");
+  const withPreShellBackSlot = (node: ReactNode, blocked: boolean) => (
+    <>
+      {node}
+      {isMessengerRoomPreShellBackPath(path) ? <MessengerRoomPreShellBackOwner active={blocked} /> : null}
+    </>
+  );
+
   if (!dependent) {
-    return <>{children}</>;
+    return withPreShellBackSlot(children, false);
   }
 
   const phase = getSessionPhase();
@@ -160,7 +177,7 @@ export function AuthSessionBoundary({ children }: Props) {
    */
   const isDeliveryActivityHub = pathForOwnerGate === "/orders/activity";
   if ((isOwnerAdminRoute || isDeliveryActivityHub) && !isAuthExitNavigateStarted()) {
-    return <>{children}</>;
+    return withPreShellBackSlot(children, false);
   }
 
   /**
@@ -172,7 +189,7 @@ export function AuthSessionBoundary({ children }: Props) {
     sessionApiAuthenticated &&
     !isAuthExitNavigateStarted()
   ) {
-    return <>{children}</>;
+    return withPreShellBackSlot(children, false);
   }
 
   const holdForRecovery =
@@ -195,16 +212,17 @@ export function AuthSessionBoundary({ children }: Props) {
   });
 
   if (blockPrivateTree) {
-    return (
+    return withPreShellBackSlot(
       <div
         className="flex min-h-[40vh] items-center justify-center bg-sam-app px-4"
         aria-busy="true"
         data-auth-session-boundary="blocked"
       >
         <p className="sam-text-body text-sam-muted">{t("mypage_comp_loading_ellipsis")}</p>
-      </div>
+      </div>,
+      true
     );
   }
 
-  return <>{children}</>;
+  return withPreShellBackSlot(children, false);
 }
