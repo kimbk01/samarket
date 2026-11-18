@@ -28,10 +28,15 @@
 .home-hero-track::-webkit-scrollbar {
   display: none;
 }
+/*
+ * 카드 높이 = `::before` 여백 비율(padding-top %) — aspect-ratio 에 기대지 않는다
+ * (2026-11-18 Mac 앱 WebKit: 좁은 창에서 카드 높이 0 · iOS Safari: <button> 안 그림 0 실측 FAIL).
+ */
 .home-hero-card {
   position: relative;
-  flex: 0 0 100%;
-  aspect-ratio: 16 / 10;
+  display: block;
+  flex: 0 0 auto;
+  width: 100%;
   scroll-snap-align: start;
   overflow: hidden;
   border-radius: var(--ui-radius-rect, 4px);
@@ -43,19 +48,27 @@
     0 8px 24px rgba(16, 24, 18, 0.12);
   -webkit-tap-highlight-color: transparent;
 }
-.home-hero-track[data-multi] .home-hero-card {
-  flex-basis: calc(100% - 28px);
+.home-hero-card::before {
+  content: "";
+  display: block;
+  padding-top: 62.5%; /* 16:10 */
 }
-button.home-hero-card {
+.home-hero-track[data-multi] .home-hero-card {
+  width: calc(100% - 28px);
+}
+.home-hero-card[role="button"] {
   cursor: pointer;
   transition: transform 0.15s ease;
 }
-button.home-hero-card:active {
+.home-hero-card[role="button"]:active {
   transform: scale(0.985);
 }
 .home-hero-img {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -70,7 +83,10 @@ button.home-hero-card:active {
 }
 .home-hero-shade {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   pointer-events: none;
   background: linear-gradient(90deg, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.45) 42%, rgba(0, 0, 0, 0) 72%);
 }
@@ -193,13 +209,11 @@ button.home-hero-card:active {
     padding-inline: 24px;
     scroll-padding-inline: 24px;
   }
-  .home-hero-card,
   .home-hero-track[data-multi] .home-hero-card {
-    flex-basis: 78%;
-    aspect-ratio: 16 / 8;
+    width: 78%;
   }
-  .home-hero-track:not([data-multi]) .home-hero-card {
-    flex-basis: 100%;
+  .home-hero-card::before {
+    padding-top: 50%; /* 16:8 */
   }
   .home-hero-copy {
     left: 22px;
@@ -226,12 +240,11 @@ button.home-hero-card:active {
     scroll-padding-inline: 32px;
   }
   .home-hero-card,
-  .home-hero-track[data-multi] .home-hero-card,
-  .home-hero-track:not([data-multi]) .home-hero-card {
-    flex: 0 0 auto;
-    width: auto;
-    height: 320px;
-    aspect-ratio: 16 / 9;
+  .home-hero-track[data-multi] .home-hero-card {
+    width: 569px; /* 높이 320 × 16:9 */
+  }
+  .home-hero-card::before {
+    padding-top: 56.25%; /* 16:9 */
   }
   .home-hero-copy {
     left: 28px;
@@ -274,16 +287,16 @@ button.home-hero-card:active {
   .home-hero-arrow--next {
     right: 8px;
   }
-  button.home-hero-card:hover .home-hero-img {
+  .home-hero-card[role="button"]:hover .home-hero-img {
     filter: brightness(1.05);
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  button.home-hero-card,
+  .home-hero-card[role="button"],
   .home-hero-dots i {
     transition: none;
   }
-  button.home-hero-card:active {
+  .home-hero-card[role="button"]:active {
     transform: none;
   }
 }

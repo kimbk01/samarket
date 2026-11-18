@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_HOME_LAYOUT,
+  HOME_BANNER_BODY_MAX,
   HOME_BANNER_CHIP_MAX,
+  HOME_BANNER_CTA_MAX,
   HOME_BANNER_HERO_RATIO,
   HOME_BANNER_IMAGE_PX,
   HOME_BANNER_SIZE_PERCENT,
+  HOME_BANNER_TITLE_MAX,
   HOME_MENU_CATALOG,
   HOME_SECTION_KEYS,
   HOME_STORE_PICKS_MAX,
@@ -60,6 +63,15 @@ describe("home layout contract (홈 시안 v4 · 2026-11-14)", () => {
     expect(b[1]!.ctaLabel.en).toBe(homeHubMessages.en.home_banner_messenger_cta);
     expect(b.every((x) => x.ratio === HOME_BANNER_HERO_RATIO)).toBe(true);
     expect(b.every((x) => x.imageUrl.startsWith("/images/home-banners/hero-"))).toBe(true);
+    // 기본 문구도 어드민 저장 시 잘리지 않게 칸 최대 글자 안 (2026-11-18 운영 「DIPICK Deliv」 잘림)
+    for (const x of b) {
+      for (const lang of ["ko", "en"] as const) {
+        expect(x.chip[lang].length).toBeLessThanOrEqual(HOME_BANNER_CHIP_MAX);
+        expect(x.ctaLabel[lang].length).toBeLessThanOrEqual(HOME_BANNER_CTA_MAX);
+        expect(x.title[lang].length).toBeLessThanOrEqual(HOME_BANNER_TITLE_MAX);
+        expect(x.body[lang].length).toBeLessThanOrEqual(HOME_BANNER_BODY_MAX);
+      }
+    }
   });
 
   it("배너 서비스 표시·버튼 문구 — 저장값 정규화(12자) · 예전 저장값(칸 없음)은 빈 문구", () => {
