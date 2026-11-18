@@ -357,6 +357,8 @@ public class MainActivity extends BridgeActivity {
   private volatile boolean routeInjectedForCurrentPending = false;
   /** E2: 통화 아닌 경로 flush 차례 — 새 flush 가 이전 재시도 묶음을 무효로 한다(메인 스레드에서만 증가·비교). */
   private int nonCallPendingFlushGeneration = 0;
+  /** E1 보완: super.onCreate(→ BridgeActivity.load → onNewIntent(getIntent())) 동안에만 true. */
+  private boolean skipLaunchRouteDuringSuperOnCreate = false;
   private volatile boolean dibayWebChromeClientAttached = false;
   private volatile boolean dibayWebViewClientAttached = false;
   private volatile boolean dibayBootBridgeAttached = false;
@@ -1369,7 +1371,15 @@ public class MainActivity extends BridgeActivity {
     SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
     installedSplashScreen = splashScreen;
     injectBootMetricOnCreate();
-    super.onCreate(savedInstanceState);
+    // E1 보완 (실기 11-18 빌드 77 FAIL): Capacitor `BridgeActivity.load()` 가 super.onCreate 안에서
+    // `onNewIntent(getIntent())` 를 불러 옛 의도가 아래 판정보다 먼저 처리됐다 → 그 호출도 같은 판정을 따른다.
+    skipLaunchRouteDuringSuperOnCreate =
+        shouldSkipRestoredLaunchRoute(getIntent(), savedInstanceState != null);
+    try {
+      super.onCreate(savedInstanceState);
+    } finally {
+      skipLaunchRouteDuringSuperOnCreate = false;
+    }
     purgeObsoleteIntroSystemStartLocalStateOnce();
     // OS splash until web dismissSplash / homePresentationReady — no Intro/System Start product.
     // 진입 감사 5단계: 네이티브 인트로가 붙었으면 OS 시작 화면을 바로 걷는다(인트로가 로딩 시간을 채움)
@@ -2724,6 +2734,11 @@ public class MainActivity extends BridgeActivity {
   public void onNewIntent(Intent intent) {
     super.onNewIntent(intent);
     setIntent(intent);
+    if (skipLaunchRouteDuringSuperOnCreate) {
+      // 복원·최근 앱 실행의 옛 의도(통화 아님) — Capacitor 브리지 전달(super)만 하고 알림 경로는 처리하지 않는다.
+      Log.i(ROUTE_LOG_TAG, "[push-route] restored_launch_intent_skipped source=bridge_load");
+      return;
+    }
     handleNotificationLaunchIntent(intent);
   }
 

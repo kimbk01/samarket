@@ -1154,3 +1154,10 @@ PO-8 위치별 켜기/끄기 · 발견 응답에 첫 화면 싣기 · 「휴대�
 - 회귀 위험: 부재중 경로 판정이 틀려 통화 화면 경로에 덮개가 씌워지는 경우 → 조건이 「calls 경로 아님」이라 통화 화면 경로는 구조상 제외.
 - 롤백: 해당 줄 되돌림 + 빌드 번호 증가 설치본.
 - 실기 검증: 부재중 알림 탭(채팅방) 덮개 뒤 자리 표시 0 · roomId 없는 부재중(calls/logs) 동작 그대로 · 규정 5번 최소 행렬(Android↔iPhone 음성·영상 발신·수신·거절·벨 중 취소·지연 푸시·통화 중·무응답·종료 후 재발신) — iPhone 조작 필요.
+
+### 24-16. 빌드 77 실기 (10:55~11:01 PHT · main `ce5c405`(#457) · 디버그 1.2.7(77) · `user_devices.app_version` 두 기기 `1.2.7 (77)` 확인 · 회원)
+- **작업자 잘못:** E1 설계가 Capacitor `BridgeActivity.load()`(super.onCreate 안)의 `this.onNewIntent(getIntent())` 경로를 놓쳤다 → E1 **FAIL**.
+  - 실측(두 기기 · 방 알림 실행 → HOME → 66초 → `am kill` → 런처로 다시 열기): `onCreate_savedInstanceState=non_null` 1회인데 옛 의도(`e1-…`)가 `notification_tap_received → route_resolved → pending_route_saved` 로 먼저 처리되고(onNewIntent, load 경로), 80ms 뒤 onCreate 끝의 `restored_launch_intent_skipped` — 옛 채팅방으로 이동·ACK.
+  - 같은 원인으로 평소 차가운 시작도 실행 의도를 2번 처리한다(`notification_tap_received` 2회 → 두 번째 `duplicate_ignored`). 알림 extras 는 60초 중복 막기로 무해 · 범위 밖(보고만).
+  - 보완(빌드 78): super.onCreate 동안 E1 판정이 참이면 `onNewIntent` 는 Capacitor 브리지 전달(super)만 하고 알림 경로는 처리하지 않는다. 평소 시작·통화 의도는 무변경.
+- **E2:** 넣기 횟수 8·9·9(Xiaomi) · 9·8·8(Samsung) — 감사 때 약 20회. ACK 뒤 다시 넣기 0(이전: consumer_ready 뒤 옛 묶음이 다시 넣음). 설계 기대(1~2회)에는 못 미침 — **원인:** 웹 확인(ACK)까지 약 3.5초, 그 사이 마지막 묶음의 재시도(즉시·120·450·900ms)가 계속 넣는다. 웹은 2초 안 같은 경로를 무시(D2)해 화면 영향은 없다. 더 줄이려면 「웹 수신기 준비 전에는 넣지 않고 consumer_ready 때 1번」으로 넣기 방식을 바꿔야 함(설계 필요 · 이번에 안 함).
