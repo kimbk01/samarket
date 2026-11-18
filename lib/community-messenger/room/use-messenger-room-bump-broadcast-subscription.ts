@@ -21,6 +21,7 @@ import { subscribeCommunityMessengerRoomBumpBroadcast } from "@/lib/community-me
 import {
   applyIncomingMessageEvent,
   messengerIncomingMessageAlreadyTracked,
+  removeMessengerRealtimeRoomMessage,
 } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { resolveOwnRoomBumpDecision } from "@/lib/community-messenger/room/own-room-bump-origin-policy";
 import { shouldSkipPeerBumpSingleGet } from "@/lib/community-messenger/room/peer-bump-snapshot-skip-policy";
@@ -234,6 +235,8 @@ export function useMessengerRoomBumpBroadcastSubscription({
           for (const rid of cacheRoomIds) {
             removeMessageFromRoomSnapshotCache({ roomId: rid, viewerUserId: viewer, messageId: deletedId });
             forgetMessengerRoomClientBootstrapFlights({ roomId: rid, viewerUserId: viewer });
+            /** F3 (설계 2026-11-18 PR-1): 실시간 저장소 사본도 지운다 — 재진입 병합에서 부활 방지 */
+            removeMessengerRealtimeRoomMessage(rid, deletedId);
           }
           setRoomMessages((prev) =>
             prev.some((m) => String(m.id ?? "").trim() === deletedId)

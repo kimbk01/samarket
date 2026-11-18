@@ -4,7 +4,11 @@ import { create } from "zustand";
 import type { MessengerChatViewPosition } from "./messenger-notification-state-model";
 
 type RoomReaderEntry = {
-  scrollPosition: MessengerChatViewPosition;
+  /**
+   * PR-1 감사 #3: 위치를 모르면(방을 연 뒤 진입 완료 viewport 동기화 전) null — 다른 쓰기(lastVisible·대기 수)가
+   * 위치를 「reading-history」로 만들어 내지 않는다(그러면 진입 전 「↓」가 보였다). 소비처는 모두 `?? null`·null 비교.
+   */
+  scrollPosition: MessengerChatViewPosition | null;
   pendingNewBelow: number;
   /** Last canonical timeline row actually intersecting the viewport. UI state only. */
   lastVisibleMessageId: string | null;
@@ -56,7 +60,7 @@ export const useMessengerRoomReaderStateStore = create<State>((set, get) => ({
         byRoom: {
           ...s.byRoom,
           [id]: {
-            scrollPosition: prev?.scrollPosition ?? "reading-history",
+            scrollPosition: prev?.scrollPosition ?? null,
             pendingNewBelow: prev?.pendingNewBelow ?? 0,
             lastVisibleMessageId: nextMessageId,
             updatedAt: Date.now(),
@@ -78,7 +82,7 @@ export const useMessengerRoomReaderStateStore = create<State>((set, get) => ({
              * P3(2026-11-18 감사 X2): 위치는 viewport 동기화(`syncMessengerRoomReaderStateFromViewport`)만 쓴다 —
              * 여기서 reading-history 로 덮으면 맨 아래인데도 「↓」·방 안 알림 판단이 어긋난다. 대기 수만 늘린다.
              */
-            scrollPosition: prev?.scrollPosition ?? "reading-history",
+            scrollPosition: prev?.scrollPosition ?? null,
             pendingNewBelow: (prev?.pendingNewBelow ?? 0) + delta,
             lastVisibleMessageId: prev?.lastVisibleMessageId ?? null,
             updatedAt: Date.now(),

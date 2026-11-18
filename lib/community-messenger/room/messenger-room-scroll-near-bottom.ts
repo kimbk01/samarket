@@ -134,9 +134,9 @@ export function syncMessengerRoomReaderStateFromViewport(input: MessengerRoomRea
   const nearBottom = syncMessengerRoomStickToBottomFromViewport(input);
   const id = input.roomId.trim();
   if (id && input.viewport) {
-    useMessengerRoomReaderStateStore
-      .getState()
-      .setLastVisibleMessageId(id, resolveLastVisibleTimelineMessageId(input.viewport));
+    /** 행이 아직 안 그려져 못 찾으면(null) 기존 lastVisible 을 덮지 않는다 — 안 읽음 수가 튀지 않게 (PR-1 검토 #5) */
+    const lastVisible = resolveLastVisibleTimelineMessageId(input.viewport);
+    if (lastVisible) useMessengerRoomReaderStateStore.getState().setLastVisibleMessageId(id, lastVisible);
   }
   return nearBottom;
 }

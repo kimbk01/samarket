@@ -170,7 +170,12 @@ export function useMessengerRoomLoadOlderMessagesFetch({
           const t0 = performance.now();
           const estimatedPrependPx =
             prependedMessages.length > 0
-              ? estimateMessengerRoomTimelineTotalHeight(prependedMessages)
+              ? estimateMessengerRoomTimelineTotalHeight(prependedMessages, {
+                  /** F6: 가상 스크롤 estimateSize 와 같은 그룹 판정(방 종류 direct 가 아니면 그룹) */
+                  isGroupRoom: Boolean(
+                    snapshotRef.current?.room.roomType && snapshotRef.current.room.roomType !== "direct"
+                  ),
+                })
               : 0;
           const { heightDelta, anchorErrorPx } = restoreChatThreadPrependAnchor({
             viewport: el,

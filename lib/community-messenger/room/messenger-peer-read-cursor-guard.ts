@@ -1,4 +1,8 @@
 import type { CommunityMessengerReadReceipt } from "@/lib/community-messenger/types";
+import {
+  compareMessengerReadOrderKey,
+  messengerReadOrderKey,
+} from "@/lib/community-messenger/room/messenger-outbound-read-state";
 
 /**
  * Supabase Realtime `postgres_changes` 가 순서 뒤바뀌거나 재연결 시 오래된 participant 행이
@@ -33,15 +37,13 @@ export function shouldAdvancePeerReadReceiptCursor(args: {
   }
 
   if (nextMid) {
-    const ta = messageCreatedAtById.get(prevMid);
-    const tb = messageCreatedAtById.get(nextMid);
-    if (ta && tb) {
-      const ca = new Date(ta).getTime();
-      const cb = new Date(tb).getTime();
-      if (cb > ca) return true;
-      if (cb < ca) return false;
-      return nextMid.localeCompare(prevMid) >= 0;
-    }
+    /**
+     * F5 (설계 2026-11-18 PR-1): 판정(`resolveMessengerOutboundReadState`)과 같은 비교 하나 —
+     * `compareMessengerReadOrderKey`(ms → µs → id). 예전 ms+localeCompare 는 같은 ms·다른 µs 에서 판정과 어긋났다.
+     */
+    const ka = messengerReadOrderKey(messageCreatedAtById.get(prevMid), prevMid);
+    const kb = messengerReadOrderKey(messageCreatedAtById.get(nextMid), nextMid);
+    if (ka && kb) return compareMessengerReadOrderKey(kb, ka) >= 0;
   }
 
   if (nextAt && prev.lastReadAt) {
@@ -55,7 +57,8 @@ export function shouldAdvancePeerReadReceiptCursor(args: {
  * P1 B-2 #14 (appendix-P1-send-status-design.md S3-(e)): 실시간 상대 읽음 패치 적용.
  * 새 커서 id 가 화면·스냅샷 메시지에 없어 created_at 을 모르면 `lastReadMessageCreatedAt` 을 **비운다**(null) —
  * 예전에는 옛 created_at 을 그대로 둬 「새 id + 옛 시각」 조합으로 읽음 판정이 옛 시각 기준이 될 수 있었다.
- * 비우면 판정 불가 → 「저장됨」(과소 표시), 다음 부트스트랩이 서버 created_at 으로 채운다.
+ * F4 (설계 2026-11-18 PR-1): 비운 동안 화면 판정은 직전에 계산한 키(시각·id)를 그대로 쓴다
+ * (`carryDirectPeerReadCursorKey`) — 체크2→체크1 역행 없음. 행이 도착하면 그 행의 created_at 으로 전진.
  * 같은 id 의 패치(읽은 시각만 전진)는 기존 created_at 을 유지한다.
  */
 export function applyPeerReadReceiptRealtimePatch(

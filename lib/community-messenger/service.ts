@@ -1,3 +1,8 @@
+import {
+  MESSENGER_SEND_UNAVAILABLE_ERROR,
+  resolveMessengerSendRpcCallError,
+  resolveMessengerSendRpcPayloadError,
+} from "@/lib/community-messenger/server/messenger-send-unavailable";
 import { isCatalogStickerPath } from "@/lib/stickers/sticker-catalog-validate";
 import { resolvePresenceLastSeenAtFromDbRow } from "@/lib/community-messenger/presence/presence-last-seen";
 import { readLiteBundleRoomAvatarUrl } from "@/lib/community-messenger/lite-bundle-room-avatar";
@@ -17443,23 +17448,27 @@ async function trySendCommunityMessengerTextAtomic(
     markT5(t5, "S7");
     t5.spans.rpc_includes_room_unread = 1;
   }
+  /**
+   * F1 (2026-11-18 PR-1): 서버 저장 여부를 알 수 없는 실패(RPC 호출 오류·`rolledBack` 비업무 오류·응답 없음)는
+   * `message_send_unavailable` → route 503 → 클라이언트가 실패 행을 유지한다(무알림 삭제 방지).
+   */
   if (rpcErr) {
     if (isCommunityMessengerSendTextRpcMissing(rpcErr)) return null;
-    return { ok: false, error: String(rpcErr.message ?? "message_send_failed") };
+    /** PR-1 검토 #6: 일시 오류만 503(unavailable), 권한·제약 위반 등은 400(message_send_rejected) */
+    return { ok: false, error: resolveMessengerSendRpcCallError(rpcErr) };
   }
   if (rpcRaw == null || typeof rpcRaw !== "object") {
-    return { ok: false, error: "message_send_failed" };
+    return { ok: false, error: MESSENGER_SEND_UNAVAILABLE_ERROR };
   }
   const payload = rpcRaw as Record<string, unknown>;
   if (payload.ok !== true) {
-    const err = typeof payload.error === "string" ? payload.error : "message_send_failed";
     // NEW-12: 거래/주문 오류 코드를 문장으로 덮지 않고 코드 그대로 반환 →
     // 클라이언트 getMessengerRoomActionErrorMessage 매퍼가 정확한 문구로 변환한다.
-    return { ok: false, error: err };
+    return { ok: false, error: resolveMessengerSendRpcPayloadError(payload) };
   }
   const msgRow = payload.message;
   if (!msgRow || typeof msgRow !== "object") {
-    return { ok: false, error: "message_send_failed" };
+    return { ok: false, error: MESSENGER_SEND_UNAVAILABLE_ERROR };
   }
   const message = communityMessengerTextMessageFromRpcRow(roomId, input.userId, msgRow as Record<string, unknown>);
   if (clientMessageId && !trimText(message.clientMessageId)) {
@@ -17610,7 +17619,8 @@ export async function sendCommunityMessengerMessage(input: {
         senderUserId: input.userId,
         peerUserId: blockGate.readmitPeerUserId,
       });
-      if (!readmit.ok) return { ok: false, error: "message_send_failed" };
+      /** F1: readmit 실패는 저장 여부와 무관하게 일시 오류 — 503(실패 행 유지) */
+      if (!readmit.ok) return { ok: false, error: MESSENGER_SEND_UNAVAILABLE_ERROR };
     }
   }
   /** S-2 H: 내 기록 하한 이전 메시지에는 답장할 수 없다(나에게 없는 메시지) — 답장일 때만 조회 */

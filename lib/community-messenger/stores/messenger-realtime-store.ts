@@ -133,7 +133,14 @@ function messengerRoomRouteRoomIdNormFromPathname(): string | null {
 
 function activeRoomActuallyReadable(roomId: string, activeRoomId: string | null): boolean {
   const routeRoom = messengerRoomRouteRoomIdNormFromPathname();
-  if (!routeRoom || routeRoom !== roomId) return false;
+  /**
+   * PR-1: 위치는 정규 방 id 로 읽는다(읽기 상태 저장소 키 통일). 방 판정은 `activeRoomId === roomId` 로 하고 URL 은 방 라우트
+   * 위인지만 본다. `activeRoomId` 는 phase1 이 **라우트 id** 로 설정한다(`setActiveMessengerRealtimeRoom(roomId)`).
+   * 거래 채팅 id(product_chats.id) URL 로 연 방은 스냅샷이 오면 URL 이 정규 id 로 replace 되어
+   * (`use-messenger-room-url-sync-effects.ts`) 방 화면이 정규 id 로 다시 마운트되므로, 두 id 가 어긋나는 구간은 **스냅샷 전뿐**이고
+   * 그 구간의 판정은 main 과 같다(「읽을 수 없음」). 일반 방(URL = 정규 id)은 예전과 같은 결과.
+   */
+  if (!routeRoom) return false;
   if (activeRoomId !== roomId || !currentDocumentVisibleAndFocused()) return false;
   const position = useMessengerRoomReaderStateStore.getState().getScrollPositionForPolicy(roomId);
   return position === "at-bottom" || position === "near-bottom";
@@ -659,6 +666,31 @@ function clearPeerTypingOnIncomingMessage(input: IncomingMessageEventInput): voi
 
 export function getMessengerRealtimeRoomMessages(roomId: string): CommunityMessengerMessage[] {
   return useMessengerRealtimeStore.getState().messagesByRoomId[normalizeRoomId(roomId)] ?? [];
+}
+
+/**
+ * F3 (설계 2026-11-18 PR-1): 메시지 행 영구 삭제(음성 hard_deleted) — 실시간 사본에서도 그 행을 뺀다.
+ * 예전에는 화면 목록만 지워 재진입 병합(`mergePrimedTimelineSeedIntoExisting` 가 이 사본을 base 로 씀)에서 되살아났다.
+ * 수신 중복 판정(seen id)은 그대로 둔다 — 늦게 온 같은 id INSERT 가 다시 넣지 않게.
+ */
+export function removeMessengerRealtimeRoomMessage(roomId: string, messageId: string): boolean {
+  const rid = normalizeRoomId(roomId);
+  const mid = String(messageId ?? "").trim();
+  if (!rid || !mid) return false;
+  let removed = false;
+  useMessengerRealtimeStore.setState((state) => {
+    const list = state.messagesByRoomId[rid];
+    if (!list || !list.some((m) => String(m.id ?? "").trim() === mid)) return state;
+    removed = true;
+    return {
+      ...state,
+      messagesByRoomId: {
+        ...state.messagesByRoomId,
+        [rid]: list.filter((m) => String(m.id ?? "").trim() !== mid),
+      },
+    };
+  });
+  return removed;
 }
 
 /**

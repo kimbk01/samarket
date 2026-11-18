@@ -132,10 +132,7 @@ import { noteGroupRoomIdentitySavedLocally } from "@/lib/community-messenger/roo
 import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
 import { getNotificationSoundGateSnapshot } from "@/lib/notifications/notification-sound-gate";
 import { precheckMessengerFileForUpload } from "@/lib/community-messenger/upload/messenger-file-upload-policy";
-import {
-  classifyMessengerSendFailure,
-  messengerUploadFallbackErrorCode,
-} from "@/lib/community-messenger/upload/messenger-direct-upload-policy";
+import { classifyMessengerSendFailure } from "@/lib/community-messenger/upload/messenger-direct-upload-policy";
 import {
   uploadMessengerFile,
   uploadMessengerImages,
@@ -147,18 +144,13 @@ import {
   isMessengerOutboundRowDisplayed,
   markMessengerOutboundRowFailed,
   markMessengerOutboundRowRetrying,
-  nextUnconfirmedTextSendAfterFailure,
   planMessengerMediaSendFailure,
-  nextUnconfirmedTextSendAfterSuccess,
   pickTextSendClientMessageId,
   registerMessengerOutboundFailedSend,
   runMessengerSequentialSends,
   type MessengerUnconfirmedTextSend,
 } from "@/lib/community-messenger/room/messenger-outbound-failed-send";
-import {
-  beginActiveComposerFailRestoreSession,
-  shouldRestoreActiveComposerAfterSendFail,
-} from "@/lib/community-messenger/room/messenger-composer-fail-restore-active";
+import { beginActiveComposerFailRestoreSession } from "@/lib/community-messenger/room/messenger-composer-fail-restore-active";
 import {
   isMessengerMediaRouteUrl,
   messengerMediaRouteUrlFor,
@@ -166,14 +158,12 @@ import {
 } from "@/lib/community-messenger/media/messenger-media-ref";
 import { isCmGroupCallEnabled } from "@/lib/community-messenger/call-phase0-basics";
 import { shareViaPlatform } from "@/lib/share/platform-share";
-import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
-import {
-  listMessengerFailedTextSends,
-  pruneMessengerFailedTextSendsConfirmed,
-  removeMessengerFailedTextSend,
-  saveMessengerFailedTextSend,
-} from "@/lib/community-messenger/room/messenger-failed-text-store";
 import { MESSENGER_TEXT_SEND_TIMEOUT_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
+import { useMessengerTextSendOutbox } from "@/lib/community-messenger/room/phase2/use-messenger-text-send-outbox";
+import {
+  fetchMessengerSendJson,
+  type MessengerSendFetchJsonResult,
+} from "@/lib/community-messenger/room/messenger-send-fetch-json";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -1099,323 +1089,50 @@ export function useMessengerRoomPhase2Controller() {
   }, []);
 
   /**
-   * P1 (Owner 2026-11-18 「권장안대로 반영」): 결과 불명 실패 글을 기기 저장소에 보관 → 방을 나갔다 와도 실패 행 유지.
-   * 이 방에서 보관 중인 cid — 보관소(localStorage)를 매 렌더 읽지 않도록 메모리에 둔다.
+   * 글 전송 시도·실패 행·기기 보관 — F1 (설계 2026-11-18 PR-1) 무손실 계약은 `use-messenger-text-send-outbox.ts`.
+   * 방 진입 시 보관 글은 실패 상태 행으로 복원만 하고(자동 재전송 없음), 행은 사용자 「삭제」·같은 cid 확정 행·
+   * 입력창 복원 첫 전송 거절로만 사라진다.
    */
-  const persistedFailedTextCidsRef = useRef<Set<string>>(new Set());
-  const forgetPersistedFailedText = (clientMessageId: string) => {
-    const cid = clientMessageId.trim();
-    if (!cid || !persistedFailedTextCidsRef.current.has(cid)) return;
-    persistedFailedTextCidsRef.current.delete(cid);
-    removeMessengerFailedTextSend(streamRoomId, cid);
-  };
-  /** 같은 cid 확정 행이 화면에 오면(늦은 서버 저장·실시간·재전송 성공) 보관에서 제거 */
-  useEffect(() => {
-    const cids = persistedFailedTextCidsRef.current;
-    if (cids.size === 0) return;
-    const confirmed = new Set<string>();
-    for (const m of roomMessages) {
-      if ((m as { pending?: boolean }).pending) continue;
-      const c = typeof m.clientMessageId === "string" ? m.clientMessageId.trim() : "";
-      if (c && cids.has(c)) confirmed.add(c);
-    }
-    if (confirmed.size === 0) return;
-    pruneMessengerFailedTextSendsConfirmed(streamRoomId, confirmed);
-    for (const c of confirmed) cids.delete(c);
-  }, [roomMessages, streamRoomId]);
-  /**
-   * 방 진입 시 1회 — 보관된 실패 글을 복원하고 **같은 cid 로 1회 자동 재전송**(레거시 Telegram: 미전송 메시지를 연결 시 자동 재시도).
-   * 시간 초과 뒤 서버가 실제로 저장했고 확정 행이 첫 화면 창 밖이어도, 서버 cid UNIQUE 멱등(deduped 응답)으로 확정 행으로 바뀌고
-   * 보관에서 지워진다(리뷰 #1). 자동 재전송도 결과 불명이면 실패 행(경고 + 재전송·삭제)으로 남는다.
-   */
-  const restoredFailedTextRoomRef = useRef<string | null>(null);
-  const failedTextRestoreReady = Boolean(snapshot);
-  useEffect(() => {
-    if (!failedTextRestoreReady || !streamRoomId || !snapshot) return;
-    if (restoredFailedTextRoomRef.current === streamRoomId) return;
-    restoredFailedTextRoomRef.current = streamRoomId;
-    const entries = listMessengerFailedTextSends(streamRoomId);
-    persistedFailedTextCidsRef.current = new Set(entries.map((e) => e.clientMessageId));
-    if (entries.length === 0) return;
-    const current = roomMessagesRef.current;
-    const confirmed = new Set<string>();
-    const pendingCids = new Set<string>();
-    for (const m of current) {
-      const c = typeof m.clientMessageId === "string" ? m.clientMessageId.trim() : "";
-      if (!c) continue;
-      if (m.pending) pendingCids.add(c);
-      else confirmed.add(c);
-    }
-    if (confirmed.size) {
-      pruneMessengerFailedTextSendsConfirmed(streamRoomId, confirmed);
-      for (const c of confirmed) persistedFailedTextCidsRef.current.delete(c);
-    }
-    const sender = optimisticOutboundSender(snapshot, roomMembersDisplay);
-    const rows: Array<CommunityMessengerMessage & { pending?: boolean; sendFailed?: boolean }> = [];
-    const autoRetries: Array<{ tempId: string; clientMessageId: string; content: string; replyId: string }> = [];
-    for (const e of entries) {
-      if (confirmed.has(e.clientMessageId) || pendingCids.has(e.clientMessageId)) continue;
-      const tempId = `pending:${streamRoomId}:${pendingMessageIdRef.current++}`;
-      const replyId = (e.replyToMessageId ?? "").trim();
-      const replySource = replyId ? current.find((m) => m.id === replyId && !m.pending) : undefined;
-      const replySnap = replySource ? buildReplyPreviewSnapshot(replySource) : null;
-      const row = {
-        id: tempId,
-        roomId: streamRoomId,
-        senderId: sender.senderId,
-        senderLabel: sender.senderLabel,
-        messageType: "text",
-        content: e.content,
-        createdAt: e.createdAt,
-        clientMessageId: e.clientMessageId,
-        isMine: true,
-        pending: true,
-        callKind: null,
-        callStatus: null,
-        ...(replySnap
-          ? {
-              replyToMessageId: replySnap.messageId,
-              replyPreviewText: replySnap.previewText,
-              replyPreviewType: replySnap.messageType,
-              replySenderLabelSnapshot: replySnap.senderLabel,
-            }
-          : {}),
-      } as CommunityMessengerMessage & { pending?: boolean; sendFailed?: boolean };
-      rows.push(row);
-      autoRetries.push({ tempId, clientMessageId: e.clientMessageId, content: e.content, replyId });
-    }
-    if (rows.length === 0) return;
-    setRoomMessages((prev) => mergeRoomMessages(prev, rows));
-    /** 보낸 순서대로 하나씩 — 실패해도 다음 것을 계속 시도. 자동 시도 실패는 스낵바 없이 실패 행으로만 */
-    void (async () => {
-      for (const r of autoRetries) {
-        try {
-          await runTextSendAttemptRef.current({ ...r, failRestoreGeneration: 0, silentFailure: true });
-        } catch {
-          /* 다음 항목 계속 */
-        }
+  const { runTextSendAttemptRef } = useMessengerTextSendOutbox({
+    streamRoomId,
+    restoreReady: Boolean(snapshot),
+    roomMessages,
+    roomMessagesRef,
+    setRoomMessages,
+    setMessage,
+    resolveOutboundSender: () => (snapshot ? optimisticOutboundSender(snapshot, roomMembersDisplay) : null),
+    /** 감사 D-3: 보관 항목의 보낸 사용자 · 복원 대상 판정 */
+    viewerUserId: snapshot?.viewerUserId ?? "",
+    nextPendingRowId: () => `pending:${streamRoomId}:${pendingMessageIdRef.current++}`,
+    unconfirmedTextSendRef,
+    failedOutboundRowIdsRef,
+    getRoomActionErrorMessage,
+    redirectIfMessengerAuthBlocked,
+    onTextSendConfirmed: ({ clientMessageId, message: confirmed, elapsedMs, outsideLoadedWindow, fromOtherScreen }) => {
+      /** 최종 검토 #2: 다른(옛) 화면의 성공을 반영할 때는 전송 지표·presence 생략 */
+      if (!fromOtherScreen) {
+        messengerMonitorMessageRtt(streamRoomId, elapsedMs, "text");
+        bumpCommunityMessengerPresenceActivity("message_sent");
       }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 방 진입 시 1회(스냅샷 준비 시점)만
-  }, [failedTextRestoreReady, streamRoomId]);
-
-  /**
-   * P1 B-2 #11 (appendix-P1-send-status-design.md B-4): 글 전송 1회 시도.
-   * - 성공: 확정 행으로 교체
-   * - definitive(4xx·ok:false): 지금처럼 행 삭제 + 조건부 입력창 복원(M-8) + 스낵바
-   * - indeterminate(네트워크·시간 초과 12초·408/425·5xx·본문 유실): 행을 「전송 실패」로 유지하고
-   *   같은 tempId·같은 clientMessageId 로 재전송(서버 UNIQUE 멱등 → 1행). 글이 말풍선에 남으므로 입력창 복원 안 함.
-   */
-  type TextSendAttemptArgs = {
-    tempId: string;
-    clientMessageId: string;
-    content: string;
-    replyId: string;
-    restoreOnFail?: string;
-    failRestoreGeneration: number;
-    /** 방 진입 자동 재전송 — 실패해도 스낵바 없이 실패 행만 */
-    silentFailure?: boolean;
-  };
-  /** 최신 렌더의 콜백·상태를 쓰도록 ref 로 호출(재전송 클로저가 오래된 렌더를 잡지 않게) */
-  const runTextSendAttemptRef = useRef<(args: TextSendAttemptArgs) => Promise<boolean>>(async () => false);
-  const runTextSendAttempt = async ({
-    tempId,
-    clientMessageId,
-    content,
-    replyId,
-    restoreOnFail,
-    failRestoreGeneration,
-    silentFailure = false,
-  }: TextSendAttemptArgs): Promise<boolean> => {
-    const latencyKey = cmReceiveLatencyKey({ roomId: streamRoomId, clientMessageId });
-    cmReceiveLatencyMark(latencyKey, { send_api_start_ms: cmReceiveLatencyNow() });
-    const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
-    let res: Response | null = null;
-    let jsonParsed = true;
-    let json: { ok?: boolean; error?: string; message?: CommunityMessengerMessage } = {};
-    try {
-      res = await fetchWithTimeout(`${communityMessengerRoomResourcePath(streamRoomId)}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content,
-          clientMessageId,
-          ...(replyId ? { replyToMessageId: replyId } : {}),
-        }),
-        timeoutMs: MESSENGER_TEXT_SEND_TIMEOUT_MS,
-      });
-      cmReceiveLatencyMark(latencyKey, { send_api_done_ms: cmReceiveLatencyNow() });
-      json = (await res.json().catch(() => {
-        jsonParsed = false;
-        return {};
-      })) as typeof json;
-    } catch {
-      // CHAT-03: fetch 예외(네트워크/비행기 모드/시간 초과 abort) — 서버 커밋 여부 불명(indeterminate).
-      res = null;
-    }
-    const createdAt = typeof json.message?.createdAt === "string" ? json.message.createdAt : "";
-    if (createdAt) cmReceiveLatencyMark(latencyKey, { db_message_created_at: createdAt });
-    if (res && res.ok && json.ok) {
-      const elapsed =
-        typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
-      messengerMonitorMessageRtt(streamRoomId, elapsed, "text");
-      clearMessengerOutboundFailedSend(tempId);
-      failedOutboundRowIdsRef.current.delete(tempId);
-      forgetPersistedFailedText(clientMessageId);
-      unconfirmedTextSendRef.current = nextUnconfirmedTextSendAfterSuccess(
-        unconfirmedTextSendRef.current,
-        clientMessageId
-      );
-      bumpCommunityMessengerPresenceActivity("message_sent");
-      const confirmedMessage = json.message;
-      if (confirmedMessage?.id) {
-        const withCid =
-          !trimCmText(confirmedMessage.clientMessageId) && clientMessageId
-            ? { ...confirmedMessage, clientMessageId }
-            : confirmedMessage;
-        setRoomMessages((prev) =>
-          mergeRoomMessages(
-            prev.filter(
-              (item) =>
-                item.id !== tempId &&
-                !(
-                  (item as { pending?: boolean }).pending &&
-                  item.clientMessageId === clientMessageId
-                )
-            ),
-            [withCid]
-          )
-        );
-        onMessengerOutboundConfirmed(withCid, clientMessageId);
+      if (outsideLoadedWindow) {
+        /** 검토 #4: 서버가 예전에 이미 저장한 글(불러온 창보다 오래됨) — 병합·재조회하지 않는다 */
+      } else if (confirmed) {
+        onMessengerOutboundConfirmed(confirmed, clientMessageId);
         playMessengerMessageSentFeedbackOnce(
           messengerSentFeedbackPlayedClientIdsRef.current,
           clientMessageId,
-          withCid.id
+          confirmed.id
         );
-        forgetRoomBootstrapClientFlightsAfterMutation();
-        return true;
+      } else {
+        void catchUpNewerMessages().finally(() => {
+          const exists = roomMessagesRef.current.some(
+            (item) => item.clientMessageId === clientMessageId && !item.pending
+          );
+          if (!exists) void refresh(true, { triggerReason: "send_missing_message_body" });
+        });
       }
-      void catchUpNewerMessages().finally(() => {
-        const exists = roomMessagesRef.current.some(
-          (item) => item.clientMessageId === clientMessageId && !item.pending
-        );
-        if (!exists) void refresh(true, { triggerReason: "send_missing_message_body" });
-      });
       forgetRoomBootstrapClientFlightsAfterMutation();
-      return true;
-    }
-    /*
-     * C-5: 5xx·408·본문 유실·네트워크 예외처럼 서버 커밋 여부를 알 수 없으면 (내용, cid) 를 보존 → 같은 내용 재전송이
-     * 같은 cid 로 나가 서버 UNIQUE 멱등으로 1행만 남는다. 명시적 4xx 거절이면 보존분 폐기.
-     */
-    const failure = res
-      ? classifyMessengerSendFailure({ status: res.status, jsonParsed })
-      : classifyMessengerSendFailure({ networkError: true });
-    unconfirmedTextSendRef.current = nextUnconfirmedTextSendAfterFailure(
-      unconfirmedTextSendRef.current,
-      { content, clientMessageId },
-      failure
-    );
-    const removeRow = () => {
-      clearMessengerOutboundFailedSend(tempId);
-      failedOutboundRowIdsRef.current.delete(tempId);
-      forgetPersistedFailedText(clientMessageId);
-      setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-    };
-    const authBlocked = res ? redirectIfMessengerAuthBlocked(res, json) : false;
-    if (failure === "definitive" || authBlocked) {
-      removeRow();
-      if (
-        shouldRestoreActiveComposerAfterSendFail({
-          sendGeneration: failRestoreGeneration,
-          restoreOnFail,
-        })
-      ) {
-        setMessage(restoreOnFail!);
-      }
-      if (authBlocked || silentFailure) return false;
-      showMessengerSnackbar(
-        getRoomActionErrorMessage(
-          res
-            ? pickMessengerApiErrorField(json) || (jsonParsed ? undefined : messengerUploadFallbackErrorCode(res.status))
-            : "message_send_failed"
-        ),
-        { variant: "error" }
-      );
-      return false;
-    }
-    if (!silentFailure) {
-      showMessengerSnackbar(
-        getRoomActionErrorMessage(
-          res
-            ? pickMessengerApiErrorField(json) || (jsonParsed ? undefined : messengerUploadFallbackErrorCode(res.status))
-            : "message_send_failed"
-        ),
-        { variant: "error" }
-      );
-    }
-    /** P1 (Owner 2026-11-18): 방을 나갔다 와도 실패 행이 남도록 기기 저장소에 보관 */
-    const rowCreatedAt =
-      roomMessagesRef.current.find((item) => item.id === tempId)?.createdAt ?? new Date().toISOString();
-    /** 리뷰 #2: 같은 cid 확정 행이 이미 화면에 있으면(늦게 도착한 서버 저장) 보관하지 않는다 */
-    const alreadyConfirmed = roomMessagesRef.current.some(
-      (item) => !item.pending && trimCmText(item.clientMessageId) === clientMessageId
-    );
-    if (!alreadyConfirmed) {
-      saveMessengerFailedTextSend(streamRoomId, {
-        clientMessageId,
-        content,
-        replyToMessageId: replyId || null,
-        createdAt: rowCreatedAt,
-      });
-      persistedFailedTextCidsRef.current.add(clientMessageId);
-    }
-    registerFailedTextRowHandlers({ tempId, clientMessageId, content, replyId });
-    setRoomMessages((prev) => markMessengerOutboundRowFailed(prev, tempId));
-    return false;
-  };
-  /** 실패 글 행의 재전송·삭제 핸들러 등록 — 전송 실패 직후와 방 진입 복원이 같이 쓴다 */
-  const registerFailedTextRowHandlers = ({
-    tempId,
-    clientMessageId,
-    content,
-    replyId,
-  }: {
-    tempId: string;
-    clientMessageId: string;
-    content: string;
-    replyId: string;
-  }) => {
-    const retry = () => {
-      clearMessengerOutboundFailedSend(tempId);
-      if (!isMessengerOutboundRowDisplayed(roomMessagesRef.current, tempId)) {
-        // 이미 확정 행(같은 cid)이 도착해 실패 행이 사라졌다 — 재전송 불필요.
-        failedOutboundRowIdsRef.current.delete(tempId);
-        return;
-      }
-      setRoomMessages((prev) => markMessengerOutboundRowRetrying(prev, tempId));
-      void runTextSendAttemptRef.current({
-        tempId,
-        clientMessageId,
-        content,
-        replyId,
-        failRestoreGeneration: 0,
-      });
-    };
-    const discard = () => {
-      clearMessengerOutboundFailedSend(tempId);
-      failedOutboundRowIdsRef.current.delete(tempId);
-      forgetPersistedFailedText(clientMessageId);
-      setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-      if (unconfirmedTextSendRef.current?.clientMessageId === clientMessageId) {
-        unconfirmedTextSendRef.current = null;
-      }
-    };
-    registerMessengerOutboundFailedSend(tempId, { retry, discard });
-    failedOutboundRowIdsRef.current.add(tempId);
-  };
-  useLayoutEffect(() => {
-    runTextSendAttemptRef.current = runTextSendAttempt;
+    },
   });
 
   const sendRawText = useCallback(
@@ -1652,12 +1369,11 @@ export function useMessengerRoomPhase2Controller() {
     stickerItemId,
   }: StickerSendAttemptArgs): Promise<void> => {
     setBusy("send-sticker");
-    let res: Response | null = null;
-    let jsonParsed = true;
-    let json: { ok?: boolean; error?: string; message?: CommunityMessengerMessage } = {};
     const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
+    /** F8: 응답 본문 읽기까지 같은 12초 안에서 끝낸다 */
+    let sent: MessengerSendFetchJsonResult<{ ok?: boolean; error?: string; message?: CommunityMessengerMessage }>;
     try {
-      res = await fetchWithTimeout(`${communityMessengerRoomResourcePath(streamRoomId)}/messages/sticker`, {
+      sent = await fetchMessengerSendJson(`${communityMessengerRoomResourcePath(streamRoomId)}/messages/sticker`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1667,15 +1383,12 @@ export function useMessengerRoomPhase2Controller() {
         }),
         timeoutMs: MESSENGER_TEXT_SEND_TIMEOUT_MS,
       });
-      json = (await res.json().catch(() => {
-        jsonParsed = false;
-        return {};
-      })) as typeof json;
-    } catch {
-      res = null;
     } finally {
       setBusy(null);
     }
+    const res = sent.res;
+    const jsonParsed = sent.jsonParsed;
+    const json = sent.json as { ok?: boolean; error?: string; message?: CommunityMessengerMessage };
     if (res && res.ok && json.ok) {
       const elapsed =
         typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
