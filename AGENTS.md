@@ -49,8 +49,10 @@
 실기기 시험은 운영 서버·운영 Supabase 를 쓴다(테스트 DB 사용 금지). 2026-11-17~18: 사무실 Android 시험 기기 2대가 앱을 677회 다시 실행(강제 종료→실행 반복)해 운영 Supabase 요청이 하루 약 10.8만 건 늘었다(증가분의 89%, 앱 실행 1회 ≈ Supabase 약 195건). 근거 `docs/audit/supabase-request-surge-2026-11-18/root-cause-design.md`.
 
 1. **상한 10회** — 같은 측정 묶음(같은 시나리오·같은 빌드)에서 앱 처음 실행(강제 종료 후 실행·재설치 후 첫 실행·`monkey … LAUNCHER`·`am start` 포함)은 **모든 기기를 합쳐 10회 이하**.
+   **운영 사이트(`samarket*.vercel.app`)를 자동화 브라우저(Playwright·Puppeteer·headless Chrome)나 Claude 브라우저 도구로 여는 것도 1회로 세어 같은 상한에 넣는다** (2026-11-18 Owner 「1단계 승인」 — 같은 날 자동화 브라우저 요청이 시간당 Supabase 의 31%).
 2. **초과는 먼저 승인** — 10회를 넘겨야 하면 시작 전에 Owner 에게 횟수·이유를 알리고 승인 후 한다. 승인 없이 넘기지 않는다.
 3. **반복문에 횟수 상한 내장** — 시험 스크립트의 반복은 정해진 횟수로만 돈다. `while true`·종료 조건 없는 반복·자동 재시도 반복 금지.
+   **훅이 강제한다** — `.claude/hooks/app-launch-guard.mjs`(PreToolUse): 세션별로 세어 상한을 넘는 명령·반복문 안 실행·자동화 파일 안 반복 열기를 실행 전에 거부. 추가 허용은 Owner 가 `.claude/state/app-launch/<세션>.allow` 에 횟수를 적을 때만.
 4. **보고서에 기재** — 실행 횟수, 시작·종료 시각(PHT), 예상 운영 Supabase 요청(실행 횟수 × 195건)을 시험 결과 보고에 적는다.
 5. **요청 예산 계약** — 운영 Supabase 호출은 라우트별 예산(`lib/perf/request-budget.ts`)과 하루 1회 자동 감시로 관리한다. 단일 정의 **`docs/request-budget-ssot.md`**. 호출을 늘리는 변경은 예산을 넘지 않게 하고, 줄인 변경은 같은 PR 에서 예산 값을 낮춘다.
 

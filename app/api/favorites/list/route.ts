@@ -16,6 +16,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
+  loadFavoritePostIdsServer,
   loadFavoritePostsPageServer,
   loadFavoritePostsServer,
 } from "@/lib/favorites/load-favorite-posts-server";
@@ -39,6 +40,18 @@ export async function GET(req?: NextRequest) {
     sb = getSupabaseServer();
   } catch {
     return NextResponse.json({ items: [], authenticated: false });
+  }
+
+  /**
+   * id 모드(`?ids=1`) — 앱 전역 하트 표시(`FavoriteProvider`)용. 찜 행의 게시글 id 만 1회 조회.
+   * 하트는 화면에 보이는 글에만 쓰이므로 게시글 본문·삭제 판정 조회가 필요 없다(요청 예산 계약 · docs/request-budget-ssot.md).
+   */
+  if (sp.get("ids") === "1") {
+    const loadedIds = await loadFavoritePostIdsServer(sb, userId);
+    if (!loadedIds.ok) {
+      return NextResponse.json({ items: [], authenticated: true, error: "favorites_load_failed" }, { status: 500 });
+    }
+    return NextResponse.json({ items: loadedIds.ids.map((id) => ({ id })), authenticated: true });
   }
 
   if (pageLimit != null) {
