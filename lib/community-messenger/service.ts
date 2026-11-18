@@ -1003,11 +1003,6 @@ function isStaleActiveRowForReconcile(row: LiveReconcileRow, nowMs = Date.now())
 export async function reconcileUserLiveCallSessions(
   userId: string,
   reason = "reconcile",
-  /**
-   * S-1 (docs/audit/incoming-call-poll-fanout-plan-2026-11-18.md · Owner 승인 2026-11-18):
-   * `liveSessionId` 를 쓰지 않는 호출처(수신 목록)는 마지막 live 세션 조회를 건너뛴다. 기본값 false — 다른 호출처 동작 그대로.
-   */
-  options?: { skipLiveLookup?: boolean },
 ): Promise<{ reconciled: number; liveSessionId: string | null }> {
   const uid = trimText(userId);
   if (!uid) return { reconciled: 0, liveSessionId: null };
@@ -1051,7 +1046,6 @@ export async function reconcileUserLiveCallSessions(
     if (patched.ok) reconciled += 1;
   }
 
-  if (options?.skipLiveLookup) return { reconciled, liveSessionId: null };
   const liveSessionId = await getUserLiveDirectCallSessionId(sb, uid, "live");
   return { reconciled, liveSessionId };
 }
@@ -22820,18 +22814,14 @@ export async function listIncomingCommunityMessengerCallSessionsResult(
   options?: { directOnly?: boolean }
 ): Promise<IncomingCallSessionsListResult> {
   const policy = await getMessengerCallAdminPolicyCached();
-  /**
-   * S-1 (docs/audit/incoming-call-poll-fanout-plan-2026-11-18.md · Owner 승인 2026-11-18):
-   * reconcile 이 만료 울림 정리(`terminalStaleRingingDirectSessionsForUser`)를 이미 먼저 한다 — 여기서 다시 부르지 않는다.
-   * 수신 목록은 `liveSessionId` 를 쓰지 않으므로 live 세션 조회도 건너뛴다. 응답·오류 계약은 그대로.
-   */
-  await reconcileUserLiveCallSessions(userId, "incoming_api", { skipLiveLookup: true });
+  await reconcileUserLiveCallSessions(userId, "incoming_api");
   const sb = getSupabaseOrNull();
   /** D1: 운영 배포에서 DB 클라이언트가 없으면 개발용 메모리 상태로 떨어지지 않고 오류로 알린다. */
   if (!sb && resolveServerDeployTier(process.env) === "production") {
     return { ok: false, reason: "db_unavailable" };
   }
   if (sb) {
+    await terminalStaleRingingDirectSessionsForUser(sb, userId, policy).catch(() => 0);
     if (options?.directOnly) {
       const { data: directRows, error: directError } = await (sb as any)
         .from("community_messenger_call_sessions")
