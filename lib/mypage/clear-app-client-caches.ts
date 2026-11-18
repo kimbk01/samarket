@@ -1,6 +1,7 @@
 "use client";
 
 import { clearBrowserCacheStorageBestEffort } from "@/lib/auth/invalidate-auth-exit-client-caches";
+import { clearAllLocalRoomSnapshots } from "@/lib/community-messenger/local-store/roomSnapshotDb";
 import {
   isClearableLocalStorageKey,
   isClearableSessionStorageKey,
@@ -39,5 +40,10 @@ export async function clearAppClientCaches(): Promise<{ localKeys: number; sessi
     /* private mode */
   }
   await clearBrowserCacheStorageBestEffort();
+  /**
+   * 기기 저장공간 S1 — 채팅방 화면 사본(IndexedDB). 다시 들어가면 서버에서 받는다. 대화 내용 자체는 서버에 있어 지워지지 않는다.
+   * 로그아웃 정리(`client-session-wipe.ts`)와 같은 함수.
+   */
+  await clearAllLocalRoomSnapshots().catch(() => {});
   return { localKeys, sessionKeys };
 }

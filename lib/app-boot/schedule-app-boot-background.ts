@@ -12,6 +12,7 @@ import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
 import { ensureInitialBadgeSnapshotForBoot } from "@/lib/notifications/notification-badge-count-store";
 import { isMemberBadgeAuthoritySurface } from "@/lib/notifications/member-badge-surface-authority";
 import { armNotificationSoundSsotFirstLoad } from "@/lib/notifications/notification-sound-ssot-client-hydrate";
+import { runDeviceStorageAutoCleanupDaily } from "@/lib/storage/device-storage-auto-cleanup.client";
 
 let backgroundArmId = 0;
 let backgroundCancel: (() => void) | null = null;
@@ -131,6 +132,15 @@ export function scheduleAppBootBackgroundHydration(): void {
       },
       { delayMs: 220 }
     );
+
+    /**
+     * 기기 저장공간 S1 — 하루 1회 자동 정리(서버 요청 0 · 로컬 저장소만). 첫 화면 작업과 겹치지 않게 5초 뒤.
+     * 근거: docs/audit/device-storage-legacy-design-2026-11-19.md §4 S1
+     */
+    window.setTimeout(() => {
+      if (armId !== backgroundArmId) return;
+      runDeviceStorageAutoCleanupDaily();
+    }, 5_000);
   });
 }
 
