@@ -166,6 +166,26 @@ export async function invalidateLocalRoomSnapshot(roomId: string): Promise<void>
 }
 
 /** 로그아웃·계정 전환 — IndexedDB room snapshot DB 전체 삭제 */
+/**
+ * 기기 저장공간 S2 — 채팅방 사본 용량(바이트 근사 = 문자 수 × 2, UTF-16). 내정보 「임시 데이터 삭제」 용량 표시용.
+ * 읽기만 한다(정리·삭제 없음). 실패하면 0.
+ */
+export async function estimateLocalRoomSnapshotsBytes(): Promise<number> {
+  try {
+    const db = await getDb();
+    const keys = (await idbGetAllKeys(db, STORE_ROOMS)).map(String);
+    let chars = 0;
+    for (const k of keys) {
+      const row = await idbGet<RoomRow>(db, STORE_ROOMS, k);
+      if (!row) continue;
+      chars += typeof row.chars === "number" ? row.chars : roomSnapshotRowChars(row.snapshot);
+    }
+    return chars * 2;
+  } catch {
+    return 0;
+  }
+}
+
 export async function clearAllLocalRoomSnapshots(): Promise<void> {
   dbPromise = null;
   lastPruneAt = 0;

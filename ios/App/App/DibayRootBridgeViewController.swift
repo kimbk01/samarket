@@ -167,6 +167,8 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
       MessengerPhotoLibraryPlugin(),
       // Device identity
       DibayDeviceClassPlugin(),
+      // 기기 저장공간 S2 — 용량 표시·사진 캐시 삭제·임시 사진 정리
+      DibayDeviceStoragePlugin(),
       // App-shell orientation route mode (admin landscape, v4 §2-2 C)
       DibayAppOrientationPlugin(),
       // App language → native store (언어 SSOT S8-1 — store only, no behavior change)
