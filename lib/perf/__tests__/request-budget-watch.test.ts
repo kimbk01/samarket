@@ -3,12 +3,12 @@ import { evaluateRequestBudget } from "@/lib/perf/request-budget-watch";
 import { aggregateRollupForWatch } from "@/lib/perf/request-budget-watch.server";
 import { routeToRollupMetric } from "@/lib/perf/supabase-call-counter";
 
-const HOME_FEED = routeToRollupMetric("/api/stores/home-feed"); // 예산 16.6
+const HOME_FEED = routeToRollupMetric("/api/stores/home-feed"); // 예산 14.9 (2026-11-19 admin_settings 묶음으로 16.6 → 14.9)
 
 describe("evaluateRequestBudget", () => {
   it("예산 × 1.2 이하면 경보 없음", () => {
     const r = evaluateRequestBudget({
-      last24h: [{ metric: HOME_FEED, calls: 1990, requests: 100 }],
+      last24h: [{ metric: HOME_FEED, calls: 1780, requests: 100 }],
       previousDailyTotals: [2000, 2100],
       testCalls24h: 0,
     });
@@ -21,7 +21,7 @@ describe("evaluateRequestBudget", () => {
       testCalls24h: 0,
     });
     expect(r.breaches).toEqual([
-      { kind: "route_over_budget", route: "/api/stores/home-feed", perRequest: 21, budget: 16.6, calls: 2100, requests: 100 },
+      { kind: "route_over_budget", route: "/api/stores/home-feed", perRequest: 21, budget: 14.9, calls: 2100, requests: 100 },
     ]);
   });
   it("요청이 적은 라우트는 1회당 판정 제외", () => {

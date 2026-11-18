@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { readAdminSettingsBatched } from "@/lib/admin/admin-settings-batched-read";
 
 export const DELIVERY_OPS_SETTING_KEYS = {
   riderLocationEnabled: "delivery_rider_location_enabled",
@@ -148,16 +149,14 @@ let distancePolicyInflight: Promise<{
 }> | null = null;
 
 async function fetchDeliveryRideTimeSourceFromDb(sb: SupabaseClient): Promise<DeliveryRideTimeSource> {
-  const { data, error } = await sb
-    .from("admin_settings")
-    .select("value_json")
-    .eq("key", DELIVERY_OPS_SETTING_KEYS.rideTimeSource)
-    .maybeSingle();
+  /** 같은 순간의 다른 admin_settings 읽기와 1회로 묶는다(home-feed 2.7회 → 1회, 2026-11-19) */
+  const { rows, error } = await readAdminSettingsBatched(sb, [DELIVERY_OPS_SETTING_KEYS.rideTimeSource]);
   if (error) {
     if (error.message?.includes("admin_settings") && error.message.includes("does not exist")) return "store";
     console.error("[loadDeliveryRideTimeSource]", error);
     return "store";
   }
+  const data = rows.find((r) => r.key === DELIVERY_OPS_SETTING_KEYS.rideTimeSource) ?? null;
   const v = (data as { value_json?: unknown } | null)?.value_json as { value?: unknown } | null;
   return normalizeDeliveryRideTimeSource(v?.value);
 }
@@ -210,10 +209,10 @@ async function fetchDeliveryDistanceSettingsFromDb(sb: SupabaseClient): Promise<
   policy: DeliveryDistancePolicy;
   overrides: DeliveryStoreDistanceOverrides;
 }> {
-  const { data, error } = await sb
-    .from("admin_settings")
-    .select("key, value_json")
-    .in("key", [DELIVERY_OPS_SETTING_KEYS.distancePolicy, DELIVERY_OPS_SETTING_KEYS.storeDistanceOverrides]);
+  const { rows: data, error } = await readAdminSettingsBatched(sb, [
+    DELIVERY_OPS_SETTING_KEYS.distancePolicy,
+    DELIVERY_OPS_SETTING_KEYS.storeDistanceOverrides,
+  ]);
   if (error) {
     if (error.message?.includes("admin_settings") && error.message.includes("does not exist")) {
       return {
