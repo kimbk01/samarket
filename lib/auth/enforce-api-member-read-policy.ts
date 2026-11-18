@@ -36,8 +36,23 @@ export function isMemberReadExemptPath(pathname: string): boolean {
   if (p === "/api/me/profile" || p === "/api/me/signup-status") return true;
   // C3 복귀 시 웹 버전 확인 — 회원 데이터 없음·DB 미사용 (app/api/app/web-version/route.ts).
   if (p === "/api/app/web-version") return true;
+  // D3 (Amendment 2026-11-19 · Reopen §4 trigger 4) — 모든 회원에게 같은 공개 설정. 회원 상태 확인을 거치면 CDN 이
+  // 맞아도 요청마다 proxy 가 profiles 를 읽는다. 차단 회원이 읽어도 비로그인 방문자와 같은 공개값뿐이다.
+  if (PUBLIC_CONFIG_READ_PATHS.has(p)) return true;
   return false;
 }
+
+/**
+ * D3 — 회원별 값이 없는 공개 설정 GET. 정확히 같은 경로만(하위 경로 없음).
+ * 각 route.ts 가 인증을 요구하지 않음을 확인한 경로만 넣는다 — 추가 시 auth-hard-lock.md Amendment 필요.
+ */
+export const PUBLIC_CONFIG_READ_PATHS: ReadonlySet<string> = new Set([
+  "/api/app/startup-config",
+  "/api/app-settings",
+  "/api/app/main-bottom-nav",
+  "/api/philife/neighborhood-topic-options",
+  "/api/public/categories",
+]);
 
 /**
  * @returns null to continue to route handler; NextResponse(403) when blocked/withdrawn.

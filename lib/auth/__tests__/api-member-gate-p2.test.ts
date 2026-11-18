@@ -145,4 +145,36 @@ describe("P2-6 GET read gate (blocked/withdrawn)", () => {
     expect(await enforceApiMemberReadPolicy(req("/api/posts", "POST", SESSION_COOKIE))).toBeNull();
     expect(identity).not.toHaveBeenCalled();
   });
+
+  /** Amendment 2026-11-19 (D3) — 공개 설정 5개만 회원 상태 확인 없이 통과(정확히 같은 경로만) */
+  it("public config GETs skip identity; look-alike and member-data paths stay gated (blocked → 403)", async () => {
+    const identity = vi.fn(async () => ({ userId: "u-blocked", transientError: false, terminalAuthFailure: false }));
+    mockIdentity(identity);
+    mockLifecycle(resolvedAs("blocked"));
+    const { enforceApiMemberReadPolicy, PUBLIC_CONFIG_READ_PATHS } = await import(
+      "@/lib/auth/enforce-api-member-read-policy"
+    );
+    expect([...PUBLIC_CONFIG_READ_PATHS].sort()).toEqual(
+      [
+        "/api/app-settings",
+        "/api/app/main-bottom-nav",
+        "/api/app/startup-config",
+        "/api/philife/neighborhood-topic-options",
+        "/api/public/categories",
+      ].sort()
+    );
+    for (const p of [...PUBLIC_CONFIG_READ_PATHS, "/api/app/startup-config/"]) {
+      expect(await enforceApiMemberReadPolicy(req(p, "GET", SESSION_COOKIE))).toBeNull();
+    }
+    expect(identity).not.toHaveBeenCalled();
+    for (const p of [
+      "/api/public/categories/extra",
+      "/api/app/startup-config-x",
+      "/api/app-settings/history",
+      "/api/app/notification-sound-ssot",
+      "/api/philife/neighborhood-feed",
+    ]) {
+      expect((await enforceApiMemberReadPolicy(req(p, "GET", SESSION_COOKIE)))?.status).toBe(403);
+    }
+  });
 });
