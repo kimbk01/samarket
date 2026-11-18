@@ -14,6 +14,7 @@ import {
   formatAdminMemberLabel,
   loadAdminMemberIdentityMap,
 } from "@/lib/admin-community/member-identity";
+import { invalidateCommunityFeedTopCandidatesCache } from "@/lib/community-feed/community-feed-top-candidates-cache.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -213,6 +214,8 @@ export async function POST(req: NextRequest) {
   }
   const post = inserted as unknown as Record<string, unknown>;
   const postId = String(post.id);
+  /** 새 공지 — 동네 피드 상단 후보 공유 캐시 즉시 만료(고정이면 setCommunityPostPin 도 만료) */
+  invalidateCommunityFeedTopCandidatesCache();
   const reason = normalizeCommunityAdminReason(body.reason);
 
   let pinResult: Record<string, unknown> | null = null;

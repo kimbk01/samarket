@@ -4,6 +4,7 @@
  */
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { invalidateCommunityFeedTopCandidatesCache } from "@/lib/community-feed/community-feed-top-candidates-cache.server";
 
 export type CommunityPinScope = "feed" | "topic";
 
@@ -55,6 +56,7 @@ export async function setCommunityPostPin(
       ...(r.limit != null ? { limit: Number(r.limit) } : {}),
     };
   }
+  invalidateCommunityFeedTopCandidatesCache();
   return { ok: true, limit: Number(r.limit ?? 0), count: Number(r.count ?? 0) };
 }
 

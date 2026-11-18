@@ -1,4 +1,5 @@
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { loadCommunityFeedTopCandidatesShared } from "@/lib/community-feed/community-feed-top-candidates-cache.server";
 import { fetchNicknamesForUserIds, fetchAuthorPublicProfilesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { isCommunityPostPubliclyVisible } from "@/lib/community-engine/visibility";
 import { listCommunityPostComments } from "@/lib/community-feed/queries";
@@ -55,9 +56,7 @@ import {
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 import { communityGlobalSearchFeedPreview } from "@/lib/search/global/semantics/domain-fields";
 import {
-  COMMUNITY_FEED_TOP_SELECT_TAIL,
   communityFeedTopBadges,
-  communityFeedTopCandidatesOrFilter,
   isCommunityNoticeScheduled,
   selectCommunityFeedTopRows,
 } from "@/lib/community-feed/community-feed-top-posts";
@@ -414,21 +413,9 @@ export async function listNeighborhoodFeed(options: {
   const topNowIso = new Date().toISOString();
   const topNowMs = Date.parse(topNowIso);
   const topEligible = !authorUserId && !hashtag && !keywordQ && options.neighborOnly !== true && !onlyPostIds;
+  /** 2026-11-19 — 모든 사용자·동네에 같은 조회라 서버 공유 캐시(60초 + 관리자 저장 시 즉시 만료). 노출 판정은 아래에서 현재 시각으로 */
   const topCandidatesP: Promise<Record<string, unknown>[]> = topEligible
-    ? (async () => {
-        try {
-          const { data: topData, error: topErr } = await sb
-            .from("community_posts")
-            .select(FEED_SELECT_FULL + COMMUNITY_FEED_TOP_SELECT_TAIL)
-            .eq("status", COMMUNITY_POST_FEED_STATUS_ACTIVE)
-            .or(communityFeedTopCandidatesOrFilter(topNowIso))
-            .limit(60);
-          if (topErr || !Array.isArray(topData)) return [];
-          return topData as unknown as Record<string, unknown>[];
-        } catch {
-          return [];
-        }
-      })()
+    ? loadCommunityFeedTopCandidatesShared(FEED_SELECT_FULL, COMMUNITY_POST_FEED_STATUS_ACTIVE)
     : Promise.resolve([]);
 
   let useTopicSlug = true;
