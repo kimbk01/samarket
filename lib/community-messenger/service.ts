@@ -1611,16 +1611,36 @@ async function fetchCommunityMessengerReactionAggregatesForMessages(
   const out = new Map<string, NonNullable<CommunityMessengerMessage["reactions"]>>();
   const ids = dedupeIds(messageIds);
   if (!ids.length) return out;
-  const authorByMid = options?.authorUserIdByMessageId ?? null;
   const { data, error } = await (sb as any)
     .from("community_messenger_message_reactions")
     .select("message_id, user_id, reaction_key, created_at")
     .in("message_id", ids);
   if (error && !isMissingTableError(error)) return out;
-  type RxRow = { message_id?: string; user_id?: string; reaction_key?: string; created_at?: string | null };
+  return aggregateCommunityMessengerReactionRows(
+    (data ?? []) as CommunityMessengerReactionDbRow[],
+    viewerUserId,
+    options?.authorUserIdByMessageId ?? null
+  );
+}
+
+type CommunityMessengerReactionDbRow = {
+  message_id?: string;
+  user_id?: string;
+  reaction_key?: string;
+  created_at?: string | null;
+};
+
+/** 반응 행 → 메시지별 집계 (DB 조회와 분리 — D4 ③ after-page RPC 가 같은 집계를 쓴다) */
+function aggregateCommunityMessengerReactionRows(
+  rows: CommunityMessengerReactionDbRow[],
+  viewerUserId: string,
+  authorByMid: Map<string, string> | null
+): Map<string, NonNullable<CommunityMessengerMessage["reactions"]>> {
+  const out = new Map<string, NonNullable<CommunityMessengerMessage["reactions"]>>();
+  type RxRow = CommunityMessengerReactionDbRow;
   /** 구 PK (message_id,user_id,reaction_key) 시 동일 유저·메시지에 여러 이모지 행이 있을 수 있음 → 최신 1행만 사용 */
   const latestByMessageUser = new Map<string, RxRow>();
-  for (const row of (data ?? []) as RxRow[]) {
+  for (const row of rows) {
     const mid = trimText(row.message_id);
     const rk = trimText(row.reaction_key);
     const uid = trimText(row.user_id);
@@ -17212,6 +17232,97 @@ export async function listCommunityMessengerRoomMessagesAfter(input: {
 }
 
 /** Broadcast bump 의 `messageId` 힌트로 1건 증분 로드 — 전체 `after` 페이지보다 가볍다. */
+/**
+ * D4 ③ (Owner 「②③ 승인」 2026-11-19) — `messages?after=` 를 DB 함수 1번으로.
+ * `community_messenger_room_messages_after_page` 가 기준 숨김·페이지 행·숨김·반응·보낸 사람 프로필을 한 번에 돌려주고,
+ * 가공은 `listCommunityMessengerRoomMessagesAfter` 와 **같은 함수**(집계·매핑·프로필 라벨)로 한다.
+ * 1단계: 라우트가 표본 요청에서 기존 결과와 비교만 한다(응답은 기존 경로).
+ */
+export async function listCommunityMessengerRoomMessagesAfterViaPageRpc(input: {
+  userId: string;
+  roomId: string;
+  afterMessageId: string;
+  limit?: number;
+}): Promise<
+  { ok: true; messages: CommunityMessengerMessage[]; hasMore: boolean } | { ok: false; error: string }
+> {
+  const roomId = trimText(input.roomId);
+  const afterMessageId = trimText(input.afterMessageId);
+  const pageLimit = Math.min(
+    COMMUNITY_MESSENGER_MESSAGE_PAGE_MAX,
+    Math.max(1, Math.floor(Number(input.limit) || COMMUNITY_MESSENGER_MESSAGE_PAGE_DEFAULT))
+  );
+  if (!roomId || !afterMessageId) return { ok: false, error: "bad_request" };
+  const sb = getSupabaseOrNull();
+  if (!sb) return { ok: false, error: "messenger_storage_unavailable" };
+
+  const { data, error } = await (sb as any).rpc("community_messenger_room_messages_after_page", {
+    p_user_id: input.userId,
+    p_room_id: roomId,
+    p_after_message_id: afterMessageId,
+    p_limit: pageLimit + 1,
+  });
+  if (error) {
+    if (String(error.message ?? "").includes("function") || String(error.code ?? "") === "42883") {
+      return { ok: false, error: "migration_required" };
+    }
+    return { ok: false, error: "load_failed" };
+  }
+  const pack = (data ?? {}) as {
+    anchor_hidden?: boolean;
+    rows?: MessageRow[];
+    hidden_message_ids?: string[];
+    reaction_rows?: CommunityMessengerReactionDbRow[];
+    profile_rows?: ProfileRow[];
+  };
+  if (pack.anchor_hidden === true) return { ok: false, error: "not_found" };
+
+  const raw = (Array.isArray(pack.rows) ? pack.rows : []).slice();
+  const hasMore = raw.length > pageLimit;
+  const pageRows = raw.slice(0, pageLimit);
+  const senderIdsPre = dedupeIds(pageRows.map((r) => trimText(r.sender_id)).filter(Boolean));
+  const rx = aggregateCommunityMessengerReactionRows(
+    Array.isArray(pack.reaction_rows) ? pack.reaction_rows : [],
+    input.userId,
+    communityMessengerAuthorUserIdByMessageIdForReactions(pageRows)
+  );
+  const hidden = new Set(
+    (Array.isArray(pack.hidden_message_ids) ? pack.hidden_message_ids : []).map((id) => trimText(id)).filter(Boolean)
+  );
+  const prefetchedProfiles = new Map<string, ProfileRow>();
+  for (const row of Array.isArray(pack.profile_rows) ? pack.profile_rows : []) {
+    const rid = trimText(row.id);
+    if (!rid) continue;
+    prefetchedProfiles.set(rid, {
+      id: rid,
+      display_name: row.display_name ?? null,
+      nickname: row.nickname ?? null,
+      username: row.username ?? null,
+      dibay_id: row.dibay_id ?? null,
+      avatar_url: row.avatar_url ?? null,
+      bio: null,
+    });
+  }
+  const profilePack = senderIdsPre.length
+    ? await hydrateProfilesLabelsOnlyWithMap(input.userId, senderIdsPre, {
+        includeSelf: true,
+        bootstrapLiteFirstPaint: true,
+        prefetchedProfiles,
+      })
+    : { members: [] as CommunityMessengerProfileLite[], profileMap: new Map<string, ProfileRow>() };
+  const visibleRows = pageRows.filter((r) => !hidden.has(r.id));
+  const profileById = new Map(profilePack.members.map((m) => [m.id, m]));
+  const messages = visibleRows.map((row) =>
+    mapCommunityMessengerDbMessageRowToMessage({
+      row,
+      viewerUserId: input.userId,
+      profileById,
+      reactions: rx.get(row.id),
+    })
+  );
+  return { ok: true, messages, hasMore };
+}
+
 export async function getCommunityMessengerRoomMessageById(input: {
   userId: string;
   roomId: string;

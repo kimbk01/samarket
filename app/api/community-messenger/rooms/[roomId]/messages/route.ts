@@ -1,4 +1,8 @@
-import { after, NextRequest, NextResponse } from "next/server";
+import { after, after as afterResponse, NextRequest, NextResponse } from "next/server";
+import {
+  diffMessagesAfterShadow,
+  shouldSampleRoomEntryShadow,
+} from "@/lib/community-messenger/server/room-entry-shadow";
 import type { CommunityMessengerMessagesAfterPerf } from "@/lib/community-messenger/service";
 import { ensureApiRouteAuthGate } from "@/lib/auth/ensure-api-route-auth-gate";
 import { assertVerifiedMemberForAction, MEMBER_ACCESS_PROFILE_SELECT } from "@/lib/auth/member-access";
@@ -132,6 +136,28 @@ export async function GET(
         hidden_ms: afterPerf.hidden_ms ?? 0,
         profiles_ms: afterPerf.profiles_ms ?? 0,
         payload_ms: afterPerf.payload_ms ?? 0,
+      });
+    }
+    /** D4 ③ 1단계 — 표본(기본 10%)만 응답 뒤 after-page DB 함수 1번으로 같은 결과를 만들어 비교(응답은 기존 그대로) */
+    if (shouldSampleRoomEntryShadow()) {
+      const oldResult = { messages: result.messages as unknown[], hasMore: result.hasMore };
+      const shadowInput = {
+        userId: auth.userId,
+        roomId: canonicalRoomId,
+        afterMessageId: after,
+        limit: Number.isFinite(limit) ? limit : undefined,
+      };
+      afterResponse(async () => {
+        try {
+          const next = await cm.listCommunityMessengerRoomMessagesAfterViaPageRpc(shadowInput);
+          if (!next.ok && next.error === "migration_required") return;
+          const d = diffMessagesAfterShadow(oldResult, next);
+          const log = { roomIdTail: canonicalRoomId.slice(-8), count: oldResult.messages.length, ...d };
+          if (d.match) console.info("[messages-after-shadow]", log);
+          else console.warn("[messages-after-shadow]", log);
+        } catch {
+          /* 비교 실패는 무시 — 응답은 이미 기존 경로 */
+        }
       });
     }
     return jsonOk({ messages: result.messages, hasMore: result.hasMore, mode: "after" as const });

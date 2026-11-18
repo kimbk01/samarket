@@ -6,6 +6,7 @@
  */
 import type { BlockedRelation } from "@/lib/social/user-block-ssot";
 import type { ResolveFriendshipPairResult } from "@/lib/community-messenger/friendship/resolve-friendship-pair";
+import { recordRoomEntryShadowPairFacts } from "@/lib/community-messenger/server/room-entry-shadow";
 
 export type DirectPairRoomFacts = {
   roomType: string;
@@ -64,6 +65,7 @@ export async function loadDirectPairFacts(
     p_room_key: room || null,
   });
   if (error || !data || typeof data !== "object") return null;
+  if (room) recordRoomEntryShadowPairFacts(peer, data);
   const row = data as Record<string, unknown>;
   const pendingId = trimText(row.pending_request_id);
   return {

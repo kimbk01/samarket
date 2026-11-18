@@ -15,6 +15,7 @@
 import { derivePresenceFromDbRow } from "@/lib/community-messenger/presence/presence-policy";
 import type { CommunityMessengerPresenceState } from "@/lib/community-messenger/types";
 import type { GroupRoomSupabase } from "@/lib/community-messenger/group/group-room-repository";
+import { recordRoomEntryShadowGroup } from "@/lib/community-messenger/server/room-entry-shadow";
 
 const PRESENCE_IN_BATCH = 100;
 
@@ -165,6 +166,11 @@ export async function resolveGroupRoomOnlineAuthority(
   const bannedSet = new Set(bannedUserIds);
   const presenceEligibleIds = activeParticipantUserIds.filter((id) => !bannedSet.has(id));
   const presenceStateByUserId = await fetchPresenceStatesByUserIds(sb, presenceEligibleIds);
+  recordRoomEntryShadowGroup({
+    activeUserIds: activeParticipantUserIds,
+    bannedUserIds,
+    presenceUserIds: [...presenceStateByUserId.keys()],
+  });
 
   return computeGroupRoomOnlineAuthority({
     activeParticipantUserIds,

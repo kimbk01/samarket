@@ -5,6 +5,7 @@
  * null = 읽기 실패 → 호출자는 기존 개별 조회 경로를 그대로 탄다.
  */
 import type { GroupParticipantRow } from "@/lib/community-messenger/group/group-room.types";
+import { recordRoomEntryShadowAccess } from "@/lib/community-messenger/server/room-entry-shadow";
 
 export type MessengerRoomAccessFacts = {
   roomId: string;
@@ -62,6 +63,7 @@ export async function loadMessengerRoomAccess(
     p_room_key: rid,
   });
   if (error || !data || typeof data !== "object") return null;
+  recordRoomEntryShadowAccess(rid, data);
   const row = data as {
     room_exists?: unknown;
     room_type?: unknown;
