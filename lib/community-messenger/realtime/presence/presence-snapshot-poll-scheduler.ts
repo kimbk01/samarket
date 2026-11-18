@@ -1,5 +1,5 @@
 import type { CommunityMessengerPeerPresenceSnapshot } from "@/lib/community-messenger/types";
-import { SAMARKET_PRESENCE_PING_ONLINE_MAX_MS } from "@/lib/community-messenger/presence/presence-policy";
+import { SAMARKET_PRESENCE_ONLINE_GRACE_MS } from "@/lib/community-messenger/presence/presence-policy";
 
 /**
  * Realtime presence 가 unhealthy 일 때의 HTTP 스냅샷 폴백 — 모듈 단일 스케줄러.
@@ -12,8 +12,11 @@ import { SAMARKET_PRESENCE_PING_ONLINE_MAX_MS } from "@/lib/community-messenger/
  * - 한 번의 실행당 `maxIdsPerTick` 개, 실행 간 최소 `minRunGapMs` — 요청량 상한.
  */
 
-/** online 창(15s)보다 짧게 — 다음 관측이 창 만료 전에 도착하도록 RTT 여유 */
-export const CM_PRESENCE_SNAPSHOT_POLL_INTERVAL_MS = SAMARKET_PRESENCE_PING_ONLINE_MAX_MS - 3_000;
+/**
+ * D1 2단계 — 온라인 판정 창(150s)보다 10초 짧게: **온라인으로 보이는 상대만** 창 만료 전에 1회 재확인한다.
+ * 오프라인 상대는 다시 조회하지 않는다(방 밖 = 마지막 접속 표시. 1:1 머리글은 사용자별 토픽으로 실시간 전환).
+ */
+export const CM_PRESENCE_SNAPSHOT_POLL_INTERVAL_MS = SAMARKET_PRESENCE_ONLINE_GRACE_MS - 10_000;
 /** 4 요청 × 24 ids */
 export const CM_PRESENCE_SNAPSHOT_POLL_MAX_IDS_PER_TICK = 96;
 export const CM_PRESENCE_SNAPSHOT_POLL_COALESCE_MS = 50;
@@ -33,6 +36,11 @@ export type PresenceSnapshotPollSchedulerDeps = {
     info: { observedAtMs: number; elapsedMs: number; initial: boolean }
   ) => void;
   isRealtimeHealthy: () => boolean;
+  /**
+   * D1 2단계 — 이미 한 번 받은 id 를 다시 조회할지(기본 true = 기존 동작). 표시 훅은 「지금 온라인으로 보이는가」를 넘긴다.
+   * false 인 id 는 타이머 예약·배치 대상에서 빠진다.
+   */
+  shouldRepoll?: (userId: string) => boolean;
   /** 방 진입 우선 모드 등 — true 면 잠시 뒤로 미룸 */
   isDeferred: () => boolean;
   isDocumentVisible: () => boolean;
@@ -60,6 +68,7 @@ export function createPresenceSnapshotPollScheduler(deps: PresenceSnapshotPollSc
   const coalesceMs = deps.coalesceMs ?? CM_PRESENCE_SNAPSHOT_POLL_COALESCE_MS;
   const minRunGapMs = deps.minRunGapMs ?? CM_PRESENCE_SNAPSHOT_POLL_MIN_RUN_GAP_MS;
   const deferMs = deps.deferMs ?? CM_PRESENCE_SNAPSHOT_POLL_DEFER_MS;
+  const shouldRepoll = (id: string) => (deps.shouldRepoll ? deps.shouldRepoll(id) : true);
 
   const refs = new Map<string, number>();
   const lastFetchedAt = new Map<string, number>();
@@ -79,6 +88,10 @@ export function createPresenceSnapshotPollScheduler(deps: PresenceSnapshotPollSc
       clear();
       return;
     }
+    if (!Number.isFinite(delayMs)) {
+      clear();
+      return;
+    }
     const delay = Math.max(0, delayMs);
     const due = deps.now() + delay;
     if (timer != null && timerDueAt <= due) return;
@@ -95,10 +108,12 @@ export function createPresenceSnapshotPollScheduler(deps: PresenceSnapshotPollSc
     let earliest = Number.POSITIVE_INFINITY;
     for (const id of refs.keys()) {
       const last = lastFetchedAt.get(id);
+      if (last != null && !shouldRepoll(id)) continue;
       const due = last == null ? now : last + intervalMs;
       if (due < earliest) earliest = due;
     }
-    if (!Number.isFinite(earliest)) return intervalMs;
+    /** 다시 볼 id 가 없으면 예약하지 않는다(Infinity → schedule 이 타이머를 걸지 않음) */
+    if (!Number.isFinite(earliest)) return Number.POSITIVE_INFINITY;
     const gapFloor = lastRunAt + minRunGapMs - now;
     return Math.max(earliest - now, gapFloor, 0);
   };
@@ -108,7 +123,7 @@ export function createPresenceSnapshotPollScheduler(deps: PresenceSnapshotPollSc
     const due: { id: string; last: number }[] = [];
     for (const id of refs.keys()) {
       const last = lastFetchedAt.get(id);
-      if (last == null || last + intervalMs <= now + DUE_TOLERANCE_MS) {
+      if (last == null || (shouldRepoll(id) && last + intervalMs <= now + DUE_TOLERANCE_MS)) {
         due.push({ id, last: last ?? Number.NEGATIVE_INFINITY });
       }
     }

@@ -159,7 +159,9 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
 
   const peerPresence = useCommunityMessengerPeerPresence(
     bindPresenceAndTyping ? vm.snapshot.room.peerUserId ?? null : null,
-    bindPresenceAndTyping ? (vm.snapshot.peerPresence ?? null) : null
+    bindPresenceAndTyping ? (vm.snapshot.peerPresence ?? null) : null,
+    /** D1 2단계 — 1:1 머리글만 상대 접속 전환을 사용자별 토픽으로 실시간 수신 */
+    { live: true }
   );
 
   /**

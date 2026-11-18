@@ -116,7 +116,10 @@ describe("T1~T7 처음부터 끝까지", () => {
     const fs = await import("node:fs");
     const svc = fs.readFileSync("lib/community-messenger/service.ts", "utf8");
     expect(svc).toMatch(/lastSeenAt = resolvePresenceLastSeenAtFromDbRow\(row\)/);
+    /** D1 2단계: 전역 채널 sync 대신 사용자별 토픽 전환 — 오프라인 전환은 마지막 접속 시각을 싣는다 */
+    const live = fs.readFileSync("lib/community-messenger/realtime/presence/presence-user-broadcast-client.ts", "utf8");
+    expect(live).toMatch(/lastSeenAt: p\.state === "offline" \? p\.lastSeenAt \?\? p\.at : p\.lastSeenAt/);
     const rt = fs.readFileSync("lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime.ts", "utf8");
-    expect(rt).toMatch(/applyPresenceSyncToMap\(/);
+    expect(rt).not.toContain("community-messenger:presence\"");
   });
 });

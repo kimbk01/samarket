@@ -277,12 +277,12 @@ describe("접속 — 「자리 비움」 없음 (레거시 안 B)", () => {
     const base = { nowMs: now, lastPingAtIso: iso(now - 5_000), lastSeenAtIso: null, updatedAtIso: null };
     expect(derivePresenceFromDbRow({ ...base, lastActivityAtIso: iso(now - 180_000), appVisibility: "foreground" })).toBe("online");
     expect(derivePresenceFromDbRow({ ...base, lastActivityAtIso: iso(now), appVisibility: "background" })).toBe("offline");
-    /** 검토 5: 하트비트 1회 지연(20초)은 온라인 유지, 30초 초과면 오프라인 */
+    /** D1 2단계(2026-11-19): keepalive 60초 — 1회 지연(140초)은 온라인 유지, 판정 창 150초 초과면 오프라인 */
     expect(
-      derivePresenceFromDbRow({ ...base, lastPingAtIso: iso(now - 20_000), lastActivityAtIso: null, appVisibility: "foreground" })
+      derivePresenceFromDbRow({ ...base, lastPingAtIso: iso(now - 140_000), lastActivityAtIso: null, appVisibility: "foreground" })
     ).toBe("online");
     expect(
-      derivePresenceFromDbRow({ ...base, lastPingAtIso: iso(now - 31_000), lastActivityAtIso: null, appVisibility: "foreground" })
+      derivePresenceFromDbRow({ ...base, lastPingAtIso: iso(now - 151_000), lastActivityAtIso: null, appVisibility: "foreground" })
     ).toBe("offline");
     expect(deriveLivePresenceFromSignals({ nowMs: now, channelSubscribed: true, documentVisible: true, lastActivityMs: now - 600_000 })).toBe("online");
     expect(deriveLivePresenceFromSignals({ nowMs: now, channelSubscribed: true, documentVisible: false, lastActivityMs: now })).toBe("offline");

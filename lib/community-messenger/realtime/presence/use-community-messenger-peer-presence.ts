@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CommunityMessengerPeerPresenceSnapshot } from "@/lib/community-messenger/types";
 import { messengerMonitorRecord } from "@/lib/community-messenger/monitoring/client";
 import { fetchCommunityMessengerPresenceSnapshotsBatchClient } from "@/lib/community-messenger/realtime/presence/fetch-community-messenger-presence-snapshot-client";
-import { isCommunityMessengerRealtimeScopeHealthy } from "@/lib/community-messenger/realtime/community-messenger-realtime-health";
 import { useMessengerPresenceStore } from "@/lib/community-messenger/stores/useMessengerPresenceStore";
 import { isCmRoomEntryPriorityModeActive } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import {
@@ -14,15 +13,16 @@ import {
 import { resolvePresenceStateWithStaleness } from "@/lib/community-messenger/presence/presence-staleness";
 import { normalizeLegacyPresenceState } from "@/lib/community-messenger/presence/presence-policy";
 import { mergePresenceSnapshotsIntoStoreMap } from "@/lib/community-messenger/realtime/presence/merge-presence-snapshots";
+import { acquireCommunityMessengerPresenceUserBroadcast } from "@/lib/community-messenger/realtime/presence/presence-user-broadcast-client";
 
-const PRESENCE_RUNTIME_SCOPE = "community-messenger:presence-runtime";
-/** Realtime 정상 중 online 표시 재평가 주기(realtime 단절 감지용) — 폴링 스케줄러 주기와 동일 */
-const PRESENCE_HEALTHY_RECHECK_MS = 12_000;
+const PRESENCE_SNAPSHOT_MONITOR_SCOPE = "community-messenger:presence-snapshot";
 
 let pollScheduler: PresenceSnapshotPollScheduler | null = null;
 
 /**
- * Realtime presence 가 unhealthy 인 동안 화면의 모든 피어 id 를 한 스케줄러로 묶어 배치 폴링.
+ * D1 2단계 — 화면의 상대 id 를 한 스케줄러로 묶어 **첫 값 1회** 배치 조회하고,
+ * 온라인으로 보이는 상대만 판정 창(150s) 만료 전에 재확인한다(오프라인 상대는 재조회 없음).
+ * 전역 presence 채널(접속자 N² 전파)은 없다. 1:1 머리글은 `live` 옵션으로 사용자별 토픽을 구독한다.
  * `updatedAt` 은 서버 `lastSeenAt`(세션 종료 시각일 수 있음)이 아니라 **관측(수신) 시각** — 신선도 판정 기준.
  */
 function getPresenceSnapshotPollScheduler(): PresenceSnapshotPollScheduler {
@@ -43,10 +43,12 @@ function getPresenceSnapshotPollScheduler(): PresenceSnapshotPollScheduler {
         metric: "presence_snapshot_fallback",
         value: Math.round(elapsedMs),
         unit: "ms",
-        labels: { scope: PRESENCE_RUNTIME_SCOPE, batchSize: String(snapshots.size) },
+        labels: { scope: PRESENCE_SNAPSHOT_MONITOR_SCOPE, batchSize: String(snapshots.size) },
       });
     },
-    isRealtimeHealthy: () => isCommunityMessengerRealtimeScopeHealthy(PRESENCE_RUNTIME_SCOPE),
+    /** 전역 presence 채널 없음 — 첫 값은 서버 스냅샷, 이후는 shouldRepoll 규칙만 */
+    isRealtimeHealthy: () => false,
+    shouldRepoll: (userId) => useMessengerPresenceStore.getState().byUserId[userId]?.state === "online",
     isDeferred: () => isCmRoomEntryPriorityModeActive(),
     isDocumentVisible: () => typeof document === "undefined" || document.visibilityState === "visible",
     now: () => Date.now(),
@@ -64,7 +66,14 @@ function getPresenceSnapshotPollScheduler(): PresenceSnapshotPollScheduler {
 
 export function useCommunityMessengerPeerPresence(
   userId: string | null | undefined,
-  fallback?: CommunityMessengerPeerPresenceSnapshot | null
+  fallback?: CommunityMessengerPeerPresenceSnapshot | null,
+  options?: {
+    /**
+     * D1 2단계 — 상대의 접속 전환(앞화면 진입·백그라운드·종료)을 사용자별 비공개 토픽으로 실시간 수신.
+     * 1:1 방 머리글처럼 「지금 보고 있는 한 사람」에게만 켠다(목록 행에는 켜지 않는다 — 구독 수 = 화면 상대 수가 되므로).
+     */
+    live?: boolean;
+  }
 ): CommunityMessengerPeerPresenceSnapshot | null {
   const id = typeof userId === "string" ? userId.trim() : "";
   /** 전체 `byUserId` 엔트리가 아닌 표시용 primitive 만 구독 — `replacePresenceMap` 시 무관 행 리렌더 방지 */
@@ -79,21 +88,21 @@ export function useCommunityMessengerPeerPresence(
     if (!id) return;
     return getPresenceSnapshotPollScheduler().subscribe(id);
   }, [id]);
+  const live = options?.live === true;
+  useEffect(() => {
+    if (!id || !live) return;
+    return acquireCommunityMessengerPresenceUserBroadcast(id);
+  }, [id, live]);
+  /** 실시간 전환·스냅샷으로 온라인이 되면 만료 전 재확인을 다시 예약한다 */
+  useEffect(() => {
+    if (!id || liveState !== "online") return;
+    getPresenceSnapshotPollScheduler().notifyVisible();
+  }, [id, liveState, liveUpdatedAt]);
   /** online 관측이 policy 창을 넘기는 시점에 재평가하기 위한 tick */
   const [stalenessTick, setStalenessTick] = useState(0);
   const resolved = useMemo(() => {
     if (!liveState) return null;
-    /**
-     * Realtime 정상 시: presence join/leave 가 권위 — 신선도 강등을 적용하지 않는다
-     * (track payload 의 updatedAt 은 상대 기기 시계라 시계 오차로 정상 online 이 away 로 보일 수 있음).
-     * 이 경우 realtime 이 끊기는 순간을 놓치지 않도록 주기적으로 재평가만 예약한다.
-     */
-    if (isCommunityMessengerRealtimeScopeHealthy(PRESENCE_RUNTIME_SCOPE)) {
-      return {
-        state: liveState,
-        nextChangeAtMs: liveState === "online" ? Date.now() + PRESENCE_HEALTHY_RECHECK_MS : null,
-      };
-    }
+    /** 관측 시각(수신 시각) 기준 — 판정 창(150s)을 넘긴 온라인 관측은 마지막 접속으로 */
     return resolvePresenceStateWithStaleness({ state: liveState, updatedAtIso: liveUpdatedAt, nowMs: Date.now() });
     // stalenessTick: 시간 경과 재평가 트리거
   }, [liveState, liveUpdatedAt, stalenessTick]);

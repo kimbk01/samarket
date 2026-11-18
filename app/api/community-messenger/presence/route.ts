@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getOrCreateRequestId, getRateLimitKey, withRequestIdHeaders } from "@/lib/http/api-route";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
@@ -69,6 +69,8 @@ export async function POST(req: NextRequest) {
     appVisibility?: string | null;
     activeRoomId?: string | null;
     sessionEnd?: boolean;
+    /** D1 2단계 — 상태 전환(앞화면 진입·백그라운드·유휴 복귀·종료). keepalive 는 false/없음 */
+    transition?: boolean;
   } | null = null;
   let jsonParseFailed = false;
   try {
@@ -127,6 +129,27 @@ export async function POST(req: NextRequest) {
       /* ignore */
     }
     return NextResponse.json(result, withRequestIdHeaders({ status: 400 }, requestId));
+  }
+
+  /**
+   * D1 2단계 — 전환일 때만 그 사용자 비공개 토픽(`cm-presence-user:<id>`)에 1건 발행.
+   * 구독자 = 실시간으로 보고 있는 상대(1:1 머리글)뿐 — 전역 N² 전파 없음. keepalive 는 발행하지 않는다.
+   * 응답 뒤(after)에 보낸다 — 실패해도 보는 쪽은 판정 창 만료 재확인으로 수렴.
+   */
+  const isTransition = body?.transition === true || body?.sessionEnd === true;
+  if (isTransition) {
+    const offline = body?.sessionEnd === true || body?.appVisibility === "background";
+    const lastSeenAt = result.lastSeenAt ?? new Date().toISOString();
+    after(async () => {
+      const { publishCommunityMessengerPresenceTransitionFromServer } = await import(
+        "@/lib/community-messenger/realtime/presence/presence-user-broadcast-server"
+      );
+      await publishCommunityMessengerPresenceTransitionFromServer({
+        userId: auth.userId,
+        state: offline ? "offline" : "online",
+        lastSeenAt,
+      }).catch(() => {});
+    });
   }
 
   return NextResponse.json(result, withRequestIdHeaders({ status: 200 }, requestId));
