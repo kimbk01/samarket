@@ -120,6 +120,10 @@
     {
       "path": "/api/cron/crew-rep-daily-recompute",
       "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/cron/request-budget-watch",
+      "schedule": "0 1 * * *"
     }
   ]
 }

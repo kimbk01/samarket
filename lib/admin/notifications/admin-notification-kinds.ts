@@ -17,6 +17,8 @@ export const ADMIN_RECIPIENT_NOTIFICATION_TYPES = [
   "store_core_info_changed",
   /** 매장 신청 v2 (2026-11-10) — 새 입점 신청·보완 재제출 → 입점 심사 대기 목록. */
   "store_application_submitted",
+  /** 요청 예산 운영 감시 (docs/request-budget-ssot.md) — Supabase 호출 예산 초과 시 하루 1건. */
+  "request_budget_alert",
 ] as const;
 
 /**

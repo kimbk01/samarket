@@ -5,6 +5,18 @@
 import { logDevSafeModeProbeOnce } from "@/lib/dev/is-dev-safe-mode";
 
 export async function register() {
+  /**
+   * 운영 Supabase 호출 계수기 (요청 예산 계약 — docs/request-budget-ssot.md).
+   * 운영 Node 런타임에서만 설치. 실패해도 서버 기동에 영향 없음.
+   */
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    try {
+      const { installSupabaseCallCounterFromEnv } = await import("./lib/perf/install-supabase-call-counter.server");
+      await installSupabaseCallCounterFromEnv();
+    } catch (err) {
+      console.warn("[supabase-call-counter] install_failed", err instanceof Error ? err.message : "unknown");
+    }
+  }
   if (process.env.NODE_ENV !== "development") return;
   if (process.env.NEXT_RUNTIME === "edge") return;
   logDevSafeModeProbeOnce("server");
