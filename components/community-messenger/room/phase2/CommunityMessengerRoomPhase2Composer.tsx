@@ -25,11 +25,7 @@ import {
   readRoomComposerDraft,
   writeRoomComposerDraft,
 } from "@/lib/community-messenger/room/messenger-room-composer-draft-storage";
-import {
-  getActiveComposerFailRestoreGeneration,
-  markActiveComposerDraftEditedDuringOutbound,
-  shouldRestoreActiveComposerAfterSendFail,
-} from "@/lib/community-messenger/room/messenger-composer-fail-restore-active";
+import { markActiveComposerDraftEditedDuringOutbound } from "@/lib/community-messenger/room/messenger-composer-fail-restore-active";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { useTradePostDetailSlideHost } from "@/components/community-messenger/room/phase2/TradePostDetailSlideHostContext";
 import { resolveTradeBlockedProductDetailPostId } from "@/lib/community-messenger/room/phase2/trade-blocked-product-detail-cta";
@@ -473,18 +469,11 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     }
     setDraft("");
     clearRoomComposerDraft(roomKey);
-    const genBefore = getActiveComposerFailRestoreGeneration();
-    const sendPromise = vm.sendMessage(text);
-    const sendGen = getActiveComposerFailRestoreGeneration();
-    const ok = await sendPromise;
-    if (
-      !ok &&
-      sendGen > genBefore &&
-      shouldRestoreActiveComposerAfterSendFail({ sendGeneration: sendGen, restoreOnFail: text })
-    ) {
-      setDraft(text);
-      writeRoomComposerDraft(roomKey, text);
-    }
+    /**
+     * FAIL-1(2026-11-18): 실패 시 입력창 복원은 outbox(`use-messenger-text-send-outbox`) 한 곳만 정한다 —
+     * 확실한 거절 + 같은 화면이면 `setMessage(글)`(→ 위 vm.message 동기화) + 방별 초안 저장, 결과 불명이면 실패 행만.
+     */
+    await vm.sendMessage(text);
     scheduleMessengerComposerFocusRetain(vm.composerTextareaRef);
   }, [draft, editingMessage, roomKey, vm]);
 

@@ -38,6 +38,7 @@ import {
   type MessengerUnconfirmedTextSend,
 } from "@/lib/community-messenger/room/messenger-outbound-failed-send";
 import { shouldRestoreActiveComposerAfterSendFail } from "@/lib/community-messenger/room/messenger-composer-fail-restore-active";
+import { writeRoomComposerDraft } from "@/lib/community-messenger/room/messenger-room-composer-draft-storage";
 import {
   type MessengerFailedTextSend,
   listMessengerFailedTextSends,
@@ -638,6 +639,11 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
         forgetPersistedFailedText(roomId, clientMessageId);
         d.setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
         d.setMessage(restoreOnFail!);
+        /**
+         * FAIL-1: 방을 나갔다 와도 되돌린 글이 입력창에 남도록 방별 초안에도 저장한다
+         * (전에는 Phase2 입력창의 자체 복원 블록이 하던 일 — 입력창 동기화 effect 는 초안을 쓰지 않는다).
+         */
+        writeRoomComposerDraft(roomId, restoreOnFail!);
         showMessengerSnackbar(failureMessage(), { variant: "error" });
         return false;
       }
