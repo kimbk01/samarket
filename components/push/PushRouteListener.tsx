@@ -42,6 +42,10 @@ import {
 } from "@/lib/push/push-navigation-back";
 import { isLaunchPushHoldActive, markLaunchPushHandled } from "@/lib/startup/launch-push-hold";
 import { isInitialDestinationVisualReady } from "@/lib/startup/startup-metrics";
+import {
+  capLaunchPushDestinationWait,
+  isLaunchPushDestinationPending,
+} from "@/lib/startup/launch-push-destination-pending";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
@@ -418,6 +422,13 @@ export function PushRouteListener() {
         maybeMarkMemberAOnPushTap(path, notificationId, transport);
         ackChatPushRouteConsumed(path, notificationId);
         console.info("[push-route] same_route_ack", { path });
+        // 설계 A (11-18 x12 실측): 알림으로 켠 문서가 이미 목적지에서 시작했으면(다시 불러온 문서 등) 「처리 끝」으로
+        // 덮개 대기를 풀지 않는다 — 46.839 same_route_ack → 46.840 해제 → 「채팅방 입장 중」 위로 덮개가 걷혔다.
+        // 「이동」으로 처리해 목적지 그림 판정이 덮개를 걷게 하고, 상한은 기존 8초와 같다.
+        if (isLaunchPushDestinationPending()) {
+          launchOutcome = "navigated";
+          capLaunchPushDestinationWait(path);
+        }
         return;
       }
 

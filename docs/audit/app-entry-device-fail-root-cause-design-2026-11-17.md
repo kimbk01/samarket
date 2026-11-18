@@ -1088,3 +1088,9 @@ PO-8 위치별 켜기/끄기 · 발견 응답에 첫 화면 싣기 · 「휴대�
 | D5 | 경계 probe: 3초 「로그인됨」 캐시가 살아 있으면 요청 0 · 직접 확인 성공은 캐시에 기록. 401·비회원·Supabase 경로 불변(공용 조회 함수 교체는 401 때 비회원 표식이 생겨 판정이 바뀌므로 하지 않음) — Auth HARD LOCK Amendment 2026-11-18 | `AuthSessionBoundary.tsx` · `fetch-auth-session-client.ts` · `docs/auth-hard-lock.md` |
 | D7 | 숨김 판정 `checkVisibility()` 우선(없을 때만 조상 순회) | `launch-destination-paint.ts` |
 - 기존 구조 테스트 1건(`main-hub-intent-transition-contract` 「prefetch={shouldPrefetch…」 문자열)을 대기 조건이 붙은 형태로 바꿨다(의도: 비활성 탭 미리 받기 — 그대로).
+
+### 24-9. 결함 A — 「이미 목적지」 분기가 덮개 대기를 푼다 (Owner 「A 진행」 2026-11-18)
+- 실측(08:16 PHT Xiaomi x12 · 실제 채팅 알림 탭 · 운영 `4d4a1da`): 시작 도중 문서가 채팅방 주소로 다시 열림(45.850) → 새 문서는 처음부터 목적지 → 알림 처리가 `same_route_ack`(46.839)로 끝나며 `launchOutcome = "ended"` → `markLaunchPushHandled()` → 1ms 뒤 해제(46.840) → 「채팅방 입장 중」 위로 덮개가 걷힘(46.877) · 덮개 뒤 자리 표시 1.4초(10fps 녹화 14프레임).
+- 이 분기는 문서가 목적지에서 시작하는 모든 경우(다시 열린 문서 · 설계 D1)에 탄다 → 다시 열림의 원인과 별개인 덮개 판정 결함.
+- 수정: 알림 목적지 대기 중(`isLaunchPushDestinationPending`)이면 이 분기를 「이동」으로 처리(`launchOutcome = "navigated"`) → 덮개는 목적지 그림 판정이 걷는다 · 상한 `capLaunchPushDestinationWait` 8초(기존 확인 상한과 같음, 넘으면 `markLaunchPushHandled`). 대기가 아니면(포그라운드 탭·iOS·아이콘) 이전과 같음 · 통화 경로는 이 분기에 오지 않음(조건 `!isCallPushRoutePath`).
+- 확인 못 함: 문서가 다시 열린 원인(실제 탭 23회 중 2회 · 전체 로그 1회분 · 네이티브 `loadUrl` 아님 · 새 버전 감지·chunk 재시도·계정 전환 경로 아님) — NOT_PROVEN.

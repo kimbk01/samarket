@@ -150,6 +150,11 @@ describe("구조 계약", () => {
   it("수신자는 단일 종료 지점에서만 해제 허용", () => {
     expect(listener).toMatch(/if \(launchOutcome === "ended"\) markLaunchPushHandled\(\);/);
     expect(listener.match(/launchOutcome = "held"/g)?.length).toBe(1);
-    expect(listener.match(/launchOutcome = "navigated"/g)?.length).toBe(1);
+    // 실제 이동(deliverRoute) 1곳 + 설계 A: 알림 목적지 대기 중 「이미 목적지」(same_route_ack) 1곳
+    expect(listener.match(/launchOutcome = "navigated"/g)?.length).toBe(2);
+    const sameRoute = listener.indexOf('console.info("[push-route] same_route_ack", { path });');
+    const second = listener.indexOf('launchOutcome = "navigated"', sameRoute);
+    expect(second).toBeGreaterThan(sameRoute);
+    expect(listener.slice(sameRoute, second)).toContain("if (isLaunchPushDestinationPending()) {");
   });
 });

@@ -119,3 +119,51 @@ describe("구조 계약", () => {
     expect(host).toMatch(/if \(isLaunchPushDestinationPending\(\)\) return;\s*latestRef\.current\.router\.prefetch\(href, PREFETCH_FULL\);/);
   });
 });
+
+describe("설계 A — 이미 목적지에서 시작한 문서의 덮개 대기 (11-18 x12 실측)", () => {
+  it("대기 중 「이미 목적지」 처리 뒤에도 덮개는 그림 판정 전까지 걷히지 않는다 · 그려지면 걷힌다", async () => {
+    const { metrics, pending } = await load(ROOM, "", ROOM);
+    // 문서가 처음부터 목적지(채팅방)에서 시작 — 화면은 아직 자리 표시
+    metrics.markInitialDestinationVisualReady();
+    const bridge = (window as unknown as { DibayBootBridge: { dismissSplash: ReturnType<typeof vi.fn> } }).DibayBootBridge;
+    expect(bridge.dismissSplash).not.toHaveBeenCalled();
+    const cancel = pending.capLaunchPushDestinationWait(ROOM);
+    expect(bridge.dismissSplash).not.toHaveBeenCalled();
+    document.body.innerHTML = ROOM_SHELL;
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(bridge.dismissSplash).toHaveBeenCalledTimes(1);
+    cancel();
+  });
+
+  it("8초 안에 안 그려지면 대기를 풀고 지금 화면에서 해제(기존 상한과 같음)", async () => {
+    vi.useFakeTimers();
+    try {
+      const { metrics, hold, pending } = await load(ROOM, "", ROOM);
+      metrics.markInitialDestinationVisualReady();
+      const bridge = (window as unknown as { DibayBootBridge: { dismissSplash: ReturnType<typeof vi.fn> } })
+        .DibayBootBridge;
+      pending.capLaunchPushDestinationWait(ROOM);
+      vi.advanceTimersByTime(pending.LAUNCH_PUSH_DESTINATION_WAIT_CAP_MS - 1);
+      expect(bridge.dismissSplash).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1);
+      expect(hold.isLaunchPushHoldActive()).toBe(false);
+      expect(bridge.dismissSplash).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("대기가 아니면(아이콘·iOS·이미 해제) 아무것도 하지 않는다", async () => {
+    const { pending, hold } = await load("/", "", null);
+    pending.capLaunchPushDestinationWait("/x");
+    expect(hold.isLaunchPushHoldActive()).toBe(false);
+  });
+
+  it("구조: 「이미 목적지」 분기는 대기 중이면 「이동」으로 처리하고 상한을 건다 · 대기 아니면 이전과 같음", () => {
+    const src = readFileSync("components/push/PushRouteListener.tsx", "utf8");
+    const i = src.indexOf('console.info("[push-route] same_route_ack", { path });');
+    expect(i).toBeGreaterThan(0);
+    const block = src.slice(i, i + 700);
+    expect(block).toMatch(/if \(isLaunchPushDestinationPending\(\)\) \{\s*launchOutcome = "navigated";\s*capLaunchPushDestinationWait\(path\);\s*\}\s*return;/);
+  });
+});
