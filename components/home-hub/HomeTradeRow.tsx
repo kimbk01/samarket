@@ -4,6 +4,7 @@ import { formatPrice } from "@/lib/utils/format";
 import { untilLaunchPushDestinationSettled } from "@/lib/startup/launch-push-destination-pending";
 import { resolveTradePostCurrency } from "@/lib/trade/trade-price-currency";
 import { useEffect, useState } from "react";
+import { PostFavoriteButton } from "@/components/favorites/PostFavoriteButton";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getPostsForHome } from "@/lib/posts/getPostsForHome";
@@ -15,7 +16,7 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import { HOME_TRADES_RECENT_DAYS, type HomeTradesConfig } from "@/lib/home/home-layout-contract";
 import { homeCatalogName, type HomeTradeCategory } from "@/lib/home/home-catalog-types";
 import { keepSessionPick, rotateUnseenFirst } from "@/lib/home/home-rotation";
-import { HOME_FEED_IMAGE_WIDTH, homeFeedImageSrc, prefetchHomeFeedImages } from "@/lib/home/home-feed-image";
+import { homeTradeCardImageSrc, prefetchHomeFeedImages } from "@/lib/home/home-feed-image";
 import type { HomeRotationCtl } from "@/components/home-hub/use-home-rotation";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -40,9 +41,17 @@ export function useHomeTrades({
   config: HomeTradesConfig;
   rot: HomeRotationCtl | null;
   refreshSeq: number;
-}): { items: PostWithMeta[] | null; failed: boolean; retry: () => void } {
+}): {
+  items: PostWithMeta[] | null;
+  failed: boolean;
+  retry: () => void;
+  /** 찜 상태 (회원 · 서버 favoriteMap) — 수정안 #6 */
+  favorites: Record<string, boolean>;
+  setFavorite: (postId: string, on: boolean) => void;
+} {
   const [items, setItems] = useState<PostWithMeta[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [favorites, setFavorites] = useState<Record<string, boolean>>({});
   const [retryKey, setRetryKey] = useState(0);
   const mode = rot?.mode;
   const seq = rot?.seq;
@@ -98,6 +107,7 @@ export function useHomeTrades({
           : rotateUnseenFirst(pool, idOf, rot.history.log.trades, config.count);
       rot.commit({ trades: picked.map(idOf) });
       setItems(picked);
+      setFavorites(r.favoriteMap ?? {});
       /**
        * 설계 D4-2: 다음 실행이 「안 본 글 먼저」로 고를 앞 2개(이번에 고른 글을 본 것으로 친 순서)의 큰 카드 그림을 미리 받아 둔다.
        * 다음 실행의 후보가 바뀌면(새 글) 맞지 않을 수 있다 — 빈도만 줄인다.
@@ -108,7 +118,7 @@ export function useHomeTrades({
           nextPick
             .map((p) => p.thumbnail_url || p.images?.[0] || "")
             .filter(Boolean)
-            .map((u) => homeFeedImageSrc(u, HOME_FEED_IMAGE_WIDTH.big))
+            .map((u) => homeTradeCardImageSrc(u))
         );
       }
       revisitGate.markLoaded(gateKey);
@@ -127,49 +137,65 @@ export function useHomeTrades({
       setItems(null);
       setRetryKey((n) => n + 1);
     },
+    favorites,
+    setFavorite: (postId, on) => setFavorites((m) => ({ ...m, [postId]: on })),
   };
 }
 
-/** 마켓 상품 카드 — 큰 사진 1장(big) 또는 2열 중 한 칸(pair). 누르면 상품 상세 */
-export function HomeTradeFeedCard({
+/**
+ * 마켓 상품 카드 — 시안 R3 (계획서 C): 사진 **정사각**(카드 폭 그대로, 잘라내기 확대 없음) · 제목 · 가격 · 분류·시각.
+ * 크기는 줄(`.home-trade-row`)이 정한다 — 휴대폰 144px 가로 넘김 · 태블릿 5열 · PC 6열. 누르면 상품 상세.
+ */
+export function HomeTradeShelfCard({
   post,
-  variant,
   tradeCategories,
+  favorite,
 }: {
   post: PostWithMeta;
-  variant: "big" | "pair";
   tradeCategories: HomeTradeCategory[];
+  /** 회원만 — 사진 오른쪽 아래 찜(♡) · 기존 관심목록 버튼(수정안 #6) */
+  favorite?: { on: boolean; onChange: (on: boolean) => void };
 }) {
   const { language } = useI18n();
   const router = useRouter();
-  const big = variant === "big";
-  /** 설계 D4-1 — 카드 너비에 맞춘 크기 변환 그림 */
-  const img = homeFeedImageSrc(post.thumbnail_url || post.images?.[0] || "", big ? HOME_FEED_IMAGE_WIDTH.big : HOME_FEED_IMAGE_WIDTH.pair);
+  /** 수정안 #12 — 목록 화면과 같은 정사각 썸네일 (단일 기준) */
+  const img = homeTradeCardImageSrc(post.thumbnail_url || post.images?.[0] || "");
   const catId = (post as { trade_category_id?: string | null }).trade_category_id ?? post.category_id;
   const cat = tradeCategories.find((x) => x.id === catId);
   const meta = [cat ? homeCatalogName(cat, language) : "", formatRelativeTimeAgo(post.created_at, language as AppLanguageCode)]
     .filter(Boolean)
     .join(" · ");
+  const href = `/post/${encodeURIComponent(post.id)}`;
+  // 카드 안에 찜 버튼(버튼)이 있어 카드는 button 이 아닌 role="link"
   return (
-    <button
-      type="button"
-      onClick={() => router.push(`/post/${encodeURIComponent(post.id)}`)}
-      className="block w-full min-w-0 text-left active:opacity-80"
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={() => router.push(href)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") router.push(href);
+      }}
+      className="home-trade-card"
       data-home-feed-trade={post.id}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- 거래글 사진 */}
-      <img
-        src={img}
-        alt=""
-        className="w-full rounded-ui-rect bg-[#eef1ee] object-cover"
-        /* 앱 전역 img height:auto 보다 앞서도록 높이는 인라인 */
-        style={{ height: big ? 220 : 140 }}
-      />
-      <span className={`mt-2 block font-extrabold text-[#141a16] ${big ? "text-[18px]" : "text-[15px]"}`}>
-        {tradePrice(post.price, (post as { meta?: unknown }).meta)}
+      <span className="home-sq">
+        {/* eslint-disable-next-line @next/next/no-img-element -- 거래글 사진 */}
+        <img src={img} alt="" className="home-sq-img" />
+        {favorite ? (
+          <span className="home-trade-fav">
+            <PostFavoriteButton
+              postId={post.id}
+              authorUserId={post.author_id}
+              favorited={favorite.on}
+              onFavoriteChange={favorite.onChange}
+              iconClassName="h-[17px] w-[17px]"
+            />
+          </span>
+        ) : null}
       </span>
-      <span className="block truncate text-[14px] text-[#222]">{post.title}</span>
-      {meta ? <span className="block truncate text-[12px] text-[#999]">{meta}</span> : null}
-    </button>
+      <span className="home-trade-title">{post.title}</span>
+      <span className="home-trade-price">{tradePrice(post.price, (post as { meta?: unknown }).meta)}</span>
+      {meta ? <span className="home-trade-meta">{meta}</span> : null}
+    </div>
   );
 }

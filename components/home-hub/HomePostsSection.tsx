@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { untilLaunchPushDestinationSettled } from "@/lib/startup/launch-push-destination-pending";
-import { CommunityCard } from "@/components/community/CommunityCard";
+import { useRouter } from "next/navigation";
+import { Eye, MessageSquare } from "lucide-react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { philifeAppPaths } from "@/lib/philife/paths";
+import { homePostCardImageSrc } from "@/lib/home/home-feed-image";
 import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
 import { fetchNeighborhoodFeedShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
 import { useHubDataRevisitGate } from "@/lib/http/hub-data-freshness";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import type { HomePostsConfig } from "@/lib/home/home-layout-contract";
-import { COMMUNITY_FEED_LIST_WRAP_CLASS, COMMUNITY_FONT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 
 /**
  * 홈 피드의 정보 공유 글 (홈 시안 v4) — 데이터 = 정보 공유 전체 피드(어드민 정렬, 기본 인기순 — 라운지 최신순과 겹치지 않게), 공지 제외.
@@ -74,17 +77,42 @@ export function useHomePosts({
 }
 
 /**
- * 정보 공유 글 카드 — 라운지 게시판과 **같은 카드**(`CommunityCard`, Owner 2026-11-09 「게시판 리스트와 동일하게」).
- * 카드 토큰은 `[data-community-ui]` 안에서만 정의되므로 같은 범위로 감싼다(없으면 테두리가 검게 그려짐 — 운영 11-09 실기 결함).
+ * 정보 공유 글 카드 — 시안 R3 (계획서 E · 이전 「라운지 게시판과 같은 카드」 2026-11-09 대체):
+ * 휴대폰 = 글 왼쪽·사진 오른쪽 / 태블릿·PC = 사진(16:10) 위·글 아래. 크기·열은 `.home-mag` (2열 · PC 4열).
  */
-export function HomePostFeedCard({ post }: { post: NeighborhoodFeedPostDTO }) {
+export function HomePostMagCard({ post }: { post: NeighborhoodFeedPostDTO }) {
+  const { language } = useI18n();
+  const router = useRouter();
+  const img = post.images?.[0] ? homePostCardImageSrc(post.images[0]) : "";
+  const topic = language === "en" && post.category_name_en ? post.category_name_en : post.category_label;
   return (
-    <div data-community-ui className={COMMUNITY_FONT_CLASS} data-home-feed-post={post.id}>
-      <ul className={`${COMMUNITY_FEED_LIST_WRAP_CLASS} !px-0 !pb-0 !pt-0`}>
-        <li className="list-none">
-          <CommunityCard post={post} />
-        </li>
-      </ul>
-    </div>
+    <button
+      type="button"
+      onClick={() => router.push(philifeAppPaths.post(post.id))}
+      className={`home-mag-card${img ? "" : " home-mag-card--noimg"}`}
+      data-home-feed-post={post.id}
+    >
+      {img ? (
+        <span className="home-mag-img">
+          {/* eslint-disable-next-line @next/next/no-img-element -- 정보 공유 글 사진 */}
+          <img src={img} alt="" className="home-sq-img" />
+        </span>
+      ) : null}
+      <span className="home-mag-text">
+        {topic ? <span className="home-mag-topic">{topic}</span> : null}
+        <span className="home-mag-title">{post.title}</span>
+        <span className="home-mag-meta">
+          <span className="inline-flex items-center gap-1">
+            <Eye className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+            {post.view_count}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <MessageSquare className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+            {post.comment_count}
+          </span>
+          {post.location_label ? <span className="truncate">{post.location_label}</span> : null}
+        </span>
+      </span>
+    </button>
   );
 }

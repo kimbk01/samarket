@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, MapPin } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
-import { SectorHeaderBar } from "@/components/layout/sector-header/SectorHeaderBar";
 import { samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
 import { DIBAY_APP_ICON_180_PATH, dibayBrandAssetUrl } from "@/lib/brand/brand-asset-paths";
 import { dibayDomainChromeElementPropsForId } from "@/lib/ui/dibay-domain-chrome";
@@ -18,13 +17,10 @@ import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { buildLoginHref } from "@/lib/auth/client-access-flow";
 import {
   HOME_MENU_CATALOG,
-  HOME_SECTION_DEFAULT_TITLE_KEYS,
-  pickHomeText,
   resolveAudienceBanners,
   resolveVisibleHomeSections,
   type HomeLayoutConfig,
   type HomeMenuKey,
-  type HomeSectionKey,
   type HomeServiceKey,
 } from "@/lib/home/home-layout-contract";
 import type { HomeCatalog } from "@/lib/home/home-catalog-types";
@@ -50,7 +46,7 @@ export function HomeScreen({
   initialLayout: HomeLayoutConfig;
   initialCatalog: HomeCatalog;
 }) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
   const membership = useClientMembershipState("home-screen");
   const isMember = membership.status === "member";
@@ -126,13 +122,8 @@ export function HomeScreen({
     [layout, bannerAudienceMember, isMember]
   );
 
-  const sectionTitle = (key: HomeSectionKey): string => {
-    const cfg = layout.sections.find((s) => s.key === key);
-    const custom = pickHomeText(cfg?.title, language);
-    if (custom) return custom;
-    const k = HOME_SECTION_DEFAULT_TITLE_KEYS[key];
-    return k ? t(k) : "";
-  };
+  const showBanner = sections.includes("banner") && banners.length > 0;
+  const showServices = sections.includes("services") && layout.services.some((s) => s.visible);
 
   /**
    * 앱 진입 v3 ① (실측 2026-11-17 삼성: 첫 그림 뒤 「전체 지역」→빈칸→실제 주소 3단계 · 알림 종이 늦게 끼어들어 자리 이동).
@@ -175,121 +166,114 @@ export function HomeScreen({
   }, [memberProfileId, liveAddressLine]);
 
   return (
-    <div className="min-h-full bg-[#F3F5F3]" data-home-screen>
+    <div className="home-r3 min-h-full bg-[#F3F5F3]" data-home-screen>
       <HomePullRefreshHost />
 
-      {/* 상단 — 로고 · 오른쪽 주소 · 종 (Owner 2026-11-09 「로고 우측에 주소」) */}
-      {/* 헤더 SSOT 3단계 — 바탕 = 홈 도메인 색 · 아래 구분선 */}
-      <header
-        className="border-b border-[color:var(--dibay-domain-divider)] bg-[color:var(--dibay-domain-surface)]"
-        data-home-header
-        {...dibayDomainChromeElementPropsForId("home")}
-      >
-        {/* 헤더 SSOT — 다른 허브와 같은 공통 줄 부품(`SectorHeaderBar` 제목-왼쪽 · 왼쪽 빈칸 없음) */}
-        <div className="sector-header--no-left-slot" style={{ paddingTop: "var(--safe-top, 0px)" }}>
-          <SectorHeaderBar
-            centerAlign="left"
-            center={
-              <span className="flex min-w-0 items-center gap-2">
-                <span className="flex shrink-0 items-center gap-1.5" aria-label="dibaY">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- 정적 브랜드 아이콘 26px */}
-                  <img src={dibayBrandAssetUrl(DIBAY_APP_ICON_180_PATH)} alt="" width={26} height={26} className="h-[26px] w-[26px] rounded-[7px]" />
-                  <span className="text-[21px] font-extrabold tracking-[-0.02em] text-sam-primary">
-                    diba<span className="text-[#E0A800]">Y</span>
-                  </span>
-                </span>
-                {layout.header.showAddress ? (
-                  <button
-                    type="button"
-                    aria-label={t("home_address_change_aria")}
-                    className="flex min-w-0 flex-1 items-center gap-0.5 px-1 py-1 text-left text-[length:var(--sector-header-title-size)] font-semibold leading-none text-[color:var(--sector-header-title-color)] active:opacity-60"
-                    onClick={() => {
-                      if (isMember) router.push("/mypage/addresses");
-                      else void requireAuthAction("address_save", () => router.push("/mypage/addresses"), { next: "/home" });
-                    }}
-                    data-home-address
-                    data-popup-anchor="region"
-                  >
-                    {/* F3-c: 글자 칸은 회색 칸과 같은 최소 너비(w-24)를 늘 잡는다 — 글자가 와도 `⌄` 가 왼쪽으로 당겨지지 않는다 */}
-                    {addressLabel == null ? (
-                      <span aria-hidden className="inline-block h-[14px] w-24 shrink-0 rounded-ui-rect bg-white/25" data-home-address-pending />
-                    ) : (
-                      <span className="min-w-24 truncate" data-home-address-line>
-                        {addressLabel}
-                      </span>
-                    )}
-                    <ChevronDown className="h-3.5 w-3.5 shrink-0" strokeWidth={2.4} aria-hidden />
-                  </button>
-                ) : null}
+      {/* 머리줄 — 시안 R4 수정안 #1 (Owner 「수정안대로 진행」 2026-11-18): 로고 · 흰 알약 주소 · 알림 종/로그인.
+          본문과 같은 가운데 1240 시작선(`.home-r3-hdr-row`) · 바탕 = 홈 도메인 색(헤더 SSOT) · 구분선 없음(시안). */}
+      <header className="home-r3-hdr" data-home-header {...dibayDomainChromeElementPropsForId("home")}>
+        <div style={{ paddingTop: "var(--safe-top, 0px)" }}>
+          <div className="home-r3-hdr-row">
+            <span className="flex shrink-0 items-center gap-1.5" aria-label="dibaY">
+              {/* eslint-disable-next-line @next/next/no-img-element -- 정적 브랜드 아이콘 */}
+              <img src={dibayBrandAssetUrl(DIBAY_APP_ICON_180_PATH)} alt="" width={28} height={28} className="h-7 w-7 rounded-[7px]" />
+              <span className="text-[22px] font-extrabold tracking-[-0.03em] text-sam-primary">
+                diba<span className="text-[#E0A800]">Y</span>
               </span>
-            }
-            right={
-              <div className={samTier1HeaderIconCluster}>
-                {headerMember ? (
-                  /* 진입 감사 PO-3: 팝업 말풍선이 붙는 자리 · F3-a: 지난 실행이 회원이면 확인 중에도 종을 바로 그린다 */
-                  <span data-popup-anchor="notifications" className="inline-flex">
-                    <Tier1NotificationAnchor />
+            </span>
+            {layout.header.showAddress ? (
+              <button
+                type="button"
+                aria-label={t("home_address_change_aria")}
+                className="home-r3-loc"
+                onClick={() => {
+                  if (isMember) router.push("/mypage/addresses");
+                  else void requireAuthAction("address_save", () => router.push("/mypage/addresses"), { next: "/home" });
+                }}
+                data-home-address
+                data-popup-anchor="region"
+              >
+                <MapPin className="h-4 w-4 shrink-0 text-[#1C7A3A]" strokeWidth={2.4} aria-hidden />
+                {/* F3-c: 글자 칸은 회색 칸과 같은 최소 너비 — 글자가 와도 `⌄` 가 당겨지지 않는다 */}
+                {addressLabel == null ? (
+                  <span aria-hidden className="inline-block h-[14px] w-20 shrink-0 rounded-ui-rect bg-[#e9ece9]" data-home-address-pending />
+                ) : (
+                  <span className="min-w-0 truncate" data-home-address-line>
+                    {addressLabel}
                   </span>
-                ) : membership.status === "checking" && authCookieHint !== false ? (
-                  /* 회원 확인 중 — 알림 자리를 미리 비워 둔다(머리줄 밀림 방지) */
-                  <span aria-hidden className="inline-block h-10 w-10" data-home-bell-pending />
-                ) : isGuest ? (
-                  <button
-                    type="button"
-                    className="shrink-0 rounded-full bg-sam-primary px-3.5 py-1.5 text-[13px] font-semibold text-white active:brightness-90"
-                    onClick={() => router.push(buildLoginHref("/home"))}
-                  >
-                    {t("home_sign_in")}
-                  </button>
-                ) : null}
-              </div>
-            }
-          />
+                )}
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#555]" strokeWidth={2.4} aria-hidden />
+              </button>
+            ) : null}
+            <span className="flex-1" />
+            <div className={samTier1HeaderIconCluster}>
+              {headerMember ? (
+                /* 진입 감사 PO-3: 팝업 말풍선이 붙는 자리 · F3-a: 지난 실행이 회원이면 확인 중에도 종을 바로 그린다 */
+                <span data-popup-anchor="notifications" className="inline-flex">
+                  <Tier1NotificationAnchor />
+                </span>
+              ) : membership.status === "checking" && authCookieHint !== false ? (
+                /* 회원 확인 중 — 알림 자리를 미리 비워 둔다(머리줄 밀림 방지) */
+                <span aria-hidden className="inline-block h-10 w-10" data-home-bell-pending />
+              ) : null}
+            </div>
+            {/* 로그인 = 글자 버튼 — 아이콘 칸 묶음(36px 정사각) 밖에 둔다 (2026-11-18 실측: 묶음 안에서 「로그인」 세로 쪼개짐) */}
+            {!headerMember && isGuest ? (
+              <button
+                type="button"
+                className="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-full bg-sam-primary px-4 text-[13.5px] font-bold text-white active:brightness-90"
+                onClick={() => router.push(buildLoginHref("/home"))}
+                data-home-login
+              >
+                {t("home_sign_in")}
+              </button>
+            ) : null}
+          </div>
         </div>
         {/* 당겨서 새로고침 슬롯 — 커뮤니티·거래와 같은 공통 슬롯(1단 아래 · 시그니처 그린) */}
         <DibayPtrSlot store={homePtrStore} tone="onBrand" className="bg-signature" dataAttribute="data-home-ptr-hint" />
       </header>
 
-      {sections.map((key) => {
-        if (key === "services") {
-          return (
-            <HomeServiceCards
-              key={key}
-              services={layout.services}
-              catalog={catalog}
-              onOpen={openMenu}
-              onOpenHref={openMenuHref}
-            />
-          );
-        }
-        if (key === "banner") {
-          // 회원 확인 중에는 기기 로그인 쿠키로 대상을 먼저 정해 바로 보인다(R1). 확인 결과가 다르면 그 대상 배너로 바뀐다.
-          // 쿠키를 아직 읽기 전(마운트 직후)에만 고르지 않는다 (감사 E14).
-          return banners.length ? (
-            <div key={key} className="mt-2 bg-white pb-3" data-home-banner-wrap>
-              <HomeBanner banners={banners} isMember={isMember} rot={bannerAudienceMember == null ? null : rot} />
-            </div>
-          ) : null;
-        }
-        if (key === "notice") {
-          return <HomeNoticeLine key={key} notice={catalog.latestNotice} />;
-        }
-        if (key === "feed") {
-          return (
-            <HomeDiscoverFeed
-              key={key}
-              layout={layout}
-              title={sectionTitle("feed")}
-              tradeCategories={catalog.tradeCategories}
-              isMember={isMember}
-              membershipChecking={membership.status === "checking"}
-              rot={rot}
-              refreshSeq={refreshSeq}
-            />
-          );
-        }
-        return null;
-      })}
+      {/* 시안 R3 (Owner 「계획대로 진행」 2026-11-18 · 계획서 B): 가운데 최대 1240 · 위 = 배너 + telRING·서비스 칸
+          (휴대폰·태블릿 세로 = 아래로 · iPad 가로·PC = 왼쪽 배너 · 오른쪽 서비스) → 공지 → 서비스별 줄. 칸 보이기 = 어드민 「홈 구성」 */}
+      <div className="home-r3-wrap">
+        {showBanner || showServices ? (
+          <div className={`home-r3-top${showBanner && showServices ? "" : " home-r3-top--solo"}`}>
+            {showBanner ? (
+              // 회원 확인 중에는 기기 로그인 쿠키로 대상을 먼저 정해 바로 보인다(R1). 쿠키를 읽기 전(마운트 직후)에만 고르지 않는다 (감사 E14).
+              <div className="home-r3-banner" data-home-banner-wrap>
+                <HomeBanner banners={banners} isMember={isMember} rot={bannerAudienceMember == null ? null : rot} />
+              </div>
+            ) : null}
+            {showServices ? (
+              <div className="home-r3-side">
+                <HomeServiceCards
+                  services={layout.services}
+                  catalog={catalog}
+                  onOpen={openMenu}
+                  onOpenHref={openMenuHref}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {sections.includes("notice") && catalog.latestNotice ? (
+          <div className="home-r3-notice">
+            <HomeNoticeLine notice={catalog.latestNotice} />
+          </div>
+        ) : null}
+        {sections.includes("feed") ? (
+          <HomeDiscoverFeed
+            layout={layout}
+            tradeCategories={catalog.tradeCategories}
+            storeCategories={catalog.storeCategories}
+            isMember={isMember}
+            membershipChecking={membership.status === "checking"}
+            rot={rot}
+            refreshSeq={refreshSeq}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }

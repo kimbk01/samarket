@@ -173,6 +173,31 @@
 }
 .home-hero-count {
   right: 12px;
+  gap: 6px;
+  padding-right: 4px;
+}
+/* 「n / N │ 전체보기」 (수정안 #2) */
+.home-hero-all {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 6px;
+  border-left: 1px solid rgba(255, 255, 255, 0.35);
+  font-weight: 600;
+  opacity: 0.9;
+  color: #fff;
+}
+button.home-hero-all:active {
+  opacity: 0.6;
+}
+/* 전체보기 시트 — 같은 카드 세로 목록 */
+.home-hero-list {
+  display: grid;
+  gap: 12px;
+  padding: 4px 0 8px;
+}
+.home-hero-list .home-hero-card {
+  width: 100%;
 }
 .home-hero-dots {
   display: flex;
@@ -268,9 +293,10 @@
 
 /* 마우스 기기(Mac·Windows) — ‹ › 버튼 · 올리면 살짝 밝게 */
 @media (hover: hover) and (pointer: fine) {
+  /* 오른쪽 아래 (점 줄 위) — 왼쪽 글·버튼을 가리지 않는다 */
   .home-hero-arrow {
     position: absolute;
-    top: calc(50% - 20px);
+    bottom: 30px;
     z-index: 2;
     display: grid;
     place-items: center;
@@ -282,10 +308,10 @@
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
   }
   .home-hero-arrow--prev {
-    left: 8px;
+    right: 60px;
   }
   .home-hero-arrow--next {
-    right: 8px;
+    right: 14px;
   }
   .home-hero-card[role="button"]:hover .home-hero-img {
     filter: brightness(1.05);
@@ -298,5 +324,824 @@
   }
   .home-hero-card[role="button"]:active {
     transform: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * 홈 배치 — 시안 R3 (Owner 「계획대로 진행」 2026-11-18 · docs/audit/home-responsive-redesign-2026-11-18/plan-home-r3.md B~E)
+ * 기준 = 홈 칸 폭(컨테이너 `homer3`) — 왼쪽 레일(Mac·Windows)이 있어도 같은 규칙.
+ *   휴대폰 <600 · 태블릿 600–1023 · iPad 가로·PC ≥1024 · 가운데 최대 1240
+ * 사진 칸은 `::before` 여백 비율로 높이를 잡는다(WebKit 에서 aspect-ratio 를 믿지 않음 — 2026-11-18 배너 실측 FAIL).
+ * ═══════════════════════════════════════════════════════════════════════ */
+.home-r3 {
+  container: homer3 / inline-size;
+}
+.home-r3-wrap,
+.home-r3-hdr-row {
+  --home-gut: 16px;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 var(--home-gut) 32px;
+}
+@container homer3 (min-width: 600px) {
+  .home-r3-wrap,
+  .home-r3-hdr-row {
+    --home-gut: 24px;
+  }
+}
+@container homer3 (min-width: 1024px) {
+  .home-r3-wrap,
+  .home-r3-hdr-row {
+    --home-gut: 32px;
+  }
+}
+
+/* 머리줄 (수정안 #1) — 본문과 같은 시작선 */
+.home-r3-hdr {
+  background: var(--dibay-domain-surface, #f3f5f3);
+}
+.home-r3-hdr-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 58px;
+  /* 본문(.home-r3-wrap)과 폭·좌우 여백만 같이 쓰고 아래 여백(32px)은 받지 않는다 (2026-11-18 실측: 내용이 16px 위로 밀림) */
+  padding-bottom: 0;
+}
+.home-r3-loc {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 60%;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 11px 0 9px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 18, 0.06),
+    0 4px 14px rgba(16, 24, 18, 0.06);
+  font-size: 14px;
+  font-weight: 700;
+  color: #141a16;
+}
+.home-r3-loc:active {
+  opacity: 0.7;
+}
+
+/* telRING 대표 칸 (수정안 #4) */
+.home-ring {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  padding: 14px 14px 14px 16px;
+  border-radius: var(--ui-radius-rect, 4px);
+  color: #fff;
+  background: linear-gradient(135deg, #1c7a3a 0%, #0f5223 50%, #0b421a 100%);
+  box-shadow: 0 8px 22px rgba(11, 66, 26, 0.25);
+  cursor: pointer;
+}
+.home-ring::before {
+  content: "";
+  position: absolute;
+  right: -50px;
+  top: -70px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 201, 51, 0.4), rgba(255, 201, 51, 0) 70%);
+  pointer-events: none;
+}
+.home-ring:active {
+  transform: scale(0.99);
+}
+.home-ring-badge {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+}
+.home-ring-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--sam-primary, #0b421a);
+  font-size: 13px;
+  font-weight: 800;
+  -webkit-tap-highlight-color: transparent;
+}
+.home-ring-cta--chat {
+  background: #ffc933;
+  color: #2a2000;
+}
+.home-ring-cta:active {
+  opacity: 0.85;
+}
+
+/* 위: 배너 + telRING·서비스 칸 */
+.home-r3-top {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+}
+.home-r3-banner {
+  margin-inline: calc(var(--home-gut) * -1);
+}
+.home-r3-banner .home-hero {
+  padding-bottom: 0;
+}
+@container homer3 (min-width: 1024px) {
+  .home-r3-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+    padding-top: 16px;
+  }
+  .home-r3-top--solo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .home-r3-banner {
+    margin-inline: 0;
+  }
+  .home-r3-banner .home-hero {
+    padding: 0;
+  }
+  .home-r3-banner .home-hero-track {
+    padding-inline: 0;
+    scroll-padding-inline: 0;
+  }
+  .home-r3-banner .home-hero-track .home-hero-card,
+  .home-r3-banner .home-hero-track[data-multi] .home-hero-card {
+    width: 100%;
+  }
+  .home-r3-banner .home-hero-card::before {
+    padding-top: 48%;
+  }
+  .home-r3-banner .home-hero-arrow--prev {
+    right: 58px;
+  }
+  .home-r3-banner .home-hero-arrow--next {
+    right: 12px;
+  }
+}
+
+/* telRING + 서비스 칸 (같은 크기) */
+.home-svc {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.home-svc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+@container homer3 (min-width: 600px) and (max-width: 1023px) {
+  .home-svc-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+.home-svc-tile {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 6px 12px;
+  border-radius: var(--ui-radius-rect, 4px);
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 18, 0.06),
+    0 4px 14px rgba(16, 24, 18, 0.06);
+  text-align: center;
+  transition: transform 0.15s ease;
+}
+.home-svc-tile:active {
+  transform: scale(0.97);
+}
+.home-svc-ic {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  background: #e9f3ec;
+}
+.home-svc-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+  color: #141a16;
+}
+.home-svc-desc {
+  max-width: 100%;
+  margin-top: -3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: #8c948f;
+}
+
+/* 공지 한 줄 */
+.home-r3-notice {
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: var(--ui-radius-rect, 4px);
+}
+.home-r3-notice > * {
+  margin-top: 0 !important;
+}
+
+/* 줄 공통 */
+.home-shelf {
+  margin-top: 28px;
+}
+.home-shelf-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.home-shelf-title {
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: -0.03em;
+  color: #141a16;
+}
+.home-shelf-title em {
+  font-style: normal;
+  color: #1c7a3a;
+}
+.home-shelf-sub {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: #8c948f;
+}
+.home-shelf-all {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 1px;
+  height: 32px;
+  padding: 0 2px 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #4b544e;
+}
+.home-shelf-empty {
+  padding: 16px 2px;
+  font-size: 13.5px;
+  color: #767676;
+}
+.home-skel {
+  display: block;
+  border-radius: var(--ui-radius-rect, 4px);
+  background: #e9ece9;
+  animation: home-skel-pulse 1.4s ease-in-out infinite;
+}
+@keyframes home-skel-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* 정사각 사진 칸 (마켓·매장 메뉴) */
+.home-sq {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: var(--ui-radius-rect, 4px);
+  background: #eef1ee;
+}
+.home-sq::before {
+  content: "";
+  display: block;
+  padding-top: 100%;
+}
+.home-sq-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 마켓 분류 알약 */
+.home-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin: 0 calc(var(--home-gut) * -1) 12px;
+  padding: 0 var(--home-gut);
+  scrollbar-width: none;
+}
+.home-chips::-webkit-scrollbar {
+  display: none;
+}
+.home-chip {
+  flex: none;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e3e8e4;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #4b544e;
+}
+.home-chip.is-on {
+  background: #141a16;
+  color: #fff;
+  box-shadow: none;
+}
+
+/* 마켓 상품 줄 — 휴대폰 144px 가로 넘김 · 태블릿 5열 · PC 6열 (한 줄만) */
+.home-trade-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 144px;
+  gap: 12px;
+  overflow-x: auto;
+  margin-inline: calc(var(--home-gut) * -1);
+  padding: 2px var(--home-gut) 6px;
+  scrollbar-width: none;
+}
+.home-trade-row::-webkit-scrollbar {
+  display: none;
+}
+@container homer3 (min-width: 600px) {
+  .home-trade-row {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    overflow: visible;
+    margin-inline: 0;
+    padding: 0;
+  }
+  /* 태블릿 5칸 = 상품 앞 5개 (시안 R4) */
+  .home-trade-row > :nth-child(n + 6) {
+    display: none;
+  }
+}
+@container homer3 (min-width: 1024px) {
+  /* PC 6칸 = 상품 앞 5개 + 「마켓에서 더 보기」 (시안 R4 · 수정안 #11) */
+  .home-trade-row {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .home-trade-row > .home-trade-more {
+    display: block;
+  }
+}
+.home-trade-card {
+  display: block;
+  min-width: 0;
+  text-align: left;
+}
+.home-trade-card {
+  cursor: pointer;
+}
+.home-trade-card:active {
+  opacity: 0.8;
+}
+/* 찜(♡) — 사진 오른쪽 아래 흰 원 (수정안 #6) */
+.home-trade-fav {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #5c645e;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+/* 줄 끝 「마켓에서 더 보기」 칸 — 사진 칸과 위 끝을 맞춘다(버튼 기본 세로 가운데 정렬 해제 · 2026-11-18 실측) */
+.home-trade-more {
+  align-self: start;
+  width: 100%;
+  padding: 0;
+}
+.home-trade-more .home-sq {
+  background: #e9f3ec;
+}
+.home-trade-more-in {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  color: var(--sam-primary, #0b421a);
+  font-size: 13.5px;
+  font-weight: 800;
+  text-align: center;
+}
+.home-trade-title {
+  display: block;
+  margin-top: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: #26302a;
+}
+.home-trade-price {
+  display: block;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #141a16;
+}
+.home-trade-meta {
+  display: block;
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #8c948f;
+}
+
+/* DIPICK 매장 — 휴대폰 1열 · 태블릿 2열 · PC 3열 */
+.home-store-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+@container homer3 (min-width: 600px) {
+  .home-store-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container homer3 (min-width: 1024px) {
+  .home-store-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.home-store-card {
+  display: block;
+  min-width: 0;
+  padding: 14px;
+  border-radius: var(--ui-radius-rect, 4px);
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 18, 0.06),
+    0 4px 14px rgba(16, 24, 18, 0.06);
+}
+.home-store-head {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+.home-store-head:active {
+  opacity: 0.7;
+}
+.home-store-logo {
+  display: block;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  object-fit: cover;
+  background: #eef1ee;
+  box-shadow: 0 0 0 1px #e3e7e4;
+}
+.home-store-menus {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.home-store-menu {
+  display: block;
+  min-width: 0;
+  text-align: left;
+}
+.home-store-menu:active {
+  opacity: 0.8;
+}
+.home-store-plus {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--sam-primary, #0b421a);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+/* 비로그인·주소 없음·지역 밖 안내 */
+.home-store-gate {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: var(--ui-radius-rect, 4px);
+  background: #1b130b;
+  color: #fff;
+}
+.home-store-gate::before {
+  content: "";
+  display: block;
+  padding-top: 52%;
+}
+@container homer3 (min-width: 600px) {
+  .home-store-gate::before {
+    padding-top: 30%;
+  }
+}
+@container homer3 (min-width: 1024px) {
+  .home-store-gate::before {
+    padding-top: 22%;
+  }
+}
+.home-store-gate-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 100% 50%;
+}
+.home-store-gate-shade {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.5) 50%, rgba(0, 0, 0, 0.1) 100%);
+}
+.home-store-gate-copy {
+  position: absolute;
+  left: 18px;
+  right: 30%;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.home-store-gate-copy b {
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.home-store-gate-copy span {
+  margin-top: 4px;
+  font-size: 12.5px;
+  opacity: 0.9;
+}
+.home-store-gate-cta {
+  margin-top: 12px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: #fff;
+  color: #141a16;
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+/* 정보 공유 — 휴대폰 목록(글 왼쪽·사진 오른쪽) · 태블릿 2열 · PC 4열(사진 위) */
+.home-mag {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+@container homer3 (max-width: 599px) {
+  .home-mag > :nth-child(n + 4) {
+    display: none;
+  }
+}
+@container homer3 (min-width: 600px) {
+  .home-mag {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container homer3 (min-width: 1024px) {
+  .home-mag {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.home-mag-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: row-reverse;
+  overflow: hidden;
+  border-radius: var(--ui-radius-rect, 4px);
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 18, 0.06),
+    0 4px 14px rgba(16, 24, 18, 0.06);
+  text-align: left;
+}
+.home-mag-card:active {
+  opacity: 0.85;
+}
+.home-mag-img {
+  position: relative;
+  display: block;
+  flex: none;
+  width: 108px;
+  background: #eef1ee;
+}
+.home-mag-img::before {
+  content: "";
+  display: block;
+  padding-top: 100%;
+}
+.home-mag-text {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+}
+.home-mag-topic {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1c7a3a;
+}
+.home-mag-title {
+  display: -webkit-box;
+  margin-top: 3px;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #141a16;
+}
+.home-mag-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #8c948f;
+}
+@container homer3 (min-width: 600px) {
+  .home-mag-card {
+    flex-direction: column;
+  }
+  .home-mag-img {
+    width: auto;
+  }
+  .home-mag-img::before {
+    padding-top: 62.5%;
+  }
+}
+
+/* 비회원 DIPICK — 안내 사진 카드 + 업종 칸 (수정안 #8) · 태블릿·PC 나란히 · 같은 높이 (#11) */
+.home-store-gate-row {
+  display: grid;
+  gap: 12px;
+}
+.home-store-cats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  align-content: start;
+}
+.home-store-cat {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 4px 10px;
+  border-radius: var(--ui-radius-rect, 4px);
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 18, 0.06),
+    0 4px 14px rgba(16, 24, 18, 0.06);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #141a16;
+  max-width: 100%;
+}
+.home-store-cat:active {
+  transform: scale(0.97);
+}
+.home-store-cat-img {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+}
+/* 안내 카드는 글 높이만큼 늘어난다 — 폭 비율 고정 높이 금지 (2026-11-18 실측: 휴대폰 360·390 에서 글·버튼이 카드 위로 넘침) */
+.home-store-gate-row .home-store-gate {
+  display: flex;
+  min-height: 188px;
+  align-items: flex-end;
+}
+.home-store-gate-row .home-store-gate::before {
+  display: none;
+}
+.home-store-gate-row .home-store-gate-copy {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  z-index: 1;
+  width: 70%;
+  padding: 18px;
+}
+@container homer3 (min-width: 600px) {
+  .home-store-gate-row {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .home-store-cats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
+    align-content: stretch;
+  }
+}
+
+/* 2단(≥1024) 같은 줄 높이 (수정안 #11 · Owner 2026-11-18 「행 높이 동일·오와 열」):
+   배너 아래 끝 = 서비스 칸 아래 끝 · 서비스 두 줄 같은 높이 · 점 표시 배너 안 */
+@container homer3 (min-width: 1024px) {
+  .home-r3-top {
+    align-items: stretch;
+  }
+  .home-r3-banner,
+  .home-r3-banner .home-hero {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .home-r3-banner .home-hero {
+    flex: 1;
+  }
+  .home-r3-banner .home-hero-track {
+    flex: 1;
+    align-items: stretch;
+  }
+  .home-r3-banner .home-hero-card {
+    height: auto;
+    min-height: 300px;
+  }
+  .home-r3-banner .home-hero-card::before {
+    display: none;
+  }
+  .home-r3-banner .home-hero-dots {
+    position: absolute;
+    left: 28px;
+    bottom: 12px;
+    z-index: 2;
+    display: flex;
+    margin: 0;
+    justify-content: flex-start;
+  }
+  .home-r3-banner .home-hero-dots i {
+    background: rgba(255, 255, 255, 0.5);
+  }
+  .home-r3-banner .home-hero-dots i.is-on {
+    background: #fff;
+  }
+  .home-r3-side,
+  .home-r3-side .home-svc {
+    display: flex;
+    flex-direction: column;
+  }
+  .home-r3-side .home-svc {
+    flex: 1;
+  }
+  .home-r3-side .home-svc-grid {
+    flex: 1;
+    grid-auto-rows: 1fr;
+  }
+  .home-svc-tile {
+    justify-content: center;
   }
 }

@@ -674,7 +674,7 @@ function ServicesTab({ draft, setDraft, tr }: { draft: HomeLayoutConfig; setDraf
   return (
     <div className="space-y-3">
       <p className="sam-text-body text-sam-muted">
-        {tr("admin_home_layout_services_hint", { large: HOME_SERVICE_LARGE_MAX, small: HOME_SERVICE_SMALL_MAX })}
+        {tr("admin_home_layout_services_hint", { total: HOME_SERVICE_LARGE_MAX + HOME_SERVICE_SMALL_MAX })}
       </p>
       {draft.services.map((s, i) => (
         <div key={s.key} className={BOX_CLS}>
@@ -685,22 +685,6 @@ function ServicesTab({ draft, setDraft, tr }: { draft: HomeLayoutConfig; setDraf
               disabled={!s.visible && full(s.size)}
               onChange={(v) => patch(s.key, { visible: v })}
               label={tr("admin_home_layout_visible")}
-            />
-            <Seg
-              value={s.size}
-              onChange={(v) => patch(s.key, { size: v })}
-              options={[
-                {
-                  value: "large",
-                  label: tr("admin_home_layout_card_large"),
-                  disabled: s.visible && s.size !== "large" && full("large"),
-                },
-                {
-                  value: "small",
-                  label: tr("admin_home_layout_card_small"),
-                  disabled: s.visible && s.size !== "small" && full("small"),
-                },
-              ]}
             />
             <span className="ml-auto">
               <Arrows
@@ -741,11 +725,6 @@ function ServicesTab({ draft, setDraft, tr }: { draft: HomeLayoutConfig; setDraf
                 </Field>
                 {s.key === "chat" ? <p className="sam-text-helper text-sam-muted">{tr("admin_home_layout_chat_hero_hint")}</p> : null}
               </div>
-              {s.size === "large" ? (
-                <Field label={tr("admin_home_layout_image")} hint={tr("admin_home_layout_card_image_auto")}>
-                  <ImageUpload tr={tr} kind="service" ratio="1:1" value={s.imageUrl} allowClear onChange={(url) => patch(s.key, { imageUrl: url })} />
-                </Field>
-              ) : null}
             </div>
           ) : null}
         </div>
