@@ -60,7 +60,7 @@ import {
   beginActiveComposerFailRestoreSession,
   resolveSendRestoreOnFail,
 } from "@/lib/community-messenger/room/messenger-composer-fail-restore-active";
-import { clearMessengerFailedTextSends } from "@/lib/community-messenger/room/messenger-failed-text-store";
+import { clearMessengerFailedTextSends, listMessengerFailedTextSends } from "@/lib/community-messenger/room/messenger-failed-text-store";
 import {
   getMessengerOutboundFailedSend,
   type MessengerUnconfirmedTextSend,
@@ -430,5 +430,25 @@ describe("FAIL-1 감사 #1: 입력창 밖 전송은 입력창·방별 초안을 
     expect(draft()).toBe("X draft");
     expect(failedRows()).toHaveLength(1);
     expect(failedRows()[0]!.content).toBe("ACK");
+  });
+});
+
+describe.each<Kind>(["phase2", "pass1"])("FAIL-1 감사: 보관할 수 없는 사용자(바인딩 없음)의 결과 불명 실패 — %s", (kind) => {
+  it("바인딩 사용자 없음 + 네트워크 실패 → 실패 행 1(sendFailed)·재전송 핸들러 있음·보관 0 · 입력창 빈 값", async () => {
+    await mount(kind);
+    await type("no binding");
+    /** 바인딩 사용자를 읽지 못함(로그아웃 직후·저장소 읽기 실패 흉내) → canPersistFailedTextForSender false */
+    localStorage.removeItem(DIBAY_AUTH_BOUND_USER_ID_KEY);
+    fetchMock.mockRejectedValueOnce(new TypeError("offline"));
+    await send();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(draft()).toBe("");
+    expect(api.rows).toHaveLength(1);
+    const row = api.rows[0]!;
+    expect(row.pending).toBe(true);
+    expect(row.sendFailed).toBe(true);
+    expect(row.content).toBe("no binding");
+    expect(getMessengerOutboundFailedSend(row.id)).not.toBeNull();
+    expect(listMessengerFailedTextSends(ROOM)).toHaveLength(0);
   });
 });
