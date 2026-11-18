@@ -28,6 +28,7 @@ import {
 } from "@/lib/community-messenger/bootstrap-cold-fill-deep-breakdown";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { recordRoomEntryShadowSnapshot } from "@/lib/community-messenger/server/room-entry-shadow";
 
 export const ROOM_BOOTSTRAP_SNAPSHOT_RPC = "get_community_messenger_room_bootstrap_snapshot";
 
@@ -57,6 +58,7 @@ async function fetchSnapshotViaRpc(
     }
     return { payload: null, rpcMs };
   }
+  if (snapshotTier === "critical") recordRoomEntryShadowSnapshot(userId.trim(), roomId.trim(), messageLimit, data);
   return { payload: parseRoomBootstrapSnapshotRpcData(data), rpcMs };
 }
 

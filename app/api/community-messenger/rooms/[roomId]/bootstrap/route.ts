@@ -1,4 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import {
+  newRoomEntryShadowCapture,
+  runRoomEntryShadowCompare,
+  runWithRoomEntryShadowCapture,
+  shouldSampleRoomEntryShadow,
+} from "@/lib/community-messenger/server/room-entry-shadow";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey, jsonErrorWithRequest } from "@/lib/http/api-route";
 import { loadCommunityMessengerRoomBootstrap } from "@/lib/chat-domain/use-cases/community-messenger-bootstrap";
@@ -39,6 +46,28 @@ export const dynamic = "force-dynamic";
  * 초기 로드 전용; 이후 갱신은 동일 엔드포인트 또는 `GET /rooms/[id]`(messageLimit 쿼리) 사용.
  */
 export async function GET(
+  req: NextRequest,
+  ctx: { params: Promise<{ roomId: string }> }
+) {
+  /**
+   * D4 ② 1단계 — 표본(기본 10%) critical 요청만 원본을 기록하고, 응답 뒤 room_entry DB 함수 1번과 비교한다.
+   * 응답은 기존 경로 그대로. silent_delta 는 대상 아님.
+   */
+  const sp = req.nextUrl.searchParams;
+  const silent =
+    sp.get("mode")?.trim().toLowerCase() === "silent_delta" ||
+    sp.get("snapshotTier")?.trim().toLowerCase() === "silent_delta";
+  const capture = !silent && shouldSampleRoomEntryShadow() ? newRoomEntryShadowCapture() : null;
+  const res = await runWithRoomEntryShadowCapture(capture, () => handleRoomBootstrapGet(req, ctx));
+  if (capture?.snapshot && res.status === 200) {
+    after(async () => {
+      await runRoomEntryShadowCompare(tryCreateSupabaseServiceClient(), capture);
+    });
+  }
+  return res;
+}
+
+async function handleRoomBootstrapGet(
   req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
 ) {
