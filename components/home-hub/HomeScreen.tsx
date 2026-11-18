@@ -266,7 +266,7 @@ export function HomeScreen({
           // 회원 확인 중에는 기기 로그인 쿠키로 대상을 먼저 정해 바로 보인다(R1). 확인 결과가 다르면 그 대상 배너로 바뀐다.
           // 쿠키를 아직 읽기 전(마운트 직후)에만 고르지 않는다 (감사 E14).
           return banners.length ? (
-            <div key={key} className="mt-2 bg-white pt-1" data-home-banner-wrap>
+            <div key={key} className="mt-2 bg-white pb-3" data-home-banner-wrap>
               <HomeBanner banners={banners} isMember={isMember} rot={bannerAudienceMember == null ? null : rot} />
             </div>
           ) : null;

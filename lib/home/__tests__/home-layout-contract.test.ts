@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_HOME_LAYOUT,
+  HOME_BANNER_CHIP_MAX,
+  HOME_BANNER_HERO_RATIO,
   HOME_BANNER_IMAGE_PX,
   HOME_BANNER_SIZE_PERCENT,
   HOME_MENU_CATALOG,
@@ -13,6 +15,7 @@ import {
   normalizeHomeLayout,
   pickHomeText,
   resolveAudienceBanners,
+  resolveHomeBannerMenuKey,
   resolveVisibleHomeSections,
   validateHomeLayoutPayload,
 } from "@/lib/home/home-layout-contract";
@@ -47,14 +50,39 @@ describe("home layout contract (홈 시안 v4 · 2026-11-14)", () => {
     expect(c.services.find((s) => s.key === "chat")!.visible).toBe(false);
   });
 
-  it("기본 배너 3개(메신저·거래·배달) — 문구는 카탈로그(한/영) · 1:1 · 보통 크기", () => {
+  it("기본 배너 3개(정보 공유·telRING·배달, 시안 R3) — 문구는 카탈로그(한/영) · 16:9 꽉 찬 배너", () => {
     const b = DEFAULT_HOME_LAYOUT.banners;
-    expect(b.map((x) => x.id)).toEqual(["dibay-messenger", "dibay-trade", "dibay-delivery"]);
-    expect(b.map((x) => x.href)).toEqual(["/community-messenger?section=chats", "/market", "/stores"]);
-    expect(b[0]!.title.ko).toBe(homeHubMessages.ko.home_banner_messenger_title);
-    expect(b[0]!.title.en).toBe(homeHubMessages.en.home_banner_messenger_title);
-    expect(b.every((x) => x.ratio === "1:1" && x.size === "m")).toBe(true);
-    expect(b.map((x) => x.side)).toEqual(["left", "right", "left"]);
+    expect(b.map((x) => x.id)).toEqual(["dibay-info", "dibay-messenger", "dibay-delivery"]);
+    expect(b.map((x) => x.href)).toEqual(["/philife", "/community-messenger?section=chats", "/stores"]);
+    expect(b[1]!.title.ko).toBe(homeHubMessages.ko.home_banner_messenger_title);
+    expect(b[1]!.title.en).toBe(homeHubMessages.en.home_banner_messenger_title);
+    expect(b[1]!.chip.ko).toBe(homeHubMessages.ko.home_banner_messenger_chip);
+    expect(b[1]!.ctaLabel.en).toBe(homeHubMessages.en.home_banner_messenger_cta);
+    expect(b.every((x) => x.ratio === HOME_BANNER_HERO_RATIO)).toBe(true);
+    expect(b.every((x) => x.imageUrl.startsWith("/images/home-banners/hero-"))).toBe(true);
+  });
+
+  it("배너 서비스 표시·버튼 문구 — 저장값 정규화(12자) · 예전 저장값(칸 없음)은 빈 문구", () => {
+    const c = normalizeHomeLayout({
+      schemaVersion: 2,
+      banners: [
+        { id: "a", imageUrl: "/images/home-banners/hero-info.jpg", ratio: "16:9", title: { ko: "제목", en: "" }, chip: { ko: "가".repeat(20), en: "x" }, ctaLabel: { ko: "보기", en: "Go" }, href: "/philife" },
+        { id: "b", imageUrl: "/images/home-banners/messenger.webp", ratio: "1:1", title: { ko: "예전", en: "" }, href: "/market" },
+      ],
+    });
+    expect(c.banners[0]!.chip.ko).toHaveLength(HOME_BANNER_CHIP_MAX);
+    expect(c.banners[0]!.ctaLabel).toEqual({ ko: "보기", en: "Go" });
+    expect(c.banners[1]!.chip).toEqual({ ko: "", en: "" });
+    expect(c.banners[1]!.ctaLabel).toEqual({ ko: "", en: "" });
+    expect(c.banners[1]!.ratio).toBe("1:1");
+  });
+
+  it("배너 이동 곳 → 메뉴 (서비스 표시 자동·비로그인 안내 공용)", () => {
+    expect(resolveHomeBannerMenuKey("/philife")).toBe("philife");
+    expect(resolveHomeBannerMenuKey("/community-messenger?section=call_logs")).toBe("chat");
+    expect(resolveHomeBannerMenuKey("/stores/abc")).toBe("stores");
+    expect(resolveHomeBannerMenuKey("/unknown")).toBeNull();
+    expect(resolveHomeBannerMenuKey("")).toBeNull();
   });
 
   it("깨진 저장값·예전 판(schemaVersion 1)은 기본값", () => {
@@ -83,8 +111,8 @@ describe("home layout contract (홈 시안 v4 · 2026-11-14)", () => {
     c.banners[0]!.audience = "member";
     c.banners[1]!.audience = "guest";
     c.banners[2]!.visible = false;
-    expect(resolveAudienceBanners(c, true).map((b) => b.id)).toEqual(["dibay-trade"]);
-    expect(resolveAudienceBanners(c, false).map((b) => b.id)).toEqual(["dibay-messenger"]);
+    expect(resolveAudienceBanners(c, true).map((b) => b.id)).toEqual(["dibay-messenger"]);
+    expect(resolveAudienceBanners(c, false).map((b) => b.id)).toEqual(["dibay-info"]);
   });
 
   it("배너 값 범위 — 비율·크기, 바깥 주소 링크·이상한 이미지 주소 거절", () => {
