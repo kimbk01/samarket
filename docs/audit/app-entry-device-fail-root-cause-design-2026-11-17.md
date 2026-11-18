@@ -1134,3 +1134,23 @@ PO-8 위치별 켜기/끄기 · 발견 응답에 첫 화면 싣기 · 「휴대�
 - E3 = 24-8 보완 그대로(공용 조회가 Supabase 준비 대기 뒤 캐시 재확인 + 진행 중 경계 확인에 합류 · Auth HARD LOCK Amendment 2026-11-18 (2)). 합류 대기는 공용 조회의 기존 마감(12초 · `runWithSettledSharedFlightDeadline`) 안 — 경계 확인 응답이 오지 않으면 그 마감으로 끝난다(직접 요청이 걸렸을 때와 같은 오류).
 - E4 = `overlay-back-stack-system-back-driver.test.ts` 고정 5틱 대기 → 「일어나야 하는 일」은 `vi.waitFor` 로 설치 완료까지(「없어야 하는 일」만 짧은 대기). 테스트만.
 - E5 = B 로 주석(「Skew Protection(7일)」)과 설정이 일치 → 코드 변경 없음.
+
+### 24-14. 범위 밖 E1·E2 구현 (Owner 「Android 빌드 77 진행」 2026-11-18 · 네이티브만)
+- E1 `MainActivity.shouldSkipRestoredLaunchRoute` — `onCreate` 에서 복원(`savedInstanceState != null`) 또는 최근 앱 실행(`FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY`)이면 `getIntent()`(과제를 처음 연 옛 의도)의 알림 경로를 처리하지 않는다. 통화 실행(`isCallLaunch`)은 그대로 처리. 근거: `MainActivity` 는 `singleTask` · 알림 의도는 `NEW_TASK|CLEAR_TOP|SINGLE_TOP` → 새 알림은 `onNewIntent` 로 들어온다(그대로). 처리 안 된 경로는 저장소(60초)에서 `restorePendingRouteFromPrefsIfNeeded` 가 다시 넣는다(그대로).
+- E2 `flushPendingAppPathIfAny` — 통화 아닌 경로만: 메인 스레드에서 flush 차례를 올리고, 즉시 시도·재시도 직전에 「마지막 차례 && 넣으려는 경로 == 지금 대기 경로」일 때만 넣는다. 통화 경로 판정(`isCallPathForPendingFlush`)은 `navigateWebViewToAppPathNow` 의 통화 판정과 같은 조건이고, 통화 경로는 이전과 같다.
+- 통화 무변경 고정: 구조 테스트 `lib/push/__tests__/android-entry-e1-e2-native-contract.test.ts`.
+
+### 24-15. M3 영향 문서 개정 (23-12 보완 · 통화 변경 규정 3번 · **Owner 승인 전 구현 안 함**)
+23-12 이후 바뀐 사실 2가지:
+1. `isCallLaunch` 호출처가 2곳이 된다 — 덮개 계획(`isSplashCoverLaunch`) + E1(`shouldSkipRestoredLaunchRoute`). M3 를 하면 복원 실행의 옛 부재중 의도도 건너뛴다(경로는 저장소에서 다시 넣음 · 통화 화면 경로 아님).
+2. 부재중 알림의 목적지는 3가지다(코드 확인):
+   - 서버 FCM(`fcm-data-payload-contract.ts` `missed_call`): `/community-messenger/rooms/{roomId}` · roomId 없으면 `/community-messenger`.
+   - 단말 벨 시간 초과(`IncomingCallActionCoordinator.handleMissedTimeout` → `FcmPayloadResolver.resolveMissedCallRoute`): `/community-messenger/rooms/{roomId}?focus=call-history&callId=…` · **roomId 없으면 `/community-messenger/calls/logs?callId=…`**.
+   - `/community-messenger/calls/…` 경로는 네이티브 대기 목적지(`pendingLaunchRoutePath`)에서 빠지고 `navigateWebViewToAppPathNow` 가 통화 경로로 직접 연다(`loadCallRouteDirectly`) → 덮개를 쓰면 홈 첫 프레임에서 걷힌 뒤 문서가 바뀐다(덮개 효과 없음).
+- 개정 수정안: `isCallLaunch` 첫머리 — 「종류가 `missed_call` 이고 알림 경로(`resolveAppPathFromPushExtras`)가 `/community-messenger/calls` 로 시작하지 않으면 통화 실행 아님」. calls/logs 목적지는 지금 그대로(덮개 없음).
+- 바뀌는 동작: 채팅방·메신저 목록으로 가는 부재중 알림 탭에만 덮개 + 알림 목적지 대기(23-9·A 의 채팅방 그림 판정). 수신·수락·거절·`dibay://call*`·V4 잠금 수락·calls 경로는 그대로.
+- 영향 경로: 덮개 계획 · E1 판정만. 발신·세션 생성·VoIP/FCM 발송·수신 화면·취소/거절/종료·상태 폴링·통화 기록 저장은 이 판정을 읽지 않음.
+- 구 바이너리 호환: 네이티브만 · 웹·서버 무변경 → 설치된 구 앱(76 이하)은 지금 그대로.
+- 회귀 위험: 부재중 경로 판정이 틀려 통화 화면 경로에 덮개가 씌워지는 경우 → 조건이 「calls 경로 아님」이라 통화 화면 경로는 구조상 제외.
+- 롤백: 해당 줄 되돌림 + 빌드 번호 증가 설치본.
+- 실기 검증: 부재중 알림 탭(채팅방) 덮개 뒤 자리 표시 0 · roomId 없는 부재중(calls/logs) 동작 그대로 · 규정 5번 최소 행렬(Android↔iPhone 음성·영상 발신·수신·거절·벨 중 취소·지연 푸시·통화 중·무응답·종료 후 재발신) — iPhone 조작 필요.
