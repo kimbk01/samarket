@@ -10,7 +10,8 @@ export async function fetchFavoritePostIds(userId?: string): Promise<string[]> {
   const flightKey = uid ? `${FAVORITES_LIST_FLIGHT}:${uid}` : FAVORITES_LIST_FLIGHT;
   try {
     return await runSingleFlight(flightKey, async () => {
-      const res = await fetch("/api/favorites/list");
+      /** id 모드 — 하트 표시에는 id 만 필요(서버 조회 1회) */
+      const res = await fetch("/api/favorites/list?ids=1");
       if (!res.ok) return [];
       const data = (await res.json()) as { items?: Array<{ id?: string }> };
       return (data.items ?? [])

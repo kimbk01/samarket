@@ -152,12 +152,15 @@ describe("installSupabaseCallCounter — 원래 fetch 동작 보존", () => {
 });
 
 describe("shouldInstallSupabaseCallCounter", () => {
-  it("운영 Node 런타임에서만", () => {
-    expect(shouldInstallSupabaseCallCounter({ NEXT_RUNTIME: "nodejs", VERCEL_ENV: "production" } as NodeJS.ProcessEnv)).toBe(true);
-    expect(shouldInstallSupabaseCallCounter({ NEXT_RUNTIME: "edge", VERCEL_ENV: "production" } as NodeJS.ProcessEnv)).toBe(false);
-    expect(shouldInstallSupabaseCallCounter({ NEXT_RUNTIME: "nodejs", VERCEL_ENV: "preview" } as NodeJS.ProcessEnv)).toBe(false);
-    expect(
-      shouldInstallSupabaseCallCounter({ NEXT_RUNTIME: "nodejs", VERCEL_ENV: "production", SUPABASE_CALL_COUNTER: "0" } as NodeJS.ProcessEnv),
-    ).toBe(false);
+  it("운영(VERCEL_ENV=production)이면 설치 — 실행 중 환경에 NEXT_RUNTIME 이 없어도(운영 실제 상태)", () => {
+    expect(shouldInstallSupabaseCallCounter({ VERCEL_ENV: "production" } as NodeJS.ProcessEnv)).toBe(true);
+    expect(shouldInstallSupabaseCallCounter({ VERCEL_ENV: "preview" } as NodeJS.ProcessEnv)).toBe(false);
+    expect(shouldInstallSupabaseCallCounter({ VERCEL_ENV: "production", SUPABASE_CALL_COUNTER: "0" } as NodeJS.ProcessEnv)).toBe(false);
+    expect(shouldInstallSupabaseCallCounter({ SUPABASE_CALL_COUNTER: "1" } as NodeJS.ProcessEnv)).toBe(true);
+  });
+  it("instrumentation.ts 가 런타임을 빌드 시점 글자(process.env.NEXT_RUNTIME)로 거른다", async () => {
+    const fs = await import("node:fs");
+    const src = fs.readFileSync(`${process.cwd()}/instrumentation.ts`, "utf8");
+    expect(src).toContain('process.env.NEXT_RUNTIME === "nodejs"');
   });
 });

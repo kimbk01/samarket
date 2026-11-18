@@ -170,7 +170,6 @@ export function AppLanguageProvider({
 
   useEffect(() => {
     refresh();
-    void syncAccount();
 
     const onStorage = (event: StorageEvent) => {
       if (event.key === null || event.key === APP_LANGUAGE_STORAGE_KEY || event.key.startsWith("samarket_app_language_pending:")) {
@@ -187,8 +186,14 @@ export function AppLanguageProvider({
      */
     let unsubscribePhase: () => void = () => undefined;
     let disposed = false;
-    void import("@/lib/auth/dibay-session-manager").then(({ subscribeSessionPhase }) => {
+    void import("@/lib/auth/dibay-session-manager").then(({ subscribeSessionPhase, getSessionPhase }) => {
       if (disposed) return;
+      /**
+       * 계정 설정 동기화는 「세션이 확인된 시점」 1번 — 요청 예산 계약(docs/request-budget-ssot.md).
+       * 예전에는 마운트 때 1번 + 앱 시작의 세션 확인(loading→authenticated) 직후 1번, 같은 시작에 `/api/me/settings` 가 2번 나갔다.
+       * 이미 확인된 세션이면 지금 1번, 아니면 확인되는 순간 1번. 복귀·로그인 전환의 재동기화는 그대로(아래 구독).
+       */
+      if (getSessionPhase() === "authenticated") void syncAccount();
       unsubscribePhase = subscribeSessionPhase((phase) => {
         if (phase === "authenticated") void syncAccount();
         else if (phase === "terminal_guest") refresh();

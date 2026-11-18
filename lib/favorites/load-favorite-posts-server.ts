@@ -57,6 +57,26 @@ async function loadAdminDeletedPostIds(sb: SupabaseClient<any>, rows: readonly {
 }
 
 /**
+ * 찜한 게시글 id 만(찜한 순) — `GET /api/favorites/list?ids=1`(앱 전역 하트 표시). favorites 1회 조회.
+ * 하트는 화면에 보이는 글에만 쓰이므로 게시글 본문·삭제 판정 조회가 필요 없다(구조 수정 설계 A5-6).
+ */
+export async function loadFavoritePostIdsServer(
+  sb: SupabaseClient<any>,
+  userId: string
+): Promise<{ ok: true; ids: string[] } | { ok: false; error: "favorites_load_failed"; message: string }> {
+  const { data, error } = await sb
+    .from("favorites")
+    .select("post_id")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) return { ok: false, error: "favorites_load_failed", message: error.message };
+  const ids = ((data ?? []) as { post_id?: unknown }[])
+    .map((r) => (r.post_id == null ? "" : String(r.post_id)))
+    .filter(Boolean);
+  return { ok: true, ids };
+}
+
+/**
  * 찜한 게시글 목록(찜한 순) — `GET /api/favorites/list` 와 내정보 요약(`favoritesCount`)의 단일 서버 함수.
  * 조회 실패는 `ok:false` (「찜 없음」으로 바꾸지 않는다 — D10).
  */

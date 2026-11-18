@@ -129,3 +129,6 @@ next-env.d.ts
 
 # ESLint 결과 캐시 (CI 는 actions/cache 로 보관 — 내용 해시 기준)
 /.cache/eslint/
+
+# 실기기·자동화 반복 실행 상한 훅 세션별 횟수 (AGENTS.md)
+.claude/state/

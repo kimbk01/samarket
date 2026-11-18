@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
 import { warmPhilifeNeighborhoodFeedByUrl } from "@/lib/philife/warm-philife-neighborhood-feed";
@@ -9,6 +9,8 @@ import { isConstrainedNetwork, scheduleWhenBrowserIdle, cancelScheduledWhenBrows
 import { usePhilifeFeedViewerSig } from "@/hooks/use-philife-feed-viewer-sig";
 import { shouldRunPhilifeBackgroundFeedWarm } from "@/lib/runtime/next-js-dev-client";
 import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
+import { getSessionPhase, subscribeSessionPhase } from "@/lib/auth/dibay-session-manager";
+import { hasSupabaseAuthTokenCookie } from "@/lib/home/home-banner-audience-hint";
 const PHILIFE_WARM_PREFETCH_TTL_MS = 3 * 60_000;
 /** 거래 셸 체류 중 탭 전환과 경합 줄이기 — 너무 짧으면 장시간 머문 뒤 메인 스레드·네트워크가 밀림 */
 const PHILIFE_WARM_OUTER_DELAY_TRADE_MS = 900;
@@ -31,6 +33,22 @@ function remainingBottomNavQuietMs(): number {
  * /philife 가 아닐 때만 워밍 — 피드 화면 자체의 요청과 중복 최소화.
  * Community Home 기본 = globalFeed + recommended (지역 불필요).
  */
+/**
+ * 로그인 쿠키가 있는데 세션 확인이 아직 끝나지 않았는가 — 이때 비로그인 서명(`_anon`)으로 미리 받으면
+ * 곧이어 사용자 서명으로 한 번 더 받게 되어 실행마다 동네 피드를 2번 받는다(운영 실측 실행당 2.00회).
+ * 비로그인용 응답은 로그인 사용자에게 쓰이지 않으므로 기다렸다 사용자 기준 1번만 받는다.
+ * 쿠키 없음(비회원) · 세션 확인이 끝난 경우는 지금처럼 바로 받는다.
+ * (구조 수정안 1단계 C2-1 · docs/audit/supabase-request-surge-2026-11-18/fix-plan-for-approval.md)
+ */
+function useAnonWarmShouldWaitForSession(viewerSig: string): boolean {
+  const phase = useSyncExternalStore(subscribeSessionPhase, getSessionPhase, () => "loading");
+  if (viewerSig !== "_anon") return false;
+  if (typeof document === "undefined") return false;
+  if (!hasSupabaseAuthTokenCookie(document.cookie)) return false;
+  /** 확인 중(loading·recovering)일 때만 기다린다. 확인이 끝났는데도 서명이 `_anon` 이면 예전처럼 바로 받는다(미리 받기가 영영 빠지지 않게). */
+  return phase === "loading" || phase === "recovering";
+}
+
 export function PhilifeFeedWarmPrefetch() {
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
@@ -39,6 +57,7 @@ export function PhilifeFeedWarmPrefetch() {
   }, [pathname]);
   const warmShellDomain = useMemo(() => mainBottomNavPrefetchTriggerKey(pathname || null), [pathname]);
   const viewerSig = usePhilifeFeedViewerSig();
+  const waitForSession = useAnonWarmShouldWaitForSession(viewerSig);
   const tickRef = useRef(0);
 
   /**
@@ -47,6 +66,7 @@ export function PhilifeFeedWarmPrefetch() {
    */
   useEffect(() => {
     if (!shouldRunPhilifeBackgroundFeedWarm()) return;
+    if (waitForSession) return;
     const path = pathnameRef.current;
     if (!path) return;
     if (path === "/philife" || path.startsWith("/philife/")) return;
@@ -103,7 +123,7 @@ export function PhilifeFeedWarmPrefetch() {
       window.clearTimeout(warmTimer);
       cancelScheduledWhenBrowserIdle(refreshIdleId);
     };
-  }, [viewerSig, warmShellDomain]);
+  }, [viewerSig, warmShellDomain, waitForSession]);
 
   return null;
 }

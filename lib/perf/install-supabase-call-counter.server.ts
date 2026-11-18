@@ -9,8 +9,12 @@ type WorkStoreLike = { route?: unknown };
 type WorkUnitStoreLike = { type?: unknown; headers?: { get(name: string): string | null } };
 type AsyncStorageLike<T> = { getStore(): T | undefined };
 
+/**
+ * 런타임(Node) 확인은 하지 않는다 — 호출하는 `instrumentation.ts` 가 `process.env.NEXT_RUNTIME === "nodejs"` 로 이미 거른다.
+ * Next 는 `NEXT_RUNTIME` 을 실행 중 환경변수로 넣지 않고 빌드 때 그 글자만 바꿔 넣으므로(`next/dist/build/define-env.js`)
+ * 여기서 `env.NEXT_RUNTIME` 을 읽으면 운영에서 항상 비어 설치가 조용히 빠진다(2026-11-18 운영 기록 0건 원인).
+ */
 export function shouldInstallSupabaseCallCounter(env: NodeJS.ProcessEnv): boolean {
-  if (env.NEXT_RUNTIME !== "nodejs") return false;
   if (env.SUPABASE_CALL_COUNTER === "0") return false;
   return env.VERCEL_ENV === "production" || env.SUPABASE_CALL_COUNTER === "1";
 }
@@ -59,5 +63,12 @@ export async function installSupabaseCallCounterFromEnv(): Promise<boolean> {
     return { route, requestKey, userAgent };
   };
 
-  return installSupabaseCallCounter({ supabaseUrl, serviceKey, readContext }) !== null;
+  const installed = installSupabaseCallCounter({ supabaseUrl, serviceKey, readContext }) !== null;
+  /** 운영 확인용 — 인스턴스 시작 때 1줄 */
+  console.info("[supabase-call-counter] installed", {
+    installed,
+    routeStore: workStorage != null,
+    requestStore: workUnitStorage != null,
+  });
+  return installed;
 }
