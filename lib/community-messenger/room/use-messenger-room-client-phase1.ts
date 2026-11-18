@@ -745,6 +745,15 @@ export function useMessengerRoomClientPhase1({
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [roomPreferences, setRoomPreferences] = useState(() => readCommunityMessengerLocalSettings());
   const [message, setMessage] = useState("");
+  /**
+   * FAIL-1 감사 #2: 전송 실패 입력창 복원 1회성 신호. 입력창은 `message` 값 변화가 아니라 이 수가 바뀔 때 draft 를 맞춘다
+   * (비움 "" 과 복원 글이 한 렌더로 묶여 `message` 가 그대로여도 복원이 빠지지 않게).
+   */
+  const [composerRestoreNonce, setComposerRestoreNonce] = useState(0);
+  const restoreComposerMessage = useCallback((text: string) => {
+    setMessage(text);
+    setComposerRestoreNonce((n) => n + 1);
+  }, []);
   const [inviteIds, setInviteIds] = useState<string[]>([]);
   const [privateGroupNoticeDraft, setPrivateGroupNoticeDraft] = useState("");
   const [groupAllowMemberInvite, setGroupAllowMemberInvite] = useState(true);
@@ -2070,6 +2079,8 @@ export function useMessengerRoomClientPhase1({
     finalizeTradePhase1Breakdown();
   }
   return {
+  composerRestoreNonce,
+  restoreComposerMessage,
   timelineHeavyLive,
   notifyTimelineViewportMounted,
   onTimelineHeavyReady,

@@ -75,7 +75,8 @@ export type MessengerTextSendOutboxDeps = {
   roomMessages: readonly RoomRow[];
   roomMessagesRef: MutableRefObject<RoomRow[]>;
   setRoomMessages: Dispatch<SetStateAction<RoomRow[]>>;
-  setMessage: (value: string) => void;
+  /** 입력창 복원(값 + 1회성 신호) — FAIL-1 감사 #2 */
+  restoreComposerMessage: (value: string) => void;
   /** 복원 행의 보낸 사람(낙관 행과 같은 규칙) */
   resolveOutboundSender: () => { senderId: string; senderLabel: string } | null;
   /** 감사 D-3: 현재 로그인 사용자 id — 보관 항목에 넣고, 복원은 같은 사용자 항목만. 비어 있으면 복원을 미룬다 */
@@ -638,7 +639,7 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
         d.failedOutboundRowIdsRef.current.delete(tempId);
         forgetPersistedFailedText(roomId, clientMessageId);
         d.setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-        d.setMessage(restoreOnFail!);
+        d.restoreComposerMessage(restoreOnFail!);
         /**
          * FAIL-1: 방을 나갔다 와도 되돌린 글이 입력창에 남도록 방별 초안에도 저장한다
          * (전에는 Phase2 입력창의 자체 복원 블록이 하던 일 — 입력창 동기화 effect 는 초안을 쓰지 않는다).

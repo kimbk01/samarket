@@ -229,7 +229,8 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
       return;
     }
     setDraft(readRoomComposerDraft(roomKey));
-  }, [roomKey, vm.message, composerHeavyEnabled]);
+    /** FAIL-1 감사 #2: 실패 복원 1회성 신호 — `vm.message` 값이 그대로여도 다시 맞춘다 */
+  }, [roomKey, vm.message, vm.composerRestoreNonce, composerHeavyEnabled]);
 
   useLayoutEffect(() => {
     seededSilentHoldReleasedRef.current = false;
@@ -459,7 +460,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     recordCmPolishSendClick();
     /** K-3 — 수정 모드는 성공 전 draft를 비우지 않는다(신규 전송 M-8 경로는 유지). */
     if (editingMessage?.id) {
-      const ok = await vm.sendMessage(text);
+      const ok = await vm.sendMessage(text, { fromComposer: true });
       if (ok) {
         setDraft((prev) => (prev.trim() === text ? "" : prev));
         clearRoomComposerDraft(roomKey);
@@ -473,7 +474,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
      * FAIL-1(2026-11-18): 실패 시 입력창 복원은 outbox(`use-messenger-text-send-outbox`) 한 곳만 정한다 —
      * 확실한 거절 + 같은 화면이면 `setMessage(글)`(→ 위 vm.message 동기화) + 방별 초안 저장, 결과 불명이면 실패 행만.
      */
-    await vm.sendMessage(text);
+    await vm.sendMessage(text, { fromComposer: true });
     scheduleMessengerComposerFocusRetain(vm.composerTextareaRef);
   }, [draft, editingMessage, roomKey, vm]);
 

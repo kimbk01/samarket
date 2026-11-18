@@ -87,7 +87,8 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
 
   useLayoutEffect(() => {
     setDraft(vm?.message ?? "");
-  }, [roomKey, vm?.message]);
+    /** FAIL-1 감사 #2: 실패 복원 1회성 신호 — `vm.message` 값이 그대로여도 다시 맞춘다 */
+  }, [roomKey, vm?.message, vm?.composerRestoreNonce]);
 
   useLayoutEffect(() => {
     const rid = String(roomKey).trim();
@@ -152,7 +153,7 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
     setDraft("");
     setPhase1Message?.("");
     /** FAIL-1(2026-11-18): 실패 시 입력창 복원은 outbox 한 곳만 정한다(확실한 거절 → setMessage → 위 vm.message 동기화). */
-    await vm.sendMessage(text);
+    await vm.sendMessage(text, { fromComposer: true });
   }, [draft, setPhase1Message, vm]);
 
   if (!vm) return null;

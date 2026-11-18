@@ -56,7 +56,10 @@ import {
 import { MessengerRoomClientPhase1Context } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
 import { MessengerRoomComposerEarlyContext } from "@/lib/community-messenger/room/messenger-room-composer-early-context";
 import { useMessengerTextSendOutbox, __resetMessengerTextSendInflightForTest } from "@/lib/community-messenger/room/phase2/use-messenger-text-send-outbox";
-import { beginActiveComposerFailRestoreSession } from "@/lib/community-messenger/room/messenger-composer-fail-restore-active";
+import {
+  beginActiveComposerFailRestoreSession,
+  resolveSendRestoreOnFail,
+} from "@/lib/community-messenger/room/messenger-composer-fail-restore-active";
 import { clearMessengerFailedTextSends } from "@/lib/community-messenger/room/messenger-failed-text-store";
 import {
   getMessengerOutboundFailedSend,
@@ -71,7 +74,11 @@ const ROOM = "22222222-2222-4222-8222-222222222222";
 type Row = CommunityMessengerMessage & { pending?: boolean; sendFailed?: boolean };
 type Kind = "phase2" | "pass1";
 
-const api: { rows: Row[]; message: string } = { rows: [], message: "" };
+const api: {
+  rows: Row[];
+  message: string;
+  sendMessage: ((text?: string, opts?: { fromComposer?: boolean }) => Promise<boolean>) | null;
+} = { rows: [], message: "", sendMessage: null };
 
 /**
  * 컨트롤러 `sendMessage`(use-messenger-room-phase2-controller.ts — setMessage("") → beginActiveComposerFailRestoreSession →
@@ -79,6 +86,12 @@ const api: { rows: Row[]; message: string } = { rows: [], message: "" };
  */
 function Host({ kind }: { kind: Kind }) {
   const [message, setMessage] = useState("");
+  /** 방 화면(phase1)과 같은 복원 1회성 신호 */
+  const [composerRestoreNonce, setComposerRestoreNonce] = useState(0);
+  const restoreComposerMessage = useCallback((text: string) => {
+    setMessage(text);
+    setComposerRestoreNonce((n) => n + 1);
+  }, []);
   const [rows, setRows] = useState<Row[]>([]);
   const rowsRef = useRef<Row[]>(rows);
   rowsRef.current = rows;
@@ -93,7 +106,7 @@ function Host({ kind }: { kind: Kind }) {
     roomMessages: rows,
     roomMessagesRef: rowsRef,
     setRoomMessages: setRows,
-    setMessage,
+    restoreComposerMessage,
     resolveOutboundSender: () => ({ senderId: "me", senderLabel: "me" }),
     viewerUserId: "me",
     nextPendingRowId: () => `pending:${ROOM}:${seq.current++}`,
@@ -105,11 +118,13 @@ function Host({ kind }: { kind: Kind }) {
   });
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const sendMessage = useCallback(
-    async (textOverride?: string): Promise<boolean> => {
+    async (textOverride?: string, opts?: { fromComposer?: boolean }): Promise<boolean> => {
       const raw = (textOverride ?? message).trim();
       if (!raw) return false;
       setMessage("");
-      const failRestoreGeneration = beginActiveComposerFailRestoreSession();
+      /** 컨트롤러와 같은 규칙 함수 — 입력창에서 시작한 전송만 복원 대상 */
+      const restoreOnFail = resolveSendRestoreOnFail(raw, opts);
+      const failRestoreGeneration = restoreOnFail !== undefined ? beginActiveComposerFailRestoreSession() : 0;
       const n = seq.current++;
       const tempId = `pending:${ROOM}:${n}`;
       const clientMessageId = `cid-${n}`;
@@ -134,12 +149,13 @@ function Host({ kind }: { kind: Kind }) {
         clientMessageId,
         content: raw,
         replyId: "",
-        restoreOnFail: raw,
+        restoreOnFail,
         failRestoreGeneration,
       });
     },
     [message, runTextSendAttemptRef]
   );
+  api.sendMessage = sendMessage;
   const vm = useMemo(
     () =>
       ({
@@ -150,6 +166,7 @@ function Host({ kind }: { kind: Kind }) {
           clientShellPlaceholder: false,
         },
         message,
+        composerRestoreNonce,
         roomUnavailable: false,
         busy: null,
         sendMessage,
@@ -168,7 +185,7 @@ function Host({ kind }: { kind: Kind }) {
         onVoiceMicPointerUp: () => undefined,
         onVoiceMicPointerCancel: () => undefined,
       }) as unknown as MessengerRoomPhase2ComposerViewModel,
-    [message, sendMessage]
+    [message, composerRestoreNonce, sendMessage]
   );
   const phase1 = useMemo(
     () =>
@@ -368,5 +385,50 @@ describe.each<Kind>(["phase2", "pass1"])("FAIL-1 입력창 중복 복원 없음 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(draft()).toBe("typing now");
     expect(failedRows()).toHaveLength(1);
+  });
+  it("감사 #2: vm.message 가 이미 보낸 글과 같을 때 비움·거절 복원이 한 렌더로 묶여도 입력창 복원", async () => {
+    await mount(kind);
+    await type("again");
+    /** 1회차 거절(클릭·응답 분리) → 입력창·vm.message = "again" */
+    let resolveFetch!: (r: Response) => void;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((r) => (resolveFetch = r)));
+    const first = await sendStart();
+    await act(async () => {
+      resolveFetch(jsonResponse(403, { ok: false, error: "room_readonly" }));
+      await first.done;
+    });
+    await settle();
+    expect(draft()).toBe("again");
+    expect(api.message).toBe("again");
+    /** 2회차: 같은 글을 그대로 전송 — 응답이 같은 act 안에 와서 setMessage("") 와 복원("again")이 한 렌더로 묶임 */
+    fetchMock.mockResolvedValueOnce(jsonResponse(403, { ok: false, error: "room_readonly" }));
+    await send();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(api.rows).toHaveLength(0);
+    expect(draft()).toBe("again");
+  });
+});
+
+describe("FAIL-1 감사 #1: 입력창 밖 전송은 입력창·방별 초안을 건드리지 않음 — phase2", () => {
+  it("입력창에 초안 X → 입력창 밖 전송(주문 채팅 확인 등) 403 → 초안 X 유지 · 실패 행 1", async () => {
+    await mount("phase2");
+    await type("X draft");
+    expect(readRoomComposerDraft(ROOM)).toBe("X draft");
+    let resolveFetch!: (r: Response) => void;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((r) => (resolveFetch = r)));
+    /** StoreOrderChrome `postChatText`·`sendMatchAck` 처럼 opts 없이 vm.sendMessage(raw) */
+    let done!: Promise<boolean>;
+    await act(async () => {
+      done = api.sendMessage!("ACK");
+    });
+    await act(async () => {
+      resolveFetch(jsonResponse(403, { ok: false, error: "room_readonly" }));
+      await done;
+    });
+    await settle();
+    expect(readRoomComposerDraft(ROOM)).toBe("X draft");
+    expect(draft()).toBe("X draft");
+    expect(failedRows()).toHaveLength(1);
+    expect(failedRows()[0]!.content).toBe("ACK");
   });
 });

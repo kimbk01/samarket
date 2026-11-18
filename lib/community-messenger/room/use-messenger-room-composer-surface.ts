@@ -56,13 +56,14 @@ export function useMessengerRoomComposerSurface(): MessengerRoomPhase2ComposerVi
   const {
     snapshot,
     message,
+    composerRestoreNonce,
     setMessage,
     busy,
     setActiveSheet,
     composerTextareaRef,
     setReplyToMessage,
   } = phase1;
-  const pendingTextSendsRef = useRef<string[]>([]);
+  const pendingTextSendsRef = useRef<{ text: string; opts?: { fromComposer?: boolean } }[]>([]);
   const [, bumpBridge] = useState(0);
 
   useEffect(() => {
@@ -89,26 +90,26 @@ export function useMessengerRoomComposerSurface(): MessengerRoomPhase2ComposerVi
   }, [snapshot]);
 
   const flushPendingSends = useCallback(
-    (send: (text?: string) => Promise<boolean>) => {
+    (send: (text?: string, opts?: { fromComposer?: boolean }) => Promise<boolean>) => {
       const queued = pendingTextSendsRef.current.splice(0);
-      for (const text of queued) {
-        void send(text);
+      for (const { text, opts } of queued) {
+        void send(text, opts);
       }
     },
     []
   );
 
   const sendMessage = useCallback(
-    async (textOverride?: string): Promise<boolean> => {
+    async (textOverride?: string, opts?: { fromComposer?: boolean }): Promise<boolean> => {
       const bridge = getMessengerRoomComposerPhase2Bridge();
       const raw = (textOverride ?? message).trim();
       if (!raw || !snapshot) return false;
       if (bridge) {
-        return bridge.sendMessage(textOverride);
+        return bridge.sendMessage(textOverride, opts);
       }
       setMessage("");
       setReplyToMessage(null);
-      pendingTextSendsRef.current.push(raw);
+      pendingTextSendsRef.current.push({ text: raw, opts });
       return true;
     },
     [message, setMessage, setReplyToMessage, snapshot]
@@ -143,6 +144,7 @@ export function useMessengerRoomComposerSurface(): MessengerRoomPhase2ComposerVi
   return {
     snapshot,
     message,
+    composerRestoreNonce,
     roomUnavailable,
     busy,
     sendMessage,

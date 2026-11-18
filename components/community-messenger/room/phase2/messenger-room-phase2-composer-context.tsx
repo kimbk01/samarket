@@ -7,6 +7,7 @@ export type MessengerRoomPhase2ComposerViewModel = Pick<
   MessengerRoomPhase2ViewModel,
   | "snapshot"
   | "message"
+  | "composerRestoreNonce"
   | "roomUnavailable"
   | "busy"
   | "sendMessage"
