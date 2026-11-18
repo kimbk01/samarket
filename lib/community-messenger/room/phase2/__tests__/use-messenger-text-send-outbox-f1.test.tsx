@@ -63,7 +63,7 @@ type Harness = {
 let roots: Root[] = [];
 let hosts: HTMLDivElement[] = [];
 
-function mount(initialRows: Row[] = [], opts: { ready?: boolean } = {}): Harness {
+function mount(initialRows: Row[] = [], opts: { ready?: boolean; viewer?: string } = {}): Harness {
   const composer: string[] = [];
   const authBlocked = { value: false };
   const api: {
@@ -98,6 +98,7 @@ function mount(initialRows: Row[] = [], opts: { ready?: boolean } = {}): Harness
       setRoomMessages,
       setMessage: (v) => composer.push(v),
       resolveOutboundSender: () => ({ senderId: "me", senderLabel: "me" }),
+      viewerUserId: opts.viewer ?? "me",
       nextPendingRowId: () => `pending:${ROOM}:${seqRef.current++}`,
       unconfirmedTextSendRef: unconfirmed,
       failedOutboundRowIdsRef: failedIds,
@@ -198,7 +199,7 @@ function savedCids() {
 
 describe("F1 방 진입 복원", () => {
   it("보관 글 진입 → 요청 0 · 실패 상태 행(재전송·삭제 등록)", async () => {
-    saveMessengerFailedTextSend(ROOM, { clientMessageId: "c1", content: "hello", replyToMessageId: null, createdAt: "2026-11-18T01:00:00.000Z" });
+    saveMessengerFailedTextSend(ROOM, { clientMessageId: "c1", content: "hello", replyToMessageId: null, createdAt: "2026-11-18T01:00:00.000Z", senderUserId: "me" });
     const h = mount();
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
@@ -214,7 +215,7 @@ describe("F1 방 진입 복원", () => {
   });
 
   it("같은 cid 확정 행이 이미 있으면 복원하지 않고 보관에서 지운다(서버 저장 확인)", async () => {
-    saveMessengerFailedTextSend(ROOM, { clientMessageId: "c1", content: "hello", replyToMessageId: null, createdAt: "2026-11-18T01:00:00.000Z" });
+    saveMessengerFailedTextSend(ROOM, { clientMessageId: "c1", content: "hello", replyToMessageId: null, createdAt: "2026-11-18T01:00:00.000Z", senderUserId: "me" });
     const confirmed = { ...optimistic("srv-1", "c1", "hello"), pending: false } as Row;
     const h = mount([confirmed]);
     await act(async () => {
@@ -227,7 +228,7 @@ describe("F1 방 진입 복원", () => {
 
 describe("F1 실패 행 재전송", () => {
   async function restoredRow() {
-    saveMessengerFailedTextSend(ROOM, { clientMessageId: "c1", content: "hello", replyToMessageId: null, createdAt: "2026-11-18T01:00:00.000Z" });
+    saveMessengerFailedTextSend(ROOM, { clientMessageId: "c1", content: "hello", replyToMessageId: null, createdAt: "2026-11-18T01:00:00.000Z", senderUserId: "me" });
     const h = mount();
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
@@ -419,7 +420,7 @@ describe("PR-1 검토 #3 보관 실패를 알린다", () => {
 
 describe("PR-1 검토 #4 불러온 창보다 오래된 deduped 확정 행", () => {
   it("병합하지 않고 실패 행·보관만 제거", async () => {
-    saveMessengerFailedTextSend(ROOM, { clientMessageId: "co", content: "old", replyToMessageId: null, createdAt: "2026-11-01T00:00:00.000Z" });
+    saveMessengerFailedTextSend(ROOM, { clientMessageId: "co", content: "old", replyToMessageId: null, createdAt: "2026-11-01T00:00:00.000Z", senderUserId: "me" });
     const loaded = { ...optimistic("srv-new", "other", "newer"), pending: false, createdAt: "2026-11-18T05:00:00.000Z" } as Row;
     const h = mount([loaded]);
     await act(async () => {
@@ -662,6 +663,7 @@ describe("PR-1 최종 검토 #3 보관분은 전송 시작 때의 방 id 로 지
         setRoomMessages: setRows,
         setMessage: () => undefined,
         resolveOutboundSender: () => ({ senderId: "me", senderLabel: "me" }),
+        viewerUserId: "me",
         nextPendingRowId: () => `pending:${roomId}:${seqRef.current++}`,
         unconfirmedTextSendRef: unconfirmed,
         failedOutboundRowIdsRef: failedIds,
@@ -815,6 +817,7 @@ describe("PR #442 감사 D1·D2 기기 저장소 거부 시 메모리 보관소"
         setRoomMessages: setRows,
         setMessage: () => undefined,
         resolveOutboundSender: () => ({ senderId: "me", senderLabel: "me" }),
+        viewerUserId: "me",
         nextPendingRowId: () => `pending:${roomId}:${seqRef.current++}`,
         unconfirmedTextSendRef: unconfirmed,
         failedOutboundRowIdsRef: failedIds,
@@ -847,5 +850,65 @@ describe("PR #442 감사 D1·D2 기기 저장소 거부 시 메모리 보관소"
     const rows = ctl.rows.filter((r) => r.clientMessageId === "c-d2");
     expect(rows).toHaveLength(1);
     expect(rows[0]!.sendFailed).toBe(true);
+  });
+});
+
+describe("PR #442 감사 D-2·D-3", () => {
+  it("D-2: 시작 때 기기 저장소 보관 성공 → 실패 응답 때 저장 거부 → 「저장하지 못했어요」 스낵바 없음(글은 기기에 있음)", async () => {
+    const h = mount();
+    h.setRows([optimistic("td2", "c-d2b", "kept")]);
+    let resolveFetch: (r: Response) => void = () => undefined;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((r) => (resolveFetch = r)));
+    let attempt: Promise<boolean> | null = null;
+    act(() => {
+      attempt = h.runRaw({ tempId: "td2", clientMessageId: "c-d2b", content: "kept", replyId: "", failRestoreGeneration: 0 });
+    });
+    expect(localStorage.getItem(MESSENGER_FAILED_TEXT_STORAGE_KEY)).toContain("c-d2b");
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("quota", "QuotaExceededError");
+    });
+    await act(async () => {
+      resolveFetch(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+      await attempt;
+    });
+    spy.mockRestore();
+    expect(snackbar.calls).not.toContain("cm_ui_failed_text_not_kept");
+    expect(h.rows().find((r) => r.id === "td2")?.sendFailed).toBe(true);
+  });
+
+  it("D-3: A 요청 중 wipe(로그아웃) → 503 → B 로 같은 방 진입 → 실패 행 0 (A 항목은 지우지 않음)", async () => {
+    const a = mount([], { viewer: "user-a" });
+    const t = a.nextTempId();
+    a.setRows([optimistic(t, "c-acct", "a's text")]);
+    let resolveA: (r: Response) => void = () => undefined;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((r) => (resolveA = r)));
+    let attemptA: Promise<boolean> | null = null;
+    act(() => {
+      attemptA = a.runRaw({ tempId: t, clientMessageId: "c-acct", content: "a's text", replyId: "", failRestoreGeneration: 0 });
+    });
+    a.unmount();
+    clearMessengerFailedTextSends();
+    await act(async () => {
+      resolveA(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+      await attemptA;
+    });
+    // 늦은 실패 응답이 A 의 글을 다시 보관했다
+    expect(savedCids()).toEqual(["c-acct"]);
+    const b = mount([], { viewer: "user-b" });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(b.rows().filter((r) => r.clientMessageId === "c-acct")).toHaveLength(0);
+    expect(savedCids()).toEqual(["c-acct"]);
+  });
+
+  it("D-3: 사용자 id 없는 옛 항목은 복원하지 않고 지우지도 않는다", async () => {
+    saveMessengerFailedTextSend(ROOM, { clientMessageId: "c-legacy", content: "old", replyToMessageId: null, createdAt: "2026-11-18T01:00:00.000Z" });
+    const h = mount();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(h.rows().filter((r) => r.clientMessageId === "c-legacy")).toHaveLength(0);
+    expect(savedCids()).toEqual(["c-legacy"]);
   });
 });

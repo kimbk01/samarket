@@ -164,6 +164,9 @@ export function getMessengerRoomActionErrorMessage(
       return t("nav_messenger_voice_upload_failed");
     case "message_send_unavailable":
       return t("nav_messenger_send_unavailable");
+    /** 감사 D-7: 일시 오류가 아닌 RPC 거절(권한·제약 위반 등, 400) — 「잠시 후 다시 시도」가 아니라 보낼 수 없음 */
+    case "message_send_rejected":
+      return t("nav_trade_cannot_send_message");
     case "message_send_failed":
     case "unread_update_failed":
     case "community_messenger_sticker_rate_limited":

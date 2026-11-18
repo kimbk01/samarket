@@ -25,6 +25,11 @@ export type MessengerFailedTextSend = {
   createdAt: string;
   /** 보관 시각(ms) — 복원 순서 */
   savedAt: number;
+  /**
+   * PR #442 감사 D-3: 보낸 사용자 id — 복원은 현재 사용자와 같은 항목만(요청 중 로그아웃·계정 전환 뒤 늦은 실패 응답이
+   * 다른 계정 화면에 「내 실패 행」으로 보이지 않게). 키 형식은 그대로, 이 값이 없는 옛 항목은 복원하지 않고 지우지도 않는다.
+   */
+  senderUserId?: string | null;
 };
 
 type StoreShape = Record<string, MessengerFailedTextSend[]>;
@@ -47,8 +52,24 @@ function isEntry(v: unknown): v is MessengerFailedTextSend {
     typeof e.content === "string" &&
     typeof e.createdAt === "string" &&
     typeof e.savedAt === "number" &&
-    (e.replyToMessageId === null || typeof e.replyToMessageId === "string")
+    (e.replyToMessageId === null || typeof e.replyToMessageId === "string") &&
+    (e.senderUserId === undefined || e.senderUserId === null || typeof e.senderUserId === "string")
   );
+}
+
+/** 감사 D-3: 이 항목을 지금 사용자에게 복원해도 되는가 — 보낸 사용자 id 가 있고 같을 때만 */
+export function isMessengerFailedTextSendOwnedBy(entry: MessengerFailedTextSend, viewerUserId: string): boolean {
+  const owner = typeof entry.senderUserId === "string" ? entry.senderUserId.trim() : "";
+  const viewer = viewerUserId.trim();
+  return Boolean(owner && viewer && owner === viewer);
+}
+
+/** 감사 D-2: 기기 저장소(localStorage)에 그 cid 보관분이 이미 있는가 — 메모리 보관소는 보지 않는다 */
+export function hasMessengerFailedTextSendInDeviceStorage(roomId: string, clientMessageId: string): boolean {
+  const id = roomId.trim();
+  const cid = clientMessageId.trim();
+  if (!id || !cid) return false;
+  return (readAll()[id] ?? []).some((e) => e.clientMessageId === cid);
 }
 
 function readAll(): StoreShape {
@@ -137,6 +158,7 @@ export function saveMessengerFailedTextSend(
     replyToMessageId: entry.replyToMessageId ?? null,
     createdAt: entry.createdAt,
     savedAt: entry.savedAt ?? previous?.savedAt ?? Date.now(),
+    ...(entry.senderUserId ? { senderUserId: entry.senderUserId } : {}),
   };
   const list = (all[id] ?? []).filter((e) => e.clientMessageId !== cid);
   list.push(record);

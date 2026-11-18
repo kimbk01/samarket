@@ -1101,6 +1101,8 @@ export function useMessengerRoomPhase2Controller() {
     setRoomMessages,
     setMessage,
     resolveOutboundSender: () => (snapshot ? optimisticOutboundSender(snapshot, roomMembersDisplay) : null),
+    /** 감사 D-3: 보관 항목의 보낸 사용자 · 복원 대상 판정 */
+    viewerUserId: snapshot?.viewerUserId ?? "",
     nextPendingRowId: () => `pending:${streamRoomId}:${pendingMessageIdRef.current++}`,
     unconfirmedTextSendRef,
     failedOutboundRowIdsRef,

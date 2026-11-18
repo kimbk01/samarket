@@ -117,3 +117,14 @@ describe("PR-1 검토 #6 rpcErr 일시 오류만 503", () => {
     }
   );
 });
+
+describe("PR #442 감사 D-7 클라이언트 문구", () => {
+  it("message_send_rejected(400) 는 「보낼 수 없음」, message_send_unavailable(503) 는 재전송 안내", async () => {
+    const { getMessengerRoomActionErrorMessage } = await import(
+      "@/lib/community-messenger/room/messenger-room-action-error-messages"
+    );
+    const t = (k: string) => k;
+    expect(getMessengerRoomActionErrorMessage("message_send_rejected", t as never)).toBe("nav_trade_cannot_send_message");
+    expect(getMessengerRoomActionErrorMessage("message_send_unavailable", t as never)).toBe("nav_messenger_send_unavailable");
+  });
+});

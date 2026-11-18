@@ -41,6 +41,8 @@ import { shouldRestoreActiveComposerAfterSendFail } from "@/lib/community-messen
 import {
   type MessengerFailedTextSend,
   listMessengerFailedTextSends,
+  hasMessengerFailedTextSendInDeviceStorage,
+  isMessengerFailedTextSendOwnedBy,
   pruneMessengerFailedTextSendsConfirmed,
   removeMessengerFailedTextSend,
   saveMessengerFailedTextSend,
@@ -74,6 +76,8 @@ export type MessengerTextSendOutboxDeps = {
   setMessage: (value: string) => void;
   /** 복원 행의 보낸 사람(낙관 행과 같은 규칙) */
   resolveOutboundSender: () => { senderId: string; senderLabel: string } | null;
+  /** 감사 D-3: 현재 로그인 사용자 id — 보관 항목에 넣고, 복원은 같은 사용자 항목만. 비어 있으면 복원을 미룬다 */
+  viewerUserId: string;
   nextPendingRowId: () => string;
   unconfirmedTextSendRef: MutableRefObject<MessengerUnconfirmedTextSend | null>;
   failedOutboundRowIdsRef: MutableRefObject<Set<string>>;
@@ -121,6 +125,8 @@ export type MessengerFailedTextSavedDetail = {
   content?: string;
   replyToMessageId?: string | null;
   createdAt?: string;
+  /** 감사 D-3: 보낸 사용자 id */
+  senderUserId?: string | null;
 };
 /** 최종 검토 #2: 다른(옛) 인스턴스의 요청이 성공했음을 같은 방 화면에 알리는 창 이벤트(보내는 중 행 → 확정 행) */
 export const MESSENGER_TEXT_SEND_CONFIRMED_EVENT = "samarket:cm:text-send-confirmed";
@@ -156,6 +162,7 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
     depsRef.current = deps;
   });
   const { streamRoomId, restoreReady, roomMessages } = deps;
+  const viewerUserId = deps.viewerUserId.trim();
 
   /**
    * P1 (Owner 2026-11-18 「권장안대로 반영」): 결과 불명 실패 글을 기기 저장소에 보관 → 방을 나갔다 와도 실패 행 유지.
@@ -257,6 +264,10 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
     const d = depsRef.current;
     const sender = d.resolveOutboundSender();
     if (!sender || entries.length === 0) return;
+    /** 감사 D-3: 지금 사용자가 보낸 항목만(사용자 id 없는 옛 항목은 복원도 삭제도 하지 않음) */
+    const viewer = d.viewerUserId.trim();
+    entries = entries.filter((e) => isMessengerFailedTextSendOwnedBy(e, viewer));
+    if (entries.length === 0) return;
     const current = d.roomMessagesRef.current;
     const confirmed = new Set<string>();
     const pendingCids = new Set<string>();
@@ -320,6 +331,8 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
     if (!restoreReady || !streamRoomId) return;
     if (restoredFailedTextRoomRef.current === streamRoomId) return;
     if (!depsRef.current.resolveOutboundSender()) return;
+    /** 감사 D-3: 사용자 id 를 알 때까지 복원을 미룬다(누구의 글인지 가릴 수 없으므로) */
+    if (!viewerUserId) return;
     restoredFailedTextRoomRef.current = streamRoomId;
     persistedFailedTextCidsRef.current = new Set();
     sendingMirrorRowsRef.current = new Map();
@@ -332,7 +345,7 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
       early.roomId === streamRoomId ? early.entries.filter((e) => !storedCids.has(e.clientMessageId)) : [];
     restoreFailedTextRows(streamRoomId, [...stored, ...queued]);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 방 진입 시 1회(스냅샷 준비 시점)만
-  }, [restoreReady, streamRoomId]);
+  }, [restoreReady, streamRoomId, viewerUserId]);
 
   /**
    * PR-1 검토 #1: 이 훅 인스턴스가 마운트돼 있는가 — 전송 응답이 왔을 때 화면(입력창·행)이 그대로인지 판단.
@@ -374,6 +387,7 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
               replyToMessageId: detail.replyToMessageId ?? null,
               createdAt: detail.createdAt ?? new Date().toISOString(),
               savedAt: Date.now(),
+              senderUserId: detail.senderUserId ?? null,
             },
           ],
         };
@@ -409,6 +423,7 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
               replyToMessageId: detail.replyToMessageId ?? null,
               createdAt: detail.createdAt ?? new Date().toISOString(),
               savedAt: Date.now(),
+              senderUserId: detail.senderUserId ?? null,
             }
           : null);
       if (entry) restoreFailedTextRows(rid, [entry]);
@@ -482,11 +497,14 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
     const inflight = inflightKey(roomId, clientMessageId);
     inflightTextSendKeys.add(inflight);
     const startRow = d.roomMessagesRef.current.find((item) => item.id === tempId);
+    /** 감사 D-3: 보낸 사용자 — 전송 시작 때 잡아 둔다(요청 중 계정이 바뀌어도 원래 사용자 것으로 보관) */
+    const senderUserId = d.viewerUserId.trim() || null;
     saveMessengerFailedTextSend(roomId, {
       clientMessageId,
       content,
       replyToMessageId: replyId || null,
       createdAt: startRow?.createdAt ?? new Date().toISOString(),
+      senderUserId,
     });
     /** 감사 D1: 기기 저장소가 거부해도 메모리 보관소에 들어가므로 항상 추적(확정 행이 오면 prune 이 두 곳 모두 지움) */
     persistedFailedTextCidsRef.current.add(clientMessageId);
@@ -625,15 +643,18 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
       forgetPersistedFailedText(roomId, clientMessageId);
       if (!sameScreen()) dispatchTextSendConfirmed({ roomId, clientMessageId, message: null });
     } else {
+      /** 감사 D-2: 전송 시작 때 기기 저장소에 이미 보관됐는가(그러면 이번 쓰기가 거부돼도 글은 기기에 남아 있다) */
+      const alreadyOnDevice = hasMessengerFailedTextSendInDeviceStorage(roomId, clientMessageId);
       const kept = saveMessengerFailedTextSend(roomId, {
         clientMessageId,
         content,
         replyToMessageId: replyId || null,
         createdAt: rowCreatedAt,
+        senderUserId,
       });
       /** 감사 D1: 거부돼도 메모리 보관소(앱 실행 중)에 있으므로 추적은 항상 */
       persistedFailedTextCidsRef.current.add(clientMessageId);
-      if (!kept) {
+      if (!kept && !alreadyOnDevice) {
         /** 검토 #3: 기기 저장소가 거부(용량 초과·사생활 모드) — 앱을 닫으면 사라질 수 있음을 알린다(메모리 보관·화면 행은 유지) */
         showMessengerSnackbar(translateCmUi("cm_ui_failed_text_not_kept"), { variant: "error" });
       }
@@ -649,6 +670,7 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
           content,
           replyToMessageId: replyId || null,
           createdAt: rowCreatedAt,
+          senderUserId,
         };
         window.dispatchEvent(new CustomEvent(MESSENGER_FAILED_TEXT_SAVED_EVENT, { detail }));
       }

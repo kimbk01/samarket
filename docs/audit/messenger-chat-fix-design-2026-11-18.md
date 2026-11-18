@@ -246,4 +246,5 @@
 5. **F1 무손실 보강** — 보관 7일 만료·건수 상한 삭제 제거 / definitive 행 제거는 「같은 화면에서 입력창 복원 성공」일 때만 / 전송 **시작 때** 보관(앱 종료·새로고침 대비, 같은 앱 실행에서 요청 중인 글은 다른 화면의 진입 복원 때 「보내는 중」 행(버튼 없음, 요청 0건)으로 보여 주고, 그 요청이 끝나면 옛 화면의 창 이벤트로 성공 → 확정 행 교체(확정 이벤트), 실패 → 실패 행 전환(저장 이벤트). 앱이 종료되면 다음 실행에서 실패 행으로 복원, 자동 재전송 없음) / 옛 화면의 늦은 실패는 보관 + 창 이벤트만 / 보관 실패는 실패 응답 때 1회 스낵바 / 보내는 중 행 tempId 순번을 앱 전체 하나로 / 불러온 창보다 오래된 deduped 확정 행은 병합 안 함 / rpcErr 는 일시 오류만 503.
 6. **F3 ② 보류** — 전역 bundle 채널 DELETE 는 통화 인접 파일이라 PR-C 로.
 7. **범위 밖 기존 결함(보고만)** — 거래 채팅 id(product_chats.id) URL 로 방을 여는 링크 생성처 6곳(SalesHistoryCard:73, SellerTradeRow:25, mypage/philife purchases/[chatId], trade-hub-paths:33, trade-chat-entry-navigation:61).
+8. **F1 「사용자 조작 없이 사라지는 경로」 예외 목록(PR #442 최종 감사 기준, 사실)** — ① 기기 저장소가 쓰기를 거부하는 환경에서 앱 종료·새로고침(글이 앱 실행 중 메모리 보관소에만 있음) ② 예상 밖 SIGNED_OUT 이 terminal 로 확정되면 `wipeAfterConfirmedTerminalSignedOut`(`lib/auth/dibay-session-manager.ts:228-245`) → `wipeClientSessionState("user_logout")` → `clearMessengerFailedTextSends`(`client-session-wipe.ts:177`)·`clearEphemeralLocalStorage`(:295)로 보관분 삭제 — main 과 같은 동작, 이 PR 에서 바꾸지 않음. 보관 항목에는 보낸 사용자 id 를 넣어 다른 계정에 복원하지 않는다(사용자 id 없는 옛 항목은 복원·삭제하지 않음).
 

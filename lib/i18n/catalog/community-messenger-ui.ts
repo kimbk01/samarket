@@ -2280,7 +2280,7 @@ export const communityMessengerUiMessages = {
     cm_ui_location_permission_hint:
       "Check location permission in settings, or enter an address without a map link.",
     cm_ui_location_fetch_failed: "Could not get your location.",
-    cm_ui_failed_text_not_kept: "Couldn't save the unsent message on this device. It may be lost if you close the app.",
+    cm_ui_failed_text_not_kept: "Unsent message not saved on this device. It may be lost if you close the app.",
     cm_ui_location_share_line: "📍 Location\n{url}",
     cm_ui_album_pick_max: "You can select up to {count} photos at once.",
     cm_ui_cannot_react_own_message: "You cannot react to your own message.",

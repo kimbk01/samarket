@@ -102,7 +102,7 @@ describe("F1 글 전송 route 503 매핑", () => {
     const body = (await res.json()) as { ok: boolean; code: string; error: string };
     expect(body.ok).toBe(false);
     expect(body.code).toBe("message_send_unavailable");
-    expect(body.error).toBe("Message not sent. Tap resend to try again.");
+    expect(body.error).toBe("Message not sent. Tap Retry.");
   });
 
   it.each(["room_readonly", "forbidden", "trade_seller_closed", "reply_target_invalid", "message_send_rejected"])(
