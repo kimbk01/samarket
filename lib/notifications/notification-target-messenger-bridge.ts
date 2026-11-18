@@ -374,6 +374,20 @@ export async function bumpMessengerRoomTargetsForRecipientsParallel(
   opts: {
     roomId: string;
     fromUserId: string;
+    /**
+     * 보내기 1단계 (Owner 「둘 다 승인」 2026-11-19) — 전송 RPC 가 이미 돌려준 방 정보.
+     * 있으면 방·참가자·주문 재조회를 건너뛴다(결과 동일 근거):
+     * · room_type·direct_key = 같은 방 행(전송 RPC `v_room`), chat_domain 은 불변(guard 트리거)
+     * · 주문 연결 방은 운영 전부 chat_domain='store_order'(11-19 조회 821/821) → 그 밖이면 주문 조회 결과는 항상 없음
+     * · 비그룹 받는 사람 = RPC `user_id <> 보낸 사람 AND left_at IS NULL` = 아래 비그룹 분기와 같은 규칙.
+     *   그룹은 강퇴 판정 경로가 달라 기존 조회 그대로.
+     */
+    known?: {
+      roomType: string | null;
+      chatDomain: string | null;
+      directKey: string | null;
+      recipientUserIds: string[] | null;
+    } | null;
     _t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace;
   }
 ): Promise<MessengerRoomTargetBumpParallelResult | null> {
@@ -393,11 +407,26 @@ export async function bumpMessengerRoomTargetsForRecipientsParallel(
   }
 
   const parallelT0 = performance.now();
-  const [{ data: roomRow }, { data: participants }, orderCtx] = await Promise.all([
-    sb.from("community_messenger_rooms").select("room_type, direct_key").eq("id", roomId).maybeSingle(),
-    sb.from("community_messenger_participants").select("user_id, left_at").eq("room_id", roomId),
-    loadStoreOrderRoomContext(sb, roomId),
+  const known = opts.known ?? null;
+  const knownRoomType = typeof known?.roomType === "string" ? known.roomType.trim() : "";
+  const knownChatDomain = typeof known?.chatDomain === "string" ? known.chatDomain.trim() : "";
+  const useKnown = Boolean(knownRoomType && knownChatDomain);
+  const knownIsGroup = knownRoomType === "private_group" || knownRoomType === "open_group";
+  const knownRecipients =
+    useKnown && !knownIsGroup && Array.isArray(known?.recipientUserIds) ? known!.recipientUserIds : null;
+  const [roomRes, participantsRes, orderCtx] = await Promise.all([
+    useKnown
+      ? Promise.resolve({ data: { room_type: knownRoomType, direct_key: known?.directKey ?? null } })
+      : sb.from("community_messenger_rooms").select("room_type, direct_key").eq("id", roomId).maybeSingle(),
+    knownRecipients
+      ? Promise.resolve({
+          data: knownRecipients.map((user_id) => ({ user_id, left_at: null as string | null })),
+        })
+      : sb.from("community_messenger_participants").select("user_id, left_at").eq("room_id", roomId),
+    useKnown && knownChatDomain !== "store_order" ? Promise.resolve(null) : loadStoreOrderRoomContext(sb, roomId),
   ]);
+  const roomRow = roomRes.data;
+  const participants = participantsRes.data;
   if (t5 && spanT5) spanT5(t5, "TB_parallel_load_ms", parallelT0);
 
   const row =

@@ -139,7 +139,7 @@ export async function runCommunityMessengerSendDurablePreAckEffects(
    * P2 opt-in (텍스트 route 만): 알림 파이프라인 수신자 병렬 처리 + 자동 읽음 지연.
    * 기본값(미지정)은 기존 동작 그대로.
    */
-  pipelineOpts?: { parallelRecipients?: boolean; deferAutoRead?: boolean }
+  pipelineOpts?: { parallelRecipients?: boolean; deferAutoRead?: boolean; blockClearedPeerUserId?: string | null }
 ): Promise<CommunityMessengerSendDeferredPostAckWork> {
   const roomId = effects.roomId.trim();
   const senderUserId = effects.senderUserId.trim();
@@ -189,6 +189,7 @@ export async function runCommunityMessengerSendDurablePreAckEffects(
         _t5: t5,
         parallelRecipients: pipelineOpts?.parallelRecipients === true,
         deferAutoRead: pipelineOpts?.deferAutoRead === true,
+        blockClearedPeerUserId: pipelineOpts?.blockClearedPeerUserId ?? null,
       }
     ).catch(() => null);
     /** 병렬 모드 파이프라인은 수신자 실패를 throw 하지 않고 부분 결과를 돌려준다(위 catch 는 공통 읽기 실패 등만) */

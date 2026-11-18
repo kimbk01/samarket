@@ -167,6 +167,11 @@ export async function notifyMessagePipeline(
      * D1 1단계 이후 효과 없음(서버 자동 읽음 없음 · `autoReadRecipientIds` 항상 빈 배열). 호출부 계약 호환용.
      */
     deferAutoRead?: boolean;
+    /**
+     * 보내기 1단계 (2026-11-19) — 보내기 게이트가 방금 「보낸 사람 ↔ 이 상대」 차단 없음을 같은 함수
+     * (`fetchBlockedPairFromSb().blockedEitherWay`)로 확인한 1:1 상대. 이 받는 사람만 차단 재조회를 건너뛴다.
+     */
+    blockClearedPeerUserId?: string | null;
     /** Opt-in T5 durable-path substages (`x-samarket-t5-trace`). */
     _t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace;
   }
@@ -175,6 +180,7 @@ export async function notifyMessagePipeline(
   const deferredPushes: Array<{ row: NotificationEventRow; appState: NotificationRuntimeAppState }> = [];
   const autoReadRecipientIds: string[] = [];
   const parallelRecipients = opts?.parallelRecipients === true;
+  const blockClearedPeer = typeof opts?.blockClearedPeerUserId === "string" ? opts.blockClearedPeerUserId.trim() : "";
   const roomId = input.roomId.trim();
   const messageId = input.messageId.trim();
   const senderUserId = input.senderUserId.trim();
@@ -246,7 +252,9 @@ export async function notifyMessagePipeline(
       /** P2: 판정 읽기 3개를 1왕복으로(모두 읽기 — 순차와 같은 값). 차단이면 결과만 버린다. */
       const readsT0 = performance.now();
       const [blockedR, mutedR, languageR] = await Promise.all([
-        isNotificationBlockedForRecipient(sb, recipientUserId, senderUserId),
+        blockClearedPeer && recipientUserId === blockClearedPeer
+          ? Promise.resolve(false)
+          : isNotificationBlockedForRecipient(sb, recipientUserId, senderUserId),
         isMentioned ? Promise.resolve(false) : isRoomMutedForUser(sb, recipientUserId, roomId),
         loadNotificationUserLanguage(sb, recipientUserId),
       ]);
@@ -260,7 +268,10 @@ export async function notifyMessagePipeline(
       }
     } else {
       const blockT0 = performance.now();
-      blocked = await isNotificationBlockedForRecipient(sb, recipientUserId, senderUserId);
+      blocked =
+        blockClearedPeer && recipientUserId === blockClearedPeer
+          ? false
+          : await isNotificationBlockedForRecipient(sb, recipientUserId, senderUserId);
       addSpan("ND_block_check_ms", blockT0);
       if (blocked) {
         logNotifyMessage("blocked_suppressed", { roomId, recipientUserId, senderUserId });

@@ -121,4 +121,55 @@ describe("bumpMessengerRoomTargetsForRecipientsParallel", () => {
     ).resolves.not.toBeNull();
     expect(bumpChatRoomTargetFromMessengerParticipant).toHaveBeenCalledTimes(3);
   });
+
+  describe("보내기 1단계 — 전송 RPC 반환 방 정보 재사용(2026-11-19)", () => {
+    it("1:1 일반방: 방·참가자·주문 조회 없이 같은 받는 사람·같은 bump", async () => {
+      const sb = fakeSb({});
+      const res = await bumpMessengerRoomTargetsForRecipientsParallel(sb as never, {
+        roomId: "r1",
+        fromUserId: "sender",
+        known: { roomType: "direct", chatDomain: "general_direct", directKey: "a:b", recipientUserIds: ["peer"] },
+      });
+      expect(sb.fromCalls).toEqual([]);
+      expect(res?.recipientIds).toEqual(["peer"]);
+      expect(res?.kind).toBe("general");
+      expect(bumpChatRoomTargetFromMessengerParticipant).toHaveBeenCalledWith(
+        sb,
+        expect.objectContaining({ userId: "peer", roomId: "r1", isOwnerOrderChat: false, storeId: null })
+      );
+    });
+
+    it("주문방(chat_domain=store_order)은 주문 조회를 그대로 한다", async () => {
+      const sb = fakeSb({ store_orders: { single: null } });
+      await bumpMessengerRoomTargetsForRecipientsParallel(sb as never, {
+        roomId: "r2",
+        fromUserId: "sender",
+        known: { roomType: "direct", chatDomain: "store_order", directKey: "store_order:o1", recipientUserIds: ["owner"] },
+      });
+      expect(sb.fromCalls).toEqual(["store_orders"]);
+    });
+
+    it("그룹방은 받는 사람을 기존 활성 그룹 목록으로(강퇴 판정 경로 유지)", async () => {
+      listActiveGroupRecipientUserIds.mockResolvedValue(["m1", "m2"]);
+      const sb = fakeSb({ community_messenger_participants: { list: [] } });
+      const res = await bumpMessengerRoomTargetsForRecipientsParallel(sb as never, {
+        roomId: "g1",
+        fromUserId: "sender",
+        known: { roomType: "private_group", chatDomain: "group", directKey: null, recipientUserIds: ["x"] },
+      });
+      expect(res?.recipientIds).toEqual(["m1", "m2"]);
+      expect(sb.fromCalls).not.toContain("community_messenger_rooms");
+      expect(sb.fromCalls).not.toContain("store_orders");
+    });
+
+    it("방 정보가 없으면(중복 전송 등) 기존 조회 그대로", async () => {
+      const sb = fakeSb({
+        community_messenger_rooms: { single: { room_type: "direct", direct_key: "a:b" } },
+        community_messenger_participants: { list: [{ user_id: "peer", left_at: null }] },
+        store_orders: { single: null },
+      });
+      await bumpMessengerRoomTargetsForRecipientsParallel(sb as never, { roomId: "r1", fromUserId: "sender", known: null });
+      expect(sb.fromCalls.sort()).toEqual(["community_messenger_participants", "community_messenger_rooms", "store_orders"]);
+    });
+  });
 });

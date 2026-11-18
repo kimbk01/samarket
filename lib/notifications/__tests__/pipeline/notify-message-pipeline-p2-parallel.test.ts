@@ -185,4 +185,26 @@ describe("notify-message-pipeline P2 opt-in", () => {
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("u1");
     expect(res.autoReadRecipientIds).toEqual([]);
   });
+
+  it("보내기 1단계 — 게이트가 차단 없음을 확인한 1:1 상대만 차단 재조회를 건너뛴다(병렬·순차 모두)", async () => {
+    await notifyMessagePipeline(
+      sb,
+      { ...baseInput, roomKind: "direct" as never, recipientUserIds: ["peer"] },
+      { parallelRecipients: true, blockClearedPeerUserId: "peer" }
+    );
+    expect(isNotificationBlockedForRecipient).not.toHaveBeenCalled();
+    expect(usersOfCreatedEvents()).toEqual(["peer"]);
+
+    createAndDispatchNotificationEvent.mockClear();
+    await notifyMessagePipeline(
+      sb,
+      { ...baseInput, roomKind: "direct" as never, recipientUserIds: ["peer"] },
+      { blockClearedPeerUserId: "peer" }
+    );
+    expect(isNotificationBlockedForRecipient).not.toHaveBeenCalled();
+
+    // 다른 받는 사람은 그대로 조회
+    await notifyMessagePipeline(sb, { ...baseInput, recipientUserIds: ["u1", "peer"] }, { parallelRecipients: true, blockClearedPeerUserId: "peer" });
+    expect(isNotificationBlockedForRecipient.mock.calls.map((c) => c[1])).toEqual(["u1"]);
+  });
 });
