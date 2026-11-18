@@ -130,21 +130,15 @@ export function useHomeTrades({
   };
 }
 
-/** 마켓 상품 카드 — 큰 사진 1장(big) 또는 2열 중 한 칸(pair). 누르면 상품 상세 */
-export function HomeTradeFeedCard({
-  post,
-  variant,
-  tradeCategories,
-}: {
-  post: PostWithMeta;
-  variant: "big" | "pair";
-  tradeCategories: HomeTradeCategory[];
-}) {
+/**
+ * 마켓 상품 카드 — 시안 R3 (계획서 C): 사진 **정사각**(카드 폭 그대로, 잘라내기 확대 없음) · 제목 · 가격 · 분류·시각.
+ * 크기는 줄(`.home-trade-row`)이 정한다 — 휴대폰 144px 가로 넘김 · 태블릿 5열 · PC 6열. 누르면 상품 상세.
+ */
+export function HomeTradeShelfCard({ post, tradeCategories }: { post: PostWithMeta; tradeCategories: HomeTradeCategory[] }) {
   const { language } = useI18n();
   const router = useRouter();
-  const big = variant === "big";
-  /** 설계 D4-1 — 카드 너비에 맞춘 크기 변환 그림 */
-  const img = homeFeedImageSrc(post.thumbnail_url || post.images?.[0] || "", big ? HOME_FEED_IMAGE_WIDTH.big : HOME_FEED_IMAGE_WIDTH.pair);
+  /** 설계 D4-1 — 카드 폭에 맞춘 크기 변환 그림 */
+  const img = homeFeedImageSrc(post.thumbnail_url || post.images?.[0] || "", HOME_FEED_IMAGE_WIDTH.pair);
   const catId = (post as { trade_category_id?: string | null }).trade_category_id ?? post.category_id;
   const cat = tradeCategories.find((x) => x.id === catId);
   const meta = [cat ? homeCatalogName(cat, language) : "", formatRelativeTimeAgo(post.created_at, language as AppLanguageCode)]
@@ -154,22 +148,16 @@ export function HomeTradeFeedCard({
     <button
       type="button"
       onClick={() => router.push(`/post/${encodeURIComponent(post.id)}`)}
-      className="block w-full min-w-0 text-left active:opacity-80"
+      className="home-trade-card"
       data-home-feed-trade={post.id}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- 거래글 사진 */}
-      <img
-        src={img}
-        alt=""
-        className="w-full rounded-ui-rect bg-[#eef1ee] object-cover"
-        /* 앱 전역 img height:auto 보다 앞서도록 높이는 인라인 */
-        style={{ height: big ? 220 : 140 }}
-      />
-      <span className={`mt-2 block font-extrabold text-[#141a16] ${big ? "text-[18px]" : "text-[15px]"}`}>
-        {tradePrice(post.price, (post as { meta?: unknown }).meta)}
+      <span className="home-sq">
+        {/* eslint-disable-next-line @next/next/no-img-element -- 거래글 사진 */}
+        <img src={img} alt="" className="home-sq-img" />
       </span>
-      <span className="block truncate text-[14px] text-[#222]">{post.title}</span>
-      {meta ? <span className="block truncate text-[12px] text-[#999]">{meta}</span> : null}
+      <span className="home-trade-title">{post.title}</span>
+      <span className="home-trade-price">{tradePrice(post.price, (post as { meta?: unknown }).meta)}</span>
+      {meta ? <span className="home-trade-meta">{meta}</span> : null}
     </button>
   );
 }

@@ -193,11 +193,10 @@ describe("설계 §24 D1-웹 — 덮개 아래 홈 전용 요청 미룸 (SSOT �
     expect(settled).toBe(true);
   });
 
-  it("구조: 「지금 우리 동네」 4개 요청(마켓·정보 공유·모임·DIPICK)이 모두 대기 뒤에 시작", () => {
+  it("구조: 홈 줄 3개 요청(마켓·정보 공유·DIPICK — 시안 R3, 모임 줄 없음)이 모두 대기 뒤에 시작", () => {
     const files: Array<[string, RegExp]> = [
       ["components/home-hub/HomeTradeRow.tsx", /await untilLaunchPushDestinationSettled\(\);\s*if \(!alive\) return;\s*const r = await getPostsForHome\(/],
       ["components/home-hub/HomePostsSection.tsx", /untilLaunchPushDestinationSettled\(\)\s*\.then\(\(\) => \(alive \? fetchNeighborhoodFeedShortTtl\(/],
-      ["components/home-hub/HomeDiscoverFeed.tsx", /untilLaunchPushDestinationSettled\(\)\s*\.then\(\(\) => \(alive \? moimApi\.listLocal\(/],
       ["components/home-hub/HomeStoresSection.tsx", /await untilLaunchPushDestinationSettled\(\);\s*if \(!alive\) return;\s*if \(refreshSeq > 0\)/],
     ];
     for (const [f, re] of files) expect(readFileSync(f, "utf8")).toMatch(re);

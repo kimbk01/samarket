@@ -18,13 +18,10 @@ import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { buildLoginHref } from "@/lib/auth/client-access-flow";
 import {
   HOME_MENU_CATALOG,
-  HOME_SECTION_DEFAULT_TITLE_KEYS,
-  pickHomeText,
   resolveAudienceBanners,
   resolveVisibleHomeSections,
   type HomeLayoutConfig,
   type HomeMenuKey,
-  type HomeSectionKey,
   type HomeServiceKey,
 } from "@/lib/home/home-layout-contract";
 import type { HomeCatalog } from "@/lib/home/home-catalog-types";
@@ -50,7 +47,7 @@ export function HomeScreen({
   initialLayout: HomeLayoutConfig;
   initialCatalog: HomeCatalog;
 }) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
   const membership = useClientMembershipState("home-screen");
   const isMember = membership.status === "member";
@@ -126,13 +123,8 @@ export function HomeScreen({
     [layout, bannerAudienceMember, isMember]
   );
 
-  const sectionTitle = (key: HomeSectionKey): string => {
-    const cfg = layout.sections.find((s) => s.key === key);
-    const custom = pickHomeText(cfg?.title, language);
-    if (custom) return custom;
-    const k = HOME_SECTION_DEFAULT_TITLE_KEYS[key];
-    return k ? t(k) : "";
-  };
+  const showBanner = sections.includes("banner") && banners.length > 0;
+  const showServices = sections.includes("services") && layout.services.some((s) => s.visible);
 
   /**
    * 앱 진입 v3 ① (실측 2026-11-17 삼성: 첫 그림 뒤 「전체 지역」→빈칸→실제 주소 3단계 · 알림 종이 늦게 끼어들어 자리 이동).
@@ -175,7 +167,7 @@ export function HomeScreen({
   }, [memberProfileId, liveAddressLine]);
 
   return (
-    <div className="min-h-full bg-[#F3F5F3]" data-home-screen>
+    <div className="home-r3 min-h-full bg-[#F3F5F3]" data-home-screen>
       <HomePullRefreshHost />
 
       {/* 상단 — 로고 · 오른쪽 주소 · 종 (Owner 2026-11-09 「로고 우측에 주소」) */}
@@ -250,46 +242,45 @@ export function HomeScreen({
         <DibayPtrSlot store={homePtrStore} tone="onBrand" className="bg-signature" dataAttribute="data-home-ptr-hint" />
       </header>
 
-      {sections.map((key) => {
-        if (key === "services") {
-          return (
-            <HomeServiceCards
-              key={key}
-              services={layout.services}
-              catalog={catalog}
-              onOpen={openMenu}
-              onOpenHref={openMenuHref}
-            />
-          );
-        }
-        if (key === "banner") {
-          // 회원 확인 중에는 기기 로그인 쿠키로 대상을 먼저 정해 바로 보인다(R1). 확인 결과가 다르면 그 대상 배너로 바뀐다.
-          // 쿠키를 아직 읽기 전(마운트 직후)에만 고르지 않는다 (감사 E14).
-          return banners.length ? (
-            <div key={key} className="mt-2 bg-white pb-3" data-home-banner-wrap>
-              <HomeBanner banners={banners} isMember={isMember} rot={bannerAudienceMember == null ? null : rot} />
-            </div>
-          ) : null;
-        }
-        if (key === "notice") {
-          return <HomeNoticeLine key={key} notice={catalog.latestNotice} />;
-        }
-        if (key === "feed") {
-          return (
-            <HomeDiscoverFeed
-              key={key}
-              layout={layout}
-              title={sectionTitle("feed")}
-              tradeCategories={catalog.tradeCategories}
-              isMember={isMember}
-              membershipChecking={membership.status === "checking"}
-              rot={rot}
-              refreshSeq={refreshSeq}
-            />
-          );
-        }
-        return null;
-      })}
+      {/* 시안 R3 (Owner 「계획대로 진행」 2026-11-18 · 계획서 B): 가운데 최대 1240 · 위 = 배너 + telRING·서비스 칸
+          (휴대폰·태블릿 세로 = 아래로 · iPad 가로·PC = 왼쪽 배너 · 오른쪽 서비스) → 공지 → 서비스별 줄. 칸 보이기 = 어드민 「홈 구성」 */}
+      <div className="home-r3-wrap">
+        {showBanner || showServices ? (
+          <div className={`home-r3-top${showBanner && showServices ? "" : " home-r3-top--solo"}`}>
+            {showBanner ? (
+              // 회원 확인 중에는 기기 로그인 쿠키로 대상을 먼저 정해 바로 보인다(R1). 쿠키를 읽기 전(마운트 직후)에만 고르지 않는다 (감사 E14).
+              <div className="home-r3-banner" data-home-banner-wrap>
+                <HomeBanner banners={banners} isMember={isMember} rot={bannerAudienceMember == null ? null : rot} />
+              </div>
+            ) : null}
+            {showServices ? (
+              <div className="home-r3-side">
+                <HomeServiceCards
+                  services={layout.services}
+                  catalog={catalog}
+                  onOpen={openMenu}
+                  onOpenHref={openMenuHref}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {sections.includes("notice") && catalog.latestNotice ? (
+          <div className="home-r3-notice">
+            <HomeNoticeLine notice={catalog.latestNotice} />
+          </div>
+        ) : null}
+        {sections.includes("feed") ? (
+          <HomeDiscoverFeed
+            layout={layout}
+            tradeCategories={catalog.tradeCategories}
+            isMember={isMember}
+            membershipChecking={membership.status === "checking"}
+            rot={rot}
+            refreshSeq={refreshSeq}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -11,11 +11,11 @@ import { buildLoginHref } from "@/lib/auth/client-access-flow";
 import { fetchStoresHomeFeedDeduped, forgetStoresHomeFeedFetchSingleFlight } from "@/lib/stores/store-delivery-api-client";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { DeliveryViewerGate } from "@/lib/stores/delivery-viewer-gate";
-import { HOME_STORE_SHOW_MAX, type HomeStoresConfig } from "@/lib/home/home-layout-contract";
+import { HOME_MENU_CATALOG, HOME_STORE_SHOW_MAX, type HomeStoresConfig } from "@/lib/home/home-layout-contract";
 import type { HomeStoreMenuItem } from "@/lib/home/home-catalog-types";
 import { keepSessionPick, rotateUnseenFirst } from "@/lib/home/home-rotation";
 import type { HomeRotationCtl } from "@/components/home-hub/use-home-rotation";
-import { HomeSectionHead } from "@/components/home-hub/HomeSectionHead";
+import { HOME_SHELF_BRAND_MARK, HomeShelfHead } from "@/components/home-hub/HomeSectionHead";
 import { HomeLoadError } from "@/components/home-hub/HomeLoadError";
 import { storeDisplayStatusLabelKey } from "@/lib/stores/store-display-status-label";
 
@@ -74,13 +74,11 @@ export function filterHomeStorePool(
  */
 export function HomeStoresSection({
   config,
-  title,
   isMember,
   rot,
   refreshSeq,
 }: {
   config: HomeStoresConfig;
-  title: string;
   isMember: boolean;
   rot: HomeRotationCtl | null;
   refreshSeq: number;
@@ -180,151 +178,150 @@ export function HomeStoresSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 교체는 mode·seq(새로고침)·구성 기준
   }, [isMember, mode, seq, cfgKey, language, retryKey]);
 
+  const head = (
+    <HomeShelfHead
+      title={t("home_shelf_stores_title", { brand: HOME_SHELF_BRAND_MARK })}
+      brand={t(HOME_MENU_CATALOG.stores.labelKey)}
+      sub={t("home_shelf_stores_sub")}
+      allLabel={t("home_see_all")}
+      onAll={() => router.push("/stores")}
+    />
+  );
+
   if (state.kind === "gate") {
     const login = state.gate === "login_required";
     return (
-      <section className="mt-3 bg-white pb-5 pt-[18px]" data-home-stores data-home-stores-gate={state.gate}>
-        <HomeSectionHead title={title} />
-        <div className="mx-4 rounded-ui-rect border border-[#e3e7e4] px-4 py-4 text-center">
-          <b className="block text-[15px] font-semibold text-[#141a16]">
-            {login
-              ? t("home_stores_login_title")
-              : state.gate === "not_service_area"
-                ? t("store_delivery_not_service_area_title")
-                : t("home_stores_address_title")}
-          </b>
-          {state.gate === "not_service_area" ? (
-            <span className="mt-1 block text-[13px] text-[#767676]">{t("store_delivery_not_service_area_body")}</span>
-          ) : null}
-          {login ? <span className="mt-1 block text-[13px] text-[#767676]">{t("home_stores_login_body")}</span> : null}
-          <button
-            type="button"
-            onClick={() => router.push(login ? buildLoginHref("/home") : buildMypageAddressesHref(null, { purpose: "delivery" }))}
-            className="mt-3 inline-flex h-9 items-center rounded-full bg-sam-primary px-5 text-[14px] font-semibold text-white active:brightness-90"
-          >
-            {login
-              ? t("home_sign_in")
-              : state.gate === "not_service_area"
-                ? t("store_delivery_not_service_area_cta")
-                : t("home_stores_address_cta")}
-          </button>
+      <section className="home-shelf" data-home-stores data-home-stores-gate={state.gate}>
+        {head}
+        <div className="home-store-gate">
+          {/* eslint-disable-next-line @next/next/no-img-element -- 홈 배달 배너 그림(정적) */}
+          <img src="/images/home-banners/hero-delivery.jpg" alt="" className="home-store-gate-img" />
+          <span className="home-store-gate-shade" aria-hidden />
+          <span className="home-store-gate-copy">
+            <b>
+              {login
+                ? t("home_stores_login_title")
+                : state.gate === "not_service_area"
+                  ? t("store_delivery_not_service_area_title")
+                  : t("home_stores_address_title")}
+            </b>
+            {state.gate === "not_service_area" ? <span>{t("store_delivery_not_service_area_body")}</span> : null}
+            {login ? <span>{t("home_stores_login_body")}</span> : null}
+            <button
+              type="button"
+              onClick={() => router.push(login ? buildLoginHref("/home") : buildMypageAddressesHref(null, { purpose: "delivery" }))}
+              className="home-store-gate-cta"
+            >
+              {login
+                ? t("home_sign_in")
+                : state.gate === "not_service_area"
+                  ? t("store_delivery_not_service_area_cta")
+                  : t("home_stores_address_cta")}
+            </button>
+          </span>
         </div>
       </section>
     );
   }
   if (state.kind === "error") {
     return (
-      <section className="mt-3 bg-white pb-5 pt-[18px]" data-home-stores data-home-stores-error>
-        <HomeSectionHead title={title} />
+      <section className="home-shelf" data-home-stores data-home-stores-error>
+        {head}
         <HomeLoadError onRetry={() => setRetryKey((n) => n + 1)} />
       </section>
     );
   }
   if (state.kind === "empty") {
     return (
-      <section className="mt-3 bg-white pb-5 pt-[18px]" data-home-stores data-home-stores-empty>
-        <HomeSectionHead title={title} />
-        <p className="px-[18px] text-[13.5px] text-[#767676]">{t("home_stores_empty")}</p>
+      <section className="home-shelf" data-home-stores data-home-stores-empty>
+        {head}
+        <p className="home-shelf-empty">{t("home_stores_empty")}</p>
       </section>
     );
   }
   if (state.kind === "loading") {
     return (
-      <section className="mt-3 bg-white pb-5 pt-[18px]" data-home-stores aria-busy="true">
-        <HomeSectionHead title={title} />
-        <div className="flex gap-2.5 overflow-hidden px-4">
+      <section className="home-shelf" data-home-stores aria-busy="true">
+        {head}
+        <div className="home-store-grid">
           {[0, 1, 2].map((i) => (
-            <span key={i} className="h-[112px] w-[112px] shrink-0 animate-pulse rounded-ui-rect bg-[#eef1ee]" />
+            <span key={i} className="home-store-card home-skel" style={{ height: 196 }} />
           ))}
         </div>
       </section>
     );
   }
   return (
-    <section className="mt-3 bg-white pb-5 pt-[18px]" data-home-stores>
-      <HomeSectionHead title={title} />
-      {state.shown.map(({ store, menus, adLabel }, i) => {
-        const storeHref = `/stores/${encodeURIComponent(store.slug)}`;
-        return (
-          <div key={store.id} className={i > 0 ? "mt-4 border-t border-[#eef1ee] pt-4" : ""} data-home-store={store.id}>
-            <button
-              type="button"
-              onClick={() => router.push(storeHref)}
-              className="flex w-full items-center gap-2.5 px-4 text-left active:opacity-70"
-            >
-              {store.profileImageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- 매장 프로필 사진
-                <img
-                  src={store.profileImageUrl}
-                  alt=""
-                  className="shrink-0 rounded-full object-cover shadow-[0_0_0_1px_#e3e7e4]"
-                  style={{ width: 40, height: 40 }}
-                />
-              ) : (
-                <span className="h-10 w-10 shrink-0 rounded-full bg-[#eef1ee]" />
-              )}
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1.5">
-                  <span className="truncate text-[15px] font-semibold text-[#141a16]">{store.nameKo}</span>
-                  {store.isSampleStore ? (
-                    <span className="shrink-0 rounded-[4px] bg-[#F2F4F2] px-1.5 py-0.5 text-[10.5px] font-semibold text-[#5D6A60]">
-                      {t("home_store_sample")}
+    <section className="home-shelf" data-home-stores>
+      {head}
+      {/* 매장 카드 — 휴대폰 1열 · 태블릿 2열 · PC 3열 (계획서 D · Owner 「매장 언발란스」 2026-11-18) */}
+      <div className="home-store-grid">
+        {state.shown.map(({ store, menus, adLabel }) => {
+          const storeHref = `/stores/${encodeURIComponent(store.slug)}`;
+          return (
+            <div key={store.id} className="home-store-card" data-home-store={store.id}>
+              <button type="button" onClick={() => router.push(storeHref)} className="home-store-head">
+                {store.profileImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- 매장 프로필 사진
+                  <img src={store.profileImageUrl} alt="" className="home-store-logo" />
+                ) : (
+                  <span className="home-store-logo" />
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="truncate text-[15px] font-semibold text-[#141a16]">{store.nameKo}</span>
+                    {store.isSampleStore ? (
+                      <span className="shrink-0 rounded-[4px] bg-[#F2F4F2] px-1.5 py-0.5 text-[10.5px] font-semibold text-[#5D6A60]">
+                        {t("home_store_sample")}
+                      </span>
+                    ) : null}
+                    {adLabel ? <span className="shrink-0 text-[11px] text-[#999]">{t("home_ad")}</span> : null}
+                  </span>
+                  <span className="block truncate text-[12.5px] text-[#767676]">
+                    {[store.primaryNameKo, store.regionLabel].filter(Boolean).join(" · ")}
+                    {" · "}
+                    <span className={store.status === "open" ? "text-sam-primary" : "text-[#999]"}>
+                      {t(storeDisplayStatusLabelKey(store.status))}
                     </span>
-                  ) : null}
-                  {adLabel ? <span className="shrink-0 text-[11px] text-[#999]">{t("home_ad")}</span> : null}
-                </span>
-                <span className="block truncate text-[12.5px] text-[#767676]">
-                  {[store.primaryNameKo, store.regionLabel].filter(Boolean).join(" · ")}
-                  {" · "}
-                  <span className={store.status === "open" ? "text-sam-primary" : "text-[#999]"}>
-                    {t(storeDisplayStatusLabelKey(store.status))}
                   </span>
                 </span>
-              </span>
-              <span className="shrink-0 text-[13px] font-semibold text-sam-primary">{t("home_order_now")} ›</span>
-            </button>
-            <div className="mt-2.5 flex gap-2.5 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {menus.map((m) => {
-                const href = `${storeHref}/p/${encodeURIComponent(m.id)}`;
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => router.push(href)}
-                    className="w-[112px] shrink-0 text-left active:opacity-80"
-                    aria-label={t("home_store_menu_open_aria", { name: m.title })}
-                  >
-                    <span className="relative block">
-                      {m.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- 매장 메뉴 사진
-                        <img
-                          src={m.imageUrl}
-                          alt=""
-                          className="rounded-ui-rect object-cover"
-                          /* 앱 전역 img height:auto 보다 앞서도록 크기는 인라인 (정사각 고정) */
-                          style={{ width: 112, height: 112 }}
-                        />
-                      ) : (
-                        <span className="block h-[112px] w-[112px] rounded-ui-rect bg-[#eef1ee]" />
-                      )}
-                      <span className="absolute bottom-1.5 right-1.5 grid h-7 w-7 place-items-center rounded-full bg-white text-sam-primary shadow-[0_2px_6px_rgba(0,0,0,0.18)]">
-                        <Plus className="h-4 w-4" strokeWidth={2.6} aria-hidden />
+                <span className="shrink-0 text-[13px] font-semibold text-sam-primary">{t("home_order_now")} ›</span>
+              </button>
+              <div className="home-store-menus">
+                {menus.map((m) => {
+                  const href = `${storeHref}/p/${encodeURIComponent(m.id)}`;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => router.push(href)}
+                      className="home-store-menu"
+                      aria-label={t("home_store_menu_open_aria", { name: m.title })}
+                    >
+                      <span className="home-sq">
+                        {m.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- 매장 메뉴 사진
+                          <img src={m.imageUrl} alt="" className="home-sq-img" />
+                        ) : null}
+                        <span className="home-store-plus">
+                          <Plus className="h-4 w-4" strokeWidth={2.6} aria-hidden />
+                        </span>
                       </span>
-                    </span>
-                    <span className="mt-1.5 block truncate text-[14px] text-[#222]">{m.title}</span>
-                    <span className="block text-[15px] font-bold text-[#141a16]">
-                      {peso(m.discountPrice ?? m.price)}
-                      {m.discountPrice != null ? (
-                        <span className="ml-1 text-[12px] font-normal text-[#999] line-through">{peso(m.price)}</span>
-                      ) : null}
-                    </span>
-                  </button>
-                );
-              })}
+                      <span className="mt-1.5 block truncate text-[13px] text-[#222]">{m.title}</span>
+                      <span className="block truncate text-[14px] font-bold text-[#141a16]">
+                        {peso(m.discountPrice ?? m.price)}
+                        {m.discountPrice != null ? (
+                          <span className="ml-1 text-[11.5px] font-normal text-[#999] line-through">{peso(m.price)}</span>
+                        ) : null}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </section>
   );
 }

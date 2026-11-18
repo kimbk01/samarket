@@ -1,11 +1,12 @@
 "use client";
 
-import { Coins, Gift, Headset, Heart, Receipt, type LucideIcon } from "lucide-react";
+import { Coins, Gift, Headset, Heart, LayoutGrid, Receipt, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { serviceBrandIconSlot, type ServiceBrandIconSlotProps } from "@/components/brand/ServiceBrandIcon";
 import {
   HOME_MENU_CATALOG,
   pickHomeText,
+  type HomeMenuKey,
   type HomeServiceCardConfig,
   type HomeServiceKey,
 } from "@/lib/home/home-layout-contract";
@@ -52,11 +53,10 @@ export function resolveServiceDescLines(
 
 
 /**
- * 서비스 입구 — 홈 시안 v4 (Owner 「이 시안으로 진행」 2026-11-14 · 「중요한 도메인이 telRING」).
- * ① telRING(chat) = 맨 위 대표 칸(초록 바탕 · 워드마크 tel + 굵은 RING · 채팅·통화 바로가기)
- * ② 큰 칸(size large) 2열 ③ 작은 칸(size small) = 동그란 아이콘 줄.
- * 홈에는 개인 숫자를 두지 않는다(안 읽음 = 하단 탭 배지만) — 지역이 같으면 모두 같은 화면.
- * 누름 효과 (Owner 2026-11-09): 누르는 동안 살짝 작아짐(0.97) · 「동작 줄이기」면 크기 변화 없음.
+ * 서비스 입구 — 시안 R3 (Owner 「계획대로 진행」 2026-11-18 · 계획서 B3, 이전 v4 큰 칸/작은 칸 대체).
+ * ① telRING(chat) = 대표 칸(초록 바탕 · 워드마크 · 채팅·통화 바로가기) ② 그 밖 보이는 서비스 + 「전체」 = **같은 크기 칸**.
+ * 칸 수: 휴대폰 3열 · 태블릿 6열 · PC(배너 옆) 3열 — `app/home-hub.css` `.home-svc-grid`.
+ * 홈에는 개인 숫자를 두지 않는다(안 읽음 = 하단 탭 배지만).
  */
 export function HomeServiceCards({
   services,
@@ -66,7 +66,7 @@ export function HomeServiceCards({
 }: {
   services: HomeServiceCardConfig[];
   catalog: HomeCatalog;
-  onOpen: (key: HomeServiceKey) => void;
+  onOpen: (key: HomeMenuKey) => void;
   /** telRING 대표 칸의 채팅·통화 바로가기 — 비로그인 안내는 부르는 쪽(`openMenu`)과 같은 규칙 */
   onOpenHref: (key: HomeServiceKey, href: string) => void;
 }) {
@@ -75,20 +75,13 @@ export function HomeServiceCards({
   if (visible.length === 0) return null;
   const hero = visible.find((s) => s.key === "chat") ?? null;
   const rest = visible.filter((s) => s.key !== "chat");
-  const large = rest.filter((s) => s.size === "large");
-  const small = rest.filter((s) => s.size === "small");
 
   const title = (c: HomeServiceCardConfig) => pickHomeText(c.title, language) || t(HOME_MENU_CATALOG[c.key].labelKey);
-  const autoImage = (c: HomeServiceCardConfig): string | null => {
-    if (c.imageUrl) return c.imageUrl;
-    if (c.key === "stores") return catalog.storeCategories.find((x) => x.imageUrl)?.imageUrl ?? null;
-    return null;
-  };
   const heroCustomTitle = hero ? pickHomeText(hero.title, language) : "";
   const heroDesc = hero ? resolveServiceDescLines(hero, catalog, language, t)[0] ?? "" : "";
 
   return (
-    <section className="bg-white px-3 pb-4 pt-3" data-home-services>
+    <section className="home-svc" data-home-services>
       {hero ? (
         <div
           role="button"
@@ -149,62 +142,39 @@ export function HomeServiceCards({
           </span>
         </div>
       ) : null}
-      {large.length > 0 ? (
-        <div className={`grid grid-cols-2 gap-2 ${hero ? "mt-2" : ""}`}>
-          {large.map((c) => {
-            const img = autoImage(c);
-            const Icon = LINE_ICON[c.key];
-            return (
-              <button
-                key={c.key}
-                type="button"
-                onClick={() => onOpen(c.key)}
-                className="home-3d-tile relative min-h-[100px] overflow-hidden rounded-ui-rect px-3.5 pb-3 pt-3.5 text-left [-webkit-tap-highlight-color:transparent]"
-                data-home-service={c.key}
-              >
-                <span className="block text-[17px] font-bold tracking-[-0.02em] text-[#141a16]">{title(c)}</span>
-                <span className="mt-1 block max-w-[72%] text-[12.5px] leading-[1.45] text-[#5f6661]">
-                  {resolveServiceDescLines(c, catalog, language, t).map((line) => (
-                    <span key={line} className="block truncate">
-                      {line}
-                    </span>
-                  ))}
-                </span>
-                {img ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- 어드민 업종·카드 그림
-                  <img src={img} alt="" className="absolute bottom-1.5 right-2 object-contain" style={{ width: 46, height: 46 }} />
-                ) : (
-                  <Icon className="absolute bottom-3 right-3 h-8 w-8 text-sam-primary" strokeWidth={1.5} aria-hidden />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-      {small.length > 0 ? (
-        <div
-          className="mt-3 grid"
-          style={{ gridTemplateColumns: `repeat(${Math.min(small.length, 5)}, minmax(0, 1fr))` }}
+      <div className="home-svc-grid">
+        {rest.map((c) => {
+          const Icon = LINE_ICON[c.key];
+          const desc = resolveServiceDescLines(c, catalog, language, t)[0] ?? "";
+          return (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => onOpen(c.key)}
+              className="home-svc-tile [-webkit-tap-highlight-color:transparent]"
+              data-home-service={c.key}
+            >
+              <span className="home-svc-ic">
+                <Icon className="h-[24px] w-[24px] text-sam-primary" strokeWidth={1.8} aria-hidden />
+              </span>
+              <span className="home-svc-name">{title(c)}</span>
+              {desc ? <span className="home-svc-desc">{desc}</span> : null}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => onOpen("all")}
+          className="home-svc-tile [-webkit-tap-highlight-color:transparent]"
+          data-home-service="all"
         >
-          {small.map((c) => {
-            const Icon = LINE_ICON[c.key];
-            return (
-              <button
-                key={c.key}
-                type="button"
-                onClick={() => onOpen(c.key)}
-                className="home-3d-icon-btn flex flex-col items-center gap-1.5 py-1 text-[12px] font-semibold text-[#333] [-webkit-tap-highlight-color:transparent]"
-                data-home-service={c.key}
-              >
-                <span className="home-3d-icon grid h-11 w-11 place-items-center rounded-full">
-                  <Icon className="h-[22px] w-[22px] text-sam-primary" strokeWidth={1.8} aria-hidden />
-                </span>
-                <span className="max-w-full truncate">{title(c)}</span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
+          <span className="home-svc-ic">
+            <LayoutGrid className="h-[24px] w-[24px] text-sam-primary" strokeWidth={1.8} aria-hidden />
+          </span>
+          <span className="home-svc-name">{t(HOME_MENU_CATALOG.all.labelKey)}</span>
+          <span className="home-svc-desc">{t(HOME_MENU_CATALOG.all.descKey)}</span>
+        </button>
+      </div>
     </section>
   );
 }
