@@ -44,6 +44,15 @@
 5. **사실만 보고** — 직접 확인한 것만 PASS. 측정 안 한 것은 NOT_PROVEN. 숫자는 쿼리·코드로 확인한 값만 쓴다. 틀린 보고는 발견 즉시 정정한다.
 6. **보고는 단계 끝 1회** — 작업 중 중간 보고를 하지 않는다.
 
+# 실기기 반복 실행 시험 상한 (Owner 2026-11-18 · 최우선 · 예외 없음)
+
+실기기 시험은 운영 서버·운영 Supabase 를 쓴다(테스트 DB 사용 금지). 2026-11-17~18: 사무실 Android 시험 기기 2대가 앱을 677회 다시 실행(강제 종료→실행 반복)해 운영 Supabase 요청이 하루 약 10.8만 건 늘었다(증가분의 89%, 앱 실행 1회 ≈ Supabase 약 195건). 근거 `docs/audit/supabase-request-surge-2026-11-18/root-cause-design.md`.
+
+1. **상한 10회** — 같은 측정 묶음(같은 시나리오·같은 빌드)에서 앱 처음 실행(강제 종료 후 실행·재설치 후 첫 실행·`monkey … LAUNCHER`·`am start` 포함)은 **모든 기기를 합쳐 10회 이하**.
+2. **초과는 먼저 승인** — 10회를 넘겨야 하면 시작 전에 Owner 에게 횟수·이유를 알리고 승인 후 한다. 승인 없이 넘기지 않는다.
+3. **반복문에 횟수 상한 내장** — 시험 스크립트의 반복은 정해진 횟수로만 돈다. `while true`·종료 조건 없는 반복·자동 재시도 반복 금지.
+4. **보고서에 기재** — 실행 횟수, 시작·종료 시각(PHT), 예상 운영 Supabase 요청(실행 횟수 × 195건)을 시험 결과 보고에 적는다.
+
 # This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
