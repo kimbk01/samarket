@@ -149,10 +149,13 @@ export function AuthSessionBoundary({ children }: Props) {
    * 차단이 풀릴 때 주인 요소가 같은 자리에 남아야 방 셸 등록 뒤에 해제된다(리스너 재설치 없음).
    */
   const path = pathname.trim() || (typeof window !== "undefined" ? window.location.pathname : "");
+  /** 인증 종료 이동 중에는 주인 요소를 그리지 않는다(언마운트 = 자기 등록 해제) — ◁ 가 로그인 이탈 이동과 겹치지 않게 */
   const withPreShellBackSlot = (node: ReactNode, blocked: boolean) => (
     <>
       {node}
-      {isMessengerRoomPreShellBackPath(path) ? <MessengerRoomPreShellBackOwner active={blocked} /> : null}
+      {isMessengerRoomPreShellBackPath(path) && !isAuthExitNavigateStarted() ? (
+        <MessengerRoomPreShellBackOwner active={blocked} />
+      ) : null}
     </>
   );
 
