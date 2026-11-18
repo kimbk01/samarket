@@ -9,7 +9,10 @@ const audit = vi.fn(async (..._a: unknown[]) => undefined);
 
 vi.mock("@/lib/stores/try-supabase-stores", () => ({ tryGetSupabaseForStores: () => ({ rpc }) }));
 vi.mock("@/lib/stores/advertising/delivery-ad-schedule-promoter", () => ({
+  /** C2 — due probe; true so promoter batch path still runs under existing mocks */
+  probeDeliveryAdSchedulePromoterDue: async () => true,
   runDeliveryAdSchedulePromoterBatch: async () => ({
+    ok: true,
     activated: 0,
     ended: 0,
     expired: 0,
