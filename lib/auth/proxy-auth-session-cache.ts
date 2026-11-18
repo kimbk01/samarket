@@ -8,6 +8,11 @@ export const PROXY_AUTH_SESSION_TTL_MS = 12_000;
 type ProxyAuthCacheEntry = {
   userId: string;
   expiresAt: number;
+  /**
+   * B4 / D-2 — HTML signup gate: remember **complete** only (same TTL as identity).
+   * Incomplete must re-query every navigation. Cleared with identity invalidation.
+   */
+  signupComplete?: boolean;
 };
 
 type ProxyAuthCacheGlobal = {
@@ -50,12 +55,32 @@ export function peekProxyAuthSessionCache(fingerprint: string): string | null {
 export function setProxyAuthSessionCache(fingerprint: string, userId: string): void {
   const uid = userId.trim();
   if (!uid || !fingerprint || fingerprint === "∅") return;
-  cacheMap().set(fingerprint, { userId: uid, expiresAt: Date.now() + PROXY_AUTH_SESSION_TTL_MS });
+  const prev = cacheMap().get(fingerprint);
+  cacheMap().set(fingerprint, {
+    userId: uid,
+    expiresAt: Date.now() + PROXY_AUTH_SESSION_TTL_MS,
+    signupComplete: prev?.userId === uid ? prev.signupComplete : undefined,
+  });
   while (cacheMap().size > 800) {
     const k = cacheMap().keys().next().value;
     if (k === undefined) break;
     cacheMap().delete(k);
   }
+}
+
+/** True when this fingerprint recently passed the HTML signup-complete gate. */
+export function peekProxySignupComplete(fingerprint: string): boolean {
+  const hit = cacheMap().get(fingerprint);
+  if (!hit || hit.expiresAt <= Date.now()) return false;
+  return hit.signupComplete === true;
+}
+
+/** Mark signup complete for the warm identity entry (no-op if identity miss). */
+export function markProxySignupComplete(fingerprint: string): void {
+  const hit = cacheMap().get(fingerprint);
+  if (!hit || hit.expiresAt <= Date.now()) return;
+  hit.signupComplete = true;
+  hit.expiresAt = Date.now() + PROXY_AUTH_SESSION_TTL_MS;
 }
 
 export function proxyAuthResolveFlightKey(fingerprint: string): string {

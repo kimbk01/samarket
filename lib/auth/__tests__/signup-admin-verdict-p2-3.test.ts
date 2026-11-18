@@ -96,13 +96,17 @@ describe("P2-3 proxy signup gate uses membership verdict", () => {
 
   it("membership admin without consent → no redirect", async () => {
     const { mod } = await load(true);
-    expect(await mod.resolveProxySignupGateRedirect(fakeSb(row), "u1", "/write")).toBeNull();
+    expect(await mod.resolveProxySignupGateRedirect(fakeSb(row), "u1", "/write")).toEqual({
+      action: "pass",
+      rememberComplete: true,
+    });
   });
 
   it("non-admin without consent → redirect to terms", async () => {
     const { mod } = await load(false);
     const r = await mod.resolveProxySignupGateRedirect(fakeSb(row), "u1", "/write");
-    expect(r).toContain("/auth/onboarding/terms");
+    expect(r.action).toBe("redirect");
+    if (r.action === "redirect") expect(r.path).toContain("/auth/onboarding/terms");
   });
 
   it("consented member → membership not queried (hot path cost 0)", async () => {
@@ -114,7 +118,10 @@ describe("P2-3 proxy signup gate uses membership verdict", () => {
       privacy_accepted_at: "2026-01-01",
       privacy_version: "p1",
     };
-    expect(await mod.resolveProxySignupGateRedirect(fakeSb(consented), "u1", "/write")).toBeNull();
+    expect(await mod.resolveProxySignupGateRedirect(fakeSb(consented), "u1", "/write")).toEqual({
+      action: "pass",
+      rememberComplete: true,
+    });
     expect(membership).not.toHaveBeenCalled();
   });
 });
