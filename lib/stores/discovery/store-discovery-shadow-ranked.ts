@@ -441,125 +441,8 @@ export type ShadowHomeRankResult = {
   eligibilityRankById: Map<string, number>;
 };
 
-/** B1 — 여러 (Gi,Dj,limit) 를 한 왕복으로 가져올 때. 반환 배열 순서는 tasks 와 동일. */
-export type ShadowWaveBatchFetchFn = (
-  tasks: ReadonlyArray<{ eligibilityRank: number; districtTier: number; limit: number }>
-) => Promise<StoreDiscoveryShadowRankedRow[][]>;
-
-/**
- * B1 HOME — 최대 2 왕복.
- * Round1: Gi0 (dj 전부 배치 가능) → exposure → take.
- * Round2: 남은 Gi×Dj 를 한 배치로 가져온 뒤 그룹 순서로 소비(조기 종료·순위 동등).
- * batch 없거나 실패 시 기존 fillShadowRankedViaWaves.
- */
-export async function fillHomeShadowRankedViaTwoRoundWaves(input: {
-  fetchWave: ShadowWaveFetchFn;
-  fetchWaveBatch: ShadowWaveBatchFetchFn;
-  district: string | null;
-  exposureScope: string;
-  nowMs?: number;
-  limit?: number;
-  hasGeo?: boolean;
-}): Promise<ShadowHomeRankResult> {
-  const limit = Math.max(1, Math.min(input.limit ?? STORE_HOME_FEED_RESPONSE_MAX, STORE_HOME_FEED_RESPONSE_MAX));
-  const bandSlack = STORE_DISCOVERY_EXPOSURE_BAND_SIZE - 1;
-  const hasGeo = input.hasGeo === true;
-  const djList = districtTiersToScan(input.district, "home", hasGeo);
-  const out: StoreDiscoveryShadowRankedRow[] = [];
-  const eligibilityRankById = new Map<string, number>();
-  const telemetry: ShadowWaveTelemetry = {
-    wavesExecuted: 0,
-    rowsReturned: 0,
-    paginationArchitecture: SHADOW_PAGINATION_ARCHITECTURE,
-    pageContinuationMode: "bounded_offset_window",
-    groupCounts: {},
-  };
-  let remaining = limit;
-
-  const acceptWaveRows = (wave: StoreDiscoveryShadowRankedRow[]) => {
-    telemetry.wavesExecuted += 1;
-    telemetry.rowsReturned += wave.length;
-    for (const row of wave) eligibilityRankById.set(row.id, row.eligibilityRank);
-  };
-
-  const consumeGroup = (gi: number, groupBuf: StoreDiscoveryShadowRankedRow[]) => {
-    if (remaining <= 0 || groupBuf.length === 0) return;
-    telemetry.groupCounts[gi] = groupBuf.length;
-    const exposed = applyStoreDiscoveryExposureRotation({
-      recommendedSorted: groupBuf,
-      eligibilityRankById,
-      exposureScope: input.exposureScope,
-      nowMs: input.nowMs,
-    });
-    const take = exposed.slice(0, remaining);
-    out.push(...take);
-    remaining -= take.length;
-  };
-
-  // Round 1 — Gi 0
-  {
-    const groupNeed = remaining + bandSlack;
-    const tasks = djList.map((dj) => ({
-      eligibilityRank: 0,
-      districtTier: dj,
-      limit: groupNeed,
-    }));
-    let waves: StoreDiscoveryShadowRankedRow[][];
-    if (tasks.length === 1) {
-      waves = [await resolveWave(input.fetchWave, tasks[0]!)];
-    } else {
-      waves = await input.fetchWaveBatch(tasks);
-    }
-    const groupBuf: StoreDiscoveryShadowRankedRow[] = [];
-    for (const wave of waves) {
-      acceptWaveRows(wave);
-      for (const row of wave) {
-        if (groupBuf.length >= groupNeed) break;
-        groupBuf.push(row);
-      }
-      if (groupBuf.length >= groupNeed) break;
-    }
-    consumeGroup(0, groupBuf);
-  }
-
-  // Round 2 — Gi 1..5 in one batch (뒤 그룹은 과다 조회 가능, 소비는 Gi 순·groupNeed 상한으로 직렬과 동등)
-  if (remaining > 0) {
-    const round2Need = remaining + bandSlack;
-    const tasks: Array<{ eligibilityRank: number; districtTier: number; limit: number }> = [];
-    for (let gi = 1; gi <= 5; gi += 1) {
-      for (const dj of djList) tasks.push({ eligibilityRank: gi, districtTier: dj, limit: round2Need });
-    }
-    if (tasks.length > 0) {
-      const waves = await input.fetchWaveBatch(tasks);
-      let taskIdx = 0;
-      for (let gi = 1; gi <= 5; gi += 1) {
-        const wavesForGi: StoreDiscoveryShadowRankedRow[][] = [];
-        for (let d = 0; d < djList.length; d += 1) {
-          wavesForGi.push(waves[taskIdx] ?? []);
-          taskIdx += 1;
-        }
-        if (remaining <= 0) continue;
-        const groupNeed = remaining + bandSlack;
-        const groupBuf: StoreDiscoveryShadowRankedRow[] = [];
-        for (const wave of wavesForGi) {
-          acceptWaveRows(wave);
-          for (const row of wave) {
-            if (groupBuf.length >= groupNeed) break;
-            groupBuf.push(row);
-          }
-          if (groupBuf.length >= groupNeed) break;
-        }
-        consumeGroup(gi, groupBuf);
-      }
-    }
-  }
-
-  return { rows: out, telemetry, eligibilityRankById };
-}
-
 export async function rankStoreDiscoveryHomeShadowWaves(input: {
   fetchWave: ShadowWaveFetchFn;
-  fetchWaveBatch?: ShadowWaveBatchFetchFn;
   district: string | null;
   exposureScope: string;
   nowMs?: number;
@@ -567,28 +450,6 @@ export async function rankStoreDiscoveryHomeShadowWaves(input: {
   hasGeo?: boolean;
 }): Promise<ShadowHomeRankResult> {
   const limit = Math.max(1, Math.min(input.limit ?? STORE_HOME_FEED_RESPONSE_MAX, STORE_HOME_FEED_RESPONSE_MAX));
-  if (input.fetchWaveBatch) {
-    try {
-      return await fillHomeShadowRankedViaTwoRoundWaves({
-        fetchWave: input.fetchWave,
-        fetchWaveBatch: input.fetchWaveBatch,
-        district: input.district,
-        exposureScope: input.exposureScope,
-        nowMs: input.nowMs,
-        limit,
-        hasGeo: input.hasGeo === true,
-      });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (
-        !msg.includes("get_store_discovery_shadow_waves_batch") &&
-        !msg.includes("does not exist")
-      ) {
-        throw err;
-      }
-      // batch RPC 미적용 → 기존 1 wave = 1 왕복
-    }
-  }
   const filled = await fillShadowRankedViaWaves({
     fetchWave: input.fetchWave,
     district: input.district,

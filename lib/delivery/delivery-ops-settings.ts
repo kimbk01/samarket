@@ -195,12 +195,6 @@ export function invalidateDeliveryRideTimeSourceCache(): void {
   rideTimeSourceInflight = null;
 }
 
-/** B1 — home-feed 번들이 이미 읽은 값을 심어 동일 요청·연속 호출의 재조회를 막는다 */
-export function seedDeliveryRideTimeSourceCache(value: DeliveryRideTimeSource): void {
-  rideTimeSourceMem = { value, expiresAt: Date.now() + RIDE_TIME_SOURCE_TTL_MS };
-  rideTimeSourceInflight = null;
-}
-
 export function peekDeliveryDistanceSettings(): {
   policy: DeliveryDistancePolicy;
   overrides: DeliveryStoreDistanceOverrides;
@@ -313,16 +307,6 @@ export async function loadDeliveryDistanceSettings(sb: SupabaseClient): Promise<
 
 export function invalidateDeliveryDistanceSettingsCache(): void {
   distancePolicyMem = null;
-  distancePolicyInflight = null;
-}
-
-/** B1 — home-feed 번들이 이미 읽은 거리 정책을 심어 재조회를 막는다 */
-export function seedDeliveryDistanceSettingsCache(value: {
-  policy: DeliveryDistancePolicy;
-  overrides: DeliveryStoreDistanceOverrides;
-}): void {
-  distancePolicyMem = { value, expiresAt: Date.now() + RIDE_TIME_SOURCE_TTL_MS };
-  distancePolicyLastGood = value;
   distancePolicyInflight = null;
 }
 
