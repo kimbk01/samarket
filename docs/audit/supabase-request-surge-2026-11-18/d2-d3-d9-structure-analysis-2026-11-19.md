@@ -87,3 +87,25 @@ PROD: startup-config·app-settings·main-bottom-nav 하루 각 약 830건(= 실�
 1. **D9 (이번 PR)** — 새 업로드 1년 캐시. 기능 영향 없음.
 2. **D3** — 위 결정 2건 후 공통 설정 1개 + 버전 확인. 웹만, DB 1행.
 3. **D2** — LOCK 재개봉 승인 → 그림자 비교까지 먼저(동작 변화 없음) → 일치 확인 후 전환.
+
+---
+
+## D9 후속 — 내정보 「임시 데이터 삭제」 (Owner 「권장안대로」 2026-11-19)
+
+### 확인 결과 (CODE)
+- 화면: 내정보 → 설정 → 임시 데이터 삭제 (`/mypage/section/settings/cache`, `lib/mypage/mypage-ia.ts:250`) — 연결·동작함.
+- 실제 삭제: `client-cache-key-registry.ts` 에 등록된 목록·화면 저장 키 + 브라우저 Cache Storage(`clearBrowserCacheStorageBestEffort`). Cache Storage 는 **앱 시작 화면 인트로 미디어만** 사용(`lib/launch-intro/cache.ts`).
+- **FAIL(문구)**: 「이미지 임시 데이터」를 지운다고 안내했지만 게시글·채팅 사진(WebView HTTP 디스크 캐시)은 지우지 않음. 웹 코드로는 지울 수 없고, Android·iOS 네이티브에도 지우는 코드 없음.
+- 레거시(카카오톡·텔레그램류, 공개 동작 기준): 저장공간 용량 표시 + 사진·미디어 캐시 실제 삭제.
+
+### 1단계 (이번 PR · 웹만)
+- 문구를 실제 동작에 맞춤: 지우는 항목 「시작 화면 이미지·영상」, 설명 「목록·화면 임시 데이터와 시작 화면 이미지」, 지우지 않는 항목에 「게시글·채팅 사진(휴대폰이 자동으로 정리해요)」 추가(WebView 디스크 캐시는 시스템이 용량 한도로 오래된 것부터 정리).
+
+### 2단계 (다음 네이티브 빌드 · 설계)
+| 항목 | 내용 |
+|---|---|
+| Android | Capacitor 플러그인 메서드 `clearWebMediaCache()` → 메인 스레드에서 `bridge.getWebView().clearCache(true)` (디스크 포함). `getWebCacheSize()` = `context.cacheDir` 아래 WebView 캐시 디렉터리 용량 합 |
+| iOS | `WKWebsiteDataStore.default().removeData(ofTypes: [WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeMemoryCache], modifiedSince: .distantPast)` — 쿠키·로컬 저장소는 제외(로그인 유지) |
+| 웹 | 플러그인이 있으면(앱 버전 판정) 「사진 캐시 n MB」 표시 + 삭제 실행, 없으면(구 바이너리·웹) 지금 1단계 화면 그대로 |
+| 지키는 것 | 로그인 쿠키·로컬 저장소·작성 중 초안 유지(레지스트리 규칙 그대로) |
+| 빌드 | Android `versionCode`·iOS 빌드 번호 1회 증가(`npm run native:prepare`), 실기기 확인 후 배포 |
