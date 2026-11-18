@@ -96,8 +96,9 @@ function trimText(v: unknown): string {
 }
 
 /**
- * PR-1 감사 #1: 지금 요청 중인 글(방:cid) — 앱 실행(메모리) 동안만. 전송을 시작할 때 글을 기기에 미리 보관하므로,
- * 다른 화면의 진입 복원·저장 이벤트가 요청 중인 글을 실패 행으로 만들지 않게 건너뛰는 데 쓴다.
+ * PR-1 감사 #1·최종 검토 #2: 지금 요청 중인 글(방:cid) — 앱 실행(메모리) 동안만. 전송을 시작할 때 글을 기기에 미리 보관하므로,
+ * 다른 화면의 진입 복원은 이 집합에 있는 글을 실패 행이 아니라 **「보내는 중」 행**(버튼 없음, 요청 0건)으로 보여 준다.
+ * 그 요청이 끝나면 옛 화면이 창 이벤트로 알린다 — 성공: 확정 이벤트(보내는 중 행 → 확정 행), 실패: 저장 이벤트(→ 실패 행).
  * 앱이 종료되면 비므로 다음 실행에서는 보관 글이 실패 행(요청 0건)으로 복원된다(자동 재전송 없음 — Owner 승인 §6-1 #1).
  */
 const inflightTextSendKeys = new Set<string>();
@@ -350,7 +351,13 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
       if (mirrorTempId) {
         sendingMirrorRowsRef.current.delete(cid);
         if (isMessengerOutboundRowDisplayed(d.roomMessagesRef.current, mirrorTempId)) {
-          if (detail.kept) persistedFailedTextCidsRef.current.add(cid);
+          /**
+           * 최종 검토 후속 #3: 저장소에 그 cid 보관분(전송 시작 때 저장)이 있으면 kept 와 관계없이 집합에 넣는다 —
+           * 확정 행이 오면 prune 이 지울 수 있게.
+           */
+          if (detail.kept || listMessengerFailedTextSends(rid).some((e) => e.clientMessageId === cid)) {
+            persistedFailedTextCidsRef.current.add(cid);
+          }
           registerFailedTextRowHandlers({
             tempId: mirrorTempId,
             clientMessageId: cid,

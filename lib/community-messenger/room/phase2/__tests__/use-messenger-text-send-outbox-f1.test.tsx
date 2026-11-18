@@ -568,6 +568,22 @@ describe("PR-1 감사 #1 첫 전송 중 앱 종료·새로고침", () => {
     expect(savedCids()).toEqual([]);
   });
 
+  it("시작 저장 성공 → 옛 화면 실패 때 저장 거부 → 확정 행 도착 → 보관분 0", async () => {
+    const { b, finish } = await startThenReenter("c-kept0", "kept0");
+    expect(savedCids()).toEqual(["c-kept0"]);
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("quota", "QuotaExceededError");
+    });
+    await finish(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+    spy.mockRestore();
+    expect(savedCids()).toEqual(["c-kept0"]);
+    b.setRows([...b.rows(), { ...optimistic("srv-kept0", "c-kept0", "kept0"), pending: false } as Row]);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(savedCids()).toEqual([]);
+  });
+
   it("옛 화면 실패 + 저장소 거부여도 새 화면에 실패 행(글을 이벤트로 전달)", async () => {
     const { b, finish } = await startThenReenter("c-q", "quota");
     const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {

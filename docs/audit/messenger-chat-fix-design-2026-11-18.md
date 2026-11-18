@@ -243,7 +243,7 @@
 2. **읽기 상태 저장소 키 = 정규 스트림 id 로 통일** — 진입 스크롤 controller·열기 읽음 효과가 라우트 id 로 쓰던 것을 `readerRoomId` 로. 라우트 id(product_chats.id) ≠ 정규 id 인 방은 스냅샷 뒤 URL 이 정규 id 로 replace 되어 다시 마운트되므로 어긋남은 스냅샷 전 구간뿐.
 3. **위치를 모르면 만들어 내지 않음** — `setLastVisibleMessageId`·`bumpPendingNewFromOthers` 가 항목이 없을 때 위치를 「reading-history」로 만들던 것을 null 로.
 4. **F2-③ S3 예약 규칙** — 내 글 force 전송·ack id 교체(엔진 stick)에서는 끝 메시지 S3 생략(높이 정착 뒤 RO→S2). ack id 교체 때 lastVisible 의 옛 tempId 는 새 id 로 옮김.
-5. **F1 무손실 보강** — 보관 7일 만료·건수 상한 삭제 제거 / definitive 행 제거는 「같은 화면에서 입력창 복원 성공」일 때만 / 전송 **시작 때** 보관(앱 종료·새로고침 대비, 진행 중 cid 는 복원·저장 이벤트에서 건너뜀, 자동 재전송 없음) / 옛 화면의 늦은 실패는 보관 + 창 이벤트만 / 보관 실패는 실패 응답 때 1회 스낵바 / 보내는 중 행 tempId 순번을 앱 전체 하나로 / 불러온 창보다 오래된 deduped 확정 행은 병합 안 함 / rpcErr 는 일시 오류만 503.
+5. **F1 무손실 보강** — 보관 7일 만료·건수 상한 삭제 제거 / definitive 행 제거는 「같은 화면에서 입력창 복원 성공」일 때만 / 전송 **시작 때** 보관(앱 종료·새로고침 대비, 같은 앱 실행에서 요청 중인 글은 다른 화면의 진입 복원 때 「보내는 중」 행(버튼 없음, 요청 0건)으로 보여 주고, 그 요청이 끝나면 옛 화면의 창 이벤트로 성공 → 확정 행 교체(확정 이벤트), 실패 → 실패 행 전환(저장 이벤트). 앱이 종료되면 다음 실행에서 실패 행으로 복원, 자동 재전송 없음) / 옛 화면의 늦은 실패는 보관 + 창 이벤트만 / 보관 실패는 실패 응답 때 1회 스낵바 / 보내는 중 행 tempId 순번을 앱 전체 하나로 / 불러온 창보다 오래된 deduped 확정 행은 병합 안 함 / rpcErr 는 일시 오류만 503.
 6. **F3 ② 보류** — 전역 bundle 채널 DELETE 는 통화 인접 파일이라 PR-C 로.
 7. **범위 밖 기존 결함(보고만)** — 거래 채팅 id(product_chats.id) URL 로 방을 여는 링크 생성처 6곳(SalesHistoryCard:73, SellerTradeRow:25, mypage/philife purchases/[chatId], trade-hub-paths:33, trade-chat-entry-navigation:61).
 
