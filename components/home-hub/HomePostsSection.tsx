@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Eye, MessageSquare } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { philifeAppPaths } from "@/lib/philife/paths";
-import { HOME_FEED_IMAGE_WIDTH, homeFeedImageSrc } from "@/lib/home/home-feed-image";
+import { homePostCardImageSrc } from "@/lib/home/home-feed-image";
 import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
 import { fetchNeighborhoodFeedShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
 import { useHubDataRevisitGate } from "@/lib/http/hub-data-freshness";
@@ -83,7 +83,7 @@ export function useHomePosts({
 export function HomePostMagCard({ post }: { post: NeighborhoodFeedPostDTO }) {
   const { language } = useI18n();
   const router = useRouter();
-  const img = post.images?.[0] ? homeFeedImageSrc(post.images[0], HOME_FEED_IMAGE_WIDTH.big) : "";
+  const img = post.images?.[0] ? homePostCardImageSrc(post.images[0]) : "";
   const topic = language === "en" && post.category_name_en ? post.category_name_en : post.category_label;
   return (
     <button

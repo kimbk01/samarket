@@ -1,6 +1,6 @@
 "use client";
 
-import { Coins, Gift, Headset, Heart, LayoutGrid, Receipt, type LucideIcon } from "lucide-react";
+import { Coins, Gift, Headset, Heart, LayoutGrid, MessagesSquare, Phone, Receipt, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { serviceBrandIconSlot, type ServiceBrandIconSlotProps } from "@/components/brand/ServiceBrandIcon";
 import {
@@ -83,6 +83,7 @@ export function HomeServiceCards({
   return (
     <section className="home-svc" data-home-services>
       {hero ? (
+        /* telRING 대표 칸 — 시안 R4 수정안 #4: 낮은 초록 카드 · 반투명 원 아이콘 · 노란 「채팅」 + 흰 「통화」(아이콘+글자) */
         <div
           role="button"
           tabIndex={0}
@@ -90,55 +91,49 @@ export function HomeServiceCards({
           onKeyDown={(e) => {
             if (e.key === "Enter") onOpen("chat");
           }}
-          className="home-3d-hero relative flex items-center gap-3 overflow-hidden rounded-ui-rect px-3.5 py-3.5 text-white [-webkit-tap-highlight-color:transparent]"
+          className="home-ring [-webkit-tap-highlight-color:transparent]"
           data-home-service="chat"
           data-home-telring-hero
         >
-          <span aria-hidden className="pointer-events-none absolute -right-8 -top-8 h-[120px] w-[120px] rounded-full bg-[#E0A800]/20" />
-          <span className="home-3d-hero-badge grid h-[46px] w-[46px] shrink-0 place-items-center rounded-full">
+          <span className="home-ring-badge" aria-hidden>
             {(() => {
               const Icon = LINE_ICON.chat;
-              return <Icon className="h-[26px] w-[26px] text-sam-primary" aria-hidden />;
+              return <Icon className="h-[26px] w-[26px] text-white" aria-hidden />;
             })()}
           </span>
-          <span className="min-w-0 flex-1">
+          <span className="relative min-w-0 flex-1">
             {heroCustomTitle ? (
-              <span className="block truncate text-[22px] font-extrabold leading-tight">{heroCustomTitle}</span>
+              <span className="block truncate text-[21px] font-extrabold leading-tight">{heroCustomTitle}</span>
             ) : (
               <TelRingWordmark />
             )}
-            {heroDesc ? <span className="mt-0.5 block truncate text-[12px] text-white/90">{heroDesc}</span> : null}
+            {heroDesc ? <span className="mt-0.5 block truncate text-[12px] text-white/85">{heroDesc}</span> : null}
           </span>
           <span className="relative z-[1] flex shrink-0 items-center gap-1.5">
             {(
               [
-                ["home_telring_chat", "/community-messenger?section=chats"],
-                ["home_telring_call", "/community-messenger?section=call_logs"],
+                ["home_telring_chat", "/community-messenger?section=chats", "chat"],
+                ["home_telring_call", "/community-messenger?section=call_logs", "call"],
               ] as const
-            ).map(([k, href]) => {
-              const btn = (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpenHref("chat", href);
-                  }}
-                  className="home-3d-pill relative rounded-full px-3 py-1.5 text-[12.5px] font-bold text-sam-primary [-webkit-tap-highlight-color:transparent]"
-                  data-home-telring-cta={k === "home_telring_chat" ? "chat" : "call"}
-                >
-                  {t(k)}
-                </button>
-              );
-              // 「채팅」 = 흐르는 그라데이션 테두리 + 퍼지는 빛 (Owner 2026-11-14 「누르고 싶은 충동이 생기게」) · 동작 줄이기면 멈춤
-              return k === "home_telring_chat" ? (
-                <span key={k} className="home-telring-cta-glow">
-                  {btn}
-                </span>
-              ) : (
-                btn
-              );
-            })}
+            ).map(([k, href, kind]) => (
+              <button
+                key={k}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenHref("chat", href);
+                }}
+                className={`home-ring-cta${kind === "chat" ? " home-ring-cta--chat" : ""}`}
+                data-home-telring-cta={kind}
+              >
+                {kind === "chat" ? (
+                  <MessagesSquare className="h-[15px] w-[15px]" strokeWidth={2.2} aria-hidden />
+                ) : (
+                  <Phone className="h-[15px] w-[15px]" strokeWidth={2.4} aria-hidden />
+                )}
+                {t(k)}
+              </button>
+            ))}
           </span>
         </div>
       ) : null}
@@ -184,11 +179,11 @@ function TelRingWordmark() {
   const name = DIBAY_SERVICE_BRAND.LETARING;
   const i = name.indexOf("RING");
   return (
-    <span className="block text-[22px] leading-tight tracking-[-0.01em]" aria-label={name}>
+    <span className="block text-[21px] leading-tight tracking-[-0.01em]" aria-label={name}>
       {i > 0 ? (
         <>
           <span className="font-medium">{name.slice(0, i)}</span>
-          <span className="font-extrabold text-[#FFD23F]">{name.slice(i)}</span>
+          <span className="font-black text-[#FFC933]">{name.slice(i)}</span>
         </>
       ) : (
         <span className="font-extrabold">{name}</span>

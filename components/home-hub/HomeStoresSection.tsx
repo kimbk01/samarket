@@ -12,11 +12,12 @@ import { fetchStoresHomeFeedDeduped, forgetStoresHomeFeedFetchSingleFlight } fro
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { DeliveryViewerGate } from "@/lib/stores/delivery-viewer-gate";
 import { HOME_MENU_CATALOG, HOME_STORE_SHOW_MAX, type HomeStoresConfig } from "@/lib/home/home-layout-contract";
-import type { HomeStoreMenuItem } from "@/lib/home/home-catalog-types";
+import { homeCatalogName, type HomeStoreCategory, type HomeStoreMenuItem } from "@/lib/home/home-catalog-types";
 import { keepSessionPick, rotateUnseenFirst } from "@/lib/home/home-rotation";
 import type { HomeRotationCtl } from "@/components/home-hub/use-home-rotation";
 import { HOME_SHELF_BRAND_MARK, HomeShelfHead } from "@/components/home-hub/HomeSectionHead";
 import { HomeLoadError } from "@/components/home-hub/HomeLoadError";
+import { homeStoreMenuImageSrc } from "@/lib/home/home-feed-image";
 import { storeDisplayStatusLabelKey } from "@/lib/stores/store-display-status-label";
 
 type Shown = { store: StoreHomeFeedItem; menus: HomeStoreMenuItem[]; adLabel: boolean };
@@ -72,13 +73,19 @@ export function filterHomeStorePool(
  * 비로그인 = 로그인 안내(S-07) · 저장 주소 없음 = 주소 등록 안내 · 배달 지역 안 매장 0 = 「배달되는 매장 없음」.
  * 메뉴·＋ 누르면 그 메뉴 화면(`/stores/매장/p/메뉴`)에서 담기 — 담기 시트는 배달 화면 안에서만 열리는 기존 계약 그대로.
  */
+/** 비회원 안내 옆 업종 칸 수 */
+const HOME_GATE_CATEGORY_MAX = 4;
+
 export function HomeStoresSection({
   config,
+  storeCategories,
   isMember,
   rot,
   refreshSeq,
 }: {
   config: HomeStoresConfig;
+  /** 어드민 업종(순서·그림) — 비로그인·주소 없음·지역 밖 안내 옆 칸 (수정안 #8) */
+  storeCategories: HomeStoreCategory[];
   isMember: boolean;
   rot: HomeRotationCtl | null;
   refreshSeq: number;
@@ -178,6 +185,7 @@ export function HomeStoresSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 교체는 mode·seq(새로고침)·구성 기준
   }, [isMember, mode, seq, cfgKey, language, retryKey]);
 
+  const gateCats = storeCategories.slice(0, HOME_GATE_CATEGORY_MAX);
   const head = (
     <HomeShelfHead
       title={t("home_shelf_stores_title", { brand: HOME_SHELF_BRAND_MARK })}
@@ -193,6 +201,7 @@ export function HomeStoresSection({
     return (
       <section className="home-shelf" data-home-stores data-home-stores-gate={state.gate}>
         {head}
+        <div className="home-store-gate-row">
         <div className="home-store-gate">
           {/* eslint-disable-next-line @next/next/no-img-element -- 홈 배달 배너 그림(정적) */}
           <img src="/images/home-banners/hero-delivery.jpg" alt="" className="home-store-gate-img" />
@@ -219,6 +228,26 @@ export function HomeStoresSection({
                   : t("home_stores_address_cta")}
             </button>
           </span>
+        </div>
+        {gateCats.length > 0 ? (
+          <div className="home-store-cats">
+            {gateCats.map((c) => (
+              <button
+                key={c.slug}
+                type="button"
+                className="home-store-cat"
+                onClick={() => router.push(`/stores/browse/${encodeURIComponent(c.slug)}`)}
+                data-home-store-category={c.slug}
+              >
+                {c.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- 어드민 업종 그림
+                  <img src={c.imageUrl} alt="" className="home-store-cat-img" />
+                ) : null}
+                <span className="truncate">{homeCatalogName(c, language)}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
         </div>
       </section>
     );
@@ -301,7 +330,7 @@ export function HomeStoresSection({
                       <span className="home-sq">
                         {m.imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element -- 매장 메뉴 사진
-                          <img src={m.imageUrl} alt="" className="home-sq-img" />
+                          <img src={homeStoreMenuImageSrc(m.imageUrl) || m.imageUrl} alt="" className="home-sq-img" />
                         ) : null}
                         <span className="home-store-plus">
                           <Plus className="h-4 w-4" strokeWidth={2.6} aria-hidden />

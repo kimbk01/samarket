@@ -173,6 +173,31 @@
 }
 .home-hero-count {
   right: 12px;
+  gap: 6px;
+  padding-right: 4px;
+}
+/* 「n / N │ 전체보기」 (수정안 #2) */
+.home-hero-all {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 6px;
+  border-left: 1px solid rgba(255, 255, 255, 0.35);
+  font-weight: 600;
+  opacity: 0.9;
+  color: #fff;
+}
+button.home-hero-all:active {
+  opacity: 0.6;
+}
+/* 전체보기 시트 — 같은 카드 세로 목록 */
+.home-hero-list {
+  display: grid;
+  gap: 12px;
+  padding: 4px 0 8px;
+}
+.home-hero-list .home-hero-card {
+  width: 100%;
 }
 .home-hero-dots {
   display: flex;
@@ -311,21 +336,116 @@
 .home-r3 {
   container: homer3 / inline-size;
 }
-.home-r3-wrap {
+.home-r3-wrap,
+.home-r3-hdr-row {
   --home-gut: 16px;
   max-width: 1240px;
   margin: 0 auto;
   padding: 0 var(--home-gut) 32px;
 }
 @container homer3 (min-width: 600px) {
-  .home-r3-wrap {
+  .home-r3-wrap,
+  .home-r3-hdr-row {
     --home-gut: 24px;
   }
 }
 @container homer3 (min-width: 1024px) {
-  .home-r3-wrap {
+  .home-r3-wrap,
+  .home-r3-hdr-row {
     --home-gut: 32px;
   }
+}
+
+/* 머리줄 (수정안 #1) — 본문과 같은 시작선 */
+.home-r3-hdr {
+  background: var(--dibay-domain-surface, #f3f5f3);
+}
+.home-r3-hdr-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 58px;
+  /* 본문(.home-r3-wrap)과 폭·좌우 여백만 같이 쓰고 아래 여백(32px)은 받지 않는다 (2026-11-18 실측: 내용이 16px 위로 밀림) */
+  padding-bottom: 0;
+}
+.home-r3-loc {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 60%;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 11px 0 9px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 18, 0.06),
+    0 4px 14px rgba(16, 24, 18, 0.06);
+  font-size: 14px;
+  font-weight: 700;
+  color: #141a16;
+}
+.home-r3-loc:active {
+  opacity: 0.7;
+}
+
+/* telRING 대표 칸 (수정안 #4) */
+.home-ring {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  padding: 14px 14px 14px 16px;
+  border-radius: var(--ui-radius-rect, 4px);
+  color: #fff;
+  background: linear-gradient(135deg, #1c7a3a 0%, #0f5223 50%, #0b421a 100%);
+  box-shadow: 0 8px 22px rgba(11, 66, 26, 0.25);
+  cursor: pointer;
+}
+.home-ring::before {
+  content: "";
+  position: absolute;
+  right: -50px;
+  top: -70px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 201, 51, 0.4), rgba(255, 201, 51, 0) 70%);
+  pointer-events: none;
+}
+.home-ring:active {
+  transform: scale(0.99);
+}
+.home-ring-badge {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+}
+.home-ring-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--sam-primary, #0b421a);
+  font-size: 13px;
+  font-weight: 800;
+  -webkit-tap-highlight-color: transparent;
+}
+.home-ring-cta--chat {
+  background: #ffc933;
+  color: #2a2000;
+}
+.home-ring-cta:active {
+  opacity: 0.85;
 }
 
 /* 위: 배너 + telRING·서비스 칸 */
@@ -577,15 +697,17 @@
     margin-inline: 0;
     padding: 0;
   }
+  /* 태블릿 5칸 = 상품 앞 5개 (시안 R4) */
   .home-trade-row > :nth-child(n + 6) {
     display: none;
   }
 }
 @container homer3 (min-width: 1024px) {
+  /* PC 6칸 = 상품 앞 5개 + 「마켓에서 더 보기」 (시안 R4 · 수정안 #11) */
   .home-trade-row {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
-  .home-trade-row > :nth-child(6) {
+  .home-trade-row > .home-trade-more {
     display: block;
   }
 }
@@ -594,8 +716,48 @@
   min-width: 0;
   text-align: left;
 }
+.home-trade-card {
+  cursor: pointer;
+}
 .home-trade-card:active {
   opacity: 0.8;
+}
+/* 찜(♡) — 사진 오른쪽 아래 흰 원 (수정안 #6) */
+.home-trade-fav {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #5c645e;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+/* 줄 끝 「마켓에서 더 보기」 칸 — 사진 칸과 위 끝을 맞춘다(버튼 기본 세로 가운데 정렬 해제 · 2026-11-18 실측) */
+.home-trade-more {
+  align-self: start;
+  width: 100%;
+  padding: 0;
+}
+.home-trade-more .home-sq {
+  background: #e9f3ec;
+}
+.home-trade-more-in {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  color: var(--sam-primary, #0b421a);
+  font-size: 13.5px;
+  font-weight: 800;
+  text-align: center;
 }
 .home-trade-title {
   display: block;
@@ -856,5 +1018,130 @@
   }
   .home-mag-img::before {
     padding-top: 62.5%;
+  }
+}
+
+/* 비회원 DIPICK — 안내 사진 카드 + 업종 칸 (수정안 #8) · 태블릿·PC 나란히 · 같은 높이 (#11) */
+.home-store-gate-row {
+  display: grid;
+  gap: 12px;
+}
+.home-store-cats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  align-content: start;
+}
+.home-store-cat {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 4px 10px;
+  border-radius: var(--ui-radius-rect, 4px);
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 18, 0.06),
+    0 4px 14px rgba(16, 24, 18, 0.06);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #141a16;
+  max-width: 100%;
+}
+.home-store-cat:active {
+  transform: scale(0.97);
+}
+.home-store-cat-img {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+}
+/* 안내 카드는 글 높이만큼 늘어난다 — 폭 비율 고정 높이 금지 (2026-11-18 실측: 휴대폰 360·390 에서 글·버튼이 카드 위로 넘침) */
+.home-store-gate-row .home-store-gate {
+  display: flex;
+  min-height: 188px;
+  align-items: flex-end;
+}
+.home-store-gate-row .home-store-gate::before {
+  display: none;
+}
+.home-store-gate-row .home-store-gate-copy {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  z-index: 1;
+  width: 70%;
+  padding: 18px;
+}
+@container homer3 (min-width: 600px) {
+  .home-store-gate-row {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .home-store-cats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
+    align-content: stretch;
+  }
+}
+
+/* 2단(≥1024) 같은 줄 높이 (수정안 #11 · Owner 2026-11-18 「행 높이 동일·오와 열」):
+   배너 아래 끝 = 서비스 칸 아래 끝 · 서비스 두 줄 같은 높이 · 점 표시 배너 안 */
+@container homer3 (min-width: 1024px) {
+  .home-r3-top {
+    align-items: stretch;
+  }
+  .home-r3-banner,
+  .home-r3-banner .home-hero {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .home-r3-banner .home-hero {
+    flex: 1;
+  }
+  .home-r3-banner .home-hero-track {
+    flex: 1;
+    align-items: stretch;
+  }
+  .home-r3-banner .home-hero-card {
+    height: auto;
+    min-height: 300px;
+  }
+  .home-r3-banner .home-hero-card::before {
+    display: none;
+  }
+  .home-r3-banner .home-hero-dots {
+    position: absolute;
+    left: 28px;
+    bottom: 12px;
+    z-index: 2;
+    display: flex;
+    margin: 0;
+    justify-content: flex-start;
+  }
+  .home-r3-banner .home-hero-dots i {
+    background: rgba(255, 255, 255, 0.5);
+  }
+  .home-r3-banner .home-hero-dots i.is-on {
+    background: #fff;
+  }
+  .home-r3-side,
+  .home-r3-side .home-svc {
+    display: flex;
+    flex-direction: column;
+  }
+  .home-r3-side .home-svc {
+    flex: 1;
+  }
+  .home-r3-side .home-svc-grid {
+    flex: 1;
+    grid-auto-rows: 1fr;
+  }
+  .home-svc-tile {
+    justify-content: center;
   }
 }

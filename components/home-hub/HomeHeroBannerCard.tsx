@@ -1,6 +1,6 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -24,11 +24,17 @@ export function HomeHeroBannerCard({
   index,
   total,
   onClick,
+  showAllSlot,
+  showAllLabel = true,
 }: {
   banner: HomeBannerConfig;
   index: number;
   total: number;
   onClick?: () => void;
+  /** 「전체보기」 자리 (수정안 #2) — 앱 홈은 버튼을 넘기고, 없으면 글자만 (어드민 미리보기) */
+  showAllSlot?: ReactNode;
+  /** 전체 목록 시트 안 카드는 「n / N 전체보기」 를 그리지 않는다 */
+  showAllLabel?: boolean;
 }) {
   const { t, language } = useI18n();
   const menuKey = resolveHomeBannerMenuKey(banner.href);
@@ -63,8 +69,11 @@ export function HomeHeroBannerCard({
       <img src={banner.imageUrl} alt="" className="home-hero-img" draggable={false} />
       <span className="home-hero-shade" aria-hidden />
       {banner.adLabel ? <span className="home-hero-ad">{t("home_ad")}</span> : null}
-      {total > 1 ? (
-        <span className="home-hero-count">{t("home_banner_position", { current: index + 1, total })}</span>
+      {total > 1 && showAllLabel ? (
+        <span className="home-hero-count">
+          {t("home_banner_position", { current: index + 1, total })}
+          {showAllSlot ?? <span className="home-hero-all">{t("home_see_all")}</span>}
+        </span>
       ) : null}
       <span className="home-hero-copy">
         {chip ? <span className="home-hero-chip">{chip}</span> : null}

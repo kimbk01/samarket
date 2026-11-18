@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ShoppingBag } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { HOME_MENU_CATALOG, type HomeLayoutConfig } from "@/lib/home/home-layout-contract";
-import { homeCatalogName, type HomeTradeCategory } from "@/lib/home/home-catalog-types";
+import { homeCatalogName, type HomeStoreCategory, type HomeTradeCategory } from "@/lib/home/home-catalog-types";
 import type { HomeRotationCtl } from "@/components/home-hub/use-home-rotation";
 import { HOME_SHELF_BRAND_MARK, HomeShelfHead } from "@/components/home-hub/HomeSectionHead";
 import { HomeLoadError } from "@/components/home-hub/HomeLoadError";
@@ -23,6 +24,7 @@ const HOME_TRADE_CHIPS_MAX = 8;
 export function HomeDiscoverFeed({
   layout,
   tradeCategories,
+  storeCategories,
   isMember,
   membershipChecking,
   rot,
@@ -30,6 +32,8 @@ export function HomeDiscoverFeed({
 }: {
   layout: HomeLayoutConfig;
   tradeCategories: HomeTradeCategory[];
+  /** 비회원 DIPICK 안내 옆 업종 칸 (수정안 #8) */
+  storeCategories: HomeStoreCategory[];
   isMember: boolean;
   membershipChecking: boolean;
   rot: HomeRotationCtl | null;
@@ -90,15 +94,35 @@ export function HomeDiscoverFeed({
         ) : (
           <div className="home-trade-row">
             {trades.items.map((p) => (
-              <HomeTradeShelfCard key={p.id} post={p} tradeCategories={tradeCategories} />
+              <HomeTradeShelfCard
+                key={p.id}
+                post={p}
+                tradeCategories={tradeCategories}
+                favorite={isMember ? { on: Boolean(trades.favorites[p.id]), onChange: (on) => trades.setFavorite(p.id, on) } : undefined}
+              />
             ))}
+            {/* 줄 끝 「마켓에서 더 보기」 — 상품이 칸 수보다 적어도 줄이 비지 않게 (수정안 #11) */}
+            <button type="button" className="home-trade-card home-trade-more" onClick={() => router.push("/market")}>
+              <span className="home-sq">
+                <span className="home-trade-more-in">
+                  <ShoppingBag className="h-[26px] w-[26px]" strokeWidth={1.9} aria-hidden />
+                  {t("home_shelf_trade_more")}
+                </span>
+              </span>
+            </button>
           </div>
         )}
       </section>
 
       {/* ② DIPICK — 회원 확인 중에는 그리지 않는다(비회원 안내가 먼저 깜빡이지 않게 · 현행 규칙) */}
       {membershipChecking ? null : (
-        <HomeStoresSection config={layout.stores} isMember={isMember} rot={rot} refreshSeq={refreshSeq} />
+        <HomeStoresSection
+          config={layout.stores}
+          storeCategories={storeCategories}
+          isMember={isMember}
+          rot={rot}
+          refreshSeq={refreshSeq}
+        />
       )}
 
       {/* ③ 정보 공유 */}
