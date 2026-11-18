@@ -19,7 +19,6 @@ import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
 import { cmRtPresenceIsolatedError } from "@/lib/community-messenger/realtime/cm-rt-loop-guard";
 import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
-import { isPresenceHeartbeatIdle } from "@/lib/community-messenger/realtime/presence/presence-heartbeat-idle";
 
 type PresencePayload = {
   userId?: unknown;
@@ -51,29 +50,14 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-/**
- * F1 — 유휴로 HTTP 하트비트가 멈춘 상태. 활동이 생기면 `resumePresenceHeartbeatFromIdle` 이
- * 즉시 1회 전송 + 12초 주기로 되돌린다 (런타임이 켜질 때 연결).
- */
-let heartbeatIdlePaused = false;
-let resumePresenceHeartbeatFromIdle: (() => void) | null = null;
-
 export function bumpCommunityMessengerPresenceActivity(_reason?: string): void {
   const t = Date.now();
   lastActivityMs = t;
   lastActivityThrottleAt = t;
-  if (heartbeatIdlePaused) resumePresenceHeartbeatFromIdle?.();
 }
 
 function maybeRecordThrottledActivity() {
   const t = Date.now();
-  /** 유휴 정지 중이면 간격 제한 없이 바로 기록하고 재개한다 (재개 지연 0) */
-  if (heartbeatIdlePaused) {
-    lastActivityThrottleAt = t;
-    lastActivityMs = t;
-    resumePresenceHeartbeatFromIdle?.();
-    return;
-  }
   if (t - lastActivityThrottleAt < ACTIVITY_THROTTLE_MS) return;
   lastActivityThrottleAt = t;
   lastActivityMs = t;
@@ -166,15 +150,6 @@ function activeRoomIdFromPathname(): string | null {
   return m?.[1] ? decodeURIComponent(m[1]) : null;
 }
 
-/** F1 — 앞화면인데 사람이 손대지 않은 지 한도(방 밖 5분 · 방 안 30분)를 넘겼는가 */
-function presenceHeartbeatIdleNow(): boolean {
-  return isPresenceHeartbeatIdle({
-    nowMs: Date.now(),
-    lastActivityMs,
-    inRoom: activeRoomIdFromPathname() != null,
-  });
-}
-
 /**
  * DB `last_ping_at`·`app_visibility` 하트비트 — Realtime 채널 구독 여부와 **무관하게** 보낸다
  * (채널이 끊겨도 서버 presence·notification-presence-policy 가 stale 해지지 않도록).
@@ -183,13 +158,6 @@ function presenceHeartbeatIdleNow(): boolean {
 function postPresenceHeartbeatHttp(): boolean {
   const now = Date.now();
   const appVisibility = currentDocumentVisible() ? "foreground" : "background";
-  /**
-   * F1 — 유휴 앞화면 하트비트는 보내지 않는다 (Realtime 재연결 SUBSCRIBED 등 off-cadence 경로 포함).
-   * 백그라운드·세션 종료 신호는 항상 보낸다.
-   */
-  if (appVisibility === "foreground" && presenceHeartbeatIdleNow()) {
-    return false;
-  }
   if (
     lastPresenceHttpPostAt > 0 &&
     appVisibility === lastPresenceHttpPostVisibility &&
@@ -358,33 +326,15 @@ function ensurePresenceRuntime(userId: string) {
   const scheduleHeartbeat = () => {
     clearPresenceHeartbeatTimer();
     if (!currentDocumentVisible()) return;
-    /** F1 — 유휴면 타이머를 걸지 않고 멈춘다. 다음 활동에서 resume 이 다시 건다. */
-    if (presenceHeartbeatIdleNow()) {
-      heartbeatIdlePaused = true;
-      return;
-    }
-    heartbeatIdlePaused = false;
     const sinceLastPost = lastPresenceHttpPostAt > 0 ? Date.now() - lastPresenceHttpPostAt : 0;
     const delayMs = Math.min(HEARTBEAT_MS, Math.max(0, HEARTBEAT_MS - sinceLastPost));
     presenceHeartbeatTimer = setTimeout(() => {
       presenceHeartbeatTimer = null;
       if (!currentDocumentVisible()) return;
-      if (presenceHeartbeatIdleNow()) {
-        heartbeatIdlePaused = true;
-        return;
-      }
       void syncOwnState().finally(() => {
         scheduleHeartbeat();
       });
     }, delayMs);
-  };
-
-  resumePresenceHeartbeatFromIdle = () => {
-    if (!heartbeatIdlePaused) return;
-    if (!currentDocumentVisible()) return;
-    heartbeatIdlePaused = false;
-    void syncOwnState();
-    scheduleHeartbeat();
   };
 
   const onSync = () => {
@@ -457,8 +407,7 @@ function ensurePresenceRuntime(userId: string) {
   window.addEventListener("pagehide", onPageHide);
   document.addEventListener("pointerdown", onActivity, { capture: true, passive: true });
   document.addEventListener("keydown", onActivity);
-  /** F1 — 메신저 목록·타임라인은 안쪽 스크롤 상자라 window scroll 이 오지 않는다 → capture 로 받는다 */
-  document.addEventListener("scroll", onActivity, { capture: true, passive: true });
+  window.addEventListener("scroll", onActivity, { passive: true });
 
   /** 첫 HTTP 하트비트 — Realtime SUBSCRIBED 를 기다리지 않는다 */
   void syncOwnState();
@@ -472,9 +421,7 @@ function ensurePresenceRuntime(userId: string) {
     window.removeEventListener("pagehide", onPageHide);
     document.removeEventListener("pointerdown", onActivity, true);
     document.removeEventListener("keydown", onActivity);
-    document.removeEventListener("scroll", onActivity, true);
-    resumePresenceHeartbeatFromIdle = null;
-    heartbeatIdlePaused = false;
+    window.removeEventListener("scroll", onActivity);
     const ch = activeChannel;
     const wasSubscribed = channelSubscribed;
     channelSubscribed = false;

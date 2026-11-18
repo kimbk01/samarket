@@ -66,3 +66,14 @@
 - 하트비트 주기 변경(12초 유지) — 기능 ① 보호.
 - 서버 판정 상수(15·30·90초) 변경.
 - 통화 코드.
+
+---
+
+## 7. 되돌림 (2026-11-19 · 작업자 결함)
+
+#483 병합(16:57Z) 뒤 D1 조사에서 결함을 확인해 되돌린다.
+
+- 원인(CODE): presence 채널 「정상」 판정은 18초 안에 presence `sync` 신호가 있어야 유지된다(`community-messenger-realtime-health.ts:113-117`, `use-community-messenger-presence-runtime.ts` `silentAfterMs: 18_000`). 그 신호를 각 기기의 12초 `track` 이 만들어 왔다.
+- F1 이 유휴 기기의 `track` 까지 멈추면 접속자가 적은 시간에 채널이 「비정상」이 된다. 그러면 `presence-snapshot-poll-scheduler` 가 화면의 상대 id 를 **12초마다 GET**(DB) 으로 대체 조회한다 → 절감이 사라진다. 또 `use-community-messenger-peer-presence.ts:95` 신선도 강등으로 유휴 상대가 「오프라인」으로 보일 수 있다.
+- §3 표의 「상대 화면은 계속 온라인」은 이 조건에서 **틀린 서술**이었다.
+- 결론: presence 는 HTTP 하트비트·Realtime track·health 판정·DB 폴백이 한 묶음이라 부분 정지는 땜빵이 된다. 구조 개선은 D1 설계(`d1-presence-push-structure-analysis-2026-11-19.md`)에서 묶음 전체로 한다.
