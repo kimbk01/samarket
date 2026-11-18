@@ -31,7 +31,16 @@ describe("E1 복원 실행의 옛 알림 의도", () => {
   it("onCreate 만 이 판정을 쓰고, 새 알림(onNewIntent)은 그대로 처리", () => {
     expect(main.match(/shouldSkipRestoredLaunchRoute\(launchIntent, savedInstanceState != null\)/g)?.length).toBe(1);
     expect(main).toMatch(/restored_launch_intent_skipped[\s\S]{0,300}\} else \{\s*handleNotificationLaunchIntent\(launchIntent\);\s*\}/);
-    expect(main).toMatch(/setIntent\(intent\);\s*handleNotificationLaunchIntent\(intent\);/);
+  });
+
+  it("보완(빌드 77 실기 FAIL): Capacitor load() 의 onNewIntent(getIntent()) 도 같은 판정 — super.onCreate 동안만", () => {
+    expect(main).toMatch(
+      /skipLaunchRouteDuringSuperOnCreate =\s*shouldSkipRestoredLaunchRoute\(getIntent\(\), savedInstanceState != null\);\s*try \{\s*super\.onCreate\(savedInstanceState\);\s*\} finally \{\s*skipLaunchRouteDuringSuperOnCreate = false;\s*\}/
+    );
+    const onNew = body("public void onNewIntent(Intent intent) {", "\n  }\n");
+    expect(onNew).toMatch(/super\.onNewIntent\(intent\);\s*setIntent\(intent\);\s*if \(skipLaunchRouteDuringSuperOnCreate\) \{/);
+    expect(onNew).toContain("handleNotificationLaunchIntent(intent);");
+    expect(main.match(/skipLaunchRouteDuringSuperOnCreate = /g)?.length).toBe(2);
   });
 
   it("통화 V4 잠금 수락 표식 기록은 판정 앞에서 그대로", () => {
