@@ -10,7 +10,8 @@
 /** 라우트 경로(Next 앱 라우트 표기) → 요청 1회당 Supabase 호출 상한 */
 export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/community-messenger/calls/sessions/incoming": 5.4,
-  "/api/community-messenger/rooms/[roomId]/messages": 10.6,
+  /** B3 — access cleared_at 재사용으로 participants 1회 제거(미적용 DB는 폴백, 상한은 내린 값 유지) */
+  "/api/community-messenger/rooms/[roomId]/messages": 9.6,
   "/api/community-messenger/rooms/[roomId]/bootstrap": 4.0,
   "/api/community-messenger/presence": 1.1,
   "/api/me/notifications/badge-count": 7.7,

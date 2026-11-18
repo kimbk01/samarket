@@ -14,11 +14,25 @@ export type MessengerRoomAccessFacts = {
   deleted: boolean;
   /** participants(room_id,user_id) 이고 left_at is null */
   participantActive: boolean;
+  /** 활성 참가 행 id (없으면 "") — B3 messages history floor 재사용 */
+  participantId: string;
+  /** 기록 하한 — B3 GET messages 가 participants 재조회 없이 씀 (미적용 DB면 null) */
+  clearedAt: string | null;
   /** fetchActiveParticipant 와 같은 조건(left_at·blocked_hidden_at null)의 행 */
   groupParticipant: GroupParticipantRow | null;
   /** 활성 강퇴(unbanned_at is null) */
   banned: boolean;
 };
+
+/** B3 — access 가 활성 참가면 messages list 의 participants SELECT 대체 */
+export function viewerParticipantPreflightFromAccess(
+  access: MessengerRoomAccessFacts | null | undefined
+): { id: string; cleared_at: string | null } | null {
+  if (!access?.participantActive) return null;
+  const id = trimText(access.participantId) || trimText(access.groupParticipant?.id);
+  if (!id) return null;
+  return { id, cleared_at: access.clearedAt };
+}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -48,16 +62,21 @@ export async function loadMessengerRoomAccess(
     room_type?: unknown;
     deleted_at?: unknown;
     participant_active?: unknown;
+    participant_id?: unknown;
+    cleared_at?: unknown;
     group_participant?: unknown;
     banned?: unknown;
   };
   const gp = row.group_participant;
+  const clearedRaw = row.cleared_at;
   return {
     roomId: rid,
     roomExists: row.room_exists === true,
     roomType: trimText(row.room_type),
     deleted: Boolean(trimText(row.deleted_at)),
     participantActive: row.participant_active === true,
+    participantId: trimText(row.participant_id),
+    clearedAt: typeof clearedRaw === "string" && clearedRaw.trim() ? clearedRaw.trim() : null,
     groupParticipant: gp && typeof gp === "object" ? (gp as GroupParticipantRow) : null,
     banned: row.banned === true,
   };
