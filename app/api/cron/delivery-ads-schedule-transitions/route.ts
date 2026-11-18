@@ -3,7 +3,10 @@ import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
-import { runDeliveryAdSchedulePromoterBatch } from "@/lib/stores/advertising/delivery-ad-schedule-promoter";
+import {
+  probeDeliveryAdSchedulePromoterDue,
+  runDeliveryAdSchedulePromoterBatch,
+} from "@/lib/stores/advertising/delivery-ad-schedule-promoter";
 import { runPartnerMembershipExpiryBatch } from "@/lib/stores/advertising/delivery-ad-partner-membership-writer";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { runStoreCouponAutoEndBatch } from "@/lib/stores/store-coupon-auto-end";
@@ -55,7 +58,19 @@ async function runSchedulePromoterJob(req: Request) {
   }
 
   try {
-    const result = await runDeliveryAdSchedulePromoterBatch(sb, { batchSize: 50 });
+    /** C2 — due 없으면 promoter 6스캔 스킵(파트너·쿠폰 RPC 는 유지) */
+    const promoterDue = await probeDeliveryAdSchedulePromoterDue(sb);
+    const result = promoterDue
+      ? await runDeliveryAdSchedulePromoterBatch(sb, { batchSize: 50 })
+      : {
+          ok: true as const,
+          activated: 0,
+          ended: 0,
+          expired: 0,
+          failed: 0,
+          scanned: 0,
+          results: [] as const,
+        };
     // ADS-05 — partner membership period end -> ENDED (only periods ending after the apply instant, D-5).
     const partnerExpiry = await runPartnerMembershipExpiryBatch(sb, { limit: 200 });
     if (!partnerExpiry.ok) {

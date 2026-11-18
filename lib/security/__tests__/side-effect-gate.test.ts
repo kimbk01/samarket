@@ -69,11 +69,22 @@ describe("cron 계약 — vercel.json cron 22개는 게이트, 통화 관련 2�
    */
   const CALL_DOMAIN_EXCLUDED = new Set([
     "/api/community-messenger/calls/sessions/stale-cleanup",
+    /** 수동 경로 유지 — Vercel 스케줄은 store-commerce-minute-tick 으로 통합(C1) */
     "/api/cron/notification-push-handoff",
   ]);
 
-  it("cron 수 = 25 (변경 시 이 계약을 함께 갱신 · 2026-11-10 messenger-contacts-maintenance 추가 · 2026-11-12 moim-schedules 추가 · 2026-11-16 crew-rep-daily-recompute 추가 · 2026-11-18 request-budget-watch 추가)", () => {
-    expect(crons.length).toBe(25);
+  it("cron 수 = 23 (C1: 1분 3종 → store-commerce-minute-tick 1 · 변경 시 이 계약 갱신)", () => {
+    expect(crons.length).toBe(23);
+  });
+
+  it("C1 minute tick: 푸시 인계는 게이트 전에 돌고 store 만 게이트", () => {
+    const src = readFileSync(
+      path.join(root, "app/api/cron/store-commerce-minute-tick/route.ts"),
+      "utf8"
+    );
+    expect(src.indexOf("executeNotificationPushHandoff")).toBeLessThan(
+      src.indexOf("rejectCronIfSideEffectsBlocked()")
+    );
   });
   for (const c of crons) {
     it(`${c.path}`, () => {

@@ -24,7 +24,8 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/me/profile": 2.3,
   "/api/community-messenger/trade-chat-list-meta": 15.0,
   "/api/me/mandatory-address-gate": 2.9,
-  "/api/cron/delivery-ads-schedule-transitions": 11.0,
+  /** C2 — promoter due probe 후 유휴 시 6스캔 스킵(파트너·쿠폰 RPC 유지) */
+  "/api/cron/delivery-ads-schedule-transitions": 7.0,
   "/api/launch-intro/live": 3.0,
   "/api/me/notification-settings": 3.5,
   "/api/platform-popup/resolve": 2.4,
@@ -40,10 +41,9 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/community-messenger/rooms/[roomId]/peer-relation": 3.1,
   "/api/auth/session": 1.8,
   "/api/philife/posts": 7.8,
-  "/api/cron/store-order-accept-reminders": 1.0,
+  /** C1 — 분당 1틱(푸시 claim + store probe; due 없으면 store 본문 스킵) */
+  "/api/cron/store-commerce-minute-tick": 2.0,
   "/api/cron/commerce-notification-push-handoff": 2.0,
-  "/api/cron/notification-push-handoff": 1.0,
-  "/api/cron/store-orders-accept-timeout": 1.0,
   "/api/me/notifications": 1.5,
   "/api/philife/neighborhood-topic-options": 1.5,
   "/api/home/store-menus": 2.2,

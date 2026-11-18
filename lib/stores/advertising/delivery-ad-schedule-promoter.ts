@@ -274,6 +274,51 @@ export type DeliveryAdSchedulePromoterBatchResult = {
 };
 
 /**
+ * C2 — promoter 6회 스캔 전에 표당 1회로 due 유무만 본다.
+ * false 이면 activate/end/unreviewed 후보가 없다고 보고 배치 본문을 스킵한다.
+ */
+export async function probeDeliveryAdSchedulePromoterDue(
+  sb: SupabaseClient,
+  input: { nowMs?: number } = {}
+): Promise<boolean> {
+  const nowIso = new Date(input.nowMs ?? Date.now()).toISOString();
+  const actionable = [
+    "SCHEDULED",
+    "ACTIVE",
+    ...PAUSED_LIFECYCLES,
+    ...UNREVIEWED_LIFECYCLES,
+  ] as string[];
+  for (const productKind of ["store_sponsored", "banner"] as const) {
+    const table = tableFor(productKind);
+    const { data: activateHit, error: aErr } = await sb
+      .from(table)
+      .select("id")
+      .eq("lifecycle_status", "SCHEDULED")
+      .lte("start_at", nowIso)
+      .gt("end_at", nowIso)
+      .limit(1);
+    if (aErr) {
+      console.error("[probeDeliveryAdSchedulePromoterDue] activate", productKind, aErr.message);
+      return true;
+    }
+    if ((activateHit?.length ?? 0) > 0) return true;
+
+    const { data: endHit, error: eErr } = await sb
+      .from(table)
+      .select("id")
+      .in("lifecycle_status", actionable)
+      .lte("end_at", nowIso)
+      .limit(1);
+    if (eErr) {
+      console.error("[probeDeliveryAdSchedulePromoterDue] end", productKind, eErr.message);
+      return true;
+    }
+    if ((endHit?.length ?? 0) > 0) return true;
+  }
+  return false;
+}
+
+/**
  * Bounded batch: activate due SCHEDULED, then end overdue ACTIVE|SCHEDULED.
  * Per-campaign failures are isolated.
  */
