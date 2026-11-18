@@ -31,6 +31,7 @@ import {
 } from "@/lib/admin/community-admin/community-post-moderate-rpc";
 import { applyCommunityPointReclaimOnPostAdminRemove } from "@/lib/points/community-point-bridge";
 import { mergePostBodyImages } from "@/lib/philife/post-body-images";
+import { invalidateCommunityFeedTopCandidatesCache } from "@/lib/community-feed/community-feed-top-candidates-cache.server";
 
 export const COMMUNITY_POST_ADMIN_ROW_SELECT =
   "id, user_id, origin_kind, status, is_reported, title, content, content_blocks, images, thumbnail_url, topic_id, topic_slug, category, " +
@@ -323,6 +324,8 @@ export async function applyCommunityPostAdminPatch(
     updated = data;
   }
   const after = updated as unknown as PostRow;
+  /** 2026-11-19 — 공지·고정·상태가 바뀌었을 수 있다 → 동네 피드 상단 후보 공유 캐시 즉시 만료 */
+  invalidateCommunityFeedTopCandidatesCache();
 
   if (syncedImages) {
     await syncCommunityPostImageRows(sb, postId, syncedImages);

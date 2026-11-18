@@ -12,6 +12,7 @@ import {
   type CommunityPostAdminPatchBody,
 } from "@/lib/admin/community-admin/community-post-admin-patch";
 import { COMMUNITY_POST_PIN_CLEAR_PATCH } from "@/lib/admin/community-admin/community-post-pin";
+import { invalidateCommunityFeedTopCandidatesCache } from "@/lib/community-feed/community-feed-top-candidates-cache.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,6 +82,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ postId: s
       const { data: fresh } = await sb.from("community_posts").select(COMMUNITY_NOTICE_LIST_SELECT).eq("id", id).maybeSingle();
       return NextResponse.json({ ok: false, error: "conflict", post: fresh ?? null }, { status: 409 });
     }
+    invalidateCommunityFeedTopCandidatesCache();
     const audit = await appendCommunityAdminAudit(sb, req, {
       actorId: admin.userId,
       targetType: "community_post",
