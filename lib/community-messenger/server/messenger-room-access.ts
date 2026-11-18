@@ -29,7 +29,12 @@ export function viewerParticipantPreflightFromAccess(
   access: MessengerRoomAccessFacts | null | undefined
 ): { id: string; cleared_at: string | null } | null {
   if (!access?.participantActive) return null;
-  const id = trimText(access.participantId) || trimText(access.groupParticipant?.id);
+  /**
+   * `participant_id` 는 B3 마이그레이션(20261118180000) 적용 DB 의 room_access 만 준다 — 그때만 `cleared_at` 도 믿을 수 있다.
+   * 미적용 DB 의 `group_participant.id` 로 대신 채우면 `cleared_at` 이 없어 null(하한 없음)로 넘어가
+   * 「대화 내용 지우기」 이전 메시지가 다시 보인다 → null 을 돌려 participants 재조회(기존 경로)로 보낸다.
+   */
+  const id = trimText(access.participantId);
   if (!id) return null;
   return { id, cleared_at: access.clearedAt };
 }

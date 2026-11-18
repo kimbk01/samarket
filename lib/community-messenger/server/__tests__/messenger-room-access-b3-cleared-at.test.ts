@@ -43,6 +43,31 @@ describe("B3 room_access cleared_at preflight", () => {
     ).toBeNull();
   });
 
+  it("pre-B3 DB (no participant_id) falls back to participants re-query — never trusts group_participant.id with cleared_at null", () => {
+    expect(
+      viewerParticipantPreflightFromAccess({
+        roomId: "r1",
+        roomExists: true,
+        roomType: "direct",
+        deleted: false,
+        participantActive: true,
+        participantId: "",
+        clearedAt: null,
+        groupParticipant: {
+          id: "p1",
+          room_id: "r1",
+          user_id: "u1",
+          role: "member",
+          unread_count: 0,
+          is_muted: false,
+          is_pinned: false,
+          left_at: null,
+        } as MessengerRoomAccessFacts["groupParticipant"],
+        banned: false,
+      })
+    ).toBeNull();
+  });
+
   it("migration adds participant_id and cleared_at", () => {
     const sql = readFileSync(
       join(ROOT, "supabase/migrations/20261118180000_community_messenger_room_access_cleared_at_b3.sql"),
