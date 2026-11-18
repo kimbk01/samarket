@@ -35,6 +35,7 @@ import {
   type MessengerUnconfirmedTextSend,
 } from "@/lib/community-messenger/room/messenger-outbound-failed-send";
 import { useMessengerPendingRowSeqRef } from "@/lib/community-messenger/room/messenger-pending-row-seq";
+import { DIBAY_AUTH_BOUND_USER_ID_KEY } from "@/lib/auth/client-instance-id";
 import {
   beginActiveComposerFailRestoreSession,
   markActiveComposerDraftEditedDuringOutbound,
@@ -159,6 +160,8 @@ function jsonResponse(status: number, body: unknown) {
 
 const fetchMock = vi.fn();
 beforeEach(() => {
+  /** 최종 감사 D2: 보관은 현재 바인딩된 사용자(로그인)와 보낸 사용자가 같을 때만 — 기본 로그인 사용자 "me" */
+  localStorage.setItem(DIBAY_AUTH_BOUND_USER_ID_KEY, "me");
   __resetMessengerTextSendInflightForTest();
   snackbar.calls = [];
   fetchMock.mockReset();
@@ -876,7 +879,8 @@ describe("PR #442 감사 D-2·D-3", () => {
     expect(h.rows().find((r) => r.id === "td2")?.sendFailed).toBe(true);
   });
 
-  it("D-3: A 요청 중 wipe(로그아웃) → 503 → B 로 같은 방 진입 → 실패 행 0 (A 항목은 지우지 않음)", async () => {
+  it("D-3·최종 감사 D2: A 요청 중 wipe(로그아웃) → 503 → 보관 0건(기기·메모리), B 진입 시 행 0", async () => {
+    localStorage.setItem(DIBAY_AUTH_BOUND_USER_ID_KEY, "user-a");
     const a = mount([], { viewer: "user-a" });
     const t = a.nextTempId();
     a.setRows([optimistic(t, "c-acct", "a's text")]);
@@ -886,20 +890,69 @@ describe("PR #442 감사 D-2·D-3", () => {
     act(() => {
       attemptA = a.runRaw({ tempId: t, clientMessageId: "c-acct", content: "a's text", replyId: "", failRestoreGeneration: 0 });
     });
+    expect(savedCids()).toEqual(["c-acct"]);
     a.unmount();
+    /** 로그아웃 wipe 흉내 — 보관분 정리 + 바인딩 해제(`client-session-wipe` 의 clearMessengerFailedTextSends·clearBoundAuthUserId) */
     clearMessengerFailedTextSends();
+    localStorage.removeItem(DIBAY_AUTH_BOUND_USER_ID_KEY);
     await act(async () => {
       resolveA(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
       await attemptA;
     });
-    // 늦은 실패 응답이 A 의 글을 다시 보관했다
-    expect(savedCids()).toEqual(["c-acct"]);
+    expect(savedCids()).toEqual([]);
+    expect(snackbar.calls).toEqual([]);
+    localStorage.setItem(DIBAY_AUTH_BOUND_USER_ID_KEY, "user-b");
     const b = mount([], { viewer: "user-b" });
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
     });
     expect(b.rows().filter((r) => r.clientMessageId === "c-acct")).toHaveLength(0);
-    expect(savedCids()).toEqual(["c-acct"]);
+    expect(savedCids()).toEqual([]);
+  });
+
+  it("최종 감사 D3: 옛 화면(나감)에서 503 → 「재전송을 눌러 주세요」 실패 안내 스낵바 없음(실패 행은 재진입 때)", async () => {
+    const a = mount();
+    const t = a.nextTempId();
+    a.setRows([optimistic(t, "c-old", "old screen")]);
+    let resolveA: (r: Response) => void = () => undefined;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((r) => (resolveA = r)));
+    let attemptA: Promise<boolean> | null = null;
+    act(() => {
+      attemptA = a.runRaw({ tempId: t, clientMessageId: "c-old", content: "old screen", replyId: "", failRestoreGeneration: 0 });
+    });
+    a.unmount();
+    await act(async () => {
+      resolveA(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+      await attemptA;
+    });
+    expect(snackbar.calls).not.toContain("err:message_send_unavailable");
+    const b = mount();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(b.rows().filter((r) => r.clientMessageId === "c-old" && r.sendFailed)).toHaveLength(1);
+  });
+
+  it("최종 감사 D3: 옛 화면이어도 「저장 못 함」 경고는 유지", async () => {
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("quota", "QuotaExceededError");
+    });
+    const a = mount();
+    const t = a.nextTempId();
+    a.setRows([optimistic(t, "c-old2", "old2")]);
+    let resolveA: (r: Response) => void = () => undefined;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((r) => (resolveA = r)));
+    let attemptA: Promise<boolean> | null = null;
+    act(() => {
+      attemptA = a.runRaw({ tempId: t, clientMessageId: "c-old2", content: "old2", replyId: "", failRestoreGeneration: 0 });
+    });
+    a.unmount();
+    await act(async () => {
+      resolveA(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+      await attemptA;
+    });
+    spy.mockRestore();
+    expect(snackbar.calls).toEqual(["cm_ui_failed_text_not_kept"]);
   });
 
   it("D-3 정정: 사용자 id 없는 옛 항목(main 이 저장) → 진입 복원 → 실패 행 1, 사용자 id 를 채워 다시 저장하지 않음", async () => {

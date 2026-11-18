@@ -53,6 +53,7 @@ import {
 } from "@/lib/community-messenger/upload/messenger-direct-upload-policy";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
+import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
 
 type RoomRow = CommunityMessengerMessage & { pending?: boolean; sendFailed?: boolean };
 
@@ -113,6 +114,17 @@ export function isMessengerTextSendInflight(roomId: string, clientMessageId: str
 /** 테스트 전용 — 앱 종료(메모리 초기화) 흉내 */
 export function __resetMessengerTextSendInflightForTest(): void {
   inflightTextSendKeys.clear();
+}
+
+/**
+ * 최종 감사 D2: 이 요청의 보낸 사용자 글을 지금 보관해도 되는가 — 현재 바인딩된 사용자(`getBoundAuthUserId`, 로그인 때
+ * `bindAuthUserId`, 로그아웃·계정 전환 wipe 때 `clearBoundAuthUserId`)와 같을 때만. 세션이 없거나 다른 계정이면 false.
+ */
+function canPersistFailedTextForSender(senderUserId: string | null): boolean {
+  const sender = (senderUserId ?? "").trim();
+  if (!sender) return false;
+  const bound = getBoundAuthUserId();
+  return Boolean(bound && bound === sender);
 }
 
 /** 다른(옛) 인스턴스가 실패 글을 보관했음을 같은 방 화면에 알리는 창 이벤트 */
@@ -499,13 +511,15 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
     const startRow = d.roomMessagesRef.current.find((item) => item.id === tempId);
     /** 감사 D-3: 보낸 사용자 — 전송 시작 때 잡아 둔다(요청 중 계정이 바뀌어도 원래 사용자 것으로 보관) */
     const senderUserId = d.viewerUserId.trim() || null;
-    saveMessengerFailedTextSend(roomId, {
-      clientMessageId,
-      content,
-      replyToMessageId: replyId || null,
-      createdAt: startRow?.createdAt ?? new Date().toISOString(),
-      senderUserId,
-    });
+    if (canPersistFailedTextForSender(senderUserId)) {
+      saveMessengerFailedTextSend(roomId, {
+        clientMessageId,
+        content,
+        replyToMessageId: replyId || null,
+        createdAt: startRow?.createdAt ?? new Date().toISOString(),
+        senderUserId,
+      });
+    }
     /** 감사 D1: 기기 저장소가 거부해도 메모리 보관소에 들어가므로 항상 추적(확정 행이 오면 prune 이 두 곳 모두 지움) */
     persistedFailedTextCidsRef.current.add(clientMessageId);
     /**
@@ -628,8 +642,21 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
         return false;
       }
     }
-    if (!authBlocked) {
+    /**
+     * 최종 감사 D3: 실패 안내(「재전송을 눌러 주세요」 등)는 이 화면에 실패 행·재전송 버튼이 있을 때만.
+     * 옛 화면(나감·재진입·다른 방)이면 띄우지 않는다 — 실패 행은 같은 방 화면이 있으면 그 화면에, 없으면 재진입 때 보인다.
+     */
+    if (!authBlocked && sameScreen()) {
       showMessengerSnackbar(failureMessage(), { variant: "error" });
+    }
+    /**
+     * 최종 감사 D2: 요청 중 로그아웃(wipe)·계정 전환 뒤 늦게 온 실패 응답은 보낸 사용자 ≠ 지금 바인딩된 사용자(또는 세션 없음)
+     * → 보관·저장 실패 안내·창 이벤트 모두 하지 않는다(이전 계정 글을 기기·메모리에 다시 쓰지 않게).
+     */
+    if (!canPersistFailedTextForSender(senderUserId)) {
+      clearMessengerOutboundFailedSend(tempId);
+      d.failedOutboundRowIdsRef.current.delete(tempId);
+      return false;
     }
     /** P1 (Owner 2026-11-18): 방을 나갔다 와도 실패 행이 남도록 기기 저장소에 보관 */
     const rowCreatedAt =
