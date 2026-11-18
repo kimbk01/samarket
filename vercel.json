@@ -42,7 +42,7 @@
       "schedule": "*/2 * * * *"
     },
     {
-      "path": "/api/cron/store-commerce-minute-tick",
+      "path": "/api/cron/notification-push-handoff",
       "schedule": "* * * * *"
     },
     {
@@ -88,6 +88,14 @@
     {
       "path": "/api/cron/store-orders-auto-complete",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/store-order-accept-reminders",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/store-orders-accept-timeout",
+      "schedule": "* * * * *"
     },
     {
       "path": "/api/cron/store-orders-sla-scan",
