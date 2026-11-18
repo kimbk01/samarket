@@ -39,6 +39,7 @@ import { DiBaYDevicePermissionOnboardingGate } from "@/components/permissions/Di
 import { NotificationPermissionSyncHost } from "@/lib/permissions/permission-manager/notification-permission-sync-host";
 import { PushRouteListener } from "@/components/push/PushRouteListener";
 import { FriendQrAppLinkListener } from "@/components/community-messenger/friend-qr/FriendQrAppLinkListener";
+import { MessengerListWebBackRestore } from "@/components/community-messenger/MessengerListWebBackRestore";
 import { NotificationRouteReadSync } from "@/components/push/NotificationRouteReadSync";
 import { registerGoogleNativeRecoverBootstrap } from "@/lib/auth/native/google-native-recover-bootstrap.client";
 import { MAIN_SHELL_VIEWPORT_LOCK_CLASS } from "@/lib/layout/main-shell-viewport";
@@ -213,6 +214,7 @@ export function MainAppProviderTree({
           <NativePushRegistrationLazy />
           <PushRouteListener />
           <FriendQrAppLinkListener />
+          <MessengerListWebBackRestore />
           <NotificationRouteReadSync />
           <NativeBadgeSyncLazy />
           <AndroidPlayInAppUpdateHostLazy />

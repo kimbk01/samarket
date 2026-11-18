@@ -33,6 +33,7 @@ import {
   resolveMessengerRoomEntryOrigin,
   type MessengerRoomEntryOrigin,
 } from "@/lib/community-messenger/room/messenger-room-entry-origin-store";
+import { navigateMessengerRoomToList } from "@/lib/community-messenger/room/messenger-list-web-back";
 
 /** 방 종류 목록 — `communityMessengerRoomInboxGroupKind`(목록 분류 SSOT) 값 그대로. 스냅샷 전이면 null. */
 export type MessengerRoomListKind = "trade" | "delivery" | "general";
@@ -92,7 +93,11 @@ export function resolveMessengerRoomBackTarget(args: {
   return { kind: "replace", href: resolveMessengerRoomListHref(args) };
 }
 
-/** 목적지 실행 — 이동 1회(back 또는 replace 중 하나). */
+/**
+ * 목적지 실행 — 이동 1회(back 또는 replace 중 하나).
+ * 목록 이동은 `navigateMessengerRoomToList`(N1) — 앞쪽에 같은 목록 항목이 방·알림 항목만 사이에 두고 있으면 그 항목으로
+ * `navigation.traverseTo`, 아니면 `router.replace`. 도착한 목록의 ◁ 는 목록 이전 화면(웹 담당). Navigation API 없으면 replace 만.
+ */
 export function runMessengerRoomBackTarget(
   router: { back: () => void; replace: (href: string, options?: { scroll?: boolean }) => void },
   target: MessengerRoomBackTarget
@@ -101,7 +106,7 @@ export function runMessengerRoomBackTarget(
     router.back();
     return;
   }
-  router.replace(target.href, { scroll: false });
+  navigateMessengerRoomToList(router, target.href);
 }
 
 /** 지금 기록 항목의 진입 출처로 목적지를 정한다(누른 순간 판정). */

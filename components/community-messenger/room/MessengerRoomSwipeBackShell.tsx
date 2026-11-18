@@ -24,6 +24,8 @@ import {
   type MessengerRoomListKind,
 } from "@/lib/community-messenger/room/messenger-room-back-target";
 import { setPageBackOwner } from "@/lib/ui/overlay-back-stack";
+import { syncMessengerListWebBack } from "@/lib/community-messenger/room/messenger-list-web-back";
+import { isCommunityMessengerRoomRoutePathname } from "@/lib/community-messenger/messenger-room-pathname";
 import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
 import { useBuyerOrderChatSlideHost } from "@/components/mypage/BuyerOrderChatSlideHostContext";
 import {
@@ -292,16 +294,25 @@ export function MessengerRoomSwipeBackShell({
   /**
    * P5 Android ◁ — 목적지가 「방 종류 목록 replace」(알림·첫 기록 진입)일 때만 페이지 뒤로 주인으로 등록한다.
    * 앱 안 진입(history back)이면 등록하지 않아 ◁ 는 지금처럼 네이티브 WebView 뒤로 → 위 popstate 퇴장 그림(S1 유지).
-   * 스냅샷 전(roomType 없음)·주문 채팅 슬라이드 안은 등록하지 않는다. 처리 순서: 오버레이(시트) → 이 주인 → 결함 E.
+   * 주문 채팅 슬라이드 안은 등록하지 않는다. 처리 순서: 오버레이(시트) → 이 주인 → 결함 E.
+   * N3(docs/audit/messenger-chat-fix-design-2026-11-18.md PR-2): 스냅샷 전(roomType 없음 — 알림 방 로딩 중)에도 등록한다.
+   * 목적지는 누른 순간 `resolveBackTarget()` 으로 계산(roomType 없으면 URL `cm_list` → 없으면 대화 목록, 스냅샷 뒤면 방 종류 목록).
    */
   useEffect(() => {
-    if (roomType == null || insideOrderChatSlide) return;
+    if (insideOrderChatSlide) return;
+    /** N1: 목록으로 이동해 주소가 방이 아니게 된 뒤(언마운트 직전 재실행)에는 등록하지 않는다 — 목록의 웹 뒤로 담당을 덮지 않게. */
+    if (!isCommunityMessengerRoomRoutePathname(pathname)) return;
     const target = resolveBackTarget();
     if (target.kind !== "replace") return;
     console.info("[cm-room-back] page_back_owner", { roomId: roomId?.trim() ?? "", href: target.href });
-    return setPageBackOwner(() => requestAnimatedBackRef.current());
+    const release = setPageBackOwner(() => requestAnimatedBackRef.current());
+    return () => {
+      release();
+      /** 이 주인이 목록의 웹 뒤로 담당을 덮었다면 해제 직후 다시 등록되게(N1 슬롯 경합). */
+      syncMessengerListWebBack();
+    };
     /** pathname: 분할 replace 등으로 같은 셸에서 주소가 바뀌면 진입 출처·목적지를 다시 판정 */
-  }, [insideOrderChatSlide, pathname, resolveBackTarget, roomId, roomType]);
+  }, [insideOrderChatSlide, pathname, resolveBackTarget, roomId]);
 
   const onEdgePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
