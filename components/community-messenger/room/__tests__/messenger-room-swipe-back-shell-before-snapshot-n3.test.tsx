@@ -46,11 +46,17 @@ import {
   type OverlayBackListenerDriver,
 } from "@/lib/ui/overlay-back-stack";
 
-const driverState = { onBack: null as null | ((ev: { canGoBack?: boolean }) => void) };
+const driverState = {
+  onBack: null as null | ((ev: { canGoBack?: boolean }) => void),
+  installs: 0,
+  removes: 0,
+};
 const driver: OverlayBackListenerDriver = {
   install(onBack) {
+    driverState.installs += 1;
     driverState.onBack = onBack;
     return () => {
+      driverState.removes += 1;
       driverState.onBack = null;
     };
   },
@@ -59,10 +65,10 @@ const driver: OverlayBackListenerDriver = {
 let container: HTMLDivElement;
 let root: Root;
 
-function render(roomType: string | null) {
+function render(roomType: string | null, roomListKind: "trade" | "delivery" | "general" | null = null) {
   act(() => {
     root.render(
-      <MessengerRoomSwipeBackShell roomId="room-1" roomType={roomType}>
+      <MessengerRoomSwipeBackShell roomId="room-1" roomType={roomType} roomListKind={roomListKind}>
         <div>body</div>
       </MessengerRoomSwipeBackShell>
     );
@@ -79,6 +85,8 @@ beforeEach(() => {
   router.back.mockReset();
   router.replace.mockReset();
   entryOrigin.value = "push";
+  driverState.installs = 0;
+  driverState.removes = 0;
   __setOverlayBackListenerDriverForTests(driver);
   vi.spyOn(console, "info").mockImplementation(() => {});
   /** 움직임 줄이기 — requestAnimatedBack 이 애니메이션 없이 바로 이동(목적지만 본다) */
@@ -146,6 +154,27 @@ describe("N3 — 스냅샷 전 ◁", () => {
   });
 });
 
+describe("N3 — 스냅샷 도착 때 네이티브 ◁ 리스너 재설치 없음", () => {
+  it("first_entry + 스냅샷 전 등록 → 스냅샷 도착: install 1·remove 0 → ◁ 1회 = 방 종류 목록 replace", () => {
+    entryOrigin.value = "first_entry";
+    render(null);
+    expect(driverState.installs).toBe(1);
+    expect(driverState.removes).toBe(0);
+    render("direct", "trade");
+    expect(driverState.installs).toBe(1);
+    expect(driverState.removes).toBe(0);
+    expect(hasPageBackOwner()).toBe(true);
+    pressSystemBack();
+    expect(router.replace).toHaveBeenCalledTimes(1);
+    expect(router.replace).toHaveBeenCalledWith("/community-messenger/trade-chats", { scroll: false });
+  });
+});
+
+/**
+ * 아래 「방 없음」 3건은 합성 시나리오다 — 운영에서는 셸 roomType=null(게이트 스냅샷 없음)과 「방을 찾을 수 없음」
+ * 화면(방 클라이언트 마운트 뒤 스냅샷 없음)이 같이 나오지 않는다(`CommunityMessengerRoomBootstrapGate.tsx` 278-313:
+ * 스냅샷이 없으면 EntryEmpty, 방 클라이언트는 스냅샷이 있을 때만). 버튼이 셸과 같은 목적지 함수를 쓰는지만 본다.
+ */
 describe("N3 — 「방을 찾을 수 없음」 버튼 = 같은 함수(렌더)", () => {
   function notFoundButton(): HTMLButtonElement {
     const btn = container.querySelector("button");

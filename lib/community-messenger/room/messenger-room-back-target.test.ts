@@ -184,6 +184,6 @@ describe("구조 계약", () => {
   });
 
   it("셸은 목적지가 replace 일 때만 페이지 뒤로 주인 등록", () => {
-    expect(shell).toMatch(/if \(target\.kind !== "replace"\) return;\s*[\s\S]*setPageBackOwner\(/);
+    expect(shell).toMatch(/if \(target\?\.kind !== "replace"\) \{[\s\S]*?return;\s*\}[\s\S]*setPageBackOwner\(/);
   });
 });

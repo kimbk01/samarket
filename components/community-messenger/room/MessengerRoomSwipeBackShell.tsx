@@ -295,15 +295,34 @@ export function MessengerRoomSwipeBackShell({
    * 주문 채팅 슬라이드 안은 등록하지 않는다. 처리 순서: 오버레이(시트) → 이 주인 → 결함 E.
    * N3(설계 3판 PR-2 2a): 스냅샷 전(roomType 없음 — 알림 방 로딩 중)에도 등록한다. 목적지는 누른 순간
    * `resolveBackTarget()` 으로 계산(roomType 없으면 URL `cm_list` → 없으면 대화 목록, 스냅샷 뒤면 방 종류 목록).
+   * 등록·해제는 「등록 조건(목적지 kind === replace)」이 바뀔 때만 한다 — 스냅샷 도착 등으로 목적지 함수만 바뀌면 그대로 둔다.
+   * (해제·재등록하면 오버레이·결함 E 가 없을 때 네이티브 ◁ 리스너가 제거 후 비동기 재설치되어 그 사이 ◁ 가 Android 기본 뒤로로 샌다.)
+   * 주인 함수는 `requestAnimatedBackRef` → 최신 `commitNavigation` → 최신 `resolveBackTarget` 이라 누른 순간 목적지가 맞다.
    */
+  const pageBackOwnerReleaseRef = useRef<(() => void) | null>(null);
   useEffect(() => {
-    if (insideOrderChatSlide) return;
-    const target = resolveBackTarget();
-    if (target.kind !== "replace") return;
+    const target = insideOrderChatSlide ? null : resolveBackTarget();
+    const held = pageBackOwnerReleaseRef.current;
+    if (target?.kind !== "replace") {
+      if (held) {
+        pageBackOwnerReleaseRef.current = null;
+        held();
+      }
+      return;
+    }
+    if (held) return;
     console.info("[cm-room-back] page_back_owner", { roomId: roomId?.trim() ?? "", href: target.href });
-    return setPageBackOwner(() => requestAnimatedBackRef.current());
+    pageBackOwnerReleaseRef.current = setPageBackOwner(() => requestAnimatedBackRef.current());
     /** pathname: 분할 replace 등으로 같은 셸에서 주소가 바뀌면 진입 출처·목적지를 다시 판정 */
   }, [insideOrderChatSlide, pathname, resolveBackTarget, roomId]);
+  useEffect(
+    () => () => {
+      const held = pageBackOwnerReleaseRef.current;
+      pageBackOwnerReleaseRef.current = null;
+      held?.();
+    },
+    []
+  );
 
   const onEdgePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
