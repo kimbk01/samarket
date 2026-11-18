@@ -1,5 +1,6 @@
 "use client";
 
+import type { KeyboardEvent } from "react";
 import { ArrowRight } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -36,10 +37,25 @@ export function HomeHeroBannerCard({
   const body = pickHomeText(banner.body, language);
   const cta = banner.href ? pickHomeText(banner.ctaLabel, language) || t("home_banner_cta_default") : "";
   const full = banner.ratio === HOME_BANNER_HERO_RATIO;
-  const Tag = onClick ? "button" : "div";
   return (
-    <Tag
-      {...(onClick ? { type: "button" as const, onClick } : {})}
+    /*
+     * 카드 = 블록(div). WebKit(iOS·Mac 앱)에서 <button> 안 겹친 그림 크기가 0 으로 계산되는 결함 (2026-11-18 실측) → 누르기는 role="button".
+     * 비율은 `::before` 여백(padding-top %)으로 잡는다 — aspect-ratio 를 못 쓰는 WebKit 에서도 같은 높이.
+     */
+    <div
+      {...(onClick
+        ? {
+            role: "button" as const,
+            tabIndex: 0,
+            onClick,
+            onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            },
+          }
+        : {})}
       className={`home-hero-card ${full ? "home-hero-card--full" : "home-hero-card--split"}`}
       data-home-banner={banner.id}
     >
@@ -61,7 +77,7 @@ export function HomeHeroBannerCard({
           </span>
         ) : null}
       </span>
-    </Tag>
+    </div>
   );
 }
 

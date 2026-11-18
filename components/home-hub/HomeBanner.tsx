@@ -12,8 +12,14 @@ import type { HomeRotationCtl } from "@/components/home-hub/use-home-rotation";
 
 /**
  * 홈 메인 배너 SSOT — 시안 R3 (Owner 「배너 SSOT 구현」 2026-11-18).
- * 배너 한 장 = `HomeHeroBannerCard` (어드민 미리보기와 공용) · 이 파일 = 앱 홈 넘기기(‹ ›·점·교체 규칙).
+ * 배너 한 장 = `HomeHeroBannerCard` (어드민 미리보기와 공용) · 이 파일 = 앱 홈 넘기기(‹ ›·점·교체 규칙·자동 넘김).
+ * 자동 넘김 (Owner 2026-11-18 「계획대로 진행」 — 계획서 A2, 이전 「새로고침 때만 교체」 규칙 대체):
+ * `HOME_BANNER_AUTO_MS` 마다 다음 배너 · 손가락·마우스가 배너에 있거나 방금 넘겼으면 쉼 · 화면 밖·앱 뒤로 가면 쉼 ·
+ * 「동작 줄이기」면 끔 · 마지막 → 처음. 처음 보이는 배너는 기존 교체 규칙(새로고침·재접속 때 다음 배너) 그대로.
  */
+
+/** 자동 넘김 간격 */
+export const HOME_BANNER_AUTO_MS = 4000;
 
 /** 로그인이 필요한 이동 곳 — 배너 이동 주소의 메뉴(`resolveHomeBannerMenuKey`)의 로그인 안내 */
 function guestGateFor(href: string) {
@@ -41,6 +47,15 @@ export function HomeBanner({
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [active, setActive] = useState(0);
   const trackRef = useRef<HTMLDivElement | null>(null);
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const activeRef = useRef(0);
+  activeRef.current = active;
+  /** 손가락·마우스가 배너 위에 있음 */
+  const holdRef = useRef(false);
+  /** 마지막으로 사람이 넘긴 시각 — 그 뒤 한 간격 동안 자동 넘김 쉼 */
+  const touchedAtRef = useRef(0);
+  /** 배너 칸이 화면에 보임 */
+  const inViewRef = useRef(true);
   const mode = rot?.mode;
   const seq = rot?.seq;
 
@@ -101,6 +116,30 @@ export function HomeBanner({
     [cardLeft]
   );
 
+  const multiCount = banners.length;
+  const ready = pickedId != null;
+  useEffect(() => {
+    if (!ready || multiCount < 2) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const sec = sectionRef.current;
+    let io: IntersectionObserver | null = null;
+    if (sec && typeof IntersectionObserver !== "undefined") {
+      io = new IntersectionObserver((es) => {
+        inViewRef.current = es.some((e) => e.isIntersecting);
+      });
+      io.observe(sec);
+    }
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible" || !inViewRef.current || holdRef.current) return;
+      if (Date.now() - touchedAtRef.current < HOME_BANNER_AUTO_MS) return;
+      go(activeRef.current + 1);
+    }, HOME_BANNER_AUTO_MS);
+    return () => {
+      window.clearInterval(timer);
+      io?.disconnect();
+    };
+  }, [ready, multiCount, go]);
+
   if (banners.length === 0) return null;
   const hidden = pickedId == null;
   const multi = banners.length > 1;
@@ -116,7 +155,28 @@ export function HomeBanner({
 
   return (
     <section
+      ref={sectionRef}
       className={`home-hero${hidden ? " invisible" : ""}`}
+      onPointerEnter={(e) => {
+        if (e.pointerType === "mouse") holdRef.current = true;
+      }}
+      onPointerLeave={() => {
+        holdRef.current = false;
+      }}
+      onPointerDown={() => {
+        touchedAtRef.current = Date.now();
+      }}
+      onTouchStart={() => {
+        holdRef.current = true;
+        touchedAtRef.current = Date.now();
+      }}
+      onTouchEnd={() => {
+        holdRef.current = false;
+        touchedAtRef.current = Date.now();
+      }}
+      onWheel={() => {
+        touchedAtRef.current = Date.now();
+      }}
       aria-hidden={hidden || undefined}
       aria-roledescription="carousel"
       data-home-banner-slot
