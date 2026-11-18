@@ -34,11 +34,15 @@ import {
   loadStoresHomeInsertionMeta,
 } from "@/lib/stores/composition/stores-composition-home-insertion-meta";
 import { composeLiveHomeFeed, collectHomePopularMenuWindowDays } from "@/lib/stores/composition/stores-composition-live";
-import { loadDeliveryRideTimeSource } from "@/lib/delivery/delivery-ops-settings";
 import {
+  seedDeliveryDistanceSettingsCache,
+  seedDeliveryRideTimeSourceCache,
+} from "@/lib/delivery/delivery-ops-settings";
+import {
+  buildDeliveryServiceabilityRuntimeContextFromSettings,
   evaluateStoreDeliveryServiceability,
-  loadDeliveryServiceabilityRuntimeContext,
 } from "@/lib/delivery/load-delivery-serviceability-runtime";
+import { loadHomeFeedAdminSettingsBundle } from "@/lib/stores/home-feed-admin-settings-bundle";
 import {
   loadStoreServiceAreaRuntimeMap,
   type StoreServiceAreaRuntimeSlice,
@@ -71,7 +75,6 @@ import { translate } from "@/lib/i18n/messages";
 import { localizedStorePrepLabel } from "@/lib/stores/store-delivery-eta-label";
 import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
 import { loadStoreCompletedOrderCount30dMapWithStatus, resolveStorePopularitySinceIso } from "@/lib/stores/store-discovery-popular-store";
-import { loadCommerceSettings } from "@/lib/stores/load-commerce-settings";
 import { loadStorePopularProductStatsBatch } from "@/lib/stores/load-store-popular-product-stats-batch";
 import { loadActiveStoreDiscoveryCampaignsForHome, attachDiscoveryCampaignsToHomeFeedStores, mapDiscoveryCampaignHomePayload } from "@/lib/stores/load-store-discovery-campaigns-for-home";
 import {
@@ -223,14 +226,24 @@ export async function GET(req: Request) {
       { headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL } }
     );
   }
-  const [origin, deliveryRideTimeSource, serviceabilityCtx, compositionPolicy] = await Promise.all([
+  /**
+   * B1 — ride / distance / commerce admin_settings 를 요청당 1회로 묶고,
+   * 프로세스 캐시에 심어 하위 loader 재조회를 막는다.
+   */
+  const [origin, adminSettingsBundle, compositionPolicy] = await Promise.all([
     resolveStoreListDeliveryOrigin(supabase, searchParams),
-    loadDeliveryRideTimeSource(supabase),
-    loadDeliveryServiceabilityRuntimeContext(supabase),
+    loadHomeFeedAdminSettingsBundle(supabase),
     loadHomeFeedCompositionPolicyMeta(supabase).catch(() => null),
     /** DEF-64 — 인스턴스 공통 세대 확인 (무DB, 병렬이라 추가 지연 0) 후 아래 메모리 캐시 조회 */
     syncStorePublicReadCachesWithSharedGeneration(),
   ]);
+  seedDeliveryRideTimeSourceCache(adminSettingsBundle.rideTimeSource);
+  seedDeliveryDistanceSettingsCache(adminSettingsBundle.distance);
+  const deliveryRideTimeSource = adminSettingsBundle.rideTimeSource;
+  const serviceabilityCtx = buildDeliveryServiceabilityRuntimeContextFromSettings(
+    adminSettingsBundle.distance
+  );
+  const commerceSettings = adminSettingsBundle.commerce;
   /**
    * S-07·S-08 — 배달 열람 게이트(단일 판정). 비로그인·주소 없는 회원은 매장 목록을 내보내지 않는다.
    * 서버 메모리 캐시 조회·저장보다 먼저 반환 — `origin.cacheKeyPart="none"` 공유 키에 사용자 혼입 없음.
@@ -512,9 +525,8 @@ export async function GET(req: Request) {
      */
     const loadProductsAndPopular = async () => {
       if (ids.length === 0) return;
-      const [commerce, { data: prods, error: pErr }] = await Promise.all([
-        loadCommerceSettings(supabase),
-        supabase
+      const commerce = commerceSettings;
+      const { data: prods, error: pErr } = await supabase
           .from("store_products")
           .select(
             "id, store_id, title, price, thumbnail_url, is_featured, sort_order, admin_review_status, store_menu_sections ( is_hidden )"
@@ -528,8 +540,7 @@ export async function GET(req: Request) {
           .order("is_featured", { ascending: false })
           .order("sort_order", { ascending: true })
           .order("id", { ascending: true })
-          .limit(resolveHomeFeedProductFetchCap(ids.length)),
-      ]);
+          .limit(resolveHomeFeedProductFetchCap(ids.length));
       if (pErr) {
         console.error("[api/stores/home-feed] products", pErr);
       } else {
@@ -613,8 +624,17 @@ export async function GET(req: Request) {
     const popularityCountsByDays: Record<string, Record<string, number>> = {};
     const loadPopularityOverlay = async () => {
       if (ids.length === 0) return;
+      /** B1 — NEW 랭킹이 이미 준 30d 카운트가 있으면 동일 창 RPC 재조회 금지 */
+      const reuse30d = orderLoad.status === "ok" && popularityWindows.some((d) => d === 30);
+      if (reuse30d) {
+        const rec: Record<string, number> = {};
+        for (const id of ids) rec[id] = orderLoad.counts.get(id) ?? 0;
+        popularityCountsByDays["30"] = rec;
+      }
+      const windowsToFetch = popularityWindows.filter((days) => !(reuse30d && days === 30));
+      if (windowsToFetch.length === 0) return;
       const overlayLoads = await Promise.all(
-        popularityWindows.map(async (days) => {
+        windowsToFetch.map(async (days) => {
           const load = await loadStoreCompletedOrderCount30dMapWithStatus(supabase, ids, {
             sinceIso: resolveStorePopularitySinceIso(popularityNow, days),
           });
