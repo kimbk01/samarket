@@ -15,10 +15,21 @@
  */
 
 /** localStorage — 정확히 이 키만 삭제 */
-export const CLEARABLE_LOCAL_STORAGE_KEYS: readonly string[] = [];
+export const CLEARABLE_LOCAL_STORAGE_KEYS: readonly string[] = [
+  /**
+   * 기기 저장공간 S1 — 앱 시작 화면 인트로 색인. 인트로 파일(Cache Storage)과 짝으로 지운다
+   * (파일만 지우면 색인이 없는 파일을 가리켜 다음 실행에 어긋남). 다음 실행에 다시 받는다.
+   */
+  "dibay:launch-intro:index",
+];
 
 /** localStorage — 구버전 임시 캐시 접두(현행 코드는 쓰지 않음, 남은 값 정리용) */
-export const CLEARABLE_LOCAL_STORAGE_PREFIXES: readonly string[] = ["cache_", "temp_"];
+export const CLEARABLE_LOCAL_STORAGE_PREFIXES: readonly string[] = [
+  "cache_",
+  "temp_",
+  /** 기기 저장공간 S1 — 거래 목록 사본(24h, 서버 재조회로 복구 · `lib/posts/getPostsForHome.ts`) */
+  "samarket:home-posts:local:v1:",
+];
 
 /** sessionStorage — 정확히 이 키만 삭제 */
 export const CLEARABLE_SESSION_STORAGE_KEYS: readonly string[] = [

@@ -11,10 +11,51 @@ type RoomRow = {
   at: number; // last write (ms)
   lastAccessAt: number; // LRU touch (ms)
   snapshot: CommunityMessengerRoomSnapshot;
+  /** 기기 저장공간 S1 — 저장 시점에 잰 크기(JSON 문자 수). 이전 행에는 없음 → 정리 때 1회 계산 */
+  chars?: number;
 };
 
 const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7d
 const MAX_ROOMS = 200;
+/**
+ * 기기 저장공간 S1 (2026-11-19) — 바이트 상한. 이전에는 방 200개·7일 상한만 있고 크기 상한이 없었다.
+ * 크기는 JSON 문자 수로 잰다(근사). 방 1개가 상한을 넘으면 저장하지 않는다(다음 진입은 서버에서 받음).
+ * 전체가 상한을 넘으면 오래 안 연 방부터 지운다(LRU).
+ * 근거: docs/audit/device-storage-legacy-design-2026-11-19.md §4 S1
+ */
+export const ROOM_SNAPSHOT_MAX_ROW_CHARS = 2_000_000;
+export const ROOM_SNAPSHOT_MAX_TOTAL_CHARS = 20_000_000;
+
+export function roomSnapshotRowChars(snapshot: unknown): number {
+  try {
+    return JSON.stringify(snapshot)?.length ?? 0;
+  } catch {
+    return Number.POSITIVE_INFINITY;
+  }
+}
+
+/** 남길 방을 고른다 — 개수(MAX_ROOMS)·전체 크기(MAX_TOTAL) 상한 안에서 최근 사용 순으로. 지울 roomId 를 돌려준다. */
+export function selectRoomSnapshotEvictions(
+  rows: ReadonlyArray<{ roomId: string; lastAccessAt: number; chars: number }>,
+  limits: { maxRooms: number; maxTotalChars: number } = {
+    maxRooms: MAX_ROOMS,
+    maxTotalChars: ROOM_SNAPSHOT_MAX_TOTAL_CHARS,
+  }
+): string[] {
+  const newestFirst = [...rows].sort((a, b) => b.lastAccessAt - a.lastAccessAt);
+  const evict: string[] = [];
+  let kept = 0;
+  let total = 0;
+  for (const r of newestFirst) {
+    if (kept < limits.maxRooms && total + r.chars <= limits.maxTotalChars) {
+      kept += 1;
+      total += r.chars;
+    } else {
+      evict.push(r.roomId);
+    }
+  }
+  return evict;
+}
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 let lastPruneAt = 0;
@@ -45,7 +86,7 @@ async function pruneRooms(db: IDBDatabase): Promise<void> {
   const keys = (await idbGetAllKeys(db, STORE_ROOMS)).map(String);
   if (keys.length === 0) return;
   const nowMs = now();
-  const rows: RoomRow[] = [];
+  const rows: Array<{ roomId: string; lastAccessAt: number; chars: number }> = [];
   for (const k of keys) {
     const row = await idbGet<RoomRow>(db, STORE_ROOMS, k);
     if (!row) continue;
@@ -53,13 +94,11 @@ async function pruneRooms(db: IDBDatabase): Promise<void> {
       await idbDel(db, STORE_ROOMS, k);
       continue;
     }
-    rows.push(row);
+    const chars = typeof row.chars === "number" ? row.chars : roomSnapshotRowChars(row.snapshot);
+    rows.push({ roomId: row.roomId, lastAccessAt: row.lastAccessAt, chars });
   }
-  if (rows.length <= MAX_ROOMS) return;
-  rows.sort((a, b) => a.lastAccessAt - b.lastAccessAt); // oldest first
-  const overflow = rows.length - MAX_ROOMS;
-  for (let i = 0; i < overflow; i += 1) {
-    await idbDel(db, STORE_ROOMS, rows[i]!.roomId);
+  for (const roomId of selectRoomSnapshotEvictions(rows)) {
+    await idbDel(db, STORE_ROOMS, roomId);
   }
 }
 
@@ -98,7 +137,13 @@ export async function putLocalRoomSnapshot(roomId: string, snapshot: CommunityMe
   try {
     const db = await getDb();
     const nowMs = now();
-    const row: RoomRow = { roomId: id, at: nowMs, lastAccessAt: nowMs, snapshot };
+    /** 방 1개 상한 초과 — 저장하지 않고 이전 사본도 지운다(옛 사본으로 그리지 않게) */
+    const chars = roomSnapshotRowChars(snapshot);
+    if (chars > ROOM_SNAPSHOT_MAX_ROW_CHARS) {
+      await idbDel(db, STORE_ROOMS, id);
+      return;
+    }
+    const row: RoomRow = { roomId: id, at: nowMs, lastAccessAt: nowMs, snapshot, chars };
     await idbPut(db, STORE_ROOMS, row);
     if (nowMs - lastPruneAt >= 60_000) {
       lastPruneAt = nowMs;
