@@ -14,6 +14,7 @@ import {
   createInMemoryShadowWaveFetcher,
   type StoreDiscoveryShadowRankedRow,
   type ShadowWaveTelemetry,
+  type ShadowWaveBatchFetchFn,
   SHADOW_PAGINATION_ARCHITECTURE,
 } from "@/lib/stores/discovery/store-discovery-shadow-ranked";
 import { STORE_DISCOVERY_EXPOSURE_BAND_SIZE } from "@/lib/stores/store-discovery-exposure";
@@ -78,6 +79,51 @@ function createRpcShadowWaveFetcher(
   };
 }
 
+/** B1 — 여러 wave 를 한 PostgREST 왕복으로. 미적용 DB면 throw → HOME 이 단건 wave 로 폴백. */
+function createRpcShadowWaveBatchFetcher(
+  sb: SupabaseClient,
+  opts: {
+    sort: StoreBrowseServerSortId | "home";
+    originLat: number | null;
+    originLng: number | null;
+    district: string | null;
+    distanceAxisEnabled: boolean;
+    searchQ?: string | null;
+    storeCategoryId?: string | null;
+    storeTopicId?: string | null;
+    wantsAllSubs?: boolean;
+    orphanBusinessTypes?: string[];
+  }
+): ShadowWaveBatchFetchFn {
+  return async (tasks) => {
+    if (tasks.length === 0) return [];
+    const { data, error } = await sb.rpc("get_store_discovery_shadow_waves_batch", {
+      p_eligibility_ranks: tasks.map((t) => t.eligibilityRank),
+      p_district_tiers: tasks.map((t) => t.districtTier),
+      p_limits: tasks.map((t) => t.limit),
+      p_sort: opts.sort === "home" ? "default" : opts.sort,
+      p_origin_lat: opts.originLat,
+      p_origin_lng: opts.originLng,
+      p_district: opts.district,
+      p_distance_axis_enabled: opts.distanceAxisEnabled,
+      p_search_q: opts.searchQ ?? null,
+      p_store_category_id: opts.storeCategoryId ?? null,
+      p_store_topic_id: opts.storeTopicId ?? null,
+      p_wants_all_subs: opts.wantsAllSubs ?? true,
+      p_orphan_business_types: opts.orphanBusinessTypes ?? [],
+    });
+    if (error) throw error;
+    const rows = (Array.isArray(data) ? data : []) as Record<string, unknown>[];
+    const out: StoreDiscoveryShadowRankedRow[][] = tasks.map(() => []);
+    for (const raw of rows) {
+      const ord = Math.max(0, Math.floor(Number(raw.wave_ord) || 0));
+      if (ord < 0 || ord >= out.length) continue;
+      out[ord]!.push(mapWaveRpcRow(raw));
+    }
+    return out;
+  };
+}
+
 export async function loadStoreDiscoveryHomeShadowViaRpc(
   sb: SupabaseClient,
   input: {
@@ -97,16 +143,19 @@ export async function loadStoreDiscoveryHomeShadowViaRpc(
   error?: string;
 }> {
   try {
-    const fetchWave = createRpcShadowWaveFetcher(sb, {
-      sort: "home",
+    const waveOpts = {
+      sort: "home" as const,
       originLat: input.originLat,
       originLng: input.originLng,
       district: input.district,
       distanceAxisEnabled: input.distanceAxisEnabled,
       searchQ: input.searchQ,
-    });
+    };
+    const fetchWave = createRpcShadowWaveFetcher(sb, waveOpts);
+    const fetchWaveBatch = createRpcShadowWaveBatchFetcher(sb, waveOpts);
     const ranked = await rankStoreDiscoveryHomeShadowWaves({
       fetchWave,
+      fetchWaveBatch,
       district: input.district,
       exposureScope: input.exposureScope,
       nowMs: input.nowMs,
@@ -116,7 +165,11 @@ export async function loadStoreDiscoveryHomeShadowViaRpc(
     return { status: "ok", rows: ranked.rows, telemetry: ranked.telemetry };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("get_store_discovery_shadow_wave") || msg.includes("does not exist")) {
+    if (
+      msg.includes("get_store_discovery_shadow_wave") ||
+      msg.includes("get_store_discovery_shadow_waves_batch") ||
+      msg.includes("does not exist")
+    ) {
       return { status: "unavailable", rows: [] };
     }
     console.error("[loadStoreDiscoveryHomeShadowViaRpc]", msg);

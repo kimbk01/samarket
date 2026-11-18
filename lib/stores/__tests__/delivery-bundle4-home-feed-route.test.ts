@@ -27,17 +27,41 @@ vi.mock("@/lib/stores/store-list-delivery-origin", async (orig) => ({
   resolveStoreListDeliveryOrigin: async () => h.origin,
   loadOwnerDefaultAddressByUserId: async () => new Map(),
 }));
-vi.mock("@/lib/delivery/delivery-ops-settings", () => ({ loadDeliveryRideTimeSource: async () => "store" }));
+vi.mock("@/lib/delivery/delivery-ops-settings", async (orig) => ({
+  ...(await orig<typeof import("@/lib/delivery/delivery-ops-settings")>()),
+  seedDeliveryRideTimeSourceCache: () => {},
+  seedDeliveryDistanceSettingsCache: () => {},
+}));
+/** B1 — route 가 admin_settings 번들을 쓰므로 거리축 on 을 여기서 고정 (이전 serviceability mock 과 동일) */
+vi.mock("@/lib/stores/home-feed-admin-settings-bundle", () => ({
+  loadHomeFeedAdminSettingsBundle: async () => ({
+    rideTimeSource: "store" as const,
+    distance: {
+      policy: {
+        enabled: true,
+        source: "straight" as const,
+        defaultMaxKm: 5,
+        overDistanceBehavior: "exclude" as const,
+      },
+      overrides: { stores: {} },
+    },
+    commerce: {
+      autoCompleteDays: 3,
+      settlementFeeBp: 0,
+      settlementDelayDays: 0,
+      popularMenuWindowDays: 30,
+      popularMenuMinQty: 1,
+      popularMenuTopN: 5,
+      popularMenuRecommendedMax: 10,
+    },
+  }),
+}));
 /** v4 PERF-07 — 비로그인 조기 반환은 인증으로 판정 (origin 과 같은 사용자) */
 vi.mock("@/lib/auth/get-route-user-id", () => ({
   getRouteUserId: async () => (h.origin?.userId as string | null | undefined) ?? null,
 }));
 vi.mock("@/lib/delivery/load-delivery-serviceability-runtime", async (orig) => ({
   ...(await orig<typeof import("@/lib/delivery/load-delivery-serviceability-runtime")>()),
-  loadDeliveryServiceabilityRuntimeContext: async () => ({
-    policy: { enabled: true, defaultMaxKm: 5 },
-    overrides: { stores: {} },
-  }),
 }));
 vi.mock("@/lib/stores/store-public-shared-cache-generation", () => ({
   syncStorePublicReadCachesWithSharedGeneration: async () => {},
