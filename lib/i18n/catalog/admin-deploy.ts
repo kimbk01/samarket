@@ -156,6 +156,9 @@ export const adminDeployMessages = {
     admin_deploy_ops_sem_verified: "테스트 검증 표시",
     admin_deploy_ops_sem_mock: "모의 배포 PASS",
     admin_deploy_ops_sem_prod: "실제 운영 적용",
+    // 요청 예산 운영 감시 (docs/request-budget-ssot.md)
+    admin_request_budget_alert_title: "Supabase 요청 예산 초과 · {count}건",
+    admin_request_budget_alert_body: "최근 24시간 Supabase 호출 {total}건(시험 기기 {test}건). {items}",
   },
   en: {
     admin_deploy_title: "Deploy · Production",
@@ -309,5 +312,7 @@ export const adminDeployMessages = {
     admin_deploy_ops_sem_verified: "TEST verified mark",
     admin_deploy_ops_sem_mock: "Mock pipeline PASS",
     admin_deploy_ops_sem_prod: "Production applied",
+    admin_request_budget_alert_title: "Supabase request budget exceeded · {count}",
+    admin_request_budget_alert_body: "Last 24h Supabase calls {total} (test devices {test}). {items}",
   },
 } as const;
