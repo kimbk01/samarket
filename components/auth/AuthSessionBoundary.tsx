@@ -17,6 +17,10 @@ import { exposeResetAuthStateForDev } from "@/lib/auth/reset-auth-state";
 import { getSessionPhase } from "@/lib/auth/dibay-session-manager";
 import { isRecoveringPhase } from "@/lib/auth/dibay-session-policy";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import {
+  isMessengerRoomPreShellBackPath,
+  MessengerRoomPreShellBackOwner,
+} from "@/components/community-messenger/room/MessengerRoomPreShellBackOwner";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
@@ -164,6 +168,14 @@ export function AuthSessionBoundary({ children }: Props) {
   }
 
   /**
+   * FAIL-2 — 메신저 방 경로(통화 경로 제외)에서만 ◁ 주인 요소를 화면 뒤 형제로 둔다. 차단 화면 동안 등록(active)하고,
+   * 차단이 풀려도 같은 자리에 남아 방 셸이 칸을 가져갈 때까지 주인을 유지한다(셸 전 Suspense 구간 포함, 리스너 재설치 없음).
+   * 인증 종료 이동 중에는 그리지 않는다(언마운트 = 자기 등록 해제). 그 밖 경로의 반환은 main 과 같다.
+   */
+  const roomPreShellBackSlot =
+    isMessengerRoomPreShellBackPath(pathForOwnerGate) && !isAuthExitNavigateStarted();
+
+  /**
    * Messenger room/call — middleware already requires auth. Same fail-open as owner shell:
    * never replace with Loading… once session cookie/API says authenticated.
    */
@@ -172,6 +184,14 @@ export function AuthSessionBoundary({ children }: Props) {
     sessionApiAuthenticated &&
     !isAuthExitNavigateStarted()
   ) {
+    if (roomPreShellBackSlot) {
+      return (
+        <>
+          {children}
+          <MessengerRoomPreShellBackOwner active={false} />
+        </>
+      );
+    }
     return <>{children}</>;
   }
 
@@ -195,7 +215,7 @@ export function AuthSessionBoundary({ children }: Props) {
   });
 
   if (blockPrivateTree) {
-    return (
+    const blockedScreen = (
       <div
         className="flex min-h-[40vh] items-center justify-center bg-sam-app px-4"
         aria-busy="true"
@@ -204,7 +224,24 @@ export function AuthSessionBoundary({ children }: Props) {
         <p className="sam-text-body text-sam-muted">{t("mypage_comp_loading_ellipsis")}</p>
       </div>
     );
+    if (roomPreShellBackSlot) {
+      return (
+        <>
+          {blockedScreen}
+          <MessengerRoomPreShellBackOwner active />
+        </>
+      );
+    }
+    return blockedScreen;
   }
 
+  if (roomPreShellBackSlot) {
+    return (
+      <>
+        {children}
+        <MessengerRoomPreShellBackOwner active={false} />
+      </>
+    );
+  }
   return <>{children}</>;
 }

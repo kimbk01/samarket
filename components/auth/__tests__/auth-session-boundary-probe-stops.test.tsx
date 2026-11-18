@@ -9,7 +9,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({ authenticated: false, membership: { status: "checking" } as Record<string, unknown> }));
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/community-messenger/rooms/r1" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/community-messenger/rooms/r1",
+  // FAIL-2: 방 경로 차단 화면에 ◁ 주인 요소가 함께 그려진다(useRouter 사용)
+  useRouter: () => ({ back: vi.fn(), replace: vi.fn(), push: vi.fn(), prefetch: vi.fn() }),
+}));
 vi.mock("@/components/i18n/AppLanguageProvider", () => ({ useI18n: () => ({ t: (k: string) => k }) }));
 vi.mock("@/hooks/use-client-membership-state", () => ({ useClientMembershipState: () => state.membership }));
 vi.mock("@/lib/auth/auth-route-classification", () => ({ isAccountDependentPath: () => true }));
