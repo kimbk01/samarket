@@ -142,6 +142,9 @@ public class MainActivity extends BridgeActivity {
    */
   static boolean isCallLaunch(Intent intent) {
     if (intent == null) return false;
+    // M3 (Owner 승인 2026-11-18 · 설계 §24-15): 채팅방·메신저 목록으로 가는 부재중 알림은 통화 실행이 아니다 → 덮개·알림 목적지 대기를 쓴다.
+    // calls 경로(roomId 없는 단말 부재중 = calls/logs)는 지금 그대로 통화 실행으로 둔다.
+    if (isMissedCallLaunchToNonCallPath(intent)) return false;
     Uri data = intent.getData();
     if (data != null && "dibay".equals(data.getScheme())) {
       String host = data.getHost();
@@ -158,6 +161,22 @@ public class MainActivity extends BridgeActivity {
       if (v instanceof String && ((String) v).toLowerCase(java.util.Locale.ROOT).contains("call")) return true;
     }
     return false;
+  }
+
+  /** M3: 종류가 정확히 `missed_call` 이고 알림 경로가 `/community-messenger/calls` 밖(채팅방·목록)인 알림 실행. */
+  static boolean isMissedCallLaunchToNonCallPath(Intent intent) {
+    if (intent == null) return false;
+    Bundle ex = intent.getExtras();
+    if (ex == null) return false;
+    java.util.HashMap<String, String> data = new java.util.HashMap<>();
+    for (String key : ex.keySet()) {
+      if (key == null) continue;
+      Object raw = ex.get(key);
+      if (raw instanceof String) data.put(key, (String) raw);
+    }
+    if (!"missed_call".equals(FcmPayloadResolver.resolveType(data))) return false;
+    String path = resolveAppPathFromPushExtras(ex);
+    return path != null && !path.isEmpty() && !path.startsWith("/community-messenger/calls");
   }
 
   /**
