@@ -165,6 +165,20 @@ public class MainActivity extends BridgeActivity {
    * 알림 탭 = `ACTION_VIEW`(경로 있음) 또는 경로 없는 알림의 `ACTION_MAIN`+`notificationId`(DibayFirebaseMessagingService).
    * 로그인 되돌아오기(`dibay://auth`)는 제외(지금 그대로).
    */
+  /**
+   * 범위 밖 E1 (2026-11-18 감사 · 실기 x12 실측): 복원으로 다시 만들어진 액티비티(`savedInstanceState != null`)나
+   * 최근 앱 목록에서 다시 연 실행(`FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY`)의 `getIntent()` 는 과제를 처음 연 옛 의도다.
+   * 그 안의 옛 알림 경로를 다시 처리하면 이번 알림보다 먼저 옛 목적지로 간다(x12: r11-6 의도가 먼저 처리됨).
+   * 통화 실행(`isCallLaunch`)은 건너뛰지 않는다 — 통화 경로 동작 무변경(통화 변경 규정).
+   * 처리 안 된 경로는 이미 저장소(`persistPendingRoute`, 60초)에 남아 `restorePendingRouteFromPrefsIfNeeded` 가 다시 넣는다.
+   * 새 알림 탭은 `onNewIntent` 로 들어온다 — 여기와 무관.
+   */
+  static boolean shouldSkipRestoredLaunchRoute(Intent intent, boolean restoredFromSavedState) {
+    if (intent == null || isCallLaunch(intent)) return false;
+    boolean fromHistory = (intent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0;
+    return restoredFromSavedState || fromHistory;
+  }
+
   static boolean isSplashCoverLaunch(Intent intent) {
     if (isLauncherLaunch(intent)) return true;
     if (intent == null || isCallLaunch(intent)) return false;
@@ -341,6 +355,8 @@ public class MainActivity extends BridgeActivity {
   private String pendingAppPath = null;
   private String pendingNotificationId = null;
   private volatile boolean routeInjectedForCurrentPending = false;
+  /** E2: 통화 아닌 경로 flush 차례 — 새 flush 가 이전 재시도 묶음을 무효로 한다(메인 스레드에서만 증가·비교). */
+  private int nonCallPendingFlushGeneration = 0;
   private volatile boolean dibayWebChromeClientAttached = false;
   private volatile boolean dibayWebViewClientAttached = false;
   private volatile boolean dibayBootBridgeAttached = false;
@@ -1407,7 +1423,16 @@ public class MainActivity extends BridgeActivity {
           "[DIBAY_CALL_V4] main_activity_on_create_lock_hydration callId="
               + (hydrationCallId != null ? hydrationCallId : "unknown"));
     }
-    handleNotificationLaunchIntent(launchIntent);
+    if (shouldSkipRestoredLaunchRoute(launchIntent, savedInstanceState != null)) {
+      Log.i(
+          ROUTE_LOG_TAG,
+          "[push-route] restored_launch_intent_skipped restored="
+              + (savedInstanceState != null)
+              + " fromHistory="
+              + ((launchIntent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0));
+    } else {
+      handleNotificationLaunchIntent(launchIntent);
+    }
     DibayWebSafeAreaBridge.attach(this);
   }
 
@@ -3459,9 +3484,17 @@ public class MainActivity extends BridgeActivity {
             || CallV4Lane.isV4CalleeRejectCallRoute(appPath)
             ? ACCEPT_ROUTE_RETRY_DELAYS_MS
             : PENDING_ROUTE_RETRY_DELAYS_MS;
+    // 범위 밖 E2 (2026-11-18 감사): 통화 아닌 경로는 마지막 flush 의 재시도 묶음 하나만 살리고, 재시도 직전에
+    // 「지금 대기 경로 == 넣으려는 경로」를 확인한다. 이전에는 호출처 6곳이 부를 때마다 즉시+5회 묶음이 쌓여
+    // 한 번 켤 때 약 20번 넣었고, ACK 뒤 consumer_ready 가 표식을 되돌리면 옛 묶음이 다시 넣었다.
+    // 통화 경로는 아래 그대로(통화 변경 규정 · 동작 무변경).
+    final boolean callPath = isCallPathForPendingFlush(appPath);
     mainHandler.post(
         () -> {
+          // 차례 증가·비교는 메인 스레드에서만(호출처 중 플러그인 스레드가 있을 수 있음).
+          final int flushGeneration = callPath ? 0 : ++nonCallPendingFlushGeneration;
           if (routeInjectedForCurrentPending) return;
+          if (!callPath && !isCurrentNonCallPendingFlush(flushGeneration, appPath)) return;
           if (navigateWebViewToAppPathNow(appPath, notificationId)) {
             return;
           }
@@ -3469,11 +3502,23 @@ public class MainActivity extends BridgeActivity {
             mainHandler.postDelayed(
                 () -> {
                   if (routeInjectedForCurrentPending) return;
+                  if (!callPath && !isCurrentNonCallPendingFlush(flushGeneration, appPath)) return;
                   navigateWebViewToAppPathNow(appPath, notificationId);
                 },
                 delayMs);
           }
         });
+  }
+
+  /** E2: `navigateWebViewToAppPathNow` 의 통화 경로 판정과 같은 조건 — 이 경로는 재시도 정리 대상이 아니다. */
+  static boolean isCallPathForPendingFlush(String appPath) {
+    return appPath != null
+        && (appPath.startsWith("/community-messenger/calls/") || CallV4Lane.isV4CallPath(appPath));
+  }
+
+  /** E2: 마지막 flush 의 묶음이고 넣으려는 경로가 아직 대기 경로일 때만 넣는다(메인 스레드에서만 호출). */
+  private boolean isCurrentNonCallPendingFlush(int flushGeneration, String appPath) {
+    return flushGeneration == nonCallPendingFlushGeneration && appPath.equals(pendingAppPath);
   }
 
   private static boolean isCalleeAcceptCallRoute(String appPath) {
