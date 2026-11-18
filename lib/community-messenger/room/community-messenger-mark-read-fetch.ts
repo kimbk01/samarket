@@ -38,6 +38,10 @@ export type CommunityMessengerMarkReadJson = {
   ok?: boolean;
   lastReadMessageId?: string | null;
   error?: string;
+  /** B2 — atomic mark 후 POST room-read 생략 지시 */
+  roomReadFollowUp?: "skip" | "required";
+  /** P3-a Domain badge snapshot (Generation Owner on PATCH) */
+  badgeAck?: Record<string, unknown>;
 };
 
 /** `res.json()` 대신 단일 text 읽기 — 실패 시 본문 로그용 */
