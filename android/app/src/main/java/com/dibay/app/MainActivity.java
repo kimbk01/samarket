@@ -1384,6 +1384,8 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(LaunchEpochPlugin.class);
     registerPlugin(DibayNativeIntro.NativeIntroPlugin.class);
     registerPlugin(DibaySystemBackPlugin.class);
+    // 기기 저장공간 S2 — 용량 표시·사진 캐시 삭제·카메라 임시 사진 정리 (device-storage-legacy-design §4 S2)
+    registerPlugin(DibayDeviceStoragePlugin.class);
     // FD3: one native app-shell orientation request, before WebView first frame.
     // Consumes FD1 classifier. TABLET_ANDROID / UNKNOWN must not receive a request.
     DibayAppOrientationPolicy.applyToAppShell(this);

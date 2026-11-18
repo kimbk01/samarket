@@ -38,6 +38,7 @@
 		C7DCP0022FED79650016851F /* DibayCallPlatformCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DCP0012FED79650016851F /* DibayCallPlatformCapability.swift */; };
 		C7DCM0022FED79650016851F /* DibayMacIncomingCallAcceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DCM0012FED79650016851F /* DibayMacIncomingCallAcceptor.swift */; };
 		C7DDC0022FED79650016851F /* DibayDeviceClassPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */; };
+		C7DDC0A22FFF00010016851F /* DibayDeviceStoragePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DDC0A12FFF00010016851F /* DibayDeviceStoragePlugin.swift */; };
 		C7DDC0E22FED79650016851F /* DibayContactsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DDC0E12FED79650016851F /* DibayContactsPlugin.swift */; };
 		C7DEV0022FED79650016851F /* DibayCanonicalDeviceIdStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DEV0012FED79650016851F /* DibayCanonicalDeviceIdStore.swift */; };
 		C7G1G0022FED79650016851F /* NativeCallAgoraLaneGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7G1G0012FED79650016851F /* NativeCallAgoraLaneGuard.swift */; };
@@ -156,6 +157,7 @@
 		C7DCP0012FED79650016851F /* DibayCallPlatformCapability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCallPlatformCapability.swift; sourceTree = "<group>"; };
 		C7DCM0012FED79650016851F /* DibayMacIncomingCallAcceptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayMacIncomingCallAcceptor.swift; sourceTree = "<group>"; };
 		C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayDeviceClassPlugin.swift; sourceTree = "<group>"; };
+		C7DDC0A12FFF00010016851F /* DibayDeviceStoragePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayDeviceStoragePlugin.swift; sourceTree = "<group>"; };
 		C7DDC0E12FED79650016851F /* DibayContactsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayContactsPlugin.swift; sourceTree = "<group>"; };
 		C7DEV0012FED79650016851F /* DibayCanonicalDeviceIdStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCanonicalDeviceIdStore.swift; sourceTree = "<group>"; };
 		C7G1G0012FED79650016851F /* NativeCallAgoraLaneGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCallAgoraLaneGuard.swift; sourceTree = "<group>"; };
@@ -307,6 +309,7 @@
 				C7AID0012FED79650016851F /* DibayAppIconDeliveryAdapter.swift */,
 				C7AID0112FED79650016851F /* DibayAppIconDeliveryPlugin.swift */,
 				C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */,
+				C7DDC0A12FFF00010016851F /* DibayDeviceStoragePlugin.swift */,
 				C7DDC0E12FED79650016851F /* DibayContactsPlugin.swift */,
 				C7ORI0112FED79650016851F /* DibayDeviceClassClassifier.swift */,
 				C7ORI0212FED79650016851F /* DibayAppOrientationPolicy.swift */,
@@ -612,6 +615,7 @@
 				C7AID0022FED79650016851F /* DibayAppIconDeliveryAdapter.swift in Sources */,
 				C7AID0122FED79650016851F /* DibayAppIconDeliveryPlugin.swift in Sources */,
 				C7DDC0022FED79650016851F /* DibayDeviceClassPlugin.swift in Sources */,
+				C7DDC0A22FFF00010016851F /* DibayDeviceStoragePlugin.swift in Sources */,
 				C7DDC0E22FED79650016851F /* DibayContactsPlugin.swift in Sources */,
 				C7ORI0122FED79650016851F /* DibayDeviceClassClassifier.swift in Sources */,
 				C7ORI0222FED79650016851F /* DibayAppOrientationPolicy.swift in Sources */,
