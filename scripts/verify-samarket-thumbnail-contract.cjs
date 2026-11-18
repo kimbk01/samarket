@@ -55,8 +55,6 @@ const thumbnailFiles = [
   "components/product/ProductCard.tsx",
   "components/product/form/ProductImagePicker.tsx",
   "components/favorites/FavoriteProductCard.tsx",
-  "components/chats/ChatRoomCard.tsx",
-  "components/chats/GeneralChatRoomCard.tsx",
   "components/chats/ChatDetailView.tsx",
   "components/chats/ChatProductSummary.tsx",
   "components/chats/TradeChatComposePreparingShell.tsx",
