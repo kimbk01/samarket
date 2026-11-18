@@ -1,10 +1,8 @@
 import { redirect } from "next/navigation";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import { parseRoomId } from "@/lib/validate-params";
-import {
-  TRADE_CHAT_MESSENGER_LIST_HREF,
-  tradeHubChatRoomHref,
-} from "@/lib/chats/surfaces/trade-chat-surface";
+import { TRADE_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/trade-chat-surface";
+import { resolveLegacyTradeChatRedirectHref } from "@/lib/chats/legacy-trade-chat-redirect-server";
 
 function firstQueryString(v: string | string[] | undefined): string | undefined {
   if (Array.isArray(v)) return v[0];
@@ -32,6 +30,7 @@ export default async function TradeHubChatRoomPage({
   const chatRoomSourceHint: ChatRoomSource | null =
     sourceRaw === "chat_room" || sourceRaw === "product_chat" ? sourceRaw : null;
 
-  const dest = tradeHubChatRoomHref(roomId, chatRoomSourceHint);
+  /** 정규 메신저 방 id 우선 — 해석 못 하면 기존 경로 (lib/chats/legacy-trade-chat-redirect-server.ts) */
+  const dest = await resolveLegacyTradeChatRedirectHref(roomId, chatRoomSourceHint);
   return redirect(dest);
 }

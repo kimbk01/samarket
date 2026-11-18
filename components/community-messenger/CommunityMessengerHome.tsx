@@ -3795,6 +3795,17 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             }
             return () => {
               setRoomActionSheet(null);
+              /**
+               * 거래 방은 이 행의 메신저 방(room.id) 자체가 정규 방이다 (운영 2026-11-18: 거래 방 441/441 의
+               * product_chats FK = 자기 방). product_chats id 로 열면 URL 이 정규 id 로 바뀌기 전까지 방 안 알림이 날 수
+               * 있어 행 탭·그룹 정보와 같은 방 링크를 쓴다. 배달(주문) 방은 기존 경로 유지.
+               */
+              if (communityMessengerRoomIsTrade(room) && room.id?.trim()) {
+                router.push(
+                  communityMessengerRoomHref(room.id, readMessengerEntryOriginFromLocation(), "trade")
+                );
+                return;
+              }
               router.push(defaultTradeChatRoomHref(pid, "product_chat"));
             };
           })()}
