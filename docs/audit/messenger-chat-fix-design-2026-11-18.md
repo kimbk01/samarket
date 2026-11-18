@@ -56,7 +56,7 @@
 ### F1 실패 글 무알림 삭제
 **원인(정정)**
 - 방 진입 자동 재전송(`use-messenger-room-phase2-controller.ts:1184-1196`, `silentFailure:true`) → definitive 면 `removeRow()`+보관 삭제, 알림 없음(`:1325-1345`).
-- 일시 오류가 400 이 되는 경로는 2개: ① PostgREST 전송 오류·statement_timeout = `rpcErr` ② 송신 RPC 의 `WHEN OTHERS THEN RETURN jsonb_build_object('ok',false,'error',SQLERRM,'rolledBack',true)`(deadlock·lock timeout·직렬화 실패) → `service.ts:17453-17457` → route 400. 서비스의 `message_send_failed`(rpcRaw null·readmit 실패)와 route `:518-523` 확정 행 재조회 실패도 서버 저장 여부를 알 수 없는데 400.
+- 일시 오류가 400 이 되는 경로는 2개: ① PostgREST 전송 오류·statement_timeout = `rpcErr` ② 송신 RPC 의 `WHEN OTHERS THEN RETURN jsonb_build_object('ok',false,'error',SQLERRM,'rolledBack',true)`(deadlock·lock timeout·직렬화 실패) → `service.ts:17453-17457` → route 400. **[정정 2026-11-18, 설계 3판 B-D6]** 이 전제는 저장소 SQL 과 다르다 — `community_messenger_send_text_message`(`supabase/migrations/20270414160000_wp6_chat07_unread_exclude_banned.sql`)의 예외 처리는 `WHEN unique_violation`(:285) 하나뿐이고, `WHEN OTHERS → rolledBack`(:569-570)은 같은 파일의 `dibay_append_room_message_atomic` 것이다. 송신 RPC 의 deadlock·lock timeout 등은 RPC 호출 오류(rpcErr, ①)로 온다. 구현(PR #442)의 `rolledBack` 비업무 오류 → 503 판정은 해가 없는 방어로 남아 있고 동작 변경은 없다. 서비스의 `message_send_failed`(rpcRaw null·readmit 실패)와 route `:518-523` 확정 행 재조회 실패도 서버 저장 여부를 알 수 없는데 400.
 - route dedupe 캐시가 실패 응답도 2.5초 저장(`:355`)하고 캐시 응답은 항상 400(`:337`).
 
 **레거시 기준**: Owner 승인 §6-1 #1 — 실패 메시지는 오류 아이콘으로 남고 사용자가 재전송·삭제. 자동 재전송은 승인안에 없음(작업자 임의 추가).

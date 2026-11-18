@@ -53,6 +53,8 @@ type Harness = {
   /** act 없이 시작만 — 응답 전 언마운트 시나리오용 */
   runRaw: (args: MessengerTextSendAttemptArgs) => Promise<boolean>;
   setRows: (rows: Row[]) => void;
+  /** 진입 복원 시점(스냅샷 준비) 조절 */
+  setReady: (ready: boolean) => void;
   composer: string[];
   authBlocked: { value: boolean };
 };
@@ -67,15 +69,19 @@ function mount(initialRows: Row[] = [], opts: { ready?: boolean } = {}): Harness
     rows: Row[];
     ref: { current: (a: MessengerTextSendAttemptArgs) => Promise<boolean> } | null;
     set: ((r: Row[]) => void) | null;
+    setReady: ((r: boolean) => void) | null;
     nextTempId: () => string;
   } = {
     rows: initialRows,
     ref: null,
     set: null,
+    setReady: null,
     nextTempId: () => "",
   };
   function Probe() {
     const [roomMessages, setRoomMessages] = useState<Row[]>(initialRows);
+    const [ready, setReady] = useState(opts.ready !== false);
+    api.setReady = setReady;
     const roomMessagesRef = useRef<Row[]>(roomMessages);
     roomMessagesRef.current = roomMessages;
     const unconfirmed = useRef<MessengerUnconfirmedTextSend | null>(null);
@@ -85,7 +91,7 @@ function mount(initialRows: Row[] = [], opts: { ready?: boolean } = {}): Harness
     api.nextTempId = () => `pending:${ROOM}:${seqRef.current++}`;
     const { runTextSendAttemptRef } = useMessengerTextSendOutbox({
       streamRoomId: ROOM,
-      restoreReady: opts.ready !== false,
+      restoreReady: ready,
       roomMessages,
       roomMessagesRef,
       setRoomMessages,
@@ -122,6 +128,7 @@ function mount(initialRows: Row[] = [], opts: { ready?: boolean } = {}): Harness
     runRaw: (args) => api.ref!.current(args),
     nextTempId: () => api.nextTempId(),
     setRows: (r) => act(() => api.set!(r)),
+    setReady: (r) => act(() => api.setReady!(r)),
     composer,
     authBlocked,
   };
@@ -690,5 +697,47 @@ describe("PR-1 최종 검토 #3 보관분은 전송 시작 때의 방 id 로 지
       await attempt;
     });
     expect(listMessengerFailedTextSends(ROOM)).toEqual([]);
+  });
+});
+
+describe("설계 3판 B-D2 복원 전에 온 실패 이벤트", () => {
+  it("저장소 쓰기 거부 + 첫 전송 중 나갔다 재진입 + 새 화면 복원 전에 옛 요청 실패 → 복원 뒤 실패 행 1개·재전송·삭제·중복 0", async () => {
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("quota", "QuotaExceededError");
+    });
+    const a = mount();
+    const t = a.nextTempId();
+    a.setRows([optimistic(t, "c-early", "early")]);
+    let resolveA: (r: Response) => void = () => undefined;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((r) => (resolveA = r)));
+    let attemptA: Promise<boolean> | null = null;
+    act(() => {
+      attemptA = a.runRaw({ tempId: t, clientMessageId: "c-early", content: "early", replyId: "", failRestoreGeneration: 0 });
+    });
+    a.unmount();
+    const b = mount([], { ready: false });
+    await act(async () => {
+      resolveA(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+      await attemptA;
+    });
+    spy.mockRestore();
+    expect(savedCids()).toEqual([]);
+    expect(b.rows()).toHaveLength(0);
+    b.setReady(true);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    const rows = b.rows().filter((r) => r.clientMessageId === "c-early");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.sendFailed).toBe(true);
+    expect(rows[0]!.content).toBe("early");
+    const id = rows[0]!.id;
+    fetchMock.mockResolvedValueOnce(jsonResponse(503, { ok: false, code: "message_send_unavailable" }));
+    await retry(b, id);
+    const body = JSON.parse(String((fetchMock.mock.calls.at(-1)![1] as RequestInit).body));
+    expect(body).toMatchObject({ clientMessageId: "c-early", content: "early" });
+    expect(b.rows().filter((r) => r.clientMessageId === "c-early")).toHaveLength(1);
+    act(() => getMessengerOutboundFailedSend(id)!.discard());
+    expect(b.rows().filter((r) => r.clientMessageId === "c-early")).toHaveLength(0);
   });
 });

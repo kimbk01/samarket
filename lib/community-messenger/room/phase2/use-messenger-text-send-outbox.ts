@@ -244,6 +244,12 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
    * 서버가 이미 저장했다면 사용자가 재전송할 때 같은 cid 로 나가 서버 UNIQUE 멱등(deduped)으로 확정 행이 된다.
    */
   const restoredFailedTextRoomRef = useRef<string | null>(null);
+  /**
+   * 설계 3판 B-D2: 이 화면이 진입 복원을 마치기 **전에** 온 저장 이벤트(옛 화면의 실패, 글 내용 포함)를 담아 두는 메모리 대기열.
+   * 저장소가 쓰기를 거부하면 보관분이 없어 이 이벤트가 글의 유일한 사본이다 — 버리면 화면·저장소 어디에도 남지 않았다.
+   * 진입 복원 때 보관분과 같은 규칙(같은 cid 행이 있으면 건너뜀)으로 합친다. 방이 바뀌거나 언마운트되면 비운다.
+   */
+  const earlySavedEventsRef = useRef<{ roomId: string; entries: MessengerFailedTextSend[] }>({ roomId: "", entries: [] });
   /** 최종 검토 #2: 다른 화면에서 요청 중인 글의 「보내는 중」 행 — cid → 이 화면의 tempId */
   const sendingMirrorRowsRef = useRef<Map<string, string>>(new Map());
   /** 보관 글 → 실패 상태 행. 같은 cid 확정 행이 있으면 보관에서 지우고, 같은 cid 행(전송 중·실패)이 있으면 건너뛴다. */
@@ -317,7 +323,14 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
     restoredFailedTextRoomRef.current = streamRoomId;
     persistedFailedTextCidsRef.current = new Set();
     sendingMirrorRowsRef.current = new Map();
-    restoreFailedTextRows(streamRoomId, listMessengerFailedTextSends(streamRoomId));
+    const stored = listMessengerFailedTextSends(streamRoomId);
+    /** B-D2: 복원 전에 온 저장 이벤트 중 보관분에 없는 글을 합친다(같은 방만) */
+    const early = earlySavedEventsRef.current;
+    earlySavedEventsRef.current = { roomId: "", entries: [] };
+    const storedCids = new Set(stored.map((e) => e.clientMessageId));
+    const queued =
+      early.roomId === streamRoomId ? early.entries.filter((e) => !storedCids.has(e.clientMessageId)) : [];
+    restoreFailedTextRows(streamRoomId, [...stored, ...queued]);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 방 진입 시 1회(스냅샷 준비 시점)만
   }, [restoreReady, streamRoomId]);
 
@@ -344,9 +357,28 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
       const detail = (ev as CustomEvent<MessengerFailedTextSavedDetail>).detail;
       const d = depsRef.current;
       const rid = d.streamRoomId;
-      if (!detail?.roomId || detail.roomId !== rid || restoredFailedTextRoomRef.current !== rid) return;
+      if (!detail?.roomId || detail.roomId !== rid) return;
       const cid = trimText(detail.clientMessageId);
       if (!cid) return;
+      if (restoredFailedTextRoomRef.current !== rid) {
+        /** B-D2: 아직 진입 복원 전 — 버리지 않고 대기열에(글 내용이 있을 때만, 같은 cid 는 1건) */
+        if (typeof detail.content !== "string") return;
+        const q = earlySavedEventsRef.current.roomId === rid ? earlySavedEventsRef.current : { roomId: rid, entries: [] };
+        earlySavedEventsRef.current = {
+          roomId: rid,
+          entries: [
+            ...q.entries.filter((e) => e.clientMessageId !== cid),
+            {
+              clientMessageId: cid,
+              content: detail.content,
+              replyToMessageId: detail.replyToMessageId ?? null,
+              createdAt: detail.createdAt ?? new Date().toISOString(),
+              savedAt: Date.now(),
+            },
+          ],
+        };
+        return;
+      }
       const mirrorTempId = sendingMirrorRowsRef.current.get(cid);
       if (mirrorTempId) {
         sendingMirrorRowsRef.current.delete(cid);
@@ -414,6 +446,7 @@ export function useMessengerTextSendOutbox(deps: MessengerTextSendOutboxDeps) {
     return () => {
       window.removeEventListener(MESSENGER_FAILED_TEXT_SAVED_EVENT, onSaved);
       window.removeEventListener(MESSENGER_TEXT_SEND_CONFIRMED_EVENT, onConfirmed);
+      earlySavedEventsRef.current = { roomId: "", entries: [] };
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 최신 값은 depsRef 로 읽는다
   }, []);
