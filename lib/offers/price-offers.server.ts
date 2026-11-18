@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveTradePostCurrency } from "@/lib/trade/trade-price-currency";
 import { fetchNicknamesForUserIds, postOwnedByUserId, postTradeListingOwnerUserId } from "@/lib/chats/resolve-author-nickname";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
+import { resolveTradeNotificationMessengerRoomId } from "@/lib/notifications/trade-notification-room-id-server";
 import {
   fetchPostRowForTradeChatById,
   uuidLookupCandidates,
@@ -559,8 +560,8 @@ async function notifyOfferAccepted(
   }
 ): Promise<void> {
   // T3 (docs/audit/notification-f2-android-tap-read-fix-design-2026-10-28.md B): 방 화면은 메신저 방 id 로 열린다.
-  // 거래방(chat_rooms) id 를 넣으면 404 — 메신저 방이 없을 때만 거래방 id.
-  const linkRoomId = args.messengerRoomId?.trim() || args.chatRoomId;
+  // 거래방(chat_rooms) id 를 넣으면 404 — ensure 가 메신저 방 id 를 못 주면 같은 해석기로 찾고, 그래도 없을 때만 거래방 id.
+  const linkRoomId = await resolveTradeNotificationMessengerRoomId(sb, args.messengerRoomId, args.chatRoomId);
   await appendUserNotification(sb, {
     user_id: args.offer.buyer_id,
     notification_type: "status",
