@@ -22,10 +22,10 @@ export type DeliveryServiceabilityRuntimeContext = {
   overrides: DeliveryStoreDistanceOverrides;
 };
 
-export function buildDeliveryServiceabilityRuntimeContextFromSettings(settings: {
-  policy: DeliveryDistancePolicy;
-  overrides: DeliveryStoreDistanceOverrides;
-}): DeliveryServiceabilityRuntimeContext {
+export async function loadDeliveryServiceabilityRuntimeContext(
+  sb: SupabaseClient
+): Promise<DeliveryServiceabilityRuntimeContext> {
+  const settings = await loadDeliveryDistanceSettings(sb);
   return {
     policy: {
       ...settings.policy,
@@ -33,13 +33,6 @@ export function buildDeliveryServiceabilityRuntimeContextFromSettings(settings: 
     },
     overrides: settings.overrides,
   };
-}
-
-export async function loadDeliveryServiceabilityRuntimeContext(
-  sb: SupabaseClient
-): Promise<DeliveryServiceabilityRuntimeContext> {
-  const settings = await loadDeliveryDistanceSettings(sb);
-  return buildDeliveryServiceabilityRuntimeContextFromSettings(settings);
 }
 
 export type EvaluateStoreDeliveryServiceAreaArgs = {

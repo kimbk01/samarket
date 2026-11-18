@@ -35,8 +35,11 @@ function readNumericValue(
   return Math.min(max, Math.max(min, Math.round(v)));
 }
 
-export function commerceSettingsFallback(): CommerceSettingsResolved {
-  return {
+/**
+ * DB admin_settings가 있으면 우선, 없거나 오류 시 .env 기본값
+ */
+export async function loadCommerceSettings(sb: SupabaseClient): Promise<CommerceSettingsResolved> {
+  const fallback: CommerceSettingsResolved = {
     autoCompleteDays: getStoreAutoCompleteDays(),
     settlementFeeBp: getStoreSettlementFeeBp(),
     settlementDelayDays: getStoreSettlementDelayDays(),
@@ -45,13 +48,23 @@ export function commerceSettingsFallback(): CommerceSettingsResolved {
     popularMenuTopN: 5,
     popularMenuRecommendedMax: 10,
   };
-}
 
-/** B1 — 이미 읽은 admin_settings value_json 맵에서 commerce 해석 (추가 왕복 없음) */
-export function resolveCommerceSettingsFromValueMap(
-  map: Map<string, unknown>,
-  fallback: CommerceSettingsResolved = commerceSettingsFallback()
-): CommerceSettingsResolved {
+  const { data, error } = await sb
+    .from("admin_settings")
+    .select("key, value_json")
+    .in("key", ALL_KEYS);
+
+  if (error) {
+    if (error.message?.includes("admin_settings") && error.message.includes("does not exist")) {
+      return fallback;
+    }
+    console.warn("[loadCommerceSettings]", error.message);
+    return fallback;
+  }
+
+  const map = new Map<string, unknown>();
+  for (const row of data ?? []) map.set(row.key as string, row.value_json);
+
   return {
     autoCompleteDays: readNumericValue(
       map.get(COMMERCE_SETTING_KEYS.autoCompleteDays),
@@ -96,31 +109,6 @@ export function resolveCommerceSettingsFromValueMap(
       30
     ),
   };
-}
-
-/**
- * DB admin_settings가 있으면 우선, 없거나 오류 시 .env 기본값
- */
-export async function loadCommerceSettings(sb: SupabaseClient): Promise<CommerceSettingsResolved> {
-  const fallback = commerceSettingsFallback();
-
-  const { data, error } = await sb
-    .from("admin_settings")
-    .select("key, value_json")
-    .in("key", ALL_KEYS);
-
-  if (error) {
-    if (error.message?.includes("admin_settings") && error.message.includes("does not exist")) {
-      return fallback;
-    }
-    console.warn("[loadCommerceSettings]", error.message);
-    return fallback;
-  }
-
-  const map = new Map<string, unknown>();
-  for (const row of data ?? []) map.set(row.key as string, row.value_json);
-
-  return resolveCommerceSettingsFromValueMap(map, fallback);
 }
 
 /** 관리자 화면용: DB에 행이 있는 키 목록 */

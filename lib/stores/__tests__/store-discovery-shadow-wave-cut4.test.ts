@@ -74,8 +74,6 @@ describe("CUT 4 bounded path guards", () => {
   it("adapter uses wave RPC not bulk CUT3 pool", () => {
     const src = readFileSync(ADAPTER, "utf8");
     expect(src).toContain("get_store_discovery_shadow_wave");
-    // B1 — optional batch of the same wave RPC (not CUT3 bulk pool)
-    expect(src).toContain("get_store_discovery_shadow_waves_batch");
     expect(src).not.toMatch(/get_store_discovery_home_shadow/);
     expect(src).not.toMatch(/get_store_discovery_browse_shadow/);
     expect(src).not.toMatch(/p_max_candidates/);
