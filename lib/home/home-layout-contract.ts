@@ -232,10 +232,22 @@ export type HomeBannerConfig = {
   visible: boolean;
   /** 유료 광고면 「광고」 표기 (광고 표면 SSOT §3) — 운영자 자체 안내는 끔 */
   adLabel: boolean;
+  /** 배너 위 서비스 표시 — 비우면 이동 주소의 메뉴 이름 (`resolveHomeBannerMenuKey`) */
+  chip: HomeText;
+  /** 버튼 문구 — 비우면 기본 문구(`home_banner_cta_default`) */
+  ctaLabel: HomeText;
 };
 
 export const HOME_BANNER_TITLE_MAX = 30;
 export const HOME_BANNER_BODY_MAX = 40;
+/** 배너 위 서비스 표시(작은 알약) · 버튼 문구(CTA) 최대 글자 */
+export const HOME_BANNER_CHIP_MAX = 12;
+export const HOME_BANNER_CTA_MAX = 12;
+/**
+ * 홈 메인 배너 그림 비율 (시안 R3 · Owner 「배너 SSOT 구현」 2026-11-18).
+ * 새로 올리는 그림은 이 비율만 받는다. 이 비율 그림 = 사진 꽉 찬 배너, 그 밖(예전 1:1 등) = 왼쪽 글·오른쪽 그림 배너.
+ */
+export const HOME_BANNER_HERO_RATIO: HomeBannerRatio = "16:9";
 export const HOME_BANNERS_MAX = 10;
 
 /* ───────────────────────── 서비스 카드 ───────────────────────── */
@@ -368,24 +380,24 @@ function section(key: HomeSectionKey, visible = true): HomeSectionConfig {
 function sampleBanner(
   id: string,
   image: string,
-  side: "left" | "right",
-  titleKey: HomeHubKey,
-  bodyKey: HomeHubKey,
+  keys: { chip: HomeHubKey; title: HomeHubKey; body: HomeHubKey; cta: HomeHubKey },
   href: string
 ): HomeBannerConfig {
   return {
     id,
     imageUrl: image,
-    ratio: "1:1",
+    ratio: HOME_BANNER_HERO_RATIO,
     size: "m",
-    side,
+    side: "left",
     titleSize: "m",
-    title: catalogText(titleKey),
-    body: catalogText(bodyKey),
+    title: catalogText(keys.title),
+    body: catalogText(keys.body),
     href,
     audience: "all",
     visible: true,
     adLabel: false,
+    chip: catalogText(keys.chip),
+    ctaLabel: catalogText(keys.cta),
   };
 }
 
@@ -406,30 +418,37 @@ export const DEFAULT_HOME_LAYOUT: HomeLayoutConfig = {
   schemaVersion: HOME_LAYOUT_SCHEMA_VERSION,
   sections: HOME_SECTION_KEYS.map((k) => section(k)),
   header: { showAddress: true, searchPlaceholder: emptyHomeText() },
-  /** 기본 배너 3개 — Owner 제공 이미지(메신저·거래·배달, 2026-11-09). 어드민에서 바꾸거나 끈다 */
+  /**
+   * 기본 배너 3개 — 시안 R3 (Owner 2026-11-18 「정보 공유 · 보안 메신저 무료 통화 · 배달」 강조, 16:9).
+   * 어드민 저장값이 없거나 읽기 실패일 때만 쓴다. 어드민에서 바꾸거나 끈다.
+   */
   banners: [
     sampleBanner(
+      "dibay-info",
+      "/images/home-banners/hero-info.jpg",
+      { chip: "home_banner_info_chip", title: "home_banner_info_title", body: "home_banner_info_body", cta: "home_banner_info_cta" },
+      "/philife"
+    ),
+    sampleBanner(
       "dibay-messenger",
-      "/images/home-banners/messenger.webp",
-      "left",
-      "home_banner_messenger_title",
-      "home_banner_messenger_body",
+      "/images/home-banners/hero-telring.jpg",
+      {
+        chip: "home_banner_messenger_chip",
+        title: "home_banner_messenger_title",
+        body: "home_banner_messenger_body",
+        cta: "home_banner_messenger_cta",
+      },
       "/community-messenger?section=chats"
     ),
     sampleBanner(
-      "dibay-trade",
-      "/images/home-banners/trade.webp",
-      "right",
-      "home_banner_trade_title",
-      "home_banner_trade_body",
-      "/market"
-    ),
-    sampleBanner(
       "dibay-delivery",
-      "/images/home-banners/delivery.webp",
-      "left",
-      "home_banner_delivery_title",
-      "home_banner_delivery_body",
+      "/images/home-banners/hero-delivery.jpg",
+      {
+        chip: "home_banner_delivery_chip",
+        title: "home_banner_delivery_title",
+        body: "home_banner_delivery_body",
+        cta: "home_banner_delivery_cta",
+      },
       "/stores"
     ),
   ],
@@ -594,6 +613,8 @@ function normalizeBanner(item: Record<string, unknown>): HomeBannerConfig | null
     audience: pickEnum(item.audience, HOME_AUDIENCES, "all"),
     visible: item.visible !== false,
     adLabel: item.adLabel === true,
+    chip: normalizeText(item.chip, HOME_BANNER_CHIP_MAX),
+    ctaLabel: normalizeText(item.ctaLabel, HOME_BANNER_CTA_MAX),
   };
 }
 
@@ -771,7 +792,7 @@ export function validateHomeLayoutPayload(raw: unknown): HomeLayoutValidation {
 /* ───────────────────────── 복사 ───────────────────────── */
 
 function cloneBanner(b: HomeBannerConfig): HomeBannerConfig {
-  return { ...b, title: { ...b.title }, body: { ...b.body } };
+  return { ...b, title: { ...b.title }, body: { ...b.body }, chip: { ...b.chip }, ctaLabel: { ...b.ctaLabel } };
 }
 function cloneService(s: HomeServiceCardConfig): HomeServiceCardConfig {
   return { ...s, title: { ...s.title }, desc: { ...s.desc } };
@@ -814,4 +835,21 @@ export function resolveAudienceBanners(c: HomeLayoutConfig, isGuest: boolean): H
   return c.banners.filter(
     (b) => b.visible && (b.audience === "all" || (isGuest ? b.audience === "guest" : b.audience === "member"))
   );
+}
+
+/* ───────────────────────── 배너 이동 곳 → 메뉴 ───────────────────────── */
+
+/**
+ * 배너 이동 주소가 가리키는 메뉴 — 경로가 메뉴 경로와 같거나 그 아래면 그 메뉴 (전체 메뉴 제외).
+ * 서비스 표시 자동 문구·비로그인 로그인 안내가 같은 판정을 쓴다.
+ */
+export function resolveHomeBannerMenuKey(href: string): Exclude<HomeMenuKey, "all"> | null {
+  const path = href.split(/[?#]/)[0] ?? EMPTY;
+  if (!path) return null;
+  for (const k of HOME_MENU_KEYS) {
+    if (k === "all") continue;
+    const base = HOME_MENU_CATALOG[k].href.split(/[?#]/)[0] ?? EMPTY;
+    if (path === base || path.startsWith(`${base}/`)) return k;
+  }
+  return null;
 }

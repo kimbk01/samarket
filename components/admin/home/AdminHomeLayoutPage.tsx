@@ -7,7 +7,7 @@ import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
-import { HomeBannerPreviewFrame } from "@/components/home-hub/HomeBanner";
+import { HomeHeroBannerPreview } from "@/components/home-hub/HomeHeroBannerCard";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -19,15 +19,12 @@ import {
   emptyHomeText,
   HOME_AUDIENCES,
   HOME_BANNER_BODY_MAX,
-  HOME_BANNER_IMAGE_MAX_PX,
-  HOME_BANNER_IMAGE_MIN_PX,
+  HOME_BANNER_CHIP_MAX,
+  HOME_BANNER_CTA_MAX,
+  HOME_BANNER_HERO_RATIO,
   HOME_BANNER_IMAGE_PX,
   HOME_BANNER_RATIO_CSS,
-  HOME_BANNER_RATIOS,
-  HOME_BANNER_SIZE_PERCENT,
-  HOME_BANNER_SIZES,
   HOME_BANNER_TITLE_MAX,
-  HOME_BANNER_TITLE_SIZES,
   HOME_BANNERS_MAX,
   HOME_MENU_CATALOG,
   HOME_MENU_KEYS,
@@ -57,8 +54,6 @@ import {
   type HomeAudience,
   type HomeBannerConfig,
   type HomeBannerRatio,
-  type HomeBannerSize,
-  type HomeBannerTitleSize,
   type HomeLayoutConfig,
   type HomePostSortKey,
   type HomeSectionKey,
@@ -97,16 +92,6 @@ const TABS: { key: TabKey; label: MessageKey }[] = [
 ];
 
 const EMPTY_CATALOG: HomeCatalog = { storeCategories: [], tradeCategories: [], communityTopics: [], latestNotice: null };
-const SIZE_LABEL: Record<HomeBannerSize, MessageKey> = {
-  s: "admin_home_layout_size_s",
-  m: "admin_home_layout_size_m",
-  l: "admin_home_layout_size_l",
-};
-const TITLE_SIZE_LABEL: Record<HomeBannerTitleSize, MessageKey> = {
-  s: "admin_home_layout_size_small",
-  m: "admin_home_layout_size_normal",
-  l: "admin_home_layout_size_large",
-};
 const AUDIENCE_LABEL: Record<HomeAudience, MessageKey> = {
   all: "admin_home_layout_audience_all",
   member: "admin_home_layout_audience_member",
@@ -213,12 +198,15 @@ function TextPair({
   onChange,
   tr,
   placeholderKo,
+  multiline,
 }: {
   value: HomeText;
   max: number;
   onChange: (v: HomeText) => void;
   tr: Tr;
   placeholderKo?: string;
+  /** 줄바꿈 1번 허용 (배너 제목) */
+  multiline?: boolean;
 }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2">
@@ -230,13 +218,24 @@ function TextPair({
               {value[lang].length}/{max}
             </span>
           </span>
-          <input
-            className={INPUT_CLS}
-            value={value[lang]}
-            maxLength={max}
-            placeholder={lang === "ko" ? placeholderKo : undefined}
-            onChange={(e) => onChange({ ...value, [lang]: e.target.value })}
-          />
+          {multiline ? (
+            <textarea
+              className={INPUT_CLS}
+              rows={2}
+              value={value[lang]}
+              maxLength={max}
+              placeholder={lang === "ko" ? placeholderKo : undefined}
+              onChange={(e) => onChange({ ...value, [lang]: e.target.value.split("\n").slice(0, 2).join("\n") })}
+            />
+          ) : (
+            <input
+              className={INPUT_CLS}
+              value={value[lang]}
+              maxLength={max}
+              placeholder={lang === "ko" ? placeholderKo : undefined}
+              onChange={(e) => onChange({ ...value, [lang]: e.target.value })}
+            />
+          )}
         </label>
       ))}
     </div>
@@ -380,28 +379,31 @@ function ImageUpload({
   );
 }
 
-/** 앱 홈 배너와 같은 모양의 미리보기 (배경·카드 없음) */
-function BannerPreview({ banner, language, tr }: { banner: HomeBannerConfig; language: string; tr: Tr }) {
-  const [width, setWidth] = useState<375 | 760>(375);
+/** 미리보기 폭 — 휴대폰 · 태블릿 · PC (앱 홈 배너 칸 폭과 같은 기준) */
+const BANNER_PREVIEW_WIDTHS = { phone: 375, tablet: 768, pc: 1100 } as const;
+type BannerPreviewMode = keyof typeof BANNER_PREVIEW_WIDTHS;
+
+/** 앱 홈 배너와 같은 부품(`HomeHeroBannerCard`)으로 그리는 미리보기 */
+function BannerPreview({ banner, index, total, tr }: { banner: HomeBannerConfig; index: number; total: number; tr: Tr }) {
+  const [mode, setMode] = useState<BannerPreviewMode>("phone");
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="sam-text-body font-semibold">{tr("admin_home_layout_preview")}</span>
         <Seg
-          value={width}
-          onChange={setWidth}
+          value={mode}
+          onChange={setMode}
           options={[
-            { value: 375, label: tr("admin_home_layout_preview_phone") },
-            { value: 760, label: tr("admin_home_layout_preview_tablet") },
+            { value: "phone", label: tr("admin_home_layout_preview_phone") },
+            { value: "tablet", label: tr("admin_home_layout_preview_tablet") },
+            { value: "pc", label: tr("admin_home_layout_preview_pc") },
           ]}
         />
       </div>
-      <div className="overflow-x-auto rounded-ui-rect bg-sam-surface-muted p-3">
-        <HomeBannerPreviewFrame banner={banner} language={language} adLabel={tr("home_ad")} width={width} />
+      <div className="overflow-x-auto rounded-ui-rect bg-sam-surface-muted py-3">
+        <HomeHeroBannerPreview banner={banner} index={index} total={total} width={BANNER_PREVIEW_WIDTHS[mode]} />
       </div>
-      <p className="mt-1 sam-text-helper text-sam-muted">
-        {tr("admin_home_layout_preview_note", { min: HOME_BANNER_IMAGE_MIN_PX, max: HOME_BANNER_IMAGE_MAX_PX })}
-      </p>
+      <p className="mt-1 sam-text-helper text-sam-muted">{tr("admin_home_layout_banner_preview_note")}</p>
     </div>
   );
 }
@@ -500,13 +502,11 @@ function BannersTab({
   draft,
   setDraft,
   tr,
-  language,
   focus,
 }: {
   draft: HomeLayoutConfig;
   setDraft: SetDraft;
   tr: Tr;
-  language: string;
   /** 저장 검사에서 걸린 배너 — 그 배너를 골라 보여 준다 (감사 E9) */
   focus: { id: string; nonce: number } | null;
 }) {
@@ -523,7 +523,7 @@ function BannersTab({
     const nb: HomeBannerConfig = {
       id,
       imageUrl: "",
-      ratio: "1:1",
+      ratio: HOME_BANNER_HERO_RATIO,
       size: "m",
       side: "left",
       titleSize: "m",
@@ -533,6 +533,8 @@ function BannersTab({
       audience: "all",
       visible: true,
       adLabel: false,
+      chip: emptyHomeText(),
+      ctaLabel: emptyHomeText(),
     };
     setDraft((d) => ({ ...d, banners: [...d.banners, nb] }));
     setSelId(id);
@@ -562,9 +564,8 @@ function BannersTab({
                 <span className="min-w-0">
                   <span className="block truncate sam-text-body font-semibold">{b.title.ko || tr("admin_home_layout_banner_untitled")}</span>
                   <span className="block truncate sam-text-helper text-sam-muted">
-                    {b.ratio} · {tr(SIZE_LABEL[b.size], { pct: HOME_BANNER_SIZE_PERCENT[b.size] })} ·{" "}
-                    {tr(b.side === "left" ? "admin_home_layout_side_left" : "admin_home_layout_side_right")} ·{" "}
-                    {tr(AUDIENCE_LABEL[b.audience])}
+                    {b.ratio} · {tr(AUDIENCE_LABEL[b.audience])}
+                    {b.adLabel ? ` · ${tr("home_ad")}` : ""}
                   </span>
                 </span>
               </AdminListItemButton>
@@ -599,41 +600,31 @@ function BannersTab({
               {tr("admin_home_layout_banner_delete")}
             </AdminActionButton>
           </div>
-          <Field label={tr("admin_home_layout_ratio")}>
-            <Seg value={sel.ratio} onChange={(v) => patch(sel.id, { ratio: v })} options={HOME_BANNER_RATIOS.map((r) => ({ value: r, label: r }))} />
-          </Field>
-          <Field label={tr("admin_home_layout_size")}>
-            <Seg
-              value={sel.size}
-              onChange={(v) => patch(sel.id, { size: v })}
-              options={HOME_BANNER_SIZES.map((s) => ({ value: s, label: tr(SIZE_LABEL[s], { pct: HOME_BANNER_SIZE_PERCENT[s] }) }))}
+          <Field label={tr("admin_home_layout_image")} hint={tr("admin_home_layout_banner_image_hint")}>
+            <ImageUpload
+              tr={tr}
+              kind="banner"
+              ratio={HOME_BANNER_HERO_RATIO}
+              value={sel.imageUrl}
+              onChange={(url) => patch(sel.id, { imageUrl: url, ratio: HOME_BANNER_HERO_RATIO })}
             />
+            {sel.imageUrl && sel.ratio !== HOME_BANNER_HERO_RATIO ? (
+              <p className="mt-1 sam-text-helper text-sam-warning">
+                {tr("admin_home_layout_banner_legacy_ratio", { ratio: sel.ratio, hero: HOME_BANNER_HERO_RATIO })}
+              </p>
+            ) : null}
           </Field>
-          <Field label={tr("admin_home_layout_side")}>
-            <Seg
-              value={sel.side}
-              onChange={(v) => patch(sel.id, { side: v })}
-              options={[
-                { value: "left", label: tr("admin_home_layout_side_left") },
-                { value: "right", label: tr("admin_home_layout_side_right") },
-              ]}
-            />
+          <Field label={tr("admin_home_layout_banner_chip")} hint={tr("admin_home_layout_banner_chip_hint")}>
+            <TextPair tr={tr} value={sel.chip} max={HOME_BANNER_CHIP_MAX} onChange={(v) => patch(sel.id, { chip: v })} />
           </Field>
-          <Field label={tr("admin_home_layout_image")}>
-            <ImageUpload tr={tr} kind="banner" ratio={sel.ratio} value={sel.imageUrl} onChange={(url) => patch(sel.id, { imageUrl: url })} />
-          </Field>
-          <Field label={tr("admin_home_layout_title")}>
-            <TextPair tr={tr} value={sel.title} max={HOME_BANNER_TITLE_MAX} onChange={(v) => patch(sel.id, { title: v })} />
-          </Field>
-          <Field label={tr("admin_home_layout_title_size")}>
-            <Seg
-              value={sel.titleSize}
-              onChange={(v) => patch(sel.id, { titleSize: v })}
-              options={HOME_BANNER_TITLE_SIZES.map((s) => ({ value: s, label: tr(TITLE_SIZE_LABEL[s]) }))}
-            />
+          <Field label={tr("admin_home_layout_title")} hint={tr("admin_home_layout_banner_title_hint")}>
+            <TextPair tr={tr} value={sel.title} max={HOME_BANNER_TITLE_MAX} multiline onChange={(v) => patch(sel.id, { title: v })} />
           </Field>
           <Field label={tr("admin_home_layout_body")}>
             <TextPair tr={tr} value={sel.body} max={HOME_BANNER_BODY_MAX} onChange={(v) => patch(sel.id, { body: v })} />
+          </Field>
+          <Field label={tr("admin_home_layout_banner_cta")} hint={tr("admin_home_layout_banner_cta_hint")}>
+            <TextPair tr={tr} value={sel.ctaLabel} max={HOME_BANNER_CTA_MAX} onChange={(v) => patch(sel.id, { ctaLabel: v })} />
           </Field>
           <Field label={tr("admin_home_layout_href")} hint={tr("admin_home_layout_href_guest_hint")}>
             <HrefPicker key={sel.id} value={sel.href} onChange={(v) => patch(sel.id, { href: v })} tr={tr} />
@@ -652,7 +643,12 @@ function BannersTab({
             </div>
           </Field>
           <div className="pt-4">
-            <BannerPreview banner={sel} language={language} tr={tr} />
+            <BannerPreview
+              banner={sel}
+              index={Math.max(0, draft.banners.findIndex((b) => b.id === sel.id))}
+              total={draft.banners.length}
+              tr={tr}
+            />
           </div>
         </div>
       ) : null}
@@ -1607,7 +1603,7 @@ export function AdminHomeLayoutPage() {
       />
 
       {tab === "banners" ? (
-        <BannersTab draft={draft} setDraft={setDraft} tr={tr} language={language} focus={bannerFocus} />
+        <BannersTab draft={draft} setDraft={setDraft} tr={tr} focus={bannerFocus} />
       ) : null}
       {tab === "services" ? <ServicesTab draft={draft} setDraft={setDraft} tr={tr} /> : null}
       {tab === "stores" ? <StoresTab draft={draft} setDraft={setDraft} tr={tr} language={language} catalog={catalog} /> : null}

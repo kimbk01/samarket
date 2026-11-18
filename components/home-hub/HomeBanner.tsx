@@ -1,89 +1,30 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
-import {
-  HOME_MENU_CATALOG,
-  HOME_BANNER_IMAGE_MAX_PX,
-  HOME_BANNER_IMAGE_MIN_PX,
-  HOME_BANNER_RATIO_CSS,
-  HOME_BANNER_SIZE_PERCENT,
-  HOME_BANNER_TITLE_PX,
-  pickHomeText,
-  type HomeBannerConfig,
-} from "@/lib/home/home-layout-contract";
+import { HomeHeroBannerCard } from "@/components/home-hub/HomeHeroBannerCard";
+import { HOME_MENU_CATALOG, resolveHomeBannerMenuKey, type HomeBannerConfig } from "@/lib/home/home-layout-contract";
 import { keepSessionPick, nextBannerId } from "@/lib/home/home-rotation";
 import type { HomeRotationCtl } from "@/components/home-hub/use-home-rotation";
 
 /**
- * 로그인이 필요한 이동 곳 — 서비스 카드와 같은 기준(메뉴 카탈로그 `guestAuthAction`) 하나로 판정 (감사 중복 2026-11-09).
- * 배너 주소의 경로가 카탈로그 메뉴 경로와 같거나 그 아래면 그 메뉴의 로그인 안내를 쓴다.
+ * 홈 메인 배너 SSOT — 시안 R3 (Owner 「배너 SSOT 구현」 2026-11-18).
+ * 배너 한 장 = `HomeHeroBannerCard` (어드민 미리보기와 공용) · 이 파일 = 앱 홈 넘기기(‹ ›·점·교체 규칙).
  */
-function guestGateFor(href: string) {
-  const path = href.split(/[?#]/)[0] ?? "";
-  for (const m of Object.values(HOME_MENU_CATALOG)) {
-    if (!m.guestAuthAction) continue;
-    const base = m.href.split(/[?#]/)[0] ?? "";
-    if (path === base || path.startsWith(`${base}/`)) return m.guestAuthAction;
-  }
-  return null;
-}
 
-/** 배너 한 개 그림 — 앱 홈·어드민 미리보기 같은 모양 (네이버형: 카드·배경 없음) */
-export function HomeBannerView({
-  banner,
-  language,
-  adLabel,
-  onClick,
-}: {
-  banner: HomeBannerConfig;
-  language: string;
-  adLabel: string;
-  onClick?: () => void;
-}) {
-  const title = pickHomeText(banner.title, language);
-  const body = pickHomeText(banner.body, language);
-  const pct = HOME_BANNER_SIZE_PERCENT[banner.size];
-  const Tag = onClick ? "button" : "div";
-  return (
-    <Tag
-      {...(onClick ? { type: "button" as const, onClick } : {})}
-      className={`flex w-full items-center gap-4 px-5 py-5 text-left transition-opacity active:opacity-70 ${
-        banner.side === "right" ? "flex-row-reverse" : ""
-      }`}
-      data-home-banner={banner.id}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element -- 어드민이 올린 배너 이미지(비율 고정) */}
-      <img
-        src={banner.imageUrl}
-        alt=""
-        className="shrink-0 rounded-ui-rect object-cover"
-        style={{
-          width: `clamp(${HOME_BANNER_IMAGE_MIN_PX}px, ${pct}%, ${HOME_BANNER_IMAGE_MAX_PX}px)`,
-          aspectRatio: HOME_BANNER_RATIO_CSS[banner.ratio],
-        }}
-      />
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span
-          className="home-banner-title line-clamp-2"
-          style={{ fontSize: `${HOME_BANNER_TITLE_PX[banner.titleSize]}px` }}
-        >
-          {title}
-        </span>
-        {body ? (
-          <span className="home-banner-body line-clamp-2">{body}</span>
-        ) : null}
-        {banner.adLabel ? <span className="home-banner-ad">{adLabel}</span> : null}
-      </span>
-    </Tag>
-  );
+/** 로그인이 필요한 이동 곳 — 배너 이동 주소의 메뉴(`resolveHomeBannerMenuKey`)의 로그인 안내 */
+function guestGateFor(href: string) {
+  const k = resolveHomeBannerMenuKey(href);
+  return k ? HOME_MENU_CATALOG[k].guestAuthAction : null;
 }
 
 /**
- * 홈 상단 배너 — 한 번에 1개. 새로고침·재접속 때만 다음 배너(어드민 순서로 한 바퀴).
- * 첫 그림(서버)은 높이만 잡고 숨긴다 → 마운트 후 이번에 보일 배너로 바꿔 깜빡임·튐을 막는다.
+ * 홈 메인 배너 — 어드민 순서대로 옆으로 넘기기(자동 넘김 없음).
+ * 처음 보이는 배너 = 기존 교체 규칙(새로고침·재접속 때 다음 배너, `useHomeRotation`).
+ * 첫 그림(서버)은 높이만 잡고 숨긴다 → 마운트 후 이번 배너 위치로 옮겨 보인다(깜빡임·튐 방지).
  */
 export function HomeBanner({
   banners,
@@ -94,10 +35,12 @@ export function HomeBanner({
   isMember: boolean;
   rot: HomeRotationCtl | null;
 }) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
   const ids = useMemo(() => banners.map((b) => b.id), [banners]);
   const [pickedId, setPickedId] = useState<string | null>(null);
+  const [active, setActive] = useState(0);
+  const trackRef = useRef<HTMLDivElement | null>(null);
   const mode = rot?.mode;
   const seq = rot?.seq;
 
@@ -114,43 +57,106 @@ export function HomeBanner({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 교체는 mode·seq(새로고침) 기준
   }, [mode, seq, ids.join("|")]);
 
-  if (banners.length === 0) return null;
-  const banner = banners.find((b) => b.id === pickedId) ?? banners[0]!;
-  const hidden = pickedId == null;
+  const cardLeft = useCallback((el: HTMLDivElement, i: number) => {
+    const card = el.children[i] as HTMLElement | undefined;
+    if (!card) return 0;
+    const pad = parseFloat(getComputedStyle(el).paddingLeft) || 0;
+    return card.offsetLeft - pad;
+  }, []);
 
-  const onClick = banner.href
-    ? () => {
-        const gate = guestGateFor(banner.href);
-        if (!isMember && gate) {
-          void requireAuthAction(gate, () => router.push(banner.href), { next: banner.href });
-          return;
-        }
-        router.push(banner.href);
+  /** 이번 배너 위치로 바로 옮김 (보이기 전) */
+  useLayoutEffect(() => {
+    const el = trackRef.current;
+    if (!el || pickedId == null) return;
+    const i = Math.max(0, ids.indexOf(pickedId));
+    el.scrollLeft = cardLeft(el, i);
+    setActive(i);
+  }, [pickedId, ids, cardLeft]);
+
+  const onScroll = useCallback(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    let best = 0;
+    let bestD = Infinity;
+    for (let i = 0; i < el.children.length; i++) {
+      const d = Math.abs(cardLeft(el, i) - el.scrollLeft);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
       }
-    : undefined;
+    }
+    setActive(best);
+  }, [cardLeft]);
 
-  return (
-    <section className={hidden ? "invisible" : undefined} aria-hidden={hidden || undefined} data-home-banner-slot>
-      <HomeBannerView banner={banner} language={language} adLabel={t("home_ad")} onClick={onClick} />
-    </section>
+  const go = useCallback(
+    (i: number) => {
+      const el = trackRef.current;
+      if (!el) return;
+      const n = el.children.length;
+      if (n === 0) return;
+      const to = (i + n) % n;
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      el.scrollTo({ left: cardLeft(el, to), behavior: reduce ? "auto" : "smooth" });
+    },
+    [cardLeft]
   );
-}
 
-/** 어드민 「홈 구성」 미리보기 — 앱 홈과 같은 부품·같은 바탕(폰 375 / 태블릿 760 폭) */
-export function HomeBannerPreviewFrame({
-  banner,
-  language,
-  adLabel,
-  width,
-}: {
-  banner: HomeBannerConfig;
-  language: string;
-  adLabel: string;
-  width: number;
-}) {
+  if (banners.length === 0) return null;
+  const hidden = pickedId == null;
+  const multi = banners.length > 1;
+
+  const open = (b: HomeBannerConfig) => {
+    const gate = guestGateFor(b.href);
+    if (!isMember && gate) {
+      void requireAuthAction(gate, () => router.push(b.href), { next: b.href });
+      return;
+    }
+    router.push(b.href);
+  };
+
   return (
-    <div className="home-banner-frame mx-auto" style={{ width }} data-home-banner-preview>
-      <HomeBannerView banner={banner} language={language} adLabel={adLabel} />
-    </div>
+    <section
+      className={`home-hero${hidden ? " invisible" : ""}`}
+      aria-hidden={hidden || undefined}
+      aria-roledescription="carousel"
+      data-home-banner-slot
+    >
+      <div ref={trackRef} className="home-hero-track" data-multi={multi || undefined} onScroll={onScroll}>
+        {banners.map((b, i) => (
+          <HomeHeroBannerCard
+            key={b.id}
+            banner={b}
+            index={i}
+            total={banners.length}
+            onClick={b.href ? () => open(b) : undefined}
+          />
+        ))}
+      </div>
+      {multi ? (
+        <>
+          <button
+            type="button"
+            className="home-hero-arrow home-hero-arrow--prev"
+            aria-label={t("home_banner_prev")}
+            onClick={() => go(active - 1)}
+          >
+            <ChevronLeft className="h-5 w-5" strokeWidth={2.4} aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="home-hero-arrow home-hero-arrow--next"
+            aria-label={t("home_banner_next")}
+            onClick={() => go(active + 1)}
+          >
+            <ChevronRight className="h-5 w-5" strokeWidth={2.4} aria-hidden />
+          </button>
+          <div className="home-hero-dots" aria-hidden>
+            {banners.map((b, i) => (
+              <i key={b.id} className={i === active ? "is-on" : undefined} />
+            ))}
+          </div>
+        </>
+      ) : null}
+    </section>
   );
 }
