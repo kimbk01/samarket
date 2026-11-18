@@ -384,6 +384,15 @@ export async function POST(
     return r;
   });
   const postAckEffects = result.ok ? result.postAckEffects : undefined;
+  /**
+   * 보내기 1단계 — 게이트가 차단 검사를 통과시킨 1:1 상대(`peerUserId` 는 통과 지점에서만 채워짐).
+   * 알림 파이프라인이 같은 함수로 같은 쌍을 다시 읽지 않게 넘긴다.
+   */
+  const gateForNotify = result.ok ? await gatePrefetchPromise.catch(() => null) : null;
+  const blockClearedPeerUserId =
+    gateForNotify?.block && gateForNotify.block.ok === true && typeof gateForNotify.block.peerUserId === "string"
+      ? gateForNotify.block.peerUserId
+      : null;
   if (result.ok) {
     const msg = result.message as { id?: string; createdAt?: string } | undefined;
     if (t5 && typeof msg?.id === "string") t5.messageId = msg.id;
@@ -452,6 +461,7 @@ export async function POST(
               runCommunityMessengerSendDurablePreAckEffects(sb, postAckEffects, t5 ?? undefined, {
                 parallelRecipients: true,
                 deferAutoRead: true,
+                blockClearedPeerUserId,
               })
           );
           durablePromise.catch(() => undefined);
