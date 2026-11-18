@@ -223,6 +223,11 @@ export async function GET(req: Request) {
       { headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL } }
     );
   }
+  /**
+   * 2026-11-19 — 커머스 설정 읽기를 여기서 시작해 배달 시간 기준·거리 정책과 같은 admin_settings 조회 1번에 묶는다
+   * (`readAdminSettingsBatched`). 아래 상품 단계에서 이 결과를 그대로 쓴다. 실패해도 기본값을 돌려주는 함수(throw 없음).
+   */
+  const commerceSettingsPromise = loadCommerceSettings(supabase);
   const [origin, deliveryRideTimeSource, serviceabilityCtx, compositionPolicy] = await Promise.all([
     resolveStoreListDeliveryOrigin(supabase, searchParams),
     loadDeliveryRideTimeSource(supabase),
@@ -513,7 +518,7 @@ export async function GET(req: Request) {
     const loadProductsAndPopular = async () => {
       if (ids.length === 0) return;
       const [commerce, { data: prods, error: pErr }] = await Promise.all([
-        loadCommerceSettings(supabase),
+        commerceSettingsPromise,
         supabase
           .from("store_products")
           .select(

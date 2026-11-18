@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { readAdminSettingsBatched } from "@/lib/admin/admin-settings-batched-read";
 import { COMMERCE_SETTING_KEYS, type CommerceSettingKey } from "@/lib/stores/commerce-settings-keys";
 import { getStoreAutoCompleteDays } from "@/lib/stores/store-auto-complete-config";
 import { getStoreSettlementDelayDays, getStoreSettlementFeeBp } from "@/lib/stores/store-settlement-config";
@@ -49,10 +50,8 @@ export async function loadCommerceSettings(sb: SupabaseClient): Promise<Commerce
     popularMenuRecommendedMax: 10,
   };
 
-  const { data, error } = await sb
-    .from("admin_settings")
-    .select("key, value_json")
-    .in("key", ALL_KEYS);
+  /** 같은 순간의 다른 admin_settings 읽기와 1회로 묶는다(home-feed 2.7회 → 1회, 2026-11-19) */
+  const { rows: data, error } = await readAdminSettingsBatched(sb, ALL_KEYS);
 
   if (error) {
     if (error.message?.includes("admin_settings") && error.message.includes("does not exist")) {

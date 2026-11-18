@@ -16,7 +16,7 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/community-messenger/presence": 1.1,
   "/api/me/notifications/badge-count": 7.7,
   "/api/philife/neighborhood-feed": 7.3,
-  "/api/stores/home-feed": 16.6,
+  "/api/stores/home-feed": 14.9,
   "/api/community-messenger/calls/sessions/[sessionId]": 5.0,
   "/api/community-messenger/bootstrap": 12.0,
   "/api/me/notifications/room-read": 19.0,
