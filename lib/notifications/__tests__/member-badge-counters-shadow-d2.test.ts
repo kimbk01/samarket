@@ -70,7 +70,7 @@ describe("D2 shadow — 카운터 대조", () => {
       join(process.cwd(), "lib/notifications/pipeline/build-domain-badge-authority-http.ts"),
       "utf8"
     );
-    expect(src).toContain("void runMemberBadgeCountersShadow(sb, uid, {");
+    expect(src).toContain("keepAliveAfterResponse(runMemberBadgeCountersShadow(sb, uid, {");
     expect(src).not.toMatch(/await runMemberBadgeCountersShadow/);
   });
 
@@ -86,5 +86,32 @@ describe("D2 shadow — 카운터 대조", () => {
     expect(sql).toContain("grant execute on function public.get_member_badge_counters(uuid) to service_role;");
     const regexLine = sql.split("\n").find((l) => l.includes("p ~ '[^")) ?? "";
     expect(/^[\x20-\x7e]+$/.test(regexLine)).toBe(true);
+  });
+
+  it("불일치면 2초 뒤 다시 계산해 판정을 남긴다 — 다시 같으면 timing, 계속 다르면 definition", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const rows = [
+      { ...row, b_customer_order: 3 },
+      { ...row, b_customer_order: 3 },
+    ];
+    let i = 0;
+    const sb = { rpc: async () => ({ data: [rows[Math.min(i++, 1)]], error: null }) } as never;
+    await runMemberBadgeCountersShadow(sb, "u-timing", loader, {
+      rate: 1,
+      sleep: async () => {},
+      recheckLoader: async () => ({ ...loader }),
+    });
+    expect(warn.mock.calls.at(-1)?.[1]).toMatchObject({ recheck: { verdict: "definition" } });
+
+    i = 0;
+    const rowsT = [{ ...row, b_customer_order: 3 }, { ...row }];
+    const sbT = { rpc: async () => ({ data: [rowsT[Math.min(i++, 1)]], error: null }) } as never;
+    await runMemberBadgeCountersShadow(sbT, "u-timing", loader, {
+      rate: 1,
+      sleep: async () => {},
+      recheckLoader: async () => ({ ...loader }),
+    });
+    expect(warn.mock.calls.at(-1)?.[1]).toMatchObject({ recheck: { match: true, verdict: "timing" } });
+    warn.mockRestore();
   });
 });
