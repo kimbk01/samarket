@@ -13,6 +13,8 @@ import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 
 /**
  * 캐시 삭제 (최종 설계 S17) — 지울 항목 설명 → 지우지 않는 것 → 하단 [캐시 삭제].
+ * 2026-11-19 문구 정정: 실제로 지우는 것 = 등록된 목록·화면 저장 키 + Cache Storage(앱 시작 화면 인트로 미디어만 사용).
+ * 게시글·채팅 사진(WebView HTTP 캐시)은 웹 코드로 지울 수 없어 「지우지 않는 항목」에 표시 — 실제 삭제는 네이티브 후속.
  * 확인 → 레지스트리 키만 삭제(`client-cache-key-registry`) → 토스트. 진행 중 = 버튼 안 스피너.
  * 정적 화면 — 로딩 없음, 서버 요청 0.
  */
@@ -57,6 +59,7 @@ export function CacheSettingsContent() {
           <li>{t("mypage_s17_keeps_consent")}</li>
           <li>{t("mypage_s17_keeps_language")}</li>
           <li>{t("mypage_s17_keeps_drafts")}</li>
+          <li>{t("mypage_s17_keeps_photos")}</li>
         </ul>
       </MyGroup>
       <MyStickyCta
