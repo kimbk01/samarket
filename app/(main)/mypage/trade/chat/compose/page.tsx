@@ -3,10 +3,8 @@ import { TradeChatComposeClient } from "./TradeChatComposeClient";
 import { redirect } from "next/navigation";
 import { MyRouteSkeleton } from "@/components/mypage/ds/MyStateView";
 import type { ChatRoomSource } from "@/lib/types/chat";
-import {
-  TRADE_CHAT_SURFACE,
-  tradeHubChatRoomHref,
-} from "@/lib/chats/surfaces/trade-chat-surface";
+import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
+import { resolveLegacyTradeChatRedirectHref } from "@/lib/chats/legacy-trade-chat-redirect-server";
 import { parseId, parseRoomId } from "@/lib/validate-params";
 
 function firstQueryString(v: string | string[] | undefined): string | undefined {
@@ -42,7 +40,8 @@ async function TradeChatComposePageBody({
       : null;
 
   if (roomId) {
-    return redirect(tradeHubChatRoomHref(roomId, sourceHint));
+    /** 정규 메신저 방 id 우선 — 해석 못 하면 기존 경로 (lib/chats/legacy-trade-chat-redirect-server.ts) */
+    return redirect(await resolveLegacyTradeChatRedirectHref(roomId, sourceHint));
   }
   if (!productId) {
     return redirect(TRADE_CHAT_SURFACE.messengerListHref);
