@@ -397,3 +397,18 @@ Session / Destination / Completion / Profile 불변.
 
 First Break (11-18 Xiaomi·Samsung 운영 `4d4a1da` 실측 · 요청 헤더 기록): 위 Amendment 뒤에도 6회 중 5회 `/api/auth/session` 2회 — 세션 관리자(`ensureHealthy:bindAuthListener`)의 공용 조회가 먼저 시작해 Supabase 준비(최대 320ms)를 기다리는 사이 경계 확인(헤더 없음)이 나가고, 공용 조회는 기다린 뒤 캐시를 다시 보지 않고 요청했다.
 Contract delta: **판정 의미 없음** — 공용 조회가 요청 직전에 ① 캐시를 다시 보고 ② 진행 중인 경계 확인 결과를 기다린다. 결과가 「로그인됨」일 때만 캐시 적중과 같은 200 · 아니면(401·실패·예외) 지금처럼 직접 요청하고 401 재시도·비회원 표식 그대로.
+
+---
+
+## Amendment 2026-11-19 — 공개 설정 GET 의 회원 상태 확인 제외 (Reopen §4 trigger 4: 보안·운영 요구 — 운영 Supabase 요청이 회원 수에 비례해 증폭 · Owner 「재개봉 승인」 2026-11-19)
+
+설계: `docs/audit/supabase-request-surge-2026-11-18/d2-d3-d9-structure-analysis-2026-11-19.md` D3 · 구현 #488(공개 설정 CDN 캐시) 후속.
+
+First Break / 근거 (PROD 11-18 · CODE): 모든 회원에게 같은 공개 설정(`startup-config`·`app-settings`·`main-bottom-nav`·`neighborhood-topic-options`·`public/categories`)을 CDN 에 캐시해도, 로그인 회원의 `/api` GET 은 proxy `enforceApiMemberReadPolicy`(P2-6)가 **CDN 보다 먼저** 신원 확인 + 회원 상태(`profiles status,deleted_at`, 인스턴스별 5초 캐시)를 조회한다 → 실행·화면마다 Supabase 조회가 남는다(운영 `profiles` 25,779건/일 1위, proxy 16,323건/일).
+
+Contract delta:
+- `isMemberReadExemptPath` 에 `PUBLIC_CONFIG_READ_PATHS` 5개 경로 추가(정확히 같은 경로만 · 하위 경로 없음).
+- 의미: 차단·탈퇴 회원도 이 5개 **공개 설정**은 읽을 수 있다. 이 경로들은 라우트에 인증 요구가 없고(비로그인도 같은 응답), 회원 데이터·개인정보가 없다 → 차단 회원이 얻는 정보는 비로그인 방문자와 같다.
+- 불변: 다른 모든 `/api` GET 의 P2-6 차단·탈퇴 403 · 쓰기 게이트(P0-R3) · Route Handler 인증 · Session / Destination / Completion / Profile 의미.
+
+증거: `lib/auth/__tests__/api-member-gate-p2.test.ts` (공개 설정 5개는 신원 확인 없이 통과 · 비슷한 이름의 다른 경로와 회원 데이터 경로는 기존대로 403).
