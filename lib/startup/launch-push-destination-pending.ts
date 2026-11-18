@@ -19,6 +19,16 @@ export function isLaunchPushDestinationPending(): boolean {
   return isLaunchPushHoldActive() && !getAppReadySnapshot();
 }
 
+/**
+ * 설계 §24 D1-웹 (Owner 「SSOT 지키는 안」 2026-11-18) — 대기가 끝날 때까지(덮개 해제 또는 수신자가 끝냄) 기다리는 Promise.
+ * 대기가 아니면 바로 끝난다. 홈 화면 전용 데이터 요청(「지금 우리 동네」)이 덮개 아래에서 채팅방과 경쟁하지 않게 쓴다.
+ */
+export function untilLaunchPushDestinationSettled(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    whenLaunchPushDestinationSettled(resolve);
+  });
+}
+
 /** 알림 목적지 그림 대기 상한 — 알림 수신자의 기존 경로 확인 상한과 같은 값 */
 export const LAUNCH_PUSH_DESTINATION_WAIT_CAP_MS = 8_000;
 

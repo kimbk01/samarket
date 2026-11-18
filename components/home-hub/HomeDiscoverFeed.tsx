@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { untilLaunchPushDestinationSettled } from "@/lib/startup/launch-push-destination-pending";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ServiceBrandIcon } from "@/components/brand/ServiceBrandIcon";
 import { MoimCard } from "@/components/moim/MoimCard";
@@ -41,9 +42,12 @@ function useHomeMoims(refreshSeq: number): MoimCardDto[] {
   const [items, setItems] = useState<MoimCardDto[]>([]);
   useEffect(() => {
     let alive = true;
-    void moimApi.listLocal({}).then((r) => {
-      if (alive) setItems(r.ok ? r.items.slice(0, 2) : []);
-    });
+    // 설계 §24 D1-웹: 알림으로 켠 실행이면 덮개가 걷힐 때까지(목적지 그림) 홈 전용 요청을 미룬다 · 그 밖에는 바로
+    void untilLaunchPushDestinationSettled()
+      .then(() => (alive ? moimApi.listLocal({}) : null))
+      .then((r) => {
+        if (r && alive) setItems(r.ok ? r.items.slice(0, 2) : []);
+      });
     return () => {
       alive = false;
     };

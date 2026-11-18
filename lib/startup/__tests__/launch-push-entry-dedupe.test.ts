@@ -167,3 +167,39 @@ describe("설계 A — 이미 목적지에서 시작한 문서의 덮개 대기 
     expect(block).toMatch(/if \(isLaunchPushDestinationPending\(\)\) \{\s*launchOutcome = "navigated";\s*capLaunchPushDestinationWait\(path\);\s*\}\s*return;/);
   });
 });
+
+describe("설계 §24 D1-웹 — 덮개 아래 홈 전용 요청 미룸 (SSOT 지키는 안)", () => {
+  it("대기 중에는 끝나지 않고, 덮개가 걷히면 끝난다", async () => {
+    const { metrics, pending } = await load(ROOM, "", ROOM);
+    let settled = false;
+    void pending.untilLaunchPushDestinationSettled().then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    document.body.innerHTML = ROOM_SHELL;
+    metrics.markInitialDestinationVisualReady();
+    await Promise.resolve();
+    expect(settled).toBe(true);
+  });
+
+  it("대기가 아니면(아이콘·iOS) 바로 끝난다 — 홈 요청은 이전과 같이 바로", async () => {
+    const { pending } = await load("/", "", null);
+    let settled = false;
+    void pending.untilLaunchPushDestinationSettled().then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(true);
+  });
+
+  it("구조: 「지금 우리 동네」 4개 요청(마켓·정보 공유·모임·DIPICK)이 모두 대기 뒤에 시작", () => {
+    const files: Array<[string, RegExp]> = [
+      ["components/home-hub/HomeTradeRow.tsx", /await untilLaunchPushDestinationSettled\(\);\s*if \(!alive\) return;\s*const r = await getPostsForHome\(/],
+      ["components/home-hub/HomePostsSection.tsx", /untilLaunchPushDestinationSettled\(\)\s*\.then\(\(\) => \(alive \? fetchNeighborhoodFeedShortTtl\(/],
+      ["components/home-hub/HomeDiscoverFeed.tsx", /untilLaunchPushDestinationSettled\(\)\s*\.then\(\(\) => \(alive \? moimApi\.listLocal\(/],
+      ["components/home-hub/HomeStoresSection.tsx", /await untilLaunchPushDestinationSettled\(\);\s*if \(!alive\) return;\s*if \(refreshSeq > 0\)/],
+    ];
+    for (const [f, re] of files) expect(readFileSync(f, "utf8")).toMatch(re);
+  });
+});
