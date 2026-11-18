@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { untilLaunchPushDestinationSettled } from "@/lib/startup/launch-push-destination-pending";
 import { CommunityCard } from "@/components/community/CommunityCard";
 import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
 import { fetchNeighborhoodFeedShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
@@ -37,8 +38,11 @@ export function useHomePosts({
     });
     const gateKey = `${url}|${refreshSeq}|${retryKey}`;
     if (revisitGate.isFresh(gateKey)) return;
-    void fetchNeighborhoodFeedShortTtl(url, { credentials: "include" })
+    // 설계 §24 D1-웹: 알림으로 켠 실행이면 덮개가 걷힐 때까지(목적지 그림) 홈 전용 요청을 미룬다 · 그 밖에는 바로
+    void untilLaunchPushDestinationSettled()
+      .then(() => (alive ? fetchNeighborhoodFeedShortTtl(url, { credentials: "include" }) : null))
       .then(async (res) => {
+        if (!res) return;
         const data = (res.ok ? await res.json() : null) as { posts?: NeighborhoodFeedPostDTO[] } | null;
         if (!alive) return;
         // 실패는 「글 없음」이 아니라 오류로 보인다 (감사 E8)
