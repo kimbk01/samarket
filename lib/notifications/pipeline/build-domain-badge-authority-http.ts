@@ -26,6 +26,7 @@ import {
 import { countNotificationEventsBadge } from "@/lib/notifications/core/notification-event-repository";
 import type { NotificationBadgeCount } from "@/lib/notifications/core/notification-event-types";
 import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
+import { runMemberBadgeCountersShadow } from "@/lib/notifications/pipeline/member-badge-counters-shadow";
 import {
   buildBadgeExplainMatrix,
   type BadgeExplainMatrix,
@@ -289,6 +290,19 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     ownerOperationCount: 0,
     revision: projectionVersionMs,
   });
+
+  /**
+   * D2 1단계 (Owner 「D2 승인」 2026-11-19 · LOCK 재개봉) — 쓰기 시점 카운터 비교만. 반환값·숫자 불변, 일부 요청(기본 10%)에서
+   * 카운터 1행을 읽어 L(로더)·A(권위)와 대조해 기록한다. 응답을 기다리지 않는다.
+   */
+  void runMemberBadgeCountersShadow(sb, uid, {
+    generalDirect: domainUnreadRooms.general_direct,
+    group: domainUnreadRooms.group,
+    trade: domainUnreadRooms.trade,
+    customerOrder: storeOrderBuyerDeliveryUnread,
+    ownerOrder: storeOrderOwnerChatUnread,
+    authorityTotal: memberConversationAuthority.totalUnreadRooms,
+  }).catch(() => null);
 
   const bell = projection.bell;
   const explainMatrix = buildBadgeExplainMatrix({
