@@ -6,10 +6,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createNotificationDecision, type NotificationDecision } from "@/lib/notifications/engine/notification-decision";
 import type { NotificationEngineIngress } from "@/lib/notifications/engine/notification-engine-ingress";
 import { isRoomMutedForUser } from "@/lib/notifications/policy/notification-mute-policy";
-import {
-  loadRecipientPresenceSnapshot,
-  resolvePresenceSuppressDecision,
-} from "@/lib/notifications/policy/notification-presence-policy";
 
 export type NotificationEnginePolicyContext = {
   sb?: SupabaseClient<any> | null;
@@ -44,24 +40,11 @@ export async function evaluateNotificationEngineDecision(
     if (muted) suppressReasons.push("room_muted");
   }
 
-  let presenceSuppress = {
-    suppressPush: false,
-    suppressSound: false,
-    suppressBadge: false,
-    autoRead: false,
-    reason: null as string | null,
-  };
-  if (ctx.sb && roomId && recipientUserId) {
-    const presence = await loadRecipientPresenceSnapshot(ctx.sb, recipientUserId);
-    presenceSuppress = resolvePresenceSuppressDecision(presence, roomId);
-    if (presenceSuppress.reason) suppressReasons.push(presenceSuppress.reason);
-    if (presenceSuppress.autoRead) suppressReasons.push("auto_read_same_room");
-  }
-
-  const playSound = !muted && !presenceSuppress.suppressSound;
-  const showBottomBadge = !presenceSuppress.suppressBadge;
-  const showListBadge = !presenceSuppress.suppressBadge;
-  const push = !muted && !presenceSuppress.suppressPush;
+  /** D1 1단계 — presence 추측 없음(레거시 파이프라인과 같은 판정 · 수신자당 DB 읽기 1회 제거). */
+  const playSound = !muted;
+  const showBottomBadge = true;
+  const showListBadge = true;
+  const push = !muted;
 
   return createNotificationDecision({
     playSound,

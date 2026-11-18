@@ -87,10 +87,11 @@ describe("notification-engine phase2", () => {
     expect(result?.event.type).toBe("GROUP_ROOM_READ");
   });
 
-  it("Policy same-room foreground suppresses sound and badges on create", async () => {
-    const { resolvePresenceSuppressDecision } = await import(
+  it("D1: policy does not read presence — same-room foreground is decided on the device", async () => {
+    const { loadRecipientPresenceSnapshot, resolvePresenceSuppressDecision } = await import(
       "@/lib/notifications/policy/notification-presence-policy"
     );
+    vi.mocked(loadRecipientPresenceSnapshot).mockClear();
     vi.mocked(resolvePresenceSuppressDecision).mockReturnValueOnce({
       suppressPush: true,
       suppressSound: true,
@@ -112,11 +113,12 @@ describe("notification-engine phase2", () => {
       { sb: {} as never }
     );
 
-    expect(decision.playSound).toBe(false);
-    expect(decision.showBottomBadge).toBe(false);
-    expect(decision.showListBadge).toBe(false);
-    expect(decision.push).toBe(false);
-    expect(decision.suppressReasons).toContain("same_room_foreground");
+    expect(loadRecipientPresenceSnapshot).not.toHaveBeenCalled();
+    expect(decision.playSound).toBe(true);
+    expect(decision.showBottomBadge).toBe(true);
+    expect(decision.showListBadge).toBe(true);
+    expect(decision.push).toBe(true);
+    expect(decision.suppressReasons).not.toContain("same_room_foreground");
   });
 
   it("T0 decisionSnapshot skips mute/presence re-evaluation", async () => {

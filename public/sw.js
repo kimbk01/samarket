@@ -93,14 +93,55 @@ self.addEventListener("push", function (event) {
     }
   }
 
-  const show = self.registration.showNotification(title, {
-    body,
-    icon,
-    badge: icon,
-    tag,
-    data: { url, sessionId, kind, call_push_kind: callPushKind },
-    renotify: true,
-  });
+  /**
+   * D1 1단계(Owner 승인 2026-11-19) — 서버는 presence 로 추측하지 않고 항상 보낸다.
+   * 메신저 메시지는 **보이는 창이 같은 방**을 열고 있으면 OS 알림을 생략한다(그 방이 이미 화면에 그린다).
+   * 판정 실패·다른 방·숨긴 창이면 지금처럼 표시(fail-open). 통화 알림은 이 판정을 타지 않는다.
+   */
+  const messageRoomId =
+    payload.notification_type === "community_messenger_message" &&
+    typeof payload.roomId === "string" &&
+    payload.roomId
+      ? payload.roomId
+      : null;
+  const showNotificationNow = function () {
+    return self.registration.showNotification(title, {
+      body,
+      icon,
+      badge: icon,
+      tag,
+      data: { url, sessionId, kind, call_push_kind: callPushKind },
+      renotify: true,
+    });
+  };
+  const show = messageRoomId
+    ? clients
+        .matchAll({ type: "window", includeUncontrolled: true })
+        .then(function (clientList) {
+          for (let i = 0; i < clientList.length; i++) {
+            const c = clientList[i];
+            if (c.visibilityState !== "visible") continue;
+            let path = "";
+            try {
+              path = new URL(c.url).pathname;
+            } catch {
+              continue;
+            }
+            const m = path.match(/^\/community-messenger\/rooms\/([^/]+)/);
+            let openRoomId = null;
+            try {
+              openRoomId = m && m[1] ? decodeURIComponent(m[1]) : null;
+            } catch {
+              openRoomId = null;
+            }
+            if (openRoomId === messageRoomId) return undefined;
+          }
+          return showNotificationNow();
+        })
+        .catch(function () {
+          return showNotificationNow();
+        })
+    : showNotificationNow();
 
   const wakeOpenTabs =
     payload.notification_type === "community_messenger_incoming_call" && sessionId
