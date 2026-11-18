@@ -16754,11 +16754,15 @@ async function fetchViewerHistoryFloorIso(sb: unknown, roomId: string, userId: s
   return participantHistoryFloorIso(data);
 }
 
+/** B3 — canon `room_access` 가 준 viewer 행(id·cleared_at). 있으면 participants 재조회 생략. */
+export type MessengerMessageListViewerPreflight = { id: string; cleared_at: string | null };
+
 export async function listCommunityMessengerRoomMessagesBefore(input: {
   userId: string;
   roomId: string;
   beforeMessageId: string;
   limit?: number;
+  viewerParticipantPreflight?: MessengerMessageListViewerPreflight | null;
 }): Promise<
   { ok: true; messages: CommunityMessengerMessage[]; hasMore: boolean } | { ok: false; error: string }
 > {
@@ -16832,12 +16836,22 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
     return { ok: true, messages, hasMore };
   }
 
-  const { data: myParticipant } = await (sb as any)
-    .from("community_messenger_participants")
-    .select("id, cleared_at")
-    .eq("room_id", roomId)
-    .eq("user_id", input.userId)
-    .maybeSingle();
+  let myParticipant: MessengerMessageListViewerPreflight | null =
+    input.viewerParticipantPreflight && trimText(input.viewerParticipantPreflight.id)
+      ? {
+          id: trimText(input.viewerParticipantPreflight.id),
+          cleared_at: input.viewerParticipantPreflight.cleared_at,
+        }
+      : null;
+  if (!myParticipant) {
+    const { data } = await (sb as any)
+      .from("community_messenger_participants")
+      .select("id, cleared_at")
+      .eq("room_id", roomId)
+      .eq("user_id", input.userId)
+      .maybeSingle();
+    myParticipant = (data as MessengerMessageListViewerPreflight | null) ?? null;
+  }
   if (!myParticipant) return { ok: false, error: "room_not_found" };
 
   const anchorHidden = await fetchCommunityMessengerHiddenMessageIdsForUser(sb as SupabaseLike, input.userId, [
@@ -16918,6 +16932,7 @@ export async function listCommunityMessengerRoomMessagesLatest(input: {
   userId: string;
   roomId: string;
   limit?: number;
+  viewerParticipantPreflight?: MessengerMessageListViewerPreflight | null;
 }): Promise<
   { ok: true; messages: CommunityMessengerMessage[]; hasMore: boolean } | { ok: false; error: string }
 > {
@@ -16972,12 +16987,22 @@ export async function listCommunityMessengerRoomMessagesLatest(input: {
     return { ok: true, messages, hasMore };
   }
 
-  const { data: myParticipant } = await (sb as any)
-    .from("community_messenger_participants")
-    .select("id, cleared_at")
-    .eq("room_id", roomId)
-    .eq("user_id", input.userId)
-    .maybeSingle();
+  let myParticipant: MessengerMessageListViewerPreflight | null =
+    input.viewerParticipantPreflight && trimText(input.viewerParticipantPreflight.id)
+      ? {
+          id: trimText(input.viewerParticipantPreflight.id),
+          cleared_at: input.viewerParticipantPreflight.cleared_at,
+        }
+      : null;
+  if (!myParticipant) {
+    const { data } = await (sb as any)
+      .from("community_messenger_participants")
+      .select("id, cleared_at")
+      .eq("room_id", roomId)
+      .eq("user_id", input.userId)
+      .maybeSingle();
+    myParticipant = (data as MessengerMessageListViewerPreflight | null) ?? null;
+  }
   if (!myParticipant) return { ok: false, error: "room_not_found" };
 
   const { data: rows, error: msgErr } = await queryCommunityMessengerMessageRowsWithSelectFallback((cols) =>

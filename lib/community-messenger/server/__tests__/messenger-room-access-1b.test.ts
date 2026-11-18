@@ -60,6 +60,8 @@ function facts(over: Record<string, unknown>) {
       room_type: "direct",
       deleted_at: null,
       participant_active: true,
+      participant_id: "p1",
+      cleared_at: null,
       group_participant: { id: "p1", room_id: ROOM, user_id: USER, role: "member", left_at: null },
       banned: false,
       ...over,

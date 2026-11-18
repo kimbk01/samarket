@@ -75,6 +75,11 @@ export async function GET(
     return canon.response;
   }
   const canonicalRoomId = canon.canonicalRoomId;
+  const { viewerParticipantPreflightFromAccess } = await import(
+    "@/lib/community-messenger/server/messenger-room-access"
+  );
+  /** B3 — canon access 에 cleared_at 있으면 participants 재조회 생략 (미적용 DB면 null → 기존 조회) */
+  const viewerParticipantPreflight = viewerParticipantPreflightFromAccess(canon.access);
   const t0 = performance.now();
   const before = req.nextUrl.searchParams.get("before")?.trim() ?? "";
   const after = req.nextUrl.searchParams.get("after")?.trim() ?? "";
@@ -143,6 +148,7 @@ export async function GET(
         userId: auth.userId,
         roomId: canonicalRoomId,
         limit: Number.isFinite(limit) ? limit : undefined,
+        viewerParticipantPreflight,
       })
     );
     if (!result.ok) {
@@ -169,6 +175,7 @@ export async function GET(
       roomId: canonicalRoomId,
       beforeMessageId: before,
       limit: Number.isFinite(limit) ? limit : undefined,
+      viewerParticipantPreflight,
     })
   );
   if (!result.ok) {
