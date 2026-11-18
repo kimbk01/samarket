@@ -292,16 +292,18 @@ export function MessengerRoomSwipeBackShell({
   /**
    * P5 Android ◁ — 목적지가 「방 종류 목록 replace」(알림·첫 기록 진입)일 때만 페이지 뒤로 주인으로 등록한다.
    * 앱 안 진입(history back)이면 등록하지 않아 ◁ 는 지금처럼 네이티브 WebView 뒤로 → 위 popstate 퇴장 그림(S1 유지).
-   * 스냅샷 전(roomType 없음)·주문 채팅 슬라이드 안은 등록하지 않는다. 처리 순서: 오버레이(시트) → 이 주인 → 결함 E.
+   * 주문 채팅 슬라이드 안은 등록하지 않는다. 처리 순서: 오버레이(시트) → 이 주인 → 결함 E.
+   * N3(설계 3판 PR-2 2a): 스냅샷 전(roomType 없음 — 알림 방 로딩 중)에도 등록한다. 목적지는 누른 순간
+   * `resolveBackTarget()` 으로 계산(roomType 없으면 URL `cm_list` → 없으면 대화 목록, 스냅샷 뒤면 방 종류 목록).
    */
   useEffect(() => {
-    if (roomType == null || insideOrderChatSlide) return;
+    if (insideOrderChatSlide) return;
     const target = resolveBackTarget();
     if (target.kind !== "replace") return;
     console.info("[cm-room-back] page_back_owner", { roomId: roomId?.trim() ?? "", href: target.href });
     return setPageBackOwner(() => requestAnimatedBackRef.current());
     /** pathname: 분할 replace 등으로 같은 셸에서 주소가 바뀌면 진입 출처·목적지를 다시 판정 */
-  }, [insideOrderChatSlide, pathname, resolveBackTarget, roomId, roomType]);
+  }, [insideOrderChatSlide, pathname, resolveBackTarget, roomId]);
 
   const onEdgePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
