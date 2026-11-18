@@ -23,7 +23,7 @@ import {
   runMessengerRoomBackTarget,
   type MessengerRoomListKind,
 } from "@/lib/community-messenger/room/messenger-room-back-target";
-import { setPageBackOwner } from "@/lib/ui/overlay-back-stack";
+import { hasPageBackOwner, setPageBackOwner } from "@/lib/ui/overlay-back-stack";
 import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
 import { useBuyerOrderChatSlideHost } from "@/components/mypage/BuyerOrderChatSlideHostContext";
 import {
@@ -310,7 +310,9 @@ export function MessengerRoomSwipeBackShell({
       }
       return;
     }
-    if (held) return;
+    /** 등록이 살아 있으면 유지. 다른 등록이 슬롯을 덮었다가 해제해 슬롯이 비었으면 ref 를 비우고 다시 등록(슬롯 회수). */
+    if (held && hasPageBackOwner()) return;
+    pageBackOwnerReleaseRef.current = null;
     console.info("[cm-room-back] page_back_owner", { roomId: roomId?.trim() ?? "", href: target.href });
     pageBackOwnerReleaseRef.current = setPageBackOwner(() => requestAnimatedBackRef.current());
     /** pathname: 분할 replace 등으로 같은 셸에서 주소가 바뀌면 진입 출처·목적지를 다시 판정 */

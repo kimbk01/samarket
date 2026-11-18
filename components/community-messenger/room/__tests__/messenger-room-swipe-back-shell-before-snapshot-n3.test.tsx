@@ -17,6 +17,11 @@ vi.mock("next/navigation", () => ({
   useRouter: () => router,
   usePathname: () => "/community-messenger/rooms/room-1",
 }));
+/** 주문 채팅 슬라이드 안 여부 — 같은 셸을 다시 마운트하지 않고 값만 바꾼다 */
+const ownerSlideHost = { value: null as null | { closeSlide: () => void } };
+vi.mock("@/components/business/owner/OwnerOrderChatSlideHostContext", () => ({
+  useOwnerOrderChatSlideHost: () => ownerSlideHost.value,
+}));
 vi.mock("@/hooks/use-is-messenger-split-viewport", () => ({
   useIsMessengerSplitViewport: () => false,
 }));
@@ -43,6 +48,7 @@ import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import {
   __setOverlayBackListenerDriverForTests,
   hasPageBackOwner,
+  setPageBackOwner,
   type OverlayBackListenerDriver,
 } from "@/lib/ui/overlay-back-stack";
 
@@ -85,6 +91,7 @@ beforeEach(() => {
   router.back.mockReset();
   router.replace.mockReset();
   entryOrigin.value = "push";
+  ownerSlideHost.value = null;
   driverState.installs = 0;
   driverState.removes = 0;
   __setOverlayBackListenerDriverForTests(driver);
@@ -167,6 +174,51 @@ describe("N3 — 스냅샷 도착 때 네이티브 ◁ 리스너 재설치 없�
     pressSystemBack();
     expect(router.replace).toHaveBeenCalledTimes(1);
     expect(router.replace).toHaveBeenCalledWith("/community-messenger/trade-chats", { scroll: false });
+  });
+});
+
+describe("N3 — 등록 조건 변화·슬롯 회수(같은 셸, 다시 마운트 없음)", () => {
+  it("다른 등록이 슬롯을 덮었다가 해제 → deps 변경 → 다시 등록 → ◁ 1회 replace", () => {
+    render(null);
+    expect(hasPageBackOwner()).toBe(true);
+    const other = vi.fn();
+    const releaseOther = setPageBackOwner(other);
+    releaseOther();
+    expect(hasPageBackOwner()).toBe(false);
+    render("direct", "trade"); // 스냅샷 도착 — 목적지 함수 identity 변경
+    expect(hasPageBackOwner()).toBe(true);
+    pressSystemBack();
+    expect(other).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledTimes(1);
+    expect(router.replace).toHaveBeenCalledWith("/community-messenger/trade-chats", { scroll: false });
+  });
+
+  it("replace → 주문 채팅 슬라이드 안으로 바뀌면 해제(remove 1), ◁ 가 주인을 거치지 않음", () => {
+    render(null);
+    expect(driverState.installs).toBe(1);
+    ownerSlideHost.value = { closeSlide: vi.fn() };
+    render("direct");
+    expect(driverState.installs).toBe(1);
+    expect(driverState.removes).toBe(1);
+    expect(hasPageBackOwner()).toBe(false);
+    expect(driverState.onBack).toBeNull();
+    pressSystemBack();
+    expect(router.replace).not.toHaveBeenCalled();
+    expect(router.back).not.toHaveBeenCalled();
+  });
+
+  it("replace → in_app 으로 바뀌면 해제(remove 1), ◁ 가 주인을 거치지 않음", () => {
+    render(null);
+    expect(driverState.installs).toBe(1);
+    entryOrigin.value = "in_app";
+    render("direct");
+    expect(driverState.installs).toBe(1);
+    expect(driverState.removes).toBe(1);
+    expect(hasPageBackOwner()).toBe(false);
+    expect(driverState.onBack).toBeNull();
+    pressSystemBack();
+    expect(router.replace).not.toHaveBeenCalled();
+    expect(router.back).not.toHaveBeenCalled();
   });
 });
 
