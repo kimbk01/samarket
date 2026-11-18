@@ -10,11 +10,13 @@ function readSource(): string {
 }
 
 describe("CM room notification_events read after mark_read", () => {
-  it("uses room-read SSOT after mark_read succeeds", () => {
+  it("B2: atomic PATCH badgeAck skip room-read; else room-read fallback", () => {
     const src = readSource();
 
     expect(src).toContain("postNotificationRoomReadWithAck");
-    expect(src).toContain("readRoomNotificationEventsAfterServerRead();");
+    expect(src).toContain("readRoomNotificationEventsAfterServerRead()");
+    expect(src).toContain('json.roomReadFollowUp === "skip"');
+    expect(src).toContain("applyDomainBadgeAuthorityFromReadAck(json.badgeAck");
     expect(src).toContain("parsed.okHttp && json.ok === true");
   });
 

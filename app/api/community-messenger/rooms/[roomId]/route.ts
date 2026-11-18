@@ -12,15 +12,21 @@ import { warnMarkReadPerformanceLockIfNeeded } from "@/lib/community-messenger/m
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+type MarkReadBadgeAck = ReturnType<
+  typeof import("@/lib/notifications/pipeline/domain-badge-read-ack").domainBadgeReadMutationAckFields
+>;
+
+type MarkReadInflightBundle = {
+  result: CommunityMessengerMarkReadResult;
+  diag: CommunityMessengerMarkReadDiag;
+  markWallMs: number;
+  /** B2 — atomic mark 가 events/targets 를 이미 지웠으면 skip; 아니면 room-read 후속 필요 */
+  roomReadFollowUp: "skip" | "required";
+  badgeAck: MarkReadBadgeAck | null;
+};
+
 /** 동일 user·room·read 커서 동시 PATCH → 단일 mark+broadcast (실패 응답 공유 안 함). */
-const communityMessengerMarkReadInflight = new Map<
-  string,
-  Promise<{
-    result: CommunityMessengerMarkReadResult;
-    diag: CommunityMessengerMarkReadDiag;
-    markWallMs: number;
-  }>
->();
+const communityMessengerMarkReadInflight = new Map<string, Promise<MarkReadInflightBundle>>();
 
 const MARK_READ_INFLIGHT_RESULT_TTL_MS = (() => {
   const n = Number(process.env.SAMARKET_MARK_READ_INFLIGHT_RESULT_TTL_MS);
@@ -32,19 +38,9 @@ const communityMessengerMarkReadRecentResult = new Map<
   string,
   {
     expiresAt: number;
-    bundle: {
-      result: CommunityMessengerMarkReadResult;
-      diag: CommunityMessengerMarkReadDiag;
-      markWallMs: number;
-    };
+    bundle: MarkReadInflightBundle;
   }
 >();
-
-type MarkReadInflightBundle = {
-  result: CommunityMessengerMarkReadResult;
-  diag: CommunityMessengerMarkReadDiag;
-  markWallMs: number;
-};
 
 function communityMessengerMarkReadInflightKey(
   userId: string,
@@ -58,15 +54,28 @@ function communityMessengerMarkReadInflightKey(
   return `${userId}\0${roomId}\0cursor\0`;
 }
 
-/** 클라이언트 계약 — 응답 필드는 ok·error·lastReadAt·lastReadMessageId 만 유지 */
-function jsonMarkReadResponse(result: CommunityMessengerMarkReadResult) {
+/**
+ * 클라이언트 계약 — 기존: ok·error·lastReadAt·lastReadMessageId.
+ * B2 추가(호환): badgeAck(P3-a) · roomReadFollowUp(atomic 이면 skip → POST room-read 생략).
+ */
+function jsonMarkReadResponse(
+  result: CommunityMessengerMarkReadResult,
+  extras?: {
+    roomReadFollowUp?: "skip" | "required";
+    badgeAck?: MarkReadBadgeAck | null;
+  }
+) {
   if (!result.ok) {
     return { ok: false as const, error: result.error ?? "room_read_failed" };
   }
+  const roomReadFollowUp = extras?.roomReadFollowUp ?? "required";
+  const badgeAck = extras?.badgeAck ?? null;
   return {
     ok: true as const,
     lastReadAt: result.lastReadAt ?? null,
     lastReadMessageId: result.lastReadMessageId ?? null,
+    roomReadFollowUp,
+    ...(badgeAck ? { badgeAck } : {}),
   };
 }
 
@@ -271,7 +280,58 @@ export async function PATCH(
               diag,
             });
             const markWallMs = devPerfNow() - tMark0;
-            return { result, diag, markWallMs };
+            let roomReadFollowUp: MarkReadInflightBundle["roomReadFollowUp"] = "required";
+            let badgeAck: MarkReadBadgeAck | null = null;
+            if (result.ok) {
+              /**
+               * B2 — `dibay_mark_room_read_atomic` 성공 시 events/targets 는 TX 안이미 정리됨.
+               * 추가 clear·legacy engine·POST room-read 는 중복 SB (~10–15) 만 만든다.
+               */
+              const atomicCleared = diag.mark_read_combined_rpc_used === 1;
+              if (!atomicCleared) {
+                try {
+                  const { getSupabaseServer } = await import("@/lib/chat/supabase-server");
+                  const { clearMessengerRoomNotificationTargetAfterRead } = await import(
+                    "@/lib/notifications/notification-target-messenger-bridge"
+                  );
+                  await clearMessengerRoomNotificationTargetAfterRead(getSupabaseServer(), auth.userId, roomId);
+                } catch {
+                  /* badge target clear best-effort */
+                }
+                after(async () => {
+                  try {
+                    const { getSupabaseServer } = await import("@/lib/chat/supabase-server");
+                    const { runLegacyRoomReadNotificationEngineAdapter } = await import(
+                      "@/lib/notifications/engine/adapters/legacy-room-read-adapter"
+                    );
+                    await runLegacyRoomReadNotificationEngineAdapter(getSupabaseServer(), {
+                      userId: auth.userId,
+                      roomId,
+                      lastReadMessageId: result.lastReadMessageId ?? null,
+                      readAt: result.lastReadAt ?? new Date().toISOString(),
+                      causation: "legacy_patch_mark_read",
+                    });
+                  } catch {
+                    /* notification engine shadow */
+                  }
+                });
+              } else {
+                try {
+                  const { getSupabaseServer } = await import("@/lib/chat/supabase-server");
+                  const { issueDomainBadgeAuthorityForAck, domainBadgeReadMutationAckFields } = await import(
+                    "@/lib/notifications/pipeline/domain-badge-read-ack"
+                  );
+                  const domain = await issueDomainBadgeAuthorityForAck(getSupabaseServer(), auth.userId);
+                  badgeAck = domainBadgeReadMutationAckFields(domain);
+                  roomReadFollowUp = "skip";
+                } catch {
+                  /* badge ACK 실패 → 클라가 room-read 로 폴백 */
+                  roomReadFollowUp = "required";
+                  badgeAck = null;
+                }
+              }
+            }
+            return { result, diag, markWallMs, roomReadFollowUp, badgeAck };
           })().finally(() => {
             communityMessengerMarkReadInflight.delete(inflightKey);
           });
@@ -283,36 +343,7 @@ export async function PATCH(
           bundle,
         });
       }
-      const { result, diag, markWallMs } = bundle;
-
-      if (result.ok) {
-        try {
-          const { getSupabaseServer } = await import("@/lib/chat/supabase-server");
-          const { clearMessengerRoomNotificationTargetAfterRead } = await import(
-            "@/lib/notifications/notification-target-messenger-bridge"
-          );
-          await clearMessengerRoomNotificationTargetAfterRead(getSupabaseServer(), auth.userId, roomId);
-        } catch {
-          /* badge target clear best-effort */
-        }
-        after(async () => {
-          try {
-            const { getSupabaseServer } = await import("@/lib/chat/supabase-server");
-            const { runLegacyRoomReadNotificationEngineAdapter } = await import(
-              "@/lib/notifications/engine/adapters/legacy-room-read-adapter"
-            );
-            await runLegacyRoomReadNotificationEngineAdapter(getSupabaseServer(), {
-              userId: auth.userId,
-              roomId,
-              lastReadMessageId: result.lastReadMessageId ?? null,
-              readAt: result.lastReadAt ?? new Date().toISOString(),
-              causation: "legacy_patch_mark_read",
-            });
-          } catch {
-            /* notification engine shadow */
-          }
-        });
-      }
+      const { result, diag, markWallMs, roomReadFollowUp, badgeAck } = bundle;
 
       const tBeforeResponse = devPerfNow();
       const response_before_broadcast = 1;
@@ -556,7 +587,10 @@ export async function PATCH(
         requestKey: `${roomId}:${diag.mark_read_combined_rpc_used}:${membership_cache_hit}:${result.duplicateAckSkipped ? "dup" : "open"}`,
       });
 
-      return NextResponse.json(jsonMarkReadResponse(result), { status: result.ok ? 200 : 400 });
+      return NextResponse.json(
+        jsonMarkReadResponse(result, { roomReadFollowUp, badgeAck }),
+        { status: result.ok ? 200 : 400 }
+      );
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       console.error("[mark_read_error]", e);

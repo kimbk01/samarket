@@ -811,8 +811,26 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
                 reason: "scroll_ack_patch",
               });
             }
-            readRoomNotificationEventsAfterServerRead();
-            cmReadBadgeLog("mark_read_patch_done", { roomId: id, path: "scroll_ack" });
+            /**
+             * B2 — atomic mark + PATCH badgeAck 이면 POST room-read(~19 SB) 생략.
+             * ACK apply 실패·roomReadFollowUp=required(레거시 mark) 만 room-read 폴백.
+             */
+            const skipRoomRead =
+              json.roomReadFollowUp === "skip" &&
+              applyDomainBadgeAuthorityFromReadAck(json.badgeAck, "room_open_mark_read");
+            if (skipRoomRead) {
+              notificationThreadReadDoneRef.current = true;
+              /** P3-c1: fresh badge-count 0 — Hub 셸만 갱신 (reason ≠ room_phase2_mark_read) */
+              requestMessengerHubBadgeResync("room_open_mark_read", { skipBadgeCount: true });
+            } else {
+              readRoomNotificationEventsAfterServerRead();
+            }
+            cmReadBadgeLog("mark_read_patch_done", {
+              roomId: id,
+              path: "scroll_ack",
+              roomReadFollowUp: json.roomReadFollowUp ?? "required",
+              skippedRoomRead: skipRoomRead,
+            });
             if (peerTailMarkReadHintRef?.current && peerTailMarkReadHintRef.current === lastReadMessageId) {
               peerTailMarkReadHintRef.current = null;
             }
