@@ -112,3 +112,21 @@ describe("임시 데이터 삭제 범위 확대", () => {
     expect(clearRooms).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("임시 데이터 삭제 화면 문구 = 실제 삭제 대상 (2026-11-19)", () => {
+  it("채팅방 사본을 지우므로 「지우는 항목」에 채팅방이 있고, 대화 내용은 「지우지 않는 항목」", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const ui = readFileSync(join(process.cwd(), "components/my/settings/CacheSettingsContent.tsx"), "utf8");
+    const clear = readFileSync(join(process.cwd(), "lib/mypage/clear-app-client-caches.ts"), "utf8");
+    expect(clear).toContain("await clearAllLocalRoomSnapshots()");
+    expect(ui).toContain('t("mypage_s17_clears_chat_rooms")');
+    expect(ui).toContain('t("mypage_s17_keeps_chats")');
+    const { mypageHubMessages } = (await import("@/lib/i18n/catalog/mypage-hub")) as unknown as {
+      mypageHubMessages: Record<"ko" | "en", Record<string, string>>;
+    };
+    expect(mypageHubMessages.ko.mypage_s17_clears_chat_rooms).toContain("채팅방");
+    expect(mypageHubMessages.en.mypage_s17_clears_chat_rooms).toContain("chat");
+    expect(JSON.stringify([mypageHubMessages.ko.mypage_s17_clears_lists, mypageHubMessages.en.mypage_s17_clears_lists])).not.toMatch(/캐시|cache/i);
+  });
+});
