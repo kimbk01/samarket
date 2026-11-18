@@ -31,7 +31,7 @@ import {
   pathsMatchForPushConsume,
 } from "@/lib/push/push-route-consume-contract";
 import { resolveSameOriginPushRoutePath, shouldReplaceRoute } from "@/lib/push/push-route-policy";
-import { applyPushRouteRedeliveryGate } from "@/lib/push/push-route-redelivery-window";
+import { shouldIgnorePushRouteRedelivery } from "@/lib/push/push-route-redelivery-window";
 import { postNotificationEventOpenedRead } from "@/lib/notifications/client/notification-event-read-client";
 import { shouldApplyMemberNotificationReadOnPushTap } from "@/lib/notifications/badge-authority-rebuild/push-routing-transport";
 import { removeDeliveredNotificationOnPushTap } from "@/lib/push/native/remove-delivered-notifications";
@@ -351,19 +351,9 @@ export function PushRouteListener() {
       // 설계 §24 D2: 같은 경로로 방금 「실제로 이동」했으면 다시 넣은 경로(`pending_route_replayed`, skip 옵션)도 무시한다.
       // 실측: 네이티브 이벤트 + 대기 경로 다시 넣기가 0.08초 차로 둘 다 이동 → 채팅방 RSC 2회. 통화 경로는 대상 아님(불변).
       // FAIL-3: 창 = 네이티브 재시도 사다리 최대 4초 + 1초 (`NON_CALL_PUSH_ROUTE_REDELIVERY_IGNORE_MS`, 근거는 그 파일).
-      // 2초~5초에 무시한 재주입은 이동 없이 소비 처리(ACK)만 한다 — 네이티브 보류·다음 실행 재전송을 남기지 않는다.
+      // 2초~5초에 주소가 이미 그 경로면 거르지 않고 아래 「같은 경로」 분기(same_route_ack)가 처리한다.
       const delivered = lastDeliveredRouteRef.current;
-      if (
-        !isCallPushRoutePath(path) &&
-        applyPushRouteRedeliveryGate({
-          delivered,
-          path,
-          notificationId,
-          now,
-          markConsumed: markNotificationConsumed,
-          ack: ackChatPushRouteConsumed,
-        })
-      ) {
+      if (shouldIgnorePushRouteRedelivery(delivered, path, now, currentAppPath()) && !isCallPushRoutePath(path)) {
         console.info("[push-route] duplicate_delivery_ignored", { path });
         launchOutcome = "duplicate";
         return;
