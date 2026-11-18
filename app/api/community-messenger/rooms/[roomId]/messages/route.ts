@@ -429,6 +429,15 @@ export async function POST(
         const targetPromise = bumpMessengerRoomTargetsForRecipientsParallel(sb, {
           roomId: canonicalRoomId,
           fromUserId: userId,
+          /** 보내기 1단계 — 전송 RPC 반환 방 정보 재사용(방·참가자·주문 재조회 제거). 없으면 기존 조회 */
+          known: postAckEffects
+            ? {
+                roomType: typeof postAckEffects.roomType === "string" ? postAckEffects.roomType : null,
+                chatDomain: typeof postAckEffects.chatDomain === "string" ? postAckEffects.chatDomain : null,
+                directKey: postAckEffects.directKey ?? null,
+                recipientUserIds: Array.isArray(postAckEffects.recipientUserIds) ? postAckEffects.recipientUserIds : null,
+              }
+            : null,
           _t5: t5 ?? undefined,
         });
         targetPromise.catch(() => undefined);
