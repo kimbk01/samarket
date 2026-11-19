@@ -25,6 +25,11 @@ import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 import { applyOwnerPathRequestHeader } from "@/lib/business/owner-path-request-header";
 import { enforceApiMemberMutationPolicy } from "@/lib/auth/enforce-api-member-mutation-policy";
 import { enforceApiMemberReadPolicy } from "@/lib/auth/enforce-api-member-read-policy";
+import {
+  DIBAY_APP_LANDING_PATH,
+  DIBAY_APP_STORE_GO_QUERY,
+  resolveDeviceStoreUrl,
+} from "@/lib/share/app-store-links";
 
 /**
  * 앱 UI(HTML·RSC) — 비회원은 공개 브라우징 allowlist 만 통과, private URL 은 404.
@@ -155,6 +160,19 @@ export async function proxy(request: NextRequest) {
       (await enforceApiMemberMutationPolicy(request)) ?? (await enforceApiMemberReadPolicy(request));
     if (denied) return denied;
     return NextResponse.next();
+  }
+
+  /**
+   * 스티커 QR(`/download?go=1`) — 화면을 그리기 전에 기기별 스토어로 307 (Owner 2026-11-20 「찍으면 바로 스토어」).
+   * 페이지에서 redirect() 하면 스트리밍 응답(200) 안에 이동 명령이 들어가 브라우저가 화면을 받은 뒤에야 넘어간다.
+   * iPhone·iPad → App Store, Android → Google Play. 그 밖 기기는 착지 화면 그대로.
+   */
+  if (
+    pathname === DIBAY_APP_LANDING_PATH &&
+    request.nextUrl.searchParams.get(DIBAY_APP_STORE_GO_QUERY) === "1"
+  ) {
+    const store = resolveDeviceStoreUrl(request.headers.get("user-agent") ?? "");
+    if (store) return NextResponse.redirect(store, 307);
   }
 
   const shouldLogProxyPerf =

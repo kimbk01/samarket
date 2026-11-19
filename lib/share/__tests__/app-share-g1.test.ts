@@ -60,5 +60,8 @@ describe("앱 공유 (Owner G-1 2026-11-14)", () => {
     const page = read("app/(main)/download/page.tsx");
     expect(page).toContain("resolveDeviceStoreUrl(ua)");
     expect(page).toContain("redirect(store)");
+    const proxy = read("proxy.ts");
+    expect(proxy).toContain("resolveDeviceStoreUrl(request.headers.get(\"user-agent\")");
+    expect(proxy).toContain("NextResponse.redirect(store, 307)");
   });
 });
