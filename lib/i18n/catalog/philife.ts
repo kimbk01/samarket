@@ -171,7 +171,7 @@ export const philifeMessages = {
     philife_write_topic_required: "Please choose a topic.",
     philife_write_err_image_too_large: "This photo is too large. Please choose another one.",
     philife_write_err_image_limit: "You can add up to 10 photos.",
-    philife_write_err_image_unfetchable: "Couldn't copy {count} photos. Please add them separately.",
+    philife_write_err_image_unfetchable: "Some photos couldn't be copied ({count}). Please add them separately.",
     philife_write_submit_blocked_uploading: "You can post once photo uploads finish.",
     philife_write_submit_blocked_failed: "Retry or remove photos that failed to upload.",
     philife_write_submit_blocked_topics_loading: "Loading topics. You can post in a moment.",

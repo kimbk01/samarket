@@ -645,7 +645,8 @@ export default function PhilifeBodyEditor({
   /** 문단·사진 블록을 커서 위치에 삽입(평문 붙여넣기·파일) 후 업로드 시작 */
   const insertBlocksAtSelection = (
     editor: Editor,
-    items: Array<{ block: CommunityBodyBlock } | { upload: UploadSource }>
+    items: Array<{ block: CommunityBodyBlock } | { upload: UploadSource }>,
+    opts: { fromPaste?: boolean } = {}
   ) => {
     const { schema } = editor.state;
     const imageType = schema.nodes[COMMUNITY_IMAGE_NODE]!;
@@ -716,6 +717,11 @@ export default function PhilifeBodyEditor({
         tr.setSelection(TextSelection.create(tr.doc, end + 1));
       }
     }
+    /**
+     * 붙여넣기로 넣은 글도 ProseMirror 기본 붙여넣기와 같게 Tiptap 붙여넣기 규칙(주소 → 링크)을 받는다 —
+     * 규칙은 `uiEvent: "paste"` 트랜잭션에만 돈다 (검증 2026-11-20 V3: 표시가 없으면 다른 줄 주소의 링크가 빠졌다).
+     */
+    if (opts.fromPaste) tr.setMeta("uiEvent", "paste");
     editor.view.dispatch(tr.scrollIntoView());
     for (const id of toUpload) if (sourcesRef.current.has(id)) startUpload(id);
   };
@@ -769,7 +775,8 @@ export default function PhilifeBodyEditor({
       handlePaste: (_view, event) => {
         const ed = editorRef.current;
         const cd = event.clipboardData;
-        const analysis = pasteAnalysisRef.current;
+        /** 이번 붙여넣기 HTML 의 분석만 쓴다 — HTML 없는 붙여넣기는 남은 값(끌어넣기 등)을 버린다 (검증 V1) */
+        const pendingAnalysis = pasteAnalysisRef.current;
         pasteAnalysisRef.current = null;
         /** 지난 붙여넣기에서 쓰이지 않은 예비 파일은 버린다(이번 붙여넣기 것만) */
         pasteFallbackFilesRef.current.clear();
@@ -777,11 +784,12 @@ export default function PhilifeBodyEditor({
           if (n > 0) cbRef.current.onNotice(cbRef.current.labels.imageUnfetchable(n));
         };
         if (!ed || !cd) {
-          noticeUnfetchable(analysis?.unfetchable ?? 0);
+          noticeUnfetchable(pendingAnalysis?.unfetchable ?? 0);
           return false;
         }
         const plain = cd.getData("text/plain") || "";
         const html = cd.getData("text/html") || "";
+        const analysis = html.trim() ? pendingAnalysis : null;
         pasteRefererRef.current = firstLikelyArticlePageUrl(plain) ?? undefined;
         const files = Array.from(cd.files ?? []).filter((f) => f.type.startsWith("image/"));
         if (files.length === 0) {
@@ -792,7 +800,7 @@ export default function PhilifeBodyEditor({
             }
           }
         }
-        const htmlImages = html.trim() && analysis ? analysis.imageUrls : [];
+        const htmlImages = analysis?.imageUrls ?? [];
         if (files.length > 0 && htmlImages.length > 0) {
           /**
            * 글 + 사진 HTML 에 사진 파일이 함께 온 경우(iOS·브라우저는 첫 사진만 파일로 넣기도 한다):
@@ -816,7 +824,7 @@ export default function PhilifeBodyEditor({
             for (const b of textBlocks) items.push({ block: b });
           }
           for (const f of files) items.push({ upload: { kind: "file", file: f } });
-          insertBlocksAtSelection(ed, items);
+          insertBlocksAtSelection(ed, items, { fromPaste: true });
           return true;
         }
         /** 평문: 사진 주소만 있는 줄·`[글](사진주소)` 줄은 사진 문법으로 (감사 2026-11-20 A1·A2) */
@@ -826,7 +834,8 @@ export default function PhilifeBodyEditor({
           event.preventDefault();
           insertBlocksAtSelection(
             ed,
-            textToCommunityBodyBlocks(plainWithImages).map((b) => ({ block: b }))
+            textToCommunityBodyBlocks(plainWithImages).map((b) => ({ block: b })),
+            { fromPaste: true }
           );
           return true;
         }
@@ -850,8 +859,15 @@ export default function PhilifeBodyEditor({
       },
       handleDrop: (_view, event) => {
         const ed = editorRef.current;
+        /** 끌어넣은 HTML 도 `transformPastedHTML` 을 지난다 — 그 분석은 여기서 소비(다음 붙여넣기에 남기지 않음) */
+        const dropAnalysis = pasteAnalysisRef.current;
+        pasteAnalysisRef.current = null;
         const files = Array.from(event.dataTransfer?.files ?? []).filter((f) => f.type.startsWith("image/"));
-        if (!ed || files.length === 0) return false;
+        if (!ed || files.length === 0) {
+          const n = dropAnalysis?.unfetchable ?? 0;
+          if (n > 0) cbRef.current.onNotice(cbRef.current.labels.imageUnfetchable(n));
+          return false;
+        }
         event.preventDefault();
         insertBlocksAtSelection(
           ed,

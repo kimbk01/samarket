@@ -33,14 +33,17 @@ export function isImageFileUrl(raw: string): boolean {
  * 확장자가 없는 주소·문장 속 링크는 그대로 둔다(사진인지 확인하려고 서버 요청을 늘리지 않는다).
  */
 export function plainImageLinesToMarkdown(plain: string): string {
+  /** 사진 문법 줄(`content-codec` IMAGE_LINE_RE)은 주소 안 괄호를 받지 않는다 — 같은 주소인 %28·%29 로 바꾼다 (검증 V2) */
+  const safe = (u: string) => u.replace(/\(/g, "%28").replace(/\)/g, "%29");
   return (plain ?? "")
     .split(/(\r?\n)/)
     .map((line) => {
       const t = line.trim();
       if (!t || t.startsWith("![")) return line;
-      if (isImageFileUrl(t)) return `![](${t})`;
-      const m = /^\[([^\]]*)\]\((\S+)\)$/.exec(t);
-      if (m && isImageFileUrl(m[2] ?? "")) return `![${(m[1] ?? "").trim()}](${m[2]})`;
+      if (isImageFileUrl(t)) return `![](${safe(t)})`;
+      /** `[글](주소)` — 주소 안 괄호 한 겹까지 (예: `File_(1).jpg`) */
+      const m = /^\[([^\]]*)\]\(((?:[^()\s]|\([^()\s]*\))+)\)$/.exec(t);
+      if (m && isImageFileUrl(m[2] ?? "")) return `![${(m[1] ?? "").trim()}](${safe(m[2] ?? "")})`;
       return line;
     })
     .join("");
@@ -137,8 +140,19 @@ export function analyzePastedHtmlForEditor(html: string): PastedHtmlAnalysis {
     a.replaceWith(makeImage(href));
   });
 
-  /** 글자가 사진 파일 주소 하나뿐인 줄 */
-  body.querySelectorAll("p, div").forEach((el) => {
+  /**
+   * 글자가 사진 파일 주소 하나뿐인 줄 — 글자 조각 중 사진 주소인 것에서만 위로 올라가 줄(p·div)을 확인한다
+   * (모든 p·div 하위를 매번 훑지 않는다 — 중첩 HTML 병목, 검증 V4).
+   */
+  const urlLines = new Set<Element>();
+  const walker = doc.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const t = (n.nodeValue ?? "").trim();
+    if (!t || /\s/.test(t) || !isImageFileUrl(t)) continue;
+    const line = n.parentElement?.closest("p, div");
+    if (line) urlLines.add(line);
+  }
+  urlLines.forEach((el) => {
     if (!el.isConnected || el.querySelector("img") || !hasOnlyInlineChildren(el)) return;
     const text = textOf(el);
     if (!text || /\s/.test(text) || !isImageFileUrl(text)) return;

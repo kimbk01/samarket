@@ -257,6 +257,49 @@ describe("붙여넣기 클립보드 모양별 — 사진은 사진으로 (감사
   });
 });
 
+describe("검증 2026-11-20 — 구현 결함 재발 방지", () => {
+  it("V1 끌어넣기 등으로 남은 HTML 분석이 다음 평문 붙여넣기에 잘못된 안내를 내지 않는다", async () => {
+    const { editor, notices } = await mount();
+    const transform = editor.view.someProp("transformPastedHTML") as unknown as (h: string, v: unknown) => string;
+    transform(`<img src="/rel.jpg">`, editor.view);
+    await paste(editor, { plain: "그냥 글" });
+    expect(notices).toEqual([]);
+  });
+
+  it("V2 주소 안 괄호가 있는 사진 주소 줄 → 사진 문법 글자가 남지 않고 사진으로", async () => {
+    const { editor, rehost, last } = await mount();
+    await paste(editor, { plain: "앞\nhttps://upload.example.org/File_(1).jpg\n[설명](https://upload.example.org/B_(2).png)\n뒤" });
+    expect(rehost.mock.calls.map((c) => c[0])).toEqual([
+      "https://upload.example.org/File_%281%29.jpg",
+      "https://upload.example.org/B_%282%29.png",
+    ]);
+    expect(imgs(last())).toHaveLength(2);
+    expect(last().blocks.some((b) => b.t === "p" && b.text.includes("!["))).toBe(false);
+  });
+
+  it("V3 사진 줄이 섞인 평문 — 다른 줄 주소는 기본 붙여넣기처럼 링크로 남는다", async () => {
+    const { editor, last } = await mount();
+    await paste(editor, { plain: "참고 https://www.fda.gov.ph/ 사이트\nhttps://images.example.com/a.jpg\nhttps://doh.gov.ph/" });
+    const hrefs = last().blocks.flatMap((b) => (b.t === "p" ? (b.runs ?? []).map((r) => r.href).filter(Boolean) : []));
+    expect(hrefs).toEqual(["https://www.fda.gov.ph/", "https://doh.gov.ph/"]);
+    expect(imgs(last())).toHaveLength(1);
+  });
+
+  it("V3' 사진 파일 + 글 붙여넣기 — 글 속 주소도 링크로 남는다", async () => {
+    const { editor, last } = await mount();
+    await paste(editor, { plain: "출처 https://psa.gov.ph/ 참고", files: [png()] });
+    const hrefs = last().blocks.flatMap((b) => (b.t === "p" ? (b.runs ?? []).map((r) => r.href).filter(Boolean) : []));
+    expect(hrefs).toEqual(["https://psa.gov.ph/"]);
+  });
+
+  it("V4 깊게 중첩된 HTML 도 사진 주소 줄 찾기가 줄마다 하위 전체를 다시 훑지 않는다", () => {
+    let nested = "<p>https://x.com/last.jpg</p>";
+    for (let i = 0; i < 300; i++) nested = `<div><p>문단 ${i} <a href="https://x.com/${i}">링크</a></p>${nested}</div>`;
+    const r = analyzePastedHtmlForEditor(nested);
+    expect(r.imageUrls).toEqual(["https://x.com/last.jpg"]);
+  });
+});
+
 describe("paste-html 단위", () => {
   it("analyzePastedHtmlForEditor: 사진 주소를 글 순서대로 돌려준다", () => {
     const r = analyzePastedHtmlForEditor(
