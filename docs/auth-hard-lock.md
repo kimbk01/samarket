@@ -412,3 +412,20 @@ Contract delta:
 - 불변: 다른 모든 `/api` GET 의 P2-6 차단·탈퇴 403 · 쓰기 게이트(P0-R3) · Route Handler 인증 · Session / Destination / Completion / Profile 의미.
 
 증거: `lib/auth/__tests__/api-member-gate-p2.test.ts` (공개 설정 5개는 신원 확인 없이 통과 · 비슷한 이름의 다른 경로와 회원 데이터 경로는 기존대로 403).
+
+---
+
+## Amendment 2026-11-19 (2) — 회원 상태·약관 동의를 토큰 클레임으로 (D5 · Reopen §4 trigger 4: 보안·운영 요구 — 운영 Supabase 요청이 회원 수 × 화면 수에 비례 · Owner 「D5 승인」 2026-11-19)
+
+설계·감사: `docs/audit/supabase-request-surge-2026-11-18/remaining-f7-d5-audit-2026-11-19.md` §3 D5-1·D5-2 · §4 D5.
+
+First Break / 근거 (PROD PHT 11-18 · Vercel 관측): proxy → Supabase 16,323건/일 중 `profiles` 10,229 — ① `/api` GET 마다 회원 상태(`status, deleted_at`, 인스턴스별 5초 캐시 → 대부분 조회) ② 비공개 페이지마다 가입(약관) 확인 12열(캐시 없음). 7일 내내 하루 0.9~1.8만.
+
+Contract delta:
+- DB: `public.custom_access_token_hook(event jsonb)` — 토큰 발급·갱신 때 `profiles` 1행을 읽어 클레임 `dibay_m` = `{v:1, status, deleted_at, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version}` 를 넣는다. 예외·행 없음이면 **토큰을 그대로 돌려준다**(로그인 실패 없음). 활성화는 Supabase 대시보드 Auth Hooks(Owner 설정 승인).
+- proxy 읽기 게이트(P2-6): 쿠키의 access token 을 **만료 허용 없이** 서명 검증(`getClaims(token)`)하고, `sub` 가 신원과 같고 `dibay_m` 으로 계산한 lifecycle 이 `active`·`suspended` 이면 DB 를 읽지 않고 통과. 그 밖(클레임 없음·만료·blocked·withdrawn·unknown) → 지금처럼 DB.
+- proxy 가입 게이트: 같은 검증 클레임의 약관 4필드로 `deriveDibaySignupStatus`(같은 함수·같은 필수 버전) 가 **완료** 이면 `profiles` 를 읽지 않는다. 미완료·클레임 없음 → 지금처럼 DB(관리자 판정 포함).
+- **의미 변화 (Owner 승인 범위)**: 차단·탈퇴 회원은 이미 받은 access token 이 만료될 때까지(프로젝트 JWT 만료 설정) **읽기**와 비공개 페이지 열기가 가능하다(이전: 5초 + 인스턴스별 지연). 다음 토큰 갱신 때 훅이 새 상태를 넣으므로 그 뒤에는 DB 경로로 403. 쓰기 게이트(P0-R3 DB 스냅샷)는 **불변** — 차단 즉시 쓰기 금지.
+- 불변: 쓰기 게이트 · Route Handler 인증 · 갱신자(proxy 만) · Session / Destination / Completion / Profile 의미 · 동의 버전 판정 함수.
+
+증거: `lib/auth/__tests__/d5-member-token-claims.test.ts` (활성 클레임 → DB 0 · 만료 토큰·다른 sub·차단 클레임·클레임 없음 → DB 경로 · 약관 미완료 → DB 경로).
