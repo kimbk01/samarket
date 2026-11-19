@@ -77,7 +77,14 @@ describe("계약", () => {
   it("배지 계산은 표본에서만 비교하고 응답 뒤 실행", () => {
     const src = readFileSync(join(process.cwd(), "lib/notifications/pipeline/build-domain-badge-authority-http.ts"), "utf8");
     expect(src).toContain('console.warn("[unread-inputs-shadow]"');
-    expect(src).toMatch(/if \(Math\.random\(\) < resolveMemberBadgeCounterShadowRate\(\)\) \{\s*keepAliveAfterResponse\(/);
+    expect(src).toMatch(/if \(unreadFacts\.viaInputs && Math\.random\(\) < resolveMemberBadgeCounterShadowRate\(\)\) \{\s*keepAliveAfterResponse\(/);
+  });
+
+  it("2-c: 입력 표 1회 → 같은 로더, 실패하면 이전 경로(participants·rooms)", () => {
+    const src = readFileSync(join(process.cwd(), "lib/notifications/pipeline/build-domain-badge-authority-http.ts"), "utf8");
+    expect(src).toContain("const inputRows = await loadMemberUnreadRoomInputs(sb, uid);");
+    expect(src).toContain("loadTradeStoreOrderUnreadRoomFactsFromParticipants(sb, uid, loaded, orderMaps)");
+    expect(src).toMatch(/if \(inputRows\) \{[\s\S]*?\}\s*\/\*\* S2[\s\S]*?const unreadParticipantRoomRows = loadUnreadParticipantRoomRows\(sb, uid\);/);
   });
 
   it("마이그레이션: 메시지마다 숫자만 바꾸는 빠른 경로 · service_role 전용 · 매장 주인 변경 반영", () => {
