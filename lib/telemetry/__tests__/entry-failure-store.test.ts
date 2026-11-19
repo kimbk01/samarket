@@ -25,6 +25,7 @@ function ev(over: Partial<EntryTelemetryEvent> = {}): EntryTelemetryEvent {
     v: 1, run: "r1", seq: 1, kind: "cold", ev: "failure", platform: "android", appVersion: "1.2.5", appBuild: "37",
     webSha: "abc1234", entryKind: "user_cold", restoreHint: "fresh", releaseReason: null, failure: "chunk_reload",
     recovery: "none", prevFailure: null, reloads: 1, ageMs: 900, hiddenMs: null, visible: true, t: { firstHtml: 300 },
+    deviceClass: null, deviceClassSource: null, nav: null, usableWidth: null,
     ...over,
   };
 }
