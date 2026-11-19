@@ -69,11 +69,23 @@ export function diffMemberBadgeCounters(
   };
 }
 
+/** 불일치 뒤 다시 확인까지 기다리는 시간 — 같은 순간 다른 요청의 읽음·새 메시지가 반영될 시간 */
+export const MEMBER_BADGE_SHADOW_RECHECK_DELAY_MS = 2_000;
+
 export async function runMemberBadgeCountersShadow(
   sb: SupabaseClient,
   userId: string,
   loader: MemberBadgeLoaderB,
-  opts: { rate?: number; random?: () => number } = {}
+  opts: {
+    rate?: number;
+    random?: () => number;
+    /**
+     * 2026-11-19 운영 FAIL 2건(같은 사용자가 3.5초에 18개 방 읽음 처리 중) 원인 확정용 — 불일치면 잠시 뒤 로더를 다시 계산해
+     * 카운터와 함께 한 번 더 비교한다. 다시 같으면 「읽은 시점 차이」, 계속 다르면 「정의 차이(결함)」로 기록.
+     */
+    recheckLoader?: () => Promise<MemberBadgeLoaderB | null>;
+    sleep?: (ms: number) => Promise<void>;
+  } = {}
 ): Promise<MemberBadgeShadowDiff | null> {
   const uid = userId.trim();
   if (!uid) return null;
@@ -84,6 +96,28 @@ export async function runMemberBadgeCountersShadow(
     if (error) return null;
     const row = (Array.isArray(data) ? data[0] : data) as MemberBadgeCounterRow | null | undefined;
     const diff = diffMemberBadgeCounters(loader, row ?? null);
+    if (!diff.match && opts.recheckLoader) {
+      const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+      await sleep(MEMBER_BADGE_SHADOW_RECHECK_DELAY_MS);
+      const [again, rpc2] = await Promise.all([
+        opts.recheckLoader().catch(() => null),
+        sb.rpc("get_member_badge_counters", { p_user_id: uid }),
+      ]);
+      const row2 = rpc2.error
+        ? undefined
+        : ((Array.isArray(rpc2.data) ? rpc2.data[0] : rpc2.data) as MemberBadgeCounterRow | null | undefined);
+      const diff2 = again && row2 !== undefined ? diffMemberBadgeCounters(again, row2 ?? null) : null;
+      console.warn("[badge-counter-shadow]", {
+        userIdTail: uid.slice(-8),
+        match: false,
+        diffs: diff.diffs,
+        counterVersion: row?.version ?? null,
+        recheck: diff2
+          ? { match: diff2.match, diffs: diff2.diffs, verdict: diff2.match ? "timing" : "definition", counterVersion: row2?.version ?? null }
+          : { verdict: "unknown" },
+      });
+      return diff;
+    }
     if (!diff.match || diff.loaderVsAuthorityDiverged) {
       console.warn("[badge-counter-shadow]", {
         userIdTail: uid.slice(-8),

@@ -27,6 +27,7 @@ import { countNotificationEventsBadge } from "@/lib/notifications/core/notificat
 import type { NotificationBadgeCount } from "@/lib/notifications/core/notification-event-types";
 import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
 import { runMemberBadgeCountersShadow } from "@/lib/notifications/pipeline/member-badge-counters-shadow";
+import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 import {
   buildBadgeExplainMatrix,
   type BadgeExplainMatrix,
@@ -295,14 +296,31 @@ export async function buildDomainBadgeAuthorityHttpPayload(
    * D2 1단계 (Owner 「D2 승인」 2026-11-19 · LOCK 재개봉) — 쓰기 시점 카운터 비교만. 반환값·숫자 불변, 일부 요청(기본 10%)에서
    * 카운터 1행을 읽어 L(로더)·A(권위)와 대조해 기록한다. 응답을 기다리지 않는다.
    */
-  void runMemberBadgeCountersShadow(sb, uid, {
+  keepAliveAfterResponse(runMemberBadgeCountersShadow(sb, uid, {
     generalDirect: domainUnreadRooms.general_direct,
     group: domainUnreadRooms.group,
     trade: domainUnreadRooms.trade,
     customerOrder: storeOrderBuyerDeliveryUnread,
     ownerOrder: storeOrderOwnerChatUnread,
     authorityTotal: memberConversationAuthority.totalUnreadRooms,
-  }).catch(() => null);
+  }, {
+    /** 불일치 때만: 같은 로더 두 개를 다시 계산(참가자 행 재조회 포함) — 판정 기록용, 응답 무관 */
+    recheckLoader: async () => {
+      const rows = loadUnreadParticipantRoomRows(sb, uid);
+      const [m2, t2] = await Promise.all([
+        loadMessengerUnreadRoomFactsFromParticipants(sb, uid, rows),
+        loadTradeStoreOrderUnreadRoomFactsFromParticipants(sb, uid, rows),
+      ]);
+      return {
+        generalDirect: m2.domainUnreadRooms.general_direct,
+        group: m2.domainUnreadRooms.group,
+        trade: t2.domainUnreadRooms.trade,
+        customerOrder: t2.storeOrderBuyerDeliveryUnread,
+        ownerOrder: t2.storeOrderOwnerChatUnread,
+        authorityTotal: memberConversationAuthority.totalUnreadRooms,
+      };
+    },
+  }).catch(() => null));
 
   const bell = projection.bell;
   const explainMatrix = buildBadgeExplainMatrix({
