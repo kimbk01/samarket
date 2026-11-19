@@ -29,7 +29,7 @@ describe("정보교환·거래 머리글 3판 계약", () => {
     const area = read("components/layout/Tier1TitleAreaButton.tsx");
     expect(area).toContain('<MapPin className="h-4 w-4 shrink-0" strokeWidth={2.4} aria-hidden data-tier1-title-area-pin="" />');
     expect(area).not.toMatch(/>\s*·\s*</);
-    expect(area).toContain('active ? "text-sam-primary" : "text-sam-muted"');
+    expect(area).toContain('active ? "text-sam-primary" : "text-[#8a8a8a]"');
     expect(area).toContain('items-center gap-2.5" data-tier1-title-with-area');
   });
 

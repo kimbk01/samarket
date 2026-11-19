@@ -73,6 +73,21 @@ function defaultRightSlot(hub: MainHubTier1Id): ReactNode {
   return null;
 }
 
+/** 대표 헤더 제목 강조 대상 (시안 1) — MY 제외 */
+const HUB_TITLE_EMPHASIS: ReadonlySet<MainHubTier1Id> = new Set<MainHubTier1Id>(["community", "trade", "moim", "chat"]);
+
+/** telRING 워드마크 — dibaY 의 Y 처럼 대문자 부분(RING)만 노랑 (시안 1). 표기가 바뀌면 한 색 글자로 그린다. */
+function TelringHubTitle({ label }: { label: string }) {
+  const m = /^([a-z]+)([A-Z]+)$/.exec(label);
+  if (!m) return <>{label}</>;
+  return (
+    <>
+      {m[1]}
+      <span className="dibay-hub-title-accent">{m[2]}</span>
+    </>
+  );
+}
+
 function hubTitleKey(hub: MainHubTier1Id) {
   if (hub === "moim") return "tier1_moim" as const;
   if (hub === "community") return BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY;
@@ -102,13 +117,27 @@ export function RegionBarMainHubTier1({ pathNoQuery }: { pathNoQuery: string }) 
    * 「정보교환 · 거래」 전환 탭은 머리글 3단 `CommunityTradeSwitchRow`.
    */
   const areaHub = hub === "trade" || hub === "community";
-  const title: ReactNode = areaHub ? (
+  const baseTitle: ReactNode = areaHub ? (
     <Tier1TitleWithArea
       title={t(hub === "community" ? "nav_community_switch_info" : "nav_bottom_trade")}
       area={hub === "community" ? <CommunityTier1AreaButton /> : <TradeHeaderLocationPinButton placement="title" />}
     />
+  ) : hub === "chat" ? (
+    <TelringHubTitle label={t(hubTitleKey(hub))} />
   ) : (
     t(hubTitleKey(hub))
+  );
+  /**
+   * 대표 헤더 제목 강조 — 정보 공유·마켓·모임·telRING (Owner 2026-11-19 「시안대로 정확히」,
+   * 시안 1 `docs/audit/header-title-tabs-2026-11-19/design.html`): 20px · 800 · 자간 −0.03em · 브랜드 초록.
+   * MY 는 시안 대상이 아니라 그대로(17px/600). 동네 버튼도 제목과 같은 20px(2026-11-13 같은 크기 규칙).
+   */
+  const title: ReactNode = HUB_TITLE_EMPHASIS.has(hub) ? (
+    <span className="dibay-hub-title" data-dibay-hub-title={hub}>
+      {baseTitle}
+    </span>
+  ) : (
+    baseTitle
   );
   const rightSlot = extrasRight ?? defaultRightSlot(hub);
 
