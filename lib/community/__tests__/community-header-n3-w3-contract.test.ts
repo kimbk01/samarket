@@ -25,6 +25,14 @@ describe("정보교환·거래 머리글 3판 계약", () => {
     );
   });
 
+  it("1단 동네 버튼 앞 = 지도 핀(글자와 같은 색), 가운뎃점 없음 · 제목과 간격 10px (Owner 2026-11-19 시안 1-1)", () => {
+    const area = read("components/layout/Tier1TitleAreaButton.tsx");
+    expect(area).toContain('<MapPin className="h-4 w-4 shrink-0" strokeWidth={2.4} aria-hidden data-tier1-title-area-pin="" />');
+    expect(area).not.toMatch(/>\s*·\s*</);
+    expect(area).toContain('active ? "text-sam-primary" : "text-sam-muted"');
+    expect(area).toContain('items-center gap-2.5" data-tier1-title-with-area');
+  });
+
   it("1단 정보교환 오른쪽 = 검색·알림만 (지도 버튼·초록 글쓰기 사각 없음)", () => {
     expect(tier1).not.toContain("PhilifeHeaderAddressMenuButton");
     expect(tier1).not.toContain("PhilifeHeaderComposeButton");
