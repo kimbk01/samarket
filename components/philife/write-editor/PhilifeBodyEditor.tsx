@@ -41,6 +41,7 @@ import {
 } from "@/lib/philife/write-editor/rich-codec";
 import {
   analyzePastedHtmlForEditor,
+  isImageFileUrl,
   plainImageLinesToMarkdown,
   type PastedHtmlAnalysis,
 } from "@/lib/philife/write-editor/paste-html";
@@ -726,6 +727,21 @@ export default function PhilifeBodyEditor({
     for (const id of toUpload) if (sourcesRef.current.has(id)) startUpload(id);
   };
 
+  /**
+   * 평문 붙여넣기 — 사진 주소만 있는 줄·`[글](사진주소)` 줄이 있으면 사진 블록으로 넣고 true.
+   * 사진 줄이 없으면 false(호출부가 기본 붙여넣기로 넘긴다). 감사 2026-11-20 A1·A2.
+   */
+  const insertPlainWithImageLines = (ed: Editor, plain: string): boolean => {
+    const converted = plainImageLinesToMarkdown(plain);
+    if (!/!\[[^\]]*\]\([^)]+\)/.test(converted)) return false;
+    insertBlocksAtSelection(
+      ed,
+      textToCommunityBodyBlocks(converted).map((b) => ({ block: b })),
+      { fromPaste: true }
+    );
+    return true;
+  };
+
   const editor = useEditor({
     immediatelyRender: false,
     shouldRerenderOnTransaction: false,
@@ -827,16 +843,9 @@ export default function PhilifeBodyEditor({
           insertBlocksAtSelection(ed, items, { fromPaste: true });
           return true;
         }
-        /** 평문: 사진 주소만 있는 줄·`[글](사진주소)` 줄은 사진 문법으로 (감사 2026-11-20 A1·A2) */
-        const plainWithImages = html.trim() ? plain : plainImageLinesToMarkdown(plain);
-        if (!html.trim() && /!\[[^\]]*\]\([^)]+\)/.test(plainWithImages)) {
-          /** 평문에 사진 문법 줄이 있으면 사진 블록으로 */
+        /** 평문: 사진 주소만 있는 줄·`[글](사진주소)` 줄은 사진 블록으로 (감사 2026-11-20 A1·A2) */
+        if (!html.trim() && insertPlainWithImageLines(ed, plain)) {
           event.preventDefault();
-          insertBlocksAtSelection(
-            ed,
-            textToCommunityBodyBlocks(plainWithImages).map((b) => ({ block: b })),
-            { fromPaste: true }
-          );
           return true;
         }
         noticeUnfetchable(analysis?.unfetchable ?? 0);
@@ -844,6 +853,27 @@ export default function PhilifeBodyEditor({
         return false;
       },
       /** 사진이 선택된 채로 글자가 들어오면(입력기 확정·자판) 사진을 지우지 않고 사진 뒤에 쓴다 */
+      handleDOMEvents: {
+        /**
+         * Android 키보드(Gboard 등)의 클립보드 칩은 `paste` 가 아니라 `beforeinput` `insertText` 로 글 전체를 한 번에 넣는다
+         * (실기 2026-11-20 D3: 134자 여러 줄, 붙여넣기 이벤트 없음 → 사진 주소가 글자로 남음).
+         * 여러 줄 글이거나 글 전체가 사진 파일 주소면 붙여넣기로 보고 같은 처리를 한다(실기: 이 입력은 취소 가능 · 취소 뒤 키보드 정상).
+         * 한 글자씩 치는 입력·한글 조합 중 입력은 건드리지 않는다.
+         */
+        beforeinput: (view, event) => {
+          const e = event as InputEvent;
+          if (e.inputType !== "insertText" && e.inputType !== "insertReplacementText") return false;
+          if (e.isComposing || !e.cancelable) return false;
+          const data = e.data ?? "";
+          if (data.length < 2) return false;
+          if (!data.includes("\n") && !isImageFileUrl(data.trim())) return false;
+          const ed = editorRef.current;
+          if (!ed || ed.isDestroyed) return false;
+          e.preventDefault();
+          if (!insertPlainWithImageLines(ed, data)) view.pasteText(data);
+          return true;
+        },
+      },
       handleTextInput: (view, from, to, text) => {
         if (!text) return false;
         let imagePos = -1;
