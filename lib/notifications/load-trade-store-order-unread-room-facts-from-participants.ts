@@ -19,7 +19,7 @@ import {
 } from "@/lib/notifications/load-unread-participant-room-rows";
 
 /** 이전 rooms 조회의 `.in("chat_domain", ["trade", "store_order"])` 와 같은 조건(메모리 적용). */
-const TRADE_STORE_ORDER_CHAT_DOMAINS = new Set(["trade", "store_order"]);
+export const TRADE_STORE_ORDER_CHAT_DOMAINS = new Set(["trade", "store_order"]);
 
 export type TradeStoreOrderUnreadRoomFactsFromParticipants = Readonly<{
   tradeUnreadRoomIds: readonly string[];
@@ -63,7 +63,7 @@ type RoomRow = {
   domain_identity_key?: unknown;
 };
 
-function parseOrderId(identityKey: unknown): string | null {
+export function parseOrderId(identityKey: unknown): string | null {
   const k = String(identityKey ?? "").trim();
   // Gate 3 Step 12 — never treat store_order:room:{uuid} as order id.
   if (!k.startsWith("store_order:") || k.startsWith("store_order:room:")) return null;
@@ -167,7 +167,16 @@ export async function loadTradeStoreOrderUnreadRoomFactsFromParticipants(
   sb: SupabaseClient,
   userId: string,
   /** S2: 배지 권위 1회 계산에서 메신저 로더와 같은 조회 결과를 나눠 쓴다(없으면 직접 조회). */
-  preloaded?: Promise<UnreadParticipantRoomRows> | UnreadParticipantRoomRows
+  preloaded?: Promise<UnreadParticipantRoomRows> | UnreadParticipantRoomRows,
+  /**
+   * D2 2단계 — 쓰기 시점 입력 표(`member_unread_room_inputs`)에서 이미 얻은 주문 구매자·매장·매장 주인.
+   * 있으면 store_orders·stores 조회를 하지 않는다(판정 함수는 같음).
+   */
+  preloadedOrderMaps?: {
+    orderBuyerById: Record<string, string>;
+    orderStoreById: Record<string, string>;
+    storeOwnerById: Record<string, string>;
+  } | null
 ): Promise<TradeStoreOrderUnreadRoomFactsFromParticipants> {
   const uid = userId.trim();
   if (!uid) return EMPTY;
@@ -195,6 +204,17 @@ export async function loadTradeStoreOrderUnreadRoomFactsFromParticipants(
         .filter((id): id is string => Boolean(id))
     ),
   ];
+
+  if (preloadedOrderMaps) {
+    return partitionTradeStoreOrderUnreadRoomFactsFromParticipants({
+      userId: uid,
+      parts: (parts ?? []) as PartRow[],
+      rooms: (rooms ?? []) as RoomRow[],
+      orderBuyerById: preloadedOrderMaps.orderBuyerById,
+      storeOwnerById: preloadedOrderMaps.storeOwnerById,
+      orderStoreById: preloadedOrderMaps.orderStoreById,
+    });
+  }
 
   const orderBuyerById: Record<string, string> = {};
   const orderStoreById: Record<string, string> = {};
