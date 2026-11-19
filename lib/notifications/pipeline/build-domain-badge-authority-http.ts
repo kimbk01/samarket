@@ -26,10 +26,7 @@ import {
 import { countNotificationEventsBadge } from "@/lib/notifications/core/notification-event-repository";
 import type { NotificationBadgeCount } from "@/lib/notifications/core/notification-event-types";
 import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
-import {
-  resolveMemberBadgeCounterShadowRate,
-  runMemberBadgeCountersShadow,
-} from "@/lib/notifications/pipeline/member-badge-counters-shadow";
+import { resolveMemberBadgeCounterShadowRate } from "@/lib/notifications/pipeline/badge-shadow-rate";
 import {
   loadMemberUnreadRoomInputs,
   memberUnreadRoomInputsToLoaderInput,
@@ -361,34 +358,23 @@ export async function buildDomainBadgeAuthorityHttpPayload(
   });
 
   /**
-   * D2 1단계 (Owner 「D2 승인」 2026-11-19 · LOCK 재개봉) — 쓰기 시점 카운터 비교만. 반환값·숫자 불변, 일부 요청(기본 10%)에서
-   * 카운터 1행을 읽어 L(로더)·A(권위)와 대조해 기록한다. 응답을 기다리지 않는다.
+   * 하단 탭 수(L: 회원 B 합) ↔ 앱 아이콘 수(A) 갈림 감시 — Supabase 호출 없음 · 기록은 예전과 같은 표본 비율.
+   * 2026-11-19 재감사 C: `member_badge_counters` 그림자 퇴역 때 이 감시만 남겼다(예전에는 그림자 표본 안에서만 기록).
    */
-  keepAliveAfterResponse(runMemberBadgeCountersShadow(sb, uid, {
-    generalDirect: domainUnreadRooms.general_direct,
-    group: domainUnreadRooms.group,
-    trade: domainUnreadRooms.trade,
-    customerOrder: storeOrderBuyerDeliveryUnread,
-    ownerOrder: storeOrderOwnerChatUnread,
-    authorityTotal: memberConversationAuthority.totalUnreadRooms,
-  }, {
-    /** 불일치 때만: 같은 로더 두 개를 다시 계산(참가자 행 재조회 포함) — 판정 기록용, 응답 무관 */
-    recheckLoader: async () => {
-      const rows = loadUnreadParticipantRoomRows(sb, uid);
-      const [m2, t2] = await Promise.all([
-        loadMessengerUnreadRoomFactsFromParticipants(sb, uid, rows),
-        loadTradeStoreOrderUnreadRoomFactsFromParticipants(sb, uid, rows),
-      ]);
-      return {
-        generalDirect: m2.domainUnreadRooms.general_direct,
-        group: m2.domainUnreadRooms.group,
-        trade: t2.domainUnreadRooms.trade,
-        customerOrder: t2.storeOrderBuyerDeliveryUnread,
-        ownerOrder: t2.storeOrderOwnerChatUnread,
+  {
+    const loaderMemberB =
+      domainUnreadRooms.general_direct + domainUnreadRooms.group + domainUnreadRooms.trade + storeOrderBuyerDeliveryUnread;
+    if (
+      loaderMemberB !== memberConversationAuthority.totalUnreadRooms &&
+      Math.random() < resolveMemberBadgeCounterShadowRate()
+    ) {
+      console.warn("[badge-loader-authority-diverged]", {
+        userIdTail: uid.slice(-8),
+        loaderMemberB,
         authorityTotal: memberConversationAuthority.totalUnreadRooms,
-      };
-    },
-  }).catch(() => null));
+      });
+    }
+  }
 
   /**
    * D2 2단계 감시 (2026-11-19) — 표로 계산한 결과(방 ID·안 읽음 수·식별 키·매장별 수)를 표본(기본 10%)에서
