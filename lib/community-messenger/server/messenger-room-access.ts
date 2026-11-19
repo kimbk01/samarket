@@ -6,6 +6,7 @@
  */
 import type { GroupParticipantRow } from "@/lib/community-messenger/group/group-room.types";
 import { recordRoomEntryShadowAccess } from "@/lib/community-messenger/server/room-entry-shadow";
+import { takePrefetchedRoomAccess } from "@/lib/community-messenger/server/room-entry-prefetch";
 
 export type MessengerRoomAccessFacts = {
   roomId: string;
@@ -58,10 +59,14 @@ export async function loadMessengerRoomAccess(
   const uid = trimText(userId);
   const rid = trimText(roomKey);
   if (!uid || !rid || !UUID_RE.test(uid)) return null;
-  const { data, error } = await (sb as any).rpc("community_messenger_room_access", {
-    p_user_id: uid,
-    p_room_key: rid,
-  });
+  /** D4 2단계 — 같은 요청에서 방 진입 DB 함수로 미리 받은 권한이 있으면 그대로(같은 함수 결과) */
+  const prefetched = takePrefetchedRoomAccess(uid, rid);
+  const { data, error } = prefetched
+    ? { data: prefetched, error: null }
+    : await (sb as any).rpc("community_messenger_room_access", {
+        p_user_id: uid,
+        p_room_key: rid,
+      });
   if (error || !data || typeof data !== "object") return null;
   recordRoomEntryShadowAccess(rid, data);
   const row = data as {

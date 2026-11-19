@@ -16,6 +16,7 @@ import { derivePresenceFromDbRow } from "@/lib/community-messenger/presence/pres
 import type { CommunityMessengerPresenceState } from "@/lib/community-messenger/types";
 import type { GroupRoomSupabase } from "@/lib/community-messenger/group/group-room-repository";
 import { recordRoomEntryShadowGroup } from "@/lib/community-messenger/server/room-entry-shadow";
+import { takePrefetchedGroupOnline } from "@/lib/community-messenger/server/room-entry-prefetch";
 
 const PRESENCE_IN_BATCH = 100;
 
@@ -134,6 +135,39 @@ export async function resolveGroupRoomOnlineAuthority(
 ): Promise<GroupRoomOnlineAuthority> {
   const rid = trimText(roomId);
   if (!rid) return { memberCount: 0, onlineCount: 0, onlineUserIds: [] };
+
+  /** D4 2단계 — 방 진입 DB 함수가 같은 세 조회(활성 참가자·강퇴·접속 스냅샷)를 미리 받았으면 그대로 판정 */
+  const prefetched = takePrefetchedGroupOnline(rid);
+  if (prefetched) {
+    const bannedSetPre = new Set(prefetched.bannedUserIds);
+    const nowMs = Date.now();
+    const presenceStateByUserIdPre = new Map<string, CommunityMessengerPresenceState>();
+    for (const row of prefetched.presenceRows as PresenceSnapshotDbRow[]) {
+      const userId = trimText(row.user_id);
+      if (!userId) continue;
+      presenceStateByUserIdPre.set(
+        userId,
+        derivePresenceFromDbRow({
+          nowMs,
+          lastPingAtIso: row.last_ping_at ?? null,
+          lastActivityAtIso: row.last_activity_at ?? null,
+          lastSeenAtIso: row.last_seen_at ?? null,
+          updatedAtIso: row.updated_at ?? null,
+          appVisibility: row.app_visibility ?? "unknown",
+        })
+      );
+    }
+    recordRoomEntryShadowGroup({
+      activeUserIds: prefetched.activeUserIds,
+      bannedUserIds: prefetched.bannedUserIds,
+      presenceUserIds: [...presenceStateByUserIdPre.keys()],
+    });
+    return computeGroupRoomOnlineAuthority({
+      activeParticipantUserIds: prefetched.activeUserIds,
+      bannedUserIds: [...bannedSetPre],
+      presenceStateByUserId: presenceStateByUserIdPre,
+    });
+  }
 
   const [participantsRes, bansRes] = await Promise.all([
     (sb as any)

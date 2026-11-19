@@ -29,6 +29,7 @@ import {
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { recordRoomEntryShadowSnapshot } from "@/lib/community-messenger/server/room-entry-shadow";
+import { takePrefetchedRoomSnapshot } from "@/lib/community-messenger/server/room-entry-prefetch";
 
 export const ROOM_BOOTSTRAP_SNAPSHOT_RPC = "get_community_messenger_room_bootstrap_snapshot";
 
@@ -44,6 +45,11 @@ async function fetchSnapshotViaRpc(
   messageLimit: number
 ): Promise<{ payload: RoomBootstrapSnapshotPayloadJson | null; rpcMs: number }> {
   const rpc0 = devPerfNow();
+  /** D4 2단계 — 방 진입 DB 함수로 미리 받은 같은 스냅샷(같은 사용자·방·잘린 메시지 수)이면 그대로 */
+  const prefetched = snapshotTier === "critical" ? takePrefetchedRoomSnapshot(userId.trim(), roomId.trim(), messageLimit) : undefined;
+  if (prefetched !== undefined) {
+    return { payload: parseRoomBootstrapSnapshotRpcData(prefetched), rpcMs: devPerfNow() - rpc0 };
+  }
   const { data, error } = await sbAny.rpc(ROOM_BOOTSTRAP_SNAPSHOT_RPC, {
     p_user_id: userId.trim(),
     p_room_id: roomId.trim(),
