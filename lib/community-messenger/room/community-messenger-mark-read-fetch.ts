@@ -8,16 +8,23 @@ import { removeDeliveredNotificationsForRoomRead } from "@/lib/push/native/remov
 /** 실패 로그용 본문 미리보기 상한 — JSON 해석에는 쓰지 않는다 */
 export const COMMUNITY_MESSENGER_MARK_READ_PREVIEW_MAX = 2048;
 
-export type CommunityMessengerMarkReadPatchBody =
-  | { action: "mark_read"; flushOpen: true }
-  | { action: "mark_read"; flushOpen: true; lastReadMessageId: string };
+export type CommunityMessengerMarkReadPatchBody = {
+  action: "mark_read";
+  flushOpen: true;
+  lastReadMessageId?: string;
+  /** 응답 badgeAck 를 쓰지 않는 호출(홈·탭 목록·「모두 읽음」) — 서버 배지 재계산 생략 */
+  skipBadgeAck?: true;
+};
 
 export function buildCommunityMessengerMarkReadPatchBody(
-  lastReadMessageId?: string | null
+  lastReadMessageId?: string | null,
+  opts?: { skipBadgeAck?: boolean }
 ): CommunityMessengerMarkReadPatchBody {
   const mid = typeof lastReadMessageId === "string" ? lastReadMessageId.trim() : "";
-  if (mid) return { action: "mark_read", flushOpen: true, lastReadMessageId: mid };
-  return { action: "mark_read", flushOpen: true };
+  const body: CommunityMessengerMarkReadPatchBody = { action: "mark_read", flushOpen: true };
+  if (mid) body.lastReadMessageId = mid;
+  if (opts?.skipBadgeAck === true) body.skipBadgeAck = true;
+  return body;
 }
 
 export const communityMessengerMarkReadFetchInitBase: Pick<RequestInit, "method" | "credentials" | "headers"> = {

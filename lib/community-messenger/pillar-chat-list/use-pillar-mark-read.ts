@@ -47,7 +47,7 @@ export function usePillarRoomMarkRead(args: {
       try {
         const res = await fetch(communityMessengerRoomResourcePath(roomId), {
           ...communityMessengerMarkReadFetchInitBase,
-          body: JSON.stringify(buildCommunityMessengerMarkReadPatchBody()),
+          body: JSON.stringify(buildCommunityMessengerMarkReadPatchBody(null, { skipBadgeAck: true })),
         });
         const parsed = await parseCommunityMessengerMarkReadResponse(res);
         if (!parsed.okHttp || parsed.json.ok !== true) {

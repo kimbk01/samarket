@@ -8,6 +8,10 @@ import type {
 } from "@/lib/community-messenger/service";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 import { warnMarkReadPerformanceLockIfNeeded } from "@/lib/community-messenger/mark-read-performance-lock";
+import {
+  createMarkReadRecentResultCache,
+  markReadRequestWantsBadgeAck,
+} from "@/lib/community-messenger/server/mark-read-recent-result-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,24 +38,22 @@ const MARK_READ_INFLIGHT_RESULT_TTL_MS = (() => {
   return 400;
 })();
 
-const communityMessengerMarkReadRecentResult = new Map<
-  string,
-  {
-    expiresAt: number;
-    bundle: MarkReadInflightBundle;
-  }
->();
+/** 결함 2-1 — 만료 항목 삭제 + 상한(오래된 것부터) */
+const communityMessengerMarkReadRecentResult = createMarkReadRecentResultCache<MarkReadInflightBundle>();
 
 function communityMessengerMarkReadInflightKey(
   userId: string,
   roomId: string,
-  body: { flushOpen?: boolean; lastReadMessageId?: string | undefined }
+  body: { flushOpen?: boolean; lastReadMessageId?: string | undefined },
+  wantsBadgeAck: boolean
 ): string {
   const mid = typeof body.lastReadMessageId === "string" ? body.lastReadMessageId.trim().toLowerCase() : "";
+  /** 배지 응답이 필요한 요청(방 열기)이 배지 없는 결과를 재사용하지 않도록 키를 나눈다 */
+  const ack = wantsBadgeAck ? "ack" : "noack";
   /** 클라이언트는 항상 flushOpen 이지만, 커서가 있으면 키에 포함해야 다른 메시지 읽음이 직렬화되지 않는다 */
-  if (mid) return `${userId}\0${roomId}\0mark\0${mid}`;
-  if (body.flushOpen === true) return `${userId}\0${roomId}\0open_tail`;
-  return `${userId}\0${roomId}\0cursor\0`;
+  if (mid) return `${userId}\0${roomId}\0mark\0${mid}\0${ack}`;
+  if (body.flushOpen === true) return `${userId}\0${roomId}\0open_tail\0${ack}`;
+  return `${userId}\0${roomId}\0cursor\0\0${ack}`;
 }
 
 /**
@@ -179,7 +181,7 @@ export async function PATCH(
   let body:
     | { action?: "invite"; memberIds?: string[] }
     | { action?: "participant_settings"; isMuted?: boolean; isPinned?: boolean }
-    | { action?: "mark_read"; lastReadMessageId?: string; flushOpen?: boolean }
+    | { action?: "mark_read"; lastReadMessageId?: string; flushOpen?: boolean; skipBadgeAck?: boolean }
     | { action?: "archive"; archived?: boolean }
     | { action?: "group_notice"; noticeText?: string }
     | {
@@ -251,14 +253,15 @@ export async function PATCH(
   }
   if (body.action === "mark_read") {
     try {
-      const inflightKey = communityMessengerMarkReadInflightKey(auth.userId, roomId, body);
+      const wantsBadgeAck = markReadRequestWantsBadgeAck(body);
+      const inflightKey = communityMessengerMarkReadInflightKey(auth.userId, roomId, body, wantsBadgeAck);
       let patch_room_inflight_dedupe_hit = 0;
       let bundle: MarkReadInflightBundle;
 
       const recent = communityMessengerMarkReadRecentResult.get(inflightKey);
-      if (recent && recent.expiresAt > Date.now()) {
+      if (recent) {
         patch_room_inflight_dedupe_hit = 1;
-        bundle = recent.bundle;
+        bundle = recent;
       } else {
         let flight = communityMessengerMarkReadInflight.get(inflightKey);
         if (flight) {
@@ -315,6 +318,9 @@ export async function PATCH(
                     /* notification engine shadow */
                   }
                 });
+              } else if (!wantsBadgeAck) {
+                /** 결함 2-2 — 홈·탭·「모두 읽음」: 응답 badgeAck 를 쓰지 않음 → 재계산 생략 (events/targets 는 TX 안에서 정리됨) */
+                roomReadFollowUp = "skip";
               } else {
                 try {
                   const { getSupabaseServer } = await import("@/lib/chat/supabase-server");
@@ -323,7 +329,7 @@ export async function PATCH(
                   );
                   const domain = await issueDomainBadgeAuthorityForAck(getSupabaseServer(), auth.userId);
                   badgeAck = domainBadgeReadMutationAckFields(domain);
-                  roomReadFollowUp = "skip";
+                roomReadFollowUp = "skip";
                 } catch {
                   /* badge ACK 실패 → 클라가 room-read 로 폴백 */
                   roomReadFollowUp = "required";
@@ -338,10 +344,7 @@ export async function PATCH(
           communityMessengerMarkReadInflight.set(inflightKey, flight);
         }
         bundle = await flight!;
-        communityMessengerMarkReadRecentResult.set(inflightKey, {
-          expiresAt: Date.now() + MARK_READ_INFLIGHT_RESULT_TTL_MS,
-          bundle,
-        });
+        communityMessengerMarkReadRecentResult.set(inflightKey, bundle, MARK_READ_INFLIGHT_RESULT_TTL_MS);
       }
       const { result, diag, markWallMs, roomReadFollowUp, badgeAck } = bundle;
 

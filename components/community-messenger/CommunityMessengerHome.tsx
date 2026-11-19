@@ -2842,7 +2842,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       try {
         const res = await fetch(communityMessengerRoomResourcePath(roomId), {
           ...communityMessengerMarkReadFetchInitBase,
-          body: JSON.stringify(buildCommunityMessengerMarkReadPatchBody()),
+          body: JSON.stringify(buildCommunityMessengerMarkReadPatchBody(null, { skipBadgeAck: true })),
         });
         const parsed = await parseCommunityMessengerMarkReadResponse(res);
         const json = parsed.json;
