@@ -5,6 +5,7 @@
  * 예전 글은 앱 동네 목록(143개) 키로 저장된 `locations` 행에 붙어 있다 → 그 행을 같은 시/군 LGU 로 묶어서 함께 읽는다
  * (동네 목록 → LGU 대응표는 거래와 같은 `trade-lgu-city-rollup` + `TRADE_LEGACY_PRODUCT_ALIAS_TO_CANONICAL`, 데이터 변경 없음).
  */
+import { loadNeighborhoodLocationRowsShared } from "@/lib/neighborhood/philife-feed-shared-config-cache.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { deterministicUuid } from "@/lib/server/deterministic-uuid";
 import { resolvePublicCityName } from "@/lib/addresses/address-display-levels";
@@ -75,7 +76,16 @@ const LEGACY_CACHE_MS = 60_000;
 async function loadLegacyLocationIdsByLgu(sb: SupabaseClient<any>): Promise<Map<string, string[]>> {
   if (legacyCache && Date.now() - legacyCache.at < LEGACY_CACHE_MS) return legacyCache.byLgu;
   const byLgu = new Map<string, string[]>();
-  const { data, error } = await sb.from("locations").select("id, city, name");
+  /** 2026-11-20 — 표 전체(26행)를 인스턴스 공유 캐시로. 실패는 캐시 안 함 → 직접 조회 */
+  let data: unknown;
+  let error: unknown = null;
+  try {
+    data = await loadNeighborhoodLocationRowsShared();
+  } catch {
+    const direct = await sb.from("locations").select("id, city, name");
+    data = direct.data;
+    error = direct.error;
+  }
   if (!error && Array.isArray(data)) {
     for (const row of data as { id?: string; city?: string | null; name?: string | null }[]) {
       const id = String(row.id ?? "").trim();

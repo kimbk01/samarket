@@ -1,4 +1,10 @@
+import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import {
+  NEIGHBORHOOD_LOCATIONS_CACHE_TAG,
+  NEIGHBORHOOD_LOCATIONS_REVALIDATE_SEC,
+} from "@/lib/neighborhood/philife-feed-shared-config-cache.server";
 import { deterministicUuid } from "@/lib/server/deterministic-uuid";
 import { isValidNeighborhoodLocationKey } from "@/lib/neighborhood/location-validation";
 import { normalizeNeighborhoodLocationKeyToCity } from "@/lib/neighborhood/location-key";
@@ -180,11 +186,37 @@ export async function resolveNeighborhoodLocationId(
 }
 
 /** 조회 전용 — 있는 행 id 만 돌려준다(없으면 null, DB 쓰기 없음) */
+/**
+ * 2026-11-20 — 동네 키 → id 읽기 전용 조회를 인스턴스 공유 캐시로(설계 neighborhood-feed-budget-design-2026-11-20.md).
+ * 찾은 경우만 캐시한다(없음은 throw → 캐시 안 함 → 새 동네가 생기면 바로 보임). 동네 행은 지우지 않으므로 찾은 id 는 바뀌지 않는다.
+ */
+const findNeighborhoodLocationIdReadOnlyShared = unstable_cache(
+  async (locationKey: string, inputJson: string): Promise<string> => {
+    const r = await resolveNeighborhoodLocationId(
+      getSupabaseServer(),
+      locationKey,
+      JSON.parse(inputJson) as EnsureLocationInput,
+      { readOnly: true }
+    );
+    if (!r.locationId) throw new Error("location_not_found");
+    return r.locationId;
+  },
+  ["neighborhood-location-id-readonly:v1"],
+  { revalidate: NEIGHBORHOOD_LOCATIONS_REVALIDATE_SEC, tags: [NEIGHBORHOOD_LOCATIONS_CACHE_TAG] }
+);
+
 export async function findNeighborhoodLocationIdReadOnly(
   sb: SupabaseClient<any>,
   locationKey: string,
   input: EnsureLocationInput
 ): Promise<string | null> {
+  try {
+    return await findNeighborhoodLocationIdReadOnlyShared(locationKey, JSON.stringify(input ?? {}));
+  } catch (e) {
+    /** 「없음」은 방금 조회한 결과 그대로(다시 조회하지 않음 · 캐시도 안 함) */
+    if (e instanceof Error && e.message === "location_not_found") return null;
+    /* 그 밖의 실패(캐시 저장소 등) — 지금처럼 직접 조회 */
+  }
   const r = await resolveNeighborhoodLocationId(sb, locationKey, input, { readOnly: true });
   return r.locationId;
 }

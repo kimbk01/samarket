@@ -13,6 +13,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadCommunityImportPrincipalUserIdShared } from "@/lib/neighborhood/philife-feed-shared-config-cache.server";
 
 let cachedPrincipalId: string | null | undefined;
 
@@ -24,6 +25,14 @@ export async function loadCommunityImportPrincipalUserId(
   sb: SupabaseClient
 ): Promise<string | null> {
   if (cachedPrincipalId !== undefined) return cachedPrincipalId;
+  /** 2026-11-20 — 인스턴스 공유 캐시 먼저(새 인스턴스도 DB 를 다시 읽지 않음). 실패는 캐시 안 함 → 아래 직접 조회 */
+  try {
+    const shared = await loadCommunityImportPrincipalUserIdShared();
+    cachedPrincipalId = shared || null;
+    return cachedPrincipalId;
+  } catch {
+    /* 기존 경로 */
+  }
   const { data, error } = await sb.from("community_import_principal").select("user_id").limit(1).maybeSingle();
   if (error) {
     const m = String(error.message ?? "").toLowerCase();

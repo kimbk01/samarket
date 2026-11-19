@@ -22,6 +22,10 @@ import { resolveTopicFeedSortMode } from "@/lib/community-feed/feed-sort-mode";
 import { NEIGHBORHOOD_CATEGORY_LABELS } from "@/lib/neighborhood/categories";
 import { isPhilifeNeighborhoodWriteEligibleRow } from "@/lib/neighborhood/philife-topic-slug-rules";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import {
+  invalidatePhilifeFeedTopicsSharedCache,
+  loadPhilifeFeedTopicsRpcRootShared,
+} from "@/lib/neighborhood/philife-feed-shared-config-cache.server";
 
 export type PhilifeNeighborhoodFeedChip = {
   slug: string;
@@ -107,11 +111,18 @@ async function tryLoadPhilifeDefaultTopicsViaDbRpc(): Promise<{
   meta: { resolved_slug: string; section_slug_candidate: string };
 } | null> {
   try {
-    const sb = getSupabaseServer();
     const t0 = performance.now();
-    const { data, error } = await sb.rpc("philife_list_default_section_topics_for_feed");
+    /** 2026-11-20 — 인스턴스 공유 캐시(관리자 저장 시 태그 만료). 실패는 캐시 안 함 → 아래 직접 조회 */
+    let data: unknown;
+    try {
+      data = await loadPhilifeFeedTopicsRpcRootShared();
+    } catch {
+      const sb = getSupabaseServer();
+      const direct = await sb.rpc("philife_list_default_section_topics_for_feed");
+      if (direct.error) return null;
+      data = direct.data;
+    }
     const rpcMs = performance.now() - t0;
-    if (error) return null;
     if (data == null) return null;
     let root: PhilifeTopicsRpcPayload;
     if (typeof data === "string") {
@@ -273,6 +284,8 @@ export async function loadPhilifeDefaultSectionTopics(): Promise<CommunityTopicD
  */
 export function clearPhilifeDefaultSectionTopicsCache(): void {
   philifeSectionTopicsCache = null;
+  /** 2026-11-20 — 모든 인스턴스의 공유 캐시도 즉시 만료 */
+  invalidatePhilifeFeedTopicsSharedCache();
   if (collectTopicsDiag) {
     lastPhilifeTopicsColdMetrics = null;
   }
