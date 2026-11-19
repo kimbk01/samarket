@@ -79,6 +79,8 @@ export type MessengerBusEvent =
       roomId: string;
       viewerUserId: string;
       unreadCount?: number;
+      /** 참여자 행의 주문 방 역할 — 고객 주문 칸이 캐시에 없는 방을 다룰 때만 쓴다 (2026-11-19 C3) */
+      storeOrderRole?: "customer" | "owner" | null;
       /**
        * 상대 `participants.last_read_message_id` Realtime 시 Zustand `lastReadByRoomId`·홈 목록이
        * 다른 탭·창에서도 맞춰지게 한다 (`useMessengerRoomClientPhase1` `onParticipantPostgresForPeerRead`).
