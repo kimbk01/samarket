@@ -6,7 +6,7 @@ import { ChevronDown, MapPin } from "lucide-react";
  * 1단 제목 뒤 「📍 동네 ⌄」 버튼 — 앞 표시 = 지도 핀 16px · 선 2.4 · 글자와 같은 색
  *   (Owner 2026-11-19 「지역 부분에 지도 아이콘」 시안 1-1 `docs/audit/header-title-tabs-2026-11-19/design.html` 「그대로 구현」).
  * 정보교환·거래 공용 모양 (Owner 「3판대로 구현」 2026-11-12, 시안 N3).
- * - 동네만 볼 때(`active`) = 브랜드 초록, 전체 볼 때 = 회색
+ * - 동네만 볼 때(`active`) = 브랜드 초록, 전체 볼 때 = 회색 #8a8a8a · ⌄ 13px (시안 1-1 그림 값 그대로, Owner 2026-11-19 「시안대로 정확히」)
  * - 글자 = 제목과 같은 17px·600 (Owner 2026-11-13 「주소가 있는 부분도 제목의 크기로 일치」, 헤더 SSOT S8). 제목은 자르지 않고, 칸이 모자라면 동네 이름 끝만 「…」(영문 아주 긴 시·군 이름, 시트에 전체 이름)
  */
 export function Tier1TitleAreaButton({
@@ -31,12 +31,12 @@ export function Tier1TitleAreaButton({
       aria-expanded={expanded}
       onClick={onClick}
       className={`inline-flex min-w-0 items-center gap-[3px] py-1 text-[length:var(--sector-header-title-size,17px)] font-semibold leading-none [-webkit-tap-highlight-color:transparent] transition-[transform,opacity] duration-100 ease-out active:scale-[0.97] active:opacity-85 motion-reduce:transition-none motion-reduce:active:scale-100 ${
-        active ? "text-sam-primary" : "text-sam-muted"
+        active ? "text-sam-primary" : "text-[#8a8a8a]"
       }`}
     >
       <MapPin className="h-4 w-4 shrink-0" strokeWidth={2.4} aria-hidden data-tier1-title-area-pin="" />
       <span className="min-w-0 truncate">{label}</span>
-      <ChevronDown className="h-3.5 w-3.5 shrink-0" strokeWidth={2.4} aria-hidden />
+      <ChevronDown className="h-[13px] w-[13px] shrink-0" strokeWidth={2.4} aria-hidden />
     </button>
   );
 }
