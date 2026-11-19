@@ -190,18 +190,39 @@ export async function buildDomainBadgeAuthorityHttpPayload(
   const uid = userId.trim();
   const projectionVersionMs = Date.now();
 
-  /** S2 (2026-11-09): participants·rooms 를 1회만 읽어 메신저·거래/주문 로더가 나눠 쓴다(같은 조회 2건 중복 제거). */
-  const unreadParticipantRoomRows = loadUnreadParticipantRoomRows(sb, uid);
-  const [messengerRooms, tradeStoreRooms, missed, categoryCounts, bellExplainRows, ownerO] =
-    await Promise.all([
+  /**
+   * D2 2-c (2026-11-19) — 안 읽은 방 입력을 쓰기 시점 표(`member_unread_room_inputs`) 1회로 읽고 **같은 로더·같은 판정 함수**에 넣는다.
+   * (이전: participants·rooms·store_orders·stores 4~5회.) 표 읽기 실패면 이전 경로 그대로.
+   * 결과 동일 근거: 운영 실데이터 36/36 · 그림자 `[unread-inputs-shadow]`.
+   */
+  const unreadFactsP = (async () => {
+    const inputRows = await loadMemberUnreadRoomInputs(sb, uid);
+    if (inputRows) {
+      const { loaded, orderMaps } = memberUnreadRoomInputsToLoaderInput(inputRows);
+      const [m, t] = await Promise.all([
+        loadMessengerUnreadRoomFactsFromParticipants(sb, uid, loaded),
+        loadTradeStoreOrderUnreadRoomFactsFromParticipants(sb, uid, loaded, orderMaps),
+      ]);
+      return { messengerRooms: m, tradeStoreRooms: t, viaInputs: true as const, inputRowCount: inputRows.length };
+    }
+    /** S2 (2026-11-09): participants·rooms 를 1회만 읽어 메신저·거래/주문 로더가 나눠 쓴다(같은 조회 2건 중복 제거). */
+    const unreadParticipantRoomRows = loadUnreadParticipantRoomRows(sb, uid);
+    const [m, t] = await Promise.all([
       loadMessengerUnreadRoomFactsFromParticipants(sb, uid, unreadParticipantRoomRows),
       loadTradeStoreOrderUnreadRoomFactsFromParticipants(sb, uid, unreadParticipantRoomRows),
+    ]);
+    return { messengerRooms: m, tradeStoreRooms: t, viaInputs: false as const, inputRowCount: 0 };
+  })();
+  const [unreadFacts, missed, categoryCounts, bellExplainRows, ownerO] =
+    await Promise.all([
+      unreadFactsP,
       loadOrphanMissedCallFacts(sb, uid),
       /** BRIDGE: category diagnostics only — NOT Member Bell digit. Exit when inbox UI drops categoryCounts.total. */
       countNotificationEventsBadge(sb, uid),
       loadBellExplainUnreadEventRows(sb, uid, { limit: MEMBER_NOTIFICATION_A_LOAD_LIMIT }),
       loadOwnerOperationOFacts(sb, uid),
     ]);
+  const { messengerRooms, tradeStoreRooms } = unreadFacts;
 
   // Messenger + Trade + Store Order: participants unread (list SSOT). Targets are derived only.
   const domainUnreadRooms = {
@@ -331,22 +352,21 @@ export async function buildDomainBadgeAuthorityHttpPayload(
   }).catch(() => null));
 
   /**
-   * D2 2단계 2-b (Owner 「승인」 2026-11-19) — 쓰기 시점 입력 표에서 같은 로더(같은 판정 함수)로 다시 계산해
-   * 기존 결과(방 ID·안 읽음 수·식별 키·매장별 수)와 통째로 비교만 한다. 표본(기본 10%) · 응답 뒤 · 숫자 불변.
+   * D2 2단계 감시 (2026-11-19) — 표로 계산한 결과(방 ID·안 읽음 수·식별 키·매장별 수)를 표본(기본 10%)에서
+   * 이전 경로로 다시 계산해 통째로 비교 기록. 응답 뒤 · 숫자 불변.
    */
-  if (Math.random() < resolveMemberBadgeCounterShadowRate()) {
+  /** 2-c 이후: 표로 계산한 요청 중 표본만 이전 경로(participants·rooms·주문·매장)로 다시 계산해 비교(감시 유지) */
+  if (unreadFacts.viaInputs && Math.random() < resolveMemberBadgeCounterShadowRate()) {
     keepAliveAfterResponse(
       (async () => {
-        const rows = await loadMemberUnreadRoomInputs(sb, uid);
-        if (!rows) return;
-        const { loaded, orderMaps } = memberUnreadRoomInputsToLoaderInput(rows);
+        const legacyRows = loadUnreadParticipantRoomRows(sb, uid);
         const [m2, t2] = await Promise.all([
-          loadMessengerUnreadRoomFactsFromParticipants(sb, uid, loaded),
-          loadTradeStoreOrderUnreadRoomFactsFromParticipants(sb, uid, loaded, orderMaps),
+          loadMessengerUnreadRoomFactsFromParticipants(sb, uid, legacyRows),
+          loadTradeStoreOrderUnreadRoomFactsFromParticipants(sb, uid, legacyRows),
         ]);
         const sameMessenger = stableFactsKey(m2) === stableFactsKey(messengerRooms);
         const sameTrade = stableFactsKey(t2) === stableFactsKey(tradeStoreRooms);
-        const log = { userIdTail: uid.slice(-8), sameMessenger, sameTrade, rows: rows.length };
+        const log = { userIdTail: uid.slice(-8), sameMessenger, sameTrade, rows: unreadFacts.inputRowCount, via: "inputs" };
         if (sameMessenger && sameTrade) console.info("[unread-inputs-shadow]", { ...log, match: true });
         else console.warn("[unread-inputs-shadow]", { ...log, match: false });
       })().catch(() => null)
