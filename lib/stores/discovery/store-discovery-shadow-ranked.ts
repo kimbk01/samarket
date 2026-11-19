@@ -298,7 +298,7 @@ export function browseEligibilityGiBatches(
   return [[0], [1, 2, 3, 4, 5]];
 }
 
-function districtTiersToScan(
+export function districtTiersToScan(
   district: string | null,
   sort: StoreBrowseServerSortId | "home",
   hasGeo: boolean

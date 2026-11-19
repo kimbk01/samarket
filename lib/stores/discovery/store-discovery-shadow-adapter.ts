@@ -12,6 +12,7 @@ import {
   rankStoreDiscoveryHomeShadowWaves,
   fillShadowRankedViaWaves,
   createInMemoryShadowWaveFetcher,
+  districtTiersToScan,
   type StoreDiscoveryShadowRankedRow,
   type ShadowWaveTelemetry,
   SHADOW_PAGINATION_ARCHITECTURE,
@@ -78,6 +79,74 @@ function createRpcShadowWaveFetcher(
   };
 }
 
+/**
+ * 2026-11-19 — HOME 매장 탐색: Gi(0~5)×Dj 단계를 DB 함수 1번(`get_store_discovery_shadow_waves_batch`)으로 미리 받고,
+ * 기존 정렬 루프(`rankStoreDiscoveryHomeShadowWaves`)가 단계마다 요청하던 크기만큼 **앞에서부터 잘라** 쓴다.
+ * 같은 단계를 더 큰 limit 로 받아 앞 N개를 쓰는 것 = limit N 으로 받은 것(같은 ORDER BY · 운영 시험으로 확인).
+ * 운영 실측 1요청당 단계 RPC 5.7회 → 1회. 묶음 함수가 없거나 실패하면 null → 기존 단건 호출(지금 동작).
+ */
+/** 묶음 함수가 운영에 없다는 응답을 받으면 이 인스턴스에서는 다시 부르지 않는다(B1 재발 방지 — 실패 호출이 쌓이지 않게) */
+let homeWavesBatchMissing = false;
+
+async function prefetchHomeShadowWavesBatch(
+  sb: SupabaseClient,
+  input: {
+    originLat: number | null;
+    originLng: number | null;
+    district: string | null;
+    searchQ: string | null;
+    distanceAxisEnabled: boolean;
+    limit: number;
+  }
+): Promise<Map<string, StoreDiscoveryShadowRankedRow[]> | null> {
+  if (homeWavesBatchMissing) return null;
+  const hasGeo = input.distanceAxisEnabled && input.originLat != null && input.originLng != null;
+  const djList = districtTiersToScan(input.district, "home", hasGeo);
+  const maxNeed = input.limit + (STORE_DISCOVERY_EXPOSURE_BAND_SIZE - 1);
+  const ranks: number[] = [];
+  const tiers: number[] = [];
+  const limits: number[] = [];
+  for (const gi of [0, 1, 2, 3, 4, 5]) {
+    for (const dj of djList) {
+      ranks.push(gi);
+      tiers.push(dj);
+      limits.push(maxNeed);
+    }
+  }
+  const { data, error } = await sb.rpc("get_store_discovery_shadow_waves_batch", {
+    p_eligibility_ranks: ranks,
+    p_district_tiers: tiers,
+    p_limits: limits,
+    p_sort: "default",
+    p_origin_lat: input.originLat,
+    p_origin_lng: input.originLng,
+    p_district: input.district,
+    p_distance_axis_enabled: input.distanceAxisEnabled,
+    p_search_q: input.searchQ ?? null,
+    p_store_category_id: null,
+    p_store_topic_id: null,
+    p_wants_all_subs: true,
+    p_orphan_business_types: [],
+  });
+  if (error) {
+    const msg = String((error as { message?: string }).message ?? "");
+    const code = String((error as { code?: string }).code ?? "");
+    if (code === "PGRST202" || code === "42883" || msg.includes("get_store_discovery_shadow_waves_batch")) {
+      homeWavesBatchMissing = true;
+    }
+    return null;
+  }
+  if (!Array.isArray(data)) return null;
+  const byWave = new Map<string, StoreDiscoveryShadowRankedRow[]>();
+  for (let i = 0; i < ranks.length; i++) byWave.set(`${ranks[i]}:${tiers[i]}`, []);
+  for (const raw of data as Array<Record<string, unknown>>) {
+    const ord = Math.floor(Number(raw.wave_ord));
+    if (!Number.isFinite(ord) || ord < 0 || ord >= ranks.length) continue;
+    byWave.get(`${ranks[ord]}:${tiers[ord]}`)?.push(mapWaveRpcRow(raw));
+  }
+  return byWave;
+}
+
 export async function loadStoreDiscoveryHomeShadowViaRpc(
   sb: SupabaseClient,
   input: {
@@ -97,7 +166,7 @@ export async function loadStoreDiscoveryHomeShadowViaRpc(
   error?: string;
 }> {
   try {
-    const fetchWave = createRpcShadowWaveFetcher(sb, {
+    const rpcFetchWave = createRpcShadowWaveFetcher(sb, {
       sort: "home",
       originLat: input.originLat,
       originLng: input.originLng,
@@ -105,6 +174,14 @@ export async function loadStoreDiscoveryHomeShadowViaRpc(
       distanceAxisEnabled: input.distanceAxisEnabled,
       searchQ: input.searchQ,
     });
+    const homeLimit = Math.max(1, Math.min(input.limit ?? STORE_HOME_FEED_RESPONSE_MAX, STORE_HOME_FEED_RESPONSE_MAX));
+    const prefetched = await prefetchHomeShadowWavesBatch(sb, { ...input, limit: homeLimit }).catch(() => null);
+    const fetchWave: typeof rpcFetchWave = prefetched
+      ? async (w) => {
+          const rows = prefetched.get(`${w.eligibilityRank}:${w.districtTier}`);
+          return rows ? rows.slice(0, Math.max(0, w.limit)) : rpcFetchWave(w);
+        }
+      : rpcFetchWave;
     const ranked = await rankStoreDiscoveryHomeShadowWaves({
       fetchWave,
       district: input.district,
