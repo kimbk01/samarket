@@ -7,6 +7,7 @@ import {
   readContactsAdminSettings,
   runContactsDailyMaintenance,
 } from "@/lib/community-messenger/contacts/contacts-service.server";
+import { purgeRoomUnreadIdempotency } from "@/lib/community-messenger/server/purge-room-unread-idempotency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export const maxDuration = 60;
  * 기존 정리 작업(19:30·19:50 UTC)과 겹치지 않게. 표가 없으면(운영 미적용) 아무것도 하지 않는다.
  * 내용: 180일 미사용 기기 연락처 삭제 · 버려진 스냅숏 · 인증 풀린 번호 등록 삭제 · 고아 재추천 제한 ·
  *       재추천 제한 기록 실패분 복구 · 번호 변경 반영. 결과는 감사 `messenger_contacts.daily_maintenance` 1건.
+ * 2026-11-19 재감사 D: 연락처 정리와 별개로 읽음·보내기 중복 방지 기록 7일 보존 정리 1건을 먼저 돌린다(결과는 로그).
  */
 async function run(req: Request) {
   const secret = process.env.CRON_SECRET?.trim();
@@ -28,6 +30,10 @@ async function run(req: Request) {
   if (blocked) return blocked;
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
+
+  const idem = await purgeRoomUnreadIdempotency(sb);
+  if (idem.ok) console.info("[cron messenger-maintenance] idempotency_purged", { deleted: idem.deleted });
+  else console.error("[cron messenger-maintenance] idempotency_purge_failed", idem.error);
 
   const settings = await readContactsAdminSettings(sb);
   if (!settings.ok) return NextResponse.json({ ok: false, error: "settings_failed" }, { status: 500 });
