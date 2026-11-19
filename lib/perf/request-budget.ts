@@ -17,7 +17,8 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/community-messenger/rooms/[roomId]/bootstrap": 2.5,
   "/api/community-messenger/presence": 1.1,
   "/api/me/notifications/badge-count": 5.2,
-  "/api/philife/neighborhood-feed": 6.4,
+  /** 2026-11-20 고정값 3개(주제·가져오기 계정·동네 id) 공유 캐시 — 실측 6.51(Supabase 만) → 예상 4.2 */
+  "/api/philife/neighborhood-feed": 5.0,
   "/api/stores/home-feed": 10.5,
   "/api/community-messenger/calls/sessions/[sessionId]": 5.0,
   "/api/community-messenger/bootstrap": 12.0,
