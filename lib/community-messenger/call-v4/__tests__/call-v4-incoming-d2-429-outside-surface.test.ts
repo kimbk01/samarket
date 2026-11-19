@@ -47,7 +47,7 @@ import {
   confirmCallV4IncomingRemoteTerminal,
   isCurrentCallV4IncomingRinging,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-remote-terminal";
-import { startCallV4IncomingDiscovery } from "@/lib/community-messenger/call-v4/call-v4-incoming-discovery";
+import { startCallV4IncomingDiscovery, CALL_V4_INCOMING_POLL_REALTIME_HEALTHY_MS } from "@/lib/community-messenger/call-v4/call-v4-incoming-discovery";
 import { __resetCallV4IncomingRealtimeFeedForTests } from "@/lib/community-messenger/call-v4/call-v4-incoming-realtime-feed";
 import {
   clearAllCallV4NativeAcceptingSurfaces,
@@ -256,7 +256,8 @@ describe("D2 ③ 경계 — 요청 폭주·우회 누수 없음", () => {
   it("메신저 경로 — 기존 동작(429 대기 뒤 정기 조회로 발견) 그대로", async () => {
     await startOn("/community-messenger");
     nextReply = RATE_60;
-    await flush(10_000);
+    /** 다음 정기 조회(보임 정상 주기 — F7 25초)에서 429 */
+    await flush(CALL_V4_INCOMING_POLL_REALTIME_HEALTHY_MS);
     const limitedAt = incomingCallTimes[incomingCallTimes.length - 1]!;
     const before = incomingCalls();
     ingestCallV4SurfaceOwnerSignal({ callId: "c6", owner: "web_in_app", reason: "test", ts: Date.now() });

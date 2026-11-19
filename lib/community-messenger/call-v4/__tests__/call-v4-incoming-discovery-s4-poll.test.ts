@@ -48,6 +48,7 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-incoming-realtime-feed", () =
 import { callV4FetchIncomingSessions } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import {
+  CALL_V4_INCOMING_POLL_HIDDEN_UNHEALTHY_MS,
   CALL_V4_INCOMING_POLL_REALTIME_HEALTHY_MS,
   CALL_V4_INCOMING_REALTIME_STABLE_AFTER_MS,
   resolveCallV4IncomingDiscoveryPollDelayMs,
@@ -96,8 +97,22 @@ describe("간격 표 (resolveCallV4IncomingDiscoveryPollDelayMs)", () => {
     expect(resolveCallV4IncomingDiscoveryPollDelayMs(true, 0)).toBe(2_000);
   });
 
-  it("10초는 30초 울림 안에 최소 2번 조회 기회가 있는 값", () => {
-    expect(CALL_V4_INCOMING_POLL_REALTIME_HEALTHY_MS * 2).toBeLessThan(30_000);
+  it("F7: 보임 정상 간격 + 왕복(1초)은 30초 울림 안 — 조용한 끊김이어도 울림 중 반드시 1회 조회", () => {
+    expect(CALL_V4_INCOMING_POLL_REALTIME_HEALTHY_MS + 1_000).toBeLessThan(30_000);
+    expect(CALL_V4_INCOMING_POLL_HIDDEN_UNHEALTHY_MS + 1_000).toBeLessThan(30_000);
+  });
+
+  it("F7: 숨김 — 정상이면 정기 조회 없음(null) · 끊김이면 10초 · 울림·실패·429·화면 밖은 기존과 같음", () => {
+    expect(resolveCallV4IncomingDiscoveryPollDelayMs(true, 0, { ringing: false, healthy: true, hidden: true })).toBeNull();
+    expect(resolveCallV4IncomingDiscoveryPollDelayMs(true, 0, { ringing: false, healthy: false, hidden: true })).toBe(
+      CALL_V4_INCOMING_POLL_HIDDEN_UNHEALTHY_MS,
+    );
+    expect(resolveCallV4IncomingDiscoveryPollDelayMs(true, 0, { ringing: true, healthy: true, hidden: true })).toBe(2_000);
+    expect(resolveCallV4IncomingDiscoveryPollDelayMs(true, 2, { ringing: false, healthy: true, hidden: true })).toBe(8_000);
+    expect(
+      resolveCallV4IncomingDiscoveryPollDelayMs(true, 0, { ringing: false, healthy: true, hidden: true }, { rateLimitWaitMs: 5_000 }),
+    ).toBe(5_000);
+    expect(resolveCallV4IncomingDiscoveryPollDelayMs(false, 0, { ringing: false, healthy: true, hidden: true })).toBe(60_000);
   });
 });
 
@@ -191,6 +206,44 @@ describe("주기 동작", () => {
     const before = fetchMock.mock.calls.length;
     await flush(2_000 * 2);
     expect(fetchMock.mock.calls.length - before).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("F7 숨김 창", () => {
+  it("숨김 + 실시간 정상: 정기 조회 0 · 울림 신호에는 즉시 1회 조회 · 다시 보이면 즉시 1회", async () => {
+    stop = startCallV4IncomingDiscovery("me");
+    await flush(0);
+    feed.listener?.onStatus?.("SUBSCRIBED");
+    await flush(CALL_V4_INCOMING_REALTIME_STABLE_AFTER_MS + 1_000);
+    setVisibility("hidden");
+    document.dispatchEvent(new Event("visibilitychange"));
+    await flush(0);
+    const hiddenStart = fetchMock.mock.calls.length;
+    await flush(120_000);
+    expect(fetchMock.mock.calls.length - hiddenStart).toBe(0);
+    feed.listener?.onRinging({ callId: "c-hidden", startedAt: new Date().toISOString() });
+    await flush(0);
+    expect(fetchMock.mock.calls.length - hiddenStart).toBe(1);
+    setVisibility("visible");
+    document.dispatchEvent(new Event("visibilitychange"));
+    await flush(0);
+    expect(fetchMock.mock.calls.length - hiddenStart).toBe(2);
+  });
+
+  it("숨김 + 실시간 끊김: 10초 주기 · 연결이 끊기는 순간 즉시 1회", async () => {
+    stop = startCallV4IncomingDiscovery("me");
+    await flush(0);
+    feed.listener?.onStatus?.("SUBSCRIBED");
+    await flush(CALL_V4_INCOMING_REALTIME_STABLE_AFTER_MS + 1_000);
+    setVisibility("hidden");
+    document.dispatchEvent(new Event("visibilitychange"));
+    await flush(0);
+    const before = fetchMock.mock.calls.length;
+    feed.listener?.onStatus?.("CHANNEL_ERROR");
+    await flush(0);
+    expect(fetchMock.mock.calls.length - before).toBe(1);
+    await flush(CALL_V4_INCOMING_POLL_HIDDEN_UNHEALTHY_MS * 3);
+    expect(fetchMock.mock.calls.length - before).toBe(4);
   });
 });
 
