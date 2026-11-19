@@ -25,6 +25,7 @@ import {
 } from "@/lib/me/fetch-me-notification-settings-client";
 import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
 import {
+  MESSENGER_MAIN_SECTION_TAB_ORDER,
   messengerChatFiltersToSearchParams,
   messengerSectionLabel,
   resolveMessengerChatFilters,
@@ -61,6 +62,7 @@ import type {
 } from "@/lib/community-messenger/home/community-messenger-home-types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveTier1BarLabel } from "@/lib/layout/resolve-tier1-bar-label";
+import { NAV_DOT_LABEL_KEYS } from "@/lib/main-menu/bottom-nav-config";
 
 type Args = {
   router: AppRouterInstance;
@@ -420,6 +422,9 @@ export function useCommunityMessengerHomeShellEffects({
     pillar == null && (isMessengerHubRoute || isMessengerStickyRoomSectionRoute)
       ? parseMessengerSubScreen(queryString)
       : null;
+  /** 시안 §4-1 (Owner 2026-11-19): 분할 화면 메신저 홈(대화·친구·통화)은 휴대폰 1단처럼 telRING 워드마크 — 보관함·하위 화면은 그대로 */
+  const splitHubTitle =
+    pillar == null && splitSubScreen == null && MESSENGER_MAIN_SECTION_TAB_ORDER.includes(mainSection);
   const splitTitleText =
     pillar === "trade"
       ? resolveTier1BarLabel(t, tt, "nav_trade_chat_label") ?? ""
@@ -428,7 +433,9 @@ export function useCommunityMessengerHomeShellEffects({
           resolveTier1BarLabel(t, tt, "community_messenger_order_chats") ?? ""
         : splitSubScreen
           ? t(messengerSubScreenTitleKey(splitSubScreen))
-          : messengerSectionLabel(mainSection);
+          : splitHubTitle
+            ? t(NAV_DOT_LABEL_KEYS.chat)
+            : messengerSectionLabel(mainSection);
   const splitBackHref =
     pillar != null
       ? resolveMessengerHomeTier1BackHref({
@@ -447,7 +454,8 @@ export function useCommunityMessengerHomeShellEffects({
     splitTitleText,
     pillar != null || splitSubScreen != null,
     splitBackHref,
-    roomIdFromPath ? null : splitSubScreen ? subScreenRightSlot : headerActionsNode
+    roomIdFromPath ? null : splitSubScreen ? subScreenRightSlot : headerActionsNode,
+    splitHubTitle
   );
 
   useEffect(() => {

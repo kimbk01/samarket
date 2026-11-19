@@ -145,6 +145,38 @@
 </table>
 <div class="warn">충돌 보고: 현재 밑줄 탭은 2026-11-10 Owner 「정확히 시안대로」(채팅 시안 4판, <code>app/dibay-chrome-ssot.css</code> 「메신저 대화·친구·통화 탭」)로 고정된 모양. 같은 규칙이 채팅 검색 탭·거래/주문 채팅 목록 탭에도 묶여 있음 — 시안을 telRING 2차 메뉴에만 적용할지, 묶인 세 줄 모두 바꿀지 Owner 결정 필요.</div>
 
+<h2>4. 남은 위험 해소 설계 (2026-11-19 · 승인 대기 · 미구현)</h2>
+<p class="note">운영 sha 06d8378 기준. 아래 4건은 확인한 사실과 설계만 적었고 코드는 바꾸지 않았다.</p>
+
+<h3 style="font-size:15px;margin:18px 0 6px">4-1. 태블릿 분할 화면(768px 이상) telRING 머리글</h3>
+<p class="note">사실: 분할 화면에서는 휴대폰 머리글(`RegionBarMainHubTier1`)이 그려지지 않고 `MessengerSplitTopBar` 가 그린다. 제목 글자는 telRING 이 아니라 지금 고른 탭 이름(대화·친구·통화)이고 17px/600 진회색이다. 탭 줄은 같은 부품이라 이미 새 버튼 묶음이 적용돼 있다. 시안: 메신저 홈(탭 화면)일 때만 휴대폰과 같은 telRING 워드마크로 바꾸고, 거래 채팅·주문 채팅·설정 같은 하위 화면 제목은 휴대폰 하위 화면처럼 17px/600 그대로 둔다.</p>
+<div class="pair">
+  <div class="col"><h3><b>현재 (분할 화면 오른쪽 위)</b></h3>
+    <div class="phone" style="max-width:520px"><div class="hdr d-chat"><span class="t-now">대화</span><div class="ic">🔍 ＋ ⚙</div></div>
+      <div class="tabs-new-wrap"><div class="seg"><span class="on">대화 <em>1</em></span><span>친구</span><span>통화</span></div></div></div>
+  </div>
+  <div class="col"><h3><i>시안</i></h3>
+    <div class="phone" style="max-width:520px"><div class="hdr d-chat"><span class="t-new">tel<span class="y">RING</span></span><div class="ic">🔍 ＋ ⚙</div></div>
+      <div class="tabs-new-wrap"><div class="seg"><span class="on">대화 <em>1</em></span><span>친구</span><span>통화</span></div></div></div>
+    <div class="phone" style="max-width:520px"><div class="hdr d-chat"><span style="font-size:18px;color:#243832">‹</span><span class="t-now">주문 채팅</span><div class="ic" style="font-size:14px;font-weight:600;color:#0B421A">모두 읽음</div></div><div class="cap">하위 화면 — 그대로 17px/600</div></div>
+  </div>
+</div>
+<table><tr><th>바뀌는 곳</th><th>내용</th><th>영향</th></tr>
+<tr><td><code>lib/community-messenger/home/use-community-messenger-home-shell-effects.tsx</code> · <code>MessengerSplitTopBar.tsx</code></td><td>홈(pillar·하위 화면 없음)일 때 제목 = telRING 워드마크(20px/800/#0B421A, RING #E0A800)</td><td>분할 화면 메신저 홈 제목만. 휴대폰·하위 화면·다른 도메인 분할 머리글 무변경</td></tr></table>
+
+<h3 style="font-size:15px;margin:18px 0 6px">4-2. 「친구」 탭 — 버튼 묶음과 찾기 줄 사이 간격</h3>
+<p class="note">사실(코드 계산): 묶음 아래 10px + 탭 줄 구분선 1px + 찾기 줄 위 간격 8px(`space-y-2`) = 묶음 아래에서 찾기 칸까지 19px. 승인 시안(§2)에는 찾기 줄이 그려져 있지 않았다. 시안: 지금 간격(19px) 그대로 — 바꾸지 않고 이 그림으로 승인만 받는다.</p>
+<div class="phone"><div class="hdr d-chat"><span class="t-new">tel<span class="y">RING</span></span><div class="ic">🔍 ＋ ⚙</div></div>
+  <div class="tabs-new-wrap"><div class="seg"><span>대화 <em>1</em></span><span class="on">친구</span><span>통화</span></div></div>
+  <div style="padding:8px 16px 6px;background:#fff"><div style="height:40px;border:1px solid #dfe3e8;border-radius:4px;display:flex;align-items:center;padding:0 12px;color:#8a8a8a;font-size:14px">🔍 @아이디로 친구 찾기<span style="margin-left:auto;color:#0B421A;font-weight:600">관리</span></div></div>
+  <div class="cap">묶음 아래 → 찾기 칸 19px (10 + 1 + 8)</div></div>
+
+<h3 style="font-size:15px;margin:18px 0 6px">4-3. 「대화」 숫자 계산이 하단 탭과 두 번 도는 것</h3>
+<p class="note">사실: 탭 줄이 하단 telRING 배지와 같은 두 훅을 그대로 불러, 화면에 같은 숫자를 내면서 ① 성능 카운터 `messenger_badge_compute`·렌더 추적 기록 ② 지난 실행 숫자 저장(`updateLastRunSnapshot`, 기기 저장소)이 두 번씩 일어난다. 운영 Supabase 요청 증가는 없다. 설계: 탭 줄은 같은 값을 읽기만 하는 부품(구독 + 지난 실행 숫자 읽기, 기록·카운터 없음)으로 바꾼다. 숫자는 그대로 하단 배지와 같다. 바뀌는 파일: <code>MessengerHomeSectionTabs.tsx</code>, 새 읽기 전용 훅 1개(<code>lib/notifications/messenger-chat-tab-badge.ts</code> 옆).</p>
+
+<h3 style="font-size:15px;margin:18px 0 6px">4-4. 「모두 읽음」 수정(#510) 실기 검증 — 시험 메시지 승인 필요</h3>
+<p class="note">사실: 결함은 안 읽은 방이 많아 읽음 응답이 2048자를 넘을 때만 난다(배지 설명 부분만 고객 주문 안 읽음 10방 2352자 · 44방 6330자, 같은 함수로 생성해 측정). 지금 시험 계정 두 개의 거래·주문 채팅 안 읽음은 0 이라 다시 눌러 볼 수 없다. 검증 방법: q테스트1(사장님·판매자) → zxzx11 에게 거래 채팅 8방 + 주문 채팅 12방(q테스트1 매장 주문) 각 1통 = 시험 메시지 20통. 그 뒤 Xiaomi zxzx11 에서 거래 채팅·주문 채팅 「모두 읽음」 → 오류 문구 없음 · 목록 숫자 0 · 하단 telRING 배지 감소 · 운영 DB unread 0 대조. 끝난 주문(완료·취소) 채팅에 사장님이 보낼 수 있는지는 확인 못 함 — 첫 1통으로 확인하고, 안 되면 거래 8방만으로 검증(그때 결과 보고). 앱 실행은 1회.</p>
+
 <h2>3. 주문 채팅 목록 탭 (구현 PR #500 — 병합 대기)</h2>
 <div class="pair"><div class="col">
   <div class="phone"><div class="hdr d-chat"><span class="t-now" style="margin:0 auto">주문 채팅</span><span style="font-size:14px;font-weight:600;color:#0B421A">모두 읽음</span></div>

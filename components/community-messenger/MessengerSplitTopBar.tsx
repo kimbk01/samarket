@@ -6,6 +6,7 @@ import { SectorHeaderBackButton } from "@/components/layout/sector-header";
 import { MESSENGER_SPLIT_LIST_PANE_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 import { useDibayDomainChromeElementProps } from "@/lib/ui/dibay-domain-chrome";
 import { parseCommunityMessengerRoomIdFromPathname } from "@/lib/community-messenger/messenger-room-pathname";
+import { TelringHubTitle } from "@/components/layout/TelringHubTitle";
 
 /** 뒤로 = 자체 헤더 공통 48×48 (`sector-header-back--touch`), 행 왼쪽 여백 8px → ‹ 화면 끝 16px (크롬 S1·S2) */
 const SPLIT_BACK_CLASS = "sector-header-back--touch -ml-1";
@@ -30,8 +31,16 @@ export function MessengerSplitTopBar({ className = "" }: { className?: string })
   const roomId = parseCommunityMessengerRoomIdFromPathname(pathname);
   const roomPaneActive = Boolean(roomId);
   if (!ctx) return null;
-  const { titleText, showBack, backHref, headerActionsNode } = ctx.chrome;
-  const title = titleText.trim();
+  const { titleText, hubTitle, showBack, backHref, headerActionsNode } = ctx.chrome;
+  const titleRaw = titleText.trim();
+  /** 메신저 홈 = 휴대폰 1단과 같은 telRING 워드마크(20px/800/#0B421A · RING 노랑), 하위 화면은 17px/600 그대로 (시안 §4-1) */
+  const title = hubTitle ? (
+    <span className="dibay-hub-title" data-dibay-hub-title="chat">
+      <TelringHubTitle label={titleRaw} />
+    </span>
+  ) : (
+    titleRaw
+  );
 
   if (roomPaneActive) {
     return (

@@ -40,7 +40,7 @@ describe("시안 1 — 대표 헤더 제목 강조", () => {
 
   it("telRING = tel 초록 + RING 노랑 #E0A800 (dibaY 의 Y 와 같은 색)", () => {
     expect(tier1).toContain("<TelringHubTitle label={t(hubTitleKey(hub))} />");
-    expect(tier1).toContain('<span className="dibay-hub-title-accent">{m[2]}</span>');
+    expect(read("components/layout/TelringHubTitle.tsx")).toContain('<span className="dibay-hub-title-accent">{m[2]}</span>');
     expect(ruleBody(css, ".dibay-hub-title .dibay-hub-title-accent")).toContain("color: #e0a800;");
   });
 });
@@ -105,12 +105,25 @@ describe("시안 2 — telRING 대화·친구·통화 버튼 묶음", () => {
     expect(ruleBody(css, `${ITEM}::after`)).toContain("content: none;");
   });
 
-  it("「대화」 숫자 = 하단 telRING 탭 배지와 같은 훅·같은 값 (시안 「대화 3」)", () => {
-    expect(tabs).toContain('useBottomNavChatBadgeWithLastRunSeed("chat", useOwnerHubBadgeTabUnreadCount("chat"))');
+  it("「대화」 숫자 = 하단 telRING 탭과 같은 저장소·같은 씨앗 규칙, 읽기 전용(저장·카운터 없음) (시안 §4-3)", () => {
+    expect(tabs).toContain("const chatsUnread = useTelringChatBadgeDisplayCount();");
     expect(tabs).toContain('section === "chats" && chatsUnread > 0');
+    expect(tabs).not.toContain("useOwnerHubBadgeTabUnreadCount");
+    expect(tabs).not.toContain("useBottomNavChatBadgeWithLastRunSeed");
+    const seed = read("components/layout/use-bottom-nav-chat-badge-seed.ts");
+    const fn = seed.slice(seed.indexOf("export function useTelringChatBadgeDisplayCount"));
+    expect(fn).toContain("subscribeMessengerChatTabBadge");
+    expect(fn).toContain("resolveMessengerChatTabBadgeCount()");
+    expect(fn).toContain("hasMessengerBottomChatUnreadApplied");
+    expect(fn).toContain("return lastRun?.telringUnread ?? live;");
+    expect(fn).not.toContain("updateLastRunSnapshot");
+    expect(fn).not.toContain("bumpMessengerRenderPerf");
+    /** 하단 탭은 그대로 — 같은 값의 원본 */
     const nav = read("components/layout/BottomNav.tsx");
     expect(nav).toContain("useOwnerHubBadgeTabUnreadCount(tab.icon)");
     expect(nav).toContain("useBottomNavChatBadgeWithLastRunSeed(tab.icon, liveTabBadgeCount)");
+    const hub = read("lib/chats/use-owner-hub-badge-total.ts");
+    expect(hub).toContain("return resolveMessengerChatTabBadgeCount(hasOwnerStoreRef.current);");
   });
 
   it("「대화」 배지 = 시안 값(18px · 11px/700 · #E5484D · 글자와 6px), 「친구」 배지는 시안에 없어 원래 모양", () => {
@@ -120,5 +133,26 @@ describe("시안 2 — telRING 대화·친구·통화 버튼 묶음", () => {
     expect(tabs).toContain(
       '"ml-1 inline-flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-[color:var(--sm-color-danger)] px-1 text-[10.5px] font-bold leading-none text-white"'
     );
+  });
+});
+
+describe("시안 §4-1 — 태블릿 분할 화면 메신저 홈 제목 = telRING 워드마크", () => {
+  const shell = read("lib/community-messenger/home/use-community-messenger-home-shell-effects.tsx");
+  const bar = read("components/community-messenger/MessengerSplitTopBar.tsx");
+  const tier1 = read("components/layout/RegionBarMainHubTier1.tsx");
+
+  it("홈(대화·친구·통화)만 — 거래·주문 채팅·하위 화면·보관함은 그대로", () => {
+    expect(shell).toContain(
+      "pillar == null && splitSubScreen == null && MESSENGER_MAIN_SECTION_TAB_ORDER.includes(mainSection);"
+    );
+    expect(shell).toContain("? t(NAV_DOT_LABEL_KEYS.chat)");
+    expect(shell).toMatch(/headerActionsNode,\s*splitHubTitle\s*\);/);
+  });
+
+  it("분할 머리글은 휴대폰 1단과 같은 부품·같은 클래스로 그린다", () => {
+    expect(bar).toContain('<span className="dibay-hub-title" data-dibay-hub-title="chat">');
+    expect(bar).toContain("<TelringHubTitle label={titleRaw} />");
+    expect(tier1).toContain('import { TelringHubTitle } from "@/components/layout/TelringHubTitle";');
+    expect(read("components/layout/TelringHubTitle.tsx")).toContain('<span className="dibay-hub-title-accent">{m[2]}</span>');
   });
 });

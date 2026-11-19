@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Tier1TitleAreaButton, Tier1TitleWithArea } from "@/components/layout/Tier1TitleAreaButton";
+import { TelringHubTitle } from "@/components/layout/TelringHubTitle";
 import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
 import { parseCommunityNavFromSearchParams } from "@/lib/community/community-nav";
 import { moimRoutes } from "@/lib/moim/moim-client-api";
@@ -75,18 +76,6 @@ function defaultRightSlot(hub: MainHubTier1Id): ReactNode {
 
 /** 대표 헤더 제목 강조 대상 (시안 1) — MY 제외 */
 const HUB_TITLE_EMPHASIS: ReadonlySet<MainHubTier1Id> = new Set<MainHubTier1Id>(["community", "trade", "moim", "chat"]);
-
-/** telRING 워드마크 — dibaY 의 Y 처럼 대문자 부분(RING)만 노랑 (시안 1). 표기가 바뀌면 한 색 글자로 그린다. */
-function TelringHubTitle({ label }: { label: string }) {
-  const m = /^([a-z]+)([A-Z]+)$/.exec(label);
-  if (!m) return <>{label}</>;
-  return (
-    <>
-      {m[1]}
-      <span className="dibay-hub-title-accent">{m[2]}</span>
-    </>
-  );
-}
 
 function hubTitleKey(hub: MainHubTier1Id) {
   if (hub === "moim") return "tier1_moim" as const;
