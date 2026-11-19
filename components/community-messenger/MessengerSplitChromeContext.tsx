@@ -13,6 +13,8 @@ import {
 
 export type MessengerSplitChromeState = {
   titleText: string;
+  /** 메신저 홈(대화·친구·통화) — 제목을 telRING 워드마크로 (시안 §4-1, Owner 2026-11-19) */
+  hubTitle?: boolean;
   showBack: boolean;
   backHref?: string;
   headerActionsNode: ReactNode;
@@ -27,6 +29,7 @@ const DEFAULT_STATE: MessengerSplitChromeState = {
 function chromeStateEqual(a: MessengerSplitChromeState, b: MessengerSplitChromeState): boolean {
   return (
     a.titleText === b.titleText &&
+    (a.hubTitle ?? false) === (b.hubTitle ?? false) &&
     a.showBack === b.showBack &&
     a.backHref === b.backHref &&
     a.headerActionsNode === b.headerActionsNode
@@ -68,7 +71,8 @@ export function useRegisterMessengerSplitChrome(
   titleText: string,
   showBack: boolean,
   backHref: string | undefined,
-  headerActionsNode: ReactNode
+  headerActionsNode: ReactNode,
+  hubTitle = false
 ) {
   const ctx = useMessengerSplitChrome();
   const setChrome = ctx?.setChrome;
@@ -84,11 +88,12 @@ export function useRegisterMessengerSplitChrome(
     }
     setChrome({
       titleText,
+      hubTitle,
       showBack,
       backHref,
       headerActionsNode: headerActionsRef.current,
     });
-  }, [enabled, titleText, showBack, backHref, headerActionsNode, setChrome, clearChrome]);
+  }, [enabled, titleText, hubTitle, showBack, backHref, headerActionsNode, setChrome, clearChrome]);
 
   useLayoutEffect(() => {
     return () => {

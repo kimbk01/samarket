@@ -2,8 +2,7 @@
 
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useBottomNavChatBadgeWithLastRunSeed } from "@/components/layout/use-bottom-nav-chat-badge-seed";
-import { useOwnerHubBadgeTabUnreadCount } from "@/lib/chats/use-owner-hub-badge-total";
+import { useTelringChatBadgeDisplayCount } from "@/components/layout/use-bottom-nav-chat-badge-seed";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
   MESSENGER_MAIN_SECTION_TAB_ORDER,
@@ -46,9 +45,9 @@ export function MessengerHomeSectionTabs({
   const requestBadge = incomingFriendRequestCount > 99 ? "99+" : String(incomingFriendRequestCount);
   /**
    * 「대화」 숫자 (시안 2 「대화 3」, Owner 2026-11-19 「시안대로 정확히」) — 하단 telRING 탭 배지와 같은 값·같은 계산
-   * (일반+그룹+거래+주문(고객) 안 읽은 방 수, 이번 실행 값 전에는 지난 실행 숫자). 두 숫자가 서로 다르게 보이지 않게 같은 훅을 쓴다.
+   * (일반+그룹+거래+주문(고객) 안 읽은 방 수, 이번 실행 값 전에는 지난 실행 숫자). 읽기 전용 — 저장·카운터는 하단 탭만 (시안 §4-3).
    */
-  const chatsUnread = useBottomNavChatBadgeWithLastRunSeed("chat", useOwnerHubBadgeTabUnreadCount("chat"));
+  const chatsUnread = useTelringChatBadgeDisplayCount();
   const chatsBadge = chatsUnread > 99 ? "99+" : String(chatsUnread);
   return (
     <DibaySecondaryTabRow
