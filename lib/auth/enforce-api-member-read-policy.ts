@@ -2,6 +2,7 @@
  * P2-6 (SV-04) — 차단·탈퇴 회원의 GET /api/* 읽기를 access token 만료 전에도 거부.
  *
  * - 대상: 세션 쿠키가 있는 GET/HEAD /api/* (관리자·cron·webhook 등 NON_MEMBER, 아래 읽기 예외 제외).
+ * - D5: 검증된 토큰 클레임 `dibay_m` 이 활성·정지면 DB 없이 통과(차단·탈퇴는 다음 토큰 갱신 때 클레임이 바뀌고 DB 경로로 403).
  * - 판정: lifecycle authority **캐시 경로**(member-lifecycle-authority-cache TTL 5s, 모더레이션 시 무효화).
  *   요청마다 비캐시 DB 읽기를 추가하지 않는다 — miss 시 profiles PK 1회 조회(사용자별 단일 비행).
  * - blocked / withdrawn → 403 `account_restricted`. suspended 는 읽기 허용(설계).
@@ -13,6 +14,11 @@ import { requestHasSupabaseSessionCookie } from "@/lib/auth/api-auth-cookie-pres
 import { resolveApiIdentity } from "@/lib/auth/enforce-api-member-mutation-policy";
 import { isNonMemberMutationPath, normalizeApiPath } from "@/lib/auth/member-action-policy";
 import { resolveMemberLifecycleAuthority } from "@/lib/auth/resolve-member-lifecycle-authority";
+import {
+  isDibayMemberClaimReadAllowed,
+  readVerifiedDibayMemberClaim,
+} from "@/lib/auth/member-token-claims";
+import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const READ_METHODS = new Set(["GET", "HEAD"]);
@@ -69,6 +75,21 @@ export async function enforceApiMemberReadPolicy(
     const identity = await resolveApiIdentity(request);
     const userId = identity.userId;
     if (!userId) return null;
+
+    /**
+     * D5 (Amendment 2026-11-19 (2)) — 검증된 토큰 클레임이 활성·정지면 DB 를 읽지 않고 통과.
+     * 클레임 없음·만료·차단·탈퇴·불명 → 아래 기존 DB 경로(같은 판정).
+     */
+    const env = requireSupabaseEnv({ requireAnonKey: true });
+    if (env.ok) {
+      const claim = await readVerifiedDibayMemberClaim({
+        cookies: request.cookies.getAll(),
+        supabaseUrl: env.url,
+        anonKey: env.anonKey,
+        expectedUserId: userId,
+      });
+      if (claim && isDibayMemberClaimReadAllowed(claim)) return null;
+    }
 
     const authority = await runSingleFlight(`api-read-lifecycle:${userId}`, () =>
       resolveMemberLifecycleAuthority(userId)

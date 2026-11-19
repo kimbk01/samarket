@@ -18,6 +18,7 @@ import {
   shouldBlockUnauthenticatedHtmlRequest,
 } from "@/lib/auth/guest-browse-access-policy";
 import { resolveProxySignupGateRedirect } from "@/lib/auth/proxy-signup-gate";
+import { readVerifiedDibayMemberClaim } from "@/lib/auth/member-token-claims";
 import { buildGuestLoginRedirectSearch } from "@/lib/auth/guest-login-redirect";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
@@ -86,7 +87,19 @@ async function maybeRedirectIncompleteSignup(
   pathname: string
 ): Promise<NextResponse | null> {
   try {
-    const redirectPath = await resolveProxySignupGateRedirect(supabase, userId, pathname);
+    const env = requireSupabaseEnv({ requireAnonKey: true });
+    const redirectPath = await resolveProxySignupGateRedirect(supabase, userId, pathname, {
+      /** D5 (Amendment 2026-11-19 (2)) — 갱신 뒤 쿠키(request.cookies)의 토큰을 검증해 약관 완료면 profiles 생략 */
+      loadVerifiedClaim: env.ok
+        ? () =>
+            readVerifiedDibayMemberClaim({
+              cookies: request.cookies.getAll(),
+              supabaseUrl: env.url,
+              anonKey: env.anonKey,
+              expectedUserId: userId,
+            })
+        : undefined,
+    });
     if (!redirectPath) return null;
     const url = request.nextUrl.clone();
     const qIdx = redirectPath.indexOf("?");
