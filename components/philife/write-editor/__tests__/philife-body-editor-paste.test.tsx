@@ -45,6 +45,7 @@ const LABELS = {
   moveUp: "위로",
   moveDown: "아래로",
   imageLimit: "10장",
+  imageUnfetchable: (n: number) => `가져올 수 없음 ${n}`,
   caption: "설명",
   captionEdit: "설명 쓰기",
   captionSheetTitle: "사진 설명",
