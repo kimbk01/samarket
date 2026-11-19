@@ -280,6 +280,10 @@ function routeDomainCanary(
   if (!viewer || !chatDomain) return;
   /** 도메인 캐시는 previewText 만 저장 — 타입을 넘겨 patch 가 viewer 기준 라벨로 변환(원문 토큰 저장 금지). */
   const lastMessageType = resolveActivityLastMessageType(activity);
+  /**
+   * 2026-11-19 C2 (Owner 승인, `docs/audit/remaining-items-2026-11-19.md` C-2): 거래·주문 캐시는 여기서 미리보기·시각만 고친다.
+   * 안 읽음 수는 참여자 안 읽음 신호(`DomainRoomStateRealtimeHost` C1) 하나로만 — +1 과 덮어쓰기가 겹쳐 실제보다 많아지지 않게.
+   */
   if (chatDomain === "trade") {
     applyDomainTradeListRealtimeMessagePatch({
       viewerUserId: viewer,
@@ -288,7 +292,7 @@ function routeDomainCanary(
       lastMessageType,
       lastMessageMeta: activity.lastMessageMeta ?? null,
       lastMessageAt: trim(activity.activityAt),
-      boostUnread: activity.boostUnread === true,
+      boostUnread: false,
     });
   } else if (chatDomain === "store_order") {
     applyDomainStoreOrderListRealtimeMessagePatch({
@@ -298,7 +302,7 @@ function routeDomainCanary(
       lastMessageType,
       lastMessageMeta: activity.lastMessageMeta ?? null,
       lastMessageAt: trim(activity.activityAt),
-      boostUnread: activity.boostUnread === true,
+      boostUnread: false,
     });
   }
 }

@@ -160,7 +160,8 @@ describe("B-2 domain list canary — realtime preview label (no raw token)", () 
     projectRoomActivityToHomeList(activity!);
     const row = peekDomainTradeListCanaryCache(SELLER)!.rows[0]!;
     expect(row.previewText).toBe(translateCmUi("cm_home_preview_sticker"));
-    expect(row.unreadCount).toBe(1);
+    /** 2026-11-19 C2: 새 메시지 경로는 미리보기만 — 안 읽음은 참여자 안 읽음 신호(C1)로만 정해진다 */
+    expect(row.unreadCount).toBe(0);
   });
 
   it("store_order: call_stub and sticker rows are labelled for the viewer", () => {

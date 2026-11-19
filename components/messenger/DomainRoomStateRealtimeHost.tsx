@@ -30,8 +30,19 @@ import {
   applyDomainListCanaryReadPatchByRoomId,
   applyDomainListCanaryUnreadOnlyPatchByRoomId,
 } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
-import { peekDomainStoreOrderCustomerListCanaryCache } from "@/components/community-messenger/domain-shell-canary/domain-store-order-customer-list-canary-cache";
-import { peekDomainTradeListCanaryCache } from "@/components/community-messenger/domain-shell-canary/domain-trade-list-canary-cache";
+import {
+  clearDomainStoreOrderCustomerListCanaryCache,
+  peekDomainStoreOrderCustomerListCanaryCache,
+} from "@/components/community-messenger/domain-shell-canary/domain-store-order-customer-list-canary-cache";
+import {
+  clearDomainTradeListCanaryCache,
+  peekDomainTradeListCanaryCache,
+} from "@/components/community-messenger/domain-shell-canary/domain-trade-list-canary-cache";
+import {
+  prefetchDomainStoreOrderCustomerListCanaryForHub,
+  prefetchDomainTradeListCanaryForHub,
+} from "@/components/community-messenger/domain-shell-canary/domain-list-canary-hub-prefetch";
+import { resolveMessengerRoomChatDomain } from "@/lib/community-messenger/unread/messenger-room-unread-authority";
 import {
   projectRoomActivityToHomeList,
   roomActivityFromMessageRow,
@@ -70,6 +81,47 @@ function resolveIncomingDomainIdentity(
     return { chatDomain: fromEvDomain, domainIdentityKey: fromEvKey };
   }
   return null;
+}
+
+
+/**
+ * 2026-11-19 (Owner 승인 C1·C3, `docs/audit/remaining-items-2026-11-19.md` C-2) — 참여자 안 읽음 증가를
+ * 화면과 무관하게 거래·주문(고객) 목록 캐시에 넣는다. 다른 채팅방 안에서는 대화 홈 실시간 수신이 꺼져
+ * 「거래 채팅」 칸이 예전 숫자로 남던 결함(재현 13:22 PHT).
+ * - C1: 캐시에 그 방이 있으면 참여자 안 읽음 수로 덮어쓴다(여러 번 와도 같은 값).
+ * - C3: 캐시에 없는 거래 방·고객 주문 방이면 그 캐시를 비우고 1회 다시 받는다. 방 종류를 모르면 아무것도 안 한다.
+ */
+export function syncCommerceListUnreadFromParticipantFact(input: {
+  viewerUserId: string;
+  roomId: string;
+  unreadCount: number;
+  storeOrderRole: "customer" | "owner" | null;
+}): "patched" | "refetch_trade" | "refetch_store_order" | "skipped" {
+  const me = input.viewerUserId.trim();
+  const roomId = input.roomId.trim();
+  if (!me || !roomId || !(input.unreadCount > 0)) return "skipped";
+  const trade = peekDomainTradeListCanaryCache(me);
+  const so = peekDomainStoreOrderCustomerListCanaryCache(me);
+  const inTrade = Boolean(trade?.rows.some((r) => r.roomId === roomId));
+  const inSo = Boolean(so?.rows.some((r) => r.roomId === roomId));
+  if (inTrade || inSo) {
+    applyDomainListCanaryUnreadOnlyPatchByRoomId({ viewerUserId: me, roomId, unreadCount: input.unreadCount });
+    return "patched";
+  }
+  if (input.storeOrderRole === "owner") return "skipped";
+  if (input.storeOrderRole === "customer") {
+    if (!so) return "skipped";
+    clearDomainStoreOrderCustomerListCanaryCache(me);
+    void prefetchDomainStoreOrderCustomerListCanaryForHub();
+    return "refetch_store_order";
+  }
+  if (resolveMessengerRoomChatDomain(roomId, me) === "trade") {
+    if (!trade) return "skipped";
+    clearDomainTradeListCanaryCache(me);
+    void prefetchDomainTradeListCanaryForHub();
+    return "refetch_trade";
+  }
+  return "skipped";
 }
 
 /**
@@ -205,6 +257,13 @@ export function DomainRoomStateRealtimeHost() {
           const readEv = domainRoomReadEventFromRoom({ roomId: ev.roomId });
           if (readEv) dispatchDomainRoomEvent(readEv);
           applyDomainListCanaryReadPatchByRoomId({ viewerUserId: me, roomId: ev.roomId });
+        } else if (unread != null && unread > 0) {
+          syncCommerceListUnreadFromParticipantFact({
+            viewerUserId: me,
+            roomId: ev.roomId,
+            unreadCount: unread,
+            storeOrderRole: ev.storeOrderRole ?? null,
+          });
         }
         return;
       }

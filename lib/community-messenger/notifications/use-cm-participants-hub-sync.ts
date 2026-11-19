@@ -175,6 +175,7 @@ export function useCmParticipantsHubSync(
               roomId: nextRoomId,
               viewerUserId: userId,
               unreadCount: applied.unreadCount,
+              storeOrderRole,
               at: Date.now(),
             };
             postCommunityMessengerBusEvent(summaryPatch);
