@@ -225,6 +225,18 @@ async function countNotificationEventsBadgeFallback(
     .eq("unread", true)
     .is("read_at", null);
   if (error || !data) return EMPTY_BADGE;
+  return countNotificationEventsBadgeFromRows(
+    data as { category?: string | null; muted_snapshot?: boolean | null; display_payload?: unknown }[]
+  );
+}
+
+/**
+ * 안 읽은 알림 행(unread=true · read_at null) → 분류별 배지 수. `count_notification_events_badge` RPC 와 같은 뜻
+ * (같은 자격 판정 · 같은 분류 합산). D2 2-d-1 (2026-11-19): 배지 요청이 이미 읽은 종 알림 행에서 바로 계산한다.
+ */
+export function countNotificationEventsBadgeFromRows(
+  rows: ReadonlyArray<{ category?: string | null; muted_snapshot?: boolean | null; display_payload?: unknown }>
+): NotificationBadgeCount {
   const counts: Record<string, number> = {
     chat_message: 0,
     group_message: 0,
@@ -245,7 +257,7 @@ async function countNotificationEventsBadgeFallback(
     trade: 0,
     store: 0,
   };
-  for (const row of data as { category?: string; muted_snapshot?: boolean | null; display_payload?: unknown }[]) {
+  for (const row of rows) {
     if (!isBadgeEligibleNotificationEvent(row)) continue;
     const c = String(row.category ?? "");
     if (c in counts) counts[c] += 1;

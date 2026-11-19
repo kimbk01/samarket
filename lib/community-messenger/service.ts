@@ -1795,7 +1795,7 @@ function invalidateOwnerHubBadgeForCommunityMessengerPeers(
   roomId?: string
 ): void {
   for (const id of dedupeIds([senderUserId, ...recipientUserIds])) {
-    invalidateOwnerHubBadgeCache(id);
+    invalidateOwnerHubBadgeCache(id, { source: "messenger" });
     invalidateHomeSyncSnapshotCache(id);
     invalidateCmBootstrapSnapshotCache(id);
     invalidateFullBootstrapSnapshotCache(id, "peer_hub_invalidate");
@@ -12924,7 +12924,7 @@ export async function markCommunityMessengerRoomAsRead(input: {
           }),
         });
         if (atomic.ok) {
-          invalidateOwnerHubBadgeCache(input.userId);
+          invalidateOwnerHubBadgeCache(input.userId, { source: "messenger" });
           invalidateHomeSyncSnapshotCache(input.userId);
           invalidateCmBootstrapSnapshotCache(input.userId);
           invalidateFullBootstrapSnapshotCache(input.userId, "mark_read");
@@ -13204,7 +13204,7 @@ export async function markCommunityMessengerRoomAsRead(input: {
             diag.registry_sync_schedule_overhead_ms = Math.round(bridgeOverheadMs);
           }
           const tBadge0 = performance.now();
-          invalidateOwnerHubBadgeCache(input.userId);
+          invalidateOwnerHubBadgeCache(input.userId, { source: "messenger" });
           invalidateHomeSyncSnapshotCache(input.userId);
           invalidateCmBootstrapSnapshotCache(input.userId);
           invalidateFullBootstrapSnapshotCache(input.userId, "message_send");
@@ -13427,7 +13427,7 @@ export async function markCommunityMessengerRoomAsRead(input: {
         diag.registry_sync_schedule_overhead_ms = Math.round(bridgeOverheadMs);
       }
       const tBadge0 = performance.now();
-      invalidateOwnerHubBadgeCache(input.userId);
+      invalidateOwnerHubBadgeCache(input.userId, { source: "messenger" });
       invalidateHomeSyncSnapshotCache(input.userId);
       invalidateCmBootstrapSnapshotCache(input.userId);
       invalidateFullBootstrapSnapshotCache(input.userId, "mark_read");
@@ -13535,7 +13535,7 @@ export async function markCommunityMessengerRoomAsRead(input: {
           diag.mark_read_db_update_ms = Math.round((diag.rpc_ms ?? 0) + (diag.legacy_participant_update_ms ?? 0));
         }
         const tBadgeL0 = performance.now();
-        invalidateOwnerHubBadgeCache(input.userId);
+        invalidateOwnerHubBadgeCache(input.userId, { source: "messenger" });
         invalidateHomeSyncSnapshotCache(input.userId);
         invalidateCmBootstrapSnapshotCache(input.userId);
         invalidateFullBootstrapSnapshotCache(input.userId, "mark_read");
@@ -13570,7 +13570,7 @@ export async function markCommunityMessengerRoomAsRead(input: {
         .filter((item) => item.roomId === roomId)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))[0];
   participant.lastReadMessageId = latest?.id ?? null;
-  invalidateOwnerHubBadgeCache(input.userId);
+  invalidateOwnerHubBadgeCache(input.userId, { source: "messenger" });
   invalidateHomeSyncSnapshotCache(input.userId);
   invalidateCmBootstrapSnapshotCache(input.userId);
   invalidateFullBootstrapSnapshotCache(input.userId, "mark_read");
