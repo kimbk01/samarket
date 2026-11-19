@@ -38,11 +38,9 @@ vi.mock("@/lib/supabase/resolve-service-supabase-for-api", () => ({
   }),
 }));
 
+const mockGetSessionById = vi.fn(async () => ({ id: "sess-1", status: "active" }));
 vi.mock("@/lib/community-messenger/service", () => ({
-  getCommunityMessengerCallSessionById: vi.fn(async () => ({
-    id: "sess-1",
-    status: "active",
-  })),
+  getCommunityMessengerCallSessionById: mockGetSessionById,
 }));
 
 describe("call-session heartbeat purpose → DB patch isolation", () => {
@@ -109,5 +107,20 @@ describe("call-session heartbeat purpose → DB patch isolation", () => {
     expect(patch).toHaveProperty("callee_last_heartbeat_at");
     expect(patch).toHaveProperty("callee_presence_lease_until");
     expect(patch).not.toHaveProperty("caller_last_heartbeat_at");
+  });
+
+  it("F8-1: 성공 응답은 { ok: true } 만 — 통화 정보 재조립(조회) 없음", async () => {
+    const { heartbeatCommunityMessengerCallSession } = await import(
+      "@/lib/community-messenger/call-session-heartbeat"
+    );
+    mockGetSessionById.mockClear();
+    const result = await heartbeatCommunityMessengerCallSession({
+      userId: "caller-1",
+      sessionId: "sess-1",
+      heartbeatPurpose: "active",
+    });
+    expect(result).toEqual({ ok: true });
+    expect(mockGetSessionById).not.toHaveBeenCalled();
+    expect(updatePayloads).toHaveLength(1);
   });
 });
