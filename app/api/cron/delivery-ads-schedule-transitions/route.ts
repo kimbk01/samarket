@@ -8,6 +8,7 @@ import { runPartnerMembershipExpiryBatch } from "@/lib/stores/advertising/delive
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { runStoreCouponAutoEndBatch } from "@/lib/stores/store-coupon-auto-end";
 import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
+import { runDeliveryAdsCronTick } from "@/lib/stores/advertising/delivery-ads-cron-tick";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,21 +56,32 @@ async function runSchedulePromoterJob(req: Request) {
   }
 
   try {
-    const result = await runDeliveryAdSchedulePromoterBatch(sb, { batchSize: 50 });
+    /**
+     * 2026-11-19 예약 작업 1번 — 할 일 없는 실행은 DB 함수 1번(`delivery_ads_cron_tick`)으로 끝낸다.
+     * 광고 후보가 있거나 함수가 없으면(마이그레이션 전·오류) 아래 기존 순서 그대로(승격 → 정리 3개).
+     */
+    const tick = await runDeliveryAdsCronTick(sb);
+    const idleTick = tick.ok && !tick.scheduleDue ? tick : null;
+    if (!tick.ok) console.warn("[cron delivery-ads-schedule-transitions] tick_fallback", tick.error);
+    const result = idleTick
+      ? { ok: true as const, activated: 0, ended: 0, expired: 0, failed: 0, scanned: 0, results: [] }
+      : await runDeliveryAdSchedulePromoterBatch(sb, { batchSize: 50 });
     // ADS-05 — partner membership period end -> ENDED (only periods ending after the apply instant, D-5).
-    const partnerExpiry = await runPartnerMembershipExpiryBatch(sb, { limit: 200 });
+    const partnerExpiry = idleTick ? idleTick.partner : await runPartnerMembershipExpiryBatch(sb, { limit: 200 });
     if (!partnerExpiry.ok) {
       console.error("[cron delivery-ads-schedule-transitions] partner expiry", partnerExpiry.error);
     }
     const partnerEnded = partnerExpiry.ok ? partnerExpiry.ended : null;
     // 3-C ADS-23 — 같은 크론에서 기간 끝난 쿠폰 lifecycle 정합 (실패는 광고 배치 응답에 영향 없음).
-    const couponAutoEnd = await runStoreCouponAutoEndBatch(sb).catch((e: unknown) => ({
-      ok: false as const,
-      error: String(e),
-    }));
+    const couponAutoEnd = idleTick
+      ? idleTick.couponAutoEnd
+      : await runStoreCouponAutoEndBatch(sb).catch((e: unknown) => ({
+          ok: false as const,
+          error: String(e),
+        }));
     if (!couponAutoEnd.ok) console.error("[cron coupon auto end]", couponAutoEnd.error);
     // v4 W5 DB-03 — 기간 지난 쿠폰(available/restored) 만료 + 캠페인 예약 금액 해제 (DB 함수, 같은 크론 · 실패는 응답에 영향 없음).
-    const couponExpire = await runCouponEntitlementExpireBatch(sb);
+    const couponExpire = idleTick ? idleTick.couponExpire : await runCouponEntitlementExpireBatch(sb);
     if (!couponExpire.ok) console.error("[cron coupon entitlement expire]", couponExpire.error);
     // 실행 기록은 바뀐 것이 있거나 하위 단계가 실패한 실행만 남긴다 — 0건 실행(5분마다)은 쌓지 않는다.
     const auditWorthy =

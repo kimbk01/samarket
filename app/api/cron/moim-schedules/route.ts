@@ -3,6 +3,7 @@ import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
+  moimCronTick,
   moimClosedRetentionDue,
   moimJoinRequestsExpireDue,
   moimSanctionsExpireDue,
@@ -31,7 +32,14 @@ async function run(req: Request) {
   if (blocked) return blocked;
   const sb = getSupabaseServer();
 
-  const finished = await moimSchedulesFinishDue(200, sb);
+  /**
+   * 2026-11-19 예약 작업 2번 — DB 단계 7개를 함수 1번으로(같은 함수·인자). 알림 발송은 아래 그대로.
+   * 함수가 없거나 오류면 null → 기존처럼 단계마다 부른다.
+   */
+  const tick = await moimCronTick(sb);
+  if (!tick) console.warn("[cron moim-schedules] tick_fallback");
+
+  const finished = tick ? tick.finish : await moimSchedulesFinishDue(200, sb);
   let reviewSent = 0;
   if (finished.ok) {
     for (const s of finished.done ?? []) {
@@ -48,7 +56,11 @@ async function run(req: Request) {
 
   const counts: Record<string, number> = {};
   for (const window of ["24h", "1h"] as const) {
-    const claimed = await moimSchedulesClaimReminders(window, sb);
+    const claimed = tick
+      ? window === "24h"
+        ? tick.reminders24h
+        : tick.reminders1h
+      : await moimSchedulesClaimReminders(window, sb);
     counts[window] = 0;
     if (!claimed.ok) continue;
     for (const s of claimed.reminders ?? []) {
@@ -66,7 +78,7 @@ async function run(req: Request) {
 
   let sanctionsRefreshed: number | null = null;
   try {
-    const expired = await moimSanctionsExpireDue(200, sb);
+    const expired = tick ? tick.sanctions : await moimSanctionsExpireDue(200, sb);
     sanctionsRefreshed = expired.ok ? (expired.refreshed ?? []).length : null;
   } catch {
     sanctionsRefreshed = null;
@@ -80,9 +92,18 @@ async function run(req: Request) {
       return null;
     }
   };
-  const joinRequestsExpired = await policyRun(() => moimJoinRequestsExpireDue(200, sb), "expired");
-  const scheduleRoomsArchived = await policyRun(() => moimScheduleRoomsArchiveDue(200, sb), "archived");
-  const closedRetentionEnded = await policyRun(() => moimClosedRetentionDue(100, sb), "ended");
+  const joinRequestsExpired = await policyRun(
+    () => (tick ? Promise.resolve(tick.joinRequests) : moimJoinRequestsExpireDue(200, sb)),
+    "expired"
+  );
+  const scheduleRoomsArchived = await policyRun(
+    () => (tick ? Promise.resolve(tick.scheduleRooms) : moimScheduleRoomsArchiveDue(200, sb)),
+    "archived"
+  );
+  const closedRetentionEnded = await policyRun(
+    () => (tick ? Promise.resolve(tick.closedRetention) : moimClosedRetentionDue(100, sb)),
+    "ended"
+  );
 
   return NextResponse.json({
     ok: true,

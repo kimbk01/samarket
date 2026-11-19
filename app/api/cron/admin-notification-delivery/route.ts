@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { runAdminNotificationDeliveryWorker } from "@/lib/admin/notifications/admin-notification-service";
+import { runAdminNotificationCronTick } from "@/lib/admin/notifications/admin-notification-cron-tick";
 import { ADMIN_NOTIFICATION_RETENTION_DAYS } from "@/lib/admin/notifications/admin-notification-kinds";
 import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
 
@@ -33,9 +34,17 @@ async function runAdminNotificationDelivery(req: Request) {
   }
 
   // Settlement financial exceptions → outbox (idempotent per event) before the worker drains it.
-  const settlementScan = await sb.rpc("store_commission_enqueue_exception_notifications");
+  /**
+   * 2026-11-19 예약 작업 3번 — 첫 단계 4개(정산 예외 검사 · 원본 재생 · 대기열 확보 · 비었으면 푸시 확보)를 함수 1번으로.
+   * 함수가 없거나 오류면 null → 기존처럼 하나씩.
+   */
+  const tick = await runAdminNotificationCronTick(sb);
+  if (!tick) console.warn("[cron admin-notification-delivery] tick_fallback");
+  const settlementScan = tick
+    ? { data: tick.settlement, error: tick.settlementError ? { message: tick.settlementError } : null }
+    : await sb.rpc("store_commission_enqueue_exception_notifications");
 
-  const summary = await runAdminNotificationDeliveryWorker(sb);
+  const summary = await runAdminNotificationDeliveryWorker(sb, {}, { prefetched: tick?.prefetched ?? null });
   if (settlementScan.error && !/could not find the function|does not exist/i.test(settlementScan.error.message)) {
     summary.errors.push(`settlement_scan:${settlementScan.error.message}`);
   }

@@ -35,6 +35,10 @@ const req = (auth?: string) =>
 
 const prevSecret = process.env.CRON_SECRET;
 
+/** 2026-11-19 tick 도입 — 이 파일은 tick 함수가 없을 때(마이그레이션 전) 기존 경로를 검증한다 */
+const TICK_MISSING = { data: null, error: { message: "function delivery_ads_cron_tick does not exist" } };
+const expireCalls = () => rpc.mock.calls.filter((c) => c[0] === "expire_stale_coupon_entitlements");
+
 beforeEach(() => {
   process.env.CRON_SECRET = "s3cret";
   rpc.mockReset();
@@ -52,10 +56,14 @@ describe("W5 DB-03 쿠폰 만료 배치 연결", () => {
   });
 
   it("인증 시 expire_stale_coupon_entitlements(p_batch_limit 500) 1회 + 응답·감사에 결과", async () => {
-    rpc.mockResolvedValue({ data: { ok: true, expired_count: 21, reserved_released: 2464 }, error: null });
+    rpc.mockImplementation(async (name: string) =>
+      name === "delivery_ads_cron_tick"
+        ? TICK_MISSING
+        : { data: { ok: true, expired_count: 21, reserved_released: 2464 }, error: null }
+    );
     const res = await GET(req("Bearer s3cret"));
     expect(res.status).toBe(200);
-    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(expireCalls()).toHaveLength(1);
     expect(rpc).toHaveBeenCalledWith("expire_stale_coupon_entitlements", { p_batch_limit: 500 });
     expect(await res.json()).toMatchObject({ ok: true, coupon_entitlements_expired: 21 });
     const row = audit.mock.calls[0]![1] as { after_json: Record<string, unknown> };
@@ -63,11 +71,13 @@ describe("W5 DB-03 쿠폰 만료 배치 연결", () => {
   });
 
   it("RPC 오류(함수 미적용 등)·예외여도 크론 응답 200, 결과 null", async () => {
+    rpc.mockResolvedValueOnce(TICK_MISSING);
     rpc.mockResolvedValueOnce({ data: null, error: { message: "function does not exist" } });
     const res = await GET(req("Bearer s3cret"));
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ ok: true, coupon_entitlements_expired: null });
 
+    rpc.mockResolvedValueOnce(TICK_MISSING);
     rpc.mockRejectedValueOnce(new Error("network"));
     const res2 = await GET(req("Bearer s3cret"));
     expect(res2.status).toBe(200);

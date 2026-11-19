@@ -169,4 +169,24 @@ describe("GET /api/cron/notification-campaigns-dispatch-scheduled", () => {
     );
     expect(update).toHaveBeenCalled();
   });
+  it("2026-11-19 tick — 확보 없음: DB 함수 1번 · 반복 캠페인 목록만 다음 회차 · 표 조회 없음", async () => {
+    verifyCronRequestAuthorization.mockReturnValue(true);
+    const rpc = vi.fn(async (_name: string, _args?: unknown) => ({
+      data: { ok: true, v: 1, claimed: null, recurring_missing: ["camp-1"] },
+      error: null,
+    }));
+    const from = vi.fn();
+    tryCreateSupabaseServiceClient.mockReturnValue({ rpc, from });
+    const { GET } = await import(
+      "@/app/api/cron/notification-campaigns-dispatch-scheduled/route"
+    );
+    const res = await GET(new Request("http://localhost/api/cron/notification-campaigns-dispatch-scheduled"));
+    expect(res.status).toBe(200);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.calls[0][0]).toBe("notification_campaigns_cron_tick");
+    expect(claimDueOccurrence).not.toHaveBeenCalled();
+    expect(from).not.toHaveBeenCalled();
+    expect(scheduleNextRecurringOccurrence).toHaveBeenCalledWith(expect.anything(), "camp-1");
+    expect(await res.json()).toMatchObject({ ok: true, claimed: 0 });
+  });
 });
