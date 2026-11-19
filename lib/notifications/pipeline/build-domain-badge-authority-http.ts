@@ -26,7 +26,15 @@ import {
 import { countNotificationEventsBadge } from "@/lib/notifications/core/notification-event-repository";
 import type { NotificationBadgeCount } from "@/lib/notifications/core/notification-event-types";
 import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
-import { runMemberBadgeCountersShadow } from "@/lib/notifications/pipeline/member-badge-counters-shadow";
+import {
+  resolveMemberBadgeCounterShadowRate,
+  runMemberBadgeCountersShadow,
+} from "@/lib/notifications/pipeline/member-badge-counters-shadow";
+import {
+  loadMemberUnreadRoomInputs,
+  memberUnreadRoomInputsToLoaderInput,
+  stableFactsKey,
+} from "@/lib/notifications/member-unread-room-inputs";
 import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 import {
   buildBadgeExplainMatrix,
@@ -321,6 +329,29 @@ export async function buildDomainBadgeAuthorityHttpPayload(
       };
     },
   }).catch(() => null));
+
+  /**
+   * D2 2단계 2-b (Owner 「승인」 2026-11-19) — 쓰기 시점 입력 표에서 같은 로더(같은 판정 함수)로 다시 계산해
+   * 기존 결과(방 ID·안 읽음 수·식별 키·매장별 수)와 통째로 비교만 한다. 표본(기본 10%) · 응답 뒤 · 숫자 불변.
+   */
+  if (Math.random() < resolveMemberBadgeCounterShadowRate()) {
+    keepAliveAfterResponse(
+      (async () => {
+        const rows = await loadMemberUnreadRoomInputs(sb, uid);
+        if (!rows) return;
+        const { loaded, orderMaps } = memberUnreadRoomInputsToLoaderInput(rows);
+        const [m2, t2] = await Promise.all([
+          loadMessengerUnreadRoomFactsFromParticipants(sb, uid, loaded),
+          loadTradeStoreOrderUnreadRoomFactsFromParticipants(sb, uid, loaded, orderMaps),
+        ]);
+        const sameMessenger = stableFactsKey(m2) === stableFactsKey(messengerRooms);
+        const sameTrade = stableFactsKey(t2) === stableFactsKey(tradeStoreRooms);
+        const log = { userIdTail: uid.slice(-8), sameMessenger, sameTrade, rows: rows.length };
+        if (sameMessenger && sameTrade) console.info("[unread-inputs-shadow]", { ...log, match: true });
+        else console.warn("[unread-inputs-shadow]", { ...log, match: false });
+      })().catch(() => null)
+    );
+  }
 
   const bell = projection.bell;
   const explainMatrix = buildBadgeExplainMatrix({
