@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { runStoreOrdersSlaScanTick } from "@/lib/cron/cron-due-ticks.server";
 import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -26,6 +27,18 @@ async function runStoreOrdersSlaScan(req: Request) {
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
+
+  /** 2026-11-19 예약 작업 4번 — 검사 + 하트비트를 DB 함수 1번으로(같은 순서·규칙). 함수가 없거나 오류면 기존처럼 따로. */
+  const tick = await runStoreOrdersSlaScanTick(sb);
+  if (tick) {
+    if (!tick.ok) {
+      console.error("[cron store-orders-sla-scan]", tick.error);
+      return NextResponse.json({ ok: false, error: clientSafeInternalErrorMessage(tick.error) }, { status: 500 });
+    }
+    if (tick.heartbeatError) console.error("[cron store-orders-sla-scan] heartbeat", tick.heartbeatError);
+    return NextResponse.json({ ok: true });
+  }
+  console.warn("[cron store-orders-sla-scan] tick_fallback");
 
   const { error } = await sb.rpc("scan_store_order_sla_warnings");
   if (error) {

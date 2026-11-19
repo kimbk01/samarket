@@ -175,7 +175,12 @@ describe("2. SSOT — one alert per event (idempotent source keys)", () => {
     const cron = read("app/api/cron/admin-notification-delivery/route.ts");
     expect(cron.indexOf('rpc("store_commission_enqueue_exception_notifications")')).toBeGreaterThan(-1);
     expect(cron.indexOf('rpc("store_commission_enqueue_exception_notifications")')).toBeLessThan(
-      cron.indexOf("runAdminNotificationDeliveryWorker(sb)")
+      cron.indexOf("runAdminNotificationDeliveryWorker(sb,")
+    );
+    /** 2026-11-19 tick — DB 함수 안에서도 검사가 대기열 확보보다 먼저 */
+    const tick = read("supabase/migrations/20271119242000_admin_notification_cron_tick.sql");
+    expect(tick.indexOf("store_commission_enqueue_exception_notifications()")).toBeLessThan(
+      tick.indexOf("admin_notification_outbox_claim(p_batch)")
     );
     const tx = read("lib/stores/apply-store-order-status-transition.ts");
     expect(tx).toContain('"store_commission_notify_charge_failure"');

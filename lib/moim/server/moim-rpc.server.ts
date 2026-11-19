@@ -709,6 +709,52 @@ export function moimClosedRetentionDue(limit: number, sb?: SupabaseServer) {
   return callMoimRpc<{ ended: number; policy: number | null }>("moim_closed_retention_due", { p_limit: limit }, sb);
 }
 
+/**
+ * 2026-11-19 예약 작업 2번 — 모임 예약 작업의 DB 단계 7개를 `moim_cron_tick` 1번으로(같은 함수·같은 인자·같은 순서).
+ * 각 결과는 callMoimRpc 와 같은 규칙으로 해석한다. 함수가 없거나 오류면 null → 호출부가 기존처럼 하나씩 부른다.
+ */
+export type MoimCronTick = {
+  finish: MoimRpcResult<{ done: MoimScheduleBatchItem[] }>;
+  reminders24h: MoimRpcResult<{ reminders: MoimScheduleBatchItem[] }>;
+  reminders1h: MoimRpcResult<{ reminders: MoimScheduleBatchItem[] }>;
+  sanctions: MoimRpcResult<{ refreshed: { moim_id: string; platform_state: string }[] }>;
+  joinRequests: MoimRpcResult<{ expired: number; policy: number | null }>;
+  scheduleRooms: MoimRpcResult<{ archived: number; policy: number | null }>;
+  closedRetention: MoimRpcResult<{ ended: number; policy: number | null }>;
+};
+
+/** callMoimRpc 의 결과 해석과 같음 — rpc_error 는 DB 오류(= error 객체), ok=false 는 함수가 돌려준 실패 */
+export function moimRpcResultFromTickJson<T extends Record<string, unknown>>(v: unknown): MoimRpcResult<T> {
+  const row = (v && typeof v === "object" && !Array.isArray(v) ? v : {}) as Record<string, unknown>;
+  if (row.rpc_error === true) {
+    const msg = typeof row.error === "string" ? row.error : "";
+    return { ok: false, error: toMoimErrorCode(msg), detail: msg };
+  }
+  if (row.ok === false) return { ok: false, error: toMoimErrorCode(row.error) };
+  return { ok: true, ...(row as T) };
+}
+
+export async function moimCronTick(sb?: SupabaseServer): Promise<MoimCronTick | null> {
+  try {
+    const client = sb ?? getSupabaseServer();
+    const { data, error } = await client.rpc("moim_cron_tick", {});
+    if (error) return null;
+    const p = (data ?? null) as Record<string, unknown> | null;
+    if (!p || p.ok !== true) return null;
+    return {
+      finish: moimRpcResultFromTickJson(p.finish),
+      reminders24h: moimRpcResultFromTickJson(p.reminders_24h),
+      reminders1h: moimRpcResultFromTickJson(p.reminders_1h),
+      sanctions: moimRpcResultFromTickJson(p.sanctions),
+      joinRequests: moimRpcResultFromTickJson(p.join_requests),
+      scheduleRooms: moimRpcResultFromTickJson(p.schedule_rooms),
+      closedRetention: moimRpcResultFromTickJson(p.closed_retention),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function moimAdminDelete(adminId: string, moimId: string, reason: string, sb?: SupabaseServer) {
   return callMoimRpc("moim_admin_delete", { p_admin: adminId, p_moim: moimId, p_reason: reason }, sb);
 }

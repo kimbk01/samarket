@@ -384,8 +384,8 @@ export async function createAdminNotification(
   return { ok: true, created: inserted.length, skippedRecipients, pushed };
 }
 
-type OutboxRow = { id: string; claim_token: string; source_key: string; payload: unknown };
-type PushDeliveryRow = { notification_id: string; claim_token: string };
+export type OutboxRow = { id: string; claim_token: string; source_key: string; payload: unknown };
+export type PushDeliveryRow = { notification_id: string; claim_token: string };
 
 function parseOutboxPayload(payload: unknown): CreateAdminNotificationInput | null {
   if (!payload || typeof payload !== "object") return null;
@@ -430,10 +430,23 @@ export type AdminNotificationDeliveryRunSummary = {
  * Delivery worker (cron, service role): source replay → outbox claim/replay → push retries.
  * Every step is idempotent and concurrency-safe (DB claims with SKIP LOCKED + claim-token CAS).
  */
+/**
+ * 2026-11-19 예약 작업 3번 — `admin_notification_cron_tick` 이 미리 부른 결과(원본 재생 · 대기열 확보 · 비었으면 푸시 확보).
+ * 값의 뜻은 각 RPC 를 따로 불렀을 때와 같다. push=null 이면 「아직 확보 안 함」 → 대기열 처리 뒤 지금처럼 따로 확보.
+ */
+export type AdminNotificationCronPrefetch = {
+  replayed: number | null;
+  replayError: string | null;
+  outbox: OutboxRow[];
+  outboxError: string | null;
+  push: PushDeliveryRow[] | null;
+  pushError: string | null;
+};
+
 export async function runAdminNotificationDeliveryWorker(
   sb: SupabaseClient,
   deps: AdminNotificationDeps = {},
-  opts: { lookbackHours?: number; batch?: number } = {}
+  opts: { lookbackHours?: number; batch?: number; prefetched?: AdminNotificationCronPrefetch | null } = {}
 ): Promise<AdminNotificationDeliveryRunSummary> {
   const resolveAuthority = deps.resolveAuthority ?? resolveAdminRecipientAuthority;
   const sendPush = deps.sendPush ?? defaultSendPush;
@@ -452,14 +465,19 @@ export async function runAdminNotificationDeliveryWorker(
     errors: [],
   };
 
-  const replay = await sb.rpc("admin_notification_replay_support_replies", {
-    p_lookback: `${Math.min(Math.max(opts.lookbackHours ?? 72, 1), 24 * 14)} hours`,
-    p_limit: 200,
-  });
+  const pre = opts.prefetched ?? null;
+  const replay = pre
+    ? { data: pre.replayed, error: pre.replayError ? { message: pre.replayError } : null }
+    : await sb.rpc("admin_notification_replay_support_replies", {
+        p_lookback: `${Math.min(Math.max(opts.lookbackHours ?? 72, 1), 24 * 14)} hours`,
+        p_limit: 200,
+      });
   if (replay.error) sum.errors.push(`replay:${replay.error.message}`);
   else sum.replayed = Number(replay.data) || 0;
 
-  const claimed = await sb.rpc("admin_notification_outbox_claim", { p_limit: batch });
+  const claimed = pre
+    ? { data: pre.outbox, error: pre.outboxError ? { message: pre.outboxError } : null }
+    : await sb.rpc("admin_notification_outbox_claim", { p_limit: batch });
   if (claimed.error) sum.errors.push(`outbox_claim:${claimed.error.message}`);
   for (const row of (claimed.data ?? []) as OutboxRow[]) {
     sum.outboxClaimed += 1;
@@ -480,7 +498,10 @@ export async function runAdminNotificationDeliveryWorker(
     else if (state === "dead") sum.outboxDead += 1;
   }
 
-  const pushClaimed = await sb.rpc("admin_notification_push_claim", { p_limit: batch });
+  const pushClaimed =
+    pre && pre.push !== null
+      ? { data: pre.push, error: pre.pushError ? { message: pre.pushError } : null }
+      : await sb.rpc("admin_notification_push_claim", { p_limit: batch });
   if (pushClaimed.error) sum.errors.push(`push_claim:${pushClaimed.error.message}`);
   for (const d of (pushClaimed.data ?? []) as PushDeliveryRow[]) {
     sum.pushClaimed += 1;

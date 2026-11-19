@@ -13,6 +13,7 @@ import {
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
+import { runNotificationCampaignsCronTick } from "@/lib/cron/cron-due-ticks.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,12 +53,22 @@ async function runDispatchScheduled(req: Request) {
 
   const tickStarted = Date.now();
   let slowestBatchMs = 0;
+  /**
+   * 2026-11-19 예약 작업 4번 — 첫 확보 + (확보 없을 때) 반복 캠페인 확인을 DB 함수 1번으로.
+   * 확보가 있으면 아래 기존 경로 그대로. 함수가 없거나 오류면 null → 기존처럼 따로 조회.
+   */
+  const firstClaimToken = newCampaignSendClaimToken();
+  const dueTick = await runNotificationCampaignsCronTick<NonNullable<Awaited<ReturnType<typeof claimDueOccurrence>>>>(
+    svc,
+    firstClaimToken
+  );
+  if (!dueTick) console.warn("[cron notification-campaigns-dispatch-scheduled] tick_fallback");
   for (let i = 0; i < MAX_OCCURRENCES_PER_TICK; i += 1) {
     // U1-B: do not claim another occurrence when one more batch would not fit the tick budget.
     const remainingMs = MAX_WALL_MS_PER_OCCURRENCE - (Date.now() - tickStarted);
     if (i > 0 && remainingMs < slowestBatchMs) break;
-    const claimToken = newCampaignSendClaimToken();
-    const claimed = await claimDueOccurrence(svc, { claimToken });
+    const claimToken = i === 0 ? firstClaimToken : newCampaignSendClaimToken();
+    const claimed = i === 0 && dueTick ? dueTick.claimed : await claimDueOccurrence(svc, { claimToken });
     if (!claimed?.id) break;
 
     const drained = await drainNotificationCampaignSendBatches(svc, claimed.id, {
@@ -102,6 +113,14 @@ async function runDispatchScheduled(req: Request) {
         await scheduleNextRecurringOccurrence(svc, occ.campaign_id);
       }
     }
+  }
+
+  if (dueTick && dueTick.claimed === null) {
+    // 확보한 회차가 없던 실행 — DB 함수가 기존과 같은 조건으로 고른 캠페인만 다음 회차를 만든다.
+    for (const campaignId of dueTick.recurringMissing) {
+      await scheduleNextRecurringOccurrence(svc, campaignId);
+    }
+    return NextResponse.json({ ok: true, claimed: results.length, results });
   }
 
   const { data: activeRecurring } = await svc
