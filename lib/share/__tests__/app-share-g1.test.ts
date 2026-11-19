@@ -57,5 +57,8 @@ describe("앱 공유 (Owner G-1 2026-11-14)", () => {
     const landing = read("app/(main)/download/AppDownloadLanding.tsx");
     expect(landing).toContain("resolveDeviceStoreUrl(");
     expect(landing).toContain("if (native) return;");
+    const page = read("app/(main)/download/page.tsx");
+    expect(page).toContain("resolveDeviceStoreUrl(ua)");
+    expect(page).toContain("redirect(store)");
   });
 });
