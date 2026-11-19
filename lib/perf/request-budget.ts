@@ -9,9 +9,11 @@
 
 /** 라우트 경로(Next 앱 라우트 표기) → 요청 1회당 Supabase 호출 상한 */
 export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
-  "/api/community-messenger/calls/sessions/incoming": 5.4,
+  /** A1·F7·F7-b 이후 — 운영 11-19 00~12 UTC 3.36(Vercel 3,054/908) · 계수기 3.20 → 4.0 (재감사 E) */
+  "/api/community-messenger/calls/sessions/incoming": 4.0,
   /** B3 — access cleared_at 재사용으로 participants 1회 제거(미적용 DB는 폴백, 상한은 내린 값 유지) */
-  "/api/community-messenger/rooms/[roomId]/messages": 9.6,
+  /** #496·D4 이후 — 운영 11-19 00~12 UTC 5.16(Vercel 6,103/1,182) · 계수기 5.52 → 6.0 (재감사 E) */
+  "/api/community-messenger/rooms/[roomId]/messages": 6.0,
   "/api/community-messenger/rooms/[roomId]/bootstrap": 2.5,
   "/api/community-messenger/presence": 1.1,
   "/api/me/notifications/badge-count": 5.2,
