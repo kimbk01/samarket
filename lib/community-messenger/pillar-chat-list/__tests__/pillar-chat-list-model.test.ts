@@ -8,6 +8,8 @@ import {
   customerStoreOrderDetailHref,
   filterStoreOrderChatListByTab,
   runPillarMarkAllRead,
+  STORE_ORDER_CHAT_LIST_DEFAULT_TAB,
+  STORE_ORDER_CHAT_LIST_TABS,
   storeOrderChatListTabOfStatus,
   storeOrderChatStatusChipTone,
   tradeChatStatusChipTone,
@@ -18,7 +20,16 @@ import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/ty
 
 const ko = (key: MessageKey, vars?: Record<string, string | number>) => translate("ko", key, vars);
 
-describe("주문 채팅 탭 — 전체 · 진행 중 · 지난 주문", () => {
+describe("주문 채팅 화면 탭 — 진행 중 · 지난 주문 2개, 진입 기본 = 진행 중 (Owner 2026-11-19)", () => {
+  it("탭은 진행 중·지난 주문 순서 2개뿐, 「전체」 없음", () => {
+    expect([...STORE_ORDER_CHAT_LIST_TABS]).toEqual(["live", "past"]);
+  });
+  it("진입 기본 탭 = 진행 중", () => {
+    expect(STORE_ORDER_CHAT_LIST_DEFAULT_TAB).toBe("live");
+  });
+});
+
+describe("주문 채팅 탭 필터 — 진행 중 · 지난 주문 (all = 호환용)", () => {
   const rows = [
     { id: "a", status: "preparing" },
     { id: "b", status: "completed" },
