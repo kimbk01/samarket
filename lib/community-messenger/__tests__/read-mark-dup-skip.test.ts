@@ -19,6 +19,11 @@ describe("읽음 1단계 — 바뀐 것 없으면 후속 작업 없음", () => {
   it("duplicateSkipped → 바뀐 것 없음", () => {
     expect(atomicReadChangedState({ ...base, duplicateSkipped: true } as never)).toBe(false);
   });
+  it("보완: 같은 key 재요청(replayed) → 바뀐 것 없음", () => {
+    expect(
+      atomicReadChangedState({ ...base, duplicateSkipped: false, lastReadAdvanced: true, replayed: true } as never),
+    ).toBe(false);
+  });
   it("실제로 읽음 처리됨 → 바뀜(기존 후속 작업 그대로)", () => {
     expect(atomicReadChangedState({ ...base, duplicateSkipped: false, lastReadAdvanced: true } as never)).toBe(true);
   });
@@ -35,7 +40,7 @@ describe("읽음 1단계 — 바뀐 것 없으면 후속 작업 없음", () => {
     ]) {
       expect(block).toContain(call);
     }
-    /** 방송 생략은 기존 계약(broadcastSkipped: duplicateSkipped) 그대로 */
-    expect(src).toContain("broadcastSkipped: atomic.duplicateSkipped");
+    /** 방송 생략: 중복·재생 모두 */
+    expect(src).toContain("broadcastSkipped: !atomicReadChangedState(atomic)");
   });
 });

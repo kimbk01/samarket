@@ -24,6 +24,8 @@ export type MarkRoomReadAtomicResult =
       duplicateSkipped: boolean;
       lastReadAdvanced: boolean;
       regressionBlocked: boolean;
+      /** 같은 idempotency key 재요청 — DB 가 첫 결과를 다시 돌려줌(마이그레이션 20271119220000 이후 표시) */
+      replayed?: boolean;
     }
   | { ok: false; error: string };
 
@@ -32,9 +34,11 @@ export type MarkRoomReadAtomicResult =
  * 원자 읽음이 「바뀐 것 없음」(`duplicateSkipped` — 이미 다 읽은 상태, DB 함수가 커서·안 읽음·알림을 건드리지 않고 돌아옴)이면
  * 허브·홈 목록 사본 재생성과 부트스트랩 무효화 표시를 하지 않는다. 운영 48시간 549건 중 234건(43%)이 이 경우.
  * 레거시(Telegram·카카오톡)도 이미 읽은 방의 읽음에는 아무 후속 작업을 하지 않는다.
+ * 보완(Owner 「보완 진행」 2026-11-19): 같은 방·같은 끝 메시지 재요청은 DB 가 첫 결과를 그대로 돌려줘(`replayed: true`)
+ * 이전 처리와 같은 상태 — 역시 바뀐 것 없음.
  */
 export function atomicReadChangedState(result: Extract<MarkRoomReadAtomicResult, { ok: true }>): boolean {
-  return !result.duplicateSkipped;
+  return !result.duplicateSkipped && result.replayed !== true;
 }
 
 export async function markRoomReadAtomic(
@@ -73,6 +77,7 @@ export async function markRoomReadAtomic(
     lastReadAt: trim(payload.lastReadAt) || null,
     unreadCount: Math.max(0, Math.floor(Number(payload.unreadCount) || 0)),
     duplicateSkipped: payload.duplicateSkipped === true,
+    replayed: payload.replayed === true,
     lastReadAdvanced: payload.lastReadAdvanced === true,
     regressionBlocked: payload.regressionBlocked === true,
   };
