@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  prefetchStoreProfileThumbnailIfNeeded,
+  fetchStoreProfileThumbnailOnce,
   readStoreProfileThumbnailCache,
-  writeStoreProfileThumbnailCache,
 } from "@/lib/community-messenger/delivery-chat-list/store-profile-thumbnail-cache";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { resolveStoreProductMediaUrl } from "@/lib/media/resolve-store-product-media-url";
@@ -47,16 +46,6 @@ function StoreInitialFallback({ storeName, variant }: { storeName: string; varia
   );
 }
 
-async function fetchStoreProfileThumbnailUrl(storeId: string): Promise<string | null> {
-  const res = await fetch(
-    `/api/community-messenger/store-profile-thumbnail?storeId=${encodeURIComponent(storeId)}`,
-    { credentials: "include" }
-  );
-  const j = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string | null };
-  if (!res.ok || !j.ok) return null;
-  const u = typeof j.url === "string" && j.url.trim() ? j.url.trim() : null;
-  return u ? resolveStoreProfileDisplayUrl(u) : null;
-}
 
 /** 주문 채팅 목록 — 매장 프로필 (둥근 사각, 채팅 시안 4판) */
 export function StoreProfileThumb({ src, storeId, storeName, variant = "list" }: Props) {
@@ -75,30 +64,26 @@ export function StoreProfileThumb({ src, storeId, storeName, variant = "list" }:
     setDirectFailed(false);
   }, [src, sid]);
 
-  const loadFromApi = useCallback(async (storeKey: string, cancelled: () => boolean) => {
-    try {
-      const resolved = await fetchStoreProfileThumbnailUrl(storeKey);
-      if (cancelled() || !resolved) return;
-      writeStoreProfileThumbnailCache(storeKey, resolved);
-      setApiUrl(resolved);
-      setDirectFailed(false);
-    } catch {
-      /* ignore */
-    }
+  const loadFromApi = useCallback(async (storeKey: string, force: boolean, cancelled: () => boolean) => {
+    const raw = await fetchStoreProfileThumbnailOnce(storeKey, { force });
+    if (cancelled() || !raw) return;
+    setApiUrl(resolveStoreProfileDisplayUrl(raw));
+    setDirectFailed(false);
   }, []);
 
+  /**
+   * 2026-11-19 — 이전엔 마운트마다 항상 API 를 불렀다(캐시가 있어도) + 행 미리 받기와 겹쳐 1행 2회.
+   * 지금: 매장마다 탭 세션 1회(최신 매장 사진이 목록 주소보다 우선하는 기존 동작 유지) — 기억(사진·「사진 없음」 10분)이 있으면
+   * 요청 없이 기억 사용, 같은 순간 요청은 1개로 합침. 사진 로드 실패(apiFetchKey 증가)는 기억과 관계없이 다시 조회.
+   */
   useEffect(() => {
     if (!sid) return;
     let cancelled = false;
-    void loadFromApi(sid, () => cancelled);
+    void loadFromApi(sid, apiFetchKey > 0, () => cancelled);
     return () => {
       cancelled = true;
     };
   }, [sid, apiFetchKey, loadFromApi]);
-
-  useEffect(() => {
-    prefetchStoreProfileThumbnailIfNeeded(sid);
-  }, [sid]);
 
   const displayUrl = apiUrl ?? (directFailed ? null : directUrl);
 
