@@ -1,6 +1,8 @@
 # 고스트 통화 (상대가 미디어에 한 번도 안 들어온 「통화 중」) — 문제 보고서 · 수정 설계안
 
-- 작성 2026-11-19 PHT (Claude) · 상태: **1단계(S1~S6) Owner 승인(2026-11-19 「1단계 구현 승인」) · 구현 PR — 병합 전. 2단계 미승인**
+- 작성 2026-11-19 PHT (Claude) · 상태: **1단계 운영 반영 (PR #513 → `895cfd4e4`, 2026-11-19 11:06 PHT) · Android 실기 PASS (G1·G2·G4·G5 일부) · G3(iPhone) NOT_PROVEN · 2단계 미승인**
+- 실기 결과: `docs/audit/runtime-2026-11-19/recheck-claude/phase1-verify/RESULT.md`
+- **정정**: 아래 「연결 끊김」은 저장 문장 기준이다. 채팅 화면 글자는 기존 동작대로 **「중단됨」**으로 보인다(실기 G1).
 - 근거 실기: `docs/audit/runtime-2026-11-19/recheck-claude/RECHECK.md` (10:24~10:35 PHT, Production `edd0c8453`)
 - 통화 변경 규정(AGENTS.md 「통화 변경 규정」) 2·3번에 따른 문서. 승인 후에만 구현한다.
 
