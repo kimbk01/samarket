@@ -202,10 +202,92 @@ export function resetDibayDeviceClassSessionForTests(): void {
   sessionResolved = null;
 }
 
+/**
+ * 기기 종류 판정 — 성공 결과만 이번 실행 동안 고정한다.
+ * 2026-11-19 (Owner 승인 D1, `docs/audit/mac-bottom-nav-device-class-2026-11-19.md`): 네이티브 판정 실패(`UNKNOWN`)를
+ * 고정하면 그 실행 내내 맥·태블릿이 하단 메뉴로 굳었다 — 첫 그림 규칙(`seedDibayDeviceClassSession`)과 같게 `UNKNOWN` 은 저장하지 않는다.
+ */
 export async function resolveDibayDeviceClass(): Promise<DibayDeviceClassResult> {
   if (sessionResolved) return sessionResolved;
-  sessionResolved = await resolveDibayDeviceClassUncached();
-  return sessionResolved;
+  const result = await resolveDibayDeviceClassUncached();
+  if (result.deviceClass !== "UNKNOWN") sessionResolved = result;
+  return result;
+}
+
+/** D2 — 판정 실패 뒤 다시 판정하는 대기 시간(정해진 3회). 그 밖에 앱이 앞으로 돌아올 때 1회. */
+export const DIBAY_DEVICE_CLASS_RETRY_DELAYS_MS: readonly number[] = [1_000, 2_000, 4_000];
+
+/**
+ * 셸용 판정 시작 — 결과를 `onResult` 로 알리고, `UNKNOWN` 이면 정해진 횟수만 다시 판정한다
+ * (D2: 1·2·4초 뒤 3회 + 앱 복귀 1회, 무한 반복 없음). 성공하면 멈춘다. 돌려받은 함수로 멈춘다.
+ */
+export function startDibayDeviceClassResolution(
+  onResult: (result: DibayDeviceClassResult) => void,
+  delaysMs: readonly number[] = DIBAY_DEVICE_CLASS_RETRY_DELAYS_MS
+): () => void {
+  let stopped = false;
+  let done = false;
+  let inFlight = false;
+  let attempt = 0;
+  let resumeUsed = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let lastClass: DibayDeviceClass | null = null;
+  const hasDocument = typeof document !== "undefined";
+
+  const detach = () => {
+    if (timer != null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    if (hasDocument) document.removeEventListener("visibilitychange", onVisible);
+  };
+
+  const run = () => {
+    if (stopped || done || inFlight) return;
+    inFlight = true;
+    void resolveDibayDeviceClass()
+      .catch(
+        (): DibayDeviceClassResult => ({
+          deviceClass: "UNKNOWN",
+          source: "native_plugin_unavailable",
+          reason: "native_plugin_unavailable",
+        })
+      )
+      .then((result) => {
+        inFlight = false;
+        if (stopped) return;
+        if (result.deviceClass !== lastClass) {
+          lastClass = result.deviceClass;
+          onResult(result);
+        }
+        if (result.deviceClass !== "UNKNOWN") {
+          done = true;
+          detach();
+          return;
+        }
+        const delay = delaysMs[attempt];
+        attempt += 1;
+        if (delay != null) timer = setTimeout(run, delay);
+      });
+  };
+
+  function onVisible() {
+    if (stopped || done || resumeUsed || inFlight) return;
+    if (document.visibilityState !== "visible") return;
+    resumeUsed = true;
+    if (timer != null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    run();
+  }
+
+  if (hasDocument) document.addEventListener("visibilitychange", onVisible);
+  run();
+  return () => {
+    stopped = true;
+    detach();
+  };
 }
 
 async function resolveDibayDeviceClassUncached(): Promise<DibayDeviceClassResult> {

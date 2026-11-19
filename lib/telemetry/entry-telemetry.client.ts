@@ -9,6 +9,7 @@
  * - `no_release` 관측 한도(20초)는 **기록용**이다 — 시작 화면을 풀지 않는다 (D1: 표시 타이머 금지 유지).
  */
 
+import { readDibayShellSnapshot } from "@/lib/device/dibay-shell-snapshot";
 import {
   ENTRY_FAILURE_CLASSES,
   ENTRY_TELEMETRY_ENDPOINT,
@@ -207,6 +208,17 @@ function ensureAppInfo(w: RuntimeWindow): Promise<void> {
   return state.appInfoPromise;
 }
 
+/** D3 — 보낼 때의 셸 사진(기기 판정·메뉴 형태·창 폭). 셸 전이면 모두 null. */
+function readShellFields(): Pick<EntryTelemetryEvent, "deviceClass" | "deviceClassSource" | "nav" | "usableWidth"> {
+  const snap = readDibayShellSnapshot();
+  return {
+    deviceClass: snap?.deviceClass ?? null,
+    deviceClassSource: snap?.deviceClassSource ?? null,
+    nav: snap?.nav ?? null,
+    usableWidth: snap ? snap.usableWidth : null,
+  };
+}
+
 function buildEvent(
   w: RuntimeWindow,
   kind: EntryEventKind,
@@ -235,6 +247,7 @@ function buildEvent(
     hiddenMs: extra.hiddenMs ?? null,
     visible: typeof document !== "undefined" ? document.visibilityState === "visible" : false,
     t: readStages(w),
+    ...readShellFields(),
   };
 }
 

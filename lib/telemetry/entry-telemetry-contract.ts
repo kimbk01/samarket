@@ -73,7 +73,18 @@ export type EntryTelemetryEvent = {
   hiddenMs: number | null;
   visible: boolean;
   t: EntryStages;
+  /**
+   * D3 (2026-11-19, `docs/audit/mac-bottom-nav-device-class-2026-11-19.md`) — 보낼 때의 기기 판정·메뉴 형태·창 폭.
+   * 셸이 아직 없으면 null. DB 저장 열은 없고 Vercel 로그 줄에만 남는다.
+   */
+  deviceClass: string | null;
+  deviceClassSource: string | null;
+  nav: EntryNavKind | null;
+  usableWidth: number | null;
 };
+
+export const ENTRY_NAV_KINDS = ["rail", "bottom"] as const;
+export type EntryNavKind = (typeof ENTRY_NAV_KINDS)[number];
 
 /** 시작 단계 시각(문서 시작 기준) 상한 — 시작 과정은 1시간을 넘지 않는다. 넘는 값은 그 단계만 버린다. */
 const MAX_STAGE_MS = 3_600_000;
@@ -159,5 +170,9 @@ export function sanitizeEntryTelemetryEvent(raw: unknown): EntryTelemetryEvent |
     hiddenMs: asDurationMs(r.hiddenMs),
     visible: r.visible === true,
     t,
+    deviceClass: asToken(r.deviceClass),
+    deviceClassSource: asToken(r.deviceClassSource),
+    nav: asEnum(r.nav, ENTRY_NAV_KINDS),
+    usableWidth: asCount(r.usableWidth, 20_000),
   };
 }

@@ -1,15 +1,16 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import {
   DIBAY_PRE_RESOLUTION_UNKNOWN,
   readDibayDeviceClassSync,
 } from "@/lib/device/dibay-device-class-hydrate";
-import { resolveDibayDeviceClass, type DibayDeviceClassResult } from "@/lib/device/dibay-device-class";
+import { startDibayDeviceClassResolution, type DibayDeviceClassResult } from "@/lib/device/dibay-device-class";
 import { resolveLayoutMode } from "@/lib/device/dibay-layout-resolver";
 import { measureUsableWindow } from "@/lib/device/dibay-window-class";
 import { resolveAppShell, type DibayAppShellResolution } from "@/lib/device/dibay-shell-resolver";
 import { useAppViewportSize } from "@/lib/ui/use-app-viewport-size";
+import { setDibayShellSnapshot } from "@/lib/device/dibay-shell-snapshot";
 
 export type DibayAppShellAuthority = DibayAppShellResolution & {
   device: DibayDeviceClassResult;
@@ -32,11 +33,13 @@ export function useDibayAppShellAuthority(): DibayAppShellAuthority {
     if (sync.deviceClass !== "UNKNOWN") {
       setDevice(sync);
     }
-    void resolveDibayDeviceClass().then((resolved) => {
+    /** D2 (2026-11-19) — 네이티브 판정 실패면 정해진 횟수만 다시 판정해 맥·태블릿 세로 메뉴로 회복한다 */
+    const stop = startDibayDeviceClassResolution((resolved) => {
       if (!cancelled) setDevice(resolved);
     });
     return () => {
       cancelled = true;
+      stop();
     };
   }, []);
 
@@ -76,6 +79,17 @@ export function useDibayAppShellAuthority(): DibayAppShellAuthority {
     screenOrientation,
     keyboardOpen: layout.keyboardOpen,
   });
+
+  /** D3 — 진입 계측이 읽는 셸 사진(기기 판정·메뉴 형태·창 폭) */
+  const navKind: "rail" | "bottom" = shell.navigationPresentation === "DESKTOP_SIDE_RAIL" ? "rail" : "bottom";
+  useEffect(() => {
+    setDibayShellSnapshot({
+      deviceClass: device.deviceClass,
+      deviceClassSource: device.source ?? null,
+      nav: navKind,
+      usableWidth: Math.round(usableWidthPx),
+    });
+  }, [device.deviceClass, device.source, navKind, usableWidthPx]);
 
   return {
     ...shell,
