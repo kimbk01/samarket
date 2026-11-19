@@ -1,0 +1,69 @@
+11-19 10:26:16.525 I/DIBAY_WebView(10441): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] permission_check_start [object Object]
+11-19 10:26:16.525 I/Capacitor/Console(10441): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] permission_check_start [object Object]
+11-19 10:26:16.565 I/DIBAY_WebView(10441): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] permission_check_result [object Object]
+11-19 10:26:16.565 I/Capacitor/Console(10441): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] permission_check_result [object Object]
+11-19 10:26:16.569 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] outgoing_preparing_start callId=9b31ad4c-be1e-42b7-a9e6-180142d61fae roomId=1de13b3e-ba94-49bf-b611-582ef3f39ab9 peer=zxzx11
+11-19 10:26:16.570 I/DIBAY_NATIVE_CALL(10441): [DIBAY_NATIVE_CALL] visible_surface_owner_claimed callId=9b31ad4c-be1e-42b7-a9e6-180142d61fae mediaType=voice state=preparing
+11-19 10:26:16.570 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] native_preparing_surface_start callId=9b31ad4c-be1e-42b7-a9e6-180142d61fae
+11-19 10:26:16.608 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] native_preparing_surface_shown callId=9b31ad4c-be1e-42b7-a9e6-180142d61fae
+11-19 10:26:16.724 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] call_screen_keep_awake_on callId=9b31ad4c-be1e-42b7-a9e6-180142d61fae source=create pip=false dock=false
+11-19 10:26:16.768 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] native_preparing_surface_shown callId=9b31ad4c-be1e-42b7-a9e6-180142d61fae
+11-19 10:26:16.769 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] native_voice_back_callback_registered callId=9b31ad4c-be1e-42b7-a9e6-180142d61fae state=CONNECTING
+11-19 10:26:18.008 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] outgoing_preparing_bind callId=17b42c71-c28c-42a6-88c1-d294573a0556 attemptId=9b31ad4c-be1e-42b7-a9e6-180142d61fae roomId=1de13b3e-ba94-49bf-b611-582ef3f39ab9
+11-19 10:26:18.008 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] owner_claimed_native_voice callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=outgoing_bind
+11-19 10:26:18.008 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] legacy_web_handoff_blocked callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=native_voice_runtime
+11-19 10:26:18.009 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] session_created callId=17b42c71-c28c-42a6-88c1-d294573a0556 roomId=1de13b3e-ba94-49bf-b611-582ef3f39ab9
+11-19 10:26:18.009 I/DIBAY_NATIVE_CALL(10441): [DIBAY_NATIVE_CALL] visible_surface_released callId=9b31ad4c-be1e-42b7-a9e6-180142d61fae mediaType=voice state=preparing reason=preparing_bound
+11-19 10:26:18.009 I/DIBAY_NATIVE_CALL(10441): [DIBAY_NATIVE_CALL] visible_surface_owner_claimed callId=17b42c71-c28c-42a6-88c1-d294573a0556 mediaType=voice state=dialing
+11-19 10:26:18.011 I/ActivityManager( 1849): Background started FGS: Allowed [callingPackage: com.dibay.app; callingUid: 10504; uidState: TOP ; uidBFSL: [BFSL]; intent: Intent { act=com.dibay.app.nativevoice.CONNECTING xflg=0x4 cmp=com.dibay.app/.nativevoice.NativeVoiceCallService (has extras) }; code:PROC_STATE_TOP; tempAllowListReason:<7d590dd com.google.android.c2dm.intent.RECEIVE/u0,reasonCode:PUSH_MESSAGING,duration:20000,callingUid:10230>; allowWiu:12; targetSdkVersion:36; callerTargetSdkVersion:36; startForegroundCount:0; bindFromPackage:null: isBindService:false]
+11-19 10:26:18.023 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] native_voice_pip_params_set callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=state_connecting autoEnter=false
+11-19 10:26:18.029 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] token_fetch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:18.035 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] audio_route_applied callId=17b42c71-c28c-42a6-88c1-d294573a0556 focus=voice
+11-19 10:26:18.301 I/DIBAY_CALL(10441): [DIBAY_CALL] native_outgoing_ringback_config_fetch_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=network hasVoiceUrl=true hasVideoUrl=true voiceMode=custom videoMode=custom
+11-19 10:26:18.533 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] token_fetch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:26:18.533 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] native_engine_guard_start callId=17b42c71-c28c-42a6-88c1-d294573a0556 lane=voice
+11-19 10:26:18.533 I/DIBAY_NATIVE_CALL(10441): [DIBAY_NATIVE_CALL] engine_release_start lane=voice token=5 epoch=4 reason=stale_engine_zombie
+11-19 10:26:18.534 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] native_stale_engine_detected callId=17b42c71-c28c-42a6-88c1-d294573a0556 kind=zombie lane=voice
+11-19 10:26:18.534 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] native_stale_engine_cleanup_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 kind=zombie lane=voice
+11-19 10:26:18.534 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] native_engine_guard_proceed callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:18.534 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] before_agora_leave callId=zombie thread=dibay-voice-agora-destroy
+11-19 10:26:18.534 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] caller_agora_native_join_start callId=17b42c71-c28c-42a6-88c1-d294573a0556 channel=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:18.535 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] agora_leave_await_join callId=17b42c71-c28c-42a6-88c1-d294573a0556 thread=Thread-264
+11-19 10:26:18.536 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] after_agora_leave callId=zombie thread=dibay-voice-agora-destroy
+11-19 10:26:18.536 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] before_agora_destroy callId=zombie thread=dibay-voice-agora-destroy
+11-19 10:26:18.627 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] after_agora_destroy callId=zombie thread=dibay-voice-agora-destroy
+11-19 10:26:18.627 I/DIBAY_NATIVE_CALL(10441): [DIBAY_NATIVE_CALL] engine_release_complete lane=voice token=5 epoch=5
+11-19 10:26:18.629 I/DIBAY_NATIVE_CALL(10441): [DIBAY_NATIVE_CALL] engine_owner_acquired lane=voice callId=17b42c71-c28c-42a6-88c1-d294573a0556 epoch=5
+11-19 10:26:18.718 I/DIBAY_CALL(10441): [DIBAY_CALL] native_outgoing_ringback_route_pin callId=17b42c71-c28c-42a6-88c1-d294573a0556 api=preferredDevice result=ok
+11-19 10:26:18.718 I/DIBAY_CALL(10441): [DIBAY_CALL] ringback_route callId=17b42c71-c28c-42a6-88c1-d294573a0556 media=voice route=earpiece
+11-19 10:26:18.721 I/DIBAY_CALL(10441): [DIBAY_CALL] native_outgoing_ringback_start callId=17b42c71-c28c-42a6-88c1-d294573a0556 mediaType=voice source=custom_url deduped=false
+11-19 10:26:18.754 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] engine_created callId=17b42c71-c28c-42a6-88c1-d294573a0556 epoch=5
+11-19 10:26:18.755 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] native_voice_mic_mute_reset callId=17b42c71-c28c-42a6-88c1-d294573a0556 result=0
+11-19 10:26:18.756 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] audio_route_applied callId=17b42c71-c28c-42a6-88c1-d294573a0556 speaker=false
+11-19 10:26:18.756 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] local_audio_publish_success callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:18.769 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] agora_connection_state callId=17b42c71-c28c-42a6-88c1-d294573a0556 state=2 reason=0
+11-19 10:26:18.938 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] agora_native_join_success callId=17b42c71-c28c-42a6-88c1-d294573a0556 channel=17b42c71-c28c-42a6-88c1-d294573a0556 uid=1000000081
+11-19 10:26:18.938 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] caller_agora_local_join_success callId=17b42c71-c28c-42a6-88c1-d294573a0556 awaiting_remote_user
+11-19 10:26:18.939 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] agora_connection_state callId=17b42c71-c28c-42a6-88c1-d294573a0556 state=3 reason=1
+11-19 10:26:19.084 I/DIBAY_NATIVE_VOICE(10441): [DIBAY_NATIVE_VOICE] audio_route_changed callId=17b42c71-c28c-42a6-88c1-d294573a0556 routing=1
+11-19 10:26:25.413 I/ActivityManager( 1849): Force stopping com.dibay.app appid=10504 user=0: from pid 23273
+11-19 10:26:25.422 I/ActivityManager( 1849): Killing 10441:com.dibay.app/u0a504 (adj 0): stop com.dibay.app due to from pid 23273
+11-19 10:26:25.435 D/ActivityManager( 1849): proc ProcessRecord{5d931b4 10441:com.dibay.app/u0a504} already removed. so we skip next process.
+11-19 10:26:25.588 V/ActivityManager( 1849): Got obituary of 10441:com.dibay.app
+11-19 10:27:03.431 I/ActivityManager( 1849): Start proc 23497:com.dibay.app/u0a504 for next-top-activity {com.dibay.app/com.dibay.app.MainActivity}
+11-19 10:27:04.367 I/ActivityManager( 1849): Start proc 23558:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0i278 for  {com.dibay.app/org.chromium.content.app.SandboxedProcessService0:0}
+11-19 10:27:26.329 I/DIBAY_WebView(23497): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/70a235904d2757d7.js?dpl=dpl_fygpV71VAXCU9Uwhu4E9mknYEQyj msg=[DIBAY_CALL] permission_check_start [object Object]
+11-19 10:27:26.329 I/Capacitor/Console(23497): File: https://samarket.vercel.app/_next/static/chunks/70a235904d2757d7.js?dpl=dpl_fygpV71VAXCU9Uwhu4E9mknYEQyj - Line 1 - Msg: [DIBAY_CALL] permission_check_start [object Object]
+11-19 10:27:26.342 I/DIBAY_WebView(23497): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/70a235904d2757d7.js?dpl=dpl_fygpV71VAXCU9Uwhu4E9mknYEQyj msg=[DIBAY_CALL] permission_check_result [object Object]
+11-19 10:27:26.342 I/Capacitor/Console(23497): File: https://samarket.vercel.app/_next/static/chunks/70a235904d2757d7.js?dpl=dpl_fygpV71VAXCU9Uwhu4E9mknYEQyj - Line 1 - Msg: [DIBAY_CALL] permission_check_result [object Object]
+11-19 10:27:26.352 I/DIBAY_NATIVE_VOICE(23497): [DIBAY_NATIVE_VOICE] native_voice_flag_enabled callId=unknown
+11-19 10:27:26.352 I/DIBAY_NATIVE_VOICE(23497): [DIBAY_NATIVE_VOICE] outgoing_preparing_start callId=9429ed3e-853a-48bb-a720-81f4075f181a roomId=1de13b3e-ba94-49bf-b611-582ef3f39ab9 peer=zxzx11
+11-19 10:27:26.356 I/DIBAY_NATIVE_CALL(23497): [DIBAY_NATIVE_CALL] visible_surface_owner_claimed callId=9429ed3e-853a-48bb-a720-81f4075f181a mediaType=voice state=preparing
+11-19 10:27:26.356 I/DIBAY_NATIVE_VOICE(23497): [DIBAY_NATIVE_VOICE] native_preparing_surface_start callId=9429ed3e-853a-48bb-a720-81f4075f181a
+11-19 10:27:26.378 I/DIBAY_NATIVE_VOICE(23497): [DIBAY_NATIVE_VOICE] native_preparing_surface_shown callId=9429ed3e-853a-48bb-a720-81f4075f181a
+11-19 10:27:26.454 I/DIBAY_NATIVE_VOICE(23497): [DIBAY_NATIVE_VOICE] call_screen_keep_awake_on callId=9429ed3e-853a-48bb-a720-81f4075f181a source=create pip=false dock=false
+11-19 10:27:26.506 I/DIBAY_NATIVE_VOICE(23497): [DIBAY_NATIVE_VOICE] native_preparing_surface_shown callId=9429ed3e-853a-48bb-a720-81f4075f181a
+11-19 10:27:26.509 I/DIBAY_NATIVE_VOICE(23497): [DIBAY_NATIVE_VOICE] native_voice_back_callback_registered callId=9429ed3e-853a-48bb-a720-81f4075f181a state=CONNECTING
+11-19 10:27:27.723 I/DIBAY_NATIVE_VOICE(23497): [DIBAY_NATIVE_VOICE] outgoing_preparing_finish callId=9429ed3e-853a-48bb-a720-81f4075f181a
+11-19 10:27:27.723 I/DIBAY_NATIVE_CALL(23497): [DIBAY_NATIVE_CALL] visible_surface_released callId=9429ed3e-853a-48bb-a720-81f4075f181a mediaType=voice state=preparing reason=preparing_finished
+11-19 10:27:28.475 I/DIBAY_NATIVE_VOICE(23497): [DIBAY_NATIVE_VOICE] native_voice_preparing_surface_lost_kept callId=9429ed3e-853a-48bb-a720-81f4075f181a

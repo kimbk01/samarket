@@ -151,7 +151,10 @@ describe("connected poll / reason contracts (T6–T9 source)", () => {
   // T8
   it("T8 stale-active reconcile writer uses reconcile_stale_active; ringing uses missed", () => {
     const service = readFileSync(join(ROOT, "lib/community-messenger/service.ts"), "utf8");
-    expect(service).toContain('status === "ringing" ? "reconcile_stale_ringing" : "reconcile_stale_active"');
+    // 2026-11-19 고스트 1단계: 미디어 미연결 분기(failed_network)가 사이에 들어감 — 벨·양쪽 끊김 사유는 그대로.
+    expect(service).toMatch(
+      /status === "ringing"\s*\?\s*"reconcile_stale_ringing"\s*:\s*mediaNeverConnected\s*\?\s*CALL_MEDIA_NEVER_CONNECTED_ENDED_REASON\s*:\s*"reconcile_stale_active"/,
+    );
     expect(service).toContain('status === "ringing" ? "missed" : "end"');
     expect(service).toContain("canEndActiveCallForPresenceStale");
   });

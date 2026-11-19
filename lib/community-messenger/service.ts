@@ -311,7 +311,10 @@ import {
   normalizeAnswerClaimDeviceId,
 } from "@/lib/community-messenger/call-multi-device-authority";
 import { resolveAuthoritativeCallDurationSeconds } from "@/lib/community-messenger/call-authority/call-duration-authority";
-import { evaluateConnectedProposal } from "@/lib/community-messenger/call-authority/call-connected-authority";
+import {
+  evaluateConnectedProposal,
+  isConnectedProposalAuditOnly,
+} from "@/lib/community-messenger/call-authority/call-connected-authority";
 import {
   CALL_STUB_NO_ACTIVE_SENDER_ERROR,
   pickActiveCallStubSender,
@@ -367,8 +370,10 @@ import {
 } from "@/lib/community-messenger/call-waiting-capability";
 import type { CallSessionResolvedEvent } from "@/lib/community-messenger/call-event-message";
 import {
+  CALL_MEDIA_NEVER_CONNECTED_ENDED_REASON,
   canEndActiveCallForPresenceStale,
   evaluateActiveCallPresenceDetail,
+  isActiveCallMediaNeverConnected,
   isActiveCallProtectedFromRedialReplace,
   shadowPresenceLeaseUntilIso,
 } from "@/lib/call/call-active-presence";
@@ -967,6 +972,7 @@ type LiveReconcileRow = {
   initiator_user_id: string | null;
   recipient_user_id: string | null;
   session_mode: CommunityMessengerCallSessionMode | null;
+  connected_at?: string | null;
   caller_last_heartbeat_at?: string | null;
   callee_last_heartbeat_at?: string | null;
   caller_presence_lease_until?: string | null;
@@ -1016,7 +1022,7 @@ export async function reconcileUserLiveCallSessions(
   const { data, error } = await (sb as any)
     .from("community_messenger_call_sessions")
     .select(
-      "id, status, started_at, answered_at, ended_at, updated_at, initiator_user_id, recipient_user_id, session_mode, created_at, caller_last_heartbeat_at, callee_last_heartbeat_at, caller_presence_lease_until, callee_presence_lease_until"
+      "id, status, started_at, answered_at, connected_at, ended_at, updated_at, initiator_user_id, recipient_user_id, session_mode, created_at, caller_last_heartbeat_at, callee_last_heartbeat_at, caller_presence_lease_until, callee_presence_lease_until"
     )
     .eq("session_mode", "direct")
     .or(`initiator_user_id.eq.${uid},recipient_user_id.eq.${uid}`)
@@ -1032,8 +1038,10 @@ export async function reconcileUserLiveCallSessions(
     if (!sid) continue;
     const status = trimText(row.status);
     const staleRinging = isStaleRingingRow({ status, started_at: row.started_at }, policy);
-    const staleActive = isStaleActiveRowForReconcile(row);
-    if (!staleRinging && !staleActive) continue;
+    // 고스트 통화: 수락 후 30초 지나도 미디어 연결 0 → 생존 신호와 무관하게 연결 실패로 종료(설계 S3).
+    const mediaNeverConnected = !staleRinging && isActiveCallMediaNeverConnected(row);
+    const staleActive = !mediaNeverConnected && isStaleActiveRowForReconcile(row);
+    if (!staleRinging && !staleActive && !mediaNeverConnected) continue;
 
     // CUT2: expired ringing → always missed (never cancel). Cancel = explicit caller intent only.
     const action: "missed" | "end" = status === "ringing" ? "missed" : "end";
@@ -1042,7 +1050,11 @@ export async function reconcileUserLiveCallSessions(
       sessionId: sid,
       action,
       clientEndedReason:
-        status === "ringing" ? "reconcile_stale_ringing" : "reconcile_stale_active",
+        status === "ringing"
+          ? "reconcile_stale_ringing"
+          : mediaNeverConnected
+            ? CALL_MEDIA_NEVER_CONNECTED_ENDED_REASON
+            : "reconcile_stale_active",
     }).catch(() => ({ ok: false as const }));
     if (patched.ok) reconciled += 1;
   }
@@ -21857,6 +21869,25 @@ export async function updateCommunityMessengerCallSession(input: {
           );
           return { ok: true, session: mapped };
         }
+        if (isConnectedProposalAuditOnly(session.session_mode)) {
+          // 1:1 — 제안(상대 입장 증거 없음)은 기록만. connected_at 은 action=media_connected 만 쓴다
+          // (docs/audit/call-ghost-peer-never-joined-design-2026-11-19.md S1).
+          await appendCommunityMessengerCallSessionEvent(sb, {
+            sessionId,
+            actorUserId: input.userId,
+            eventType: "connected",
+            payload: { source: "session_patch", evidence: "client_connected_proposal", stamped: false },
+          });
+          const mapped = await mapCallSession(
+            input.userId,
+            session,
+            undefined,
+            undefined,
+            undefined,
+            "labels_only",
+          );
+          return { ok: true, session: mapped };
+        }
         const now = nowIso();
         const { data: updated, error: connectedErr } = await (sb as any)
           .from("community_messenger_call_sessions")
@@ -22691,7 +22722,7 @@ export async function updateCommunityMessengerCallSession(input: {
       requestDeviceId: input.answeredDeviceId,
     });
     if (!decision.ok) return { ok: false, error: decision.error };
-    if (decision.kind === "idempotent") {
+    if (decision.kind === "idempotent" || isConnectedProposalAuditOnly(session.sessionMode)) {
       return { ok: true, session: await mapCallSession(input.userId, session) };
     }
     session.connectedAt = nowIso();

@@ -1,0 +1,293 @@
+11-19 10:26:24.366 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] accept_tapped callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:24.366 I/DIBAY_CALL(20421): [DIBAY_CALL] terminal_tombstone_mark callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=accepted
+11-19 10:26:24.367 I/DIBAY_CALL(20421): [DIBAY_CALL] incoming_consumed callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=native_store reason=accepted
+11-19 10:26:24.394 I/DIBAY_CALL(20421): [DIBAY_CALL] ring_stop callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=native_foreground
+11-19 10:26:24.394 I/DIBAY_CALL(20421): [DIBAY_CALL] native_call_ringtone_stop_release callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:24.395 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] incoming_notification_cancel_start callId=17b42c71-c28c-42a6-88c1-d294573a0556 notificationId=94084
+11-19 10:26:24.403 W/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] incoming_notification_cancel_failed callId=17b42c71-c28c-42a6-88c1-d294573a0556 notificationId=94084
+11-19 10:26:24.404 I/DIBAY_CALL(20421): [DIBAY_CALL] notification_cancel callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:24.413 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] accept_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:24.424 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] audio_route_applied callId=17b42c71-c28c-42a6-88c1-d294573a0556 focus=voice
+11-19 10:26:24.903 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] accept_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:26:24.910 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] token_fetch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:25.089 I/DIBAY_FCM(20421): [DIBAY_CALL] answered_elsewhere_ignored_winner callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:25.196 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] token_fetch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:26:25.197 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] native_engine_guard_start callId=17b42c71-c28c-42a6-88c1-d294573a0556 lane=voice
+11-19 10:26:25.197 I/DIBAY_NATIVE_CALL(20421): [DIBAY_NATIVE_CALL] engine_release_start lane=voice token=9 epoch=8 reason=stale_engine_zombie
+11-19 10:26:25.197 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] native_stale_engine_detected callId=17b42c71-c28c-42a6-88c1-d294573a0556 kind=zombie lane=voice
+11-19 10:26:25.197 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] native_stale_engine_cleanup_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 kind=zombie lane=voice
+11-19 10:26:25.197 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] native_engine_guard_proceed callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:25.198 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] agora_native_join_start callId=17b42c71-c28c-42a6-88c1-d294573a0556 channel=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:25.198 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] before_agora_leave callId=zombie thread=dibay-voice-agora-destroy
+11-19 10:26:25.199 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] agora_leave_await_join callId=17b42c71-c28c-42a6-88c1-d294573a0556 thread=Thread-262
+11-19 10:26:25.199 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] after_agora_leave callId=zombie thread=dibay-voice-agora-destroy
+11-19 10:26:25.199 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] before_agora_destroy callId=zombie thread=dibay-voice-agora-destroy
+11-19 10:26:25.307 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] after_agora_destroy callId=zombie thread=dibay-voice-agora-destroy
+11-19 10:26:25.308 I/DIBAY_NATIVE_CALL(20421): [DIBAY_NATIVE_CALL] engine_release_complete lane=voice token=9 epoch=9
+11-19 10:26:25.308 I/DIBAY_NATIVE_CALL(20421): [DIBAY_NATIVE_CALL] engine_owner_acquired lane=voice callId=17b42c71-c28c-42a6-88c1-d294573a0556 epoch=9
+11-19 10:26:25.428 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] engine_created callId=17b42c71-c28c-42a6-88c1-d294573a0556 epoch=9
+11-19 10:26:25.431 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] native_voice_mic_mute_reset callId=17b42c71-c28c-42a6-88c1-d294573a0556 result=0
+11-19 10:26:25.432 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] audio_route_applied callId=17b42c71-c28c-42a6-88c1-d294573a0556 speaker=false
+11-19 10:26:25.448 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] agora_connection_state callId=17b42c71-c28c-42a6-88c1-d294573a0556 state=2 reason=0
+11-19 10:26:25.602 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] audio_route_changed callId=17b42c71-c28c-42a6-88c1-d294573a0556 routing=1
+11-19 10:26:25.624 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] agora_native_join_success callId=17b42c71-c28c-42a6-88c1-d294573a0556 channel=17b42c71-c28c-42a6-88c1-d294573a0556 uid=1000000088
+11-19 10:26:25.625 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_start callId=17b42c71-c28c-42a6-88c1-d294573a0556 intervalMs=10000
+11-19 10:26:25.625 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:25.625 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] presence_renew_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:25.626 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] state_connected callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:25.634 I/DIBAY_NATIVE_CALL(20421): [DIBAY_NATIVE_CALL] incoming_surface_closed_on_connected callId=17b42c71-c28c-42a6-88c1-d294573a0556 mediaType=voice
+11-19 10:26:25.634 I/DIBAY_NATIVE_CALL(20421): [DIBAY_NATIVE_CALL] connected_surface_shown callId=17b42c71-c28c-42a6-88c1-d294573a0556 mediaType=voice
+11-19 10:26:25.637 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] native_connected_emit callId=17b42c71-c28c-42a6-88c1-d294573a0556 runtime=native_voice direction=incoming
+11-19 10:26:25.637 I/DIBAY_CALL(20421): [DIBAY_CALL] active_call_connected callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=bind_active
+11-19 10:26:25.637 I/DIBAY_CALL(20421): [DIBAY_CALL] active_call_phase IDLE -> CONNECTED source=bind_active
+11-19 10:26:25.639 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] agora_connection_state callId=17b42c71-c28c-42a6-88c1-d294573a0556 state=3 reason=1
+11-19 10:26:25.639 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] native_voice_pip_params_set callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=state_connected autoEnter=true
+11-19 10:26:25.649 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] incoming_notification_cancel_start callId=17b42c71-c28c-42a6-88c1-d294573a0556 notificationId=94084
+11-19 10:26:25.661 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] incoming_notification_cancel_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 notificationId=94084
+11-19 10:26:25.670 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_heartbeat_watchdog_start [object Object]
+11-19 10:26:25.670 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_heartbeat_watchdog_start [object Object]
+11-19 10:26:25.671 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:26:25.671 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:26:25.684 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] audio_route_applied callId=17b42c71-c28c-42a6-88c1-d294573a0556 focus=voice
+11-19 10:26:25.965 I/DIBAY_NATIVE_CALL(20421): [DIBAY_NATIVE_CALL] notification_visual_suppressed_connected callId=17b42c71-c28c-42a6-88c1-d294573a0556 mediaType=voice
+11-19 10:26:25.999 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] presence_renew_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:26:26.030 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:26:26.030 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=immediate_connected
+11-19 10:26:26.050 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:26:26.051 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:26:36.031 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:36.503 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:26:36.503 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:26:36.605 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:26:36.605 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:26:37.085 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:26:37.087 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:26:46.505 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:46.605 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:26:46.606 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:26:46.933 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:26:46.933 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:26:47.127 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:26:47.127 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:26:56.604 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:26:56.605 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:26:56.934 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:26:57.062 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:26:57.063 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:26:57.331 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:26:57.331 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:27:06.605 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:27:06.606 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:27:07.112 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:27:07.113 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:27:07.333 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:27:07.742 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:27:07.742 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:27:16.605 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:27:16.606 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:27:17.212 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:27:17.213 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:27:17.751 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:27:18.149 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:27:18.149 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:27:28.150 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:27:28.564 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:27:28.565 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:27:38.565 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:27:39.015 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:27:39.015 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:27:49.017 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:27:49.455 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:27:49.455 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:27:59.457 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:28:00.180 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:28:00.180 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:28:10.182 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:28:10.638 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:28:10.638 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:28:20.640 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:28:21.348 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:28:21.348 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:28:31.350 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:28:32.053 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:28:32.053 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:28:42.054 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:28:42.574 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:28:42.574 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:28:52.576 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:28:53.167 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:28:53.167 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:28:56.001 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] presence_renew_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:28:56.439 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] presence_renew_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:29:03.168 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:29:03.638 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:29:03.638 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:29:13.641 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:29:14.131 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:29:14.132 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:29:24.133 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:29:24.808 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:29:24.809 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:29:34.810 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:29:35.314 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:29:35.314 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:29:45.316 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:29:45.859 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:29:45.859 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:29:55.860 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:29:56.332 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:29:56.332 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:30:06.334 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:30:06.780 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:30:06.780 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:30:16.782 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:30:17.558 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:30:17.558 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:30:27.560 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:30:28.122 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:30:28.122 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:30:38.124 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:30:38.585 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:30:38.585 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:30:48.587 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:30:49.191 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:30:49.192 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:30:59.194 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:30:59.860 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:30:59.861 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:31:09.862 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:31:10.400 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:31:10.400 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:31:20.401 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:31:20.922 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:31:20.923 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:31:26.440 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] presence_renew_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:31:26.917 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] presence_renew_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:31:30.925 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:31:31.377 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:31:31.378 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:31:41.380 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:31:42.108 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:31:42.109 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:31:52.110 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:31:52.594 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:31:52.594 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:31:55.042 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] native_voice_pip_params_set callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=app_return_open autoEnter=true
+11-19 10:31:55.043 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] native_voice_app_return_open callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=minimize_button
+11-19 10:31:55.127 I/DIBAY_CALL(20421): [DIBAY_CALL] native_call_app_return callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=minimize_button via=start_activity_open
+11-19 10:31:55.311 I/DIBAY_CALL(20421): [DIBAY_CALL] native_call_app_return_confirmed callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=minimize_button afterMs=268
+11-19 10:31:55.313 I/DIBAY_CALL(20421): [DIBAY_CALL] active_call_resume_check callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=foreground
+11-19 10:31:55.313 I/DIBAY_CALL(20421): [DIBAY_CALL] active_call_phase CONNECTED -> REENTERING source=app_foreground
+11-19 10:31:55.313 I/DIBAY_CALL(20421): [DIBAY_CALL] active_call_resume_found callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=foreground
+11-19 10:31:55.313 I/DIBAY_CALL(20421): [DIBAY_CALL] active_call_phase REENTERING -> CONNECTED source=reenter_complete
+11-19 10:31:55.313 I/DIBAY_CALL(20421): [DIBAY_CALL] active_call_screen_restored callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=foreground
+11-19 10:31:56.271 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:31:56.272 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:31:56.383 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] call_screen_keep_awake_off callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=pip_entered pip=true dock=false
+11-19 10:31:56.383 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] native_voice_pip_entered callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:31:56.383 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] native_voice_auto_pip_entered callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=minimize_button
+11-19 10:31:56.747 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:31:56.747 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:32:02.611 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:32:03.065 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:32:03.065 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:32:05.666 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:32:05.666 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:32:06.982 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:32:06.982 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:32:13.073 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:32:13.717 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:32:13.717 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:32:15.674 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:32:15.674 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:32:16.137 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:32:16.138 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:32:23.728 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:32:24.264 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:32:24.265 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:32:25.668 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:32:25.669 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:32:25.997 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:32:25.998 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:32:34.265 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:32:34.715 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:32:34.715 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:32:35.664 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:32:35.664 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:32:36.084 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:32:36.084 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:32:44.715 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:32:45.664 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:32:45.665 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:32:46.561 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:32:46.562 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:32:47.329 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:32:47.329 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:32:55.664 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:32:55.664 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:32:56.187 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:32:56.188 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:32:56.562 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:32:56.974 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:32:56.974 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:33:03.768 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] call_screen_keep_awake_on callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=pip_exited pip=false dock=false
+11-19 10:33:03.768 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] native_voice_pip_exited callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:33:04.559 I/DIBAY_CALL(20421): [DIBAY_CALL] active_call_phase CONNECTED -> BACKGROUNDED source=app_background
+11-19 10:33:04.559 I/DIBAY_CALL(20421): [DIBAY_CALL] call_lifecycle_background_keep_alive callId=17b42c71-c28c-42a6-88c1-d294573a0556 phase=BACKGROUNDED
+11-19 10:33:06.601 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:33:06.601 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_heartbeat_ping [object Object]
+11-19 10:33:06.974 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:33:07.124 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:33:07.124 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] heartbeat_patch_ok [object Object]
+11-19 10:33:07.379 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] active_heartbeat_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:33:07.379 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_ok callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=periodic
+11-19 10:33:13.010 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] end_tapped callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=ui
+11-19 10:33:13.010 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] termination_decision callId=17b42c71-c28c-42a6-88c1-d294573a0556 cause=USER_END phase=CONNECTED action=end decision=TERMINATE
+11-19 10:33:13.010 I/DibayNativeActiveHeartbeat(20421): active_heartbeat_stop callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=ending
+11-19 10:33:13.021 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] native_voice_pip_params_set callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=state_ending autoEnter=false
+11-19 10:33:13.030 I/DIBAY_CALL(20421): [DIBAY_CALL] terminal_tombstone_mark callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=end
+11-19 10:33:13.030 I/DIBAY_CALL(20421): [DIBAY_CALL] incoming_consumed callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=native_store reason=end
+11-19 10:33:13.047 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] agora_leave_scheduled callId=17b42c71-c28c-42a6-88c1-d294573a0556 thread=main reason=ending_media_release destroy=false
+11-19 10:33:13.047 I/DIBAY_NATIVE_CALL(20421): [DIBAY_NATIVE_CALL] engine_owner_released lane=voice callId=17b42c71-c28c-42a6-88c1-d294573a0556 epoch=9
+11-19 10:33:13.047 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] agora_native_disconnected callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=ending_media_release
+11-19 10:33:13.047 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] end_patch_start callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:33:13.052 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] before_agora_leave callId=17b42c71-c28c-42a6-88c1-d294573a0556 thread=dibay-voice-agora-leave
+11-19 10:33:13.055 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] after_agora_leave callId=17b42c71-c28c-42a6-88c1-d294573a0556 thread=dibay-voice-agora-leave
+11-19 10:33:13.160 I/DIBAY_CALL(20421): [DIBAY_CALL] active_call_phase BACKGROUNDED -> REENTERING source=app_foreground
+11-19 10:33:13.160 I/DIBAY_CALL(20421): [DIBAY_CALL] active_call_phase REENTERING -> CONNECTED source=reenter_complete
+11-19 10:33:14.236 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] termination_decision callId=17b42c71-c28c-42a6-88c1-d294573a0556 cause=SURFACE_LOST phase=TERMINAL kind=surface_lost source=activity_destroyed decision=CONVERGE
+11-19 10:33:14.236 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] runtime_cleanup_start callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=surface_lost
+11-19 10:33:14.236 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] agora_leave_async callId=17b42c71-c28c-42a6-88c1-d294573a0556 thread=main
+11-19 10:33:14.237 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] incoming_notification_cancel_start callId=17b42c71-c28c-42a6-88c1-d294573a0556 notificationId=94084
+11-19 10:33:14.245 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] incoming_notification_cancel_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 notificationId=94084
+11-19 10:33:14.245 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] native_call_service_stop callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=surface_lost
+11-19 10:33:14.251 I/DIBAY_CALL(20421): [DIBAY_CALL] native_call_ringtone_stop_release callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:33:14.251 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] cleanup_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=surface_lost
+11-19 10:33:14.251 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] owner_released callId=17b42c71-c28c-42a6-88c1-d294573a0556 owner=native_voice reason=surface_lost
+11-19 10:33:14.251 I/DIBAY_NATIVE_CALL(20421): [DIBAY_NATIVE_CALL] visible_surface_released callId=17b42c71-c28c-42a6-88c1-d294573a0556 mediaType=voice state=connected reason=surface_lost
+11-19 10:33:14.456 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] end_patch_done callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=200
+11-19 10:33:14.457 I/DIBAY_NATIVE_VOICE(20421): [DIBAY_NATIVE_VOICE] runtime_cleanup_idempotent_skip callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=end
+11-19 10:33:15.016 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_heartbeat_watchdog_stop [object Object]
+11-19 10:33:15.017 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_heartbeat_watchdog_stop [object Object]
+11-19 10:33:15.064 I/DIBAY_CALL(20421): [DIBAY_CALL] active_call_phase IDLE -> LOCAL_ENDING source=ended
+11-19 10:33:15.065 I/DIBAY_CALL(20421): [DIBAY_CALL] active_call_cleanup callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=ended
+11-19 10:33:15.087 I/DIBAY_CALL(20421): [DIBAY_CALL] native_call_ringtone_stop_release callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:33:15.096 I/DIBAY_CALL(20421): [DIBAY_CALL] route_latch_cleared callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=native_router
+11-19 10:33:15.096 I/DIBAY_CALL(20421): [DIBAY_CALL] call_end_signal_sent callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=ended
+11-19 10:33:15.096 I/DIBAY_CALL(20421): [DIBAY_CALL] call_end_signal_sent callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:33:15.098 I/DIBAY_CALL(20421): [DIBAY_CALL] foreground_service_stopped callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=ended
+11-19 10:33:15.099 I/DIBAY_CALL(20421): [DIBAY_CALL] call_service_stop callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=ended
+11-19 10:33:15.107 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_service_stop [object Object]
+11-19 10:33:15.108 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_service_stop [object Object]
+11-19 10:33:15.108 I/DIBAY_WebView(20421): webview_console_message level=LOG line=1 source=https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 msg=[DIBAY_CALL] call_end_sent_to_peer [object Object]
+11-19 10:33:15.109 I/Capacitor/Console(20421): File: https://samarket.vercel.app/_next/static/chunks/29c15e1ca27dee3f.js?dpl=dpl_Ry6SLfXxQauVSWvnzFEbQj5rjTa6 - Line 1 - Msg: [DIBAY_CALL] call_end_sent_to_peer [object Object]
+11-19 10:33:15.120 I/DIBAY_CALL(20421): [DIBAY_CALL] terminal_tombstone_mark callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=ended
+11-19 10:33:15.120 I/DIBAY_CALL(20421): [DIBAY_CALL] incoming_consumed callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=native_store reason=ended
+11-19 10:33:15.127 I/DIBAY_CALL(20421): [DIBAY_CALL] native_call_ringtone_stop_release callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:33:15.127 I/DIBAY_CALL(20421): [DIBAY_CALL] terminal_received callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=ended source=webview_inject
+11-19 10:33:15.134 I/DIBAY_CALL(20421): [DIBAY_CALL] active_call_phase IDLE -> LOCAL_ENDING source=call_v4_terminal_finalize
+11-19 10:33:15.146 I/DIBAY_CALL(20421): [DIBAY_CALL] call_end_signal_sent callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:33:15.150 I/DIBAY_CALL(20421): [DIBAY_CALL] terminal_tombstone_mark callId=17b42c71-c28c-42a6-88c1-d294573a0556 reason=ended
+11-19 10:33:15.150 I/DIBAY_CALL(20421): [DIBAY_CALL] incoming_consumed callId=17b42c71-c28c-42a6-88c1-d294573a0556 source=native_store reason=ended
+11-19 10:33:15.155 I/DIBAY_CALL(20421): [DIBAY_CALL] native_call_ringtone_stop_release callId=17b42c71-c28c-42a6-88c1-d294573a0556
+11-19 10:33:15.155 I/DIBAY_CALL(20421): [DIBAY_CALL] terminal_received callId=17b42c71-c28c-42a6-88c1-d294573a0556 status=ended source=webview_inject

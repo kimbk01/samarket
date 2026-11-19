@@ -18,8 +18,10 @@ import {
   type CallSessionHeartbeatRow,
 } from "@/lib/call/call-server-heartbeat";
 import {
+  CALL_MEDIA_NEVER_CONNECTED_ENDED_REASON,
   canEndActiveCallForPresenceStale,
   evaluateActiveCallPresenceDetail,
+  isActiveCallMediaNeverConnected,
   shadowPresenceLeaseUntilIso,
 } from "@/lib/call/call-active-presence";
 import { getCommunityMessengerCallSessionById } from "@/lib/community-messenger/service";
@@ -135,7 +137,10 @@ export async function heartbeatCommunityMessengerCallSession(input: {
   return session ? { ok: true, session } : { ok: false, error: "map_failed" };
 }
 
-async function endStaleCallSessionWithPeerNotify(row: CallSessionHeartbeatRow): Promise<boolean> {
+async function endStaleCallSessionWithPeerNotify(
+  row: CallSessionHeartbeatRow,
+  clientEndedReason: string = CALL_SERVER_HEARTBEAT_ENDED_REASON,
+): Promise<boolean> {
   const sid = trimText(row.id);
   const initiator = trimText(row.initiator_user_id);
   if (!sid || !initiator) return false;
@@ -146,35 +151,45 @@ async function endStaleCallSessionWithPeerNotify(row: CallSessionHeartbeatRow): 
     userId: initiator,
     sessionId: sid,
     action: "end",
-    clientEndedReason: CALL_SERVER_HEARTBEAT_ENDED_REASON,
+    clientEndedReason,
   });
   return result.ok;
 }
 
-/** Cron/job — end active sessions only when Presence SSOT = STALE (both peers stale). */
+/**
+ * Cron/job — end active sessions when
+ * ① Presence SSOT = STALE (both peers stale) → heartbeat_timeout, or
+ * ② 1:1 통화가 수락 후 30초 지나도 미디어 연결 0(고스트) → failed_network (설계 S4).
+ */
 export async function cleanupStaleActiveCommunityMessengerCallSessions(): Promise<{ ended: number }> {
   const sb = resolveServiceSupabaseForApi();
   if (!sb) return { ended: 0 };
 
+  // heartbeat 가 비어 있는 행은 ① 에서 UNKNOWN(종료 안 함)이라 조회 조건에서 빼지 않는다 — ② 대상 포함.
   const { data: rows } = await (sb as any)
     .from("community_messenger_call_sessions")
     .select(
-      "id, status, initiator_user_id, recipient_user_id, answered_at, ended_at, caller_last_heartbeat_at, callee_last_heartbeat_at, caller_presence_lease_until, callee_presence_lease_until",
+      "id, status, session_mode, initiator_user_id, recipient_user_id, answered_at, connected_at, ended_at, caller_last_heartbeat_at, callee_last_heartbeat_at, caller_presence_lease_until, callee_presence_lease_until",
     )
-    .eq("status", "active")
-    .not("caller_last_heartbeat_at", "is", null)
-    .not("callee_last_heartbeat_at", "is", null);
+    .eq("status", "active");
 
   let ended = 0;
   const nowMs = Date.now();
   for (const row of (rows ?? []) as Array<
     CallSessionHeartbeatRow & {
       status?: string | null;
+      session_mode?: string | null;
+      connected_at?: string | null;
       ended_at?: string | null;
       caller_presence_lease_until?: string | null;
       callee_presence_lease_until?: string | null;
     }
   >) {
+    if (isActiveCallMediaNeverConnected(row, nowMs)) {
+      const ok = await endStaleCallSessionWithPeerNotify(row, CALL_MEDIA_NEVER_CONNECTED_ENDED_REASON);
+      if (ok) ended += 1;
+      continue;
+    }
     const presenceRow = {
       status: row.status ?? "active",
       answered_at: row.answered_at,
