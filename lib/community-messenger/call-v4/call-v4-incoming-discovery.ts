@@ -499,7 +499,14 @@ export function startCallV4IncomingDiscovery(
       void tryPrimeCallV4WebIncomingOwner(callId, "poll_discovery").then(() => {
         if (cancelled) return;
         const after = shouldDiscoverCallV4IncomingForWebSheet(callId);
-        if (after.discover) discoverCallV4IncomingSessionIfWebOwner(candidate);
+        if (!after.discover) return;
+        discoverCallV4IncomingSessionIfWebOwner(candidate);
+        /**
+         * F7-b (docs/audit/supabase-request-surge-2026-11-18/f7b-ringing-poll-reschedule-call-impact-2026-11-19.md):
+         * 화면 주체 확보(맥 iOS 셸 등 비동기)가 이 조회보다 늦게 끝나면 다음 예약은 이미 울림 전 간격(보임 정상 25초)으로 잡혀 있다.
+         * 울림 상태가 된 지금 다시 계산해 「울리는 중 2초」를 지킨다. 조회 중이면 그 조회가 끝날 때 다시 예약하므로 건너뛴다.
+         */
+        if (!inFlight) scheduleNextPoll();
       });
     } catch {
       lastFailureKind = "network";
