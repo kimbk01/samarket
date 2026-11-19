@@ -89,17 +89,26 @@ describe("D4 ③ 이어받기 결과 비교", () => {
 });
 
 describe("D4 계약 — 응답 불변 · 기존 함수 재사용", () => {
-  it("bootstrap 은 기존 처리 결과를 그대로 돌려주고 비교는 응답 뒤", () => {
+  it("2단계: bootstrap critical 은 방 진입 DB 함수 1번을 미리 받아 같은 요청의 호출 지점이 사용", () => {
     const src = read("app/api/community-messenger/rooms/[roomId]/bootstrap/route.ts");
-    expect(src).toContain("runWithRoomEntryShadowCapture(capture, () => handleRoomBootstrapGet(req, ctx))");
-    expect(src).toMatch(/after\(async \(\) => \{\s*await runRoomEntryShadowCompare/);
+    expect(src).toContain("enterRoomEntryPrefetch(");
+    expect(src).toContain("await loadRoomEntryPrefetch(tryCreateSupabaseServiceClient(), auth.userId, rawRouteRoomId, limit0)");
+    expect(src.indexOf("enterRoomEntryPrefetch(")).toBeLessThan(src.indexOf("messengerRoomCanonicalOrJsonError(auth.userId, rawRouteRoomId)"));
   });
 
-  it("messages?after 는 기존 결과로 응답하고 새 경로는 afterResponse 안에서만", () => {
+  it("2단계: messages?after 는 DB 함수 먼저, 오류면 기존 경로 · 감시는 응답 뒤 표본", () => {
     const src = read("app/api/community-messenger/rooms/[roomId]/messages/route.ts");
-    const i = src.indexOf("listCommunityMessengerRoomMessagesAfterViaPageRpc");
-    expect(i).toBeGreaterThan(src.indexOf("afterResponse(async () => {"));
-    expect(src).toContain('return jsonOk({ messages: result.messages, hasMore: result.hasMore, mode: "after" as const });');
+    expect(src).toContain("const viaPage = await cm.listCommunityMessengerRoomMessagesAfterViaPageRpc(afterInput);");
+    expect(src).toContain("return cm.listCommunityMessengerRoomMessagesAfter({ ...afterInput, _perf: afterPerf });");
+    expect(src).toMatch(/if \(viaPageRpc && shouldSampleRoomEntryShadow\(\)\)/);
+  });
+
+  it("2단계: 호출 지점 4곳이 미리 받은 값을 먼저 본다(없으면 기존 조회)", () => {
+    expect(read("lib/community-messenger/server/messenger-room-access.ts")).toContain("takePrefetchedRoomAccess(uid, rid)");
+    expect(read("lib/community-messenger/room-bootstrap-snapshot.ts")).toContain("takePrefetchedRoomSnapshot(userId.trim(), roomId.trim(), messageLimit)");
+    expect(read("lib/community-messenger/server/direct-pair-facts.ts")).toContain("takePrefetchedPairFacts(viewer, peer, room)");
+    expect(read("lib/community-messenger/group/group-room-online-authority.ts")).toContain("takePrefetchedGroupOnline(rid)");
+    expect(read("lib/community-messenger/group/group-room-repository.ts")).toContain("takePrefetchedGroupOnline(rid)");
   });
 
   it("원본 기록 지점 4곳", () => {
@@ -124,5 +133,42 @@ describe("D4 계약 — 응답 불변 · 기존 함수 재사용", () => {
       "grant execute on function public.community_messenger_room_messages_after_page(uuid, uuid, uuid, integer) to service_role;"
     );
     expect(sql).not.toMatch(/to (anon|authenticated)\b/);
+  });
+});
+
+describe("D4 2단계 미리 받은 값", () => {
+  it("메시지 수는 DB 함수와 같은 규칙(1~30)으로 맞을 때만 스냅샷 사용 · 사용자·방이 다르면 사용 안 함", async () => {
+    const m = await import("@/lib/community-messenger/server/room-entry-prefetch");
+    expect(m.clampRoomSnapshotMessageLimit(50)).toBe(30);
+    expect(m.clampRoomSnapshotMessageLimit(0)).toBe(1);
+    const p = {
+      userId: "u1",
+      roomKey: "r1",
+      messageLimitClamped: 24,
+      entry: {
+        access: { room_exists: true },
+        snapshot: { room: { id: "r1" } },
+        pair_facts_by_peer: { p1: { saved_by_viewer: true } },
+        group_online: { active_user_ids: ["a", "b"], banned_user_ids: [], presence_rows: [] },
+      },
+    };
+    await m.runWithRoomEntryPrefetch(p, async () => {
+      await Promise.resolve();
+      expect(m.takePrefetchedRoomAccess("u1", "r1")).toEqual({ room_exists: true });
+      expect(m.takePrefetchedRoomAccess("u2", "r1")).toBeUndefined();
+      expect(m.takePrefetchedRoomSnapshot("u1", "r1", 24)).toEqual({ room: { id: "r1" } });
+      expect(m.takePrefetchedRoomSnapshot("u1", "r1", 20)).toBeUndefined();
+      expect(m.takePrefetchedPairFacts("u1", "p1", "r1")).toEqual({ saved_by_viewer: true });
+      expect(m.takePrefetchedPairFacts("u1", "p9", "r1")).toBeUndefined();
+      expect(m.takePrefetchedGroupOnline("r1")?.activeUserIds).toEqual(["a", "b"]);
+    });
+    expect(m.takePrefetchedRoomAccess("u1", "r1")).toBeUndefined();
+  });
+
+  it("uuid 방 키가 아니거나 함수 오류면 null(기존 경로)", async () => {
+    const m = await import("@/lib/community-messenger/server/room-entry-prefetch");
+    const rpc = async () => ({ data: null, error: { message: "x" } });
+    expect(await m.loadRoomEntryPrefetch({ rpc }, "u1", "not-uuid", 24)).toBeNull();
+    expect(await m.loadRoomEntryPrefetch({ rpc }, "u1", "11111111-1111-1111-1111-111111111111", 24)).toBeNull();
   });
 });

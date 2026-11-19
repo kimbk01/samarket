@@ -99,15 +99,25 @@ export async function GET(
     const afterKey = `community-messenger:messages:after:${auth.userId}:${canonicalRoomId}:${after}:${
       Number.isFinite(limit) ? String(limit) : "default"
     }`;
-    const result = await runSingleFlight(afterKey, async () =>
-      cm.listCommunityMessengerRoomMessagesAfter({
-        userId: auth.userId,
-        roomId: canonicalRoomId,
-        afterMessageId: after,
-        limit: Number.isFinite(limit) ? limit : undefined,
-        _perf: afterPerf,
-      })
-    );
+    /**
+     * D4 ③ 2단계 (운영 그림자 일치 확인 후 전환) — 이어받기를 DB 함수 1번(`community_messenger_room_messages_after_page`)으로.
+     * 가공은 같은 함수(반응 집계·매핑·프로필 라벨). 함수 오류(미적용 포함)면 기존 경로 그대로.
+     */
+    const afterInput = {
+      userId: auth.userId,
+      roomId: canonicalRoomId,
+      afterMessageId: after,
+      limit: Number.isFinite(limit) ? limit : undefined,
+    };
+    let viaPageRpc = false;
+    const result = await runSingleFlight(afterKey, async () => {
+      const viaPage = await cm.listCommunityMessengerRoomMessagesAfterViaPageRpc(afterInput);
+      if (viaPage.ok || viaPage.error === "not_found") {
+        viaPageRpc = true;
+        return viaPage;
+      }
+      return cm.listCommunityMessengerRoomMessagesAfter({ ...afterInput, _perf: afterPerf });
+    });
     if (!result.ok) {
       recordMessengerApiTiming("GET .../messages?after", Math.round(performance.now() - t0), 400);
       if (result.error === "not_found") {
@@ -138,25 +148,19 @@ export async function GET(
         payload_ms: afterPerf.payload_ms ?? 0,
       });
     }
-    /** D4 ③ 1단계 — 표본(기본 10%)만 응답 뒤 after-page DB 함수 1번으로 같은 결과를 만들어 비교(응답은 기존 그대로) */
-    if (shouldSampleRoomEntryShadow()) {
-      const oldResult = { messages: result.messages as unknown[], hasMore: result.hasMore };
-      const shadowInput = {
-        userId: auth.userId,
-        roomId: canonicalRoomId,
-        afterMessageId: after,
-        limit: Number.isFinite(limit) ? limit : undefined,
-      };
+    /** 감시 유지 — DB 함수로 응답한 요청 중 표본(기본 10%)만 응답 뒤 기존 경로로 같은 결과를 만들어 비교 */
+    if (viaPageRpc && shouldSampleRoomEntryShadow()) {
+      const pageResult = { messages: result.messages as unknown[], hasMore: result.hasMore };
       afterResponse(async () => {
         try {
-          const next = await cm.listCommunityMessengerRoomMessagesAfterViaPageRpc(shadowInput);
-          if (!next.ok && next.error === "migration_required") return;
-          const d = diffMessagesAfterShadow(oldResult, next);
+          const legacy = await cm.listCommunityMessengerRoomMessagesAfter(afterInput);
+          const d = diffMessagesAfterShadow(pageResult, legacy);
+          const oldResult = pageResult;
           const log = { roomIdTail: canonicalRoomId.slice(-8), count: oldResult.messages.length, ...d };
           if (d.match) console.info("[messages-after-shadow]", log);
           else console.warn("[messages-after-shadow]", log);
         } catch {
-          /* 비교 실패는 무시 — 응답은 이미 기존 경로 */
+          /* 비교 실패는 무시 — 응답은 이미 나감 */
         }
       });
     }

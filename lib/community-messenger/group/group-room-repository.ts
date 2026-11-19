@@ -14,6 +14,7 @@ import type {
 import { generateGroupInviteToken } from "@/lib/community-messenger/group/group-room-invite-token";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { MEMBER_IDENTITY_PROFILE_SELECT } from "@/lib/users/public-member-identity";
+import { takePrefetchedGroupOnline } from "@/lib/community-messenger/server/room-entry-prefetch";
 
 export type GroupRoomSupabase = SupabaseClient<any>;
 
@@ -450,6 +451,9 @@ export async function upsertGroupMemberParticipants(
 export async function countActiveParticipants(sb: GroupRoomSupabase, roomId: string): Promise<number> {
   const rid = trimText(roomId);
   if (!rid) return 0;
+  /** D4 2단계 — 방 진입 DB 함수가 같은 조건(left_at IS NULL)으로 읽은 활성 참가자 수 */
+  const prefetched = takePrefetchedGroupOnline(rid);
+  if (prefetched) return prefetched.activeUserIds.length;
   const { data, error } = await (sb as any)
     .from("community_messenger_participants")
     .select("id")

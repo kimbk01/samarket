@@ -7,6 +7,7 @@
 import type { BlockedRelation } from "@/lib/social/user-block-ssot";
 import type { ResolveFriendshipPairResult } from "@/lib/community-messenger/friendship/resolve-friendship-pair";
 import { recordRoomEntryShadowPairFacts } from "@/lib/community-messenger/server/room-entry-shadow";
+import { takePrefetchedPairFacts } from "@/lib/community-messenger/server/room-entry-prefetch";
 
 export type DirectPairRoomFacts = {
   roomType: string;
@@ -59,11 +60,15 @@ export async function loadDirectPairFacts(
   const room = trimText(roomId);
   if (!viewer || !peer || viewer === peer || !UUID_RE.test(viewer) || !UUID_RE.test(peer)) return null;
   if (!sb || typeof (sb as { rpc?: unknown }).rpc !== "function") return null;
-  const { data, error } = await (sb as any).rpc("community_messenger_direct_pair_facts", {
-    p_viewer_id: viewer,
-    p_peer_id: peer,
-    p_room_key: room || null,
-  });
+  /** D4 2단계 — 방 진입 DB 함수가 같은 방·같은 상대로 미리 계산한 값(같은 함수 결과) */
+  const prefetched = room ? takePrefetchedPairFacts(viewer, peer, room) : undefined;
+  const { data, error } = prefetched
+    ? { data: prefetched, error: null }
+    : await (sb as any).rpc("community_messenger_direct_pair_facts", {
+        p_viewer_id: viewer,
+        p_peer_id: peer,
+        p_room_key: room || null,
+      });
   if (error || !data || typeof data !== "object") return null;
   if (room) recordRoomEntryShadowPairFacts(peer, data);
   const row = data as Record<string, unknown>;

@@ -1,11 +1,6 @@
-import { after, NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import {
-  newRoomEntryShadowCapture,
-  runRoomEntryShadowCompare,
-  runWithRoomEntryShadowCapture,
-  shouldSampleRoomEntryShadow,
-} from "@/lib/community-messenger/server/room-entry-shadow";
+import { enterRoomEntryPrefetch, loadRoomEntryPrefetch } from "@/lib/community-messenger/server/room-entry-prefetch";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey, jsonErrorWithRequest } from "@/lib/http/api-route";
 import { loadCommunityMessengerRoomBootstrap } from "@/lib/chat-domain/use-cases/community-messenger-bootstrap";
@@ -50,21 +45,10 @@ export async function GET(
   ctx: { params: Promise<{ roomId: string }> }
 ) {
   /**
-   * D4 ② 1단계 — 표본(기본 10%) critical 요청만 원본을 기록하고, 응답 뒤 room_entry DB 함수 1번과 비교한다.
-   * 응답은 기존 경로 그대로. silent_delta 는 대상 아님.
+   * D4 ② 2단계 (Owner 「②③ 승인」 · 운영 그림자 일치 확인 후 전환) — 그림자 비교 대신 `handleRoomBootstrapGet` 안에서
+   * critical 요청은 방 진입 DB 함수 1번(`loadRoomEntryPrefetch`)으로 권한·스냅샷·1:1 관계·그룹 접속을 미리 받는다.
    */
-  const sp = req.nextUrl.searchParams;
-  const silent =
-    sp.get("mode")?.trim().toLowerCase() === "silent_delta" ||
-    sp.get("snapshotTier")?.trim().toLowerCase() === "silent_delta";
-  const capture = !silent && shouldSampleRoomEntryShadow() ? newRoomEntryShadowCapture() : null;
-  const res = await runWithRoomEntryShadowCapture(capture, () => handleRoomBootstrapGet(req, ctx));
-  if (capture?.snapshot && res.status === 200) {
-    after(async () => {
-      await runRoomEntryShadowCompare(tryCreateSupabaseServiceClient(), capture);
-    });
-  }
-  return res;
+  return handleRoomBootstrapGet(req, ctx);
 }
 
 async function handleRoomBootstrapGet(
@@ -88,6 +72,25 @@ async function handleRoomBootstrapGet(
 
   const { roomId: rawRoomId } = await params;
   const rawRouteRoomId = String(rawRoomId ?? "").trim();
+
+  /**
+   * D4 ② 2단계 — critical(instant/hydration=critical) 진입만: DB 함수 1번 → 이 요청의 권한·스냅샷·1:1 관계·그룹 접속 호출 지점이 그대로 사용.
+   * 메시지 수는 아래 opts 와 같은 계산(DB 함수와 같은 1~30 자르기) — 다르면 스냅샷은 기존처럼 따로 조회. 실패하면 기존 경로.
+   */
+  {
+    const sp0 = req.nextUrl.searchParams;
+    const mode0 = sp0.get("mode")?.trim().toLowerCase() ?? "";
+    const hydration0 = sp0.get("hydration")?.trim().toLowerCase() ?? "";
+    const silent0 = mode0 === "silent_delta" || sp0.get("snapshotTier")?.trim().toLowerCase() === "silent_delta";
+    if (!silent0 && (mode0 === "instant" || hydration0 === "critical")) {
+      const raw0 = sp0.get("messages");
+      const default0 = Math.min(COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT);
+      const limit0 = raw0 != null && raw0 !== "" ? Math.floor(Number(raw0)) || default0 : default0;
+      enterRoomEntryPrefetch(
+        await loadRoomEntryPrefetch(tryCreateSupabaseServiceClient(), auth.userId, rawRouteRoomId, limit0)
+      );
+    }
+  }
   const canonT0 = performance.now();
   const canon = await messengerRoomCanonicalOrJsonError(auth.userId, rawRouteRoomId);
   const canonical_ms = Math.round(performance.now() - canonT0);
