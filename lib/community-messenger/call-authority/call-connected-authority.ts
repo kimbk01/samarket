@@ -95,6 +95,18 @@ export function normalizeConnectedRequestDeviceId(raw: string | null | undefined
 }
 
 /**
+ * 1:1 통화의 `action=connected`(제안)는 기록만 하고 connected_at 을 쓰지 않는다.
+ * 받는 쪽 네이티브는 자기 채널 입장만으로 「연결됨」을 보내므로, 상대가 미디어에 한 번도
+ * 안 들어와도 connected_at 이 찍혀 고스트 통화·가짜 통화 시간이 생겼다(2026-11-19 실기 `17b42c71`).
+ * connected_at 은 상대 입장 증거(action=media_connected)만 쓴다 — 설치된 앱은 모두 증거를 보낸다(10-15 이후 빌드).
+ * 그룹 통화는 바꾸지 않는다.
+ */
+export function isConnectedProposalAuditOnly(sessionMode: string | null | undefined): boolean {
+  const mode = typeof sessionMode === "string" ? sessionMode.trim().toLowerCase() : "";
+  return mode !== "group";
+}
+
+/**
  * Native media evidence (PATCH action=media_connected).
  * Only "remote_user_joined" counts — heartbeat / callee local join are NOT evidence.
  * Either party may report; server stamps connected_at once (status=active AND connected_at IS NULL CAS).

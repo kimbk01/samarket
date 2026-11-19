@@ -57,7 +57,8 @@ Active Call Session SSOT: **native session manager owns lifecycle**; call UI is 
 
 - PATCH `action=heartbeat` every 10s (native ping + server PATCH).
 - **Accept seed**: both `caller_last_heartbeat_at` / `callee_last_heartbeat_at` set on transition to `active`.
-- **One-sided stale (90s)**: after 30s post-`answered_at`, if **either** peer heartbeat is stale → `end` + hangup/FCM (TS cron API) or DB `ended` (pg_cron SQL fallback).
+- **Both-stale only (2026-09-01 `bf75dc73e`)**: after 30s post-`answered_at`, a session ends by heartbeat **only when both** peers are stale > 90s (`canEndActiveCallForPresenceStale`) → `heartbeat_timeout`. One-sided stale does **not** end (it falsely ended live calls). ~~One-sided stale (90s) → end~~ was the pre-09-01 rule.
+- **Media never connected (2026-11-19, `docs/audit/call-ghost-peer-never-joined-design-2026-11-19.md`)**: 1:1 `active` session with no `connected_at` 30s after `answered_at` → `end` with `failed_network` (shown as 「연결 끊김」). `connected_at` is written only by media evidence (`action=media_connected`, `remote_user_joined`); the JS `action=connected` proposal is audit-only for 1:1. Applied by `reconcileUserLiveCallSessions` (new call · incoming · session GET) and the 2-min stale-cleanup cron. Heartbeat is not used for this rule.
 - **Cron**: `pg_cron` `*/2 * * * *` → `cleanup_stale_community_messenger_call_sessions()`; or `POST /api/.../stale-cleanup` with `CRON_SECRET` for full peer notify.
 
 | Event | Voice | Video |

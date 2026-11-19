@@ -252,3 +252,40 @@ export function canEndActiveCallForPresenceStale(
 ): boolean {
   return evaluateActiveCallPresence(row, nowMs) === "STALE";
 }
+
+/**
+ * 수락 후 이 시간 안에 상대 입장 증거(connected_at — action=media_connected 만 씀)가 없으면 미디어 연결 실패.
+ * 운영 30일 실측(2026-11-19): 수락 → 첫 증거 음성 최대 5.2초·영상 최대 4.0초 → 30초는 약 6배 여유.
+ */
+export const CALL_MEDIA_NEVER_CONNECTED_AFTER_ANSWER_MS = CALL_SERVER_HEARTBEAT_GRACE_AFTER_ANSWER_MS;
+
+/** 고스트 종료 사유 — 기존 신뢰 사유. 수락 후라 화면·기록은 「연결 끊김」(CUT3 disconnected). */
+export const CALL_MEDIA_NEVER_CONNECTED_ENDED_REASON = "failed_network" as const;
+
+export type ActiveCallMediaRow = {
+  status?: string | null;
+  session_mode?: string | null;
+  answered_at?: string | null;
+  connected_at?: string | null;
+  ended_at?: string | null;
+};
+
+/**
+ * 1:1 active 통화인데 수락 후 30초가 지나도 미디어가 한 번도 연결되지 않았는가(고스트 통화).
+ * 생존 신호(heartbeat)는 보지 않는다 — 2026-09-01 결정(한쪽 신호 끊김으로 끝내지 않음)과 무관한 별도 근거.
+ * reconcile(새 발신·수신·세션 조회)과 2분 정리 크론이 같이 쓴다.
+ * 설계: docs/audit/call-ghost-peer-never-joined-design-2026-11-19.md S2.
+ */
+export function isActiveCallMediaNeverConnected(
+  row: ActiveCallMediaRow,
+  nowMs: number = Date.now(),
+): boolean {
+  if (trimText(row.status) !== "active") return false;
+  if (trimText(row.ended_at ?? "")) return false;
+  const mode = trimText(row.session_mode ?? "").toLowerCase();
+  if (mode === "group") return false;
+  if (trimText(row.connected_at ?? "")) return false;
+  const answeredMs = toMs(row.answered_at);
+  if (answeredMs == null) return false;
+  return nowMs - answeredMs >= CALL_MEDIA_NEVER_CONNECTED_AFTER_ANSWER_MS;
+}
