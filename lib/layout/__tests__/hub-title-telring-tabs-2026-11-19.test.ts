@@ -67,6 +67,14 @@ describe("시안 2 — telRING 대화·친구·통화 버튼 묶음", () => {
     expect(css).toMatch(/\.dibay-secondary-tab\.dibay-secondary-tab::after \{\s*content: none;/);
   });
 
+  it("「대화」 숫자 = 하단 telRING 탭 배지와 같은 훅·같은 값 (시안 「대화 3」)", () => {
+    expect(tabs).toContain('useBottomNavChatBadgeWithLastRunSeed("chat", useOwnerHubBadgeTabUnreadCount("chat"))');
+    expect(tabs).toContain('section === "chats" && chatsUnread > 0');
+    const nav = read("components/layout/BottomNav.tsx");
+    expect(nav).toContain("useOwnerHubBadgeTabUnreadCount(tab.icon)");
+    expect(nav).toContain("useBottomNavChatBadgeWithLastRunSeed(tab.icon, liveTabBadgeCount)");
+  });
+
   it("숫자 배지 = 18px · 11px/700 · #E5484D", () => {
     expect(tabs).toContain(
       'className="inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[#E5484D] px-[5px] text-[11px] font-bold leading-none text-white"'
