@@ -88,7 +88,7 @@ function invalidateOwnerHubBadgeForCommunityMessengerPeers(
   roomId?: string
 ): void {
   for (const id of dedupeIds([senderUserId, ...recipientUserIds])) {
-    invalidateOwnerHubBadgeCache(id);
+    invalidateOwnerHubBadgeCache(id, { source: "messenger" });
     invalidateHomeSyncSnapshotCache(id);
     invalidateCmBootstrapSnapshotCache(id);
     invalidateFullBootstrapSnapshotCache(id, "peer_hub_invalidate");

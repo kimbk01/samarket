@@ -70,7 +70,18 @@ export function peekOwnerHubBadgeCacheHit(
   return !!(row && row.expiresAt > Date.now());
 }
 
-export function invalidateOwnerHubBadgeCache(userId: string): void {
+export type InvalidateOwnerHubBadgeCacheOptions = {
+  /**
+   * D2 2-d-2 (Owner 「둘 다 승인」 2026-11-19) — `"messenger"` = 메신저 메시지 보내기·읽음.
+   * 거래 채팅 목록 사본(`trade_chat_rooms_snapshots`)은 메신저 표를 읽지 않으므로(RPC `get_chat_rooms_snapshot`,
+   * 운영 확인: 메신저 표 트리거·보내기/읽음 RPC 가 거래 표를 쓰지 않음) 이 출처에서는 다시 만들지 않는다.
+   * 메신저 읽음 뒤 거래 읽음 동기화가 `product_chats` 를 실제로 바꾸면 그쪽(`sync-item-trade-read-with-messenger-room`)이
+   * 기본값으로 따로 무효화한다.
+   */
+  source?: "messenger";
+};
+
+export function invalidateOwnerHubBadgeCache(userId: string, opts?: InvalidateOwnerHubBadgeCacheOptions): void {
   const k = userId.trim();
   if (!k) return;
   const prefix = `owner-hub-badge:${k}`;
@@ -81,7 +92,7 @@ export function invalidateOwnerHubBadgeCache(userId: string): void {
   }
   /** `getCachedUserChatUnreadParts` memory TTL(5s) 이 남아 `chatUnread` 만 오래된 값으로 남는 경우 방지(메신저 수신 직후 배지 정합) */
   invalidateUserChatUnreadCache(k);
-  invalidateChatRoomsSnapshotCache(k);
+  if (opts?.source !== "messenger") invalidateChatRoomsSnapshotCache(k);
   invalidateOwnerHubStoreLookupCache(k);
   invalidateCommunityMessengerUnreadTotalCache(k);
   invalidateHubStoreOrderUnreadMemory(k);

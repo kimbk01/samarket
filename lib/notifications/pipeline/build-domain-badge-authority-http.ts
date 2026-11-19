@@ -61,6 +61,10 @@ import {
 } from "@/lib/notifications/badge-authority-rebuild/member-app-icon-authority";
 import { conversationRoomsFromParticipantFactsNormalized } from "@/lib/notifications/badge-authority-rebuild/conversation-b-from-participant-facts";
 import { loadBellExplainUnreadEventRows } from "@/lib/notifications/load-bell-explain-unread-events";
+import {
+  deriveBellBadgeFactsFromRows,
+  stableBellFactsKey,
+} from "@/lib/notifications/derive-bell-badge-facts-from-rows";
 import { loadMessengerUnreadRoomFactsFromParticipants } from "@/lib/notifications/load-messenger-unread-room-facts-from-participants";
 import { loadOrphanMissedCallFacts } from "@/lib/notifications/load-orphan-missed-call-facts";
 import { loadTradeStoreOrderUnreadRoomFactsFromParticipants } from "@/lib/notifications/load-trade-store-order-unread-room-facts-from-participants";
@@ -213,15 +217,50 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     ]);
     return { messengerRooms: m, tradeStoreRooms: t, viaInputs: false as const, inputRowCount: 0 };
   })();
-  const [unreadFacts, missed, categoryCounts, bellExplainRows, ownerO] =
-    await Promise.all([
-      unreadFactsP,
+  /**
+   * D2 2-d-1 (2026-11-19) — 종 알림 행을 1번 읽고, 상한보다 적으면 부재중·분류 수를 같은 행에서 계산.
+   * 상한에 닿으면 이전처럼 ①·② 를 따로 읽는다(`derive-bell-badge-facts-from-rows.ts`).
+   */
+  const bellFactsP = (async () => {
+    const rows = await loadBellExplainUnreadEventRows(sb, uid, { limit: MEMBER_NOTIFICATION_A_LOAD_LIMIT });
+    const derived = deriveBellBadgeFactsFromRows(rows, MEMBER_NOTIFICATION_A_LOAD_LIMIT);
+    if (derived) return { rows, ...derived, viaRows: true as const };
+    const [m, c] = await Promise.all([
       loadOrphanMissedCallFacts(sb, uid),
       /** BRIDGE: category diagnostics only — NOT Member Bell digit. Exit when inbox UI drops categoryCounts.total. */
       countNotificationEventsBadge(sb, uid),
-      loadBellExplainUnreadEventRows(sb, uid, { limit: MEMBER_NOTIFICATION_A_LOAD_LIMIT }),
-      loadOwnerOperationOFacts(sb, uid),
     ]);
+    return { rows, missed: m, categoryCounts: c, viaRows: false as const };
+  })();
+  const [unreadFacts, bellFacts, ownerO] = await Promise.all([
+    unreadFactsP,
+    bellFactsP,
+    loadOwnerOperationOFacts(sb, uid),
+  ]);
+  const { missed, categoryCounts, rows: bellExplainRows } = bellFacts;
+
+  /** 2-d-1 감시: 행에서 계산한 요청 중 표본만 이전 ①·② 를 따로 읽어 통째로 비교 기록(응답 뒤 · 숫자 불변) */
+  if (bellFacts.viaRows && Math.random() < resolveMemberBadgeCounterShadowRate()) {
+    keepAliveAfterResponse(
+      (async () => {
+        const [m2, c2] = await Promise.all([
+          loadOrphanMissedCallFacts(sb, uid),
+          countNotificationEventsBadge(sb, uid),
+        ]);
+        const match =
+          stableBellFactsKey({ missed: m2, categoryCounts: c2 }) ===
+          stableBellFactsKey({ missed, categoryCounts });
+        const log = {
+          userIdTail: uid.slice(-8),
+          rows: bellExplainRows.length,
+          orphan: [missed.orphan, m2.orphan],
+          total: [categoryCounts.total, c2.total],
+        };
+        if (match) console.info("[bell-single-read-shadow]", { ...log, match: true });
+        else console.warn("[bell-single-read-shadow]", { ...log, match: false });
+      })().catch(() => null)
+    );
+  }
   const { messengerRooms, tradeStoreRooms } = unreadFacts;
 
   // Messenger + Trade + Store Order: participants unread (list SSOT). Targets are derived only.
