@@ -12974,7 +12974,8 @@ export async function markCommunityMessengerRoomAsRead(input: {
             lastReadAt: atomic.lastReadAt,
             lastReadMessageId: atomic.lastReadMessageId,
             duplicateAckSkipped: atomic.duplicateSkipped,
-            broadcastSkipped: atomic.duplicateSkipped,
+            /** 보완: 재생(replayed)도 새 읽음이 아니므로 방송 생략 */
+            broadcastSkipped: !atomicReadChangedState(atomic),
             sameLastReadDetected: atomic.duplicateSkipped && !atomic.lastReadAdvanced,
             lastReadAdvanced: atomic.lastReadAdvanced,
             regressionBlocked: atomic.regressionBlocked,
