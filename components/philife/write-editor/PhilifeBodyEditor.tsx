@@ -39,7 +39,11 @@ import {
   type EditorJsonNode,
   type RichDocSnapshot,
 } from "@/lib/philife/write-editor/rich-codec";
-import { sanitizePastedHtmlForEditor } from "@/lib/philife/write-editor/paste-html";
+import {
+  analyzePastedHtmlForEditor,
+  plainImageLinesToMarkdown,
+  type PastedHtmlAnalysis,
+} from "@/lib/philife/write-editor/paste-html";
 import { CommunityImageNodeBase } from "@/lib/philife/write-editor/community-image-node";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
@@ -75,6 +79,8 @@ export type PhilifeBodyEditorLabels = {
   moveUp: string;
   moveDown: string;
   imageLimit: string;
+  /** 서버가 가져올 수 없는 붙여넣기 사진(상대 주소·blob 등) 안내 */
+  imageUnfetchable: (count: number) => string;
   caption: string;
   captionEdit: string;
   /** 서식 「제목」 단추에 보이는 글자(지금 모양: 「제목」) — 접근성 이름은 `heading` */
@@ -89,7 +95,11 @@ export type PhilifeBodyEditorLabels = {
   quote: string;
 };
 
-type UploadSource = { kind: "file"; file: File } | { kind: "url"; url: string; pageReferer?: string };
+/**
+ * 사진 업로드 출처. `fallbackFile` = 붙여넣기에 같은 순서로 함께 온 사진 파일 —
+ * 주소 가져오기가 실패했을 때만 이 파일을 올린다(웹 사진 「이미지 복사」는 주소와 파일이 같이 온다).
+ */
+type UploadSource = { kind: "file"; file: File } | { kind: "url"; url: string; pageReferer?: string; fallbackFile?: File };
 
 type Props = {
   /** 시드 문서 — 서식 블록(`richBlocksToEditorDoc`) 또는 무손실 파싱된 평문(`plainBlocksToEditorDoc`) */
@@ -511,6 +521,10 @@ export default function PhilifeBodyEditor({
   const editorRef = useRef<Editor | null>(null);
   /** 마지막 붙여넣기의 원문 페이지(재호스팅 Referer) */
   const pasteRefererRef = useRef<string | undefined>(undefined);
+  /** 이번 붙여넣기 HTML 정리 결과 — `transformPastedHTML` 이 `handlePaste` 보다 먼저 불린다 */
+  const pasteAnalysisRef = useRef<PastedHtmlAnalysis | null>(null);
+  /** 붙여넣은 사진 주소 → 함께 온 사진 파일(주소 가져오기 실패 시 예비) */
+  const pasteFallbackFilesRef = useRef(new Map<string, File>());
 
   const finishUpload = (uploadId: string, res: PhilifeBodyEditorUploadResult) => {
     const editor = editorRef.current;
@@ -531,7 +545,12 @@ export default function PhilifeBodyEditor({
     const src = sourcesRef.current.get(uploadId);
     if (!src) return;
     const run =
-      src.kind === "file" ? cbRef.current.uploadFile(src.file) : cbRef.current.rehostUrl(src.url, src.pageReferer);
+      src.kind === "file"
+        ? cbRef.current.uploadFile(src.file)
+        : cbRef.current.rehostUrl(src.url, src.pageReferer).then((res) => {
+            const fallback = src.fallbackFile;
+            return res.ok || !fallback ? res : cbRef.current.uploadFile(fallback);
+          });
     void run
       .catch((): PhilifeBodyEditorUploadResult => ({ ok: false, error: cbRef.current.labels.failed }))
       .then((res) => finishUpload(uploadId, res));
@@ -610,7 +629,9 @@ export default function PhilifeBodyEditor({
         continue;
       }
       const id = newUploadId();
-      sourcesRef.current.set(id, { kind: "url", url, pageReferer: pasteRefererRef.current });
+      const fallbackFile = pasteFallbackFilesRef.current.get(url);
+      pasteFallbackFilesRef.current.delete(url);
+      sourcesRef.current.set(id, { kind: "url", url, pageReferer: pasteRefererRef.current, fallbackFile });
       tr.setNodeMarkup(pos, undefined, { ...node.attrs, uploadId: id, status: "uploading", pasteSrc: null });
       toUpload.push(id);
     }
@@ -624,7 +645,8 @@ export default function PhilifeBodyEditor({
   /** 문단·사진 블록을 커서 위치에 삽입(평문 붙여넣기·파일) 후 업로드 시작 */
   const insertBlocksAtSelection = (
     editor: Editor,
-    items: Array<{ block: CommunityBodyBlock } | { upload: UploadSource }>
+    items: Array<{ block: CommunityBodyBlock } | { upload: UploadSource }>,
+    opts: { fromPaste?: boolean } = {}
   ) => {
     const { schema } = editor.state;
     const imageType = schema.nodes[COMMUNITY_IMAGE_NODE]!;
@@ -695,6 +717,11 @@ export default function PhilifeBodyEditor({
         tr.setSelection(TextSelection.create(tr.doc, end + 1));
       }
     }
+    /**
+     * 붙여넣기로 넣은 글도 ProseMirror 기본 붙여넣기와 같게 Tiptap 붙여넣기 규칙(주소 → 링크)을 받는다 —
+     * 규칙은 `uiEvent: "paste"` 트랜잭션에만 돈다 (검증 2026-11-20 V3: 표시가 없으면 다른 줄 주소의 링크가 빠졌다).
+     */
+    if (opts.fromPaste) tr.setMeta("uiEvent", "paste");
     editor.view.dispatch(tr.scrollIntoView());
     for (const id of toUpload) if (sourcesRef.current.has(id)) startUpload(id);
   };
@@ -740,13 +767,29 @@ export default function PhilifeBodyEditor({
         "aria-label": labels.placeholder,
       },
       /** 외부 HTML: 허용 구조만 남기고 사진은 업로드 대기 노드로 (외부 CSS·스크립트 미실행) */
-      transformPastedHTML: (html) => sanitizePastedHtmlForEditor(html),
+      transformPastedHTML: (html) => {
+        const analysis = analyzePastedHtmlForEditor(html);
+        pasteAnalysisRef.current = analysis;
+        return analysis.html;
+      },
       handlePaste: (_view, event) => {
         const ed = editorRef.current;
         const cd = event.clipboardData;
-        if (!ed || !cd) return false;
+        /** 이번 붙여넣기 HTML 의 분석만 쓴다 — HTML 없는 붙여넣기는 남은 값(끌어넣기 등)을 버린다 (검증 V1) */
+        const pendingAnalysis = pasteAnalysisRef.current;
+        pasteAnalysisRef.current = null;
+        /** 지난 붙여넣기에서 쓰이지 않은 예비 파일은 버린다(이번 붙여넣기 것만) */
+        pasteFallbackFilesRef.current.clear();
+        const noticeUnfetchable = (n: number) => {
+          if (n > 0) cbRef.current.onNotice(cbRef.current.labels.imageUnfetchable(n));
+        };
+        if (!ed || !cd) {
+          noticeUnfetchable(pendingAnalysis?.unfetchable ?? 0);
+          return false;
+        }
         const plain = cd.getData("text/plain") || "";
         const html = cd.getData("text/html") || "";
+        const analysis = html.trim() ? pendingAnalysis : null;
         pasteRefererRef.current = firstLikelyArticlePageUrl(plain) ?? undefined;
         const files = Array.from(cd.files ?? []).filter((f) => f.type.startsWith("image/"));
         if (files.length === 0) {
@@ -757,9 +800,23 @@ export default function PhilifeBodyEditor({
             }
           }
         }
+        const htmlImages = analysis?.imageUrls ?? [];
+        if (files.length > 0 && htmlImages.length > 0) {
+          /**
+           * 글 + 사진 HTML 에 사진 파일이 함께 온 경우(iOS·브라우저는 첫 사진만 파일로 넣기도 한다):
+           * HTML 순서대로 글·사진을 모두 넣는다. 파일은 같은 순서의 사진 주소를 가져오지 못했을 때만 쓴다 (감사 2026-11-20 B).
+           */
+          htmlImages.forEach((url, i) => {
+            const f = files[i];
+            if (f) pasteFallbackFilesRef.current.set(url, f);
+          });
+          noticeUnfetchable(analysis?.unfetchable ?? 0);
+          return false;
+        }
         if (files.length > 0) {
           /** 이미지 파일 + 글이 함께 오면 글을 먼저, 사진은 그 뒤에 */
           event.preventDefault();
+          noticeUnfetchable(Math.max(0, (analysis?.unfetchable ?? 0) - files.length));
           const md = html.trim() ? interleavedMarkdownFromPastedHtml(html, plain) : plain;
           const items: Array<{ block: CommunityBodyBlock } | { upload: UploadSource }> = [];
           const textBlocks = textToCommunityBodyBlocks(md).filter((b) => b.type === "paragraph");
@@ -767,18 +824,22 @@ export default function PhilifeBodyEditor({
             for (const b of textBlocks) items.push({ block: b });
           }
           for (const f of files) items.push({ upload: { kind: "file", file: f } });
-          insertBlocksAtSelection(ed, items);
+          insertBlocksAtSelection(ed, items, { fromPaste: true });
           return true;
         }
-        if (!html.trim() && /!\[[^\]]*\]\([^)]+\)/.test(plain)) {
+        /** 평문: 사진 주소만 있는 줄·`[글](사진주소)` 줄은 사진 문법으로 (감사 2026-11-20 A1·A2) */
+        const plainWithImages = html.trim() ? plain : plainImageLinesToMarkdown(plain);
+        if (!html.trim() && /!\[[^\]]*\]\([^)]+\)/.test(plainWithImages)) {
           /** 평문에 사진 문법 줄이 있으면 사진 블록으로 */
           event.preventDefault();
           insertBlocksAtSelection(
             ed,
-            textToCommunityBodyBlocks(plain).map((b) => ({ block: b }))
+            textToCommunityBodyBlocks(plainWithImages).map((b) => ({ block: b })),
+            { fromPaste: true }
           );
           return true;
         }
+        noticeUnfetchable(analysis?.unfetchable ?? 0);
         /** HTML(서식) 또는 일반 글 — 편집기 스키마로 붙여넣기 */
         return false;
       },
@@ -798,8 +859,15 @@ export default function PhilifeBodyEditor({
       },
       handleDrop: (_view, event) => {
         const ed = editorRef.current;
+        /** 끌어넣은 HTML 도 `transformPastedHTML` 을 지난다 — 그 분석은 여기서 소비(다음 붙여넣기에 남기지 않음) */
+        const dropAnalysis = pasteAnalysisRef.current;
+        pasteAnalysisRef.current = null;
         const files = Array.from(event.dataTransfer?.files ?? []).filter((f) => f.type.startsWith("image/"));
-        if (!ed || files.length === 0) return false;
+        if (!ed || files.length === 0) {
+          const n = dropAnalysis?.unfetchable ?? 0;
+          if (n > 0) cbRef.current.onNotice(cbRef.current.labels.imageUnfetchable(n));
+          return false;
+        }
         event.preventDefault();
         insertBlocksAtSelection(
           ed,

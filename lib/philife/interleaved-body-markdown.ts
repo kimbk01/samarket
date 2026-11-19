@@ -88,7 +88,37 @@ const LAZY = [
   "data-src", "data-lazy-src", "data-original", "data-url", "data-cfsrc", "data-large_image",
 ] as const;
 
-/** 붙여넣은 `<img>` 의 실제 사진 주소(지연 로딩 속성 우선) — 편집기 붙여넣기 정제와 공용 */
+/**
+ * `srcset` 에서 가장 큰 후보 주소 (`w`·`x` 설명자 기준, 설명자 없으면 1x).
+ * 쉼표 뒤 공백으로 후보를 나눈다(주소 안 쉼표는 보통 공백이 뒤따르지 않는다).
+ */
+export function pickLargestSrcsetUrl(srcset: string | null | undefined): string {
+  const s = (srcset ?? "").trim();
+  if (!s) return "";
+  let best = "";
+  let bestScore = -1;
+  for (const part of s.split(/,\s+/)) {
+    const [url, desc] = part.trim().split(/\s+/, 2);
+    if (!url || BLANK.test(url)) continue;
+    const m = /^(\d+(?:\.\d+)?)([wx])$/i.exec(desc ?? "");
+    /** 1x = 1, 너비(w)는 그대로 — 한 srcset 안에서는 한 종류만 쓰인다 */
+    const score = m ? Number(m[1]) : 1;
+    if (score > bestScore) {
+      best = url;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+const ABSOLUTE_HTTP = /^(https?:)?\/\//i;
+
+/**
+ * 붙여넣은 `<img>` 의 실제 사진 주소 — 편집기 붙여넣기 정제와 예전 입력칸 붙여넣기 공용.
+ * 순서: 지연 로딩 속성 → `src`(http(s)·`//`) → `srcset`/`data-srcset` 최대 → 부모 `<picture><source srcset>` 최대
+ * → `src` 의 `data:image` → 그 밖의 `src`(상대 주소·blob — 호출부가 가져올 수 없는 사진으로 센다).
+ * `data:image` 를 srcset 뒤에 두는 이유: 지연 로딩 사이트는 `src` 에 작은 data 자리표시를, 진짜 사진은 `srcset` 에 둔다.
+ */
 export function pickImageUrlFromImgEl(img: HTMLImageElement): string {
   for (const a of LAZY) {
     const v = img.getAttribute(a);
@@ -96,13 +126,21 @@ export function pickImageUrlFromImgEl(img: HTMLImageElement): string {
       return normalizeHttpUrlString(v.replace(/\s/g, "").trim());
     }
   }
-  const s = img.getAttribute("src");
-  if (!s || !s.trim() || BLANK.test(s)) return "";
-  const raw = s.trim();
-  /** 클립보드 HTML 의 data: 이미지도 교차 본문에 포함(이후 rehost) */
-  if (/^data:image\/(jpeg|jpg|png|webp|gif)/i.test(raw)) {
-    return raw;
+  const raw = (img.getAttribute("src") ?? "").trim();
+  const srcUsable = Boolean(raw) && !BLANK.test(raw);
+  if (srcUsable && ABSOLUTE_HTTP.test(raw)) return raw;
+  const fromSrcset = pickLargestSrcsetUrl(img.getAttribute("srcset")) || pickLargestSrcsetUrl(img.getAttribute("data-srcset"));
+  if (fromSrcset) return normalizeHttpUrlString(fromSrcset);
+  const picture = img.parentElement?.tagName === "PICTURE" ? img.parentElement : null;
+  if (picture) {
+    for (const source of Array.from(picture.querySelectorAll("source"))) {
+      const u = pickLargestSrcsetUrl(source.getAttribute("srcset")) || pickLargestSrcsetUrl(source.getAttribute("data-srcset"));
+      if (u) return normalizeHttpUrlString(u);
+    }
   }
+  if (!srcUsable) return "";
+  /** 클립보드 HTML 의 data: 이미지도 교차 본문에 포함(이후 rehost) */
+  if (/^data:image\/(jpeg|jpg|png|webp|gif)/i.test(raw)) return raw;
   if (/^data:/i.test(raw)) return "";
   return raw;
 }

@@ -1215,6 +1215,7 @@ export function PhilifeNeighborhoodWriteForm({
                   moveUp: t("philife_write_image_move_up"),
                   moveDown: t("philife_write_image_move_down"),
                   imageLimit: t("philife_write_err_image_limit"),
+                  imageUnfetchable: (count) => t("philife_write_err_image_unfetchable", { count: String(count) }),
                   caption: t("philife_write_image_caption"),
                   captionEdit: t("philife_write_image_caption_edit"),
                   captionSheetTitle: t("philife_write_image_caption_sheet_title"),
