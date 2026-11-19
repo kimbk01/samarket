@@ -44,7 +44,17 @@ const INCOMING_POLL_MAX_BACKOFF_STEPS = 4;
  * 10초 = 실시간이 몰래 끊겨도(무음 사망) 30초 울림 안에 조회로 반드시 찾는 상한(요청 왕복 포함 약 11초).
  * 울리는 중·끊김·오류·연결 중에는 2초 그대로. SUBSCRIBED 만으로 0 으로 만들지 않는다(Owner 지시).
  */
-export const CALL_V4_INCOMING_POLL_REALTIME_HEALTHY_MS = 10_000;
+/**
+ * F7 (docs/audit/supabase-request-surge-2026-11-18/f7-incoming-poll-call-impact-plan-2026-11-19.md · Owner 「0으로 구현」 2026-11-19):
+ * 보임 + 실시간 정상 10초 → 25초. 근거: 14일 실측 울림 신호 평균 0.5초·미도착 0건. 조용한 끊김이어도
+ * 25초 + 왕복 ≈ 26초 < 울림 30초 — 울림 안에 반드시 찾는 상한은 유지(S4 「SUBSCRIBED 만으로 0 금지」는 보임 상태에서 유지).
+ */
+export const CALL_V4_INCOMING_POLL_REALTIME_HEALTHY_MS = 25_000;
+/**
+ * F7: 창 숨김 + 실시간 끊김·연결 중 — 2초 → 10초(울림 30초 안 조회 상한 유지).
+ * 창 숨김 + 실시간 정상 — 정기 조회 없음(울림 신호 → 즉시 1회 조회 · 다시 보이면 즉시 재조회는 기존). Owner 위험 수용 2026-11-19.
+ */
+export const CALL_V4_INCOMING_POLL_HIDDEN_UNHEALTHY_MS = 10_000;
 export const CALL_V4_INCOMING_REALTIME_STABLE_AFTER_MS = 5_000;
 
 /**
@@ -126,15 +136,16 @@ export function shouldRunCallV4IncomingRealtimeSignalFetch(): boolean {
  * 1-1) F1 429 대기 중: 남은 시간(2~60초, 울림 구간은 429 시점부터 8초 상한 — 호출자가 반영)
  * 2) 실패 백오프: 예외·401·403 은 4→8→16→30초(기존 사다리), F1 5xx·본문 오류는 4→8초 상한
  * 3) 울리는 중: 2초 — 원격 종료 백업(T2)·수락 흐름이 이 주기에 기댐
- * 4) 실시간 SUBSCRIBED 5초 이상 유지: 10초 (S4)
- * 5) 그 밖(끊김·오류·연결 중·피드 없음): 2초 — 기존
+ * 4) 실시간 SUBSCRIBED 5초 이상 유지: 보임 25초 · 숨김 정기 조회 없음(null) (S4 → F7)
+ * 5) 그 밖(끊김·오류·연결 중·피드 없음): 보임 2초 · 숨김 10초 (F7)
+ * 반환 null = 다음 정기 조회를 예약하지 않는다(울림 신호·보임 전환·연결 상태 변화가 다시 예약).
  */
 export function resolveCallV4IncomingDiscoveryPollDelayMs(
   allowHttp: boolean,
   consecutiveNetworkFailures: number,
-  realtime?: { ringing: boolean; healthy: boolean },
+  realtime?: { ringing: boolean; healthy: boolean; hidden?: boolean },
   failure?: { kind?: CallV4IncomingFailureKind | null; rateLimitWaitMs?: number | null },
-): number {
+): number | null {
   if (!allowHttp) return INCOMING_CALL_BACKUP_HTTP_POLL_SUPPRESSED_TAIL_MS;
   /** F1: 429 대기 중 — 남은 시간만큼(2~60초). 울림 구간 상한(8초)은 호출자가 남은 시간에 이미 반영한다. */
   const rateLimitWaitMs = failure?.rateLimitWaitMs ?? 0;
@@ -145,8 +156,10 @@ export function resolveCallV4IncomingDiscoveryPollDelayMs(
     );
   }
   if (consecutiveNetworkFailures <= 0) {
-    if (realtime && !realtime.ringing && realtime.healthy) return CALL_V4_INCOMING_POLL_REALTIME_HEALTHY_MS;
-    return INCOMING_POLL_MS;
+    if (!realtime || realtime.ringing) return INCOMING_POLL_MS;
+    const hidden = realtime.hidden === true;
+    if (realtime.healthy) return hidden ? null : CALL_V4_INCOMING_POLL_REALTIME_HEALTHY_MS;
+    return hidden ? CALL_V4_INCOMING_POLL_HIDDEN_UNHEALTHY_MS : INCOMING_POLL_MS;
   }
   const steps = Math.min(consecutiveNetworkFailures, INCOMING_POLL_MAX_BACKOFF_STEPS);
   /** F1: 5xx·본문 오류 — 2→4→8초 상한(울리는 중에도 같은 상한: 무한 2초 재시도 금지 + 30초 안 3회 기회) */
@@ -381,9 +394,16 @@ export function startCallV4IncomingDiscovery(
     const delayMs = resolveCallV4IncomingDiscoveryPollDelayMs(
       allowHttp,
       consecutiveNetworkFailures,
-      { ringing: hasCallV4IncomingDiscoveryRingingCallee(), healthy: isRealtimeHealthy() },
+      {
+        ringing: hasCallV4IncomingDiscoveryRingingCallee(),
+        healthy: isRealtimeHealthy(),
+        /** F7: 숨김 간격은 실시간 피드가 있는 웹·맥에서만(앱 셸 2초 경로 불변) */
+        hidden: realtimeFeedActive && readTabState() === "hidden",
+      },
       { kind: lastFailureKind, rateLimitWaitMs: rateLimitRemainingMs(now) },
     );
+    /** F7: 숨김 + 실시간 정상 — 정기 조회를 예약하지 않는다. 울림 신호·보임 전환·연결 상태 변화가 다시 예약한다. */
+    if (delayMs == null) return;
     pollTimer = window.setTimeout(() => {
       pollTimer = null;
       /** D2: 미뤄 둔 울림 신호가 있으면 이번 1회는 우회 조회(소진). 없으면 기존 정기 조회. */
@@ -513,7 +533,13 @@ export function startCallV4IncomingDiscovery(
     void tick("resync").finally(scheduleNextPoll);
   };
   const onVisibilityResync = () => {
-    if (typeof document !== "undefined" && document.visibilityState === "visible") resyncNow();
+    if (typeof document === "undefined") return;
+    if (document.visibilityState === "visible") {
+      resyncNow();
+      return;
+    }
+    /** F7: 숨겨지는 순간 남은 예약을 숨김 간격(정상이면 없음 · 끊김이면 10초)으로 다시 잡는다 — 조회는 하지 않는다. */
+    if (!inFlight) scheduleNextPoll();
   };
   const onOnlineResync = () => resyncNow();
   if (realtimeFeedActive && typeof window !== "undefined") {

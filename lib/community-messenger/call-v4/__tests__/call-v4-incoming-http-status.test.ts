@@ -280,7 +280,7 @@ describe("F1 ② 간격 표 (resolveCallV4IncomingDiscoveryPollDelayMs)", () => 
   it("기존 행 불변 — 경로 밖 60초 · 성공 2초 · 실시간 정상 10초 · 울림 2초 · 예외 4/8/16/30", () => {
     expect(resolveCallV4IncomingDiscoveryPollDelayMs(false, 0)).toBe(60_000);
     expect(resolveCallV4IncomingDiscoveryPollDelayMs(true, 0)).toBe(2_000);
-    expect(resolveCallV4IncomingDiscoveryPollDelayMs(true, 0, { ringing: false, healthy: true })).toBe(10_000);
+    expect(resolveCallV4IncomingDiscoveryPollDelayMs(true, 0, { ringing: false, healthy: true })).toBe(25_000);
     expect(resolveCallV4IncomingDiscoveryPollDelayMs(true, 0, { ringing: true, healthy: true })).toBe(2_000);
     expect([1, 2, 3, 4].map((n) => resolveCallV4IncomingDiscoveryPollDelayMs(true, n))).toEqual([
       4_000, 8_000, 16_000, 30_000,

@@ -47,7 +47,10 @@ import {
   confirmCallV4IncomingRemoteTerminal,
   isCurrentCallV4IncomingRinging,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-remote-terminal";
-import { startCallV4IncomingDiscovery } from "@/lib/community-messenger/call-v4/call-v4-incoming-discovery";
+import {
+  CALL_V4_INCOMING_POLL_REALTIME_HEALTHY_MS,
+  startCallV4IncomingDiscovery,
+} from "@/lib/community-messenger/call-v4/call-v4-incoming-discovery";
 import { __resetCallV4IncomingRealtimeFeedForTests } from "@/lib/community-messenger/call-v4/call-v4-incoming-realtime-feed";
 import {
   clearAllCallV4NativeAcceptingSurfaces,
@@ -150,19 +153,19 @@ afterEach(() => {
 });
 
 describe("F1 실시간 ① 성공 경로 간격 불변 (실제 채널 SUBSCRIBED)", () => {
-  it.each([1, 4])("%i탭 · SUBSCRIBED 5초 이상 · 정상 200 → 10초 주기 (분당 탭당 6회)", async (tabs) => {
+  it.each([1, 4])("%i탭 · SUBSCRIBED 5초 이상 · 정상 200 → 25초 주기 (F7 · 분당 탭당 2~3회)", async (tabs) => {
     for (let i = 0; i < tabs; i += 1) stops.push(startCallV4IncomingDiscovery(UID));
     await ackIncomingJoin();
     await flush(0);
     const afterJoin = incomingCalls();
-    /** 안정화 5초 동안은 2초 주기, 이후 10초 */
+    /** 안정화 5초 동안은 2초 주기, 이후 25초(F7) */
     await flush(5_000);
     const base = incomingCalls();
     await flush(60_000);
     const perMin = incomingCalls() - base;
     process.stdout.write(`[F1 volume realtime] ${tabs}tab subscribed afterJoin=${afterJoin} perMin=${perMin}\n`);
-    expect(perMin).toBeLessThanOrEqual(6 * tabs + tabs);
-    expect(perMin).toBeGreaterThanOrEqual(5 * tabs);
+    expect(perMin).toBeLessThanOrEqual(3 * tabs + tabs);
+    expect(perMin).toBeGreaterThanOrEqual(2 * tabs);
   });
 });
 
@@ -173,8 +176,8 @@ describe("F1 실시간 ② 429 대기 중 실제 울림 신호 → 8초 상한�
     await flush(0);
     await flush(6_000); // 안정 SUBSCRIBED · 정상 주기
     nextReply = { status: 429, body: { ok: false }, headers: { "Retry-After": "60" } };
-    /** 다음 정기 조회(10초 주기)에서 429 */
-    await flush(10_000);
+    /** 다음 정기 조회(보임 정상 주기 — F7 25초)에서 429 */
+    await flush(CALL_V4_INCOMING_POLL_REALTIME_HEALTHY_MS);
     const limitedAt = incomingCallTimes[incomingCallTimes.length - 1]!;
     const before = incomingCalls();
 
@@ -197,7 +200,7 @@ describe("F1 실시간 ② 429 대기 중 실제 울림 신호 → 8초 상한�
     await ackIncomingJoin();
     await flush(6_000);
     nextReply = { status: 429, body: { ok: false }, headers: { "Retry-After": "60" } };
-    await flush(10_000);
+    await flush(CALL_V4_INCOMING_POLL_REALTIME_HEALTHY_MS);
     const signalAt = Date.now();
     serverRowChange({ id: "call-rt2", status: "ringing" });
     await flush(30_000 - 1);
@@ -210,7 +213,7 @@ describe("F1 실시간 ② 429 대기 중 실제 울림 신호 → 8초 상한�
     await ackIncomingJoin();
     await flush(6_000);
     nextReply = { status: 429, body: { ok: false }, headers: { "Retry-After": "60" } };
-    await flush(10_000);
+    await flush(CALL_V4_INCOMING_POLL_REALTIME_HEALTHY_MS);
     const before = incomingCalls();
     await flush(59_000);
     expect(incomingCalls()).toBe(before);
@@ -223,7 +226,7 @@ describe("F1 실시간 ③ 5xx 중 울림 신호 · T1 유지", () => {
     await ackIncomingJoin();
     await flush(6_000);
     nextReply = { status: 503, text: "unavailable" };
-    await flush(10_000);
+    await flush(CALL_V4_INCOMING_POLL_REALTIME_HEALTHY_MS);
     const before = incomingCalls();
     serverRowChange({ id: "call-5", status: "ringing" });
     await flush(0);
