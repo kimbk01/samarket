@@ -494,6 +494,34 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
   text-align: left;
 }
 
+/**
+ * 대표 헤더 제목 강조 (Owner 2026-11-19 「시안대로 정확히」 · 시안 1 `docs/audit/header-title-tabs-2026-11-19/design.html`)
+ * 정보 공유·마켓·모임·telRING 1단 제목만 — 20px · 800 · 자간 −0.03em · 브랜드 초록 #0B421A. 하위 화면 제목(17px/600)은 그대로.
+ * 동네 버튼(`Tier1TitleAreaButton`)은 `--sector-header-title-size` 를 따라 같은 20px · 600, 자간 −0.02em.
+ * telRING 의 RING = dibaY 의 Y 와 같은 노랑 #E0A800.
+ */
+.dibay-hub-title {
+  --sector-header-title-size: 20px;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #0b421a;
+}
+
+.dibay-hub-title [data-tier1-title-area] {
+  letter-spacing: -0.02em;
+}
+
+.dibay-hub-title .dibay-hub-title-accent {
+  color: #e0a800;
+}
+
 .sector-header-title-cluster {
   display: flex;
   min-width: 0;

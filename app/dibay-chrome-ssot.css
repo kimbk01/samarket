@@ -325,7 +325,7 @@
  * 거래/주문 채팅 목록 탭 줄(`data-cm-messenger-pillar-tabs`, 시안 「9」「10」)에만 적용 — 다른 화면 2단 탭은 그대로.
  * 왼쪽 시작: 행 안쪽 여백(APP_MAIN_GUTTER_X_CLASS 10px) + 탭 track 6px = 16px.
  */
-[data-dibay-tab-tier="section"][data-dibay-tab-align="start"]:is([data-cm-messenger-section-tabs], [data-cm-messenger-search-tabs], [data-cm-messenger-pillar-tabs]) {
+[data-dibay-tab-tier="section"][data-dibay-tab-align="start"]:is([data-cm-messenger-search-tabs], [data-cm-messenger-pillar-tabs]) {
   --dibay-tab2-pad-x: 0px;
   --dibay-tab2-bar-inset: 0px;
   --dibay-tab2-idle-color: var(--cm-chat-sub);
@@ -334,15 +334,77 @@
   --dibay-secondary-tab-row-h: 42px;
 }
 
-[data-dibay-tab-tier="section"][data-dibay-tab-align="start"]:is([data-cm-messenger-section-tabs], [data-cm-messenger-search-tabs], [data-cm-messenger-pillar-tabs]) .dibay-secondary-tabs {
+[data-dibay-tab-tier="section"][data-dibay-tab-align="start"]:is([data-cm-messenger-search-tabs], [data-cm-messenger-pillar-tabs]) .dibay-secondary-tabs {
   gap: 22px;
   padding-left: 6px;
 }
 
-[data-dibay-tab-tier="section"][data-dibay-tab-align="start"]:is([data-cm-messenger-section-tabs], [data-cm-messenger-search-tabs], [data-cm-messenger-pillar-tabs])
+[data-dibay-tab-tier="section"][data-dibay-tab-align="start"]:is([data-cm-messenger-search-tabs], [data-cm-messenger-pillar-tabs])
   .dibay-secondary-tabs
   .dibay-secondary-tab:is([aria-selected="true"], .dibay-secondary-tab--active) {
   font-weight: 700;
+}
+
+/*
+ * telRING 2차 메뉴 대화 · 친구 · 통화 — 버튼 묶음 (Owner 2026-11-19 「선택·비선택이 눈에 보이는 버튼 형태」 · 「시안대로 정확히」,
+ * 시안 2 `docs/audit/header-title-tabs-2026-11-19/design.html`). 이 줄(`data-cm-messenger-section-tabs`)만 — 채팅 검색 탭·거래/주문 채팅 목록 탭은 위 밑줄 그대로.
+ * 줄 54px(위 6 · 묶음 38 · 아래 10) · 좌우 16px · 흰 묶음 테두리 #CFDCEF · 모서리 4px · 안쪽 3px · 칸 간격 3px · 세 칸 같은 폭.
+ * 칸 규칙은 앞 2단 탭 규칙(왼쪽 정렬·4개 이하 나눔)보다 우선해야 해서 속성을 겹쳐 우선순위를 올린다.
+ * 선택 = 바탕 #296044 · 흰 글자 15px/700 · 그림자 0 1px 2px / 미선택 = 바탕 없음 · #4A5560 15px/500.
+ * 왼쪽 16 = 행 안쪽 여백(10) + 6, 오른쪽 16 = 행 안쪽 여백(8) + 8.
+ */
+[data-dibay-tab-tier="section"][data-cm-messenger-section-tabs] {
+  --dibay-secondary-tab-row-h: 54px;
+}
+
+[data-dibay-tab-tier="section"][data-cm-messenger-section-tabs] .dibay-secondary-tabs {
+  box-sizing: border-box;
+  height: 38px;
+  min-height: 38px;
+  max-height: 38px;
+  margin: 6px 8px 10px 6px;
+  padding: 3px;
+  gap: 3px;
+  background: #ffffff;
+  border: 1px solid #cfdcef;
+  border-radius: 4px;
+}
+
+[data-dibay-tab-tier="section"][data-cm-messenger-section-tabs][data-cm-primary-nav][data-dibay-nav] .dibay-secondary-tabs > .dibay-secondary-tab.dibay-secondary-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 4px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #4a5560;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-dibay-tab-tier="section"][data-cm-messenger-section-tabs][data-cm-primary-nav][data-dibay-nav] .dibay-secondary-tabs > .dibay-secondary-tab.dibay-secondary-tab:is([aria-selected="true"], .dibay-secondary-tab--active) {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  background: #296044;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+[data-dibay-tab-tier="section"][data-cm-messenger-section-tabs][data-cm-primary-nav][data-dibay-nav] .dibay-secondary-tabs > .dibay-secondary-tab.dibay-secondary-tab::after {
+  content: none;
+}
+
+[data-dibay-tab-tier="section"][data-cm-messenger-section-tabs][data-cm-primary-nav][data-dibay-nav] .dibay-secondary-tabs > .dibay-secondary-tab.dibay-secondary-tab:not(:disabled):active:not([aria-selected="true"]) {
+  background-color: color-mix(in srgb, #296044 8%, transparent);
+}
+
+[data-dibay-tab-tier="section"][data-cm-messenger-section-tabs][data-cm-primary-nav][data-dibay-nav] .dibay-secondary-tabs > .dibay-secondary-tab.dibay-secondary-tab[aria-selected="true"]:not(:disabled):active {
+  background-color: #296044;
 }
 
 :is([data-dibay-tab-tier="filter"], [data-dibay-tab-tier="section"]) .dibay-secondary-tab:not(:disabled):active {

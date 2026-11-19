@@ -31,6 +31,8 @@ type Props = {
  * Messenger home section tabs — Community / Trade 와 동일 DibaySecondaryTabRow SSOT (왼쪽 정렬).
  * 2026-11-10 채팅 화면 시안 3판(Owner 「계획된 부분을 이어 가자」): 대화 · 친구 · 통화 3개, 탭 줄에는 버튼을 붙이지 않는다.
  * 그룹 만들기는 대화 탭 「새 대화」 버튼, 친구 추가는 친구 탭 맨 위 「친구 추가」 칸.
+ * 2026-11-19 (Owner 「시안대로 정확히」, 시안 2): 밑줄 글자 → 흰 묶음 안 3칸 버튼(선택 = 초록 바탕 흰 글자).
+ * 모양은 `app/dibay-chrome-ssot.css` 「telRING 2차 메뉴」 절. 숫자 배지 = 18px · 11px/700 · #E5484D, 글자와 6px.
  */
 export function MessengerHomeSectionTabs({
   mainSection,
@@ -66,7 +68,7 @@ export function MessengerHomeSectionTabs({
             </span>
             {badge ? (
               <span
-                className="ml-1 inline-flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-[color:var(--sm-color-danger)] px-1 text-[10.5px] font-bold leading-none text-white"
+                className="inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[#E5484D] px-[5px] text-[11px] font-bold leading-none text-white"
                 data-cm-section-tab-badge={section}
               >
                 {badge}
