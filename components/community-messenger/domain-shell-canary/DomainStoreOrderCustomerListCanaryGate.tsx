@@ -25,6 +25,7 @@ import {
 import {
   customerStoreOrderDetailHref,
   filterStoreOrderChatListByTab,
+  STORE_ORDER_CHAT_LIST_DEFAULT_TAB,
   STORE_ORDER_CHAT_LIST_TABS,
   type StoreOrderChatListTab,
 } from "@/lib/community-messenger/pillar-chat-list/pillar-chat-list-model";
@@ -113,9 +114,8 @@ function soCustomerListCacheLacksLifecycleFields(dto: SoCustomerListDto): boolea
 const EMPTY_FRIEND_IDS = new Set<string>();
 const noopRoomAction = () => {};
 
-/** 주문 채팅 목록 탭 이름 — 전체 · 진행 중 · 지난 주문 (채팅 시안 4판 「10」) */
-const ORDER_TAB_LABEL_KEYS: Record<StoreOrderChatListTab, MessageKey> = {
-  all: "common_all",
+/** 주문 채팅 목록 탭 이름 — 진행 중 · 지난 주문 (Owner 2026-11-19: 「전체」 탭 없음) */
+const ORDER_TAB_LABEL_KEYS: Record<Exclude<StoreOrderChatListTab, "all">, MessageKey> = {
   live: "cm_ui_order_chats_in_progress",
   past: "cm_pillar_order_tab_past",
 };
@@ -280,7 +280,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
    * 채팅 시안 4판 「10」 탭: 진행 중 = 끝나지 않은 주문 · 지난 주문 = 완료·취소·환불(`isStoreOrderBuyerHideAllowedStatus`).
    * 상태를 모르는 행(옛 캐시)은 진행 중으로 센다 — 숨기지 않는다.
    */
-  const [orderTab, setOrderTab] = useState<StoreOrderChatListTab>("all");
+  const [orderTab, setOrderTab] = useState<Exclude<StoreOrderChatListTab, "all">>(STORE_ORDER_CHAT_LIST_DEFAULT_TAB);
   const visibleItems = useMemo(
     () => filterStoreOrderChatListByTab(unifiedItems, orderTab, (item) => item.room.contextMeta?.orderStatus),
     [orderTab, unifiedItems]

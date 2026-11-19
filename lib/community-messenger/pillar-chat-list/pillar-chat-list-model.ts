@@ -5,10 +5,16 @@
 import { isStoreOrderBuyerHideAllowedStatus, isStoreOrderTerminalStatus } from "@/lib/stores/store-order-process-model";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
 
-/** 주문 채팅 목록 탭 — 전체 · 진행 중 · 지난 주문 */
+/**
+ * 주문 채팅 목록 탭 — 진행 중 · 지난 주문 2개 (Owner 2026-11-19 「진행중, 지난 주문으로만 나누고 진입 시 진행중 기본」).
+ * `all` 은 필터 함수 호환용으로만 남긴다 — 화면 탭에는 없다.
+ */
 export type StoreOrderChatListTab = "all" | "live" | "past";
 
-export const STORE_ORDER_CHAT_LIST_TABS: readonly StoreOrderChatListTab[] = ["all", "live", "past"];
+export const STORE_ORDER_CHAT_LIST_TABS: readonly Exclude<StoreOrderChatListTab, "all">[] = ["live", "past"];
+
+/** 주문 채팅 목록 진입 시 기본 탭 */
+export const STORE_ORDER_CHAT_LIST_DEFAULT_TAB: Exclude<StoreOrderChatListTab, "all"> = "live";
 
 /**
  * 지난 주문 = 끝난 주문(완료·취소·환불 — 구매자 「목록에서 숨기기」 허용 상태와 같은 정의).
