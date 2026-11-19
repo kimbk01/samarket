@@ -24,7 +24,6 @@ import {
   isActiveCallMediaNeverConnected,
   shadowPresenceLeaseUntilIso,
 } from "@/lib/call/call-active-presence";
-import { getCommunityMessengerCallSessionById } from "@/lib/community-messenger/service";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 function trimText(value: unknown): string {
@@ -133,8 +132,13 @@ export async function heartbeatCommunityMessengerCallSession(input: {
 
   if (error) return { ok: false, error: "update_failed" };
 
-  const session = await getCommunityMessengerCallSessionById(userId, sessionId);
-  return session ? { ok: true, session } : { ok: false, error: "map_failed" };
+  /**
+   * F8-1 (docs/audit/supabase-request-surge-2026-11-18/f8-call-session-route-plan-2026-11-19.md · Owner 「승인」 2026-11-19):
+   * 성공 뒤 통화 정보를 다시 조립하지 않는다(통화·참가자·프로필 조회 2~3회). 하트비트 응답 본문은 어느 클라이언트도
+   * 성공 시 읽지 않는다 — 웹 `call-server-heartbeat-client.ts` `ok` 만 · Android `NativeVoiceCallApi` 상태 코드·실패 `error` 만 ·
+   * iOS `patchAsync` 본문 무시. 실패 응답 형태는 그대로.
+   */
+  return { ok: true };
 }
 
 async function endStaleCallSessionWithPeerNotify(
