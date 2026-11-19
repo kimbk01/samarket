@@ -27,6 +27,16 @@ export type MarkRoomReadAtomicResult =
     }
   | { ok: false; error: string };
 
+/**
+ * 읽음 1단계 (docs/audit/supabase-request-surge-2026-11-18/read-mark-legacy-design-2026-11-19.md · Owner 「1단계 승인」 2026-11-19):
+ * 원자 읽음이 「바뀐 것 없음」(`duplicateSkipped` — 이미 다 읽은 상태, DB 함수가 커서·안 읽음·알림을 건드리지 않고 돌아옴)이면
+ * 허브·홈 목록 사본 재생성과 부트스트랩 무효화 표시를 하지 않는다. 운영 48시간 549건 중 234건(43%)이 이 경우.
+ * 레거시(Telegram·카카오톡)도 이미 읽은 방의 읽음에는 아무 후속 작업을 하지 않는다.
+ */
+export function atomicReadChangedState(result: Extract<MarkRoomReadAtomicResult, { ok: true }>): boolean {
+  return !result.duplicateSkipped;
+}
+
 export async function markRoomReadAtomic(
   sb: SupabaseClient<any>,
   input: {

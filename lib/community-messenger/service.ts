@@ -12913,6 +12913,7 @@ export async function markCommunityMessengerRoomAsRead(input: {
         markRoomReadAtomic,
         resolveRoomReadableTipMessageId,
         buildCmMarkReadIdempotencyKey,
+        atomicReadChangedState,
       } = await import("@/lib/community-messenger/room-unread-authority-rpc");
       const domainMeta = await loadRoomDomainForUnreadAuthority(sb as any, roomId);
       if (domainMeta && domainMeta.chatDomain !== "store_order") {
@@ -12936,11 +12937,14 @@ export async function markCommunityMessengerRoomAsRead(input: {
           }),
         });
         if (atomic.ok) {
-          invalidateOwnerHubBadgeCache(input.userId, { source: "messenger" });
-          invalidateHomeSyncSnapshotCache(input.userId);
-          invalidateCmBootstrapSnapshotCache(input.userId);
-          invalidateFullBootstrapSnapshotCache(input.userId, "mark_read");
-          invalidateRoomBootstrapSnapshotCacheForViewer(roomId, input.userId);
+          /** 읽음 1단계: 바뀐 것 없는 읽음(이미 다 읽음)은 사본 재생성·무효화 표시 생략 — `atomicReadChangedState` */
+          if (atomicReadChangedState(atomic)) {
+            invalidateOwnerHubBadgeCache(input.userId, { source: "messenger" });
+            invalidateHomeSyncSnapshotCache(input.userId);
+            invalidateCmBootstrapSnapshotCache(input.userId);
+            invalidateFullBootstrapSnapshotCache(input.userId, "mark_read");
+            invalidateRoomBootstrapSnapshotCacheForViewer(roomId, input.userId);
+          }
           storeMarkReadParticipantSnapshotsFromRow(
             input.userId,
             roomId,
