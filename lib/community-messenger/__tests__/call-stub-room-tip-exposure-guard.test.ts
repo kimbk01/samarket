@@ -18,6 +18,8 @@ const NON_DISPLAY_READERS: Record<string, string> = {
   "lib/notifications/load-trade-store-order-unread-room-facts-from-participants.ts": "비어 있음 판정만",
   /** S2 (2026-11-09): 위 두 로더가 나눠 쓰는 participants·rooms 1회 조회 — 같은 「비어 있음 판정」 용도 */
   "lib/notifications/load-unread-participant-room-rows.ts": "비어 있음 판정만",
+  /** D2 2단계 (2026-11-19): 쓰기 시점 입력 표 — 원문 없이 내용 유무 불리언만 로더 입력으로 되돌림 */
+  "lib/notifications/member-unread-room-inputs.ts": "비어 있음 판정만(불리언)",
   "lib/notifications/badge-authority-rebuild/conversation-b-from-participant-facts.ts": "주석/라벨 문자열",
   "lib/community-messenger/cm-bootstrap-snapshot-assemble.ts": "RoomRow 로 전달 → service 요약에서 해석",
   "lib/community-messenger/home-sync-snapshot-assemble.ts": "RoomRow 로 전달 → service 요약에서 해석",
