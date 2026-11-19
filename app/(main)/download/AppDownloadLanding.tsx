@@ -13,7 +13,9 @@ import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import {
   DIBAY_ANDROID_PLAY_STORE_PUBLIC,
   DIBAY_ANDROID_PLAY_STORE_URL,
+  DIBAY_APP_STORE_GO_QUERY,
   DIBAY_IOS_APP_STORE_URL,
+  resolveDeviceStoreUrl,
 } from "@/lib/share/app-store-links";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
@@ -30,8 +32,14 @@ export function AppDownloadLanding() {
   const [isAndroid, setIsAndroid] = useState(false);
 
   useEffect(() => {
-    setInApp(isCapacitorNativePlatform());
+    const native = isCapacitorNativePlatform();
+    setInApp(native);
     setIsAndroid(/android/i.test(navigator.userAgent));
+    /** 스티커 QR(`/download?go=1`) — 앱 밖 브라우저면 기기별 스토어로 바로 이동. 그 밖 기기는 이 화면 그대로 */
+    if (native) return;
+    if (new URLSearchParams(window.location.search).get(DIBAY_APP_STORE_GO_QUERY) !== "1") return;
+    const store = resolveDeviceStoreUrl(navigator.userAgent, navigator.maxTouchPoints || 0);
+    if (store) window.location.replace(store);
   }, []);
 
   return (
