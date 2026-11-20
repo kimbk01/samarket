@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Archive, Ban, BellOff, ChevronRight, Contact, EyeOff, UserX, UsersRound } from "lucide-react";
+import { Archive, Ban, BellOff, ChevronRight, Contact, EyeOff, RefreshCw, UserX, UsersRound } from "lucide-react";
 import {
   MESSENGER_CONTACTS_HIDDEN_HREF,
   MESSENGER_CONTACTS_SCREEN_HREF,
@@ -29,6 +29,11 @@ import type { MessengerFriendStateModel } from "@/lib/community-messenger/messen
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { MessengerChatsScreen } from "@/components/community-messenger/MessengerChatsScreen";
+import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
+import { isContactsNativeAvailable } from "@/lib/community-messenger/contacts/contacts-native";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import type { ContactsSyncOutcome } from "@/lib/community-messenger/contacts/contacts-sync-engine";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type ChatsProps = Omit<
   ComponentProps<typeof MessengerChatsScreen>,
@@ -205,6 +210,7 @@ export function MessengerArchiveScreen({
             {t("cm_contacts_group_label")}
           </p>
           <ArchiveLinkRow
+            trailing={contactsSummary.consented ? <ContactsRefreshNow /> : null}
             dataRow="contacts_sync"
             icon={<Contact className={ICON_CLASS} strokeWidth={ICON_STROKE} />}
             title={t("cm_contacts_settings")}
@@ -276,20 +282,96 @@ function useMessengerArchiveContactsSummary(active: boolean): ContactsArchiveSum
   return summary;
 }
 
-/** 다른 화면으로 가는 보관함 줄 (연락처) — 보관함 줄과 같은 모양 · 오른쪽 회색 값 + › */
+/** ⟳ 결과 안내 — 결과마다 한 문구 (연락처 화면 ⟳ 와 같은 키) */
+const CONTACTS_REFRESH_RESULT_KEY: Partial<Record<ContactsSyncOutcome, MessageKey>> = {
+  uploaded: "cm_contacts_refresh_done",
+  unchanged: "cm_contacts_refresh_done",
+  stopped: "cm_contacts_refresh_stopped",
+  throttled: "cm_contacts_refresh_limited",
+  permission_needed: "cm_contacts_refresh_permission",
+  permission_revoked: "cm_contacts_refresh_permission",
+  failed: "cm_contacts_action_failed",
+};
+
+/**
+ * 관리 › 연락처 동기화 줄의 ⟳ (Owner 2026-11-20 「친구 - 관리 - 연락처 동기화 스피너 새로고침 → 누락된 친구가 나오게」).
+ * 누를 때만 이 기기 연락처를 다시 읽어 바뀐 번호만 올린다 (자동 찾기 추가 없음 — 서버 부하). 앱(연락처 기능 있는 바이너리)·동의 회원만.
+ * 올린 뒤 연락처 목록 캐시를 비워 친구 탭으로 돌아가면 새로 찾은 회원이 나온다.
+ */
+function ContactsRefreshNow() {
+  const { t } = useI18n();
+  const router = useRouter();
+  const [spinning, setSpinning] = useState(false);
+  if (!isContactsNativeAvailable()) return null;
+  const run = async () => {
+    const userId = getBoundAuthUserId();
+    if (!userId || spinning) return;
+    setSpinning(true);
+    try {
+      const [{ runContactsSync }, { readContactsLocalState }, { contactsManilaDay }] = await Promise.all([
+        import("@/lib/community-messenger/contacts/contacts-sync-engine"),
+        import("@/lib/community-messenger/contacts/contacts-local-store"),
+        import("@/lib/community-messenger/contacts/contacts-contract"),
+      ]);
+      let outcome = await runContactsSync(userId, { manual: true });
+      // 앱 시작 자동 비교가 돌던 중이면 그 결과(6시간 안 건너뜀)가 돌아온다 — 끝났으니 1번만 다시 (오늘 한도가 아닐 때)
+      if (outcome === "throttled" && readContactsLocalState(userId).limitDay !== contactsManilaDay()) {
+        outcome = await runContactsSync(userId, { manual: true });
+      }
+      if (outcome === "device_not_approved") {
+        // 이 기기는 아직 허락 전 — 허락·권한을 묻는 연락처 화면으로
+        router.push(MESSENGER_CONTACTS_SCREEN_HREF);
+        return;
+      }
+      if (outcome === "uploaded") {
+        const { invalidateMessengerContactsCache } = await import("@/lib/community-messenger/contacts/use-messenger-contacts");
+        invalidateMessengerContactsCache();
+      }
+      const key = CONTACTS_REFRESH_RESULT_KEY[outcome];
+      if (key) showMessengerSnackbar(t(key), outcome === "failed" ? { variant: "error" } : undefined);
+    } finally {
+      setSpinning(false);
+    }
+  };
+  return (
+    <button
+      type="button"
+      aria-label={t("cm_contacts_refresh")}
+      aria-busy={spinning || undefined}
+      disabled={spinning}
+      onClick={() => void run()}
+      data-cm-archive-contacts-refresh=""
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full active:bg-[color:var(--messenger-surface-muted)]"
+    >
+      <RefreshCw className={`h-5 w-5 ${spinning ? "animate-spin" : ""}`} style={{ color: "var(--cm-chat-fg)" }} aria-hidden />
+    </button>
+  );
+}
+
+/** 다른 화면으로 가는 보관함 줄 (연락처) — 보관함 줄과 같은 모양 · 오른쪽 회색 값 + › · 선택 `trailing`(⟳) 은 줄 오른쪽 끝 */
 function ArchiveLinkRow({
   dataRow,
   icon,
   title,
   value,
   onClick,
+  trailing = null,
 }: {
   dataRow: string;
   icon: ReactNode;
   title: string;
   value: string;
   onClick: () => void;
+  trailing?: ReactNode;
 }) {
+  if (trailing) {
+    return (
+      <div className="flex items-center pr-2" data-cm-archive-row-with-action="">
+        <ArchiveLinkRow dataRow={dataRow} icon={icon} title={title} value={value} onClick={onClick} />
+        {trailing}
+      </div>
+    );
+  }
   return (
     <button
       type="button"

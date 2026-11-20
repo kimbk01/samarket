@@ -27,12 +27,7 @@ import {
   type ContactsLocalState,
   readContactsLocalState,
 } from "@/lib/community-messenger/contacts/contacts-local-store";
-import {
-  CONTACTS_MANUAL_SYNC_EVENT,
-  runContactsSync,
-  type ContactsManualSyncEventDetail,
-  type ContactsSyncOutcome,
-} from "@/lib/community-messenger/contacts/contacts-sync-engine";
+import { runContactsSync, type ContactsSyncOutcome } from "@/lib/community-messenger/contacts/contacts-sync-engine";
 import { resetContactsArchiveSummary } from "@/lib/community-messenger/contacts/contacts-summary-cache";
 import { setContactsFriendTagIds } from "@/lib/community-messenger/contacts/contacts-friend-tag-store";
 import {
@@ -239,51 +234,17 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
   );
 
   /** 동기화 1회 → 결과(화면이 안내에 쓴다). 올렸으면 afterSync 가 목록을 새로 받고, 수동인데 안 올렸으면 여기서 받는다 */
-  /** 이 화면이 직접 누른 수동 새로고침 진행 수 — 다른 화면에서 누른 ⟳ 의 끝 알림과 구분 (§19 C2) */
-  const ownManual = useRef(0);
   const sync = useCallback(
     async (manual: boolean, reactivate = false): Promise<ContactsSyncOutcome | null> => {
       if (!userId) return null;
       set({ syncing: true });
-      if (manual) ownManual.current += 1;
-      try {
-        const outcome = await runContactsSync(userId, { manual, reactivate });
-        await afterSync(outcome);
-        if (manual && outcome !== "uploaded") await loadList(true);
-        return outcome;
-      } finally {
-        if (manual) ownManual.current -= 1;
-      }
+      const outcome = await runContactsSync(userId, { manual, reactivate });
+      await afterSync(outcome);
+      if (manual && outcome !== "uploaded") await loadList(true);
+      return outcome;
     },
     [afterSync, loadList, set, userId]
   );
-
-  // 다른 곳(친구 탭 섹션·전체 화면·관리 설정)에서 누른 ⟳ 가 끝남 → 이 화면도 기기 안 상태·목록을 맞춘다 (§19 C2).
-  // 누른 화면이 목록을 새로 받는 중이면 그 요청을 함께 쓰고(요청 1개), 아무도 안 받으면 올렸을 때만 새로 받는다.
-  useEffect(() => {
-    if (!userId) return;
-    const onManual = (e: Event) => {
-      const d = (e as CustomEvent<ContactsManualSyncEventDetail>).detail;
-      if (!d || d.userId !== userId || d.running || ownManual.current > 0) return;
-      const local = readContactsLocalState(userId);
-      set({
-        permission: local.lastPermission,
-        revokePending: local.revokePending,
-        lastSyncAt: local.lastSyncAt,
-        names: local.memberNames,
-        stoppedReason: local.stoppedReason,
-      });
-      if (d.outcome !== "uploaded") return;
-      // 누른 화면의 목록 요청은 같은 작업 안에서 시작된다 — 한 박자 뒤에 확인한다
-      window.setTimeout(() => {
-        const pending = listInflight.get(userId);
-        if (pending) void pending.then(() => loadList(false));
-        else void loadList(true);
-      }, 0);
-    };
-    window.addEventListener(CONTACTS_MANUAL_SYNC_EVENT, onManual);
-    return () => window.removeEventListener(CONTACTS_MANUAL_SYNC_EVENT, onManual);
-  }, [loadList, set, userId]);
 
   /** 설정 1회 → 동의한 회원이면 목록 + (앱) 자동 비교. 실패는 캐시하지 않는다 (다시 시도 가능) */
   const start = useCallback(

@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { Settings } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { RefreshCw, Settings } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerFriendTabSectionLabel } from "@/components/community-messenger/friend-list/CommunityMessengerFriendSection";
 import { MessengerContactsMemberRow } from "@/components/community-messenger/contacts/MessengerContactsMemberRow";
@@ -26,6 +26,7 @@ import { useDibayShareSheet } from "@/components/share/use-dibay-share-sheet";
 import { APP_PRODUCT_DISPLAY_NAME } from "@/lib/brand/app-display-name";
 import { DIBAY_APP_ICON_512_PATH, dibayBrandAssetUrl } from "@/lib/brand/brand-asset-paths";
 import { buildShareUrl } from "@/lib/share/share-url";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { MessengerContactsLoading, MessengerContactsRetry } from "@/components/community-messenger/contacts/MessengerContactsStatus";
 import {
   MESSENGER_CONTACTS_BACK_HREF,
@@ -33,14 +34,22 @@ import {
   contactsMemberDisplayName,
   type ContactsMemberRow,
 } from "@/lib/community-messenger/contacts/contacts-contract";
-import {
-  ContactsRefreshButton,
-  useContactsManualSyncRunning,
-  useContactsRefreshAction,
-} from "@/components/community-messenger/contacts/use-contacts-refresh-action";
+import type { ContactsSyncOutcome } from "@/lib/community-messenger/contacts/contacts-sync-engine";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 const INVITE_MAX = 100;
 const BACK_HREF = MESSENGER_CONTACTS_BACK_HREF;
+
+/** 수동 새로고침 결과 안내 (최종 점검 #6) — 결과마다 한 문구 */
+const REFRESH_RESULT_KEY: Partial<Record<ContactsSyncOutcome, MessageKey>> = {
+  uploaded: "cm_contacts_refresh_done",
+  unchanged: "cm_contacts_refresh_done",
+  stopped: "cm_contacts_refresh_stopped",
+  throttled: "cm_contacts_refresh_limited",
+  permission_needed: "cm_contacts_refresh_permission",
+  permission_revoked: "cm_contacts_refresh_permission",
+  failed: "cm_contacts_action_failed",
+};
 
 /** 「0917 ··· 2231」 — 국가번호를 뺀 앞 4자리 · 끝 4자리만 (이 기기 안에서만 표시) */
 function maskContactNumber(e164: string): string {
@@ -82,14 +91,29 @@ export function MessengerContactsScreen() {
 
   const showRefresh = view.nativeAvailable && view.phase === "ready";
   const showSettings = view.phase === "ready" || (view.featureOff && view.settings?.consented === true);
-  // ⟳ 회전 = 수동 새로고침 진행 (어느 곳에서 눌러도 함께 — §19 C2). 첫 진입 자동 비교 때는 부제만 바뀐다
-  const refreshing = useContactsManualSyncRunning(c.userId);
-  const onRefresh = useContactsRefreshAction(c.refresh);
+  const { syncing } = view;
+  const { refresh } = c;
+  const onRefresh = useCallback(async () => {
+    const outcome = await refresh();
+    const key = outcome ? REFRESH_RESULT_KEY[outcome] : undefined;
+    if (key) showMessengerSnackbar(t(key), outcome === "failed" ? { variant: "error" } : undefined);
+  }, [refresh, t]);
   const actions = useMemo(
     () =>
       showRefresh || showSettings ? (
         <div className="flex items-center">
-          {showRefresh ? <ContactsRefreshButton spinning={refreshing} onPress={() => void onRefresh()} dataAttr="screen" /> : null}
+          {showRefresh ? (
+            <button
+              type="button"
+              aria-label={t("cm_contacts_refresh")}
+              aria-busy={syncing || undefined}
+              disabled={syncing}
+              onClick={() => void onRefresh()}
+              className="flex h-11 w-11 items-center justify-center rounded-full active:bg-[color:var(--cm-chat-band)]"
+            >
+              <RefreshCw className={`h-5 w-5 ${syncing ? "animate-spin" : ""}`} style={{ color: "var(--cm-chat-fg)" }} aria-hidden />
+            </button>
+          ) : null}
           {showSettings ? (
             <Link
               href={MESSENGER_CONTACTS_SETTINGS_HREF}
@@ -101,7 +125,7 @@ export function MessengerContactsScreen() {
           ) : null}
         </div>
       ) : null,
-    [onRefresh, refreshing, showRefresh, showSettings, t]
+    [onRefresh, showRefresh, showSettings, syncing, t]
   );
   useMessengerContactsHeader({
     titleKey: view.phase === "consent" ? "cm_contacts_consent_title" : "cm_contacts_screen_title",
