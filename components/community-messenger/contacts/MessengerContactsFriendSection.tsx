@@ -18,6 +18,11 @@ import {
   type ContactsMemberRow,
 } from "@/lib/community-messenger/contacts/contacts-contract";
 import { MessengerContactsRetry } from "@/components/community-messenger/contacts/MessengerContactsStatus";
+import {
+  ContactsRefreshButton,
+  useContactsManualSyncRunning,
+  useContactsRefreshAction,
+} from "@/components/community-messenger/contacts/use-contacts-refresh-action";
 
 const PREVIEW_COUNT = 3;
 
@@ -25,6 +30,7 @@ const PREVIEW_COUNT = 3;
  * 친구 탭 「내 연락처의 DIBAY 회원」 섹션 (SSOT v5 §13 · 통합 시안 5) — 내 프로필·받은 요청 아래 1개.
  * 대화/친구/통화 탭 구조·기존 친구 섹션은 그대로. 기능 꺼짐(어드민)·로그인 전이면 아무것도 그리지 않는다.
  * 동의 전: 안내 띠 「시작하기」 → 연락처 화면(같은 주소의 전체 화면 동의). 목록은 이 섹션이 보일 때만 따로 불러온다.
+ * 머리글 ⟳ = 기기 연락처 즉시 새로고침 (§19 C1·C2). 이 기기가 허락·권한 상태면 일치 회원 0명이어도 섹션을 그린다 (§19 C4).
  */
 export function MessengerContactsFriendSection() {
   const { t } = useI18n();
@@ -41,6 +47,10 @@ export function MessengerContactsFriendSection() {
         : null,
     [sheetMember, c.userId]
   );
+
+  // 훅은 아래 조기 반환보다 먼저 (§19 C2 — 다른 곳에서 누른 ⟳ 도 함께 회전)
+  const refreshing = useContactsManualSyncRunning(c.userId);
+  const onRefresh = useContactsRefreshAction(c.refresh);
 
   if (view.phase === "loading" || view.phase === "disabled") return null;
   // 설정을 못 불러옴 → 섹션을 조용히 지우지 않고 다시 시도 (최종 점검 #3·#21)
@@ -85,7 +95,10 @@ export function MessengerContactsFriendSection() {
         view.stoppedReason === "source_removed" ||
         view.stoppedReason === "device_sync_off" ||
         (view.permission !== "granted" && view.permission !== "limited")));
-  if (preview.length === 0 && !view.listError && !hasBanner) return null;
+  // 이 기기에서 허락·권한까지 마친 회원 = 새로고침할 수 있는 상태 → 0명이어도 머리글 ⟳·전체 보기·빈 안내를 보인다 (§19 C4)
+  const deviceReady =
+    view.nativeAvailable && !view.deviceApprovalNeeded && (view.permission === "granted" || view.permission === "limited");
+  if (preview.length === 0 && !view.listError && !hasBanner && !deviceReady) return null;
 
   const nameOf = (m: ContactsMemberRow) => contactsMemberDisplayName(m, view.names);
 
@@ -111,13 +124,24 @@ export function MessengerContactsFriendSection() {
         title={t("cm_contacts_section_title")}
         count={members.length}
         right={
-          <Link
-            href={MESSENGER_CONTACTS_SCREEN_HREF}
-            className="-my-3 inline-flex min-h-[44px] items-center px-1 font-semibold text-sam-primary"
-            data-cm-contacts-see-all=""
-          >
-            {t("cm_contacts_see_all")}
-          </Link>
+          <span className="flex items-center">
+            {view.nativeAvailable ? (
+              <ContactsRefreshButton
+                spinning={refreshing}
+                onPress={() => void onRefresh()}
+                iconClassName="h-[18px] w-[18px]"
+                className="-my-3"
+                dataAttr="section"
+              />
+            ) : null}
+            <Link
+              href={MESSENGER_CONTACTS_SCREEN_HREF}
+              className="-my-3 inline-flex min-h-[44px] items-center px-1 font-semibold text-sam-primary"
+              data-cm-contacts-see-all=""
+            >
+              {t("cm_contacts_see_all")}
+            </Link>
+          </span>
         }
       />
       <MessengerContactsBanners
@@ -128,6 +152,11 @@ export function MessengerContactsFriendSection() {
         onTurnOn={() => void c.turnOnThisDevice()}
       />
       {view.listError && preview.length === 0 ? <MessengerContactsRetry compact onRetry={() => void c.reloadList()} /> : null}
+      {!view.listError && preview.length === 0 && deviceReady ? (
+        <p className="px-4 py-3 text-[14px]" style={{ color: "var(--cm-chat-sub)" }} data-cm-contacts-section-empty="">
+          {t("cm_contacts_empty")}
+        </p>
+      ) : null}
       <div>
         {preview.map((m) => (
           <MessengerContactsMemberRow

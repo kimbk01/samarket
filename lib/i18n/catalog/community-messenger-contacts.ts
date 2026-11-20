@@ -121,6 +121,9 @@ export const communityMessengerContactsMessages = {
     cm_contacts_refresh_stopped: "이 기기 동기화가 꺼져 있어요",
     cm_contacts_refresh_limited: "오늘은 더 올릴 수 없어요. 내일 다시 시도해 주세요",
     cm_contacts_refresh_permission: "연락처 권한을 허용해 주세요",
+    /** 관리 › 연락처 동기화 「이 기기」 아래 줄 (§19 C1·C3) */
+    cm_contacts_refresh_row: "연락처 새로고침",
+    cm_contacts_last_refresh: "마지막 새로고침 {time}",
     cm_contacts_invite_copied: "초대 링크를 복사했어요",
     cm_contacts_removed_title: "이 기기 연락처를 지웠어요",
     cm_contacts_removed_desc: "다시 켜면 이 기기 연락처를 다시 올려요",
@@ -251,6 +254,8 @@ export const communityMessengerContactsMessages = {
     cm_contacts_refresh_stopped: "Sync is off on this phone",
     cm_contacts_refresh_limited: "You can't upload more today. Try again tomorrow",
     cm_contacts_refresh_permission: "Allow access to contacts",
+    cm_contacts_refresh_row: "Refresh contacts",
+    cm_contacts_last_refresh: "Last refreshed {time}",
     cm_contacts_invite_copied: "Invite link copied",
     cm_contacts_removed_title: "This phone's contacts were deleted",
     cm_contacts_removed_desc: "Turn it on to upload this phone's contacts again",
