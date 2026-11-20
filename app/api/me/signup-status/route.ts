@@ -58,7 +58,12 @@ export async function GET(req: NextRequest) {
         nextStep: onboarding.registrationNextStep,
       },
       /** 동의 미완 → 동의 화면 · 가입 미완 → 빠진 단계 화면 · 완료 → next (로그인 목적지와 같은 함수) */
-      route: resolvePostLoginRoute({ hasSession: true, status: onboarding, next: safeNext }),
+      route: resolvePostLoginRoute({
+        hasSession: true,
+        status: onboarding,
+        next: safeNext,
+        inSession: req.nextUrl.searchParams.get("scope") === "session",
+      }),
       requiredConsent: onboarding.requiredConsent ?? null,
     });
   } catch (error) {

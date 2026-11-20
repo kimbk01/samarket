@@ -15,9 +15,11 @@ import {
 } from "@/lib/profile/profile-completion-modal-client";
 import {
   ACTION_PROFILE_REQUIREMENTS,
+  SERVER_ROUTE_ADDRESS_CHECK_ACTIONS,
   type ProfileActionType,
   type ProfileRequirementField,
 } from "@/lib/profile/profile-requirements";
+import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 
 export type { ProfileCompletionRequiredDetail };
 
@@ -27,6 +29,15 @@ function isPhoneOnlyMissing(fields: ProfileRequirementField[]): boolean {
 
 function hasRegistrationFieldMissing(fields: ProfileRequirementField[]): boolean {
   return fields.includes("phone_verified") || fields.includes("default_address");
+}
+
+async function readServerRegistrationComplete(): Promise<boolean> {
+  try {
+    const { status, json } = await fetchSignupStatusDeduped();
+    return status === 200 && json?.registration?.complete === true;
+  } catch {
+    return false;
+  }
 }
 
 async function readHasCanonicalDefaultAddress(): Promise<boolean> {
@@ -88,8 +99,24 @@ export async function requireProfileCompletionClient(
   actionType: ProfileActionType,
   detail: Omit<ProfileCompletionRequiredDetail, "actionType" | "missingFields">
 ): Promise<boolean> {
-  const evaluation = await evaluateClientProfileRequirements(profile, actionType);
+  let evaluation = await evaluateClientProfileRequirements(profile, actionType);
   if (evaluation.satisfied) return true;
+  if (hasRegistrationFieldMissing(evaluation.missingFields)) {
+    /**
+     * 화면 사본(프로필 캐시·주소 스냅샷)이 「가입 미완」일 때만 서버 판정 1회로 다시 확인한다 —
+     * 특권 관리자 면제·방금 끝낸 인증을 화면이 아직 모를 수 있다(재감사 H2). 서버가 가입 완료면 가입 항목을 뺀다
+     * (단, 대표 주소가 기능에 필요한 기존 4개 행동은 주소를 계속 요구).
+     */
+    const serverSaysRegistered = await readServerRegistrationComplete();
+    if (serverSaysRegistered) {
+      const keepAddress = SERVER_ROUTE_ADDRESS_CHECK_ACTIONS.has(actionType);
+      const missing = evaluation.missingFields.filter(
+        (f) => f !== "phone_verified" && f !== "recipient_phone" && (keepAddress || f !== "default_address"),
+      );
+      evaluation = { ...evaluation, missingFields: missing, satisfied: missing.length === 0 };
+      if (evaluation.satisfied) return true;
+    }
+  }
   /**
    * 가입 조건(전화 인증·대표 주소)이 빠졌으면 「가입을 마치면 이용할 수 있어요」 안내 → 빠진 가입 단계 화면
    * (`MissingProfileInfoModal`, 설계 v3 §4-3). 가입 조건과 무관한 항목만 빠졌을 때는 기존 안내 그대로.

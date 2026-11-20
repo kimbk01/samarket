@@ -154,6 +154,13 @@ describe("2-A 회원 쓰기 검사 1회 조회", () => {
     expect(await enforceApiMemberMutationPolicy(write())).toBeNull();
   });
 
+  it("재감사 H2 — 동의한 관리자(역할 admin)는 전화·주소 없어도 가입 검사 면제", async () => {
+    db.result = snap({ phone_verified: false, phone_verified_at: null, has_default_master: false, admin_role: "admin" });
+    expect(await enforceApiMemberMutationPolicy(write())).toBeNull();
+    db.result = snap({ phone_verified: false, phone_verified_at: null, has_default_master: false, admin_role: "super_admin" });
+    expect(await enforceApiMemberMutationPolicy(write())).toBeNull();
+  });
+
   it("구 DB 함수(가입 필드 없음): 직접 조회로 내려가고, 조회 불가면 통과시키지 않는다(503)", async () => {
     const { phone_verified: _p, phone_verified_at: _pa, has_default_master: _h, ...legacy } = CONSENTED;
     db.result = { data: { found: true, status: "verified_user", deleted_at: null, role: null, admin_role: null, ...legacy }, error: null };

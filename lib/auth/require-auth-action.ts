@@ -36,7 +36,9 @@ export type RequireAuthActionType =
   | "owner_dashboard"
   | "profile_edit"
   | "phone_verify"
-  | "address_save";
+  | "address_save"
+  /** 작성자 숨기기·기기 안 관심 태그 등 본인 화면 정리 — 로그인·동의만 (가입 조건 없음, 재감사 L3) */
+  | "content_hide";
 
 export type RequireAuthActionOptions = {
   next?: string;

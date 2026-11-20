@@ -22,6 +22,7 @@ import type {
 } from "@/lib/moim/moim-api-types";
 import type { MoimAction, MoimRole } from "@/lib/moim/moim-permission-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { openRegistrationRequiredFromApiPayload } from "@/lib/auth/registration-required-client";
 
 /**
  * 모임 화면 → API 호출 (app/api/moim/**). 모든 함수는 { ok:true, ... } | { ok:false, error } 를 돌려준다.
@@ -44,6 +45,8 @@ async function call<T>(url: string, init?: RequestInit & { json?: unknown }): Pr
     }
     if (!data) return { ok: false, error: "moim_unknown" };
     if (data.ok === true) return data as MoimApiResult<T>;
+    /** 가입 진행 중(전화·대표 주소) — 「가입 이어하기」 안내 (재감사 M2) */
+    if (openRegistrationRequiredFromApiPayload(data)) return { ok: false, error: "moim_registration_required", code: "signup_incomplete" };
     const error = typeof data.error === "string" ? data.error : "moim_unknown";
     const code = typeof data.code === "string" ? data.code : undefined;
     return { ok: false, error: code === "moim_rate_limited" ? code : error, code };

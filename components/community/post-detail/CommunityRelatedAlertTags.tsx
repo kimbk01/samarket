@@ -30,7 +30,7 @@ export function CommunityRelatedAlertTags({ tags }: Props) {
                 onClick={() => {
                   if (!me?.id) {
                     const next = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/philife";
-                    void requireAction("community_bookmark", () => addInterestTagLocal(t), { next });
+                    void requireAction("content_hide", () => addInterestTagLocal(t), { next });
                     return;
                   }
                   addInterestTagLocal(t);

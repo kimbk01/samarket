@@ -138,9 +138,12 @@ export function CommunityCommentComposerForm({
   const requireAction = useRequireAuthAction();
   const composingRef = useRef(false);
 
-  const trySubmit = () => {
+  const trySubmit = async () => {
     if (composingRef.current) return;
     if (disabled || busy || !isLoggedIn || !value.trim()) return;
+    /** 로그인한 가입 진행 중 회원도 같은 행동 게이트 — 「가입 이어하기」 안내 (재감사 M2) */
+    const n = window.location.pathname + window.location.search;
+    if (!(await requireAction("community_comment", () => undefined, { next: n }))) return;
     onSubmit();
   };
 
@@ -149,7 +152,7 @@ export function CommunityCommentComposerForm({
       className={`flex w-full min-w-0 items-start gap-2.5 ${className}`}
       onSubmit={(e) => {
         e.preventDefault();
-        trySubmit();
+        void trySubmit();
       }}
     >
       <SmallAvatar me={me} />

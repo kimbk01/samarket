@@ -31,6 +31,7 @@ import { resolveMemberConsentAuthority } from "@/lib/auth/resolve-member-consent
 import { loadMemberWriteGateSnapshot } from "@/lib/auth/load-member-write-gate-snapshot";
 import { resolveMemberRegistrationClassForApiMutation } from "@/lib/auth/member-registration-mutation-policy";
 import { resolveMemberRegistrationAuthority } from "@/lib/auth/resolve-member-registration-authority";
+import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { requestHasSupabaseSessionCookie } from "@/lib/auth/api-auth-cookie-presence";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 
@@ -200,8 +201,10 @@ export async function enforceApiMemberMutationPolicy(
   if (resolveMemberConsentClassForApiMutation(method, pathname) === "CONSENT_EXEMPT") return null;
   const consent = await resolveMemberConsentAuthority(userId, snapshot?.consent ?? undefined);
   if (consent.kind === "CONSENTED") {
-    // 가입 = 동의 + 전화 인증 + 대표 주소 (Owner 2026-11-20). 특권 관리자는 동의와 같이 면제.
-    if (consent.via === "privileged_admin") return null;
+    // 가입 = 동의 + 전화 인증 + 대표 주소 (Owner 2026-11-20). 특권 관리자는 면제 —
+    // 동의한 관리자도 `via:"consent"` 로 오므로 스냅샷의 활성 관리자 역할을 직접 본다
+    // (가입 단계 판정 `getOnboardingStatus` 와 같은 식 `isPrivilegedAdminRole` — 재감사 H2).
+    if (consent.via === "privileged_admin" || isPrivilegedAdminRole(snapshot?.consent?.adminRole ?? null)) return null;
     if (resolveMemberRegistrationClassForApiMutation(method, pathname) === "REGISTRATION_EXEMPT") return null;
     const registration = await resolveMemberRegistrationAuthority(userId, snapshot?.registration ?? null);
     if (registration.kind === "REGISTERED") return null;

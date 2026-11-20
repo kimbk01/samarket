@@ -56,7 +56,8 @@ export default async function AuthOnboardingTermsPage({
     if (termsOk && ageOk) {
       // 동의 완료 — 가입 단계(전화·주소)가 남았으면 그 화면, 끝났으면 next (로그인 목적지와 같은 함수).
       const status = await getOnboardingStatus(readSb, user.id);
-      redirect(status.registrationComplete ? next : resolvePostLoginRoute({ hasSession: true, status, next }));
+      // 화면 안 이동 — 403 복구(채팅방 등)에서 온 next 를 지우지 않는다(재감사 M1). 로그인 직후 next 는 서버 목적지가 이미 걸렀다.
+      redirect(status.registrationComplete ? next : resolvePostLoginRoute({ hasSession: true, status, next, inSession: true }));
     }
   }
   const consentGap = !termsOk && !ageOk ? "terms_privacy_and_age" : !termsOk ? "terms_privacy" : "age";

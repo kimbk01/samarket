@@ -91,6 +91,20 @@ describe("중앙 쓰기 게이트 — 가입 검사 예외", () => {
     ["PATCH", "/api/me/stores/s1/products/p1"],
     ["PATCH", "/api/me/stores/s1"],
     ["POST", "/api/me/apple-iap/verify"],
+    // 재감사 H1 · L4 · M4 · M5 · L3
+    ["PATCH", "/api/community-messenger/rooms/r1"],
+    ["POST", "/api/community-messenger/bridge/product-chat"],
+    ["POST", "/api/community-messenger/contacts/sync"],
+    ["PATCH", "/api/community-messenger/contacts/sources/s1"],
+    ["DELETE", "/api/community-messenger/contacts/sources/s1"],
+    ["DELETE", "/api/community-messenger/contacts/consent"],
+    ["DELETE", "/api/community-messenger/contacts"],
+    ["POST", "/api/me/store-coupons/campaigns"],
+    ["PATCH", "/api/me/store-coupons/campaigns"],
+    ["POST", "/api/me/delivery-ads/partner"],
+    ["POST", "/api/me/delivery-ads/c1/funding"],
+    ["PUT", "/api/posts/p1/hide"],
+    ["DELETE", "/api/posts/p1/hide"],
   ])("%s %s → 예외", (m, p) => {
     expect(resolveMemberRegistrationClassForApiMutation(m, p)).toBe("REGISTRATION_EXEMPT");
   });
@@ -104,5 +118,16 @@ describe("중앙 쓰기 게이트 — 가입 검사 예외", () => {
     ["POST", "/api/me/apple-iap/prepare"],
   ])("%s %s → 가입 필요", (m, p) => {
     expect(resolveMemberRegistrationClassForApiMutation(m, p)).toBe("REGISTRATION_REQUIRED");
+  });
+});
+
+describe("재감사 M2 — API 403 signup_incomplete + step → 가입 이어하기 안내", () => {
+  it("step 이 있으면 안내를 열고, 동의 미완(step 없음)·다른 코드는 열지 않는다", async () => {
+    const { openRegistrationRequiredFromApiPayload } = await import("@/lib/auth/registration-required-client");
+    expect(openRegistrationRequiredFromApiPayload({ code: "signup_incomplete", step: "address" }, { next: "/philife" })).toBe(true);
+    expect(openRegistrationRequiredFromApiPayload({ error: "signup_incomplete", step: "phone" })).toBe(true);
+    expect(openRegistrationRequiredFromApiPayload({ code: "signup_incomplete" })).toBe(false);
+    expect(openRegistrationRequiredFromApiPayload({ code: "other", step: "phone" })).toBe(false);
+    expect(openRegistrationRequiredFromApiPayload(null)).toBe(false);
   });
 });
