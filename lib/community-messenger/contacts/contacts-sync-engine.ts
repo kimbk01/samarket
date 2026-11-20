@@ -1,7 +1,7 @@
 /**
  * 연락처 동기화 엔진 (앱) — SSOT v5 §4 S4·S7·§7·§8.
  * - 매번 찾지 않는다: 기기 안에서 이전 번호표와 비교해 바뀐 것만 올린다. 처음·재설치·409 때만 전체 스냅숏.
- * - 메신저 bootstrap·Realtime·방 진입과 연결하지 않는다. 호출처: 친구 탭 연락처 섹션·연락처 화면·앱 시작 시 하루 1회 사용 갱신(S7).
+ * - 메신저 bootstrap·Realtime·방 진입과 연결하지 않는다. 호출처: 친구 탭 연락처 섹션·연락처 화면·관리 › 연락처 동기화(⟳)·앱 시작 시 하루 1회 사용 갱신(S7·§19).
  * - 동시에 두 번 돌지 않게 회원별 1개만 (single-flight).
  */
 import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
@@ -56,7 +56,29 @@ export type ContactsSyncOptions = {
   reactivate?: boolean;
 };
 
-const inflight = new Map<string, Promise<ContactsSyncOutcome>>();
+/** 회원별 진행 중 동기화 1개 — 수동(⟳)인지 함께 기억한다 */
+const inflight = new Map<string, { p: Promise<ContactsSyncOutcome>; manual: boolean }>();
+
+/**
+ * 수동 새로고침(⟳) 진행 알림 (SSOT v5 §19 C2) — 친구 탭 섹션·전체 화면·관리 설정 어디서 눌러도
+ * 열린 ⟳ 가 모두 함께 돌고, 끝나면 함께 멈춘다. detail = { userId, running, outcome? }.
+ */
+export const CONTACTS_MANUAL_SYNC_EVENT = "dibay:contacts-manual-sync";
+export type ContactsManualSyncEventDetail = { userId: string; running: boolean; outcome?: ContactsSyncOutcome };
+const manualRunning = new Map<string, number>();
+
+/** 이 회원의 수동 새로고침이 진행 중인가 (화면이 처음 그려질 때 ⟳ 회전 여부) */
+export function isContactsManualSyncRunning(userId: string): boolean {
+  return (manualRunning.get(userId) ?? 0) > 0;
+}
+
+function emitManualSync(detail: ContactsManualSyncEventDetail): void {
+  try {
+    if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(CONTACTS_MANUAL_SYNC_EVENT, { detail }));
+  } catch {
+    /* ignore */
+  }
+}
 
 const manilaDay = contactsManilaDay;
 
@@ -366,14 +388,33 @@ function notifyContactsRevokePending(): void {
 }
 
 /** 연락처 동기화 1회 (회원별 동시 1개) */
-export function runContactsSync(userId: string, opts: ContactsSyncOptions = {}): Promise<ContactsSyncOutcome> {
-  const key = userId;
-  const existing = inflight.get(key);
-  // 자동 실행 중에 회원이 직접 켜면(재개) 끝난 뒤 그 요청으로 한 번 더 — 회원 동작을 버리지 않는다
-  if (existing) return opts.reactivate ? existing.then(() => runContactsSync(userId, opts)) : existing;
-  const p = runSync(userId, { manual: opts.manual === true, reactivate: opts.reactivate === true })
+function runContactsSyncOnce(userId: string, opts: ContactsSyncOptions): Promise<ContactsSyncOutcome> {
+  const existing = inflight.get(userId);
+  if (existing) {
+    // 자동 실행 중에 회원이 직접 켜거나(재개) ⟳ 를 누르면 끝난 뒤 그 요청으로 한 번 더 — 회원 동작을 버리지 않는다.
+    // (자동 실행 결과 「6시간 안이라 건너뜀」을 ⟳ 결과로 돌려주면 「오늘은 더 올릴 수 없어요」로 잘못 안내된다 — §19 C2)
+    if (opts.reactivate || (opts.manual && !existing.manual)) return existing.p.then(() => runContactsSyncOnce(userId, opts));
+    return existing.p;
+  }
+  const manual = opts.manual === true;
+  const p = runSync(userId, { manual, reactivate: opts.reactivate === true })
     .catch(() => "failed" as const)
-    .finally(() => inflight.delete(key));
-  inflight.set(key, p);
+    .finally(() => inflight.delete(userId));
+  inflight.set(userId, { p, manual });
   return p;
+}
+
+/** 연락처 동기화 1회 (회원별 동시 1개). 수동(⟳)이면 진행 알림을 보낸다 (§19 C2) */
+export function runContactsSync(userId: string, opts: ContactsSyncOptions = {}): Promise<ContactsSyncOutcome> {
+  if (opts.manual !== true) return runContactsSyncOnce(userId, opts);
+  manualRunning.set(userId, (manualRunning.get(userId) ?? 0) + 1);
+  if (manualRunning.get(userId) === 1) emitManualSync({ userId, running: true });
+  const done = (outcome: ContactsSyncOutcome) => {
+    const left = (manualRunning.get(userId) ?? 1) - 1;
+    if (left > 0) manualRunning.set(userId, left);
+    else manualRunning.delete(userId);
+    emitManualSync({ userId, running: left > 0, outcome });
+    return outcome;
+  };
+  return runContactsSyncOnce(userId, opts).then(done, () => done("failed"));
 }
