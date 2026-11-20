@@ -300,6 +300,62 @@ describe("검증 2026-11-20 — 구현 결함 재발 방지", () => {
   });
 });
 
+/** Android 키보드 클립보드 칩: `paste` 없이 `beforeinput` `insertText` 로 글 전체가 들어온다 (실기 2026-11-20 D3) */
+async function keyboardInsert(editor: Editor, data: string, opts: { isComposing?: boolean } = {}) {
+  const ev = new InputEvent("beforeinput", {
+    inputType: "insertText",
+    data,
+    isComposing: opts.isComposing ?? false,
+    bubbles: true,
+    cancelable: true,
+  });
+  await act(async () => {
+    editor.view.dom.dispatchEvent(ev);
+  });
+  await settle();
+  await settle();
+  return ev;
+}
+
+describe("키보드 클립보드 칩(beforeinput insertText) — 붙여넣기와 같게 (실기 2026-11-20 D3)", () => {
+  it("D3a 여러 줄 + 사진 주소 줄 → 사진으로 가져오고, 다른 줄 주소는 링크", async () => {
+    const { editor, rehost, last } = await mount();
+    const ev = await keyboardInsert(editor, "칩 시험\nhttps://upload.wikimedia.org/wikipedia/commons/0/05/Hangars.jpg\n끝 https://www.wikipedia.org/");
+    expect(ev.defaultPrevented).toBe(true);
+    expect(rehost.mock.calls.map((c) => c[0])).toEqual(["https://upload.wikimedia.org/wikipedia/commons/0/05/Hangars.jpg"]);
+    expect(imgs(last())).toHaveLength(1);
+    expect(last().blocks.some((b) => b.t === "p" && b.text.includes("upload.wikimedia.org"))).toBe(false);
+    const hrefs = last().blocks.flatMap((b) => (b.t === "p" ? (b.runs ?? []).map((r) => r.href).filter(Boolean) : []));
+    expect(hrefs).toEqual(["https://www.wikipedia.org/"]);
+  });
+
+  it("D3b 여러 줄 일반 글 → 붙여넣기와 같게 문단·링크로", async () => {
+    const { editor, rehost, last } = await mount();
+    const ev = await keyboardInsert(editor, "첫 줄 https://psa.gov.ph/\n둘째 줄");
+    expect(ev.defaultPrevented).toBe(true);
+    expect(rehost).not.toHaveBeenCalled();
+    expect(last().blocks.map((b) => (b.t === "p" ? b.text : b.t))).toEqual(["첫 줄 https://psa.gov.ph/", "둘째 줄"]);
+    const hrefs = last().blocks.flatMap((b) => (b.t === "p" ? (b.runs ?? []).map((r) => r.href).filter(Boolean) : []));
+    expect(hrefs).toEqual(["https://psa.gov.ph/"]);
+  });
+
+  it("D3c 사진 파일 주소 하나만 → 사진", async () => {
+    const { editor, rehost, last } = await mount();
+    const ev = await keyboardInsert(editor, "https://cdn.example.com/only.png");
+    expect(ev.defaultPrevented).toBe(true);
+    expect(rehost).toHaveBeenCalledTimes(1);
+    expect(imgs(last())).toHaveLength(1);
+  });
+
+  it("D3d 한 글자 입력·한글 조합 중·한 줄 일반 글은 건드리지 않는다", async () => {
+    const { editor, rehost } = await mount();
+    expect((await keyboardInsert(editor, "a")).defaultPrevented).toBe(false);
+    expect((await keyboardInsert(editor, "한\n글", { isComposing: true })).defaultPrevented).toBe(false);
+    expect((await keyboardInsert(editor, "그냥 한 줄 https://psa.gov.ph/")).defaultPrevented).toBe(false);
+    expect(rehost).not.toHaveBeenCalled();
+  });
+});
+
 describe("paste-html 단위", () => {
   it("analyzePastedHtmlForEditor: 사진 주소를 글 순서대로 돌려준다", () => {
     const r = analyzePastedHtmlForEditor(
