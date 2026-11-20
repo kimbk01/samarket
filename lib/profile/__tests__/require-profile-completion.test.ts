@@ -192,12 +192,10 @@ describe("가입 조건 (동의 + 전화 인증 + 대표 주소, Owner 2026-11-2
     "community_comment",
     "community_like",
     "community_bookmark",
-    "community_report",
     "trade_create_item",
     "trade_chat",
     "trade_buy",
     "trade_favorite",
-    "trade_report",
     "review_write",
     "messenger_new_chat",
     "messenger_send_message",
@@ -224,6 +222,10 @@ describe("가입 조건 (동의 + 전화 인증 + 대표 주소, Owner 2026-11-2
 
   it.each(actions)("%s — 가입 완료 회원은 통과", (action) => {
     expect(evaluateProfileRequirements(registered, action).satisfied).toBe(true);
+  });
+
+  it.each(["community_report", "trade_report"] as const)("%s — 신고는 가입 진행 중에도 가능 (재감사 N1)", (action) => {
+    expect(evaluateProfileRequirements({}, action).satisfied).toBe(true);
   });
 
   it("열람(messenger_open)은 요구 항목 없음 — 가입 진행 중에도 읽기 가능", () => {
