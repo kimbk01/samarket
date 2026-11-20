@@ -223,8 +223,14 @@ describe("가입 조건 (동의 + 전화 인증 + 대표 주소, Owner 2026-11-2
     expect(evaluateProfileRequirements(registered, action).satisfied).toBe(true);
   });
 
-  it.each(["community_report", "trade_report", "call_start"] as const)("%s — 가입 조건 없음 (재감사 N1 신고 · M3 통화)", (action) => {
+  it.each(["community_report", "trade_report"] as const)("%s — 가입 조건 없음 (재감사 N1 신고)", (action) => {
     expect(evaluateProfileRequirements({}, action).satisfied).toBe(true);
+  });
+
+  it("call_start — 전화 인증만, 대표 주소는 요구하지 않음 (재감사 M3)", () => {
+    expect(evaluateProfileRequirements({ ...registered, has_default_address: false }, "call_start").satisfied).toBe(true);
+    const r = evaluateProfileRequirements({ ...registered, phone_verified: false, phone_verified_at: null }, "call_start");
+    expect(r.missingFields).toEqual(["phone_verified"]);
   });
 
   it("열람(messenger_open)은 요구 항목 없음 — 가입 진행 중에도 읽기 가능", () => {
