@@ -117,7 +117,8 @@ export async function POST(req: NextRequest) {
     const row = rows.get(id);
     if (!row) blocked.push({ id, reason: "not_found" });
     else if (row.status !== "deleted") blocked.push({ id, reason: "not_deleted" });
-    else if (Date.now() - new Date(String(row.updated_at ?? 0)).getTime() < minAgeMs)
+    /** 삭제 시각 = deleted_at(트리거, 2026-11-20). 그 전에는 updated_at 이었는데 회원 삭제 때 바뀌지 않아 삭제 시각이 아니었다 */
+    else if (Date.now() - new Date(String(row.deleted_at ?? row.updated_at ?? 0)).getTime() < minAgeMs)
       blocked.push({ id, reason: "too_recent" });
     else if (openReports.has(id)) blocked.push({ id, reason: "open_reports" });
     else if (runningPromo.has(id)) blocked.push({ id, reason: "running_promotion" });
