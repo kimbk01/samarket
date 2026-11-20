@@ -28,15 +28,7 @@ import {
   clearContactsStop,
   markContactsStopped,
   patchContactsLocalState,
-  readContactsLocalState,
 } from "@/lib/community-messenger/contacts/contacts-local-store";
-import { isContactsNativeAvailable } from "@/lib/community-messenger/contacts/contacts-native";
-import { runContactsSync, type ContactsSyncOutcome } from "@/lib/community-messenger/contacts/contacts-sync-engine";
-import {
-  ContactsRefreshButton,
-  useContactsManualSyncRunning,
-  useContactsRefreshAction,
-} from "@/components/community-messenger/contacts/use-contacts-refresh-action";
 import { invalidateMessengerContactsCache } from "@/lib/community-messenger/contacts/use-messenger-contacts";
 import { setContactsFriendTagIds } from "@/lib/community-messenger/contacts/contacts-friend-tag-store";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
@@ -162,32 +154,6 @@ export function MessengerContactsSettingsScreen() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  /**
-   * 「연락처 새로고침」 줄 (§19 C1② · C3 — KakaoTalk 친구 관리 「친구 목록 새로고침」 형식).
-   * 마지막 새로고침 = 기기 연락처를 실제로 읽어 비교를 끝낸 시각(변경 없음 포함). 어느 곳에서 누른 ⟳ 든 끝나면 시각을 다시 읽고,
-   * 올렸으면 기기 번호 수가 바뀌므로 기기 목록만 다시 받는다 (설정·숨긴 추천은 다시 부르지 않음).
-   */
-  const nativeAvailable = isContactsNativeAvailable();
-  const [lastSyncAt, setLastSyncAt] = useState<number | null>(() => (userId ? readContactsLocalState(userId).lastSyncAt : null));
-  const refreshThisDevice = useCallback(
-    async (): Promise<ContactsSyncOutcome | null> => (userId ? runContactsSync(userId, { manual: true }) : null),
-    [userId]
-  );
-  const onRefresh = useContactsRefreshAction(refreshThisDevice);
-  const onManualEnd = useCallback(
-    (outcome: ContactsSyncOutcome | undefined) => {
-      if (!userId) return;
-      setLastSyncAt(readContactsLocalState(userId).lastSyncAt);
-      if (outcome !== "uploaded") return;
-      invalidateMessengerContactsCache();
-      void contactsApi.sources(ensureClientInstanceId()).then((r) => {
-        if (r.ok) setSources(r.data.sources);
-      });
-    },
-    [userId]
-  );
-  const refreshing = useContactsManualSyncRunning(userId, onManualEnd);
 
   /**
    * 처리 → 결과 안내. 설정 값 하나 바꿀 때는 화면 값만 고치고(`onOk`), 기기·목록이 바뀌는 처리만 다시 불러온다
@@ -394,27 +360,6 @@ export function MessengerContactsSettingsScreen() {
               disabled={busy === "dev"}
               onChange={(v) => toggleThisDevice(thisSource, v)}
             />
-          ) : null}
-          {thisSource && nativeAvailable ? (
-            <div className="flex min-h-14 items-center justify-between gap-3 py-2 pl-4 pr-2" data-cm-contacts-refresh-row="">
-              <span className="min-w-0">
-                <span className="block text-[16px] leading-[1.35]" style={{ color: "var(--cm-chat-fg)" }}>
-                  {t("cm_contacts_refresh_row")}
-                </span>
-                {lastSyncAt ? (
-                  <span className="mt-px block text-[12.5px] leading-snug" style={{ color: "var(--cm-chat-sub)" }}>
-                    {t("cm_contacts_last_refresh", { time: date(new Date(lastSyncAt).toISOString()) })}
-                  </span>
-                ) : null}
-              </span>
-              {/* 이 기기·계정 동기화가 꺼져 있으면 누를 수 없다 (눌러도 「꺼져 있어요」뿐 — 혼동 제거) */}
-              <ContactsRefreshButton
-                spinning={refreshing}
-                disabled={!thisSource.syncEnabled || !settings.accountSyncEnabled || busy === "dev" || busy === "acc"}
-                onPress={() => void onRefresh()}
-                dataAttr="settings"
-              />
-            </div>
           ) : null}
           {otherSources.map((s) => (
             <div key={s.id} className="flex min-h-14 items-center justify-between gap-3 px-4 py-2" data-cm-contacts-device="">

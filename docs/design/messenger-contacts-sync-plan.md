@@ -401,4 +401,10 @@ contact_join_notices       (owner_user_id, joined_user_id, notified_at, PK(owner
 | A | C1~C4 (+공용 결과 훅) · 시험 · i18n 키 `cm_contacts_refresh_row`·`cm_contacts_last_refresh` (ko·en) | 웹 — 앱 재시작 |
 | B | C5·C6 — Android `DibayContactsPlugin.getChangeStamp` · iOS 같은 이름 · 엔진에서 표시 비교 · 구 바이너리는 기존 6시간 동작 | 네이티브 — 빌드 번호 1회 증가·재설치 |
 
+### 19-5. Owner 정정 (2026-11-20 PHT) — 이 절이 19-2 보다 우선
+- 원문: 「기존에 있는 기능을 건딜지 말고 친구 - 관리 - 연락처 동기화 스피너 새로 고침 하면, 누락된 친구 부분이 나오는건데 … 매번 자동으로 친구를 찾으면 서버 부하 … 설치시 도는 새로 깔면 나오고, 계약 데로」
+- 확정: ⟳ 는 **관리(보관함) › 「연락처 동기화」 줄 오른쪽 1곳만**. 누를 때만 수동 동기화 → 올렸으면 연락처 캐시 비움(친구 탭에 새 회원). 동의 회원·앱만.
+- 철회(원복): C1①(친구 탭 섹션 ⟳) · C1②(설정 화면 「연락처 새로고침」 줄) · C2(진행 알림) · C3 · C4(섹션 상시 표시) — PR #536 으로 운영에 나갔던 것을 되돌린다.
+- C5·C6(자동 변경 감지)은 하지 않는다 (자동 찾기 = 서버 부하). C7 유지.
+
 참고: [Telegram contacts.getContacts](https://core.telegram.org/method/contacts.getContacts) · [Viber 연락처 동기화](https://help.viber.com/hc/en/articles/9067559172253)
