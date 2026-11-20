@@ -88,36 +88,41 @@ const LAZY = [
   "data-src", "data-lazy-src", "data-original", "data-url", "data-cfsrc", "data-large_image",
 ] as const;
 
+/** 서버 원본 최적화 상한(긴 변 2560, `optimizePostImageOriginalBuffer`)과 같다 — 이보다 큰 후보는 받아도 줄어들고 8MB 상한에 걸릴 수 있다 */
+const SRCSET_MAX_USEFUL_WIDTH = 2560;
+
 /**
- * `srcset` 에서 가장 큰 후보 주소 (`w`·`x` 설명자 기준, 설명자 없으면 1x).
- * 쉼표 뒤 공백으로 후보를 나눈다(주소 안 쉼표는 보통 공백이 뒤따르지 않는다).
+ * `srcset` 에서 쓸 후보 주소 — `x` 설명자는 가장 큰 것, `w` 설명자는 2560w 이하 중 가장 큰 것(모두 넘으면 가장 작은 것).
+ * 설명자 없으면 1x. 쉼표 뒤 공백으로 후보를 나눈다(주소 안 쉼표는 보통 공백이 뒤따르지 않는다).
  */
 export function pickLargestSrcsetUrl(srcset: string | null | undefined): string {
   const s = (srcset ?? "").trim();
   if (!s) return "";
-  let best = "";
-  let bestScore = -1;
+  const cands: Array<{ url: string; n: number; w: boolean }> = [];
   for (const part of s.split(/,\s+/)) {
     const [url, desc] = part.trim().split(/\s+/, 2);
     if (!url || BLANK.test(url)) continue;
     const m = /^(\d+(?:\.\d+)?)([wx])$/i.exec(desc ?? "");
-    /** 1x = 1, 너비(w)는 그대로 — 한 srcset 안에서는 한 종류만 쓰인다 */
-    const score = m ? Number(m[1]) : 1;
-    if (score > bestScore) {
-      best = url;
-      bestScore = score;
-    }
+    cands.push({ url, n: m ? Number(m[1]) : 1, w: m?.[2]?.toLowerCase() === "w" });
   }
-  return best;
+  if (!cands.length) return "";
+  const widths = cands.filter((c) => c.w);
+  if (widths.length) {
+    const fit = widths.filter((c) => c.n <= SRCSET_MAX_USEFUL_WIDTH);
+    const pool = fit.length ? fit : [widths.reduce((a, b) => (b.n < a.n ? b : a))];
+    return pool.reduce((a, b) => (b.n > a.n ? b : a)).url;
+  }
+  return cands.reduce((a, b) => (b.n > a.n ? b : a)).url;
 }
 
 const ABSOLUTE_HTTP = /^(https?:)?\/\//i;
 
 /**
  * 붙여넣은 `<img>` 의 실제 사진 주소 — 편집기 붙여넣기 정제와 예전 입력칸 붙여넣기 공용.
- * 순서: 지연 로딩 속성 → `src`(http(s)·`//`) → `srcset`/`data-srcset` 최대 → 부모 `<picture><source srcset>` 최대
+ * 순서: 지연 로딩 속성 → `srcset`/`data-srcset` 최대 → 부모 `<picture><source srcset>` 최대 → `src`(http(s)·`//`)
  * → `src` 의 `data:image` → 그 밖의 `src`(상대 주소·blob — 호출부가 가져올 수 없는 사진으로 센다).
- * `data:image` 를 srcset 뒤에 두는 이유: 지연 로딩 사이트는 `src` 에 작은 data 자리표시를, 진짜 사진은 `srcset` 에 둔다.
+ * srcset 을 src 보다 먼저 보는 이유: `src` 는 화면 크기 미리보기(위키 250px 등)인 경우가 많아 붙인 사진이 작아진다
+ * (실기 2026-11-20 D1: 11~14KB). 서버가 긴 변 2560·8MB 로 다시 줄이므로 원본보다 커지지 않는다.
  */
 export function pickImageUrlFromImgEl(img: HTMLImageElement): string {
   for (const a of LAZY) {
@@ -126,9 +131,6 @@ export function pickImageUrlFromImgEl(img: HTMLImageElement): string {
       return normalizeHttpUrlString(v.replace(/\s/g, "").trim());
     }
   }
-  const raw = (img.getAttribute("src") ?? "").trim();
-  const srcUsable = Boolean(raw) && !BLANK.test(raw);
-  if (srcUsable && ABSOLUTE_HTTP.test(raw)) return raw;
   const fromSrcset = pickLargestSrcsetUrl(img.getAttribute("srcset")) || pickLargestSrcsetUrl(img.getAttribute("data-srcset"));
   if (fromSrcset) return normalizeHttpUrlString(fromSrcset);
   const picture = img.parentElement?.tagName === "PICTURE" ? img.parentElement : null;
@@ -138,6 +140,9 @@ export function pickImageUrlFromImgEl(img: HTMLImageElement): string {
       if (u) return normalizeHttpUrlString(u);
     }
   }
+  const raw = (img.getAttribute("src") ?? "").trim();
+  const srcUsable = Boolean(raw) && !BLANK.test(raw);
+  if (srcUsable && ABSOLUTE_HTTP.test(raw)) return raw;
   if (!srcUsable) return "";
   /** 클립보드 HTML 의 data: 이미지도 교차 본문에 포함(이후 rehost) */
   if (/^data:image\/(jpeg|jpg|png|webp|gif)/i.test(raw)) return raw;

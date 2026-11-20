@@ -8,7 +8,8 @@ import { extractImageUrlsFromInterleavedContent } from "@/lib/philife/interleave
  * - 본문에 없는 후보(구 클라이언트 첨부 줄·갤러리 전용 글)는 뒤에 보존.
  * - 이전 본문에 있었는데 새 본문에서 지운 이미지는 후보에서도 제외(삭제 의도 반영).
  */
-export const COMMUNITY_MEMBER_POST_MAX_IMAGES = 10;
+/** 글 1건 사진 상한 — Owner 2026-11-20 「30장」 (이전 10장, 2026-11-01). 편집기·사진 줄·서버 저장이 같은 값 */
+export const COMMUNITY_MEMBER_POST_MAX_IMAGES = 30;
 
 function normalizeCandidate(u: unknown): string {
   return typeof u === "string" ? u.trim() : "";

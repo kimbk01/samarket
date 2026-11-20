@@ -31,6 +31,7 @@ import { philifeAdminPaths, philifeAppPaths } from "@domain/philife/paths";
 import { clearAllPhilifeFeedPersistentCaches } from "@/lib/community/philife-feed-session-cache";
 import { mergePostBodyImages, COMMUNITY_MEMBER_POST_MAX_IMAGES } from "@/lib/philife/post-body-images";
 import { uploadCommunityImageFile } from "@/lib/philife/client-image-resize";
+import { communityImageUploadErrorKey, isCommunityPostImageErrorCode } from "@/lib/philife/community-image-upload-error";
 import { runFixedDestinationBack } from "@/lib/navigation/fixed-destination-back";
 import { usePhilifeWriteLeaveGuard } from "@/components/philife/use-philife-write-leave-guard";
 import { PhilifeWritePhotoStrip } from "@/components/philife/PhilifeWritePhotoStrip";
@@ -306,6 +307,13 @@ export function PhilifeNeighborhoodWriteForm({
     setFieldErr((f) => ({ ...f, topic: undefined }));
   }, []);
 
+  /** 사진 오류 코드 → 화면 언어 문구 (감사 §11 R4) */
+  const imageErrorText = useCallback(
+    (code: unknown, status?: number) =>
+      t(communityImageUploadErrorKey(code, status), { max: String(COMMUNITY_MEMBER_POST_MAX_IMAGES) }),
+    [t]
+  );
+
   /** 업로드 실패도 결과로 돌려준다 — 네트워크·비 JSON(413)·서버 오류 (CM-P1-03) */
   const postMultipartFile = useCallback(
     async (f: File): Promise<{ ok?: boolean; url?: string; error?: string }> => {
@@ -313,11 +321,12 @@ export function PhilifeNeighborhoodWriteForm({
         network: t("philife_write_err_network"),
         tooLarge: t("philife_write_err_image_too_large"),
         failed: t("philife_write_err_image_upload"),
+        byCode: (code, status) => imageErrorText(code, status),
       });
       if (r.ok) noteSessionUpload(r.url);
       return r.ok ? { ok: true, url: r.url } : { ok: false, error: r.error };
     },
-    [t, noteSessionUpload]
+    [t, noteSessionUpload, imageErrorText]
   );
 
   /** 기존 편집기 사진 줄에 추가 */
@@ -332,7 +341,7 @@ export function PhilifeNeighborhoodWriteForm({
     try {
       for (const f of files) {
         if (legacyPhotoCountRef.current >= cap) {
-          setErr(t("philife_write_err_image_limit"));
+          setErr(t("philife_write_err_image_limit", { max: String(COMMUNITY_MEMBER_POST_MAX_IMAGES) }));
           break;
         }
         const j = await postMultipartFile(f);
@@ -395,7 +404,7 @@ export function PhilifeNeighborhoodWriteForm({
       try {
         for (const f of imageFiles) {
           if (legacyPhotoCountRef.current >= COMMUNITY_MEMBER_POST_MAX_IMAGES) {
-            setErr(t("philife_write_err_image_limit"));
+            setErr(t("philife_write_err_image_limit", { max: String(COMMUNITY_MEMBER_POST_MAX_IMAGES) }));
             break;
           }
           const j = await postMultipartFile(f);
@@ -502,9 +511,9 @@ export function PhilifeNeighborhoodWriteForm({
       } catch {
         return { kind: "error" as const, message: t("philife_write_err_network") };
       }
-      let j: { ok?: boolean; url?: string; error?: string } = {};
+      let j: { ok?: boolean; url?: string; code?: string } = {};
       try {
-        j = (await res.json()) as { ok?: boolean; url?: string; error?: string };
+        j = (await res.json()) as { ok?: boolean; url?: string; code?: string };
       } catch {
         return { kind: "error" as const, message: t("philife_write_err_parse") };
       }
@@ -512,7 +521,7 @@ export function PhilifeNeighborhoodWriteForm({
         noteSessionUpload(j.url);
         return { kind: "hosted" as const, url: j.url };
       }
-      return { kind: "error" as const, message: j.error };
+      return { kind: "error" as const, message: imageErrorText(j.code, res.status) };
     };
     const tryRehostDataUrl = async (dataUrl: string) => {
       let blob: Blob;
@@ -656,6 +665,11 @@ export function PhilifeNeighborhoodWriteForm({
   };
 
   const wantWysiwyg = editorMode.useWysiwyg;
+  /**
+   * 본문 자리를 비워 두는 동안: 판정 전(관리자 확인 요청 중) 또는 새 편집기로 열 예정이지만 아직 시드 전.
+   * 예전 입력칸은 판정이 off 이거나 예전 글을 새 편집기로 바꿀 수 없을 때(`editorFallbackNotice`)만 보인다.
+   */
+  const editorBodyPending = !editorFallbackNotice && (!editorMode.resolved || wantWysiwyg);
   useEffect(() => {
     if (!wantWysiwyg) {
       setEditorSeed(null);
@@ -719,17 +733,17 @@ export function PhilifeNeighborhoodWriteForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url, pageReferer: pageReferer || undefined }),
         });
-        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string; error?: string };
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string; code?: string };
         if (res.ok && j.ok && j.url) {
           noteSessionUpload(j.url);
           return { ok: true, url: j.url };
         }
-        return { ok: false, error: j.error || failed };
+        return { ok: false, error: j.code ? imageErrorText(j.code, res.status) : failed };
       } catch {
         return { ok: false, error: t("philife_write_err_network") };
       }
     },
-    [editorUploadFile, t, noteSessionUpload]
+    [editorUploadFile, t, noteSessionUpload, imageErrorText]
   );
 
   const editorUploading = Boolean(editorSeed && editorSnap && editorSnap.uploadingCount > 0);
@@ -826,15 +840,17 @@ export function PhilifeNeighborhoodWriteForm({
               ...(body.contentBlocks ? { contentBlocks: body.contentBlocks } : {}),
             }),
           });
-          let j: { ok?: boolean; error?: string };
+          let j: { ok?: boolean; error?: string; code?: string };
           try {
-            j = (await res.json()) as { ok?: boolean; error?: string };
+            j = (await res.json()) as { ok?: boolean; error?: string; code?: string };
           } catch {
             setErr(t("philife_write_err_server_response"));
             return;
           }
           if (!res.ok || !j.ok) {
-            const msg = j.error ?? t("philife_write_err_register_failed");
+            const msg = isCommunityPostImageErrorCode(j.code)
+              ? imageErrorText(j.code, res.status)
+              : (j.error ?? t("philife_write_err_register_failed"));
             if (redirectForBlockedAction(router, msg, pathname)) return;
             setErr(msg);
             return;
@@ -920,15 +936,17 @@ export function PhilifeNeighborhoodWriteForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        let j: { ok?: boolean; id?: string; error?: string };
+        let j: { ok?: boolean; id?: string; error?: string; code?: string };
         try {
-          j = (await res.json()) as { ok?: boolean; id?: string; error?: string };
+          j = (await res.json()) as { ok?: boolean; id?: string; error?: string; code?: string };
         } catch {
           setErr(t("philife_write_err_server_response"));
           return;
         }
         if (!res.ok || !j.ok || !j.id) {
-          const msg = j.error ?? t("philife_write_err_register_failed");
+          const msg = isCommunityPostImageErrorCode(j.code)
+            ? imageErrorText(j.code, res.status)
+            : (j.error ?? t("philife_write_err_register_failed"));
           if (redirectForBlockedAction(router, msg, pathname)) return;
           setErr(msg);
           return;
@@ -1214,7 +1232,7 @@ export function PhilifeNeighborhoodWriteForm({
                   remove: t("common_delete"),
                   moveUp: t("philife_write_image_move_up"),
                   moveDown: t("philife_write_image_move_down"),
-                  imageLimit: t("philife_write_err_image_limit"),
+                  imageLimit: t("philife_write_err_image_limit", { max: String(COMMUNITY_MEMBER_POST_MAX_IMAGES) }),
                   imageUnfetchable: (count) => t("philife_write_err_image_unfetchable", { count: String(count) }),
                   caption: t("philife_write_image_caption"),
                   captionEdit: t("philife_write_image_caption_edit"),
@@ -1251,6 +1269,11 @@ export function PhilifeNeighborhoodWriteForm({
                   editorApiRef.current?.insertFiles(files);
                 }}
               />
+            </div>
+          ) : editorBodyPending ? (
+            /** 새 편집기 판정·준비 중 — 예전 입력칸을 먼저 보여 주지 않는다(거기서 붙이면 사진이 주소 글자로 보임, 감사 §11 R2) */
+            <div className={PHILIFE_COMPOSER_BODY_CLASS} aria-busy="true" data-testid="philife-write-body-pending">
+              <div className="min-h-[40dvh]" />
             </div>
           ) : (
             <>

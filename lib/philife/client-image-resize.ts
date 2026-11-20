@@ -84,13 +84,19 @@ export async function prepareCommunityImageForUpload(
   }
 }
 
-export type CommunityUploadResult = { ok: true; url: string } | { ok: false; error: string };
+export type CommunityUploadResult = { ok: true; url: string } | { ok: false; error: string; code?: string };
 
 /** multipart 업로드 — 네트워크 오류·비 JSON 응답(413 등)도 실패로 돌려준다. */
 export async function uploadCommunityImageFile(
   endpoint: string,
   file: File,
-  messages: { network: string; tooLarge: string; failed: string }
+  messages: {
+    network: string;
+    tooLarge: string;
+    failed: string;
+    /** 서버 오류 코드 → 화면 언어 문구(`communityImageUploadErrorKey`). 없으면 tooLarge/failed */
+    byCode?: (code: string, status: number) => string | undefined;
+  }
 ): Promise<CommunityUploadResult> {
   let prepared = file;
   try {
@@ -106,12 +112,19 @@ export async function uploadCommunityImageFile(
   } catch {
     return { ok: false, error: messages.network };
   }
-  let j: { ok?: boolean; url?: string; error?: string } = {};
+  let j: { ok?: boolean; url?: string; code?: string } = {};
   try {
     j = (await res.json()) as typeof j;
   } catch {
     return { ok: false, error: res.status === 413 ? messages.tooLarge : messages.failed };
   }
   if (res.ok && j.ok && typeof j.url === "string" && j.url) return { ok: true, url: j.url };
-  return { ok: false, error: j.error || (res.status === 413 ? messages.tooLarge : messages.failed) };
+  /** 서버 문구는 쓰지 않는다 — 코드로 화면 언어 문구를 고른다 (감사 §11 R4) */
+  const code = typeof j.code === "string" ? j.code : "";
+  const byCode = code ? messages.byCode?.(code, res.status) : undefined;
+  return {
+    ok: false,
+    error: byCode ?? (res.status === 413 || code === "too_large" ? messages.tooLarge : messages.failed),
+    ...(code ? { code } : {}),
+  };
 }

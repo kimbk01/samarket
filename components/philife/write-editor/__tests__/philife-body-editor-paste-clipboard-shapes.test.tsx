@@ -13,6 +13,7 @@ import PhilifeBodyEditor, {
 import type { RichDocSnapshot } from "@/lib/philife/write-editor/rich-codec";
 import { richBlocksToEditorDoc } from "@/lib/philife/write-editor/rich-codec";
 import { analyzePastedHtmlForEditor, plainImageLinesToMarkdown } from "@/lib/philife/write-editor/paste-html";
+import { pickLargestSrcsetUrl } from "@/lib/philife/interleaved-body-markdown";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 if (typeof (globalThis as { ClipboardEvent?: unknown }).ClipboardEvent === "undefined") {
@@ -76,7 +77,7 @@ async function settle() {
   });
 }
 
-async function mount(opts: { rehostFails?: boolean } = {}) {
+async function mount(opts: { rehostFails?: boolean; maxImages?: number } = {}) {
   const snaps: RichDocSnapshot[] = [];
   const notices: string[] = [];
   const rehost = vi.fn(async (url: string, pageReferer?: string): Promise<PhilifeBodyEditorUploadResult> => {
@@ -96,7 +97,7 @@ async function mount(opts: { rehostFails?: boolean } = {}) {
       <PhilifeBodyEditor
         initialDoc={richBlocksToEditorDoc([])}
         ownerUserId={OWNER}
-        maxImages={10}
+        maxImages={opts.maxImages ?? 10}
         labels={LABELS}
         uploadFile={uploadFile}
         rehostUrl={rehost}
@@ -353,6 +354,32 @@ describe("키보드 클립보드 칩(beforeinput insertText) — 붙여넣기와
     expect((await keyboardInsert(editor, "한\n글", { isComposing: true })).defaultPrevented).toBe(false);
     expect((await keyboardInsert(editor, "그냥 한 줄 https://psa.gov.ph/")).defaultPrevented).toBe(false);
     expect(rehost).not.toHaveBeenCalled();
+  });
+});
+
+describe("R1 붙인 사진은 쓸 수 있는 가장 큰 크기로 (실기 2026-11-20 D1: 250px 미리보기로 들어옴)", () => {
+  it("src 가 작은 미리보기여도 srcset 의 큰 사진을 가져온다", () => {
+    const r = analyzePastedHtmlForEditor(
+      `<img src="//thumb.example.org/a/250px-A.jpg" srcset="//thumb.example.org/a/375px-A.jpg 1.5x, //thumb.example.org/a/500px-A.jpg 2x" width="250">`
+    );
+    expect(r.imageUrls).toEqual(["https://thumb.example.org/a/500px-A.jpg"]);
+  });
+
+  it("w 설명자: 2560w 이하 중 가장 큰 것, 모두 넘으면 가장 작은 것", () => {
+    expect(pickLargestSrcsetUrl("a.jpg 640w, b.jpg 2048w, c.jpg 4096w")).toBe("b.jpg");
+    expect(pickLargestSrcsetUrl("c.jpg 4096w, d.jpg 3000w")).toBe("d.jpg");
+    expect(pickLargestSrcsetUrl("e.jpg")).toBe("e.jpg");
+  });
+});
+
+describe("R3 같은 붙여넣기의 안내는 한 번에 (감사 §11 R3)", () => {
+  it("상한 초과 + 가져올 수 없는 사진 → 두 안내가 한 줄로 한 번", async () => {
+    const { editor, notices } = await mount({ maxImages: 1 });
+    await paste(editor, {
+      plain: "x",
+      html: `<img src="https://cdn.example.com/1.jpg"><img src="https://cdn.example.com/2.jpg"><img src="blob:https://site/x">`,
+    });
+    expect(notices).toEqual(["가져올 수 없음 1 10장"]);
   });
 });
 

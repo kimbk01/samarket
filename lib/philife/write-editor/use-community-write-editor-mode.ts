@@ -5,6 +5,7 @@ import {
   COMMUNITY_WRITE_EDITOR_OPT_IN_KEY,
   type CommunityWriteEditorRollout,
 } from "@/lib/philife/write-editor/write-editor-flag";
+import { useServerCommunityWriteEditorRollout } from "@/lib/philife/write-editor/write-editor-rollout-context";
 
 type ModeResponse = { ok?: boolean; rollout?: CommunityWriteEditorRollout; canOptIn?: boolean };
 
@@ -34,7 +35,10 @@ function readOptIn(): boolean {
 }
 
 /**
- * 새 편집기 사용 여부. 판정 전·실패 시에는 항상 기존 편집기(`resolved:false` → textarea).
+ * 새 편집기 사용 여부.
+ * - 서버가 넘긴 판정(`on`·`off`)이 있으면 요청 없이 바로 확정한다(`resolved:true`).
+ * - `admin`(관리자 직접 켜기) 또는 넘긴 값이 없을 때만 `/api/philife/write-editor-mode` 로 관리자 여부를 묻는다.
+ *   그동안 화면은 본문 자리를 비워 둔다(예전 입력칸을 먼저 보여 주지 않음 — 감사 §11 R2).
  */
 export function useCommunityWriteEditorMode(): {
   resolved: boolean;
@@ -42,16 +46,20 @@ export function useCommunityWriteEditorMode(): {
   canOptIn: boolean;
   setOptIn: (on: boolean) => void;
 } {
-  const [state, setState] = useState<{ resolved: boolean; rollout: CommunityWriteEditorRollout; canOptIn: boolean }>({
-    resolved: false,
-    rollout: "off",
-    canOptIn: false,
-  });
+  const serverRollout = useServerCommunityWriteEditorRollout();
+  /** 서버가 넘긴 확정 판정 — `admin`·없음이면 null(요청으로 관리자 여부 확인) */
+  const knownRollout: CommunityWriteEditorRollout | null =
+    serverRollout === "on" || serverRollout === "off" ? serverRollout : null;
+  const known = knownRollout !== null;
+  const [state, setState] = useState<{ resolved: boolean; rollout: CommunityWriteEditorRollout; canOptIn: boolean }>(() =>
+    knownRollout ? { resolved: true, rollout: knownRollout, canOptIn: false } : { resolved: false, rollout: "off", canOptIn: false }
+  );
   const [optedIn, setOptedIn] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setOptedIn(readOptIn());
+    if (known) return;
     void loadMode().then((j) => {
       if (cancelled) return;
       setState({
@@ -63,7 +71,7 @@ export function useCommunityWriteEditorMode(): {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [known]);
 
   const setOptIn = useCallback((on: boolean) => {
     try {
