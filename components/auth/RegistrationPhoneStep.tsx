@@ -16,7 +16,7 @@ import {
   loadPhoneVerificationState,
   type PhoneVerificationSettings,
 } from "@/lib/mypage/load-phone-verification-state";
-import { DIBAY_ONBOARDING_ERROR_CLASS } from "@/lib/ui/dibay-onboarding-styles";
+import { DIBAY_ONBOARDING_ERROR_CLASS, DIBAY_ONBOARDING_NOTICE_CLASS } from "@/lib/ui/dibay-onboarding-styles";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type LoadState =
@@ -32,6 +32,8 @@ export function RegistrationPhoneStep({ next }: { next: string }) {
   const { t } = useI18n();
   const router = useRouter();
   const [state, setState] = useState<LoadState>({ kind: "loading" });
+  /** 다른 계정이 쓰는 번호 — 원래 가입한 방법으로 로그인 후 로그인 연결 안내 (Owner 2026-11-20 「권장안대로 진행」) */
+  const [duplicate, setDuplicate] = useState(false);
   const genRef = useRef(0);
 
   /** 이 화면을 본 것 = 로그인 세션당 1회 안내를 받은 것 — 이후 화면 이동마다 다시 보내지 않는다 */
@@ -108,9 +110,16 @@ export function RegistrationPhoneStep({ next }: { next: string }) {
           snapshot={snapshot}
           onRefreshProfile={handleRefresh}
           onDone={() => void goNextStep()}
+          onPhoneDuplicate={() => setDuplicate(true)}
           surface="overlay"
         />
       )}
+      {duplicate ? (
+        <div className={`mt-3 ${DIBAY_ONBOARDING_NOTICE_CLASS}`} role="status" data-testid="registration-phone-duplicate">
+          <p className="font-semibold">{t("auth_reg_phone_duplicate_title")}</p>
+          <p className="mt-1">{t("auth_reg_phone_duplicate_guide")}</p>
+        </div>
+      ) : null}
       <RegistrationStepEscape showHelp />
     </DibayOnboardingOverlayShell>
   );

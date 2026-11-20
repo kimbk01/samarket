@@ -11,7 +11,7 @@ import { parseKoreaMobileLocal, parseKoreaMobileTyping } from "@/lib/phone/verif
 import { normalizePhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { PROFILE_EDIT_FIELD_INCOMPLETE_CLASS } from "@/lib/ui/profile-edit-styles";
 import { isValidPhoneOtpCodeInput, PHONE_OTP_CODE_LENGTH } from "@/lib/auth/phone-otp-contract";
-import { resolvePhoneOtpUiError } from "@/lib/auth/phone-otp-client-errors";
+import { resolvePhoneOtpErrorCode, resolvePhoneOtpUiError } from "@/lib/auth/phone-otp-client-errors";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 import { resolveMemberPhoneState } from "@/lib/profile/member-account-status";
@@ -128,8 +128,11 @@ export function PhoneVerificationBox({
   settingsLoadFailed = false,
   onRetrySettings,
   surface = "page",
+  onPhoneDuplicate,
 }: {
   snapshot: VerifySnapshot;
+  /** 다른 계정이 쓰는 번호(409 `phone_duplicate`) — 가입 화면이 원래 계정 안내를 띄운다. 내정보는 넘기지 않음(기존 그대로). */
+  onPhoneDuplicate?: () => void;
   /** 인증 성공 직후 — 부모가 서버에서 새로 받아 클라이언트 사본을 맞춘다(`refreshClientMemberAccountAfterMutation`). */
   onRefreshProfile: () => Promise<void>;
   /** 완료 화면 [확인] 또는 1.2초 뒤 — 시트 닫기·원래 화면 복귀. 없으면 완료 후 「인증 완료」 카드로 남는다. */
@@ -324,6 +327,9 @@ export function PhoneVerificationBox({
         setError(
           resolvePhoneOtpUiError({ status: res.status, code: json.code, message: json.message }, t, "send"),
         );
+        if (resolvePhoneOtpErrorCode({ status: res.status, code: json.code, message: json.message }) === "phone_duplicate") {
+          onPhoneDuplicate?.();
+        }
         return;
       }
       triggerInteractionFeedback("success");
@@ -368,6 +374,9 @@ export function PhoneVerificationBox({
           setError(
             resolvePhoneOtpUiError({ status: res.status, code: json.code, message: json.message }, t, "verify"),
           );
+          if (resolvePhoneOtpErrorCode({ status: res.status, code: json.code, message: json.message }) === "phone_duplicate") {
+            onPhoneDuplicate?.();
+          }
           // 틀리면 칸을 비우고 다시 입력 (같은 번호 재제출 방지 해제)
           setOtp("");
           submittedCodeRef.current = "";
@@ -388,7 +397,7 @@ export function PhoneVerificationBox({
         setVerifying(false);
       }
     },
-    [onRefreshProfile, phoneForApi, sentPhone, t],
+    [onPhoneDuplicate, onRefreshProfile, phoneForApi, sentPhone, t],
   );
 
   /** 6번째 숫자가 들어오면 바로 확인 — 같은 코드는 한 번만 보낸다 */

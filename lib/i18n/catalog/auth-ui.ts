@@ -323,6 +323,9 @@ export const authUiMessages = {
     auth_reg_load_failed: "정보를 불러오지 못했어요.",
     auth_reg_gate_title: "가입을 마치면 이용할 수 있어요",
     auth_reg_gate_cta: "가입 이어하기",
+    auth_reg_phone_duplicate_title: "이 번호로 가입된 계정이 있어요",
+    auth_reg_phone_duplicate_guide:
+      `처음 가입한 방법(카카오·구글·애플 등)으로 다시 로그인해 주세요. 그 계정의 ${B.MY} › 기기 권한 › 연결된 로그인 관리에서 다른 로그인 방법을 추가할 수 있어요. 기억나지 않으면 고객센터로 문의해 주세요.`,
   },
   en: {
     auth_login_title: "Get started with dibaY",
@@ -641,5 +644,8 @@ export const authUiMessages = {
     auth_reg_load_failed: "Couldn't load your info.",
     auth_reg_gate_title: "Finish signing up to use this",
     auth_reg_gate_cta: "Continue sign-up",
+    auth_reg_phone_duplicate_title: "This number already has an account",
+    auth_reg_phone_duplicate_guide:
+      `Log in again with the method you first signed up with (Kakao, Google, Apple, etc.). In that account, go to ${B.MY} › Device permissions › Linked sign-in methods to add other ones. Can't remember? Contact support.`,
   },
 } as const;

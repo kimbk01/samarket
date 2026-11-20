@@ -47,15 +47,21 @@ function legacyMessageToCode(message: string | null | undefined): PhoneOtpErrorC
   return null;
 }
 
+/** 응답 → 오류 코드 (화면 분기용 — 예: 가입 화면의 중복 번호 안내). 모르면 null. */
+export function resolvePhoneOtpErrorCode(input: PhoneOtpUiErrorInput): PhoneOtpErrorCode | null {
+  return (
+    (isPhoneOtpErrorCode(input.code) ? input.code : null) ??
+    legacyMessageToCode(input.message) ??
+    (input.status === 409 ? "phone_duplicate" : null)
+  );
+}
+
 export function resolvePhoneOtpUiError(
   input: PhoneOtpUiErrorInput,
   t: TranslateFn,
   context: PhoneOtpUiErrorContext = "send",
 ): string {
-  const code =
-    (isPhoneOtpErrorCode(input.code) ? input.code : null) ??
-    legacyMessageToCode(input.message) ??
-    (input.status === 409 ? "phone_duplicate" : null);
+  const code = resolvePhoneOtpErrorCode(input);
 
   if (code) {
     return t(CODE_TO_KEY[code]);
