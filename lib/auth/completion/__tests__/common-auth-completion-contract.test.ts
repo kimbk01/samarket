@@ -21,6 +21,8 @@ function termsRequiredStatus(): OnboardingStatus {
     phoneVerified: false,
     profileComplete: false,
     signupComplete: false,
+    registrationComplete: false,
+    registrationNextStep: "terms",
     isPrivilegedAdmin: false,
     dibayId: null,
     dibayIdLocked: false,

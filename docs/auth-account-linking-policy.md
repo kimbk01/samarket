@@ -55,7 +55,18 @@ DB·서버 코드 기준. 자동 병합 **금지** — 운영자 수동 처리.
 
 **중앙 집행 (2026-10-18):** 회원 API 변이는 proxy 중앙 게이트(`enforceApiMemberMutationPolicy` → 동의 검사)가 **약관 미동의 403 `signup_incomplete`** 로 일괄 집행한다. 예외(프로필·주소 정정, 기존 주문 이행, 취소·환불, 신고·차단·지원 등)는 `lib/auth/member-consent-mutation-policy.ts` 의 명시 규칙만. 상세 `docs/dibay-first-entry-legal-consent-ssot.md`.
 
-@id·프로필·주소·전화는 [`requireProfileCompletion`](../lib/profile/require-profile-completion.ts) 기능 gate.
+@id·프로필은 [`requireProfileCompletion`](../lib/profile/require-profile-completion.ts) 기능 gate.
+
+## 회원 가입 완료 (`registrationComplete`) — 2026-11-20
+
+[`dibay-registration-steps`](../lib/auth/dibay-registration-steps.ts) · Owner 「승인, 구현 진행」 · 설계 [`docs/audit/auth-entry-phone-address-consent-design-2026-11-20.md`](./audit/auth-entry-phone-address-consent-design-2026-11-20.md) v3.
+
+- **가입 완료 = 약관 동의 + 전화 인증(`hasVerifiedPhone`) + 대표 주소(active AND `is_default_master`)**. 순서 = 동의 → 전화 → 주소 (`/auth/onboarding/{terms,phone,address}`).
+- `signupComplete`(= 동의) 는 위 계약 그대로 — proxy HTML 동의 게이트·D5 클레임·재동의 판정이 쓴다.
+- **열람은 막지 않는다.** 가입 진행 중 회원은 회원 행동(글쓰기·댓글·좋아요·북마크·신고·채팅·주문·통화 걸기·친구 추가) 때 「가입 이어하기」로 빠진 단계 화면에 간다 (`ACTION_PROFILE_REQUIREMENTS` 의 `REGISTRATION_REQUIRED_FIELDS`).
+- 로그인 직후 목적지(`resolvePostLoginRoute`)와 로그인 세션당 1회 안내(`MandatoryAddressGate`)는 빠진 단계 화면으로 보낸다. 단계 화면에는 [나중에 하기].
+- 서버 최종 방어: 중앙 쓰기 게이트가 가입 진행 중 회원의 상품 쓰기를 403 `signup_incomplete` + `step` 으로 막는다(`member_write_gate_snapshot` 1회). 예외 = 동의 예외 + [`member-registration-mutation-policy`](../lib/auth/member-registration-mutation-policy.ts)(통화 API 전체·기존 매장 운영·진행 중 거래/모임 관리·설정).
+- 전화 인증·주소 등록 방법은 변경 없음(필리핀 Semaphore·한국 Solapi · 기존 주소 흐름).
 
 ## 진단 SQL
 

@@ -12,11 +12,15 @@ import {
   resolveMemberConsentClassForApiMutation,
 } from "@/lib/auth/member-consent-mutation-policy";
 import type { MemberConsentAuthorityResult } from "@/lib/auth/resolve-member-consent-authority";
+import type { MemberRegistrationAuthorityResult } from "@/lib/auth/resolve-member-registration-authority";
 import { resolveMemberActionClassForApiMutation } from "@/lib/auth/member-action-policy";
 
 const ACTIVE = { status: "verified_user", deleted_at: null };
 
-async function loadGate(consent: MemberConsentAuthorityResult | (() => never)) {
+async function loadGate(
+  consent: MemberConsentAuthorityResult | (() => never),
+  registration: MemberRegistrationAuthorityResult = { kind: "REGISTERED" },
+) {
   vi.resetModules();
   vi.doMock("@/lib/auth/proxy-auth-session-cache", () => ({
     peekProxyAuthSessionCache: () => "user-consent-1",
@@ -44,8 +48,12 @@ async function loadGate(consent: MemberConsentAuthorityResult | (() => never)) {
   vi.doMock("@/lib/auth/resolve-member-consent-authority", () => ({
     resolveMemberConsentAuthority: consentSpy,
   }));
+  const registrationSpy = vi.fn(async () => registration);
+  vi.doMock("@/lib/auth/resolve-member-registration-authority", () => ({
+    resolveMemberRegistrationAuthority: registrationSpy,
+  }));
   const mod = await import("@/lib/auth/enforce-api-member-mutation-policy");
-  return { enforce: mod.enforceApiMemberMutationPolicy, consentSpy };
+  return { enforce: mod.enforceApiMemberMutationPolicy, consentSpy, registrationSpy };
 }
 
 const REQUIRED: MemberConsentAuthorityResult = {
@@ -90,6 +98,64 @@ describe("B3 central consent gate — enforce", () => {
     expect(await enforce(req("POST", "/api/chat/room/r1/send"))).toBeNull();
     const src = readFileSync(resolve(process.cwd(), "app/api/chat/room/[roomId]/send/route.ts"), "utf8");
     expect(src).toContain("assertVerifiedMemberForAction");
+  });
+
+  it("가입(전화·대표 주소) 진행 중 회원: 새 쓰기 → 403 signup_incomplete + step (Owner 2026-11-20)", async () => {
+    const { enforce } = await loadGate(
+      { kind: "CONSENTED", via: "consent" },
+      { kind: "REGISTRATION_REQUIRED", step: "address" },
+    );
+    for (const [m, p] of [
+      ["POST", "/api/community/posts"],
+      ["POST", "/api/community-messenger/rooms/r1/messages"],
+      ["POST", "/api/me/store-orders"],
+      ["POST", "/api/me/stores"],
+      ["POST", "/api/favorites/toggle"],
+    ] as const) {
+      const res = await enforce(req(m, p));
+      expect(res, `${m} ${p}`).not.toBeNull();
+      expect(res!.status).toBe(403);
+      const body = await res!.json();
+      expect(body.code).toBe("signup_incomplete");
+      expect(body.step).toBe("address");
+    }
+  });
+
+  it("가입 진행 중 회원: 통화 API·기존 매장 운영·동의 예외 쓰기는 가입 검사 없이 통과", async () => {
+    const { enforce, registrationSpy } = await loadGate(
+      { kind: "CONSENTED", via: "consent" },
+      { kind: "REGISTRATION_REQUIRED", step: "phone" },
+    );
+    for (const [m, p] of [
+      ["POST", "/api/community-messenger/rooms/r1/calls"],
+      ["POST", "/api/community-messenger/calls/redial-room"],
+      ["POST", "/api/community-messenger/calls/attempts/a1/cancel"],
+      ["PATCH", "/api/me/stores/s1/products/p1"],
+      ["PATCH", "/api/me/stores/s1"],
+      ["PATCH", "/api/me/discovery-settings"],
+      ["POST", "/api/trade/product-chat/r1/buyer-confirm"],
+    ] as const) {
+      expect(await enforce(req(m, p)), `${m} ${p}`).toBeNull();
+    }
+    expect(registrationSpy).not.toHaveBeenCalled();
+    // 동의 예외(전화 OTP·주소 정정)는 가입 검사 전에 통과
+    expect(await enforce(req("POST", "/api/me/addresses"))).toBeNull();
+    expect(await enforce(req("POST", "/api/account/phone/send-otp"))).toBeNull();
+  });
+
+  it("특권 관리자: 가입 검사 면제", async () => {
+    const { enforce, registrationSpy } = await loadGate(
+      { kind: "CONSENTED", via: "privileged_admin" },
+      { kind: "REGISTRATION_REQUIRED", step: "phone" },
+    );
+    expect(await enforce(req("POST", "/api/community/posts"))).toBeNull();
+    expect(registrationSpy).not.toHaveBeenCalled();
+  });
+
+  it("가입 상태 확인 실패: 통과시키지 않는다 (503 fail-closed)", async () => {
+    const { enforce } = await loadGate({ kind: "CONSENTED", via: "consent" }, { kind: "UNAVAILABLE" });
+    const res = await enforce(req("POST", "/api/community/posts"));
+    expect(res!.status).toBe(503);
   });
 
   it("4. profile & address correction allowed without consent", async () => {

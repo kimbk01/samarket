@@ -9,6 +9,7 @@ import {
   consumePendingAuthAction,
 } from "@/lib/auth/require-auth-action";
 import { DIBAY_SIGNUP_TERMS_PATH } from "@/lib/auth/dibay-signup-status";
+import { isRegistrationStepPath } from "@/lib/auth/dibay-registration-steps";
 import {
   sanitizeFreshLoginLandingPath,
   sanitizeNextPath,
@@ -29,6 +30,11 @@ export type FinishClientAuthLoginTermsHandoff = {
   needsTermsAgreement?: boolean | null;
   consentComplete?: boolean | null;
   signupComplete?: boolean | null;
+  /**
+   * 아이디 로그인 — signup-status `route` 가 가입 단계 화면(전화·주소)이면 그곳으로 (가입 = 동의 + 전화 + 주소).
+   * 가입 단계 경로가 아니면 무시한다.
+   */
+  registrationRoute?: string | null;
   /**
    * Native exchange cookie handoff — Completion owns syncCommonClientSessionAfterAuth (Slice 6-3).
    * Email / session restore omit or false (prime-only).
@@ -74,6 +80,16 @@ function requiresTermsAgreementHandoff(input: FinishClientAuthLoginTermsHandoff)
 }
 
 /**
+ * 가입 단계 화면 경로만 통과 — `sanitizeNextPath`·fresh-landing 검증은 /auth/* 를 금지 경로로 거르므로 쓰지 않고,
+ * 단계 화면 3개(`/auth/onboarding/{terms,phone,address}`)만 정확히 허용한다.
+ */
+function pickRegistrationStepRoute(value: string | null | undefined): string | null {
+  const v = value?.trim() ?? "";
+  if (!v.startsWith("/") || v.startsWith("//") || v.includes("\\")) return null;
+  return isRegistrationStepPath(v) ? v : null;
+}
+
+/**
  * Navigation 직전 — 약관 미동의는 exchange redirectTo(/mypage 등)보다 우선.
  * Destination is resolved once here — no background signup-status re-navigation.
  */
@@ -87,6 +103,10 @@ export function resolveImmediateLoginTarget(
   if (requiresTermsAgreementHandoff(input)) {
     return withNextSearchParam(DIBAY_SIGNUP_TERMS_PATH, safeNext);
   }
+
+  // 가입 단계 화면(전화·주소) — 아이디 로그인은 signup-status `route`, 네이티브·QR 은 서버 목적지 `redirectTo`.
+  const registrationRoute = pickRegistrationStepRoute(input.registrationRoute) ?? pickRegistrationStepRoute(input.redirectTo);
+  if (registrationRoute) return registrationRoute;
 
   const fromExchange = input.redirectTo?.trim()
     ? sanitizeFreshLoginLandingPath(input.redirectTo.trim())

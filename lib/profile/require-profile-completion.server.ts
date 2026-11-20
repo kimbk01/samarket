@@ -5,6 +5,7 @@ import { hasCanonicalDefaultMasterAddress } from "@/lib/addresses/user-address-s
 import { evaluateProfileRequirements } from "@/lib/profile/require-profile-completion";
 import {
   ACTION_PROFILE_REQUIREMENTS,
+  SERVER_ROUTE_ADDRESS_CHECK_ACTIONS,
   type ProfileActionType,
 } from "@/lib/profile/profile-requirements";
 
@@ -60,9 +61,14 @@ export async function requireProfileFieldsForAction(
     row = (data as ProfileRowForGate | null) ?? undefined;
   }
 
-  let hasDefaultAddress = false;
-  const needsAddress = requiredFields.includes("default_address");
+  /**
+   * 대표 주소 DB 확인은 2026-11-20 이전부터 주소를 요구하던 행동만 라우트에서 한다(조회 수·통화 API 불변).
+   * 그 밖 행동의 가입 조건(대표 주소)은 중앙 쓰기 게이트(`enforce-api-member-mutation-policy` 가입 검사, 추가 조회 0)가 집행한다.
+   */
+  let hasDefaultAddress = true;
+  const needsAddress = requiredFields.includes("default_address") && SERVER_ROUTE_ADDRESS_CHECK_ACTIONS.has(actionType);
   if (needsAddress) {
+    hasDefaultAddress = false;
     try {
       hasDefaultAddress = await hasCanonicalDefaultMasterAddress(sb, userId);
     } catch {

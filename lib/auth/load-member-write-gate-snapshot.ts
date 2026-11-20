@@ -9,11 +9,17 @@ import { resolveMemberAccountLifecycle } from "@/lib/auth/member-account-state";
 import type { MemberLifecycleAuthorityResult } from "@/lib/auth/resolve-member-lifecycle-authority";
 import type { MemberConsentPreloaded } from "@/lib/auth/resolve-member-consent-authority";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 
 export type MemberWriteGateSnapshot = {
   lifecycle: MemberLifecycleAuthorityResult;
   /** lifecycle 이 RESOLVED 일 때만 — 동의 판정 입력 */
   consent: MemberConsentPreloaded | null;
+  /**
+   * 가입(전화 인증 + 대표 주소) 판정 입력 — DB 함수에 필드가 없으면(구 정의) null → 호출자가 직접 조회.
+   * 전화 = `hasVerifiedPhone`(관리자 생성 계정 인정) · 주소 = active AND is_default_master.
+   */
+  registration?: { phoneVerified: boolean; hasDefaultMaster: boolean } | null;
 };
 
 type SnapshotJson = {
@@ -30,6 +36,13 @@ type SnapshotJson = {
   age_gate_legacy?: unknown;
   role?: unknown;
   admin_role?: unknown;
+  phone_verified?: unknown;
+  phone_verified_at?: unknown;
+  phone_verification_method?: unknown;
+  provider?: unknown;
+  auth_provider?: unknown;
+  email?: unknown;
+  has_default_master?: unknown;
 };
 
 const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
@@ -66,10 +79,26 @@ export async function loadMemberWriteGateSnapshot(userId: string): Promise<Membe
     lifecycle: resolveMemberAccountLifecycle(profile),
     source: "db",
   };
+  const registration =
+    typeof json.has_default_master === "boolean"
+      ? {
+          phoneVerified: hasVerifiedPhone({
+            phone_verified: json.phone_verified === true,
+            phone_verified_at: str(json.phone_verified_at),
+            phone_verification_method: str(json.phone_verification_method),
+            role: str(json.role),
+            provider: str(json.provider),
+            auth_provider: str(json.auth_provider),
+            email: str(json.email),
+          }),
+          hasDefaultMaster: json.has_default_master,
+        }
+      : null;
   // Snapshot without the pre-policy flag cannot decide the age gate — consent falls back to direct reads.
-  if (typeof json.age_gate_legacy !== "boolean") return { lifecycle, consent: null };
+  if (typeof json.age_gate_legacy !== "boolean") return { lifecycle, consent: null, registration };
   return {
     lifecycle,
+    registration,
     consent: {
       row: {
         terms_accepted_at: str(json.terms_accepted_at),

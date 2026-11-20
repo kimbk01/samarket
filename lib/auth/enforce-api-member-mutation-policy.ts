@@ -29,6 +29,8 @@ import { readAccessTokenFromCookies } from "@/lib/auth/read-access-token-from-co
 import { resolveMemberConsentClassForApiMutation } from "@/lib/auth/member-consent-mutation-policy";
 import { resolveMemberConsentAuthority } from "@/lib/auth/resolve-member-consent-authority";
 import { loadMemberWriteGateSnapshot } from "@/lib/auth/load-member-write-gate-snapshot";
+import { resolveMemberRegistrationClassForApiMutation } from "@/lib/auth/member-registration-mutation-policy";
+import { resolveMemberRegistrationAuthority } from "@/lib/auth/resolve-member-registration-authority";
 import { requestHasSupabaseSessionCookie } from "@/lib/auth/api-auth-cookie-presence";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 
@@ -197,7 +199,21 @@ export async function enforceApiMemberMutationPolicy(
   // B3: legal consent (CMS-required versions) for new member writes — explicit exemptions only.
   if (resolveMemberConsentClassForApiMutation(method, pathname) === "CONSENT_EXEMPT") return null;
   const consent = await resolveMemberConsentAuthority(userId, snapshot?.consent ?? undefined);
-  if (consent.kind === "CONSENTED") return null;
+  if (consent.kind === "CONSENTED") {
+    // 가입 = 동의 + 전화 인증 + 대표 주소 (Owner 2026-11-20). 특권 관리자는 동의와 같이 면제.
+    if (consent.via === "privileged_admin") return null;
+    if (resolveMemberRegistrationClassForApiMutation(method, pathname) === "REGISTRATION_EXEMPT") return null;
+    const registration = await resolveMemberRegistrationAuthority(userId, snapshot?.registration ?? null);
+    if (registration.kind === "REGISTERED") return null;
+    if (registration.kind === "UNAVAILABLE") {
+      return jsonDenied(
+        MEMBER_CONSENT_STATE_UNAVAILABLE.status,
+        MEMBER_CONSENT_STATE_UNAVAILABLE.code,
+        MEMBER_CONSENT_STATE_UNAVAILABLE.messageKo
+      );
+    }
+    return registrationIncomplete(registration.step);
+  }
   if (consent.kind === "UNAVAILABLE") {
     return jsonDenied(
       MEMBER_CONSENT_STATE_UNAVAILABLE.status,
@@ -211,6 +227,24 @@ export async function enforceApiMemberMutationPolicy(
     consent.gap === "age"
       ? MEMBER_AGE_VERIFICATION_REQUIRED_MESSAGE_KO
       : "약관·개인정보 처리방침 동의 후 이용할 수 있습니다.",
+  );
+}
+
+/**
+ * 가입 진행 중(전화 인증·대표 주소 미완) — 동의 미완과 같은 `signup_incomplete` 코드(기존 클라이언트 복구 경로 재사용:
+ * 동의 화면 → 동의 완료면 빠진 가입 단계 화면으로 다시 이동). `step` = 빠진 단계. 화면 문구는 클라이언트 카탈로그.
+ */
+function registrationIncomplete(step: "phone" | "address"): NextResponse {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "signup_incomplete",
+      code: "signup_incomplete",
+      message: "signup_incomplete",
+      step,
+      authenticated: true,
+    },
+    { status: 403 }
   );
 }
 

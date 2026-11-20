@@ -20,6 +20,8 @@ function status(version: string, required: typeof V2 | null): OnboardingStatus {
     phoneVerified: true,
     profileComplete: true,
     signupComplete: version === required?.termsVersion,
+    registrationComplete: version === required?.termsVersion,
+    registrationNextStep: version === required?.termsVersion ? null : "terms",
     isPrivilegedAdmin: false,
     dibayId: "abc",
     dibayIdLocked: true,

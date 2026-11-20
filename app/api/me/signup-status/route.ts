@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
-import { deriveDibaySignupStatus, resolveDibaySignupRoute } from "@/lib/auth/dibay-signup-status";
+import { deriveDibaySignupStatus } from "@/lib/auth/dibay-signup-status";
+import { resolvePostLoginRoute } from "@/lib/auth/resolve-post-login-route";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
@@ -51,7 +52,13 @@ export async function GET(req: NextRequest) {
     );
     return jsonOk({
       signup,
-      route: resolveDibaySignupRoute(signup, safeNext),
+      /** 가입 완료 = 동의 + 전화 인증 + 대표 주소 (`dibay-registration-steps`) */
+      registration: {
+        complete: onboarding.registrationComplete,
+        nextStep: onboarding.registrationNextStep,
+      },
+      /** 동의 미완 → 동의 화면 · 가입 미완 → 빠진 단계 화면 · 완료 → next (로그인 목적지와 같은 함수) */
+      route: resolvePostLoginRoute({ hasSession: true, status: onboarding, next: safeNext }),
       requiredConsent: onboarding.requiredConsent ?? null,
     });
   } catch (error) {

@@ -4,9 +4,10 @@ import { useRouter, usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   isProfileSetupGateExcludedPath,
-  PROFILE_SETUP_GATE_TARGET_HREF,
+  isRegistrationGateOnlyExcludedPath,
   resolveProfileSetupGateAction,
 } from "@/lib/auth/profile-setup-flow";
+import { registrationStepHref, type DibayRegistrationStep } from "@/lib/auth/dibay-registration-steps";
 import {
   clearProfileSetupDeferForSession,
   deferProfileSetupForSession,
@@ -26,7 +27,7 @@ import { patchPlatformPopupCriticalRuntimeFlags } from "@/lib/platform-popup/pop
 export const SAMARKET_ADDRESSES_UPDATED_EVENT = "samarket:addresses-updated";
 
 function isGateExcludedPath(path: string): boolean {
-  return isProfileSetupGateExcludedPath(path);
+  return isProfileSetupGateExcludedPath(path) || isRegistrationGateOnlyExcludedPath(path);
 }
 
 /** 로그인/가입 화면을 떠난 뒤에는 서버 게이트를 다시 맞춤 */
@@ -52,10 +53,12 @@ function shouldRefetchGateOnPathChange(prev: string | null, next: string): boole
 }
 
 /**
- * 로그인 상태에서 대표 주소가 없으면 로그인 세션당 **1회만** 내정보 홈(`/mypage`)으로 보냅니다
- * (Owner 2026-11-09). 그 뒤로는 어디든 진입·열람 가능 — 전화·주소는 기능을 누를 때
- * 기능 게이트(`lib/profile/profile-requirements.ts`)가 요구한다. 로그아웃 시 1회 표식 초기화.
- * 주소·프로필 수정 플로우 경로는 제외합니다.
+ * 로그인 상태에서 가입(동의 + 전화 인증 + 대표 주소) 중 전화·주소가 빠졌으면 로그인 세션당 **1회만**
+ * 빠진 가입 단계 화면(`/auth/onboarding/phone|address`)으로 보냅니다 (Owner 2026-11-09 세션당 1회 ·
+ * 2026-11-20 「승인, 구현 진행」 — 목적지를 가입 단계 화면으로, 대상에 전화 미인증 추가).
+ * 그 뒤로는 어디든 진입·열람 가능 — 회원 행동은 기능 게이트(`lib/profile/profile-requirements.ts`)가 요구한다.
+ * 동의 미완료는 `DibaySignupGate` 담당이라 여기서 보내지 않는다. 로그아웃 시 1회 표식 초기화.
+ * 주소·프로필 수정 플로우·가입 단계 경로·통화 화면은 제외합니다.
  */
 export function MandatoryAddressGate() {
   const router = useRouter();
@@ -65,11 +68,14 @@ export function MandatoryAddressGate() {
   const prevPathForGateRef = useRef<string | null>(null);
   const redirectTargetRef = useRef<string | null>(null);
   const [blocked, setBlocked] = useState(false);
+  const [registrationPending, setRegistrationPending] = useState(false);
 
   useEffect(() => {
     patchPlatformPopupCriticalRuntimeFlags({ addressGate: blocked });
     return () => patchPlatformPopupCriticalRuntimeFlags({ addressGate: false });
   }, [blocked]);
+
+  const stepRef = useRef<DibayRegistrationStep | null>(null);
 
   const maybeRedirectToSetup = useCallback(
     (needsBlock: boolean) => {
@@ -80,10 +86,13 @@ export function MandatoryAddressGate() {
         pathname: pathRef.current,
       });
       if (action === "none") return;
-      /** 로그인 세션당 1회 — 이후 둘러보기 자유, 전화·주소는 기능 게이트(profile-requirements)가 요구 */
+      /** 로그인 세션당 1회 — 이후 둘러보기 자유, 회원 행동은 기능 게이트(profile-requirements)가 요구 */
       deferProfileSetupForSession();
       if (action === "mark_seen") return;
-      const target = PROFILE_SETUP_GATE_TARGET_HREF;
+      const here =
+        typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : pathRef.current;
+      const target = registrationStepHref(stepRef.current, here);
+      if (!target) return;
       if (redirectTargetRef.current === target) return;
       redirectTargetRef.current = target;
       router.replace(target);
@@ -105,17 +114,23 @@ export function MandatoryAddressGate() {
         ok?: boolean;
         authenticated?: boolean;
         needsBlock?: boolean;
+        registrationNextStep?: DibayRegistrationStep | null;
       };
       if (!j.ok) {
         setBlocked(false);
         return;
       }
-      const needsBlock = j.authenticated === true && j.needsBlock === true;
-      setBlocked(needsBlock);
-      if (!needsBlock) {
+      /** 동의(terms)는 DibaySignupGate 담당 — 여기서는 전화·주소 단계만 */
+      const step = j.registrationNextStep === "phone" || j.registrationNextStep === "address" ? j.registrationNextStep : null;
+      stepRef.current = step;
+      /** 팝업 critical 표식(`addressGate`)은 기존 의미(대표 주소 없음) 그대로 */
+      setBlocked(j.authenticated === true && j.needsBlock === true);
+      const needsStep = j.authenticated === true && step !== null;
+      setRegistrationPending(needsStep);
+      if (!needsStep) {
         redirectTargetRef.current = null;
       }
-      maybeRedirectToSetup(needsBlock);
+      maybeRedirectToSetup(needsStep);
     },
     [maybeRedirectToSetup],
   );
@@ -169,13 +184,13 @@ export function MandatoryAddressGate() {
     prevPathForGateRef.current = next;
 
     if (!shouldRefetchGateOnPathChange(prev, next)) {
-      if (blocked && !isProfileSetupDeferredForSession()) {
+      if (registrationPending && !isProfileSetupDeferredForSession()) {
         maybeRedirectToSetup(true);
       }
       return;
     }
     void runGateFetch();
-  }, [pathname, runGateFetch, blocked, maybeRedirectToSetup]);
+  }, [pathname, runGateFetch, registrationPending, maybeRedirectToSetup]);
 
   useEffect(() => {
     const onUpdated = () => {
@@ -212,6 +227,7 @@ export function MandatoryAddressGate() {
     } = sb.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
         setBlocked(false);
+        setRegistrationPending(false);
         redirectTargetRef.current = null;
         clearProfileSetupDeferForSession();
         return;

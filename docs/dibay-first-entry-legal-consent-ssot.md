@@ -36,7 +36,7 @@
 - B2: Lifecycle accountKey = `@supabase/ssr` 세션 쿠키의 user id (localStorage 세션은 legacy fallback).
 - B4: 알림 OS 프롬프트·FSI 유도·푸시/VoIP 기기 등록은 **최초 동의 이후**. 버전 개정으로 재동의가 필요한 기존 회원의 수신은 끊지 않는다(신규 쓰기만 B3 로 차단).
 - B5: FSI 설정 유도는 알림 허용(`receiveReady`)일 때만, **로그인당 1회**(user-scoped localStorage, 로그아웃 wipe 시 초기화).
-- B6: 약관 화면은 단계 배지 없음(가입 = 약관 1단계).
+- B6: 약관 화면은 단계 배지 없음. 2026-11-20 부터 가입 = 동의 → 전화 인증 → 대표 주소 3단계 — 동의가 항상 첫 단계(전화 OTP·주소 저장은 동의 뒤, SG-06). 정의 `lib/auth/dibay-registration-steps.ts` · `docs/auth-account-linking-policy.md` §회원 가입 완료.
 
 ## 5. 전화 인증 (B7·B8·B9)
 

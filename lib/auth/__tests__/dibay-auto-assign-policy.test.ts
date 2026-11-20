@@ -87,13 +87,14 @@ describe("dibay-public-id-ssot auto-assign policy", () => {
     expect(gate.missingFields).not.toContain("dibay_id");
   });
 
-  it("auto-assigned id with verified phone passes community_write", () => {
+  it("auto-assigned id with verified phone + main address passes community_write", () => {
     const gate = evaluateProfileRequirements(
       {
         ...autoRow,
         display_name: "홍길동",
         phone_verified: true,
         phone_verified_at: "2026-01-01T00:00:00.000Z",
+        has_default_address: true,
       },
       "community_write"
     );
