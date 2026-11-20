@@ -205,7 +205,6 @@ describe("가입 조건 (동의 + 전화 인증 + 대표 주소, Owner 2026-11-2
     "delivery_order",
     "order_chat",
     "owner_store_register",
-    "call_start",
   ] as const;
 
   it.each(actions)("%s — 대표 주소 없으면 막힌다", (action) => {
@@ -224,7 +223,7 @@ describe("가입 조건 (동의 + 전화 인증 + 대표 주소, Owner 2026-11-2
     expect(evaluateProfileRequirements(registered, action).satisfied).toBe(true);
   });
 
-  it.each(["community_report", "trade_report"] as const)("%s — 신고는 가입 진행 중에도 가능 (재감사 N1)", (action) => {
+  it.each(["community_report", "trade_report", "call_start"] as const)("%s — 가입 조건 없음 (재감사 N1 신고 · M3 통화)", (action) => {
     expect(evaluateProfileRequirements({}, action).satisfied).toBe(true);
   });
 

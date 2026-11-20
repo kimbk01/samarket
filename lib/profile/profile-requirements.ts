@@ -33,7 +33,7 @@ export type ProfileActionType =
 
 /**
  * 가입 완료 조건 = 동의 + 전화 인증 + 대표 주소 (Owner 2026-11-20 「승인, 구현 진행」, `dibay-registration-steps`).
- * 회원 행동(글쓰기·댓글·좋아요·북마크·채팅·주문·통화 걸기·친구 추가)은 모두 이 두 항목을 요구한다. 신고는 제외(재감사 N1).
+ * 회원 행동(글쓰기·댓글·좋아요·북마크·채팅·주문·친구 추가)은 모두 이 두 항목을 요구한다. 신고(재감사 N1)·통화 걸기(M3)는 제외.
  * 열람(`messenger_open` 등)은 요구하지 않는다 — 가입 진행 중 회원도 읽기 가능.
  */
 export const REGISTRATION_REQUIRED_FIELDS: ProfileRequirementField[] = ["phone_verified", "default_address"];
@@ -119,8 +119,11 @@ export const ACTION_PROFILE_REQUIREMENTS: Record<ProfileActionType, ProfileRequi
   order_chat: ACTION_ACCESS_BASE_FIELDS,
   /** 입점 신청 — 전화 인증 + 표시명 + 주소록 대표 주소 */
   owner_store_register: ACTION_ACCESS_BASE_FIELDS,
-  /** 음성·영상 통화 걸기 — 받은 통화(수락·종료)는 행동 게이트를 거치지 않는다 */
-  call_start: REGISTRATION_REQUIRED_FIELDS,
+  /**
+   * 음성·영상 통화 걸기 — 가입 조건 없음 (Owner 2026-11-20 「통화 부분은 일단 풀어야지」, 재감사 M3 결정).
+   * 통화 시작의 기존 전화 인증 확인(`assertPhoneVerifiedForMessengerActionOrOpenSheet`)은 그대로.
+   */
+  call_start: [],
 };
 
 /**
