@@ -89,7 +89,7 @@ registrationComplete = (nextRegistrationStep === null)
 변경 지점:
 - 로그인 직후: `resolveDibaySignupRoute`(서버 목적지 — 웹·네이티브·QR 공통), 아이디 로그인 `resolveImmediateLoginTarget` 은 signup-status 응답의 `route` 사용.
 - 앱 실행 1회 안내: `MandatoryAddressGate` 의 판정·목적지 교체(호출 API 를 signup-status 로 바꿔 HTTP 수 그대로 — 구현 때 `request-budget` 수치로 확인).
-- 행동 시: `ACTION_PROFILE_REQUIREMENTS` 에서 회원 행동(글쓰기·댓글·좋아요·북마크·신고·거래 채팅·구매·메신저 새 채팅·전송·친구 추가·친구 채팅·장바구니·주문·주문 채팅·입점 신청·통화 걸기)의 공통 요구를 `phone_verified + default_address` 로 통일(표시 이름 등 기존 추가 요구는 유지). 안내 창 목적지는 내정보 → 가입 단계 화면으로. 서버판 19개 라우트도 같은 표를 쓰므로 함께 적용.
+- 행동 시: `ACTION_PROFILE_REQUIREMENTS` 에서 회원 행동(글쓰기·댓글·좋아요·북마크·거래 채팅·구매·메신저 새 채팅·전송·친구 추가·친구 채팅·장바구니·주문·주문 채팅·입점 신청·통화 걸기)의 공통 요구를 `phone_verified + default_address` 로 통일 — 신고는 제외(§9 N1)(표시 이름 등 기존 추가 요구는 유지). 안내 창 목적지는 내정보 → 가입 단계 화면으로. 서버판 19개 라우트도 같은 표를 쓰므로 함께 적용.
 - `DibaySignupGate`(동의) — 변경 없음.
 
 ### 4-4. 서버 최종 방어 (화면을 우회한 쓰기 차단)
@@ -202,5 +202,5 @@ registrationComplete = (nextRegistrationStep === null)
 
 남은 항목 (이번 수정 범위 밖 · Owner 결정):
 - **M3 통화 걸기 게이트 미구현** — 통화 버튼이 `requireAuthAction` 을 거치지 않아 가입 진행 중 회원도 통화를 걸 수 있다(설계 §4-5 와 다름). 고치려면 통화 코드 변경 → 통화 변경 규정 3번(영향 분석·승인) 대상.
-- **N1 신고가 가입 필요** — 설계 §4-3 표에 신고를 넣어 화면 게이트가 가입 진행 중 회원의 신고를 막는다(서버는 신고를 동의 예외로 허용). 받은 괴롭힘 신고까지 막히므로 신고는 가입 조건에서 빼는 것을 권장 — 승인 설계와 다르므로 Owner 결정.
+- **N1 신고가 가입 필요** — 설계 §4-3 표에 신고를 넣어 화면 게이트가 가입 진행 중 회원의 신고를 막았다(서버는 신고를 동의 예외로 허용). → Owner 「권장안을 따른다」(2026-11-20): 신고(`community_report`·`trade_report`)를 가입 조건에서 뺌 — 로그인·동의만.
 - **좋아요·찜 해제·받은 친구 요청 거절** — 같은 API 가 추가/해제(또는 수락/거절)를 함께 처리해 경로로 나눌 수 없어 가입 필요 그대로.

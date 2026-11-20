@@ -33,7 +33,7 @@ export type ProfileActionType =
 
 /**
  * 가입 완료 조건 = 동의 + 전화 인증 + 대표 주소 (Owner 2026-11-20 「승인, 구현 진행」, `dibay-registration-steps`).
- * 회원 행동(글쓰기·댓글·좋아요·북마크·신고·채팅·주문·통화 걸기·친구 추가)은 모두 이 두 항목을 요구한다.
+ * 회원 행동(글쓰기·댓글·좋아요·북마크·채팅·주문·통화 걸기·친구 추가)은 모두 이 두 항목을 요구한다. 신고는 제외(재감사 N1).
  * 열람(`messenger_open` 등)은 요구하지 않는다 — 가입 진행 중 회원도 읽기 가능.
  */
 export const REGISTRATION_REQUIRED_FIELDS: ProfileRequirementField[] = ["phone_verified", "default_address"];
@@ -100,12 +100,13 @@ export const ACTION_PROFILE_REQUIREMENTS: Record<ProfileActionType, ProfileRequi
   community_comment: ACTION_ACCESS_BASE_FIELDS,
   community_like: REGISTRATION_REQUIRED_FIELDS,
   community_bookmark: REGISTRATION_REQUIRED_FIELDS,
-  community_report: REGISTRATION_REQUIRED_FIELDS,
+  /** 신고는 가입 조건 없음 — 받은 괴롭힘·사기 신고는 가입 진행 중에도 (서버 동의 예외 report_block_support 와 같음, 재감사 N1) */
+  community_report: [],
   trade_create_item: ACTION_ACCESS_BASE_FIELDS,
   trade_chat: ACTION_ACCESS_BASE_FIELDS,
   trade_buy: REGISTRATION_REQUIRED_FIELDS,
   trade_favorite: REGISTRATION_REQUIRED_FIELDS,
-  trade_report: REGISTRATION_REQUIRED_FIELDS,
+  trade_report: [],
   review_write: ACTION_ACCESS_BASE_FIELDS,
   /** 메신저 열람 — 페이지 진입 popup 금지(읽기 가능). 전송·새채팅·통화는 별 action. */
   messenger_open: [],
