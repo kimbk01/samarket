@@ -13,6 +13,7 @@ import { dismissPendingAuthAction } from "@/lib/auth/require-auth-action";
 import { buildAddressEditHref, buildPhoneVerificationHref } from "@/lib/auth/client-access-flow";
 import { MYPAGE_MAIN_HREF } from "@/lib/my/mypage-info-hub";
 import type { ProfileRequirementField } from "@/lib/profile/profile-requirements";
+import { registrationStepHref } from "@/lib/auth/dibay-registration-steps";
 
 function withoutHandle(fields: ProfileRequirementField[]): ProfileRequirementField[] {
   return fields.filter((field) => field !== "dibay_id");
@@ -74,8 +75,13 @@ export function MissingProfileInfoModal() {
   const displayNameOnly =
     displayNameMissing && !phoneMissing && !addressMissing && missing.every((f) => f === "display_name");
 
+  /** 가입 조건(전화 인증·대표 주소) 미완 — 가입 단계 화면으로 (동의 → 전화 → 주소 순서, 설계 v3 §4-3) */
+  const registrationStep = phoneMissing ? "phone" : addressMissing ? "address" : null;
+
   const goPrimary = useCallback(() => {
-    if (phoneOnly) {
+    if (registrationStep) {
+      router.push(registrationStepHref(registrationStep, returnTo) ?? buildAddressEditHref(returnTo));
+    } else if (phoneOnly) {
       router.push(buildPhoneVerificationHref(returnTo));
     } else if (addressOnly) {
       router.push(buildAddressEditHref(returnTo));
@@ -85,7 +91,7 @@ export function MissingProfileInfoModal() {
       router.push(`${MYPAGE_MAIN_HREF}?returnTo=${encodeURIComponent(returnTo)}`);
     }
     close();
-  }, [addressOnly, close, displayNameOnly, missing, phoneOnly, returnTo, router]);
+  }, [addressOnly, close, displayNameOnly, missing, phoneOnly, registrationStep, returnTo, router]);
 
   const onLater = useCallback(() => {
     if (detail?.token) {
@@ -108,7 +114,9 @@ export function MissingProfileInfoModal() {
       : null,
   ].filter((label): label is string => Boolean(label));
 
-  const title = phoneOnly
+  const title = registrationStep
+    ? safeT("auth_reg_gate_title")
+    : phoneOnly
     ? safeT("popup_q_verify_phone")
     : addressOnly
       ? safeT("popup_q_register_address")
@@ -116,9 +124,15 @@ export function MissingProfileInfoModal() {
         ? safeT("popup_q_set_profile_name")
         : safeT("popup_q_fill_required_info");
 
-  const description = phoneOnly || addressOnly || displayNameOnly ? undefined : missingItemLabels.join(" · ");
+  const description = registrationStep
+    ? missingItemLabels.join(" · ")
+    : phoneOnly || addressOnly || displayNameOnly
+      ? undefined
+      : missingItemLabels.join(" · ");
 
-  const primaryLabel = phoneOnly
+  const primaryLabel = registrationStep
+    ? safeT("auth_reg_gate_cta")
+    : phoneOnly
     ? safeT("popup_btn_verify")
     : addressOnly
       ? safeT("popup_btn_register_address")

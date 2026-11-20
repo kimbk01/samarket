@@ -15,8 +15,8 @@ export type ProfileSetupHrefOptions = {
 };
 
 /**
- * 로그인 직후 필수정보(대표 주소·전화 인증) 미완료 회원의 강제 이동 목적지 = 내정보 홈.
- * 내정보 필수정보 카드에서 전화(시트)·대표 주소(`/mypage/addresses`)를 완료한다 (Owner 2026-11-09).
+ * 내정보 홈 — 세션당 1회 가입 안내는 이 화면에 있으면 「본 것」으로 기록만 한다(`mark_seen`).
+ * 안내 목적지는 2026-11-20 부터 가입 단계 화면(`dibay-registration-steps`).
  */
 export const PROFILE_SETUP_GATE_TARGET_HREF = "/mypage" as const;
 
@@ -37,6 +37,7 @@ export function resolveProfileSetupGateAction(input: {
   const p = (input.pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
   if (p === PROFILE_SETUP_GATE_TARGET_HREF || p === "/my") return "mark_seen";
   if (isProfileSetupGateExcludedPath(p)) return "none";
+  if (isRegistrationGateOnlyExcludedPath(p)) return "none";
   return "redirect";
 }
 
@@ -75,6 +76,23 @@ export function isProfileSetupComplete(input: ProfileSetupCompleteInput): boolea
 
 export function isProfileSetupPending(input: ProfileSetupCompleteInput): boolean {
   return !isProfileSetupComplete(input);
+}
+
+/** 통화 화면 — 세션당 1회 가입 안내가 통화 화면을 덮지 않게 */
+export function isCallSurfacePath(pathname: string): boolean {
+  const p = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
+  return ["/community-messenger/calls", "/community-messenger/calls-v3", "/community-messenger/calls-v4"].some(
+    (prefix) => p === prefix || p.startsWith(`${prefix}/`),
+  );
+}
+
+/**
+ * 세션당 1회 가입 안내만 건너뛰는 경로 — 가입 단계 화면 자신(`/auth/*`) · 통화 화면(받은 통화를 덮지 않는다, 설계 v3 §4-5).
+ * 동의 게이트(`isDibaySignupGateExcludedPath`)에는 넣지 않는다 — 동의 게이트 동작은 바꾸지 않는다.
+ */
+export function isRegistrationGateOnlyExcludedPath(pathname: string | null | undefined): boolean {
+  const p = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
+  return p.startsWith("/auth/") || isCallSurfacePath(p);
 }
 
 /** setup 리다이렉트를 건너뛰는 경로 — 프로필 수정·주소 플로우·레거시 온보딩 */

@@ -10,6 +10,8 @@ export type SignupStatusApiResponse = {
   ok?: boolean;
   signup?: DibaySignupStatus;
   route?: string;
+  /** 가입 완료 = 동의 + 전화 인증 + 대표 주소 */
+  registration?: { complete: boolean; nextStep: "terms" | "phone" | "address" | null };
   /** Server-required consent versions (CMS published ko) the `signup` verdict was judged against. */
   requiredConsent?: ClientRequiredConsentVersions | null;
   error?: string;

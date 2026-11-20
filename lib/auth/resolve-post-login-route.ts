@@ -5,12 +5,16 @@ import {
 } from "@/lib/auth/dibay-signup-status";
 import { sanitizeFreshLoginLandingPath, sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
+import { registrationStepHref } from "@/lib/auth/dibay-registration-steps";
 
 /**
  * 로그인 콜백·세션 복원·온보딩 화면 종료 시 다음 라우트를 결정한다.
  *
- * 가입 완료(signupComplete): 약관·개인정보 동의만 (법적 최소).
- * @id·프로필·주소·전화는 기능별 requireProfileCompletion gate.
+ * 1) 약관 미동의 → 동의 화면 (기존 계약 그대로).
+ * 2) 동의 완료 + 가입 미완료(전화 인증·대표 주소) → 빠진 가입 단계 화면 (Owner 2026-11-20 「승인, 구현 진행」).
+ *    단계 화면에는 [나중에 하기]가 있어 열람은 막지 않는다.
+ * 3) 가입 완료 → next / 기본 랜딩.
+ * @see lib/auth/dibay-registration-steps.ts
  */
 export type ResolvePostLoginRouteParams = {
   hasSession: boolean;
@@ -57,5 +61,16 @@ export function resolvePostLoginRoute({
   if (!status) {
     return sanitizeFreshLoginLandingPath(sanitizeNextPath(next ?? null)) ?? POST_LOGIN_PATH;
   }
-  return resolveDibaySignupRoute(onboardingStatusToDibaySignup(status), next);
+  const signup = onboardingStatusToDibaySignup(status);
+  if (!signup.consentComplete) {
+    return resolveDibaySignupRoute(signup, next);
+  }
+  const step = status.registrationNextStep ?? null;
+  if (step && step !== "terms") {
+    return (
+      registrationStepHref(step, sanitizeFreshLoginLandingPath(sanitizeNextPath(next ?? null))) ??
+      resolveDibaySignupRoute(signup, next)
+    );
+  }
+  return resolveDibaySignupRoute(signup, next);
 }

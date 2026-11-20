@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { canUseVerifiedMemberFeatures, loadMemberAccessState } from "@/lib/auth/member-access";
-import { isMandatoryAddressGateSatisfied } from "@/lib/addresses/user-address-service";
+import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * 대표 주소 필수 게이트 — ADDRESS_COMPLETE = active user_addresses AND is_default_master.
- * Geo / region_name / any-row 보정 없음. GET list 는 read-only.
+ * 가입 단계 게이트 — 판정 = `getOnboardingStatus` (DB 함수 `member_onboarding_facts` 1회, 기존 주소·회원 상태 2회 조회 대체).
+ * - `needsBlock` = 대표 주소 없음 (ADDRESS_COMPLETE = active user_addresses AND is_default_master — 기존 의미 그대로,
+ *   내정보 프로필 편집·알림 온보딩 지연이 이 값을 쓴다).
+ * - `registrationNextStep` = 가입(동의 + 전화 인증 + 대표 주소) 첫 미완료 단계 — 로그인 세션당 1회 안내(`MandatoryAddressGate`).
+ * GET 은 읽기 전용.
  */
 export async function GET() {
   const userId = await getRouteUserId();
@@ -18,6 +20,7 @@ export async function GET() {
       ok: true,
       authenticated: false,
       needsBlock: false,
+      registrationNextStep: null,
     });
   }
 
@@ -27,16 +30,13 @@ export async function GET() {
   }
 
   try {
-    const [satisfied, accessState] = await Promise.all([
-      isMandatoryAddressGateSatisfied(sb, userId),
-      loadMemberAccessState(sb as never, userId),
-    ]);
+    const status = await getOnboardingStatus(sb, userId);
     return NextResponse.json({
       ok: true,
       authenticated: true,
-      needsBlock: !satisfied,
-      /** 글쓰기·채팅 등 — 전화(또는 관리자 동등) 완료 여부(읽기 전용과 구분 안내용) */
-      fullInteractiveMemberOk: canUseVerifiedMemberFeatures(accessState),
+      needsBlock: !status.addressComplete,
+      phoneVerified: status.phoneVerified,
+      registrationNextStep: status.registrationNextStep,
     });
   } catch (e) {
     console.error("[mandatory-address-gate]", e);

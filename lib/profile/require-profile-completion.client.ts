@@ -25,6 +25,10 @@ function isPhoneOnlyMissing(fields: ProfileRequirementField[]): boolean {
   return fields.length > 0 && fields.every((field) => field === "phone_verified" || field === "recipient_phone");
 }
 
+function hasRegistrationFieldMissing(fields: ProfileRequirementField[]): boolean {
+  return fields.includes("phone_verified") || fields.includes("default_address");
+}
+
 async function readHasCanonicalDefaultAddress(): Promise<boolean> {
   try {
     const cached = peekFreshAddressDefaultsSnapshot();
@@ -86,7 +90,11 @@ export async function requireProfileCompletionClient(
 ): Promise<boolean> {
   const evaluation = await evaluateClientProfileRequirements(profile, actionType);
   if (evaluation.satisfied) return true;
-  if (isPhoneOnlyMissing(evaluation.missingFields)) {
+  /**
+   * 가입 조건(전화 인증·대표 주소)이 빠졌으면 「가입을 마치면 이용할 수 있어요」 안내 → 빠진 가입 단계 화면
+   * (`MissingProfileInfoModal`, 설계 v3 §4-3). 가입 조건과 무관한 항목만 빠졌을 때는 기존 안내 그대로.
+   */
+  if (!hasRegistrationFieldMissing(evaluation.missingFields) && isPhoneOnlyMissing(evaluation.missingFields)) {
     openPhoneVerificationRequiredSheet({ next: detail.next });
     return false;
   }

@@ -1,6 +1,7 @@
 import { AuthConsentForm } from "@/components/auth/AuthConsentForm";
 import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
-import { resolveDibaySignupRoute, deriveDibaySignupStatus } from "@/lib/auth/dibay-signup-status";
+import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
+import { resolvePostLoginRoute } from "@/lib/auth/resolve-post-login-route";
 import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 import { loadMarketingConsentDoc, readMemberMarketingConsent } from "@/lib/legal/marketing-consent.server";
 import { hasAgeGateConsent } from "@/lib/legal/member-age-gate";
@@ -53,14 +54,9 @@ export default async function AuthOnboardingTermsPage({
     // Unreadable age state: no age section here — the save API re-reads and fails closed.
     ageOk = !ageState.ok || hasAgeGateConsent(ageState.fields);
     if (termsOk && ageOk) {
-      const signup = deriveDibaySignupStatus(profile ?? undefined, {
-        hasSession: true,
-        requiredConsent: required,
-      });
-      if (signup.signupComplete) {
-        redirect(next);
-      }
-      redirect(resolveDibaySignupRoute(signup, next));
+      // 동의 완료 — 가입 단계(전화·주소)가 남았으면 그 화면, 끝났으면 next (로그인 목적지와 같은 함수).
+      const status = await getOnboardingStatus(readSb, user.id);
+      redirect(status.registrationComplete ? next : resolvePostLoginRoute({ hasSession: true, status, next }));
     }
   }
   const consentGap = !termsOk && !ageOk ? "terms_privacy_and_age" : !termsOk ? "terms_privacy" : "age";

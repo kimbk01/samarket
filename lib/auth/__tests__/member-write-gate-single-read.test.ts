@@ -45,6 +45,10 @@ const CONSENTED = {
   age_gate_status: "verified",
   age_attested_at: "2026-11-05T00:00:00+00:00",
   age_gate_legacy: false,
+  /** 가입 조건(Owner 2026-11-20) — 같은 DB 함수 1회에 포함 */
+  phone_verified: true,
+  phone_verified_at: "2026-10-01T00:00:00+00:00",
+  has_default_master: true,
 };
 function snap(over: Record<string, unknown>) {
   return { data: { found: true, status: "verified_user", deleted_at: null, role: null, admin_role: null, ...CONSENTED, ...over }, error: null };
@@ -129,6 +133,32 @@ describe("2-A 회원 쓰기 검사 1회 조회", () => {
 
     db.result = snap({ ...ageUnverified, age_gate_status: "blocked_underage", date_of_birth: "2015-01-01" });
     expect((await enforceApiMemberMutationPolicy(write()))?.status).toBe(403);
+  });
+
+  it("가입 진행 중(대표 주소 없음) → 403 signup_incomplete step=address · 조회는 DB 함수 1회뿐", async () => {
+    db.result = snap({ has_default_master: false });
+    const res = await enforceApiMemberMutationPolicy(write());
+    expect(res!.status).toBe(403);
+    const body = await res!.json();
+    expect(body.code).toBe("signup_incomplete");
+    expect(body.step).toBe("address");
+    expect(db.rpc).toHaveLength(1);
+    expect(db.from).toBe(0);
+  });
+
+  it("가입 진행 중(전화 미인증) → step=phone · 관리자 생성 계정은 전화 인정", async () => {
+    db.result = snap({ phone_verified: false, phone_verified_at: null });
+    const res = await enforceApiMemberMutationPolicy(write());
+    expect((await res!.json()).step).toBe("phone");
+    db.result = snap({ phone_verified: false, phone_verified_at: null, provider: "admin_manual" });
+    expect(await enforceApiMemberMutationPolicy(write())).toBeNull();
+  });
+
+  it("구 DB 함수(가입 필드 없음): 직접 조회로 내려가고, 조회 불가면 통과시키지 않는다(503)", async () => {
+    const { phone_verified: _p, phone_verified_at: _pa, has_default_master: _h, ...legacy } = CONSENTED;
+    db.result = { data: { found: true, status: "verified_user", deleted_at: null, role: null, admin_role: null, ...legacy }, error: null };
+    const res = await enforceApiMemberMutationPolicy(write());
+    expect(res!.status).toBe(503);
   });
 
   it("동의 예외 경로(프로필 수정)는 미동의여도 통과, 조회는 1회", async () => {

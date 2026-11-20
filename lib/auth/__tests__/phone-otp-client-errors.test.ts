@@ -50,3 +50,14 @@ describe("phone-otp-client-errors", () => {
     ).toBe("my_phone_err_otp_send_first");
   });
 });
+
+describe("resolvePhoneOtpErrorCode — 가입 화면 중복 번호 안내 분기 (Owner 2026-11-20)", () => {
+  it("409 · 코드 · 예전 문구 모두 phone_duplicate", async () => {
+    const { resolvePhoneOtpErrorCode } = await import("@/lib/auth/phone-otp-client-errors");
+    expect(resolvePhoneOtpErrorCode({ status: 409 })).toBe("phone_duplicate");
+    expect(resolvePhoneOtpErrorCode({ status: 400, code: "phone_duplicate" })).toBe("phone_duplicate");
+    expect(resolvePhoneOtpErrorCode({ status: 400, message: "다른 계정에서 사용 중" })).toBe("phone_duplicate");
+    expect(resolvePhoneOtpErrorCode({ status: 400, code: "otp_invalid" })).toBe("otp_invalid");
+    expect(resolvePhoneOtpErrorCode({ status: 500 })).toBeNull();
+  });
+});

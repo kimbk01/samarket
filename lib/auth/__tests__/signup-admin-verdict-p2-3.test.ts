@@ -19,6 +19,8 @@ function adminStatusWithoutConsent(isPrivilegedAdmin: boolean): OnboardingStatus
     phoneVerified: true,
     profileComplete: false,
     signupComplete: isPrivilegedAdmin,
+    registrationComplete: isPrivilegedAdmin,
+    registrationNextStep: isPrivilegedAdmin ? null : "terms",
     isPrivilegedAdmin,
     dibayId: null,
     dibayIdLocked: false,

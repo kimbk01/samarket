@@ -12,10 +12,12 @@ const completeBaseProfile = {
   username_confirmed: true,
   phone_verified: true,
   phone_verified_at: "2026-01-01T00:00:00.000Z",
+  /** 가입 조건(Owner 2026-11-20) — 대표 주소 */
+  has_default_address: true,
 };
 
 describe("require-profile-completion", () => {
-  it("community_write requires phone and display_name, not dibay_id", () => {
+  it("community_write requires registration (phone + main address) and display_name, not dibay_id", () => {
     const missing = evaluateProfileRequirements(
       { display_name: null, nickname: null, phone_verified: false, dibay_id: null },
       "community_write"
@@ -99,6 +101,7 @@ describe("require-profile-completion", () => {
         dibay_id_locked: false,
         phone_verified: true,
         phone_verified_at: "2026-01-01T00:00:00.000Z",
+        has_default_address: true,
       },
       "community_write"
     );
@@ -174,10 +177,57 @@ describe("hasVerifiedPhone admin_manual alignment", () => {
         phone_verified: false,
         auth_provider: "admin_manual",
         email: "ops@manual.local",
+        has_default_address: true,
       },
       "community_write"
     );
     expect(evaluation.satisfied).toBe(true);
+  });
+});
+
+describe("가입 조건 (동의 + 전화 인증 + 대표 주소, Owner 2026-11-20)", () => {
+  const registered = { ...completeBaseProfile };
+  const actions = [
+    "community_write",
+    "community_comment",
+    "community_like",
+    "community_bookmark",
+    "community_report",
+    "trade_create_item",
+    "trade_chat",
+    "trade_buy",
+    "trade_favorite",
+    "trade_report",
+    "review_write",
+    "messenger_new_chat",
+    "messenger_send_message",
+    "messenger_add_friend",
+    "friend_chat",
+    "delivery_cart_add",
+    "delivery_order",
+    "order_chat",
+    "owner_store_register",
+    "call_start",
+  ] as const;
+
+  it.each(actions)("%s — 대표 주소 없으면 막힌다", (action) => {
+    const r = evaluateProfileRequirements({ ...registered, has_default_address: false }, action);
+    expect(r.satisfied).toBe(false);
+    expect(r.missingFields).toContain("default_address");
+  });
+
+  it.each(actions)("%s — 전화 인증 없으면 막힌다", (action) => {
+    const r = evaluateProfileRequirements({ ...registered, phone_verified: false, phone_verified_at: null }, action);
+    expect(r.satisfied).toBe(false);
+    expect(r.missingFields).toContain("phone_verified");
+  });
+
+  it.each(actions)("%s — 가입 완료 회원은 통과", (action) => {
+    expect(evaluateProfileRequirements(registered, action).satisfied).toBe(true);
+  });
+
+  it("열람(messenger_open)은 요구 항목 없음 — 가입 진행 중에도 읽기 가능", () => {
+    expect(evaluateProfileRequirements({}, "messenger_open").satisfied).toBe(true);
   });
 });
 

@@ -12,6 +12,7 @@ import {
 import type { DibayOnboardingStatusValue } from "@/lib/auth/dibay-signup-status";
 import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 import { requiredConsentForClient } from "@/lib/legal/client-required-consent";
+import { nextRegistrationStep, type DibayRegistrationStep } from "@/lib/auth/dibay-registration-steps";
 
 /**
  * SAMarket 사용자 온보딩 상태 — 콜백·게이트·라우팅 분기에 공통으로 사용한다.
@@ -29,6 +30,10 @@ export type OnboardingStatus = {
   phoneVerified: boolean;
   profileComplete: boolean;
   signupComplete: boolean;
+  /** 가입 완료 = 동의 + 전화 인증 + 대표 주소 (`dibay-registration-steps`) */
+  registrationComplete: boolean;
+  /** 첫 미완료 가입 단계 — 완료면 null */
+  registrationNextStep: DibayRegistrationStep | null;
   isPrivilegedAdmin: boolean;
   dibayId: string | null;
   dibayIdLocked: boolean;
@@ -219,6 +224,15 @@ export async function getOnboardingStatus(
     requiredConsent: required,
   });
 
+  const registrationNextStep = profileExists
+    ? nextRegistrationStep({
+        consentComplete: signup.consentComplete,
+        phoneVerified,
+        addressComplete,
+        isPrivilegedAdmin,
+      })
+    : "terms";
+
   return {
     profileExists,
     usernameComplete,
@@ -229,6 +243,8 @@ export async function getOnboardingStatus(
     phoneVerified,
     profileComplete: profileExists && isDibayProfileComplete(profile ?? undefined),
     signupComplete: signup.signupComplete,
+    registrationComplete: registrationNextStep === null,
+    registrationNextStep,
     isPrivilegedAdmin,
     dibayId: profile?.dibay_id ?? null,
     dibayIdLocked: profile?.dibay_id_locked === true,

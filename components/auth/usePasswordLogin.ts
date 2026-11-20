@@ -70,6 +70,7 @@ export async function resolvePasswordLoginTermsHandoff(
     return {
       consentComplete: json.signup.consentComplete === true,
       signupComplete: json.signup.signupComplete === true,
+      registrationRoute: json.registration?.complete === false ? (json.route ?? null) : null,
     };
   } catch {
     return {};
