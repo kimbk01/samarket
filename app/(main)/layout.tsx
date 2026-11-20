@@ -1,4 +1,6 @@
 import { MainAppProviders } from "@/components/layout/MainAppProviders";
+import { CommunityWriteEditorRolloutProvider } from "@/lib/philife/write-editor/write-editor-rollout-context";
+import { resolveCommunityWriteEditorRollout } from "@/lib/philife/write-editor/write-editor-flag";
 import { MessengerRoomRouteEntryMountProbe } from "@/components/community-messenger/room/MessengerRoomRouteEntryMountProbe";
 import { MessengerContactsHeartbeat } from "@/components/community-messenger/contacts/MessengerContactsHeartbeat";
 
@@ -15,11 +17,14 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
+    /** 라운지 글쓰기 편집기 판정(서버 env) — 글쓰기 화면·시트가 판정 요청 없이 바로 새 편집기를 연다 */
+    <CommunityWriteEditorRolloutProvider rollout={resolveCommunityWriteEditorRollout(process.env.COMMUNITY_WYSIWYG_EDITOR)}>
     <MainAppProviders initialMainBottomNavItems={null} initialTradeTabCategories={null}>
       <MessengerRoomRouteEntryMountProbe stage="layout" />
       {/* 연락처 앱 시작 처리 (SSOT v5 S7·#19) — 동의한 회원만 8초 뒤 유휴 시간에 엔진 지연 로드 */}
       <MessengerContactsHeartbeat />
       {children}
     </MainAppProviders>
+    </CommunityWriteEditorRolloutProvider>
   );
 }

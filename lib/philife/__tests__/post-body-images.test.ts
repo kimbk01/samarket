@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergePostBodyImages, resolveMemberPostImages } from "@/lib/philife/post-body-images";
+import { COMMUNITY_MEMBER_POST_MAX_IMAGES, mergePostBodyImages, resolveMemberPostImages } from "@/lib/philife/post-body-images";
 
 const base = "https://x.supabase.co/storage/v1/object/public/post-images";
 const own = (n: string) => `${base}/u1/community/${n}.webp`;
@@ -55,11 +55,12 @@ describe("post body images SSOT", () => {
     ).toEqual({ ok: true, images: [legacy] });
   });
 
-  it("10장 초과는 조용히 자르지 않고 거부", () => {
-    const many = Array.from({ length: 11 }, (_, i) => own(`i${i}`));
+  it("상한(30장, Owner 2026-11-20) 초과는 조용히 자르지 않고 거부", () => {
+    expect(COMMUNITY_MEMBER_POST_MAX_IMAGES).toBe(30);
+    const many = Array.from({ length: 31 }, (_, i) => own(`i${i}`));
     const r = resolveMemberPostImages({ userId: "u1", content: "x", candidates: many });
     expect(r).toMatchObject({ ok: false, error: "too_many_images" });
-    expect(resolveMemberPostImages({ userId: "u1", content: "x", candidates: many.slice(0, 10) }).ok).toBe(true);
+    expect(resolveMemberPostImages({ userId: "u1", content: "x", candidates: many.slice(0, 30) }).ok).toBe(true);
   });
 });
 

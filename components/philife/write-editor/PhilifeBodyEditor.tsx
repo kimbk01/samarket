@@ -527,6 +527,22 @@ export default function PhilifeBodyEditor({
   /** 붙여넣은 사진 주소 → 함께 온 사진 파일(주소 가져오기 실패 시 예비) */
   const pasteFallbackFilesRef = useRef(new Map<string, File>());
 
+  /**
+   * 같은 붙여넣기에서 나온 안내(「N장까지」·「가져올 수 없는 사진」)를 모아 한 번에 보여 준다 —
+   * 부모 안내 칸은 하나라 따로 보내면 나중 것만 남았다 (감사 §11 R3).
+   */
+  const noticeQueueRef = useRef<string[]>([]);
+  const notice = (msg: string) => {
+    const q = noticeQueueRef.current;
+    if (!q.includes(msg)) q.push(msg);
+    if (q.length > 1) return;
+    setTimeout(() => {
+      const joined = noticeQueueRef.current.join(" ");
+      noticeQueueRef.current = [];
+      if (joined) cbRef.current.onNotice(joined);
+    }, 0);
+  };
+
   const finishUpload = (uploadId: string, res: PhilifeBodyEditorUploadResult) => {
     const editor = editorRef.current;
     if (!editor || editor.isDestroyed) return;
@@ -639,7 +655,7 @@ export default function PhilifeBodyEditor({
     /** 뒤에서부터 지워 앞 위치가 바뀌지 않게 */
     for (const { pos, node } of [...drop].reverse()) tr.delete(pos, pos + node.nodeSize);
     editor.view.dispatch(tr);
-    if (drop.length) cbRef.current.onNotice(cbRef.current.labels.imageLimit);
+    if (drop.length) notice(cbRef.current.labels.imageLimit);
     for (const id of toUpload) startUpload(id);
   };
 
@@ -696,7 +712,7 @@ export default function PhilifeBodyEditor({
       }
       filtered.push(n);
     }
-    if (limited) cbRef.current.onNotice(cbRef.current.labels.imageLimit);
+    if (limited) notice(cbRef.current.labels.imageLimit);
     if (!filtered.length) return;
     /** 선택된 사진을 새 사진·글로 바꿔치우지 않게 — 사진 뒤로 커서 이동 */
     if (editor.state.selection instanceof NodeSelection) {
@@ -797,7 +813,7 @@ export default function PhilifeBodyEditor({
         /** 지난 붙여넣기에서 쓰이지 않은 예비 파일은 버린다(이번 붙여넣기 것만) */
         pasteFallbackFilesRef.current.clear();
         const noticeUnfetchable = (n: number) => {
-          if (n > 0) cbRef.current.onNotice(cbRef.current.labels.imageUnfetchable(n));
+          if (n > 0) notice(cbRef.current.labels.imageUnfetchable(n));
         };
         if (!ed || !cd) {
           noticeUnfetchable(pendingAnalysis?.unfetchable ?? 0);
@@ -895,7 +911,7 @@ export default function PhilifeBodyEditor({
         const files = Array.from(event.dataTransfer?.files ?? []).filter((f) => f.type.startsWith("image/"));
         if (!ed || files.length === 0) {
           const n = dropAnalysis?.unfetchable ?? 0;
-          if (n > 0) cbRef.current.onNotice(cbRef.current.labels.imageUnfetchable(n));
+          if (n > 0) notice(cbRef.current.labels.imageUnfetchable(n));
           return false;
         }
         event.preventDefault();

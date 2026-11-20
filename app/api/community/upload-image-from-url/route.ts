@@ -37,11 +37,11 @@ export async function POST(req: NextRequest) {
   try {
     body = (await req.json()) as { url?: unknown; pageReferer?: unknown };
   } catch {
-    return NextResponse.json({ ok: false, error: "JSON body 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, code: "json_required" }, { status: 400 });
   }
   const rawUrl = typeof body.url === "string" ? body.url.trim() : "";
   if (!rawUrl) {
-    return NextResponse.json({ ok: false, error: "url 필드 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, code: "url_required" }, { status: 400 });
   }
   const urlStr = normalizeHttpUrlString(rawUrl);
 
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
   try {
     await assertPublicHttpUrlForImageFetch(urlStr);
   } catch {
-    return NextResponse.json({ ok: false, error: "허용되지 않는 주소입니다." }, { status: 400 });
+    return NextResponse.json({ ok: false, code: "url_not_allowed" }, { status: 400 });
   }
 
   const fetchHeaders: Record<string, string> = {
@@ -87,35 +87,35 @@ export async function POST(req: NextRequest) {
   });
   if (!fetched.ok) {
     if (fetched.reason === "too_large") {
-      return NextResponse.json({ ok: false, error: "이미지는 8MB 이하만 가능합니다." }, { status: 413 });
+      return NextResponse.json({ ok: false, code: "too_large" }, { status: 413 });
     }
     if (fetched.reason === "blocked" || fetched.reason === "too_many_redirects") {
-      return NextResponse.json({ ok: false, error: "허용되지 않는 대상(리다이렉트)입니다." }, { status: 400 });
+      return NextResponse.json({ ok: false, code: "url_not_allowed" }, { status: 400 });
     }
     if (fetched.reason === "http") {
       return NextResponse.json(
-        { ok: false, error: `이미지를 가져올 수 없습니다. (${fetched.status ?? 0})` },
+        { ok: false, code: "fetch_failed", upstreamStatus: fetched.status ?? 0 },
         { status: 502 }
       );
     }
-    return NextResponse.json({ ok: false, error: "이미지를 불러오지 못했습니다." }, { status: 502 });
+    return NextResponse.json({ ok: false, code: "fetch_failed" }, { status: 502 });
   }
   if (fetched.body.byteLength === 0) {
-    return NextResponse.json({ ok: false, error: "빈 응답" }, { status: 400 });
+    return NextResponse.json({ ok: false, code: "fetch_failed" }, { status: 400 });
   }
 
   const buf = fetched.body;
   /** 파일 내용(매직 바이트)으로만 판정 — 응답 헤더 MIME 은 신뢰하지 않음 (CM-P2-14) */
   const mime = detectImageMimeFromBytes(buf);
   if (!mime || !ALLOWED.has(mime) || (mime === "image/gif" && !(await isDecodableGif(buf)))) {
-    return NextResponse.json({ ok: false, error: "JPEG, PNG, WebP, GIF만 가능합니다." }, { status: 400 });
+    return NextResponse.json({ ok: false, code: "unsupported_type" }, { status: 400 });
   }
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 오류" }, { status: 500 });
+    return NextResponse.json({ ok: false, code: "server_config" }, { status: 500 });
   }
 
   const ext =
@@ -133,6 +133,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, url: result.publicUrl, path: result.originalPath });
   } catch (e) {
     console.error("[community/upload-image-from-url]", e);
-    return NextResponse.json({ ok: false, error: "업로드 실패" }, { status: 500 });
+    return NextResponse.json({ ok: false, code: "upload_failed" }, { status: 500 });
   }
 }
