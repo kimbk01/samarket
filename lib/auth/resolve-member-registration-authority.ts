@@ -4,6 +4,7 @@
  * Fail-closed: 조회 실패는 UNAVAILABLE — 「가입 완료」로 간주하지 않는다.
  */
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
+import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export type MemberRegistrationAuthorityResult =
@@ -29,7 +30,7 @@ export async function resolveMemberRegistrationAuthority(
   if (!sb) return { kind: "UNAVAILABLE" };
   try {
     // proxy 번들에 주소 서비스 모듈을 끌어오지 않도록 같은 조건(active AND is_default_master)을 여기서 직접 읽는다.
-    const [profileRes, addressRes] = await Promise.all([
+    const [profileRes, addressRes, adminRes] = await Promise.all([
       sb
         .from("profiles")
         .select("phone_verified,phone_verified_at,phone_verification_method,role,provider,auth_provider,email")
@@ -42,8 +43,12 @@ export async function resolveMemberRegistrationAuthority(
         .eq("is_active", true)
         .eq("is_default_master", true)
         .limit(1),
+      // 특권 관리자 면제 — 스냅샷이 없을 때만 오는 경로라 여기서 같은 식으로 확인 (재감사 H2)
+      sb.from("admin_memberships").select("role").eq("user_id", userId).eq("status", "active").limit(1),
     ]);
-    if (profileRes.error || !profileRes.data || addressRes.error) return { kind: "UNAVAILABLE" };
+    if (profileRes.error || !profileRes.data || addressRes.error || adminRes.error) return { kind: "UNAVAILABLE" };
+    const adminRole = Array.isArray(adminRes.data) ? (adminRes.data[0] as { role?: unknown } | undefined)?.role : null;
+    if (isPrivilegedAdminRole(typeof adminRole === "string" ? adminRole : null)) return { kind: "REGISTERED" };
     const hasDefaultMaster = Array.isArray(addressRes.data) && addressRes.data.length > 0;
     const row = profileRes.data as Record<string, unknown>;
     const s = (v: unknown) => (typeof v === "string" ? v : null);

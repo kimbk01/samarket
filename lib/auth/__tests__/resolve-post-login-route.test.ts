@@ -171,3 +171,44 @@ describe("resolvePostLoginRoute — 가입 단계 (동의 → 전화 → 주소,
     expect(route).toBe("/auth/onboarding/phone");
   });
 });
+
+describe("재감사 M1 — 화면 안 이동은 원래 화면(채팅방 등)으로", () => {
+  const consented = {
+    consentComplete: true,
+    signupComplete: true,
+    termsAcceptedAt: "2026-01-01",
+    termsVersion: STORE_TERMS_VERSION,
+    privacyAcceptedAt: "2026-01-01",
+    privacyVersion: STORE_PRIVACY_VERSION,
+    onboardingStatus: "completed" as const,
+  };
+  it("inSession: 가입 단계 next 에 채팅방 유지", () => {
+    expect(
+      resolvePostLoginRoute({
+        hasSession: true,
+        status: baseStatus({ ...consented, registrationNextStep: "address" }),
+        next: "/community-messenger/rooms/r1",
+        inSession: true,
+      }),
+    ).toBe("/auth/onboarding/address?next=%2Fcommunity-messenger%2Frooms%2Fr1");
+  });
+  it("inSession: 가입 완료면 채팅방으로", () => {
+    expect(
+      resolvePostLoginRoute({
+        hasSession: true,
+        status: baseStatus({ ...consented, registrationComplete: true, registrationNextStep: null }),
+        next: "/community-messenger/rooms/r1",
+        inSession: true,
+      }),
+    ).toBe("/community-messenger/rooms/r1");
+  });
+  it("로그인 직후(기본)는 계정 묶인 바로가기를 지운다 — 기존 그대로", () => {
+    expect(
+      resolvePostLoginRoute({
+        hasSession: true,
+        status: baseStatus({ ...consented, registrationComplete: true, registrationNextStep: null }),
+        next: "/community-messenger/rooms/r1",
+      }),
+    ).not.toContain("rooms");
+  });
+});

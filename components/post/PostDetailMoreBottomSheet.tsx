@@ -60,7 +60,7 @@ export function PostDetailMoreBottomSheet({
   const handleHideAuthor = () => {
     const u = getCurrentUser();
     if (!u?.id) {
-      void requireAction("community_bookmark", handleHideAuthor);
+      void requireAction("content_hide", handleHideAuthor);
       return;
     }
     void blockUser(u.id, authorUserId, authorNickname ?? undefined).then(async () => {

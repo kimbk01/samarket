@@ -7,7 +7,7 @@
  * - 매장 사장님 운영(이미 있는 매장) — 운영 중인 매장이 끊기지 않게. 새 입점 신청(`POST /api/me/stores`)은 가입 필요.
  * - 이미 진행 중인 거래·제안·모임·대화방 관리(상태 변경·완료·숨김·잠금) — 새로 만드는 쓰기가 아니다.
  * - 계정·설정·고객지원·결제 완료 확인·계측 — 회원 행동이 아니다.
- * 정확한 메서드+경로만. 와일드카드는 통화·매장 운영 접두 2개뿐.
+ * 정확한 메서드+경로만. 접두 예외는 통화·기존 매장 운영·내 연락처·배달 광고 운영 4개뿐.
  */
 import { normalizeApiPath } from "@/lib/auth/member-action-policy";
 
@@ -19,11 +19,27 @@ const R = (method: string, path: string): Rule => ({ method, path });
 const REGISTRATION_EXEMPT_PREFIXES: readonly string[] = [
   "/api/community-messenger/calls/",
   "/api/me/stores/[storeId]/",
+  /** 내 연락처(올리기·동기화·철회·삭제) — 회원 행동이 아니라 본인 데이터 관리, 삭제·철회는 개인정보 권리 (재감사 M4) */
+  "/api/community-messenger/contacts/",
+  /** 사장님 배달 광고 운영 (재감사 M5) */
+  "/api/me/delivery-ads/",
 ];
 
 export const MEMBER_REGISTRATION_EXEMPT_RULES: readonly Rule[] = [
   // 통화 시작 (방 안 통화 버튼) — 통화 API 불변
   R("POST", "/api/community-messenger/rooms/[roomId]/calls"),
+  // 채팅방 읽음 처리·음소거·고정·보관·맥락 저장 — 열람에 딸린 쓰기 (재감사 H1: 읽기는 막지 않는다)
+  R("PATCH", "/api/community-messenger/rooms/[roomId]"),
+  // 거래 채팅을 열 때 메신저 연결 미리 요청 — 열람에 딸린 쓰기 (재감사 L4)
+  R("POST", "/api/community-messenger/bridge/product-chat"),
+  // 연락처 전체 삭제 (재감사 M4 — 하위 경로는 접두 예외)
+  R("DELETE", "/api/community-messenger/contacts"),
+  // 사장님 쿠폰 운영 (재감사 M5)
+  R("POST", "/api/me/store-coupons/campaigns"),
+  R("PATCH", "/api/me/store-coupons/campaigns"),
+  // 글 숨기기·숨김 해제 — 본인 화면 정리 (재감사 L3)
+  R("PUT", "/api/posts/[postId]/hide"),
+  R("DELETE", "/api/posts/[postId]/hide"),
   // 매장 운영 (기존 매장)
   R("PATCH", "/api/me/stores/[storeId]"),
   R("POST", "/api/me/stores/announcements/[noticeId]/view"),
@@ -36,8 +52,6 @@ export const MEMBER_REGISTRATION_EXEMPT_RULES: readonly Rule[] = [
   R("POST", "/api/me/username/confirm"),
   R("POST", "/api/me/admin-notes"),
   R("POST", "/api/me/app-releases"),
-  R("PATCH", "/api/community-messenger/contacts/settings"),
-  R("DELETE", "/api/community-messenger/contacts"),
   R("POST", "/api/community-messenger/friends/[friendUserId]/favorite"),
   R("PATCH", "/api/community-messenger/rooms/[roomId]/settings"),
   R("POST", "/api/community-messenger/friend-requests/cancel-outgoing"),

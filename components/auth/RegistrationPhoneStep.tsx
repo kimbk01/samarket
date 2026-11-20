@@ -68,7 +68,7 @@ export function RegistrationPhoneStep({ next }: { next: string }) {
   const goNextStep = useCallback(async () => {
     let target = next;
     try {
-      const { status, json } = await fetchSignupStatusDeduped(next);
+      const { status, json } = await fetchSignupStatusDeduped(next, { inSession: true });
       if (status === 200 && json?.route?.trim()) target = json.route.trim();
     } catch {
       /* 다음 단계 화면이 들어올 때 다시 판정한다 */

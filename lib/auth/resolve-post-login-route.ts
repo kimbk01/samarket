@@ -20,6 +20,12 @@ export type ResolvePostLoginRouteParams = {
   hasSession: boolean;
   status: OnboardingStatus | null;
   next?: string | null;
+  /**
+   * 화면 안 이동(로그인 직후가 아님) — 동의 화면 저장 뒤·가입 단계 완료 뒤 등.
+   * true 면 `next` 의 계정 묶인 화면(채팅방·주문 등)을 지우지 않고 그대로 돌아간다(재감사 M1).
+   * 로그인 직후 목적지(콜백·네이티브·QR·아이디 로그인)는 false — 다른 계정 바로가기 복원 금지 그대로.
+   */
+  inSession?: boolean;
 };
 
 function onboardingStatusToDibaySignup(status: OnboardingStatus) {
@@ -54,12 +60,16 @@ export function resolvePostLoginRoute({
   hasSession,
   status,
   next,
+  inSession = false,
 }: ResolvePostLoginRouteParams): string {
   if (!hasSession) {
     return "/login?error=session_missing";
   }
+  const landing = inSession
+    ? sanitizeNextPath(next ?? null)
+    : sanitizeFreshLoginLandingPath(sanitizeNextPath(next ?? null));
   if (!status) {
-    return sanitizeFreshLoginLandingPath(sanitizeNextPath(next ?? null)) ?? POST_LOGIN_PATH;
+    return landing ?? POST_LOGIN_PATH;
   }
   const signup = onboardingStatusToDibaySignup(status);
   if (!signup.consentComplete) {
@@ -67,10 +77,8 @@ export function resolvePostLoginRoute({
   }
   const step = status.registrationNextStep ?? null;
   if (step && step !== "terms") {
-    return (
-      registrationStepHref(step, sanitizeFreshLoginLandingPath(sanitizeNextPath(next ?? null))) ??
-      resolveDibaySignupRoute(signup, next)
-    );
+    return registrationStepHref(step, landing) ?? resolveDibaySignupRoute(signup, next);
   }
+  if (inSession) return landing ?? POST_LOGIN_PATH;
   return resolveDibaySignupRoute(signup, next);
 }

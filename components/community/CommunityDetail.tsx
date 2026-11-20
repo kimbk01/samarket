@@ -265,6 +265,10 @@ export function CommunityDetail({
       return;
     }
     if (busy) return;
+    /** 로그인한 가입 진행 중 회원도 같은 행동 게이트 — 「가입 이어하기」 안내 (재감사 M2) */
+    if (!(await requireAction("community_like", () => undefined, { next: window.location.pathname + window.location.search }))) {
+      return;
+    }
     const prevLikeCount = likeCount;
     const prevLiked = likedByViewer;
     const nextLiked = !prevLiked;
@@ -304,6 +308,10 @@ export function CommunityDetail({
       return;
     }
     if (saveBusy) return;
+    /** 로그인한 가입 진행 중 회원도 같은 행동 게이트 (재감사 M2) */
+    if (!(await requireAction("community_bookmark", () => undefined, { next: window.location.pathname + window.location.search }))) {
+      return;
+    }
     const prevSaved = savedByViewer;
     setSaveBusy(true);
     setSavedByViewer(!prevSaved);

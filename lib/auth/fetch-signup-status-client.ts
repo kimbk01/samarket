@@ -17,20 +17,31 @@ export type SignupStatusApiResponse = {
   error?: string;
 };
 
-function signupStatusFlightKey(next?: string | null): string {
+function signupStatusFlightKey(next?: string | null, inSession?: boolean): string {
   const safe = sanitizeNextPath(next ?? null);
-  return safe ? `client:me:signup-status:get:${safe}` : "client:me:signup-status:get";
+  const base = safe ? `client:me:signup-status:get:${safe}` : "client:me:signup-status:get";
+  return inSession ? `${base}:session` : base;
 }
 
-export async function fetchSignupStatusDeduped(next?: string | null): Promise<{
+/**
+ * `opts.inSession` — 화면 안 이동(가입 단계 완료 뒤 등)이면 `route` 가 원래 화면(채팅방 등)을 지우지 않는다(재감사 M1).
+ * 로그인 직후(아이디 로그인·첫 가입 동의)는 기본값(false) — 계정 묶인 바로가기 복원 금지.
+ */
+export async function fetchSignupStatusDeduped(
+  next?: string | null,
+  opts?: { inSession?: boolean },
+): Promise<{
   status: number;
   json: SignupStatusApiResponse | null;
 }> {
   const safeNext = sanitizeNextPath(next ?? null);
-  const url = safeNext
-    ? `/api/me/signup-status?next=${encodeURIComponent(safeNext)}`
-    : "/api/me/signup-status";
-  const res = await runSingleFlight(signupStatusFlightKey(safeNext), () =>
+  const inSession = opts?.inSession === true;
+  const params = new URLSearchParams();
+  if (safeNext) params.set("next", safeNext);
+  if (inSession) params.set("scope", "session");
+  const qs = params.toString();
+  const url = qs ? `/api/me/signup-status?${qs}` : "/api/me/signup-status";
+  const res = await runSingleFlight(signupStatusFlightKey(safeNext, inSession), () =>
     fetch(url, {
       credentials: "include",
       cache: "no-store",
