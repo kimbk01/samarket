@@ -1,6 +1,7 @@
 /**
  * 삭제한 지 30일 지난 글의 사진 정리 (Owner 2026-11-20 「30일 뒤 삭제」 · 감사 §11 O2).
  */
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -129,5 +130,23 @@ describe("삭제 30일 지난 글 사진 정리", () => {
     expect(r).toMatchObject({ ok: true, posts: ["p2"] });
     expect(r.ok && r.failed.map((f) => f.path)).toEqual([path(A)]);
     expect(calls.find((c) => c.update)?.filters).toContainEqual(["in", ["id", ["p2"]]]);
+  });
+});
+
+describe("참조 판정 함수 — 대상 글을 보는 모든 줄에 제외 조건 (보정 20271120091000)", () => {
+  it("community_posts·philife_posts(같은 글 뷰)·첨부 표·수정 기록 줄은 모두 `<> all(ex.ids)`", () => {
+    const dir = "supabase/migrations";
+    const files = readdirSync(dir)
+      .filter((f) => f.endsWith(".sql"))
+      .sort()
+      .filter((f) => readFileSync(`${dir}/${f}`, "utf8").includes("function public.community_post_image_unreferenced_excluding_posts"));
+    const latest = readFileSync(`${dir}/${files[files.length - 1]!}`, "utf8");
+    expect(files[files.length - 1]).toBe("20271120091000_community_deleted_post_image_purge_view_fix.sql");
+    const lines = latest
+      .split("\n")
+      .filter((l) => /from public\.(community_posts|philife_posts|community_post_images|community_post_revisions)\b/.test(l));
+    /** 첨부 1 · 수정 기록 2 · 글 5 · 같은 글 뷰 3 */
+    expect(lines.length).toBe(11);
+    for (const l of lines) expect(l, l).toMatch(/<> all\(ex\.ids\)/);
   });
 });
