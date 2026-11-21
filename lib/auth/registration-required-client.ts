@@ -1,5 +1,3 @@
-"use client";
-
 import { openProfileCompletionRequiredModal } from "@/lib/profile/profile-completion-modal-client";
 
 /**

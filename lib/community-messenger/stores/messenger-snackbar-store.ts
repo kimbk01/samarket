@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { shouldSuppressCallOverlayToasts } from "@/lib/community-messenger/call-dock-presentation";
 import { DIBAY_TOAST_ACTION_MS, DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
+import { shouldSuppressForRegistrationGuidance } from "@/lib/auth/registration-guidance-fetch-gate.client";
 
 export type MessengerSnackbarVariant = "default" | "success" | "error";
 
@@ -73,6 +74,8 @@ export const useMessengerSnackbarStore = create<MessengerSnackbarState>((set, ge
 
 /** 레이아웃 밖·훅 밖에서도 호출 가능한 비차단 안내 */
 export function showMessengerSnackbar(message: string, opts?: MessengerSnackbarOptions) {
+  /** 「가입 이어하기」 창을 방금 열었으면 같은 순간의 오류 알림은 띄우지 않는다 (설계 2026-11-21 §5-3) */
+  if (shouldSuppressForRegistrationGuidance(message, opts?.variant === "error")) return;
   useMessengerSnackbarStore.getState().show(message, opts);
 }
 

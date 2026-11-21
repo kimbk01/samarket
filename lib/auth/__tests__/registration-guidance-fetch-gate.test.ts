@@ -1,0 +1,128 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+/** 설계 2026-11-21 §5-3 — 가입 진행 중 안내: 요청 단계 한 곳 */
+const opened = vi.hoisted(() => [] as unknown[]);
+vi.mock("@/lib/auth/registration-required-client", () => ({
+  openRegistrationRequiredFromApiPayload: (p: unknown) => {
+    opened.push(p);
+    return true;
+  },
+}));
+vi.mock("@/lib/i18n/runtime-app-language", () => ({ getRuntimeAppLanguage: () => "ko" }));
+
+import {
+  isRegistrationGuidanceGatedRequest,
+  resetRegistrationGuidanceForTests,
+  shouldSuppressForRegistrationGuidance,
+  wrapFetchWithRegistrationGuidance,
+} from "@/lib/auth/registration-guidance-fetch-gate.client";
+import {
+  invalidateRegistrationPending,
+  resetRegistrationPendingForTests,
+  setRegistrationPendingFromServer,
+} from "@/lib/auth/registration-pending-state.client";
+
+const ORIGIN = "http://localhost";
+
+beforeEach(() => {
+  opened.length = 0;
+  resetRegistrationGuidanceForTests();
+  resetRegistrationPendingForTests();
+  vi.stubGlobal("window", { location: { href: `${ORIGIN}/philife`, origin: ORIGIN, pathname: "/philife", search: "" } });
+});
+
+function okFetch() {
+  return vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 }));
+}
+
+describe("미리 확인", () => {
+  it("빠진 단계를 알고 있고 새 행동이면 보내지 않고 안내 + 403", async () => {
+    setRegistrationPendingFromServer("address");
+    const base = okFetch();
+    const f = wrapFetchWithRegistrationGuidance(base as unknown as typeof fetch);
+    const res = await f("/api/philife/posts", { method: "POST" });
+    expect(base).not.toHaveBeenCalled();
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body).toMatchObject({ code: "signup_incomplete", step: "address" });
+    expect(body.error).not.toBe("signup_incomplete");
+    expect(opened).toHaveLength(1);
+  });
+
+  it("관리·정리(해제·수정·읽음)는 그대로 보낸다", async () => {
+    setRegistrationPendingFromServer("phone");
+    const base = okFetch();
+    const f = wrapFetchWithRegistrationGuidance(base as unknown as typeof fetch);
+    await f("/api/community/posts/p1/like", { method: "DELETE" });
+    await f("/api/me/settings/notices", { method: "POST" });
+    await f("/api/community-messenger/rooms/r1/messages/m1", { method: "PATCH" });
+    expect(base).toHaveBeenCalledTimes(3);
+    expect(opened).toHaveLength(0);
+  });
+
+  it("모르면(값 없음·무효화) 그대로 보낸다 — 서버가 판단", async () => {
+    setRegistrationPendingFromServer("address");
+    invalidateRegistrationPending();
+    const base = okFetch();
+    const f = wrapFetchWithRegistrationGuidance(base as unknown as typeof fetch);
+    await f("/api/philife/posts", { method: "POST" });
+    expect(base).toHaveBeenCalledTimes(1);
+  });
+
+  it("가입 완료(null)·GET·통화 경로·다른 출처는 건드리지 않는다", async () => {
+    setRegistrationPendingFromServer(null);
+    const base = okFetch();
+    const f = wrapFetchWithRegistrationGuidance(base as unknown as typeof fetch);
+    await f("/api/philife/posts", { method: "POST" });
+    setRegistrationPendingFromServer("address");
+    await f("/api/philife/posts");
+    await f("https://other.example/api/philife/posts", { method: "POST" });
+    expect(base).toHaveBeenCalledTimes(3);
+    expect(isRegistrationGuidanceGatedRequest("POST", "/api/community-messenger/calls/redial-room")).toBe(false);
+  });
+});
+
+describe("안전망 — 서버 403", () => {
+  it("signup_incomplete+step → 안내 1회 + 문구를 사람 말로 · code·step 유지 · 사본 갱신", async () => {
+    const base = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ ok: false, code: "signup_incomplete", error: "signup_incomplete", step: "phone" }), {
+          status: 403,
+        }),
+    );
+    const f = wrapFetchWithRegistrationGuidance(base as unknown as typeof fetch);
+    const res = await f("/api/community-messenger/friend-requests", { method: "POST" });
+    const body = await res.json();
+    expect(res.status).toBe(403);
+    expect(body).toMatchObject({ code: "signup_incomplete", step: "phone" });
+    expect(body.error).not.toBe("signup_incomplete");
+    expect(opened).toHaveLength(1);
+    // 같은 순간 두 번째 거절은 창을 다시 열지 않는다
+    await f("/api/community-messenger/friend-requests", { method: "POST" });
+    expect(opened).toHaveLength(1);
+    // 사본이 갱신돼 다음 새 행동은 보내기 전에 막힌다
+    const before = base.mock.calls.length;
+    await f("/api/philife/posts", { method: "POST" });
+    expect(base.mock.calls.length).toBe(before);
+  });
+
+  it("동의 미완(step 없음)·다른 403 은 그대로", async () => {
+    const base = vi.fn(async () => new Response(JSON.stringify({ ok: false, code: "signup_incomplete" }), { status: 403 }));
+    const f = wrapFetchWithRegistrationGuidance(base as unknown as typeof fetch);
+    const res = await f("/api/philife/posts", { method: "POST" });
+    expect((await res.json()).code).toBe("signup_incomplete");
+    expect(opened).toHaveLength(0);
+  });
+});
+
+describe("알림 억제", () => {
+  it("창을 연 직후 오류 알림·안내 문장 알림은 띄우지 않고, 평소 알림은 그대로", async () => {
+    expect(shouldSuppressForRegistrationGuidance("저장했어요", false)).toBe(false);
+    setRegistrationPendingFromServer("address");
+    const f = wrapFetchWithRegistrationGuidance(okFetch() as unknown as typeof fetch);
+    await f("/api/philife/posts", { method: "POST" });
+    expect(shouldSuppressForRegistrationGuidance("응답 실패", true)).toBe(true);
+    expect(shouldSuppressForRegistrationGuidance("저장했어요", false)).toBe(false);
+    expect(shouldSuppressForRegistrationGuidance("응답 실패", true, Date.now() + 10_000)).toBe(false);
+  });
+});

@@ -1,3 +1,4 @@
+import { shouldSuppressForRegistrationGuidance } from "@/lib/auth/registration-guidance-fetch-gate.client";
 /**
  * 내정보 토스트 — 저장·삭제 결과 알림 (전역 토스트가 없어 내정보 범위로 한정).
  * 화면은 `showMypageToast` 만 호출하고, `MypageToastHost`(app/(main)/mypage/layout) 가 한 곳에서 그린다.
@@ -39,6 +40,8 @@ export function showMypageToast(
   opts?: MypageToastOptions
 ): void {
   if (typeof window === "undefined" || !message.trim()) return;
+  /** 「가입 이어하기」 창을 방금 열었으면 같은 순간의 오류 알림은 띄우지 않는다 (설계 2026-11-21 §5-3) */
+  if (shouldSuppressForRegistrationGuidance(message, tone === "error")) return;
   const detail: MypageToastDetail = opts?.action ? { message, tone, action: opts.action } : { message, tone };
   window.dispatchEvent(new CustomEvent<MypageToastDetail>(MYPAGE_TOAST_EVENT, { detail }));
 }

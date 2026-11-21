@@ -9,6 +9,7 @@ import { fetchMeProfileFresh, invalidateMeProfileDedupedCache } from "@/lib/prof
 import type { ProfileRow } from "@/lib/profile/types";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import { patchMypageHomeProjection } from "@/lib/mypage/mypage-home-store";
+import { invalidateRegistrationPending } from "@/lib/auth/registration-pending-state.client";
 
 /**
  * 회원 정보 수정(전화 인증 · @아이디 · 주소) 직후 — 서버에서 새로 받아 **클라이언트 사본 전부**를 한 번에 바꾼다.
@@ -26,6 +27,8 @@ export async function refreshClientMemberAccountAfterMutation(): Promise<Profile
   invalidateMeProfileDedupedCache();
   invalidateMandatoryAddressGateClientCache();
   invalidateAddressDefaultsSnapshotCache();
+  /** 전화 인증·주소 변경 직후 — 가입 단계 사본은 다음 서버 응답까지 「모름」(보내기 전에 막지 않음) */
+  invalidateRegistrationPending();
   const fresh = await fetchMeProfileFresh("member_account_after_mutation");
   if (!fresh?.id?.trim()) return null;
   mergeAppBootProfileFull(fresh);

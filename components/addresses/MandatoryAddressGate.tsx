@@ -9,6 +9,10 @@ import {
 } from "@/lib/auth/profile-setup-flow";
 import { registrationStepHref, type DibayRegistrationStep } from "@/lib/auth/dibay-registration-steps";
 import {
+  invalidateRegistrationPending,
+  setRegistrationPendingFromServer,
+} from "@/lib/auth/registration-pending-state.client";
+import {
   clearProfileSetupDeferForSession,
   deferProfileSetupForSession,
   isProfileSetupDeferredForSession,
@@ -123,6 +127,7 @@ export function MandatoryAddressGate() {
       /** 동의(terms)는 DibaySignupGate 담당 — 여기서는 전화·주소 단계만 */
       const step = j.registrationNextStep === "phone" || j.registrationNextStep === "address" ? j.registrationNextStep : null;
       stepRef.current = step;
+      if (j.authenticated === true) setRegistrationPendingFromServer(step);
       /** 팝업 critical 표식(`addressGate`)은 기존 의미(대표 주소 없음) 그대로 */
       setBlocked(j.authenticated === true && j.needsBlock === true);
       const needsStep = j.authenticated === true && step !== null;
@@ -194,6 +199,7 @@ export function MandatoryAddressGate() {
 
   useEffect(() => {
     const onUpdated = () => {
+      invalidateRegistrationPending();
       invalidateMandatoryAddressGateClientCache();
       void runGateFetch();
     };
@@ -226,6 +232,7 @@ export function MandatoryAddressGate() {
       data: { subscription },
     } = sb.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
+        invalidateRegistrationPending();
         setBlocked(false);
         setRegistrationPending(false);
         redirectTargetRef.current = null;

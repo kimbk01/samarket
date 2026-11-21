@@ -33,12 +33,15 @@ import { AbandonedR15LocalStatePurge } from "@/components/app/AbandonedR15LocalS
 import { startEntryTelemetry } from "@/lib/telemetry/entry-telemetry.client";
 import { startWebVersionResumeCheck } from "@/lib/startup/web-version-resume.client";
 import { installSessionFreshnessFetchGate } from "@/lib/auth/session-freshness-fetch-gate.client";
+import { installRegistrationGuidanceFetchGate } from "@/lib/auth/registration-guidance-fetch-gate.client";
 
 /**
  * Phase 3-2a (Auth HARD LOCK Amendment 2026-11-08 (7)): 모듈 로드 시점 = 루트 셸 렌더·자식 effect 의 첫 `/api` 요청보다 먼저.
  * 만료 임박 토큰일 때만 SDK 갱신 완료를 기다린다 (상한 3초). 서버 렌더에서는 무동작.
  */
 installSessionFreshnessFetchGate();
+/** 가입 진행 중 회원 안내 — `/api` 쓰기 요청 한 곳(설계 2026-11-21 §5-3). 세션 신선도 관문 바깥을 감싼다. */
+installRegistrationGuidanceFetchGate();
 
 const AppBootContext = createContext<AppBootState | null>(null);
 

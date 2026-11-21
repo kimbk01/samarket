@@ -29,7 +29,10 @@ describe("profile-setup-flow", () => {
   it("gate redirects once per login session, then browsing is free", () => {
     const base = { needsBlock: true, deferredForSession: false };
     expect(resolveProfileSetupGateAction({ ...base, pathname: "/home" })).toBe("redirect");
-    expect(resolveProfileSetupGateAction({ ...base, pathname: "/philife/post/1" })).toBe("redirect");
+    /** 설계 2026-11-21 §5-5 — 푸시·링크로 들어온 상세 화면은 가로채지 않는다(탭 첫 화면에서만 안내) */
+    expect(resolveProfileSetupGateAction({ ...base, pathname: "/philife/post/1" })).toBe("none");
+    expect(resolveProfileSetupGateAction({ ...base, pathname: "/community-messenger/rooms/r1" })).toBe("none");
+    expect(resolveProfileSetupGateAction({ ...base, pathname: "/community-messenger" })).toBe("redirect");
     expect(resolveProfileSetupGateAction({ ...base, pathname: "/mypage" })).toBe("mark_seen");
     expect(resolveProfileSetupGateAction({ ...base, pathname: "/mypage/addresses" })).toBe("none");
     // 1회 처리 뒤 — 어디든 이동 없음
