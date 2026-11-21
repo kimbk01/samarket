@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { respondCommunityMessengerFriendRequest } from "@/lib/community-messenger/service";
+import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,6 +35,12 @@ export async function PATCH(
   const actionRaw = String(body.action ?? "").trim();
   if (actionRaw !== "accept" && actionRaw !== "reject" && actionRaw !== "cancel") {
     return NextResponse.json({ ok: false, error: "bad_action" }, { status: 400 });
+  }
+
+  /** 섞인 경로(설계 2026-11-21 §4 C) — 새 행동 분기만 가입(전화 + 대표 주소) 확인, 거절·해제는 가입 없이 */
+  if (actionRaw === "accept") {
+    const registrationGate = await requireRegistrationForAction(auth.userId);
+    if (registrationGate) return registrationGate;
   }
 
   const result = await respondCommunityMessengerFriendRequest(auth.userId, requestId, actionRaw);

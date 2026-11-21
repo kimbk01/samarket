@@ -14,6 +14,7 @@ import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { openPhoneVerificationRequiredSheet } from "@/lib/auth/phone-verification-required-client";
 import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
 import { isAccountDependentPath, sanitizeLoginNextPath } from "@/lib/auth/auth-route-classification";
+import { isRegistrationGuidanceRecent, registrationGuidanceMessage } from "@/lib/auth/registration-guidance-fetch-gate.client";
 
 type RouterLike = {
   push: (href: string) => void;
@@ -97,6 +98,13 @@ export function redirectForBlockedAction(
   next?: string
 ): boolean {
   const returnNext = next?.trim() || currentHrefFallback();
+  /**
+   * 가입 진행 중(전화·주소) 거절은 요청 단계 장치가 이미 「가입 이어하기」 창을 열었다 — 화면을 옮기지 않는다
+   * (보던 화면·쓰던 글 유지, 설계 2026-11-21 §5-3 ②). 동의 미완은 아래 그대로 동의 화면.
+   */
+  if (isRegistrationGuidanceRecent() || String(error ?? "").trim() === registrationGuidanceMessage()) {
+    return true;
+  }
   if (isLoginRequiredError(error)) {
     openLoginRequiredSheet({ actionType: "messenger_open", next: returnNext });
     return true;

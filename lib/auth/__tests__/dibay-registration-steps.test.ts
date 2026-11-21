@@ -115,7 +115,6 @@ describe("중앙 쓰기 게이트 — 가입 검사 예외", () => {
     ["POST", "/api/community-messenger/rooms/r1/messages"],
     ["POST", "/api/me/store-orders"],
     ["POST", "/api/me/stores"],
-    ["POST", "/api/favorites/toggle"],
     ["POST", "/api/community-messenger/friend-requests"],
     ["POST", "/api/me/apple-iap/prepare"],
   ])("%s %s → 가입 필요", (m, p) => {

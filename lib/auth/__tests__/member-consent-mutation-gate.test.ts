@@ -110,7 +110,7 @@ describe("B3 central consent gate — enforce", () => {
       ["POST", "/api/community-messenger/rooms/r1/messages"],
       ["POST", "/api/me/store-orders"],
       ["POST", "/api/me/stores"],
-      ["POST", "/api/favorites/toggle"],
+      ["POST", "/api/stores/s1/favorite"],
     ] as const) {
       const res = await enforce(req(m, p));
       expect(res, `${m} ${p}`).not.toBeNull();

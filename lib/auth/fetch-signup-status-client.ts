@@ -1,6 +1,7 @@
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { DibaySignupStatus } from "@/lib/auth/dibay-signup-status";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
+import { setRegistrationPendingFromServer } from "@/lib/auth/registration-pending-state.client";
 import {
   setClientRequiredConsentVersions,
   type ClientRequiredConsentVersions,
@@ -50,6 +51,9 @@ export async function fetchSignupStatusDeduped(
   const json = (await res.clone().json().catch(() => null)) as SignupStatusApiResponse | null;
   if (res.status === 200 && json?.requiredConsent) {
     setClientRequiredConsentVersions(json.requiredConsent);
+  }
+  if (res.status === 200 && json?.registration && typeof window !== "undefined") {
+    setRegistrationPendingFromServer(json.registration.nextStep);
   }
   return { status: res.status, json };
 }

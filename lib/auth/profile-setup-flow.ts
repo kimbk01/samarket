@@ -1,5 +1,6 @@
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { isCommunityHomeSurfacePath, isHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 /** onboarding setup=1 — 전화·주소 포함 full ProfileEditForm */
 const MYPAGE_PROFILE_SETUP_EDIT_HREF = "/mypage/section/account/profile/edit" as const;
@@ -38,7 +39,30 @@ export function resolveProfileSetupGateAction(input: {
   if (p === PROFILE_SETUP_GATE_TARGET_HREF || p === "/my") return "mark_seen";
   if (isProfileSetupGateExcludedPath(p)) return "none";
   if (isRegistrationGateOnlyExcludedPath(p)) return "none";
+  /**
+   * 탭 첫 화면에서만 안내한다 — 푸시·링크로 바로 들어온 채팅방·글·주문 화면은 그대로 연다(설계 2026-11-21 §5-5).
+   * 1회 표식을 남기지 않으므로 나중에 탭 첫 화면에 오면 그때 1회 안내.
+   */
+  if (!isRegistrationPromptEntryPath(p)) return "none";
   return "redirect";
+}
+
+/**
+ * 세션당 1회 가입 안내를 띄우는 탭 첫 화면 (하단 탭 루트).
+ * 홈·커뮤니티 허브 루트(`/`·`/home`·`/philife`·`/community`)는 경로 SSOT `resolve-main-surface` 판정을 쓴다.
+ */
+const REGISTRATION_PROMPT_OTHER_TAB_ROOTS: readonly string[] = [
+  "/market",
+  "/stores",
+  "/community-messenger",
+  "/orders",
+  "/services",
+];
+
+export function isRegistrationPromptEntryPath(pathname: string | null | undefined): boolean {
+  const p = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "/";
+  if (isHomeSurfacePath(p) || isCommunityHomeSurfacePath(p)) return true;
+  return REGISTRATION_PROMPT_OTHER_TAB_ROOTS.includes(p);
 }
 
 /**
