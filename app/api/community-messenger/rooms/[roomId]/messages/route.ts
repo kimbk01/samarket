@@ -293,19 +293,31 @@ export async function POST(
       import("@/lib/community-messenger/group/group-active-membership-gate"),
       import("@/lib/community-messenger/direct-room-communication-gate"),
     ]);
+    /**
+     * 2026-11-21 보내기 1단계 — 그룹방은 1:1 차단 게이트가 항상 통과(`shouldApplyCommunityDirectSocialBlockGate` 첫 규칙)라
+     * 방·거래·주문·상대 조회 5번을 하지 않는다. 그룹 게이트는 방 권한 RPC 결과(강퇴·참가)를 그대로 쓴다(같은 조건).
+     */
+    const isGroupHint = roomTypeHint === "private_group" || roomTypeHint === "open_group";
+    const groupPrefetchedAccess =
+      isGroupHint && canon.access
+        ? { banned: canon.access.banned === true, groupParticipant: canon.access.groupParticipant ?? null }
+        : null;
     const [group, block] = await Promise.all([
       assertActiveGroupMembershipIfGroup({
         userId,
         roomId: canon.canonicalRoomId,
         supabase: sbGate,
         roomType: roomTypeHint,
+        prefetchedAccess: groupPrefetchedAccess,
       }),
-      assertDirectRoomCommunicationNotBlocked({
-        viewerUserId: userId,
-        roomId: canon.canonicalRoomId,
-        supabase: sbGate,
-        _t5: t5 ?? undefined,
-      }),
+      isGroupHint
+        ? Promise.resolve({ ok: true as const, peerUserId: null })
+        : assertDirectRoomCommunicationNotBlocked({
+            viewerUserId: userId,
+            roomId: canon.canonicalRoomId,
+            supabase: sbGate,
+            _t5: t5 ?? undefined,
+          }),
     ]);
     return { group, block };
   })();

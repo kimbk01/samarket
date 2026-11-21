@@ -422,7 +422,10 @@ export async function bumpMessengerRoomTargetsForRecipientsParallel(
       ? Promise.resolve({
           data: knownRecipients.map((user_id) => ({ user_id, left_at: null as string | null })),
         })
-      : sb.from("community_messenger_participants").select("user_id, left_at").eq("room_id", roomId),
+      : useKnown && knownIsGroup
+        ? /** 2026-11-21 보내기 1단계 — 그룹방은 아래 그룹 분기가 받는 사람을 따로 고른다 → 이 참가자 목록은 쓰지 않음 */
+          Promise.resolve({ data: [] as Array<{ user_id: string; left_at: string | null }> })
+        : sb.from("community_messenger_participants").select("user_id, left_at").eq("room_id", roomId),
     useKnown && knownChatDomain !== "store_order" ? Promise.resolve(null) : loadStoreOrderRoomContext(sb, roomId),
   ]);
   const roomRow = roomRes.data;

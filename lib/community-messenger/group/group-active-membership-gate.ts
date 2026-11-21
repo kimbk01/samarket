@@ -91,6 +91,12 @@ export async function assertActiveGroupMembershipIfGroup(input: {
   supabase?: SupabaseClient<any> | null;
   /** When roomType already known, skip room_type SELECT */
   roomType?: string | null;
+  /**
+   * 2026-11-21 보내기 1단계 — 같은 요청의 방 권한 RPC(`community_messenger_room_access`) 결과.
+   * 그 함수의 `banned`(unbanned_at is null)·`group_participant`(left_at·blocked_hidden_at is null)는
+   * 아래 `isUserBannedFromGroup`·`fetchActiveParticipant` 와 **같은 조건**이라 다시 읽지 않는다.
+   */
+  prefetchedAccess?: { banned: boolean; groupParticipant: GroupParticipantRow | null } | null;
 }): Promise<GroupActiveMembershipResult> {
   const userId = trimText(input.userId);
   const roomId = trimText(input.roomId);
@@ -112,11 +118,13 @@ export async function assertActiveGroupMembershipIfGroup(input: {
     return { ok: true, skipped: true, reason: "not_group_room" };
   }
 
-  if (await isUserBannedFromGroup(sb, roomId, userId)) {
+  const pre = input.prefetchedAccess ?? null;
+  const banned = pre ? pre.banned === true : await isUserBannedFromGroup(sb, roomId, userId);
+  if (banned) {
     return { ok: false, error: GROUP_ROOM_ERROR.USER_BANNED, roomType: roomTypeRaw };
   }
 
-  const participant = await fetchActiveParticipant(sb, roomId, userId);
+  const participant = pre ? pre.groupParticipant : await fetchActiveParticipant(sb, roomId, userId);
   if (!participant) {
     return { ok: false, error: GROUP_ROOM_ERROR.FORBIDDEN, roomType: roomTypeRaw };
   }

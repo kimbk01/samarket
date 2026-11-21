@@ -30,6 +30,7 @@ import type { NotificationRuntimeAppState } from "@/lib/notifications/policy/not
 import { isChatDomain } from "@/lib/chat-domain/realtime/domain-realtime-envelope";
 import { generalDirectRoomIdentity, groupRoomIdentity } from "@/lib/chat-domain/room-identity";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { loadNotifyRecipientFactsBatch } from "@/lib/notifications/pipeline/notify-recipient-facts-batch";
 import { runWithConcurrencyLimit } from "@/lib/shared/run-with-concurrency-limit";
 
 export type NotifyMessagePipelineInput = {
@@ -236,6 +237,19 @@ export async function notifyMessagePipeline(
   });
   setSpan("ND_display_shared_ms", displaySharedT0);
 
+  /**
+   * 2026-11-21 보내기 1단계 — 차단·음소거·언어를 받는 사람 전체 1번씩(받는 사람 수와 무관 · 판정 규칙 동일).
+   * 읽기 오류면 null → 아래 기존 받는 사람별 조회.
+   */
+  const factsT0 = performance.now();
+  const batchFacts = await loadNotifyRecipientFactsBatch(sb, {
+    roomId,
+    senderUserId,
+    recipientUserIds: recipients,
+    blockClearedUserId: blockClearedPeer || null,
+  });
+  setSpan("ND_recipient_facts_batch_ms", factsT0);
+
   const processRecipient = async (recipientUserId: string): Promise<void> => {
     if (!recipientUserId || recipientUserId === senderUserId) return;
 
@@ -248,7 +262,16 @@ export async function notifyMessagePipeline(
     let blocked: boolean;
     let muted: boolean;
     let preloadedLanguage: Awaited<ReturnType<typeof loadNotificationUserLanguage>> | undefined;
-    if (parallelRecipients) {
+    if (batchFacts) {
+      blocked =
+        blockClearedPeer && recipientUserId === blockClearedPeer ? false : batchFacts.blocked.has(recipientUserId);
+      if (blocked) {
+        logNotifyMessage("blocked_suppressed", { roomId, recipientUserId, senderUserId });
+        return;
+      }
+      muted = isMentioned ? false : batchFacts.muted.has(recipientUserId);
+      preloadedLanguage = batchFacts.language.get(recipientUserId);
+    } else if (parallelRecipients) {
       /** P2: 판정 읽기 3개를 1왕복으로(모두 읽기 — 순차와 같은 값). 차단이면 결과만 버린다. */
       const readsT0 = performance.now();
       const [blockedR, mutedR, languageR] = await Promise.all([
