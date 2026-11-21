@@ -1,5 +1,6 @@
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { isCommunityHomeSurfacePath, isHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 /** onboarding setup=1 — 전화·주소 포함 full ProfileEditForm */
 const MYPAGE_PROFILE_SETUP_EDIT_HREF = "/mypage/section/account/profile/edit" as const;
@@ -46,12 +47,11 @@ export function resolveProfileSetupGateAction(input: {
   return "redirect";
 }
 
-/** 세션당 1회 가입 안내를 띄우는 탭 첫 화면 (하단 탭 루트) */
-export const REGISTRATION_PROMPT_ENTRY_PATHS: readonly string[] = [
-  "/",
-  "/home",
-  "/philife",
-  "/community",
+/**
+ * 세션당 1회 가입 안내를 띄우는 탭 첫 화면 (하단 탭 루트).
+ * 홈·커뮤니티 허브 루트(`/`·`/home`·`/philife`·`/community`)는 경로 SSOT `resolve-main-surface` 판정을 쓴다.
+ */
+const REGISTRATION_PROMPT_OTHER_TAB_ROOTS: readonly string[] = [
   "/market",
   "/stores",
   "/community-messenger",
@@ -61,7 +61,8 @@ export const REGISTRATION_PROMPT_ENTRY_PATHS: readonly string[] = [
 
 export function isRegistrationPromptEntryPath(pathname: string | null | undefined): boolean {
   const p = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "/";
-  return REGISTRATION_PROMPT_ENTRY_PATHS.includes(p);
+  if (isHomeSurfacePath(p) || isCommunityHomeSurfacePath(p)) return true;
+  return REGISTRATION_PROMPT_OTHER_TAB_ROOTS.includes(p);
 }
 
 /**
