@@ -1,4 +1,5 @@
 import { POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -127,6 +128,11 @@ export async function POST(req: NextRequest) {
      * 거래 H F-3: 숨김·삭제·관리자 숨김 글은 새로 찜하지 않는다(찜 해제는 언제나 허용 — 내 찜 목록 정리).
      * 판매완료 글은 공개 글이라 찜할 수 있다.
      */
+    /** 섞인 경로(설계 2026-11-21 §4 C) — 새 행동 분기만 가입(전화 + 대표 주소) 확인, 거절·해제는 가입 없이 */
+    if (desired) {
+      const registrationGate = await requireRegistrationForAction(userId);
+      if (registrationGate) return registrationGate;
+    }
     if (desired) {
       const pr = postRow as {
         status?: string | null;

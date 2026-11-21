@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { guardMoimWrite, moimBadRequest, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
 import { moimInviteRespond } from "@/lib/moim/server/moim-rpc.server";
+import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,11 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!g.ok) return g.response;
   const body = await readMoimJson<{ accept?: unknown; nickname?: unknown; avatarUrl?: unknown; bio?: unknown }>(req);
   if (typeof body?.accept !== "boolean") return moimBadRequest();
+  /** 섞인 경로(설계 2026-11-21 §4 C) — 새 행동 분기만 가입(전화 + 대표 주소) 확인, 거절·해제는 가입 없이 */
+  if (body.accept === true) {
+    const registrationGate = await requireRegistrationForAction(g.userId);
+    if (registrationGate) return registrationGate;
+  }
   return moimRpcResponse(
     await moimInviteRespond(
       g.userId,
