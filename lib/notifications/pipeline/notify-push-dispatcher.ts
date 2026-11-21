@@ -149,7 +149,11 @@ export function buildPushPayload(row: NotificationEventRow, badgeCount: number):
 export async function dispatchNotificationPushIfAllowed(
   sb: SupabaseClient<any>,
   row: NotificationEventRow,
-  opts?: { callPushKind?: "missed_call" }
+  opts?: {
+    callPushKind?: "missed_call";
+    /** 2026-11-21 보내기 3단계 — 채팅 보내기 묶음 경로만(부재중 통화 분기에는 넘기지 않음) */
+    preloadedChatFacts?: import("@/lib/push/dispatch/push-payload-types").PreloadedChatPushFacts;
+  }
 ): Promise<DispatchPushOutcome> {
   // R13: admin-recipient work notices are pushed only by the admin notification service
   // (authority re-verified at send time). A legacy/queued member-store row never pushes.
@@ -199,6 +203,7 @@ export async function dispatchNotificationPushIfAllowed(
       event_type: row.type,
       badge_count: memberAppIconTotal,
       notification_event_id: row.id,
+      ...(opts?.preloadedChatFacts ? { preloaded_chat_facts: opts.preloadedChatFacts } : {}),
     });
   }
 

@@ -251,6 +251,39 @@ export async function resolveWebPushDeliveryForUser(
   }
 }
 
+/**
+ * 2026-11-21 보내기 3단계 — 미리 읽은 설정(사람별 snapshot 또는 읽기 실패)으로 `resolveWebPushDeliveryForUser` 와 **같은 판정**.
+ * 채팅 보내기 묶음 경로만 쓴다(통화·그 밖의 발송은 기존 `shouldSendWebPushForUser`).
+ */
+export type PreloadedNotificationPreferences =
+  | Readonly<{ snapshot: NormalizedNotificationPreferenceSnapshot }>
+  | Readonly<{ readFailed: true }>;
+
+export function resolveWebPushDeliveryFromPreloadedPreferences(
+  out: NotificationSideEffectPayloadOut,
+  preloaded: PreloadedNotificationPreferences,
+  now: Date = new Date()
+): WebPushDeliveryDecision {
+  const recipientRole = resolveWebPushPreferenceRecipientRole(out);
+  if ("snapshot" in preloaded) {
+    return resolveWebPushDeliveryFromPreferences(
+      out,
+      recipientRole === "owner" ? "owner" : "member",
+      preloaded.snapshot,
+      now
+    );
+  }
+  const policy = getNotificationPreferencePolicy({
+    eventType: resolveWebPushPreferenceEventType(out),
+    metaKind: metaKindFromOut(out),
+    recipientRole,
+  });
+  if (isMandatoryPreferencePolicy(policy)) {
+    return { sendPush: true, playSound: true, vibrate: true, reason: "preference_read_failed" };
+  }
+  return { sendPush: false, playSound: false, vibrate: false, reason: "preference_read_failed" };
+}
+
 export async function shouldSendWebPushForUser(
   svc: SupabaseClient,
   userId: string,

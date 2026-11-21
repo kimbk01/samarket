@@ -1,6 +1,9 @@
 import { normalizeApnsEnvironment, rememberDeviceApnsEnvironment } from "@/lib/push/dispatch/apns-environment";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
-import { shouldSendWebPushForUser } from "@/lib/notifications/web-push-user-settings-gate";
+import {
+  resolveWebPushDeliveryFromPreloadedPreferences,
+  shouldSendWebPushForUser,
+} from "@/lib/notifications/web-push-user-settings-gate";
 import { sendApnsToTarget, sendVoipApnsToTarget } from "@/lib/push/dispatch/apns-sender";
 import { deactivateFailedPushTarget } from "@/lib/push/dispatch/deactivate-failed-token";
 import { sendFcmToTarget } from "@/lib/push/dispatch/fcm-sender";
@@ -244,13 +247,21 @@ export async function dispatchPushForUser(
     opts?.call_push_kind === "call_answered_elsewhere" ||
     opts?.call_push_kind === "call_missed";
 
+  /**
+   * 2026-11-21 보내기 3단계 — 채팅 보내기 묶음 경로만 미리 읽은 값을 넘긴다(통화 푸시는 넘기지 않음 → 아래 기존 조회).
+   * 판정 규칙은 같다: 행 없음 → 건너뜀 · 안전 확인 결과 · 설정 판정 · 대상 목록.
+   */
+  const preloaded = !callPush ? (opts?.preloaded_chat_facts ?? null) : null;
+
   if (!callPush && opts?.notification_event_id) {
-    const { data: eventRow, error: eventError } = await svc
-      .from("notification_events")
-      .select("*")
-      .eq("id", opts.notification_event_id)
-      .eq("user_id", out.user_id)
-      .maybeSingle();
+    const { data: eventRow, error: eventError } = preloaded
+      ? { data: preloaded.eventRow, error: null }
+      : await svc
+          .from("notification_events")
+          .select("*")
+          .eq("id", opts.notification_event_id)
+          .eq("user_id", out.user_id)
+          .maybeSingle();
     if (eventError || !eventRow) {
       await auditDelivery(svc, audits, {
         user_id: out.user_id,
@@ -269,10 +280,9 @@ export async function dispatchPushForUser(
         skipped_reason: "notification_event_not_found",
       };
     }
-    const safety = await evaluateNotificationDeliverySafety(
-      svc,
-      eventRow as NotificationEventRow
-    );
+    const safety = preloaded
+      ? preloaded.safety
+      : await evaluateNotificationDeliverySafety(svc, eventRow as NotificationEventRow);
     if (!safety.allow) {
       await auditDelivery(svc, audits, {
         user_id: out.user_id,
@@ -304,7 +314,18 @@ export async function dispatchPushForUser(
         if (!callPush) pushSoundMode = resolvePushSoundMode(decision);
       },
     };
-    const allowed = await shouldSendWebPushForUser(svc, enrichedOut.user_id, enrichedOut, gateOptions).catch(
+    const allowed = preloaded
+      ? (() => {
+          // 2026-11-21 보내기 3단계 — 미리 읽은 설정으로 같은 판정. 예상 밖 오류는 아래 기존 경로와 같이 보내지 않음(CD-1).
+          try {
+            const decision = resolveWebPushDeliveryFromPreloadedPreferences(enrichedOut, preloaded.preferences);
+            gateOptions.onDecision(decision);
+            return decision.sendPush;
+          } catch {
+            return false;
+          }
+        })()
+      : await shouldSendWebPushForUser(svc, enrichedOut.user_id, enrichedOut, gateOptions).catch(
       () => false
     );
     if (!allowed) {
@@ -327,10 +348,12 @@ export async function dispatchPushForUser(
   // 게이트를 먼저 거친 호출(skip_settings_gate · 관리자 캠페인·관리자 업무 알림)이 meta 로 넘긴 soundMode — 일반 알림만.
   if (!pushSoundMode && !callPush) pushSoundMode = pushSoundModeFromMeta(enrichedOut);
 
-  const loadedTargets = await loadActivePushTargets(svc, out.user_id, {
-    fcmMode: "multi_device_fcm",
-    environment: opts?.push_environment,
-  });
+  const loadedTargets = preloaded
+    ? preloaded.targets
+    : await loadActivePushTargets(svc, out.user_id, {
+        fcmMode: "multi_device_fcm",
+        environment: opts?.push_environment,
+      });
   const targetDeviceId = opts?.target_device_id?.trim() ?? "";
   const targets = targetDeviceId
     ? loadedTargets.filter(

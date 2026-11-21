@@ -9,7 +9,7 @@ import {
 } from "@/lib/push/push-environment";
 import type { DeliveryStatus, PushTarget } from "@/lib/push/dispatch/push-payload-types";
 
-type WebPushRow = {
+export type WebPushRow = {
   id: string;
   endpoint: string;
   key_p256dh: string;
@@ -74,30 +74,40 @@ export async function loadActivePushTargets(
     environment === "production"
       ? await svc
           .from("web_push_subscriptions")
-          .select("id, endpoint, key_p256dh, key_auth, platform, is_active")
+          .select(WEB_PUSH_TARGET_SELECT_COLUMNS)
           .eq("user_id", uid)
       : { data: [] as WebPushRow[], error: null };
 
   if (!webErr && webRows?.length) {
-    for (const row of webRows as WebPushRow[]) {
-      if (row.is_active === false) continue;
-      const endpoint = String(row.endpoint ?? "").trim();
-      if (!endpoint) continue;
-      targets.push({
-        id: row.id,
-        source: "web_push_subscriptions",
-        push_provider: "web_push",
-        push_token: endpoint,
-        platform: normalizePlatform(row.platform),
-        endpoint,
-        key_p256dh: row.key_p256dh,
-        key_auth: row.key_auth,
-        environment,
-      });
-    }
+    targets.push(...webPushRowsToTargets(webRows as WebPushRow[], environment));
   }
 
   return targets;
+}
+
+export const USER_DEVICE_TARGET_SELECT_COLUMNS = USER_DEVICE_TARGET_COLUMNS;
+export const WEB_PUSH_TARGET_SELECT_COLUMNS = "id, endpoint, key_p256dh, key_auth, platform, is_active";
+
+/** `web_push_subscriptions` 행 → 푸시 대상 (기존 loadActivePushTargets 의 같은 변환 — 2026-11-21 묶음 읽기와 공유) */
+export function webPushRowsToTargets(rows: readonly WebPushRow[], environment: PushEnvironment): PushTarget[] {
+  const out: PushTarget[] = [];
+  for (const row of rows) {
+    if (row.is_active === false) continue;
+    const endpoint = String(row.endpoint ?? "").trim();
+    if (!endpoint) continue;
+    out.push({
+      id: row.id,
+      source: "web_push_subscriptions",
+      push_provider: "web_push",
+      push_token: endpoint,
+      platform: normalizePlatform(row.platform),
+      endpoint,
+      key_p256dh: row.key_p256dh,
+      key_auth: row.key_auth,
+      environment,
+    });
+  }
+  return out;
 }
 
 type NotificationDeliveryInsertRow = {
