@@ -4,6 +4,11 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  isMessengerSnapshotInvalidated,
+  messengerSnapshotInvalidatedColumnAvailable,
+  noteMessengerSnapshotInvalidatedColumnError,
+} from "@/lib/community-messenger/messenger-snapshot-invalidated";
+import {
   assembleHomeSyncCriticalFromSnapshotPayload,
   parseHomeSyncSnapshotRpcData,
   type HomeSyncSnapshotPayloadJson,
@@ -41,7 +46,10 @@ export type HomeSyncSnapshotRow = {
 type SnapshotReadVia = "counter_row" | "unified_rpc";
 
 function counterSelectFields(): string {
-  return ["user_id", "tier", "room_cap", "payload_json", "updated_at"].join(",");
+  const cols = ["user_id", "tier", "room_cap", "payload_json", "updated_at"];
+  /** 2026-11-21 보내기 2단계 — 바뀜 표시(열이 없는 DB 면 빼고 읽음) */
+  if (messengerSnapshotInvalidatedColumnAvailable()) cols.push("invalidated_at");
+  return cols.join(",");
 }
 
 function rowFromDb(data: Record<string, unknown>): HomeSyncSnapshotRow | null {
@@ -71,6 +79,7 @@ export async function readHomeSyncSnapshotCounter(
     .maybeSingle();
 
   if (error) {
+    if (noteMessengerSnapshotInvalidatedColumnError(error)) return readHomeSyncSnapshotCounter(sbAny, userId);
     const msg = error.message ?? "";
     if (msg.includes("payload_json") || msg.includes("room_cap") || error.code === "42703") {
       return { hit: false, reason: "no_column" };
@@ -82,6 +91,10 @@ export async function readHomeSyncSnapshotCounter(
   }
   const row = data ? rowFromDb(data as unknown as Record<string, unknown>) : null;
   if (!row) return { hit: false, reason: "missing" };
+  /** 2026-11-21 보내기 2단계 — 바뀜 표시가 저장보다 늦으면 틀린 사본 → 오래된 값으로도 쓰지 않고 다시 만든다 */
+  if (isMessengerSnapshotInvalidated(data as unknown as { updated_at?: unknown; invalidated_at?: unknown })) {
+    return { hit: false, reason: "stale" };
+  }
 
   const ageMs = Math.max(0, Date.now() - new Date(row.updated_at).getTime());
   const stale = ageMs > homeSyncSnapshotCounterTtlMs();
@@ -91,11 +104,13 @@ export async function readHomeSyncSnapshotCounter(
 export async function upsertHomeSyncSnapshotCounter(
   sbAny: SupabaseClient<any>,
   userId: string,
-  snapshot: Omit<HomeSyncSnapshotRow, "updated_at">
+  snapshot: Omit<HomeSyncSnapshotRow, "updated_at">,
+  /** 2026-11-21 — 계산을 시작한 시각(계산 중 들어온 바뀜 표시가 지워지지 않게). 없으면 지금 */
+  opts?: { updatedAtIso?: string }
 ): Promise<void> {
   const uid = userId.trim();
   if (!uid) return;
-  const now = new Date().toISOString();
+  const now = opts?.updatedAtIso ?? new Date().toISOString();
   const { error } = await sbAny.from(CM_HOME_SYNC_SNAPSHOT_TABLE).upsert(
     {
       user_id: uid,
@@ -138,6 +153,7 @@ export async function refreshHomeSyncSnapshotFromRpc(
   userId: string,
   roomCap: number = COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP
 ): Promise<HomeSyncSnapshotRow | null> {
+  const computeStartedAt = new Date().toISOString();
   const { payload } = await fetchHomeSyncSnapshotViaRpc(sbAny, userId, roomCap);
   if (!payload) return null;
   const row: Omit<HomeSyncSnapshotRow, "updated_at"> = {
@@ -145,7 +161,7 @@ export async function refreshHomeSyncSnapshotFromRpc(
     room_cap: roomCap,
     payload_json: payload,
   };
-  await upsertHomeSyncSnapshotCounter(sbAny, userId, row);
+  await upsertHomeSyncSnapshotCounter(sbAny, userId, row, { updatedAtIso: computeStartedAt });
   return { ...row, updated_at: new Date().toISOString() };
 }
 
@@ -289,14 +305,20 @@ export async function tryBuildHomeSyncCriticalFromSnapshot(
     }
 
     const rpc0 = devPerfNow();
+    const computeStartedAt = new Date().toISOString();
     const { payload, rpcMs } = await fetchHomeSyncSnapshotViaRpc(sbAny, uid, roomCap);
     if (!payload?.lite_bundle) return null;
 
-    await upsertHomeSyncSnapshotCounter(sbAny, uid, {
-      tier: "critical",
-      room_cap: roomCap,
-      payload_json: payload,
-    });
+    await upsertHomeSyncSnapshotCounter(
+      sbAny,
+      uid,
+      {
+        tier: "critical",
+        room_cap: roomCap,
+        payload_json: payload,
+      },
+      { updatedAtIso: computeStartedAt }
+    );
 
     return finish(payload, rpcMs || devPerfNow() - rpc0, "unified_rpc");
   });

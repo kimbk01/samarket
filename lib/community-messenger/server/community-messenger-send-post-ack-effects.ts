@@ -12,6 +12,7 @@
  * - Canonical message + unread remain in atomic RPC before this module runs.
  */
 import { invalidateCmBootstrapSnapshotCache } from "@/lib/community-messenger/cm-bootstrap-snapshot-cache";
+import { bumpBootstrapSnapshotInvalidationMany } from "@/lib/community-messenger/bootstrap-snapshot-invalidation";
 import { invalidateFullBootstrapSnapshotCache } from "@/lib/community-messenger/full-bootstrap-snapshot-cache";
 import { invalidateHomeSyncSnapshotCache } from "@/lib/community-messenger/home-sync-snapshot-cache";
 import { invalidateRoomBootstrapSnapshotCache } from "@/lib/community-messenger/room-bootstrap-snapshot-cache";
@@ -88,11 +89,14 @@ function invalidateOwnerHubBadgeForCommunityMessengerPeers(
   roomId?: string
 ): void {
   for (const id of dedupeIds([senderUserId, ...recipientUserIds])) {
-    invalidateOwnerHubBadgeCache(id, { source: "messenger" });
-    invalidateHomeSyncSnapshotCache(id);
-    invalidateCmBootstrapSnapshotCache(id);
-    invalidateFullBootstrapSnapshotCache(id, "peer_hub_invalidate");
+    /** 2026-11-21 보내기 2단계 — 사본은 즉시 재생성 대신 「바뀜 표시」(보내는 사람+받는 사람 전원 DB 1번) */
+    invalidateOwnerHubBadgeCache(id, { source: "messenger", lazySnapshot: true });
+    invalidateHomeSyncSnapshotCache(id, { lazySnapshot: true });
+    invalidateCmBootstrapSnapshotCache(id, { deferWatermark: true });
+    invalidateFullBootstrapSnapshotCache(id, "peer_hub_invalidate", { deferWatermark: true });
   }
+  /** 2026-11-21 보내기 2단계 — 워터마크는 보내는 사람+받는 사람 전원 DB 1번(실패하면 사람별 기존 경로) */
+  bumpBootstrapSnapshotInvalidationMany(dedupeIds([senderUserId, ...recipientUserIds]));
   const rid = roomId?.trim() ?? "";
   if (rid) {
     invalidateRoomBootstrapSnapshotCache(rid, dedupeIds([senderUserId, ...recipientUserIds]));

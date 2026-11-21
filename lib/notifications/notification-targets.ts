@@ -44,13 +44,54 @@ function isTargetRpcMissing(err: { message?: string } | null): boolean {
   return /notification_target|schema cache|function|does not exist/i.test(String(err?.message ?? ""));
 }
 
-export function invalidateBadgeTargetCaches(userId: string, storeId?: string | null): void {
+export function invalidateBadgeTargetCaches(
+  userId: string,
+  storeId?: string | null,
+  opts?: { lazySnapshot?: boolean }
+): void {
   const uid = userId.trim();
   if (!uid) return;
   invalidateNotificationUnreadCountCache(uid, storeId ?? null);
   invalidateUserChatUnreadCache(uid);
   invalidateCommunityMessengerUnreadTotalCache(uid);
-  invalidateOwnerHubBadgeCache(uid);
+  invalidateOwnerHubBadgeCache(uid, opts?.lazySnapshot === true ? { lazySnapshot: true } : undefined);
+}
+
+export const UPSERT_NOTIFICATION_TARGET_MANY_RPC = "upsert_notification_target_unread_many";
+
+/**
+ * 2026-11-21 보내기 2단계 — 채팅방 대상 「안 읽음」 표시를 받는 사람 전원 DB 1번으로.
+ * DB 함수가 기존 `upsert_notification_target_unread`(같은 인자)를 사람마다 그대로 부른다.
+ * 처음 안 읽음이 된 사람만 기존처럼 캐시 무효화(사본은 「바뀜 표시」 — 보내기 경로 전용).
+ * 반환: null = 함수 없음·오류(호출부가 기존 사람별 경로) · failed = 그 사람들만 호출부가 기존처럼 다시.
+ */
+export async function bumpChatRoomTargetsForRecipientsBatch(
+  sb: SupabaseClient<any>,
+  opts: { userIds: string[]; roomId: string }
+): Promise<{ failed: string[] } | null> {
+  const roomId = opts.roomId.trim();
+  const ids = [...new Set(opts.userIds.map((id) => id.trim()).filter(Boolean))];
+  if (!roomId || ids.length === 0) return { failed: [] };
+  try {
+    const { data, error } = await sb.rpc(UPSERT_NOTIFICATION_TARGET_MANY_RPC, {
+      p_user_ids: ids,
+      p_target_type: "chat_room",
+      p_target_id: roomId,
+      p_scope: "consumer",
+      p_store_id: null,
+      p_meta: null,
+      p_room_id: roomId,
+    });
+    if (error) return null;
+    const p = data && typeof data === "object" ? (data as { ok?: unknown; changed?: unknown; failed?: unknown }) : null;
+    if (!p || p.ok !== true) return null;
+    const changed = Array.isArray(p.changed) ? p.changed.map((x) => String(x)) : [];
+    const failed = Array.isArray(p.failed) ? p.failed.map((x) => String(x)) : [];
+    for (const uid of changed) invalidateBadgeTargetCaches(uid, null, { lazySnapshot: true });
+    return { failed };
+  } catch {
+    return null;
+  }
 }
 
 export async function bumpNotificationTarget(

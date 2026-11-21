@@ -11,6 +11,7 @@ import { invalidateHubStoreOrderRoomIdsMemory } from "@/lib/community-messenger/
 import { invalidateHubStoreAttentionMemory } from "@/lib/stores/hub-store-attention-memory-cache";
 import { invalidateOwnerHubStoreLookupCache } from "@/lib/chats/owner-hub-store-lookup-cache";
 import { scheduleOwnerHubBadgeSnapshotRefresh } from "@/lib/chats/hub-badge-snapshot-refresh";
+import { enqueueMessengerSnapshotDirty } from "@/lib/community-messenger/messenger-snapshot-dirty";
 import { logRouteCacheHit, logRouteCacheMiss } from "@/lib/http/route-cache-log";
 import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -72,6 +73,11 @@ export function peekOwnerHubBadgeCacheHit(
 
 export type InvalidateOwnerHubBadgeCacheOptions = {
   /**
+   * 2026-11-21 보내기 2단계 — true 면 사본을 즉시 다시 만들지 않고 「바뀜 표시」만(여러 사람을 DB 1번으로 묶음).
+   * 읽는 쪽이 바뀜 표시를 보고 즉시 다시 만든다. 메신저 보내기 경로만 쓴다(통화 경로는 기본값 = 즉시 재생성).
+   */
+  lazySnapshot?: boolean;
+  /**
    * D2 2-d-2 (Owner 「둘 다 승인」 2026-11-19) — `"messenger"` = 메신저 메시지 보내기·읽음.
    * 거래 채팅 목록 사본(`trade_chat_rooms_snapshots`)은 메신저 표를 읽지 않으므로(RPC `get_chat_rooms_snapshot`,
    * 운영 확인: 메신저 표 트리거·보내기/읽음 RPC 가 거래 표를 쓰지 않음) 이 출처에서는 다시 만들지 않는다.
@@ -98,7 +104,8 @@ export function invalidateOwnerHubBadgeCache(userId: string, opts?: InvalidateOw
   invalidateHubStoreOrderUnreadMemory(k);
   invalidateHubStoreOrderRoomIdsMemory();
   invalidateHubStoreAttentionMemory();
-  scheduleOwnerHubBadgeSnapshotRefresh(k);
+  if (opts?.lazySnapshot === true) enqueueMessengerSnapshotDirty(k, "hub");
+  else scheduleOwnerHubBadgeSnapshotRefresh(k);
 }
 
 function pruneExpiredHubBadgeCache(now: number) {

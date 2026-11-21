@@ -4,6 +4,11 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  isMessengerSnapshotInvalidated,
+  messengerSnapshotInvalidatedColumnAvailable,
+  noteMessengerSnapshotInvalidatedColumnError,
+} from "@/lib/community-messenger/messenger-snapshot-invalidated";
+import {
   HUB_BADGE_UNREAD_COUNTERS_TABLE,
   hubBadgeUnreadCounterTtlMs,
   userChatUnreadPartsFromCounterRow,
@@ -270,7 +275,10 @@ export async function readOwnerHubBadgeSnapshotCounter(
 ): Promise<SnapshotCounterRead> {
   const uid = userId.trim();
   const bundleColumnsAvailable = opts?.bare !== true;
-  const select = bundleColumnsAvailable ? counterBundleSelectFields() : counterBareSelectFields();
+  const select =
+    (bundleColumnsAvailable ? counterBundleSelectFields() : counterBareSelectFields()) +
+    /** 2026-11-21 보내기 2단계 — 바뀜 표시(열이 없는 DB 면 빼고 읽음) */
+    (messengerSnapshotInvalidatedColumnAvailable() ? ",invalidated_at" : "");
   const db0 = devPerfNow();
   const { data, error } = await sbAny
     .from(HUB_BADGE_UNREAD_COUNTERS_TABLE)
@@ -288,6 +296,9 @@ export async function readOwnerHubBadgeSnapshotCounter(
       snapshot_deserialize_ms: 0,
       query_row_bytes,
     };
+    if (noteMessengerSnapshotInvalidatedColumnError(error)) {
+      return readOwnerHubBadgeSnapshotCounter(sbAny, userId, opts);
+    }
     if (isNtBundleColumnError(error) && bundleColumnsAvailable) {
       return readOwnerHubBadgeSnapshotCounter(sbAny, userId, { bare: true });
     }
@@ -315,6 +326,10 @@ export async function readOwnerHubBadgeSnapshotCounter(
   };
 
   if (!row) return { hit: false, reason: "missing", timing, bundleColumnsAvailable };
+  /** 2026-11-21 보내기 2단계 — 바뀜 표시면 사본이 없는 것과 같게(오래된 값 응답 없이 즉시 다시 계산) */
+  if (isMessengerSnapshotInvalidated(data as unknown as { updated_at?: unknown; invalidated_at?: unknown })) {
+    return { hit: false, reason: "missing", timing, bundleColumnsAvailable };
+  }
 
   const ageMs = Math.max(0, Date.now() - new Date(row.updated_at).getTime());
   const stale = ageMs > hubBadgeUnreadCounterTtlMs();
@@ -444,11 +459,13 @@ async function fetchSnapshotCounterAndTargetBundle(
 export async function upsertOwnerHubBadgeSnapshotCounter(
   sbAny: SupabaseClient<any>,
   userId: string,
-  snapshot: Omit<OwnerHubBadgeSnapshotRow, "updated_at">
+  snapshot: Omit<OwnerHubBadgeSnapshotRow, "updated_at">,
+  /** 2026-11-21 — 계산을 시작한 시각(계산 중 들어온 바뀜 표시가 지워지지 않게). 없으면 지금 */
+  opts?: { updatedAtIso?: string }
 ): Promise<void> {
   const uid = userId.trim();
   if (!uid) return;
-  const now = new Date().toISOString();
+  const now = opts?.updatedAtIso ?? new Date().toISOString();
   const row: Record<string, unknown> = {
     user_id: uid,
     store_order_participant_unread: snapshot.store_order_participant_unread,
@@ -508,9 +525,10 @@ export async function refreshOwnerHubBadgeSnapshotFromRpc(
   sbAny: SupabaseClient<any>,
   userId: string
 ): Promise<OwnerHubBadgeSnapshotRow | null> {
+  const computeStartedAt = new Date().toISOString();
   const { snapshot } = await fetchOwnerHubBadgeSnapshotViaRpc(sbAny, userId);
   if (!snapshot) return null;
-  await upsertOwnerHubBadgeSnapshotCounter(sbAny, userId, snapshot);
+  await upsertOwnerHubBadgeSnapshotCounter(sbAny, userId, snapshot, { updatedAtIso: computeStartedAt });
   syncProcessMemoryLayersFromSnapshot(userId, snapshot);
   return { ...snapshot, updated_at: new Date().toISOString() };
 }
@@ -864,11 +882,12 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
     }
 
     const rpc0 = devPerfNow();
+    const computeStartedAt = new Date().toISOString();
     const { snapshot, rpcMs } = await fetchOwnerHubBadgeSnapshotViaRpc(sbAny, uid);
     const rpcWallMs = Math.round(devPerfNow() - rpc0);
     if (!snapshot) return null;
 
-    void upsertOwnerHubBadgeSnapshotCounter(sbAny, uid, snapshot);
+    void upsertOwnerHubBadgeSnapshotCounter(sbAny, uid, snapshot, { updatedAtIso: computeStartedAt });
     const merge0 = devPerfNow();
     syncProcessMemoryLayersFromSnapshot(uid, snapshot);
     const participant_merge_ms = devPerfNow() - merge0;

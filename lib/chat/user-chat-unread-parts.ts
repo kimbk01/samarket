@@ -513,6 +513,7 @@ export async function computeUserChatUnreadParts(
     return counterRead.parts;
   }
 
+  const computeStartedAt = new Date().toISOString();
   const refreshed = await computeUserChatUnreadPartsFromRpcOrLegacy(sbAny, userId);
   const refreshWall = Date.now() - total0;
   if (lastUnreadPartsComputeMeta) {
@@ -520,7 +521,7 @@ export async function computeUserChatUnreadParts(
     lastUnreadPartsComputeMeta.unread_counter_refresh_ms =
       lastUnreadPartsComputeMeta.unread_counter_refresh_ms ?? refreshed.rpcMs;
   }
-  void upsertHubBadgeUnreadCounter(sbAny, cacheKey, refreshed.value);
+  void upsertHubBadgeUnreadCounter(sbAny, cacheKey, refreshed.value, { updatedAtIso: computeStartedAt });
   writeHubBadgeUnreadPartsMemory(cacheKey, refreshed.value);
   if (cacheKey && counterBypassUntil.get(cacheKey)) {
     counterBypassUntil.delete(cacheKey);

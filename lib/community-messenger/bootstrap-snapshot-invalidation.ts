@@ -14,6 +14,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FBT1_BOOTSTRAP_SNAPSHOT_TABLE } from "@/lib/community-messenger/full-bootstrap-snapshot-counter";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 
 /** Reserved scope — not a real bootstrap tier. Never used as a read counter key. */
 export const BOOTSTRAP_SNAPSHOT_INVALIDATION_SCOPE = "__invalidate__";
@@ -218,6 +219,46 @@ export function bumpBootstrapSnapshotInvalidation(userId?: string): void {
   unackedInvalidation.add(uid);
   pendingBump.add(uid);
   scheduleFlushIfPending();
+}
+
+export const INVALIDATE_BOOTSTRAP_SNAPSHOT_WATERMARKS_RPC = "invalidate_cm_bootstrap_snapshot_watermarks";
+
+/**
+ * 2026-11-21 보내기 2단계 — 여러 사람(보내는 사람 + 받는 사람 전원)의 워터마크를 DB 1번으로.
+ * DB 함수가 기존 `invalidate_cm_bootstrap_snapshot_watermark` 를 사람마다 그대로 부른다(같은 잠금·같은 행 · 한 트랜잭션).
+ * 성공 전까지는 사람별 경로와 똑같이 「아직 확인 안 된 무효화」로 둬 이 인스턴스가 사본을 새 것으로 쓰지 않는다.
+ * 함수가 없거나 실패하면 전원을 기존 사람별 경로(`bumpBootstrapSnapshotInvalidation`)로 넘긴다.
+ * 메신저 보내기 경로만 쓴다(그 밖의 호출부는 사람별 경로 그대로).
+ */
+export function bumpBootstrapSnapshotInvalidationMany(userIds: string[]): void {
+  const ids = [...new Set(userIds.map((id) => id.trim()).filter(Boolean))];
+  if (ids.length < 2) {
+    for (const id of ids) bumpBootstrapSnapshotInvalidation(id);
+    return;
+  }
+  for (const id of ids) unackedInvalidation.add(id);
+  const flight = (async () => {
+    const sb = tryCreateSupabaseServiceClient();
+    let ok = false;
+    if (sb) {
+      try {
+        const { data, error } = await (sb as SupabaseClient<any>).rpc(INVALIDATE_BOOTSTRAP_SNAPSHOT_WATERMARKS_RPC, {
+          p_user_ids: ids,
+        });
+        ok = !error && typeof data === "number" && data >= ids.length;
+      } catch {
+        ok = false;
+      }
+    }
+    if (ok) {
+      for (const id of ids) {
+        if (!pendingBump.has(id) && !bumpInflight.has(id)) unackedInvalidation.delete(id);
+      }
+      return;
+    }
+    for (const id of ids) bumpBootstrapSnapshotInvalidation(id);
+  })();
+  keepAliveAfterResponse(flight.catch(() => undefined));
 }
 
 export function hasUnackedBootstrapSnapshotInvalidation(userId?: string): boolean {
