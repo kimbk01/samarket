@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
 import { requireProfileFieldsForAction, requireMessengerOpenAccess } from "@/lib/profile/require-profile-completion.server";
+import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
@@ -113,6 +114,16 @@ export async function POST(req: NextRequest) {
   }>(req, "invalid_json");
   if (!parsed.ok) return parsed.response;
   const body = parsed.value;
+
+  /**
+   * 그룹 만들기 = 새 행동 → 가입(전화 + 대표 주소) 필요. 1:1 방 만들기는 전화 인증만(위 `messenger_new_chat` 라우트 게이트) —
+   * 통화 걸기가 대화방이 없을 때 이 경로로 방을 만든다(Owner 「통화는 전화 인증만」, 설계 2026-11-21 §4 C·§7).
+   * 이 경로는 중앙 쓰기 게이트의 가입 검사에서 빠져 있다(`member-registration-mutation-policy`).
+   */
+  if (body.roomType === "group" || body.roomType === "private_group" || body.roomType === "open_group") {
+    const registrationGate = await requireRegistrationForAction(auth.userId);
+    if (registrationGate) return registrationGate;
+  }
 
   if (body.roomType === "group" || body.roomType === "private_group") {
     const result = await createPrivateGroupRoom({

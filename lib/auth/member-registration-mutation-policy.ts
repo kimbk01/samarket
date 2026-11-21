@@ -28,6 +28,8 @@ const REGISTRATION_EXEMPT_PREFIXES: readonly string[] = [
 export const MEMBER_REGISTRATION_EXEMPT_RULES: readonly Rule[] = [
   // 통화 시작 (방 안 통화 버튼) — 통화 API 불변
   R("POST", "/api/community-messenger/rooms/[roomId]/calls"),
+  // 대화방 만들기 — 1:1 은 전화 인증만(라우트 게이트, 통화 걸기가 방 없을 때 사용). 그룹 만들기는 라우트 안에서 가입 확인 (설계 2026-11-21 §4 C)
+  R("POST", "/api/community-messenger/rooms"),
   // 채팅방 읽음 처리·음소거·고정·보관·맥락 저장 — 열람에 딸린 쓰기 (재감사 H1: 읽기는 막지 않는다)
   R("PATCH", "/api/community-messenger/rooms/[roomId]"),
   // 거래 채팅을 열 때 메신저 연결 미리 요청 — 열람에 딸린 쓰기 (재감사 L4)

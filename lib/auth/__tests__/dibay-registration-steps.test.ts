@@ -93,6 +93,8 @@ describe("중앙 쓰기 게이트 — 가입 검사 예외", () => {
     ["POST", "/api/me/apple-iap/verify"],
     // 재감사 H1 · L4 · M4 · M5 · L3
     ["PATCH", "/api/community-messenger/rooms/r1"],
+    // 설계 2026-11-21 §4 C — 1:1 방 만들기는 전화 인증만(통화 걸기), 그룹 만들기는 라우트 안에서 가입 확인
+    ["POST", "/api/community-messenger/rooms"],
     ["POST", "/api/community-messenger/bridge/product-chat"],
     ["POST", "/api/community-messenger/contacts/sync"],
     ["PATCH", "/api/community-messenger/contacts/sources/s1"],
