@@ -3,9 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /** P2 — 텍스트 전송 전용 병렬 target bump (B2 · B8 left_at) */
 const bumpChatRoomTargetFromMessengerParticipant = vi.fn();
 const bumpNotificationTarget = vi.fn();
+/** 2026-11-21 보내기 2단계 — 기본은 함수 없음(null) = 기존 사람별 경로. 묶음 경로는 아래 별도 테스트 */
+const bumpChatRoomTargetsForRecipientsBatch = vi.fn(async (..._a: unknown[]): Promise<{ failed: string[] } | null> => null);
 
 vi.mock("@/lib/notifications/notification-targets", () => ({
   bumpChatRoomTargetFromMessengerParticipant: (...a: unknown[]) => bumpChatRoomTargetFromMessengerParticipant(...a),
+  bumpChatRoomTargetsForRecipientsBatch: (...a: unknown[]) => bumpChatRoomTargetsForRecipientsBatch(...a),
   bumpNotificationTarget: (...a: unknown[]) => bumpNotificationTarget(...a),
   clearChatRoomTargetFromMessengerRead: vi.fn(),
   clearNotificationTarget: vi.fn(),
@@ -45,6 +48,30 @@ describe("bumpMessengerRoomTargetsForRecipientsParallel", () => {
     vi.clearAllMocks();
     bumpChatRoomTargetFromMessengerParticipant.mockResolvedValue(undefined);
     bumpNotificationTarget.mockResolvedValue(undefined);
+    bumpChatRoomTargetsForRecipientsBatch.mockResolvedValue(null);
+  });
+
+  it("2026-11-21 보내기 2단계 — 묶음 함수가 되면 사람별 bump 없음 · 실패한 사람만 사람별로 다시", async () => {
+    const ids = ["u1", "u2", "u3"];
+    listActiveGroupRecipientUserIds.mockResolvedValue(ids);
+    const sb = fakeSb({});
+    bumpChatRoomTargetsForRecipientsBatch.mockResolvedValueOnce({ failed: [] });
+    await bumpMessengerRoomTargetsForRecipientsParallel(sb as never, {
+      roomId: "r1",
+      fromUserId: "sender",
+      known: { roomType: "private_group", chatDomain: "group", directKey: null, recipientUserIds: ids },
+    } as never);
+    expect(bumpChatRoomTargetsForRecipientsBatch).toHaveBeenCalledWith(sb, { userIds: ids, roomId: "r1" });
+    expect(bumpChatRoomTargetFromMessengerParticipant).not.toHaveBeenCalled();
+
+    bumpChatRoomTargetsForRecipientsBatch.mockResolvedValueOnce({ failed: ["u2"] });
+    await bumpMessengerRoomTargetsForRecipientsParallel(sb as never, {
+      roomId: "r1",
+      fromUserId: "sender",
+      known: { roomType: "private_group", chatDomain: "group", directKey: null, recipientUserIds: ids },
+    } as never);
+    expect(bumpChatRoomTargetFromMessengerParticipant).toHaveBeenCalledTimes(1);
+    expect(bumpChatRoomTargetFromMessengerParticipant).toHaveBeenCalledWith(sb, expect.objectContaining({ userId: "u2" }));
   });
 
   it("1:1 general: bumps active peer only — left participant excluded (B8)", async () => {

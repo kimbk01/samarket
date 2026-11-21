@@ -34,7 +34,8 @@ describe("D2 2-d-2 — messenger changes do not rebuild the trade chat rooms sna
     const svc = readFileSync("lib/community-messenger/service.ts", "utf8");
     expect(svc.match(/invalidateOwnerHubBadgeCache\([^)]*\{ source: "messenger" \}\)/g)?.length).toBe(6);
     const post = readFileSync("lib/community-messenger/server/community-messenger-send-post-ack-effects.ts", "utf8");
-    expect(post).toContain('invalidateOwnerHubBadgeCache(id, { source: "messenger" })');
+    /** 2026-11-21 보내기 2단계 — 같은 출처 + 사본은 바뀜 표시(lazySnapshot) */
+    expect(post).toContain('invalidateOwnerHubBadgeCache(id, { source: "messenger", lazySnapshot: true })');
     for (const f of [
       "lib/community-messenger/server/publish-messenger-room-bump.ts",
       "lib/community-messenger/server/publish-message-hard-deleted-room-bump.ts",

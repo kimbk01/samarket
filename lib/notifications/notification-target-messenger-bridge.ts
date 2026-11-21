@@ -12,6 +12,7 @@ import { buildTradeTargetId } from "@/lib/notifications/badge-target-policy";
 import { runWithConcurrencyLimit } from "@/lib/shared/run-with-concurrency-limit";
 import {
   bumpChatRoomTargetFromMessengerParticipant,
+  bumpChatRoomTargetsForRecipientsBatch,
   bumpNotificationTarget,
   clearChatRoomTargetFromMessengerRead,
   clearNotificationTarget,
@@ -495,7 +496,13 @@ export async function bumpMessengerRoomTargetsForRecipientsParallel(
       bumpDeliveryTargetForRecipient(sb, { userId: uid, roomId, orderCtx, directKey })
     );
   } else {
-    await runWithConcurrencyLimit(recipientIds, MESSENGER_TARGET_BUMP_PARALLEL_CONCURRENCY, (uid) =>
+    /**
+     * 2026-11-21 보내기 2단계 — 받는 사람 전원을 DB 1번으로(같은 인자 · 기존 함수를 DB 안에서 사람마다 호출).
+     * 함수가 없거나 오류면 전원, 일부 실패면 그 사람만 기존처럼 한 명씩.
+     */
+    const batch = await bumpChatRoomTargetsForRecipientsBatch(sb, { userIds: recipientIds, roomId });
+    const retryIds = batch ? batch.failed : recipientIds;
+    await runWithConcurrencyLimit(retryIds, MESSENGER_TARGET_BUMP_PARALLEL_CONCURRENCY, (uid) =>
       bumpChatRoomTargetFromMessengerParticipant(sb, {
         userId: uid,
         roomId,
