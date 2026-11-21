@@ -32,6 +32,7 @@ import { loadMemberWriteGateSnapshot } from "@/lib/auth/load-member-write-gate-s
 import { resolveMemberRegistrationClassForApiMutation } from "@/lib/auth/member-registration-mutation-policy";
 import { resolveMemberRegistrationAuthority } from "@/lib/auth/resolve-member-registration-authority";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { registrationIncompleteResponse } from "@/lib/auth/require-registration-for-action.server";
 import { requestHasSupabaseSessionCookie } from "@/lib/auth/api-auth-cookie-presence";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 
@@ -215,7 +216,7 @@ export async function enforceApiMemberMutationPolicy(
         MEMBER_CONSENT_STATE_UNAVAILABLE.messageKo
       );
     }
-    return registrationIncomplete(registration.step);
+    return registrationIncompleteResponse(registration.step);
   }
   if (consent.kind === "UNAVAILABLE") {
     return jsonDenied(
@@ -230,24 +231,6 @@ export async function enforceApiMemberMutationPolicy(
     consent.gap === "age"
       ? MEMBER_AGE_VERIFICATION_REQUIRED_MESSAGE_KO
       : "약관·개인정보 처리방침 동의 후 이용할 수 있습니다.",
-  );
-}
-
-/**
- * 가입 진행 중(전화 인증·대표 주소 미완) — 동의 미완과 같은 `signup_incomplete` 코드(기존 클라이언트 복구 경로 재사용:
- * 동의 화면 → 동의 완료면 빠진 가입 단계 화면으로 다시 이동). `step` = 빠진 단계. 화면 문구는 클라이언트 카탈로그.
- */
-function registrationIncomplete(step: "phone" | "address"): NextResponse {
-  return NextResponse.json(
-    {
-      ok: false,
-      error: "signup_incomplete",
-      code: "signup_incomplete",
-      message: "signup_incomplete",
-      step,
-      authenticated: true,
-    },
-    { status: 403 }
   );
 }
 
