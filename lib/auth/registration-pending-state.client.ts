@@ -29,6 +29,12 @@ export function peekKnownRegistrationPendingStep(nowMs = Date.now()): Registrati
   return state.step;
 }
 
+/** 세 가지 상태 — 서버가 알려 준 빠진 단계 / 가입 완료(관리자 포함) / 모름(값 없음·오래됨) */
+export function peekRegistrationPendingKnowledge(nowMs = Date.now()): RegistrationPendingStep | "complete" | "unknown" {
+  if (!state || nowMs - state.at > STALE_MS) return "unknown";
+  return state.step ?? "complete";
+}
+
 export function resetRegistrationPendingForTests(): void {
   state = null;
 }

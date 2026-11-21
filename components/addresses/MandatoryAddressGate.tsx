@@ -240,6 +240,8 @@ export function MandatoryAddressGate() {
         return;
       }
       if (event === "SIGNED_IN") {
+        /** 계정이 바뀌었을 수 있다 — 이전 계정의 빠진 단계로 미리 막지 않게 비운다(재감사3 #10) */
+        invalidateRegistrationPending();
         void runGateFetch();
       }
     });

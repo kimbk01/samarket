@@ -8,6 +8,7 @@ import type {
 } from "@/lib/community-messenger/service";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 import { warnMarkReadPerformanceLockIfNeeded } from "@/lib/community-messenger/mark-read-performance-lock";
+import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
 import {
   createMarkReadRecentResultCache,
   markReadRequestWantsBadgeAck,
@@ -235,6 +236,9 @@ export async function PATCH(
   const svc = await import("@/lib/community-messenger/service");
 
   if (body.action === "invite") {
+    /** 섞인 경로(설계 2026-11-21 §4 C, 재감사3 #4) — 그룹 초대는 새 행동 → 가입 확인. 읽음·음소거·고정·보관은 가입 없이 */
+    const registrationGate = await requireRegistrationForAction(auth.userId);
+    if (registrationGate) return registrationGate;
     const result = await svc.inviteCommunityMessengerGroupMembers({
       userId: auth.userId,
       roomId,

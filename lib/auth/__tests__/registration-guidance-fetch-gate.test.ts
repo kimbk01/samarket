@@ -115,14 +115,14 @@ describe("안전망 — 서버 403", () => {
   });
 });
 
-describe("알림 억제", () => {
-  it("창을 연 직후 오류 알림·안내 문장 알림은 띄우지 않고, 평소 알림은 그대로", async () => {
+describe("알림 억제 — 안내 문장과 같은 알림만 (재감사3 #8)", () => {
+  it("창을 연 뒤에도 상관없는 오류 알림은 그대로, 안내 문장 알림만 숨김", async () => {
     expect(shouldSuppressForRegistrationGuidance("저장했어요", false)).toBe(false);
     setRegistrationPendingFromServer("address");
     const f = wrapFetchWithRegistrationGuidance(okFetch() as unknown as typeof fetch);
-    await f("/api/philife/posts", { method: "POST" });
-    expect(shouldSuppressForRegistrationGuidance("응답 실패", true)).toBe(true);
-    expect(shouldSuppressForRegistrationGuidance("저장했어요", false)).toBe(false);
-    expect(shouldSuppressForRegistrationGuidance("응답 실패", true, Date.now() + 10_000)).toBe(false);
+    const res = await f("/api/philife/posts", { method: "POST" });
+    const sentence = (await res.json()).error as string;
+    expect(shouldSuppressForRegistrationGuidance("응답 실패", true)).toBe(false);
+    expect(shouldSuppressForRegistrationGuidance(sentence, true)).toBe(true);
   });
 });

@@ -8,7 +8,7 @@
  * 2) 안전망 — 서버가 403 `signup_incomplete`+`step` 을 주면 같은 창을 연다.
  * 3) 문구 — 응답의 `error`·`message` 를 사람 말(`auth_reg_gate_title`, 현재 화면 언어)로 바꾼다. `code`·`step` 은 그대로.
  *    원문 코드를 그대로 찍던 화면도 사람 말로 보인다. 동의 화면 이동(`redirectForBlockedAction`)도 일어나지 않는다.
- * 4) 같은 순간 버튼 쪽 오류 알림은 띄우지 않는다(`isRegistrationGuidanceRecent`).
+ * 4) 버튼이 바뀐 응답 문장을 그대로 알림으로 띄우면 숨긴다(창과 중복) — 다른 오류 알림은 그대로.
  *
  * 제외: GET·HEAD · 다른 출처 · 통화 경로(`/calls`·`/call-`, 통화 규정). 장치 오류는 삼키고 그대로 보낸다.
  */
@@ -36,10 +36,10 @@ export function isRegistrationGuidanceRecent(nowMs = Date.now()): boolean {
 /**
  * 버튼 쪽 알림을 띄우지 않을 때 — 안내 문장 그 자체(응답 문구가 바뀐 경우)이거나, 창을 방금 연 순간의 오류 알림.
  */
-export function shouldSuppressForRegistrationGuidance(message: string, isError: boolean, nowMs = Date.now()): boolean {
+export function shouldSuppressForRegistrationGuidance(message: string, _isError: boolean): boolean {
+  /** 안내 창과 같은 문장(가입 거절 응답을 버튼이 그대로 띄우는 경우)만 숨긴다 — 상관없는 오류는 그대로(재감사3 #8) */
   if (lastGuidanceAt === 0) return false;
-  if (message.trim() === registrationGuidanceMessage()) return true;
-  return isError && isRegistrationGuidanceRecent(nowMs);
+  return message.trim() === registrationGuidanceMessage();
 }
 
 /** 안내 문장 (현재 화면 언어) — 응답 문구 대체·알림 억제 비교에 같은 값을 쓴다 */

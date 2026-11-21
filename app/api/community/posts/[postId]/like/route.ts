@@ -12,6 +12,7 @@ import { notifyCommunityPostLikeReceived } from "@/lib/notifications/community-s
 import { loadCommunityImportPrincipalUserId } from "@/lib/community/community-import-principal";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
+import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -92,6 +93,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
         return NextResponse.json({ ok: false, error: delErr.message ?? "like_failed" }, { status: 500 });
       }
     } else {
+      /** 섞인 경로(설계 2026-11-21 §4 C, 재감사3 #2) — 추가만 가입 확인, 해제는 가입 없이 */
+      const registrationGate = await requireRegistrationForAction(auth.userId);
+      if (registrationGate) return registrationGate;
       const { data: likeRow, error: insErr } = await sb
         .from("community_post_likes")
         .insert({ post_id: id, user_id: auth.userId })

@@ -78,8 +78,8 @@ export function PostFavoriteButton({
       if (authorUserId && user.id === authorUserId) return;
       if (busyRef.current) return;
       if (!listMode && !standaloneLoaded) return;
-      /** 로그인한 가입 진행 중 회원도 같은 행동 게이트 — 「가입 이어하기」 안내 (재감사 M2) */
-      if (!(await requireAction("trade_favorite", () => undefined))) return;
+      /** 로그인한 가입 진행 중 회원도 같은 행동 게이트 — 찜 추가 때만(해제는 가입 없이, 재감사3 #3) */
+      if (!displayRef.current && !(await requireAction("trade_favorite", () => undefined))) return;
 
       busyRef.current = true;
       const prev = displayRef.current;
