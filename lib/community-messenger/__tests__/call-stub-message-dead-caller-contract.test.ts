@@ -29,6 +29,11 @@ describe("call stub-message dead runtime caller contract", () => {
         if (rel === path.join("app", "api", "community-messenger", "calls", "stub-message", "route.ts")) {
           continue;
         }
+        /**
+         * 회원 쓰기 규칙 표 — 모든 쓰기 경로의 분류(가입 검사)만 적는다. 호출하는 곳이 아니다
+         * (설계 2026-11-21 §5-1, 계약 테스트 `member-action-registry-contract` 가 경로 1:1 을 검사).
+         */
+        if (rel === path.join("lib", "auth", "member-action-registry.ts")) continue;
         const src = fs.readFileSync(file, "utf8");
         if (
           src.includes("/api/community-messenger/calls/stub-message") ||
