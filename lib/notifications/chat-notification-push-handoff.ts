@@ -107,6 +107,29 @@ export async function markChatPushHandoffFastPathSent(
     .is("push_handoff_claim_token", null);
 }
 
+/**
+ * 2026-11-21 보내기 3단계 — 위 `markChatPushHandoffFastPathSent` 와 같은 조건을 여러 행에 1번으로(채팅 보내기 묶음 경로).
+ */
+export async function markChatPushHandoffFastPathSentMany(
+  sb: SupabaseClient,
+  eventIds: readonly string[]
+): Promise<void> {
+  const ids = [...new Set(eventIds.map((id) => id.trim()).filter(Boolean))];
+  if (!ids.length) return;
+  await sb
+    .from("notification_events")
+    .update({
+      push_handoff_status: "handed_off",
+      push_handoff_next_at: null,
+      push_handoff_claimed_at: null,
+      push_handoff_claim_token: null,
+      push_handoff_last_error: null,
+    })
+    .in("id", ids)
+    .eq("push_handoff_status", "pending")
+    .is("push_handoff_claim_token", null);
+}
+
 export async function claimChatPushHandoffEvents(
   sb: SupabaseClient,
   opts?: { limit?: number; claimToken?: string }

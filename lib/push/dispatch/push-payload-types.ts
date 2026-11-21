@@ -60,6 +60,20 @@ export type DispatchPushOptions = {
   notification_event_id?: string;
   /** Override device environment filter (admin campaign → production member devices). */
   push_environment?: PushEnvironment;
+  /**
+   * 2026-11-21 보내기 3단계 — 채팅 보내기 묶음 경로가 받는 사람 전원을 한 번에 미리 읽은 값.
+   * 있으면 알림 행 다시 읽기·안전 확인·설정 읽기·대상 읽기를 이 값으로 대신한다(판정 규칙은 같음).
+   * **통화 푸시(수신·취소·거절·종료·다른 기기 수락·부재중)는 넘기지 않는다** → 지금과 같은 조회.
+   */
+  preloaded_chat_facts?: PreloadedChatPushFacts;
+};
+
+export type PreloadedChatPushFacts = {
+  /** 운영 notification_events 행 — null = 없음(기존 `notification_event_not_found` 와 같게 건너뜀) */
+  eventRow: import("@/lib/notifications/core/notification-event-schema").NotificationEventRow | null;
+  safety: import("@/lib/push/dispatch/notification-delivery-safety-gate").NotificationDeliverySafetyDecision;
+  preferences: import("@/lib/notifications/web-push-user-settings-gate").PreloadedNotificationPreferences;
+  targets: PushTarget[];
 };
 
 export type DispatchDeliveryAudit = {

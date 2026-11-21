@@ -32,7 +32,7 @@ function nestedMeta(payload: Record<string, unknown>): Record<string, unknown> {
     : {};
 }
 
-function isExpired(row: NotificationEventRow, nowMs: number): boolean {
+export function isExpired(row: NotificationEventRow, nowMs: number): boolean {
   const payload = payloadRecord(row);
   const explicit = trim(payload.expires_at ?? payload.expiresAt);
   const explicitMs = explicit ? Date.parse(explicit) : NaN;

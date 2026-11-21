@@ -31,7 +31,15 @@ import type { NotificationEventRow } from "@/lib/notifications/core/notification
 import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-message-pipeline";
 import { dispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { markChatPushHandoffFastPathSent } from "@/lib/notifications/chat-notification-push-handoff";
+import {
+  markChatPushHandoffFastPathSent,
+  markChatPushHandoffFastPathSentMany,
+} from "@/lib/notifications/chat-notification-push-handoff";
+import { runWithConcurrencyLimit } from "@/lib/shared/run-with-concurrency-limit";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+
+/** 2026-11-21 보내기 3단계 — 받는 사람 동시 발송 상한(FCM·APNs 순간 부하 제한) */
+export const CHAT_PUSH_DISPATCH_CONCURRENCY = 8;
 
 type SupabaseLike = ReturnType<typeof getSupabaseServer>;
 
@@ -251,14 +259,41 @@ export async function runCommunityMessengerSendDeferredPostAckEffects(
   }
 
   const pushT0 = performance.now();
-  for (const item of deferred.deferredPushes) {
-    // NEW-24/NOTI-08: fast-path 전송. 성공(sent/noop)이면 handoff 를 닫아 cron 재전송 대상에서 제외.
-    // 실패(retryable/permanent)면 pending 유지 → grace 후 1분 cron 이 복구한다.
-    const outcome = await dispatchNotificationEvent(sb, item.row, { appState: item.appState }).catch(
-      () => "retryable" as const
-    );
-    if (outcome === "sent" || outcome === "noop") {
-      await markChatPushHandoffFastPathSent(sb as unknown as SupabaseClient, item.row.id).catch(() => {});
+  /**
+   * 2026-11-21 보내기 3단계 — 받는 사람 전원의 발송 전 사실(알림 행·안전 확인·설정·대상)을 한 번에 읽고,
+   * 받는 사람끼리 동시에(상한 8) 보낸 뒤 인계 완료를 묶음 1번으로 닫는다.
+   * 미리 읽기를 못 하면(null) 지금처럼 한 명씩 차례로.
+   * 설계·통화 영향: docs/audit/supabase-request-surge-2026-11-18/message-send-fanout-stage3-push-design-2026-11-21.md
+   */
+  const { loadChatPushFactsBatch } = await import("@/lib/push/dispatch/chat-push-facts-batch");
+  const svcForFacts = tryCreateSupabaseServiceClient();
+  const factsByEventId = svcForFacts
+    ? await loadChatPushFactsBatch(
+        svcForFacts as SupabaseClient<any>,
+        deferred.deferredPushes.filter((p) => p.row.type !== "missed_call").map((p) => p.row)
+      ).catch(() => null)
+    : null;
+  if (factsByEventId) {
+    const handedOff: string[] = [];
+    await runWithConcurrencyLimit(deferred.deferredPushes, CHAT_PUSH_DISPATCH_CONCURRENCY, async (item) => {
+      const preloadedChatFacts = item.row.type !== "missed_call" ? factsByEventId.get(item.row.id) : undefined;
+      const outcome = await dispatchNotificationEvent(sb, item.row, {
+        appState: item.appState,
+        ...(preloadedChatFacts ? { preloadedChatFacts } : {}),
+      }).catch(() => "retryable" as const);
+      if (outcome === "sent" || outcome === "noop") handedOff.push(item.row.id);
+    });
+    await markChatPushHandoffFastPathSentMany(sb as unknown as SupabaseClient, handedOff).catch(() => {});
+  } else {
+    for (const item of deferred.deferredPushes) {
+      // NEW-24/NOTI-08: fast-path 전송. 성공(sent/noop)이면 handoff 를 닫아 cron 재전송 대상에서 제외.
+      // 실패(retryable/permanent)면 pending 유지 → grace 후 1분 cron 이 복구한다.
+      const outcome = await dispatchNotificationEvent(sb, item.row, { appState: item.appState }).catch(
+        () => "retryable" as const
+      );
+      if (outcome === "sent" || outcome === "noop") {
+        await markChatPushHandoffFastPathSent(sb as unknown as SupabaseClient, item.row.id).catch(() => {});
+      }
     }
   }
   if (t5) {

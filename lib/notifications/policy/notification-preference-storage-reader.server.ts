@@ -36,10 +36,10 @@ export const NOTIFICATION_SETTINGS_SELECT =
 export const LEGACY_USER_SETTINGS_PUSH_SELECT =
   "push_enabled, chat_push_enabled, do_not_disturb_enabled, do_not_disturb_start, do_not_disturb_end";
 
-const OWNER_SETTINGS_SELECT =
+export const OWNER_SETTINGS_SELECT =
   "optional_push_enabled, optional_sound_enabled, quiet_hours_enabled, quiet_hours_start, quiet_hours_end";
 
-const ADMIN_OPS_PREFERENCE_SELECT = "sound_enabled";
+export const ADMIN_OPS_PREFERENCE_SELECT = "sound_enabled";
 
 export type ReadNormalizedNotificationPreferenceSnapshotOptions = Readonly<{
   now?: Date;

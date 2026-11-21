@@ -47,7 +47,11 @@ export async function createAndDispatchNotificationEvent(
 export async function dispatchNotificationEvent(
   sb: SupabaseClient<any>,
   row: NotificationEventRow,
-  opts?: { appState?: NotificationRuntimeAppState }
+  opts?: {
+    appState?: NotificationRuntimeAppState;
+    /** 2026-11-21 보내기 3단계 — 채팅 보내기 묶음 경로만. 부재중 통화(missed_call)에는 쓰지 않는다 */
+    preloadedChatFacts?: import("@/lib/push/dispatch/push-payload-types").PreloadedChatPushFacts;
+  }
 ): Promise<DispatchPushOutcome> {
   const category = row.category as NotificationEventCategory;
   const profile = resolveNotificationPolicyProfile(category);
@@ -63,5 +67,6 @@ export async function dispatchNotificationEvent(
   // NOTI-05: 실제 전달 결과(outcome)를 반환한다. commerce handoff 가 이 값으로 상태를 정합한다.
   return await dispatchNotificationPushIfAllowed(sb, row, {
     callPushKind: row.type === "missed_call" ? "missed_call" : undefined,
+    ...(row.type !== "missed_call" && opts?.preloadedChatFacts ? { preloadedChatFacts: opts.preloadedChatFacts } : {}),
   });
 }
