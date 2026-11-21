@@ -5,6 +5,7 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import { resolveTradeChatEntry } from "@/lib/chat-domain/use-cases/trade-chat-entry-resolve";
 import { createTradeEntryPerfTrace } from "@/lib/trade/trade-entry-perf-log";
+import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +56,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "productId 필요" }, { status: 400 });
   }
 
+  /**
+   * 섞인 경로(설계 2026-11-21 §4 C, 재감사3 #6) — 이미 있는 거래 채팅방 다시 열기는 가입 없이(열람),
+   * 새 채팅방 만들기만 가입 확인.
+   */
+  const [existingRoom, existingLegacy] = await Promise.all([
+    sb.from("chat_rooms").select("id").eq("item_id", productId).eq("buyer_id", auth.userId).limit(1),
+    sb.from("product_chats").select("id").eq("post_id", productId).eq("buyer_id", auth.userId).limit(1),
+  ]);
+  const hasExistingTradeRoom =
+    (Array.isArray(existingRoom.data) && existingRoom.data.length > 0) ||
+    (Array.isArray(existingLegacy.data) && existingLegacy.data.length > 0);
+  if (!hasExistingTradeRoom) {
+    const registrationGate = await requireRegistrationForAction(auth.userId);
+    if (registrationGate) {
+      perf?.finish("entry_resolve_route", { outcome: "registration_required" });
+      return registrationGate;
+    }
+  }
   perf?.mark("resolve_trade_chat_entry_fn");
   const result = await resolveTradeChatEntry(auth.userId, productId, perf);
   perf?.mark("resolve_trade_chat_entry_return");

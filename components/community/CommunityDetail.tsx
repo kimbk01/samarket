@@ -265,8 +265,11 @@ export function CommunityDetail({
       return;
     }
     if (busy) return;
-    /** 로그인한 가입 진행 중 회원도 같은 행동 게이트 — 「가입 이어하기」 안내 (재감사 M2) */
-    if (!(await requireAction("community_like", () => undefined, { next: window.location.pathname + window.location.search }))) {
+    /** 로그인한 가입 진행 중 회원도 같은 행동 게이트 — 켤 때만(해제는 가입 없이, 재감사3 #3) */
+    if (
+      !likedByViewer &&
+      !(await requireAction("community_like", () => undefined, { next: window.location.pathname + window.location.search }))
+    ) {
       return;
     }
     const prevLikeCount = likeCount;
@@ -308,8 +311,11 @@ export function CommunityDetail({
       return;
     }
     if (saveBusy) return;
-    /** 로그인한 가입 진행 중 회원도 같은 행동 게이트 (재감사 M2) */
-    if (!(await requireAction("community_bookmark", () => undefined, { next: window.location.pathname + window.location.search }))) {
+    /** 로그인한 가입 진행 중 회원도 같은 행동 게이트 — 켤 때만(해제는 가입 없이, 재감사3 #3) */
+    if (
+      !savedByViewer &&
+      !(await requireAction("community_bookmark", () => undefined, { next: window.location.pathname + window.location.search }))
+    ) {
       return;
     }
     const prevSaved = savedByViewer;

@@ -132,7 +132,7 @@ export function PhoneVerificationBox({
 }: {
   snapshot: VerifySnapshot;
   /** 다른 계정이 쓰는 번호(409 `phone_duplicate`) — 가입 화면이 원래 계정 안내를 띄운다. 내정보는 넘기지 않음(기존 그대로). */
-  onPhoneDuplicate?: () => void;
+  onPhoneDuplicate?: (phone: string) => void;
   /** 인증 성공 직후 — 부모가 서버에서 새로 받아 클라이언트 사본을 맞춘다(`refreshClientMemberAccountAfterMutation`). */
   onRefreshProfile: () => Promise<void>;
   /** 완료 화면 [확인] 또는 1.2초 뒤 — 시트 닫기·원래 화면 복귀. 없으면 완료 후 「인증 완료」 카드로 남는다. */
@@ -328,7 +328,7 @@ export function PhoneVerificationBox({
           resolvePhoneOtpUiError({ status: res.status, code: json.code, message: json.message }, t, "send"),
         );
         if (resolvePhoneOtpErrorCode({ status: res.status, code: json.code, message: json.message }) === "phone_duplicate") {
-          onPhoneDuplicate?.();
+          onPhoneDuplicate?.(phoneForApi);
         }
         return;
       }
@@ -375,7 +375,7 @@ export function PhoneVerificationBox({
             resolvePhoneOtpUiError({ status: res.status, code: json.code, message: json.message }, t, "verify"),
           );
           if (resolvePhoneOtpErrorCode({ status: res.status, code: json.code, message: json.message }) === "phone_duplicate") {
-            onPhoneDuplicate?.();
+            onPhoneDuplicate?.(phoneForApi);
           }
           // 틀리면 칸을 비우고 다시 입력 (같은 번호 재제출 방지 해제)
           setOtp("");

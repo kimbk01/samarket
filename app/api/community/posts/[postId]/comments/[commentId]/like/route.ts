@@ -5,6 +5,8 @@ import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 import { getNeighborhoodDevSamplePost } from "@/lib/neighborhood/dev-sample-data";
 import { jsonError, jsonOk, safeErrorMessage } from "@/lib/http/api-route";
 import { logServerPerf } from "@/lib/performance/samarket-perf";
+import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +28,20 @@ export async function POST(
   }
   const id = await resolveCanonicalCommunityPostId(rawP);
   if (!id) return jsonError("not_found", 404);
+  /** 섞인 경로(설계 2026-11-21 §4 C, 재감사3 #2) — 추가만 가입 확인, 해제는 가입 없이 */
+  const likeSb = tryCreateSupabaseServiceClient();
+  if (!likeSb) return jsonError("supabase_unconfigured", 503);
+  const { data: existingLike, error: existingLikeErr } = await likeSb
+    .from("community_comment_likes")
+    .select("id")
+    .eq("comment_id", rawC)
+    .eq("user_id", auth.userId)
+    .maybeSingle();
+  if (existingLikeErr) return jsonError("like_failed", 500);
+  if (!existingLike) {
+    const registrationGate = await requireRegistrationForAction(auth.userId);
+    if (registrationGate) return registrationGate;
+  }
   const out = await toggleCommentLikeServer(id, rawC, auth.userId);
   logServerPerf("community-comment-like.post", {
     postId: id,

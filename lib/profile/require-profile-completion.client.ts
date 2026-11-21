@@ -20,6 +20,10 @@ import {
   type ProfileRequirementField,
 } from "@/lib/profile/profile-requirements";
 import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
+import {
+  peekKnownRegistrationPendingStep,
+  peekRegistrationPendingKnowledge,
+} from "@/lib/auth/registration-pending-state.client";
 
 export type { ProfileCompletionRequiredDetail };
 
@@ -64,8 +68,15 @@ export async function profileToRequirementInput(
     opts?.actionType != null
       ? ACTION_PROFILE_REQUIREMENTS[opts.actionType].includes("default_address")
       : hasDefaultAddress === undefined;
+  /**
+   * 대표 주소가 기능에 필요한 기존 4개 행동만 주소를 직접 조회한다. 나머지(가입 조건으로서의 주소)는 서버가 알려 준
+   * 빠진 가입 단계 사본으로 판단 — 누를 때마다 주소 조회가 나가지 않는다(재감사3 #5). 모르면 서버가 판단(통과).
+   */
+  const addressIsFunctional = opts?.actionType != null && SERVER_ROUTE_ADDRESS_CHECK_ACTIONS.has(opts.actionType);
 
-  if (hasDefaultAddress === undefined && needsAddress) {
+  if (hasDefaultAddress === undefined && needsAddress && !addressIsFunctional && opts?.actionType != null) {
+    hasDefaultAddress = peekKnownRegistrationPendingStep() !== "address";
+  } else if (hasDefaultAddress === undefined && needsAddress) {
     hasDefaultAddress = await readHasCanonicalDefaultAddress();
   } else if (hasDefaultAddress === undefined) {
     hasDefaultAddress = false;
@@ -101,7 +112,21 @@ export async function requireProfileCompletionClient(
 ): Promise<boolean> {
   let evaluation = await evaluateClientProfileRequirements(profile, actionType);
   if (evaluation.satisfied) return true;
-  if (hasRegistrationFieldMissing(evaluation.missingFields)) {
+  const knowledge = peekRegistrationPendingKnowledge();
+  if (hasRegistrationFieldMissing(evaluation.missingFields) && knowledge !== "unknown") {
+    /**
+     * 서버가 이미 알려 준 판정을 쓴다(다시 묻지 않음 — 재감사3 #5): 가입 완료(관리자 포함)면 가입 항목을 빼고,
+     * 빠진 단계가 있으면 그대로 안내.
+     */
+    if (knowledge === "complete") {
+      const keepAddress = SERVER_ROUTE_ADDRESS_CHECK_ACTIONS.has(actionType);
+      const missing = evaluation.missingFields.filter(
+        (f) => f !== "phone_verified" && f !== "recipient_phone" && (keepAddress || f !== "default_address"),
+      );
+      evaluation = { ...evaluation, missingFields: missing, satisfied: missing.length === 0 };
+      if (evaluation.satisfied) return true;
+    }
+  } else if (hasRegistrationFieldMissing(evaluation.missingFields)) {
     /**
      * 화면 사본(프로필 캐시·주소 스냅샷)이 「가입 미완」일 때만 서버 판정 1회로 다시 확인한다 —
      * 특권 관리자 면제·방금 끝낸 인증을 화면이 아직 모를 수 있다(재감사 H2). 서버가 가입 완료면 가입 항목을 뺀다

@@ -35,7 +35,9 @@ export function RegistrationPhoneStep({ next }: { next: string }) {
   const router = useRouter();
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   /** 다른 계정이 쓰는 번호 — 원래 가입한 방법으로 로그인 후 로그인 연결 안내 (Owner 2026-11-20 「권장안대로 진행」) */
-  const [duplicate, setDuplicate] = useState(false);
+  /** 중복으로 거절된 번호 — 빈 계정 정리 때 서버가 다시 확인한다 */
+  const [duplicatePhone, setDuplicatePhone] = useState<string | null>(null);
+  const duplicate = duplicatePhone !== null;
   const genRef = useRef(0);
 
   /** 이 화면을 본 것 = 로그인 세션당 1회 안내를 받은 것 — 이후 화면 이동마다 다시 보내지 않는다 */
@@ -98,7 +100,7 @@ export function RegistrationPhoneStep({ next }: { next: string }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ confirm: true }),
+        body: JSON.stringify({ confirm: true, phone: duplicatePhone ?? "" }),
       });
       const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
       if (res.ok && json?.ok) {
@@ -112,7 +114,7 @@ export function RegistrationPhoneStep({ next }: { next: string }) {
     } finally {
       setDiscarding(false);
     }
-  }, [discarding, t]);
+  }, [discarding, duplicatePhone, t]);
 
   const onLater = useCallback(() => {
     guardedRouterReplace(router, next, { source: "registration-phone-step", reason: "later" });
@@ -148,7 +150,7 @@ export function RegistrationPhoneStep({ next }: { next: string }) {
           snapshot={snapshot}
           onRefreshProfile={handleRefresh}
           onDone={() => void goNextStep()}
-          onPhoneDuplicate={() => setDuplicate(true)}
+          onPhoneDuplicate={(phone) => setDuplicatePhone(phone)}
           surface="overlay"
         />
       )}

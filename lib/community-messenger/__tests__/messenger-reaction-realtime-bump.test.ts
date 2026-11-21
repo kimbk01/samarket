@@ -30,6 +30,26 @@ vi.mock("@/lib/community-messenger/service", () => ({
 vi.mock("@/lib/community-messenger/server/publish-messenger-room-bump", () => ({
   publishMessengerRoomBumpAfterMutation: (args: Record<string, unknown>) => publish(args),
 }));
+/**
+ * 가입 확인(설계 2026-11-21 §4 C, 재감사3 #2) — 반응 추가만 가입 확인, 같은 반응 지우기는 가입 없이.
+ * 이 파일의 대상은 bump 이므로 「가입 완료 · 기존 반응 없음」으로 둔다.
+ */
+const registrationGate = vi.hoisted(() => ({ response: null as unknown, mine: null as { reaction_key: string } | null }));
+vi.mock("@/lib/auth/require-registration-for-action.server", () => ({
+  requireRegistrationForAction: async () => registrationGate.response,
+}));
+vi.mock("@/lib/supabase/try-supabase-server", () => ({
+  tryCreateSupabaseServiceClient: () => ({
+    from: () => {
+      const q = {
+        select: () => q,
+        eq: () => q,
+        maybeSingle: async () => ({ data: registrationGate.mine, error: null }),
+      };
+      return q;
+    },
+  }),
+}));
 
 async function post() {
   const { POST } = await import("@/app/api/community-messenger/rooms/[roomId]/messages/[messageId]/reactions/route");
@@ -115,3 +135,30 @@ describe("R2 단건 정합은 빈 반응을 [] 로 보내 옛 칩을 지운다",
     expect(src.slice(start, end)).toContain("reactions: rx.get(messageId) ?? []");
   });
 });
+
+describe("반응 — 섞인 경로 (재감사3 #2)", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    toggle.mockReset();
+    publish.mockReset();
+    registrationGate.response = new Response(JSON.stringify({ ok: false, code: "signup_incomplete", step: "address" }), {
+      status: 403,
+    });
+  });
+
+  it("가입 진행 중: 새 반응은 403, 처리 함수 호출 없음", async () => {
+    registrationGate.mine = null;
+    const res = await post();
+    expect(res.status).toBe(403);
+    expect(toggle).not.toHaveBeenCalled();
+  });
+
+  it("가입 진행 중: 같은 반응 지우기는 처리된다", async () => {
+    registrationGate.mine = { reaction_key: "like" };
+    toggle.mockResolvedValue({ ok: true, reactions: [] });
+    const res = await post();
+    expect(res.status).toBe(200);
+    expect(toggle).toHaveBeenCalledTimes(1);
+  });
+});
+

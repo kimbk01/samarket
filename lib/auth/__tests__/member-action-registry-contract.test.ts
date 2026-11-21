@@ -114,5 +114,18 @@ describe("분류 — 설계 §4 대표", () => {
     ["POST", "/api/favorites/toggle"],
     ["POST", "/api/community/neighbor-relations"],
     ["POST", "/api/community-messenger/rooms"],
+    // 재감사3 #2·#4·#6 — 추가·초대·새 방만 가입 확인
+    ["POST", "/api/community/posts/p1/like"],
+    ["POST", "/api/philife/posts/p1/like"],
+    ["POST", "/api/community/posts/p1/save"],
+    ["POST", "/api/philife/posts/p1/comments/c1/like"],
+    ["POST", "/api/community-messenger/rooms/r1/messages/m1/reactions"],
+    ["PATCH", "/api/community-messenger/rooms/r1"],
+    ["POST", "/api/trade/chat/entry/resolve"],
   ])("%s %s = split", (m, p) => expect(kind(m, p)).toBe("split"));
+  it.each([
+    ["POST", "/api/community-messenger/direct/start"],
+    ["POST", "/api/philife/upload-image"],
+    ["POST", "/api/posts/upload-image"],
+  ])("%s %s = manage (재감사3 #6·#7)", (m, p) => expect(kind(m, p)).toBe("manage"));
 });

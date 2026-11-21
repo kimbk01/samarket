@@ -7,6 +7,8 @@ import {
 import { enforceRateLimit, getRateLimitKey, jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
+import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -91,6 +93,23 @@ export async function POST(
   const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
   if (!canon.ok) {
     return canon.response;
+  }
+
+  /** 섞인 경로(설계 2026-11-21 §4 C, 재감사3 #2) — 추가만 가입 확인, 해제는 가입 없이 */
+  const reactionSb = tryCreateSupabaseServiceClient();
+  if (!reactionSb) return jsonError("supabase_unconfigured", 503);
+  const { data: mineReaction, error: mineReactionErr } = await reactionSb
+    .from("community_messenger_message_reactions")
+    .select("reaction_key")
+    .eq("message_id", String(messageId ?? "").trim())
+    .eq("user_id", auth.userId)
+    .maybeSingle();
+  if (mineReactionErr) return jsonError("reaction_failed", 500);
+  const isRemovingSameReaction =
+    String((mineReaction as { reaction_key?: string } | null)?.reaction_key ?? "").trim() === reactionKey;
+  if (!isRemovingSameReaction) {
+    const registrationGate = await requireRegistrationForAction(auth.userId);
+    if (registrationGate) return registrationGate;
   }
 
   const result = await toggleCommunityMessengerMessageReaction({

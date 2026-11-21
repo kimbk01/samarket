@@ -4,6 +4,7 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 import { isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
 import { isCommunityPostPubliclyVisible } from "@/lib/community-engine/visibility";
+import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +56,9 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ postId: s
         return NextResponse.json({ ok: false, error: msg }, { status: 500 });
       }
     } else {
+      /** 섞인 경로(설계 2026-11-21 §4 C, 재감사3 #2) — 추가만 가입 확인, 해제는 가입 없이 */
+      const registrationGate = await requireRegistrationForAction(auth.userId);
+      if (registrationGate) return registrationGate;
       const { error } = await sb.from("community_post_saves").insert({ post_id: id, user_id: auth.userId });
       if (error) {
         const msg = error.message ?? "";
