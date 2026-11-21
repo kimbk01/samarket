@@ -18,6 +18,8 @@ import {
 } from "@/lib/mypage/load-phone-verification-state";
 import { DIBAY_ONBOARDING_ERROR_CLASS, DIBAY_ONBOARDING_NOTICE_CLASS } from "@/lib/ui/dibay-onboarding-styles";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { dibayConfirm } from "@/components/ui/dibay-overlay/DibayAppDialogProvider";
+import { forceClearCorruptSession } from "@/lib/auth/logout-client";
 
 type LoadState =
   | { kind: "loading" }
@@ -76,6 +78,42 @@ export function RegistrationPhoneStep({ next }: { next: string }) {
     guardedRouterReplace(router, target, { source: "registration-phone-step", reason: "phone_verified" });
   }, [next, router]);
 
+  const [discarding, setDiscarding] = useState(false);
+  const [discardError, setDiscardError] = useState<string | null>(null);
+
+  /** 실수로 만든 빈 계정 정리 (설계 2026-11-21 §5-6) — 지운 뒤 이 기기 로그인만 정리하고 로그인 화면으로 */
+  const discardThisAccount = useCallback(async () => {
+    if (discarding) return;
+    const ok = await dibayConfirm({
+      title: t("auth_reg_discard_confirm_title"),
+      description: t("auth_reg_discard_confirm_desc"),
+      confirmLabel: t("auth_reg_discard_confirm_ok"),
+      confirmTone: "destructive",
+    });
+    if (!ok) return;
+    setDiscarding(true);
+    setDiscardError(null);
+    try {
+      const res = await fetch("/api/me/registration/discard-empty-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ confirm: true }),
+      });
+      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (res.ok && json?.ok) {
+        await forceClearCorruptSession().catch(() => undefined);
+        window.location.replace("/login");
+        return;
+      }
+      setDiscardError(t(json?.error === "not_empty_account" ? "auth_reg_discard_not_empty" : "auth_reg_discard_failed"));
+    } catch {
+      setDiscardError(t("auth_reg_discard_failed"));
+    } finally {
+      setDiscarding(false);
+    }
+  }, [discarding, t]);
+
   const onLater = useCallback(() => {
     guardedRouterReplace(router, next, { source: "registration-phone-step", reason: "later" });
   }, [next, router]);
@@ -118,6 +156,20 @@ export function RegistrationPhoneStep({ next }: { next: string }) {
         <div className={`mt-3 ${DIBAY_ONBOARDING_NOTICE_CLASS}`} role="status" data-testid="registration-phone-duplicate">
           <p className="font-semibold">{t("auth_reg_phone_duplicate_title")}</p>
           <p className="mt-1">{t("auth_reg_phone_duplicate_guide")}</p>
+          {discardError ? (
+            <p className={`mt-2 ${DIBAY_ONBOARDING_ERROR_CLASS}`} role="alert">
+              {discardError}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void discardThisAccount()}
+            disabled={discarding}
+            className={`${OverlayUi.btn.secondary} mt-3 w-full`}
+            data-testid="registration-discard-empty-account"
+          >
+            {t("auth_reg_discard_cta")}
+          </button>
         </div>
       ) : null}
       <RegistrationStepEscape showHelp />

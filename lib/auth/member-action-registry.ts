@@ -153,6 +153,7 @@ export const MEMBER_WRITE_REGISTRY: readonly MemberWriteEntry[] = [
   W("POST", "/api/me/points/promotion-orders", "new"),
   W("POST", "/api/me/posts/bulk-region", "manage"),
   W("DELETE", "/api/me/recent-views", "manage"),
+  W("POST", "/api/me/registration/discard-empty-account", "manage"),
   W("POST", "/api/me/settings/notices", "manage"),
   W("POST", "/api/me/settings/notices/[noticeId]/comments", "new"),
   W("DELETE", "/api/me/settings/notices/[noticeId]/comments/[commentId]", "manage"),
