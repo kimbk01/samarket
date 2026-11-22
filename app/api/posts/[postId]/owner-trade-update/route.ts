@@ -11,6 +11,7 @@ import { isTradeImagesRequiredServer } from "@/lib/trade/category-form/trade-ima
 import { TRADE_POST_MAX_IMAGES, filterOwnPostImageUrls } from "@/lib/posts/own-post-image-url";
 import { sanitizeTradeMetaCurrency } from "@/lib/trade/trade-price-currency";
 import { normalizeTradePriceForSave } from "@/lib/posts/trade-price-server-validation";
+import { checkTradeRequiredFieldsOnUpdate } from "@/lib/trade/category-form/server-required-fields.server";
 import { dropTradeMetaClears } from "@/lib/trade/category-form/trade-write-owned-meta-keys";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
@@ -295,6 +296,22 @@ export async function PATCH(
 
   if (tradeKind === "job" && body.tradeJob && typeof body.tradeJob === "object") {
     Object.assign(patchDb, tradeJobColumnsForInsert(body.tradeJob));
+  }
+
+  /**
+   * 서버 필수 칸 검사(설계 `trade-server-required-fields-design-2026-11-22.md` §4-2):
+   * 이번 수정으로 새로 비게 된 칸만 본다. 1단계는 로그만.
+   */
+  {
+    const beforeRow = row as Record<string, unknown>;
+    const blocked = await checkTradeRequiredFieldsOnUpdate(
+      sbAny,
+      String(patchDb.trade_category_id ?? beforeRow.trade_category_id ?? ""),
+      beforeRow,
+      { ...beforeRow, ...patchDb },
+      { userId, acceptLanguage: req.headers.get("accept-language") }
+    );
+    if (blocked) return blocked;
   }
 
   const { error: updErr } = await sbAny.from(POSTS_TABLE_WRITE).update(patchDb).eq("id", id).eq("user_id", userId);
