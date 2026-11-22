@@ -21,6 +21,7 @@ const EXEMPT: Record<string, string> = {
   "components/philife/PhilifeWriteBottomSheet.tsx": "글쓰기 시트 — 임시저장 규칙, 별도 설계 필요(S4 범위 밖)",
   "components/trade/TradeWriteBottomSheet.tsx": "글쓰기 시트 — 임시저장 규칙, 별도 설계 필요(S4 범위 밖)",
   "components/trade/TradeWriteSheetLoadingFrame.tsx": "글쓰기 시트 준비 화면 — 글쓰기 시트와 함께 별도 설계",
+  "components/philife/PhilifeWriteSheetLoadingFrame.tsx": "글쓰기 시트 준비 화면 — 글쓰기 시트와 함께 별도 설계(거래와 같음)",
   "components/admin/shell/AdminHeaderAccountMenu.tsx": "관리자 화면 — Android 앱 동선 아님",
   "components/ui/dibay-overlay/DibaySheetParts.tsx": "시트 부품 — 시트 자체가 등록됨",
 };

@@ -7,6 +7,9 @@
  *
  * DO NOT: rebuild in mark* then force-rebuild in the route.
  * DO NOT: change Builder / Projection Authority / Boot / Poll / Engine.
+ *
+ * 2026-11-22 재개봉 기록 — Owner 「LOCK 재개봉·구현 승인」: Builder **입력 읽기만** DB 함수 1번(`get_member_badge_facts`)으로.
+ * 이 파일의 ACK 소유권·계산·응답 필드는 그대로. 설계: docs/audit/supabase-request-surge-2026-11-18/read-mark-stage3-badge-facts-design-2026-11-22.md
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DomainBadgeAuthorityHttpPayload } from "@/lib/notifications/pipeline/build-domain-badge-authority-http";

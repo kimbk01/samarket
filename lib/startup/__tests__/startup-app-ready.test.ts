@@ -71,10 +71,19 @@ describe("startup metrics App Ready", () => {
       "utf8"
     );
 
-    /** 세그먼트 loading 은 하위(상세·글쓰기·내 활동)까지 덮으므로 피드 스켈레톤 금지 — 중립 null */
+    /**
+     * 세그먼트 loading 은 하위(상세·글쓰기·내 활동)까지 덮으므로 피드 스켈레톤 금지.
+     * 허브 첫 화면(`/philife`)은 그대로 null, 하위 화면만 DIBAY 대기 스피너(스켈레톤 아님) —
+     * `MainSegmentPendingLoading` (loading-spinner 설계 W1 · 2026-11-10 R-0 되돌림과 달리 허브 전환은 무변경).
+     */
     expect(loading).not.toContain("MainFeedRouteLoading");
     expect(loading).not.toContain("CommunityFeedSkeleton");
-    expect(loading).toMatch(/return null;/);
+    expect(loading).toContain("return <MainSegmentPendingLoading />;");
+    const segmentPending = readFileSync(
+      resolve(process.cwd(), "components/layout/MainSegmentPendingLoading.tsx"),
+      "utf8"
+    );
+    expect(segmentPending).toContain("if (isMainTabKeepAliveHubPath(pathname)) return null;");
     /** 피드 스켈레톤 단일 소유자 = 피드 페이지(CommunityFeed) */
     expect(feed).toContain("loading && postsForList.length === 0 && !err ? (");
     expect(feed).toContain("<CommunityFeedSkeleton rows={5} />");
