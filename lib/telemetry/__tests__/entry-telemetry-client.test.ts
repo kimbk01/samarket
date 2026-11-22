@@ -10,6 +10,7 @@ import {
   ENTRY_RESUME_MIN_HIDDEN_MS,
   noteEntryFailure,
   noteEntryReleased,
+  noteNavigationStall,
   resetEntryTelemetryForTests,
   startEntryTelemetry,
 } from "@/lib/telemetry/entry-telemetry.client";
@@ -218,5 +219,31 @@ describe("연결 지점 (동작 불변)", () => {
     expect(readFileSync("app/error.tsx", "utf8")).toContain('noteEntryFailure("error_boundary");');
     expect(readFileSync("app/global-error.tsx", "utf8")).toContain('noteEntryFailure("global_error");');
     expect(readFileSync("components/app/AppBootProvider.tsx", "utf8")).toContain("startEntryTelemetry();");
+  });
+});
+
+describe("이동 멈춤 계측 (idle-menu-freeze §S1)", () => {
+  it("nav_stall — 즉시 1건 · 멈춤 상세 · 숨긴 적 없으면 sinceShownMs null · 다음 문서 회복 기록 예약", () => {
+    noteNavigationStall("nav_stall", { waitedMs: 8000.4, target: "chat" }, { reloadFollows: true });
+    expect(sent).toHaveLength(1);
+    expect(sent[0].body.failure).toBe("nav_stall");
+    expect(sent[0].body.ev).toBe("failure");
+    expect(sent[0].body.stall).toEqual({ waitedMs: 8000, sinceShownMs: null, target: "chat", result: null });
+    expect(sessionStorage.getItem("dibay:entry-telemetry:pending-recovery")).toBe("nav_stall");
+  });
+
+  it("다시 보인 뒤 지난 시간(sinceShownMs) — 방치 연관", () => {
+    startEntryTelemetry();
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+    vi.advanceTimersByTime(30 * 60_000);
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+    document.dispatchEvent(new Event("visibilitychange"));
+    vi.advanceTimersByTime(4_000);
+    sent = [];
+    noteNavigationStall("chunk_stall", { waitedMs: 9000, target: "other", result: "load" }, { reloadFollows: false });
+    const stallEvent = sent.find((s) => s.body.failure === "chunk_stall");
+    expect((stallEvent?.body.stall as { sinceShownMs: number }).sinceShownMs).toBe(4_000);
+    expect(sessionStorage.getItem("dibay:entry-telemetry:pending-recovery")).toBeNull();
   });
 });

@@ -25,7 +25,7 @@ function ev(over: Partial<EntryTelemetryEvent> = {}): EntryTelemetryEvent {
     v: 1, run: "r1", seq: 1, kind: "cold", ev: "failure", platform: "android", appVersion: "1.2.5", appBuild: "37",
     webSha: "abc1234", entryKind: "user_cold", restoreHint: "fresh", releaseReason: null, failure: "chunk_reload",
     recovery: "none", prevFailure: null, reloads: 1, ageMs: 900, hiddenMs: null, visible: true, t: { firstHtml: 300 },
-    deviceClass: null, deviceClassSource: null, nav: null, usableWidth: null,
+    deviceClass: null, deviceClassSource: null, nav: null, usableWidth: null, stall: null,
     ...over,
   };
 }
@@ -121,5 +121,20 @@ describe("마이그레이션 계약", () => {
     expect(sql).toContain("revoke all on table public.app_entry_failures from anon, authenticated");
     expect(sql).toContain("unique (run, seq)");
     expect(sql).not.toMatch(/user_id|email|ip_address|user_agent|token/i);
+  });
+});
+
+describe("멈춤 상세 (idle-menu-freeze §S1)", () => {
+  it("멈춤 상세는 stages.stall 에 함께 보존 — 열 추가 없음", async () => {
+    const stall = { waitedMs: 8000, sinceShownMs: 1_800_000, target: "chat", result: null };
+    await persistEntryFailureIfNeeded(ev({ failure: "nav_stall", stall }), META);
+    const row = (upsert.mock.calls[0] as unknown as [Record<string, unknown>])[0];
+    expect(row.failure).toBe("nav_stall");
+    expect(row.stages).toEqual({ firstHtml: 300, stall });
+  });
+  it("멈춤이 아니면 stages 그대로", async () => {
+    await persistEntryFailureIfNeeded(ev(), META);
+    const row = (upsert.mock.calls[0] as unknown as [Record<string, unknown>])[0];
+    expect(row.stages).toEqual({ firstHtml: 300 });
   });
 });

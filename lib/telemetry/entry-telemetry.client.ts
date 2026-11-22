@@ -20,6 +20,9 @@ import {
   type EntryFailureClass,
   type EntryPlatform,
   type EntryStages,
+  type EntryStallDetail,
+  type EntryStallFailure,
+  type EntryStallResult,
   type EntryTelemetryEvent,
 } from "@/lib/telemetry/entry-telemetry-contract";
 
@@ -54,6 +57,8 @@ type State = {
   releaseAt: number | null;
   noReleaseSent: boolean;
   hiddenAt: number | null;
+  /** 숨김 뒤 다시 보인 마지막 벽시계 시각 — 멈춤 계측의 sinceShownMs (방치 연관) */
+  lastShownAt: number | null;
   lastResumeSentAt: number | null;
   appInfo: { version: string | null; build: string | null } | null;
   appInfoPromise: Promise<void> | null;
@@ -71,6 +76,7 @@ function freshState(): State {
     releaseAt: null,
     noReleaseSent: false,
     hiddenAt: null,
+    lastShownAt: null,
     lastResumeSentAt: null,
     appInfo: null,
     appInfoPromise: null,
@@ -223,7 +229,12 @@ function buildEvent(
   w: RuntimeWindow,
   kind: EntryEventKind,
   ev: EntryEventType,
-  extra: { failure?: EntryFailureClass | null; hiddenMs?: number | null; recovery?: { prev: EntryFailureClass | null } | null }
+  extra: {
+    failure?: EntryFailureClass | null;
+    hiddenMs?: number | null;
+    recovery?: { prev: EntryFailureClass | null } | null;
+    stall?: EntryStallDetail | null;
+  }
 ): EntryTelemetryEvent {
   state.seq += 1;
   return {
@@ -248,6 +259,7 @@ function buildEvent(
     visible: typeof document !== "undefined" ? document.visibilityState === "visible" : false,
     t: readStages(w),
     ...readShellFields(),
+    stall: extra.stall ?? null,
   };
 }
 
@@ -339,6 +351,7 @@ export function startEntryTelemetry(): void {
         if (state.hiddenAt == null) return;
         const hiddenMs = Date.now() - state.hiddenAt;
         state.hiddenAt = null;
+        state.lastShownAt = Date.now();
         if (hiddenMs < ENTRY_RESUME_MIN_HIDDEN_MS) return;
         const now = Date.now();
         if (state.lastResumeSentAt != null && now - state.lastResumeSentAt < ENTRY_RESUME_MIN_GAP_MS) return;
@@ -383,6 +396,32 @@ export function noteEntryFailure(failure: EntryFailureClass): void {
     sendIdle(kind, "failure", { failure });
   } catch {
     /* ignore */
+  }
+}
+
+/**
+ * 화면 이동·조각 멈춤 (설계 `docs/audit/idle-menu-freeze-design-2026-11-22.md` §S1). 관측 전용 — 동작을 바꾸지 않는다.
+ * `reloadFollows` = 곧 문서 이동이 일어난다(nav_stall·nav_watchdog) → 즉시 보내고, 다음 문서가 `after_reload` 로 회복 시각을 남긴다.
+ */
+export function noteNavigationStall(
+  failure: EntryStallFailure,
+  info: { waitedMs: number; target?: string | null; result?: EntryStallResult | null },
+  opts: { reloadFollows: boolean }
+): void {
+  try {
+    const w = win();
+    if (!w) return;
+    const kind: EntryEventKind = state.released ? "resume" : "cold";
+    const stall: EntryStallDetail = {
+      waitedMs: Math.max(0, Math.round(info.waitedMs)),
+      sinceShownMs: state.lastShownAt != null ? Math.max(0, Date.now() - state.lastShownAt) : null,
+      target: info.target ?? null,
+      result: info.result ?? null,
+    };
+    if (opts.reloadFollows) writeSession(RECOVERY_KEY, failure);
+    sendNow(kind, "failure", { failure, stall });
+  } catch {
+    /* 관측 실패는 무시 */
   }
 }
 

@@ -10,7 +10,15 @@
  *   (Next 16.1.7 이동 요청에는 시간 제한이 없다 — `fetch-server-response.js` `createFetch` 에 signal 없음).
  *
  * 시계는 `Date.now()` — 기기 잠자기 동안에도 흐르므로 복귀 직후 감시가 바로 판정된다(S3 복귀 작업).
+ *
+ * 방치 후 멈춤 설계(`docs/audit/idle-menu-freeze-design-2026-11-22.md` §S3, Owner 「1단계 구현 승인」 2026-11-22):
+ * - 경로가 그대로인 동안 다시 눌러도 **처음 누른 시각부터** 센다(예전: 누를 때마다 초기화 → 연타하면 영원히 못 빠져나옴, 감사 F2).
+ * - 감시가 끝낼 때: 진행 중인 이동 요청이 있으면 그 요청을 중단해 Next 의 문서 이동 1회에 맡기고, 없으면 직접 문서 이동한다
+ *   (이동 요청 상한 관문과 함께 문서 이동이 두 번 일어나지 않게). 감시 작동은 운영 계측 `nav_watchdog` 로 남긴다(감사 F3).
  */
+import { NAVIGATION_STALL_DEADLINE_MS, navigationStallTarget } from "@/lib/net/navigation-stall-policy";
+import { expireStalledRscNavigations } from "@/lib/net/rsc-navigation-deadline.client";
+import { noteNavigationStall } from "@/lib/telemetry/entry-telemetry.client";
 
 export type BottomNavControllerPhase = "idle" | "showing";
 
@@ -33,11 +41,8 @@ export type BottomNavControllerState =
   | { phase: "idle"; lastSettledId: number }
   | ({ phase: "showing" } & BottomNavShowingTarget);
 
-/** 11-10 실측 최장(배포 직후 문서 이동) 2.5초의 3배 이상, 세션 확인 상한 12초보다 짧게 */
-export const BOTTOM_NAV_SETTLE_WATCHDOG_MS = 8_000;
-
-/** 감시가 문서 이동으로 전환했을 때 남기는 진단 기록(sessionStorage) */
-export const BOTTOM_NAV_WATCHDOG_TRACE_KEY = "dibay:bottom-nav:watchdog-escalated";
+/** 11-10 실측 최장(배포 직후 문서 이동) 2.5초의 3배 이상, 세션 확인 상한 12초보다 짧게 — 단일 정의 `navigation-stall-policy` */
+export const BOTTOM_NAV_SETTLE_WATCHDOG_MS = NAVIGATION_STALL_DEADLINE_MS;
 
 const BASE = "https://dibay.local";
 
@@ -68,7 +73,12 @@ export function reduceBegin(
   const t = parseBottomNavTarget(input.href);
   const lastId = prev.phase === "showing" ? prev.id : prev.lastSettledId;
   const fromPath = input.fromPath != null ? normalizePath(input.fromPath) : null;
-  return { phase: "showing", id: lastId + 1, tabId: input.tabId, ...t, fromPath, startedAt: input.now };
+  /** 경로가 그대로인 동안의 다시 누름 = 같은 멈춤 — 처음 누른 시각을 유지한다(감사 F2) */
+  const startedAt =
+    prev.phase === "showing" && prev.fromPath != null && fromPath != null && prev.fromPath === fromPath
+      ? prev.startedAt
+      : input.now;
+  return { phase: "showing", id: lastId + 1, tabId: input.tabId, ...t, fromPath, startedAt };
 }
 
 /**
@@ -109,6 +119,11 @@ let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
 let documentNavigate: (href: string) => void = (href) => {
   if (typeof window !== "undefined") window.location.replace(href);
 };
+/** 진행 중인 이동 요청 중단(있으면 true) — 시험에서 바꿔 끼운다 */
+let expireInflightNavigation: () => boolean = expireStalledRscNavigations;
+/** 감시 작동 계측 — 시험에서 바꿔 끼운다 */
+let reportWatchdog: (info: { waitedMs: number; path: string }) => void = ({ waitedMs, path }) =>
+  noteNavigationStall("nav_watchdog", { waitedMs, target: navigationStallTarget(path) }, { reloadFollows: true });
 
 function emit(next: BottomNavControllerState): void {
   if (next === state) return;
@@ -143,18 +158,23 @@ export function checkBottomNavWatchdog(expectedId?: number): void {
     return;
   }
   const href = state.href;
+  const path = state.path;
   const waitedMs = Date.now() - state.startedAt;
   emit({ phase: "idle", lastSettledId: state.id });
   clearWatchdog();
-  /** 진단 — 감시 전환이 일어났는지 다음 문서에서 확인할 수 있게 (세션 안에서만) */
   try {
-    if (typeof sessionStorage !== "undefined") {
-      sessionStorage.setItem(BOTTOM_NAV_WATCHDOG_TRACE_KEY, JSON.stringify({ href, waitedMs, at: Date.now() }));
-    }
+    reportWatchdog({ waitedMs, path });
   } catch {
-    /* 저장 불가 — 무시 */
+    /* 계측 실패는 무시 */
   }
-  documentNavigate(href);
+  /** 진행 중인 이동 요청이 있으면 중단 → Next 가 그 이동을 문서 이동으로 1회 넘긴다. 없으면(머리는 왔는데 안 바뀜) 직접 */
+  let expired = false;
+  try {
+    expired = expireInflightNavigation();
+  } catch {
+    expired = false;
+  }
+  if (!expired) documentNavigate(href);
 }
 
 export function getBottomNavControllerState(): BottomNavControllerState {
@@ -209,7 +229,11 @@ export function isBottomNavShowing(): boolean {
 }
 
 /** 시험 전용 */
-export function __resetBottomNavControllerForTest(opts?: { documentNavigate?: (href: string) => void }): void {
+export function __resetBottomNavControllerForTest(opts?: {
+  documentNavigate?: (href: string) => void;
+  expireInflightNavigation?: () => boolean;
+  reportWatchdog?: (info: { waitedMs: number; path: string }) => void;
+}): void {
   clearWatchdog();
   state = { phase: "idle", lastSettledId: 0 };
   listeners.clear();
@@ -218,4 +242,6 @@ export function __resetBottomNavControllerForTest(opts?: { documentNavigate?: (h
     ((href) => {
       if (typeof window !== "undefined") window.location.replace(href);
     });
+  expireInflightNavigation = opts?.expireInflightNavigation ?? (() => false);
+  reportWatchdog = opts?.reportWatchdog ?? (() => {});
 }

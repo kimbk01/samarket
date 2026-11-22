@@ -153,3 +153,26 @@ describe("proxy 회원 게이트 제외", () => {
     expect(resolveMemberActionClassForApiMutation("/api/telemetry/entry")).toBe("NON_MEMBER");
   });
 });
+
+describe("멈춤 상세 정규화 (idle-menu-freeze §S1)", () => {
+  it("멈춤 실패 3종에서만 stall 을 받는다 · 주소 같은 값은 버린다", () => {
+    const ok = sanitizeEntryTelemetryEvent(
+      validEvent({
+        ev: "failure",
+        failure: "nav_stall",
+        stall: { waitedMs: 8000.6, sinceShownMs: 120000, target: "chat", result: null, url: "/x?token=1" },
+      })
+    );
+    expect(ok?.failure).toBe("nav_stall");
+    expect(ok?.stall).toEqual({ waitedMs: 8001, sinceShownMs: 120000, target: "chat", result: null });
+    const chunk = sanitizeEntryTelemetryEvent(
+      validEvent({ ev: "failure", failure: "chunk_stall", stall: { waitedMs: 9000, target: "/a b", result: "pending" } })
+    );
+    expect(chunk?.stall).toEqual({ waitedMs: 9000, sinceShownMs: null, target: null, result: "pending" });
+    const notStall = sanitizeEntryTelemetryEvent(
+      validEvent({ ev: "failure", failure: "chunk_reload", stall: { waitedMs: 1 } })
+    );
+    expect(notStall?.stall).toBeNull();
+    expect(sanitizeEntryTelemetryEvent(validEvent({ ev: "failure", failure: "nav_watchdog", stall: {} }))?.stall).toBeNull();
+  });
+});
