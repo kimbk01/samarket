@@ -54,7 +54,16 @@ export const PREP_LABELS: Record<string, string> = {
 const PREP_DISPLAY_ORDER = ["id", "bankbook", "identity_not_required"] as const;
 
 /** 목록·상세용: 구버전 identity_confirm 제외 후 라벨 나열 */
-export function formatPrepKeysForDisplay(raw: unknown): string {
+/**
+ * 감사 X3 (2026-11-22): `t` 를 넘기면 보는 사람 언어의 카탈로그 키(`exchange_prep_*`)로 표시한다.
+ * 넘기지 않으면 예전 한국어 고정 라벨.
+ */
+export function formatPrepKeysForDisplay(raw: unknown, t?: (key: MessageKey) => string): string {
+  const labelFor = (key: string): string => {
+    const opt = PREP_OPTIONS.find((o) => o.value === key);
+    if (t && opt) return t(opt.labelKey);
+    return PREP_LABELS[key] ?? key;
+  };
   const arr = Array.isArray(raw)
     ? raw.filter((x): x is string => typeof x === "string" && x !== "identity_confirm")
     : [];
@@ -64,13 +73,13 @@ export function formatPrepKeysForDisplay(raw: unknown): string {
   for (const key of PREP_DISPLAY_ORDER) {
     if (arr.includes(key)) {
       seenKey.add(key);
-      out.push(PREP_LABELS[key]);
+      out.push(labelFor(key));
     }
   }
   for (const k of arr) {
     if (!seenKey.has(k)) {
       seenKey.add(k);
-      out.push(PREP_LABELS[k] ?? k);
+      out.push(labelFor(k));
     }
   }
   return out.join(", ");

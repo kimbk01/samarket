@@ -6,7 +6,12 @@ import { applyTradeBehaviorAdapter } from "@/lib/trade/category-form/behavior-ad
 import { buildCompositionDetailAttributes } from "@/lib/trade/category-form/detail-attributes";
 import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labels";
 import { resolveTradeComposition } from "@/lib/trade/category-form/resolve-composition";
-import { jobWorkCategoryDisplay } from "@/lib/jobs/form-options";
+import {
+  PAY_TYPE_LABELS,
+  WORK_TERM_LABELS,
+  jobTimeSlotsDisplay,
+  jobWorkCategoryDisplay,
+} from "@/lib/jobs/form-options";
 import { formatPrice } from "@/lib/utils/format";
 import { translateBy } from "@/lib/i18n/translate-by";
 
@@ -62,6 +67,21 @@ export function formatJobsCompositionDetailField(input: {
     const payType = String(input.meta.pay_type ?? "").trim();
     if (!input.rawValue && payType === "negotiate") return translateBy(input.lang, "jobs_negotiable");
     return input.rawValue || null;
+  }
+  /**
+   * 감사 J1 (2026-11-22): 구직 근무형태(`short_alba`·`parttime`·`remote`·`discuss`)·급여 「협의」(`negotiate`)는
+   * 구성 카탈로그에 없어 내부 값이 그대로 보였다 — 일자리 라벨 키로 번역한다(카탈로그에 있는 값은 이미 라벨).
+   */
+  if (input.fieldId === "work_term") {
+    const key = WORK_TERM_LABELS[input.rawValue.trim()];
+    return key ? translateBy(input.lang, key) : input.rawValue;
+  }
+  if (input.fieldId === "pay_type") {
+    const key = PAY_TYPE_LABELS[input.rawValue.trim()];
+    return key ? translateBy(input.lang, key) : input.rawValue;
+  }
+  if (input.fieldId === "available_time") {
+    return jobTimeSlotsDisplay(input.meta, input.lang) || input.rawValue;
   }
   return input.rawValue;
 }
