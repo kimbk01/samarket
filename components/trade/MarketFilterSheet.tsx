@@ -12,6 +12,7 @@ import { resolveTradeCategoryUILabel } from "@/lib/i18n/trade-category-label-i18
 import { CompositionAttributeFilterSelects } from "@/components/search/CompositionAttributeFilterSelects";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { getTradeFieldDefinition, labelForTradeOption } from "@/lib/trade/category-form";
+import { resolveTradeFilterPriceMode } from "@/lib/trade/category-form/real-estate-deal-persist-scope";
 import {
   countMarketAppliedConditions,
   listMarketAppliedConditions,
@@ -411,6 +412,9 @@ export function MarketFilterSheet({
     return resolveTradeCompositionForCategory(rootCategory);
   }, [rootCategory]);
 
+  /** 감사 R4 (2026-11-22): 부동산은 거래 유형에 따라 가격 칸의 뜻이 다르다(판매 = 매매가, 임대 = 월세) */
+  const priceMode = resolveTradeFilterPriceMode(composition?.profileId, state.filters.deal_type);
+
   /**
    * 「적용된 조건」(Owner 2026-10-28 승인 시안) — **URL(지금 목록에 걸린 조건)** 을 그대로 보여 준다(시트 안 임시값 아님).
    * 순서·해제는 `market-applied-conditions` SSOT. 번호 = 목록 계약 순위(①검색어 ②물품 ③옵션·가격 ④거래 상태 ⑥정렬).
@@ -517,8 +521,9 @@ export function MarketFilterSheet({
       draft: {
         sort: state.sort,
         tradeState: state.tradeState,
-        priceMin: state.priceMin,
-        priceMax: state.priceMax,
+        /** 감사 R4: 가격 칸이 숨겨진 상태(부동산 · 유형 미선택)면 가격 조건을 보내지 않는다 */
+        priceMin: priceMode === "hidden" ? "" : state.priceMin,
+        priceMax: priceMode === "hidden" ? "" : state.priceMax,
         rootCategoryId: state.rootCategoryId,
         rootCategoryIds: state.rootCategoryIds,
         topicKey: state.topicKey,
@@ -787,7 +792,12 @@ export function MarketFilterSheet({
         </FilterSection>
 
         {/* Price */}
-        <FilterSection label={safeT("marketplace_filter_price_label")}>
+        <FilterSection
+          label={safeT(priceMode === "monthly" ? "marketplace_filter_price_monthly_label" : "marketplace_filter_price_label")}
+        >
+          {priceMode === "hidden" ? (
+            <p className={FILTER_TEXT_CLASS}>{safeT("marketplace_filter_price_pick_deal_type")}</p>
+          ) : (
           <div className="flex w-full items-center gap-2">
             <input
               type="number"
@@ -809,6 +819,7 @@ export function MarketFilterSheet({
               className={`${OverlayUi.input} !mt-0 placeholder:text-[color:var(--overlay-text-secondary)]`}
             />
           </div>
+          )}
         </FilterSection>
 
         {/* Trade state */}
