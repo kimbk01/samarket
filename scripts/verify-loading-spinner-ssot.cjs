@@ -9,7 +9,8 @@
  *  4. `loading.tsx` 의 `return null` 금지 → `MainSegmentPendingLoading`(허브 첫 화면·통화 화면은 그 안에서 비움).
  *
  * 아직 바꾸지 않은 곳은 기준선(파일별 현재 개수)으로만 묶는다 — 늘면 실패.
- *  - 통화 화면: 통화 변경 규정(별도 단계 P4)
+ *  - 통화 화면: P4(Owner 「C1·C2만 승인」 2026-11-22)로 발신 화면·다시 걸기 버튼은 바꿨다 — 통화 기준선 0.
+ *    통화 구간 loading 의 null 3개는 의도된 빈 화면(네이티브·통화 호스트가 맡음, 영향 분석 §3)이라 그대로 기준선.
  *  - 관리자 화면: 이번 범위 밖
  *  - 스피너 + 글자가 함께 있는 상태 표시(글자만이 아님)
  */
@@ -21,12 +22,9 @@ const SCAN_DIRS = ["app", "components", "lib"];
 
 const BASELINE = {
   "animate-spin": {
-    "app/(main)/community-messenger/calls/outgoing/CommunityMessengerOutgoingDialPageClient.tsx": 1,
-    "components/community-messenger/call-history/CommunityMessengerCallActionButton.tsx": 1,
     "components/admin/settings/AdminNotificationSoundSsotTable.tsx": 1,
   },
   Loader2: {
-    "components/community-messenger/call-history/CommunityMessengerCallActionButton.tsx": 2,
     "components/admin/settings/AdminNotificationSoundSsotTable.tsx": 2,
   },
   "text-only-loading": {
