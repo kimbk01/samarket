@@ -63,12 +63,36 @@ export async function installSupabaseCallCounterFromEnv(): Promise<boolean> {
     return { route, requestKey, userAgent };
   };
 
-  const installed = installSupabaseCallCounter({ supabaseUrl, serviceKey, readContext }) !== null;
+  /**
+   * 2026-11-22 — 전송을 그 요청의 응답 뒤 작업(`after`)으로 묶는다. Next 가 응답 뒤 작업이 끝날 때까지 요청을 살려 둔다.
+   * 요청 밖(저장소 없음)이면 `after` 가 던지므로 false → 계수기가 바로 전송.
+   */
+  let afterFn: ((task: () => Promise<void>) => void) | null = null;
+  try {
+    const n = await import("next/server");
+    afterFn = (n as unknown as { after?: (task: () => Promise<void>) => void }).after ?? null;
+  } catch {
+    afterFn = null;
+  }
+  const scheduleAfter = afterFn
+    ? (task: () => Promise<void>): boolean => {
+        try {
+          if (!workUnitStorage?.getStore()) return false;
+          afterFn!(task);
+          return true;
+        } catch {
+          return false;
+        }
+      }
+    : undefined;
+
+  const installed = installSupabaseCallCounter({ supabaseUrl, serviceKey, readContext, scheduleAfter }) !== null;
   /** 운영 확인용 — 인스턴스 시작 때 1줄 */
   console.info("[supabase-call-counter] installed", {
     installed,
     routeStore: workStorage != null,
     requestStore: workUnitStorage != null,
+    afterFlush: scheduleAfter != null,
   });
   return installed;
 }
