@@ -250,6 +250,12 @@ type InstallOptions = {
   supabaseUrl: string;
   serviceKey: string;
   readContext: () => SupabaseCallContext;
+  /**
+   * 2026-11-22 — 지금 요청의 응답 뒤 작업으로 예약(Next `after`). 예약했으면 true, 요청 밖이라 못 했으면 false.
+   * 넘기면 전송은 요청 수명에 묶이고 5분 타이머를 쓰지 않는다(타이머의 묶이지 않은 전송이 인스턴스 정지로 끊기던 결함).
+   * 설계: docs/audit/supabase-request-surge-2026-11-18/budget-alert-7-routes-and-counter-loss-2026-11-22.md
+   */
+  scheduleAfter?: (task: () => Promise<void>) => boolean;
 };
 
 const INSTALLED = Symbol.for("dibay.supabaseCallCounter.installed");
@@ -305,26 +311,57 @@ export function installSupabaseCallCounter(opts: InstallOptions): SupabaseCallCo
   const counter = new SupabaseCallCounter(origin);
   let lastFlushAt = Date.now();
   let flushing = false;
+  /** 응답 뒤 전송을 이미 예약했는지(인스턴스당 1개) */
+  let afterScheduled = false;
+  /** 예약한 응답 뒤 작업이 돌지 않은 채 남으면(요청 중단 등) 전송이 영영 멈추지 않게 — 예약 시각 */
+  let afterScheduledAt = 0;
 
-  const flush = () => {
-    if (flushing) return;
+  /** 모은 셈을 꺼내 전송 — 끝날 때까지 기다릴 수 있는 약속을 돌려준다 */
+  const flushNow = (): Promise<void> => {
+    if (flushing) return Promise.resolve();
     const rows = counter.drain();
     lastFlushAt = Date.now();
-    if (rows.length === 0) return;
+    if (rows.length === 0) return Promise.resolve();
     flushing = true;
-    void sendSupabaseCallRollup(rows, { supabaseOrigin: origin, serviceKey: opts.serviceKey, fetchImpl: originalFetch }).finally(
+    return sendSupabaseCallRollup(rows, { supabaseOrigin: origin, serviceKey: opts.serviceKey, fetchImpl: originalFetch }).finally(
       () => {
         flushing = false;
       },
     );
   };
+  const flush = () => {
+    void flushNow();
+  };
+  const isDue = () => counter.pending >= FLUSH_CALL_THRESHOLD || Date.now() - lastFlushAt >= FLUSH_INTERVAL_MS;
+  /** 전송할 때면: 요청 안이면 그 요청의 응답 뒤 작업으로(요청이 끝날 때까지 살아 있음), 요청 밖이면 바로 */
+  const flushWhenDue = () => {
+    if (afterScheduled && Date.now() - afterScheduledAt > FLUSH_INTERVAL_MS) afterScheduled = false;
+    if (!isDue() || flushing || afterScheduled) return;
+    if (opts.scheduleAfter) {
+      let scheduled = false;
+      try {
+        afterScheduled = true;
+        afterScheduledAt = Date.now();
+        scheduled = opts.scheduleAfter(async () => {
+          try {
+            await flushNow();
+          } finally {
+            afterScheduled = false;
+          }
+        });
+      } catch {
+        scheduled = false;
+      }
+      if (scheduled) return;
+      afterScheduled = false;
+    }
+    flush();
+  };
 
   const wrapped = function countedFetch(this: unknown, input: RequestInfo | URL, init?: RequestInit) {
     try {
       const href = hrefOf(input);
-      if (href && counter.record(href, opts.readContext())) {
-        if (counter.pending >= FLUSH_CALL_THRESHOLD || Date.now() - lastFlushAt >= FLUSH_INTERVAL_MS) flush();
-      }
+      if (href && counter.record(href, opts.readContext())) flushWhenDue();
     } catch {
       /* 셈 실패는 요청에 영향 없음 */
     }
@@ -337,7 +374,10 @@ export function installSupabaseCallCounter(opts: InstallOptions): SupabaseCallCo
   g[INSTALLED] = counter;
   g[READ_CONTEXT] = opts.readContext;
 
-  const timer = setInterval(flush, FLUSH_INTERVAL_MS);
-  (timer as { unref?: () => void }).unref?.();
+  /** 응답 뒤 예약을 못 쓰는 환경(시험·Next 밖)만 5분 타이머 — 운영은 요청마다 isDue 로 판단 */
+  if (!opts.scheduleAfter) {
+    const timer = setInterval(flush, FLUSH_INTERVAL_MS);
+    (timer as { unref?: () => void }).unref?.();
+  }
   return counter;
 }
