@@ -4,7 +4,8 @@
  * POST : 제출 { tradeHappened: "yes"|"chat_only", ratingType: "good"|"normal"|"bad", tags: string[], comment? }
  * 남길 말(comment)은 운영자만 보며 응답에 넣지 않는다.
  */
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { notifyTradeRatingReceived } from "@/lib/trade/notify-trade-sold-and-rating.server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getTradeServiceClient } from "@/lib/trade/service-supabase";
 import {
@@ -73,6 +74,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ roomId: string
   try {
     const r = await submitTradeRating(sb as never, { productChatId: id, viewerId: auth.userId, body });
     if (!r.ok) return NextResponse.json({ ok: false, error: r.error }, { status: r.status });
+    /** 감사 P3 ③: 공개 전(상대 미평가)이면 받은 사람에게 「평가 도착」 알림 — 응답 뒤에 보낸다 */
+    if (!r.revealed) {
+      after(() =>
+        notifyTradeRatingReceived(sb as never, {
+          productChatId: id,
+          reviewerId: auth.userId,
+          revieweeId: r.revieweeId,
+        }).catch(() => false)
+      );
+    }
     return NextResponse.json({ ok: true, reviewId: r.reviewId, revealed: r.revealed });
   } catch (e) {
     console.error("[trade rating POST]", e);
