@@ -18,7 +18,21 @@ export type MarketplacePublicTradeState = "latest" | "active" | "sold";
 export type MarketplacePublicListingPost = {
   seller_listing_state?: unknown;
   status?: string | null;
+  /** 감사 J5: 일자리 글(구인·구직) 판정용 — `listing_kind`·`job_type` */
+  meta?: unknown;
 };
+
+/** 감사 J5 (2026-11-22): 일자리 글이면 구인/구직, 아니면 null */
+export function marketplaceJobListingKind(post: MarketplacePublicListingPost): "hire" | "work" | null {
+  const m = post.meta && typeof post.meta === "object" ? (post.meta as Record<string, unknown>) : null;
+  if (!m) return null;
+  const kind = String(m.listing_kind ?? "").trim();
+  if (kind === "hire" || kind === "work") return kind;
+  const jobType = String(m.job_type ?? "").trim();
+  if (jobType === "hire") return "hire";
+  if (jobType === "seek") return "work";
+  return null;
+}
 
 /** Legacy URL `tradeState=reserved` → public active. Do not filter L1 reserved as its own marketplace facet. */
 export function parseMarketplacePublicTradeState(
@@ -81,7 +95,13 @@ export function marketplacePublicStatusBadge(
   }
 
   const publicStatus = resolveMarketplacePublicListingStatus(post);
-  const label = marketplacePublicStatusLabel(publicStatus, t);
+  /** 감사 J5: 일자리 글은 「모집중·구직중·마감」(이전: 공통 「판매중·판매완료」) */
+  const jobKind = t ? marketplaceJobListingKind(post) : null;
+  const label = jobKind
+    ? publicStatus === "sold"
+      ? t!("ui_jobs_status_closed")
+      : t!(jobKind === "hire" ? "ui_jobs_status_hiring_active" : "ui_jobs_status_seeking_active")
+    : marketplacePublicStatusLabel(publicStatus, t);
   if (publicStatus === "sold") {
     return {
       label,

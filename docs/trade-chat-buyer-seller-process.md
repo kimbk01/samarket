@@ -3,9 +3,10 @@
 **거래 B 개정 (Owner 2026-10-28, Facebook Marketplace 방식):** 판매자는 **판매중 → 판매완료만** 한다.
 예약·문의중 단계, 구매자 지정, 구매 확정, 후기, 판매완료 되돌리기는 **없다**. 데이터(`transaction_reviews`·예전 방 상태)는 보존한다.
 
-**거래 평가 개정 (Owner 2026-11-16 「거래 평가 살리기」) — 결정됨 · 구현 전(CREW REP S5):** 구매자 지정·구매 확정·예약·되돌리기가 없는 것은 **그대로 유지**한다.
+**거래 평가 개정 (Owner 2026-11-16 「거래 평가 살리기」) — 결정됨 · 구현됨(CREW REP S5, 2026-11-22 정정):** 구매자 지정·구매 확정·예약·되돌리기가 없는 것은 **그대로 유지**한다.
 대신 **실제로 대화한 거래 상대끼리만** 서로 「거래 평가」(좋아요·보통·아쉬워요 + 태그)를 남길 수 있다. 판매자·구매자 양방향이며, 구매자가 판매자를 확인하는 CREW REP 거래 신뢰(T)의 유일한 원천이다.
-자격·공개·이의제기·악용 방지 규칙의 단일 정의는 **`docs/audit/crew-rep-manner-battery-audit-design-2026-11-16.md` §7**. 아래 §1~§3 은 구현 전까지 현재 코드 기준이다(평가 경로는 아직 410).
+자격·공개·이의제기·악용 방지 규칙의 단일 정의는 **`docs/audit/crew-rep-manner-battery-audit-design-2026-11-16.md` §7**. 평가 경로 `app/api/trade/product-chat/[roomId]/rating`(GET 자격·POST 제출)와 거래방 평가 줄이 동작한다 — 자격 판정 `lib/trade/trade-rating.ts` `evaluateTradeRatingEligibility`(E1~E7).
+알림(감사 P3, 2026-11-22): 판매완료 → 평가 자격이 되는 대화 상대에게, 평가 저장(공개 전) → 받은 사람에게 — `lib/trade/notify-trade-sold-and-rating.server.ts`.
 
 같은 글·같은 구매자당 거래 채팅 스레드는 하나만 유지하고, 여러 구매자는 각각 별도 스레드를 갖는다 — 세부 규칙·DB 앵커는 **`docs/trade-chat-room-identity.md`** 참고.
 

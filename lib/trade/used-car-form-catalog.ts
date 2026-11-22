@@ -333,3 +333,20 @@ export function findMileagePresetKeyForDigits(digitsRaw: string): string {
   }
   return USED_CAR_MILEAGE_CUSTOM_KEY;
 }
+
+/**
+ * 감사 C4 (2026-11-22): 「기타 모델」은 저장할 때 작성자 언어 문구로 `car_model` 에 들어간다
+ * (`buildCarModelLineFromKeys`). 표시할 때 끝의 문구를 보는 사람 언어로 바꾼다.
+ */
+export function localizeUsedCarModelLine(text: string, t: TranslateFn = defaultT): string {
+  const s = text.trim();
+  if (!s) return s;
+  const target = t("used_car_model_other");
+  for (const lang of ["ko", "en"] as const) {
+    const label = translate(lang, "used_car_model_other");
+    if (label && s.endsWith(label) && label !== target) {
+      return `${s.slice(0, s.length - label.length)}${target}`;
+    }
+  }
+  return s;
+}

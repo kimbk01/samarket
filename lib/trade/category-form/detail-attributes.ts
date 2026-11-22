@@ -5,7 +5,7 @@ import type { ResolvedTradeComposition } from "./types";
 import { compositionFieldsForSurface } from "./resolve-composition";
 import { labelForTradeOption } from "./option-catalogs";
 import type { AdaptedCompositionField } from "./behavior-adapters";
-import { USED_CAR_BRANDS } from "@/lib/trade/used-car-form-catalog";
+import { USED_CAR_BRANDS, localizeUsedCarModelLine } from "@/lib/trade/used-car-form-catalog";
 import { translateBy } from "@/lib/i18n/translate-by";
 
 function str(v: unknown): string {
@@ -117,7 +117,12 @@ export function buildCompositionDetailAttributes(input: {
     if (def.unit === "km" && /^\d+$/.test(value.replace(/,/g, ""))) {
       value = `${Number(value.replace(/,/g, "")).toLocaleString()} km`;
     }
-    if (def.unit === "sqm") value = `${value} sq`;
+    /** 감사 R7 (2026-11-22): 면적 단위는 제곱미터(㎡) */
+    if (def.unit === "sqm") value = `${value} ㎡`;
+    /** 감사 C4: 「기타 모델」 저장 문구를 보는 사람 언어로 */
+    if (storage.kind === "combined_meta") {
+      value = localizeUsedCarModelLine(value, (key, vars) => translateBy(lang, key, vars));
+    }
     if (input.formatField) {
       const formatted = input.formatField(field.id, value, input.meta);
       if (formatted == null) continue;

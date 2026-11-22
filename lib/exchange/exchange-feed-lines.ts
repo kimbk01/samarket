@@ -20,7 +20,7 @@ export function getExchangeFeedLines(
   const rateLine =
     rateNum != null && !Number.isNaN(rateNum) && rateNum > 0
       ? hasRatePlus
-        ? `1 PHP = ${rateNum.toLocaleString(undefined, { maximumFractionDigits: 2 })} KRW +${exchangeRatePlus}`
+        ? `1 PHP = ${rateNum.toLocaleString(undefined, { maximumFractionDigits: 2 })} KRW ${formatExchangeRatePlus(exchangeRatePlus!)}`
         : `1 PHP = ${rateNum.toLocaleString(undefined, { maximumFractionDigits: 2 })} KRW`
       : null;
   const exchangeAmount =
@@ -32,4 +32,10 @@ export function getExchangeFeedLines(
   const phpAmount =
     exchangeAmount != null && !Number.isNaN(exchangeAmount) ? exchangeAmount : null;
   return { phpAmount, rateLine };
+}
+
+/** 감사 X4 (2026-11-22): 가산값 부호 — 음수는 「-0.5」(이전: 「+-0.5」) */
+export function formatExchangeRatePlus(plus: number): string {
+  const abs = Math.abs(plus).toLocaleString(undefined, { maximumFractionDigits: 4 });
+  return plus < 0 ? `-${abs}` : `+${abs}`;
 }

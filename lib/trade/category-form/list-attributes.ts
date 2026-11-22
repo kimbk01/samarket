@@ -4,6 +4,8 @@
  */
 import type { ResolvedTradeComposition } from "./types";
 import { compositionFieldsForSurface } from "./resolve-composition";
+import { translateBy } from "@/lib/i18n/translate-by";
+import { localizeUsedCarModelLine } from "@/lib/trade/used-car-form-catalog";
 import { labelForTradeOption } from "./option-catalogs";
 
 function str(v: unknown): string {
@@ -100,8 +102,17 @@ export function buildCompositionListAttributes(input: {
       const n = Number(text.replace(/,/g, ""));
       text = `${n.toLocaleString()} km`;
     }
+    /** 감사 R7 (2026-11-22): 면적 단위는 제곱미터(㎡) — 「sq」 는 sq ft 와 헷갈렸다 */
     if (def.unit === "sqm") {
-      text = `${text} sq`;
+      text = `${text} ㎡`;
+    }
+    /** 감사 C4: 「기타 모델」 저장 문구를 보는 사람 언어로 */
+    if (storage.kind === "combined_meta") {
+      text = localizeUsedCarModelLine(text, (key, vars) => translateBy(lang, key, vars));
+    }
+    /** 감사 C5: 중고차 「삽니다」 연식은 「이하」(최대 연식) */
+    if (field.id === "year" && input.meta.car_trade === "buy" && /^\d{4}$/.test(text)) {
+      text = translateBy(lang, "ui_meta_year_suffix", { year: text });
     }
     out.push({ fieldId: field.id, text });
   }

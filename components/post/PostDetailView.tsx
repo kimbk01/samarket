@@ -1506,7 +1506,10 @@ export function PostDetailView({
                   {post.is_free_share
                     ? t("trade_detail_free_share")
                     : post.price != null
-                      ? formatPrice(post.price, defaultCurrency)
+                      ? /** 감사 K2 (2026-11-22): 렌터카 가격은 하루 요금 — 목록과 같이 「/일」 */
+                        detailSpecProfileId === "rent-car"
+                        ? t("post_preview_rent_car_daily", { price: formatPrice(post.price, defaultCurrency) })
+                        : formatPrice(post.price, defaultCurrency)
                       : /** 거래 J D-2: 가격 없는 글은 빈 줄 대신 「가격 문의」 */ t("trade_detail_price_inquiry")}
                 </p>
               ) : null}

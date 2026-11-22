@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-20 08:33 PHT",
+ "generatedAtPht": "2026-11-22 16:54 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -737,7 +737,7 @@
    "lib/trade/showcase/trade-showcase-listings.ts": 49,
    "lib/trade/trade-activity-restriction.ts": 4,
    "lib/trade/trade-chat-call-policy.ts": 3,
-   "lib/trade/trade-lifecycle-policy.ts": 8,
+   "lib/trade/trade-lifecycle-policy.ts": 7,
    "lib/trade/trade-lightweight-goals.ts": 4,
    "lib/trust/trust-score-core.ts": 6,
    "lib/ui/design-system-hard-lock.ts": 1,

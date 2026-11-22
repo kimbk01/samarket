@@ -71,3 +71,11 @@ export function resolveTradeFilterPriceMode(
   if (deal === REAL_ESTATE_DEAL_RENT_VALUE) return "monthly";
   return "hidden";
 }
+
+/** 감사 R7 (2026-11-22): 면적(㎡) 입력 — 숫자와 소수점 하나, 소수 둘째 자리까지 */
+export function sanitizeAreaSqmInput(raw: string): string {
+  const digits = raw.replace(/[^0-9.]/g, "");
+  const [whole, ...rest] = digits.split(".");
+  if (rest.length === 0) return whole ?? "";
+  return `${whole ?? ""}.${rest.join("").slice(0, 2)}`;
+}

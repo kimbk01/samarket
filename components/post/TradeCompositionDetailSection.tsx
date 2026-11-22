@@ -106,7 +106,10 @@ export function TradeCompositionDetailSection(props: {
         {attrs.map((a) => (
           <div key={a.fieldId} className={TRADE_FB_DETAIL_META_ROW}>
             <dt className={TRADE_FB_DETAIL_META_DT}>
-              {tradeFieldAdminLabel(a.fieldId, lang) || a.fieldId}
+              {/* 감사 C5: 중고차 「삽니다」의 가격 칸은 예산(이하) — 글쓰기와 같은 이름 */}
+              {a.fieldId === "price" && profileId === "used-car" && props.meta.car_trade === "buy"
+                ? t("used_car_budget_max_label")
+                : tradeFieldAdminLabel(a.fieldId, lang) || a.fieldId}
             </dt>
             <dd className={TRADE_FB_DETAIL_META_DD}>{a.value}</dd>
           </div>

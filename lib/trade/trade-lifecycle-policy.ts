@@ -421,7 +421,8 @@ export function validateRestrictedMetaPatch(
     if ((ALLOWED_AUX_META_KEYS as readonly string[]).includes(k)) continue;
     /** 가격 통화(meta.currency)는 가격과 같은 핵심 조건 — 같은 안내로 막는다 (한국 주소 지원 3단계 · 감사 2026-11-10) */
     if (k === "currency") return { ok: false, error: coreLockedMsg };
-    return { ok: false, error: `허용되지 않은 필드 변경: ${k}` };
+    /** 감사 C8·R5 (2026-11-22): 내부 칸 이름(`car_model` 등)을 회원에게 보이지 않는다 — 같은 잠금 안내 */
+    return { ok: false, error: coreLockedMsg };
   }
   return { ok: true };
 }
