@@ -1,5 +1,6 @@
 "use client";
 
+import { NetworkDeviceHint } from "@/components/net/NetworkDeviceHint";
 import { useEffect } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -20,6 +21,7 @@ export default function AppError({ error, reset }: ErrorProps) {
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
       <p className="sam-text-body font-medium text-sam-fg">{t("app_error_title")}</p>
       <p className="mt-2 sam-text-body-secondary text-sam-muted">{t("app_error_subtitle")}</p>
+      <NetworkDeviceHint className="mt-2 sam-text-body-secondary font-medium text-sam-fg" />
       <div className="mt-8 flex flex-col gap-3">
         <button
           type="button"

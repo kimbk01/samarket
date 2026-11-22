@@ -44,6 +44,10 @@ export function installStallFetch(body: unknown = { ok: true }): void {
   vi.stubGlobal(
     "fetch",
     vi.fn((_url: string, init: RequestInit = {}) => {
+      // 기기 연결 확인 요청(설계 loading-spinner §3-3 P2 — 요청이 8초 넘게 멈추면 1건)은 DIBAY 요청이 아니다 — 세지 않는다
+      if (/^https:\/\/(www\.gstatic\.com\/generate_204|captive\.apple\.com\/)/.test(String(_url))) {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
       stallState.fetchCalls += 1;
       if (stallState.behavior === "header_stall") return stall(init.signal);
       return Promise.resolve(makeResponse(init.signal));

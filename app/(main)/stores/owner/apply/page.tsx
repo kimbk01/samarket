@@ -1,5 +1,6 @@
 "use client";
 
+import { networkFailureMessageKey } from "@/lib/net/network-health.client";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
@@ -255,8 +256,8 @@ function BusinessApplyRouteInner() {
       const id = String(json.store?.id ?? reviseStoreId ?? "");
       const base = OwnerRoutes.hub(id || null);
       router.replace(`${base}${base.includes("?") ? "&" : "?"}applied=${reviseInitial ? "resubmitted" : "submitted"}`);
-    } catch {
-      setSubmitError(t("common_network_error"));
+    } catch (e) {
+      setSubmitError(t(networkFailureMessageKey(e)));
       window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setSubmitting(false);

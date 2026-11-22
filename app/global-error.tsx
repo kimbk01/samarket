@@ -1,5 +1,6 @@
 "use client";
 
+import { NetworkDeviceHint } from "@/components/net/NetworkDeviceHint";
 import { useEffect, useState } from "react";
 import { isWebpackChunkLoadError, scheduleChunkReloadOncePerBuild } from "@/lib/next/import-with-chunk-retry";
 import { noteEntryFailure } from "@/lib/telemetry/entry-telemetry.client";
@@ -70,6 +71,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
           >
             {translate(lang, "app_error_subtitle")}
           </p>
+          <NetworkDeviceHint lang={lang} style={{ margin: "8px 0 0", fontSize: 14, fontWeight: 600, color: "#3a2a2a" }} />
           <button
             type="button"
             onClick={reset}

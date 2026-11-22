@@ -36,6 +36,7 @@ import { installSessionFreshnessFetchGate } from "@/lib/auth/session-freshness-f
 import { installRegistrationGuidanceFetchGate } from "@/lib/auth/registration-guidance-fetch-gate.client";
 import { installRscNavigationDeadline } from "@/lib/net/rsc-navigation-deadline.client";
 import { installChunkStallObserver } from "@/lib/net/chunk-stall-observer.client";
+import { installNetworkHealthObserver } from "@/lib/net/network-health.client";
 
 /**
  * Phase 3-2a (Auth HARD LOCK Amendment 2026-11-08 (7)): 모듈 로드 시점 = 루트 셸 렌더·자식 effect 의 첫 `/api` 요청보다 먼저.
@@ -50,6 +51,11 @@ installRegistrationGuidanceFetchGate();
  */
 installRscNavigationDeadline();
 installChunkStallObserver();
+/**
+ * 기기 네트워크 안내 (설계 `docs/audit/loading-spinner-network-notice-design-2026-11-22.md` §3-3 P2): DIBAY 요청 결과를 읽기만 하는 관찰.
+ * 요청·응답 무변경 · 통화 경로 제외 · 맨 바깥(다른 관문이 끝낸 최종 결과를 본다).
+ */
+installNetworkHealthObserver();
 
 const AppBootContext = createContext<AppBootState | null>(null);
 

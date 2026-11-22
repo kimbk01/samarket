@@ -1,4 +1,5 @@
 "use client";
+import { networkFailureMessageKey } from "@/lib/net/network-health.client";
 import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -45,9 +46,9 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
     let res: Response;
     try {
       res = await fetch(`/api/posts/${encodeURIComponent(id)}/owner-edit`, { credentials: "include" });
-    } catch {
+    } catch (e) {
       setStatus("error");
-      setErrorMessage(t("common_network_error"));
+      setErrorMessage(t(networkFailureMessageKey(e)));
       return;
     }
     const data = (await res.json().catch(() => ({}))) as {

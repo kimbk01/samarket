@@ -1,5 +1,6 @@
 "use client";
 
+import { networkFailureMessageKey } from "@/lib/net/network-health.client";
 import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { HistoryBackTextLink } from "@/components/navigation/HistoryBackTextLink";
@@ -105,8 +106,8 @@ export function StoreCommerceOrderDetailClient({
         return;
       }
       setState({ kind: "ok", order: ord, items: j.items ?? [] });
-    } catch {
-      if (!silent) setState({ kind: "error", message: t("common_network_error") });
+    } catch (e) {
+      if (!silent) setState({ kind: "error", message: t(networkFailureMessageKey(e)) });
     }
   }, [orderId, storeSlug, t]);
 

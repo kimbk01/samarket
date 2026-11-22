@@ -1,5 +1,6 @@
 "use client";
 
+import { networkFailureMessageKey } from "@/lib/net/network-health.client";
 import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import {
   resolveStoreSalesBlockedReason,
@@ -2018,9 +2019,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         chatHref: typeof orderJson.chatHref === "string" ? orderJson.chatHref : null,
       });
       cart.clearStoreCart(store.id);
-    } catch {
+    } catch (e) {
       dibayPerfOnOrderApiDone(store.id);
-      setErr(t("common_network_error_generic"));
+      const key = networkFailureMessageKey(e);
+      setErr(t(key === "common_network_error" ? "common_network_error_generic" : key));
     } finally {
       orderSubmitFlightRef.current = false;
       setBusy(false);

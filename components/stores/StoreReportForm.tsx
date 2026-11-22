@@ -1,4 +1,5 @@
 "use client";
+import { networkFailureMessageKey } from "@/lib/net/network-health.client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useRouter } from "next/navigation";
@@ -76,8 +77,8 @@ export function StoreReportForm({
         return;
       }
       setOk((prev) => (prev ? prev : true));
-    } catch {
-      setErr(t("common_network_error"));
+    } catch (e) {
+      setErr(t(networkFailureMessageKey(e)));
     } finally {
       setBusy((prev) => (prev ? false : prev));
     }

@@ -1,5 +1,6 @@
 "use client";
 
+import { networkFailureMessageKey } from "@/lib/net/network-health.client";
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
@@ -95,8 +96,8 @@ export function StorePhoneVerifySheet({
       setOtp("");
       submittedRef.current = "";
       setStep("code");
-    } catch {
-      setError(t("common_network_error"));
+    } catch (e) {
+      setError(t(networkFailureMessageKey(e)));
     } finally {
       setSending(false);
     }
@@ -130,8 +131,8 @@ export function StorePhoneVerifySheet({
         }
         onVerified({ verificationId: json.verificationId, phone: json.phone, verifiedAt: json.verifiedAt ?? "" });
         onClose();
-      } catch {
-        setError(t("common_network_error"));
+      } catch (e) {
+        setError(t(networkFailureMessageKey(e)));
         setOtp("");
         submittedRef.current = "";
       } finally {
