@@ -127,10 +127,17 @@ function buildTradeMeta(
     if (v.buildingName.trim()) o.building_name = v.buildingName.trim();
     if (v.estateType.trim()) o.estate_type = v.estateType.trim();
     if (v.dealType.trim()) o.deal_type = v.dealType.trim();
-    if (v.deposit.trim()) o.deposit = v.deposit.trim();
-    if (v.monthly.trim()) o.monthly = v.monthly.trim();
-    if (v.managementFee.trim()) o.management_fee = v.managementFee.trim();
-    if (v.hasPremium) o.has_premium = true;
+    /**
+     * 감사 R1 (2026-11-22): 보증금·월세·관리비·권리금은 「임대」 칸이다(behavior-adapters `adaptRealEstate`).
+     * 「판매」로 바꾸면 화면에서 사라지므로 저장하지 않는다 — 수정 저장은 빠진 키를 null 로 보내 지운다
+     * (`withClearedTradeWriteMetaKeys`).
+     */
+    if (realEstateDealPersistScope(v.dealType).rentFields) {
+      if (v.deposit.trim()) o.deposit = v.deposit.trim();
+      if (v.monthly.trim()) o.monthly = v.monthly.trim();
+      if (v.managementFee.trim()) o.management_fee = v.managementFee.trim();
+      if (v.hasPremium) o.has_premium = true;
+    }
     if (v.areaSqm.trim()) o.size_sq = v.areaSqm.trim();
     if (v.roomCount.trim()) o.room_count = v.roomCount.trim();
     if (v.bathroomCount.trim()) o.bathroom_count = v.bathroomCount.trim();
@@ -190,6 +197,7 @@ import {
   withClearedTradeWriteMetaKeys,
   withExplicitTradeMetaClears,
 } from "@/lib/trade/category-form/trade-write-owned-meta-keys";
+import { realEstateDealPersistScope } from "@/lib/trade/category-form/real-estate-deal-persist-scope";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { resolveAddressFlowEntryPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
@@ -1807,7 +1815,11 @@ function TradeMarketplaceWriteFormInner({
         }
       );
       if (compErrs.title && !next.title) next.title = compErrs.title;
-      if (compErrs.price && !next.price) next.price = compErrs.price;
+      /**
+       * 감사 G1 (2026-11-22): 나눔·가격 없는 카테고리는 가격 칸이 화면에 없다 — 구성의 `price` 필수를 적용하면
+       * 보이지 않는 오류로 등록·수정 저장이 조용히 막힌다. 가격 칸이 보일 때만 구성 필수를 적용한다.
+       */
+      if (compErrs.price && !next.price && hasPrice && !effectiveFreeShare) next.price = compErrs.price;
       if (compErrs.description && !next.description) next.description = compErrs.description;
     }
     setErrors(next);
@@ -2082,8 +2094,11 @@ function TradeMarketplaceWriteFormInner({
             : undefined;
 
         const submitFreeShare = isUsedCarSkin ? false : isFreeShare;
+        /** 감사 R2 (2026-11-22): 부동산 「임대」는 매매가 칸이 없다 — 판매일 때 넣은 값이 `posts.price` 에 남지 않게 한다 */
+        const realEstateDropsSalePrice =
+          skinKey === "real-estate" && !realEstateDealPersistScope(dealType).salePrice;
         const priceToSend =
-          hasPrice && !submitFreeShare && price.trim()
+          hasPrice && !submitFreeShare && !realEstateDropsSalePrice && price.trim()
             ? Number(price.replace(/,/g, ""))
             : null;
         const submitRegion = effectiveTradeRegionId.trim();
