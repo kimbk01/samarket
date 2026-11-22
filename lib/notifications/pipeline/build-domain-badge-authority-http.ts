@@ -33,9 +33,7 @@ import { resolveMemberBadgeCounterShadowRate } from "@/lib/notifications/pipelin
 import {
   loadMemberUnreadRoomInputs,
   memberUnreadRoomInputsToLoaderInput,
-  stableFactsKey,
 } from "@/lib/notifications/member-unread-room-inputs";
-import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 import {
   buildBadgeExplainMatrix,
   type BadgeExplainMatrix,
@@ -62,10 +60,7 @@ import {
 import { conversationRoomsFromParticipantFactsNormalized } from "@/lib/notifications/badge-authority-rebuild/conversation-b-from-participant-facts";
 import { loadBellExplainUnreadEventRows } from "@/lib/notifications/load-bell-explain-unread-events";
 import { loadMemberBadgeFacts } from "@/lib/notifications/badge-authority-rebuild/load-member-badge-facts";
-import {
-  deriveBellBadgeFactsFromRows,
-  stableBellFactsKey,
-} from "@/lib/notifications/derive-bell-badge-facts-from-rows";
+import { deriveBellBadgeFactsFromRows } from "@/lib/notifications/derive-bell-badge-facts-from-rows";
 import { loadMessengerUnreadRoomFactsFromParticipants } from "@/lib/notifications/load-messenger-unread-room-facts-from-participants";
 import { loadOrphanMissedCallFacts } from "@/lib/notifications/load-orphan-missed-call-facts";
 import { loadTradeStoreOrderUnreadRoomFactsFromParticipants } from "@/lib/notifications/load-trade-store-order-unread-room-facts-from-participants";
@@ -249,28 +244,7 @@ export async function buildDomainBadgeAuthorityHttpPayload(
   ]);
   const { missed, categoryCounts, rows: bellExplainRows } = bellFacts;
 
-  /** 2-d-1 감시: 행에서 계산한 요청 중 표본만 이전 ①·② 를 따로 읽어 통째로 비교 기록(응답 뒤 · 숫자 불변) */
-  if (bellFacts.viaRows && Math.random() < resolveMemberBadgeCounterShadowRate()) {
-    keepAliveAfterResponse(
-      (async () => {
-        const [m2, c2] = await Promise.all([
-          loadOrphanMissedCallFacts(sb, uid),
-          countNotificationEventsBadge(sb, uid),
-        ]);
-        const match =
-          stableBellFactsKey({ missed: m2, categoryCounts: c2 }) ===
-          stableBellFactsKey({ missed, categoryCounts });
-        const log = {
-          userIdTail: uid.slice(-8),
-          rows: bellExplainRows.length,
-          orphan: [missed.orphan, m2.orphan],
-          total: [categoryCounts.total, c2.total],
-        };
-        if (match) console.info("[bell-single-read-shadow]", { ...log, match: true });
-        else console.warn("[bell-single-read-shadow]", { ...log, match: false });
-      })().catch(() => null)
-    );
-  }
+  /** 2026-11-22 그림자 퇴역 — `[bell-single-read-shadow]` 11-19~ 일치 249 · 불일치 0 (설계 shadow-retirement-design-2026-11-22.md) */
   const { messengerRooms, tradeStoreRooms } = unreadFacts;
 
   // Messenger + Trade + Store Order: participants unread (list SSOT). Targets are derived only.
@@ -389,27 +363,7 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     }
   }
 
-  /**
-   * D2 2단계 감시 (2026-11-19) — 표로 계산한 결과(방 ID·안 읽음 수·식별 키·매장별 수)를 표본(기본 10%)에서
-   * 이전 경로로 다시 계산해 통째로 비교 기록. 응답 뒤 · 숫자 불변.
-   */
-  /** 2-c 이후: 표로 계산한 요청 중 표본만 이전 경로(participants·rooms·주문·매장)로 다시 계산해 비교(감시 유지) */
-  if (unreadFacts.viaInputs && Math.random() < resolveMemberBadgeCounterShadowRate()) {
-    keepAliveAfterResponse(
-      (async () => {
-        const legacyRows = loadUnreadParticipantRoomRows(sb, uid);
-        const [m2, t2] = await Promise.all([
-          loadMessengerUnreadRoomFactsFromParticipants(sb, uid, legacyRows),
-          loadTradeStoreOrderUnreadRoomFactsFromParticipants(sb, uid, legacyRows),
-        ]);
-        const sameMessenger = stableFactsKey(m2) === stableFactsKey(messengerRooms);
-        const sameTrade = stableFactsKey(t2) === stableFactsKey(tradeStoreRooms);
-        const log = { userIdTail: uid.slice(-8), sameMessenger, sameTrade, rows: unreadFacts.inputRowCount, via: "inputs" };
-        if (sameMessenger && sameTrade) console.info("[unread-inputs-shadow]", { ...log, match: true });
-        else console.warn("[unread-inputs-shadow]", { ...log, match: false });
-      })().catch(() => null)
-    );
-  }
+  /** 2026-11-22 그림자 퇴역 — `[unread-inputs-shadow]` 11-20 06:00 UTC 이후 일치 106 · 불일치 0 (설계 shadow-retirement-design-2026-11-22.md) */
 
   const bell = projection.bell;
   const explainMatrix = buildBadgeExplainMatrix({

@@ -1,8 +1,4 @@
-import { after, after as afterResponse, NextRequest, NextResponse } from "next/server";
-import {
-  diffMessagesAfterShadow,
-  shouldSampleRoomEntryShadow,
-} from "@/lib/community-messenger/server/room-entry-shadow";
+import { after, NextRequest, NextResponse } from "next/server";
 import type { CommunityMessengerMessagesAfterPerf } from "@/lib/community-messenger/service";
 import { ensureApiRouteAuthGate } from "@/lib/auth/ensure-api-route-auth-gate";
 import { addSupabaseCallRequestUnits, tagSupabaseCallRequest } from "@/lib/perf/supabase-call-counter";
@@ -110,11 +106,9 @@ export async function GET(
       afterMessageId: after,
       limit: Number.isFinite(limit) ? limit : undefined,
     };
-    let viaPageRpc = false;
     const result = await runSingleFlight(afterKey, async () => {
       const viaPage = await cm.listCommunityMessengerRoomMessagesAfterViaPageRpc(afterInput);
       if (viaPage.ok || viaPage.error === "not_found") {
-        viaPageRpc = true;
         return viaPage;
       }
       return cm.listCommunityMessengerRoomMessagesAfter({ ...afterInput, _perf: afterPerf });
@@ -149,22 +143,7 @@ export async function GET(
         payload_ms: afterPerf.payload_ms ?? 0,
       });
     }
-    /** 감시 유지 — DB 함수로 응답한 요청 중 표본(기본 10%)만 응답 뒤 기존 경로로 같은 결과를 만들어 비교 */
-    if (viaPageRpc && shouldSampleRoomEntryShadow()) {
-      const pageResult = { messages: result.messages as unknown[], hasMore: result.hasMore };
-      afterResponse(async () => {
-        try {
-          const legacy = await cm.listCommunityMessengerRoomMessagesAfter(afterInput);
-          const d = diffMessagesAfterShadow(pageResult, legacy);
-          const oldResult = pageResult;
-          const log = { roomIdTail: canonicalRoomId.slice(-8), count: oldResult.messages.length, ...d };
-          if (d.match) console.info("[messages-after-shadow]", log);
-          else console.warn("[messages-after-shadow]", log);
-        } catch {
-          /* 비교 실패는 무시 — 응답은 이미 나감 */
-        }
-      });
-    }
+    /** 2026-11-22 그림자 퇴역 — `[messages-after-shadow]` 11-19 03:00 UTC 이후 일치 112 · 불일치 0 */
     return jsonOk({ messages: result.messages, hasMore: result.hasMore, mode: "after" as const });
   }
 

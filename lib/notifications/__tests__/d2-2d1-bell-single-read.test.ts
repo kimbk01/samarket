@@ -45,10 +45,11 @@ describe("D2 2-d-1 — bell rows read once", () => {
     expect(deriveBellBadgeFactsFromRows(rows, rows.length + 1)).not.toBeNull();
   });
 
-  it("builder reads the bell rows first and keeps the separate path + shadow", () => {
+  it("builder reads the bell rows first and keeps the separate path (shadow retired 2026-11-22)", () => {
     const src = readFileSync("lib/notifications/pipeline/build-domain-badge-authority-http.ts", "utf8");
     expect(src).toContain("deriveBellBadgeFactsFromRows(rows, MEMBER_NOTIFICATION_A_LOAD_LIMIT)");
-    expect(src).toContain("[bell-single-read-shadow]");
+    expect(src).not.toContain('console.info("[bell-single-read-shadow]"');
+    expect(src).not.toContain("keepAliveAfterResponse(");
     expect(src).toContain("loadOrphanMissedCallFacts(sb, uid)");
     expect(src).toContain("countNotificationEventsBadge(sb, uid)");
   });

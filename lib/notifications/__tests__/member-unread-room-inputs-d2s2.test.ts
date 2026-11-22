@@ -74,10 +74,10 @@ describe("입력 표 → 기존 로더 입력", () => {
 });
 
 describe("계약", () => {
-  it("배지 계산은 표본에서만 비교하고 응답 뒤 실행", () => {
+  it("2026-11-22 그림자 퇴역 — 응답 뒤 이전 경로 재계산·비교 없음(폴백 경로는 유지)", () => {
     const src = readFileSync(join(process.cwd(), "lib/notifications/pipeline/build-domain-badge-authority-http.ts"), "utf8");
-    expect(src).toContain('console.warn("[unread-inputs-shadow]"');
-    expect(src).toMatch(/if \(unreadFacts\.viaInputs && Math\.random\(\) < resolveMemberBadgeCounterShadowRate\(\)\) \{\s*keepAliveAfterResponse\(/);
+    expect(src).not.toContain('console.warn("[unread-inputs-shadow]"');
+    expect(src).not.toContain("const legacyRows = loadUnreadParticipantRoomRows(sb, uid);");
   });
 
   it("2-c: 입력 표 1회 → 같은 로더, 실패하면 이전 경로(participants·rooms)", () => {

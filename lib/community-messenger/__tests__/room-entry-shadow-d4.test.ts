@@ -96,11 +96,11 @@ describe("D4 계약 — 응답 불변 · 기존 함수 재사용", () => {
     expect(src.indexOf("enterRoomEntryPrefetch(")).toBeLessThan(src.indexOf("messengerRoomCanonicalOrJsonError(auth.userId, rawRouteRoomId)"));
   });
 
-  it("2단계: messages?after 는 DB 함수 먼저, 오류면 기존 경로 · 감시는 응답 뒤 표본", () => {
+  it("2단계: messages?after 는 DB 함수 먼저, 오류면 기존 경로 · 감시는 2026-11-22 퇴역", () => {
     const src = read("app/api/community-messenger/rooms/[roomId]/messages/route.ts");
     expect(src).toContain("const viaPage = await cm.listCommunityMessengerRoomMessagesAfterViaPageRpc(afterInput);");
     expect(src).toContain("return cm.listCommunityMessengerRoomMessagesAfter({ ...afterInput, _perf: afterPerf });");
-    expect(src).toMatch(/if \(viaPageRpc && shouldSampleRoomEntryShadow\(\)\)/);
+    expect(src).not.toContain("diffMessagesAfterShadow(");
   });
 
   it("2단계: 호출 지점 4곳이 미리 받은 값을 먼저 본다(없으면 기존 조회)", () => {
