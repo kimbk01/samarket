@@ -26,6 +26,7 @@ import { sanitizeTradeMetaCurrency } from "@/lib/trade/trade-price-currency";
 import { assertActiveTradeNationalLgu } from "@/lib/trade/location/national/assert-active-trade-national-lgu";
 import { isPersistableStorageMediaRef } from "@/lib/media/persistable-storage-media-ref";
 import { normalizeTradePriceForSave } from "@/lib/posts/trade-price-server-validation";
+import { checkTradeRequiredFieldsOnCreate } from "@/lib/trade/category-form/server-required-fields.server";
 
 const ALLOWED_TYPES: PostType[] = ["trade", "community", "service", "feature"];
 
@@ -234,6 +235,19 @@ export async function POST(req: NextRequest) {
     );
   }
   const row = buildCreatePostInsertRow(parsed, userId);
+  /**
+   * 서버 필수 칸 검사(설계 `trade-server-required-fields-design-2026-11-22.md`).
+   * 1단계: 막지 않고 로그만 — 2단계(`TRADE_REQUIRED_FIELDS_ENFORCE`)에서 거절.
+   */
+  if (parsed.type === "trade") {
+    const blocked = await checkTradeRequiredFieldsOnCreate(
+      sb as import("@supabase/supabase-js").SupabaseClient<any>,
+      parsed.categoryId,
+      row as Record<string, unknown>,
+      { userId, acceptLanguage: req.headers.get("accept-language") }
+    );
+    if (blocked) return blocked;
+  }
   const { data, error } = await (sb as import("@supabase/supabase-js").SupabaseClient)
     .from(POSTS_TABLE_WRITE)
     .insert(row)

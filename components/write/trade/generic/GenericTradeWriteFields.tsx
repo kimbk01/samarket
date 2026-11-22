@@ -16,15 +16,11 @@ import { getTradeOptionCatalog } from "@/lib/trade/category-form/option-catalogs
 import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labels";
 import type { TradeFieldValueBag } from "@/lib/trade/category-form/field-value-bridge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { TRADE_REQUIRED_FIELDS_BASE_SKIP } from "@/lib/trade/category-form/server-required-fields";
 
+/** 서버 필수 검사와 같은 제외 칸(`server-required-fields.ts`) + 화면 전용 위젯이 직접 검사하는 칸 */
 const SHELL_SKIP = new Set([
-  "images",
-  "title",
-  "description",
-  "location",
-  "trade_meet_spot",
-  "is_price_offer",
-  "is_free_share",
+  ...TRADE_REQUIRED_FIELDS_BASE_SKIP,
   /** Complex catalogs still owned by specialized widgets */
   "make",
   "model",

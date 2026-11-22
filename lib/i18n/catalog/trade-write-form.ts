@@ -3,6 +3,7 @@ export const tradeWriteFormMessages = {
   ko: {
     trade_write_photos: "사진",
     trade_write_err_photo_required: "사진을 1장 이상 올려 주세요.",
+    trade_write_err_required_fields: "필수 항목을 모두 입력해 주세요.",
     trade_write_title: "제목",
     trade_write_content: "내용",
     trade_write_frequent_phrases: "자주 쓰는 문구",
@@ -164,6 +165,7 @@ export const tradeWriteFormMessages = {
   en: {
     trade_write_photos: "Photos",
     trade_write_err_photo_required: "Add at least one photo.",
+    trade_write_err_required_fields: "Please fill in all required fields.",
     trade_write_title: "Title",
     trade_write_content: "Description",
     trade_write_frequent_phrases: "Saved phrases",
