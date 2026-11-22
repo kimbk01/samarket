@@ -67,6 +67,10 @@ export async function markRoomReadAtomic(
     p_idempotency_key: input.idempotencyKey,
   });
   if (error) return { ok: false, error: String(error.message ?? "mark_room_read_failed") };
+  return mapMarkRoomReadAtomicPayload(data);
+}
+
+function mapMarkRoomReadAtomicPayload(data: unknown): MarkRoomReadAtomicResult {
   const payload = data as Record<string, unknown> | null;
   if (!payload || payload.ok !== true) {
     return { ok: false, error: String(payload?.error ?? "mark_room_read_denied") };
@@ -81,6 +85,40 @@ export async function markRoomReadAtomic(
     lastReadAdvanced: payload.lastReadAdvanced === true,
     regressionBlocked: payload.regressionBlocked === true,
   };
+}
+
+export const DIBAY_MARK_ROOM_READ_ATOMIC_AUTO_RPC = "dibay_mark_room_read_atomic_auto";
+
+/**
+ * 2026-11-22 읽음 2단계 — 방 종류·식별 키·끝 메시지·중복 방지 키를 DB 함수 안에서 정하고 기존 원자 읽음을 부른다.
+ * (이전: 방 조회 1 + 끝 메시지 조회 1 + 원자 읽음 1.) 설계: docs/audit/supabase-request-surge-2026-11-18/read-mark-stage2-design-2026-11-22.md
+ * - `unsupported`: 일반 1:1·그룹·거래가 아님·식별 키 없음·방 없음 → 아무것도 안 씀(이전 경로로)
+ * - `missing`: DB 함수 적용 전 → 지금 3번 경로로
+ */
+export async function markRoomReadAtomicAuto(
+  sb: SupabaseClient<any>,
+  input: { viewerId: string; roomId: string; readThroughMessageId: string | null }
+): Promise<
+  | { kind: "done"; result: MarkRoomReadAtomicResult }
+  | { kind: "unsupported" }
+  | { kind: "missing" }
+> {
+  const { data, error } = await (sb as any).rpc(DIBAY_MARK_ROOM_READ_ATOMIC_AUTO_RPC, {
+    p_viewer_id: input.viewerId,
+    p_room_id: input.roomId,
+    p_read_through_message_id: input.readThroughMessageId ?? null,
+  });
+  if (error) {
+    const msg = String(error.message ?? "").toLowerCase();
+    const code = String((error as { code?: unknown }).code ?? "");
+    if (code === "PGRST202" || code === "42883" || msg.includes("could not find the function") || (msg.includes(DIBAY_MARK_ROOM_READ_ATOMIC_AUTO_RPC) && msg.includes("does not exist"))) {
+      return { kind: "missing" };
+    }
+    return { kind: "done", result: { ok: false, error: String(error.message ?? "mark_room_read_failed") } };
+  }
+  const payload = data as Record<string, unknown> | null;
+  if (payload && payload.ok !== true && payload.error === "unsupported_domain") return { kind: "unsupported" };
+  return { kind: "done", result: mapMarkRoomReadAtomicPayload(data) };
 }
 
 export async function loadRoomDomainForUnreadAuthority(
