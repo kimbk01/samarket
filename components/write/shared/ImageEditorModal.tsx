@@ -1,4 +1,5 @@
 "use client";
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
@@ -386,7 +387,7 @@ export function ImageEditorModal({
 
         <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-2">
           {loading ? (
-            <p className="text-white/70">{t("common_loading")}</p>
+            <DibayPendingSpinner layout="inline" tone="inverse" />
           ) : error ? (
             <p className="text-red-300">{error}</p>
           ) : (

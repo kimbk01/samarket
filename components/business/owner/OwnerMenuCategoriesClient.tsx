@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { BodyPortal } from "@/components/layout/BodyPortal";
@@ -501,7 +502,7 @@ export function OwnerMenuCategoriesClient({
         {error ? <p className="sam-text-body-secondary text-sam-danger">{resolveOwnerApiErrorMessage(error, t)}</p> : null}
 
         {loading ? (
-          <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
+          <DibayPendingSpinner layout="inline" />
         ) : sections.length === 0 ? (
           <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
             {t("business_phase7_481")}

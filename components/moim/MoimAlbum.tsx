@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, ImagePlus, Pin, X } from "lucide-react";
@@ -350,7 +351,7 @@ export function MoimAlbumTab({ moim, onReport, onToast }: { moim: MoimDetailDto;
           {nextBefore ? (
             <div ref={sentinel} className="px-4 pt-3">
               <button type="button" disabled={list.more} className={`${moimCls.btnSecondary} ${moimCls.btnSm} w-full`} onClick={() => void loadMore()}>
-                {list.more ? t("common_loading") : t("moim_home_more_btn")}
+                {list.more ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} /> : t("moim_home_more_btn")}
               </button>
             </div>
           ) : null}
@@ -454,7 +455,7 @@ export function MoimScheduleAlbumSection({
           {list.nextBefore ? (
             <div className="px-4 pt-3">
               <button type="button" disabled={list.more} className={`${moimCls.btnSecondary} ${moimCls.btnSm} w-full`} onClick={() => void list.loadMore()}>
-                {list.more ? t("common_loading") : t("moim_home_more_btn")}
+                {list.more ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} /> : t("moim_home_more_btn")}
               </button>
             </div>
           ) : null}

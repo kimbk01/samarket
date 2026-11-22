@@ -100,8 +100,8 @@ if (!bootstrapGate.includes("CommunityMessengerRoomEntryEmpty")) {
 if (bootstrapGate.includes("resolveInstantStoreOrderMessengerEntrySnapshot")) {
   fail("BootstrapGate must not mount RoomClient with instant incomplete shell snapshot");
 }
-if (!ownerSlide.includes("StoreDeliveryBufferingSpinner")) {
-  fail("OwnerStoreOrderChatSlidePanel must use StoreDeliveryBufferingSpinner instead of connecting text");
+if (!ownerSlide.includes("DibaySpinner")) {
+  fail("OwnerStoreOrderChatSlidePanel must use DibaySpinner (DIBAY 스피너 단일 정의) instead of connecting text");
 }
 if (ownerSlide.includes("store_owner_chat_connecting")) {
   fail("OwnerStoreOrderChatSlidePanel must not show store_owner_chat_connecting text while loading");

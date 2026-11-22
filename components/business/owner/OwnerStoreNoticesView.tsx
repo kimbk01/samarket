@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -255,7 +256,7 @@ export function OwnerStoreNoticesView() {
           {t("business_phase7_431")}
         </button>
 
-        {loading ? <p className="sam-text-body text-sam-muted">{t("common_loading")}</p> : null}
+        {loading ? <DibayPendingSpinner layout="inline" /> : null}
       </OwnerStoreAdminDashSection>
 
       <OwnerStoreAdminDashSection className="mt-3">

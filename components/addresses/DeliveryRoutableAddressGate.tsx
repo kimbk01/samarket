@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
@@ -116,7 +117,7 @@ export function DeliveryRoutableAddressGate({ children }: { children: ReactNode 
     return (
       <div className={`min-h-[40vh] ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}>
         <div className={`${STORES_DELIVERY_CONTENT_INNER_CLASS} pt-8`}>
-          <p className="text-sm text-sam-muted">{t("common_loading")}</p>
+          <DibayPendingSpinner layout="inline" />
         </div>
       </div>
     );

@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
@@ -119,7 +120,7 @@ export function OwnerStorePartnerAgreementView() {
   }, [agree, saving, storeId, t, terms]);
 
   if (loading) {
-    return <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>;
+    return <DibayPendingSpinner layout="block" />;
   }
   if (failed || !data) {
     return (

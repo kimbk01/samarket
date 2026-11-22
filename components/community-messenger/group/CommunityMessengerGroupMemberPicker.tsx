@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner, DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useEffect, useMemo, useState } from "react";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 import type { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -189,7 +190,7 @@ export function CommunityMessengerGroupMemberPicker({
           data-cm-group-member-picker-search=""
         />
         {search.busy ? (
-          <p className={`mt-2 ${Sam.text.helper} text-sam-muted`}>{t("common_loading")}</p>
+          <DibayPendingSpinner layout="inline" />
         ) : null}
         {search.failed ? (
           <p className={`mt-2 ${Sam.text.helper} text-sam-muted`}>{t("nav_messenger_action_failed")}</p>
@@ -293,7 +294,7 @@ export function CommunityMessengerGroupMemberPicker({
           className="dibay-overlay-btn dibay-overlay-btn--primary !flex-none"
           data-cm-group-member-picker-primary=""
         >
-          {primaryCta.busy ? t("common_loading") : primaryCta.label}
+          {primaryCta.busy ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} /> : primaryCta.label}
         </button>
         {showFriendOnlyPolicyNotice ? (
           <p className={`mt-3 ${Sam.text.helper} leading-5 text-sam-muted`}>

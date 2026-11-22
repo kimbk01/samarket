@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { buyerPaidAmountPhp } from "@/lib/stores/buyer-store-order-money";
 import "@/app/store-order-list-tokens.css";
 import { DibayActionSheet } from "@/components/ui/dibay-overlay";
@@ -430,10 +431,7 @@ function MyStoreOrderCard({
                     title={t("mypage_comp_orders_list_delete_title")}
                   >
                     {deleteBusy ? (
-                      <span
-                        aria-hidden
-                        className="inline-block h-4 w-4 rounded-full border-2 border-sam-border border-t-sam-primary motion-safe:animate-spin"
-                      />
+                      <DibaySpinner size="sm" decorative />
                     ) : (
                       <MoreHorizontal className="h-5 w-5" aria-hidden />
                     )}
@@ -1232,7 +1230,7 @@ export function MyStoreOrdersView({
                   onClick={() => void loadMore()}
                   className="sam-btn sam-btn--secondary sam-btn--sm disabled:opacity-60"
                 >
-                  {moreBusy ? t("common_loading") : moreError ? t("common_retry") : t("mypage_orders_load_more")}
+                  {moreBusy ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} /> : moreError ? t("common_retry") : t("mypage_orders_load_more")}
                 </button>
               </div>
             ) : null}

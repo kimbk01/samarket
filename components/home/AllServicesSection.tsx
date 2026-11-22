@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useCallback, useEffect, useState } from "react";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -41,7 +42,7 @@ export function AllServicesSection() {
   if (loading) {
     return (
       <div className="rounded-ui-rect bg-sam-surface py-12 text-center sam-text-body text-sam-muted shadow-sm">
-        {t("common_loading")}
+        <DibaySpinner size="lg" />
       </div>
     );
   }

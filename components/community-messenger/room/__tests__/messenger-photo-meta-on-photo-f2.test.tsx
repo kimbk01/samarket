@@ -128,7 +128,7 @@ describe("사진 위 시간·읽음 (F2)", () => {
         />
       )
     );
-    expect(host.querySelector(".animate-spin")).toBeNull();
+    expect(host.querySelector(".sam-spinner")).toBeNull();
     expect(host.textContent).not.toContain("common_sending");
     expect(host.querySelector('[data-cm-photo-meta] [data-cm-outbound-status="failed"]')).not.toBeNull();
     expect(host.querySelector("[data-cm-outbound-failed]")).not.toBeNull();
@@ -142,7 +142,7 @@ describe("사진 위 시간·읽음 (F2)", () => {
         />
       )
     );
-    expect(host.querySelector(".animate-spin")).not.toBeNull();
+    expect(host.querySelector(".sam-spinner")).not.toBeNull();
     expect(host.querySelector('[data-cm-photo-meta] [data-cm-outbound-status="sending"]')).not.toBeNull();
   });
 });

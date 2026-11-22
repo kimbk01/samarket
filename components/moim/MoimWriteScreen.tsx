@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ImagePlus, X } from "lucide-react";
@@ -168,7 +169,7 @@ export function MoimWriteScreen({ moimId }: { moimId: string }) {
                 aria-label={t("moim_write_add_photo_aria")}
               >
                 <ImagePlus className="h-5 w-5" aria-hidden />
-                {uploading ? t("common_loading") : null}
+                {uploading ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} /> : null}
               </button>
             ) : null}
             {images.map((u, i) => (

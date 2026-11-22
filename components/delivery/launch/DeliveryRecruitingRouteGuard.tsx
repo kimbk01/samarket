@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import {
   isDeliveryRecruiting,
   isDeliveryRecruitingReviewer,
@@ -97,7 +98,12 @@ export function DeliveryRecruitingRouteGuard() {
   );
   const pendingSubSlug = state === null && hintRecruiting ? deliveryRecruitingStoreSubpageSlug(pathname) : null;
   if (pendingSubSlug || (subSlug && allowedKey !== subSlug)) {
-    return <div className="fixed inset-0 z-[100] bg-sam-app" aria-hidden data-delivery-recruiting-route-cover />;
+    /** 서버 판정까지 내용은 가리되 빈 화면 대신 DIBAY 대기 스피너(450ms 뒤) — loading-spinner 설계 W3 */
+    return (
+      <div className="fixed inset-0 z-[100] bg-sam-app" data-delivery-recruiting-route-cover>
+        <DibayPendingSpinner layout="fill" />
+      </div>
+    );
   }
   return null;
 }

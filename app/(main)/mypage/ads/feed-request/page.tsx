@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner, DibaySpinner } from "@/components/ui/DibaySpinner";
 import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 
@@ -780,7 +781,7 @@ export default function MemberFeedAdRequestPage() {
               </div>
               <label className="block cursor-pointer rounded-ui-rect border border-dashed border-sam-border px-3 py-3 text-center sam-text-helper">
                 {uploading && uploadSlot === idx
-                  ? t("common_loading")
+                  ? <DibaySpinner size="sm" label={t("common_loading")} />
                   : slot.imageUrl
                     ? t("mypage_ads_replace_image")
                     : safeT("feed_ad_req_pick_image")}
@@ -916,7 +917,7 @@ export default function MemberFeedAdRequestPage() {
                 </button>
               </div>
               {ownLoading ? (
-                <p className="sam-text-helper text-sam-muted">{t("common_loading")}</p>
+                <DibayPendingSpinner layout="inline" />
               ) : ownKind === "community_post" ? (
                 ownCommunity.length === 0 ? (
                   <p className="sam-text-helper text-sam-muted">

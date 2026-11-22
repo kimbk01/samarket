@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
@@ -799,7 +800,7 @@ export function OwnerProductForm({
   if (loading) {
     return (
       <div className="px-4 py-6">
-        <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
+        <DibayPendingSpinner layout="inline" />
       </div>
     );
   }

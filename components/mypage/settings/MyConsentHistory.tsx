@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyGroup } from "@/components/mypage/ds/MyGroup";
@@ -131,7 +132,7 @@ export function MyConsentHistory() {
     <div data-testid="my-consent-history" className="space-y-3">
       <p className="px-1 text-[13px] text-sam-muted">{t("mypage_consent_history_desc")}</p>
       {loading ? (
-        <p className="px-1 text-[13px] text-sam-meta">{t("common_loading")}</p>
+        <DibayPendingSpinner layout="inline" />
       ) : failed ? (
         <p className="px-1 text-[13px] text-sam-danger" role="alert">
           {t("mypage_consent_history_load_failed")}

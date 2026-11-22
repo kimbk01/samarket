@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner, DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -158,7 +159,7 @@ export function PointPromotionOrderForm({
       <div className="space-y-2">
         <p className="sam-text-body font-medium text-sam-fg">{t("promo_sheet_title")}</p>
         {catalog === null ? (
-          <p className="sam-text-body-secondary text-sam-muted">{t("common_loading")}</p>
+          <DibayPendingSpinner layout="inline" />
         ) : catalog.length === 0 ? (
           <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-muted">
             {safeT("promo_no_active_products")}
@@ -217,7 +218,8 @@ export function PointPromotionOrderForm({
         aria-busy={submitting}
         className="w-full rounded-ui-rect bg-signature py-3 sam-text-body font-medium text-sam-on-primary disabled:opacity-50"
       >
-        {submitText}
+        {/* 제출 중 = 버튼 안 DIBAY 스피너(loading-spinner 설계 §3-1 · 옛 「불러오는 중…」 문구 바꾸기) */}
+        {submitting ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} /> : submitText}
       </button>
       {!canSubmit && insufficient ? (
         <Link

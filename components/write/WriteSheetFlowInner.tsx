@@ -1,4 +1,5 @@
 "use client";
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useMasterDefaultTradePriceCurrency } from "@/lib/trade/use-master-trade-price-currency";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -405,7 +406,7 @@ export function WriteSheetFlowInner({
 
   const renderWriteForm = () => {
     if (formStatus === "loading") {
-      return <p className="py-10 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>;
+      return <DibayPendingSpinner layout="block" />;
     }
     if (formStatus === "redirecting") {
       return <p className="py-10 text-center sam-text-body text-sam-muted">{t("ui_write_auth_checking")}</p>;

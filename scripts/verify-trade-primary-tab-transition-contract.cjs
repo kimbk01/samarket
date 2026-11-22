@@ -60,9 +60,23 @@ if (!tradeTabs.includes("MarketplaceMoreBrowseSheet")) {
   fail("TradePrimaryTabs 더보기 must use MarketplaceMoreBrowseSheet");
 }
 
+
+/** 하단 탭 허브 첫 화면은 loading 이 아무것도 그리지 않는다 — 하위 화면만 DIBAY 대기 스피너(loading-spinner 설계 W1) */
+function mainTabLoadingKeepsHubNull(src) {
+  // 내정보 허브는 하단 탭 계약 v2 의 허브 뼈대(`BottomNavHubSkeleton`)가 첫 화면 — 하위 화면만 대기 스피너
+  return (
+    src.includes("return null") ||
+    src.includes("return <MainSegmentPendingLoading") ||
+    src.includes('return <BottomNavHubSkeleton hub="mypage" />')
+  );
+}
+const segmentPending = read("components/layout/MainSegmentPendingLoading.tsx");
+if (!segmentPending.includes("if (isMainTabKeepAliveHubPath(pathname)) return null;")) {
+  fail("MainSegmentPendingLoading must render nothing on bottom-nav hub roots");
+}
 const marketLoading = read("app/(main)/market/loading.tsx");
-if (!marketLoading.includes("return null")) {
-  fail("app/(main)/market/loading.tsx must return null");
+if (!mainTabLoadingKeepsHubNull(marketLoading)) {
+  fail("app/(main)/market/loading.tsx must return null on the hub root");
 }
 
 const mainTabLoadingFiles = [
@@ -78,8 +92,8 @@ if (fs.existsSync(path.join(root, "app/(stores)"))) {
 }
 for (const rel of mainTabLoadingFiles) {
   const source = read(rel);
-  if (!source.includes("return null")) {
-    fail(`${rel} must return null for main bottom-nav transitions`);
+  if (!mainTabLoadingKeepsHubNull(source)) {
+    fail(`${rel} must return null on hub roots for main bottom-nav transitions`);
   }
   if (/MainFeedRouteLoading|CommunityFeedSkeleton|CommunityMessengerHomeShellSkeleton|animate-pulse/.test(source)) {
     fail(`${rel} must not render skeleton placeholders`);

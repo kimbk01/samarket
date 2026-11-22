@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner, DibaySpinner } from "@/components/ui/DibaySpinner";
 import { formatPhtDisplayDateTime } from "@/lib/time/format-pht-display";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -285,7 +286,7 @@ export function MemberPostPromoteSheet({
             onClick={() => void purchase()}
           >
             {busy
-              ? t("common_loading")
+              ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} />
               : extending
                 ? t("trade_ad_extend", { points: fmtP(cost) })
                 : t("trade_ad_start", { points: fmtP(cost) })}
@@ -355,7 +356,7 @@ export function MemberPostPromoteSheet({
           ) : null}
         </div>
       ) : loading ? (
-        <p className={`py-8 text-center ${OverlayUi.bodySecondary}`}>{t("common_loading")}</p>
+        <DibayPendingSpinner layout="inline" />
       ) : statusOnly ? (
         <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-4">
           <p className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">

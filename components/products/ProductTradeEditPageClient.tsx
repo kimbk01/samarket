@@ -1,4 +1,5 @@
 "use client";
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -138,7 +139,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
   if (status === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background sam-text-body text-sam-muted">
-        {t("common_loading")}
+        <DibaySpinner size="lg" />
       </div>
     );
   }

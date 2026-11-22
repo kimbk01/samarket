@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { Search, X } from "lucide-react";
@@ -220,7 +221,7 @@ export function MessengerHomeInlineFriendSearch({ busyId, onSelectUser, trailing
           <div className="divide-y divide-[color:var(--overlay-border)]">
           {busy ? (
             <p className="px-3 py-4 text-center text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
-              {t("common_loading")}
+              <DibaySpinner size="md" />
             </p>
           ) : results.length === 0 ? (
             <div className="px-3 py-4 text-center" style={{ color: "var(--overlay-text-secondary)" }}>

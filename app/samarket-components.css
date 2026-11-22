@@ -2943,3 +2943,104 @@
     }
   }
 }
+
+/*
+ * DIBAY 로딩 스피너 단일 정의 — 12점 링 (`components/ui/DibaySpinner.tsx`, `Sam.spinner`).
+ * 설계 `docs/audit/loading-spinner-network-notice-design-2026-11-22.md` §3-1:
+ *   크기 sm 16 · md 24 · lg 44, 색 surface · inverse · current, 한 바퀴 1.15s.
+ *   점 크기·반지름은 크기 비율 고정(옛 배달 44px 스피너 6.4px 점 · 16.8px 반지름 = 0.145 · 0.38).
+ * 그 밖의 회전 표시(animate-spin 테두리 링·Loader2 등)는 `npm run verify:loading-spinner-ssot` 가 막는다.
+ */
+@layer components {
+  .sam-spinner {
+    --sam-spinner-size: 24px;
+    --sam-spinner-dot: calc(var(--sam-spinner-size) * 0.145);
+    --sam-spinner-radius: calc(var(--sam-spinner-size) * -0.38);
+    position: relative;
+    display: inline-block;
+    flex-shrink: 0;
+    width: var(--sam-spinner-size);
+    height: var(--sam-spinner-size);
+    color: var(--sam-spinner-color);
+    vertical-align: middle;
+  }
+  .sam-spinner--sm {
+    --sam-spinner-size: 16px;
+  }
+  .sam-spinner--md {
+    --sam-spinner-size: 24px;
+  }
+  .sam-spinner--lg {
+    --sam-spinner-size: 44px;
+  }
+  .sam-spinner--inverse {
+    color: var(--sam-spinner-color-inverse);
+  }
+  .sam-spinner--current {
+    color: currentColor;
+  }
+  .sam-spinner__dot {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: var(--sam-spinner-dot);
+    height: var(--sam-spinner-dot);
+    margin-left: calc(var(--sam-spinner-dot) / -2);
+    margin-top: calc(var(--sam-spinner-dot) / -2);
+    border-radius: 9999px;
+    background-color: currentColor;
+    opacity: 0.25;
+    transform: rotate(var(--deg)) translateY(var(--sam-spinner-radius)) scale(0.6);
+  }
+  /* 당겨서 새로고침 진행도 — 켜진 점(결정형) */
+  .sam-spinner__dot--on {
+    opacity: 1;
+    transform: rotate(var(--deg)) translateY(var(--sam-spinner-radius)) scale(1);
+  }
+  .sam-spinner--spin .sam-spinner__dot {
+    animation: sam-spinner-dot 1.15s linear infinite;
+    animation-delay: var(--delay);
+  }
+  @keyframes sam-spinner-dot {
+    0%,
+    100% {
+      opacity: 0.25;
+      transform: rotate(var(--deg)) translateY(var(--sam-spinner-radius)) scale(0.6);
+    }
+    10% {
+      opacity: 1;
+      transform: rotate(var(--deg)) translateY(var(--sam-spinner-radius)) scale(1);
+    }
+    30% {
+      opacity: 0.4;
+      transform: rotate(var(--deg)) translateY(var(--sam-spinner-radius)) scale(0.75);
+    }
+  }
+  /* 대기 표시 — 지연 뒤에만 보인다(빠른 전환에서는 스피너 0). JS 타이머 없음 → 하이드레이션 전에도 동작 */
+  .sam-spinner-appear {
+    opacity: 0;
+    animation: sam-spinner-appear 0.15s linear forwards;
+    animation-delay: var(--sam-spinner-appear-delay);
+  }
+  @keyframes sam-spinner-appear {
+    to {
+      opacity: 1;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sam-spinner--spin .sam-spinner__dot {
+      animation: sam-spinner-pulse 1.6s ease-in-out infinite;
+      animation-delay: 0ms;
+      transform: rotate(var(--deg)) translateY(var(--sam-spinner-radius)) scale(0.85);
+    }
+    @keyframes sam-spinner-pulse {
+      0%,
+      100% {
+        opacity: 0.35;
+      }
+      50% {
+        opacity: 1;
+      }
+    }
+  }
+}

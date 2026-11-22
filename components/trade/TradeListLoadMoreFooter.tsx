@@ -1,6 +1,6 @@
 "use client";
 
-import { VoiceMessageBufferingSpinner } from "@/components/community-messenger/VoiceMessageBufferingSpinner";
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type TradeListLoadMoreFooterProps = {
@@ -36,7 +36,7 @@ export function TradeListLoadMoreFooter({
     >
       {loadingMore ? (
         <div className="flex items-center gap-2 text-[13px] font-medium text-sam-muted">
-          <VoiceMessageBufferingSpinner light={false} label={loadingLabel} />
+          <DibaySpinner size="sm" decorative />
           <span>{loadingLabel}</span>
         </div>
       ) : (

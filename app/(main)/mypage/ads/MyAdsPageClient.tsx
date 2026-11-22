@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { MyTabs } from "@/components/mypage/ds/MyTabs";
 import Link from "next/link";
@@ -750,7 +751,7 @@ export default function MyAdsPageClient() {
                           onClick={() => setCancelTarget({ kind: "banner", id: r.id })}
                         >
                           {cancelBusyId === r.id
-                            ? t("common_loading")
+                            ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} />
                             : safeT("feed_ad_cancel_cta")}
                         </button>
                       ) : null}
@@ -888,7 +889,7 @@ export default function MyAdsPageClient() {
               loading={renewBusy}
               onClick={() => void submitRenew()}
             >
-              {renewBusy ? t("common_loading") : t("mypage_ads_pay_and_renew")}
+              {renewBusy ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} /> : t("mypage_ads_pay_and_renew")}
             </DibayOverlayButton>
           </div>
         </div>

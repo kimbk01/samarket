@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
@@ -95,7 +96,7 @@ export default function WriteByCategoryPage() {
   if (status === "loading" || status === "redirecting") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background sam-text-body text-sam-muted">
-        {status === "redirecting" ? t("ui_write_auth_checking") : t("common_loading")}
+        {status === "redirecting" ? t("ui_write_auth_checking") : <DibaySpinner size="lg" />}
       </div>
     );
   }

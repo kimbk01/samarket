@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useCallback, useEffect, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
@@ -68,7 +69,7 @@ export function OwnerFinanceHomeCards({ storeId }: { storeId: string }) {
   if (loading) {
     return (
       <div className={ownerDashCardClass()} data-owner-finance-home-cards="1">
-        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
+        <DibayPendingSpinner layout="inline" />
       </div>
     );
   }

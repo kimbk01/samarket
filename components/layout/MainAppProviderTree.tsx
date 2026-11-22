@@ -1,6 +1,7 @@
 "use client";
 
 import { TradeWriteSheetLoadingFrame } from "@/components/trade/TradeWriteSheetLoadingFrame";
+import { PhilifeWriteSheetLoadingFrame } from "@/components/philife/PhilifeWriteSheetLoadingFrame";
 import { MandatoryAddressGate } from "@/components/addresses/MandatoryAddressGate";
 import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
@@ -48,7 +49,8 @@ import { BottomNavBootIdlePrewarmHost } from "@/components/layout/BottomNavBootI
 const PhilifeWriteBottomSheetLazy = dynamic(
   () =>
     import("@/components/philife/PhilifeWriteBottomSheet").then((mod) => mod.PhilifeWriteBottomSheet),
-  { ssr: false }
+  /** 코드가 오는 동안 열림 상태면 시트 틀 + DIBAY 스피너(거래 글쓰기 D1 과 같은 방식) */
+  { ssr: false, loading: () => <PhilifeWriteSheetLoadingFrame /> }
 );
 
 /** Provider 트리·순서 불변 — 거래 글쓰기 시트 UI만 별도 청크로 분리 (giant graph 완화). */

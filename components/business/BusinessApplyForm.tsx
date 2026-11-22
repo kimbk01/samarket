@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { listBrowsePrimaryIndustries } from "@/lib/stores/browse-taxonomy-seed-queries";
@@ -460,7 +461,7 @@ export function BusinessApplyForm({
                 </button>
               </div>
             ) : !taxonomy ? (
-              <p className={HELP}>{t("common_loading")}</p>
+              <DibayPendingSpinner layout="inline" />
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t("store_apply_category")}>

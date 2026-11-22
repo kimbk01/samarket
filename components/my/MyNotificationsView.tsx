@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -758,7 +759,7 @@ export function MyNotificationsView({
             onClick={() => void loadMore()}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[13px] font-medium text-sam-fg transition active:bg-sam-pressed-surface disabled:opacity-50"
           >
-            {loadMoreBusy ? t("common_loading") : t("notif_inbox_load_more")}
+            {loadMoreBusy ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} /> : t("notif_inbox_load_more")}
           </button>
         </div>
       ) : null}

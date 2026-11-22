@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useCallback, useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -149,7 +150,7 @@ export function OwnerStoreOrderReviewBlock({
   if (loading && !review) {
     return (
       <OwnerReviewShell>
-        <p className="text-[13px] text-sam-muted">{t("common_loading")}</p>
+        <DibayPendingSpinner layout="inline" />
       </OwnerReviewShell>
     );
   }

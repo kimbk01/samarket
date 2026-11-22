@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MYPAGE_ADDRESSES_HREF } from "@/lib/mypage/mypage-profile-routes";
@@ -38,7 +39,7 @@ export function MoimLocalList({ list, emptyKey }: { list: MoimLocalListState; em
           disabled={list.loadingMore}
           onClick={list.loadMore}
         >
-          {list.loadingMore ? t("common_loading") : t("moim_home_more_btn")}
+          {list.loadingMore ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} /> : t("moim_home_more_btn")}
         </button>
       ) : null}
     </div>

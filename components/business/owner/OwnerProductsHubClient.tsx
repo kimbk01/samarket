@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
@@ -475,7 +476,7 @@ export function OwnerProductsHubClient({
         {error ? <p className="sam-text-body-secondary text-sam-danger">{resolveOwnerApiErrorMessage(error, t)}</p> : null}
 
         {loading ? (
-          <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
+          <DibayPendingSpinner layout="inline" />
         ) : filtered.length === 0 ? (
           <div
             className={`rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-6 text-center sam-text-body-secondary text-sam-muted`}

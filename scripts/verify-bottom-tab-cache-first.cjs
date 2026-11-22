@@ -53,6 +53,20 @@ if (!/export function isCrossMainShellRouteGroup[\s\S]*return false/.test(cross)
   fail("isCrossMainShellRouteGroup must always return false (no remount boundary)");
 }
 
+
+/** 하단 탭 허브 첫 화면은 loading 이 아무것도 그리지 않는다 — 하위 화면만 DIBAY 대기 스피너(loading-spinner 설계 W1) */
+function mainTabLoadingKeepsHubNull(src) {
+  // 내정보 허브는 하단 탭 계약 v2 의 허브 뼈대(`BottomNavHubSkeleton`)가 첫 화면 — 하위 화면만 대기 스피너
+  return (
+    src.includes("return null") ||
+    src.includes("return <MainSegmentPendingLoading") ||
+    src.includes('return <BottomNavHubSkeleton hub="mypage" />')
+  );
+}
+const segmentPending = read("components/layout/MainSegmentPendingLoading.tsx");
+if (!segmentPending.includes("if (isMainTabKeepAliveHubPath(pathname)) return null;")) {
+  fail("MainSegmentPendingLoading must render nothing on bottom-nav hub roots");
+}
 const loadings = [
   "app/(main)/philife/loading.tsx",
   "app/(main)/market/loading.tsx",
@@ -62,8 +76,8 @@ const loadings = [
 ];
 for (const rel of loadings) {
   const src = read(rel);
-  if (!src.includes("return null")) {
-    fail(`${rel} must return null`);
+  if (!mainTabLoadingKeepsHubNull(src)) {
+    fail(`${rel} must return null on hub roots`);
   }
   if (/MainFeedRouteLoading|CommunityFeedSkeleton|animate-pulse/.test(src)) {
     fail(`${rel} must not render skeleton`);

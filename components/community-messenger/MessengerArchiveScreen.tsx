@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Archive, Ban, BellOff, ChevronRight, Contact, EyeOff, RefreshCw, UserX, UsersRound } from "lucide-react";
@@ -343,7 +344,13 @@ function ContactsRefreshNow() {
       data-cm-archive-contacts-refresh=""
       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full active:bg-[color:var(--messenger-surface-muted)]"
     >
-      <RefreshCw className={`h-5 w-5 ${spinning ? "animate-spin" : ""}`} style={{ color: "var(--cm-chat-fg)" }} aria-hidden />
+      {spinning ? (
+        <span style={{ color: "var(--cm-chat-fg)" }}>
+          <DibaySpinner size="md" tone="current" decorative />
+        </span>
+      ) : (
+        <RefreshCw className="h-5 w-5" style={{ color: "var(--cm-chat-fg)" }} aria-hidden />
+      )}
     </button>
   );
 }

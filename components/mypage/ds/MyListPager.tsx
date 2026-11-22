@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useCallback, useEffect, useId, useRef } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -77,10 +78,7 @@ export function MyListPager({ hasMore, loading, error, onLoadMore }: MyListPager
         className={`${Sam.btn.ghostCombo} ${Sam.btn.sm} ${Sam.focusRing} min-w-[120px]`}
       >
         {loading ? (
-          <span
-            aria-hidden
-            className="inline-block h-4 w-4 rounded-full border-2 border-sam-border border-t-sam-primary motion-safe:animate-spin"
-          />
+          <DibaySpinner size="sm" label={t("common_loading")} />
         ) : (
           t("mypage_comp_ds_load_more")
         )}

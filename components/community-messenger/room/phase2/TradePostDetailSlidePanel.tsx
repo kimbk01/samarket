@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
@@ -170,7 +171,7 @@ export function TradePostDetailSlidePanel({
                 serverViewerUserId={viewerId || undefined}
               />
             ) : (
-              <div className="px-4 py-8 sam-text-body text-sam-muted">{t("common_loading")}</div>
+              <DibayPendingSpinner layout="inline" />
             )}
           </div>
         </aside>

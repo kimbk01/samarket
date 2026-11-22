@@ -17,8 +17,10 @@ describe("MypageSegmentLoading", () => {
     mockPath = "/mypage";
     expect(renderToStaticMarkup(<MypageSegmentLoading />)).toContain('data-hub="mypage"');
   });
-  it("하위 화면 = 아무것도 그리지 않음", () => {
+  it("하위 화면 = 허브 뼈대 없이 DIBAY 대기 스피너(빈 본문 0 · loading-spinner 설계 W1)", () => {
     mockPath = "/mypage/settings";
-    expect(renderToStaticMarkup(<MypageSegmentLoading />)).toBe("");
+    const html = renderToStaticMarkup(<MypageSegmentLoading />);
+    expect(html).toContain('data-dibay-pending-spinner="page"');
+    expect(html).not.toContain("data-hub=");
   });
 });

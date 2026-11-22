@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
@@ -111,7 +112,13 @@ export function MessengerContactsScreen() {
               onClick={() => void onRefresh()}
               className="flex h-11 w-11 items-center justify-center rounded-full active:bg-[color:var(--cm-chat-band)]"
             >
-              <RefreshCw className={`h-5 w-5 ${syncing ? "animate-spin" : ""}`} style={{ color: "var(--cm-chat-fg)" }} aria-hidden />
+              {syncing ? (
+                <span style={{ color: "var(--cm-chat-fg)" }}>
+                  <DibaySpinner size="md" tone="current" decorative />
+                </span>
+              ) : (
+                <RefreshCw className="h-5 w-5" style={{ color: "var(--cm-chat-fg)" }} aria-hidden />
+              )}
             </button>
           ) : null}
           {showSettings ? (

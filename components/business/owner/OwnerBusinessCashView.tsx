@@ -2,6 +2,7 @@
 
 /** Canonical Owner Cash top-up and Coin → Cash conversion controls. */
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -292,7 +293,7 @@ export function OwnerBusinessCashView({
   );
 
   if (loading) {
-    return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
+    return <DibayPendingSpinner layout="block" />;
   }
 
   return (

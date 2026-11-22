@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
@@ -198,7 +199,7 @@ export function OwnerStoreInquiriesView() {
   }
 
   if (state.kind === "loading") {
-    return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
+    return <DibayPendingSpinner layout="block" />;
   }
   if (state.kind === "unauth") {
     return (

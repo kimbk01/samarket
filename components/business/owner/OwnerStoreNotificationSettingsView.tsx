@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -50,6 +51,6 @@ export function OwnerStoreNotificationSettingsView() {
   }, [searchParams, t]);
 
   if (err) return <p className="text-sm text-sam-muted">{err}</p>;
-  if (!storeId) return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
+  if (!storeId) return <DibayPendingSpinner layout="block" />;
   return <OwnerNotificationSettings storeId={storeId} />;
 }

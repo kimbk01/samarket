@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MESSENGER_ROW_BTN_CLASS } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -9,10 +10,7 @@ export function MessengerContactsLoading() {
   const { t } = useI18n();
   return (
     <div className="flex items-center justify-center gap-2 px-4 py-10" role="status" data-cm-contacts-loading="">
-      <span
-        className="h-4 w-4 animate-spin rounded-full border-2 border-[color:var(--messenger-divider)] border-t-[color:var(--messenger-primary)]"
-        aria-hidden
-      />
+      <DibaySpinner size="sm" decorative />
       <span className="text-[14px]" style={{ color: "var(--cm-chat-sub)" }}>
         {t("common_loading")}
       </span>

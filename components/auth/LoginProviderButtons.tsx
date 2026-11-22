@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useCallback, useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
@@ -59,12 +60,7 @@ function splitLoginProviders(providers: AuthProviderPublic[]) {
 }
 
 function OAuthRedirectSpinner({ className = "" }: { className?: string }) {
-  return (
-    <span
-      className={`inline-block h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent ${className}`}
-      aria-hidden
-    />
-  );
+  return <DibaySpinner size="sm" tone="current" decorative className={className} />;
 }
 
 function PrimaryProviderButton({

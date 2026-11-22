@@ -13,12 +13,20 @@
  * 어떤 경우에도 시간 제한으로 반드시 제거된다.
  */
 
+import { LOADING_SPINNER_APPEAR_DELAY_MS } from "@/lib/ui/loading-timing";
+import { Sam } from "@/lib/ui/sam-component-classes";
+import {
+  DIBAY_SPINNER_DOTS,
+  dibaySpinnerClassName,
+  dibaySpinnerDotStyle,
+} from "@/lib/ui/dibay-spinner-markup";
+
 const LAYER_ATTR = "data-cm-page-snapshot";
 const LAYER_Z_INDEX = "2147483000";
 /** 진입 복사본 최대 유지 — 방이 끝내 안 열리면(네비게이션 취소 등) 걷어 낸다 */
 const ENTRY_MAX_MS = 3000;
 /** 이 시간 안에 방이 안 들어오면 복사본 위에 로딩 표시 */
-const ENTRY_SPINNER_DELAY_MS = 450;
+const ENTRY_SPINNER_DELAY_MS = LOADING_SPINNER_APPEAR_DELAY_MS;
 /** 퇴장: 목록이 그려지기를 기다리는 최대 시간 */
 const EXIT_WAIT_LIST_MAX_MS = 1500;
 
@@ -143,15 +151,18 @@ function appendSpinner(layer: Layer): void {
     alignItems: "center",
     justifyContent: "center",
   } satisfies Partial<CSSStyleDeclaration>);
-  const ring = document.createElement("div");
-  ring.className = "animate-spin";
-  Object.assign(ring.style, {
-    width: "20px",
-    height: "20px",
-    borderRadius: "9999px",
-    border: "2px solid rgba(255,255,255,0.95)",
-    borderTopColor: "transparent",
-  } satisfies Partial<CSSStyleDeclaration>);
+  /** DIBAY 스피너 단일 정의(`DibaySpinner` md·inverse)와 같은 마크업 — React 밖(복사본 층)이라 DOM 으로 만든다 */
+  const ring = document.createElement("span");
+  ring.className = dibaySpinnerClassName({ size: "md", tone: "inverse" });
+  ring.setAttribute("aria-hidden", "true");
+  for (let i = 0; i < DIBAY_SPINNER_DOTS; i += 1) {
+    const dot = document.createElement("span");
+    dot.className = Sam.spinner.dot;
+    const st = dibaySpinnerDotStyle(i);
+    dot.style.setProperty("--deg", st["--deg"]);
+    dot.style.setProperty("--delay", st["--delay"]);
+    ring.appendChild(dot);
+  }
   wrap.appendChild(ring);
   layer.el.appendChild(wrap);
 }

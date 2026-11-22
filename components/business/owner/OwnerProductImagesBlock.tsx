@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import {
   closestCenter,
   DndContext,
@@ -438,7 +439,7 @@ export function OwnerProductImagesBlock({
             >
               {!heroSrc.trim() ? (
                 <div className="flex h-full min-h-[8rem] w-full items-center justify-center sam-text-body-secondary text-sam-muted">
-                  {t("common_loading")}
+                  <DibaySpinner size="md" />
                 </div>
               ) : null}
               <span className="pointer-events-none absolute bottom-3 left-3 rounded-ui-rect bg-sam-ink/70 px-2.5 py-1 sam-text-xxs font-semibold text-sam-on-primary">

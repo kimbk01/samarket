@@ -1,7 +1,8 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import type { CSSProperties, ReactNode, RefCallback } from "react";
-import { Check, ChevronRight, ImagePlus, Link2, Loader2, X } from "lucide-react";
+import { Check, ChevronRight, ImagePlus, Link2, X } from "lucide-react";
 import { SectorHeaderBar } from "@/components/layout/sector-header/SectorHeaderBar";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
 import { DibayOverlayActions } from "@/components/ui/dibay-overlay/DibayOverlayActions";
@@ -93,7 +94,7 @@ export function PhilifeWriteComposerHeader({
             }`}
             data-testid="philife-composer-cta"
           >
-            {busy ? <Loader2 className="h-5 w-5 animate-spin" aria-label={ctaLabel} /> : ctaLabel}
+            {busy ? <DibaySpinner size="sm" tone="current" label={ctaLabel} /> : ctaLabel}
           </button>
         }
       />
@@ -275,7 +276,7 @@ export function PhilifeWriteComposerToolbar({
           className={PHILIFE_COMPOSER_TOOL_BTN_CLASS}
         >
           {photoBusy ? (
-            <Loader2 className={`${PHILIFE_COMPOSER_TOOL_ICON_CLASS} animate-spin`} aria-hidden />
+            <DibaySpinner size="md" tone="current" decorative />
           ) : (
             <ImagePlus className={PHILIFE_COMPOSER_TOOL_ICON_CLASS} aria-hidden />
           )}

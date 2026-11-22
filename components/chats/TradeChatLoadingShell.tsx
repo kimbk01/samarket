@@ -1,6 +1,6 @@
 "use client";
 
-import { TradeChatEntryRingSpinner } from "@/components/chats/TradeChatEntryRingSpinner";
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 
@@ -29,7 +29,7 @@ export function TradeChatLoadingShell({
         aria-live="polite"
         aria-busy="true"
       >
-        <TradeChatEntryRingSpinner />
+        <DibaySpinner size="lg" />
         <p className="mt-5 sam-text-body font-medium text-sam-fg">{resolvedLabel}</p>
         {resolvedDescription ? (
           <p className="mt-1.5 max-w-[16rem] text-center text-xs text-sam-muted">{resolvedDescription}</p>

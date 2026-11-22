@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { decodeQrFromImageFile, QR_SCANNER_BLANK_POSTER, useQrCameraScanner } from "@/lib/qr/use-qr-camera-scanner";
@@ -78,7 +79,7 @@ export function FriendQrScanPanel({ onToken }: { onToken: (token: string) => voi
             />
             {!videoReady ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/80" role="status">
-                <span className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white/90" aria-hidden />
+                <DibaySpinner size="md" tone="inverse" decorative />
                 <span className="text-[length:var(--overlay-caption-size)]">{t("friend_qr_camera_starting")}</span>
               </div>
             ) : null}

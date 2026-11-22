@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useRouter } from "next/navigation";
 import {
   formatAddressBookCardPresentation,
@@ -71,7 +72,7 @@ export function OwnerAddressBookSnapshotCard({
             : addressDefault?.id
               ? <AddressBookCardLine presentation={presentation} />
               : emptyHint
-          : t("common_loading")}
+          : <DibaySpinner size="sm" label={t("common_loading")} />}
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
         <button

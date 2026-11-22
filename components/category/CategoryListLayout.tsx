@@ -17,7 +17,7 @@ import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { useRegisterMainTier1Header } from "@/lib/layout/use-register-main-tier1-header";
 import { CATEGORY_TYPE_MESSAGE_KEYS } from "@/lib/types/category-label-i18n";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
-import { TradeFeedBufferingSpinner } from "@/components/trade/TradeFeedBufferingSpinner";
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import type { TradeCategoryServerSeed } from "@/lib/market/trade-category-server-seed";
 import { buildMarketBootstrapQueryKey } from "@/lib/market/build-market-bootstrap-query-key";
 import {
@@ -351,13 +351,13 @@ export function CategoryListLayout({
     if (expectedType === "trade") {
       return (
         <div className="flex min-h-screen items-center justify-center bg-sam-app" aria-busy="true">
-          <TradeFeedBufferingSpinner />
+          <DibaySpinner size="lg" />
         </div>
       );
     }
     return (
       <div className="min-h-[200px] flex items-center justify-center sam-text-body text-sam-muted">
-        {t("common_loading")}
+        <DibaySpinner size="lg" />
       </div>
     );
   }

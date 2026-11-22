@@ -66,7 +66,7 @@ import {
   mergeFavoriteMapWithServer,
   reconcileTradeRowsWithVisibility,
 } from "@/lib/trade/marketplace/trade-list-visibility-reconcile";
-import { TradeFeedBufferingSpinner } from "@/components/trade/TradeFeedBufferingSpinner";
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { TradeListLoadMoreFooter } from "@/components/trade/TradeListLoadMoreFooter";
 import {
   buildTradeLocationHref,
@@ -1347,7 +1347,7 @@ function NonSkeletonLoadingState() {
       className="flex min-h-[min(42vh,360px)] items-center justify-center bg-sam-app"
       aria-busy="true"
     >
-      <TradeFeedBufferingSpinner />
+      <DibaySpinner size="lg" />
     </div>
   );
 }

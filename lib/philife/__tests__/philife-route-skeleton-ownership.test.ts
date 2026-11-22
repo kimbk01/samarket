@@ -5,6 +5,8 @@
  *    (`MainFeedRouteLoading` · `CommunityFeedSkeleton`)을 쓰지 않는다. 피드 스켈레톤은 피드 페이지 안에만.
  * 2. 한 경로의 스켈레톤 소유자는 하나 — 페이지가 자체 `Suspense` fallback 을 가지면
  *    같은 세그먼트(또는 상위 `philife/loading.tsx`)가 스켈레톤을 또 그리지 않는다.
+ *    상위 `philife/loading.tsx` 는 스켈레톤이 아니라 서버 응답 전 DIBAY 대기 스피너(450ms 뒤)만 그린다
+ *    (`docs/audit/loading-spinner-network-notice-design-2026-11-22.md` W1 — 예전 null 은 그 구간 본문이 비었다).
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
@@ -32,9 +34,12 @@ function hasSkeletonSuspenseFallback(src: string): boolean {
   return /<Suspense\s+fallback=\{\s*<[A-Z]/.test(src);
 }
 
+/** 스켈레톤(구조 그림)을 그리는 loading — 서버 응답 전 대기 스피너(`MainSegmentPendingLoading`)는 스켈레톤이 아니다 */
 function loadingRendersSomething(file: string): boolean {
   if (!existsSync(file)) return false;
-  return !/return null;/.test(readFileSync(file, "utf8"));
+  const src = readFileSync(file, "utf8");
+  if (/return <MainSegmentPendingLoading\b/.test(src)) return false;
+  return !/return null;/.test(src);
 }
 
 describe("philife route skeleton ownership", () => {
@@ -51,6 +56,7 @@ describe("philife route skeleton ownership", () => {
 
   it("segment loading for /philife/** is neutral (covers non-feed subroutes)", () => {
     expect(loadingRendersSomething(join(PHILIFE_DIR, "loading.tsx"))).toBe(false);
+    expect(readFileSync(join(PHILIFE_DIR, "loading.tsx"), "utf8")).toContain("return <MainSegmentPendingLoading />");
   });
 
   it("detail route has its own structure skeleton", () => {

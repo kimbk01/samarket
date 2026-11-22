@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -373,7 +374,7 @@ export function OwnerStoreBannersView() {
           {t("business_phase7_452")}
         </button>
 
-        {loading ? <p className="sam-text-body text-sam-muted">{t("common_loading")}</p> : null}
+        {loading ? <DibayPendingSpinner layout="inline" /> : null}
         {/* WP9 — 배너 0장일 때 고객 매장 상단에 무엇이 보이는지 */}
         {!loading && banners.length === 0 ? (
           <p className="sam-text-helper text-sam-muted" data-owner-hint="banners-empty">

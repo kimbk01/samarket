@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayConfirmDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
@@ -40,7 +41,7 @@ export const MESSENGER_ROW_BTN_OVERLAY_SECONDARY = `${OverlayUi.btn.secondary} $
 const ROW_BTN = MESSENGER_ROW_BTN_CLASS;
 
 function Spinner() {
-  return <span className="dibay-overlay-btn__spinner" aria-hidden />;
+  return <DibaySpinner size="sm" tone="current" decorative />;
 }
 
 /**

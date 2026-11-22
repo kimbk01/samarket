@@ -12,6 +12,7 @@ import { StoresHomeStoreCardList } from "@/components/stores/home/hub/StoresHome
 import { STORES_HOME_SECTION_BROWSE } from "@/lib/stores/stores-home-section-browse-hrefs";
 import type { BrowseFeaturedCardItem } from "@/lib/stores/browse-featured-items-types";
 import type { BrowseFeaturedMenuHydrationPhase } from "@/lib/stores/use-browse-featured-items-hydration";
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 
 export type { StoresHomeFeedSectionKey };
 
@@ -50,7 +51,8 @@ export function StoresHomeFeedList({
   registerListItem: (storeId: string, node: HTMLElement | null) => void;
 }) {
   const { t } = useI18n();
-  if (loading) return null;
+  /** 아래 피드 대기 — 빈 칸 대신 DIBAY 대기 스피너(450ms 뒤, loading-spinner 설계 W5) */
+  if (loading) return <DibayPendingSpinner layout="block" />;
 
   const resolvedBlocks = resolveStoresHomeBelowFoldFeedBlocks(sections, excludeSectionKeys);
   const titleByKey: Record<StoresHomeFeedSectionKey, string> = {

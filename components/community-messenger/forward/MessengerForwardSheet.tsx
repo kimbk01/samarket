@@ -10,6 +10,7 @@
  * - 결과는 대상별: 보냄 · 보낼 수 없음(권한·차단·방 종류 — 재시도 목록에서 빠짐) · 실패(재시도 가능).
  * - 친구는 기존 「대화 시작」 API 로 1:1 방을 연 뒤(이미 있으면 그 방) 보낸다.
  */
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { Check } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -266,7 +267,7 @@ export function MessengerForwardSheet({
             })}
           </>
         ) : loading ? (
-          <p className="py-8 text-center text-[14px] text-sam-muted">{t("common_loading")}</p>
+          <DibayPendingSpinner layout="inline" />
         ) : all.length === 0 ? (
           <p className="py-8 text-center text-[14px] text-sam-muted">{t("share_forward_empty")}</p>
         ) : (

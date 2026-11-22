@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRegisterMainTier1Header } from "@/lib/layout/use-register-main-tier1-header";
@@ -81,7 +82,7 @@ export function MoimProfileScreen({ moimId }: { moimId: string }) {
           <MoimAvatar url={avatar} name={nickname} size={64} />
           <div className="flex flex-wrap gap-2">
             <button type="button" disabled={uploading} className={`${moimCls.btnSecondary} ${moimCls.btnSm}`} onClick={() => fileRef.current?.click()}>
-              {uploading ? t("common_loading") : t("moim_profile_photo_btn")}
+              {uploading ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} /> : t("moim_profile_photo_btn")}
             </button>
             {avatar ? (
               <button type="button" className={`${moimCls.btnSecondary} ${moimCls.btnSm}`} onClick={() => setAvatar(null)}>

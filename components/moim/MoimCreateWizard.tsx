@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ImagePlus, X } from "lucide-react";
@@ -193,7 +194,7 @@ export function MoimCreateWizard() {
                   onClick={() => fileRef.current?.click()}
                 >
                   <ImagePlus className="h-5 w-5" aria-hidden />
-                  {uploading ? t("common_loading") : t("moim_create_cover_add_btn")}
+                  {uploading ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} /> : t("moim_create_cover_add_btn")}
                 </button>
               )}
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickCover} />

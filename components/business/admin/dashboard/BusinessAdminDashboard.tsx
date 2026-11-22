@@ -1,8 +1,8 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import { invalidateMeStoresListDedupedCache } from "@/lib/me/fetch-me-stores-deduped";
-import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useSupabaseStoreOrdersRealtime } from "@/hooks/useSupabaseStoreOrdersRealtime";
@@ -233,7 +233,7 @@ export function BusinessAdminDashboard({
           <div className="flex items-center gap-2 rounded-full border border-sam-border-soft bg-sam-surface/95 px-3 py-1.5 backdrop-blur-sm">
             {refreshing ?
               <>
-                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-sam-muted" aria-hidden />
+                <DibaySpinner size="sm" decorative />
                 <span className="sam-text-xxs font-semibold text-sam-muted">{t("common_loading")}</span>
               </>
             : pullResult != null ?

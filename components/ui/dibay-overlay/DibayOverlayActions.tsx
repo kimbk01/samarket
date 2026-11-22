@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { OverlayUi, type DibayOverlayActionRole } from "@/lib/ui/dibay-overlay-contract";
 
@@ -33,7 +34,7 @@ export function DibayOverlayButton({
       aria-busy={loading || undefined}
       {...rest}
     >
-      {loading ? <span className="dibay-overlay-btn__spinner" aria-hidden /> : children}
+      {loading ? <DibaySpinner size="sm" tone="current" decorative /> : children}
     </button>
   );
 }

@@ -30,10 +30,12 @@ import {
 import { MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS } from "@/lib/addresses/mypage-address-manage-layout";
 import { requestLocationWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 
 const AddressCenterPinMapLazy = dynamic(
   () => import("@/components/addresses/AddressCenterPinMapClient").then((m) => m.AddressCenterPinMapClient),
-  { ssr: false },
+  /** 지도 코드가 오는 동안 빈 칸 대신 DIBAY 대기 스피너(loading-spinner 설계 W4) */
+  { ssr: false, loading: () => <DibayPendingSpinner layout="fill" /> },
 );
 
 /**

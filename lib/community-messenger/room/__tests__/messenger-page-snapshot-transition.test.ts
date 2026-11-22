@@ -51,7 +51,7 @@ describe("room entry/exit snapshot (no white screen)", () => {
     mountShell(`<p>목록</p>`);
     beginMessengerRoomEntrySnapshot();
     vi.advanceTimersByTime(500);
-    expect(layers()[0]!.querySelector(".animate-spin")).toBeTruthy();
+    expect(layers()[0]!.querySelector(".sam-spinner")).toBeTruthy();
     vi.advanceTimersByTime(3500);
     expect(layers().length).toBe(0);
     expect(hasMessengerRoomEntrySnapshot()).toBe(false);
