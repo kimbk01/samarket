@@ -5,6 +5,8 @@
       WebView getUserMedia / Geolocation / POST_NOTIFICATIONS 는 매니페스트 + 런타임 허용이 모두 필요하다.
     -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 기기 인터넷 검증 상태(NET_CAPABILITY_VALIDATED) — loading-spinner 설계 §3-5 P3. 일반 권한(사용자 허락 창 없음) -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />

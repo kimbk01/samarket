@@ -4,7 +4,7 @@
  * 목적: 네트워크 문제일 때 「DIBAY 문제가 아니라 휴대폰 연결 문제」인지, 반대로 DIBAY 쪽 문제인지 정확히 알린다.
  *
  * 신호 (새 숫자 없음 — 8초 = `NAVIGATION_STALL_DEADLINE_MS`, 하단 탭 계약 v2 승인 값):
- * 1. 기기: `navigator.onLine === false` → 휴대폰 인터넷 끊김. (네이티브 OS 검증값은 P3 — 브리지가 주면 그 값을 먼저 쓴다)
+ * 1. 기기: `navigator.onLine === false` 또는 네이티브 값 「인터넷 없음」(P3 `readNativeInternetSignal`) → 휴대폰 인터넷 끊김.
  * 2. DIBAY 요청 결과: 전역 fetch 를 **읽기만** 하는 관찰 1개(요청·응답 무변경 — `supabase-call-counter` 와 같은 방식).
  *    대상 = 같은 출처 `/api/**`·Supabase REST 만 · 통화 경로(`call`) 제외(통화 변경 규정) · 미리받기·RSC 제외.
  * 3. 확인 요청 1건: DIBAY 요청이 응답 없이 실패하거나 8초 넘게 멈춘 「사건」마다 1번만, 그 뒤 DIBAY 요청이 1번 성공할 때까지 다시 보내지 않는다.
@@ -63,8 +63,33 @@ export function subscribeNetworkHealth(listener: () => void): () => void {
   };
 }
 
+/**
+ * 네이티브 기기 인터넷 값(P3) — Android `DibayBootBridge.internetValidated()` "1"/"0"/"" (OS `NET_CAPABILITY_VALIDATED`) ·
+ * iOS `window.__dibayNativeInternet` "0"/"" (`NWPathMonitor` 경로 없음만 확정). 구 바이너리는 값이 없다 → null.
+ */
+export function readNativeInternetSignal(win: unknown): "validated" | "offline" | null {
+  try {
+    const w = win as {
+      DibayBootBridge?: { internetValidated?: () => unknown };
+      __dibayNativeInternet?: unknown;
+    } | null;
+    if (!w) return null;
+    const fn = w.DibayBootBridge?.internetValidated;
+    if (typeof fn === "function") {
+      const v = String(fn.call(w.DibayBootBridge) ?? "");
+      if (v === "0") return "offline";
+      if (v === "1") return "validated";
+    }
+    if (w.__dibayNativeInternet === "0") return "offline";
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function deviceReportsOffline(): boolean {
-  return typeof navigator !== "undefined" && navigator.onLine === false;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
+  return typeof window !== "undefined" && readNativeInternetSignal(window) === "offline";
 }
 
 export function resolveConnectivityCheckUrl(input: { platform: string | null; userAgent: string }): string {

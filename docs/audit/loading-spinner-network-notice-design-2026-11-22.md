@@ -332,9 +332,44 @@ Skew Protection 은 이미 켜져 있다(§1-3). 배포 직후 흰 화면이 지
 4. 네이티브 OS 검증값(Android `NET_CAPABILITY_VALIDATED`·iOS `NWPathMonitor`)은 P3 다. 지금은 `navigator.onLine` + 확인 요청만 쓴다.
 5. `lib` 의 코드 문자열 대응 3곳(`owner-api-error-i18n`·`support-display-labels`·`resolve-notif-inbox-error-message`)은 오류 값을 받지 않아 바꾸지 않았다.
 
+## 10. P3 구현 기록 (Owner 「P3 구현 진행」 2026-11-22)
+
+**만든 것**
+- **W7 시작 덮개 스피너**: Android `DibayDotSpinnerView`(새 파일) · iOS `CAReplicatorLayer`.
+  - 웹 `.sam-spinner` 와 같은 12점 링이다(점 0.145 · 반지름 0.38 · 1.15s · 밝기 0.25→1→0.4). 흰색 44dp/pt.
+  - 로고 아래에 둔다: Android 는 가운데에서 114dp 아래(로고 보이는 부분 127dp 실측 기준), iOS 는 102pt 아래(로고 106×104pt 기준).
+  - **450ms 뒤에만** 보인다. 덮개를 걷는 조건·시각은 바꾸지 않았다.
+- **시작 오류 안내 — 휴대폰 문제 vs DIBAY 문제**
+  - Android `DibayConnectivity`(새 파일):
+    - OS 검증값 `NET_CAPABILITY_VALIDATED` 가 없으면 → 「인터넷에 연결되어 있지 않습니다」. 요청 0건.
+    - 검증값이 있으면 → `gstatic.com/generate_204` 확인 요청 1건(8초).
+      - 성공 → 「DIBAY 에 연결할 수 없습니다」
+      - 시간 초과 → 「인터넷 연결이 불안정합니다」
+      - 응답 없이 실패 → 「인터넷에 연결되어 있지 않습니다」
+  - iOS: `NWPathMonitor` 가 경로 없음이면 기기 끊김으로 본다. 그 밖에는 `captive.apple.com` 확인 요청 1건(8초, ephemeral·쿠키 없음)으로 같은 3가지를 가른다.
+  - 판정하는 동안에는 덮개(스피너)가 그대로 있고, 판정 뒤 안내를 띄운다.
+- **iOS HTTP 5xx**: `navigationResponse` 로 문서 상태만 본다.
+  - 결정은 바꾸지 않는다: Capacitor 가 구현하지 않아 허용이 기본이다(`WebViewDelegationHandler.swift` 확인).
+  - 시작 중이고 통화 경로가 아니며 5xx 이면 「앱 화면을 불러오지 못했습니다」.
+- **웹 연결**:
+  - Android `DibayBootBridge.internetValidated()` 는 "1"·"0"·"" 를 준다.
+  - iOS `window.__dibayNativeInternet` 은 "0"·"" 를 준다.
+  - 웹 `readNativeInternetSignal` 이 판정 때 읽는다. 구 바이너리는 값이 없으므로 P2 확인 요청으로 대신한다.
+- `AndroidManifest.xml` 에 `ACCESS_NETWORK_STATE` 를 명시했다. 병합 매니페스트에는 Firebase 가 이미 넣고 있었고(빌드 산출물 확인), 일반 권한이라 허락 창이 없다.
+
+**통화 경계 (통화 변경 규정)**
+- 통화 실행(`isCallLaunch`)·통화 경로 문서의 시작 오류는 **예전 판정·문구·시점 그대로**다. 예전 문자열 키는 그대로 두고, 새 문구는 새 키로 만들었다.
+- 덮개 스피너는 덮개가 붙는 실행에만 쓰인다. 통화 실행에는 덮개가 없으므로 영향이 없다.
+- iOS 5xx 판정은 통화 경로를 제외한다.
+
+**하지 않은 것 (설계대로 실측 먼저)**
+- W6(덮개 없는 시작: OAuth 복귀·설정 변경·렌더러 재생성)·W8(iOS 흰 프레임): 실측 전에는 구현하지 않는다. 이번에도 실측하지 않았다 → NOT_PROVEN.
+- 빌드 번호: 설치·배포용 빌드를 만들지 않았으므로 올리지 않았다. 설치 빌드 때 `native:prepare` 가 Android 80→81 · iOS 58→59 증가를 요구한다.
+
 ## 변경 이력
 
 - 2026-11-22 v1 작성.
 - 2026-11-22 v2 — Owner 2차 지시. 1차 틀린 9건 정정(§1). 근거 없는 숫자·임시 처리 제거(기존 450ms·8초만 사용, 실패별 판정). Owner 결정 3건에 추천안 적용(스켈레톤 유지 · DIBAY 문제도 안내 + OS 확인 주소 · Skew 는 이미 켜짐). 운영 조회 2건(Vercel 프로젝트 설정 · `delivery_launch_settings.mode`, 모두 읽기 전용).
 - 2026-11-22 §8 P1 구현 기록.
 - 2026-11-22 §9 P2 구현 기록.
+- 2026-11-22 §10 P3 구현 기록.

@@ -2016,6 +2016,15 @@ public class MainActivity extends BridgeActivity {
   }
 
   private final class DibayBootJsBridge {
+    /**
+     * P3 (loading-spinner 설계 §3-5): 기기 인터넷 상태 — "1" OS 검증됨 · "0" 인터넷 없음 · "" 알 수 없음.
+     * 웹 `lib/net/network-health.client.ts` 가 판정 때 읽는다(요청 0건). 구 바이너리에는 이 메서드가 없다 → 웹은 확인 요청으로 대신.
+     */
+    @JavascriptInterface
+    public String internetValidated() {
+      return DibayConnectivity.bridgeValue(MainActivity.this);
+    }
+
     @JavascriptInterface
     public void dismissSplash() {
       mainHandler.post(
@@ -2585,30 +2594,68 @@ public class MainActivity extends BridgeActivity {
     decor.addView(webViewLoadErrorOverlay);
   }
 
+  /** 네트워크 실패 안내를 고르는 중(확인 요청 대기) — 같은 실패에 두 번 판정하지 않는다 */
+  private boolean webViewLoadErrorClassifying = false;
+
   private void showWebViewLoadErrorOverlay(String url, String reason) {
+    // 렌더러 종료·웹 고장(HTTP 오류 문서·JS 미시작·해제 없음)은 네트워크 문제가 아니다 — 바로 그 문구 (§12-1 C-M2 · C1).
+    boolean rendererGone = "RENDER_PROCESS_GONE".equals(reason);
+    boolean webFault = reason != null && (reason.startsWith("WEB_") || reason.startsWith("HTTP_"));
+    if (rendererGone || webFault) {
+      showWebViewLoadErrorOverlayWith(
+          url,
+          reason,
+          rendererGone ? R.string.dibay_webview_renderer_gone_title : R.string.dibay_webview_web_fault_title,
+          rendererGone ? R.string.dibay_webview_renderer_gone_body : R.string.dibay_webview_web_fault_body);
+      return;
+    }
+    // 통화 실행·통화 경로 문서 — 예전 판정·문구·시점 그대로(통화 변경 규정: 통화 경로 동작 무변경).
+    if (DibayStartupFaultPolicy.isCallRouteUrl(url) || isCallLaunch(getIntent())) {
+      boolean offline =
+          reason != null
+              && (reason.contains("ERR_INTERNET_DISCONNECTED")
+                  || reason.contains("ERR_NAME_NOT_RESOLVED")
+                  || reason.contains("ERR_ADDRESS_UNREACHABLE"));
+      showWebViewLoadErrorOverlayWith(
+          url,
+          reason,
+          offline ? R.string.dibay_webview_offline_title : R.string.dibay_webview_error_title,
+          offline ? R.string.dibay_webview_offline_body : R.string.dibay_webview_error_body);
+      return;
+    }
+    // P3 (loading-spinner 설계 §3-5): 네트워크 실패 — 휴대폰 문제인지 DIBAY 문제인지 먼저 가른다.
+    // OS 검증값(요청 0건) → 검증됨이면 확인 요청 1건(8초 상한). 그동안 덮개(스피너)는 그대로 — 덮개 해제는 기존처럼 안내를 띄울 때.
+    if (webViewLoadErrorClassifying) return;
+    webViewLoadErrorClassifying = true;
+    DibayConnectivity.classifyAfterDibayFailure(
+        this,
+        verdict -> {
+          webViewLoadErrorClassifying = false;
+          if (mainFrameLoadFinished || isFinishing() || isDestroyed()) return;
+          int titleRes;
+          int bodyRes;
+          switch (verdict) {
+            case DEVICE_OFFLINE:
+              titleRes = R.string.dibay_webview_offline_title;
+              bodyRes = R.string.dibay_webview_device_offline_body;
+              break;
+            case DEVICE_UNSTABLE:
+              titleRes = R.string.dibay_webview_unstable_title;
+              bodyRes = R.string.dibay_webview_unstable_body;
+              break;
+            default:
+              titleRes = R.string.dibay_webview_dibay_title;
+              bodyRes = R.string.dibay_webview_dibay_body;
+              break;
+          }
+          Log.i(WEBVIEW_LOG_TAG, "webview_load_error_verdict reason=" + reason + " verdict=" + verdict);
+          showWebViewLoadErrorOverlayWith(url, reason, titleRes, bodyRes);
+        });
+  }
+
+  private void showWebViewLoadErrorOverlayWith(String url, String reason, int titleRes, int bodyRes) {
     ensureWebViewLoadErrorOverlay();
     if (webViewLoadErrorOverlay == null) return;
-    // 렌더러 종료는 네트워크 문제가 아니다 — 이유별로 제목·본문을 매번 다시 넣는다 (§12-1 C-M2).
-    // C1: 오프라인·웹 고장(HTTP 오류 문서·JS 미시작·해제 없음)도 이유에 맞는 문구 — 빈 화면·녹색 화면을 정상처럼 두지 않는다.
-    boolean rendererGone = "RENDER_PROCESS_GONE".equals(reason);
-    boolean offline =
-        reason != null
-            && (reason.contains("ERR_INTERNET_DISCONNECTED")
-                || reason.contains("ERR_NAME_NOT_RESOLVED")
-                || reason.contains("ERR_ADDRESS_UNREACHABLE"));
-    boolean webFault = reason != null && (reason.startsWith("WEB_") || reason.startsWith("HTTP_"));
-    int titleRes =
-        rendererGone
-            ? R.string.dibay_webview_renderer_gone_title
-            : offline
-                ? R.string.dibay_webview_offline_title
-                : webFault ? R.string.dibay_webview_web_fault_title : R.string.dibay_webview_error_title;
-    int bodyRes =
-        rendererGone
-            ? R.string.dibay_webview_renderer_gone_body
-            : offline
-                ? R.string.dibay_webview_offline_body
-                : webFault ? R.string.dibay_webview_web_fault_body : R.string.dibay_webview_error_body;
     TextView title = webViewLoadErrorOverlay.findViewById(R.id.dibay_webview_error_title);
     TextView body = webViewLoadErrorOverlay.findViewById(R.id.dibay_webview_error_body);
     if (title != null) {
