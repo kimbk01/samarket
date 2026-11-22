@@ -31,6 +31,14 @@ final class DibaySplashCover {
   private static final String TAG = "DibaySplashCover";
   /** 시스템 시작 화면 아이콘 칸 실측(삼성 450dpi·샤오미 213dpi 녹화에서 로고 보이는 부분 ≈ 127dp = 288dp × 420/960). */
   private static final int ICON_SLOT_DP = 288;
+  /**
+   * 로딩 스피너(웹 단일 정의와 같은 12점 링, 흰색 44dp) — 로고 아래. 설계 loading-spinner §3-5 W7.
+   * 450ms 뒤에만 보인다(웹 `LOADING_SPINNER_APPEAR_DELAY_MS` 와 같은 값 — 빠른 시작은 지금과 같은 화면).
+   * 위치: 로고 보이는 부분 127dp 의 아래 끝(+63.5dp) + 간격 28dp + 스피너 절반 22dp ≈ 화면 가운데에서 114dp 아래.
+   */
+  static final int SPINNER_DP = 44;
+  static final int SPINNER_OFFSET_DP = 114;
+  static final long SPINNER_APPEAR_DELAY_MS = 450L;
 
   /** 이번 화면 만들기에 덮개를 쓰기로 했는가 — super.onCreate(문서 시작 스크립트 설치) 전에 정한다. */
   private static volatile boolean planned = false;
@@ -100,6 +108,15 @@ final class DibaySplashCover {
       logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
       int slot = Math.round(ICON_SLOT_DP * dp);
       root.addView(logo, new FrameLayout.LayoutParams(slot, slot, Gravity.CENTER));
+      DibayDotSpinnerView spinner = new DibayDotSpinnerView(act, 0xFFFFFFFF);
+      int spin = Math.round(SPINNER_DP * dp);
+      spinner.setTranslationY(SPINNER_OFFSET_DP * dp);
+      spinner.setAlpha(0f);
+      root.addView(spinner, new FrameLayout.LayoutParams(spin, spin, Gravity.CENTER));
+      // 덮개를 걷는 조건·시각은 바꾸지 않는다(표시 타이머 없음) — 나타나기만 450ms 늦춘다(애니메이션 시작 지연 =
+      // 웹 CSS `animation-delay` 와 같은 방식). 덮개를 걷으면 스피너도 함께 사라진다.
+      spinner.start();
+      spinner.animate().alpha(1f).setStartDelay(SPINNER_APPEAR_DELAY_MS).setDuration(150L).start();
       content.addView(
           root,
           new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));

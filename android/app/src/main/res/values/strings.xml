@@ -83,6 +83,12 @@
     <string name="dibay_webview_offline_body">Check your internet connection and tap Try again.</string>
     <string name="dibay_webview_web_fault_title">The app screen didn\'t load</string>
     <string name="dibay_webview_web_fault_body">Tap Try again to load it again.</string>
+    <!-- P3 (loading-spinner design §3-5): phone problem vs DIBAY problem. Call routes keep the strings above. -->
+    <string name="dibay_webview_device_offline_body">Check Wi-Fi or mobile data, then tap Try again.</string>
+    <string name="dibay_webview_unstable_title">Your connection is unstable</string>
+    <string name="dibay_webview_unstable_body">Tap Try again when your phone\'s connection improves.</string>
+    <string name="dibay_webview_dibay_title">Can\'t reach DIBAY</string>
+    <string name="dibay_webview_dibay_body">DIBAY isn\'t responding right now. Please try again shortly.</string>
 
     <!-- Android Delivery Adapter v1 — App Icon summary (not Bell / not notification_events) -->
     <string name="dibay_app_icon_summary_title">DIBAY</string>

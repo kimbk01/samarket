@@ -59,8 +59,9 @@ describe("R17-OS Android TRUE OS splash resources", () => {
     // 고장 판정 = 문서 완료 후에만 시작, 정책 클래스가 판정
     expect(main).toContain("startStartupFaultProbe(url);");
     expect(main).toContain("DibayStartupFaultPolicy.judge(");
-    // 오류 화면은 화면 커밋을 기다리지 않고 즉시 해제 (pending 잠금 해소)
-    const overlay = main.slice(main.indexOf("private void showWebViewLoadErrorOverlay"));
+    // 오류 화면은 화면 커밋을 기다리지 않고 즉시 해제 (pending 잠금 해소).
+    // P3 (loading-spinner §3-5): 네트워크 실패는 휴대폰/DIBAY 판정 뒤 안내 — 안내를 띄우는 함수가 즉시 해제한다.
+    const overlay = main.slice(main.indexOf("private void showWebViewLoadErrorOverlayWith"));
     expect(overlay.slice(0, overlay.indexOf("\n  }\n"))).toContain('forceReleaseSplash("webview_load_error");');
     const policy = src("android/app/src/main/java/com/dibay/app/DibayStartupFaultPolicy.java");
     expect(policy).toContain("T_JS_MS = 8_000L");
@@ -95,7 +96,9 @@ describe("R17-OS iOS LaunchScreen + same-visual continuation", () => {
     // Normal success release = dismissSplash only; load end releases only when the app never started.
     expect(vc).toContain("typeof window.next === 'object' && window.next !== null");
     // C7 (2026-11-08): 앱이 시작되지 않은 채 로드가 멈추면 빈 화면 대신 오류 안내 + 「다시 시도」.
-    expect(vc).toContain('showStartupErrorView(kind: .network, reason: "main_load_stopped_without_app")');
+    // P3 (loading-spinner §3-5): 안내 전에 휴대폰/DIBAY 를 가른다 — 통화 경로는 예전 `.network` 그대로.
+    expect(vc).toContain('self.showNetworkStartupError(reason: "main_load_stopped_without_app", legacyOffline: false)');
+    expect(vc).toContain("showStartupErrorView(kind: legacyOffline ? .offline : .network, reason: reason)");
     expect(vc).not.toContain('removeLaunchContinuation(reason: "main_load_stopped")');
     for (const forbidden of [
       "asyncAfter",

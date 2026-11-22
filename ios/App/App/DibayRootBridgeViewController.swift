@@ -1,4 +1,5 @@
 import Capacitor
+import Network
 import UIKit
 import WebKit
 
@@ -37,6 +38,20 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
   private var launchContinuation: UIViewController?
   private var launchContinuationLoadingObservation: NSKeyValueObservation?
   private var launchContinuationSawLoading = false
+  /// P3 (loading-spinner 설계 §3-5 W7): 시작 덮개 위 DIBAY 스피너 — 웹 단일 정의와 같은 12점 링, 흰색 44pt, 450ms 뒤.
+  private var launchContinuationSpinner: UIView?
+  private static let launchSpinnerSize: CGFloat = 44
+  /// 로고(시작 화면 106×104pt, 가운데) 아래 끝 +52 · 간격 28 · 스피너 절반 22 = 가운데에서 102pt 아래
+  private static let launchSpinnerOffsetY: CGFloat = 102
+  /// 웹 `LOADING_SPINNER_APPEAR_DELAY_MS` 와 같은 값
+  private static let launchSpinnerAppearDelay: TimeInterval = 0.45
+  /// P3: 기기 경로 상태 — iOS 는 「쓸 수 있는 경로 있음」만 알려 준다(인터넷 도달 보장 아님, SDK path.h) → 없음일 때만 확정
+  private let pathMonitor = NWPathMonitor()
+  private var pathSatisfied: Bool?
+  private var startupErrorClassifying = false
+  /// 확인 주소(웹 P2 와 같음) · 8초 상한(웹 `NAVIGATION_STALL_DEADLINE_MS`)
+  private static let connectivityCheckURL = URL(string: "https://captive.apple.com/hotspot-detect.html")!
+  private static let connectivityCheckTimeout: TimeInterval = 8
 
   override var shouldAutorotate: Bool {
     DibayAppOrientationPolicy.shouldAutorotate(
@@ -225,6 +240,7 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     if let host = view { DibayNativeIntro.shared.attach(to: host) }
     installBootBridgeIfNeeded()
     installAdminLandscapeResetOnPageLoad()
+    startPathMonitor()
     // T_doc: 첫 문서 요청이 시작 화면보다 먼저 시작됐을 수 있다 — 로드 중이면 여기서도 관찰을 건다(문서 시작 신호가 오면 다시 시작).
     if webView?.isLoading == true, startupDocWaitTimer == nil { startStartupDocWait() }
   }
@@ -365,6 +381,7 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     continuation.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     host.addSubview(continuation.view)
     launchContinuation = continuation
+    attachLaunchContinuationSpinner(to: continuation.view)
 
     if let wv = webView {
       launchContinuationSawLoading = wv.isLoading
@@ -392,7 +409,7 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
         NSLog("[DibayRootBridge] launch_continuation_await_dismissSplash (app bundle running)")
       } else {
         // C7: 앱 번들이 시작되지 않은 채 로드가 멈췄다(탐색 실패·평문 오류 문서) — 빈 화면 대신 오류 안내 + 「다시 시도」.
-        self.showStartupErrorView(kind: .network, reason: "main_load_stopped_without_app")
+        self.showNetworkStartupError(reason: "main_load_stopped_without_app", legacyOffline: false)
       }
     }
   }
@@ -402,6 +419,8 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     launchContinuation = nil
     launchContinuationLoadingObservation?.invalidate()
     launchContinuationLoadingObservation = nil
+    launchContinuationSpinner?.layer.removeAllAnimations()
+    launchContinuationSpinner = nil
     continuation.view.removeFromSuperview()
     NSLog("[DibayRootBridge] launch_continuation_removed reason=%@", reason)
   }
@@ -675,7 +694,127 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
       NSURLErrorNetworkConnectionLost, NSURLErrorDNSLookupFailed, NSURLErrorDataNotAllowed,
     ]
     let offline = ns.domain == NSURLErrorDomain && offlineCodes.contains(ns.code)
-    showStartupErrorView(kind: offline ? .offline : .network, reason: "\(ns.domain)#\(ns.code)")
+    showNetworkStartupError(reason: "\(ns.domain)#\(ns.code)", legacyOffline: offline)
+  }
+
+  /// P3 (loading-spinner 설계 §3-5): 네트워크 실패 안내 — 휴대폰 문제인지 DIBAY 문제인지 먼저 가른다.
+  /// 통화 경로 문서는 예전 판정·문구·시점 그대로(통화 변경 규정).
+  private func showNetworkStartupError(reason: String, legacyOffline: Bool) {
+    if Self.startupFaultIsCallRoute(webView?.url) {
+      showStartupErrorView(kind: legacyOffline ? .offline : .network, reason: reason)
+      return
+    }
+    if pathSatisfied == false {
+      showStartupErrorView(kind: .deviceOffline, reason: reason)
+      return
+    }
+    guard !startupErrorClassifying else { return }
+    startupErrorClassifying = true
+    // 확인 요청 1건 — 그동안 시작 덮개(스피너)는 그대로. 쿠키·캐시 없음.
+    let config = URLSessionConfiguration.ephemeral
+    config.timeoutIntervalForRequest = Self.connectivityCheckTimeout
+    config.timeoutIntervalForResource = Self.connectivityCheckTimeout
+    config.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+    config.httpShouldSetCookies = false
+    let session = URLSession(configuration: config)
+    let started = Date()
+    session.dataTask(with: Self.connectivityCheckURL) { [weak self] _, response, error in
+      let took = Date().timeIntervalSince(started)
+      let kind: StartupErrorKind
+      if let err = error as NSError? {
+        kind = err.code == NSURLErrorTimedOut ? .deviceUnstable : .deviceOffline
+      } else if response != nil {
+        kind = took >= Self.connectivityCheckTimeout ? .deviceUnstable : .dibay
+      } else {
+        kind = .deviceOffline
+      }
+      session.finishTasksAndInvalidate()
+      DispatchQueue.main.async {
+        guard let self = self else { return }
+        self.startupErrorClassifying = false
+        NSLog("[DibayRootBridge] startup_error_verdict reason=%@ kind=%@ tookMs=%d", reason, "\(kind)", Int(took * 1000))
+        self.showStartupErrorView(kind: kind, reason: reason)
+      }
+    }.resume()
+  }
+
+  /// P3: 문서가 5xx 로 왔다 — DIBAY 쪽 고장. 시작 중(덮개 있음)·통화 경로 아님일 때만 「앱 화면을 불러오지 못했습니다」.
+  func startupFaultHttpStatus(_ status: Int, url: URL?) {
+    guard status >= 500, launchContinuation != nil, !Self.startupFaultIsCallRoute(url) else { return }
+    stopStartupFaultProbe()
+    stopStartupDocWait()
+    showStartupErrorView(kind: .web, reason: "HTTP_\(status)")
+  }
+
+  private func startPathMonitor() {
+    pathMonitor.pathUpdateHandler = { [weak self] path in
+      let satisfied = path.status == .satisfied
+      DispatchQueue.main.async {
+        guard let self = self else { return }
+        self.pathSatisfied = satisfied
+        // 웹 판정(`lib/net/network-health.client.ts`)이 읽는 값 — "0" 기기 경로 없음 · "" 알 수 없음(iOS 는 인터넷 검증값이 없다)
+        self.webView?.evaluateJavaScript("window.__dibayNativeInternet='\(satisfied ? "" : "0")'", completionHandler: nil)
+      }
+    }
+    pathMonitor.start(queue: DispatchQueue(label: "dibay.path-monitor"))
+  }
+
+  /// 웹 `.sam-spinner` 와 같은 12점 링(점 지름 0.145 · 반지름 0.38 · 1.15s · 밝기 0.25→1→0.4→0.25) — 450ms 뒤에만 보인다.
+  private func attachLaunchContinuationSpinner(to container: UIView) {
+    let size = Self.launchSpinnerSize
+    let holder = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
+    holder.isUserInteractionEnabled = false
+    holder.isAccessibilityElement = false
+    holder.alpha = 0
+    holder.translatesAutoresizingMaskIntoConstraints = false
+    container.addSubview(holder)
+    NSLayoutConstraint.activate([
+      holder.widthAnchor.constraint(equalToConstant: size),
+      holder.heightAnchor.constraint(equalToConstant: size),
+      holder.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+      holder.centerYAnchor.constraint(equalTo: container.centerYAnchor, constant: Self.launchSpinnerOffsetY),
+    ])
+    let dots = 12
+    let cycle: CFTimeInterval = 1.15
+    let dotSize = size * 0.145
+    let replicator = CAReplicatorLayer()
+    replicator.frame = CGRect(x: 0, y: 0, width: size, height: size)
+    replicator.instanceCount = dots
+    replicator.instanceTransform = CATransform3DMakeRotation(CGFloat.pi * 2 / CGFloat(dots), 0, 0, 1)
+    replicator.instanceDelay = cycle / CFTimeInterval(dots)
+    let dot = CALayer()
+    dot.bounds = CGRect(x: 0, y: 0, width: dotSize, height: dotSize)
+    dot.position = CGPoint(x: size / 2, y: size / 2 - size * 0.38)
+    dot.cornerRadius = dotSize / 2
+    dot.backgroundColor = UIColor.white.cgColor
+    dot.opacity = 0.25
+    replicator.addSublayer(dot)
+    holder.layer.addSublayer(replicator)
+    let fade = CAKeyframeAnimation(keyPath: "opacity")
+    fade.values = [0.25, 1.0, 0.4, 0.25]
+    fade.keyTimes = [0, 0.1, 0.3, 1]
+    let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+    scale.values = [0.6, 1.0, 0.75, 0.6]
+    scale.keyTimes = [0, 0.1, 0.3, 1]
+    let group = CAAnimationGroup()
+    group.animations = [fade, scale]
+    group.duration = cycle
+    group.repeatCount = .infinity
+    group.isRemovedOnCompletion = false
+    dot.add(group, forKey: "dibay-spinner")
+    launchContinuationSpinner = holder
+    // 덮개를 걷는 조건·시각은 바꾸지 않는다(타이머 없음) — 나타나기만 450ms 늦춘다.
+    // Core Animation 시작 시각 지연 = 웹 CSS `animation-delay` 와 같은 방식(R17 덮개 표시 타이머 금지 유지).
+    holder.alpha = 1
+    holder.layer.opacity = 0
+    let appear = CABasicAnimation(keyPath: "opacity")
+    appear.fromValue = 0
+    appear.toValue = 1
+    appear.duration = 0.15
+    appear.beginTime = CACurrentMediaTime() + Self.launchSpinnerAppearDelay
+    appear.fillMode = .forwards
+    appear.isRemovedOnCompletion = false
+    holder.layer.add(appear, forKey: "dibay-spinner-appear")
   }
 
   /// WebContent 종료(장시간 백그라운드 등) → Capacitor 가 reload 한다. 그 사이 빈 화면 대신 같은 시작 화면을 다시 덮고,
@@ -695,7 +834,8 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     DibayNativeIntro.shared.bringToFront()
   }
 
-  enum StartupErrorKind { case offline, network, web }
+  /// offline·network = 예전 문구(통화 경로) · deviceOffline·deviceUnstable·dibay = P3 휴대폰 vs DIBAY 문구
+  enum StartupErrorKind { case offline, network, web, deviceOffline, deviceUnstable, dibay }
 
   private func showStartupErrorView(kind: StartupErrorKind, reason: String) {
     removeLaunchContinuation(reason: "startup_fault_\(reason)")
@@ -716,6 +856,15 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     case .web:
       title = en ? "The app screen didn't load" : "앱 화면을 불러오지 못했습니다"
       body = en ? "Tap Try again to load it again." : "다시 시도를 누르면 다시 불러옵니다."
+    case .deviceOffline:
+      title = en ? "You're offline" : "인터넷에 연결되어 있지 않습니다"
+      body = en ? "Check Wi-Fi or mobile data, then tap Try again." : "Wi-Fi 또는 모바일 데이터를 확인한 뒤 다시 시도를 눌러 주세요."
+    case .deviceUnstable:
+      title = en ? "Your connection is unstable" : "인터넷 연결이 불안정합니다"
+      body = en ? "Tap Try again when your phone's connection improves." : "휴대폰 연결이 좋아지면 다시 시도를 눌러 주세요."
+    case .dibay:
+      title = en ? "Can't reach DIBAY" : "DIBAY 에 연결할 수 없습니다"
+      body = en ? "DIBAY isn't responding right now. Please try again shortly." : "DIBAY 연결이 잠시 원활하지 않아요. 잠시 뒤 다시 시도해 주세요."
     }
     let container = UIView(frame: host.bounds)
     container.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -808,6 +957,20 @@ final class DibayNavigationDelegateProxy: NSObject, WKNavigationDelegate {
   func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
     owner?.startupFaultDocumentStarted()
     inner.webView?(webView, didStartProvisionalNavigation: navigation)
+  }
+
+  /// P3: 문서 응답 상태만 본다(결정은 바꾸지 않음 — Capacitor 가 구현하면 그쪽 결정을 그대로, 아니면 허용).
+  func webView(
+    _ webView: WKWebView,
+    decidePolicyFor navigationResponse: WKNavigationResponse,
+    decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
+  ) {
+    if navigationResponse.isForMainFrame, let http = navigationResponse.response as? HTTPURLResponse, http.statusCode >= 500 {
+      owner?.startupFaultHttpStatus(http.statusCode, url: http.url)
+    }
+    if inner.webView?(webView, decidePolicyFor: navigationResponse, decisionHandler: decisionHandler) == nil {
+      decisionHandler(.allow)
+    }
   }
 
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

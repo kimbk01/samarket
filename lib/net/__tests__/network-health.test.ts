@@ -7,6 +7,7 @@ import {
   isObservedDibayRequest,
   networkFailureMessageKey,
   noteDibayRequestHealthy,
+  readNativeInternetSignal,
   resolveConnectivityCheckUrl,
   wrapFetchWithNetworkHealth,
   type NetworkHealthDeps,
@@ -150,5 +151,27 @@ describe("화면 문구 키", () => {
   it("확인 주소: iPhone = Apple · 그 밖 = Google (둘 다 HTTPS)", () => {
     expect(resolveConnectivityCheckUrl({ platform: "ios", userAgent: "" })).toBe("https://captive.apple.com/hotspot-detect.html");
     expect(resolveConnectivityCheckUrl({ platform: "android", userAgent: "Android" })).toBe("https://www.gstatic.com/generate_204");
+  });
+});
+
+describe("네이티브 기기 인터넷 값 (P3)", () => {
+  it("Android 브리지 0/1 · iOS 값 0 · 구 바이너리 = 모름", () => {
+    expect(readNativeInternetSignal({ DibayBootBridge: { internetValidated: () => "0" } })).toBe("offline");
+    expect(readNativeInternetSignal({ DibayBootBridge: { internetValidated: () => "1" } })).toBe("validated");
+    expect(readNativeInternetSignal({ __dibayNativeInternet: "0" })).toBe("offline");
+    expect(readNativeInternetSignal({ __dibayNativeInternet: "" })).toBeNull();
+    expect(readNativeInternetSignal({ DibayBootBridge: { dismissSplash: () => undefined } })).toBeNull();
+  });
+  it("네이티브가 「인터넷 없음」이면 확인 요청 없이 device_offline", async () => {
+    const g = globalThis as unknown as { window?: unknown };
+    const had = "window" in g;
+    const prev = g.window;
+    g.window = { __dibayNativeInternet: "0" };
+    const d = deps(() => Promise.resolve({}), { t: 0 });
+    await evaluateAfterDibayTrouble(d);
+    expect(getNetworkHealthState()).toBe("device_offline");
+    expect(d.rawFetch).not.toHaveBeenCalled();
+    if (had) g.window = prev;
+    else delete g.window;
   });
 });
