@@ -182,6 +182,8 @@ export type ExchangeWriteMeetSpotStagingV1 = {
   ratePlus: string;
   amount: string;
   ratesFetchedAt: string | null;
+  /** 감사 X1 (2026-11-22): 저장할 환율의 기준시각 — 시세로 채운 환율일 때만 값, 직접 입력이면 null */
+  rateCriteriaAt?: string | null;
   sellerPrep: string[];
   buyerPrep: string[];
   memo: string;

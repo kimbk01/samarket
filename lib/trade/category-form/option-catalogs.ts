@@ -48,6 +48,8 @@ function buildUsedCarModelCatalog(): TradeOptionEntry[] {
     for (const model of brand.models) {
       if (seen.has(model.key)) continue;
       seen.add(model.key);
+      /** 감사 C2 (2026-11-22): 「기타」 브랜드의 직접 입력 자리(`__model_free__`)는 모델이 아니다 — 선택지·라벨에 넣지 않는다 */
+      if (model.label === "__model_free__") continue;
       const isOther = model.label === "__other_model__";
       out.push({
         value: model.key,
@@ -164,6 +166,15 @@ export const TRADE_OPTION_CATALOGS: Record<string, readonly TradeOptionEntry[]> 
 export function getTradeOptionCatalog(id: string | undefined): readonly TradeOptionEntry[] {
   if (!id) return [];
   return TRADE_OPTION_CATALOGS[id] ?? [];
+}
+
+/**
+ * 감사 C2 (2026-11-22): 목록 필터로 고를 수 없는 선택지.
+ * 중고차 「기타」 브랜드는 차량명을 직접 입력해 저장하므로(`car_model` 자유 문자열) 브랜드로 찾을 수 없다.
+ * 「기타」 문자열로 찾으면 다른 브랜드의 「기타 모델」 글이 일치로 올라온다.
+ */
+export function isTradeOptionUnfilterable(catalogId: string | undefined, value: string): boolean {
+  return catalogId === "used_car_brands" && value === USED_CAR_BRAND_OTHER_KEY;
 }
 
 export function labelForTradeOption(

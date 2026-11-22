@@ -80,7 +80,7 @@ export {
   type AdaptedCompositionField,
 } from "./behavior-adapters";
 
-export { getTradeOptionCatalog, labelForTradeOption } from "./option-catalogs";
+export { getTradeOptionCatalog, isTradeOptionUnfilterable, labelForTradeOption } from "./option-catalogs";
 
 export {
   parseCompositionFilterSearchParams,

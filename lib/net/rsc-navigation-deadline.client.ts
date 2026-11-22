@@ -10,8 +10,11 @@
  *   요청 실패 시 「브라우저 이동으로 대체」(`fetch-server-response.js` catch → MPA, `app-router.js` location.assign/replace).
  *   우리가 만드는 회복 경로는 없다.
  * - 대상 (모두 해당할 때만): 같은 출처 · 헤더 `rsc: 1` · `next-router-prefetch` 없음(미리받기 제외) ·
- *   `next-action` 없음(서버 액션 제외) · 호출 쪽 signal 없음 · 목표 경로 ≠ 지금 경로(`router.refresh`·같은 화면 쿼리 변경 제외) ·
- *   통화 경로 아님 · 내 통화 없음(통화 변경 규정 — 통화 동작 무변경).
+ *   `next-action` 없음(서버 액션 제외) · 우선순위 `low` 아님(전체 미리받기 제외) · 호출 쪽 signal 없음 ·
+ *   목표 경로 ≠ 지금 경로(`router.refresh`·같은 화면 쿼리 변경 제외) · 통화 경로 아님 · 내 통화 없음(통화 변경 규정 — 통화 동작 무변경).
+ * - 전체 미리받기(`prefetch={true}`·`FetchStrategy.Full`)는 `next-router-prefetch` 헤더가 **없다**
+ *   (`segment-cache/cache.js:1088-1098`). 대신 우선순위가 `low` 다(`fetchPrefetchResponse` :1344). 화면 이동은 `auto`
+ *   (`fetch-server-response.js:96`). 2026-11-22 Samsung 실기에서 미리받기 4건을 이동으로 잘못 잡아 끊은 결함을 고침.
  * - 머리가 온 뒤 본문 멈춤은 덮지 않는다(새 Response 를 만들면 Next 가 쓰는 res.url·res.redirected 가 사라짐). 하단 탭은 감시가 받친다.
  * - 정상 경로에서 새 요청 0건. 멈춤 때만 계측 1건(`nav_stall`).
  */
@@ -62,6 +65,8 @@ export function resolveRscNavigationDeadlineTarget(
   const h = readHeaders(init);
   if (!h || h.get("rsc") !== "1") return null;
   if (h.has("next-router-prefetch") || h.has("next-action")) return null;
+  /** 전체 미리받기 — 헤더 표시 없이 우선순위 low 로 나간다 */
+  if (init?.priority === "low") return null;
   let target: URL;
   let current: URL;
   try {

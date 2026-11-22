@@ -102,10 +102,12 @@ export function formatExchangeCompositionDetailField(
   if (fieldId === "converted_amount") {
     const converted = meta.converted_amount != null ? Number(meta.converted_amount) : null;
     if (converted == null || Number.isNaN(converted)) return null;
-    return `${CURRENCY_SYMBOLS.KRW ?? ""} ${converted.toLocaleString()}`;
+    /** 감사 X2: 원화는 소수 없이 */
+    return `${CURRENCY_SYMBOLS.KRW ?? ""} ${Math.round(converted).toLocaleString()}`;
   }
   if (fieldId === "seller_prep" || fieldId === "buyer_prep") {
-    const prep = formatPrepKeysForDisplay(meta[fieldId]);
+    /** 감사 X3: 보는 사람 언어로 */
+    const prep = formatPrepKeysForDisplay(meta[fieldId], (key) => t(key));
     return prep || "—";
   }
   if (fieldId === "rate_criteria_at") {

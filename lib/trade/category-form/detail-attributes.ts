@@ -89,13 +89,19 @@ export function buildCompositionDetailAttributes(input: {
       value = readMeta(input.meta, storage.metaKey);
       if (!value && input.post) value = str(input.post[storage.column]);
     } else if (storage.kind === "derived") {
-      continue;
+      /**
+       * 감사 X2 (2026-11-22): 계산값(환전 KRW 환산액)은 글쓰기 때 같은 id 로 meta 에 저장된다.
+       * 표시 형식은 화면 포맷터가 정한다 — 포맷터가 없는 화면은 예전처럼 건너뛴다.
+       */
+      if (!input.formatField) continue;
+      value = readMeta(input.meta, field.id);
     }
     if (def.widget === "boolean") {
       if (storage.kind === "meta") {
         const b = input.meta[storage.key];
         if (b === true) value = translateBy(lang, "trade_yes");
-        else if (b === false) value = "";
+        /** 감사 C3 (2026-11-22): 사고 여부는 필수 칸 — 「없음」도 정보다(무사고) */
+        else if (b === false) value = field.id === "has_accident" ? translateBy(lang, "ui_car_accident_no") : "";
       }
     }
     if (!value && field.id === "price" && input.post?.price != null) {
@@ -136,7 +142,11 @@ export function splitCombinedMetaPart(
     const label = b.label.toLowerCase();
     return lower === label || lower.startsWith(`${label} `);
   });
-  if (!brand) return text;
+  /**
+   * 브랜드를 못 찾으면(「기타」 직접 입력) 원문은 제조사 칸에만 둔다.
+   * 감사 C3 (2026-11-22): 모델 칸에도 원문을 내면 두 칸에 같은 값이 나온다.
+   */
+  if (!brand) return fieldId === parts[1] ? "" : text;
   if (fieldId === parts[0]) return brand.label;
   if (fieldId === parts[1]) return text.slice(brand.label.length).trim() || text;
   return text;

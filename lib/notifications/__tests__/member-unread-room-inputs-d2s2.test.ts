@@ -82,7 +82,8 @@ describe("계약", () => {
 
   it("2-c: 입력 표 1회 → 같은 로더, 실패하면 이전 경로(participants·rooms)", () => {
     const src = readFileSync(join(process.cwd(), "lib/notifications/pipeline/build-domain-badge-authority-http.ts"), "utf8");
-    expect(src).toContain("const inputRows = await loadMemberUnreadRoomInputs(sb, uid);");
+    /** 2026-11-22 읽음 3단계 — 입력은 `get_member_badge_facts` 1번(없으면 지금처럼 RPC) */
+    expect(src).toContain("const inputRows = facts ? facts.inputs : await loadMemberUnreadRoomInputs(sb, uid);");
     expect(src).toContain("loadTradeStoreOrderUnreadRoomFactsFromParticipants(sb, uid, loaded, orderMaps)");
     expect(src).toMatch(/if \(inputRows\) \{[\s\S]*?\}\s*\/\*\* S2[\s\S]*?const unreadParticipantRoomRows = loadUnreadParticipantRoomRows\(sb, uid\);/);
   });

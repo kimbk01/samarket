@@ -10,4 +10,7 @@ describe("상세 제조사·모델 나누기 (2026-10-28 실기)", () => {
   it("모르는 브랜드는 원문 그대로", () => {
     expect(splitCombinedMetaPart("R4LDwwxm6a", parts, "make")).toBe("R4LDwwxm6a");
   });
+  it("감사 C3: 모르는 브랜드 원문은 모델 칸에 다시 내지 않음", () => {
+    expect(splitCombinedMetaPart("R4LDwwxm6a", parts, "model")).toBe("");
+  });
 });

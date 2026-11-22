@@ -39,9 +39,11 @@ export async function listOwnedStoreIdsForBadge(
 
 export async function loadOwnerOperationOFacts(
   sb: SupabaseClient,
-  ownerUserId: string
+  ownerUserId: string,
+  /** 2026-11-22 읽음 3단계 — `get_member_badge_facts` 가 같은 조회(owner_user_id · limit 50)로 미리 읽은 매장 id */
+  preloadedStoreIds?: string[] | null
 ): Promise<OwnerOperationOFacts> {
-  const storeIds = await listOwnedStoreIdsForBadge(sb, ownerUserId);
+  const storeIds = preloadedStoreIds ?? (await listOwnedStoreIdsForBadge(sb, ownerUserId));
   if (!storeIds.length) {
     return { ownerOperationCount: 0, ownerOperationBellCount: 0, storeIds: [] };
   }

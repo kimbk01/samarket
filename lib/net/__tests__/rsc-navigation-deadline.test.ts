@@ -27,6 +27,17 @@ describe("대상 판정 — 모두 해당할 때만", () => {
       resolveRscNavigationDeadlineTarget("/philife", { headers: { rsc: "1", "next-router-prefetch": "1" } }, HERE)
     ).toBeNull();
   });
+  it("전체 미리받기(헤더 없이 priority low) = 아님 — 2026-11-22 실기 결함", () => {
+    expect(
+      resolveRscNavigationDeadlineTarget(
+        "/philife/97f8884d?_rsc=1",
+        { headers: { rsc: "1", "next-router-state-tree": "x" }, priority: "low" },
+        HERE
+      )
+    ).toBeNull();
+    /** 화면 이동은 auto */
+    expect(resolveRscNavigationDeadlineTarget("/philife", { ...nav, priority: "auto" }, HERE)).toBe("/philife");
+  });
   it("서버 액션 = 아님", () => {
     expect(resolveRscNavigationDeadlineTarget("/philife", { headers: { rsc: "1", "next-action": "abc" } }, HERE)).toBeNull();
   });
