@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 import { isTradeImagesRequiredServer } from "@/lib/trade/category-form/trade-images-required";
 import { TRADE_POST_MAX_IMAGES, filterOwnPostImageUrls } from "@/lib/posts/own-post-image-url";
 import { sanitizeTradeMetaCurrency } from "@/lib/trade/trade-price-currency";
+import { normalizeTradePriceForSave } from "@/lib/posts/trade-price-server-validation";
 import { dropTradeMetaClears } from "@/lib/trade/category-form/trade-write-owned-meta-keys";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
@@ -264,6 +265,15 @@ export async function PATCH(
   });
   if (!filtered.ok) {
     return NextResponse.json({ ok: false, error: filtered.error, code: filtered.code }, { status: filtered.status });
+  }
+
+  /**
+   * 감사 G2: 가격은 0 이상 유한한 숫자만(NaN 은 DB 오류 500 이었다).
+   * 수정에서는 값을 바꾸지 않고 검사만 한다 — 제한 단계 잠금 검사(위) 뒤에 값을 고치면 잠금을 우회하게 된다.
+   */
+  const priceCheck = normalizeTradePriceForSave(proposed.price, false);
+  if (!priceCheck.ok) {
+    return NextResponse.json({ ok: false, error: priceCheck.code, code: priceCheck.code }, { status: 400 });
   }
 
   const now = new Date().toISOString();

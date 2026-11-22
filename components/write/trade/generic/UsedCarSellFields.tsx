@@ -75,7 +75,8 @@ export function UsedCarSellFields({
 }: UsedCarSellFieldsProps) {
   const { t, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
-  const yearOpts = useMemo(() => buildUsedCarYearSelectOptions(), []);
+  /** 감사 C4 (2026-11-22): 연식 선택지도 화면 언어로(이전: 기본 언어 ko 고정 「2024년」) */
+  const yearOpts = useMemo(() => buildUsedCarYearSelectOptions(t), [t]);
   const brand = USED_CAR_BRANDS.find((b) => b.key === brandKey);
   const models = brand?.models ?? [];
   const transmissionOpts = getTradeOptionCatalog("vehicle_transmission");
@@ -136,7 +137,8 @@ export function UsedCarSellFields({
           ) : showModel && brandKey === USED_CAR_BRAND_OTHER_KEY ? (
             <div className="min-w-0 sm:col-span-1">
               <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
-                {t("trade_write_body_type")} <span className="text-sam-danger">*</span>
+                {/* 감사 C6: 직접 입력하는 것은 차량 모델 — 「차종(Body type)」 이름이 틀렸다 */}
+                {t("trade_write_model")} <span className="text-sam-danger">*</span>
               </label>
               <input
                 type="text"

@@ -20,6 +20,10 @@ const WRITE_SHEET_EXIT_GUARD_MS = 520;
  *
  * 시트: 전역 스티키 헤더(`[data-app-sticky-header]`) 바로 아래 ~ 화면 하단, 아래→위 `translate-y` (필라이프·거래 시트와 동일).
  */
+
+/** 감사 G3: 글쓰기 화면 닫기·뒤로 목적지 */
+const WRITE_PAGE_CLOSE_HREF = "/market";
+
 export default function WritePageClient() {
   const { t } = useI18n();
   const router = useRouter();
@@ -128,9 +132,10 @@ export default function WritePageClient() {
     });
   }, []);
 
+  /** 감사 G3 (2026-11-22): `/write` 는 마켓 탭 화면(route-transition-config) — 닫으면 마켓 목록으로 */
   const closeWriteSheetToHome = useCallback(() => {
     runExitThen(() => {
-      router.replace("/philife");
+      router.replace(WRITE_PAGE_CLOSE_HREF);
     });
   }, [router, runExitThen]);
 
@@ -149,7 +154,7 @@ export default function WritePageClient() {
     <>
       <WriteScreenTier1Sync
         title={t("trade_041")}
-        backHref="/philife"
+        backHref={WRITE_PAGE_CLOSE_HREF}
         onRequestClose={() => tryCloseFromFlowRef.current()}
         subtitle={tierSubtitle}
       />

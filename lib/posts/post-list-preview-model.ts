@@ -30,7 +30,7 @@ import {
   hasJobsMeta,
   hasExchangeMeta,
 } from "@/lib/posts/post-variant";
-import { labelForUsedCarBodyTypeKey } from "@/lib/trade/used-car-form-catalog";
+import { labelForUsedCarBodyTypeKey, localizeUsedCarModelLine } from "@/lib/trade/used-car-form-catalog";
 import { resolveTradeComposition } from "@/lib/trade/category-form/resolve-composition";
 import {
   buildCompositionListAttributes,
@@ -480,7 +480,7 @@ export function buildPostListPreviewModel(
             const estateType = str(meta.estate_type);
             const sizeSq = meta.size_sq ?? meta.area_sqm;
             const sizeSqStr =
-              sizeSq != null && String(sizeSq).trim() ? `${String(sizeSq).trim()} sq` : "";
+              sizeSq != null && String(sizeSq).trim() ? `${String(sizeSq).trim()} ㎡` : "";
             return [estateType, sizeSqStr].filter(Boolean).join(" · ");
           })());
 
@@ -588,11 +588,13 @@ export function buildPostListPreviewModel(
   }
 
   if (isUsedCar) {
-    const carModel = str(meta.car_model);
+    /** 감사 C4: 「기타 모델」 저장 문구를 보는 사람 언어로 */
+    const carModel = localizeUsedCarModelLine(str(meta.car_model), (key, vars) => postPreviewT(locale, key, vars));
     const bodyTypeRaw = str(meta.car_body_type);
     const bodyTypeLabel =
       meta.car_trade === "buy" && bodyTypeRaw
-        ? labelForUsedCarBodyTypeKey(bodyTypeRaw) ||
+        ? /** 감사 C4: 보는 사람 언어로(이전: t 없이 기본 ko) */
+          labelForUsedCarBodyTypeKey(bodyTypeRaw, (key, vars) => postPreviewT(locale, key, vars)) ||
           joinCompositionListAttributeLine(listAttrs, ["body_type"])
         : "";
     const yearRaw = str(meta.car_year_max) || str(meta.car_year);

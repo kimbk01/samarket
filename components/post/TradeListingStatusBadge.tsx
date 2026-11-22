@@ -18,6 +18,8 @@ export type TradeListingPostLike = {
   seller_listing_state?: string;
   status?: string;
   type?: string | null;
+  /** 감사 J5: 일자리 글 판정(`listing_kind`) */
+  meta?: unknown;
 };
 
 /** posts 행 기준 — 중고·부동산·차·알바·환전 리스트·상세·채팅 상단과 동일 규칙 */

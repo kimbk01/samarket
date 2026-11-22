@@ -8,6 +8,8 @@ import {
   USED_CAR_BRAND_OTHER_KEY,
   USED_CAR_MILEAGE_PRESETS,
 } from "@/lib/trade/used-car-form-catalog";
+import { JOB_SEEKER_INDUSTRY_OPTIONS, WORK_CATEGORY_OTHER } from "@/lib/jobs/form-options";
+import { translate } from "@/lib/i18n/messages";
 
 export type TradeOptionEntry = { value: string; labelKo: string; labelEn: string };
 
@@ -134,6 +136,15 @@ export const TRADE_OPTION_CATALOGS: Record<string, readonly TradeOptionEntry[]> 
     { value: "이사/짐", labelKo: "이사/짐", labelEn: "Moving" },
     { value: "돌봄", labelKo: "돌봄", labelEn: "Care" },
     { value: "기타", labelKo: "기타", labelEn: "Other" },
+    /**
+     * 감사 J4 (2026-11-22): 구직 희망 업종(별도 목록)도 같은 `work_category` 칸에 저장된다 —
+     * 필터·라벨이 구직 글을 알아보도록 이어 붙인다(값이 겹치는 「기타」는 제외).
+     */
+    ...JOB_SEEKER_INDUSTRY_OPTIONS.filter((o) => o.value !== WORK_CATEGORY_OTHER).map((o) => ({
+      value: o.value,
+      labelKo: translate("ko", o.labelKey),
+      labelEn: translate("en", o.labelKey),
+    })),
   ],
   jobs_work_term: [
     { value: "short", labelKo: "단기", labelEn: "Short-term" },

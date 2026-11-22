@@ -3,6 +3,7 @@
  * Used by TradeCompositionDetailSection; not category MetaBlock authority.
  */
 import { CURRENCY_SYMBOLS, formatPrepKeysForDisplay } from "@/lib/exchange/form-options";
+import { formatExchangeRatePlus } from "@/lib/exchange/exchange-feed-lines";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { labelForUsedCarBodyTypeKey } from "@/lib/trade/used-car-form-catalog";
 
@@ -72,14 +73,13 @@ export function formatExchangeCompositionDetailField(
   if (fieldId === "to_currency") return `KRW ${CURRENCY_SYMBOLS.KRW ?? ""}`;
   if (fieldId === "exchange_rate" || fieldId === "exchange_rate_base") {
     if (rateBase == null || rateBase <= 0) return null;
-    if (
-      fieldId === "exchange_rate_base" &&
-      rateBaseRaw != null &&
-      ratePlus != null &&
-      !Number.isNaN(ratePlus) &&
-      ratePlus !== 0
-    ) {
-      return null;
+    /**
+     * 감사 X5 (2026-11-22): 「기준 환율」 줄은 합산 환율(exchange_rate) 줄이 없을 때만 —
+     * 이전: 가산 0 이면 두 줄에 같은 문구가 나왔다.
+     */
+    if (fieldId === "exchange_rate_base") {
+      const sumPresent = meta.exchange_rate != null && String(meta.exchange_rate).trim() !== "";
+      if (sumPresent) return null;
     }
     if (
       fieldId === "exchange_rate" &&
@@ -89,7 +89,7 @@ export function formatExchangeCompositionDetailField(
       !Number.isNaN(ratePlus) &&
       ratePlus !== 0
     ) {
-      return `1 PHP = ${rateBase.toLocaleString(undefined, { maximumFractionDigits: 2 })} KRW +${ratePlus}`;
+      return `1 PHP = ${rateBase.toLocaleString(undefined, { maximumFractionDigits: 2 })} KRW ${formatExchangeRatePlus(ratePlus)}`;
     }
     return `1 PHP = ${rateBase.toLocaleString(undefined, { maximumFractionDigits: 2 })} KRW`;
   }

@@ -245,6 +245,15 @@ export async function loadTradeRatingContext(
       .is("revoked_at", null),
   ]);
 
+  /**
+   * 감사 P6 (2026-11-22): 자격 판정에 쓰는 조회가 하나라도 실패하면 판정하지 않는다(fail-closed).
+   * 이전: 차단·제재·기기 조회 오류를 「없음」으로 보고 평가를 열어 줬다.
+   */
+  for (const res of [post, reviews, devices, blocks, profiles, sanctions]) {
+    const err = (res as { error?: { message?: string } | null }).error;
+    if (err) throw new Error(`trade_rating_context_failed: ${err.message ?? "unknown"}`);
+  }
+
   const rows = ((reviews.data ?? []) as TradeRatingRow[]) ?? [];
   const mine = rows.find((r) => r.reviewer_id === viewerId) ?? null;
   const theirs = rows.find((r) => r.reviewer_id === counterpartId) ?? null;
@@ -332,11 +341,27 @@ export async function submitTradeRating(
   if (!reviewId) return { ok: false, error: "save_failed", status: 500 };
 
   let revealed = false;
-  if (ctx.theirs && ctx.theirs.rating_status === "pending_reveal") {
+  /**
+   * 감사 P6 (2026-11-22): 양쪽이 거의 동시에 제출하면 서로의 평가를 못 봐서 둘 다 7일 예약 공개까지 기다렸다.
+   * 내 평가를 저장한 **뒤** 상대 평가를 다시 읽는다 — 늦게 저장한 쪽이 반드시 먼저 저장한 쪽을 본다.
+   */
+  let theirsPending: { id: string } | null =
+    ctx.theirs && ctx.theirs.rating_status === "pending_reveal" ? { id: ctx.theirs.id } : null;
+  if (!ctx.theirs) {
+    const { data: again } = await sb
+      .from("transaction_reviews")
+      .select("id")
+      .eq("room_id", ctx.chat.id)
+      .eq("reviewer_id", ctx.eligibility.counterpartId)
+      .eq("rating_status", "pending_reveal")
+      .maybeSingle();
+    theirsPending = (again as { id: string } | null) ?? null;
+  }
+  if (theirsPending) {
     const { error: upErr } = await sb
       .from("transaction_reviews")
       .update({ rating_status: "revealed", revealed_at: nowIso } as never)
-      .in("id", [reviewId, ctx.theirs.id])
+      .in("id", [reviewId, theirsPending.id])
       .eq("rating_status", "pending_reveal");
     if (upErr) return { ok: false, error: "reveal_failed", status: 500 };
     revealed = true;

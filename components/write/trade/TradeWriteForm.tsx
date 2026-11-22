@@ -198,7 +198,11 @@ import {
   withClearedTradeWriteMetaKeys,
   withExplicitTradeMetaClears,
 } from "@/lib/trade/category-form/trade-write-owned-meta-keys";
-import { realEstateDealPersistScope } from "@/lib/trade/category-form/real-estate-deal-persist-scope";
+import {
+  realEstateDealPersistScope,
+  sanitizeAreaSqmInput,
+} from "@/lib/trade/category-form/real-estate-deal-persist-scope";
+import { labelForTradeOption } from "@/lib/trade/category-form/option-catalogs";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { resolveAddressFlowEntryPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
@@ -828,7 +832,8 @@ function TradeMarketplaceWriteFormInner({
         setHasPremium(value === true);
         break;
       case "floor_area":
-        setAreaSqm(String(value));
+        /** 감사 R7 (2026-11-22): 면적은 숫자(소수 한 자리까지)만 — 이전: 아무 글자나 저장됐다 */
+        setAreaSqm(sanitizeAreaSqmInput(String(value)));
         break;
       case "bedrooms":
         setRoomCount(String(value).replace(/[^0-9]/g, ""));
@@ -2176,7 +2181,13 @@ function TradeMarketplaceWriteFormInner({
               : "";
         const locShort = getLocationLabel(submitRegion, submitCity).trim();
         const bn = buildingName.trim();
-        const dt = dealType.trim();
+        /**
+         * 감사 R8 (2026-11-22): 자동 제목의 거래 유형은 작성 화면 언어 라벨로(저장값 「임대」·「판매」를 그대로 넣지 않는다).
+         * 제목은 작성자가 올린 글이라 저장 뒤에는 그대로 보인다.
+         */
+        const dt = dealType.trim()
+          ? labelForTradeOption("real_estate_deal_type", dealType.trim(), language === "en" ? "en" : "ko")
+          : "";
         const postTitle =
           skinKey === "real-estate"
             ? bn

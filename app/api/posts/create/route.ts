@@ -25,6 +25,7 @@ import { publicRegionLabelLeaksPrivateDetail } from "@/lib/addresses/community-p
 import { sanitizeTradeMetaCurrency } from "@/lib/trade/trade-price-currency";
 import { assertActiveTradeNationalLgu } from "@/lib/trade/location/national/assert-active-trade-national-lgu";
 import { isPersistableStorageMediaRef } from "@/lib/media/persistable-storage-media-ref";
+import { normalizeTradePriceForSave } from "@/lib/posts/trade-price-server-validation";
 
 const ALLOWED_TYPES: PostType[] = ["trade", "community", "service", "feature"];
 
@@ -61,10 +62,13 @@ function parseCreatePayload(body: unknown): CreatePostPayload | { error: string 
     ) {
       return { error: "region_label_invalid" };
     }
+    /** 감사 G2: 가격은 0 이상 유한한 숫자만, 나눔이면 저장하지 않는다 */
+    const priceCheck = normalizeTradePriceForSave(raw.price, raw.isFreeShare === true);
+    if (!priceCheck.ok) return { error: priceCheck.code };
     return {
       ...base,
       type: "trade",
-      price: raw.price != null ? Number(raw.price) : null,
+      price: priceCheck.price,
       isPriceOfferEnabled: raw.isPriceOfferEnabled === true,
       isFreeShare: raw.isFreeShare === true,
       region,
