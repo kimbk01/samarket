@@ -50,6 +50,31 @@ export const TRADE_WRITE_SKIN_META_KEYS: Readonly<Record<string, readonly string
   ],
 };
 
+/**
+ * 감사 J2 (2026-11-22): 일자리 확장 폼(`JobsExtendedWriteFields` buildMeta)이 **조건부로만** 넣는 키.
+ * 체크 해제·빈 값·구인↔구직 전환이면 빠지므로, 수정 요청에서는 없을 때 `null`(삭제)로 보낸다.
+ * buildMeta 와 함께 유지한다.
+ */
+export const JOBS_WRITE_CONDITIONAL_META_KEYS: readonly string[] = [
+  "seek_time_slots",
+  "seeker_languages",
+  "seeker_visa",
+  "seeker_start",
+  "seeker_start_date",
+  "hire_time_negotiable",
+  "hire_work_time_slots",
+  "hire_pay_negotiable",
+  "hire_work_days_discuss",
+  "hire_week_days_pipe",
+  "hire_gender",
+  "hire_age_note",
+  "hire_meal",
+  "hire_housing",
+  "hire_visa_note",
+  "hire_languages",
+  "hire_headcount",
+];
+
 export function withClearedTradeWriteMetaKeys(
   meta: Record<string, unknown>,
   ownedKeys: readonly string[],

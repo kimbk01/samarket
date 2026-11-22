@@ -189,6 +189,12 @@ export function ExchangeExtendedWriteFields({
   const [direction, setDirection] = useState<"sell" | "buy">("sell");
   const [liveRates, setLiveRates] = useState<ExchangeRates | null>(null);
   const [ratesFetchedAt, setRatesFetchedAt] = useState<string | null>(null);
+  /**
+   * 감사 X1 (2026-11-22): 저장할 환율(`rate`)의 기준시각. 시세 조회 시각(`ratesFetchedAt`)과 다르다.
+   * 시세로 칸을 채운 순간에만 값이 생기고, 직접 고치면 비운다. 수정 화면은 저장된 기준시각을 그대로 둔다.
+   */
+  const [rateCriteriaAt, setRateCriteriaAt] = useState<string | null>(null);
+  const rateRef = useRef("");
   const [ratesLoading, setRatesLoading] = useState(true);
   const [rate, setRate] = useState("");
   const [ratePlus, setRatePlus] = useState("0");
@@ -253,6 +259,7 @@ export function ExchangeExtendedWriteFields({
     setRatePlus(staged.ratePlus);
     setAmount(staged.amount);
     setRatesFetchedAt(staged.ratesFetchedAt);
+    setRateCriteriaAt(staged.rateCriteriaAt ?? null);
     setSellerPrep(staged.sellerPrep);
     setBuyerPrep(staged.buyerPrep);
     setMemo(staged.memo);
@@ -376,7 +383,7 @@ export function ExchangeExtendedWriteFields({
     setMemo(ownerEditSnapshot.content ?? "");
 
     const crit = m.rate_criteria_at;
-    if (typeof crit === "string" && crit.trim()) setRatesFetchedAt(crit.trim());
+    setRateCriteriaAt(typeof crit === "string" && crit.trim() ? crit.trim() : null);
 
     setImages((ownerEditSnapshot.images ?? []).filter(Boolean).map((url) => ({ url })));
     const rawMeta = ownerEditSnapshot.meta;
@@ -411,6 +418,11 @@ export function ExchangeExtendedWriteFields({
     };
   }, []);
 
+  /** 시세 반영 효과가 최신 입력값을 읽도록 (아래 효과보다 먼저 선언) */
+  useEffect(() => {
+    rateRef.current = rate;
+  }, [rate]);
+
   /**
    * 기준 환율(1 PHP = ? KRW) — API 값으로 채움.
    * (이전: 로딩 중 24.99 폴백을 먼저 넣어 두면 `rate`가 비어 있지 않아 API 24.79가 절대 반영되지 않는 버그가 있었음)
@@ -420,15 +432,13 @@ export function ExchangeExtendedWriteFields({
     if (typeof krw !== "number" || krw <= 0) return;
     const next = krw.toFixed(2);
     const fallback = DEFAULT_RATES_PHP_BASE.KRW;
-    setRate((prev) => {
-      const t = prev.trim();
-      if (t === "") return next;
-      const n = Number(t.replace(/,/g, ""));
-      if (!Number.isFinite(n)) return next;
-      /** 정적 폴백(24.99)만 들어간 상태면 실시간 환율로 교체 — 수동 입력값은 유지 */
-      if (Math.abs(n - fallback) < 1e-6) return next;
-      return prev;
-    });
+    const prev = rateRef.current.trim();
+    const n = Number(prev.replace(/,/g, ""));
+    /** 빈 칸·정적 폴백(24.99)만 들어간 상태면 실시간 환율로 교체 — 수동 입력값·수정 글의 저장 환율은 유지 */
+    const replace = prev === "" || !Number.isFinite(n) || Math.abs(n - fallback) < 1e-6;
+    if (!replace) return;
+    setRate(next);
+    setRateCriteriaAt(formatRatesCriteria(new Date()));
   }, [liveRates]);
 
   /** API 실패·null 일 때만 빈 칸에 정적 폴백 (로딩 끝난 뒤) */
@@ -515,6 +525,7 @@ export function ExchangeExtendedWriteFields({
     setRatePlus("0");
     setAmount("");
     setRatesFetchedAt(null);
+    setRateCriteriaAt(null);
     setSellerPrep([]);
     setBuyerPrep([]);
     setMemo("");
@@ -575,6 +586,7 @@ export function ExchangeExtendedWriteFields({
         ratePlus,
         amount,
         ratesFetchedAt,
+        rateCriteriaAt,
         sellerPrep,
         buyerPrep,
         memo,
@@ -586,7 +598,7 @@ export function ExchangeExtendedWriteFields({
         imageRefs,
       };
     },
-    [direction, rate, ratePlus, amount, ratesFetchedAt, sellerPrep, buyerPrep, memo, descriptionAppend, region, city, tradeTopicChildId]
+    [direction, rate, ratePlus, amount, ratesFetchedAt, rateCriteriaAt, sellerPrep, buyerPrep, memo, descriptionAppend, region, city, tradeTopicChildId]
   );
 
   /** 지도·주소 관리 이동 직전 공통 — 일반 거래 `TradeWriteForm` 세션 초안과 동일 역할 */
@@ -799,7 +811,7 @@ export function ExchangeExtendedWriteFields({
         exchange_rate: rateValue,
         exchange_rate_base: baseRateValue,
         exchange_rate_plus: ratePlusValue,
-        rate_criteria_at: ratesFetchedAt ?? undefined,
+        rate_criteria_at: rateCriteriaAt ?? undefined,
         amount: amountValue,
         converted_amount: converted,
         seller_prep: direction === "sell" ? [] : sellerPrep,
@@ -829,7 +841,7 @@ export function ExchangeExtendedWriteFields({
       rateValue,
       baseRateValue,
       ratePlusValue,
-      ratesFetchedAt,
+      rateCriteriaAt,
       amountValue,
       converted,
       sellerPrep,
@@ -991,7 +1003,11 @@ export function ExchangeExtendedWriteFields({
                       type="text"
                       inputMode="decimal"
                       value={rate}
-                      onChange={(e) => setRate(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onChange={(e) => {
+                        setRate(e.target.value.replace(/[^0-9.]/g, ""));
+                        /** 감사 X1: 직접 고친 환율에는 시세 기준시각을 붙이지 않는다 */
+                        setRateCriteriaAt(null);
+                      }}
                       placeholder="24.99"
                       className={`${EXCHANGE_WRITE_INPUT_CLASS} ${errors.rate ? "text-red-600" : ""}`}
                       aria-label={t("trade_047")}

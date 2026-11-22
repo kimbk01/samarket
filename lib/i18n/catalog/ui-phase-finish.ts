@@ -973,7 +973,7 @@ export const uiPhaseFinishMessages = {
     ui_meta_transmission: "Transmission",
     ui_meta_fuel_type: "Fuel type",
     ui_meta_price: "Price",
-    ui_meta_year_suffix: "{year} or newer",
+    ui_meta_year_suffix: "{year} or older",
     ui_meta_jobs_salary: "Pay",
     ui_meta_jobs_work_place: "Workplace",
     ui_meta_exchange_currency: "Currency",

@@ -10,6 +10,7 @@ import { postPreviewT } from "@/lib/posts/post-list-preview-i18n";
 import {
   EXPERIENCE_LEVEL_OPTIONS,
   HIRE_WEEKDAY_OPTIONS,
+  jobTimeSlotsDisplay,
   jobWorkCategoryDisplay,
 } from "@/lib/jobs/form-options";
 import {
@@ -522,8 +523,9 @@ export function buildPostListPreviewModel(
 
   if (isRentCar) {
     const fromComposition =
-      joinCompositionListAttributeLine(listAttrs, ["make", "model", "year", "daily_price"]) ||
-      joinCompositionListAttributeLine(listAttrs, ["year", "daily_price", "with_driver"]) ||
+      /** 감사 K1 (2026-11-22): 일일요금·기사 포함은 아래 전용 줄에서 보인다 — 사양 줄에 단위 없는 숫자로 다시 넣지 않는다 */
+      joinCompositionListAttributeLine(listAttrs, ["make", "model", "year"]) ||
+      joinCompositionListAttributeLine(listAttrs, ["year"]) ||
       (usesDbOverlay ? joinCompositionListAttributeLine(listAttrs) : "");
     const carModel = str(meta.car_model);
     const yearRaw = str(meta.car_year);
@@ -756,7 +758,8 @@ export function buildPostListPreviewModel(
       });
 
       const industryWt = [industryLabel, wtLabel].filter(Boolean).join(" · ");
-      const avail = str(meta.available_time);
+      /** 감사 J3: 시간대 키가 있으면 보는 사람 언어로 */
+      const avail = jobTimeSlotsDisplay(meta, normalizeAppLanguage(locale)) || str(meta.available_time);
       const expRaw = str(meta.experience_level);
       const expLabel = expRaw ? jobExperienceLabel(jt, expRaw) : "";
       const condTrim = [avail, expLabel].filter(Boolean).join(" · ").trim();
