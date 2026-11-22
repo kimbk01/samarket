@@ -7,7 +7,13 @@ import { SAM_TIER1_HEADER_ACTION_BTN_CLASS, samTier1HeaderIconBadge } from "@/li
 import { Tier1HeaderInboxGlyph } from "@/lib/ui/tier1-header-glyphs";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import { ADMIN_INBOX_CHANGED_EVENT } from "@/lib/admin/notifications/admin-notification-kinds";
-import { NOTIFICATION_SYNC_POLL_MS } from "@/lib/notifications/notification-events";
+import {
+  ADMIN_INBOX_SUMMARY_EVENT,
+  adminInboxSummaryViewFromPayload,
+  peekAdminInboxSummary,
+  publishAdminInboxSummary,
+  type AdminInboxSummaryView,
+} from "@/lib/admin/notifications/admin-inbox-summary-client";
 
 /**
  * R13 — Admin inbox entry (ADMIN NOTIFICATION unread). Separate from the Action Queue bell:
@@ -15,8 +21,8 @@ import { NOTIFICATION_SYNC_POLL_MS } from "@/lib/notifications/notification-even
  */
 export function AdminInboxLink() {
   const { t } = useI18n();
-  const [unread, setUnread] = useState(0);
-  const [failed, setFailed] = useState(false);
+  const [unread, setUnread] = useState(() => peekAdminInboxSummary()?.unread ?? 0);
+  const [failed, setFailed] = useState(() => peekAdminInboxSummary()?.failed ?? false);
 
   const load = useCallback(async () => {
     try {
@@ -26,39 +32,39 @@ export function AdminInboxLink() {
         dedupeKey: "admin:inbox:summary",
         cacheTtlMs: 0,
       });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        unread?: number;
-        delivery?: { outboxDead?: number; pushDead?: number; unavailable?: boolean };
-      };
-      if (!res.ok || !json.ok) {
-        setFailed(true);
-        return;
-      }
-      setUnread(Math.max(0, Math.floor(Number(json.unread) || 0)));
+      const json = (await res.json().catch(() => ({}))) as Parameters<typeof adminInboxSummaryViewFromPayload>[0];
       // Super admins: permanent delivery failures (dead letters) also raise "!".
-      const d = json.delivery;
-      setFailed(Boolean(d && (d.unavailable || (d.outboxDead ?? 0) > 0 || (d.pushDead ?? 0) > 0)));
+      publishAdminInboxSummary(adminInboxSummaryViewFromPayload(json, res.ok));
     } catch {
-      setFailed(true);
+      publishAdminInboxSummary({ unread: peekAdminInboxSummary()?.unread ?? 0, failed: true });
     }
   }, []);
 
+  /**
+   * 2026-11-22 관리자 폴링 한 요청으로 — 75초 갱신·화면 돌아옴은 같은 화면 틀의 작업 대기 수 폴러가
+   * `admin-bell?with_inbox=1` 로 함께 받아 `ADMIN_INBOX_SUMMARY_EVENT` 로 넘긴다(이 아이콘은 따로 폴링하지 않음).
+   * 처음 화면에 아직 값이 없을 때와 받은 알림이 바뀐 때(`ADMIN_INBOX_CHANGED_EVENT`)만 직접 읽는다.
+   */
   useEffect(() => {
-    void load();
-    const onVis = () => {
-      if (document.visibilityState === "visible") void load();
+    const onSummary = (e: Event) => {
+      const v = (e as CustomEvent<AdminInboxSummaryView>).detail;
+      if (!v) return;
+      setUnread(v.unread);
+      setFailed(v.failed);
     };
+    window.addEventListener(ADMIN_INBOX_SUMMARY_EVENT, onSummary);
+    const seeded = peekAdminInboxSummary();
+    if (seeded) {
+      setUnread(seeded.unread);
+      setFailed(seeded.failed);
+    } else {
+      void load();
+    }
     const onChanged = () => void load();
-    window.addEventListener("visibilitychange", onVis);
     window.addEventListener(ADMIN_INBOX_CHANGED_EVENT, onChanged);
-    const id = window.setInterval(() => {
-      if (document.visibilityState === "visible") void load();
-    }, NOTIFICATION_SYNC_POLL_MS);
     return () => {
-      window.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener(ADMIN_INBOX_SUMMARY_EVENT, onSummary);
       window.removeEventListener(ADMIN_INBOX_CHANGED_EVENT, onChanged);
-      window.clearInterval(id);
     };
   }, [load]);
 

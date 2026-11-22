@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiActor } from "@/lib/admin/require-admin-permission";
 import { parseMemberOpsListPage } from "@/lib/admin/member-ops-list/member-ops-list-page";
 import {
-  countUnreadAdminNotifications,
   listAdminNotifications,
   listAdminNotificationsPage,
-  loadAdminNotificationDeliveryHealth,
   type AdminRecipientAuthority,
 } from "@/lib/admin/notifications/admin-notification-service";
+import { loadAdminInboxSummary } from "@/lib/admin/notifications/admin-inbox-summary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,15 +32,9 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
 
   if (sp.get("summary") === "1") {
-    const r = await countUnreadAdminNotifications(gate.sb, { adminUserId: gate.actor.userId, authority });
+    const r = await loadAdminInboxSummary(gate.sb, gate.actor);
     if (!r.ok) return NextResponse.json({ ok: false, error: r.error }, { status: 500 });
-    // Delivery health (dead letters / backlog) is an operational surface — super admins only.
-    let delivery: unknown = undefined;
-    if (gate.actor.isSuperAdmin) {
-      const h = await loadAdminNotificationDeliveryHealth(gate.sb);
-      delivery = h.ok ? h.health : { unavailable: true };
-    }
-    return NextResponse.json({ ok: true, unread: r.unread, ...(delivery !== undefined ? { delivery } : {}) });
+    return NextResponse.json(r);
   }
 
   if (sp.has("offset")) {
