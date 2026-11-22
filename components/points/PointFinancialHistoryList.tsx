@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PointFinancialHistoryItem } from "@/lib/points/point-financial-history";
@@ -79,7 +80,7 @@ export function PointFinancialHistoryList({
   }, [items, timeZoneOffsetMinutes]);
 
   if (loading) {
-    return <p className="py-8 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>;
+    return <DibayPendingSpinner layout="block" />;
   }
   if (items.length === 0) {
     return (

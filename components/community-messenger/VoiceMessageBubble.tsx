@@ -16,7 +16,7 @@ import {
   COMMUNITY_MESSENGER_VOICE_PLAY_EVENT,
   dispatchCommunityMessengerVoicePlay,
 } from "@/lib/community-messenger/voice-playback-bus";
-import { VoiceMessageBufferingSpinner } from "@/components/community-messenger/VoiceMessageBufferingSpinner";
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { isMessengerMediaRouteUrl } from "@/lib/community-messenger/media/messenger-media-ref";
 
 function formatVoiceDuration(totalSec: number): string {
@@ -305,7 +305,7 @@ export function VoiceMessageBubble({
               <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
             </svg>
           ) : showBuffering ? (
-            <VoiceMessageBufferingSpinner light={isMine} label={loadingAriaLabel} />
+            <DibaySpinner size="md" tone="current" label={loadingAriaLabel} />
           ) : playing ? (
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
               <rect x="6" y="5" width="4" height="14" rx="1" />

@@ -1,4 +1,5 @@
 "use client";
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
@@ -85,7 +86,7 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
 
   if (orderId && isLikelyUuid(orderId)) {
     if (real.kind === "loading" || real.kind === "idle") {
-      return <p className="p-6 text-center text-sm text-sam-muted">{t("common_loading")}</p>;
+      return <DibayPendingSpinner layout="block" />;
     }
     if (real.kind === "ok") {
       const o = real.order;

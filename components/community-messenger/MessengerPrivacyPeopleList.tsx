@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -39,10 +40,7 @@ export function MessengerPrivacyPeopleList({
   if (people.length === 0 && (status === "idle" || status === "loading")) {
     body = (
       <div className="flex items-center justify-center gap-2 px-4 py-8" role="status">
-        <span
-          className="h-4 w-4 animate-spin rounded-full border-2 border-[color:var(--messenger-divider)] border-t-[color:var(--messenger-primary)]"
-          aria-hidden
-        />
+        <DibaySpinner size="sm" decorative />
         <span className="sam-text-body-secondary" style={{ color: "var(--messenger-text-secondary)" }}>
           {t("cm_ui_privacy_list_loading")}
         </span>

@@ -312,7 +312,6 @@ function MyPointsPromotionsPageInner() {
               productOptions={productOptions}
               initialTargetId={initialTargetId}
               onSubmit={(v) => void handleSubmit(v)}
-              submitLabel={busy ? t("common_loading") : undefined}
               submitting={busy}
               catalogRefreshKey={catalogRefreshKey}
             />

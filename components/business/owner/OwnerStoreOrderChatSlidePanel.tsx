@@ -6,7 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { CommunityMessengerRoomClient } from "@/components/community-messenger/CommunityMessengerRoomClient";
 import { OwnerOrderChatSlideHostProvider } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
-import { StoreDeliveryBufferingSpinner } from "@/components/stores/StoreDeliveryBufferingSpinner";
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
 import { buildOwnerStoreOrderMessengerContext } from "@/lib/business/owner-store-order-messenger-link";
 import {
@@ -229,7 +229,7 @@ export function OwnerStoreOrderChatSlidePanel({
               </div>
             : awaitingRoomId ?
               <div className="flex min-h-[40vh] items-center justify-center">
-                <StoreDeliveryBufferingSpinner />
+                <DibaySpinner size="lg" />
               </div>
             : chatReady && roomId && initialServerSnapshot ?
               <OwnerOrderChatSlideHostProvider closeSlide={requestClose}>

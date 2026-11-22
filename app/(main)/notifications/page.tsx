@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import Link from "next/link";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -94,7 +95,7 @@ export default function NotificationsCenterPage() {
             className="min-w-0 scroll-mt-4"
             aria-label={t("common_notifications")}
           >
-            <Suspense fallback={<p className="text-sm text-sam-muted">{t("common_loading")}</p>}>
+            <Suspense fallback={<DibayPendingSpinner layout="inline" />}>
               <MyNotificationsView variant="notification_center" onVisibleCountChange={setVisibleCount} />
             </Suspense>
           </section>

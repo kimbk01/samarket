@@ -133,6 +133,12 @@
   --sam-text-muted: var(--app-text-3);
   --sam-text-on-primary: var(--dibay-cream);
 
+  /* ----- Loading spinner (DibaySpinner 단일 정의 · docs/audit/loading-spinner-network-notice-design-2026-11-22.md §3-1) ----- */
+  --sam-spinner-color: var(--sam-text-primary);
+  --sam-spinner-color-inverse: #ffffff;
+  /** 대기 표시 지연 — lib/ui/loading-timing.ts `LOADING_SPINNER_APPEAR_DELAY_MS` 와 같은 값(구조 테스트) */
+  --sam-spinner-appear-delay: 450ms;
+
   /* ----- Border / Divider ----- */
   --sam-border-default: var(--app-border);
   --sam-border-soft: color-mix(in srgb, var(--app-border) 65%, var(--app-surface));

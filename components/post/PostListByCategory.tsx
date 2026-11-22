@@ -67,7 +67,7 @@ import { tradeMarketPath } from "@/lib/categories/tradeMarketPath";
 import { TRADE_FEED_LIST_END_CLEARANCE_CLASS, TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { recordTradeListMetric } from "@/lib/runtime/trade-list-entry-debug";
 import { capRecordByOldestTimestamps } from "@/lib/http/memory-map-prune";
-import { TradeFeedBufferingSpinner } from "@/components/trade/TradeFeedBufferingSpinner";
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { TradeListLoadMoreFooter } from "@/components/trade/TradeListLoadMoreFooter";
 import { awaitTradeListLoadMoreMinDelay } from "@/lib/trade/trade-list-load-more-delay";
 import { TradeMarketPullRefreshRegister } from "@/components/trade/TradeMarketPullRefreshRegister";
@@ -968,7 +968,7 @@ export function PostListByCategory({
       <>
         {tradePullRefreshRegister}
         <div className="flex min-h-[min(36vh,320px)] items-center justify-center py-8" aria-busy="true">
-          <TradeFeedBufferingSpinner />
+          <DibaySpinner size="lg" />
         </div>
       </>
     );

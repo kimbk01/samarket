@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -141,7 +142,7 @@ export function OwnerNotificationSettings(_props: { storeId?: string }) {
   );
 
   if (loading) {
-    return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
+    return <DibayPendingSpinner layout="block" />;
   }
 
   if (unauthorized) {

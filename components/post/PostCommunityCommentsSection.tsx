@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert, dibayPrompt } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -237,7 +238,7 @@ export function PostCommunityCommentsSection({
     <div id="community-post-comments" className="mt-4 border-t border-sam-border-soft bg-sam-surface px-4 py-4">
       <h3 className={`font-semibold text-sam-fg ${Sam.text.body}`}>{t("community_stat_comments_title")}</h3>
       {loading ? (
-        <p className={`mt-3 text-sam-muted ${Sam.text.bodySecondary}`}>{t("common_loading")}</p>
+        <DibayPendingSpinner layout="inline" />
       ) : roots.length === 0 ? (
         <p className={`mt-3 text-sam-muted ${Sam.text.bodySecondary}`}>{t("community_comment_first")}</p>
       ) : (

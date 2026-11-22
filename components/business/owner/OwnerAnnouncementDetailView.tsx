@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -50,7 +51,7 @@ export function OwnerAnnouncementDetailView({ noticeId }: { noticeId: string }) 
   );
 
   if (state == null) {
-    return <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>;
+    return <DibayPendingSpinner layout="block" />;
   }
   if (!state.ok) {
     return (

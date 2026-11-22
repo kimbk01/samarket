@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -61,7 +62,7 @@ export function OwnerStoreNotificationsView() {
   }, [searchParams, shellStoreId, t]);
 
   if (err) return <p className="text-sm text-sam-muted">{err}</p>;
-  if (!storeId) return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
+  if (!storeId) return <DibayPendingSpinner layout="block" />;
 
   return (
     <div className={`mx-auto w-full min-w-0 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} space-y-4 px-1 pt-1`}>

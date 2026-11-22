@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { StoreCommerceBottomActionShell } from "@/components/stores/commerce/StoreCommerceBottomActionShell";
 import {
@@ -114,11 +115,9 @@ export function StoreProductDetailFooter({
         >
           {/* WP7 — 담는 중에는 버튼 자리 그대로 안에서 스피너 */}
           {busy ? (
-            <span
-              className="mx-auto block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
-              data-store-product-add-spinner="1"
-              aria-hidden
-            />
+            <span className="mx-auto flex justify-center" data-store-product-add-spinner="1">
+              <DibaySpinner size="sm" tone="current" decorative />
+            </span>
           ) : (
             <span className={STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS}>
               {t("store_add_to_cart_with_amount", { amount: totalLabel })}

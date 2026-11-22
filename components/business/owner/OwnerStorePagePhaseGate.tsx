@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
@@ -23,7 +24,7 @@ export function OwnerStorePagePhaseGate({ phase, onRetry, children }: Props) {
   const { t } = useI18n();
 
   if (phase.kind === "loading") {
-    return <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>;
+    return <DibayPendingSpinner layout="block" />;
   }
   if (phase.kind === "need_store_id") {
     return (

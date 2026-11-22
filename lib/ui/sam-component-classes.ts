@@ -6,6 +6,19 @@
  * 레이아웃·테이블은 Admin 전용 컴포넌트를 우선한다.
  */
 export const Sam = {
+  /** 로딩 스피너 단일 정의 — `components/ui/DibaySpinner.tsx` 로 쓴다(직접 조합 금지). */
+  spinner: {
+    base: "sam-spinner",
+    sm: "sam-spinner--sm",
+    md: "sam-spinner--md",
+    lg: "sam-spinner--lg",
+    inverse: "sam-spinner--inverse",
+    current: "sam-spinner--current",
+    spin: "sam-spinner--spin",
+    dot: "sam-spinner__dot",
+    dotOn: "sam-spinner__dot--on",
+    appear: "sam-spinner-appear",
+  },
   page: "sam-page",
   domainShell: "sam-domain-shell",
   pageStack: "sam-page-stack",

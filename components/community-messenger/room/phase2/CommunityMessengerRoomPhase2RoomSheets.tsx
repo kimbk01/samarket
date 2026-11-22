@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner, DibaySpinner } from "@/components/ui/DibaySpinner";
 import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -808,7 +809,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       disabled={vm.membersPagingBusy}
                       className="w-full rounded-ui-rect border border-sam-border bg-sam-app px-4 py-3 sam-text-body font-medium text-sam-fg disabled:opacity-50"
                     >
-                      {vm.membersPagingBusy ? vm.t("common_loading") : vm.t("cm_ui_load_more_members")}
+                      {vm.membersPagingBusy ? <DibaySpinner size="sm" tone="current" label={vm.t("common_loading")} /> : vm.t("cm_ui_load_more_members")}
                     </button>
                   ) : null}
                   {vm.sortedMembers
@@ -1649,7 +1650,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       </button>
                     ))
                   ) : roomMediaGallery.loading ? (
-                    <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{vm.t("common_loading")}</p>
+                    <DibayPendingSpinner layout="inline" />
                   ) : (
                     <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{vm.t("cm_ui_no_media")}</p>
                   )}
@@ -1725,7 +1726,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       </div>
                     ))
                   ) : fileCollection.loading ? (
-                    <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{vm.t("common_loading")}</p>
+                    <DibayPendingSpinner layout="inline" />
                   ) : (
                     <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{vm.t("cm_ui_no_files")}</p>
                   )}
@@ -1792,7 +1793,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       );
                     })
                   ) : linkCollection.loading ? (
-                    <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{vm.t("common_loading")}</p>
+                    <DibayPendingSpinner layout="inline" />
                   ) : (
                     <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{vm.t("cm_ui_no_links")}</p>
                   )}

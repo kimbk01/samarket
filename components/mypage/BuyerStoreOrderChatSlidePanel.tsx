@@ -8,7 +8,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { CommunityMessengerRoomClient } from "@/components/community-messenger/CommunityMessengerRoomClient";
 import { BuyerOrderChatSlideHostProvider } from "@/components/mypage/BuyerOrderChatSlideHostContext";
-import { StoreDeliveryBufferingSpinner } from "@/components/stores/StoreDeliveryBufferingSpinner";
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import {
   buildMessengerContextInputFromStoreOrderSnapshot,
   buildMessengerContextMetaFromStoreOrder,
@@ -264,7 +264,7 @@ export function BuyerStoreOrderChatSlidePanel({
               </div>
             : awaitingRoomId ?
               <div className="flex min-h-[40vh] items-center justify-center">
-                <StoreDeliveryBufferingSpinner />
+                <DibaySpinner size="lg" />
               </div>
             : chatReady && roomId && initialServerSnapshot ?
               <BuyerOrderChatSlideHostProvider closeSlide={requestClose}>

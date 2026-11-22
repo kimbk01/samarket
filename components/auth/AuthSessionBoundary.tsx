@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { isAccountDependentPath } from "@/lib/auth/auth-route-classification";
@@ -21,7 +22,6 @@ import {
   isMessengerRoomPreShellBackPath,
   MessengerRoomPreShellBackOwner,
 } from "@/components/community-messenger/room/MessengerRoomPreShellBackOwner";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   noteAuthSessionClientOk,
@@ -42,7 +42,6 @@ type Props = {
  * never pin standalone Loading… forever (messenger dual-context hang root).
  */
 export function AuthSessionBoundary({ children }: Props) {
-  const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const membership = useClientMembershipState("auth-session-boundary");
   const lastUserIdRef = useRef<string | null>(null);
@@ -221,7 +220,7 @@ export function AuthSessionBoundary({ children }: Props) {
         aria-busy="true"
         data-auth-session-boundary="blocked"
       >
-        <p className="sam-text-body text-sam-muted">{t("mypage_comp_loading_ellipsis")}</p>
+        <DibayPendingSpinner layout="inline" />
       </div>
     );
     if (roomPreShellBackSlot) {

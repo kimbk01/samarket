@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -254,7 +255,7 @@ export function MyBusinessPage({
   }, [initialServerState, loadRemote]);
 
   if (state.kind === "loading") {
-    return <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>;
+    return <DibayPendingSpinner layout="block" />;
   }
 
   if (state.kind === "unauth") {
@@ -290,7 +291,7 @@ export function MyBusinessPage({
 
   if (state.kind === "empty") {
     if (clientStoresProbe === "pending") {
-      return <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>;
+      return <DibayPendingSpinner layout="block" />;
     }
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>

@@ -8,6 +8,7 @@
  * - 미리보기는 실행 보증이 아니다 — 실제 전환 RPC 가 트랜잭션 안에서 다시 검사하고, 그 오류도 사유별로 보여 준다.
  */
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
 import { STORE_MONEY_OUTCOME_KINDS } from "@/lib/notifications/money-outcome-signal";
@@ -260,7 +261,7 @@ export function OwnerCoinConvertSection({
             {reason(policyError)}
           </p>
         ) : !policy ? (
-          <p className="text-sm text-sam-muted">{t("common_loading")}</p>
+          <DibayPendingSpinner layout="inline" />
         ) : (
           <>
             <dl className="mb-3 grid grid-cols-2 gap-x-3 gap-y-1 text-sm" data-owner-convert-policy="1">

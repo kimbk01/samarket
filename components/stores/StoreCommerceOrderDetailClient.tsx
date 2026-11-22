@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { HistoryBackTextLink } from "@/components/navigation/HistoryBackTextLink";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -132,7 +133,7 @@ export function StoreCommerceOrderDetailClient({
   }, [orderId, loaded]);
 
   if (state.kind === "loading") {
-    return <p className="px-4 py-8 text-center text-sm text-sam-muted">{t("common_loading")}</p>;
+    return <DibayPendingSpinner layout="block" />;
   }
   if (state.kind === "error") {
     return (

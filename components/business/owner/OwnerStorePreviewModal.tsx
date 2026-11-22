@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useEffect, useId, useState } from "react";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -89,7 +90,7 @@ export function OwnerStorePreviewModal({
         <div className="relative min-h-0 flex-1 bg-sam-app">
           {!iframeLoaded ?
             <p className="absolute inset-0 flex items-center justify-center text-sm text-sam-muted">
-              {t("common_loading")}
+              <DibaySpinner size="lg" />
             </p>
           : null}
           <iframe

@@ -22,7 +22,8 @@ describe("관리 › 연락처 동기화 ⟳", () => {
   it("앱(연락처 기능 있는 바이너리)에서만 · 누를 때 수동 동기화 · 스피너", () => {
     expect(archive).toContain("if (!isContactsNativeAvailable()) return null;");
     expect(archive).toContain("runContactsSync(userId, { manual: true })");
-    expect(archive).toContain('spinning ? "animate-spin" : ""');
+    expect(archive).toContain("spinning ? (");
+    expect(archive).toContain("DibaySpinner");
     expect(archive).toContain("disabled={spinning}");
   });
 

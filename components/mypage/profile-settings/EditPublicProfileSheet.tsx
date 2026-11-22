@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -222,10 +223,7 @@ export function EditPublicProfileSheet({ open, onClose }: { open: boolean; onClo
           {saving ? (
             <span className="absolute inset-0 flex items-center justify-center" role="status">
               <span className="sr-only">{t("profile_edit_saving")}</span>
-              <span
-                aria-hidden
-                className="inline-block h-4 w-4 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin"
-              />
+              <DibaySpinner size="sm" tone="current" decorative />
             </span>
           ) : null}
         </button>

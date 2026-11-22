@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { readBalanceOrNull } from "@/lib/currency/currency-display-contract";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -274,7 +275,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
     cashHistoryDetailHref(row, { convertHref, settlementsHref });
 
   if (loading) {
-    return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
+    return <DibayPendingSpinner layout="block" />;
   }
 
   return (

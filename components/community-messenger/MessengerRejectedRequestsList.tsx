@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -88,7 +89,7 @@ export function MessengerRejectedRequestsList({
         </p>
         {requests == null ? (
           <p className="py-8 text-center text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
-            {t("common_loading")}
+            <DibaySpinner size="md" />
           </p>
         ) : requests.length === 0 ? (
           <p className="py-8 text-center text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-text-secondary)" }}>

@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useEffect, useState } from "react";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -95,7 +96,7 @@ export function ConsentLegalDocSheet({ open, kind, onClose, document: preloaded 
     >
       <div className="space-y-3 px-1 pb-2" data-testid="consent-legal-doc-sheet" data-user-content="">
         {version ? <p className="text-[12px] text-sam-meta">{version}</p> : null}
-        {loading ? <p className="text-[14px] text-sam-muted">{t("common_loading")}</p> : null}
+        {loading ? <DibayPendingSpinner layout="inline" /> : null}
         {error ? (
           <p className="text-[14px] text-sam-danger" role="alert">
             {error}

@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
@@ -147,10 +148,7 @@ export function MyStickyCta({ primary, secondary, dirty, primaryTone = "primary"
           {primaryLoading ? (
             <span className="absolute inset-0 flex items-center justify-center" role="status">
               <span className="sr-only">{t("mypage_comp_ds_saving")}</span>
-              <span
-                aria-hidden
-                className="inline-block h-4 w-4 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin"
-              />
+              <DibaySpinner size="sm" tone="current" decorative />
             </span>
           ) : null}
         </button>

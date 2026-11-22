@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -330,10 +331,7 @@ function SingleChatImage({
           />
           {uploading ? (
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/25">
-              <span
-                className="h-9 w-9 animate-spin rounded-full border-2 border-white/90 border-t-transparent"
-                aria-hidden
-              />
+              <DibaySpinner size="lg" tone="inverse" decorative />
             </div>
           ) : null}
         </div>

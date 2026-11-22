@@ -1,8 +1,8 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { memo, useLayoutEffect } from "react";
 import { useParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerSplitRoomEntryFrame } from "@/components/community-messenger/room/MessengerSplitRoomEntryFrame";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
@@ -96,7 +96,7 @@ export const CommunityMessengerRoomEntryEmpty = memo(function CommunityMessenger
             data-cm-room-split-entry-wait=""
             className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3"
           >
-            <Loader2 className="h-8 w-8 animate-spin text-[color:var(--cm-room-primary)]" aria-hidden />
+            <DibaySpinner size="lg" tone="current" decorative className="text-[color:var(--cm-room-primary)]" />
             <p className="sam-text-body text-[color:var(--cm-room-text-muted)]">{enteringLabel}</p>
           </div>
         )}
@@ -145,10 +145,7 @@ export const CommunityMessengerRoomEntryEmpty = memo(function CommunityMessenger
       aria-label={enteringLabel}
     >
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 bg-[color:var(--cm-room-chat-bg)]">
-        <Loader2
-          className="h-8 w-8 animate-spin text-[color:var(--cm-room-primary)]"
-          aria-hidden
-        />
+        <DibaySpinner size="lg" tone="current" decorative className="text-[color:var(--cm-room-primary)]" />
         <p className="sam-text-body text-[color:var(--cm-room-text-muted)]">{enteringLabel}</p>
       </div>
     </div>

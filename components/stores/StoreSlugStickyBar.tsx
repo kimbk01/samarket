@@ -1,5 +1,5 @@
 "use client";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 
 import { useCallback, useEffect, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -43,7 +43,6 @@ type StoreHead = {
 };
 
 export function StoreSlugStickyBar({ slug }: { slug: string }) {
-  const { t } = useI18n();
   const pathname = usePathname();
   const decoded = decodeURIComponent((slug || "").trim());
 
@@ -224,7 +223,7 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
               <StoreDetailBackLink storeSlug={decoded} fallbackHref={fallbackHref} />
               <div className="min-w-0 flex-1 py-0.5">
                 {loading ? (
-                  <p className="sam-text-body-secondary text-sam-meta">{t("common_loading")}</p>
+                  <DibaySpinner size="sm" />
                 ) : (
                   <p className="truncate sam-text-body font-semibold text-sam-muted">{decoded}</p>
                 )}

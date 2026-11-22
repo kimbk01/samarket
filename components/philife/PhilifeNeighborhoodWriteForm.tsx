@@ -92,11 +92,17 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { philifeWriteTopicOptionLabel } from "@/lib/philife/philife-write-topic-label";
 import type { PhilifeNeighborhoodWriteTopicOption } from "@/lib/neighborhood/philife-neighborhood-topics";
 import { registerWriteLeaveNavigationGuard } from "@/lib/philife/write-leave-navigation-guard";
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 
 /** 새 편집기는 글쓰기에서만 로드 — 피드·상세 번들 무영향 */
 const PhilifeBodyEditor = dynamic(() => import("@/components/philife/write-editor/PhilifeBodyEditor"), {
   ssr: false,
-  loading: () => <div className="min-h-[40dvh]" aria-busy="true" />,
+  /** 편집기 코드가 오는 동안 빈 칸 대신 DIBAY 대기 스피너(loading-spinner 설계 W4) */
+  loading: () => (
+    <div className="relative min-h-[40dvh]">
+      <DibayPendingSpinner layout="fill" />
+    </div>
+  ),
 });
 
 interface PhilifeNeighborhoodWriteFormProps {

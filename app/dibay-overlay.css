@@ -455,21 +455,8 @@
   background: var(--overlay-secondary);
 }
 
-.dibay-overlay-btn__spinner {
-  width: 1.1rem;
-  height: 1.1rem;
-  border-radius: 999px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  animation: dibay-overlay-spin 0.7s linear infinite;
-}
+/* 버튼 로딩 스피너 = DIBAY 스피너 단일 정의(`DibaySpinner` sm·current, `.sam-spinner`) — 옛 `__spinner` 테두리 링 삭제 */
 } /* @layer components — dibay-overlay-btn */
-
-@keyframes dibay-overlay-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 
 .dibay-overlay-action-list {
   display: flex;
@@ -741,20 +728,7 @@
   background: var(--overlay-primary-dark);
 }
 
-.dibay-overlay-quick-action__spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 999px;
-  animation: dibay-overlay-spin 0.8s linear infinite;
-}
-
-@keyframes dibay-overlay-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+/* 빠른 동작 로딩 = `DibaySpinner` sm·current (옛 `__spinner` 테두리 링 삭제) */
 
 /* ── 팝업 SSOT T1 공용 부품 (T3·T4 단계에서 각 팝업이 루트는 그대로 두고 클래스만 바꿔 씀) ───────── */
 
@@ -1037,9 +1011,6 @@ html[data-shell-overlay-open] [data-admin-posts-mgmt-bottom-hscroll] {
     transition: none !important;
   }
 
-  .dibay-overlay-btn__spinner {
-    animation: none;
-  }
 }
 
 /**

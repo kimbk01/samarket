@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -125,7 +126,7 @@ export function MemberNotificationSettings() {
   if (loading) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4 text-sm text-sam-muted shadow-sm">
-        {t("common_loading")}
+        <DibaySpinner size="md" />
       </div>
     );
   }

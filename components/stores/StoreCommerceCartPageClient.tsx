@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import {
   resolveStoreSalesBlockedReason,
   storeSalesBlockedMessageKey,
@@ -2033,14 +2034,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
    */
   if (!cart.hydrated) {
     return (
-      <div className="min-h-[40vh] px-4 py-12 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
+      <DibayPendingSpinner layout="page" />
     );
   }
 
   if (lines.length === 0 && !displayStore) {
     if (!storeLoadFailed && storeLoading) {
       return (
-        <div className="min-h-[40vh] px-4 py-12 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
+        <DibayPendingSpinner layout="page" />
       );
     }
     if (storeLoadFailed) {
@@ -2169,7 +2170,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   if (!displayStore) {
     return (
-      <div className="min-h-[40vh] px-4 py-12 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
+      <DibayPendingSpinner layout="page" />
     );
   }
 

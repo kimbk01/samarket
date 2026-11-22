@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { StoreSubpageHeaderBar } from "@/components/stores/StoreSubpageHeaderBar";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -289,7 +290,7 @@ export function StoreDetailInfoPublic({
     return (
       <div className="min-h-screen bg-sam-surface">
         <StoreSubpageHeaderBar title={t("store_shop_info_title")} storeSlug={slug} />
-        <p className="py-16 text-center text-sm text-sam-muted">{t("common_loading")}</p>
+        <DibayPendingSpinner layout="inline" />
       </div>
     );
   }

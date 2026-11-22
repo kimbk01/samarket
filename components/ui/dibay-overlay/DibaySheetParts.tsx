@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
 
@@ -107,7 +108,7 @@ export function DibayQuickActions({ items }: { items: DibayQuickAction[] }) {
           className={`dibay-overlay-quick-action${item.primary ? " dibay-overlay-quick-action--primary" : ""}`}
         >
           <span className="dibay-overlay-quick-action__circle" aria-hidden>
-            {item.loading ? <span className="dibay-overlay-quick-action__spinner" /> : item.icon}
+            {item.loading ? <DibaySpinner size="sm" tone="current" decorative /> : item.icon}
           </span>
           <span className="dibay-overlay-quick-action__label">{item.label}</span>
         </button>

@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -531,10 +532,12 @@ export function DibayImageViewer(props: {
               />
               {load.status === "loading" && !placeholder ? (
                 <span
-                  className="pointer-events-none absolute h-9 w-9 animate-spin rounded-full border-[3px] border-white/25 border-t-white"
+                  className="pointer-events-none absolute"
                   aria-hidden
                   data-testid={isCurrent ? "image-viewer-loading" : undefined}
-                />
+                >
+                  <DibaySpinner size="lg" tone="inverse" decorative />
+                </span>
               ) : null}
               {load.status === "error" ? (
                 <span className="absolute flex flex-col items-center gap-3 px-6 text-center" data-testid={isCurrent ? "image-viewer-error" : undefined}>

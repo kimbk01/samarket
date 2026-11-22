@@ -9,10 +9,11 @@ const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
  * Runtime dual-context READY is proven separately on Production after deploy.
  */
 describe("messenger room shell dual-context SSOT contract", () => {
-  it("LOADING OWNER is AuthSessionBoundary (mypage_comp_loading_ellipsis), not room entry empty", () => {
+  it("LOADING OWNER is AuthSessionBoundary (DIBAY 대기 스피너), not room entry empty", () => {
     const boundary = read("components/auth/AuthSessionBoundary.tsx");
     const entry = read("components/community-messenger/room/CommunityMessengerRoomEntryEmpty.tsx");
-    expect(boundary).toContain('t("mypage_comp_loading_ellipsis")');
+    // 예전 「불러오는 중…」 글자 → DIBAY 대기 스피너 단일 정의(loading-spinner 설계 §3-1) — 소유자는 그대로 경계
+    expect(boundary).toContain('<DibayPendingSpinner layout="inline" />');
     expect(boundary).toContain('data-auth-session-boundary="blocked"');
     expect(entry).not.toContain("mypage_comp_loading_ellipsis");
   });

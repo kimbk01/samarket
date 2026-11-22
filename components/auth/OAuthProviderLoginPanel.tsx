@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -130,7 +131,7 @@ export function OAuthProviderLoginPanel({
             aria-hidden
           >
             {showSpinner ? (
-              <span className="inline-block h-6 w-6 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              <DibaySpinner size="md" tone="current" decorative />
             ) : (
               <OAuthLoginProviderIcon provider={provider} size="primary" />
             )}

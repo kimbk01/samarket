@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
@@ -49,7 +50,7 @@ export function ProfileMapLocationBlock({
           {t("profile_edit_map_load_failed")}
         </p>
       ) : addresses === null ? (
-        <p className="text-[14px] text-sam-muted/70">{t("common_loading")}</p>
+        <DibayPendingSpinner layout="inline" />
       ) : !representative ? (
         <button
           type="button"

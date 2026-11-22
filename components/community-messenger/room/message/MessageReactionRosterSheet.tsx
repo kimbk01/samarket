@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
@@ -140,7 +141,7 @@ export function MessageReactionRosterSheet(props: MessageReactionRosterSheetProp
         </div>
         <div className="max-h-[min(220px,40vh)] overflow-y-auto px-2 py-1.5">
           {loading ? (
-            <p className={`px-2 py-4 text-center ${OverlayUi.caption}`}>{t("common_loading")}</p>
+            <DibayPendingSpinner layout="inline" />
           ) : users.length === 0 ? (
             <p className={`px-2 py-4 text-center ${OverlayUi.caption}`}>{t("cm_ui_nothing_yet")}</p>
           ) : (

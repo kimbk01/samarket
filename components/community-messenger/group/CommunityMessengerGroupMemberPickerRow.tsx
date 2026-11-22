@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 import type { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -70,7 +71,7 @@ export function CommunityMessengerGroupMemberPickerRow({
             }}
             className={`${Sam.text.helper} font-semibold text-sam-primary disabled:opacity-50`}
           >
-            {friendRequestBusy ? t("common_loading") : t("cm_ui_friend_request")}
+            {friendRequestBusy ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} /> : t("cm_ui_friend_request")}
           </button>
         );
       case GROUP_MEMBER_PICKER_ELIGIBILITY.SELF:

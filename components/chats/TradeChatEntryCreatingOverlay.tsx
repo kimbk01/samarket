@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { TradeChatEntryRingSpinner } from "@/components/chats/TradeChatEntryRingSpinner";
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   KASAMA_TRADE_CHAT_ENTRY_CREATING_OVERLAY,
@@ -72,7 +72,7 @@ export function TradeChatEntryCreatingOverlay() {
       aria-busy="true"
       aria-live="polite"
     >
-      <TradeChatEntryRingSpinner />
+      <DibaySpinner size="lg" />
       <p className="mt-5 sam-text-body font-medium text-sam-fg">{title}</p>
       <p className="mt-1.5 max-w-[16rem] text-center text-xs text-sam-muted">{subtitle}</p>
     </div>

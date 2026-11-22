@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
@@ -37,8 +38,7 @@ export function TradeWriteSheetLoadingFrame() {
         </button>
       </div>
       <div className="flex flex-1 items-center justify-center">
-        <span className="dibay-overlay-btn__spinner" aria-hidden />
-        <span className="sr-only">{t("common_loading")}</span>
+        <DibaySpinner size="lg" label={t("common_loading")} />
       </div>
     </div>
   );

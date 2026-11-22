@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -327,7 +328,7 @@ export default function NotificationDetailPage() {
           ) : error || !row ? (
             <p className="text-sm text-sam-muted">{t("common_content_unavailable")}</p>
           ) : ctaDestination?.kind === "canonical" ? (
-            <p className="text-sm text-sam-muted">{t("common_loading")}</p>
+            <DibayPendingSpinner layout="inline" />
           ) : (
             <article className="flex min-h-0 flex-1 flex-col" data-notification-detail>
               <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">

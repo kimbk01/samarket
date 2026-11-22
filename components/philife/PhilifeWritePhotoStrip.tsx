@@ -1,6 +1,7 @@
 "use client";
 
-import { Camera, Loader2, X } from "lucide-react";
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
+import { Camera, X } from "lucide-react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 const TILE = "relative h-20 w-20 shrink-0 overflow-hidden rounded-ui-rect";
@@ -47,7 +48,7 @@ export function PhilifeWritePhotoStrip({
           className={`${TILE} flex flex-col items-center justify-center gap-1 border border-dashed border-sam-border transition-colors disabled:opacity-60`}
         >
           {uploading ? (
-            <Loader2 className="h-6 w-6 animate-spin text-sam-muted" aria-hidden />
+            <DibaySpinner size="md" decorative />
           ) : (
             <Camera className="h-6 w-6 stroke-[1.5] text-sam-muted" aria-hidden />
           )}

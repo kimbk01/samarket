@@ -32,7 +32,7 @@ import { useMessengerRoomPhase2View } from "@/components/community-messenger/roo
 import { MessengerRoomMessageListHost } from "@/components/community-messenger/room/MessengerRoomMessageListHost";
 import { MessengerTimelineVirtualRow } from "@/components/community-messenger/room/phase2/MessengerTimelineVirtualRow";
 import { MessengerRoomNewMessagesBelowChip } from "@/components/community-messenger/room/MessengerRoomNewMessagesBelowChip";
-import { StoreDeliveryBufferingSpinner } from "@/components/stores/StoreDeliveryBufferingSpinner";
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { shouldShowMessengerRoomTimelineHydrationSkeleton, shouldShowMessengerRoomTimelineEmptyState } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 import { snapshotMessengerRoomTimelineViewportProbe } from "@/lib/community-messenger/room/messenger-room-entry-scroll-ready";
 import {
@@ -2226,7 +2226,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
               aria-busy="true"
               aria-label={vm.t("chats_spinner_loading_aria")}
             >
-              <StoreDeliveryBufferingSpinner />
+              <DibaySpinner size="lg" />
             </div>
           ) : timelineLoadUi === "retry" ? (
             <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-6 py-16 text-center">
@@ -2258,7 +2258,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
               aria-busy="true"
               aria-label={vm.t("chats_spinner_loading_aria")}
             >
-              <StoreDeliveryBufferingSpinner />
+              <DibaySpinner size="lg" />
             </div>
           )}
           <div ref={vm.messageEndRef} />

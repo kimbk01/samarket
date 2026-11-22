@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
@@ -187,7 +188,7 @@ export function OwnerStoreSalesView() {
           ) : null}
 
           {error ? <p className="sam-text-body text-sam-danger">{error}</p> : null}
-          {loading && !data ? <p className="sam-text-body text-sam-muted">{t("common_loading")}</p> : null}
+          {loading && !data ? <DibayPendingSpinner layout="inline" /> : null}
 
           {totals ? (
             <div className="grid grid-cols-2 gap-2" data-owner-sales-totals="1">

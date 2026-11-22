@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import type { MessageKey } from "@/lib/i18n/message-key";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { StickerItemDto, StickerPackDto } from "@/lib/stickers/sticker-dto";
@@ -185,7 +186,7 @@ export function MessengerStickerSheet({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-[max(0.75rem,var(--safe-bottom))] pt-2">
         {itemsBusy ? (
-          <p className={`py-6 text-center ${OverlayUi.caption}`}>{t("common_loading")}</p>
+          <DibayPendingSpinner layout="inline" />
         ) : !items?.length ? (
           <p className={`py-6 text-center ${OverlayUi.caption}`}>
             {activePackId === RECENT_PACK_ID ? t("cm_ui_no_recent_stickers") : t("cm_ui_no_stickers")}

@@ -1,7 +1,8 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useRef } from "react";
-import { Loader2, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PlacePredictionRow } from "@/lib/map/fetch-place-predictions-ph";
 import {
@@ -116,7 +117,7 @@ export function AddressEditorLocationSearch(props: {
                   </span>
                 </span>
                 {resolvingPlaceId === p.placeId ? (
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-sam-primary" aria-hidden />
+                  <DibaySpinner size="sm" decorative />
                 ) : null}
               </button>
             </li>

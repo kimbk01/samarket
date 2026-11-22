@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { formatPhtDisplayDateTime } from "@/lib/time/format-pht-display";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -398,7 +399,7 @@ export function TradeAdQuickSheet({
       ) : loadFailed ? (
         <p className={OverlayUi.captionDanger}>{t("trade_ad_load_failed")}</p>
       ) : !data ? (
-        <p className={OverlayUi.bodySecondary}>{t("common_loading")}</p>
+        <DibayPendingSpinner layout="inline" />
       ) : rows.length === 0 ? (
         <p className={OverlayUi.bodySecondary}>{t("trade_ad_none")}</p>
       ) : (

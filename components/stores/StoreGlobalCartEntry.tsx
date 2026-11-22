@@ -1,5 +1,6 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
@@ -47,7 +48,7 @@ export function StoreGlobalCartEntry() {
         header={<StoreCartTopBar onBack={goCartBack} />}
         scrollInnerClassName={STORE_GLOBAL_CART_SCROLL_BODY_INNER_CLASS}
       >
-        <div className="px-4 py-12 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
+        <DibayPendingSpinner layout="inline" />
       </StoreCommerceCartPageShell>
     );
   }

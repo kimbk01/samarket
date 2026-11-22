@@ -1,8 +1,8 @@
 "use client";
 
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { GuestLoginRequiredPanel } from "@/components/auth/GuestLoginRequiredPanel";
 import { MembershipCheckFailedPanel } from "@/components/auth/MembershipCheckFailedPanel";
 import {
@@ -20,7 +20,6 @@ function isCommunityMessengerRoomEntryPath(pathname: string | null): boolean {
  * 회원 열람은 인증 popup 없음. 전화/주소는 전송·통화 등 ACTION 에서만 gate.
  */
 export function CommunityMessengerGuestGate({ children }: { children: ReactNode }) {
-  const { t } = useI18n();
   const pathname = usePathname();
   const membership = useClientMembershipState("community-messenger-guest-gate");
   const recoveryFailed = useClientMembershipRecoveryFailed();
@@ -50,7 +49,7 @@ export function CommunityMessengerGuestGate({ children }: { children: ReactNode 
       <>
         {guestGateDebugProbe}
         <div className="flex min-h-[40vh] items-center justify-center px-4 py-16" data-cm-guest-gate-spinner="">
-          <p className="sam-text-body text-sam-muted">{t("mypage_comp_loading_ellipsis")}</p>
+          <DibayPendingSpinner layout="inline" />
         </div>
       </>
     );

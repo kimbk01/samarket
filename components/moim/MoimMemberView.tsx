@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -340,7 +341,7 @@ function MoimBoardTab({ moim, boardId, onBoard }: { moim: MoimDetailDto; boardId
             {nextBefore ? (
               <div className="px-4 pt-2">
                 <button type="button" disabled={more} className={`${moimCls.btnSecondary} ${moimCls.btnSm} w-full`} onClick={loadMore}>
-                  {more ? t("common_loading") : t("moim_home_more_btn")}
+                  {more ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} /> : t("moim_home_more_btn")}
                 </button>
               </div>
             ) : null}

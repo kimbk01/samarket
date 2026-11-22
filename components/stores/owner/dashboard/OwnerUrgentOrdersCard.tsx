@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { AlertCircle, RefreshCw, Siren } from "lucide-react";
 import { useSyncExternalStore } from "react";
@@ -122,7 +123,11 @@ export function OwnerUrgentOrdersCard({
           aria-label={t("store_owner_dash_refresh_ops")}
         >
           <span>{t("store_owner_dash_updated_at", { time: timeLabel })}</span>
-          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} aria-hidden />
+          {refreshing ? (
+            <DibaySpinner size="sm" tone="current" decorative />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+          )}
         </button>
       </div>
 

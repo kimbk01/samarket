@@ -1,5 +1,6 @@
 "use client";
 
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -96,7 +97,7 @@ export function RiderOrdersClient() {
   if (loading) {
     return (
       <div className={`${Sam.page} bg-sam-app min-h-[70vh] flex items-center justify-center text-sam-muted`}>
-        {t("common_loading")}
+        <DibaySpinner size="lg" />
       </div>
     );
   }
