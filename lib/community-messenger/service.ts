@@ -12780,6 +12780,8 @@ export type CommunityMessengerMarkReadDiag = {
   /** cold flushOpen open_tail — 단일 combined RPC */
   mark_read_combined_rpc_ms?: number;
   mark_read_combined_rpc_used?: 0 | 1;
+  /** 2026-11-22 읽음 2단계 — 방 종류·끝 메시지를 DB 함수 안에서 정한 경로 */
+  mark_read_auto_rpc_used?: 0 | 1;
   mark_read_combined_rpc_mode?: "open_tail";
   mark_read_fetch_existing_eliminated?: 0 | 1;
   mark_read_db_round_trips?: number;
@@ -12911,31 +12913,52 @@ export async function markCommunityMessengerRoomAsRead(input: {
       const {
         loadRoomDomainForUnreadAuthority,
         markRoomReadAtomic,
+        markRoomReadAtomicAuto,
         resolveRoomReadableTipMessageId,
         buildCmMarkReadIdempotencyKey,
         atomicReadChangedState,
       } = await import("@/lib/community-messenger/room-unread-authority-rpc");
-      const domainMeta = await loadRoomDomainForUnreadAuthority(sb as any, roomId);
-      if (domainMeta && domainMeta.chatDomain !== "store_order") {
-        const openTail = flushOpen || !requestedLastReadMessageId;
-        const tipMessageId = openTail
-          ? await resolveRoomReadableTipMessageId(sb as any, roomId)
-          : "";
-        const atomic = await markRoomReadAtomic(sb as any, {
-          viewerId: input.userId,
-          roomId,
-          chatDomain: domainMeta.chatDomain,
-          domainIdentityKey: domainMeta.domainIdentityKey,
-          viewerRole: "member",
-          readThroughMessageId: openTail ? null : requestedLastReadMessageId,
-          idempotencyKey: buildCmMarkReadIdempotencyKey({
-            userId: input.userId,
+      const openTail = flushOpen || !requestedLastReadMessageId;
+      /**
+       * 읽음 2단계(2026-11-22) — 방 종류·끝 메시지·중복 방지 키를 DB 함수 안에서(이전: 방 조회 + 끝 메시지 조회 + 원자 읽음 3번).
+       * `unsupported`(배달 주문·식별 키 없음·방 없음) → 아래 이전 경로 · `missing`(DB 적용 전) → 지금 3번 경로 그대로.
+       */
+      const auto = await markRoomReadAtomicAuto(sb as any, {
+        viewerId: input.userId,
+        roomId,
+        readThroughMessageId: openTail ? null : requestedLastReadMessageId,
+      });
+      let atomicDomainForLog = "";
+      let atomic: Awaited<ReturnType<typeof markRoomReadAtomic>> | null = null;
+      if (auto.kind === "done") {
+        atomic = auto.result;
+        atomicDomainForLog = "auto";
+        if (diag) diag.mark_read_auto_rpc_used = 1;
+      } else if (auto.kind === "missing") {
+        const domainMeta = await loadRoomDomainForUnreadAuthority(sb as any, roomId);
+        if (domainMeta && domainMeta.chatDomain !== "store_order") {
+          const tipMessageId = openTail
+            ? await resolveRoomReadableTipMessageId(sb as any, roomId)
+            : "";
+          atomicDomainForLog = domainMeta.chatDomain;
+          atomic = await markRoomReadAtomic(sb as any, {
+            viewerId: input.userId,
             roomId,
-            openTail,
-            requestedLastReadMessageId,
-            tipMessageId,
-          }),
-        });
+            chatDomain: domainMeta.chatDomain,
+            domainIdentityKey: domainMeta.domainIdentityKey,
+            viewerRole: "member",
+            readThroughMessageId: openTail ? null : requestedLastReadMessageId,
+            idempotencyKey: buildCmMarkReadIdempotencyKey({
+              userId: input.userId,
+              roomId,
+              openTail,
+              requestedLastReadMessageId,
+              tipMessageId,
+            }),
+          });
+        }
+      }
+      if (atomic) {
         if (atomic.ok) {
           /** 읽음 1단계: 바뀐 것 없는 읽음(이미 다 읽음)은 사본 재생성·무효화 표시 생략 — `atomicReadChangedState` */
           if (atomicReadChangedState(atomic)) {
@@ -12991,7 +13014,7 @@ export async function markCommunityMessengerRoomAsRead(input: {
         }
         console.error("[room_unread_v1] mark_read_legacy_fallback", {
           roomId,
-          domain: domainMeta.chatDomain,
+          domain: atomicDomainForLog,
           error: atomic.error,
           fallbackUsed: true,
         });
