@@ -8,6 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import type { CompositionFilterClause } from "@/lib/trade/category-form/composition-filter-query";
+import { resolveTradeListPriceField } from "@/lib/trade/category-form/real-estate-deal-persist-scope";
 import {
   listTradeNationalLgus,
   loadTradeNationalLguDataset,
@@ -173,6 +174,8 @@ export async function fetchTradeListPage(
     comp: input.compositionFilters?.length ? input.compositionFilters : null,
     price_min: input.priceMin ?? null,
     price_max: input.priceMax ?? null,
+    /** 감사 R4: 부동산 「임대」 조건이면 가격 조건 = 월세(meta.monthly). 그 밖에는 posts.price (SQL 기본값) */
+    price_field: resolveTradeListPriceField(input.compositionFilters),
     trade_state: input.tradeState,
     q: input.q || null,
     sort: input.sort,
