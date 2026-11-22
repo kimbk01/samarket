@@ -1,5 +1,6 @@
 "use client";
 
+import { NetworkDeviceHint } from "@/components/net/NetworkDeviceHint";
 import { useEffect } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -21,6 +22,7 @@ export default function CommunityMessengerError({
     <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-4 py-8 text-center">
       <p className="text-base font-medium text-sam-text-primary">{t("app_error_messenger_title")}</p>
       <p className="max-w-sm text-sm text-sam-text-secondary">{t("app_error_messenger_subtitle")}</p>
+      <NetworkDeviceHint className="max-w-sm text-sm font-medium text-sam-text-primary" />
       <div className="flex flex-wrap items-center justify-center gap-2">
         <button
           type="button"

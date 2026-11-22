@@ -1,5 +1,6 @@
 "use client";
 
+import { networkFailureMessageKey } from "@/lib/net/network-health.client";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet, DibayOverlayButton, DibayToast } from "@/components/ui/dibay-overlay";
@@ -81,8 +82,8 @@ export function StoreReviewReportButton({ storeSlug, reviewId }: { storeSlug: st
       setOpen(false);
       setMessage("");
       setToast(t("store_report_submitted"));
-    } catch {
-      setErr(t("common_network_error"));
+    } catch (e) {
+      setErr(t(networkFailureMessageKey(e)));
     } finally {
       setBusy(false);
     }

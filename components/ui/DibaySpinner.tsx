@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { NetworkDeviceHint } from "@/components/net/NetworkDeviceHint";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
   DIBAY_SPINNER_DOTS,
@@ -53,6 +54,7 @@ export function DibaySpinner({
  * - layout="fill": 감싼 상자를 가득 채움(시트·지도·덮개 안)
  * - layout="block": 목록 영역(최소 높이 11rem — 옛 배달 목록 대기와 같은 높이)
  * - layout="inline": 시트·카드 안 작은 대기(위아래 여백만) — 옛 「불러오는 중…」 글자 자리
+ * 휴대폰·DIBAY 연결 문제로 판정되면 스피너 아래 한 줄 안내(`NetworkDeviceHint`).
  */
 export function DibayPendingSpinner({
   layout = "page",
@@ -77,8 +79,13 @@ export function DibayPendingSpinner({
       aria-busy="true"
       data-dibay-pending-spinner={layout}
     >
-      <span className={Sam.spinner.appear}>
+      <span className={`${Sam.spinner.appear} flex flex-col items-center gap-3 px-6 text-center`}>
         <DibaySpinner size="lg" tone={tone} />
+        {/* 휴대폰 연결 문제·DIBAY 연결 문제일 때만 한 줄(판정 = 실패·8초 멈춤 뒤, 설계 §3-3 P2) */}
+        <NetworkDeviceHint
+          includeDibay
+          className={`max-w-xs sam-text-body-secondary ${tone === "inverse" ? "text-white/90" : "text-sam-muted"}`}
+        />
       </span>
     </div>
   );

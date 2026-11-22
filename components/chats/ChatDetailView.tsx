@@ -1,5 +1,6 @@
 "use client";
 
+import { networkFailureMessageKey } from "@/lib/net/network-health.client";
 import { dibayConfirm, dibayAlert, DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { openTradeSupport } from "@/lib/support/trade-support-entry";
 import { DIBAY_TOAST_MS, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
@@ -1721,8 +1722,8 @@ export function ChatDetailView({
       await loadStoreOrderDetail();
       onRoomReload?.();
       router.refresh();
-    } catch {
-      await dibayAlert({ title: t("common_network_error") });
+    } catch (e) {
+      await dibayAlert({ title: t(networkFailureMessageKey(e)) });
     } finally {
       setStoreOrderCancelBusy(false);
     }

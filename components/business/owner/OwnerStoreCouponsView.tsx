@@ -1,5 +1,6 @@
 "use client";
 
+import { networkFailureMessageKey } from "@/lib/net/network-health.client";
 import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -178,8 +179,8 @@ export function OwnerStoreCouponsView() {
       if (pending.action === "reissue" && json.campaign?.id) {
         router.push(OwnerRoutes.couponsDetail(String(json.campaign.id), resolvedStoreId));
       }
-    } catch {
-      setActionError(t("common_network_error"));
+    } catch (e) {
+      setActionError(t(networkFailureMessageKey(e)));
     } finally {
       busyRef.current = false;
       setActBusy(false);

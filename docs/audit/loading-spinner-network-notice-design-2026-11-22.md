@@ -303,8 +303,38 @@ Skew Protection 은 이미 켜져 있다(§1-3). 배포 직후 흰 화면이 지
 - `verify:bottom-tab-cache-first` 는 이 변경 전부터 `mypage/page.tsx must not blocking-await RSC shell` 로 실패한다(main `bcd25e26f` 에서 같은 결과).
 - `DeliveryRecruitingRouteGuard` 는 네트워크 실패를 권한 없음으로 처리한다(§2-3).
 
+## 9. P2 구현 기록 (Owner 「P2 구현 진행」 2026-11-22)
+
+**만든 것**
+- 실패 분류 `lib/net/classify-request-failure.ts`(순수 함수).
+- 판정 저장소 + 전역 fetch 관찰 `lib/net/network-health.client.ts`.
+  - `AppBootProvider` 모듈 로드 때 맨 바깥에 설치한다. 요청·응답은 바꾸지 않고 같은 promise 를 돌려준다.
+  - 대상은 `/api/**`·Supabase REST 이고, 통화·RSC·미리받기는 제외한다.
+- 확인 주소 2개를 2026-11-22 HTTPS 로 직접 조회했다.
+  - `https://www.gstatic.com/generate_204` → 204. CORS 머리 없음 → `no-cors`.
+  - `https://captive.apple.com/hotspot-detect.html` → 200. `Cache-Control: max-age=31536000` → `cache: "no-store"` 필수.
+  - 앱에 CSP 가 없어(grep 0) 막히지 않는다.
+- 안내 띠 `WebConnectivityBanner` 를 3상태로 확장했다. 오류 화면 4개와 대기 스피너에는 `NetworkDeviceHint` 한 줄을 붙였다.
+- 문구 키 4개를 ko·en 으로 추가했다: `net_device_offline`·`net_device_unstable`·`net_dibay_unreachable`·`net_dibay_error`. 쓰는 곳 0인 `support_offline_hint` 는 지웠다.
+- 화면 안 `catch` 10곳: 공통 문구 대신 그 오류로 고른 키를 쓴다(`networkFailureMessageKey(e)`).
+  - 5xx·깨진 응답 → DIBAY 오류.
+  - 기기 끊김 → 휴대폰 문구.
+  - 아직 판정 전 → 기존 공통 문구.
+
+**설계와 달라진 점 (보고)**
+1. 확인 요청이 **응답 없이 실패**하면 `device_unstable` 이 아니라 `device_offline` 으로 판정한다.
+   - 이유: 와이파이는 붙었는데 인터넷이 안 되는 경우(§2-3 지목 상황)는 「연결되어 있지 않음」이 사실이다.
+   - `device_unstable` 은 확인 요청도 8초를 넘길 때만 쓴다.
+2. 대기 스피너에 「다시 시도」 버튼은 넣지 않았다.
+   - 이유: 화면 이동은 이미 S2(8초 상한 → Next 문서 이동)가 회복한다. 같은 8초에 버튼을 두면 회복과 겹친다.
+   - 안내 한 줄만 둔다.
+3. 통화 화면의 띠는 예전 그대로다(기기 `offline` 일 때 예전 문구 `app_connectivity_offline`). 통화 변경 규정 때문에 그 키는 지우지 않았다.
+4. 네이티브 OS 검증값(Android `NET_CAPABILITY_VALIDATED`·iOS `NWPathMonitor`)은 P3 다. 지금은 `navigator.onLine` + 확인 요청만 쓴다.
+5. `lib` 의 코드 문자열 대응 3곳(`owner-api-error-i18n`·`support-display-labels`·`resolve-notif-inbox-error-message`)은 오류 값을 받지 않아 바꾸지 않았다.
+
 ## 변경 이력
 
 - 2026-11-22 v1 작성.
 - 2026-11-22 v2 — Owner 2차 지시. 1차 틀린 9건 정정(§1). 근거 없는 숫자·임시 처리 제거(기존 450ms·8초만 사용, 실패별 판정). Owner 결정 3건에 추천안 적용(스켈레톤 유지 · DIBAY 문제도 안내 + OS 확인 주소 · Skew 는 이미 켜짐). 운영 조회 2건(Vercel 프로젝트 설정 · `delivery_launch_settings.mode`, 모두 읽기 전용).
 - 2026-11-22 §8 P1 구현 기록.
+- 2026-11-22 §9 P2 구현 기록.
