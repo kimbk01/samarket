@@ -73,6 +73,14 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/me/signup-status": 1.9,
 };
 
+/**
+ * 2026-11-22 — 받는 사람 수에 비례하는 동작(보내기)의 예산: 「요청 1번당 + 단위 1개당」.
+ * 키 = 라우트 + `@표지`(계수기 `tagSupabaseCallRequest`), 예: `"/api/community-messenger/rooms/[roomId]/messages@post"`.
+ * 판정: 호출 > (perRequest × 요청 + perUnit × 단위 합) × 경보 배수. 단위 = `addSupabaseCallRequestUnits`(보내기 = 받는 사람 수).
+ * 새로 나뉜 키라 값 없이 시작 — 7일 실측 뒤 넣는다(설계 M-6). 값 없는 동안은 `unbudgeted_route` 판정.
+ */
+export const ROUTE_SUPABASE_CALL_UNIT_BUDGET: Readonly<Record<string, { perRequest: number; perUnit: number }>> = {};
+
 /** 라우트 1회당 호출 수가 예산 × 이 값을 넘으면 경보 */
 export const ROUTE_BUDGET_ALERT_FACTOR = 1.2;
 
