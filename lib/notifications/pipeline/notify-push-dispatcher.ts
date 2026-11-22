@@ -180,12 +180,24 @@ export async function dispatchNotificationPushIfAllowed(
 
   logNotifyMessage("push_dispatch_start", { userId: row.user_id, eventId: row.id });
   await ensureNotificationSoundSsotHydratedForServer(sb);
-  const domain = await fetchDomainBadgeAuthorityPayload(sb, row.user_id, { force: true });
+  /**
+   * 2026-11-22 보내기 3b — 채팅 보내기 묶음 경로가 같은 식(`computeMemberAppIconFromFacts`)으로 미리 계산한 숫자가 있으면 그대로.
+   * 부재중 통화·그 밖의 발송은 넘기지 않음 → 아래 기존 계산.
+   */
+  const preloadedBadge =
+    opts?.callPushKind !== "missed_call" && typeof opts?.preloadedChatFacts?.badgeTotal === "number"
+      ? opts.preloadedChatFacts.badgeTotal
+      : null;
   // Slice 2-6 — FCM badge_count = MemberAppIconTotal absolute (A+B_member). Never compute; never B_store/C_store.
-  const memberAppIconTotal = resolveMemberAppIconTotalForNativeFcm({
-    memberAppIconWebTotal: domain.memberAppIconWebTotal,
-    appIconTotal: domain.projection?.appIconTotal,
-  });
+  const memberAppIconTotal =
+    preloadedBadge ??
+    (await (async () => {
+      const domain = await fetchDomainBadgeAuthorityPayload(sb, row.user_id, { force: true });
+      return resolveMemberAppIconTotalForNativeFcm({
+        memberAppIconWebTotal: domain.memberAppIconWebTotal,
+        appIconTotal: domain.projection?.appIconTotal,
+      });
+    })());
   const out = buildPushPayload(row, memberAppIconTotal);
 
   let dispatchResult;

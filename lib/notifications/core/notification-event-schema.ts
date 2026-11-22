@@ -45,6 +45,11 @@ export type CreateNotificationEventInput = {
   chatDomain?: string | null;
   domainIdentityKey?: string | null;
   originDeviceId?: string | null;
+  /**
+   * 2026-11-22 보내기 3b — 채팅 푸시 인계 대기(`markChatPushHandoffPending` 와 같은 값)를 저장과 함께 넣는다.
+   * 채팅 보내기 파이프라인만 넘긴다(부재중 통화 등 그 밖의 저장은 넘기지 않음 → 지금 그대로).
+   */
+  chatPushHandoffPendingNextAt?: string | null;
 };
 
 export type NotificationEventRow = {

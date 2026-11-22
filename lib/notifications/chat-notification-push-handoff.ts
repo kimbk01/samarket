@@ -35,7 +35,12 @@ export const CHAT_PUSH_MANAGED_EVENT_TYPES = [
  * 승인 설계값: "60초 넘게 pending 인 행을 다시 보낸다" → fast-path 가 못 보낸 행을 cron 이
  * 주워가기 전까지의 유예(= next_at 오프셋). 임의값이 아니라 설계에 명시된 60초다.
  */
-const CHAT_PUSH_HANDOFF_FASTPATH_GRACE_MS = 60_000;
+export const CHAT_PUSH_HANDOFF_FASTPATH_GRACE_MS = 60_000;
+
+/** 2026-11-22 보내기 3b — `markChatPushHandoffPending` 이 쓰는 것과 같은 다음 시도 시각 */
+export function chatPushHandoffPendingNextAtIso(nowMs: number = Date.now()): string {
+  return new Date(nowMs + CHAT_PUSH_HANDOFF_FASTPATH_GRACE_MS).toISOString();
+}
 
 /**
  * NOTI-08 POLICY_REQUIRED — 일반 채팅 푸시의 "시간 만료" 값은 Owner 가 정하는 정책값이다

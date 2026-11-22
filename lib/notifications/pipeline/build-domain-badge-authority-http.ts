@@ -184,6 +184,71 @@ function nonChatFromCategoryCounts(c: NotificationBadgeCount): NotificationNonCh
  * Bell digit / App Icon notification axis = Member Notification A.
  * Chat hubs / Bottom = room ID sets only.
  */
+/**
+ * 2026-11-22 보내기 3b — 앱 아이콘 숫자(A 알림 + B 대화)를 이미 읽은 사실에서 계산한다(순수 · 조회 없음).
+ * `buildDomainBadgeAuthorityHttpPayload` 와 채팅 푸시 묶음 경로가 **같은 함수**를 쓴다. 사장님 운영 수 O 는 빠진다(제품 계약).
+ * 설계: docs/audit/supabase-request-surge-2026-11-18/message-send-fanout-stage3b-badge-design-2026-11-22.md
+ */
+export function computeMemberAppIconFromFacts(input: {
+  uid: string;
+  bellExplainRows: Parameters<typeof resolveMemberNotificationAuthorityFromRows>[0];
+  messengerRooms: Awaited<ReturnType<typeof loadMessengerUnreadRoomFactsFromParticipants>>;
+  tradeStoreRooms: Awaited<ReturnType<typeof loadTradeStoreOrderUnreadRoomFactsFromParticipants>>;
+  revision: number;
+}) {
+  const { uid, messengerRooms, tradeStoreRooms } = input;
+  const notificationA = resolveMemberNotificationAuthorityFromRows(input.bellExplainRows, uid);
+  const conversationNormalized = conversationRoomsFromParticipantFactsNormalized({
+    memberId: uid,
+    generalDirect: messengerRooms.generalDirectUnreadRoomIds.map((roomId) => ({
+      roomId,
+      unreadMessageCount: messengerRooms.rowUnreadByRoomId[roomId] ?? 1,
+      domainIdentityKey: messengerRooms.domainIdentityKeyByRoomId[roomId],
+      peerUserId: messengerRooms.peerUserIdByRoomId[roomId],
+    })),
+    group: messengerRooms.groupUnreadRoomIds.map((roomId) => ({
+      roomId,
+      unreadMessageCount: messengerRooms.rowUnreadByRoomId[roomId] ?? 1,
+      domainIdentityKey: messengerRooms.domainIdentityKeyByRoomId[roomId],
+      groupId: roomId,
+    })),
+    trade: tradeStoreRooms.tradeUnreadRoomIds.map((roomId) => ({
+      roomId,
+      unreadMessageCount: tradeStoreRooms.rowUnreadByRoomId[roomId] ?? 1,
+      domainIdentityKey: tradeStoreRooms.domainIdentityKeyByRoomId[roomId],
+    })),
+    customerOrder: tradeStoreRooms.customerOrderUnreadRoomIds.map((roomId) => {
+      const key = tradeStoreRooms.domainIdentityKeyByRoomId[roomId];
+      const orderId =
+        key && key.startsWith("store_order:") && !key.startsWith("store_order:room:")
+          ? key.slice("store_order:".length).split(":")[0]?.trim()
+          : undefined;
+      return {
+        roomId,
+        unreadMessageCount: tradeStoreRooms.rowUnreadByRoomId[roomId] ?? 1,
+        domainIdentityKey: key,
+        orderId: orderId || undefined,
+      };
+    }),
+    ownerOrder: tradeStoreRooms.ownerOrderUnreadRoomIds.map((roomId) => ({
+      roomId,
+      unreadMessageCount: tradeStoreRooms.rowUnreadByRoomId[roomId] ?? 1,
+    })),
+  });
+  const memberConversationAuthority = resolveMemberConversationAuthority(
+    uid,
+    conversationNormalized.rooms
+  );
+  const memberAppIconAuthority = resolveMemberAppIconAuthority({
+    notificationA,
+    conversationB: memberConversationAuthority,
+    /** Member Icon = A + B; Owner O is excluded by product contract. */
+    ownerOperationCount: 0,
+    revision: input.revision,
+  });
+  return { notificationA, conversationNormalized, memberConversationAuthority, memberAppIconAuthority };
+}
+
 export async function buildDomainBadgeAuthorityHttpPayload(
   sb: SupabaseClient,
   userId: string
@@ -278,7 +343,14 @@ export async function buildDomainBadgeAuthorityHttpPayload(
   const notificationAttention = buildNotificationAttentionProjection(bellExplainRows);
   const notificationAttentionTotal = notificationAttention.total;
   /** Canonical Member Bell A — same loader limit as NC unread_total. */
-  const notificationA = resolveMemberNotificationAuthorityFromRows(bellExplainRows, uid);
+  const appIcon = computeMemberAppIconFromFacts({
+    uid,
+    bellExplainRows,
+    messengerRooms,
+    tradeStoreRooms,
+    revision: projectionVersionMs,
+  });
+  const notificationA = appIcon.notificationA;
   const memberUnreadNotificationCount = notificationA.unreadCount;
   const ownerOperationBellCount = ownerO.ownerOperationBellCount;
   /** O kept for Owner FAB / diagnostics; excluded from Member Bell/App Icon. */
@@ -305,57 +377,11 @@ export async function buildDomainBadgeAuthorityHttpPayload(
   });
 
   // Gate 3 Step 12 — no *:room:{uuid} invent. Incomplete → quarantine (excluded from B).
-  const conversationNormalized = conversationRoomsFromParticipantFactsNormalized({
-    memberId: uid,
-    generalDirect: messengerRooms.generalDirectUnreadRoomIds.map((roomId) => ({
-      roomId,
-      unreadMessageCount: messengerRooms.rowUnreadByRoomId[roomId] ?? 1,
-      domainIdentityKey: messengerRooms.domainIdentityKeyByRoomId[roomId],
-      peerUserId: messengerRooms.peerUserIdByRoomId[roomId],
-    })),
-    group: messengerRooms.groupUnreadRoomIds.map((roomId) => ({
-      roomId,
-      unreadMessageCount: messengerRooms.rowUnreadByRoomId[roomId] ?? 1,
-      domainIdentityKey: messengerRooms.domainIdentityKeyByRoomId[roomId],
-      groupId: roomId,
-    })),
-    trade: tradeStoreRooms.tradeUnreadRoomIds.map((roomId) => ({
-      roomId,
-      unreadMessageCount: tradeStoreRooms.rowUnreadByRoomId[roomId] ?? 1,
-      domainIdentityKey: tradeStoreRooms.domainIdentityKeyByRoomId[roomId],
-    })),
-    customerOrder: tradeStoreRooms.customerOrderUnreadRoomIds.map((roomId) => {
-      const key = tradeStoreRooms.domainIdentityKeyByRoomId[roomId];
-      const orderId =
-        key && key.startsWith("store_order:") && !key.startsWith("store_order:room:")
-          ? key.slice("store_order:".length).split(":")[0]?.trim()
-          : undefined;
-      return {
-        roomId,
-        unreadMessageCount: tradeStoreRooms.rowUnreadByRoomId[roomId] ?? 1,
-        domainIdentityKey: key,
-        orderId: orderId || undefined,
-      };
-    }),
-    ownerOrder: tradeStoreRooms.ownerOrderUnreadRoomIds.map((roomId) => ({
-      roomId,
-      unreadMessageCount: tradeStoreRooms.rowUnreadByRoomId[roomId] ?? 1,
-    })),
-  });
-  const memberConversationAuthority = resolveMemberConversationAuthority(
-    uid,
-    conversationNormalized.rooms
-  );
+  /** 2026-11-22 보내기 3b — 앱 아이콘 A+B 계산은 `computeMemberAppIconFromFacts` 한 곳(채팅 푸시 묶음 경로와 같은 식) */
+  const { conversationNormalized, memberConversationAuthority, memberAppIconAuthority } = appIcon;
   const conversationSurfaces = projectSurfacesFromConversationAuthority(
     memberConversationAuthority
   );
-  const memberAppIconAuthority = resolveMemberAppIconAuthority({
-    notificationA,
-    conversationB: memberConversationAuthority,
-    /** Member Icon = A + B; Owner O is excluded by product contract. */
-    ownerOperationCount: 0,
-    revision: projectionVersionMs,
-  });
 
   /**
    * 하단 탭 수(L: 회원 B 합) ↔ 앱 아이콘 수(A) 갈림 감시 — Supabase 호출 없음 · 기록은 예전과 같은 표본 비율.

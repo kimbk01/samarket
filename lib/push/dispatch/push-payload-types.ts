@@ -74,6 +74,11 @@ export type PreloadedChatPushFacts = {
   safety: import("@/lib/push/dispatch/notification-delivery-safety-gate").NotificationDeliverySafetyDecision;
   preferences: import("@/lib/notifications/web-push-user-settings-gate").PreloadedNotificationPreferences;
   targets: PushTarget[];
+  /**
+   * 2026-11-22 보내기 3b — 앱 아이콘 숫자(A+B · 기존 계산 함수와 같은 식)를 미리 계산한 값.
+   * 있으면 `dispatchNotificationPushIfAllowed` 가 배지 계산을 다시 하지 않는다(부재중 통화에는 넘기지 않음).
+   */
+  badgeTotal?: number;
 };
 
 export type DispatchDeliveryAudit = {

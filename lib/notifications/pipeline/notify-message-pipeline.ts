@@ -24,6 +24,7 @@ import type { NotificationEventRow } from "@/lib/notifications/core/notification
 import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
 import {
   isChatPushManagedEventType,
+  chatPushHandoffPendingNextAtIso,
   markChatPushHandoffPending,
 } from "@/lib/notifications/chat-notification-push-handoff";
 import type { NotificationRuntimeAppState } from "@/lib/notifications/policy/notification-policy-profiles";
@@ -402,6 +403,10 @@ export async function notifyMessagePipeline(
         appState,
         chatDomain: domainPair.chatDomain,
         domainIdentityKey: domainPair.domainIdentityKey,
+        /** 2026-11-22 보내기 3b — 지연 푸시 채팅이면 인계 대기를 저장과 함께(저장 뒤 갱신 1번 생략) */
+        ...(opts?.deferPush === true && isChatPushManagedEventType(eventType)
+          ? { chatPushHandoffPendingNextAt: chatPushHandoffPendingNextAtIso() }
+          : {}),
       },
       { deferPush: opts?.deferPush === true }
     );
@@ -417,7 +422,7 @@ export async function notifyMessagePipeline(
       deferredPushes.push({ row: created.row, appState });
       // NEW-24/NOTI-08: 채팅 푸시도 durable 복구 대상으로 표시 → after() 가 죽어도 1분 cron 이 복구.
       // (managed 타입이 아니면 no-op. grace 뒤에만 cron 이 주워가므로 즉시 fast-path 전송과 충돌 없음.)
-      if (isChatPushManagedEventType(eventType)) {
+      if (isChatPushManagedEventType(eventType) && created.row.push_handoff_status !== "pending") {
         await markChatPushHandoffPending(sb as unknown as SupabaseClient, created.row.id).catch(() => {});
       }
     }
