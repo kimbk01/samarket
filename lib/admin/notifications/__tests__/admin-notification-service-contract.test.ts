@@ -454,7 +454,10 @@ describe("R13-D migration / route contracts", () => {
   });
 
   it("delivery health is exposed to super admins only", () => {
+    /** 2026-11-22 — inbox summary·admin-bell?with_inbox=1 이 같은 함수(최고 관리자만 전달 상태) */
     const route = read("app/api/admin/inbox/route.ts");
-    expect(route).toMatch(/if \(gate\.actor\.isSuperAdmin\) \{\s*const h = await loadAdminNotificationDeliveryHealth/);
+    expect(route).toContain("loadAdminInboxSummary(gate.sb, gate.actor)");
+    const summary = read("lib/admin/notifications/admin-inbox-summary.ts");
+    expect(summary).toMatch(/if \(actor\.isSuperAdmin\) \{\s*const h = await loadAdminNotificationDeliveryHealth/);
   });
 });

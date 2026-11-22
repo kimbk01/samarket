@@ -37,6 +37,11 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import {
+  adminInboxSummaryViewFromPayload,
+  isAdminInboxSummaryDue,
+  publishAdminInboxSummary,
+} from "@/lib/admin/notifications/admin-inbox-summary-client";
+import {
   syncSupabaseRealtimeAuthFromSession,
   waitForSupabaseRealtimeAuth,
 } from "@/lib/supabase/wait-for-realtime-auth";
@@ -801,11 +806,13 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
 
   const refresh = useCallback(async () => {
     try {
-      const { resOk, json } = await runSingleFlight("admin:bell:summary-json", async () => {
-        const res = await adminFetch("/api/admin/admin-bell", {
+      /** 2026-11-22 — 받은 알림 요약은 75초에 1번만 함께(헤더 아이콘이 따로 폴링하지 않음) */
+      const withInbox = isAdminInboxSummaryDue();
+      const { resOk, json } = await runSingleFlight(`admin:bell:summary-json${withInbox ? ":inbox" : ""}`, async () => {
+        const res = await adminFetch(withInbox ? "/api/admin/admin-bell?with_inbox=1" : "/api/admin/admin-bell", {
           credentials: "include",
           cache: "no-store",
-          dedupeKey: "admin:bell:summary-json",
+          dedupeKey: `admin:bell:summary-json${withInbox ? ":inbox" : ""}`,
           cacheTtlMs: 5_000,
         });
         const json = (await res.json().catch(() => ({}))) as {
@@ -814,6 +821,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
           total_complete?: boolean;
           categories?: AdminActionQueueCategoryResult[];
           unavailable?: string[];
+          inbox?: Parameters<typeof adminInboxSummaryViewFromPayload>[0];
           by_category?: {
             charges?: number;
             store_charges?: number;
@@ -841,6 +849,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         };
         return { resOk: res.ok, json };
       });
+      if (withInbox) publishAdminInboxSummary(adminInboxSummaryViewFromPayload(json.inbox ?? null, resOk && json.ok === true));
       if (!resOk || !json.ok) {
         // Keep last good values but mark them stale — never silently present them as current.
         setQueueLoadState("error");
