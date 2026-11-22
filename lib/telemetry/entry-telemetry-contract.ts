@@ -27,9 +27,43 @@ export type EntryEventType = (typeof ENTRY_EVENT_TYPES)[number];
 export const ENTRY_PLATFORMS = ["android", "ios", "web"] as const;
 export type EntryPlatform = (typeof ENTRY_PLATFORMS)[number];
 
-/** pre_hydration_chunk = React 마운트 전 번들·청크 실패 (루트 초기 가드, lib/startup/pre-hydration-guard-script.ts). */
-export const ENTRY_FAILURE_CLASSES = ["chunk_reload", "error_boundary", "global_error", "pre_hydration_chunk"] as const;
+/**
+ * pre_hydration_chunk = React 마운트 전 번들·청크 실패 (루트 초기 가드, lib/startup/pre-hydration-guard-script.ts).
+ * 이동 멈춤 3종 (설계 `docs/audit/idle-menu-freeze-design-2026-11-22.md` §S1):
+ * - nav_stall = 화면 이동 요청(RSC)이 상한 안에 응답하지 않아 중단 → Next 가 문서 이동으로 넘김
+ * - nav_watchdog = 하단 탭 감시가 끝나지 않은 이동을 문서 이동으로 바꿈
+ * - chunk_stall = JS·CSS 조각 받기가 상한을 넘김 (관찰만 — 동작 변경 없음)
+ * DB `failure` 열은 값 제한이 없어 마이그레이션이 필요 없다 (운영 제약 = ev·kind·platform 만, 2026-11-22 조회).
+ */
+export const ENTRY_FAILURE_CLASSES = [
+  "chunk_reload",
+  "error_boundary",
+  "global_error",
+  "pre_hydration_chunk",
+  "nav_stall",
+  "nav_watchdog",
+  "chunk_stall",
+] as const;
 export type EntryFailureClass = (typeof ENTRY_FAILURE_CLASSES)[number];
+
+export const ENTRY_STALL_FAILURES = ["nav_stall", "nav_watchdog", "chunk_stall"] as const;
+export type EntryStallFailure = (typeof ENTRY_STALL_FAILURES)[number];
+
+/** 조각 멈춤의 끝 — load·error = 늦게라도 끝남 · pending = 끝나기 전에 문서가 사라짐 */
+export const ENTRY_STALL_RESULTS = ["load", "error", "pending"] as const;
+export type EntryStallResult = (typeof ENTRY_STALL_RESULTS)[number];
+
+/**
+ * 멈춤 상세 — 멈춤 실패 3종에서만 채운다. DB 는 `stages` jsonb 의 `stall` 키에 함께 보존한다(열 추가 없음).
+ * waitedMs = 멈춘 시간 · sinceShownMs = 마지막으로 화면이 다시 보인 뒤 지난 시간(방치 연관, 숨긴 적 없으면 null) ·
+ * target = 하단 탭 허브 id 또는 other(주소 미수집) · result = 조각 멈춤의 끝.
+ */
+export type EntryStallDetail = {
+  waitedMs: number;
+  sinceShownMs: number | null;
+  target: string | null;
+  result: EntryStallResult | null;
+};
 
 export const ENTRY_RECOVERY = ["none", "after_reload"] as const;
 export type EntryRecovery = (typeof ENTRY_RECOVERY)[number];
@@ -81,6 +115,8 @@ export type EntryTelemetryEvent = {
   deviceClassSource: string | null;
   nav: EntryNavKind | null;
   usableWidth: number | null;
+  /** 멈춤 실패 3종에서만 — 그 밖에는 null */
+  stall: EntryStallDetail | null;
 };
 
 export const ENTRY_NAV_KINDS = ["rail", "bottom"] as const;
@@ -118,6 +154,20 @@ function asDurationMs(value: unknown): number | null {
   return Math.round(Math.min(value, ENTRY_TELEMETRY_MAX_DURATION_MS));
 }
 
+function asStall(value: unknown, failure: EntryFailureClass | null): EntryStallDetail | null {
+  if (!failure || !(ENTRY_STALL_FAILURES as readonly string[]).includes(failure)) return null;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const r = value as Record<string, unknown>;
+  const waitedMs = asDurationMs(r.waitedMs);
+  if (waitedMs == null) return null;
+  return {
+    waitedMs,
+    sinceShownMs: asDurationMs(r.sinceShownMs),
+    target: asToken(r.target),
+    result: asEnum(r.result, ENTRY_STALL_RESULTS),
+  };
+}
+
 function asCount(value: unknown, max: number): number | null {
   if (typeof value !== "number" || !Number.isInteger(value)) return null;
   if (value < 0 || value > max) return null;
@@ -149,6 +199,7 @@ export function sanitizeEntryTelemetryEvent(raw: unknown): EntryTelemetryEvent |
     }
   }
 
+  const failure = asEnum(r.failure, ENTRY_FAILURE_CLASSES);
   return {
     v: ENTRY_TELEMETRY_SCHEMA_VERSION,
     run,
@@ -162,7 +213,7 @@ export function sanitizeEntryTelemetryEvent(raw: unknown): EntryTelemetryEvent |
     entryKind: asToken(r.entryKind),
     restoreHint: asToken(r.restoreHint),
     releaseReason: asToken(r.releaseReason),
-    failure: asEnum(r.failure, ENTRY_FAILURE_CLASSES),
+    failure,
     recovery: asEnum(r.recovery, ENTRY_RECOVERY) ?? "none",
     prevFailure: asEnum(r.prevFailure, ENTRY_FAILURE_CLASSES),
     reloads: asCount(r.reloads, 1000) ?? 0,
@@ -174,5 +225,6 @@ export function sanitizeEntryTelemetryEvent(raw: unknown): EntryTelemetryEvent |
     deviceClassSource: asToken(r.deviceClassSource),
     nav: asEnum(r.nav, ENTRY_NAV_KINDS),
     usableWidth: asCount(r.usableWidth, 20_000),
+    stall: asStall(r.stall, failure),
   };
 }

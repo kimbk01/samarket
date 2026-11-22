@@ -158,3 +158,56 @@ describe("최종 점검 (2026-11-15) — 멈춤·누수 방지", () => {
     expect(navigated).toEqual([]);
   });
 });
+
+describe("방치 후 멈춤 S3 (2026-11-22) — 연타해도 첫 누름부터 센다", () => {
+  it("경로가 그대로인 동안 다시 눌러도 첫 누름 8초 뒤 문서 이동 1회 — 마지막에 누른 탭으로", () => {
+    beginBottomNavShowing({ tabId: "t0", href: "/philife", fromPath: "/market" });
+    vi.advanceTimersByTime(3_000);
+    beginBottomNavShowing({ tabId: "t1", href: "/stores", fromPath: "/market" });
+    vi.advanceTimersByTime(3_000);
+    beginBottomNavShowing({ tabId: "t2", href: "/mypage", fromPath: "/market" });
+    vi.advanceTimersByTime(BOTTOM_NAV_SETTLE_WATCHDOG_MS - 6_000 - 1);
+    expect(navigated).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(navigated).toEqual(["/mypage"]);
+    expect(isBottomNavShowing()).toBe(false);
+  });
+
+  it("감사 재현: 5초 간격 12회(60초) 연타 — 예전 0회 → 이제 문서 이동이 일어난다", () => {
+    const tabs = ["/philife", "/stores", "/community-messenger", "/mypage"];
+    for (let i = 0; i < 12; i += 1) {
+      beginBottomNavShowing({ tabId: `t${i}`, href: tabs[i % 4], fromPath: "/market" });
+      vi.advanceTimersByTime(5_000);
+    }
+    expect(navigated[0]).toBe("/stores");
+  });
+
+  it("경로가 바뀐 뒤 누른 것은 새 이동 — 새로 센다", () => {
+    beginBottomNavShowing({ tabId: "a", href: "/philife", fromPath: "/market" });
+    vi.advanceTimersByTime(6_000);
+    settleBottomNavForLocation("/philife");
+    beginBottomNavShowing({ tabId: "b", href: "/stores", fromPath: "/philife" });
+    vi.advanceTimersByTime(BOTTOM_NAV_SETTLE_WATCHDOG_MS - 1);
+    expect(navigated).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(navigated).toEqual(["/stores"]);
+  });
+
+  it("진행 중인 이동 요청이 있으면 그 요청을 중단(Next 문서 이동 1회)하고 직접 문서 이동하지 않는다 · 계측 1건", () => {
+    const reports: { waitedMs: number; path: string }[] = [];
+    let expired = 0;
+    __resetBottomNavControllerForTest({
+      documentNavigate: (h) => navigated.push(h),
+      expireInflightNavigation: () => {
+        expired += 1;
+        return true;
+      },
+      reportWatchdog: (r) => reports.push(r),
+    });
+    beginBottomNavShowing({ tabId: "my", href: "/mypage", fromPath: "/market" });
+    vi.advanceTimersByTime(BOTTOM_NAV_SETTLE_WATCHDOG_MS);
+    expect(expired).toBe(1);
+    expect(navigated).toEqual([]);
+    expect(reports).toEqual([{ waitedMs: BOTTOM_NAV_SETTLE_WATCHDOG_MS, path: "/mypage" }]);
+  });
+});

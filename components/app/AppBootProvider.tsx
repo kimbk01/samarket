@@ -34,6 +34,8 @@ import { startEntryTelemetry } from "@/lib/telemetry/entry-telemetry.client";
 import { startWebVersionResumeCheck } from "@/lib/startup/web-version-resume.client";
 import { installSessionFreshnessFetchGate } from "@/lib/auth/session-freshness-fetch-gate.client";
 import { installRegistrationGuidanceFetchGate } from "@/lib/auth/registration-guidance-fetch-gate.client";
+import { installRscNavigationDeadline } from "@/lib/net/rsc-navigation-deadline.client";
+import { installChunkStallObserver } from "@/lib/net/chunk-stall-observer.client";
 
 /**
  * Phase 3-2a (Auth HARD LOCK Amendment 2026-11-08 (7)): 모듈 로드 시점 = 루트 셸 렌더·자식 effect 의 첫 `/api` 요청보다 먼저.
@@ -42,6 +44,12 @@ import { installRegistrationGuidanceFetchGate } from "@/lib/auth/registration-gu
 installSessionFreshnessFetchGate();
 /** 가입 진행 중 회원 안내 — `/api` 쓰기 요청 한 곳(설계 2026-11-21 §5-3). 세션 신선도 관문 바깥을 감싼다. */
 installRegistrationGuidanceFetchGate();
+/**
+ * 화면 이동 멈춤 (설계 `docs/audit/idle-menu-freeze-design-2026-11-22.md` §S1·S2): 이동 요청(RSC) 8초 상한 → Next 문서 이동 ·
+ * 조각 받기 멈춤 관찰(동작 무변경). 다른 관문 바깥을 감싼다(RSC 는 `/api` 가 아니라 두 관문 대상과 겹치지 않음).
+ */
+installRscNavigationDeadline();
+installChunkStallObserver();
 
 const AppBootContext = createContext<AppBootState | null>(null);
 

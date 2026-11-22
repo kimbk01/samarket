@@ -91,7 +91,8 @@ export async function persistEntryFailureIfNeeded(
         age_ms: event.ageMs,
         hidden_ms: event.hiddenMs,
         visible: event.visible,
-        stages: event.t,
+        /** 멈춤 상세는 `stages.stall` 에 함께 보존 (설계 idle-menu-freeze §S1 — 열 추가 없음) */
+        stages: event.stall ? { ...event.t, stall: event.stall } : event.t,
         deployment_id: meta.deploymentId,
         server_sha: meta.serverSha,
       },
