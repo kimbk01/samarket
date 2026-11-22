@@ -19,6 +19,12 @@
 | `server.supabase_route` | 라우트(`/api/a/[id]/b` → `api.a.:id.b`, 저장소 밖 호출 = `unknown`) | 호출 수 | 요청 수 | 요청 1회 최대 호출 |
 | `server.supabase_route_test` | 위와 같음 — 시험 기기 UA | 〃 | 〃 | 〃 |
 | `server.supabase_target` | `rest.<표>`·`rpc.<함수>`·`auth.<경로>`·`storage`·`realtime` | 호출 수 | 0 | — |
+| `server.supabase_route_units` | 표지 붙은 라우트(`…::post`) | 단위 합(보내기 = 받는 사람 수) | 0 | — |
+| `server.supabase_route_target` | `<표지 붙은 라우트>::<rest.표·rpc.함수…>` (96자) | 그 요청들의 표별 호출 수 | 0 | — |
+
+- **요청 표지 (2026-11-22)**: Next 요청 저장소에는 요청 방식이 없어 계수기가 GET·POST 를 스스로 나누지 못한다. 핸들러 첫 줄 `tagSupabaseCallRequest("post")` 로 표지를 달면 그 요청(응답 뒤 `after()` 포함 — 같은 저장소)은 `<라우트>::post` 로 센다. 지금 표지: 메시지 라우트 POST(보내기) 1곳. 받는 사람 수는 `addSupabaseCallRequestUnits(n)`.
+  집계 함수가 metric `^[a-z0-9_.:-]{1,96}$` 만 받아 구분자는 `::`. 예산 표 키는 `"/api/…/messages@post"` 로 쓰고 같은 규칙으로 바꿔 비교한다.
+  분리 뒤 표지 없는 메시지 키(GET)는 보내기가 빠져 1회당 값이 내려간다 — 실제 감소가 아니라 분리 때문이다(2026-11-22 이전 값과 비교 금지).
 
 - `value_count`(요청 수)는 **Supabase 를 1번 이상 부른 요청**만 센다(계수기는 fetch 만 본다). 예산 초깃값은 Vercel 「모든 요청」 기준이라 정의가 다르지만,
   2026-11-19 00~12 UTC 실측에서 8개 예산 라우트의 1회당 값이 Vercel 과 10% 안으로 같았다(거의 모든 요청이 Supabase 를 부름). 캐시만으로 끝나는 요청이 많은 라우트를 새로 예산에 넣을 때는 이 차이를 확인한다.
@@ -29,6 +35,7 @@
 | 경보 | 기준 |
 |---|---|
 | `route_over_budget` | 예산 라우트의 24시간 1회당 호출 > 예산 × 1.2 (요청 30회 이상인 라우트만) |
+| `route_over_budget` (단위 예산) | `ROUTE_SUPABASE_CALL_UNIT_BUDGET` 키: 24시간 호출 > (요청 1번당 × 요청 + 단위 1개당 × 단위 합) × 1.2. 값은 7일 실측 뒤 넣는다(지금 비어 있음 → `unbudgeted_route` 판정) |
 | `unbudgeted_route` | 예산 없는 라우트가 24시간 1,000건 이상 |
 | `daily_total` | 24시간 합계(시험 기기 제외) > 직전 7일 하루 합계 중앙값 × 1.5 |
 | `counter_silent` | 24시간 합계 0건 — 계수기·저장 고장 |

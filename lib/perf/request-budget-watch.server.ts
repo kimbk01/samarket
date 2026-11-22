@@ -12,7 +12,11 @@ import {
   type RequestBudgetWatchResult,
   type RouteUsage,
 } from "@/lib/perf/request-budget-watch";
-import { SUPABASE_ROUTE_CATEGORY, SUPABASE_ROUTE_TEST_CATEGORY } from "@/lib/perf/supabase-call-counter";
+import {
+  SUPABASE_ROUTE_CATEGORY,
+  SUPABASE_ROUTE_TEST_CATEGORY,
+  SUPABASE_ROUTE_UNITS_CATEGORY,
+} from "@/lib/perf/supabase-call-counter";
 
 const PAGE = 1000;
 const MAX_PAGES = 100;
@@ -26,7 +30,7 @@ async function readRollupRows(sb: SupabaseClient, sinceIso: string): Promise<Rol
     const { data, error } = await sb
       .from("cm_monitoring_rollup_hourly")
       .select("bucket_hour, category, metric, event_count, value_count")
-      .in("category", [SUPABASE_ROUTE_CATEGORY, SUPABASE_ROUTE_TEST_CATEGORY])
+      .in("category", [SUPABASE_ROUTE_CATEGORY, SUPABASE_ROUTE_TEST_CATEGORY, SUPABASE_ROUTE_UNITS_CATEGORY])
       .gte("bucket_hour", sinceIso)
       .order("bucket_hour", { ascending: true })
       .order("metric", { ascending: true })
@@ -49,6 +53,15 @@ export function aggregateRollupForWatch(rows: RollupRow[], nowMs: number) {
     if (!Number.isFinite(t)) continue;
     const calls = Number(r.event_count) || 0;
     const requests = Number(r.value_count) || 0;
+    /** 2026-11-22 단위 행(받는 사람 수)은 호출 수가 아님 — 24시간 라우트에 단위로만 더한다(합계·전일 비교 제외) */
+    if (r.category === SUPABASE_ROUTE_UNITS_CATEGORY) {
+      if (t >= last24hStart) {
+        const u = byMetric.get(r.metric) ?? { metric: r.metric, calls: 0, requests: 0 };
+        u.units = (u.units ?? 0) + calls;
+        byMetric.set(r.metric, u);
+      }
+      continue;
+    }
     if (t >= last24hStart) {
       if (r.category === SUPABASE_ROUTE_TEST_CATEGORY) {
         testCalls24h += calls;

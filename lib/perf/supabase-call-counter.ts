@@ -16,6 +16,10 @@ import { isTestTrafficUserAgent } from "@/lib/perf/test-traffic";
 export const SUPABASE_ROUTE_CATEGORY = "server.supabase_route";
 export const SUPABASE_ROUTE_TEST_CATEGORY = "server.supabase_route_test";
 export const SUPABASE_TARGET_CATEGORY = "server.supabase_target";
+/** 2026-11-22 표지 요청의 단위 합(예: 보내기의 받는 사람 수) — event_count = 단위 합, metric = 표지 붙은 라우트 키 */
+export const SUPABASE_ROUTE_UNITS_CATEGORY = "server.supabase_route_units";
+/** 2026-11-22 표지 요청만 표별 셈 — metric = `<표지 붙은 라우트 키>::<rest.표·rpc.함수…>`, event_count = 호출 수 */
+export const SUPABASE_ROUTE_TARGET_CATEGORY = "server.supabase_route_target";
 
 const FLUSH_INTERVAL_MS = 5 * 60_000;
 const FLUSH_CALL_THRESHOLD = 2_000;
@@ -56,6 +60,26 @@ export function routeToRollupMetric(route: string | null | undefined): string {
   return (m || "root").slice(0, METRIC_MAX);
 }
 
+/**
+ * 2026-11-22 — 라우트 키에 요청 표지를 붙인다(`…messages` + `post` → `…messages::post`).
+ * 집계 함수 `cm_monitoring_rollup_add` 가 metric `^[a-z0-9_.:-]{1,96}$` 만 받으므로 구분자는 `::`(라우트 규칙은 `:` 를 `.` 뒤에만 만든다 → 겹치지 않음).
+ * 예산 표 키 `"/api/…/messages@post"` 도 같은 함수로 바꿔 비교한다(`@` 앞만 라우트 규칙으로 바꿈).
+ */
+const LABEL_SEP = "::";
+
+export function routeLabelToRollupMetric(route: string | null | undefined, label: string | null | undefined): string {
+  const l = (label ?? "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_").slice(0, 16);
+  const base = routeToRollupMetric(route);
+  if (!l) return base;
+  return `${base.slice(0, METRIC_MAX - l.length - 2)}${LABEL_SEP}${l}`;
+}
+
+/** 예산 표 키(`/api/a/[id]/b` 또는 `/api/a/[id]/b@post`) → 집계 metric */
+export function budgetKeyToRollupMetric(key: string): string {
+  const at = key.lastIndexOf("@");
+  return at > 0 ? routeLabelToRollupMetric(key.slice(0, at), key.slice(at + 1)) : routeToRollupMetric(key);
+}
+
 /** 집계 metric → 라우트 (예산 대조용). 예산 표의 라우트를 같은 규칙으로 바꿔 비교한다. */
 export function rollupMetricMatchesRoute(metric: string, route: string): boolean {
   return routeToRollupMetric(route) === metric;
@@ -82,15 +106,42 @@ export function supabaseTargetMetric(href: string, supabaseOrigin: string): stri
 export class SupabaseCallCounter {
   private readonly buckets = new Map<string, Bucket>();
   private readonly perRequest = new WeakMap<object, number>();
+  /** 2026-11-22 요청 표지(요청 저장소 객체 키) — 응답 뒤 작업(after)도 같은 저장소라 같은 표지 */
+  private readonly labels = new WeakMap<object, string>();
+  private readonly units = new Map<string, number>();
   private pendingCalls = 0;
 
   constructor(private readonly supabaseOrigin: string) {}
+
+  /** 2026-11-22 — 이 요청에 표지를 단다(핸들러 첫 줄). 이미 셈이 있는 요청이면 표지를 달지 않는다(한 요청이 두 키로 갈리지 않게). */
+  tag(ctx: SupabaseCallContext, label: string): boolean {
+    if (!ctx.requestKey || !label.trim()) return false;
+    if ((this.perRequest.get(ctx.requestKey) ?? 0) > 0) return false;
+    this.labels.set(ctx.requestKey, label.trim());
+    return true;
+  }
+
+  /** 2026-11-22 — 표지 요청에 단위(예: 받는 사람 수)를 더한다. 표지 없는 요청이면 무시 */
+  addUnits(ctx: SupabaseCallContext, n: number): boolean {
+    if (!ctx.requestKey || !Number.isFinite(n) || n <= 0) return false;
+    const label = this.labels.get(ctx.requestKey);
+    if (!label) return false;
+    const key = `${this.categoryOf(ctx)}|${routeLabelToRollupMetric(ctx.route, label)}`;
+    this.units.set(key, (this.units.get(key) ?? 0) + Math.floor(n));
+    return true;
+  }
+
+  private categoryOf(ctx: SupabaseCallContext): string {
+    return isTestTrafficUserAgent(ctx.userAgent) ? SUPABASE_ROUTE_TEST_CATEGORY : SUPABASE_ROUTE_CATEGORY;
+  }
 
   /** href 가 Supabase 호출이면 센다. 반환값: 셌는지 */
   record(href: string, ctx: SupabaseCallContext): boolean {
     if (!href.startsWith(this.supabaseOrigin)) return false;
     const test = isTestTrafficUserAgent(ctx.userAgent);
-    const routeKey = `${test ? SUPABASE_ROUTE_TEST_CATEGORY : SUPABASE_ROUTE_CATEGORY}|${routeToRollupMetric(ctx.route)}`;
+    const label = ctx.requestKey ? this.labels.get(ctx.requestKey) : undefined;
+    const routeMetric = label ? routeLabelToRollupMetric(ctx.route, label) : routeToRollupMetric(ctx.route);
+    const routeKey = `${test ? SUPABASE_ROUTE_TEST_CATEGORY : SUPABASE_ROUTE_CATEGORY}|${routeMetric}`;
     const routeBucket = this.bucket(routeKey);
     routeBucket.calls += 1;
     if (ctx.requestKey) {
@@ -100,7 +151,11 @@ export class SupabaseCallCounter {
       this.perRequest.set(ctx.requestKey, now);
       if (now > routeBucket.maxPerRequest) routeBucket.maxPerRequest = now;
     }
-    this.bucket(`${SUPABASE_TARGET_CATEGORY}|${supabaseTargetMetric(href, this.supabaseOrigin)}`).calls += 1;
+    const target = supabaseTargetMetric(href, this.supabaseOrigin);
+    this.bucket(`${SUPABASE_TARGET_CATEGORY}|${target}`).calls += 1;
+    if (label && !test) {
+      this.bucket(`${SUPABASE_ROUTE_TARGET_CATEGORY}|${`${routeMetric}${LABEL_SEP}${target}`.slice(0, METRIC_MAX)}`).calls += 1;
+    }
     this.pendingCalls += 1;
     return true;
   }
@@ -115,7 +170,7 @@ export class SupabaseCallCounter {
     for (const [key, b] of this.buckets) {
       const sep = key.indexOf("|");
       const category = key.slice(0, sep);
-      const isRoute = category !== SUPABASE_TARGET_CATEGORY;
+      const isRoute = category === SUPABASE_ROUTE_CATEGORY || category === SUPABASE_ROUTE_TEST_CATEGORY;
       rows.push({
         category,
         metric: key.slice(sep + 1),
@@ -127,7 +182,22 @@ export class SupabaseCallCounter {
         dropped_count: 0,
       });
     }
+    for (const [key, n] of this.units) {
+      const sep = key.indexOf("|");
+      if (key.slice(0, sep) !== SUPABASE_ROUTE_CATEGORY) continue; // 시험 기기 단위는 저장하지 않음(판정 제외)
+      rows.push({
+        category: SUPABASE_ROUTE_UNITS_CATEGORY,
+        metric: key.slice(sep + 1),
+        outcome: "",
+        event_count: n,
+        value_count: 0,
+        value_sum: 0,
+        value_max: null,
+        dropped_count: 0,
+      });
+    }
     this.buckets.clear();
+    this.units.clear();
     this.pendingCalls = 0;
     return rows;
   }
@@ -183,13 +253,46 @@ type InstallOptions = {
 };
 
 const INSTALLED = Symbol.for("dibay.supabaseCallCounter.installed");
+const READ_CONTEXT = Symbol.for("dibay.supabaseCallCounter.readContext");
+
+type CounterGlobal = typeof globalThis & {
+  [INSTALLED]?: SupabaseCallCounter;
+  [READ_CONTEXT]?: () => SupabaseCallContext;
+};
+
+/**
+ * 2026-11-22 — 지금 요청에 표지를 단다(예: 메시지 라우트 POST 첫 줄 `"post"`). 계수기가 없으면(개발·끔) 아무것도 안 함.
+ * 요청 동작에 영향 없음(실패는 삼킴). 설계: docs/audit/supabase-request-surge-2026-11-18/request-budget-method-split-design-2026-11-22.md
+ */
+export function tagSupabaseCallRequest(label: string): void {
+  try {
+    const g = globalThis as CounterGlobal;
+    const counter = g[INSTALLED];
+    const read = g[READ_CONTEXT];
+    if (counter && read) counter.tag(read(), label);
+  } catch {
+    /* 셈 실패는 요청에 영향 없음 */
+  }
+}
+
+/** 2026-11-22 — 표지 요청에 단위(예: 받는 사람 수)를 더한다. 표지 없으면 무시 */
+export function addSupabaseCallRequestUnits(n: number): void {
+  try {
+    const g = globalThis as CounterGlobal;
+    const counter = g[INSTALLED];
+    const read = g[READ_CONTEXT];
+    if (counter && read) counter.addUnits(read(), n);
+  } catch {
+    /* 셈 실패는 요청에 영향 없음 */
+  }
+}
 
 /**
  * 프로세스 전역 fetch 를 감싼다. 이미 설치됐으면 아무것도 하지 않는다.
  * Next 가 붙인 fetch 표지(`__nextPatched` 등)는 그대로 옮겨, Next 가 fetch 를 다시 감싸지 않게 한다.
  */
 export function installSupabaseCallCounter(opts: InstallOptions): SupabaseCallCounter | null {
-  const g = globalThis as typeof globalThis & { [INSTALLED]?: SupabaseCallCounter };
+  const g = globalThis as CounterGlobal;
   if (g[INSTALLED]) return g[INSTALLED] ?? null;
   let origin: string;
   try {
@@ -232,6 +335,7 @@ export function installSupabaseCallCounter(opts: InstallOptions): SupabaseCallCo
   }
   globalThis.fetch = wrapped;
   g[INSTALLED] = counter;
+  g[READ_CONTEXT] = opts.readContext;
 
   const timer = setInterval(flush, FLUSH_INTERVAL_MS);
   (timer as { unref?: () => void }).unref?.();

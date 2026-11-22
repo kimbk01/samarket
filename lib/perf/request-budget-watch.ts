@@ -7,11 +7,13 @@ import {
   ROUTE_BUDGET_ALERT_FACTOR,
   ROUTE_BUDGET_MIN_REQUESTS,
   ROUTE_SUPABASE_CALL_BUDGET,
+  ROUTE_SUPABASE_CALL_UNIT_BUDGET,
   UNBUDGETED_ROUTE_DAILY_CALL_ALERT,
 } from "@/lib/perf/request-budget";
-import { routeToRollupMetric } from "@/lib/perf/supabase-call-counter";
+import { budgetKeyToRollupMetric } from "@/lib/perf/supabase-call-counter";
 
-export type RouteUsage = { metric: string; calls: number; requests: number };
+/** units = 표지 요청의 단위 합(보내기 = 받는 사람 수). 표지 없는 라우트는 없음 */
+export type RouteUsage = { metric: string; calls: number; requests: number; units?: number };
 
 export type RequestBudgetBreach =
   | { kind: "route_over_budget"; route: string; perRequest: number; budget: number; calls: number; requests: number }
@@ -43,7 +45,10 @@ function median(values: number[]): number | null {
 }
 
 const METRIC_TO_ROUTE: ReadonlyMap<string, string> = new Map(
-  Object.keys(ROUTE_SUPABASE_CALL_BUDGET).map((route) => [routeToRollupMetric(route), route]),
+  Object.keys(ROUTE_SUPABASE_CALL_BUDGET).map((route) => [budgetKeyToRollupMetric(route), route]),
+);
+const METRIC_TO_UNIT_ROUTE: ReadonlyMap<string, string> = new Map(
+  Object.keys(ROUTE_SUPABASE_CALL_UNIT_BUDGET).map((route) => [budgetKeyToRollupMetric(route), route]),
 );
 
 export function evaluateRequestBudget(input: RequestBudgetWatchInput): RequestBudgetWatchResult {
@@ -51,6 +56,24 @@ export function evaluateRequestBudget(input: RequestBudgetWatchInput): RequestBu
   let total = 0;
   for (const u of input.last24h) {
     total += u.calls;
+    const unitRoute = METRIC_TO_UNIT_ROUTE.get(u.metric);
+    if (unitRoute) {
+      const b = ROUTE_SUPABASE_CALL_UNIT_BUDGET[unitRoute]!;
+      if (u.requests >= ROUTE_BUDGET_MIN_REQUESTS) {
+        const allowed = b.perRequest * u.requests + b.perUnit * (u.units ?? 0);
+        if (u.calls > allowed * ROUTE_BUDGET_ALERT_FACTOR) {
+          breaches.push({
+            kind: "route_over_budget",
+            route: unitRoute,
+            perRequest: Math.round((u.calls / u.requests) * 10) / 10,
+            budget: Math.round((allowed / u.requests) * 10) / 10,
+            calls: u.calls,
+            requests: u.requests,
+          });
+        }
+      }
+      continue;
+    }
     const route = METRIC_TO_ROUTE.get(u.metric);
     if (route) {
       const budget = ROUTE_SUPABASE_CALL_BUDGET[route]!;

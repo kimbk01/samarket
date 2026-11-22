@@ -5,6 +5,7 @@ import {
 } from "@/lib/community-messenger/server/room-entry-shadow";
 import type { CommunityMessengerMessagesAfterPerf } from "@/lib/community-messenger/service";
 import { ensureApiRouteAuthGate } from "@/lib/auth/ensure-api-route-auth-gate";
+import { addSupabaseCallRequestUnits, tagSupabaseCallRequest } from "@/lib/perf/supabase-call-counter";
 import { assertVerifiedMemberForAction, MEMBER_ACCESS_PROFILE_SELECT } from "@/lib/auth/member-access";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
@@ -237,6 +238,8 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
 ) {
+  /** 2026-11-22 요청 예산 — 보내기를 목록 읽기(GET)와 따로 센다(`…messages::post`). 셈만 · 동작 무관 */
+  tagSupabaseCallRequest("post");
   const wall0 = performance.now();
   const { createT5SendTrace, markT5, requestWantsT5Trace, t5TraceToHeader, t5TraceToJson, spanT5 } = await import(
     "@/lib/community-messenger/monitoring/t5-send-stage-trace"
@@ -410,6 +413,8 @@ export async function POST(
       ? gateForNotify.block.peerUserId
       : null;
   if (result.ok) {
+    /** 2026-11-22 요청 예산 — 받는 사람 수(보내기 1번당·1명당 판정용). 전송 RPC 가 돌려준 경우만 */
+    if (Array.isArray(postAckEffects?.recipientUserIds)) addSupabaseCallRequestUnits(postAckEffects.recipientUserIds.length);
     const msg = result.message as { id?: string; createdAt?: string } | undefined;
     if (t5 && typeof msg?.id === "string") t5.messageId = msg.id;
     const bumpArgs = {
