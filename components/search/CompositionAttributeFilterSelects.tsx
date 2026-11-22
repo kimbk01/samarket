@@ -3,6 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getTradeOptionCatalog,
+  isTradeOptionUnfilterable,
   labelForTradeOption,
   resolveCompositionAttributeFilterFields,
   tradeFieldAdminLabel,
@@ -43,9 +44,12 @@ export function CompositionAttributeFilterSelects({ composition, selection, onCh
         if (!catalogId) return null;
         const allowedModels =
           catalogId === "used_car_models" ? usedCarModelKeysForMake(selection.make) : null;
-        const options = allowedModels
-          ? getTradeOptionCatalog(catalogId).filter((entry) => allowedModels.has(entry.value))
-          : getTradeOptionCatalog(catalogId);
+        /** 감사 C2: 찾을 수 없는 선택지(중고차 「기타」 브랜드)는 필터에 내지 않는다 */
+        const options = getTradeOptionCatalog(catalogId).filter(
+          (entry) =>
+            !isTradeOptionUnfilterable(catalogId, entry.value) &&
+            (!allowedModels || allowedModels.has(entry.value))
+        );
         const label = tradeFieldAdminLabel(field.id, lang);
         /**
          * 거래 F FT-1·L-6 (Owner 2026-10-28): 판매 의도(중고차 팝니다/삽니다·구인/구직·환전 팝니다/삽니다)는

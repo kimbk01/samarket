@@ -83,7 +83,8 @@ const WORK_CATEGORY_VALUE_TO_KEY = Object.fromEntries(
 export function jobWorkCategoryDbLabel(lang: AppLanguageCode, dbValue: string): string {
   const v = dbValue.trim();
   if (!v) return "";
-  const key = WORK_CATEGORY_VALUE_TO_KEY[v];
+  /** 감사 J3 (2026-11-22): 구직 희망 업종은 별도 목록 — 구인 목록에 없으면 구직 목록에서 찾는다 */
+  const key = WORK_CATEGORY_VALUE_TO_KEY[v] ?? JOB_SEEKER_INDUSTRY_VALUE_TO_KEY[v];
   return key ? translate(lang, key) : v;
 }
 
@@ -250,3 +251,25 @@ export const JOB_TYPE_LABELS: Record<string, MessageKey> = {
   help: "jobs_type_help",
   teach: "jobs_type_teach",
 };
+
+/**
+ * 감사 J3 (2026-11-22): 근무 가능 시간 — 저장된 시간대 키(`seek_time_slots`·`hire_work_time_slots`, `|` 구분)를
+ * 보는 사람 언어로 표시한다. `available_time` 문장은 글쓴이 언어로 저장돼 다른 언어 사용자에게 그대로 보였다.
+ * 키가 없는 예전 글은 빈 문자열(호출처가 `available_time` 원문으로 대체).
+ */
+export function jobTimeSlotsDisplay(
+  meta: Record<string, unknown> | undefined | null,
+  lang: AppLanguageCode
+): string {
+  if (!meta || typeof meta !== "object") return "";
+  const raw = String(
+    (meta as { seek_time_slots?: unknown }).seek_time_slots ??
+      (meta as { hire_work_time_slots?: unknown }).hire_work_time_slots ??
+      ""
+  ).trim();
+  if (!raw) return "";
+  const picked = new Set(raw.split("|").map((v) => v.trim()).filter(Boolean));
+  return JOB_SEEKER_TIME_SLOT_OPTIONS.filter((o) => picked.has(o.value))
+    .map((o) => translate(lang, o.labelKey))
+    .join(", ");
+}

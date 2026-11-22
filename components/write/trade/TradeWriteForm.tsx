@@ -193,6 +193,7 @@ import {
   mergeTradeWriteImageUrlsInOrder,
 } from "@/lib/posts/trade-write-image-order";
 import {
+  JOBS_WRITE_CONDITIONAL_META_KEYS,
   TRADE_WRITE_SKIN_META_KEYS,
   withClearedTradeWriteMetaKeys,
   withExplicitTradeMetaClears,
@@ -1967,6 +1968,8 @@ function TradeMarketplaceWriteFormInner({
                 ...builtPayload,
                 meta: withExplicitTradeMetaClears(builtPayload.meta as Record<string, unknown>, [
                   "trade_meet_spot",
+                  /** 감사 J2: 일자리 조건부 키 — 해제·전환하면 지운다 */
+                  ...(isJobsProfile ? JOBS_WRITE_CONDITIONAL_META_KEYS : []),
                 ]),
               }
             : builtPayload;
@@ -2000,7 +2003,7 @@ function TradeMarketplaceWriteFormInner({
         setExtendedSubmitting(false);
       }
     },
-    [editPostId, onSuccess, previewOnly, language, router, t, category.id, tradeWriteSheet, redirectTradeWriteBlocked]
+    [editPostId, onSuccess, previewOnly, language, router, t, category.id, tradeWriteSheet, redirectTradeWriteBlocked, isJobsProfile]
   );
 
   const handleSubmit = useCallback(
@@ -2103,8 +2106,12 @@ function TradeMarketplaceWriteFormInner({
             : null;
         const submitRegion = effectiveTradeRegionId.trim();
         const submitCity = effectiveTradeCityId.trim();
+        /**
+         * 감사 R3 (2026-11-22): 부동산 「동네」는 작성자가 쓰는 칸(시드 neighborhood) — 입력값을 그대로 저장한다.
+         * 비워 두었을 때만 거래 위치의 시 이름으로 채운다(예전 동작).
+         */
         const derivedNeighborhood =
-          skinKey === "real-estate"
+          skinKey === "real-estate" && !neighborhood.trim()
             ? REGIONS.find((r) => r.id === submitRegion)?.cities.find((c) => c.id === submitCity)?.name ?? ""
             : neighborhood;
         let meta = buildTradeMeta(skinKey, {

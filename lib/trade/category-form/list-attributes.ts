@@ -55,6 +55,9 @@ export function buildCompositionListAttributes(input: {
     "converted_amount",
     "pay_amount",
     "pay_type",
+    /** 감사 K1 (2026-11-22): 렌터카 카드(rental-card)가 「₱X/일」·「기사 포함」 줄을 따로 그린다 */
+    "daily_price",
+    "with_driver",
     /** Chip / hero — layout variant owns presentation */
     "car_trade",
     "deal_type",

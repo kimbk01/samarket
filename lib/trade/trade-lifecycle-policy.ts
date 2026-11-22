@@ -144,19 +144,25 @@ export function deriveTradeLifecycleStatus(post: {
   meta?: Record<string, unknown> | null;
 }): TradeLifecycleStatus {
   const meta = post.meta && typeof post.meta === "object" ? (post.meta as Record<string, unknown>) : {};
+  const st = String(post.status ?? "active").toLowerCase();
+  /**
+   * 감사 P1·P2 (2026-11-22): 끝난 상태(숨김·삭제·판매완료)는 글 열(status·seller_listing_state)이 정한다.
+   * 예전에는 meta 단계 값을 먼저 봐서, meta 에 `active`·`negotiating`·`in_progress` 가 남은 판매완료·숨김 글이
+   * 수정·삭제·판매중 되돌리기 가능으로 판정됐다(계약: 판매완료 되돌리기 없음). 판매완료 처리는 meta 를 고치지 않는다.
+   */
+  if (["hidden", "blinded"].includes(st)) return "hidden";
+  if (st === "deleted") return "hidden";
+  if (st === "sold") return "completed";
+  const ls = normalizeSellerListingState(post.seller_listing_state, st);
+  if (ls === "completed") return "completed";
+
   const raw = typeof meta.trade_lifecycle_status === "string" ? meta.trade_lifecycle_status.trim().toLowerCase() : "";
   if (raw && LIFECYCLE_SET.has(raw)) {
     return raw as TradeLifecycleStatus;
   }
-  const st = String(post.status ?? "active").toLowerCase();
-  if (["hidden", "blinded"].includes(st)) return "hidden";
-  if (st === "deleted") return "hidden";
-  if (st === "sold") return "completed";
   if (meta.trade_cancelled === true || st === "cancelled") return "cancelled";
   if (meta.is_draft === true) return "draft";
 
-  const ls = normalizeSellerListingState(post.seller_listing_state, st);
-  if (ls === "completed") return "completed";
   if (ls === "reserved") return "in_progress";
   if (ls === "negotiating") return "negotiating";
   if (st === "reserved") return "in_progress";

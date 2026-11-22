@@ -11,7 +11,7 @@ import {
   planSellIntentListClause,
 } from "@/lib/trade/marketplace/sell-intent-list-ssot";
 import { getTradeFieldDefinition } from "./field-library";
-import { getTradeOptionCatalog } from "./option-catalogs";
+import { getTradeOptionCatalog, isTradeOptionUnfilterable } from "./option-catalogs";
 import { compositionFieldsForSurface } from "./resolve-composition";
 import { metaKeysForCompositionFieldId } from "./filter-persist-meta-by-composition";
 import type { ResolvedTradeComposition, ResolvedTradeCompositionField } from "./types";
@@ -145,6 +145,7 @@ export function buildCompositionFilterClauses(
     if (!catalogId) continue;
     const entry = getTradeOptionCatalog(catalogId).find((row) => row.value === value);
     if (!entry) continue;
+    if (isTradeOptionUnfilterable(catalogId, entry.value)) continue;
     const sellIntent = planSellIntentListClause(fieldId, entry.value);
     if (sellIntent) {
       clauses.push({
