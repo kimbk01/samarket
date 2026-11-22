@@ -16,6 +16,9 @@
  * - Messenger / Trade / store_order rooms: community_messenger_participants.unread_count.
  * - Orphan missed: thin SELECT → A only; room-bound missed belongs to B.
  * - DO NOT reopen RoomUnread writers from this module.
+ *
+ * 2026-11-22 읽음 3단계 — Owner 「LOCK 재개봉·구현 승인」으로 **입력 읽기만** 바꿈(`get_member_badge_facts` 1번).
+ * 계산식·응답 필드는 그대로. 설계: docs/audit/supabase-request-surge-2026-11-18/read-mark-stage3-badge-facts-design-2026-11-22.md
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -58,6 +61,7 @@ import {
 } from "@/lib/notifications/badge-authority-rebuild/member-app-icon-authority";
 import { conversationRoomsFromParticipantFactsNormalized } from "@/lib/notifications/badge-authority-rebuild/conversation-b-from-participant-facts";
 import { loadBellExplainUnreadEventRows } from "@/lib/notifications/load-bell-explain-unread-events";
+import { loadMemberBadgeFacts } from "@/lib/notifications/badge-authority-rebuild/load-member-badge-facts";
 import {
   deriveBellBadgeFactsFromRows,
   stableBellFactsKey,
@@ -196,8 +200,14 @@ export async function buildDomainBadgeAuthorityHttpPayload(
    * (이전: participants·rooms·store_orders·stores 4~5회.) 표 읽기 실패면 이전 경로 그대로.
    * 결과 동일 근거: 운영 실데이터 36/36 · 그림자 `[unread-inputs-shadow]`.
    */
+  /**
+   * 읽음 3단계 (2026-11-22 · Owner 「LOCK 재개봉·구현 승인」) — 아래 세 입력(안 읽은 방 입력·종 알림 행·소유 매장)을
+   * DB 함수 1번으로 같은 조건·정렬·상한으로 받아 **같은 로더 자리에** 넣는다. null(함수 없음·오류) → 지금 3번 경로.
+   */
+  const badgeFactsP = loadMemberBadgeFacts(sb, uid, MEMBER_NOTIFICATION_A_LOAD_LIMIT);
   const unreadFactsP = (async () => {
-    const inputRows = await loadMemberUnreadRoomInputs(sb, uid);
+    const facts = await badgeFactsP;
+    const inputRows = facts ? facts.inputs : await loadMemberUnreadRoomInputs(sb, uid);
     if (inputRows) {
       const { loaded, orderMaps } = memberUnreadRoomInputsToLoaderInput(inputRows);
       const [m, t] = await Promise.all([
@@ -219,7 +229,10 @@ export async function buildDomainBadgeAuthorityHttpPayload(
    * 상한에 닿으면 이전처럼 ①·② 를 따로 읽는다(`derive-bell-badge-facts-from-rows.ts`).
    */
   const bellFactsP = (async () => {
-    const rows = await loadBellExplainUnreadEventRows(sb, uid, { limit: MEMBER_NOTIFICATION_A_LOAD_LIMIT });
+    const facts = await badgeFactsP;
+    const rows = facts
+      ? facts.bellRows
+      : await loadBellExplainUnreadEventRows(sb, uid, { limit: MEMBER_NOTIFICATION_A_LOAD_LIMIT });
     const derived = deriveBellBadgeFactsFromRows(rows, MEMBER_NOTIFICATION_A_LOAD_LIMIT);
     if (derived) return { rows, ...derived, viaRows: true as const };
     const [m, c] = await Promise.all([
@@ -232,7 +245,7 @@ export async function buildDomainBadgeAuthorityHttpPayload(
   const [unreadFacts, bellFacts, ownerO] = await Promise.all([
     unreadFactsP,
     bellFactsP,
-    loadOwnerOperationOFacts(sb, uid),
+    badgeFactsP.then((facts) => loadOwnerOperationOFacts(sb, uid, facts ? facts.ownedStoreIds : null)),
   ]);
   const { missed, categoryCounts, rows: bellExplainRows } = bellFacts;
 
