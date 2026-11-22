@@ -12,11 +12,12 @@ export const dynamic = "force-dynamic";
  * - { listing: sold } — 판매중 → 판매완료(구매자 지정 없음, Marketplace 방식).
  * 거래 B (Owner 2026-10-28): 판매완료만 — 되돌리기(`listing: selling`)·예약(reserved) 없음.
  */
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import { applySellerListingChangeSideEffectsServer } from "@/lib/trade/insert-seller-listing-change-system-messages";
+import { notifyTradeSoldToEligibleCounterparts } from "@/lib/trade/notify-trade-sold-and-rating.server";
 
 /** Member-facing coarse status via this route — reserved/sold rejected (buyer binding). */
 const ALLOWED = new Set(["active", "hidden"]);
@@ -241,6 +242,14 @@ async function applySellerMarkSold(
     postStatus: u.status ?? postStatus,
     postTitle: typeof row.title === "string" ? row.title : null,
   });
+  /** 감사 P3 ①: 평가 자격이 되는 대화 상대에게 판매완료 알림 — 응답 뒤에 보낸다(판매완료 응답을 늦추지 않음) */
+  after(() =>
+    notifyTradeSoldToEligibleCounterparts(sb, {
+      postId,
+      sellerUserId: userId,
+      postTitle: typeof row.title === "string" ? row.title : null,
+    }).catch(() => 0)
+  );
   return NextResponse.json({
     ok: true,
     status: u.status ?? postStatus,

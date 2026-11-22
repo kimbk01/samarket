@@ -291,7 +291,10 @@ export async function loadTradeRatingContext(
 export async function submitTradeRating(
   sb: Sb,
   input: { productChatId: string; viewerId: string; body: Record<string, unknown>; now?: Date }
-): Promise<{ ok: true; reviewId: string; revealed: boolean } | { ok: false; error: string; status: number }> {
+): Promise<
+  | { ok: true; reviewId: string; revealed: boolean; revieweeId: string }
+  | { ok: false; error: string; status: number }
+> {
   const now = input.now ?? new Date();
   const ctx = await loadTradeRatingContext(sb, input.productChatId, input.viewerId, now);
   if (!ctx) return { ok: false, error: "not_participant", status: 403 };
@@ -338,7 +341,7 @@ export async function submitTradeRating(
     if (upErr) return { ok: false, error: "reveal_failed", status: 500 };
     revealed = true;
   }
-  return { ok: true, reviewId, revealed };
+  return { ok: true, reviewId, revealed, revieweeId: ctx.eligibility.counterpartId };
 }
 
 /** 첫 제출 후 7일 지난 미공개 평가 공개 (예약 작업). */
