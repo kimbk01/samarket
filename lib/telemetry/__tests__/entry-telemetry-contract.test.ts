@@ -175,4 +175,17 @@ describe("멈춤 상세 정규화 (idle-menu-freeze §S1)", () => {
     expect(notStall?.stall).toBeNull();
     expect(sanitizeEntryTelemetryEvent(validEvent({ ev: "failure", failure: "nav_watchdog", stall: {} }))?.stall).toBeNull();
   });
+
+  it("하단 탭 감시의 끝(rsc_aborted·doc_nav)을 받고, 모르는 값은 null 로 버린다", () => {
+    for (const result of ["rsc_aborted", "doc_nav"] as const) {
+      const ev = sanitizeEntryTelemetryEvent(
+        validEvent({ ev: "failure", failure: "nav_watchdog", stall: { waitedMs: 8001, target: "chat", result } })
+      );
+      expect(ev?.stall).toEqual({ waitedMs: 8001, sinceShownMs: null, target: "chat", result });
+    }
+    const unknown = sanitizeEntryTelemetryEvent(
+      validEvent({ ev: "failure", failure: "nav_watchdog", stall: { waitedMs: 8001, result: "other" } })
+    );
+    expect(unknown?.stall?.result).toBeNull();
+  });
 });

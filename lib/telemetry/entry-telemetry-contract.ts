@@ -49,14 +49,19 @@ export type EntryFailureClass = (typeof ENTRY_FAILURE_CLASSES)[number];
 export const ENTRY_STALL_FAILURES = ["nav_stall", "nav_watchdog", "chunk_stall"] as const;
 export type EntryStallFailure = (typeof ENTRY_STALL_FAILURES)[number];
 
-/** 조각 멈춤의 끝 — load·error = 늦게라도 끝남 · pending = 끝나기 전에 문서가 사라짐 */
-export const ENTRY_STALL_RESULTS = ["load", "error", "pending"] as const;
+/**
+ * 멈춤의 끝.
+ * - chunk_stall: load·error = 늦게라도 끝남 · pending = 끝나기 전에 문서가 사라짐
+ * - nav_watchdog: rsc_aborted = 진행 중인 이동 요청(RSC)을 끊어 Next 가 문서 이동 ·
+ *   doc_nav = 진행 중인 이동 요청이 없어 감시가 직접 문서 이동(요청은 끝났는데 화면이 안 바뀜·통화 중 관문 꺼짐)
+ */
+export const ENTRY_STALL_RESULTS = ["load", "error", "pending", "rsc_aborted", "doc_nav"] as const;
 export type EntryStallResult = (typeof ENTRY_STALL_RESULTS)[number];
 
 /**
  * 멈춤 상세 — 멈춤 실패 3종에서만 채운다. DB 는 `stages` jsonb 의 `stall` 키에 함께 보존한다(열 추가 없음).
  * waitedMs = 멈춘 시간 · sinceShownMs = 마지막으로 화면이 다시 보인 뒤 지난 시간(방치 연관, 숨긴 적 없으면 null) ·
- * target = 하단 탭 허브 id 또는 other(주소 미수집) · result = 조각 멈춤의 끝.
+ * target = 하단 탭 허브 id 또는 other(주소 미수집) · result = 멈춤의 끝(조각 멈춤·하단 탭 감시).
  */
 export type EntryStallDetail = {
   waitedMs: number;

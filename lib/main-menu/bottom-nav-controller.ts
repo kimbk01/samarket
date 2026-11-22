@@ -121,9 +121,10 @@ let documentNavigate: (href: string) => void = (href) => {
 };
 /** 진행 중인 이동 요청 중단(있으면 true) — 시험에서 바꿔 끼운다 */
 let expireInflightNavigation: () => boolean = expireStalledRscNavigations;
-/** 감시 작동 계측 — 시험에서 바꿔 끼운다 */
-let reportWatchdog: (info: { waitedMs: number; path: string }) => void = ({ waitedMs, path }) =>
-  noteNavigationStall("nav_watchdog", { waitedMs, target: navigationStallTarget(path) }, { reloadFollows: true });
+type WatchdogReport = { waitedMs: number; path: string; result: "rsc_aborted" | "doc_nav" };
+/** 감시 작동 계측 — 시험에서 바꿔 끼운다. result = 진행 중 이동 요청을 끊었는지(rsc_aborted) · 직접 문서 이동했는지(doc_nav) */
+let reportWatchdog: (info: WatchdogReport) => void = ({ waitedMs, path, result }) =>
+  noteNavigationStall("nav_watchdog", { waitedMs, target: navigationStallTarget(path), result }, { reloadFollows: true });
 
 function emit(next: BottomNavControllerState): void {
   if (next === state) return;
@@ -162,17 +163,18 @@ export function checkBottomNavWatchdog(expectedId?: number): void {
   const waitedMs = Date.now() - state.startedAt;
   emit({ phase: "idle", lastSettledId: state.id });
   clearWatchdog();
-  try {
-    reportWatchdog({ waitedMs, path });
-  } catch {
-    /* 계측 실패는 무시 */
-  }
   /** 진행 중인 이동 요청이 있으면 중단 → Next 가 그 이동을 문서 이동으로 1회 넘긴다. 없으면(머리는 왔는데 안 바뀜) 직접 */
   let expired = false;
   try {
     expired = expireInflightNavigation();
   } catch {
     expired = false;
+  }
+  /** 계측은 중단 결과를 안 뒤 · 문서 이동 전에 보낸다 (Next 의 문서 이동은 중단 뒤 비동기로 일어난다) */
+  try {
+    reportWatchdog({ waitedMs, path, result: expired ? "rsc_aborted" : "doc_nav" });
+  } catch {
+    /* 계측 실패는 무시 */
   }
   if (!expired) documentNavigate(href);
 }
@@ -232,7 +234,7 @@ export function isBottomNavShowing(): boolean {
 export function __resetBottomNavControllerForTest(opts?: {
   documentNavigate?: (href: string) => void;
   expireInflightNavigation?: () => boolean;
-  reportWatchdog?: (info: { waitedMs: number; path: string }) => void;
+  reportWatchdog?: (info: WatchdogReport) => void;
 }): void {
   clearWatchdog();
   state = { phase: "idle", lastSettledId: 0 };
