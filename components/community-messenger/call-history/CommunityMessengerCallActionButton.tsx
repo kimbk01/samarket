@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import {
   CommunityMessengerCallPhoneOutlineIcon,
   CommunityMessengerCallVideoOutlineIcon,
@@ -48,7 +48,8 @@ export function CommunityMessengerCallActionButton({
     >
       <span className="inline-flex h-6 w-6 items-center justify-center text-[color:var(--sam-primary)] transition-transform duration-[80ms] group-focus-visible:ring-2 group-focus-visible:ring-[color:var(--messenger-primary-soft-2)] group-active:scale-[0.9]">
         {loading ? (
-          <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
+          /* P4 C2 (Owner 「C1·C2만 승인」 2026-11-22): 모양만 DIBAY 스피너 단일 정의 — 누름·비활성·흐림 무변경 */
+          <DibaySpinner size="md" tone="current" decorative />
         ) : (
           <Icon className="h-6 w-6" aria-hidden />
         )}

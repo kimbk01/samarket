@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { launchOutgoingDirectCall, isOutgoingCallPhoneVerificationRequired } from "@/lib/community-messenger/call-session-navigation-seed";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 
 type OutgoingDialParams = {
   roomId: string;
@@ -81,10 +82,8 @@ export function CommunityMessengerOutgoingDialPageClient() {
       aria-live="polite"
       aria-busy="true"
     >
-      <div
-        className="h-10 w-10 animate-spin rounded-full border-2 border-white/30 border-t-white"
-        aria-hidden
-      />
+      {/* P4 C1 (Owner 「C1·C2만 승인」 2026-11-22): 모양만 DIBAY 스피너 단일 정의(흰색) — 문구·흐름 무변경 */}
+      <DibaySpinner size="lg" tone="inverse" decorative />
       <p className="mt-6 text-center sam-text-body text-white/90">{t("cm_ui_moving_to_call_screen")}</p>
     </div>
   );
