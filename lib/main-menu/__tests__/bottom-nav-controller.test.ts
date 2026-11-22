@@ -194,7 +194,7 @@ describe("방치 후 멈춤 S3 (2026-11-22) — 연타해도 첫 누름부터 �
   });
 
   it("진행 중인 이동 요청이 있으면 그 요청을 중단(Next 문서 이동 1회)하고 직접 문서 이동하지 않는다 · 계측 1건", () => {
-    const reports: { waitedMs: number; path: string }[] = [];
+    const reports: { waitedMs: number; path: string; result: string }[] = [];
     let expired = 0;
     __resetBottomNavControllerForTest({
       documentNavigate: (h) => navigated.push(h),
@@ -208,6 +208,27 @@ describe("방치 후 멈춤 S3 (2026-11-22) — 연타해도 첫 누름부터 �
     vi.advanceTimersByTime(BOTTOM_NAV_SETTLE_WATCHDOG_MS);
     expect(expired).toBe(1);
     expect(navigated).toEqual([]);
-    expect(reports).toEqual([{ waitedMs: BOTTOM_NAV_SETTLE_WATCHDOG_MS, path: "/mypage" }]);
+    expect(reports).toEqual([{ waitedMs: BOTTOM_NAV_SETTLE_WATCHDOG_MS, path: "/mypage", result: "rsc_aborted" }]);
+  });
+
+  it("진행 중인 이동 요청이 없으면 직접 문서 이동하고 계측에 doc_nav 를 남긴다 (문서 이동보다 계측이 먼저)", () => {
+    const order: string[] = [];
+    const reports: { waitedMs: number; path: string; result: string }[] = [];
+    __resetBottomNavControllerForTest({
+      documentNavigate: (h) => {
+        order.push("navigate");
+        navigated.push(h);
+      },
+      expireInflightNavigation: () => false,
+      reportWatchdog: (r) => {
+        order.push("report");
+        reports.push(r);
+      },
+    });
+    beginBottomNavShowing({ tabId: "my", href: "/mypage", fromPath: "/market" });
+    vi.advanceTimersByTime(BOTTOM_NAV_SETTLE_WATCHDOG_MS);
+    expect(navigated).toEqual(["/mypage"]);
+    expect(reports).toEqual([{ waitedMs: BOTTOM_NAV_SETTLE_WATCHDOG_MS, path: "/mypage", result: "doc_nav" }]);
+    expect(order).toEqual(["report", "navigate"]);
   });
 });
