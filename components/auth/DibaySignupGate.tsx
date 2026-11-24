@@ -21,6 +21,7 @@ import {
   isSignupCompleteResolvedThisSession,
   markSignupCompleteResolvedSession,
   markSignupConsentResolvedSession,
+  clearSignupCompleteResolvedSession,
   resetSignupGateSessionFlags,
 } from "@/lib/auth/signup-gate-session";
 import { classifySignupStatusResponse, signupGateRetryDelayMs } from "@/lib/auth/signup-gate-decision";
@@ -32,6 +33,8 @@ import {
   subscribeRegistrationPending,
 } from "@/lib/auth/registration-pending-state.client";
 import { fetchMandatoryAddressGateDeduped } from "@/lib/addresses/mandatory-address-gate-client";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import { runBrowserAuthRefreshDeduped } from "@/lib/supabase/auth-refresh-telemetry";
 
 /** Resume refresh of required consent versions — at most once per minute. */
 const CONSENT_VERSION_REFRESH_MIN_MS = 60_000;
@@ -220,11 +223,32 @@ export function DibaySignupGate() {
 
   useEffect(() => clearRetry, [clearRetry]);
 
-  /** 서버가 빠진 단계를 알려 주면(다른 화면의 응답 포함) 곧바로 다시 판정 */
+  /**
+   * 가입 재료가 바뀌면 곧바로 다시 판정 — 서버가 빠진 단계를 알려 줌(다른 화면 응답 포함) ·
+   * 전화·주소·로그아웃으로 사본이 「모름」이 됨. 이미 「완료」로 표시됐어도 지운다(재감사 R5: 완료 뒤 대표 주소를
+   * 지워도 앱을 다시 켤 때까지 다시 보지 않던 결함). 판정은 사본(메모리)으로 — 모를 때만 15초 캐시 요청 1회.
+   */
+  /** 마지막으로 서버가 알려 준 빠진 단계 — 「완료」로 바뀌는 순간을 잡는다(R3) */
+  const lastPendingStepRef = useRef<"phone" | "address" | null>(null);
   useEffect(
     () =>
       subscribeRegistrationPending(() => {
-        if (isSignupCompleteResolvedThisSession()) return;
+        const known = peekRegistrationPendingKnowledge();
+        if (known === "phone" || known === "address") lastPendingStepRef.current = known;
+        if (known === "complete") {
+          /**
+           * R3 (재감사 2026-11-24 · Auth HARD LOCK Amendment 2026-11-24): 가입을 막 마쳤다 → 로그인 토큰 1회 갱신.
+           * 토큰 클레임(`dibay_m`)이 「완료」로 바뀌어 proxy 가 회원 전용 화면마다 DB 를 읽지 않는다.
+           * 갱신 주인은 기존 단일 비행(`runBrowserAuthRefreshDeduped`) — 새 갱신 경로를 만들지 않는다.
+           */
+          if (lastPendingStepRef.current) {
+            lastPendingStepRef.current = null;
+            const sb = getSupabaseClient();
+            if (sb) void runBrowserAuthRefreshDeduped(sb, "registration_complete_claim").catch(() => undefined);
+          }
+          return;
+        }
+        clearSignupCompleteResolvedSession();
         redirectInFlightTargetRef.current = null;
         checkSignupGateRef.current();
       }),

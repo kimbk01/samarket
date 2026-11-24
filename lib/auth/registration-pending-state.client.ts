@@ -31,9 +31,17 @@ export function subscribeRegistrationPending(listener: () => void): () => void {
   };
 }
 
-/** 서버가 준 값으로 갱신 — `null` = 가입 완료(또는 동의 미완이라 이 장치 대상 아님) */
+/**
+ * 서버가 준 값으로 갱신 — `"phone"`·`"address"` = 빠진 단계 · `null` = 가입 완료(관리자 포함).
+ * `"terms"`(동의 미완)·그 밖 값은 **「모름」**으로 둔다 — 동의 뒤 전화·주소가 남았는지 이 값으로는 알 수 없다
+ * (재감사 2026-11-24 R4: 「terms」를 「완료」로 적어 동의 직후 가입 관문이 꺼지던 결함).
+ */
 export function setRegistrationPendingFromServer(step: unknown): void {
-  const s = step === "phone" || step === "address" ? step : null;
+  if (step !== null && step !== "phone" && step !== "address") {
+    invalidateRegistrationPending();
+    return;
+  }
+  const s = step;
   const changed = state?.step !== s;
   state = { step: s, at: Date.now() };
   if (changed) emit();

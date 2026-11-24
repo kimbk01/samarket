@@ -537,10 +537,10 @@ export async function GET(
       nickname: prof.nickname ?? null,
       contact_phone: prof.phone ?? null,
       contact_address: defaultMasterAddress,
-      phone_verified: resolvePhoneVerificationDisplayStatus(prof) === "verified",
+      phone_verified: resolvePhoneVerificationDisplayStatus({ ...prof, phone: prof.phone ?? null }) === "verified",
       phone_verified_at: prof.phone_verified_at ?? null,
       /** 앱 게이트(hasVerifiedPhone)와 같은 판정 — 원시 status 컬럼만 보지 않는다 (감사 #8) */
-      phone_verification_status: resolvePhoneVerificationDisplayStatus(prof),
+      phone_verification_status: resolvePhoneVerificationDisplayStatus({ ...prof, phone: prof.phone ?? null }),
       member_status: prof.member_status ?? null,
       member_type: prof.member_type ?? null,
       status: prof.status ?? null,

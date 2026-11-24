@@ -187,6 +187,7 @@ describe("privileged admin reader alignment — shared CURRENT dual-read matrix"
           role: c.profileRole,
           privilegedAdmin,
           phone_verified: false,
+          phone: null,
           phone_verified_at: null,
           provider: "google",
           email: "u@example.com",
@@ -198,6 +199,7 @@ describe("privileged admin reader alignment — shared CURRENT dual-read matrix"
           role: c.profileRole,
           privilegedAdmin,
           phone_verified: false,
+          phone: null,
         })
       ).toBe(c.expectExempt);
 
@@ -221,6 +223,7 @@ describe("privileged admin reader alignment — shared CURRENT dual-read matrix"
           role: c.profileRole,
           privilegedAdmin,
           phone_verified: false,
+          phone: null,
         })
       ).toBe(c.expectExempt ? "admin" : "sns_member");
 
@@ -253,6 +256,7 @@ describe("privileged admin reader alignment — shared CURRENT dual-read matrix"
         role: "user",
         privilegedAdmin: false,
         phone_verified: true,
+        phone: null,
         phone_verified_at: "2026-01-01T00:00:00.000Z",
         provider: "google",
       })
@@ -270,6 +274,7 @@ describe("privileged admin reader alignment — shared CURRENT dual-read matrix"
         role: "user",
         privilegedAdmin: false,
         phone_verified: false,
+        phone: null,
         provider: "google",
       })
     ).toBe(false);

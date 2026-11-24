@@ -150,8 +150,11 @@ describe("2-A 회원 쓰기 검사 1회 조회", () => {
     db.result = snap({ phone_verified: false, phone_verified_at: null });
     const res = await enforceApiMemberMutationPolicy(write());
     expect((await res!.json()).step).toBe("phone");
-    db.result = snap({ phone_verified: false, phone_verified_at: null, provider: "admin_manual" });
+    /** 관리자 생성 계정은 번호가 있을 때만 전화 인정 (재감사 2026-11-24 R2 · Owner 2026-10-20) */
+    db.result = snap({ phone_verified: false, phone_verified_at: null, provider: "admin_manual", phone: "09171234567" });
     expect(await enforceApiMemberMutationPolicy(write())).toBeNull();
+    db.result = snap({ phone_verified: true, phone_verified_at: "2026-10-01T00:00:00+00:00", provider: "admin_manual", phone: null });
+    expect((await (await enforceApiMemberMutationPolicy(write()))!.json()).step).toBe("phone");
   });
 
   it("재감사 H2 — 동의한 관리자(역할 admin)는 전화·주소 없어도 가입 검사 면제", async () => {

@@ -43,6 +43,7 @@ export function AccountTab({
     auth_provider: profile.auth_provider ?? profile.provider ?? null,
     email: profile.auth_login_email ?? profile.email ?? null,
     auth_login_email: profile.auth_login_email ?? profile.email ?? null,
+    phone: profile.phone ?? null,
   });
   const displayPhone =
     formatProfilePhoneForDisplay({

@@ -93,6 +93,7 @@ export async function profileToRequirementInput(
     provider: profile.provider ?? null,
     auth_provider: profile.auth_provider ?? null,
     email: profile.email ?? null,
+    phone: profile.phone ?? null,
     has_default_address: hasDefaultAddress,
   };
 }

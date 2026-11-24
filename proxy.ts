@@ -93,7 +93,12 @@ async function maybeRedirectIncompleteSignup(
 ): Promise<NextResponse | null> {
   try {
     const env = requireSupabaseEnv({ requireAnonKey: true });
+    /** 원래 화면 = 경로 + 검색어 (RSC 표지 `_rsc` 제외) — 단계 완료 뒤 같은 화면으로 (재감사 2026-11-24 R6) */
+    const returnParams = new URLSearchParams(request.nextUrl.search);
+    returnParams.delete("_rsc");
+    const returnQs = returnParams.toString();
     const redirectPath = await resolveProxySignupGateRedirect(supabase, userId, pathname, {
+      returnTo: returnQs ? `${pathname}?${returnQs}` : pathname,
       /** D5 (Amendment 2026-11-19 (2)) — 갱신 뒤 쿠키(request.cookies)의 토큰을 검증해 약관 완료면 profiles 생략 */
       loadVerifiedClaim: env.ok
         ? () =>

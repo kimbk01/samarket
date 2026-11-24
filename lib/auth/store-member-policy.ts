@@ -117,6 +117,12 @@ export function isAdminManualProvider(input: Pick<ProfileLike, "provider" | "aut
     .endsWith("@manual.local");
 }
 
+/**
+ * 저장된 전화번호 — **반드시** 넘긴다(재감사 2026-11-24 R2: 「모름 → 예전 판정」 분기 제거).
+ * 프로필 행이면 `phone`(없으면 null), 토큰 클레임처럼 「있음」만 알면 `has_phone`. 빠뜨리면 컴파일 오류.
+ */
+export type StoredPhoneFact = { phone: string | null; has_phone?: never } | { has_phone: boolean; phone?: never };
+
 export type VerifiedPhoneVerdictInput = Pick<
   ProfileLike,
   | "phone_verified"
@@ -127,16 +133,12 @@ export type VerifiedPhoneVerdictInput = Pick<
   | "email"
   | "role"
   | "privilegedAdmin"
-  | "phone"
-  | "has_phone"
->;
+> &
+  StoredPhoneFact;
 
-/** 관리자 생성 회원인데 번호가 없다고 **확실히** 아는 경우 — 번호를 모르면 false(예전 판정 유지) */
-function isAdminManualWithoutPhone(profile: VerifiedPhoneVerdictInput): boolean {
-  if (!isAdminManualProvider(profile)) return false;
-  if (typeof profile.has_phone === "boolean") return !profile.has_phone;
-  if (profile.phone === undefined) return false;
-  return !(typeof profile.phone === "string" && profile.phone.trim().length > 0);
+function hasStoredPhone(profile: StoredPhoneFact): boolean {
+  if (typeof profile.has_phone === "boolean") return profile.has_phone;
+  return typeof profile.phone === "string" && profile.phone.trim().length > 0;
 }
 
 /**
@@ -145,13 +147,14 @@ function isAdminManualWithoutPhone(profile: VerifiedPhoneVerdictInput): boolean 
  * 1. 특권 관리자 → 인증
  * 2. 관리자 생성 회원인데 번호 없음 → 미인증 (Owner 2026-10-20 「관리자 수동 인증 = 전화번호 필수」)
  * 3. `phone_verified` 또는 `phone_verified_at` → 인증
- * 4. 관리자 생성 회원(번호 있음 또는 모름) → 인증 · `phone_verification_method` 라벨 단독은 근거 아님(PR #94 감사 #8)
+ * 4. 관리자 생성 회원(번호 있음) → 인증 · `phone_verification_method` 라벨 단독은 근거 아님(PR #94 감사 #8)
  */
 export function verifiedPhoneVerdict(profile: VerifiedPhoneVerdictInput): boolean {
   if (isPrivilegedAdminAuthority({ role: profile.role, privilegedAdmin: profile.privilegedAdmin })) {
     return true;
   }
-  if (isAdminManualWithoutPhone(profile)) return false;
+  /** 관리자 생성 회원은 번호가 있을 때만 (Owner 2026-10-20 「관리자 수동 인증 = 전화번호 필수」) */
+  if (isAdminManualProvider(profile) && !hasStoredPhone(profile)) return false;
   if (profile.phone_verified === true) return true;
   const verifiedAt = typeof profile.phone_verified_at === "string" ? profile.phone_verified_at.trim() : "";
   if (verifiedAt) return true;
@@ -167,7 +170,9 @@ export function hasPhilippinePhoneVerification(profile: VerifiedPhoneVerdictInpu
  * 회원 상태 표시 — 판정은 `verifiedPhoneVerdict` 하나. `status`·`member_status` 저장값은 보지 않는다
  * (운영 2026-11-24: 저장값이 실제 인증과 15건 어긋남 — 인증했는데 「SNS 회원」 표시 등).
  */
-export function deriveStoreMemberStatus(profile: ProfileLike | null | undefined): StoreMemberStatus {
+export function deriveStoreMemberStatus(
+  profile: (Omit<ProfileLike, "phone" | "has_phone"> & StoredPhoneFact) | null | undefined,
+): StoreMemberStatus {
   if (!profile || isDeletedStoreMember(profile)) return "guest";
   if (isPrivilegedAdminAuthority({ role: profile.role, privilegedAdmin: profile.privilegedAdmin })) {
     return "admin";
@@ -176,7 +181,3 @@ export function deriveStoreMemberStatus(profile: ProfileLike | null | undefined)
   return isAdminManualProvider(profile) ? "admin_manual" : "verified_member";
 }
 
-export function canUseStoreAction(profile: ProfileLike | null | undefined): boolean {
-  const status = deriveStoreMemberStatus(profile);
-  return status === "verified_member" || status === "admin_manual" || status === "admin";
-}

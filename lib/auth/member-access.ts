@@ -133,6 +133,8 @@ export function bypassesPhilippinePhoneVerificationGate(input: {
   auth_provider?: string | null;
   provider?: string | null;
   email?: string | null;
+  /** 저장된 전화번호 — 필수 (재감사 2026-11-24 R2) */
+  phone: string | null;
 }): boolean {
   return hasVerifiedPhone({
     role: input.role,
@@ -143,6 +145,7 @@ export function bypassesPhilippinePhoneVerificationGate(input: {
     provider: input.provider ?? input.auth_provider ?? null,
     auth_provider: input.auth_provider ?? null,
     email: input.email ?? null,
+    phone: input.phone,
   });
 }
 
@@ -157,8 +160,11 @@ export function hasFormalMemberContactVerification(input: {
   auth_provider?: string | null;
   provider?: string | null;
   email?: string | null;
+  /** 저장된 전화번호 — 필수 (재감사 2026-11-24 R2) */
+  phone: string | null;
 }): boolean {
   return hasVerifiedPhone({
+    phone: input.phone,
     phone_verified: input.phone_verified,
     phone_verified_at: input.phone_verified_at ?? null,
     phone_verification_method: input.phone_verification_method ?? null,

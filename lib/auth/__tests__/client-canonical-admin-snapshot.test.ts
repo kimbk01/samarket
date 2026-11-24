@@ -79,6 +79,7 @@ describe("client canonical admin snapshot", () => {
         role: "admin",
         is_admin: true,
         phone_verified: false,
+        phone: null,
       })
     ).toBe(false);
     expect(
@@ -87,6 +88,7 @@ describe("client canonical admin snapshot", () => {
         is_admin: false,
         privilegedAdmin: true,
         phone_verified: false,
+        phone: null,
       })
     ).toBe(true);
   });

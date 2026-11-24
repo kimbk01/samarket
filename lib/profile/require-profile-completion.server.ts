@@ -24,6 +24,8 @@ type ProfileRowForGate = {
   provider?: string | null;
   auth_provider?: string | null;
   email?: string | null;
+  /** 저장된 전화번호 — 전화 인증 판정 필수 입력(재감사 2026-11-24 R2) */
+  phone: string | null;
 };
 
 export type ProfileFieldsGateResult =
@@ -32,19 +34,20 @@ export type ProfileFieldsGateResult =
 
 /** 프로필 필수 항목 게이트가 읽는 profiles 컬럼(SSOT — 다른 게이트와 합쳐 1회 읽을 때도 이 목록을 쓴다) */
 export const PROFILE_FIELDS_GATE_SELECT =
-  "id,dibay_id,dibay_id_locked,dibay_id_auto_assigned,dibay_id_changed_once,username,username_confirmed,display_name,nickname,phone_verified,phone_verified_at,phone_verification_method,role,provider,auth_provider,email";
+  "id,dibay_id,dibay_id_locked,dibay_id_auto_assigned,dibay_id_changed_once,username,username_confirmed,display_name,nickname,phone_verified,phone_verified_at,phone_verification_method,role,provider,auth_provider,email,phone";
 
 export async function requireProfileFieldsForAction(
   sb: SupabaseClient,
   userId: string,
   actionType: ProfileActionType,
-  profile?: ProfileRowForGate | null
+  /** 미리 읽은 행 — `PROFILE_FIELDS_GATE_SELECT`(phone 포함) 열을 담아야 한다 */
+  profile?: ProfileRowForGate | Record<string, unknown> | null
 ): Promise<ProfileFieldsGateResult> {
   const requiredFields = ACTION_PROFILE_REQUIREMENTS[actionType];
   /** 순서 4: 필요한 항목이 없는 기능(`messenger_open`)은 판정이 항상 통과 — 프로필·주소를 읽지 않는다 */
   if (requiredFields.length === 0) return { ok: true };
 
-  let row = profile;
+  let row = profile as ProfileRowForGate | null | undefined;
   if (!row) {
     const { data, error } = await sb
       .from("profiles")
@@ -79,6 +82,7 @@ export async function requireProfileFieldsForAction(
   const evaluation = evaluateProfileRequirements(
     {
       ...row,
+      phone: typeof row?.phone === "string" ? row.phone : null,
       has_default_address: hasDefaultAddress,
     },
     actionType

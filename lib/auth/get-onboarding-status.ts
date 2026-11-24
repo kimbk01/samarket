@@ -76,8 +76,8 @@ type ProfileRowSubset = {
   privacy_version: string | null;
   onboarding_completed_at: string | null;
   onboarding_status: string | null;
-  /** 저장된 전화번호 — 행에 열이 없으면(구 DB 함수) undefined → 수동 회원 번호 규칙 미적용 */
-  phone?: string | null;
+  /** 저장된 전화번호 — 전화 인증 판정 필수 입력 (DB 함수 2026-11-24 적용 · 재감사 R2) */
+  phone: string | null;
 };
 
 const ADDRESS_STATUS_TIMEOUT_MS = 900;
@@ -127,7 +127,7 @@ function mapProfileSubset(row: Record<string, unknown>): ProfileRowSubset {
     privacy_version: pickTrimmedString(row.privacy_version),
     onboarding_completed_at: pickTrimmedString(row.onboarding_completed_at),
     onboarding_status: pickTrimmedString(row.onboarding_status),
-    ...("phone" in row ? { phone: pickTrimmedString(row.phone) } : {}),
+    phone: pickTrimmedString(row.phone),
   };
 }
 
@@ -217,7 +217,7 @@ export async function getOnboardingStatus(
       provider: profile?.provider ?? profile?.auth_provider ?? null,
       auth_provider: profile?.auth_provider ?? null,
       email: profile?.email ?? null,
-      phone: profile?.phone,
+      phone: profile?.phone ?? null,
     });
 
   const addressComplete = facts.addressComplete;

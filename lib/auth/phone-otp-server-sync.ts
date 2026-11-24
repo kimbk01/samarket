@@ -31,6 +31,7 @@ export async function syncPhoneVerifiedServerCache(userId: string): Promise<void
     provider: profile.provider ?? profile.auth_provider ?? null,
     auth_provider: profile.auth_provider ?? profile.provider ?? null,
     email: profile.email ?? null,
+    phone: profile.phone ?? null,
   });
   if (passes) {
     rememberPhoneVerifiedPositiveProfile(userId, profile);

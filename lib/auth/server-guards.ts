@@ -359,6 +359,7 @@ function profilePassesPhoneVerificationGate(
     provider: profile.provider ?? profile.auth_provider,
     auth_provider: profile.auth_provider,
     email: profile.email,
+    phone: profile.phone ?? null,
   });
 }
 
