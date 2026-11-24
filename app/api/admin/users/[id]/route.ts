@@ -28,6 +28,7 @@ import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
 import { formatUserAddressFull } from "@/lib/addresses/user-address-display-ssot";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import type { AdminUserDetail } from "@/lib/types/admin-user";
+import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
 import { pickContactEmailForProfile } from "@/lib/auth/synthetic-auth-email";
 import { manualLoginIdFromAuthEmail } from "@/lib/admin-users/member-sns-account";
@@ -555,6 +556,10 @@ export async function GET(
         prof.trust_score != null && Number.isFinite(Number(prof.trust_score))
           ? Number(prof.trust_score)
           : null,
+      /** 가입 단계 — 앱 가입 관문과 같은 판정 (가입 SSOT S4). 읽기 실패면 표시하지 않는다(undefined). */
+      registration_next_step: await getOnboardingStatus(supabase, rawId)
+        .then((st) => st.registrationNextStep)
+        .catch(() => undefined),
     };
 
     const { data: storeRows } = await supabase

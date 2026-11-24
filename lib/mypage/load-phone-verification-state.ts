@@ -17,6 +17,8 @@ export type PhoneVerificationSettings = {
   resend_cooldown_seconds: number;
   /** 인증 가능한 국가번호 (`+63`·`+82`) — 서버 `resolveAvailableVerifyDialCodes` */
   country_dial_codes: string[];
+  /** 저장된 번호가 없을 때 처음 보여 줄 국가번호 — 서버가 접속 나라로 정함(PH +63 · 그 밖 +82) */
+  default_dial_code: "+63" | "+82";
   /** 아직 입력할 수 있는 인증번호(보낸 번호·만료·재발송 가능 시각) — 없으면 null */
   pending_challenge: PhoneOtpPendingChallenge | null;
 };
@@ -52,6 +54,7 @@ type SettingsJson = {
       guide_text?: string;
       resend_cooldown_seconds?: number;
       country_dial_codes?: unknown;
+      default_dial_code?: unknown;
     };
     pending_challenge?: unknown;
   };
@@ -67,6 +70,7 @@ export function parsePhoneVerificationSettings(json: unknown): PhoneVerification
     guide_text: s.guide_text ?? "",
     resend_cooldown_seconds: Number(s.resend_cooldown_seconds ?? 60),
     country_dial_codes: parseVerifyDialCodes(s.country_dial_codes),
+    default_dial_code: s.default_dial_code === "+82" ? "+82" : "+63",
     pending_challenge: parsePendingChallenge(j.verification?.pending_challenge),
   };
 }

@@ -76,6 +76,8 @@ type ProfileRowSubset = {
   privacy_version: string | null;
   onboarding_completed_at: string | null;
   onboarding_status: string | null;
+  /** 저장된 전화번호 — 행에 열이 없으면(구 DB 함수) undefined → 수동 회원 번호 규칙 미적용 */
+  phone?: string | null;
 };
 
 const ADDRESS_STATUS_TIMEOUT_MS = 900;
@@ -93,7 +95,7 @@ async function loadProfileSubset(
   const { data, error } = await sb
     .from("profiles")
     .select(
-      "id,username,username_confirmed,dibay_id,dibay_id_locked,display_name,avatar_url,nickname,email,role,phone_verified,phone_verified_at,phone_verification_method,provider,auth_provider,terms_accepted_at,terms_version,privacy_accepted_at,privacy_version,onboarding_completed_at,onboarding_status"
+      "id,username,username_confirmed,dibay_id,dibay_id_locked,display_name,avatar_url,nickname,email,role,phone_verified,phone_verified_at,phone_verification_method,provider,auth_provider,terms_accepted_at,terms_version,privacy_accepted_at,privacy_version,onboarding_completed_at,onboarding_status,phone"
     )
     .eq("id", userId)
     .maybeSingle();
@@ -125,6 +127,7 @@ function mapProfileSubset(row: Record<string, unknown>): ProfileRowSubset {
     privacy_version: pickTrimmedString(row.privacy_version),
     onboarding_completed_at: pickTrimmedString(row.onboarding_completed_at),
     onboarding_status: pickTrimmedString(row.onboarding_status),
+    ...("phone" in row ? { phone: pickTrimmedString(row.phone) } : {}),
   };
 }
 
@@ -214,6 +217,7 @@ export async function getOnboardingStatus(
       provider: profile?.provider ?? profile?.auth_provider ?? null,
       auth_provider: profile?.auth_provider ?? null,
       email: profile?.email ?? null,
+      phone: profile?.phone,
     });
 
   const addressComplete = facts.addressComplete;

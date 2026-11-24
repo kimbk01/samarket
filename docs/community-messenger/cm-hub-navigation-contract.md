@@ -68,6 +68,11 @@
 
 - **SSOT:** `deriveDibaySignupStatus` → `signupComplete = consentComplete` (주석 CONTRACT 유지)
 - **DO NOT:** `signupComplete = consentComplete && dibayIdComplete && profileComplete`
+- **개정 2026-11-24 (Owner 「설계대로 진행」, `docs/audit/registration-ssot-redesign-2026-11-24.md`):** 동의 뒤 가입 단계(전화 인증·대표 주소)는
+  Layer A 의 **두 번째 단계**로 `lib/auth/registration-gate.ts` 에서만 판정한다(`signupComplete` 에는 묶지 않음).
+  - 목적지 = 빠진 단계 화면 `/auth/onboarding/phone|address?next=<원래 화면>` — **`/mypage` 금지**(06-21 사고 조건).
+  - 통화 화면(`/community-messenger/calls*`)은 예외 — 받은 통화·진행 중 통화를 덮지 않는다. 방 deep route 는 단계 완료 뒤 `next` 로 복귀.
+  - 계약 마커 `dibay-registration-gate-step-destination`.
 
 ### Tier 4 — Call accept
 
@@ -84,7 +89,7 @@
 - [ ] auth/signup/status 변경 시 `verify:auth-session-contract` + 본 contract verify
 - [ ] nav/bottom-tab 변경 시 hub **동기** 커밋 유지
 - [ ] call accept 변경 시 gateway 외 PATCH 없음
-- [ ] deep route HTML gate 변경 시 **consent only** 유지
+- [ ] deep route HTML gate 변경 시 **consent only** 유지 (가입 단계는 `registration-gate` 만 — 목적지 단계 화면·통화 예외)
 - [ ] 계약 주석(`SSOT_CONTRACT`) 삭제 시 본 문서·verify 스크립트 동시 갱신
 
 ---

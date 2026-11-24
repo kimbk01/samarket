@@ -10,11 +10,12 @@ import { STORE_PHONE_GATE_MESSAGE } from "@/lib/auth/store-member-policy";
 import { loadAuthPhoneSettings } from "@/lib/auth/auth-phone-settings";
 import { loadPendingPhoneOtpChallengeForUser } from "@/lib/auth/phone-otp-service";
 import { resolveAvailableVerifyDialCodes } from "@/lib/phone/available-verify-countries";
+import { resolveDefaultVerifyDialCode } from "@/lib/phone/phone-country-codes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
   const session = await validateActiveSession(auth.userId);
@@ -27,6 +28,9 @@ export async function GET() {
   const fullMemberAccessOk = canUseVerifiedMemberFeatures(state);
   const phoneSettings = await loadAuthPhoneSettings();
   /** 아직 입력할 수 있는 인증번호 — 화면을 나갔다 와도 6칸 화면으로 이어서 입력 (Owner 2026-11-09) */
+  const dialCodes = resolveAvailableVerifyDialCodes();
+  /** 국가번호 기본값 — 접속 나라(Vercel 이 붙이는 헤더) PH → +63 · 그 밖 → +82 (Owner 2026-11-24) */
+  const defaultDialCode = resolveDefaultVerifyDialCode(req.headers.get("x-vercel-ip-country"), dialCodes);
   const pendingChallenge = phoneSettings.enabled
     ? await loadPendingPhoneOtpChallengeForUser(sb, auth.userId, phoneSettings).catch(() => null)
     : null;
@@ -44,7 +48,7 @@ export async function GET() {
       store_member_status: state.storeMemberStatus ?? "sns_member",
       consent_required: state.hasRequiredConsent === false,
       // 인증 가능한 국가번호 — +63(Semaphore) 항상, +82 는 Solapi 설정이 있을 때만 (Owner 2026-11-09).
-      settings: { ...phoneSettings, country_dial_codes: resolveAvailableVerifyDialCodes() },
+      settings: { ...phoneSettings, country_dial_codes: dialCodes, default_dial_code: defaultDialCode },
       pending_challenge: pendingChallenge,
     },
   });

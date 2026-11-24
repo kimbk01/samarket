@@ -4,11 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayOnboardingOverlayShell } from "@/components/auth/DibayOnboardingOverlayShell";
-import { RegistrationStepEscape, RegistrationStepLaterButton } from "@/components/auth/RegistrationStepLater";
+import { RegistrationStepEscape } from "@/components/auth/RegistrationStepLater";
 import { PhoneVerificationBox } from "@/components/mypage/profile/PhoneVerificationBox";
 import type { ProfileRow } from "@/lib/profile/types";
 import { refreshClientMemberAccountAfterMutation } from "@/lib/auth/sync-member-account-client";
-import { deferProfileSetupForSession } from "@/lib/auth/profile-setup-defer.client";
 import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
 import {
@@ -39,11 +38,6 @@ export function RegistrationPhoneStep({ next }: { next: string }) {
   const [duplicatePhone, setDuplicatePhone] = useState<string | null>(null);
   const duplicate = duplicatePhone !== null;
   const genRef = useRef(0);
-
-  /** 이 화면을 본 것 = 로그인 세션당 1회 안내를 받은 것 — 이후 화면 이동마다 다시 보내지 않는다 */
-  useEffect(() => {
-    deferProfileSetupForSession();
-  }, []);
 
   const load = useCallback(async () => {
     const gen = ++genRef.current;
@@ -116,17 +110,12 @@ export function RegistrationPhoneStep({ next }: { next: string }) {
     }
   }, [discarding, duplicatePhone, t]);
 
-  const onLater = useCallback(() => {
-    guardedRouterReplace(router, next, { source: "registration-phone-step", reason: "later" });
-  }, [next, router]);
-
   return (
     <DibayOnboardingOverlayShell
       title={t("auth_reg_phone_title")}
       description={t("auth_reg_phone_intro")}
       titleId="dibay-registration-phone-title"
       descriptionId="dibay-registration-phone-desc"
-      footer={<RegistrationStepLaterButton onLater={onLater} />}
     >
       {state.kind === "loading" ? (
         <div className="py-6" aria-busy="true">

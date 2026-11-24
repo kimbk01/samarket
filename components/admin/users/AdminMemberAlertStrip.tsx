@@ -12,10 +12,13 @@ export function AdminMemberAlertStrip({
 }) {
   const { safeT } = useI18n();
   const alerts: string[] = [];
-  if (user.phone_verified !== true) {
-    alerts.push(
-      safeT("admin_users_alert_phone_unverified"),
-    );
+  /** 가입 단계 — 앱 가입 관문과 같은 판정(서버 `registration_next_step`). 읽지 못했으면 예전 전화 표시. */
+  const step = user.registration_next_step;
+  if (step === "terms") alerts.push(safeT("admin_users_alert_reg_terms"));
+  else if (step === "phone") alerts.push(safeT("admin_users_alert_reg_phone"));
+  else if (step === "address") alerts.push(safeT("admin_users_alert_reg_address"));
+  else if (step === undefined && user.phone_verified !== true) {
+    alerts.push(safeT("admin_users_alert_phone_unverified"));
   }
   const moderation = String(user.moderation_status ?? "").toLowerCase();
   const status = String(user.status ?? "").toLowerCase();

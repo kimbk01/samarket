@@ -123,7 +123,7 @@ export async function checkEmptyAccountForDiscard(
   const [profileRes, adminRes] = await Promise.all([
     sb
       .from("profiles")
-      .select("id,created_at,role,provider,auth_provider,email,phone_verified,phone_verified_at,phone_verification_method")
+      .select("id,created_at,role,provider,auth_provider,email,phone_verified,phone_verified_at,phone_verification_method,phone")
       .eq("id", uid)
       .maybeSingle(),
     sb.from("admin_memberships").select("role").eq("user_id", uid).limit(1),
@@ -159,6 +159,7 @@ export async function checkEmptyAccountForDiscard(
       provider: s(row.provider),
       auth_provider: s(row.auth_provider),
       email: s(row.email),
+      phone: s(row.phone),
     })
   ) {
     reasons.push("phone_verified");

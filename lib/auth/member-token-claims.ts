@@ -26,7 +26,43 @@ export type DibayMemberClaim = {
   terms_version: string | null;
   privacy_accepted_at: string | null;
   privacy_version: string | null;
+  /**
+   * 가입 재료 (2026-11-24 가입 SSOT S2 — 마이그레이션 `20271124120000`). 훅이 넣은 토큰에만 있다(`reg === 1`).
+   * 없으면 null → proxy 는 가입 단계를 판정하지 않는다(화면 관문이 담당, DB 호출 증가 없음).
+   */
+  registration: DibayMemberClaimRegistration | null;
 };
+
+export type DibayMemberClaimRegistration = {
+  phone_verified: boolean;
+  phone_verified_at: string | null;
+  phone_verification_method: string | null;
+  provider: string | null;
+  auth_provider: string | null;
+  email: string | null;
+  role: string | null;
+  has_phone: boolean;
+  has_default_master: boolean;
+  /** 활성 관리자 멤버십 역할 — `isPrivilegedAdminRole` 이면 가입 단계 면제 */
+  admin_role: string | null;
+};
+
+function parseRegistration(r: Record<string, unknown>): DibayMemberClaimRegistration | null {
+  if (r.reg !== 1) return null;
+  if (typeof r.has_default_master !== "boolean" || typeof r.has_phone !== "boolean") return null;
+  return {
+    phone_verified: r.phone_verified === true,
+    phone_verified_at: strOrNull(r.phone_verified_at),
+    phone_verification_method: strOrNull(r.phone_verification_method),
+    provider: strOrNull(r.provider),
+    auth_provider: strOrNull(r.auth_provider),
+    email: strOrNull(r.email),
+    role: strOrNull(r.role),
+    has_phone: r.has_phone,
+    has_default_master: r.has_default_master,
+    admin_role: strOrNull(r.admin_role),
+  };
+}
 
 const ASYMMETRIC_ALG = /^(ES|RS|PS|Ed)/;
 
@@ -46,6 +82,7 @@ export function parseDibayMemberClaim(raw: unknown): DibayMemberClaim | null {
     terms_version: strOrNull(r.terms_version),
     privacy_accepted_at: strOrNull(r.privacy_accepted_at),
     privacy_version: strOrNull(r.privacy_version),
+    registration: parseRegistration(r),
   };
 }
 

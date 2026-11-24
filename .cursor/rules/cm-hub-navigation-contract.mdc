@@ -4,6 +4,7 @@ globs:
   - "**/dibay-signup-status.ts"
   - "**/DibaySignupGate.tsx"
   - "**/client-signup-gate.ts"
+  - "**/registration-gate.ts"
   - "**/main-bottom-nav-route-commit.ts"
   - "**/cm-deep-route-navigation-lock.ts"
   - "**/guarded-client-navigation.ts"
@@ -29,6 +30,9 @@ alwaysApply: false
 ## 절대 금지
 
 - HTML gate `signupComplete` 에 @id·프로필 다시 묶기 → `/mypage` 가 방·통화 deep route 덮음
+  - 개정 (Owner 2026-11-24 「설계대로 진행」, `docs/audit/registration-ssot-redesign-2026-11-24.md` §9): 동의 뒤 **전화·주소 가입 단계**는
+    `lib/auth/registration-gate.ts` 로만 묶는다 — 목적지 = 빠진 단계 화면(+ 원래 화면 `next`), `/mypage` 금지 · 통화 화면(`isCallSurfacePath`) 예외.
+    `signupComplete`(= 동의) 자체에는 묶지 않는다.
 - 하단 탭 `router.replace/push` 를 async 뒤로 미루기
 - 배너 1:1 accept 를 route-first (`action=accept` 선행) 로 되돌리기
 - `incoming-call-accept-gateway` 밖에서 accept PATCH 추가

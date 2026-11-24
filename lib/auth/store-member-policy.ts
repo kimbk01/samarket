@@ -24,6 +24,10 @@ type ProfileLike = {
   auth_provider?: string | null;
   member_status?: string | null;
   email?: string | null;
+  /** 저장된 전화번호 — `undefined` = 모름(규칙 미적용), 문자열·null = 수동 회원 번호 규칙 적용 */
+  phone?: string | null;
+  /** 번호 「있음」만 아는 입력(토큰 클레임) */
+  has_phone?: boolean | null;
   terms_accepted_at?: string | null;
   terms_version?: string | null;
   privacy_accepted_at?: string | null;
@@ -113,48 +117,63 @@ export function isAdminManualProvider(input: Pick<ProfileLike, "provider" | "aut
     .endsWith("@manual.local");
 }
 
+export type VerifiedPhoneVerdictInput = Pick<
+  ProfileLike,
+  | "phone_verified"
+  | "phone_verified_at"
+  | "phone_verification_method"
+  | "provider"
+  | "auth_provider"
+  | "email"
+  | "role"
+  | "privilegedAdmin"
+  | "phone"
+  | "has_phone"
+>;
+
+/** 관리자 생성 회원인데 번호가 없다고 **확실히** 아는 경우 — 번호를 모르면 false(예전 판정 유지) */
+function isAdminManualWithoutPhone(profile: VerifiedPhoneVerdictInput): boolean {
+  if (!isAdminManualProvider(profile)) return false;
+  if (typeof profile.has_phone === "boolean") return !profile.has_phone;
+  if (profile.phone === undefined) return false;
+  return !(typeof profile.phone === "string" && profile.phone.trim().length > 0);
+}
+
 /**
- * Store-member phone reader — MUST stay identical to `hasVerifiedPhone`.
- * Product gates must call `hasVerifiedPhone` directly. This alias exists for
- * `deriveStoreMemberStatus` / legacy store labels only.
+ * 전화 인증 판정 — **단일 구현** (가입 SSOT 2026-11-24). `hasVerifiedPhone`(제품 게이트)·`deriveStoreMemberStatus`(표시)가
+ * 이 함수를 그대로 쓴다.
+ * 1. 특권 관리자 → 인증
+ * 2. 관리자 생성 회원인데 번호 없음 → 미인증 (Owner 2026-10-20 「관리자 수동 인증 = 전화번호 필수」)
+ * 3. `phone_verified` 또는 `phone_verified_at` → 인증
+ * 4. 관리자 생성 회원(번호 있음 또는 모름) → 인증 · `phone_verification_method` 라벨 단독은 근거 아님(PR #94 감사 #8)
  */
-export function hasPhilippinePhoneVerification(
-  profile: Pick<
-    ProfileLike,
-    | "phone_verified"
-    | "phone_verified_at"
-    | "phone_verification_method"
-    | "provider"
-    | "auth_provider"
-    | "email"
-    | "role"
-    | "privilegedAdmin"
-  >
-): boolean {
+export function verifiedPhoneVerdict(profile: VerifiedPhoneVerdictInput): boolean {
   if (isPrivilegedAdminAuthority({ role: profile.role, privilegedAdmin: profile.privilegedAdmin })) {
     return true;
   }
+  if (isAdminManualWithoutPhone(profile)) return false;
   if (profile.phone_verified === true) return true;
-  const verifiedAt =
-    typeof profile.phone_verified_at === "string" ? profile.phone_verified_at.trim() : "";
+  const verifiedAt = typeof profile.phone_verified_at === "string" ? profile.phone_verified_at.trim() : "";
   if (verifiedAt) return true;
-  /** `hasVerifiedPhone` 과 동일 — method 라벨 단독으로는 인증 근거가 아니다 */
   return isAdminManualProvider(profile);
 }
 
+/** @deprecated 표시 전용 별칭 — 제품 게이트는 `hasVerifiedPhone` */
+export function hasPhilippinePhoneVerification(profile: VerifiedPhoneVerdictInput): boolean {
+  return verifiedPhoneVerdict(profile);
+}
+
+/**
+ * 회원 상태 표시 — 판정은 `verifiedPhoneVerdict` 하나. `status`·`member_status` 저장값은 보지 않는다
+ * (운영 2026-11-24: 저장값이 실제 인증과 15건 어긋남 — 인증했는데 「SNS 회원」 표시 등).
+ */
 export function deriveStoreMemberStatus(profile: ProfileLike | null | undefined): StoreMemberStatus {
   if (!profile || isDeletedStoreMember(profile)) return "guest";
   if (isPrivilegedAdminAuthority({ role: profile.role, privilegedAdmin: profile.privilegedAdmin })) {
     return "admin";
   }
-  const memberStatus = String(profile.member_status ?? "").trim().toLowerCase();
-  if (memberStatus === "active") return "verified_member";
-  if (memberStatus === "pending") return "sns_member";
-  if (memberStatus === "admin_manual") return "admin_manual";
-  if (memberStatus === "verified_member") return "verified_member";
-  if (memberStatus === "sns_member") return "sns_member";
-  if (isAdminManualProvider(profile)) return "admin_manual";
-  return hasPhilippinePhoneVerification(profile) ? "verified_member" : "sns_member";
+  if (!verifiedPhoneVerdict(profile)) return "sns_member";
+  return isAdminManualProvider(profile) ? "admin_manual" : "verified_member";
 }
 
 export function canUseStoreAction(profile: ProfileLike | null | undefined): boolean {

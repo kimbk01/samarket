@@ -33,7 +33,7 @@ export async function resolveMemberRegistrationAuthority(
     const [profileRes, addressRes, adminRes] = await Promise.all([
       sb
         .from("profiles")
-        .select("phone_verified,phone_verified_at,phone_verification_method,role,provider,auth_provider,email")
+        .select("phone_verified,phone_verified_at,phone_verification_method,role,provider,auth_provider,email,phone")
         .eq("id", userId)
         .maybeSingle(),
       sb
@@ -61,6 +61,7 @@ export async function resolveMemberRegistrationAuthority(
         provider: s(row.provider),
         auth_provider: s(row.auth_provider),
         email: s(row.email),
+        phone: s(row.phone),
       }),
       hasDefaultMaster,
     });

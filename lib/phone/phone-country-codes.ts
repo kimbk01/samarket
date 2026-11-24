@@ -26,6 +26,20 @@ export function parseVerifyDialCodes(raw: unknown): string[] {
   return list.length > 0 ? [...new Set(list)] : [PHONE_VERIFY_DEFAULT_COUNTRY.dialCode];
 }
 
+/**
+ * 전화 인증 국가번호 기본값 — 접속 나라 기준 (Owner 2026-11-24 「필리핀 이면 +63 … 이외의 지역은 +82」).
+ * `ipCountry` = 서버가 받은 접속 나라(ISO 2자리, Vercel `x-vercel-ip-country`). 저장된 번호가 있으면 화면이 그 나라를 먼저 쓴다.
+ * - PH → +63 · 그 밖 나라 → +82 · 모름 → +63 · +82 를 보낼 수 없으면(서버 목록에 없음) +63.
+ */
+export function resolveDefaultVerifyDialCode(
+  ipCountry: string | null | undefined,
+  availableDialCodes: readonly string[] | null | undefined,
+): "+63" | "+82" {
+  const iso = String(ipCountry ?? "").trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(iso) || iso === "PH") return "+63";
+  return parseVerifyDialCodes(availableDialCodes ?? []).includes("+82") ? "+82" : "+63";
+}
+
 export function phoneVerifyCountryOptionsFor(dialCodes: readonly string[] | null | undefined): PhoneCountryOption[] {
   const allowed = new Set(parseVerifyDialCodes(dialCodes ?? []));
   return PHONE_VERIFY_COUNTRY_OPTIONS.filter((c) => allowed.has(c.dialCode));

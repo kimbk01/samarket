@@ -33,9 +33,6 @@ import {
   isProfileSetupMode,
   isProfileSetupPending,
 } from "@/lib/auth/profile-setup-flow";
-import {
-  deferProfileSetupForSession,
-} from "@/lib/auth/profile-setup-defer.client";
 import { normalizeRequiredSlugFromUrl } from "@/lib/profile/profile-requirements";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { isProfileContactVerified } from "@/lib/profile/profile-contact-verification-ui";
@@ -290,7 +287,6 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   }, [load]);
 
   const handleSetupDismiss = useCallback(() => {
-    deferProfileSetupForSession();
     invalidateMandatoryAddressGateClientCache();
     router.replace(POST_LOGIN_PATH);
   }, [router]);

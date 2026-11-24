@@ -1,14 +1,12 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayOnboardingOverlayShell } from "@/components/auth/DibayOnboardingOverlayShell";
-import { RegistrationStepEscape, RegistrationStepLaterButton } from "@/components/auth/RegistrationStepLater";
+import { RegistrationStepEscape } from "@/components/auth/RegistrationStepLater";
 import { buildAddressEditHref } from "@/lib/auth/client-access-flow";
-import { deferProfileSetupForSession } from "@/lib/auth/profile-setup-defer.client";
 import { registrationStepHref } from "@/lib/auth/dibay-registration-steps";
-import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
 import { DIBAY_ONBOARDING_PRIMARY_BTN } from "@/lib/ui/dibay-onboarding-styles";
 
 /**
@@ -19,17 +17,9 @@ export function RegistrationAddressStep({ next }: { next: string }) {
   const { t } = useI18n();
   const router = useRouter();
 
-  useEffect(() => {
-    deferProfileSetupForSession();
-  }, []);
-
   const onRegister = useCallback(() => {
     const back = registrationStepHref("address", next) ?? "/auth/onboarding/address";
     router.push(buildAddressEditHref(back));
-  }, [next, router]);
-
-  const onLater = useCallback(() => {
-    guardedRouterReplace(router, next, { source: "registration-address-step", reason: "later" });
   }, [next, router]);
 
   return (
@@ -39,17 +29,14 @@ export function RegistrationAddressStep({ next }: { next: string }) {
       titleId="dibay-registration-address-title"
       descriptionId="dibay-registration-address-desc"
       footer={
-        <>
-          <button
-            type="button"
-            onClick={onRegister}
-            className={DIBAY_ONBOARDING_PRIMARY_BTN}
-            data-testid="registration-address-start"
-          >
-            {t("auth_reg_address_cta")}
-          </button>
-          <RegistrationStepLaterButton onLater={onLater} />
-        </>
+        <button
+          type="button"
+          onClick={onRegister}
+          className={DIBAY_ONBOARDING_PRIMARY_BTN}
+          data-testid="registration-address-start"
+        >
+          {t("auth_reg_address_cta")}
+        </button>
       }
     >
       <RegistrationStepEscape />
