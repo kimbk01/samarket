@@ -8,7 +8,13 @@ import {
   type AdminActionQueueCategory,
   type AdminActionQueueCategoryResult,
 } from "@/lib/admin/admin-action-queue-registry";
-import { buildAdminActionQueueCountsRpcParams } from "@/lib/admin/admin-action-queue";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  buildAdminActionQueueCountsRpcParams,
+  DELIVERY_AD_ACTIONABLE_BUCKETS,
+  DELIVERY_ALERT_ADMIN_ACTIONABLE_STATUSES,
+} from "@/lib/admin/admin-action-queue";
 import { POINT_CHARGE_OPEN_STATUSES } from "@/lib/points/admin-point-charge-list-query";
 import { adminMenu, filterMenuForPublicSidebar, type AdminMenuItem } from "@/components/admin/admin-menu";
 
@@ -83,6 +89,21 @@ describe("Admin Action Queue — count = CTA list (감사 2026-11-24)", () => {
     expect(hrefStatus(getAdminActionQueueCategoryDef("partner_pending").listHref!)).toBe(p.partner_status);
     expect(hrefStatus(getAdminActionQueueCategoryDef("store_reports").listHref!)).toBe(p.store_report_status);
     expect(hrefStatus(getAdminActionQueueCategoryDef("store_inquiry_open").listHref!)).toBe(p.store_inquiry_status);
+  });
+
+  it("delivery alerts / delivery ads count the same set the list's default view shows (단계 2)", () => {
+    const p = buildAdminActionQueueCountsRpcParams(new Date("2026-11-24T00:00:00Z"));
+    expect(p.delivery_alert_statuses).toEqual([...DELIVERY_ALERT_ADMIN_ACTIONABLE_STATUSES]);
+    const alertsRoute = readFileSync(join(process.cwd(), "app/api/admin/delivery-operation-alerts/route.ts"), "utf8");
+    expect(alertsRoute).toContain('evQ.in("event_status", ["open", "acknowledged", "muted"])');
+    // 허브 view=actionable = list_bucket needs_creative·review (admin_delivery_ad_campaigns_page) — 숫자도 같은 버킷
+    expect([...DELIVERY_AD_ACTIONABLE_BUCKETS]).toEqual(["needs_creative", "review"]);
+    const migration = readFileSync(
+      join(process.cwd(), "supabase/migrations/20271124120000_admin_action_queue_count_list_parity.sql"),
+      "utf8"
+    );
+    expect(migration).toContain("i.list_bucket in ('needs_creative', 'review')");
+    expect(p.delivery_ad_pending_asset).toBe("delivery-ads/pending/admin-production");
   });
 
   it("requiredPermission mirrors the list API permission", () => {

@@ -22,7 +22,7 @@ function fakeSb(results: Record<string, Result>, calls: { table: string; ops: st
       const rec = { table, ops: [] as string[] };
       calls.push(rec);
       const builder: Record<string, unknown> = {};
-      for (const op of ["select", "eq", "in", "or", "limit", "neq", "not", "gte"]) {
+      for (const op of ["select", "eq", "in", "or", "limit", "neq", "not", "gte", "is"]) {
         builder[op] = (...args: unknown[]) => {
           rec.ops.push(`${op}:${JSON.stringify(args)}`);
           return builder;
@@ -32,6 +32,10 @@ function fakeSb(results: Record<string, Result>, calls: { table: string; ops: st
         resolve(results[table] ?? { count: 0, data: [], error: null });
       return builder;
     },
+    /** 처리 대기 RPC 는 없는 것으로(→ 표별 조회) · 표별 조회 안의 배달 광고 index 함수만 `rpc:<이름>` 결과. */
+    async rpc(name: string) {
+      return results[`rpc:${name}`] ?? { data: null, error: { message: `rpc_not_faked:${name}` } };
+    },
   } as never;
 }
 
@@ -39,7 +43,17 @@ const PROD_SNAPSHOT: Record<string, Result> = {
   // Direct-pay model: admin settlement work = cancel/refund commission reviews only.
   store_sale_fee_obligations: { count: 1, error: null },
   store_orders: { count: 63, error: null },
-  delivery_ad_operations_cases: { count: 8, error: null },
+  // 배달 광고 처리 대기 = 허브 view=actionable 버킷(needs_creative·review) 8건 · 종료·미결제는 제외 (2026-11-24)
+  "rpc:admin_delivery_ad_campaign_index": {
+    data: [
+      ...Array.from({ length: 6 }, () => ({ list_bucket: "review" })),
+      ...Array.from({ length: 2 }, () => ({ list_bucket: "needs_creative" })),
+      { list_bucket: "ended" },
+      { list_bucket: "review_unfunded" },
+      { list_bucket: null },
+    ],
+    error: null,
+  },
   reports: { count: 2, error: null },
   community_messenger_reports: { count: 0, error: null },
   store_inquiries: { count: 4, error: null },

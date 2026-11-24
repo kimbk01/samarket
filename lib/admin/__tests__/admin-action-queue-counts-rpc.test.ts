@@ -17,7 +17,7 @@ function legacyClient(counts: Record<string, number>, calls: string[]) {
       calls.push(table);
       return Promise.resolve({ count: counts[table] ?? 0, error: null, data: [] });
     };
-    for (const m of ["select", "eq", "in", "or", "gte", "limit"]) {
+    for (const m of ["select", "eq", "in", "or", "gte", "limit", "is", "neq"]) {
       c[m] = () => c;
     }
     (c as { then: unknown }).then = (res: (v: unknown) => unknown, rej: (e: unknown) => unknown) => done().then(res, rej);
@@ -58,7 +58,9 @@ describe("admin action queue counts via RPC", () => {
     const rpc = vi.fn(async () => ({ data: null, error: { message: "boom" } }));
     const sb = { ...legacyClient({ reports: 3 }, calls), rpc } as unknown as SupabaseClient<any>;
     const r = await loadAdminActionQueueCounts({ storesSb: sb, notesSb: sb });
-    expect(calls.length).toBeGreaterThanOrEqual(19);
+    // 표 18개 + 배달 광고 = 허브 index 함수(rpc) 1번 (2026-11-24 — 처리 대기 = 허브 actionable)
+    expect(calls.length).toBeGreaterThanOrEqual(18);
+    expect(rpc.mock.calls.map((c) => (c as unknown[])[0])).toContain("admin_delivery_ad_campaign_index");
     const byKey = Object.fromEntries(r.categories.map((c) => [c.key, c]));
     expect(byKey.reports).toMatchObject({ status: "ok", count: 3 });
   });
@@ -70,7 +72,8 @@ describe("admin action queue counts via RPC", () => {
     });
     const sb = { ...legacyClient({ reports: 2 }, calls), rpc } as unknown as SupabaseClient<any>;
     const r = await loadAdminActionQueueCounts({ storesSb: sb, notesSb: sb });
-    expect(calls.length).toBeGreaterThanOrEqual(19);
+    expect(calls.length).toBeGreaterThanOrEqual(18);
+    expect(Object.fromEntries(r.categories.map((c) => [c.key, c])).delivery_ad_ops?.status).toBe("unavailable");
     expect(Object.fromEntries(r.categories.map((c) => [c.key, c])).reports).toMatchObject({ status: "ok", count: 2 });
   });
 
