@@ -467,3 +467,185 @@ export async function getMessengerNativeSaveAlbum(): Promise<MessengerNativeSave
     return null;
   }
 }
+
+/* ───────────────────────── 채팅 영상 (설계 messenger-video-send-audit-design-2026-11-24 §3-6·§3-7) ─────────────────────────
+ * 새 바이너리만 있는 메서드: pickPhotos({ includeVideos }) 의 `videos` · prepareVideo · uploadPreparedVideo · cancelVideo · releaseVideo.
+ * 헤더에 `prepareVideo` 가 **있을 때만** 부른다(구 바이너리 = 웹 대체 경로).
+ * 영상 바이트는 웹으로 넘어오지 않는다 — 네이티브가 압축하고 서명 URL 로 직접 PUT 한다(브리지 base64 없음).
+ */
+
+/** 네이티브 선택기에서 고른 영상(아직 압축 전) */
+export type MessengerNativePickedVideo = {
+  /** 네이티브 등록 id — prepareVideo 에 넘긴다 */
+  id: string;
+  durationMs: number;
+  width: number | null;
+  height: number | null;
+  sizeBytes: number;
+  thumbnailDataUrl: string;
+};
+
+/** 압축·썸네일까지 끝난 영상(네이티브 임시 파일) */
+export type MessengerNativePreparedVideo = {
+  handle: string;
+  sizeBytes: number;
+  durationMs: number;
+  width: number | null;
+  height: number | null;
+  /** 실제로 다시 인코딩했는가(이미 목표 이하인 mp4 는 복사만) */
+  transcoded: boolean;
+};
+
+export type MessengerNativeVideoProgress = {
+  id: string;
+  phase: "transcode" | "upload";
+  progress: number;
+};
+
+export function isMessengerNativeVideoSupported(): boolean {
+  return isMessengerPhotoLibraryNativeAvailable() && messengerPhotoLibraryHeaderHasMethod("prepareVideo") === true;
+}
+
+function invokeVideoMethod<T>(method: string, options: Record<string, unknown>): Promise<T> {
+  if (messengerPhotoLibraryHeaderHasMethod(method) !== true) {
+    return Promise.reject(new Error(`MessengerPhotoLibrary.${method} is not implemented in this binary`));
+  }
+  const nativePromise = readCapacitorWindow()?.Capacitor?.nativePromise;
+  if (typeof nativePromise === "function") {
+    return nativePromise(MESSENGER_PHOTO_LIBRARY_PLUGIN_ID, method, options) as Promise<T>;
+  }
+  const fn = (MessengerPhotoLibrary as unknown as Record<string, (o: Record<string, unknown>) => Promise<T>>)[method];
+  return typeof fn === "function" ? fn(options) : Promise.reject(new Error("bridge_unavailable"));
+}
+
+function normalizePickedVideos(raw: unknown): MessengerNativePickedVideo[] {
+  if (!Array.isArray(raw)) return [];
+  const out: MessengerNativePickedVideo[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const r = row as Record<string, unknown>;
+    const id = typeof r.id === "string" ? r.id : "";
+    const durationMs = Number(r.durationMs);
+    const sizeBytes = Number(r.sizeBytes);
+    const thumb = typeof r.thumbnailDataUrl === "string" ? r.thumbnailDataUrl : "";
+    if (!id || !thumb.startsWith("data:image/")) continue;
+    const w = Number(r.width);
+    const h = Number(r.height);
+    out.push({
+      id,
+      durationMs: Number.isFinite(durationMs) && durationMs > 0 ? Math.round(durationMs) : 0,
+      width: w > 0 ? Math.round(w) : null,
+      height: h > 0 ? Math.round(h) : null,
+      sizeBytes: Number.isFinite(sizeBytes) && sizeBytes > 0 ? Math.round(sizeBytes) : 0,
+      thumbnailDataUrl: thumb,
+    });
+  }
+  return out;
+}
+
+/** 사진·동영상 함께 고르기 — 사진은 지금과 같은 payload, 영상은 등록 id·메타만. */
+export async function pickPhotosAndVideos(
+  max: number
+): Promise<MessengerPhotoLibraryResult & { videos: MessengerNativePickedVideo[] }> {
+  if (!(await ensureMessengerPhotoLibraryBridgeReady())) return { ...EMPTY_RESULT(), videos: [] };
+  try {
+    const result = await invokeVideoMethod<{
+      photos?: MessengerPhotoLibraryPayload[];
+      videos?: unknown;
+      failed?: unknown;
+      cancelled?: boolean;
+    }>("pickPhotos", { max, includeVideos: true });
+    return {
+      photos: Array.isArray(result.photos) ? result.photos : [],
+      failed: normalizeMessengerPhotoLibraryFailures(result.failed),
+      videos: normalizePickedVideos(result.videos),
+    };
+  } catch {
+    return { ...EMPTY_RESULT(), videos: [] };
+  }
+}
+
+type VideoProgressListener = (e: MessengerNativeVideoProgress) => void;
+const videoProgressListeners = new Set<VideoProgressListener>();
+let videoProgressSubscribed = false;
+
+function ensureVideoProgressSubscription(): void {
+  if (videoProgressSubscribed) return;
+  videoProgressSubscribed = true;
+  try {
+    void (MessengerPhotoLibrary as unknown as {
+      addListener: (name: string, cb: (e: unknown) => void) => Promise<unknown>;
+    }).addListener("videoProgress", (raw) => {
+      const r = (raw ?? {}) as Record<string, unknown>;
+      const id = typeof r.id === "string" ? r.id : "";
+      const phase = r.phase === "upload" ? "upload" : "transcode";
+      const progress = Number(r.progress);
+      if (!id || !Number.isFinite(progress)) return;
+      for (const cb of videoProgressListeners) cb({ id, phase, progress });
+    });
+  } catch {
+    videoProgressSubscribed = false;
+  }
+}
+
+export function onMessengerNativeVideoProgress(cb: VideoProgressListener): () => void {
+  ensureVideoProgressSubscription();
+  videoProgressListeners.add(cb);
+  return () => videoProgressListeners.delete(cb);
+}
+
+/** 압축 + 썸네일(JPEG). 진행률은 `videoProgress` {id, phase:"transcode"}. 취소 = cancelVideo({ id }). */
+export async function prepareMessengerNativeVideo(id: string): Promise<MessengerNativePreparedVideo | null> {
+  try {
+    const r = await invokeVideoMethod<Record<string, unknown>>("prepareVideo", { id });
+    const handle = typeof r.handle === "string" ? r.handle : "";
+    const sizeBytes = Number(r.sizeBytes);
+    const durationMs = Number(r.durationMs);
+    if (!handle || !(sizeBytes > 0) || !(durationMs > 0)) return null;
+    const w = Number(r.width);
+    const h = Number(r.height);
+    return {
+      handle,
+      sizeBytes: Math.round(sizeBytes),
+      durationMs: Math.round(durationMs),
+      width: w > 0 ? Math.round(w) : null,
+      height: h > 0 ? Math.round(h) : null,
+      transcoded: r.transcoded === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** 서명 URL 로 직접 PUT(영상·썸네일). 진행률 `videoProgress` {id: handle, phase:"upload"}. */
+export async function uploadMessengerNativePreparedVideo(input: {
+  handle: string;
+  videoSignedUrl: string;
+  thumbSignedUrl: string;
+  videoContentType: string;
+}): Promise<{ ok: boolean; cancelled?: boolean }> {
+  try {
+    const r = await invokeVideoMethod<Record<string, unknown>>("uploadPreparedVideo", input);
+    return { ok: r.ok === true, cancelled: r.cancelled === true };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** 압축·업로드 중단(id = 선택 id 또는 handle). */
+export async function cancelMessengerNativeVideo(id: string): Promise<void> {
+  try {
+    await invokeVideoMethod("cancelVideo", { id });
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 임시 파일 삭제(성공·포기 후 반드시). */
+export async function releaseMessengerNativeVideo(id: string): Promise<void> {
+  try {
+    await invokeVideoMethod("releaseVideo", { id });
+  } catch {
+    /* ignore */
+  }
+}

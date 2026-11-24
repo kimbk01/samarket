@@ -14,6 +14,7 @@ const BACK_REGISTERED =
 /** 등록하지 않는 이유가 있는 곳 — 새 창을 여기에 넣으려면 이유가 있어야 한다. */
 const EXEMPT: Record<string, string> = {
   "components/common/media/DibayImageViewer.tsx": "자체 기록(pushState) — ◁ 가 popstate 로 이미 닫음",
+  "components/community-messenger/room/MessengerVideoViewer.tsx": "자체 기록(pushState) — ◁ 가 popstate 로 이미 닫음(사진 뷰어와 같은 패턴 · 2026-11-24 채팅 영상)",
   "components/philife/PhilifeMessengerFromHeaderStack.tsx": "주소 경로로 열고 닫음 — ◁(웹 뒤로)로 이미 닫힘",
   "components/trade/TradeHistoryFromHeaderStack.tsx": "주소 경로로 열고 닫음 — ◁(웹 뒤로)로 이미 닫힘",
   "components/chats/TradeChatEntryCreatingOverlay.tsx": "사용자가 닫을 수 없는 진행 표시(닫기 없음)",

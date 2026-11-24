@@ -102,6 +102,10 @@ export function cmLastPreviewImage(): string {
   return cmServiceT("cm_home_preview_photo");
 }
 
+export function cmLastPreviewVideo(): string {
+  return cmServiceT("cm_home_preview_video");
+}
+
 export function cmLastPreviewFile(fileName?: string): string {
   const name = (fileName ?? "").trim();
   return name

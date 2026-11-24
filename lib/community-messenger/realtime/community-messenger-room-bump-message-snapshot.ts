@@ -16,6 +16,7 @@ const ALLOWED_TYPES: ReadonlySet<CommunityMessengerMessageType> = new Set([
   "call_stub",
   "community_post_share",
   "gift_certificate",
+  "video",
 ]);
 
 /** 서버→Realtime bump 페이로드용 — 수신 측은 `parseCommunityMessengerBumpMessageSnapshot` 으로 검증 후 병합 */

@@ -1,3 +1,4 @@
+import AVFoundation
 import Capacitor
 import Foundation
 import ImageIO
@@ -23,9 +24,18 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
     CAPPluginMethod(name: "getSaveCapabilities", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "saveImages", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "openAppSettings", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "prepareVideo", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "uploadPreparedVideo", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "cancelVideo", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "releaseVideo", returnType: CAPPluginReturnPromise),
   ]
 
   private var pendingPickCall: CAPPluginCall?
+  /// 채팅 영상 — pickPhotos({ includeVideos: true }) 일 때만 true
+  private var pendingPickIncludesVideos = false
+  private lazy var videoPrep = MessengerVideoPrep { [weak self] id, phase, progress in
+    self?.notifyListeners("videoProgress", data: ["id": id, "phase": phase, "progress": progress])
+  }
   private let thumbMaxPx: CGFloat = 256
   private let fullMaxEdge: CGFloat = 1920
   /// 전체 접근(.readWrite == .authorized)이 이미 있을 때만 쓰는 사용자 앨범 이름.
@@ -308,8 +318,10 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
         return
       }
       self.pendingPickCall = call
+      let includeVideos = call.getBool("includeVideos") ?? false
+      self.pendingPickIncludesVideos = includeVideos
       var config = PHPickerConfiguration(photoLibrary: .shared())
-      config.filter = .images
+      config.filter = includeVideos ? .any(of: [.images, .videos]) : .images
       config.selectionLimit = maxCount
       if #available(iOS 15, *) {
         config.selection = .ordered
@@ -323,6 +335,57 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
       }
       vc.present(picker, animated: true)
     }
+  }
+
+
+  // MARK: 채팅 영상 메서드 (설계 messenger-video-send-audit-design-2026-11-24)
+
+  /// 압축(또는 복사) + 썸네일. resolve {handle, sizeBytes, durationMs, width, height, transcoded}
+  @objc func prepareVideo(_ call: CAPPluginCall) {
+    guard let id = call.getString("id") else {
+      call.reject("bad_args")
+      return
+    }
+    videoPrep.prepare(id) { entry, error in
+      guard let e = entry, let video = e.video else {
+        call.reject(error ?? "prepare_failed")
+        return
+      }
+      let meta = self.videoPrep.outputMeta(video)
+      call.resolve([
+        "handle": e.id,
+        "sizeBytes": self.videoPrep.fileSize(video),
+        "durationMs": meta.0 > 0 ? meta.0 : e.durationMs,
+        "width": meta.1 > 0 ? meta.1 : e.width,
+        "height": meta.2 > 0 ? meta.2 : e.height,
+        "transcoded": e.transcoded,
+      ])
+    }
+  }
+
+  /// 서명 URL 로 썸네일·영상 직접 PUT. resolve {ok, cancelled}
+  @objc func uploadPreparedVideo(_ call: CAPPluginCall) {
+    guard let handle = call.getString("handle"),
+          let v = call.getString("videoSignedUrl").flatMap({ URL(string: $0) }),
+          let t = call.getString("thumbSignedUrl").flatMap({ URL(string: $0) })
+    else {
+      call.reject("bad_args")
+      return
+    }
+    let contentType = call.getString("videoContentType") ?? "video/mp4"
+    videoPrep.upload(handle, videoURL: v, thumbURL: t, videoContentType: contentType) { ok, cancelled in
+      call.resolve(["ok": ok, "cancelled": cancelled])
+    }
+  }
+
+  @objc func cancelVideo(_ call: CAPPluginCall) {
+    videoPrep.cancel(call.getString("id"))
+    call.resolve()
+  }
+
+  @objc func releaseVideo(_ call: CAPPluginCall) {
+    videoPrep.release(call.getString("id"))
+    call.resolve()
   }
 
   @objc func resolvePhotos(_ call: CAPPluginCall) {
@@ -362,6 +425,8 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
     picker.dismiss(animated: true)
     guard let call = pendingPickCall else { return }
     pendingPickCall = nil
+    let includeVideos = pendingPickIncludesVideos
+    pendingPickIncludesVideos = false
     if results.isEmpty {
       call.resolve(["photos": [], "cancelled": true])
       return
@@ -369,8 +434,33 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
     let group = DispatchGroup()
     var ordered: [(Int, [String: Any])] = []
     var failedRows: [(Int, String)] = []
+    var videoRows: [(Int, [String: Any])] = []
     let lock = NSLock()
     for (idx, result) in results.enumerated() {
+      let provider = result.itemProvider
+      if includeVideos && provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
+        group.enter()
+        provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { url, _ in
+          // 임시 파일은 이 콜백 안에서만 유효 — register 가 작업 폴더로 복사한다.
+          let registered = url.flatMap { self.videoPrep.register(tempFile: $0) }
+          lock.lock()
+          if let (entry, thumb) = registered {
+            videoRows.append((idx, [
+              "id": entry.id,
+              "durationMs": entry.durationMs,
+              "width": entry.width,
+              "height": entry.height,
+              "sizeBytes": entry.sourceBytes,
+              "thumbnailDataUrl": thumb,
+            ]))
+          } else {
+            failedRows.append((idx, "video_unreadable"))
+          }
+          lock.unlock()
+          group.leave()
+        }
+        continue
+      }
       group.enter()
       loadPickedImagePayload(result.itemProvider, baseName: "pick-\(idx)") { payload, reason in
         lock.lock()
@@ -388,11 +478,15 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
       let failed: [[String: Any]] = failedRows
         .sorted { $0.0 < $1.0 }
         .map { ["index": $0.0, "reason": $0.1] }
-      call.resolve([
+      var out: [String: Any] = [
         "photos": photos,
         "failed": failed,
-        "cancelled": photos.isEmpty && failed.isEmpty,
-      ])
+        "cancelled": photos.isEmpty && failed.isEmpty && videoRows.isEmpty,
+      ]
+      if includeVideos {
+        out["videos"] = videoRows.sorted { $0.0 < $1.0 }.map { $0.1 }
+      }
+      call.resolve(out)
     }
   }
 
@@ -617,5 +711,421 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
     let out = UIGraphicsGetImageFromCurrentImageContext()
     UIGraphicsEndImageContext()
     return out ?? image
+  }
+}
+
+// MARK: - 채팅 영상 (docs/audit/messenger-video-send-audit-design-2026-11-24.md §3-4·§3-6 · Owner 2026-11-24 승인 O1)
+//
+// 고른 영상 등록 · 압축(AVAssetReader/Writer, H.264 2Mbps · 긴 변 1280 · AAC 128kbps mp4) · 썸네일 JPEG · 서명 URL 직접 PUT.
+// 값은 웹 SSOT `lib/community-messenger/upload/messenger-video-upload-policy.ts` 와 같다.
+// 누수 계약: 영상 바이트는 웹(브리지)으로 넘기지 않는다. 임시 파일은 tmp/messenger-video 아래에만 두고 releaseVideo 에서 지운다.
+// 앱 시작 때 1시간 지난 남은 파일도 지운다(앱 종료로 release 를 못 한 경우).
+
+final class MessengerVideoPrep: NSObject {
+  static let maxLongEdge: CGFloat = 1280
+  static let videoBitrate = 2_000_000
+  static let audioBitrate = 128_000
+  static let thumbMaxEdge: CGFloat = 480
+  static let thumbMaxBytes = 512 * 1024
+  static let pickThumbEdge: CGFloat = 256
+  /// 이 이하(바이트/초)인 H.264 mp4 는 다시 인코딩하지 않고 복사만 — 영상 2Mbps + 음성 128kbps + 10% 여유
+  static let passthroughMaxBytesPerSec = Double(videoBitrate + audioBitrate) / 8 * 1.1
+  private static let staleSeconds: TimeInterval = 60 * 60
+
+  final class Entry {
+    let id: String
+    let source: URL
+    let sourceExt: String
+    let sourceBytes: Int64
+    let durationMs: Int64
+    let width: Int
+    let height: Int
+    var video: URL?
+    var thumb: URL?
+    var transcoded = false
+    var cancelled = false
+    var reader: AVAssetReader?
+    var writer: AVAssetWriter?
+    var task: URLSessionTask?
+
+    init(id: String, source: URL, sourceExt: String, sourceBytes: Int64, durationMs: Int64, width: Int, height: Int) {
+      self.id = id
+      self.source = source
+      self.sourceExt = sourceExt
+      self.sourceBytes = sourceBytes
+      self.durationMs = durationMs
+      self.width = width
+      self.height = height
+    }
+  }
+
+  private var entries: [String: Entry] = [:]
+  private let lock = NSLock()
+  private let emit: (String, String, Double) -> Void
+  private let work = DispatchQueue(label: "dibay.messenger.video", qos: .userInitiated)
+  private var progressObservations: [String: NSKeyValueObservation] = [:]
+
+  init(emit: @escaping (String, String, Double) -> Void) {
+    self.emit = emit
+    super.init()
+    work.async { self.deleteStaleFiles() }
+  }
+
+  private func workDir() -> URL {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("messenger-video", isDirectory: true)
+    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    return dir
+  }
+
+  private func deleteStaleFiles() {
+    let dir = workDir()
+    guard let files = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey]) else { return }
+    let cutoff = Date().addingTimeInterval(-MessengerVideoPrep.staleSeconds)
+    for f in files {
+      let m = (try? f.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date()
+      if m < cutoff { try? FileManager.default.removeItem(at: f) }
+    }
+  }
+
+  func get(_ id: String?) -> Entry? {
+    guard let id = id else { return nil }
+    lock.lock()
+    defer { lock.unlock() }
+    return entries[id]
+  }
+
+  /// 선택기 임시 파일(콜백 안에서만 유효)을 작업 폴더로 복사하고 메타·작은 썸네일을 읽는다.
+  func register(tempFile: URL) -> (Entry, String)? {
+    let id = UUID().uuidString.lowercased()
+    let ext = tempFile.pathExtension.lowercased().isEmpty ? "mov" : tempFile.pathExtension.lowercased()
+    let dest = workDir().appendingPathComponent("\(id).src.\(ext)")
+    do {
+      try FileManager.default.copyItem(at: tempFile, to: dest)
+    } catch {
+      return nil
+    }
+    let asset = AVURLAsset(url: dest)
+    let seconds = CMTimeGetSeconds(asset.duration)
+    guard seconds.isFinite, seconds > 0, let track = asset.tracks(withMediaType: .video).first else {
+      try? FileManager.default.removeItem(at: dest)
+      return nil
+    }
+    let size = track.naturalSize.applying(track.preferredTransform)
+    let w = Int(abs(size.width).rounded())
+    let h = Int(abs(size.height).rounded())
+    guard let thumb = frame(asset, maxEdge: MessengerVideoPrep.pickThumbEdge),
+          let data = thumb.jpegData(compressionQuality: 0.72)
+    else {
+      try? FileManager.default.removeItem(at: dest)
+      return nil
+    }
+    let bytes = (try? FileManager.default.attributesOfItem(atPath: dest.path)[.size] as? NSNumber)?.int64Value ?? 0
+    let e = Entry(id: id, source: dest, sourceExt: ext, sourceBytes: bytes, durationMs: Int64(seconds * 1000), width: w, height: h)
+    lock.lock()
+    entries[id] = e
+    lock.unlock()
+    return (e, "data:image/jpeg;base64,\(data.base64EncodedString())")
+  }
+
+  private func frame(_ asset: AVAsset, maxEdge: CGFloat) -> UIImage? {
+    let gen = AVAssetImageGenerator(asset: asset)
+    gen.appliesPreferredTrackTransform = true
+    gen.maximumSize = CGSize(width: maxEdge, height: maxEdge)
+    let t = CMTime(seconds: min(0.1, max(0, CMTimeGetSeconds(asset.duration) / 100)), preferredTimescale: 600)
+    guard let cg = try? gen.copyCGImage(at: t, actualTime: nil) else { return nil }
+    return UIImage(cgImage: cg)
+  }
+
+  private func isH264(_ track: AVAssetTrack) -> Bool {
+    guard let desc = track.formatDescriptions.first else { return false }
+    // swiftlint:disable:next force_cast
+    return CMFormatDescriptionGetMediaSubType(desc as! CMFormatDescription) == kCMVideoCodecType_H264
+  }
+
+  /// 압축(또는 복사) + 썸네일. completion 은 메인 스레드.
+  func prepare(_ id: String, completion: @escaping (Entry?, String?) -> Void) {
+    guard let e = get(id) else {
+      completion(nil, "not_found")
+      return
+    }
+    if let v = e.video, let t = e.thumb, FileManager.default.fileExists(atPath: v.path), FileManager.default.fileExists(atPath: t.path) {
+      completion(e, nil)
+      return
+    }
+    e.cancelled = false
+    work.async {
+      let out = self.workDir().appendingPathComponent("\(e.id).mp4")
+      try? FileManager.default.removeItem(at: out)
+      let asset = AVURLAsset(url: e.source)
+      guard let vTrack = asset.tracks(withMediaType: .video).first else {
+        DispatchQueue.main.async { completion(nil, "no_video_track") }
+        return
+      }
+      let bytesPerSec = e.durationMs > 0 ? Double(e.sourceBytes) * 1000 / Double(e.durationMs) : .infinity
+      let passthrough = e.sourceExt == "mp4"
+        && CGFloat(max(e.width, e.height)) <= MessengerVideoPrep.maxLongEdge
+        && bytesPerSec <= MessengerVideoPrep.passthroughMaxBytesPerSec
+        && self.isH264(vTrack)
+      var ok: Bool
+      if passthrough {
+        ok = (try? FileManager.default.copyItem(at: e.source, to: out)) != nil
+        e.transcoded = false
+      } else {
+        ok = self.transcode(e, asset: asset, videoTrack: vTrack, out: out)
+        e.transcoded = true
+      }
+      if ok && !e.cancelled { ok = self.writeThumb(e, video: out) }
+      if ok && !e.cancelled {
+        e.video = out
+      } else {
+        try? FileManager.default.removeItem(at: out)
+      }
+      let err: String? = (ok && !e.cancelled) ? nil : (e.cancelled ? "cancelled" : "transcode_failed")
+      DispatchQueue.main.async { completion(err == nil ? e : nil, err) }
+    }
+  }
+
+  private func transcode(_ e: Entry, asset: AVAsset, videoTrack: AVAssetTrack, out: URL) -> Bool {
+    guard let reader = try? AVAssetReader(asset: asset),
+          let writer = try? AVAssetWriter(outputURL: out, fileType: .mp4)
+    else { return false }
+    e.reader = reader
+    e.writer = writer
+    defer {
+      e.reader = nil
+      e.writer = nil
+    }
+    let natural = videoTrack.naturalSize
+    let longEdge = max(natural.width, natural.height)
+    let scale = min(1, MessengerVideoPrep.maxLongEdge / max(1, longEdge))
+    func even(_ v: CGFloat) -> Int { let i = max(2, Int(v.rounded())); return i % 2 == 0 ? i : i - 1 }
+    let tw = even(natural.width * scale)
+    let th = even(natural.height * scale)
+
+    let vOut = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: [
+      kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+    ])
+    vOut.alwaysCopiesSampleData = false
+    guard reader.canAdd(vOut) else { return false }
+    reader.add(vOut)
+    let vIn = AVAssetWriterInput(mediaType: .video, outputSettings: [
+      AVVideoCodecKey: AVVideoCodecType.h264,
+      AVVideoWidthKey: tw,
+      AVVideoHeightKey: th,
+      AVVideoScalingModeKey: AVVideoScalingModeResizeAspect,
+      AVVideoCompressionPropertiesKey: [
+        AVVideoAverageBitRateKey: MessengerVideoPrep.videoBitrate,
+        AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
+      ],
+    ])
+    vIn.expectsMediaDataInRealTime = false
+    /// 회전은 메타데이터로 유지(재생기가 적용) — 픽셀을 돌리지 않는다.
+    vIn.transform = videoTrack.preferredTransform
+    guard writer.canAdd(vIn) else { return false }
+    writer.add(vIn)
+
+    var aOut: AVAssetReaderTrackOutput?
+    var aIn: AVAssetWriterInput?
+    if let aTrack = asset.tracks(withMediaType: .audio).first {
+      var channels = 2
+      if let d = aTrack.formatDescriptions.first,
+         // swiftlint:disable:next force_cast
+         let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(d as! CMAudioFormatDescription)?.pointee
+      {
+        channels = max(1, min(2, Int(asbd.mChannelsPerFrame)))
+      }
+      let ro = AVAssetReaderTrackOutput(track: aTrack, outputSettings: [
+        AVFormatIDKey: kAudioFormatLinearPCM,
+        AVSampleRateKey: 44_100,
+        AVNumberOfChannelsKey: channels,
+      ])
+      let wi = AVAssetWriterInput(mediaType: .audio, outputSettings: [
+        AVFormatIDKey: kAudioFormatMPEG4AAC,
+        AVSampleRateKey: 44_100,
+        AVNumberOfChannelsKey: channels,
+        AVEncoderBitRateKey: MessengerVideoPrep.audioBitrate,
+      ])
+      wi.expectsMediaDataInRealTime = false
+      if reader.canAdd(ro) && writer.canAdd(wi) {
+        reader.add(ro)
+        writer.add(wi)
+        aOut = ro
+        aIn = wi
+      }
+    }
+    writer.shouldOptimizeForNetworkUse = true
+    guard reader.startReading(), writer.startWriting() else { return false }
+    writer.startSession(atSourceTime: .zero)
+
+    let group = DispatchGroup()
+    let total = max(0.001, CMTimeGetSeconds(asset.duration))
+    var lastPct = -1
+    group.enter()
+    let vq = DispatchQueue(label: "dibay.messenger.video.v")
+    vIn.requestMediaDataWhenReady(on: vq) {
+      while vIn.isReadyForMoreMediaData {
+        if e.cancelled {
+          reader.cancelReading()
+          vIn.markAsFinished()
+          group.leave()
+          return
+        }
+        guard let sample = vOut.copyNextSampleBuffer() else {
+          vIn.markAsFinished()
+          group.leave()
+          return
+        }
+        let pts = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sample))
+        let pct = Int(min(1, max(0, pts / total)) * 100)
+        if pct != lastPct {
+          lastPct = pct
+          self.emit(e.id, "transcode", Double(pct) / 100)
+        }
+        if !vIn.append(sample) {
+          reader.cancelReading()
+          vIn.markAsFinished()
+          group.leave()
+          return
+        }
+      }
+    }
+    if let aOut = aOut, let aIn = aIn {
+      group.enter()
+      let aq = DispatchQueue(label: "dibay.messenger.video.a")
+      aIn.requestMediaDataWhenReady(on: aq) {
+        while aIn.isReadyForMoreMediaData {
+          if e.cancelled {
+            aIn.markAsFinished()
+            group.leave()
+            return
+          }
+          guard let sample = aOut.copyNextSampleBuffer() else {
+            aIn.markAsFinished()
+            group.leave()
+            return
+          }
+          if !aIn.append(sample) {
+            aIn.markAsFinished()
+            group.leave()
+            return
+          }
+        }
+      }
+    }
+    group.wait()
+    if e.cancelled || reader.status == .failed {
+      writer.cancelWriting()
+      return false
+    }
+    let sem = DispatchSemaphore(value: 0)
+    writer.finishWriting { sem.signal() }
+    sem.wait()
+    return writer.status == .completed
+  }
+
+  /// 썸네일 JPEG(긴 변 480 이하, 512KB 이하) — 결과 영상의 0.1초 지점.
+  private func writeThumb(_ e: Entry, video: URL) -> Bool {
+    guard let img = frame(AVURLAsset(url: video), maxEdge: MessengerVideoPrep.thumbMaxEdge) else { return false }
+    var data: Data?
+    for q in [0.8, 0.6, 0.4] {
+      data = img.jpegData(compressionQuality: CGFloat(q))
+      if let d = data, d.count <= MessengerVideoPrep.thumbMaxBytes { break }
+    }
+    guard let d = data, d.count <= MessengerVideoPrep.thumbMaxBytes else { return false }
+    let url = workDir().appendingPathComponent("\(e.id).thumb.jpg")
+    do {
+      try d.write(to: url, options: .atomic)
+    } catch {
+      return false
+    }
+    e.thumb = url
+    return true
+  }
+
+  /// 결과 영상의 길이(ms)·표시 크기
+  func outputMeta(_ video: URL) -> (Int64, Int, Int) {
+    let asset = AVURLAsset(url: video)
+    let s = CMTimeGetSeconds(asset.duration)
+    guard let t = asset.tracks(withMediaType: .video).first else { return (0, 0, 0) }
+    let size = t.naturalSize.applying(t.preferredTransform)
+    return (s.isFinite ? Int64(s * 1000) : 0, Int(abs(size.width).rounded()), Int(abs(size.height).rounded()))
+  }
+
+  func fileSize(_ url: URL) -> Int64 {
+    (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.int64Value ?? 0
+  }
+
+  /// 서명 URL 로 썸네일 → 영상 PUT. 진행률 videoProgress {id, phase:"upload"}. completion(ok, cancelled) 메인 스레드.
+  func upload(_ id: String, videoURL: URL, thumbURL: URL, videoContentType: String, completion: @escaping (Bool, Bool) -> Void) {
+    guard let e = get(id), let video = e.video, let thumb = e.thumb else {
+      completion(false, false)
+      return
+    }
+    e.cancelled = false
+    put(e, url: thumbURL, file: thumb, contentType: "image/jpeg", report: false) { ok in
+      guard ok, !e.cancelled else {
+        DispatchQueue.main.async { completion(false, e.cancelled) }
+        return
+      }
+      self.put(e, url: videoURL, file: video, contentType: videoContentType, report: true) { ok2 in
+        DispatchQueue.main.async { completion(ok2 && !e.cancelled, e.cancelled) }
+      }
+    }
+  }
+
+  private func put(_ e: Entry, url: URL, file: URL, contentType: String, report: Bool, done: @escaping (Bool) -> Void) {
+    var req = URLRequest(url: url)
+    req.httpMethod = "PUT"
+    req.setValue(contentType, forHTTPHeaderField: "content-type")
+    req.setValue("false", forHTTPHeaderField: "x-upsert")
+    req.timeoutInterval = 60
+    let task = URLSession.shared.uploadTask(with: req, fromFile: file) { _, resp, err in
+      self.lock.lock()
+      self.progressObservations[e.id] = nil
+      self.lock.unlock()
+      e.task = nil
+      let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+      done(err == nil && code >= 200 && code < 300)
+    }
+    if report {
+      var lastPct = -1
+      let obs = task.progress.observe(\.fractionCompleted) { p, _ in
+        let pct = Int(p.fractionCompleted * 100)
+        if pct != lastPct {
+          lastPct = pct
+          self.emit(e.id, "upload", Double(pct) / 100)
+        }
+      }
+      lock.lock()
+      progressObservations[e.id] = obs
+      lock.unlock()
+    }
+    e.task = task
+    task.resume()
+  }
+
+  func cancel(_ id: String?) {
+    guard let e = get(id) else { return }
+    e.cancelled = true
+    e.task?.cancel()
+    e.reader?.cancelReading()
+  }
+
+  func release(_ id: String?) {
+    guard let id = id else { return }
+    lock.lock()
+    let e = entries.removeValue(forKey: id)
+    progressObservations[id] = nil
+    lock.unlock()
+    guard let entry = e else { return }
+    entry.cancelled = true
+    entry.task?.cancel()
+    entry.reader?.cancelReading()
+    work.async {
+      for u in [entry.video, entry.thumb, entry.source] {
+        if let u = u { try? FileManager.default.removeItem(at: u) }
+      }
+      try? FileManager.default.removeItem(at: self.workDir().appendingPathComponent("\(entry.id).mp4"))
+    }
   }
 }

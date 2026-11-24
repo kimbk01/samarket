@@ -13,7 +13,7 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
-import { Camera, Gift, Image as ImageIcon } from "lucide-react";
+import { Camera, Film, Gift, Image as ImageIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import {
@@ -41,6 +41,20 @@ import {
   type MessengerPhotoLibraryRecentPhoto,
 } from "@/lib/community-messenger/attachment/messenger-photo-library";
 import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/messenger-composer-outbound-busy";
+import {
+  isMessengerNativeVideoSupported,
+  pickPhotosAndVideos as pickMessengerPhotosAndVideos,
+  releaseMessengerNativeVideo,
+} from "@/lib/community-messenger/attachment/messenger-photo-library";
+import { isMessengerVideoFile, readMessengerWebVideo } from "@/lib/community-messenger/attachment/messenger-video-web";
+import type { MessengerVideoSendSource } from "@/lib/community-messenger/upload/messenger-video-upload-client";
+import {
+  formatMessengerVideoDuration,
+  MESSENGER_VIDEO_MAX_DURATION_MS,
+  MESSENGER_VIDEO_WEB_ACCEPT,
+  precheckMessengerVideo,
+} from "@/lib/community-messenger/upload/messenger-video-upload-policy";
+import { getMessengerRoomActionErrorMessage } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 
 export type CommunityMessengerAttachmentSheetProps = {
   roomUnavailable: boolean;
@@ -56,6 +70,8 @@ export type CommunityMessengerAttachmentSheetProps = {
    * 막지 않고 끝에 요약을 알린다(C-3, 루프 단일 구현은 컨트롤러).
    */
   onSendImages: (files: File[], previewUrls: string[], opts?: { individually?: boolean }) => Promise<void> | void;
+  /** 영상 — 1개 = 메시지 1건, 선택 순서대로. 넘긴 source 의 미리보기·네이티브 임시 파일 소유권은 받는 쪽으로 간다. */
+  onSendVideos: (sources: MessengerVideoSendSource[]) => Promise<void> | void;
   onOpenGift: () => void;
   onGiftFriendRequired: () => void;
   t: (key: MessageKey, vars?: Record<string, string | number>) => string;
@@ -80,7 +96,20 @@ type AttachmentStripItem =
       kind: "native";
       previewUrl: string;
       nativeId: string;
+    }
+  | {
+      id: string;
+      kind: "video";
+      previewUrl: string;
+      durationMs: number;
+      source: MessengerVideoSendSource;
     };
+
+/** 시트를 닫을 때 보내지 않은 영상의 미리보기·네이티브 임시 파일 해제 */
+function releaseUnsentVideo(source: MessengerVideoSendSource): void {
+  if (source.kind === "web") URL.revokeObjectURL(source.thumbUrl);
+  else void releaseMessengerNativeVideo(source.picked.id);
+}
 
 export function CommunityMessengerAttachmentSheet({
   roomUnavailable,
@@ -92,6 +121,7 @@ export function CommunityMessengerAttachmentSheet({
   peerIsFriend,
   onDismiss,
   onSendImages,
+  onSendVideos,
   onOpenGift,
   onGiftFriendRequired,
   t,
@@ -105,6 +135,17 @@ export function CommunityMessengerAttachmentSheet({
   const [photoPermissionState, setPhotoPermissionState] =
     useState<MessengerPhotoLibraryPermissionState>("unavailable");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  /** 이번 시트에서 고른 영상(최근 줄 앞쪽). 보내면 소유권이 컨트롤러로 넘어가 목록에서 빠진다. */
+  const [videoItems, setVideoItems] = useState<Extract<AttachmentStripItem, { kind: "video" }>[]>([]);
+  const videoItemsRef = useRef(videoItems);
+  videoItemsRef.current = videoItems;
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  useEffect(
+    () => () => {
+      for (const item of videoItemsRef.current) releaseUnsentVideo(item.source);
+    },
+    []
+  );
   const [sending, setSending] = useState(false);
   /** 여러 장 선택 시 묶어 보내기(앨범 1건) / 한 장씩 따로 보내기 — 마지막 선택을 기기에 기억 */
   const [sendAsAlbum, setSendAsAlbum] = useState<boolean>(() => readMessengerSendAsAlbumPreference());
@@ -195,8 +236,8 @@ export function CommunityMessengerAttachmentSheet({
       previewUrl: item.thumbnailDataUrl,
       nativeId: item.id,
     }));
-    return [...sessionItems, ...nativeItems];
-  }, [nativeRecent, recent]);
+    return [...videoItems, ...sessionItems, ...nativeItems];
+  }, [nativeRecent, recent, videoItems]);
 
   const selectedOrderIndex = useMemo(() => {
     const map = new Map<string, number>();
@@ -232,6 +273,55 @@ export function CommunityMessengerAttachmentSheet({
     [notifyAlbumPickMax, refreshRecent, uploadBlocked]
   );
 
+  const notifyVideoError = useCallback(
+    (error: string) => {
+      showMessengerSnackbar(getMessengerRoomActionErrorMessage(error, t), { variant: "error" });
+    },
+    [t]
+  );
+
+  /** 고른 영상 → 선택 줄에 추가하고 선택(보내기는 「보내기」 버튼). 상한 넘으면 해제하고 안내. */
+  const commitVideosToSelection = useCallback(
+    (sources: MessengerVideoSendSource[]) => {
+      if (sources.length === 0) return;
+      const room = MESSENGER_ATTACHMENT_ALBUM_PICK_MAX - selectedIdsRef.current.length;
+      const accepted = sources.slice(0, Math.max(0, room));
+      for (const src of sources.slice(accepted.length)) releaseUnsentVideo(src);
+      if (accepted.length < sources.length) notifyAlbumPickMax();
+      if (accepted.length === 0) return;
+      const added = accepted.map((source, i) => ({
+        id: `video:${Date.now()}:${i}:${source.kind === "web" ? source.file.name : source.picked.id}`,
+        kind: "video" as const,
+        previewUrl: source.kind === "web" ? source.thumbUrl : source.picked.thumbnailDataUrl,
+        durationMs: source.kind === "web" ? source.durationMs : source.picked.durationMs,
+        source,
+      }));
+      setVideoItems((prev) => [...added, ...prev]);
+      setSelectedIds((prev) =>
+        mergeAttachmentSelectedIds(
+          prev,
+          added.map((item) => item.id),
+          MESSENGER_ATTACHMENT_ALBUM_PICK_MAX
+        )
+      );
+    },
+    [notifyAlbumPickMax]
+  );
+
+  /** 웹 경로(구 바이너리·브라우저) 영상 파일 → 길이·썸네일 읽고 검사 */
+  const commitWebVideoFiles = useCallback(
+    async (files: File[]) => {
+      const sources: MessengerVideoSendSource[] = [];
+      for (const file of files) {
+        const read = await readMessengerWebVideo(file);
+        if (read.ok) sources.push(read.video);
+        else notifyVideoError(read.error);
+      }
+      commitVideosToSelection(sources);
+    },
+    [commitVideosToSelection, notifyVideoError]
+  );
+
   const onToggleRecent = useCallback(
     (id: string) => {
       if (uploadBlocked) return;
@@ -257,9 +347,16 @@ export function CommunityMessengerAttachmentSheet({
     const files: File[] = [];
     const previewUrls: string[] = [];
     const nativeIds: string[] = [];
+    const videos: MessengerVideoSendSource[] = [];
+    const sentVideoIds = new Set<string>();
     for (const id of selectedIds) {
       const item = byId.get(id);
       if (!item) continue;
+      if (item.kind === "video") {
+        videos.push(item.source);
+        sentVideoIds.add(item.id);
+        continue;
+      }
       if (item.kind === "session") {
         files.push(item.file);
         /**
@@ -280,17 +377,29 @@ export function CommunityMessengerAttachmentSheet({
         previewUrls.push(URL.createObjectURL(file));
       });
     }
-    if (files.length === 0) {
+    if (files.length === 0 && videos.length === 0) {
       sendingLockRef.current = false;
       setSending(false);
       return;
     }
+    /* 영상 소유권은 컨트롤러로 — 시트가 닫혀도 해제하지 않게 목록에서 먼저 뺀다 */
+    if (sentVideoIds.size > 0) {
+      const remaining = videoItemsRef.current.filter((item) => !sentVideoIds.has(item.id));
+      videoItemsRef.current = remaining;
+      setVideoItems(remaining);
+    }
     try {
-      if (sendAsAlbum || files.length === 1) {
-        await onSendImages(files, previewUrls);
-      } else {
-        /** 개별 전송 — 선택 순서대로 한 장씩 별도 메시지(각자 clientMessageId). 실패해도 나머지 계속. */
-        await onSendImages(files, previewUrls, { individually: true });
+      if (files.length > 0) {
+        if (sendAsAlbum || files.length === 1) {
+          await onSendImages(files, previewUrls);
+        } else {
+          /** 개별 전송 — 선택 순서대로 한 장씩 별도 메시지(각자 clientMessageId). 실패해도 나머지 계속. */
+          await onSendImages(files, previewUrls, { individually: true });
+        }
+      }
+      if (videos.length > 0) {
+        /* 사진 묶음 다음에 영상 — 영상은 업로드가 길어 기다리지 않고 시트를 닫는다 */
+        void onSendVideos(videos);
       }
       setSelectedIds([]);
       onDismiss();
@@ -298,19 +407,54 @@ export function CommunityMessengerAttachmentSheet({
       sendingLockRef.current = false;
       setSending(false);
     }
-  }, [notifyPhotoLoadFailed, onDismiss, onSendImages, selectedIds, sendAsAlbum, stripItems, uploadBlocked]);
+  }, [notifyPhotoLoadFailed, onDismiss, onSendImages, onSendVideos, selectedIds, sendAsAlbum, stripItems, uploadBlocked]);
 
   const onGalleryChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
-      const picked = Array.from(event.target.files ?? []).filter((f) => f.type.startsWith("image/"));
+      const all = Array.from(event.target.files ?? []);
       event.target.value = "";
-      commitPickedFilesToSelection(picked);
+      commitPickedFilesToSelection(all.filter((f) => f.type.startsWith("image/")));
+      const videos = all.filter((f) => !f.type.startsWith("image/") && isMessengerVideoFile(f));
+      if (videos.length > 0 && !uploadBlocked) void commitWebVideoFiles(videos);
     },
-    [commitPickedFilesToSelection]
+    [commitPickedFilesToSelection, commitWebVideoFiles, uploadBlocked]
+  );
+
+  /** 구 바이너리(네이티브 사진 선택기는 있으나 영상 압축 없음) 전용 — 웹 선택기로 영상만 */
+  const onVideoInputChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const videos = Array.from(event.target.files ?? []).filter((f) => isMessengerVideoFile(f));
+      event.target.value = "";
+      if (videos.length > 0 && !uploadBlocked) void commitWebVideoFiles(videos);
+    },
+    [commitWebVideoFiles, uploadBlocked]
   );
 
   const onNativePhotoPick = useCallback(async () => {
     if (uploadBlocked || sendingLockRef.current) return;
+    if (isMessengerNativeVideoSupported()) {
+      /** 새 바이너리 — 한 선택기에서 사진·동영상(영상은 압축 전 메타만, 보낼 때 네이티브가 압축) */
+      const { photos, failed, videos } = await pickMessengerPhotosAndVideos(MESSENGER_ATTACHMENT_ALBUM_PICK_MAX);
+      notifyPhotoLoadFailed(failed.length);
+      if (photos.length > 0) {
+        commitPickedFilesToSelection(photos.map((payload, index) => messengerPhotoPayloadToFile(payload, index)));
+      }
+      const accepted: MessengerVideoSendSource[] = [];
+      for (const picked of videos) {
+        /* 압축 전이라 크기는 보지 않는다(압축 후 서버·클라가 다시 검사) — 길이만 */
+        const pre = precheckMessengerVideo({ bytes: 1, durationMs: picked.durationMs || null, ext: "mp4" });
+        if (!pre.ok || !(picked.durationMs > 0)) {
+          notifyVideoError(
+            picked.durationMs > MESSENGER_VIDEO_MAX_DURATION_MS ? "video_too_long" : "video_read_failed"
+          );
+          void releaseMessengerNativeVideo(picked.id);
+          continue;
+        }
+        accepted.push({ kind: "native", picked, prepared: null });
+      }
+      commitVideosToSelection(accepted);
+      return;
+    }
     const { photos: payloads, failed } = await pickMessengerPhotoLibraryPhotos(
       MESSENGER_ATTACHMENT_ALBUM_PICK_MAX
     );
@@ -318,7 +462,7 @@ export function CommunityMessengerAttachmentSheet({
     if (payloads.length === 0) return;
     const files = payloads.map((payload, index) => messengerPhotoPayloadToFile(payload, index));
     commitPickedFilesToSelection(files);
-  }, [commitPickedFilesToSelection, notifyPhotoLoadFailed, uploadBlocked]);
+  }, [commitPickedFilesToSelection, commitVideosToSelection, notifyPhotoLoadFailed, notifyVideoError, uploadBlocked]);
 
   const onCameraChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
@@ -362,7 +506,7 @@ export function CommunityMessengerAttachmentSheet({
   );
 
   const actionLabel = (id: MessengerAttachmentActionId): string => {
-    if (id === "photo") return t("cm_ui_attach_photo");
+    if (id === "photo") return t("cm_ui_attach_photo_video");
     return safeT("gift_u3_wallet_send");
   };
 
@@ -373,6 +517,7 @@ export function CommunityMessengerAttachmentSheet({
   };
 
   const deviceLibrary = messengerAttachmentDeviceLibrarySupported();
+  const nativeVideo = deviceLibrary && isMessengerNativeVideoSupported();
   const showPermissionHint =
     deviceLibrary && (photoPermissionState === "denied" || photoPermissionState === "unavailable");
   const sendEnabled = selectedIds.length >= 1 && !uploadBlocked && !sending;
@@ -387,9 +532,17 @@ export function CommunityMessengerAttachmentSheet({
         ref={galleryInputRef}
         type="file"
         multiple
-        accept="image/jpeg,image/png,image/webp,image/gif"
+        accept={`image/jpeg,image/png,image/webp,image/gif,${MESSENGER_VIDEO_WEB_ACCEPT}`}
         className="hidden"
         onChange={(e) => void onGalleryChange(e)}
+      />
+      <input
+        ref={videoInputRef}
+        type="file"
+        multiple
+        accept={MESSENGER_VIDEO_WEB_ACCEPT}
+        className="hidden"
+        onChange={onVideoInputChange}
       />
       <input
         ref={cameraInputRef}
@@ -461,6 +614,21 @@ export function CommunityMessengerAttachmentSheet({
             <span className="text-[length:var(--overlay-caption-size)] font-medium">{t("cm_ui_camera")}</span>
           </button>
 
+          {deviceLibrary && !nativeVideo ? (
+            /* 구 바이너리: 네이티브 사진 선택기에는 영상이 없어 웹 선택기로 영상만 고른다(압축 없음 · 설계 §3-7) */
+            <button
+              type="button"
+              disabled={uploadBlocked}
+              onClick={() => videoInputRef.current?.click()}
+              className="relative flex h-[88px] w-[88px] shrink-0 flex-col items-center justify-center gap-1 rounded-[length:var(--overlay-radius-md)] bg-[color:var(--overlay-secondary)] text-[color:var(--overlay-text-primary)] transition-transform enabled:active:scale-[var(--overlay-press-scale)] disabled:cursor-not-allowed disabled:bg-[color:var(--sm-color-primary-disabled)] disabled:text-[color:var(--overlay-text-secondary)]"
+              aria-label={t("cm_ui_attach_video")}
+              data-cm-attach-video-legacy=""
+            >
+              <Film className="h-7 w-7" strokeWidth={1.75} aria-hidden />
+              <span className="text-[length:var(--overlay-caption-size)] font-medium">{t("cm_ui_attach_video")}</span>
+            </button>
+          ) : null}
+
           {stripItems.map((item) => {
             const order = selectedOrderIndex.get(item.id);
             const selected = typeof order === "number";
@@ -476,6 +644,14 @@ export function CommunityMessengerAttachmentSheet({
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={item.previewUrl} alt="" className="h-full w-full object-cover" />
+                {item.kind === "video" ? (
+                  <span
+                    data-cm-attach-video-duration=""
+                    className="absolute bottom-1 right-1 rounded-ui-rect bg-black/55 px-1 py-[1px] text-[length:var(--overlay-caption-size)] font-medium tabular-nums text-white"
+                  >
+                    {formatMessengerVideoDuration(item.durationMs)}
+                  </span>
+                ) : null}
                 <span
                   className={`absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full text-[length:var(--overlay-caption-size)] font-bold ${
                     selected

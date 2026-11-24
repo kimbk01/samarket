@@ -54,6 +54,7 @@ export const cmHomeListMessages = {
     cm_home_badge_direct: "1:1",
 
     cm_home_preview_photo: "사진",
+    cm_home_preview_video: "동영상",
     cm_home_preview_order_summary: "📋 주문 요약",
     cm_home_preview_listing_change: "{title} · {state}",
 
@@ -185,6 +186,7 @@ export const cmHomeListMessages = {
     cm_home_badge_direct: "Direct",
 
     cm_home_preview_photo: "Photo",
+    cm_home_preview_video: "Video",
     cm_home_preview_order_summary: "📋 Order summary",
     cm_home_preview_listing_change: "{title} · {state}",
 

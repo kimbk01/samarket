@@ -21,7 +21,8 @@ export type CommunityMessengerMessageType =
   | "voice"
   | "sticker"
   | "community_post_share"
-  | "gift_certificate";
+  | "gift_certificate"
+  | "video";
 export type CommunityMessengerCallKind = "voice" | "video";
 export type CommunityMessengerPresenceState = "online" | "away" | "offline";
 export type CommunityMessengerCallStatus =
@@ -348,8 +349,15 @@ export type CommunityMessengerMessage = {
   fileName?: string | null;
   /** messageType === "file" 일 때 MIME */
   fileMimeType?: string | null;
-  /** messageType === "file" 일 때 바이트 */
+  /** messageType === "file" · "video" 일 때 바이트 */
   fileSizeBytes?: number | null;
+  /** messageType === "video" — 썸네일 저장 URL(`metadata.video_thumb_url`, 표시 시 조회 라우트로 변환). 낙관 전송은 blob: */
+  videoThumbUrl?: string | null;
+  /** messageType === "video" — 재생 길이(ms, `metadata.video_duration_ms`) */
+  videoDurationMs?: number | null;
+  /** messageType === "video" — 표시 픽셀 크기(말풍선 비율 고정) */
+  videoWidth?: number | null;
+  videoHeight?: number | null;
   /**
    * messageType === "image" 이고 한 말풍선에 여러 장(앨범)일 때 — `metadata.image_urls` 와 동일 순서.
    * 2장 이상일 때만 채움(단일 이미지는 `content` URL 만 사용).

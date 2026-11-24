@@ -36,6 +36,7 @@ import {
   TimelineViberInnerCallStub,
   TimelineViberInnerFile,
   TimelineViberInnerImage,
+  TimelineViberInnerVideo,
   TimelineViberInnerSticker,
   TimelineViberInnerTextDefault,
   TimelineViberInnerVoice,
@@ -97,6 +98,17 @@ function messengerMessageAnchorRectFromDomRect(r: DOMRectReadOnly): CommunityMes
 /** 사진 메시지에서 길게 누른 앨범 칸 — 사진이 아니면 undefined. */
 function messengerLongPressAlbumIndex(item: { messageType: string }, target: EventTarget | null): number | undefined {
   return item.messageType === "image" ? extractMessengerAlbumIndexFromTarget(target) : undefined;
+}
+
+
+/** 영상 답장 인용 — 서버 미리보기 `(video)` 대신 「동영상」(설계 messenger-video-send-audit-design-2026-11-24 §3-2) */
+function withVideoReplyQuoteLabel<Q extends { previewText: string }>(
+  quote: Q | null,
+  replyPreviewType: string | null | undefined,
+  t: (key: MessageKey) => string
+): Q | null {
+  if (!quote || String(replyPreviewType ?? "").trim() !== "video" || quote.previewText !== "(video)") return quote;
+  return { ...quote, previewText: t("cm_home_preview_video") };
 }
 
 export type MessengerTimelineVirtualRowProps = {
@@ -286,7 +298,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   if (entryLightRow && item.messageType === "text") {
     bumpCmR9Counter(streamRoomId, "linkPreviewDeferCount");
   }
-  if (entryLightRow && (item.messageType === "image" || item.messageType === "file")) {
+  if (entryLightRow && (item.messageType === "image" || item.messageType === "file" || item.messageType === "video")) {
     bumpCmR9Counter(streamRoomId, "mediaDeferCount");
   }
   if (entryLightRow && showPeerAvatar && peerAvatar) {
@@ -447,7 +459,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   /** D-15: 삭제된 말풍선은 인용을 그리지 않는다(카카오 동일) */
   const replyQuote =
     !deletedForEveryone && item.messageType !== "system" && item.messageType !== "call_stub"
-      ? formatReplyQuoteForMessage(item)
+      ? withVideoReplyQuoteLabel(formatReplyQuoteForMessage(item), item.replyPreviewType, t)
       : null;
 
   const longPressMenuOpenOnBubble =
@@ -591,6 +603,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     (deletedForEveryone && item.messageType !== "call_stub") ||
     !(
       item.messageType === "image" ||
+      item.messageType === "video" ||
       item.messageType === "sticker" ||
       item.messageType === "voice" ||
       item.messageType === "file" ||
@@ -608,6 +621,8 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       />
     ) : item.messageType === "image" ? (
       <TimelineViberInnerImage item={item} onOpenLightbox={onOpenImageLightbox} />
+    ) : item.messageType === "video" ? (
+      <TimelineViberInnerVideo item={item} />
     ) : item.messageType === "sticker" ? (
       <TimelineViberInnerSticker item={item} />
     ) : item.messageType === "voice" ? (
@@ -648,14 +663,16 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
 
   /** 사진·스티커만 있는 말풍선 = 배경 없음(media). 「전달됨」 글자 색도 이 값으로 정한다 */
   const isMediaBubble =
-    !deletedForEveryone && (item.messageType === "image" || item.messageType === "sticker") && !replyQuote;
+    !deletedForEveryone &&
+    (item.messageType === "image" || item.messageType === "video" || item.messageType === "sticker") &&
+    !replyQuote;
   /**
    * 사진 말풍선(인용 없는 사진·묶음)은 시간·읽음 표시를 텔레그램처럼 **사진 오른쪽 아래에 얹는다** (SSOT O10 · F2).
    * 2026-11-16 측정: 시간(42px)·「안 읽음」(31px)이 사진 옆 같은 줄(292px)에 있어 사진 폭이 207px 로 줄었다가,
    * 상대가 읽어 「안 읽음」이 사라지면 238px 로 늘며 묶음 높이 155→179px·위치 24px 이동. 얹으면 폭이 표시와 무관해진다.
    * P1: 인용 없는 스티커도 같은 칸(`data-cm-sticker-meta`).
    */
-  const photoMetaOnPhoto = isMediaBubble && item.messageType === "image";
+  const photoMetaOnPhoto = isMediaBubble && (item.messageType === "image" || item.messageType === "video");
   const stickerMetaOnSticker = isMediaBubble && item.messageType === "sticker";
   /** 글 계열 말풍선 안 표시(사진·스티커 칸·음성 칸·옆 줄 제외) */
   const textMetaInBubble = !photoMetaOnPhoto && !stickerMetaOnSticker && !voiceMetaInBubble && !metaBesideBubble;
@@ -710,7 +727,10 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
           </p>
         ) : null}
         {!deletedForEveryone &&
-        (item.messageType === "image" || item.messageType === "sticker" || item.messageType === "community_post_share") ? (
+        (item.messageType === "image" ||
+          item.messageType === "video" ||
+          item.messageType === "sticker" ||
+          item.messageType === "community_post_share") ? (
           textMetaTrailingRow ? (
             <>
               {viberInnerBody}

@@ -3,6 +3,7 @@ import {
   resolveMessengerSendRpcCallError,
   resolveMessengerSendRpcPayloadError,
 } from "@/lib/community-messenger/server/messenger-send-unavailable";
+import { messengerVideoClientFieldsFromMetadata } from "@/lib/community-messenger/messenger-video-message-map";
 import { isCatalogStickerPath } from "@/lib/stickers/sticker-catalog-validate";
 import { resolvePresenceLastSeenAtFromDbRow } from "@/lib/community-messenger/presence/presence-last-seen";
 import { readLiteBundleRoomAvatarUrl } from "@/lib/community-messenger/lite-bundle-room-avatar";
@@ -96,6 +97,7 @@ import {
   cmLastPreviewVoice,
   cmLastPreviewImage,
   cmLastPreviewFile,
+  cmLastPreviewVideo,
   cmLastPreviewSticker,
   cmLastPreviewGiftCertificate,
   cmLastPreviewCall,
@@ -609,7 +611,8 @@ type MessageRow = {
     | "voice"
     | "sticker"
     | "community_post_share"
-    | "gift_certificate";
+    | "gift_certificate"
+    | "video";
   content: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string | null;
@@ -770,7 +773,8 @@ type DevRoom = {
     | "voice"
     | "sticker"
     | "community_post_share"
-    | "gift_certificate";
+    | "gift_certificate"
+    | "video";
 };
 
 type DevParticipant = {
@@ -812,7 +816,8 @@ type DevMessage = {
     | "voice"
     | "sticker"
     | "community_post_share"
-    | "gift_certificate";
+    | "gift_certificate"
+    | "video";
   content: string;
   metadata: Record<string, unknown>;
   createdAt: string;
@@ -1718,7 +1723,8 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
     mt === "voice" ||
     mt === "sticker" ||
     mt === "community_post_share" ||
-    mt === "gift_certificate"
+    mt === "gift_certificate" ||
+    mt === "video"
       ? mt
       : "text";
   const dfeAt = trimText(message.deleted_for_everyone_at);
@@ -1765,6 +1771,8 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
     deletedForEveryoneAt || hiddenByAdmin || safeMt !== "image"
       ? {}
       : messengerImageClientFieldsFromMetadata(safeMt, metadata, contentRaw);
+  const videoExtra =
+    deletedForEveryoneAt || hiddenByAdmin || safeMt !== "video" ? {} : messengerVideoClientFieldsFromMetadata(metadata);
 
   return {
     id: message.id,
@@ -1798,6 +1806,7 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
     ...voiceExtra,
     ...fileExtra,
     ...imageExtra,
+    ...videoExtra,
   };
 }
 
@@ -2820,7 +2829,8 @@ function buildRoomSummaryFromHydratedMembers(
     roomLastMessageTypeRaw === "voice" ||
     roomLastMessageTypeRaw === "sticker" ||
     roomLastMessageTypeRaw === "community_post_share" ||
-    roomLastMessageTypeRaw === "gift_certificate"
+    roomLastMessageTypeRaw === "gift_certificate" ||
+    roomLastMessageTypeRaw === "video"
       ? roomLastMessageTypeRaw
       : "text";
   const roomLastAt = trimText(isDbRoom ? room.last_message_at : room.lastMessageAt) || nowIso();
@@ -17395,7 +17405,8 @@ export async function getCommunityMessengerRoomMessageById(input: {
       mt === "voice" ||
       mt === "sticker" ||
       mt === "community_post_share" ||
-      mt === "gift_certificate"
+      mt === "gift_certificate" ||
+      mt === "video"
         ? mt
         : "text";
     const clientRaw = metadata.client_message_id;
@@ -19171,6 +19182,133 @@ export async function sendCommunityMessengerFileMessage(input: {
     },
   };
 }
+
+/**
+ * 채팅 영상 보내기 — 서버가 확인한 업로드(영상·썸네일)로 메시지 1행.
+ * 설계 `docs/audit/messenger-video-send-audit-design-2026-11-24.md` §3-3. 파일 메시지와 같은 송신 가드·멱등·알림.
+ */
+export async function sendCommunityMessengerVideoMessage(input: {
+  onNotifyScheduled?: (done: Promise<void>) => void;
+  userId: string;
+  roomId: string;
+  videoPublicUrl: string;
+  thumbPublicUrl: string;
+  videoPath: string;
+  thumbPath: string;
+  storageBucket: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  durationMs: number;
+  width: number | null;
+  height: number | null;
+  clientMessageId?: string | null;
+}): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string; deduped?: boolean }> {
+  const roomId = trimText(input.roomId);
+  const cmUploadCid = trimText(input.clientMessageId) || null;
+  const videoPublicUrl = trimText(input.videoPublicUrl);
+  const thumbPublicUrl = trimText(input.thumbPublicUrl);
+  const videoPath = trimText(input.videoPath);
+  const thumbPath = trimText(input.thumbPath);
+  if (!roomId || !videoPublicUrl || !thumbPublicUrl || !videoPath || !thumbPath) {
+    return { ok: false, error: "content_required" };
+  }
+  const fileSizeBytes = Math.max(0, Math.floor(Number(input.fileSizeBytes ?? 0)) || 0);
+  const durationMs = Math.max(0, Math.floor(Number(input.durationMs ?? 0)) || 0);
+  const metadata: Record<string, unknown> = {
+    storagePath: videoPath,
+    storage_bucket: cmMediaStorageBucketValue(input.storageBucket),
+    storage_path: videoPath,
+    /** purge·조회 권한 수집기가 영상과 썸네일을 함께 다룬다(삭제 시 둘 다 지움). */
+    storage_paths: [videoPath, thumbPath],
+    video_thumb_path: thumbPath,
+    video_thumb_url: thumbPublicUrl,
+    mimeType: trimText(input.mimeType) || "video/mp4",
+    fileSizeBytes,
+    video_duration_ms: durationMs,
+    ...(input.width != null && input.height != null ? { video_width: input.width, video_height: input.height } : {}),
+  };
+  const sb = getSupabaseOrNull();
+  if (!sb) return { ok: false, error: "messenger_storage_unavailable" };
+  const { assertActiveGroupMembershipIfGroup } = await import(
+    "@/lib/community-messenger/group/group-active-membership-gate"
+  );
+  const groupGate = await assertActiveGroupMembershipIfGroup({ userId: input.userId, roomId, supabase: sb });
+  if (!groupGate.ok) {
+    return { ok: false, error: groupGate.error === "user_banned" ? "forbidden" : groupGate.error };
+  }
+  const createdAt = nowIso();
+  const { appendTypedMessengerMessageAtomic } = await import("@/lib/community-messenger/room-unread-authority-rpc");
+  const appended = await appendTypedMessengerMessageAtomic(sb as any, {
+    roomId,
+    senderId: input.userId,
+    messageType: "video",
+    content: videoPublicUrl,
+    metadata,
+    createdAt,
+    clientMessageId: cmUploadCid,
+    idempotencyKey: cmUploadCid
+      ? `cm_video:${input.userId}:${roomId}:cid:${cmUploadCid}`
+      : `cm_video:${input.userId}:${roomId}:${videoPath}`,
+  });
+  if (!appended.ok) {
+    console.error("[room_unread_v1] video_append", {
+      roomId,
+      error: appended.error,
+      rpc_used: "dibay_append_room_message_atomic",
+    });
+    return { ok: false, error: appended.error };
+  }
+  if (!appended.deduped) {
+    const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+      roomId,
+      messageId: appended.messageId,
+      senderUserId: input.userId,
+      preview: cmLastPreviewVideo(),
+      recipientUserIds: appended.recipientUserIds,
+    });
+    input.onNotifyScheduled?.(notifyDone);
+    invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
+  }
+  if (appended.deduped) {
+    const { data: existingRow } = await queryCommunityMessengerMessageRowsWithSelectFallback((cols) =>
+      (sb as any)
+        .from("community_messenger_messages")
+        .select(cols)
+        .eq("id", appended.messageId)
+        .eq("room_id", roomId)
+        .limit(1)
+    );
+    const row = ((existingRow ?? []) as MessageRow[])[0];
+    if (row) {
+      const mapped = mapCommunityMessengerDbMessageRowToMessage({ row, viewerUserId: input.userId, profileById: new Map() });
+      return {
+        ok: true,
+        deduped: true,
+        message: cmUploadCid && !trimText(mapped.clientMessageId) ? { ...mapped, clientMessageId: cmUploadCid } : mapped,
+      };
+    }
+  }
+  return {
+    ok: true,
+    deduped: appended.deduped,
+    message: {
+      id: appended.messageId,
+      roomId,
+      senderId: input.userId,
+      senderLabel: cmServiceT("common_me"),
+      messageType: "video",
+      content: videoPublicUrl,
+      createdAt: appended.createdAt,
+      metadata: { ...metadata, ...(cmUploadCid ? { client_message_id: cmUploadCid } : {}) },
+      isMine: true,
+      callKind: null,
+      callStatus: null,
+      ...messengerVideoClientFieldsFromMetadata(metadata),
+      ...(cmUploadCid ? { clientMessageId: cmUploadCid } : {}),
+    },
+  };
+}
+
 
 function messengerLastPreviewFromRow(row: {
   message_type?: string;

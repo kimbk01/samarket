@@ -163,7 +163,8 @@ function previewMessageType(row: Record<string, unknown> | null | undefined): Co
     raw === "voice" ||
     raw === "sticker" ||
     raw === "community_post_share" ||
-    raw === "gift_certificate"
+    raw === "gift_certificate" ||
+    raw === "video"
   ) {
     return raw;
   }

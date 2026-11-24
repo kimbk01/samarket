@@ -46,7 +46,8 @@ export type CommunityMessengerRoomRealtimeMessageRow = {
     | "voice"
     | "sticker"
     | "community_post_share"
-    | "gift_certificate";
+    | "gift_certificate"
+    | "video";
   content: string;
   metadata: Record<string, unknown>;
   createdAt: string;
