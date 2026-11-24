@@ -218,6 +218,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 peerIsFriend={peerIsFriend}
                 onDismiss={vm.dismissRoomSheet}
                 onSendImages={(files, previewUrls, opts) => vm.sendAttachmentImagesDirect(files, previewUrls, opts)}
+                onSendVideos={(sources) => vm.sendAttachmentVideosDirect(sources)}
                 onOpenGift={() => {
                   vm.dismissRoomSheet();
                   setGiftOfferOpen(true);

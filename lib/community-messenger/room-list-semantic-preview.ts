@@ -3,6 +3,7 @@
  * Shared contract for client tip patch / UI display / server summarize.
  * Never use URL-extension heuristics — TEXT URLs stay text.
  */
+import { cmHomeListMessages } from "@/lib/i18n/catalog/cm-home-list";
 import { callStubRoomTipFromMessage } from "@/lib/community-messenger/call-stub-room-tip";
 import type { CommunityMessengerMessageType } from "@/lib/community-messenger/types";
 
@@ -19,7 +20,8 @@ function normalizeMessageType(raw: string): CommunityMessengerMessageType {
     raw === "voice" ||
     raw === "sticker" ||
     raw === "community_post_share" ||
-    raw === "gift_certificate"
+    raw === "gift_certificate" ||
+    raw === "video"
   ) {
     return raw;
   }
@@ -29,6 +31,8 @@ function normalizeMessageType(raw: string): CommunityMessengerMessageType {
 /** Locale-stable tip tokens stored in `rooms.last_message` for typed media. */
 export const ROOM_LIST_PREVIEW_IMAGE_TOKEN = "사진";
 export const ROOM_LIST_PREVIEW_FILE_TOKEN = "파일";
+/** DB `dibay_append_room_message_atomic` 의 video 미리보기와 같은 값(= 카탈로그 ko `cm_home_preview_video`) */
+export const ROOM_LIST_PREVIEW_VIDEO_TOKEN: string = cmHomeListMessages.ko.cm_home_preview_video;
 export const ROOM_LIST_PREVIEW_VOICE_TOKEN = "음성 메시지";
 export const ROOM_LIST_PREVIEW_STICKER_TOKEN = "스티커";
 export const ROOM_LIST_PREVIEW_CALL_TOKEN = "통화";
@@ -45,6 +49,9 @@ export function canonicalRoomListPreviewFromMessageFields(input: {
 
   if (messageType === "image") {
     return { lastMessage: ROOM_LIST_PREVIEW_IMAGE_TOKEN, lastMessageType: "image" };
+  }
+  if (messageType === "video") {
+    return { lastMessage: ROOM_LIST_PREVIEW_VIDEO_TOKEN, lastMessageType: "video" };
   }
   if (messageType === "file") {
     const name =

@@ -94,6 +94,19 @@ export function buildAdminCmMessageDisplay(input: {
     };
   }
 
+  /** 채팅 영상(2026-11-24) — 관리자 화면은 파일 카드로 열람(조회 라우트 ctx=admin · 감사 기록 그대로) */
+  if (rawType === "video") {
+    return {
+      ...base,
+      kind: "file",
+      attachmentUrl: isHttpUrl(contentTrim) ? route(contentTrim) : null,
+      fileName: null,
+      fileSizeBytes: nonNegInt(metadata.fileSizeBytes),
+      mimeType: s(metadata.mimeType) || null,
+      text: "",
+    };
+  }
+
   if (rawType === "file") {
     return {
       ...base,

@@ -1,5 +1,16 @@
 "use client";
 
+import {
+  uploadMessengerVideo,
+  type MessengerVideoSendSource,
+} from "@/lib/community-messenger/upload/messenger-video-upload-client";
+import {
+  clearMessengerVideoSend,
+  messengerVideoCombinedProgress,
+  setMessengerVideoSendCancel,
+  setMessengerVideoSendProgress,
+} from "@/lib/community-messenger/upload/messenger-video-send-progress-store";
+import { releaseMessengerNativeVideo } from "@/lib/community-messenger/attachment/messenger-photo-library";
 import { predecodeMessengerLocalPreviews } from "@/lib/community-messenger/attachment/messenger-predecode-local-previews";
 import { messengerRoomNavigateMethod } from "@/lib/community-messenger/room/messenger-room-navigate-method";
 import { refreshMessengerHomeSocialClient } from "@/lib/community-messenger/home/refresh-messenger-home-social-client";
@@ -1571,7 +1582,7 @@ export function useMessengerRoomPhase2Controller() {
   type MediaUploadAttemptArgs = {
     tempId: string;
     clientMessageId: string;
-    kind: "image" | "file";
+    kind: "image" | "file" | "video";
     upload: () => Promise<MessengerUploadOutcome>;
     releasePreviews: () => void;
     suppressErrorSnackbar?: boolean;
@@ -1592,7 +1603,8 @@ export function useMessengerRoomPhase2Controller() {
       setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
       releasePreviews();
     };
-    setBusy(kind === "image" ? "send-image" : "send-file");
+    /** 영상은 업로드가 길어 컴포저를 막지 않는다(글·사진은 계속 보낼 수 있음 — 카톡·텔레그램과 같음). */
+    if (kind !== "video") setBusy(kind === "image" ? "send-image" : "send-file");
     const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
     let outcome: MessengerUploadOutcome;
     try {
@@ -1608,7 +1620,7 @@ export function useMessengerRoomPhase2Controller() {
         json: {},
       };
     } finally {
-      setBusy(null);
+      if (kind !== "video") setBusy(null);
     }
     if (outcome.ok) {
       clearMessengerOutboundFailedSend(tempId);
@@ -1640,6 +1652,11 @@ export function useMessengerRoomPhase2Controller() {
       return true;
     }
     if (outcome.res && redirectIfMessengerAuthBlocked(outcome.res, outcome.json)) {
+      removeRowAndRelease();
+      return false;
+    }
+    if (outcome.error === "cancelled") {
+      /* 말풍선 ✕ — 사용자가 취소: 행 제거, 안내 없음 */
       removeRowAndRelease();
       return false;
     }
@@ -1789,6 +1806,116 @@ export function useMessengerRoomPhase2Controller() {
       await sendImageFiles(files, previewUrls);
     },
     [sendImageFiles, sendImageFilesIndividually, setReplyToMessage]
+  );
+
+
+  /**
+   * 채팅 영상 보내기(설계 §3-2·§3-4) — 영상 1개 = 메시지 1건. 말풍선이 먼저 뜨고 썸네일 위에 진행률·✕.
+   * 실패(indeterminate)는 '전송 실패' 행으로 남아 같은 cid 로 다시 보낸다(네이티브는 압축 결과 재사용).
+   */
+  const sendVideo = useCallback(
+    async (source: MessengerVideoSendSource, opts?: { suppressErrorSnackbar?: boolean }): Promise<boolean> => {
+      const thumbUrl = source.kind === "web" ? source.thumbUrl : source.picked.thumbnailDataUrl;
+      const releaseNative = () => {
+        if (source.kind === "native") void releaseMessengerNativeVideo(source.picked.id);
+      };
+      if (!snapshot || roomUnavailable) {
+        if (source.kind === "web") URL.revokeObjectURL(thumbUrl);
+        releaseNative();
+        return false;
+      }
+      const clientMessageId = createCommunityMessengerClientMessageId();
+      const tempId = `pending:video:${streamRoomId}:${pendingMessageIdRef.current++}`;
+      const optimisticSender = optimisticOutboundSender(snapshot, roomMembersDisplay);
+      const durationMs = source.kind === "web" ? source.durationMs : source.picked.durationMs;
+      const width = source.kind === "web" ? source.width : source.picked.width;
+      const height = source.kind === "web" ? source.height : source.picked.height;
+      const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
+        id: tempId,
+        roomId: streamRoomId,
+        senderId: optimisticSender.senderId,
+        senderLabel: optimisticSender.senderLabel,
+        messageType: "video",
+        content: "",
+        createdAt: nextOptimisticCommunityMessengerCreatedAtIso(roomMessagesRef.current),
+        clientMessageId,
+        isMine: true,
+        pending: true,
+        callKind: null,
+        callStatus: null,
+        videoThumbUrl: thumbUrl,
+        videoDurationMs: durationMs,
+        videoWidth: width,
+        videoHeight: height,
+      };
+      setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
+      stickToBottomRef.current = true;
+      scrollMessengerToBottom({ reason: "own_message_append" });
+      dismissRoomSheet();
+      let released = false;
+      const releasePreviews = () => {
+        if (released) return;
+        released = true;
+        clearMessengerVideoSend(tempId);
+        if (source.kind === "web") URL.revokeObjectURL(thumbUrl);
+        releaseNative();
+      };
+      const roomResourcePath = communityMessengerRoomResourcePath(streamRoomId);
+      const upload = () => {
+        const controller = new AbortController();
+        setMessengerVideoSendProgress(tempId, 0);
+        setMessengerVideoSendCancel(tempId, () => controller.abort());
+        return uploadMessengerVideo({
+          roomResourcePath,
+          source,
+          clientMessageId,
+          signal: controller.signal,
+          onProgress: (phase, fraction, transcoded) =>
+            setMessengerVideoSendProgress(tempId, messengerVideoCombinedProgress(phase, fraction, transcoded)),
+        }).finally(() => setMessengerVideoSendCancel(tempId, null));
+      };
+      return runMediaUploadAttemptRef.current({
+        tempId,
+        clientMessageId,
+        kind: "video",
+        upload,
+        releasePreviews,
+        suppressErrorSnackbar: opts?.suppressErrorSnackbar,
+      });
+    },
+    [
+      dismissRoomSheet,
+      roomMessagesRef,
+      streamRoomId,
+      roomMembersDisplay,
+      roomUnavailable,
+      scrollMessengerToBottom,
+      snapshot,
+      stickToBottomRef,
+    ]
+  );
+
+  /** 선택한 영상들 — 선택 순서대로 1개씩(한 개 실패가 나머지를 막지 않음). */
+  const sendAttachmentVideosDirect = useCallback(
+    async (sources: MessengerVideoSendSource[]) => {
+      setReplyToMessage(null);
+      if (sources.length === 1) {
+        await sendVideo(sources[0]!);
+        return;
+      }
+      const { sent, failed } = await runMessengerSequentialSends(sources, (src) =>
+        sendVideo(src, { suppressErrorSnackbar: true })
+      );
+      if (failed > 0) {
+        showMessengerSnackbar(
+          failed === 1 && sent === 0
+            ? getRoomActionErrorMessage("upload_failed")
+            : translateCmUi("cm_ui_send_partial_summary", { sent, failed }),
+          { variant: "error" }
+        );
+      }
+    },
+    [getRoomActionErrorMessage, sendVideo, setReplyToMessage]
   );
 
   const openImagePicker = useCallback(() => {
@@ -2722,7 +2849,7 @@ export function useMessengerRoomPhase2Controller() {
     /** C-4: 첨부 링크 복사는 원 저장 URL 대신 참가자 확인 첨부 조회 라우트(절대 URL). */
     const routed = withMessengerMediaRouteUrls(raw);
     const item =
-      raw.messageType === "voice"
+      raw.messageType === "voice" || raw.messageType === "video"
         ? { ...raw, content: messengerMediaRouteUrlFor({ roomId: raw.roomId, messageId: raw.id, src: raw.content }) }
         : routed;
     const abs = (u: string) =>
@@ -2734,7 +2861,7 @@ export function useMessengerRoomPhase2Controller() {
       if (album.length > 1) return album.map((u) => abs(u.trim())).join("\n");
       return abs((item.imageOriginalUrl || item.content).trim());
     }
-    if (item.messageType === "file" || item.messageType === "voice") {
+    if (item.messageType === "file" || item.messageType === "voice" || item.messageType === "video") {
       return abs(item.content.trim());
     }
     if (item.messageType === "sticker") {
@@ -3099,6 +3226,7 @@ export function useMessengerRoomPhase2Controller() {
     sendSticker,
     sendLocationMessage,
     sendAttachmentImagesDirect,
+    sendAttachmentVideosDirect,
     attachmentConfirmDraft,
     cancelAttachmentConfirm,
     confirmAttachmentSend,

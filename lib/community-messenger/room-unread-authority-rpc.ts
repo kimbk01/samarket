@@ -274,7 +274,7 @@ export async function appendTypedMessengerMessageAtomic(
   input: {
     roomId: string;
     senderId: string;
-    messageType: "sticker" | "voice" | "file" | "image" | "text" | "system" | "call_stub";
+    messageType: "sticker" | "voice" | "file" | "image" | "video" | "text" | "system" | "call_stub";
     content: string;
     metadata?: Record<string, unknown>;
     createdAt?: string;

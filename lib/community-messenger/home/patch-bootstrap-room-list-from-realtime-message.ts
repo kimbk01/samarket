@@ -38,7 +38,8 @@ function normalizeMessageType(raw: string): CommunityMessengerMessageType {
     raw === "voice" ||
     raw === "sticker" ||
     raw === "community_post_share" ||
-    raw === "gift_certificate"
+    raw === "gift_certificate" ||
+    raw === "video"
   ) {
     return raw;
   }

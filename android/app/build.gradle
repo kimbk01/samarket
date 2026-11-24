@@ -15,7 +15,7 @@ android {
         applicationId "com.dibay.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 81
+        versionCode 82
         versionName "1.2.7"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
@@ -150,6 +150,10 @@ dependencies {
     implementation "com.google.firebase:firebase-messaging:24.1.0"
     implementation "io.agora.rtc:full-sdk:4.6.3"
     implementation "com.squareup.okhttp3:okhttp:4.12.0"
+    // 채팅 영상 압축(H.264/AAC mp4) — docs/audit/messenger-video-send-audit-design-2026-11-24.md §3-6
+    implementation "androidx.media3:media3-transformer:1.8.0"
+    implementation "androidx.media3:media3-effect:1.8.0"
+    implementation "androidx.media3:media3-common:1.8.0"
     // B1: 앱 아이콘 숫자를 Samsung badge provider 에도 쓴다 (@capawesome/capacitor-badge 와 같은 버전)
     implementation "me.leolin:ShortcutBadger:1.1.22@aar"
     implementation project(':capacitor-android')

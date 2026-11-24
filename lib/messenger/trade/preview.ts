@@ -66,6 +66,7 @@ const TRADE_LIST_LABELED_MESSAGE_TYPES: ReadonlySet<string> = new Set<CommunityM
   "sticker",
   "gift_certificate",
   "community_post_share",
+  "video",
 ]);
 
 /** TradeListItem 은 viewer-relative — viewer id 는 role 로 결정(seller → seller, buyer → counterparty). */

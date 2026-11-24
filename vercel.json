@@ -110,6 +110,10 @@
       "schedule": "50 19 * * *"
     },
     {
+      "path": "/api/cron/messenger-video-orphan-gc",
+      "schedule": "10 20 * * *"
+    },
+    {
       "path": "/api/cron/app-releases-sync",
       "schedule": "0 */6 * * *"
     },

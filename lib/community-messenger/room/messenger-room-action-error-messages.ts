@@ -1,4 +1,8 @@
 import type { MessageKey } from "@/lib/i18n/messages";
+import {
+  MESSENGER_VIDEO_MAX_BYTES,
+  MESSENGER_VIDEO_MAX_DURATION_MS,
+} from "@/lib/community-messenger/upload/messenger-video-upload-policy";
 
 export type MessengerRoomActionTranslate = (
   key: MessageKey,
@@ -152,6 +156,17 @@ export function getMessengerRoomActionErrorMessage(
       return t("nav_messenger_unsupported_image");
     case "too_many_images":
       return t("nav_messenger_too_many_images");
+    case "video_too_long":
+      return t("cm_ui_video_too_long", { minutes: Math.round(MESSENGER_VIDEO_MAX_DURATION_MS / 60_000) });
+    case "video_too_large":
+      return t("cm_ui_video_too_large", { mb: Math.round(MESSENGER_VIDEO_MAX_BYTES / (1024 * 1024)) });
+    case "unsupported_video":
+      return t("cm_ui_video_unsupported");
+    case "video_read_failed":
+    case "video_prepare_failed":
+      return t("cm_ui_video_load_failed");
+    case "video_unavailable":
+      return t("cm_ui_video_unavailable");
     case "unsupported_file":
     case "blocked_file_type":
     case "file_type_mismatch":

@@ -111,6 +111,7 @@ export function getRoomPreviewText(room: CommunityMessengerRoomSummary, viewerUs
   const lastMessageType = room.lastMessageType ?? "text";
   if (lastMessageType === "image") return translateCmUi("cm_home_preview_photo");
   if (lastMessageType === "voice") return translateCmUi("cm_home_preview_voice");
+  if (lastMessageType === "video") return translateCmUi("cm_home_preview_video");
   if (lastMessageType === "file") {
     if (!lastMessage) return translateCmUi("cm_home_preview_file");
     /** Typed file tip may store fileName or legacy generic token — never treat as URL by extension. */

@@ -275,6 +275,7 @@ function messengerMessageToPreviewSnippet(
   const content = (msg.content ?? "").trim();
   if (type === "image") return t("cm_ui_photo");
   if (type === "voice") return t("cm_ui_voice_message");
+  if (type === "video") return t("cm_home_preview_video");
   if (type === "sticker") return t("cm_ui_sticker");
   /** delivery-chat-list-preview·홈 리스트(cm-home-list-copy)와 동일 i18n 라벨 — 원문 content(영문) 노출 금지 */
   if (type === "gift_certificate") return t("cm_ui_gift_certificate");

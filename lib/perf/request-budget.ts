@@ -71,6 +71,8 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/community-messenger/monitoring/events": 0.9,
   "/api/moim/rooms": 2.6,
   "/api/me/signup-status": 1.9,
+  /** 2026-11-24 채팅 영상 고아 정리(하루 1회) — 후보 RPC 1 + 삭제 1 + 감사 1(삭제 있을 때만). 실측 전 계산값 */
+  "/api/cron/messenger-video-orphan-gc": 3.0,
 };
 
 /**

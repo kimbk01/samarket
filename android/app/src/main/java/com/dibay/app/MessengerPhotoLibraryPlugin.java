@@ -52,6 +52,7 @@ import java.util.LinkedHashSet;
     @Permission(strings = { Manifest.permission.WRITE_EXTERNAL_STORAGE }, alias = MessengerPhotoLibraryPlugin.ALIAS_LEGACY_WRITE),
   }
 )
+@androidx.media3.common.util.UnstableApi
 public class MessengerPhotoLibraryPlugin extends Plugin {
   static final String ALIAS_PHOTOS = "photos";
   static final String ALIAS_LEGACY_PHOTOS = "legacyPhotos";
@@ -62,6 +63,21 @@ public class MessengerPhotoLibraryPlugin extends Plugin {
   private static final String SAVE_ALBUM_DIR = "DIBAY";
   private static final int THUMBNAIL_SIZE_PX = 256;
   private static final int FULL_MAX_EDGE = 1920;
+  /** 채팅 영상(설계 messenger-video-send-audit-design-2026-11-24) — 등록·압축·업로드·정리 */
+  private MessengerVideoPrep videoPrep;
+
+  private MessengerVideoPrep videoPrep() {
+    if (videoPrep == null) {
+      videoPrep = new MessengerVideoPrep(getContext(), (id, phase, progress) -> {
+        JSObject ev = new JSObject();
+        ev.put("id", id);
+        ev.put("phase", phase);
+        ev.put("progress", progress);
+        notifyListeners("videoProgress", ev);
+      });
+    }
+    return videoPrep;
+  }
 
   @PluginMethod
   public void getPermissionState(PluginCall call) {
@@ -155,14 +171,22 @@ public class MessengerPhotoLibraryPlugin extends Plugin {
   @PluginMethod
   public void pickPhotos(PluginCall call) {
     int max = Math.max(1, Math.min(call.getInt("max", 10), 10));
+    /** 채팅 영상: includeVideos=true 면 같은 선택기에 영상도 보인다(시스템 선택기 — 추가 권한 없음) */
+    boolean includeVideos = Boolean.TRUE.equals(call.getBoolean("includeVideos", false));
     Intent intent;
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
       intent = new Intent(MediaStore.ACTION_PICK_IMAGES);
-      intent.setType("image/*");
+      /** type 미지정 = 사진·동영상 모두 */
+      if (!includeVideos) intent.setType("image/*");
       intent.putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, Math.min(max, MediaStore.getPickImagesMaxLimit()));
     } else {
       intent = new Intent(Intent.ACTION_GET_CONTENT);
-      intent.setType("image/*");
+      if (includeVideos) {
+        intent.setType("*/*");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] { "image/*", "video/*" });
+      } else {
+        intent.setType("image/*");
+      }
       intent.addCategory(Intent.CATEGORY_OPENABLE);
       intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
     }
@@ -222,7 +246,29 @@ public class MessengerPhotoLibraryPlugin extends Plugin {
 
     ArrayList<Uri> uris = readPickedUris(activityResult.getData());
     JSArray failed = new JSArray();
+    JSArray videos = new JSArray();
+    boolean includeVideos = Boolean.TRUE.equals(call.getBoolean("includeVideos", false));
+    ContentResolver pickResolver = getContext().getContentResolver();
     for (int i = 0; i < uris.size(); i++) {
+      if (includeVideos) {
+        String mime = pickResolver.getType(uris.get(i));
+        if (mime != null && mime.startsWith("video/")) {
+          MessengerVideoPrep.Picked picked = videoPrep().register(uris.get(i));
+          if (picked == null) {
+            failed.put(failureRow(i, null, "video_unreadable"));
+          } else {
+            JSObject v = new JSObject();
+            v.put("id", picked.entry.id);
+            v.put("durationMs", picked.entry.durationMs);
+            v.put("width", picked.entry.width);
+            v.put("height", picked.entry.height);
+            v.put("sizeBytes", picked.entry.sourceBytes);
+            v.put("thumbnailDataUrl", picked.thumbnailDataUrl);
+            videos.put(v);
+          }
+          continue;
+        }
+      }
       EncodeOutcome outcome = encodeUriPayload(uris.get(i), "pick-" + i, uris.get(i).toString());
       if (outcome.payload != null) {
         photos.put(outcome.payload);
@@ -234,8 +280,62 @@ public class MessengerPhotoLibraryPlugin extends Plugin {
     JSObject result = new JSObject();
     result.put("photos", photos);
     result.put("failed", failed);
-    result.put("cancelled", photos.length() == 0 && failed.length() == 0);
+    if (includeVideos) result.put("videos", videos);
+    result.put("cancelled", photos.length() == 0 && failed.length() == 0 && videos.length() == 0);
     call.resolve(result);
+  }
+
+  /** 채팅 영상 — 압축(또는 복사) + 썸네일. resolve {handle, sizeBytes, durationMs, width, height, transcoded} */
+  @PluginMethod
+  public void prepareVideo(PluginCall call) {
+    String id = call.getString("id");
+    MessengerVideoPrep prep = videoPrep();
+    prep.prepare(id, (entry, transcoded, error) -> {
+      if (entry == null || entry.video == null) {
+        call.reject(error == null ? "prepare_failed" : error);
+        return;
+      }
+      long[] meta = prep.outputMeta(entry.video);
+      JSObject r = new JSObject();
+      r.put("handle", entry.id);
+      r.put("sizeBytes", entry.video.length());
+      r.put("durationMs", meta[0] > 0 ? meta[0] : entry.durationMs);
+      r.put("width", meta[1] > 0 ? meta[1] : entry.width);
+      r.put("height", meta[2] > 0 ? meta[2] : entry.height);
+      r.put("transcoded", transcoded);
+      call.resolve(r);
+    });
+  }
+
+  /** 채팅 영상 — 서명 URL 로 썸네일·영상 직접 PUT. resolve {ok, cancelled} */
+  @PluginMethod
+  public void uploadPreparedVideo(PluginCall call) {
+    String handle = call.getString("handle");
+    String videoUrl = call.getString("videoSignedUrl");
+    String thumbUrl = call.getString("thumbSignedUrl");
+    String contentType = call.getString("videoContentType", "video/mp4");
+    if (handle == null || videoUrl == null || thumbUrl == null) {
+      call.reject("bad_args");
+      return;
+    }
+    videoPrep().upload(handle, videoUrl, thumbUrl, contentType, (ok, cancelled) -> {
+      JSObject r = new JSObject();
+      r.put("ok", ok);
+      r.put("cancelled", cancelled);
+      call.resolve(r);
+    });
+  }
+
+  @PluginMethod
+  public void cancelVideo(PluginCall call) {
+    videoPrep().cancel(call.getString("id"));
+    call.resolve();
+  }
+
+  @PluginMethod
+  public void releaseVideo(PluginCall call) {
+    videoPrep().release(call.getString("id"));
+    call.resolve();
   }
 
   /** JS feature probe — 구버전 바이너리는 메서드가 없어 reject → 저장 버튼을 숨긴다. */

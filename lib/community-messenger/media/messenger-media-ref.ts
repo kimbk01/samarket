@@ -96,6 +96,7 @@ const MEDIA_URL_META_KEYS = [
   "fileUrl",
   "file_url",
   "url",
+  "video_thumb_url",
 ] as const;
 const MEDIA_URL_ARRAY_META_KEYS = [
   "image_thumb_urls",

@@ -54,7 +54,8 @@ export function mapRealtimeMessageRow(row: Record<string, unknown> | undefined):
       row.message_type === "voice" ||
       row.message_type === "sticker" ||
       row.message_type === "community_post_share" ||
-      row.message_type === "gift_certificate"
+      row.message_type === "gift_certificate" ||
+      row.message_type === "video"
         ? row.message_type
         : "text",
     content: deletedForEveryoneAt

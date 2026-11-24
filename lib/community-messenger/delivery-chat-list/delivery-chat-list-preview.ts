@@ -9,6 +9,7 @@ function messengerMessageToPreviewSnippet(
   const content = (msg.content ?? "").trim();
   if (type === "image") return t("cm_ui_photo");
   if (type === "voice") return t("cm_ui_voice_message");
+  if (type === "video") return t("cm_home_preview_video");
   if (type === "sticker") return t("cm_ui_sticker");
   if (type === "gift_certificate") return t("cm_ui_gift_certificate");
   if (type === "community_post_share") return t("cm_home_preview_post_share");

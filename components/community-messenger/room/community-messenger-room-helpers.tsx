@@ -80,6 +80,7 @@ export function communityMessengerMessageSearchText(m: CommunityMessengerMessage
     return translateCmUi("cm_ui_gift_certificate") || "Gift certificate";
   }
   if (m.messageType === "file") return m.fileName?.trim() || translateCmUi("cm_ui_file");
+  if (m.messageType === "video") return translateCmUi("cm_home_preview_video");
   if (m.messageType === "image") {
     const n = m.imageAlbumUrls?.length ?? 0;
     if (n > 1) return translateCmUi("cm_ui_photo_count_sheets", { count: n });

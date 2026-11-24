@@ -1,5 +1,6 @@
 "use client";
 
+import { MessengerChatVideoBubble } from "@/components/community-messenger/room/MessengerChatVideoBubble";
 import { memo } from "react";
 import { FileText } from "lucide-react";
 import type { DibayImageViewerItem } from "@/lib/ui/dibay-image-viewer-items";
@@ -37,6 +38,10 @@ export const TimelineViberInnerImage = memo(function TimelineViberInnerImage({
   onOpenLightbox: (items: DibayImageViewerItem[], index: number) => void;
 }) {
   return <MessengerChatImageBubble item={item} onOpenLightbox={onOpenLightbox} />;
+});
+
+export const TimelineViberInnerVideo = memo(function TimelineViberInnerVideo({ item }: { item: TimelineViberBubbleMessage }) {
+  return <MessengerChatVideoBubble item={item} />;
 });
 
 export const TimelineViberInnerSticker = memo(function TimelineViberInnerSticker({
