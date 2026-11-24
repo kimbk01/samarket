@@ -5,6 +5,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminNotification } from "@/lib/admin/notifications/admin-notification-service";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { resolveAdminStoreApplicationHref } from "@/lib/admin/admin-ops-deeplink";
 
 export async function notifyAdminsStoreApplicationSubmitted(
   sb: SupabaseClient,
@@ -22,7 +23,8 @@ export async function notifyAdminsStoreApplicationSubmitted(
         store: name,
       }),
       body: translateBy("ko", input.kind === "resubmit" ? "admin_store_app_notify_resubmit_body" : "admin_store_app_notify_new_body"),
-      linkUrl: `/admin/stores?status=actionable&store=${encodeURIComponent(input.storeId)}`,
+      // 감사 2026-11-24 C1: 목록(`/admin/stores?…&store=`)은 `store` 를 읽지 않아 매장이 안 열렸다 → 매장 상세(심사 화면)로
+      linkUrl: resolveAdminStoreApplicationHref(input.storeId),
       workRef: { table: "stores", id: input.storeId },
       dedupeKey: `store_application_submitted:${input.storeId}:${input.kind}:${Date.now()}`,
       actorUserId: input.actorUserId,

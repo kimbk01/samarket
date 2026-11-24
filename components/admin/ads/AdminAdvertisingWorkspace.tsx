@@ -136,8 +136,11 @@ function statusTabsForMode(mode: AdvertisingWorkspaceMode): Array<{ id: AdsShell
     ];
   }
   if (mode === "boosts") {
+    // 관리자 처리 대기(거래 프로모 심사) 카드가 `?status=pending` 으로 연다 — 탭이 없으면 선택 상태가 안 보였다 (감사 2026-11-24)
+    const pendingTab = STATUS_TABS_ALL.find((t) => t.id === "pending")!;
     return [
       { id: "all", ko: "전체", en: "All" },
+      pendingTab,
       { id: "live", ko: "현재 노출", en: "Live" },
       { id: "scheduled", ko: "예약", en: "Scheduled" },
       { id: "paused", ko: "제재 중", en: "Sanctioned" },

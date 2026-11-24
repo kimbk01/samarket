@@ -82,8 +82,9 @@ describe("Admin COMMON/SYSTEM ownership presentation contract", () => {
     // Cards render from the Action Queue registry; Feed and Trade promo stay separate categories.
     expect(dash).toContain("AdminActionQueueCardGrid");
     const registry = read("lib/admin/admin-action-queue-registry.ts");
-    expect(registry).toMatch(/key: "feed_ad_requests"[\s\S]*?listHref: "\/admin\/ad-applications\?domain=feed"/);
-    expect(registry).toMatch(/key: "trade_promo_pending"[\s\S]*?listHref: "\/admin\/ad-applications\?domain=trade"/);
+    // 감사 2026-11-24: 리다이렉트 없이 확인중 보기로 직접 (피드 = 신청 원장 · 거래 프로모 = 부스트)
+    expect(registry).toMatch(/key: "feed_ad_requests"[\s\S]*?listHref: "\/admin\/advertising\/applications\?kind=feed_member&status=pending"/);
+    expect(registry).toMatch(/key: "trade_promo_pending"[\s\S]*?listHref: "\/admin\/advertising\/boosts\?domain=trade&status=pending"/);
   });
 
   it("ko/en catalogs define Slice 6 ownership keys", () => {

@@ -4,6 +4,7 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -47,8 +48,11 @@ const TYPE_LABELS: Record<string, MessageKey> = {
   complaint: "admin_stores_inquiry_type_complaint",
 };
 
-/** 목록 조건 = 주소 (`store_id` 딥링크 · `page` · `size`). 필터 UI 는 없다 (매장 딥링크만). */
-const LIST_CONFIG = { extras: ["store_id"] as const };
+/**
+ * 목록 조건 = 주소 (`store_id` 딥링크 · `status` · `page` · `size`). 필터 UI 는 없다.
+ * `status=open` = 처리 대기 카드(사장님 답변 대기)가 여는 보기 — 카드 숫자와 같은 조건 (감사 2026-11-24).
+ */
+const LIST_CONFIG = { extras: ["store_id"] as const, statuses: ["open"] as const };
 
 export function AdminStoreInquiriesPage() {
   return (
@@ -63,6 +67,7 @@ function AdminStoreInquiriesPageInner() {
   const ko = language !== "en";
   const lq = useAdminListQuery(LIST_CONFIG);
   const storeIdFilter = lq.query.extras.store_id.trim();
+  const openOnly = lq.query.status === "open";
   const apiQs = lq.apiQueryString;
   const [total, setTotal] = useState(0);
   const [rows, setRows] = useState<Row[]>([]);
@@ -108,6 +113,15 @@ function AdminStoreInquiriesPageInner() {
           <Link href="/admin/store-inquiries" className="text-signature hover:underline">
             {t("admin_stores_show_all_inquiries")}
           </Link>
+        </p>
+      ) : null}
+      {openOnly ? (
+        <p className="sam-text-helper text-sam-muted" data-testid="admin-store-inquiries-open-only">
+          {t("admin_queue_filter_waiting")}
+          {" · "}
+          <AdminActionButton variant="ghost" size="sm" onClick={() => lq.setStatus("")}>
+            {t("admin_stores_show_all_inquiries")}
+          </AdminActionButton>
         </p>
       ) : null}
 

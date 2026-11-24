@@ -23,11 +23,14 @@ const STATUS_VALUES: PointChargeRequestStatus[] = [
   "rejected",
   "cancelled",
 ];
+/** 처리 대기 묶음 (pending·waiting_confirm·on_hold) — API `status=open` = `POINT_CHARGE_OPEN_STATUSES`. 관리자 처리 대기 카드가 이 값으로 연다. */
+const OPEN_FILTER = "open" as const;
+const FILTER_VALUES: string[] = [OPEN_FILTER, ...STATUS_VALUES];
 
 export function AdminPointChargeListPage() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const lq = useAdminListQuery({ statuses: STATUS_VALUES, defaults: { size: 50 } });
+  const lq = useAdminListQuery({ statuses: FILTER_VALUES, defaults: { size: 50 } });
   const action = useAdminRouteAction("/admin/point-charges");
   const [requests, setRequests] = useState<PointChargeRequest[]>([]);
   const [total, setTotal] = useState(0);
@@ -202,7 +205,10 @@ export function AdminPointChargeListPage() {
         status={{
           value: lq.query.status,
           onChange: lq.setStatus,
-          options: STATUS_VALUES.map((s) => ({ value: s, label: pointChargeStatusLabel(t, s) })),
+          options: [
+            { value: OPEN_FILTER, label: t("admin_queue_filter_waiting") },
+            ...STATUS_VALUES.map((s) => ({ value: s, label: pointChargeStatusLabel(t, s) })),
+          ],
         }}
       />
 

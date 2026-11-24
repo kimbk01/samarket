@@ -56,8 +56,9 @@ describe("CUT E Control Plane", () => {
     expect(getAdminActionQueueCategoryDef("delivery_ad_ops").listHref).toContain("view=actionable");
     // Feed queue UI lives on ad-applications (AdminFeedAdRequestQueue). There is no
     // /admin/feed-ad-requests list page — only /admin/feed-ad-requests/[id] detail.
-    expect(getAdminActionQueueCategoryDef("feed_ad_requests").listHref).toBe("/admin/ad-applications?domain=feed");
-    expect(getAdminActionQueueCategoryDef("platform_popup_pending").listHref).toBe("/admin/platform-popup");
+    // 감사 2026-11-24: 피드 = 신청 원장 확인중 · 팝업 신청 = 전체 광고 팝업 확인중 (캠페인 목록엔 신청이 없다)
+    expect(getAdminActionQueueCategoryDef("feed_ad_requests").listHref).toBe("/admin/advertising/applications?kind=feed_member&status=pending");
+    expect(getAdminActionQueueCategoryDef("platform_popup_pending").listHref).toBe("/admin/advertising?family=popup&status=pending");
     // ARO-OPS-UX-002-B6 — actionable = OPEN|WAITING_ADMIN control-plane filter
     expect(getAdminActionQueueCategoryDef("support_actionable").listHref).toBe(
       "/admin/support?filter=ACTIONABLE#action-required"

@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { checkStoreDeliveryMenuBeforeExpose } from "@/lib/stores/delivery-menus/store-delivery-menu-guard.server";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { appendStoreApplicationEvent } from "@/lib/stores/store-application-events.server";
+import { resolveAdminNotificationsForWork } from "@/lib/admin/notifications/admin-notification-service";
 import { isStorePhoneUsedByOtherStore } from "@/lib/stores/store-phone-otp-service";
 import {
   ADMIN_STORE_ACTIONS_REQUIRING_REASON,
@@ -335,6 +336,14 @@ export async function executeAdminStorePatchAction(input: {
       actorType: "admin",
       actorId,
     });
+    // 감사 2026-11-24 S2: 심사가 끝나면(대기·검토중이 아니면) 입점 신청 알림을 모든 수신 관리자에게서 읽음으로.
+    const nextApproval = String(patch.approval_status ?? "");
+    if (nextApproval && nextApproval !== "pending" && nextApproval !== "under_review") {
+      await resolveAdminNotificationsForWork(sb, {
+        workRef: { table: "stores", id },
+        kinds: ["store_application_submitted"],
+      });
+    }
     await safeNotifyOwnerStoreDecision(sb, {
       action,
       storeId: id,
@@ -435,6 +444,11 @@ export async function executeAdminStorePatchAction(input: {
       return NextResponse.json({ ok: false, error: "status_changed" }, { status: 409 });
     }
     const row = cleared[0] as { core_info_changed_at?: string | null; core_info_changed_fields?: unknown };
+    // 감사 2026-11-24 S2: 재검증 완료 → 주소·위치 변경 알림을 모든 수신 관리자에게서 읽음으로.
+    await resolveAdminNotificationsForWork(sb, {
+      workRef: { table: "stores", id },
+      kinds: ["store_core_info_changed"],
+    });
     return auditOk(
       {
         core_info_review_status: STORE_CORE_INFO_REVIEW_PENDING,

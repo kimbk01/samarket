@@ -145,7 +145,7 @@ describe("owner store PATCH — audit · re-verification · cache bump", () => {
     expect(n).toMatchObject({
       kind: "store_core_info_changed",
       broadcastPermission: "business",
-      linkUrl: "/admin/business/store-1",
+      linkUrl: "/admin/business/store-1?tab=basic", // 감사 2026-11-24 C2: 재검증 버튼이 있는 기본정보 탭
       workRef: { table: "stores", id: "store-1" },
     });
     const audit = (appendAuditLog.mock.calls[0] as unknown[])[1] as Record<string, unknown>;

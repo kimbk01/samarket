@@ -3,6 +3,7 @@ import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { decideStoreCommissionAdjustment } from "@/lib/stores/commission/store-commission-writer";
+import { resolveAdminNotificationsForWork } from "@/lib/admin/notifications/admin-notification-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,6 +64,21 @@ export async function POST(req: NextRequest) {
       { ok: false, error: res.error, maxMinor: res.maxMinor },
       { status: ERROR_STATUS[res.error] ?? 500 }
     );
+  }
+
+  // 감사 2026-11-24 S2: 결정이 끝난 주문의 「수수료 검토」 알림은 모든 수신 관리자에게서 읽음으로 (예전에는 계속 미읽음).
+  {
+    const { data: obligations } = await sb
+      .from("store_sale_fee_obligations")
+      .select("id, adjustment_status")
+      .eq("order_id", orderId);
+    for (const ob of obligations ?? []) {
+      if (String((ob as { adjustment_status?: unknown }).adjustment_status ?? "") === "review_required") continue;
+      await resolveAdminNotificationsForWork(sb, {
+        workRef: { table: "store_sale_fee_obligations", id: String((ob as { id: unknown }).id) },
+        kinds: ["settlement_commission_review"],
+      });
+    }
   }
 
   if (!res.idempotent) {
