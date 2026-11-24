@@ -137,7 +137,9 @@ describe("Admin Action Queue registry contract", () => {
       count: null,
     });
     expect(operator.categories.find((c) => c.key === "reports")?.status).toBe("forbidden");
-    expect(operator.total).toBe(63 + 8);
+    // 감사 2026-11-24: 주문 예외는 목록 API 권한(business)과 같게 — 권한 없는 운영자는 delivery_ad_ops(8)만
+    expect(operator.categories.find((c) => c.key === "orders_attention")?.status).toBe("forbidden");
+    expect(operator.total).toBe(8);
     expect(operator.total_complete).toBe(true);
 
     const finance = await loadAdminActionQueueCounts({

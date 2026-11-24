@@ -57,7 +57,8 @@ describe("ARO-AC-001 Dashboard Action Center", () => {
       "/admin/store-settlements?state=review_required"
     );
     expect(getAdminActionQueueCategoryDef("community_reports").listHref).toContain("/admin/community/reports");
-    expect(getAdminActionQueueCategoryDef("coin_withdrawals").listHref).toBe("/admin/finance#coin-withdrawals");
+    // 감사 2026-11-24: 요약표(40건·처리 버튼 없음) 대신 실제 처리 화면
+    expect(getAdminActionQueueCategoryDef("coin_withdrawals").listHref).toBe("/admin/finance/withdrawals?status=REQUESTED");
     expect(read("components/admin/action-queue/AdminActionQueueCardGrid.tsx")).toContain(
       "data-admin-queue-category={c.key}"
     );

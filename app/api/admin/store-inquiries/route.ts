@@ -26,6 +26,8 @@ export async function GET(req: Request) {
 
   const sp = new URL(req.url).searchParams;
   const storeIdFilter = (sp.get("store_id") ?? "").trim();
+  /** `status=open` = 사장님 답변 대기 (처리 대기 카드 숫자와 같은 조건). 없거나 다른 값 = 전체 (예전 호출자 호환). */
+  const statusFilter = (sp.get("status") ?? "").trim() === "open" ? "open" : "";
   const page = parseDeliveryListPageIfRequested(sp);
   if (storeIdFilter && !UUID_RE.test(storeIdFilter)) {
     return NextResponse.json({ ok: false, error: "invalid_store_id" }, { status: 400 });
@@ -38,6 +40,7 @@ export async function GET(req: Request) {
       page ? { count: "exact" } : undefined
     );
   if (storeIdFilter) query = query.eq("store_id", storeIdFilter);
+  if (statusFilter) query = query.eq("status", statusFilter);
   const ordered = query.order("created_at", { ascending: false });
   const { data: rows, error, count } = page
     ? await ordered.order("id", { ascending: false }).range(...deliveryListRange(page))

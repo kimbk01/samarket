@@ -58,8 +58,11 @@ function reasonLabel(raw: string, ko: boolean): string {
   return hit ? translateBy(ko ? "ko" : "en", hit) : translateBy(ko ? "ko" : "en", "admin_stores_settlements_payout_method_other");
 }
 
-/** 목록 조건 = 주소 (`store_id` 딥링크 · `page` · `size`). 필터 UI 는 없다 (매장 딥링크만). */
-const LIST_CONFIG = { extras: ["store_id"] as const };
+/**
+ * 목록 조건 = 주소 (`store_id` 딥링크 · `status` · `page` · `size`). 필터 UI 는 없다.
+ * `status=open` = 관리자 처리 대기 카드가 여는 보기 (카드 숫자와 같은 조건 · 감사 2026-11-24).
+ */
+const LIST_CONFIG = { extras: ["store_id"] as const, statuses: ["open"] as const };
 
 export function AdminStoreReportsPage() {
   const { t, language } = useI18n();
@@ -67,6 +70,7 @@ export function AdminStoreReportsPage() {
   const searchParams = useSearchParams();
   const lq = useAdminListQuery(LIST_CONFIG);
   const storeIdFilter = lq.query.extras.store_id.trim();
+  const openOnly = lq.query.status === "open";
   const apiQs = lq.apiQueryString;
   const [total, setTotal] = useState(0);
   const focusRequestId = parseAdminStoreReportFocusRequestId(searchParams);
@@ -122,6 +126,7 @@ export function AdminStoreReportsPage() {
     focusPagedRef.current = id;
     const qs = new URLSearchParams({ focus_position: id });
     if (storeIdFilter) qs.set("store_id", storeIdFilter);
+    if (openOnly) qs.set("status", "open");
     void fetch(`/api/admin/store-reports?${qs.toString()}`, { credentials: "include" })
       .then((res) => res.json().catch(() => null))
       .then((json: { ok?: boolean; position?: number | null } | null) => {
@@ -130,7 +135,7 @@ export function AdminStoreReportsPage() {
         if (page !== lq.query.page) lq.setPage(page);
       })
       .catch(() => undefined);
-  }, [focusRequestId, rows, loading, loadError, storeIdFilter, lq]);
+  }, [focusRequestId, rows, loading, loadError, storeIdFilter, openOnly, lq]);
 
   useEffect(() => {
     const id = focusRequestId.trim();
@@ -221,6 +226,15 @@ export function AdminStoreReportsPage() {
           <Link href="/admin/store-reports" className="text-signature hover:underline">
             {t("admin_stores_show_all_reports")}
           </Link>
+        </p>
+      ) : null}
+      {openOnly ? (
+        <p className="sam-text-helper text-sam-muted" data-testid="admin-store-reports-open-only">
+          {t("admin_queue_filter_waiting")}
+          {" · "}
+          <AdminActionButton variant="ghost" size="sm" onClick={() => lq.setStatus("")}>
+            {t("admin_stores_show_all_reports")}
+          </AdminActionButton>
         </p>
       ) : null}
       <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />

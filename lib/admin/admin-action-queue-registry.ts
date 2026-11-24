@@ -103,7 +103,7 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     priority: "P0_CRITICAL",
     rt: "POLL_SUFFICIENT",
     soundEligible: false,
-    requiredPermission: null,
+    requiredPermission: "business",
     listHref: "/admin/store-orders?queue=admin_attention&period=last_7_days",
     sidebarMenuKeys: ["delivery-orders-action-queue"],
     /** Operational exceptions only — cancel/refund requests are the store owner's decision (3단계). */
@@ -143,7 +143,7 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     soundEligible: true,
     requiredPermission: "business",
     listHref: DELIVERY_AD_ADMIN_ROUTES.cashCharges,
-    sidebarMenuKeys: ["store-finance-admin"],
+    sidebarMenuKeys: ["store-finance-admin", "delivery-ads-cash-queue"],
     titleKo: "Cash 충전 승인 대기",
     titleEn: "Cash top-up pending",
     domainKo: "재무 · Cash",
@@ -160,7 +160,7 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     rt: "RT_REQUIRED",
     soundEligible: true,
     requiredPermission: "point",
-    listHref: "/admin/point-charges",
+    listHref: "/admin/point-charges?status=open",
     sidebarMenuKeys: ["store-finance-admin", "points-charge"],
     titleKo: "Point 충전 승인 대기",
     titleEn: "Point top-up pending",
@@ -178,7 +178,7 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     rt: "POLL_SUFFICIENT",
     soundEligible: false,
     requiredPermission: "business",
-    listHref: "/admin/finance#coin-withdrawals",
+    listHref: "/admin/finance/withdrawals?status=REQUESTED",
     sidebarMenuKeys: ["finance-withdrawals"],
     titleKo: "Coin 출금 요청",
     titleEn: "Coin withdrawals",
@@ -231,8 +231,8 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     priority: "P1_ACTION_REQUIRED",
     rt: "RT_REQUIRED",
     soundEligible: true,
-    requiredPermission: null,
-    listHref: "/admin/store-reports",
+    requiredPermission: "reports",
+    listHref: "/admin/store-reports?status=open",
     sidebarMenuKeys: ["store-reports-admin"],
     titleKo: "매장 신고",
     titleEn: "Store reports",
@@ -249,7 +249,7 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     priority: "P1_ACTION_REQUIRED",
     rt: "POLL_SUFFICIENT",
     soundEligible: false,
-    requiredPermission: null,
+    requiredPermission: "chats",
     // C-10 / J-AMD-4: 메신저 신고는 채팅 신고 단일 큐에서 처리 (통화 기록 화면 아님).
     listHref: "/admin/chats/reported?type=messenger",
     sidebarMenuKeys: ["chat-reported"],
@@ -288,8 +288,8 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     rt: "RT_REQUIRED",
     soundEligible: true,
     requiredPermission: null,
-    listHref: "/admin/ad-applications?domain=feed",
-    sidebarMenuKeys: ["ads-feed-applications"],
+    listHref: "/admin/advertising/applications?kind=feed_member&status=pending",
+    sidebarMenuKeys: ["ads-authority-applications"],
     titleKo: "피드 광고 심사",
     titleEn: "Feed ad review",
     domainKo: "광고 · 피드",
@@ -306,8 +306,8 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     rt: "POLL_SUFFICIENT",
     soundEligible: false,
     requiredPermission: null,
-    listHref: "/admin/ad-applications?domain=trade",
-    sidebarMenuKeys: ["ads-applications"],
+    listHref: "/admin/advertising/boosts?domain=trade&status=pending",
+    sidebarMenuKeys: ["ads-authority-boosts"],
     titleKo: "거래 프로모 심사",
     titleEn: "Trade promo review",
     domainKo: B.MARKET,
@@ -324,8 +324,8 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     rt: "POLL_SUFFICIENT",
     soundEligible: false,
     requiredPermission: null,
-    listHref: "/admin/platform-popup",
-    sidebarMenuKeys: ["promotion-popup"],
+    listHref: "/admin/advertising?family=popup&status=pending",
+    sidebarMenuKeys: ["ads-advertising-workspace"],
     titleKo: "팝업 승인 대기",
     titleEn: "Popup review pending",
     domainKo: "광고 · 팝업",
@@ -342,7 +342,7 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     rt: "POLL_SUFFICIENT",
     soundEligible: false,
     requiredPermission: null,
-    listHref: DELIVERY_AD_ADMIN_ROUTES.partnerMemberships,
+    listHref: `${DELIVERY_AD_ADMIN_ROUTES.partnerMemberships}?status=PENDING_REVIEW`,
     sidebarMenuKeys: [],
     titleKo: "Partner 가입 심사",
     titleEn: "Partner membership review",
@@ -359,7 +359,7 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     priority: "P1_ACTION_REQUIRED",
     rt: "RT_REQUIRED",
     soundEligible: true,
-    requiredPermission: null,
+    requiredPermission: "support",
     listHref: "/admin/support?filter=ACTIONABLE#action-required",
     sidebarMenuKeys: ["cp-support-center"],
     titleKo: "고객지원 답변 대기",
@@ -397,7 +397,7 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     rt: "POLL_SUFFICIENT",
     soundEligible: false,
     requiredPermission: null,
-    listHref: "/admin/store-inquiries",
+    listHref: "/admin/store-inquiries?status=open",
     sidebarMenuKeys: [],
     titleKo: "매장 문의 (사장님 답변 대기)",
     titleEn: "Store inquiries (owner to answer)",
@@ -539,6 +539,37 @@ export function menuKeyHasUnavailableAdminQueue(
   return categories.some((c) => {
     if (c.status !== "unavailable") return false;
     return ADMIN_ACTION_QUEUE_REGISTRY_BY_KEY.get(c.key)?.sidebarMenuKeys.includes(menuKey) ?? false;
+  });
+}
+
+/**
+ * Collapsed sidebar group badge = Σ ok counts of categories mapped to ANY of the descendant menu keys.
+ * A category mapped to two children is counted once (감사 2026-11-24 — 접힌 묶음 안 대기 건이 안 보였다).
+ */
+export function sumAdminQueueCountsForMenuKeys(
+  menuKeys: readonly string[],
+  categories: readonly AdminActionQueueCategoryResult[]
+): number {
+  if (menuKeys.length === 0) return 0;
+  let n = 0;
+  for (const c of categories) {
+    if (c.status !== "ok" || c.count == null) continue;
+    const keys = ADMIN_ACTION_QUEUE_REGISTRY_BY_KEY.get(c.key)?.sidebarMenuKeys ?? [];
+    if (keys.some((k) => menuKeys.includes(k))) n += c.count;
+  }
+  return n;
+}
+
+/** True when any category mapped to any of the menu keys could not be counted. */
+export function menuKeysHaveUnavailableAdminQueue(
+  menuKeys: readonly string[],
+  categories: readonly AdminActionQueueCategoryResult[]
+): boolean {
+  if (menuKeys.length === 0) return false;
+  return categories.some((c) => {
+    if (c.status !== "unavailable") return false;
+    const keys = ADMIN_ACTION_QUEUE_REGISTRY_BY_KEY.get(c.key)?.sidebarMenuKeys ?? [];
+    return keys.some((k) => menuKeys.includes(k));
   });
 }
 

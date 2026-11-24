@@ -624,7 +624,8 @@ export async function patchStoreProfileCore(input: {
       severity: "warning",
       title: `매장 주소·위치 변경 재검증 · ${storeName || sid}`,
       body: `변경 항목: ${coreChangedFields.join(", ")}`,
-      linkUrl: `/admin/business/${encodeURIComponent(sid)}`,
+      // 감사 2026-11-24 C2: 재검증 완료 버튼은 「기본정보」 탭에만 있다 (기본 탭 = 개요)
+      linkUrl: `/admin/business/${encodeURIComponent(sid)}?tab=basic`,
       workRef: { table: "stores", id: sid },
       dedupeKey: `store_core_info_changed:${sid}:${String(patch.core_info_changed_at ?? Date.now())}`,
       actorUserId: actor.userId,

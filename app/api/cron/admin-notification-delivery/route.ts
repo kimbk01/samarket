@@ -58,7 +58,13 @@ async function runAdminNotificationDelivery(req: Request) {
     else archived = Number(data) || 0;
   }
 
-  return NextResponse.json({ ok: summary.errors.length === 0, ...summary, archived, settlementScan: settlementScan.data ?? null });
+  const ok = summary.errors.length === 0;
+  // 감사 2026-11-24 S9: 단계 실패(DB 호출 오류)도 200 이라 Vercel cron 이 실패로 기록하지 않았다 → 500.
+  // 본문은 그대로 (어느 단계가 실패했는지). 개별 푸시 실패는 errors 에 들어가지 않는다(재시도·dead 로 관리).
+  return NextResponse.json(
+    { ok, ...summary, archived, settlementScan: settlementScan.data ?? null },
+    { status: ok ? 200 : 500 }
+  );
 }
 
 export async function GET(req: Request) {

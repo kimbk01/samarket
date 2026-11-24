@@ -9,7 +9,9 @@ import { useAdminStorePointPendingCount } from "@/components/admin/store-points/
 import {
   formatAdminBellBadge,
   menuKeyHasUnavailableAdminQueue,
+  menuKeysHaveUnavailableAdminQueue,
   sumAdminQueueCountsForMenuKey,
+  sumAdminQueueCountsForMenuKeys,
 } from "@/lib/admin/admin-action-queue-registry";
 import {
   collectMenuPathEntries,
@@ -18,6 +20,14 @@ import {
   menuPathMatchScore,
 } from "./admin-sidebar-active-path";
 
+/** 묶음 아래 모든 메뉴 키 (자기 자신 제외) — 접힌 묶음 배지 합계용. */
+function collectDescendantMenuKeys(items: readonly AdminMenuItem[], out: string[] = []): string[] {
+  for (const it of items) {
+    out.push(it.key);
+    if (it.children?.length) collectDescendantMenuKeys(it.children, out);
+  }
+  return out;
+}
 
 function itemOrChildMatches(item: AdminMenuItem, currentPath: string): boolean {
   if (
@@ -62,6 +72,12 @@ export function AdminSidebarItem({
   /** COUNT SSOT: badge = Σ registry categories mapped to this menu key (admin-action-queue-registry). */
   const menuBadge = sumAdminQueueCountsForMenuKey(item.key, queueCategories);
   const menuBadgeUnavailable = menuKeyHasUnavailableAdminQueue(item.key, queueCategories);
+  /** 접힌 묶음 = 자식 메뉴 배지 합계 (같은 업무는 1번만). 펼치면 자식 배지만 보인다. */
+  const descendantKeys = hasChildren ? collectDescendantMenuKeys(item.children ?? []) : [];
+  const groupBadge = hasChildren ? sumAdminQueueCountsForMenuKeys(descendantKeys, queueCategories) : 0;
+  const groupBadgeUnavailable = hasChildren
+    ? menuKeysHaveUnavailableAdminQueue(descendantKeys, queueCategories)
+    : false;
 
   const childActive = hasChildren
     ? hasActiveDescendantInMenu(
@@ -149,6 +165,21 @@ export function AdminSidebarItem({
               {displayTitle}
             </button>
           )}
+          {!open && groupBadgeUnavailable ? (
+            <span
+              className="mr-1 shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white"
+              data-admin-menu-group-badge="unavailable"
+            >
+              !
+            </span>
+          ) : !open && groupBadge > 0 ? (
+            <span
+              className="mr-1 shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums"
+              data-admin-menu-group-badge={String(groupBadge)}
+            >
+              {formatAdminBellBadge(groupBadge)}
+            </span>
+          ) : null}
           <button
             type="button"
             onClick={toggleOpen}

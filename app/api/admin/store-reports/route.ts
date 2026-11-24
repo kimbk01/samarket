@@ -24,6 +24,8 @@ export async function GET(req: NextRequest) {
   }
 
   const storeIdFilter = req.nextUrl.searchParams.get("store_id")?.trim() || "";
+  /** `status=open` = 관리자 처리 대기(처리 대기 카드 숫자와 같은 조건). 없거나 다른 값 = 전체 (예전 호출자 호환). */
+  const statusFilter = req.nextUrl.searchParams.get("status")?.trim() === "open" ? "open" : "";
 
   // 딥링크 강조 신고의 목록 위치 — 같은 정렬(최신순 · id 내림)·같은 매장 필터에서 앞에 있는 건수.
   // 화면이 이 위치로 쪽을 옮겨 첫 쪽 밖 신고도 강조한다 (예전 400건 목록과 같은 동작).
@@ -34,11 +36,15 @@ export async function GET(req: NextRequest) {
     }
     const { data: target, error: tErr } = await sb
       .from("store_reports")
-      .select("id, created_at, store_id")
+      .select("id, created_at, store_id, status")
       .eq("id", focusId)
       .maybeSingle();
     if (tErr) return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
-    if (!target || (storeIdFilter && target.store_id !== storeIdFilter)) {
+    if (
+      !target ||
+      (storeIdFilter && target.store_id !== storeIdFilter) ||
+      (statusFilter && target.status !== statusFilter)
+    ) {
       return NextResponse.json({ ok: true, position: null });
     }
     const at = String(target.created_at);
@@ -47,6 +53,7 @@ export async function GET(req: NextRequest) {
       .select("id", { count: "exact", head: true })
       .or(`created_at.gt.${at},and(created_at.eq.${at},id.gt.${focusId})`);
     if (storeIdFilter) pq = pq.eq("store_id", storeIdFilter);
+    if (statusFilter) pq = pq.eq("status", statusFilter);
     const { count, error: pErr } = await pq;
     if (pErr) return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
     return NextResponse.json({ ok: true, position: count ?? 0 });
@@ -64,6 +71,9 @@ export async function GET(req: NextRequest) {
 
   if (storeIdFilter) {
     q = q.eq("store_id", storeIdFilter);
+  }
+  if (statusFilter) {
+    q = q.eq("status", statusFilter);
   }
   q = page ? q.order("id", { ascending: false }).range(...deliveryListRange(page)) : q.limit(400);
 

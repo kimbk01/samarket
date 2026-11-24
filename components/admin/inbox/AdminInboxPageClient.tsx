@@ -240,20 +240,34 @@ function AdminInboxPageInner() {
                     </time>
                   </td>
                   <td className="py-2 pr-3">
-                    {n.linkUrl ? (
-                      <AdminActionLink
-                        href={n.linkUrl}
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (!n.readAt) void markRead({ ids: [n.id] });
-                        }}
-                      >
-                        {t("admin_inbox_open_work")}
-                      </AdminActionLink>
-                    ) : (
-                      <span className="text-sam-muted">—</span>
-                    )}
+                    <div className="flex flex-wrap items-center gap-1">
+                      {n.linkUrl ? (
+                        <AdminActionLink
+                          href={n.linkUrl}
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (!n.readAt) void markRead({ ids: [n.id] });
+                          }}
+                        >
+                          {t("admin_inbox_open_work")}
+                        </AdminActionLink>
+                      ) : (
+                        <span className="text-sam-muted">—</span>
+                      )}
+                      {/* 감사 2026-11-24 C3: 링크 없는 알림(요청 예산 경보 등)은 「모두 읽음」 외에 지울 방법이 없었다 */}
+                      {!n.readAt ? (
+                        <AdminActionButton
+                          variant="ghost"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => void markRead({ ids: [n.id] })}
+                          data-testid="admin-inbox-mark-one-read"
+                        >
+                          {t("admin_inbox_mark_read")}
+                        </AdminActionButton>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}

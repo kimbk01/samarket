@@ -33,6 +33,8 @@ export const adminActionQueueMessages = {
     admin_store_orders_confirm_cancel_request_approve: "취소 요청을 승인할까요? 결제가 취소 처리됩니다.",
     admin_store_orders_confirm_cancel_request_reject: "취소 요청을 반려하고 이전 상태로 되돌릴까요?",
     admin_stores_orders_filter_admin_queue: "관리자 처리 필요 (액션 큐)",
+    admin_queue_filter_waiting: "처리 대기",
+    admin_inbox_mark_read: "읽음",
   },
   en: {
     admin_report_list_load_failed: "Some reports could not be loaded. Refresh and check again.",
@@ -63,5 +65,7 @@ export const adminActionQueueMessages = {
     admin_store_orders_confirm_cancel_request_approve: "Approve this cancel request? The payment will be cancelled.",
     admin_store_orders_confirm_cancel_request_reject: "Reject this cancel request and restore the previous status?",
     admin_stores_orders_filter_admin_queue: "Needs admin action (Action Queue)",
+    admin_queue_filter_waiting: "Waiting",
+    admin_inbox_mark_read: "Mark read",
   },
 } as const;

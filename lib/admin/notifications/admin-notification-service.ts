@@ -20,6 +20,7 @@ import { isSuperAdminRole, loadEffectiveStaffPermissions, permissionKeyAllowed }
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import {
   ADMIN_NOTIFICATION_RETENTION_DAYS,
+  ADMIN_RECIPIENT_NOTIFICATION_TYPES,
   isSettlementAdminNotificationKind,
   settlementWorkStatusFromAdjustment,
   type AdminNotificationDto,
@@ -752,4 +753,37 @@ export async function markAdminNotificationsRead(
   const { data, error } = await q.select("id");
   if (error) return { ok: false, error: error.message };
   return { ok: true, updated: (data ?? []).length };
+}
+
+/**
+ * The work behind these notifications is finished (approved / rejected / re-verified / decided) →
+ * mark them read for EVERY recipient (broadcast kinds go to all `business` admins).
+ * Only read_at changes. Failure is logged, never thrown — the business decision already committed.
+ * 감사 2026-11-24 S2: 처리 끝난 입점·재검증·수수료 알림이 미읽음으로 계속 남았다 (운영 11-03 부터 3건).
+ */
+export async function resolveAdminNotificationsForWork(
+  sb: SupabaseClient,
+  input: { workRef: { table: string; id: string }; kinds: readonly (typeof ADMIN_RECIPIENT_NOTIFICATION_TYPES)[number][] }
+): Promise<number> {
+  const table = input.workRef.table.trim();
+  const id = input.workRef.id.trim();
+  if (!table || !id || input.kinds.length === 0) return 0;
+  try {
+    const { data, error } = await sb
+      .from(ADMIN_NOTIFICATIONS_TABLE)
+      .update({ read_at: new Date().toISOString() })
+      .eq("work_ref_table", table)
+      .eq("work_ref_id", id)
+      .in("kind", [...input.kinds])
+      .is("read_at", null)
+      .select("id");
+    if (error) {
+      console.error("[admin-notifications] resolve_for_work_failed", { table, id, error: error.message });
+      return 0;
+    }
+    return (data ?? []).length;
+  } catch (err) {
+    console.error("[admin-notifications] resolve_for_work_failed", { table, id, err });
+    return 0;
+  }
 }

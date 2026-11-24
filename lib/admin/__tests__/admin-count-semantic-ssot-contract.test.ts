@@ -26,8 +26,9 @@ describe("Admin count semantic SSOT contract", () => {
       { key: "feed_ad_requests", count: 5, status: "ok", inTotal: true, nextActor: "admin", listHref: "y" },
     ] as const;
     // Regression: Trade leaf must not use Feed count (and vice versa)
-    expect(sumAdminQueueCountsForMenuKey("ads-applications", cats)).toBe(3);
-    expect(sumAdminQueueCountsForMenuKey("ads-feed-applications", cats)).toBe(5);
+    // 감사 2026-11-24: 배지 키를 숨김 메뉴(ads-legacy)에서 보이는 메뉴로 — 거래 프로모 = 부스트, 피드 = 신청
+    expect(sumAdminQueueCountsForMenuKey("ads-authority-boosts", cats)).toBe(3);
+    expect(sumAdminQueueCountsForMenuKey("ads-authority-applications", cats)).toBe(5);
   });
 
   it("Listing report drill targets Trade product report queue", () => {
