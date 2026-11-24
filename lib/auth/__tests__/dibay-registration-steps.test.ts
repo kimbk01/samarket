@@ -6,10 +6,7 @@ import {
   registrationStepHref,
 } from "@/lib/auth/dibay-registration-steps";
 import { resolveImmediateLoginTarget } from "@/lib/auth/finish-client-auth-login.client";
-import {
-  isRegistrationGateOnlyExcludedPath,
-  resolveProfileSetupGateAction,
-} from "@/lib/auth/profile-setup-flow";
+import { isRegistrationGateExemptPath, resolveRegistrationGateTarget } from "@/lib/auth/registration-gate";
 import { isDibaySignupGateExcludedPath } from "@/lib/auth/dibay-signup-status";
 import { resolveMemberRegistrationClassForApiMutation } from "@/lib/auth/member-registration-mutation-policy";
 
@@ -63,21 +60,46 @@ describe("아이디 로그인 목적지 — 가입 단계 route 사용", () => {
   });
 });
 
-describe("세션당 1회 가입 안내 — 열람을 막지 않는다", () => {
-  it("통화 화면·가입 단계 화면은 안내하지 않는다 (받은 통화를 덮지 않음)", () => {
+describe("가입 관문 — 건너뛰기·세션당 1회 없음 (Owner 2026-11-24)", () => {
+  it("통화 화면·가입 단계 화면·약관·고객센터는 보내지 않는다 (받은 통화를 덮지 않음)", () => {
     for (const p of [
       "/community-messenger/calls/abc",
       "/community-messenger/calls-v3/abc",
       "/community-messenger/calls-v4/abc",
       "/auth/onboarding/phone",
+      "/auth/onboarding/address",
+      "/login",
+      "/terms",
+      "/mypage/addresses",
     ]) {
-      expect(isRegistrationGateOnlyExcludedPath(p), p).toBe(true);
-      expect(resolveProfileSetupGateAction({ needsBlock: true, deferredForSession: false, pathname: p })).toBe("none");
+      expect(isRegistrationGateExemptPath(p), p).toBe(true);
+      expect(resolveRegistrationGateTarget({ step: "phone", pathname: p }), p).toBeNull();
     }
   });
-  it("1회 안내 뒤에는 이동 없음", () => {
-    expect(resolveProfileSetupGateAction({ needsBlock: true, deferredForSession: true, pathname: "/market" })).toBe("none");
-    expect(resolveProfileSetupGateAction({ needsBlock: true, deferredForSession: false, pathname: "/market" })).toBe("redirect");
+  it("탭 첫 화면·내정보·푸시로 연 방 모두 빠진 단계 화면으로 — 원래 화면은 next 로", () => {
+    expect(resolveRegistrationGateTarget({ step: "phone", pathname: "/market" })).toBe(
+      "/auth/onboarding/phone?next=%2Fmarket",
+    );
+    expect(resolveRegistrationGateTarget({ step: "address", pathname: "/mypage" })).toBe(
+      "/auth/onboarding/address?next=%2Fmypage",
+    );
+    expect(
+      resolveRegistrationGateTarget({
+        step: "phone",
+        pathname: "/community-messenger/rooms/r1",
+        returnTo: "/community-messenger/rooms/r1?m=5",
+      }),
+    ).toBe("/auth/onboarding/phone?next=%2Fcommunity-messenger%2Frooms%2Fr1%3Fm%3D5");
+  });
+  it("목적지는 단계 화면만 — /mypage 로 보내지 않는다 (06-21 사고 조건)", () => {
+    for (const step of ["phone", "address"] as const) {
+      const t = resolveRegistrationGateTarget({ step, pathname: "/community-messenger/rooms/r1" }) ?? "";
+      expect(t.startsWith("/auth/onboarding/")).toBe(true);
+    }
+  });
+  it("동의(terms)·완료(null)는 이 관문이 보내지 않는다", () => {
+    expect(resolveRegistrationGateTarget({ step: "terms", pathname: "/market" })).toBeNull();
+    expect(resolveRegistrationGateTarget({ step: null, pathname: "/market" })).toBeNull();
   });
   it("동의 게이트 제외 경로는 바꾸지 않는다 (통화 화면 미포함)", () => {
     expect(isDibaySignupGateExcludedPath("/community-messenger/calls/abc")).toBe(false);

@@ -61,23 +61,17 @@ export function validateAdminCreateMemberForm(
   if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
     errors.email = "admin_users_err_email_invalid";
   }
-  if (input.contactPhoneDigits.trim()) {
-    if (!resolveAdminProfilePhone(input.contactPhoneDigits)) {
-      errors.contactPhone = opts.phoneRuleKey;
-    }
+  /** 가입 = 동의 + 전화 + 대표 주소 — 관리자 생성도 전화·주소 필수 (가입 SSOT 2026-11-24 S4). 동의는 회원 본인이 첫 로그인 때. */
+  if (!input.contactPhoneDigits.trim()) {
+    errors.contactPhone = "admin_users_err_phone_required";
+  } else if (!resolveAdminProfilePhone(input.contactPhoneDigits)) {
+    errors.contactPhone = opts.phoneRuleKey;
   }
 
-  const addrStarted =
-    opts.addressAttempted ||
-    adminCreateMemberAddressHasSelection(input.address) ||
-    input.address.unitFloorRoom.trim().length > 0;
-
-  if (addrStarted) {
-    if (!adminCreateMemberAddressHasSelection(input.address)) {
-      errors.addressSearch = "addr_ui_pick_search_result";
-    } else if (!input.address.unitFloorRoom.trim()) {
-      errors.addressDetail = "addr_ui_detail_required_err";
-    }
+  if (!adminCreateMemberAddressHasSelection(input.address)) {
+    errors.addressSearch = "addr_ui_pick_search_result";
+  } else if (!input.address.unitFloorRoom.trim()) {
+    errors.addressDetail = "addr_ui_detail_required_err";
   }
 
   if (!["development_member", "operations_member"].includes(input.accountType)) {

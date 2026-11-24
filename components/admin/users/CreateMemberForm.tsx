@@ -105,12 +105,9 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
-    const addressTouched =
-      addressAttempted ||
-      Boolean(address.unitFloorRoom.trim()) ||
-      Boolean(address.placeId.trim()) ||
-      Boolean(address.formattedAddress.trim());
-    if (addressTouched) setAddressAttempted(true);
+    /** 대표 주소는 필수 — 제출하면 항상 주소 칸 오류를 보여 준다 (가입 SSOT 2026-11-24 S4) */
+    const addressTouched = true;
+    setAddressAttempted(true);
 
     const validation = validateAdminCreateMemberForm(
       {
@@ -436,8 +433,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
             {/* Auth email synthesis (@manual.local) is server implementation detail — not shown. */}
             <div>
               <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
-                {t("admin_users_label_contact_optional")}{" "}
-                <span className="font-normal text-sam-meta">{t("admin_users_optional_paren")}</span>
+                {t("admin_users_label_contact_optional")}
               </label>
               <input
                 type="tel"

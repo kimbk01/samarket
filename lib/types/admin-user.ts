@@ -170,6 +170,11 @@ export interface AdminUserDetail {
   hasProfile: boolean;
   /** User Facts Trust SSOT — profiles.trust_score (0–100) */
   trust_score?: number | null;
+  /**
+   * 가입 단계 — 앱과 같은 판정(`getOnboardingStatus.registrationNextStep`, 가입 SSOT 2026-11-24 S4).
+   * null = 가입 완료(관리자 포함) · undefined = 읽지 못함.
+   */
+  registration_next_step?: "terms" | "phone" | "address" | null;
 }
 
 export interface UserActivitySummary {

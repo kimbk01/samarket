@@ -6,8 +6,6 @@ import {
   isProfileSetupGateExcludedPath,
   isProfileSetupMode,
   isProfileSetupPending,
-  PROFILE_SETUP_GATE_TARGET_HREF,
-  resolveProfileSetupGateAction,
 } from "@/lib/auth/profile-setup-flow";
 
 describe("profile-setup-flow", () => {
@@ -19,29 +17,6 @@ describe("profile-setup-flow", () => {
     expect(buildProfileSetupHref({ next: "https://evil.example" })).toBe(
       "/mypage/section/account/profile/edit?setup=1",
     );
-  });
-
-  it("gate target is mypage home (Owner 2026-11-09)", () => {
-    expect(PROFILE_SETUP_GATE_TARGET_HREF).toBe("/mypage");
-    expect(isProfileSetupGateExcludedPath(PROFILE_SETUP_GATE_TARGET_HREF)).toBe(false);
-  });
-
-  it("gate redirects once per login session, then browsing is free", () => {
-    const base = { needsBlock: true, deferredForSession: false };
-    expect(resolveProfileSetupGateAction({ ...base, pathname: "/home" })).toBe("redirect");
-    /** 설계 2026-11-21 §5-5 — 푸시·링크로 들어온 상세 화면은 가로채지 않는다(탭 첫 화면에서만 안내) */
-    expect(resolveProfileSetupGateAction({ ...base, pathname: "/philife/post/1" })).toBe("none");
-    expect(resolveProfileSetupGateAction({ ...base, pathname: "/community-messenger/rooms/r1" })).toBe("none");
-    expect(resolveProfileSetupGateAction({ ...base, pathname: "/community-messenger" })).toBe("redirect");
-    expect(resolveProfileSetupGateAction({ ...base, pathname: "/mypage" })).toBe("mark_seen");
-    expect(resolveProfileSetupGateAction({ ...base, pathname: "/mypage/addresses" })).toBe("none");
-    // 1회 처리 뒤 — 어디든 이동 없음
-    expect(
-      resolveProfileSetupGateAction({ needsBlock: true, deferredForSession: true, pathname: "/home" }),
-    ).toBe("none");
-    expect(
-      resolveProfileSetupGateAction({ needsBlock: false, deferredForSession: false, pathname: "/home" }),
-    ).toBe("none");
   });
 
   it("isProfileSetupMode detects setup=1", () => {

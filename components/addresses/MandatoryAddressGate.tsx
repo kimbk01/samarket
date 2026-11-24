@@ -1,22 +1,14 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  isProfileSetupGateExcludedPath,
-  isRegistrationGateOnlyExcludedPath,
-  resolveProfileSetupGateAction,
-} from "@/lib/auth/profile-setup-flow";
-import { registrationStepHref, type DibayRegistrationStep } from "@/lib/auth/dibay-registration-steps";
+import { isProfileSetupGateExcludedPath } from "@/lib/auth/profile-setup-flow";
+import { isRegistrationGateExemptPath } from "@/lib/auth/registration-gate";
+import type { DibayRegistrationStep } from "@/lib/auth/dibay-registration-steps";
 import {
   invalidateRegistrationPending,
   setRegistrationPendingFromServer,
 } from "@/lib/auth/registration-pending-state.client";
-import {
-  clearProfileSetupDeferForSession,
-  deferProfileSetupForSession,
-  isProfileSetupDeferredForSession,
-} from "@/lib/auth/profile-setup-defer.client";
 import { runNowOrScheduleOnStoreOwnerAdmin, OWNER_HUB_SECONDARY_AFTER_MS } from "@/lib/business/owner-hub-secondary-fetch-queue";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
 import {
@@ -24,14 +16,13 @@ import {
   invalidateMandatoryAddressGateClientCache,
 } from "@/lib/addresses/mandatory-address-gate-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 import { patchPlatformPopupCriticalRuntimeFlags } from "@/lib/platform-popup/popup-critical-runtime-flags";
 
 /** 주소 목록이 바뀐 뒤 게이트 재검사 — `AddressManagementClient.load` 등에서 발행 */
 export const SAMARKET_ADDRESSES_UPDATED_EVENT = "samarket:addresses-updated";
 
 function isGateExcludedPath(path: string): boolean {
-  return isProfileSetupGateExcludedPath(path) || isRegistrationGateOnlyExcludedPath(path);
+  return isProfileSetupGateExcludedPath(path) || isRegistrationGateExemptPath(path);
 }
 
 /** 로그인/가입 화면을 떠난 뒤에는 서버 게이트를 다시 맞춤 */
@@ -57,52 +48,22 @@ function shouldRefetchGateOnPathChange(prev: string | null, next: string): boole
 }
 
 /**
- * 로그인 상태에서 가입(동의 + 전화 인증 + 대표 주소) 중 전화·주소가 빠졌으면 로그인 세션당 **1회만**
- * 빠진 가입 단계 화면(`/auth/onboarding/phone|address`)으로 보냅니다 (Owner 2026-11-09 세션당 1회 ·
- * 2026-11-20 「승인, 구현 진행」 — 목적지를 가입 단계 화면으로, 대상에 전화 미인증 추가).
- * 그 뒤로는 어디든 진입·열람 가능 — 회원 행동은 기능 게이트(`lib/profile/profile-requirements.ts`)가 요구한다.
- * 동의 미완료는 `DibaySignupGate` 담당이라 여기서 보내지 않는다. 로그아웃 시 1회 표식 초기화.
- * 주소·프로필 수정 플로우·가입 단계 경로·통화 화면은 제외합니다.
+ * 가입 재료(대표 주소·빠진 가입 단계) 읽기 — `/api/me/mandatory-address-gate` (DB 함수 1회).
+ * - 결과로 `registration-pending-state` 를 채운다 → 가입 관문(`DibaySignupGate`)이 그 값으로 빠진 단계 화면으로 보낸다.
+ *   화면 이동은 여기서 하지 않는다(설계 `docs/audit/registration-ssot-redesign-2026-11-24.md` S1 ⑤ — 이동 주인 1곳).
+ * - 팝업 critical 표식(`addressGate` = 대표 주소 없음)은 기존 의미 그대로.
+ * - 재확인: 최초 · 주소/프로필 흐름 종료 · 로그인 화면 이탈 · 주소 갱신 이벤트 · 탭 복귀 · SIGNED_IN.
  */
 export function MandatoryAddressGate() {
-  const router = useRouter();
   const pathname = usePathname() ?? "";
-  const deferOverlayForStoresLcp = useStoresHomeOverlayDeferUntilInput();
   const pathRef = useRef(pathname);
   const prevPathForGateRef = useRef<string | null>(null);
-  const redirectTargetRef = useRef<string | null>(null);
   const [blocked, setBlocked] = useState(false);
-  const [registrationPending, setRegistrationPending] = useState(false);
 
   useEffect(() => {
     patchPlatformPopupCriticalRuntimeFlags({ addressGate: blocked });
     return () => patchPlatformPopupCriticalRuntimeFlags({ addressGate: false });
   }, [blocked]);
-
-  const stepRef = useRef<DibayRegistrationStep | null>(null);
-
-  const maybeRedirectToSetup = useCallback(
-    (needsBlock: boolean) => {
-      if (deferOverlayForStoresLcp) return;
-      const action = resolveProfileSetupGateAction({
-        needsBlock,
-        deferredForSession: isProfileSetupDeferredForSession(),
-        pathname: pathRef.current,
-      });
-      if (action === "none") return;
-      /** 로그인 세션당 1회 — 이후 둘러보기 자유, 회원 행동은 기능 게이트(profile-requirements)가 요구 */
-      deferProfileSetupForSession();
-      if (action === "mark_seen") return;
-      const here =
-        typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : pathRef.current;
-      const target = registrationStepHref(stepRef.current, here);
-      if (!target) return;
-      if (redirectTargetRef.current === target) return;
-      redirectTargetRef.current = target;
-      router.replace(target);
-    },
-    [router, deferOverlayForStoresLcp],
-  );
 
   const applyGateJson = useCallback(
     async (res: Response) => {
@@ -126,25 +87,17 @@ export function MandatoryAddressGate() {
       }
       /** 동의(terms)는 DibaySignupGate 담당 — 여기서는 전화·주소 단계만 */
       const step = j.registrationNextStep === "phone" || j.registrationNextStep === "address" ? j.registrationNextStep : null;
-      stepRef.current = step;
       if (j.authenticated === true) setRegistrationPendingFromServer(step);
       /** 팝업 critical 표식(`addressGate`)은 기존 의미(대표 주소 없음) 그대로 */
       setBlocked(j.authenticated === true && j.needsBlock === true);
-      const needsStep = j.authenticated === true && step !== null;
-      setRegistrationPending(needsStep);
-      if (!needsStep) {
-        redirectTargetRef.current = null;
-      }
-      maybeRedirectToSetup(needsStep);
     },
-    [maybeRedirectToSetup],
+    [],
   );
 
   const runGateFetchNow = useCallback(async () => {
     const p = pathRef.current;
     if (isGateExcludedPath(p)) {
       setBlocked(false);
-      redirectTargetRef.current = null;
       return;
     }
     try {
@@ -181,21 +134,15 @@ export function MandatoryAddressGate() {
 
     if (isGateExcludedPath(next) || isAuthEntryPath(next)) {
       setBlocked(false);
-      redirectTargetRef.current = null;
       prevPathForGateRef.current = next;
       return;
     }
 
     prevPathForGateRef.current = next;
 
-    if (!shouldRefetchGateOnPathChange(prev, next)) {
-      if (registrationPending && !isProfileSetupDeferredForSession()) {
-        maybeRedirectToSetup(true);
-      }
-      return;
-    }
+    if (!shouldRefetchGateOnPathChange(prev, next)) return;
     void runGateFetch();
-  }, [pathname, runGateFetch, registrationPending, maybeRedirectToSetup]);
+  }, [pathname, runGateFetch]);
 
   useEffect(() => {
     const onUpdated = () => {
@@ -234,9 +181,6 @@ export function MandatoryAddressGate() {
       if (event === "SIGNED_OUT") {
         invalidateRegistrationPending();
         setBlocked(false);
-        setRegistrationPending(false);
-        redirectTargetRef.current = null;
-        clearProfileSetupDeferForSession();
         return;
       }
       if (event === "SIGNED_IN") {

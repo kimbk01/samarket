@@ -11,15 +11,39 @@ const STALE_MS = 10 * 60_000;
 
 let state: { step: RegistrationPendingStep | null; at: number } | null = null;
 
+const listeners = new Set<() => void>();
+
+function emit(): void {
+  for (const l of [...listeners]) {
+    try {
+      l();
+    } catch {
+      /* 구독자 오류는 다른 구독자에 번지지 않게 */
+    }
+  }
+}
+
+/** 값이 바뀔 때 알림 — 가입 관문(`DibaySignupGate`)이 서버 값 도착 즉시 다시 판정한다 */
+export function subscribeRegistrationPending(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
 /** 서버가 준 값으로 갱신 — `null` = 가입 완료(또는 동의 미완이라 이 장치 대상 아님) */
 export function setRegistrationPendingFromServer(step: unknown): void {
   const s = step === "phone" || step === "address" ? step : null;
+  const changed = state?.step !== s;
   state = { step: s, at: Date.now() };
+  if (changed) emit();
 }
 
 /** 주소·전화가 바뀌었을 수 있음(주소 저장·전화 인증·로그아웃) — 다음 서버 응답까지 「모름」 */
 export function invalidateRegistrationPending(): void {
+  const had = state !== null;
   state = null;
+  if (had) emit();
 }
 
 /** 확실히 아는 빠진 단계 — 모르거나 오래됐으면 null */
@@ -37,4 +61,5 @@ export function peekRegistrationPendingKnowledge(nowMs = Date.now()): Registrati
 
 export function resetRegistrationPendingForTests(): void {
   state = null;
+  listeners.clear();
 }

@@ -70,4 +70,11 @@ export const SSOT_SOURCE_CONTRACT_REGISTRY: readonly SsotSourceContractEntry[] =
     marker: "SSOT_CONTRACT: dibay-signup-consent-only-gate signupComplete consentComplete",
     also: ["const signupComplete = consentComplete"],
   },
+  {
+    id: "dibay-registration-gate-step-destination",
+    file: "lib/auth/registration-gate.ts",
+    marker:
+      "SSOT_CONTRACT: dibay-registration-gate-step-destination isRegistrationGateExemptPath resolveRegistrationGateTarget",
+    also: ["return isCallSurfacePath(p);", "registrationStepHref(input.step"],
+  },
 ] as const;

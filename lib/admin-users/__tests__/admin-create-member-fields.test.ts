@@ -13,7 +13,8 @@ describe("admin-create-member-fields", () => {
     expect(mapAdminCreateMemberApiField("address")).toBe("addressSearch");
   });
 
-  it("allows empty email and does not require address when not touched", () => {
+  /** 가입 SSOT 2026-11-24 S4 — 전화·대표 주소 필수 (이메일은 여전히 선택) */
+  it("allows empty email but requires phone and main address", () => {
     const errors = validateAdminCreateMemberForm(
       {
         username: "qa_user",
@@ -28,7 +29,10 @@ describe("admin-create-member-fields", () => {
       },
       { addressAttempted: false, phoneRuleKey: "phone_rule" }
     );
-    expect(errors).toEqual({});
+    expect(errors).toEqual({
+      contactPhone: "admin_users_err_phone_required",
+      addressSearch: "addr_ui_pick_search_result",
+    });
   });
 });
 

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkAdminSetPassword, mapSupabaseWeakPasswordError } from "@/lib/auth/admin-set-password-policy";
-import { writeMemberMarketingConsent } from "@/lib/legal/marketing-consent.server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
@@ -11,7 +10,6 @@ import {
   type AdminCreateMemberAddressInput,
 } from "@/lib/admin-users/admin-create-member-address";
 import { createUserAddress } from "@/lib/addresses/user-address-service";
-import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import {
   buildProfileRegionNameForStorage,
@@ -149,8 +147,15 @@ export async function POST(req: NextRequest) {
   const addressFromBody = parseAddressPayload(body.addressPayload);
   const seedNickname = String(body.addressPayload?.seedNickname ?? "home").trim() || "home";
 
-  const resolvedPhone = contactPhoneRaw ? resolveAdminProfilePhone(contactPhoneRaw) : null;
-  if (contactPhoneRaw && !resolvedPhone) {
+  /**
+   * 가입 = 동의 + 전화 + 대표 주소 (가입 SSOT 2026-11-24 S4 · Owner 2026-10-20 「관리자 수동 인증 = 전화번호 필수」).
+   * 관리자가 등록한 번호 = 인증된 번호. 번호 없는 「인증 완료」 생성 금지.
+   */
+  if (!contactPhoneRaw) {
+    return jsonFieldError("contactPhone", "admin_users_err_phone_required", 400);
+  }
+  const resolvedPhone = resolveAdminProfilePhone(contactPhoneRaw);
+  if (!resolvedPhone) {
     return jsonFieldError("contactPhone", "admin_users_member_verify_invalid_phone", 400);
   }
   if (contactAddressRaw.length > 2000) {
@@ -184,15 +189,16 @@ export async function POST(req: NextRequest) {
     }
   } else if (addressFromBody && addressFromBody.placeId.trim()) {
     return jsonFieldError("address", "addr_ui_pick_search_result", 400);
+  } else if (!(String(body.regionCode ?? "").trim() && String(body.cityCode ?? "").trim())) {
+    /** 대표 주소 필수 — 검색 결과 선택(또는 예전 지역·도시 코드) 없이 만들지 않는다 */
+    return jsonFieldError("address", "addr_ui_pick_search_result", 400);
   }
 
   /** 필리핀 `09…`·한국 `+82…` — 전화 인증과 같은 저장 형식 (resolveAdminProfilePhone). */
-  const phoneFields = resolvedPhone
-    ? resolvedPhone.storage
-    : { phone: null, phone_country_code: null, phone_number: null };
+  const phoneFields = resolvedPhone.storage;
   /** 대표 주소 연락처 — 필리핀은 기존대로 국내 9…, 한국은 나라가 드러나게 E.164. */
   const addressPhoneNumber =
-    resolvedPhone?.country === "KR" ? resolvedPhone.e164 : phoneFields.phone_number;
+    resolvedPhone.country === "KR" ? resolvedPhone.e164 : phoneFields.phone_number;
   /** Auth 로그인 식별자는 항상 loginId@manual.local. 연락 이메일은 profiles.email 만. */
   const authEmail = buildManualMemberAuthEmail(username);
   const contactEmail = emailRaw || null;
@@ -282,8 +288,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const requiredConsent = await resolveRequiredConsentVersions();
-
   const profileRow: Record<string, unknown> = {
     id,
     email: contactEmail,
@@ -318,10 +322,10 @@ export async function POST(req: NextRequest) {
     latitude,
     longitude,
     full_address,
-    terms_accepted_at: nowIso,
-    privacy_accepted_at: nowIso,
-    terms_version: requiredConsent.termsVersion,
-    privacy_version: requiredConsent.privacyVersion,
+    /**
+     * 약관·개인정보 동의는 기록하지 않는다 — 법적 동의는 회원 본인이 첫 로그인 때 동의 화면에서 (가입 SSOT S4).
+     * 관리자가 대신 동의를 기록하던 예전 동작 제거.
+     */
   };
   const { error: profileError } = await (supabase as any).from("profiles").upsert(profileRow);
   if (profileError) {
@@ -333,23 +337,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: profileError.message, field: "form" }, { status: 500 });
   }
 
-  // 어드민이 만든 회원은 가입 동의 화면을 거치지 않는다 → 혜택·이벤트 동의 = OFF 기록(받은 적 없음).
-  // 회원이 내정보에서 켤 수 있다. 실패해도 생성은 유지(행 없음 = OFF 와 같은 판정) — 재감사 D-3.
-  const marketingRecord = await writeMemberMarketingConsent(supabase as never, id, {
-    enabled: false,
-    source: "admin_created",
-    version: null,
-  });
-  if (!marketingRecord.ok) {
-    console.warn("[admin/users/create] marketing consent record failed", { code: marketingRecord.error });
-  }
+  // 혜택·이벤트 선택 동의도 회원 본인이 첫 로그인 동의 화면에서 고른다(기록 없음 = 그 화면이 묻는다 · 가입 SSOT S4).
 
   const shouldSeedAddress =
     (addressFromBody && adminCreateMemberAddressHasSelection(addressFromBody)) ||
     (regionId && cityId);
 
-  /** 회원 생성은 성공했지만 대표 주소 시드가 실패한 경우 — 응답에 경고 코드로 노출 (원문은 로그만). */
-  let addressWarning: string | null = null;
+  /**
+   * 대표 주소 저장 실패 = 생성 취소 (가입 SSOT S4) — 주소 없는 수동 회원을 만들지 않는다.
+   * Auth 사용자 삭제 → profiles·user_addresses 는 FK ON DELETE CASCADE(운영 2026-11-24 확인).
+   */
+  let addressSeedFailed = !shouldSeedAddress;
   if (shouldSeedAddress) {
     try {
       const regionMeta = REGIONS.find((r) => r.id === regionId);
@@ -401,8 +399,14 @@ export async function POST(req: NextRequest) {
       }
     } catch (seedErr) {
       console.error("[admin/users/create] representative address seed failed", seedErr);
-      addressWarning = "address_seed_failed";
+      addressSeedFailed = true;
     }
+  }
+  if (addressSeedFailed) {
+    await supabase.auth.admin.deleteUser(id).catch((delErr: unknown) => {
+      console.error("[admin/users/create] rollback after address failure failed", delErr);
+    });
+    return jsonFieldError("address", "admin_users_err_address_seed_failed", 500);
   }
 
   void appendAuditLog(supabase, {
@@ -432,6 +436,5 @@ export async function POST(req: NextRequest) {
       accountType: accountTypeRaw,
       phoneVerified: true,
     },
-    ...(addressWarning ? { address_warning: addressWarning } : {}),
   });
 }

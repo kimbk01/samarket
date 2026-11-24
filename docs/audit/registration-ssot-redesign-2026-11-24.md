@@ -109,3 +109,34 @@
 - 회원이 실제로 [나중에 하기]를 누른 횟수(지난 화면 기록 없음).
 - Solapi 키의 Production 적용 여부.
 - 운영에서 Vercel `x-vercel-ip-country` 가 앱(WebView) 요청에 붙는지 — S3 반영 뒤 1회 확인.
+
+## 11. 구현 기록 (2026-11-24 · Owner 「설계대로 진행」)
+| 단계 | 구현 | 파일 |
+|---|---|---|
+| S1 | [나중에 하기]·세션당 1회 삭제 · 가입 관문 1곳(`registration-gate.ts`, 이동 주인 `DibaySignupGate`) · `MandatoryAddressGate` 는 재료 읽기만 · 동의 뒤 항상 서버 판정(실패 → 단계 화면) · 단계 화면 기본 next `/` · 계약 개정(`cm-hub-navigation-contract` 문서·규칙, 마커 `dibay-registration-gate-step-destination`) | `components/auth/*`, `components/addresses/MandatoryAddressGate.tsx`, `lib/auth/registration-gate.ts`, `lib/auth/registration-pending-state.client.ts`, `lib/auth/registration-step-page.server.ts`, `lib/auth/profile-setup-flow.ts`(1회 안내 함수 삭제), `lib/auth/profile-setup-defer.client.ts`(삭제) |
+| S2 | 토큰 클레임 가입 재료(`reg`·`has_phone`·`has_default_master` 등, 번호 자체는 넣지 않음) · proxy 가 동의 뒤 같은 판정 | `supabase/migrations/20271124120000_*.sql`, `lib/auth/member-token-claims.ts`, `lib/auth/proxy-signup-gate.ts` |
+| S3 | `default_dial_code`(Vercel `x-vercel-ip-country`) · 화면 기본값 순서 | `app/api/me/phone-verification/route.ts`, `lib/phone/phone-country-codes.ts`, `lib/mypage/load-phone-verification-state.ts`, `PhoneVerificationBox.tsx` |
+| S4 | 생성 시 전화·주소 필수 · 주소 실패 = 생성 취소 · 동의·혜택 동의 대신 기록 안 함 · 수동 회원 번호 규칙 · 관리자 상세 가입 단계 표시 | `app/api/admin/users/create/route.ts`, `CreateMemberForm.tsx`, `admin-create-member-fields.ts`, `app/api/admin/users/[id]/route.ts`, `AdminMemberAlertStrip.tsx` |
+| S5 | 전화 인증 판정 구현 1개(`verifiedPhoneVerdict`) — `hasVerifiedPhone`·회원 상태 표시·인증 회원 기능 모두 사용 | `lib/auth/store-member-policy.ts`, `lib/auth/post-login-profile-policy.ts`, `lib/auth/member-access.ts` |
+
+설계와 다르게 한 것 (이유):
+1. [로그아웃하고 둘러보기] 대신 기존 [로그아웃] + 안내 문구 — 로그아웃 뒤 이동은 Auth HARD LOCK(`docs/auth-hard-lock.md`)이 `/login` 으로 고정, 문구가 실제 동작과 다르면 안 됨.
+2. 서버 관문(S2)은 회원 전용 화면만 — proxy 는 비로그인도 보는 공개 화면(홈·마켓 등)에서 성능 때문에 로그인을 확인하지 않는다(동의 관문과 같은 범위). 공개 화면은 화면 관문이 담당.
+3. 동의 관문 예외 목록은 그대로(통화 화면 미포함) — 동의 안 한 회원의 통화 동작을 바꾸지 않기 위해(통화 규정). 가입 관문 예외 = 동의 관문 예외 + 통화 화면 (`isRegistrationGateExemptPath` 한 곳).
+4. 감사 중 추가 발견 → S5 에 포함: `canUseVerifiedMemberFeatures`(메시지 보내기·제안 등)가 `member_status` 를 같이 봐서, 가입 관문은 통과한 수동 회원(member_status=pending)이 보내기에서 막혔다(운영 4명 중 번호 있는 2명). 판정을 `hasVerifiedPhone` 하나로.
+5. 수동 회원 아닌 「번호 없는 인증 완료」 13명(구글 6·카카오 4·이메일 3)은 설계 범위(admin_manual) 밖이라 그대로 — 보고만.
+6. 로그인 직후 next 가 없을 때 `auth/callback` 은 `/mypage` 를 넘긴다(Auth HARD LOCK) → 그 경우 단계 완료 뒤 내정보. 건너뛰기는 아니므로 그대로 둠.
+
+## 12. 통화 영향 (통화 규정 1·3번 — 통화 코드 무변경 확인)
+| 경로 | 영향 |
+|---|---|
+| 받은 통화 화면·수락(`/community-messenger/calls*`, `incoming-call-accept-gateway`) | 가입 관문 예외(`isCallSurfacePath`) — 이동 없음. 통화 코드·푸시·네이티브 파일 무변경 |
+| 수신 배너(전역) | 단계 화면 위에서도 그대로 뜸(관문은 경로 이동만 함) |
+| 통화 걸기 | 기존 그대로 전화 인증 필요(`call_start: ["phone_verified"]`) — 수동 회원 번호 없음 20명은 전화 인증 뒤 가능 |
+| 통화 종료 뒤 방으로 복귀 | 미완료 회원이면 방 대신 단계 화면(next=방) — 완료 뒤 방 |
+- 실기기 확인 항목(배포 뒤): 미완료 계정으로 수신 통화 받기(단계 화면 중) · 완료 계정 통화 정상.
+
+## 13. 적용 순서
+1. 운영 DB 마이그레이션 `20271124120000` 적용(Owner 승인) — 기존 코드는 새 키를 읽지 않아 먼저 적용해도 안전.
+2. PR 병합(Owner 「병합」).
+- 마이그레이션 전에 병합되면: S2 proxy 판정·수동 회원 번호 규칙만 꺼진 상태(클레임·DB 함수에 재료 없음)로 동작 — 나머지(S1·S3·S5·S4 생성 규칙)는 바로 적용.

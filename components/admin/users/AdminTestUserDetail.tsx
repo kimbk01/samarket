@@ -76,6 +76,8 @@ export type AdminUserDetailPayload = {
   hasProfile?: boolean;
   /** User Facts Trust SSOT — profiles.trust_score */
   trust_score?: number | null;
+  /** 가입 단계 — 앱과 같은 판정. null = 완료 · undefined = 읽지 못함 */
+  registration_next_step?: "terms" | "phone" | "address" | null;
 };
 
 export type AdminPersonStoreRow = {

@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
-import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import {
   isRegistrationStepPath,
@@ -19,10 +18,13 @@ export function registrationStepNext(input: string | string[] | undefined): stri
   const raw = Array.isArray(input) ? input[0] : input;
   const safe = sanitizeNextPath(typeof raw === "string" ? raw : null);
   if (!safe || isRegistrationStepPath(safe) || safe.startsWith("/auth/") || safe.startsWith("/login")) {
-    return POST_LOGIN_PATH;
+    return REGISTRATION_DONE_DEFAULT_PATH;
   }
   return safe;
 }
+
+/** 가입 단계를 마친 뒤 돌아갈 곳이 없을 때 — 앱 홈 (설계 2026-11-24 §3 「next 없으면 홈」, 내정보 아님) */
+export const REGISTRATION_DONE_DEFAULT_PATH = "/" as const;
 
 /**
  * 가입 단계 화면(전화·주소) 진입 — 들어올 때마다 단계를 다시 계산해 자기 단계가 아니면 맞는 곳으로 보낸다

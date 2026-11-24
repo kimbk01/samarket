@@ -19,7 +19,6 @@ import {
 } from "@/lib/auth/store-member-policy"
 import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 import { hasVerifiedPhone, resolveOAuthSeedDisplayName } from "@/lib/auth/post-login-profile-policy";
-import { isVerifiedMember } from "@/lib/auth/member-status";
 import { assignAutoDibayIdForUser } from "@/lib/auth/assign-auto-dibay-id.server";
 import { PHONE_VERIFICATION_REQUIRED_MESSAGE } from "@/lib/auth/member-access-constants";
 import { escapeIlikePatternFragment } from "@/lib/community-messenger/profile-user-search-filter";
@@ -696,6 +695,7 @@ export async function loadMemberAccessState(
     provider: authProvider,
     auth_provider: authProvider,
     email,
+    phone,
   });
   const phoneVerificationStatus =
     pickTrimmed(profile?.phone_verification_status) ??
@@ -715,6 +715,7 @@ export async function loadMemberAccessState(
     provider: authProvider,
     auth_provider: authProvider,
     email,
+    phone,
   });
   const hasRequiredConsent = hasStoreTermsConsent(
     {
@@ -755,6 +756,11 @@ export async function loadMemberAccessState(
   };
 }
 
+/**
+ * 인증 회원 기능(메시지 보내기·제안 등) — 판정은 `hasVerifiedPhone` 하나 (가입 SSOT 2026-11-24 S5).
+ * `status`·`member_status` 저장값은 보지 않는다: 저장값이 실제 인증과 어긋나(운영 2026-11-24 15건) 가입 관문은
+ * 통과시키고 보내기만 막던 결함 — 관리자 수동 회원 member_status=pending 4명.
+ */
 export function canUseVerifiedMemberFeatures(state: MemberAccessState | null | undefined): boolean {
   if (!state) return false;
   if (
@@ -765,16 +771,6 @@ export function canUseVerifiedMemberFeatures(state: MemberAccessState | null | u
   ) {
     return true;
   }
-  if (isVerifiedMember({ phone_verified: state.phoneVerified, member_status: state.memberStatus ?? null })) {
-    return true;
-  }
-  if (
-    state.storeMemberStatus !== "verified_member" &&
-    state.storeMemberStatus !== "admin_manual" &&
-    state.storeMemberStatus !== "admin"
-  ) {
-    return false;
-  }
   return hasVerifiedPhone({
     role: state.role,
     privilegedAdmin: state.isAdmin === true ? true : undefined,
@@ -783,6 +779,7 @@ export function canUseVerifiedMemberFeatures(state: MemberAccessState | null | u
     provider: state.provider ?? state.authProvider ?? null,
     auth_provider: state.authProvider,
     email: state.email,
+    phone: state.phone,
   });
 }
 

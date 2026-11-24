@@ -73,6 +73,8 @@ type VerificationSettings = {
   resend_cooldown_seconds: number;
   /** 인증 가능한 국가번호 (`+63`·`+82`) — 없으면 +63 만 */
   country_dial_codes?: string[];
+  /** 저장된 번호가 없을 때 처음 국가번호 — 서버가 접속 나라로 정함 (Owner 2026-11-24) */
+  default_dial_code?: string;
   /** 서버가 보관 중인 유효 인증번호 — 화면을 나갔다 와도 6칸 화면으로 이어서 (Owner 2026-11-09) */
   pending_challenge?: PhoneOtpPendingChallenge | null;
 };
@@ -198,6 +200,7 @@ export function PhoneVerificationBox({
     provider: snapshot.provider ?? snapshot.auth_provider ?? null,
     auth_provider: snapshot.auth_provider ?? snapshot.provider ?? null,
     email: snapshot.email ?? null,
+    phone: snapshot.phone ?? null,
   });
   const verifiedNow = verified || justVerified;
 
@@ -209,8 +212,20 @@ export function PhoneVerificationBox({
   );
   const snapshotIsKorea =
     String(snapshot.phone ?? "").startsWith("+82") || String(snapshot.phone_country_code ?? "") === "+82";
+  /** 처음 국가번호: 보내 둔 인증번호 → 저장된 번호의 나라 → 서버가 정한 접속 나라 기본값(PH +63 · 그 밖 +82) */
+  const hasSavedPhone = String(snapshot.phone ?? "").trim().length > 0;
   const [dialCode, setDialCode] = useState<string>(
-    initialPending ? (initialPendingKorea ? "+82" : "+63") : snapshotIsKorea ? "+82" : "+63",
+    initialPending
+      ? initialPendingKorea
+        ? "+82"
+        : "+63"
+      : hasSavedPhone
+        ? snapshotIsKorea
+          ? "+82"
+          : "+63"
+        : settings?.default_dial_code === "+82"
+          ? "+82"
+          : "+63",
   );
   const isKorea = dialCode === "+82";
   const selectedCountry = countryOptions.find((c) => c.dialCode === dialCode) ?? countryOptions[0];

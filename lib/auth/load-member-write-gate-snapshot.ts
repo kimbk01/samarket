@@ -42,6 +42,8 @@ type SnapshotJson = {
   provider?: unknown;
   auth_provider?: unknown;
   email?: unknown;
+  /** 2026-11-24 — 수동 회원 번호 규칙(키가 없으면 구 DB 함수 → 규칙 미적용) */
+  phone?: unknown;
   has_default_master?: unknown;
 };
 
@@ -90,6 +92,7 @@ export async function loadMemberWriteGateSnapshot(userId: string): Promise<Membe
             provider: str(json.provider),
             auth_provider: str(json.auth_provider),
             email: str(json.email),
+            ...("phone" in json ? { phone: str(json.phone) } : {}),
           }),
           hasDefaultMaster: json.has_default_master,
         }

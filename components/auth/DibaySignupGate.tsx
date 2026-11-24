@@ -20,14 +20,31 @@ import {
 import {
   isSignupCompleteResolvedThisSession,
   markSignupCompleteResolvedSession,
+  markSignupConsentResolvedSession,
   resetSignupGateSessionFlags,
 } from "@/lib/auth/signup-gate-session";
 import { classifySignupStatusResponse, signupGateRetryDelayMs } from "@/lib/auth/signup-gate-decision";
 import { guardedRouterReplace, logNetworkLoopGuardReplace } from "@/lib/dev/network-loop-guard";
+import { isRegistrationGateExemptPath, resolveRegistrationGateTarget } from "@/lib/auth/registration-gate";
+import {
+  peekRegistrationPendingKnowledge,
+  setRegistrationPendingFromServer,
+  subscribeRegistrationPending,
+} from "@/lib/auth/registration-pending-state.client";
+import { fetchMandatoryAddressGateDeduped } from "@/lib/addresses/mandatory-address-gate-client";
 
 /** Resume refresh of required consent versions — at most once per minute. */
 const CONSENT_VERSION_REFRESH_MIN_MS = 60_000;
 
+type RegistrationCheck = "complete" | "redirected" | "exempt" | "retry";
+
+/**
+ * 가입 관문 1곳 (설계 `docs/audit/registration-ssot-redesign-2026-11-24.md` S1):
+ * ① 동의 미완 → 동의 화면(기존) ② 동의 완료 + 전화·주소 미완 → 빠진 단계 화면(`registration-gate`).
+ * 건너뛰기·세션당 1회 없음 — 예외 경로가 아니면 화면 이동마다 같은 판정. 통화 화면은 덮지 않는다.
+ * 빠진 단계 값은 서버 판정(`registration-pending-state`)만 쓴다 — 모르면 `/api/me/mandatory-address-gate`
+ * (`MandatoryAddressGate` 와 같은 single-flight·15초 캐시라 요청이 늘지 않는다).
+ */
 export function DibaySignupGate() {
   const pathname = usePathname() ?? "";
   const router = useRouter();
@@ -63,6 +80,58 @@ export function DibaySignupGate() {
     }, delay);
   }, []);
 
+  /** 동의 완료 뒤 — 전화·주소 단계 */
+  const checkRegistration = useCallback(async (): Promise<RegistrationCheck> => {
+    const here =
+      typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : pathnameRef.current;
+    if (isRegistrationGateExemptPath(pathnameRef.current)) return "exempt";
+    let known = peekRegistrationPendingKnowledge();
+    if (known === "unknown") {
+      try {
+        const res = await fetchMandatoryAddressGateDeduped({ component: "DibaySignupGate", reason: "registration" });
+        if (!res.ok) return "retry";
+        const j = (await res.clone().json()) as {
+          ok?: boolean;
+          authenticated?: boolean;
+          registrationNextStep?: string | null;
+        };
+        if (j.ok !== true) return "retry";
+        /** 비로그인(세션 없음) — 가입 관문 대상 아님 */
+        if (j.authenticated !== true) return "exempt";
+        setRegistrationPendingFromServer(j.registrationNextStep ?? null);
+      } catch {
+        return "retry";
+      }
+      known = peekRegistrationPendingKnowledge();
+      if (known === "unknown") return "retry";
+    }
+    if (known === "complete") return "complete";
+    if (isRegistrationGateExemptPath(pathnameRef.current)) return "exempt";
+    const target = resolveRegistrationGateTarget({ step: known, pathname: pathnameRef.current, returnTo: here });
+    if (!target) return "exempt";
+    if (redirectInFlightTargetRef.current === target) return "redirected";
+    if (
+      guardedRouterReplace(routerRef.current, target, {
+        source: "dibay-signup-gate",
+        reason: "registration_incomplete",
+      })
+    ) {
+      redirectInFlightTargetRef.current = target;
+    }
+    return "redirected";
+  }, []);
+
+  /** 동의 완료 확인 뒤 공통 — 가입까지 끝났을 때만 이 로그인 동안 검사를 멈춘다 */
+  const afterConsentComplete = useCallback(async () => {
+    const r = await checkRegistration();
+    if (r === "complete") {
+      clearRetry();
+      markSignupCompleteResolvedSession();
+      return;
+    }
+    if (r === "retry") scheduleRetry();
+  }, [checkRegistration, clearRetry, scheduleRetry]);
+
   const checkSignupGate = useCallback(() => {
     if (typeof window === "undefined") return;
     if (!isAppBootReady()) return;
@@ -83,10 +152,12 @@ export function DibaySignupGate() {
         requiredConsent: getClientRequiredConsentVersions(),
       });
       /** SSOT_CONTRACT: dibay-signup-consent-only-gate DibaySignupGate consentComplete
-       * 앱 접근 게이트 = consent only. @id·프로필 미완으로 방/통화 deep route 를 /mypage 로 덮지 않는다. */
+       * 동의 판정 = consent only(@id·프로필을 묶지 않는다). 동의 뒤 전화·주소는 `afterConsentComplete` →
+       * `registration-gate` — 목적지는 빠진 단계 화면(+ next), `/mypage` 아님 · 통화 화면 예외(방·통화 deep route 보존). */
       if (bootSignup.consentComplete) {
         clearRetry();
-        markSignupCompleteResolvedSession();
+        markSignupConsentResolvedSession();
+        await afterConsentComplete();
         return;
       }
 
@@ -105,7 +176,8 @@ export function DibaySignupGate() {
         retryAttemptRef.current = 0;
         if (outcome.kind === "session_lost") return;
         if (outcome.kind === "complete") {
-          markSignupCompleteResolvedSession();
+          markSignupConsentResolvedSession();
+          await afterConsentComplete();
           return;
         }
         const target = outcome.target;
@@ -140,7 +212,7 @@ export function DibaySignupGate() {
     })().finally(() => {
       checkInFlightRef.current = null;
     });
-  }, [clearRetry, scheduleRetry]);
+  }, [clearRetry, scheduleRetry, afterConsentComplete]);
 
   useEffect(() => {
     checkSignupGateRef.current = checkSignupGate;
@@ -148,8 +220,21 @@ export function DibaySignupGate() {
 
   useEffect(() => clearRetry, [clearRetry]);
 
+  /** 서버가 빠진 단계를 알려 주면(다른 화면의 응답 포함) 곧바로 다시 판정 */
+  useEffect(
+    () =>
+      subscribeRegistrationPending(() => {
+        if (isSignupCompleteResolvedThisSession()) return;
+        redirectInFlightTargetRef.current = null;
+        checkSignupGateRef.current();
+      }),
+    [],
+  );
+
   useEffect(() => {
     retryAttemptRef.current = 0;
+    /** 화면이 바뀌었다 = 이전 이동은 끝남 — 같은 단계 화면으로 다시 보낼 수 있게 */
+    redirectInFlightTargetRef.current = null;
     if (isClientSignupGateExemptPath(pathname)) {
       clearRetry();
       return;

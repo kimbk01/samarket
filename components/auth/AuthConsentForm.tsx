@@ -14,6 +14,7 @@ import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { ProfileRow } from "@/lib/profile/types";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { markSignupConsentResolvedSession } from "@/lib/auth/signup-gate-session";
+import { registrationStepHref } from "@/lib/auth/dibay-registration-steps";
 import { notifyLegalConsentCompleted } from "@/lib/auth/client-consent-state";
 import { setClientRequiredConsentVersions } from "@/lib/legal/client-required-consent";
 import type { RequiredConsentGap } from "@/lib/legal/has-required-member-consents";
@@ -241,12 +242,17 @@ export function AuthConsentForm({
       markSignupConsentResolvedSession();
       notifyLegalConsentCompleted();
 
-      // In-session reconsent / age check returns to the exact origin screen (deep links included);
-      // first signup keeps the fresh-login landing route.
-      let target = next;
-      if (!priorConsent) {
-        const { status: signupStatus, json: signupJson } = await fetchSignupStatusDeduped(next);
+      // 동의 뒤 다음 화면은 항상 서버 판정(가입 = 동의 + 전화 + 주소, 설계 2026-11-24 S1 ④):
+      // 재동의·나이 확인은 원래 화면(deep link 포함)을 지우지 않는다(inSession) · 첫 가입은 로그인 목적지 규칙.
+      // 조회 실패면 원래 화면이 아니라 가입 단계 화면 — 그 화면이 서버로 다시 판정해 맞는 단계/원래 화면으로 보낸다.
+      let target = registrationStepHref("phone", next) ?? next;
+      try {
+        const { status: signupStatus, json: signupJson } = await fetchSignupStatusDeduped(next, {
+          inSession: priorConsent,
+        });
         if (signupStatus === 200 && signupJson?.route?.trim()) target = signupJson.route.trim();
+      } catch {
+        /* 단계 화면이 다시 판정 */
       }
 
       guardedRouterReplace(router, target, {
