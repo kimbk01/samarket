@@ -15,7 +15,14 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   /** #496·D4 이후 — 운영 11-19 00~12 UTC 5.16(Vercel 6,103/1,182) · 계수기 5.52 → 6.0 (재감사 E) */
   "/api/community-messenger/rooms/[roomId]/messages": 6.0,
   "/api/community-messenger/rooms/[roomId]/bootstrap": 2.5,
-  "/api/community-messenger/presence": 1.1,
+  /**
+   * 2026-11-24 Owner 승인 「접속 상태·관리자 종 예산 값 갱신」 — 1.1 → 1.7.
+   * D1 2단계(11-19, ec17686e5)로 12초 하트비트가 빠져 요청이 하루 약 7.7천 → 200~300 건으로 줄고(총 호출 약 8천 → 300),
+   * 남은 요청의 약 절반이 상태 전환 발행(realtime broadcast)을 함께 한다 → 1회당 평균만 올랐다.
+   * 실측(Vercel): 11-23 1.62 (496/307) · 11-24 1.58 (293/186) · 11-22~24 1.58 (787/498). 일 최대 1.62 올림.
+   * 근거 docs/audit/supabase-request-surge-2026-11-18/budget-alert-cause-2026-11-24.md §2-1
+   */
+  "/api/community-messenger/presence": 1.7,
   "/api/me/notifications/badge-count": 5.2,
   /** 2026-11-20 고정값 3개(주제·가져오기 계정·동네 id) 공유 캐시 — 실측 6.51(Supabase 만) → 예상 4.2 */
   "/api/philife/neighborhood-feed": 5.0,
@@ -59,7 +66,13 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/app-settings": 1.0,
   "/api/app/startup-config": 1.0,
   "/api/me/store-owner-hub-badge": 1.0,
-  "/api/admin/admin-bell": 3.6,
+  /**
+   * 2026-11-24 Owner 승인 — 3.6 → 5.8. #562(11-22)가 받은 알림 요약을 종 요청에 합쳤다(따로 돌던 inbox 요약 폴링 제거 —
+   * 요청 2개 → 1개). 요약이 붙는 요청은 받은 알림·발송 상태 2번이 더해진다(요약 포함 1회 ≈ 6.1).
+   * 실측(Vercel): 11-23 4.64 (701/151) · 11-24 12~16시 PHT 5.75 (759/132) · 11-22~24 5.67 (1,078/190). 일 최대 5.75 올림.
+   * 근거 budget-alert-cause-2026-11-24.md §2-3
+   */
+  "/api/admin/admin-bell": 5.8,
   "/api/community-messenger/home-sync": 5.0,
   "/api/cron/notification-campaigns-dispatch-scheduled": 2.0,
   "/api/cron/store-orders-sla-scan": 2.0,
