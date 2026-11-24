@@ -18,6 +18,7 @@ function bypassFromProfileRow(
     | "auth_provider"
     | "email"
     | "privilegedAdmin"
+    | "phone"
   >
 ): boolean {
   return bypassesPhilippinePhoneVerificationGate({
@@ -29,6 +30,7 @@ function bypassFromProfileRow(
     provider: p.provider ?? p.auth_provider,
     auth_provider: p.auth_provider,
     email: p.email,
+    phone: p.phone ?? null,
   });
 }
 
@@ -42,6 +44,7 @@ function bypassFromClientProfile(p: Profile): boolean {
     provider: p.provider ?? p.auth_provider,
     auth_provider: p.auth_provider ?? null,
     email: p.email ?? null,
+    phone: p.phone ?? null,
   });
 }
 

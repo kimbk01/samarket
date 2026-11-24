@@ -40,7 +40,7 @@ function inflightKey(userId: string, productId: string): string {
 export function prepareTradeChatRoom(productId: string): void {
   const user = getCurrentUser();
   if (!user?.id) return;
-  if (!hasVerifiedPhone(user)) {
+  if (!hasVerifiedPhone({ ...user, phone: user.phone ?? null })) {
     return;
   }
   const key = inflightKey(user.id, productId);
@@ -69,7 +69,7 @@ export async function createOrGetChatRoom(
   if (!user?.id) {
     return { ok: false, error: tClient("common_login_required") };
   }
-  if (!hasVerifiedPhone(user)) {
+  if (!hasVerifiedPhone({ ...user, phone: user.phone ?? null })) {
     return {
       ok: false,
       error: tClient("auth_phone_gate_requirement"),

@@ -60,6 +60,7 @@ describe("admin-phone-verification-sync", () => {
     expect(
       resolvePhoneVerificationDisplayStatus({
         phone_verified: true,
+        phone: null,
         phone_verified_at: "2026-06-11T04:31:45Z",
         phone_verification_method: "semaphore_local",
         phone_verification_status: "unverified",
@@ -68,6 +69,7 @@ describe("admin-phone-verification-sync", () => {
     expect(
       resolvePhoneVerificationDisplayStatus({
         phone_verified: false,
+        phone: null,
         phone_verification_status: "verified",
         phone_verification_method: null,
       }),

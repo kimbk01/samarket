@@ -429,3 +429,19 @@ Contract delta:
 - 불변: 쓰기 게이트 · Route Handler 인증 · 갱신자(proxy 만) · Session / Destination / Completion / Profile 의미 · 동의 버전 판정 함수.
 
 증거: `lib/auth/__tests__/d5-member-token-claims.test.ts` (활성 클레임 → DB 0 · 만료 토큰·다른 sub·차단 클레임·클레임 없음 → DB 경로 · 약관 미완료 → DB 경로).
+
+## Amendment 2026-11-24 — 가입 재료를 토큰 클레임에 · 가입 완료 시 토큰 1회 갱신 (Reopen §4 trigger 4 · Owner 「설계대로 진행」 2026-11-24 — 재감사 R3·G)
+
+설계·감사: `docs/audit/registration-ssot-redesign-2026-11-24.md` §14 (재감사).
+
+First Break / 근거:
+- 2026-11-24 PR #575 가 이 문서 개정 없이 클레임 `dibay_m` 내용을 바꿨다(작업자 절차 위반 — 재감사 G). 이 개정으로 기록한다.
+- 클레임은 토큰 갱신 때만 바뀐다. 가입(전화·주소)을 마친 회원도 토큰 만료 전까지 클레임이 「미완료」 → proxy 가입 관문이 회원 전용 화면 요청마다 DB 3회(재감사 C).
+
+Contract delta:
+- DB 훅 `custom_access_token_hook` 클레임 `dibay_m` 에 키 추가(마이그레이션 `20271124120000`, 운영 적용 2026-11-24): `reg:1` · `phone_verified` · `phone_verified_at` · `phone_verification_method` · `provider` · `auth_provider` · `email` · `role` · `has_phone`(번호 자체는 넣지 않음) · `has_default_master` · `admin_role`. 예외·행 없음이면 토큰 그대로(불변).
+- proxy 가입 관문: 동의 완료 뒤 같은 클레임으로 `nextRegistrationStep` — 「완료」면 DB 0. 「미완료」면 DB(`resolveMemberRegistrationAuthority`)로 확인 후 단계 화면. 클레임에 `reg` 없음 → 판정 안 함.
+- 클라이언트: 가입 단계가 서버 판정 「빠진 단계 → 완료」로 바뀌는 순간 **기존 단일 비행 갱신(`runBrowserAuthRefreshDeduped`)을 1회** 부른다(`DibaySignupGate`). 새 갱신 경로·주기 없음.
+- 불변: 쓰기 게이트 · Route Handler 인증 · 401 계약 · Session / Destination / Completion / Profile 의미 · proxy 서버 갱신 규칙.
+
+증거: `lib/auth/__tests__/registration-ssot-2026-11-24.test.ts` · `lib/auth/__tests__/registration-reaudit-2026-11-24.test.ts`.

@@ -43,7 +43,7 @@ export function evaluateProfileRequirements(
   const required = (ACTION_PROFILE_REQUIREMENTS[actionType] ?? []).filter(
     (field) => field !== "dibay_id",
   );
-  const missingFields = required.filter((field) => !isFieldSatisfied(field, profile ?? {}));
+  const missingFields = required.filter((field) => !isFieldSatisfied(field, profile ?? { phone: null }));
   return {
     actionType,
     satisfied: missingFields.length === 0,

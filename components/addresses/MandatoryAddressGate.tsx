@@ -85,9 +85,8 @@ export function MandatoryAddressGate() {
         setBlocked(false);
         return;
       }
-      /** 동의(terms)는 DibaySignupGate 담당 — 여기서는 전화·주소 단계만 */
-      const step = j.registrationNextStep === "phone" || j.registrationNextStep === "address" ? j.registrationNextStep : null;
-      if (j.authenticated === true) setRegistrationPendingFromServer(step);
+      /** 서버 값 그대로 — 「terms」는 사본이 「모름」으로 둔다(재감사 R4, 「완료」로 바꾸지 않음) */
+      if (j.authenticated === true) setRegistrationPendingFromServer(j.registrationNextStep ?? null);
       /** 팝업 critical 표식(`addressGate`)은 기존 의미(대표 주소 없음) 그대로 */
       setBlocked(j.authenticated === true && j.needsBlock === true);
     },

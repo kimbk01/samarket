@@ -34,6 +34,8 @@ async function resolveProxyRegistrationRedirect(
   claim: DibayMemberClaim | null,
   userId: string,
   pathname: string,
+  /** 원래 화면(경로 + 검색어) — 단계 완료 뒤 돌아갈 곳 (재감사 R6) */
+  returnTo?: string | null,
 ): Promise<string | null> {
   if (isRegistrationGateExemptPath(pathname)) return null;
   const reg = claim?.registration;
@@ -58,7 +60,7 @@ async function resolveProxyRegistrationRedirect(
   if (!stepFromClaim) return null;
   const authority = await resolveMemberRegistrationAuthority(userId).catch(() => null);
   if (!authority || authority.kind !== "REGISTRATION_REQUIRED") return null;
-  return registrationStepHref(authority.step, sanitizeNextPath(pathname));
+  return registrationStepHref(authority.step, sanitizeNextPath(returnTo ?? pathname));
 }
 
 /**
@@ -70,6 +72,8 @@ export async function resolveProxySignupGateRedirect(
   userId: string,
   pathname: string,
   opts?: {
+    /** 원래 화면(경로 + 검색어, `_rsc` 제외) — 없으면 경로만 (재감사 2026-11-24 R6) */
+    returnTo?: string | null;
     /** D5 — 검증된 토큰 클레임(약관 4필드). 같은 판정 함수로 「완료」면 profiles 를 읽지 않는다. 미완료·없음 → DB. */
     loadVerifiedClaim?: () => Promise<DibayMemberClaim | null>;
   }
@@ -92,7 +96,7 @@ export async function resolveProxySignupGateRedirect(
         },
         { hasSession: true, requiredConsent: requiredFromClaim }
       );
-      if (isDibaySignupComplete(fromClaim)) return resolveProxyRegistrationRedirect(claim, userId, pathname);
+      if (isDibaySignupComplete(fromClaim)) return resolveProxyRegistrationRedirect(claim, userId, pathname, opts?.returnTo);
     }
   }
 
@@ -105,7 +109,7 @@ export async function resolveProxySignupGateRedirect(
 
   const required = await resolveRequiredConsentVersions();
   let signup = deriveDibaySignupStatus(data, { hasSession: true, requiredConsent: required });
-  if (isDibaySignupComplete(signup)) return resolveProxyRegistrationRedirect(claim, userId, pathname);
+  if (isDibaySignupComplete(signup)) return resolveProxyRegistrationRedirect(claim, userId, pathname, opts?.returnTo);
 
   // P2-3: 미완료일 때만 membership verdict 확인 (완료 회원 hot path 비용 0) —
   // getOnboardingStatus / resolveMemberConsentAuthority 와 같은 관리자 판정.
@@ -116,7 +120,7 @@ export async function resolveProxySignupGateRedirect(
     if (isDibaySignupComplete(signup)) return null;
   }
 
-  const redirectPath = resolveDibaySignupRoute(signup, sanitizeNextPath(pathname));
+  const redirectPath = resolveDibaySignupRoute(signup, sanitizeNextPath(opts?.returnTo ?? pathname));
   const targetPathname = normalizeGatePathname(redirectPath);
   const currentPathname = normalizeGatePathname(pathname);
   if (targetPathname === currentPathname) return null;

@@ -33,6 +33,7 @@ describe("admin-provisioned formal member", () => {
       bypassesPhilippinePhoneVerificationGate({
         role: "user",
         phone_verified: false,
+        phone: "09171234567",
         auth_provider: "manual_admin",
         email: "x@example.com",
       })
@@ -44,6 +45,7 @@ describe("admin-provisioned formal member", () => {
       bypassesPhilippinePhoneVerificationGate({
         role: "user",
         phone_verified: false,
+        phone: null,
         auth_provider: "email",
         email: "x@example.com",
       })
@@ -54,6 +56,7 @@ describe("admin-provisioned formal member", () => {
     expect(
       hasFormalMemberContactVerification({
         phone_verified: true,
+        phone: null,
         auth_provider: "google",
         email: "a@gmail.com",
       })
@@ -61,6 +64,7 @@ describe("admin-provisioned formal member", () => {
     expect(
       hasFormalMemberContactVerification({
         phone_verified: false,
+        phone: "09171234567",
         auth_provider: "manual_admin",
         email: "x@example.com",
       })
@@ -68,6 +72,7 @@ describe("admin-provisioned formal member", () => {
     expect(
       hasFormalMemberContactVerification({
         phone_verified: false,
+        phone: "09171234567",
         auth_provider: "email",
         email: "u@manual.local",
       })
@@ -75,6 +80,7 @@ describe("admin-provisioned formal member", () => {
     expect(
       hasFormalMemberContactVerification({
         phone_verified: false,
+        phone: "09171234567",
         auth_provider: "email",
         email: "u@gmail.com",
       })

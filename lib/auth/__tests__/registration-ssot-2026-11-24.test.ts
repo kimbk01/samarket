@@ -68,10 +68,9 @@ describe("C-8 수동 회원 — 번호 있을 때만 전화 인증", () => {
     expect(hasVerifiedPhone({ ...manual, phone: "  " })).toBe(false);
     expect(hasVerifiedPhone({ ...manual, has_phone: false })).toBe(false);
   });
-  it("번호 있음 → 인증 · 번호 열을 모르면(구 DB 함수) 예전 판정", () => {
+  it("번호 있음 → 인증 (번호는 필수 입력 — 재감사 R2: 「모름」 분기 없음)", () => {
     expect(hasVerifiedPhone({ ...manual, phone: "09171234567" })).toBe(true);
     expect(hasVerifiedPhone({ ...manual, has_phone: true })).toBe(true);
-    expect(hasVerifiedPhone({ ...manual })).toBe(true);
     expect(hasVerifiedPhone({ provider: "admin_manual", phone_verified: false, phone: "09171234567" })).toBe(true);
   });
   it("수동 회원이 아니면 번호 규칙을 적용하지 않는다", () => {
@@ -110,10 +109,10 @@ describe("C-8 수동 회원 — 번호 있을 때만 전화 인증", () => {
 
 describe("C-9 인증 저장값(status·member_status)은 판정·표시에 쓰지 않는다", () => {
   it("member_status=pending 이어도 전화 인증이면 인증 회원 표시", () => {
-    expect(deriveStoreMemberStatus({ member_status: "pending", phone_verified: true, provider: "google" })).toBe(
+    expect(deriveStoreMemberStatus({ member_status: "pending", phone_verified: true, provider: "google", phone: null })).toBe(
       "verified_member",
     );
-    expect(deriveStoreMemberStatus({ member_status: "active", phone_verified: false, provider: "google" })).toBe(
+    expect(deriveStoreMemberStatus({ member_status: "active", phone_verified: false, provider: "google", phone: null })).toBe(
       "sns_member",
     );
     expect(

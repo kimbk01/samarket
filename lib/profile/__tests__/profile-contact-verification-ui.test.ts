@@ -20,6 +20,7 @@ describe("profile-contact-verification-ui", () => {
         role: "user",
         privilegedAdmin: true,
         phone_verified: false,
+        phone: null,
         phone_verified_at: null,
         provider: "google",
         auth_provider: "google",
@@ -35,6 +36,7 @@ describe("profile-contact-verification-ui", () => {
         role: "admin",
         privilegedAdmin: false,
         phone_verified: false,
+        phone: null,
         phone_verified_at: null,
         provider: "google",
         auth_provider: "google",
@@ -49,6 +51,7 @@ describe("profile-contact-verification-ui", () => {
       isProfileContactVerified({
         role: "user",
         phone_verified: false,
+        phone: null,
         phone_verified_at: null,
         provider: "google",
         auth_provider: "google",
@@ -63,6 +66,7 @@ describe("profile-contact-verification-ui", () => {
       isProfileContactVerified({
         role: "user",
         phone_verified: true,
+        phone: null,
         phone_verified_at: "2026-06-15T00:00:00.000Z",
         provider: "google",
         auth_provider: "google",

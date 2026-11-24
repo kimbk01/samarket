@@ -26,6 +26,7 @@ export function clientProfilePassesPhoneVerification(user: Profile | null | unde
     provider: user.provider ?? user.auth_provider,
     auth_provider: user.auth_provider,
     email: user.email,
+    phone: user.phone ?? null,
   });
 }
 

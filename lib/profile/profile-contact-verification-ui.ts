@@ -14,6 +14,7 @@ export function isProfileContactVerified(
     | "auth_provider"
     | "email"
     | "auth_login_email"
+    | "phone"
   >
 ): boolean {
   return hasVerifiedPhone({
@@ -25,6 +26,7 @@ export function isProfileContactVerified(
     provider: profile.provider ?? profile.auth_provider ?? null,
     auth_provider: profile.auth_provider ?? profile.provider ?? null,
     email: profile.auth_login_email ?? profile.email ?? null,
+    phone: profile.phone ?? null,
   });
 }
 

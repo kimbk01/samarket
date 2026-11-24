@@ -29,7 +29,8 @@ const cases = [
 describe("phone product reader parity", () => {
   it("hasPhilippinePhoneVerification matches hasVerifiedPhone on the product matrix", () => {
     for (const c of cases) {
-      expect(hasPhilippinePhoneVerification(c.input), c.name).toBe(hasVerifiedPhone(c.input));
+      const input = { phone: null, ...c.input };
+      expect(hasPhilippinePhoneVerification(input), c.name).toBe(hasVerifiedPhone(input));
     }
   });
 });

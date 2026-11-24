@@ -12,6 +12,7 @@ const completeBaseProfile = {
   username_confirmed: true,
   phone_verified: true,
   phone_verified_at: "2026-01-01T00:00:00.000Z",
+  phone: "09171234567",
   /** 가입 조건(Owner 2026-11-20) — 대표 주소 */
   has_default_address: true,
 };
@@ -19,7 +20,7 @@ const completeBaseProfile = {
 describe("require-profile-completion", () => {
   it("community_write requires registration (phone + main address) and display_name, not dibay_id", () => {
     const missing = evaluateProfileRequirements(
-      { display_name: null, nickname: null, phone_verified: false, dibay_id: null },
+      { display_name: null, nickname: null, phone: null, phone_verified: false, dibay_id: null },
       "community_write"
     );
     expect(missing.satisfied).toBe(false);
@@ -61,7 +62,7 @@ describe("require-profile-completion", () => {
 
   it("messenger_open has no profile requirements", () => {
     const result = evaluateProfileRequirements(
-      { display_name: "User", phone_verified: false, dibay_id: null },
+      { display_name: "User", phone: null, phone_verified: false, dibay_id: null },
       "messenger_open"
     );
     expect(result.satisfied).toBe(true);
@@ -100,6 +101,7 @@ describe("require-profile-completion", () => {
         dibay_id_changed_once: false,
         dibay_id_locked: false,
         phone_verified: true,
+        phone: null,
         phone_verified_at: "2026-01-01T00:00:00.000Z",
         has_default_address: true,
       },
@@ -112,11 +114,11 @@ describe("require-profile-completion", () => {
 
 describe("hasVerifiedPhone admin_manual alignment", () => {
   it("passes phone_verified=true", () => {
-    expect(hasVerifiedPhone({ phone_verified: true })).toBe(true);
+    expect(hasVerifiedPhone({ phone: "09171234567", phone_verified: true })).toBe(true);
   });
 
   it("passes phone_verified_at", () => {
-    expect(hasVerifiedPhone({ phone_verified_at: "2026-01-01T00:00:00.000Z" })).toBe(true);
+    expect(hasVerifiedPhone({ phone: null, phone_verified_at: "2026-01-01T00:00:00.000Z" })).toBe(true);
   });
 
   it("method=admin_manual label alone is not evidence (PR #94 — legacy seed asas22/33/44)", () => {
@@ -124,6 +126,7 @@ describe("hasVerifiedPhone admin_manual alignment", () => {
       const row = {
         role: "user",
         phone_verified: false,
+        phone: "09171234567",
         phone_verified_at: null,
         phone_verification_method: "admin_manual",
         phone_verification_status: status,
@@ -139,6 +142,7 @@ describe("hasVerifiedPhone admin_manual alignment", () => {
   it("admin approval (phone_verified + verified_at + admin_manual) still passes", () => {
     const row = {
       phone_verified: true,
+      phone: "09171234567",
       phone_verified_at: "2026-06-15T00:00:00.000Z",
       phone_verification_method: "admin_manual",
     };
@@ -150,6 +154,7 @@ describe("hasVerifiedPhone admin_manual alignment", () => {
     expect(
       hasVerifiedPhone({
         phone_verified: false,
+        phone: "09171234567",
         auth_provider: "manual_admin",
         email: "user@manual.local",
       })
@@ -160,6 +165,7 @@ describe("hasVerifiedPhone admin_manual alignment", () => {
     expect(
       hasVerifiedPhone({
         phone_verified: false,
+        phone: "09171234567",
         auth_provider: "google",
         email: "user@gmail.com",
       })
@@ -175,6 +181,7 @@ describe("hasVerifiedPhone admin_manual alignment", () => {
         dibay_id_locked: true,
         username_confirmed: true,
         phone_verified: false,
+        phone: "09171234567",
         auth_provider: "admin_manual",
         email: "ops@manual.local",
         has_default_address: true,
@@ -214,7 +221,7 @@ describe("가입 조건 (동의 + 전화 인증 + 대표 주소, Owner 2026-11-2
   });
 
   it.each(actions)("%s — 전화 인증 없으면 막힌다", (action) => {
-    const r = evaluateProfileRequirements({ ...registered, phone_verified: false, phone_verified_at: null }, action);
+    const r = evaluateProfileRequirements({ ...registered, phone: null, phone_verified: false, phone_verified_at: null }, action);
     expect(r.satisfied).toBe(false);
     expect(r.missingFields).toContain("phone_verified");
   });
@@ -224,17 +231,17 @@ describe("가입 조건 (동의 + 전화 인증 + 대표 주소, Owner 2026-11-2
   });
 
   it.each(["community_report", "trade_report"] as const)("%s — 가입 조건 없음 (재감사 N1 신고)", (action) => {
-    expect(evaluateProfileRequirements({}, action).satisfied).toBe(true);
+    expect(evaluateProfileRequirements({ phone: null }, action).satisfied).toBe(true);
   });
 
   it("call_start — 전화 인증만, 대표 주소는 요구하지 않음 (재감사 M3)", () => {
     expect(evaluateProfileRequirements({ ...registered, has_default_address: false }, "call_start").satisfied).toBe(true);
-    const r = evaluateProfileRequirements({ ...registered, phone_verified: false, phone_verified_at: null }, "call_start");
+    const r = evaluateProfileRequirements({ ...registered, phone: null, phone_verified: false, phone_verified_at: null }, "call_start");
     expect(r.missingFields).toEqual(["phone_verified"]);
   });
 
   it("열람(messenger_open)은 요구 항목 없음 — 가입 진행 중에도 읽기 가능", () => {
-    expect(evaluateProfileRequirements({}, "messenger_open").satisfied).toBe(true);
+    expect(evaluateProfileRequirements({ phone: null }, "messenger_open").satisfied).toBe(true);
   });
 });
 

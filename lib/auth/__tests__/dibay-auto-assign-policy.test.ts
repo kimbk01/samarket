@@ -79,6 +79,7 @@ describe("dibay-public-id-ssot auto-assign policy", () => {
         ...autoRow,
         display_name: "홍길동",
         phone_verified: false,
+        phone: null,
       },
       "community_write"
     );
@@ -93,6 +94,7 @@ describe("dibay-public-id-ssot auto-assign policy", () => {
         ...autoRow,
         display_name: "홍길동",
         phone_verified: true,
+        phone: null,
         phone_verified_at: "2026-01-01T00:00:00.000Z",
         has_default_address: true,
       },
