@@ -41,6 +41,7 @@ import {
 } from "@/lib/admin/admin-action-queue-registry";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import { resolveAdminOrderOpsPeriod } from "@/lib/admin/store-orders/admin-store-order-ops-contract";
+import { DELIVERY_BANNER_CREATIVE_READINESS } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
 
 export {
   ADMIN_ACTION_QUEUE_META,
@@ -84,6 +85,19 @@ export function storeOrderAdminQueueActiveFromIso(now: Date = new Date()): strin
 
 /** feed_ad_requests are projected in JS; cap guards the scan and is surfaced when hit. */
 const FEED_AD_SCAN_LIMIT = 2000;
+
+/**
+ * 배달 운영 알림 「미처리」 = 목록 기본 탭과 같은 상태 (open·acknowledged·muted — muted 는 소리만 끈 미종결 건).
+ * 감사 2026-11-24: 숫자는 muted 를 빼고 목록은 넣어 어긋났다.
+ */
+export const DELIVERY_ALERT_ADMIN_ACTIONABLE_STATUSES = ["open", "acknowledged", "muted"] as const;
+
+/** 배달 광고 처리 대기 = 허브 `view=actionable` 버킷 (admin_delivery_ad_campaign_index). */
+export const DELIVERY_AD_ACTIONABLE_BUCKETS = ["needs_creative", "review"] as const;
+
+/** 커뮤니티 신고 목록이 다루는 대상 종류 (admin_community_report_groups_page 기본). */
+const COMMUNITY_REPORT_LISTED_TARGET_TYPES = ["post", "comment", "user"] as const;
+const COMMUNITY_REPORT_SCAN_LIMIT = 2000;
 
 export type AdminActionQueueCounts = {
   /** @deprecated AST-002 archive — not Cash; excluded from Action Center total (CUT E). */
@@ -193,6 +207,28 @@ function countOutcome(res: CountRes, relation: string): Outcome {
   return { status: "ok", count: Math.max(0, Math.floor(Number(res.count) || 0)) };
 }
 
+/**
+ * 커뮤니티 신고 = 대상 묶음 수 (목록 admin_community_report_groups_page 와 같은 단위).
+ * RPC 는 숫자(count distinct)를, 표별 예비 조회는 행(target_type·target_id)을 준다.
+ */
+function communityReportGroupsOutcome(res: CountRes & { data?: unknown }): Outcome {
+  if (res.error) {
+    if (isMissingRelationError(res.error, "community_reports")) return { status: "ok", count: 0 };
+    return { status: "unavailable" };
+  }
+  if (Array.isArray(res.data)) {
+    if (res.data.length >= COMMUNITY_REPORT_SCAN_LIMIT) return { status: "unavailable" };
+    const keys = new Set(
+      res.data.map((row) => {
+        const r = row as { target_type?: unknown; target_id?: unknown };
+        return `${String(r.target_type ?? "")}:${String(r.target_id ?? "")}`;
+      })
+    );
+    return { status: "ok", count: keys.size };
+  }
+  return { status: "ok", count: Math.max(0, Math.floor(Number(res.count) || 0)) };
+}
+
 const NOT_CONFIGURED: CountRes = { count: null, error: { message: "supabase_client_unavailable" } };
 
 function permitted(
@@ -228,6 +264,29 @@ type QueueRows = [
 
 type FeedRowsRes = { data: unknown[] | null; error: QueryError };
 
+/**
+ * 표별 예비 경로의 배달 광고 처리 대기 — 허브 `view=actionable` 과 같은 index 함수 행을 받아 버킷으로 센다
+ * (캠페인 수 규모 · 2026-11-24 운영 85행). 행이 배열이 아니면 확인 불가.
+ */
+async function countDeliveryAdActionableLegacy(sb: SupabaseClient<any>): Promise<CountRes> {
+  if (typeof (sb as { rpc?: unknown }).rpc !== "function") return NOT_CONFIGURED;
+  try {
+    const rpc = (sb as unknown as {
+      rpc: (name: string, args: Record<string, unknown>) => PromiseLike<{ data?: unknown; error?: QueryError }>;
+    }).rpc.bind(sb);
+    const res = await rpc("admin_delivery_ad_campaign_index", {
+      p_pending_asset: DELIVERY_BANNER_CREATIVE_READINESS.pendingAssetPath,
+    });
+    if (res.error) return { count: null, error: res.error };
+    if (!Array.isArray(res.data)) return { count: null, error: { message: "delivery_ad_index_unavailable" } };
+    const buckets: readonly string[] = DELIVERY_AD_ACTIONABLE_BUCKETS;
+    const n = res.data.filter((row) => buckets.includes(String((row as { list_bucket?: unknown }).list_bucket ?? ""))).length;
+    return { count: n, error: null };
+  } catch {
+    return { count: null, error: { message: "delivery_ad_index_unavailable" } };
+  }
+}
+
 /** 기존 표별 조회 — RPC 실패 시 같은 결과를 이 경로로 만든다. */
 async function loadAdminActionQueueRowsLegacy(
   storesSb: SupabaseClient<any> | null,
@@ -258,13 +317,15 @@ async function loadAdminActionQueueRowsLegacy(
       ? storesSb
           .from("delivery_operation_alert_events")
           .select("id", head)
-          .in("event_status", ["open", "acknowledged"])
+          .in("event_status", [...DELIVERY_ALERT_ADMIN_ACTIONABLE_STATUSES])
       : NOT_CONFIGURED,
     storesSb
       ? storesSb
           .from("feed_ad_requests")
           .select("id, status, start_at, end_at")
           .eq("status", "pending_review")
+          // 삭제된 신청 제외 (RPC 는 삭제된 연결 캠페인도 뺀다 — 표별 조회는 예비 경로라 신청 행만)
+          .is("deleted_at", null)
           .limit(FEED_AD_SCAN_LIMIT)
       : Promise.resolve({ data: null as unknown[] | null, error: NOT_CONFIGURED.error }),
     storesSb
@@ -273,6 +334,7 @@ async function loadAdminActionQueueRowsLegacy(
           .select("id", head)
           .eq("domain", "trade")
           .eq("order_status", "pending_review")
+          .is("deleted_at", null)
       : NOT_CONFIGURED,
     storesSb ? storesSb.from("store_inquiries").select("id", head).eq("status", "open") : NOT_CONFIGURED,
     notesSb
@@ -281,14 +343,19 @@ async function loadAdminActionQueueRowsLegacy(
     notesSb
       ? notesSb
           .from("community_reports")
-          .select("id", head)
+          .select("target_type, target_id")
           .in("status", [...COMMUNITY_REPORT_ADMIN_ACTIONABLE])
+          .in("target_type", [...COMMUNITY_REPORT_LISTED_TARGET_TYPES])
+          .limit(COMMUNITY_REPORT_SCAN_LIMIT)
       : NOT_CONFIGURED,
     storesSb
-      ? applyStoreApprovalStatusFilter(storesSb.from("stores").select("id", head), "actionable")
+      ? applyStoreApprovalStatusFilter(storesSb.from("stores").select("id", head), "actionable").neq(
+          "store_kind",
+          "sample"
+        )
       : NOT_CONFIGURED,
     storesSb
-      ? storesSb.from("delivery_ad_operations_cases").select("id", head).eq("status", "WAITING_ADMIN")
+      ? countDeliveryAdActionableLegacy(storesSb)
       : NOT_CONFIGURED,
     storesSb
       ? storesSb
@@ -357,7 +424,7 @@ export function buildAdminActionQueueCountsRpcParams(now: Date = new Date()): Re
     user_charge_statuses: [...USER_CHARGE_ACTIONABLE_STATUSES],
     trade_report_statuses: [...TRADE_REPORT_ADMIN_ACTIONABLE],
     store_report_status: "open",
-    delivery_alert_statuses: ["open", "acknowledged"],
+    delivery_alert_statuses: [...DELIVERY_ALERT_ADMIN_ACTIONABLE_STATUSES],
     feed_ad_status: "pending_review",
     feed_ad_scan_limit: FEED_AD_SCAN_LIMIT,
     trade_promo_domain: "trade",
@@ -367,6 +434,8 @@ export function buildAdminActionQueueCountsRpcParams(now: Date = new Date()): Re
     community_report_statuses: [...COMMUNITY_REPORT_ADMIN_ACTIONABLE],
     store_approval_statuses: [...ADMIN_ACTIONABLE_STORE_APPROVAL],
     delivery_ad_ops_status: "WAITING_ADMIN",
+    /** 2026-11-24 — 처리 대기 = admin_delivery_ad_campaign_index 버킷 (함수 안 기본값과 같은 값). */
+    delivery_ad_pending_asset: DELIVERY_BANNER_CREATIVE_READINESS.pendingAssetPath,
     order_excluded_statuses: [...STORE_ORDER_ADMIN_QUEUE_EXCLUDED_STATUSES],
     order_active_from: storeOrderAdminQueueActiveFromIso(now),
     settlement_status: "review_required",
@@ -477,7 +546,7 @@ export async function loadAdminActionQueueCounts(input: {
     support_actionable: countOutcome(supportActionableRes, "support_cases"),
     store_inquiry_open: countOutcome(storeInquiryRes, "store_inquiries"),
     platform_inquiry_open: LEGACY_ZERO, // A2-2: legacy platform inbox archive only
-    community_reports: countOutcome(communityReportsRes, "community_reports"),
+    community_reports: communityReportGroupsOutcome(communityReportsRes),
     store_applications: countOutcome(storeApplicationsRes, "stores"),
     orders_attention: countOutcome(ordersAttentionRes, "store_orders"),
     settlements_actionable: countOutcome(settlementsRes, "store_sale_fee_obligations"),

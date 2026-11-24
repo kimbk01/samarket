@@ -237,3 +237,17 @@ TS 쪽(웹, 같은 PR):
 - **S8 고객 답장 알림 `requiredPermission: "support"` — 보류.** 이 값을 넣으면 생성 시 권한 없는 담당자가 `skippedRecipients` 로 빠지고, 같은 함수의 자기 복구가 **문의를 미배정으로 되돌린다**(고객지원 배정 동작 변경). 알림 범위를 넘는 변경이라 Owner 결정 필요로 남긴다.
 - **C3 예산 경보 링크 — 넣지 않음.** 예산 표를 보여주는 관리자 화면이 없다(`/admin/performance` 에 예산 표 없음). 줄별 「읽음」만 추가.
 - 받은 알림 「모두 읽음」 범위·헤더 1000건 한도는 §5 그대로(범위 밖).
+
+## 10. 단계 2 적용 결과 (2026-11-24 · Owner 「단계 2 승인」)
+
+- 운영 DB 적용: 마이그레이션 `20271124120000_admin_action_queue_count_list_parity` (`apply_migration` success).
+  - 적용 전에 `begin … rollback` 으로 운영에서 시험했다. 시험 뒤 함수 md5 가 그대로임을 확인했다(시험이 운영을 바꾸지 않음).
+- 적용 후 운영 조회 (읽기 전용):
+  - 지금 배포된 웹 조건값(예전 키)으로 `admin_action_queue_counts` 를 부르면 `delivery_ad_ops = 0`, 19칸 모두 0, 오류(null) 칸 0 → **종 합계 0**.
+  - CTA 화면 `admin_delivery_ad_campaigns_page('all','actionable',…)` total = 0 → **카드 숫자 = 목록 0 = 0**.
+  - 함수 권한(`service_role` EXECUTE)·SECURITY DEFINER 여부는 적용 전과 같다.
+  - `admin_notification_delivery_health` 는 dead 0 이다.
+- 롤백 파일 `docs/audit/admin-queue-stage2-rollback-2026-11-24.sql`: 마이그레이션과 diff 해 보면 바뀐 줄만 되돌린다. **실행 검증은 하지 않았다.**
+- 웹 변경: 조건값 `delivery_alert_statuses` 에 `muted` 추가(목록 「미처리」 탭과 같게), `delivery_ad_pending_asset` 추가. 표별 예비 조회도 같은 기준으로 맞췄다(배달 광고 = index 함수 버킷, 커뮤니티 = 대상 묶음 수, 입점 = 샘플 제외, 피드·거래 프로모 = 삭제 제외).
+- `admin_notification_replay_support_replies` 는 적용만 했다. 실제 담당 변경 상황으로 재생 동작을 확인하지는 않았다 → **NOT_PROVEN**.
+- 운영 화면(관리자 로그인) 확인 → **NOT_PROVEN**.
