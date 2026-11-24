@@ -87,7 +87,15 @@ export async function loadLocationCitiesByIds(
   if (ids.length === 0) return out;
   const { data, error } = await sb.from("locations").select("id, city, name").in("id", ids);
   if (error || !Array.isArray(data)) return out;
-  for (const row of data as { id?: string; city?: string | null; name?: string | null }[]) {
+  addLocationCities(out, data as LocationCityRow[]);
+  return out;
+}
+
+export type LocationCityRow = { id?: string; city?: string | null; name?: string | null };
+
+/** `locations` 행 → 공개 지역(시/군) 이름. 조회 방식(직접·공유 캐시)과 무관한 단일 변환. */
+export function addLocationCities(out: Map<string, string>, rows: readonly LocationCityRow[]): void {
+  for (const row of rows) {
     const id = String(row.id ?? "").trim();
     if (!id) continue;
     /**
@@ -98,5 +106,4 @@ export async function loadLocationCitiesByIds(
     const city = formatAddressPublicArea(store) || String(row.city ?? "").trim();
     if (city) out.set(id, city);
   }
-  return out;
 }

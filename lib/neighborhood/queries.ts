@@ -11,8 +11,8 @@ import { rankByRecommended } from "@/lib/community-feed/feed-ranking";
 import { normalizeCommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin";
 import {
   formatCommunityPublicRegionLabel,
-  loadLocationCitiesByIds,
 } from "@/lib/addresses/community-public-region-label";
+import { loadLocationCitiesByIdsShared } from "@/lib/neighborhood/location-cities-shared.server";
 import {
   buildPhilifeTopicColorLookup,
   buildPhilifeTopicFeedListSkinLookup,
@@ -597,7 +597,7 @@ export async function listNeighborhoodFeed(options: {
     }
   })();
 
-  const locationCityPromise = loadLocationCitiesByIds(
+  const locationCityPromise = loadLocationCitiesByIdsShared(
     sb,
     rows.map((r) => String((r as { location_id?: unknown }).location_id ?? "")),
   );
@@ -940,7 +940,7 @@ export async function getNeighborhoodPostDetail(
     v ? fetchBlockedAuthorIdsForViewer(sb, v) : Promise.resolve(new Set<string>()),
     fetchAuthorPublicProfilesForUserIds(sb as never, [uid]),
     loadPhilifeDefaultSectionTopics(),
-    loadLocationCitiesByIds(sb, [String(row.location_id ?? "")]),
+    loadLocationCitiesByIdsShared(sb, [String(row.location_id ?? "")]),
     // Explicit attribution policy columns on community_posts — NOT origin_kind (+ imported structured body, same read).
     detailExtrasInRow
       ? Promise.resolve(postExtrasFromCommunityPostRow(row, true))
