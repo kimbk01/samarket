@@ -104,10 +104,14 @@ export function deriveNativeExchangeGateFlags(input: NativeExchangeGateInput): {
   needsTermsAgreement: boolean;
   needsProfileCompletion: boolean;
 } {
+  /**
+   * 약관 판정 = 웹 OAuth·아이디 로그인과 같은 `signupComplete`(관리자 동의 면제 반영) — 가입 전체 감사 B9.
+   * 날것 `consentComplete` 만 보면 동의 기록이 없는 관리자가 앱·QR 로그인에서만 약관 화면으로 간다.
+   */
+  const consentOk = input.consentComplete || input.signupComplete;
   return {
-    needsTermsAgreement: !input.consentComplete,
-    needsProfileCompletion:
-      input.consentComplete && (!input.dibayIdComplete || !input.profileComplete),
+    needsTermsAgreement: !consentOk,
+    needsProfileCompletion: consentOk && (!input.dibayIdComplete || !input.profileComplete),
   };
 }
 

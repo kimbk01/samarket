@@ -35,7 +35,9 @@ export async function enforceRegistrationStepPage(
   }
   const readSb = tryCreateSupabaseServiceClient() ?? routeSb;
   if (!readSb) return;
-  const status = await getOnboardingStatus(readSb, user.id);
+  /** 판정 재료를 못 읽으면(약관 버전 모름 포함 · 가입 후속 감사 B10) 이 단계 화면을 그대로 그린다 — 저장 API 가 다시 판정 */
+  const status = await getOnboardingStatus(readSb, user.id, { strictConsentVersions: true }).catch(() => null);
+  if (!status) return;
   const step = status.registrationNextStep;
   if (step === expected) return;
   if (step === null) {

@@ -162,6 +162,7 @@ describe("D5 signup gate — profiles skipped only when claim consent complete",
   function setup() {
     vi.doMock("@/lib/legal/resolve-required-consent-versions", () => ({
       resolveRequiredConsentVersions: async () => ({ termsVersion: "t1", privacyVersion: "p1" }),
+      resolveRequiredConsentVersionsStrict: async () => ({ termsVersion: "t1", privacyVersion: "p1" }),
     }));
     vi.doMock("@/lib/admin/admin-membership", () => ({ hasActiveAdminMembershipOrLegacyRole: async () => false }));
     const from = vi.fn(() => ({

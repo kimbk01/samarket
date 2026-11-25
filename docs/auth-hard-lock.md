@@ -447,3 +447,16 @@ Contract delta:
 - 추가(2026-11-25 전체 감사 A9): 약관 동의 저장 직후에도 같은 단일 비행 갱신을 1회 부른다(클레임의 동의 버전이 바뀌어 proxy 가 `profiles` 를 화면마다 읽지 않게). 가입 완료 갱신은 실패하면 같은 토큰에 1회 더 시도(토큰당 최대 2회).
 
 증거: `lib/auth/__tests__/registration-ssot-2026-11-24.test.ts` · `lib/auth/__tests__/registration-reaudit-2026-11-24.test.ts`.
+
+## Amendment 2026-11-25 — 가입 후속 감사: 재동의 도착 · 앱·QR 관리자 동의 면제 · 약관 버전 모름 · 돌아갈 주소 정리 (Reopen §4 trigger 4 · Owner 「오너 결정 부분은 권장안으로 진행 … 끝까지 확인」 2026-11-25)
+
+감사: `docs/audit/registration-full-audit-2026-11-25.md` §C.
+
+Contract delta:
+- Destination: 이미 가입한 회원(`terms_accepted_at` 있음)의 약관 개정 재동의 뒤 `next` 가 없으면 로그인 착지 `POST_LOGIN_PATH`(/mypage) — 2026-11-25 A5 에서 `/` 로 바뀐 것을 되돌림. 신규 가입 흐름은 `/` 그대로. (`resolveRegistrationReturnPath(input, fallback)`)
+- Completion(앱 로그인·PC QR): `deriveNativeExchangeGateFlags` 의 약관 판정 = `consentComplete || signupComplete` — 웹 OAuth·아이디 로그인과 같은 관리자 동의 면제.
+- 가입 판정 재료: 필수 약관 버전을 한 번도 읽지 못했으면(Strict 실패) proxy 가입 관문은 보내지 않고, `signup-status`·`mandatory-address-gate` 는 503(클라이언트 재시도), 단계 화면은 그대로 그림, 동의 화면은 오류 화면([다시 시도]). `getOnboardingStatus(…, { strictConsentVersions })` 옵션 — 그 밖의 호출처(쓰기·통화 API)는 불변.
+- `sanitizeNextPath`: 금지 경로 검사를 URL 로 정리한 경로에도 적용(`/./login`·`/%2e/login`·`/login#x`), `"/api/"` → `"/api"`(이전엔 `/api/x` 를 막지 못함). 반환값은 원문 그대로.
+- 불변: Session · 갱신자 · 401 · 쓰기 게이트 · 관리자 판정(활성 membership) · 동의 버전 판정 함수.
+
+증거: `lib/auth/__tests__/registration-followup-c-2026-11-25.test.ts`.

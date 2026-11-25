@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
+import { RequiredConsentVersionsUnavailableError } from "@/lib/legal/resolve-required-consent-versions";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -31,7 +32,7 @@ export async function GET() {
   }
 
   try {
-    const status = await getOnboardingStatus(sb, userId);
+    const status = await getOnboardingStatus(sb, userId, { strictConsentVersions: true });
     return NextResponse.json({
       ok: true,
       authenticated: true,
@@ -40,6 +41,10 @@ export async function GET() {
       registrationNextStep: status.registrationNextStep,
     });
   } catch (e) {
+    /** 필수 약관 버전을 모름 — 판정하지 않음(가입 관문은 재시도) · 가입 후속 감사 B10 */
+    if (e instanceof RequiredConsentVersionsUnavailableError) {
+      return NextResponse.json({ ok: false, error: "consent_versions_unavailable" }, { status: 503 });
+    }
     console.error("[mandatory-address-gate]", e);
     return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
   }

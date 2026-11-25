@@ -7,7 +7,7 @@ import {
 } from "@/lib/auth/dibay-signup-status";
 import { shouldBlockUnauthenticatedHtmlRequest } from "@/lib/auth/guest-browse-access-policy";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
-import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
+import { resolveRequiredConsentVersionsStrict } from "@/lib/legal/resolve-required-consent-versions";
 import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
 import type { DibayMemberClaim } from "@/lib/auth/member-token-claims";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
@@ -85,7 +85,9 @@ export async function resolveProxySignupGateRedirect(
   if (opts?.loadVerifiedClaim) {
     claim = await opts.loadVerifiedClaim().catch(() => null);
     if (claim) {
-      const requiredFromClaim = await resolveRequiredConsentVersions();
+      /** 버전을 모르면 판정하지 않는다(보내지 않음) — 가입 후속 감사 B10 */
+      const requiredFromClaim = await resolveRequiredConsentVersionsStrict().catch(() => null);
+      if (!requiredFromClaim) return null;
       const fromClaim = deriveDibaySignupStatus(
         {
           id: userId,
@@ -107,7 +109,8 @@ export async function resolveProxySignupGateRedirect(
     .maybeSingle();
   if (error || !data) return null;
 
-  const required = await resolveRequiredConsentVersions();
+  const required = await resolveRequiredConsentVersionsStrict().catch(() => null);
+  if (!required) return null;
   let signup = deriveDibaySignupStatus(data, { hasSession: true, requiredConsent: required });
   if (isDibaySignupComplete(signup)) return resolveProxyRegistrationRedirect(claim, userId, pathname, opts?.returnTo);
 

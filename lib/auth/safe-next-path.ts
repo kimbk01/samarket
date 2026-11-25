@@ -44,7 +44,8 @@ const FORBIDDEN_PREFIXES = [
   "/auth/callback",
   "/auth/consent",
   "/auth/onboarding",
-  "/api/",
+  /** `"/api/"` 였을 때 `startsWith("/api//")` 로 비교돼 `/api/x` 를 막지 못했다(가입 후속 감사 B11) */
+  "/api",
 ] as const;
 
 /**
@@ -99,6 +100,17 @@ export function sanitizeNextPath(input: string | null | undefined): string | nul
     search = raw.slice(qIdx);
   }
   if (isForbiddenPath(pathname)) return null;
+  /**
+   * 점 세그먼트(`/./login`, `/a/../login`, `/%2e/login`)·해시(`/login#x`)는 브라우저가 정리한 뒤 이동한다 —
+   * 정리된 경로로도 금지 검사를 한다(가입 후속 감사 B11). 반환값은 원문 그대로(기존 호출처 비교값 유지).
+   */
+  let normalizedPathname: string;
+  try {
+    normalizedPathname = new URL(raw, SAME_ORIGIN_PROBE).pathname;
+  } catch {
+    return null;
+  }
+  if (isForbiddenPath(normalizedPathname)) return null;
   // 콜백·로그인을 우회해 다른 라우트로 들어가도록 만든 search 도 차단.
   if (/auth_error=/i.test(search)) return null;
   return raw;

@@ -54,25 +54,29 @@ export function registrationStepHref(step: DibayRegistrationStep | null, next?: 
  * - 외부 이동 차단: `sanitizeNextPath`(역슬래시·제어문자·`//`·절대 URL 거부)
  * - 점 세그먼트(`/./x`, `/a/../x`)는 브라우저와 같게 정리한 뒤 판정 — 금지 경로 우회 차단
  * - 가입 단계 화면 · `/auth/*` · `/login*` 은 받지 않음(자기 자신·서로 반복 이동 차단)
- * - 없거나 거부되면 앱 홈 `REGISTRATION_DONE_DEFAULT_PATH`
+ * - 없거나 거부되면 `fallback`(기본 앱 홈 `REGISTRATION_DONE_DEFAULT_PATH`)
  */
-export function resolveRegistrationReturnPath(input: string | string[] | null | undefined): string {
+export function resolveRegistrationReturnPath(
+  input: string | string[] | null | undefined,
+  /** 돌려보낼 곳이 없을 때 — 신규 가입은 앱 홈, 이미 가입한 회원의 재동의는 로그인 착지(`POST_LOGIN_PATH`) */
+  fallback: string = REGISTRATION_DONE_DEFAULT_PATH,
+): string {
   const raw = Array.isArray(input) ? input[0] : input;
   const safe = sanitizeNextPath(typeof raw === "string" ? raw : null);
-  if (!safe) return REGISTRATION_DONE_DEFAULT_PATH;
+  if (!safe) return fallback;
   let normalized = safe;
   try {
     const u = new URL(safe, "http://dibay.local");
-    if (u.origin !== "http://dibay.local") return REGISTRATION_DONE_DEFAULT_PATH;
+    if (u.origin !== "http://dibay.local") return fallback;
     normalized = `${u.pathname}${u.search}${u.hash}`;
   } catch {
-    return REGISTRATION_DONE_DEFAULT_PATH;
+    return fallback;
   }
   const again = sanitizeNextPath(normalized);
-  if (!again) return REGISTRATION_DONE_DEFAULT_PATH;
+  if (!again) return fallback;
   const p = again.split("?")[0] ?? again;
   if (isRegistrationStepPath(p) || p === "/auth" || p.startsWith("/auth/") || p === "/login" || p.startsWith("/login/")) {
-    return REGISTRATION_DONE_DEFAULT_PATH;
+    return fallback;
   }
   return again;
 }

@@ -87,6 +87,7 @@ describe("P2-3 proxy signup gate uses membership verdict", () => {
   async function load(isAdmin: boolean) {
     vi.doMock("@/lib/legal/resolve-required-consent-versions", () => ({
       resolveRequiredConsentVersions: async () => ({ termsVersion: "t1", privacyVersion: "p1" }),
+      resolveRequiredConsentVersionsStrict: async () => ({ termsVersion: "t1", privacyVersion: "p1" }),
     }));
     const membership = vi.fn(async () => isAdmin);
     vi.doMock("@/lib/admin/admin-membership", () => ({

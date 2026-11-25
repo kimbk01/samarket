@@ -1,3 +1,5 @@
+import { isRegistrationStepPath } from "@/lib/auth/dibay-registration-steps";
+
 /** `/mypage/addresses/edit` — 주소 추가·수정 전용 페이지(하단 탭 숨김) */
 export function isMypageAddressEditPath(pathname: string | null | undefined): boolean {
   const p = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
@@ -50,13 +52,27 @@ export function parseSafeInternalReturnTo(raw: string | null | undefined): strin
    */
   if (!trimmed.startsWith("/") || trimmed.startsWith("//") || trimmed.length > 2048) return "";
   if (/[\\\u0000-\u001f\u007f]/.test(trimmed)) return "";
+  let pathname: string;
   try {
     const u = new URL(trimmed, "http://dibay.local");
     if (u.origin !== "http://dibay.local") return "";
+    pathname = u.pathname;
   } catch {
     return "";
   }
+  /**
+   * 화면이 아닌 곳·로그인 흐름으로 돌려보내지 않는다 — 점 세그먼트(`/./login`)를 정리한 경로로 검사(가입 후속 감사 B11).
+   * 가입 단계 화면(`/auth/onboarding/address` 등)만 `/auth` 안에서 허용.
+   */
+  if (isReturnToForbiddenPath(pathname)) return "";
   return trimmed;
+}
+
+function isReturnToForbiddenPath(pathname: string): boolean {
+  const under = (prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
+  if (under("/login") || under("/signup") || under("/api")) return true;
+  if (under("/auth")) return !isRegistrationStepPath(pathname);
+  return false;
 }
 
 /**

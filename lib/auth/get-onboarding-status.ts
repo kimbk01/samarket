@@ -10,7 +10,10 @@ import {
   isDibayProfileComplete,
 } from "@/lib/auth/dibay-signup-status";
 import type { DibayOnboardingStatusValue } from "@/lib/auth/dibay-signup-status";
-import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
+import {
+  resolveRequiredConsentVersions,
+  resolveRequiredConsentVersionsStrict,
+} from "@/lib/legal/resolve-required-consent-versions";
 import { requiredConsentForClient } from "@/lib/legal/client-required-consent";
 import { nextRegistrationStep, type DibayRegistrationStep } from "@/lib/auth/dibay-registration-steps";
 
@@ -181,12 +184,22 @@ async function loadOnboardingFactsLegacy(sb: SupabaseClient, userId: string): Pr
  */
 export async function getOnboardingStatus(
   sb: SupabaseClient,
-  userId: string
+  userId: string,
+  opts?: {
+    /**
+     * 필수 약관 버전을 한 번도 읽지 못했으면 기본 버전으로 판정하지 않고 `RequiredConsentVersionsUnavailableError` 를 던진다
+     * (가입 후속 감사 B10) — 가입 관문 판정·이동(signup-status·mandatory-address-gate·단계 화면·동의 화면)만 쓴다.
+     * 기본(false)은 기존과 같음 — 통화·쓰기 API 등 다른 호출처 동작 불변.
+     */
+    strictConsentVersions?: boolean;
+  },
 ): Promise<OnboardingStatus> {
   const facts = (await loadOnboardingFactsViaRpc(sb, userId)) ?? (await loadOnboardingFactsLegacy(sb, userId));
   const profile = facts.profile;
   const profileExists = profile?.id !== null && profile?.id !== undefined;
-  const required = await resolveRequiredConsentVersions();
+  const required = opts?.strictConsentVersions
+    ? await resolveRequiredConsentVersionsStrict()
+    : await resolveRequiredConsentVersions();
   const consentComplete = hasStoreTermsConsent(
     {
       terms_accepted_at: profile?.terms_accepted_at ?? null,

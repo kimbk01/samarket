@@ -16,7 +16,12 @@ import { mergeAppBootProfileFull } from "@/lib/app-boot/app-boot-store";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { ProfileRow } from "@/lib/profile/types";
 import { markSignupConsentResolvedSession } from "@/lib/auth/signup-gate-session";
-import { registrationStepHref, resolveRegistrationReturnPath } from "@/lib/auth/dibay-registration-steps";
+import {
+  REGISTRATION_DONE_DEFAULT_PATH,
+  registrationStepHref,
+  resolveRegistrationReturnPath,
+} from "@/lib/auth/dibay-registration-steps";
+import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { notifyLegalConsentCompleted } from "@/lib/auth/client-consent-state";
 import { setClientRequiredConsentVersions } from "@/lib/legal/client-required-consent";
 import type { RequiredConsentGap } from "@/lib/legal/has-required-member-consents";
@@ -62,8 +67,14 @@ export function AuthConsentForm({
   const { t, safeT, language } = useI18n();
   const searchParams = useSearchParams();
   const router = useRouter();
-  /** 돌아갈 화면 — 가입 흐름 단일 판정, 없으면 앱 홈(내정보 아님) · 전체 감사 A3·A5 */
-  const next = resolveRegistrationReturnPath(searchParams.get("next"));
+  /**
+   * 돌아갈 화면 — 가입 흐름 단일 판정(전체 감사 A3·A5). 없으면 신규 가입은 앱 홈,
+   * 이미 가입한 회원의 약관 개정 재동의는 로그인 착지 `/mypage` 그대로(2026-11-25 후속 결정 1).
+   */
+  const next = resolveRegistrationReturnPath(
+    searchParams.get("next"),
+    priorConsent ? POST_LOGIN_PATH : REGISTRATION_DONE_DEFAULT_PATH,
+  );
 
   const needsLegal = consentGap !== "age";
   const needsAge = consentGap !== "terms_privacy";
