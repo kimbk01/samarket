@@ -1,7 +1,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { classifyAdminProfileDuplicate } from "@/lib/admin-users/admin-member-profile-write-error";
+import {
+  ADMIN_PROFILE_DUPLICATE_ERROR_CODE,
+  ADMIN_PROFILE_DUPLICATE_FIELD,
+  classifyAdminProfileDuplicate,
+} from "@/lib/admin-users/admin-member-profile-write-error";
+import { adminUsersAddressMessages } from "@/lib/i18n/catalog/admin-users-address";
 import {
   buildPhoneVerifiedMemberPatch,
   buildPhoneVerificationStatusPatch,
@@ -44,10 +49,48 @@ describe("B3 중복 오류 판정 — 제약 이름으로", () => {
     ['duplicate key value violates unique constraint "profiles_phone_unique_idx"', "phone"],
     ['duplicate key value violates unique constraint "profiles_username_lower_unique_idx"', "username"],
     ['duplicate key value violates unique constraint "profiles_nickname_lower_unique_idx"', "nickname"],
-    ['duplicate key value violates unique constraint "profiles_other_idx"', null],
+    ['duplicate key value violates unique constraint "profiles_dibay_id_lower_unique_idx"', "dibay_id"],
+    ['duplicate key value violates unique constraint "profiles_dibay_id_initial_key_unique_idx"', "dibay_id"],
+    ['duplicate key value violates unique constraint "profiles_other_idx"', "other"],
+    ['new row for relation "profiles" violates check constraint "profiles_dibay_id_format_check"', null],
     ["network error", null],
   ])("%s → %s", (msg, kind) => {
     expect(classifyAdminProfileDuplicate(msg)).toBe(kind);
+  });
+  it("Postgres 코드 23505 만 있어도 「다른 중복」", () => {
+    expect(classifyAdminProfileDuplicate("conflict", "23505")).toBe("other");
+    expect(classifyAdminProfileDuplicate("conflict", "23514")).toBeNull();
+  });
+  it("코드·칸·문구 키 — 아이디 중복은 기존 키, 그 밖 중복은 일반 「중복 값」", () => {
+    expect(ADMIN_PROFILE_DUPLICATE_ERROR_CODE.dibay_id).toBe("dibay_id_taken");
+    expect(ADMIN_PROFILE_DUPLICATE_ERROR_CODE.other).toBe("duplicate_value");
+    expect(ADMIN_PROFILE_DUPLICATE_FIELD.dibay_id).toEqual({ field: "form", errorKey: "admin_users_member_dibay_id_taken" });
+    expect(ADMIN_PROFILE_DUPLICATE_FIELD.other).toEqual({ field: "form", errorKey: "admin_users_err_duplicate_value" });
+    expect(adminUsersAddressMessages.ko.admin_users_err_duplicate_value).toBeTruthy();
+    expect(adminUsersAddressMessages.en.admin_users_err_duplicate_value).toBeTruthy();
+  });
+  it("수정·생성 API — 중복은 409 + 코드, 그 밖 DB 오류는 일반 코드(원문 미노출)", () => {
+    const edit = read("app/api/admin/users/[id]/route.ts");
+    expect(edit).toContain("ADMIN_PROFILE_DUPLICATE_ERROR_CODE[kind] }, { status: 409 }");
+    expect(edit).toContain('return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });');
+    expect(edit).not.toContain("mapProfileUpdateError");
+    /** 닉네임 중복 사전 확인도 코드로 (EditMemberForm 이 nickname_taken 을 번역) */
+    expect(edit).toContain("error: ADMIN_PROFILE_DUPLICATE_ERROR_CODE.nickname");
+    expect(edit).not.toContain("이미 사용 중인 닉네임입니다");
+    const create = read("app/api/admin/users/create/route.ts");
+    expect(create).toContain("jsonFieldError(mapped.field, mapped.errorKey, 409, ADMIN_PROFILE_DUPLICATE_ERROR_CODE[kind])");
+    expect(create).toContain('error: "create_failed"');
+    expect(create).not.toContain("error: profileError.message");
+    expect(create).not.toContain("raw || await adminServerText");
+    for (const form of [
+      "components/admin/users/EditMemberForm.tsx",
+      "components/admin/users/AdminMemberVerificationDialog.tsx",
+    ]) {
+      const src = read(form);
+      expect(src).toContain('data.error === "duplicate_value"');
+      expect(src).toContain('t("admin_users_err_duplicate_value")');
+      expect(src).toContain('data.error === "dibay_id_taken"');
+    }
   });
   it("Auth 로그인 주소 중복은 아이디 칸으로", () => {
     const src = read("app/api/admin/users/create/route.ts");

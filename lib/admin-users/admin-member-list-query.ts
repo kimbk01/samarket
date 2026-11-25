@@ -201,18 +201,50 @@ export function adminMemberStatusFilterOps(status: AdminUserStatusCategory): Pro
   ];
 }
 
-/** OD-02 binary verification filter — server authoritative. */
+/**
+ * 관리자 생성 회원(M) 판정용 provider 값 — `normalizeStoreAuthProvider` 가 `admin_manual` 로 바꾸는 값과 같다.
+ * `isAdminManualProvider`: `provider ?? auth_provider` 를 보고(provider 가 null 일 때만 auth_provider), 또는 `email` 이 `@manual.local` 로 끝남.
+ */
+const VERDICT_MANUAL_PROVIDER_IN = "(manual,manual_admin,manual_admin_backfill,admin_manual)";
+const VERDICT_MANUAL_EMAIL_LIKE = "%@manual.local";
+
+/** M — 관리자 생성 회원 (`isAdminManualProvider` 와 같은 조건) */
+const VERDICT_MANUAL = `or(provider.in.${VERDICT_MANUAL_PROVIDER_IN},and(provider.is.null,auth_provider.in.${VERDICT_MANUAL_PROVIDER_IN}),email.ilike.${VERDICT_MANUAL_EMAIL_LIKE})`;
+/** ¬M — null 을 명시해 SQL 3값 논리에서도 M 의 정확한 여집합 */
+const VERDICT_NOT_MANUAL = `and(or(and(provider.not.is.null,provider.not.in.${VERDICT_MANUAL_PROVIDER_IN}),and(provider.is.null,or(auth_provider.is.null,auth_provider.not.in.${VERDICT_MANUAL_PROVIDER_IN}))),or(email.is.null,email.not.ilike.${VERDICT_MANUAL_EMAIL_LIKE}))`;
+/** V — `phone_verified=true` 또는 `phone_verified_at` 있음 */
+const VERDICT_VERIFIED_MARK = "or(phone_verified.eq.true,phone_verified_at.not.is.null)";
+const VERDICT_NOT_VERIFIED_MARK = "and(or(phone_verified.is.null,phone_verified.eq.false),phone_verified_at.is.null)";
+/** P — 저장 번호 있음 (목록 배지는 `profiles.phone` 을 본다) */
+const VERDICT_PHONE_PRESENT = 'and(phone.not.is.null,phone.neq."")';
+const VERDICT_PHONE_ABSENT = 'or(phone.is.null,phone.eq."")';
+
+/**
+ * 인증 필터 — 목록 배지(`verifiedPhoneVerdict`)와 **같은 판정** (등록 감사 B7).
+ * 인증 = 관리자 ∨ (¬M ∧ V) ∨ (M ∧ P) · 미인증 = 관리자 아님 ∧ ((¬M ∧ ¬V) ∨ (M ∧ ¬P)).
+ * `privilegedAdminIds` = 활성 관리자 멤버십(admin·super_admin) 회원 id — 비어 있으면 id 조건을 넣지 않는다.
+ */
 export function adminMemberVerificationFilterOps(
   verify: AdminMemberVerifyFilter | null | undefined,
+  privilegedAdminIds: readonly string[] = [],
 ): ProfileFilterOp[] {
   if (!verify) return [];
+  const admins = uniqueAdminMemberIds(privilegedAdminIds);
   if (verify === "verified") {
-    return [{ type: "eq", column: "phone_verified", value: true }];
+    const parts = [
+      ...(admins.length > 0 ? [`id.in.${postgrestInFilter(admins)}`] : []),
+      `and(${VERDICT_NOT_MANUAL},${VERDICT_VERIFIED_MARK})`,
+      `and(${VERDICT_MANUAL},${VERDICT_PHONE_PRESENT})`,
+    ];
+    return [{ type: "or", value: parts.join(",") }];
   }
   return [
+    ...(admins.length > 0
+      ? [{ type: "not_in", column: "id", value: postgrestInFilter(admins) } as ProfileFilterOp]
+      : []),
     {
       type: "or",
-      value: "phone_verified.is.null,phone_verified.eq.false",
+      value: `and(${VERDICT_NOT_MANUAL},${VERDICT_NOT_VERIFIED_MARK}),and(${VERDICT_MANUAL},${VERDICT_PHONE_ABSENT})`,
     },
   ];
 }

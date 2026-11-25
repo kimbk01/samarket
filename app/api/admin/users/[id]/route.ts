@@ -9,6 +9,7 @@ import { assertMemberPasswordChangeAllowed } from "@/lib/admin-users/member-auth
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { userHasRecentWarn } from "@/lib/admin/admin-user-server";
 import { mapProfileStatusToModeration } from "@/lib/admin-users/moderation-status";
+import { adminMembershipRoleFromRow } from "@/lib/admin-users/member-role-badges";
 import {
   resolveAdminAuthProvider,
   type AdminAuthListUser,
@@ -71,10 +72,6 @@ const PHONE_VERIFICATION_STATUSES = ["unverified", "pending", "verified", "rejec
  * 프로필 저장 오류 → 오류 코드 (전체 감사 B3: 모든 중복을 「닉네임 중복」으로 보이던 결함). 화면이 코드로 문구를 고른다.
  * 어떤 고유 제약인지는 제약 이름으로만 판정 — 모르면 원문(일반 실패 문구로 표시).
  */
-function mapProfileUpdateError(message: string): string {
-  const kind = classifyAdminProfileDuplicate(message);
-  return kind ? ADMIN_PROFILE_DUPLICATE_ERROR_CODE[kind] : message;
-}
 
 type TestUserForEnsure = {
   username?: string | null;
@@ -523,6 +520,21 @@ export async function GET(
       prof.deleted_at,
       hasWarn
     );
+    /** 관리자 멤버십 — 전화 인증 판정(관리자 = 인증)에 쓰므로 user 를 만들기 전에 읽는다 (등록 감사 B7) */
+    const { data: membershipRow } = await supabase
+      .from("admin_memberships")
+      .select("id, role, status, admin_tier, granted_at, bootstrap_seed")
+      .eq("user_id", rawId)
+      .eq("status", "active")
+      .maybeSingle();
+    /** 목록과 같은 기준 — 활성 멤버십 역할이 admin·super_admin */
+    const detailPhoneGate = {
+      ...prof,
+      phone: prof.phone ?? null,
+      privilegedAdmin:
+        Boolean(membershipRow) && adminMembershipRoleFromRow((membershipRow as { role?: string | null }).role) !== null,
+    };
+    const detailPhoneStatus = resolvePhoneVerificationDisplayStatus(detailPhoneGate);
     const user: AdminUserDetailRow = {
       id: rawId,
       username: prof.username ?? null,
@@ -542,10 +554,10 @@ export async function GET(
       nickname: prof.nickname ?? null,
       contact_phone: prof.phone ?? null,
       contact_address: defaultMasterAddress,
-      phone_verified: resolvePhoneVerificationDisplayStatus({ ...prof, phone: prof.phone ?? null }) === "verified",
+      phone_verified: detailPhoneStatus === "verified",
       phone_verified_at: prof.phone_verified_at ?? null,
       /** 앱 게이트(hasVerifiedPhone)와 같은 판정 — 원시 status 컬럼만 보지 않는다 (감사 #8) */
-      phone_verification_status: resolvePhoneVerificationDisplayStatus({ ...prof, phone: prof.phone ?? null }),
+      phone_verification_status: detailPhoneStatus,
       member_status: prof.member_status ?? null,
       member_type: prof.member_type ?? null,
       status: prof.status ?? null,
@@ -575,13 +587,6 @@ export async function GET(
       .select("id, store_name, slug, approval_status, is_visible, created_at")
       .eq("owner_user_id", rawId)
       .order("created_at", { ascending: false });
-
-    const { data: membershipRow } = await supabase
-      .from("admin_memberships")
-      .select("id, role, status, admin_tier, granted_at, bootstrap_seed")
-      .eq("user_id", rawId)
-      .eq("status", "active")
-      .maybeSingle();
 
     return NextResponse.json({
       ok: true,
@@ -728,7 +733,7 @@ export async function PATCH(
     const passwordRule = checkAdminSetPassword(pwd, "member");
     if (!passwordRule.ok) {
       return NextResponse.json(
-        { ok: false, error: passwordRule.error, message: passwordRule.messageKo },
+        { ok: false, error: passwordRule.error, errorKey: passwordRule.errorKey },
         { status: 400 },
       );
     }
@@ -862,7 +867,10 @@ export async function PATCH(
    */
   /** 닉네임 중복도 RPC(아이디 변경) 전에 확인 — 일부만 저장되고 409 를 돌려주는 상태 방지 */
   if (nextNickname !== null && (await isMemberNicknameTaken(sb, userId, nextNickname))) {
-    return NextResponse.json({ ok: false, error: "이미 사용 중인 닉네임입니다" }, { status: 409 });
+    return NextResponse.json(
+      { ok: false, error: ADMIN_PROFILE_DUPLICATE_ERROR_CODE.nickname },
+      { status: 409 },
+    );
   }
 
   /**
@@ -1017,9 +1025,17 @@ export async function PATCH(
   if (Object.keys(patch).length > 0) {
     const { error: updateError } = await sb.from("profiles").update(patch).eq("id", userId);
     if (updateError) {
-      const code = mapProfileUpdateError(updateError.message || "update_failed");
-      const status = code === "phone_taken" || code === "username_taken" || code === "nickname_taken" ? 409 : 500;
-      return NextResponse.json({ ok: false, error: code }, { status });
+      /** 중복 → 409 + 코드 · 그 외 DB 오류 → 일반 코드(원문은 서버 로그만, 등록 후속 감사 8번) */
+      const kind = classifyAdminProfileDuplicate(updateError.message, (updateError as { code?: string }).code);
+      if (kind) {
+        return NextResponse.json({ ok: false, error: ADMIN_PROFILE_DUPLICATE_ERROR_CODE[kind] }, { status: 409 });
+      }
+      console.error("[admin/users/:id] profile update failed", {
+        userId,
+        code: (updateError as { code?: string }).code ?? null,
+        message: updateError.message,
+      });
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
     }
   }
   /** 인증 완료로 바꿨을 때만 계정 상태 승격 — 정지·차단·탈퇴 회원은 그대로(전체 감사 B1) */
@@ -1100,7 +1116,7 @@ export async function PATCH(
         after_json: { reasons: weakPassword.reasons, via: "users_patch" },
       });
       return NextResponse.json(
-        { ok: false, error: weakPassword.error, reasons: weakPassword.reasons, message: weakPassword.messageKo },
+        { ok: false, error: weakPassword.error, reasons: weakPassword.reasons, errorKey: weakPassword.errorKey },
         { status: 422 },
       );
     }

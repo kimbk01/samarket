@@ -6,16 +6,22 @@ import { MemberAdminDialog } from "@/components/admin/users/MemberAdminDialog";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { MEMBER_ADMIN_COPY_KEY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { adminMemberPublicIdAt } from "@/lib/admin-users/admin-member-identity";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type PhoneStatus = "unverified" | "pending" | "verified" | "rejected";
 type ConfirmAction = "approve" | "reset" | "set_status" | null;
 
-const STATUS_OPTIONS: { value: PhoneStatus; labelKo: string }[] = [
-  { value: "unverified", labelKo: "미인증" },
-  { value: "pending", labelKo: "인증 대기" },
-  { value: "verified", labelKo: "인증 완료" },
-  { value: "rejected", labelKo: "인증 반려" },
+/** 화면 문구는 키로만 (언어 SSOT) — `admin_users_phone_status_*` · 인증 완료는 회원 관리 공통 문구(`verify_status_done`) */
+const STATUS_OPTIONS: { value: PhoneStatus; labelKey: MessageKey }[] = [
+  { value: "unverified", labelKey: "admin_users_phone_status_none" },
+  { value: "pending", labelKey: "admin_users_member_verify_status_pending" },
+  { value: "verified", labelKey: MEMBER_ADMIN_COPY_KEY.verify_status_done },
+  { value: "rejected", labelKey: "admin_users_member_verify_status_rejected" },
 ];
+
+function statusLabelKey(status: PhoneStatus): MessageKey {
+  return STATUS_OPTIONS.find((o) => o.value === status)?.labelKey ?? "admin_users_phone_status_none";
+}
 
 function normalizeStatus(phoneVerified?: boolean, status?: string | null): PhoneStatus {
   if (phoneVerified === true) return "verified";
@@ -87,7 +93,11 @@ export function AdminMemberVerificationDialog({
           ? t("admin_users_member_verify_invalid_phone")
           : data.error === "phone_taken"
             ? t("admin_users_err_phone_taken")
-            : t(MEMBER_ADMIN_COPY_KEY.mutation_failed),
+            : data.error === "dibay_id_taken"
+              ? t("admin_users_member_dibay_id_taken")
+            : data.error === "duplicate_value"
+              ? t("admin_users_err_duplicate_value")
+              : t(MEMBER_ADMIN_COPY_KEY.mutation_failed),
       );
       return false;
     }
@@ -173,7 +183,7 @@ export function AdminMemberVerificationDialog({
           ? `${targetLabel} — ${t(MEMBER_ADMIN_COPY_KEY.verify_reset_confirm_body)}`
           : t("admin_users_member_verify_set_status_confirm_body", {
               target: targetLabel,
-              status: STATUS_OPTIONS.find((o) => o.value === statusValue)?.labelKo ?? statusValue,
+              status: t(statusLabelKey(statusValue)),
             });
     return (
       <MemberAdminDialog
@@ -196,7 +206,7 @@ export function AdminMemberVerificationDialog({
       >
         <div data-member-verify-confirm={confirm}>
           <p className="text-[13px] text-sam-muted">
-            현재 선택: {STATUS_OPTIONS.find((o) => o.value === statusValue)?.labelKo ?? statusValue}
+            {t("admin_users_member_verify_current_selection", { status: t(statusLabelKey(statusValue)) })}
           </p>
         </div>
       </MemberAdminDialog>
@@ -243,7 +253,7 @@ export function AdminMemberVerificationDialog({
           >
             {STATUS_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
-                {o.labelKo}
+                {t(o.labelKey)}
               </option>
             ))}
           </select>

@@ -36,7 +36,8 @@ export async function POST(req: NextRequest) {
   const code = String(body.code ?? "").trim();
   const displayName = String(body.display_name ?? body.nickname ?? "").trim().slice(0, 20);
   if (!isValidPhoneOtpCodeInput(code)) {
-    return jsonError("인증번호를 입력해 주세요.", 400);
+    /** `resolvePhoneOtpUiError` 가 아는 코드 — 화면이 ko·en 문구를 고른다 (등록 후속 감사 B8) */
+    return jsonError("otp_invalid", { status: 400, code: "otp_invalid" });
   }
   const nameCheck = await precheckProfileDisplayName(sb, auth.userId, displayName);
   if (!nameCheck.ok) {

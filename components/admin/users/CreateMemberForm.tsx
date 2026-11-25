@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { MEMBER_PASSWORD_MIN_LENGTH } from "@/lib/auth/admin-set-password-policy";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
@@ -74,6 +74,8 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
   const [formError, setFormError] = useState<string | null>(null);
   const [addressAttempted, setAddressAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  /** 같은 렌더 안 두 번 제출(더블 클릭·Enter+버튼) 막기 — state 는 다음 렌더에야 바뀐다 (등록 후속 감사 B14) */
+  const submittingRef = useRef(false);
   /** 생성 성공 + 대표 주소 시드 실패 — 닫지 않고 경고 표시 후 상세 이동만 허용. */
   const [createdWithAddressWarning, setCreatedWithAddressWarning] = useState<{
     userId: string;
@@ -104,9 +106,9 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current) return;
     setFormError(null);
     /** 대표 주소는 필수 — 제출하면 항상 주소 칸 오류를 보여 준다 (가입 SSOT 2026-11-24 S4) */
-    const addressTouched = true;
     setAddressAttempted(true);
 
     const validation = validateAdminCreateMemberForm(
@@ -121,7 +123,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
         accountType,
         address,
       },
-      { addressAttempted: addressTouched, phoneRuleKey: "admin_users_member_verify_invalid_phone" }
+      { addressAttempted: true, phoneRuleKey: "admin_users_member_verify_invalid_phone" }
     );
 
     if (Object.keys(validation).length > 0) {
@@ -168,6 +170,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
       ? buildAdminCreateMemberContactAddressLine(address, regionId, cityId)
       : undefined;
 
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       const res = await fetch("/api/admin/users/create", {
@@ -223,12 +226,11 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
         const mapped = mapAdminCreateMemberApiField(data.field);
         const errKey =
           (data.errorKey as MessageKey | undefined) ??
-          (mapped ? mapServerFieldToKey(mapped, res.status, data.error) : undefined);
+          (mapped ? mapServerFieldToKey(mapped, res.status) : undefined);
         const rawError = data.error?.trim() || "";
         let message = rawError ? adminOperatorErrorMessage(rawError, language !== "en") : "";
-        if (data.error === "password_weak" && data.message) {
-          message = data.message;
-        } else if (res.status === 401) {
+        /** 비밀번호 거절 사유도 서버 문장이 아니라 사유별 키(errorKey)로 번역한다 */
+        if (res.status === 401) {
           message = t("admin_users_err_login_retry");
         } else if (res.status === 403) {
           message = t("admin_users_err_admin_only_create");
@@ -268,6 +270,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
       setFormError(msg);
       setFieldErrors({ form: "admin_users_err_request" });
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -486,12 +489,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
               </div>
               <p className="sam-text-xxs text-sam-muted">{t("admin_users_admin_via_staff_tab_hint")}</p>
             </div>
-
-            {formError || resolvedFieldMessages.form ? (
-              <p className="sam-text-body-secondary text-sam-danger" role="alert">
-                {formError ?? resolvedFieldMessages.form}
-              </p>
-            ) : null}
+            {/* 제출 오류는 MemberAdminDialog 의 errorText 한 곳에만 보인다(같은 문구 두 번 표시 제거) */}
 </form>
       </div>
     </MemberAdminDialog>
@@ -499,11 +497,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
 }
 
 
-function mapServerFieldToKey(
-  field: AdminCreateMemberFormField,
-  status: number,
-  error?: string
-): MessageKey {
+function mapServerFieldToKey(field: AdminCreateMemberFormField, status: number): MessageKey {
   if (field === "nickname" && status === 409) return "admin_users_err_nickname_taken";
   if (field === "contactPhone") return "admin_users_member_verify_invalid_phone";
   if (field === "addressSearch") return "addr_ui_pick_search_result";

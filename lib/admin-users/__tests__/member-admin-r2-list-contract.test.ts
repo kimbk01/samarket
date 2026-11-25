@@ -157,8 +157,17 @@ describe("R2 member list — five filter axes", () => {
   });
 
   it("builds server ops for verify/store/privilege/origin", () => {
-    expect(JSON.stringify(adminMemberVerificationFilterOps("verified"))).toContain("phone_verified");
-    expect(JSON.stringify(adminMemberVerificationFilterOps("unverified"))).toContain("phone_verified.eq.false");
+    /** 등록 후속 감사 B7 — 배지(verifiedPhoneVerdict)와 같은 판정: 관리자 ∨ (¬관리자생성 ∧ 인증표시) ∨ (관리자생성 ∧ 번호) */
+    const verified = adminMemberVerificationFilterOps("verified", ["a1"]);
+    expect(verified).toHaveLength(1);
+    expect(verified[0]).toMatchObject({ type: "or" });
+    expect(JSON.stringify(verified)).toContain("id.in.(a1)");
+    expect(JSON.stringify(verified)).toContain("phone_verified.eq.true,phone_verified_at.not.is.null");
+    expect(JSON.stringify(verified)).toContain("email.ilike.%@manual.local");
+    const unverified = adminMemberVerificationFilterOps("unverified", ["a1"]);
+    expect(unverified[0]).toEqual({ type: "not_in", column: "id", value: "(a1)" });
+    expect(JSON.stringify(unverified)).toContain("phone_verified.eq.false");
+    expect(JSON.stringify(unverified)).toContain("phone_verified_at.is.null");
     expect(adminMemberStoreFilterPlan("has_store", ["o1"]).ops[0]).toMatchObject({ type: "in" });
     expect(adminMemberStoreFilterPlan("no_store", ["o1"]).ops[0]?.type).toBe("not_in");
     expect(adminMemberPrivilegeFilterPlan("admin", ["a1"]).ops[0]).toMatchObject({ type: "in" });
