@@ -40,11 +40,13 @@ import type {
 } from "@/lib/neighborhood/types";
 import {
   fetchBlockedAuthorIdsForViewer,
+  rememberBlockedAuthorIdsForViewer,
   fetchNeighborFollowTargetIds,
 } from "@/lib/neighborhood/social-filter";
 import { COMMUNITY_POST_FEED_STATUS_ACTIVE } from "@/lib/neighborhood/community-post-contract";
 import { resolvePopularPagingOffsetAdvance } from "@/lib/neighborhood/popular-paging-offset";
 import { resolveNeighborhoodListSort } from "@/lib/neighborhood/philife-neighborhood-feed-sort";
+import { loadFeedViewerExclusions } from "@/lib/neighborhood/feed-viewer-exclusions.server";
 import {
   communityHashtagIlikeOrFilter,
   communityKeywordIlikeOrFilter,
@@ -226,10 +228,22 @@ export async function listNeighborhoodFeed(options: {
   const v = options.viewerUserId?.trim() ?? "";
   const topicsPromise = options.topics ? Promise.resolve(options.topics) : loadPhilifeDefaultSectionTopics();
 
+  /**
+   * 2026-11-25 S4 — 로그인 목록(작성자 필터 없음)은 차단 관계·숨긴 글을 DB 함수 1번으로 읽는다(예전 2번).
+   * 실패·함수 없음이면 null → 아래 기존 두 조회 그대로.
+   */
+  const exclusionsP =
+    v && !options.authorUserId ? loadFeedViewerExclusions(sb, v) : Promise.resolve(null);
+
   const blockedP: Promise<Set<string>> = v
     ? (async () => {
         const t0 = performance.now();
         try {
+          const combined = await exclusionsP;
+          if (combined) {
+            rememberBlockedAuthorIdsForViewer(v, combined.blockedAuthorIds);
+            return combined.blockedAuthorIds;
+          }
           return await fetchBlockedAuthorIdsForViewer(sb, v, collectPerf ? blockedMetrics : undefined);
         } finally {
           if (collectPerf) relatedBlockedFilterMs = performance.now() - t0;
@@ -240,6 +254,8 @@ export async function listNeighborhoodFeed(options: {
   const hiddenPostsP: Promise<Set<string>> =
     v && !options.authorUserId
       ? (async () => {
+          const combined = await exclusionsP;
+          if (combined) return combined.hiddenPostIds;
           try {
             const { data: hideRows, error: hideErr } = await sb
               .from("community_post_hides")
