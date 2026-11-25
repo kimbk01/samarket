@@ -110,12 +110,17 @@ export async function collectPlayReleases(): Promise<CollectedRelease[] | null> 
   }
 }
 
-/** App Store 공개 최신 버전 1건. 출시 전이면 빈 배열. */
-export async function collectAppStoreRelease(): Promise<CollectedRelease[]> {
+/**
+ * App Store 공개 최신 버전 1건. 출시 전이면 빈 배열.
+ * Apple 조회 응답은 CDN 에 최대 24시간(`max-age=86400`) 캐시된다 — 같은 주소는 옛 버전을 돌려준다
+ * (2026-11-26 실측: 원래 주소 1.2.7 · `&_=` 붙인 주소 1.2.8). 매번 다른 `_` 값으로 캐시를 거치지 않는다.
+ */
+export async function collectAppStoreRelease(now: number = Date.now()): Promise<CollectedRelease[]> {
   for (const country of ["ph", "us", "kr"]) {
-    const res = await fetch(`https://itunes.apple.com/lookup?bundleId=${APP_STORE_BUNDLE_ID}&country=${country}`, {
-      cache: "no-store",
-    });
+    const res = await fetch(
+      `https://itunes.apple.com/lookup?bundleId=${APP_STORE_BUNDLE_ID}&country=${country}&_=${now}`,
+      { cache: "no-store" }
+    );
     const j = (await res.json().catch(() => ({}))) as {
       results?: { version?: string; releaseNotes?: string; currentVersionReleaseDate?: string; trackViewUrl?: string }[];
     };

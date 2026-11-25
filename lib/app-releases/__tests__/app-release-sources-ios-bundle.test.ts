@@ -39,4 +39,13 @@ describe("App Store 출시 조회 — iOS 번들 ID", () => {
       expect.objectContaining({ platform: "ios", version_name: "1.2.3", source: "itunes_lookup" }),
     ]);
   });
+
+  it("Apple CDN 캐시(최대 24시간)를 거치지 않도록 조회 주소마다 다른 `_` 값을 붙인다", async () => {
+    const fetchMock = vi.fn(async (_url: string) => new Response(JSON.stringify({ results: [{ version: "1.2.8" }] })));
+    vi.stubGlobal("fetch", fetchMock);
+    await collectAppStoreRelease(1764115200000);
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/&_=1764115200000$/);
+    await collectAppStoreRelease(1764115200001);
+    expect(String(fetchMock.mock.calls[1][0])).toMatch(/&_=1764115200001$/);
+  });
 });
