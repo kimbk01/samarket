@@ -67,7 +67,7 @@ jobs:
       # - 키 = 의존성·설정 해시 + 커밋. 의존성·eslint·tsconfig 가 바뀌면 이전 캐시를 쓰지 않는다(restore-keys 도 같은 해시 접두).
       # - actions/cache 는 작업이 성공했을 때만 저장한다 → 실패한 실행의 결과는 남지 않는다.
       - name: Restore lint / typecheck result caches
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             .cache/eslint
@@ -115,11 +115,21 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
           cache: gradle
+      # 2026-11-20·11-25: Robolectric 이 테스트 실행 중 Maven Central 에서 android-all 파일을 매번 내려받다
+      # 연결 오류(MavenArtifactFetcher IOException)로 실패 — 받은 파일(~/.m2/repository/org/robolectric)을 캐시해 다시 받지 않는다.
+      # 키 = Robolectric 버전을 적은 build.gradle 해시. 버전이 그대로면 restore-keys 로 이전 파일을 쓴다(성공한 실행만 저장).
+      - name: Cache Robolectric android-all jars
+        uses: actions/cache@v5
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-v1-${{ runner.os }}-${{ hashFiles('android/app/build.gradle') }}
+          restore-keys: |
+            robolectric-v1-${{ runner.os }}-
       - run: npm ci
       - name: Capacitor sync (generates android/capacitor-cordova-android-plugins)
         run: npm run cap:sync:vercel

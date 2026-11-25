@@ -3,6 +3,7 @@ import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { deriveDibaySignupStatus } from "@/lib/auth/dibay-signup-status";
 import { resolvePostLoginRoute } from "@/lib/auth/resolve-post-login-route";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
+import { RequiredConsentVersionsUnavailableError } from "@/lib/legal/resolve-required-consent-versions";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const onboarding = await getOnboardingStatus(readSb, auth.userId);
+    const onboarding = await getOnboardingStatus(readSb, auth.userId, { strictConsentVersions: true });
     const signup = deriveDibaySignupStatus(
       {
         id: auth.userId,
@@ -67,6 +68,10 @@ export async function GET(req: NextRequest) {
       requiredConsent: onboarding.requiredConsent ?? null,
     });
   } catch (error) {
+    /** 필수 약관 버전을 모름 — 판정하지 않음(클라이언트 관문은 재시도, 이동 없음) · 가입 후속 감사 B10 */
+    if (error instanceof RequiredConsentVersionsUnavailableError) {
+      return jsonError("consent_versions_unavailable", 503, { code: "consent_versions_unavailable" });
+    }
     return jsonError(error instanceof Error ? error.message : "signup_status_failed", 500);
   }
 }

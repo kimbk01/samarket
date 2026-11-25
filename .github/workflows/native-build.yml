@@ -82,7 +82,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
@@ -123,7 +123,7 @@ jobs:
           echo "$DIBAY_PLAY_STORE_FILE_B64" | base64 -d > "$RUNNER_TEMP/dibay-release.jks"
           DIBAY_PLAY_STORE_FILE="$RUNNER_TEMP/dibay-release.jks" ./gradlew --no-daemon -Dorg.gradle.java.home="$JAVA_HOME" assembleRelease
       - name: Upload APKs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: dibay-android-apk-${{ github.sha }}
           path: android/app/build/outputs/apk/**/*.apk
@@ -162,7 +162,7 @@ jobs:
           printf 'machine github.com login x-access-token password %s\n' "$GH_TOKEN_FOR_SPM" > "$HOME/.netrc"
           chmod 600 "$HOME/.netrc"
       - name: Cache SwiftPM packages and binary artifacts
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/Library/Caches/org.swift.swiftpm
@@ -218,7 +218,7 @@ jobs:
           exit $code
       - name: Upload xcodebuild log (failure only)
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ios-xcodebuild-log-${{ github.sha }}
           path: ${{ runner.temp }}/xcodebuild.log
