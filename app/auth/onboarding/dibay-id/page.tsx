@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { resolveRegistrationReturnPath } from "@/lib/auth/dibay-registration-steps";
 import { deriveDibaySignupStatus, resolveDibaySignupRoute } from "@/lib/auth/dibay-signup-status";
 import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
 import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
@@ -7,11 +8,8 @@ import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 
-function safeNext(input: string | string[] | undefined): string {
-  const raw = Array.isArray(input) ? input[0] : input;
-  const next = typeof raw === "string" ? raw.trim() : "";
-  return next.startsWith("/") && !next.startsWith("//") ? next : "/philife";
-}
+/** 돌아갈 화면 — 가입 흐름 단일 판정 · 전체 감사 A3·A5 */
+const safeNext = resolveRegistrationReturnPath;
 
 /** 레거시 @id 온보딩 — 내정보 프로필 편집으로 위임 */
 export default async function AuthOnboardingDibayIdPage({

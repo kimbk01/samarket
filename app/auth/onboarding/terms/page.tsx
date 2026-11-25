@@ -10,12 +10,10 @@ import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { redirect } from "next/navigation";
+import { resolveRegistrationReturnPath } from "@/lib/auth/dibay-registration-steps";
 
-function safeNext(input: string | string[] | undefined): string {
-  const raw = Array.isArray(input) ? input[0] : input;
-  const next = typeof raw === "string" ? raw.trim() : "";
-  return next.startsWith("/") && !next.startsWith("//") ? next : "/philife";
-}
+/** 돌아갈 화면 — 가입 흐름 단일 판정(외부 이동·자기 자신·단계 화면 거부, 없으면 홈) · 전체 감사 A3·A5 */
+const safeNext = resolveRegistrationReturnPath;
 
 export default async function AuthOnboardingTermsPage({
   searchParams,
@@ -57,10 +55,22 @@ export default async function AuthOnboardingTermsPage({
       // 동의 완료 — 가입 단계(전화·주소)가 남았으면 그 화면, 끝났으면 next (로그인 목적지와 같은 함수).
       const status = await getOnboardingStatus(readSb, user.id);
       // 화면 안 이동 — 403 복구(채팅방 등)에서 온 next 를 지우지 않는다(재감사 M1). 로그인 직후 next 는 서버 목적지가 이미 걸렀다.
-      redirect(status.registrationComplete ? next : resolvePostLoginRoute({ hasSession: true, status, next, inSession: true }));
+      const target = status.registrationComplete
+        ? next
+        : resolvePostLoginRoute({ hasSession: true, status, next, inSession: true });
+      /**
+       * 같은 요청에서 판정이 엇갈리면(동의 확인은 완료인데 가입 상태 조회가 일시 실패해 「동의 필요」) 이 화면으로 다시 보내
+       * 무한 반복이 된다(전체 감사 A3) — 이 화면 자신이 목적지면 이동하지 않고 화면을 그린다.
+       */
+      if ((target.split("?")[0] ?? target) !== "/auth/onboarding/terms") redirect(target);
     }
   }
-  const consentGap = !termsOk && !ageOk ? "terms_privacy_and_age" : !termsOk ? "terms_privacy" : "age";
+  /**
+   * 동의·나이 모두 확인됐는데 화면을 그리는 경우(위 자기 자신 목적지 — 일시 조회 실패)에는 「나이 확인」만 묻지 않고
+   * 약관 다시 동의로 보인다(저장은 같은 값이라 무해 · 감사 검토 #4).
+   */
+  const consentGap =
+    !termsOk && !ageOk ? "terms_privacy_and_age" : !termsOk || ageOk ? "terms_privacy" : "age";
   return (
     <div className="min-h-screen bg-sam-app">
       <AuthConsentForm

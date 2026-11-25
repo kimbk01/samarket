@@ -20,6 +20,8 @@ export type DibayConfirmRequest = {
   confirmLabel?: string;
   confirmTone?: "primary" | "destructive";
   blocking?: boolean;
+  /** 다른 오버레이 위에 열 때만 — 예: 가입 팝업 위 `AUTH_GATE_DIALOG_Z_CLASS` */
+  zIndexClass?: string;
 };
 
 export type DibayAlertRequest = {
@@ -113,6 +115,7 @@ export function DibayAppDialogProvider({ children }: { children: ReactNode }) {
         confirmLabel={confirmState?.confirmLabel ?? t("common_confirm")}
         confirmTone={confirmState?.confirmTone ?? "primary"}
         blocking={confirmState?.blocking ?? false}
+        zIndexClass={confirmState?.zIndexClass}
         onCancel={() => {
           const cur = confirmState;
           setConfirmState(null);

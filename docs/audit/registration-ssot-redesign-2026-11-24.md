@@ -125,7 +125,7 @@
 3. 동의 관문 예외 목록은 그대로(통화 화면 미포함) — 동의 안 한 회원의 통화 동작을 바꾸지 않기 위해(통화 규정). 가입 관문 예외 = 동의 관문 예외 + 통화 화면 (`isRegistrationGateExemptPath` 한 곳).
 4. 감사 중 추가 발견 → S5 에 포함: `canUseVerifiedMemberFeatures`(메시지 보내기·제안 등)가 `member_status` 를 같이 봐서, 가입 관문은 통과한 수동 회원(member_status=pending)이 보내기에서 막혔다(운영 4명 중 번호 있는 2명). 판정을 `hasVerifiedPhone` 하나로.
 5. 수동 회원 아닌 「번호 없는 인증 완료」 13명(구글 6·카카오 4·이메일 3)은 설계 범위(admin_manual) 밖이라 그대로 — 보고만.
-6. 로그인 직후 next 가 없을 때 `auth/callback` 은 `/mypage` 를 넘긴다(Auth HARD LOCK) → 그 경우 단계 완료 뒤 내정보. 건너뛰기는 아니므로 그대로 둠.
+6. ~~로그인 직후 next 가 없을 때 `auth/callback` 은 `/mypage` 를 넘긴다~~ — **정정(전체 감사 2026-11-25 A5)**: 실제 원인은 동의 폼(`AuthConsentForm`)의 기본값 `/mypage` 였다(모든 로그인 방법). 이제 가입 흐름 돌아갈 곳 판정은 `resolveRegistrationReturnPath` 하나이고 없으면 `/`. 이미 가입을 마친 회원의 로그인 착지(`/mypage`, HARD LOCK)는 그대로.
 
 ## 12. 통화 영향 (통화 규정 1·3번 — 통화 코드 무변경 확인)
 | 경로 | 영향 |

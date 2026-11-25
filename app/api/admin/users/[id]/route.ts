@@ -562,9 +562,12 @@ export async function GET(
           ? Number(prof.trust_score)
           : null,
       /** 가입 단계 — 앱 가입 관문과 같은 판정 (가입 SSOT S4). 읽기 실패면 표시하지 않는다(undefined). */
-      registration_next_step: await getOnboardingStatus(supabase, rawId)
-        .then((st) => st.registrationNextStep)
-        .catch(() => undefined),
+      /** 탈퇴·삭제 회원은 표시하지 않음(전체 감사 A14) */
+      registration_next_step: prof.deleted_at
+        ? undefined
+        : await getOnboardingStatus(supabase, rawId)
+            .then((st) => st.registrationNextStep)
+            .catch(() => undefined),
     };
 
     const { data: storeRows } = await supabase

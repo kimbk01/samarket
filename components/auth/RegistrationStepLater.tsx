@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
+import { AUTH_GATE_DIALOG_Z_CLASS } from "@/components/auth/AuthGateOverlay";
 import { CUSTOMER_CENTER_HREF } from "@/lib/mypage/customer-center-paths";
 import { DIBAY_ONBOARDING_LINK_CLASS } from "@/lib/ui/dibay-onboarding-styles";
 
@@ -21,7 +22,7 @@ export function RegistrationStepEscape({ showHelp }: { showHelp?: boolean }) {
           {t("auth_consent_escape_support")}
         </Link>
         <span className="inline-flex min-h-[44px] items-center">
-          <LogoutActionTrigger variant="text_link" />
+          <LogoutActionTrigger variant="text_link" confirmZIndexClass={AUTH_GATE_DIALOG_Z_CLASS} />
         </span>
       </div>
     </div>

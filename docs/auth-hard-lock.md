@@ -444,5 +444,6 @@ Contract delta:
 - 클라이언트: 가입 단계가 서버 판정 「빠진 단계 → 완료」로 바뀌는 순간 **기존 단일 비행 갱신(`runBrowserAuthRefreshDeduped`)을 1회** 부른다. 새 갱신 경로·주기 없음.
   - 정정(2026-11-25 재감사2·3): 처음 구현(`DibaySignupGate` 안 「이전 단계」 기억)은 단계 화면에서 관문이 사라지고, 앱 복귀 때 supabase-js 가 `SIGNED_IN` 을 다시 보내(`_recoverAndRefresh`) 기억이 지워져 전환을 놓쳤다. 최종: **서버 판정 「완료」 + 현재 토큰 클레임 「미완료」(proxy 와 같은 식)일 때 그 토큰에 대해 1회** 갱신 — 기억 없음. 루트 `AppBootProvider` 모듈 로드 때 설치(`registration-complete-token-refresh.client.ts`). 증거 `lib/auth/__tests__/registration-complete-token-refresh.test.ts`.
 - 불변: 쓰기 게이트 · Route Handler 인증 · 401 계약 · Session / Destination / Completion / Profile 의미 · proxy 서버 갱신 규칙.
+- 추가(2026-11-25 전체 감사 A9): 약관 동의 저장 직후에도 같은 단일 비행 갱신을 1회 부른다(클레임의 동의 버전이 바뀌어 proxy 가 `profiles` 를 화면마다 읽지 않게). 가입 완료 갱신은 실패하면 같은 토큰에 1회 더 시도(토큰당 최대 2회).
 
 증거: `lib/auth/__tests__/registration-ssot-2026-11-24.test.ts` · `lib/auth/__tests__/registration-reaudit-2026-11-24.test.ts`.

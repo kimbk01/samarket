@@ -26,6 +26,33 @@ export function isRegistrationGateExemptPath(pathname: string | null | undefined
 }
 
 /**
+ * 관문이 왕복 감지로 **이번에 보내지 않고 연 화면**(전체 감사 A6) — 그 화면에서는 관문이 단계 화면으로 보내지 않으므로
+ * 쓰기 403 안내 창(`registration-guidance-fetch-gate`)을 생략하면 안 된다(아무 안내도 없는 상태 방지).
+ * 왕복 감지 창과 같은 20초만 유효.
+ */
+const GATE_PASSTHROUGH_MS = 20_000;
+let gatePassthrough: { path: string; at: number } | null = null;
+
+export function markRegistrationGatePassthrough(pathname: string | null | undefined): void {
+  gatePassthrough = { path: pathOnly(pathname), at: Date.now() };
+}
+
+export function isRegistrationGatePassthrough(pathname: string | null | undefined): boolean {
+  const g = gatePassthrough;
+  if (!g || Date.now() - g.at >= GATE_PASSTHROUGH_MS) return false;
+  return g.path === pathOnly(pathname);
+}
+
+/** 관문이 이 화면을 단계 화면으로 보내지 않는다 — 예외 경로이거나 이번에 그대로 연 화면 */
+export function isRegistrationGateNotRedirecting(pathname: string | null | undefined): boolean {
+  return isRegistrationGateExemptPath(pathname) || isRegistrationGatePassthrough(pathname);
+}
+
+export function resetRegistrationGatePassthroughForTests(): void {
+  gatePassthrough = null;
+}
+
+/**
  * 빠진 단계(전화·주소)가 있으면 그 단계 화면 경로, 없거나 예외 경로면 null.
  * 동의(terms)는 동의 관문이 같은 화면(`/auth/onboarding/terms`)으로 보낸다.
  */

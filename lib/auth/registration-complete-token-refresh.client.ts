@@ -11,8 +11,14 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { runBrowserAuthRefreshDeduped } from "@/lib/supabase/auth-refresh-telemetry";
 
 let installed = false;
-/** 이미 확인한 토큰 — 같은 토큰은 다시 확인·갱신하지 않는다(갱신 1회) */
-let lastCheckedToken: string | null = null;
+/**
+ * 갱신을 끝낸(또는 갱신이 필요 없다고 확인한) 토큰 — 같은 토큰은 다시 보지 않는다.
+ * 갱신 실패는 기록하지 않고 다음 알림 때 다시 시도한다(토큰당 최대 2회) · 전체 감사 A9.
+ */
+let lastSettledToken: string | null = null;
+let failedToken: string | null = null;
+let failedCount = 0;
+const MAX_REFRESH_ATTEMPTS_PER_TOKEN = 2;
 
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   const part = token.split(".")[1];
@@ -68,11 +74,22 @@ export async function refreshTokenIfClaimStale(): Promise<boolean> {
   if (!sb) return false;
   const { data } = await sb.auth.getSession();
   const token = data.session?.access_token ?? null;
-  if (!token || token === lastCheckedToken) return false;
-  lastCheckedToken = token;
-  if (!tokenClaimShowsRegistrationIncomplete(token)) return false;
-  await runBrowserAuthRefreshDeduped(sb, "registration_complete_claim");
-  return true;
+  if (!token || token === lastSettledToken) return false;
+  if (!tokenClaimShowsRegistrationIncomplete(token)) {
+    lastSettledToken = token;
+    return false;
+  }
+  if (token === failedToken && failedCount >= MAX_REFRESH_ATTEMPTS_PER_TOKEN) return false;
+  const result = await runBrowserAuthRefreshDeduped(sb, "registration_complete_claim").catch(() => null);
+  if (result && !result.error && result.data?.session) {
+    lastSettledToken = token;
+    failedToken = null;
+    failedCount = 0;
+    return true;
+  }
+  failedCount = token === failedToken ? failedCount + 1 : 1;
+  failedToken = token;
+  return false;
 }
 
 export function installRegistrationCompleteTokenRefresh(): void {
@@ -85,5 +102,7 @@ export function installRegistrationCompleteTokenRefresh(): void {
 
 export function resetRegistrationCompleteTokenRefreshForTests(): void {
   installed = false;
-  lastCheckedToken = null;
+  lastSettledToken = null;
+  failedToken = null;
+  failedCount = 0;
 }

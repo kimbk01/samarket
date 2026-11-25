@@ -26,13 +26,21 @@ import {
 } from "@/lib/auth/signup-gate-session";
 import { classifySignupStatusResponse, signupGateRetryDelayMs } from "@/lib/auth/signup-gate-decision";
 import { guardedRouterReplace, logNetworkLoopGuardReplace } from "@/lib/dev/network-loop-guard";
-import { isRegistrationGateExemptPath, resolveRegistrationGateTarget } from "@/lib/auth/registration-gate";
 import {
+  isRegistrationGateExemptPath,
+  markRegistrationGatePassthrough,
+  resolveRegistrationGateTarget,
+} from "@/lib/auth/registration-gate";
+import {
+  invalidateRegistrationPending,
   peekRegistrationPendingKnowledge,
   setRegistrationPendingFromServer,
   subscribeRegistrationPending,
 } from "@/lib/auth/registration-pending-state.client";
-import { fetchMandatoryAddressGateDeduped } from "@/lib/addresses/mandatory-address-gate-client";
+import {
+  fetchMandatoryAddressGateDeduped,
+  invalidateMandatoryAddressGateClientCache,
+} from "@/lib/addresses/mandatory-address-gate-client";
 import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
 import {
   OWNER_HUB_SECONDARY_AFTER_MS,
@@ -43,6 +51,52 @@ import {
 const CONSENT_VERSION_REFRESH_MIN_MS = 60_000;
 
 type RegistrationCheck = "complete" | "redirected" | "exempt" | "retry";
+
+/**
+ * 마지막으로 가입 단계 화면으로 보낸 기록 — **모듈 상태**(단계 화면은 `(main)` 밖이라 이 관문이 다시 마운트되며 ref 가 사라짐).
+ * 단계 화면이 서버 판정으로 곧바로 원래 화면에 되돌려 보내면(다른 기기에서 완료 등) 사본이 옛 값 → 왕복이 생긴다(전체 감사 A6).
+ * 같은 화면으로 20초 안에 되돌아오면 사본·요청 캐시를 버리고 서버에 다시 묻는다. 두 번 연속이면 그 화면은 이번에 보내지 않는다.
+ */
+const REGISTRATION_BOUNCE_WINDOW_MS = 20_000;
+let lastRegistrationRedirect: { from: string; at: number; bounces: number } | null = null;
+
+function noteRegistrationRedirect(from: string): void {
+  const now = Date.now();
+  const prev = lastRegistrationRedirect;
+  const sameBounce = prev && prev.from === from && now - prev.at < REGISTRATION_BOUNCE_WINDOW_MS;
+  lastRegistrationRedirect = { from, at: now, bounces: sameBounce ? prev.bounces + 1 : 0 };
+}
+
+function isRegistrationBounce(from: string): { bounce: boolean; repeated: boolean } {
+  const prev = lastRegistrationRedirect;
+  if (!prev || prev.from !== from || Date.now() - prev.at >= REGISTRATION_BOUNCE_WINDOW_MS) {
+    return { bounce: false, repeated: false };
+  }
+  return { bounce: true, repeated: prev.bounces >= 1 };
+}
+
+export function resetRegistrationBounceForTests(): void {
+  lastRegistrationRedirect = null;
+}
+
+async function readRegistrationFromServer(opts: { bypassCache: boolean }): Promise<"ok" | "guest" | "retry"> {
+  try {
+    const res = await fetchMandatoryAddressGateDeduped({
+      component: "DibaySignupGate",
+      reason: opts.bypassCache ? "registration_bounce" : "registration",
+      bypassCache: opts.bypassCache,
+    });
+    if (!res.ok) return "retry";
+    const j = (await res.clone().json()) as { ok?: boolean; authenticated?: boolean; registrationNextStep?: string | null };
+    if (j.ok !== true) return "retry";
+    /** 비로그인(세션 없음) — 가입 관문 대상 아님 */
+    if (j.authenticated !== true) return "guest";
+    setRegistrationPendingFromServer(j.registrationNextStep ?? null);
+    return "ok";
+  } catch {
+    return "retry";
+  }
+}
 
 /**
  * 가입 관문 1곳 (설계 `docs/audit/registration-ssot-redesign-2026-11-24.md` S1):
@@ -111,26 +165,31 @@ export function DibaySignupGate() {
         );
         return "exempt";
       }
-      try {
-        const res = await fetchMandatoryAddressGateDeduped({ component: "DibaySignupGate", reason: "registration" });
-        if (!res.ok) return "retry";
-        const j = (await res.clone().json()) as {
-          ok?: boolean;
-          authenticated?: boolean;
-          registrationNextStep?: string | null;
-        };
-        if (j.ok !== true) return "retry";
-        /** 비로그인(세션 없음) — 가입 관문 대상 아님 */
-        if (j.authenticated !== true) return "exempt";
-        setRegistrationPendingFromServer(j.registrationNextStep ?? null);
-      } catch {
-        return "retry";
-      }
+      const r = await readRegistrationFromServer({ bypassCache: false });
+      if (r === "retry") return "retry";
+      if (r === "guest") return "exempt";
       known = peekRegistrationPendingKnowledge();
       if (known === "unknown") return "retry";
     }
     if (known === "complete") return "complete";
     if (isRegistrationGateExemptPath(pathnameRef.current)) return "exempt";
+    /** 단계 화면이 방금 이 화면으로 되돌려 보냈다 — 사본을 믿지 않고 서버에 다시(요청 캐시도 건너뜀) */
+    const bounce = isRegistrationBounce(here);
+    if (bounce.bounce) {
+      if (bounce.repeated) {
+        /** 이번엔 보내지 않는다 — 이 화면에서 쓰기가 막히면 안내 창은 열리게 표시(감사 검토 #2) */
+        markRegistrationGatePassthrough(pathnameRef.current);
+        return "exempt";
+      }
+      invalidateMandatoryAddressGateClientCache();
+      invalidateRegistrationPending();
+      const r = await readRegistrationFromServer({ bypassCache: true });
+      if (r === "retry") return "retry";
+      if (r === "guest") return "exempt";
+      known = peekRegistrationPendingKnowledge();
+      if (known === "complete") return "complete";
+      if (known === "unknown") return "retry";
+    }
     const target = resolveRegistrationGateTarget({ step: known, pathname: pathnameRef.current, returnTo: here });
     if (!target) return "exempt";
     if (redirectInFlightTargetRef.current === target) return "redirected";
@@ -141,6 +200,7 @@ export function DibaySignupGate() {
       })
     ) {
       redirectInFlightTargetRef.current = target;
+      noteRegistrationRedirect(here);
     }
     return "redirected";
   }, []);

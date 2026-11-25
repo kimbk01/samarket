@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { markRegistrationGatePassthrough, resetRegistrationGatePassthroughForTests } from "@/lib/auth/registration-gate";
 
 /** 설계 2026-11-21 §5-3 — 가입 진행 중 안내: 요청 단계 한 곳 */
 const opened = vi.hoisted(() => [] as unknown[]);
@@ -28,7 +29,13 @@ beforeEach(() => {
   opened.length = 0;
   resetRegistrationGuidanceForTests();
   resetRegistrationPendingForTests();
-  vi.stubGlobal("window", { location: { href: `${ORIGIN}/philife`, origin: ORIGIN, pathname: "/philife", search: "" } });
+  /**
+   * 기본 = 가입 관문이 보내지 않는 화면(주소 편집 흐름) — 여기서는 안내 창을 연다.
+   * 관문이 보내는 일반 화면에서는 창을 열지 않는다(전체 감사 A15) — 아래 별도 확인.
+   */
+  vi.stubGlobal("window", {
+    location: { href: `${ORIGIN}/mypage/addresses`, origin: ORIGIN, pathname: "/mypage/addresses", search: "" },
+  });
 });
 
 function okFetch() {
@@ -113,6 +120,19 @@ describe("안전망 — 서버 403", () => {
     expect((await res.json()).code).toBe("signup_incomplete");
     expect(opened).toHaveLength(0);
   });
+
+  it("관문이 왕복 감지로 그대로 연 화면(/philife)이면 창을 연다 — 안내 없는 상태 방지 (감사 검토 #2)", async () => {
+    vi.stubGlobal("window", { location: { href: `${ORIGIN}/philife`, origin: ORIGIN, pathname: "/philife", search: "" } });
+    resetRegistrationGatePassthroughForTests();
+    markRegistrationGatePassthrough("/philife");
+    setRegistrationPendingFromServer("address");
+    const base = okFetch();
+    const f = wrapFetchWithRegistrationGuidance(base as unknown as typeof fetch);
+    const res = await f("/api/philife/posts", { method: "POST" });
+    expect(res.status).toBe(403);
+    expect(opened).toHaveLength(1);
+    resetRegistrationGatePassthroughForTests();
+  });
 });
 
 describe("알림 억제 — 안내 문장과 같은 알림만 (재감사3 #8)", () => {
@@ -124,5 +144,18 @@ describe("알림 억제 — 안내 문장과 같은 알림만 (재감사3 #8)", 
     const sentence = (await res.json()).error as string;
     expect(shouldSuppressForRegistrationGuidance("응답 실패", true)).toBe(false);
     expect(shouldSuppressForRegistrationGuidance(sentence, true)).toBe(true);
+  });
+});
+
+describe("가입 관문이 단계 화면으로 보내는 일반 화면 — 안내 창은 열지 않는다 (전체 감사 A15)", () => {
+  it("/philife 에서 403 은 그대로 돌려주지만 창은 열지 않는다", async () => {
+    vi.stubGlobal("window", { location: { href: `${ORIGIN}/philife`, origin: ORIGIN, pathname: "/philife", search: "" } });
+    setRegistrationPendingFromServer("address");
+    const base = okFetch();
+    const f = wrapFetchWithRegistrationGuidance(base as unknown as typeof fetch);
+    const res = await f("/api/philife/posts", { method: "POST" });
+    expect(base).not.toHaveBeenCalled();
+    expect(res.status).toBe(403);
+    expect(opened).toHaveLength(0);
   });
 });

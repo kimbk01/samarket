@@ -11,7 +11,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const nav = vi.hoisted(() => ({ pathname: "/market", replace: vi.fn() }));
-const gate = vi.hoisted(() => ({ step: "address" as string | null, calls: 0 }));
+const gate = vi.hoisted(() => ({ step: "address" as string | null, calls: 0, reasons: [] as string[] }));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => nav.pathname,
@@ -32,8 +32,10 @@ vi.mock("@/lib/app-boot/app-boot-store", () => ({
 vi.mock("@/lib/app-boot/run-app-boot", () => ({ ensureAppBoot: () => Promise.resolve() }));
 vi.mock("@/lib/auth/fetch-signup-status-client", () => ({ fetchSignupStatusDeduped: vi.fn() }));
 vi.mock("@/lib/addresses/mandatory-address-gate-client", () => ({
-  fetchMandatoryAddressGateDeduped: async () => {
+  invalidateMandatoryAddressGateClientCache: () => {},
+  fetchMandatoryAddressGateDeduped: async (opts?: { reason?: string }) => {
     gate.calls += 1;
+    gate.reasons.push(opts?.reason ?? "");
     return new Response(JSON.stringify({ ok: true, authenticated: true, registrationNextStep: gate.step }), {
       status: 200,
     });
@@ -47,7 +49,7 @@ vi.mock("@/lib/dev/network-loop-guard", () => ({
   logNetworkLoopGuardReplace: () => {},
 }));
 
-import { DibaySignupGate } from "@/components/auth/DibaySignupGate";
+import { DibaySignupGate, resetRegistrationBounceForTests } from "@/components/auth/DibaySignupGate";
 import { resetSignupGateSessionFlags } from "@/lib/auth/signup-gate-session";
 import { setClientRequiredConsentVersions } from "@/lib/legal/client-required-consent";
 import { resetRegistrationPendingForTests } from "@/lib/auth/registration-pending-state.client";
@@ -73,8 +75,10 @@ describe("DibaySignupGate — 가입 단계(전화·주소)", () => {
     nav.replace.mockReset();
     gate.step = "address";
     gate.calls = 0;
+    gate.reasons = [];
     resetSignupGateSessionFlags();
     resetRegistrationPendingForTests();
+    resetRegistrationBounceForTests();
     setClientRequiredConsentVersions({
       termsVersion: "T",
       privacyVersion: "P",
@@ -120,5 +124,22 @@ describe("DibaySignupGate — 가입 단계(전화·주소)", () => {
     await flush();
     expect(gate.calls).toBe(1);
     expect(nav.replace).toHaveBeenCalledWith("/auth/onboarding/address?next=%2Fstores%2Fowner%2Forders");
+  });
+
+  it("단계 화면이 곧바로 되돌려 보내면(다른 기기에서 완료) 사본을 버리고 서버에 다시 — 왕복 없음 (전체 감사 A6)", async () => {
+    mount("/market");
+    await flush();
+    expect(nav.replace).toHaveBeenCalledTimes(1);
+    const callsAfterFirst = gate.calls;
+    /** 서버는 이제 완료 — 단계 화면이 /market 으로 되돌려 보냄(관문 다시 마운트) */
+    gate.step = null;
+    act(() => root.unmount());
+    root = createRoot(container);
+    mount("/market");
+    await flush();
+    expect(nav.replace).toHaveBeenCalledTimes(1);
+    /** 되돌아온 화면에서는 요청 캐시를 건너뛴 서버 확인이 정확히 1번 */
+    expect(gate.reasons.filter((r) => r === "registration_bounce")).toHaveLength(1);
+    expect(gate.calls).toBeGreaterThan(callsAfterFirst);
   });
 });

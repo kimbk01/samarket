@@ -351,6 +351,10 @@ export function AdminPhoneVerificationOpsPage() {
                 {t("admin_users_turn_off")}
               </AdminActionButton>
             </div>
+            {/* 가입 = 동의 + 전화 + 주소 — 끄면 전화 미인증 회원은 가입을 마칠 수 없다(전체 감사 A4) */}
+            <p className="text-[12px] text-sam-warning" data-phone-otp-ops="off-warning">
+              {t("admin_users_phone_ops_off_blocks_registration")}
+            </p>
             {!ops.canEnable ? (
               <p className="text-[12px] text-sam-warning">
                 {t("admin_users_phone_ops_cannot_turn_on", {

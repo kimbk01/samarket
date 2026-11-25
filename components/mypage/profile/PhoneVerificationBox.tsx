@@ -131,10 +131,13 @@ export function PhoneVerificationBox({
   onRetrySettings,
   surface = "page",
   onPhoneDuplicate,
+  onPhoneInputChange,
 }: {
   snapshot: VerifySnapshot;
   /** 다른 계정이 쓰는 번호(409 `phone_duplicate`) — 가입 화면이 원래 계정 안내를 띄운다. 내정보는 넘기지 않음(기존 그대로). */
   onPhoneDuplicate?: (phone: string) => void;
+  /** 번호 칸을 고쳤다 — 가입 화면이 이전 번호의 중복 안내를 지운다(전체 감사 A13). 내정보는 넘기지 않음 */
+  onPhoneInputChange?: () => void;
   /** 인증 성공 직후 — 부모가 서버에서 새로 받아 클라이언트 사본을 맞춘다(`refreshClientMemberAccountAfterMutation`). */
   onRefreshProfile: () => Promise<void>;
   /** 완료 화면 [확인] 또는 1.2초 뒤 — 시트 닫기·원래 화면 복귀. 없으면 완료 후 「인증 완료」 카드로 남는다. */
@@ -756,6 +759,7 @@ export function PhoneVerificationBox({
               setPhone(sanitizePhoneTyping(e.target.value));
               setPhoneBlurred(false);
               setError(null);
+              onPhoneInputChange?.();
             }}
             onBlur={() => setPhoneBlurred(true)}
             aria-invalid={showFormatError}

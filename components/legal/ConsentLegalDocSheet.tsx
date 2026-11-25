@@ -17,12 +17,14 @@ type Props = {
    * (매장 입점 계약: 동의한 버전 원문·서명할 버전 원문).
    */
   document?: { title: string; body: string; version: string } | null;
+  /** 다른 오버레이 위에 열 때만 — 가입 동의 팝업 위 `AUTH_GATE_DIALOG_Z_CLASS` */
+  zIndexClass?: string;
 };
 
 /**
  * In-app legal document sheet (Owner mockup) — closing preserves parent checkbox state.
  */
-export function ConsentLegalDocSheet({ open, kind, onClose, document: preloaded = null }: Props) {
+export function ConsentLegalDocSheet({ open, kind, onClose, document: preloaded = null, zIndexClass }: Props) {
   const { t, language, safeT } = useI18n();
   const locale = language === "en" ? "en" : "ko";
   const [title, setTitle] = useState("");
@@ -86,6 +88,7 @@ export function ConsentLegalDocSheet({ open, kind, onClose, document: preloaded 
     <DibayBottomSheet
       open={open}
       onClose={onClose}
+      zIndexClass={zIndexClass}
       title={title || t("auth_consent_doc_sheet_title")}
       heightRatio={0.85}
       footer={

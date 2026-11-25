@@ -1,9 +1,7 @@
 import { redirect } from "next/navigation";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
-import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import {
-  isRegistrationStepPath,
-  REGISTRATION_DONE_DEFAULT_PATH,
+  resolveRegistrationReturnPath,
   registrationStepHref,
   type DibayRegistrationStep,
 } from "@/lib/auth/dibay-registration-steps";
@@ -16,12 +14,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
  * 가입 단계 화면 자신은 `next` 로 받지 않는다(순환 방지).
  */
 export function registrationStepNext(input: string | string[] | undefined): string {
-  const raw = Array.isArray(input) ? input[0] : input;
-  const safe = sanitizeNextPath(typeof raw === "string" ? raw : null);
-  if (!safe || isRegistrationStepPath(safe) || safe.startsWith("/auth/") || safe.startsWith("/login")) {
-    return REGISTRATION_DONE_DEFAULT_PATH;
-  }
-  return safe;
+  return resolveRegistrationReturnPath(input);
 }
 
 
