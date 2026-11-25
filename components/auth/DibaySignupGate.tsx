@@ -34,6 +34,10 @@ import {
 } from "@/lib/auth/registration-pending-state.client";
 import { fetchMandatoryAddressGateDeduped } from "@/lib/addresses/mandatory-address-gate-client";
 import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
+import {
+  OWNER_HUB_SECONDARY_AFTER_MS,
+  runNowOrScheduleOnStoreOwnerAdmin,
+} from "@/lib/business/owner-hub-secondary-fetch-queue";
 
 /** Resume refresh of required consent versions — at most once per minute. */
 const CONSENT_VERSION_REFRESH_MIN_MS = 60_000;
@@ -90,10 +94,23 @@ export function DibaySignupGate() {
     let known = peekRegistrationPendingKnowledge();
     if (known === "unknown") {
       /**
-       * 매장 사장님 운영 화면 — 첫 화면을 먼저 그리도록 `MandatoryAddressGate` 가 5.2초 뒤 직렬 큐로 읽는다.
-       * 여기서 따로 읽지 않고 그 응답을 기다린다(사본이 채워지면 구독이 다시 판정 — 요청 증가 없음, 재감사2 #3).
+       * 매장 사장님 운영 화면 — 첫 화면을 먼저 그리도록 `MandatoryAddressGate` 와 같은 지연(5.2초) 직렬 큐로 읽는다.
+       * 같은 요청은 15초 캐시·단일 비행(`fetchMandatoryAddressGateDeduped`)이라 그쪽과 겹쳐도 네트워크 1회.
+       * 앱 안 이동으로 그쪽이 다시 읽지 않는 경우에도 사본이 채워져 구독이 다시 판정한다(재감사2 #3 · 재감사3 범위 밖 틈).
+       * 큐 키를 쓰지 않는다 — 방문 단위 「완료 키」가 남아 두 번째부터 건너뛰면 같은 틈이 다시 생긴다.
        */
-      if (isStoreOwnerAdminPathname(pathnameRef.current)) return "exempt";
+      if (isStoreOwnerAdminPathname(pathnameRef.current)) {
+        runNowOrScheduleOnStoreOwnerAdmin(
+          async () => {
+            const res = await fetchMandatoryAddressGateDeduped({ component: "DibaySignupGate", reason: "registration_owner" });
+            if (!res.ok) return;
+            const j = (await res.clone().json()) as { ok?: boolean; authenticated?: boolean; registrationNextStep?: string | null };
+            if (j.ok === true && j.authenticated === true) setRegistrationPendingFromServer(j.registrationNextStep ?? null);
+          },
+          OWNER_HUB_SECONDARY_AFTER_MS.addressGate,
+        );
+        return "exempt";
+      }
       try {
         const res = await fetchMandatoryAddressGateDeduped({ component: "DibaySignupGate", reason: "registration" });
         if (!res.ok) return "retry";
