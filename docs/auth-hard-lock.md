@@ -460,3 +460,23 @@ Contract delta:
 - 불변: Session · 갱신자 · 401 · 쓰기 게이트 · 관리자 판정(활성 membership) · 동의 버전 판정 함수.
 
 증거: `lib/auth/__tests__/registration-followup-c-2026-11-25.test.ts`.
+
+---
+
+## Amendment 2026-11-25 — 관리자 API 인증 확인 1회 조회 (Reopen §4 trigger 3 · Owner 「S3 진행」 2026-11-25)
+
+OWNER 승인 2026-11-25: 요청 예산 결함 D4 근본 수정 S3 (설계: `docs/audit/supabase-request-surge-2026-11-18/budget-alert-defects-design-2026-11-24.md`).
+
+**First Break** (Vercel 관측 · 운영 · 관리자 종 2026-11-24 04~08 UTC, 요청 133):
+- 관리자 API 요청마다 인증 확인으로 DB 를 3번 따로 왕복한다 — `profiles` 1.00 · `user_sessions` 0.96 · `admin_memberships` 0.92 / 요청.
+- 세션 확인 캐시(10초)·관리자 판정 캐시(15초)가 관리자 종 폴링(75초)보다 짧아 거의 매번 적중에 실패한다.
+- 관리자 종 1회 호출의 절반이 인증 확인이다.
+
+**Contract delta: 판정 의미 없음.** DB 함수 `admin_api_actor_context(p_user_id, p_session_id)` 1회로 같은 세 행을 읽는다.
+- 읽는 것: 프로필(SELECT_FULL 과 같은 열 — 계약 시험) · `user_sessions` active(user_id + session_id) · 활성 `admin_memberships`.
+- 판정은 기존 TS 그대로: `resolveLoginDeniedForMemberAccount` · 세션 active · `isPrivilegedAdminRole(normalizeAdminRole(role))` · `isSuspendedNonSuperAdminActor`.
+- **모두 통과할 때만** 빠른 경로로 끝낸다. 하나라도 아니면(프로필 없음·로그인 금지·세션 없음/비활성·관리자 아님·정지 운영자) 또는 함수가 없거나 오류이면 기존 3단계 경로를 그대로 탄다.
+  → 거부 응답(코드·문구)·세션 등록 보완(P2-5 전체 로그아웃 가드 포함)·프로필 생성은 예전과 같다.
+- 캐시를 늘리지 않는다. 빠른 경로는 매 요청 DB 를 새로 읽는다 → 권한·세션 회수 반영은 기존(10~15초)보다 빠르거나 같다.
+- 실행 권한: service_role 만(`member_write_gate_snapshot` 과 같은 방식).
+- 범위: `requireAdminApiUser`(관리자 API 공통 가드)만. 회원 가드(proxy)·RSC `getOptionalAdminUserId`·Session/Destination/Completion/Profile writer 불변.
