@@ -42,10 +42,18 @@ import {
 import { syncPhoneVerifiedServerCache } from "@/lib/auth/phone-otp-server-sync";
 import {
   buildPhoneVerifiedMemberPatch,
+  buildPhoneVerificationResetPatch,
+  promoteLifecycleAfterAdminPhoneVerified,
   hasPhoneForAdminManualVerify,
   loadProfilePhoneRowSlice,
 } from "@/lib/profile/admin-phone-verification-sync";
 import { resolveAdminProfilePhone } from "@/lib/phone/verify-phone-number";
+import {
+  ADMIN_PROFILE_DUPLICATE_ERROR_CODE,
+  classifyAdminProfileDuplicate,
+} from "@/lib/admin-users/admin-member-profile-write-error";
+import { resolveProfilePhoneStored, type ProfilePhoneRowSlice } from "@/lib/profile/resolve-profile-phone";
+import { isAdminManualProvider } from "@/lib/auth/store-member-policy";
 import { isValidDibayIdFormat, normalizeDibayIdInput } from "@/lib/auth/dibay-id-policy";
 import {
   applyUsersPatchPrivilegeChange,
@@ -59,16 +67,13 @@ export const dynamic = "force-dynamic";
 
 const PHONE_VERIFICATION_STATUSES = ["unverified", "pending", "verified", "rejected"] as const;
 
+/**
+ * 프로필 저장 오류 → 오류 코드 (전체 감사 B3: 모든 중복을 「닉네임 중복」으로 보이던 결함). 화면이 코드로 문구를 고른다.
+ * 어떤 고유 제약인지는 제약 이름으로만 판정 — 모르면 원문(일반 실패 문구로 표시).
+ */
 function mapProfileUpdateError(message: string): string {
-  const lower = message.toLowerCase();
-  if (
-    lower.includes("profiles_nickname_lower_unique_idx") ||
-    lower.includes("duplicate key") ||
-    (lower.includes("unique") && lower.includes("nickname"))
-  ) {
-    return "이미 사용 중인 닉네임입니다";
-  }
-  return message;
+  const kind = classifyAdminProfileDuplicate(message);
+  return kind ? ADMIN_PROFILE_DUPLICATE_ERROR_CODE[kind] : message;
 }
 
 type TestUserForEnsure = {
@@ -804,7 +809,7 @@ export async function PATCH(
   const [{ data: initialProfile, error: profileError }, authLookup] = await Promise.all([
     sb
       .from("profiles")
-      .select("id, dibay_id, username, email, auth_login_email, provider, auth_provider")
+      .select("id, dibay_id, username, email, auth_login_email, provider, auth_provider, phone, phone_country_code, phone_number")
       .eq("id", userId)
       .maybeSingle(),
     sb.auth.admin.getUserById(userId),
@@ -965,8 +970,29 @@ export async function PATCH(
     patch.nickname = nextNickname;
     patch.display_name = nextNickname;
   }
+  /**
+   * 관리자가 번호를 바꾸거나 지웠다 (전체 감사 B4).
+   * - 지움 → 전화 인증 해제(번호 없는 「인증됨」 금지)
+   * - 다른 번호로 바꿈 → 회원 본인 OTP 로 인증한 회원은 인증 해제(새 번호는 확인 안 됨).
+   *   관리자 생성 회원은 「관리자가 등록한 번호 = 인증」(Owner 2026-10-20) 그대로.
+   * - 같은 요청에서 인증 상태도 바꾸면(phoneStatus) 그쪽이 우선.
+   */
+  let phoneChangeAudit: Record<string, unknown> | null = null;
   if (nextPhonePatch !== null) {
     Object.assign(patch, nextPhonePatch);
+    const beforePhone = resolveProfilePhoneStored(initialProfile as ProfilePhoneRowSlice);
+    const afterPhone = typeof nextPhonePatch.phone === "string" ? nextPhonePatch.phone : null;
+    if ((beforePhone ?? null) !== (afterPhone ?? null)) {
+      const manual = isAdminManualProvider(initialProfile as { provider?: string | null; auth_provider?: string | null; email?: string | null });
+      const resetVerification = phoneStatus === null && (!afterPhone || !manual);
+      if (resetVerification) Object.assign(patch, buildPhoneVerificationResetPatch());
+      const last4 = (v: string | null | undefined) => (v ? String(v).replace(/\D/g, "").slice(-4) : null);
+      phoneChangeAudit = {
+        phone_before_last4: last4(beforePhone),
+        phone_after_last4: last4(afterPhone),
+        verification_reset: resetVerification,
+      };
+    }
   }
   let authEmailUpdate: string | undefined = undefined;
   if (nextEmail !== undefined) {
@@ -988,9 +1014,14 @@ export async function PATCH(
   if (Object.keys(patch).length > 0) {
     const { error: updateError } = await sb.from("profiles").update(patch).eq("id", userId);
     if (updateError) {
-      return NextResponse.json({ ok: false, error: mapProfileUpdateError(updateError.message || "update_failed") }, { status: 500 });
+      const code = mapProfileUpdateError(updateError.message || "update_failed");
+      const status = code === "phone_taken" || code === "username_taken" || code === "nickname_taken" ? 409 : 500;
+      return NextResponse.json({ ok: false, error: code }, { status });
     }
   }
+  /** 인증 완료로 바꿨을 때만 계정 상태 승격 — 정지·차단·탈퇴 회원은 그대로(전체 감사 B1) */
+  const lifecyclePromoted =
+    phoneStatus === "verified" ? await promoteLifecycleAfterAdminPhoneVerified(sb, userId) : false;
 
   if (phoneStatus !== null) {
     await syncPhoneVerifiedServerCache(userId);
@@ -1070,6 +1101,19 @@ export async function PATCH(
       );
     }
     if (authErr) {
+      /** 프로필은 이미 저장됨 — 부분 반영을 감사 기록에 남긴다(전체 감사 B4) */
+      void appendAuditLog(sb, {
+        actor_type: "admin",
+        actor_id: gate.actor.userId,
+        target_type: "member",
+        target_id: userId,
+        action: "admin_member_profile_update",
+        after_json: {
+          fields: Object.keys(body).filter((k) => k !== "password"),
+          partial: "auth_update_failed",
+          ...(phoneChangeAudit ?? {}),
+        },
+      });
       return NextResponse.json(
         {
           ok: false,
@@ -1101,6 +1145,8 @@ export async function PATCH(
     action: "admin_member_profile_update",
     after_json: {
       fields: changedFields,
+      ...(phoneChangeAudit ?? {}),
+      ...(phoneStatus === "verified" ? { lifecycle_promoted: lifecyclePromoted } : {}),
       // never password
     },
   });

@@ -44,7 +44,18 @@ export function parseStoreIdFromReturnTo(raw: string | null | undefined): string
 /** `/mypage/addresses` — `returnTo` 쿼리(내부 경로만) */
 export function parseSafeInternalReturnTo(raw: string | null | undefined): string {
   const trimmed = String(raw ?? "").trim();
-  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return "";
+  /**
+   * 외부 이동 차단 (전체 감사 B6) — 역슬래시·제어문자·`//`·다른 출처 거부. 가입 주소 단계(`/auth/onboarding/address`)로
+   * 돌아가야 하므로 로그인 목적지용 금지 경로 목록(`sanitizeNextPath`)은 쓰지 않는다.
+   */
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//") || trimmed.length > 2048) return "";
+  if (/[\\\u0000-\u001f\u007f]/.test(trimmed)) return "";
+  try {
+    const u = new URL(trimmed, "http://dibay.local");
+    if (u.origin !== "http://dibay.local") return "";
+  } catch {
+    return "";
+  }
   return trimmed;
 }
 

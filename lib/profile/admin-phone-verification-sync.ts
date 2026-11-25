@@ -12,6 +12,37 @@ import { hasVerifiedPhone, type PhoneVerificationGateInput } from "@/lib/auth/po
 
 export type ProfilePhoneVerificationMethod = "admin_manual" | "semaphore_local" | "solapi";
 
+/**
+ * 승격해도 되는 계정 상태 — 제재·탈퇴가 아닌 회원. 회원 OTP 경로(`phone-otp-service` `PHONE_VERIFY_RESTRICTED_STATUS_FILTER`)와
+ * **같은 식**(운영에서 쓰는 PostgREST 조건) — 정지·차단·탈퇴·삭제·비활성은 바꾸지 않는다.
+ */
+const ADMIN_PHONE_VERIFY_PROMOTABLE_STATUS_FILTER =
+  "status.is.null,status.not.in.(suspended,blocked,withdrawn,deleted,deactivated)";
+
+/**
+ * 관리자 전화 인증 승인 뒤 계정 상태 승격 — 정지·차단·탈퇴(deleted_at 포함) 회원은 바꾸지 않는다(DB 조건으로 경쟁 상황 포함).
+ * 반환: 승격했는지(감사 기록용). 실패는 삼키고 false — 전화 인증 자체는 이미 저장됨.
+ */
+export async function promoteLifecycleAfterAdminPhoneVerified(
+  sb: SupabaseClient,
+  userId: string,
+  nowIso: string = new Date().toISOString(),
+): Promise<boolean> {
+  try {
+    const { data, error } = await sb
+      .from("profiles")
+      .update({ status: "verified_user", updated_at: nowIso })
+      .eq("id", userId)
+      .is("deleted_at", null)
+      .or(ADMIN_PHONE_VERIFY_PROMOTABLE_STATUS_FILTER)
+      .select("id");
+    if (error) return false;
+    return Array.isArray(data) && data.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 const PROFILE_PHONE_ROW_SELECT = "phone, phone_country_code, phone_number";
 
 /**
@@ -31,7 +62,10 @@ export function buildPhoneVerifiedMemberPatch(input: {
     phone_verification_method: input.method,
     member_status: "active",
     verified_member_at: nowIso,
-    status: "verified_user",
+    /**
+     * 계정 상태(`status`)는 넣지 않는다 — 정지·차단·탈퇴 회원의 제재를 풀어 버리던 결함(전체 감사 B1).
+     * 승격은 `promoteLifecycleAfterAdminPhoneVerified`(제재 아닌 회원만, DB 조건) 로 따로.
+     */
     phone_verification_attempt_count: 0,
     updated_at: nowIso,
   };

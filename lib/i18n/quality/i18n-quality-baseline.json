@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-22 16:54 PHT",
+ "generatedAtPht": "2026-11-25 11:45 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -52,7 +52,7 @@
    "app/api/admin/point-policies/board/route.ts": 2,
    "app/api/admin/point-policies/event/route.ts": 4,
    "app/api/admin/point-policies/probability/route.ts": 2,
-   "app/api/admin/users/[id]/route.ts": 2,
+   "app/api/admin/users/[id]/route.ts": 1,
    "components/admin/ads/AdminAdvertisingWorkspace.tsx": 2,
    "components/admin/app/AdminCustomerCenterMarkdownToolbar.tsx": 1,
    "components/admin/community/external-import/ImportSourcesPanel.tsx": 1,
@@ -64,7 +64,6 @@
    "components/admin/platform-events/AdminPlatformEventOwnerRequestDetailClient.tsx": 1,
    "components/admin/recommendation-admin-i18n.ts": 6,
    "components/admin/recommendation-deployments/DeploymentPreparationPanel.tsx": 2,
-   "components/admin/users/EditMemberForm.tsx": 1,
    "lib/admin/admin-user-deletion.ts": 1,
    "lib/admin/ads-exposure/human-placement-label.ts": 1,
    "lib/admin/ads-exposure/ops-status.ts": 11,
