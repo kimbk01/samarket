@@ -99,26 +99,90 @@ describe("PUSH-02 per-token APNs environment (alert)", () => {
     expect(r.status).toBe("failed");
   });
 
-  it("VoIP keeps the global host and never retries on the other host (call path unchanged)", async () => {
-    answers.set(PROD, [400, "BadDeviceToken"]);
+});
+
+/** docs/audit/call-voip-apns-environment-design-2026-11-25.md — VoIP: device env host, one send, no retry. */
+describe("VoIP APNs environment (call push)", () => {
+  beforeEach(() => {
+    answers.clear();
+    hosts.length = 0;
+    const { privateKey } = crypto.generateKeyPairSync("ec", { namedCurve: "P-256" });
+    process.env.APNS_KEY_P8 = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+    process.env.APNS_KEY_ID = "KEYID";
+    process.env.APNS_TEAM_ID = "TEAMID";
+    process.env.APNS_BUNDLE_ID = "com.dibay.app";
+    process.env.APNS_PRODUCTION = "1";
+  });
+
+  const sendVoip = async (
+    apnsEnvironment: "sandbox" | "production" | null | undefined,
+    callPushKind = "incoming_call",
+  ) => {
     const { sendVoipApnsImpl } = await import("@/lib/push/dispatch/apns-sender-impl");
-    const r = await sendVoipApnsImpl({ deviceToken: "tok", data: {}, callPushKind: "incoming_call" });
+    return sendVoipApnsImpl({ deviceToken: "tok", data: {}, callPushKind, apnsEnvironment });
+  };
+
+  it.each([null, undefined])("unknown env (%s) → server default host, unchanged from before", async (env) => {
+    const r = await sendVoip(env);
     expect(hosts).toEqual([PROD]);
+    expect(r.status).toBe("sent");
+    expect(r.provider_response?.apns_environment).toBe("production");
+  });
+
+  it("sandbox device (development-signed install) → sandbox host once", async () => {
+    const r = await sendVoip("sandbox");
+    expect(hosts).toEqual([SANDBOX]);
+    expect(r.status).toBe("sent");
+    expect(r.provider_response?.apns_environment).toBe("sandbox");
+  });
+
+  it("production device → production host once", async () => {
+    await sendVoip("production");
+    expect(hosts).toEqual([PROD]);
+  });
+
+  it("cancel push goes to the same host as the ring", async () => {
+    await sendVoip("sandbox", "incoming_call");
+    await sendVoip("sandbox", "call_canceled");
+    expect(hosts).toEqual([SANDBOX, SANDBOX]);
+  });
+
+  it("BadDeviceToken is never retried on the other host (no extra request)", async () => {
+    answers.set(SANDBOX, [400, "BadDeviceToken"]);
+    const r = await sendVoip("sandbox");
+    expect(hosts).toEqual([SANDBOX]);
     expect(r.status).toBe("failed");
   });
 });
 
 describe("PUSH-02 target loading / persistence helpers", () => {
-  it("carries apns_environment onto apns targets only", async () => {
+  it("carries apns_environment onto apns and voip_apns targets, not fcm", async () => {
     const { filterUserDevicePushTargets } = await import("@/lib/push/dispatch/filter-user-device-push-targets");
     const targets = filterUserDevicePushTargets([
       { id: "a", platform: "ios", device_id: "d1", push_token: "t1", push_provider: "apns", apns_environment: "sandbox" },
-      { id: "v", platform: "ios", device_id: "d1", push_token: "t2", push_provider: "voip_apns", apns_environment: "sandbox" },
+      { id: "v", platform: "ios", device_id: "d1", push_token: "t2", push_provider: "voip_apns", apns_environment: "production" },
       { id: "l", platform: "ios", device_id: "d2", push_token: "t3", push_provider: "apns" },
+      { id: "f", platform: "android", device_id: "d3", push_token: "t4", push_provider: "fcm" },
     ]);
     expect(targets.find((t) => t.id === "a")?.apns_environment).toBe("sandbox");
-    expect(targets.find((t) => t.id === "v")).not.toHaveProperty("apns_environment");
+    expect(targets.find((t) => t.id === "v")?.apns_environment).toBe("production");
     expect(targets.find((t) => t.id === "l")?.apns_environment).toBeNull();
+    expect(targets.find((t) => t.id === "f")).not.toHaveProperty("apns_environment");
+  });
+
+  it("voip_apns without its own env takes the same device's alert-token env (in-memory, first row)", async () => {
+    const { filterUserDevicePushTargets } = await import("@/lib/push/dispatch/filter-user-device-push-targets");
+    const targets = filterUserDevicePushTargets([
+      { id: "v1", platform: "ios", device_id: "d1", push_token: "vt1", push_provider: "voip_apns" },
+      { id: "a1", platform: "ios", device_id: "d1", push_token: "at1", push_provider: "apns", apns_environment: "sandbox" },
+      { id: "a1old", platform: "ios", device_id: "d1", push_token: "at0", push_provider: "apns", apns_environment: "production" },
+      { id: "v2", platform: "ios", device_id: "d2", push_token: "vt2", push_provider: "voip_apns" },
+      { id: "a2", platform: "ios", device_id: "d2", push_token: "at2", push_provider: "apns" },
+      { id: "v3", platform: "ios", device_id: "d3", push_token: "vt3", push_provider: "voip_apns" },
+    ]);
+    expect(targets.find((t) => t.id === "v1")?.apns_environment).toBe("sandbox");
+    expect(targets.find((t) => t.id === "v2")?.apns_environment).toBeNull();
+    expect(targets.find((t) => t.id === "v3")?.apns_environment).toBeNull();
   });
 
   it("normalizes reported values", async () => {

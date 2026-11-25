@@ -50,7 +50,7 @@ type ApnsHttp2RequestInput = {
   successExtras?: Record<string, unknown>;
   /** SRV-01 — alert only: same id replaces the earlier banner so a retry cannot show twice. */
   collapseId?: string | null;
-  /** PUSH-02 — alert only: per-token host. Omitted → global APNS_PRODUCTION host (VoIP unchanged). */
+  /** PUSH-02 — per-token host (alert, VoIP). Omitted → global APNS_PRODUCTION host. */
   host?: string;
 };
 
@@ -303,6 +303,11 @@ export async function sendVoipApnsImpl(input: {
   deviceToken: string;
   data: Record<string, unknown>;
   callPushKind: string | null;
+  /**
+   * The device's APNs environment (same install's alert-token report — filter-user-device-push-targets V1).
+   * One host, one send: no retry on the other host (docs/audit/call-voip-apns-environment-design-2026-11-25.md).
+   */
+  apnsEnvironment?: ApnsEnvironment | null;
 }): Promise<SendPushResult> {
   const topic = process.env.APNS_VOIP_TOPIC?.trim() || (apnsTopic() ? `${apnsTopic()}.voip` : null);
   if (!topic) {
@@ -320,13 +325,16 @@ export async function sendVoipApnsImpl(input: {
   }
 
   const isCancel = callPushKind === "call_canceled";
+  const env = input.apnsEnvironment ?? defaultApnsEnvironment();
 
-  return apnsPostWithTransportRetry({
+  const result = await apnsPostWithTransportRetry({
     path: `/3/device/${token}`,
     body: { ...input.data, call_push_kind: callPushKind },
     topic,
     pushType: "voip",
     channel: "voip",
     successExtras: { kind: isCancel ? "cancel" : "ring" },
+    host: apnsHostForEnvironment(env),
   });
+  return { ...result, provider_response: { ...(result.provider_response ?? {}), apns_environment: env } };
 }
