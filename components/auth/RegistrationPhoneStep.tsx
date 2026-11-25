@@ -120,8 +120,7 @@ export function RegistrationPhoneStep({ next }: { next: string }) {
       descriptionId="dibay-registration-phone-desc"
     >
       {state.kind === "loading" ? (
-        <div className="py-6" aria-busy="true">
-          <span className="sr-only">{t("common_loading")}</span>
+        <div className="py-6" aria-busy="true" role="status" aria-label={t("common_loading")}>
           <span className="block h-12 w-full rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-secondary)] motion-safe:animate-pulse" />
         </div>
       ) : state.kind === "error" || !snapshot ? (
