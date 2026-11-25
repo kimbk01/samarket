@@ -13,7 +13,7 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
-import { Camera, Film, Gift, Image as ImageIcon } from "lucide-react";
+import { Camera, Film, Gift, Image as ImageIcon, LayoutGrid, Plus } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import {
@@ -42,8 +42,12 @@ import {
 } from "@/lib/community-messenger/attachment/messenger-photo-library";
 import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/messenger-composer-outbound-busy";
 import {
+  isMessengerNativeRecentVideoSupported,
   isMessengerNativeVideoSupported,
+  openMessengerAppSettings,
   pickPhotosAndVideos as pickMessengerPhotosAndVideos,
+  presentMessengerLimitedPicker,
+  registerMessengerNativeVideos,
   releaseMessengerNativeVideo,
 } from "@/lib/community-messenger/attachment/messenger-photo-library";
 import { isMessengerVideoFile, readMessengerWebVideo } from "@/lib/community-messenger/attachment/messenger-video-web";
@@ -96,6 +100,9 @@ type AttachmentStripItem =
       kind: "native";
       previewUrl: string;
       nativeId: string;
+      /** 새 바이너리 최근 줄 영상(재감사 R3) */
+      video?: boolean;
+      durationMs?: number;
     }
   | {
       id: string;
@@ -192,6 +199,43 @@ export function CommunityMessengerAttachmentSheet({
     [giftVisible, isGroupRoom, peerUserId, roomChatDomain]
   );
 
+  const nativeLoadSeqRef = useRef(0);
+  const reloadNativeRecent = useCallback(async () => {
+    if (!messengerAttachmentDeviceLibrarySupported()) return;
+    const seq = ++nativeLoadSeqRef.current;
+    const state = await getMessengerPhotoLibraryPermissionState();
+    if (seq !== nativeLoadSeqRef.current) return;
+    setPhotoPermissionState(state);
+    if (state !== "authorized" && state !== "limited") {
+      setNativeRecent([]);
+      return;
+    }
+    const result = await getMessengerPhotoLibraryRecentPhotos(MESSENGER_ATTACHMENT_NATIVE_RECENT_LIMIT, {
+      includeVideos: isMessengerNativeRecentVideoSupported(),
+    });
+    if (seq !== nativeLoadSeqRef.current) return;
+    setPhotoPermissionState(result.state);
+    setNativeRecent(result.photos);
+  }, []);
+
+  /** 안내 칸 「허용」 — 이때만 시스템 권한 창(사진·영상 함께) */
+  const onRequestMediaPermission = useCallback(async () => {
+    await requestMessengerPhotoLibraryPermission();
+    await reloadNativeRecent();
+  }, [reloadNativeRecent]);
+
+  /** 「설정에서 허용」 — 시스템이 더는 묻지 않을 때 */
+  const onOpenMediaSettings = useCallback(() => {
+    void openMessengerAppSettings();
+  }, []);
+
+  /** 제한된 접근 「더 고르기」 — iOS 선택 범위 편집 · Android 는 시스템 권한 창이 고르기 화면을 띄운다 */
+  const onSelectMoreMedia = useCallback(async () => {
+    const presented = await presentMessengerLimitedPicker();
+    if (!presented) await requestMessengerPhotoLibraryPermission();
+    await reloadNativeRecent();
+  }, [reloadNativeRecent]);
+
   useEffect(() => {
     setRecent(listMessengerAttachmentRecent());
     setNativeRecent([]);
@@ -200,27 +244,21 @@ export function CommunityMessengerAttachmentSheet({
     sendingLockRef.current = false;
     setSending(false);
 
-    let cancelled = false;
-    async function loadNativeRecent() {
-      if (!messengerAttachmentDeviceLibrarySupported()) return;
-      let state = await getMessengerPhotoLibraryPermissionState();
-      if (cancelled) return;
-      if (state === "prompt") {
-        state = await requestMessengerPhotoLibraryPermission();
-        if (cancelled) return;
-      }
-      setPhotoPermissionState(state);
-      if (state !== "authorized" && state !== "limited") return;
-      const result = await getMessengerPhotoLibraryRecentPhotos(MESSENGER_ATTACHMENT_NATIVE_RECENT_LIMIT);
-      if (cancelled) return;
-      setPhotoPermissionState(result.state);
-      setNativeRecent(result.photos);
-    }
-
-    void loadNativeRecent();
-    return () => {
-      cancelled = true;
+    /**
+     * 재감사 R2 (텔레그램 `ChatAttachAlertPhotoLayout` 930–939 와 같음): 시트를 열 때 권한을 **요청하지 않는다**.
+     * 상태만 읽고, 허용(전체·제한)이면 최근 사진·영상을 불러온다. 요청은 안내 칸의 「허용」을 누를 때만.
+     */
+    void reloadNativeRecent();
+    /** 「설정에서 허용」 뒤 돌아오면 상태를 다시 읽는다 */
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void reloadNativeRecent();
     };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      nativeLoadSeqRef.current += 1;
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const stripItems = useMemo<AttachmentStripItem[]>(() => {
@@ -235,9 +273,12 @@ export function CommunityMessengerAttachmentSheet({
       kind: "native",
       previewUrl: item.thumbnailDataUrl,
       nativeId: item.id,
+      ...(item.mediaType === "video" ? { video: true, durationMs: Number(item.durationMs) || 0 } : {}),
     }));
     return [...videoItems, ...sessionItems, ...nativeItems];
   }, [nativeRecent, recent, videoItems]);
+  const stripItemsRef = useRef(stripItems);
+  stripItemsRef.current = stripItems;
 
   const selectedOrderIndex = useMemo(() => {
     const map = new Map<string, number>();
@@ -325,6 +366,16 @@ export function CommunityMessengerAttachmentSheet({
   const onToggleRecent = useCallback(
     (id: string) => {
       if (uploadBlocked) return;
+      const item = stripItemsRef.current.find((x) => x.id === id);
+      if (
+        item?.kind === "native" &&
+        item.video &&
+        selectedIdsRef.current.indexOf(id) < 0 &&
+        !precheckMessengerVideo({ bytes: 1, durationMs: item.durationMs || null, ext: "mp4" }).ok
+      ) {
+        notifyVideoError("video_too_long");
+        return;
+      }
       setSelectedIds((prev) => {
         if (prev.indexOf(id) < 0 && prev.length >= MESSENGER_ATTACHMENT_ALBUM_PICK_MAX) {
           showMessengerSnackbar(
@@ -336,7 +387,7 @@ export function CommunityMessengerAttachmentSheet({
         return toggleSelectionOrder(prev, id, MESSENGER_ATTACHMENT_ALBUM_PICK_MAX);
       });
     },
-    [t, uploadBlocked]
+    [notifyVideoError, t, uploadBlocked]
   );
 
   const onSendSelected = useCallback(async () => {
@@ -347,6 +398,7 @@ export function CommunityMessengerAttachmentSheet({
     const files: File[] = [];
     const previewUrls: string[] = [];
     const nativeIds: string[] = [];
+    const nativeVideoIds: string[] = [];
     const videos: MessengerVideoSendSource[] = [];
     const sentVideoIds = new Set<string>();
     for (const id of selectedIds) {
@@ -355,6 +407,10 @@ export function CommunityMessengerAttachmentSheet({
       if (item.kind === "video") {
         videos.push(item.source);
         sentVideoIds.add(item.id);
+        continue;
+      }
+      if (item.kind === "native" && item.video) {
+        nativeVideoIds.push(item.nativeId);
         continue;
       }
       if (item.kind === "session") {
@@ -376,6 +432,12 @@ export function CommunityMessengerAttachmentSheet({
         files.push(file);
         previewUrls.push(URL.createObjectURL(file));
       });
+    }
+    if (nativeVideoIds.length > 0) {
+      /** 최근 줄 영상 → 보낼 준비 등록(압축은 보낼 때 네이티브가) */
+      const reg = await registerMessengerNativeVideos(nativeVideoIds);
+      if (reg.failed.length > 0) notifyVideoError("video_read_failed");
+      for (const picked of reg.videos) videos.push({ kind: "native", picked, prepared: null });
     }
     if (files.length === 0 && videos.length === 0) {
       sendingLockRef.current = false;
@@ -407,7 +469,7 @@ export function CommunityMessengerAttachmentSheet({
       sendingLockRef.current = false;
       setSending(false);
     }
-  }, [notifyPhotoLoadFailed, onDismiss, onSendImages, onSendVideos, selectedIds, sendAsAlbum, stripItems, uploadBlocked]);
+  }, [notifyPhotoLoadFailed, notifyVideoError, onDismiss, onSendImages, onSendVideos, selectedIds, sendAsAlbum, stripItems, uploadBlocked]);
 
   const onGalleryChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
@@ -518,8 +580,14 @@ export function CommunityMessengerAttachmentSheet({
 
   const deviceLibrary = messengerAttachmentDeviceLibrarySupported();
   const nativeVideo = deviceLibrary && isMessengerNativeVideoSupported();
-  const showPermissionHint =
-    deviceLibrary && (photoPermissionState === "denied" || photoPermissionState === "unavailable");
+  /** 권한 안내 칸 — prompt: 「허용」, denied(시스템이 더는 안 물음): 「설정에서 허용」. unavailable(브리지 준비 전)은 칸 없음 */
+  const permissionCta: "allow" | "settings" | null = !deviceLibrary
+    ? null
+    : photoPermissionState === "prompt"
+      ? "allow"
+      : photoPermissionState === "denied"
+        ? "settings"
+        : null;
   const sendEnabled = selectedIds.length >= 1 && !uploadBlocked && !sending;
 
   return (
@@ -644,7 +712,7 @@ export function CommunityMessengerAttachmentSheet({
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={item.previewUrl} alt="" className="h-full w-full object-cover" />
-                {item.kind === "video" ? (
+                {item.kind === "video" || (item.kind === "native" && item.video) ? (
                   <span
                     data-cm-attach-video-duration=""
                     className="absolute bottom-1 right-1 rounded-ui-rect bg-black/55 px-1 py-[1px] text-[length:var(--overlay-caption-size)] font-medium tabular-nums text-white"
@@ -666,19 +734,52 @@ export function CommunityMessengerAttachmentSheet({
             );
           })}
 
-          {showPermissionHint ? (
-            <div className="flex h-[88px] min-w-[180px] shrink-0 items-center rounded-[length:var(--overlay-radius-md)] px-2">
-              <p className="text-[length:var(--overlay-caption-size)] leading-snug text-[color:var(--overlay-text-secondary)]">
-                {t("cm_ui_attach_photo_permission_hint")}
+          {permissionCta ? (
+            /* 재감사 R2 — 텔레그램 GalleryEmptyView 와 같은 역할: 제목 + 누를 버튼(누를 때만 권한 요청) */
+            <div
+              data-cm-attach-permission-cta={permissionCta}
+              className="flex h-[88px] w-[200px] shrink-0 flex-col justify-center gap-1.5 rounded-[length:var(--overlay-radius-md)] bg-[color:var(--overlay-secondary)] px-3"
+            >
+              <p className="text-[length:var(--overlay-caption-size)] font-semibold leading-snug text-[color:var(--overlay-text-primary)]">
+                {t("cm_ui_attach_permission_title")}
               </p>
+              <button
+                type="button"
+                disabled={uploadBlocked}
+                onClick={() => (permissionCta === "settings" ? onOpenMediaSettings() : void onRequestMediaPermission())}
+                className="min-h-[32px] self-start rounded-full bg-[color:var(--overlay-primary)] px-3 text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-surface)] disabled:cursor-not-allowed disabled:bg-[color:var(--sm-color-primary-disabled)]"
+              >
+                {permissionCta === "settings" ? t("cm_ui_attach_permission_settings") : t("cm_ui_attach_permission_allow")}
+              </button>
             </div>
           ) : null}
 
-          {stripItems.length === 0 && !showPermissionHint ? (
-            <div className="flex h-[88px] min-w-[140px] shrink-0 items-center rounded-[length:var(--overlay-radius-md)] px-2">
-              <p className="text-[length:var(--overlay-caption-size)] leading-snug text-[color:var(--overlay-text-secondary)]">{t("cm_ui_attach_recent_empty")}</p>
-            </div>
+          {photoPermissionState === "limited" && deviceLibrary ? (
+            <button
+              type="button"
+              disabled={uploadBlocked}
+              onClick={() => void onSelectMoreMedia()}
+              data-cm-attach-select-more=""
+              className="relative flex h-[88px] w-[88px] shrink-0 flex-col items-center justify-center gap-1 rounded-[length:var(--overlay-radius-md)] bg-[color:var(--overlay-secondary)] text-[color:var(--overlay-text-primary)] transition-transform enabled:active:scale-[var(--overlay-press-scale)] disabled:cursor-not-allowed"
+            >
+              <Plus className="h-7 w-7" strokeWidth={1.75} aria-hidden />
+              <span className="text-[length:var(--overlay-caption-size)] font-medium">{t("cm_ui_attach_more_select")}</span>
+            </button>
           ) : null}
+
+          {/* 재감사 R3 — 줄 끝 「전체」: 시스템 선택기(아래 「사진·동영상」과 같은 동작) */}
+          <button
+            type="button"
+            disabled={uploadBlocked}
+            onClick={() => onAction("photo")}
+            data-cm-attach-all=""
+            className="relative flex h-[88px] w-[88px] shrink-0 flex-col items-center justify-center gap-1 rounded-[length:var(--overlay-radius-md)] bg-[color:var(--overlay-secondary)] text-[color:var(--overlay-text-primary)] transition-transform enabled:active:scale-[var(--overlay-press-scale)] disabled:cursor-not-allowed"
+            aria-label={t("cm_ui_attach_all")}
+          >
+            <LayoutGrid className="h-7 w-7" strokeWidth={1.75} aria-hidden />
+            <span className="text-[length:var(--overlay-caption-size)] font-medium">{t("cm_ui_attach_all")}</span>
+          </button>
+
         </div>
       </div>
 

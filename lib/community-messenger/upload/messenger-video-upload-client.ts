@@ -65,6 +65,8 @@ function failed(error: string, failure: "definitive" | "indeterminate", beforeCo
 }
 
 /** XHR PUT — fetch 는 업로드 진행률을 주지 않는다. */
+let lastXhrPutError = "";
+
 function xhrPut(url: string, body: Blob, contentType: string, signal: AbortSignal, onProgress?: (f: number) => void): Promise<boolean> {
   return new Promise((resolve) => {
     if (signal.aborted) return resolve(false);
@@ -83,8 +85,14 @@ function xhrPut(url: string, body: Blob, contentType: string, signal: AbortSigna
       signal.removeEventListener("abort", onAbort);
       resolve(ok);
     };
-    xhr.onload = () => done(xhr.status >= 200 && xhr.status < 300);
-    xhr.onerror = () => done(false);
+    xhr.onload = () => {
+      if (xhr.status < 200 || xhr.status >= 300) lastXhrPutError = `http_${xhr.status}`;
+      done(xhr.status >= 200 && xhr.status < 300);
+    };
+    xhr.onerror = () => {
+      lastXhrPutError = "network";
+      done(false);
+    };
     xhr.onabort = () => done(false);
     xhr.send(body);
   });
@@ -105,6 +113,36 @@ async function postJson(url: string, body: unknown, method = "POST"): Promise<{ 
     }
   } catch {
     return null;
+  }
+}
+
+/**
+ * 진단(재감사 S-D): 실패할 때만 서버 로그에 단계·원인 코드 1건 — 성공 경로 호출 0.
+ * 서버는 DB 에 쓰지 않고 Vercel 로그에만 남긴다. 결과는 기다리지 않는다.
+ */
+export type MessengerVideoFailureStage = "pick" | "prepare" | "upload_url" | "put" | "finalize";
+
+export function reportMessengerVideoSendFailure(
+  roomResourcePath: string,
+  input: { stage: MessengerVideoFailureStage; code: string; sizeBytes?: number; durationMs?: number }
+): void {
+  try {
+    const cap = (typeof window !== "undefined" ? (window as { Capacitor?: { getPlatform?: () => string } }).Capacitor : undefined);
+    const platform = typeof cap?.getPlatform === "function" ? cap.getPlatform() : "web";
+    void fetch(`${roomResourcePath}/videos/failure`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        stage: input.stage,
+        code: String(input.code ?? "").slice(0, 120),
+        platform,
+        ...(input.sizeBytes != null ? { sizeBytes: input.sizeBytes } : {}),
+        ...(input.durationMs != null ? { durationMs: input.durationMs } : {}),
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    /* 진단 실패는 무시 */
   }
 }
 
@@ -138,14 +176,24 @@ export async function uploadMessengerVideo(input: {
       const off = onMessengerNativeVideoProgress((e) => {
         if (e.id === pickedId && e.phase === "transcode") input.onProgress("transcode", e.progress, true);
       });
+      let prepared: Awaited<ReturnType<typeof prepareMessengerNativeVideo>>;
       try {
-        source.prepared = await prepareMessengerNativeVideo(pickedId);
+        prepared = await prepareMessengerNativeVideo(pickedId);
       } finally {
         off();
         signal.removeEventListener("abort", onAbort);
       }
       if (signal.aborted) return cancelledOutcome();
-      if (!source.prepared) return failed("video_prepare_failed", "definitive", true);
+      if ("error" in prepared) {
+        reportMessengerVideoSendFailure(base, {
+          stage: "prepare",
+          code: prepared.error,
+          sizeBytes: source.picked.sizeBytes,
+          durationMs: source.picked.durationMs,
+        });
+        return failed("video_prepare_failed", "definitive", true);
+      }
+      source.prepared = prepared;
     }
     const p = source.prepared;
     transcoded = p.transcoded;
@@ -162,15 +210,22 @@ export async function uploadMessengerVideo(input: {
     ext = source.ext;
   }
   const pre = precheckMessengerVideo({ bytes: sizeBytes, durationMs, ext });
-  if (!pre.ok) return failed(pre.error, "definitive", true);
+  if (!pre.ok) {
+    reportMessengerVideoSendFailure(base, { stage: "prepare", code: `precheck_${pre.error}`, sizeBytes, durationMs });
+    return failed(pre.error, "definitive", true);
+  }
   if (signal.aborted) return cancelledOutcome();
 
   /* ② 서명 URL */
   const urlRes = await postJson(`${base}/videos/upload-url`, { bytes: sizeBytes, durationMs, ext });
-  if (!urlRes) return failed("upload_failed", "indeterminate", true);
+  if (!urlRes) {
+    reportMessengerVideoSendFailure(base, { stage: "upload_url", code: "network", sizeBytes, durationMs });
+    return failed("upload_failed", "indeterminate", true);
+  }
   const urls = urlRes.json as UrlBody;
   if (!urlRes.res.ok || !urls.ok || !urls.videoPath || !urls.videoSignedUrl || !urls.thumbSignedUrl) {
     const err = (typeof urls.error === "string" && urls.error) || messengerUploadFallbackErrorCode(urlRes.res.status);
+    reportMessengerVideoSendFailure(base, { stage: "upload_url", code: `${urlRes.res.status}_${err}`, sizeBytes, durationMs });
     /* 확정 전이라 서버 커밋 없음 — 4xx 는 확정 거절, 5xx·네트워크는 다시 보낼 수 있게 */
     return failed(err, urlRes.res.status >= 500 ? "indeterminate" : "definitive", true, urlRes.res);
   }
@@ -179,6 +234,7 @@ export async function uploadMessengerVideo(input: {
 
   /* ③ 직접 PUT */
   let putOk: boolean;
+  let putError = "";
   if (source.kind === "native") {
     const handle = source.prepared!.handle;
     const onAbort = () => void cancelMessengerNativeVideo(handle);
@@ -194,22 +250,26 @@ export async function uploadMessengerVideo(input: {
         videoContentType,
       });
       putOk = r.ok;
+      putError = r.error ?? "";
     } finally {
       off();
       signal.removeEventListener("abort", onAbort);
     }
   } else {
+    lastXhrPutError = "";
     putOk =
       (await xhrPut(urls.thumbSignedUrl, source.thumb, MESSENGER_VIDEO_THUMB_CONTENT_TYPE, signal)) &&
       (await xhrPut(urls.videoSignedUrl, source.file, videoContentType, signal, (f) =>
         input.onProgress("upload", f, false)
       ));
+    putError = lastXhrPutError ? `web_${lastXhrPutError}` : "";
   }
   if (signal.aborted) {
     requestServerCleanup(base, videoPath);
     return cancelledOutcome();
   }
   if (!putOk) {
+    reportMessengerVideoSendFailure(base, { stage: "put", code: putError || "put_failed", sizeBytes, durationMs });
     /* 올라간 일부는 서버가 지운다(못 지우면 일일 GC) — 다시 보내기는 새 URL 로 */
     requestServerCleanup(base, videoPath);
     return failed("upload_failed", "indeterminate", true);
@@ -224,12 +284,16 @@ export async function uploadMessengerVideo(input: {
     height,
     clientMessageId: input.clientMessageId,
   });
-  if (!fin) return failed("upload_failed", "indeterminate", false);
+  if (!fin) {
+    reportMessengerVideoSendFailure(base, { stage: "finalize", code: "network", sizeBytes, durationMs });
+    return failed("upload_failed", "indeterminate", false);
+  }
   const json = fin.json as { ok?: boolean; error?: string; message?: CommunityMessengerMessage };
   if (fin.res.ok && fin.parsed && json.ok) {
     return { ok: true, transport: "staged", message: json.message ?? null, res: fin.res };
   }
   const error = (typeof json.error === "string" && json.error) || messengerUploadFallbackErrorCode(fin.res.status);
+  reportMessengerVideoSendFailure(base, { stage: "finalize", code: `${fin.res.status}_${error}`, sizeBytes, durationMs });
   return {
     ok: false,
     transport: "staged",

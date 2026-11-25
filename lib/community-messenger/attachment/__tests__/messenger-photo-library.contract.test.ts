@@ -31,7 +31,7 @@ describe("MessengerPhotoLibrary native bridge contract", () => {
     expect(store).toContain("isMessengerPhotoLibraryNativeAvailable()");
   });
 
-  it("wires the attachment sheet to native recent, resolve, picker, and permission hint", () => {
+  it("wires the attachment sheet to native recent, resolve, picker, and permission CTA", () => {
     const sheet = read("components/community-messenger/room/phase2/CommunityMessengerAttachmentSheet.tsx");
     expect(sheet).toContain("getMessengerPhotoLibraryPermissionState");
     expect(sheet).toContain("requestMessengerPhotoLibraryPermission");
@@ -40,7 +40,34 @@ describe("MessengerPhotoLibrary native bridge contract", () => {
     expect(sheet).toContain("pickMessengerPhotoLibraryPhotos");
     expect(sheet).toContain("messengerPhotoPayloadToFile");
     expect(sheet).toContain('data-cm-attachment-device-library={deviceLibrary ? "1" : "0"}');
-    expect(sheet).toContain('t("cm_ui_attach_photo_permission_hint")');
+    /** 재감사 R2: 버튼 없는 안내 글자 대신 누를 수 있는 안내 칸 · 줄 끝 「전체」 */
+    expect(sheet).toContain('t("cm_ui_attach_permission_allow")');
+    expect(sheet).toContain('t("cm_ui_attach_permission_settings")');
+    expect(sheet).toContain("data-cm-attach-all");
+  });
+
+  it("재감사 R2: 시트를 열 때 권한을 요청하지 않는다(누를 때만 — 텔레그램과 같음)", () => {
+    const sheet = read("components/community-messenger/room/phase2/CommunityMessengerAttachmentSheet.tsx");
+    const reload = sheet.slice(sheet.indexOf("const reloadNativeRecent = useCallback"), sheet.indexOf("/** 안내 칸 「허용」"));
+    expect(reload).toContain("getMessengerPhotoLibraryPermissionState");
+    expect(reload).not.toContain("requestMessengerPhotoLibraryPermission");
+    const request = sheet.slice(sheet.indexOf("const onRequestMediaPermission"), sheet.indexOf("/** 「설정에서 허용」"));
+    expect(request).toContain("requestMessengerPhotoLibraryPermission");
+  });
+
+  it("재감사 R1·R3: Android 사진·영상·제한 접근 3개 선언 · 사진+영상 함께 요청 · 최근 줄 영상", () => {
+    const manifest = read("android/app/src/main/AndroidManifest.xml");
+    expect(manifest).toContain('android.permission.READ_MEDIA_VIDEO"');
+    expect(manifest).toContain('android.permission.READ_MEDIA_VISUAL_USER_SELECTED"');
+    const plugin = read("android/app/src/main/java/com/dibay/app/MessengerPhotoLibraryPlugin.java");
+    expect(plugin).toContain("Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED");
+    expect(plugin).toContain('return "limited"');
+    expect(plugin).toContain("queryRecentMedia(");
+    expect(plugin).toContain("public void registerVideos(PluginCall call)");
+    const ios = read("ios/App/App/Plugins/MessengerPhotoLibraryPlugin.swift");
+    expect(ios).toContain('CAPPluginMethod(name: "registerVideos"');
+    expect(ios).toContain('CAPPluginMethod(name: "presentLimitedPicker"');
+    expect(ios).toContain("PHAssetMediaType.video.rawValue");
   });
 
   it("registers Android plugin with permissions, MediaStore recent photos, picker, and resolver", () => {

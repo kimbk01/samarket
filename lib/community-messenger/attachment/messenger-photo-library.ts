@@ -21,6 +21,9 @@ export type MessengerPhotoLibraryRecentPhoto = {
   thumbnailDataUrl: string;
   width?: number;
   height?: number;
+  /** 새 바이너리 + includeVideos 일 때만 — 영상이면 "video" */
+  mediaType?: "image" | "video";
+  durationMs?: number;
 };
 
 export type MessengerPhotoLibraryPayload = {
@@ -179,7 +182,9 @@ function invokeMessengerPhotoLibraryPlugin<T>(
     return MessengerPhotoLibrary.requestPermission() as Promise<T>;
   }
   if (method === "getRecentPhotos") {
-    return MessengerPhotoLibrary.getRecentPhotos({ limit: Number(options?.limit ?? 24) }) as Promise<T>;
+    return (MessengerPhotoLibrary as unknown as {
+      getRecentPhotos: (o: { limit: number; includeVideos?: boolean }) => Promise<T>;
+    }).getRecentPhotos({ limit: Number(options?.limit ?? 24), includeVideos: options?.includeVideos === true });
   }
   if (method === "pickPhotos") {
     return MessengerPhotoLibrary.pickPhotos({ max: Number(options?.max ?? 10) }) as Promise<T>;
@@ -231,7 +236,10 @@ export async function requestPermission(): Promise<MessengerPhotoLibraryPermissi
   }
 }
 
-export async function getRecentPhotos(limit: number): Promise<{
+export async function getRecentPhotos(
+  limit: number,
+  opts?: { includeVideos?: boolean }
+): Promise<{
   photos: MessengerPhotoLibraryRecentPhoto[];
   state: MessengerPhotoLibraryPermissionState;
 }> {
@@ -240,7 +248,7 @@ export async function getRecentPhotos(limit: number): Promise<{
     const result = await invokeMessengerPhotoLibraryPlugin<{
       photos?: MessengerPhotoLibraryRecentPhoto[];
       state?: MessengerPhotoLibraryPermissionState;
-    }>("getRecentPhotos", { limit });
+    }>("getRecentPhotos", { limit, ...(opts?.includeVideos ? { includeVideos: true } : {}) });
     return {
       photos: Array.isArray(result.photos) ? result.photos : [],
       state: result.state ?? "authorized",
@@ -595,13 +603,15 @@ export function onMessengerNativeVideoProgress(cb: VideoProgressListener): () =>
 }
 
 /** 압축 + 썸네일(JPEG). 진행률은 `videoProgress` {id, phase:"transcode"}. 취소 = cancelVideo({ id }). */
-export async function prepareMessengerNativeVideo(id: string): Promise<MessengerNativePreparedVideo | null> {
+export async function prepareMessengerNativeVideo(
+  id: string
+): Promise<MessengerNativePreparedVideo | { error: string }> {
   try {
     const r = await invokeVideoMethod<Record<string, unknown>>("prepareVideo", { id });
     const handle = typeof r.handle === "string" ? r.handle : "";
     const sizeBytes = Number(r.sizeBytes);
     const durationMs = Number(r.durationMs);
-    if (!handle || !(sizeBytes > 0) || !(durationMs > 0)) return null;
+    if (!handle || !(sizeBytes > 0) || !(durationMs > 0)) return { error: "prepare_bad_result" };
     const w = Number(r.width);
     const h = Number(r.height);
     return {
@@ -612,8 +622,10 @@ export async function prepareMessengerNativeVideo(id: string): Promise<Messenger
       height: h > 0 ? Math.round(h) : null,
       transcoded: r.transcoded === true,
     };
-  } catch {
-    return null;
+  } catch (e) {
+    /** 네이티브 reject 메시지 = 원인 코드(transcode_failed_… · reader_… · writer_… · thumb_failed 등) */
+    const msg = e instanceof Error ? e.message : String(e ?? "");
+    return { error: msg.slice(0, 120) || "prepare_failed" };
   }
 }
 
@@ -623,12 +635,16 @@ export async function uploadMessengerNativePreparedVideo(input: {
   videoSignedUrl: string;
   thumbSignedUrl: string;
   videoContentType: string;
-}): Promise<{ ok: boolean; cancelled?: boolean }> {
+}): Promise<{ ok: boolean; cancelled?: boolean; error?: string }> {
   try {
     const r = await invokeVideoMethod<Record<string, unknown>>("uploadPreparedVideo", input);
-    return { ok: r.ok === true, cancelled: r.cancelled === true };
-  } catch {
-    return { ok: false };
+    return {
+      ok: r.ok === true,
+      cancelled: r.cancelled === true,
+      ...(typeof r.error === "string" ? { error: r.error.slice(0, 120) } : {}),
+    };
+  } catch (e) {
+    return { ok: false, error: (e instanceof Error ? e.message : "upload_bridge_failed").slice(0, 120) };
   }
 }
 
@@ -647,5 +663,36 @@ export async function releaseMessengerNativeVideo(id: string): Promise<void> {
     await invokeVideoMethod("releaseVideo", { id });
   } catch {
     /* ignore */
+  }
+}
+
+/* ───────────────────────── 재감사 1단계 (R1·R2·R3) ───────────────────────── */
+
+/** 새 바이너리: 최근 줄 영상·등록(registerVideos) 지원 */
+export function isMessengerNativeRecentVideoSupported(): boolean {
+  return isMessengerPhotoLibraryNativeAvailable() && messengerPhotoLibraryHeaderHasMethod("registerVideos") === true;
+}
+
+/** 최근 줄에서 고른 영상(id) → 보낼 준비 목록 등록. 실패 행은 원인 코드와 함께. */
+export async function registerMessengerNativeVideos(
+  ids: string[]
+): Promise<{ videos: MessengerNativePickedVideo[]; failed: MessengerPhotoLibraryFailure[] }> {
+  if (ids.length === 0) return { videos: [], failed: [] };
+  try {
+    const r = await invokeVideoMethod<{ videos?: unknown; failed?: unknown }>("registerVideos", { ids });
+    return { videos: normalizePickedVideos(r.videos), failed: normalizeMessengerPhotoLibraryFailures(r.failed) };
+  } catch {
+    return { videos: [], failed: ids.map((id, index) => ({ index, id, reason: "bridge_failed" })) };
+  }
+}
+
+/** iOS 「더 고르기」(제한된 접근) — 지원 안 하면 false */
+export async function presentMessengerLimitedPicker(): Promise<boolean> {
+  if (messengerPhotoLibraryHeaderHasMethod("presentLimitedPicker") !== true) return false;
+  try {
+    const r = await invokeVideoMethod<{ presented?: unknown }>("presentLimitedPicker", {});
+    return r.presented === true;
+  } catch {
+    return false;
   }
 }

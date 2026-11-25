@@ -76,6 +76,8 @@ final class MessengerVideoPrep {
     volatile File thumb;
     volatile boolean cancelled;
     volatile boolean transcoded;
+    /** 마지막 실패 원인 코드(진단용 — 웹이 서버 진단 로그로 보낸다) */
+    volatile String lastError;
     volatile Transformer transformer;
     volatile HttpURLConnection connection;
 
@@ -291,7 +293,7 @@ final class MessengerVideoPrep {
             Log.w(TAG, "transcode failed", exception);
             //noinspection ResultOfMethodCallIgnored
             out.delete();
-            cb.done(null, false, e.cancelled ? "cancelled" : "transcode_failed");
+            cb.done(null, false, e.cancelled ? "cancelled" : "transcode_failed_" + exception.getErrorCodeName());
           }
         }
       )
@@ -369,25 +371,27 @@ final class MessengerVideoPrep {
   }
 
   interface UploadCallback {
-    void done(boolean ok, boolean cancelled);
+    void done(boolean ok, boolean cancelled, String error);
   }
 
   /** 서명 URL 로 썸네일 → 영상 PUT(백그라운드). 진행률 videoProgress {id, phase:"upload"}. */
   void upload(String id, String videoUrl, String thumbUrl, String videoContentType, UploadCallback cb) {
     Entry e = entries.get(id);
     if (e == null || e.video == null || e.thumb == null) {
-      cb.done(false, false);
+      cb.done(false, false, "not_prepared");
       return;
     }
     e.cancelled = false;
+    e.lastError = null;
     io.execute(() -> {
-      boolean ok = put(e, thumbUrl, e.thumb, "image/jpeg", false) && put(e, videoUrl, e.video, videoContentType, true);
+      boolean ok = put(e, thumbUrl, e.thumb, "image/jpeg", false, "thumb") && put(e, videoUrl, e.video, videoContentType, true, "video");
       final boolean cancelled = e.cancelled;
-      main.post(() -> cb.done(ok && !cancelled, cancelled));
+      final String err = ok ? null : e.lastError;
+      main.post(() -> cb.done(ok && !cancelled, cancelled, err));
     });
   }
 
-  private boolean put(Entry e, String url, File file, String contentType, boolean report) {
+  private boolean put(Entry e, String url, File file, String contentType, boolean report, String label) {
     if (e.cancelled) return false;
     HttpURLConnection conn = null;
     try {
@@ -418,9 +422,11 @@ final class MessengerVideoPrep {
         }
       }
       int code = conn.getResponseCode();
+      if (code < 200 || code >= 300) e.lastError = label + "_http_" + code;
       return code >= 200 && code < 300;
     } catch (Exception ex) {
       if (!e.cancelled) Log.w(TAG, "put failed", ex);
+      e.lastError = label + "_network_" + ex.getClass().getSimpleName();
       return false;
     } finally {
       e.connection = null;
