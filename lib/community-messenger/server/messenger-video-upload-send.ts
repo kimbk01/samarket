@@ -12,6 +12,9 @@ import type { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { sendCommunityMessengerVideoMessage } from "@/lib/community-messenger/service";
 import { keepMessengerNotifyAliveAfterAck } from "@/lib/community-messenger/server/keep-messenger-notify-alive-after-ack";
 import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
+import { runMediaSendFanoutAfterCommit } from "@/lib/community-messenger/server/media-send-fanout";
+import type { MessengerSendKnownRoom } from "@/lib/community-messenger/server/assert-messenger-room-send-allowed";
+import { addSupabaseCallRequestUnits } from "@/lib/perf/supabase-call-counter";
 import { purgeMessengerMediaStoragePaths } from "@/lib/community-messenger/messenger-media-purge";
 import { resolveMessengerMediaUploadBucket } from "@/lib/community-messenger/server/messenger-media-bucket";
 import {
@@ -186,6 +189,8 @@ export async function finalizeMessengerVideoUpload(input: {
   width: unknown;
   height: unknown;
   clientMessageId: string | null;
+  /** F3(2026-11-25) — 라우트 송신 가드가 읽은 방 행. 있으면 글 보내기와 같은 알림·배지·bump 경로 */
+  knownRoom?: MessengerSendKnownRoom | null;
 }): Promise<MessengerVideoRouteResult> {
   const { sb, canonicalRoomId } = input;
   const parsed = parseMessengerVideoPath({ userId: input.userId, roomId: canonicalRoomId, path: input.videoPath });
@@ -233,6 +238,7 @@ export async function finalizeMessengerVideoUpload(input: {
     height: messengerVideoDimension(input.height),
     clientMessageId: input.clientMessageId,
     onNotifyScheduled: keepMessengerNotifyAliveAfterAck,
+    knownRoom: input.knownRoom ?? null,
   });
   if (!result.ok) {
     await purge();
@@ -241,6 +247,18 @@ export async function finalizeMessengerVideoUpload(input: {
   if (result.deduped) {
     /* 멱등 재전송 — DB 행은 이전 업로드를 가리킨다. 이번 업로드분 정리. */
     await purge();
+  }
+  const { fanout, ...body } = result;
+  if (fanout && result.message) {
+    addSupabaseCallRequestUnits(fanout.recipientUserIds.length);
+    await runMediaSendFanoutAfterCommit({
+      rawRouteRoomId: input.rawRouteRoomId,
+      canonicalRoomId,
+      userId: input.userId,
+      message: result.message,
+      fanout,
+    }).catch(() => undefined);
+    return { status: 200, body: body as Record<string, unknown> };
   }
   try {
     await publishMessengerRoomBumpAfterMutation({
@@ -254,7 +272,7 @@ export async function finalizeMessengerVideoUpload(input: {
   } catch {
     /* best-effort: 전송은 커밋됨 */
   }
-  return { status: 200, body: result as Record<string, unknown> };
+  return { status: 200, body: body as Record<string, unknown> };
 }
 
 /** 취소 — 확정 전 사용자가 ✕ 를 누름. 본인·이 방 경로만 지운다(메시지가 이미 있으면 지우지 않음). */

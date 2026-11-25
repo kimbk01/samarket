@@ -60,6 +60,11 @@ export type CommunityMessengerSendPostAckEffects = {
   hasMention?: boolean;
   /** T0 Legacy write Decision Snapshots — pass-through to Engine shadow only. */
   decisionSnapshotsByRecipientId?: Record<string, NotificationDecision>;
+  /**
+   * F3(2026-11-25) 사진·동영상 보내기 — 글과 같은 알림 경로를 쓰되 예전 사진·동영상 알림과 같게:
+   * 미리보기 문구는 `previewText`(사진·동영상 문구), 멘션 없음, 엔진 그림자 없음(예전 경로에 없던 것).
+   */
+  mediaSend?: { previewText: string } | null;
 };
 
 export type CommunityMessengerSendDeferredPostAckWork = {
@@ -170,8 +175,9 @@ export async function runCommunityMessengerSendDurablePreAckEffects(
     roomType,
     directKey,
   });
+  const mediaSend = effects.mediaSend ?? null;
   let mentionUserIds: string[] = [];
-  if (roomKind === "group" && messageId) {
+  if (roomKind === "group" && messageId && !mediaSend) {
     mentionUserIds = await resolveMentionUserIdsForGroupRoom(sb, roomId, content).catch(() => []);
     if (mentionUserIds.length) {
       await persistMessageMentionUserIds(sb, messageId, mentionUserIds).catch(() => {});
@@ -189,10 +195,10 @@ export async function runCommunityMessengerSendDurablePreAckEffects(
         roomId,
         messageId,
         senderUserId,
-        preview: cmMessagePreviewFallback(content),
+        preview: mediaSend ? mediaSend.previewText : cmMessagePreviewFallback(content),
         recipientUserIds,
         directKey: effects.directKey,
-        hasMention: effects.hasMention ?? /@\S/.test(content),
+        hasMention: mediaSend ? false : (effects.hasMention ?? /@\S/.test(content)),
         roomKind,
         mentionUserIds,
       },
@@ -301,6 +307,8 @@ export async function runCommunityMessengerSendDeferredPostAckEffects(
     spanT5(t5, "S16_push_dispatch_ms", pushT0);
   }
 
+  /** F3: 사진·동영상은 예전 경로에 엔진 그림자가 없었다 — 그대로 둔다 */
+  if (effects.mediaSend) return;
   void import("@/lib/notifications/engine/adapters/legacy-message-created-adapter").then((mod) =>
     mod
       .runLegacyMessageCreatedNotificationEngineAdapter(sb, {

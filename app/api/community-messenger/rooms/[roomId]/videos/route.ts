@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { tagSupabaseCallRequest } from "@/lib/perf/supabase-call-counter";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { prepareMessengerRoomSend } from "@/lib/community-messenger/server/prepare-messenger-room-send";
@@ -29,6 +30,8 @@ type Body = {
  * 거절·deduped 는 이번 업로드(영상·썸네일) 즉시 삭제.
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ roomId: string }> }) {
+  /** F3(2026-11-25) 요청 예산 — 동영상 보내기를 따로 센다(`…videos::post`). 셈만 */
+  tagSupabaseCallRequest("post");
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
@@ -81,6 +84,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     width: body.width,
     height: body.height,
     clientMessageId: typeof body.clientMessageId === "string" ? body.clientMessageId.trim() || null : null,
+    knownRoom: sendGuard.room,
   });
   return NextResponse.json(result.body, { status: result.status });
 }

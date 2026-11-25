@@ -121,6 +121,21 @@ export async function markRoomReadAtomicAuto(
   return { kind: "done", result: mapMarkRoomReadAtomicPayload(data) };
 }
 
+function isUnreadAuthorityChatDomain(v: string): v is ChatDomain {
+  return v === "general_direct" || v === "group" || v === "trade" || v === "store_order";
+}
+
+/** 이미 읽은 방 행 → 원자 전송 입력. 규칙이 맞지 않으면 null(호출부가 DB 에서 다시 읽는다). */
+export function roomDomainFromKnown(
+  known: { chatDomain: string | null; domainIdentityKey: string | null } | null | undefined
+): { chatDomain: ChatDomain; domainIdentityKey: string } | null {
+  if (!known) return null;
+  const chatDomain = trim(known.chatDomain);
+  const domainIdentityKey = trim(known.domainIdentityKey);
+  if (!isUnreadAuthorityChatDomain(chatDomain) || !domainIdentityKey) return null;
+  return { chatDomain, domainIdentityKey };
+}
+
 export async function loadRoomDomainForUnreadAuthority(
   sb: SupabaseClient<any>,
   roomId: string
@@ -282,6 +297,11 @@ export async function appendTypedMessengerMessageAtomic(
     idempotencyKey: string;
     forceNullMessageSender?: boolean;
     countsAsUnread?: boolean;
+    /**
+     * F3(2026-11-25) — 같은 요청의 송신 가드가 이미 읽은 방 행(`chat_domain`·`domain_identity_key`).
+     * 있으면 아래 방 조회를 건너뛴다. 검사 규칙은 `loadRoomDomainForUnreadAuthority` 와 같다.
+     */
+    knownRoomDomain?: { chatDomain: string | null; domainIdentityKey: string | null } | null;
   }
 ): Promise<
   | {
@@ -295,7 +315,8 @@ export async function appendTypedMessengerMessageAtomic(
     }
   | { ok: false; error: string; fallbackUsed: false }
 > {
-  const meta = await loadRoomDomainForUnreadAuthority(sb, input.roomId);
+  const meta =
+    roomDomainFromKnown(input.knownRoomDomain) ?? (await loadRoomDomainForUnreadAuthority(sb, input.roomId));
   if (!meta) {
     return { ok: false, error: "room_domain_missing", fallbackUsed: false };
   }

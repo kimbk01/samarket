@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { tagSupabaseCallRequest } from "@/lib/perf/supabase-call-counter";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { prepareMessengerRoomSend } from "@/lib/community-messenger/server/prepare-messenger-room-send";
@@ -25,6 +26,8 @@ const ALLOWED = MESSENGER_IMAGE_UPLOAD_ALLOWED_MIMES;
 const MAX_FILES = MESSENGER_IMAGE_UPLOAD_MAX_FILES;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ roomId: string }> }) {
+  /** F3(2026-11-25) 요청 예산 — 사진 보내기를 따로 센다(`…images::post`). 셈만 */
+  tagSupabaseCallRequest("post");
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
@@ -92,6 +95,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
       rawRouteRoomId: canon.rawRouteRoomId,
       images: collected.images,
       clientMessageId: typeof body.clientMessageId === "string" ? body.clientMessageId.trim() || null : null,
+      knownRoom: sendGuard.room,
     });
     return NextResponse.json(staged.body, { status: staged.status });
   }
@@ -146,6 +150,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     images,
     // CHAT-05: 업로드 멱등 키(클라가 재전송 시 동일 값을 보냄).
     clientMessageId: String(form.get("clientMessageId") ?? "").trim() || null,
+    knownRoom: sendGuard.room,
   });
   return NextResponse.json(result.body, { status: result.status });
 }
