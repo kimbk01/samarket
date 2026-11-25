@@ -157,7 +157,7 @@ final class MessengerVideoPrep {
       }
       if (durationMs <= 0) return null;
       Bitmap poster = loadPoster(uri);
-      Bitmap frame = poster != null ? poster : bestFrame(r, durationMs);
+      Bitmap frame = poster != null ? poster : bestFrame(r, durationMs, PICK_THUMB_EDGE);
       if (frame == null) return null;
       Bitmap small = scale(frame, PICK_THUMB_EDGE);
       String dataUrl = "data:image/jpeg;base64," + Base64.encodeToString(jpeg(small, 72), Base64.NO_WRAP);
@@ -197,11 +197,12 @@ final class MessengerVideoPrep {
   /** 후보 시점(마이크로초): 0.1초 → 1초 → 길이 10% → 길이 50%. 길이를 넘는 시점·중복은 뺀다. */
   static long[] frameCandidatesUs(long durationMs) {
     long d = Math.max(0, durationMs) * 1000L;
+    if (d == 0) return new long[] { 0 };
     long[] raw = { Math.min(100_000L, d / 100), 1_000_000L, d / 10, d / 2 };
     long[] out = new long[raw.length];
     int n = 0;
     for (long t : raw) {
-      if (t < 0 || (d > 0 && t >= d)) continue;
+      if (t < 0 || t >= d) continue;
       boolean dup = false;
       for (int i = 0; i < n; i++) if (Math.abs(out[i] - t) < 50_000L) dup = true;
       if (!dup) out[n++] = t;
@@ -225,18 +226,29 @@ final class MessengerVideoPrep {
     return sum / 256.0;
   }
 
-  /** 어둡지 않은 첫 장면. 모두 어두우면 가장 밝은 장면. */
-  private static Bitmap bestFrame(MediaMetadataRetriever r, long durationMs) {
+  /**
+   * 어둡지 않은 첫 장면. 모두 어두우면 가장 밝은 장면.
+   * 선택기 콜백은 화면 스레드에서 돌므로 Android 8.1+ 는 긴 변 maxEdge 축소본으로 꺼낸다(원본 해상도 비트맵 여러 장 금지).
+   */
+  private static Bitmap bestFrame(MediaMetadataRetriever r, long durationMs, int maxEdge) {
     Bitmap best = null;
     double bestLuma = -1;
     for (long t : frameCandidatesUs(durationMs)) {
-      Bitmap f = r.getFrameAtTime(t, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+      Bitmap f = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1
+        ? r.getScaledFrameAtTime(t, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, maxEdge, maxEdge)
+        : r.getFrameAtTime(t, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
       if (f == null) continue;
       double luma = averageLuma(f);
-      if (luma >= MIN_FRAME_LUMA) return f;
+      if (luma >= MIN_FRAME_LUMA) {
+        if (best != null) best.recycle();
+        return f;
+      }
       if (luma > bestLuma) {
+        if (best != null) best.recycle();
         best = f;
         bestLuma = luma;
+      } else {
+        f.recycle();
       }
     }
     return best;
@@ -394,7 +406,7 @@ final class MessengerVideoPrep {
       Bitmap frame = e.poster;
       if (frame == null) {
         r.setDataSource(video.getAbsolutePath());
-        frame = bestFrame(r, parseLong(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)));
+        frame = bestFrame(r, parseLong(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)), THUMB_MAX_EDGE);
       }
       if (frame == null) return false;
       Bitmap small = scale(frame, THUMB_MAX_EDGE);

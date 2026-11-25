@@ -60,8 +60,8 @@
 
 | 파일 | 변경 |
 |---|---|
-| `ios/App/App/Plugins/MessengerPhotoLibraryPlugin.swift` | `MessengerVideoPrep.register(asset:)` 에서 PHAsset 대표 사진을 받아 `Entry.posterJPEG`(480)와 고를 때 사진(256)을 만든다. `writeThumb` 는 `posterJPEG` 가 있으면 그것을 쓰고, 없으면 새 `bestFrame(asset, maxEdge:)`(4-1 의 2번)를 쓴다. 기존 `frame` 은 `bestFrame` 안으로 들어간다 |
-| `android/app/src/main/java/com/dibay/app/MessengerVideoPrep.java` | `register(uri)` 에서 `loadThumbnail(uri, 480)` 를 먼저 시도해 `Entry.poster` 에 둔다. `writeThumb` 는 `poster` 가 있으면 그것을 쓰고, 없으면 `bestFrame(retriever)`(4-1 의 2번)를 쓴다 |
+| `ios/App/App/Plugins/MessengerPhotoLibraryPlugin.swift` | `register(asset:)`(최근 줄)와 PHPicker 결과(`assetIdentifier`, 사진 권한이 이미 있을 때만 조회)에서 PHAsset 대표 사진(480)을 받아 `Entry.poster`(UIImage)에 두고 고를 때 사진(256)을 만든다. `writeThumb` 는 `poster` 가 있으면 그것을 쓰고, 없으면 새 `bestFrame(asset, maxEdge:)`(4-1 의 2번)를 쓴다. 기존 `frame` 은 `bestFrame` 안으로 들어간다 |
+| `android/app/src/main/java/com/dibay/app/MessengerVideoPrep.java` | `register(uri)` 에서 `loadThumbnail(uri, 480)`(Android 10+)를 먼저 시도해 `Entry.poster` 에 둔다. `writeThumb` 는 `poster` 가 있으면 그것을 쓰고, 없으면 `bestFrame(retriever, 길이, 긴 변)`(4-1 의 2번)를 쓴다. 선택기 콜백이 화면 스레드라 장면은 Android 8.1+ 에서 축소본(`getScaledFrameAtTime`)으로 꺼낸다 |
 | `lib/community-messenger/attachment/messenger-video-web.ts` | `seek(0.1)` 1회를 후보 4개 순회로 바꾼다. 캔버스 16×16 평균 밝기로 판정한다 |
 | `lib/community-messenger/attachment/__tests__/…` | 웹 장면 고르기 단위 테스트(밝기 판정·후보 순서·모두 어두울 때) |
 | `android/app/build.gradle`, iOS `CURRENT_PROJECT_VERSION` 4곳 | 설치용 빌드 때 1회 증가(Android 84 · iOS 63) |
