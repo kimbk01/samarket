@@ -409,3 +409,14 @@ export async function fetchProfileRowSafe(
   }
   return toProfileRow(uid, row);
 }
+
+/**
+ * 관리자 API 인증 1회 조회(`admin_api_actor_context`, Amendment 2026-11-25)가 같은 열 목록을 DB 에서 읽는다.
+ * 열 목록이 바뀌면 그 DB 함수도 같이 바꾼다 — 계약 시험이 두 목록이 같은지 확인한다.
+ */
+export const PROFILE_SELECT_FULL_COLUMNS: string = SELECT_FULL;
+
+/** SELECT_FULL 로 읽은 행 → ProfileRow (fetchProfileRowSafe 의 full 경로와 같은 변환 · 선택 열 병합 없음). */
+export function profileRowFromSelectFull(userId: string, row: Record<string, unknown>): ProfileRow {
+  return toProfileRow(userId, row);
+}
