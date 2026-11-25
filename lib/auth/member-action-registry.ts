@@ -102,6 +102,7 @@ export const MEMBER_WRITE_REGISTRY: readonly MemberWriteEntry[] = [
   W("PATCH", "/api/community-messenger/rooms/[roomId]/settings", "manage"),
   W("DELETE", "/api/community-messenger/rooms/[roomId]/videos", "manage"),
   W("POST", "/api/community-messenger/rooms/[roomId]/videos", "new"),
+  W("POST", "/api/community-messenger/rooms/[roomId]/videos/failure", "manage"),
   W("POST", "/api/community-messenger/rooms/[roomId]/videos/upload-url", "new"),
   W("POST", "/api/community-messenger/rooms/[roomId]/voice", "new"),
   W("POST", "/api/community/neighbor-relations", "split"),

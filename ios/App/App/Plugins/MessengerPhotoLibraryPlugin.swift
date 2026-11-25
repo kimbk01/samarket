@@ -28,6 +28,8 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
     CAPPluginMethod(name: "uploadPreparedVideo", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "cancelVideo", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "releaseVideo", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "registerVideos", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "presentLimitedPicker", returnType: CAPPluginReturnPromise),
   ]
 
   private var pendingPickCall: CAPPluginCall?
@@ -302,8 +304,9 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
       call.resolve(["photos": [], "state": state])
       return
     }
+    let includeVideos = call.getBool("includeVideos") ?? false
     DispatchQueue.global(qos: .userInitiated).async {
-      let photos = self.fetchRecentThumbs(limit: limit)
+      let photos = self.fetchRecentThumbs(limit: limit, includeVideos: includeVideos)
       DispatchQueue.main.async {
         call.resolve(["photos": photos, "state": self.permissionStateJs()])
       }
@@ -363,6 +366,54 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
     }
   }
 
+  /// 채팅 영상(재감사 R3): 최근 줄에서 고른 영상(phasset id)을 보낼 준비 목록에 등록 — 선택기 결과와 같은 모양.
+  @objc func registerVideos(_ call: CAPPluginCall) {
+    let ids = call.getArray("ids", String.self) ?? []
+    DispatchQueue.global(qos: .userInitiated).async {
+      var videos: [[String: Any]] = []
+      var failed: [[String: Any]] = []
+      for (idx, id) in ids.enumerated() {
+        let localId = id.hasPrefix("phasset:") ? String(id.dropFirst("phasset:".count)) : id
+        guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [localId], options: nil).firstObject,
+              asset.mediaType == .video
+        else {
+          failed.append(["index": idx, "id": id, "reason": "asset_not_found"])
+          continue
+        }
+        if let (entry, thumb) = self.videoPrep.register(asset: asset) {
+          videos.append([
+            "id": entry.id,
+            "durationMs": entry.durationMs,
+            "width": entry.width,
+            "height": entry.height,
+            "sizeBytes": entry.sourceBytes,
+            "thumbnailDataUrl": thumb,
+          ])
+        } else {
+          failed.append(["index": idx, "id": id, "reason": self.videoPrep.lastRegisterError ?? "video_unreadable"])
+        }
+      }
+      DispatchQueue.main.async { call.resolve(["videos": videos, "failed": failed]) }
+    }
+  }
+
+  /// 「더 고르기」(제한된 접근) — iOS 사진 선택 범위 편집 화면. 닫히면 resolve.
+  @objc func presentLimitedPicker(_ call: CAPPluginCall) {
+    DispatchQueue.main.async {
+      guard let vc = self.bridge?.viewController else {
+        call.resolve(["presented": false])
+        return
+      }
+      if #available(iOS 15, *) {
+        PHPhotoLibrary.shared().presentLimitedLibraryPicker(from: vc) { _ in
+          DispatchQueue.main.async { call.resolve(["presented": true, "state": self.permissionStateJs()]) }
+        }
+      } else {
+        call.resolve(["presented": false])
+      }
+    }
+  }
+
   /// 서명 URL 로 썸네일·영상 직접 PUT. resolve {ok, cancelled}
   @objc func uploadPreparedVideo(_ call: CAPPluginCall) {
     guard let handle = call.getString("handle"),
@@ -373,8 +424,10 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
       return
     }
     let contentType = call.getString("videoContentType") ?? "video/mp4"
-    videoPrep.upload(handle, videoURL: v, thumbURL: t, videoContentType: contentType) { ok, cancelled in
-      call.resolve(["ok": ok, "cancelled": cancelled])
+    videoPrep.upload(handle, videoURL: v, thumbURL: t, videoContentType: contentType) { ok, cancelled, error in
+      var out: [String: Any] = ["ok": ok, "cancelled": cancelled]
+      if let error = error { out["error"] = error }
+      call.resolve(out)
     }
   }
 
@@ -560,11 +613,22 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
     }
   }
 
-  private func fetchRecentThumbs(limit: Int) -> [[String: Any]] {
+  /// 채팅 영상(재감사 R3): includeVideos 면 사진·영상을 날짜순으로 섞는다(영상은 mediaType·durationMs).
+  private func fetchRecentThumbs(limit: Int, includeVideos: Bool = false) -> [[String: Any]] {
     let options = PHFetchOptions()
     options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
     options.fetchLimit = limit
-    let assets = PHAsset.fetchAssets(with: .image, options: options)
+    let assets: PHFetchResult<PHAsset>
+    if includeVideos {
+      options.predicate = NSPredicate(
+        format: "mediaType == %d || mediaType == %d",
+        PHAssetMediaType.image.rawValue,
+        PHAssetMediaType.video.rawValue
+      )
+      assets = PHAsset.fetchAssets(with: options)
+    } else {
+      assets = PHAsset.fetchAssets(with: .image, options: options)
+    }
     var photos: [[String: Any]] = []
     let target = CGSize(width: thumbMaxPx, height: thumbMaxPx)
     let requestOptions = PHImageRequestOptions()
@@ -588,12 +652,19 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
       }
       guard let image = outImage, let data = image.jpegData(compressionQuality: 0.7) else { return }
       let b64 = data.base64EncodedString()
-      photos.append([
+      var row: [String: Any] = [
         "id": "phasset:\(asset.localIdentifier)",
         "thumbnailDataUrl": "data:image/jpeg;base64,\(b64)",
         "width": asset.pixelWidth,
         "height": asset.pixelHeight,
-      ])
+      ]
+      if asset.mediaType == .video {
+        row["mediaType"] = "video"
+        row["durationMs"] = Int64(asset.duration * 1000)
+      } else if includeVideos {
+        row["mediaType"] = "image"
+      }
+      photos.append(row)
     }
     return photos
   }
@@ -747,6 +818,8 @@ final class MessengerVideoPrep: NSObject {
     var reader: AVAssetReader?
     var writer: AVAssetWriter?
     var task: URLSessionTask?
+    /// 마지막 실패 원인 코드(진단용)
+    var lastError: String?
 
     init(id: String, source: URL, sourceExt: String, sourceBytes: Int64, durationMs: Int64, width: Int, height: Int) {
       self.id = id
@@ -764,6 +837,8 @@ final class MessengerVideoPrep: NSObject {
   private let emit: (String, String, Double) -> Void
   private let work = DispatchQueue(label: "dibay.messenger.video", qos: .userInitiated)
   private var progressObservations: [String: NSKeyValueObservation] = [:]
+  /// 마지막 registerVideos 실패 원인(진단용)
+  var lastRegisterError: String?
 
   init(emit: @escaping (String, String, Double) -> Void) {
     self.emit = emit
@@ -827,6 +902,50 @@ final class MessengerVideoPrep: NSObject {
     return (e, "data:image/jpeg;base64,\(data.base64EncodedString())")
   }
 
+  /// 사진 앱 영상(PHAsset) → 파일로 꺼내 register(tempFile:) 와 같게 등록. iCloud 영상은 내려받는다. 백그라운드에서 호출.
+  func register(asset: PHAsset) -> (Entry, String)? {
+    lastRegisterError = nil
+    let opts = PHVideoRequestOptions()
+    opts.isNetworkAccessAllowed = true
+    opts.deliveryMode = .highQualityFormat
+    opts.version = .current
+    let sem = DispatchSemaphore(value: 0)
+    var got: AVAsset?
+    PHImageManager.default().requestAVAsset(forVideo: asset, options: opts) { av, _, info in
+      got = av
+      if av == nil {
+        let err = (info?[PHImageErrorKey] as? NSError).map { "phasset_\($0.domain)_\($0.code)" }
+        self.lastRegisterError = err ?? "phasset_no_asset"
+      }
+      sem.signal()
+    }
+    sem.wait()
+    if let url = (got as? AVURLAsset)?.url {
+      let r = register(tempFile: url)
+      if r == nil { lastRegisterError = lastRegisterError ?? "register_copy_failed" }
+      return r
+    }
+    /// 슬로모션 등(AVComposition) — 원본 화질로 한 번 내보낸 뒤 등록
+    guard let composed = got,
+          let export = AVAssetExportSession(asset: composed, presetName: AVAssetExportPresetHighestQuality)
+    else {
+      lastRegisterError = lastRegisterError ?? "phasset_export_unavailable"
+      return nil
+    }
+    let tmp = workDir().appendingPathComponent("\(UUID().uuidString.lowercased()).export.mov")
+    export.outputURL = tmp
+    export.outputFileType = .mov
+    let sem2 = DispatchSemaphore(value: 0)
+    export.exportAsynchronously { sem2.signal() }
+    sem2.wait()
+    defer { try? FileManager.default.removeItem(at: tmp) }
+    guard export.status == .completed else {
+      lastRegisterError = "phasset_export_\(export.status.rawValue)_\((export.error as NSError?)?.code ?? 0)"
+      return nil
+    }
+    return register(tempFile: tmp)
+  }
+
   private func frame(_ asset: AVAsset, maxEdge: CGFloat) -> UIImage? {
     let gen = AVAssetImageGenerator(asset: asset)
     gen.appliesPreferredTrackTransform = true
@@ -858,6 +977,7 @@ final class MessengerVideoPrep: NSObject {
       try? FileManager.default.removeItem(at: out)
       let asset = AVURLAsset(url: e.source)
       guard let vTrack = asset.tracks(withMediaType: .video).first else {
+        e.lastError = "no_video_track"
         DispatchQueue.main.async { completion(nil, "no_video_track") }
         return
       }
@@ -867,28 +987,44 @@ final class MessengerVideoPrep: NSObject {
         && bytesPerSec <= MessengerVideoPrep.passthroughMaxBytesPerSec
         && self.isH264(vTrack)
       var ok: Bool
+      e.lastError = nil
       if passthrough {
         ok = (try? FileManager.default.copyItem(at: e.source, to: out)) != nil
+        if !ok { e.lastError = "copy_failed" }
         e.transcoded = false
       } else {
         ok = self.transcode(e, asset: asset, videoTrack: vTrack, out: out)
         e.transcoded = true
       }
-      if ok && !e.cancelled { ok = self.writeThumb(e, video: out) }
+      if ok && !e.cancelled {
+        ok = self.writeThumb(e, video: out)
+        if !ok { e.lastError = "thumb_failed" }
+      }
       if ok && !e.cancelled {
         e.video = out
       } else {
         try? FileManager.default.removeItem(at: out)
       }
-      let err: String? = (ok && !e.cancelled) ? nil : (e.cancelled ? "cancelled" : "transcode_failed")
+      let err: String? = (ok && !e.cancelled) ? nil : (e.cancelled ? "cancelled" : (e.lastError ?? "transcode_failed"))
       DispatchQueue.main.async { completion(err == nil ? e : nil, err) }
     }
   }
 
   private func transcode(_ e: Entry, asset: AVAsset, videoTrack: AVAssetTrack, out: URL) -> Bool {
-    guard let reader = try? AVAssetReader(asset: asset),
-          let writer = try? AVAssetWriter(outputURL: out, fileType: .mp4)
-    else { return false }
+    let reader: AVAssetReader
+    let writer: AVAssetWriter
+    do {
+      reader = try AVAssetReader(asset: asset)
+    } catch {
+      e.lastError = "reader_create_\((error as NSError).code)"
+      return false
+    }
+    do {
+      writer = try AVAssetWriter(outputURL: out, fileType: .mp4)
+    } catch {
+      e.lastError = "writer_create_\((error as NSError).code)"
+      return false
+    }
     e.reader = reader
     e.writer = writer
     defer {
@@ -906,7 +1042,10 @@ final class MessengerVideoPrep: NSObject {
       kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
     ])
     vOut.alwaysCopiesSampleData = false
-    guard reader.canAdd(vOut) else { return false }
+    guard reader.canAdd(vOut) else {
+      e.lastError = "reader_add_video"
+      return false
+    }
     reader.add(vOut)
     let vIn = AVAssetWriterInput(mediaType: .video, outputSettings: [
       AVVideoCodecKey: AVVideoCodecType.h264,
@@ -921,7 +1060,10 @@ final class MessengerVideoPrep: NSObject {
     vIn.expectsMediaDataInRealTime = false
     /// 회전은 메타데이터로 유지(재생기가 적용) — 픽셀을 돌리지 않는다.
     vIn.transform = videoTrack.preferredTransform
-    guard writer.canAdd(vIn) else { return false }
+    guard writer.canAdd(vIn) else {
+      e.lastError = "writer_add_video"
+      return false
+    }
     writer.add(vIn)
 
     var aOut: AVAssetReaderTrackOutput?
@@ -954,7 +1096,15 @@ final class MessengerVideoPrep: NSObject {
       }
     }
     writer.shouldOptimizeForNetworkUse = true
-    guard reader.startReading(), writer.startWriting() else { return false }
+    guard reader.startReading() else {
+      e.lastError = "reader_start_\((reader.error as NSError?)?.code ?? 0)"
+      return false
+    }
+    guard writer.startWriting() else {
+      e.lastError = "writer_start_\((writer.error as NSError?)?.code ?? 0)"
+      reader.cancelReading()
+      return false
+    }
     writer.startSession(atSourceTime: .zero)
 
     let group = DispatchGroup()
@@ -1014,12 +1164,16 @@ final class MessengerVideoPrep: NSObject {
     }
     group.wait()
     if e.cancelled || reader.status == .failed {
+      if reader.status == .failed { e.lastError = "reader_failed_\((reader.error as NSError?)?.code ?? 0)" }
       writer.cancelWriting()
       return false
     }
     let sem = DispatchSemaphore(value: 0)
     writer.finishWriting { sem.signal() }
     sem.wait()
+    if writer.status != .completed {
+      e.lastError = "writer_finish_\(writer.status.rawValue)_\((writer.error as NSError?)?.code ?? 0)"
+    }
     return writer.status == .completed
   }
 
@@ -1056,24 +1210,25 @@ final class MessengerVideoPrep: NSObject {
   }
 
   /// 서명 URL 로 썸네일 → 영상 PUT. 진행률 videoProgress {id, phase:"upload"}. completion(ok, cancelled) 메인 스레드.
-  func upload(_ id: String, videoURL: URL, thumbURL: URL, videoContentType: String, completion: @escaping (Bool, Bool) -> Void) {
+  func upload(_ id: String, videoURL: URL, thumbURL: URL, videoContentType: String, completion: @escaping (Bool, Bool, String?) -> Void) {
     guard let e = get(id), let video = e.video, let thumb = e.thumb else {
-      completion(false, false)
+      completion(false, false, "not_prepared")
       return
     }
     e.cancelled = false
-    put(e, url: thumbURL, file: thumb, contentType: "image/jpeg", report: false) { ok in
+    e.lastError = nil
+    put(e, url: thumbURL, file: thumb, contentType: "image/jpeg", report: false, label: "thumb") { ok in
       guard ok, !e.cancelled else {
-        DispatchQueue.main.async { completion(false, e.cancelled) }
+        DispatchQueue.main.async { completion(false, e.cancelled, e.lastError) }
         return
       }
-      self.put(e, url: videoURL, file: video, contentType: videoContentType, report: true) { ok2 in
-        DispatchQueue.main.async { completion(ok2 && !e.cancelled, e.cancelled) }
+      self.put(e, url: videoURL, file: video, contentType: videoContentType, report: true, label: "video") { ok2 in
+        DispatchQueue.main.async { completion(ok2 && !e.cancelled, e.cancelled, ok2 ? nil : e.lastError) }
       }
     }
   }
 
-  private func put(_ e: Entry, url: URL, file: URL, contentType: String, report: Bool, done: @escaping (Bool) -> Void) {
+  private func put(_ e: Entry, url: URL, file: URL, contentType: String, report: Bool, label: String, done: @escaping (Bool) -> Void) {
     var req = URLRequest(url: url)
     req.httpMethod = "PUT"
     req.setValue(contentType, forHTTPHeaderField: "content-type")
@@ -1085,6 +1240,11 @@ final class MessengerVideoPrep: NSObject {
       self.lock.unlock()
       e.task = nil
       let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+      if let err = err as NSError? {
+        e.lastError = "\(label)_network_\(err.code)"
+      } else if code < 200 || code >= 300 {
+        e.lastError = "\(label)_http_\(code)"
+      }
       done(err == nil && code >= 200 && code < 300)
     }
     if report {

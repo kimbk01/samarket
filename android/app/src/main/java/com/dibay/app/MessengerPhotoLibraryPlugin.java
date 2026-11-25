@@ -47,7 +47,19 @@ import java.util.LinkedHashSet;
 @CapacitorPlugin(
   name = "MessengerPhotoLibrary",
   permissions = {
-    @Permission(strings = { Manifest.permission.READ_MEDIA_IMAGES }, alias = MessengerPhotoLibraryPlugin.ALIAS_PHOTOS),
+    @Permission(
+      strings = { Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO },
+      alias = MessengerPhotoLibraryPlugin.ALIAS_PHOTOS
+    ),
+    /** Android 14+: 「제한된 액세스 허용」(사용자가 고른 사진·동영상만)을 함께 요청 — 카톡과 같은 3개 선언(재감사 R1) */
+    @Permission(
+      strings = {
+        Manifest.permission.READ_MEDIA_IMAGES,
+        Manifest.permission.READ_MEDIA_VIDEO,
+        Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+      },
+      alias = MessengerPhotoLibraryPlugin.ALIAS_PHOTOS_34
+    ),
     @Permission(strings = { Manifest.permission.READ_EXTERNAL_STORAGE }, alias = MessengerPhotoLibraryPlugin.ALIAS_LEGACY_PHOTOS),
     @Permission(strings = { Manifest.permission.WRITE_EXTERNAL_STORAGE }, alias = MessengerPhotoLibraryPlugin.ALIAS_LEGACY_WRITE),
   }
@@ -55,6 +67,10 @@ import java.util.LinkedHashSet;
 @androidx.media3.common.util.UnstableApi
 public class MessengerPhotoLibraryPlugin extends Plugin {
   static final String ALIAS_PHOTOS = "photos";
+  static final String ALIAS_PHOTOS_34 = "photos34";
+  /** 권한을 한 번이라도 요청했는지 — 「다시 묻지 않음」(설정에서만 허용)과 「아직 안 물음」 구분용 */
+  private static final String PREFS = "messenger_photo_library";
+  private static final String PREF_ASKED = "media_permission_asked";
   static final String ALIAS_LEGACY_PHOTOS = "legacyPhotos";
   /** Android 9 이하 공용 Pictures 저장용 (manifest maxSdkVersion=28). */
   static final String ALIAS_LEGACY_WRITE = "legacyWrite";
@@ -88,7 +104,7 @@ public class MessengerPhotoLibraryPlugin extends Plugin {
 
   @PluginMethod
   public void requestPermission(PluginCall call) {
-    if (hasPhotoPermission()) {
+    if (hasFullMediaPermission()) {
       resolvePermission(call, "authorized");
       return;
     }
@@ -96,6 +112,7 @@ public class MessengerPhotoLibraryPlugin extends Plugin {
       resolvePermission(call, "authorized");
       return;
     }
+    getContext().getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putBoolean(PREF_ASKED, true).apply();
     requestPermissionForAlias(permissionAlias(), call, "permissionCallback");
   }
 
@@ -103,11 +120,19 @@ public class MessengerPhotoLibraryPlugin extends Plugin {
   public void getRecentPhotos(PluginCall call) {
     int limit = Math.max(1, Math.min(call.getInt("limit", 24), 40));
     String state = permissionStateJs();
-    if (!"authorized".equals(state)) {
+    if (!"authorized".equals(state) && !"limited".equals(state)) {
       JSObject result = new JSObject();
       result.put("state", state);
       result.put("photos", new JSArray());
       call.resolve(result);
+      return;
+    }
+    /** 채팅 영상(재감사 R3): 새 웹은 includeVideos=true 로 사진·영상을 날짜순으로 섞어 받는다 */
+    if (Boolean.TRUE.equals(call.getBoolean("includeVideos", false)) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      JSObject mixed = new JSObject();
+      mixed.put("state", state);
+      mixed.put("photos", queryRecentMedia(limit));
+      call.resolve(mixed);
       return;
     }
 
@@ -145,6 +170,106 @@ public class MessengerPhotoLibraryPlugin extends Plugin {
     result.put("state", permissionStateJs());
     result.put("photos", photos);
     call.resolve(result);
+  }
+
+  /**
+   * 최근 사진·영상(날짜 내림차순). 영상은 mediaType="video"·durationMs 를 싣는다.
+   * 「제한된 액세스」면 MediaStore 가 사용자가 고른 항목만 돌려준다.
+   */
+  private JSArray queryRecentMedia(int limit) {
+    JSArray out = new JSArray();
+    ContentResolver resolver = getContext().getContentResolver();
+    Uri files = MediaStore.Files.getContentUri("external");
+    String[] projection = new String[] {
+      MediaStore.Files.FileColumns._ID,
+      MediaStore.Files.FileColumns.MEDIA_TYPE,
+      MediaStore.Files.FileColumns.WIDTH,
+      MediaStore.Files.FileColumns.HEIGHT,
+      MediaStore.Video.VideoColumns.DURATION,
+      MediaStore.Files.FileColumns.DATE_ADDED,
+    };
+    Bundle args = new Bundle();
+    args.putString(
+      ContentResolver.QUERY_ARG_SQL_SELECTION,
+      MediaStore.Files.FileColumns.MEDIA_TYPE + " IN (" +
+        MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE + "," + MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO + ")"
+    );
+    args.putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, MediaStore.Files.FileColumns.DATE_ADDED + " DESC");
+    args.putInt(ContentResolver.QUERY_ARG_LIMIT, limit);
+    try (Cursor c = resolver.query(files, projection, args, null)) {
+      if (c == null) return out;
+      int idCol = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID);
+      int typeCol = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE);
+      int wCol = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.WIDTH);
+      int hCol = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.HEIGHT);
+      int dCol = c.getColumnIndexOrThrow(MediaStore.Video.VideoColumns.DURATION);
+      while (c.moveToNext() && out.length() < limit) {
+        long mediaId = c.getLong(idCol);
+        boolean video = c.getInt(typeCol) == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO;
+        Uri uri = ContentUris.withAppendedId(
+          video ? MediaStore.Video.Media.EXTERNAL_CONTENT_URI : MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+          mediaId
+        );
+        Bitmap thumbnail;
+        try {
+          thumbnail = resolver.loadThumbnail(uri, new Size(THUMBNAIL_SIZE_PX, THUMBNAIL_SIZE_PX), null);
+        } catch (Exception e) {
+          thumbnail = null;
+        }
+        if (thumbnail == null) continue;
+        JSObject item = new JSObject();
+        item.put("id", uri.toString());
+        item.put("thumbnailDataUrl", "data:image/jpeg;base64," + bitmapToBase64(thumbnail, 72));
+        item.put("width", c.getInt(wCol));
+        item.put("height", c.getInt(hCol));
+        item.put("mediaType", video ? "video" : "image");
+        if (video) item.put("durationMs", c.getLong(dCol));
+        out.put(item);
+      }
+    } catch (Exception e) {
+      Log.w("MessengerPhotoLibrary", "queryRecentMedia failed", e);
+    }
+    return out;
+  }
+
+  /** 채팅 영상(재감사 R3): 최근 줄에서 고른 영상(content uri)을 보낼 준비 목록에 등록 — 선택기 결과와 같은 모양 */
+  @PluginMethod
+  public void registerVideos(PluginCall call) {
+    JSArray ids = call.getArray("ids");
+    JSArray videos = new JSArray();
+    JSArray failed = new JSArray();
+    if (ids == null || !canReadMedia()) {
+      JSObject r = new JSObject();
+      r.put("videos", videos);
+      r.put("failed", failed);
+      call.resolve(r);
+      return;
+    }
+    for (int i = 0; i < ids.length(); i++) {
+      String id = null;
+      try {
+        id = ids.getString(i);
+        MessengerVideoPrep.Picked picked = videoPrep().register(Uri.parse(id));
+        if (picked == null) {
+          failed.put(failureRow(i, id, "video_unreadable"));
+          continue;
+        }
+        JSObject v = new JSObject();
+        v.put("id", picked.entry.id);
+        v.put("durationMs", picked.entry.durationMs);
+        v.put("width", picked.entry.width);
+        v.put("height", picked.entry.height);
+        v.put("sizeBytes", picked.entry.sourceBytes);
+        v.put("thumbnailDataUrl", picked.thumbnailDataUrl);
+        videos.put(v);
+      } catch (Exception e) {
+        failed.put(failureRow(i, id, "invalid_id"));
+      }
+    }
+    JSObject r = new JSObject();
+    r.put("videos", videos);
+    r.put("failed", failed);
+    call.resolve(r);
   }
 
   /**
@@ -318,10 +443,11 @@ public class MessengerPhotoLibraryPlugin extends Plugin {
       call.reject("bad_args");
       return;
     }
-    videoPrep().upload(handle, videoUrl, thumbUrl, contentType, (ok, cancelled) -> {
+    videoPrep().upload(handle, videoUrl, thumbUrl, contentType, (ok, cancelled, error) -> {
       JSObject r = new JSObject();
       r.put("ok", ok);
       r.put("cancelled", cancelled);
+      if (error != null) r.put("error", error);
       call.resolve(r);
     });
   }
@@ -529,22 +655,53 @@ public class MessengerPhotoLibraryPlugin extends Plugin {
 
   @PermissionCallback
   private void permissionCallback(PluginCall call) {
-    resolvePermission(call, hasPhotoPermission() ? "authorized" : "denied");
+    resolvePermission(call, permissionStateJs());
   }
 
-  private String permissionStateJs() {
-    return hasPhotoPermission() ? "authorized" : "prompt";
-  }
-
-  private boolean hasPhotoPermission() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true;
-    String permission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-      ? Manifest.permission.READ_MEDIA_IMAGES
-      : Manifest.permission.READ_EXTERNAL_STORAGE;
+  private boolean granted(String permission) {
     return ContextCompat.checkSelfPermission(getContext(), permission) == PackageManager.PERMISSION_GRANTED;
   }
 
+  /** 전체 허용 — Android 13+ 는 사진·동영상 둘 다(텔레그램 isNoGalleryPermissions 와 같은 기준) */
+  private boolean hasFullMediaPermission() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      return granted(Manifest.permission.READ_MEDIA_IMAGES) && granted(Manifest.permission.READ_MEDIA_VIDEO);
+    }
+    return granted(Manifest.permission.READ_EXTERNAL_STORAGE);
+  }
+
+  /** Android 14+ 「제한된 액세스 허용」 */
+  private boolean hasLimitedMediaPermission() {
+    return Build.VERSION.SDK_INT >= 34 && granted(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED);
+  }
+
+  /** 읽을 수 있는가(전체 · 제한 · 예전에 사진만 허용) — resolvePhotos·registerVideos 용 */
+  private boolean canReadMedia() {
+    if (hasFullMediaPermission() || hasLimitedMediaPermission()) return true;
+    return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && granted(Manifest.permission.READ_MEDIA_IMAGES);
+  }
+
+  /**
+   * authorized · limited · prompt(아직 안 물었거나 다시 물을 수 있음) · denied(시스템이 더는 묻지 않음 → 설정에서만 허용)
+   */
+  private String permissionStateJs() {
+    if (hasFullMediaPermission()) return "authorized";
+    if (hasLimitedMediaPermission()) return "limited";
+    boolean asked = getContext().getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getBoolean(PREF_ASKED, false);
+    String key = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+      ? Manifest.permission.READ_MEDIA_IMAGES
+      : Manifest.permission.READ_EXTERNAL_STORAGE;
+    boolean rationale = getActivity() != null && getActivity().shouldShowRequestPermissionRationale(key);
+    return asked && !rationale ? "denied" : "prompt";
+  }
+
+  private boolean hasPhotoPermission() {
+    return canReadMedia();
+  }
+
   private String permissionAlias() {
+    if (Build.VERSION.SDK_INT >= 34) return ALIAS_PHOTOS_34;
     return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ? ALIAS_PHOTOS : ALIAS_LEGACY_PHOTOS;
   }
 
