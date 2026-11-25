@@ -48,6 +48,8 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/cron/commerce-notification-push-handoff": 2.0,
   "/api/cron/notification-push-handoff": 1.0,
   "/api/cron/store-orders-accept-timeout": 1.0,
+  /** 고정 바닥 1단계(2026-11-26) — 자동 취소·독촉 예약 실행을 합침. 대기 주문 없으면 확인 읽기 1번 */
+  "/api/cron/store-orders-minute-tick": 1.0,
   "/api/me/notifications": 1.5,
   "/api/philife/neighborhood-topic-options": 1.5,
   "/api/home/store-menus": 2.2,

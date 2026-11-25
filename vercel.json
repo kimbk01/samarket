@@ -90,11 +90,7 @@
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/store-order-accept-reminders",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/store-orders-accept-timeout",
+      "path": "/api/cron/store-orders-minute-tick",
       "schedule": "* * * * *"
     },
     {
