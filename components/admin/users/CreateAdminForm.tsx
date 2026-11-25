@@ -3,12 +3,11 @@
 import { useState, useCallback } from "react";
 import {
   STAFF_PASSWORD_MIN_LENGTH,
-  adminSetPasswordHintKo,
   checkAdminSetPassword,
 } from "@/lib/auth/admin-set-password-policy";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { adminStaffFailureText } from "@/lib/admin-users/admin-staff-error-text";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminPermissionKey, CreateAdminInput } from "@/lib/types/admin-staff";
 import { DEFAULT_PERMISSIONS_BY_ROLE } from "@/lib/admin-users/admin-permissions";
@@ -68,7 +67,7 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
     }
     const passwordRule = checkAdminSetPassword(password, "staff");
     if (!passwordRule.ok) {
-      setError(passwordRule.messageKo);
+      setError(t(passwordRule.errorKey));
       return;
     }
     if (displayName.trim().length > 64) {
@@ -91,7 +90,7 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
       onSuccess();
       onClose();
     } else {
-      setError(adminOperatorErrorMessage(result.error, language !== "en"));
+      setError(adminStaffFailureText(result, t, language !== "en"));
     }
   };
 
@@ -135,7 +134,7 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
                 maxLength={128}
                 autoComplete="new-password"
                 className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-                placeholder={adminSetPasswordHintKo("staff")}
+                placeholder={t("admin_users_password_hint_staff")}
               />
             </div>
           </div>

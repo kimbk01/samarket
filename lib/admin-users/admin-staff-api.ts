@@ -29,18 +29,21 @@ export async function fetchAdminStaffList(): Promise<AdminStaff[]> {
   return data.staff.filter((s) => !s.disabled);
 }
 
+/** 실패 — `error` 는 서버 코드, 비밀번호 오류면 `errorKey`(화면이 `t()` 로 번역). 서버 문장(`message`)은 쓰지 않는다. */
+export type AdminStaffApiFailure = { ok: false; error: string; errorKey?: string };
+
 export async function createAdminStaffApi(
   input: CreateAdminInput
-): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; id: string } | AdminStaffApiFailure> {
   const res = await fetch("/api/admin/staff", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  const data = (await res.json()) as { ok?: boolean; id?: string; error?: string; message?: string };
+  const data = (await res.json().catch(() => ({}))) as { ok?: boolean; id?: string; error?: string; errorKey?: string };
   if (!res.ok || !data.ok) {
-    return { ok: false, error: data.message ?? data.error ?? "요청에 실패했습니다." };
+    return { ok: false, error: data.error ?? "action_failed", ...(data.errorKey ? { errorKey: data.errorKey } : {}) };
   }
   return { ok: true, id: String(data.id ?? "") };
 }
@@ -50,7 +53,7 @@ export async function promoteMemberToAdminApi(input: {
   userId: string;
   role: AdminRole;
   permissions: AdminPermissionKey[];
-}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+}): Promise<{ ok: true; id: string } | AdminStaffApiFailure> {
   return createAdminStaffApi({
     userId: input.userId,
     role: input.role,
@@ -61,16 +64,16 @@ export async function promoteMemberToAdminApi(input: {
 export async function updateAdminStaffApi(
   id: string,
   input: { displayName?: string; role?: AdminRole; permissions?: AdminPermissionKey[]; password?: string }
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true } | AdminStaffApiFailure> {
   const res = await fetch(`/api/admin/staff/${encodeURIComponent(id)}`, {
     method: "PATCH",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
+  const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; errorKey?: string };
   if (!res.ok || !data.ok) {
-    return { ok: false, error: data.message ?? data.error ?? "저장에 실패했습니다." };
+    return { ok: false, error: data.error ?? "update_failed", ...(data.errorKey ? { errorKey: data.errorKey } : {}) };
   }
   return { ok: true };
 }

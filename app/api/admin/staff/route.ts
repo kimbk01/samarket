@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
   const passwordRule = checkAdminSetPassword(password, "staff");
   if (!passwordRule.ok) {
     return NextResponse.json(
-      { ok: false, error: passwordRule.error, message: passwordRule.messageKo },
+      { ok: false, error: passwordRule.error, errorKey: passwordRule.errorKey },
       { status: 400 },
     );
   }
@@ -263,7 +263,7 @@ export async function POST(req: NextRequest) {
   const weakPassword = createErr ? mapSupabaseWeakPasswordError(createErr) : null;
   if (weakPassword) {
     return NextResponse.json(
-      { ok: false, error: weakPassword.error, reasons: weakPassword.reasons, message: weakPassword.messageKo },
+      { ok: false, error: weakPassword.error, reasons: weakPassword.reasons, errorKey: weakPassword.errorKey },
       { status: 422 },
     );
   }

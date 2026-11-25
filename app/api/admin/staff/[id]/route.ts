@@ -142,7 +142,7 @@ export async function PATCH(
     const passwordRule = checkAdminSetPassword(pwd, "staff");
     if (!passwordRule.ok) {
       return NextResponse.json(
-        { ok: false, error: passwordRule.error, message: passwordRule.messageKo },
+        { ok: false, error: passwordRule.error, errorKey: passwordRule.errorKey },
         { status: 400 },
       );
     }
@@ -150,13 +150,15 @@ export async function PATCH(
     const weakPassword = pwdErr ? mapSupabaseWeakPasswordError(pwdErr) : null;
     if (weakPassword) {
       return NextResponse.json(
-        { ok: false, error: weakPassword.error, reasons: weakPassword.reasons, message: weakPassword.messageKo },
+        { ok: false, error: weakPassword.error, reasons: weakPassword.reasons, errorKey: weakPassword.errorKey },
         { status: 422 },
       );
     }
     if (pwdErr) {
+      /** DB·Auth 원문은 화면에 보내지 않는다(가입 후속 감사) — 서버 로그에만 */
+      console.error("[admin/staff] password update failed", pwdErr.message);
       return NextResponse.json(
-        { ok: false, error: "password_update_failed", message: pwdErr.message },
+        { ok: false, error: "password_update_failed" },
         { status: 500 },
       );
     }

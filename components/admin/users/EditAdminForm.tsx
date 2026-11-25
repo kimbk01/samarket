@@ -3,10 +3,10 @@
 import { useState, useCallback, useEffect } from "react";
 import {
   STAFF_PASSWORD_MIN_LENGTH,
-  adminSetPasswordHintKo,
   checkAdminSetPassword,
 } from "@/lib/auth/admin-set-password-policy";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { adminStaffFailureText } from "@/lib/admin-users/admin-staff-error-text";
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminPermissionKey, AdminStaff } from "@/lib/types/admin-staff";
 import { DEFAULT_PERMISSIONS_BY_ROLE } from "@/lib/admin-users/admin-permissions";
@@ -32,7 +32,7 @@ interface EditAdminFormProps {
 }
 
 export function EditAdminForm({ staffId, isSelf = false, onClose, onSuccess }: EditAdminFormProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { isSuperAdmin, snapshot, refresh } = useAdminMe();
   const [staff, setStaff] = useState<AdminStaff | null>(null);
   const [loadingStaff, setLoadingStaff] = useState(true);
@@ -122,7 +122,7 @@ export function EditAdminForm({ staffId, isSelf = false, onClose, onSuccess }: E
     if (canSetPassword) {
       const passwordRule = checkAdminSetPassword(newPassword, "staff");
       if (!passwordRule.ok) {
-        setError(passwordRule.messageKo);
+        setError(t(passwordRule.errorKey));
         return;
       }
       if (newPassword !== confirmPassword) {
@@ -144,7 +144,7 @@ export function EditAdminForm({ staffId, isSelf = false, onClose, onSuccess }: E
       onSuccess();
       onClose();
     } else {
-      setError(result.error);
+      setError(adminStaffFailureText(result, t, language !== "en"));
     }
   };
 
@@ -239,7 +239,7 @@ export function EditAdminForm({ staffId, isSelf = false, onClose, onSuccess }: E
                 minLength={STAFF_PASSWORD_MIN_LENGTH}
                 maxLength={128}
                 className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-                placeholder={adminSetPasswordHintKo("staff")}
+                placeholder={t("admin_users_password_hint_staff")}
                 data-admin-staff-password-input="1"
               />
               <p className="mt-1 text-[12px] text-sam-muted">{t("admin_users_auth_password_hint")}</p>
@@ -254,7 +254,7 @@ export function EditAdminForm({ staffId, isSelf = false, onClose, onSuccess }: E
                 minLength={STAFF_PASSWORD_MIN_LENGTH}
                 maxLength={128}
                 className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-                placeholder={adminSetPasswordHintKo("staff")}
+                placeholder={t("admin_users_password_hint_staff")}
                 data-admin-staff-password-confirm="1"
               />
             </div>
