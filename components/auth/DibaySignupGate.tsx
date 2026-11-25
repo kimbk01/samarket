@@ -26,7 +26,11 @@ import {
 } from "@/lib/auth/signup-gate-session";
 import { classifySignupStatusResponse, signupGateRetryDelayMs } from "@/lib/auth/signup-gate-decision";
 import { guardedRouterReplace, logNetworkLoopGuardReplace } from "@/lib/dev/network-loop-guard";
-import { isRegistrationGateExemptPath, resolveRegistrationGateTarget } from "@/lib/auth/registration-gate";
+import {
+  isRegistrationGateExemptPath,
+  markRegistrationGatePassthrough,
+  resolveRegistrationGateTarget,
+} from "@/lib/auth/registration-gate";
 import {
   invalidateRegistrationPending,
   peekRegistrationPendingKnowledge,
@@ -172,7 +176,11 @@ export function DibaySignupGate() {
     /** 단계 화면이 방금 이 화면으로 되돌려 보냈다 — 사본을 믿지 않고 서버에 다시(요청 캐시도 건너뜀) */
     const bounce = isRegistrationBounce(here);
     if (bounce.bounce) {
-      if (bounce.repeated) return "exempt";
+      if (bounce.repeated) {
+        /** 이번엔 보내지 않는다 — 이 화면에서 쓰기가 막히면 안내 창은 열리게 표시(감사 검토 #2) */
+        markRegistrationGatePassthrough(pathnameRef.current);
+        return "exempt";
+      }
       invalidateMandatoryAddressGateClientCache();
       invalidateRegistrationPending();
       const r = await readRegistrationFromServer({ bypassCache: true });

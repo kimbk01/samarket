@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { markRegistrationGatePassthrough, resetRegistrationGatePassthroughForTests } from "@/lib/auth/registration-gate";
 
 /** 설계 2026-11-21 §5-3 — 가입 진행 중 안내: 요청 단계 한 곳 */
 const opened = vi.hoisted(() => [] as unknown[]);
@@ -118,6 +119,19 @@ describe("안전망 — 서버 403", () => {
     const res = await f("/api/philife/posts", { method: "POST" });
     expect((await res.json()).code).toBe("signup_incomplete");
     expect(opened).toHaveLength(0);
+  });
+
+  it("관문이 왕복 감지로 그대로 연 화면(/philife)이면 창을 연다 — 안내 없는 상태 방지 (감사 검토 #2)", async () => {
+    vi.stubGlobal("window", { location: { href: `${ORIGIN}/philife`, origin: ORIGIN, pathname: "/philife", search: "" } });
+    resetRegistrationGatePassthroughForTests();
+    markRegistrationGatePassthrough("/philife");
+    setRegistrationPendingFromServer("address");
+    const base = okFetch();
+    const f = wrapFetchWithRegistrationGuidance(base as unknown as typeof fetch);
+    const res = await f("/api/philife/posts", { method: "POST" });
+    expect(res.status).toBe(403);
+    expect(opened).toHaveLength(1);
+    resetRegistrationGatePassthroughForTests();
   });
 });
 

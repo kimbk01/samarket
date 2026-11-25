@@ -65,7 +65,12 @@ export default async function AuthOnboardingTermsPage({
       if ((target.split("?")[0] ?? target) !== "/auth/onboarding/terms") redirect(target);
     }
   }
-  const consentGap = !termsOk && !ageOk ? "terms_privacy_and_age" : !termsOk ? "terms_privacy" : "age";
+  /**
+   * 동의·나이 모두 확인됐는데 화면을 그리는 경우(위 자기 자신 목적지 — 일시 조회 실패)에는 「나이 확인」만 묻지 않고
+   * 약관 다시 동의로 보인다(저장은 같은 값이라 무해 · 감사 검토 #4).
+   */
+  const consentGap =
+    !termsOk && !ageOk ? "terms_privacy_and_age" : !termsOk || ageOk ? "terms_privacy" : "age";
   return (
     <div className="min-h-screen bg-sam-app">
       <AuthConsentForm
