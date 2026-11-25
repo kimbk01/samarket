@@ -1,7 +1,7 @@
 /**
  * Neighborhood feed list merge — preserve row refs only when projection-equal.
- * CONTRACT: author_name / engagement counts are mutable server projections —
- * must NOT reuse prev row when they differ (Identity SSOT / cache convergence).
+ * CONTRACT: every server field is a mutable projection (author_name · counts · topic skin · images · title …) —
+ * must NOT reuse prev row when any of them differ (Identity SSOT / cache convergence).
  */
 
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
@@ -35,31 +35,34 @@ export function dedupeNeighborhoodFeedById(list: NeighborhoodFeedPostDTO[]): Nei
   return mergeNeighborhoodFeedById([], list, false);
 }
 
+/**
+ * 서버가 준 칸 전부를 비교한다 (2026-11-25 · 감사 lounge-share-thumbnail §1-7).
+ *
+ * 이전에는 좋아요·댓글·조회·작성자·본문만 비교해, 어드민이 주제 목록 모양(`feed_list_skin`)을 바꾸거나
+ * 사진·제목·주제 이름이 바뀌어도 「같은 글」로 보고 저장본(최대 7일)을 계속 그렸다
+ * — 「질문있어요」 썸네일 숨김 해제 뒤에도 목록에 썸네일이 안 나온 원인.
+ * 칸을 골라 적으면 새 칸이 생길 때마다 같은 결함이 다시 생기므로 칸 목록을 두지 않는다.
+ */
+function sameFieldValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a == null || b == null) return a == null && b == null;
+  if (typeof a !== "object" || typeof b !== "object") return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 export function isSameNeighborhoodFeedRow(
   a: NeighborhoodFeedPostDTO,
   b: NeighborhoodFeedPostDTO
 ): boolean {
-  const ax = a as NeighborhoodFeedPostDTO & {
-    updated_at?: string;
-    created_at?: string;
-    content?: string;
-  };
-  const bx = b as NeighborhoodFeedPostDTO & {
-    updated_at?: string;
-    created_at?: string;
-    content?: string;
-  };
-  return (
-    ax.id === bx.id &&
-    (ax.updated_at ?? "") === (bx.updated_at ?? "") &&
-    (ax.created_at ?? "") === (bx.created_at ?? "") &&
-    (ax.content ?? "") === (bx.content ?? "") &&
-    (ax.author_name ?? "") === (bx.author_name ?? "") &&
-    (ax.author_id ?? "") === (bx.author_id ?? "") &&
-    Number(ax.like_count ?? 0) === Number(bx.like_count ?? 0) &&
-    Number(ax.comment_count ?? 0) === Number(bx.comment_count ?? 0) &&
-    Number(ax.view_count ?? 0) === Number(bx.view_count ?? 0)
-  );
+  if (a === b) return true;
+  if (a.id !== b.id) return false;
+  const ax = a as unknown as Record<string, unknown>;
+  const bx = b as unknown as Record<string, unknown>;
+  const keys = new Set([...Object.keys(ax), ...Object.keys(bx)]);
+  for (const k of keys) {
+    if (!sameFieldValue(ax[k], bx[k])) return false;
+  }
+  return true;
 }
 
 export function isSameNeighborhoodFeedRows(

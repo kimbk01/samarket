@@ -33,7 +33,7 @@ function row(partial: Partial<NeighborhoodFeedPostDTO> & { id: string }): Neighb
     summary: partial.summary ?? "c",
     location_id: "",
     location_label: "Malate",
-    images: [],
+    images: partial.images ?? [],
     view_count: partial.view_count ?? 0,
     like_count: partial.like_count ?? 0,
     comment_count: partial.comment_count ?? 0,
@@ -56,6 +56,35 @@ describe("neighborhood-feed-row-merge identity", () => {
     const out = patchNeighborhoodFeedRows(prev, incoming);
     expect(out[0]?.author_name).toBe("참이슬");
     expect(out[0]).not.toBe(prev[0]);
+  });
+
+  /** 2026-11-25 — 어드민이 「질문있어요」 썸네일 숨김을 풀었는데 저장본이 계속 이겨 목록에 썸네일이 안 나옴 */
+  it("replaces cached row when admin changes topic list skin", () => {
+    const img = "https://x.supabase.co/storage/v1/object/public/post-images/u1/community/a.webp";
+    const prev = [row({ id: "p1", feed_list_skin: "text_primary", images: [img] })];
+    const incoming = [row({ id: "p1", feed_list_skin: "compact_media", images: [img] })];
+    const out = patchNeighborhoodFeedRows(prev, incoming);
+    expect(out[0]?.feed_list_skin).toBe("compact_media");
+    expect(out).not.toBe(prev);
+  });
+
+  it.each([
+    ["images", { images: ["https://x/b.webp"] }],
+    ["title", { title: "새 제목" }],
+    ["summary", { summary: "새 요약" }],
+    ["category_label", { category_label: "질문" }],
+    ["topic_color", { topic_color: "#ff0000" }],
+    ["is_pinned", { is_pinned: true }],
+  ] as const)("treats rows different when %s differs", (_k, patch) => {
+    const a = row({ id: "p1" });
+    const b = { ...row({ id: "p1" }), ...patch } as NeighborhoodFeedPostDTO;
+    expect(isSameNeighborhoodFeedRow(a, b)).toBe(false);
+  });
+
+  it("treats JSON round-tripped cache row as equal to the same server row", () => {
+    const server = row({ id: "p1", images: ["https://x/a.webp"] });
+    const cached = JSON.parse(JSON.stringify(server)) as NeighborhoodFeedPostDTO;
+    expect(isSameNeighborhoodFeedRow(cached, server)).toBe(true);
   });
 
   it("reuses row ref when projection equal", () => {
