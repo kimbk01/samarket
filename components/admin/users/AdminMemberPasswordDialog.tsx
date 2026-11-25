@@ -8,7 +8,6 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   ADMIN_SET_PASSWORD_MAX_LENGTH,
   MEMBER_PASSWORD_MIN_LENGTH,
-  adminSetPasswordHintKo,
   checkAdminSetPassword,
   isAdminSetPasswordErrorKey,
 } from "@/lib/auth/admin-set-password-policy";
@@ -124,7 +123,7 @@ export function AdminMemberPasswordDialog({
     >
       <div className="space-y-3" data-member-password-dialog="1">
         <p className="text-[12px] text-sam-muted" data-member-password-rule="1">
-          {adminSetPasswordHintKo("member")}
+          {t("admin_users_password_hint_member")}
         </p>
         <label className="block text-[13px]">
           <span className="mb-1 block text-sam-muted">{t(MEMBER_ADMIN_COPY_KEY.password_new_label)}</span>

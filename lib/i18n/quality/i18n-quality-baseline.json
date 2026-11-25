@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-25 14:04 PHT",
+ "generatedAtPht": "2026-11-25 15:20 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -327,7 +327,6 @@
    "lib/admin-settings/service-categories-db.ts": 1,
    "lib/admin-settings/service-categories-state.ts": 12,
    "lib/admin-users/admin-role-labels.ts": 3,
-   "lib/admin-users/admin-staff-api.ts": 2,
    "lib/admin-users/admin-users-list-server.ts": 1,
    "lib/admin-users/member-admin-action-policy.ts": 19,
    "lib/admin-users/member-admin-copy-ssot.ts": 3,

@@ -2,8 +2,8 @@
 
 import { useCallback, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { adminStaffFailureText } from "@/lib/admin-users/admin-staff-error-text";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
 import { AdminPermissionToggles } from "@/components/admin/users/AdminPermissionToggles";
@@ -54,7 +54,7 @@ export function PromoteMemberToAdminSheet({
     });
     setSubmitting(false);
     if (!result.ok) {
-      setError(adminOperatorErrorMessage(result.error, language !== "en"));
+      setError(adminStaffFailureText(result, t, language !== "en"));
       return;
     }
     onSuccess();
