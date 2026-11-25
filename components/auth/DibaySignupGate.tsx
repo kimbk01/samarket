@@ -33,8 +33,11 @@ import {
   subscribeRegistrationPending,
 } from "@/lib/auth/registration-pending-state.client";
 import { fetchMandatoryAddressGateDeduped } from "@/lib/addresses/mandatory-address-gate-client";
-import { getSupabaseClient } from "@/lib/supabase/client";
-import { runBrowserAuthRefreshDeduped } from "@/lib/supabase/auth-refresh-telemetry";
+import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
+import {
+  OWNER_HUB_SECONDARY_AFTER_MS,
+  runNowOrScheduleOnStoreOwnerAdmin,
+} from "@/lib/business/owner-hub-secondary-fetch-queue";
 
 /** Resume refresh of required consent versions — at most once per minute. */
 const CONSENT_VERSION_REFRESH_MIN_MS = 60_000;
@@ -90,6 +93,24 @@ export function DibaySignupGate() {
     if (isRegistrationGateExemptPath(pathnameRef.current)) return "exempt";
     let known = peekRegistrationPendingKnowledge();
     if (known === "unknown") {
+      /**
+       * 매장 사장님 운영 화면 — 첫 화면을 먼저 그리도록 `MandatoryAddressGate` 와 같은 지연(5.2초) 직렬 큐로 읽는다.
+       * 같은 요청은 15초 캐시·단일 비행(`fetchMandatoryAddressGateDeduped`)이라 그쪽과 겹쳐도 네트워크 1회.
+       * 앱 안 이동으로 그쪽이 다시 읽지 않는 경우에도 사본이 채워져 구독이 다시 판정한다(재감사2 #3 · 재감사3 범위 밖 틈).
+       * 큐 키를 쓰지 않는다 — 방문 단위 「완료 키」가 남아 두 번째부터 건너뛰면 같은 틈이 다시 생긴다.
+       */
+      if (isStoreOwnerAdminPathname(pathnameRef.current)) {
+        runNowOrScheduleOnStoreOwnerAdmin(
+          async () => {
+            const res = await fetchMandatoryAddressGateDeduped({ component: "DibaySignupGate", reason: "registration_owner" });
+            if (!res.ok) return;
+            const j = (await res.clone().json()) as { ok?: boolean; authenticated?: boolean; registrationNextStep?: string | null };
+            if (j.ok === true && j.authenticated === true) setRegistrationPendingFromServer(j.registrationNextStep ?? null);
+          },
+          OWNER_HUB_SECONDARY_AFTER_MS.addressGate,
+        );
+        return "exempt";
+      }
       try {
         const res = await fetchMandatoryAddressGateDeduped({ component: "DibaySignupGate", reason: "registration" });
         if (!res.ok) return "retry";
@@ -228,26 +249,12 @@ export function DibaySignupGate() {
    * 전화·주소·로그아웃으로 사본이 「모름」이 됨. 이미 「완료」로 표시됐어도 지운다(재감사 R5: 완료 뒤 대표 주소를
    * 지워도 앱을 다시 켤 때까지 다시 보지 않던 결함). 판정은 사본(메모리)으로 — 모를 때만 15초 캐시 요청 1회.
    */
-  /** 마지막으로 서버가 알려 준 빠진 단계 — 「완료」로 바뀌는 순간을 잡는다(R3) */
-  const lastPendingStepRef = useRef<"phone" | "address" | null>(null);
+  /** 완료 순간 토큰 1회 갱신은 루트 설치 `registration-complete-token-refresh` 가 맡는다(단계 화면에서도 동작) */
   useEffect(
     () =>
       subscribeRegistrationPending(() => {
         const known = peekRegistrationPendingKnowledge();
-        if (known === "phone" || known === "address") lastPendingStepRef.current = known;
-        if (known === "complete") {
-          /**
-           * R3 (재감사 2026-11-24 · Auth HARD LOCK Amendment 2026-11-24): 가입을 막 마쳤다 → 로그인 토큰 1회 갱신.
-           * 토큰 클레임(`dibay_m`)이 「완료」로 바뀌어 proxy 가 회원 전용 화면마다 DB 를 읽지 않는다.
-           * 갱신 주인은 기존 단일 비행(`runBrowserAuthRefreshDeduped`) — 새 갱신 경로를 만들지 않는다.
-           */
-          if (lastPendingStepRef.current) {
-            lastPendingStepRef.current = null;
-            const sb = getSupabaseClient();
-            if (sb) void runBrowserAuthRefreshDeduped(sb, "registration_complete_claim").catch(() => undefined);
-          }
-          return;
-        }
+        if (known === "complete") return;
         clearSignupCompleteResolvedSession();
         redirectInFlightTargetRef.current = null;
         checkSignupGateRef.current();

@@ -183,13 +183,11 @@ export function adminMemberStatusFilterOps(status: AdminUserStatusCategory): Pro
   }
   if (status === "needs_review") {
     // Optional bucket: member_status review only — never phone verification.
+    // `pending` 은 예전 「전화 미인증」 사본이라 제외 — 가입 단계는 목록의 「가입」 표시가 앱 판정으로 보여 준다(재감사2 #5).
     return [
       { type: "is", column: "deleted_at", value: null },
       { type: "not_in", column: "status", value: "(deleted,withdrawn,deactivated,suspended,blocked,banned)" },
-      {
-        type: "or",
-        value: "member_status.eq.pending,member_status.eq.review",
-      },
+      { type: "eq", column: "member_status", value: "review" },
     ];
   }
   // active / 정상 이용 — lifecycle only
@@ -198,7 +196,7 @@ export function adminMemberStatusFilterOps(status: AdminUserStatusCategory): Pro
     { type: "not_in", column: "status", value: "(deleted,withdrawn,deactivated,suspended,blocked,banned)" },
     {
       type: "or",
-      value: "member_status.is.null,member_status.not.in.(pending,review,suspended,banned)",
+      value: "member_status.is.null,member_status.not.in.(review,suspended,banned)",
     },
   ];
 }

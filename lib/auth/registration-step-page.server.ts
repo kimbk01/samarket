@@ -3,6 +3,7 @@ import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import {
   isRegistrationStepPath,
+  REGISTRATION_DONE_DEFAULT_PATH,
   registrationStepHref,
   type DibayRegistrationStep,
 } from "@/lib/auth/dibay-registration-steps";
@@ -23,8 +24,6 @@ export function registrationStepNext(input: string | string[] | undefined): stri
   return safe;
 }
 
-/** 가입 단계를 마친 뒤 돌아갈 곳이 없을 때 — 앱 홈 (설계 2026-11-24 §3 「next 없으면 홈」, 내정보 아님) */
-export const REGISTRATION_DONE_DEFAULT_PATH = "/" as const;
 
 /**
  * 가입 단계 화면(전화·주소) 진입 — 들어올 때마다 단계를 다시 계산해 자기 단계가 아니면 맞는 곳으로 보낸다

@@ -99,6 +99,11 @@ export interface AdminUser {
   pointBalance?: number;
   phoneVerified?: boolean;
   verificationStatus?: string;
+  /**
+   * 가입 단계 — 앱 가입 관문과 같은 판정(`nextRegistrationStep`: 동의·전화·대표 주소, 관리자 면제) · 재감사2 #5.
+   * null = 가입 완료 · undefined = 읽지 못함.
+   */
+  registrationNextStep?: "terms" | "phone" | "address" | null;
   productCount: number;
   soldCount: number;
   reviewCount: number;

@@ -20,6 +20,9 @@ export const DIBAY_REGISTRATION_STEP_PATH: Record<DibayRegistrationStep, string>
   address: "/auth/onboarding/address",
 };
 
+/** 가입 단계를 마친 뒤 돌아갈 곳이 없을 때 — 앱 홈 (설계 2026-11-24 §3 「next 없으면 홈」, 내정보 아님) */
+export const REGISTRATION_DONE_DEFAULT_PATH = "/" as const;
+
 export type RegistrationFacts = {
   consentComplete: boolean;
   phoneVerified: boolean;
