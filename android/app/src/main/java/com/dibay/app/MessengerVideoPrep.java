@@ -6,11 +6,13 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.OpenableColumns;
 import android.util.Base64;
 import android.util.Log;
+import android.util.Size;
 import androidx.annotation.NonNull;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -74,6 +76,8 @@ final class MessengerVideoPrep {
     final int height;
     volatile File video;
     volatile File thumb;
+    /** OS 대표 사진(고를 때 고객이 본 사진). 있으면 말풍선·저장 사진 모두 이것을 쓴다. */
+    volatile Bitmap poster;
     volatile boolean cancelled;
     volatile boolean transcoded;
     /** 마지막 실패 원인 코드(진단용 — 웹이 서버 진단 로그로 보낸다) */
@@ -151,12 +155,15 @@ final class MessengerVideoPrep {
         w = h;
         h = t;
       }
-      Bitmap frame = r.getFrameAtTime(100_000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
-      if (frame == null || durationMs <= 0) return null;
+      if (durationMs <= 0) return null;
+      Bitmap poster = loadPoster(uri);
+      Bitmap frame = poster != null ? poster : bestFrame(r, durationMs, PICK_THUMB_EDGE);
+      if (frame == null) return null;
       Bitmap small = scale(frame, PICK_THUMB_EDGE);
       String dataUrl = "data:image/jpeg;base64," + Base64.encodeToString(jpeg(small, 72), Base64.NO_WRAP);
       String mime = context.getContentResolver().getType(uri);
       Entry e = new Entry(UUID.randomUUID().toString(), uri, mime == null ? "" : mime, querySize(uri), durationMs, w, h);
+      e.poster = poster;
       entries.put(e.id, e);
       return new Picked(e, dataUrl);
     } catch (Exception ex) {
@@ -169,6 +176,82 @@ final class MessengerVideoPrep {
         /* ignore */
       }
     }
+  }
+
+  /** OS 대표 사진(최근 줄·사진 선택기와 같은 사진, 긴 변 480). Android 10 미만·실패면 null. */
+  private Bitmap loadPoster(Uri uri) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null;
+    try {
+      Bitmap b = context.getContentResolver().loadThumbnail(uri, new Size(THUMB_MAX_EDGE, THUMB_MAX_EDGE), null);
+      Log.i(TAG, "poster ok " + (b == null ? "null" : b.getWidth() + "x" + b.getHeight()));
+      return b == null ? null : scale(b, THUMB_MAX_EDGE);
+    } catch (Exception ex) {
+      Log.i(TAG, "poster unavailable: " + ex.getClass().getSimpleName());
+      return null;
+    }
+  }
+
+  /** 이 밝기(0~255) 이상이면 「어둡지 않은 장면」 */
+  static final double MIN_FRAME_LUMA = 24;
+
+  /** 후보 시점(마이크로초): 0.1초 → 1초 → 길이 10% → 길이 50%. 길이를 넘는 시점·중복은 뺀다. */
+  static long[] frameCandidatesUs(long durationMs) {
+    long d = Math.max(0, durationMs) * 1000L;
+    if (d == 0) return new long[] { 0 };
+    long[] raw = { Math.min(100_000L, d / 100), 1_000_000L, d / 10, d / 2 };
+    long[] out = new long[raw.length];
+    int n = 0;
+    for (long t : raw) {
+      if (t < 0 || t >= d) continue;
+      boolean dup = false;
+      for (int i = 0; i < n; i++) if (Math.abs(out[i] - t) < 50_000L) dup = true;
+      if (!dup) out[n++] = t;
+    }
+    if (n == 0) return new long[] { 0 };
+    long[] res = new long[n];
+    System.arraycopy(out, 0, res, 0, n);
+    return res;
+  }
+
+  /** 16×16 로 줄인 평균 밝기(0~255) */
+  static double averageLuma(Bitmap b) {
+    Bitmap s = Bitmap.createScaledBitmap(b, 16, 16, true);
+    int[] px = new int[256];
+    s.getPixels(px, 0, 16, 0, 0, 16, 16);
+    double sum = 0;
+    for (int c : px) {
+      sum += 0.299 * ((c >> 16) & 0xff) + 0.587 * ((c >> 8) & 0xff) + 0.114 * (c & 0xff);
+    }
+    if (s != b) s.recycle();
+    return sum / 256.0;
+  }
+
+  /**
+   * 어둡지 않은 첫 장면. 모두 어두우면 가장 밝은 장면.
+   * 선택기 콜백은 화면 스레드에서 돌므로 Android 8.1+ 는 긴 변 maxEdge 축소본으로 꺼낸다(원본 해상도 비트맵 여러 장 금지).
+   */
+  private static Bitmap bestFrame(MediaMetadataRetriever r, long durationMs, int maxEdge) {
+    Bitmap best = null;
+    double bestLuma = -1;
+    for (long t : frameCandidatesUs(durationMs)) {
+      Bitmap f = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1
+        ? r.getScaledFrameAtTime(t, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, maxEdge, maxEdge)
+        : r.getFrameAtTime(t, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+      if (f == null) continue;
+      double luma = averageLuma(f);
+      if (luma >= MIN_FRAME_LUMA) {
+        if (best != null) best.recycle();
+        return f;
+      }
+      if (luma > bestLuma) {
+        if (best != null) best.recycle();
+        best = f;
+        bestLuma = luma;
+      } else {
+        f.recycle();
+      }
+    }
+    return best;
   }
 
   private long querySize(Uri uri) {
@@ -316,12 +399,15 @@ final class MessengerVideoPrep {
     );
   }
 
-  /** 썸네일 JPEG(긴 변 480 이하, 512KB 이하) — 결과 영상의 0.1초 지점. */
+  /** 썸네일 JPEG(긴 변 480 이하, 512KB 이하) — 대표 사진이 있으면 그것, 없으면 결과 영상의 어둡지 않은 장면. */
   private boolean writeThumb(Entry e, File video) {
     MediaMetadataRetriever r = new MediaMetadataRetriever();
     try {
-      r.setDataSource(video.getAbsolutePath());
-      Bitmap frame = r.getFrameAtTime(100_000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+      Bitmap frame = e.poster;
+      if (frame == null) {
+        r.setDataSource(video.getAbsolutePath());
+        frame = bestFrame(r, parseLong(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)), THUMB_MAX_EDGE);
+      }
       if (frame == null) return false;
       Bitmap small = scale(frame, THUMB_MAX_EDGE);
       byte[] bytes = null;

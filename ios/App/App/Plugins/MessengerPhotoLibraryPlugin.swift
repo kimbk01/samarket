@@ -495,7 +495,8 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
         group.enter()
         provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { url, _ in
           // 임시 파일은 이 콜백 안에서만 유효 — register 가 작업 폴더로 복사한다.
-          let registered = url.flatMap { self.videoPrep.register(tempFile: $0) }
+          let poster = MessengerVideoPrep.posterImage(localIdentifier: result.assetIdentifier)
+          let registered = url.flatMap { self.videoPrep.register(tempFile: $0, poster: poster) }
           lock.lock()
           if let (entry, thumb) = registered {
             videoRows.append((idx, [
@@ -813,6 +814,8 @@ final class MessengerVideoPrep: NSObject {
     let height: Int
     var video: URL?
     var thumb: URL?
+    /// OS 사진 앱 대표 사진 — 고를 때 고객이 본 사진. 있으면 말풍선·저장 사진 모두 이것을 쓴다.
+    var poster: UIImage?
     var transcoded = false
     var cancelled = false
     var reader: AVAssetReader?
@@ -870,7 +873,7 @@ final class MessengerVideoPrep: NSObject {
   }
 
   /// 선택기 임시 파일(콜백 안에서만 유효)을 작업 폴더로 복사하고 메타·작은 썸네일을 읽는다.
-  func register(tempFile: URL) -> (Entry, String)? {
+  func register(tempFile: URL, poster: UIImage? = nil) -> (Entry, String)? {
     let id = UUID().uuidString.lowercased()
     let ext = tempFile.pathExtension.lowercased().isEmpty ? "mov" : tempFile.pathExtension.lowercased()
     let dest = workDir().appendingPathComponent("\(id).src.\(ext)")
@@ -888,7 +891,9 @@ final class MessengerVideoPrep: NSObject {
     let size = track.naturalSize.applying(track.preferredTransform)
     let w = Int(abs(size.width).rounded())
     let h = Int(abs(size.height).rounded())
-    guard let thumb = frame(asset, maxEdge: MessengerVideoPrep.pickThumbEdge),
+    let pickImage = poster.map { MessengerVideoPrep.scaled($0, maxEdge: MessengerVideoPrep.pickThumbEdge) }
+      ?? bestFrame(asset, maxEdge: MessengerVideoPrep.pickThumbEdge)
+    guard let thumb = pickImage,
           let data = thumb.jpegData(compressionQuality: 0.72)
     else {
       try? FileManager.default.removeItem(at: dest)
@@ -896,6 +901,7 @@ final class MessengerVideoPrep: NSObject {
     }
     let bytes = (try? FileManager.default.attributesOfItem(atPath: dest.path)[.size] as? NSNumber)?.int64Value ?? 0
     let e = Entry(id: id, source: dest, sourceExt: ext, sourceBytes: bytes, durationMs: Int64(seconds * 1000), width: w, height: h)
+    e.poster = poster
     lock.lock()
     entries[id] = e
     lock.unlock()
@@ -905,6 +911,7 @@ final class MessengerVideoPrep: NSObject {
   /// 사진 앱 영상(PHAsset) → 파일로 꺼내 register(tempFile:) 와 같게 등록. iCloud 영상은 내려받는다. 백그라운드에서 호출.
   func register(asset: PHAsset) -> (Entry, String)? {
     lastRegisterError = nil
+    let poster = MessengerVideoPrep.posterImage(asset)
     let opts = PHVideoRequestOptions()
     opts.isNetworkAccessAllowed = true
     opts.deliveryMode = .highQualityFormat
@@ -921,7 +928,7 @@ final class MessengerVideoPrep: NSObject {
     }
     sem.wait()
     if let url = (got as? AVURLAsset)?.url {
-      let r = register(tempFile: url)
+      let r = register(tempFile: url, poster: poster)
       if r == nil { lastRegisterError = lastRegisterError ?? "register_copy_failed" }
       return r
     }
@@ -943,16 +950,94 @@ final class MessengerVideoPrep: NSObject {
       lastRegisterError = "phasset_export_\(export.status.rawValue)_\((export.error as NSError?)?.code ?? 0)"
       return nil
     }
-    return register(tempFile: tmp)
+    return register(tempFile: tmp, poster: poster)
   }
 
-  private func frame(_ asset: AVAsset, maxEdge: CGFloat) -> UIImage? {
+  /// 사진 앱이 보여 주는 대표 사진(최근 줄·선택기와 같은 사진). iCloud 는 내려받는다. 백그라운드에서 호출. 실패 nil.
+  static func posterImage(_ asset: PHAsset) -> UIImage? {
+    let opts = PHImageRequestOptions()
+    opts.isSynchronous = true
+    opts.isNetworkAccessAllowed = true
+    opts.deliveryMode = .highQualityFormat
+    opts.resizeMode = .exact
+    var out: UIImage?
+    PHImageManager.default().requestImage(
+      for: asset,
+      targetSize: CGSize(width: thumbMaxEdge, height: thumbMaxEdge),
+      contentMode: .aspectFit,
+      options: opts
+    ) { img, _ in
+      out = img
+    }
+    return out.map { scaled($0, maxEdge: thumbMaxEdge) }
+  }
+
+  /// PHPicker 결과의 사진 앱 id → 대표 사진. 권한이 없거나 못 찾으면 nil.
+  /// 권한을 아직 묻지 않은 상태에서는 조회하지 않는다(조회가 권한 창을 띄우지 않게).
+  static func posterImage(localIdentifier: String?) -> UIImage? {
+    let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+    guard status == .authorized || status == .limited,
+          let id = localIdentifier,
+          let asset = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject
+    else { return nil }
+    return posterImage(asset)
+  }
+
+  static func scaled(_ img: UIImage, maxEdge: CGFloat) -> UIImage {
+    let w = img.size.width * img.scale
+    let h = img.size.height * img.scale
+    let longEdge = max(w, h)
+    guard longEdge > maxEdge, longEdge > 0 else { return img }
+    let k = maxEdge / longEdge
+    let size = CGSize(width: max(1, (w * k).rounded()), height: max(1, (h * k).rounded()))
+    let fmt = UIGraphicsImageRendererFormat.default()
+    fmt.scale = 1
+    return UIGraphicsImageRenderer(size: size, format: fmt).image { _ in img.draw(in: CGRect(origin: .zero, size: size)) }
+  }
+
+  /// 이 밝기(0~255) 이상이면 「어둡지 않은 장면」
+  static let minFrameLuma: Double = 24
+
+  /// 16×16 로 줄인 평균 밝기(0~255)
+  static func averageLuma(_ cg: CGImage) -> Double {
+    let n = 16
+    var px = [UInt8](repeating: 0, count: n * n * 4)
+    guard let ctx = CGContext(
+      data: &px, width: n, height: n, bitsPerComponent: 8, bytesPerRow: n * 4,
+      space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+    ) else { return 0 }
+    ctx.interpolationQuality = .low
+    ctx.draw(cg, in: CGRect(x: 0, y: 0, width: n, height: n))
+    var sum = 0.0
+    for i in 0..<(n * n) {
+      sum += 0.299 * Double(px[i * 4]) + 0.587 * Double(px[i * 4 + 1]) + 0.114 * Double(px[i * 4 + 2])
+    }
+    return sum / Double(n * n)
+  }
+
+  /// 후보 시점(초): 0.1 → 1 → 길이 10% → 길이 50%. 길이를 넘는 시점·중복은 뺀다.
+  static func frameCandidates(durationSec: Double) -> [Double] {
+    let d = durationSec.isFinite && durationSec > 0 ? durationSec : 0
+    var out: [Double] = []
+    for t in [min(0.1, d / 100), 1, d * 0.1, d * 0.5] where t >= 0 && (d == 0 ? t == 0 : t < d) {
+      if !out.contains(where: { abs($0 - t) < 0.05 }) { out.append(t) }
+    }
+    return out.isEmpty ? [0] : out
+  }
+
+  /// 어둡지 않은 첫 장면. 모두 어두우면 가장 밝은 장면.
+  private func bestFrame(_ asset: AVAsset, maxEdge: CGFloat) -> UIImage? {
     let gen = AVAssetImageGenerator(asset: asset)
     gen.appliesPreferredTrackTransform = true
     gen.maximumSize = CGSize(width: maxEdge, height: maxEdge)
-    let t = CMTime(seconds: min(0.1, max(0, CMTimeGetSeconds(asset.duration) / 100)), preferredTimescale: 600)
-    guard let cg = try? gen.copyCGImage(at: t, actualTime: nil) else { return nil }
-    return UIImage(cgImage: cg)
+    var best: (CGImage, Double)?
+    for s in MessengerVideoPrep.frameCandidates(durationSec: CMTimeGetSeconds(asset.duration)) {
+      guard let cg = try? gen.copyCGImage(at: CMTime(seconds: s, preferredTimescale: 600), actualTime: nil) else { continue }
+      let luma = MessengerVideoPrep.averageLuma(cg)
+      if luma >= MessengerVideoPrep.minFrameLuma { return UIImage(cgImage: cg) }
+      if best == nil || luma > best!.1 { best = (cg, luma) }
+    }
+    return best.map { UIImage(cgImage: $0.0) }
   }
 
   private func isH264(_ track: AVAssetTrack) -> Bool {
@@ -1177,9 +1262,9 @@ final class MessengerVideoPrep: NSObject {
     return writer.status == .completed
   }
 
-  /// 썸네일 JPEG(긴 변 480 이하, 512KB 이하) — 결과 영상의 0.1초 지점.
+  /// 썸네일 JPEG(긴 변 480 이하, 512KB 이하) — 대표 사진이 있으면 그것, 없으면 결과 영상의 어둡지 않은 장면.
   private func writeThumb(_ e: Entry, video: URL) -> Bool {
-    guard let img = frame(AVURLAsset(url: video), maxEdge: MessengerVideoPrep.thumbMaxEdge) else { return false }
+    guard let img = e.poster ?? bestFrame(AVURLAsset(url: video), maxEdge: MessengerVideoPrep.thumbMaxEdge) else { return false }
     var data: Data?
     for q in [0.8, 0.6, 0.4] {
       data = img.jpegData(compressionQuality: CGFloat(q))
