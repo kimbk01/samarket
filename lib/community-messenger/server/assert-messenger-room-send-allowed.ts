@@ -41,10 +41,23 @@ export type MessengerSendGuardError =
   | "trade_restricted"
   | "store_order_chat_closed";
 
+/**
+ * F3(2026-11-25) — 가드가 이미 읽은 방 행. 사진·동영상 보내기가 방을 다시 읽지 않고
+ * 전송 RPC·알림·방 bump 에 그대로 넘긴다(글 보내기 RPC 반환값과 같은 필드).
+ */
+export type MessengerSendKnownRoom = {
+  roomType: string | null;
+  chatDomain: string | null;
+  directKey: string | null;
+  domainIdentityKey: string | null;
+  domainIdentity: string | null;
+};
+
 export type MessengerSendGuardResult =
   | {
       ok: true;
       roomType: string | null;
+      room: MessengerSendKnownRoom;
       /** S-1: 상대가 나간 일반 1:1 — 저장 전에 되살릴 상대(이 함수는 판정만, 쓰기는 `prepareMessengerRoomSend`) */
       readmitPeerUserId?: string | null;
     }
@@ -71,7 +84,7 @@ export async function assertMessengerRoomSendAllowed(input: {
   const [{ data: roomRow }, { data: partRow }, { data: pcRow }, { data: orderRow }] = await Promise.all([
     sb
       .from("community_messenger_rooms")
-      .select("id, room_type, room_status, is_readonly, deleted_at, chat_domain, direct_key")
+      .select("id, room_type, room_status, is_readonly, deleted_at, chat_domain, direct_key, domain_identity_key, domain_identity")
       .eq("id", roomId)
       .maybeSingle(),
     sb
@@ -161,5 +174,16 @@ export async function assertMessengerRoomSendAllowed(input: {
     return { ok: false, error: "store_order_chat_closed" };
   }
 
-  return { ok: true, roomType, readmitPeerUserId };
+  return {
+    ok: true,
+    roomType,
+    room: {
+      roomType,
+      chatDomain,
+      directKey,
+      domainIdentityKey: s((roomRow as { domain_identity_key?: unknown }).domain_identity_key) || null,
+      domainIdentity: s((roomRow as { domain_identity?: unknown }).domain_identity) || null,
+    },
+    readmitPeerUserId,
+  };
 }

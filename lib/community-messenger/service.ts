@@ -454,6 +454,7 @@ import { dedupeTradeMessengerRoomSummaries } from "@/lib/community-messenger/tra
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 import { parseCmRoomLastMessageMeta } from "@/lib/community-messenger/system-message-i18n";
 import { resolveNotificationMessageRoomKind } from "@/lib/community-messenger/group/group-room-notification-policy";
+import type { MessengerSendKnownRoom } from "@/lib/community-messenger/server/assert-messenger-room-send-allowed";
 import {
   memberDisplayLabelFromRow,
   type MemberIdentityProfileFields,
@@ -18194,6 +18195,23 @@ function cmMediaStorageBucketValue(v: unknown): string {
   return trimText(v) === MESSENGER_PRIVATE_MEDIA_BUCKET ? MESSENGER_PRIVATE_MEDIA_BUCKET : MESSENGER_LEGACY_MEDIA_BUCKET;
 }
 
+/**
+ * F3(2026-11-25) 사진·동영상 보내기 결과. `fanout` 은 `knownRoom` 을 받은 새 저장(deduped 아님)일 때만 —
+ * 호출부가 `runMediaSendFanoutAfterCommit` 으로 글 보내기와 같은 알림·배지·방 bump 를 한다.
+ */
+export type CommunityMessengerMediaSendFanout = {
+  recipientUserIds: string[];
+  previewText: string;
+  room: MessengerSendKnownRoom;
+};
+export type CommunityMessengerMediaSendResult = {
+  ok: boolean;
+  message?: CommunityMessengerMessage;
+  error?: string;
+  deduped?: boolean;
+  fanout?: CommunityMessengerMediaSendFanout;
+};
+
 export async function sendCommunityMessengerImageMessage(input: {
   /**
    * 수신자 알림(notify pipeline) 시작 직후 그 완료 Promise 를 넘긴다 — 라우트가 `after()` 로 등록해
@@ -18205,9 +18223,16 @@ export async function sendCommunityMessengerImageMessage(input: {
   items: CommunityMessengerImageSendItem[];
   /** CHAT-05: 업로드 멱등 — 동일 clientMessageId 재전송은 UNIQUE 인덱스로 1행 보장. */
   clientMessageId?: string | null;
-}): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string; deduped?: boolean }> {
+  /**
+   * F3(2026-11-25) — 같은 요청의 송신 가드(`prepareMessengerRoomSend`)가 읽은 방 행.
+   * 있으면 ① 같은 조건의 방·참가자 재확인을 건너뛰고 ② 전송 RPC 방 조회를 건너뛰며
+   * ③ 알림·배지 무효화를 여기서 하지 않고 `fanout` 으로 돌려준다(호출부가 글 보내기와 같은 경로로 처리).
+   */
+  knownRoom?: MessengerSendKnownRoom | null;
+}): Promise<CommunityMessengerMediaSendResult> {
   const roomId = trimText(input.roomId);
   const cmUploadCid = trimText(input.clientMessageId) || null;
+  const knownRoom = input.knownRoom ?? null;
   /** 정리 단계 단일 정의 — 업로드가 만든 필드(버킷·크기·흐린 미리보기)를 빠뜨리지 않는다 */
   const items = normalizeCommunityMessengerImageSendItems(input.items);
   if (!roomId || items.length === 0) return { ok: false, error: "content_required" };
@@ -18225,10 +18250,13 @@ export async function sendCommunityMessengerImageMessage(input: {
       userId: input.userId,
       roomId,
       supabase: sb,
+      ...(knownRoom ? { roomType: knownRoom.roomType } : {}),
     });
     if (!groupGate.ok) {
       return { ok: false, error: groupGate.error === "user_banned" ? "forbidden" : groupGate.error };
     }
+    /** F3: 송신 가드가 같은 요청에서 같은 조건(참여·삭제·차단·보관·읽기 전용)을 이미 확인했다 */
+    if (!knownRoom) {
     const [{ data: participant }, { data: roomData }] = await Promise.all([
       (sb as any)
         .from("community_messenger_participants")
@@ -18252,11 +18280,13 @@ export async function sendCommunityMessengerImageMessage(input: {
     if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
     if (roomStatus === "archived") return { ok: false, error: "room_archived" };
     if (isReadonly) return { ok: false, error: "room_readonly" };
+    }
     const createdAt = nowIso();
     const { appendTypedMessengerMessageAtomic } = await import(
       "@/lib/community-messenger/room-unread-authority-rpc"
     );
     const appended = await appendTypedMessengerMessageAtomic(sb as any, {
+      knownRoomDomain: knownRoom,
       roomId,
       senderId: input.userId,
       messageType: "image",
@@ -18279,7 +18309,7 @@ export async function sendCommunityMessengerImageMessage(input: {
       return { ok: false, error: appended.error };
     }
     /* D-7: 멱등 재전송(deduped)은 이미 알림이 나간 원 행 — 수신자 알림·배지 무효화를 다시 하지 않는다(텍스트 경로와 동일). */
-    if (!appended.deduped) {
+    if (!appended.deduped && !knownRoom) {
       const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
         roomId,
         messageId: appended.messageId,
@@ -18290,6 +18320,10 @@ export async function sendCommunityMessengerImageMessage(input: {
       input.onNotifyScheduled?.(notifyDone);
       invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
     }
+    const imageFanout =
+      !appended.deduped && knownRoom
+        ? { recipientUserIds: appended.recipientUserIds, previewText: lastPreview, room: knownRoom }
+        : undefined;
     /**
      * 멱등 재전송(deduped): 이번 요청에서 새로 올린 URL 이 아니라 DB 에 있는 원 행을 돌려준다
      * (응답 URL ≠ DB URL 불일치 방지). 라우트는 deduped 시 이번 업로드분을 정리한다.
@@ -18328,6 +18362,7 @@ export async function sendCommunityMessengerImageMessage(input: {
       ok: true,
       deduped: appended.deduped,
       message: cmUploadCid ? { ...builtImageMessage, clientMessageId: cmUploadCid } : builtImageMessage,
+      ...(imageFanout ? { fanout: imageFanout } : {}),
     };
   }
 
@@ -19202,9 +19237,12 @@ export async function sendCommunityMessengerVideoMessage(input: {
   width: number | null;
   height: number | null;
   clientMessageId?: string | null;
-}): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string; deduped?: boolean }> {
+  /** F3(2026-11-25) — 사진과 같다(`sendCommunityMessengerImageMessage` 의 `knownRoom`). */
+  knownRoom?: MessengerSendKnownRoom | null;
+}): Promise<CommunityMessengerMediaSendResult> {
   const roomId = trimText(input.roomId);
   const cmUploadCid = trimText(input.clientMessageId) || null;
+  const knownRoom = input.knownRoom ?? null;
   const videoPublicUrl = trimText(input.videoPublicUrl);
   const thumbPublicUrl = trimText(input.thumbPublicUrl);
   const videoPath = trimText(input.videoPath);
@@ -19232,13 +19270,19 @@ export async function sendCommunityMessengerVideoMessage(input: {
   const { assertActiveGroupMembershipIfGroup } = await import(
     "@/lib/community-messenger/group/group-active-membership-gate"
   );
-  const groupGate = await assertActiveGroupMembershipIfGroup({ userId: input.userId, roomId, supabase: sb });
+  const groupGate = await assertActiveGroupMembershipIfGroup({
+    userId: input.userId,
+    roomId,
+    supabase: sb,
+    ...(knownRoom ? { roomType: knownRoom.roomType } : {}),
+  });
   if (!groupGate.ok) {
     return { ok: false, error: groupGate.error === "user_banned" ? "forbidden" : groupGate.error };
   }
   const createdAt = nowIso();
   const { appendTypedMessengerMessageAtomic } = await import("@/lib/community-messenger/room-unread-authority-rpc");
   const appended = await appendTypedMessengerMessageAtomic(sb as any, {
+    knownRoomDomain: knownRoom,
     roomId,
     senderId: input.userId,
     messageType: "video",
@@ -19258,7 +19302,7 @@ export async function sendCommunityMessengerVideoMessage(input: {
     });
     return { ok: false, error: appended.error };
   }
-  if (!appended.deduped) {
+  if (!appended.deduped && !knownRoom) {
     const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
       roomId,
       messageId: appended.messageId,
@@ -19269,6 +19313,10 @@ export async function sendCommunityMessengerVideoMessage(input: {
     input.onNotifyScheduled?.(notifyDone);
     invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
   }
+  const videoFanout =
+    !appended.deduped && knownRoom
+      ? { recipientUserIds: appended.recipientUserIds, previewText: cmLastPreviewVideo(), room: knownRoom }
+      : undefined;
   if (appended.deduped) {
     const { data: existingRow } = await queryCommunityMessengerMessageRowsWithSelectFallback((cols) =>
       (sb as any)
@@ -19306,6 +19354,7 @@ export async function sendCommunityMessengerVideoMessage(input: {
       ...messengerVideoClientFieldsFromMetadata(metadata),
       ...(cmUploadCid ? { clientMessageId: cmUploadCid } : {}),
     },
+    ...(videoFanout ? { fanout: videoFanout } : {}),
   };
 }
 

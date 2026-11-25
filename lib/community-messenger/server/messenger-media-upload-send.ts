@@ -8,6 +8,9 @@ import {
 } from "@/lib/community-messenger/service";
 import { keepMessengerNotifyAliveAfterAck } from "@/lib/community-messenger/server/keep-messenger-notify-alive-after-ack";
 import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
+import { runMediaSendFanoutAfterCommit } from "@/lib/community-messenger/server/media-send-fanout";
+import type { MessengerSendKnownRoom } from "@/lib/community-messenger/server/assert-messenger-room-send-allowed";
+import { addSupabaseCallRequestUnits } from "@/lib/perf/supabase-call-counter";
 import { purgeMessengerMediaStoragePaths } from "@/lib/community-messenger/messenger-media-purge";
 import { validateMessengerFileUpload } from "@/lib/community-messenger/upload/validate-messenger-file-upload";
 import {
@@ -86,6 +89,8 @@ export async function sendMessengerImageUploadBatch(input: {
   rawRouteRoomId: string;
   images: MessengerImageUploadInput[];
   clientMessageId: string | null;
+  /** F3(2026-11-25) — 라우트 송신 가드가 읽은 방 행. 있으면 글 보내기와 같은 알림·배지·bump 경로 */
+  knownRoom?: MessengerSendKnownRoom | null;
 }): Promise<MessengerMediaRouteResult> {
   const { sb, canonicalRoomId } = input;
   const bucketName = await resolveMessengerMediaUploadBucket(sb);
@@ -109,6 +114,7 @@ export async function sendMessengerImageUploadBatch(input: {
     // CHAT-05: 업로드 멱등 키(클라가 재전송 시 동일 값을 보냄).
     clientMessageId: input.clientMessageId,
     onNotifyScheduled: keepMessengerNotifyAliveAfterAck,
+    knownRoom: input.knownRoom ?? null,
   });
 
   if (!result.ok) {
@@ -120,13 +126,25 @@ export async function sendMessengerImageUploadBatch(input: {
     // CHAT-05 멱등 재전송: DB 행은 이전 업로드를 가리킨다 — 이번 요청 업로드분은 고아이므로 정리.
     await purgeMessengerMediaStoragePaths(sb, processed.uploadedStoragePaths, purgeCtx);
   }
-  await publishBumpBestEffort({
-    rawRouteRoomId: input.rawRouteRoomId,
-    canonicalRoomId,
-    userId: input.userId,
-    message: result.message,
-  });
-  return { status: 200, body: result as Record<string, unknown> };
+  const { fanout, ...body } = result;
+  if (fanout && result.message) {
+    addSupabaseCallRequestUnits(fanout.recipientUserIds.length);
+    await runMediaSendFanoutAfterCommit({
+      rawRouteRoomId: input.rawRouteRoomId,
+      canonicalRoomId,
+      userId: input.userId,
+      message: result.message,
+      fanout,
+    }).catch(() => undefined);
+  } else {
+    await publishBumpBestEffort({
+      rawRouteRoomId: input.rawRouteRoomId,
+      canonicalRoomId,
+      userId: input.userId,
+      message: result.message,
+    });
+  }
+  return { status: 200, body: body as Record<string, unknown> };
 }
 
 /** 파일 → NEW-07 검증 → 정규 contentType 으로 최종 경로 업로드 → 전송 → purge(거절·deduped) → bump. */
