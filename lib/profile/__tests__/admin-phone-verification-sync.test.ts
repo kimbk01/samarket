@@ -20,12 +20,13 @@ describe("admin-phone-verification-sync", () => {
       phone_verification_status: "verified",
       phone_verification_method: "admin_manual",
       member_status: "active",
-      status: "verified_user",
       preferred_country: "PH",
       phone: "09000000000",
       phone_country_code: "+63",
       phone_number: "9000000000",
     });
+    /** 계정 상태는 바꾸지 않는다 — 제재 회원 보호(전체 감사 B1). 승격은 promoteLifecycleAfterAdminPhoneVerified */
+    expect(patch).not.toHaveProperty("status");
   });
 
   it("formatProfilePhoneForDisplay renders +63 example from phone_number only", () => {

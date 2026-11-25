@@ -83,7 +83,11 @@ export function AdminMemberVerificationDialog({
     const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     if (!res.ok || !data.ok) {
       setErrorText(
-        data.error === "invalid_phone" ? t("admin_users_member_verify_invalid_phone") : t(MEMBER_ADMIN_COPY_KEY.mutation_failed),
+        data.error === "invalid_phone"
+          ? t("admin_users_member_verify_invalid_phone")
+          : data.error === "phone_taken"
+            ? t("admin_users_err_phone_taken")
+            : t(MEMBER_ADMIN_COPY_KEY.mutation_failed),
       );
       return false;
     }

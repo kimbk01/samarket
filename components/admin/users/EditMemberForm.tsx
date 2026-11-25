@@ -78,9 +78,13 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
         setErrorText(
-          data.error === "이미 사용 중인 닉네임입니다"
+          data.error === "nickname_taken"
             ? t("admin_users_err_nickname_taken")
-            : data.error === "invalid_email"
+            : data.error === "phone_taken"
+              ? t("admin_users_err_phone_taken")
+              : data.error === "username_taken"
+                ? t("admin_users_err_username_taken")
+                : data.error === "invalid_email"
               ? t("admin_users_err_invalid_email")
               : data.error === "invalid_phone"
                 ? t("admin_users_member_verify_invalid_phone")

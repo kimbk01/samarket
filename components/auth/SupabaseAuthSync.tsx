@@ -63,8 +63,17 @@ function applySupabaseProfileCacheFromBoot(sb: SupabaseClient): void {
 
     let nextProfile = userToProfile(user);
 
-    if (bootProfile) {
-      const p = profileRowToClientProfile(bootProfile);
+    /**
+     * 기다리는 동안 앱 시작(부트)이 정식 프로필을 채웠을 수 있다 — 응답 뒤 다시 읽는다. 처음 읽은 값(null)으로 뼈대 프로필을
+     * 넣으면 전화·동의·관리자 정보가 빠진 프로필이 정식 캐시를 덮어 「동의 필요」 등으로 잘못 판정됐다(전체 감사 B5).
+     */
+    const bootNow = peekAppBootProfile() ?? bootProfile;
+    if (!bootNow && getSupabaseProfileCache()?.id === user.id) {
+      dispatchTestAuthChanged();
+      return;
+    }
+    if (bootNow) {
+      const p = profileRowToClientProfile(bootNow);
       nextProfile = {
         ...nextProfile,
         ...p,

@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { hasCanonicalDefaultMasterAddress } from "@/lib/addresses/user-address-service";
 import { evaluateProfileRequirements } from "@/lib/profile/require-profile-completion";
+import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
 import {
   ACTION_PROFILE_REQUIREMENTS,
   SERVER_ROUTE_ADDRESS_CHECK_ACTIONS,
@@ -92,16 +93,30 @@ export async function requireProfileFieldsForAction(
     return { ok: true };
   }
 
+  /**
+   * 특권 관리자는 전화 인증 면제 — 가입 관문·중앙 쓰기 관문·화면 관문과 같은 기준(전체 감사 B2: 전화 미인증 관리자가 글쓰기·
+   * 메시지 보내기에서 403). 관리자 확인은 「전화 인증 빠짐」일 때만 1회 — 일반 회원 요청 수는 늘지 않는다.
+   * 주소가 기능에 필요한 행동(주문 등)의 대표 주소 요구는 그대로.
+   */
+  let missingFields = evaluation.missingFields;
+  if (missingFields.includes("phone_verified") || missingFields.includes("recipient_phone")) {
+    const privileged = await hasActiveAdminMembershipOrLegacyRole(sb, userId).catch(() => false);
+    if (privileged) {
+      missingFields = missingFields.filter((f) => f !== "phone_verified" && f !== "recipient_phone");
+      if (missingFields.length === 0) return { ok: true };
+    }
+  }
+
   return {
     ok: false,
-    missingFields: evaluation.missingFields,
+    missingFields,
     response: NextResponse.json(
       {
         ok: false,
         error: "profile_incomplete",
         code: "profile_incomplete",
         actionType,
-        missingFields: evaluation.missingFields,
+        missingFields,
       },
       { status: 403 }
     ),

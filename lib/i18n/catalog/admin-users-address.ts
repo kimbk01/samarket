@@ -12,6 +12,8 @@ export const adminUsersAddressMessages = {
     admin_users_alert_reg_terms: "가입 단계: 약관 동의 전 (본인이 로그인 때 동의)",
     admin_users_alert_reg_phone: "가입 단계: 전화 인증 필요",
     admin_users_alert_reg_address: "가입 단계: 대표 주소 필요",
+    admin_users_err_phone_taken: "다른 회원이 쓰는 전화번호예요. 다른 번호를 입력하세요.",
+    admin_users_err_username_taken: "이미 쓰는 로그인 아이디예요. 다른 아이디를 입력하세요.",
     admin_users_err_address_seed_failed: "대표 주소를 저장하지 못해 회원을 만들지 않았어요. 다시 시도해 주세요.",
   },
   en: {
@@ -22,6 +24,8 @@ export const adminUsersAddressMessages = {
     admin_users_alert_reg_terms: "Sign-up: terms not agreed (member agrees at login)",
     admin_users_alert_reg_phone: "Sign-up: phone verification needed",
     admin_users_alert_reg_address: "Sign-up: main address needed",
+    admin_users_err_phone_taken: "Another member uses this phone number. Enter a different one.",
+    admin_users_err_username_taken: "This login ID is taken. Enter a different one.",
     admin_users_err_address_seed_failed: "The main address could not be saved, so no member was created. Try again.",
   },
 } as const;

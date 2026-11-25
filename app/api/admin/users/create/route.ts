@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ADMIN_PROFILE_DUPLICATE_FIELD, classifyAdminProfileDuplicate } from "@/lib/admin-users/admin-member-profile-write-error";
 import { checkAdminSetPassword, mapSupabaseWeakPasswordError } from "@/lib/auth/admin-set-password-policy";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
@@ -51,16 +52,10 @@ function jsonFieldError(
   );
 }
 
+/** 프로필 저장 중복 오류 → 칸·문구 (전체 감사 B3: 전화·아이디 중복이 「닉네임 중복」으로 보이던 결함) — 제약 이름으로만 판정 */
 function mapProfileCreateError(message: string): { field: CreateMemberApiField; errorKey: string } | null {
-  const lower = message.toLowerCase();
-  if (
-    lower.includes("profiles_nickname_lower_unique_idx") ||
-    lower.includes("duplicate key") ||
-    (lower.includes("unique") && lower.includes("nickname"))
-  ) {
-    return { field: "nickname", errorKey: "admin_users_err_nickname_taken" };
-  }
-  return null;
+  const kind = classifyAdminProfileDuplicate(message);
+  return kind ? ADMIN_PROFILE_DUPLICATE_FIELD[kind] : null;
 }
 
 function parseAddressPayload(raw: unknown): AdminCreateMemberAddressInput | null {
@@ -270,9 +265,10 @@ export async function POST(req: NextRequest) {
       lower.includes("email_exists") ||
       lower.includes("duplicate")
     ) {
+      /** Auth 로그인 주소 = `<아이디>@manual.local` — 실제 원인은 아이디 칸(전체 감사 B3) */
       return jsonFieldError(
-        "email",
-        "admin_users_err_email_taken",
+        "username",
+        "admin_users_err_username_taken",
         409,
         raw || await adminServerText("admin_api_users_email_taken")
       );

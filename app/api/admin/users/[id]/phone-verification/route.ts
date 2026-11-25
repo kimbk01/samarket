@@ -5,6 +5,7 @@ import { syncPhoneVerifiedServerCache } from "@/lib/auth/phone-otp-server-sync";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   buildPhoneVerifiedMemberPatch,
+  promoteLifecycleAfterAdminPhoneVerified,
   buildPhoneVerificationResetPatch,
   buildPhoneVerificationStatusPatch,
   hasPhoneForAdminManualVerify,
@@ -101,6 +102,11 @@ export async function PATCH(
   if (error) {
     return NextResponse.json({ ok: false, error: error.message || "update_failed" }, { status: 500 });
   }
+  /** 인증 완료로 바꿨을 때만 계정 상태 승격 — 제재 회원은 그대로(전체 감사 B1) */
+  const lifecyclePromoted =
+    action === "approve" || (action === "set_status" && statusRaw === "verified")
+      ? await promoteLifecycleAfterAdminPhoneVerified(sb, userId)
+      : false;
   await syncPhoneVerifiedServerCache(userId);
 
   void appendAuditLog(sb, {
@@ -109,7 +115,7 @@ export async function PATCH(
     target_type: "member",
     target_id: userId,
     action: auditAction,
-    after_json: auditAfter,
+    after_json: { ...auditAfter, lifecycle_promoted: lifecyclePromoted },
   });
 
   return NextResponse.json({
