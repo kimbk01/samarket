@@ -122,9 +122,10 @@ describe("buildMonitoringRollupRows — D1", () => {
         labels: { scope: "call_v4_incoming", outcome: "ok", status: "SUBSCRIBED", attemptPhase: "initial" },
       },
     ]);
+    // F1(2026-11-25): 행은 DB 잠금 순서(키 순)로 정렬되어 나온다 — 내용은 그대로.
     expect(rows.map((r) => [r.metric, r.outcome, r.event_count])).toEqual([
-      ["channel_subscribe.presence.closed.retry", "error", 2],
       ["channel_subscribe.call_incoming.subscribed.initial", "ok", 1],
+      ["channel_subscribe.presence.closed.retry", "error", 2],
     ]);
   });
 
@@ -146,9 +147,9 @@ describe("buildMonitoringRollupRows — D1", () => {
       ],
     );
     expect(rows.map((r) => [r.category, r.metric, r.dropped_count])).toEqual([
-      ["realtime.subscription", "channel_subscribe.presence.closed.retry", 500],
-      ["realtime.subscription", "channel_subscribe", 7],
       ["chat.room_load", "bootstrap_fetch", 9],
+      ["realtime.subscription", "channel_subscribe", 7],
+      ["realtime.subscription", "channel_subscribe.presence.closed.retry", 500],
     ]);
   });
 

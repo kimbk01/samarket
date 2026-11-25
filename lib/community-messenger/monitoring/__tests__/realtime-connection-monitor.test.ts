@@ -69,10 +69,11 @@ describe("허용 표(서버 재검증)", () => {
         { category: "realtime.connection", metric: "evil_2", count: 9 },
       ],
     );
+    // F1(2026-11-25): 행은 DB 잠금 순서(키 순)로 정렬되어 나온다 — 내용은 그대로.
     expect(rows.map((r) => [r.metric, r.event_count, r.dropped_count, r.value_max])).toEqual([
+      ["heartbeat_timeout.hidden.token_expired", 0, 40, null],
       ["socket_close.c1006.hidden.token_ok", 1, 0, 1],
       ["socket_reopen.visible", 1, 0, 2300],
-      ["heartbeat_timeout.hidden.token_expired", 0, 40, null],
     ]);
   });
 });

@@ -9,6 +9,7 @@
  *   (docs/audit/realtime-connection-drop-diagnostics-design-2026-11-09.md).
  */
 
+import { sortRollupRowsForLockOrder } from "@/lib/perf/rollup-row-lock-order";
 import {
   REALTIME_CONNECTION_CATEGORY,
   isAllowedRealtimeConnectionMetric,
@@ -152,5 +153,6 @@ export function buildMonitoringRollupRows(
     row.dropped_count = Math.min(row.dropped_count + count, COUNT_CAP);
   }
 
-  return [...rows.values()];
+  // F1(2026-11-25): DB 함수가 받은 순서대로 잠그므로 키 순서로 정렬해 동시 호출 간 교착을 막는다.
+  return sortRollupRowsForLockOrder([...rows.values()]);
 }
