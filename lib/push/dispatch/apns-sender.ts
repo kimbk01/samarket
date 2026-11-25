@@ -82,6 +82,7 @@ export async function sendVoipApnsToTarget(
       deviceToken: target.push_token,
       data: payload.data,
       callPushKind,
+      apnsEnvironment: target.apns_environment ?? null,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
