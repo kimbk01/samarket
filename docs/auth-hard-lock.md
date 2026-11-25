@@ -455,7 +455,7 @@ Contract delta:
 Contract delta:
 - Destination: 이미 가입한 회원(`terms_accepted_at` 있음)의 약관 개정 재동의 뒤 `next` 가 없으면 로그인 착지 `POST_LOGIN_PATH`(/mypage) — 2026-11-25 A5 에서 `/` 로 바뀐 것을 되돌림. 신규 가입 흐름은 `/` 그대로. (`resolveRegistrationReturnPath(input, fallback)`)
 - Completion(앱 로그인·PC QR): `deriveNativeExchangeGateFlags` 의 약관 판정 = `consentComplete || signupComplete` — 웹 OAuth·아이디 로그인과 같은 관리자 동의 면제.
-- 가입 판정 재료: 필수 약관 버전을 한 번도 읽지 못했으면(Strict 실패) proxy 가입 관문은 보내지 않고, `signup-status`·`mandatory-address-gate` 는 503(클라이언트 재시도), 단계 화면은 그대로 그림, 동의 화면은 오류 화면([다시 시도]). `getOnboardingStatus(…, { strictConsentVersions })` 옵션 — 그 밖의 호출처(쓰기·통화 API)는 불변.
+- 가입 판정 재료: 필수 약관 버전을 한 번도 읽지 못했으면(Strict 실패) proxy 가입 관문은 보내지 않고, `signup-status`·`mandatory-address-gate` 는 503(클라이언트 재시도), 단계 화면은 그대로 그림, 동의 화면은 [다시 시도](화면 전체 새로 받기). `getOnboardingStatus(…, { strictConsentVersions })` 옵션 — 그 밖의 호출처(쓰기·통화 API)는 불변.
 - `sanitizeNextPath`: 금지 경로 검사를 URL 로 정리한 경로에도 적용(`/./login`·`/%2e/login`·`/login#x`), `"/api/"` → `"/api"`(이전엔 `/api/x` 를 막지 못함). 반환값은 원문 그대로.
 - 불변: Session · 갱신자 · 401 · 쓰기 게이트 · 관리자 판정(활성 membership) · 동의 버전 판정 함수.
 

@@ -1,4 +1,5 @@
 import { AuthConsentForm } from "@/components/auth/AuthConsentForm";
+import { ConsentVersionsUnavailable } from "@/components/auth/ConsentVersionsUnavailable";
 import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import { resolvePostLoginRoute } from "@/lib/auth/resolve-post-login-route";
@@ -32,9 +33,13 @@ export default async function AuthOnboardingTermsPage({
   const readSb = tryCreateSupabaseServiceClient() ?? routeSb;
   /**
    * 필수 약관 버전을 모르면 기본 버전으로 동의 화면을 그리지 않는다 — 저장(PATCH)이 503 이라 빠져나올 수 없게 된다(가입 후속 감사 B10).
-   * 오류 화면(app/error.tsx)의 [다시 시도]로 다시 읽는다.
+   * [다시 시도] = 화면 전체 새로 받기(`ConsentVersionsUnavailable`).
    */
-  const [required, marketingDoc] = await Promise.all([resolveRequiredConsentVersionsStrict(), loadMarketingConsentDoc()]);
+  const [required, marketingDoc] = await Promise.all([
+    resolveRequiredConsentVersionsStrict().catch(() => null),
+    loadMarketingConsentDoc(),
+  ]);
+  if (!required) return <ConsentVersionsUnavailable />;
   // 혜택·이벤트 선택 동의는 한 번도 기록이 없는 회원(신규 가입)에게만 — 약관 개정 재동의 때 기존 선택을 덮지 않는다.
   // 조회 오류면 **보여 준다**(확정 설계 B-14): 저장 API 가 다시 읽어 기록이 있으면 덮지 않는다. 숨기면 필수 동의만
   // 저장돼 이 회원에게 다시는 묻지 않게 된다.

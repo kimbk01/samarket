@@ -46,6 +46,7 @@ describe("B9 — 앱·QR 로그인도 관리자 동의 면제(signupComplete) �
       signupComplete: true,
     });
     expect(f.needsTermsAgreement).toBe(false);
+    expect(f.needsProfileCompletion).toBe(false);
   });
   it("일반 회원 동의 미완 → 약관 화면", () => {
     const f = deriveNativeExchangeGateFlags({
@@ -76,6 +77,8 @@ describe("B10 — 필수 약관 버전을 모르면 가입 판정·이동을 하
     const terms = src("app/auth/onboarding/terms/page.tsx");
     expect(terms).toContain("resolveRequiredConsentVersionsStrict()");
     expect(terms).not.toMatch(/resolveRequiredConsentVersions\(\)/);
+    expect(terms).toContain("if (!required) return <ConsentVersionsUnavailable />;");
+    expect(src("components/auth/ConsentVersionsUnavailable.tsx")).toContain("window.location.reload()");
   });
   it("다른 호출처(통화·쓰기 API)는 기본 동작 그대로 — 옵션 없이 부르면 Lenient", () => {
     const s = src("lib/auth/get-onboarding-status.ts");

@@ -111,7 +111,9 @@ export function deriveNativeExchangeGateFlags(input: NativeExchangeGateInput): {
   const consentOk = input.consentComplete || input.signupComplete;
   return {
     needsTermsAgreement: !consentOk,
-    needsProfileCompletion: consentOk && (!input.dibayIdComplete || !input.profileComplete),
+    /** 프로필 완료 표시는 기존 그대로(날것 동의 기준) — 이번 변경은 약관 판정만 */
+    needsProfileCompletion:
+      input.consentComplete && (!input.dibayIdComplete || !input.profileComplete),
   };
 }
 
