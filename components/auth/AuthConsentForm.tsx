@@ -6,15 +6,17 @@ import { useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayOnboardingOverlayShell } from "@/components/auth/DibayOnboardingOverlayShell";
 import { ConsentLegalDocSheet } from "@/components/legal/ConsentLegalDocSheet";
+import { AUTH_GATE_DIALOG_Z_CLASS } from "@/components/auth/AuthGateOverlay";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import { runBrowserAuthRefreshDeduped } from "@/lib/supabase/auth-refresh-telemetry";
 import { invalidateMeProfileDedupedCache, fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { mergeAppBootProfileFull } from "@/lib/app-boot/app-boot-store";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { ProfileRow } from "@/lib/profile/types";
-import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { markSignupConsentResolvedSession } from "@/lib/auth/signup-gate-session";
-import { registrationStepHref } from "@/lib/auth/dibay-registration-steps";
+import { registrationStepHref, resolveRegistrationReturnPath } from "@/lib/auth/dibay-registration-steps";
 import { notifyLegalConsentCompleted } from "@/lib/auth/client-consent-state";
 import { setClientRequiredConsentVersions } from "@/lib/legal/client-required-consent";
 import type { RequiredConsentGap } from "@/lib/legal/has-required-member-consents";
@@ -60,8 +62,8 @@ export function AuthConsentForm({
   const { t, safeT, language } = useI18n();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const rawNext = searchParams.get("next")?.trim() || POST_LOGIN_PATH;
-  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : POST_LOGIN_PATH;
+  /** 돌아갈 화면 — 가입 흐름 단일 판정, 없으면 앱 홈(내정보 아님) · 전체 감사 A3·A5 */
+  const next = resolveRegistrationReturnPath(searchParams.get("next"));
 
   const needsLegal = consentGap !== "age";
   const needsAge = consentGap !== "terms_privacy";
@@ -241,6 +243,14 @@ export function AuthConsentForm({
 
       markSignupConsentResolvedSession();
       notifyLegalConsentCompleted();
+      /**
+       * 토큰 클레임 `dibay_m` 에는 동의 버전이 들어 있다 — 저장 직후 1회 갱신해 proxy 가 화면 이동마다 `profiles` 를 읽지 않게
+       * (전체 감사 A9 · Auth HARD LOCK Amendment 2026-11-24). 기존 단일 비행 갱신만 쓴다. 실패해도 화면 이동은 계속.
+       */
+      {
+        const sbForClaim = getSupabaseClient();
+        if (sbForClaim) void runBrowserAuthRefreshDeduped(sbForClaim, "consent_saved_claim").catch(() => undefined);
+      }
 
       // 동의 뒤 다음 화면은 항상 서버 판정(가입 = 동의 + 전화 + 주소, 설계 2026-11-24 S1 ④):
       // 재동의·나이 확인은 원래 화면(deep link 포함)을 지우지 않는다(inSession) · 첫 가입은 로그인 목적지 규칙.
@@ -502,13 +512,18 @@ export function AuthConsentForm({
               {t("auth_consent_escape_leave")}
             </Link>
             <span className="inline-flex min-h-[44px] items-center">
-              <LogoutActionTrigger variant="text_link" />
+              <LogoutActionTrigger variant="text_link" confirmZIndexClass={AUTH_GATE_DIALOG_Z_CLASS} />
             </span>
           </div>
         </div>
       </DibayOnboardingOverlayShell>
 
-      <ConsentLegalDocSheet open={sheetKind != null} kind={sheetKind} onClose={() => setSheetKind(null)} />
+      <ConsentLegalDocSheet
+        open={sheetKind != null}
+        kind={sheetKind}
+        onClose={() => setSheetKind(null)}
+        zIndexClass={AUTH_GATE_DIALOG_Z_CLASS}
+      />
     </>
   );
 }

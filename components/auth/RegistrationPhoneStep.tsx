@@ -19,6 +19,7 @@ import { DIBAY_ONBOARDING_ERROR_CLASS, DIBAY_ONBOARDING_NOTICE_CLASS } from "@/l
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { dibayConfirm } from "@/components/ui/dibay-overlay/DibayAppDialogProvider";
 import { forceClearCorruptSession } from "@/lib/auth/logout-client";
+import { AUTH_GATE_DIALOG_Z_CLASS } from "@/components/auth/AuthGateOverlay";
 
 type LoadState =
   | { kind: "loading" }
@@ -85,6 +86,7 @@ export function RegistrationPhoneStep({ next }: { next: string }) {
       description: t("auth_reg_discard_confirm_desc"),
       confirmLabel: t("auth_reg_discard_confirm_ok"),
       confirmTone: "destructive",
+      zIndexClass: AUTH_GATE_DIALOG_Z_CLASS,
     });
     if (!ok) return;
     setDiscarding(true);
@@ -119,6 +121,7 @@ export function RegistrationPhoneStep({ next }: { next: string }) {
     >
       {state.kind === "loading" ? (
         <div className="py-6" aria-busy="true">
+          <span className="sr-only">{t("common_loading")}</span>
           <span className="block h-12 w-full rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-secondary)] motion-safe:animate-pulse" />
         </div>
       ) : state.kind === "error" || !snapshot ? (
@@ -140,6 +143,10 @@ export function RegistrationPhoneStep({ next }: { next: string }) {
           onRefreshProfile={handleRefresh}
           onDone={() => void goNextStep()}
           onPhoneDuplicate={(phone) => setDuplicatePhone(phone)}
+          onPhoneInputChange={() => {
+            setDuplicatePhone(null);
+            setDiscardError(null);
+          }}
           surface="overlay"
         />
       )}

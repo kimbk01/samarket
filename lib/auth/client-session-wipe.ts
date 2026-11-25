@@ -32,6 +32,8 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { teardownCommunityMessengerCallOnAuthExit } from "@/lib/community-messenger/call-logout-teardown";
 import { resetSignupGateSessionFlags } from "@/lib/auth/signup-gate-session";
+import { invalidateMandatoryAddressGateClientCache } from "@/lib/addresses/mandatory-address-gate-client";
+import { invalidateRegistrationPending } from "@/lib/auth/registration-pending-state.client";
 import { clearPendingAuthActions } from "@/lib/auth/require-auth-action";
 import { clearLoginBootstrapSnapshot } from "@/lib/auth/login-bootstrap-cache";
 import { CLIENT_INSTANCE_PERSISTENT_KEYS, clearBoundAuthUserId, getBoundAuthUserId } from "@/lib/auth/client-instance-id";
@@ -251,6 +253,9 @@ export function invalidateGuestCachesForFreshLogin(): void {
   // P0-B: 배달 개인정보성 캐시 전부(허브 요약·주문 상세·이벤트·ETA) 폐기 + 진행 중 응답 무효화
   wipeDeliveryPrivateClientCaches();
   resetSignupGateSessionFlags();
+  /** 비로그인 때 받은 가입 재료 응답(`authenticated:false`)·사본을 로그인 뒤 다시 쓰지 않게 (전체 감사 A7) */
+  invalidateMandatoryAddressGateClientCache();
+  invalidateRegistrationPending();
   markTradeMarketplaceMemberBrowseReseed();
   dispatchTestAuthChanged();
 }

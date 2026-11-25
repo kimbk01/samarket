@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * 재감사3 #2 — 서버 판정 「완료」 + 토큰 클레임 「미완료」 → 토큰 1회 갱신 (실제 상태 변화로 확인, 문자열 검사 아님).
  * 기억에 기대지 않으므로 단계 화면에서 처음 시작하거나 앱 복귀(SIGNED_IN)가 있어도 동작해야 한다.
  */
-const refresh = vi.fn(async (_sb: unknown, _source: string) => ({ data: { session: null, user: null }, error: null }));
+const refreshOk = { data: { session: { access_token: "new" }, user: null }, error: null };
+const refresh = vi.fn(async (_sb: unknown, _source: string) => refreshOk as unknown);
 let currentToken: string | null = null;
 vi.mock("@/lib/supabase/client", () => ({
   getSupabaseClient: () => ({
@@ -126,5 +127,33 @@ describe("사본 유효시간 — 빠진 단계 15초, 완료 10분 (재감사2 
     setRegistrationPendingFromServer(null);
     expect(peekRegistrationPendingKnowledge(Date.now() + 5 * 60_000)).toBe("complete");
     expect(peekRegistrationPendingKnowledge(Date.now() + 11 * 60_000)).toBe("unknown");
+  });
+});
+
+
+describe("갱신 실패 시 같은 토큰 재시도 — 토큰당 최대 2회 (전체 감사 A9)", () => {
+  beforeEach(() => {
+    vi.stubGlobal("window", globalThis.window ?? {});
+    resetRegistrationPendingForTests();
+    resetRegistrationCompleteTokenRefreshForTests();
+    refresh.mockReset();
+  });
+  afterEach(() => {
+    resetRegistrationPendingForTests();
+    vi.unstubAllGlobals();
+  });
+  it("실패 → 다시 시도 → 2회 실패 뒤 멈춤 · 성공하면 그 토큰은 다시 안 함", async () => {
+    currentToken = jwt({ ...base, has_default_master: false }, "fail");
+    setRegistrationPendingFromServer(null);
+    refresh.mockResolvedValue({ data: { session: null, user: null }, error: { message: "x" } });
+    expect(await refreshTokenIfClaimStale()).toBe(false);
+    expect(await refreshTokenIfClaimStale()).toBe(false);
+    expect(await refreshTokenIfClaimStale()).toBe(false);
+    expect(refresh).toHaveBeenCalledTimes(2);
+    currentToken = jwt({ ...base, has_default_master: false }, "ok");
+    refresh.mockResolvedValue(refreshOk);
+    expect(await refreshTokenIfClaimStale()).toBe(true);
+    expect(await refreshTokenIfClaimStale()).toBe(false);
+    expect(refresh).toHaveBeenCalledTimes(3);
   });
 });

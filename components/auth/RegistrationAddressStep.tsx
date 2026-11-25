@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayOnboardingOverlayShell } from "@/components/auth/DibayOnboardingOverlayShell";
 import { RegistrationStepEscape } from "@/components/auth/RegistrationStepLater";
 import { buildAddressEditHref } from "@/lib/auth/client-access-flow";
-import { registrationStepHref } from "@/lib/auth/dibay-registration-steps";
+import { DIBAY_REGISTRATION_STEP_PATH, registrationStepHref } from "@/lib/auth/dibay-registration-steps";
+import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
+import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
 import { DIBAY_ONBOARDING_PRIMARY_BTN } from "@/lib/ui/dibay-onboarding-styles";
 
 /**
@@ -16,11 +18,35 @@ import { DIBAY_ONBOARDING_PRIMARY_BTN } from "@/lib/ui/dibay-onboarding-styles";
 export function RegistrationAddressStep({ next }: { next: string }) {
   const { t } = useI18n();
   const router = useRouter();
+  /** 연타 막기 — 주소 화면으로 두 번 들어가 기록이 두 번 쌓이지 않게(전체 감사 A13) */
+  const [leaving, setLeaving] = useState(false);
+  const checkedRef = useRef(false);
+
+  /**
+   * 주소를 저장하고 이 화면으로 돌아오면 앱 화면 캐시(5분)가 예전 「주소 등록」 화면을 다시 그릴 수 있다 —
+   * 그때는 서버 단계 판정이 다시 돌지 않으므로, 화면이 열릴 때 서버에 한 번 물어 이미 끝났으면 다음 화면으로(전체 감사 A2).
+   */
+  useEffect(() => {
+    if (checkedRef.current) return;
+    checkedRef.current = true;
+    void fetchSignupStatusDeduped(next, { inSession: true })
+      .then(({ status, json }) => {
+        const route = status === 200 ? json?.route?.trim() : "";
+        if (!route) return;
+        if ((route.split("?")[0] ?? route) === DIBAY_REGISTRATION_STEP_PATH.address) return;
+        guardedRouterReplace(router, route, { source: "registration-address-step", reason: "address_done" });
+      })
+      .catch(() => {
+        /* 서버 단계 판정은 다음 이동 때 다시 */
+      });
+  }, [next, router]);
 
   const onRegister = useCallback(() => {
-    const back = registrationStepHref("address", next) ?? "/auth/onboarding/address";
+    if (leaving) return;
+    setLeaving(true);
+    const back = registrationStepHref("address", next) ?? DIBAY_REGISTRATION_STEP_PATH.address;
     router.push(buildAddressEditHref(back));
-  }, [next, router]);
+  }, [leaving, next, router]);
 
   return (
     <DibayOnboardingOverlayShell
@@ -32,6 +58,7 @@ export function RegistrationAddressStep({ next }: { next: string }) {
         <button
           type="button"
           onClick={onRegister}
+          disabled={leaving}
           className={DIBAY_ONBOARDING_PRIMARY_BTN}
           data-testid="registration-address-start"
         >

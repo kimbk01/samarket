@@ -59,6 +59,8 @@ export function MandatoryAddressGate() {
   const pathRef = useRef(pathname);
   const prevPathForGateRef = useRef<string | null>(null);
   const [blocked, setBlocked] = useState(false);
+  /** 마지막으로 본 로그인 계정 — 같은 계정의 `SIGNED_IN`(앱 복귀)은 무시 */
+  const lastSignedInUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     patchPlatformPopupCriticalRuntimeFlags({ addressGate: blocked });
@@ -176,15 +178,30 @@ export function MandatoryAddressGate() {
     if (!sb) return;
     const {
       data: { subscription },
-    } = sb.auth.onAuthStateChange((event) => {
+    } = sb.auth.onAuthStateChange((event, session) => {
+      /** 처음 세션 — 기준 계정만 기록(마운트 때 이미 한 번 읽음) */
+      if (event === "INITIAL_SESSION") {
+        lastSignedInUserIdRef.current = session?.user?.id ?? null;
+        return;
+      }
       if (event === "SIGNED_OUT") {
+        lastSignedInUserIdRef.current = null;
         invalidateRegistrationPending();
+        invalidateMandatoryAddressGateClientCache();
         setBlocked(false);
         return;
       }
       if (event === "SIGNED_IN") {
-        /** 계정이 바뀌었을 수 있다 — 이전 계정의 빠진 단계로 미리 막지 않게 비운다(재감사3 #10) */
+        /**
+         * supabase-js 는 앱이 다시 보일 때마다(같은 계정) `SIGNED_IN` 을 보낸다(`_recoverAndRefresh`) — 같은 계정이면 무시
+         * (전체 감사 A10: 복귀마다 요청 증가·완료 표시 해제). 계정이 바뀌었으면(비로그인 → 로그인 포함) 이전 응답 캐시까지 비운다
+         * (A7: 로그인 직후 15초 안에는 비로그인 때 받은 응답을 다시 써 가입 판정을 건너뛰었다).
+         */
+        const uid = session?.user?.id ?? null;
+        if (uid && uid === lastSignedInUserIdRef.current) return;
+        lastSignedInUserIdRef.current = uid;
         invalidateRegistrationPending();
+        invalidateMandatoryAddressGateClientCache();
         void runGateFetch();
       }
     });

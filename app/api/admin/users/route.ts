@@ -299,8 +299,9 @@ function mapProfileRowToAdminUser(input: {
     /** 앱 게이트(hasVerifiedPhone)와 같은 판정 (감사 #8) */
     verificationStatus: resolvePhoneVerificationDisplayStatus(r),
     /** 가입 단계 — 앱 가입 관문과 같은 판정 (재감사2 #5) */
+    /** 탈퇴·삭제 회원은 가입 단계가 의미 없다 — 표시하지 않음(전체 감사 A14) */
     registrationNextStep:
-      input.hasDefaultMaster === undefined || !input.requiredConsent
+      input.hasDefaultMaster === undefined || !input.requiredConsent || r.deleted_at
         ? undefined
         : nextRegistrationStep({
             consentComplete: hasStoreTermsConsent(
@@ -597,7 +598,11 @@ export async function GET(req: NextRequest) {
       runCount(includeAuthLoginEmail, { privilege: "admin", store: null, status: null, verify: null, origin: null }),
       runCount(includeAuthLoginEmail, { store: null, privilege: null, status: null, verify: null, origin: null }),
       runStatusCount(includeAuthLoginEmail, "active"),
-      runStatusCount(includeAuthLoginEmail, "needs_review"),
+      /**
+       * 「확인 필요」 칸은 화면 칩·필터에 없고, 운영 DB 제약상 `member_status=review` 값도 저장될 수 없다 — 세지 않는다
+       * (전체 감사 A8: 목록 열 때마다 쓸모없는 개수 조회 1회). 가입 단계는 행마다 `registrationNextStep` 으로 표시.
+       */
+      Promise.resolve({ count: 0 as number | null, error: null as string | null }),
       runStatusCount(includeAuthLoginEmail, "suspended"),
       runStatusCount(includeAuthLoginEmail, "blocked"),
     ]);

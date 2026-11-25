@@ -12,6 +12,7 @@
  *
  * 제외: GET·HEAD · 다른 출처 · 통화 경로(`/calls`·`/call-`, 통화 규정). 장치 오류는 삼키고 그대로 보낸다.
  */
+import { isRegistrationGateExemptPath } from "@/lib/auth/registration-gate";
 import { isRegistrationRequiredWrite } from "@/lib/auth/member-action-registry";
 import { openRegistrationRequiredFromApiPayload } from "@/lib/auth/registration-required-client";
 import {
@@ -48,6 +49,11 @@ export function registrationGuidanceMessage(): string {
 }
 
 function openGuidanceOnce(step: RegistrationPendingStep): void {
+  /**
+   * 가입 관문(`DibaySignupGate`)이 이 화면에서 곧바로 단계 화면으로 보낸다 — 안내 창을 따로 열면 이동과 겹친다(전체 감사 A15).
+   * 관문이 보내지 않는 화면(통화·주소/프로필 편집·고객센터 등)에서만 안내 창을 연다.
+   */
+  if (typeof window !== "undefined" && !isRegistrationGateExemptPath(window.location.pathname)) return;
   const now = Date.now();
   if (now - lastGuidanceAt < GUIDANCE_DEDUPE_MS) {
     lastGuidanceAt = now;

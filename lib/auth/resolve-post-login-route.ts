@@ -5,14 +5,14 @@ import {
 } from "@/lib/auth/dibay-signup-status";
 import { sanitizeFreshLoginLandingPath, sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
-import { registrationStepHref } from "@/lib/auth/dibay-registration-steps";
+import { REGISTRATION_DONE_DEFAULT_PATH, registrationStepHref } from "@/lib/auth/dibay-registration-steps";
 
 /**
  * 로그인 콜백·세션 복원·온보딩 화면 종료 시 다음 라우트를 결정한다.
  *
  * 1) 약관 미동의 → 동의 화면 (기존 계약 그대로).
  * 2) 동의 완료 + 가입 미완료(전화 인증·대표 주소) → 빠진 가입 단계 화면 (Owner 2026-11-20 「승인, 구현 진행」).
- *    단계 화면에는 [나중에 하기]가 있어 열람은 막지 않는다.
+ *    건너뛰기 없음 — 가입을 마칠 때까지 화면 이동마다 단계 화면(2026-11-24 가입 SSOT, `registration-gate`).
  * 3) 가입 완료 → next / 기본 랜딩.
  * @see lib/auth/dibay-registration-steps.ts
  */
@@ -79,6 +79,7 @@ export function resolvePostLoginRoute({
   if (step && step !== "terms") {
     return registrationStepHref(step, landing) ?? resolveDibaySignupRoute(signup, next);
   }
-  if (inSession) return landing ?? POST_LOGIN_PATH;
+  /** 화면 안 이동(가입 단계 완료·재동의) — 돌아갈 곳이 없으면 앱 홈(가입 SSOT §3, 전체 감사 A5). 로그인 직후는 HARD LOCK 착지 그대로 */
+  if (inSession) return landing ?? REGISTRATION_DONE_DEFAULT_PATH;
   return resolveDibaySignupRoute(signup, next);
 }

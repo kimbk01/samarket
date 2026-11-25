@@ -17,8 +17,8 @@ import { nextRegistrationStep, type DibayRegistrationStep } from "@/lib/auth/dib
 /**
  * SAMarket 사용자 온보딩 상태 — 콜백·게이트·라우팅 분기에 공통으로 사용한다.
  *
- * 가입 완료( signup ): 약관·개인정보 동의만 (법적 최소)
- * @id·프로필·주소·전화: 기능별 requireProfileCompletion gate
+ * - `consentComplete`/`signupComplete`: 약관·개인정보 동의 (proxy 동의 관문·D5 클레임 계약)
+ * - `registrationComplete`/`registrationNextStep`: 가입 = 동의 + 전화 인증 + 대표 주소 (2026-11-24 가입 SSOT — 화면 관문 기준)
  */
 export type OnboardingStatus = {
   profileExists: boolean;

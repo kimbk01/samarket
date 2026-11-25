@@ -16,6 +16,11 @@ export type AuthPhoneSettings = {
   updated_by?: string | null;
   change_reason?: string | null;
   row_version?: number;
+  /**
+   * 설정을 **읽지 못함**(조회 오류) — 「관리자가 끔」과 구분한다. 가입 전화 단계가 일시 오류를 「인증 비활성」으로
+   * 보여 주고 다시 시도할 길이 없던 결함(전체 감사 A4).
+   */
+  load_failed?: boolean;
 };
 
 export const DEFAULT_AUTH_PHONE_SETTINGS: AuthPhoneSettings = {
@@ -113,7 +118,7 @@ export function sanitizeAuthPhoneSettingsInput(raw: Partial<AuthPhoneSettings>):
 
 export async function loadAuthPhoneSettings(): Promise<AuthPhoneSettings> {
   const sb = tryCreateSupabaseServiceClient();
-  if (!sb) return applyPhoneOtpEnvOverrides({ ...DEFAULT_AUTH_PHONE_SETTINGS });
+  if (!sb) return applyPhoneOtpEnvOverrides({ ...DEFAULT_AUTH_PHONE_SETTINGS, load_failed: true });
   const { data, error } = await sb
     .from("auth_phone_settings")
     .select(
@@ -135,7 +140,11 @@ export async function loadAuthPhoneSettings(): Promise<AuthPhoneSettings> {
       .limit(1)
       .maybeSingle();
     if (legacy.error || !legacy.data) {
-      return applyPhoneOtpEnvOverrides({ ...DEFAULT_AUTH_PHONE_SETTINGS });
+      /** 행이 없으면 「꺼짐」(관리자가 아직 켜지 않음), 조회 오류면 「읽지 못함」 */
+      return applyPhoneOtpEnvOverrides({
+        ...DEFAULT_AUTH_PHONE_SETTINGS,
+        load_failed: Boolean(error || legacy.error),
+      });
     }
     return applyPhoneOtpEnvOverrides(
       sanitizeAuthPhoneSettingsInput(legacy.data as Partial<AuthPhoneSettings>),

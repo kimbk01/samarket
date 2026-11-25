@@ -27,6 +27,10 @@ export async function GET(req: NextRequest) {
   const state = await loadMemberAccessState(sb, auth.userId);
   const fullMemberAccessOk = canUseVerifiedMemberFeatures(state);
   const phoneSettings = await loadAuthPhoneSettings();
+  /** 설정을 읽지 못함 — 「인증 꺼짐」으로 보이지 않게 503(화면은 다시 시도) · 전체 감사 A4 */
+  if (phoneSettings.load_failed) {
+    return NextResponse.json({ ok: false, error: "phone_settings_unavailable" }, { status: 503 });
+  }
   /** 아직 입력할 수 있는 인증번호 — 화면을 나갔다 와도 6칸 화면으로 이어서 입력 (Owner 2026-11-09) */
   const dialCodes = resolveAvailableVerifyDialCodes();
   /** 국가번호 기본값 — 접속 나라(Vercel 이 붙이는 헤더) PH → +63 · 그 밖 → +82 (Owner 2026-11-24) */

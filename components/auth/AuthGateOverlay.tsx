@@ -8,6 +8,11 @@ import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 /** 하단 탭 z-[1200]·시트 z-[1300] 위 — 로그인 게이트 전용 */
 export const AUTH_GATE_OVERLAY_Z_CLASS = "z-[1310]";
+/**
+ * 가입·동의 팝업(1310) **위**에 여는 확인창·시트(로그아웃 확인 · 이 계정 지우기 · 약관 문서) — 기본 창(1300)은 팝업 아래에
+ * 깔려 눌러도 반응이 없어 보였다(전체 감사 A1, 2026-11-25). 알림 토스트(1320) 아래.
+ */
+export const AUTH_GATE_DIALOG_Z_CLASS = "z-[1315]";
 
 /**
  * safe-area 를 뺀 높이 (app/dibay-overlay.css `.dibay-overlay-dialog` 와 같은 규칙) · 상한 640px.
