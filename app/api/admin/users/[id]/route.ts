@@ -1023,7 +1023,8 @@ export async function PATCH(
   const lifecyclePromoted =
     phoneStatus === "verified" ? await promoteLifecycleAfterAdminPhoneVerified(sb, userId) : false;
 
-  if (phoneStatus !== null) {
+  /** 인증 상태를 바꿨거나 번호가 바뀌었으면(인증 해제 포함 — 전체 감사 B4) 서버 캐시의 예전 「인증됨」을 비운다 */
+  if (phoneStatus !== null || phoneChangeAudit !== null) {
     await syncPhoneVerifiedServerCache(userId);
   }
 
