@@ -93,7 +93,8 @@ function isSameCommunityCardPost(prev: NeighborhoodFeedPostDTO, next: Neighborho
     prev.is_question === next.is_question &&
     prev.is_notice === next.is_notice &&
     prev.is_pinned === next.is_pinned &&
-    (prev.images?.length ?? 0) === (next.images?.length ?? 0)
+    /** 썸네일 = 첫 사진 — 장수만 같고 사진이 바뀐 경우도 다시 그린다 */
+    (prev.images ?? []).join("\n") === (next.images ?? []).join("\n")
   );
 }
 
