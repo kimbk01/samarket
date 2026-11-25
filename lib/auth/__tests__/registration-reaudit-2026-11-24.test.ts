@@ -90,10 +90,9 @@ describe("D 「terms」는 「모름」 (R4)", () => {
 });
 
 describe("E·C 완료 표시 무효화(R5) · 완료 순간 토큰 1회 갱신(R3)", () => {
-  it("가입 관문 — 재료가 바뀌면 완료 표시를 지우고, 완료로 바뀌는 순간 기존 단일 비행 갱신 1회", () => {
+  it("가입 관문 — 재료가 바뀌면 완료 표시를 지운다 (토큰 갱신은 루트 설치 모듈 — 재감사2 #1, 동작 테스트는 registration-complete-token-refresh)", () => {
     const src = read("components/auth/DibaySignupGate.tsx");
     expect(src).toContain("clearSignupCompleteResolvedSession()");
-    expect(src).toContain('runBrowserAuthRefreshDeduped(sb, "registration_complete_claim")');
     expect(src).not.toContain("refreshSession(");
   });
   it("잠금 규정 개정 기록", () => {

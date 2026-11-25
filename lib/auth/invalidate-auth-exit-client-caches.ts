@@ -7,6 +7,7 @@
 import { invalidateAuthLightSessionSnapshotCache } from "@/lib/auth/auth-light-session-snapshot-cache";
 import { invalidateCurrentUserIdCache } from "@/lib/auth/get-current-user";
 import { invalidateMandatoryAddressGateClientCache } from "@/lib/addresses/mandatory-address-gate-client";
+import { forgetRegistrationHistory, invalidateRegistrationPending } from "@/lib/auth/registration-pending-state.client";
 import { invalidateMainBottomNavDedupedCache } from "@/lib/app/fetch-main-bottom-nav-deduped";
 import { invalidateMessengerIceServerCache } from "@/lib/call/ice-servers";
 import { resetHomeSyncSnapshotInvalidationRegistry } from "@/lib/community-messenger/home-sync-snapshot-invalidation-registry";
@@ -49,6 +50,9 @@ export function invalidateAuthExitClientCaches(previousUserId?: string | null): 
   invalidateAuthLightSessionSnapshotCache(previousUserId ?? undefined);
   invalidateAllTradeFeedClientCache();
   invalidateMandatoryAddressGateClientCache();
+  /** 이전 계정의 빠진 가입 단계 사본·전환 기억 — 다음 계정에 넘기지 않는다 (재감사2 #1) */
+  forgetRegistrationHistory();
+  invalidateRegistrationPending();
   invalidateOwnerStoreOwnershipCache(previousUserId ?? undefined);
   invalidateMessengerIceServerCache();
   /** P0-B: 배달 개인정보성 캐시(허브 요약·주문 상세·이벤트·ETA) 폐기 + 진행 중 응답 무효화 — 로그아웃·계정 전환·세션 없음 공통. */

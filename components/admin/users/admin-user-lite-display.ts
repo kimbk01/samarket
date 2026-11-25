@@ -95,7 +95,8 @@ export function statusCategoryForAdminUser(user: AdminUser): AdminUserStatusCate
   if (user.moderationStatus === "withdrawn") return "deleted";
   // Verification is an independent axis (R2 / OD-02) — do not fold into account state.
   const memberStatus = normalizeAdminLiteToken(user.memberStatus);
-  if (memberStatus === "pending" || memberStatus === "review") return "needs_review";
+  /** `pending` = 예전 「전화 미인증」 사본 — 검토 대상 아님(재감사2 #5). 가입 단계는 `registrationNextStep` 표시 */
+  if (memberStatus === "review") return "needs_review";
   return "active";
 }
 
@@ -112,13 +113,11 @@ export function statusCategoryForDetailUser(user: DetailUserLike): AdminUserStat
   if (status === "suspended" || memberStatus === "suspended" || moderation === "suspended") {
     return "suspended";
   }
-  if (
-    user.phone_verified !== true ||
-    memberStatus === "pending" ||
-    memberStatus === "review" ||
-    phoneStatus === "pending" ||
-    phoneStatus === "rejected"
-  ) {
+  /**
+   * 목록과 같은 기준 — 검토 = `member_status=review` · 관리자가 거절한 전화 인증(`rejected`).
+   * 전화 미인증·예전 `pending` 사본은 계정 상태가 아니라 가입 단계로 따로 표시(회원 상세 경고줄, 재감사2 #5).
+   */
+  if (memberStatus === "review" || phoneStatus === "rejected") {
     return "needs_review";
   }
   return "active";

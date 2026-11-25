@@ -172,6 +172,18 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       </td>
       <td className="whitespace-nowrap px-3 py-2 text-sam-fg" data-member-list-verify="1">
         {verifyLabel}
+        {/* 가입 단계 — 앱 가입 관문과 같은 판정(서버 `registrationNextStep`, 재감사2 #5) */}
+        {user.registrationNextStep ? (
+          <p className="text-[12px] text-sam-warning" data-member-list-registration={user.registrationNextStep}>
+            {t(
+              user.registrationNextStep === "terms"
+                ? "admin_users_alert_reg_terms"
+                : user.registrationNextStep === "phone"
+                  ? "admin_users_alert_reg_phone"
+                  : "admin_users_alert_reg_address",
+            )}
+          </p>
+        ) : null}
       </td>
       <td className="min-w-[140px] px-3 py-2" onClick={stopRowNav} data-member-list-store="1">
         {storeCell.kind === "none" ? (

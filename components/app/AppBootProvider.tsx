@@ -34,6 +34,7 @@ import { startEntryTelemetry } from "@/lib/telemetry/entry-telemetry.client";
 import { startWebVersionResumeCheck } from "@/lib/startup/web-version-resume.client";
 import { installSessionFreshnessFetchGate } from "@/lib/auth/session-freshness-fetch-gate.client";
 import { installRegistrationGuidanceFetchGate } from "@/lib/auth/registration-guidance-fetch-gate.client";
+import { installRegistrationCompleteTokenRefresh } from "@/lib/auth/registration-complete-token-refresh.client";
 import { installRscNavigationDeadline } from "@/lib/net/rsc-navigation-deadline.client";
 import { installChunkStallObserver } from "@/lib/net/chunk-stall-observer.client";
 import { installNetworkHealthObserver } from "@/lib/net/network-health.client";
@@ -45,6 +46,8 @@ import { installNetworkHealthObserver } from "@/lib/net/network-health.client";
 installSessionFreshnessFetchGate();
 /** 가입 진행 중 회원 안내 — `/api` 쓰기 요청 한 곳(설계 2026-11-21 §5-3). 세션 신선도 관문 바깥을 감싼다. */
 installRegistrationGuidanceFetchGate();
+/** 가입 완료 순간 토큰 1회 갱신 — 모든 화면(가입 단계 화면 포함) (Auth HARD LOCK Amendment 2026-11-24) */
+installRegistrationCompleteTokenRefresh();
 /**
  * 화면 이동 멈춤 (설계 `docs/audit/idle-menu-freeze-design-2026-11-22.md` §S1·S2): 이동 요청(RSC) 8초 상한 → Next 문서 이동 ·
  * 조각 받기 멈춤 관찰(동작 무변경). 다른 관문 바깥을 감싼다(RSC 는 `/api` 가 아니라 두 관문 대상과 겹치지 않음).

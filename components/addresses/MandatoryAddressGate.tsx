@@ -6,6 +6,7 @@ import { isProfileSetupGateExcludedPath } from "@/lib/auth/profile-setup-flow";
 import { isRegistrationGateExemptPath } from "@/lib/auth/registration-gate";
 import type { DibayRegistrationStep } from "@/lib/auth/dibay-registration-steps";
 import {
+  forgetRegistrationHistory,
   invalidateRegistrationPending,
   setRegistrationPendingFromServer,
 } from "@/lib/auth/registration-pending-state.client";
@@ -178,12 +179,14 @@ export function MandatoryAddressGate() {
       data: { subscription },
     } = sb.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
+        forgetRegistrationHistory();
         invalidateRegistrationPending();
         setBlocked(false);
         return;
       }
       if (event === "SIGNED_IN") {
         /** 계정이 바뀌었을 수 있다 — 이전 계정의 빠진 단계로 미리 막지 않게 비운다(재감사3 #10) */
+        forgetRegistrationHistory();
         invalidateRegistrationPending();
         void runGateFetch();
       }

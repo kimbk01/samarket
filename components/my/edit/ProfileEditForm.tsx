@@ -28,7 +28,7 @@ import {
 } from "@/lib/addresses/mandatory-address-gate-client";
 import { isPublicIdSetupComplete } from "@/lib/auth/dibay-public-id-ssot";
 import { hasValidDisplayName } from "@/lib/auth/post-login-profile-policy";
-import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
+import { REGISTRATION_DONE_DEFAULT_PATH } from "@/lib/auth/dibay-registration-steps";
 import {
   isProfileSetupMode,
   isProfileSetupPending,
@@ -286,9 +286,10 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     await load({ freshProfile: true });
   }, [load]);
 
+  /** 설정 화면 닫기 — 앱 홈으로(내정보 아님, 가입 SSOT §3 「목적지는 /mypage 아님」 · 재감사2 #4). 가입 미완료면 가입 관문이 단계 화면으로 */
   const handleSetupDismiss = useCallback(() => {
     invalidateMandatoryAddressGateClientCache();
-    router.replace(POST_LOGIN_PATH);
+    router.replace(REGISTRATION_DONE_DEFAULT_PATH);
   }, [router]);
 
   const currentSnapshot = useMemo(

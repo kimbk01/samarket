@@ -49,6 +49,13 @@ import {
 } from "@/lib/admin-users/admin-member-list-query";
 import { resolveDisplayName } from "@/lib/users/user-label";
 import { resolvePhoneVerificationDisplayStatus } from "@/lib/profile/admin-phone-verification-sync";
+import { nextRegistrationStep } from "@/lib/auth/dibay-registration-steps";
+import {
+  hasStoreTermsConsent,
+  verifiedPhoneVerdict,
+  type RequiredStoreConsentVersions,
+} from "@/lib/auth/store-member-policy";
+import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
@@ -146,7 +153,8 @@ function resolveAdminStatusCategory(
     return "suspended";
   }
   // Account state is independent of verification (OD-02 / R2).
-  if (memberStatus === "pending" || memberStatus === "review") {
+  // `member_status=pending` 은 예전 「전화 미인증」 사본이라 검토 대상이 아니다 — 가입 단계는 `registrationNextStep` 으로 따로 표시(재감사2 #5).
+  if (memberStatus === "review") {
     return "needs_review";
   }
   return "active";
@@ -216,6 +224,9 @@ function mapProfileRowToAdminUser(input: {
   hasAdminMembership: boolean;
   adminMembershipRole: "admin" | "super_admin" | null;
   linkedIdentities: readonly AdminLinkedIdentity[] | null;
+  /** 대표 주소 있음(active AND is_default_master) — undefined = 읽지 못함 */
+  hasDefaultMaster: boolean | undefined;
+  requiredConsent: RequiredStoreConsentVersions | null;
 }): AdminUserListItem {
   const { row: r, warnedUserIds, storeCount, hasApprovedStore, stores, hasAdminMembership, adminMembershipRole } = input;
   const linkedIdentities = input.linkedIdentities ?? null;
@@ -287,6 +298,28 @@ function mapProfileRowToAdminUser(input: {
     phoneVerifiedAt: r.phone_verified_at ?? undefined,
     /** 앱 게이트(hasVerifiedPhone)와 같은 판정 (감사 #8) */
     verificationStatus: resolvePhoneVerificationDisplayStatus(r),
+    /** 가입 단계 — 앱 가입 관문과 같은 판정 (재감사2 #5) */
+    registrationNextStep:
+      input.hasDefaultMaster === undefined || !input.requiredConsent
+        ? undefined
+        : nextRegistrationStep({
+            consentComplete: hasStoreTermsConsent(
+              r as unknown as {
+                terms_accepted_at?: string | null;
+                terms_version?: string | null;
+                privacy_accepted_at?: string | null;
+                privacy_version?: string | null;
+              },
+              input.requiredConsent,
+            ),
+            phoneVerified: verifiedPhoneVerdict({
+              ...r,
+              phone: r.phone ?? null,
+              privilegedAdmin: adminMembershipRole !== null,
+            }),
+            addressComplete: input.hasDefaultMaster,
+            isPrivilegedAdmin: adminMembershipRole !== null,
+          }),
     memberStatus: r.member_status ?? undefined,
     verifiedMemberAt: r.verified_member_at ?? undefined,
     productCount: 0,
@@ -347,9 +380,9 @@ export async function GET(req: NextRequest) {
   const uuidSearch = Boolean(search) && isAdminMemberUuidSearch(search);
 
   const profileSelect =
-    "id, email, auth_login_email, provider_user_id, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, phone, phone_verified, phone_verified_at, phone_verification_status, phone_verification_method, verified_member_at, provider, auth_provider, last_login_at, created_at";
+    "id, email, auth_login_email, provider_user_id, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, phone, phone_verified, phone_verified_at, phone_verification_status, phone_verification_method, verified_member_at, provider, auth_provider, last_login_at, created_at, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version";
   const profileSelectLegacy =
-    "id, email, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, phone, phone_verified, phone_verified_at, phone_verification_status, phone_verification_method, verified_member_at, provider, auth_provider, last_login_at, created_at";
+    "id, email, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, phone, phone_verified, phone_verified_at, phone_verification_status, phone_verification_method, verified_member_at, provider, auth_provider, last_login_at, created_at, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version";
 
   const isMissingProfileColumn = (message: string) => {
     const lower = message.toLowerCase();
@@ -637,6 +670,22 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    /** 가입 단계 표시용 — 이 쪽 회원의 대표 주소 1회 조회 + 필수 동의 버전(재감사2 #5) */
+    const [defaultMasterIds, requiredConsent] = await Promise.all([
+      profileIds.length === 0
+        ? Promise.resolve(new Set<string>())
+        : supabase
+            .from("user_addresses")
+            .select("user_id")
+            .in("user_id", profileIds)
+            .eq("is_active", true)
+            .eq("is_default_master", true)
+            .then(({ data, error }) =>
+              error ? null : new Set((data ?? []).map((row) => String((row as { user_id?: string }).user_id ?? ""))),
+            ),
+      resolveRequiredConsentVersions().catch(() => null),
+    ]);
+
     const list: AdminUserListItem[] = profileRows.map((r) => {
       const store = storeAgg.get(r.id) ?? { count: 0, hasApproved: false, stores: [] };
       const hasAdminMembership = adminMemberIds.has(r.id);
@@ -649,6 +698,8 @@ export async function GET(req: NextRequest) {
         hasAdminMembership,
         adminMembershipRole: adminMembershipRoleByUser.get(r.id) ?? null,
         linkedIdentities: linkedIdentitiesMap.get(r.id) ?? null,
+        hasDefaultMaster: defaultMasterIds ? defaultMasterIds.has(r.id) : undefined,
+        requiredConsent,
       });
     });
 
