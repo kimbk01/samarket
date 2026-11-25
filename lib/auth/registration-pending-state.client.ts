@@ -16,13 +16,6 @@ const COMPLETE_STALE_MS = 10 * 60_000;
 
 let state: { step: RegistrationPendingStep | null; at: number } | null = null;
 
-/**
- * 마지막으로 서버가 알려 준 빠진 단계 — 「모름」(무효화)에도 지우지 않는다. 「빠진 단계 → 완료」 전환을 잡아
- * 토큰을 1회 갱신하는 데 쓴다(재감사2 #1: 화면 컴포넌트 ref 는 단계 화면에서 사라져 전환을 놓쳤다).
- */
-let lastMissingStep: RegistrationPendingStep | null = null;
-let justCompleted = false;
-
 function isStale(s: { step: RegistrationPendingStep | null; at: number }, nowMs: number): boolean {
   return nowMs - s.at > (s.step === null ? COMPLETE_STALE_MS : STEP_STALE_MS);
 }
@@ -58,28 +51,15 @@ export function setRegistrationPendingFromServer(step: unknown): void {
     return;
   }
   const s = step;
-  if (s !== null) {
-    lastMissingStep = s;
-  } else if (lastMissingStep !== null) {
-    lastMissingStep = null;
-    justCompleted = true;
-  }
+  const now = Date.now();
+  /**
+   * 값이 바뀌었거나, **이전 값이 오래됐거나 없었으면** 알린다 — 오래된 「address」 뒤 서버가 다시 「address」를 주면
+   * 같은 값이라도 구독자(가입 관문)가 다시 판정해야 한다(재감사3 #1: 사장님 화면에서 단계 화면으로 안 보내지던 회귀).
+   */
+  const wasUnknown = !state || isStale(state, now);
   const changed = state?.step !== s;
-  state = { step: s, at: Date.now() };
-  if (changed || justCompleted) emit();
-}
-
-/** 「빠진 단계 → 완료」가 방금 일어났는가 — 한 번 읽으면 지워진다(토큰 1회 갱신용) */
-export function consumeRegistrationJustCompleted(): boolean {
-  const v = justCompleted;
-  justCompleted = false;
-  return v;
-}
-
-/** 로그아웃·계정 전환 — 이전 계정의 빠진 단계 기억을 지운다 */
-export function forgetRegistrationHistory(): void {
-  lastMissingStep = null;
-  justCompleted = false;
+  state = { step: s, at: now };
+  if (changed || wasUnknown) emit();
 }
 
 /** 주소·전화가 바뀌었을 수 있음(주소 저장·전화 인증·로그아웃) — 다음 서버 응답까지 「모름」 */
@@ -105,6 +85,4 @@ export function peekRegistrationPendingKnowledge(nowMs = Date.now()): Registrati
 export function resetRegistrationPendingForTests(): void {
   state = null;
   listeners.clear();
-  lastMissingStep = null;
-  justCompleted = false;
 }

@@ -103,7 +103,6 @@ export function statusCategoryForAdminUser(user: AdminUser): AdminUserStatusCate
 export function statusCategoryForDetailUser(user: DetailUserLike): AdminUserStatusCategory {
   const status = normalizeAdminLiteToken(user.status);
   const memberStatus = normalizeAdminLiteToken(user.member_status);
-  const phoneStatus = normalizeAdminLiteToken(user.phone_verification_status);
   const moderation = normalizeAdminLiteToken(user.moderation_status);
 
   if (status === "deleted" || status === "withdrawn" || status === "deactivated") return "deleted";
@@ -114,10 +113,10 @@ export function statusCategoryForDetailUser(user: DetailUserLike): AdminUserStat
     return "suspended";
   }
   /**
-   * 목록과 같은 기준 — 검토 = `member_status=review` · 관리자가 거절한 전화 인증(`rejected`).
-   * 전화 미인증·예전 `pending` 사본은 계정 상태가 아니라 가입 단계로 따로 표시(회원 상세 경고줄, 재감사2 #5).
+   * 목록과 같은 기준 — 검토 = `member_status=review` 만 (목록 라벨·필터와 동일, 재감사3 #3).
+   * 전화 미인증·인증 거절·예전 `pending` 사본은 계정 상태가 아니라 가입 단계로 따로 표시(회원 상세 경고줄, 재감사2 #5).
    */
-  if (memberStatus === "review" || phoneStatus === "rejected") {
+  if (memberStatus === "review") {
     return "needs_review";
   }
   return "active";

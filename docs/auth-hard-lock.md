@@ -442,7 +442,7 @@ Contract delta:
 - DB 훅 `custom_access_token_hook` 클레임 `dibay_m` 에 키 추가(마이그레이션 `20271124120000`, 운영 적용 2026-11-24): `reg:1` · `phone_verified` · `phone_verified_at` · `phone_verification_method` · `provider` · `auth_provider` · `email` · `role` · `has_phone`(번호 자체는 넣지 않음) · `has_default_master` · `admin_role`. 예외·행 없음이면 토큰 그대로(불변).
 - proxy 가입 관문: 동의 완료 뒤 같은 클레임으로 `nextRegistrationStep` — 「완료」면 DB 0. 「미완료」면 DB(`resolveMemberRegistrationAuthority`)로 확인 후 단계 화면. 클레임에 `reg` 없음 → 판정 안 함.
 - 클라이언트: 가입 단계가 서버 판정 「빠진 단계 → 완료」로 바뀌는 순간 **기존 단일 비행 갱신(`runBrowserAuthRefreshDeduped`)을 1회** 부른다. 새 갱신 경로·주기 없음.
-  - 정정(2026-11-25 재감사2): 처음 구현(`DibaySignupGate` 안)은 가입 단계 화면에서 관문 컴포넌트가 사라져 전환을 놓쳤다. 전환 기억을 모듈 상태(`registration-pending-state`)로 옮기고, 루트 `AppBootProvider` 모듈 로드 때 1회 설치(`registration-complete-token-refresh.client.ts`) — 모든 화면에서 동작. 증거 `lib/auth/__tests__/registration-complete-token-refresh.test.ts`(실제 상태 전환으로 1회 갱신).
+  - 정정(2026-11-25 재감사2·3): 처음 구현(`DibaySignupGate` 안 「이전 단계」 기억)은 단계 화면에서 관문이 사라지고, 앱 복귀 때 supabase-js 가 `SIGNED_IN` 을 다시 보내(`_recoverAndRefresh`) 기억이 지워져 전환을 놓쳤다. 최종: **서버 판정 「완료」 + 현재 토큰 클레임 「미완료」(proxy 와 같은 식)일 때 그 토큰에 대해 1회** 갱신 — 기억 없음. 루트 `AppBootProvider` 모듈 로드 때 설치(`registration-complete-token-refresh.client.ts`). 증거 `lib/auth/__tests__/registration-complete-token-refresh.test.ts`.
 - 불변: 쓰기 게이트 · Route Handler 인증 · 401 계약 · Session / Destination / Completion / Profile 의미 · proxy 서버 갱신 규칙.
 
 증거: `lib/auth/__tests__/registration-ssot-2026-11-24.test.ts` · `lib/auth/__tests__/registration-reaudit-2026-11-24.test.ts`.
