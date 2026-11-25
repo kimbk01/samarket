@@ -37,6 +37,16 @@ export async function fetchBlockedAuthorIdsForViewer(
   return ids;
 }
 
+/**
+ * 다른 경로(동네 피드 제외 목록 1회 조회 · 2026-11-25)가 같은 조건으로 읽은 차단 작성자 id 를 같은 캐시에 넣는다
+ * → 같은 요청의 상세·댓글 등 후속 `fetchBlockedAuthorIdsForViewer` 가 다시 읽지 않는다(TTL 동일 5초).
+ */
+export function rememberBlockedAuthorIdsForViewer(viewerId: string, ids: Set<string>): void {
+  const v = viewerId.trim();
+  if (!v) return;
+  blockedIdsCacheByViewer.set(v, { at: Date.now(), ids: new Set(ids) });
+}
+
 /** 관심이웃 대상 user_id (필터 시 이 작성자만 노출 + 본인 글) */
 export async function fetchNeighborFollowTargetIds(
   sb: SupabaseClient<any>,
