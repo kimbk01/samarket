@@ -84,6 +84,10 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
               ? t("admin_users_err_phone_taken")
               : data.error === "username_taken"
                 ? t("admin_users_err_username_taken")
+                : data.error === "dibay_id_taken"
+                  ? t("admin_users_member_dibay_id_taken")
+                : data.error === "duplicate_value"
+                  ? t("admin_users_err_duplicate_value")
                 : data.error === "invalid_email"
               ? t("admin_users_err_invalid_email")
               : data.error === "invalid_phone"

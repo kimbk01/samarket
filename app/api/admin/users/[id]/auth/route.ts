@@ -159,8 +159,7 @@ export async function PATCH(
       {
         ok: false,
         error: rule.error,
-        message: rule.messageKo,
-        ...(rule.error === "password_min" ? { errorKey: "admin_users_err_password_min" } : {}),
+        errorKey: rule.errorKey,
       },
       { status: 400 }
     );
@@ -250,7 +249,7 @@ export async function PATCH(
       after_json: { reasons: weak.reasons, via: "auth_route" },
     });
     return NextResponse.json(
-      { ok: false, error: weak.error, reasons: weak.reasons, message: weak.messageKo },
+      { ok: false, error: weak.error, reasons: weak.reasons, errorKey: weak.errorKey },
       { status: 422 }
     );
   }

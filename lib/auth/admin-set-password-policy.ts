@@ -19,9 +19,27 @@ export const ADMIN_SET_PASSWORD_MAX_LENGTH = 128;
 
 export type AdminSetPasswordRuleError = "password_min" | "password_too_long" | "password_staff_rule";
 
+/**
+ * 화면 문구 키 — 클라이언트가 `t(errorKey)` 로 고른다 (등록 후속 감사 B14: 서버 한국어 문장을 그대로 보이지 않음).
+ * 값은 `lib/i18n/catalog/admin-users-address.ts`·`admin.ts` 의 ko·en 키.
+ */
+export const ADMIN_SET_PASSWORD_RULE_ERROR_KEY = {
+  password_min: "admin_users_err_password_min",
+  password_too_long: "admin_users_err_password_too_long",
+  password_staff_rule: "admin_users_err_password_staff_rule",
+} as const satisfies Record<AdminSetPasswordRuleError, string>;
+
+export type AdminSetPasswordRuleErrorKey =
+  (typeof ADMIN_SET_PASSWORD_RULE_ERROR_KEY)[AdminSetPasswordRuleError];
+
 export type AdminSetPasswordCheck =
   | { ok: true }
-  | { ok: false; error: AdminSetPasswordRuleError; messageKo: string };
+  | {
+      ok: false;
+      error: AdminSetPasswordRuleError;
+      errorKey: AdminSetPasswordRuleErrorKey;
+      messageKo: string;
+    };
 
 export const ADMIN_SET_PASSWORD_COPY = {
   memberHint: `${MEMBER_PASSWORD_MIN_LENGTH}자 이상 · 숫자만으로도 가능`,
@@ -49,26 +67,53 @@ export function checkAdminSetPassword(
 ): AdminSetPasswordCheck {
   const value = String(password ?? "");
   if (value.length > ADMIN_SET_PASSWORD_MAX_LENGTH) {
-    return { ok: false, error: "password_too_long", messageKo: ADMIN_SET_PASSWORD_COPY.tooLong };
+    return {
+      ok: false,
+      error: "password_too_long",
+      errorKey: ADMIN_SET_PASSWORD_RULE_ERROR_KEY.password_too_long,
+      messageKo: ADMIN_SET_PASSWORD_COPY.tooLong,
+    };
   }
   if (target === "staff") {
     const valid =
       value.length >= STAFF_PASSWORD_MIN_LENGTH && /[A-Za-z]/.test(value) && /[0-9]/.test(value);
     return valid
       ? { ok: true }
-      : { ok: false, error: "password_staff_rule", messageKo: ADMIN_SET_PASSWORD_COPY.staffRule };
+      : {
+          ok: false,
+          error: "password_staff_rule",
+          errorKey: ADMIN_SET_PASSWORD_RULE_ERROR_KEY.password_staff_rule,
+          messageKo: ADMIN_SET_PASSWORD_COPY.staffRule,
+        };
   }
   if (value.length < MEMBER_PASSWORD_MIN_LENGTH) {
-    return { ok: false, error: "password_min", messageKo: ADMIN_SET_PASSWORD_COPY.memberMin };
+    return {
+      ok: false,
+      error: "password_min",
+      errorKey: ADMIN_SET_PASSWORD_RULE_ERROR_KEY.password_min,
+      messageKo: ADMIN_SET_PASSWORD_COPY.memberMin,
+    };
   }
   return { ok: true };
 }
 
 export type SupabaseWeakPasswordReason = "length" | "characters" | "pwned";
 
+/** Supabase 거절 사유별 화면 문구 키 — 여러 사유면 아래 우선순위(pwned > length > characters) 하나 */
+export const ADMIN_WEAK_PASSWORD_ERROR_KEY = {
+  pwned: "admin_users_err_password_weak_pwned",
+  length: "admin_users_err_password_weak_length",
+  characters: "admin_users_err_password_weak_characters",
+  generic: "admin_users_err_password_weak_generic",
+} as const;
+
+export type AdminWeakPasswordErrorKey =
+  (typeof ADMIN_WEAK_PASSWORD_ERROR_KEY)[keyof typeof ADMIN_WEAK_PASSWORD_ERROR_KEY];
+
 export type MappedWeakPassword = {
   error: "password_weak";
   reasons: SupabaseWeakPasswordReason[];
+  errorKey: AdminWeakPasswordErrorKey;
   messageKo: string;
 };
 
@@ -108,5 +153,25 @@ export function mapSupabaseWeakPasswordError(err: unknown): MappedWeakPassword |
         ? ADMIN_SET_PASSWORD_COPY.weakCharacters
         : ADMIN_SET_PASSWORD_COPY.weakGeneric;
 
-  return { error: "password_weak", reasons, messageKo };
+  const errorKey = reasons.includes("pwned")
+    ? ADMIN_WEAK_PASSWORD_ERROR_KEY.pwned
+    : reasons.includes("length")
+      ? ADMIN_WEAK_PASSWORD_ERROR_KEY.length
+      : reasons.includes("characters")
+        ? ADMIN_WEAK_PASSWORD_ERROR_KEY.characters
+        : ADMIN_WEAK_PASSWORD_ERROR_KEY.generic;
+
+  return { error: "password_weak", reasons, errorKey, messageKo };
+}
+
+export type AdminSetPasswordErrorKey = AdminSetPasswordRuleErrorKey | AdminWeakPasswordErrorKey;
+
+const ADMIN_SET_PASSWORD_ERROR_KEYS: ReadonlySet<string> = new Set<string>([
+  ...Object.values(ADMIN_SET_PASSWORD_RULE_ERROR_KEY),
+  ...Object.values(ADMIN_WEAK_PASSWORD_ERROR_KEY),
+]);
+
+/** 서버 응답 `errorKey` 가 비밀번호 문구 키인지 — 화면은 이 키만 `t()` 로 번역한다 */
+export function isAdminSetPasswordErrorKey(value: unknown): value is AdminSetPasswordErrorKey {
+  return typeof value === "string" && ADMIN_SET_PASSWORD_ERROR_KEYS.has(value);
 }

@@ -266,6 +266,13 @@ function mapProfileRowToAdminUser(input: {
     username,
   });
   const email = displayEmail ?? undefined;
+  /** 전화 인증 판정 입력 — 배지·인증 상태·가입 단계·인증 필터가 같은 값을 본다 (등록 감사 B7: 관리자 본인 행 포함) */
+  const phoneGate = {
+    ...r,
+    phone: r.phone ?? null,
+    privilegedAdmin: adminMembershipRole !== null,
+  };
+  const phoneDisplayStatus = resolvePhoneVerificationDisplayStatus(phoneGate);
 
   return {
     id: r.id,
@@ -294,10 +301,10 @@ function mapProfileRowToAdminUser(input: {
     moderationStatus: mapProfileStatusToModeration(r.status, r.deleted_at, warnedUserIds.has(r.id)),
     location: r.region_name?.trim() || undefined,
     /** 목록 필터·정렬도 앱 게이트와 같은 판정 (감사 #8) */
-    phoneVerified: resolvePhoneVerificationDisplayStatus(r) === "verified",
+    phoneVerified: phoneDisplayStatus === "verified",
     phoneVerifiedAt: r.phone_verified_at ?? undefined,
     /** 앱 게이트(hasVerifiedPhone)와 같은 판정 (감사 #8) */
-    verificationStatus: resolvePhoneVerificationDisplayStatus(r),
+    verificationStatus: phoneDisplayStatus,
     /** 가입 단계 — 앱 가입 관문과 같은 판정 (재감사2 #5) */
     /** 탈퇴·삭제 회원은 가입 단계가 의미 없다 — 표시하지 않음(전체 감사 A14) */
     registrationNextStep:
@@ -313,11 +320,7 @@ function mapProfileRowToAdminUser(input: {
               },
               input.requiredConsent,
             ),
-            phoneVerified: verifiedPhoneVerdict({
-              ...r,
-              phone: r.phone ?? null,
-              privilegedAdmin: adminMembershipRole !== null,
-            }),
+            phoneVerified: verifiedPhoneVerdict(phoneGate),
             addressComplete: input.hasDefaultMaster,
             isPrivilegedAdmin: adminMembershipRole !== null,
           }),
@@ -397,7 +400,7 @@ export async function GET(req: NextRequest) {
   try {
     const [storeOwnerResult, adminIdResult, storeNameResult, storeIdResult] = await Promise.all([
       supabase.from("stores").select("owner_user_id"),
-      supabase.from("admin_memberships").select("user_id").eq("status", "active"),
+      supabase.from("admin_memberships").select("user_id, role").eq("status", "active"),
       search && !uuidSearch
         ? supabase
             .from("stores")
@@ -433,6 +436,12 @@ export async function GET(req: NextRequest) {
     );
     const adminIds = uniqueAdminMemberIds(
       (adminIdResult.data ?? []).map((r) => String((r as { user_id?: string }).user_id ?? "")),
+    );
+    /** 인증 필터의 「관리자 = 인증」 — 목록 배지와 같은 기준(역할 admin·super_admin) */
+    const privilegedAdminIds = uniqueAdminMemberIds(
+      (adminIdResult.data ?? [])
+        .filter((r) => adminMembershipRoleFromRow((r as { role?: string }).role) !== null)
+        .map((r) => String((r as { user_id?: string }).user_id ?? "")),
     );
     const storeNameOwnerIds = uniqueAdminMemberIds(
       (storeNameResult.data ?? []).map((r) => String((r as { owner_user_id?: string }).owner_user_id ?? "")),
@@ -482,7 +491,7 @@ export async function GET(req: NextRequest) {
             extraIds: storeSearchOwnerIds,
           }),
           ...(status ? adminMemberStatusFilterOps(status) : []),
-          ...adminMemberVerificationFilterOps(verify),
+          ...adminMemberVerificationFilterOps(verify, privilegedAdminIds),
           ...storePlan.ops,
           ...privPlan.ops,
           ...adminMemberOriginFilterOps(origin),
@@ -572,6 +581,8 @@ export async function GET(req: NextRequest) {
           extraIds: storeSearchOwnerIds,
         }),
         ...adminMemberStatusFilterOps(status),
+        /** 모든 요약 칩이 같은 가입일 범위를 쓴다 (등록 감사 B15 — runCount 와 같음) */
+        ...joinedRangeOps,
       ] as ProfileFilterOp[];
       const resolved = await applyProfileFilterOps(
         supabase.from("profiles").select("id", { count: "exact", head: true }),

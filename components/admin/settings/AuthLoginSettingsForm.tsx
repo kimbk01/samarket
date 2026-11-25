@@ -50,6 +50,8 @@ export function AuthLoginSettingsForm() {
   const [sessionPolicy, setSessionPolicy] = useState<AuthDuplicateLoginPolicy | null>(null);
   const [activeSection, setActiveSection] = useState<"oauth" | "policy" | "phone">("oauth");
   const [phoneSettings, setPhoneSettings] = useState<AuthPhoneSettings | null>(null);
+  /** 서버가 전화 인증 설정을 읽지 못함(503) — 기본값으로 채워 저장하지 않도록 입력칸 대신 오류를 보인다 */
+  const [phoneUnavailable, setPhoneUnavailable] = useState(false);
   const [loading, setLoading] = useState(true);
   const [policySaving, setPolicySaving] = useState(false);
   /** 불러오기 실패 (코드 + HTTP 상태) — 원문 메시지를 화면에 쓰지 않는다. */
@@ -108,9 +110,16 @@ export function AuthLoginSettingsForm() {
       settings?: AuthPhoneSettings;
       error?: string;
     } | null;
+    if (res.status === 503 && json?.error === "phone_settings_unavailable") {
+      setPhoneSettings(null);
+      setPhoneUnavailable(true);
+      return;
+    }
     if (!res.ok || !json?.ok || !json.settings) {
+      setPhoneSettings(null);
       throw new AuthSettingsLoadError(adminSafeErrorCode(json?.error, "load_failed"), res.status);
     }
+    setPhoneUnavailable(false);
     setPhoneSettings(json.settings);
   };
 
@@ -297,6 +306,11 @@ export function AuthLoginSettingsForm() {
         settings?: AuthPhoneSettings;
         error?: string;
       } | null;
+      if (res.status === 503 && json?.error === "phone_settings_unavailable") {
+        setPhoneSettings(null);
+        setPhoneUnavailable(true);
+        return;
+      }
       if (!res.ok || !json?.ok || !json.settings) {
         setPhoneError((json?.error ? adminOperatorErrorMessage(json.error, ko) : null) || t("admin_auth_err_phone_save"));
         return;
@@ -571,6 +585,17 @@ export function AuthLoginSettingsForm() {
       <AdminCard title={t("admin_auth_settings_phone_card_title")}>
         {loading ? (
           <AdminLoadingState ko={ko} label={t("common_loading")} />
+        ) : phoneUnavailable ? (
+          <div
+            role="alert"
+            data-admin-phone-settings-unavailable="1"
+            className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-3 sam-text-body text-sam-fg"
+          >
+            <p>{t("admin_auth_phone_settings_unavailable")}</p>
+            <AdminActionButton variant="secondary" size="sm" className="mt-3" onClick={retryLoad}>
+              {t("admin_users_retry")}
+            </AdminActionButton>
+          </div>
         ) : !phoneSettings ? (
           <AdminErrorState ko={ko} code={loadErr?.code ?? "load_failed"} httpStatus={loadErr?.httpStatus} onRetry={retryLoad} />
         ) : (

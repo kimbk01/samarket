@@ -4,9 +4,14 @@ import { join } from "node:path";
 import {
   MEMBER_PASSWORD_MIN_LENGTH,
   STAFF_PASSWORD_MIN_LENGTH,
+  ADMIN_SET_PASSWORD_RULE_ERROR_KEY,
+  ADMIN_WEAK_PASSWORD_ERROR_KEY,
   checkAdminSetPassword,
+  isAdminSetPasswordErrorKey,
   mapSupabaseWeakPasswordError,
 } from "@/lib/auth/admin-set-password-policy";
+import { adminMessages } from "@/lib/i18n/catalog/admin";
+import { adminUsersAddressMessages } from "@/lib/i18n/catalog/admin-users-address";
 
 const src = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
@@ -87,5 +92,49 @@ describe("admin-set-password-policy (설계안 ⑨)", () => {
     }
     expect(src("components/admin/users/CreateMemberForm.tsx")).not.toMatch(/minLength=\{4\}/);
     expect(src("app/api/admin/users/[id]/auth/route.ts")).toMatch(/PASSWORD_TEMP_SET_REJECTED/);
+  });
+
+  it("등록 후속 감사 B14 — 규칙·거절 사유마다 화면 문구 키(errorKey)를 돌려준다", () => {
+    const min = checkAdminSetPassword("12", "member");
+    const long = checkAdminSetPassword("1".repeat(129), "member");
+    const staff = checkAdminSetPassword("12345678", "staff");
+    expect(min.ok ? null : min.errorKey).toBe("admin_users_err_password_min");
+    expect(long.ok ? null : long.errorKey).toBe("admin_users_err_password_too_long");
+    expect(staff.ok ? null : staff.errorKey).toBe("admin_users_err_password_staff_rule");
+
+    const weak = (reasons: string[], message = "Password should be stronger") =>
+      mapSupabaseWeakPasswordError({ code: "weak_password", message, reasons })?.errorKey;
+    expect(weak(["pwned"])).toBe("admin_users_err_password_weak_pwned");
+    expect(weak(["length"])).toBe("admin_users_err_password_weak_length");
+    expect(weak(["characters"])).toBe("admin_users_err_password_weak_characters");
+    expect(weak(["length", "pwned"])).toBe("admin_users_err_password_weak_pwned");
+    expect(weak([], "weak password")).toBe("admin_users_err_password_weak_generic");
+  });
+
+  it("모든 비밀번호 문구 키가 ko·en 카탈로그에 있다", () => {
+    const keys = [...Object.values(ADMIN_SET_PASSWORD_RULE_ERROR_KEY), ...Object.values(ADMIN_WEAK_PASSWORD_ERROR_KEY)];
+    const ko = { ...adminMessages.ko, ...adminUsersAddressMessages.ko } as Record<string, string>;
+    const en = { ...adminMessages.en, ...adminUsersAddressMessages.en } as Record<string, string>;
+    for (const key of keys) {
+      expect(isAdminSetPasswordErrorKey(key)).toBe(true);
+      expect(ko[key], key).toBeTruthy();
+      expect(en[key], key).toBeTruthy();
+    }
+    expect(isAdminSetPasswordErrorKey("admin_users_action_failed")).toBe(false);
+    expect(isAdminSetPasswordErrorKey(undefined)).toBe(false);
+  });
+
+  it("서버는 비밀번호 거절에 한국어 문장(message) 대신 errorKey, 화면은 errorKey 를 번역", () => {
+    for (const file of ["app/api/admin/users/[id]/auth/route.ts", "app/api/admin/users/create/route.ts", "app/api/admin/users/[id]/route.ts"]) {
+      const body = src(file);
+      expect(body, file).toContain("errorKey: weak");
+      expect(body, file).not.toContain("messageKo");
+    }
+    const dialog = src("components/admin/users/AdminMemberPasswordDialog.tsx");
+    expect(dialog).toContain("isAdminSetPasswordErrorKey(data.errorKey)");
+    expect(dialog).not.toContain("rule.messageKo");
+    expect(dialog).not.toMatch(/data\.error === "password_weak"[\s\S]{0,120}data\.message/);
+    const form = src("components/admin/users/CreateMemberForm.tsx");
+    expect(form).not.toContain('data.error === "password_weak" && data.message');
   });
 });

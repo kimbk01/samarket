@@ -10,6 +10,7 @@ import {
   MEMBER_PASSWORD_MIN_LENGTH,
   adminSetPasswordHintKo,
   checkAdminSetPassword,
+  isAdminSetPasswordErrorKey,
 } from "@/lib/auth/admin-set-password-policy";
 
 export function AdminMemberPasswordDialog({
@@ -49,7 +50,7 @@ export function AdminMemberPasswordDialog({
     setErrorText(null);
     const rule = checkAdminSetPassword(password, "member");
     if (!rule.ok) {
-      setErrorText(rule.messageKo);
+      setErrorText(t(rule.errorKey));
       return;
     }
     if (password !== confirm) {
@@ -71,13 +72,10 @@ export function AdminMemberPasswordDialog({
         errorKey?: string;
       };
       if (!res.ok || data.ok === false) {
-        const text =
-          (data.error === "password_weak" ||
-            data.error === "password_min" ||
-            data.error === "password_too_long") &&
-          data.message
-            ? data.message
-            : data.error === "password_min" || data.errorKey === "admin_users_err_password_min"
+        /** 비밀번호 규칙·Supabase 거절 사유 → 서버가 준 사유별 키로 번역 (서버 한국어 문장 표시 금지, 등록 후속 감사 B14) */
+        const text = isAdminSetPasswordErrorKey(data.errorKey)
+          ? t(data.errorKey)
+          : data.error === "password_min"
             ? t("admin_users_err_password_min")
             : data.error === "password_reset_unsupported"
               ? t("admin_users_member_pw_reset_unsupported")

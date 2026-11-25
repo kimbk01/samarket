@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ADMIN_PROFILE_DUPLICATE_FIELD, classifyAdminProfileDuplicate } from "@/lib/admin-users/admin-member-profile-write-error";
+import {
+  ADMIN_PROFILE_DUPLICATE_ERROR_CODE,
+  ADMIN_PROFILE_DUPLICATE_FIELD,
+  classifyAdminProfileDuplicate,
+} from "@/lib/admin-users/admin-member-profile-write-error";
 import { checkAdminSetPassword, mapSupabaseWeakPasswordError } from "@/lib/auth/admin-set-password-policy";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
@@ -33,7 +37,8 @@ type CreateMemberApiField =
   | "contactPhone"
   | "address"
   | "addressDetail"
-  | "accountType";
+  | "accountType"
+  | "form";
 
 function jsonFieldError(
   field: CreateMemberApiField,
@@ -52,10 +57,12 @@ function jsonFieldError(
   );
 }
 
-/** 프로필 저장 중복 오류 → 칸·문구 (전체 감사 B3: 전화·아이디 중복이 「닉네임 중복」으로 보이던 결함) — 제약 이름으로만 판정 */
-function mapProfileCreateError(message: string): { field: CreateMemberApiField; errorKey: string } | null {
-  const kind = classifyAdminProfileDuplicate(message);
-  return kind ? ADMIN_PROFILE_DUPLICATE_FIELD[kind] : null;
+/** 생성 실패(중복 아님) — DB·Auth 원문은 서버 로그에만 남기고 화면에는 일반 코드 (등록 후속 감사 8번) */
+function createFailedResponse() {
+  return NextResponse.json(
+    { ok: false, error: "create_failed", field: "form", errorKey: "admin_users_err_create_failed" },
+    { status: 500 },
+  );
 }
 
 function parseAddressPayload(raw: unknown): AdminCreateMemberAddressInput | null {
@@ -162,7 +169,7 @@ export async function POST(req: NextRequest) {
   }
   const passwordRule = checkAdminSetPassword(password, "member");
   if (!passwordRule.ok) {
-    return jsonFieldError("password", "admin_users_err_password_min", 400, passwordRule.messageKo);
+    return jsonFieldError("password", passwordRule.errorKey, 400, passwordRule.error);
   }
   if (!nickname || nickname.length > 20) {
     return jsonFieldError("nickname", "admin_users_err_nickname_length", 400);
@@ -251,7 +258,13 @@ export async function POST(req: NextRequest) {
   const weakPassword = authError ? mapSupabaseWeakPasswordError(authError) : null;
   if (weakPassword) {
     return NextResponse.json(
-      { ok: false, field: "password", error: weakPassword.error, reasons: weakPassword.reasons, message: weakPassword.messageKo },
+      {
+        ok: false,
+        field: "password",
+        error: weakPassword.error,
+        reasons: weakPassword.reasons,
+        errorKey: weakPassword.errorKey,
+      },
       { status: 422 },
     );
   }
@@ -270,18 +283,11 @@ export async function POST(req: NextRequest) {
         "username",
         "admin_users_err_username_taken",
         409,
-        raw || await adminServerText("admin_api_users_email_taken")
+        ADMIN_PROFILE_DUPLICATE_ERROR_CODE.username
       );
     }
-    return NextResponse.json(
-      {
-        ok: false,
-        error: raw || await adminServerText("admin_api_users_create_failed"),
-        field: "form",
-        errorKey: "admin_users_err_create_failed",
-      },
-      { status: 500 }
-    );
+    console.error("[admin/users/create] auth user create failed", { message: raw || null });
+    return createFailedResponse();
   }
 
   const profileRow: Record<string, unknown> = {
@@ -326,11 +332,17 @@ export async function POST(req: NextRequest) {
   const { error: profileError } = await (supabase as any).from("profiles").upsert(profileRow);
   if (profileError) {
     await supabase.auth.admin.deleteUser(id);
-    const mapped = mapProfileCreateError(profileError.message);
-    if (mapped) {
-      return jsonFieldError(mapped.field, mapped.errorKey, 500, profileError.message);
+    /** 중복 → 409 + 칸·문구 (전체 감사 B3 · 등록 후속 감사 8번: 제약 이름으로만 판정) */
+    const kind = classifyAdminProfileDuplicate(profileError.message, (profileError as { code?: string }).code);
+    if (kind) {
+      const mapped = ADMIN_PROFILE_DUPLICATE_FIELD[kind];
+      return jsonFieldError(mapped.field, mapped.errorKey, 409, ADMIN_PROFILE_DUPLICATE_ERROR_CODE[kind]);
     }
-    return NextResponse.json({ ok: false, error: profileError.message, field: "form" }, { status: 500 });
+    console.error("[admin/users/create] profile upsert failed", {
+      code: (profileError as { code?: string }).code ?? null,
+      message: profileError.message,
+    });
+    return createFailedResponse();
   }
 
   // 혜택·이벤트 선택 동의도 회원 본인이 첫 로그인 동의 화면에서 고른다(기록 없음 = 그 화면이 묻는다 · 가입 SSOT S4).

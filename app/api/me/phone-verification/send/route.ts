@@ -45,7 +45,8 @@ export async function POST(req: NextRequest) {
   const inputPhone = String(body.phone ?? "").trim();
   const displayName = String(body.display_name ?? body.nickname ?? "").trim().slice(0, 20);
   if (!displayName) {
-    return jsonError("닉네임을 입력해 주세요.", 400);
+    /** 화면 문구는 클라이언트가 코드로 고른다 — 서버 한국어 문장 금지 (등록 후속 감사 B8) */
+    return jsonError("display_name_required", { status: 400, code: "display_name_required" });
   }
   const nameCheck = await precheckProfileDisplayName(sb, auth.userId, displayName);
   if (!nameCheck.ok) {

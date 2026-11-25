@@ -6,11 +6,12 @@ import {
   canUseVerifiedMemberFeatures,
   loadMemberAccessState,
 } from "@/lib/auth/member-access";
-import { STORE_PHONE_GATE_MESSAGE } from "@/lib/auth/store-member-policy";
 import { loadAuthPhoneSettings } from "@/lib/auth/auth-phone-settings";
 import { loadPendingPhoneOtpChallengeForUser } from "@/lib/auth/phone-otp-service";
 import { resolveAvailableVerifyDialCodes } from "@/lib/phone/available-verify-countries";
 import { resolveDefaultVerifyDialCode } from "@/lib/phone/phone-country-codes";
+import { buildPublicPhoneVerificationSettings } from "@/lib/auth/phone-verification-public-settings";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,13 +47,17 @@ export async function GET(req: NextRequest) {
       phone_verification_status: state.phoneVerificationStatus,
       display_name: state.nickname,
       nickname: state.nickname,
-      help_text: fullMemberAccessOk ? "" : STORE_PHONE_GATE_MESSAGE,
       /** Google·카카오·네이버·이메일 가입자의 이용 조건과 동일(관리자 수동 입력 포함) */
       full_member_access_ok: fullMemberAccessOk,
       store_member_status: state.storeMemberStatus ?? "sns_member",
       consent_required: state.hasRequiredConsent === false,
       // 인증 가능한 국가번호 — +63(Semaphore) 항상, +82 는 Solapi 설정이 있을 때만 (Owner 2026-11-09).
-      settings: { ...phoneSettings, country_dial_codes: dialCodes, default_dial_code: defaultDialCode },
+      // 허용 목록만 — 관리자 변경자·사유·행 버전 등은 내보내지 않는다 (등록 후속 감사 B13)
+      settings: buildPublicPhoneVerificationSettings(phoneSettings, {
+        dialCodes,
+        defaultDialCode,
+        language: await resolveRequestAppLanguageOr("ko"),
+      }),
       pending_challenge: pendingChallenge,
     },
   });
