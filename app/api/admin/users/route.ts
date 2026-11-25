@@ -477,8 +477,14 @@ export async function GET(req: NextRequest) {
         origin?: typeof originFilter;
       },
     ) => {
-      const storePlan = adminMemberStoreFilterPlan(opts?.store ?? storeFilter, ownerIds);
-      const privPlan = adminMemberPrivilegeFilterPlan(opts?.privilege ?? privilegeFilter, adminIds);
+      /**
+       * `null` = 그 조건 없이 센다(요약 칩). `??` 를 쓰면 `null` 이 화면 필터로 되돌아가 — 관리자로 거르면 「전체 회원」이 관리자 수,
+       * 「매장 운영」이 관리자∧매장으로 바뀌었다(가입 후속 실기 2026-11-25). 상태·인증·가입 방식과 같은 규칙(`=== undefined`).
+       */
+      const store = opts?.store === undefined ? storeFilter : opts.store;
+      const privilege = opts?.privilege === undefined ? privilegeFilter : opts.privilege;
+      const storePlan = adminMemberStoreFilterPlan(store, ownerIds);
+      const privPlan = adminMemberPrivilegeFilterPlan(privilege, adminIds);
       const status = opts?.status === undefined ? statusFilter : opts.status;
       const verify = opts?.verify === undefined ? verifyFilter : opts.verify;
       const origin = opts?.origin === undefined ? originFilter : opts.origin;
