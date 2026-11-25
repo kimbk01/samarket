@@ -12,6 +12,7 @@
  */
 
 import { isTestTrafficUserAgent } from "@/lib/perf/test-traffic";
+import { sortRollupRowsForLockOrder } from "@/lib/perf/rollup-row-lock-order";
 
 export const SUPABASE_ROUTE_CATEGORY = "server.supabase_route";
 export const SUPABASE_ROUTE_TEST_CATEGORY = "server.supabase_route_test";
@@ -226,8 +227,10 @@ export async function sendSupabaseCallRollup(
   rows: SupabaseCallRollupRow[],
   opts: { supabaseOrigin: string; serviceKey: string; fetchImpl: typeof fetch },
 ): Promise<void> {
-  for (let i = 0; i < rows.length; i += ROLLUP_MAX_ROWS) {
-    const chunk = rows.slice(i, i + ROLLUP_MAX_ROWS);
+  // F1(2026-11-25): 모든 인스턴스가 같은 키 순서로 잠그게 정렬 — 정렬 뒤 나누므로 묶음끼리도 순서가 겹치지 않는다.
+  const ordered = sortRollupRowsForLockOrder(rows);
+  for (let i = 0; i < ordered.length; i += ROLLUP_MAX_ROWS) {
+    const chunk = ordered.slice(i, i + ROLLUP_MAX_ROWS);
     try {
       const res = await opts.fetchImpl(`${opts.supabaseOrigin}/rest/v1/rpc/cm_monitoring_rollup_add`, {
         method: "POST",
