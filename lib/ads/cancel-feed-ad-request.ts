@@ -21,7 +21,7 @@ export async function cancelFeedAdRequest(
 
   const { data: reqRow, error: fetchErr } = await sb
     .from("feed_ad_requests")
-    .select("id, status, user_id")
+    .select("id, status, user_id, reviewed_by")
     .eq("id", requestId)
     .maybeSingle();
 
@@ -32,6 +32,13 @@ export async function cancelFeedAdRequest(
     return { ok: false, error: "forbidden", httpStatus: 403 };
   }
   if (String((reqRow as { status?: string }).status) !== "pending_review") {
+    return { ok: false, error: "not_pending", httpStatus: 409 };
+  }
+  /**
+   * 광고 감사 FB-15 (2026-11-26): 어드민이 승인을 시작한 신청(`reviewed_by` 있음)은 회원 취소를 받지 않는다 —
+   * 승인 확정과 취소가 겹쳐 보류를 먼저 풀어 버리면 승인 쪽 차감 확정이 실패하고 상태가 「검토 중」으로 되돌아갔다.
+   */
+  if ((reqRow as { reviewed_by?: string | null }).reviewed_by) {
     return { ok: false, error: "not_pending", httpStatus: 409 };
   }
 
@@ -51,6 +58,7 @@ export async function cancelFeedAdRequest(
     })
     .eq("id", requestId)
     .eq("status", "pending_review")
+    .is("reviewed_by", null)
     .eq("user_id", params.userId)
     .select("id")
     .maybeSingle();

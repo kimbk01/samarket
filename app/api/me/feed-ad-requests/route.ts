@@ -12,7 +12,6 @@ import {
   projectFeedAdOperatorNotice,
 } from "@/lib/ads/feed-ad-member-presentation";
 import { loadFeedAdPoolRemaining } from "@/lib/ads/feed-ad-pool-capacity-server";
-import { feedAdErrorMessageKo } from "@/lib/ads/feed-ad-error-copy";
 import type { FeedAdDomain, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import {
   isFeedAdCommunityTopicTargetAllowed,
@@ -24,6 +23,7 @@ import {
   findCurrentFeedAdBanner,
 } from "@/lib/ads/feed-ad-member-limit";
 import { holdPointsForFeedAdRequest } from "@/lib/ads/feed-ad-request-point-flow";
+import { checkMemberFeedAdDestination } from "@/lib/ads/feed-ad-member-destination-check";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -278,6 +278,9 @@ export async function POST(req: NextRequest) {
     destinationUrl?: string;
     creatives?: CreativeIn[];
     idempotencyKey?: string;
+    /** 화면에 보였던 금액·기간 — 지금 상품 값과 다르면 보류하지 않고 409 price_changed (광고 감사 FB-01) */
+    expectedPointCost?: number;
+    expectedDurationDays?: number;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -296,6 +299,27 @@ export async function POST(req: NextRequest) {
   const product = await getFeedAdProduct(sb, String(body.productId ?? ""));
   if (!product) {
     return NextResponse.json({ ok: false, error: "product_not_found" }, { status: 400 });
+  }
+  /**
+   * FB-01 (2026-11-26): 회원이 본 금액·기간과 지금 상품 값이 같을 때만 포인트를 보류한다.
+   * 예전에는 대조 없이 그 순간 DB 금액으로 보류 → 화면을 연 사이 어드민이 올리면 본 적 없는 금액이 묶였다.
+   */
+  {
+    const expCost = Math.floor(Number(body.expectedPointCost));
+    const expDays = Math.floor(Number(body.expectedDurationDays));
+    if (!Number.isFinite(expCost) || expCost < 1 || !Number.isFinite(expDays) || expDays < 1) {
+      return NextResponse.json({ ok: false, error: "product_not_found" }, { status: 400 });
+    }
+    if (expCost !== product.pointCost || expDays !== product.durationDays) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "price_changed",
+          product: { id: product.id, pointCost: product.pointCost, durationDays: product.durationDays },
+        },
+        { status: 409 }
+      );
+    }
   }
 
   // F7: replay same Idempotency-Key → existing request, no second HOLD.
@@ -442,7 +466,20 @@ export async function POST(req: NextRequest) {
     destinationUrl: body.destinationUrl,
   });
   if (!dest.ok) {
-    return NextResponse.json({ ok: false, error: dest.error, message: feedAdErrorMessageKo(dest.error) }, { status: 400 });
+    return NextResponse.json({ ok: false, error: dest.error }, { status: 400 });
+  }
+  /** FB-05: 내 공개 글만 연결 · 회원 목적지 종류 제한 (보류 전) */
+  {
+    const own = await checkMemberFeedAdDestination(sb, auth.userId, {
+      destinationType: dest.value.destinationType,
+      destinationId: dest.value.destinationId,
+    });
+    if (!own.ok) {
+      return NextResponse.json(
+        { ok: false, error: own.error },
+        { status: own.error === "destination_check_failed" ? 503 : 400 }
+      );
+    }
   }
 
   // D-7 ③: 보류(포인트) 전에 남은 자리를 서버가 다시 센다(위치+업종/주제 · 화면 안내와 같은 함수). 가득이면 409 · 보류 0.
@@ -454,7 +491,7 @@ export async function POST(req: NextRequest) {
     });
     if (!pool.ok) {
       return NextResponse.json(
-        { ok: false, error: "capacity_check_failed", message: feedAdErrorMessageKo("capacity_check_failed") },
+        { ok: false, error: "capacity_check_failed" },
         { status: 503 }
       );
     }
@@ -463,7 +500,6 @@ export async function POST(req: NextRequest) {
         {
           ok: false,
           error: "capacity_full",
-          message: "지금 이 자리의 광고가 모두 찼습니다. 신청되지 않았고 포인트는 그대로입니다.",
           used: pool.used,
           capacity: pool.capacity,
         },

@@ -21,6 +21,7 @@ import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import "@/lib/admin/status-labels/ads-status-labels";
 import type { FeedAdProduct } from "@/lib/ads/feed-ad-products";
 import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
+import { feedAdProductTitleKey } from "@/lib/ads/feed-ad-product-title";
 
 type Row = FeedAdProduct & {
   draftDuration: string;
@@ -222,7 +223,7 @@ export function AdminFeedAdProductsClient() {
             {visibleRows.map((row) => (
               <tr key={row.id} className="border-t border-sam-border">
                 <td className="px-3 py-2">
-                  <div className="font-medium text-sam-fg">{en ? row.titleEn : row.titleKo}</div>
+                  <div className="font-medium text-sam-fg">{t(feedAdProductTitleKey(row.domain), { days: String(row.durationDays) })}</div>
                   <div className="text-sam-muted">{row.id}</div>
                 </td>
                 <td className="px-3 py-2">

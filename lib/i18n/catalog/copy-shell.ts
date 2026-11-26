@@ -63,7 +63,8 @@ export const copyShellMessages = {
     mypage_ads_spots_left: "남은 자리 {remaining}개 (전체 {capacity}개)",
     mypage_ads_spot_full_apply_later: "이 자리는 지금 가득 찼습니다. 자리가 나면 신청할 수 있습니다.",
     mypage_ads_pool_refund_note: "승인 때 자리가 차면 신청은 검토 중으로 남고 포인트는 보류됩니다. 반려되면 포인트를 돌려드립니다.",
-    mypage_ads_image_limits: "장당 최대 2MB · 2~3장은 피드에서 자동 슬라이드",
+    /** FB-13: 같은 자리에 다른 광고가 있으면 캠페인마다 1번 이미지만 나온다 (`FeedAdBannerCarousel` multiCampaign) */
+    mypage_ads_image_limits: "장당 최대 2MB · 같은 자리에 다른 광고가 함께 나오면 1번 이미지만 보여요",
     mypage_ads_sample_banner: "샘플 배너",
     mypage_ads_image_n: "이미지 {n}",
     mypage_ads_image_n_required: "이미지 {n} (필수)",
@@ -158,7 +159,7 @@ export const copyShellMessages = {
     mypage_ads_spots_left: "{remaining} of {capacity} spots left",
     mypage_ads_spot_full_apply_later: "This spot is full. You can apply when a spot opens.",
     mypage_ads_pool_refund_note: "If the spot fills up by approval time, your request stays in review with points on hold. If it is declined, your points are returned.",
-    mypage_ads_image_limits: "max 2MB each · 2–3 images auto-slide in feed",
+    mypage_ads_image_limits: "max 2MB each · only image 1 shows when other ads share the spot",
     mypage_ads_sample_banner: "Sample banner",
     mypage_ads_image_n: "Image {n}",
     mypage_ads_image_n_required: "Image {n} (required)",

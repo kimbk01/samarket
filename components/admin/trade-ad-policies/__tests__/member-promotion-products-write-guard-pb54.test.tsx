@@ -84,27 +84,27 @@ afterEach(async () => {
 describe("PB-54·AD-126 상위노출 가격 저장 — 권한 조건", () => {
   it("권한이 있으면 두 상품 모두 저장 버튼이 켜진다", async () => {
     await mount();
-    expect(saveOf("거래 3일").disabled).toBe(false);
-    expect(saveOf("커뮤니티 3일").disabled).toBe(false);
+    expect(saveOf("promo_product_title_trade:3").disabled).toBe(false);
+    expect(saveOf("promo_product_title_community:3").disabled).toBe(false);
     expect(document.querySelector("[data-admin-write-denied]")).toBeNull();
   });
 
   it("거래 권한이 없으면 버튼이 꺼지고 안내가 보이며, 눌러도 사유 창을 열지 않는다", async () => {
     h.access["/admin/trade-ad-policies"] = { allowed: false, reason: "거래 권한 필요", loading: false };
     await mount();
-    expect(saveOf("거래 3일").disabled).toBe(true);
-    expect(saveOf("커뮤니티 3일").disabled).toBe(true);
-    expect(rowOf("거래 3일").querySelector("[data-admin-write-denied]")?.textContent).toContain("거래 권한 필요");
-    await act(async () => saveOf("거래 3일").click());
+    expect(saveOf("promo_product_title_trade:3").disabled).toBe(true);
+    expect(saveOf("promo_product_title_community:3").disabled).toBe(true);
+    expect(rowOf("promo_product_title_trade:3").querySelector("[data-admin-write-denied]")?.textContent).toContain("거래 권한 필요");
+    await act(async () => saveOf("promo_product_title_trade:3").click());
     expect(h.confirm).not.toHaveBeenCalled();
   });
 
   it("커뮤니티 홍보 권한이 없으면 커뮤니티 상품만 막힌다", async () => {
     h.access["/admin/community/promotions"] = { allowed: false, reason: "커뮤니티 홍보 권한 필요", loading: false };
     await mount();
-    expect(saveOf("거래 3일").disabled).toBe(false);
-    expect(saveOf("커뮤니티 3일").disabled).toBe(true);
-    expect(rowOf("커뮤니티 3일").querySelector("[data-admin-write-denied]")?.textContent).toContain("커뮤니티 홍보 권한 필요");
-    expect(rowOf("거래 3일").querySelector("[data-admin-write-denied]")).toBeNull();
+    expect(saveOf("promo_product_title_trade:3").disabled).toBe(false);
+    expect(saveOf("promo_product_title_community:3").disabled).toBe(true);
+    expect(rowOf("promo_product_title_community:3").querySelector("[data-admin-write-denied]")?.textContent).toContain("커뮤니티 홍보 권한 필요");
+    expect(rowOf("promo_product_title_trade:3").querySelector("[data-admin-write-denied]")).toBeNull();
   });
 });

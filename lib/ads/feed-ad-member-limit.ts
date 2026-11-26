@@ -76,9 +76,20 @@ export function findCurrentFeedAdBanner(
           ? 1
           : 2;
     if (!found || rank < found.rank) {
+      /**
+       * 광고 감사 FB-08 (2026-11-26): 화면에 쓰는 상태는 캠페인 정지까지 반영한다 —
+       * 신청 화면이 정지된 배너를 「활성」으로 보이던 것(내 광고는 「일시중지」). 막기 판정(위)은 그대로.
+       */
+      const shown = projectFeedAdMemberPresentation({
+        requestStatus: row.status,
+        startAt: row.startAt,
+        endAt: row.endAt,
+        campaignStatus: row.campaignStatus ?? null,
+        nowMs: now,
+      });
       found = {
         requestId: row.id,
-        displayStatus: presentation.displayStatus,
+        displayStatus: shown.displayStatus,
         rank,
       };
     }

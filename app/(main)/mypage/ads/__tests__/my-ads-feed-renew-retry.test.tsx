@@ -19,7 +19,8 @@ vi.mock("@/components/i18n/AppLanguageProvider", async () => {
   const { safeTranslate } = await import("@/lib/i18n/safe-translate");
   const value = {
     language: "ko",
-    t: (k: string) => k,
+    /** 상품 이름 = 키 + 기간 (FB-07) — 변수 있는 문구는 「키(값)」로 그린다 */
+    t: (k: string, p?: Record<string, string>) => (p ? `${k}(${Object.values(p).join(",")})` : k),
     safeT: (k: string, o?: Parameters<typeof safeTranslate>[2]) => safeTranslate("ko", k as never, o),
   };
   return { useI18n: () => value };
@@ -213,12 +214,12 @@ describe("FB-M13 피드 배너 연장 — 같은 결제 시도는 같은 키", (
     replies = ["network", { status: 200, body: { ok: true } }];
     await mount();
     await openSheet();
-    await act(async () => buttonWith("14일")!.click());
+    await act(async () => buttonWith("feed_ad_product_title_trade(14)")!.click());
     await confirm();
     await act(async () => buttonWith("common_cancel")!.click());
     await flush();
     await openSheet();
-    expect(buttonWith("14일")!.getAttribute("data-selected")).toBe("true");
+    expect(buttonWith("feed_ad_product_title_trade(14)")!.getAttribute("data-selected")).toBe("true");
     await confirm();
     expect(posts.map((p) => p.productId)).toEqual(["feed_14", "feed_14"]);
     expect(posts[1]!.key).toBe(posts[0]!.key);
@@ -240,7 +241,7 @@ describe("D-01 (2026-11-07) 연장 가격 확인", () => {
   it("화면에 보인 선택 상품 가격을 expectedCost 로 보낸다", async () => {
     await mount();
     await openSheet();
-    await act(async () => buttonWith("14일")!.click());
+    await act(async () => buttonWith("feed_ad_product_title_trade(14)")!.click());
     await confirm();
     expect(posts[0]).toMatchObject({ productId: "feed_14", expectedCost: 12000 });
   });

@@ -45,6 +45,7 @@ import type { FeedAdProduct } from "@/lib/ads/feed-ad-products";
 import { DibayActionSheet, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { createPromotionAttemptKeyStore } from "@/lib/points/promotion-attempt-key";
+import { feedAdProductTitleKey } from "@/lib/ads/feed-ad-product-title";
 
 type FeedRequestRow = {
   id: string;
@@ -698,13 +699,8 @@ export default function MyAdsPageClient() {
                         </p>
                         {(display === "active" || display === "scheduled") && (
                           <a
-                            href={
-                              r.placement === "COMMUNITY_TOPIC" && r.targetTopicSlug
-                                ? `/philife?category=${encodeURIComponent(r.targetTopicSlug)}`
-                                : r.domain === "trade"
-                                  ? "/market"
-                                  : "/philife"
-                            }
+                            /* FB-14: 위치 이동은 함수 1곳 — 업종 배너가 거래 홈으로 가던 것 */
+                            href={viewHref}
                             className="mt-1 inline-block sam-text-helper font-medium text-sam-primary underline"
                             data-testid="revenue-hub-feed-ad-surface-link"
                           >
@@ -866,7 +862,7 @@ export default function MyAdsPageClient() {
                 className={`${OverlayUi.selectCard} flex-col !items-stretch !gap-1`}
               >
                 <div className="flex justify-between gap-2">
-                  <span className="font-medium">{en ? p.titleEn : p.titleKo}</span>
+                  <span className="font-medium">{t(feedAdProductTitleKey(p.domain), { days: String(p.durationDays) })}</span>
                   <CurrencyAmount currency="point" amount={p.pointCost} compactPoint className="font-semibold" />
                 </div>
                 <p className={OverlayUi.caption}>

@@ -339,7 +339,9 @@ export async function approveFeedAdRequest(
           reviewed_at: null,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", requestId);
+        .eq("id", requestId)
+        /** FB-15: 그 사이 회원이 취소했으면 「취소됨」을 덮어쓰지 않는다 */
+        .neq("status", "cancelled");
       return {
         ok: false,
         error: updReq?.message ?? "request_activate_failed",
