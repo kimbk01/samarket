@@ -221,6 +221,7 @@ describe("commercial bind on submit", () => {
     inventoryKey: "STORES_HOME_FEED",
     packageId: "pkg-1",
     clientFinalPayableMinor: 15000,
+    clientDurationDays: 7,
   };
   const snapshotRow = {
     campaign_id: "camp-1",
@@ -245,6 +246,17 @@ describe("commercial bind on submit", () => {
     const res = await attachOwnerPaidCommercialSnapshotOnSubmit(sb as never, bindInput);
     expect(quoteDeliveryAdApplicationCommercial).toHaveBeenCalledTimes(1);
     expect(res).toMatchObject({ ok: false, error: "quote_unavailable" });
+  });
+
+  it("R-73: 캐시 확보 전 제출에 화면 금액·기간이 없으면 견적·요금 기록 없이 quote_stale(client_quote_required)", async () => {
+    const sb = makeSb({ delivery_ad_campaign_commercial_snapshots: [] });
+    const { clientFinalPayableMinor: _a, clientDurationDays: _b, ...noClient } = bindInput;
+    void _a;
+    void _b;
+    const res = await attachOwnerPaidCommercialSnapshotOnSubmit(sb as never, noClient);
+    expect(res).toMatchObject({ ok: false, error: "quote_stale", quoteError: "client_quote_required" });
+    expect(quoteDeliveryAdApplicationCommercial).not.toHaveBeenCalled();
+    expect(insertCampaignCommercialSnapshot).not.toHaveBeenCalled();
   });
 
   it("SECURED but no snapshot yet → falls through to normal quote", async () => {

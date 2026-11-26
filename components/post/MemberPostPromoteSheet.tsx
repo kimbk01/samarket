@@ -94,9 +94,11 @@ export function MemberPostPromoteSheet({
                 activeForTarget?: { endAt?: string; orderStatus?: string; pausedBy?: string } | null;
               };
             }),
-            fetch("/api/me/points", { cache: "no-store", credentials: "include", signal }).then(
-              async (r) => (await r.json().catch(() => ({}))) as { balance?: number; points?: number }
-            ),
+            fetch("/api/me/points", { cache: "no-store", credentials: "include", signal }).then(async (r) => {
+              /** R-74: 잔액 조회 실패를 「잔액 —·충전」으로 보이지 않게 — 거래 광고 창과 같이 「불러오지 못했어요 · 다시 시도」 */
+              if (!r.ok) throw new Error(`points_balance_${r.status}`);
+              return (await r.json().catch(() => ({}))) as { balance?: number; points?: number };
+            }),
           ])
         )
       );

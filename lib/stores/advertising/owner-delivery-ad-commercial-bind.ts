@@ -120,6 +120,19 @@ export async function attachOwnerPaidCommercialSnapshotOnSubmit(
     }
   }
 
+  /**
+   * R-73: 캐시가 아직 확보되지 않은 제출은 화면에 보인 금액·기간이 **필수** — 없으면 차감 전에 멈추고 새 요금 확인을 요구한다.
+   * (예전: 보내지 않으면 대조를 건너뛰고 지금 견적으로 차감 → 상세 화면 「신청하기」가 화면 확인 없이 바뀐 가격·기간으로 결제)
+   */
+  if (
+    input.clientFinalPayableMinor == null ||
+    !Number.isInteger(input.clientFinalPayableMinor) ||
+    input.clientDurationDays == null ||
+    !Number.isInteger(input.clientDurationDays)
+  ) {
+    return { ok: false, error: "quote_stale", quoteError: "client_quote_required" };
+  }
+
   let quote: Awaited<ReturnType<typeof quoteDeliveryAdApplicationCommercial>>;
   try {
     quote = await quoteDeliveryAdApplicationCommercial(sb, {

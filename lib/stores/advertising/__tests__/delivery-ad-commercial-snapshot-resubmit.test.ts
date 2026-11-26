@@ -84,6 +84,7 @@ describe("commercial snapshot resubmit reuse", () => {
       inventoryKey: "STORES_HOME_FEED",
       packageId: "pkg-1",
       clientFinalPayableMinor: 12000,
+      clientDurationDays: 7,
     });
 
     expect(res).toEqual({
@@ -124,6 +125,7 @@ describe("commercial snapshot resubmit reuse", () => {
       inventoryKey: "STORES_HOME_FEED",
       packageId: "pkg-1",
       clientFinalPayableMinor: 12000,
+      clientDurationDays: 7,
     });
 
     expect(res.ok).toBe(false);

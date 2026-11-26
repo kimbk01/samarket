@@ -367,6 +367,14 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
 
   const runAction = async (action: OwnerCampaignAction | "delete") => {
     if (!campaign || !storeId) return;
+    /**
+     * R-73: 「신청하기·다시 신청」은 요금·기간을 보여 주고 확인받는 신청 화면에서만 — 상세 화면은 금액·기간 없이 바로 차감하지 않는다.
+     * (서버도 캐시 확보 전 제출에 화면 금액·기간이 없으면 거절)
+     */
+    if (action === "submit" || action === "resubmit") {
+      router.push(draftEditHref(productKind, storeId, campaign.id));
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
