@@ -2,6 +2,7 @@
  * D4 매시 이상 감시 — 운영 실측(11-19~11-26)으로 기준값을 재현 시험한다.
  * 설계: docs/audit/supabase-request-surge-2026-11-18/structural-analysis-and-design-2026-11-26.md §5 D4
  */
+import "@/lib/i18n/admin-catalog";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
