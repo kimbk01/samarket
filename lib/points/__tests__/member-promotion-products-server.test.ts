@@ -74,7 +74,10 @@ describe("상위노출 가격 = DB 가격표 (Owner 2026-11-03)", () => {
   });
 
   it("마이그레이션 처음 값 = 코드 seed 값 (적용 직후 앱 가격 변화 0)", () => {
-    const sql = read("supabase/migrations/20271103130000_member_promotion_products_admin_price.sql");
+    /** 금액 권장안(2026-11-27): 새 기간 상품 2개는 20271127140000 에서 넣는다 — 처음 값 = seed 는 두 파일 합쳐서 */
+    const sql =
+      read("supabase/migrations/20271103130000_member_promotion_products_admin_price.sql") +
+      read("supabase/migrations/20271127140000_ad_price_new_periods.sql");
     for (const s of listMemberPromotionProductSeeds()) {
       expect(sql).toContain(`('${s.id}', '${s.domain}', '${s.placementPolicy}', ${s.durationDays}, ${s.pointCost}, true,`);
     }

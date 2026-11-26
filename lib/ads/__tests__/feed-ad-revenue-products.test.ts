@@ -45,7 +45,8 @@ describe("paid exposure family includes community", () => {
     const c3 = getMemberPromotionProduct("community_promote_3");
     expect(c3?.pointCost).toBe(10000);
     expect(c3?.requiresAdminApproval).toBe(false);
-    expect(listActiveMemberPromotionProducts("community").length).toBe(2);
+    /** 금액 권장안(2026-11-27): 커뮤니티 3·7·14일 */
+    expect(listActiveMemberPromotionProducts("community").length).toBe(3);
   });
 
   it("trade listing promotion skips admin approval (auto-live)", () => {

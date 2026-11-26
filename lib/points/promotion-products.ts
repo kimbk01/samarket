@@ -10,10 +10,12 @@ export const PROMOTION_PRICE_ASSET = "D_POINT" as const;
 export type MemberPromotionDomain = "trade" | "community";
 
 export type MemberPromotionProductId =
+  | "trade_promote_3"
   | "trade_promote_7"
   | "trade_promote_14"
   | "community_promote_3"
-  | "community_promote_7";
+  | "community_promote_7"
+  | "community_promote_14";
 
 export type MemberPromotionProduct = {
   id: MemberPromotionProductId;
@@ -34,6 +36,18 @@ export type MemberPromotionProduct = {
 };
 
 const PRODUCTS: readonly MemberPromotionProduct[] = [
+  /** 금액 권장안 (Owner 「적용 승인」 2026-11-27 · docs/audit/ad-price-recommendation-apply-design-2026-11-27.md) — 3일 새 상품 */
+  {
+    id: "trade_promote_3",
+    domain: "trade",
+    placementPolicy: "feed_boost",
+    durationDays: 3,
+    priceAsset: PROMOTION_PRICE_ASSET,
+    pointCost: 250,
+    sortOrder: 5,
+    active: true,
+    requiresAdminApproval: false,
+  },
   {
     id: "trade_promote_7",
     domain: "trade",
@@ -75,6 +89,18 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     priceAsset: PROMOTION_PRICE_ASSET,
     pointCost: 20000,
     sortOrder: 40,
+    active: true,
+    requiresAdminApproval: false,
+  },
+  /** 금액 권장안 (2026-11-27) — 커뮤니티 14일 새 상품 */
+  {
+    id: "community_promote_14",
+    domain: "community",
+    placementPolicy: "community_top_pin",
+    durationDays: 14,
+    priceAsset: PROMOTION_PRICE_ASSET,
+    pointCost: 900,
+    sortOrder: 45,
     active: true,
     requiresAdminApproval: false,
   },
