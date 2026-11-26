@@ -1,7 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Phone, PhoneMissed, Video } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -14,15 +13,10 @@ import { formatRelativeTimeAgo } from "@/lib/i18n/format-relative-time";
 import { presentCallHistoryRow } from "@/lib/community-messenger/call-history/call-history-presenter";
 import { resolveCallLogListTimestampIso, isCallLogMissedDisplayType } from "@/lib/community-messenger/call-log-row-copy";
 import { fetchCommunityMessengerCallLogsClient } from "@/lib/community-messenger/call-history/use-community-call-history-realtime-sync";
-import {
-  sanitizeCallPeerUserId,
-  startCallFromHistory,
-} from "@/lib/community-messenger/call-history/start-call-from-history";
+import { startCallFromHistory } from "@/lib/community-messenger/call-history/start-call-from-history";
 import { useOwnLiveCall } from "@/lib/call/own-live-call";
 import type { CommunityMessengerCallLog } from "@/lib/community-messenger/types";
 
-/** 통화 탭과 같은 발신 선택 시트 (누를 때만 불러온다) */
-const CallChoiceSheetLazy = lazy(() => import("@/components/community-messenger/call-ui/MessengerCallChoiceSheet"));
 
 const CALL_LOGS_HREF = "/community-messenger?section=call_logs";
 const FRIENDS_HREF = "/community-messenger?section=friends";
@@ -30,6 +24,10 @@ const FRIENDS_HREF = "/community-messenger?section=friends";
 export const HOME_TELRING_RECENT_ROWS = 3;
 /** 홈 자체 신선도 — 통화 탭 목록의 신선도 기록(`call-logs-freshness`)은 건드리지 않는다 */
 const HOME_CALLS_FRESH_MS = 60_000;
+/** 통화가 끝난 뒤 다시 읽기까지 — 서버 통화 기록 저장 시간 */
+export const HOME_CALLS_AFTER_END_MS = 1_500;
+/** 앱이 앞으로 올 때 이 시간 안에 읽었으면 다시 읽지 않음 */
+const HOME_CALLS_VISIBLE_SKIP_MS = 10_000;
 
 let homeCallsCache: { viewer: string; at: number; calls: CommunityMessengerCallLog[] } | null = null;
 
@@ -37,7 +35,8 @@ let homeCallsCache: { viewer: string; at: number; calls: CommunityMessengerCallL
  * 홈 ④ telRING 최근 통화·대화 — 시안 v2 §3-5 (Owner 「v2대로 구현」 2026-11-26, 통화 변경 규정 §6).
  * 휴대폰: 연초록 머리 + 줄 3(사진 · 이름 · 종류·시간 · 오른쪽 시각 · 진초록 버튼 1 = 그 통화 종류)
  * 태블릿: 진초록 머리 + 줄 3(사진 · 이름 · 종류·시간·시각 · 연초록 영상 + 노랑 음성 버튼)
- * 데이터 = 기존 `GET /api/community-messenger/calls` 첫 페이지 앞 3건 · 버튼 = 통화 탭과 같은 선택 시트 → `startCallFromHistory`.
+ * 데이터 = 기존 `GET /api/community-messenger/calls` 첫 페이지 앞 3건 · 버튼 = 누른 종류로 바로 `startCallFromHistory`(통화 탭과 같은 발신 함수).
+ * 통화가 끝나거나 앱이 앞으로 오면 다시 읽는다.
  * 비로그인·빈 상태는 같은 카드 모양.
  */
 export function HomeTelringRecent({ isMember, refreshSeq }: { isMember: boolean; refreshSeq: number }) {
@@ -46,22 +45,20 @@ export function HomeTelringRecent({ isMember, refreshSeq }: { isMember: boolean;
   const live = useOwnLiveCall();
   const [calls, setCalls] = useState<CommunityMessengerCallLog[] | null>(null);
   const [failed, setFailed] = useState(false);
-  const [confirm, setConfirm] = useState<{ call: CommunityMessengerCallLog; peerLabel: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [portalReady, setPortalReady] = useState(false);
-  useEffect(() => setPortalReady(true), []);
 
-  useEffect(() => {
-    if (!isMember) return;
+  /** 다시 읽기 — 화면이 살아 있는 동안 마지막 요청 결과만 반영 */
+  const loadSeqRef = useRef(0);
+  const load = useCallback((force: boolean) => {
     const viewer = getSyncViewerUserIdForClient() ?? "";
     const hit = homeCallsCache;
-    if (hit && hit.viewer === viewer && Date.now() - hit.at < HOME_CALLS_FRESH_MS && refreshSeq === 0) {
+    if (!force && hit && hit.viewer === viewer && Date.now() - hit.at < HOME_CALLS_FRESH_MS) {
       setCalls(hit.calls);
       return;
     }
-    let alive = true;
+    const seq = ++loadSeqRef.current;
     void fetchCommunityMessengerCallLogsClient().then((page) => {
-      if (!alive) return;
+      if (seq !== loadSeqRef.current) return;
       if (!page) {
         setFailed(true);
         return;
@@ -71,10 +68,43 @@ export function HomeTelringRecent({ isMember, refreshSeq }: { isMember: boolean;
       setFailed(false);
       setCalls(top);
     });
+  }, []);
+
+  useEffect(() => {
+    if (!isMember) return;
+    load(refreshSeq > 0);
     return () => {
-      alive = false;
+      loadSeqRef.current += 1;
     };
-  }, [isMember, refreshSeq]);
+  }, [isMember, refreshSeq, load]);
+
+  /**
+   * 통화가 끝나면 다시 읽는다 (2026-11-26 실기 FAIL: 통화 화면에서 돌아와도 1일 전 기록이 17분 동안 그대로).
+   * ① 내 통화가 진행 중 → 끝남으로 바뀔 때 (통화 기록 저장 시간을 두고 1.5초 뒤)
+   * ② 앱이 다시 앞으로 올 때(통화 화면·다른 앱에서 돌아옴, 받지 않은 전화 포함) — 10초 안에 읽었으면 건너뜀
+   */
+  const wasLiveRef = useRef(false);
+  useEffect(() => {
+    if (!isMember) return;
+    const isLive = live != null;
+    if (wasLiveRef.current && !isLive) {
+      const id = window.setTimeout(() => load(true), HOME_CALLS_AFTER_END_MS);
+      wasLiveRef.current = false;
+      return () => window.clearTimeout(id);
+    }
+    wasLiveRef.current = isLive;
+  }, [isMember, live, load]);
+  useEffect(() => {
+    if (!isMember) return;
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const hit = homeCallsCache;
+      if (hit && Date.now() - hit.at < HOME_CALLS_VISIBLE_SKIP_MS) return;
+      load(true);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [isMember, load]);
 
   const brand = DIBAY_SERVICE_BRAND.LETARING;
   const ringAt = brand.indexOf("RING");
@@ -98,21 +128,18 @@ export function HomeTelringRecent({ isMember, refreshSeq }: { isMember: boolean;
     </button>
   );
 
-  const startCall = (kind: "voice" | "video") => {
-    const next = confirm;
-    if (!next || busy) return;
+  /** 누른 버튼의 종류로 바로 발신 — 시안 v2: 휴대폰 = 그 통화 종류 버튼, 태블릿 = 영상·음성 버튼 (2026-11-26 실기: 시트가 종류를 무시) */
+  const startCall = (call: CommunityMessengerCallLog, peerLabel: string, kind: "voice" | "video") => {
+    if (busy) return;
     startCallFromHistory({
-      call: next.call,
+      call,
       kind,
-      peerLabel: next.peerLabel,
+      peerLabel,
       router,
       missingRoomMessage: t("cm_ui_call_outgoing_missing_room"),
       networkErrorMessage: t("cm_ui_network_error_could_not_start_call"),
-      onBlocked: () => setConfirm(null),
-      onStart: () => {
-        setBusy(true);
-        setConfirm(null);
-      },
+      onBlocked: () => {},
+      onStart: () => setBusy(true),
       onDone: () => setBusy(false),
     });
   };
@@ -167,8 +194,7 @@ export function HomeTelringRecent({ isMember, refreshSeq }: { isMember: boolean;
           const when = iso ? formatRelativeTimeAgo(iso, language === "en" ? "en" : "ko") : "";
           const avatar = resolveUserAvatarImageSrc(call.peerAvatarUrl);
           const KindIcon = missed ? PhoneMissed : video ? Video : Phone;
-          /** 통화 탭과 같은 동작 — 버튼은 발신 선택 시트를 연다(음성·영상 최종 선택 = 시트) */
-          const open = () => setConfirm({ call, peerLabel: vm.peerDisplayLabel });
+          const dial = (kind: "voice" | "video") => () => startCall(call, vm.peerDisplayLabel, kind);
           return (
             <li key={call.id} className="home-tel-row" data-home-telring-row>
               <button type="button" className="home-tel-row-main" onClick={() => router.push(CALL_LOGS_HREF)}>
@@ -199,7 +225,7 @@ export function HomeTelringRecent({ isMember, refreshSeq }: { isMember: boolean;
                     aria-label={t(video ? "cm_call_row_kind_video" : "cm_call_row_kind_voice")}
                     data-home-press="call"
                     disabled={busy}
-                    onClick={open}
+                    onClick={dial(video ? "video" : "voice")}
                   >
                     {video ? <Video className="h-[18px] w-[18px]" strokeWidth={2.2} aria-hidden /> : <Phone className="h-[18px] w-[18px]" strokeWidth={2.2} aria-hidden />}
                   </button>
@@ -209,7 +235,7 @@ export function HomeTelringRecent({ isMember, refreshSeq }: { isMember: boolean;
                     aria-label={t("cm_call_row_kind_video")}
                     data-home-press="call"
                     disabled={busy}
-                    onClick={open}
+                    onClick={dial("video")}
                   >
                     <Video className="h-[18px] w-[18px]" strokeWidth={2.2} aria-hidden />
                   </button>
@@ -219,7 +245,7 @@ export function HomeTelringRecent({ isMember, refreshSeq }: { isMember: boolean;
                     aria-label={t("cm_call_row_kind_voice")}
                     data-home-press="call"
                     disabled={busy}
-                    onClick={open}
+                    onClick={dial("voice")}
                   >
                     <Phone className="h-[18px] w-[18px]" strokeWidth={2.2} aria-hidden />
                   </button>
@@ -236,26 +262,6 @@ export function HomeTelringRecent({ isMember, refreshSeq }: { isMember: boolean;
     <section className="home-tel" data-home-telring-recent>
       {head}
       {body}
-      {portalReady && confirm
-        ? createPortal(
-            <div className="relative z-[1400]">
-              <Suspense fallback={null}>
-                <CallChoiceSheetLazy
-                  peerLabel={confirm.peerLabel}
-                  peerAvatarUrl={confirm.call.peerAvatarUrl ?? null}
-                  viewerUserId={getSyncViewerUserIdForClient() || null}
-                  peerUserId={sanitizeCallPeerUserId(confirm.call.peerUserId) ?? null}
-                  busy={busy}
-                  onClose={() => {
-                    if (!busy) setConfirm(null);
-                  }}
-                  onDibayCall={startCall}
-                />
-              </Suspense>
-            </div>,
-            document.body
-          )
-        : null}
     </section>
   );
 }
