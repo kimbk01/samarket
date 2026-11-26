@@ -1412,11 +1412,12 @@
     background: #fff;
     padding: 14px 0;
   }
+  /* 칸이 행 높이만큼 늘어나도(내 진행 중 0건 · 같은 행 같은 높이) 내용은 시안처럼 모아 세로 가운데 (2026-11-26 감사: 온도가 맨 아래로 밀림) */
   .home-info-cell {
     background: transparent;
     border-radius: 0;
     padding: 0 20px;
-    justify-content: flex-start;
+    justify-content: center;
     gap: 4px;
   }
   .home-info-weather {
@@ -1463,7 +1464,7 @@
   }
   .home-info-wrow {
     justify-content: flex-end;
-    margin-top: auto;
+    margin-top: 2px;
   }
   .home-info-wicon {
     width: 40px;

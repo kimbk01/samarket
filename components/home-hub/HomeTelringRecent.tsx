@@ -206,9 +206,14 @@ export function HomeTelringRecent({
           const vm = presentCallHistoryRow(call);
           const missed = isCallLogMissedDisplayType(vm.displayType);
           const video = call.callKind === "video";
+          /** 시안 v2: 「영상 통화 12분」·「음성 통화 25분」·「부재중 통화」 — 통화 시간이 없는 기록(거절·취소)은 「음성 통화 · 거절」 */
+          const kindName = t(video ? "cm_ui_call_log_kind_video" : "cm_ui_call_log_kind_voice");
+          const duration = vm.durationLabel?.trim();
           const kindText = missed
-            ? t(video ? "cm_call_row_missed_video" : "cm_call_row_missed_voice")
-            : `${t(video ? "cm_call_row_kind_video" : "cm_call_row_kind_voice")} · ${vm.durationLabel?.trim() || t(vm.badgeLabelKey)}`;
+            ? t("cm_home_call_missed")
+            : duration
+              ? `${kindName} ${duration}`
+              : `${kindName} · ${t(vm.badgeLabelKey)}`;
           const iso = resolveCallLogListTimestampIso(call);
           const when = iso ? formatRelativeTimeAgo(iso, language === "en" ? "en" : "ko") : "";
           const avatar = resolveUserAvatarImageSrc(call.peerAvatarUrl);
