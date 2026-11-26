@@ -22,7 +22,7 @@
 import { useEffect, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { superviseMessengerChannel } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import type { CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
 import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
@@ -171,7 +171,7 @@ export function useGlobalFriendRequestFeed(args: {
        * 커뮤니티 화면 콜드 스타트)에서 팝업이 영영 안 뜬다. SUBSCRIBED·앱 복귀 재조회는 추가로 둔다.
        */
       void syncPending("start");
-      channel = subscribeWithRetry({
+      channel = superviseMessengerChannel({
         sb,
         name: `cm-room-friendship:${uid}:friend-requests-global`,
         scope: "cm-room-friendship:friend-requests-global",

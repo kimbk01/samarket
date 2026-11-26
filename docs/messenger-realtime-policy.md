@@ -39,6 +39,22 @@
 | 금지 | **클라이언트**가 동일 bump 채널로 메시지 알림을 발행하는 것 — 서버 bump 와 중복·지연·보안 모델이 어긋난다. | (구 `publishCommunityMessengerRoomBump*` 클라 발행 제거됨) |
 | 반응 | 반응 추가·교체·해제 뒤 **서버가** 같은 bump 를 `messageId` 만 실어 발행한다. 반응 집계는 보는 사람마다 `mine` 이 달라 **스냅샷 없음**. 새 메시지가 아니므로 `skipBadgeTargetBump`(배지·알림 없음). 받는 쪽은 `messages/{id}` 단건 정합으로 반영하고, 단건 응답은 반응이 없으면 `reactions: []` 를 실어 지운 반응을 병합에서 지운다. Realtime `postgres_changes` 로 반응 표를 구독하지 않는다(CUT-R1). (2026-11-16 실기: 상대 반응이 방에 다시 들어가야 보이고, 지운 반응 칩이 남았다) | [`reactions/route.ts`](../app/api/community-messenger/rooms/[roomId]/messages/[messageId]/reactions/route.ts), `getCommunityMessengerRoomMessageById` |
 
+## 실시간 연결 감독 (D1 R1 · Owner 「개정안 승인」 2026-11-26)
+
+개정안: [`docs/audit/supabase-request-surge-2026-11-18/messenger-realtime-contract-revision-d1-d2-2026-11-26.md`](./audit/supabase-request-surge-2026-11-18/messenger-realtime-contract-revision-d1-d2-2026-11-26.md)
+
+| 항목 | 계약 | 코드 |
+|------|------|------|
+| 입구 | 메신저·알림·거래 **비통화** 채널은 `superviseMessengerChannel` 로만 가입(안에서 `subscribeWithRetry` 그대로 호출 — 통화 공유 파일 무변경). 통화 채널(통화 화면·수신·통화 기록·그룹 통화)은 `subscribeWithRetry` 직접 호출 유지, 감독은 세지도 멈추지도 않음 | [`messenger-realtime-supervisor.ts`](../lib/community-messenger/realtime/messenger-realtime-supervisor.ts) |
+| 차단 | `TIMED_OUT`·`CHANNEL_ERROR` 60초 6회 또는 5분 20회 → 대상 전부 stop. `CLOSED` 는 세지 않음(래퍼 내부 재생성) | 동일 |
+| 대기·시험 | 30→60→120→300초 뒤 채널 1개(홈 meta 우선) 시험, 15초 안 SUBSCRIBED 면 나머지 300ms 간격 재가입. 숨김·오프라인이면 보일 때·온라인 때 시험 | 동일 |
+| 채널 쉼 | 같은 채널 연속 6회 실패 → 그 채널만 멈춤, 시험·복귀·온라인 때 재가입 | 동일 |
+| 자체 루프 | presence 사용자 토픽·read-ack 도 연속 6회 실패 또는 차단 중이면 채널을 놓고 `whenMessengerRealtimeJoinAllowed` 대기 | `presence-user-broadcast-client.ts` · `cm-read-ack-broadcast-client.ts` |
+| 감시 | `realtime.subscription` / `supervisor_open·close·park·probe_fail` | 앱 감시 5분 묶음 → D4 매시 감시 표 |
+| 롤백 | `NEXT_PUBLIC_MESSENGER_RT_SUPERVISOR=0` → 감독 통과(이전 동작) | 동일 |
+
+R2(재동기화 단일화)·R3(폴백 상한)·R4(중복 가입 제거)는 PR-B·PR-C 에서 이 절에 더한다.
+
 ## 원칙
 
 1. **가벼운 이벤트만** — INSERT 한 건·메타 변경 한 건 단위로 클라이언트에서 머지; **전체 메시지 목록 재요청**은 디바운스된 `refresh` 로만.

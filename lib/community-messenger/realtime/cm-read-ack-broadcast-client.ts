@@ -24,6 +24,11 @@ import {
   releaseMessengerChannel,
   whenMessengerTopicFree,
 } from "@/lib/community-messenger/realtime/messenger-channel-topic-lease";
+import {
+  RT_SELF_LOOP_MAX_CONSECUTIVE_FAILURES,
+  messengerRealtimeSupervisorAllowsJoin,
+  whenMessengerRealtimeJoinAllowed,
+} from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
 
 export { CM_READ_ACK_BROADCAST_EVENT, communityMessengerReadAckChannelName };
 
@@ -92,6 +97,7 @@ function subscribeCmReadAckBroadcast(viewerUserId: string, subscribeRoomId: stri
    */
   let recoveryAttempt = 0;
   let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  let parkUnregister: (() => void) | null = null;
   const clearRecoveryTimer = () => {
     if (recoveryTimer != null) {
       clearTimeout(recoveryTimer);
@@ -100,6 +106,24 @@ function subscribeCmReadAckBroadcast(viewerUserId: string, subscribeRoomId: stri
   };
   const scheduleRecovery = (bindGen: number) => {
     if (cancelled || bindGen !== readAckGeneration || recoveryTimer != null) return;
+    /**
+     * D1 R1(2026-11-26): 연속 실패 상한·연결 감독 차단이면 재시도를 멈추고 채널을 놓는다(라이브러리 rejoin 도 멈춤).
+     * 다시 가입해도 될 때(차단 닫힘·화면 복귀·온라인) 1번 새로 가입한다.
+     */
+    if (recoveryAttempt >= RT_SELF_LOOP_MAX_CONSECUTIVE_FAILURES || !messengerRealtimeSupervisorAllowsJoin()) {
+      if (parkUnregister) return;
+      if (ch) {
+        releaseMessengerChannel(sb, ch);
+        ch = null;
+      }
+      parkUnregister = whenMessengerRealtimeJoinAllowed(() => {
+        parkUnregister = null;
+        if (cancelled || bindGen !== readAckGeneration) return;
+        recoveryAttempt = 0;
+        subscribeReadAckChannel();
+      });
+      return;
+    }
     const delay = readAckResubscribeDelayMs(recoveryAttempt);
     recoveryAttempt += 1;
     recoveryTimer = setTimeout(() => {
@@ -154,6 +178,8 @@ function subscribeCmReadAckBroadcast(viewerUserId: string, subscribeRoomId: stri
   return () => {
     cancelled = true;
     clearRecoveryTimer();
+    parkUnregister?.();
+    parkUnregister = null;
     bridgeCleanup();
     if (ch) {
       releaseMessengerChannel(sb, ch);

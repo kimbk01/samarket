@@ -4,7 +4,7 @@
  * 받은 「안 보임」 글 id 는 이번 실행 동안 기억한다 → 목록은 카드를 빼고, 상세·채팅·찜·최근 본은 「볼 수 없는 글」.
  */
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { superviseMessengerChannel } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { dropPostFromHomePostsCache } from "@/lib/posts/getPostsForHome";
@@ -43,7 +43,7 @@ function ensureSubscribed(): void {
   const sb = getSupabaseClient();
   if (!sb) return;
   let cancelled = false;
-  const sub = subscribeWithRetry({
+  const sub = superviseMessengerChannel({
     sb,
     name: TRADE_LISTING_VISIBILITY_TOPIC,
     scope: TRADE_LISTING_VISIBILITY_TOPIC,

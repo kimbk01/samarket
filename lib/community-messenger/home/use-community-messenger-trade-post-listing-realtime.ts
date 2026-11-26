@@ -3,7 +3,7 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { applyHomeListPatch } from "@/lib/community-messenger/home-list-patch";
-import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { superviseMessengerChannel } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -41,7 +41,7 @@ export function useCommunityMessengerTradePostListingRealtime(args: {
       const chunk = ids.slice(offset, offset + POSTS_LISTING_IN_FILTER_MAX);
       const filter = `id=in.(${chunk.join(",")})`;
       let markRealtimeSignal = () => {};
-      const sub = subscribeWithRetry({
+      const sub = superviseMessengerChannel({
         sb,
         name: `cm-home:posts-trade-meta:${userId}:${offset}`,
         scope: `cm-home:posts-trade-meta:${userId}`,

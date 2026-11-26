@@ -3,7 +3,7 @@
 import { emitMoneyOutcomeFromNotificationRow } from "@/lib/notifications/money-outcome-signal";
 import { useEffect, useRef } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { superviseMessengerChannel } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import {
   notificationSoundRowInputFromRecord,
@@ -139,7 +139,7 @@ export function useSupabaseNotificationsRealtime(
         onChangeRef.current({ eventType });
       };
 
-      const sub = subscribeWithRetry({
+      const sub = superviseMessengerChannel({
         sb,
         name: `notifications-rt:${uid}`,
         scope: `notifications-rt:${uid}`,

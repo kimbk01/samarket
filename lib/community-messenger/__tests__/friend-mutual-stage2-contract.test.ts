@@ -79,7 +79,8 @@ describe("friend mutual stage2 — wiring", () => {
     /** iOS WKWebView 는 앱 복귀 시 visibilitychange 미발생 — Capacitor appStateChange 필수(2026-10-25 재현) */
     expect(feed).toContain('App.addListener("appStateChange"');
     /** 구독은 공용 subscribeWithRetry(토큰 동기화·재시도) — 직접 subscribe 금지(2026-10-25 미수신 재현) */
-    expect(feed).toContain("subscribeWithRetry({");
+    /** D1 R1(2026-11-26): 감독 입구 `superviseMessengerChannel` 이 안에서 같은 `subscribeWithRetry` 를 부른다 */
+    expect(feed).toContain("superviseMessengerChannel({");
     expect(feed).not.toContain(".subscribe((status)");
     /** 비공개 채널 + Realtime Authorization 허용 토픽(cm-room-friendship:<uid>:…) — D-13 실측 PrivateOnly */
     expect(feed).toContain("channelOptions: messengerPrivateBroadcastChannelOptions()");
