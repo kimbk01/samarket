@@ -179,7 +179,7 @@ export function MemberPostPromoteSheet({
      */
     if (!attemptKeys.current.pendingProductFor(postId)) attemptKeys.current.reset();
     void load();
-  }, [open, load]);
+  }, [open, load, postId]);
 
   /**
    * 설계 2026-11-08 ⑨ (거래 광고 창 시안 v3 와 같음): 모자란 상품 줄은 고를 수 없다.
