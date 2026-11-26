@@ -231,3 +231,13 @@
 | 온라인 뒤 HTTP | 2 | 57+ | **7**(presence 2·친구요청 1·상대 관계 1·배지 1·메시지 1·bootstrap 1) |
 - 판정: **T4 PASS** (Android Samsung, 비행기 모드 70초 1회). 감독 밖 채널(통화 초대·홈 목록·입력 중·방 알림)은 +9.4초 가입 — 무변경.
 - NOT_PROVEN: 감시 표 `supervisor_offline_pause/resume` 기록(22:41 조회 때 아직 없음 — 5분 묶음 전송), iPhone, 와이파이↔데이터 전환, 오프라인 수 분 이상.
+
+## 13. PR-B (R2·R3) 구현 기록 (2026-11-26)
+- 새 `messenger-realtime-resync.ts`(재가입 묶음: 1초 조용·최대 5초). 방 묶음·홈(meta 바인드만)·알림·친구요청의 재연결 처리를 묶음 받는 쪽으로 옮김. 방 `onRefresh(reason)` — `reconnect`·`fallback` 은 `after=` 만.
+- 방 묶음 `onAfterSubscribeFailure` 폴백 삭제 → 끊김 시계(채널 생성 때 시작, 모든 조각 SUBSCRIBED 일 때 멈춤) + 5초 틱, 15초 넘으면 방당 60초 1번.
+- 통화: `call_sessions`·`call_session_participants` 경로(`roomCallBundle`·`openRoomTerminalCatchUp`)는 이유 없음 = 지금 동작. 통화 파일·`subscribe-with-retry.ts` 무변경.
+- 독립 감사(코드 감사, 실기 아님) 반영: F1 끊김 시계가 상태 없는 경우(감독 차단 중 재바인드·인증 대기) 안 돌던 것 → 생성 때 시작 · F4 홈 재동기화 2번 → meta 바인드만 · F5 틱 15초 → 5초.
+- **알려진 위험(설계 결정 — 고치지 않음, Owner 판단 대상)**
+  - 감사 F2: 재연결 뒤 새 메시지가 없으면 bootstrap 을 다시 받지 않아, 끊긴 동안 상대가 읽음·방 정보를 바꿨으면 그 표시가 다음 이벤트까지 늦을 수 있다(R2 「메타 신호 있을 때만」의 결과 — 그 신호가 끊긴 동안 사라짐).
+  - 감사 F3: 채널 하나만 재가입해도 모든 받는 쪽(열린 방·홈·배지·친구요청)이 1번씩 다시 읽는다(소켓 전체 재연결에서는 줄고, 채널 하나만 흔들릴 때는 늘 수 있음 — 감독 상한 안).
+- 검증(로컬): 전체 vitest 25,454 PASS · typecheck 2종 PASS · eslint 오류 0. 실기 NOT_PROVEN(병합 뒤).

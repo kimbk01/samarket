@@ -55,7 +55,10 @@
 | 감시 | `realtime.subscription` / `supervisor_open·close·park·probe_fail` | 앱 감시 5분 묶음 → D4 매시 감시 표 |
 | 롤백 | `NEXT_PUBLIC_MESSENGER_RT_SUPERVISOR=0` → 감독 통과(이전 동작) | 동일 |
 
-R2(재동기화 단일화)·R3(폴백 상한)·R4(중복 가입 제거)는 PR-B·PR-C 에서 이 절에 더한다.
+| 재동기화 1번 (R2) | 채널은 두 번째 이후 SUBSCRIBED 에서 스스로 다시 읽지 않고 `noteMessengerRealtimeResubscribed()` 만 부른다. 마지막 재가입 뒤 1초 조용(첫 재가입부터 최대 5초) 뒤 받는 쪽을 1번씩: 열린 방 `after=`(이유 `reconnect`, bootstrap 다시 안 받음) · 홈 목록 확인(meta 를 포함한 바인드 1곳) · 알림 RESYNC · 친구요청. 처음 가입은 지금 그대로 | [`messenger-realtime-resync.ts`](../lib/community-messenger/realtime/messenger-realtime-resync.ts) |
+| 폴백 상한 (R3) | 방 묶음의 「실패마다 열린 방 HTTP 따라잡기」 없음. 묶음 채널이 만들어진 뒤 모든 조각이 SUBSCRIBED 가 아닌 상태가 15초 넘게 이어지고 화면 보임·온라인이면 방당 60초에 1번 `after=`(이유 `fallback`) | `global-messenger-room-bundle-channel.ts` |
+
+R4(중복 가입 제거)는 PR-C 에서 이 절에 더한다.
 
 ## 원칙
 

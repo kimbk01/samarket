@@ -24,13 +24,15 @@ vi.mock("@/lib/community-messenger/realtime/community-messenger-realtime-schedul
 
 import { bindCommunityMessengerHomeRealtimeChannels } from "@/lib/community-messenger/realtime/community-messenger-home-realtime-channels";
 
+const bound: Array<{ cancelSchedulers: () => void }> = [];
+
 function bind() {
   const onRefreshRef = { current: () => {} };
   const messageInsertHintRef = { current: undefined };
   const messageUpdateHintRef = { current: undefined };
   const roomTipUpdateHintRef = { current: undefined };
   const participantUnreadDeltaRef = { current: undefined };
-  return bindCommunityMessengerHomeRealtimeChannels({
+  const r = bindCommunityMessengerHomeRealtimeChannels({
     sb: { channel: () => ({}), removeChannel: () => {} } as never,
     userId: "user-1",
     isCancelled: () => false,
@@ -43,6 +45,8 @@ function bind() {
     participantUnreadDeltaRef: participantUnreadDeltaRef as never,
     onRefreshRef: onRefreshRef as never,
   });
+  bound.push(r);
+  return r;
 }
 
 describe("home realtime first SUBSCRIBED skip (contract ③)", () => {
@@ -51,6 +55,8 @@ describe("home realtime first SUBSCRIBED skip (contract ③)", () => {
     scheduleSpy.mockClear();
   });
   afterEach(() => {
+    for (const b of bound.splice(0)) b.cancelSchedulers();
+    vi.useRealTimers();
     vi.clearAllMocks();
   });
 
@@ -61,12 +67,17 @@ describe("home realtime first SUBSCRIBED skip (contract ③)", () => {
     expect(scheduleSpy).not.toHaveBeenCalled();
   });
 
-  it("schedules a catch-up on a resubscribe (second SUBSCRIBED)", () => {
+  it("schedules a catch-up on a resubscribe (second SUBSCRIBED) — D2 R2: 재동기화 묶음(1초 조용) 뒤 1번", () => {
+    vi.useFakeTimers();
     bind();
-    const [firstChannel] = capturedOnStatus;
+    const [firstChannel, secondChannel] = capturedOnStatus;
     firstChannel("SUBSCRIBED"); // cold → skip
+    secondChannel?.("SUBSCRIBED");
     expect(scheduleSpy).not.toHaveBeenCalled();
-    firstChannel("SUBSCRIBED"); // reconnect → schedule
+    firstChannel("SUBSCRIBED"); // reconnect
+    secondChannel?.("SUBSCRIBED"); // reconnect (같은 묶음)
+    expect(scheduleSpy).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1_100);
     expect(scheduleSpy).toHaveBeenCalledTimes(1);
   });
 

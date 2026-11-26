@@ -1520,11 +1520,16 @@ export function useMessengerRoomClientPhase1({
     setRoomMessages,
     timelineInitialLoadComplete,
     onParticipantPostgres: onParticipantPostgresForPeerRead,
-    onRefresh: () => {
+    onRefresh: (reason) => {
       // Realtime 메시지 이벤트가 RLS/Publication/세션 레이스로 누락돼도
       // 방 화면은 unread/participants 변화(onRefresh)만으로 즉시 증분 동기화해 따라잡는다.
       void (async () => {
         const mergedNewMessages = await catchUpNewerMessages();
+        /**
+         * D2 R2·R3(2026-11-26): 재연결 묶음·실시간 끊김 폴백은 새 메시지(`after=`)만 — 새 것이 없어도 bootstrap 을 다시 받지 않는다
+         * (안티패턴 「이벤트마다 전체 부트스트랩」). 메타·통화 신호(이유 없음)는 아래 지금 동작.
+         */
+        if (reason === "reconnect" || reason === "fallback") return;
         /**
          * 신규 메시지는 `after=` 증분·ingest 로 이미 반영됐으면 silent_delta(full) 생략.
          * 상대 mark_read·참가자 메타만 온 경우(증분 false)는 `silent_delta` 로 읽음·unread 만 맞춘다.

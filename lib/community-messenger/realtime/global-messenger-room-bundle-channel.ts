@@ -30,6 +30,10 @@ import type { CommunityMessengerRoomRealtimeMessageEvent } from "@/lib/community
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { isParticipantReadOnlyUpdate } from "@/lib/community-messenger/realtime/participant-read-only-update";
 import { isStaleRealtimeBindGeneration } from "@/lib/community-messenger/realtime/realtime-bind-generation";
+import {
+  noteMessengerRealtimeResubscribed,
+  onMessengerRealtimeResynced,
+} from "@/lib/community-messenger/realtime/messenger-realtime-resync";
 import { superviseMessengerChannel } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import {
@@ -54,8 +58,19 @@ const GLOBAL_MESSENGER_ROOM_POSTGRES_IN_FILTER_MAX = 50;
 /** Re-export for targeted tests — CUT-B coalesce window. */
 export { MESSENGER_ROOM_TERMINAL_CATCHUP_COALESCE_MS };
 
+/**
+ * D2 R2·R3(2026-11-26) — 재연결 묶음(`reconnect`)·실시간 끊김 폴백(`fallback`) 따라잡기는 새 메시지(`after=`)만 본다.
+ * 그 밖(메타·통화·메시지 폴백·처음 가입)은 이유 없음 = 지금 동작.
+ */
+export type MessengerRoomRefreshReason = "reconnect" | "fallback";
+
+/** R3: 묶음 채널이 이만큼 가입되지 않은 상태가 이어지면 폴백 시작 */
+export const MESSENGER_ROOM_BUNDLE_FALLBACK_AFTER_MS = 15_000;
+/** R3: 폴백은 방마다 이 간격에 1번(화면 보임·온라인일 때만) */
+export const MESSENGER_ROOM_BUNDLE_FALLBACK_INTERVAL_MS = 60_000;
+
 export type GlobalRoomRealtimeListenerRef = MutableRefObject<{
-  onRefresh: () => void;
+  onRefresh: (reason?: MessengerRoomRefreshReason) => void;
   onMessageEvent?: (event: CommunityMessengerRoomRealtimeMessageEvent) => void;
   /**
    * `community_messenger_participants` postgres_changes — 상대 읽음 커서 등 HTTP refresh 없이 즉시 병합.
@@ -105,11 +120,15 @@ function emitRoomMessageForRoom(
   for (const ref of set) ref.current.onMessageEvent?.(event);
 }
 
-function emitRoomRefreshForRoom(entry: GlobalMessengerRoomBundleEntry, streamRoomId: string): void {
+function emitRoomRefreshForRoom(
+  entry: GlobalMessengerRoomBundleEntry,
+  streamRoomId: string,
+  reason?: MessengerRoomRefreshReason
+): void {
   const key = normalizeRoomKey(streamRoomId);
   const set = entry.listenersByRoom.get(key);
   if (!set) return;
-  for (const ref of set) ref.current.onRefresh();
+  for (const ref of set) ref.current.onRefresh(reason);
 }
 
 /** Room keys with a pending CUT-B terminal catch-up timer (same-purpose HTTP only). */
@@ -282,6 +301,11 @@ export function createGlobalMessengerRoomBundleEntry(args: {
   let notifyDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   let lastBoundRoomIdsKey = "";
   let firstSubscribeResync: ReturnType<typeof createRefreshScheduler> | null = null;
+  /** R3: 현재 세대 묶음 채널이 가입되지 않은 채(실패·감독 정지) 시작된 시각 */
+  let unhealthySince: number | null = null;
+  let lastFallbackAt = 0;
+  let fallbackTimer: ReturnType<typeof setInterval> | null = null;
+  let offResync: (() => void) | null = null;
 
   const clearNotifyDebounce = () => {
     if (notifyDebounceTimer == null) return;
@@ -515,6 +539,8 @@ export function createGlobalMessengerRoomBundleEntry(args: {
       return;
     }
     lastBoundRoomIdsKey = roomIdsKey;
+    /** 새 세대 채널 — 이전 세대의 끊김 시계는 버린다 */
+    unhealthySince = null;
     logRtRebindTrace({ reason: "room_bundle_rebind", roomCount: roomIds.length });
     const prevLen = channels.length;
     for (const ch of channels) ch.stop();
@@ -527,8 +553,14 @@ export function createGlobalMessengerRoomBundleEntry(args: {
       }
 
       entry.channelSubscribed = false;
+      /**
+       * R3 감사 F1: 끊김 시계는 채널을 만들 때 시작한다 — 상태가 한 번도 안 오는 경우(감독 차단 중 재바인드 · 인증 대기)도
+       * 폴백이 돈다. 모든 조각이 SUBSCRIBED 일 때만 멈춘다.
+       */
+      unhealthySince = Date.now();
 
       const chunkCount = Math.ceil(roomIds.length / GLOBAL_MESSENGER_ROOM_POSTGRES_IN_FILTER_MAX);
+      const chunkHealthy: boolean[] = new Array(chunkCount).fill(false);
       let firstWaveChunksDone = 0;
       const chunkFirstSubscribed: boolean[] = new Array(chunkCount).fill(false);
 
@@ -552,7 +584,14 @@ export function createGlobalMessengerRoomBundleEntry(args: {
           isCancelled: () => cancelled || gen !== postgresBindGeneration,
           onStatus: (status) => {
             if (gen !== postgresBindGeneration || cancelled) return;
-            if (status !== "SUBSCRIBED") return;
+            if (status !== "SUBSCRIBED") {
+              /** R3: 실패·감독 정지(CLOSED 전달) — 폴백 시계 시작 */
+              chunkHealthy[chunkIndex] = false;
+              if (unhealthySince == null) unhealthySince = Date.now();
+              return;
+            }
+            chunkHealthy[chunkIndex] = true;
+            if (chunkHealthy.every(Boolean)) unhealthySince = null;
             if (!chunkFirstSubscribed[chunkIndex]) {
               chunkFirstSubscribed[chunkIndex] = true;
               firstWaveChunksDone += 1;
@@ -567,17 +606,14 @@ export function createGlobalMessengerRoomBundleEntry(args: {
                 entry.channelSubscribed = true;
               }
             } else {
-              firstSubscribeResync?.schedule();
+              /** D2 R2(2026-11-26): 재연결 따라잡기는 재동기화 묶음마다 1번(`onMessengerRealtimeResynced`) */
+              noteMessengerRealtimeResubscribed();
             }
           },
-          onAfterSubscribeFailure: (_status, attempt) => {
-            if (cancelled || gen !== postgresBindGeneration) return;
-            if (attempt >= 2) {
-              for (const rid of entry.listenersByRoom.keys()) {
-                getOrCreateRoomSchedulers(entry, rid).messageFallback.schedule();
-              }
-            }
-          },
+          /**
+           * D2 R3(2026-11-26): 실패할 때마다(2번째부터) 열린 방 전부에 HTTP 따라잡기를 걸던 것을 없앤다 —
+           * 11-26 iPhone 방 2개 GET 1,707회. 대신 `fallbackTimer` 가 화면 보임·온라인일 때 방당 60초에 1번.
+           */
           build: (channel: RealtimeChannel) =>
             attachFilteredPostgresHandlers(channel, roomScopedFilter, roomsTableFilter, gen),
         });
@@ -611,9 +647,33 @@ export function createGlobalMessengerRoomBundleEntry(args: {
       },
       MESSENGER_ROOM_REALTIME_RESUBSCRIBE_RESYNC_DEBOUNCE_MS
     );
+    /** D2 R2: 재연결 묶음마다 열린 방 1번씩 — 새 메시지(`after=`)만 */
+    offResync = onMessengerRealtimeResynced(() => {
+      if (cancelled) return;
+      for (const rid of entry.listenersByRoom.keys()) {
+        emitRoomRefreshForRoom(entry, rid, "reconnect");
+      }
+    });
+    /** D2 R3: 묶음 채널이 15초 넘게 가입 안 됨 + 화면 보임 + 온라인 → 방당 60초에 1번 `after=` */
+    fallbackTimer = setInterval(() => {
+      if (cancelled || unhealthySince == null) return;
+      const now = Date.now();
+      if (now - unhealthySince < MESSENGER_ROOM_BUNDLE_FALLBACK_AFTER_MS) return;
+      if (now - lastFallbackAt < MESSENGER_ROOM_BUNDLE_FALLBACK_INTERVAL_MS) return;
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+      lastFallbackAt = now;
+      for (const rid of entry.listenersByRoom.keys()) {
+        emitRoomRefreshForRoom(entry, rid, "fallback");
+      }
+    }, 5_000);
     cancelBundleSchedulers = () => {
       firstSubscribeResync?.cancel();
       firstSubscribeResync = null;
+      offResync?.();
+      offResync = null;
+      if (fallbackTimer != null) clearInterval(fallbackTimer);
+      fallbackTimer = null;
     };
     bindFilteredPostgresSubscriptions();
   };
