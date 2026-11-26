@@ -44,4 +44,10 @@ describe("owner admin back navigation contract", () => {
     const orders = readRepo("components/business/owner/OwnerStoreOrdersView.tsx");
     expect(orders).toMatch(/onCloseChat[\s\S]{0,400}replaceOwnerOrdersUrlQuery/);
   });
+
+  it("하위 화면 헤더 ‹ 이름 = 실제 동작(앞 화면) — 「대시보드로」 아님 (2026-11-26 실기)", () => {
+    const header = readRepo("components/business/owner/OwnerMobileAdminHeader.tsx");
+    expect(header).toMatch(/backHref=\{backHref\}\s*preferHistoryBack[\s\S]{0,300}ariaLabelKey="tier1_back"/);
+    expect(header).not.toContain("store_owner_aria_dashboard");
+  });
 });
