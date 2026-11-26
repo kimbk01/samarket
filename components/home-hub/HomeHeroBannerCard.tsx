@@ -5,6 +5,7 @@ import { ArrowRight } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   HOME_BANNER_HERO_RATIO,
+  pickHomeBannerTitle,
   pickHomeText,
   splitHomeBannerTitle,
   type HomeBannerConfig,
@@ -34,7 +35,7 @@ export function HomeHeroBannerCard({
 }) {
   const { t, language } = useI18n();
   /* 시안 v2 §3-3: 홈 배너 = 제목(노랑 강조) + 버튼만. 칩·본문은 저장값만 남기고 그리지 않는다 */
-  const title = pickHomeText(banner.title, language);
+  const title = pickHomeBannerTitle(banner, language);
   const cta = banner.href ? pickHomeText(banner.ctaLabel, language) || t("home_banner_cta_default") : "";
   const full = banner.ratio === HOME_BANNER_HERO_RATIO;
   return (

@@ -239,6 +239,11 @@ export type HomeBannerConfig = {
   chip: HomeText;
   /** 버튼 문구 — 비우면 기본 문구(`home_banner_cta_default`) */
   ctaLabel: HomeText;
+  /**
+   * 제목 노랑 강조판 — `{동네 맛집}` 처럼 중괄호 표시를 넣은 제목(새 앱 코드만 읽음). 비우면 `title` 그대로.
+   * `title` 은 늘 중괄호 없는 글 — 예전 웹 코드가 떠 있는 앱도 깨지지 않게 (2026-11-26 실기: 예전 코드 앱에 중괄호 노출).
+   */
+  titleMarked: HomeText;
   /** 게시 시작·끝 (UTC ISO, 비우면 제한 없음) — 기간 밖이면 앱에 안 보임 (슈퍼앱 개편 D3 2026-11-26) */
   startsAt: string;
   endsAt: string;
@@ -432,6 +437,7 @@ function sampleBanner(
     adLabel: false,
     chip: catalogText(keys.chip),
     ctaLabel: catalogText(keys.cta),
+    titleMarked: emptyHomeText(),
     startsAt: EMPTY,
     endsAt: EMPTY,
   };
@@ -643,7 +649,7 @@ function normalizeBanner(item: Record<string, unknown>): HomeBannerConfig | null
     size: pickEnum(item.size, HOME_BANNER_SIZES, "m"),
     side: item.side === "right" ? "right" : "left",
     titleSize: pickEnum(item.titleSize, HOME_BANNER_TITLE_SIZES, "m"),
-    title: normalizeText(item.title, HOME_BANNER_TITLE_MAX),
+    ...normalizeBannerTitles(item),
     body: normalizeText(item.body, HOME_BANNER_BODY_MAX),
     href: isSafeHomeHref(href) ? href : EMPTY,
     audience: pickEnum(item.audience, HOME_AUDIENCES, "all"),
@@ -654,6 +660,35 @@ function normalizeBanner(item: Record<string, unknown>): HomeBannerConfig | null
     startsAt: normalizeIsoTime(item.startsAt),
     endsAt: normalizeIsoTime(item.endsAt),
   };
+}
+
+/** 강조 표시(중괄호) 지우기 — `{동네 맛집}이` → `동네 맛집이` */
+export function stripHomeBannerMarks(text: string): string {
+  return splitHomeBannerTitle(text)
+    .map((p) => p.text)
+    .join("");
+}
+
+/**
+ * 제목 두 벌 정리 — `title` = 중괄호 없는 글, `titleMarked` = 강조판.
+ * 예전 저장값처럼 `title` 에 중괄호가 들어 있으면 그것을 강조판으로 옮기고 `title` 은 지운 글로 바꾼다.
+ */
+function normalizeBannerTitles(item: Record<string, unknown>): { title: HomeText; titleMarked: HomeText } {
+  const rawTitle = normalizeText(item.title, HOME_BANNER_TITLE_MAX + 10);
+  const rawMarked = normalizeText(item.titleMarked, HOME_BANNER_TITLE_MAX + 10);
+  const one = (lang: "ko" | "en") => {
+    const marked = rawMarked[lang] || (/\{[^{}]+\}/.test(rawTitle[lang]) ? rawTitle[lang] : EMPTY);
+    const plain = stripHomeBannerMarks(marked || rawTitle[lang]).slice(0, HOME_BANNER_TITLE_MAX);
+    return { plain, marked };
+  };
+  const ko = one("ko");
+  const en = one("en");
+  return { title: { ko: ko.plain, en: en.plain }, titleMarked: { ko: ko.marked, en: en.marked } };
+}
+
+/** 화면에 그릴 제목 — 강조판이 있으면 강조판, 없으면 일반 제목 */
+export function pickHomeBannerTitle(b: Pick<HomeBannerConfig, "title" | "titleMarked">, language: string): string {
+  return pickHomeText(b.titleMarked, language) || pickHomeText(b.title, language);
 }
 
 /** 저장 시각 — 해석되는 시각이면 UTC ISO, 아니면 빈 값 */
@@ -850,7 +885,14 @@ export function validateHomeLayoutPayload(raw: unknown): HomeLayoutValidation {
 /* ───────────────────────── 복사 ───────────────────────── */
 
 function cloneBanner(b: HomeBannerConfig): HomeBannerConfig {
-  return { ...b, title: { ...b.title }, body: { ...b.body }, chip: { ...b.chip }, ctaLabel: { ...b.ctaLabel } };
+  return {
+    ...b,
+    title: { ...b.title },
+    titleMarked: { ...b.titleMarked },
+    body: { ...b.body },
+    chip: { ...b.chip },
+    ctaLabel: { ...b.ctaLabel },
+  };
 }
 function cloneService(s: HomeServiceCardConfig): HomeServiceCardConfig {
   return { ...s, title: { ...s.title }, desc: { ...s.desc } };
