@@ -178,7 +178,8 @@ export function OwnerMobileAdminHeader({
                 preferHistoryBack
                 interceptBack={backIntercept}
                 className={HEADER_ICON_BTN_CLASS}
-                ariaLabel={t("store_owner_aria_dashboard")}
+                /** 동작 = 앞 화면(기록 우선, 없으면 backHref) — 이름도 「이전 화면」 (2026-11-26 실기: 「대시보드로」였으나 고객지원으로 복귀) */
+                ariaLabelKey="tier1_back"
               />
             ) : (
               <span className="w-0" aria-hidden />
