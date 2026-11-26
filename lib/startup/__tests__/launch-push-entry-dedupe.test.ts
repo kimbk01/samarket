@@ -236,6 +236,21 @@ describe("재감사 §9 A5 — 직전 화면 복원(생명주기 이동)도 같�
     expect(run).toHaveBeenCalledTimes(1);
   });
 
+  it("실기 20:36 결함: 이동 뒤 시작 주소 보류가 풀려도 목적지 그림 대기 중이면 계속 대기 · OS 화면 해제 때 실행", async () => {
+    const { metrics, pending } = await load("/", "", null);
+    const nav = await import("@/lib/startup/lifecycle-nav-hold");
+    vi.spyOn(nav, "lifecycleNavHoldStartPath").mockReturnValue(null);
+    const paint = vi.spyOn(nav, "isLifecycleNavDestinationPaintHoldActive").mockReturnValue(true);
+    expect(pending.isLaunchDestinationPending()).toBe(true);
+    const run = vi.fn();
+    pending.whenLaunchDestinationSettled(run);
+    nav.settleLifecycleNavHold();
+    expect(run).not.toHaveBeenCalled();
+    paint.mockReturnValue(false);
+    metrics.markAppReady("test");
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
   it("알림도 복원도 없는 실행 = 대기 없음 → 바로 실행(이전과 같음)", async () => {
     const { pending } = await load("/", "", null);
     const nav = await import("@/lib/startup/lifecycle-nav-hold");

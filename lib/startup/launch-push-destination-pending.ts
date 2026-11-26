@@ -13,7 +13,11 @@
 import { useSyncExternalStore } from "react";
 import { isLaunchPushHoldActive, markLaunchPushHandled, onLaunchPushHandled } from "@/lib/startup/launch-push-hold";
 import { getAppReadySnapshot, subscribeAppReady } from "@/lib/startup/startup-metrics";
-import { lifecycleNavHoldStartPath, onLifecycleNavHoldSettled } from "@/lib/startup/lifecycle-nav-hold";
+import {
+  isLifecycleNavDestinationPaintHoldActive,
+  lifecycleNavHoldStartPath,
+  onLifecycleNavHoldSettled,
+} from "@/lib/startup/lifecycle-nav-hold";
 
 export function isLaunchPushDestinationPending(): boolean {
   if (typeof window === "undefined") return false;
@@ -113,7 +117,13 @@ export function useLaunchPushDestinationPending(): boolean {
 export function isLaunchDestinationPending(): boolean {
   if (typeof window === "undefined") return false;
   if (getAppReadySnapshot()) return false;
-  return isLaunchPushHoldActive() || lifecycleNavHoldStartPath() != null;
+  // 실기 2026-11-26 20:36 PHT (Samsung · 운영 0a5f3bb): 도착 두 프레임 뒤 `settleLifecycleNavHold()` 가 시작 주소 보류를 풀어
+  // 채팅방이 그려지기 전(+2.3초)에 환율·탭 미리 받기 4건이 나갔다. 도착 뒤 목적지 그림 대기(D3)도 대기로 본다 — 끝은 OS 화면 해제.
+  return (
+    isLaunchPushHoldActive() ||
+    lifecycleNavHoldStartPath() != null ||
+    isLifecycleNavDestinationPaintHoldActive(window.location.pathname)
+  );
 }
 
 function subscribeLaunchDestination(onChange: () => void): () => void {
