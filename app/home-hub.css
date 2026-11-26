@@ -367,12 +367,42 @@ button.home-hero-all:active {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  width: 44px;
+  width: 40px;
   height: 44px;
   border-radius: 999px;
   color: #141a16;
 }
 .home-r3-search-label {
+  display: none;
+}
+/* 휴대폰 머리줄 — 검색 아이콘이 들어와도 「전체 지역」이 잘리지 않게 간격을 줄인다 */
+@container homer3 (max-width: 599px) {
+  .home-r3-hdr-row {
+    gap: 6px;
+  }
+}
+/* 폭 320 기기(iPhone SE·Galaxy S9+) — 로그인·주소 안쪽 여백만 줄인다 */
+@container homer3 (max-width: 359px) {
+  .home-r3-hdr-row {
+    gap: 4px;
+  }
+  .home-r3-search {
+    width: 36px;
+  }
+  .home-r3-login {
+    padding-inline: 12px;
+  }
+  .home-r3-loc {
+    padding: 0 9px 0 7px;
+    gap: 2px;
+  }
+  /* 아래 화살표는 꾸밈 — 좁은 폭에서는 주소 글자를 먼저 보인다 */
+  .home-r3-loc > svg:last-child {
+    display: none;
+  }
+}
+/* 비로그인 = 알림 칸이 비어 있음 — 빈 칸이 간격만 차지하지 않게 */
+.home-r3-hdr-row > .sam-tier1-header-icon-cluster:empty {
   display: none;
 }
 @container homer3 (min-width: 600px) {

@@ -261,7 +261,7 @@ export function HomeScreen({
             {!headerMember && isGuest ? (
               <button
                 type="button"
-                className="home-press inline-flex h-11 shrink-0 items-center whitespace-nowrap rounded-full bg-sam-primary px-4 text-[13.5px] font-bold text-white"
+                className="home-press home-r3-login inline-flex h-11 shrink-0 items-center whitespace-nowrap rounded-full bg-sam-primary px-4 text-[13.5px] font-bold text-white"
                 onClick={(e) => {
                   homePressFromClick("tap", e);
                   router.push(buildLoginHref("/home"));
