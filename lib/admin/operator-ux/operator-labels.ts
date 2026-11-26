@@ -171,6 +171,9 @@ export function adminOperatorErrorMessage(
   const known: Record<string, { ko: string; en: string }> = {
     // 재감사 S-1 (F-3): 피드 배너 풀 수용량(위치별 3)을 서버도 검사
     capacity_full: catalogPair("admin_this_ad_placement_is_full_max"),
+    /** 광고 감사 PP-01: 팝업 원본 크기 검사 (`creative-size-spec.ts`) */
+    popup_image_too_small: catalogPair("platform_popup_image_too_small_spec"),
+    popup_image_too_many_pixels: catalogPair("platform_popup_image_too_many_pixels"),
     /** 언어 SSOT S7 — 어드민 등록 이름 영어 필수 */
     name_en_required: catalogPair("admin_name_en_required"),
     reason_required: catalogPair("admin_launch_intro_err_reason_required"),

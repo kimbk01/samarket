@@ -10,6 +10,7 @@ import {
 import { adminApprovePlatformPopupCampaign } from "@/lib/platform-popup/admin-transitions";
 import { processPlatformPopupCreativeToCanonical } from "@/lib/platform-popup/creative-pipeline";
 import { POPUP_CREATIVE_SOURCE_MAX_BYTES } from "@/lib/platform-popup/creative-pixel-ssot";
+import { checkPopupCreativeSourceSize } from "@/lib/platform-popup/creative-size-spec";
 
 const BUCKET = "platform-popup-creatives";
 
@@ -50,6 +51,29 @@ export async function createAdminDirectPopupComplete(
   });
   if (!validated.ok) {
     return { ok: false, incomplete: false, error: validated.error, httpStatus: 400 };
+  }
+
+  /**
+   * 광고 감사 PP-01 (2026-11-26): 상세 화면 업로드(`creative/route.ts`)와 같은 원본 크기 검사를 캠페인을 만들기 **전에** 한다.
+   * 예전 「바로 노출」 경로는 검사 없이 300×200 도 1440×1000 으로 늘려 흐린 팝업을 바로 노출했고, 화소 상한도 없었다.
+   * 실패하면 초안 행을 남기지 않는다(incomplete:false). 기준 = `creative-size-spec.ts` (카드형 · 마스터 SSOT §3).
+   */
+  const source = Buffer.from(await input.file.arrayBuffer());
+  let width = 0;
+  let height = 0;
+  try {
+    const metadata = await sharp(source, { failOn: "none", limitInputPixels: false }).rotate().metadata();
+    width = metadata.width ?? 0;
+    height = metadata.height ?? 0;
+  } catch {
+    return { ok: false, incomplete: false, error: "invalid_dimensions", httpStatus: 400 };
+  }
+  if (width <= 0 || height <= 0) {
+    return { ok: false, incomplete: false, error: "invalid_dimensions", httpStatus: 400 };
+  }
+  const size = checkPopupCreativeSourceSize({ creativeMode: "card", width, height });
+  if (!size.ok) {
+    return { ok: false, incomplete: false, error: size.error, httpStatus: 400 };
   }
 
   const created = await createPlatformPopupAdminCampaign(sb, {
@@ -101,19 +125,6 @@ export async function createAdminDirectPopupComplete(
         error: updated.error,
         httpStatus: updated.httpStatus,
       };
-    }
-
-    const source = Buffer.from(await input.file.arrayBuffer());
-    const metadata = await sharp(source, {
-      failOn: "none",
-      limitInputPixels: false,
-    })
-      .rotate()
-      .metadata();
-    const width = metadata.width ?? 0;
-    const height = metadata.height ?? 0;
-    if (width <= 0 || height <= 0) {
-      return { ok: false, incomplete: true, id, error: "invalid_dimensions", httpStatus: 400 };
     }
 
     const processed = await processPlatformPopupCreativeToCanonical({

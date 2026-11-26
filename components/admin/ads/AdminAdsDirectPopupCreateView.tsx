@@ -21,6 +21,7 @@ import {
 } from "@/components/admin/platform-popup/AdminPlatformPopupPreview";
 import { adsCreateConfirmCopy } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
 import { adminManilaInputToIso } from "@/lib/admin/operator-ux/admin-manila-datetime-input";
+import { POPUP_CARD_MIN_SOURCE } from "@/lib/platform-popup/creative-size-spec";
 
 const SURFACES = ["GLOBAL", "HOME", "DELIVERY", "TRADE", "COMMUNITY", "MYPAGE"] as const;
 
@@ -179,6 +180,9 @@ export function AdminAdsDirectPopupCreateView() {
           <dd className="font-semibold">36:25</dd>
           <dt className="text-sam-muted">{t("admin_ads_recommended")}</dt>
           <dd className="font-semibold">1440 × 1000px</dd>
+          {/* PP-01: 서버가 거부하는 최소 크기 (36:25 로 자른 뒤) */}
+          <dt className="text-sam-muted">{t("admin_ads_minimum")}</dt>
+          <dd className="font-semibold">{`${POPUP_CARD_MIN_SOURCE.width} × ${POPUP_CARD_MIN_SOURCE.height}px`}</dd>
         </dl>
         <input
           ref={fileRef}

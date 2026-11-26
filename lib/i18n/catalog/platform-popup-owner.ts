@@ -8,7 +8,7 @@ export const platformPopupOwnerMessages = {
     owner_platform_popup_product_desc:
       "앱 전역에 뜨는 팝업 광고를 신청합니다. 결제 후에도 관리자 승인 전까지는 노출되지 않습니다.",
     owner_platform_popup_new_sales_disabled:
-      "Owner Popup 신규 신청은 종료되었습니다. 기존 신청 내역은 계속 조회할 수 있습니다.",
+      "팝업 광고 신규 신청이 끝났어요. 지난 신청은 계속 볼 수 있어요.",
     owner_platform_popup_apply_title: "팝업 광고 신청",
     owner_platform_popup_detail_title: "팝업 광고 신청 상세",
     owner_platform_popup_section_store: "광고할 매장",
@@ -47,6 +47,8 @@ export const platformPopupOwnerMessages = {
     admin_platform_popup_request_approve: "승인",
     admin_platform_popup_request_reject: "거절",
     admin_platform_popup_request_revision: "수정 요청",
+    /** PP-02: 판매 꺼짐 동안 수정 요청 불가 */
+    admin_platform_popup_request_revision_closed: "신규 판매 종료로 수정 요청을 할 수 없어요. 반려하면 환불돼요.",
     admin_platform_popup_request_start_review: "검수 시작",
     admin_platform_popup_request_activate: "승인 후 즉시 활성",
     admin_platform_popup_request_schedule: "승인 후 예약",
@@ -77,7 +79,7 @@ export const platformPopupOwnerMessages = {
     owner_platform_popup_product_desc:
       "Apply for a platform-wide popup. Payment alone does not start delivery — admin approval is required.",
     owner_platform_popup_new_sales_disabled:
-      "New Owner Popup applications are closed. Existing requests remain viewable.",
+      "New popup ad applications are closed. You can still view past requests.",
     owner_platform_popup_apply_title: "Apply for Popup Ad",
     owner_platform_popup_detail_title: "Popup Ad Request",
     owner_platform_popup_section_store: "Store",
@@ -116,6 +118,7 @@ export const platformPopupOwnerMessages = {
     admin_platform_popup_request_approve: "Approve",
     admin_platform_popup_request_reject: "Reject",
     admin_platform_popup_request_revision: "Request revision",
+    admin_platform_popup_request_revision_closed: "Sales are closed, so revisions can't be requested. Rejecting refunds the owner.",
     admin_platform_popup_request_start_review: "Start review",
     admin_platform_popup_request_activate: "Approve & activate",
     admin_platform_popup_request_schedule: "Approve & schedule",

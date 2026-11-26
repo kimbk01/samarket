@@ -17,6 +17,7 @@ import {
   POPUP_CREATIVE_SOURCE_MAX_BYTES,
 } from "@/lib/platform-popup/creative-pixel-ssot";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { assertOwnerPlatformPopupNewSalesAllowed } from "@/lib/platform-popup/owner-popup-new-sales-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +36,12 @@ export async function POST(
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) return NextResponse.json({ ok: false, error: "service_unavailable" }, { status: 503 });
+
+  /** 광고 감사 PP-03: 판매 꺼짐 동안 소재 업로드 막음 (저장소에 쓸 데 없는 파일이 쌓이지 않게) */
+  const salesGate = assertOwnerPlatformPopupNewSalesAllowed();
+  if (!salesGate.ok) {
+    return NextResponse.json({ ok: false, error: salesGate.error }, { status: 403 });
+  }
 
   const { requestId } = await ctx.params;
   const row = await loadPlatformPopupOwnerRequest(sb, requestId);

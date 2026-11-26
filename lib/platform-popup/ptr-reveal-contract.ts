@@ -118,6 +118,13 @@ export const PTR_BAND_SPECS: Record<PtrBandVariant, PtrBandSpec> = {
  */
 export const PTR_BAND_TABLET_MIN_VIEWPORT_PX = 600;
 
+/**
+ * 「광고」 표기·로고가 들어가는 최소 슬롯 높이 — 광고 감사 PT-05 (2026-11-26):
+ * 이보다 낮으면 띠 그림도 그리지 않는다(예전: 2px 부터 그림만 보이고 「광고」 표기는 24px 부터 — 마스터 SSOT §3 「광고」 표기 위반).
+ * 띠(`DibayPtrRevealBand`)·슬롯(`DibayPtrSlot`)·어드민 미리보기가 같은 값.
+ */
+export const PTR_BAND_CHROME_MIN_PX = 24;
+
 export function resolvePtrBandVariantForViewport(viewportWidth: number): PtrBandDeviceVariant {
   return viewportWidth >= PTR_BAND_TABLET_MIN_VIEWPORT_PX ? "tablet" : "default";
 }

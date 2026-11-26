@@ -55,6 +55,8 @@ const pendingSuppress = new Map<string, string>(); // surfaceKey → campaignId
  */
 const suppressFailedHeld = new Set<string>(); // campaignId
 let lastSurfaceKey: string | null = null;
+/** PT-01: 마지막으로 본 화면 경로 (앱 전체 호스트가 알려 준다 — PTR 없는 화면 이동도 잡는다) */
+let lastRoutePath: string | null = null;
 /** CX-06: 마지막으로 본 신원(회원 id 또는 `anon:{기기}`) — 팝업 호스트와 같은 판정 */
 let identity: string | null = null;
 const listeners = new Set<() => void>();
@@ -100,6 +102,20 @@ export function notePtrRevealIdentity(input: {
 export function ptrRevealSurfaceKey(pathname: string | null | undefined): string | null {
   const surface = resolveDibaySurface(pathname);
   return isPlatformPopupAdvertisingSurface(surface) ? surface : null;
+}
+
+/**
+ * 광고 감사 PT-01 (2026-11-26): close_only 보류는 「지금 화면에 있는 동안만」(마스터 SSOT §4-1 · 어드민 안내 문구).
+ * 예전에는 표면(HOME 등)이 바뀔 때만 풀려, /home → /mypage(PTR 없음) → /home 으로 돌아와도 계속 숨겨졌다.
+ * 앱 전체에 항상 있는 팝업 호스트가 경로가 바뀔 때마다 이 함수를 부른다 → 다른 화면으로 가면 보류 해제.
+ */
+export function notePtrRevealRoute(pathname: string | null | undefined): void {
+  const p = String(pathname ?? "").split("?")[0]!.replace(/\/+$/, "") || "/";
+  if (lastRoutePath !== null && p !== lastRoutePath && closeOnlyHeld.size > 0) {
+    closeOnlyHeld.clear();
+    emit();
+  }
+  lastRoutePath = p;
 }
 
 /** 표면 이동 감지 — 다른 표면으로 가면 close_only 보류 해제 */
@@ -283,6 +299,7 @@ export function __resetPtrRevealAdsForTests(): void {
   pendingSuppress.clear();
   suppressFailedHeld.clear();
   lastSurfaceKey = null;
+  lastRoutePath = null;
   identity = null;
   listeners.clear();
   version = 0;

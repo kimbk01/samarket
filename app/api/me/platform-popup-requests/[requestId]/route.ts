@@ -7,6 +7,7 @@ import {
   updatePlatformPopupOwnerDraft,
 } from "@/lib/platform-popup/owner-request-writer";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { assertOwnerPlatformPopupNewSalesAllowed } from "@/lib/platform-popup/owner-popup-new-sales-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,6 +62,12 @@ export async function PATCH(
       );
     }
     return NextResponse.json({ ok: true, item: result.row });
+  }
+
+  /** 광고 감사 PP-03: 신규 판매가 꺼져 있으면 초안 수정도 막는다(취소만 허용) — 제출이 막혀 있어 고쳐도 쓸 데가 없다 */
+  const salesGate = assertOwnerPlatformPopupNewSalesAllowed();
+  if (!salesGate.ok) {
+    return NextResponse.json({ ok: false, error: salesGate.error }, { status: 403 });
   }
 
   const result = await updatePlatformPopupOwnerDraft(sb, {

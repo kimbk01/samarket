@@ -59,6 +59,7 @@ import {
   isAnyDibayPtrRefreshRunning,
   subscribeDibayPtrRefreshActivity,
 } from "@/lib/ui/ptr/create-dibay-ptr-store";
+import { notePtrRevealRoute } from "@/lib/platform-popup/ptr-reveal-client";
 
 type ResolveWinner = PlatformPopupPresentationWinner;
 
@@ -125,6 +126,10 @@ function validateWinnerHref(href: string): boolean {
 export function GlobalPopupHost() {
   const pathname = usePathname() ?? "/";
   const router = useRouter();
+  /** 광고 감사 PT-01: 화면이 바뀌면 당김 후 광고 「기록 없이 닫기」 보류 해제 (PTR 없는 화면 이동 포함) */
+  useEffect(() => {
+    notePtrRevealRoute(pathname);
+  }, [pathname]);
   const membership = useClientMembershipState("platform-popup-host");
   const criticalFlags = useSyncExternalStore(
     subscribePlatformPopupCriticalRuntimeFlags,

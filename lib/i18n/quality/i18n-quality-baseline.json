@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-26 17:47 PHT",
+ "generatedAtPht": "2026-11-26 17:57 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -218,8 +218,6 @@
    "app/api/me/legal-consent/route.ts": 8,
    "app/api/me/notification-targets/clear/route.ts": 3,
    "app/api/me/notifications/route.ts": 1,
-   "app/api/me/platform-popup-requests/[requestId]/submit/route.ts": 1,
-   "app/api/me/platform-popup-requests/route.ts": 1,
    "app/api/me/posts/bulk-region/route.ts": 1,
    "app/api/me/profile/avatar/route.ts": 6,
    "app/api/me/profile/route.ts": 19,
