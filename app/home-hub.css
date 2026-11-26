@@ -1894,8 +1894,18 @@
   .home-tel-when {
     display: none;
   }
+  /* 좁아지면 시각이 먼저 줄어든다 — 통화 종류 문구(「부재중 통화」)를 지킨다 (2026-11-27 Xiaomi 세로 실측: 종류 문구가 0폭으로 사라짐) */
+  .home-tel-sub-text {
+    flex: 0 0 auto;
+    max-width: 100%;
+    min-width: 0;
+  }
   .home-tel-when-inline {
     display: inline;
+    flex: 0 100 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     color: #8c948f;
     white-space: nowrap;
   }
@@ -1915,5 +1925,32 @@
     display: grid;
     background: #ffc933;
     color: #1d1a0f;
+  }
+}
+
+/* 2열 중 좁은 폭(홈 칸 600~767 — Xiaomi 세로 등): 사진·버튼 그림 36 (누르는 영역은 ::after 44×44 그대로) — 이름·종류 문구 자리 확보 */
+@container homer3 (min-width: 600px) and (max-width: 767px) {
+  .home-tel-list {
+    padding: 0 12px;
+  }
+  .home-tel-row {
+    gap: 8px;
+  }
+  .home-tel-row-main {
+    gap: 8px;
+  }
+  .home-tel-avatar {
+    width: 36px;
+    height: 36px;
+  }
+  .home-tel-name {
+    font-size: 15px;
+  }
+  .home-tel-btns {
+    gap: 6px;
+  }
+  .home-tel-btn {
+    width: 36px;
+    height: 36px;
   }
 }
