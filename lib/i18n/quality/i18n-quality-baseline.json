@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-26 17:57 PHT",
+ "generatedAtPht": "2026-11-26 18:27 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -737,7 +737,6 @@
    "lib/utils/ph-mobile.ts": 1
   },
   "jsx-text-korean": {
-   "components/admin/stores/AdminDeliveryAdCommercialSettingsView.tsx": 1,
    "components/dev/PromotionEventOperationProofClient.tsx": 12
   }
  }

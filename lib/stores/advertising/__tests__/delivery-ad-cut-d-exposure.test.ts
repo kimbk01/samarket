@@ -419,7 +419,8 @@ describe("CUT D store sponsored exposure eligibility", () => {
       ]),
     });
     expect(eligible.filter((e) => e.storeId === "s1")).toHaveLength(1);
-    expect(eligible.map((e) => e.id)).toEqual(["a-early", "b1"]);
+    /** R-16: 노출 순서는 10분마다 돈다(SA-03) — 여기서는 「매장당 1개 · 어떤 캠페인이 남는지」만 본다 */
+    expect(eligible.map((e) => e.id).sort()).toEqual(["a-early", "b1"]);
 
     const deduped = dedupeSponsoredCampaignsOnePerStore(campaigns, compareStorePaidAdCampaigns);
     expect(deduped.filter((c) => c.storeId === "s1")).toHaveLength(1);

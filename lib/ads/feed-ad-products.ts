@@ -74,6 +74,23 @@ export async function listFeedAdProducts(
     .sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
 }
 
+/**
+ * 광고 요금 안내 전용 (광고 감사 R-17) — 조회 오류를 빈 목록으로 바꾸지 않고 던진다.
+ * (빈 목록이면 「배너 판매 안 함」처럼 정상 표가 나가 잘못 안내된다.)
+ */
+export async function listActiveFeedAdProductsOrThrow(sb: SupabaseClient): Promise<FeedAdProduct[]> {
+  const { data, error } = await sb
+    .from("feed_ad_products")
+    .select("*")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+  if (error) throw new Error(error.message || "feed_ad_products_load_failed");
+  return (data ?? [])
+    .map((r) => mapFeedAdProductRow(r as Record<string, unknown>))
+    .filter((p): p is FeedAdProduct => p != null)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
+}
+
 /** Member/renew — active products only. */
 export async function listActiveFeedAdProducts(
   sb: SupabaseClient,

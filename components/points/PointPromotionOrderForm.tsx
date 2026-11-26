@@ -97,10 +97,17 @@ export function PointPromotionOrderForm({
   const insufficient = balance !== null && balance < cost;
   /** 충전 후 돌아오기 (TB-08) — 거래 광고 창 `goCharge` 와 같은 주소 규칙: 모자란 포인트 · 돌아올 화면 */
   const pathname = usePathname();
+  /** R-06: 돌아올 주소 = 경로 + 쿼리(미리 고른 글 `?targetId=` 등) — 화면이 뜬 뒤 브라우저 주소에서 읽는다 */
+  const [returnTo, setReturnTo] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setReturnTo(`${window.location.pathname}${window.location.search}`);
+  }, [pathname]);
   const chargeHref = (() => {
     const qs = new URLSearchParams();
     if (insufficient && balance !== null) qs.set("need", String(Math.max(0, cost - balance)));
-    if (pathname) qs.set("returnTo", pathname);
+    const back = returnTo ?? pathname;
+    if (back) qs.set("returnTo", back);
     const q = qs.toString();
     return q ? `/mypage/points/charge?${q}` : "/mypage/points/charge";
   })();

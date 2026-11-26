@@ -31,7 +31,8 @@ const KEY_BY_CODE: Record<string, MessageKey> = {
   invalid_url_scheme: "feed_ad_req_invalid_dest",
   invalid_destination_type: "feed_ad_req_invalid_dest",
   destination_not_mine: "feed_ad_req_dest_not_mine",
-  destination_unavailable: "feed_ad_req_dest_not_mine",
+  /** R-09: 노출 판정과 같은 기준(숨김·카테고리 없는 거래 글은 피드에 안 나온다) — 이유를 사실대로 */
+  destination_unavailable: "feed_ad_req_dest_unavailable",
   destination_check_failed: "feed_ad_req_check_failed",
 };
 

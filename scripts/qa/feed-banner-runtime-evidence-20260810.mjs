@@ -652,6 +652,9 @@ async function run() {
       },
       body: JSON.stringify({
         productId: "feed_banner_community_7",
+        // 광고 감사 FB-01·R-08 (2026-11-26): 신청은 화면 금액·기간 필수 — 같은 응답의 상품표 값을 보낸다
+        expectedPointCost: (my.catalog ?? []).find((p) => p.id === "feed_banner_community_7")?.pointCost,
+        expectedDurationDays: (my.catalog ?? []).find((p) => p.id === "feed_banner_community_7")?.durationDays,
         placement: "COMMUNITY_HOME",
         creatives: [
           {

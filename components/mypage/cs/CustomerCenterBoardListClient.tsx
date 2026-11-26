@@ -32,6 +32,7 @@ import { BOARD_LABEL, type CustomerCenterContentType } from "@/lib/notices/custo
 import { normalizeCustomerCenterHeroImageUrl } from "@/lib/notices/customer-center-media";
 import { excerptCustomerCenterMarkdown } from "@/lib/notices/customer-center-safe-markdown";
 import {
+  AD_PRICING_GUIDE_PATH,
   buildCustomerCenterBoardDetailPath,
   CUSTOMER_CENTER_HUB_HREF,
 } from "@/lib/notices/customer-center-content-paths";
@@ -407,6 +408,27 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
             placeholder={t("mypage_s61_search_placeholder")}
             className={`${Sam.input.base} w-full text-[16px]`}
           />
+        ) : null}
+        {/*
+          * 광고 감사 E (2026-11-26): 공지사항 맨 위 「광고 요금 안내」 고정 카드 — 금액은 그 화면이 결제 창과 같은 표에서 읽는다.
+          * 공지 글 데이터(app_notices)를 만들지 않는 코드 고정 카드(지울 때 실수로 사라지지 않음 · 시안 ①).
+        */}
+        {contentType === "notice" ? (
+          <Link
+            href={AD_PRICING_GUIDE_PATH}
+            className={`${CC_CARD_CLASS} flex min-w-0 items-center gap-3 border-sam-primary px-4 py-3.5 transition active:bg-sam-pressed-surface md:px-5`}
+            data-testid="cc-ad-pricing-pinned"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="flex gap-1.5">
+                <span className={`${CC_CATEGORY_CHIP_CLASS} !bg-sam-primary !text-sam-on-primary`}>{t("ad_guide_badge_pinned")}</span>
+                <span className={CC_CATEGORY_CHIP_CLASS}>{t("ad_guide_badge_ad")}</span>
+              </span>
+              <span className={`mt-1.5 block truncate ${CC_HEADER_CLASS}`}>{t("ad_guide_title")}</span>
+              <span className={`mt-0.5 block truncate ${CC_NOTE_CLASS}`}>{t("ad_guide_card_sub")}</span>
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-sam-meta" strokeWidth={2} aria-hidden />
+          </Link>
         ) : null}
         {body}
       </div>

@@ -4,6 +4,7 @@ import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner, getStoreIfOwnerForOperationalWrite } from "@/lib/stores/owner-product-gate";
 import {
+  assertSponsoredCampaignCategoryFeedSellable,
   loadOwnerSponsoredCampaign,
   transitionOwnerSponsoredCampaign,
 } from "@/lib/stores/advertising/owner-store-sponsored-writer";
@@ -46,6 +47,7 @@ function statusForError(error: string): number {
       return 402;
     case "capacity_full":
     case "home_ads_disabled":
+    case "category_ads_disabled":
       return 409;
     case "capacity_check_failed":
       return 503;
@@ -238,6 +240,13 @@ export async function POST(
       const homeGate = await assertHomeFeedSellableByPolicy(sb);
       if (!homeGate.ok) {
         return NextResponse.json({ ok: false, error: homeGate.error }, { status: 409 });
+      }
+    }
+    /** R-21: 업종 목록도 제출 직전에 업종 정책을 다시 본다 — 초안 뒤 어드민이 그 업종 광고를 끄면 차감 전에 막는다 */
+    if (inventoryKey === "STORES_CATEGORY_FEED") {
+      const categoryGate = await assertSponsoredCampaignCategoryFeedSellable(sb, { campaignId: cid, storeId: sid });
+      if (!categoryGate.ok) {
+        return NextResponse.json({ ok: false, error: categoryGate.error }, { status: statusForError(categoryGate.error) });
       }
     }
     const commercial = await attachOwnerPaidCommercialSnapshotOnSubmit(sb, {

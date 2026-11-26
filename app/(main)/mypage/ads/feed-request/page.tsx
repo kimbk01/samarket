@@ -29,7 +29,7 @@ import {
 } from "@/lib/ads/feed-ad-geometry";
 import { checkFeedAdMemberImageFile } from "@/lib/ads/feed-ad-member-image-check";
 import { feedAdMemberErrorKey } from "@/lib/ads/feed-ad-member-error-key";
-import { feedAdOpsStatusLabel } from "@/lib/ads/feed-ad-ops-presentation";
+import { feedAdOpsStatusKey } from "@/lib/ads/feed-ad-ops-presentation";
 import { feedAdUploadRejectMessage } from "@/lib/ads/feed-ad-upload-geometry";
 import type { FeedAdMemberDisplayStatus } from "@/lib/ads/feed-ad-member-presentation";
 import { FEED_AD_SAMPLE_ASSET } from "@/lib/ads/feed-ad-sample-assets";
@@ -178,9 +178,12 @@ export default function MemberFeedAdRequestPage() {
     if (prefill && items.some((p) => p.id === prefill)) prefillProductIdRef.current = null;
     setProductId((prev) => {
       const want = prefill && items.some((p) => p.id === prefill) ? prefill : prev;
-      if (want && items.some((p) => p.id === want && (balN == null || p.pointCost <= balN))) {
-        return want;
-      }
+      /**
+       * R-26: 회원이 고른 상품(광고하기 창에서 넘어온 것 포함)은 잔액이 모자라도 바꾸지 않는다 —
+       * 고른 채로 「포인트 부족 · 충전」 안내를 보이고 신청 버튼은 잠근다(아래 canSubmit).
+       * 고른 상품이 없을 때만 살 수 있는 첫 상품을 미리 고른다.
+       */
+      if (want && items.some((p) => p.id === want)) return want;
       return preferred?.id ?? "";
     });
     if (tgtRes?.ok) {
@@ -558,8 +561,8 @@ export default function MemberFeedAdRequestPage() {
     !(poolRemaining != null && poolRemaining.remaining <= 0);
 
   if (currentBanner) {
-    /** FB-08: 내 광고 화면과 같은 상태 이름 1곳(`feedAdOpsStatusLabel`) — 정지 포함 */
-    const statusLabel = feedAdOpsStatusLabel(currentBanner.displayStatus, en ? "en" : "ko");
+    /** FB-08·R-29: 내 광고 화면과 같은 상태 이름(같은 상태 판정) — 문구는 카탈로그 키로 */
+    const statusLabel = t(feedAdOpsStatusKey(currentBanner.displayStatus));
     return (
       <MyScreen title={safeT("feed_ad_req_title")} backHref={"/mypage/ads"} template="form">
       <div className="space-y-4">
@@ -1007,7 +1010,7 @@ export default function MemberFeedAdRequestPage() {
                   }}
                   data-testid={`feed-ad-product-${p.id}`}
                   className={`relative w-full overflow-hidden rounded-ui-rect border px-3 py-2 text-left disabled:cursor-not-allowed ${
-                    productId === p.id && !unaffordable
+                    productId === p.id
                       ? "border-sam-primary bg-sam-primary/5"
                       : "border-sam-border"
                   }`}

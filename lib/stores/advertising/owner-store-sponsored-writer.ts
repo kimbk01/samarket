@@ -342,6 +342,77 @@ export type OwnerCreateDraftInput = {
   browseSecondarySlug?: string | null;
 };
 
+/**
+ * 업종 목록(STORES_CATEGORY_FEED) 판매 판정 — 초안 만들기·초안 수정·제출 직전이 같이 쓴다 (광고 감사 R-21 · 2026-11-26).
+ * 업종을 비워 두면 매장의 업종(대분류·소분류)으로 본다. 꺼진 업종이면 `category_ads_disabled`.
+ */
+export async function assertOwnerSponsoredCategoryFeedSellable(
+  sb: SupabaseClient,
+  input: {
+    storeId: string;
+    browseTargetKind: "primary" | "secondary" | null | undefined;
+    browsePrimarySlug: string | null | undefined;
+    browseSecondarySlug: string | null | undefined;
+  }
+): Promise<
+  | { ok: true; kind: "primary" | "secondary"; primarySlug: string | null; secondarySlug: string | null }
+  | { ok: false; error: "category_ads_disabled" | "taxonomy_required" }
+> {
+  const { assertCategoryFeedSellableByPolicy } = await import(
+    "@/lib/stores/advertising/delivery-ad-category-policy-sell-gate"
+  );
+  const kind = input.browseTargetKind === "secondary" ? "secondary" : "primary";
+  let primarySlug = input.browsePrimarySlug?.trim() || null;
+  let secondarySlug = input.browseSecondarySlug?.trim() || null;
+  if (!primarySlug) {
+    const { data: storeTax } = await sb
+      .from("stores")
+      .select("store_categories ( slug ), store_topics ( slug )")
+      .eq("id", input.storeId)
+      .maybeSingle();
+    const cat = (storeTax as { store_categories?: { slug?: string } | { slug?: string }[] | null } | null)
+      ?.store_categories;
+    const topic = (storeTax as { store_topics?: { slug?: string } | { slug?: string }[] | null } | null)
+      ?.store_topics;
+    const catRow = Array.isArray(cat) ? cat[0] : cat;
+    const topicRow = Array.isArray(topic) ? topic[0] : topic;
+    primarySlug = catRow?.slug?.trim() || null;
+    if (kind === "secondary") secondarySlug = topicRow?.slug?.trim() || null;
+  }
+  const policyGate = await assertCategoryFeedSellableByPolicy(sb, {
+    primarySlug,
+    secondarySlug,
+    browseTargetKind: kind,
+  });
+  if (!policyGate.ok) return { ok: false, error: policyGate.error };
+  return { ok: true, kind, primarySlug, secondarySlug: kind === "secondary" ? secondarySlug : null };
+}
+
+/** R-21: 저장된 신청의 업종 대상(browse_*)을 읽어 같은 판정 — 제출 직전(캐시 차감 전)에 쓴다. 조회 실패 = 팔지 않음 */
+export async function assertSponsoredCampaignCategoryFeedSellable(
+  sb: SupabaseClient,
+  input: { campaignId: string; storeId: string }
+): Promise<{ ok: true } | { ok: false; error: "category_ads_disabled" | "taxonomy_required" }> {
+  const { data, error } = await sb
+    .from(STORE_SPONSORED_CAMPAIGN_TABLE)
+    .select("browse_target_kind, browse_primary_slug, browse_secondary_slug")
+    .eq("id", input.campaignId)
+    .maybeSingle();
+  if (error || !data) return { ok: false, error: "category_ads_disabled" };
+  const raw = data as {
+    browse_target_kind?: string | null;
+    browse_primary_slug?: string | null;
+    browse_secondary_slug?: string | null;
+  };
+  const gate = await assertOwnerSponsoredCategoryFeedSellable(sb, {
+    storeId: input.storeId,
+    browseTargetKind: raw.browse_target_kind === "secondary" ? "secondary" : "primary",
+    browsePrimarySlug: raw.browse_primary_slug ?? null,
+    browseSecondarySlug: raw.browse_secondary_slug ?? null,
+  });
+  return gate.ok ? { ok: true } : gate;
+}
+
 export async function createOwnerSponsoredDraft(
   sb: SupabaseClient,
   input: OwnerCreateDraftInput
@@ -400,38 +471,16 @@ export async function createOwnerSponsoredDraft(
 
   const wantsCategory = inv.keys.includes("STORES_CATEGORY_FEED");
   if (wantsCategory) {
-    const { assertCategoryFeedSellableByPolicy } = await import(
-      "@/lib/stores/advertising/delivery-ad-category-policy-sell-gate"
-    );
-    const kind =
-      browseTargetKind === "primary" || browseTargetKind === "secondary"
-        ? browseTargetKind
-        : "primary";
-    if (!browsePrimarySlug) {
-      const { data: storeTax } = await sb
-        .from("stores")
-        .select("store_categories ( slug ), store_topics ( slug )")
-        .eq("id", input.storeId)
-        .maybeSingle();
-      const cat = (storeTax as { store_categories?: { slug?: string } | { slug?: string }[] | null } | null)
-        ?.store_categories;
-      const topic = (storeTax as { store_topics?: { slug?: string } | { slug?: string }[] | null } | null)
-        ?.store_topics;
-      const catRow = Array.isArray(cat) ? cat[0] : cat;
-      const topicRow = Array.isArray(topic) ? topic[0] : topic;
-      browsePrimarySlug = catRow?.slug?.trim() || null;
-      if (kind === "secondary") browseSecondarySlug = topicRow?.slug?.trim() || null;
-    }
-    const policyGate = await assertCategoryFeedSellableByPolicy(sb, {
-      primarySlug: browsePrimarySlug,
-      secondarySlug: browseSecondarySlug,
-      browseTargetKind: kind,
+    const gate = await assertOwnerSponsoredCategoryFeedSellable(sb, {
+      storeId: input.storeId,
+      browseTargetKind,
+      browsePrimarySlug,
+      browseSecondarySlug,
     });
-    if (!policyGate.ok) {
-      return { ok: false, error: policyGate.error };
-    }
-    browseTargetKind = kind;
-    if (kind !== "secondary") browseSecondarySlug = null;
+    if (!gate.ok) return { ok: false, error: gate.error };
+    browseTargetKind = gate.kind;
+    browsePrimarySlug = gate.primarySlug;
+    browseSecondarySlug = gate.secondarySlug;
   }
 
   const schedule = validateOwnerStoreSponsoredSchedule({
@@ -606,6 +655,26 @@ export async function updateOwnerSponsoredDraft(
   if (typeof input.title === "string" && input.title.trim()) patch.title = input.title.trim().slice(0, 120);
   if (typeof input.headline === "string" && input.headline.trim()) {
     patch.headline = input.headline.trim().slice(0, 160);
+  }
+
+  /**
+   * R-21: 업종 목록으로 바꾸거나 업종을 바꾸는 저장도 만들기와 같은 업종 판정 — 꺼진 업종으로 옮겨 두고 제출하는 길을 막는다.
+   * (업종을 건드리지 않는 저장은 제출 직전 판정이 본다)
+   */
+  if (
+    nextKeys.includes("STORES_CATEGORY_FEED") &&
+    (input.inventoryKeys !== undefined || input.browseTargetKind !== undefined || input.browsePrimarySlug !== undefined)
+  ) {
+    const gate =
+      input.browseTargetKind === "primary" || input.browseTargetKind === "secondary"
+        ? await assertOwnerSponsoredCategoryFeedSellable(sb, {
+            storeId: row.storeId,
+            browseTargetKind: input.browseTargetKind,
+            browsePrimarySlug: input.browsePrimarySlug ?? null,
+            browseSecondarySlug: input.browseSecondarySlug ?? null,
+          })
+        : await assertSponsoredCampaignCategoryFeedSellable(sb, { campaignId: row.id, storeId: row.storeId });
+    if (!gate.ok) return { ok: false, error: gate.error };
   }
 
   const startAt = (patch.start_at as string | undefined) ?? row.startAt;

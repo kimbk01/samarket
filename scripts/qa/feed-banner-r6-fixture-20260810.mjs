@@ -289,6 +289,13 @@ async function main() {
 
   async function postCreate(cookie) {
     const beforeReqs = null;
+    // 광고 감사 FB-01·R-08 (2026-11-26): 신청은 화면 금액·기간 필수 — 상품표에서 읽어 보낸다
+    const catalog = await fetch(`${BASE}/api/me/feed-ad-requests?domain=community`, {
+      headers: { cookie, accept: "application/json" },
+    })
+      .then((x) => x.json().catch(() => ({})))
+      .then((j) => (Array.isArray(j.catalog) ? j.catalog : []));
+    const product = catalog.find((p) => p.id === PRODUCT_ID);
     const r = await fetch(`${BASE}/api/me/feed-ad-requests`, {
       method: "POST",
       headers: {
@@ -298,6 +305,8 @@ async function main() {
       },
       body: JSON.stringify({
         productId: PRODUCT_ID,
+        expectedPointCost: product?.pointCost,
+        expectedDurationDays: product?.durationDays,
         placement: "COMMUNITY_TOPIC",
         targetTopicSlug: "news",
         creatives: [{ imageUrl }],

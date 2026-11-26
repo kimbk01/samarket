@@ -14,9 +14,9 @@ import {
   DELIVERY_AD_COMMERCIAL_PLACEMENT_LABELS,
   formatDeliveryAdPhpMinor,
 } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
-import { isLaunchSellableInventoryKey } from "@/lib/stores/advertising/delivery-ad-launch-placement-product";
-import { STORES_SEARCH_TOP_LAUNCH } from "@/lib/stores/advertising/delivery-ad-product-recovery-contract";
 import { isStoresHomeFeedSellable, STORES_HOME_FEED_INVENTORY_KEY } from "@/lib/stores/advertising/delivery-ad-home-feed-sell-gate";
+import { isOwnerSellableDeliveryAdPlacement } from "@/lib/stores/advertising/delivery-ad-owner-sellable";
+import { assertOwnerSponsoredCategoryFeedSellable } from "@/lib/stores/advertising/owner-store-sponsored-writer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +26,26 @@ export const dynamic = "force-dynamic";
  * GET ?storeId=&productKind=&inventoryKey=[&packageId=]
  * Returns only server-quoted packages (fail-closed when none sellable).
  */
+async function isStoreCategoryFeedSellableForOwner(
+  sb: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>,
+  storeId: string
+): Promise<boolean> {
+  try {
+    for (const kind of ["primary", "secondary"] as const) {
+      const gate = await assertOwnerSponsoredCategoryFeedSellable(sb, {
+        storeId,
+        browseTargetKind: kind,
+        browsePrimarySlug: null,
+        browseSecondarySlug: null,
+      });
+      if (gate.ok) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export async function GET(req: NextRequest) {
   const userId = await getRouteUserId();
   if (!userId) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -57,14 +77,13 @@ export async function GET(req: NextRequest) {
   /** SA-01: 배달 홈 노출 자리가 꺼져 있으면 홈 홍보를 사장님 선택지에서 뺀다 (판매 판정 1곳) */
   const homeFeedSellable =
     productKindRaw === "store_sponsored" ? await isStoresHomeFeedSellable(sb) : true;
+  /** R-23: 이 매장 업종(대분류 또는 소분류)에 업종 광고가 꺼져 있으면 업종 목록을 선택지에서 뺀다 — 제출 판정과 같은 함수 */
+  const categoryFeedSellable =
+    productKindRaw === "store_sponsored" ? await isStoreCategoryFeedSellableForOwner(sb, storeId) : true;
   const placements = catalog.placements
-    .filter(
-      (p) =>
-        p.productKind === productKindRaw &&
-        p.sellable &&
-        isLaunchSellableInventoryKey(p.inventoryKey) &&
-        p.inventoryKey !== STORES_SEARCH_TOP_LAUNCH.inventoryKey &&
-        (p.inventoryKey !== STORES_HOME_FEED_INVENTORY_KEY || homeFeedSellable)
+    /** 판정 1곳 — 광고 요금 안내와 같은 함수 */
+    .filter((p) =>
+      isOwnerSellableDeliveryAdPlacement(p, productKindRaw, { homeFeedSellable, categoryFeedSellable })
     )
     .map((p) => ({
       inventoryKey: p.inventoryKey,

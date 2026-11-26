@@ -44,7 +44,11 @@ export type DeliveryAdCommercialCatalogReadModel = {
 };
 
 export async function loadDeliveryAdCommercialCatalog(
-  sb: SupabaseClient
+  sb: SupabaseClient,
+  opts?: {
+    /** R-22: 광고 요금 안내 — 조회 오류를 빈 목록(「판매 중인 광고 없음」)으로 바꾸지 않고 던진다 */
+    strict?: boolean;
+  }
 ): Promise<DeliveryAdCommercialCatalogReadModel> {
   const [productsRes, placementsRes, packagesRes, extRes, partnerRes] = await Promise.all([
     sb.from(DELIVERY_AD_PRODUCT_TABLE).select(
@@ -55,6 +59,10 @@ export async function loadDeliveryAdCommercialCatalog(
     sb.from(DELIVERY_AD_EXTENSION_POLICY_TABLE).select("*").eq("id", "default").maybeSingle(),
     sb.from(DELIVERY_AD_PARTNER_CONFIG_TABLE).select("*").eq("id", "default").maybeSingle(),
   ]);
+  if (opts?.strict) {
+    const failed = [productsRes, placementsRes, packagesRes, extRes, partnerRes].find((r) => r.error);
+    if (failed?.error) throw new Error(failed.error.message || "delivery_ad_catalog_load_failed");
+  }
 
   const products = (productsRes.data ?? [])
     .map((r) => {

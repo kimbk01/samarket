@@ -49,6 +49,8 @@ import {
   type SupportTicketDraft,
   type SupportTicketFormState,
 } from "@/lib/support/support-ticket-form";
+import { AdPricingGuideTable, type AdPricingGuideTab } from "@/components/ads/AdPricingGuideTable";
+import type { AdPricingGuide } from "@/lib/ads/ad-pricing-guide";
 
 
 const OWNER_TONE_BG = "bg-[var(--dibay-brown)]";
@@ -289,7 +291,79 @@ function ActiveTicketList({
 
 /* ───────────── 쓰기 ───────────── */
 
-type ComposeView = "form" | "pick_category" | "pick_issue";
+type ComposeView = "form" | "pick_category" | "pick_issue" | "ad_pricing";
+
+/** 광고 감사 E: 「광고 금액 확인」 줄이 나오는 문의 유형 (회원 광고 · 사장님 배달 광고) */
+const AD_PRICING_SUPPORT_CATEGORIES = new Set(["AD", "DELIVERY_AD", "CAMPAIGN"]);
+
+/** 고객센터 창 안 광고 요금표 — 공지 고정 게시물과 같은 표·같은 API (시안 ④) */
+function SupportAdPricingView({
+  titleId,
+  owner,
+  onBack,
+  onClose,
+}: {
+  titleId: string;
+  owner: boolean;
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const [guide, setGuide] = useState<AdPricingGuide | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [tab, setTab] = useState<AdPricingGuideTab>(owner ? "store" : "member");
+  /** R-28: 실패 화면에서 「다시 시도」 — 공지 화면과 같은 동작 */
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/ads/pricing-guide", { cache: "no-store", credentials: "include" })
+      .then((r) => r.json().catch(() => null))
+      .then((j: { ok?: boolean; guide?: AdPricingGuide } | null) => {
+        if (cancelled) return;
+        if (j?.ok && j.guide) setGuide(j.guide);
+        else setFailed(true);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt]);
+  return (
+    <div className="flex min-h-0 flex-1 flex-col bg-sam-app" data-support-ticket-view="ad_pricing">
+      <SupportTicketHeader titleId={titleId} title={t("ad_guide_title")} onBack={onBack} onClose={onClose} />
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3">
+        {failed ? (
+          <div className="py-6 text-center">
+            <p className="text-[13px] text-[var(--overlay-text-secondary)]">{t("ad_guide_load_failed")}</p>
+            <button
+              type="button"
+              data-support-ad-pricing-retry="1"
+              className="mt-3 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[13px] font-semibold text-sam-fg"
+              onClick={() => {
+                setFailed(false);
+                setGuide(null);
+                setAttempt((n) => n + 1);
+              }}
+            >
+              {t("common_retry")}
+            </button>
+          </div>
+        ) : !guide ? (
+          <p className="py-6 text-center text-[13px] text-[var(--overlay-text-secondary)]">{t("common_loading")}</p>
+        ) : (
+          <AdPricingGuideTable guide={guide} tab={tab} onTabChange={setTab} />
+        )}
+      </div>
+      <Footer>
+        <DibayOverlayButton roleTone="primary" className="w-full !min-h-11" data-support-ad-pricing-back="1" onClick={onBack}>
+          {t("ad_guide_back_to_inquiry")}
+        </DibayOverlayButton>
+      </Footer>
+    </div>
+  );
+}
 
 export function SupportTicketCompose({
   context,
@@ -403,6 +477,12 @@ export function SupportTicketCompose({
       }
     />
   );
+
+  if (view === "ad_pricing") {
+    return (
+      <SupportAdPricingView titleId={titleId} owner={isOwner} onBack={() => setView("form")} onClose={onClose} />
+    );
+  }
 
   if (view === "pick_category" || view === "pick_issue") {
     const picking = view === "pick_category";
@@ -574,6 +654,20 @@ export function SupportTicketCompose({
             onClick={state.category ? () => setView("pick_issue") : undefined}
             testId="support-ticket-field-issue"
           />
+          {AD_PRICING_SUPPORT_CATEGORIES.has(String(state.category ?? "")) ? (
+            /* 광고 감사 E: 광고 문의 중 금액 확인 — 창 안에서 요금표, 「이 내용으로 문의하기」로 돌아온다 */
+            <button
+              type="button"
+              data-testid="support-ticket-ad-pricing"
+              onClick={() => setView("ad_pricing")}
+              className="grid h-11 w-full grid-cols-[minmax(0,1fr)_16px] items-center gap-2 border-b border-[var(--overlay-border)] bg-sam-primary-soft px-4 text-left last:border-b-0 active:bg-[var(--overlay-secondary)]"
+            >
+              <span className="truncate text-[14px] font-semibold text-sam-primary">{t("ad_guide_check_prices")}</span>
+              <span className="flex justify-end text-sam-primary" aria-hidden>
+                <ChevronRight className="h-4 w-4" strokeWidth={2} />
+              </span>
+            </button>
+          ) : null}
           {referenceText ? <FieldRow label={t("support_ticket_field_reference")} value={referenceText} /> : null}
         </Group>
 

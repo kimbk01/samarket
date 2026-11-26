@@ -107,13 +107,45 @@ export async function adminUpdateDeliveryAdPackagePrice(
      * 다른 기간이 필요하면 새 상품을 만든다.
      */
     if (input.durationDays !== before.durationDays) {
-      const { data: sold, error: soldErr } = await sb
-        .from("delivery_ad_campaign_commercial_snapshots")
-        .select("id")
-        .eq("package_id", input.packageId)
-        .limit(1);
-      if (soldErr) return { ok: false, error: "sold_check_failed" };
-      if ((sold ?? []).length > 0) return { ok: false, error: "duration_locked_sold" };
+      /**
+       * R-13: 「팔렸다」 = 이 상품의 요금 기록이 있는 신청 중 캐시가 실제로 확보된 적이 있는 것(SECURED·REFUNDED).
+       * 요금 기록만으로 보면 캐시 부족·자리 없음으로 실패한 제출까지 잠갔다.
+       */
+      /**
+       * R-27: 요금 기록을 100건씩 끝까지 확인한다(예전 500건 한 번 · 정렬 없음 → 500 초과면 잠금 누락 가능).
+       * 반복은 정해진 횟수(50쪽 = 5,000건)만 — 넘으면 확인을 끝낼 수 없으므로 잠근다. 중간 오류 = `sold_check_failed`.
+       */
+      const PAGE = 100;
+      const MAX_PAGES = 50;
+      let finished = false;
+      for (let page = 0; page < MAX_PAGES; page += 1) {
+        const { data: snaps, error: snapErr } = await sb
+          .from("delivery_ad_campaign_commercial_snapshots")
+          .select("campaign_id")
+          .eq("package_id", input.packageId)
+          .order("campaign_id", { ascending: true })
+          .range(page * PAGE, page * PAGE + PAGE - 1);
+        if (snapErr) return { ok: false, error: "sold_check_failed" };
+        const rows = snaps ?? [];
+        const campaignIds = [
+          ...new Set(rows.map((r) => String((r as { campaign_id?: unknown }).campaign_id ?? "")).filter(Boolean)),
+        ];
+        if (campaignIds.length > 0) {
+          const { data: paid, error: paidErr } = await sb
+            .from("delivery_ad_canonical_bc_fundings")
+            .select("id")
+            .in("application_id", campaignIds)
+            .in("status", ["SECURED", "REFUNDED"])
+            .limit(1);
+          if (paidErr) return { ok: false, error: "sold_check_failed" };
+          if ((paid ?? []).length > 0) return { ok: false, error: "duration_locked_sold" };
+        }
+        if (rows.length < PAGE) {
+          finished = true;
+          break;
+        }
+      }
+      if (!finished) return { ok: false, error: "duration_locked_sold" };
     }
     patch.duration_days = input.durationDays;
   }

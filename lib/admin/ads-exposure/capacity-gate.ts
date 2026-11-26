@@ -234,10 +234,12 @@ export async function loadBannerOccupancyCampaigns(
     }
   }
   const invByCampaign = new Map<string, string[]>();
-  const { data: links } = await sb
+  const { data: links, error: linksErr } = await sb
     .from("delivery_banner_campaign_inventories")
     .select("campaign_id, inventory_id")
     .in("campaign_id", ids);
+  /** R-15: 연결 조회 실패를 「점유 없음」으로 넘기지 않는다(fail-closed) */
+  if (linksErr) throw new Error("capacity_check_failed");
   const invIds = [
     ...new Set(
       (links ?? [])
@@ -247,10 +249,11 @@ export async function loadBannerOccupancyCampaigns(
   ];
   const keyByInvId = new Map<string, string>();
   if (invIds.length) {
-    const { data: invs } = await sb
+    const { data: invs, error: invErr } = await sb
       .from("delivery_ad_inventories")
       .select("id, key, is_active")
       .in("id", invIds);
+    if (invErr) throw new Error("capacity_check_failed");
     for (const inv of invs ?? []) {
       const row = inv as { id: string; key: string; is_active?: boolean };
       if (row.is_active === false) continue;

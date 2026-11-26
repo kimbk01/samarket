@@ -42,6 +42,7 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-open-event-commercial";
 import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { adminConflictReloadedCode } from "@/lib/admin/operator-ux/operator-labels";
 
 type Catalog = DeliveryAdCommercialCatalogReadModel;
 
@@ -119,6 +120,12 @@ export function AdminDeliveryAdCommercialSettingsView() {
         error?: string;
       };
       if (!res.ok || !j.ok || !j.catalog) {
+        /** R-10: 충돌이면 새 값을 다시 읽은 **뒤** 「저장 안 됨 · 다른 관리자가 먼저 수정」 안내 (load 가 오류를 지우므로 순서 고정) */
+        if (j.error === "stale_updated_at") {
+          await load();
+          setError(adminConflictReloadedCode(j.error));
+          return;
+        }
         setError(j.error ?? "save_failed");
         return;
       }
@@ -165,9 +172,13 @@ export function AdminDeliveryAdCommercialSettingsView() {
           error?: string;
         };
         if (!res.ok || !j.ok || !j.catalog) {
+          /** SA-12·R-10: 다른 관리자가 먼저 저장 → 새 값을 다시 읽은 **뒤** 충돌 안내(덮어쓰지 않음) */
+          if (j.error === "stale_updated_at") {
+            await load();
+            setError(adminConflictReloadedCode(j.error));
+            return;
+          }
           setError(j.error ?? "save_failed");
-          /** SA-12: 다른 관리자가 먼저 저장 → 새 값을 다시 읽는다(덮어쓰지 않음) */
-          if (j.error === "stale_updated_at") void load();
           return;
         }
         setCatalog(j.catalog);
@@ -531,8 +542,8 @@ export function AdminDeliveryAdCommercialSettingsView() {
                     }
                   />
                   {/*
-                    SA-14: 7·15·30일 표 밖의 사용자 지정 상품 — 예전에는 만들면 enabled=false 로 고정되고 어디에도 안 보여 켤 수 없었다.
-                    판매 켜기는 서버가 가격 없으면 거부(price_required_to_enable).
+                    * SA-14: 7·15·30일 표 밖의 사용자 지정 상품 — 예전에는 만들면 enabled=false 로 고정되고 어디에도 안 보여 켤 수 없었다.
+                    * 판매 켜기는 서버가 가격 없으면 거부(price_required_to_enable).
                   */}
                   {(() => {
                     const custom = catalog.packages.filter(
@@ -554,6 +565,22 @@ export function AdminDeliveryAdCommercialSettingsView() {
                                 ? translateBy(lang, "admin_not_set")
                                 : `₱${(p.priceAmountMinor! / 100).toFixed(2)}`}
                             </span>
+                            {/* R-11: 가격 입력·저장 (가격이 없으면 판매를 켤 수 없다 — 서버 price_required_to_enable) */}
+                            <CustomPackagePriceEditor
+                              key={`${p.id}:${p.priceAmountMinor ?? ""}`}
+                              priceAmountMinor={p.priceAmountMinor}
+                              busy={busy}
+                              lang={lang}
+                              onSave={(priceAmountMinor) =>
+                                void patch({
+                                  op: "update_package",
+                                  packageId: p.id,
+                                  reason: "admin_package_settings",
+                                  expectedUpdatedAt: p.updatedAt,
+                                  priceAmountMinor,
+                                })
+                              }
+                            />
                             <label className="flex items-center gap-2">
                               <input
                                 type="checkbox"
@@ -943,5 +970,41 @@ function ExtensionForm(props: {
         {translateBy(props.lang, "admin_save_extension_policy")}
       </AdminActionButton>
     </div>
+  );
+}
+
+/** 광고 감사 R-11: 사용자 지정 기간 상품 가격 입력 (₱ · 센타보로 저장) */
+function CustomPackagePriceEditor(props: {
+  priceAmountMinor: number | null;
+  busy: boolean;
+  lang: string;
+  onSave: (priceAmountMinor: number) => void;
+}) {
+  const [price, setPrice] = useState(
+    isAdminDeliveryAdPriceUnset(props.priceAmountMinor) ? "" : (props.priceAmountMinor! / 100).toFixed(2)
+  );
+  const minor = price.trim() === "" ? null : parseDeliveryAdPhpMajorToMinor(price);
+  const unchanged = minor != null && minor === props.priceAmountMinor;
+  return (
+    <span className="flex items-center gap-1.5" data-commercial-custom-price="1">
+      <input
+        className="w-24 rounded-ui-rect border border-sam-border px-2 py-1 text-[12px]"
+        inputMode="decimal"
+        placeholder={translateBy(props.lang, "admin_not_set")}
+        value={price}
+        disabled={props.busy}
+        onChange={(e) => setPrice(e.target.value)}
+      />
+      <AdminActionButton
+        variant="secondary"
+        size="sm"
+        disabled={props.busy || minor == null || minor <= 0 || unchanged}
+        onClick={() => {
+          if (minor != null && minor > 0) props.onSave(minor);
+        }}
+      >
+        {translateBy(props.lang, "admin_save")}
+      </AdminActionButton>
+    </span>
   );
 }
