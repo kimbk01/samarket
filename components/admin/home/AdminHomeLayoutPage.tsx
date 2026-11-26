@@ -31,6 +31,7 @@ import {
   HOME_POSTS_MIN,
   HOME_SECTION_DEFAULT_TITLE_KEYS,
   HOME_SERVICE_TILE_ORDER,
+  stripHomeBannerMarks,
   HOME_SECTION_LABEL_KEYS,
   HOME_SECTION_TITLE_MAX,
   HOME_SECTIONS_MEMBER_ONLY,
@@ -549,6 +550,7 @@ function BannersTab({
       adLabel: false,
       chip: emptyHomeText(),
       ctaLabel: emptyHomeText(),
+      titleMarked: emptyHomeText(),
       startsAt: "",
       endsAt: "",
     };
@@ -631,7 +633,19 @@ function BannersTab({
             ) : null}
           </Field>
           <Field label={tr("admin_home_layout_title")} hint={tr("admin_home_layout_banner_title_hint")}>
-            <TextPair tr={tr} value={sel.title} max={HOME_BANNER_TITLE_MAX} multiline onChange={(v) => patch(sel.id, { title: v })} />
+            {/* 강조판(중괄호 포함)을 고치고, 일반 제목은 중괄호를 지운 글로 함께 저장 — 예전 앱 코드는 일반 제목만 읽는다 */}
+            <TextPair
+              tr={tr}
+              value={{ ko: sel.titleMarked.ko || sel.title.ko, en: sel.titleMarked.en || sel.title.en }}
+              max={HOME_BANNER_TITLE_MAX + 10}
+              multiline
+              onChange={(v) =>
+                patch(sel.id, {
+                  titleMarked: { ko: /\{[^{}]+\}/.test(v.ko) ? v.ko : "", en: /\{[^{}]+\}/.test(v.en) ? v.en : "" },
+                  title: { ko: stripHomeBannerMarks(v.ko), en: stripHomeBannerMarks(v.en) },
+                })
+              }
+            />
           </Field>
           <Field label={tr("admin_home_layout_banner_cta")} hint={tr("admin_home_layout_banner_cta_hint")}>
             <TextPair tr={tr} value={sel.ctaLabel} max={HOME_BANNER_CTA_MAX} onChange={(v) => patch(sel.id, { ctaLabel: v })} />

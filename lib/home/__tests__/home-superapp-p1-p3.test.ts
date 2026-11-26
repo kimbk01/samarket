@@ -7,7 +7,15 @@ import {
   roundWeatherCoord,
   weatherKindFromWmo,
 } from "@/lib/home/home-info-strip";
-import { DEFAULT_HOME_LAYOUT, cloneHomeLayout, resolveHomeServiceTiles, splitHomeBannerTitle } from "@/lib/home/home-layout-contract";
+import {
+  DEFAULT_HOME_LAYOUT,
+  cloneHomeLayout,
+  normalizeHomeLayout,
+  pickHomeBannerTitle,
+  resolveHomeServiceTiles,
+  splitHomeBannerTitle,
+  stripHomeBannerMarks,
+} from "@/lib/home/home-layout-contract";
 import { rateSparklinePaths, pickKrwSeries } from "@/lib/home/home-info-strip";
 import { homeOrderReadyMinutes } from "@/lib/home/home-my-activity";
 import { resolveHomePressPermission } from "@/lib/ui/home-press-feedback";
@@ -90,5 +98,19 @@ describe("홈 슈퍼앱 개편 P1~P3 (2026-11-26)", () => {
     expect(homeOrderReadyMinutes({ status: "delivering", readyAt: "2026-11-26T10:11:30Z" }, now)).toBeNull();
     expect(homeOrderReadyMinutes({ status: "preparing", readyAt: "2026-11-26T09:00:00Z" }, now)).toBeNull();
     expect(homeOrderReadyMinutes({ status: "accepted", readyAt: null }, now)).toBeNull();
+  });
+  it("배너 강조는 별도 칸 — 일반 제목엔 중괄호가 없어 예전 앱 코드도 안전 (2026-11-26 실기 FAIL 수정)", () => {
+    expect(stripHomeBannerMarks("오늘 저녁,\n{동네 맛집}이 집 앞까지")).toBe("오늘 저녁,\n동네 맛집이 집 앞까지");
+    const c = cloneHomeLayout(DEFAULT_HOME_LAYOUT);
+    // 예전 방식 저장값(title 에 중괄호) → title 은 지운 글, 강조판으로 옮김
+    const legacy = normalizeHomeLayout({
+      ...c,
+      banners: [{ ...c.banners[0], title: { ko: "안심 메신저 {telRING},\n통화는 무료", en: "" } }],
+    });
+    expect(legacy.banners[0]!.title.ko).toBe("안심 메신저 telRING,\n통화는 무료");
+    expect(legacy.banners[0]!.titleMarked.ko).toBe("안심 메신저 {telRING},\n통화는 무료");
+    expect(pickHomeBannerTitle(legacy.banners[0]!, "ko")).toBe("안심 메신저 {telRING},\n통화는 무료");
+    // 강조판 없으면 일반 제목
+    expect(pickHomeBannerTitle(c.banners[0]!, "ko")).toBe(c.banners[0]!.title.ko);
   });
 });
