@@ -296,6 +296,25 @@ export async function POST(req: NextRequest) {
     .trim()
     .slice(0, 128);
 
+  // F7: replay same Idempotency-Key → existing request, no second HOLD.
+  // R-47: 상품 조회·가격 대조보다 먼저 — 이미 된 신청에 「가격 변경」을 돌려주지 않는다(상위노출 R-04 · 연장 R-37 과 같은 순서).
+  if (idempotencyKey) {
+    const { data: existing } = await sb
+      .from("feed_ad_requests")
+      .select("*")
+      .eq("user_id", auth.userId)
+      .eq("idempotency_key", idempotencyKey)
+      .maybeSingle();
+    if (existing?.id) {
+      return NextResponse.json({
+        ok: true,
+        requestId: String(existing.id),
+        status: String((existing as { status?: string }).status ?? "pending_review"),
+        idempotentReplay: true,
+      });
+    }
+  }
+
   const product = await getFeedAdProduct(sb, String(body.productId ?? ""));
   if (!product) {
     return NextResponse.json({ ok: false, error: "product_not_found" }, { status: 400 });
@@ -319,24 +338,6 @@ export async function POST(req: NextRequest) {
         },
         { status: 409 }
       );
-    }
-  }
-
-  // F7: replay same Idempotency-Key → existing request, no second HOLD.
-  if (idempotencyKey) {
-    const { data: existing } = await sb
-      .from("feed_ad_requests")
-      .select("*")
-      .eq("user_id", auth.userId)
-      .eq("idempotency_key", idempotencyKey)
-      .maybeSingle();
-    if (existing?.id) {
-      return NextResponse.json({
-        ok: true,
-        requestId: String(existing.id),
-        status: String((existing as { status?: string }).status ?? "pending_review"),
-        idempotentReplay: true,
-      });
     }
   }
 

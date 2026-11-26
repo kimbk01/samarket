@@ -64,6 +64,9 @@ export function PointPromotionOrderForm({
   const { t, language, safeT } = useI18n();
   /** null = 불러오는 중 · [] = 신청할 수 있는 상품 없음(모두 꺼짐) */
   const [catalog, setCatalog] = useState<CatalogItem[] | null>(null);
+  /** R-48: 상품 조회 실패 — 「판매 상품 없음」이 아니라 「불러오지 못했어요 · 다시 시도」 */
+  const [catalogFailed, setCatalogFailed] = useState(false);
+  const [catalogAttempt, setCatalogAttempt] = useState(0);
   const [targetId, setTargetId] = useState("");
   const [productId, setProductId] = useState<MemberPromotionProductId | null>(null);
 
@@ -75,15 +78,20 @@ export function PointPromotionOrderForm({
     })
       .then(async (res) => {
         const j = (await res.json().catch(() => ({}))) as { catalog?: CatalogItem[] };
-        if (!cancelled) setCatalog(res.ok && Array.isArray(j.catalog) ? j.catalog : []);
+        if (cancelled) return;
+        const loaded = res.ok && Array.isArray(j.catalog);
+        setCatalogFailed(!loaded);
+        setCatalog(loaded ? (j.catalog as CatalogItem[]) : []);
       })
       .catch(() => {
-        if (!cancelled) setCatalog([]);
+        if (cancelled) return;
+        setCatalogFailed(true);
+        setCatalog([]);
       });
     return () => {
       cancelled = true;
     };
-  }, [catalogRefreshKey]);
+  }, [catalogRefreshKey, catalogAttempt]);
 
   useEffect(() => {
     const want = (initialTargetId ?? "").trim();
@@ -172,6 +180,21 @@ export function PointPromotionOrderForm({
         <p className="sam-text-body font-medium text-sam-fg">{t("promo_sheet_title")}</p>
         {catalog === null ? (
           <DibayPendingSpinner layout="inline" />
+        ) : catalogFailed ? (
+          <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2" role="status" data-promo-catalog-failed="1">
+            <p className="sam-text-body-secondary text-sam-muted">{t("promo_products_load_failed")}</p>
+            <button
+              type="button"
+              className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 sam-text-body font-semibold text-sam-fg"
+              onClick={() => {
+                setCatalog(null);
+                setCatalogFailed(false);
+                setCatalogAttempt((n) => n + 1);
+              }}
+            >
+              {t("common_retry")}
+            </button>
+          </div>
         ) : catalog.length === 0 ? (
           <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-muted">
             {safeT("promo_no_active_products")}

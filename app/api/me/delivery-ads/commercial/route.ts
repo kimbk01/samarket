@@ -100,7 +100,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }
 
-  const catalog = await loadDeliveryAdCommercialCatalog(sb);
+  /** R-45: 광고 설정 조회 실패를 「판매 준비 중」(상품 0개)으로 숨기지 않는다 — 503 「확인 못 함」 */
+  let catalog: Awaited<ReturnType<typeof loadDeliveryAdCommercialCatalog>>;
+  try {
+    catalog = await loadDeliveryAdCommercialCatalog(sb, { strict: true });
+  } catch (e) {
+    console.warn("[me/delivery-ads/commercial] catalog load failed", e instanceof Error ? e.message : e);
+    return NextResponse.json({ ok: false, error: "capacity_check_failed" }, { status: 503 });
+  }
   const product = catalog.products.find((p) => p.key === productKindRaw);
   const partner = await loadActivePartnerMembershipForStore(sb, storeId);
 

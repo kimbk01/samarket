@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
@@ -261,8 +261,15 @@ export function OwnerBannerCreateView() {
 
   const pixelGuide = inventoryKey ? DELIVERY_AD_BANNER_PIXEL_GUIDE[inventoryKey] : null;
 
+  /** R-43·R-45: 광고 설정 조회 실패(503 · 네트워크) — 「판매 준비 중」이 아니라 「확인하지 못했어요 · 다시 시도」 */
+  const [commercialCheckFailed, setCommercialCheckFailed] = useState(false);
+  /** R-44: 마지막 요청의 응답만 반영 */
+  const commercialSeqRef = useRef(0);
+
   const refetchCommercial = useCallback(async () => {
+    const seq = ++commercialSeqRef.current;
     if (!storeId) {
+      setCommercialCheckFailed(false);
       setPackages([]);
       setQuote(null);
       setNoSellablePackages(false);
@@ -280,8 +287,9 @@ export function OwnerBannerCreateView() {
       const res = await fetch(`/api/me/delivery-ads/commercial?${qs.toString()}`, {
         credentials: "include",
       });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
+        error?: string;
         product?: {
           displayName?: string | null;
           acceptingApplications?: boolean;
@@ -292,12 +300,20 @@ export function OwnerBannerCreateView() {
         quote?: CommercialQuote | { ok: false; error?: string } | null;
         noSellablePackages?: boolean;
       };
+      if (seq !== commercialSeqRef.current) return;
       if (!res.ok || !json.ok) {
         setPackages([]);
         setQuote(null);
+        if (res.status >= 500 || json.error === "capacity_check_failed") {
+          setNoSellablePackages(false);
+          setCommercialCheckFailed(true);
+          return;
+        }
+        setCommercialCheckFailed(false);
         setNoSellablePackages(true);
         return;
       }
+      setCommercialCheckFailed(false);
       setAcceptingApplications(
         json.product?.acceptingApplications !== false && json.product?.enabled !== false
       );
@@ -316,11 +332,13 @@ export function OwnerBannerCreateView() {
         setNoSellablePackages(false);
       }
     } catch {
+      if (seq !== commercialSeqRef.current) return;
       setPackages([]);
       setQuote(null);
-      setNoSellablePackages(true);
+      setNoSellablePackages(false);
+      setCommercialCheckFailed(true);
     } finally {
-      setCommercialLoading(false);
+      if (seq === commercialSeqRef.current) setCommercialLoading(false);
     }
   }, [inventoryKey, packageId, storeId]);
 
@@ -813,7 +831,22 @@ export function OwnerBannerCreateView() {
             </OwnerStoreAdminDashSection>
 
             <OwnerStoreAdminDashSection title={t("owner_ads_section_packages")}>
-              {!inventoryKey ? (
+              {commercialCheckFailed && !commercialLoading ? (
+                <div
+                  className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-3"
+                  data-owner-ads-check-failed="1"
+                  role="status"
+                >
+                  <p className="text-[13px] font-semibold text-sam-fg">{t("owner_ads_error_check_failed")}</p>
+                  <button
+                    type="button"
+                    className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[13px] font-semibold text-sam-fg"
+                    onClick={() => void refetchCommercial()}
+                  >
+                    {t("common_retry")}
+                  </button>
+                </div>
+              ) : !inventoryKey ? (
                 <p className="text-[13px] text-sam-muted">
                   {safeT("owner_ads_pick_placement_first")}
                 </p>
@@ -1005,7 +1038,7 @@ export function OwnerBannerCreateView() {
             ) : null}
 
             <OwnerStoreAdminDashSection title={t("owner_ads_section_confirm")}>
-              {quote ? (
+              {commercialCheckFailed ? null : quote ? (
                 <DeliveryAdOwnerApplicationConfirm
                   rows={confirmRows}
                   totalDisplay={quote.finalPayableDisplay}

@@ -184,16 +184,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
   }
 
-  let product: MemberPromotionProductLive | null = null;
-  try {
-    product = await getMemberPromotionProductLive(sb, body.productId);
-  } catch {
-    return NextResponse.json({ ok: false, error: "catalog_load_failed" }, { status: 500 });
-  }
-  if (!product || product.priceAsset !== "D_POINT") {
-    return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
-  }
   // 재감사 R-04 (P0): 같은 요청 키 재전송은 가격 비교보다 먼저 처음 결과를 돌려준다 (추가 차감 없음).
+  // R-49: 상품 조회보다도 먼저 — 결제 뒤 어드민이 상품을 꺼도 같은 키 재전송은 처음 결과(이미 결제됨)를 받는다.
   const replayKey = (req.headers.get("idempotency-key") ?? body.idempotencyKey ?? "").trim();
   if (replayKey) {
     const replay = await findPromotionPurchaseReplay(sb, auth.userId, replayKey);
@@ -211,12 +203,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         balanceAfter: await readUserPointBalance(sb, auth.userId),
         pendingReview: replay.status === "pending_review",
         status: replay.status,
-        productId: replay.productId ?? product.id,
-        pointCost: replay.pointCost ?? product.pointCost,
+        productId: replay.productId ?? body.productId,
+        pointCost: replay.pointCost ?? undefined,
         startAt: replay.startAt ?? undefined,
         endAt: replay.endAt ?? undefined,
       });
     }
+  }
+  let product: MemberPromotionProductLive | null = null;
+  try {
+    product = await getMemberPromotionProductLive(sb, body.productId);
+  } catch {
+    return NextResponse.json({ ok: false, error: "catalog_load_failed" }, { status: 500 });
+  }
+  if (!product || product.priceAsset !== "D_POINT") {
+    return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
   }
   if (
     !memberPromotionPriceMatches(product, {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
@@ -282,8 +282,15 @@ export function OwnerStoreSponsoredCreateView() {
     return [...OWNER_STORE_SPONSORED_INVENTORY_KEYS];
   }, [placements]);
 
+  /** R-43: 판매 판정·설정 조회 실패(503 · 네트워크) — 「판매 준비 중」이 아니라 「확인하지 못했어요 · 다시 시도」 */
+  const [commercialCheckFailed, setCommercialCheckFailed] = useState(false);
+  /** R-44: 마지막 요청의 응답만 반영(대분류↔소분류를 빨리 바꿀 때 늦게 온 이전 응답 무시) */
+  const commercialSeqRef = useRef(0);
+
   const refetchCommercial = useCallback(async () => {
+    const seq = ++commercialSeqRef.current;
     if (!storeId) {
+      setCommercialCheckFailed(false);
       setPackages([]);
       setQuote(null);
       setNoSellablePackages(false);
@@ -305,8 +312,9 @@ export function OwnerStoreSponsoredCreateView() {
       const res = await fetch(`/api/me/delivery-ads/commercial?${qs.toString()}`, {
         credentials: "include",
       });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
+        error?: string;
         product?: {
           displayName?: string | null;
           acceptingApplications?: boolean;
@@ -317,18 +325,21 @@ export function OwnerStoreSponsoredCreateView() {
         quote?: CommercialQuote | { ok: false; error?: string } | null;
         noSellablePackages?: boolean;
       };
+      if (seq !== commercialSeqRef.current) return;
       if (!res.ok || !json.ok) {
         setPackages([]);
         setQuote(null);
-        /** R-40: 판정 조회 실패는 「판매 준비 중」이 아니라 「확인하지 못했어요」 */
-        if ((json as { error?: string }).error === "capacity_check_failed") {
+        /** R-40·R-43: 판정 조회 실패(503)는 「판매 준비 중」이 아니라 「확인하지 못했어요」 */
+        if (res.status >= 500 || json.error === "capacity_check_failed") {
           setNoSellablePackages(false);
-          setError("capacity_check_failed");
+          setCommercialCheckFailed(true);
           return;
         }
+        setCommercialCheckFailed(false);
         setNoSellablePackages(true);
         return;
       }
+      setCommercialCheckFailed(false);
       setAcceptingApplications(
         json.product?.acceptingApplications !== false && json.product?.enabled !== false
       );
@@ -347,11 +358,14 @@ export function OwnerStoreSponsoredCreateView() {
         setNoSellablePackages(false);
       }
     } catch {
+      if (seq !== commercialSeqRef.current) return;
       setPackages([]);
       setQuote(null);
-      setNoSellablePackages(true);
+      /** R-43: 네트워크 오류도 「확인 못 함」 */
+      setNoSellablePackages(false);
+      setCommercialCheckFailed(true);
     } finally {
-      setCommercialLoading(false);
+      if (seq === commercialSeqRef.current) setCommercialLoading(false);
     }
   }, [inventoryKey, packageId, placementChoice, storeId]);
 
@@ -734,7 +748,22 @@ export function OwnerStoreSponsoredCreateView() {
               </OwnerStoreAdminDashSection>
 
               <OwnerStoreAdminDashSection title={t("owner_ads_section_packages")}>
-                {!inventoryKey ? (
+                {commercialCheckFailed && !commercialLoading ? (
+                  <div
+                    className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-3"
+                    data-owner-ads-check-failed="1"
+                    role="status"
+                  >
+                    <p className="text-[13px] font-semibold text-sam-fg">{t("owner_ads_error_check_failed")}</p>
+                    <button
+                      type="button"
+                      className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[13px] font-semibold text-sam-fg"
+                      onClick={() => void refetchCommercial()}
+                    >
+                      {t("common_retry")}
+                    </button>
+                  </div>
+                ) : !inventoryKey ? (
                   <p className="text-[13px] text-sam-muted">
                     {safeT("owner_ads_pick_placement_first_store")}
                   </p>
@@ -772,7 +801,7 @@ export function OwnerStoreSponsoredCreateView() {
               </OwnerStoreAdminDashSection>
 
               <OwnerStoreAdminDashSection title={t("owner_ads_ad_cost_section")}>
-                {quote ? (
+                {commercialCheckFailed ? null : quote ? (
                   <DeliveryAdOwnerApplicationConfirm
                     rows={confirmRows}
                     totalDisplay={quote.finalPayableDisplay}

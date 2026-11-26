@@ -85,9 +85,11 @@ export async function POST(req: NextRequest) {
   });
 
   if (!result.ok) {
+    /** R-46: 자리 확인 실패는 일시 오류(503) — 입력 오류(400)와 나눈다 */
+    const status = result.error === "capacity_check_failed" ? 503 : 400;
     return NextResponse.json(
-      { ok: false, error: result.error, detail: clientSafeErrorDetail(result.error, result.detail, 400, "[admin delivery-ads first-party]") },
-      { status: 400 }
+      { ok: false, error: result.error, detail: clientSafeErrorDetail(result.error, result.detail, status, "[admin delivery-ads first-party]") },
+      { status }
     );
   }
 

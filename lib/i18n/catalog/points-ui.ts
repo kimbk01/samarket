@@ -246,6 +246,7 @@ export const pointsUiMessages = {
     promo_sheet_title_trade: "거래 상위노출",
     promo_price_changed: "가격이 바뀌었어요. 새 가격을 확인해 주세요.",
     promo_no_active_products: "지금 신청할 수 있는 상위노출 상품이 없어요.",
+    promo_products_load_failed: "상위노출 상품을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.",
     promo_sheet_already_active_trade: "광고 중",
     promo_sheet_trade_ad_label_note: "노출 중인 글은 거래 목록에 ‘광고’로 표시돼요.",
     /** 상위노출 상품 이름 — 기간은 DB 값(`durationDays`) 으로 채운다 (TB-02 · 2026-11-26) */
@@ -644,6 +645,7 @@ export const pointsUiMessages = {
     promo_sheet_title_trade: "Trade top exposure",
     promo_price_changed: "The price has changed. Please check the new price.",
     promo_no_active_products: "No top exposure products are available right now.",
+    promo_products_load_failed: "Couldn't load top exposure products. Please try again shortly.",
     promo_sheet_already_active_trade: "Ad active",
     promo_sheet_trade_ad_label_note: "While live, your listing shows an “Ad” label in Trade lists.",
     promo_product_title_trade: "Trade top exposure · {days} days",
