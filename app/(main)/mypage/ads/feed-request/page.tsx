@@ -155,6 +155,8 @@ export default function MemberFeedAdRequestPage() {
   const [chosenProductGone, setChosenProductGone] = useState(false);
   /** R-54: 상품 목록을 불러오지 못함 */
   const [catalogLoadFailed, setCatalogLoadFailed] = useState(false);
+  /** R-78: 잔액을 불러오지 못함 */
+  const [balanceLoadFailed, setBalanceLoadFailed] = useState(false);
   /** R-38: 비동기 응답에서 지금 고른 상품을 읽기 위한 거울 — 고를 때마다 맞춘다 */
   const productIdRef = useRef<string>("");
   /** R-65: 회원이 직접 고른(또는 다른 화면에서 넘어온) 상품만 「고른 상품」 — 자동 선택은 아님 */
@@ -183,8 +185,10 @@ export default function MemberFeedAdRequestPage() {
     }
     setCatalogLoadFailed(false);
     const items = pj.catalog.filter((p) => p.domain === domain);
-    const bj = (balRes ? await balRes.json().catch(() => ({})) : {}) as { balance?: number; points?: number };
+    const bj = (balRes && balRes.ok ? await balRes.json().catch(() => ({})) : {}) as { balance?: number; points?: number };
     if (seq !== loadSeqRef.current) return;
+    /** R-78: 잔액 조회 실패 = 「잔액을 불러오지 못했어요 · 다시 시도」 · 잔액을 모르면 신청 버튼 끔 */
+    setBalanceLoadFailed(!balRes || !balRes.ok || !Number.isFinite(Number(bj.balance ?? bj.points)));
     setCatalog(items);
     if (pj.canCreateBanner === false && pj.currentBanner?.requestId) {
       setCurrentBanner({
@@ -596,7 +600,11 @@ export default function MemberFeedAdRequestPage() {
     Boolean(selected) &&
     filledCreatives.length >= 1 &&
     !allUnaffordable &&
-    (balance == null || (selected != null && selected.pointCost <= balance)) &&
+    /** R-78: 잔액을 모르면 신청하지 않는다(예전: 잔액 모름 = 통과) */
+    !balanceLoadFailed &&
+    balance != null &&
+    selected != null &&
+    selected.pointCost <= balance &&
     (placement !== "TRADE_CATEGORY" || Boolean(categoryId.trim())) &&
     (placement !== "COMMUNITY_TOPIC" || Boolean(topicSlug.trim())) &&
     (destMode !== "own_content" || Boolean(ownId.trim())) &&
@@ -1043,6 +1051,18 @@ export default function MemberFeedAdRequestPage() {
           {catalogLoadFailed ? (
             <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2" role="status" data-testid="feed-ad-catalog-failed">
               <p className="sam-text-helper text-sam-muted">{t("feed_ad_products_load_failed")}</p>
+              <button
+                type="button"
+                className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 sam-text-body font-semibold text-sam-fg"
+                onClick={() => void load()}
+              >
+                {t("common_retry")}
+              </button>
+            </div>
+          ) : null}
+          {balanceLoadFailed && !catalogLoadFailed ? (
+            <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2" role="status" data-testid="feed-ad-balance-failed">
+              <p className="sam-text-helper text-sam-muted">{t("feed_ad_req_balance_failed")}</p>
               <button
                 type="button"
                 className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 sam-text-body font-semibold text-sam-fg"

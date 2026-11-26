@@ -15,6 +15,7 @@ import {
   STORE_PAID_AD_ROTATION_WINDOW_MS,
 } from "@/lib/stores/store-paid-ad-exposure";
 import { isOwnerSellableDeliveryAdPlacement } from "@/lib/stores/advertising/delivery-ad-owner-sellable";
+import { ownerDetailSubmitRoute } from "@/lib/stores/advertising/owner-detail-submit-route";
 import {
   __resetPtrRevealAdsForTests,
   __setPtrRevealAdForTests,
@@ -153,5 +154,14 @@ describe("PT-01 「기록 없이 닫기」 숨김은 화면 기준", () => {
     __setPtrRevealAdForTests("TRADE", ad);
     notePtrRevealRoute("/market/");
     expect(readPtrRevealAd("/market", "default")).toBeNull();
+  });
+});
+
+describe("R-73·R-75 사장님 상세 화면 신청 갈 곳", () => {
+  it("결제 전 신청·재신청은 신청 화면(요금 확인) · 결제 완료 재신청만 바로", () => {
+    expect(ownerDetailSubmitRoute("submit", false)).toBe("create_screen");
+    expect(ownerDetailSubmitRoute("submit", true)).toBe("create_screen");
+    expect(ownerDetailSubmitRoute("resubmit", false)).toBe("create_screen");
+    expect(ownerDetailSubmitRoute("resubmit", true)).toBe("direct");
   });
 });

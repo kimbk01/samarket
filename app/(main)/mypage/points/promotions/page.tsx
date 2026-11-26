@@ -123,6 +123,8 @@ function MyPointsPromotionsPageInner() {
     productOptions,
     loading: targetsLoading,
     unauthorized,
+    failed: targetsFailed,
+    refresh: refreshTargets,
   } = usePromotionOrderTargets();
   const [orders, setOrders] = useState<PointPromotionOrder[]>([]);
   /** 주소에 남긴 기간·쪽 — 다른 화면 갔다 돌아오면 그대로 (포인트 화면과 같은 키 `period`·`pfrom`·`pto`·`page`) */
@@ -302,6 +304,8 @@ function MyPointsPromotionsPageInner() {
               onSubmit={(v) => void handleSubmit(v)}
               submitting={busy}
               catalogRefreshKey={catalogRefreshKey}
+              loadFailed={Boolean(balanceError) || targetsFailed}
+              onRetryLoad={() => void Promise.all([refreshBalance(), refreshTargets()])}
             />
           )}
         </div>

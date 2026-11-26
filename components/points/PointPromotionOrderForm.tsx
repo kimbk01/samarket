@@ -46,6 +46,12 @@ interface PointPromotionOrderFormProps {
   onCanSubmitChange?: (canSubmit: boolean) => void;
   /** 바뀌면 카탈로그를 다시 읽는다 (서버가 price_changed 를 돌려줬을 때) */
   catalogRefreshKey?: number;
+  /**
+   * R-77: 잔액·내 글 목록 조회 실패 — 「보유 —」·「등록된 상품이 없습니다」 대신 「불러오지 못했어요 · 다시 시도」.
+   * 부모 화면(포인트 상위노출 · 내 광고 신청)이 같은 값을 넘긴다.
+   */
+  loadFailed?: boolean;
+  onRetryLoad?: () => void;
 }
 
 export function PointPromotionOrderForm({
@@ -60,6 +66,8 @@ export function PointPromotionOrderForm({
   hideSubmitButton = false,
   onCanSubmitChange,
   catalogRefreshKey = 0,
+  loadFailed = false,
+  onRetryLoad,
 }: PointPromotionOrderFormProps) {
   const { t, language, safeT } = useI18n();
   /** null = 불러오는 중 · [] = 신청할 수 있는 상품 없음(모두 꺼짐) */
@@ -142,6 +150,7 @@ export function PointPromotionOrderForm({
     productOptions.find((p) => p.id === resolvedTargetId)?.title ?? "";
 
   const canSubmit =
+    !loadFailed &&
     !balanceLoading &&
     balance !== null &&
     Boolean(resolvedTargetId) &&
@@ -171,11 +180,25 @@ export function PointPromotionOrderForm({
 
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-4">
+      {loadFailed ? (
+        <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2" role="status" data-promo-form-load-failed="1">
+          <p className="sam-text-body-secondary text-sam-muted">{t("promo_sheet_load_failed")}</p>
+          {onRetryLoad ? (
+            <button
+              type="button"
+              className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 sam-text-body font-semibold text-sam-fg"
+              onClick={onRetryLoad}
+            >
+              {t("common_retry")}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           {t("points_ui_select_product")}
         </label>
-        {productOptions.length === 0 ? (
+        {loadFailed ? null : productOptions.length === 0 ? (
           <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-muted">
             {t("points_ui_no_products")}
           </p>

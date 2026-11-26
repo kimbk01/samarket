@@ -144,6 +144,10 @@ export function MemberPostPromoteSheet({
       /** R-61: 다시 읽기 실패 = 옛 가격 목록·선택을 비우고 결제 버튼 대신 「다시 시도」 */
       setCatalog([]);
       setProductId(null);
+      /** R-76: 지난 진행 상태(심사 중·멈춤)가 실패 안내를 가리지 않게 비운다 */
+      setPendingExisting(false);
+      setPausedExisting(false);
+      setActiveEndAt(null);
       setLoadFailed(true);
       setErr(
         safeT("promo_sheet_load_failed")
@@ -165,6 +169,10 @@ export function MemberPostPromoteSheet({
     productIdRef.current = null;
     setChoiceLost(false);
     setLoadFailed(false);
+    /** R-76: 지난번 진행 상태를 들고 열지 않는다 */
+    setPendingExisting(false);
+    setPausedExisting(false);
+    setActiveEndAt(null);
     attemptKeys.current.reset();
     void load();
   }, [open, load]);
@@ -290,7 +298,7 @@ export function MemberPostPromoteSheet({
    * 버튼 하나 = 고른 상품 금액으로 시작·연장(「10,000P로 시작」) · 모자라면 그 자리에서 충전.
    */
   const catalogFooter =
-    successEndAt || loading ? null : statusOnly ? (
+    successEndAt || loading ? null : !loadFailed && statusOnly ? (
       <div className={OverlayUi.actionsRow}>
         <DibayOverlayButton roleTone="secondary" onClick={onClose}>
           {t("common_confirm")}

@@ -32,11 +32,14 @@ export function MyAdsApplyPageClient() {
     balance,
     loading: balanceLoading,
     error: balanceError,
+    refresh: refreshBalance,
   } = useUserPointBalance();
   const {
     productOptions,
     loading: targetsLoading,
     unauthorized,
+    failed: targetsFailed,
+    refresh: refreshTargets,
   } = usePromotionOrderTargets();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [canSubmit, setCanSubmit] = useState(false);
@@ -150,6 +153,8 @@ export function MyAdsApplyPageClient() {
           onSubmit={(v) => void handleSubmit(v)}
           submitting={busy}
           catalogRefreshKey={catalogRefreshKey}
+          loadFailed={Boolean(balanceError) || targetsFailed}
+          onRetryLoad={() => void Promise.all([refreshBalance(), refreshTargets()])}
         />
       )}
     </MyScreen>

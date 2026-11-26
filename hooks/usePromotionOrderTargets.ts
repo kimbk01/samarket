@@ -24,16 +24,20 @@ export function usePromotionOrderTargets(): {
   shopOptions: PromotionShopOption[];
   loading: boolean;
   unauthorized: boolean;
+  /** R-77: 내 글 목록 조회 실패 — 「등록된 상품 없음」과 구분 */
+  failed: boolean;
   refresh: () => Promise<void>;
 } {
   const [productOptions, setProductOptions] = useState<PromotionProductOption[]>([]);
   const [shopOptions, setShopOptions] = useState<PromotionShopOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [unauthorized, setUnauthorized] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setUnauthorized(false);
+    setFailed(false);
     try {
       // Stores: me-stores TTL/single-flight authority. Posts remain independent.
       // 글 목록 본문은 비행 안에서 1회만 파싱 — 합류한 호출(StrictMode 재마운트·폼 2곳)이 같은 Response 를 두 번 읽지 않게 한다.
@@ -71,6 +75,8 @@ export function usePromotionOrderTargets(): {
         setProductOptions(products);
       } else {
         setProductOptions([]);
+        /** R-77: 글 목록 조회 실패 = 「불러오지 못했어요」 (「등록된 상품이 없습니다」 아님) */
+        setFailed(true);
       }
 
       if (storesResult.status === 200) {
@@ -92,6 +98,7 @@ export function usePromotionOrderTargets(): {
     } catch {
       setProductOptions([]);
       setShopOptions([]);
+      setFailed(true);
     } finally {
       setLoading(false);
     }
@@ -101,5 +108,5 @@ export function usePromotionOrderTargets(): {
     void refresh();
   }, [refresh]);
 
-  return { productOptions, shopOptions, loading, unauthorized, refresh };
+  return { productOptions, shopOptions, loading, unauthorized, failed, refresh };
 }

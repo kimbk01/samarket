@@ -62,6 +62,7 @@ import {
 } from "@/lib/apple-iap/use-ios-digital-purchase-blocked";
 import { ownerAdHistoryActionKey, ownerAdHistoryActorKey } from "@/lib/stores/advertising/owner-ad-history-copy";
 import { ownerAdErrorKey } from "@/lib/stores/advertising/owner-ad-error-copy";
+import { ownerDetailSubmitRoute } from "@/lib/stores/advertising/owner-detail-submit-route";
 import { formatPhtDisplayDateTime } from "@/lib/time/format-pht-display";
 
 const OWNER_DETAIL_SECONDARY_BTN_CLASS =
@@ -371,7 +372,28 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
      * R-73: 「신청하기·다시 신청」은 요금·기간을 보여 주고 확인받는 신청 화면에서만 — 상세 화면은 금액·기간 없이 바로 차감하지 않는다.
      * (서버도 캐시 확보 전 제출에 화면 금액·기간이 없으면 거절)
      */
-    if (action === "submit" || action === "resubmit") {
+    /**
+     * R-75: 단 **이미 결제(FUNDED)한 재신청**은 예전처럼 바로 보낸다 — 서버가 묶인 금액을 그대로 쓰고(새 결제 없음)
+     * 신청 화면의 잔액·지금 견적 검사에 걸려 「이미 냈는데 캐시 부족」이 되지 않게.
+     */
+    let funded = fundingStatus === "FUNDED";
+    if (action === "resubmit" && fundingStatus == null) {
+      /** 결제 상태를 아직 못 읽었으면(패널 조건 밖) 그 자리에서 한 번 읽는다 — 모르면 신청 화면으로(안전) */
+      try {
+        const fr = await fetch(
+          `/api/me/delivery-ads/${encodeURIComponent(campaign.id)}/funding?product=${encodeURIComponent(productKind)}`,
+          { credentials: "include" }
+        );
+        const fj = (await fr.json().catch(() => ({}))) as {
+          ok?: boolean;
+          funding?: { status?: string; fundingStatus?: string };
+        };
+        funded = fr.ok && fj.ok === true && (fj.funding?.status ?? fj.funding?.fundingStatus) === "FUNDED";
+      } catch {
+        funded = false;
+      }
+    }
+    if ((action === "submit" || action === "resubmit") && ownerDetailSubmitRoute(action, funded) === "create_screen") {
       router.push(draftEditHref(productKind, storeId, campaign.id));
       return;
     }
