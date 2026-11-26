@@ -12,6 +12,8 @@ import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/
 import { adShortagePoints, canAffordAd } from "@/lib/points/ad-shortage";
 import { createPromotionAttemptKeyStore } from "@/lib/points/promotion-attempt-key";
 import { buildSupportEnterHref } from "@/lib/support/support-enter-href";
+import { boostPauseCause } from "@/lib/ads/my-ad-tab";
+import { promotionPurchaseErrorKey } from "@/lib/points/promotion-purchase-error";
 
 /**
  * 광고하기 창 — 시안 v3 (Owner 2026-11-03 승인).
@@ -258,6 +260,7 @@ export function TradeAdQuickSheet({
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
+        code?: string;
         endAt?: string;
         extended?: boolean;
         idempotent?: boolean;
@@ -280,15 +283,7 @@ export function TradeAdQuickSheet({
       const err = j.error ?? "";
       /** 가격 변경·잔액 변화·이미 광고 중 → 새 값으로 다시 그린 뒤 안내 */
       await load();
-      setNotice(
-        err === "price_changed"
-          ? t("promo_price_changed")
-          : err === "insufficient_balance"
-            ? t("points_ui_insufficient")
-            : err === "already_active_promotion"
-              ? t("points_ui_promotion_conflict")
-              : t("promo_sheet_purchase_failed")
-      );
+      setNotice(t(promotionPurchaseErrorKey({ error: err, code: j.code })));
     } catch {
       /** 응답을 못 받음 = 결제됐는지 모름 → 키를 유지하고 상태를 다시 불러온다 (다시 누르면 같은 결제로 확인) */
       await load();
@@ -318,7 +313,8 @@ export function TradeAdQuickSheet({
         const end = ba.endAt ? Date.parse(ba.endAt) : NaN;
         const from = ba.pausedAt ? Date.parse(ba.pausedAt) : Date.now();
         const days = Number.isFinite(end) ? Math.max(0, Math.ceil((end - from) / DAY_MS)) : 0;
-        return String(ba.pausedBy ?? "").startsWith("listing_")
+        /** 정지 원인 단일 판정 (TB-06) — 글 숨김(회원·운영 검토)이면 「글이 숨겨져」 */
+        return boostPauseCause(ba.pausedBy) !== "staff"
           ? t("trade_ad_boost_paused_listing_detail", { days: String(days) })
           : t("trade_ad_boost_paused_detail", { days: String(days) });
       }

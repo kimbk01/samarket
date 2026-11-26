@@ -36,6 +36,7 @@ import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { resolvePromotionsBackHref } from "@/lib/points/points-screen-tabs";
 import { createPromotionAttemptKeyStore } from "@/lib/points/promotion-attempt-key";
+import { promotionPurchaseErrorKey } from "@/lib/points/promotion-purchase-error";
 
 const BONE = "rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse";
 
@@ -84,19 +85,8 @@ function resolvePromotionSubmitError(
   t: (key: MessageKey) => string,
   payload: { code?: string; error?: string }
 ): string {
-  if (
-    payload.code === "insufficient_balance" ||
-    payload.error === "insufficient_balance"
-  ) {
-    return t("points_ui_insufficient");
-  }
-  if (payload.error === "already_active_promotion") {
-    return t("points_ui_promotion_conflict");
-  }
-  if (payload.error === "price_changed") {
-    return t("promo_price_changed");
-  }
-  return t("points_ui_request_failed");
+  /** 실패 이유 → 문구 단일 정의 (TB-05) */
+  return t(promotionPurchaseErrorKey(payload));
 }
 
 /** 기간·쪽 → 쪽 모드 조회 주소 (서버가 PHT 날짜를 UTC 경계로 바꾼다) */
@@ -285,9 +275,7 @@ function MyPointsPromotionsPageInner() {
       template="form"
     >
       <div className="space-y-6">
-        <div className="rounded-ui-rect border border-sam-warning-soft bg-sam-warning-soft px-4 py-3 sam-text-body-secondary text-sam-fg">
-          {t("mypage_points_promotions_notice")}
-        </div>
+        {/* 광고 감사 TB-08: 「노출 신청·내 상품 연결은 준비 중」 안내 삭제 — 이 화면에서 실제로 결제된다 */}
         {unauthorized ? (
           <p className="rounded-ui-rect border border-sam-warning-soft bg-sam-warning-soft px-3 py-2 sam-text-body-secondary text-sam-fg">
             {t("auth_resource_access_denied")}

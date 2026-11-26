@@ -160,6 +160,8 @@ export interface PointPromotionOrder {
   pausedBy?: string;
   /** 종료 사유 — listing_sold · listing_owner_deleted · listing_admin_deleted · expired · admin_* … */
   endReasonCode?: string;
+  /** 운영 종료 환급 포인트 (DB `refund_points` · TB-10) — 0·없음이면 표시 안 함 */
+  refundPoints?: number;
 }
 
 export type PointActionLogType =

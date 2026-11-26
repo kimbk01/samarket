@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-25 15:20 PHT",
+ "generatedAtPht": "2026-11-26 17:16 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -294,7 +294,7 @@
    "components/write/trade/TradeWriteForm.tsx": 11,
    "contexts/LatestMenuNavigationContext.tsx": 1,
    "hooks/use-store-business-hub-entry-modal.ts": 1,
-   "hooks/usePromotionOrderTargets.ts": 2,
+   "hooks/usePromotionOrderTargets.ts": 1,
    "lib/addresses/address-book-line.ts": 1,
    "lib/addresses/address-defaults-snapshot-resolvers.ts": 1,
    "lib/addresses/canonical-address-display.ts": 3,
@@ -603,7 +603,6 @@
    "lib/point-policies/point-policy-utils.ts": 8,
    "lib/points/point-expire-utils.ts": 10,
    "lib/points/project-point-financial-history.ts": 6,
-   "lib/points/promotion-products.ts": 4,
    "lib/points/refund-points-after-failed-purchase.ts": 2,
    "lib/posts/apply-owner-snapshot-to-trade-write-form.ts": 2,
    "lib/posts/car-trade-label.ts": 4,

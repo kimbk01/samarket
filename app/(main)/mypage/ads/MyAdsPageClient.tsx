@@ -567,6 +567,14 @@ export default function MyAdsPageClient() {
                           <p className="sam-text-helper text-sam-muted">
                             {fmtDate(o.startAt) ?? "—"} → {fmtDate(o.endAt) ?? "—"}
                           </p>
+                          {/* 운영 종료 환급 (TB-10) — 알림에만 있던 금액을 내 광고 줄에도 */}
+                          {(o.refundPoints ?? 0) > 0 ? (
+                            <p className="sam-text-helper font-medium text-sam-primary" data-testid="revenue-hub-boost-refund">
+                              {t("mypage_oa_ads_boost_refunded", {
+                                points: `${Math.floor(o.refundPoints ?? 0).toLocaleString(en ? "en-US" : "ko-KR")}P`,
+                              })}
+                            </p>
+                          ) : null}
                         </div>
                         <span className="shrink-0 sam-text-helper text-sam-muted" data-testid="revenue-hub-boost-status">
                           {t(myBoostOrderStatusKey(o))}

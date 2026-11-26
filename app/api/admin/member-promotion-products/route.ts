@@ -89,8 +89,6 @@ async function loadSnapshot(sb: SupabaseClient) {
       isActive: p.active,
       revision: p.revision,
       updatedAt: p.updatedAt,
-      fallbackTitleKo: p.fallbackTitleKo,
-      fallbackTitleEn: p.fallbackTitleEn,
     })),
     changes,
     activeCounts,

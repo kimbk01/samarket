@@ -46,8 +46,8 @@ const snapshot = {
   ok: true,
   migrated: true,
   products: [
-    { id: "trade-3d", domain: "trade", durationDays: 3, pointCost: 300, isActive: true, revision: 1, updatedAt: null, fallbackTitleKo: "거래 3일", fallbackTitleEn: "Trade 3d" },
-    { id: "community-3d", domain: "community", durationDays: 3, pointCost: 200, isActive: true, revision: 1, updatedAt: null, fallbackTitleKo: "커뮤니티 3일", fallbackTitleEn: "Community 3d" },
+    { id: "trade-3d", domain: "trade", durationDays: 3, pointCost: 300, isActive: true, revision: 1, updatedAt: null },
+    { id: "community-3d", domain: "community", durationDays: 3, pointCost: 200, isActive: true, revision: 1, updatedAt: null },
   ],
   changes: [],
   activeCounts: {},

@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { listMemberPromotionProductSeeds } from "@/lib/points/promotion-products";
 import { translate } from "@/lib/i18n/messages";
+import { memberPromotionProductTitle } from "@/lib/points/promotion-product-title";
 
 const KEYS = [
   "promo_sheet_surface_community_home",
@@ -18,22 +19,30 @@ const FORBIDDEN_KO = /상단에\s*(\S+\s*)?우선 노출|피드 상단/;
 const FORBIDDEN_EN = /priority at (the )?top|feed top|at the top of the feed/i;
 
 describe("D-08 커뮤니티 상위노출 문구", () => {
-  it.each(["community_promote_3", "community_promote_7"] as const)("%s 설명: 「1개」 포함 · 「상단에 우선 노출」 없음 (ko·en)", (id) => {
-    const p = listMemberPromotionProductSeeds().find((x) => x.id === id)!;
-    expect(p.fallbackDescKo).toContain("1개");
-    expect(p.fallbackDescKo).toContain("가장 최근 결제");
-    expect(p.fallbackDescKo).toContain("‘포인트 노출’");
-    expect(p.fallbackDescKo).not.toMatch(FORBIDDEN_KO);
-    expect(p.fallbackDescEn).toMatch(/One top spot/);
-    expect(p.fallbackDescEn).not.toMatch(FORBIDDEN_EN);
-    expect(p.fallbackDescKo).toContain(`${p.durationDays}일간`);
+  /** TB-01·TB-02 (2026-11-26): 상품 설명은 코드에 두지 않고 노출 규칙 단일 문구 2개만 쓴다 */
+  it("노출 규칙 문구: 위쪽 1자리 · 가장 최근 결제 · 뒤 결제 시 제자리 표시 (ko·en)", () => {
+    const trade = translate("ko", "trade_ad_where_boost");
+    expect(trade).toContain("1자리");
+    expect(trade).toContain("가장 최근에 결제한 글");
+    expect(trade).toContain("'광고'");
+    const community = translate("ko", "promo_sheet_where_community");
+    expect(community).toContain("1자리");
+    expect(community).toContain("'포인트 노출'");
+    expect(community).not.toMatch(FORBIDDEN_KO);
+    expect(translate("en", "trade_ad_where_boost")).toMatch(/One top spot/);
+    expect(translate("en", "promo_sheet_where_community")).toMatch(/One top spot/);
+    expect(translate("en", "promo_sheet_where_community")).not.toMatch(FORBIDDEN_EN);
   });
 
-  it("거래 설명과 같은 뜻(위쪽 자리 1개 · 가장 최근 결제)", () => {
-    const trade = listMemberPromotionProductSeeds().find((x) => x.id === "trade_promote_7")!;
-    expect(trade.fallbackDescKo).toContain("1개(가장 최근 결제)");
-    const community = listMemberPromotionProductSeeds().find((x) => x.id === "community_promote_7")!;
-    expect(community.fallbackDescKo).toContain("1개(가장 최근 결제)");
+  it("상품 이름 = 키 + DB 기간 · 코드 처음 값에 이름·설명 없음", () => {
+    for (const p of listMemberPromotionProductSeeds()) {
+      expect(Object.keys(p)).not.toContain("fallbackTitleKo");
+      expect(Object.keys(p)).not.toContain("fallbackDescKo");
+      const ko = memberPromotionProductTitle("ko", { domain: p.domain, durationDays: 5 });
+      expect(ko).toContain("5일");
+    }
+    expect(memberPromotionProductTitle("ko", { domain: "community", durationDays: 3 })).toBe("커뮤니티 상위노출 3일");
+    expect(memberPromotionProductTitle("en", { domain: "trade", durationDays: 14 })).toBe("Trade top exposure · 14 days");
   });
 
   it.each(KEYS)("%s: 결제 창 문구에 「상단 우선 노출」 약속 없음 (ko·en)", (key) => {

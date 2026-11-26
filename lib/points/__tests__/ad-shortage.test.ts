@@ -41,7 +41,9 @@ describe("광고하기 창 계약", () => {
   });
   it("결제는 화면 금액을 보내고 price_changed 면 다시 읽는다", () => {
     expect(sheet).toContain("expectedPointCost: selected.pointCost");
-    expect(sheet).toContain('err === "price_changed"');
+    /** TB-05: 실패 이유 → 문구는 공용 함수 1개 (price_changed 포함) · 실패하면 목록을 다시 읽는다 */
+    expect(sheet).toContain("promotionPurchaseErrorKey({ error: err, code: j.code })");
+    expect(sheet).toContain("await load();");
   });
   it("버튼: 고객 문의(보조·왼쪽) · 시작/충전(주·오른쪽) · 광고 창에 ₱·계좌 없음", () => {
     expect(sheet.indexOf("trade_ad_support")).toBeLessThan(sheet.indexOf('t("trade_ad_charge")'));

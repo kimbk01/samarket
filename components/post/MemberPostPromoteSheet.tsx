@@ -8,6 +8,9 @@ import { CurrencyAmount } from "@/components/currency";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import type { MemberPromotionProductId } from "@/lib/points/promotion-products";
+import { memberPromotionProductTitleKey } from "@/lib/points/promotion-product-title";
+import { boostPauseCause, type BoostPauseCause } from "@/lib/ads/my-ad-tab";
+import { promotionPurchaseErrorKey } from "@/lib/points/promotion-purchase-error";
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
@@ -18,10 +21,6 @@ type CatalogItem = {
   durationDays: number;
   pointCost: number;
   requiresAdminApproval?: boolean;
-  fallbackTitleKo: string;
-  fallbackTitleEn: string;
-  fallbackDescKo: string;
-  fallbackDescEn: string;
 };
 
 type Props = {
@@ -57,6 +56,8 @@ export function MemberPostPromoteSheet({
   const [pendingExisting, setPendingExisting] = useState(false);
   /** 재감사 R2: 운영자 일시정지 — 연장 불가(서버도 already_active_promotion) */
   const [pausedExisting, setPausedExisting] = useState(false);
+  /** 정지 원인 (TB-06) — 결제 창·내 광고 같은 판정 `boostPauseCause` */
+  const [pauseCause, setPauseCause] = useState<BoostPauseCause>("staff");
   const [successExtended, setSuccessExtended] = useState(false);
   const [successReplay, setSuccessReplay] = useState(false);
   /** 재감사 S-0 (X-1): 같은 결제 시도 = 같은 요청 키 (응답이 끊긴 뒤 다시 눌러도 한 번만 차감) */
@@ -81,7 +82,7 @@ export function MemberPostPromoteSheet({
               async (r) =>
                 (await r.json().catch(() => ({}))) as {
                   catalog?: CatalogItem[];
-                  activeForTarget?: { endAt?: string; orderStatus?: string } | null;
+                  activeForTarget?: { endAt?: string; orderStatus?: string; pausedBy?: string } | null;
                 }
             ),
             fetch("/api/me/points", { cache: "no-store", credentials: "include", signal }).then(
@@ -109,6 +110,7 @@ export function MemberPostPromoteSheet({
       const st = String(promoJ.activeForTarget?.orderStatus ?? "").toLowerCase();
       const activeEnd = promoJ.activeForTarget?.endAt?.trim() || null;
       setPausedExisting(st === "paused");
+      setPauseCause(boostPauseCause(promoJ.activeForTarget?.pausedBy));
       if (st === "pending_review" || st === "pending") {
         setPendingExisting(true);
         setActiveEndAt(activeEnd);
@@ -205,25 +207,12 @@ export function MemberPostPromoteSheet({
       /** 성공 응답인데 본문을 못 읽음 = 결과를 모름 → 키 유지 */
       if (res.ok && typeof j.ok !== "boolean") status = null;
       if (!res.ok || !j.ok) {
-        if (j.error === "insufficient_balance" || j.code === "insufficient_balance") {
-          setErr(
-            safeT("points_ui_insufficient")
-          );
-        } else if (j.error === "price_changed") {
+        const errKey = promotionPurchaseErrorKey(j);
+        if (j.error === "price_changed") {
           /** 새 가격을 다시 읽은 뒤 안내 (다시 읽기가 안내를 지우지 않게 순서 고정) */
-          void load().then(() =>
-            setErr(
-              safeT("promo_price_changed")
-            )
-          );
-        } else if (j.error === "already_active_promotion") {
-          setErr(
-            safeT("points_ui_promotion_conflict")
-          );
+          void load().then(() => setErr(safeT(errKey)));
         } else {
-          setErr(
-            safeT("promo_sheet_purchase_failed")
-          );
+          setErr(safeT(errKey));
         }
         return;
       }
@@ -362,7 +351,11 @@ export function MemberPostPromoteSheet({
           <p className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">
             {pendingExisting
               ? safeT("promo_sheet_pending_existing")
-              : safeT("promo_sheet_paused_existing")}
+              : pauseCause === "own_hidden"
+                ? safeT("promo_sheet_paused_hidden")
+                : pauseCause === "review"
+                  ? safeT("promo_sheet_paused_review")
+                  : safeT("promo_sheet_paused_existing")}
           </p>
           {activeEndAt ? (
             <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
@@ -373,7 +366,9 @@ export function MemberPostPromoteSheet({
           ) : null}
           <p className={`mt-2 ${OverlayUi.caption}`}>
             {pausedExisting
-              ? safeT("promo_sheet_paused_note")
+              ? pauseCause === "own_hidden"
+                ? safeT("promo_sheet_paused_hidden_note")
+                : safeT("promo_sheet_paused_note")
               : safeT("promo_sheet_no_stack")}
           </p>
         </div>
@@ -391,9 +386,7 @@ export function MemberPostPromoteSheet({
               const newEnd = extending ? extendEndOf(item.durationDays) : null;
               const title = extending
                 ? t("promo_sheet_extend_title", { days: String(item.durationDays) })
-                : langEn
-                  ? item.fallbackTitleEn
-                  : item.fallbackTitleKo;
+                : t(memberPromotionProductTitleKey(domain), { days: String(item.durationDays) });
               /** 한 줄: 연장이면 끝나는 날 · 아니면 노출 위치(위쪽 1자리 = 가장 최근 결제 · D-08 뜻 유지) */
               const where = newEnd
                 ? t("promo_sheet_extend_new_end", { date: formatPhtDisplayDateTime(newEnd, langEn ? "en" : "ko") })

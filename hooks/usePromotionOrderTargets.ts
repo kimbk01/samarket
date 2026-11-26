@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { isPostEligibleForPromotionBoost } from "@/lib/promotion/trade-promotion-overlay";
 import {
   fetchMeStoresListDeduped,
   parseStoreRowsFromMeStoresJson,
@@ -43,7 +44,7 @@ export function usePromotionOrderTargets(): {
             ok: res.ok,
             json: res.ok
               ? ((await res.json().catch(() => ({}))) as {
-                  posts?: { id?: string; title?: string; status?: string }[];
+                  posts?: { id?: string; title?: string; status?: string; sellerListingState?: string }[];
                 })
               : null,
           })),
@@ -59,11 +60,13 @@ export function usePromotionOrderTargets(): {
       }
 
       if (postsRes.ok && postsRes.json) {
+        /** 광고 감사 TB-08: 판매완료·거래완료·숨김 글은 고를 수 없다 — 거래 카드 「광고하기」와 같은 판정 1곳 */
         const products = (postsRes.json.posts ?? [])
-          .filter((p) => p.id && p.status !== "hidden" && p.status !== "deleted")
+          .filter((p) => p.id && isPostEligibleForPromotionBoost(p.status, p.sellerListingState))
           .map((p) => ({
             id: String(p.id),
-            title: String(p.title ?? "").trim() || "(제목 없음)",
+            /** 빈 제목은 화면이 문구 키로 채운다(코드 안 한국어 금지) */
+            title: String(p.title ?? "").trim(),
           }));
         setProductOptions(products);
       } else {

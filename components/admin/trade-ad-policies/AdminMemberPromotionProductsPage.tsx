@@ -12,6 +12,7 @@ import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
+import { memberPromotionProductTitleKey } from "@/lib/points/promotion-product-title";
 
 /**
  * 어드민 › 상위노출 가격 (Owner 2026-11-03 「1번부터 시작」).
@@ -26,8 +27,6 @@ type Product = {
   isActive: boolean;
   revision: number;
   updatedAt: string | null;
-  fallbackTitleKo: string;
-  fallbackTitleEn: string;
 };
 type Change = {
   id: string;
@@ -99,7 +98,9 @@ export function AdminMemberPromotionProductsPage() {
     void load();
   }, [load]);
 
-  const titleOf = (p: Pick<Product, "fallbackTitleKo" | "fallbackTitleEn">) => (ko ? p.fallbackTitleKo : p.fallbackTitleEn);
+  /** 이름 = 키 + 저장된 기간 (TB-02) — 기간을 바꿔 저장하면 이름도 같이 바뀐다 */
+  const titleOf = (p: Pick<Product, "domain" | "durationDays">) =>
+    t(memberPromotionProductTitleKey(p.domain), { days: String(p.durationDays) });
 
   const save = async (p: Product) => {
     if (!guardWrite(p.domain)) return;

@@ -3,10 +3,12 @@
 import { DibayPendingSpinner, DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyAmount } from "@/components/currency";
 import { formatMypageNumber } from "@/lib/mypage/format-mypage-date";
 import type { MemberPromotionProductId } from "@/lib/points/promotion-products";
+import { memberPromotionProductTitleKey } from "@/lib/points/promotion-product-title";
 
 export interface PointPromotionOrderFormValues {
   targetType: "product";
@@ -24,10 +26,6 @@ type CatalogItem = {
   id: MemberPromotionProductId;
   pointCost: number;
   durationDays: number;
-  fallbackTitleKo: string;
-  fallbackTitleEn: string;
-  fallbackDescKo: string;
-  fallbackDescEn: string;
 };
 
 interface PointPromotionOrderFormProps {
@@ -97,6 +95,15 @@ export function PointPromotionOrderForm({
   const selected = catalog?.find((p) => p.id === productId) ?? catalog?.[0] ?? null;
   const cost = selected?.pointCost ?? 0;
   const insufficient = balance !== null && balance < cost;
+  /** 충전 후 돌아오기 (TB-08) — 거래 광고 창 `goCharge` 와 같은 주소 규칙: 모자란 포인트 · 돌아올 화면 */
+  const pathname = usePathname();
+  const chargeHref = (() => {
+    const qs = new URLSearchParams();
+    if (insufficient && balance !== null) qs.set("need", String(Math.max(0, cost - balance)));
+    if (pathname) qs.set("returnTo", pathname);
+    const q = qs.toString();
+    return q ? `/mypage/points/charge?${q}` : "/mypage/points/charge";
+  })();
   const submitText = submitLabel ?? t("promo_sheet_cta");
 
   const resolvedTargetId = targetId.trim() || productOptions[0]?.id || "";
@@ -129,8 +136,6 @@ export function PointPromotionOrderForm({
     });
   };
 
-  const langEn = language === "en";
-
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-4">
       <div>
@@ -149,7 +154,7 @@ export function PointPromotionOrderForm({
           >
             {productOptions.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.title}
+                {p.title || t("promo_target_untitled")}
               </option>
             ))}
           </select>
@@ -166,8 +171,9 @@ export function PointPromotionOrderForm({
           </p>
         ) : null}
         {(catalog ?? []).map((item) => {
-          const title = langEn ? item.fallbackTitleEn : item.fallbackTitleKo;
-          const desc = langEn ? item.fallbackDescEn : item.fallbackDescKo;
+          /** 이름 = 키 + DB 기간 · 설명 = 노출 규칙 단일 문구 (TB-01·TB-02) */
+          const title = t(memberPromotionProductTitleKey("trade"), { days: String(item.durationDays) });
+          const desc = t("trade_ad_where_boost");
           const on = item.id === selected?.id;
           return (
             <button
@@ -223,7 +229,7 @@ export function PointPromotionOrderForm({
       </button>
       {!canSubmit && insufficient ? (
         <Link
-          href="/mypage/points/charge"
+          href={chargeHref}
           className="flex min-h-11 items-center justify-center sam-text-body font-medium text-sam-primary"
         >
           {safeT("promo_sheet_go_points")}

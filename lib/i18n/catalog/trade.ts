@@ -226,7 +226,8 @@ export const tradeMessages = {
     trade_ad_option_banner: "배너 광고 {days}일",
     trade_ad_option_boost_running_name: "상위노출",
     trade_ad_option_banner_running_name: "배너 광고",
-    trade_ad_where_boost: "거래 목록 첫 페이지 위쪽",
+    /** 노출 규칙 단일 문구 (TB-01 · 2026-11-26) — 계약 §7b: 위쪽 1자리 = 가장 최근 결제, 나머지는 제자리 「광고」 */
+    trade_ad_where_boost: "거래 목록 1페이지 위쪽 1자리 · 가장 최근에 결제한 글이 올라가요. 다른 글이 결제하면 제자리에 '광고'로 보여요",
     trade_ad_where_boost_until: "{date}까지",
     trade_ad_boost_paused_detail: "운영자가 광고를 잠시 멈췄습니다 · 남은 기간 {days}일",
     /** 글 상태 연동 (2026-11-03): 숨긴 글 = 광고 일시정지 · 판매완료·삭제 = 광고 종료(환급 0) */
@@ -664,7 +665,7 @@ export const tradeMessages = {
     trade_ad_option_banner: "Banner ad · {days} days",
     trade_ad_option_boost_running_name: "Top exposure",
     trade_ad_option_banner_running_name: "Banner ad",
-    trade_ad_where_boost: "Top of trade list page 1",
+    trade_ad_where_boost: "One top spot on page 1 of the trade list · the latest payment takes it. After a newer payment, your post shows in its usual place with an \"Ad\" label",
     trade_ad_where_boost_until: "Until {date}",
     trade_ad_boost_paused_detail: "Paused by staff · {days} days left",
     trade_ad_boost_paused_listing_detail: "Paused while the listing is hidden · {days} days left",

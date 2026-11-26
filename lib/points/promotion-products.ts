@@ -30,12 +30,7 @@ export type MemberPromotionProduct = {
    * Point payment → immediate ACTIVE; Admin is post-hoc sanction only.
    */
   requiresAdminApproval: boolean;
-  titleKey: string;
-  descriptionKey: string;
-  fallbackTitleKo: string;
-  fallbackTitleEn: string;
-  fallbackDescKo: string;
-  fallbackDescEn: string;
+  /* 이름·설명은 여기 두지 않는다 — 이름 `promotion-product-title.ts`(키 + DB 기간), 노출 설명 `trade_ad_where_boost`·`promo_sheet_where_community` (TB-02) */
 };
 
 const PRODUCTS: readonly MemberPromotionProduct[] = [
@@ -49,14 +44,6 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     sortOrder: 10,
     active: true,
     requiresAdminApproval: false,
-    titleKey: "promo_product_trade_7_title",
-    descriptionKey: "promo_product_trade_7_desc",
-    fallbackTitleKo: "7일 거래 상위노출",
-    fallbackTitleEn: "Trade top exposure · 7 days",
-    fallbackDescKo:
-      "결제 즉시 거래 홈(전체)과 이 글의 카테고리 목록에 일반 매물처럼 섞여 노출됩니다. 목록 위쪽 자리는 1개(가장 최근 결제)이고, 나머지는 제자리에 ‘광고’로 보입니다.",
-    fallbackDescEn:
-      "After payment, shown among listings on Trade home and this post’s category feed. One top spot per list (latest payment); others show an “Ad” label in their usual place.",
   },
   {
     id: "trade_promote_14",
@@ -68,14 +55,6 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     sortOrder: 20,
     active: true,
     requiresAdminApproval: false,
-    titleKey: "promo_product_trade_14_title",
-    descriptionKey: "promo_product_trade_14_desc",
-    fallbackTitleKo: "14일 거래 상위노출",
-    fallbackTitleEn: "Trade top exposure · 14 days",
-    fallbackDescKo:
-      "결제 즉시 거래 홈(전체)과 이 글의 카테고리 목록에 일반 매물처럼 섞여 노출됩니다. 목록 위쪽 자리는 1개(가장 최근 결제)이고, 나머지는 제자리에 ‘광고’로 보입니다.",
-    fallbackDescEn:
-      "After payment, shown among listings on Trade home and this post’s category feed. One top spot per list (latest payment); others show an “Ad” label in their usual place.",
   },
   {
     id: "community_promote_3",
@@ -87,15 +66,6 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     sortOrder: 30,
     active: true,
     requiresAdminApproval: false,
-    titleKey: "promo_product_community_3_title",
-    descriptionKey: "promo_product_community_3_desc",
-    fallbackTitleKo: "커뮤니티 3일 상위 노출",
-    fallbackTitleEn: "Community top exposure · 3 days",
-    // D-08 (2026-11-07): 거래와 같은 뜻 — 피드 위쪽 자리는 1개(가장 최근 결제) · 나머지는 제자리에 「포인트 노출」
-    fallbackDescKo:
-      "결제 즉시 3일간 커뮤니티 홈 피드와 이 글의 주제 피드에 노출됩니다. 피드 위쪽 자리는 1개(가장 최근 결제)이고, 나머지는 제자리에 ‘포인트 노출’로 보입니다. 관리자 승인 대기 없이 Point가 결제됩니다.",
-    fallbackDescEn:
-      "After payment, shown for 3 days on the Community home feed and this post’s topic feed. One top spot per feed (latest payment); others show a “Promoted” label in their usual place. No admin approval wait — Points are charged immediately.",
   },
   {
     id: "community_promote_7",
@@ -107,15 +77,6 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     sortOrder: 40,
     active: true,
     requiresAdminApproval: false,
-    titleKey: "promo_product_community_7_title",
-    descriptionKey: "promo_product_community_7_desc",
-    fallbackTitleKo: "커뮤니티 7일 상위 노출",
-    fallbackTitleEn: "Community top exposure · 7 days",
-    // D-08 (2026-11-07): 거래와 같은 뜻 — 피드 위쪽 자리는 1개(가장 최근 결제) · 나머지는 제자리에 「포인트 노출」
-    fallbackDescKo:
-      "결제 즉시 7일간 커뮤니티 홈 피드와 이 글의 주제 피드에 노출됩니다. 피드 위쪽 자리는 1개(가장 최근 결제)이고, 나머지는 제자리에 ‘포인트 노출’로 보입니다. 관리자 승인 대기 없이 Point가 결제됩니다.",
-    fallbackDescEn:
-      "After payment, shown for 7 days on the Community home feed and this post’s topic feed. One top spot per feed (latest payment); others show a “Promoted” label in their usual place. No admin approval wait — Points are charged immediately.",
   },
 ];
 
