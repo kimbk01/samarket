@@ -25,6 +25,7 @@ import { normalizeFeedAdTopicSlug } from "@/lib/ads/feed-ad-placement";
 import { memberFeedAdCampaignName } from "@/lib/ads/feed-ad-advertiser-name";
 import { assertFeedAdPoolCapacityAvailable } from "@/lib/ads/feed-ad-pool-capacity-server";
 import { isFeedAdPoolCapacityDbError } from "@/lib/ads/feed-ad-pool-capacity";
+import { notifyFeedAdMember } from "@/lib/ads/feed-ad-notices";
 import { checkMemberFeedAdDestination } from "@/lib/ads/feed-ad-member-destination-check";
 
 export type ApproveFeedAdRequestResult =
@@ -79,6 +80,37 @@ async function unclaimReview(
     .eq("id", requestId)
     .eq("status", "pending_review")
     .eq("reviewed_by", adminUserId);
+}
+
+/**
+ * B-DB (2026-11-27): 포인트를 보상 환급(compensate)한 뒤에는 「검토 중」으로 되돌리지 않고 반려(system_failure)로 닫는다 —
+ * 예전에는 보류 없는 「검토 중」 신청이 남아 다시 승인하면 돈 없이 광고가 나갈 수 있었다. 회원에게 알림.
+ * (회원이 그 사이 취소했으면 덮어쓰지 않음)
+ */
+async function closeRequestAfterCompensation(
+  sb: SupabaseClient,
+  requestId: string,
+  userId: string,
+  domain: string | null
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { data } = await sb
+    .from("feed_ad_requests")
+    .update({
+      status: "rejected",
+      review_reason: "system_failure",
+      campaign_id: null,
+      reviewed_by: null,
+      reviewed_at: now,
+      updated_at: now,
+    })
+    .eq("id", requestId)
+    .eq("status", "pending_review")
+    .select("id")
+    .maybeSingle();
+  if (data && userId) {
+    await notifyFeedAdMember(sb, { userId, requestId, kind: "system_failure", domain });
+  }
 }
 
 /**
@@ -300,7 +332,7 @@ export async function approveFeedAdRequest(
       if (!uncaptured.ok) {
         // 보류로 되돌리지 못하면 「확정 + 광고 없음」이 남지 않게 기존 보상(환급)으로 닫는다
         await compensateFeedAdPointHold(sb, { requestId });
-        await unclaimReview(sb, requestId, input.adminUserId);
+        await closeRequestAfterCompensation(sb, requestId, userId, String(row.domain ?? "") || null);
         return { ok: false, error: "capacity_full", httpStatus: 409, holdKept: false };
       }
       await unclaimReview(sb, requestId, input.adminUserId);
@@ -316,7 +348,7 @@ export async function approveFeedAdRequest(
       // F4: CAPTURED but not ACTIVE — compensate credit + remove draft ad.
       await compensateFeedAdPointHold(sb, { requestId });
       await deleteCampaignCascade(sb, campaignId);
-      await unclaimReview(sb, requestId, input.adminUserId);
+      await closeRequestAfterCompensation(sb, requestId, userId, String(row.domain ?? "") || null);
       return {
         ok: false,
         error: actErr?.message ?? "campaign_activate_failed",
@@ -348,19 +380,8 @@ export async function approveFeedAdRequest(
         .update({ status: "ended", updated_at: new Date().toISOString() })
         .eq("id", campaignId);
       await compensateFeedAdPointHold(sb, { requestId });
-      // Leave request pending_review with reviewed_by cleared so admin can retry or reject.
-      await sb
-        .from("feed_ad_requests")
-        .update({
-          status: "pending_review",
-          campaign_id: null,
-          reviewed_by: null,
-          reviewed_at: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", requestId)
-        /** FB-15: 그 사이 회원이 취소했으면 「취소됨」을 덮어쓰지 않는다 */
-        .neq("status", "cancelled");
+      // B-DB: 보상 환급 뒤 「검토 중」으로 되돌리지 않는다(보류 없는 검토 중 방지) — 반려(system_failure)로 닫는다
+      await closeRequestAfterCompensation(sb, requestId, userId, String(row.domain ?? "") || null);
       return {
         ok: false,
         error: updReq?.message ?? "request_activate_failed",
@@ -368,6 +389,8 @@ export async function approveFeedAdRequest(
       };
     }
 
+    /** FB-09: 승인 알림 */
+    await notifyFeedAdMember(sb, { userId, requestId, kind: "approved", domain: String(row.domain ?? "") || null });
     return { ok: true, status: "active", campaignId };
   } catch (e) {
     if (campaignId) {
@@ -375,7 +398,7 @@ export async function approveFeedAdRequest(
     }
     await compensateFeedAdPointHold(sb, { requestId }).catch(() => undefined);
     await releaseHeldPointsForFeedAdRequest(sb, { requestId }).catch(() => undefined);
-    await unclaimReview(sb, requestId, input.adminUserId).catch(() => undefined);
+    await closeRequestAfterCompensation(sb, requestId, userId, String(row.domain ?? "") || null).catch(() => undefined);
     return {
       ok: false,
       error: e instanceof Error ? e.message : "approve_failed",

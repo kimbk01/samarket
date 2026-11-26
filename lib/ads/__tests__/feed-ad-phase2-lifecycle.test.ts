@@ -1,7 +1,7 @@
 /**
  * PHASE 2 contract tests M1–M11 (destination + cancel + view href).
  */
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   feedAdMemberViewHref,
@@ -9,7 +9,6 @@ import {
   isFeedAdDestinationNone,
 } from "@/lib/ads/feed-ad-destination";
 import { cancelFeedAdRequest } from "@/lib/ads/cancel-feed-ad-request";
-import { creditUserPoints } from "@/lib/points/user-point-ledger";
 
 vi.mock("@/lib/points/user-point-ledger", () => ({
   spendUserPoints: vi.fn(async () => ({ ok: true })),
@@ -19,74 +18,25 @@ vi.mock("@/lib/points/user-point-ledger", () => ({
 
 type Row = Record<string, unknown>;
 
-function makeCancelDb(state: {
-  requests: Row[];
-  holds: Row[];
-}) {
-  function matchEq(row: Row, filters: { col: string; val: unknown; isNull?: boolean }[]) {
-    return filters.every((f) => (f.isNull ? row[f.col] == null : String(row[f.col]) === String(f.val)));
-  }
-
-  function tableApi(table: string) {
-    const filters: { col: string; val: unknown; isNull?: boolean }[] = [];
-    let payload: Row | null = null;
-    let mode: "select" | "update" = "select";
-
-    const api: Record<string, unknown> = {
-      select() {
-        return api;
-      },
-      update(row: Row) {
-        mode = "update";
-        payload = row;
-        return api;
-      },
-      eq(col: string, val: unknown) {
-        filters.push({ col, val });
-        return api;
-      },
-      /** FB-15: 취소는 검토 시작 전(`reviewed_by is null`)에만 */
-      is(col: string, val: unknown) {
-        filters.push({ col, val, isNull: val === null });
-        return api;
-      },
-      maybeSingle: async () => {
-        if (table === "feed_ad_requests") {
-          if (mode === "update" && payload) {
-            const idx = state.requests.findIndex((r) => matchEq(r, filters));
-            if (idx < 0) return { data: null, error: null };
-            state.requests[idx] = { ...state.requests[idx], ...payload };
-            return { data: { id: state.requests[idx].id }, error: null };
-          }
-          const row = state.requests.find((r) => matchEq(r, filters)) ?? null;
-          return { data: row, error: null };
-        }
-        return { data: null, error: null };
-      },
-      then(resolve: (v: unknown) => void) {
-        if (table === "feed_ad_point_holds") {
-          if (mode === "update" && payload) {
-            for (let i = 0; i < state.holds.length; i++) {
-              if (matchEq(state.holds[i], filters)) {
-                state.holds[i] = { ...state.holds[i], ...payload };
-              }
-            }
-            resolve({ data: null, error: null });
-            return;
-          }
-          const rows = state.holds.filter((r) => matchEq(r, filters));
-          resolve({ data: rows, error: null });
-          return;
-        }
-        resolve({ data: null, error: null });
-      },
-    };
-    return api;
-  }
-
+/** B-DB R-24: 회원 취소는 DB 함수 1회 — 함수 계약(검토 중·본인만 · 보류 해제 + cancelled · 두 번째는 not_pending)을 흉내 */
+function makeCancelRpcDb(state: { requests: Row[]; holds: Row[]; credits: number }) {
   return {
-    from(table: string) {
-      return tableApi(table);
+    rpc: async (fn: string, args: Row) => {
+      if (fn !== "member_cancel_feed_ad_request") return { data: null, error: { message: "unknown_fn" } };
+      const req = state.requests.find((r) => r.id === args.p_request);
+      if (!req) return { data: { ok: false, error: "not_found" }, error: null };
+      if (req.user_id !== args.p_user) return { data: { ok: false, error: "forbidden" }, error: null };
+      if (req.status !== "pending_review") return { data: { ok: false, error: "not_pending" }, error: null };
+      let released = 0;
+      for (const h of state.holds) {
+        if (h.request_id === req.id && h.status === "held") {
+          h.status = "released";
+          released += Number(h.amount ?? 0);
+          state.credits += 1;
+        }
+      }
+      req.status = "cancelled";
+      return { data: { ok: true, status: "cancelled", released_points: released }, error: null };
     },
   } as unknown as SupabaseClient;
 }
@@ -162,42 +112,33 @@ describe("PHASE 2 member view href (M11)", () => {
   });
 });
 
-describe("PHASE 2 member cancel (M2)", () => {
-  beforeEach(() => {
-    vi.mocked(creditUserPoints).mockClear();
-  });
-
-  it("pending cancel → RELEASE → cancelled; double cancel no second credit", async () => {
+describe("PHASE 2 member cancel (M2) — B-DB 한 트랜잭션 함수", () => {
+  it("pending cancel → 보류 해제 + cancelled · 두 번째 취소는 not_pending(중복 환급 없음) · 함수 1회 호출", async () => {
     const state = {
-      requests: [
-        {
-          id: "req-1",
-          user_id: "user-1",
-          status: "pending_review",
-        },
-      ],
-      holds: [
-        {
-          id: "hold-1",
-          user_id: "user-1",
-          request_id: "req-1",
-          amount: 100,
-          status: "held",
-        },
-      ],
+      requests: [{ id: "req-1", user_id: "user-1", status: "pending_review" }] as Row[],
+      holds: [{ id: "hold-1", user_id: "user-1", request_id: "req-1", amount: 100, status: "held" }] as Row[],
+      credits: 0,
     };
-    const sb = makeCancelDb(state);
+    const sb = makeCancelRpcDb(state);
 
     const first = await cancelFeedAdRequest(sb, { requestId: "req-1", userId: "user-1" });
-    expect(first.ok).toBe(true);
+    expect(first).toEqual({ ok: true, status: "cancelled", releasedPoints: 100 });
     expect(state.requests[0]?.status).toBe("cancelled");
     expect(state.holds[0]?.status).toBe("released");
-    expect(creditUserPoints).toHaveBeenCalledTimes(1);
+    expect(state.credits).toBe(1);
 
     const second = await cancelFeedAdRequest(sb, { requestId: "req-1", userId: "user-1" });
-    expect(second.ok).toBe(false);
-    if (!second.ok) expect(second.error).toBe("not_pending");
-    expect(creditUserPoints).toHaveBeenCalledTimes(1);
+    expect(second).toMatchObject({ ok: false, error: "not_pending", httpStatus: 409 });
+    expect(state.credits).toBe(1);
+  });
+
+  it("남의 신청은 403 · 없는 신청은 404 · 함수 오류는 500", async () => {
+    const state = { requests: [{ id: "req-2", user_id: "owner", status: "pending_review" }] as Row[], holds: [] as Row[], credits: 0 };
+    const sb = makeCancelRpcDb(state);
+    expect(await cancelFeedAdRequest(sb, { requestId: "req-2", userId: "other" })).toMatchObject({ error: "forbidden", httpStatus: 403 });
+    expect(await cancelFeedAdRequest(sb, { requestId: "nope", userId: "owner" })).toMatchObject({ error: "not_found", httpStatus: 404 });
+    const broken = { rpc: async () => ({ data: null, error: { message: "boom" } }) } as unknown as SupabaseClient;
+    expect(await cancelFeedAdRequest(broken, { requestId: "req-2", userId: "owner" })).toMatchObject({ error: "cancel_failed", httpStatus: 500 });
   });
 });
 

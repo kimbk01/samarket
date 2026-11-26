@@ -281,11 +281,28 @@ export type FeedAdOperatorNotice = {
  * D-6 (2026-11-04): 마이 › 광고 카드의 「운영자가 멈췄습니다 / 종료했습니다」 + 공개 사유 1줄.
  * 입력은 캠페인의 상태·`paused_by`·`public_reason` 만 받는다(내부 메모 칸은 받지 않음 → 응답에 나갈 수 없다).
  */
+/** B-DB FB-03: 연결 글 숨김·삭제로 시스템이 멈추거나 끝낸 배너의 공개 사유 코드 (DB `feed_ad_sync_destination`) */
+export const FEED_AD_DESTINATION_UNAVAILABLE_REASON = "destination_unavailable" as const;
+
+/** B-DB FB-03: 연결 글 때문에 멈춤·종료 — 운영자 안내 대신 이 안내(사유 코드를 그대로 보이지 않게) */
+export function projectFeedAdDestinationNotice(input: {
+  campaignStatus: string | null | undefined;
+  publicReason?: string | null;
+}): "paused" | "ended" | null {
+  if (String(input.publicReason ?? "").trim() !== FEED_AD_DESTINATION_UNAVAILABLE_REASON) return null;
+  const st = String(input.campaignStatus ?? "").toLowerCase();
+  if (st === "paused") return "paused";
+  if (st === "ended") return "ended";
+  return null;
+}
+
 export function projectFeedAdOperatorNotice(input: {
   campaignStatus: string | null | undefined;
   pausedBy?: string | null;
   publicReason?: string | null;
 }): FeedAdOperatorNotice | null {
+  /** FB-03: 연결 글 때문에 시스템이 끝낸 배너는 「운영자가 종료」가 아니다 */
+  if (projectFeedAdDestinationNotice(input)) return null;
   const kind = feedAdRenewalBlockedByAdmin(input.campaignStatus, input.pausedBy);
   if (!kind) return null;
   const reason = String(input.publicReason ?? "").trim().slice(0, 120);

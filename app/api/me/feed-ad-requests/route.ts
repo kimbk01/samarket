@@ -9,6 +9,7 @@ import {
 import {
   feedAdRenewalBlockedByAdmin,
   projectFeedAdMemberPresentation,
+  projectFeedAdDestinationNotice,
   projectFeedAdOperatorNotice,
 } from "@/lib/ads/feed-ad-member-presentation";
 import { loadFeedAdPoolRemaining } from "@/lib/ads/feed-ad-pool-capacity-server";
@@ -67,6 +68,11 @@ function mapRequestRow(
     operatorNotice: projectFeedAdOperatorNotice({
       campaignStatus: extras?.campaignStatus ?? null,
       pausedBy: extras?.campaignPausedBy ?? null,
+      publicReason: extras?.campaignPublicReason ?? null,
+    }),
+    /** B-DB FB-03: 연결 글 숨김(멈춤)·삭제·판매완료(종료) 안내 */
+    destinationNotice: projectFeedAdDestinationNotice({
+      campaignStatus: extras?.campaignStatus ?? null,
       publicReason: extras?.campaignPublicReason ?? null,
     }),
     eligible: presentation.eligible,

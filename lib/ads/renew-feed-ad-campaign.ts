@@ -77,24 +77,13 @@ export async function renewFeedAdCampaign(
   }
 
   let expectedCost = toInt(params.expectedCost) ?? null;
-  let expectedDays = toInt(params.expectedDurationDays) ?? null;
-  if (expectedDays != null) {
-    /**
-     * R-37: 같은 요청 키 재전송은 기간 대조보다 먼저 — DB 함수와 같은 순서(같은 키면 처음 결과만 돌려줌).
-     * 이미 결제된 키를 기간 변경으로 409 거절하면 화면이 키를 버리고 새 키로 두 번 차감할 수 있다.
-     */
-    const relatedId = `renew:${campaignId}:${idem}`.slice(0, 200);
-    const { data: prior, error: priorErr } = await sb
-      .from("point_ledger")
-      .select("id")
-      .eq("user_id", params.userId)
-      .eq("related_type", "feed_ad_request")
-      .eq("related_id", relatedId)
-      .limit(1);
-    if (priorErr) return { ok: false, error: "renew_failed", httpStatus: 500 };
-    if ((prior ?? []).length > 0) expectedDays = null;
-  }
-  if (expectedCost == null || expectedDays != null) {
+  const expectedDays = toInt(params.expectedDurationDays) ?? null;
+  /**
+   * B-DB FB-06 (2026-11-27): 화면이 기간을 보내면 DB 함수 v2 가 **같은 키 확인 뒤** 금액·기간을 함께 대조한다
+   * (TS 의 기간 대조·같은 키 선확인(R-35·R-37 임시)은 DB 로 옮김) · 연장 기록 표에 한 줄 · 신청 행은 처음 값 유지.
+   * 기간을 안 보내는 옛 화면만 옛 함수(금액만 대조)를 쓴다.
+   */
+  if (expectedCost == null && expectedDays == null) {
     // 가격 확인값을 보내지 않는 옛 화면(배포 직후 열려 있던 창) — 지금 가격을 기준으로 한다 (옛 동작과 같음).
     /** R-54: 상품 조회 오류는 「상품 없음」(400 → 화면이 키를 버림)이 아니라 500(키 유지 · 같은 키로 재확인) */
     let product: Awaited<ReturnType<typeof getFeedAdProductOrThrow>>;
@@ -104,26 +93,26 @@ export async function renewFeedAdCampaign(
       return { ok: false, error: "renew_failed", httpStatus: 500 };
     }
     if (!product) return { ok: false, error: "product_not_found", httpStatus: 400 };
-    if (expectedCost == null) expectedCost = product.pointCost;
-    /** R-35: 기간이 바뀌었으면 차감 전에 멈춘다 — 회원이 본 기간과 다른 기간으로 연장하지 않게 */
-    if (expectedDays != null && expectedDays !== product.durationDays) {
-      return {
-        ok: false,
-        error: "price_changed",
-        httpStatus: RENEW_ERROR_HTTP.price_changed ?? 409,
-        pointCost: product.pointCost,
-        durationDays: product.durationDays,
-      };
-    }
+    expectedCost = product.pointCost;
   }
 
-  const { data, error } = await sb.rpc("member_feed_ad_renew", {
-    p_user: params.userId,
-    p_campaign: campaignId,
-    p_product: productId,
-    p_key: idem,
-    p_expected_cost: expectedCost,
-  });
+  const { data, error } =
+    expectedDays != null && expectedCost != null
+      ? await sb.rpc("member_feed_ad_renew_v2", {
+          p_user: params.userId,
+          p_campaign: campaignId,
+          p_product: productId,
+          p_key: idem,
+          p_expected_cost: expectedCost,
+          p_expected_days: expectedDays,
+        })
+      : await sb.rpc("member_feed_ad_renew", {
+          p_user: params.userId,
+          p_campaign: campaignId,
+          p_product: productId,
+          p_key: idem,
+          p_expected_cost: expectedCost,
+        });
   if (error || !data || typeof data !== "object") {
     return { ok: false, error: "renew_failed", httpStatus: 500 };
   }
@@ -148,7 +137,7 @@ export async function renewFeedAdCampaign(
     ok: true,
     campaignId,
     endAt: String(r.end_at ?? ""),
-    pointCost: toInt(r.point_cost) ?? expectedCost,
+    pointCost: toInt(r.point_cost) ?? expectedCost ?? 0,
     idempotentReplay: r.idempotent === true,
   };
 }

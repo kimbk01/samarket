@@ -24,7 +24,8 @@ describe("H-2 adminRejectFeedAdRequest — 단일 반려 구현", () => {
       p_reason: "부적절",
       p_actor: "admin-1",
     });
-    expect(from).not.toHaveBeenCalled();
+    /** B-DB FB-09: 표 쓰기는 없음 — 반려 알림 대상(회원) 조회 1회만 */
+    expect(from.mock.calls).toEqual([["feed_ad_requests"]]);
     expect(appendAdminRouteAudit).toHaveBeenCalledWith(sb, req, {
       actorId: "admin-1",
       targetType: "feed_ad_request",

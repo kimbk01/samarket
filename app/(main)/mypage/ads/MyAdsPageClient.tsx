@@ -55,6 +55,8 @@ type FeedRequestRow = {
   renewBlockedByAdmin?: "admin_paused" | "admin_ended" | null;
   /** D-6 · FB-M11: 「운영자가 멈췄습니다/종료했습니다」 + 공개 사유 1줄 (서버가 paused_by 로 판정 · 내부 메모 없음) */
   operatorNotice?: FeedAdOperatorNotice | null;
+  /** B-DB FB-03: 연결 글 숨김(멈춤)·삭제·판매완료(종료) — 서버 판정 */
+  destinationNotice?: "paused" | "ended" | null;
   eligible?: boolean;
   remainingMs?: number | null;
   domain: string;
@@ -780,9 +782,23 @@ export default function MyAdsPageClient() {
                             ) : null}
                           </div>
                         ) : null}
+                        {r.destinationNotice ? (
+                          <p
+                            className="mt-1 rounded-ui-rect bg-sam-warning-soft px-2 py-1.5 sam-text-helper text-sam-fg"
+                            data-testid="revenue-hub-feed-ad-destination-notice"
+                            data-kind={r.destinationNotice}
+                          >
+                            {t(r.destinationNotice === "paused" ? "feed_ad_dest_paused_note" : "feed_ad_dest_ended_note")}
+                          </p>
+                        ) : null}
                         {r.status === "rejected" && r.reviewReason ? (
                           <p className="mt-1 sam-text-helper text-sam-warning" data-testid="revenue-hub-feed-ad-reject-reason">
-                            {r.reviewReason}
+                            {/* B-DB: 시스템 반려 사유 코드는 문구로 — 관리자가 쓴 사유는 그대로 */}
+                            {r.reviewReason === "review_timeout"
+                              ? t("feed_ad_notice_timeout_body")
+                              : r.reviewReason === "system_failure"
+                                ? t("feed_ad_notice_failure_body")
+                                : r.reviewReason}
                           </p>
                         ) : null}
                       </div>

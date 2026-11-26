@@ -16,6 +16,7 @@
  * 감사는 DB 함수가 같은 트랜잭션에서 1행만 쓴다 (대상 = 신청 있으면 feed_ad_request/신청 id, 없으면 feed_ad_campaign/캠페인 id ·
  * after_json.screen). 호출하는 TS 는 정지·재개·종료 감사를 따로 쓰지 않는다.
  */
+import { loadFeedAdRequestOwner, notifyFeedAdMember } from "@/lib/ads/feed-ad-notices";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { feedAdErrorMessageKo } from "@/lib/ads/feed-ad-error-copy";
 
@@ -101,7 +102,7 @@ export async function adminEndFeedAd(
   if (fault !== "operator" && fault !== "member" && fault !== "none") return fail("fault_required");
   const r = cleanReasons(input);
   if (!r.ok) return fail(r.error);
-  return callRpc(sb, "admin_feed_ad_end", {
+  const result = await callRpc(sb, "admin_feed_ad_end", {
     p_campaign_id: input.campaignId.trim(),
     p_admin_id: input.adminUserId.trim(),
     p_fault: fault,
@@ -110,6 +111,26 @@ export async function adminEndFeedAd(
     p_preview: input.preview === true,
     p_screen: screenArg(input),
   });
+  /** FB-09 (B-DB): 운영 종료 알림(회원 신청 배너만 · 미리보기 제외) — 회원에게 보이는 사유(public)만 */
+  if (result.ok && input.preview !== true) {
+    const { data: camp } = await sb
+      .from("feed_ad_campaigns")
+      .select("request_id")
+      .eq("id", input.campaignId.trim())
+      .maybeSingle();
+    const requestId = String((camp as { request_id?: unknown } | null)?.request_id ?? "");
+    const owner = requestId ? await loadFeedAdRequestOwner(sb, requestId) : null;
+    if (owner) {
+      await notifyFeedAdMember(sb, {
+        userId: owner.userId,
+        requestId,
+        kind: "admin_ended",
+        domain: owner.domain,
+        reason: r.publicReason ?? null,
+      });
+    }
+  }
+  return result;
 }
 
 const LIFECYCLE_KO: Record<string, string> = {

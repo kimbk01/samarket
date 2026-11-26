@@ -39,6 +39,8 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/community-messenger/trade-chat-list-meta": 15.0,
   "/api/me/mandatory-address-gate": 2.9,
   "/api/cron/delivery-ads-schedule-transitions": 11.0,
+  /** 2026-11-27 광고 B-DB FB-12 — 하루 1회: DB 함수 1회 + 반려 건마다 언어 조회·알림(평소 0건) */
+  "/api/cron/feed-ad-requests-review-expire": 1.0,
   "/api/launch-intro/live": 3.0,
   "/api/me/notification-settings": 3.5,
   "/api/platform-popup/resolve": 2.4,
