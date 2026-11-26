@@ -10,7 +10,7 @@ import { samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
 import { DIBAY_APP_ICON_180_PATH, dibayBrandAssetUrl } from "@/lib/brand/brand-asset-paths";
 import { dibayDomainChromeElementPropsForId } from "@/lib/ui/dibay-domain-chrome";
 import { DibayPtrSlot } from "@/components/ptr/DibayPtrSlot";
-import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import { useClientMembershipRecoveryFailed, useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
 import { useLastRunSnapshot } from "@/hooks/use-last-run-snapshot";
 import { updateLastRunSnapshot } from "@/lib/startup/last-run-snapshot";
@@ -30,15 +30,16 @@ import { HomeBanner } from "@/components/home-hub/HomeBanner";
 import dynamic from "next/dynamic";
 import { HomeServiceCards } from "@/components/home-hub/HomeServiceCards";
 import { HomeInfoStrip } from "@/components/home-hub/HomeInfoStrip";
+import { HomeTelringPlaceholder } from "@/components/home-hub/HomeTelringFrame";
 import { HomeMyActivity } from "@/components/home-hub/HomeMyActivity";
 import { HomeRateCalcStandalone } from "@/components/home-hub/HomeRateCalcSheet";
 import { homePressDelegate, homePressFeedback, homePressPointerDown, prewarmHomePressFeedback } from "@/lib/ui/home-press-feedback";
 import { resolveHomeTopAreas } from "@/lib/home/home-top-areas";
 
-/** ④ telRING 최근 통화 — 통화 모듈을 쓰므로 홈 첫 그림과 나눠 불러온다(자리는 카드 높이로 미리 잡음) */
+/** ④ telRING 최근 통화 — 통화 모듈을 쓰므로 홈 첫 그림과 나눠 불러온다(불러오는 동안 같은 제목 + 회색 줄) */
 const HomeTelringRecent = dynamic(
   () => import("@/components/home-hub/HomeTelringRecent").then((m) => m.HomeTelringRecent),
-  { ssr: false, loading: () => <div className="home-tel home-tel--placeholder" aria-hidden /> }
+  { ssr: false, loading: () => <HomeTelringPlaceholder /> }
 );
 import { HomeNoticeLine } from "@/components/home-hub/HomeNoticeLine";
 import { HomeDiscoverFeed } from "@/components/home-hub/HomeDiscoverFeed";
@@ -85,6 +86,12 @@ export function HomeScreen({
     setAuthCookieHint(hasSupabaseAuthTokenCookie(document.cookie));
   }, []);
   const bannerAudienceMember: boolean | null = membership.status === "checking" ? authCookieHint : isMember;
+  /**
+   * 회원 확인 중이고 기기에 로그인 쿠키가 있으면(또는 아직 못 읽었으면) 회원 칸 자리를 지킨다 —
+   * 비로그인 안내·비회원 기본 날씨를 먼저 그리지 않는다 (2026-11-26 Xiaomi 실측: 로그인 사용자에게 0.8초 로그인 안내).
+   */
+  const membershipRecoveryFailed = useClientMembershipRecoveryFailed();
+  const memberPending = membership.status === "checking" && !membershipRecoveryFailed && authCookieHint !== false;
 
   const reloadLayout = useCallback(async (): Promise<boolean> => {
     try {
@@ -284,6 +291,7 @@ export function HomeScreen({
               <div className="home-r3-cell home-r3-cell--info">
                 <HomeInfoStrip
                   isMember={isMember}
+                  memberPending={memberPending}
                   refreshSeq={refreshSeq}
                   rateCalcOpen={rateCalcOpen}
                   onRateCalcOpenChange={setRateCalcOpen}
@@ -309,7 +317,12 @@ export function HomeScreen({
             {topAreas.hasRule ? <span className="home-r3-rule" aria-hidden /> : null}
             {showTelring ? (
               <div className="home-r3-cell home-r3-cell--ring">
-                <HomeTelringRecent isMember={isMember} refreshSeq={refreshSeq} />
+                <HomeTelringRecent
+                  isMember={isMember}
+                  memberPending={memberPending}
+                  memberCheckFailed={membershipRecoveryFailed}
+                  refreshSeq={refreshSeq}
+                />
               </div>
             ) : null}
             {showMy ? (

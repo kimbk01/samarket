@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Phone, PhoneMissed, Video } from "lucide-react";
+import { Phone, PhoneMissed, Video } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
-import { DIBAY_SERVICE_BRAND } from "@/lib/brand/dibay-service-brand";
 import { buildLoginHref } from "@/lib/auth/client-access-flow";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
@@ -16,12 +15,17 @@ import { fetchCommunityMessengerCallLogsClient } from "@/lib/community-messenger
 import { startCallFromHistory } from "@/lib/community-messenger/call-history/start-call-from-history";
 import { useOwnLiveCall } from "@/lib/call/own-live-call";
 import type { CommunityMessengerCallLog } from "@/lib/community-messenger/types";
+import {
+  HOME_TELRING_RECENT_ROWS,
+  HomeTelringHeadContent,
+  HomeTelringSkeletonList,
+} from "@/components/home-hub/HomeTelringFrame";
 
 
 const CALL_LOGS_HREF = "/community-messenger?section=call_logs";
 const FRIENDS_HREF = "/community-messenger?section=friends";
-/** 홈에서 보이는 줄 수 (시안 v2 §3-5) */
-export const HOME_TELRING_RECENT_ROWS = 3;
+/** 홈에서 보이는 줄 수 (시안 v2 §3-5) — 정의는 `HomeTelringFrame` */
+export { HOME_TELRING_RECENT_ROWS };
 /** 홈 자체 신선도 — 통화 탭 목록의 신선도 기록(`call-logs-freshness`)은 건드리지 않는다 */
 const HOME_CALLS_FRESH_MS = 60_000;
 /** 통화가 끝난 뒤 다시 읽기까지 — 서버 통화 기록 저장 시간 */
@@ -39,7 +43,19 @@ let homeCallsCache: { viewer: string; at: number; calls: CommunityMessengerCallL
  * 통화가 끝나거나 앱이 앞으로 오면 다시 읽는다.
  * 비로그인·빈 상태는 같은 카드 모양.
  */
-export function HomeTelringRecent({ isMember, refreshSeq }: { isMember: boolean; refreshSeq: number }) {
+export function HomeTelringRecent({
+  isMember,
+  memberPending = false,
+  memberCheckFailed = false,
+  refreshSeq,
+}: {
+  isMember: boolean;
+  /** 회원 확인 중 + 기기에 로그인 쿠키 있음 — 비로그인 안내 대신 회색 줄 (2026-11-26 Xiaomi 실측: 로그인 사용자에게 0.8초 로그인 안내) */
+  memberPending?: boolean;
+  /** 회원 확인 재시도 소진(일시 장애) — 비로그인 안내 대신 불러오지 못함 문구 */
+  memberCheckFailed?: boolean;
+  refreshSeq: number;
+}) {
   const { t, language } = useI18n();
   const router = useRouter();
   const live = useOwnLiveCall();
@@ -126,25 +142,9 @@ export function HomeTelringRecent({ isMember, refreshSeq }: { isMember: boolean;
     };
   }, [isMember, load]);
 
-  const brand = DIBAY_SERVICE_BRAND.LETARING;
-  const ringAt = brand.indexOf("RING");
   const head = (
     <button type="button" className="home-tel-head" onClick={() => router.push(CALL_LOGS_HREF)} data-home-telring-head>
-      <span className="home-tel-head-ic" aria-hidden>
-        <Phone className="h-[18px] w-[18px]" strokeWidth={2.4} />
-      </span>
-      <span className="home-tel-head-title">
-        {ringAt > 0 ? (
-          <>
-            {brand.slice(0, ringAt)}
-            <span className="home-tel-ring">{brand.slice(ringAt)}</span>
-          </>
-        ) : (
-          brand
-        )}{" "}
-        {t("home_telring_recent_title")}
-      </span>
-      <ChevronRight className="home-tel-head-chev" strokeWidth={2.4} aria-hidden />
+      <HomeTelringHeadContent />
     </button>
   );
 
@@ -165,7 +165,15 @@ export function HomeTelringRecent({ isMember, refreshSeq }: { isMember: boolean;
   };
 
   let body: React.ReactNode;
-  if (!isMember) {
+  if (!isMember && memberPending) {
+    body = <HomeTelringSkeletonList />;
+  } else if (!isMember && memberCheckFailed) {
+    body = (
+      <div className="home-tel-empty">
+        <p>{t("home_telring_failed")}</p>
+      </div>
+    );
+  } else if (!isMember) {
     body = (
       <div className="home-tel-empty">
         <p>{t("home_telring_guest_body")}</p>
@@ -181,16 +189,7 @@ export function HomeTelringRecent({ isMember, refreshSeq }: { isMember: boolean;
       </div>
     );
   } else if (calls == null) {
-    body = (
-      <ul className="home-tel-list" aria-busy="true">
-        {Array.from({ length: HOME_TELRING_RECENT_ROWS }, (_, i) => (
-          <li key={i} className="home-tel-row home-tel-row--skel">
-            <span className="home-tel-avatar home-skel" />
-            <span className="home-tel-skel-line home-skel" />
-          </li>
-        ))}
-      </ul>
-    );
+    body = <HomeTelringSkeletonList />;
   } else if (calls.length === 0) {
     body = (
       <div className="home-tel-empty">

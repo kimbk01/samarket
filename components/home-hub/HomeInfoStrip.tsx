@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { Cloud, CloudFog, CloudLightning, CloudRain, Sun, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { fetchExchangeRatesViaApp, type ExchangeRates } from "@/lib/exchange/fetchExchangeRates";
@@ -85,13 +85,38 @@ function RateSparkline({ series }: { series: { krw: number }[] }) {
  * 휴대폰 = 연초록 두 칸(🇵🇭⇄🇰🇷 환율 · 지역/☀ 온도 맑음) · 태블릿 = 흰 한 카드(환율 + ▲ 알약 + 꺾은선 │ 날씨).
  * 기준일은 칸에 쓰지 않고 환율 계산 시트 안에만. 환율 칸 누르면 환율 계산 시트.
  */
+/** 마지막으로 받은 환율 — 앱을 새로 열 때 첫 그림부터 보여 주고 새 값으로 바꾼다 (2026-11-26 Xiaomi 실측: 홈이 그려진 뒤 환율 칸 약 0.5초 빈칸) */
+const HOME_RATE_STORE_KEY = "dibay:home:exchange-rates:v1";
+
+function readStoredHomeRate(): ExchangeRates | null {
+  try {
+    const raw = window.localStorage.getItem(HOME_RATE_STORE_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as ExchangeRates | null;
+    return v && typeof v.KRW === "number" && v.KRW > 0 ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeHomeRate(r: ExchangeRates): void {
+  try {
+    window.localStorage.setItem(HOME_RATE_STORE_KEY, JSON.stringify(r));
+  } catch {
+    /* 저장 실패는 무시 — 다음 실행에 빈칸만 남는다 */
+  }
+}
+
 export function HomeInfoStrip({
   isMember,
+  memberPending = false,
   refreshSeq,
   rateCalcOpen,
   onRateCalcOpenChange,
 }: {
   isMember: boolean;
+  /** 회원 확인 중(로그인 쿠키 있음) — 비회원 기본 좌표(마닐라)로 먼저 받지 않는다 */
+  memberPending?: boolean;
   refreshSeq: number;
   rateCalcOpen: boolean;
   onRateCalcOpenChange: (open: boolean) => void;
@@ -111,9 +136,17 @@ export function HomeInfoStrip({
     if (r) {
       setRate(r);
       setRateStatus("ok");
+      storeHomeRate(r);
     } else {
       setRateStatus((s) => (s === "ok" ? s : "fail"));
     }
+  }, []);
+
+  useLayoutEffect(() => {
+    const stored = readStoredHomeRate();
+    if (!stored) return;
+    setRate((cur) => cur ?? stored);
+    setRateStatus((st) => (st === "loading" ? "ok" : st));
   }, []);
 
   useEffect(() => {
@@ -121,6 +154,7 @@ export function HomeInfoStrip({
   }, [loadRate, refreshSeq]);
 
   useEffect(() => {
+    if (memberPending) return;
     let alive = true;
     void (async () => {
       await untilLaunchDestinationSettled();
@@ -154,7 +188,7 @@ export function HomeInfoStrip({
     return () => {
       alive = false;
     };
-  }, [isMember, refreshSeq, defaultPlace]);
+  }, [isMember, memberPending, refreshSeq, defaultPlace]);
 
   const pct = rate ? krwChangePercent(rate.KRW, rate.prevKRW) : null;
   const showWeather = !weatherFailed;
