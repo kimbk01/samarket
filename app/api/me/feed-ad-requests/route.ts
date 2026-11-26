@@ -44,6 +44,8 @@ function mapRequestRow(
     /** D-6: 회원에게 보일 공개 사유 1줄 (내부 메모는 받지 않는다) */
     campaignPublicReason?: string | null;
     holdStatus?: string | null;
+    /** B-DB FB-06: 연장 기록 합계 — pointCost·durationDays 는 처음 신청 그대로 */
+    renewals?: { count: number; days: number; points: number } | null;
   }
 ) {
   const startAt =
@@ -98,6 +100,9 @@ function mapRequestRow(
     startAt,
     endAt,
     holdStatus: extras?.holdStatus ?? null,
+    renewalCount: extras?.renewals?.count ?? 0,
+    renewalDays: extras?.renewals?.days ?? 0,
+    renewalPoints: extras?.renewals?.points ?? 0,
   };
 }
 
@@ -139,8 +144,26 @@ async function getUncached(req: NextRequest): Promise<NextResponse> {
       targetTopicSlug: normalizeFeedAdTopicSlug(req.nextUrl.searchParams.get("topicSlug") || "") || null,
     });
     if (!pool.ok) return NextResponse.json({ ok: false, error: "capacity_check_failed" }, { status: 503 });
+    /**
+     * B-DB FB-12: 같은 위치·대상에 검토 중인 신청 수 — 「남은 자리 n · 검토 중 m」(자리는 승인 때 잡히므로 따로 보인다).
+     * 조회 실패면 null(검토 중 표시만 빠짐 · 남은 자리는 그대로).
+     */
+    let pendingQuery = sb
+      .from("feed_ad_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending_review")
+      .eq("placement", poolPlacement);
+    const poolCategoryId = (req.nextUrl.searchParams.get("categoryId") || "").trim();
+    const poolTopicSlug = normalizeFeedAdTopicSlug(req.nextUrl.searchParams.get("topicSlug") || "");
+    if (poolPlacement === "TRADE_CATEGORY" && poolCategoryId) pendingQuery = pendingQuery.eq("target_category_id", poolCategoryId);
+    if (poolPlacement === "COMMUNITY_TOPIC" && poolTopicSlug) pendingQuery = pendingQuery.eq("target_topic_slug", poolTopicSlug);
+    const pendingRes = await pendingQuery;
+    const pending = pendingRes.error ? null : (pendingRes.count ?? 0);
     return NextResponse.json(
-      { ok: true, pool: { placement: poolPlacement, used: pool.used, capacity: pool.capacity, remaining: pool.remaining } },
+      {
+        ok: true,
+        pool: { placement: poolPlacement, used: pool.used, capacity: pool.capacity, remaining: pool.remaining, pending },
+      },
       { headers: { "Cache-Control": "private, no-store" } }
     );
   }
@@ -174,7 +197,7 @@ async function getUncached(req: NextRequest): Promise<NextResponse> {
     .map((r) => (r.campaign_id != null ? String(r.campaign_id) : ""))
     .filter(Boolean);
 
-  const [{ data: creatives }, { data: campaigns }, { data: holds }] = await Promise.all([
+  const [{ data: creatives }, { data: campaigns }, { data: holds }, { data: renewals }] = await Promise.all([
     ids.length
       ? sb
           .from("feed_ad_request_creatives")
@@ -195,7 +218,22 @@ async function getUncached(req: NextRequest): Promise<NextResponse> {
           .in("request_id", ids)
           .order("created_at", { ascending: false })
       : Promise.resolve({ data: [] as unknown[] }),
+    /** B-DB FB-06: 연장 기록 (표가 없거나 실패하면 빈 목록 — 연장 표시만 빠짐) */
+    ids.length
+      ? sb.from("feed_ad_request_renewals").select("request_id, days, points").in("request_id", ids)
+      : Promise.resolve({ data: [] as unknown[] }),
   ]);
+
+  const renewalsByReq = new Map<string, { count: number; days: number; points: number }>();
+  for (const rw of (renewals ?? []) as { request_id?: unknown; days?: unknown; points?: unknown }[]) {
+    const rid = String(rw.request_id ?? "");
+    if (!rid) continue;
+    const cur = renewalsByReq.get(rid) ?? { count: 0, days: 0, points: 0 };
+    cur.count += 1;
+    cur.days += Math.max(0, Math.floor(Number(rw.days) || 0));
+    cur.points += Math.max(0, Math.floor(Number(rw.points) || 0));
+    renewalsByReq.set(rid, cur);
+  }
 
   const byReq = new Map<string, { sortOrder: number; imageUrl: string; altText: string; headline: string }[]>();
   for (const c of creatives ?? []) {
@@ -253,6 +291,7 @@ async function getUncached(req: NextRequest): Promise<NextResponse> {
       campaignPausedBy: camp?.pausedBy ?? null,
       campaignPublicReason: camp?.publicReason ?? null,
       holdStatus: holdByReq.get(id) ?? null,
+      renewals: renewalsByReq.get(id) ?? null,
     });
   });
 

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 /**
  * POST /api/me/feed-ad-campaigns/[id]/renew
  * Unchanged creative/destination renewal — Point spend + end_at extension.
- * D-01: DB 함수 `member_feed_ad_renew` 한 트랜잭션 · body.expectedCost = 화면이 보여 준 가격 (다르면 409 price_changed).
+ * D-01: DB 함수 `member_feed_ad_renew_v2` 한 트랜잭션 · body.expectedCost = 화면이 보여 준 가격 (다르면 409 price_changed).
  */
 export async function POST(
   req: NextRequest,

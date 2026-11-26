@@ -93,6 +93,10 @@ type Row = {
   placement: string | null;
   duration_days: number | null;
   point_cost: number | null;
+  /** A-DB TB-07: 연장 기록 합계 — 위 기간·금액은 처음 결제 */
+  extension_count?: number;
+  extension_days?: number;
+  extension_points?: number;
   order_status: string;
   overdue: boolean;
   start_at: string | null;
@@ -275,6 +279,15 @@ export function TradePromotionsPage() {
                 </td>
                 <td className={`${COMMUNITY_TD} whitespace-nowrap`}>
                   {t("admin_trade_promo_duration_days", { n: r.duration_days ?? "—" })}
+                  {(r.extension_count ?? 0) > 0 ? (
+                    <div className="text-[12px] text-sam-muted" data-admin-promo-extended={r.extension_count}>
+                      {t("admin_promo_extended", {
+                        count: String(r.extension_count ?? 0),
+                        days: String(r.extension_days ?? 0),
+                        points: formatTradePoints(r.extension_points ?? 0),
+                      })}
+                    </div>
+                  ) : null}
                   <div className="text-[12px] text-sam-muted">
                     {r.start_at ? `${shortDate(r.start_at)} ~ ${shortDate(r.end_at)}` : t("admin_trade_promo_requested_at", { date: shortDate(r.created_at) })}
                   </div>
@@ -395,6 +408,18 @@ function orderRows(t: Translate, r: Row) {
     },
     { label: t("admin_trade_th_points"), value: formatTradePoints(r.point_cost) },
     { label: t("admin_trade_th_status"), value: t(STATUS[r.order_status]?.labelKey ?? "common_need_check") },
+    ...((r.extension_count ?? 0) > 0
+      ? [
+          {
+            label: t("admin_promo_extended_label"),
+            value: t("admin_promo_extended", {
+              count: String(r.extension_count ?? 0),
+              days: String(r.extension_days ?? 0),
+              points: formatTradePoints(r.extension_points ?? 0),
+            }),
+          },
+        ]
+      : []),
   ];
 }
 

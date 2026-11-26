@@ -99,7 +99,7 @@ describe("delivery ad extension money semantics", () => {
     expect(shared).toContain("adminCompensateExtendFeedAdCampaign");
     const renew = readFileSync(join(process.cwd(), "lib/ads/renew-feed-ad-campaign.ts"), "utf8");
     // D-01 (2026-11-07): 차감과 연장이 DB 함수 1번(member_feed_ad_renew) 안 — 「연장됐는데 차감 안 됨」이 구조상 없다
-    expect(renew).toContain('rpc("member_feed_ad_renew"');
+    expect(renew).toContain('rpc("member_feed_ad_renew_v2"');
   });
 
   // 설계 ads-admin-ssot §6 (2026-11-07): 「control plane does not coerce unavailable collision counts」 — 옛 관제 화면 삭제로 시험 대상 없음

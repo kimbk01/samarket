@@ -31,7 +31,7 @@ describe("모든 경로가 같은 검사", () => {
   });
   it("회원 연장 (D-01 · 2026-11-07): 자리 검사·차감·연장은 DB 함수 한 트랜잭션 · 막히면 capacity_full(409) 로 화면에 보인다", () => {
     const renew = read("lib/ads/renew-feed-ad-campaign.ts");
-    expect(renew).toContain('sb.rpc("member_feed_ad_renew"');
+    expect(renew).toContain('sb.rpc("member_feed_ad_renew_v2"');
     expect(renew).toContain("capacity_full: 409");
     // 옛 TS 차감·환급 경로는 없다 (자리 없음이면 DB 가 전체 롤백)
     expect(renew).not.toContain("spendUserPoints");

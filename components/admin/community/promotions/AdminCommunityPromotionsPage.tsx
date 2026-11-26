@@ -56,6 +56,10 @@ type Order = {
   durationDays: number;
   pointCost: number;
   paidPoints: number | null;
+  /** A-DB TB-07: 연장 기록 합계 — durationDays·pointCost 는 처음 결제 */
+  extensionCount?: number;
+  extensionDays?: number;
+  extensionPoints?: number;
   refundPoints: number | null;
   fault: string | null;
   endReasonCode: string | null;
@@ -366,6 +370,18 @@ function orderRows(o: Order, t: Tr, ko: boolean) {
       label: t("admin_community_promo_col_period"),
       value: t("admin_community_promo_period_value", { days: o.durationDays, start: shortDate(o.startAt), end: shortDate(o.endAt) }),
     },
+    ...((o.extensionCount ?? 0) > 0
+      ? [
+          {
+            label: t("admin_promo_extended_label"),
+            value: t("admin_promo_extended", {
+              count: String(o.extensionCount ?? 0),
+              days: String(o.extensionDays ?? 0),
+              points: formatCommunityPoints(o.extensionPoints ?? 0),
+            }),
+          },
+        ]
+      : []),
     { label: t("admin_community_promo_col_paid"), value: formatCommunityPoints(o.paidPoints ?? o.pointCost) },
     { label: t("admin_community_promo_col_status"), value: adminCommunityLabel("promotion_status", o.orderStatus, ko).label },
   ];

@@ -113,7 +113,12 @@ export default function MemberFeedAdRequestPage() {
   } | null>(null);
   const [destMode, setDestMode] = useState<DestMode>("own_content");
   /** D-7 ①②: 남은 자리 안내(위치+업종/주제 · 서버 신청 재검사와 같은 함수) — null = 아직 모름 */
-  const [poolRemaining, setPoolRemaining] = useState<{ remaining: number; capacity: number } | null>(null);
+  const [poolRemaining, setPoolRemaining] = useState<{
+    remaining: number;
+    capacity: number;
+    /** B-DB FB-12: 같은 위치·대상 검토 중 신청 수 (확인 못 하면 null) */
+    pending: number | null;
+  } | null>(null);
   const [destUrl, setDestUrl] = useState("");
   const [ownKind, setOwnKind] = useState<OwnKind>("community_post");
   const [ownId, setOwnId] = useState("");
@@ -335,10 +340,17 @@ export default function MemberFeedAdRequestPage() {
     if (placement === "COMMUNITY_TOPIC") qs.set("topicSlug", topicSlug.trim());
     fetch(`/api/me/feed-ad-requests?${qs.toString()}`, { credentials: "include", cache: "no-store" })
       .then(async (res) => {
-        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; pool?: { remaining?: number; capacity?: number } };
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          pool?: { remaining?: number; capacity?: number; pending?: number | null };
+        };
         if (cancelled) return;
         if (res.ok && j.ok && j.pool && typeof j.pool.remaining === "number") {
-          setPoolRemaining({ remaining: j.pool.remaining, capacity: Number(j.pool.capacity ?? 3) });
+          setPoolRemaining({
+            remaining: j.pool.remaining,
+            capacity: Number(j.pool.capacity ?? 3),
+            pending: typeof j.pool.pending === "number" ? j.pool.pending : null,
+          });
         } else {
           setPoolRemaining(null);
         }
@@ -580,7 +592,7 @@ export default function MemberFeedAdRequestPage() {
           });
           return;
         }
-        if (code === "capacity_full") setPoolRemaining((p) => (p ? { ...p, remaining: 0 } : { remaining: 0, capacity: 3 }));
+        if (code === "capacity_full") setPoolRemaining((p) => (p ? { ...p, remaining: 0 } : { remaining: 0, capacity: 3, pending: null }));
         setErr(msg);
         showMypageToast(msg, "error");
         return;
@@ -778,6 +790,16 @@ export default function MemberFeedAdRequestPage() {
               {poolRemaining.remaining > 0
                 ? t("mypage_ads_spots_left", { remaining: poolRemaining.remaining, capacity: poolRemaining.capacity })
                 : t("mypage_ads_spot_full_apply_later")}
+            </p>
+          ) : null}
+          {/* B-DB FB-12: 검토 중 신청 수 — 자리는 승인 때 잡히므로 남은 자리와 따로 보인다 */}
+          {poolRemaining && (poolRemaining.pending ?? 0) > 0 ? (
+            <p
+              data-testid="feed-ad-pool-pending"
+              data-pending={String(poolRemaining.pending)}
+              className="sam-text-helper text-sam-muted"
+            >
+              {t("mypage_ads_pool_pending_review", { count: String(poolRemaining.pending) })}
             </p>
           ) : null}
           <p className="sam-text-helper text-sam-muted" data-testid="feed-ad-pool-refund-note">
