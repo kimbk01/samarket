@@ -11,6 +11,7 @@
 | 시험 표지 | `lib/perf/test-traffic.ts` | 사무실 시험 기기 UA·시험 계정 목록 |
 | 호출 계수기 | `lib/perf/supabase-call-counter.ts` · `lib/perf/install-supabase-call-counter.server.ts` · `instrumentation.ts` | 운영 서버 fetch 를 감싸 Supabase 호출을 라우트별로 세고 5분마다 `cm_monitoring_rollup_hourly` 에 저장 |
 | 하루 감시 | `app/api/cron/request-budget-watch` · `lib/perf/request-budget-watch*.ts` · `lib/perf/request-budget-vercel-usage.server.ts` · `vercel.json` (`0 1 * * *` = 09:00 PHT) | 직전 하루를 예산과 비교, 넘친 경우에만 관리자 알림 1건. 판정 측정은 아래 「2-1」 |
+| 매시 이상 감시 (D4 · 2026-11-26 Owner 「순서 승인」) | `app/api/cron/hourly-anomaly-watch` · `lib/perf/hourly-anomaly-watch*.ts` · `vercel.json` (`7 * * * *`) | 직전 1시간: ① 플랫폼별 실시간 재시도 ≥200 이고 성공의 3배 이상(`realtime.subscription` 집계, 토큰 불필요) ② 방 경로 1개 요청 ≥120/h(Vercel `request_path`, `VERCEL_OBSERVABILITY_TOKEN` 필요 — 없으면 건너뜀). 이상 시 관리자 알림, 대상별 하루 1건. 요청당 비용 감시가 못 잡는 「요청 수만 느는 반복」용 |
 
 ## 2-1. 판정 측정 (2026-11-26 · Owner 「C·D 승인」)
 
