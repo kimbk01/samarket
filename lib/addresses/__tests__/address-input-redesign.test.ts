@@ -93,10 +93,19 @@ describe("저장 화면 (4·6번)", () => {
     expect(general).not.toContain("landmarkRef");
     expect(general).toContain('role="radiogroup"');
   });
-  it("A2 — 배달 버튼 줄은 공통 키보드 측정으로 키보드 위, 일반 저장은 본문 안", () => {
+  it("A2 — 배달 버튼 줄은 공통 키보드 측정으로 키보드 위", () => {
     const delivery = src.slice(src.indexOf("/** 시안 6번"), src.indexOf("/** 시안 4번"));
     expect(delivery).toContain('data-form-keyboard-footer="1"');
     expect(delivery).toContain("effectiveBottomInset");
+  });
+  it("일반 주소 [저장]도 하단 고정 바 — 키보드 위 (2026-11-27 가입 재감사 시안 ⑤)", () => {
+    const general = src.slice(src.indexOf("/** 시안 4번"));
+    const bar = general.indexOf('data-form-keyboard-footer="1"');
+    expect(bar).toBeGreaterThan(-1);
+    expect(general).toContain("paddingBottom: `${effectiveBottomInset}px`");
+    expect(general.indexOf('data-testid="address-detail-save"')).toBeGreaterThan(bar);
+    expect(general).toContain("MY_STICKY_CTA_PRIMARY_BUTTON_CLASS");
+    expect(general).not.toContain("disabled:opacity-50");
   });
 });
 

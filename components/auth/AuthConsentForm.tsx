@@ -1,10 +1,10 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { DibayOnboardingOverlayShell } from "@/components/auth/DibayOnboardingOverlayShell";
+import { RegistrationPageShell } from "@/components/auth/RegistrationPageShell";
+import { MY_STICKY_CTA_PRIMARY_BUTTON_CLASS } from "@/components/mypage/ds/MyStickyCta";
 import { ConsentLegalDocSheet } from "@/components/legal/ConsentLegalDocSheet";
 import { AUTH_GATE_DIALOG_Z_CLASS } from "@/components/auth/AuthGateOverlay";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -28,18 +28,7 @@ import type { RequiredConsentGap } from "@/lib/legal/has-required-member-consent
 import type { AppLegalKind } from "@/lib/legal/app-legal-documents";
 import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
-import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
-import { MYPAGE_HOME_ACCOUNT_LEAVE_HREF } from "@/lib/mypage/mypage-home-hub-links";
-import { CUSTOMER_CENTER_HREF } from "@/lib/mypage/customer-center-paths";
-import {
-  DIBAY_ONBOARDING_CHECKBOX_CLASS,
-  DIBAY_ONBOARDING_CHECKBOX_PANEL_CLASS,
-  DIBAY_ONBOARDING_ERROR_CLASS,
-  DIBAY_ONBOARDING_LABEL_CLASS,
-  DIBAY_ONBOARDING_LINK_CLASS,
-  DIBAY_ONBOARDING_NOTICE_CLASS,
-  DIBAY_ONBOARDING_PRIMARY_BTN,
-} from "@/lib/ui/dibay-onboarding-styles";
+import { DIBAY_ONBOARDING_NOTICE_CLASS } from "@/lib/ui/dibay-onboarding-styles";
 
 /**
  * Owner-approved consent UX (mockup 2026-11-05).
@@ -138,7 +127,7 @@ export function AuthConsentForm({
 
   const tagReq = useMemo(
     () => (
-      <span className="mr-1 inline-block rounded-ui-rect bg-sam-primary-soft px-1.5 py-0.5 text-[11px] font-extrabold text-sam-primary">
+      <span className={`${CONSENT_TAG_CLASS} bg-sam-primary-soft text-sam-primary`}>
         {t("auth_consent_tag_required")}
       </span>
     ),
@@ -146,7 +135,7 @@ export function AuthConsentForm({
   );
   const tagOpt = useMemo(
     () => (
-      <span className="mr-1 inline-block rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 text-[11px] font-extrabold text-sam-muted">
+      <span className={`${CONSENT_TAG_CLASS} border border-sam-border text-sam-muted`}>
         {t("auth_consent_tag_optional")}
       </span>
     ),
@@ -187,7 +176,10 @@ export function AuthConsentForm({
           ...(needsAge ? { attestAge: true, dateOfBirth } : {}),
           ...(marketing ? { agreeMarketing, marketingVersion: marketing.version } : {}),
           ...(shownVersions
-            ? { termsVersion: shownVersions.termsVersion, privacyVersion: shownVersions.privacyVersion }
+            ? {
+                termsVersion: shownVersions.termsVersion,
+                privacyVersion: shownVersions.privacyVersion,
+              }
             : {}),
         }),
       });
@@ -228,7 +220,10 @@ export function AuthConsentForm({
       }
       if (!res.ok || !data?.ok) {
         // 서버 원문·코드는 화면에 노출하지 않는다 — 로그로만 (§5.6).
-        console.warn("[auth-consent] save failed", { status: res.status, code: data?.code ?? null });
+        console.warn("[auth-consent] save failed", {
+          status: res.status,
+          code: data?.code ?? null,
+        });
         setError(t("auth_consent_save_failed"));
         return;
       }
@@ -303,30 +298,35 @@ export function AuthConsentForm({
 
   const showAllToggle = [needsLegal, needsAge, Boolean(marketing)].filter(Boolean).length > 1;
 
+  /** 하단 왼쪽 출구 — 이미 가입한 회원(재동의·나이 확인)은 「로그아웃」, 신규 가입은 「가입 취소」 (동작 같음) */
+  const exitKind = priorConsent ? "reconsent_logout" : "signup_cancel";
+
   return (
     <>
-      <DibayOnboardingOverlayShell
+      <RegistrationPageShell
+        topTitle={priorConsent ? t("auth_consent_title") : undefined}
         title={title}
         description={description}
         titleId="dibay-onboarding-consent-title"
-        descriptionId="dibay-onboarding-consent-desc"
-        footer={
-          <>
-            {error ? (
-              <p className={`mb-3 ${DIBAY_ONBOARDING_ERROR_CLASS}`} role="alert">
-                {error}
-              </p>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => void handleSubmit()}
-              disabled={submitting}
-              className={DIBAY_ONBOARDING_PRIMARY_BTN}
-              data-testid="auth-consent-submit"
-            >
-              {submitting ? t("auth_consent_submitting") : t("auth_consent_submit")}
-            </button>
-          </>
+        exit={exitKind}
+        showLeaveLink
+        footerNote={
+          error ? (
+            <p className="text-[12px] leading-[1.4] text-sam-danger" role="alert">
+              {error}
+            </p>
+          ) : null
+        }
+        primaryAction={
+          <button
+            type="button"
+            onClick={() => void handleSubmit()}
+            disabled={submitting}
+            className={`${MY_STICKY_CTA_PRIMARY_BUTTON_CLASS} sam-press`}
+            data-testid="auth-consent-submit"
+          >
+            {submitting ? t("auth_consent_submitting") : t("auth_consent_submit")}
+          </button>
         }
       >
         {isReconsent && shownVersions ? (
@@ -336,27 +336,27 @@ export function AuthConsentForm({
         ) : null}
 
         {showAllToggle ? (
-          <div className={DIBAY_ONBOARDING_CHECKBOX_PANEL_CLASS}>
-            <label className="flex min-h-[44px] items-start gap-3">
-              <input
-                type="checkbox"
-                checked={agreeAll}
-                onChange={(e) => onToggleAll(e.target.checked)}
-                className={DIBAY_ONBOARDING_CHECKBOX_CLASS}
-              />
-              <span className={DIBAY_ONBOARDING_LABEL_CLASS}>
-                <span className="font-semibold">{t("auth_consent_all_label")}</span>
-                <span className="mt-0.5 block text-[12px] text-sam-muted">{t("auth_consent_all_hint")}</span>
+          <label className={`${CONSENT_ROW_CLASS} mt-3.5 !border-b-2`}>
+            <input
+              type="checkbox"
+              checked={agreeAll}
+              onChange={(e) => onToggleAll(e.target.checked)}
+              className={CONSENT_CHECKBOX_CLASS}
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[16px] font-bold leading-[1.4] text-sam-fg">
+                {t("auth_consent_all_label")}
               </span>
-            </label>
-          </div>
+              <span className={CONSENT_HINT_CLASS}>{t("auth_consent_all_hint")}</span>
+            </span>
+          </label>
         ) : null}
 
-        <p className="mb-2 mt-4 text-[12px] font-bold text-sam-muted">{t("auth_consent_section_required")}</p>
-        <div className={DIBAY_ONBOARDING_CHECKBOX_PANEL_CLASS}>
-          {needsLegal ? (
-            <div ref={legalBlockRef}>
-              <label className="flex min-h-[44px] items-start gap-3">
+        <p className={CONSENT_SECTION_CLASS}>{t("auth_consent_section_required")}</p>
+        {needsLegal ? (
+          <div ref={legalBlockRef}>
+            <div className={CONSENT_ROW_CLASS}>
+              <label className="flex min-w-0 flex-1 items-start gap-2">
                 <input
                   type="checkbox"
                   checked={agreeTerms}
@@ -365,17 +365,19 @@ export function AuthConsentForm({
                     setAgreeTerms(v);
                     syncAllFromParts(v, agreePrivacy, attestAge, agreeMarketing);
                   }}
-                  className={DIBAY_ONBOARDING_CHECKBOX_CLASS}
+                  className={CONSENT_CHECKBOX_CLASS}
                 />
-                <span className={DIBAY_ONBOARDING_LABEL_CLASS}>
+                <span className={CONSENT_LABEL_CLASS}>
                   {tagReq}
-                  {t("auth_consent_terms_label")}{" "}
-                  <button type="button" className={DIBAY_ONBOARDING_LINK_CLASS} onClick={() => setSheetKind("terms")}>
-                    {t("auth_consent_terms_link")}
-                  </button>
+                  {t("auth_consent_terms_label")}
                 </span>
               </label>
-              <label className="flex min-h-[44px] items-start gap-3">
+              <button type="button" className={CONSENT_VIEW_BTN_CLASS} onClick={() => setSheetKind("terms")}>
+                {t("auth_consent_terms_link")}
+              </button>
+            </div>
+            <div className={CONSENT_ROW_CLASS}>
+              <label className="flex min-w-0 flex-1 items-start gap-2">
                 <input
                   type="checkbox"
                   checked={agreePrivacy}
@@ -384,44 +386,45 @@ export function AuthConsentForm({
                     setAgreePrivacy(v);
                     syncAllFromParts(agreeTerms, v, attestAge, agreeMarketing);
                   }}
-                  className={DIBAY_ONBOARDING_CHECKBOX_CLASS}
+                  className={CONSENT_CHECKBOX_CLASS}
                 />
-                <span className={DIBAY_ONBOARDING_LABEL_CLASS}>
+                <span className={CONSENT_LABEL_CLASS}>
                   {tagReq}
-                  {t("auth_consent_privacy_collect_label")}{" "}
-                  <button type="button" className={DIBAY_ONBOARDING_LINK_CLASS} onClick={() => setSheetKind("privacy")}>
-                    {t("auth_consent_privacy_link")}
-                  </button>
-                  <span className="mt-0.5 block text-[12px] text-sam-muted">{t("auth_consent_privacy_collect_hint")}</span>
+                  {t("auth_consent_privacy_collect_label")}
+                  <span className={CONSENT_HINT_CLASS}>{t("auth_consent_privacy_collect_hint")}</span>
                 </span>
               </label>
+              <button type="button" className={CONSENT_VIEW_BTN_CLASS} onClick={() => setSheetKind("privacy")}>
+                {t("auth_consent_privacy_link")}
+              </button>
             </div>
-          ) : null}
+          </div>
+        ) : null}
 
-          {needsAge ? (
-            <div ref={ageBlockRef}>
-              <label className="flex min-h-[44px] items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={attestAge}
-                  onChange={(e) => {
-                    const v = e.target.checked;
-                    setAttestAge(v);
-                    syncAllFromParts(agreeTerms, agreePrivacy, v, agreeMarketing);
-                  }}
-                  className={DIBAY_ONBOARDING_CHECKBOX_CLASS}
-                />
-                <span className={DIBAY_ONBOARDING_LABEL_CLASS}>
-                  {tagReq}
-                  {safeT("auth_consent_age_label")}
-                  <span className="mt-0.5 block text-[12px] text-sam-muted">
-                    {safeT("auth_consent_age_hint")}
-                  </span>
-                </span>
-              </label>
+        {needsAge ? (
+          <div ref={ageBlockRef} className="border-b border-sam-border pb-3">
+            <label className="flex min-h-[48px] items-start gap-2 py-3">
+              <input
+                type="checkbox"
+                checked={attestAge}
+                onChange={(e) => {
+                  const v = e.target.checked;
+                  setAttestAge(v);
+                  syncAllFromParts(agreeTerms, agreePrivacy, v, agreeMarketing);
+                }}
+                className={CONSENT_CHECKBOX_CLASS}
+              />
+              <span className={CONSENT_LABEL_CLASS}>
+                {tagReq}
+                {safeT("auth_consent_age_label")}
+                <span className={CONSENT_HINT_CLASS}>{safeT("auth_consent_age_hint")}</span>
+              </span>
+            </label>
 
-              <fieldset className="mt-2 block min-w-0 space-y-1" data-testid="auth-consent-dob">
-                <legend className="text-[12px] font-bold text-sam-muted">
+            {/* 들여쓰기 = 체크(22)+간격(8) — fieldset 은 전역 padding 초기화가 유틸리티를 이겨 바깥 div 로 준다 */}
+            <div className="pl-[30px]">
+              <fieldset className="block min-w-0 space-y-1" data-testid="auth-consent-dob">
+                <legend className="mb-1 text-[12px] font-semibold text-sam-muted">
                   {safeT("auth_consent_dob_label")}
                 </legend>
                 <div className="grid grid-cols-[1.4fr_1fr_1fr] gap-2">
@@ -449,7 +452,9 @@ export function AuthConsentForm({
                     <option value="">{safeT("auth_consent_dob_month")}</option>
                     {Array.from({ length: 12 }, (_, i) => pad2(i + 1)).map((m) => (
                       <option key={m} value={m}>
-                        {t("auth_consent_dob_month_option", { month: Number(m) })}
+                        {t("auth_consent_dob_month_option", {
+                          month: Number(m),
+                        })}
                       </option>
                     ))}
                   </select>
@@ -470,14 +475,14 @@ export function AuthConsentForm({
                 </div>
               </fieldset>
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         {marketing ? (
           <>
-            <p className="mb-2 mt-4 text-[12px] font-bold text-sam-muted">{t("auth_consent_section_optional")}</p>
-            <div className={DIBAY_ONBOARDING_CHECKBOX_PANEL_CLASS}>
-              <label className="flex min-h-[44px] items-start gap-3" data-auth-consent-marketing>
+            <p className={CONSENT_SECTION_CLASS}>{t("auth_consent_section_optional")}</p>
+            <div className={CONSENT_ROW_CLASS} data-auth-consent-marketing>
+              <label className="flex min-w-0 flex-1 items-start gap-2">
                 <input
                   type="checkbox"
                   checked={agreeMarketing}
@@ -486,48 +491,25 @@ export function AuthConsentForm({
                     setAgreeMarketing(v);
                     syncAllFromParts(agreeTerms, agreePrivacy, attestAge, v);
                   }}
-                  className={DIBAY_ONBOARDING_CHECKBOX_CLASS}
+                  className={CONSENT_CHECKBOX_CLASS}
                 />
-                <span className={DIBAY_ONBOARDING_LABEL_CLASS}>
+                <span className={CONSENT_LABEL_CLASS}>
                   {tagOpt}
-                  {language === "en" ? marketing.title.en : marketing.title.ko}{" "}
-                  <button
-                    type="button"
-                    className={DIBAY_ONBOARDING_LINK_CLASS}
-                    onClick={() => setSheetKind("marketing")}
-                  >
-                    {t("auth_consent_marketing_link")}
-                  </button>
+                  {language === "en" ? marketing.title.en : marketing.title.ko}
                 </span>
               </label>
+              <button type="button" className={CONSENT_VIEW_BTN_CLASS} onClick={() => setSheetKind("marketing")}>
+                {t("auth_consent_marketing_link")}
+              </button>
             </div>
-            <div className={`mt-4 ${DIBAY_ONBOARDING_NOTICE_CLASS}`}>{t("auth_consent_feature_notice")}</div>
+            <p className={`${CONSENT_HINT_CLASS} !mt-2`}>{t("auth_consent_feature_notice")}</p>
           </>
         ) : null}
 
-        <div className={`mt-3 ${DIBAY_ONBOARDING_NOTICE_CLASS}`}>{t("auth_consent_safety_notice")}</div>
-
-        <div className="mt-5 border-t border-sam-border pt-4" data-auth-consent-escape>
-          <p className="text-[12px] text-sam-muted">{t("auth_consent_escape_hint")}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-            <Link
-              href={CUSTOMER_CENTER_HREF}
-              className={`inline-flex min-h-[44px] items-center ${DIBAY_ONBOARDING_LINK_CLASS}`}
-            >
-              {t("auth_consent_escape_support")}
-            </Link>
-            <Link
-              href={MYPAGE_HOME_ACCOUNT_LEAVE_HREF}
-              className={`inline-flex min-h-[44px] items-center ${DIBAY_ONBOARDING_LINK_CLASS}`}
-            >
-              {t("auth_consent_escape_leave")}
-            </Link>
-            <span className="inline-flex min-h-[44px] items-center">
-              <LogoutActionTrigger variant="text_link" confirmZIndexClass={AUTH_GATE_DIALOG_Z_CLASS} />
-            </span>
-          </div>
-        </div>
-      </DibayOnboardingOverlayShell>
+        <p className={`${CONSENT_HINT_CLASS} !mt-3`} data-auth-consent-safety>
+          {t("auth_consent_safety_notice")}
+        </p>
+      </RegistrationPageShell>
 
       <ConsentLegalDocSheet
         open={sheetKind != null}
@@ -539,8 +521,24 @@ export function AuthConsentForm({
   );
 }
 
+/**
+ * 동의 화면 모양 — 시안 v3 (2026-11-27 · 전체 화면) · 앱 글자(16·15·14·12)·sam 색 · 체크 22px · 누르는 높이 44 이상.
+ * 줄 = 흰 바탕 + 아래 구분선 (베이지 상자 제거). [보기] = 줄 오른쪽 44px 글자 버튼.
+ */
+const CONSENT_ROW_CLASS = "flex min-h-[48px] items-start gap-2 border-b border-sam-border py-3";
+const CONSENT_CHECKBOX_CLASS = "mt-[1px] h-[22px] w-[22px] shrink-0 accent-[var(--sam-primary)]";
+const CONSENT_LABEL_CLASS =
+  "min-w-0 flex-1 text-[15px] font-medium leading-[1.5] text-sam-fg [word-break:keep-all] [overflow-wrap:anywhere]";
+const CONSENT_HINT_CLASS =
+  "mt-0.5 block text-[12px] font-normal leading-[1.4] text-sam-muted [word-break:keep-all] [overflow-wrap:anywhere]";
+const CONSENT_SECTION_CLASS = "mt-[18px] text-[12px] font-bold text-sam-muted";
+const CONSENT_TAG_CLASS =
+  "mr-1.5 inline-flex h-5 items-center rounded-ui-rect px-1.5 align-[1px] text-[12px] font-semibold leading-none";
+const CONSENT_VIEW_BTN_CLASS =
+  "-my-2.5 inline-flex min-h-[44px] shrink-0 items-center px-1 text-[12px] font-semibold text-sam-muted underline underline-offset-2";
+
 const DOB_SELECT_CLASS =
-  "block min-h-[44px] w-full min-w-0 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-[15px] text-sam-fg";
+  "block min-h-[44px] w-full min-w-0 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-[14px] text-sam-fg";
 
 const DOB_MIN_YEAR = 1900;
 

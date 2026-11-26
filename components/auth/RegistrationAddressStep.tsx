@@ -3,13 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { DibayOnboardingOverlayShell } from "@/components/auth/DibayOnboardingOverlayShell";
-import { RegistrationStepEscape } from "@/components/auth/RegistrationStepLater";
+import { RegistrationPageShell } from "@/components/auth/RegistrationPageShell";
+import { MY_STICKY_CTA_PRIMARY_BUTTON_CLASS } from "@/components/mypage/ds/MyStickyCta";
 import { buildAddressEditHref } from "@/lib/auth/client-access-flow";
 import { DIBAY_REGISTRATION_STEP_PATH, registrationStepHref } from "@/lib/auth/dibay-registration-steps";
 import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
-import { DIBAY_ONBOARDING_PRIMARY_BTN } from "@/lib/ui/dibay-onboarding-styles";
 
 /**
  * 가입 단계 — 대표 주소 등록. 주소 등록 방법은 기존 주소 흐름(`/mypage/addresses` → 검색·지도·저장) 그대로 —
@@ -49,24 +48,21 @@ export function RegistrationAddressStep({ next }: { next: string }) {
   }, [leaving, next, router]);
 
   return (
-    <DibayOnboardingOverlayShell
+    <RegistrationPageShell
       title={t("auth_reg_address_title")}
       description={t("auth_reg_address_intro")}
       titleId="dibay-registration-address-title"
-      descriptionId="dibay-registration-address-desc"
-      footer={
+      primaryAction={
         <button
           type="button"
           onClick={onRegister}
           disabled={leaving}
-          className={DIBAY_ONBOARDING_PRIMARY_BTN}
+          className={`${MY_STICKY_CTA_PRIMARY_BUTTON_CLASS} sam-press`}
           data-testid="registration-address-start"
         >
           {t("auth_reg_address_cta")}
         </button>
       }
-    >
-      <RegistrationStepEscape />
-    </DibayOnboardingOverlayShell>
+    />
   );
 }

@@ -16,17 +16,23 @@ import {
 } from "@/lib/auth/auth-exit-coordinator";
 import { logoutDiBaYAllDevices } from "@/lib/auth/logout";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { MY_STICKY_CTA_SECONDARY_BUTTON_CLASS } from "@/components/mypage/ds/MyStickyCta";
 import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenuRow";
 import type { MypageLogoutDangerVariant } from "@/lib/mypage/mypage-authority-contract";
 
 type LogoutActionTriggerProps = {
   /** Prefer Danger kinds on Member surfaces. Profile hub: `danger_button` | `menu_row` only. */
-  variant?: MypageLogoutDangerVariant | "outlined_button" | "text_link";
+  /** `sticky_secondary` = 화면 하단 고정 줄 보조 버튼(앱 버튼 46·4·14, `MyStickyCta`) — 가입 단계 [가입 취소] (2026-11-27 시안 v3). */
+  variant?: MypageLogoutDangerVariant | "outlined_button" | "text_link" | "sticky_secondary";
   surface?: "card" | "grouped";
   label?: string;
   autoOpen?: boolean;
   /** 확인 모달 z-index — 기본 다이얼로그 층보다 위 표면에서만 지정 (관리자 가로 가드). */
   confirmZIndexClass?: string;
+  /** 확인창 제목·설명 — 없으면 기본 「로그아웃할까요?」 */
+  confirmTitle?: string;
+  confirmBody?: string;
+  testId?: string;
 };
 
 export function LogoutActionTrigger({
@@ -35,6 +41,9 @@ export function LogoutActionTrigger({
   label: labelProp,
   autoOpen = false,
   confirmZIndexClass,
+  confirmTitle,
+  confirmBody,
+  testId,
 }: LogoutActionTriggerProps) {
   const { t } = useI18n();
   const label = labelProp ?? t("auth_logout_submit");
@@ -85,8 +94,11 @@ export function LogoutActionTrigger({
             setError((prev) => (prev === null ? prev : null));
             setOpen((prev) => (prev ? prev : true));
           }}
+          data-testid={testId}
           className={
-            variant === "text_link"
+            variant === "sticky_secondary"
+              ? MY_STICKY_CTA_SECONDARY_BUTTON_CLASS
+              : variant === "text_link"
               ? "shrink-0 text-[13px] font-semibold text-sam-danger underline-offset-2 hover:underline active:opacity-80"
               : variant === "outlined_button"
               ? "w-full rounded-ui-rect border border-sam-border py-3 sam-text-body font-medium text-ui-muted transition-transform duration-100 active:scale-[0.985] active:brightness-95"
@@ -101,6 +113,8 @@ export function LogoutActionTrigger({
         submitting={submitting}
         error={error}
         zIndexClass={confirmZIndexClass}
+        title={confirmTitle}
+        body={confirmBody}
         onCancel={() => setOpen(false)}
         onConfirm={handleLogout}
       />

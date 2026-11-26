@@ -68,8 +68,8 @@ describe("A3·A5 돌아갈 화면 단일 판정", () => {
 describe("A1 가입 팝업 위 확인창", () => {
   it("로그아웃 확인·이 계정 지우기·약관 문서가 팝업(1310)보다 위 순서를 쓴다", () => {
     expect(read("components/auth/AuthGateOverlay.tsx")).toContain('AUTH_GATE_DIALOG_Z_CLASS = "z-[1315]"');
-    expect(read("components/auth/RegistrationStepLater.tsx")).toContain("confirmZIndexClass={AUTH_GATE_DIALOG_Z_CLASS}");
-    expect(read("components/auth/AuthConsentForm.tsx")).toContain("confirmZIndexClass={AUTH_GATE_DIALOG_Z_CLASS}");
+    // 가입 취소(로그아웃) 확인창 = 가입 전체 화면 하단 줄 한 곳 (2026-11-27 시안 v3 — 팝업이 아니라 기본 확인창 층으로 충분)
+    expect(read("components/auth/RegistrationPageShell.tsx")).toContain("<LogoutActionTrigger");
     expect(read("components/auth/AuthConsentForm.tsx")).toContain("zIndexClass={AUTH_GATE_DIALOG_Z_CLASS}");
     expect(read("components/auth/RegistrationPhoneStep.tsx")).toContain("zIndexClass: AUTH_GATE_DIALOG_Z_CLASS");
     expect(read("components/ui/dibay-overlay/DibayAppDialogProvider.tsx")).toContain("zIndexClass={confirmState?.zIndexClass}");

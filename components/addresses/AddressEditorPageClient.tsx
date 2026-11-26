@@ -40,7 +40,8 @@ import {
 } from "@/lib/addresses/canonical-address-draft-storage";
 import { draftFromSavedRow, resolveCanonicalAddressFromLatLng } from "@/lib/addresses/canonical-address-resolver";
 import type { CanonicalAddressDraft } from "@/lib/addresses/canonical-address-draft";
-import { writeAddressFlowExitHref } from "@/lib/addresses/mypage-address-flow-exit";
+import { clearAddressFlowExitHref, writeAddressFlowExitHref } from "@/lib/addresses/mypage-address-flow-exit";
+import { isRegistrationStepPath } from "@/lib/auth/dibay-registration-steps";
 import {
   MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS,
 } from "@/lib/addresses/mypage-address-manage-layout";
@@ -282,7 +283,12 @@ function AddressEditorPageInner() {
             await commitUserAddressListAfterMutation();
             invalidateMypageSummary();
           } finally {
-            if (returnTo) writeAddressFlowExitHref(returnTo);
+            /**
+             * 가입 단계(대표 주소)로 돌아갈 때는 주소 흐름 기록을 남기지 않는다 — 가입 단계 화면이 서버 판정으로 다음 화면을 정하고,
+             * 남은 기록 때문에 가입을 마친 뒤 내정보 › 주소의 뒤로·주소 고르기가 가입 단계 주소로 가던 결함(2026-11-27 재감사 A1).
+             */
+            if (returnTo && isRegistrationStepPath(returnTo)) clearAddressFlowExitHref();
+            else if (returnTo) writeAddressFlowExitHref(returnTo);
             router.replace(returnTo || addressesListHref);
           }
         }}
