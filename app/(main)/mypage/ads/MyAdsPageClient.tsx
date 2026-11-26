@@ -1,6 +1,6 @@
 "use client";
 
-import { DibaySpinner } from "@/components/ui/DibaySpinner";
+import { DibayPendingSpinner, DibaySpinner } from "@/components/ui/DibaySpinner";
 import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { MyTabs } from "@/components/mypage/ds/MyTabs";
 import Link from "next/link";
@@ -889,7 +889,7 @@ export default function MyAdsPageClient() {
             {safeT("feed_ad_renew_hint")}
           </p>
           {renewCatalogState === "loading" ? (
-            <p className={OverlayUi.caption}>{t("common_loading")}</p>
+            <DibayPendingSpinner layout="inline" />
           ) : renewCatalogState === "failed" && renewTarget ? (
             <div role="status" data-testid="feed-ad-renew-catalog-failed">
               <p className={OverlayUi.bodySecondary}>{t("feed_ad_products_load_failed")}</p>

@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { ChevronRight, Check, X } from "lucide-react";
 import { HeaderBackRoundButton } from "@/components/navigation/HeaderBackRoundButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -351,7 +352,9 @@ function SupportAdPricingView({
             </button>
           </div>
         ) : !guide ? (
-          <p className="py-6 text-center text-[13px] text-[var(--overlay-text-secondary)]">{t("common_loading")}</p>
+          <div className="py-6">
+            <DibayPendingSpinner layout="inline" />
+          </div>
         ) : (
           <AdPricingGuideTable guide={guide} tab={tab} onTabChange={setTab} />
         )}
