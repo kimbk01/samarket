@@ -117,7 +117,7 @@
 | 동작 | 구현 |
 |---|---|
 | 데이터 | 기존 `GET /api/community-messenger/calls` 첫 페이지 앞 3건 (기존 클라이언트, 60초 신선도). 사진 `peerAvatarUrl` · 이름 `peerLabel` · 종류 `callKind` · 상태 `status` · 시간 `durationSeconds` · 시각 `startedAt` — 전부 이미 응답에 있음 |
-| 문구 | 기존 통화 목록 표시 함수(`presentCallHistoryRow`·통화 시간 문구) 그대로 |
+| 문구 | 시안대로 「영상 통화 12분」·「음성 통화 25분」·「부재중 통화」, 통화 시간 없는 기록은 「음성 통화 · 거절」 (2026-11-26 감사 결함 3 · Owner 「3건 고쳐」). 상태 판정·시간 값은 기존 `presentCallHistoryRow` |
 | 머리 › / 줄 누르면 | 머리 ›·줄 모두 통화 목록(`/community-messenger?section=call_logs`). 통화 탭의 상대 상세는 그 화면 안 시트라 홈에서 직접 열지 않는다 |
 | 버튼 | 통화 탭과 **같은 함수**: 확인 시트 → `guardInstantOutgoingCallStart` → `/calls/redial-room` → `launchOutgoingDirectCall`. 통화 탭 안 함수를 공용으로 꺼내 둘이 같이 쓴다(복사 금지) |
 | 통화 중 | 내 통화가 진행 중이면 버튼 흐리게 + 누르면 진행 중 통화 화면(기존 가드 동작) |

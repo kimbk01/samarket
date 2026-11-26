@@ -45,7 +45,18 @@ function masterCoord(snap: AddressDefaultsSnapshot | null): { lat: number; lng: 
   if (lat == null || lng == null) return null;
   const pick = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
   const chipFirst = resolveExplorationAddressLineFromSnapshot(snap)?.split(/[,·]/)[0]?.trim() || null;
-  return { lat, lng, place: pick(m?.cityMunicipality) ?? pick(m?.barangay) ?? chipFirst };
+  const place = pick(m?.cityMunicipality) ?? pick(m?.barangay) ?? chipFirst;
+  return { lat, lng, place: place ? shortWeatherPlace(place) : null };
+}
+
+/**
+ * 날씨 칸 지역 = 시 이름만 — 시안 v2 「Pasig」 (머리글 주소 칩은 「Pasig City」 그대로).
+ * 「Pasig City」→「Pasig」, 「City of Manila」→「Manila」. 그 밖의 이름은 그대로.
+ */
+export function shortWeatherPlace(name: string): string {
+  const t = name.trim();
+  const short = t.replace(/\s+city$/i, "").replace(/^city\s+of\s+/i, "").trim();
+  return short || t;
 }
 
 function RateDelta({ pct, variant }: { pct: number; variant: "inline" | "badge" }) {
@@ -191,7 +202,7 @@ export function HomeInfoStrip({
     setWeather((cur) => {
       if (cur) return cur;
       storedWeatherViewerRef.current = stored.viewer;
-      return { tempC: stored.tempC, code: stored.code, place: stored.place };
+      return { tempC: stored.tempC, code: stored.code, place: stored.place ? shortWeatherPlace(stored.place) : null };
     });
   }, [memberPending, isMember]);
 
