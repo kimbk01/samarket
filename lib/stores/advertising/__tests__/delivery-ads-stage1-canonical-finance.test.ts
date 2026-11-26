@@ -157,8 +157,11 @@ describe("Stage1 Ads product path uses canonical Cash", () => {
       join(root, "lib/stores/advertising/owner-delivery-ad-commercial-bind.ts"),
       "utf8"
     );
-    expect(bind).toMatch(/duplicate\|unique\|23505/);
-    expect(bind).toContain("existing_snapshot_mismatch");
+    /** C-DB SA-02: 재제출 요금 기록은 TS 가 쓰지 않고 제출 DB 함수가 같은 트랜잭션에서 갱신(차감 안 된 기록만) */
+    expect(bind).not.toContain("insertCampaignCommercialSnapshot");
+    const cdb = readFileSync(join(root, "supabase/migrations/20271127120000_ad_db_c_store_ads.sql"), "utf8");
+    expect(cdb).toContain("UPDATE public.delivery_ad_campaign_commercial_snapshots");
+    expect(cdb).toMatch(/IF NOT v_secured THEN/);
     expect(actions).toContain("resubmit");
     expect(actions).toContain("secureBusinessCash");
   });

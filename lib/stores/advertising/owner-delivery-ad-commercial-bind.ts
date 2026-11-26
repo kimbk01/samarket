@@ -6,12 +6,12 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  insertCampaignCommercialSnapshot,
   prepareOwnerPaidCampaignSnapshotFromQuote,
   quoteDeliveryAdApplicationCommercial,
 } from "@/lib/stores/advertising/delivery-ad-commercial-catalog";
 import { DELIVERY_AD_CAMPAIGN_COMMERCIAL_SNAPSHOT_TABLE } from "@/lib/stores/advertising/delivery-ad-commercial-contract";
 import type { DeliveryAdProductKey } from "@/lib/stores/advertising/delivery-ad-product-registry";
+import type { DeliveryAdCampaignCommercialSnapshot } from "@/lib/stores/advertising/delivery-ad-commercial-contract";
 import { hasCanonicalBcFundingSecured } from "@/lib/stores/advertising/canonical-business-cash-writer";
 
 export const OWNER_AD_PACKAGE_PRICING_MODEL_PREFIX = "pkg:" as const;
@@ -55,7 +55,17 @@ export function scheduleWindowFromPackageDurationDays(
 }
 
 export type OwnerCommercialAttachResult =
-  | { ok: true; finalPayableMinor: number; currency: string; packageId: string }
+  | {
+      ok: true;
+      finalPayableMinor: number;
+      currency: string;
+      packageId: string;
+      /**
+       * C-DB SA-02: 저장할 요금 기록 — **여기서 저장하지 않는다.** 제출 DB 함수(`owner_submit_delivery_ad_with_business_cash_v2`)가
+       * 차감·전이와 같은 트랜잭션에서 저장한다(차감 실패면 기록도 없음). 이미 확보된 캐시가 있으면 null(묶인 기록 그대로).
+       */
+      snapshot: DeliveryAdCampaignCommercialSnapshot | null;
+    }
   | {
       ok: false;
       error:
@@ -68,8 +78,8 @@ export type OwnerCommercialAttachResult =
     };
 
 /**
- * Recompute quote + persist immutable snapshot before SUBMITTED transition.
- * Rejects when clientFinalPayableMinor disagrees with server quote.
+ * Recompute quote + prepare the snapshot for the atomic submit (C-DB SA-02 — no write here).
+ * Rejects when clientFinalPayableMinor / clientDurationDays disagree with the server quote.
  */
 export async function attachOwnerPaidCommercialSnapshotOnSubmit(
   sb: SupabaseClient,
@@ -115,6 +125,7 @@ export async function attachOwnerPaidCommercialSnapshotOnSubmit(
           finalPayableMinor: boundPayable,
           currency: typeof b.currency === "string" && b.currency ? b.currency : "PHP",
           packageId: typeof b.package_id === "string" && b.package_id ? b.package_id : packageId,
+          snapshot: null,
         };
       }
     }
@@ -181,53 +192,11 @@ export async function attachOwnerPaidCommercialSnapshotOnSubmit(
     clientFinalPayableMinor: input.clientFinalPayableMinor ?? undefined,
   });
 
-  const inserted = await insertCampaignCommercialSnapshot(sb, snapshot);
-  if (!inserted.ok) {
-    // Resubmit / duplicate-submit: snapshot is unique per (campaign_id, product_kind).
-    // Reuse the existing bound price when package + payable still match.
-    const uniqueHit = /duplicate|unique|23505/i.test(inserted.error);
-    if (uniqueHit) {
-      const { data: existing, error: loadErr } = await sb
-        .from(DELIVERY_AD_CAMPAIGN_COMMERCIAL_SNAPSHOT_TABLE)
-        .select("package_id, final_payable_minor, currency")
-        .eq("campaign_id", input.campaignId)
-        .eq("product_kind", input.productKind)
-        .maybeSingle();
-      if (loadErr) {
-        return { ok: false, error: "commercial_snapshot_failed", quoteError: loadErr.message };
-      }
-      const existingPackageId =
-        existing && typeof (existing as { package_id?: unknown }).package_id === "string"
-          ? String((existing as { package_id: string }).package_id)
-          : "";
-      const existingPayable = Math.trunc(
-        Number((existing as { final_payable_minor?: unknown } | null)?.final_payable_minor ?? NaN)
-      );
-      if (
-        existingPackageId === packageId &&
-        Number.isFinite(existingPayable) &&
-        existingPayable === quote.finalPayableMinor
-      ) {
-        return {
-          ok: true,
-          finalPayableMinor: quote.finalPayableMinor,
-          currency: quote.currency,
-          packageId,
-        };
-      }
-      return {
-        ok: false,
-        error: "quote_stale",
-        quoteError: "existing_snapshot_mismatch",
-      };
-    }
-    return { ok: false, error: "commercial_snapshot_failed", quoteError: inserted.error };
-  }
-
   return {
     ok: true,
     finalPayableMinor: quote.finalPayableMinor,
     currency: quote.currency,
     packageId,
+    snapshot,
   };
 }

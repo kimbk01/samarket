@@ -515,8 +515,11 @@ export async function transitionOwnerBannerCampaign(
     campaignId: string;
     ownerUserId: string;
     action: OwnerCampaignAction;
-    /** V3-04 DEF-7: submit/resubmit 시 비즈캐시 차감을 같은 DB 트랜잭션에서 수행. */
-    secureBusinessCash?: { storeId: string };
+    /**
+     * V3-04 DEF-7: submit/resubmit 시 비즈캐시 차감을 같은 DB 트랜잭션에서 수행.
+     * C-DB SA-02: snapshot = 요금 기록(같은 트랜잭션에서 저장). 배너 자리는 위 HERO 판정(기존) 그대로.
+     */
+    secureBusinessCash?: { storeId: string; snapshot: Record<string, unknown> | null };
   }
 ): Promise<OwnerBannerWriterResult<OwnerBannerCampaignRow> | OwnerDeliveryAdSubmitCashOutcome> {
   const loaded = await loadOwnerBannerCampaign(sb, input.campaignId, input.ownerUserId);
@@ -575,8 +578,10 @@ export async function transitionOwnerBannerCampaign(
       action: input.action,
       expectedLifecycle: row.lifecycleStatus,
       auditAction: `owner_banner_${input.action}`,
+      snapshot: input.secureBusinessCash.snapshot,
     });
     if (atomic.status === "rpc_missing") return { ok: false, error: "atomic_submit_rpc_missing" };
+    if (atomic.status === "capacity_full") return { ok: false, error: "capacity_full" };
     if (atomic.status === "cash_failed") {
       return { ok: false, error: "business_cash_failed", cash: atomic.cash };
     }

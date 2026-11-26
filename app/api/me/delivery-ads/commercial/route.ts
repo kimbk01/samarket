@@ -24,6 +24,12 @@ import {
   loadOwnerStoreBrowseSlugs,
 } from "@/lib/stores/advertising/owner-store-sponsored-writer";
 
+import {
+  loadStoreSponsoredSlotsUsed,
+  resolveStoreSponsoredCapacityMax,
+} from "@/lib/stores/advertising/store-sponsored-capacity";
+import { scheduleWindowFromPackageDurationDays } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -59,6 +65,40 @@ async function storeCategoryFeedGateForOwner(
     }
     return "blocked";
   } catch {
+    return "check_failed";
+  }
+}
+
+/**
+ * C-DB SA-03: 매장 홍보 「남은 자리」 — 고른 기간 상품으로 지금 신청하면 겹치는 기간의 같은 지면 점유 수.
+ * 최대 수 없음(null) = 제한 없음 → null. 판정은 제출 DB 함수와 같은 점유 함수.
+ */
+async function storeSponsoredSlots(
+  sb: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>,
+  input: { storeId: string; inventoryKey: string; target: "primary" | "secondary" | null; durationDays: number }
+): Promise<{ remaining: number; capacity: number } | null | "check_failed"> {
+  try {
+    const target = input.inventoryKey === STORES_CATEGORY_FEED_INVENTORY_KEY ? (input.target ?? "primary") : null;
+    const slugs = target ? await loadOwnerStoreBrowseSlugs(sb, input.storeId) : null;
+    const capacity = await resolveStoreSponsoredCapacityMax(sb, {
+      inventoryKey: input.inventoryKey,
+      browseTargetKind: target,
+      primarySlug: slugs?.primarySlug ?? null,
+      secondarySlug: target === "secondary" ? (slugs?.secondarySlug ?? null) : null,
+    });
+    if (capacity == null) return null;
+    const window = scheduleWindowFromPackageDurationDays(input.durationDays);
+    if (!window.ok) return null;
+    const used = await loadStoreSponsoredSlotsUsed(sb, {
+      storeId: input.storeId,
+      inventoryKey: input.inventoryKey,
+      browseTargetKind: target,
+      startAtIso: window.startAtIso,
+      endAtIso: window.endAtIso,
+    });
+    return { remaining: Math.max(0, capacity - used), capacity };
+  } catch (e) {
+    console.warn("[me/delivery-ads/commercial] slots check failed", e instanceof Error ? e.message : e);
     return "check_failed";
   }
 }
@@ -224,6 +264,11 @@ async function getUncached(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ ok: false, error: "capacity_check_failed" }, { status: 503 });
     }
     if (q.ok) {
+      /** SA-03: 매장 홍보만 — 자리 확인 실패는 화면에 「확인 못 함」(제출도 같은 판정으로 막는다) */
+      const slots =
+        productKindRaw === "store_sponsored"
+          ? await storeSponsoredSlots(sb, { storeId, inventoryKey, target: browseTarget, durationDays: q.durationDays })
+          : null;
       quote = {
         ok: true as const,
         packageId: q.packageId,
@@ -239,6 +284,8 @@ async function getUncached(req: NextRequest): Promise<NextResponse> {
         basePriceDisplay: formatDeliveryAdPhpMinor(q.basePriceMinor),
         finalPayableDisplay: formatDeliveryAdPhpMinor(q.finalPayableMinor),
         partnerActive: Boolean(q.partnerMembershipId) && q.partnerDiscountPercent > 0,
+        slots: slots === "check_failed" ? null : slots,
+        slotsCheckFailed: slots === "check_failed",
       };
     } else {
       quote = { ok: false as const, error: q.error };

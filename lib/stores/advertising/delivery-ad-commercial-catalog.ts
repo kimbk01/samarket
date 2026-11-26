@@ -217,11 +217,9 @@ export async function quoteDeliveryAdApplicationCommercial(
   });
 }
 
-export async function insertCampaignCommercialSnapshot(
-  sb: SupabaseClient,
-  snapshot: DeliveryAdCampaignCommercialSnapshot
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await sb.from(DELIVERY_AD_CAMPAIGN_COMMERCIAL_SNAPSHOT_TABLE).insert({
+/** 요금 기록 → DB 열 이름 (C-DB SA-02: 제출 함수 `p_snapshot` 와 어드민 직접 저장이 같은 모양을 쓴다) */
+export function campaignCommercialSnapshotToDbRow(snapshot: DeliveryAdCampaignCommercialSnapshot): Record<string, unknown> {
+  return {
     campaign_id: snapshot.campaignId,
     product_kind: snapshot.productKind,
     campaign_source: snapshot.campaignSource,
@@ -238,7 +236,16 @@ export async function insertCampaignCommercialSnapshot(
     currency: snapshot.currency,
     priced_at: snapshot.pricedAt,
     commercial_status: snapshot.commercialStatus,
-  });
+  };
+}
+
+export async function insertCampaignCommercialSnapshot(
+  sb: SupabaseClient,
+  snapshot: DeliveryAdCampaignCommercialSnapshot
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { error } = await sb
+    .from(DELIVERY_AD_CAMPAIGN_COMMERCIAL_SNAPSHOT_TABLE)
+    .insert(campaignCommercialSnapshotToDbRow(snapshot));
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }

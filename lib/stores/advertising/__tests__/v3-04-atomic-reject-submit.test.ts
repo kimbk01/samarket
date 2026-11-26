@@ -126,6 +126,8 @@ describe("V3-04 DEF-7 owner submit — debit + transition single RPC", () => {
     action: "submit" as const,
     expectedLifecycle: "DRAFT",
     auditAction: "owner_banner_submit",
+    /** C-DB SA-02: 요금 기록을 같은 트랜잭션으로 넘긴다 */
+    snapshot: { campaign_id: "camp-1", product_kind: "banner", final_payable_minor: 50000 },
   };
 
   it("passes args and returns audit id", async () => {
@@ -144,6 +146,22 @@ describe("V3-04 DEF-7 owner submit — debit + transition single RPC", () => {
       p_action: "submit",
       p_expected_lifecycle: "DRAFT",
       p_audit_action: "owner_banner_submit",
+      p_snapshot: { campaign_id: "camp-1", product_kind: "banner", final_payable_minor: 50000 },
+      p_capacity_max: null,
+    });
+  });
+
+  it("C-DB SA-03: 자리 가득은 capacity_full (요금 기록·차감 없음 — DB 한 트랜잭션)", async () => {
+    const { sb } = makeSb({
+      [OWNER_SUBMIT_DELIVERY_AD_WITH_BC_RPC]: {
+        data: { ok: false, stage: "capacity", error: "capacity_full", used: 5, capacity: 5 },
+        error: null,
+      },
+    });
+    await expect(ownerSubmitDeliveryAdWithBusinessCash(sb, { ...input, productKind: "store_sponsored" as never, capacityMax: 5 })).resolves.toEqual({
+      status: "capacity_full",
+      used: 5,
+      capacity: 5,
     });
   });
 

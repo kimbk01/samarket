@@ -1,6 +1,6 @@
 /**
- * Stage 1 — commercial snapshot reuse on resubmit / duplicate submit.
- * UNIQUE (campaign_id, product_kind) must not block CHANGES_REQUESTED → SUBMITTED.
+ * Stage 1 — commercial snapshot on submit / resubmit.
+ * C-DB SA-02 (2026-11-27): TS 는 기록을 만들기만 하고, 저장(새로 또는 차감 안 된 옛 기록 갱신)은 제출 DB 함수가 한 트랜잭션에서 한다.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -54,30 +54,8 @@ describe("commercial snapshot resubmit reuse", () => {
     });
   });
 
-  it("reuses matching snapshot on unique violation (resubmit / duplicate submit)", async () => {
-    insertCampaignCommercialSnapshot.mockResolvedValue({
-      ok: false,
-      error: 'duplicate key value violates unique constraint "delivery_ad_campaign_commercial_snapshots_campaign_uidx"',
-    });
-
-    const sb = {
-      from() {
-        return {
-          select() {
-            return this;
-          },
-          eq() {
-            return this;
-          },
-          maybeSingle: async () => ({
-            data: { package_id: "pkg-1", final_payable_minor: 12000, currency: "PHP" },
-            error: null,
-          }),
-        };
-      },
-    };
-
-    const res = await attachOwnerPaidCommercialSnapshotOnSubmit(sb as never, {
+  it("C-DB SA-02: 요금 기록을 저장하지 않고 제출 DB 함수에 넘길 기록만 만든다 (재제출도 같음)", async () => {
+    const res = await attachOwnerPaidCommercialSnapshotOnSubmit({} as never, {
       campaignId: "camp-1",
       storeId: "store-1",
       productKind: "store_sponsored",
@@ -92,46 +70,26 @@ describe("commercial snapshot resubmit reuse", () => {
       finalPayableMinor: 12000,
       currency: "PHP",
       packageId: "pkg-1",
+      snapshot: { campaignId: "camp-1", productKind: "store_sponsored", packageId: "pkg-1", finalPayableMinor: 12000 },
     });
+    /** 저장은 DB 함수(차감·전이와 한 트랜잭션) — 차감 실패면 기록도 남지 않는다 */
+    expect(insertCampaignCommercialSnapshot).not.toHaveBeenCalled();
   });
 
-  it("fails quote_stale when existing snapshot payable mismatches", async () => {
-    insertCampaignCommercialSnapshot.mockResolvedValue({
-      ok: false,
-      error: "23505 unique_violation",
-    });
-
-    const sb = {
-      from() {
-        return {
-          select() {
-            return this;
-          },
-          eq() {
-            return this;
-          },
-          maybeSingle: async () => ({
-            data: { package_id: "pkg-1", final_payable_minor: 99999, currency: "PHP" },
-            error: null,
-          }),
-        };
-      },
-    };
-
-    const res = await attachOwnerPaidCommercialSnapshotOnSubmit(sb as never, {
+  it("화면 금액이 지금 견적과 다르면 quote_stale (기록 없음)", async () => {
+    const res = await attachOwnerPaidCommercialSnapshotOnSubmit({} as never, {
       campaignId: "camp-1",
       storeId: "store-1",
       productKind: "store_sponsored",
       inventoryKey: "STORES_HOME_FEED",
       packageId: "pkg-1",
-      clientFinalPayableMinor: 12000,
+      clientFinalPayableMinor: 99999,
       clientDurationDays: 7,
     });
-
     expect(res.ok).toBe(false);
     if (res.ok) return;
     expect(res.error).toBe("quote_stale");
-    expect(res.quoteError).toBe("existing_snapshot_mismatch");
+    expect(insertCampaignCommercialSnapshot).not.toHaveBeenCalled();
   });
 
   it("R-69: 화면 기간과 지금 상품 기간이 다르면 quote_stale(요금 기록 없음 · 차감 전)", async () => {

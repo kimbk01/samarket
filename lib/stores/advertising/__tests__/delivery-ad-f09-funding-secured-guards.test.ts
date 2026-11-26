@@ -235,7 +235,7 @@ describe("commercial bind on submit", () => {
     hasCanonicalBcFundingSecured.mockResolvedValue(true);
     const sb = makeSb({ delivery_ad_campaign_commercial_snapshots: [snapshotRow] });
     const res = await attachOwnerPaidCommercialSnapshotOnSubmit(sb as never, bindInput);
-    expect(res).toEqual({ ok: true, finalPayableMinor: 12000, currency: "PHP", packageId: "pkg-1" });
+    expect(res).toEqual({ ok: true, finalPayableMinor: 12000, currency: "PHP", packageId: "pkg-1", snapshot: null });
     expect(quoteDeliveryAdApplicationCommercial).not.toHaveBeenCalled();
     expect(insertCampaignCommercialSnapshot).not.toHaveBeenCalled();
   });

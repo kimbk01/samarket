@@ -104,6 +104,7 @@ describe("ADS-04 owner apply = one RPC (row + Cash debit in one TX)", () => {
       p_store_id: "s-1",
       p_owner_user_id: "u-1",
       p_request_id: "req-1",
+      p_expected_fee_minor: null,
     });
     expect(from).not.toHaveBeenCalled();
     expect(res).toMatchObject({ ok: true, amountMinor: 10000, idempotent: false, payment: "BUSINESS_CASH_SECURED" });

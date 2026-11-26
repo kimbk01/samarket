@@ -112,6 +112,9 @@ type CommercialQuote = {
   basePriceDisplay: string;
   finalPayableDisplay: string;
   partnerActive: boolean;
+  /** C-DB SA-03: 이 기간에 같은 지면 남은 자리 (null = 제한 없음) */
+  slots?: { remaining: number; capacity: number } | null;
+  slotsCheckFailed?: boolean;
 };
 
 type CommercialPlacement = {
@@ -861,6 +864,23 @@ export function OwnerStoreSponsoredCreateView() {
                     </p>
                   </div>
                 )}
+                {quote?.slots ? (
+                  <p
+                    className={`mt-2 text-[12px] font-semibold ${quote.slots.remaining > 0 ? "text-sam-fg" : "text-sam-danger"}`}
+                    data-owner-ads-slots-left={quote.slots.remaining}
+                  >
+                    {quote.slots.remaining > 0
+                      ? t("owner_ads_spots_left", {
+                          remaining: String(quote.slots.remaining),
+                          capacity: String(quote.slots.capacity),
+                        })
+                      : t("owner_ads_error_capacity_full")}
+                  </p>
+                ) : quote?.slotsCheckFailed ? (
+                  <p className="mt-2 text-[12px] text-sam-muted" data-owner-ads-slots-left="check_failed">
+                    {t("owner_ads_spots_check_failed")}
+                  </p>
+                ) : null}
                 <p className="mt-2 text-[12px] text-sam-muted" data-owner-ads-cash-pays="1">
                   {t("owner_ads_business_cash_pays_ads")}
                 </p>
