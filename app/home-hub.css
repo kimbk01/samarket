@@ -120,6 +120,9 @@
 }
 .home-hero-title {
   margin-top: 0;
+  /* 한글은 띄어쓰기에서만 줄바꿈 — 시안 v2 태블릿 「오늘 저녁, / 동네 맛집이 / 집 앞까지」 */
+  word-break: keep-all;
+  overflow-wrap: break-word;
   font-size: clamp(16px, 5.2cqi, 22px);
   font-weight: 800;
   line-height: 1.28;
@@ -237,7 +240,7 @@
   }
   .home-hero-copy {
     left: 6cqi;
-    right: 42%;
+    right: 50%;
     bottom: 5cqi;
   }
   .home-hero-title {
@@ -267,7 +270,7 @@
   }
   .home-r3 .home-hero-copy {
     left: 6cqi;
-    right: 42%;
+    right: 50%;
     bottom: 5cqi;
   }
   .home-r3 .home-hero-title {
