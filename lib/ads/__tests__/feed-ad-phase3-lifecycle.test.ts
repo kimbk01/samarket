@@ -228,6 +228,10 @@ function makeRenewDb(state: {
     if (Number(args.p_expected_cost) !== cost) {
       return { ok: false, error: "price_changed", point_cost: cost, duration_days: product.duration_days };
     }
+    /** B-DB v2: 기간도 대조(같은 키 확인 뒤) */
+    if (args.p_expected_days != null && Number(args.p_expected_days) !== Number(product.duration_days)) {
+      return { ok: false, error: "price_changed", point_cost: cost, duration_days: product.duration_days };
+    }
     if ((state.balance ?? 1_000_000) < cost) return { ok: false, error: "insufficient_balance" };
     if (state.capacityFull) return { ok: false, error: "capacity_full" };
     const nowMs = Date.parse("2026-08-10T00:00:00.000Z");
@@ -246,7 +250,9 @@ function makeRenewDb(state: {
     },
     rpc: async (fn: string, args: Row) => {
       state.rpcCalls?.push({ fn, args });
-      if (fn !== "member_feed_ad_renew") return { data: null, error: { message: "unknown_fn" } };
+      if (fn !== "member_feed_ad_renew" && fn !== "member_feed_ad_renew_v2") {
+        return { data: null, error: { message: "unknown_fn" } };
+      }
       return { data: memberFeedAdRenew(args), error: null };
     },
   } as unknown as SupabaseClient;
@@ -493,11 +499,12 @@ describe("PHASE 3 renewal (D9–D14 · D-01 DB 함수 한 트랜잭션)", () => 
     expect(state.campaigns[0]?.end_at).toBe("2026-08-12T00:00:00.000Z");
   });
 
-  it("R-35 화면 기간과 지금 기간이 다르면 409 price_changed · DB 함수 호출·차감 없음", async () => {
+  it("B-DB FB-06: 화면 기간과 지금 기간이 다르면 v2 함수가 409 price_changed · 차감·연장 없음", async () => {
     const state = stateWith();
     const res = await renew(makeRenewDb(state), "idem-days", { expectedDurationDays: 5 });
     expect(res).toMatchObject({ ok: false, error: "price_changed", httpStatus: 409, pointCost: 15000, durationDays: 7 });
-    expect(state.rpcCalls).toHaveLength(0);
+    expect(state.rpcCalls?.map((c) => c.fn)).toEqual(["member_feed_ad_renew_v2"]);
+    expect(state.rpcCalls?.[0]?.args.p_expected_days).toBe(5);
     expect(state.ledger).toHaveLength(0);
   });
 

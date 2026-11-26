@@ -301,7 +301,8 @@ describe("approveFeedAdRequest financial invariants", () => {
     expect(creditUserPoints).toHaveBeenCalled();
     expect(state.holds[0]?.status).toBe("released");
     expect(state.campaigns.length).toBe(0);
-    expect(state.requests[0]?.status).toBe("pending_review");
+    /** B-DB: 환급한 뒤에는 보류 없는 「검토 중」으로 되돌리지 않고 반려(system_failure)로 닫는다 */
+    expect(state.requests[0]?.status).toBe("rejected");
   });
 
   it("F5: success → campaign active + creative + captured + request active", async () => {

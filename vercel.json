@@ -82,6 +82,10 @@
       "schedule": "*/10 * * * *"
     },
     {
+      "path": "/api/cron/feed-ad-requests-review-expire",
+      "schedule": "5 1 * * *"
+    },
+    {
       "path": "/api/cron/community-promotion-orders-expire",
       "schedule": "*/10 * * * *"
     },

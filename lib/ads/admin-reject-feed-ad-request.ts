@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadFeedAdRequestOwner, notifyFeedAdMember } from "@/lib/ads/feed-ad-notices";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 
 /**
@@ -54,5 +55,16 @@ export async function adminRejectFeedAdRequest(
     before: { status: previousStatus },
     after: { status: "rejected", reason, released_points: releasedPoints },
   });
+  /** FB-09 (B-DB): 반려 알림 — 사유 포함 */
+  const owner = await loadFeedAdRequestOwner(sb, input.requestId);
+  if (owner) {
+    await notifyFeedAdMember(sb, {
+      userId: owner.userId,
+      requestId: input.requestId,
+      kind: "rejected",
+      domain: owner.domain,
+      reason,
+    });
+  }
   return { ok: true, status: "rejected", previousStatus, releasedPoints };
 }
