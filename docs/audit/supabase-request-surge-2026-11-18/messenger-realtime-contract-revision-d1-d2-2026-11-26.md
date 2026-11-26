@@ -254,3 +254,56 @@
 | **F2 상대 읽음 반영** | **FAIL** | Xiaomi 가 23:23:02 에 M4 까지 읽음(운영 DB `last_read_at`), Samsung 의 M3 는 켠 뒤 84초 넘게 「안 읽음」(`data-cm-outbound-status="sent"`) 그대로 |
 | R3 폴백 | NOT_PROVEN | 서버 거절 재현 불가 |
 - 켠 뒤 약 90초에 Samsung 화면이 제 조작 없이 `/mypage/customer-center/notice/ad-pricing` 으로 바뀌어 관찰 종료(원인 미상 — 다른 세션에 확인 요청).
+
+## 15. F2 수정 설계 — 재연결 뒤 상대 읽음 표시 (Owner 「F2 수정 설계」 2026-11-26) · **설계만, 구현 안 함**
+
+### 15-1. 사실 (코드·실기)
+- 상대 읽음 표시의 데이터원
+  - 1:1: 스냅샷 `readReceipt`(`lastReadMessageId`·`lastReadMessageCreatedAt`).
+  - 비공개 단체: `useGroupMessageReadCounts`(스냅샷이 새로 오면 다시 조회 — `use-group-message-read-counts.ts:16`).
+  - 판정 함수: `resolveMessengerOutboundReadState`(`messenger-outbound-read-state.ts:149`).
+- 평소 갱신
+  - 참여자 postgres 변경(`onParticipantPostgres`).
+  - 서버 `read_ack` broadcast 패치.
+  - 둘 다 실시간이라 **끊긴 동안 온 것은 사라진다**.
+- 끊긴 동안의 읽음을 다시 맞추는 곳은 스냅샷 재조회(`refresh(true)` silent_delta)뿐이다.
+- 재조회 조건
+  - **#629 이전**: 재연결 뒤 `after=` 에서 새 메시지가 **없을 때만** 재조회.
+  - **#629**: `reconnect`·`fallback` 이면 재조회를 하지 않는다.
+- 실기 §14 의 경우: 상대가 읽고 **답장(M4)까지** 했다. 그래서 #629 이전 코드도 「새 메시지 있음 → 재조회 생략」으로 M3 가 「안 읽음」에 남는다. **F2 의 일부(읽고 답장)는 원래 있던 결함, 일부(읽기만)는 #629 가 만든 결함**이다.
+
+### 15-2. 고칠 방향 (결정)
+**재연결·폴백 따라잡기 뒤, 「내 마지막 확정 메시지가 아직 상대 읽음이 아님」일 때만 스냅샷을 1번 다시 받는다.** 새 메시지가 왔는지와 상관없다.
+
+| 방 종류 | 조건 (따라잡기 병합 뒤 화면 상태로 판정) | 동작 |
+|---|---|---|
+| 1:1 | 타임라인의 마지막 확정 내 메시지(시스템·통화 기록·삭제 제외)가 `resolveMessengerOutboundReadState(...) === "unread"` | `refresh(true, { triggerReason: "reconnect_read_state" })` 1번 |
+| 비공개 단체 | 마지막 확정 메시지가 내 것 | 같음 (스냅샷이 오면 읽음 수 훅이 함께 다시 조회) |
+| 오픈 단체·그 밖 | — | 안 함 (읽음 표시 없음) |
+- 판정은 지금 타임라인과 **같은 함수**를 쓴다. 읽음 키 계산(`resolveDirectPeerReadCursorKey`·`resolveGroupReadFloorKey`)을 `messenger-outbound-read-state.ts` 의 순수 함수 `roomHasOutboundAwaitingRead(...)` 로 묶어 훅·타임라인이 함께 쓴다. 새 판정 규칙을 만들지 않는다.
+- 이유 없는 `onRefresh`(메타·통화·메시지 폴백·처음 가입)는 지금 그대로다.
+
+### 15-3. 비용 (호출 수)
+- 재연결 1번당, 「내 마지막 메시지가 아직 안 읽힘」인 열린 방만 silent_delta 1번 추가된다(라우트 평균 약 2.85 Supabase — §1 실측).
+- 열린 방은 보통 1개다. 해당 없으면 0이다.
+- 폴백(끊김 중 60초마다)에도 같은 조건이 적용된다. 내 메시지가 계속 안 읽힌 채면 60초에 1번 silent_delta → **상한: 방당 분당 1번**. 끊김이 길면 비용이 커질 수 있어, 폴백에서는 **끊김 1번당 처음 1번만** 한다(조건 통과 후 그 끊김 동안은 다시 안 함).
+
+### 15-4. 바뀌는 파일·영향
+| 파일 | 바뀌는 것 | 영향 화면 |
+|---|---|---|
+| `lib/community-messenger/room/messenger-outbound-read-state.ts` | `roomHasOutboundAwaitingRead` 순수 함수 추가 | 없음(새 함수) |
+| `lib/community-messenger/room/use-messenger-room-client-phase1.ts` | `onRefresh(reason)` 의 `reconnect`·`fallback` 분기에서 위 조건이면 `refresh(true, …)` 1번(폴백은 끊김당 1번) | 1:1·비공개 단체 방의 내 메시지 읽음 체크 |
+| `components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx` | 읽음 키 계산을 새 함수 재사용으로 바꿈(동작 같음) | 같음 |
+- 통화 파일·`subscribe-with-retry.ts`·서버·DB 무변경 — [배포 구분] 웹만. 통화 표 경로(이유 없음)는 그대로라 통화 규정 대상 아님.
+
+### 15-5. 위험
+- 조건 판정이 틀리면(커서 행이 아직 없음 등) 과소 재조회 → 지금과 같은 늦은 표시. F4 캐리(직전 키 유지)로 체크2→체크1 역행은 없다.
+- 남는 한계: 끊긴 동안 **방 정보만**(제목·멤버) 바뀌고 내 메시지가 모두 읽힌 상태면 다음 이벤트까지 늦다 — 드묾, 알려진 위험으로 남김.
+
+### 15-6. 검증
+- 코드: `roomHasOutboundAwaitingRead` 표 시험(1:1 읽음·안 읽음·커서 없음·시스템/통화 기록 마지막·비공개 단체·오픈 단체), `onRefresh("reconnect")` 에서 조건 참/거짓일 때 `refresh` 호출 여부, 폴백 끊김당 1번.
+- 실기(Samsung↔Xiaomi, 운영 반영 뒤)
+  - (a) 끊긴 동안 상대가 **읽기만** → 켠 뒤 수 초 안 「읽음」.
+  - (b) 끊긴 동안 상대가 **읽고 답장** → 같음(#629 이전에도 실패하던 경우).
+  - (c) 내 메시지가 이미 읽힌 상태에서 끊김 → 재조회 0(요청 기록으로 확인).
+- 롤백: 조건 분기 1곳이라 되돌리는 커밋 1개 · 급하면 Instant Rollback.
