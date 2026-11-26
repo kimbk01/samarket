@@ -119,7 +119,7 @@
 | 데이터 | 기존 `GET /api/community-messenger/calls` 첫 페이지 앞 3건 (기존 클라이언트, 60초 신선도). 사진 `peerAvatarUrl` · 이름 `peerLabel` · 종류 `callKind` · 상태 `status` · 시간 `durationSeconds` · 시각 `startedAt` — 전부 이미 응답에 있음 |
 | 문구 | 시안대로 「영상 통화 12분」·「음성 통화 25분」·「부재중 통화」, 통화 시간 없는 기록은 「음성 통화 · 거절」 (2026-11-26 감사 결함 3 · Owner 「3건 고쳐」). 상태 판정·시간 값은 기존 `presentCallHistoryRow` |
 | 머리 › / 줄 누르면 | 머리 ›·줄 모두 통화 목록(`/community-messenger?section=call_logs`). 통화 탭의 상대 상세는 그 화면 안 시트라 홈에서 직접 열지 않는다 |
-| 버튼 | 통화 탭과 **같은 함수**: 확인 시트 → `guardInstantOutgoingCallStart` → `/calls/redial-room` → `launchOutgoingDirectCall`. 통화 탭 안 함수를 공용으로 꺼내 둘이 같이 쓴다(복사 금지) |
+| 버튼 | **누른 버튼의 종류로 바로 발신(확인 시트 없음)** — 휴대폰 = 줄의 버튼 1개(그 통화 종류), 태블릿 = 영상 버튼은 영상·노랑 전화 버튼은 음성. 발신은 통화 탭과 **같은 함수** `startCallFromHistory` → `guardInstantOutgoingCallStart` → `/calls/redial-room` → `launchOutgoingDirectCall` (복사 금지). 2026-11-26 실기: 확인 시트가 누른 종류를 무시 → Owner 「바로 고침」 · PR #618 |
 | 통화 중 | 내 통화가 진행 중이면 버튼 흐리게 + 누르면 진행 중 통화 화면(기존 가드 동작) |
 | 빈 상태 | 같은 카드 모양, 줄 자리에 「아직 통화 기록이 없어요」 + 「친구 찾기」 |
 | 비로그인 | 같은 카드 모양, 줄 자리에 「로그인하고 친구와 무료 통화」 + 「로그인」 |
@@ -180,7 +180,7 @@
 | 항목 | 내용 |
 |---|---|
 | 바꾸는 통화 파일 | `components/community-messenger/MessengerCallLogsPanel.tsx` 의 다시 걸기 함수(`handleOutgoingConfirm` 안 가드→redial-room→launch)를 `lib/community-messenger/call-history/start-call-from-history.ts` 로 **옮기기만**(동작 같음). 통화 탭·홈이 같이 부름 |
-| 바뀌는 동작 | 통화 탭: 없음(같은 함수). 홈: 통화 목록 1회 읽기 + 버튼 → 통화 탭과 같은 확인 시트·발신 |
+| 바뀌는 동작 | 통화 탭: 없음(같은 함수). 홈: 통화 목록 1회 읽기 + 버튼 → 누른 종류로 바로 발신(확인 시트 없음, PR #618). 통화가 끝나거나 앱이 다시 보이면 1.5초 뒤 목록 다시 읽기(PR #618·#619) |
 | 영향 경로 | 발신 시작·redial-room·launch. 수신·CallKit·FCM·VoIP·종료·부재중 처리 무관 |
 | 구 바이너리 | 웹만 → 설치 앱 재시작으로 반영 |
 | 요청 | 홈 열 때 `/api/community-messenger/calls` +1 (예산 표 등록, 계수기 7일 34호출/3요청 — 표본 적어 Vercel 값으로 7일 뒤 맞춤) |
