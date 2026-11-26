@@ -45,7 +45,7 @@ vi.mock("@/lib/supabase/client", () => ({
   getSupabaseClient: () => mockSb,
 }));
 
-/** Simulate hung auth bridge — onReady never fires (Production failure mode). */
+/** 인증 브리지 onReady 없이 notify 경로로만 바인드(기존 묶음 시험과 같은 조건) */
 vi.mock("@/lib/community-messenger/realtime/community-messenger-realtime-auth-bridge", () => ({
   createRealtimeAuthBridge: () => () => {},
 }));
@@ -111,7 +111,7 @@ describe("방 묶음: 같은 방 목록 재바인드(건너뜀)는 세대를 올
     const onRefresh = vi.fn();
     const onMessageInsert = vi.fn();
     const rid = "cccccccc-cccc-cccc-cccc-cccccccccccc";
-    entry.listenersByRoom.set(rid, new Set([{ current: { onRefresh, onMessageInsert, onMessage: onMessageInsert, onMessageEvent: onMessageInsert } } as never]));
+    entry.listenersByRoom.set(rid, new Set([{ current: { onRefresh, onMessageEvent: onMessageInsert } } as never]));
     entry.notifyRoomListenersChanged!();
     await vi.advanceTimersByTimeAsync(80);
     await flush();
