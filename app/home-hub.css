@@ -290,6 +290,15 @@
     display: none;
   }
 }
+/* 2열 중 좁은 폭(홈 칸 600~767 — Xiaomi 세로 등): 배너 칸 약 256~360 → 글 영역 넓히고 제목 20 (2026-11-27 실측: 「정보는...」 4줄째 잘림) */
+@container homer3 (min-width: 600px) and (max-width: 767px) {
+  .home-r3 .home-hero-copy {
+    right: 34%;
+  }
+  .home-r3 .home-hero-title {
+    font-size: 20px;
+  }
+}
 
 /* 마우스 기기(Mac·Windows) — ‹ › 버튼 · 올리면 살짝 밝게 */
 @media (hover: hover) and (pointer: fine) {
