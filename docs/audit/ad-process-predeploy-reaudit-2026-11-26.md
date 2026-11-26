@@ -95,3 +95,23 @@
 1. R-30~R-36 같은 브랜치에서 수정 → 전체 검증 1회 → 독립 재감사
 2. 이상 0건일 때만 푸시 1회 · PR #609 갱신 · 병합 1회
 3. R-24·R-35 근본·승인 보상 경로 = B-DB 묶음(운영 DB 적용 승인 후 별도)
+
+## 6. 4차 재감사 (R-30~R-36 수정 뒤 · 2026-11-26 19:40 PHT) — **이상 있음 → 배포 안 함**
+
+상태: R-30~R-36 로컬 커밋 `3a0d62447` (**푸시 안 함**). typecheck 2종 오류 0 · eslint 오류 0(경고 12 기존 줄) · i18n 기준선 통과.
+재감사: 팝업·PTR·요금 안내 **0건** · 회원 광고 2건 · 매장 광고 3건 + 참고 1건 → 작업자 재확인(✔).
+
+| # | 등급 | 영역 | 결함 | 증거 | 수정 설계 |
+|---|---|---|---|---|---|
+| R-37 | **중 (작업자 회귀)** | B | R-35 배너 연장 기간 대조가 **같은 요청 키 재전송 판정보다 먼저** 돔 → 첫 연장은 처리됐는데 응답이 끊긴 뒤 어드민이 기간을 바꾸면, 재전송이 409 `price_changed` 로 끝나 화면이 키를 버리고 새 키로 **두 번째 차감** 가능 | ✔ `renew-feed-ad-campaign.ts` 대조가 RPC 전 · DB `member_feed_ad_renew` ② 같은 키 확인이 가격 대조보다 먼저(마이그레이션 `20271107200001` :62-80) · 상위노출은 R-04 로 재전송 먼저 | 기간 대조 전에 같은 키 원장 행(`renew:<캠페인>:<키>`)이 있으면 대조를 건너뛰고 DB 함수로(재전송 결과 그대로). 시험 추가: 같은 키 재전송 + 기간 변경 → 차감 없이 처음 결과 |
+| R-38 | 하 | B | R-30 신청 화면이 `setProductId` 업데이터 안에서 `setChosenProductGone` 호출(업데이터 부수효과) | ✔ `feed-request/page.tsx` | 현재 고른 값을 ref 로 읽어 다음 값을 먼저 계산 → 두 setState 를 따로 호출 |
+| R-39 | 중 | C | 홈 홍보 판정의 **조회 실패**가 「광고 받지 않는 위치」(`home_ads_disabled`)로 나옴 — 제출 409 · 초안 만들기 400 (업종은 R-32 로 나눴는데 홈은 안 나눔) | ✔ `delivery-ad-home-feed-sell-gate.ts` `catch { return false }` → `assertHomeFeedSellableByPolicy` | `assertHomeFeedSellableByPolicy` 가 조회 실패 = `capacity_check_failed`(503 · 「확인 못 함」), 꺼짐 = `home_ads_disabled` 로 나눔. 판매 목록용 `isStoresHomeFeedSellable` 은 그대로(실패 = 안 팜) |
+| R-40 | 하 | C | 사장님 상품·견적 API: 홈·업종 판정 조회 실패를 「판매 준비 중」(200 · 상품 0개)으로 보임 | ✔ `commercial/route.ts` `isStoreCategoryFeedSellableForOwner` `catch → false` | 조회 실패면 503 `capacity_check_failed`(화면 「확인 못 함」) · 꺼짐만 상품 0개 |
+| R-41 | 하 | C | 대분류 광고는 꺼지고 소분류만 켜진 매장에 업종 상품·견적이 나옴 → 사장님이 「대분류」를 고르면 초안 만들기에서야 막힘(돈은 안 나감) | ✔ 같은 파일 `for (kind of ["primary","secondary"])` | API 가 대상(`browseTargetKind`)을 받으면 그 대상만 판정 · 안 받으면 지금처럼(하나라도 켜짐) — 사장님 화면이 대상 선택을 넘김. 매장 업종은 한 번만 읽음(중복 조회 제거) |
+| R-42 | 하 | C | 기간 잠금 5,000건 상한에 닿아 막을 때 이유가 「팔렸음」(`duration_locked_sold`) | ○ `delivery-ad-commercial-admin-writer.ts` | 상한 초과는 `sold_check_failed`(확인 못 함) |
+
+참고(범위 밖·보고만): `/api/me/delivery-ads/commercial` 은 예산 표(`lib/perf/request-budget.ts`)에 항목이 없음 — 이번 변경으로 매장 홍보 조회 시 Supabase 최대 +5회(R-41 로 +3회로 줄임). 예산 항목 추가는 측정 후 · 상위노출 3개 결제 창은 가격 변경 뒤 다시 읽을 때 고른 상품이 꺼졌으면 다른 상품을 강조해 고름(안내는 나옴 · 기존 동작).
+
+### 진행 순서 (승인 후)
+1. R-37~R-42 수정 (R-37 시험 추가) → 전체 검증 1회 → 독립 재감사
+2. 이상 0건일 때만 푸시 1회 · PR #609 갱신 · 병합 1회

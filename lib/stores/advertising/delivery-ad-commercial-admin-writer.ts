@@ -113,7 +113,7 @@ export async function adminUpdateDeliveryAdPackagePrice(
        */
       /**
        * R-27: 요금 기록을 100건씩 끝까지 확인한다(예전 500건 한 번 · 정렬 없음 → 500 초과면 잠금 누락 가능).
-       * 반복은 정해진 횟수(50쪽 = 5,000건)만 — 넘으면 확인을 끝낼 수 없으므로 잠근다. 중간 오류 = `sold_check_failed`.
+       * 반복은 정해진 횟수(50쪽 = 5,000건)만 — 넘으면 확인을 끝낼 수 없으므로 막는다(`sold_check_failed`). 중간 오류도 같다.
        */
       const PAGE = 100;
       const MAX_PAGES = 50;
@@ -157,7 +157,8 @@ export async function adminUpdateDeliveryAdPackagePrice(
           break;
         }
       }
-      if (!finished) return { ok: false, error: "duration_locked_sold" };
+      /** R-42: 상한까지 다 못 봤으면 「팔렸음」이 아니라 「확인 못 함」(막는 것은 같음) */
+      if (!finished) return { ok: false, error: "sold_check_failed" };
     }
     patch.duration_days = input.durationDays;
   }

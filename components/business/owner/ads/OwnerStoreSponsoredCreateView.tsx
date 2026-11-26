@@ -298,6 +298,10 @@ export function OwnerStoreSponsoredCreateView() {
       });
       if (inventoryKey) qs.set("inventoryKey", inventoryKey);
       if (packageId) qs.set("packageId", packageId);
+      /** R-41: 고른 업종 대상(대분류·소분류)만 판정 — 막힌 대상에 상품·견적이 나오지 않게 */
+      if (placementChoice === "primary" || placementChoice === "secondary") {
+        qs.set("browseTargetKind", placementChoice);
+      }
       const res = await fetch(`/api/me/delivery-ads/commercial?${qs.toString()}`, {
         credentials: "include",
       });
@@ -316,6 +320,12 @@ export function OwnerStoreSponsoredCreateView() {
       if (!res.ok || !json.ok) {
         setPackages([]);
         setQuote(null);
+        /** R-40: 판정 조회 실패는 「판매 준비 중」이 아니라 「확인하지 못했어요」 */
+        if ((json as { error?: string }).error === "capacity_check_failed") {
+          setNoSellablePackages(false);
+          setError("capacity_check_failed");
+          return;
+        }
         setNoSellablePackages(true);
         return;
       }
@@ -343,7 +353,7 @@ export function OwnerStoreSponsoredCreateView() {
     } finally {
       setCommercialLoading(false);
     }
-  }, [inventoryKey, packageId, storeId]);
+  }, [inventoryKey, packageId, placementChoice, storeId]);
 
   useEffect(() => {
     void refetchCommercial();

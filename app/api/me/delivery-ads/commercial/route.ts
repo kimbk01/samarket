@@ -14,12 +14,15 @@ import {
   DELIVERY_AD_COMMERCIAL_PLACEMENT_LABELS,
   formatDeliveryAdPhpMinor,
 } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
-import { isStoresHomeFeedSellable, STORES_HOME_FEED_INVENTORY_KEY } from "@/lib/stores/advertising/delivery-ad-home-feed-sell-gate";
+import { evaluateStoresHomeFeedSellable, STORES_HOME_FEED_INVENTORY_KEY } from "@/lib/stores/advertising/delivery-ad-home-feed-sell-gate";
 import {
   isOwnerSellableDeliveryAdPlacement,
   STORES_CATEGORY_FEED_INVENTORY_KEY,
 } from "@/lib/stores/advertising/delivery-ad-owner-sellable";
-import { assertOwnerSponsoredCategoryFeedSellable } from "@/lib/stores/advertising/owner-store-sponsored-writer";
+import {
+  assertOwnerSponsoredCategoryFeedSellable,
+  loadOwnerStoreBrowseSlugs,
+} from "@/lib/stores/advertising/owner-store-sponsored-writer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,23 +32,45 @@ export const dynamic = "force-dynamic";
  * GET ?storeId=&productKind=&inventoryKey=[&packageId=]
  * Returns only server-quoted packages (fail-closed when none sellable).
  */
-async function isStoreCategoryFeedSellableForOwner(
+type OwnerGateState = "sellable" | "blocked" | "check_failed";
+
+/**
+ * R-40·R-41: 이 매장 업종 광고 판정 — 사장님이 고른 대상(대분류·소분류)이 있으면 그 대상만, 없으면 하나라도 켜져 있으면 판매.
+ * 매장 업종은 한 번만 읽는다. 조회 실패는 「판매 안 함」이 아니라 `check_failed`(→ 503 「확인 못 함」).
+ */
+async function storeCategoryFeedGateForOwner(
   sb: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>,
-  storeId: string
-): Promise<boolean> {
+  storeId: string,
+  target: "primary" | "secondary" | null
+): Promise<OwnerGateState> {
   try {
-    for (const kind of ["primary", "secondary"] as const) {
+    const slugs = await loadOwnerStoreBrowseSlugs(sb, storeId);
+    const kinds = target ? [target] : (["primary", "secondary"] as const);
+    for (const kind of kinds) {
       const gate = await assertOwnerSponsoredCategoryFeedSellable(sb, {
         storeId,
         browseTargetKind: kind,
-        browsePrimarySlug: null,
-        browseSecondarySlug: null,
+        browsePrimarySlug: slugs.primarySlug,
+        browseSecondarySlug: kind === "secondary" ? slugs.secondarySlug : null,
       });
-      if (gate.ok) return true;
+      if (gate.ok) return "sellable";
+      if (gate.error === "capacity_check_failed") return "check_failed";
+      if (!slugs.primarySlug) return "blocked";
     }
-    return false;
+    return "blocked";
   } catch {
-    return false;
+    return "check_failed";
+  }
+}
+
+/** R-40: 홈 홍보 판정 — 조회 실패를 「판매 준비 중」으로 숨기지 않는다 */
+async function homeFeedGateForOwner(
+  sb: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>
+): Promise<OwnerGateState> {
+  try {
+    return (await evaluateStoresHomeFeedSellable(sb)) ? "sellable" : "blocked";
+  } catch {
+    return "check_failed";
   }
 }
 
@@ -60,6 +85,8 @@ export async function GET(req: NextRequest) {
   const productKindRaw = String(sp.get("productKind") ?? "").trim();
   const inventoryKey = String(sp.get("inventoryKey") ?? "").trim();
   const packageId = String(sp.get("packageId") ?? "").trim();
+  const browseTargetRaw = String(sp.get("browseTargetKind") ?? "").trim();
+  const browseTarget = browseTargetRaw === "primary" || browseTargetRaw === "secondary" ? browseTargetRaw : null;
 
   if (!storeId || !isDeliveryAdProductKey(productKindRaw)) {
     return NextResponse.json({ ok: false, error: "invalid_params" }, { status: 400 });
@@ -78,11 +105,17 @@ export async function GET(req: NextRequest) {
   const partner = await loadActivePartnerMembershipForStore(sb, storeId);
 
   /** SA-01: 배달 홈 노출 자리가 꺼져 있으면 홈 홍보를 사장님 선택지에서 뺀다 (판매 판정 1곳) */
-  const homeFeedSellable =
-    productKindRaw === "store_sponsored" ? await isStoresHomeFeedSellable(sb) : true;
-  /** R-23: 이 매장 업종(대분류 또는 소분류)에 업종 광고가 꺼져 있으면 업종 목록을 선택지에서 뺀다 — 제출 판정과 같은 함수 */
-  const categoryFeedSellable =
-    productKindRaw === "store_sponsored" ? await isStoreCategoryFeedSellableForOwner(sb, storeId) : true;
+  /** R-23: 이 매장 업종에 업종 광고가 꺼져 있으면 업종 목록을 선택지에서 뺀다 — 제출 판정과 같은 함수 */
+  const [homeGate, categoryGate]: [OwnerGateState, OwnerGateState] =
+    productKindRaw === "store_sponsored"
+      ? await Promise.all([homeFeedGateForOwner(sb), storeCategoryFeedGateForOwner(sb, storeId, browseTarget)])
+      : ["sellable", "sellable"];
+  /** R-40: 판정 조회 실패 = 503 「확인 못 함」 (상품 0개 「판매 준비 중」으로 보이지 않게) */
+  if (homeGate === "check_failed" || categoryGate === "check_failed") {
+    return NextResponse.json({ ok: false, error: "capacity_check_failed" }, { status: 503 });
+  }
+  const homeFeedSellable = homeGate === "sellable";
+  const categoryFeedSellable = categoryGate === "sellable";
   const placements = catalog.placements
     /** 판정 1곳 — 광고 요금 안내와 같은 함수 */
     .filter((p) =>

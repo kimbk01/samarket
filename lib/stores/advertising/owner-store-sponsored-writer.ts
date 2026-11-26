@@ -412,6 +412,27 @@ async function assertOwnerSponsoredCategoryFeedSellableInner(
   return { ok: true, kind, primarySlug, secondarySlug: kind === "secondary" ? secondarySlug : null };
 }
 
+/**
+ * R-41: 매장 업종(대분류·소분류) 한 번 읽기 — 사장님 상품·견적 API 가 대분류·소분류 판정에 같이 쓴다(중복 조회 제거).
+ * 조회 오류는 던진다.
+ */
+export async function loadOwnerStoreBrowseSlugs(
+  sb: SupabaseClient,
+  storeId: string
+): Promise<{ primarySlug: string | null; secondarySlug: string | null }> {
+  const { data, error } = await sb
+    .from("stores")
+    .select("store_categories ( slug ), store_topics ( slug )")
+    .eq("id", storeId)
+    .maybeSingle();
+  if (error) throw new Error(error.message || "store_taxonomy_load_failed");
+  const cat = (data as { store_categories?: { slug?: string } | { slug?: string }[] | null } | null)?.store_categories;
+  const topic = (data as { store_topics?: { slug?: string } | { slug?: string }[] | null } | null)?.store_topics;
+  const catRow = Array.isArray(cat) ? cat[0] : cat;
+  const topicRow = Array.isArray(topic) ? topic[0] : topic;
+  return { primarySlug: catRow?.slug?.trim() || null, secondarySlug: topicRow?.slug?.trim() || null };
+}
+
 /** R-21: 저장된 신청의 업종 대상(browse_*)을 읽어 같은 판정 — 제출 직전(캐시 차감 전)에 쓴다. 조회 실패 = 팔지 않음 */
 export async function assertSponsoredCampaignCategoryFeedSellable(
   sb: SupabaseClient,

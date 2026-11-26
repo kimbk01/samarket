@@ -239,7 +239,7 @@ export async function POST(
     if (inventoryKey === STORES_HOME_FEED_INVENTORY_KEY) {
       const homeGate = await assertHomeFeedSellableByPolicy(sb);
       if (!homeGate.ok) {
-        return NextResponse.json({ ok: false, error: homeGate.error }, { status: 409 });
+        return NextResponse.json({ ok: false, error: homeGate.error }, { status: statusForError(homeGate.error) });
       }
     }
     /** R-21: 업종 목록도 제출 직전에 업종 정책을 다시 본다 — 초안 뒤 어드민이 그 업종 광고를 끄면 차감 전에 막는다 */

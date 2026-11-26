@@ -46,8 +46,17 @@ export async function isStoresHomeFeedSellable(sb: SupabaseClient): Promise<bool
   }
 }
 
+/**
+ * 초안 만들기·제출 직전 판정. R-39: 조회 실패는 「확인 못 함」(`capacity_check_failed`) — 「광고 받지 않는 위치」와 나눈다.
+ * 둘 다 팔지 않는다(fail-closed).
+ */
 export async function assertHomeFeedSellableByPolicy(
   sb: SupabaseClient
-): Promise<{ ok: true } | { ok: false; error: "home_ads_disabled" }> {
-  return (await isStoresHomeFeedSellable(sb)) ? { ok: true } : { ok: false, error: "home_ads_disabled" };
+): Promise<{ ok: true } | { ok: false; error: "home_ads_disabled" | "capacity_check_failed" }> {
+  try {
+    return (await evaluateStoresHomeFeedSellable(sb)) ? { ok: true } : { ok: false, error: "home_ads_disabled" };
+  } catch (e) {
+    console.warn("[home-feed-sell-gate] check failed", e instanceof Error ? e.message : e);
+    return { ok: false, error: "capacity_check_failed" };
+  }
 }

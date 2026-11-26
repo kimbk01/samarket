@@ -493,6 +493,28 @@ describe("PHASE 3 renewal (D9–D14 · D-01 DB 함수 한 트랜잭션)", () => 
     expect(state.campaigns[0]?.end_at).toBe("2026-08-12T00:00:00.000Z");
   });
 
+  it("R-35 화면 기간과 지금 기간이 다르면 409 price_changed · DB 함수 호출·차감 없음", async () => {
+    const state = stateWith();
+    const res = await renew(makeRenewDb(state), "idem-days", { expectedDurationDays: 5 });
+    expect(res).toMatchObject({ ok: false, error: "price_changed", httpStatus: 409, pointCost: 15000, durationDays: 7 });
+    expect(state.rpcCalls).toHaveLength(0);
+    expect(state.ledger).toHaveLength(0);
+  });
+
+  it("R-37 이미 결제된 같은 키 재전송은 기간이 바뀌었어도 처음 결과 그대로 — 409 로 키를 버리게 하지 않는다", async () => {
+    const state = stateWith(
+      { end_at: "2026-08-19T00:00:00.000Z" },
+      { ledger: [{ user_id: "u1", related_type: "feed_ad_request", related_id: "renew:camp-1:idem-replay", amount: -15000 }] }
+    );
+    const res = await renew(makeRenewDb(state), "idem-replay", { expectedDurationDays: 5 });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.idempotentReplay).toBe(true);
+      expect(res.endAt).toBe("2026-08-19T00:00:00.000Z");
+    }
+    expect(state.ledger).toHaveLength(1);
+  });
+
   it("가격 확인값이 없는 옛 화면 → 지금 상품 가격을 확인값으로 넘긴다", async () => {
     const state = stateWith();
     const res = await renew(makeRenewDb(state), "idem-old-ui", { expectedCost: undefined });

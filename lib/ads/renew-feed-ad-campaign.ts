@@ -77,7 +77,23 @@ export async function renewFeedAdCampaign(
   }
 
   let expectedCost = toInt(params.expectedCost) ?? null;
-  const expectedDays = toInt(params.expectedDurationDays) ?? null;
+  let expectedDays = toInt(params.expectedDurationDays) ?? null;
+  if (expectedDays != null) {
+    /**
+     * R-37: 같은 요청 키 재전송은 기간 대조보다 먼저 — DB 함수와 같은 순서(같은 키면 처음 결과만 돌려줌).
+     * 이미 결제된 키를 기간 변경으로 409 거절하면 화면이 키를 버리고 새 키로 두 번 차감할 수 있다.
+     */
+    const relatedId = `renew:${campaignId}:${idem}`.slice(0, 200);
+    const { data: prior, error: priorErr } = await sb
+      .from("point_ledger")
+      .select("id")
+      .eq("user_id", params.userId)
+      .eq("related_type", "feed_ad_request")
+      .eq("related_id", relatedId)
+      .limit(1);
+    if (priorErr) return { ok: false, error: "renew_failed", httpStatus: 500 };
+    if ((prior ?? []).length > 0) expectedDays = null;
+  }
   if (expectedCost == null || expectedDays != null) {
     // 가격 확인값을 보내지 않는 옛 화면(배포 직후 열려 있던 창) — 지금 가격을 기준으로 한다 (옛 동작과 같음).
     const product = await getFeedAdProduct(sb, productId);
