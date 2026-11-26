@@ -61,11 +61,20 @@ describe("resolveCallHistoryRedialRoomClient", () => {
   });
 });
 
-describe("MessengerCallLogsPanel redial contract", () => {
+describe("call history redial contract (통화 탭·홈 공용 startCallFromHistory)", () => {
   const src = fs.readFileSync(
+    path.join(ROOT, "lib/community-messenger/call-history/start-call-from-history.ts"),
+    "utf8"
+  );
+  const panel = fs.readFileSync(
     path.join(ROOT, "components/community-messenger/MessengerCallLogsPanel.tsx"),
     "utf8"
   );
+
+  it("call tab redial goes through the shared function", () => {
+    expect(panel).toContain("startCallFromHistory(");
+    expect(panel).not.toContain("launchOutgoingDirectCall(");
+  });
 
   it("resolves the room on the server before launchOutgoingDirectCall", () => {
     const resolveIdx = src.indexOf("resolveCallHistoryRedialRoomClient(");
@@ -76,8 +85,10 @@ describe("MessengerCallLogsPanel redial contract", () => {
   });
 
   it("does not borrow another call log row's room for the peer", () => {
-    expect(src).not.toContain("resolveRoomIdForPeer");
-    expect(src).not.toMatch(/calls\.find\([^)]*peerUserId[^)]*roomId/);
+    for (const s of [src, panel]) {
+      expect(s).not.toContain("resolveRoomIdForPeer");
+      expect(s).not.toMatch(/calls\.find\([^)]*peerUserId[^)]*roomId/);
+    }
   });
 
   it("routes an in-progress call guard to the active call like home", () => {

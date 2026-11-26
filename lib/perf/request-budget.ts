@@ -22,6 +22,11 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
    * 로그인 확인 + 주문 1 + 숨긴 주문 1 + 매장 이름 1 + 상품 1 + 거래 채팅 1(거래 1건일 때) = 최대 6. 7일 뒤 Vercel 값으로 내린다.
    */
   "/api/home/my-activity": 6.0,
+  /**
+   * 2026-11-26 홈 telRING 최근 통화(설계 v2 §3-5·§6)가 첫 페이지를 부르게 되어 등록. 계수기 7일(11-19~26) 34호출/3요청 = 11.3 ·
+   * 요청 1회 최대 16 — 표본 3건뿐이라 12.0 으로 두고 7일 뒤 Vercel 값으로 다시 맞춘다(내리기만).
+   */
+  "/api/community-messenger/calls": 12.0,
   /** 2026-11-20 고정값 3개 공유 캐시 → 5.0. 2026-11-26 #577 지역 이름 공유 · #592 차단·숨김 1조회 뒤 실측 3.74(Vercel 232/62, 11-25 09~24 UTC) → 4.0 */
   "/api/philife/neighborhood-feed": 4.0,
   "/api/stores/home-feed": 10.5,
