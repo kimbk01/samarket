@@ -170,3 +170,49 @@ export function resolveMessengerOutboundStatus(
   if (readState === "unread" || readState === "sent") return "sent";
   return null;
 }
+
+/**
+ * F2 (2026-11-26 · 개정안 §15) — 재연결·폴백 따라잡기 뒤 「상대 읽음을 다시 맞춰야 하나」.
+ * 끊긴 동안 온 읽음 신호(참여자 변경·read_ack)는 사라지므로, 내 마지막 확정 메시지가 아직 안 읽힘일 때만 스냅샷을 다시 받는다.
+ * 판정은 타임라인과 같은 함수(`resolveDirectPeerReadCursorKey`·`resolveMessengerOutboundReadState`).
+ * - 1:1: 마지막 확정 내 메시지(시스템·통화 기록·삭제 제외)가 `unread`
+ * - 비공개 단체: 마지막 확정 메시지(시스템·통화 기록 제외)가 내 것 — 스냅샷이 오면 읽음 수 훅이 함께 다시 조회
+ * - 오픈 단체·그 밖: false
+ */
+export function roomHasOutboundAwaitingRead(args: {
+  roomType: string | null | undefined;
+  rows: readonly StatusRow[];
+  readReceipt?: { lastReadMessageId?: string | null; lastReadMessageCreatedAt?: string | null } | null;
+  fallbackRows?: readonly OrderRow[];
+}): boolean {
+  const roomType = String(args.roomType ?? "");
+  if (roomType === "direct") {
+    let last: StatusRow | null = null;
+    for (let i = args.rows.length - 1; i >= 0; i -= 1) {
+      const r = args.rows[i]!;
+      if (r.pending) continue;
+      if (rowCarriesOutboundStatus(r)) {
+        last = r;
+        break;
+      }
+    }
+    if (!last) return false;
+    const key = resolveDirectPeerReadCursorKey({
+      lastReadMessageId: args.readReceipt?.lastReadMessageId,
+      lastReadMessageCreatedAt: args.readReceipt?.lastReadMessageCreatedAt,
+      rows: args.rows,
+      fallbackRows: args.fallbackRows,
+    });
+    return resolveMessengerOutboundReadState(last, "direct", key) === "unread";
+  }
+  if (roomType === "private_group") {
+    for (let i = args.rows.length - 1; i >= 0; i -= 1) {
+      const r = args.rows[i]!;
+      if (r.pending) continue;
+      if (r.messageType === "system" || r.messageType === "call_stub") continue;
+      return rowCarriesOutboundStatus(r);
+    }
+    return false;
+  }
+  return false;
+}
