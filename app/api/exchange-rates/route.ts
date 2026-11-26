@@ -27,6 +27,8 @@ export async function GET() {
   try {
     const res = await fetch(frankfurterSeriesUrl(Date.now()), {
       next: { revalidate: 300 },
+      /** 바깥 서비스가 느려도 4초 안에 답한다 — 앱의 「DIBAY 연결 원활하지 않음」 판정(8초)에 걸리지 않게 */
+      signal: AbortSignal.timeout(4000),
       headers: { Accept: "application/json" },
     });
     if (!res.ok) {
