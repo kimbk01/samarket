@@ -530,14 +530,20 @@ export function createGlobalMessengerRoomBundleEntry(args: {
   };
 
   const bindFilteredPostgresSubscriptions = () => {
-    const gen = ++postgresBindGeneration;
-    const topicGen = ++bundleTopicGeneration;
     const roomIds = [...entry.listenersByRoom.keys()].filter(Boolean).sort();
     const roomIdsKey = roomIds.join("\0");
+    /**
+     * 같은 방 목록이면 건너뛴다 — 세대 번호를 올리기 **전에** 판정한다(2026-11-27 iPhone 실기·재현 시험).
+     * 먼저 올리면 살아 있는 채널이 옛 세대가 되어 SUBSCRIBED·DB 이벤트(메시지·읽음·방·통화 세션)를 모두 버리고
+     * 끊김 시계가 풀리지 않아 60초 폴백이 영원히 돈다.
+     * 설계 docs/audit/supabase-request-surge-2026-11-18/rt-bundle-gen-skip-and-unsupervised-channels-design-2026-11-27.md §2
+     */
     if (roomIdsKey === lastBoundRoomIdsKey && channels.length > 0) {
       logRtRebindTrace({ reason: "room_bundle_skip_unchanged", roomCount: roomIds.length });
       return;
     }
+    const gen = ++postgresBindGeneration;
+    const topicGen = ++bundleTopicGeneration;
     lastBoundRoomIdsKey = roomIdsKey;
     /** 새 세대 채널 — 이전 세대의 끊김 시계는 버린다 */
     unhealthySince = null;
