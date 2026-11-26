@@ -42,6 +42,13 @@ export const RT_SUPERVISOR_CHANNEL_PARK_FAILURES = 6;
  * (`RealtimeClient._triggerChanError`) — 이 시간 안의 실패는 소켓 사건 1번으로 센다.
  */
 export const RT_SUPERVISOR_FAILURE_COALESCE_MS = 2_000;
+/**
+ * 2차 독립 감사 F-B: 시험 1개는 성공했는데 나머지 재가입이 다시 거절되면 30초마다 열림·닫힘을 반복했다.
+ * 닫힌 상태가 이만큼 이어져야 대기 단계를 처음(30초)으로 되돌린다.
+ */
+export const RT_SUPERVISOR_STABLE_RESET_MS = 300_000;
+/** 시험 통과로 닫힌 뒤 안정 전(위 5분)에는 소켓 사건 이 수만으로 다시 차단 — 재가입이 곧바로 거절되는 반복을 짧게 끊는다 */
+export const RT_SUPERVISOR_PROBATION_FAILURES = 2;
 
 export type RtSupervisorState = "closed" | "open" | "half_open";
 
@@ -69,6 +76,10 @@ export type RtSupervisor = {
   /** 화면 복귀·온라인 — 대기 끝난 시험 시작, 쉰 채널 재가입 */
   wake: () => void;
   state: () => RtSupervisorState;
+  /** 자체 재시도 루프(presence·read-ack)의 가입 실패 — 같은 창에 센다(2차 감사 F-E) */
+  noteSelfLoopFailure: () => void;
+  /** 차단이 열릴 때 — 자체 루프가 가입된 채널을 놓는다(2차 감사 F-E). 반환 = 등록 해제 */
+  onOpen: (cb: () => void) => () => void;
   /**
    * 자체 재시도 루프(presence·read-ack)가 멈춘 뒤 「다시 가입해도 될 때」 1번 불린다 — 차단이 닫힐 때·닫힌 상태에서 wake 때.
    * 반환 = 등록 해제.
@@ -101,6 +112,10 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
   const restartTimers = new Set<unknown>();
   const joinWaiters = new Set<() => void>();
   const waiterTimers = new Map<unknown, () => void>();
+  const openListeners = new Set<() => void>();
+  let stableTimer: unknown = null;
+  /** 시험 통과로 닫힌 뒤 관찰 기간 — stableTimer 가 끝나면 false */
+  let probation = false;
 
   const flushJoinWaiters = () => {
     const list = [...joinWaiters];
@@ -152,8 +167,9 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
     const inner = deps.subscribe({
       ...e.args,
       onStatus: (status) => {
-        onEntryStatus(e, status);
+        /** 호출부 먼저 — 이 실패로 차단·쉼이 되면 호출부가 마지막에 받는 상태가 감독의 CLOSED 가 되게(2차 감사 F-D) */
         e.args.onStatus?.(status);
+        onEntryStatus(e, status);
       },
     });
     e.inner = inner;
@@ -181,8 +197,14 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
     probeTimer = null;
     probeEntry = null;
     state = "closed";
-    openLevel = 0;
     failures = [];
+    if (stableTimer != null) deps.clearTimer(stableTimer);
+    probation = openLevel > 0;
+    stableTimer = deps.setTimer(() => {
+      stableTimer = null;
+      probation = false;
+      if (state === "closed") openLevel = 0;
+    }, RT_SUPERVISOR_STABLE_RESET_MS);
     deps.record("close", {});
     restartAllGradually();
     flushJoinWaiters();
@@ -192,10 +214,8 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
     waitingForWake = false;
     const p = pickProbe([...entries]);
     if (!p) {
-      // 등록 채널이 없으면 닫아 두고 다음 등록 때 바로 가입
-      state = "closed";
-      openLevel = 0;
-      failures = [];
+      // 등록 채널이 없으면 닫는다 — 자체 루프 대기자도 깨운다(2차 감사 F-C). 다음 등록은 바로 가입
+      close();
       return;
     }
     state = "half_open";
@@ -230,6 +250,9 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
   const open = (reason: string) => {
     clearRestartTimers();
     cancelWaiterTimers();
+    if (stableTimer != null) deps.clearTimer(stableTimer);
+    stableTimer = null;
+    probation = false;
     if (probeTimer != null) deps.clearTimer(probeTimer);
     probeTimer = null;
     probeEntry = null;
@@ -238,6 +261,29 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
     for (const e of entries) stopInner(e, true);
     const delay = scheduleProbe();
     deps.record("open", { reason, wait_ms: String(delay) });
+    for (const cb of [...openListeners]) {
+      try {
+        cb();
+      } catch {
+        /* 자체 루프 오류가 감독을 멈추지 않게 */
+      }
+    }
+  };
+
+  /** 닫힌 상태의 실패 1건을 창에 넣고, 기준을 넘으면 차단. 반환 = 차단했는가 */
+  const noteFailure = (): boolean => {
+    if (state !== "closed") return false;
+    const t = deps.now();
+    const last = failures[failures.length - 1];
+    if (last === undefined || t - last > RT_SUPERVISOR_FAILURE_COALESCE_MS) failures.push(t);
+    failures = failures.filter((x) => t - x <= RT_SUPERVISOR_LONG_WINDOW_MS);
+    const shortCount = failures.filter((x) => t - x <= RT_SUPERVISOR_SHORT_WINDOW_MS).length;
+    const shortLimit = probation ? RT_SUPERVISOR_PROBATION_FAILURES : RT_SUPERVISOR_SHORT_WINDOW_FAILURES;
+    if (shortCount >= shortLimit || failures.length >= RT_SUPERVISOR_LONG_WINDOW_FAILURES) {
+      open(probation && shortCount >= shortLimit ? "probation" : shortCount >= shortLimit ? "short_window" : "long_window");
+      return true;
+    }
+    return false;
   };
 
   const onEntryStatus = (e: Entry, status: string) => {
@@ -256,15 +302,7 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
       return;
     }
     if (state !== "closed") return;
-    const t = deps.now();
-    const last = failures[failures.length - 1];
-    if (last === undefined || t - last > RT_SUPERVISOR_FAILURE_COALESCE_MS) failures.push(t);
-    failures = failures.filter((x) => t - x <= RT_SUPERVISOR_LONG_WINDOW_MS);
-    const shortCount = failures.filter((x) => t - x <= RT_SUPERVISOR_SHORT_WINDOW_MS).length;
-    if (shortCount >= RT_SUPERVISOR_SHORT_WINDOW_FAILURES || failures.length >= RT_SUPERVISOR_LONG_WINDOW_FAILURES) {
-      open(shortCount >= RT_SUPERVISOR_SHORT_WINDOW_FAILURES ? "short_window" : "long_window");
-      return;
-    }
+    if (noteFailure()) return;
     e.consecutiveFailures += 1;
     if (e.consecutiveFailures >= RT_SUPERVISOR_CHANNEL_PARK_FAILURES) {
       e.parked = true;
@@ -327,6 +365,15 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
       }
     },
     state: () => state,
+    noteSelfLoopFailure() {
+      noteFailure();
+    },
+    onOpen(cb) {
+      openListeners.add(cb);
+      return () => {
+        openListeners.delete(cb);
+      };
+    },
     whenJoinAllowed(cb) {
       joinWaiters.add(cb);
       return () => {
@@ -410,3 +457,15 @@ export function whenMessengerRealtimeJoinAllowed(cb: () => void): () => void {
 
 /** 자체 재시도 루프가 이 횟수 연속 실패하면 멈추고 `whenMessengerRealtimeJoinAllowed` 를 기다린다 */
 export const RT_SELF_LOOP_MAX_CONSECUTIVE_FAILURES = RT_SUPERVISOR_CHANNEL_PARK_FAILURES;
+
+/** 자체 재시도 루프의 가입 실패를 감독 창에 센다 */
+export function noteMessengerRealtimeSelfLoopFailure(): void {
+  if (!supervisorEnabled()) return;
+  getDefaultSupervisor().noteSelfLoopFailure();
+}
+
+/** 차단이 열릴 때 1번씩 불린다 — 자체 루프가 가입된 채널을 놓는 데 쓴다 */
+export function onMessengerRealtimeSupervisorOpen(cb: () => void): () => void {
+  if (!supervisorEnabled()) return () => undefined;
+  return getDefaultSupervisor().onOpen(cb);
+}
