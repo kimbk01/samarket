@@ -5,11 +5,13 @@
  *   회원: `member_promotion_products`(loadMemberPromotionProducts) · `feed_ad_products`(listActiveFeedAdProductsOrThrow)
  *   매장: `delivery_ad_packages` + 사장님 신청 목록과 같은 지면 판정(`isOwnerSellableDeliveryAdPlacement`) + 견적 함수(정가 · 파트너 할인 전)
  * - 판매 중인 것만 줄이 된다(꺼진 상품·검색 상단·매장 팝업·노출 자리 꺼진 홈 홍보는 자동 제외 — 지시 2).
- * - 운영자 직접 등록(운영 팝업·당김 후 광고·인트로·이벤트·마이 배너)은 돈을 받지 않으므로 넣지 않는다.
+ * - 운영자 직접 등록 광고 중 앱 시작 팝업·당김 광고는 「운영팀과 상의 · 금액 문의」 줄로만 보인다(앱 결제 경로 없음 —
+ *   재감사 2026-11-27 G-4 · Owner 「팝업·당김은 어디 갔냐」). 인트로·이벤트·마이 배너는 넣지 않는다.
  * - 서버 전용(서비스 키 클라이언트).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { loadMemberPromotionProducts } from "@/lib/points/member-promotion-products-server";
 import { listActiveFeedAdProductsOrThrow } from "@/lib/ads/feed-ad-products";
 import { loadDeliveryAdCommercialCatalog } from "@/lib/stores/advertising/delivery-ad-commercial-catalog";
@@ -24,16 +26,37 @@ export type AdPricingGroup = {
   id: string;
   nameKey: MessageKey;
   whereKey: MessageKey;
+  /** 시작 시점 배지 — 결제 즉시 / 운영 승인 후 */
+  startKey: MessageKey;
+  /** 「신청하기 ›」 — 실제 결제 화면 (재감사 G-2) */
+  applyHref: string;
   options: AdPricingOption[];
 };
+
+/** 로그인 회원의 잔액 (재감사 G-6) — 조회 실패 = null (0 으로 바꾸지 않음) */
+export type AdPricingMine = {
+  points: number | null;
+  /** 승인된 내 매장이 있으면 그 매장 비즈 캐시(센타보) */
+  store: { storeId: string; businessCashMinor: number | null } | null;
+};
+
+/** 앱에서 바로 결제하지 않는 광고 — 운영팀 문의 (재감사 G-4) */
+export type AdPricingInquiryAd = { id: string; nameKey: MessageKey; whereKey: MessageKey };
+
+export const AD_PRICING_INQUIRY_ADS: readonly AdPricingInquiryAd[] = [
+  { id: "app_popup", nameKey: "ad_guide_name_app_popup", whereKey: "ad_guide_where_app_popup" },
+  { id: "pull_down", nameKey: "ad_guide_name_pull_down", whereKey: "ad_guide_where_pull_down" },
+];
 
 export type AdPricingGuide = {
   /** 회원 광고 — 금액 단위 포인트 */
   member: AdPricingGroup[];
   /** 매장 광고 — 금액 단위 페소 최소 단위(센타보) */
   store: AdPricingGroup[];
-  /** 광고 파트너(월 회비 · 매장 광고 할인) — 받지 않으면 null */
-  partner: { feeMinor: number; discountPercent: number } | null;
+  /** 광고 파트너(30일 회비 · 매장 광고 할인) — 받지 않으면 null */
+  partner: { feeMinor: number; discountPercent: number; days: number; applyHref: string } | null;
+  /** 배달 홈 목록 매장 홍보를 지금 팔지 않음(노출 자리 꺼짐) — 매장 탭에 한 줄 안내 (재감사 G-8) */
+  storeHomeFeedOff: boolean;
   /** 읽은 시각(ISO) — 화면은 PHT 로 표시 */
   at: string;
 };
@@ -51,6 +74,7 @@ const STORE_GROUPS: ReadonlyArray<{
   inventoryKey: string;
   nameKey: MessageKey;
   whereKey: MessageKey;
+  applyHref: string;
 }> = [
   {
     id: "store_home_hero",
@@ -58,6 +82,7 @@ const STORE_GROUPS: ReadonlyArray<{
     inventoryKey: "STORES_HOME_HERO",
     nameKey: "ad_guide_name_store_hero",
     whereKey: "ad_guide_where_store_hero",
+    applyHref: DELIVERY_AD_OWNER_ROUTES.createBanner,
   },
   {
     id: "store_home_feed",
@@ -65,6 +90,7 @@ const STORE_GROUPS: ReadonlyArray<{
     inventoryKey: "STORES_HOME_FEED",
     nameKey: "ad_guide_name_store_home_feed",
     whereKey: "ad_guide_where_store_home_feed",
+    applyHref: DELIVERY_AD_OWNER_ROUTES.createStoreSponsored,
   },
   {
     id: "store_category_feed",
@@ -72,8 +98,13 @@ const STORE_GROUPS: ReadonlyArray<{
     inventoryKey: "STORES_CATEGORY_FEED",
     nameKey: "ad_guide_name_store_category_feed",
     whereKey: "ad_guide_where_store_category_feed",
+    applyHref: DELIVERY_AD_OWNER_ROUTES.createStoreSponsored,
   },
 ];
+
+/** 상위노출 = 결제 화면(/mypage/ads/apply) · 배너 = 신청 화면(/mypage/ads/feed-request) — 내 광고의 「신청」과 같은 곳 */
+const MEMBER_BOOST_APPLY_HREF = "/mypage/ads/apply";
+const MEMBER_BANNER_APPLY_HREF = "/mypage/ads/feed-request";
 
 function byDays(a: AdPricingOption, b: AdPricingOption): number {
   return a.days - b.days || a.amount - b.amount;
@@ -101,24 +132,32 @@ export async function loadAdPricingGuide(sb: SupabaseClient): Promise<AdPricingG
   const member: AdPricingGroup[] = [
     {
       id: "trade_boost",
+      startKey: "ad_guide_start_now",
+      applyHref: MEMBER_BOOST_APPLY_HREF,
       nameKey: "ad_guide_name_trade_boost",
       whereKey: "ad_guide_where_trade_boost",
       options: tradeBoost.map((p) => ({ days: p.durationDays, amount: p.pointCost })),
     },
     {
       id: "community_boost",
+      startKey: "ad_guide_start_now",
+      applyHref: MEMBER_BOOST_APPLY_HREF,
       nameKey: "ad_guide_name_community_boost",
       whereKey: "ad_guide_where_community_boost",
       options: communityBoost.map((p) => ({ days: p.durationDays, amount: p.pointCost })),
     },
     {
       id: "trade_banner",
+      startKey: "ad_guide_start_after_review",
+      applyHref: MEMBER_BANNER_APPLY_HREF,
       nameKey: "ad_guide_name_trade_banner",
       whereKey: "ad_guide_where_trade_banner",
       options: tradeBanner.map((p) => ({ days: p.durationDays, amount: p.pointCost })),
     },
     {
       id: "community_banner",
+      startKey: "ad_guide_start_after_review",
+      applyHref: MEMBER_BANNER_APPLY_HREF,
       nameKey: "ad_guide_name_community_banner",
       whereKey: "ad_guide_where_community_banner",
       options: communityBanner.map((p) => ({ days: p.durationDays, amount: p.pointCost })),
@@ -149,7 +188,14 @@ export async function loadAdPricingGuide(sb: SupabaseClient): Promise<AdPricingG
       if (q.ok) options.push({ days: q.durationDays, amount: q.basePriceMinor });
     }
     if (options.length > 0) {
-      store.push({ id: g.id, nameKey: g.nameKey, whereKey: g.whereKey, options: options.sort(byDays) });
+      store.push({
+        id: g.id,
+        nameKey: g.nameKey,
+        whereKey: g.whereKey,
+        startKey: "ad_guide_start_after_review",
+        applyHref: g.applyHref,
+        options: options.sort(byDays),
+      });
     }
   }
 
@@ -165,8 +211,14 @@ export async function loadAdPricingGuide(sb: SupabaseClient): Promise<AdPricingG
     cfg.monthlyFeeMinor != null &&
     cfg.monthlyFeeMinor > 0 &&
     Number(cfg.advertisingDiscountPercent) > 0
-      ? { feeMinor: cfg.monthlyFeeMinor, discountPercent: cfg.advertisingDiscountPercent }
+      ? {
+          feeMinor: cfg.monthlyFeeMinor,
+          discountPercent: cfg.advertisingDiscountPercent,
+          /** C-DB SA-09: 파트너 기간은 DB 가 30일 고정 (`admin_partner_membership_decide`) */
+          days: 30,
+          applyHref: DELIVERY_AD_OWNER_ROUTES.partner,
+        }
       : null;
 
-  return { member, store, partner, at: new Date().toISOString() };
+  return { member, store, partner, storeHomeFeedOff: !homeFeedSellable, at: new Date().toISOString() };
 }

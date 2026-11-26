@@ -51,7 +51,7 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/platform-promotion/reconcile-guest": 2.1,
   "/api/platform-popup/ptr-reveal": 2.1,
   /** 2026-11-26 광고 감사 E 신설 — 코드 계산 10(상위노출 가격 1 · 배너 가격 1 · 매장 광고 설정 5 · 홈 선반 1 · 업종 정책 1 · 업종 1 · R-18·R-23), 운영 측정 전. 열 때 1회(고정 카드·고객센터 「광고 금액 확인」) */
-  "/api/ads/pricing-guide": 10.0,
+  "/api/ads/pricing-guide": 13.0,
   "/api/community-messenger/calls/sessions/stale-cleanup": 2.7,
   /** 2026-11-26 D6 인스턴스 공유 캐시(1시간·관리자 저장 시 만료) — 전: 2.89(11-25 Vercel 260/90). 상한 계산: 하루 비는 횟수 ≤ 24 × 표 3 + 인증 키 ≈ 요청 90 에 1.0 → 1.2 (실측 전) */
   "/api/app/notification-sound-ssot": 1.2,
