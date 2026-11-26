@@ -1,18 +1,19 @@
 "use client";
 
-import { ArrowLeftRight, Coins, Gift, Headset, Heart, LayoutGrid, MessagesSquare, Phone, Receipt, type LucideIcon } from "lucide-react";
+import { Coins, Gift, Headset, Heart, MessagesSquare, Phone, Receipt, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { serviceBrandIconSlot, type ServiceBrandIconSlotProps } from "@/components/brand/ServiceBrandIcon";
+import { HomeServiceIconDuo, HomeServiceIconLine, type HomeTileKey } from "@/components/home-hub/home-service-icons";
 import {
   HOME_MENU_CATALOG,
   pickHomeText,
+  resolveHomeServiceTiles,
   type HomeMenuKey,
   type HomeServiceCardConfig,
   type HomeServiceKey,
 } from "@/lib/home/home-layout-contract";
 import { homeCatalogName, type HomeCatalog } from "@/lib/home/home-catalog-types";
 import { DIBAY_SERVICE_BRAND } from "@/lib/brand/dibay-service-brand";
-import { homePressFromClick } from "@/lib/ui/home-press-feedback";
 
 /** 그림을 올리지 않은 큰 카드의 선 그림 — 단색(색 칸 없음, Owner 2026-11-09 「아이콘 컬러 원하지 않음」) */
 const LINE_ICON: Record<HomeServiceKey, LucideIcon | ((p: ServiceBrandIconSlotProps) => React.JSX.Element)> = {
@@ -54,81 +55,48 @@ export function resolveServiceDescLines(
 
 
 /**
- * 서비스 입구 — 슈퍼앱 개편 (Owner 「제안대로 승인」 2026-11-26 · 설계 §1③, 이전 시안 R3 telRING 대표 칸 + 같은 크기 칸).
- * ③ 서비스 칸 = 보이는 서비스(어드민 순서) + 「환율 계산」 + 「전체」 — **모두 같은 크기**, 휴대폰 4열.
- * telRING 대표 칸은 ④ 자리로 옮겼다(`HomeTelringCard`) — 서비스 칸에는 telRING 도 같은 크기 칸으로 들어간다.
+ * ③ 서비스 4×2 — 시안 v2 §3-4 (Owner 「v2대로 구현」 2026-11-26).
+ * 순서 = 시안 고정(정보 공유·마켓·모임·DIPICK / telRING·이벤트·환율 계산·전체) · 어드민은 보이기만 · 이름만(설명 없음).
+ * 휴대폰 = 따로 떨어진 흰 칸 + 두 색 아이콘 · 태블릿 = 한 판 + 구분선 + 연초록 동그라미 선 아이콘 (`app/home-hub.css` `.home-svc*`).
+ * 누름 피드백은 홈 전체 위임(`HomeScreen` `onClickCapture`).
  */
 export function HomeServiceCards({
   services,
-  catalog,
   onOpen,
   onOpenRateCalc,
 }: {
   services: HomeServiceCardConfig[];
-  catalog: HomeCatalog;
   onOpen: (key: HomeMenuKey) => void;
   onOpenRateCalc: () => void;
 }) {
   const { t, language } = useI18n();
-  const visible = services.filter((s) => s.visible);
-  if (visible.length === 0) return null;
-  const title = (c: HomeServiceCardConfig) => pickHomeText(c.title, language) || t(HOME_MENU_CATALOG[c.key].labelKey);
+  const keys = resolveHomeServiceTiles(services);
+  const byKey = new Map(services.map((s) => [s.key, s]));
+  const name = (k: HomeServiceKey) => pickHomeText(byKey.get(k)?.title, language) || t(HOME_MENU_CATALOG[k].labelKey);
+  const tiles: { key: HomeTileKey; label: string; onClick: () => void }[] = [
+    ...keys.map((k) => ({ key: k as HomeTileKey, label: name(k), onClick: () => onOpen(k) })),
+    { key: "rate_calc", label: t("home_menu_rate_calc"), onClick: onOpenRateCalc },
+    { key: "all", label: t(HOME_MENU_CATALOG.all.labelKey), onClick: () => onOpen("all") },
+  ];
 
   return (
     <section className="home-svc" data-home-services>
       <div className="home-svc-grid">
-        {visible.map((c) => {
-          const Icon = LINE_ICON[c.key];
-          const desc = resolveServiceDescLines(c, catalog, language, t)[0] ?? "";
-          return (
-            <button
-              key={c.key}
-              type="button"
-              onClick={(e) => {
-                homePressFromClick("tap", e);
-                onOpen(c.key);
-              }}
-              className="home-press home-svc-tile [-webkit-tap-highlight-color:transparent]"
-              data-home-service={c.key}
-            >
-              <span className="home-svc-ic">
-                <Icon className="h-[24px] w-[24px] text-sam-primary" strokeWidth={1.8} aria-hidden />
-              </span>
-              <span className="home-svc-name">{title(c)}</span>
-              {desc ? <span className="home-svc-desc">{desc}</span> : null}
-            </button>
-          );
-        })}
-        <button
-          type="button"
-          onClick={(e) => {
-            homePressFromClick("tap", e);
-            onOpenRateCalc();
-          }}
-          className="home-press home-svc-tile [-webkit-tap-highlight-color:transparent]"
-          data-home-service="rate_calc"
-        >
-          <span className="home-svc-ic">
-            <ArrowLeftRight className="h-[24px] w-[24px] text-sam-primary" strokeWidth={1.8} aria-hidden />
-          </span>
-          <span className="home-svc-name">{t("home_menu_rate_calc")}</span>
-          <span className="home-svc-desc">{t("home_menu_desc_rate_calc")}</span>
-        </button>
-        <button
-          type="button"
-          onClick={(e) => {
-            homePressFromClick("tap", e);
-            onOpen("all");
-          }}
-          className="home-press home-svc-tile [-webkit-tap-highlight-color:transparent]"
-          data-home-service="all"
-        >
-          <span className="home-svc-ic">
-            <LayoutGrid className="h-[24px] w-[24px] text-sam-primary" strokeWidth={1.8} aria-hidden />
-          </span>
-          <span className="home-svc-name">{t(HOME_MENU_CATALOG.all.labelKey)}</span>
-          <span className="home-svc-desc">{t(HOME_MENU_CATALOG.all.descKey)}</span>
-        </button>
+        {tiles.map((tile) => (
+          <button
+            key={tile.key}
+            type="button"
+            onClick={tile.onClick}
+            className="home-press home-svc-tile"
+            data-home-service={tile.key}
+          >
+            <span className="home-svc-ic">
+              <HomeServiceIconDuo tile={tile.key} className="home-svc-ic-duo" />
+              <HomeServiceIconLine tile={tile.key} className="home-svc-ic-line" />
+            </span>
+            <span className="home-svc-name">{tile.label}</span>
+          </button>
+        ))}
       </div>
     </section>
   );
@@ -157,10 +125,7 @@ export function HomeTelringCard({
     <div
       role="button"
       tabIndex={0}
-      onClick={(e) => {
-        homePressFromClick("tap", e);
-        onOpen("chat");
-      }}
+      onClick={() => onOpen("chat")}
       onKeyDown={(e) => {
         if (e.key === "Enter") onOpen("chat");
       }}
@@ -194,7 +159,6 @@ export function HomeTelringCard({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              homePressFromClick("tap", e);
               onOpenHref("chat", href);
             }}
             className={`home-press home-ring-cta${kind === "chat" ? " home-ring-cta--chat" : ""}`}

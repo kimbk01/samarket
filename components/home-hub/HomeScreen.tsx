@@ -32,7 +32,7 @@ import { HomeServiceCards, HomeTelringCard } from "@/components/home-hub/HomeSer
 import { HomeInfoStrip } from "@/components/home-hub/HomeInfoStrip";
 import { HomeMyActivity } from "@/components/home-hub/HomeMyActivity";
 import { HomeRateCalcStandalone } from "@/components/home-hub/HomeRateCalcSheet";
-import { homePressFeedback, homePressFromClick, prewarmHomePressFeedback } from "@/lib/ui/home-press-feedback";
+import { homePressDelegate, homePressFeedback, homePressPointerDown, prewarmHomePressFeedback } from "@/lib/ui/home-press-feedback";
 import { resolveHomeTopAreas } from "@/lib/home/home-top-areas";
 import { HomeNoticeLine } from "@/components/home-hub/HomeNoticeLine";
 import { HomeDiscoverFeed } from "@/components/home-hub/HomeDiscoverFeed";
@@ -191,7 +191,13 @@ export function HomeScreen({
   }, [memberProfileId, liveAddressLine]);
 
   return (
-    <div className="home-r3 min-h-full bg-[#F3F5F3]" data-home-screen>
+    /* 누름 피드백 = 홈 전체 위임 (설계 v2 §4) — 피드·공지·종까지 같은 진동·소리 */
+    <div
+      className="home-r3 min-h-full"
+      data-home-screen
+      onClickCapture={homePressDelegate}
+      onPointerDownCapture={homePressPointerDown}
+    >
       <HomePullRefreshHost />
 
       {/* 머리줄 — 시안 R4 수정안 #1 (Owner 「수정안대로 진행」 2026-11-18): 로고 · 흰 알약 주소 · 알림 종/로그인.
@@ -206,13 +212,13 @@ export function HomeScreen({
                 diba<span className="text-[#E0A800]">Y</span>
               </span>
             </span>
+            <span className="home-r3-hdr-div" aria-hidden />
             {layout.header.showAddress ? (
               <button
                 type="button"
                 aria-label={t("home_address_change_aria")}
                 className="home-press home-r3-loc"
-                onClick={(e) => {
-                  homePressFromClick("tap", e);
+                onClick={() => {
                   if (isMember) router.push("/mypage/addresses");
                   else void requireAuthAction("address_save", () => router.push("/mypage/addresses"), { next: "/home" });
                 }}
@@ -231,20 +237,19 @@ export function HomeScreen({
                 <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#555]" strokeWidth={2.4} aria-hidden />
               </button>
             ) : null}
-            <span className="flex-1" />
-            {/* 검색 (설계 C2) — 휴대폰 = 아이콘, 태블릿 = 검색 알약. 둘 다 기존 통합검색 화면으로만 이동 */}
+            {/* 검색 (시안 v2 §2) — 휴대폰 = 오른쪽 돋보기 · 태블릿 = 주소 칩 오른쪽 구분선 뒤 넓은 알약 「무엇이든 찾아보세요」.
+                둘 다 기존 통합검색 화면으로만 이동 */}
+            <span className="home-r3-hdr-div home-r3-hdr-div--t" aria-hidden />
+            <span className="home-r3-hdr-fill" />
             <button
               type="button"
               className="home-press home-r3-search"
               aria-label={t("common_search")}
-              onClick={(e) => {
-                homePressFromClick("tap", e);
-                openGlobalSearchFromHere(router);
-              }}
+              onClick={() => openGlobalSearchFromHere(router)}
               data-home-search
             >
-              <Search className="h-[18px] w-[18px] shrink-0" strokeWidth={2.4} aria-hidden />
-              <span className="home-r3-search-label">{t("common_search")}</span>
+              <Search className="h-[20px] w-[20px] shrink-0" strokeWidth={2.2} aria-hidden />
+              <span className="home-r3-search-label">{t("home_search_placeholder")}</span>
             </button>
             <div className={samTier1HeaderIconCluster}>
               {headerMember ? (
@@ -262,10 +267,7 @@ export function HomeScreen({
               <button
                 type="button"
                 className="home-press home-r3-login inline-flex h-11 shrink-0 items-center whitespace-nowrap rounded-full bg-sam-primary px-4 text-[13.5px] font-bold text-white"
-                onClick={(e) => {
-                  homePressFromClick("tap", e);
-                  router.push(buildLoginHref("/home"));
-                }}
+                onClick={() => router.push(buildLoginHref("/home"))}
                 data-home-login
               >
                 {t("home_sign_in")}
@@ -306,12 +308,13 @@ export function HomeScreen({
               <div className="home-r3-cell home-r3-cell--svc">
                 <HomeServiceCards
                   services={layout.services}
-                  catalog={catalog}
                   onOpen={openMenu}
                   onOpenRateCalc={() => setRateCalcOpen(true)}
                 />
               </div>
             ) : null}
+            {/* 태블릿 1행 아래 가로 구분선 (시안 v2 §1) */}
+            {topAreas.hasRule ? <span className="home-r3-rule" aria-hidden /> : null}
             {showTelring ? (
               <div className="home-r3-cell home-r3-cell--ring">
                 <HomeTelringCard config={telringConfig} catalog={catalog} onOpen={openMenu} onOpenHref={openMenuHref} />
@@ -326,11 +329,6 @@ export function HomeScreen({
         ) : null}
         {/* 정보 띠를 숨겼어도 서비스 「환율 계산」 칸은 시트를 연다 */}
         {!showInfo ? <HomeRateCalcStandalone open={rateCalcOpen} onClose={() => setRateCalcOpen(false)} /> : null}
-        {sections.includes("notice") && catalog.latestNotice ? (
-          <div className="home-r3-notice">
-            <HomeNoticeLine notice={catalog.latestNotice} />
-          </div>
-        ) : null}
         {sections.includes("feed") ? (
           <HomeDiscoverFeed
             layout={layout}
@@ -341,6 +339,12 @@ export function HomeScreen({
             rot={rot}
             refreshSeq={refreshSeq}
           />
+        ) : null}
+        {/* 공지 한 줄 — 시안 v2 에 위쪽 자리가 없어 피드 맨 아래 (§1) */}
+        {sections.includes("notice") && catalog.latestNotice ? (
+          <div className="home-r3-notice">
+            <HomeNoticeLine notice={catalog.latestNotice} />
+          </div>
         ) : null}
       </div>
     </div>

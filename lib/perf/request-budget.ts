@@ -18,11 +18,10 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/community-messenger/presence": 1.1,
   "/api/me/notifications/badge-count": 5.2,
   /**
-   * 2026-11-26 홈 슈퍼앱 개편 P3 「내 진행 중」이 `?hub_summary=1` 을 부르게 되어 등록(설계 §6).
-   * 계수기 7일(11-19~26) 217호출/65요청 = 3.34 · 요청 1회 최대 7. hub_summary 경로 코드 계산 = 프로필·세션(캐시 시 생략)
-   * + 주문 1 + 숨김 1 + 안 읽음 1 + 매장 이름 1 = 4~6 → 6.0. Vercel 값으로 7일 뒤 다시 맞춘다(내리기만).
+   * 2026-11-26 홈 슈퍼앱 개편 설계 v2 §3-6 「내 진행 중」 새 라우트. 실측 전 코드 계산값:
+   * 로그인 확인 + 주문 1 + 숨긴 주문 1 + 매장 이름 1 + 상품 1 + 거래 채팅 1(거래 1건일 때) = 최대 6. 7일 뒤 Vercel 값으로 내린다.
    */
-  "/api/me/store-orders": 6.0,
+  "/api/home/my-activity": 6.0,
   /** 2026-11-20 고정값 3개 공유 캐시 → 5.0. 2026-11-26 #577 지역 이름 공유 · #592 차단·숨김 1조회 뒤 실측 3.74(Vercel 232/62, 11-25 09~24 UTC) → 4.0 */
   "/api/philife/neighborhood-feed": 4.0,
   "/api/stores/home-feed": 10.5,

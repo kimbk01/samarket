@@ -1,13 +1,12 @@
 "use client";
 
-import type { KeyboardEvent, ReactNode } from "react";
+import type { KeyboardEvent } from "react";
 import { ArrowRight } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   HOME_BANNER_HERO_RATIO,
-  HOME_MENU_CATALOG,
   pickHomeText,
-  resolveHomeBannerMenuKey,
+  splitHomeBannerTitle,
   type HomeBannerConfig,
 } from "@/lib/home/home-layout-contract";
 
@@ -24,23 +23,18 @@ export function HomeHeroBannerCard({
   index,
   total,
   onClick,
-  showAllSlot,
-  showAllLabel = true,
+  showCount = true,
 }: {
   banner: HomeBannerConfig;
   index: number;
   total: number;
   onClick?: () => void;
-  /** 「전체보기」 자리 (수정안 #2) — 앱 홈은 버튼을 넘기고, 없으면 글자만 (어드민 미리보기) */
-  showAllSlot?: ReactNode;
-  /** 전체 목록 시트 안 카드는 「n / N 전체보기」 를 그리지 않는다 */
-  showAllLabel?: boolean;
+  /** 「n / N」 장 수 (시안 v2 — 「전체보기」 없음) */
+  showCount?: boolean;
 }) {
   const { t, language } = useI18n();
-  const menuKey = resolveHomeBannerMenuKey(banner.href);
-  const chip = pickHomeText(banner.chip, language) || (menuKey ? t(HOME_MENU_CATALOG[menuKey].labelKey) : "");
+  /* 시안 v2 §3-3: 홈 배너 = 제목(노랑 강조) + 버튼만. 칩·본문은 저장값만 남기고 그리지 않는다 */
   const title = pickHomeText(banner.title, language);
-  const body = pickHomeText(banner.body, language);
   const cta = banner.href ? pickHomeText(banner.ctaLabel, language) || t("home_banner_cta_default") : "";
   const full = banner.ratio === HOME_BANNER_HERO_RATIO;
   return (
@@ -69,16 +63,23 @@ export function HomeHeroBannerCard({
       <img src={banner.imageUrl} alt="" className="home-hero-img" draggable={false} />
       <span className="home-hero-shade" aria-hidden />
       {banner.adLabel ? <span className="home-hero-ad">{t("home_ad")}</span> : null}
-      {total > 1 && showAllLabel ? (
-        <span className="home-hero-count">
-          {t("home_banner_position", { current: index + 1, total })}
-          {showAllSlot ?? <span className="home-hero-all">{t("home_see_all")}</span>}
-        </span>
+      {total > 1 && showCount ? (
+        <span className="home-hero-count">{t("home_banner_position", { current: index + 1, total })}</span>
       ) : null}
       <span className="home-hero-copy">
-        {chip ? <span className="home-hero-chip">{chip}</span> : null}
-        {title ? <span className="home-hero-title">{title}</span> : null}
-        {body ? <span className="home-hero-body">{body}</span> : null}
+        {title ? (
+          <span className="home-hero-title">
+            {splitHomeBannerTitle(title).map((part, i) =>
+              part.hi ? (
+                <span key={i} className="home-hero-hi">
+                  {part.text}
+                </span>
+              ) : (
+                <span key={i}>{part.text}</span>
+              )
+            )}
+          </span>
+        ) : null}
         {cta ? (
           <span className="home-hero-cta">
             {cta}

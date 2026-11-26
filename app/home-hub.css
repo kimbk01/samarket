@@ -51,7 +51,13 @@
 .home-hero-card::before {
   content: "";
   display: block;
-  padding-top: 56.25%; /* 16:9 — 어드민 업로드 기준과 같음 */
+  padding-top: 30.6%; /* 휴대폰 = 시안 v2 752×230 (3.27:1). 그림은 16:9 업로드를 가운데 기준으로 채움 */
+}
+/* 휴대폰 배너 — 화면 좌우 끝까지 붙어 모서리 없음 (시안 v2) */
+@container (max-width: 599px) {
+  .home-hero-card {
+    border-radius: 0;
+  }
 }
 .home-hero-card[role="button"] {
   cursor: pointer;
@@ -92,9 +98,9 @@
 }
 .home-hero-copy {
   position: absolute;
-  left: 16px;
-  right: 44%;
-  bottom: 16px;
+  left: 5.8cqi;
+  right: 40%;
+  bottom: 4.6cqi;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -113,8 +119,8 @@
   backdrop-filter: blur(6px);
 }
 .home-hero-title {
-  margin-top: 8px;
-  font-size: 19px;
+  margin-top: 0;
+  font-size: clamp(16px, 5.2cqi, 22px);
   font-weight: 800;
   line-height: 1.28;
   letter-spacing: -0.03em;
@@ -135,17 +141,22 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* 시안 v2: 제목 일부 노랑 강조 `{ }` */
+.home-hero-hi {
+  color: #ffc933;
+}
+/* 버튼 — 휴대폰 노랑 알약 · 태블릿 흰 알약 (시안 v2) */
 .home-hero-cta {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  margin-top: 12px;
-  height: 34px;
-  padding: 0 14px;
+  margin-top: 2.4cqi;
+  height: clamp(24px, 6.7cqi, 30px);
+  padding: 0 3.4cqi;
   border-radius: 999px;
-  background: #fff;
-  color: #141a16;
-  font-size: 13px;
+  background: #fbc101;
+  color: #1d1a0f;
+  font-size: clamp(11.5px, 3.4cqi, 13.5px);
   font-weight: 800;
   white-space: nowrap;
 }
@@ -168,24 +179,10 @@
 .home-hero-ad {
   left: 12px;
 }
+/* 「n / N」 오른쪽 위 어두운 알약 (시안 v2 — 「전체보기」 없음) */
 .home-hero-count {
-  right: 12px;
-  gap: 6px;
-  padding-right: 4px;
-}
-/* 「n / N │ 전체보기」 (수정안 #2) */
-.home-hero-all {
-  display: inline-flex;
-  align-items: center;
-  height: 100%;
-  padding: 0 6px;
-  border-left: 1px solid rgba(255, 255, 255, 0.35);
-  font-weight: 600;
-  opacity: 0.9;
-  color: #fff;
-}
-button.home-hero-all:active {
-  opacity: 0.6;
+  right: 2.6cqi;
+  top: 2.6cqi;
 }
 /* 전체보기 시트 — 같은 카드 세로 목록 */
 .home-hero-list {
@@ -196,22 +193,26 @@ button.home-hero-all:active {
 .home-hero-list .home-hero-card {
   width: 100%;
 }
+/* 점 — 휴대폰만, 배너 아래 가운데 흰 점 (시안 v2) */
 .home-hero-dots {
-  display: none; /* 개편: 장 수는 카드 안 「n / N」 */
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2cqi;
+  z-index: 2;
+  display: flex;
   justify-content: center;
-  gap: 5px;
-  margin-top: 10px;
+  gap: 6px;
+  pointer-events: none;
 }
 .home-hero-dots i {
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: #d3d9d5;
-  transition: width 0.2s ease;
+  background: rgba(255, 255, 255, 0.55);
 }
 .home-hero-dots i.is-on {
-  width: 18px;
-  background: var(--sam-primary, #0b421a);
+  background: #fff;
 }
 .home-hero-arrow {
   display: none;
@@ -226,41 +227,64 @@ button.home-hero-all:active {
   }
 }
 
+/* 태블릿·PC 배너 칸 — 시안 v2 태블릿(553×290) 비율로: 모서리 12 · 제목 3줄 · 흰 버튼 · 점 없음 */
 @container (min-width: 600px) {
+  .home-hero-card::before {
+    padding-top: 52.4%;
+  }
+  .home-hero-card {
+    border-radius: 12px;
+  }
   .home-hero-copy {
-    left: 22px;
-    bottom: 22px;
-    right: 45%;
+    left: 6cqi;
+    right: 42%;
+    bottom: 5cqi;
   }
   .home-hero-title {
-    font-size: 23px;
-  }
-  .home-hero-body {
-    font-size: 13.5px;
-    -webkit-line-clamp: 2;
+    font-size: clamp(22px, 6.4cqi, 38px);
+    line-height: 1.22;
+    -webkit-line-clamp: 3;
   }
   .home-hero-cta {
-    height: 38px;
-    font-size: 14px;
-    padding: 0 16px;
+    margin-top: 3.2cqi;
+    height: clamp(36px, 9cqi, 50px);
+    padding: 0 4.4cqi;
+    background: #fff;
+    color: #141a16;
+    font-size: clamp(13px, 3cqi, 17px);
+  }
+  .home-hero-dots {
+    display: none;
   }
 }
-
-@container (min-width: 1024px) {
-  .home-hero-copy {
-    left: 28px;
-    bottom: 28px;
+/* 앱 홈 안에서는 배너 칸 폭(태블릿 반쪽 ≈ 340~550)이 아니라 홈 폭(homer3)으로 휴대폰·태블릿을 가른다 */
+@container homer3 (min-width: 600px) {
+  .home-r3 .home-hero-card::before {
+    padding-top: 52.4%;
   }
-  .home-hero-title {
-    font-size: 27px;
+  .home-r3 .home-hero-card {
+    border-radius: 12px;
   }
-  .home-hero-body {
-    font-size: 14.5px;
+  .home-r3 .home-hero-copy {
+    left: 6cqi;
+    right: 42%;
+    bottom: 5cqi;
   }
-  .home-hero-cta {
-    height: 42px;
-    font-size: 14.5px;
-    padding: 0 18px;
+  .home-r3 .home-hero-title {
+    font-size: clamp(22px, 6.4cqi, 38px);
+    line-height: 1.22;
+    -webkit-line-clamp: 3;
+  }
+  .home-r3 .home-hero-cta {
+    margin-top: 3.2cqi;
+    height: clamp(36px, 9cqi, 50px);
+    padding: 0 4.4cqi;
+    background: #fff;
+    color: #141a16;
+    font-size: clamp(13px, 3cqi, 17px);
+  }
+  .home-r3 .home-hero-dots {
+    display: none;
   }
 }
 
@@ -308,38 +332,65 @@ button.home-hero-all:active {
  * ═══════════════════════════════════════════════════════════════════════ */
 .home-r3 {
   container: homer3 / inline-size;
+  /* 바탕 — 시안 v2: 휴대폰 연회색 #F6F6F6 · 태블릿 흰색 */
+  background: #f6f6f6;
 }
 .home-r3-wrap,
 .home-r3-hdr-row {
-  --home-gut: 16px;
+  /* 좌우 여백 — 시안 v2 휴대폰 10pt(752px 시안 20px) */
+  --home-gut: 10px;
   max-width: 1240px;
   margin: 0 auto;
   padding: 0 var(--home-gut) 32px;
 }
 @container homer3 (min-width: 600px) {
+  /* 컨테이너(.home-r3) 자신은 container query 로 못 바꿔서 본문 칸 바탕을 화면 폭까지 흰색으로 넓힌다 */
+  .home-r3-wrap {
+    background: #fff;
+    box-shadow: 0 0 0 100vmax #fff;
+    clip-path: inset(0 -100vmax);
+  }
   .home-r3-wrap,
   .home-r3-hdr-row {
-    --home-gut: 24px;
+    --home-gut: 22px;
   }
 }
 @container homer3 (min-width: 1024px) {
   .home-r3-wrap,
   .home-r3-hdr-row {
-    --home-gut: 32px;
+    --home-gut: 22px;
   }
 }
 
-/* 머리줄 (수정안 #1) — 본문과 같은 시작선 */
+/* 머리줄 — 시안 v2 §2: 로고 │ 주소 칩 ··· 검색 · 종 (태블릿: 로고 │ 주소 칩 │ 넓은 검색창 ··· 종) · 바탕 = 홈 바탕 */
 .home-r3-hdr {
-  background: var(--dibay-domain-surface, #f3f5f3);
+  background: #f6f6f6;
+}
+@container homer3 (min-width: 600px) {
+  .home-r3-hdr {
+    background: #fff;
+  }
 }
 .home-r3-hdr-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   height: 58px;
   /* 본문(.home-r3-wrap)과 폭·좌우 여백만 같이 쓰고 아래 여백(32px)은 받지 않는다 (2026-11-18 실측: 내용이 16px 위로 밀림) */
   padding-bottom: 0;
+}
+/* 세로 구분선 — 로고 오른쪽(휴대폰·태블릿) · 주소 칩 오른쪽(태블릿만) */
+.home-r3-hdr-div {
+  flex: none;
+  width: 1px;
+  height: 24px;
+  background: #e4e7e4;
+}
+.home-r3-hdr-div--t {
+  display: none;
+}
+.home-r3-hdr-fill {
+  flex: 1 1 0;
 }
 .home-r3-loc {
   display: inline-flex;
@@ -347,44 +398,43 @@ button.home-hero-all:active {
   max-width: 60%;
   align-items: center;
   gap: 4px;
-  height: 34px;
+  height: 36px;
   padding: 0 11px 0 9px;
   border-radius: 999px;
   background: #fff;
-  box-shadow:
-    0 1px 2px rgba(16, 24, 18, 0.06),
-    0 4px 14px rgba(16, 24, 18, 0.06);
+  border: 1px solid #e8ebe8;
+  box-shadow: 0 2px 8px rgba(16, 24, 18, 0.05);
   font-size: 14px;
   font-weight: 700;
   color: #141a16;
 }
-
-
-/* 머리글 검색 (설계 C2) — 휴대폰 44×44 아이콘 · 홈 폭 600 이상 = 검색 알약 */
+/* 검색 — 휴대폰 = 돋보기(선) 44×44 */
 .home-r3-search {
   display: inline-flex;
   flex: none;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   width: 40px;
   height: 44px;
   border-radius: 999px;
-  color: #141a16;
+  color: #0b421a;
 }
 .home-r3-search-label {
   display: none;
 }
-/* 휴대폰 머리줄 — 검색 아이콘이 들어와도 「전체 지역」이 잘리지 않게 간격을 줄인다 */
 @container homer3 (max-width: 599px) {
   .home-r3-hdr-row {
     gap: 6px;
   }
 }
-/* 폭 320 기기(iPhone SE·Galaxy S9+) — 로그인·주소 안쪽 여백만 줄인다 */
+/* 폭 320 기기(iPhone SE·Galaxy S9+) — 주소 글자가 잘리지 않게 여백·꾸밈을 줄인다 */
 @container homer3 (max-width: 359px) {
   .home-r3-hdr-row {
     gap: 4px;
+  }
+  .home-r3-hdr-div {
+    display: none;
   }
   .home-r3-search {
     width: 36px;
@@ -396,7 +446,6 @@ button.home-hero-all:active {
     padding: 0 9px 0 7px;
     gap: 2px;
   }
-  /* 아래 화살표는 꾸밈 — 좁은 폭에서는 주소 글자를 먼저 보인다 */
   .home-r3-loc > svg:last-child {
     display: none;
   }
@@ -405,22 +454,33 @@ button.home-hero-all:active {
 .home-r3-hdr-row > .sam-tier1-header-icon-cluster:empty {
   display: none;
 }
+/* 태블릿 — 주소 칩 뒤 구분선 + 넓은 흰 검색 알약 「무엇이든 찾아보세요」 (남는 폭 전부) */
 @container homer3 (min-width: 600px) {
+  .home-r3-hdr-row {
+    gap: 14px;
+    height: 66px;
+  }
+  .home-r3-hdr-div--t {
+    display: block;
+  }
+  .home-r3-hdr-fill {
+    display: none;
+  }
   .home-r3-search {
-    width: 240px;
-    height: 40px;
+    flex: 1 1 auto;
+    width: auto;
+    height: 46px;
     justify-content: flex-start;
-    padding: 0 14px;
+    padding: 0 18px;
     background: #fff;
-    box-shadow:
-      0 1px 2px rgba(16, 24, 18, 0.06),
-      0 4px 14px rgba(16, 24, 18, 0.06);
-    color: #8c948f;
+    border: 1px solid #e4e7e4;
+    color: #141a16;
   }
   .home-r3-search-label {
     display: inline;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 500;
+    color: #8c948f;
   }
 }
 
@@ -480,16 +540,17 @@ button.home-hero-all:active {
 
 
 /*
- * 위쪽 칸 — 슈퍼앱 개편 설계 §2 (Owner 「제안대로 승인」 2026-11-26).
- * 휴대폰 <600: 한 줄(정보 띠 → 배너 → 서비스 → telRING → 내 진행 중) · 배너는 화면 좌우 끝까지.
- * 600 이상: 2열 정확히 반반 `minmax(0,1fr) minmax(0,1fr)` · 칸 배치 = `--home-areas`(`lib/home/home-top-areas.ts`) ·
- * 같은 행 같은 높이(stretch) — 배너 16:9 높이에 서비스 칸이 맞춰 늘어난다.
+ * 위쪽 칸 — 시안 v2 §1 (Owner 「v2대로 구현」 2026-11-26).
+ * 휴대폰 <600: 한 줄(정보 띠 → 배너(화면 끝까지) → 서비스 → telRING → 내 진행 중), 칸 사이 10.
+ * 600 이상: 2열 정확히 반반 · 칸 배치 = `--home-areas`(`lib/home/home-top-areas.ts`) · 같은 행 같은 높이 ·
+ * 가운데 세로 가는 선 + 1행 아래 가로 가는 선(`rule`) — 시안 `#ECECED`.
  */
 .home-r3-top {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-top: 4px;
+  gap: 10px;
+  padding-top: 2px;
 }
 .home-r3-banner {
   margin-inline: calc(var(--home-gut) * -1);
@@ -497,20 +558,35 @@ button.home-hero-all:active {
 .home-r3-banner .home-hero {
   padding: 0;
 }
-@container homer3 (max-width: 599px) {
-  /* 화면 좌우 끝까지 붙은 배너 — 모서리 없음 */
-  .home-r3-banner .home-hero-card {
-    border-radius: 0;
-  }
+.home-r3-rule {
+  display: none;
 }
 @container homer3 (min-width: 600px) {
   .home-r3-top {
     display: grid;
     grid-template-columns: var(--home-cols, minmax(0, 1fr) minmax(0, 1fr));
     grid-template-areas: var(--home-areas);
-    gap: 16px;
+    column-gap: 44px;
+    row-gap: 12px;
     align-items: stretch;
-    padding-top: 12px;
+    padding-top: 10px;
+  }
+  /* 가운데 세로 가는 선 */
+  .home-r3-top::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    background: #ececed;
+  }
+  .home-r3-rule {
+    display: block;
+    grid-area: rule;
+    height: 1px;
+    margin-inline: calc(var(--home-gut) * -1);
+    background: #ececed;
   }
   .home-r3-cell {
     min-width: 0;
@@ -533,7 +609,7 @@ button.home-hero-all:active {
   .home-r3-banner {
     margin-inline: 0;
   }
-  /* 같은 행 같은 높이 — 서비스·telRING 칸이 칸 높이를 채운다 */
+  /* 같은 행 같은 높이 */
   .home-r3-cell--svc .home-svc,
   .home-r3-cell--svc .home-svc-grid,
   .home-r3-cell--ring .home-ring,
@@ -541,19 +617,13 @@ button.home-hero-all:active {
   .home-r3-cell--my .home-my {
     height: 100%;
   }
-  /* 배너는 16:9 를 최소로, 서비스 칸이 더 높으면 그 높이까지 채운다(그림 = cover) */
+  /* 배너는 시안 비율을 최소로, 서비스 판이 더 높으면 그 높이까지 채운다(그림 = cover) */
   .home-r3-cell--banner .home-hero,
   .home-r3-cell--banner .home-hero-track {
     height: 100%;
   }
   .home-r3-cell--banner .home-hero-card {
     align-self: stretch;
-  }
-  .home-r3-cell--svc .home-svc-grid {
-    grid-auto-rows: 1fr;
-  }
-  .home-r3-cell--svc .home-svc-tile {
-    justify-content: center;
   }
   .home-r3-banner .home-hero-arrow--prev {
     right: 58px;
@@ -562,48 +632,42 @@ button.home-hero-all:active {
     right: 12px;
   }
 }
-@container homer3 (min-width: 1024px) {
-  .home-r3-top {
-    gap: 20px;
-    padding-top: 16px;
-  }
-}
 
-/* telRING + 서비스 칸 (같은 크기) */
-.home-svc {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-/* 서비스 8칸 = 4×2 (휴대폰·태블릿 반쪽 모두 4열) */
+/*
+ * ③ 서비스 4×2 — 시안 v2 §3-4.
+ * 휴대폰: 따로 떨어진 흰 칸(연회색 테두리 · 모서리 8 · 시안 85×54pt · 사이 5.5) + 두 색 아이콘 + 이름.
+ * 태블릿: 흰 한 판(테두리 · 모서리 12) 안 4×2 · 칸 사이 가는 선 · 연초록 동그라미 안 진초록 아이콘.
+ */
 .home-svc-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 .home-svc-tile {
+  position: relative;
   display: flex;
   min-width: 0;
+  min-height: 54px;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 12px 4px 10px;
-  border-radius: var(--ui-radius-rect, 4px);
+  justify-content: center;
+  gap: 1px;
+  padding: 4px 2px 4px;
+  border-radius: 8px;
+  border: 1px solid #e3e6e3;
   background: #fff;
-  box-shadow:
-    0 1px 2px rgba(16, 24, 18, 0.06),
-    0 4px 14px rgba(16, 24, 18, 0.06);
   text-align: center;
-  transition: transform 0.15s ease;
 }
-
 .home-svc-ic {
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 999px;
-  background: #e9f3ec;
+}
+.home-svc-ic-duo {
+  width: 26px;
+  height: 26px;
+}
+.home-svc-ic-line {
+  display: none;
 }
 .home-svc-name {
   max-width: 100%;
@@ -612,16 +676,64 @@ button.home-hero-all:active {
   white-space: nowrap;
   font-size: 13px;
   font-weight: 700;
+  letter-spacing: -0.02em;
   color: #141a16;
 }
-.home-svc-desc {
-  max-width: 100%;
-  margin-top: -3px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 11px;
-  color: #8c948f;
+@container homer3 (min-width: 600px) {
+  .home-svc {
+    container-type: inline-size;
+    border: 1px solid #ececed;
+    border-radius: 12px;
+    background: #fff;
+    padding: 8px 6px;
+  }
+  .home-svc-grid {
+    gap: 0;
+    grid-auto-rows: 1fr;
+  }
+  .home-svc-tile {
+    border: 0;
+    border-radius: 8px;
+    gap: 10px;
+    padding: 10px 4px;
+  }
+  /* 칸 사이 가는 선 — 세로(줄 첫 칸 제외) · 가로(둘째 줄 위) */
+  .home-svc-tile:not(:nth-child(4n + 1))::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 14%;
+    bottom: 14%;
+    width: 1px;
+    background: #ececed;
+  }
+  .home-svc-tile:nth-child(n + 5)::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: #ececed;
+  }
+  .home-svc-ic {
+    width: clamp(44px, 12cqi, 66px);
+    height: clamp(44px, 12cqi, 66px);
+    border-radius: 999px;
+    background: #e3f1e7;
+    color: #0b421a;
+  }
+  .home-svc-ic-duo {
+    display: none;
+  }
+  .home-svc-ic-line {
+    display: block;
+    width: 46%;
+    height: 46%;
+  }
+  .home-svc-name {
+    font-size: clamp(13px, 2.9cqi, 16px);
+  }
 }
 
 /* 공지 한 줄 */
@@ -786,7 +898,7 @@ button.home-hero-all:active {
   cursor: pointer;
 }
 .home-trade-card:active {
-  opacity: 0.8;
+  transform: scale(0.97);
 }
 /* 찜(♡) — 사진 오른쪽 아래 흰 원 (수정안 #6) */
 .home-trade-fav {
@@ -885,7 +997,7 @@ button.home-hero-all:active {
   text-align: left;
 }
 .home-store-head:active {
-  opacity: 0.7;
+  transform: scale(0.97);
 }
 .home-store-logo {
   display: block;
@@ -909,7 +1021,7 @@ button.home-hero-all:active {
   text-align: left;
 }
 .home-store-menu:active {
-  opacity: 0.8;
+  transform: scale(0.97);
 }
 .home-store-plus {
   position: absolute;
@@ -1029,7 +1141,7 @@ button.home-hero-all:active {
   text-align: left;
 }
 .home-mag-card:active {
-  opacity: 0.85;
+  transform: scale(0.97);
 }
 .home-mag-img {
   position: relative;
@@ -1154,63 +1266,6 @@ button.home-hero-all:active {
   }
 }
 
-/* 2단(≥1024) 같은 줄 높이 (수정안 #11 · Owner 2026-11-18 「행 높이 동일·오와 열」):
-   배너 아래 끝 = 서비스 칸 아래 끝 · 서비스 두 줄 같은 높이 · 점 표시 배너 안 */
-@container homer3 (min-width: 1024px) {
-  .home-r3-top {
-    align-items: stretch;
-  }
-  .home-r3-banner,
-  .home-r3-banner .home-hero {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-  }
-  .home-r3-banner .home-hero {
-    flex: 1;
-  }
-  .home-r3-banner .home-hero-track {
-    flex: 1;
-    align-items: stretch;
-  }
-  .home-r3-banner .home-hero-card {
-    height: auto;
-    min-height: 300px;
-  }
-  .home-r3-banner .home-hero-card::before {
-    display: none;
-  }
-  .home-r3-banner .home-hero-dots {
-    position: absolute;
-    left: 28px;
-    bottom: 12px;
-    z-index: 2;
-    display: flex;
-    margin: 0;
-    justify-content: flex-start;
-  }
-  .home-r3-banner .home-hero-dots i {
-    background: rgba(255, 255, 255, 0.5);
-  }
-  .home-r3-banner .home-hero-dots i.is-on {
-    background: #fff;
-  }
-  .home-r3-side,
-  .home-r3-side .home-svc {
-    display: flex;
-    flex-direction: column;
-  }
-  .home-r3-side .home-svc {
-    flex: 1;
-  }
-  .home-r3-side .home-svc-grid {
-    flex: 1;
-    grid-auto-rows: 1fr;
-  }
-  .home-svc-tile {
-    justify-content: center;
-  }
-}
 
 /* ═══════════════════════════════════════════════════════════════════════
  * 누름 통일 — 슈퍼앱 개편 설계 §5-1 (Owner 「제안대로 승인」 2026-11-26).
@@ -1226,31 +1281,44 @@ button.home-hero-all:active {
 .home-press:active:not(:disabled) {
   transform: scale(0.97);
 }
+/* 피드·공지·칸 제목 › — 같은 0.97 눌림 (설계 v2 §4) */
+.home-r3 :is(.home-trade-card, .home-store-head, .home-store-menu, .home-mag-card, .home-store-cat, .home-chip, .home-shelf-all, .home-store-gate-cta, .home-r3-notice button, .home-r3-notice a) {
+  transition: transform 0.12s ease;
+}
+.home-r3 :is(.home-chip, .home-shelf-all, .home-store-gate-cta, .home-r3-notice button, .home-r3-notice a):active {
+  transform: scale(0.97);
+}
 .home-svc-tile.home-press:active,
-.home-info-cell.home-press:active:not(:disabled),
-.home-my-row.home-press:active,
-.home-r3-loc.home-press:active {
+.home-r3-loc.home-press:active,
+.home-r3-search.home-press:active {
   background: var(--sam-pressed-surface, #e8f3ee);
 }
 .home-press:focus-visible,
-.home-hero-card[role="button"]:focus-visible {
+.home-hero-card[role="button"]:focus-visible,
+.home-r3 :is(.home-trade-card, .home-store-head, .home-store-menu, .home-mag-card, .home-store-cat, .home-chip, .home-shelf-all):focus-visible {
   outline: 2px solid var(--sam-primary, #0b421a);
   outline-offset: 2px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .home-press {
+  .home-press,
+  .home-r3 :is(.home-trade-card, .home-store-head, .home-store-menu, .home-mag-card, .home-store-cat, .home-chip, .home-shelf-all) {
     transition: none;
   }
-  .home-press:active:not(:disabled) {
+  .home-press:active:not(:disabled),
+  .home-r3 :is(.home-trade-card, .home-store-head, .home-store-menu, .home-mag-card, .home-store-cat, .home-chip, .home-shelf-all):active {
     transform: none;
   }
 }
 
-/* ① 정보 띠 — 환율 | 날씨 반반 (날씨 실패 = 환율 전체 폭) */
+/*
+ * ① 환율·날씨 — 시안 v2 §3-1·§3-2.
+ * 휴대폰: 연초록 두 칸(#EFF5F0 · 모서리 8 · 높이 52) — 환율 = 🇵🇭⇄🇰🇷 「환율」 / 「1 PHP = 21.05원 ▲0.2%」, 날씨 = 지역 / ☀ 31° 맑음.
+ * 태블릿: 흰 한 카드(테두리 · 모서리 12) — 환율(제목 · 값 · ▲ 알약 + 꺾은선) │ 날씨(제목 · 지역 · ☀ 31°).
+ */
 .home-info {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 8px;
+  gap: 5px;
 }
 .home-info--solo {
   grid-template-columns: minmax(0, 1fr);
@@ -1258,19 +1326,19 @@ button.home-hero-all:active {
 .home-info-cell {
   display: flex;
   min-width: 0;
-  min-height: 56px;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: var(--ui-radius-rect, 4px);
-  background: #fff;
-  box-shadow:
-    0 1px 2px rgba(16, 24, 18, 0.06),
-    0 4px 14px rgba(16, 24, 18, 0.06);
+  min-height: 52px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: #eff5f0;
   text-align: left;
   color: #141a16;
 }
 .home-info-cell--fail {
+  flex-direction: row;
+  align-items: center;
   justify-content: space-between;
   font-size: 12.5px;
   color: #5a625d;
@@ -1281,92 +1349,341 @@ button.home-hero-all:active {
   padding: 0 10px;
   border-radius: 999px;
   border: 1px solid #d3d9d5;
+  background: #fff;
   font-size: 12.5px;
   font-weight: 700;
   color: var(--sam-primary, #0b421a);
 }
+.home-info-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.home-info-flags {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
 .home-info-flag {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  background: #e9f3ec;
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--sam-primary, #0b421a);
+  width: 18px;
+  height: 12px;
+  border-radius: 2px;
+}
+.home-info-swap {
+  font-size: 11px;
+  color: #5c645e;
+}
+.home-info-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #141a16;
+}
+.home-info-title--weather {
+  display: none;
 }
 .home-info-main {
   display: flex;
   min-width: 0;
-  flex-wrap: wrap;
-  align-items: center;
-  column-gap: 6px;
-  font-size: 14px;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+  font-size: 14.5px;
   font-weight: 800;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
-.home-info-sub {
-  display: block;
+.home-info-delta {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.home-info-delta.is-up {
+  color: #1c7a3a;
+}
+.home-info-delta.is-down {
+  color: #d33b2f;
+}
+.home-info-delta--badge,
+.home-info-trend {
+  display: none;
+}
+.home-info-place {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11.5px;
-  color: #8c948f;
-}
-.home-info-delta {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 700;
 }
-.home-info-delta.is-up {
-  color: #d33b2f;
+.home-info-wrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
-.home-info-delta.is-down {
-  color: #2f6fd3;
+.home-info-wicon {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  color: #f5b400;
+}
+.home-info-temp {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.home-info-wlabel {
+  align-self: flex-end;
+  font-size: 11.5px;
+  color: #5c645e;
 }
 .home-info-skel {
   display: block;
   width: 70%;
   height: 14px;
-  border-radius: var(--ui-radius-rect, 4px);
-  background: #e9ece9;
+  border-radius: 4px;
+  background: #dfe8e1;
+}
+@container homer3 (max-width: 359px) {
+  .home-info-cell {
+    padding: 7px 9px;
+  }
+  .home-info-main {
+    font-size: 13px;
+  }
+}
+@container homer3 (min-width: 600px) {
+  .home-info {
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    gap: 0;
+    border: 1px solid #ececed;
+    border-radius: 12px;
+    background: #fff;
+    padding: 14px 0;
+  }
+  .home-info-cell {
+    background: transparent;
+    border-radius: 0;
+    padding: 0 20px;
+    justify-content: flex-start;
+    gap: 4px;
+  }
+  .home-info-weather {
+    border-left: 1px solid #ececed;
+  }
+  .home-info-flags {
+    display: none;
+  }
+  .home-info-title,
+  .home-info-title--weather {
+    display: block;
+    font-size: 14px;
+  }
+  .home-info-main {
+    font-size: clamp(16px, 2.4cqi, 22px);
+  }
+  .home-info-delta--inline {
+    display: none;
+  }
+  .home-info-trend {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .home-info-delta--badge {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: #e3f1e7;
+    font-size: 13px;
+  }
+  .home-info-spark {
+    width: min(150px, 55%);
+    height: 40px;
+  }
+  .home-info-place {
+    font-weight: 500;
+    color: #8c948f;
+    font-size: 13px;
+  }
+  .home-info-wrow {
+    justify-content: flex-end;
+    margin-top: auto;
+  }
+  .home-info-wicon {
+    width: 40px;
+    height: 40px;
+  }
+  .home-info-temp {
+    font-size: clamp(24px, 3.4cqi, 34px);
+  }
+  .home-info-wlabel {
+    display: none;
+  }
 }
 
-/* ⑤ 내 진행 중 */
+/*
+ * ⑤ 내 진행 중 — 시안 v2 §3-6.
+ * 휴대폰: 흰 카드(테두리 · 모서리 8) · 초록 겹친 네모 + 「내 진행 중」 · 알약 2개 나란히(거래 #E9F3EC · 주문 #F8F5D8).
+ * 태블릿: 진초록 머리띠(흰 클립보드 + 제목) · 줄(연초록 동그라미 아이콘 · 글 · ›) 사이 가는 선.
+ */
 .home-my {
-  border-radius: var(--ui-radius-rect, 4px);
+  overflow: hidden;
+  border: 1px solid #e3e6e3;
+  border-radius: 8px;
   background: #fff;
-  padding: 10px 4px 4px;
-  box-shadow:
-    0 1px 2px rgba(16, 24, 18, 0.06),
-    0 4px 14px rgba(16, 24, 18, 0.06);
+  padding: 10px 10px 12px;
 }
-.home-my-title {
-  padding: 0 10px 4px;
-  font-size: 13px;
+.home-my-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px 8px;
+  font-size: 14.5px;
   font-weight: 800;
   color: #141a16;
+}
+.home-my-head-ic {
+  width: 20px;
+  height: 20px;
+  color: #1c7a3a;
+}
+.home-my-head-ic--t {
+  display: none;
+}
+.home-my-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 6px;
 }
 .home-my-row {
   display: flex;
   width: 100%;
-  min-height: 52px;
+  min-height: 44px;
   align-items: center;
-  gap: 10px;
-  padding: 6px 10px;
-  border-radius: var(--ui-radius-rect, 4px);
+  gap: 6px;
+  padding: 0 8px 0 10px;
+  border-radius: 999px;
+  text-align: left;
+}
+.home-my-row--trade {
+  background: #e9f3ec;
+}
+.home-my-row--order {
+  background: #f8f5d8;
 }
 .home-my-ic {
   display: grid;
   flex: none;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  background: #e9f3ec;
+}
+.home-my-ic svg {
+  width: 20px;
+  height: 20px;
+}
+.home-my-row--trade .home-my-ic {
+  color: #1c7a3a;
+}
+.home-my-row--order .home-my-ic {
+  color: #3a3000;
+}
+.home-my-ic-t {
+  display: none;
+}
+.home-my-text {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: #141a16;
+}
+.home-my-text b {
+  font-weight: 800;
+}
+.home-my-sub {
+  color: #6b736d;
+}
+.home-my-chev {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: #141a16;
+}
+@container homer3 (min-width: 600px) {
+  .home-my {
+    border-color: #ececed;
+    border-radius: 12px;
+    padding: 0;
+  }
+  .home-my-head {
+    margin: 0;
+    padding: 12px 18px;
+    background: #0b421a;
+    color: #fff;
+    font-size: 15px;
+  }
+  .home-my-head-ic {
+    color: #fff;
+  }
+  .home-my-head-ic--m {
+    display: none;
+  }
+  .home-my-head-ic--t {
+    display: block;
+  }
+  .home-my-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding: 0 16px;
+  }
+  .home-my-list > li + li {
+    border-top: 1px solid #ececed;
+  }
+  .home-my-row,
+  .home-my-row--trade,
+  .home-my-row--order {
+    min-height: 58px;
+    gap: 14px;
+    padding: 0 4px;
+    border-radius: 0;
+    background: transparent;
+  }
+  .home-my-ic {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    background: #e3f1e7;
+  }
+  .home-my-row--order .home-my-ic,
+  .home-my-row--trade .home-my-ic {
+    color: #0b421a;
+  }
+  .home-my-ic-m {
+    display: none;
+  }
+  .home-my-ic-t {
+    display: block;
+  }
+  .home-my-text {
+    font-size: 15px;
+  }
+}
+
+/* 누르는 영역 44×44 — 그림이 작은 버튼(설계 v2 §4). 자리를 차지하지 않는 투명 영역을 넓힌다 */
+.home-r3 :is(.home-shelf-all, .home-chip, .home-store-gate-cta, .home-info-retry) {
+  position: relative;
+}
+.home-r3 :is(.home-shelf-all, .home-chip, .home-trade-fav, .home-store-plus, .home-store-gate-cta, .home-info-retry)::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
 }

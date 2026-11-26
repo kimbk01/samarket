@@ -1,21 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Cloud, CloudFog, CloudLightning, CloudRain, Sun, TrendingDown, TrendingUp, type LucideIcon } from "lucide-react";
+import { Cloud, CloudFog, CloudLightning, CloudRain, Sun, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { fetchExchangeRatesViaApp, type ExchangeRates } from "@/lib/exchange/fetchExchangeRates";
 import { fetchAddressDefaultsSnapshot, peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import { resolveExplorationAddressLineFromSnapshot } from "@/lib/addresses/address-defaults-snapshot-resolvers";
 import type { AddressDefaultsSnapshot } from "@/lib/addresses/address-defaults-snapshot";
 import {
   HOME_WEATHER_LABEL_KEYS,
   krwChangePercent,
+  rateSparklinePaths,
   roundWeatherCoord,
   weatherKindFromWmo,
   WEATHER_DEFAULT_COORD,
   type HomeWeatherKind,
 } from "@/lib/home/home-info-strip";
-import { homePressFromClick } from "@/lib/ui/home-press-feedback";
 import { HomeRateCalcSheet } from "@/components/home-hub/HomeRateCalcSheet";
+import { FlagKR, FlagPH } from "@/components/home-hub/home-flags";
 
 const WEATHER_ICON: Record<HomeWeatherKind, LucideIcon> = {
   clear: Sun,
@@ -25,31 +27,62 @@ const WEATHER_ICON: Record<HomeWeatherKind, LucideIcon> = {
   storm: CloudLightning,
 };
 
-/** YYYY-MM-DD → MM.DD */
-export function shortRateDate(date: string | undefined): string {
-  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(date ?? "");
-  return m ? `${m[1]}.${m[2]}` : "";
-}
-
 type WeatherState = { tempC: number; code: number; place: string | null } | null;
 
-/** 대표 주소의 좌표·시 이름 — 이미 받은 주소 스냅샷만(헤더가 같은 값을 받음, 새 요청 없음 또는 단일 비행 공유) */
+/**
+ * 대표 주소 좌표·지역 이름 — 이미 받은 주소 스냅샷만(머리글 주소와 같은 값).
+ * 이름 = 시 → 동네(바랑가이) → 주소 칩 첫 부분. 좌표가 없을 때만 「마닐라」 (설계 v2 §3-2, W8).
+ */
 function masterCoord(snap: AddressDefaultsSnapshot | null): { lat: number; lng: number; place: string | null } | null {
   const m = snap?.defaults?.master as
-    | { latitude?: unknown; longitude?: unknown; cityMunicipality?: unknown }
+    | { latitude?: unknown; longitude?: unknown; cityMunicipality?: unknown; barangay?: unknown }
     | null
     | undefined;
   const lat = roundWeatherCoord(m?.latitude as number | null, 90);
   const lng = roundWeatherCoord(m?.longitude as number | null, 180);
   if (lat == null || lng == null) return null;
-  const place = typeof m?.cityMunicipality === "string" && m.cityMunicipality.trim() ? m.cityMunicipality.trim() : null;
-  return { lat, lng, place };
+  const pick = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+  const chipFirst = resolveExplorationAddressLineFromSnapshot(snap)?.split(/[,·]/)[0]?.trim() || null;
+  return { lat, lng, place: pick(m?.cityMunicipality) ?? pick(m?.barangay) ?? chipFirst };
+}
+
+function RateDelta({ pct, variant }: { pct: number; variant: "inline" | "badge" }) {
+  const up = pct > 0;
+  return (
+    <span className={`home-info-delta home-info-delta--${variant} ${up ? "is-up" : "is-down"}`}>
+      {up ? "▲" : "▼"} {Math.abs(pct).toFixed(1)}%
+    </span>
+  );
+}
+
+function RateSparkline({ series }: { series: { krw: number }[] }) {
+  const w = 150;
+  const h = 40;
+  const paths = rateSparklinePaths(
+    series.map((p) => p.krw),
+    w,
+    h
+  );
+  if (!paths) return null;
+  return (
+    <svg className="home-info-spark" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden>
+      <defs>
+        <linearGradient id="home-rate-spark-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#1C9A4A" stopOpacity="0.22" />
+          <stop offset="100%" stopColor="#1C9A4A" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={paths.area} fill="url(#home-rate-spark-fill)" />
+      <path d={paths.line} fill="none" stroke="#1C9A4A" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+      <circle cx={paths.last.x} cy={paths.last.y} r="3" fill="#0B6B2E" />
+    </svg>
+  );
 }
 
 /**
- * 홈 ① 정보 띠 — 환율(누르면 환율 계산) · 날씨(누름 없음). 설계 §3① (Owner 「제안대로 승인」 2026-11-26).
- * 환율 = ECB 영업일 1회 갱신이라 「실시간」이라 쓰지 않고 기준일을 함께 보인다.
- * 날씨 좌표 = 회원 대표 주소(소수 둘째 자리), 없으면·비로그인 = 마닐라.
+ * 홈 ① 환율·날씨 — 시안 v2 §3-1·§3-2 (Owner 「v2대로 구현」 2026-11-26).
+ * 휴대폰 = 연초록 두 칸(🇵🇭⇄🇰🇷 환율 · 지역/☀ 온도 맑음) · 태블릿 = 흰 한 카드(환율 + ▲ 알약 + 꺾은선 │ 날씨).
+ * 기준일은 칸에 쓰지 않고 환율 계산 시트 안에만. 환율 칸 누르면 환율 계산 시트.
  */
 export function HomeInfoStrip({
   isMember,
@@ -67,6 +100,7 @@ export function HomeInfoStrip({
   const [rateStatus, setRateStatus] = useState<"loading" | "ok" | "fail">("loading");
   const [weather, setWeather] = useState<WeatherState>(null);
   const [weatherFailed, setWeatherFailed] = useState(false);
+  const defaultPlace = t("home_info_weather_default_place");
 
   const loadRate = useCallback(async () => {
     setRateStatus((s) => (s === "ok" ? s : "loading"));
@@ -102,7 +136,8 @@ export function HomeInfoStrip({
         const j = (await res.json()) as { ok?: boolean; tempC?: number; code?: number };
         if (!alive) return;
         if (res.ok && j.ok && typeof j.tempC === "number" && typeof j.code === "number") {
-          setWeather({ tempC: j.tempC, code: j.code, place: coord?.place ?? null });
+          // 좌표가 있으면 그 주소의 이름 · 좌표가 없을 때만 「마닐라」
+          setWeather({ tempC: j.tempC, code: j.code, place: coord ? coord.place : defaultPlace });
           setWeatherFailed(false);
         } else {
           setWeatherFailed(true);
@@ -114,7 +149,7 @@ export function HomeInfoStrip({
     return () => {
       alive = false;
     };
-  }, [isMember, refreshSeq]);
+  }, [isMember, refreshSeq, defaultPlace]);
 
   const pct = rate ? krwChangePercent(rate.KRW, rate.prevKRW) : null;
   const showWeather = !weatherFailed;
@@ -126,51 +161,36 @@ export function HomeInfoStrip({
       {rateStatus === "fail" && !rate ? (
         <div className="home-info-cell home-info-cell--fail" data-home-info-rate-failed>
           <span className="min-w-0 truncate">{t("home_info_rate_failed")}</span>
-          <button
-            type="button"
-            className="home-press home-info-retry"
-            onClick={(e) => {
-              homePressFromClick("tap", e);
-              void loadRate();
-            }}
-          >
+          <button type="button" className="home-press home-info-retry home-hit" onClick={() => void loadRate()}>
             {t("home_info_retry")}
           </button>
         </div>
       ) : (
         <button
           type="button"
-          className="home-press home-info-cell"
+          className="home-press home-info-cell home-info-rate"
           disabled={!rate}
           aria-label={t("home_rate_calc_title")}
-          onClick={(e) => {
-            homePressFromClick("tap", e);
-            onRateCalcOpenChange(true);
-          }}
+          onClick={() => onRateCalcOpenChange(true)}
           data-home-info-rate
         >
+          <span className="home-info-head">
+            <span className="home-info-flags" aria-hidden>
+              <FlagPH className="home-info-flag" />
+              <span className="home-info-swap">⇄</span>
+              <FlagKR className="home-info-flag" />
+            </span>
+            <span className="home-info-title">{t("home_info_rate_title")}</span>
+          </span>
           {rate ? (
             <>
-              <span className="home-info-flag" aria-hidden>
-                ₱
+              <span className="home-info-main">
+                {t("home_info_rate_label", { krw: rate.KRW.toFixed(2) })}
+                {pct != null && pct !== 0 ? <RateDelta pct={pct} variant="inline" /> : null}
               </span>
-              <span className="min-w-0">
-                <span className="home-info-main">
-                  {t("home_info_rate_label", { krw: rate.KRW.toFixed(2) })}
-                  {pct != null && pct !== 0 ? (
-                    <span className={`home-info-delta ${pct > 0 ? "is-up" : "is-down"}`}>
-                      {pct > 0 ? (
-                        <TrendingUp className="h-3 w-3" strokeWidth={2.6} aria-hidden />
-                      ) : (
-                        <TrendingDown className="h-3 w-3" strokeWidth={2.6} aria-hidden />
-                      )}
-                      {Math.abs(pct).toFixed(2)}%
-                    </span>
-                  ) : null}
-                </span>
-                {rate.date ? (
-                  <span className="home-info-sub">{t("home_info_rate_base_date", { date: shortRateDate(rate.date) })}</span>
-                ) : null}
+              <span className="home-info-trend">
+                {pct != null && pct !== 0 ? <RateDelta pct={pct} variant="badge" /> : <span />}
+                {rate.series && rate.series.length > 1 ? <RateSparkline series={rate.series} /> : null}
               </span>
             </>
           ) : (
@@ -179,15 +199,15 @@ export function HomeInfoStrip({
         </button>
       )}
       {showWeather ? (
-        <div className="home-info-cell home-info-cell--static" data-home-info-weather>
+        <div className="home-info-cell home-info-weather" data-home-info-weather>
+          <span className="home-info-title home-info-title--weather">{t("home_info_weather_title")}</span>
           {weather && WIcon && kind ? (
             <>
-              <WIcon className="h-6 w-6 shrink-0 text-[#E0A800]" strokeWidth={2} aria-hidden />
-              <span className="min-w-0">
-                <span className="home-info-main">
-                  {weather.tempC}° {t(HOME_WEATHER_LABEL_KEYS[kind])}
-                </span>
-                <span className="home-info-sub">{weather.place ?? t("home_info_weather_default_place")}</span>
+              <span className="home-info-place">{weather.place ?? ""}</span>
+              <span className="home-info-wrow">
+                <WIcon className="home-info-wicon" strokeWidth={2.2} aria-hidden />
+                <span className="home-info-temp">{weather.tempC}°</span>
+                <span className="home-info-wlabel">{t(HOME_WEATHER_LABEL_KEYS[kind])}</span>
               </span>
             </>
           ) : (

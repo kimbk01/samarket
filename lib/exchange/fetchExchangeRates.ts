@@ -16,6 +16,8 @@ export interface ExchangeRates {
   prevKRW?: number;
   /** 기준일 YYYY-MM-DD (ECB 영업일) */
   date?: string;
+  /** 최근 영업일 값 (날짜순, 홈 태블릿 꺾은선) */
+  series?: { date: string; krw: number }[];
 }
 
 /** 쓰기 시점에 현재 환율 가져오기 (우리 API 경유 → 서버에서 외부 API 호출, CORS 없음) */
@@ -35,6 +37,11 @@ export async function fetchExchangeRatesViaApp(): Promise<ExchangeRates | null> 
       CNY: typeof data.CNY === "number" ? data.CNY : undefined,
       prevKRW: typeof data.prevKRW === "number" && data.prevKRW > 0 ? data.prevKRW : undefined,
       date: typeof data.date === "string" ? data.date : undefined,
+      series: Array.isArray(data.series)
+        ? (data.series as { date?: unknown; krw?: unknown }[])
+            .filter((p) => typeof p?.date === "string" && typeof p?.krw === "number")
+            .map((p) => ({ date: p.date as string, krw: p.krw as number }))
+        : undefined,
     };
   } catch {
     return null;

@@ -279,6 +279,34 @@ export type HomeServiceCardConfig = {
   showBadge: boolean;
 };
 
+/**
+ * 홈 서비스 칸 순서 — 시안 고정 (설계 v2 §3-4 · Owner 「v2대로 구현」 2026-11-26).
+ * 정보 공유 · 마켓 · 모임 · DIPICK / telRING · 이벤트 · (환율 계산 · 전체 = 코드 고정 칸). 어드민은 보이기만 정한다.
+ */
+export const HOME_SERVICE_TILE_ORDER: readonly HomeServiceKey[] = ["philife", "trade", "moim", "stores", "chat", "events"];
+
+/** 보이는 서비스 칸 — 시안 순서, 어드민에서 켠 것만 */
+export function resolveHomeServiceTiles(services: HomeServiceCardConfig[]): HomeServiceKey[] {
+  const on = new Set(services.filter((s) => s.visible).map((s) => s.key));
+  return HOME_SERVICE_TILE_ORDER.filter((k) => on.has(k));
+}
+
+/**
+ * 배너 제목 강조 — `{동네 맛집}` 처럼 중괄호 안은 노랑 (시안 v2 §3-3). 짝이 안 맞는 중괄호는 글자 그대로.
+ */
+export function splitHomeBannerTitle(title: string): { text: string; hi: boolean }[] {
+  const out: { text: string; hi: boolean }[] = [];
+  const re = /\{([^{}]+)\}/g;
+  let at = 0;
+  for (let m = re.exec(title); m; m = re.exec(title)) {
+    if (m.index > at) out.push({ text: title.slice(at, m.index), hi: false });
+    out.push({ text: m[1]!, hi: true });
+    at = m.index + m[0].length;
+  }
+  if (at < title.length) out.push({ text: title.slice(at), hi: false });
+  return out;
+}
+
 /** 저장값이 생긴 뒤 카탈로그에 추가된 서비스 — 저장값에 없으면 기본 보이기로 붙인다 */
 export const HOME_SERVICE_KEYS_ADDED_LATER: ReadonlySet<HomeServiceKey> = new Set<HomeServiceKey>(["moim"]);
 

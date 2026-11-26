@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { pickLatestTwoKrw } from "@/lib/home/home-info-strip";
+import { pickKrwSeries, pickLatestTwoKrw } from "@/lib/home/home-info-strip";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,6 +49,8 @@ export async function GET() {
         KRW: picked.krw,
         prevKRW: picked.prevKrw,
         date: picked.date,
+        /** 홈 태블릿 환율 꺾은선 — 최근 영업일 8개 (같은 요청, 설계 v2 §3-1) */
+        series: pickKrwSeries(data?.rates).slice(-8),
       },
       { headers: { "Cache-Control": EXCHANGE_RATE_HTTP_CACHE_CONTROL } }
     );

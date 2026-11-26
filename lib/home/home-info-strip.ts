@@ -15,12 +15,18 @@ export function roundWeatherCoord(raw: string | number | null | undefined, limit
   return Math.round(n * 100) / 100;
 }
 
+/** Frankfurter 시계열 응답 `rates` → 날짜순 [날짜, 값] */
+export function pickKrwSeries(rates: unknown): { date: string; krw: number }[] {
+  if (!rates || typeof rates !== "object") return [];
+  return Object.entries(rates as Record<string, { KRW?: unknown } | null>)
+    .filter(([d, v]) => /^\d{4}-\d{2}-\d{2}$/.test(d) && typeof v?.KRW === "number" && v.KRW > 0)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([date, v]) => ({ date, krw: v!.KRW as number }));
+}
+
 /** Frankfurter 시계열 응답 `rates` → 마지막 두 영업일 */
 export function pickLatestTwoKrw(rates: unknown): { date: string; krw: number; prevKrw: number | null } | null {
-  if (!rates || typeof rates !== "object") return null;
-  const rows = Object.entries(rates as Record<string, { KRW?: unknown } | null>)
-    .filter(([d, v]) => /^\d{4}-\d{2}-\d{2}$/.test(d) && typeof v?.KRW === "number" && v.KRW > 0)
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  const rows = pickKrwSeries(rates).map((r) => [r.date, { KRW: r.krw }] as const);
   const last = rows[rows.length - 1];
   if (!last) return null;
   const prev = rows[rows.length - 2];
@@ -55,3 +61,24 @@ export const HOME_WEATHER_LABEL_KEYS: Readonly<Record<HomeWeatherKind, MessageKe
   rain: "home_info_weather_rain",
   storm: "home_info_weather_storm",
 };
+
+/** 태블릿 환율 꺾은선 — 값 배열 → SVG 선·채움 경로 (폭 w, 높이 h, 위아래 여백 pad) */
+export function rateSparklinePaths(
+  values: number[],
+  w: number,
+  h: number,
+  pad = 3
+): { line: string; area: string; last: { x: number; y: number } } | null {
+  if (values.length < 2) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const pts = values.map((v, i) => ({
+    x: Math.round(((i / (values.length - 1)) * (w - pad * 2) + pad) * 10) / 10,
+    y: Math.round((h - pad - ((v - min) / span) * (h - pad * 2)) * 10) / 10,
+  }));
+  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x} ${p.y}`).join(" ");
+  const first = pts[0]!;
+  const last = pts[pts.length - 1]!;
+  return { line, area: `${line} L${last.x} ${h} L${first.x} ${h} Z`, last };
+}
