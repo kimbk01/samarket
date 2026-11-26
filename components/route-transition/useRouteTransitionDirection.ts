@@ -6,6 +6,7 @@ import { computeRouteTransitionEnterKind } from "@/components/route-transition/r
 import { buildCanonicalNavIndexResolver } from "@/lib/main-menu/canonical-nav-index-resolver";
 import { useMainBottomNavTabs } from "@/contexts/MainBottomNavTabsContext";
 import { subscribePopstateBeforeRouter } from "@/lib/navigation/popstate-before-router";
+import { isLaunchEntryMotionSuppressed } from "@/components/route-transition/launch-entry-motion";
 
 /**
  * pathname 변경 직후(useLayoutEffect) canonical 방향을 계산해 ref 에 넣는다.
@@ -62,6 +63,15 @@ export function useRouteTransitionKindRef(pathname: string | null): MutableRefOb
     const popBack = popstateBackRef.current;
     if (popBack) {
       popstateBackRef.current = false;
+    }
+
+    /**
+     * 감사 2026-11-26 §10 — OS 화면이 아직 떠 있는 동안의 경로 변경(직전 화면 복원 `router.replace` 등)은 움직임 없음.
+     * 사용자가 본 이전 화면이 없어 밀려 들어오는 움직임이 의미가 없고, OS 화면이 움직임 중간에 걷히면 빈 바탕이 보인다.
+     */
+    if (isLaunchEntryMotionSuppressed(pathKey)) {
+      kindRef.current = "none";
+      return;
     }
 
     const nextKind = computeRouteTransitionEnterKind(prev, pathKey, {

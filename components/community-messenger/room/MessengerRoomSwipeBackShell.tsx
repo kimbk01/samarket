@@ -113,6 +113,16 @@ export function MessengerRoomSwipeBackShell({
   const reducedMotion = usePrefersReducedMotion();
   const isMessengerSplit = useIsMessengerSplitViewport();
   const splitPaneMode = isMessengerSplit;
+  /**
+   * 진입 움직임 = 목록 복사본 위로 덮어오는 연출 — **방이 붙는 순간 뒤에 목록 복사본이 있을 때만** 움직인다(마운트 1회 판정).
+   * 복사본은 앱 안 목록 탭(`community-messenger-room-forward-navigation` · 휴대폰)에서만 만들어진다.
+   * 알림·직전 화면 복원·딥링크 등 복사본이 없는 진입은 제자리에 그린다(뒤가 빈 바탕이라 밀려 들어오면 흰 띠).
+   * 실기(2026-11-26 17:55 PHT · 운영 6b08c58 · Samsung 알림 콜드): 전 규칙(OS 화면이 떠 있을 때만 끔)은 앱 진입 SSOT C1′ 로
+   * OS 화면이 방 셸보다 먼저 걷히자 흰 화면 약 0.5초 + 오른쪽에서 밀려옴 — OS 화면 시점과 무관한 이 규칙으로 바꿈.
+   * 근거 `docs/audit/app-entry-ssot-fix-design-2026-11-26.md` §13.
+   */
+  const [noEntrySnapshotBehind] = useState(() => typeof window !== "undefined" && !hasMessengerRoomEntrySnapshot());
+  const skipEnterMotion = splitPaneMode || reducedMotion || noEntrySnapshotBehind;
   /** 주문 채팅 슬라이드 안이면 ◁ 는 슬라이드 쪽 몫 — 페이지 뒤로 주인을 등록하지 않는다(P5 §B6). */
   const ownerSlideHost = useOwnerOrderChatSlideHost();
   const buyerSlideHost = useBuyerOrderChatSlideHost();
@@ -140,13 +150,13 @@ export function MessengerRoomSwipeBackShell({
    * useLayoutEffect: 첫 커밋(idle = 제자리)이 화면에 그려지기 전에 "enter"(화면 밖)로 바꾼다.
    * passive useEffect 였을 때는 방이 제자리에 한 프레임 보였다가 화면 밖으로 튄 뒤 들어오는 깜빡임이 있었다.
    */
-  /** 진입 애니메이션 없이 열리는 경우(분할 화면·축소 모션) — 목록 복사본 즉시 제거 */
+  /** 진입 애니메이션 없이 열리는 경우(분할 화면·축소 모션·앱 시작 목적지) — 목록 복사본 즉시 제거 */
   useLayoutEffect(() => {
-    if (splitPaneMode || reducedMotion) dismissMessengerRoomEntrySnapshot();
-  }, [splitPaneMode, reducedMotion]);
+    if (skipEnterMotion) dismissMessengerRoomEntrySnapshot();
+  }, [skipEnterMotion]);
 
   useLayoutEffect(() => {
-    if (splitPaneMode || reducedMotion) return;
+    if (skipEnterMotion) return;
     if (enterStartedRef.current) return;
     enterStartedRef.current = true;
     setPhase("enter");
@@ -160,7 +170,7 @@ export function MessengerRoomSwipeBackShell({
       window.cancelAnimationFrame(raf1);
       window.cancelAnimationFrame(raf2);
     };
-  }, [splitPaneMode, reducedMotion]);
+  }, [skipEnterMotion]);
 
 
   /**
@@ -194,8 +204,8 @@ export function MessengerRoomSwipeBackShell({
    */
   useEffect(() => {
     const rid = roomId?.trim();
-    if (rid && (splitPaneMode || reducedMotion)) noteRoomEntryArrived(rid);
-  }, [roomId, splitPaneMode, reducedMotion]);
+    if (rid && skipEnterMotion) noteRoomEntryArrived(rid);
+  }, [roomId, skipEnterMotion]);
 
   const gestureRef = useRef<{
     pointerId: number;

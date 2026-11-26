@@ -1,6 +1,7 @@
 "use client";
 
 import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
+import { MessengerSplitRoomEntryFrame } from "@/components/community-messenger/room/MessengerSplitRoomEntryFrame";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { isAccountDependentPath } from "@/lib/auth/auth-route-classification";
@@ -214,7 +215,16 @@ export function AuthSessionBoundary({ children }: Props) {
   });
 
   if (blockPrivateTree) {
-    const blockedScreen = (
+    /**
+     * 앱 진입 SSOT C2 (`docs/audit/app-entry-ssot-fix-design-2026-11-26.md` §11 · Owner 「C1′로 진행」 2026-11-26):
+     * 메신저 방 경로(통화 제외)는 로그인 확인 동안 스피너 대신 방과 같은 틀 — 알림·복원 진입에서 OS 화면이 경로 도착
+     * 첫 프레임에 걷혀도(C1′) 대기 화면이 보이지 않는다. 막는 범위(자식 트리 차단)는 그대로.
+     */
+    const blockedScreen = roomPreShellBackSlot ? (
+      <MessengerSplitRoomEntryFrame dataAttrs={{ "data-auth-session-boundary": "blocked" }} ariaProps={{ "aria-busy": true }}>
+        <div className="min-h-0 flex-1 bg-[color:var(--cm-room-chat-bg)]" aria-hidden />
+      </MessengerSplitRoomEntryFrame>
+    ) : (
       <div
         className="flex min-h-[40vh] items-center justify-center bg-sam-app px-4"
         aria-busy="true"

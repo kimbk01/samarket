@@ -25,8 +25,7 @@ async function load(path: string, body: string, bridgeTarget: string | null) {
   const metrics = await import("@/lib/startup/startup-metrics");
   const hold = await import("@/lib/startup/launch-push-hold");
   const pending = await import("@/lib/startup/launch-push-destination-pending");
-  const paint = await import("@/lib/startup/launch-destination-paint");
-  return { metrics, hold, pending, paint };
+  return { metrics, hold, pending };
 }
 
 beforeEach(() => {
@@ -83,19 +82,6 @@ describe("D4 알림 목적지 대기 — 탭 미리 받기 멈춤의 기준", ()
   });
 });
 
-describe("D7 숨김 판정 — 브라우저 한 번 판정 우선", () => {
-  it("checkVisibility 가 있으면 그 결과만 쓴다(조상 스타일 순회 없음)", async () => {
-    const { paint } = await load(ROOM, ROOM_SHELL, null);
-    const el = document.querySelector("[data-cm-room]") as Element & { checkVisibility?: () => boolean };
-    const spy = vi.spyOn(window, "getComputedStyle");
-    el.checkVisibility = () => false;
-    expect(paint.isLaunchDestinationPaintPending(ROOM)).toBe(true);
-    el.checkVisibility = () => true;
-    expect(paint.isLaunchDestinationPaintPending(ROOM)).toBe(false);
-    expect(spy).not.toHaveBeenCalled();
-  });
-});
-
 describe("구조 계약", () => {
   const listener = readFileSync("components/push/PushRouteListener.tsx", "utf8");
   it("D2: 실제 이동만 기록하고, 같은 경로 2초 안 재이동은 다시 넣기(skip 옵션)여도 무시 · 통화 경로 제외", () => {
@@ -121,33 +107,19 @@ describe("구조 계약", () => {
 });
 
 describe("설계 A — 이미 목적지에서 시작한 문서의 덮개 대기 (11-18 x12 실측)", () => {
-  it("대기 중 「이미 목적지」 처리 뒤에도 덮개는 그림 판정 전까지 걷히지 않는다 · 그려지면 걷힌다", async () => {
-    const { metrics, pending } = await load(ROOM, "", ROOM);
-    // 문서가 처음부터 목적지(채팅방)에서 시작 — 화면은 아직 자리 표시
-    metrics.markInitialDestinationVisualReady();
-    const bridge = (window as unknown as { DibayBootBridge: { dismissSplash: ReturnType<typeof vi.fn> } }).DibayBootBridge;
-    expect(bridge.dismissSplash).not.toHaveBeenCalled();
-    const cancel = pending.capLaunchPushDestinationWait(ROOM);
-    expect(bridge.dismissSplash).not.toHaveBeenCalled();
-    document.body.innerHTML = ROOM_SHELL;
-    await new Promise<void>((r) => setTimeout(r, 0));
-    expect(bridge.dismissSplash).toHaveBeenCalledTimes(1);
-    cancel();
-  });
-
-  it("8초 안에 안 그려지면 대기를 풀고 지금 화면에서 해제(기존 상한과 같음)", async () => {
+  it("C1′(앱 진입 SSOT 11-26): 문서가 처음부터 목적지에서 시작하면 첫 신호에서 해제 — 상한은 할 일이 없다", async () => {
     vi.useFakeTimers();
     try {
       const { metrics, hold, pending } = await load(ROOM, "", ROOM);
-      metrics.markInitialDestinationVisualReady();
       const bridge = (window as unknown as { DibayBootBridge: { dismissSplash: ReturnType<typeof vi.fn> } })
         .DibayBootBridge;
-      pending.capLaunchPushDestinationWait(ROOM);
-      vi.advanceTimersByTime(pending.LAUNCH_PUSH_DESTINATION_WAIT_CAP_MS - 1);
-      expect(bridge.dismissSplash).not.toHaveBeenCalled();
-      vi.advanceTimersByTime(1);
-      expect(hold.isLaunchPushHoldActive()).toBe(false);
+      metrics.markInitialDestinationVisualReady();
       expect(bridge.dismissSplash).toHaveBeenCalledTimes(1);
+      expect(pending.isLaunchPushDestinationPending()).toBe(false);
+      pending.capLaunchPushDestinationWait(ROOM);
+      vi.advanceTimersByTime(pending.LAUNCH_PUSH_DESTINATION_WAIT_CAP_MS + 1);
+      expect(bridge.dismissSplash).toHaveBeenCalledTimes(1);
+      expect(hold.isLaunchPushHoldActive()).toBe(true);
     } finally {
       vi.useRealTimers();
     }

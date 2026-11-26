@@ -147,7 +147,9 @@ describe("messenger presentation contract", () => {
       resolve(root, "components/community-messenger/room/MessengerRoomSwipeBackShell.tsx"),
       "utf8"
     );
-    expect(shell).toContain("if (splitPaneMode || reducedMotion) return;");
+    // 감사 11-26 §13: 분할 화면·축소 모션·뒤에 목록 복사본 없음 → 진입 움직임 없음 (한 변수)
+    expect(shell).toContain("const skipEnterMotion = splitPaneMode || reducedMotion || noEntrySnapshotBehind;");
+    expect(shell).toContain("if (skipEnterMotion) return;");
   });
 
   it("call slide SSOT stays in short band", async () => {
