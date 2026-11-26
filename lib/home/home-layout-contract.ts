@@ -135,10 +135,13 @@ export const HOME_MENU_CATALOG: Readonly<Record<HomeMenuKey, HomeMenuDef>> = {
  * services 서비스 입구(telRING 대표 칸 · 큰 칸 · 작은 아이콘) · banner 어드민 배너 · notice 공지 한 줄 ·
  * feed 지금 우리 동네(거래·정보 공유·DIPICK 매장·모임 섞은 피드 — 구성 = trades·posts·stores 설정)
  */
-export const HOME_SECTION_KEYS = ["services", "banner", "notice", "feed"] as const;
+export const HOME_SECTION_KEYS = ["infoStrip", "banner", "services", "telring", "myActivity", "notice", "feed"] as const;
 export type HomeSectionKey = (typeof HOME_SECTION_KEYS)[number];
 
 export const HOME_SECTION_LABEL_KEYS: Readonly<Record<HomeSectionKey, MessageKey>> = {
+  infoStrip: "home_section_info_strip",
+  telring: "home_section_telring",
+  myActivity: "home_section_my_activity",
   services: "home_section_services",
   banner: "home_section_banner",
   notice: "home_section_notice",
@@ -153,8 +156,8 @@ export const HOME_SECTION_DEFAULT_TITLE_KEYS: Readonly<Partial<Record<HomeSectio
   feed: "home_title_feed",
 };
 
-/** 비로그인에게 절대 보이지 않는 칸 (개인 정보) — v4 홈은 개인 정보 칸이 없다 */
-export const HOME_SECTIONS_MEMBER_ONLY: ReadonlySet<HomeSectionKey> = new Set<HomeSectionKey>();
+/** 비로그인에게 절대 보이지 않는 칸 (개인 정보) — 슈퍼앱 개편(2026-11-26 D1)으로 「내 진행 중」 추가 */
+export const HOME_SECTIONS_MEMBER_ONLY: ReadonlySet<HomeSectionKey> = new Set<HomeSectionKey>(["myActivity"]);
 
 export type HomeSectionConfig = {
   key: HomeSectionKey;
@@ -236,6 +239,9 @@ export type HomeBannerConfig = {
   chip: HomeText;
   /** 버튼 문구 — 비우면 기본 문구(`home_banner_cta_default`) */
   ctaLabel: HomeText;
+  /** 게시 시작·끝 (UTC ISO, 비우면 제한 없음) — 기간 밖이면 앱에 안 보임 (슈퍼앱 개편 D3 2026-11-26) */
+  startsAt: string;
+  endsAt: string;
 };
 
 export const HOME_BANNER_TITLE_MAX = 30;
@@ -398,6 +404,8 @@ function sampleBanner(
     adLabel: false,
     chip: catalogText(keys.chip),
     ctaLabel: catalogText(keys.cta),
+    startsAt: EMPTY,
+    endsAt: EMPTY,
   };
 }
 
@@ -615,7 +623,26 @@ function normalizeBanner(item: Record<string, unknown>): HomeBannerConfig | null
     adLabel: item.adLabel === true,
     chip: normalizeText(item.chip, HOME_BANNER_CHIP_MAX),
     ctaLabel: normalizeText(item.ctaLabel, HOME_BANNER_CTA_MAX),
+    startsAt: normalizeIsoTime(item.startsAt),
+    endsAt: normalizeIsoTime(item.endsAt),
   };
+}
+
+/** 저장 시각 — 해석되는 시각이면 UTC ISO, 아니면 빈 값 */
+function normalizeIsoTime(raw: unknown): string {
+  const v = String(raw ?? EMPTY).trim();
+  if (!v) return EMPTY;
+  const ms = Date.parse(v);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : EMPTY;
+}
+
+/** 배너 게시 기간 안인가 (`now` = ms) */
+export function isHomeBannerInPeriod(b: Pick<HomeBannerConfig, "startsAt" | "endsAt">, now: number): boolean {
+  const s = b.startsAt ? Date.parse(b.startsAt) : NaN;
+  const e = b.endsAt ? Date.parse(b.endsAt) : NaN;
+  if (Number.isFinite(s) && now < s) return false;
+  if (Number.isFinite(e) && now >= e) return false;
+  return true;
 }
 
 function normalizeBanners(raw: unknown): HomeBannerConfig[] {
@@ -770,6 +797,9 @@ export function validateHomeLayoutPayload(raw: unknown): HomeLayoutValidation {
       if (!title) return { ok: false, error: "banner_title_required" };
       if (!isSafeHomeImageUrl(String(b.imageUrl ?? EMPTY))) return { ok: false, error: "banner_image_required" };
       if (!isSafeHomeHref(String(b.href ?? EMPTY))) return { ok: false, error: "invalid_banner_href" };
+      const st = normalizeIsoTime(b.startsAt);
+      const en = normalizeIsoTime(b.endsAt);
+      if (st && en && Date.parse(en) <= Date.parse(st)) return { ok: false, error: "invalid_banner_period" };
     }
   }
   if (isRecord(raw.stores) && Array.isArray(raw.stores.picks) && raw.stores.picks.length > HOME_STORE_PICKS_MAX) {
@@ -830,10 +860,17 @@ export function resolveVisibleHomeSections(c: HomeLayoutConfig, isGuest: boolean
     .map((s) => s.key);
 }
 
-/** 이 사람에게 보일 배너 (보이기 켬 + 대상) */
-export function resolveAudienceBanners(c: HomeLayoutConfig, isGuest: boolean): HomeBannerConfig[] {
+/** 이 사람에게 보일 배너 (보이기 켬 + 대상 + 게시 기간) */
+export function resolveAudienceBanners(
+  c: HomeLayoutConfig,
+  isGuest: boolean,
+  now: number = Date.now()
+): HomeBannerConfig[] {
   return c.banners.filter(
-    (b) => b.visible && (b.audience === "all" || (isGuest ? b.audience === "guest" : b.audience === "member"))
+    (b) =>
+      b.visible &&
+      (b.audience === "all" || (isGuest ? b.audience === "guest" : b.audience === "member")) &&
+      isHomeBannerInPeriod(b, now)
   );
 }
 

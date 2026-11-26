@@ -2,9 +2,8 @@
  * 앱 홈 메인 배너 — 시안 R3 (Owner 「배너 SSOT 구현」 2026-11-18).
  * 앱 홈 `HomeBanner` 와 어드민 「홈 구성」 미리보기(`HomeHeroBannerPreview`)가 같은 클래스를 쓴다.
  * 크기는 화면이 아니라 배너 칸 폭(컨테이너) 기준 — 어드민 미리보기 폭(폰·태블릿·PC)에서도 앱과 같은 모양.
- *   휴대폰 <600: 한 장 + 다음 장 살짝 · 16:10
- *   태블릿 600–1023: 78% 폭 · 16:8
- *   PC ≥1024: 높이 320 · 16:9 (여러 장이 줄로 보임) · 마우스 기기 ‹ › 버튼
+ *   슈퍼앱 개편 (Owner 「제안대로 승인」 2026-11-26 · 설계 §2-1): **모든 폭에서 한 장 = 배너 칸 폭 100%**, 옆 장 보이지 않음,
+ *   16:9 · 점 없음(카드 안 「n / N」) · 마우스 기기 ‹ › 버튼. (이전: 휴대폰 100%−28px 로 다음 장 16px 보임 — 제거)
  * 모서리 = 화면 카드 기준 `--ui-radius-rect` (docs/customer-platform/04-DESIGN-SYSTEM.md Radius).
  */
 .home-hero {
@@ -22,8 +21,9 @@
   overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
-  padding-inline: 16px;
-  scroll-padding-inline: 16px;
+  gap: 0;
+  padding-inline: 0;
+  scroll-padding-inline: 0;
 }
 .home-hero-track::-webkit-scrollbar {
   display: none;
@@ -51,17 +51,14 @@
 .home-hero-card::before {
   content: "";
   display: block;
-  padding-top: 62.5%; /* 16:10 */
-}
-.home-hero-track[data-multi] .home-hero-card {
-  width: calc(100% - 28px);
+  padding-top: 56.25%; /* 16:9 — 어드민 업로드 기준과 같음 */
 }
 .home-hero-card[role="button"] {
   cursor: pointer;
-  transition: transform 0.15s ease;
+  transition: transform 0.12s ease;
 }
 .home-hero-card[role="button"]:active {
-  transform: scale(0.985);
+  transform: scale(0.97);
 }
 .home-hero-img {
   position: absolute;
@@ -200,7 +197,7 @@ button.home-hero-all:active {
   width: 100%;
 }
 .home-hero-dots {
-  display: flex;
+  display: none; /* 개편: 장 수는 카드 안 「n / N」 */
   justify-content: center;
   gap: 5px;
   margin-top: 10px;
@@ -230,16 +227,6 @@ button.home-hero-all:active {
 }
 
 @container (min-width: 600px) {
-  .home-hero-track {
-    padding-inline: 24px;
-    scroll-padding-inline: 24px;
-  }
-  .home-hero-track[data-multi] .home-hero-card {
-    width: 78%;
-  }
-  .home-hero-card::before {
-    padding-top: 50%; /* 16:8 */
-  }
   .home-hero-copy {
     left: 22px;
     bottom: 22px;
@@ -260,17 +247,6 @@ button.home-hero-all:active {
 }
 
 @container (min-width: 1024px) {
-  .home-hero-track {
-    padding-inline: 32px;
-    scroll-padding-inline: 32px;
-  }
-  .home-hero-card,
-  .home-hero-track[data-multi] .home-hero-card {
-    width: 569px; /* 높이 320 × 16:9 */
-  }
-  .home-hero-card::before {
-    padding-top: 56.25%; /* 16:9 */
-  }
   .home-hero-copy {
     left: 28px;
     bottom: 28px;
@@ -285,9 +261,6 @@ button.home-hero-all:active {
     height: 42px;
     font-size: 14.5px;
     padding: 0 18px;
-  }
-  .home-hero-dots {
-    display: none;
   }
 }
 
@@ -385,8 +358,40 @@ button.home-hero-all:active {
   font-weight: 700;
   color: #141a16;
 }
-.home-r3-loc:active {
-  opacity: 0.7;
+
+
+/* 머리글 검색 (설계 C2) — 휴대폰 44×44 아이콘 · 홈 폭 600 이상 = 검색 알약 */
+.home-r3-search {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  color: #141a16;
+}
+.home-r3-search-label {
+  display: none;
+}
+@container homer3 (min-width: 600px) {
+  .home-r3-search {
+    width: 240px;
+    height: 40px;
+    justify-content: flex-start;
+    padding: 0 14px;
+    background: #fff;
+    box-shadow:
+      0 1px 2px rgba(16, 24, 18, 0.06),
+      0 4px 14px rgba(16, 24, 18, 0.06);
+    color: #8c948f;
+  }
+  .home-r3-search-label {
+    display: inline;
+    font-size: 14px;
+    font-weight: 600;
+  }
 }
 
 /* telRING 대표 칸 (수정안 #4) */
@@ -414,9 +419,7 @@ button.home-hero-all:active {
   background: radial-gradient(circle, rgba(255, 201, 51, 0.4), rgba(255, 201, 51, 0) 70%);
   pointer-events: none;
 }
-.home-ring:active {
-  transform: scale(0.99);
-}
+
 .home-ring-badge {
   position: relative;
   display: grid;
@@ -444,11 +447,14 @@ button.home-hero-all:active {
   background: #ffc933;
   color: #2a2000;
 }
-.home-ring-cta:active {
-  opacity: 0.85;
-}
 
-/* 위: 배너 + telRING·서비스 칸 */
+
+/*
+ * 위쪽 칸 — 슈퍼앱 개편 설계 §2 (Owner 「제안대로 승인」 2026-11-26).
+ * 휴대폰 <600: 한 줄(정보 띠 → 배너 → 서비스 → telRING → 내 진행 중) · 배너는 화면 좌우 끝까지.
+ * 600 이상: 2열 정확히 반반 `minmax(0,1fr) minmax(0,1fr)` · 칸 배치 = `--home-areas`(`lib/home/home-top-areas.ts`) ·
+ * 같은 행 같은 높이(stretch) — 배너 16:9 높이에 서비스 칸이 맞춰 늘어난다.
+ */
 .home-r3-top {
   display: flex;
   flex-direction: column;
@@ -459,41 +465,77 @@ button.home-hero-all:active {
   margin-inline: calc(var(--home-gut) * -1);
 }
 .home-r3-banner .home-hero {
-  padding-bottom: 0;
+  padding: 0;
 }
-@container homer3 (min-width: 1024px) {
+@container homer3 (max-width: 599px) {
+  /* 화면 좌우 끝까지 붙은 배너 — 모서리 없음 */
+  .home-r3-banner .home-hero-card {
+    border-radius: 0;
+  }
+}
+@container homer3 (min-width: 600px) {
   .home-r3-top {
     display: grid;
-    grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
-    gap: 20px;
-    align-items: start;
-    padding-top: 16px;
+    grid-template-columns: var(--home-cols, minmax(0, 1fr) minmax(0, 1fr));
+    grid-template-areas: var(--home-areas);
+    gap: 16px;
+    align-items: stretch;
+    padding-top: 12px;
   }
-  .home-r3-top--solo {
-    grid-template-columns: minmax(0, 1fr);
+  .home-r3-cell {
+    min-width: 0;
+  }
+  .home-r3-cell--info {
+    grid-area: info;
+  }
+  .home-r3-cell--banner {
+    grid-area: banner;
+  }
+  .home-r3-cell--svc {
+    grid-area: svc;
+  }
+  .home-r3-cell--ring {
+    grid-area: ring;
+  }
+  .home-r3-cell--my {
+    grid-area: my;
   }
   .home-r3-banner {
     margin-inline: 0;
   }
-  .home-r3-banner .home-hero {
-    padding: 0;
+  /* 같은 행 같은 높이 — 서비스·telRING 칸이 칸 높이를 채운다 */
+  .home-r3-cell--svc .home-svc,
+  .home-r3-cell--svc .home-svc-grid,
+  .home-r3-cell--ring .home-ring,
+  .home-r3-cell--info .home-info,
+  .home-r3-cell--my .home-my {
+    height: 100%;
   }
-  .home-r3-banner .home-hero-track {
-    padding-inline: 0;
-    scroll-padding-inline: 0;
+  /* 배너는 16:9 를 최소로, 서비스 칸이 더 높으면 그 높이까지 채운다(그림 = cover) */
+  .home-r3-cell--banner .home-hero,
+  .home-r3-cell--banner .home-hero-track {
+    height: 100%;
   }
-  .home-r3-banner .home-hero-track .home-hero-card,
-  .home-r3-banner .home-hero-track[data-multi] .home-hero-card {
-    width: 100%;
+  .home-r3-cell--banner .home-hero-card {
+    align-self: stretch;
   }
-  .home-r3-banner .home-hero-card::before {
-    padding-top: 48%;
+  .home-r3-cell--svc .home-svc-grid {
+    grid-auto-rows: 1fr;
+  }
+  .home-r3-cell--svc .home-svc-tile {
+    justify-content: center;
   }
   .home-r3-banner .home-hero-arrow--prev {
     right: 58px;
   }
   .home-r3-banner .home-hero-arrow--next {
     right: 12px;
+  }
+}
+@container homer3 (min-width: 1024px) {
+  .home-r3-top {
+    gap: 20px;
+    padding-top: 16px;
   }
 }
 
@@ -503,15 +545,11 @@ button.home-hero-all:active {
   flex-direction: column;
   gap: 10px;
 }
+/* 서비스 8칸 = 4×2 (휴대폰·태블릿 반쪽 모두 4열) */
 .home-svc-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-@container homer3 (min-width: 600px) and (max-width: 1023px) {
-  .home-svc-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
 }
 .home-svc-tile {
   display: flex;
@@ -519,7 +557,7 @@ button.home-hero-all:active {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 14px 6px 12px;
+  padding: 12px 4px 10px;
   border-radius: var(--ui-radius-rect, 4px);
   background: #fff;
   box-shadow:
@@ -528,9 +566,7 @@ button.home-hero-all:active {
   text-align: center;
   transition: transform 0.15s ease;
 }
-.home-svc-tile:active {
-  transform: scale(0.97);
-}
+
 .home-svc-ic {
   display: grid;
   place-items: center;
@@ -1144,4 +1180,163 @@ button.home-hero-all:active {
   .home-svc-tile {
     justify-content: center;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * 누름 통일 — 슈퍼앱 개편 설계 §5-1 (Owner 「제안대로 승인」 2026-11-26).
+ * 모든 홈 누름 = 0.97 축소 120ms · 밝은 바탕 칸은 `--sam-pressed-surface` · 키보드 초점 테두리.
+ * 진동·소리는 `lib/ui/home-press-feedback.ts`. 「동작 줄이기」면 축소 없음(진동·소리는 유지).
+ * ═══════════════════════════════════════════════════════════════════════ */
+.home-press {
+  transition:
+    transform 0.12s ease,
+    background-color 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.home-press:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.home-svc-tile.home-press:active,
+.home-info-cell.home-press:active:not(:disabled),
+.home-my-row.home-press:active,
+.home-r3-loc.home-press:active {
+  background: var(--sam-pressed-surface, #e8f3ee);
+}
+.home-press:focus-visible,
+.home-hero-card[role="button"]:focus-visible {
+  outline: 2px solid var(--sam-primary, #0b421a);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-press {
+    transition: none;
+  }
+  .home-press:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* ① 정보 띠 — 환율 | 날씨 반반 (날씨 실패 = 환율 전체 폭) */
+.home-info {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+.home-info--solo {
+  grid-template-columns: minmax(0, 1fr);
+}
+.home-info-cell {
+  display: flex;
+  min-width: 0;
+  min-height: 56px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--ui-radius-rect, 4px);
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 18, 0.06),
+    0 4px 14px rgba(16, 24, 18, 0.06);
+  text-align: left;
+  color: #141a16;
+}
+.home-info-cell--fail {
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: #5a625d;
+}
+.home-info-retry {
+  flex: none;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid #d3d9d5;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--sam-primary, #0b421a);
+}
+.home-info-flag {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #e9f3ec;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--sam-primary, #0b421a);
+}
+.home-info-main {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 6px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.home-info-sub {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: #8c948f;
+}
+.home-info-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.home-info-delta.is-up {
+  color: #d33b2f;
+}
+.home-info-delta.is-down {
+  color: #2f6fd3;
+}
+.home-info-skel {
+  display: block;
+  width: 70%;
+  height: 14px;
+  border-radius: var(--ui-radius-rect, 4px);
+  background: #e9ece9;
+}
+
+/* ⑤ 내 진행 중 */
+.home-my {
+  border-radius: var(--ui-radius-rect, 4px);
+  background: #fff;
+  padding: 10px 4px 4px;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 18, 0.06),
+    0 4px 14px rgba(16, 24, 18, 0.06);
+}
+.home-my-title {
+  padding: 0 10px 4px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #141a16;
+}
+.home-my-row {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: var(--ui-radius-rect, 4px);
+}
+.home-my-ic {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #e9f3ec;
 }

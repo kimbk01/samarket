@@ -18,6 +18,7 @@ import {
   normalizeHomeLayout,
   pickHomeText,
   resolveAudienceBanners,
+  isHomeBannerInPeriod,
   resolveHomeBannerMenuKey,
   resolveVisibleHomeSections,
   validateHomeLayoutPayload,
@@ -25,10 +26,13 @@ import {
 import { homeHubMessages } from "@/lib/i18n/catalog/home-hub";
 
 describe("home layout contract (홈 시안 v4 · 2026-11-14)", () => {
-  it("칸 = 서비스 입구 → 배너 → 공지 한 줄 → 지금 우리 동네 (검색창·개인 칸 없음)", () => {
-    expect([...HOME_SECTION_KEYS]).toEqual(["services", "banner", "notice", "feed"]);
+  it("칸 = 정보 띠 → 배너 → 서비스 → telRING → 내 진행 중(회원만) → 공지 → 피드 (슈퍼앱 개편 2026-11-26)", () => {
+    expect([...HOME_SECTION_KEYS]).toEqual(["infoStrip", "banner", "services", "telring", "myActivity", "notice", "feed"]);
     expect(DEFAULT_HOME_LAYOUT.sections.map((s) => s.key)).toEqual([...HOME_SECTION_KEYS]);
-    expect(DEFAULT_HOME_LAYOUT.sections.every((s) => s.visible && s.guestVisible)).toBe(true);
+    expect(DEFAULT_HOME_LAYOUT.sections.every((s) => s.visible)).toBe(true);
+    expect(DEFAULT_HOME_LAYOUT.sections.filter((s) => !s.guestVisible).map((s) => s.key)).toEqual(["myActivity"]);
+    expect(resolveVisibleHomeSections(DEFAULT_HOME_LAYOUT, true)).not.toContain("myActivity");
+    expect(resolveVisibleHomeSections(DEFAULT_HOME_LAYOUT, false)).toContain("myActivity");
     expect(HOME_SECTION_KEYS as readonly string[]).not.toContain("ongoing");
   });
 
@@ -113,9 +117,10 @@ describe("home layout contract (홈 시안 v4 · 2026-11-14)", () => {
         { key: "lifeInfo" },
       ],
     });
-    expect(c.sections.map((s) => s.key)).toEqual(["services", "banner", "notice", "feed"]);
+    // 옛 저장값(운영 2026-11-26 조회 모양)에 새 칸 키가 없으면 기본값(켬)으로 붙는다
+    expect(c.sections.map((s) => s.key)).toEqual([...HOME_SECTION_KEYS]);
     expect(c.sections.find((s) => s.key === "banner")!.visible).toBe(false);
-    expect(resolveVisibleHomeSections(c, true)).toEqual(["services", "notice", "feed"]);
+    expect(resolveVisibleHomeSections(c, true)).toEqual(["infoStrip", "services", "telring", "notice", "feed"]);
   });
 
   it("배너 대상 — 전체/회원만/비로그인만, 끈 배너 제외", () => {
@@ -198,5 +203,21 @@ describe("home layout contract (홈 시안 v4 · 2026-11-14)", () => {
     expect(HOME_MENU_CATALOG.trade.href).toBe("/market");
     expect(HOME_MENU_CATALOG.philife.href).toBe("/philife");
     expect(HOME_MENU_CATALOG.stores.href).toBe("/stores");
+  });
+
+  it("배너 게시 기간 (D3) — 기간 밖이면 안 보임 · PHT 입력은 UTC 저장 · 끝 ≤ 시작은 저장 거절", () => {
+    const c = cloneHomeLayout(DEFAULT_HOME_LAYOUT);
+    c.banners[0]!.startsAt = "2026-12-01T00:00:00.000Z";
+    c.banners[1]!.endsAt = "2026-11-20T00:00:00.000Z";
+    const now = Date.parse("2026-11-26T00:00:00.000Z");
+    expect(resolveAudienceBanners(c, true, now).map((b) => b.id)).toEqual(["dibay-delivery"]);
+    expect(isHomeBannerInPeriod({ startsAt: "", endsAt: "" }, now)).toBe(true);
+    const n = normalizeHomeLayout({ ...c, banners: [{ ...c.banners[0], startsAt: "2026-12-01T08:00:00+08:00", endsAt: "not-a-date" }] });
+    expect(n.banners[0]!.startsAt).toBe("2026-12-01T00:00:00.000Z");
+    expect(n.banners[0]!.endsAt).toBe("");
+    const bad = { ...cloneHomeLayout(DEFAULT_HOME_LAYOUT) };
+    bad.banners[0]!.startsAt = "2026-12-02T00:00:00.000Z";
+    bad.banners[0]!.endsAt = "2026-12-01T00:00:00.000Z";
+    expect(validateHomeLayoutPayload(bad)).toEqual({ ok: false, error: "invalid_banner_period" });
   });
 });

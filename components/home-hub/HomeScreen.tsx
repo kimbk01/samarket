@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, MapPin } from "lucide-react";
+import { ChevronDown, MapPin, Search } from "lucide-react";
+import { openGlobalSearchFromHere } from "@/lib/search/global/global-search-navigation-ssot";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
@@ -27,16 +28,22 @@ import type { HomeCatalog } from "@/lib/home/home-catalog-types";
 import { addHomePullRefreshHandler, homePtrStore } from "@/lib/home/home-pull-refresh-store";
 import { HomePullRefreshHost } from "@/components/home-hub/HomePullRefreshHost";
 import { HomeBanner } from "@/components/home-hub/HomeBanner";
-import { HomeServiceCards } from "@/components/home-hub/HomeServiceCards";
+import { HomeServiceCards, HomeTelringCard } from "@/components/home-hub/HomeServiceCards";
+import { HomeInfoStrip } from "@/components/home-hub/HomeInfoStrip";
+import { HomeMyActivity } from "@/components/home-hub/HomeMyActivity";
+import { HomeRateCalcStandalone } from "@/components/home-hub/HomeRateCalcSheet";
+import { homePressFeedback, homePressFromClick, prewarmHomePressFeedback } from "@/lib/ui/home-press-feedback";
+import { resolveHomeTopAreas } from "@/lib/home/home-top-areas";
 import { HomeNoticeLine } from "@/components/home-hub/HomeNoticeLine";
 import { HomeDiscoverFeed } from "@/components/home-hub/HomeDiscoverFeed";
 import { useHomeRotation } from "@/components/home-hub/use-home-rotation";
 import { hasSupabaseAuthTokenCookie } from "@/lib/home/home-banner-audience-hint";
 
 /**
- * 앱 홈 `/`·`/home` — 홈 시안 v4 (Owner 「이 시안으로 진행」 2026-11-14, 이전 v22 2026-11-09).
- * 상단(로고 · 오른쪽 주소 · 종 — 헤더 SSOT 그대로) → 당겨서 새로고침 슬롯 → 서비스 입구(telRING 대표 칸) →
- * 어드민 배너 → 공지 한 줄 → 지금 우리 동네(섞인 피드). 검색창·개인 숫자 칸 없음(통합검색 = 라운지 머리글 검색).
+ * 앱 홈 `/`·`/home` — 슈퍼앱 개편 (Owner 「제안대로 승인」 2026-11-26 · `docs/design/home-superapp-redesign-design-2026-11-26.md`,
+ * 이전 홈 시안 v4 2026-11-14).
+ * 머리글 → ① 정보 띠(환율·날씨) → ② 배너(한 장씩 화면 폭) → ③ 서비스 8칸 → ④ telRING → ⑤ 내 진행 중(회원) → ⑥ 공지 → ⑦ 피드.
+ * 홈 칸 폭 600 이상 = 2열 정확히 반반(1행 배너|서비스 · 2행 telRING|정보 띠+내 진행 중), 같은 행 같은 높이.
  * 바뀌는 때 = 당겨서 새로고침·재접속만(`useHomeRotation`). 비로그인: 읽기 가능, 개인 기능 = 기존 로그인 안내, 배달 = S-07.
  */
 export function HomeScreen({
@@ -60,6 +67,11 @@ export function HomeScreen({
   useEffect(() => {
     initRotation();
   }, [initRotation]);
+  useEffect(() => {
+    prewarmHomePressFeedback();
+  }, []);
+  const [rateCalcOpen, setRateCalcOpen] = useState(false);
+  const [myActivityShown, setMyActivityShown] = useState(false);
 
   /** R1: 회원 확인 중 배너 대상 — 기기 로그인 쿠키 유무(마운트 후 1회, 서버 그림과 어긋나지 않게 효과에서 읽음) */
   const [authCookieHint, setAuthCookieHint] = useState<boolean | null>(null);
@@ -84,6 +96,7 @@ export function HomeScreen({
   useEffect(
     () =>
       addHomePullRefreshHandler(async () => {
+        homePressFeedback("refresh");
         const ok = await reloadLayout();
         rotateNow();
         setRefreshSeq((n) => n + 1);
@@ -124,6 +137,18 @@ export function HomeScreen({
 
   const showBanner = sections.includes("banner") && banners.length > 0;
   const showServices = sections.includes("services") && layout.services.some((s) => s.visible);
+  const showInfo = sections.includes("infoStrip");
+  const showTelring = sections.includes("telring");
+  /** 내 진행 중 = 회원만 · 진행 중이 있을 때만 칸을 차지 (데이터는 칸이 받아 알림) */
+  const showMy = sections.includes("myActivity") && isMember;
+  const topAreas = resolveHomeTopAreas({
+    banner: showBanner,
+    services: showServices,
+    telring: showTelring,
+    info: showInfo,
+    my: showMy && myActivityShown,
+  });
+  const telringConfig = layout.services.find((x) => x.key === "chat") ?? null;
 
   /**
    * 앱 진입 v3 ① (실측 2026-11-17 삼성: 첫 그림 뒤 「전체 지역」→빈칸→실제 주소 3단계 · 알림 종이 늦게 끼어들어 자리 이동).
@@ -185,8 +210,9 @@ export function HomeScreen({
               <button
                 type="button"
                 aria-label={t("home_address_change_aria")}
-                className="home-r3-loc"
-                onClick={() => {
+                className="home-press home-r3-loc"
+                onClick={(e) => {
+                  homePressFromClick("tap", e);
                   if (isMember) router.push("/mypage/addresses");
                   else void requireAuthAction("address_save", () => router.push("/mypage/addresses"), { next: "/home" });
                 }}
@@ -206,6 +232,20 @@ export function HomeScreen({
               </button>
             ) : null}
             <span className="flex-1" />
+            {/* 검색 (설계 C2) — 휴대폰 = 아이콘, 태블릿 = 검색 알약. 둘 다 기존 통합검색 화면으로만 이동 */}
+            <button
+              type="button"
+              className="home-press home-r3-search"
+              aria-label={t("common_search")}
+              onClick={(e) => {
+                homePressFromClick("tap", e);
+                openGlobalSearchFromHere(router);
+              }}
+              data-home-search
+            >
+              <Search className="h-[18px] w-[18px] shrink-0" strokeWidth={2.4} aria-hidden />
+              <span className="home-r3-search-label">{t("common_search")}</span>
+            </button>
             <div className={samTier1HeaderIconCluster}>
               {headerMember ? (
                 /* 진입 감사 PO-3: 팝업 말풍선이 붙는 자리 · F3-a: 지난 실행이 회원이면 확인 중에도 종을 바로 그린다 */
@@ -221,8 +261,11 @@ export function HomeScreen({
             {!headerMember && isGuest ? (
               <button
                 type="button"
-                className="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-full bg-sam-primary px-4 text-[13.5px] font-bold text-white active:brightness-90"
-                onClick={() => router.push(buildLoginHref("/home"))}
+                className="home-press inline-flex h-11 shrink-0 items-center whitespace-nowrap rounded-full bg-sam-primary px-4 text-[13.5px] font-bold text-white"
+                onClick={(e) => {
+                  homePressFromClick("tap", e);
+                  router.push(buildLoginHref("/home"));
+                }}
                 data-home-login
               >
                 {t("home_sign_in")}
@@ -237,26 +280,52 @@ export function HomeScreen({
       {/* 시안 R3 (Owner 「계획대로 진행」 2026-11-18 · 계획서 B): 가운데 최대 1240 · 위 = 배너 + telRING·서비스 칸
           (휴대폰·태블릿 세로 = 아래로 · iPad 가로·PC = 왼쪽 배너 · 오른쪽 서비스) → 공지 → 서비스별 줄. 칸 보이기 = 어드민 「홈 구성」 */}
       <div className="home-r3-wrap">
-        {showBanner || showServices ? (
-          <div className={`home-r3-top${showBanner && showServices ? "" : " home-r3-top--solo"}`}>
+        {topAreas ? (
+          <div
+            className="home-r3-top"
+            style={{ ["--home-areas" as string]: topAreas.areas, ["--home-cols" as string]: topAreas.cols }}
+            data-home-top
+          >
+            {showInfo ? (
+              <div className="home-r3-cell home-r3-cell--info">
+                <HomeInfoStrip
+                  isMember={isMember}
+                  refreshSeq={refreshSeq}
+                  rateCalcOpen={rateCalcOpen}
+                  onRateCalcOpenChange={setRateCalcOpen}
+                />
+              </div>
+            ) : null}
             {showBanner ? (
               // 회원 확인 중에는 기기 로그인 쿠키로 대상을 먼저 정해 바로 보인다(R1). 쿠키를 읽기 전(마운트 직후)에만 고르지 않는다 (감사 E14).
-              <div className="home-r3-banner" data-home-banner-wrap>
+              <div className="home-r3-cell home-r3-cell--banner home-r3-banner" data-home-banner-wrap>
                 <HomeBanner banners={banners} isMember={isMember} rot={bannerAudienceMember == null ? null : rot} />
               </div>
             ) : null}
             {showServices ? (
-              <div className="home-r3-side">
+              <div className="home-r3-cell home-r3-cell--svc">
                 <HomeServiceCards
                   services={layout.services}
                   catalog={catalog}
                   onOpen={openMenu}
-                  onOpenHref={openMenuHref}
+                  onOpenRateCalc={() => setRateCalcOpen(true)}
                 />
+              </div>
+            ) : null}
+            {showTelring ? (
+              <div className="home-r3-cell home-r3-cell--ring">
+                <HomeTelringCard config={telringConfig} catalog={catalog} onOpen={openMenu} onOpenHref={openMenuHref} />
+              </div>
+            ) : null}
+            {showMy ? (
+              <div className={`home-r3-cell home-r3-cell--my${myActivityShown ? "" : " hidden"}`}>
+                <HomeMyActivity refreshSeq={refreshSeq} onShownChange={setMyActivityShown} />
               </div>
             ) : null}
           </div>
         ) : null}
+        {/* 정보 띠를 숨겼어도 서비스 「환율 계산」 칸은 시트를 연다 */}
+        {!showInfo ? <HomeRateCalcStandalone open={rateCalcOpen} onClose={() => setRateCalcOpen(false)} /> : null}
         {sections.includes("notice") && catalog.latestNotice ? (
           <div className="home-r3-notice">
             <HomeNoticeLine notice={catalog.latestNotice} />

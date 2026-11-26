@@ -19,6 +19,7 @@ export const ADDRESS_DEFAULTS_FETCH_CALLERS = [
   "community_local_filter",
   "region_context",
   "product_new_location",
+  "home_info_strip_weather",
   "unknown",
 ] as const;
 

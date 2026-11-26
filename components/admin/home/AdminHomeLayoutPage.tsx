@@ -457,6 +457,24 @@ function HrefPicker({ value, onChange, tr }: { value: string; onChange: (v: stri
   );
 }
 
+/* ───────────── 배너 게시 기간 (필리핀 시간 입력 · UTC 저장) ───────────── */
+
+const PHT_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+/** 저장값(UTC ISO) → 입력칸 값(PHT `YYYY-MM-DDTHH:mm`) */
+function isoToPhtInput(iso: string): string {
+  const ms = iso ? Date.parse(iso) : NaN;
+  if (!Number.isFinite(ms)) return "";
+  return new Date(ms + PHT_OFFSET_MS).toISOString().slice(0, 16);
+}
+
+/** 입력칸 값(PHT) → 저장값(UTC ISO) */
+function phtInputToIso(v: string): string {
+  if (!v) return "";
+  const ms = Date.parse(`${v}:00+08:00`);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : "";
+}
+
 /* ───────────── 칸 제목 (제목 줄이 있는 칸) ───────────── */
 
 function SectionTitleField({
@@ -535,6 +553,8 @@ function BannersTab({
       adLabel: false,
       chip: emptyHomeText(),
       ctaLabel: emptyHomeText(),
+      startsAt: "",
+      endsAt: "",
     };
     setDraft((d) => ({ ...d, banners: [...d.banners, nb] }));
     setSelId(id);
@@ -635,6 +655,25 @@ function BannersTab({
               onChange={(v) => patch(sel.id, { audience: v })}
               options={HOME_AUDIENCES.map((a) => ({ value: a, label: tr(AUDIENCE_LABEL[a]) }))}
             />
+          </Field>
+          <Field label={tr("admin_home_layout_banner_period")} hint={tr("admin_home_layout_banner_period_hint")}>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="datetime-local"
+                className={INPUT_CLS}
+                value={isoToPhtInput(sel.startsAt)}
+                aria-label={tr("admin_home_layout_banner_starts")}
+                onChange={(e) => patch(sel.id, { startsAt: phtInputToIso(e.target.value) })}
+              />
+              <span aria-hidden>~</span>
+              <input
+                type="datetime-local"
+                className={INPUT_CLS}
+                value={isoToPhtInput(sel.endsAt)}
+                aria-label={tr("admin_home_layout_banner_ends")}
+                onChange={(e) => patch(sel.id, { endsAt: phtInputToIso(e.target.value) })}
+              />
+            </div>
           </Field>
           <Field label={tr("admin_home_layout_display")}>
             <div className="flex flex-wrap gap-4">
@@ -1398,6 +1437,7 @@ const SAVE_ERROR_KEY: Readonly<Record<string, MessageKey>> = {
   banner_title_required: "admin_home_layout_err_banner_title",
   banner_image_required: "admin_home_layout_err_banner_image",
   invalid_banner_href: "admin_home_layout_err_banner_href",
+  invalid_banner_period: "admin_home_layout_err_banner_period",
   invalid_banner: "admin_home_layout_err_banner_title",
   too_many_banners: "admin_home_layout_err_too_many_banners",
   too_many_store_picks: "admin_home_layout_err_too_many_picks",
@@ -1422,6 +1462,9 @@ function findBannerProblem(d: HomeLayoutConfig): { id: string; code: string } | 
     if (!b.title.ko.trim()) return { id: b.id, code: "banner_title_required" };
     if (!isSafeHomeImageUrl(b.imageUrl)) return { id: b.id, code: "banner_image_required" };
     if (!isSafeHomeHref(b.href)) return { id: b.id, code: "invalid_banner_href" };
+    if (b.startsAt && b.endsAt && Date.parse(b.endsAt) <= Date.parse(b.startsAt)) {
+      return { id: b.id, code: "invalid_banner_period" };
+    }
   }
   return null;
 }

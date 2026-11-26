@@ -10,6 +10,7 @@ import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet
 import { HOME_MENU_CATALOG, resolveHomeBannerMenuKey, type HomeBannerConfig } from "@/lib/home/home-layout-contract";
 import { keepSessionPick, nextBannerId } from "@/lib/home/home-rotation";
 import type { HomeRotationCtl } from "@/components/home-hub/use-home-rotation";
+import { homePressFeedback } from "@/lib/ui/home-press-feedback";
 
 /**
  * 홈 메인 배너 SSOT — 시안 R3 (Owner 「배너 SSOT 구현」 2026-11-18).
@@ -121,6 +122,15 @@ export function HomeBanner({
     [cardLeft]
   );
 
+  /** 손으로 넘겨 장이 바뀌면 선택 진동 1회 (설계 §5-2) — 자동 넘김·처음 위치 잡기는 제외 */
+  const lastFeedbackActiveRef = useRef<number | null>(null);
+  useEffect(() => {
+    const prev = lastFeedbackActiveRef.current;
+    lastFeedbackActiveRef.current = active;
+    if (prev == null || prev === active) return;
+    if (Date.now() - touchedAtRef.current < 1500) homePressFeedback("swipe");
+  }, [active]);
+
   const multiCount = banners.length;
   const ready = pickedId != null;
   useEffect(() => {
@@ -150,6 +160,7 @@ export function HomeBanner({
   const multi = banners.length > 1;
 
   const open = (b: HomeBannerConfig) => {
+    homePressFeedback("tap");
     const gate = guestGateFor(b.href);
     if (!isMember && gate) {
       void requireAuthAction(gate, () => router.push(b.href), { next: b.href });
@@ -200,6 +211,7 @@ export function HomeBanner({
                 className="home-hero-all"
                 onClick={(e) => {
                   e.stopPropagation();
+                  homePressFeedback("tap");
                   setAllOpen(true);
                 }}
               >
