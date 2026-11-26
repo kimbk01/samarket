@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { untilLaunchPushDestinationSettled } from "@/lib/startup/launch-push-destination-pending";
+import { untilLaunchDestinationSettled } from "@/lib/startup/launch-push-destination-pending";
 import { buildMypageAddressesHref } from "@/lib/addresses/mypage-addresses-return-to";
 import { useRouter } from "next/navigation";
 import { useHubDataRevisitGate } from "@/lib/http/hub-data-freshness";
@@ -113,7 +113,7 @@ export function HomeStoresSection({
     let alive = true;
     void (async () => {
       // 설계 §24 D1-웹: 알림으로 켠 실행이면 덮개가 걷힐 때까지(목적지 그림) 홈 전용 요청을 미룬다 · 그 밖에는 바로
-      await untilLaunchPushDestinationSettled();
+      await untilLaunchDestinationSettled();
       if (!alive) return;
       if (refreshSeq > 0) forgetStoresHomeFeedFetchSingleFlight("", language);
       const feed = await fetchStoresHomeFeedDeduped("", { language, clientCallSource: "stores_home_mount" }).catch(

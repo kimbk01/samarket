@@ -131,11 +131,14 @@ describe("생명주기 복원 목적지 그림 보류 (D3)", () => {
 
 describe("구조 계약", () => {
   const effects = readFileSync("lib/lifecycle/lifecycle-route-effects.client.ts", "utf8");
-  it("D2-R: 복원 채팅방 미리 받기는 실제 이동(router.replace) 직전 한 곳에서만", () => {
+  it("D2-R·재감사 §9 B1·B2: 복원 채팅방 미리 받기·세션 확인 = 실제 이동 직전 + (Android 알림 목적지 없음 확정 시) 목적지 결정 순간", () => {
     expect(effects).toMatch(
-      /prefetchLaunchRoomEntry\(navigateTo, "lifecycle_restore"\);\s*noteLifecycleNavIssued\(\);\s*router\.replace\(navigateTo\);/
+      /prefetchLaunchRoomEntry\(navigateTo, "lifecycle_restore"\);\s*warmSessionForLaunchDestination\(navigateTo, "lifecycle_restore"\);\s*noteLifecycleNavIssued\(\);\s*router\.replace\(navigateTo\);/
     );
-    expect(effects.match(/prefetchLaunchRoomEntry\(/g)?.length).toBe(1);
+    expect(effects).toMatch(
+      /if \(hasAndroidSyncPushBridge\(\) && !readLaunchPushTarget\(\)\) \{\s*prefetchLaunchRoomEntry\(navigateTo, "lifecycle_restore"\);\s*warmSessionForLaunchDestination\(navigateTo, "lifecycle_restore"\);\s*\}/
+    );
+    expect(effects.match(/prefetchLaunchRoomEntry\(/g)?.length).toBe(2);
   });
   it("이동 표시는 router.replace 바로 앞에서만", () => {
     expect(effects).toMatch(/noteLifecycleNavIssued\(\);\s*router\.replace\(navigateTo\);/);

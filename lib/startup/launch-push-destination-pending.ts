@@ -13,6 +13,7 @@
 import { useSyncExternalStore } from "react";
 import { isLaunchPushHoldActive, markLaunchPushHandled, onLaunchPushHandled } from "@/lib/startup/launch-push-hold";
 import { getAppReadySnapshot, subscribeAppReady } from "@/lib/startup/startup-metrics";
+import { lifecycleNavHoldStartPath, onLifecycleNavHoldSettled } from "@/lib/startup/lifecycle-nav-hold";
 
 export function isLaunchPushDestinationPending(): boolean {
   if (typeof window === "undefined") return false;
@@ -98,4 +99,67 @@ function subscribe(onChange: () => void): () => void {
 export function useLaunchPushDestinationPending(): boolean {
   useSyncExternalStore(subscribe, getAppReadySnapshot, () => false);
   return isLaunchPushDestinationPending();
+}
+
+/**
+ * 재감사 2026-11-26 §9 A5 (`docs/audit/app-entry-reaudit-responsibility-ssot-2026-11-26.md` · 계약 K3·K4·K8 ·
+ * 승인 패턴 §24 D1-웹/D4 를 직전 화면 복원·안전 진입에 그대로 넓힘) — 시작 목적지가 아직 안 그려졌는가.
+ *
+ * 실측(Samsung · 아이콘 실행 · 직전 채팅방 복원): OS 화면 아래에서 홈이 환율·날씨·동네 글과 하단 탭 미리 받기 4~8건을
+ * 채팅방 이동과 동시에 내보냈다(7~12건 경쟁). 알림 실행에만 있던 대기를 생명주기 이동(`lifecycleNavHoldStartPath`)에도 건다.
+ * 알림 수신자(`PushRouteListener`)는 위 알림 전용 함수를 그대로 쓴다(통화 코드와 같은 파일 — 변경 없음).
+ * 목적지 없는 실행(아이콘으로 홈·iOS 보류 없음)은 언제나 false → 동작 불변.
+ */
+export function isLaunchDestinationPending(): boolean {
+  if (typeof window === "undefined") return false;
+  if (getAppReadySnapshot()) return false;
+  return isLaunchPushHoldActive() || lifecycleNavHoldStartPath() != null;
+}
+
+function subscribeLaunchDestination(onChange: () => void): () => void {
+  const offReady = subscribeAppReady(onChange);
+  const offHandled = onLaunchPushHandled(onChange);
+  let offSettled: () => void = () => {};
+  let sync = true;
+  offSettled = onLifecycleNavHoldSettled(() => {
+    if (!sync) onChange();
+  });
+  sync = false;
+  return () => {
+    offReady();
+    offHandled();
+    offSettled();
+  };
+}
+
+/** 시작 목적지 대기가 끝나면(OS 화면 해제·알림 처리·생명주기 이동 안 함) 한 번 `run`. 이미 끝났으면 바로. 반환 = 취소. */
+export function whenLaunchDestinationSettled(run: () => void): () => void {
+  if (!isLaunchDestinationPending()) {
+    run();
+    return () => {};
+  }
+  let done = false;
+  let off: () => void = () => {};
+  off = subscribeLaunchDestination(() => {
+    if (done || isLaunchDestinationPending()) return;
+    done = true;
+    off();
+    run();
+  });
+  return () => {
+    done = true;
+    off();
+  };
+}
+
+/** `whenLaunchDestinationSettled` 의 Promise 형 — 홈 전용 데이터 요청이 시작 목적지와 경쟁하지 않게 쓴다. */
+export function untilLaunchDestinationSettled(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    whenLaunchDestinationSettled(resolve);
+  });
+}
+
+/** 렌더 중 읽기 + 대기 끝에 다시 렌더. DOM 에 쓰지 않는 값(Link `prefetch`·요청 시작 여부)에만 쓴다. */
+export function useLaunchDestinationPending(): boolean {
+  return useSyncExternalStore(subscribeLaunchDestination, isLaunchDestinationPending, () => false);
 }

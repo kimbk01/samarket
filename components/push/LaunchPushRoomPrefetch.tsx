@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { readLaunchPushTarget } from "@/lib/startup/launch-push-hold";
 import { prefetchLaunchRoomEntry } from "@/lib/startup/launch-room-prefetch";
+import { warmSessionForLaunchDestination } from "@/lib/startup/launch-destination-session-warm";
 
 /**
  * 감사 2026-11-26 D2 (`docs/audit/os-cover-push-entry-delay-audit-2026-11-26.md`) — 알림 탭으로 켠 실행의 채팅방 미리 받기.
@@ -17,7 +18,10 @@ import { prefetchLaunchRoomEntry } from "@/lib/startup/launch-room-prefetch";
  */
 export function LaunchPushRoomPrefetch(): null {
   useEffect(() => {
-    prefetchLaunchRoomEntry(readLaunchPushTarget(), "launch_push");
+    const target = readLaunchPushTarget();
+    prefetchLaunchRoomEntry(target, "launch_push");
+    // 재감사 §9 B2: 로그인 필요 목적지면 세션 확인도 지금 시작(경계 마운트를 기다리지 않음)
+    warmSessionForLaunchDestination(target, "launch_push");
   }, []);
   return null;
 }

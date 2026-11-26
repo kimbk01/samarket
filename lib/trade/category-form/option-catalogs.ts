@@ -140,10 +140,18 @@ export const TRADE_OPTION_CATALOGS: Record<string, readonly TradeOptionEntry[]> 
      * 감사 J4 (2026-11-22): 구직 희망 업종(별도 목록)도 같은 `work_category` 칸에 저장된다 —
      * 필터·라벨이 구직 글을 알아보도록 이어 붙인다(값이 겹치는 「기타」는 제외).
      */
+    /**
+     * 재감사 2026-11-26 §9 A4: 모듈을 불러오는 순간 `translate("en", …)` 를 부르면 한국어 사용자에게도 영어 사전 111개를
+     * 합쳤다(앱 시작 성능 기록 약 15ms). 이름은 읽을 때 만든다 — 값은 그대로.
+     */
     ...JOB_SEEKER_INDUSTRY_OPTIONS.filter((o) => o.value !== WORK_CATEGORY_OTHER).map((o) => ({
       value: o.value,
-      labelKo: translate("ko", o.labelKey),
-      labelEn: translate("en", o.labelKey),
+      get labelKo() {
+        return translate("ko", o.labelKey);
+      },
+      get labelEn() {
+        return translate("en", o.labelKey);
+      },
     })),
   ],
   jobs_work_term: [

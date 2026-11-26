@@ -121,7 +121,6 @@ export function useBottomNavScrollHide(enabled: boolean, routeScrollKey = ""): b
       return;
     }
     invalidateMainAppScrollRootCache();
-    lastYRef.current = readMessengerHubListScrollTop() ?? getMainAppScrollTop();
     setHidden(false);
 
     const clearIdleReveal = () => {
@@ -132,6 +131,16 @@ export function useBottomNavScrollHide(enabled: boolean, routeScrollKey = ""): b
     };
 
     const resolveScrollY = () => readMessengerHubListScrollTop() ?? getMainAppScrollTop();
+
+    /**
+     * 재감사 2026-11-26 §9 A3 (`docs/audit/app-entry-reaudit-responsibility-ssot-2026-11-26.md`):
+     * 시작 기준 위치를 효과 안에서 바로 읽으면 `getComputedStyle` 이 그리기 전 스타일 계산을 강제했다
+     * (앱 시작 성능 기록 Samsung 38~50ms). 다음 그리기 프레임에서 읽는다. 그 전에 스크롤이 먼저 오면 그 위치를 기준으로 삼는다.
+     */
+    let initialYRaf = window.requestAnimationFrame(() => {
+      initialYRaf = 0;
+      lastYRef.current = resolveScrollY();
+    });
 
     const resolveOverflowing = () =>
       isMessengerHubListOverflowing() || isMainAppScrollBodyOverflowing();
@@ -151,6 +160,12 @@ export function useBottomNavScrollHide(enabled: boolean, routeScrollKey = ""): b
 
     const applyScrollChrome = (y: number) => {
       if (isSettlingAfterWidthChange()) {
+        lastYRef.current = y;
+        return;
+      }
+      if (initialYRaf) {
+        window.cancelAnimationFrame(initialYRaf);
+        initialYRaf = 0;
         lastYRef.current = y;
         return;
       }
@@ -268,7 +283,7 @@ export function useBottomNavScrollHide(enabled: boolean, routeScrollKey = ""): b
       scrollRootResizeObserver.observe(root);
     };
 
-    bindScrollRootResizeObserver();
+    /** §9 A3: 효과 안 즉시 연결은 스크롤 루트 판별(`getComputedStyle`)을 강제한다 — 0ms 타이머가 같은 일을 한다. */
     const scrollRootBindTimers = [0, 50, 150, 450].map((ms) =>
       window.setTimeout(bindScrollRootResizeObserver, ms)
     );
@@ -281,6 +296,7 @@ export function useBottomNavScrollHide(enabled: boolean, routeScrollKey = ""): b
       window.removeEventListener("resize", onResize);
       if (resizeTimer != null) clearTimeout(resizeTimer);
       if (syncRaf) window.cancelAnimationFrame(syncRaf);
+      if (initialYRaf) window.cancelAnimationFrame(initialYRaf);
       for (const timer of scrollRootBindTimers) {
         window.clearTimeout(timer);
       }
