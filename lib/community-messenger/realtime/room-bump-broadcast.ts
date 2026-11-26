@@ -21,32 +21,53 @@ import {
   communityMessengerRoomBumpChannelName,
 } from "@/lib/community-messenger/realtime/community-messenger-room-bump-channel";
 import {
-  createMessengerPrivateChannelStatusHandler,
   messengerPrivateBroadcastChannelOptions,
   primeMessengerPrivateRealtimeAuth,
 } from "@/lib/community-messenger/realtime/private-broadcast-client";
+import { superviseMessengerChannel } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
+import type { SubscribeWithRetryHandle } from "@/lib/community-messenger/realtime/cm-rt-channel-registry";
 
+/**
+ * 결함 2(2026-11-27 iPhone 실기): 직접 `subscribe()` 는 가입 실패 때 라이브러리가 10초마다 끝없이 재가입했다.
+ * 감독 입구(`superviseMessengerChannel`)로 가입 — 차단기·대기·오프라인 일시정지. 수신 페이로드·검증·병합은 그대로.
+ * 재연결 때 스스로 다시 읽기는 지금처럼 없다(R2 note 도 부르지 않음 — 이 채널 하나가 흔들릴 때 요청 증가, 독립 검토 7번).
+ * 열린 방의 재연결 따라잡기는 방 묶음 채널이 R2 로 한다.
+ * 설계 docs/audit/supabase-request-surge-2026-11-18/rt-bundle-gen-skip-and-unsupervised-channels-design-2026-11-27.md §3
+ */
 export function subscribeCommunityMessengerRoomBumpBroadcast(args: {
   sb: SupabaseClient;
   roomId: string;
   onBump: (payload: Record<string, unknown>) => void;
   /** 선택: 구독 상태 콜백(SUBSCRIBED 시 공백 보상 정합 등) */
-  onStatus?: Parameters<typeof createMessengerPrivateChannelStatusHandler>[0]["onStatus"];
-}): ReturnType<SupabaseClient["channel"]> {
+  onStatus?: (status: string) => void;
+  /** 호출부가 해제했는지 — 해제 뒤 재시도 금지 */
+  isCancelled: () => boolean;
+}): SubscribeWithRetryHandle {
   const roomId = args.roomId.trim();
   const name = communityMessengerRoomBumpChannelName(roomId);
   primeMessengerPrivateRealtimeAuth(args.sb);
-  return args.sb
-    .channel(name, messengerPrivateBroadcastChannelOptions())
-    .on("broadcast", { event: CM_ROOM_BUMP_BROADCAST_EVENT }, (msg) => {
-      const raw = (msg as { payload?: unknown }).payload;
-      if (isCommunityMessengerRealtimeDebugEnabled()) {
-        // eslint-disable-next-line no-console -- dev-only
-        console.info("[cm-rt]", "room_bump_recv", { roomId, payload: raw ?? null });
+  return superviseMessengerChannel({
+    sb: args.sb,
+    name,
+    logStreamRoomId: roomId,
+    scope: "room_bump",
+    channelOptions: messengerPrivateBroadcastChannelOptions(),
+    isCancelled: args.isCancelled,
+    onStatus: (status) => {
+      try {
+        args.onStatus?.(status);
+      } catch {
+        /* 호출부 오류가 실시간을 멈추지 않게 */
       }
-      args.onBump(typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {});
-    })
-    .subscribe(
-      createMessengerPrivateChannelStatusHandler({ sb: args.sb, scope: "room_bump", onStatus: args.onStatus })
-    );
+    },
+    build: (ch) =>
+      ch.on("broadcast", { event: CM_ROOM_BUMP_BROADCAST_EVENT }, (msg) => {
+        const raw = (msg as { payload?: unknown }).payload;
+        if (isCommunityMessengerRealtimeDebugEnabled()) {
+          // eslint-disable-next-line no-console -- dev-only
+          console.info("[cm-rt]", "room_bump_recv", { roomId, payload: raw ?? null });
+        }
+        args.onBump(typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {});
+      }),
+  });
 }

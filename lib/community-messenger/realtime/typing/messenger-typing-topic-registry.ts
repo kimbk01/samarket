@@ -3,10 +3,11 @@
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
 import {
-  createMessengerPrivateChannelStatusHandler,
   messengerPrivateBroadcastChannelOptions,
   primeMessengerPrivateRealtimeAuth,
 } from "@/lib/community-messenger/realtime/private-broadcast-client";
+import { superviseMessengerChannel } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
+import type { SubscribeWithRetryHandle } from "@/lib/community-messenger/realtime/cm-rt-channel-registry";
 import {
   MESSENGER_TYPING_PRUNE_MS,
   MESSENGER_TYPING_TTL_MS,
@@ -29,8 +30,11 @@ type TopicEntry = {
   roomId: string;
   viewerUserId: string;
   refCount: number;
-  channel: RealtimeChannel | null;
+  /** 감독 가입 핸들(결함 2, 2026-11-27) — 가입·재시도·차단은 감독이, 토픽 정리는 이 등록부가 한다 */
+  channel: SubscribeWithRetryHandle | null;
   sb: SupabaseClient;
+  /** 해제됐는지 — 감독 재시도 중단 */
+  released: boolean;
 };
 
 const entries = new Map<string, TopicEntry>();
@@ -80,11 +84,15 @@ function dropFromSocket(sb: SupabaseClient, channel: RealtimeChannel): void {
   }
 }
 
-async function forceRemoveChannel(sb: SupabaseClient, channel: RealtimeChannel): Promise<void> {
-  try {
-    await sb.removeChannel(channel);
-  } catch {
-    /* ignore */
+async function forceRemoveChannel(sb: SupabaseClient, channel: RealtimeChannel | null | undefined): Promise<void> {
+  if (!channel) return;
+  /** 감독 핸들 stop 이 이미 닫은 채널에 다시 unsubscribe 하면 leave 가 한 번 더 나간다(독립 검토 6번) — 닫혔으면 소켓 목록만 정리 */
+  if ((channel as { state?: string }).state !== "closed") {
+    try {
+      await sb.removeChannel(channel);
+    } catch {
+      /* ignore */
+    }
   }
   dropFromSocket(sb, channel);
 }
@@ -120,23 +128,35 @@ function openChannel(topic: string, entry: TopicEntry, attempt = 0): void {
   }
 }
 
-function createSubscribedChannel(topic: string, entry: TopicEntry): RealtimeChannel {
+/**
+ * 결함 2(2026-11-27 iPhone 실기): 직접 `subscribe()` 는 가입 실패 때 라이브러리가 10초마다 끝없이 재가입했다.
+ * 감독 입구로 가입 — 차단기·대기·오프라인 일시정지. 타이핑은 재연결 때 다시 읽을 것이 없어 R2 note 를 부르지 않는다.
+ * 설계 docs/audit/supabase-request-surge-2026-11-18/rt-bundle-gen-skip-and-unsupervised-channels-design-2026-11-27.md §3
+ */
+function createSubscribedChannel(topic: string, entry: TopicEntry): SubscribeWithRetryHandle {
   const { sb, roomId, viewerUserId } = entry;
   primeMessengerPrivateRealtimeAuth(sb);
   const store = useMessengerTypingStore;
-  return sb
-    .channel(topic, messengerPrivateBroadcastChannelOptions())
-    .on("broadcast", { event: "typing:start" }, (msg) => {
-      const fromUserId = readFromUserId(msg);
-      if (!fromUserId || fromUserId === viewerUserId) return;
-      store.getState().setTyping(roomId, fromUserId, MESSENGER_TYPING_TTL_MS);
-    })
-    .on("broadcast", { event: "typing:stop" }, (msg) => {
-      const fromUserId = readFromUserId(msg);
-      if (!fromUserId || fromUserId === viewerUserId) return;
-      store.getState().clearTyping(roomId, fromUserId);
-    })
-    .subscribe(createMessengerPrivateChannelStatusHandler({ sb, scope: "typing" }));
+  return superviseMessengerChannel({
+    sb,
+    name: topic,
+    logStreamRoomId: roomId,
+    scope: "typing",
+    channelOptions: messengerPrivateBroadcastChannelOptions(),
+    isCancelled: () => entry.released || entries.get(topic) !== entry,
+    build: (ch: RealtimeChannel) =>
+      ch
+        .on("broadcast", { event: "typing:start" }, (msg) => {
+          const fromUserId = readFromUserId(msg);
+          if (!fromUserId || fromUserId === viewerUserId) return;
+          store.getState().setTyping(roomId, fromUserId, MESSENGER_TYPING_TTL_MS);
+        })
+        .on("broadcast", { event: "typing:stop" }, (msg) => {
+          const fromUserId = readFromUserId(msg);
+          if (!fromUserId || fromUserId === viewerUserId) return;
+          store.getState().clearTyping(roomId, fromUserId);
+        }),
+  });
 }
 
 /**
@@ -155,7 +175,7 @@ export function acquireMessengerTypingTopic(args: {
   if (entry) {
     entry.refCount += 1;
   } else {
-    const created: TopicEntry = { roomId, viewerUserId, refCount: 1, channel: null, sb: args.sb };
+    const created: TopicEntry = { roomId, viewerUserId, refCount: 1, channel: null, sb: args.sb, released: false };
     entries.set(topic, created);
     entry = created;
     ensurePruneTimer();
@@ -179,19 +199,23 @@ function releaseEntry(topic: string, entry: TopicEntry): void {
   entry.refCount -= 1;
   if (entry.refCount > 0) return;
   if (entries.get(topic) === entry) entries.delete(topic);
+  entry.released = true;
   /** 이 방을 보는 화면이 하나도 없으면 남은 입력 중 표시를 지운다(지난 동작 유지) */
   const bucket = useMessengerTypingStore.getState().byRoomId[entry.roomId];
   if (bucket) {
     for (const uid of Object.keys(bucket)) useMessengerTypingStore.getState().clearTyping(entry.roomId, uid);
   }
   stopPruneTimerIfIdle();
-  const channel = entry.channel;
+  const handle = entry.channel;
   entry.channel = null;
-  if (!channel) return;
+  if (!handle) return;
+  /** 감독 핸들 정지(재시도 중단·채널 제거 요청) */
+  handle.stop();
   const prior = leaving.get(topic) ?? Promise.resolve();
   const done: Promise<void> = prior
-    /** leave 응답이 error 여도 소켓 목록에서 확실히 뺀다 */
-    .then(() => forceRemoveChannel(entry.sb, channel))
+    /** leave 응답이 error 여도 소켓 목록에서 확실히 뺀다 — 처음 채널 + 감독 재시도로 바뀐 같은 토픽 인스턴스 */
+    .then(() => forceRemoveChannel(entry.sb, handle.channel))
+    .then(() => forceRemoveTopic(entry.sb, topic))
     .catch(() => undefined)
     .then(() => {
       if (leaving.get(topic) === done) leaving.delete(topic);

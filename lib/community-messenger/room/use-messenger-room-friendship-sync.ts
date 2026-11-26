@@ -25,9 +25,11 @@ import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/t
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import {
-  releaseMessengerChannel,
+  releaseSupervisedMessengerChannel,
   whenMessengerTopicFree,
 } from "@/lib/community-messenger/realtime/messenger-channel-topic-lease";
+import { superviseMessengerChannel } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
+import type { SubscribeWithRetryHandle } from "@/lib/community-messenger/realtime/cm-rt-channel-registry";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 /** general pair direct_key — legacy contextMeta.trade 잔재여도 friendship RT·refresh 유지 */
@@ -181,28 +183,39 @@ export function useMessengerRoomFriendshipSync({
     /** 비공개 채널 허용 토픽 `cm-room-friendship:<viewer>:…` (구 이름 cm-room-social-relation 은 거부됨 — D-14) */
     const topic = `cm-room-friendship:${viewerUserId}:${peerUserId}`;
     let alive = true;
-    let channel: ReturnType<NonNullable<typeof sb>["channel"]> | null = null;
+    let handle: SubscribeWithRetryHandle | null = null;
     if (sb) {
       /** X4: 같은 토픽 이전 채널 제거 완료 뒤 생성 */
       void (async () => {
         await whenMessengerTopicFree(sb, topic);
         if (!alive) return;
-        channel = sb
-          .channel(topic, messengerPrivateBroadcastChannelOptions())
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table: "user_social_relations",
-              filter: `owner_user_id=eq.${viewerUserId}`,
-            },
-            (payload) => {
-              const row = (payload.new ?? payload.old) as Record<string, unknown> | null;
-              if (row) onSocialRelationPayload(row, payload.eventType);
-            }
-          )
-          .subscribe();
+        /**
+         * 결함 2(2026-11-27 iPhone 실기): 직접 `subscribe()` 는 가입 실패 때 라이브러리가 10초마다 끝없이 재가입했다.
+         * 감독 입구로 가입. 재연결 때 다시 읽기는 지금처럼 없다(R2 note 도 부르지 않음 — 독립 검토 7번).
+         * 설계 docs/audit/supabase-request-surge-2026-11-18/rt-bundle-gen-skip-and-unsupervised-channels-design-2026-11-27.md §3
+         */
+        handle = superviseMessengerChannel({
+          sb,
+          name: topic,
+          logStreamRoomId: rid,
+          scope: "cm-room-friendship:room",
+          channelOptions: messengerPrivateBroadcastChannelOptions(),
+          isCancelled: () => !alive,
+          build: (ch) =>
+            ch.on(
+              "postgres_changes",
+              {
+                event: "*",
+                schema: "public",
+                table: "user_social_relations",
+                filter: `owner_user_id=eq.${viewerUserId}`,
+              },
+              (payload) => {
+                const row = (payload.new ?? payload.old) as Record<string, unknown> | null;
+                if (row) onSocialRelationPayload(row, payload.eventType);
+              }
+            ),
+        });
       })();
     }
 
@@ -214,8 +227,8 @@ export function useMessengerRoomFriendshipSync({
       if (debounceTimer != null) clearTimeout(debounceTimer);
       unsubBus();
       alive = false;
-      if (sb && channel) releaseMessengerChannel(sb, channel);
-      channel = null;
+      releaseSupervisedMessengerChannel(topic, handle);
+      handle = null;
     };
   }, [
     roomId,
