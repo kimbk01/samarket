@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Cloud, CloudFog, CloudLightning, CloudRain, Sun, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { fetchExchangeRatesViaApp, type ExchangeRates } from "@/lib/exchange/fetchExchangeRates";
@@ -111,20 +111,20 @@ function storeHomeRate(r: ExchangeRates): void {
 /**
  * 마지막으로 그린 날씨(지역·온도) — 앱을 새로 열 때 첫 그림부터 보이고 새 값으로 바꾼다.
  * 2026-11-26 Xiaomi 실측: 날씨는 로그인 확정 → 내 주소 → 날씨 조회를 차례로 기다려 홈이 그려진 뒤 약 1.2초 회색.
- * 저장한 계정과 지금 계정이 다르면 쓰지 않는다(다른 계정의 지역이 보이지 않게).
+ * 첫 그림 때는 계정 번호를 아직 모른다(로그인 확인 전) — 배너 R1 과 같이 로그인 쿠키가 있으면 마지막 회원 날씨를 먼저 그리고,
+ * 확인된 계정이 저장한 계정과 다르면 바로 지운다(2026-11-26 #628 실측 FAIL: 계정 일치를 첫 그림에서 요구해 효과 없음).
  */
 const HOME_WEATHER_STORE_KEY = "dibay:home:weather:v1";
 
 type StoredHomeWeather = { viewer: string; tempC: number; code: number; place: string | null };
 
-function readStoredHomeWeather(viewer: string): StoredHomeWeather | null {
+function readStoredHomeWeather(): StoredHomeWeather | null {
   try {
     const raw = window.localStorage.getItem(HOME_WEATHER_STORE_KEY);
     if (!raw) return null;
     const v = JSON.parse(raw) as StoredHomeWeather | null;
     if (!v || typeof v.tempC !== "number" || typeof v.code !== "number") return null;
-    if ((v.viewer ?? "") !== viewer) return null;
-    return v;
+    return { ...v, viewer: typeof v.viewer === "string" ? v.viewer : "" };
   } catch {
     return null;
   }
@@ -173,14 +173,37 @@ export function HomeInfoStrip({
     }
   }, []);
 
-  /** 회원 확인 중(쿠키 있음)·회원이면 지금 계정의 저장 날씨, 비회원이면 비회원 저장 날씨 */
+  /** 저장 날씨를 그린 계정 — 확인된 계정과 다르면 지운다 */
+  const storedWeatherViewerRef = useRef<string | null>(null);
+
+  /** 회원 확인 중(쿠키 있음)·회원 = 마지막 회원 날씨(계정을 알면 같은 계정만) · 비회원 = 비회원 저장 날씨 */
   useLayoutEffect(() => {
-    const viewer = memberPending || isMember ? (getSyncViewerUserIdForClient() ?? "") : "";
-    if ((memberPending || isMember) && !viewer) return;
-    const stored = readStoredHomeWeather(viewer);
+    const stored = readStoredHomeWeather();
     if (!stored) return;
-    setWeather((cur) => cur ?? { tempC: stored.tempC, code: stored.code, place: stored.place });
+    const memberSide = memberPending || isMember;
+    const viewer = memberSide ? (getSyncViewerUserIdForClient() ?? "") : "";
+    if (memberSide) {
+      if (!stored.viewer) return;
+      if (viewer && stored.viewer !== viewer) return;
+    } else if (stored.viewer) {
+      return;
+    }
+    setWeather((cur) => {
+      if (cur) return cur;
+      storedWeatherViewerRef.current = stored.viewer;
+      return { tempC: stored.tempC, code: stored.code, place: stored.place };
+    });
   }, [memberPending, isMember]);
+
+  /** 회원 확정 뒤 저장 날씨의 계정이 지금 계정과 다르면 지우고 새 조회를 기다린다 */
+  useEffect(() => {
+    if (!isMember) return;
+    const from = storedWeatherViewerRef.current;
+    const viewer = getSyncViewerUserIdForClient() ?? "";
+    if (from == null || !viewer || from === viewer) return;
+    storedWeatherViewerRef.current = null;
+    setWeather(null);
+  }, [isMember]);
 
   useLayoutEffect(() => {
     const stored = readStoredHomeRate();
@@ -217,6 +240,7 @@ export function HomeInfoStrip({
         if (res.ok && j.ok && typeof j.tempC === "number" && typeof j.code === "number") {
           // 좌표가 있으면 그 주소의 이름 · 좌표가 없을 때만 「마닐라」
           const place = coord ? coord.place : defaultPlace;
+          storedWeatherViewerRef.current = null;
           setWeather({ tempC: j.tempC, code: j.code, place });
           setWeatherFailed(false);
           storeHomeWeather({
