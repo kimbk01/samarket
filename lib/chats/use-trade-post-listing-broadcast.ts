@@ -3,7 +3,7 @@
 import type { MutableRefObject } from "react";
 import { useEffect } from "react";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
-import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { superviseMessengerChannel } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   TRADE_POST_LISTING_BROADCAST_EVENT,
@@ -62,7 +62,7 @@ export function useTradePostListingBroadcast(args: {
     if (!sb) return;
 
     let cancelled = false;
-    const sub = subscribeWithRetry({
+    const sub = superviseMessengerChannel({
       sb,
       name: tradePostListingBroadcastChannelName(pid),
       scope: `trade-post-listing:${pid}`,

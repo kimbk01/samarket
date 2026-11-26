@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
-import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { superviseMessengerChannel } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   computeTradePresenceLiveState,
@@ -121,7 +121,7 @@ export function useTradeChatRoomPresence(args: {
       });
     };
     let markRealtimeSignal = () => {};
-    const sub = subscribeWithRetry({
+    const sub = superviseMessengerChannel({
       sb,
       name: channelName(roomId),
       scope: `trade-chat-presence:${roomId}`,

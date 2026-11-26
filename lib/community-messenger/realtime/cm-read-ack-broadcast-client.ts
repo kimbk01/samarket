@@ -24,6 +24,14 @@ import {
   releaseMessengerChannel,
   whenMessengerTopicFree,
 } from "@/lib/community-messenger/realtime/messenger-channel-topic-lease";
+import {
+  RT_SELF_LOOP_MAX_CONSECUTIVE_FAILURES,
+  messengerRealtimeSupervisorAllowsJoin,
+  messengerRealtimeSupervisorEnabled,
+  noteMessengerRealtimeSelfLoopFailure,
+  onMessengerRealtimeSupervisorOpen,
+  whenMessengerRealtimeJoinAllowed,
+} from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
 
 export { CM_READ_ACK_BROADCAST_EVENT, communityMessengerReadAckChannelName };
 
@@ -92,14 +100,46 @@ function subscribeCmReadAckBroadcast(viewerUserId: string, subscribeRoomId: stri
    */
   let recoveryAttempt = 0;
   let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  let parkUnregister: (() => void) | null = null;
   const clearRecoveryTimer = () => {
     if (recoveryTimer != null) {
       clearTimeout(recoveryTimer);
       recoveryTimer = null;
     }
   };
-  const scheduleRecovery = (bindGen: number) => {
-    if (cancelled || bindGen !== readAckGeneration || recoveryTimer != null) return;
+  /**
+   * D1 R1(2026-11-26): 연속 실패 상한·연결 감독 차단이면 재시도를 멈추고 채널을 놓는다(라이브러리 rejoin 도 멈춤).
+   * 다시 가입해도 될 때(차단 닫힘·화면 복귀·온라인) 1번 새로 가입한다.
+   * 2차 감사 F-A: 대기를 **먼저** 걸고 `ch` 를 비운 뒤 놓는다 — realtime-js 는 가입 안 된 채널을 놓을 때
+   * `CLOSED` 를 동기로 다시 부르는데(`unsubscribe` → `leavePush.trigger('ok')`), 그 호출은 `parkUnregister` 가드에서 멈춘다.
+   */
+  const park = (bindGen: number) => {
+    if (cancelled || bindGen !== readAckGeneration || parkUnregister) return;
+    clearRecoveryTimer();
+    /** 독립 감사 F3: 콜백이 즉시 불려도 해제 함수가 남아 다음 상한을 막지 않게 */
+    let fired = false;
+    const unregister = whenMessengerRealtimeJoinAllowed(() => {
+      fired = true;
+      parkUnregister = null;
+      if (cancelled || bindGen !== readAckGeneration) return;
+      recoveryAttempt = 0;
+      subscribeReadAckChannel();
+    });
+    if (!fired) parkUnregister = unregister;
+    const old = ch;
+    ch = null;
+    if (old) releaseMessengerChannel(sb, old);
+  };
+  const scheduleRecovery = (bindGen: number, status: string) => {
+    if (cancelled || bindGen !== readAckGeneration || recoveryTimer != null || parkUnregister) return;
+    if (messengerRealtimeSupervisorEnabled()) {
+      /** 2차 감사 F-E: 자체 루프 실패도 감독 창에 센다(CLOSED 제외 — 감독과 같은 규칙) */
+      if (status === "TIMED_OUT" || status === "CHANNEL_ERROR") noteMessengerRealtimeSelfLoopFailure();
+      if (recoveryAttempt >= RT_SELF_LOOP_MAX_CONSECUTIVE_FAILURES || !messengerRealtimeSupervisorAllowsJoin()) {
+        park(bindGen);
+        return;
+      }
+    }
     const delay = readAckResubscribeDelayMs(recoveryAttempt);
     recoveryAttempt += 1;
     recoveryTimer = setTimeout(() => {
@@ -115,6 +155,9 @@ function subscribeCmReadAckBroadcast(viewerUserId: string, subscribeRoomId: stri
     if (cancelled) return;
     const bindGen = ++readAckGeneration;
     clearRecoveryTimer();
+    /** 새 세대 가입이면 이전 세대의 대기(쉼)는 버린다 — 새 세대 실패가 막히지 않게 */
+    parkUnregister?.();
+    parkUnregister = null;
     if (ch) {
       releaseMessengerChannel(sb, ch);
       ch = null;
@@ -137,7 +180,7 @@ function subscribeCmReadAckBroadcast(viewerUserId: string, subscribeRoomId: stri
                 return;
               }
               if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-                scheduleRecovery(bindGen);
+                scheduleRecovery(bindGen, status);
               }
             },
           })
@@ -150,10 +193,15 @@ function subscribeCmReadAckBroadcast(viewerUserId: string, subscribeRoomId: stri
     isCancelled: () => cancelled,
     onReady: subscribeReadAckChannel,
   });
+  /** 2차 감사 F-E: 감독 차단이 열리면 가입된 채널도 놓고 대기 */
+  const offSupervisorOpen = onMessengerRealtimeSupervisorOpen(() => park(readAckGeneration));
 
   return () => {
     cancelled = true;
     clearRecoveryTimer();
+    parkUnregister?.();
+    parkUnregister = null;
+    offSupervisorOpen();
     bridgeCleanup();
     if (ch) {
       releaseMessengerChannel(sb, ch);

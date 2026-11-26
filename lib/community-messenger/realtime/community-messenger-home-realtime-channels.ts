@@ -1,7 +1,7 @@
 import type { MutableRefObject } from "react";
 import { notifyCallLogsRealtimeChanged } from "@/lib/community-messenger/call-history/call-logs-realtime-listeners";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { superviseMessengerChannel } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { createRefreshScheduler } from "@/lib/community-messenger/realtime/community-messenger-realtime-schedulers";
 import { MESSENGER_HOME_META_DEBOUNCE_MS } from "@/lib/community-messenger/messenger-latency-config";
@@ -132,7 +132,7 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
     // initial list, so it must NOT drive a full home-sync. Only a RESUBSCRIBE (reconnect
     // after drop) schedules a catch-up. Mirrors global-messenger-room-bundle-channel.
     let metaFirstSubscribedSeen = false;
-    const meta = subscribeWithRetry({
+    const meta = superviseMessengerChannel({
       sb: args.sb,
       name: `community-messenger-home:meta:${args.userId}`,
       scope: `community-messenger-home:meta`,
@@ -324,7 +324,7 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
     const { roomsFilter, messagesFilter } = buildCommunityMessengerHomeRoomsInFilters(chunk);
     // First SUBSCRIBED of each rooms-in chunk is cold bind → no full sync (see meta above).
     let roomBundleFirstSubscribedSeen = false;
-    const roomBundle = subscribeWithRetry({
+    const roomBundle = superviseMessengerChannel({
       sb: args.sb,
       name:
         typeof args.roomsInTopicGeneration === "number"

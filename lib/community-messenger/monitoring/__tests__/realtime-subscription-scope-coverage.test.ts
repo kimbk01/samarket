@@ -13,7 +13,8 @@ import {
  */
 const root = path.resolve(__dirname, "../../../..");
 const SOURCE_DIRS = ["app", "components", "contexts", "hooks", "lib", "services", "repositories", "types"];
-const CALLS = ["subscribeWithRetry({", "acquireIncomingCallRealtimeSubscription({"];
+/** D1 R1(2026-11-26): 비통화 채널은 감독 입구 `superviseMessengerChannel` 로 가입(안에서 subscribeWithRetry) */
+const CALLS = ["subscribeWithRetry({", "superviseMessengerChannel({", "acquireIncomingCallRealtimeSubscription({"];
 
 function walk(dir: string, out: string[]): void {
   let entries: string[];

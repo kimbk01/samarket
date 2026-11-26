@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { superviseMessengerChannel } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
@@ -41,7 +41,7 @@ export function usePostSellerListingRealtime(args: {
 
     let cancelled = false;
     let markRealtimeSignal = () => {};
-    const sub = subscribeWithRetry({
+    const sub = superviseMessengerChannel({
       sb,
       name: `post-seller-listing:${pid}`,
       scope: `post-seller-listing:${pid}`,
@@ -113,7 +113,7 @@ export function usePostsSellerListingRealtimeBatch(args: {
       const chunk = ids.slice(offset, offset + POSTS_LISTING_IN_FILTER_MAX);
       const filter = `id=in.(${chunk.join(",")})`;
       let markRealtimeSignal = () => {};
-      const sub = subscribeWithRetry({
+      const sub = superviseMessengerChannel({
         sb,
         name: `chat-list:posts-listing:${userId}:${offset}`,
         scope: `chat-list:posts-listing:${userId}`,

@@ -16,7 +16,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { syncSupabaseRealtimeAuthFromSession } from "@/lib/supabase/wait-for-realtime-auth";
 import { applyBootstrapCacheBusEvent } from "@/lib/community-messenger/home/bootstrap-cache-bus-writer";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
-import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { superviseMessengerChannel } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import {
   cmReceiveLatencyKey,
@@ -119,7 +119,7 @@ export function useCmParticipantsHubSync(
       if (event !== "TOKEN_REFRESHED" && event !== "SIGNED_IN") return;
       void syncSupabaseRealtimeAuthFromSession(sb);
     });
-    const sub = subscribeWithRetry({
+    const sub = superviseMessengerChannel({
       sb,
       name: `community-messenger-unread-sound:${userId}`,
       scope: `community-messenger-unread-sound:${userId}`,

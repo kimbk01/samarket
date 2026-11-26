@@ -30,7 +30,7 @@ import type { CommunityMessengerRoomRealtimeMessageEvent } from "@/lib/community
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { isParticipantReadOnlyUpdate } from "@/lib/community-messenger/realtime/participant-read-only-update";
 import { isStaleRealtimeBindGeneration } from "@/lib/community-messenger/realtime/realtime-bind-generation";
-import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { superviseMessengerChannel } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import {
   MESSENGER_MESSAGE_FALLBACK_DEBOUNCE_MS,
@@ -538,7 +538,7 @@ export function createGlobalMessengerRoomBundleEntry(args: {
         const roomScopedFilter = `room_id=in.(${chunk.join(",")})`;
         const roomsTableFilter = `id=in.(${chunk.join(",")})`;
 
-        const roomBundle = subscribeWithRetry({
+        const roomBundle = superviseMessengerChannel({
           sb,
           /**
            * X4: 바인드 세대 접미 `:g<n>`(모듈 단위 단조 증가 — 엔트리를 새로 만들어도 겹치지 않음) — 방 목록이 바뀔 때마다
