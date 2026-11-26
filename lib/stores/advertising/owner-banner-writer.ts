@@ -139,6 +139,8 @@ export type OwnerBannerWriterError =
   | "funding_required"
   | "duplicate_submit"
   | "capacity_full"
+  /** SA-08: 자리 확인 조회 실패 → 제출 막음 */
+  | "capacity_check_failed"
   | "db_error"
   | "inventory_lookup_failed"
   | "store_slug_missing"
@@ -405,12 +407,18 @@ export async function upsertOwnerBannerDraft(
     const { quoteDeliveryAdApplicationCommercial } = await import(
       "@/lib/stores/advertising/delivery-ad-commercial-catalog"
     );
-    const quote = await quoteDeliveryAdApplicationCommercial(sb, {
-      productKind: "banner",
-      inventoryKey: inv.key,
-      packageId,
-      storeId: input.storeId,
-    });
+    /** R-70: 견적 조회 오류 = 「확인 못 함」 */
+    let quote: Awaited<ReturnType<typeof quoteDeliveryAdApplicationCommercial>>;
+    try {
+      quote = await quoteDeliveryAdApplicationCommercial(sb, {
+        productKind: "banner",
+        inventoryKey: inv.key,
+        packageId,
+        storeId: input.storeId,
+      });
+    } catch {
+      return { ok: false, error: "capacity_check_failed" };
+    }
     if (!quote.ok) return { ok: false, error: "db_error" };
     const window = scheduleWindowFromPackageDurationDays(quote.durationDays, input.nowMs);
     if (!window.ok) return { ok: false, error: "invalid_end_at" };
@@ -552,7 +560,7 @@ export async function transitionOwnerBannerCampaign(
         inventoryKey: invKey,
       });
       if (!cap.ok) {
-        return { ok: false, error: "capacity_full" };
+        return { ok: false, error: cap.error === "capacity_check_failed" ? "capacity_check_failed" : "capacity_full" };
       }
     }
   }

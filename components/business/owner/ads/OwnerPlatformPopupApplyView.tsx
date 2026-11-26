@@ -5,6 +5,7 @@
  * Surface multi-select + CTA destinations + visible crop + Cash recovery with requestId.
  */
 
+import { ownerPopupErrorKey } from "@/lib/platform-popup/owner-popup-error-copy";
 import { OwnerCta } from "@/lib/business/owner-cta-classes";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import Link from "next/link";
@@ -396,7 +397,8 @@ export function OwnerPlatformPopupApplyView() {
       style={formPadStyle}
       data-owner-platform-popup-apply="1"
     >
-      {!OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED && !preloadRequestId ? (
+      {/* PP-03: 신청 번호로 들어와도 판매 꺼짐이면 안내만 (예전: requestId 있으면 신청 폼 전체가 열렸다) */}
+      {!OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED ? (
         <div
           className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
           data-owner-platform-popup-new-sales="disabled"
@@ -489,7 +491,8 @@ export function OwnerPlatformPopupApplyView() {
               </Link>
             </>
           ) : (
-            error
+            /* PP-03·X-3: 오류 코드 → 문구 키 단일 정의(`ownerPopupErrorKey`) — 오류 코드 원문을 보이지 않는다 */
+            safeT(ownerPopupErrorKey(error))
           )}
         </div>
       ) : null}

@@ -4,6 +4,7 @@
  * No UI.
  */
 
+import { isAdPhpPriceOverCap } from "@/lib/admin/ads-commercial/ad-price-change-guard";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   DELIVERY_AD_COMMERCIAL_OVERRIDE_AUDIT_TABLE,
@@ -60,6 +61,8 @@ export async function adminUpdateDeliveryAdPackagePrice(
     durationDays?: number;
     displayName?: string;
     displayOrder?: number;
+    /** SA-12: 화면이 읽은 `updated_at` — 다르면 덮어쓰지 않고 `stale_updated_at` */
+    expectedUpdatedAt?: string;
     actorUserId: string;
     reason: string;
   }
@@ -69,6 +72,10 @@ export async function adminUpdateDeliveryAdPackagePrice(
     (!assertDeliveryAdMoneyMinor(input.priceAmountMinor) || input.priceAmountMinor <= 0)
   ) {
     return { ok: false, error: "invalid_price" };
+  }
+  /** D-13: 금액 상한(₱100,000) — 오타 방지 */
+  if (input.priceAmountMinor != null && isAdPhpPriceOverCap(input.priceAmountMinor)) {
+    return { ok: false, error: "price_over_cap" };
   }
   const { data: beforeRaw, error: loadErr } = await sb
     .from(DELIVERY_AD_PACKAGE_TABLE)
@@ -100,6 +107,64 @@ export async function adminUpdateDeliveryAdPackagePrice(
     if (!Number.isInteger(input.durationDays) || input.durationDays < 1) {
       return { ok: false, error: "invalid_duration" };
     }
+    /**
+     * SA-12: 한 번이라도 팔린 기간 상품은 기간을 바꾸지 않는다 — 요금 기록(스냅샷)의 기간과 상품 기간이 갈라진다.
+     * 다른 기간이 필요하면 새 상품을 만든다.
+     */
+    if (input.durationDays !== before.durationDays) {
+      /**
+       * R-13: 「팔렸다」 = 이 상품의 요금 기록이 있는 신청 중 캐시가 실제로 확보된 적이 있는 것(SECURED·REFUNDED).
+       * 요금 기록만으로 보면 캐시 부족·자리 없음으로 실패한 제출까지 잠갔다.
+       */
+      /**
+       * R-27: 요금 기록을 100건씩 끝까지 확인한다(예전 500건 한 번 · 정렬 없음 → 500 초과면 잠금 누락 가능).
+       * 반복은 정해진 횟수(50쪽 = 5,000건)만 — 넘으면 확인을 끝낼 수 없으므로 막는다(`sold_check_failed`). 중간 오류도 같다.
+       */
+      const PAGE = 100;
+      const MAX_PAGES = 50;
+      let finished = false;
+      for (let page = 0; page < MAX_PAGES; page += 1) {
+        const { data: snaps, error: snapErr } = await sb
+          .from("delivery_ad_campaign_commercial_snapshots")
+          .select("campaign_id")
+          .eq("package_id", input.packageId)
+          .order("campaign_id", { ascending: true })
+          .range(page * PAGE, page * PAGE + PAGE - 1);
+        if (snapErr) return { ok: false, error: "sold_check_failed" };
+        const rows = snaps ?? [];
+        const campaignIds = [
+          ...new Set(rows.map((r) => String((r as { campaign_id?: unknown }).campaign_id ?? "")).filter(Boolean)),
+        ];
+        if (campaignIds.length > 0) {
+          const { data: paid, error: paidErr } = await sb
+            .from("delivery_ad_canonical_bc_fundings")
+            .select("id")
+            .in("application_id", campaignIds)
+            .in("status", ["SECURED", "REFUNDED"])
+            .limit(1);
+          if (paidErr) return { ok: false, error: "sold_check_failed" };
+          if ((paid ?? []).length > 0) return { ok: false, error: "duration_locked_sold" };
+          /**
+           * R-31: 옛 결제 표(매장 캐시 직접 차감)도 같은 요금 기록에 연결된다 — 삭제 막기(`admin-delivery-ad-delete.ts`)와 같이 두 표를 본다.
+           * (2026-11-26 운영 DB 읽기 전용: REFUNDED 1건 · 요금 기록 연결 1건)
+           */
+          const { data: legacyPaid, error: legacyErr } = await sb
+            .from("delivery_ad_store_cash_spends")
+            .select("id")
+            .in("campaign_id", campaignIds)
+            .in("status", ["SECURED", "REFUNDED"])
+            .limit(1);
+          if (legacyErr) return { ok: false, error: "sold_check_failed" };
+          if ((legacyPaid ?? []).length > 0) return { ok: false, error: "duration_locked_sold" };
+        }
+        if (rows.length < PAGE) {
+          finished = true;
+          break;
+        }
+      }
+      /** R-42: 상한까지 다 못 봤으면 「팔렸음」이 아니라 「확인 못 함」(막는 것은 같음) */
+      if (!finished) return { ok: false, error: "sold_check_failed" };
+    }
     patch.duration_days = input.durationDays;
   }
   if (input.displayName != null) {
@@ -112,13 +177,11 @@ export async function adminUpdateDeliveryAdPackagePrice(
     patch.display_order = input.displayOrder;
   }
 
-  const { data: afterRaw, error } = await sb
-    .from(DELIVERY_AD_PACKAGE_TABLE)
-    .update(patch)
-    .eq("id", input.packageId)
-    .select("*")
-    .maybeSingle();
-  if (error || !afterRaw) return { ok: false, error: error?.message ?? "update_failed" };
+  let updateQ = sb.from(DELIVERY_AD_PACKAGE_TABLE).update(patch).eq("id", input.packageId);
+  if (input.expectedUpdatedAt) updateQ = updateQ.eq("updated_at", input.expectedUpdatedAt);
+  const { data: afterRaw, error } = await updateQ.select("*").maybeSingle();
+  if (error) return { ok: false, error: error.message ?? "update_failed" };
+  if (!afterRaw) return { ok: false, error: input.expectedUpdatedAt ? "stale_updated_at" : "update_failed" };
   const after = mapDeliveryAdPackageRow(afterRaw as Record<string, unknown>);
   if (!after) return { ok: false, error: "invalid_row" };
 
@@ -319,6 +382,10 @@ export async function adminCreateDeliveryAdPackage(
     (!assertDeliveryAdMoneyMinor(input.priceAmountMinor) || input.priceAmountMinor <= 0)
   ) {
     return { ok: false, error: "invalid_price" };
+  }
+  /** D-13: 금액 상한(₱100,000) — 오타 방지 */
+  if (input.priceAmountMinor != null && isAdPhpPriceOverCap(input.priceAmountMinor)) {
+    return { ok: false, error: "price_over_cap" };
   }
   if (input.enabled && (input.priceAmountMinor == null || input.priceAmountMinor <= 0)) {
     return { ok: false, error: "price_required_to_enable" };

@@ -113,6 +113,10 @@ export function projectHeroPlacementSlots(
 export async function loadHeroPlacementSlots(
   sb: SupabaseClient
 ): Promise<HeroPlacementSlot[]> {
+  /**
+   * R-68: 점유 조회 실패를 「빈 자리」로 그리지 않는다 — 오류(`capacity_check_failed`)를 올려 보드가 「불러오지 못했어요」를 보인다.
+   * (판매 판정은 capacity-gate 가 따로 막는다)
+   */
   const campaigns = await loadHeroOccupancyCampaigns(sb);
   return projectHeroPlacementSlots(campaigns);
 }

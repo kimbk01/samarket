@@ -15,6 +15,7 @@ import {
   resolveDibayPtrHintHeightPx,
 } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import type { MessageKey } from "@/lib/i18n/message-key";
+import { PTR_BAND_CHROME_MIN_PX } from "@/lib/platform-popup/ptr-reveal-contract";
 
 export type DibayPtrSlotStore = {
   subscribe: (listener: () => void) => () => void;
@@ -104,7 +105,8 @@ export function DibayPtrSlot({
   }, []);
   // 띠 광고(ptr_reveal) — 사전 디코드된 광고가 있을 때만. 메신저 등 비광고 표면은 조회 자체를 안 함.
   const reveal = useDibayPtrRevealAd(snap, frameWidthPx, adPreview, store.noteRevealAdVisible);
-  const adActive = reveal.active && visible;
+  /** PT-05: 「광고」 표기가 들어가는 높이부터만 광고 띠를 그린다 (그 아래는 일반 새로고침 슬롯) */
+  const adActive = reveal.active && hintHeightPx >= PTR_BAND_CHROME_MIN_PX;
   const effectiveTone: DibayPtrTone = adActive ? "onBrand" : tone;
   const textClass = adActive ? "text-white" : TONE_TEXT_CLASS[tone];
   const attrs = { [dataAttribute]: "" };

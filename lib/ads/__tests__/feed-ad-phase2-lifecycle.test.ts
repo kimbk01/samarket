@@ -23,12 +23,12 @@ function makeCancelDb(state: {
   requests: Row[];
   holds: Row[];
 }) {
-  function matchEq(row: Row, filters: { col: string; val: unknown }[]) {
-    return filters.every((f) => String(row[f.col]) === String(f.val));
+  function matchEq(row: Row, filters: { col: string; val: unknown; isNull?: boolean }[]) {
+    return filters.every((f) => (f.isNull ? row[f.col] == null : String(row[f.col]) === String(f.val)));
   }
 
   function tableApi(table: string) {
-    const filters: { col: string; val: unknown }[] = [];
+    const filters: { col: string; val: unknown; isNull?: boolean }[] = [];
     let payload: Row | null = null;
     let mode: "select" | "update" = "select";
 
@@ -43,6 +43,11 @@ function makeCancelDb(state: {
       },
       eq(col: string, val: unknown) {
         filters.push({ col, val });
+        return api;
+      },
+      /** FB-15: 취소는 검토 시작 전(`reviewed_by is null`)에만 */
+      is(col: string, val: unknown) {
+        filters.push({ col, val, isNull: val === null });
         return api;
       },
       maybeSingle: async () => {

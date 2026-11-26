@@ -28,6 +28,7 @@ import type {
   PlatformPopupOwnerRequestRow,
 } from "@/lib/platform-popup/owner-request-types";
 import { PLATFORM_POPUP_DEFAULT_TIMEZONE } from "@/lib/platform-popup/types";
+import { OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED } from "@/lib/platform-popup/owner-popup-new-sales-gate";
 
 /** V3-03 — 거절 = 비즈캐시 환불 + 상태 rejected 단일 트랜잭션. */
 export const ADMIN_REJECT_POPUP_OWNER_REQUEST_RPC =
@@ -418,6 +419,13 @@ export async function adminActOnPlatformPopupOwnerRequest(
   }
 
   if (input.action === "revision_required") {
+    /**
+     * 광고 감사 PP-02 (2026-11-26): 신규 판매가 꺼져 있으면 사장님이 다시 제출할 수 없다(제출 API 403) —
+     * 「수정 요청」을 보내면 결제된 캐시가 묶인 채 신청이 영원히 「수정 요청」으로 남는다. 판매 꺼짐 동안에는 반려(환불)만.
+     */
+    if (!OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED) {
+      return { ok: false, error: "owner_popup_sales_closed", httpStatus: 409 };
+    }
     // No refund — owner keeps funding and edits then resubmits.
     const now = new Date().toISOString();
     const { error } = await sb

@@ -250,6 +250,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           ? 403
           : result.error === "campaign_not_found"
             ? 404
+            : /** R-46: 자리 확인 실패는 일시 오류 */ result.error === "capacity_check_failed"
+              ? 503
             : result.error === "reason_required" ||
                 result.error === "illegal_transition" ||
                 result.error === DELIVERY_AD_USE_END_WITH_FAULT_CODE ||

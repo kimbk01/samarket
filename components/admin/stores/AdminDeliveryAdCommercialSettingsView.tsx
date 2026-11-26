@@ -14,6 +14,8 @@ import {
   AdminLoadingState,
   AdminResultBanner,
 } from "@/components/admin/ui/AdminStateViews";
+import { confirmBigAdPriceChange } from "@/lib/admin/ads-commercial/confirm-big-ad-price-change";
+import { formatAdPriceRatio, isBigAdPriceChange } from "@/lib/admin/ads-commercial/ad-price-change-guard";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
@@ -42,6 +44,7 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-open-event-commercial";
 import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { adminConflictReloadedCode } from "@/lib/admin/operator-ux/operator-labels";
 
 type Catalog = DeliveryAdCommercialCatalogReadModel;
 
@@ -49,6 +52,8 @@ export function AdminDeliveryAdCommercialSettingsView() {
   const { t, language, safeT } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const [catalog, setCatalog] = useState<Catalog | null>(null);
+  /** SA-01④: 배달 홈 홍보 노출 자리 켜짐 여부 (null = 확인 못 함) */
+  const [homeFeedSellable, setHomeFeedSellable] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -67,6 +72,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
     const j = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       catalog?: Catalog;
+      homeFeedSellable?: boolean | null;
       error?: string;
     };
     if (!res.ok || !j.ok || !j.catalog) {
@@ -75,11 +81,37 @@ export function AdminDeliveryAdCommercialSettingsView() {
       return;
     }
     setCatalog(j.catalog);
+    setHomeFeedSellable(typeof j.homeFeedSellable === "boolean" ? j.homeFeedSellable : null);
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * D-13: 가격 저장 확인에 「이전 → 새 금액 (×배수)」 줄 · 3배 이상 바뀐 줄은 한 번 더 확인.
+   * 이전 금액 = 화면이 읽은 카탈로그의 그 기간 상품 금액.
+   */
+  const priceChangeLines = (bodies: Array<Record<string, unknown>>) => {
+    const lines: string[] = [];
+    const bigLines: string[] = [];
+    for (const b of bodies) {
+      if (b.op !== "update_package" || typeof b.priceAmountMinor !== "number") continue;
+      const pkg = catalog?.packages.find((x) => x.id === b.packageId);
+      const before = pkg?.priceAmountMinor ?? null;
+      const after = b.priceAmountMinor;
+      if (before === after) continue;
+      const line = t("admin_ads_price_change_line", {
+        label: pkg ? `${deliveryAdCommercialPlacementLabel(pkg.inventoryKey, lang)} ${pkg.durationDays}${translateBy(lang, "admin_d")}` : "",
+        before: isAdminDeliveryAdPriceUnset(before) ? "—" : `₱${((before as number) / 100).toFixed(2)}`,
+        after: `₱${(after / 100).toFixed(2)}`,
+        ratio: formatAdPriceRatio(before, after) ?? "",
+      });
+      lines.push(line);
+      if (isBigAdPriceChange(before, after)) bigLines.push(line);
+    }
+    return { lines, bigLines };
+  };
 
   /** 재감사 S-2 (H-4): 배달 광고 상업 설정 저장 = business 키 */
   const writeGuard = useAdminWriteGuard("/admin/delivery-ads");
@@ -95,14 +127,16 @@ export function AdminDeliveryAdCommercialSettingsView() {
           : op === "update_product" || op === "update_placement"
             ? t("admin_stores_save_sales_setting")
             : t("admin_stores_save_ad_price");
+    const priceLines = priceChangeLines([body]);
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
       title,
-      description: t("admin_stores_applies_to_new_applications_only_approved"),
+      description: [...priceLines.lines, t("admin_stores_applies_to_new_applications_only_approved")].join(" — "),
       confirmLabel: adminCta(op === "create_package" ? "create" : "save", ko),
     });
     if (!confirmed.ok) return;
+    if (!(await confirmBigAdPriceChange({ ko, t, bigLines: priceLines.bigLines }))) return;
     setBusy(true);
     setError(null);
     setMsg(null);
@@ -119,6 +153,12 @@ export function AdminDeliveryAdCommercialSettingsView() {
         error?: string;
       };
       if (!res.ok || !j.ok || !j.catalog) {
+        /** R-10: 충돌이면 새 값을 다시 읽은 **뒤** 「저장 안 됨 · 다른 관리자가 먼저 수정」 안내 (load 가 오류를 지우므로 순서 고정) */
+        if (j.error === "stale_updated_at") {
+          await load();
+          setError(adminConflictReloadedCode(j.error));
+          return;
+        }
         setError(j.error ?? "save_failed");
         return;
       }
@@ -138,16 +178,19 @@ export function AdminDeliveryAdCommercialSettingsView() {
     if (!writeGuard.guard()) return;
     if (bodies.length === 0) return;
     const ko = lang !== "en";
+    const priceLines = priceChangeLines(bodies.map((b) => b.body));
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
       title: t("admin_stores_save_ad_price"),
-      description: `${targetLabel} · ${bodies.map((b) => b.label).join(", ")} — ${
-        t("admin_stores_applies_to_new_applications_only_approved")
-      }`,
+      description: `${targetLabel} · ${bodies.map((b) => b.label).join(", ")} — ${[
+        ...priceLines.lines,
+        t("admin_stores_applies_to_new_applications_only_approved"),
+      ].join(" — ")}`,
       confirmLabel: adminCta("save", ko),
     });
     if (!confirmed.ok) return;
+    if (!(await confirmBigAdPriceChange({ ko, t, bigLines: priceLines.bigLines }))) return;
     setBusy(true);
     setError(null);
     setMsg(null);
@@ -165,6 +208,12 @@ export function AdminDeliveryAdCommercialSettingsView() {
           error?: string;
         };
         if (!res.ok || !j.ok || !j.catalog) {
+          /** SA-12·R-10: 다른 관리자가 먼저 저장 → 새 값을 다시 읽은 **뒤** 충돌 안내(덮어쓰지 않음) */
+          if (j.error === "stale_updated_at") {
+            await load();
+            setError(adminConflictReloadedCode(j.error));
+            return;
+          }
           setError(j.error ?? "save_failed");
           return;
         }
@@ -357,6 +406,8 @@ export function AdminDeliveryAdCommercialSettingsView() {
                                       op: "update_package",
                                       packageId: pkg.id,
                                       reason: "admin_package_settings",
+                                      /** SA-12: 화면이 읽은 수정 시각 — 그 사이 다른 관리자가 저장했으면 409(덮어쓰기 없음) */
+                                      expectedUpdatedAt: pkg.updatedAt,
                                       ...body,
                                     },
                                   }))
@@ -438,7 +489,21 @@ export function AdminDeliveryAdCommercialSettingsView() {
                       <div className="text-[12px] text-sam-muted">
                         {adminDeliveryAdProductHumanLabel(pl.productKind, lang)}
                       </div>
+                      {pl.inventoryKey === "STORES_HOME_FEED" && homeFeedSellable === false ? (
+                        <div className="mt-1 text-[12px] font-medium text-sam-warning" data-commercial-home-feed-off="1">
+                          {t("admin_ads_home_feed_exposure_off")}{" "}
+                          <Link href="/admin/stores-home-shelves" className="underline">
+                            {safeT("admin_delivery_ads_exposure_policy_link")}
+                          </Link>
+                        </div>
+                      ) : null}
                     </div>
+                    {/* SA-13: 사장님 신청 화면에 없는 지면(검색 상단 등)은 체크해도 팔리지 않는다 — 잠그고 이유 표시 */}
+                    {!(DELIVERY_AD_COMMERCIAL_INVENTORY_BY_PRODUCT[pl.productKind] as readonly string[]).includes(pl.inventoryKey) ? (
+                      <span className="text-[12px] text-sam-muted" data-commercial-placement-unsupported="1">
+                        {translateBy(lang, "admin_ads_sell_unsupported")}
+                      </span>
+                    ) : (
                     <label className="flex items-center gap-2 text-[12px]">
                       <input
                         type="checkbox"
@@ -456,6 +521,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
                       />
                       {translateBy(lang, "admin_ads_sellable")}
                     </label>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -519,6 +585,68 @@ export function AdminDeliveryAdCommercialSettingsView() {
                       })
                     }
                   />
+                  {/*
+                    * SA-14: 7·15·30일 표 밖의 사용자 지정 상품 — 예전에는 만들면 enabled=false 로 고정되고 어디에도 안 보여 켤 수 없었다.
+                    * 판매 켜기는 서버가 가격 없으면 거부(price_required_to_enable).
+                  */}
+                  {(() => {
+                    const custom = catalog.packages.filter(
+                      (p) => !(R3_COMMERCIAL_MATRIX_SEED_CODES as readonly string[]).includes(p.code)
+                    );
+                    if (custom.length === 0) return null;
+                    return (
+                      <ul className="space-y-1.5 pt-2" data-commercial-custom-list="1">
+                        {custom.map((p) => (
+                          <li
+                            key={p.id}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[12px]"
+                          >
+                            <span className="text-sam-fg">
+                              {adminDeliveryAdProductHumanLabel(p.productKind, lang)} ·{" "}
+                              {deliveryAdCommercialPlacementLabel(p.inventoryKey, lang)} ·{" "}
+                              {translateBy(lang, "owner_ads_period_duration_days", { days: p.durationDays })} ·{" "}
+                              {isAdminDeliveryAdPriceUnset(p.priceAmountMinor)
+                                ? translateBy(lang, "admin_not_set")
+                                : `₱${(p.priceAmountMinor! / 100).toFixed(2)}`}
+                            </span>
+                            {/* R-11: 가격 입력·저장 (가격이 없으면 판매를 켤 수 없다 — 서버 price_required_to_enable) */}
+                            <CustomPackagePriceEditor
+                              key={`${p.id}:${p.priceAmountMinor ?? ""}`}
+                              priceAmountMinor={p.priceAmountMinor}
+                              busy={busy}
+                              lang={lang}
+                              onSave={(priceAmountMinor) =>
+                                void patch({
+                                  op: "update_package",
+                                  packageId: p.id,
+                                  reason: "admin_package_settings",
+                                  expectedUpdatedAt: p.updatedAt,
+                                  priceAmountMinor,
+                                })
+                              }
+                            />
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={p.enabled}
+                                disabled={busy}
+                                onChange={(e) =>
+                                  void patch({
+                                    op: "update_package",
+                                    packageId: p.id,
+                                    reason: "admin_package_settings",
+                                    expectedUpdatedAt: p.updatedAt,
+                                    enabled: e.target.checked,
+                                  })
+                                }
+                              />
+                              {translateBy(lang, "admin_ads_sellable")}
+                            </label>
+                          </li>
+                        ))}
+                      </ul>
+                    );
+                  })()}
                 </div>
               ) : null}
             </div>
@@ -886,5 +1014,41 @@ function ExtensionForm(props: {
         {translateBy(props.lang, "admin_save_extension_policy")}
       </AdminActionButton>
     </div>
+  );
+}
+
+/** 광고 감사 R-11: 사용자 지정 기간 상품 가격 입력 (₱ · 센타보로 저장) */
+function CustomPackagePriceEditor(props: {
+  priceAmountMinor: number | null;
+  busy: boolean;
+  lang: string;
+  onSave: (priceAmountMinor: number) => void;
+}) {
+  const [price, setPrice] = useState(
+    isAdminDeliveryAdPriceUnset(props.priceAmountMinor) ? "" : (props.priceAmountMinor! / 100).toFixed(2)
+  );
+  const minor = price.trim() === "" ? null : parseDeliveryAdPhpMajorToMinor(price);
+  const unchanged = minor != null && minor === props.priceAmountMinor;
+  return (
+    <span className="flex items-center gap-1.5" data-commercial-custom-price="1">
+      <input
+        className="w-24 rounded-ui-rect border border-sam-border px-2 py-1 text-[12px]"
+        inputMode="decimal"
+        placeholder={translateBy(props.lang, "admin_not_set")}
+        value={price}
+        disabled={props.busy}
+        onChange={(e) => setPrice(e.target.value)}
+      />
+      <AdminActionButton
+        variant="secondary"
+        size="sm"
+        disabled={props.busy || minor == null || minor <= 0 || unchanged}
+        onClick={() => {
+          if (minor != null && minor > 0) props.onSave(minor);
+        }}
+      >
+        {translateBy(props.lang, "admin_save")}
+      </AdminActionButton>
+    </span>
   );
 }

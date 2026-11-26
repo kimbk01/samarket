@@ -1,12 +1,15 @@
 "use client";
 
+import { formatPhtDisplayDateTime } from "@/lib/time/format-pht-display";
 import { DibayPendingSpinner, DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyAmount } from "@/components/currency";
 import { formatMypageNumber } from "@/lib/mypage/format-mypage-date";
 import type { MemberPromotionProductId } from "@/lib/points/promotion-products";
+import { memberPromotionProductTitleKey } from "@/lib/points/promotion-product-title";
 
 export interface PointPromotionOrderFormValues {
   targetType: "product";
@@ -24,10 +27,6 @@ type CatalogItem = {
   id: MemberPromotionProductId;
   pointCost: number;
   durationDays: number;
-  fallbackTitleKo: string;
-  fallbackTitleEn: string;
-  fallbackDescKo: string;
-  fallbackDescEn: string;
 };
 
 interface PointPromotionOrderFormProps {
@@ -48,6 +47,12 @@ interface PointPromotionOrderFormProps {
   onCanSubmitChange?: (canSubmit: boolean) => void;
   /** 바뀌면 카탈로그를 다시 읽는다 (서버가 price_changed 를 돌려줬을 때) */
   catalogRefreshKey?: number;
+  /**
+   * R-77: 잔액·내 글 목록 조회 실패 — 「보유 —」·「등록된 상품이 없습니다」 대신 「불러오지 못했어요 · 다시 시도」.
+   * 부모 화면(포인트 상위노출 · 내 광고 신청)이 같은 값을 넘긴다.
+   */
+  loadFailed?: boolean;
+  onRetryLoad?: () => void;
 }
 
 export function PointPromotionOrderForm({
@@ -62,30 +67,20 @@ export function PointPromotionOrderForm({
   hideSubmitButton = false,
   onCanSubmitChange,
   catalogRefreshKey = 0,
+  loadFailed = false,
+  onRetryLoad,
 }: PointPromotionOrderFormProps) {
   const { t, language, safeT } = useI18n();
   /** null = 불러오는 중 · [] = 신청할 수 있는 상품 없음(모두 꺼짐) */
   const [catalog, setCatalog] = useState<CatalogItem[] | null>(null);
+  /** R-48: 상품 조회 실패 — 「판매 상품 없음」이 아니라 「불러오지 못했어요 · 다시 시도」 */
+  const [catalogFailed, setCatalogFailed] = useState(false);
+  const [catalogAttempt, setCatalogAttempt] = useState(0);
   const [targetId, setTargetId] = useState("");
   const [productId, setProductId] = useState<MemberPromotionProductId | null>(null);
+  /** TB-08: 고른 글의 진행 중 상위노출 — 있으면 결제 = 연장(종료일 표시) · 확인 중·멈춤이면 결제 불가(거래 광고 창과 같음) */
+  const [activeBoost, setActiveBoost] = useState<{ endAt: string | null; pending: boolean; paused: boolean } | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/me/points/promotion-orders?catalog=1&domain=trade", {
-      credentials: "include",
-      cache: "no-store",
-    })
-      .then(async (res) => {
-        const j = (await res.json().catch(() => ({}))) as { catalog?: CatalogItem[] };
-        if (!cancelled) setCatalog(res.ok && Array.isArray(j.catalog) ? j.catalog : []);
-      })
-      .catch(() => {
-        if (!cancelled) setCatalog([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [catalogRefreshKey]);
 
   useEffect(() => {
     const want = (initialTargetId ?? "").trim();
@@ -94,16 +89,88 @@ export function PointPromotionOrderForm({
     setTargetId((prev) => (prev === want ? prev : want));
   }, [initialTargetId, productOptions]);
 
-  const selected = catalog?.find((p) => p.id === productId) ?? catalog?.[0] ?? null;
+  /**
+   * R-56: 회원이 고른 상품이 다시 읽은 목록에 없으면(그새 꺼짐) 첫 상품으로 바꾸지 않는다 — 선택을 비우고 「다시 골라 주세요」.
+   * 고른 적이 없을 때만 첫 상품을 미리 고른다.
+   */
+  const chosenGone = productId != null && catalog != null && !catalog.some((p) => p.id === productId);
+  /** R-62: 고른 적이 없으면 살 수 있는 첫 상품(잔액을 모르면 첫 상품) */
+  const firstBuyable =
+    catalog?.find((p) => balance == null || p.pointCost <= balance) ?? catalog?.[0] ?? null;
+  const selected = chosenGone ? null : (catalog?.find((p) => p.id === productId) ?? firstBuyable);
   const cost = selected?.pointCost ?? 0;
   const insufficient = balance !== null && balance < cost;
+  /** 충전 후 돌아오기 (TB-08) — 거래 광고 창 `goCharge` 와 같은 주소 규칙: 모자란 포인트 · 돌아올 화면 */
+  const pathname = usePathname();
+  /** R-06: 돌아올 주소 = 경로 + 쿼리(미리 고른 글 `?targetId=` 등) — 화면이 뜬 뒤 브라우저 주소에서 읽는다 */
+  const [returnTo, setReturnTo] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setReturnTo(`${window.location.pathname}${window.location.search}`);
+  }, [pathname]);
+  const chargeHref = (() => {
+    const qs = new URLSearchParams();
+    if (insufficient && balance !== null) qs.set("need", String(Math.max(0, cost - balance)));
+    const back = returnTo ?? pathname;
+    if (back) qs.set("returnTo", back);
+    const q = qs.toString();
+    return q ? `/mypage/points/charge?${q}` : "/mypage/points/charge";
+  })();
   const submitText = submitLabel ?? t("promo_sheet_cta");
 
-  const resolvedTargetId = targetId.trim() || productOptions[0]?.id || "";
+  /**
+   * R-63: 주소로 넘어온 글이 광고 대상 목록에 없으면(판매완료·숨김 등) 다른 글을 대신 고르지 않는다 — 비우고 안내.
+   */
+  const initialWant = (initialTargetId ?? "").trim();
+  const targetLost =
+    Boolean(initialWant) && !targetId.trim() && productOptions.length > 0 && !productOptions.some((p) => p.id === initialWant);
+  const resolvedTargetId = targetId.trim() || (targetLost ? "" : productOptions[0]?.id || "");
+
+  useEffect(() => {
+    let cancelled = false;
+    /** R-62: 다시 읽는 동안 옛 가격 목록·버튼을 보이지 않게 비운다 */
+    setCatalog(null);
+    /** TB-08: 고른 글의 진행 중 상위노출(종료일·확인 중·멈춤)도 같은 응답으로 — 거래 광고 창과 같은 판정 */
+    const targetQs = resolvedTargetId ? `&targetId=${encodeURIComponent(resolvedTargetId)}` : "";
+    void fetch(`/api/me/points/promotion-orders?catalog=1&domain=trade${targetQs}`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then(async (res) => {
+        const j = (await res.json().catch(() => ({}))) as {
+          catalog?: CatalogItem[];
+          activeForTarget?: { endAt?: string | null; orderStatus?: string | null } | null;
+        };
+        if (cancelled) return;
+        const st = String(j.activeForTarget?.orderStatus ?? "").toLowerCase();
+        setActiveBoost(
+          res.ok && j.activeForTarget
+            ? {
+                endAt: j.activeForTarget.endAt ?? null,
+                pending: st === "pending" || st === "pending_review",
+                paused: st === "paused",
+              }
+            : null
+        );
+        const loaded = res.ok && Array.isArray(j.catalog);
+        setCatalogFailed(!loaded);
+        setCatalog(loaded ? (j.catalog as CatalogItem[]) : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCatalogFailed(true);
+        setCatalog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [catalogRefreshKey, catalogAttempt, resolvedTargetId]);
   const targetTitle =
     productOptions.find((p) => p.id === resolvedTargetId)?.title ?? "";
 
   const canSubmit =
+    !loadFailed &&
+    !(activeBoost && (activeBoost.pending || activeBoost.paused)) &&
     !balanceLoading &&
     balance !== null &&
     Boolean(resolvedTargetId) &&
@@ -118,6 +185,8 @@ export function PointPromotionOrderForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit || !selected || submitting) return;
+    /** R-62: 결제에 쓴 상품을 「고른 상품」으로 기억 — 가격 변경 뒤 다시 읽어도 다른 상품으로 바뀌지 않게 */
+    setProductId(selected.id as MemberPromotionProductId);
     // 재감사 S-0 (X-1): 요청 키는 결제하는 화면이 같은 결제 시도마다 고정해 붙인다(`promotion-attempt-key`)
     onSubmit({
       targetType: "product",
@@ -129,15 +198,27 @@ export function PointPromotionOrderForm({
     });
   };
 
-  const langEn = language === "en";
-
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-4">
+      {loadFailed ? (
+        <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2" role="status" data-promo-form-load-failed="1">
+          <p className="sam-text-body-secondary text-sam-muted">{t("promo_sheet_load_failed")}</p>
+          {onRetryLoad ? (
+            <button
+              type="button"
+              className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 sam-text-body font-semibold text-sam-fg"
+              onClick={onRetryLoad}
+            >
+              {t("common_retry")}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           {t("points_ui_select_product")}
         </label>
-        {productOptions.length === 0 ? (
+        {loadFailed ? null : productOptions.length === 0 ? (
           <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-muted">
             {t("points_ui_no_products")}
           </p>
@@ -147,27 +228,64 @@ export function PointPromotionOrderForm({
             onChange={(e) => setTargetId(e.target.value)}
             className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
           >
+            {targetLost ? <option value="">{t("points_ui_select_product")}</option> : null}
             {productOptions.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.title}
+                {p.title || t("promo_target_untitled")}
               </option>
             ))}
           </select>
         )}
+        {targetLost ? (
+          <p className="mt-1 sam-text-helper font-medium text-sam-warning" role="status" data-promo-target-lost="1">
+            {t("promo_err_target_unavailable")}
+          </p>
+        ) : null}
       </div>
 
       <div className="space-y-2">
         <p className="sam-text-body font-medium text-sam-fg">{t("promo_sheet_title")}</p>
+        {activeBoost ? (
+          <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-helper text-sam-fg" role="status" data-promo-form-active="1">
+            {activeBoost.pending || activeBoost.paused
+              ? t("promo_form_boost_blocked", {
+                  status: t(activeBoost.pending ? "trade_ad_boost_pending" : "trade_ad_boost_paused_short"),
+                })
+              : `${t("promo_form_boost_running", {
+                  date: activeBoost.endAt ? formatPhtDisplayDateTime(activeBoost.endAt, language === "en" ? "en" : "ko") : "—",
+                })} ${t("trade_ad_extend_keeps_place")}`}
+          </p>
+        ) : null}
         {catalog === null ? (
           <DibayPendingSpinner layout="inline" />
+        ) : catalogFailed ? (
+          <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2" role="status" data-promo-catalog-failed="1">
+            <p className="sam-text-body-secondary text-sam-muted">{t("promo_products_load_failed")}</p>
+            <button
+              type="button"
+              className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 sam-text-body font-semibold text-sam-fg"
+              onClick={() => {
+                setCatalog(null);
+                setCatalogFailed(false);
+                setCatalogAttempt((n) => n + 1);
+              }}
+            >
+              {t("common_retry")}
+            </button>
+          </div>
         ) : catalog.length === 0 ? (
           <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-muted">
             {safeT("promo_no_active_products")}
           </p>
+        ) : chosenGone ? (
+          <p className="sam-text-helper font-medium text-sam-warning" role="status" data-promo-product-gone="1">
+            {t("feed_ad_req_product_gone")}
+          </p>
         ) : null}
         {(catalog ?? []).map((item) => {
-          const title = langEn ? item.fallbackTitleEn : item.fallbackTitleKo;
-          const desc = langEn ? item.fallbackDescEn : item.fallbackDescKo;
+          /** 이름 = 키 + DB 기간 · 설명 = 노출 규칙 단일 문구 (TB-01·TB-02) */
+          const title = t(memberPromotionProductTitleKey("trade"), { days: String(item.durationDays) });
+          const desc = t("trade_ad_where_boost");
           const on = item.id === selected?.id;
           return (
             <button
@@ -223,7 +341,7 @@ export function PointPromotionOrderForm({
       </button>
       {!canSubmit && insufficient ? (
         <Link
-          href="/mypage/points/charge"
+          href={chargeHref}
           className="flex min-h-11 items-center justify-center sam-text-body font-medium text-sam-primary"
         >
           {safeT("promo_sheet_go_points")}

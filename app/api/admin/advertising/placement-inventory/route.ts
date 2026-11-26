@@ -21,6 +21,10 @@ export async function GET() {
     return NextResponse.json({ ok: true, inventory });
   } catch (e) {
     const message = e instanceof Error ? e.message : "load_failed";
+    /** R-68: 상단 배너 점유 조회 실패 = 일시 오류 503 · 보드는 「불러오지 못했어요」(저장 실패 문구 아님) */
+    if (message === "capacity_check_failed") {
+      return NextResponse.json({ ok: false, error: "load_failed" }, { status: 503 });
+    }
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }

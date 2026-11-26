@@ -40,12 +40,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const salesGate = assertOwnerPlatformPopupNewSalesAllowed();
   if (!salesGate.ok) {
     return NextResponse.json(
-      {
-        ok: false,
-        error: salesGate.error,
-        message:
-          "Owner Popup 신규 신청은 종료되었습니다. 기존 신청 내역은 조회할 수 있습니다.",
-      },
+      { ok: false, error: salesGate.error },
       { status: 403 }
     );
   }

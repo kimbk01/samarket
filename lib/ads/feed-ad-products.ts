@@ -11,6 +11,7 @@
  * second runtime price authority.
  */
 
+import { isAdPointPriceOverCap } from "@/lib/admin/ads-commercial/ad-price-change-guard";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FeedAdDomain } from "@/lib/ads/feed-ad-placement";
 
@@ -74,12 +75,45 @@ export async function listFeedAdProducts(
     .sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
 }
 
+/**
+ * 광고 요금 안내 전용 (광고 감사 R-17) — 조회 오류를 빈 목록으로 바꾸지 않고 던진다.
+ * (빈 목록이면 「배너 판매 안 함」처럼 정상 표가 나가 잘못 안내된다.)
+ */
+export async function listActiveFeedAdProductsOrThrow(
+  sb: SupabaseClient,
+  domain?: FeedAdDomain
+): Promise<FeedAdProduct[]> {
+  let q = sb.from("feed_ad_products").select("*").eq("is_active", true).order("sort_order", { ascending: true });
+  /** R-54: 회원 신청·연장 화면 목록도 같은 엄격 조회(분야만 거름) */
+  if (domain) q = q.eq("domain", domain);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message || "feed_ad_products_load_failed");
+  return (data ?? [])
+    .map((r) => mapFeedAdProductRow(r as Record<string, unknown>))
+    .filter((p): p is FeedAdProduct => p != null)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
+}
+
 /** Member/renew — active products only. */
 export async function listActiveFeedAdProducts(
   sb: SupabaseClient,
   domain?: FeedAdDomain
 ): Promise<FeedAdProduct[]> {
   return listFeedAdProducts(sb, { domain, activeOnly: true });
+}
+
+/**
+ * R-54: 결제 경로 엄격 조회 — 조회 오류는 던진다(「상품 없음」과 구분). 없거나 꺼진 상품 = null.
+ */
+export async function getFeedAdProductOrThrow(sb: SupabaseClient, id: string): Promise<FeedAdProduct | null> {
+  const key = id.trim();
+  if (!key) return null;
+  const { data, error } = await sb.from("feed_ad_products").select("*").eq("id", key).maybeSingle();
+  if (error) throw new Error(error.message || "feed_ad_product_load_failed");
+  if (!data) return null;
+  const mapped = mapFeedAdProductRow(data as Record<string, unknown>);
+  if (!mapped || !mapped.active) return null;
+  return mapped;
 }
 
 /** Purchase path — active product by id. */
@@ -129,6 +163,8 @@ export async function updateFeedAdProduct(
   if (patch.pointCost != null) {
     const p = Math.floor(Number(patch.pointCost));
     if (!Number.isFinite(p) || p < 1) return { ok: false, error: "invalid_point_cost" };
+    /** D-13: 금액 상한(1,000,000P) — 오타 방지 */
+    if (isAdPointPriceOverCap(p)) return { ok: false, error: "price_over_cap" };
     update.point_cost = p;
   }
   if (patch.titleKo != null) update.title_ko = String(patch.titleKo).trim();

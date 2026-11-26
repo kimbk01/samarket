@@ -1,5 +1,6 @@
 "use client";
 
+import { handlePriceChanged } from "@/lib/ads/handle-price-changed";
 import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { formatPhtDisplayDateTime } from "@/lib/time/format-pht-display";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -12,6 +13,8 @@ import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/
 import { adShortagePoints, canAffordAd } from "@/lib/points/ad-shortage";
 import { createPromotionAttemptKeyStore } from "@/lib/points/promotion-attempt-key";
 import { buildSupportEnterHref } from "@/lib/support/support-enter-href";
+import { boostPauseCause } from "@/lib/ads/my-ad-tab";
+import { promotionPurchaseErrorKey } from "@/lib/points/promotion-purchase-error";
 
 /**
  * 광고하기 창 — 시안 v3 (Owner 2026-11-03 승인).
@@ -48,6 +51,8 @@ type Loaded = {
   } | null;
   banner: BannerItem[];
   bannerCurrent: { displayStatus: string } | null;
+  /** 배너 상품 조회 실패(상위노출은 정상) */
+  bannerLoadFailed: boolean;
 };
 
 const DAY_MS = 86_400_000;
@@ -75,6 +80,12 @@ export function TradeAdQuickSheet({
   const [data, setData] = useState<Loaded | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  /** 전수 대조(R-54·R-56 같은 종류): 다시 읽은 뒤 고른 상품을 살 수 없게 됐으면 다른 상품으로 바꾸지 않고 비운다 */
+  const [choiceLost, setChoiceLost] = useState(false);
+  const selectedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    selectedKeyRef.current = selectedKey;
+  }, [selectedKey]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [startedEndAt, setStartedEndAt] = useState<string | null>(null);
@@ -83,8 +94,11 @@ export function TradeAdQuickSheet({
   const attemptKeys = useRef(createPromotionAttemptKeyStore());
   const [startedReplay, setStartedReplay] = useState(false);
 
-  const load = useCallback(async () => {
+  /** R-81: 다시 읽는 중 — 결제 버튼 끔(옛 목록으로 결제하지 않게) */
+  const [reloading, setReloading] = useState(false);
+  const load = useCallback(async (): Promise<boolean> => {
     setLoadFailed(false);
+    setReloading(true);
     try {
       const [promo, points, banner] = await runSingleFlight(`trade-ad-sheet:${postId}`, () =>
         runWithSharedFlightDeadline("trade_ad_sheet", ENTRY_SHARED_FLIGHT_DEADLINE_MS, (signal) =>
@@ -128,9 +142,18 @@ export function TradeAdQuickSheet({
         banner: (Array.isArray(b.catalog) ? b.catalog : []).filter((x) => !x.domain || x.domain === "trade"),
         bannerCurrent:
           b.canCreateBanner === false ? { displayStatus: String(b.currentBanner?.displayStatus ?? "active") } : null,
+        /** R-54 같은 종류: 배너 상품 조회 실패를 「배너 상품 없음」으로 숨기지 않는다 */
+        bannerLoadFailed: banner == null,
       });
+      return true;
     } catch {
+      /** R-60: 다시 읽기 실패 = 이전 목록·선택을 비우고 결제 버튼을 끈다(옛 금액으로 다시 보내지 않게) */
+      setData(null);
+      setSelectedKey(null);
       setLoadFailed(true);
+      return false;
+    } finally {
+      setReloading(false);
     }
   }, [postId]);
 
@@ -142,6 +165,8 @@ export function TradeAdQuickSheet({
     setStartedExtended(false);
     setStartedReplay(false);
     setSelectedKey(null);
+    selectedKeyRef.current = null;
+    setChoiceLost(false);
     attemptKeys.current.reset();
     void load();
   }, [open, load]);
@@ -192,8 +217,16 @@ export function TradeAdQuickSheet({
   /** 처음 열 때 기본 선택 = 고를 수 있는 첫 상품 (결과를 모르는 결제가 있으면 그 상품) */
   useEffect(() => {
     if (!data) return;
-    setSelectedKey((prev) =>
-      pendingRow ? pendingRow.key : prev && buyable.some((r) => r.key === prev) ? prev : buyable[0]?.key ?? null
+    const prev = selectedKeyRef.current;
+    /**
+     * R-71: 「고른 상품이 사라졌어요」는 그 줄이 목록에서 **없어졌을 때만** — 잔액 부족은 줄 옆 「포인트 부족」 안내로 충분.
+     * 어느 경우든 다른 상품으로 바꾸지 않고 선택만 푼다.
+     */
+    const gone = !pendingRow && Boolean(prev) && !rows.some((r) => r.key === prev);
+    const unbuyable = !pendingRow && Boolean(prev) && !buyable.some((r) => r.key === prev);
+    setChoiceLost(gone);
+    setSelectedKey(
+      pendingRow ? pendingRow.key : prev ? (unbuyable ? null : prev) : buyable[0]?.key ?? null
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
@@ -258,6 +291,7 @@ export function TradeAdQuickSheet({
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
+        code?: string;
         endAt?: string;
         extended?: boolean;
         idempotent?: boolean;
@@ -279,16 +313,12 @@ export function TradeAdQuickSheet({
       }
       const err = j.error ?? "";
       /** 가격 변경·잔액 변화·이미 광고 중 → 새 값으로 다시 그린 뒤 안내 */
-      await load();
-      setNotice(
-        err === "price_changed"
-          ? t("promo_price_changed")
-          : err === "insufficient_balance"
-            ? t("points_ui_insufficient")
-            : err === "already_active_promotion"
-              ? t("points_ui_promotion_conflict")
-              : t("promo_sheet_purchase_failed")
-      );
+      /** R-60: 다시 읽기가 성공했을 때만 「가격이 바뀌었어요」 등 — 실패면 「불러오지 못했어요 · 다시 시도」만 */
+      /** X-2 공용 처리: 다시 읽기가 성공했을 때만 안내(가격 변경·잔액 변화·이미 광고 중) — R-60 */
+      await handlePriceChanged({
+        reload: load,
+        notify: () => setNotice(t(promotionPurchaseErrorKey({ error: err, code: j.code }))),
+      });
     } catch {
       /** 응답을 못 받음 = 결제됐는지 모름 → 키를 유지하고 상태를 다시 불러온다 (다시 누르면 같은 결제로 확인) */
       await load();
@@ -318,7 +348,8 @@ export function TradeAdQuickSheet({
         const end = ba.endAt ? Date.parse(ba.endAt) : NaN;
         const from = ba.pausedAt ? Date.parse(ba.pausedAt) : Date.now();
         const days = Number.isFinite(end) ? Math.max(0, Math.ceil((end - from) / DAY_MS)) : 0;
-        return String(ba.pausedBy ?? "").startsWith("listing_")
+        /** 정지 원인 단일 판정 (TB-06) — 글 숨김(회원·운영 검토)이면 「글이 숨겨져」 */
+        return boostPauseCause(ba.pausedBy) !== "staff"
           ? t("trade_ad_boost_paused_listing_detail", { days: String(days) })
           : t("trade_ad_boost_paused_detail", { days: String(days) });
       }
@@ -339,7 +370,7 @@ export function TradeAdQuickSheet({
         {t("trade_ad_support")}
       </DibayOverlayButton>
       {selected ? (
-        <DibayOverlayButton roleTone="primary" loading={busy} onClick={() => void start()}>
+        <DibayOverlayButton roleTone="primary" loading={busy} disabled={reloading} onClick={() => void start()}>
           {selected.kind === "banner"
             ? t("trade_ad_banner_apply", { points: fmtP(selected.pointCost) })
             : selected.extendEndAt
@@ -397,10 +428,19 @@ export function TradeAdQuickSheet({
           ) : null}
         </div>
       ) : loadFailed ? (
-        <p className={OverlayUi.captionDanger}>{t("trade_ad_load_failed")}</p>
+        <div role="status" data-trade-ad-load-failed>
+          <p className={OverlayUi.captionDanger}>{t("trade_ad_load_failed")}</p>
+          <button
+            type="button"
+            className="mt-1 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[13px] font-semibold text-sam-fg"
+            onClick={() => void load()}
+          >
+            {t("common_retry")}
+          </button>
+        </div>
       ) : !data ? (
         <DibayPendingSpinner layout="inline" />
-      ) : rows.length === 0 ? (
+      ) : rows.length === 0 && data.bannerLoadFailed ? null : rows.length === 0 ? (
         <p className={OverlayUi.bodySecondary}>{t("trade_ad_none")}</p>
       ) : (
         <div role="radiogroup" aria-label={t("trade_ad_cta")} className="space-y-1.5">
@@ -416,7 +456,11 @@ export function TradeAdQuickSheet({
                 role="radio"
                 aria-checked={on}
                 disabled={!enabled}
-                onClick={() => enabled && setSelectedKey(r.key)}
+                onClick={() => {
+                  if (!enabled) return;
+                  setSelectedKey(r.key);
+                  setChoiceLost(false);
+                }}
                 data-trade-ad-option={r.key}
                 data-trade-ad-option-state={on ? "selected" : enabled ? "enabled" : "disabled"}
                 className={`flex min-h-14 w-full items-center gap-2.5 rounded-ui-rect border px-3 py-2.5 text-left ${
@@ -473,6 +517,23 @@ export function TradeAdQuickSheet({
           })}
         </div>
       )}
+      {startedEndAt === null && data?.bannerLoadFailed && !data.bannerCurrent ? (
+        <div className="mt-2" role="status" data-trade-ad-banner-failed>
+          <p className={OverlayUi.captionDanger}>{t("feed_ad_products_load_failed")}</p>
+          <button
+            type="button"
+            className="mt-1 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[13px] font-semibold text-sam-fg"
+            onClick={() => void load()}
+          >
+            {t("common_retry")}
+          </button>
+        </div>
+      ) : null}
+      {startedEndAt === null && choiceLost ? (
+        <p className={`mt-2 ${OverlayUi.captionDanger}`} role="status" data-trade-ad-choice-lost>
+          {t("feed_ad_req_product_gone")}
+        </p>
+      ) : null}
       {startedEndAt === null && rows.some((r) => r.kind === "boost" && r.extendEndAt) ? (
         <p className={`mt-2 ${OverlayUi.bodySecondary}`}>{t("trade_ad_extend_keeps_place")}</p>
       ) : null}

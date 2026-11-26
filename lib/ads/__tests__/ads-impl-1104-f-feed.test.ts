@@ -324,6 +324,9 @@ describe("회원 API — D-6 공개 사유만 · 내부 메모 0 · D-7 자리 �
 
   const postBody = {
     productId: "feed_banner_trade_7",
+    /** FB-01: 화면에 보인 금액·기간 (상품 7일 15,000P) */
+    expectedPointCost: 15000,
+    expectedDurationDays: 7,
     placement: "TRADE_HOME",
     destinationType: "internal_page",
     destinationUrl: "/market",

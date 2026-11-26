@@ -4,6 +4,7 @@ import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner, getStoreIfOwnerForOperationalWrite } from "@/lib/stores/owner-product-gate";
 import {
+  assertSponsoredCampaignCategoryFeedSellable,
   loadOwnerSponsoredCampaign,
   transitionOwnerSponsoredCampaign,
 } from "@/lib/stores/advertising/owner-store-sponsored-writer";
@@ -22,6 +23,7 @@ import {
 import type { SecureCanonicalBcFailure } from "@/lib/stores/advertising/canonical-business-cash-writer";
 import { clientSafeErrorDetail } from "@/lib/security/internal-error-response";
 import { blockIosAppDigitalPurchase } from "@/lib/apple-iap/ios-digital-purchase-gate.server";
+import { assertHomeFeedSellableByPolicy, STORES_HOME_FEED_INVENTORY_KEY } from "@/lib/stores/advertising/delivery-ad-home-feed-sell-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,7 +46,11 @@ function statusForError(error: string): number {
     case "INSUFFICIENT_STORE_CASH":
       return 402;
     case "capacity_full":
+    case "home_ads_disabled":
+    case "category_ads_disabled":
       return 409;
+    case "capacity_check_failed":
+      return 503;
     case "db_error":
     case "commercial_snapshot_failed":
       return 500;
@@ -136,6 +142,8 @@ export async function POST(
   const productKind =
     body.productKind === "banner" || body.product_kind === "banner" ? "banner" : "store_sponsored";
 
+  /** R-69: 화면 견적에 보인 기간 */
+  const clientDurationDays = typeof body.clientDurationDays === "number" ? body.clientDurationDays : null;
   const clientFinalPayableMinor =
     typeof body.clientFinalPayableMinor === "number"
       ? body.clientFinalPayableMinor
@@ -174,6 +182,7 @@ export async function POST(
         inventoryKey,
         packageId,
         clientFinalPayableMinor,
+        clientDurationDays,
       });
       if (!commercial.ok) {
         return NextResponse.json(
@@ -181,7 +190,8 @@ export async function POST(
             ok: false,
             error: commercial.error,
             quoteError: commercial.quoteError ?? null,
-            refreshQuote: true,
+            /** SA-04: 진짜 요금 변경일 때만 「다시 확인」 — 판매 중지·위치 꺼짐은 그 이유 문구로 */
+            refreshQuote: commercial.error === "quote_stale",
           },
           { status: statusForError(commercial.error) }
         );
@@ -228,6 +238,20 @@ export async function POST(
     if (loaded.row.inventoryKeys.length !== 1) {
       return NextResponse.json({ ok: false, error: "inventory_single_required" }, { status: 400 });
     }
+    /** SA-01: 배달 홈 노출 자리가 꺼져 있으면 제출(요금 기록·차감) 전에 막는다 — 돈 받고 0회 노출 방지 */
+    if (inventoryKey === STORES_HOME_FEED_INVENTORY_KEY) {
+      const homeGate = await assertHomeFeedSellableByPolicy(sb);
+      if (!homeGate.ok) {
+        return NextResponse.json({ ok: false, error: homeGate.error }, { status: statusForError(homeGate.error) });
+      }
+    }
+    /** R-21: 업종 목록도 제출 직전에 업종 정책을 다시 본다 — 초안 뒤 어드민이 그 업종 광고를 끄면 차감 전에 막는다 */
+    if (inventoryKey === "STORES_CATEGORY_FEED") {
+      const categoryGate = await assertSponsoredCampaignCategoryFeedSellable(sb, { campaignId: cid, storeId: sid });
+      if (!categoryGate.ok) {
+        return NextResponse.json({ ok: false, error: categoryGate.error }, { status: statusForError(categoryGate.error) });
+      }
+    }
     const commercial = await attachOwnerPaidCommercialSnapshotOnSubmit(sb, {
       campaignId: cid,
       storeId: sid,
@@ -235,6 +259,7 @@ export async function POST(
       inventoryKey,
       packageId,
       clientFinalPayableMinor,
+      clientDurationDays,
     });
     if (!commercial.ok) {
       return NextResponse.json(
@@ -242,7 +267,7 @@ export async function POST(
           ok: false,
           error: commercial.error,
           quoteError: commercial.quoteError ?? null,
-          refreshQuote: true,
+          refreshQuote: commercial.error === "quote_stale",
         },
         { status: statusForError(commercial.error) }
       );

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { evaluateStoresHomeFeedSellable } from "@/lib/stores/advertising/delivery-ad-home-feed-sell-gate";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
@@ -31,9 +32,12 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
   const catalog = await loadDeliveryAdCommercialCatalog(sb);
+  /** SA-01④: 배달 홈 매장 홍보 노출 자리(「더 많은 매장」 광고 연동) — 꺼져 있으면 가격 화면 그 줄에 「팔리지 않음」. 확인 실패 = null(표시 안 함) */
+  const homeFeedSellable = await evaluateStoresHomeFeedSellable(sb).catch(() => null);
   return NextResponse.json({
     ok: true,
     catalog,
+    homeFeedSellable,
     placementLabels: DELIVERY_AD_COMMERCIAL_PLACEMENT_LABELS,
     priceChangeWarning: catalogPair("api_price_changes_do_not_apply_retroactively"),
   });
@@ -51,6 +55,8 @@ type PatchBody = {
   priceAmountMinor?: number | null;
   durationDays?: number;
   displayOrder?: number;
+  /** SA-12: 화면이 읽은 패키지 `updated_at` */
+  expectedUpdatedAt?: string;
   inventoryKey?: string;
   sellable?: boolean;
   code?: string;
@@ -115,6 +121,7 @@ export async function PATCH(req: NextRequest) {
         durationDays: body.durationDays,
         displayName: body.displayName,
         displayOrder: body.displayOrder,
+        expectedUpdatedAt: typeof body.expectedUpdatedAt === "string" ? body.expectedUpdatedAt : undefined,
         actorUserId,
         reason,
       });
@@ -186,7 +193,10 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (!result.ok) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: result.error },
+      { status: result.error === "stale_updated_at" ? 409 : 400 }
+    );
   }
 
   const { op: _op, reason: _reason, ...input } = body as PatchBody & Record<string, unknown>;

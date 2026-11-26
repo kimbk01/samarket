@@ -11,6 +11,7 @@ import {
   type FeedAdMemberDisplayStatus,
 } from "@/lib/ads/feed-ad-member-presentation";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export type FeedAdOpsProductStatus =
   | "pending_review"
@@ -73,6 +74,21 @@ export function projectFeedAdOpsProductStatus(input: {
     nowMs: input.nowMs,
   });
   return feedAdOpsProductStatusFromDisplay(presentation.displayStatus);
+}
+
+const STATUS_KEYS: Record<FeedAdOpsProductStatus, MessageKey> = {
+  pending_review: "ads_in_review",
+  scheduled: "ads_scheduled",
+  active: "ads_running",
+  paused: "ads_paused",
+  rejected: "ads_rejected",
+  cancelled: "ads_cancelled",
+  ended: "ads_ended_2",
+};
+
+/** R-29 (2026-11-26): 화면은 이 키를 `t()` 로 — 상태 판정은 아래 `feedAdOpsStatusLabel` 과 같다 */
+export function feedAdOpsStatusKey(status: FeedAdOpsProductStatus | string): MessageKey {
+  return STATUS_KEYS[feedAdOpsProductStatusFromDisplay(status)];
 }
 
 export function feedAdOpsStatusLabel(

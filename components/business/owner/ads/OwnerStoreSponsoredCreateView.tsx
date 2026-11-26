@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
@@ -43,6 +43,7 @@ import {
   dibayShellRequestHeaders,
   useIosAppDigitalPurchaseBlocked,
 } from "@/lib/apple-iap/use-ios-digital-purchase-blocked";
+import { ownerAdDraftSaveErrorCode, ownerAdErrorKey } from "@/lib/stores/advertising/owner-ad-error-copy";
 
 type EligibleStore = {
   id: string;
@@ -157,8 +158,10 @@ export function OwnerStoreSponsoredCreateView() {
   const [noSellablePackages, setNoSellablePackages] = useState(false);
   const [acceptingApplications, setAcceptingApplications] = useState(true);
   const [commercialLoading, setCommercialLoading] = useState(false);
-  const [productLabel, setProductLabel] = useState<string | null>(null);
   const [cashBalanceMinor, setCashBalanceMinor] = useState<number | null>(null);
+  /** R-80: 잔액 조회 실패 — 0(「캐시 부족」)이 아니라 「잔액을 불러오지 못했어요 · 다시 시도」 · 신청 버튼 끔 */
+  const [cashBalanceFailed, setCashBalanceFailed] = useState(false);
+  const [balanceAttempt, setBalanceAttempt] = useState(0);
   const [busy, setBusy] = useState(false);
   const [draftBusy, setDraftBusy] = useState(false);
   const [shortageModalOpen, setShortageModalOpen] = useState(false);
@@ -178,7 +181,7 @@ export function OwnerStoreSponsoredCreateView() {
     (async () => {
       try {
         const res = await fetch("/api/me/delivery-ads", { credentials: "include" });
-        const json = (await res.json()) as {
+        const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           stores?: EligibleStore[];
           businessCash?: { balanceMinor?: number };
@@ -186,15 +189,22 @@ export function OwnerStoreSponsoredCreateView() {
         if (cancelled) return;
         const list = (json.stores ?? []).filter((s) => s.eligible);
         setStores(list);
-        if (typeof json.businessCash?.balanceMinor === "number") {
+        if (res.ok && typeof json.businessCash?.balanceMinor === "number") {
           setCashBalanceMinor(json.businessCash.balanceMinor);
+          setCashBalanceFailed(false);
         } else {
-          setCashBalanceMinor(0);
+          setCashBalanceMinor(null);
+          setCashBalanceFailed(true);
         }
         if (preloadStoreId && list.some((s) => s.id === preloadStoreId)) {
           setStoreId(preloadStoreId);
         } else if (list.length === 1) {
           setStoreId(list[0]!.id);
+        }
+      } catch {
+        if (!cancelled) {
+          setCashBalanceMinor(null);
+          setCashBalanceFailed(true);
         }
       } finally {
         if (!cancelled) setLoaded(true);
@@ -203,7 +213,7 @@ export function OwnerStoreSponsoredCreateView() {
     return () => {
       cancelled = true;
     };
-  }, [preloadStoreId]);
+  }, [preloadStoreId, balanceAttempt]);
 
   useEffect(() => {
     if (!preloadCampaignId || !preloadStoreId) return;
@@ -229,6 +239,9 @@ export function OwnerStoreSponsoredCreateView() {
         setStoreId(row.storeId);
         const key = row.inventoryKeys.find(isOwnerStoreSponsoredInventoryKey);
         if (key) setInventoryKey(key);
+        /** R-79: 저장된 지면·업종 대상으로 지면 칸을 채운다(비어 있으면 「신청하기」가 「지면을 선택해 주세요」로 실패) */
+        if (key === "STORES_HOME_FEED") setPlacementChoice("home");
+        else if (key === "STORES_CATEGORY_FEED") setPlacementChoice(row.browseTargetKind === "secondary" ? "secondary" : "primary");
         const bound = decodeOwnerAdPackagePricingModel(row.pricingModel);
         if (bound) setPackageId(bound);
       } catch {
@@ -282,8 +295,15 @@ export function OwnerStoreSponsoredCreateView() {
     return [...OWNER_STORE_SPONSORED_INVENTORY_KEYS];
   }, [placements]);
 
+  /** R-43: 판매 판정·설정 조회 실패(503 · 네트워크) — 「판매 준비 중」이 아니라 「확인하지 못했어요 · 다시 시도」 */
+  const [commercialCheckFailed, setCommercialCheckFailed] = useState(false);
+  /** R-44: 마지막 요청의 응답만 반영(대분류↔소분류를 빨리 바꿀 때 늦게 온 이전 응답 무시) */
+  const commercialSeqRef = useRef(0);
+
   const refetchCommercial = useCallback(async () => {
+    const seq = ++commercialSeqRef.current;
     if (!storeId) {
+      setCommercialCheckFailed(false);
       setPackages([]);
       setQuote(null);
       setNoSellablePackages(false);
@@ -298,11 +318,17 @@ export function OwnerStoreSponsoredCreateView() {
       });
       if (inventoryKey) qs.set("inventoryKey", inventoryKey);
       if (packageId) qs.set("packageId", packageId);
+      /** R-41: 고른 업종 대상(대분류·소분류)만 판정 — 막힌 대상에 상품·견적이 나오지 않게 */
+      if (placementChoice === "primary" || placementChoice === "secondary") {
+        qs.set("browseTargetKind", placementChoice);
+      }
       const res = await fetch(`/api/me/delivery-ads/commercial?${qs.toString()}`, {
         credentials: "include",
+        cache: "no-store",
       });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
+        error?: string;
         product?: {
           displayName?: string | null;
           acceptingApplications?: boolean;
@@ -313,13 +339,21 @@ export function OwnerStoreSponsoredCreateView() {
         quote?: CommercialQuote | { ok: false; error?: string } | null;
         noSellablePackages?: boolean;
       };
+      if (seq !== commercialSeqRef.current) return;
       if (!res.ok || !json.ok) {
         setPackages([]);
         setQuote(null);
+        /** R-40·R-43: 판정 조회 실패(503)는 「판매 준비 중」이 아니라 「확인하지 못했어요」 */
+        if (res.status >= 500 || json.error === "capacity_check_failed") {
+          setNoSellablePackages(false);
+          setCommercialCheckFailed(true);
+          return;
+        }
+        setCommercialCheckFailed(false);
         setNoSellablePackages(true);
         return;
       }
-      setProductLabel(json.product?.displayName?.trim() || null);
+      setCommercialCheckFailed(false);
       setAcceptingApplications(
         json.product?.acceptingApplications !== false && json.product?.enabled !== false
       );
@@ -338,13 +372,16 @@ export function OwnerStoreSponsoredCreateView() {
         setNoSellablePackages(false);
       }
     } catch {
+      if (seq !== commercialSeqRef.current) return;
       setPackages([]);
       setQuote(null);
-      setNoSellablePackages(true);
+      /** R-43: 네트워크 오류도 「확인 못 함」 */
+      setNoSellablePackages(false);
+      setCommercialCheckFailed(true);
     } finally {
-      setCommercialLoading(false);
+      if (seq === commercialSeqRef.current) setCommercialLoading(false);
     }
-  }, [inventoryKey, packageId, storeId]);
+  }, [inventoryKey, packageId, placementChoice, storeId]);
 
   useEffect(() => {
     void refetchCommercial();
@@ -420,7 +457,7 @@ export function OwnerStoreSponsoredCreateView() {
         campaign?: OwnerSponsoredCampaignRow;
       };
       if (!patchRes.ok || !patchJson.ok || !patchJson.campaign) {
-        setError(patchJson.error || "generic");
+        setError(ownerAdDraftSaveErrorCode(patchJson.error));
         return null;
       }
       saved = patchJson.campaign;
@@ -446,7 +483,7 @@ export function OwnerStoreSponsoredCreateView() {
       campaign?: OwnerSponsoredCampaignRow;
     };
     if (!createRes.ok || !createJson.ok || !createJson.campaign) {
-      setError(createJson.error || "generic");
+      setError(ownerAdDraftSaveErrorCode(createJson.error));
       return null;
     }
     saved = createJson.campaign;
@@ -496,12 +533,15 @@ export function OwnerStoreSponsoredCreateView() {
             action: saved.lifecycleStatus === "CHANGES_REQUESTED" ? "resubmit" : "submit",
             packageId,
             clientFinalPayableMinor: quote.finalPayableMinor,
+            /** R-69: 화면 견적에 보인 기간도 보낸다 — 서버가 지금 기간과 다르면 차감 없이 「요금이 바뀌었어요」 */
+            clientDurationDays: quote.durationDays,
           }),
         }
       );
       const actionJson = (await actionRes.json()) as {
         ok?: boolean;
         error?: string;
+        quoteError?: string | null;
         refreshQuote?: boolean;
         campaign?: OwnerSponsoredCampaignRow;
       };
@@ -512,10 +552,11 @@ export function OwnerStoreSponsoredCreateView() {
         actionJson.refreshQuote
       ) {
         await refetchCommercial();
+        /** SA-04: 실패 이유 그대로 (견적 세부 코드 우선) — 문구는 `ownerAdErrorKey` 1곳 */
         setError(
-          actionJson.error === "quote_stale" || actionJson.refreshQuote
+          actionJson.refreshQuote
             ? "quote_stale"
-            : actionJson.error || "generic"
+            : actionJson.quoteError || actionJson.error || "generic"
         );
         return;
       }
@@ -527,30 +568,21 @@ export function OwnerStoreSponsoredCreateView() {
     }
   }, [packageId, persistDraft, quote, refetchCommercial]);
 
-  const errorText =
-    error === "ios_digital_purchase_unavailable"
-      ? t("owner_ios_cash_purchase_unavailable")
-      : error === "inventory"
-      ? t("owner_ads_error_inventory")
-      : error === "store"
-        ? t("owner_ads_error_store")
-        : error === "quote_stale"
-          ? t("owner_ads_error_quote_stale")
-          : error === "applications_paused"
-            ? t("owner_ads_error_applications_paused")
-            : error === "no_packages"
-              ? t("owner_ads_no_sellable_packages")
-              : error
-                ? safeT("owner_ads_error_generic")
-                : null;
+  /** SA-04: 실패 이유 → 문구 단일 정의 */
+  const errorKey = ownerAdErrorKey(error);
+  const errorText = errorKey ? t(errorKey) : null;
 
   const canSubmit = Boolean(
     storeId &&
+      /** R-79: 지면 칸이 비어 있으면 신청하지 않는다(저장 단계에서 「지면을 선택해 주세요」로 실패) */
+      placementChoice &&
       inventoryKey &&
       packageId &&
       quote &&
       !noSellablePackages &&
       acceptingApplications &&
+      !cashBalanceFailed &&
+      cashBalanceMinor != null &&
       !commercialLoading
   );
 
@@ -693,7 +725,8 @@ export function OwnerStoreSponsoredCreateView() {
 
               <OwnerStoreAdminDashSection title={t("owner_ads_where_to_promote")}>
                 <p className="mb-2 text-[12px] text-sam-muted">
-                  {productLabel || t("owner_ads_product_store_sponsored")}
+                  {/* SA-05: 상품 이름 = 키 (DB 영문 「Store sponsored」 금지) */}
+                  {t("owner_ads_product_store_sponsored")}
                 </p>
                 <DeliveryAdOwnerPlacementVisualGrid
                   options={
@@ -735,7 +768,22 @@ export function OwnerStoreSponsoredCreateView() {
               </OwnerStoreAdminDashSection>
 
               <OwnerStoreAdminDashSection title={t("owner_ads_section_packages")}>
-                {!inventoryKey ? (
+                {commercialCheckFailed && !commercialLoading ? (
+                  <div
+                    className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-3"
+                    data-owner-ads-check-failed="1"
+                    role="status"
+                  >
+                    <p className="text-[13px] font-semibold text-sam-fg">{t("owner_ads_sale_check_failed")}</p>
+                    <button
+                      type="button"
+                      className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[13px] font-semibold text-sam-fg"
+                      onClick={() => void refetchCommercial()}
+                    >
+                      {t("common_retry")}
+                    </button>
+                  </div>
+                ) : !inventoryKey ? (
                   <p className="text-[13px] text-sam-muted">
                     {safeT("owner_ads_pick_placement_first_store")}
                   </p>
@@ -772,8 +820,24 @@ export function OwnerStoreSponsoredCreateView() {
                 )}
               </OwnerStoreAdminDashSection>
 
+              {cashBalanceFailed ? (
+                <div
+                  className="mb-3 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-3"
+                  data-owner-ads-balance-failed="1"
+                  role="status"
+                >
+                  <p className="text-[13px] font-semibold text-sam-fg">{t("owner_ads_balance_load_failed")}</p>
+                  <button
+                    type="button"
+                    className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[13px] font-semibold text-sam-fg"
+                    onClick={() => setBalanceAttempt((n) => n + 1)}
+                  >
+                    {t("common_retry")}
+                  </button>
+                </div>
+              ) : null}
               <OwnerStoreAdminDashSection title={t("owner_ads_ad_cost_section")}>
-                {quote ? (
+                {commercialCheckFailed ? null : quote ? (
                   <DeliveryAdOwnerApplicationConfirm
                     rows={confirmRows}
                     totalDisplay={quote.finalPayableDisplay}

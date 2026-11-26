@@ -207,7 +207,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         ? 409
         : result.error === "campaign_not_found"
           ? 404
-          : 400;
+          : /** R-51: 자리 확인 실패 = 일시 오류 */ result.error === "capacity_check_failed"
+            ? 503
+            : 400;
     return NextResponse.json(
       { ok: false, error: result.error, detail: clientSafeErrorDetail(result.error, result.detail, status, "[admin delivery-ads PATCH]") },
       { status }

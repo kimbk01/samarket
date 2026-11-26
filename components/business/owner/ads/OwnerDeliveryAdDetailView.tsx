@@ -60,6 +60,10 @@ import {
   dibayShellRequestHeaders,
   useIosAppDigitalPurchaseBlocked,
 } from "@/lib/apple-iap/use-ios-digital-purchase-blocked";
+import { ownerAdHistoryActionKey, ownerAdHistoryActorKey } from "@/lib/stores/advertising/owner-ad-history-copy";
+import { ownerAdErrorKey } from "@/lib/stores/advertising/owner-ad-error-copy";
+import { ownerDetailSubmitRoute } from "@/lib/stores/advertising/owner-detail-submit-route";
+import { formatPhtDisplayDateTime } from "@/lib/time/format-pht-display";
 
 const OWNER_DETAIL_SECONDARY_BTN_CLASS =
   "inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[14px] font-semibold text-sam-fg";
@@ -113,7 +117,7 @@ function draftEditHref(productKind: DeliveryAdOwnerProductKind, storeId: string,
 }
 
 export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
   const iosCashPurchaseBlocked = useIosAppDigitalPurchaseBlocked();
   const router = useRouter();
   const sp = useSearchParams();
@@ -139,6 +143,9 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
   const [perfLoading, setPerfLoading] = useState(false);
   const [placementPreview, setPlacementPreview] =
     useState<DeliveryAdPlacementPreviewPayload | null>(null);
+  /** SA-11: 환불 금액·시각 (환불 원장 기준) */
+  const [refundAmountMinor, setRefundAmountMinor] = useState<number | null>(null);
+  const [refundedAt, setRefundedAt] = useState<string | null>(null);
   const [fundingStatus, setFundingStatus] = useState<
     "UNFUNDED" | "FUNDED" | "REFUNDED" | null
   >(null);
@@ -281,12 +288,16 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
             status?: "UNFUNDED" | "FUNDED" | "REFUNDED";
             fundingStatus?: "UNFUNDED" | "FUNDED" | "REFUNDED";
             fundedAt?: string | null;
+            refundAmountMinor?: number | null;
+            refundedAt?: string | null;
           };
           businessCash?: { balanceMinor?: number };
         };
         if (cancelled || !res.ok || !json.ok) return;
         setFundingStatus(json.funding?.status ?? json.funding?.fundingStatus ?? "UNFUNDED");
         setFundedAt(json.funding?.fundedAt ?? null);
+        setRefundAmountMinor(typeof json.funding?.refundAmountMinor === "number" ? json.funding.refundAmountMinor : null);
+        setRefundedAt(json.funding?.refundedAt ?? null);
         setCashBalanceMinor(
           typeof json.businessCash?.balanceMinor === "number"
             ? json.businessCash.balanceMinor
@@ -364,6 +375,35 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
 
   const runAction = async (action: OwnerCampaignAction | "delete") => {
     if (!campaign || !storeId) return;
+    /**
+     * R-73: 「신청하기·다시 신청」은 요금·기간을 보여 주고 확인받는 신청 화면에서만 — 상세 화면은 금액·기간 없이 바로 차감하지 않는다.
+     * (서버도 캐시 확보 전 제출에 화면 금액·기간이 없으면 거절)
+     */
+    /**
+     * R-75: 단 **이미 결제(FUNDED)한 재신청**은 예전처럼 바로 보낸다 — 서버가 묶인 금액을 그대로 쓰고(새 결제 없음)
+     * 신청 화면의 잔액·지금 견적 검사에 걸려 「이미 냈는데 캐시 부족」이 되지 않게.
+     */
+    let funded = fundingStatus === "FUNDED";
+    if (action === "resubmit" && fundingStatus == null) {
+      /** 결제 상태를 아직 못 읽었으면(패널 조건 밖) 그 자리에서 한 번 읽는다 — 모르면 신청 화면으로(안전) */
+      try {
+        const fr = await fetch(
+          `/api/me/delivery-ads/${encodeURIComponent(campaign.id)}/funding?product=${encodeURIComponent(productKind)}`,
+          { credentials: "include" }
+        );
+        const fj = (await fr.json().catch(() => ({}))) as {
+          ok?: boolean;
+          funding?: { status?: string; fundingStatus?: string };
+        };
+        funded = fr.ok && fj.ok === true && (fj.funding?.status ?? fj.funding?.fundingStatus) === "FUNDED";
+      } catch {
+        funded = false;
+      }
+    }
+    if ((action === "submit" || action === "resubmit") && ownerDetailSubmitRoute(action, funded) === "create_screen") {
+      router.push(draftEditHref(productKind, storeId, campaign.id));
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -395,7 +435,8 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
         campaign?: DetailCampaign;
       };
       if (!res.ok || !json.ok || !json.campaign) {
-        setError(json.error === "ios_digital_purchase_unavailable" ? json.error : "generic");
+        /** R-66: 거절 이유별 문구(신청 화면과 같은 `ownerAdErrorKey`) — 홈·업종 꺼짐·확인 못 함·캐시 부족 등 */
+        setError(json.error || "generic");
         return;
       }
       setCampaign(json.campaign);
@@ -410,13 +451,15 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
 
   const confirmCopy =
     confirm === "pause"
-      ? { title: t("popup_q_pause_ad"), body: null, confirmLabel: t("popup_btn_pause") }
+      ? /** SA-07: 멈춰도 기간은 흐른다(운영 함수: 다시 시작해도 종료일 그대로) — 누르기 전에 알린다 */
+        { title: t("popup_q_pause_ad"), body: t("owner_ads_pause_period_runs_note"), confirmLabel: t("popup_btn_pause") }
       : confirm === "resume"
         ? { title: t("popup_q_resume_ad"), body: null, confirmLabel: t("popup_btn_restart") }
         : confirm === "end"
           ? {
               title: t("popup_q_end_ad"),
-              body: t("popup_note_ad_end_final"),
+              /** SA-07: 사장님 종료는 환불 없음(운영 함수) — 종료 안내 + 환불 안내 */
+              body: t("owner_ads_end_no_refund_note"),
               confirmLabel: t("popup_cta_end"),
             }
           : confirm === "delete"
@@ -519,7 +562,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
 
       {error && error !== "ios_digital_purchase_unavailable" ? (
         <p className="mt-2 text-[13px] text-sam-danger" role="alert">
-          {safeT("owner_ads_error_generic")}
+          {t(ownerAdErrorKey(error) ?? "owner_ads_error_generic")}
         </p>
       ) : null}
 
@@ -574,9 +617,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
               <p className="text-[13px] text-sam-muted">{t("owner_ads_price_unset")}</p>
             ) : (
               <>
-                {snap?.packageDisplayName ? (
-                  <p className="text-[13px] text-sam-fg">{snap.packageDisplayName}</p>
-                ) : null}
+                {/* SA-05: DB 패키지 이름(영문 「7 days」)은 보이지 않는다 — 아래 기간 줄(키 + 기간)이 같은 뜻 */}
                 {snap?.durationDays != null ? (
                   <p className="mt-1 text-[12px] text-sam-muted">
                     {t("owner_ads_period_duration_days", { days: snap.durationDays })}
@@ -636,10 +677,17 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
             {fundingStatus === "FUNDED" ? (
               <p className="mt-2 text-[13px] font-semibold text-sam-fg">
                 {t("owner_ads_funding_done")}
-                {fundedAt ? ` · ${fundedAt.slice(0, 16)}` : ""}
+                {fundedAt ? ` · ${formatPhtDisplayDateTime(fundedAt, language === "en" ? "en" : "ko")}` : ""}
               </p>
             ) : fundingStatus === "REFUNDED" ? (
-              <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_funding_refunded")}</p>
+              <p className="mt-2 text-[13px] text-sam-muted" data-owner-ads-refunded="1">
+                {refundAmountMinor != null && refundedAt
+                  ? t("owner_ads_funding_refunded_detail", {
+                      amount: formatDeliveryAdPhpMinor(refundAmountMinor),
+                      at: formatPhtDisplayDateTime(refundedAt, language === "en" ? "en" : "ko"),
+                    })
+                  : t("owner_ads_funding_refunded")}
+              </p>
             ) : (
               <>
                 <p className="mt-2 text-[13px] font-semibold text-sam-fg">
@@ -729,16 +777,13 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                   h.after && typeof h.after.currency === "string"
                     ? String(h.after.currency)
                     : null;
-                const extensionKind =
-                  h.after && typeof h.after.extension_kind === "string"
-                    ? String(h.after.extension_kind)
-                    : null;
                 return (
                   <li key={`${h.createdAt}-${i}`} data-owner-ads-history-action={h.action}>
-                    <span className="font-medium text-sam-fg">{h.action}</span>
-                    {h.actorType ? ` · ${h.actorType}` : ""}
+                    {/* SA-11: 동작·주체 = 키 · 시각 = PHT (코드·UTC 원문 금지) */}
+                    <span className="font-medium text-sam-fg">{t(ownerAdHistoryActionKey(h.action))}</span>
+                    {ownerAdHistoryActorKey(h.actorType) ? ` · ${t(ownerAdHistoryActorKey(h.actorType)!)}` : ""}
                     {" · "}
-                    {h.createdAt.slice(0, 19).replace("T", " ")}
+                    {formatPhtDisplayDateTime(h.createdAt, language === "en" ? "en" : "ko")}
                     {h.reason ? (
                       <div className="mt-0.5 text-sam-fg">
                         {safeT("owner_ads_history_reason")}
@@ -748,10 +793,9 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                     {h.action === "extended" && (beforeEnd || afterEnd) ? (
                       <div className="mt-0.5 text-sam-fg">
                         {beforeEnd
-                          ? `${beforeEnd.slice(0, 19).replace("T", " ")} → `
+                          ? `${formatPhtDisplayDateTime(beforeEnd, language === "en" ? "en" : "ko")} → `
                           : ""}
-                        {afterEnd ? afterEnd.slice(0, 19).replace("T", " ") : "—"}
-                        {extensionKind ? ` · ${extensionKind}` : ""}
+                        {afterEnd ? formatPhtDisplayDateTime(afterEnd, language === "en" ? "en" : "ko") : "—"}
                         {amountMinor != null && currency
                           ? ` · ${(amountMinor / 100).toFixed(2)} ${currency}`
                           : ""}

@@ -1,10 +1,11 @@
 "use client";
 
+import { handlePriceChanged, isPriceChangedError } from "@/lib/ads/handle-price-changed";
 import { DibayPendingSpinner, DibaySpinner } from "@/components/ui/DibaySpinner";
 import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -28,6 +29,8 @@ import {
   feedAdStandardPixelLabel,
 } from "@/lib/ads/feed-ad-geometry";
 import { checkFeedAdMemberImageFile } from "@/lib/ads/feed-ad-member-image-check";
+import { feedAdMemberErrorKey } from "@/lib/ads/feed-ad-member-error-key";
+import { feedAdOpsStatusKey } from "@/lib/ads/feed-ad-ops-presentation";
 import { feedAdUploadRejectMessage } from "@/lib/ads/feed-ad-upload-geometry";
 import type { FeedAdMemberDisplayStatus } from "@/lib/ads/feed-ad-member-presentation";
 import { FEED_AD_SAMPLE_ASSET } from "@/lib/ads/feed-ad-sample-assets";
@@ -38,6 +41,7 @@ import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { formatMypageDate, formatMypageMoney, formatMypagePoint } from "@/lib/mypage/format-mypage-date";
 import { useReleaseDroppedBlobUrls } from "@/lib/media/use-release-dropped-blob-urls";
+import { createPromotionAttemptKeyStore } from "@/lib/points/promotion-attempt-key";
 
 type Cat = { id: string; name: string; nameEn: string | null };
 type Topic = { id: string; slug: string; name: string; nameEn: string | null };
@@ -136,18 +140,56 @@ export default function MemberFeedAdRequestPage() {
   const sample = FEED_AD_SAMPLE_ASSET[domain];
   const density = domain === "community" ? "community" : "trade";
 
-  const load = useCallback(async () => {
+  /**
+   * 광고 감사 FB-02 (2026-11-26): 광고하기 창에서 고른 기간이 신청 화면에서 바뀌던 결함.
+   * - 늦게 도착한 이전 분야(첫 화면 = 커뮤니티) 응답은 버린다 — 요청 번호가 최신일 때만 반영.
+   * - 주소로 넘어온 상품(`?productId=`)은 같은 분야 목록에 있으면 그대로 고른다.
+   */
+  const loadSeqRef = useRef(0);
+  const prefillProductIdRef = useRef<string | null>(null);
+  /**
+   * R-72: 같은 신청 시도 = 같은 요청 키 — 응답이 끊긴 뒤 다시 눌러도 서버가 처음 신청을 돌려준다(보류 두 번 방지).
+   * 서버가 결과를 확정해 돌려준 뒤(성공·4xx)에만 키를 버린다. 다른 결제 화면 4곳과 같은 저장소.
+   */
+  const attemptKeysRef = useRef(createPromotionAttemptKeyStore());
+  /** R-30: 회원이 고른(또는 광고하기 창에서 넘어온) 상품이 지금 목록에 없음 */
+  const [chosenProductGone, setChosenProductGone] = useState(false);
+  /** R-54: 상품 목록을 불러오지 못함 */
+  const [catalogLoadFailed, setCatalogLoadFailed] = useState(false);
+  /** R-78: 잔액을 불러오지 못함 */
+  const [balanceLoadFailed, setBalanceLoadFailed] = useState(false);
+  /** R-38: 비동기 응답에서 지금 고른 상품을 읽기 위한 거울 — 고를 때마다 맞춘다 */
+  const productIdRef = useRef<string>("");
+  /** R-65: 회원이 직접 고른(또는 다른 화면에서 넘어온) 상품만 「고른 상품」 — 자동 선택은 아님 */
+  const userChoseProductRef = useRef(false);
+  useEffect(() => {
+    productIdRef.current = productId;
+  }, [productId]);
+  const load = useCallback(async (): Promise<boolean | void> => {
+    const seq = ++loadSeqRef.current;
+    /** R-54: 상품 조회 실패(서버 503 · 네트워크)는 「고른 상품이 없어졌어요」가 아니라 「불러오지 못했어요 · 다시 시도」 — 고른 상품은 그대로 */
     const [prodRes, balRes, tgtRes] = await Promise.all([
-      fetch(`/api/me/feed-ad-requests?domain=${domain}`, { credentials: "include" }),
-      fetch("/api/me/points", { credentials: "include", cache: "no-store" }),
+      fetch(`/api/me/feed-ad-requests?domain=${domain}`, { credentials: "include", cache: "no-store" }).catch(() => null),
+      fetch("/api/me/points", { credentials: "include", cache: "no-store" }).catch(() => null),
       fetch("/api/me/feed-ad-targets", { credentials: "include" }).catch(() => null),
     ]);
-    const pj = (await prodRes.json().catch(() => ({}))) as {
+    const pj = (prodRes ? await prodRes.json().catch(() => ({})) : {}) as {
+      ok?: boolean;
       catalog?: FeedAdProduct[];
       canCreateBanner?: boolean;
       currentBanner?: { requestId?: string; displayStatus?: string } | null;
     };
-    const items = (Array.isArray(pj.catalog) ? pj.catalog : []).filter((p) => p.domain === domain);
+    if (seq !== loadSeqRef.current) return;
+    if (!prodRes || !prodRes.ok || pj.ok === false || !Array.isArray(pj.catalog)) {
+      setCatalogLoadFailed(true);
+      return false;
+    }
+    setCatalogLoadFailed(false);
+    const items = pj.catalog.filter((p) => p.domain === domain);
+    const bj = (balRes && balRes.ok ? await balRes.json().catch(() => ({})) : {}) as { balance?: number; points?: number };
+    if (seq !== loadSeqRef.current) return;
+    /** R-78: 잔액 조회 실패 = 「잔액을 불러오지 못했어요 · 다시 시도」 · 잔액을 모르면 신청 버튼 끔 */
+    setBalanceLoadFailed(!balRes || !balRes.ok || !Number.isFinite(Number(bj.balance ?? bj.points)));
     setCatalog(items);
     if (pj.canCreateBanner === false && pj.currentBanner?.requestId) {
       setCurrentBanner({
@@ -157,23 +199,33 @@ export default function MemberFeedAdRequestPage() {
     } else {
       setCurrentBanner(null);
     }
-    const bj = (await balRes.json().catch(() => ({}))) as { balance?: number; points?: number };
     const bal = Number(bj.balance ?? bj.points);
     const balN = Number.isFinite(bal) ? bal : null;
     setBalance(balN);
     const affordable = items.filter((p) => balN == null || p.pointCost <= balN);
     const preferred = affordable[0] ?? null;
-    setProductId((prev) => {
-      if (prev && items.some((p) => p.id === prev && (balN == null || p.pointCost <= balN))) {
-        return prev;
-      }
-      return preferred?.id ?? "";
-    });
+    const prefill = prefillProductIdRef.current;
+    /** R-30: 넘어온 상품 기억은 첫 응답에서 항상 지운다 — 나중에 다시 켜져도 회원이 직접 고른 상품을 덮지 않게 */
+    prefillProductIdRef.current = null;
+    /**
+     * R-26: 회원이 고른 상품(광고하기 창에서 넘어온 것 포함)은 잔액이 모자라도 바꾸지 않는다 —
+     * 고른 채로 「포인트 부족 · 충전」 안내를 보이고 신청 버튼은 잠근다(아래 canSubmit).
+     * R-30: 고른 상품이 그새 꺼져 목록에 없으면 다른 상품을 대신 고르지 않는다 — 비워 두고 「다시 골라 주세요」.
+     * 고른 상품이 없을 때만 살 수 있는 첫 상품을 미리 고른다.
+     * R-38: 다음 값을 먼저 계산하고 상태 두 개를 따로 바꾼다(업데이터 안에서 다른 상태를 바꾸지 않음).
+     */
+    const want = prefill || (userChoseProductRef.current ? productIdRef.current : "");
+    if (prefill) userChoseProductRef.current = true;
+    const wantListed = Boolean(want) && items.some((p) => p.id === want);
+    const nextProductId = wantListed ? want : want ? "" : (preferred?.id ?? "");
+    setProductId(nextProductId);
+    setChosenProductGone(Boolean(want) && !wantListed);
     if (tgtRes?.ok) {
       const tj = (await tgtRes.json().catch(() => ({}))) as {
         tradeCategories?: Cat[];
         communityTopics?: Topic[];
       };
+      if (seq !== loadSeqRef.current) return;
       setCats(Array.isArray(tj.tradeCategories) ? tj.tradeCategories : []);
       const nextTopics = (Array.isArray(tj.communityTopics) ? tj.communityTopics : []).filter((t) =>
         isFeedAdCommunityTopicTargetAllowed(String(t.slug ?? ""))
@@ -233,9 +285,12 @@ export default function MemberFeedAdRequestPage() {
     if (typeof window === "undefined") return;
     const q = new URLSearchParams(window.location.search);
     if (q.get("domain") !== "trade") return;
-    setDomain("trade");
     const pid = (q.get("productId") ?? "").trim();
-    if (pid) setProductId(pid);
+    if (pid) {
+      prefillProductIdRef.current = pid;
+      setProductId(pid);
+    }
+    setDomain("trade");
     const target = (q.get("targetPostId") ?? "").trim();
     if (target) {
       setDestMode("own_content");
@@ -417,6 +472,8 @@ export default function MemberFeedAdRequestPage() {
 
   const submit = async () => {
     if (!selected || busy || allUnaffordable) return;
+    /** R-65: 신청에 쓴 상품은 「고른 상품」 — 가격 변경 뒤 다시 읽어도 다른 상품으로 바뀌지 않게 */
+    userChoseProductRef.current = true;
     if (balance != null && selected.pointCost > balance) {
       setErr(t("points_ui_insufficient"));
       return;
@@ -439,7 +496,8 @@ export default function MemberFeedAdRequestPage() {
       );
       return;
     }
-    if (destMode === "external_url" && !/^https?:\/\//i.test(destUrl.trim())) {
+    /** FB-05: 서버와 같은 규칙 — https 만 (예전 화면은 http 도 통과시켜 서버에서 「신청 실패」) */
+    if (destMode === "external_url" && !/^https:\/\//i.test(destUrl.trim())) {
       setErr(
         safeT("feed_ad_req_need_https")
       );
@@ -454,11 +512,9 @@ export default function MemberFeedAdRequestPage() {
 
     setBusy(true);
     setErr("");
+    let status: number | null = null;
     try {
-      const idem =
-        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-          ? crypto.randomUUID()
-          : `feed-ad-${Date.now()}`;
+      const idem = attemptKeysRef.current.keyFor(`feed-banner:${domain}:${placement}`, selected.id);
 
       let destinationType: string = "";
       let destinationId = "";
@@ -480,6 +536,9 @@ export default function MemberFeedAdRequestPage() {
         },
         body: JSON.stringify({
           productId: selected.id,
+          /** FB-01: 화면에 보인 금액·기간 — 서버 값과 다르면 보류 없이 409 price_changed */
+          expectedPointCost: selected.pointCost,
+          expectedDurationDays: selected.durationDays,
           placement,
           targetCategoryId: categoryId || undefined,
           targetTopicSlug: topicSlug || undefined,
@@ -496,45 +555,46 @@ export default function MemberFeedAdRequestPage() {
           idempotencyKey: idem,
         }),
       });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
+      status = res.status;
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      /** 성공 응답인데 본문을 못 읽음 = 결과를 모름 → 키 유지 */
+      if (res.ok && typeof j.ok !== "boolean") status = null;
       if (!res.ok || !j.ok) {
-        const code = j.error ?? "failed";
-        if (code === "capacity_full" || code === "destination_required" || code === "capacity_check_failed") {
-          // D-7 ③ · DS-3: 서버 한국어 안내 (자리 없음 = 신청 안 됨 · 포인트 그대로)
-          setErr(
-            en
-              ? code === "destination_required"
-                ? "Choose where the banner should link."
-                : "This ad spot is full. Not submitted; your points are unchanged."
-              : (j.message ?? t("points_ui_request_failed"))
-          );
-          if (code === "capacity_full") setPoolRemaining((p) => (p ? { ...p, remaining: 0 } : { remaining: 0, capacity: 3 }));
-        } else if (code === "insufficient_balance") {
-          setErr(t("points_ui_insufficient"));
-        } else if (code === "invalid_url_scheme" || code === "invalid_url") {
-          setErr(
-            safeT("feed_ad_req_invalid_dest")
-          );
-        } else if (code === "creatives_max_three" || code === "creatives_max_one") {
-          setErr(
-            safeT("feed_ad_req_need_image")
-          );
-        } else if (code === "current_banner_exists") {
-          setErr(
-            safeT("feed_ad_req_current_exists")
-          );
-        } else {
-          // 서버 오류 코드 원문 노출 금지
-          setErr(t("points_ui_request_failed"));
+        if (res.status >= 500 || status == null) {
+          /** R-72: 5xx·본문 없음 = 결과를 모름 → 같은 키로 다시 확인 */
+          const unknownMsg = t("feed_ad_req_result_unknown");
+          setErr(j.error ? t(feedAdMemberErrorKey(j.error)) : unknownMsg);
+          return;
         }
-        showMypageToast(t("points_ui_request_failed"), "error");
+        const code = j.error ?? "failed";
+        /** FB-04: 실패 이유 → 문구 키 단일 정의 (서버는 코드만) */
+        const msg = t(feedAdMemberErrorKey(code));
+        if (isPriceChangedError(code)) {
+          /** X-2 공용 처리: 새 금액·기간을 다시 읽은 뒤, 성공했을 때만 「금액이 바뀌었어요」 (실패면 「불러오지 못했어요」가 남음) */
+          await handlePriceChanged({
+            reload: load,
+            notify: () => {
+              setErr(msg);
+              showMypageToast(msg, "error");
+            },
+          });
+          return;
+        }
+        if (code === "capacity_full") setPoolRemaining((p) => (p ? { ...p, remaining: 0 } : { remaining: 0, capacity: 3 }));
+        setErr(msg);
+        showMypageToast(msg, "error");
         return;
       }
       showMypageToast(t("mypage_oa_ad_request_submitted"), "success");
       invalidateMypageSummary();
       // 신청 후 내 광고 — [대기] 탭 선택
       router.push("/mypage/ads?tab=pending");
+    } catch {
+      /** R-72: 응답을 못 받음(네트워크 끊김) = 결과를 모름 — 키를 유지하고 안내 */
+      status = null;
+      setErr(t("feed_ad_req_result_unknown"));
     } finally {
+      attemptKeysRef.current.settleIfFinal(status);
       setBusy(false);
     }
   };
@@ -542,26 +602,27 @@ export default function MemberFeedAdRequestPage() {
   const filledCreatives = creatives.filter((c) => c.imageUrl.trim());
   const canSubmit =
     !busy &&
+    !catalogLoadFailed &&
     !uploading &&
     !currentBanner &&
     Boolean(selected) &&
     filledCreatives.length >= 1 &&
     !allUnaffordable &&
-    (balance == null || (selected != null && selected.pointCost <= balance)) &&
+    /** R-78: 잔액을 모르면 신청하지 않는다(예전: 잔액 모름 = 통과) */
+    !balanceLoadFailed &&
+    balance != null &&
+    selected != null &&
+    selected.pointCost <= balance &&
     (placement !== "TRADE_CATEGORY" || Boolean(categoryId.trim())) &&
     (placement !== "COMMUNITY_TOPIC" || Boolean(topicSlug.trim())) &&
     (destMode !== "own_content" || Boolean(ownId.trim())) &&
-    (destMode !== "external_url" || /^https?:\/\//i.test(destUrl.trim())) &&
+    (destMode !== "external_url" || /^https:\/\//i.test(destUrl.trim())) &&
     // D-7 ②: 가득 차면 신청 버튼을 막는다 (서버도 보류 전에 다시 센다)
     !(poolRemaining != null && poolRemaining.remaining <= 0);
 
   if (currentBanner) {
-    const statusLabel =
-      currentBanner.displayStatus === "pending_review"
-        ? safeT("revenue_hub_status_pending")
-        : currentBanner.displayStatus === "scheduled"
-          ? safeT("revenue_hub_status_scheduled")
-          : safeT("revenue_hub_status_active");
+    /** FB-08·R-29: 내 광고 화면과 같은 상태 이름(같은 상태 판정) — 문구는 카탈로그 키로 */
+    const statusLabel = t(feedAdOpsStatusKey(currentBanner.displayStatus));
     return (
       <MyScreen title={safeT("feed_ad_req_title")} backHref={"/mypage/ads"} template="form">
       <div className="space-y-4">
@@ -605,6 +666,14 @@ export default function MemberFeedAdRequestPage() {
                   domain === d ? "border-sam-primary bg-sam-primary/5" : "border-sam-border"
                 }`}
                 onClick={() => {
+                  /** R-65: 분야를 바꾸면 이전 분야 상품·선택·실패 표시를 비운다(이전 분야 상품을 「고른 상품」으로 보지 않음) */
+                  if (d !== domain) {
+                    setCatalog([]);
+                    setProductId("");
+                    userChoseProductRef.current = false;
+                    setChosenProductGone(false);
+                    setCatalogLoadFailed(false);
+                  }
                   setDomain(d);
                   setSurface("home");
                   setCategoryId("");
@@ -987,6 +1056,35 @@ export default function MemberFeedAdRequestPage() {
           <h2 className="sam-text-body font-semibold">
             {safeT("feed_ad_req_product")}
           </h2>
+          {catalogLoadFailed ? (
+            <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2" role="status" data-testid="feed-ad-catalog-failed">
+              <p className="sam-text-helper text-sam-muted">{t("feed_ad_products_load_failed")}</p>
+              <button
+                type="button"
+                className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 sam-text-body font-semibold text-sam-fg"
+                onClick={() => void load()}
+              >
+                {t("common_retry")}
+              </button>
+            </div>
+          ) : null}
+          {balanceLoadFailed && !catalogLoadFailed ? (
+            <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2" role="status" data-testid="feed-ad-balance-failed">
+              <p className="sam-text-helper text-sam-muted">{t("feed_ad_req_balance_failed")}</p>
+              <button
+                type="button"
+                className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 sam-text-body font-semibold text-sam-fg"
+                onClick={() => void load()}
+              >
+                {t("common_retry")}
+              </button>
+            </div>
+          ) : null}
+          {chosenProductGone ? (
+            <p className="sam-text-helper font-medium text-sam-warning" role="status" data-testid="feed-ad-product-gone">
+              {t("feed_ad_req_product_gone")}
+            </p>
+          ) : null}
           <p className="sam-text-body font-medium" data-testid="feed-ad-balance">
             {safeT("feed_ad_req_my_points")}
             {": "}
@@ -1005,11 +1103,15 @@ export default function MemberFeedAdRequestPage() {
                   disabled={unaffordable}
                   aria-disabled={unaffordable}
                   onClick={() => {
-                    if (!unaffordable) setProductId(p.id);
+                    if (!unaffordable) {
+                      setProductId(p.id);
+                      userChoseProductRef.current = true;
+                      setChosenProductGone(false);
+                    }
                   }}
                   data-testid={`feed-ad-product-${p.id}`}
                   className={`relative w-full overflow-hidden rounded-ui-rect border px-3 py-2 text-left disabled:cursor-not-allowed ${
-                    productId === p.id && !unaffordable
+                    productId === p.id
                       ? "border-sam-primary bg-sam-primary/5"
                       : "border-sam-border"
                   }`}

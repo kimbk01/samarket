@@ -80,6 +80,8 @@ export async function attachOwnerPaidCommercialSnapshotOnSubmit(
     inventoryKey: string;
     packageId: string;
     clientFinalPayableMinor?: number | null;
+    /** R-69: 화면 견적에 보인 기간 — 지금 상품 기간과 다르면 quote_stale(차감 없음) */
+    clientDurationDays?: number | null;
   }
 ): Promise<OwnerCommercialAttachResult> {
   const packageId = String(input.packageId ?? "").trim();
@@ -118,14 +120,33 @@ export async function attachOwnerPaidCommercialSnapshotOnSubmit(
     }
   }
 
-  const quote = await quoteDeliveryAdApplicationCommercial(sb, {
-    productKind: input.productKind,
-    inventoryKey: input.inventoryKey,
-    packageId,
-    storeId: input.storeId,
-    clientFinalPayableMinor:
-      input.clientFinalPayableMinor == null ? undefined : input.clientFinalPayableMinor,
-  });
+  /**
+   * R-73: 캐시가 아직 확보되지 않은 제출은 화면에 보인 금액·기간이 **필수** — 없으면 차감 전에 멈추고 새 요금 확인을 요구한다.
+   * (예전: 보내지 않으면 대조를 건너뛰고 지금 견적으로 차감 → 상세 화면 「신청하기」가 화면 확인 없이 바뀐 가격·기간으로 결제)
+   */
+  if (
+    input.clientFinalPayableMinor == null ||
+    !Number.isInteger(input.clientFinalPayableMinor) ||
+    input.clientDurationDays == null ||
+    !Number.isInteger(input.clientDurationDays)
+  ) {
+    return { ok: false, error: "quote_stale", quoteError: "client_quote_required" };
+  }
+
+  let quote: Awaited<ReturnType<typeof quoteDeliveryAdApplicationCommercial>>;
+  try {
+    quote = await quoteDeliveryAdApplicationCommercial(sb, {
+      productKind: input.productKind,
+      inventoryKey: input.inventoryKey,
+      packageId,
+      storeId: input.storeId,
+      clientFinalPayableMinor:
+        input.clientFinalPayableMinor == null ? undefined : input.clientFinalPayableMinor,
+    });
+  } catch {
+    /** R-70: 견적 조회 오류 = 「확인 못 함」(503) — 차감 전 */
+    return { ok: false, error: "capacity_check_failed" };
+  }
 
   if (!quote.ok) {
     return {
@@ -141,6 +162,17 @@ export async function attachOwnerPaidCommercialSnapshotOnSubmit(
     input.clientFinalPayableMinor !== quote.finalPayableMinor
   ) {
     return { ok: false, error: "quote_stale", quoteError: "client_payable_mismatch" };
+  }
+  /**
+   * R-69: 기간도 대조 — 어드민이 (가격은 그대로) 기간만 바꾸면 화면 「7일」을 보고 3일로 결제되는 것을 막는다.
+   * (회원 배너 연장 R-35 와 같은 방식)
+   */
+  if (
+    input.clientDurationDays != null &&
+    Number.isInteger(input.clientDurationDays) &&
+    input.clientDurationDays !== quote.durationDays
+  ) {
+    return { ok: false, error: "quote_stale", quoteError: "client_duration_mismatch" };
   }
 
   const snapshot = prepareOwnerPaidCampaignSnapshotFromQuote({

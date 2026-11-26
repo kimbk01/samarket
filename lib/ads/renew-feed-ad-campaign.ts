@@ -12,7 +12,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getFeedAdProduct } from "@/lib/ads/feed-ad-products";
+import { getFeedAdProductOrThrow } from "@/lib/ads/feed-ad-products";
 
 export type RenewFeedAdCampaignResult =
   | {
@@ -59,6 +59,8 @@ export async function renewFeedAdCampaign(
     idempotencyKey: string;
     /** 화면이 보여 준 선택 상품 가격 — DB 가 지금 가격과 다르면 price_changed */
     expectedCost?: number | null;
+    /** R-35: 화면이 보여 준 기간 — 지금 상품 기간과 다르면 price_changed (DB 함수는 금액만 대조 · 근본은 B-DB 묶음) */
+    expectedDurationDays?: number | null;
     /** If true, reject — caller must open new review request instead. */
     creativeOrDestinationChanged?: boolean;
   }
@@ -75,11 +77,44 @@ export async function renewFeedAdCampaign(
   }
 
   let expectedCost = toInt(params.expectedCost) ?? null;
-  if (expectedCost == null) {
+  let expectedDays = toInt(params.expectedDurationDays) ?? null;
+  if (expectedDays != null) {
+    /**
+     * R-37: 같은 요청 키 재전송은 기간 대조보다 먼저 — DB 함수와 같은 순서(같은 키면 처음 결과만 돌려줌).
+     * 이미 결제된 키를 기간 변경으로 409 거절하면 화면이 키를 버리고 새 키로 두 번 차감할 수 있다.
+     */
+    const relatedId = `renew:${campaignId}:${idem}`.slice(0, 200);
+    const { data: prior, error: priorErr } = await sb
+      .from("point_ledger")
+      .select("id")
+      .eq("user_id", params.userId)
+      .eq("related_type", "feed_ad_request")
+      .eq("related_id", relatedId)
+      .limit(1);
+    if (priorErr) return { ok: false, error: "renew_failed", httpStatus: 500 };
+    if ((prior ?? []).length > 0) expectedDays = null;
+  }
+  if (expectedCost == null || expectedDays != null) {
     // 가격 확인값을 보내지 않는 옛 화면(배포 직후 열려 있던 창) — 지금 가격을 기준으로 한다 (옛 동작과 같음).
-    const product = await getFeedAdProduct(sb, productId);
+    /** R-54: 상품 조회 오류는 「상품 없음」(400 → 화면이 키를 버림)이 아니라 500(키 유지 · 같은 키로 재확인) */
+    let product: Awaited<ReturnType<typeof getFeedAdProductOrThrow>>;
+    try {
+      product = await getFeedAdProductOrThrow(sb, productId);
+    } catch {
+      return { ok: false, error: "renew_failed", httpStatus: 500 };
+    }
     if (!product) return { ok: false, error: "product_not_found", httpStatus: 400 };
-    expectedCost = product.pointCost;
+    if (expectedCost == null) expectedCost = product.pointCost;
+    /** R-35: 기간이 바뀌었으면 차감 전에 멈춘다 — 회원이 본 기간과 다른 기간으로 연장하지 않게 */
+    if (expectedDays != null && expectedDays !== product.durationDays) {
+      return {
+        ok: false,
+        error: "price_changed",
+        httpStatus: RENEW_ERROR_HTTP.price_changed ?? 409,
+        pointCost: product.pointCost,
+        durationDays: product.durationDays,
+      };
+    }
   }
 
   const { data, error } = await sb.rpc("member_feed_ad_renew", {

@@ -17,6 +17,7 @@ import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import { createPromotionAttemptKeyStore } from "@/lib/points/promotion-attempt-key";
+import { promotionPurchaseErrorKey } from "@/lib/points/promotion-purchase-error";
 
 const FORM_ID = "mypage-ads-apply-form";
 
@@ -31,11 +32,14 @@ export function MyAdsApplyPageClient() {
     balance,
     loading: balanceLoading,
     error: balanceError,
+    refresh: refreshBalance,
   } = useUserPointBalance();
   const {
     productOptions,
     loading: targetsLoading,
     unauthorized,
+    failed: targetsFailed,
+    refresh: refreshTargets,
   } = usePromotionOrderTargets();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [canSubmit, setCanSubmit] = useState(false);
@@ -70,15 +74,8 @@ export function MyAdsApplyPageClient() {
         /** 성공 응답인데 본문을 못 읽음 = 결과를 모름 → 키 유지 */
         if (res.ok && typeof j.ok !== "boolean") status = null;
         if (!res.ok || !j.ok) {
-          const msg =
-            j.code === "insufficient_balance" ||
-            j.error === "insufficient_balance"
-              ? t("points_ui_insufficient")
-              : j.error === "already_active_promotion"
-              ? t("points_ui_promotion_conflict")
-              : j.error === "price_changed"
-              ? t("promo_price_changed")
-              : t("points_ui_request_failed");
+          /** 실패 이유 → 문구 단일 정의 (TB-05) */
+          const msg = t(promotionPurchaseErrorKey(j));
           if (j.error === "price_changed") setCatalogRefreshKey((k) => k + 1);
           setSubmitError(msg);
           showMypageToast(msg, "error");
@@ -156,6 +153,8 @@ export function MyAdsApplyPageClient() {
           onSubmit={(v) => void handleSubmit(v)}
           submitting={busy}
           catalogRefreshKey={catalogRefreshKey}
+          loadFailed={Boolean(balanceError) || targetsFailed}
+          onRetryLoad={() => void Promise.all([refreshBalance(), refreshTargets()])}
         />
       )}
     </MyScreen>

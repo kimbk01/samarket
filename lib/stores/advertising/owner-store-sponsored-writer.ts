@@ -31,6 +31,7 @@ import {
   validateOwnerStoreSponsoredSchedule,
   type OwnerStoreSponsoredInventoryKey,
 } from "@/lib/stores/advertising/owner-store-sponsored-contract";
+import { assertHomeFeedSellableByPolicy, STORES_HOME_FEED_INVENTORY_KEY } from "@/lib/stores/advertising/delivery-ad-home-feed-sell-gate";
 
 const JUNCTION_TABLE = "delivery_store_sponsored_campaign_inventories" as const;
 const INVENTORY_TABLE = "delivery_ad_inventories" as const;
@@ -51,6 +52,8 @@ const SELECT_COLS = [
   "lifecycle_status",
   "review_status",
   "pricing_model",
+  /** R-79: 업종 목록의 대상(대분류·소분류) — 이어쓰기 화면이 지면 칸을 채운다 */
+  "browse_target_kind",
   "review_notes",
   "owner_client_request_id",
   "submitted_at",
@@ -88,6 +91,8 @@ export type OwnerSponsoredCampaignRow = {
   createdAt: string;
   updatedAt: string;
   inventoryKeys: OwnerStoreSponsoredInventoryKey[];
+  /** R-79: 업종 목록 대상 (홈 홍보 = null) */
+  browseTargetKind: "primary" | "secondary" | null;
 };
 
 export type OwnerSponsoredWriterError =
@@ -110,6 +115,10 @@ export type OwnerSponsoredWriterError =
   | "inventory_lookup_failed"
   | "pricing_not_configured_ok"
   | "category_ads_disabled"
+  /** SA-01: 배달 홈 노출 자리(「더 많은 매장」 광고 연동) 꺼짐 */
+  | "home_ads_disabled"
+  /** R-32: 업종 판정 조회 실패 — 팔지 않고 「확인 못 함」 */
+  | "capacity_check_failed"
   | "taxonomy_required"
   /** ADS-02 — 기간은 패키지에서만 서버가 산출 (직접 start/end 수정 금지). */
   | "schedule_locked"
@@ -159,6 +168,8 @@ function mapRow(
     lifecycleStatus,
     reviewStatus,
     pricingModel: raw.pricing_model == null ? null : String(raw.pricing_model),
+    browseTargetKind:
+      raw.browse_target_kind === "primary" || raw.browse_target_kind === "secondary" ? raw.browse_target_kind : null,
     reviewNotes: raw.review_notes == null ? null : String(raw.review_notes),
     ownerClientRequestId:
       raw.owner_client_request_id == null ? null : String(raw.owner_client_request_id),
@@ -339,6 +350,122 @@ export type OwnerCreateDraftInput = {
   browseSecondarySlug?: string | null;
 };
 
+/**
+ * 업종 목록(STORES_CATEGORY_FEED) 판매 판정 — 초안 만들기·초안 수정·제출 직전이 같이 쓴다 (광고 감사 R-21 · 2026-11-26).
+ * 업종을 비워 두면 매장의 업종(대분류·소분류)으로 본다. 꺼진 업종이면 `category_ads_disabled`.
+ */
+export async function assertOwnerSponsoredCategoryFeedSellable(
+  sb: SupabaseClient,
+  input: {
+    storeId: string;
+    browseTargetKind: "primary" | "secondary" | null | undefined;
+    browsePrimarySlug: string | null | undefined;
+    browseSecondarySlug: string | null | undefined;
+  }
+): Promise<
+  | { ok: true; kind: "primary" | "secondary"; primarySlug: string | null; secondarySlug: string | null }
+  | { ok: false; error: "category_ads_disabled" | "taxonomy_required" | "capacity_check_failed" }
+> {
+  /** R-32: 매장 업종·업종 정책 조회 실패는 「확인 못 함」(capacity_check_failed) — 「광고 받지 않는 위치」나 처리 안 된 오류로 보이지 않게 */
+  try {
+    return await assertOwnerSponsoredCategoryFeedSellableInner(sb, input);
+  } catch (e) {
+    console.warn("[owner-sponsored] category gate check failed", e instanceof Error ? e.message : e);
+    return { ok: false, error: "capacity_check_failed" };
+  }
+}
+
+async function assertOwnerSponsoredCategoryFeedSellableInner(
+  sb: SupabaseClient,
+  input: {
+    storeId: string;
+    browseTargetKind: "primary" | "secondary" | null | undefined;
+    browsePrimarySlug: string | null | undefined;
+    browseSecondarySlug: string | null | undefined;
+  }
+): Promise<
+  | { ok: true; kind: "primary" | "secondary"; primarySlug: string | null; secondarySlug: string | null }
+  | { ok: false; error: "category_ads_disabled" | "taxonomy_required" }
+> {
+  const { assertCategoryFeedSellableByPolicy } = await import(
+    "@/lib/stores/advertising/delivery-ad-category-policy-sell-gate"
+  );
+  const kind = input.browseTargetKind === "secondary" ? "secondary" : "primary";
+  let primarySlug = input.browsePrimarySlug?.trim() || null;
+  let secondarySlug = input.browseSecondarySlug?.trim() || null;
+  if (!primarySlug) {
+    const { data: storeTax, error: taxErr } = await sb
+      .from("stores")
+      .select("store_categories ( slug ), store_topics ( slug )")
+      .eq("id", input.storeId)
+      .maybeSingle();
+    if (taxErr) throw new Error(taxErr.message || "store_taxonomy_load_failed");
+    const cat = (storeTax as { store_categories?: { slug?: string } | { slug?: string }[] | null } | null)
+      ?.store_categories;
+    const topic = (storeTax as { store_topics?: { slug?: string } | { slug?: string }[] | null } | null)
+      ?.store_topics;
+    const catRow = Array.isArray(cat) ? cat[0] : cat;
+    const topicRow = Array.isArray(topic) ? topic[0] : topic;
+    primarySlug = catRow?.slug?.trim() || null;
+    if (kind === "secondary") secondarySlug = topicRow?.slug?.trim() || null;
+  }
+  const policyGate = await assertCategoryFeedSellableByPolicy(sb, {
+    primarySlug,
+    secondarySlug,
+    browseTargetKind: kind,
+  });
+  if (!policyGate.ok) return { ok: false, error: policyGate.error };
+  return { ok: true, kind, primarySlug, secondarySlug: kind === "secondary" ? secondarySlug : null };
+}
+
+/**
+ * R-41: 매장 업종(대분류·소분류) 한 번 읽기 — 사장님 상품·견적 API 가 대분류·소분류 판정에 같이 쓴다(중복 조회 제거).
+ * 조회 오류는 던진다.
+ */
+export async function loadOwnerStoreBrowseSlugs(
+  sb: SupabaseClient,
+  storeId: string
+): Promise<{ primarySlug: string | null; secondarySlug: string | null }> {
+  const { data, error } = await sb
+    .from("stores")
+    .select("store_categories ( slug ), store_topics ( slug )")
+    .eq("id", storeId)
+    .maybeSingle();
+  if (error) throw new Error(error.message || "store_taxonomy_load_failed");
+  const cat = (data as { store_categories?: { slug?: string } | { slug?: string }[] | null } | null)?.store_categories;
+  const topic = (data as { store_topics?: { slug?: string } | { slug?: string }[] | null } | null)?.store_topics;
+  const catRow = Array.isArray(cat) ? cat[0] : cat;
+  const topicRow = Array.isArray(topic) ? topic[0] : topic;
+  return { primarySlug: catRow?.slug?.trim() || null, secondarySlug: topicRow?.slug?.trim() || null };
+}
+
+/** R-21: 저장된 신청의 업종 대상(browse_*)을 읽어 같은 판정 — 제출 직전(캐시 차감 전)에 쓴다. 조회 실패 = 팔지 않음 */
+export async function assertSponsoredCampaignCategoryFeedSellable(
+  sb: SupabaseClient,
+  input: { campaignId: string; storeId: string }
+): Promise<{ ok: true } | { ok: false; error: "category_ads_disabled" | "taxonomy_required" | "capacity_check_failed" }> {
+  const { data, error } = await sb
+    .from(STORE_SPONSORED_CAMPAIGN_TABLE)
+    .select("browse_target_kind, browse_primary_slug, browse_secondary_slug")
+    .eq("id", input.campaignId)
+    .maybeSingle();
+  /** R-32: 신청 조회 실패 = 「확인 못 함」 · 신청이 없으면 업종 판정 대상이 아님(제출 쪽이 신청 없음으로 막음) */
+  if (error) return { ok: false, error: "capacity_check_failed" };
+  if (!data) return { ok: false, error: "category_ads_disabled" };
+  const raw = data as {
+    browse_target_kind?: string | null;
+    browse_primary_slug?: string | null;
+    browse_secondary_slug?: string | null;
+  };
+  const gate = await assertOwnerSponsoredCategoryFeedSellable(sb, {
+    storeId: input.storeId,
+    browseTargetKind: raw.browse_target_kind === "secondary" ? "secondary" : "primary",
+    browsePrimarySlug: raw.browse_primary_slug ?? null,
+    browseSecondarySlug: raw.browse_secondary_slug ?? null,
+  });
+  return gate.ok ? { ok: true } : gate;
+}
+
 export async function createOwnerSponsoredDraft(
   sb: SupabaseClient,
   input: OwnerCreateDraftInput
@@ -371,12 +498,18 @@ export async function createOwnerSponsoredDraft(
     } = await import("@/lib/stores/advertising/owner-delivery-ad-commercial-bind");
     const inventoryKey = inv.keys[0];
     if (!inventoryKey) return { ok: false, error: "no_inventory" };
-    const quote = await quoteDeliveryAdApplicationCommercial(sb, {
-      productKind: "store_sponsored",
-      inventoryKey,
-      packageId,
-      storeId: input.storeId,
-    });
+    /** R-70: 견적 조회 오류 = 「확인 못 함」 */
+    let quote: Awaited<ReturnType<typeof quoteDeliveryAdApplicationCommercial>>;
+    try {
+      quote = await quoteDeliveryAdApplicationCommercial(sb, {
+        productKind: "store_sponsored",
+        inventoryKey,
+        packageId,
+        storeId: input.storeId,
+      });
+    } catch {
+      return { ok: false, error: "capacity_check_failed" };
+    }
     if (!quote.ok) return { ok: false, error: "pricing_not_configured_ok" };
     const window = scheduleWindowFromPackageDurationDays(quote.durationDays, input.nowMs);
     if (!window.ok) return { ok: false, error: "invalid_end_at" };
@@ -389,40 +522,24 @@ export async function createOwnerSponsoredDraft(
   let browsePrimarySlug = input.browsePrimarySlug?.trim() || null;
   let browseSecondarySlug = input.browseSecondarySlug?.trim() || null;
 
+  /** SA-01: 배달 홈 홍보는 노출 자리가 켜져 있을 때만 판다 (업종 판매 차단과 같은 자리) */
+  if (inv.keys.includes(STORES_HOME_FEED_INVENTORY_KEY)) {
+    const homeGate = await assertHomeFeedSellableByPolicy(sb);
+    if (!homeGate.ok) return { ok: false, error: homeGate.error };
+  }
+
   const wantsCategory = inv.keys.includes("STORES_CATEGORY_FEED");
   if (wantsCategory) {
-    const { assertCategoryFeedSellableByPolicy } = await import(
-      "@/lib/stores/advertising/delivery-ad-category-policy-sell-gate"
-    );
-    const kind =
-      browseTargetKind === "primary" || browseTargetKind === "secondary"
-        ? browseTargetKind
-        : "primary";
-    if (!browsePrimarySlug) {
-      const { data: storeTax } = await sb
-        .from("stores")
-        .select("store_categories ( slug ), store_topics ( slug )")
-        .eq("id", input.storeId)
-        .maybeSingle();
-      const cat = (storeTax as { store_categories?: { slug?: string } | { slug?: string }[] | null } | null)
-        ?.store_categories;
-      const topic = (storeTax as { store_topics?: { slug?: string } | { slug?: string }[] | null } | null)
-        ?.store_topics;
-      const catRow = Array.isArray(cat) ? cat[0] : cat;
-      const topicRow = Array.isArray(topic) ? topic[0] : topic;
-      browsePrimarySlug = catRow?.slug?.trim() || null;
-      if (kind === "secondary") browseSecondarySlug = topicRow?.slug?.trim() || null;
-    }
-    const policyGate = await assertCategoryFeedSellableByPolicy(sb, {
-      primarySlug: browsePrimarySlug,
-      secondarySlug: browseSecondarySlug,
-      browseTargetKind: kind,
+    const gate = await assertOwnerSponsoredCategoryFeedSellable(sb, {
+      storeId: input.storeId,
+      browseTargetKind,
+      browsePrimarySlug,
+      browseSecondarySlug,
     });
-    if (!policyGate.ok) {
-      return { ok: false, error: policyGate.error };
-    }
-    browseTargetKind = kind;
-    if (kind !== "secondary") browseSecondarySlug = null;
+    if (!gate.ok) return { ok: false, error: gate.error };
+    browseTargetKind = gate.kind;
+    browsePrimarySlug = gate.primarySlug;
+    browseSecondarySlug = gate.secondarySlug;
   }
 
   const schedule = validateOwnerStoreSponsoredSchedule({
@@ -575,12 +692,18 @@ export async function updateOwnerSponsoredDraft(
     } = await import("@/lib/stores/advertising/owner-delivery-ad-commercial-bind");
     const inventoryKey = nextKeys[0];
     if (!inventoryKey) return { ok: false, error: "no_inventory" };
-    const quote = await quoteDeliveryAdApplicationCommercial(sb, {
-      productKind: "store_sponsored",
-      inventoryKey,
-      packageId,
-      storeId: row.storeId,
-    });
+    /** R-70: 견적 조회 오류 = 「확인 못 함」 */
+    let quote: Awaited<ReturnType<typeof quoteDeliveryAdApplicationCommercial>>;
+    try {
+      quote = await quoteDeliveryAdApplicationCommercial(sb, {
+        productKind: "store_sponsored",
+        inventoryKey,
+        packageId,
+        storeId: row.storeId,
+      });
+    } catch {
+      return { ok: false, error: "capacity_check_failed" };
+    }
     if (!quote.ok) return { ok: false, error: "pricing_not_configured_ok" };
     const window = scheduleWindowFromPackageDurationDays(quote.durationDays, input.nowMs);
     if (!window.ok) return { ok: false, error: "invalid_end_at" };
@@ -597,6 +720,32 @@ export async function updateOwnerSponsoredDraft(
   if (typeof input.title === "string" && input.title.trim()) patch.title = input.title.trim().slice(0, 120);
   if (typeof input.headline === "string" && input.headline.trim()) {
     patch.headline = input.headline.trim().slice(0, 160);
+  }
+
+  /** R-53: 배달 홈 홍보로 바꾸는 저장도 만들기와 같은 홈 판정(꺼짐 = home_ads_disabled · 조회 실패 = capacity_check_failed) */
+  if (input.inventoryKeys !== undefined && nextKeys.includes(STORES_HOME_FEED_INVENTORY_KEY)) {
+    const homeGate = await assertHomeFeedSellableByPolicy(sb);
+    if (!homeGate.ok) return { ok: false, error: homeGate.error };
+  }
+
+  /**
+   * R-21: 업종 목록으로 바꾸거나 업종을 바꾸는 저장도 만들기와 같은 업종 판정 — 꺼진 업종으로 옮겨 두고 제출하는 길을 막는다.
+   * (업종을 건드리지 않는 저장은 제출 직전 판정이 본다)
+   */
+  if (
+    nextKeys.includes("STORES_CATEGORY_FEED") &&
+    (input.inventoryKeys !== undefined || input.browseTargetKind !== undefined || input.browsePrimarySlug !== undefined)
+  ) {
+    const gate =
+      input.browseTargetKind === "primary" || input.browseTargetKind === "secondary"
+        ? await assertOwnerSponsoredCategoryFeedSellable(sb, {
+            storeId: row.storeId,
+            browseTargetKind: input.browseTargetKind,
+            browsePrimarySlug: input.browsePrimarySlug ?? null,
+            browseSecondarySlug: input.browseSecondarySlug ?? null,
+          })
+        : await assertSponsoredCampaignCategoryFeedSellable(sb, { campaignId: row.id, storeId: row.storeId });
+    if (!gate.ok) return { ok: false, error: gate.error };
   }
 
   const startAt = (patch.start_at as string | undefined) ?? row.startAt;

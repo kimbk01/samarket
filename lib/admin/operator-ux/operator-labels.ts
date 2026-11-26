@@ -171,6 +171,18 @@ export function adminOperatorErrorMessage(
   const known: Record<string, { ko: string; en: string }> = {
     // 재감사 S-1 (F-3): 피드 배너 풀 수용량(위치별 3)을 서버도 검사
     capacity_full: catalogPair("admin_this_ad_placement_is_full_max"),
+    /** 광고 감사 PP-01: 팝업 원본 크기 검사 (`creative-size-spec.ts`) */
+    popup_image_too_small: catalogPair("platform_popup_image_too_small_spec"),
+    popup_image_too_many_pixels: catalogPair("platform_popup_image_too_many_pixels"),
+    /** 광고 감사 R-11·R-12: 매장 가격 저장 · 배너 자리 확인 */
+    price_required_to_enable: catalogPair("admin_ads_err_price_required_to_enable"),
+    sold_check_failed: catalogPair("admin_ads_err_sold_check_failed"),
+    duration_locked_sold: catalogPair("admin_ads_err_duration_locked_sold"),
+    capacity_check_failed: catalogPair("admin_ads_err_capacity_check_failed"),
+    price_over_cap: catalogPair("admin_ads_err_price_over_cap"),
+    destination_unavailable: catalogPair("admin_ads_err_dest_unavailable"),
+    destination_not_mine: catalogPair("admin_ads_err_dest_unavailable"),
+    destination_check_failed: catalogPair("admin_ads_err_dest_check_failed"),
     /** 언어 SSOT S7 — 어드민 등록 이름 영어 필수 */
     name_en_required: catalogPair("admin_name_en_required"),
     reason_required: catalogPair("admin_launch_intro_err_reason_required"),

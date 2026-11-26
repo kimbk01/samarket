@@ -43,8 +43,8 @@ import { MemberPostPromoteSheet } from "@/components/post/MemberPostPromoteSheet
 
 const LONG_DESC = "결제 즉시 3일간 커뮤니티 홈 피드와 이 글의 주제 피드에 노출됩니다. 관리자 승인 대기 없이 Point가 결제됩니다.";
 const catalog = [
-  { id: "community_promote_3", durationDays: 3, pointCost: 10000, fallbackTitleKo: "커뮤니티 3일 상위 노출", fallbackTitleEn: "3d", fallbackDescKo: LONG_DESC, fallbackDescEn: "" },
-  { id: "community_promote_7", durationDays: 7, pointCost: 20000, fallbackTitleKo: "커뮤니티 7일 상위 노출", fallbackTitleEn: "7d", fallbackDescKo: LONG_DESC, fallbackDescEn: "" },
+  { id: "community_promote_3", durationDays: 3, pointCost: 10000 },
+  { id: "community_promote_7", durationDays: 7, pointCost: 20000 },
 ];
 
 let container: HTMLDivElement;
@@ -106,7 +106,7 @@ describe("커뮤니티 상위노출 창 — 설명 최소 · 정확한 버튼", 
   it("⑨ 모자란 상품 줄은 못 고름 · 「N P 부족」 · 고를 수 있는 줄이 있으면 버튼은 그 금액", async () => {
     balance = 15000;
     await render();
-    const seven = [...container.querySelectorAll('[role="radio"]')].find((b) => (b.textContent ?? "").includes("7일")) as HTMLButtonElement;
+    const seven = [...container.querySelectorAll('[role="radio"]')].find((b) => (b.textContent ?? "").includes("promo_product_title_community(7)")) as HTMLButtonElement;
     expect(seven.disabled).toBe(true);
     expect(seven.getAttribute("data-promo-sheet-option-state")).toBe("disabled");
     expect(seven.querySelector("[data-promo-sheet-short]")?.textContent).toBe("trade_ad_short(5,000P)");

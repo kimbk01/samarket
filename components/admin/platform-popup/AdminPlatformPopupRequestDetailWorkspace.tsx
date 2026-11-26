@@ -28,6 +28,7 @@ import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED } from "@/lib/platform-popup/owner-popup-new-sales-gate";
 
 export function AdminPlatformPopupRequestDetailWorkspace() {
   const { safeT, language, t } = useI18n();
@@ -331,14 +332,21 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
                 {safeT("admin_platform_popup_request_start_review")}
               </AdminActionButton>
             ) : null}
-            <AdminActionButton
-              variant="secondary"
-              size="sm"
-              disabled={writeBlocked}
-              onClick={() => void act("revision_required")}
-            >
-              {safeT("admin_platform_popup_request_revision")}
-            </AdminActionButton>
+            {/* PP-02: 신규 판매가 꺼져 있으면 「수정 요청」 대신 안내 — 사장님이 다시 제출할 수 없다(반려하면 환불) */}
+            {OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED ? (
+              <AdminActionButton
+                variant="secondary"
+                size="sm"
+                disabled={writeBlocked}
+                onClick={() => void act("revision_required")}
+              >
+                {safeT("admin_platform_popup_request_revision")}
+              </AdminActionButton>
+            ) : (
+              <span className="text-[12px] text-sam-muted" data-admin-popup-revision-closed="1">
+                {safeT("admin_platform_popup_request_revision_closed")}
+              </span>
+            )}
             <AdminActionButton
               variant="primary"
               size="sm"

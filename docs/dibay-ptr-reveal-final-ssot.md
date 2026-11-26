@@ -116,7 +116,7 @@ QA 캠페인 `5f811614-b537-4603-908b-972f16591ba6`: **paused + allowlist(aaaa�
 
 | Mode | 동작 |
 |---|---|
-| `close_only` | DB 억제 행 없음 · 같은 표면에서 노출 종료 후 `closeOnlyHeld`로 재노출 금지 · **다른 표면 이동 시 해제** |
+| `close_only` | DB 억제 행 없음 · 같은 표면에서 노출 종료 후 `closeOnlyHeld`로 재노출 금지 · **다른 화면(경로)으로 이동하면 해제** — PTR 없는 화면을 다녀와도 해제(앱 전체 호스트가 경로 변화를 알림 · 2026-11-26 광고 감사 PT-01, 마스터 SSOT §4-1 「지금 화면에 있는 동안만」과 일치) |
 | `once_per_session` / `once_per_day` / `once_campaign` | dismiss 시 suppress API (SESSION / TODAY / CAMPAIGN) |
 
 - 클라이언트 캐시 TTL **5분** · fetch timeout **4초**

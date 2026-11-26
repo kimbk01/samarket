@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { ADS_CANONICAL_PRODUCTS } from "@/lib/ads/ads-canonical-product-ssot";
 import { listFeedAdProducts, type FeedAdProduct } from "@/lib/ads/feed-ad-products";
 import { loadMemberPromotionProducts } from "@/lib/points/member-promotion-products-server";
+import { memberPromotionProductTitle } from "@/lib/points/promotion-product-title";
 import { formatCurrencyAmount } from "@/lib/currency/currency-display-contract";
 import {
   formatDeliveryAdPhpMinor,
@@ -20,6 +21,7 @@ import { humanPlacementLabel } from "@/lib/admin/ads-exposure/human-placement-la
 import { catalogPair } from "@/lib/i18n/catalog-pair";
 import { DIBAY_SERVICE_BRAND as B } from "@/lib/brand/dibay-service-brand";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { feedAdProductTitle } from "@/lib/ads/feed-ad-product-title";
 
 /** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
 function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
@@ -161,8 +163,8 @@ function feedLines(
     .filter((p) => p.domain === domain)
     .map((p) => ({
       sku: p.id,
-      labelKo: p.titleKo || tx(true, "admin_ads_duration_days", { days: p.durationDays }),
-      labelEn: p.titleEn || tx(false, "admin_ads_duration_days", { days: p.durationDays }),
+      labelKo: feedAdProductTitle("ko", p),
+      labelEn: feedAdProductTitle("en", p),
       priceTextKo: formatAdsPointPrice(p.pointCost, p.durationDays, true),
       priceTextEn: formatAdsPointPrice(p.pointCost, p.durationDays, false),
       active: p.active,
@@ -258,8 +260,8 @@ export async function loadAdsCommercialControlModel(
       ],
       priceLines: communityBoost.map((p) => ({
         sku: p.id,
-        labelKo: p.fallbackTitleKo,
-        labelEn: p.fallbackTitleEn,
+        labelKo: memberPromotionProductTitle("ko", p),
+        labelEn: memberPromotionProductTitle("en", p),
         priceTextKo: formatAdsPointPrice(p.pointCost, p.durationDays, true),
         priceTextEn: formatAdsPointPrice(p.pointCost, p.durationDays, false),
         active: p.active,
@@ -306,8 +308,8 @@ export async function loadAdsCommercialControlModel(
       ],
       priceLines: tradeBoost.map((p) => ({
         sku: p.id,
-        labelKo: p.fallbackTitleKo,
-        labelEn: p.fallbackTitleEn,
+        labelKo: memberPromotionProductTitle("ko", p),
+        labelEn: memberPromotionProductTitle("en", p),
         priceTextKo: formatAdsPointPrice(p.pointCost, p.durationDays, true),
         priceTextEn: formatAdsPointPrice(p.pointCost, p.durationDays, false),
         active: p.active,

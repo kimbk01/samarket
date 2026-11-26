@@ -79,6 +79,8 @@ export type AdminFirstPartyBannerCreateError =
   | "invalid_creative"
   | "invalid_destination"
   | "capacity_full"
+  /** R-12: 자리 확인 조회 실패(판매 막음) — 「자리 가득」과 구분 */
+  | "capacity_check_failed"
   | "inventory_lookup_failed"
   | "db_error";
 
@@ -166,7 +168,7 @@ export async function adminCreateDeliveryAdFirstPartyBanner(
       browseTarget,
     });
     if (!cap.ok) {
-      return { ok: false, error: "capacity_full", detail: cap.messageKo };
+      return { ok: false, error: cap.error === "capacity_check_failed" ? "capacity_check_failed" : "capacity_full", detail: cap.messageKo };
     }
   }
 

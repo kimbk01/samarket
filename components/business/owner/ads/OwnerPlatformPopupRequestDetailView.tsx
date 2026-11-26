@@ -20,6 +20,7 @@ import {
 import { describePlatformPopupCtaDestination } from "@/lib/platform-popup/popup-cta-destination-ux";
 import { adminSurfacesSelectionLabel } from "@/lib/platform-popup/admin-surface-target-mode";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED } from "@/lib/platform-popup/owner-popup-new-sales-gate";
 
 export function OwnerPlatformPopupRequestDetailView() {
   const { safeT, language } = useI18n();
@@ -211,7 +212,8 @@ export function OwnerPlatformPopupRequestDetailView() {
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        {editable ? (
+        {/* PP-03: 판매 꺼짐이면 「수정 후 재신청」 링크 없음 (제출 API 403) */}
+        {editable && OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED ? (
           <Link
             href={`${PLATFORM_POPUP_OWNER_ROUTES.createPlatformPopup}?requestId=${encodeURIComponent(item.id)}&storeId=${encodeURIComponent(item.storeId)}`}
             className="rounded-ui-rect bg-sam-primary px-4 py-2 text-sm font-semibold text-sam-on-primary"

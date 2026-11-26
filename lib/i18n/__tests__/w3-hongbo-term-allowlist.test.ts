@@ -17,6 +17,9 @@ const NORMAL_TERM_KEYS = new Set([
   "admin_ads_human_approval_banner_store_promotion",
   // 배달 상품명 「매장 홍보」(정상 용어) — R1 원장 종류 이름
   "ads_ledger_kind_delivery_sponsored",
+  // 광고 요금 안내 상품 이름 「매장 홍보」(정상 용어 · 광고 감사 E 2026-11-26)
+  "ad_guide_name_store_home_feed",
+  "ad_guide_name_store_category_feed",
   "neighborhood_promo",
   "neighborhood_category_promo",
   "store_coupon_purpose_new_menu",

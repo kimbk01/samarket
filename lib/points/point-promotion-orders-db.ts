@@ -22,6 +22,8 @@ export function mapPointPromotionOrderRow(row: Record<string, unknown>): PointPr
     pausedAt: row.paused_at != null ? String(row.paused_at) : undefined,
     pausedBy: row.paused_by != null ? String(row.paused_by) : undefined,
     endReasonCode: row.end_reason_code != null ? String(row.end_reason_code) : undefined,
+    refundPoints:
+      row.refund_points != null && Number.isFinite(Number(row.refund_points)) ? Number(row.refund_points) : undefined,
   };
 }
 

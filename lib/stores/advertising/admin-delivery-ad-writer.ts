@@ -89,6 +89,8 @@ export type AdminDeliveryAdWriterError =
   /** D-09 — 목적지가 계약 3종·이 매장이 아님. */
   | "invalid_destination"
   | "capacity_full"
+  /** R-12: 자리 확인 조회 실패(판매 막음) — 「자리 가득」과 구분 */
+  | "capacity_check_failed"
   | "reject_refund_failed"
   /** ADS-01 — 승인 시점에 원 신청 기간이 이미 끝남. */
   | "period_expired"
@@ -288,7 +290,7 @@ export async function adminTransitionDeliveryAdCampaign(
       if (!cap.ok) {
         return {
           ok: false,
-          error: "capacity_full",
+          error: cap.error === "capacity_check_failed" ? "capacity_check_failed" : "capacity_full",
           detail: cap.messageKo,
         };
       }
@@ -544,7 +546,7 @@ export async function adminUpdateDeliveryAdSchedule(
       browseTarget: placement?.browseTarget ?? null,
     });
     if (!cap.ok) {
-      return { ok: false, error: "capacity_full", detail: cap.messageKo };
+      return { ok: false, error: cap.error === "capacity_check_failed" ? "capacity_check_failed" : "capacity_full", detail: cap.messageKo };
     }
   }
 

@@ -53,6 +53,20 @@ export function classifyMyBoostOrderTab(
   return phase === "ended" ? "ended" : "active";
 }
 
+/**
+ * 정지 원인 단일 판정 (광고 감사 TB-06 · 2026-11-26) — 결제 창·내 광고가 같이 쓴다.
+ * 회원이 글을 숨겨 멈춘 것: 거래 `listing_owner_hidden`(`trade_promotion_sync_listing`) · 커뮤니티 `system`(`community_promotion_sync_post`).
+ * 운영 검토로 숨김: 거래 `listing_admin_hidden`. 그 외(거래 `admin` · 커뮤니티 관리자 정지 = 빈 값)는 운영자 정지.
+ */
+export type BoostPauseCause = "own_hidden" | "review" | "staff";
+
+export function boostPauseCause(pausedBy: string | null | undefined): BoostPauseCause {
+  const v = String(pausedBy ?? "").trim();
+  if (v === "listing_owner_hidden" || v === "system") return "own_hidden";
+  if (v === "listing_admin_hidden") return "review";
+  return "staff";
+}
+
 /** 내 광고 상위노출 줄 상태 문구 — 일시정지·종료 이유는 DB `paused_by`·`end_reason_code` (트리거 `trade_promotion_sync_listing`) */
 export function myBoostOrderStatusKey(
   order: { orderStatus?: string | null; endAt?: string | null; pausedBy?: string | null; endReasonCode?: string | null },
@@ -69,15 +83,19 @@ export function myBoostOrderStatusKey(
   | "mypage_oa_ads_boost_status_ended_policy" {
   const s = String(order.orderStatus ?? "").trim().toLowerCase();
   if (s === "paused") {
-    if (order.pausedBy === "listing_owner_hidden") return "mypage_oa_ads_boost_status_paused_hidden";
-    if (order.pausedBy === "listing_admin_hidden") return "mypage_oa_ads_boost_status_paused_review";
+    const cause = boostPauseCause(order.pausedBy);
+    if (cause === "own_hidden") return "mypage_oa_ads_boost_status_paused_hidden";
+    if (cause === "review") return "mypage_oa_ads_boost_status_paused_review";
     return "mypage_oa_ads_boost_status_paused";
   }
   const tab = classifyMyBoostOrderTab(order.orderStatus, order.endAt, nowMs);
   if (tab === "active") return "mypage_oa_ads_boost_status_active";
   if (tab === "pending") return "mypage_oa_ads_boost_status_pending";
   if (order.endReasonCode === "listing_sold") return "mypage_oa_ads_boost_status_ended_sold";
-  if (order.endReasonCode === "listing_owner_deleted") return "mypage_oa_ads_boost_status_ended_deleted";
+  /** 커뮤니티 글 삭제 = `post_owner_deleted` (`community_promotion_sync_post`) — 거래와 같은 문구 */
+  if (order.endReasonCode === "listing_owner_deleted" || order.endReasonCode === "post_owner_deleted") {
+    return "mypage_oa_ads_boost_status_ended_deleted";
+  }
   if (order.endReasonCode === "listing_admin_deleted") return "mypage_oa_ads_boost_status_ended_policy";
   return "mypage_oa_ads_boost_status_ended";
 }

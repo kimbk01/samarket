@@ -14,6 +14,9 @@ import {
 import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { confirmBigAdPriceChange } from "@/lib/admin/ads-commercial/confirm-big-ad-price-change";
+import { formatAdPriceRatio, isBigAdPriceChange } from "@/lib/admin/ads-commercial/ad-price-change-guard";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminConflictReloadedCode } from "@/lib/admin/operator-ux/operator-labels";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
@@ -21,6 +24,7 @@ import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import "@/lib/admin/status-labels/ads-status-labels";
 import type { FeedAdProduct } from "@/lib/ads/feed-ad-products";
 import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
+import { feedAdProductTitleKey } from "@/lib/ads/feed-ad-product-title";
 
 type Row = FeedAdProduct & {
   draftDuration: string;
@@ -101,14 +105,33 @@ export function AdminFeedAdProductsClient() {
   const save = async (row: Row) => {
     if (!writeGuard.guard()) return;
     const ko = !en;
+    /** D-13: 확인 창에 「이전 → 새 금액 (×배수)」 · 3배 이상이면 한 번 더 확인 */
+    const nextPoint = Math.floor(Number(row.draftPoint));
+    const priceLine =
+      Number.isFinite(nextPoint) && nextPoint !== row.pointCost
+        ? t("admin_ads_price_change_line", {
+            label: t(feedAdProductTitleKey(row.domain), { days: String(row.durationDays) }),
+            before: `${formatAdminNumber(row.pointCost)}P`,
+            after: `${formatAdminNumber(nextPoint)}P`,
+            ratio: formatAdPriceRatio(row.pointCost, nextPoint) ?? "",
+          })
+        : null;
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("pointPolicySave"),
       ko,
       title: t("admin_ads_save_banner_ad_product"),
-      description: t("admin_ads_duration_point_apply_new_requests"),
+      description: priceLine
+        ? `${priceLine} — ${t("admin_ads_duration_point_apply_new_requests")}`
+        : t("admin_ads_duration_point_apply_new_requests"),
       confirmLabel: adminCta("save", ko),
     });
     if (!confirmed.ok) return;
+    const bigOk = await confirmBigAdPriceChange({
+      ko,
+      t,
+      bigLines: priceLine && isBigAdPriceChange(row.pointCost, nextPoint) ? [priceLine] : [],
+    });
+    if (!bigOk) return;
     setBusyId(row.id);
     setResult(null);
     try {
@@ -222,7 +245,7 @@ export function AdminFeedAdProductsClient() {
             {visibleRows.map((row) => (
               <tr key={row.id} className="border-t border-sam-border">
                 <td className="px-3 py-2">
-                  <div className="font-medium text-sam-fg">{en ? row.titleEn : row.titleKo}</div>
+                  <div className="font-medium text-sam-fg">{t(feedAdProductTitleKey(row.domain), { days: String(row.durationDays) })}</div>
                   <div className="text-sam-muted">{row.id}</div>
                 </td>
                 <td className="px-3 py-2">

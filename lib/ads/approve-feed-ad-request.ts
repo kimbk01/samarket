@@ -25,6 +25,7 @@ import { normalizeFeedAdTopicSlug } from "@/lib/ads/feed-ad-placement";
 import { memberFeedAdCampaignName } from "@/lib/ads/feed-ad-advertiser-name";
 import { assertFeedAdPoolCapacityAvailable } from "@/lib/ads/feed-ad-pool-capacity-server";
 import { isFeedAdPoolCapacityDbError } from "@/lib/ads/feed-ad-pool-capacity";
+import { checkMemberFeedAdDestination } from "@/lib/ads/feed-ad-member-destination-check";
 
 export type ApproveFeedAdRequestResult =
   | { ok: true; status: "active"; campaignId: string }
@@ -142,6 +143,24 @@ export async function approveFeedAdRequest(
     })
   ) {
     return { ok: false, error: "destination_required", httpStatus: 400 };
+  }
+
+  /**
+   * FB-05 (광고 감사 · 2026-11-27): 승인 시점에도 연결한 글이 **신청자 본인의 공개 글**인지 다시 확인 —
+   * 신청 뒤 글을 숨기거나 지우면 돈 받고 누르면 안 열리는 배너가 된다. 신청 POST 와 같은 함수(보류 포인트는 그대로).
+   */
+  {
+    const destCheck = await checkMemberFeedAdDestination(sb, String(row.user_id ?? ""), {
+      destinationType: String(row.destination_type ?? ""),
+      destinationId: String(row.destination_id ?? ""),
+    });
+    if (!destCheck.ok) {
+      return {
+        ok: false,
+        error: destCheck.error,
+        httpStatus: destCheck.error === "destination_check_failed" ? 503 : 409,
+      };
+    }
   }
 
   const now = new Date();
@@ -339,7 +358,9 @@ export async function approveFeedAdRequest(
           reviewed_at: null,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", requestId);
+        .eq("id", requestId)
+        /** FB-15: 그 사이 회원이 취소했으면 「취소됨」을 덮어쓰지 않는다 */
+        .neq("status", "cancelled");
       return {
         ok: false,
         error: updReq?.message ?? "request_activate_failed",

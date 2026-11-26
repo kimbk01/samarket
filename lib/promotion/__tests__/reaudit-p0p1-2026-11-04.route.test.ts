@@ -101,7 +101,7 @@ describe("R-04 — 같은 결제 키 재전송은 가격이 바뀌었어도 처�
     ];
     tables.point_promotion_orders = [{ id: "order-9", order_status: "active", end_at: "2026-11-20T00:00:00Z" }];
     priceMatches.mockReturnValue(false);
-    const res = await purchaseReq("k-2", { targetId: "post-1", productId: "community_promote_7" });
+    const res = await purchaseReq("k-2", { targetId: "post-1", productId: "community_promote_7", expectedPointCost: 20000, expectedDurationDays: 7 });
     const j = (await res.json()) as Record<string, unknown>;
     expect(j).toMatchObject({ ok: true, idempotent: true, extended: true, endAt: "2026-11-20T00:00:00Z" });
     expect(rpc).not.toHaveBeenCalled();
@@ -110,7 +110,7 @@ describe("R-04 — 같은 결제 키 재전송은 가격이 바뀌었어도 처�
   it("남의 키는 재전송으로 보지 않는다 → 평소처럼 가격 비교(바뀌었으면 409, 결제 없음)", async () => {
     tables.point_promotion_orders = [{ id: "order-1", user_id: "someone-else", idempotency_key: "k-1" }];
     priceMatches.mockReturnValue(false);
-    const res = await purchaseReq("k-1", { targetId: "post-1", productId: "community_promote_7" });
+    const res = await purchaseReq("k-1", { targetId: "post-1", productId: "community_promote_7", expectedPointCost: 20000, expectedDurationDays: 7 });
     expect(res.status).toBe(409);
     expect(rpc).not.toHaveBeenCalled();
   });
@@ -125,7 +125,7 @@ describe("R-03 — 커뮤니티 결제 재전송 응답에 idempotent 가 실린
     });
     tables.community_posts = [{ id: "post-1", user_id: "user-1", title: "t", status: "active", is_hidden: false }];
     tables.profiles = [{ id: "user-1", nickname: "n" }];
-    const res = await purchaseReq("k-new", { targetId: "post-1", productId: "community_promote_7", targetType: "community_post" });
+    const res = await purchaseReq("k-new", { targetId: "post-1", productId: "community_promote_7", targetType: "community_post", expectedPointCost: 20000, expectedDurationDays: 7 });
     const j = (await res.json()) as Record<string, unknown>;
     if (res.status === 200) {
       expect(j).toMatchObject({ ok: true, idempotent: true, extended: true });

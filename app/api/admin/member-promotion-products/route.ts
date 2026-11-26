@@ -5,6 +5,7 @@
  *   → `admin_update_member_promotion_product` (값·revision·변경 내역 한 트랜잭션, revision 다르면 409 덮어쓰기 없음)
  * 이미 신청한 주문에는 적용되지 않는다 — 주문 행의 금액·기간만 쓰고, 이 API 는 주문을 고치지 않는다.
  */
+import { isAdPointPriceOverCap } from "@/lib/admin/ads-commercial/ad-price-change-guard";
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
@@ -89,8 +90,6 @@ async function loadSnapshot(sb: SupabaseClient) {
       isActive: p.active,
       revision: p.revision,
       updatedAt: p.updatedAt,
-      fallbackTitleKo: p.fallbackTitleKo,
-      fallbackTitleEn: p.fallbackTitleEn,
     })),
     changes,
     activeCounts,
@@ -145,6 +144,10 @@ export async function PATCH(req: NextRequest) {
   }
   const admin = base;
 
+  /** D-13: 금액 상한(1,000,000P) — 오타 방지 (DB 함수 호출 전) */
+  if (isAdPointPriceOverCap(Math.floor(Number(body.pointCost)))) {
+    return NextResponse.json({ ok: false, error: "price_over_cap" }, { status: 400 });
+  }
   const { data, error } = await sb.rpc("admin_update_member_promotion_product", {
     p_id: id,
     p_expected_revision: Math.floor(Number(body.expectedRevision)),

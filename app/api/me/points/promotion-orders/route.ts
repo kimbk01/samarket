@@ -39,7 +39,17 @@ export const dynamic = "force-dynamic";
  *   → `{ orders, total, offset, limit, period, periodSummary }` — 50건 잘림 없음, 합계는 기간 전체.
  * `offset` 이 없으면 예전 응답(최근 50건 · `targetId` 거르기) 그대로 — 광고 시트·내 상품 등 호출처 유지.
  */
-export async function GET(req: NextRequest): Promise<NextResponse> {
+/**
+ * D-18 (광고 감사 · 2026-11-27): 가격 목록·견적 응답은 캐시하지 않는다 — 어드민 금액 변경이 다음 열기부터 바로 보이게.
+ * 모든 응답(성공·오류)에 `Cache-Control: private, no-store`.
+ */
+export async function GET(req: NextRequest) {
+  const res = await getUncached(req);
+  res.headers.set("Cache-Control", "private, no-store");
+  return res;
+}
+
+async function getUncached(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
@@ -68,12 +78,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         pointCost: p.pointCost,
         priceAsset: p.priceAsset,
         requiresAdminApproval: p.requiresAdminApproval,
-        titleKey: p.titleKey,
-        descriptionKey: p.descriptionKey,
-        fallbackTitleKo: p.fallbackTitleKo,
-        fallbackTitleEn: p.fallbackTitleEn,
-        fallbackDescKo: p.fallbackDescKo,
-        fallbackDescEn: p.fallbackDescEn,
       }))
     : undefined;
 
@@ -161,9 +165,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     targetId?: string;
     targetTitle?: string;
     productId?: string;
-    /** @deprecated legacy — ignored for price; mapped to product when productId missing */
-    placement?: string;
-    durationDays?: number;
     userNickname?: string;
     idempotencyKey?: string;
     /** 화면에 보였던 금액·기간 — 지금 값과 다르면 결제하지 않고 409 price_changed */
@@ -176,29 +177,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "targetId_required" }, { status: 400 });
   }
 
-  let product: MemberPromotionProductLive | null = null;
-  try {
-    product = body.productId ? await getMemberPromotionProductLive(sb, body.productId) : null;
-  } catch {
-    return NextResponse.json({ ok: false, error: "catalog_load_failed" }, { status: 500 });
-  }
-  /** 거래 J PR-1 (2026-10-28): 상품 id 를 보냈는데 카탈로그에 없으면 결제하지 않는다(예전에는 7일 상품으로 바꿔 결제) */
-  if (body.productId && !product) {
+  /**
+   * 광고 감사 TB-04 (2026-11-26): 상품 id · 화면에 보인 금액 · 기간이 모두 있어야 결제한다.
+   * 예전에는 상품 id 가 없으면 7일 상품으로, 금액을 안 보내면 대조 없이 그 순간 DB 금액으로 결제했다.
+   * 지금 결제 화면 4곳(거래 광고 창·커뮤니티 창·포인트 상위노출·내 광고 신청)은 모두 보낸다.
+   */
+  const expectedPointCost = Math.floor(Number(body.expectedPointCost));
+  const expectedDurationDays = Math.floor(Number(body.expectedDurationDays));
+  if (
+    !body.productId?.trim() ||
+    !Number.isFinite(expectedPointCost) ||
+    expectedPointCost < 1 ||
+    !Number.isFinite(expectedDurationDays) ||
+    expectedDurationDays < 1
+  ) {
     return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
   }
-  if (!product && body.placement && body.durationDays) {
-    const days = Math.max(1, Math.min(90, Math.floor(Number(body.durationDays) || 7)));
-    const mapped =
-      days >= 14 ? "trade_promote_14" : "trade_promote_7";
-    product = await getMemberPromotionProductLive(sb, mapped).catch(() => null);
-  }
-  if (!product && !body.productId) {
-    product = await getMemberPromotionProductLive(sb, "trade_promote_7").catch(() => null);
-  }
-  if (!product || product.priceAsset !== "D_POINT") {
-    return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
-  }
+
   // 재감사 R-04 (P0): 같은 요청 키 재전송은 가격 비교보다 먼저 처음 결과를 돌려준다 (추가 차감 없음).
+  // R-49: 상품 조회보다도 먼저 — 결제 뒤 어드민이 상품을 꺼도 같은 키 재전송은 처음 결과(이미 결제됨)를 받는다.
   const replayKey = (req.headers.get("idempotency-key") ?? body.idempotencyKey ?? "").trim();
   if (replayKey) {
     const replay = await findPromotionPurchaseReplay(sb, auth.userId, replayKey);
@@ -216,17 +213,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         balanceAfter: await readUserPointBalance(sb, auth.userId),
         pendingReview: replay.status === "pending_review",
         status: replay.status,
-        productId: replay.productId ?? product.id,
-        pointCost: replay.pointCost ?? product.pointCost,
+        productId: replay.productId ?? body.productId,
+        pointCost: replay.pointCost ?? undefined,
         startAt: replay.startAt ?? undefined,
         endAt: replay.endAt ?? undefined,
       });
     }
   }
+  let product: MemberPromotionProductLive | null = null;
+  try {
+    product = await getMemberPromotionProductLive(sb, body.productId);
+  } catch {
+    return NextResponse.json({ ok: false, error: "catalog_load_failed" }, { status: 500 });
+  }
+  if (!product || product.priceAsset !== "D_POINT") {
+    return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
+  }
   if (
     !memberPromotionPriceMatches(product, {
-      pointCost: body.expectedPointCost,
-      durationDays: body.expectedDurationDays,
+      pointCost: expectedPointCost,
+      durationDays: expectedDurationDays,
     })
   ) {
     return priceChangedResponse(product);
@@ -386,6 +392,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const { data: rpcRaw, error: rpcErr } = await purchaseTradePromotion(sb, {
     product,
+    expectedPointCost,
+    expectedDurationDays,
     userId: auth.userId,
     targetId,
     idempotencyKey,
@@ -403,7 +411,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 503 }
       );
     }
-    return NextResponse.json({ ok: false, error: rpcErr.message }, { status: 500 });
+    /** TB-05: DB 원문을 응답에 싣지 않는다 — 서버 기록만 남기고 화면은 공용 코드로 안내 */
+    console.error("[promotion-orders] purchase rpc failed", rpcErr.message);
+    return NextResponse.json({ ok: false, error: "purchase_failed" }, { status: 500 });
   }
 
   const rpc = (rpcRaw && typeof rpcRaw === "object" ? rpcRaw : {}) as {
@@ -497,6 +507,9 @@ async function purchaseTradePromotion(
   sb: NonNullable<ReturnType<typeof tryCreateSupabaseServiceClient>>,
   input: {
     product: MemberPromotionProductLive;
+    /** 회원 화면에 보인 금액·기간 — DB 함수가 가격 행을 잠근 뒤 이 값과 대조한다 (TB-04) */
+    expectedPointCost: number;
+    expectedDurationDays: number;
     userId: string;
     targetId: string;
     idempotencyKey: string;
@@ -510,8 +523,8 @@ async function purchaseTradePromotion(
       p_user_id: input.userId,
       p_target_id: input.targetId,
       p_product_id: product.id,
-      p_expected_point_cost: product.pointCost,
-      p_expected_duration_days: product.durationDays,
+      p_expected_point_cost: input.expectedPointCost,
+      p_expected_duration_days: input.expectedDurationDays,
       p_idempotency_key: input.idempotencyKey,
       p_user_nickname: input.userNickname,
       p_target_title: input.targetTitle,

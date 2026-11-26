@@ -12,18 +12,18 @@ import {
   projectFeedAdOperatorNotice,
 } from "@/lib/ads/feed-ad-member-presentation";
 import { loadFeedAdPoolRemaining } from "@/lib/ads/feed-ad-pool-capacity-server";
-import { feedAdErrorMessageKo } from "@/lib/ads/feed-ad-error-copy";
 import type { FeedAdDomain, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import {
   isFeedAdCommunityTopicTargetAllowed,
   normalizeFeedAdTopicSlug,
 } from "@/lib/ads/feed-ad-placement";
-import { getFeedAdProduct, listActiveFeedAdProducts } from "@/lib/ads/feed-ad-products";
+import { getFeedAdProductOrThrow, listActiveFeedAdProductsOrThrow } from "@/lib/ads/feed-ad-products";
 import {
   FEED_AD_POTENTIALLY_OPEN_REQUEST_STATUSES,
   findCurrentFeedAdBanner,
 } from "@/lib/ads/feed-ad-member-limit";
 import { holdPointsForFeedAdRequest } from "@/lib/ads/feed-ad-request-point-flow";
+import { checkMemberFeedAdDestination } from "@/lib/ads/feed-ad-member-destination-check";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -96,7 +96,17 @@ function mapRequestRow(
 }
 
 /** GET — member feed ad request list + product catalog */
+/**
+ * D-18 (광고 감사 · 2026-11-27): 가격 목록·견적 응답은 캐시하지 않는다 — 어드민 금액 변경이 다음 열기부터 바로 보이게.
+ * 모든 응답(성공·오류)에 `Cache-Control: private, no-store`.
+ */
 export async function GET(req: NextRequest) {
+  const res = await getUncached(req);
+  res.headers.set("Cache-Control", "private, no-store");
+  return res;
+}
+
+async function getUncached(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -129,7 +139,14 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const catalog = await listActiveFeedAdProducts(sb, domain || undefined);
+  /** R-54: 상품 목록 조회 실패를 빈 목록(「상품 없음」·「고른 상품 없어짐」)으로 숨기지 않는다 */
+  let catalog: Awaited<ReturnType<typeof listActiveFeedAdProductsOrThrow>>;
+  try {
+    catalog = await listActiveFeedAdProductsOrThrow(sb, domain || undefined);
+  } catch (e) {
+    console.warn("[me/feed-ad-requests] catalog load failed", e instanceof Error ? e.message : e);
+    return NextResponse.json({ ok: false, error: "catalog_load_failed" }, { status: 503 });
+  }
 
   const { data, error } = await sb
     .from("feed_ad_requests")
@@ -278,6 +295,9 @@ export async function POST(req: NextRequest) {
     destinationUrl?: string;
     creatives?: CreativeIn[];
     idempotencyKey?: string;
+    /** 화면에 보였던 금액·기간 — 지금 상품 값과 다르면 보류하지 않고 409 price_changed (광고 감사 FB-01) */
+    expectedPointCost?: number;
+    expectedDurationDays?: number;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -293,12 +313,8 @@ export async function POST(req: NextRequest) {
     .trim()
     .slice(0, 128);
 
-  const product = await getFeedAdProduct(sb, String(body.productId ?? ""));
-  if (!product) {
-    return NextResponse.json({ ok: false, error: "product_not_found" }, { status: 400 });
-  }
-
   // F7: replay same Idempotency-Key → existing request, no second HOLD.
+  // R-47: 상품 조회·가격 대조보다 먼저 — 이미 된 신청에 「가격 변경」을 돌려주지 않는다(상위노출 R-04 · 연장 R-37 과 같은 순서).
   if (idempotencyKey) {
     const { data: existing } = await sb
       .from("feed_ad_requests")
@@ -313,6 +329,39 @@ export async function POST(req: NextRequest) {
         status: String((existing as { status?: string }).status ?? "pending_review"),
         idempotentReplay: true,
       });
+    }
+  }
+
+  /** R-54: 상품 조회 오류 = 503 「불러오지 못했어요」(「상품 없음」 아님) */
+  let product: Awaited<ReturnType<typeof getFeedAdProductOrThrow>>;
+  try {
+    product = await getFeedAdProductOrThrow(sb, String(body.productId ?? ""));
+  } catch (e) {
+    console.warn("[me/feed-ad-requests] product load failed", e instanceof Error ? e.message : e);
+    return NextResponse.json({ ok: false, error: "catalog_load_failed" }, { status: 503 });
+  }
+  if (!product) {
+    return NextResponse.json({ ok: false, error: "product_not_found" }, { status: 400 });
+  }
+  /**
+   * FB-01 (2026-11-26): 회원이 본 금액·기간과 지금 상품 값이 같을 때만 포인트를 보류한다.
+   * 예전에는 대조 없이 그 순간 DB 금액으로 보류 → 화면을 연 사이 어드민이 올리면 본 적 없는 금액이 묶였다.
+   */
+  {
+    const expCost = Math.floor(Number(body.expectedPointCost));
+    const expDays = Math.floor(Number(body.expectedDurationDays));
+    if (!Number.isFinite(expCost) || expCost < 1 || !Number.isFinite(expDays) || expDays < 1) {
+      return NextResponse.json({ ok: false, error: "product_not_found" }, { status: 400 });
+    }
+    if (expCost !== product.pointCost || expDays !== product.durationDays) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "price_changed",
+          product: { id: product.id, pointCost: product.pointCost, durationDays: product.durationDays },
+        },
+        { status: 409 }
+      );
     }
   }
 
@@ -442,7 +491,20 @@ export async function POST(req: NextRequest) {
     destinationUrl: body.destinationUrl,
   });
   if (!dest.ok) {
-    return NextResponse.json({ ok: false, error: dest.error, message: feedAdErrorMessageKo(dest.error) }, { status: 400 });
+    return NextResponse.json({ ok: false, error: dest.error }, { status: 400 });
+  }
+  /** FB-05: 내 공개 글만 연결 · 회원 목적지 종류 제한 (보류 전) */
+  {
+    const own = await checkMemberFeedAdDestination(sb, auth.userId, {
+      destinationType: dest.value.destinationType,
+      destinationId: dest.value.destinationId,
+    });
+    if (!own.ok) {
+      return NextResponse.json(
+        { ok: false, error: own.error },
+        { status: own.error === "destination_check_failed" ? 503 : 400 }
+      );
+    }
   }
 
   // D-7 ③: 보류(포인트) 전에 남은 자리를 서버가 다시 센다(위치+업종/주제 · 화면 안내와 같은 함수). 가득이면 409 · 보류 0.
@@ -454,7 +516,7 @@ export async function POST(req: NextRequest) {
     });
     if (!pool.ok) {
       return NextResponse.json(
-        { ok: false, error: "capacity_check_failed", message: feedAdErrorMessageKo("capacity_check_failed") },
+        { ok: false, error: "capacity_check_failed" },
         { status: 503 }
       );
     }
@@ -463,7 +525,6 @@ export async function POST(req: NextRequest) {
         {
           ok: false,
           error: "capacity_full",
-          message: "지금 이 자리의 광고가 모두 찼습니다. 신청되지 않았고 포인트는 그대로입니다.",
           used: pool.used,
           capacity: pool.capacity,
         },

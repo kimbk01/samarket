@@ -3,14 +3,13 @@
 import { useEffect, useRef } from "react";
 import {
   computePtrBandLayout,
+  PTR_BAND_CHROME_MIN_PX,
   PTR_BAND_SPECS,
   type PtrBandDeviceVariant,
   type PtrBandZone,
 } from "@/lib/platform-popup/ptr-reveal-contract";
 import { DIBAY_PTR_THRESHOLD_PX } from "@/lib/ui/ptr/dibay-ptr-ssot";
 
-/** 표기·로고가 들어갈 최소 슬롯 높이 — 이보다 낮으면 띠 이미지만 */
-const PTR_BAND_CHROME_MIN_PX = 24;
 
 /** chromeZone 가로 범위 + 실제 보이는 슬롯 높이 전체(세로 중앙 정렬) */
 function chromeBoxStyle(zone: { left: string; width: string }, slotHeightPx: number) {

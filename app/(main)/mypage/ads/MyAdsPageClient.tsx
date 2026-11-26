@@ -1,6 +1,6 @@
 "use client";
 
-import { DibaySpinner } from "@/components/ui/DibaySpinner";
+import { DibayPendingSpinner, DibaySpinner } from "@/components/ui/DibaySpinner";
 import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { MyTabs } from "@/components/mypage/ds/MyTabs";
 import Link from "next/link";
@@ -45,6 +45,7 @@ import type { FeedAdProduct } from "@/lib/ads/feed-ad-products";
 import { DibayActionSheet, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { createPromotionAttemptKeyStore } from "@/lib/points/promotion-attempt-key";
+import { feedAdProductTitleKey } from "@/lib/ads/feed-ad-product-title";
 
 type FeedRequestRow = {
   id: string;
@@ -135,6 +136,9 @@ export default function MyAdsPageClient() {
   const [renewCatalog, setRenewCatalog] = useState<FeedAdProduct[]>([]);
   const [renewProductId, setRenewProductId] = useState("");
   const [renewBusy, setRenewBusy] = useState(false);
+  /** R-55: 연장 상품 목록 — 불러오는 중 · 실패 (이전 캠페인 목록을 보이지 않게) */
+  const [renewCatalogState, setRenewCatalogState] = useState<"idle" | "loading" | "failed">("idle");
+  const renewLoadSeqRef = useRef(0);
   /**
    * FB-M13 (P0 · 2026-11-04): 연장 결제 요청 키 — 같은 결제 시도는 같은 키(L-6 Stripe 방식).
    * 응답이 끊기거나 5xx 면 키를 남겨 다시 눌러도 서버가 처음 결과를 돌려준다(두 번 차감 없음).
@@ -302,17 +306,44 @@ export default function MyAdsPageClient() {
     feedAdOpsStatusLabel(displayOrRaw, language === "en" ? "en" : "ko");
 
   const openRenew = async (row: FeedRequestRow) => {
+    /** R-83: 다른 연장이 진행 중이면 새 창을 열지 않는다 */
+    if (renewBusy) return;
     setActionErr("");
+    /** R-55: 창을 열 때 이전 캠페인 목록·선택을 비우고 불러오는 중 — 응답 전에는 결제 버튼을 누를 수 없다 */
+    const seq = ++renewLoadSeqRef.current;
+    setRenewCatalog([]);
+    setRenewProductId("");
+    setRenewCatalogState("loading");
     setRenewTarget(row);
-    const res = await fetch(`/api/me/feed-ad-requests?domain=${row.domain}`, {
-      credentials: "include",
-    });
-    const j = (await res.json().catch(() => ({}))) as { catalog?: FeedAdProduct[] };
-    const items = (j.catalog ?? []).filter((p) => p.domain === row.domain);
+    let items: FeedAdProduct[] | null = null;
+    try {
+      const res = await fetch(`/api/me/feed-ad-requests?domain=${row.domain}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; catalog?: FeedAdProduct[] };
+      if (res.ok && j.ok !== false && Array.isArray(j.catalog)) {
+        items = j.catalog.filter((p) => p.domain === row.domain);
+      }
+    } catch {
+      items = null;
+    }
+    if (seq !== renewLoadSeqRef.current) return;
+    if (!items) {
+      setRenewCatalogState("failed");
+      return;
+    }
+    setRenewCatalogState("idle");
     setRenewCatalog(items);
     /** FB-M13: 결과를 모르는 연장 시도가 있으면 그 상품을 다시 고른다(다른 상품으로 새 결제가 되지 않게) */
     const pending = row.campaignId ? renewAttemptRef.current.pendingProductFor(row.campaignId) : null;
-    setRenewProductId(pending && items.some((p) => p.id === pending) ? pending : (items[0]?.id ?? ""));
+    /** R-64: 결과를 모르는 시도의 상품이 꺼졌으면 다른 상품을 대신 고르지 않는다 — 비우고 「다시 골라 주세요」 */
+    if (pending && !items.some((p) => p.id === pending)) {
+      setRenewProductId("");
+      setActionErr(safeT("feed_ad_req_product_gone"));
+      return;
+    }
+    setRenewProductId(pending ?? items[0]?.id ?? "");
   };
 
   const submitRenew = async () => {
@@ -323,6 +354,8 @@ export default function MyAdsPageClient() {
     const idem = attempts.keyFor(renewTarget.campaignId, renewProductId);
     /** D-01: 화면에 보인 가격 — 서버(DB)가 지금 가격과 다르면 차감 없이 409 price_changed */
     const shownCost = renewCatalog.find((p) => p.id === renewProductId)?.pointCost;
+    /** R-35: 화면에 보인 기간도 보낸다 — 어드민이 기간만 바꿨으면 차감 없이 409 price_changed */
+    const shownDays = renewCatalog.find((p) => p.id === renewProductId)?.durationDays;
     try {
       let res: Response;
       try {
@@ -337,6 +370,7 @@ export default function MyAdsPageClient() {
             productId: renewProductId,
             idempotencyKey: idem,
             ...(typeof shownCost === "number" ? { expectedCost: shownCost } : {}),
+            ...(typeof shownDays === "number" ? { expectedDurationDays: shownDays } : {}),
             creativeOrDestinationChanged: false,
           }),
         });
@@ -567,6 +601,14 @@ export default function MyAdsPageClient() {
                           <p className="sam-text-helper text-sam-muted">
                             {fmtDate(o.startAt) ?? "—"} → {fmtDate(o.endAt) ?? "—"}
                           </p>
+                          {/* 운영 종료 환급 (TB-10) — 알림에만 있던 금액을 내 광고 줄에도 */}
+                          {(o.refundPoints ?? 0) > 0 ? (
+                            <p className="sam-text-helper font-medium text-sam-primary" data-testid="revenue-hub-boost-refund">
+                              {t("mypage_oa_ads_boost_refunded", {
+                                points: `${Math.floor(o.refundPoints ?? 0).toLocaleString(en ? "en-US" : "ko-KR")}P`,
+                              })}
+                            </p>
+                          ) : null}
                         </div>
                         <span className="shrink-0 sam-text-helper text-sam-muted" data-testid="revenue-hub-boost-status">
                           {t(myBoostOrderStatusKey(o))}
@@ -690,13 +732,8 @@ export default function MyAdsPageClient() {
                         </p>
                         {(display === "active" || display === "scheduled") && (
                           <a
-                            href={
-                              r.placement === "COMMUNITY_TOPIC" && r.targetTopicSlug
-                                ? `/philife?category=${encodeURIComponent(r.targetTopicSlug)}`
-                                : r.domain === "trade"
-                                  ? "/market"
-                                  : "/philife"
-                            }
+                            /* FB-14: 위치 이동은 함수 1곳 — 업종 배너가 거래 홈으로 가던 것 */
+                            href={viewHref}
                             className="mt-1 inline-block sam-text-helper font-medium text-sam-primary underline"
                             data-testid="revenue-hub-feed-ad-surface-link"
                           >
@@ -840,7 +877,11 @@ export default function MyAdsPageClient() {
 
       <DibayBottomSheet
         open={Boolean(renewTarget)}
-        onClose={() => setRenewTarget(null)}
+        onClose={() => {
+          /** R-83: 연장 응답을 기다리는 동안은 닫지 않는다(앞 응답이 다른 캠페인 창에 적용되지 않게) */
+          if (renewBusy) return;
+          setRenewTarget(null);
+        }}
         title={safeT("feed_ad_renew_title")}
         ariaLabel={safeT("feed_ad_renew_title")}
       >
@@ -848,6 +889,24 @@ export default function MyAdsPageClient() {
           <p className={`mb-3 ${OverlayUi.bodySecondary}`}>
             {safeT("feed_ad_renew_hint")}
           </p>
+          {renewCatalogState === "loading" ? (
+            <DibayPendingSpinner layout="inline" />
+          ) : renewCatalogState === "failed" && renewTarget ? (
+            <div role="status" data-testid="feed-ad-renew-catalog-failed">
+              <p className={OverlayUi.bodySecondary}>{t("feed_ad_products_load_failed")}</p>
+              <button
+                type="button"
+                className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 sam-text-body font-semibold text-sam-fg"
+                onClick={() => void openRenew(renewTarget)}
+              >
+                {t("common_retry")}
+              </button>
+            </div>
+          ) : renewCatalogState === "idle" && renewTarget && renewCatalog.length === 0 ? (
+            <p className={OverlayUi.bodySecondary} data-testid="feed-ad-renew-empty">
+              {t("feed_ad_renew_no_products")}
+            </p>
+          ) : null}
           <div className="space-y-2">
             {renewCatalog.map((p) => (
               <button
@@ -858,7 +917,7 @@ export default function MyAdsPageClient() {
                 className={`${OverlayUi.selectCard} flex-col !items-stretch !gap-1`}
               >
                 <div className="flex justify-between gap-2">
-                  <span className="font-medium">{en ? p.titleEn : p.titleKo}</span>
+                  <span className="font-medium">{t(feedAdProductTitleKey(p.domain), { days: String(p.durationDays) })}</span>
                   <CurrencyAmount currency="point" amount={p.pointCost} compactPoint className="font-semibold" />
                 </div>
                 <p className={OverlayUi.caption}>
@@ -885,7 +944,7 @@ export default function MyAdsPageClient() {
               roleTone="primary"
               type="button"
               data-testid="feed-ad-renew-confirm"
-              disabled={renewBusy || !renewProductId}
+              disabled={renewBusy || !renewProductId || renewCatalogState !== "idle"}
               loading={renewBusy}
               onClick={() => void submitRenew()}
             >

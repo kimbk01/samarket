@@ -440,7 +440,14 @@ export async function POST(req: NextRequest) {
               : null,
         },
         // D-03: 진행 중 강제 종료 거부(귀책·환급 종료를 쓰라는 업무 거부) = 422 — 배달 도메인 API 와 같은 코드
-        { status: result.error === DELIVERY_AD_USE_END_WITH_FAULT_CODE ? 422 : 400 }
+        {
+          status:
+            result.error === DELIVERY_AD_USE_END_WITH_FAULT_CODE
+              ? 422
+              : /** R-51: 자리 확인 실패 = 일시 오류 */ result.error === "capacity_check_failed"
+                ? 503
+                : 400,
+        }
       );
     }
     await persistInternalReason();

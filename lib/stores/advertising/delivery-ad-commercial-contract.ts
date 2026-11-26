@@ -62,6 +62,8 @@ export type DeliveryAdPackageRow = {
   currency: string;
   enabled: boolean;
   displayOrder: number;
+  /** SA-12: 어드민 동시 저장 확인용 (`updated_at`) */
+  updatedAt?: string | null;
 };
 
 export type DeliveryAdPlacementCommercialRow = {
@@ -554,6 +556,7 @@ export function mapDeliveryAdPackageRow(raw: Record<string, unknown>): DeliveryA
     code,
     displayName: String(raw.display_name ?? code).trim() || code,
     durationDays,
+    updatedAt: typeof raw.updated_at === "string" ? raw.updated_at : null,
     priceAmountMinor,
     currency: String(raw.currency ?? DELIVERY_AD_COMMERCIAL_CURRENCY_DEFAULT) || "PHP",
     enabled: raw.enabled === true,

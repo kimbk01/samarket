@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
@@ -64,6 +64,7 @@ import {
   dibayShellRequestHeaders,
   useIosAppDigitalPurchaseBlocked,
 } from "@/lib/apple-iap/use-ios-digital-purchase-blocked";
+import { ownerAdDraftSaveErrorCode, ownerAdErrorKey } from "@/lib/stores/advertising/owner-ad-error-copy";
 
 type EligibleStore = {
   id: string;
@@ -150,8 +151,10 @@ export function OwnerBannerCreateView() {
   const [noSellablePackages, setNoSellablePackages] = useState(false);
   const [acceptingApplications, setAcceptingApplications] = useState(true);
   const [commercialLoading, setCommercialLoading] = useState(false);
-  const [productLabel, setProductLabel] = useState<string | null>(null);
   const [cashBalanceMinor, setCashBalanceMinor] = useState<number | null>(null);
+  /** R-80: 잔액 조회 실패 — 0(「캐시 부족」)이 아니라 「잔액을 불러오지 못했어요 · 다시 시도」 · 신청 버튼 끔 */
+  const [cashBalanceFailed, setCashBalanceFailed] = useState(false);
+  const [balanceAttempt, setBalanceAttempt] = useState(0);
   const [busy, setBusy] = useState(false);
   const [draftBusy, setDraftBusy] = useState(false);
   const [shortageModalOpen, setShortageModalOpen] = useState(false);
@@ -169,7 +172,7 @@ export function OwnerBannerCreateView() {
     (async () => {
       try {
         const res = await fetch("/api/me/delivery-ads", { credentials: "include" });
-        const json = (await res.json()) as {
+        const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           stores?: EligibleStore[];
           businessCash?: { balanceMinor?: number };
@@ -177,15 +180,22 @@ export function OwnerBannerCreateView() {
         if (cancelled) return;
         const list = (json.stores ?? []).filter((s) => s.eligible);
         setStores(list);
-        if (typeof json.businessCash?.balanceMinor === "number") {
+        if (res.ok && typeof json.businessCash?.balanceMinor === "number") {
           setCashBalanceMinor(json.businessCash.balanceMinor);
+          setCashBalanceFailed(false);
         } else {
-          setCashBalanceMinor(0);
+          setCashBalanceMinor(null);
+          setCashBalanceFailed(true);
         }
         if (preloadStoreId && list.some((s) => s.id === preloadStoreId)) {
           setStoreId(preloadStoreId);
         } else if (list.length === 1) {
           setStoreId(list[0]!.id);
+        }
+      } catch {
+        if (!cancelled) {
+          setCashBalanceMinor(null);
+          setCashBalanceFailed(true);
         }
       } finally {
         if (!cancelled) setLoaded(true);
@@ -194,7 +204,7 @@ export function OwnerBannerCreateView() {
     return () => {
       cancelled = true;
     };
-  }, [preloadStoreId]);
+  }, [preloadStoreId, balanceAttempt]);
 
   useEffect(() => {
     if (!preloadCampaignId || !preloadStoreId) return;
@@ -261,8 +271,15 @@ export function OwnerBannerCreateView() {
 
   const pixelGuide = inventoryKey ? DELIVERY_AD_BANNER_PIXEL_GUIDE[inventoryKey] : null;
 
+  /** R-43·R-45: 광고 설정 조회 실패(503 · 네트워크) — 「판매 준비 중」이 아니라 「확인하지 못했어요 · 다시 시도」 */
+  const [commercialCheckFailed, setCommercialCheckFailed] = useState(false);
+  /** R-44: 마지막 요청의 응답만 반영 */
+  const commercialSeqRef = useRef(0);
+
   const refetchCommercial = useCallback(async () => {
+    const seq = ++commercialSeqRef.current;
     if (!storeId) {
+      setCommercialCheckFailed(false);
       setPackages([]);
       setQuote(null);
       setNoSellablePackages(false);
@@ -279,9 +296,11 @@ export function OwnerBannerCreateView() {
       if (packageId) qs.set("packageId", packageId);
       const res = await fetch(`/api/me/delivery-ads/commercial?${qs.toString()}`, {
         credentials: "include",
+        cache: "no-store",
       });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
+        error?: string;
         product?: {
           displayName?: string | null;
           acceptingApplications?: boolean;
@@ -292,13 +311,20 @@ export function OwnerBannerCreateView() {
         quote?: CommercialQuote | { ok: false; error?: string } | null;
         noSellablePackages?: boolean;
       };
+      if (seq !== commercialSeqRef.current) return;
       if (!res.ok || !json.ok) {
         setPackages([]);
         setQuote(null);
+        if (res.status >= 500 || json.error === "capacity_check_failed") {
+          setNoSellablePackages(false);
+          setCommercialCheckFailed(true);
+          return;
+        }
+        setCommercialCheckFailed(false);
         setNoSellablePackages(true);
         return;
       }
-      setProductLabel(json.product?.displayName?.trim() || null);
+      setCommercialCheckFailed(false);
       setAcceptingApplications(
         json.product?.acceptingApplications !== false && json.product?.enabled !== false
       );
@@ -317,11 +343,13 @@ export function OwnerBannerCreateView() {
         setNoSellablePackages(false);
       }
     } catch {
+      if (seq !== commercialSeqRef.current) return;
       setPackages([]);
       setQuote(null);
-      setNoSellablePackages(true);
+      setNoSellablePackages(false);
+      setCommercialCheckFailed(true);
     } finally {
-      setCommercialLoading(false);
+      if (seq === commercialSeqRef.current) setCommercialLoading(false);
     }
   }, [inventoryKey, packageId, storeId]);
 
@@ -408,7 +436,7 @@ export function OwnerBannerCreateView() {
           );
           return;
         }
-        setError(json.error || "generic");
+        setError(ownerAdDraftSaveErrorCode(json.error));
         return;
       }
       setUploaded({
@@ -432,6 +460,8 @@ export function OwnerBannerCreateView() {
       quote &&
       !noSellablePackages &&
       acceptingApplications &&
+      !cashBalanceFailed &&
+      cashBalanceMinor != null &&
       (creativeMode === "admin_produce" ||
         (creativeMode === "owner_upload" && uploaded?.path))
   );
@@ -477,7 +507,7 @@ export function OwnerBannerCreateView() {
       campaign?: OwnerBannerCampaignRow;
     };
     if (!createRes.ok || !createJson.ok || !createJson.campaign) {
-      setError(createJson.error || "generic");
+      setError(ownerAdDraftSaveErrorCode(createJson.error));
       return null;
     }
     setExistingCampaign(createJson.campaign);
@@ -537,12 +567,15 @@ export function OwnerBannerCreateView() {
             productKind: "banner",
             packageId,
             clientFinalPayableMinor: quote.finalPayableMinor,
+            /** R-69: 화면 견적에 보인 기간도 보낸다 — 서버가 지금 기간과 다르면 차감 없이 「요금이 바뀌었어요」 */
+            clientDurationDays: quote.durationDays,
           }),
         }
       );
       const actionJson = (await actionRes.json()) as {
         ok?: boolean;
         error?: string;
+        quoteError?: string | null;
         refreshQuote?: boolean;
         campaign?: OwnerBannerCampaignRow;
       };
@@ -553,10 +586,11 @@ export function OwnerBannerCreateView() {
         actionJson.refreshQuote
       ) {
         await refetchCommercial();
+        /** SA-04: 실패 이유 그대로 (견적 세부 코드 우선) — 문구는 `ownerAdErrorKey` 1곳 */
         setError(
-          actionJson.error === "quote_stale" || actionJson.refreshQuote
+          actionJson.refreshQuote
             ? "quote_stale"
-            : actionJson.error || "generic"
+            : actionJson.quoteError || actionJson.error || "generic"
         );
         return;
       }
@@ -591,23 +625,13 @@ export function OwnerBannerCreateView() {
       ? t("owner_ios_cash_purchase_unavailable")
       : error === "file_too_large"
       ? t("business_image_upload_too_large")
-      : error === "inventory"
-      ? t("owner_ads_error_inventory")
-      : error === "store"
-        ? t("owner_ads_error_store")
-        : error === "quote_stale"
-          ? t("owner_ads_error_quote_stale")
-          : error === "applications_paused"
-            ? t("owner_ads_error_applications_paused")
-            : error === "no_packages"
-              ? t("owner_ads_no_sellable_packages")
-              : error === "image_required"
-                ? safeT("owner_ads_banner_image_required")
-                : error === "image_spec"
-                  ? safeT("owner_ads_banner_image_spec_error")
-                  : error
-                    ? safeT("owner_ads_error_generic")
-                    : null;
+      : error === "image_required"
+        ? safeT("owner_ads_banner_image_required")
+        : error === "image_spec"
+          ? safeT("owner_ads_banner_image_spec_error")
+          : error
+            ? /** SA-04: 그 외 실패 이유 → 문구 단일 정의 */ t(ownerAdErrorKey(error) ?? "owner_ads_error_generic")
+            : null;
 
   const ctaLabel =
     ctaType === "store_menu"
@@ -630,7 +654,8 @@ export function OwnerBannerCreateView() {
       rows.push(
         {
           labelKey: "owner_ads_confirm_package",
-          value: quote.packageDisplayName || `${quote.durationDays}일`,
+          /** SA-05: 기간 이름 = 키 + 기간 (DB 영문 「7 days」·코드 안 「일」 금지) */
+          value: t("owner_ads_period_duration_days", { days: quote.durationDays }),
         },
         {
           labelKey: "owner_ads_confirm_period",
@@ -821,7 +846,22 @@ export function OwnerBannerCreateView() {
             </OwnerStoreAdminDashSection>
 
             <OwnerStoreAdminDashSection title={t("owner_ads_section_packages")}>
-              {!inventoryKey ? (
+              {commercialCheckFailed && !commercialLoading ? (
+                <div
+                  className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-3"
+                  data-owner-ads-check-failed="1"
+                  role="status"
+                >
+                  <p className="text-[13px] font-semibold text-sam-fg">{t("owner_ads_sale_check_failed")}</p>
+                  <button
+                    type="button"
+                    className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[13px] font-semibold text-sam-fg"
+                    onClick={() => void refetchCommercial()}
+                  >
+                    {t("common_retry")}
+                  </button>
+                </div>
+              ) : !inventoryKey ? (
                 <p className="text-[13px] text-sam-muted">
                   {safeT("owner_ads_pick_placement_first")}
                 </p>
@@ -999,7 +1039,7 @@ export function OwnerBannerCreateView() {
                     creativeMode === "owner_upload" && uploaded?.url
                       ? {
                           assetUrl: uploaded.url,
-                          headline: productLabel,
+                          headline: t("owner_ads_product_banner"),
                           subcopy: null,
                           alt: selectedStore?.storeName ?? "banner",
                         }
@@ -1012,8 +1052,24 @@ export function OwnerBannerCreateView() {
               </OwnerStoreAdminDashSection>
             ) : null}
 
+            {cashBalanceFailed ? (
+              <div
+                className="mb-3 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-3"
+                data-owner-ads-balance-failed="1"
+                role="status"
+              >
+                <p className="text-[13px] font-semibold text-sam-fg">{t("owner_ads_balance_load_failed")}</p>
+                <button
+                  type="button"
+                  className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[13px] font-semibold text-sam-fg"
+                  onClick={() => setBalanceAttempt((n) => n + 1)}
+                >
+                  {t("common_retry")}
+                </button>
+              </div>
+            ) : null}
             <OwnerStoreAdminDashSection title={t("owner_ads_section_confirm")}>
-              {quote ? (
+              {commercialCheckFailed ? null : quote ? (
                 <DeliveryAdOwnerApplicationConfirm
                   rows={confirmRows}
                   totalDisplay={quote.finalPayableDisplay}

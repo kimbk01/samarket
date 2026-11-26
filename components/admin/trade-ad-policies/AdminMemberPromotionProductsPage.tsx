@@ -7,11 +7,14 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { confirmBigAdPriceChange } from "@/lib/admin/ads-commercial/confirm-big-ad-price-change";
+import { formatAdPriceRatio, isBigAdPriceChange } from "@/lib/admin/ads-commercial/ad-price-change-guard";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
+import { memberPromotionProductTitleKey } from "@/lib/points/promotion-product-title";
 
 /**
  * 어드민 › 상위노출 가격 (Owner 2026-11-03 「1번부터 시작」).
@@ -26,8 +29,6 @@ type Product = {
   isActive: boolean;
   revision: number;
   updatedAt: string | null;
-  fallbackTitleKo: string;
-  fallbackTitleEn: string;
 };
 type Change = {
   id: string;
@@ -99,7 +100,9 @@ export function AdminMemberPromotionProductsPage() {
     void load();
   }, [load]);
 
-  const titleOf = (p: Pick<Product, "fallbackTitleKo" | "fallbackTitleEn">) => (ko ? p.fallbackTitleKo : p.fallbackTitleEn);
+  /** 이름 = 키 + 저장된 기간 (TB-02) — 기간을 바꿔 저장하면 이름도 같이 바뀐다 */
+  const titleOf = (p: Pick<Product, "domain" | "durationDays">) =>
+    t(memberPromotionProductTitleKey(p.domain), { days: String(p.durationDays) });
 
   const save = async (p: Product) => {
     if (!guardWrite(p.domain)) return;
@@ -129,6 +132,22 @@ export function AdminMemberPromotionProductsPage() {
       confirmLabel: t("admin_boost_prices_save"),
     });
     if (!confirmed.ok) return;
+    /** D-13: 3배 이상 바뀌면 한 번 더 확인 */
+    const bigOk = await confirmBigAdPriceChange({
+      ko,
+      t,
+      bigLines: isBigAdPriceChange(p.pointCost, pointCost)
+        ? [
+            t("admin_ads_price_change_line", {
+              label: titleOf(p),
+              before: `${formatAdminNumber(p.pointCost)}P`,
+              after: `${formatAdminNumber(pointCost)}P`,
+              ratio: formatAdPriceRatio(p.pointCost, pointCost) ?? "",
+            }),
+          ]
+        : [],
+    });
+    if (!bigOk) return;
     setBusyId(p.id);
     setMsg("");
     try {

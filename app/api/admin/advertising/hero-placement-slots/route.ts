@@ -17,7 +17,13 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "service_unavailable" }, { status: 503 });
   }
 
-  const slots = await loadHeroPlacementSlots(sb);
+  let slots: Awaited<ReturnType<typeof loadHeroPlacementSlots>>;
+  try {
+    slots = await loadHeroPlacementSlots(sb);
+  } catch {
+    /** R-68: 점유 조회 실패 = 503 (빈 자리로 응답하지 않음) */
+    return NextResponse.json({ ok: false, error: "load_failed" }, { status: 503 });
+  }
   return NextResponse.json({
     ok: true,
     capacity: DELIVERY_HERO_CAPACITY,

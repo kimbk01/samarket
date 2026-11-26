@@ -333,7 +333,13 @@ describe("S61 게시판 화면 — 날짜 PHT · 검색 · 고정 구역 없음(
     expect(src).toContain("MyListPager");
     expect(src).toContain('sp.set("q", q)');
     expect(src).not.toContain("json.error");
-    expect(src).not.toMatch(/pinned|isPinned|is_pinned/);
+    /**
+     * X16 정정 (Owner 「권장안대로 수정」 2026-11-26 · 광고 감사 R-02): DB 고정글 구역(app_notices 고정 칼럼)은 여전히 없다.
+     * 허용 = 공지 게시판 맨 위 코드 고정 「광고 요금 안내」 카드 1개(공지 글 데이터 아님).
+     */
+    expect(src).not.toMatch(/isPinned|is_pinned/);
+    expect(src.match(/data-testid="cc-ad-pricing-pinned"/g)?.length ?? 0).toBe(1);
+    expect(src).toContain('contentType === "notice" ? (');
   });
 });
 

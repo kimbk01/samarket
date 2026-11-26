@@ -1,5 +1,6 @@
 "use client";
 
+import { handlePriceChanged, isPriceChangedError } from "@/lib/ads/handle-price-changed";
 import { DibayPendingSpinner, DibaySpinner } from "@/components/ui/DibaySpinner";
 import { formatPhtDisplayDateTime } from "@/lib/time/format-pht-display";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -8,6 +9,9 @@ import { CurrencyAmount } from "@/components/currency";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import type { MemberPromotionProductId } from "@/lib/points/promotion-products";
+import { memberPromotionProductTitleKey } from "@/lib/points/promotion-product-title";
+import { boostPauseCause, type BoostPauseCause } from "@/lib/ads/my-ad-tab";
+import { promotionPurchaseErrorKey } from "@/lib/points/promotion-purchase-error";
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
@@ -18,10 +22,6 @@ type CatalogItem = {
   durationDays: number;
   pointCost: number;
   requiresAdminApproval?: boolean;
-  fallbackTitleKo: string;
-  fallbackTitleEn: string;
-  fallbackDescKo: string;
-  fallbackDescEn: string;
 };
 
 type Props = {
@@ -45,9 +45,16 @@ export function MemberPostPromoteSheet({
   const { t, language, safeT } = useI18n();
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [balance, setBalance] = useState<number | null>(null);
-  const [productId, setProductId] = useState<MemberPromotionProductId | null>(
-    domain === "community" ? "community_promote_3" : "trade_promote_7"
-  );
+  /** 처음엔 고른 상품 없음 — 목록을 읽은 뒤 살 수 있는 첫 상품(코드 기본 id 를 「회원이 고른 상품」으로 보지 않는다) */
+  const [productId, setProductId] = useState<MemberPromotionProductId | null>(null);
+  /** 다시 읽은 뒤 고른 상품을 살 수 없게 됨 — 「다시 골라 주세요」 */
+  const [choiceLost, setChoiceLost] = useState(false);
+  /** R-61: 상품 목록을 불러오지 못함 */
+  const [loadFailed, setLoadFailed] = useState(false);
+  const productIdRef = useRef<MemberPromotionProductId | null>(null);
+  useEffect(() => {
+    productIdRef.current = productId;
+  }, [productId]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -57,14 +64,17 @@ export function MemberPostPromoteSheet({
   const [pendingExisting, setPendingExisting] = useState(false);
   /** 재감사 R2: 운영자 일시정지 — 연장 불가(서버도 already_active_promotion) */
   const [pausedExisting, setPausedExisting] = useState(false);
+  /** 정지 원인 (TB-06) — 결제 창·내 광고 같은 판정 `boostPauseCause` */
+  const [pauseCause, setPauseCause] = useState<BoostPauseCause>("staff");
   const [successExtended, setSuccessExtended] = useState(false);
   const [successReplay, setSuccessReplay] = useState(false);
   /** 재감사 S-0 (X-1): 같은 결제 시도 = 같은 요청 키 (응답이 끊긴 뒤 다시 눌러도 한 번만 차감) */
   const attemptKeys = useRef(createPromotionAttemptKeyStore());
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<boolean> => {
     setLoading(true);
     setErr("");
+    setLoadFailed(false);
     try {
       /** 공유 비행은 파싱된 JSON 을 나눈다 — Response 본문은 한 번만 읽힌다 */
       const [promoJ, balJ] = await runSingleFlight(`member-promote:${domain}:${postId}`, () =>
@@ -77,16 +87,19 @@ export function MemberPostPromoteSheet({
                 credentials: "include",
                 signal,
               }
-            ).then(
-              async (r) =>
-                (await r.json().catch(() => ({}))) as {
-                  catalog?: CatalogItem[];
-                  activeForTarget?: { endAt?: string; orderStatus?: string } | null;
-                }
-            ),
-            fetch("/api/me/points", { cache: "no-store", credentials: "include", signal }).then(
-              async (r) => (await r.json().catch(() => ({}))) as { balance?: number; points?: number }
-            ),
+            ).then(async (r) => {
+              /** 전수 대조(R-48 같은 종류): 상품 조회 실패를 「상품 없음」으로 숨기지 않는다 → 아래 catch 의 「불러오지 못했어요」 */
+              if (!r.ok) throw new Error(`promotion_catalog_${r.status}`);
+              return (await r.json().catch(() => ({}))) as {
+                catalog?: CatalogItem[];
+                activeForTarget?: { endAt?: string; orderStatus?: string; pausedBy?: string } | null;
+              };
+            }),
+            fetch("/api/me/points", { cache: "no-store", credentials: "include", signal }).then(async (r) => {
+              /** R-74: 잔액 조회 실패를 「잔액 —·충전」으로 보이지 않게 — 거래 광고 창과 같이 「불러오지 못했어요 · 다시 시도」 */
+              if (!r.ok) throw new Error(`points_balance_${r.status}`);
+              return (await r.json().catch(() => ({}))) as { balance?: number; points?: number };
+            }),
           ])
         )
       );
@@ -99,16 +112,27 @@ export function MemberPostPromoteSheet({
       setBalance(balOk);
       // 설계 2026-11-08 ⑨: 기본 선택 = 결과를 모르는 결제 상품 → 지금 고른 상품(살 수 있으면) → 살 수 있는 첫 상품 → 없음
       const canBuy = (i: CatalogItem) => balOk != null && balOk >= i.pointCost;
-      setProductId((prev) => {
-        const pending = items.find((i) => i.id === pendingProduct);
-        if (pending) return pending.id;
-        const prevItem = items.find((i) => i.id === prev);
-        if (prevItem && canBuy(prevItem)) return prevItem.id;
-        return items.find(canBuy)?.id ?? null;
-      });
+      /**
+       * 전수 대조(R-56 같은 종류): 회원이 고른 상품을 다시 읽은 뒤 살 수 없게 됐으면(꺼짐·잔액 부족) 다른 상품으로 바꾸지 않고 비운다.
+       * 고른 적이 없을 때만 살 수 있는 첫 상품.
+       */
+      const pending = items.find((i) => i.id === pendingProduct);
+      const prev = productIdRef.current;
+      const prevItem = prev ? items.find((i) => i.id === prev) : undefined;
+      /**
+       * R-71: 「고른 상품이 사라졌어요」는 그 상품이 목록에서 **꺼졌을 때만**.
+       * 잔액이 모자라게 된 경우는 선택만 풀고 기존 「포인트 부족 · 충전」 안내를 쓴다(다른 상품으로 바꾸지 않음).
+       */
+      const gone = !pending && Boolean(prev) && !prevItem;
+      const unaffordable = !pending && Boolean(prevItem) && !canBuy(prevItem as CatalogItem);
+      setChoiceLost(gone);
+      setProductId(
+        pending ? pending.id : prev ? (gone || unaffordable ? null : prev) : (items.find(canBuy)?.id ?? null)
+      );
       const st = String(promoJ.activeForTarget?.orderStatus ?? "").toLowerCase();
       const activeEnd = promoJ.activeForTarget?.endAt?.trim() || null;
       setPausedExisting(st === "paused");
+      setPauseCause(boostPauseCause(promoJ.activeForTarget?.pausedBy));
       if (st === "pending_review" || st === "pending") {
         setPendingExisting(true);
         setActiveEndAt(activeEnd);
@@ -116,10 +140,20 @@ export function MemberPostPromoteSheet({
         setPendingExisting(false);
         setActiveEndAt(st === "active" || st === "paused" ? activeEnd : null);
       }
+      return true;
     } catch {
+      /** R-61: 다시 읽기 실패 = 옛 가격 목록·선택을 비우고 결제 버튼 대신 「다시 시도」 */
+      setCatalog([]);
+      setProductId(null);
+      /** R-76: 지난 진행 상태(심사 중·멈춤)가 실패 안내를 가리지 않게 비운다 */
+      setPendingExisting(false);
+      setPausedExisting(false);
+      setActiveEndAt(null);
+      setLoadFailed(true);
       setErr(
         safeT("promo_sheet_load_failed")
       );
+      return false;
     } finally {
       setLoading(false);
     }
@@ -131,9 +165,22 @@ export function MemberPostPromoteSheet({
     setSuccessExtended(false);
     setSuccessReplay(false);
     setPendingReview(false);
-    attemptKeys.current.reset();
+    /** R-71: 창을 다시 열면 지난번 선택은 「고른 상품」이 아니다 — 비우고 살 수 있는 첫 상품부터 */
+    setProductId(null);
+    productIdRef.current = null;
+    setChoiceLost(false);
+    setLoadFailed(false);
+    /** R-76: 지난번 진행 상태를 들고 열지 않는다 */
+    setPendingExisting(false);
+    setPausedExisting(false);
+    setActiveEndAt(null);
+    /**
+     * R-82: 결과를 모르는 결제가 있으면 요청 키를 지우지 않는다 — 다시 눌러도 같은 결제로 확인(두 번째 차감 방지).
+     * 결제 중에는 창을 닫을 수 없다(아래 onClose).
+     */
+    if (!attemptKeys.current.pendingProductFor(postId)) attemptKeys.current.reset();
     void load();
-  }, [open, load]);
+  }, [open, load, postId]);
 
   /**
    * 설계 2026-11-08 ⑨ (거래 광고 창 시안 v3 와 같음): 모자란 상품 줄은 고를 수 없다.
@@ -205,25 +252,12 @@ export function MemberPostPromoteSheet({
       /** 성공 응답인데 본문을 못 읽음 = 결과를 모름 → 키 유지 */
       if (res.ok && typeof j.ok !== "boolean") status = null;
       if (!res.ok || !j.ok) {
-        if (j.error === "insufficient_balance" || j.code === "insufficient_balance") {
-          setErr(
-            safeT("points_ui_insufficient")
-          );
-        } else if (j.error === "price_changed") {
-          /** 새 가격을 다시 읽은 뒤 안내 (다시 읽기가 안내를 지우지 않게 순서 고정) */
-          void load().then(() =>
-            setErr(
-              safeT("promo_price_changed")
-            )
-          );
-        } else if (j.error === "already_active_promotion") {
-          setErr(
-            safeT("points_ui_promotion_conflict")
-          );
+        const errKey = promotionPurchaseErrorKey(j);
+        if (isPriceChangedError(j.error)) {
+          /** X-2 공용 처리: 다시 읽기가 성공했을 때만 「가격이 바뀌었어요」 (R-61) */
+          void handlePriceChanged({ reload: load, notify: () => setErr(safeT(errKey)) });
         } else {
-          setErr(
-            safeT("promo_sheet_purchase_failed")
-          );
+          setErr(safeT(errKey));
         }
         return;
       }
@@ -266,7 +300,7 @@ export function MemberPostPromoteSheet({
    * 버튼 하나 = 고른 상품 금액으로 시작·연장(「10,000P로 시작」) · 모자라면 그 자리에서 충전.
    */
   const catalogFooter =
-    successEndAt || loading ? null : statusOnly ? (
+    successEndAt || loading ? null : !loadFailed && statusOnly ? (
       <div className={OverlayUi.actionsRow}>
         <DibayOverlayButton roleTone="secondary" onClick={onClose}>
           {t("common_confirm")}
@@ -274,7 +308,11 @@ export function MemberPostPromoteSheet({
       </div>
     ) : (
       <div className={OverlayUi.actionsRow}>
-        {!selected ? (
+        {loadFailed ? (
+          <DibayOverlayButton roleTone="primary" data-promo-sheet-retry="1" onClick={() => void load()}>
+            {t("common_retry")}
+          </DibayOverlayButton>
+        ) : !selected ? (
           <a href={chargeHref} className={`${OverlayUi.btn.primary} text-center`} data-promo-sheet-charge="1">
             {safeT("promo_sheet_go_points")}
           </a>
@@ -306,7 +344,11 @@ export function MemberPostPromoteSheet({
   return (
     <DibayBottomSheet
       open={open}
-      onClose={onClose}
+      onClose={() => {
+        /** R-82: 결제 응답을 기다리는 동안은 닫지 않는다(늦은 응답이 다시 연 창에 뜨거나 키가 지워지지 않게) */
+        if (busy) return;
+        onClose();
+      }}
       title={sheetTitle}
       footer={successFooter ?? catalogFooter}
     >
@@ -362,7 +404,11 @@ export function MemberPostPromoteSheet({
           <p className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">
             {pendingExisting
               ? safeT("promo_sheet_pending_existing")
-              : safeT("promo_sheet_paused_existing")}
+              : pauseCause === "own_hidden"
+                ? safeT("promo_sheet_paused_hidden")
+                : pauseCause === "review"
+                  ? safeT("promo_sheet_paused_review")
+                  : safeT("promo_sheet_paused_existing")}
           </p>
           {activeEndAt ? (
             <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
@@ -373,7 +419,9 @@ export function MemberPostPromoteSheet({
           ) : null}
           <p className={`mt-2 ${OverlayUi.caption}`}>
             {pausedExisting
-              ? safeT("promo_sheet_paused_note")
+              ? pauseCause === "own_hidden"
+                ? safeT("promo_sheet_paused_hidden_note")
+                : safeT("promo_sheet_paused_note")
               : safeT("promo_sheet_no_stack")}
           </p>
         </div>
@@ -391,9 +439,7 @@ export function MemberPostPromoteSheet({
               const newEnd = extending ? extendEndOf(item.durationDays) : null;
               const title = extending
                 ? t("promo_sheet_extend_title", { days: String(item.durationDays) })
-                : langEn
-                  ? item.fallbackTitleEn
-                  : item.fallbackTitleKo;
+                : t(memberPromotionProductTitleKey(domain), { days: String(item.durationDays) });
               /** 한 줄: 연장이면 끝나는 날 · 아니면 노출 위치(위쪽 1자리 = 가장 최근 결제 · D-08 뜻 유지) */
               const where = newEnd
                 ? t("promo_sheet_extend_new_end", { date: formatPhtDisplayDateTime(newEnd, langEn ? "en" : "ko") })
@@ -408,7 +454,11 @@ export function MemberPostPromoteSheet({
                   role="radio"
                   aria-checked={selectedNow}
                   disabled={!enabled}
-                  onClick={() => enabled && setProductId(item.id)}
+                  onClick={() => {
+                    if (!enabled) return;
+                    setProductId(item.id);
+                    setChoiceLost(false);
+                  }}
                   data-selected={selectedNow ? "true" : undefined}
                   data-promo-sheet-option-state={selectedNow ? "selected" : enabled ? "enabled" : "disabled"}
                   className={`flex min-h-14 w-full items-center gap-2.5 rounded-ui-rect border px-3 py-2.5 text-left ${
@@ -449,6 +499,11 @@ export function MemberPostPromoteSheet({
           </div>
           {extending ? <p className={`mt-2 ${OverlayUi.bodySecondary}`}>{t("trade_ad_extend_keeps_place")}</p> : null}
           {err ? <p className={`mt-2 ${OverlayUi.captionDanger}`}>{err}</p> : null}
+          {choiceLost ? (
+            <p className={`mt-2 ${OverlayUi.captionDanger}`} role="status" data-promo-choice-lost>
+              {t("feed_ad_req_product_gone")}
+            </p>
+          ) : null}
         </>
       )}
     </DibayBottomSheet>

@@ -440,11 +440,12 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
           <AdminCard title={t("admin_ptr_schedule_frequency")}>
             <div className="grid gap-3 text-sm sm:grid-cols-2">
               <label className="grid gap-1">
-                {t("admin_ptr_start")}
+                {/* PT-04: 마스터 SSOT §4-3 라벨 「시작 (PHT)」 — 캠페인 시간대 표시 */}
+                {t("admin_ptr_start_tz", { tz: detail.timezone === "Asia/Manila" ? "PHT" : detail.timezone })}
                 <input type="datetime-local" className="rounded border border-sam-border px-2 py-1.5" value={form.startLocal} onChange={(e) => patch({ startLocal: e.target.value })} />
               </label>
               <label className="grid gap-1">
-                {t("admin_ptr_end")}
+                {t("admin_ptr_end_tz", { tz: detail.timezone === "Asia/Manila" ? "PHT" : detail.timezone })}
                 <input type="datetime-local" className="rounded border border-sam-border px-2 py-1.5" value={form.endLocal} onChange={(e) => patch({ endLocal: e.target.value })} />
               </label>
               <label className="grid gap-1 sm:col-span-2">

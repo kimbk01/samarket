@@ -12,10 +12,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/components/i18n/AppLanguageProvider", async () => {
   /** 언어 SSOT S6: 대체 문구 대신 실제 카탈로그 값(ko)으로 렌더 — 화면과 같은 문구를 확인한다 */
   const { safeTranslate } = await import("@/lib/i18n/safe-translate");
+  const { translate } = await import("@/lib/i18n/messages");
   // 실제 공급자처럼 같은 함수 참조를 돌려준다 (매 렌더 새 함수면 load 효과가 끝없이 다시 돈다)
   const value = {
     language: "ko",
-    t: (k: string) => k,
+    /** 상품 이름은 키 + 기간(TB-02) — 실제 카탈로그 문구로 그린다 */
+    t: (k: string, p?: Record<string, string>) => translate("ko", k as never, p),
     safeT: (k: string, o?: Parameters<typeof safeTranslate>[2]) => safeTranslate("ko", k as never, o),
   };
   return { useI18n: () => value };
@@ -43,8 +45,8 @@ import { MemberPostPromoteSheet } from "@/components/post/MemberPostPromoteSheet
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const catalog = [
-  { id: "community_promote_3", durationDays: 3, pointCost: 10000, fallbackTitleKo: "3일", fallbackTitleEn: "3d", fallbackDescKo: "", fallbackDescEn: "" },
-  { id: "community_promote_7", durationDays: 7, pointCost: 20000, fallbackTitleKo: "7일", fallbackTitleEn: "7d", fallbackDescKo: "", fallbackDescEn: "" },
+  { id: "community_promote_3", durationDays: 3, pointCost: 10000 },
+  { id: "community_promote_7", durationDays: 7, pointCost: 20000 },
 ];
 
 let container: HTMLDivElement;

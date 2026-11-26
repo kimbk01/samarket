@@ -38,22 +38,18 @@ export function DeliveryAdOwnerPackageCardGrid({
 }) {
   const { t } = useI18n();
 
+  /**
+   * 광고 감사 SA-10 (2026-11-26): 판매 중인 기간이 없으면 한 줄 안내만 — 예전에는 7·15·30일 카드를 코드로 그려
+   * 어드민이 기간을 바꿔도 「7일 · 판매 준비 중」처럼 실제와 다른 기간이 보였다.
+   */
   if (preparing || packages.length === 0) {
     return (
-      <div className="grid grid-cols-3 gap-2" data-owner-ads-packages="preparing" role="status">
-        {[7, 15, 30].map((days) => (
-          <div
-            key={days}
-            className="flex min-h-[110px] flex-col items-center justify-center rounded-ui-rect border border-dashed border-[#BDBDBD] bg-[#F5F5F5] px-2 py-3 text-center opacity-70"
-          >
-            <span className="text-[12px] font-semibold text-[#757575]">
-              {t("owner_ads_period_duration_days", { days })}
-            </span>
-            <span className="mt-1 text-[11px] font-medium text-[#757575]">
-              {t("owner_ads_package_sale_preparing")}
-            </span>
-          </div>
-        ))}
+      <div
+        className="flex min-h-[64px] items-center justify-center rounded-ui-rect border border-dashed border-sam-border bg-sam-app px-3 py-3 text-center"
+        data-owner-ads-packages="preparing"
+        role="status"
+      >
+        <span className="text-[13px] font-medium text-sam-muted">{t("owner_ads_package_sale_preparing")}</span>
       </div>
     );
   }

@@ -32,8 +32,11 @@ describe("고객 화면 — 상위노출 관련 「홍보」 문구가 없다", 
 });
 
 describe("판매자 광고 창 — 승인 시안과 같다", () => {
-  it("위치 「첫 페이지 위쪽」 · 광고 중 끝나는 시각 · 일시정지 안내와 막힌 버튼", () => {
-    expect(ko.trade_ad_where_boost).toBe("거래 목록 첫 페이지 위쪽");
+  /** 광고 감사 TB-01 (Owner 「A부터 진행」 2026-11-26): 위치 문구 = 노출 규칙(1자리 · 최근 결제 · 뒤 결제 시 제자리 「광고」) */
+  it("위치 「1페이지 위쪽 1자리 · 최근 결제」 · 광고 중 끝나는 시각 · 일시정지 안내와 막힌 버튼", () => {
+    expect(ko.trade_ad_where_boost).toBe(
+      "거래 목록 1페이지 위쪽 1자리 · 가장 최근에 결제한 글이 올라가요. 다른 글이 결제하면 제자리에 '광고'로 보여요"
+    );
     expect(ko.trade_ad_boost_paused_detail).toContain("운영자가 광고를 잠시 멈췄습니다");
     expect(ko.trade_ad_paused_cta).toBe("재개되면 연장할 수 있어요");
     const sheet = read("components/trade/seller-ad/TradeAdQuickSheet.tsx");
