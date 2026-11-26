@@ -10,7 +10,17 @@
 | 예산 표 | `lib/perf/request-budget.ts` | 라우트별 「요청 1회당 Supabase 호출」 상한(운영 측정값), 경보 배수 |
 | 시험 표지 | `lib/perf/test-traffic.ts` | 사무실 시험 기기 UA·시험 계정 목록 |
 | 호출 계수기 | `lib/perf/supabase-call-counter.ts` · `lib/perf/install-supabase-call-counter.server.ts` · `instrumentation.ts` | 운영 서버 fetch 를 감싸 Supabase 호출을 라우트별로 세고 5분마다 `cm_monitoring_rollup_hourly` 에 저장 |
-| 하루 감시 | `app/api/cron/request-budget-watch` · `lib/perf/request-budget-watch*.ts` · `vercel.json` (`0 1 * * *` = 09:00 PHT) | 최근 24시간을 예산과 비교, 넘친 경우에만 관리자 알림 1건 |
+| 하루 감시 | `app/api/cron/request-budget-watch` · `lib/perf/request-budget-watch*.ts` · `lib/perf/request-budget-vercel-usage.server.ts` · `vercel.json` (`0 1 * * *` = 09:00 PHT) | 직전 하루를 예산과 비교, 넘친 경우에만 관리자 알림 1건. 판정 측정은 아래 「2-1」 |
+
+## 2-1. 판정 측정 (2026-11-26 · Owner 「C·D 승인」)
+
+- **환경변수 `VERCEL_OBSERVABILITY_TOKEN` 이 있으면** 라우트 1회당·하루 합계는 **Vercel 관측**으로 판정한다 — 예산 값을 정한 측정과 같다.
+  - 창: 직전 **UTC 하루**(08:00~08:00 PHT). 호출 = `external_api_request`(Supabase 호스트) `origin_route` 별, 요청 = `request.count` `route` 별. `/_middleware` = `unknown`.
+  - 하루 합계 비교 = 그 전 7일 Vercel 하루 합계 중앙값. 시험 기기 호출 수(참고 표시)만 계수기 값.
+  - 알림 본문 앞에 `[vercel]` 이 붙는다.
+- **토큰이 없거나 Vercel 조회·해석이 실패하면** 지금처럼 계수기(§2)로 판정하고 본문 앞에 `[counter]`. 실패는 로그 `vercel_usage_failed` 1줄.
+- 계수기는 표·함수 분해 용도로 남는다(라우트 판정 기준 아님). 근거: 계수기는 인스턴스 정지 때 마지막 셈을 잃고(저장 42~85%), 분모가 Supabase 를 부른 요청뿐이다 — `docs/audit/supabase-request-surge-2026-11-18/budget-alert-final-2026-11-26.md` §1 D1·D2.
+- 토큰: Owner 가 Vercel 에서 만들고 운영 환경변수로 등록(작업자는 만들거나 보지 않는다). 읽기 전용 범위·만료일 지정 권장.
 
 ## 2. 집계 키 (`cm_monitoring_rollup_hourly`, platform=`unknown`)
 

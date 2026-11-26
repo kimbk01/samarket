@@ -62,7 +62,8 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/app-settings": 1.0,
   "/api/app/startup-config": 1.0,
   "/api/me/store-owner-hub-badge": 1.0,
-  "/api/admin/admin-bell": 3.6,
+  /** 2026-11-26 D (Owner 승인): #562 받은 알림 요약을 종에 합친 뒤 구조 값 — 인증 1 · 처리 대기 1 · 받은 알림 1 · 발송 상태 1. 실측 4.05(Vercel 304/75, 11-25 09~12 UTC) → 4.0 */
+  "/api/admin/admin-bell": 4.0,
   "/api/community-messenger/home-sync": 5.0,
   "/api/cron/notification-campaigns-dispatch-scheduled": 2.0,
   "/api/cron/store-orders-sla-scan": 2.0,

@@ -1,6 +1,8 @@
 /**
  * K5 — 요청 예산 운영 감시 실행부. 호출: `/api/cron/request-budget-watch` (하루 1회 09:00 PHT).
  * 계수기 집계(`cm_monitoring_rollup_hourly`)를 읽어 판정하고, 경보가 있을 때만 관리자 알림 1건(하루 1회 dedupe).
+ * 2026-11-26 C — `VERCEL_OBSERVABILITY_TOKEN` 이 있으면 라우트·하루 합계 판정은 Vercel 관측(예산을 정한 측정)으로 한다.
+ *   Vercel 조회가 없거나 실패하면 지금처럼 계수기로 판정. 시험 기기 호출 수(참고 표시)는 계수기에만 있어 계수기 값을 쓴다.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminNotification } from "@/lib/admin/notifications/admin-notification-service";
@@ -17,6 +19,10 @@ import {
   SUPABASE_ROUTE_TEST_CATEGORY,
   SUPABASE_ROUTE_UNITS_CATEGORY,
 } from "@/lib/perf/supabase-call-counter";
+import { loadVercelRequestBudgetUsage } from "@/lib/perf/request-budget-vercel-usage.server";
+
+/** 판정에 쓴 측정 — vercel(예산 기준과 같은 측정) · counter(Vercel 조회 불가 시) */
+export type RequestBudgetWatchSource = "vercel" | "counter";
 
 const PAGE = 1000;
 const MAX_PAGES = 100;
@@ -83,13 +89,26 @@ export function aggregateRollupForWatch(rows: RollupRow[], nowMs: number) {
 export async function runRequestBudgetWatch(
   sb: SupabaseClient,
   nowMs: number = Date.now(),
-): Promise<RequestBudgetWatchResult & { notified: boolean }> {
+): Promise<RequestBudgetWatchResult & { source: RequestBudgetWatchSource; notified: boolean }> {
   const since = new Date(nowMs - (DAILY_TOTAL_BASELINE_DAYS + 1) * DAY_MS).toISOString();
   const rows = await readRollupRows(sb, since);
-  const result = evaluateRequestBudget(aggregateRollupForWatch(rows, nowMs));
-  if (result.breaches.length === 0) return { ...result, notified: false };
+  const counterInput = aggregateRollupForWatch(rows, nowMs);
+  const vercel = await loadVercelRequestBudgetUsage(nowMs);
+  const source: RequestBudgetWatchSource = vercel ? "vercel" : "counter";
+  const result = evaluateRequestBudget(
+    vercel
+      ? { last24h: vercel.last24h, previousDailyTotals: vercel.previousDailyTotals, testCalls24h: counterInput.testCalls24h }
+      : counterInput,
+  );
+  console.info("[request-budget-watch] judged", {
+    source,
+    window: vercel ? `${vercel.windowStart}~${vercel.windowEnd}` : "last24h",
+    total24h: result.total24h,
+    breaches: result.breaches.length,
+  });
+  if (result.breaches.length === 0) return { ...result, source, notified: false };
 
-  const items = result.breaches.slice(0, 12).map(summarizeBreach).join(" · ");
+  const items = `[${source}] ${result.breaches.slice(0, 12).map(summarizeBreach).join(" · ")}`;
   console.error("[request-budget-watch] breach", { count: result.breaches.length, total24h: result.total24h, items });
   const day = new Date(nowMs + 8 * 60 * 60_000).toISOString().slice(0, 10);
   const r = await createAdminNotification(sb, {
@@ -107,5 +126,5 @@ export async function runRequestBudgetWatch(
     push: true,
   });
   if (!r.ok) console.error("[request-budget-watch] notify_failed", r.error);
-  return { ...result, notified: r.ok };
+  return { ...result, source, notified: r.ok };
 }
