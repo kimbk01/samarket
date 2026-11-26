@@ -46,7 +46,7 @@
 | 항목 | 계약 | 코드 |
 |------|------|------|
 | 입구 | 메신저·알림·거래 **비통화** 채널은 `superviseMessengerChannel` 로만 가입(안에서 `subscribeWithRetry` 그대로 호출 — 통화 공유 파일 무변경). 통화 채널(통화 화면·수신·통화 기록·그룹 통화)은 `subscribeWithRetry` 직접 호출 유지, 감독은 세지도 멈추지도 않음 | [`messenger-realtime-supervisor.ts`](../lib/community-messenger/realtime/messenger-realtime-supervisor.ts) |
-| 차단 | `TIMED_OUT`·`CHANNEL_ERROR` 60초 6회 또는 5분 20회 → 대상 전부 stop. `CLOSED` 는 세지 않음(래퍼 내부 재생성) | 동일 |
+| 차단 | `TIMED_OUT`·`CHANNEL_ERROR` 를 2초 묶음(소켓 사건 1번)으로 세어 60초 6번 또는 5분 20번 → 대상 전부 stop, 호출부에 `CLOSED` 전달. 소켓 1번 끊김(모든 채널 동시 오류)은 1번. `CLOSED` 는 세지 않음(래퍼 내부 재생성) | 동일 |
 | 대기·시험 | 30→60→120→300초 뒤 채널 1개(홈 meta 우선) 시험, 15초 안 SUBSCRIBED 면 나머지 300ms 간격 재가입. 숨김·오프라인이면 보일 때·온라인 때 시험 | 동일 |
 | 채널 쉼 | 같은 채널 연속 6회 실패 → 그 채널만 멈춤, 시험·복귀·온라인 때 재가입 | 동일 |
 | 자체 루프 | presence 사용자 토픽·read-ack 도 연속 6회 실패 또는 차단 중이면 채널을 놓고 `whenMessengerRealtimeJoinAllowed` 대기 | `presence-user-broadcast-client.ts` · `cm-read-ack-broadcast-client.ts` |

@@ -64,8 +64,16 @@ function harness(opts: { canProbe?: () => boolean } = {}) {
   const args = (name: string, onStatus?: (s: string) => void): SubscribeWithRetryArgs =>
     ({ sb: {} as never, name, scope: name, build: (c) => c, isCancelled: () => false, onStatus }) as SubscribeWithRetryArgs;
   const live = () => subs.filter((s) => !s.stopped);
+  /** 소켓 사건 n번(2초 묶음보다 넓게 3초 간격) */
+  const storm = (n: number, pick: () => Sub) => {
+    for (let i = 0; i < n; i++) {
+      if (i > 0) advance(3_000);
+      const s = pick();
+      if (s) s.onStatus?.("TIMED_OUT");
+    }
+  };
   const fail = (s: Sub, status = "TIMED_OUT") => s.onStatus?.(status);
-  return { sup, subs, live, records, advance, args, fail, setNow: (n: number) => (now = n) };
+  return { sup, subs, live, records, advance, args, fail, storm, setNow: (n: number) => (now = n) };
 }
 
 describe("정상", () => {
@@ -87,13 +95,33 @@ describe("정상", () => {
 });
 
 describe("차단", () => {
-  it("60초 안 실패 6회 → 차단: 대상 전부 stop, 가입 0", () => {
+  it("60초 안 소켓 사건 6번 → 차단: 대상 전부 stop, 가입 0, 호출부에 CLOSED 알림", () => {
     const h = harness();
     for (const n of ["a", "b", "c"]) h.sup.supervise(h.args(n));
-    for (let i = 0; i < 6; i++) h.fail(h.subs[i % 3]!);
+    h.storm(6, () => h.subs[0]!);
     expect(h.sup.state()).toBe("open");
     expect(h.live()).toHaveLength(0);
     expect(h.records).toContain("open");
+  });
+  it("독립 감사 F1: 소켓 1번 끊김 — 채널 8개가 같은 순간 CHANNEL_ERROR·CLOSED → 차단 안 함", () => {
+    const h = harness();
+    for (let i = 0; i < 8; i++) h.sup.supervise(h.args(`c${i}`));
+    for (const s of h.subs) {
+      s.onStatus?.("CHANNEL_ERROR");
+      s.onStatus?.("CLOSED");
+    }
+    expect(h.sup.state()).toBe("closed");
+    expect(h.live()).toHaveLength(8);
+  });
+  it("독립 감사 F4: 차단으로 멈춘 채널의 호출부는 CLOSED 를 받는다(거래 presence 「연결됨」 해제)", () => {
+    const h = harness();
+    const seen: string[] = [];
+    h.sup.supervise(h.args("trade-chat-presence:r", (st) => seen.push(st)));
+    h.sup.supervise(h.args("b"));
+    h.subs[0]!.onStatus?.("SUBSCRIBED");
+    h.storm(6, () => h.subs[1]!);
+    expect(h.sup.state()).toBe("open");
+    expect(seen[seen.length - 1]).toBe("CLOSED");
   });
   it("5분 안 20회(분당 4회 꾸준히)도 차단", () => {
     const h = harness();
@@ -110,7 +138,7 @@ describe("차단", () => {
     h.sup.supervise(h.args("x"));
     h.sup.supervise(h.args("community-messenger-home:meta:u"));
     h.sup.supervise(h.args("y"));
-    for (let i = 0; i < 6; i++) h.fail(h.subs[0]!);
+    h.storm(6, () => h.subs[0]!);
     expect(h.live()).toHaveLength(0);
     h.advance(RT_SUPERVISOR_OPEN_DELAYS_MS[0] - 1);
     expect(h.live()).toHaveLength(0);
@@ -127,7 +155,7 @@ describe("차단", () => {
   it("시험 실패·시간초과 → 대기 단계 증가 30→60→120→300→300", () => {
     const h = harness();
     h.sup.supervise(h.args("a"));
-    for (let i = 0; i < 6; i++) h.fail(h.subs[0]!);
+    h.storm(6, () => h.subs[0]!);
     for (const d of [30_000, 60_000, 120_000, 300_000, 300_000]) {
       h.advance(d - 1);
       expect(h.sup.state()).toBe("open");
@@ -141,7 +169,7 @@ describe("차단", () => {
     let visible = false;
     const h = harness({ canProbe: () => visible });
     h.sup.supervise(h.args("a"));
-    for (let i = 0; i < 6; i++) h.fail(h.subs[0]!);
+    h.storm(6, () => h.subs[0]!);
     h.advance(10 * 60_000);
     expect(h.sup.state()).toBe("open");
     expect(h.live()).toHaveLength(0);
@@ -153,7 +181,7 @@ describe("차단", () => {
   it("차단 중 새로 등록한 채널은 가입하지 않고, 닫힐 때 가입", () => {
     const h = harness();
     h.sup.supervise(h.args("a"));
-    for (let i = 0; i < 6; i++) h.fail(h.subs[0]!);
+    h.storm(6, () => h.subs[0]!);
     h.sup.supervise(h.args("late"));
     expect(h.live()).toHaveLength(0);
     h.advance(30_000);
@@ -196,7 +224,7 @@ describe("자체 루프 대기·해제", () => {
   it("whenJoinAllowed: 닫힘 때 1번, 해제하면 안 불림", () => {
     const h = harness();
     h.sup.supervise(h.args("a"));
-    for (let i = 0; i < 6; i++) h.fail(h.subs[0]!);
+    h.storm(6, () => h.subs[0]!);
     const cb = vi.fn();
     const cb2 = vi.fn();
     h.sup.whenJoinAllowed(cb);
@@ -208,11 +236,39 @@ describe("자체 루프 대기·해제", () => {
     expect(cb).toHaveBeenCalledTimes(1);
     expect(cb2).not.toHaveBeenCalled();
   });
+  it("독립 감사 F2: 시험 중 시험 채널이 stop 되면 곧바로 다른 채널로 시험", () => {
+    const h = harness();
+    const meta = h.sup.supervise(h.args("community-messenger-home:meta:u"));
+    h.sup.supervise(h.args("other"));
+    h.storm(6, () => h.subs[0]!);
+    h.advance(30_000);
+    expect(h.sup.state()).toBe("half_open");
+    meta.stop();
+    expect(h.sup.state()).toBe("half_open");
+    expect(h.live().map((s) => s.name)).toEqual(["other"]);
+    h.live()[0]!.onStatus?.("SUBSCRIBED");
+    expect(h.sup.state()).toBe("closed");
+  });
+  it("대기자는 시험이 실패해 다시 차단되는 동안 불리지 않고, 실제로 닫힐 때 1번", () => {
+    const h = harness();
+    h.sup.supervise(h.args("a"));
+    h.storm(6, () => h.subs[0]!);
+    const cb = vi.fn();
+    h.sup.whenJoinAllowed(cb);
+    h.advance(30_000);
+    h.live()[0]!.onStatus?.("TIMED_OUT"); // 시험 실패 → 다시 차단
+    h.advance(1_000);
+    expect(cb).not.toHaveBeenCalled();
+    h.advance(60_000);
+    h.live()[0]!.onStatus?.("SUBSCRIBED");
+    h.advance(1_000);
+    expect(cb).toHaveBeenCalledTimes(1);
+  });
   it("stop 한 채널은 다시 가입하지 않는다", () => {
     const h = harness();
     const handle = h.sup.supervise(h.args("a"));
     h.sup.supervise(h.args("b"));
-    for (let i = 0; i < 6; i++) h.fail(h.subs[1]!);
+    h.storm(6, () => h.subs[1]!);
     handle.stop();
     h.advance(30_000);
     h.live()[0]!.onStatus?.("SUBSCRIBED");

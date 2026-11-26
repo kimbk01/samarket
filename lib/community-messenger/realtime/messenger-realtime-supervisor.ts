@@ -12,7 +12,8 @@
  * - 대상(메신저·알림·거래 비통화 채널)은 `subscribeWithRetry` 대신 `superviseMessengerChannel` 을 부른다.
  *   감독은 안에서 `subscribeWithRetry` 를 **그대로** 부른다 — `subscribe-with-retry.ts`(통화 공유)는 무변경.
  *   통화 채널은 감독을 쓰지 않으며 감독은 그 실패를 세지도 멈추지도 않는다.
- * - 실패(`TIMED_OUT`·`CHANNEL_ERROR`)가 60초 안 6회 또는 5분 안 20회 → 차단(open): 대상 채널 전부 stop, 가입 0.
+ * - 실패(`TIMED_OUT`·`CHANNEL_ERROR`)를 2초 묶음(소켓 사건 1번)으로 세어 60초 안 6번 또는 5분 안 20번 → 차단(open): 대상 채널 전부 stop, 가입 0.
+ *   소켓이 한 번 끊겨 모든 채널이 동시에 오류를 받는 것은 1번이다(일상적 끊김은 지금처럼 라이브러리 재연결).
  *   (`CLOSED` 는 래퍼 내부 재생성에서도 오므로 세지 않는다.)
  * - 차단 대기 30→60→120→300초. 대기가 끝나도 화면이 숨겨져 있거나 오프라인이면 보일 때·온라인일 때 시험.
  * - 시험(half_open): 채널 1개만 가입, 15초 안 SUBSCRIBED → 닫힘(closed), 나머지를 300ms 간격으로 하나씩 가입.
@@ -36,6 +37,11 @@ export const RT_SUPERVISOR_OPEN_DELAYS_MS = [30_000, 60_000, 120_000, 300_000] a
 export const RT_SUPERVISOR_PROBE_TIMEOUT_MS = 15_000;
 export const RT_SUPERVISOR_RESTART_GAP_MS = 300;
 export const RT_SUPERVISOR_CHANNEL_PARK_FAILURES = 6;
+/**
+ * 독립 감사 F1(2026-11-26): 소켓이 한 번 끊기면 realtime-js 가 가입된 모든 채널에 오류를 동시에 보낸다
+ * (`RealtimeClient._triggerChanError`) — 이 시간 안의 실패는 소켓 사건 1번으로 센다.
+ */
+export const RT_SUPERVISOR_FAILURE_COALESCE_MS = 2_000;
 
 export type RtSupervisorState = "closed" | "open" | "half_open";
 
@@ -94,13 +100,27 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
   let seq = 0;
   const restartTimers = new Set<unknown>();
   const joinWaiters = new Set<() => void>();
+  const waiterTimers = new Map<unknown, () => void>();
 
   const flushJoinWaiters = () => {
     const list = [...joinWaiters];
     joinWaiters.clear();
     list.forEach((cb, i) => {
-      deps.setTimer(() => cb(), (i + 1) * RT_SUPERVISOR_RESTART_GAP_MS);
+      const t = deps.setTimer(() => {
+        waiterTimers.delete(t);
+        if (state === "closed") cb();
+        else joinWaiters.add(cb);
+      }, (i + 1) * RT_SUPERVISOR_RESTART_GAP_MS);
+      waiterTimers.set(t, cb);
     });
+  };
+  /** 다시 차단되면 아직 안 부른 대기자는 취소하고 대기열로 돌린다 */
+  const cancelWaiterTimers = () => {
+    for (const [t, cb] of waiterTimers) {
+      deps.clearTimer(t);
+      joinWaiters.add(cb);
+    }
+    waiterTimers.clear();
   };
 
   const clearRestartTimers = () => {
@@ -108,10 +128,23 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
     restartTimers.clear();
   };
 
-  const stopInner = (e: Entry) => {
+  /**
+   * `notifyCaller`: 감독이 멈춘 경우(차단·쉼) 호출부에 `CLOSED` 를 알린다 — 레지스트리가 owner 를 먼저 빼서
+   * 호출부는 채널이 멈춘 것을 알 수 없다(독립 감사 F4: 거래 채팅 presence 가 「연결됨」으로 남아 REST broadcast).
+   * 호출부 stop 에서는 알리지 않는다.
+   */
+  const stopInner = (e: Entry, notifyCaller: boolean) => {
     const inner = e.inner;
     e.inner = null;
-    if (inner) inner.stop();
+    if (!inner) return;
+    inner.stop();
+    if (notifyCaller && !e.stopped) {
+      try {
+        e.args.onStatus?.("CLOSED");
+      } catch {
+        /* 호출부 오류가 감독을 멈추지 않게 */
+      }
+    }
   };
 
   const start = (e: Entry) => {
@@ -196,12 +229,13 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
 
   const open = (reason: string) => {
     clearRestartTimers();
+    cancelWaiterTimers();
     if (probeTimer != null) deps.clearTimer(probeTimer);
     probeTimer = null;
     probeEntry = null;
     state = "open";
     failures = [];
-    for (const e of entries) stopInner(e);
+    for (const e of entries) stopInner(e, true);
     const delay = scheduleProbe();
     deps.record("open", { reason, wait_ms: String(delay) });
   };
@@ -223,7 +257,8 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
     }
     if (state !== "closed") return;
     const t = deps.now();
-    failures.push(t);
+    const last = failures[failures.length - 1];
+    if (last === undefined || t - last > RT_SUPERVISOR_FAILURE_COALESCE_MS) failures.push(t);
     failures = failures.filter((x) => t - x <= RT_SUPERVISOR_LONG_WINDOW_MS);
     const shortCount = failures.filter((x) => t - x <= RT_SUPERVISOR_SHORT_WINDOW_MS).length;
     if (shortCount >= RT_SUPERVISOR_SHORT_WINDOW_FAILURES || failures.length >= RT_SUPERVISOR_LONG_WINDOW_FAILURES) {
@@ -233,7 +268,7 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
     e.consecutiveFailures += 1;
     if (e.consecutiveFailures >= RT_SUPERVISOR_CHANNEL_PARK_FAILURES) {
       e.parked = true;
-      stopInner(e);
+      stopInner(e, true);
       deps.record("park", { scope: e.args.scope.split(":")[0] ?? "other" });
     }
   };
@@ -258,13 +293,17 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
         stop: () => {
           e.stopped = true;
           entries.delete(e);
-          stopInner(e);
+          stopInner(e, false);
           if (e === probeEntry && state === "half_open") {
             if (probeTimer != null) deps.clearTimer(probeTimer);
             probeTimer = null;
             probeEntry = null;
             state = "open";
-            if (waitTimer == null) waitingForWake = true;
+            /** 독립 감사 F2: 시험 채널이 시험 중 사라지면 곧바로 다른 채널로 시험(보이는 중이면) — 아니면 복귀 대기 */
+            if (waitTimer == null) {
+              if (deps.canProbe()) probe();
+              else waitingForWake = true;
+            }
           }
         },
         markSignal: () => {
@@ -292,10 +331,20 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
       joinWaiters.add(cb);
       return () => {
         joinWaiters.delete(cb);
+        for (const [t, c] of waiterTimers) {
+          if (c === cb) {
+            deps.clearTimer(t);
+            waiterTimers.delete(t);
+          }
+        }
       };
     },
     activeCount: () => [...entries].filter((e) => e.inner != null).length,
   };
+}
+
+export function messengerRealtimeSupervisorEnabled(): boolean {
+  return supervisorEnabled();
 }
 
 function supervisorEnabled(): boolean {
