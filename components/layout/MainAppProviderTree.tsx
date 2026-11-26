@@ -85,6 +85,11 @@ const AndroidPlayInAppUpdateHostLazy = dynamic(
     ),
   { ssr: false }
 );
+/** iOS 앱 열 때 업데이트 안내 → App Store — Capacitor iOS only; no-op on Android/web. */
+const IosAppStoreUpdateHostLazy = dynamic(
+  () => import("@/components/platform/IosAppStoreUpdateHost").then((mod) => mod.IosAppStoreUpdateHost),
+  { ssr: false }
+);
 
 /** 앱 업데이트 v3 — 설치 버전 변경·Play 새 버전 알림 때만 서버에 1번 보고 (주기 확인 없음). */
 const AppReleaseReporterLazy = dynamic(
@@ -218,6 +223,7 @@ export function MainAppProviderTree({
           <NotificationRouteReadSync />
           <NativeBadgeSyncLazy />
           <AndroidPlayInAppUpdateHostLazy />
+          <IosAppStoreUpdateHostLazy />
           <AppReleaseReporterLazy />
           <FavoriteProvider>
             <NotificationSurfaceProvider>
