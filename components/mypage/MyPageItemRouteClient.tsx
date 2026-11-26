@@ -58,7 +58,9 @@ export function MyPageItemRouteClient({
     item === "notices" || item === "terms"
       ? resolveCustomerCenterBackHref(searchParams.get("from"), defaultBack)
       : defaultBack;
-  const preferHistoryBack = backHref !== CUSTOMER_CENTER_HREF;
+  /** 고객지원 화면에서 연 약관·공지 — 고정 목적지(고객지원)를 기록을 늘리지 않고(settle) */
+  const settleToCustomerCenter =
+    backHref === CUSTOMER_CENTER_HREF && searchParams.get("from") === "customer-center";
   const {
     data,
     loading,
@@ -73,7 +75,12 @@ export function MyPageItemRouteClient({
   const notificationBadge = null;
 
   const shell = (body: ReactNode) => (
-    <MyScreen title={itemLabel} backHref={backHref} preferHistoryBack={preferHistoryBack} template={template}>
+    <MyScreen
+      title={itemLabel}
+      backHref={backHref}
+      fixedBackHistory={settleToCustomerCenter ? "settle" : undefined}
+      template={template}
+    >
       {body}
     </MyScreen>
   );

@@ -93,7 +93,7 @@ export function MemberCsNoteListClient({
   /** 내정보 화면 = 공통 화면 틀(`MyScreen`) · 사장님 고객관리 임베드(`hideChrome`)는 기존 본문만 */
   if (!hideChrome) {
     return (
-      <MyScreen title={title} backHref={backHref} preferHistoryBack={false} template="list">
+      <MyScreen title={title} backHref={backHref} fixedBackHistory="settle" template="list">
         <div className={`flex flex-col gap-4 ${CC_SURFACE_PAGE_CLASS}`}>{sectionList}</div>
       </MyScreen>
     );

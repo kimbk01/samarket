@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { buildAppNoticeDetailPath } from "@/lib/notices/app-notice-paths";
 import {
@@ -24,9 +23,7 @@ type Ctx = { params: Promise<{ noticeId: string }> };
  * Soft-deleted / ended: safe fallback body (not bare 404) for Bell/Push history.
  */
 export async function GET(_req: Request, ctx: Ctx) {
-  const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) return auth.response;
-
+  /** 비로그인도 글 상세를 본다 — 고객지원 화면은 비로그인 공개 (Owner 2026-11-26). 회원별 값은 이 응답에 없다. */
   const { noticeId: raw } = await ctx.params;
   const noticeId = String(raw ?? "").trim();
   if (!noticeId) {

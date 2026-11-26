@@ -9,6 +9,7 @@ import { useAppReleaseHistory, type AppReleaseItem } from "@/components/app-upda
 import { getAndroidPlayUpdateInfo, startAndroidFlexibleUpdate } from "@/lib/platform/android-play-in-app-update";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { resolveCustomerCenterBackHref } from "@/lib/mypage/customer-center-paths";
 
 const VERSION_HREF = "/mypage/section/settings/version";
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.dibay.app";
@@ -43,6 +44,8 @@ export function AppUpdateHistoryClient() {
   const { t, language } = useI18n();
   const searchParams = useSearchParams();
   const focusVersion = searchParams.get("v");
+  /** 기록 없을 때 뒤로 — 고객지원 「업데이트 내역」 타일로 열었으면 고객지원, 아니면 설정 › 버전 */
+  const backHref = resolveCustomerCenterBackHref(searchParams.get("from"), VERSION_HREF);
   const h = useAppReleaseHistory();
   const [busy, setBusy] = useState(false);
 
@@ -119,7 +122,7 @@ export function AppUpdateHistoryClient() {
   const showButton = h.status === "ready" && (h.platform === "android" || h.platform === "ios");
 
   return (
-    <MyScreen title={t("app_updates_title")} backHref={VERSION_HREF} preferHistoryBack template="list">
+    <MyScreen title={t("app_updates_title")} backHref={backHref} preferHistoryBack template="list">
       <div className="flex flex-col gap-3 pb-6">
         {h.installedLabel ? (
           <p className="px-0.5 text-[13px] text-sam-muted" data-testid="app-updates-installed">

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { MyRouteSkeleton } from "@/components/mypage/ds/MyStateView";
 import { MyInfoIaCategoryScreen } from "@/components/mypage/myinfo/MyInfoIaCategoryScreen";
-import { findMypageIaCategory } from "@/lib/mypage/mypage-ia";
+import { findMypageIaCategory, MYPAGE_CUSTOMER_CENTER_HREF } from "@/lib/mypage/mypage-ia";
 import { findMypageMobileSection } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { loadMypageOwnerStoreGateSeedServer } from "@/lib/my/load-mypage-owner-store-gate-seed";
 import { loadMypageAdminMenuSeedServer } from "@/lib/my/load-mypage-admin-menu-seed";
@@ -33,6 +33,8 @@ async function MypageSectionListPageBody({
   params: Promise<{ section: string }>;
 }) {
   const { section: raw } = await params;
+  /** 「고객지원」 분류 = 고객지원 화면 하나 (Owner 2026-11-26) — 옛 주소·기록으로 와도 같은 화면 */
+  if (raw === "support") redirect(MYPAGE_CUSTOMER_CENTER_HREF);
   const category = findMypageIaCategory(raw);
   if (!category) {
     /** 분류에 없는 옛 섹션 주소(메신저 등) — 내정보 홈으로 (404 대신) */

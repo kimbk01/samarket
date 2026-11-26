@@ -135,7 +135,7 @@ function MyPointsChargePageInner() {
         sourceSurface: "mypage_points_charge",
       })}
     >
-    <MyScreen title={t("mypage_points_charge_title")} backHref={backHref} preferHistoryBack={false} template="form">
+    <MyScreen title={t("mypage_points_charge_title")} backHref={backHref} fixedBackHistory="settle" template="form">
       <div className={!loading && !loadError && plans.length > 0 ? stickyCtaBodyClearanceClass : undefined}>
         {loading ? (
           <PointChargeSkeleton />

@@ -19,6 +19,7 @@ vi.mock("@/lib/auth/api-session", async () => {
       authState.userId
         ? { ok: true, userId: authState.userId }
         : { ok: false, response: NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 }) },
+    getOptionalAuthenticatedUserId: async () => authState.userId,
   };
 });
 vi.mock("@/lib/supabase/try-supabase-server", () => ({
@@ -175,10 +176,17 @@ describe("S61 게시판 API — 실패를 빈 성공으로 응답하지 않음 �
     expect(ccBoardIlikePattern("50%_off\\")).toBe("%50\\%\\_off\\\\%");
   });
 
-  it("비로그인 → 401", async () => {
+  it("비로그인 → 글 목록 200(읽음 표시 없음) · 읽음 기록이 필요한 요청만 401 (Owner 2026-11-26 고객지원 비로그인 공개)", async () => {
     authState.userId = null;
-    const res = await noticesGET(req("/api/me/settings/notices"));
-    expect(res.status).toBe(401);
+    authState.sb = createFakeSupabase({ app_notices: [noticeRow(1, { title: "공지 1" })] });
+    const res = await noticesGET(req("/api/me/settings/notices?content_type=notice"));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.viewer).toBe("guest");
+    expect(json.notices.map((x: { title: string }) => x.title)).toEqual(["공지 1"]);
+    expect(json.notices.every((x: { read: boolean }) => x.read === true)).toBe(true);
+    expect((await noticesGET(req("/api/me/settings/notices?unread_counts=1"))).status).toBe(401);
+    expect((await noticesGET(req("/api/me/settings/notices?filter=unread"))).status).toBe(401);
   });
 });
 

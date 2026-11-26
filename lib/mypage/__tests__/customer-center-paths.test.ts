@@ -48,7 +48,7 @@ describe("customer-center paths", () => {
     expect(MYPAGE_HOME_SUPPORT_ITEMS).toEqual([
       {
         href: CUSTOMER_CENTER_HREF,
-        titleKey: "mypage_comp_menu_support_cs_title",
+        titleKey: "mypage_ia_cat_support",
         icon: "help-circle",
       },
     ]);

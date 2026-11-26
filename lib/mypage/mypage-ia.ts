@@ -57,7 +57,13 @@ export type MypageIaCategory = {
 
 export const MYPAGE_IA_CATEGORY_HREF_PREFIX = "/mypage/section/";
 
+/**
+ * 분류 주소. 「고객지원」만 분류 화면 없이 고객지원 화면(`/mypage/customer-center`)이 곧 분류다
+ * (Owner 2026-11-26 「고객지원 = 고객센터 UI·UX·CTA SSOT」) — 카드·하위 화면 뒤로 목적지가 모두 이 주소.
+ * 옛 주소 `/mypage/section/support` 는 서버에서 같은 화면으로 보낸다.
+ */
 export function buildMypageIaCategoryHref(id: MypageIaCategoryId): string {
+  if (id === "support") return MYPAGE_CUSTOMER_CENTER_HREF;
   return `${MYPAGE_IA_CATEGORY_HREF_PREFIX}${id}`;
 }
 
@@ -266,6 +272,23 @@ export const MYPAGE_IA_CATEGORIES: readonly MypageIaCategory[] = [
   },
 ];
 
+/**
+ * 고객지원 화면 아래쪽 약관·정책 행 — 「고객지원」 분류의 링크 행 그대로(이용약관·개인정보처리방침·사업자 정보).
+ * 고객지원 화면 자체 행(`customer-center`)은 제외. 행을 바꾸려면 위 support 분류만 고친다.
+ */
+export function supportPolicyRows(): MypageHomeLinkMenuItem[] {
+  const support = MYPAGE_IA_CATEGORIES.find((c) => c.id === "support");
+  const out: MypageHomeLinkMenuItem[] = [];
+  for (const g of support?.groups ?? []) {
+    for (const row of g.rows) {
+      if ("href" in row && (!("kind" in row) || row.kind === undefined || row.kind === "link")) {
+        out.push(row as MypageHomeLinkMenuItem);
+      }
+    }
+  }
+  return out;
+}
+
 const CATEGORY_MAP = new Map(MYPAGE_IA_CATEGORIES.map((c) => [c.id, c]));
 
 export function findMypageIaCategory(raw: string | null | undefined): MypageIaCategory | undefined {
@@ -275,7 +298,7 @@ export function findMypageIaCategory(raw: string | null | undefined): MypageIaCa
 
 /** 비로그인 — 로그인 없이 바로 열리는 행 (분류 화면이 아니라 로그인 화면 아래 목록) */
 export const MYPAGE_IA_GUEST_PUBLIC_ROWS: readonly MypageHomeLinkMenuItem[] = [
-  link(MYPAGE_CUSTOMER_CENTER_HREF, "mypage_comp_menu_support_cs_title", "help-circle"),
+  link(MYPAGE_CUSTOMER_CENTER_HREF, "mypage_ia_cat_support", "help-circle"),
   link("/mypage/section/settings/terms", "mypage_comp_menu_support_terms_title", "file-text"),
   link("/privacy", "mypage_comp_settings_privacy_link", "lock"),
   link("/business-info", "mypage_comp_menu_support_business_title", "building"),
@@ -290,6 +313,10 @@ export function isMypageGuestPublicPath(pathname: string): boolean {
   const p = stripPath(pathname);
   if (p === "/mypage" || p === "/my") return true;
   if (p === MYPAGE_CUSTOMER_CENTER_HREF || p.startsWith(`${MYPAGE_CUSTOMER_CENTER_HREF}/`)) return true;
+  /** 고객지원 「업데이트 내역」(스토어 출시 기록) — 다른 게시판처럼 비로그인 공개 */
+  if (p === "/mypage/app-updates") return true;
+  /** 옛 「고객지원」 분류 주소 — 서버가 고객지원 화면으로 보낸다 */
+  if (p === `${MYPAGE_IA_CATEGORY_HREF_PREFIX}support`) return true;
   if (p.startsWith("/mypage/notices/")) return true;
   const item = /^\/mypage\/section\/([^/]+)\/([^/]+)$/.exec(p);
   return item ? isMypageGuestPublicItem(item[1]!, item[2]!) : false;
@@ -316,6 +343,8 @@ function stripPath(pathname: string): string {
 export function isMypageTopLevelPath(pathname: string): boolean {
   const p = stripPath(pathname);
   if (p === "/mypage" || p === "/my") return true;
+  /** 고객지원 화면 = 「고객지원」 분류 화면 (L1 — 하단 탭 표시, 뒤로 = 내정보 홈) */
+  if (p === MYPAGE_CUSTOMER_CENTER_HREF) return true;
   if (!p.startsWith(MYPAGE_IA_CATEGORY_HREF_PREFIX)) return false;
   const rest = p.slice(MYPAGE_IA_CATEGORY_HREF_PREFIX.length);
   return !rest.includes("/") && CATEGORY_MAP.has(rest as MypageIaCategoryId);
@@ -345,9 +374,10 @@ const L2_ROUTE_META: Map<string, MypageIaRouteMeta> = (() => {
     titleKey: "mypage_comp_menu_account_address_title",
     parentHref: buildMypageIaCategoryHref("account"),
   });
+  /** 고객지원 화면 = 분류 화면 겸용 — 제목 「고객지원」, 뒤로(기록 없음) = 내정보 홈 */
   m.set(MYPAGE_CUSTOMER_CENTER_HREF, {
-    titleKey: "mypage_comp_menu_support_cs_title",
-    parentHref: buildMypageIaCategoryHref("support"),
+    titleKey: "mypage_ia_cat_support",
+    parentHref: "/mypage",
   });
   m.set("/mypage/required/dibay-id", { titleKey: null, parentHref: "/mypage" });
   m.set("/mypage/required/phone", { titleKey: null, parentHref: "/mypage" });

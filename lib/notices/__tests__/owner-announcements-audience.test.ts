@@ -21,6 +21,7 @@ vi.mock("@/lib/auth/api-session", async () => {
       authState.userId
         ? { ok: true, userId: authState.userId }
         : { ok: false, response: NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 }) },
+    getOptionalAuthenticatedUserId: async () => authState.userId,
   };
 });
 vi.mock("@/lib/supabase/try-supabase-server", () => ({
