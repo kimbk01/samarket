@@ -68,7 +68,12 @@ export type RtSupervisorDeps = {
   setTimer: (fn: () => void, ms: number) => unknown;
   clearTimer: (t: unknown) => void;
   canProbe: () => boolean;
-  record: (event: "open" | "close" | "park" | "probe_fail", labels: Record<string, string>) => void;
+  /** 네트워크 연결 여부(없으면 항상 연결로 본다) — 오프라인 일시정지 판정용 */
+  isOnline?: () => boolean;
+  record: (
+    event: "open" | "close" | "park" | "probe_fail" | "offline_pause" | "offline_resume",
+    labels: Record<string, string>,
+  ) => void;
 };
 
 export type RtSupervisor = {
@@ -76,6 +81,8 @@ export type RtSupervisor = {
   /** 화면 복귀·온라인 — 대기 끝난 시험 시작, 쉰 채널 재가입 */
   wake: () => void;
   state: () => RtSupervisorState;
+  /** 지금 가입해도 되는가 — 닫힘이고 오프라인 일시정지가 아님 */
+  isJoinAllowed: () => boolean;
   /** 자체 재시도 루프(presence·read-ack)의 가입 실패 — 같은 창에 센다(2차 감사 F-E) */
   noteSelfLoopFailure: () => void;
   /** 차단이 열릴 때 — 자체 루프가 가입된 채널을 놓는다(2차 감사 F-E). 반환 = 등록 해제 */
@@ -114,6 +121,13 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
   const waiterTimers = new Map<unknown, () => void>();
   const openListeners = new Set<() => void>();
   let stableTimer: unknown = null;
+  /**
+   * 오프라인 일시정지 (실기 T4 재실기 2026-11-26 22:08 PHT): 오프라인 중 래퍼가 쌓은 재시도가 온라인 직후 한꺼번에 실행돼
+   * 28초 동안 가입·떠남 약 110번과 HTTP 57건(친구요청·메시지·상대 관계 각 19)이 나갔다. 오프라인 실패가 오면 대상 채널을
+   * 멈추고(가입 0·폴백 0), 온라인이 되면 300ms 간격으로 1번씩 다시 가입한다. 실패 창·대기 단계에는 넣지 않는다.
+   */
+  let offlinePaused = false;
+  const isOnline = deps.isOnline ?? (() => true);
   /** 시험 통과로 닫힌 뒤 관찰 기간 — stableTimer 가 끝나면 false */
   let probation = false;
 
@@ -163,7 +177,7 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
   };
 
   const start = (e: Entry) => {
-    if (e.stopped || e.inner) return;
+    if (e.stopped || e.inner || offlinePaused) return;
     const inner = deps.subscribe({
       ...e.args,
       onStatus: (status) => {
@@ -270,6 +284,21 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
     }
   };
 
+  const pauseForOffline = () => {
+    if (offlinePaused) return;
+    offlinePaused = true;
+    clearRestartTimers();
+    for (const e of entries) stopInner(e, true);
+    deps.record("offline_pause", {});
+    for (const cb of [...openListeners]) {
+      try {
+        cb();
+      } catch {
+        /* 자체 루프 오류가 감독을 멈추지 않게 */
+      }
+    }
+  };
+
   /** 닫힌 상태의 실패 1건을 창에 넣고, 기준을 넘으면 차단. 반환 = 차단했는가 */
   const noteFailure = (): boolean => {
     if (state !== "closed") return false;
@@ -303,6 +332,10 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
       return;
     }
     if (state !== "closed") return;
+    if (!isOnline()) {
+      pauseForOffline();
+      return;
+    }
     /**
      * 실기 T4(2026-11-26 21:43 PHT, Samsung 비행기 모드 70초): 오프라인 중 실패를 세어 차단·쉼이 생겨 온라인 뒤 감독 채널만
      * 54초 뒤 재가입(감독 밖 채널 20초). 오프라인·숨김 중 실패는 서버 거절이 아니므로 세지 않는다 — 재시도는 래퍼가 그대로 한다.
@@ -356,6 +389,16 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
       };
     },
     wake() {
+      if (offlinePaused) {
+        if (!isOnline()) return;
+        offlinePaused = false;
+        deps.record("offline_resume", {});
+        if (state === "closed") {
+          restartAllGradually();
+          flushJoinWaiters();
+          return;
+        }
+      }
       if (state === "open" && waitingForWake && waitTimer == null && deps.canProbe()) {
         probe();
         return;
@@ -371,7 +414,12 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
       }
     },
     state: () => state,
+    isJoinAllowed: () => state === "closed" && !offlinePaused,
     noteSelfLoopFailure() {
+      if (state === "closed" && !isOnline()) {
+        pauseForOffline();
+        return;
+      }
       noteFailure();
     },
     onOpen(cb) {
@@ -413,6 +461,7 @@ function getDefaultSupervisor(): RtSupervisor {
     now: () => Date.now(),
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (t) => clearTimeout(t as ReturnType<typeof setTimeout>),
+    isOnline: () => !(typeof navigator !== "undefined" && navigator.onLine === false),
     canProbe: () => {
       if (typeof navigator !== "undefined" && navigator.onLine === false) return false;
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return false;
@@ -449,7 +498,7 @@ export function superviseMessengerChannel(args: SubscribeWithRetryArgs): Subscri
 /** presence·read-ack 처럼 자체 재시도 루프를 가진 채널이 「지금 가입해도 되는가」를 묻는다 */
 export function messengerRealtimeSupervisorAllowsJoin(): boolean {
   if (!supervisorEnabled()) return true;
-  return getDefaultSupervisor().state() === "closed";
+  return getDefaultSupervisor().isJoinAllowed();
 }
 
 /** 자체 재시도 루프용 — 상한·차단으로 멈춘 뒤 다시 가입해도 될 때 1번 */

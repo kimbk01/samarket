@@ -15,7 +15,7 @@ import type { SubscribeWithRetryArgs } from "@/lib/community-messenger/realtime/
 
 type Sub = { name: string; onStatus?: (s: string) => void; stopped: boolean };
 
-function harness(opts: { canProbe?: () => boolean } = {}) {
+function harness(opts: { canProbe?: () => boolean; isOnline?: () => boolean } = {}) {
   let now = 0;
   const timers: Array<{ at: number; fn: () => void; id: number }> = [];
   let nextId = 1;
@@ -44,6 +44,7 @@ function harness(opts: { canProbe?: () => boolean } = {}) {
       if (i >= 0) timers.splice(i, 1);
     },
     canProbe: opts.canProbe ?? (() => true),
+    isOnline: opts.isOnline,
     record: (e) => {
       records.push(e);
     },
@@ -352,22 +353,63 @@ describe("2차 감사 반영", () => {
   });
 });
 
-describe("실기 T4 반영 — 오프라인·숨김 중 실패는 세지 않는다", () => {
-  it("오프라인 동안 실패가 계속돼도 차단·쉼 없음, 온라인이 되면 채널 그대로", () => {
-    let online = false;
-    const h = harness({ canProbe: () => online });
+describe("실기 T4 반영 — 오프라인 일시정지", () => {
+  it("오프라인 실패 → 대상 채널 전부 멈춤(가입 0), 차단·쉼 없음, 오프라인 동안 새 채널도 가입 안 함", () => {
+    let online = true;
+    const h = harness({ canProbe: () => online, isOnline: () => online });
     for (const n of ["community-messenger-home:meta:u", "bundle", "notifications", "unread", "friend"]) h.sup.supervise(h.args(n));
+    online = false;
+    h.live()[1]!.onStatus?.("CHANNEL_ERROR");
+    expect(h.live()).toHaveLength(0);
+    expect(h.records).toContain("offline_pause");
+    expect(h.records).not.toContain("open");
+    expect(h.sup.isJoinAllowed()).toBe(false);
+    h.sup.supervise(h.args("late"));
+    h.advance(5 * 60_000);
+    expect(h.live()).toHaveLength(0);
+    h.sup.wake(); // 아직 오프라인
+    expect(h.live()).toHaveLength(0);
+  });
+  it("온라인 wake → 채널마다 1번씩 300ms 간격 재가입, 자체 루프 대기자 깨움", () => {
+    let online = true;
+    const h = harness({ canProbe: () => online, isOnline: () => online });
+    for (let i = 0; i < 4; i++) h.sup.supervise(h.args(`c${i}`));
+    online = false;
+    h.live()[0]!.onStatus?.("TIMED_OUT");
+    const cb = vi.fn();
+    h.sup.whenJoinAllowed(cb);
+    const before = h.subs.length;
+    online = true;
+    h.sup.wake();
+    expect(h.records).toContain("offline_resume");
+    h.advance(300);
+    expect(h.subs.length).toBe(before + 1);
+    h.advance(900);
+    expect(h.subs.length).toBe(before + 4);
+    expect(h.live()).toHaveLength(4);
+    expect(cb).toHaveBeenCalledTimes(1);
+    h.advance(60_000);
+    expect(h.subs.length).toBe(before + 4); // 더 가입하지 않음
+  });
+  it("숨김(온라인) 중 실패는 세지 않고 멈추지도 않는다", () => {
+    const visible = false;
+    const h = harness({ canProbe: () => visible, isOnline: () => true });
+    for (const n of ["a", "b", "c"]) h.sup.supervise(h.args(n));
     for (let i = 0; i < 7; i++) {
       for (const s of h.live()) s.onStatus?.("CHANNEL_ERROR");
       h.advance(10_000);
     }
     expect(h.sup.state()).toBe("closed");
-    expect(h.live()).toHaveLength(5);
-    expect(h.records).not.toContain("open");
-    expect(h.records).not.toContain("park");
-    online = true;
-    h.storm(6, () => h.live()[0]!);
-    expect(h.sup.state()).toBe("open");
+    expect(h.live()).toHaveLength(3);
+  });
+  it("자체 루프 실패가 오프라인이면 일시정지", () => {
+    let online = true;
+    const h = harness({ isOnline: () => online });
+    h.sup.supervise(h.args("a"));
+    online = false;
+    h.sup.noteSelfLoopFailure();
+    expect(h.live()).toHaveLength(0);
+    expect(h.sup.isJoinAllowed()).toBe(false);
   });
 });
 
