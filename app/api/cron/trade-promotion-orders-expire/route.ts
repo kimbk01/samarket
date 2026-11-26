@@ -40,7 +40,8 @@ async function runTradePromotionExpire(req: Request) {
       if (!n.ok) console.error("[cron trade-promotion-orders-expire] notices", n.error);
       notices = n.ok ? { soon: n.soon, ended: n.ended } : null;
     }
-    return NextResponse.json({ ok: true, ...((data ?? {}) as Record<string, unknown>), notices });
+    /** 창 밖 실행은 응답 그대로(예전과 같음) — 알림을 돌렸을 때만 notices 를 붙인다 */
+    return NextResponse.json({ ok: true, ...((data ?? {}) as Record<string, unknown>), ...(notices ? { notices } : {}) });
   } catch (err) {
     console.error("[cron trade-promotion-orders-expire]", err);
     return NextResponse.json({ ok: false, error: clientSafeInternalErrorMessage(String(err)) }, { status: 500 });
