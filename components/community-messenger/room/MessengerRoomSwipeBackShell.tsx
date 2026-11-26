@@ -544,7 +544,6 @@ export function MessengerRoomSwipeBackShell({
       <div
         className={surfaceClassName}
         data-messenger-room-animation-phase={phase}
-        data-entry-motion={phase === "enter" || phase === "enter-active" ? "running" : undefined}
         style={surfaceStyle}
         onTransitionEnd={onSurfaceTransitionEnd}
       >

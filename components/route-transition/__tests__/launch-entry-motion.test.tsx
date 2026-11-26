@@ -73,19 +73,17 @@ describe("isLaunchEntryMotionSuppressed", () => {
 });
 
 describe("채팅방 셸 — 시작 목적지", () => {
-  it("OS 화면이 떠 있을 때 붙으면 움직임 없이 제자리(idle) · 움직임 표시 없음", async () => {
+  it("OS 화면이 떠 있을 때 붙으면 움직임 없이 제자리(idle)", async () => {
     const surface = await mountShell(false);
     expect(surface.dataset.messengerRoomAnimationPhase).toBe("idle");
-    expect(surface.hasAttribute("data-entry-motion")).toBe(false);
     expect(surface.className).not.toContain("messenger-enter");
   });
 
-  it("OS 화면이 걷힌 뒤(앱 안 탭) 붙으면 기존대로 오른쪽→왼쪽 진입 · 움직이는 동안 running 표시", async () => {
+  it("OS 화면이 걷힌 뒤(앱 안 탭) 붙으면 기존대로 오른쪽→왼쪽 진입", async () => {
     vi.stubGlobal("requestAnimationFrame", () => 0);
     vi.stubGlobal("cancelAnimationFrame", () => {});
     const surface = await mountShell(true);
     expect(surface.dataset.messengerRoomAnimationPhase).toBe("enter");
-    expect(surface.getAttribute("data-entry-motion")).toBe("running");
   });
 });
 
