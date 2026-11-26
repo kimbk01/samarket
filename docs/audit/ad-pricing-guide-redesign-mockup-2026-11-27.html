@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>광고 요금 안내 개선 시안 (2026-11-27)</title>
+<style>
+  :root{--p:#0B421A;--bg:#F6F5F1;--sf:#fff;--bd:#E3E1DA;--mu:#6B6B66;--fg:#1D1D1B;--warn:#FFF4DB;--soft:#EEF4EF}
+  *{box-sizing:border-box}
+  body{margin:0;background:#dcdcd6;font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;color:var(--fg)}
+  .wrap{display:flex;gap:28px;padding:24px;flex-wrap:wrap;align-items:flex-start}
+  .cap{font-size:13px;font-weight:700;margin:0 0 8px}
+  .phone{width:375px;height:812px;background:var(--bg);border-radius:28px;overflow:hidden;position:relative;box-shadow:0 6px 24px rgba(0,0,0,.18);display:flex;flex-direction:column}
+  .top{flex:none;height:56px;display:flex;align-items:center;justify-content:center;background:#ECEAF4;font-weight:700;font-size:17px;position:relative;border-bottom:1px solid var(--bd)}
+  .top .bk{position:absolute;left:14px;width:36px;height:36px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:18px}
+  .scroll{flex:1;overflow:auto;padding:12px 12px 96px}
+  .card{background:var(--sf);border:1px solid var(--bd);border-radius:4px}
+  .hd{padding:14px}
+  .chip{display:inline-block;font-size:11px;font-weight:700;padding:3px 7px;border-radius:4px;background:var(--soft);color:var(--p);margin-right:4px}
+  .chip.on{background:var(--p);color:#fff}
+  h1{font-size:19px;margin:8px 0 4px}
+  .stamp{font-size:12px;color:var(--mu)}
+  .bal{margin-top:10px;display:flex;justify-content:space-between;align-items:center;background:var(--soft);border-radius:4px;padding:10px 12px;font-size:13px}
+  .bal b{font-size:16px;color:var(--p)}
+  .bal a{font-size:12px;font-weight:700;color:var(--p);text-decoration:none;border:1px solid var(--p);border-radius:4px;padding:5px 8px;background:#fff}
+  .tabs{position:sticky;top:0;z-index:2;display:flex;background:var(--sf);border:1px solid var(--bd);border-radius:4px 4px 0 0;margin-top:10px}
+  .tabs div{flex:1;text-align:center;padding:12px 0;font-weight:700;font-size:14px;color:var(--mu);border-bottom:2px solid transparent}
+  .tabs .on{color:var(--p);border-color:var(--p)}
+  .steps{display:flex;gap:6px;padding:10px 12px;border:1px solid var(--bd);border-top:0;background:#fff;font-size:11.5px}
+  .steps span{flex:1;background:var(--bg);border-radius:4px;padding:6px;text-align:center;line-height:1.35}
+  .steps b{display:block;color:var(--p)}
+  .ad{border:1px solid var(--bd);border-top:0;background:#fff}
+  .ad .nm{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:11px 12px 4px}
+  .ad .nm b{font-size:15px;word-break:keep-all}
+  .ad .nm .go{flex:none;font-size:12px;font-weight:700;color:#fff;background:var(--p);border-radius:4px;padding:6px 9px;text-decoration:none}
+  .ad .wh{padding:0 12px 8px;font-size:12px;color:var(--mu);word-break:keep-all;line-height:1.45}
+  .ad .st{display:inline-block;margin-left:4px;font-size:11px;font-weight:700;color:var(--p);background:var(--soft);border-radius:4px;padding:1px 6px}
+  table{width:calc(100% - 24px);margin:0 12px 12px;border-collapse:collapse;table-layout:fixed;font-size:13px}
+  th,td{border:1px solid var(--bd);padding:7px 8px;white-space:nowrap}
+  th{background:var(--bg);font-size:11.5px;color:var(--mu);font-weight:600;text-align:left}
+  td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+  td.r b{font-size:14px}
+  td.pd{color:var(--mu);font-size:12px}
+  .sec{margin:14px 0 6px;font-size:13px;font-weight:700;color:var(--mu);padding:0 2px}
+  .ops .ad .nm b{color:var(--fg)}
+  .ask{font-size:13px;font-weight:700;color:var(--p)}
+  .note{border:1px solid var(--bd);border-top:0;background:#fff;padding:10px 12px 10px 26px;font-size:12px;line-height:1.55;border-radius:0 0 4px 4px}
+  .note li{margin:2px 0}
+  .cta{position:absolute;left:0;right:0;bottom:0;padding:10px 12px 18px;background:linear-gradient(rgba(246,245,241,0),var(--bg) 30%)}
+  .cta div{background:var(--p);color:#fff;text-align:center;font-weight:700;border-radius:4px;padding:15px 0;font-size:15px}
+  .warn{background:var(--warn);border:1px solid #F0DCA8;border-radius:4px;padding:9px 11px;font-size:12px;margin-top:10px}
+  .legend{max-width:1240px;margin:0 24px 30px;background:#fff;border-radius:6px;padding:16px 20px;font-size:13px;line-height:1.6}
+  .legend h2{font-size:15px;margin:0 0 6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ① 회원 탭 -->
+<div>
+<p class="cap">① 회원 광고 탭 (로그인 회원)</p>
+<div class="phone">
+  <div class="top"><span class="bk">‹</span>광고 요금 안내</div>
+  <div class="scroll">
+    <div class="card hd">
+      <span class="chip on">고정</span><span class="chip">광고</span>
+      <h1>광고 요금 안내</h1>
+      <div class="stamp">11월 27일 09:00 기준 · 어드민 금액과 자동 연동</div>
+      <div class="bal"><span>내 포인트<br><b>12,300P</b></span><a href="#">포인트 충전 ›</a></div>
+    </div>
+    <div class="tabs"><div class="on">회원 광고</div><div>매장 광고</div></div>
+    <div class="steps"><span><b>1</b>광고·기간 고르기</span><span><b>2</b>포인트로 결제</span><span><b>3</b>바로 노출 / 승인 후 노출</span></div>
+
+    <div class="ad">
+      <div class="nm"><b>거래 상위노출</b><a class="go" href="#">신청하기 ›</a></div>
+      <div class="wh">거래 목록 1페이지 맨 위 1자리 (가장 최근 결제) <span class="st">결제 즉시 시작</span></div>
+      <table><colgroup><col style="width:38%"><col></colgroup>
+        <tr><th>기간</th><th class="r">금액</th></tr>
+        <tr><td>7일</td><td class="r"><b>500P</b></td></tr>
+        <tr><td>14일</td><td class="r"><b>900P</b></td></tr>
+      </table>
+    </div>
+    <div class="ad">
+      <div class="nm"><b>커뮤니티 상위노출</b><a class="go" href="#">신청하기 ›</a></div>
+      <div class="wh">커뮤니티 목록 맨 위 1자리 (가장 최근 결제) <span class="st">결제 즉시 시작</span></div>
+      <table><colgroup><col style="width:38%"><col></colgroup>
+        <tr><th>기간</th><th class="r">금액</th></tr>
+        <tr><td>3일</td><td class="r"><b>10,000P</b></td></tr>
+        <tr><td>7일</td><td class="r"><b>20,000P</b></td></tr>
+      </table>
+    </div>
+    <div class="ad">
+      <div class="nm"><b>거래 배너</b><a class="go" href="#">신청하기 ›</a></div>
+      <div class="wh">거래 홈·업종 목록 사이 가로 배너 · 위치당 3자리 <span class="st">운영 승인 후 시작</span></div>
+      <table><colgroup><col style="width:38%"><col></colgroup>
+        <tr><th>기간</th><th class="r">금액</th></tr>
+        <tr><td>3일</td><td class="r"><b>8,000P</b></td></tr>
+        <tr><td>7일</td><td class="r"><b>15,000P</b></td></tr>
+      </table>
+    </div>
+    <div class="note"><ul style="margin:0;padding:0">
+      <li>금액은 결제(신청)할 때 금액으로 확정돼요. 이후 바뀌어도 진행 중인 광고는 그대로예요.</li>
+      <li>배너는 승인 전까지 포인트가 묶이고, 반려·7일 미검토면 돌려드려요.</li>
+    </ul></div>
+  </div>
+  <div class="cta"><div>광고 문의하기</div></div>
+</div>
+</div>
+
+<!-- ② 매장 탭 -->
+<div>
+<p class="cap">② 매장 광고 탭 (사장님)</p>
+<div class="phone">
+  <div class="top"><span class="bk">‹</span>광고 요금 안내</div>
+  <div class="scroll">
+    <div class="card hd">
+      <span class="chip on">고정</span><span class="chip">광고</span>
+      <h1>광고 요금 안내</h1>
+      <div class="stamp">11월 27일 09:00 기준 · 어드민 금액과 자동 연동</div>
+      <div class="bal"><span>비즈 캐시 (내 매장)<br><b>₱1,250</b></span><a href="#">캐시 충전 ›</a></div>
+    </div>
+    <div class="tabs"><div>회원 광고</div><div class="on">매장 광고</div></div>
+    <div class="steps"><span><b>1</b>광고·기간 고르기</span><span><b>2</b>비즈 캐시 결제</span><span><b>3</b>승인 후 희망일부터</span></div>
+
+    <div class="ad">
+      <div class="nm"><b>배달 홈 상단 배너</b><a class="go" href="#">신청하기 ›</a></div>
+      <div class="wh">배달 홈 맨 위 큰 배너 · 남은 자리 3/5 <span class="st">승인 후 시작</span></div>
+      <table><colgroup><col style="width:38%"><col></colgroup>
+        <tr><th>기간</th><th class="r">금액</th></tr>
+        <tr><td>7일</td><td class="r"><b>₱350</b></td></tr>
+        <tr><td>15일</td><td class="r"><b>₱650</b></td></tr>
+        <tr><td>30일</td><td class="r"><b>₱1,100</b></td></tr>
+      </table>
+    </div>
+    <div class="ad">
+      <div class="nm"><b>매장 홍보 (업종 목록)</b><a class="go" href="#">신청하기 ›</a></div>
+      <div class="wh">우리 매장 업종 목록 사이 「광고」 표시 <span class="st">승인 후 시작</span></div>
+      <table><colgroup><col style="width:38%"><col></colgroup>
+        <tr><th>기간</th><th class="r">금액</th></tr>
+        <tr><td>7일</td><td class="r"><b>₱100</b></td></tr>
+        <tr><td>15일</td><td class="r"><b>₱180</b></td></tr>
+        <tr><td>30일</td><td class="r"><b>₱320</b></td></tr>
+      </table>
+    </div>
+    <div class="ad">
+      <div class="nm"><b>광고 파트너</b><a class="go" href="#">가입하기 ›</a></div>
+      <div class="wh">월 회비로 매장 광고 15% 할인 · 30일</div>
+      <table><colgroup><col style="width:38%"><col></colgroup>
+        <tr><th>기간</th><th class="r">금액</th></tr>
+        <tr><td>30일</td><td class="r"><b>₱120</b></td></tr>
+      </table>
+    </div>
+    <div class="note"><ul style="margin:0;padding:0">
+      <li>배달 홈 목록 매장 홍보는 지금 판매하지 않아요(노출 자리 꺼짐).</li>
+      <li>금액은 신청할 때 확정돼요. iPhone 앱에서는 결제할 수 없어요.</li>
+    </ul></div>
+  </div>
+  <div class="cta"><div>배달 광고 문의하기</div></div>
+</div>
+</div>
+
+<!-- ③ 문의형 광고 (팝업·당김) -->
+<div>
+<p class="cap">③ 아래로 내리면 — 팝업·당김 광고 (문의형)</p>
+<div class="phone">
+  <div class="top"><span class="bk">‹</span>광고 요금 안내</div>
+  <div class="scroll ops">
+    <div class="tabs" style="margin-top:0"><div class="on">회원 광고</div><div>매장 광고</div></div>
+    <div class="ad">
+      <div class="nm"><b>커뮤니티 배너</b><a class="go" href="#">신청하기 ›</a></div>
+      <div class="wh">커뮤니티 홈·주제 목록 사이 가로 배너 · 위치당 3자리 <span class="st">운영 승인 후 시작</span></div>
+      <table><colgroup><col style="width:38%"><col></colgroup>
+        <tr><th>기간</th><th class="r">금액</th></tr>
+        <tr><td>3일</td><td class="r"><b>10,000P</b></td></tr>
+        <tr><td>7일</td><td class="r"><b>20,000P</b></td></tr>
+      </table>
+    </div>
+    <p class="sec">운영팀과 상의해서 진행하는 광고</p>
+    <div class="ad" style="border-top:1px solid var(--bd)">
+      <div class="nm"><b>앱 시작 팝업</b><span class="ask">금액 문의</span></div>
+      <div class="wh">앱을 열 때 화면 가운데 팝업 · 운영팀이 일정·금액 안내</div>
+    </div>
+    <div class="ad">
+      <div class="nm"><b>당김 광고 (아래로 당길 때)</b><span class="ask">금액 문의</span></div>
+      <div class="wh">목록을 아래로 당기면 위에 나오는 띠 광고 · 운영팀이 일정·금액 안내</div>
+    </div>
+    <div class="note"><ul style="margin:0;padding:0">
+      <li>팝업·당김 광고는 앱에서 바로 결제하지 않고, 문의하시면 운영팀이 금액과 일정을 안내해요.</li>
+    </ul></div>
+    <div class="warn">⚠ 팝업·당김 광고를 「바로 결제」로 팔려면 가격표·어드민 금액 화면·신청 화면이 새로 필요합니다 (보고서 §3 결정 1).</div>
+  </div>
+  <div class="cta"><div>광고 문의하기</div></div>
+</div>
+</div>
+
+</div>
+<div class="legend">
+  <h2>바뀐 점 (지금 운영 화면 대비)</h2>
+  1) 4칸 한 표 → <b>광고마다 카드</b>(이름 줄 + 나오는 곳·시작 줄 + 기간/금액 2칸 표). 이름이 글자 중간에서 끊기지 않음(줄바꿈은 낱말 단위).<br>
+  2) 각 광고에 <b>신청하기</b> 버튼 — 실제 결제 화면으로 이동. 위에 <b>1·2·3 순서</b>(고르기 → 결제 → 시작).<br>
+  3) 머리에 <b>내 포인트 / 내 매장 비즈 캐시</b> 잔액 + 충전 버튼.<br>
+  4) 탭은 스크롤해도 <b>위에 고정</b>, 「광고 문의하기」는 <b>아래에 고정</b>.<br>
+  5) 금액 표기 ₱350.00 → <b>₱350</b>(소수점 제거).<br>
+  6) <b>팝업·당김 광고</b>를 「운영팀과 상의해서 진행하는 광고 · 금액 문의」로 표시(지금은 앱 결제 경로가 없음).<br>
+  금액은 11-26 운영 화면 값, 잔액·남은 자리는 예시 숫자.
+</div>
+</body>
+</html>

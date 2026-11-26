@@ -356,7 +356,7 @@ function SupportAdPricingView({
             <DibayPendingSpinner layout="inline" />
           </div>
         ) : (
-          <AdPricingGuideTable guide={guide} tab={tab} onTabChange={setTab} />
+          <AdPricingGuideTable guide={guide} tab={tab} onTabChange={setTab} showApply={false} />
         )}
       </div>
       <Footer>

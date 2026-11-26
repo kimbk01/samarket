@@ -261,6 +261,9 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
         }}
       />
     );
+  } else if (list.items.length === 0 && contentType === "notice" && !appliedQuery && filter !== "unread") {
+    /** 재감사 G-7 (2026-11-27): 위에 「광고 요금 안내」 고정 카드가 있으니 「공지사항이 없습니다」를 같이 두지 않는다 */
+    body = null;
   } else if (list.items.length === 0) {
     body = (
       <MyStateView

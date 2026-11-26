@@ -20,6 +20,8 @@ const NORMAL_TERM_KEYS = new Set([
   // 광고 요금 안내 상품 이름 「매장 홍보」(정상 용어 · 광고 감사 E 2026-11-26)
   "ad_guide_name_store_home_feed",
   "ad_guide_name_store_category_feed",
+  // 재감사 G-8 (2026-11-27): 「배달 홈 목록 매장 홍보는 지금 판매하지 않아요」 — 같은 상품 이름 「매장 홍보」
+  "ad_guide_note_store_home_feed_off",
   "neighborhood_promo",
   "neighborhood_category_promo",
   "store_coupon_purpose_new_menu",
