@@ -34,5 +34,10 @@ export function isBigAdPriceChange(before: number | null | undefined, after: num
 export function formatAdPriceRatio(before: number | null | undefined, after: number): string | null {
   const r = adPriceChangeRatio(before, after);
   if (r == null) return null;
-  return `×${(Math.round(r * 10) / 10).toString()}`;
+  /**
+   * 2026-11-27 (금액 권장안 적용 중 발견): 1 미만을 소수 첫째 자리로 반올림하면 10,000→250(×0.025)이 「×0」 으로 보였다.
+   * 1 미만은 유효숫자 2자리(×0.025 · ×0.075 · ×0.1), 1 이상은 지금처럼 소수 첫째 자리(×2.5 · ×40).
+   */
+  const shown = r < 1 ? Number(r.toPrecision(2)) : Math.round(r * 10) / 10;
+  return `×${shown.toString()}`;
 }

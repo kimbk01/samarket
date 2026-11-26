@@ -21,5 +21,11 @@ describe("D-13 광고 가격 오타 방지", () => {
     expect(isBigAdPriceChange(1500, 500)).toBe(true);
     expect(isBigAdPriceChange(null, 500)).toBe(false);
     expect(formatAdPriceRatio(500, 1250)).toBe("×2.5");
+    /** 2026-11-27: 크게 내린 금액이 「×0」 으로 보이지 않게 */
+    expect(formatAdPriceRatio(10000, 250)).toBe("×0.025");
+    expect(formatAdPriceRatio(20000, 1500)).toBe("×0.075");
+    expect(formatAdPriceRatio(8000, 750)).toBe("×0.094");
+    expect(formatAdPriceRatio(15000, 1500)).toBe("×0.1");
+    expect(formatAdPriceRatio(250, 10000)).toBe("×40");
   });
 });
