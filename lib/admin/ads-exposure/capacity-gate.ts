@@ -192,6 +192,9 @@ export async function loadHeroOccupancyCampaigns(
   return loadBannerOccupancyCampaigns(sb, DELIVERY_HERO_PLACEMENT_KEY);
 }
 
+/** 점유 조회 한 번에 읽는 최대 행 (R-36 — 넘으면 fail-closed) */
+const BANNER_OCCUPANCY_ROW_CAP = 2000;
+
 /** B-02 — 지면(inventory key)별 점유 캠페인. HERO 와 같은 규칙(점유 lifecycle + 기간 겹침). */
 export async function loadBannerOccupancyCampaigns(
   sb: SupabaseClient,
@@ -207,9 +210,14 @@ export async function loadBannerOccupancyCampaigns(
      * 조회 실패는 「자리 0개 사용」이 아니라 오류로 올린다 — 판매 쪽은 막는다(fail-closed).
      */
     .in("lifecycle_status", [...HERO_OCCUPYING_LIFECYCLES])
-    .limit(2000);
+    .limit(BANNER_OCCUPANCY_ROW_CAP);
   if (error) {
     console.warn("[capacity-gate] load hero campaigns", error.message);
+    throw new Error("capacity_check_failed");
+  }
+  /** R-36: 상한까지 꽉 차면 일부만 읽었을 수 있다 — 잘린 채 자리 계산하지 않고 「확인 못 함」으로 닫는다 */
+  if ((data ?? []).length >= BANNER_OCCUPANCY_ROW_CAP) {
+    console.warn("[capacity-gate] occupancy rows hit cap", BANNER_OCCUPANCY_ROW_CAP);
     throw new Error("capacity_check_failed");
   }
 

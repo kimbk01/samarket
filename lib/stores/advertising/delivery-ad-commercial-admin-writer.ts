@@ -139,6 +139,18 @@ export async function adminUpdateDeliveryAdPackagePrice(
             .limit(1);
           if (paidErr) return { ok: false, error: "sold_check_failed" };
           if ((paid ?? []).length > 0) return { ok: false, error: "duration_locked_sold" };
+          /**
+           * R-31: 옛 결제 표(매장 캐시 직접 차감)도 같은 요금 기록에 연결된다 — 삭제 막기(`admin-delivery-ad-delete.ts`)와 같이 두 표를 본다.
+           * (2026-11-26 운영 DB 읽기 전용: REFUNDED 1건 · 요금 기록 연결 1건)
+           */
+          const { data: legacyPaid, error: legacyErr } = await sb
+            .from("delivery_ad_store_cash_spends")
+            .select("id")
+            .in("campaign_id", campaignIds)
+            .in("status", ["SECURED", "REFUNDED"])
+            .limit(1);
+          if (legacyErr) return { ok: false, error: "sold_check_failed" };
+          if ((legacyPaid ?? []).length > 0) return { ok: false, error: "duration_locked_sold" };
         }
         if (rows.length < PAGE) {
           finished = true;

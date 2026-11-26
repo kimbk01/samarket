@@ -22,6 +22,8 @@ function statusForError(error: string): number {
       return 404;
     case "duplicate_submit":
       return 409;
+    case "capacity_check_failed":
+      return 503;
     case "db_error":
     case "inventory_lookup_failed":
       return 500;

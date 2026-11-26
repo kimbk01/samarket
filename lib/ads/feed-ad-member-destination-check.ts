@@ -34,7 +34,8 @@ export async function checkMemberFeedAdDestination(
   const type = dest.destinationType.trim();
   /** 글 목적지만 작성자·공개를 본다. 다른 종류(외부·앱 안 화면·매장·이벤트)는 `normalizeFeedAdDestination` 검사 그대로(계약: 정해진 종류만) */
   if (type !== "trade_listing" && type !== "community_post") return { ok: true };
-  const id = dest.destinationId.trim();
+  /** R-34: 공개 판정 표는 id 를 소문자로 찾는다 — 대문자 uuid 로 온 내 공개 글이 거절되지 않게 맞춘다 */
+  const id = dest.destinationId.trim().toLowerCase();
   /** uuid 가 아니면 DB 에 묻지 않는다(잘못된 id 로 Postgres 오류를 만들지 않음) */
   if (!UUID_RE.test(id)) return { ok: false, error: "destination_unavailable" };
   const key = popupEntityCtaKey(type, id);
@@ -46,6 +47,11 @@ export async function checkMemberFeedAdDestination(
   const ownerId = String((owner.data as { user_id?: unknown } | null)?.user_id ?? "");
   if (!ownerId || ownerId !== userId) return { ok: false, error: "destination_not_mine" };
   const l = lookups.get(key);
-  if (!l || !l.exists || !l.visible) return { ok: false, error: "destination_unavailable" };
+  /**
+   * R-34: 작성자 조회로 글이 있는 것을 이미 확인했다 — 공개 판정이 「없음」이면 그 조회가 실패한 것이다.
+   * 「쓸 수 없는 글」이 아니라 「확인 못 함」으로 돌려준다.
+   */
+  if (!l || !l.exists) return { ok: false, error: "destination_check_failed" };
+  if (!l.visible) return { ok: false, error: "destination_unavailable" };
   return { ok: true };
 }

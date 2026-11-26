@@ -25,6 +25,7 @@ export async function POST(
     productId?: string;
     idempotencyKey?: string;
     expectedCost?: number;
+    expectedDurationDays?: number;
     creativeOrDestinationChanged?: boolean;
   };
   try {
@@ -50,6 +51,7 @@ export async function POST(
     productId: String(body.productId ?? ""),
     idempotencyKey: idem,
     expectedCost: typeof body.expectedCost === "number" ? body.expectedCost : null,
+    expectedDurationDays: typeof body.expectedDurationDays === "number" ? body.expectedDurationDays : null,
     creativeOrDestinationChanged: Boolean(body.creativeOrDestinationChanged),
   });
 

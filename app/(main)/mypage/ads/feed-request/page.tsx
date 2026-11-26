@@ -145,6 +145,8 @@ export default function MemberFeedAdRequestPage() {
    */
   const loadSeqRef = useRef(0);
   const prefillProductIdRef = useRef<string | null>(null);
+  /** R-30: 회원이 고른(또는 광고하기 창에서 넘어온) 상품이 지금 목록에 없음 */
+  const [chosenProductGone, setChosenProductGone] = useState(false);
   const load = useCallback(async () => {
     const seq = ++loadSeqRef.current;
     const [prodRes, balRes, tgtRes] = await Promise.all([
@@ -175,15 +177,25 @@ export default function MemberFeedAdRequestPage() {
     const affordable = items.filter((p) => balN == null || p.pointCost <= balN);
     const preferred = affordable[0] ?? null;
     const prefill = prefillProductIdRef.current;
-    if (prefill && items.some((p) => p.id === prefill)) prefillProductIdRef.current = null;
+    /** R-30: 넘어온 상품 기억은 첫 응답에서 항상 지운다 — 나중에 다시 켜져도 회원이 직접 고른 상품을 덮지 않게 */
+    prefillProductIdRef.current = null;
     setProductId((prev) => {
-      const want = prefill && items.some((p) => p.id === prefill) ? prefill : prev;
+      const want = prefill || prev;
       /**
        * R-26: 회원이 고른 상품(광고하기 창에서 넘어온 것 포함)은 잔액이 모자라도 바꾸지 않는다 —
        * 고른 채로 「포인트 부족 · 충전」 안내를 보이고 신청 버튼은 잠근다(아래 canSubmit).
+       * R-30: 고른 상품이 그새 꺼져 목록에 없으면 다른 상품을 대신 고르지 않는다 — 비워 두고 「다시 골라 주세요」.
        * 고른 상품이 없을 때만 살 수 있는 첫 상품을 미리 고른다.
        */
-      if (want && items.some((p) => p.id === want)) return want;
+      if (want && items.some((p) => p.id === want)) {
+        setChosenProductGone(false);
+        return want;
+      }
+      if (want) {
+        setChosenProductGone(true);
+        return "";
+      }
+      setChosenProductGone(false);
       return preferred?.id ?? "";
     });
     if (tgtRes?.ok) {
@@ -988,6 +1000,11 @@ export default function MemberFeedAdRequestPage() {
           <h2 className="sam-text-body font-semibold">
             {safeT("feed_ad_req_product")}
           </h2>
+          {chosenProductGone ? (
+            <p className="sam-text-helper font-medium text-sam-warning" role="status" data-testid="feed-ad-product-gone">
+              {t("feed_ad_req_product_gone")}
+            </p>
+          ) : null}
           <p className="sam-text-body font-medium" data-testid="feed-ad-balance">
             {safeT("feed_ad_req_my_points")}
             {": "}
@@ -1006,7 +1023,10 @@ export default function MemberFeedAdRequestPage() {
                   disabled={unaffordable}
                   aria-disabled={unaffordable}
                   onClick={() => {
-                    if (!unaffordable) setProductId(p.id);
+                    if (!unaffordable) {
+                      setProductId(p.id);
+                      setChosenProductGone(false);
+                    }
                   }}
                   data-testid={`feed-ad-product-${p.id}`}
                   className={`relative w-full overflow-hidden rounded-ui-rect border px-3 py-2 text-left disabled:cursor-not-allowed ${

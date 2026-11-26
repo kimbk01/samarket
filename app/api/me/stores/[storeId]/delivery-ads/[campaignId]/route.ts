@@ -27,6 +27,8 @@ function statusForError(error: string): number {
     case "not_editable":
     case "illegal_transition":
       return 409;
+    case "capacity_check_failed":
+      return 503;
     case "db_error":
       return 500;
     default:

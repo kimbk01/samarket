@@ -15,7 +15,10 @@ import {
   formatDeliveryAdPhpMinor,
 } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { isStoresHomeFeedSellable, STORES_HOME_FEED_INVENTORY_KEY } from "@/lib/stores/advertising/delivery-ad-home-feed-sell-gate";
-import { isOwnerSellableDeliveryAdPlacement } from "@/lib/stores/advertising/delivery-ad-owner-sellable";
+import {
+  isOwnerSellableDeliveryAdPlacement,
+  STORES_CATEGORY_FEED_INVENTORY_KEY,
+} from "@/lib/stores/advertising/delivery-ad-owner-sellable";
 import { assertOwnerSponsoredCategoryFeedSellable } from "@/lib/stores/advertising/owner-store-sponsored-writer";
 
 export const runtime = "nodejs";
@@ -130,8 +133,10 @@ export async function GET(req: NextRequest) {
 
   /** SA-01: 꺼진 홈 홍보는 기간 상품도 0개 → 화면은 「판매 준비 중」 · 신청 버튼 꺼짐 */
   const homeFeedBlocked = inventoryKey === STORES_HOME_FEED_INVENTORY_KEY && !homeFeedSellable;
+  /** R-33: 이 매장 업종에 업종 광고가 꺼져 있으면 업종 목록도 기간 상품 0개 (직접 호출해도 견적이 나오지 않게) */
+  const categoryFeedBlocked = inventoryKey === STORES_CATEGORY_FEED_INVENTORY_KEY && !categoryFeedSellable;
   const sellable = listed
-    .filter((row) => row.quote.ok && !homeFeedBlocked)
+    .filter((row) => row.quote.ok && !homeFeedBlocked && !categoryFeedBlocked)
     .map((row) => {
       const q = row.quote;
       if (!q.ok) return null;
@@ -153,7 +158,7 @@ export async function GET(req: NextRequest) {
     .filter((p): p is NonNullable<typeof p> => p != null);
 
   let quote = null;
-  if (packageId && homeFeedBlocked) {
+  if (packageId && (homeFeedBlocked || categoryFeedBlocked)) {
     quote = { ok: false as const, error: "placement_not_sellable" };
   } else if (packageId) {
     const q = await quoteDeliveryAdApplicationCommercial(sb, {

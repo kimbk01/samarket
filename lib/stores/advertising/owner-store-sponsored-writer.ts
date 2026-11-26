@@ -113,6 +113,8 @@ export type OwnerSponsoredWriterError =
   | "category_ads_disabled"
   /** SA-01: 배달 홈 노출 자리(「더 많은 매장」 광고 연동) 꺼짐 */
   | "home_ads_disabled"
+  /** R-32: 업종 판정 조회 실패 — 팔지 않고 「확인 못 함」 */
+  | "capacity_check_failed"
   | "taxonomy_required"
   /** ADS-02 — 기간은 패키지에서만 서버가 산출 (직접 start/end 수정 금지). */
   | "schedule_locked"
@@ -356,6 +358,27 @@ export async function assertOwnerSponsoredCategoryFeedSellable(
   }
 ): Promise<
   | { ok: true; kind: "primary" | "secondary"; primarySlug: string | null; secondarySlug: string | null }
+  | { ok: false; error: "category_ads_disabled" | "taxonomy_required" | "capacity_check_failed" }
+> {
+  /** R-32: 매장 업종·업종 정책 조회 실패는 「확인 못 함」(capacity_check_failed) — 「광고 받지 않는 위치」나 처리 안 된 오류로 보이지 않게 */
+  try {
+    return await assertOwnerSponsoredCategoryFeedSellableInner(sb, input);
+  } catch (e) {
+    console.warn("[owner-sponsored] category gate check failed", e instanceof Error ? e.message : e);
+    return { ok: false, error: "capacity_check_failed" };
+  }
+}
+
+async function assertOwnerSponsoredCategoryFeedSellableInner(
+  sb: SupabaseClient,
+  input: {
+    storeId: string;
+    browseTargetKind: "primary" | "secondary" | null | undefined;
+    browsePrimarySlug: string | null | undefined;
+    browseSecondarySlug: string | null | undefined;
+  }
+): Promise<
+  | { ok: true; kind: "primary" | "secondary"; primarySlug: string | null; secondarySlug: string | null }
   | { ok: false; error: "category_ads_disabled" | "taxonomy_required" }
 > {
   const { assertCategoryFeedSellableByPolicy } = await import(
@@ -365,11 +388,12 @@ export async function assertOwnerSponsoredCategoryFeedSellable(
   let primarySlug = input.browsePrimarySlug?.trim() || null;
   let secondarySlug = input.browseSecondarySlug?.trim() || null;
   if (!primarySlug) {
-    const { data: storeTax } = await sb
+    const { data: storeTax, error: taxErr } = await sb
       .from("stores")
       .select("store_categories ( slug ), store_topics ( slug )")
       .eq("id", input.storeId)
       .maybeSingle();
+    if (taxErr) throw new Error(taxErr.message || "store_taxonomy_load_failed");
     const cat = (storeTax as { store_categories?: { slug?: string } | { slug?: string }[] | null } | null)
       ?.store_categories;
     const topic = (storeTax as { store_topics?: { slug?: string } | { slug?: string }[] | null } | null)
@@ -392,13 +416,15 @@ export async function assertOwnerSponsoredCategoryFeedSellable(
 export async function assertSponsoredCampaignCategoryFeedSellable(
   sb: SupabaseClient,
   input: { campaignId: string; storeId: string }
-): Promise<{ ok: true } | { ok: false; error: "category_ads_disabled" | "taxonomy_required" }> {
+): Promise<{ ok: true } | { ok: false; error: "category_ads_disabled" | "taxonomy_required" | "capacity_check_failed" }> {
   const { data, error } = await sb
     .from(STORE_SPONSORED_CAMPAIGN_TABLE)
     .select("browse_target_kind, browse_primary_slug, browse_secondary_slug")
     .eq("id", input.campaignId)
     .maybeSingle();
-  if (error || !data) return { ok: false, error: "category_ads_disabled" };
+  /** R-32: 신청 조회 실패 = 「확인 못 함」 · 신청이 없으면 업종 판정 대상이 아님(제출 쪽이 신청 없음으로 막음) */
+  if (error) return { ok: false, error: "capacity_check_failed" };
+  if (!data) return { ok: false, error: "category_ads_disabled" };
   const raw = data as {
     browse_target_kind?: string | null;
     browse_primary_slug?: string | null;

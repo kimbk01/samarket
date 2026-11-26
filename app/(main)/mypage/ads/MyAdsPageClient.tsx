@@ -324,6 +324,8 @@ export default function MyAdsPageClient() {
     const idem = attempts.keyFor(renewTarget.campaignId, renewProductId);
     /** D-01: 화면에 보인 가격 — 서버(DB)가 지금 가격과 다르면 차감 없이 409 price_changed */
     const shownCost = renewCatalog.find((p) => p.id === renewProductId)?.pointCost;
+    /** R-35: 화면에 보인 기간도 보낸다 — 어드민이 기간만 바꿨으면 차감 없이 409 price_changed */
+    const shownDays = renewCatalog.find((p) => p.id === renewProductId)?.durationDays;
     try {
       let res: Response;
       try {
@@ -338,6 +340,7 @@ export default function MyAdsPageClient() {
             productId: renewProductId,
             idempotencyKey: idem,
             ...(typeof shownCost === "number" ? { expectedCost: shownCost } : {}),
+            ...(typeof shownDays === "number" ? { expectedDurationDays: shownDays } : {}),
             creativeOrDestinationChanged: false,
           }),
         });
