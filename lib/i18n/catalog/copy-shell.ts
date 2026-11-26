@@ -61,6 +61,7 @@ export const copyShellMessages = {
     mypage_ads_select_category: "카테고리 선택",
     mypage_ads_select_topic: "주제 선택",
     mypage_ads_spots_left: "남은 자리 {remaining}개 (전체 {capacity}개)",
+    mypage_ads_pool_pending_review: "검토 중인 신청 {count}건 (승인 순서대로 자리가 잡혀요)",
     mypage_ads_spot_full_apply_later: "이 자리는 지금 가득 찼습니다. 자리가 나면 신청할 수 있습니다.",
     mypage_ads_pool_refund_note: "승인 때 자리가 차면 신청은 검토 중으로 남고 포인트는 보류됩니다. 반려되면 포인트를 돌려드립니다.",
     /** FB-13: 같은 자리에 다른 광고가 있으면 캠페인마다 1번 이미지만 나온다 (`FeedAdBannerCarousel` multiCampaign) */
@@ -157,6 +158,7 @@ export const copyShellMessages = {
     mypage_ads_select_category: "Select category",
     mypage_ads_select_topic: "Select topic",
     mypage_ads_spots_left: "{remaining} of {capacity} spots left",
+    mypage_ads_pool_pending_review: "{count} requests in review (spots go in approval order)",
     mypage_ads_spot_full_apply_later: "This spot is full. You can apply when a spot opens.",
     mypage_ads_pool_refund_note: "If the spot fills up by approval time, your request stays in review with points on hold. If it is declined, your points are returned.",
     mypage_ads_image_limits: "max 2MB each · only image 1 shows when other ads share the spot",

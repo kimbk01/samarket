@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { loadPromotionOrderExtensionSummaries } from "@/lib/points/promotion-order-extensions";
 import { NextRequest, NextResponse } from "next/server";
 import { findPromotionPurchaseReplay } from "@/lib/promotion/promotion-purchase-replay";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
@@ -137,28 +138,15 @@ async function getUncached(req: NextRequest): Promise<NextResponse> {
    * A-DB TB-07: 연장 기록 합치기(내 광고 「연장 n회 · +n일」). 표가 아직 없거나 조회가 실패하면 연장 표시 없이 그대로(주문은 정상).
    */
   if (orders.length > 0) {
-    const { data: exts, error: extErr } = await sb
-      .from("point_promotion_order_extensions")
-      .select("order_id, days")
-      .in(
-        "order_id",
-        orders.map((o) => o.id)
-      );
-    if (!extErr) {
-      const byOrder = new Map<string, { count: number; days: number }>();
-      for (const e of (exts ?? []) as { order_id?: unknown; days?: unknown }[]) {
-        const id = String(e.order_id ?? "");
-        const cur = byOrder.get(id) ?? { count: 0, days: 0 };
-        cur.count += 1;
-        cur.days += Math.max(0, Math.floor(Number(e.days) || 0));
-        byOrder.set(id, cur);
-      }
-      for (const o of orders) {
-        const ext = byOrder.get(o.id);
-        if (ext) {
-          o.extensionCount = ext.count;
-          o.extensionDays = ext.days;
-        }
+    const exts = await loadPromotionOrderExtensionSummaries(
+      sb,
+      orders.map((o) => o.id)
+    );
+    for (const o of orders) {
+      const ext = exts.get(o.id);
+      if (ext) {
+        o.extensionCount = ext.count;
+        o.extensionDays = ext.days;
       }
     }
   }

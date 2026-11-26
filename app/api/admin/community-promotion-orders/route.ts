@@ -1,4 +1,5 @@
 import { requireAdminApiActor } from "@/lib/admin/require-admin-permission";
+import { loadPromotionOrderExtensionSummaries } from "@/lib/points/promotion-order-extensions";
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { ADMIN_LIST_MAX_OFFSET } from "@/lib/admin/pagination/parse-admin-list-page";
@@ -73,7 +74,7 @@ export async function GET(req: NextRequest) {
   const orderIds = rows.map((r) => String(r.id ?? "")).filter(Boolean);
   const postIds = [...new Set(rows.map((r) => String(r.target_id ?? "")).filter(Boolean))];
 
-  const [postsRes, ledgerRes] = await Promise.all([
+  const [postsRes, ledgerRes, extensions] = await Promise.all([
     postIds.length
       ? sb.from("community_posts").select("id, title, status, user_id, origin_kind, display_author_name").in("id", postIds)
       : Promise.resolve({ data: [] as unknown[], error: null }),
@@ -86,6 +87,8 @@ export async function GET(req: NextRequest) {
           .in("entry_type", ["spend", "promotion_extend"])
           .in("related_id", orderIds)
       : Promise.resolve({ data: [] as unknown[], error: null }),
+    /** A-DB TB-07: 연장 기록 (주문 행 기간·금액은 처음 결제) */
+    loadPromotionOrderExtensionSummaries(sb, orderIds),
   ]);
 
   const postById = new Map<string, Record<string, unknown>>();
@@ -114,6 +117,9 @@ export async function GET(req: NextRequest) {
       buyerNickname: buyer?.nickname ?? null,
       buyerLabel: formatAdminMemberLabel(buyer ?? null),
       paidPoints: paidByOrder.has(id) ? paidByOrder.get(id)! : null,
+      extensionCount: extensions.get(id)?.count ?? 0,
+      extensionDays: extensions.get(id)?.days ?? 0,
+      extensionPoints: extensions.get(id)?.points ?? 0,
       refundPoints: r.refund_points != null ? Number(r.refund_points) : null,
       refundLedgerId: r.refund_ledger_id != null ? String(r.refund_ledger_id) : null,
       fault: r.fault != null ? String(r.fault) : null,

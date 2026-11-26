@@ -72,6 +72,9 @@ type FeedRequestRow = {
   startAt?: string | null;
   endAt?: string | null;
   creatives?: { sortOrder: number; imageUrl: string; headline: string }[];
+  /** B-DB FB-06: 연장 기록 합계 — pointCost·durationDays 는 처음 신청 */
+  renewalCount?: number;
+  renewalDays?: number;
 };
 
 /**
@@ -766,6 +769,15 @@ export default function MyAdsPageClient() {
                         {remaining ? (
                           <p className="sam-text-helper text-sam-muted" data-testid="revenue-hub-feed-ad-remaining">
                             {remaining}
+                          </p>
+                        ) : null}
+                        {/* B-DB FB-06: 처음 신청(위 줄)과 연장을 나눠 보인다 — 상위노출 「연장 n회」와 같은 문구 */}
+                        {(r.renewalCount ?? 0) > 0 ? (
+                          <p className="sam-text-helper text-sam-muted" data-testid="revenue-hub-feed-ad-renewed">
+                            {t("mypage_oa_ads_boost_extended", {
+                              count: String(r.renewalCount ?? 0),
+                              days: String(r.renewalDays ?? 0),
+                            })}
                           </p>
                         ) : null}
                         {r.operatorNotice ? (

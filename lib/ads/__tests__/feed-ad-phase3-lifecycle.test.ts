@@ -429,8 +429,16 @@ describe("PHASE 3 renewal (D9–D14 · D-01 DB 함수 한 트랜잭션)", () => 
     if (res.ok) expect(Date.parse(res.endAt)).toBe(Date.parse("2026-08-19T00:00:00.000Z"));
     expect(state.rpcCalls).toEqual([
       {
-        fn: "member_feed_ad_renew",
-        args: { p_user: "u1", p_campaign: "camp-1", p_product: "feed_banner_trade_7", p_key: "idem-1", p_expected_cost: 15000 },
+        /** B-DB: 옛 5인자 함수는 부르지 않는다 — 기간을 안 보낸 호출은 지금 상품 기간을 채워 v2 로 */
+        fn: "member_feed_ad_renew_v2",
+        args: {
+          p_user: "u1",
+          p_campaign: "camp-1",
+          p_product: "feed_banner_trade_7",
+          p_key: "idem-1",
+          p_expected_cost: 15000,
+          p_expected_days: 7,
+        },
       },
     ]);
     expect(state.ledger).toHaveLength(1);

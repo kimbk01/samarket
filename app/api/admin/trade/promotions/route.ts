@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { loadPromotionOrderExtensionSummaries } from "@/lib/points/promotion-order-extensions";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { parseTradeAdminListPage } from "@/lib/admin/trade-admin/trade-admin-list-page";
 import {
@@ -74,6 +75,11 @@ export async function GET(req: NextRequest) {
     ...rows.map((r) => String(r.ended_by ?? "")),
   ]);
   const label = (uid: unknown) => (uid ? formatAdminMemberLabel(identities.get(String(uid))) : null);
+  /** A-DB TB-07: 연장 기록 (주문 행 duration_days·point_cost 는 처음 결제) */
+  const extensions = await loadPromotionOrderExtensionSummaries(
+    sb,
+    rows.map((r) => String(r.id ?? ""))
+  );
   const nowMs = Date.now();
 
   return NextResponse.json({
@@ -94,6 +100,9 @@ export async function GET(req: NextRequest) {
       placement: r.placement,
       duration_days: r.duration_days,
       point_cost: r.point_cost,
+      extension_count: extensions.get(String(r.id ?? ""))?.count ?? 0,
+      extension_days: extensions.get(String(r.id ?? ""))?.days ?? 0,
+      extension_points: extensions.get(String(r.id ?? ""))?.points ?? 0,
       order_status: r.order_status,
       /** 진행 중인데 종료일이 지난 주문 (만료 처리 전) */
       overdue: r.order_status === "active" && r.end_at ? new Date(String(r.end_at)).getTime() < nowMs : false,

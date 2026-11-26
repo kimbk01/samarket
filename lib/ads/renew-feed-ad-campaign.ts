@@ -1,7 +1,8 @@
 /**
  * Feed Banner renewal — Point spend ↔ period extension.
  *
- * D-01 (광고 3차 재감사 · 2026-11-07): 차감·연장·같은 키 판정을 DB 함수 `member_feed_ad_renew` 한 트랜잭션에서 한다.
+ * D-01 (광고 3차 재감사 · 2026-11-07): 차감·연장·같은 키 판정을 DB 함수 한 트랜잭션에서 한다
+ * (B-DB 2026-11-27 부터 `member_feed_ad_renew_v2` 하나 — 옛 5인자 `member_feed_ad_renew` 는 호출하지 않고 DB 에서 삭제).
  *   - 같은 요청 키(`renew:<캠페인>:<키>` 원장 행)가 이미 있으면 지금 종료일만 돌려주고 **연장하지 않는다**.
  *   - 자리 없음(트리거)·잔액 부족이면 전체 롤백 → TS 의 환급(renew-refund) 경로가 없다.
  *   - 화면이 본 가격(p_expected_cost)이 지금 가격과 다르면 `price_changed` (차감 없음).
@@ -77,14 +78,13 @@ export async function renewFeedAdCampaign(
   }
 
   let expectedCost = toInt(params.expectedCost) ?? null;
-  const expectedDays = toInt(params.expectedDurationDays) ?? null;
+  let expectedDays = toInt(params.expectedDurationDays) ?? null;
   /**
-   * B-DB FB-06 (2026-11-27): 화면이 기간을 보내면 DB 함수 v2 가 **같은 키 확인 뒤** 금액·기간을 함께 대조한다
+   * B-DB FB-06 (2026-11-27): DB 함수 v2 가 **같은 키 확인 뒤** 금액·기간을 함께 대조한다
    * (TS 의 기간 대조·같은 키 선확인(R-35·R-37 임시)은 DB 로 옮김) · 연장 기록 표에 한 줄 · 신청 행은 처음 값 유지.
-   * 기간을 안 보내는 옛 화면만 옛 함수(금액만 대조)를 쓴다.
+   * 확인값을 안 보내는 옛 화면(배포 직후 열려 있던 창)은 빠진 값만 지금 상품 값으로 채운다 — 옛 함수와 같은 결과.
    */
-  if (expectedCost == null && expectedDays == null) {
-    // 가격 확인값을 보내지 않는 옛 화면(배포 직후 열려 있던 창) — 지금 가격을 기준으로 한다 (옛 동작과 같음).
+  if (expectedCost == null || expectedDays == null) {
     /** R-54: 상품 조회 오류는 「상품 없음」(400 → 화면이 키를 버림)이 아니라 500(키 유지 · 같은 키로 재확인) */
     let product: Awaited<ReturnType<typeof getFeedAdProductOrThrow>>;
     try {
@@ -93,26 +93,18 @@ export async function renewFeedAdCampaign(
       return { ok: false, error: "renew_failed", httpStatus: 500 };
     }
     if (!product) return { ok: false, error: "product_not_found", httpStatus: 400 };
-    expectedCost = product.pointCost;
+    expectedCost = expectedCost ?? product.pointCost;
+    expectedDays = expectedDays ?? product.durationDays;
   }
 
-  const { data, error } =
-    expectedDays != null && expectedCost != null
-      ? await sb.rpc("member_feed_ad_renew_v2", {
-          p_user: params.userId,
-          p_campaign: campaignId,
-          p_product: productId,
-          p_key: idem,
-          p_expected_cost: expectedCost,
-          p_expected_days: expectedDays,
-        })
-      : await sb.rpc("member_feed_ad_renew", {
-          p_user: params.userId,
-          p_campaign: campaignId,
-          p_product: productId,
-          p_key: idem,
-          p_expected_cost: expectedCost,
-        });
+  const { data, error } = await sb.rpc("member_feed_ad_renew_v2", {
+    p_user: params.userId,
+    p_campaign: campaignId,
+    p_product: productId,
+    p_key: idem,
+    p_expected_cost: expectedCost,
+    p_expected_days: expectedDays,
+  });
   if (error || !data || typeof data !== "object") {
     return { ok: false, error: "renew_failed", httpStatus: 500 };
   }

@@ -146,7 +146,7 @@ describe("P0-3 — 결제 실패 후 환급 확인", () => {
     expect(read("app/api/ads/apply/route.ts")).toContain('error: "refund_pending"');
     // D-01 (2026-11-07): 연장은 DB 함수 1번(차감·연장 한 트랜잭션) — TS 차감·환급 경로 없음
     const renew = read("lib/ads/renew-feed-ad-campaign.ts");
-    expect(renew).toContain('rpc("member_feed_ad_renew"');
+    expect(renew).toContain('rpc("member_feed_ad_renew_v2"');
     expect(renew).not.toContain("refundPoints");
   });
 });
