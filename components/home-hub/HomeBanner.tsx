@@ -6,10 +6,10 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { HomeHeroBannerCard } from "@/components/home-hub/HomeHeroBannerCard";
-import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
 import { HOME_MENU_CATALOG, resolveHomeBannerMenuKey, type HomeBannerConfig } from "@/lib/home/home-layout-contract";
 import { keepSessionPick, nextBannerId } from "@/lib/home/home-rotation";
 import type { HomeRotationCtl } from "@/components/home-hub/use-home-rotation";
+import { homePressFeedback } from "@/lib/ui/home-press-feedback";
 
 /**
  * 홈 메인 배너 SSOT — 시안 R3 (Owner 「배너 SSOT 구현」 2026-11-18).
@@ -57,10 +57,6 @@ export function HomeBanner({
   const touchedAtRef = useRef(0);
   /** 배너 칸이 화면에 보임 */
   const inViewRef = useRef(true);
-  /** 「전체보기」 시트 (수정안 #2) — 열려 있으면 자동 넘김 쉼 */
-  const [allOpen, setAllOpen] = useState(false);
-  const allOpenRef = useRef(false);
-  allOpenRef.current = allOpen;
   const mode = rot?.mode;
   const seq = rot?.seq;
 
@@ -121,6 +117,15 @@ export function HomeBanner({
     [cardLeft]
   );
 
+  /** 손으로 넘겨 장이 바뀌면 선택 진동 1회 (설계 §5-2) — 자동 넘김·처음 위치 잡기는 제외 */
+  const lastFeedbackActiveRef = useRef<number | null>(null);
+  useEffect(() => {
+    const prev = lastFeedbackActiveRef.current;
+    lastFeedbackActiveRef.current = active;
+    if (prev == null || prev === active) return;
+    if (Date.now() - touchedAtRef.current < 1500) homePressFeedback("swipe");
+  }, [active]);
+
   const multiCount = banners.length;
   const ready = pickedId != null;
   useEffect(() => {
@@ -135,7 +140,7 @@ export function HomeBanner({
       io.observe(sec);
     }
     const timer = window.setInterval(() => {
-      if (document.visibilityState !== "visible" || !inViewRef.current || holdRef.current || allOpenRef.current) return;
+      if (document.visibilityState !== "visible" || !inViewRef.current || holdRef.current) return;
       if (Date.now() - touchedAtRef.current < HOME_BANNER_AUTO_MS) return;
       go(activeRef.current + 1);
     }, HOME_BANNER_AUTO_MS);
@@ -194,18 +199,6 @@ export function HomeBanner({
             index={i}
             total={banners.length}
             onClick={b.href ? () => open(b) : undefined}
-            showAllSlot={
-              <button
-                type="button"
-                className="home-hero-all"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setAllOpen(true);
-                }}
-              >
-                {t("home_see_all")}
-              </button>
-            }
           />
         ))}
       </div>
@@ -233,32 +226,6 @@ export function HomeBanner({
             ))}
           </div>
         </>
-      ) : null}
-      {multi ? (
-        <DibayBottomSheet open={allOpen} onClose={() => setAllOpen(false)} title={t("home_banner_all_title")} heightRatio={0.85}>
-          {/* 같은 배너 카드 세로 목록 — 앱 홈·어드민과 같은 부품 */}
-          <div className="home-hero home-hero--preview" data-home-banner-all>
-            <div className="home-hero-list">
-              {banners.map((b, i) => (
-                <HomeHeroBannerCard
-                  key={b.id}
-                  banner={b}
-                  index={i}
-                  total={banners.length}
-                  showAllLabel={false}
-                  onClick={
-                    b.href
-                      ? () => {
-                          setAllOpen(false);
-                          open(b);
-                        }
-                      : undefined
-                  }
-                />
-              ))}
-            </div>
-          </div>
-        </DibayBottomSheet>
       ) : null}
     </section>
   );

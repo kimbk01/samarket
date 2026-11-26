@@ -25,7 +25,8 @@ function isCoarsePointerDevice(): boolean {
   }
 }
 
-function playLightTapClickSound(): void {
+/** 920Hz 55ms 「딸깍」 — 홈 누름 피드백(`home-press-feedback.ts`)도 같은 소리를 쓴다 */
+export function playLightTapClickSound(): void {
   try {
     if (typeof window === "undefined") return;
     const Ctor =

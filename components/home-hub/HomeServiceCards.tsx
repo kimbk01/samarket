@@ -1,11 +1,13 @@
 "use client";
 
-import { Coins, Gift, Headset, Heart, LayoutGrid, MessagesSquare, Phone, Receipt, type LucideIcon } from "lucide-react";
+import { Coins, Gift, Headset, Heart, MessagesSquare, Phone, Receipt, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { serviceBrandIconSlot, type ServiceBrandIconSlotProps } from "@/components/brand/ServiceBrandIcon";
+import { HomeServiceIconDuo, HomeServiceIconLine, type HomeTileKey } from "@/components/home-hub/home-service-icons";
 import {
   HOME_MENU_CATALOG,
   pickHomeText,
+  resolveHomeServiceTiles,
   type HomeMenuKey,
   type HomeServiceCardConfig,
   type HomeServiceKey,
@@ -53,124 +55,125 @@ export function resolveServiceDescLines(
 
 
 /**
- * 서비스 입구 — 시안 R3 (Owner 「계획대로 진행」 2026-11-18 · 계획서 B3, 이전 v4 큰 칸/작은 칸 대체).
- * ① telRING(chat) = 대표 칸(초록 바탕 · 워드마크 · 채팅·통화 바로가기) ② 그 밖 보이는 서비스 + 「전체」 = **같은 크기 칸**.
- * 칸 수: 휴대폰 3열 · 태블릿 6열 · PC(배너 옆) 3열 — `app/home-hub.css` `.home-svc-grid`.
- * 홈에는 개인 숫자를 두지 않는다(안 읽음 = 하단 탭 배지만).
+ * ③ 서비스 4×2 — 시안 v2 §3-4 (Owner 「v2대로 구현」 2026-11-26).
+ * 순서 = 시안 고정(정보 공유·마켓·모임·DIPICK / telRING·이벤트·환율 계산·전체) · 어드민은 보이기만 · 이름만(설명 없음).
+ * 휴대폰 = 따로 떨어진 흰 칸 + 두 색 아이콘 · 태블릿 = 한 판 + 구분선 + 연초록 동그라미 선 아이콘 (`app/home-hub.css` `.home-svc*`).
+ * 누름 피드백은 홈 전체 위임(`HomeScreen` `onClickCapture`).
  */
 export function HomeServiceCards({
   services,
+  onOpen,
+  onOpenRateCalc,
+}: {
+  services: HomeServiceCardConfig[];
+  onOpen: (key: HomeMenuKey) => void;
+  onOpenRateCalc: () => void;
+}) {
+  const { t, language } = useI18n();
+  const keys = resolveHomeServiceTiles(services);
+  const byKey = new Map(services.map((s) => [s.key, s]));
+  const name = (k: HomeServiceKey) => pickHomeText(byKey.get(k)?.title, language) || t(HOME_MENU_CATALOG[k].labelKey);
+  const tiles: { key: HomeTileKey; label: string; onClick: () => void }[] = [
+    ...keys.map((k) => ({ key: k as HomeTileKey, label: name(k), onClick: () => onOpen(k) })),
+    { key: "rate_calc", label: t("home_menu_rate_calc"), onClick: onOpenRateCalc },
+    { key: "all", label: t(HOME_MENU_CATALOG.all.labelKey), onClick: () => onOpen("all") },
+  ];
+
+  return (
+    <section className="home-svc" data-home-services>
+      <div className="home-svc-grid">
+        {tiles.map((tile) => (
+          <button
+            key={tile.key}
+            type="button"
+            onClick={tile.onClick}
+            className="home-press home-svc-tile"
+            data-home-service={tile.key}
+          >
+            <span className="home-svc-ic">
+              <HomeServiceIconDuo tile={tile.key} className="home-svc-ic-duo" />
+              <HomeServiceIconLine tile={tile.key} className="home-svc-ic-line" />
+            </span>
+            <span className="home-svc-name">{tile.label}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * ④ telRING 칸 — 슈퍼앱 개편 설계 §1④. 최근 통화·대화 목록(P4, 통화 단독 단계)이 들어오기 전까지는
+ * 지금의 telRING 대표 칸(채팅·통화 바로가기)을 이 자리에 그대로 둔다 (설계 §8 P1 「④ 자리에 그대로 둠」).
+ * 비로그인 = 누르면 기존 로그인 안내(`messenger_open`).
+ */
+export function HomeTelringCard({
+  config,
   catalog,
   onOpen,
   onOpenHref,
 }: {
-  services: HomeServiceCardConfig[];
+  config: HomeServiceCardConfig | null;
   catalog: HomeCatalog;
   onOpen: (key: HomeMenuKey) => void;
-  /** telRING 대표 칸의 채팅·통화 바로가기 — 비로그인 안내는 부르는 쪽(`openMenu`)과 같은 규칙 */
   onOpenHref: (key: HomeServiceKey, href: string) => void;
 }) {
   const { t, language } = useI18n();
-  const visible = services.filter((s) => s.visible);
-  if (visible.length === 0) return null;
-  const hero = visible.find((s) => s.key === "chat") ?? null;
-  const rest = visible.filter((s) => s.key !== "chat");
-
-  const title = (c: HomeServiceCardConfig) => pickHomeText(c.title, language) || t(HOME_MENU_CATALOG[c.key].labelKey);
-  const heroCustomTitle = hero ? pickHomeText(hero.title, language) : "";
-  const heroDesc = hero ? resolveServiceDescLines(hero, catalog, language, t)[0] ?? "" : "";
-
+  const customTitle = config ? pickHomeText(config.title, language) : "";
+  const desc = config ? resolveServiceDescLines(config, catalog, language, t)[0] ?? "" : t(HOME_MENU_CATALOG.chat.descKey);
   return (
-    <section className="home-svc" data-home-services>
-      {hero ? (
-        /* telRING 대표 칸 — 시안 R4 수정안 #4: 낮은 초록 카드 · 반투명 원 아이콘 · 노란 「채팅」 + 흰 「통화」(아이콘+글자) */
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => onOpen("chat")}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") onOpen("chat");
-          }}
-          className="home-ring [-webkit-tap-highlight-color:transparent]"
-          data-home-service="chat"
-          data-home-telring-hero
-        >
-          <span className="home-ring-badge" aria-hidden>
-            {(() => {
-              const Icon = LINE_ICON.chat;
-              return <Icon className="h-[26px] w-[26px] text-white" aria-hidden />;
-            })()}
-          </span>
-          <span className="relative min-w-0 flex-1">
-            {heroCustomTitle ? (
-              <span className="block truncate text-[21px] font-extrabold leading-tight">{heroCustomTitle}</span>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen("chat")}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onOpen("chat");
+      }}
+      className="home-press home-ring [-webkit-tap-highlight-color:transparent]"
+      data-home-service="chat"
+      data-home-telring-hero
+    >
+      <span className="home-ring-badge" aria-hidden>
+        {(() => {
+          const Icon = LINE_ICON.chat;
+          return <Icon className="h-[26px] w-[26px] text-white" aria-hidden />;
+        })()}
+      </span>
+      <span className="relative min-w-0 flex-1">
+        {customTitle ? (
+          <span className="block truncate text-[21px] font-extrabold leading-tight">{customTitle}</span>
+        ) : (
+          <TelRingWordmark />
+        )}
+        {desc ? <span className="mt-0.5 block truncate text-[12px] text-white/85">{desc}</span> : null}
+      </span>
+      <span className="relative z-[1] flex shrink-0 items-center gap-1.5">
+        {(
+          [
+            ["home_telring_chat", "/community-messenger?section=chats", "chat"],
+            ["home_telring_call", "/community-messenger?section=call_logs", "call"],
+          ] as const
+        ).map(([k, href, kind]) => (
+          <button
+            key={k}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenHref("chat", href);
+            }}
+            className={`home-press home-ring-cta${kind === "chat" ? " home-ring-cta--chat" : ""}`}
+            data-home-telring-cta={kind}
+          >
+            {kind === "chat" ? (
+              <MessagesSquare className="h-[15px] w-[15px]" strokeWidth={2.2} aria-hidden />
             ) : (
-              <TelRingWordmark />
+              <Phone className="h-[15px] w-[15px]" strokeWidth={2.4} aria-hidden />
             )}
-            {heroDesc ? <span className="mt-0.5 block truncate text-[12px] text-white/85">{heroDesc}</span> : null}
-          </span>
-          <span className="relative z-[1] flex shrink-0 items-center gap-1.5">
-            {(
-              [
-                ["home_telring_chat", "/community-messenger?section=chats", "chat"],
-                ["home_telring_call", "/community-messenger?section=call_logs", "call"],
-              ] as const
-            ).map(([k, href, kind]) => (
-              <button
-                key={k}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenHref("chat", href);
-                }}
-                className={`home-ring-cta${kind === "chat" ? " home-ring-cta--chat" : ""}`}
-                data-home-telring-cta={kind}
-              >
-                {kind === "chat" ? (
-                  <MessagesSquare className="h-[15px] w-[15px]" strokeWidth={2.2} aria-hidden />
-                ) : (
-                  <Phone className="h-[15px] w-[15px]" strokeWidth={2.4} aria-hidden />
-                )}
-                {t(k)}
-              </button>
-            ))}
-          </span>
-        </div>
-      ) : null}
-      <div className="home-svc-grid">
-        {rest.map((c) => {
-          const Icon = LINE_ICON[c.key];
-          const desc = resolveServiceDescLines(c, catalog, language, t)[0] ?? "";
-          return (
-            <button
-              key={c.key}
-              type="button"
-              onClick={() => onOpen(c.key)}
-              className="home-svc-tile [-webkit-tap-highlight-color:transparent]"
-              data-home-service={c.key}
-            >
-              <span className="home-svc-ic">
-                <Icon className="h-[24px] w-[24px] text-sam-primary" strokeWidth={1.8} aria-hidden />
-              </span>
-              <span className="home-svc-name">{title(c)}</span>
-              {desc ? <span className="home-svc-desc">{desc}</span> : null}
-            </button>
-          );
-        })}
-        <button
-          type="button"
-          onClick={() => onOpen("all")}
-          className="home-svc-tile [-webkit-tap-highlight-color:transparent]"
-          data-home-service="all"
-        >
-          <span className="home-svc-ic">
-            <LayoutGrid className="h-[24px] w-[24px] text-sam-primary" strokeWidth={1.8} aria-hidden />
-          </span>
-          <span className="home-svc-name">{t(HOME_MENU_CATALOG.all.labelKey)}</span>
-          <span className="home-svc-desc">{t(HOME_MENU_CATALOG.all.descKey)}</span>
-        </button>
-      </div>
-    </section>
+            {t(k)}
+          </button>
+        ))}
+      </span>
+    </div>
   );
 }
 

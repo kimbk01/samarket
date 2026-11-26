@@ -25,8 +25,8 @@ describe("messenger room swipe — PAGE_HIERARCHY enter/exit SSOT", () => {
 
   it("allows PAGE enter while roomType is still null (cold shell continuity)", () => {
     expect(src).toMatch(/roomType may be null on cold BootstrapGate shell/);
-    // 감사 11-26 §10: 움직임 생략 조건 = 분할·축소 모션·앱 시작 목적지 — roomType 은 조건이 아니다
-    expect(src).toContain("const skipEnterMotion = splitPaneMode || reducedMotion || launchDestinationEntry;");
+    // 감사 11-26 §13: 움직임 생략 조건 = 분할·축소 모션·목록 복사본 없음 — roomType 은 조건이 아니다
+    expect(src).toContain("const skipEnterMotion = splitPaneMode || reducedMotion || noEntrySnapshotBehind;");
     expect(src).toMatch(/if \(skipEnterMotion\) return/);
     expect(src).not.toMatch(/skipEnterMotion = [^;]*roomType/);
   });

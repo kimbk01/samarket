@@ -1,6 +1,5 @@
 "use client";
 
-import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { memo, useLayoutEffect } from "react";
 import { useParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -18,7 +17,7 @@ import { noteR2M11BSuspenseRelease } from "@/lib/community-messenger/room/cm-roo
 import { noteR2M11DRoomSuspenseRelease } from "@/lib/community-messenger/room/cm-room-r2-m11d-prefetch-flight";
 
 /**
- * Cold/first-entry wait — spinner buffering (not blank white, not ShellChromeFrame).
+ * Cold/first-entry wait — 방 틀(상단바 + 대화 배경 · 앱 진입 SSOT C2). 실패 상태만 문구·다시 시도.
  * Warm cache path mounts RoomClient immediately and skips this.
  */
 export const CommunityMessengerRoomEntryEmpty = memo(function CommunityMessengerRoomEntryEmpty({
@@ -59,8 +58,8 @@ export const CommunityMessengerRoomEntryEmpty = memo(function CommunityMessenger
   }, [recordPass1Milestones, recordSegmentFallback, recordShellPaint, resolvedRoomId]);
 
   /**
-   * 분할 화면(768px+) — 칸 전체를 덮는 대기 화면 대신, 불러오는 동안과 같은 틀(상단바 + 대화 배경) 안의
-   * 대화 영역에만 대기·실패 표시 (설계 P2, 2026-11-07). 휴대폰은 아래 기존 화면 그대로.
+   * 분할 화면(768px+) — 불러오는 동안과 같은 틀(상단바 + 대화 배경). 실패만 대화 영역에 문구·다시 시도 (설계 P2, 2026-11-07).
+   * 대기 중 문구·스피너는 없다(앱 진입 SSOT C2, 2026-11-26 — 휴대폰과 같음).
    */
   if (isSplit) {
     const failed = Boolean(onRetryAfterFailure);
@@ -92,13 +91,7 @@ export const CommunityMessengerRoomEntryEmpty = memo(function CommunityMessenger
             </button>
           </div>
         ) : (
-          <div
-            data-cm-room-split-entry-wait=""
-            className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3"
-          >
-            <DibaySpinner size="lg" tone="current" decorative className="text-[color:var(--cm-room-primary)]" />
-            <p className="sam-text-body text-[color:var(--cm-room-text-muted)]">{enteringLabel}</p>
-          </div>
+          <div data-cm-room-split-entry-wait="" className="min-h-0 flex-1" aria-hidden />
         )}
       </MessengerSplitRoomEntryFrame>
     );
@@ -131,23 +124,19 @@ export const CommunityMessengerRoomEntryEmpty = memo(function CommunityMessenger
     );
   }
 
+  /**
+   * 앱 진입 SSOT C2 (`docs/audit/app-entry-ssot-fix-design-2026-11-26.md` §11 · Owner 「C1′로 진행」 2026-11-26):
+   * 방 데이터를 기다리는 동안 「채팅방 입장 중…」 문구·스피너 대신 방과 같은 틀(상단바 + 대화 배경)만 그린다 —
+   * 분할 화면과 같은 틀. 알림·복원 진입에서 OS 화면이 경로 도착 첫 프레임에 걷혀도 대기 화면이 보이지 않는다.
+   * 읽기 도구용 「입장 중」 상태(aria-busy·라벨)는 그대로.
+   */
   return (
-    <div
-      data-messenger-shell
-      data-cm-room
-      data-cm-room-entry-empty=""
-      data-cm-room-entry-buffering=""
-      {...dataAttrs}
-      className="cm-room-shell flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)]"
-      role="status"
-      aria-live="polite"
-      aria-busy="true"
-      aria-label={enteringLabel}
+    <MessengerSplitRoomEntryFrame
+      roomId={resolvedRoomId}
+      dataAttrs={{ "data-cm-room-entry-empty": "", "data-cm-room-entry-buffering": "", ...dataAttrs }}
+      ariaProps={{ role: "status", "aria-live": "polite", "aria-busy": true, "aria-label": enteringLabel }}
     >
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 bg-[color:var(--cm-room-chat-bg)]">
-        <DibaySpinner size="lg" tone="current" decorative className="text-[color:var(--cm-room-primary)]" />
-        <p className="sam-text-body text-[color:var(--cm-room-text-muted)]">{enteringLabel}</p>
-      </div>
-    </div>
+      <div className="min-h-0 flex-1 bg-[color:var(--cm-room-chat-bg)]" aria-hidden />
+    </MessengerSplitRoomEntryFrame>
   );
 });

@@ -39,7 +39,6 @@ import {
   MESSENGER_LIST_ROOM_EXIT_MS,
 } from "@/lib/community-messenger/messenger-list-room-slide";
 import { subscribePopstateBeforeRouter } from "@/lib/navigation/popstate-before-router";
-import { isLaunchEntryMotionSuppressed } from "@/components/route-transition/launch-entry-motion";
 
 const EDGE_HIT_PX = 18;
 const HORIZONTAL_LOCK_PX = 10;
@@ -115,13 +114,15 @@ export function MessengerRoomSwipeBackShell({
   const isMessengerSplit = useIsMessengerSplitViewport();
   const splitPaneMode = isMessengerSplit;
   /**
-   * 감사 2026-11-26 §10 (`launch-entry-motion.ts` 단일 규칙) — OS 화면이 아직 떠 있을 때 붙은 방
-   * (알림 탭·직전 화면 복원 등 앱 시작 목적지)은 진입 움직임 없이 제자리에 그린다.
-   * 진입 움직임은 사용자가 본 「이전 화면(목록 복사본)」 위로 덮어오는 것이라, 시작 목적지에는 덮을 화면이 없다
-   * (뒤가 흰 바탕 → OS 화면이 움직임 중간에 걷히면 흰 띠). 마운트 순간 1회 판정 — 앱 안 탭 진입은 OS 화면이 걷힌 뒤라 그대로 움직인다.
+   * 진입 움직임 = 목록 복사본 위로 덮어오는 연출 — **방이 붙는 순간 뒤에 목록 복사본이 있을 때만** 움직인다(마운트 1회 판정).
+   * 복사본은 앱 안 목록 탭(`community-messenger-room-forward-navigation` · 휴대폰)에서만 만들어진다.
+   * 알림·직전 화면 복원·딥링크 등 복사본이 없는 진입은 제자리에 그린다(뒤가 빈 바탕이라 밀려 들어오면 흰 띠).
+   * 실기(2026-11-26 17:55 PHT · 운영 6b08c58 · Samsung 알림 콜드): 전 규칙(OS 화면이 떠 있을 때만 끔)은 앱 진입 SSOT C1′ 로
+   * OS 화면이 방 셸보다 먼저 걷히자 흰 화면 약 0.5초 + 오른쪽에서 밀려옴 — OS 화면 시점과 무관한 이 규칙으로 바꿈.
+   * 근거 `docs/audit/app-entry-ssot-fix-design-2026-11-26.md` §13.
    */
-  const [launchDestinationEntry] = useState(() => isLaunchEntryMotionSuppressed());
-  const skipEnterMotion = splitPaneMode || reducedMotion || launchDestinationEntry;
+  const [noEntrySnapshotBehind] = useState(() => typeof window !== "undefined" && !hasMessengerRoomEntrySnapshot());
+  const skipEnterMotion = splitPaneMode || reducedMotion || noEntrySnapshotBehind;
   /** 주문 채팅 슬라이드 안이면 ◁ 는 슬라이드 쪽 몫 — 페이지 뒤로 주인을 등록하지 않는다(P5 §B6). */
   const ownerSlideHost = useOwnerOrderChatSlideHost();
   const buyerSlideHost = useBuyerOrderChatSlideHost();
@@ -544,7 +545,6 @@ export function MessengerRoomSwipeBackShell({
       <div
         className={surfaceClassName}
         data-messenger-room-animation-phase={phase}
-        data-entry-motion={phase === "enter" || phase === "enter-active" ? "running" : undefined}
         style={surfaceStyle}
         onTransitionEnd={onSurfaceTransitionEnd}
       >
