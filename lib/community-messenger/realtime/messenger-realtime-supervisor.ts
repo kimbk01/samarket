@@ -273,6 +273,7 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
   /** 닫힌 상태의 실패 1건을 창에 넣고, 기준을 넘으면 차단. 반환 = 차단했는가 */
   const noteFailure = (): boolean => {
     if (state !== "closed") return false;
+    if (!deps.canProbe()) return false;
     const t = deps.now();
     const last = failures[failures.length - 1];
     if (last === undefined || t - last > RT_SUPERVISOR_FAILURE_COALESCE_MS) failures.push(t);
@@ -295,13 +296,18 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
     }
     if (!isFailure(status)) return;
     if (state === "half_open") {
-      if (e === probeEntry) {
+      if (e === probeEntry && deps.canProbe()) {
         deps.record("probe_fail", { reason: status.toLowerCase() });
         open("probe_failed");
       }
       return;
     }
     if (state !== "closed") return;
+    /**
+     * 실기 T4(2026-11-26 21:43 PHT, Samsung 비행기 모드 70초): 오프라인 중 실패를 세어 차단·쉼이 생겨 온라인 뒤 감독 채널만
+     * 54초 뒤 재가입(감독 밖 채널 20초). 오프라인·숨김 중 실패는 서버 거절이 아니므로 세지 않는다 — 재시도는 래퍼가 그대로 한다.
+     */
+    if (!deps.canProbe()) return;
     if (noteFailure()) return;
     e.consecutiveFailures += 1;
     if (e.consecutiveFailures >= RT_SUPERVISOR_CHANNEL_PARK_FAILURES) {
