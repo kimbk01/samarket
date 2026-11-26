@@ -129,7 +129,9 @@ export type OwnerSponsoredWriterError =
   /** ADS-02 — 제출 시 스냅샷(기간·인벤토리)과 신청 불일치 (DB 제출 함수). */
   | "quote_stale"
   /** ADS-11 — 기간이 끝난 캠페인 재개 거부. */
-  | "period_ended";
+  | "period_ended"
+  /** C-DB SA-03 — 같은 지면·겹치는 기간 자리가 가득 (요금 기록·차감 없음). */
+  | "capacity_full";
 
 export type OwnerSponsoredWriterResult<T> =
   | { ok: true; row: T; auditId?: string }
@@ -443,7 +445,11 @@ export async function loadOwnerStoreBrowseSlugs(
 export async function assertSponsoredCampaignCategoryFeedSellable(
   sb: SupabaseClient,
   input: { campaignId: string; storeId: string }
-): Promise<{ ok: true } | { ok: false; error: "category_ads_disabled" | "taxonomy_required" | "capacity_check_failed" }> {
+): Promise<
+  /** C-DB SA-03: 판정한 업종 대상(매장 업종 보충 포함)을 돌려준다 — 제출이 같은 대상으로 자리 최대 수를 구한다 */
+  | { ok: true; kind: "primary" | "secondary"; primarySlug: string | null; secondarySlug: string | null }
+  | { ok: false; error: "category_ads_disabled" | "taxonomy_required" | "capacity_check_failed" }
+> {
   const { data, error } = await sb
     .from(STORE_SPONSORED_CAMPAIGN_TABLE)
     .select("browse_target_kind, browse_primary_slug, browse_secondary_slug")
@@ -463,7 +469,7 @@ export async function assertSponsoredCampaignCategoryFeedSellable(
     browsePrimarySlug: raw.browse_primary_slug ?? null,
     browseSecondarySlug: raw.browse_secondary_slug ?? null,
   });
-  return gate.ok ? { ok: true } : gate;
+  return gate;
 }
 
 export async function createOwnerSponsoredDraft(
@@ -891,8 +897,11 @@ export async function transitionOwnerSponsoredCampaign(
     to: DeliveryAdLifecycleStatus;
     actionLabel: string;
     nowMs?: number;
-    /** V3-04 DEF-7: submit/resubmit 시 비즈캐시 차감을 같은 DB 트랜잭션에서 수행. */
-    secureBusinessCash?: { storeId: string };
+    /**
+     * V3-04 DEF-7: submit/resubmit 시 비즈캐시 차감을 같은 DB 트랜잭션에서 수행.
+     * C-DB: snapshot = 요금 기록(SA-02, 같은 트랜잭션에서 저장) · capacityMax = 지면 최대(SA-03, null = 제한 없음).
+     */
+    secureBusinessCash?: { storeId: string; snapshot: Record<string, unknown> | null; capacityMax: number | null };
   }
 ): Promise<OwnerSponsoredWriterResult<OwnerSponsoredCampaignRow> | OwnerDeliveryAdSubmitCashOutcome> {
   const loaded = await loadOwnerSponsoredCampaign(sb, input.campaignId, input.ownerUserId);
@@ -923,8 +932,11 @@ export async function transitionOwnerSponsoredCampaign(
       action,
       expectedLifecycle: row.lifecycleStatus,
       auditAction: input.actionLabel,
+      snapshot: input.secureBusinessCash.snapshot,
+      capacityMax: input.secureBusinessCash.capacityMax,
     });
     if (atomic.status === "rpc_missing") return { ok: false, error: "atomic_submit_rpc_missing" };
+    if (atomic.status === "capacity_full") return { ok: false, error: "capacity_full" };
     if (atomic.status === "cash_failed") {
       return { ok: false, error: "business_cash_failed", cash: atomic.cash };
     }

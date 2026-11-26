@@ -148,10 +148,17 @@ export function OwnerDeliveryAdPartnerView() {
           storeId,
           membershipId: data?.membership?.id,
           requestId: op === "apply" ? applyRequestIdRef.current : undefined,
+          /** C-DB SA-09: 화면에 보인 회비 — 바뀌었으면 서버가 차감 없이 막는다 */
+          expectedFeeMinor: op === "apply" ? (data?.config?.monthlyFeeMinor ?? undefined) : undefined,
         }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        /** 회비가 바뀌었으면 새 회비를 다시 불러와 보여 준다(다시 누르면 새 회비·새 키로 신청) — 불러오기가 오류를 지우므로 그 뒤에 표시 */
+        if (json.error === "price_changed") {
+          applyRequestIdRef.current = null;
+          await load(storeId);
+        }
         setError(json.error ?? "action_failed");
         return;
       }
@@ -246,6 +253,10 @@ export function OwnerDeliveryAdPartnerView() {
 
       {error === "ios_digital_purchase_unavailable" ? (
         <OwnerIosCashPurchaseNotice className="mt-3" />
+      ) : error === "price_changed" ? (
+        <p className="mt-3 text-[13px] text-sam-danger" role="alert" data-owner-partner-price-changed="1">
+          {t("owner_ads_partner_price_changed")}
+        </p>
       ) : error ? (
         <p className="mt-3 text-[13px] text-sam-danger" role="alert">
           {safeT("owner_ads_error_generic")}{" "}

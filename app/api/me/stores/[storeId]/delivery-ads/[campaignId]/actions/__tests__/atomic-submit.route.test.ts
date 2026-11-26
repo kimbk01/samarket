@@ -61,7 +61,7 @@ describe("owner delivery-ad submit — atomic debit + transition", () => {
       campaignId: "camp-1",
       ownerUserId: "owner-1",
       action: "submit",
-      secureBusinessCash: { storeId: "store-1" },
+      secureBusinessCash: { storeId: "store-1", snapshot: null },
     });
     expect(debitBusinessCashForDeliveryAd).not.toHaveBeenCalled();
   });

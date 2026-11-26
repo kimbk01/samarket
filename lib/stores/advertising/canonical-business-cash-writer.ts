@@ -431,9 +431,13 @@ export async function debitBusinessCashForDeliveryAd(
   };
 }
 
-/** V3-04 DEF-7 — 사장님 제출 = 비즈캐시 차감 + 상태 전이 단일 트랜잭션 RPC. */
+/**
+ * V3-04 DEF-7 — 사장님 제출 = 비즈캐시 차감 + 상태 전이 단일 트랜잭션 RPC.
+ * C-DB (2026-11-27): v2 = 요금 기록 저장(SA-02) + 매장 홍보 자리 검사(SA-03) + 차감 + 전이를 한 트랜잭션으로.
+ * 옛 7인자 함수는 v2 가 안에서 그대로 부른다(DB 에 남아 있음).
+ */
 export const OWNER_SUBMIT_DELIVERY_AD_WITH_BC_RPC =
-  "owner_submit_delivery_ad_with_business_cash" as const;
+  "owner_submit_delivery_ad_with_business_cash_v2" as const;
 
 export type SecureCanonicalBcFailure = Extract<SecureCanonicalBcResult, { ok: false }>;
 
@@ -445,6 +449,8 @@ export type OwnerSubmitDeliveryAdWithBcResult =
   | { status: "cash_failed"; cash: SecureCanonicalBcFailure }
   /** 전이 실패 — 차감까지 DB 에서 롤백됨. error = owner_delivery_ad_transition 원본 코드. */
   | { status: "transition_failed"; error: string | undefined }
+  /** SA-03: 같은 지면·겹치는 기간 자리가 가득 — 요금 기록·차감 모두 없음 */
+  | { status: "capacity_full"; used: number; capacity: number }
   | { status: "ok"; auditId: string | null };
 
 /** 사장님 전이 writer 의 추가 실패 결과 (submit/resubmit + secureBusinessCash 옵션일 때만). */
@@ -475,6 +481,10 @@ export async function ownerSubmitDeliveryAdWithBusinessCash(
     action: "submit" | "resubmit";
     expectedLifecycle: string;
     auditAction: string;
+    /** SA-02: 이번 견적의 요금 기록(DB 열 모양) — 캐시가 이미 확보돼 묶인 기록을 쓰면 null */
+    snapshot: Record<string, unknown> | null;
+    /** SA-03: 매장 홍보 지면 최대 수 — null 이면 제한 없음(고객 삽입과 같음) */
+    capacityMax?: number | null;
   }
 ): Promise<OwnerSubmitDeliveryAdWithBcResult> {
   const { data, error } = await sb.rpc(OWNER_SUBMIT_DELIVERY_AD_WITH_BC_RPC, {
@@ -485,6 +495,8 @@ export async function ownerSubmitDeliveryAdWithBusinessCash(
     p_action: input.action,
     p_expected_lifecycle: input.expectedLifecycle,
     p_audit_action: input.auditAction,
+    p_snapshot: input.snapshot,
+    p_capacity_max: input.capacityMax ?? null,
   });
   if (error) {
     if (isMissingRpcError(error)) return { status: "rpc_missing" };
@@ -492,6 +504,13 @@ export async function ownerSubmitDeliveryAdWithBusinessCash(
   }
   const payload = (data ?? null) as Record<string, unknown> | null;
   if (!payload || payload.ok !== true) {
+    if (payload?.stage === "capacity") {
+      return {
+        status: "capacity_full",
+        used: Math.trunc(Number(payload.used) || 0),
+        capacity: Math.trunc(Number(payload.capacity) || 0),
+      };
+    }
     if (payload?.stage === "cash") {
       const cash = (payload.cash ?? null) as Record<string, unknown> | null;
       const insufficient = parseInsufficientBusinessCashRpc(cash);

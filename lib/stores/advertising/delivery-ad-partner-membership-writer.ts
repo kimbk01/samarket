@@ -40,7 +40,9 @@ export type PartnerMembershipWriterError =
   | "bc_debit_failed"
   | "idempotency_key_required"
   | "forbidden"
-  | "refund_failed";
+  | "refund_failed"
+  /** C-DB SA-09: 화면이 본 회비와 지금 회비가 다름 — 차감 없음 */
+  | "price_changed";
 
 /** 3-D2 (ADS-03/04/05) — money steps are single SQL transactions; TS only calls these. */
 export const OWNER_APPLY_PARTNER_MEMBERSHIP_RPC = "owner_apply_partner_membership" as const;
@@ -63,6 +65,7 @@ const PARTNER_WRITER_ERRORS: ReadonlySet<string> = new Set<PartnerMembershipWrit
   "idempotency_key_required",
   "forbidden",
   "refund_failed",
+  "price_changed",
 ]);
 
 function rpcPayload(data: unknown): Record<string, unknown> | null {
@@ -215,7 +218,13 @@ export async function listPartnerMembershipsForAdmin(
  */
 export async function ownerApplyPartnerMembership(
   sb: SupabaseClient,
-  input: { storeId: string; actorUserId: string; requestId?: string | null }
+  input: {
+    storeId: string;
+    actorUserId: string;
+    requestId?: string | null;
+    /** C-DB SA-09: 화면에 보인 회비(minor) — 다르면 `price_changed`(차감 없음). 없으면 옛 동작 */
+    expectedFeeMinor?: number | null;
+  }
 ): Promise<
   | {
       ok: true;
@@ -243,6 +252,8 @@ export async function ownerApplyPartnerMembership(
     p_store_id: storeId,
     p_owner_user_id: input.actorUserId,
     p_request_id: requestId,
+    p_expected_fee_minor:
+      input.expectedFeeMinor != null && Number.isInteger(input.expectedFeeMinor) ? input.expectedFeeMinor : null,
   });
   if (error) return { ok: false, error: "db_error", detail: error.message };
   const payload = rpcPayload(data);
@@ -340,6 +351,7 @@ async function callAdminPartnerDecide(
     p_membership_id: input.membershipId,
     p_action: input.action,
     p_reason: input.reason.trim() || `admin_partner_${input.action}`,
+    /** C-DB SA-09: DB 가 기간 30일 고정 — 이 값은 옛 함수 서명 호환용으로만 보내고 쓰이지 않는다 */
     p_period_days: input.action === "approve" ? days : null,
   });
   if (error) return { ok: false, error: "db_error", detail: error.message };

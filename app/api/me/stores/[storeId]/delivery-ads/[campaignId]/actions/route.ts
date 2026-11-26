@@ -24,6 +24,8 @@ import type { SecureCanonicalBcFailure } from "@/lib/stores/advertising/canonica
 import { clientSafeErrorDetail } from "@/lib/security/internal-error-response";
 import { blockIosAppDigitalPurchase } from "@/lib/apple-iap/ios-digital-purchase-gate.server";
 import { assertHomeFeedSellableByPolicy, STORES_HOME_FEED_INVENTORY_KEY } from "@/lib/stores/advertising/delivery-ad-home-feed-sell-gate";
+import { campaignCommercialSnapshotToDbRow } from "@/lib/stores/advertising/delivery-ad-commercial-catalog";
+import { resolveStoreSponsoredCapacityMax } from "@/lib/stores/advertising/store-sponsored-capacity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -152,6 +154,8 @@ export async function POST(
         : null;
 
   if (productKind === "banner") {
+    /** C-DB SA-02: 요금 기록은 제출 DB 함수가 차감·전이와 같은 트랜잭션에서 저장한다 */
+    let bannerSnapshot: Record<string, unknown> | null = null;
     const loaded = await loadOwnerBannerCampaign(sb, cid, userId);
     if (!loaded.ok) {
       return NextResponse.json(
@@ -196,13 +200,14 @@ export async function POST(
           { status: statusForError(commercial.error) }
         );
       }
+      bannerSnapshot = commercial.snapshot ? campaignCommercialSnapshotToDbRow(commercial.snapshot) : null;
     }
 
     const result = await transitionOwnerBannerCampaign(sb, {
       campaignId: cid,
       ownerUserId: userId,
       action,
-      ...(isSubmit ? { secureBusinessCash: { storeId: sid } } : {}),
+      ...(isSubmit ? { secureBusinessCash: { storeId: sid, snapshot: bannerSnapshot } } : {}),
     });
     // V3-04: 차감 + 전이 = 원자 함수 1번만. 함수가 없으면 2단계로 나누지 않고 거절한다.
     if (!result.ok && result.error === "atomic_submit_rpc_missing") return atomicSubmitMissingResponse();
@@ -226,6 +231,9 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 
+  /** C-DB SA-02 요금 기록 · SA-03 지면 최대 수 — 둘 다 제출 DB 함수가 같은 트랜잭션에서 쓴다 */
+  let sponsoredSnapshot: Record<string, unknown> | null = null;
+  let capacityMax: number | null = null;
   if (isSubmit) {
     const packageId =
       (typeof body.packageId === "string" && body.packageId.trim()) ||
@@ -246,11 +254,26 @@ export async function POST(
       }
     }
     /** R-21: 업종 목록도 제출 직전에 업종 정책을 다시 본다 — 초안 뒤 어드민이 그 업종 광고를 끄면 차감 전에 막는다 */
+    let categoryTarget: { kind: "primary" | "secondary"; primarySlug: string | null; secondarySlug: string | null } | null =
+      null;
     if (inventoryKey === "STORES_CATEGORY_FEED") {
       const categoryGate = await assertSponsoredCampaignCategoryFeedSellable(sb, { campaignId: cid, storeId: sid });
       if (!categoryGate.ok) {
         return NextResponse.json({ ok: false, error: categoryGate.error }, { status: statusForError(categoryGate.error) });
       }
+      categoryTarget = categoryGate;
+    }
+    /** SA-03: 고객 화면과 같은 최대 수 — 조회 실패는 팔지 않는다(「확인 못 함」) */
+    try {
+      capacityMax = await resolveStoreSponsoredCapacityMax(sb, {
+        inventoryKey,
+        browseTargetKind: categoryTarget?.kind ?? null,
+        primarySlug: categoryTarget?.primarySlug ?? null,
+        secondarySlug: categoryTarget?.secondarySlug ?? null,
+      });
+    } catch (e) {
+      console.warn("[owner delivery-ads actions] capacity max failed", e instanceof Error ? e.message : e);
+      return NextResponse.json({ ok: false, error: "capacity_check_failed" }, { status: 503 });
     }
     const commercial = await attachOwnerPaidCommercialSnapshotOnSubmit(sb, {
       campaignId: cid,
@@ -272,6 +295,7 @@ export async function POST(
         { status: statusForError(commercial.error) }
       );
     }
+    sponsoredSnapshot = commercial.snapshot ? campaignCommercialSnapshotToDbRow(commercial.snapshot) : null;
   }
 
   const actionLabel =
@@ -290,7 +314,7 @@ export async function POST(
     ownerUserId: userId,
     to,
     actionLabel,
-    ...(isSubmit ? { secureBusinessCash: { storeId: sid } } : {}),
+    ...(isSubmit ? { secureBusinessCash: { storeId: sid, snapshot: sponsoredSnapshot, capacityMax } } : {}),
   });
   // V3-04: 차감 + 전이 = 원자 함수 1번만. 함수가 없으면 2단계로 나누지 않고 거절한다.
   if (!result.ok && result.error === "atomic_submit_rpc_missing") return atomicSubmitMissingResponse();

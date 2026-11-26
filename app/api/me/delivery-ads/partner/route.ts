@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
-  let body: { op?: string; storeId?: string; membershipId?: string; requestId?: string };
+  let body: { op?: string; storeId?: string; membershipId?: string; requestId?: string; expectedFeeMinor?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -139,6 +139,8 @@ export async function POST(req: NextRequest) {
       storeId,
       actorUserId: userId,
       requestId: typeof body.requestId === "string" ? body.requestId : null,
+      /** C-DB SA-09: 화면에 보인 회비 — 바뀌었으면 차감 없이 409 */
+      expectedFeeMinor: typeof body.expectedFeeMinor === "number" ? body.expectedFeeMinor : null,
     });
     if (!result.ok) {
       if (result.error === "INSUFFICIENT_BUSINESS_CASH") {
@@ -151,7 +153,10 @@ export async function POST(req: NextRequest) {
           { status: 402 }
         );
       }
-      return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: result.error },
+        { status: result.error === "price_changed" ? 409 : 400 }
+      );
     }
     return NextResponse.json({
       ok: true,
