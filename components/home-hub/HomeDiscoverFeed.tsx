@@ -17,7 +17,8 @@ import { HomeStoresSection } from "@/components/home-hub/HomeStoresSection";
 const HOME_TRADE_CHIPS_MAX = 8;
 
 /**
- * 홈 아래 — 시안 R3 서비스별 줄 (Owner 「계획대로 진행」 2026-11-18 · 계획서 C·D·E, 이전 v4 「지금 우리 동네」 섞인 피드 대체).
+ * 홈 아래 — 시안 v2 §3-7 순서(Owner 「v2대로 구현」 2026-11-26): ① 우리 동네 인기글(정보 공유) ② 마켓 ③ DIPICK.
+ * 이전: 시안 R3 서비스별 줄 (Owner 「계획대로 진행」 2026-11-18 · 계획서 C·D·E, 이전 v4 「지금 우리 동네」 섞인 피드 대체).
  * ① 방금 올라온 마켓 상품(분류 알약 · 정사각 사진) ② 지금 주문하는 DIPICK(매장 카드 격자) ③ 정보 공유 인기·새 글(매거진 카드).
  * 구성(개수·정렬·카테고리·매장 고르기)은 어드민 「홈 구성」의 마켓·정보 공유·DIPICK 설정 그대로. 홈 「피드」 칸 보이기 = 세 줄 모두.
  */
@@ -52,7 +53,34 @@ export function HomeDiscoverFeed({
 
   return (
     <div data-home-feed>
-      {/* ① 마켓 */}
+      {/* ① 우리 동네 인기글 — 시안 v2 §3-7: 피드는 정보 공유 인기 글로 시작 */}
+      <section className="home-shelf" data-home-shelf="posts">
+        <HomeShelfHead
+          title={t(popular ? "home_feed_popular_title" : "home_feed_latest_title")}
+          brand={t(HOME_MENU_CATALOG.philife.labelKey)}
+          sub={t(popular ? "home_shelf_posts_sub_popular" : "home_shelf_posts_sub_latest")}
+          allLabel={t("home_see_all")}
+          onAll={() => router.push("/philife")}
+        />
+        {posts.failed ? (
+          <HomeLoadError onRetry={posts.retry} />
+        ) : posts.posts == null ? (
+          <div className="home-mag" aria-busy="true">
+            {[0, 1].map((i) => (
+              <span key={i} className="home-mag-card home-skel" style={{ height: 112 }} />
+            ))}
+          </div>
+        ) : posts.posts.length === 0 ? (
+          <p className="home-shelf-empty">{t("home_feed_empty")}</p>
+        ) : (
+          <div className="home-mag">
+            {posts.posts.map((p) => (
+              <HomePostMagCard key={p.id} post={p} />
+            ))}
+          </div>
+        )}
+      </section>
+      {/* ② 마켓 */}
       <section className="home-shelf" data-home-shelf="trade">
         <HomeShelfHead
           title={t("home_shelf_trade_title", { brand: HOME_SHELF_BRAND_MARK })}
@@ -114,7 +142,7 @@ export function HomeDiscoverFeed({
         )}
       </section>
 
-      {/* ② DIPICK — 회원 확인 중에는 그리지 않는다(비회원 안내가 먼저 깜빡이지 않게 · 현행 규칙) */}
+      {/* ③ DIPICK — 회원 확인 중에는 그리지 않는다(비회원 안내가 먼저 깜빡이지 않게 · 현행 규칙) */}
       {membershipChecking ? null : (
         <HomeStoresSection
           config={layout.stores}
@@ -125,35 +153,6 @@ export function HomeDiscoverFeed({
         />
       )}
 
-      {/* ③ 정보 공유 */}
-      <section className="home-shelf" data-home-shelf="posts">
-        <HomeShelfHead
-          title={t(popular ? "home_shelf_posts_title_popular" : "home_shelf_posts_title_latest", {
-            brand: HOME_SHELF_BRAND_MARK,
-          })}
-          brand={t(HOME_MENU_CATALOG.philife.labelKey)}
-          sub={t(popular ? "home_shelf_posts_sub_popular" : "home_shelf_posts_sub_latest")}
-          allLabel={t("home_see_all")}
-          onAll={() => router.push("/philife")}
-        />
-        {posts.failed ? (
-          <HomeLoadError onRetry={posts.retry} />
-        ) : posts.posts == null ? (
-          <div className="home-mag" aria-busy="true">
-            {[0, 1].map((i) => (
-              <span key={i} className="home-mag-card home-skel" style={{ height: 112 }} />
-            ))}
-          </div>
-        ) : posts.posts.length === 0 ? (
-          <p className="home-shelf-empty">{t("home_feed_empty")}</p>
-        ) : (
-          <div className="home-mag">
-            {posts.posts.map((p) => (
-              <HomePostMagCard key={p.id} post={p} />
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   );
 }

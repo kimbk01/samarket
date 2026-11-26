@@ -18,8 +18,6 @@ import {
   cloneHomeLayout,
   emptyHomeText,
   HOME_AUDIENCES,
-  HOME_BANNER_BODY_MAX,
-  HOME_BANNER_CHIP_MAX,
   HOME_BANNER_CTA_MAX,
   HOME_BANNER_HERO_RATIO,
   HOME_BANNER_IMAGE_PX,
@@ -32,13 +30,11 @@ import {
   HOME_POSTS_MAX,
   HOME_POSTS_MIN,
   HOME_SECTION_DEFAULT_TITLE_KEYS,
+  HOME_SERVICE_TILE_ORDER,
   HOME_SECTION_LABEL_KEYS,
   HOME_SECTION_TITLE_MAX,
   HOME_SECTIONS_MEMBER_ONLY,
-  HOME_SERVICE_DESC_MAX,
   HOME_SERVICE_IMAGE_PX,
-  HOME_SERVICE_LARGE_MAX,
-  HOME_SERVICE_SMALL_MAX,
   HOME_SERVICE_TITLE_MAX,
   HOME_STORE_AUTO_FILTERS,
   HOME_STORE_MANUAL_MENUS_MAX,
@@ -457,6 +453,24 @@ function HrefPicker({ value, onChange, tr }: { value: string; onChange: (v: stri
   );
 }
 
+/* ───────────── 배너 게시 기간 (필리핀 시간 입력 · UTC 저장) ───────────── */
+
+const PHT_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+/** 저장값(UTC ISO) → 입력칸 값(PHT `YYYY-MM-DDTHH:mm`) */
+function isoToPhtInput(iso: string): string {
+  const ms = iso ? Date.parse(iso) : NaN;
+  if (!Number.isFinite(ms)) return "";
+  return new Date(ms + PHT_OFFSET_MS).toISOString().slice(0, 16);
+}
+
+/** 입력칸 값(PHT) → 저장값(UTC ISO) */
+function phtInputToIso(v: string): string {
+  if (!v) return "";
+  const ms = Date.parse(`${v}:00+08:00`);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : "";
+}
+
 /* ───────────── 칸 제목 (제목 줄이 있는 칸) ───────────── */
 
 function SectionTitleField({
@@ -535,6 +549,8 @@ function BannersTab({
       adLabel: false,
       chip: emptyHomeText(),
       ctaLabel: emptyHomeText(),
+      startsAt: "",
+      endsAt: "",
     };
     setDraft((d) => ({ ...d, banners: [...d.banners, nb] }));
     setSelId(id);
@@ -614,14 +630,8 @@ function BannersTab({
               </p>
             ) : null}
           </Field>
-          <Field label={tr("admin_home_layout_banner_chip")} hint={tr("admin_home_layout_banner_chip_hint")}>
-            <TextPair tr={tr} value={sel.chip} max={HOME_BANNER_CHIP_MAX} onChange={(v) => patch(sel.id, { chip: v })} />
-          </Field>
           <Field label={tr("admin_home_layout_title")} hint={tr("admin_home_layout_banner_title_hint")}>
             <TextPair tr={tr} value={sel.title} max={HOME_BANNER_TITLE_MAX} multiline onChange={(v) => patch(sel.id, { title: v })} />
-          </Field>
-          <Field label={tr("admin_home_layout_body")}>
-            <TextPair tr={tr} value={sel.body} max={HOME_BANNER_BODY_MAX} onChange={(v) => patch(sel.id, { body: v })} />
           </Field>
           <Field label={tr("admin_home_layout_banner_cta")} hint={tr("admin_home_layout_banner_cta_hint")}>
             <TextPair tr={tr} value={sel.ctaLabel} max={HOME_BANNER_CTA_MAX} onChange={(v) => patch(sel.id, { ctaLabel: v })} />
@@ -635,6 +645,25 @@ function BannersTab({
               onChange={(v) => patch(sel.id, { audience: v })}
               options={HOME_AUDIENCES.map((a) => ({ value: a, label: tr(AUDIENCE_LABEL[a]) }))}
             />
+          </Field>
+          <Field label={tr("admin_home_layout_banner_period")} hint={tr("admin_home_layout_banner_period_hint")}>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="datetime-local"
+                className={INPUT_CLS}
+                value={isoToPhtInput(sel.startsAt)}
+                aria-label={tr("admin_home_layout_banner_starts")}
+                onChange={(e) => patch(sel.id, { startsAt: phtInputToIso(e.target.value) })}
+              />
+              <span aria-hidden>~</span>
+              <input
+                type="datetime-local"
+                className={INPUT_CLS}
+                value={isoToPhtInput(sel.endsAt)}
+                aria-label={tr("admin_home_layout_banner_ends")}
+                onChange={(e) => patch(sel.id, { endsAt: phtInputToIso(e.target.value) })}
+              />
+            </div>
           </Field>
           <Field label={tr("admin_home_layout_display")}>
             <div className="flex flex-wrap gap-4">
@@ -659,72 +688,33 @@ function BannersTab({
 /* ───────────── 탭: 서비스 카드 ───────────── */
 
 function ServicesTab({ draft, setDraft, tr }: { draft: HomeLayoutConfig; setDraft: SetDraft; tr: Tr }) {
-  const visible = draft.services.filter((s) => s.visible);
-  const nLarge = visible.filter((s) => s.size === "large").length;
-  const nSmall = visible.filter((s) => s.size === "small").length;
   const patch = (key: HomeServiceCardConfig["key"], p: Partial<HomeServiceCardConfig>) =>
     setDraft((d) => ({ ...d, services: d.services.map((s) => (s.key === key ? { ...s, ...p } : s)) }));
-  const full = (size: "large" | "small") => (size === "large" ? nLarge >= HOME_SERVICE_LARGE_MAX : nSmall >= HOME_SERVICE_SMALL_MAX);
-  const autoHint = (key: HomeServiceCardConfig["key"]) => {
-    if (key === "trade") return tr("admin_home_layout_desc_auto_hint_trade");
-    if (key === "stores") return tr("admin_home_layout_desc_auto_hint_stores");
-    return tr("admin_home_layout_desc_auto_hint_other", { text: tr(HOME_MENU_CATALOG[key].descKey) });
-  };
+  /** 홈 서비스 칸 = 시안 v2 순서 고정(정보 공유·마켓·모임·DIPICK·telRING·이벤트 + 환율 계산·전체). 여기서는 보이기·이름만 */
+  const rows = HOME_SERVICE_TILE_ORDER.map((k) => draft.services.find((s) => s.key === k)).filter(
+    (s): s is HomeServiceCardConfig => Boolean(s)
+  );
 
   return (
     <div className="space-y-3">
-      <p className="sam-text-body text-sam-muted">
-        {tr("admin_home_layout_services_hint", { total: HOME_SERVICE_LARGE_MAX + HOME_SERVICE_SMALL_MAX })}
-      </p>
-      {draft.services.map((s, i) => (
+      <p className="sam-text-body text-sam-muted">{tr("admin_home_layout_services_fixed_hint")}</p>
+      {rows.map((s) => (
         <div key={s.key} className={BOX_CLS}>
           <div className="flex flex-wrap items-center gap-3">
             <b className="min-w-[90px] sam-text-section-title">{tr(HOME_MENU_CATALOG[s.key].labelKey)}</b>
-            <Check
-              checked={s.visible}
-              disabled={!s.visible && full(s.size)}
-              onChange={(v) => patch(s.key, { visible: v })}
-              label={tr("admin_home_layout_visible")}
-            />
-            <span className="ml-auto">
-              <Arrows
-                tr={tr}
-                i={i}
-                n={draft.services.length}
-                onMove={(dir) => setDraft((d) => ({ ...d, services: move(d.services, i, dir) }))}
-              />
-            </span>
+            <Check checked={s.visible} onChange={(v) => patch(s.key, { visible: v })} label={tr("admin_home_layout_visible")} />
           </div>
-          {!s.visible && full(s.size) ? <p className="mt-1 sam-text-helper text-sam-warning">{tr("admin_home_layout_limit_reached")}</p> : null}
           {s.visible ? (
-            <div className="mt-2 grid gap-3 lg:grid-cols-2">
-              <div>
-                <Field label={tr("admin_home_layout_title")} hint={tr("admin_home_layout_card_title_hint")}>
-                  <TextPair
-                    tr={tr}
-                    value={s.title}
-                    max={HOME_SERVICE_TITLE_MAX}
-                    placeholderKo={tr(HOME_MENU_CATALOG[s.key].labelKey)}
-                    onChange={(v) => patch(s.key, { title: v })}
-                  />
-                </Field>
-                <Field label={tr("admin_home_layout_card_desc")} hint={s.descMode === "auto" ? autoHint(s.key) : undefined}>
-                  <Seg
-                    value={s.descMode}
-                    onChange={(v) => patch(s.key, { descMode: v })}
-                    options={[
-                      { value: "auto", label: tr("admin_home_layout_desc_auto") },
-                      { value: "custom", label: tr("admin_home_layout_desc_custom") },
-                    ]}
-                  />
-                  {s.descMode === "custom" ? (
-                    <div className="mt-2">
-                      <TextPair tr={tr} value={s.desc} max={HOME_SERVICE_DESC_MAX} onChange={(v) => patch(s.key, { desc: v })} />
-                    </div>
-                  ) : null}
-                </Field>
-                {s.key === "chat" ? <p className="sam-text-helper text-sam-muted">{tr("admin_home_layout_chat_hero_hint")}</p> : null}
-              </div>
+            <div className="mt-2 max-w-md">
+              <Field label={tr("admin_home_layout_title")} hint={tr("admin_home_layout_card_title_hint")}>
+                <TextPair
+                  tr={tr}
+                  value={s.title}
+                  max={HOME_SERVICE_TITLE_MAX}
+                  placeholderKo={tr(HOME_MENU_CATALOG[s.key].labelKey)}
+                  onChange={(v) => patch(s.key, { title: v })}
+                />
+              </Field>
             </div>
           ) : null}
         </div>
@@ -1398,6 +1388,7 @@ const SAVE_ERROR_KEY: Readonly<Record<string, MessageKey>> = {
   banner_title_required: "admin_home_layout_err_banner_title",
   banner_image_required: "admin_home_layout_err_banner_image",
   invalid_banner_href: "admin_home_layout_err_banner_href",
+  invalid_banner_period: "admin_home_layout_err_banner_period",
   invalid_banner: "admin_home_layout_err_banner_title",
   too_many_banners: "admin_home_layout_err_too_many_banners",
   too_many_store_picks: "admin_home_layout_err_too_many_picks",
@@ -1422,6 +1413,9 @@ function findBannerProblem(d: HomeLayoutConfig): { id: string; code: string } | 
     if (!b.title.ko.trim()) return { id: b.id, code: "banner_title_required" };
     if (!isSafeHomeImageUrl(b.imageUrl)) return { id: b.id, code: "banner_image_required" };
     if (!isSafeHomeHref(b.href)) return { id: b.id, code: "invalid_banner_href" };
+    if (b.startsAt && b.endsAt && Date.parse(b.endsAt) <= Date.parse(b.startsAt)) {
+      return { id: b.id, code: "invalid_banner_period" };
+    }
   }
   return null;
 }
