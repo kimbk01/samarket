@@ -11,13 +11,10 @@ const state = vi.hoisted(() => ({ authenticated: false, membership: { status: "c
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/community-messenger/rooms/r1",
-  // 앱 진입 SSOT C2: 방 경로 차단 화면 = 방 틀(MessengerSplitRoomEntryFrame — useParams 사용)
-  useParams: () => ({}),
   // FAIL-2: 방 경로 차단 화면에 ◁ 주인 요소가 함께 그려진다(useRouter 사용)
   useRouter: () => ({ back: vi.fn(), replace: vi.fn(), push: vi.fn(), prefetch: vi.fn() }),
 }));
 vi.mock("@/components/i18n/AppLanguageProvider", () => ({ useI18n: () => ({ t: (k: string) => k }) }));
-vi.mock("@/hooks/use-is-messenger-split-viewport", () => ({ useIsMessengerSplitViewport: () => false }));
 vi.mock("@/hooks/use-client-membership-state", () => ({ useClientMembershipState: () => state.membership }));
 vi.mock("@/lib/auth/auth-route-classification", () => ({ isAccountDependentPath: () => true }));
 vi.mock("@/lib/auth/auth-exit-coordinator", () => ({

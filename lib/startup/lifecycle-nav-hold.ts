@@ -96,6 +96,31 @@ export function settleLifecycleNavHold(): void {
   settledListeners.clear();
 }
 
+/**
+ * 감사 2026-11-26 D3 (`docs/audit/os-cover-push-entry-delay-audit-2026-11-26.md`) — 생명주기 이동으로 목적지에 도착한 문서.
+ * 실측(Samsung 아이콘 실행 · 직전 채팅방 복원): 주소가 바뀐 뒤 바로 해제 → 덮개 다음 흰 화면 약 0.6초 →
+ * 「채팅방 입장 중…」 약 0.8초 → 채팅방. 도착한 뒤에도 목적지가 자리 표시면 해제를 미룬다(알림 목적지 23-9 와 같은 판정).
+ * 판단은 주소로만(동기) — 셸 첫 프레임 신호가 도착 표시보다 먼저 와도 같은 답. 상한은 이동 쪽(`lifecycle-route-effects`)이 건다.
+ */
+let navigationIssued = false;
+let destinationPaintCapped = false;
+
+/** 생명주기 이동을 실제로 낸다(`router.replace` 직전). 이동하지 않기로 정한 문서(의도·사용자 이동·같은 화면)는 부르지 않는다. */
+export function noteLifecycleNavIssued(): void {
+  if (holdStartPath) navigationIssued = true;
+}
+
+/** 이 문서가 생명주기 이동을 냈고, 주소가 시작 주소를 떠났으며(목적지 도착), 상한 전인가. */
+export function isLifecycleNavDestinationPaintHoldActive(currentPathname: string | null | undefined): boolean {
+  if (!navigationIssued || destinationPaintCapped || !holdStartPath) return false;
+  return pathOnly(currentPathname ?? "") !== holdStartPath;
+}
+
+/** 목적지 그림 대기 상한 — 지금 화면에서 해제 허용(알림 목적지 8초 상한과 같은 규칙). */
+export function capLifecycleNavDestinationPaint(): void {
+  destinationPaintCapped = true;
+}
+
 export function onLifecycleNavHoldSettled(run: () => void): () => void {
   if (settled) {
     run();
@@ -112,5 +137,7 @@ export function __resetLifecycleNavHoldForTests(): void {
   evaluated = false;
   holdStartPath = null;
   settled = false;
+  navigationIssued = false;
+  destinationPaintCapped = false;
   settledListeners.clear();
 }

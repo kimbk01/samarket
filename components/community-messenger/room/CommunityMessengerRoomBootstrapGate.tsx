@@ -17,8 +17,6 @@ import {
   pickAuthoritativeMessengerRoomSnapshot,
 } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import { prepareStoreOrderMessengerRoomEntryByRoomId } from "@/lib/store-order-chat/store-order-messenger-room-entry-client";
-import { getLocalRoomSnapshot } from "@/lib/community-messenger/local-store/roomSnapshotDb";
-import { isRoomLeftLocally } from "@/lib/community-messenger/room-snapshot-cache";
 import { inferInstantStoreOrderMessengerMyRole } from "@/lib/store-order-chat/infer-store-order-messenger-instant-role";
 
 type MessengerRoomCanonicalConvergence = {
@@ -205,30 +203,6 @@ export function CommunityMessengerRoomBootstrapGate({
     entrySnapshotRef.current = null;
     setEntrySnapshot(null);
 
-    /**
-     * 앱 진입 SSOT C2 (`docs/audit/app-entry-ssot-fix-design-2026-11-26.md` §11 · Owner 「C1′로 진행」 2026-11-26):
-     * 메모리 저장본이 없으면(앱을 새로 켠 알림·복원 진입 등) 기기 저장본(IndexedDB · 같은 보는 사람 · 만료 전)으로 먼저 그린다.
-     * 서버 요청은 그대로 함께 나가고, 도착하면 아래에서 최신 값으로 바꾼다(메모리 저장본 경로와 같은 「먼저 그림 → 새로 고침」).
-     * 서버가 먼저 오면 저장본은 버린다. 방을 나간 기록이 있으면 쓰지 않는다.
-     */
-    let networkSettled = false;
-    const viewerForLocal = viewerUserId?.trim() || "";
-    if (viewerForLocal && !isRoomLeftLocally(rid)) {
-      void getLocalRoomSnapshot(rid, viewerForLocal)
-        .then((local) => {
-          if (cancelled || networkSettled || !local) return;
-          if (!canMountCommunityMessengerRoomClient(local)) return;
-          if (normalizedRoomId(local.room.id) !== rid) return;
-          canonicalConvergenceRef.current = null;
-          entrySnapshotRef.current = local;
-          setEntrySnapshot(local);
-          setBootstrapPending(false);
-        })
-        .catch(() => {
-          /* 서버 경로가 그대로 처리 */
-        });
-    }
-
     void (async () => {
       let result: Awaited<ReturnType<typeof prepareStoreOrderMessengerRoomEntryByRoomId>>;
       try {
@@ -238,15 +212,11 @@ export function CommunityMessengerRoomBootstrapGate({
           viewerUserId: viewerUserId?.trim() || undefined,
         });
       } catch {
-        networkSettled = true;
         if (cancelled) return;
-        // 기기 저장본으로 이미 그렸으면 그 화면을 유지(실패 화면으로 바꾸지 않음) — 메모리 저장본 경로와 같다.
-        if (entrySnapshotRef.current) return;
         setEntryTransientFailed(true);
         setBootstrapPending(false);
         return;
       }
-      networkSettled = true;
       if (cancelled) return;
       if (!result.ok) {
         setEntryError(result.error);

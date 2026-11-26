@@ -25,23 +25,21 @@ describe("messenger split room entry frame (P1·P2)", () => {
     }
   });
 
-  it("P1 — room loading.tsx keeps the probe and draws the frame (split + phone · 앱 진입 SSOT C2 2026-11-26)", () => {
+  it("P1 — room loading.tsx keeps the probe and adds the split-only frame", () => {
     const src = read("app/(main)/community-messenger/rooms/[roomId]/loading.tsx");
     expect(src).toContain("<MessengerRoomSegmentLoadingProbe />");
     expect(src).toContain("<MessengerRoomSplitLoadingFrame />");
     const host = read("components/community-messenger/room/MessengerRoomSplitLoadingFrame.tsx");
-    expect(host).not.toMatch(/return null;/);
-    expect(host).toContain("<MessengerSplitRoomEntryFrame");
+    expect(host).toMatch(/if \(!isSplit\) return null;/);
   });
 
-  it("P2 — EntryEmpty waits inside the same frame on split and phone · no spinner/text while waiting (앱 진입 SSOT C2)", () => {
+  it("P2 — EntryEmpty uses the same frame only when split; mobile spinner shell unchanged", () => {
     const src = read("components/community-messenger/room/CommunityMessengerRoomEntryEmpty.tsx");
     expect(src).toMatch(/if \(isSplit\) \{[\s\S]*<MessengerSplitRoomEntryFrame/);
     expect(src).toContain('data-cm-room-split-entry-wait=""');
-    // 휴대폰 경로 — 방 틀 + 대기 표시(문구·스피너 없음)
-    expect(src).toContain('"data-cm-room-entry-buffering": ""');
-    expect(src).not.toContain("DibaySpinner");
-    expect(src).not.toMatch(/\{enteringLabel\}<\/p>/);
+    // 휴대폰 경로 — 기존 칸 전체 대기 화면 유지
+    expect(src).toContain('data-cm-room-entry-buffering=""');
+    expect(src).toContain('className="cm-room-shell flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)]"');
   });
 
   it("frame header classes match the real Phase2 header (split) — no shift when the room arrives", () => {

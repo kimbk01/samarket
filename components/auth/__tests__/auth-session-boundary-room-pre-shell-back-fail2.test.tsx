@@ -25,8 +25,6 @@ const router = vi.hoisted(() => ({ back: vi.fn(), replace: vi.fn(), push: vi.fn(
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
   usePathname: () => state.pathname,
-  // 앱 진입 SSOT C2: 방 경로 차단 화면 = 방 틀(MessengerSplitRoomEntryFrame — useParams 사용)
-  useParams: () => ({}),
 }));
 vi.mock("@/components/i18n/AppLanguageProvider", () => ({ useI18n: () => ({ t: (k: string) => k }) }));
 vi.mock("@/hooks/use-client-membership-state", () => ({ useClientMembershipState: () => state.membership }));
