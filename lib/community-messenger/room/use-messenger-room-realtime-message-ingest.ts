@@ -7,6 +7,7 @@
  * @see docs/messenger-vs-native-chat-apps.md
  * @see docs/messenger-realtime-policy.md
  */
+import type { MessengerRoomRefreshReason } from "@/lib/community-messenger/realtime/global-messenger-room-bundle-channel";
 import {
   useCallback,
   useEffect,
@@ -92,7 +93,7 @@ export type MessengerRoomRealtimeMessageIngestArgs = {
   /** 상대 INSERT 직후 `mark_read` 가시 조건 완화 — @see useMessengerRoomOpenMarkReadEffect */
   peerTailMarkReadHintRef?: MutableRefObject<string | null>;
   setRoomMessages: Dispatch<SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>>;
-  onRefresh: () => void;
+  onRefresh: (reason?: MessengerRoomRefreshReason) => void;
   /** @see global-messenger-room-bundle-channel `community_messenger_participants` */
   onParticipantPostgres?: (payload: {
     eventType: string;

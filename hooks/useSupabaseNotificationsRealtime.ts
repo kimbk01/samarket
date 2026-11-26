@@ -3,6 +3,10 @@
 import { emitMoneyOutcomeFromNotificationRow } from "@/lib/notifications/money-outcome-signal";
 import { useEffect, useRef } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import {
+  noteMessengerRealtimeResubscribed,
+  onMessengerRealtimeResynced,
+} from "@/lib/community-messenger/realtime/messenger-realtime-resync";
 import { superviseMessengerChannel } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import {
@@ -91,6 +95,9 @@ export function useSupabaseNotificationsRealtime(
 
     let cancelled = false;
     let currentSub: { stop: () => void; markSignal: () => void } | null = null;
+    const offResync = onMessengerRealtimeResynced(() => {
+      if (!cancelled && currentSub) onChangeRef.current({ eventType: "RESYNC" });
+    });
 
     const subscribeForUser = (uid: string) => {
       if (cancelled || !uid) return;
@@ -148,7 +155,8 @@ export function useSupabaseNotificationsRealtime(
         silentAfterMs: 18_000,
         onStatus: (status) => {
           if (status !== "SUBSCRIBED") return;
-          if (subscribedOnce) onChangeRef.current({ eventType: "RESYNC" });
+          /** D2 R2(2026-11-26): 재연결 RESYNC 는 재동기화 묶음마다 1번(아래 onMessengerRealtimeResynced) */
+          if (subscribedOnce) noteMessengerRealtimeResubscribed();
           subscribedOnce = true;
         },
         build: (channel) =>
@@ -224,6 +232,7 @@ export function useSupabaseNotificationsRealtime(
 
     return () => {
       cancelled = true;
+      offResync();
       subscription.unsubscribe();
       currentSub?.stop();
     };

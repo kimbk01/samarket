@@ -22,6 +22,10 @@
 import { useEffect, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import {
+  noteMessengerRealtimeResubscribed,
+  onMessengerRealtimeResynced,
+} from "@/lib/community-messenger/realtime/messenger-realtime-resync";
 import { superviseMessengerChannel } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import type { CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
@@ -159,6 +163,10 @@ export function useGlobalFriendRequestFeed(args: {
       subscribedUserId = "";
     };
 
+    const offResync = onMessengerRealtimeResynced(() => {
+      if (!cancelled && subscribedUserId) void syncPending("reconnect");
+    });
+
     const subscribeForUser = (uid: string) => {
       if (cancelled || !uid || uid === subscribedUserId) return;
       stop();
@@ -180,7 +188,9 @@ export function useGlobalFriendRequestFeed(args: {
         onStatus: (status) => {
           /** 최초 연결·재연결 모두 — 연결이 끊긴 동안의 변경을 목록 조회로 맞춘다. */
           if (status === "SUBSCRIBED" && !cancelled) {
-            void syncPending(everSubscribed ? "reconnect" : "subscribed");
+            /** D2 R2(2026-11-26): 재연결 조회는 재동기화 묶음마다 1번(아래 onMessengerRealtimeResynced) */
+            if (everSubscribed) noteMessengerRealtimeResubscribed();
+            else void syncPending("subscribed");
             everSubscribed = true;
           }
         },
@@ -271,6 +281,7 @@ export function useGlobalFriendRequestFeed(args: {
 
     return () => {
       cancelled = true;
+      offResync();
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
       window.removeEventListener(CM_FRIEND_REQUESTS_SYNC_REQUEST_EVENT, onSyncRequest);

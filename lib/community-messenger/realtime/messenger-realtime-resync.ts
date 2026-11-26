@@ -1,0 +1,86 @@
+"use client";
+
+/**
+ * D2 R2 — 「재연결 1번 = 재동기화 1번」 (Owner 「개정안 승인」 2026-11-26).
+ * 개정안: docs/audit/supabase-request-surge-2026-11-18/messenger-realtime-contract-revision-d1-d2-2026-11-26.md §3 R2
+ *
+ * 왜: 재연결 때 채널마다 따로 다시 읽었다 — 방 묶음 `firstSubscribeResync`(열린 방마다 after=·bootstrap), 홈 목록 확인,
+ * 알림 RESYNC(배지), 친구요청 목록. 실기(2026-11-26 T4 #623)에서 복구 직후 친구요청 19·메시지 19·상대 관계 19건.
+ *
+ * 규칙:
+ * - 채널은 **두 번째 이후** SUBSCRIBED(재연결)에서 스스로 다시 읽지 않고 `noteMessengerRealtimeResubscribed()` 만 부른다.
+ *   처음 가입(SUBSCRIBED 1번째)은 지금 그대로 각자 처리한다.
+ * - 재가입이 몰리는 동안(마지막 재가입 뒤 1초 조용 · 첫 재가입부터 최대 5초) 기다렸다가 등록된 받는 쪽을 **1번씩** 부른다.
+ * - 받는 쪽: 열린 방(방당 after= 1번) · 홈 목록 확인 · 배지 · 친구요청.
+ */
+
+export const MESSENGER_RESYNC_QUIET_MS = 1_000;
+export const MESSENGER_RESYNC_MAX_WAIT_MS = 5_000;
+
+export type MessengerResyncCoordinatorDeps = {
+  now: () => number;
+  setTimer: (fn: () => void, ms: number) => unknown;
+  clearTimer: (t: unknown) => void;
+};
+
+export type MessengerResyncCoordinator = {
+  noteResubscribed: () => void;
+  onResynced: (cb: () => void) => () => void;
+};
+
+export function createMessengerResyncCoordinator(deps: MessengerResyncCoordinatorDeps): MessengerResyncCoordinator {
+  const listeners = new Set<() => void>();
+  let timer: unknown = null;
+  let firstAt: number | null = null;
+
+  const fire = () => {
+    timer = null;
+    firstAt = null;
+    for (const cb of [...listeners]) {
+      try {
+        cb();
+      } catch {
+        /* 받는 쪽 오류가 다른 받는 쪽을 막지 않게 */
+      }
+    }
+  };
+
+  return {
+    noteResubscribed() {
+      const t = deps.now();
+      if (firstAt == null) firstAt = t;
+      if (timer != null) deps.clearTimer(timer);
+      const untilMax = Math.max(0, firstAt + MESSENGER_RESYNC_MAX_WAIT_MS - t);
+      timer = deps.setTimer(fire, Math.min(MESSENGER_RESYNC_QUIET_MS, untilMax));
+    },
+    onResynced(cb) {
+      listeners.add(cb);
+      return () => {
+        listeners.delete(cb);
+      };
+    },
+  };
+}
+
+let defaultCoordinator: MessengerResyncCoordinator | null = null;
+
+function getDefault(): MessengerResyncCoordinator {
+  if (!defaultCoordinator) {
+    defaultCoordinator = createMessengerResyncCoordinator({
+      now: () => Date.now(),
+      setTimer: (fn, ms) => setTimeout(fn, ms),
+      clearTimer: (t) => clearTimeout(t as ReturnType<typeof setTimeout>),
+    });
+  }
+  return defaultCoordinator;
+}
+
+/** 채널의 재연결(두 번째 이후 SUBSCRIBED) — 스스로 다시 읽지 말고 이것만 부른다 */
+export function noteMessengerRealtimeResubscribed(): void {
+  getDefault().noteResubscribed();
+}
+
+/** 재연결 묶음마다 1번 불린다. 반환 = 등록 해제 */
+export function onMessengerRealtimeResynced(cb: () => void): () => void {
+  return getDefault().onResynced(cb);
+}

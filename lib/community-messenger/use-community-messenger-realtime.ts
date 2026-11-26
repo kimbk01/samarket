@@ -88,6 +88,8 @@ export type {
   CommunityMessengerRoomRealtimeMessageRow,
 } from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
 
+import type { MessengerRoomRefreshReason } from "@/lib/community-messenger/realtime/global-messenger-room-bundle-channel";
+
 type HomeRealtimeListener = {
   onRefresh: () => void;
   onRealtimeMessageInsert?: (hint: CommunityMessengerHomeRealtimeMessageInsertHint) => void;
@@ -101,7 +103,8 @@ type HomeRealtimeListener = {
 };
 
 type RoomRealtimeListener = {
-  onRefresh: () => void;
+  /** D2 R2·R3: `reconnect`·`fallback` = 새 메시지만(`after=`), 없음 = 지금 동작 */
+  onRefresh: (reason?: MessengerRoomRefreshReason) => void;
   onMessageEvent?: (event: CommunityMessengerRoomRealtimeMessageEvent) => void;
   onParticipantPostgres?: (payload: {
     eventType: string;
@@ -1001,7 +1004,7 @@ export function useCommunityMessengerRoomRealtime(args: {
   roomId: string | null;
   viewerUserId?: string | null;
   enabled: boolean;
-  onRefresh: () => void;
+  onRefresh: (reason?: MessengerRoomRefreshReason) => void;
   onMessageEvent?: (event: CommunityMessengerRoomRealtimeMessageEvent) => void;
   onParticipantPostgres?: RoomRealtimeListener["onParticipantPostgres"];
 }) {

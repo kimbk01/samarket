@@ -1,6 +1,10 @@
 import type { MutableRefObject } from "react";
 import { notifyCallLogsRealtimeChanged } from "@/lib/community-messenger/call-history/call-logs-realtime-listeners";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  noteMessengerRealtimeResubscribed,
+  onMessengerRealtimeResynced,
+} from "@/lib/community-messenger/realtime/messenger-realtime-resync";
 import { superviseMessengerChannel } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { createRefreshScheduler } from "@/lib/community-messenger/realtime/community-messenger-realtime-schedulers";
@@ -91,6 +95,20 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
   const channels: Array<{ stop: () => void }> = [];
   const refreshScheduler = createRefreshScheduler(args.onRefreshRef, MESSENGER_HOME_META_DEBOUNCE_MS);
   const cancelled = args.isCancelled;
+  /**
+   * D2 R2(2026-11-26): 재연결 따라잡기는 재동기화 묶음마다 1번 — 채널마다 따로 하지 않는다.
+   * 감사 F4: meta·rooms-in 이 따로 바인드되면 같은 리스너가 두 묶음에 붙어 2번 불렸다 → meta 를 포함한 바인드만 등록.
+   */
+  const offResync =
+    args.includeMeta !== false
+      ? onMessengerRealtimeResynced(() => {
+          if (!cancelled()) refreshScheduler.schedule();
+        })
+      : () => undefined;
+  const cancelSchedulers = () => {
+    offResync();
+    refreshScheduler.cancel();
+  };
   cmRtStableSubLog("channel_rebind_start", {
     viewerUserId: args.userId,
     channelBindRole: args.channelBindRole,
@@ -149,7 +167,7 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
           metaFirstSubscribedSeen = true;
           return; // cold bind → no full sync
         }
-        refreshScheduler.schedule(); // resubscribe → catch-up
+        noteMessengerRealtimeResubscribed(); // 재연결 → 재동기화 묶음(R2)
       },
       build: (channel) =>
         channel
@@ -308,7 +326,7 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
     });
     if (cancelled()) {
       meta.stop();
-      return { channels, cancelSchedulers: () => refreshScheduler.cancel() };
+      return { channels, cancelSchedulers };
     }
     channels.push(meta);
     cmRtReadSyncLog("subscribe_participants_channel", {
@@ -345,7 +363,7 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
           roomBundleFirstSubscribedSeen = true;
           return; // cold bind → no full sync
         }
-        refreshScheduler.schedule(); // resubscribe → catch-up
+        noteMessengerRealtimeResubscribed(); // 재연결 → 재동기화 묶음(R2)
       },
       build: (channel) =>
         channel
@@ -493,5 +511,5 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
     supabaseChannelInstances: channels.length,
   });
 
-  return { channels, cancelSchedulers: () => refreshScheduler.cancel() };
+  return { channels, cancelSchedulers };
 }
