@@ -9,7 +9,9 @@ export type CmRoomRouteChunkWarmSource =
   | "cm_hub_visible"
   | "list_io"
   | "pointerenter"
-  | "pointerdown";
+  | "pointerdown"
+  /** 감사 2026-11-26 D2 — 알림 탭으로 켠 실행의 채팅방 목적지 */
+  | "launch_push";
 
 export type CmRoomRouteChunkWarmSession = {
   sources: CmRoomRouteChunkWarmSource[];

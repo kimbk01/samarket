@@ -12,12 +12,14 @@ import { writeRestoreEnvelope, readLifecycleAccountKey } from "@/lib/lifecycle/r
 import { hasLaunchIntent, readPushLaunchIntentNavigated } from "@/lib/lifecycle/launch-intent.client";
 import {
   LIFECYCLE_NAV_APPLIED_KEY as NAV_APPLIED_KEY,
+  noteLifecycleNavIssued,
   isSameLifecycleSurface,
   lifecycleNavHoldStartPath,
   settleLifecycleNavHold,
   isLifecycleAuthSurfacePath,
 } from "@/lib/startup/lifecycle-nav-hold";
 import { markInitialDestinationVisualReady } from "@/lib/startup/startup-metrics";
+import { armLifecycleDestinationPaintCap } from "@/lib/startup/lifecycle-destination-paint-cap";
 
 /** Auth / consent / onboarding surfaces — owned by auth SSOT, never replaced by restore or Safe Entry. 단일 정의는 `lifecycle-nav-hold`. */
 export { isLifecycleAuthSurfacePath };
@@ -84,6 +86,7 @@ export function LifecycleRouteEffects(): null {
         return;
       }
       console.info(`[dibay-lifecycle] navigate kind=${d.kind} → ${navigateTo}`);
+      noteLifecycleNavIssued();
       router.replace(navigateTo);
     }).catch(() => {
       // 의도 조회 실패 = 이동하지 않음(기존 동작) — 시작 화면 보류도 푼다(무한 대기 금지).
@@ -102,6 +105,8 @@ export function LifecycleRouteEffects(): null {
     let r2 = 0;
     const r1 = requestAnimationFrame(() => {
       r2 = requestAnimationFrame(() => {
+        // 감사 2026-11-26 D3: 도착한 목적지가 아직 자리 표시(로그인 확인·채팅방 입장)면 해제 판정이 그림까지 미룬다.
+        armLifecycleDestinationPaintCap();
         settleLifecycleNavHold();
         markInitialDestinationVisualReady();
       });
