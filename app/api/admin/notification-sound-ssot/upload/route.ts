@@ -4,6 +4,7 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { invalidateNotificationSoundSsotReadCache } from "@/lib/notifications/load-notification-sound-ssot-server";
+import { invalidateNotificationSoundSsotSharedCache } from "@/lib/notifications/notification-sound-ssot-shared-cache.server";
 import { invalidateNotificationSoundSsotServerHydrate } from "@/lib/notifications/notification-sound-ssot-server-hydrate";
 
 export const runtime = "nodejs";
@@ -118,6 +119,7 @@ export async function POST(req: NextRequest) {
 
   // 순서 5 E7: 앱 읽기 경로 서버 기억 즉시 무효화
   invalidateNotificationSoundSsotReadCache();
+  invalidateNotificationSoundSsotSharedCache();
   invalidateNotificationSoundSsotServerHydrate();
   return NextResponse.json({ ok: true, asset_id: assetId, file_url: fileUrl });
 }

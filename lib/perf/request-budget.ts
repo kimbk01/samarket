@@ -17,8 +17,8 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/community-messenger/rooms/[roomId]/bootstrap": 2.5,
   "/api/community-messenger/presence": 1.1,
   "/api/me/notifications/badge-count": 5.2,
-  /** 2026-11-20 고정값 3개(주제·가져오기 계정·동네 id) 공유 캐시 — 실측 6.51(Supabase 만) → 예상 4.2 */
-  "/api/philife/neighborhood-feed": 5.0,
+  /** 2026-11-20 고정값 3개 공유 캐시 → 5.0. 2026-11-26 #577 지역 이름 공유 · #592 차단·숨김 1조회 뒤 실측 3.74(Vercel 232/62, 11-25 09~24 UTC) → 4.0 */
+  "/api/philife/neighborhood-feed": 4.0,
   "/api/stores/home-feed": 10.5,
   "/api/community-messenger/calls/sessions/[sessionId]": 5.0,
   "/api/community-messenger/bootstrap": 12.0,
@@ -39,7 +39,8 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/platform-promotion/reconcile-guest": 2.1,
   "/api/platform-popup/ptr-reveal": 2.1,
   "/api/community-messenger/calls/sessions/stale-cleanup": 2.7,
-  "/api/app/notification-sound-ssot": 2.2,
+  /** 2026-11-26 D6 인스턴스 공유 캐시(1시간·관리자 저장 시 만료) — 전: 2.89(11-25 Vercel 260/90). 상한 계산: 하루 비는 횟수 ≤ 24 × 표 3 + 인증 키 ≈ 요청 90 에 1.0 → 1.2 (실측 전) */
+  "/api/app/notification-sound-ssot": 1.2,
   "/api/me/devices/register": 1.9,
   "/api/community-messenger/rooms/[roomId]/peer-relation": 3.1,
   "/api/auth/session": 1.8,
