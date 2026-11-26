@@ -2,6 +2,7 @@
 
 /** 방 메시지·메타 Realtime 은 시청자당 단일 `global-messenger:bundle` 채널(`useCommunityMessengerRoomRealtime`)로 수신·`room_id` 로만 분배한다. */
 
+import { roomHasOutboundAwaitingRead } from "@/lib/community-messenger/room/messenger-outbound-read-state";
 import { usePathname, useRouter } from "next/navigation";
 import { redirectResourceAccessDenied } from "@/lib/auth/resource-access-denied-flow";
 import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
@@ -469,6 +470,12 @@ export function useMessengerRoomClientPhase1({
   }, [roomId, roomMessages.length]);
   const snapshotRef = useRef<CommunityMessengerRoomSnapshot | null>(null);
   const roomMessagesRef = useRef(roomMessages);
+  /** F2: 폴백 중 읽음 재조회는 끊김 1번당 1번 */
+  const readStateFallbackDoneRef = useRef(false);
+  /** 감사 4: 방을 바꾸면 새 방 기준으로 다시 허용 */
+  useEffect(() => {
+    readStateFallbackDoneRef.current = false;
+  }, [roomId]);
   const roomStateCommitCountRef = useRef(0);
   const messagesStateCommitCountRef = useRef(0);
   const participantsStateCommitCountRef = useRef(0);
@@ -1529,7 +1536,30 @@ export function useMessengerRoomClientPhase1({
          * D2 R2·R3(2026-11-26): 재연결 묶음·실시간 끊김 폴백은 새 메시지(`after=`)만 — 새 것이 없어도 bootstrap 을 다시 받지 않는다
          * (안티패턴 「이벤트마다 전체 부트스트랩」). 메타·통화 신호(이유 없음)는 아래 지금 동작.
          */
-        if (reason === "reconnect" || reason === "fallback") return;
+        if (reason === "reconnect" || reason === "fallback") {
+          /**
+           * F2 (개정안 §15): 끊긴 동안 온 상대 읽음은 실시간으로 다시 오지 않는다 — 내 마지막 확정 메시지가 아직
+           * 안 읽힘일 때만 스냅샷 1번(새 메시지 여부와 무관). 폴백은 끊김 1번당 처음 1번, 재연결이 오면 다시 허용.
+           */
+          if (reason === "reconnect") readStateFallbackDoneRef.current = false;
+          else if (readStateFallbackDoneRef.current) return;
+          /** 감사 1: 따라잡기 병합(setRoomMessages)이 반영된 뒤의 행으로 판정 — 다음 작업 틱까지 기다린다 */
+          if (mergedNewMessages) await new Promise<void>((r) => setTimeout(r, 0));
+          const snap = snapshotRef.current;
+          if (
+            snap &&
+            roomHasOutboundAwaitingRead({
+              roomType: snap.room.roomType,
+              rows: roomMessagesRef.current,
+              readReceipt: snap.readReceipt ?? null,
+              fallbackRows: snap.messages,
+            })
+          ) {
+            if (reason === "fallback") readStateFallbackDoneRef.current = true;
+            void refresh(true, { triggerReason: "reconnect_read_state" });
+          }
+          return;
+        }
         /**
          * 신규 메시지는 `after=` 증분·ingest 로 이미 반영됐으면 silent_delta(full) 생략.
          * 상대 mark_read·참가자 메타만 온 경우(증분 false)는 `silent_delta` 로 읽음·unread 만 맞춘다.
