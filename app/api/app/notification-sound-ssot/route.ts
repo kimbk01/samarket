@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { loadNotificationSoundSsotCached } from "@/lib/notifications/load-notification-sound-ssot-server";
+import { loadNotificationSoundSsotShared } from "@/lib/notifications/notification-sound-ssot-shared-cache.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,8 +16,10 @@ export async function GET() {
   if (!auth.ok) return auth.response;
 
   try {
-    const sb = getSupabaseServer();
-    const data = await loadNotificationSoundSsotCached(sb);
+    /** 2026-11-26 D6 — 인스턴스 공유 캐시 먼저, 실패 시 기존 경로(인스턴스 메모리 60초) */
+    const data = await loadNotificationSoundSsotShared().catch(() =>
+      loadNotificationSoundSsotCached(getSupabaseServer())
+    );
     return NextResponse.json({
       ok: true,
       assets: data.assets,

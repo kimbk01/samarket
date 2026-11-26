@@ -4,6 +4,7 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { loadNotificationSoundSsotFromDb, invalidateNotificationSoundSsotReadCache } from "@/lib/notifications/load-notification-sound-ssot-server";
+import { invalidateNotificationSoundSsotSharedCache } from "@/lib/notifications/notification-sound-ssot-shared-cache.server";
 import {
   mirrorNotificationSoundToLegacy,
   mappingPatchFromEventKey,
@@ -170,6 +171,7 @@ export async function PATCH(req: NextRequest) {
 
   invalidateNotificationSoundSsotCache();
   invalidateNotificationSoundSsotReadCache();
+  invalidateNotificationSoundSsotSharedCache();
   invalidateNotificationSoundSsotServerHydrate();
   invalidateNotificationSoundConfigCache();
   invalidateMessengerCallSoundConfigCache();
