@@ -37,7 +37,11 @@ import {
   watchLaunchDestinationPaint,
 } from "@/lib/startup/launch-destination-paint";
 import { isNativeSplashCoverActive } from "@/lib/startup/native-splash-cover";
-import { mayReleaseForLifecycleNav, onLifecycleNavHoldSettled } from "@/lib/startup/lifecycle-nav-hold";
+import {
+  isLifecycleNavDestinationPaintHoldActive,
+  mayReleaseForLifecycleNav,
+  onLifecycleNavHoldSettled,
+} from "@/lib/startup/lifecycle-nav-hold";
 
 export type DibayBootMetrics = {
   nativeStart: number | null;
@@ -508,12 +512,13 @@ function releaseForInitialDestination(): void {
   }
   // 설계 23-9: 목적지 경로여도 화면이 목적지 자리 표시(로그인 확인 중·채팅방 입장 대기·채팅방 화면 없음)면
   // 해제하지 않는다 — 화면이 바뀔 때 다시 판정. 상한 = 알림 수신자의 기존 8초 확인(넘으면 markLaunchPushHandled).
+  // 감사 2026-11-26 D3: 직전 화면 복원(생명주기 이동)으로 도착한 목적지도 같은 판정 — 상한은 이동 쪽이 건다(8초).
   if (
     typeof window !== "undefined" &&
-    isLaunchPushHoldActive() &&
+    (isLaunchPushHoldActive() || isLifecycleNavDestinationPaintHoldActive(window.location.pathname)) &&
     isLaunchDestinationPaintPending(window.location.pathname)
   ) {
-    armReleaseOnLaunchPushHandled();
+    if (isLaunchPushHoldActive()) armReleaseOnLaunchPushHandled();
     watchLaunchDestinationPaint(scheduleDestinationPaintRecheck);
     return;
   }

@@ -23,7 +23,6 @@ import { APP_PRODUCT_DISPLAY_NAME } from "@/lib/brand/app-display-name";
 import {
   DIBAY_APP_ICON_180_PATH,
   DIBAY_APP_ICON_512_PATH,
-  DIBAY_FAVICON_PATH,
   dibayBrandAssetUrl,
 } from "@/lib/brand/brand-asset-paths";
 import { APP_LANGUAGE_COOKIE, type AppLanguageCode } from "@/lib/i18n/config";
@@ -45,8 +44,11 @@ export const metadata: Metadata = {
   description: `${APP_PRODUCT_DISPLAY_NAME} marketplace`,
   applicationName: APP_PRODUCT_DISPLAY_NAME,
   icons: {
+    /**
+     * 감사 2026-11-26 D4: `/favicon.ico` 는 파일 규칙(`app/favicon.ico`)이 이미 `<link rel="icon">` 을 낸다.
+     * 여기서 같은 주소(쿼리만 다름)를 또 선언하면 같은 파일을 이동마다 두 번 받는다(실측: 이동 1회에 아이콘 요청 18~28회).
+     */
     icon: [
-      { url: dibayBrandAssetUrl(DIBAY_FAVICON_PATH), sizes: "any" },
       {
         url: dibayBrandAssetUrl(DIBAY_APP_ICON_512_PATH),
         type: "image/png",

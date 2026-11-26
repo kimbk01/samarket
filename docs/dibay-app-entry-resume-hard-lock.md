@@ -43,4 +43,5 @@
 - 2026-11-08 재감사 반영 (`docs/audit/app-entry-resume-stabilization-plan-2026-11-08.md`): H1-2 고장 판정 정의·재시도 상한, H4 혼합 구조로 수정. 여전히 DRAFT.
 - 2026-11-08 H1-2 개정 (Owner 「승인, 구현해」): 고장 판정에 T_doc(첫 문서 대기 10초) 추가 — iOS build 28 실기 FAIL(녹색 로고 20.5초) 근거. 여전히 DRAFT.
 - 2026-11-09 H3-1 개정: Skew Protection 끔(06:43:13 PHT) — `?dpl` 이 배포마다 첫 화면 파일 주소 100% 를 바꿔 Android 새 배포 첫 실행 7~10초(통제 실험 8.1초 vs 2.1초). 여전히 DRAFT.
+- 2026-11-26 H3-1 복귀: 11-18 10:09 PHT 에 다시 켜져 있던 Skew Protection 을 다시 끔(13:14:06 PHT · `skewProtectionMaxAge` 604800→0 · 다른 설정 무변경) — 감사 `docs/audit/os-cover-push-entry-delay-audit-2026-11-26.md` D1(배포마다 홈 첫 JS 63개 중 55개가 내용 같은데 `?dpl` 로 주소만 바뀜). Owner 「Report order 1→4」.
 - 2026-11-08 구현 대조: H1(Android C1·iOS C7 코드)·H2(C2)·H3(C3·Skew 7일)·H4(Amendment (6)(7))·H6(C8) 반영 — §13 표. H5(복귀 요청 묶기)는 보류. Owner 승인 전 DRAFT 유지.
