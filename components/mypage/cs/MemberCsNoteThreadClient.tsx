@@ -138,7 +138,7 @@ export function MemberCsNoteThreadClient({
           : (thread?.subject ??
             safeT("support_legacy_archive_title"))}
         backHref={listHref}
-        preferHistoryBack={false}
+        fixedBackHistory="settle"
         template="detail"
       >
         <div className="flex flex-col gap-3">{content}</div>

@@ -6,6 +6,7 @@ import { ChevronRight, Search } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyListPager } from "@/components/mypage/ds/MyListPager";
 import { MyScreen } from "@/components/mypage/ds/MyScreen";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { CustomerCenterBoardSwitcher } from "@/components/mypage/cs/CustomerCenterBoardSwitcher";
 import { CustomerCenterBoardTypeIcon } from "@/components/mypage/cs/CustomerCenterBoardTypeIcon";
@@ -156,7 +157,12 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
   const [markBusy, setMarkBusy] = useState(false);
 
+  /** 비로그인 = 읽음 기록 없음 → 전체/안읽음·모두 읽음 줄과 안 읽은 수 요청 없음 (Owner 2026-11-26 시안 ④) */
+  const membership = useClientMembershipState("cc-board-list");
+  const isGuest = membership.status === "guest";
+  const isMember = membership.status === "member";
   const refreshUnreadCount = useCallback(async () => {
+    if (!isMember) return;
     try {
       const json = await fetchMypageListJson<{ ok?: boolean; unread_counts?: Record<string, number> }>(
         "/api/me/settings/notices?unread_counts=1"
@@ -165,7 +171,7 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
     } catch {
       /* 숫자만 생략 */
     }
-  }, [contentType]);
+  }, [contentType, isMember]);
 
   useEffect(() => {
     void refreshUnreadCount();
@@ -347,7 +353,7 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
     <MyScreen
       title={boardLabel}
       backHref={CUSTOMER_CENTER_HUB_HREF}
-      preferHistoryBack={false}
+      fixedBackHistory="settle"
       template="board"
       headerRight={
         <button
@@ -364,6 +370,7 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
     >
       <div className="flex flex-col gap-3 pb-4" data-testid={`cc-board-${contentType}`}>
         <CustomerCenterBoardSwitcher active={contentType} language={lang} />
+        {isGuest ? null : (
         <div className="flex items-center justify-between gap-2" data-testid="cc-board-read-filter">
           <div className="flex gap-2" role="group" data-dibay-tab-tier="filter">
             {(["all", "unread"] as const).map((f) => (
@@ -388,6 +395,7 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
             {t("cc_list_mark_all_read")}
           </button>
         </div>
+        )}
         {searchOpen ? (
           <input
             type="search"

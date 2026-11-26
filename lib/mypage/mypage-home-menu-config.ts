@@ -56,7 +56,7 @@ export function resolveMypageHomeStoreOwnerEntry(
 export const MYPAGE_HOME_SUPPORT_ITEMS: MypageHomeLinkMenuItem[] = [
   {
     href: "/mypage/customer-center",
-    titleKey: "mypage_comp_menu_support_cs_title",
+    titleKey: "mypage_ia_cat_support",
     icon: "help-circle",
   },
 ];

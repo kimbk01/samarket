@@ -23,7 +23,7 @@ export function MemberSupportHistoryClient() {
       <MyScreen
         title={safeT("support_history_title")}
         backHref={backHref}
-        preferHistoryBack={false}
+        fixedBackHistory="settle"
         template="list"
       >
         <SupportCasesHistoryList audience="MEMBER" />

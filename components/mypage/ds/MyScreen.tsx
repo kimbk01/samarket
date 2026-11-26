@@ -9,6 +9,7 @@ import { dibayMyInfoPerfMark, dibayMyInfoPerfNavClick } from "@/lib/runtime/diba
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 import { usePathname } from "next/navigation";
 import { resolveMypageIaParentHref } from "@/lib/mypage/mypage-ia";
+import { PATH_SETTLE_BACK_OPTIONS } from "@/lib/navigation/fixed-destination-back";
 import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
 import { MYPAGE_BODY_COLUMN_CLASS, MYPAGE_SCROLL_BODY_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
@@ -25,8 +26,16 @@ export type MyScreenProps = {
   headerRight?: ReactNode;
   /** 헤더 바로 아래 고정 줄 (예: 진행중 거래 상태 탭) — 스크롤해도 헤더와 함께 고정 */
   headerBelow?: ReactNode;
+  /**
+   * `"settle"` — 고정 목적지 뒤로를 **기록을 늘리지 않고** 실행 (`lib/navigation/fixed-destination-back.ts`):
+   * 직전 기록이 목적지면 뒤로, 아니면 현재 화면을 목적지로 교체. 직전 기록을 읽을 수 없으면 기록 뒤로.
+   * 예전 고정 이동(Link push)은 목적지를 새로 쌓아 「고객지원 ↔ 게시판」 루프를 만들었다 (2026-11-26 재현).
+   * 지정하면 `preferHistoryBack` 은 무시한다.
+   */
+  fixedBackHistory?: "settle";
   children?: ReactNode;
 };
+
 
 type MyInfoPerfWindow = Window & { __dibayMyInfoPerf?: { marks?: Record<string, unknown> } };
 
@@ -70,6 +79,7 @@ export function MyScreen({
   stickyCta,
   headerRight,
   headerBelow,
+  fixedBackHistory,
   children,
 }: MyScreenProps) {
   const backGuardRef = useRef<MyScreenBackGuard | null>(null);
@@ -115,12 +125,14 @@ export function MyScreen({
         backHref={backHref}
         preferHistoryBack={preferHistoryBack}
         leftSlot={
-          hasBackGuard ? (
+          hasBackGuard || fixedBackHistory ? (
             <AppBackButton
               backHref={guardBackHref}
-              preferHistoryBack={preferHistoryBack}
+              preferHistoryBack={fixedBackHistory ? false : preferHistoryBack}
               interceptBack={interceptBack}
               ariaLabelKey="nav_back"
+              fixedBackHistory={fixedBackHistory}
+              fixedBackOptions={fixedBackHistory ? PATH_SETTLE_BACK_OPTIONS : undefined}
             />
           ) : undefined
         }

@@ -55,7 +55,7 @@ export function MyReportsListClient() {
   ];
 
   return (
-    <MyScreen title={t("my_reports_title")} backHref={CUSTOMER_CENTER_HREF} preferHistoryBack={false} template="list">
+    <MyScreen title={t("my_reports_title")} backHref={CUSTOMER_CENTER_HREF} fixedBackHistory="settle" template="list">
       <div className="flex flex-col gap-3 pb-4" data-testid="my-reports">
         <div className="flex gap-2" role="group" data-dibay-tab-tier="filter">
           {filters.map((f) => (

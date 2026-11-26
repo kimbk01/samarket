@@ -8,6 +8,7 @@ import { CurrencyAmount } from "@/components/currency/CurrencyAmount";
 import { MyGroup } from "@/components/mypage/ds/MyGroup";
 import { MyRow, type MyRowValueState } from "@/components/mypage/ds/MyRow";
 import { MyScreen } from "@/components/mypage/ds/MyScreen";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { SupportContextProvider } from "@/components/support/SupportContextProvider";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -18,6 +19,8 @@ import { buildCustomerCenterBoardListPath } from "@/lib/notices/customer-center-
 import { SupportGenericHubInquireGate } from "@/components/support/SupportGenericHubInquireGate";
 import { DISABLED_SUPPORT_CONTEXT } from "@/lib/support/support-context";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { supportPolicyRows } from "@/lib/mypage/mypage-ia";
+import { renderMypageHomeMenuIcon } from "@/components/mypage/myinfo/myinfo-menu-icon";
 
 const BOARD_TABS: {
   type: CustomerCenterContentType;
@@ -59,6 +62,9 @@ export function customerCenterHubPointsValue(input: {
 
 const MEMBER_CC_CONTEXT = DISABLED_SUPPORT_CONTEXT;
 
+/** 고객지원 분류(`lib/mypage/mypage-ia.ts`)의 링크 행 — 이용약관·개인정보처리방침·사업자 정보 */
+const SUPPORT_POLICY_ROWS = supportPolicyRows();
+
 /**
  * `/mypage/customer-center` — A2-1: Support Modal entry SSOT (no legacy 1:1/쪽지 compose).
  * PHASE 3-A: generic hub must not hardcode OTHER; inquire uses category gate.
@@ -70,7 +76,10 @@ export function CustomerCenterHubClient() {
   const points = customerCenterHubPointsValue({ balance, loading, error: balanceError });
   /** 알림 최종 설계 §3·§5 — 게시판 타일의 안 읽은 글 수 (서버 = 열람 기록 기준) */
   const [boardUnread, setBoardUnread] = useState<Partial<Record<CustomerCenterContentType, number>>>({});
+  /** 회원 확인 뒤에만 안 읽은 수 요청 — 비로그인은 읽음 기록이 없다 (401 요청 제거) */
+  const isMember = useClientMembershipState("cc-hub").status === "member";
   useEffect(() => {
+    if (!isMember) return;
     let cancelled = false;
     void fetch("/api/me/settings/notices?unread_counts=1", { credentials: "include", cache: "no-store" })
       .then((r) => r.json().catch(() => null))
@@ -81,7 +90,7 @@ export function CustomerCenterHubClient() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isMember]);
 
   const greeting = safeT("mypage_cs_hub_greeting");
 
@@ -124,9 +133,9 @@ export function CustomerCenterHubClient() {
   return (
     <SupportContextProvider value={MEMBER_CC_CONTEXT}>
       <MyScreen
-        title={safeT("mypage_comp_menu_support_cs_title")}
+        title={safeT("mypage_ia_cat_support")}
         /**
-         * 뒤로 = 앞 화면으로(기록 우선), 기록이 없을 때만 분류 부모(고객지원)로.
+         * 뒤로 = 앞 화면으로(기록 우선), 기록이 없을 때만 내정보 홈으로 (고객지원 = 분류 화면, Owner 2026-11-26).
          * 예전 고정 이동(preferHistoryBack 끔)은 분류 부모(고객지원)를 새로 쌓아 고객지원 ↔ 고객센터가 끝없이 오갔다
          * (2026-11-16 Samsung 실기 — docs/design/header-back-round-design-2026-11-16.md 범위 밖 관찰).
          */
@@ -162,7 +171,12 @@ export function CustomerCenterHubClient() {
               return (
                 <Link
                   key={type}
-                  href={buildCustomerCenterBoardListPath(type)}
+                  href={
+                    /** 업데이트 내역은 다른 화면(`/mypage/app-updates`) — 기록 없을 때 뒤로 목적지를 고객지원으로 */
+                    type === "update"
+                      ? customerCenterChildHref(buildCustomerCenterBoardListPath(type))
+                      : buildCustomerCenterBoardListPath(type)
+                  }
                   className={`relative flex min-h-[5.75rem] flex-col items-center justify-center gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-2 py-3 text-center transition active:bg-sam-pressed-surface ${Sam.focusRing}`}
                   data-testid={`cc-board-tab-${type}`}
                 >
@@ -195,6 +209,22 @@ export function CustomerCenterHubClient() {
                   value={entry.value}
                   valueState={entry.valueState}
                   badge={entry.badge && entry.badge > 0 ? { count: entry.badge, tone: "primary" } : undefined}
+                />
+              ))}
+            </MyGroup>
+          </div>
+
+          {/* 고객지원 분류의 약관·정책 행 — 단일 정의 `MYPAGE_IA_CATEGORIES` support (분류 화면 없이 여기서만 보인다) */}
+          <div data-testid="customer-center-policy-rows">
+            <MyGroup>
+              {SUPPORT_POLICY_ROWS.map((row, index) => (
+                <MyRow
+                  key={row.href}
+                  first={index === 0}
+                  href={row.href.startsWith("/mypage/") ? customerCenterChildHref(row.href) : row.href}
+                  testId={`cc-hub-row-policy-${index}`}
+                  title={safeT(row.titleKey)}
+                  icon={renderMypageHomeMenuIcon(row.icon)}
                 />
               ))}
             </MyGroup>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { runPathSettleBack } from "@/lib/navigation/fixed-destination-back";
 import { useRouter } from "next/navigation";
 import { MoreHorizontal } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -291,7 +292,8 @@ export function CustomerCenterCommentsPanel({
           setLeaveConfirmOpen(false);
           setDraft("");
           traverseGuard.release();
-          router.push(backHref);
+          /** 헤더 ‹ 와 같은 규칙 — 목적지를 새로 쌓지 않는다 (2026-11-26) */
+          runPathSettleBack(router, backHref);
         }}
       />
     </section>

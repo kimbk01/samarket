@@ -170,7 +170,7 @@ export function MyReportDetailClient({
     <MyScreen
       title={t("my_report_detail_title")}
       backHref={resolveNotificationAwareDetailBackHref({ from, fallbackHref: REPORTS_HREF })}
-      preferHistoryBack={false}
+      fixedBackHistory="settle"
       template="detail"
     >
       <div className="pb-6">{body}</div>

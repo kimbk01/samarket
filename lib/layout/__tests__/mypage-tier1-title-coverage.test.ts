@@ -12,7 +12,7 @@ import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import { getMobileTopTier1RuleSet } from "@/lib/layout/mobile-top-tier1-rules";
 import { resolveMainTabKeepAliveHub } from "@/lib/layout/resolve-main-surface";
 import { MYPAGE_MOBILE_NAV } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { MYPAGE_IA_CATEGORIES, resolveMypageIaTitleKey } from "@/lib/mypage/mypage-ia";
+import { buildMypageIaCategoryHref, MYPAGE_IA_CATEGORIES, resolveMypageIaTitleKey } from "@/lib/mypage/mypage-ia";
 import { resolveMypageSectionLegacyHubRedirect } from "@/lib/mypage/mypage-section-legacy-redirect";
 import { looksLikeMessageKey } from "@/lib/i18n/safe-ui-label";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
@@ -132,15 +132,18 @@ describe("mypage tier1 first-frame titles", () => {
 
   it("분류 화면 제목 = 분류 이름 · 뒤로 홈, 분류 행 화면 제목 = 행 이름 · 뒤로 그 분류 (IA 2026-11-02)", () => {
     for (const cat of MYPAGE_IA_CATEGORIES) {
-      const l1 = resolveMainTier1Subpage(`/mypage/section/${cat.id}`);
+      /** 「고객지원」 분류 화면 = 고객지원 화면(`/mypage/customer-center`) — Owner 2026-11-26 */
+      const l1Href = buildMypageIaCategoryHref(cat.id);
+      const l1 = resolveMainTier1Subpage(l1Href);
       expect(l1?.titleText).toBe(cat.titleKey);
       expect(l1?.backHref).toBe("/mypage");
       for (const g of cat.groups) {
         for (const row of g.rows) {
           if (!("href" in row) || !row.href.startsWith("/mypage/")) continue;
+          if (row.href === l1Href) continue;
           const r = resolveMainTier1Subpage(row.href);
           expect(r?.titleText, row.href).toBe(row.titleKey);
-          expect(r?.backHref, row.href).toBe(`/mypage/section/${cat.id}`);
+          expect(r?.backHref, row.href).toBe(l1Href);
         }
       }
     }

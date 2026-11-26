@@ -15,9 +15,13 @@
  * record for this exact detail); otherwise replace is used.
  */
 
+import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
+
 export type FixedDestinationBackRouter = {
   back: () => void;
   replace: (href: string, options?: { scroll?: boolean }) => void;
+  /** `withoutNavigationApi: "history"` 의 기록 없음 폴백에만 쓴다 */
+  push?: (href: string) => void;
 };
 
 export type FixedDestinationBackOptions = {
@@ -25,6 +29,13 @@ export type FixedDestinationBackOptions = {
   isSameDestination?: (previousPathAndSearch: string, targetPathAndSearch: string) => boolean;
   /** Only consulted when the Navigation API is unavailable. */
   assumePreviousIsTarget?: () => boolean;
+  /**
+   * Navigation API 가 없을 때(직전 기록을 읽을 수 없음) 동작.
+   * - 기본 `"replace"`: 목적지로 교체 — 목적지에서 왔다면 같은 화면이 2번 남는다.
+   * - `"history"`: 기록 뒤로(`runHistoryBackWithFallback`, 기록 없으면 목적지) — 기록을 늘리지 않아 루프·중복이 없다.
+   *   고객지원 화면군(Owner 2026-11-26)처럼 「목적지 = 거의 항상 직전 화면」인 곳에 쓴다.
+   */
+  withoutNavigationApi?: "replace" | "history";
 };
 
 export type FixedDestinationBackResult = "back" | "replace";
@@ -97,8 +108,32 @@ export function runFixedDestinationBack(
     } else if (options.assumePreviousIsTarget?.()) {
       router.back();
       return "back";
+    } else if (options.withoutNavigationApi === "history" && router.push) {
+      runHistoryBackWithFallback({ back: router.back, push: router.push }, targetHref);
+      return "back";
     }
   }
   router.replace(targetHref, { scroll: false });
   return "replace";
+}
+
+/** 경로만 비교 — `?from=` 같은 진입 표시가 달라도 같은 화면 */
+export function isSamePathDestination(previousPathAndSearch: string, targetPathAndSearch: string): boolean {
+  return previousPathAndSearch.split("?")[0] === targetPathAndSearch.split("?")[0];
+}
+
+/**
+ * 고객지원 화면군(Owner 2026-11-26) 고정 목적지 뒤로 — 기록을 늘리지 않는다.
+ * 헤더 ‹(`MyScreen fixedBackHistory="settle"`)와 본문 「목록」 버튼·이탈 확인이 같은 규칙을 쓴다.
+ */
+export const PATH_SETTLE_BACK_OPTIONS: FixedDestinationBackOptions = {
+  isSameDestination: isSamePathDestination,
+  withoutNavigationApi: "history",
+};
+
+export function runPathSettleBack(
+  router: FixedDestinationBackRouter,
+  targetHref: string
+): FixedDestinationBackResult {
+  return runFixedDestinationBack(router, targetHref, PATH_SETTLE_BACK_OPTIONS);
 }

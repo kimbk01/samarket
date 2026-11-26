@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getOptionalAuthenticatedUserId, requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { buildAppNoticeDetailPath } from "@/lib/notices/app-notice-paths";
 import {
@@ -44,8 +44,21 @@ export const dynamic = "force-dynamic";
  * - 실패를 빈 성공으로 응답하지 않는다: 서비스 없음 503 · 테이블 없음 503(`table_missing`) · DB 오류 500.
  */
 export async function GET(req: NextRequest) {
-  const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) return auth.response;
+  const sp0 = req.nextUrl.searchParams;
+  /**
+   * 비로그인도 게시판 글 목록을 본다 — 고객지원 화면은 비로그인 공개(`isMypageGuestPublicPath`, Owner 2026-11-26).
+   * 읽음 상태가 필요한 요청(`unread_counts`·`filter=unread`)만 로그인 필수.
+   */
+  const needsMember = sp0.get("unread_counts") === "1" || sp0.get("filter") === "unread";
+  let auth: { ok: true; userId: string } | null = null;
+  if (needsMember) {
+    const required = await requireAuthenticatedUserId();
+    if (!required.ok) return required.response;
+    auth = { ok: true, userId: required.userId };
+  } else {
+    const userId = await getOptionalAuthenticatedUserId();
+    auth = userId ? { ok: true, userId } : null;
+  }
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
@@ -60,7 +73,7 @@ export async function GET(req: NextRequest) {
   }
   if (sp.get("unread_counts") === "1") {
     try {
-      const counts = await loadCustomerCenterUnreadCounts(sb, auth.userId);
+      const counts = await loadCustomerCenterUnreadCounts(sb, auth!.userId);
       return NextResponse.json({ ok: true, unread_counts: counts });
     } catch {
       return NextResponse.json({ ok: false, error: "notices_fetch_failed" }, { status: 500 });
@@ -104,15 +117,20 @@ export async function GET(req: NextRequest) {
   }
 
   const allRaw = boardRows ?? [];
-  const [readIds, joinedAt] = await Promise.all([
-    loadMemberReadContentIds(
-      sb,
-      auth.userId,
-      allRaw.map((r) => String(r.id ?? ""))
-    ),
-    loadMemberJoinedAt(sb, auth.userId),
-  ]);
+  const viewerId = auth?.userId ?? null;
+  const [readIds, joinedAt] = viewerId
+    ? await Promise.all([
+        loadMemberReadContentIds(
+          sb,
+          viewerId,
+          allRaw.map((r) => String(r.id ?? ""))
+        ),
+        loadMemberJoinedAt(sb, viewerId),
+      ])
+    : [new Set<string>(), null];
+  /** 비로그인 = 읽음 기록이 없으므로 안 읽음 표시를 하지 않는다 */
   const unreadOf = (row: (typeof allRaw)[number]) =>
+    viewerId != null &&
     isCustomerCenterContentUnread({
       read: readIds.has(String(row.id ?? "")),
       publishedAt: String(row.published_at ?? row.created_at ?? ""),
@@ -161,6 +179,7 @@ export async function GET(req: NextRequest) {
     notices,
     nextCursor,
     source: "app_notices_ssot",
+    viewer: viewerId ? "member" : "guest",
   });
 }
 

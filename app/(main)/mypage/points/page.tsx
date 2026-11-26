@@ -453,7 +453,7 @@ function MypagePointsPageInner() {
   const dim = loading && loaded ? "opacity-50 transition-opacity" : "";
 
   return (
-    <MyScreen title={t("common_points")} backHref={backHref} template="asset" preferHistoryBack={false}>
+    <MyScreen title={t("common_points")} backHref={backHref} template="asset" fixedBackHistory="settle">
       <div className="flex flex-col gap-5">
           {firstLoading ? (
             <PointsScreenSkeleton />

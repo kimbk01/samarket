@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getOptionalAuthenticatedUserId, requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { handleAppReleaseReport, loadAppReleases } from "@/lib/app-releases/app-release-report";
 import { isInstalledOlderThanRelease, parseAppVersionLabel } from "@/lib/app-releases/app-release-version";
@@ -15,8 +15,11 @@ function parsePlatform(v: unknown): "android" | "ios" | null {
  * GET `?platform=&installed=1.2.5 (24)` — 업데이트 내역 (앱 업데이트 v3). 설치 버전 기록 + 업데이트했으면 안내 알림 읽음.
  */
 export async function GET(req: NextRequest) {
-  const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) return auth.response;
+  /**
+   * 비로그인도 출시 기록을 본다 — 고객지원 「업데이트 내역」 타일은 다른 게시판처럼 비로그인 공개 (Owner 2026-11-26).
+   * 설치 버전 기록·업데이트 안내 알림 읽음은 회원만.
+   */
+  const userId = await getOptionalAuthenticatedUserId();
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) return NextResponse.json({ ok: false, error: "service_unavailable" }, { status: 503 });
   const sp = req.nextUrl.searchParams;
@@ -24,7 +27,9 @@ export async function GET(req: NextRequest) {
   if (!platform) return NextResponse.json({ ok: false, error: "invalid_platform" }, { status: 400 });
   const installed = parseAppVersionLabel(sp.get("installed"));
   try {
-    const report = await handleAppReleaseReport(sb, auth.userId, { platform, installed });
+    const report = userId
+      ? await handleAppReleaseReport(sb, userId, { platform, installed })
+      : { notificationsRead: 0 };
     const rows = await loadAppReleases(sb, platform);
     const releases = rows.map((r) => ({
       version: r.version_name,

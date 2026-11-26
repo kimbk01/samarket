@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>내정보 › 고객지원 SSOT 시안 (2026-11-26)</title>
+<style>
+  /* 앱 토큰 값 그대로 (app/design-tokens.css) */
+  :root {
+    --dibay-green: #0B421A; --dibay-cream: #FFFCFC; --dibay-card: #FFFFFF;
+    --dibay-muted: #604C4C; --dibay-brown: #362415; --dibay-border: rgba(54,36,21,.14);
+    --sam-icon-surface: #D4E9E2; --sam-pressed-surface: #E8F3EE; --sam-danger: #d45252;
+    --border-soft: color-mix(in srgb, var(--dibay-border) 65%, #fff);
+    --r: 4px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; background: #f2f0ee; color: #222; }
+  header.doc { padding: 24px 28px 8px; }
+  header.doc h1 { margin: 0 0 6px; font-size: 22px; }
+  header.doc p { margin: 2px 0; font-size: 14px; color: #555; }
+  .row { display: flex; gap: 28px; padding: 16px 28px 28px; overflow-x: auto; align-items: flex-start; }
+  .col { flex: 0 0 auto; }
+  .cap { font-size: 13px; font-weight: 700; margin: 0 0 8px; }
+  .cap small { display: block; font-weight: 400; color: #666; margin-top: 2px; }
+  .phone { width: 375px; height: 812px; overflow: hidden; border-radius: 22px; border: 1px solid #ccc; background: var(--dibay-cream); position: relative; }
+  .phone img { width: 375px; display: block; }
+  .bar { height: 52px; display: flex; align-items: center; justify-content: center; position: relative; background: #ECEAF4; border-bottom: 1px solid var(--border-soft); }
+  .bar .back { position: absolute; left: 10px; top: 8px; width: 36px; height: 36px; border-radius: 50%; background: #fff; border: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--dibay-brown); }
+  .bar .t { font-size: 16px; font-weight: 700; color: var(--dibay-brown); }
+  .body { padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+  .card { background: #fff; border: 1px solid var(--border-soft); border-radius: var(--r); }
+  .hero { padding: 32px 16px; text-align: center; }
+  .well { width: 56px; height: 56px; border-radius: 50%; background: var(--sam-icon-surface); color: var(--dibay-green); margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+  .hero p { margin: 12px 0 0; font-size: 18px; font-weight: 600; color: var(--dibay-brown); }
+  .btn { margin-top: 16px; min-height: 44px; border-radius: var(--r); background: var(--dibay-green); color: #fff; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tile { position: relative; min-height: 92px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--dibay-green); font-size: 13px; font-weight: 600; }
+  .tile .i { font-size: 22px; }
+  .badge { position: absolute; right: 6px; top: 6px; min-width: 18px; padding: 0 4px; border-radius: 999px; background: var(--sam-danger); color: #fff; font-size: 10.5px; font-weight: 700; line-height: 18px; text-align: center; }
+  .grp .r { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 14px; border-top: 1px solid var(--border-soft); font-size: 15px; font-weight: 600; color: var(--dibay-brown); }
+  .grp .r:first-child { border-top: 0; }
+  .grp .ic { width: 36px; height: 36px; border-radius: 50%; background: var(--sam-pressed-surface); color: var(--dibay-green); display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .grp .v { margin-left: auto; color: var(--dibay-muted); font-weight: 500; }
+  .grp .ch { color: #aaa; margin-left: 6px; }
+  .grp .r .v + .ch { margin-left: 6px; }
+  .grp .r:not(:has(.v)) .ch { margin-left: auto; }
+  .new { outline: 2px dashed #d97706; outline-offset: 3px; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; color: #b45309; background: #fff7ed; border: 1px solid #fdba74; border-radius: 4px; padding: 1px 6px; margin-left: 6px; }
+  .grid6 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .cat { min-height: 112px; padding: 14px 14px 12px; position: relative; }
+  .cat .ci { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+  .cat b { display: block; font-size: 16px; font-weight: 800; color: var(--dibay-brown); }
+  .cat span { display: block; font-size: 12px; color: var(--dibay-muted); margin-top: 4px; }
+  .h2 { font-size: 15px; font-weight: 800; color: var(--dibay-brown); margin: 4px 2px 0; }
+  .tabs { display: flex; border-bottom: 1px solid var(--border-soft); }
+  .tabs div { flex: 1; text-align: center; padding: 10px 0; font-size: 14px; color: var(--dibay-muted); }
+  .tabs .on { color: var(--dibay-brown); font-weight: 700; border-bottom: 2px solid var(--dibay-green); }
+  .item { padding: 12px 14px; border-top: 1px solid var(--border-soft); font-size: 14px; color: var(--dibay-brown); }
+  .item:first-child { border-top: 0; }
+  .item small { display: block; color: var(--dibay-muted); margin-top: 4px; font-size: 12px; }
+  table { border-collapse: collapse; margin: 0 28px 28px; background: #fff; font-size: 13px; }
+  th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #f6f6f6; }
+  h2.sec { margin: 8px 28px 4px; font-size: 17px; }
+  ul.notes { margin: 0 28px 24px; font-size: 13px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<header class="doc">
+  <h1>내정보 › 고객지원 = 고객센터 (UI·UX·CTA 단일 화면) 시안</h1>
+  <p>폭 375px · 색·반경 = 앱 토큰 값(<code>app/design-tokens.css</code>) · <span class="tag">변경</span> 점선 = 지금과 달라지는 곳, 나머지는 지금 화면 그대로</p>
+  <p>근거: <code>docs/audit/customer-center-back-and-support-ia-2026-11-26.md</code> (D1 루프 재현) · Owner 2026-11-26 「전체 수정 승인 · 고객지원 = 고객센터 SSOT · 숨어 있지 않게」</p>
+</header>
+
+<h2 class="sec">1. 지금 (localhost 캡처, 비로그인, 375px)</h2>
+<div class="row">
+  <div class="col"><p class="cap">지금 — 고객센터 허브<small>내정보 › 고객지원(분류 화면) › 「고객센터」 줄을 한 번 더 눌러야 나옴</small></p>
+    <div class="phone"><img src="before-hub.jpg" alt="지금 고객센터 허브" /></div></div>
+  <div class="col"><p class="cap">지금 — 공지사항 (비로그인)<small>목록 API 401 → 「불러오지 못했습니다」 · ← 를 누르면 고객센터를 새로 쌓아 루프</small></p>
+    <div class="phone"><img src="before-notice-guest.jpg" alt="지금 공지사항 비로그인" /></div></div>
+</div>
+
+<h2 class="sec">2. 바뀐 뒤</h2>
+<div class="row">
+  <!-- ① 내정보 홈 -->
+  <div class="col"><p class="cap">① 내정보 홈 — 전체 메뉴 (자리·모양 그대로)<small>「고객지원」 카드 → <b>바로 ② 고객지원</b> (중간 분류 화면 없음)</small></p>
+    <div class="phone">
+      <div class="bar"><span class="t">내정보</span></div>
+      <div class="body">
+        <div class="h2">전체 메뉴</div>
+        <div class="grid6">
+          <div class="card cat"><div class="ci" style="background:#E8F1EA;color:#14692B">🛍</div><b>거래</b><span>…</span></div>
+          <div class="card cat"><div class="ci" style="background:#F1EAFE;color:#6D28D9">💬</div><b>커뮤니티</b><span>…</span></div>
+          <div class="card cat"><div class="ci" style="background:#FDF3E1;color:#9A4A07">🏪</div><b>매장·주문</b><span>…</span></div>
+          <div class="card cat"><div class="ci" style="background:#EAF0FF;color:#1D4ED8">💳</div><b>자산</b><span>…</span></div>
+          <div class="card cat"><div class="ci" style="background:#E2F4F1;color:#0F766E">👤</div><b>계정</b><span>…</span></div>
+          <div class="card cat new"><div class="ci" style="background:#EEF1F5;color:#475569">？</div><b>고객지원</b><span>고객센터 새 글 3</span><span class="badge" style="right:12px;top:12px">3</span></div>
+        </div>
+        <p style="font-size:12px;color:#b45309;margin:0">변경: 카드 링크만 <code>/mypage/section/support</code> → <code>/mypage/customer-center</code>. 카드 문구·배지(고객센터 안 읽은 글 수)·위치는 지금 그대로.</p>
+      </div>
+    </div></div>
+
+  <!-- ② 고객지원 (회원) -->
+  <div class="col"><p class="cap">② 고객지원 (회원) — 고객지원의 단일 화면<small>주소 <code>/mypage/customer-center</code> 그대로 (푸시·알림 목적지 불변) · <b>분류 화면(L1)이므로 하단 탭 표시</b> <span class="tag">변경</span></small></p>
+    <div class="phone">
+      <div class="bar new"><span class="back">‹</span><span class="t">고객지원</span></div>
+      <div class="body">
+        <div class="card hero"><div class="well">🎧</div><p>무엇이 궁금하신가요?</p><div class="btn">문의하기</div></div>
+        <div class="tiles">
+          <div class="card tile"><span class="i">📣</span>공지사항<span class="badge">2</span></div>
+          <div class="card tile"><span class="i">⚙</span>시스템 안내</div>
+          <div class="card tile"><span class="i">↻</span>업데이트 내역</div>
+          <div class="card tile"><span class="i">🎁</span>혜택·이벤트<span class="badge">1</span></div>
+        </div>
+        <div class="card grp">
+          <div class="r"><span class="ic">⚑</span>신고 내역<span class="ch">›</span></div>
+          <div class="r"><span class="ic">💬</span>내 문의<span class="ch">›</span></div>
+          <div class="r"><span class="ic">⟲</span>이전 문의 기록<span class="ch">›</span></div>
+          <div class="r"><span class="ic">◎</span>포인트<span class="v">1,200P</span><span class="ch">›</span></div>
+          <div class="r"><span class="ic">▣</span>충전 신청<span class="ch">›</span></div>
+        </div>
+        <div class="card grp new">
+          <div class="r"><span class="ic">📄</span>이용약관<span class="ch">›</span></div>
+          <div class="r"><span class="ic">🔒</span>개인정보처리방침<span class="ch">›</span></div>
+          <div class="r"><span class="ic">🏢</span>사업자 정보<span class="ch">›</span></div>
+        </div>
+      </div>
+    </div></div>
+
+  <!-- ③ 고객지원 (비로그인) -->
+  <div class="col"><p class="cap">③ 고객지원 (비로그인)<small>같은 화면 · 안 읽은 수 배지 없음 · 신고/문의/포인트 줄은 지금처럼 로그인으로 · 게시판 4개(업데이트 내역 포함) 비로그인 열람</small></p>
+    <div class="phone">
+      <div class="bar new"><span class="back">‹</span><span class="t">고객지원</span></div>
+      <div class="body">
+        <div class="card hero"><div class="well">🎧</div><p>무엇이 궁금하신가요?</p><div class="btn">문의하기</div></div>
+        <div class="tiles">
+          <div class="card tile"><span class="i">📣</span>공지사항</div>
+          <div class="card tile"><span class="i">⚙</span>시스템 안내</div>
+          <div class="card tile"><span class="i">↻</span>업데이트 내역</div>
+          <div class="card tile"><span class="i">🎁</span>혜택·이벤트</div>
+        </div>
+        <div class="card grp">
+          <div class="r"><span class="ic">⚑</span>신고 내역<span class="ch">›</span></div>
+          <div class="r"><span class="ic">💬</span>내 문의<span class="ch">›</span></div>
+          <div class="r"><span class="ic">⟲</span>이전 문의 기록<span class="ch">›</span></div>
+          <div class="r"><span class="ic">◎</span>포인트<span class="v">—</span><span class="ch">›</span></div>
+          <div class="r"><span class="ic">▣</span>충전 신청<span class="ch">›</span></div>
+        </div>
+        <div class="card grp new">
+          <div class="r"><span class="ic">📄</span>이용약관<span class="ch">›</span></div>
+          <div class="r"><span class="ic">🔒</span>개인정보처리방침<span class="ch">›</span></div>
+          <div class="r"><span class="ic">🏢</span>사업자 정보<span class="ch">›</span></div>
+        </div>
+      </div>
+    </div></div>
+
+  <!-- ④ 공지사항 비로그인 -->
+  <div class="col"><p class="cap">④ 공지사항 (비로그인)<small>글 목록이 보임 · 「전체/안읽음 · 모두 읽음」 줄은 회원만</small></p>
+    <div class="phone">
+      <div class="bar"><span class="back">‹</span><span class="t">공지사항</span></div>
+      <div class="body" style="gap:10px">
+        <div class="tabs"><div class="on">공지사항</div><div>시스템 안내</div><div>혜택·이벤트</div></div>
+        <div class="card new">
+          <div class="item">공지 글 제목 (운영 데이터)<small>2026.11.20 · 조회 120</small></div>
+          <div class="item">공지 글 제목 (운영 데이터)<small>2026.11.12 · 조회 88</small></div>
+        </div>
+        <p style="font-size:12px;color:#b45309;margin:0">글 상세도 비로그인 열람 가능. 댓글은 로그인 회원만(비로그인은 댓글 영역을 그리지 않음).</p>
+      </div>
+    </div></div>
+</div>
+
+<h2 class="sec">2-1. 구현 결과 캡처 (localhost · 비로그인 · 375px Chrome / iPhone 17 Pro iOS 26.5 Safari)</h2>
+<div class="row">
+  <div class="col"><p class="cap">내정보(비로그인) — 「고객지원」 줄</p><div class="phone"><img src="after-chrome-mypage-guest.jpg" alt="" /></div></div>
+  <div class="col"><p class="cap">고객지원 위쪽 (Chrome)</p><div class="phone"><img src="after-chrome-hub-top.jpg" alt="" /></div></div>
+  <div class="col"><p class="cap">고객지원 아래쪽 — 약관·정책 3줄 (Chrome)</p><div class="phone"><img src="after-chrome-hub-bottom.jpg" alt="" /></div></div>
+  <div class="col"><p class="cap">시스템 안내 글 상세 (비로그인 · 댓글 영역 없음)</p><div class="phone"><img src="after-chrome-detail-guest.jpg" alt="" /></div></div>
+  <div class="col"><p class="cap">고객지원 (WebKit)</p><div class="phone"><img src="after-webkit-hub.png" alt="" style="width:375px" /></div></div>
+  <div class="col"><p class="cap">시스템 안내 목록 비로그인 (WebKit)</p><div class="phone"><img src="after-webkit-system-list-guest.png" alt="" style="width:375px" /></div></div>
+</div>
+
+<h2 class="sec">3. 뒤로 (헤더 ‹ · Android ◁ · iPhone 스와이프 같은 결과)</h2>
+<table>
+  <tr><th>화면</th><th>‹ 목적지</th><th>방식</th><th>지금</th></tr>
+  <tr><td>② 고객지원</td><td>앞 화면 (내정보 카드로 왔으면 내정보 홈). 기록 없으면 내정보 홈</td><td>기록 뒤로</td><td>기록 없으면 분류 화면</td></tr>
+  <tr><td>공지·시스템·혜택 목록</td><td>고객지원</td><td rowspan="6">앞 기록이 목적지면 뒤로(기록 지움), 아니면 현재 화면을 목적지로 교체 — <b>기록이 늘지 않음</b>.<br/>뒤로 기록을 읽을 수 없는 WebView 는 기록 뒤로(기록이 늘지 않음)</td><td rowspan="6">목적지를 새로 쌓음 → 고객지원 ↔ 목록 루프 (D1 재현)</td></tr>
+  <tr><td>글 상세</td><td>그 목록 (알림에서 왔으면 알림함)</td></tr>
+  <tr><td>신고 내역 · 신고 상세</td><td>고객지원 · 신고 내역</td></tr>
+  <tr><td>내 문의</td><td>고객지원</td></tr>
+  <tr><td>이전 문의 기록 · 문의 글</td><td>고객지원 · 이전 문의 기록</td></tr>
+  <tr><td>포인트 · 충전 신청 (고객지원에서 진입)</td><td>고객지원</td></tr>
+  <tr><td>업데이트 내역</td><td>앞 화면. 기록 없을 때: 고객지원에서 연 경우 고객지원, 아니면 설정 › 버전</td><td>기록 뒤로</td><td>기록 없으면 늘 설정 › 버전 · 비로그인은 로그인 화면으로 막힘</td></tr>
+  <tr><td>이용약관 (고객지원에서 진입)</td><td>고객지원</td><td>위와 같음(교체)</td><td>분류 화면에서 진입</td></tr>
+</table>
+
+<h2 class="sec">4. 고객지원 입구 = 모두 ② 하나 (SSOT)</h2>
+<ul class="notes">
+  <li>내정보 홈 「고객지원」 카드 (변경) · 홈 서비스 「고객지원」 카드 · 비로그인 내정보 「고객지원」 줄 (이름 변경) · 가입 동의/나중에 하기의 고객센터 링크 · Apple 결제 안내 · 옛 주소 <code>/mypage/section/support</code>·<code>/mypage/section/settings/support</code> (자동 이동)</li>
+  <li>문의 CTA = 「문의하기」 한 가지 (지금 그대로 문의 창 열기). 화면별 고객센터 FAB 는 그 화면 맥락 문의 창이라 그대로 둔다.</li>
+  <li>제목 「고객지원」 = 사용자가 누른 이름. 게시판 이름(공지사항·시스템 안내·업데이트 내역·혜택·이벤트)은 어드민과 1:1 그대로.</li>
+</ul>
+</body>
+</html>

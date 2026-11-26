@@ -3,6 +3,7 @@ import { resolveMessengerSubScreenTier1 } from "@/lib/community-messenger/messen
 import {
   findMypageIaCategory,
   isMypageTopLevelPath,
+  MYPAGE_CUSTOMER_CENTER_HREF,
   resolveMypageIaParentHref,
   resolveMypageIaTitleKey,
 } from "@/lib/mypage/mypage-ia";
@@ -94,7 +95,7 @@ const MYPAGE_EXACT_TITLES: Readonly<Record<string, MypageTitleRow>> = {
     titleText: "route_community_posts_title",
     subtitle: "route_community_posts_subtitle",
   },
-  "/mypage/customer-center": { titleText: "mypage_comp_menu_support_cs_title" },
+  "/mypage/customer-center": { titleText: "mypage_ia_cat_support" },
   "/mypage/customer-center/notice": { titleText: CS_BOARD_TITLE.notice, backHref: "/mypage/customer-center" },
   "/mypage/customer-center/system": { titleText: CS_BOARD_TITLE.system, backHref: "/mypage/customer-center" },
   "/mypage/customer-center/update": { titleText: CS_BOARD_TITLE.update, backHref: "/mypage/customer-center" },
@@ -162,6 +163,10 @@ function mypageRow(row: MypageTitleRow): ResolvedMainTier1Subpage {
 function resolveMypageIaTier1(p: string): ResolvedMainTier1Subpage | null {
   if (!p.startsWith("/mypage/")) return null;
   if (isMypageTopLevelPath(p)) {
+    /** 고객지원 화면 = 「고객지원」 분류 (Owner 2026-11-26) */
+    if (p === MYPAGE_CUSTOMER_CENTER_HREF) {
+      return backMypage({ titleText: "mypage_ia_cat_support", showHubQuickActions: false });
+    }
     const cat = findMypageIaCategory(p.slice("/mypage/section/".length));
     return cat ? backMypage({ titleText: cat.titleKey, showHubQuickActions: false }) : null;
   }

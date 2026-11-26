@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyScreen } from "@/components/mypage/ds/MyScreen";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { CustomerCenterSafeMarkdownBody } from "@/components/notices/CustomerCenterSafeMarkdownBody";
 import { CustomerCenterContentMedia } from "@/components/notices/CustomerCenterContentMedia";
@@ -30,6 +31,7 @@ import {
 import { normalizeCustomerCenterHeroImageUrl } from "@/lib/notices/customer-center-media";
 import { buildCustomerCenterBoardListPath } from "@/lib/notices/customer-center-content-paths";
 import { resolveNotificationAwareDetailBackHref } from "@/lib/notifications/notification-entry-from";
+import { runPathSettleBack } from "@/lib/navigation/fixed-destination-back";
 import { CC_BODY_CLASS, CC_CATEGORY_CHIP_CLASS, CC_NOTE_CLASS, CC_TITLE_CLASS } from "@/lib/mypage/customer-center-ui";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
@@ -130,8 +132,15 @@ function Inner({ contentType, contentId }: { contentType?: CustomerCenterContent
   const { t, safeT, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const isGuest = useClientMembershipState("cc-board-detail").status === "guest";
   const from = searchParams.get("from");
   const id = contentId.trim();
+  /** 본문 「목록」 버튼 = 헤더 ‹ 와 같은 규칙 — 목록을 새로 쌓지 않는다(루프 방지, 2026-11-26) */
+  const goToList = (e: { preventDefault: () => void }) => {
+    e.preventDefault();
+    runPathSettleBack(router, listHref);
+  };
   const peek = useMemo(() => (id ? peekCustomerCenterBoardListItem(id, contentType) : null), [id, contentType]);
   const [notice, setNotice] = useState<DetailNotice | null>(null);
   const [unavailable, setUnavailable] = useState(false);
@@ -217,7 +226,7 @@ function Inner({ contentType, contentId }: { contentType?: CustomerCenterContent
         empty={{
           title: t("mypage_s62_not_found"),
           cta: (
-            <Link href={listHref} className={`${Sam.btn.secondaryCombo} ${Sam.focusRing}`} data-testid="cc-detail-to-list">
+            <Link href={listHref} onClick={goToList} className={`${Sam.btn.secondaryCombo} ${Sam.focusRing}`} data-testid="cc-detail-to-list">
               {t("mypage_s62_back_to_list")}
             </Link>
           ),
@@ -285,12 +294,14 @@ function Inner({ contentType, contentId }: { contentType?: CustomerCenterContent
         </div>
         <Link
           href={listHref}
+          onClick={goToList}
           className={`${Sam.btn.primaryCombo} ${Sam.focusRing} flex min-h-12 w-full items-center justify-center`}
           data-testid="cc-detail-list-cta"
         >
           {safeT("cc_detail_to_list", { vars: { board: boardLabel } })}
         </Link>
-        {!unavailable && notice.commentEnabled !== false ? (
+        {/* 댓글 = 로그인 회원만 (비로그인은 댓글 영역 없음 — 시안 ④) */}
+        {!unavailable && notice.commentEnabled !== false && !isGuest ? (
           <CustomerCenterCommentsPanel
             contentId={notice.id}
             enabled
@@ -304,7 +315,7 @@ function Inner({ contentType, contentId }: { contentType?: CustomerCenterContent
 
 
   return (
-    <MyScreen title={boardLabel} backHref={backHref} preferHistoryBack={false} template="detail">
+    <MyScreen title={boardLabel} backHref={backHref} fixedBackHistory="settle" template="detail">
       <div className="pb-6" data-testid={`cc-detail-${resolvedType}`}>
         {body}
       </div>
