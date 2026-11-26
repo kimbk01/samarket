@@ -47,6 +47,7 @@ import {
 import { shouldUseMainShellHubFallbackEnter } from "@/components/route-transition/main-shell-hub-fallback-enter";
 import { isMainTabKeepAliveHubPath } from "@/lib/layout/resolve-main-surface";
 import { isCallSurfaceTransitionPath } from "@/components/route-transition/call-surface-transition-path";
+import { isLaunchEntryMotionSuppressed } from "@/components/route-transition/launch-entry-motion";
 import { isTradeMarketHubPathname } from "@/lib/trade/tabs/trade-market-feed-href";
 import {
   finalizeMainHubTransition,
@@ -689,6 +690,27 @@ export function AppRouteTransition({
     }
 
     if (prev != null && prev.pathname !== pathKey) {
+      /**
+       * 감사 2026-11-26 §10 (`launch-entry-motion.ts`) — OS 화면이 떠 있는 동안의 이동(직전 화면 복원 `router.replace` 등)은
+       * 허브↔허브 대체 슬라이드 포함 모든 움직임 없이 즉시 교체한다(하단 탭 즉시 교체와 같은 정리). 통화 화면 경로는 제외.
+       */
+      if (isLaunchEntryMotionSuppressed(pathKey)) {
+        lastPushAxisRef.current = null;
+        pushSessionActiveRef.current = false;
+        setPushSession(null);
+        setPushHandoff(null);
+        stripTransitionClasses(el, ROUTE_TRANSITION_ENTER_CLASSES);
+        setMypageStackMotionOnSurface(el, null);
+        setDeliveryStackMotionOnSurface(el, null);
+        consumeMainShellPushAxisIntent(pathKey);
+        forceMainHubSurfaceCleanup(el);
+        if (activeHub && isMainHubTransitionGenerationActive(activeHub.generation)) {
+          finalizeMainHubTransition(activeHub.generation);
+        }
+        if (el?.dataset) el.dataset.routeTransitionKind = "none";
+        renderedRef.current = { pathname: pathKey, node: children };
+        return undefined;
+      }
       const kind: RouteTransitionEnterKind = kindRef.current;
       const axisFromIntent =
         pendingMenuIntent?.mainShellPushAxis ?? peekMainShellPushAxisIntent() ?? null;

@@ -8,6 +8,9 @@
  * - 로그인 확인 막음(`data-auth-session-boundary="blocked"`)이 보이면 대기.
  * - 채팅방 입장 대기(`data-cm-room-entry-buffering`)가 보이면 대기.
  * - 채팅방 경로인데 채팅방 화면(`data-cm-room`, 입장 대기 아님)이 아직 없으면 대기 (휴대폰 `loading.tsx` 는 아무것도 그리지 않는다).
+ * - 진입 움직임 중(`data-entry-motion="running"`)인 화면이 보이면 대기 — 감사 2026-11-26 §10 재발 방지.
+ *   시작 목적지는 움직임 없이 그리므로(`components/route-transition/launch-entry-motion.ts`) 평소 대기는 0. 누가 새 움직임을 넣어도
+ *   OS 화면이 움직임 중간에 걷혀 빈 바탕이 보이지 않게 하는 계약.
  * - 숨긴 보관 화면(`display:none` 조상)은 세지 않는다.
  * 타이머 없음. 다시 판정은 화면 변경 관찰(MutationObserver)로만 한다.
  */
@@ -16,6 +19,8 @@ import { isCommunityMessengerRoomRoutePathname } from "@/lib/community-messenger
 export const AUTH_SESSION_BLOCKED_SELECTOR = '[data-auth-session-boundary="blocked"]';
 export const CM_ROOM_ENTRY_BUFFERING_SELECTOR = "[data-cm-room-entry-buffering]";
 export const CM_ROOM_SHELL_SELECTOR = "[data-cm-room]";
+/** 진입 움직임을 가진 화면은 움직이는 동안 이 표시를 단다(예: `MessengerRoomSwipeBackShell`). */
+export const ENTRY_MOTION_RUNNING_SELECTOR = '[data-entry-motion="running"]';
 
 function isShown(el: Element): boolean {
   // 설계 §24 D7: 브라우저의 한 번 판정(`checkVisibility` — Chrome 105+/WebView) 우선. 없을 때만 조상 순회.
@@ -38,6 +43,7 @@ function anyShown(root: ParentNode, selector: string): boolean {
 export function isLaunchDestinationPaintPending(pathname: string, root: ParentNode = document): boolean {
   if (anyShown(root, AUTH_SESSION_BLOCKED_SELECTOR)) return true;
   if (anyShown(root, CM_ROOM_ENTRY_BUFFERING_SELECTOR)) return true;
+  if (anyShown(root, ENTRY_MOTION_RUNNING_SELECTOR)) return true;
   if (isCommunityMessengerRoomRoutePathname(pathname)) {
     for (const el of root.querySelectorAll(CM_ROOM_SHELL_SELECTOR)) {
       if (!el.hasAttribute("data-cm-room-entry-buffering") && isShown(el)) return false;
@@ -57,7 +63,13 @@ export function watchLaunchDestinationPaint(run: () => void): void {
     subtree: true,
     childList: true,
     attributes: true,
-    attributeFilter: ["data-auth-session-boundary", "data-cm-room-entry-buffering", "data-cm-room", "style"],
+    attributeFilter: [
+      "data-auth-session-boundary",
+      "data-cm-room-entry-buffering",
+      "data-cm-room",
+      "data-entry-motion",
+      "style",
+    ],
   });
 }
 
