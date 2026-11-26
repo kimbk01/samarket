@@ -93,7 +93,7 @@ export function TradeAdQuickSheet({
   const attemptKeys = useRef(createPromotionAttemptKeyStore());
   const [startedReplay, setStartedReplay] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<boolean> => {
     setLoadFailed(false);
     try {
       const [promo, points, banner] = await runSingleFlight(`trade-ad-sheet:${postId}`, () =>
@@ -141,8 +141,13 @@ export function TradeAdQuickSheet({
         /** R-54 같은 종류: 배너 상품 조회 실패를 「배너 상품 없음」으로 숨기지 않는다 */
         bannerLoadFailed: banner == null,
       });
+      return true;
     } catch {
+      /** R-60: 다시 읽기 실패 = 이전 목록·선택을 비우고 결제 버튼을 끈다(옛 금액으로 다시 보내지 않게) */
+      setData(null);
+      setSelectedKey(null);
       setLoadFailed(true);
+      return false;
     }
   }, [postId]);
 
@@ -297,8 +302,8 @@ export function TradeAdQuickSheet({
       }
       const err = j.error ?? "";
       /** 가격 변경·잔액 변화·이미 광고 중 → 새 값으로 다시 그린 뒤 안내 */
-      await load();
-      setNotice(t(promotionPurchaseErrorKey({ error: err, code: j.code })));
+      /** R-60: 다시 읽기가 성공했을 때만 「가격이 바뀌었어요」 등 — 실패면 「불러오지 못했어요 · 다시 시도」만 */
+      if (await load()) setNotice(t(promotionPurchaseErrorKey({ error: err, code: j.code })));
     } catch {
       /** 응답을 못 받음 = 결제됐는지 모름 → 키를 유지하고 상태를 다시 불러온다 (다시 누르면 같은 결제로 확인) */
       await load();
@@ -408,10 +413,19 @@ export function TradeAdQuickSheet({
           ) : null}
         </div>
       ) : loadFailed ? (
-        <p className={OverlayUi.captionDanger}>{t("trade_ad_load_failed")}</p>
+        <div role="status" data-trade-ad-load-failed>
+          <p className={OverlayUi.captionDanger}>{t("trade_ad_load_failed")}</p>
+          <button
+            type="button"
+            className="mt-1 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[13px] font-semibold text-sam-fg"
+            onClick={() => void load()}
+          >
+            {t("common_retry")}
+          </button>
+        </div>
       ) : !data ? (
         <DibayPendingSpinner layout="inline" />
-      ) : rows.length === 0 ? (
+      ) : rows.length === 0 && data.bannerLoadFailed ? null : rows.length === 0 ? (
         <p className={OverlayUi.bodySecondary}>{t("trade_ad_none")}</p>
       ) : (
         <div role="radiogroup" aria-label={t("trade_ad_cta")} className="space-y-1.5">

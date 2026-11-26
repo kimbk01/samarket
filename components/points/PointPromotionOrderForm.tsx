@@ -72,6 +72,8 @@ export function PointPromotionOrderForm({
 
   useEffect(() => {
     let cancelled = false;
+    /** R-62: 다시 읽는 동안 옛 가격 목록·버튼을 보이지 않게 비운다 */
+    setCatalog(null);
     void fetch("/api/me/points/promotion-orders?catalog=1&domain=trade", {
       credentials: "include",
       cache: "no-store",
@@ -105,7 +107,10 @@ export function PointPromotionOrderForm({
    * 고른 적이 없을 때만 첫 상품을 미리 고른다.
    */
   const chosenGone = productId != null && catalog != null && !catalog.some((p) => p.id === productId);
-  const selected = chosenGone ? null : (catalog?.find((p) => p.id === productId) ?? catalog?.[0] ?? null);
+  /** R-62: 고른 적이 없으면 살 수 있는 첫 상품(잔액을 모르면 첫 상품) */
+  const firstBuyable =
+    catalog?.find((p) => balance == null || p.pointCost <= balance) ?? catalog?.[0] ?? null;
+  const selected = chosenGone ? null : (catalog?.find((p) => p.id === productId) ?? firstBuyable);
   const cost = selected?.pointCost ?? 0;
   const insufficient = balance !== null && balance < cost;
   /** 충전 후 돌아오기 (TB-08) — 거래 광고 창 `goCharge` 와 같은 주소 규칙: 모자란 포인트 · 돌아올 화면 */
@@ -126,7 +131,13 @@ export function PointPromotionOrderForm({
   })();
   const submitText = submitLabel ?? t("promo_sheet_cta");
 
-  const resolvedTargetId = targetId.trim() || productOptions[0]?.id || "";
+  /**
+   * R-63: 주소로 넘어온 글이 광고 대상 목록에 없으면(판매완료·숨김 등) 다른 글을 대신 고르지 않는다 — 비우고 안내.
+   */
+  const initialWant = (initialTargetId ?? "").trim();
+  const targetLost =
+    Boolean(initialWant) && !targetId.trim() && productOptions.length > 0 && !productOptions.some((p) => p.id === initialWant);
+  const resolvedTargetId = targetId.trim() || (targetLost ? "" : productOptions[0]?.id || "");
   const targetTitle =
     productOptions.find((p) => p.id === resolvedTargetId)?.title ?? "";
 
@@ -145,6 +156,8 @@ export function PointPromotionOrderForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit || !selected || submitting) return;
+    /** R-62: 결제에 쓴 상품을 「고른 상품」으로 기억 — 가격 변경 뒤 다시 읽어도 다른 상품으로 바뀌지 않게 */
+    setProductId(selected.id as MemberPromotionProductId);
     // 재감사 S-0 (X-1): 요청 키는 결제하는 화면이 같은 결제 시도마다 고정해 붙인다(`promotion-attempt-key`)
     onSubmit({
       targetType: "product",
@@ -172,6 +185,7 @@ export function PointPromotionOrderForm({
             onChange={(e) => setTargetId(e.target.value)}
             className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
           >
+            {targetLost ? <option value="">{t("points_ui_select_product")}</option> : null}
             {productOptions.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.title || t("promo_target_untitled")}
@@ -179,6 +193,11 @@ export function PointPromotionOrderForm({
             ))}
           </select>
         )}
+        {targetLost ? (
+          <p className="mt-1 sam-text-helper font-medium text-sam-warning" role="status" data-promo-target-lost="1">
+            {t("promo_err_target_unavailable")}
+          </p>
+        ) : null}
       </div>
 
       <div className="space-y-2">

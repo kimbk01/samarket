@@ -48,6 +48,8 @@ export function MemberPostPromoteSheet({
   const [productId, setProductId] = useState<MemberPromotionProductId | null>(null);
   /** 다시 읽은 뒤 고른 상품을 살 수 없게 됨 — 「다시 골라 주세요」 */
   const [choiceLost, setChoiceLost] = useState(false);
+  /** R-61: 상품 목록을 불러오지 못함 */
+  const [loadFailed, setLoadFailed] = useState(false);
   const productIdRef = useRef<MemberPromotionProductId | null>(null);
   useEffect(() => {
     productIdRef.current = productId;
@@ -68,9 +70,10 @@ export function MemberPostPromoteSheet({
   /** 재감사 S-0 (X-1): 같은 결제 시도 = 같은 요청 키 (응답이 끊긴 뒤 다시 눌러도 한 번만 차감) */
   const attemptKeys = useRef(createPromotionAttemptKeyStore());
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<boolean> => {
     setLoading(true);
     setErr("");
+    setLoadFailed(false);
     try {
       /** 공유 비행은 파싱된 JSON 을 나눈다 — Response 본문은 한 번만 읽힌다 */
       const [promoJ, balJ] = await runSingleFlight(`member-promote:${domain}:${postId}`, () =>
@@ -127,10 +130,16 @@ export function MemberPostPromoteSheet({
         setPendingExisting(false);
         setActiveEndAt(st === "active" || st === "paused" ? activeEnd : null);
       }
+      return true;
     } catch {
+      /** R-61: 다시 읽기 실패 = 옛 가격 목록·선택을 비우고 결제 버튼 대신 「다시 시도」 */
+      setCatalog([]);
+      setProductId(null);
+      setLoadFailed(true);
       setErr(
         safeT("promo_sheet_load_failed")
       );
+      return false;
     } finally {
       setLoading(false);
     }
@@ -219,7 +228,10 @@ export function MemberPostPromoteSheet({
         const errKey = promotionPurchaseErrorKey(j);
         if (j.error === "price_changed") {
           /** 새 가격을 다시 읽은 뒤 안내 (다시 읽기가 안내를 지우지 않게 순서 고정) */
-          void load().then(() => setErr(safeT(errKey)));
+          /** R-61: 다시 읽기가 성공했을 때만 「가격이 바뀌었어요」 — 실패면 「불러오지 못했어요」가 남는다 */
+          void load().then((ok) => {
+            if (ok) setErr(safeT(errKey));
+          });
         } else {
           setErr(safeT(errKey));
         }
@@ -272,7 +284,11 @@ export function MemberPostPromoteSheet({
       </div>
     ) : (
       <div className={OverlayUi.actionsRow}>
-        {!selected ? (
+        {loadFailed ? (
+          <DibayOverlayButton roleTone="primary" data-promo-sheet-retry="1" onClick={() => void load()}>
+            {t("common_retry")}
+          </DibayOverlayButton>
+        ) : !selected ? (
           <a href={chargeHref} className={`${OverlayUi.btn.primary} text-center`} data-promo-sheet-charge="1">
             {safeT("promo_sheet_go_points")}
           </a>

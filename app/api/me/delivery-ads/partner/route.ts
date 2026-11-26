@@ -92,6 +92,8 @@ export async function GET(req: NextRequest) {
       Boolean(config?.enabled) &&
       Boolean(config?.acceptingNewMembers) &&
       config?.monthlyFeeMinor != null &&
+      /** R-58: 가입 DB 함수와 같은 조건(회비 0 이하 = fee_not_configured) */
+      config.monthlyFeeMinor > 0 &&
       !open,
     canRequestCancel: membership?.status === "ACTIVE" && !periodExpired,
   });

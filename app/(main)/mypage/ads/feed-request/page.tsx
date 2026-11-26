@@ -151,6 +151,8 @@ export default function MemberFeedAdRequestPage() {
   const [catalogLoadFailed, setCatalogLoadFailed] = useState(false);
   /** R-38: 비동기 응답에서 지금 고른 상품을 읽기 위한 거울 — 고를 때마다 맞춘다 */
   const productIdRef = useRef<string>("");
+  /** R-65: 회원이 직접 고른(또는 다른 화면에서 넘어온) 상품만 「고른 상품」 — 자동 선택은 아님 */
+  const userChoseProductRef = useRef(false);
   useEffect(() => {
     productIdRef.current = productId;
   }, [productId]);
@@ -201,7 +203,8 @@ export default function MemberFeedAdRequestPage() {
      * 고른 상품이 없을 때만 살 수 있는 첫 상품을 미리 고른다.
      * R-38: 다음 값을 먼저 계산하고 상태 두 개를 따로 바꾼다(업데이터 안에서 다른 상태를 바꾸지 않음).
      */
-    const want = prefill || productIdRef.current;
+    const want = prefill || (userChoseProductRef.current ? productIdRef.current : "");
+    if (prefill) userChoseProductRef.current = true;
     const wantListed = Boolean(want) && items.some((p) => p.id === want);
     const nextProductId = wantListed ? want : want ? "" : (preferred?.id ?? "");
     setProductId(nextProductId);
@@ -458,6 +461,8 @@ export default function MemberFeedAdRequestPage() {
 
   const submit = async () => {
     if (!selected || busy || allUnaffordable) return;
+    /** R-65: 신청에 쓴 상품은 「고른 상품」 — 가격 변경 뒤 다시 읽어도 다른 상품으로 바뀌지 않게 */
+    userChoseProductRef.current = true;
     if (balance != null && selected.pointCost > balance) {
       setErr(t("points_ui_insufficient"));
       return;
@@ -627,6 +632,14 @@ export default function MemberFeedAdRequestPage() {
                   domain === d ? "border-sam-primary bg-sam-primary/5" : "border-sam-border"
                 }`}
                 onClick={() => {
+                  /** R-65: 분야를 바꾸면 이전 분야 상품·선택·실패 표시를 비운다(이전 분야 상품을 「고른 상품」으로 보지 않음) */
+                  if (d !== domain) {
+                    setCatalog([]);
+                    setProductId("");
+                    userChoseProductRef.current = false;
+                    setChosenProductGone(false);
+                    setCatalogLoadFailed(false);
+                  }
                   setDomain(d);
                   setSurface("home");
                   setCategoryId("");
@@ -1046,6 +1059,7 @@ export default function MemberFeedAdRequestPage() {
                   onClick={() => {
                     if (!unaffordable) {
                       setProductId(p.id);
+                      userChoseProductRef.current = true;
                       setChosenProductGone(false);
                     }
                   }}

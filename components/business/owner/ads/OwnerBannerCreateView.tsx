@@ -64,7 +64,7 @@ import {
   dibayShellRequestHeaders,
   useIosAppDigitalPurchaseBlocked,
 } from "@/lib/apple-iap/use-ios-digital-purchase-blocked";
-import { ownerAdErrorKey } from "@/lib/stores/advertising/owner-ad-error-copy";
+import { ownerAdDraftSaveErrorCode, ownerAdErrorKey } from "@/lib/stores/advertising/owner-ad-error-copy";
 
 type EligibleStore = {
   id: string;
@@ -425,7 +425,7 @@ export function OwnerBannerCreateView() {
           );
           return;
         }
-        setError(json.error || "generic");
+        setError(ownerAdDraftSaveErrorCode(json.error));
         return;
       }
       setUploaded({
@@ -494,7 +494,7 @@ export function OwnerBannerCreateView() {
       campaign?: OwnerBannerCampaignRow;
     };
     if (!createRes.ok || !createJson.ok || !createJson.campaign) {
-      setError(createJson.error || "generic");
+      setError(ownerAdDraftSaveErrorCode(createJson.error));
       return null;
     }
     setExistingCampaign(createJson.campaign);

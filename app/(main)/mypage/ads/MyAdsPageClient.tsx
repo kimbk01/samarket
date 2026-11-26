@@ -334,7 +334,13 @@ export default function MyAdsPageClient() {
     setRenewCatalog(items);
     /** FB-M13: 결과를 모르는 연장 시도가 있으면 그 상품을 다시 고른다(다른 상품으로 새 결제가 되지 않게) */
     const pending = row.campaignId ? renewAttemptRef.current.pendingProductFor(row.campaignId) : null;
-    setRenewProductId(pending && items.some((p) => p.id === pending) ? pending : (items[0]?.id ?? ""));
+    /** R-64: 결과를 모르는 시도의 상품이 꺼졌으면 다른 상품을 대신 고르지 않는다 — 비우고 「다시 골라 주세요」 */
+    if (pending && !items.some((p) => p.id === pending)) {
+      setRenewProductId("");
+      setActionErr(safeT("feed_ad_req_product_gone"));
+      return;
+    }
+    setRenewProductId(pending ?? items[0]?.id ?? "");
   };
 
   const submitRenew = async () => {
@@ -889,6 +895,10 @@ export default function MyAdsPageClient() {
                 {t("common_retry")}
               </button>
             </div>
+          ) : renewCatalogState === "idle" && renewTarget && renewCatalog.length === 0 ? (
+            <p className={OverlayUi.bodySecondary} data-testid="feed-ad-renew-empty">
+              {t("feed_ad_renew_no_products")}
+            </p>
           ) : null}
           <div className="space-y-2">
             {renewCatalog.map((p) => (

@@ -61,6 +61,7 @@ import {
   useIosAppDigitalPurchaseBlocked,
 } from "@/lib/apple-iap/use-ios-digital-purchase-blocked";
 import { ownerAdHistoryActionKey, ownerAdHistoryActorKey } from "@/lib/stores/advertising/owner-ad-history-copy";
+import { ownerAdErrorKey } from "@/lib/stores/advertising/owner-ad-error-copy";
 import { formatPhtDisplayDateTime } from "@/lib/time/format-pht-display";
 
 const OWNER_DETAIL_SECONDARY_BTN_CLASS =
@@ -397,7 +398,8 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
         campaign?: DetailCampaign;
       };
       if (!res.ok || !json.ok || !json.campaign) {
-        setError(json.error === "ios_digital_purchase_unavailable" ? json.error : "generic");
+        /** R-66: 거절 이유별 문구(신청 화면과 같은 `ownerAdErrorKey`) — 홈·업종 꺼짐·확인 못 함·캐시 부족 등 */
+        setError(json.error || "generic");
         return;
       }
       setCampaign(json.campaign);
@@ -523,7 +525,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
 
       {error && error !== "ios_digital_purchase_unavailable" ? (
         <p className="mt-2 text-[13px] text-sam-danger" role="alert">
-          {safeT("owner_ads_error_generic")}
+          {t(ownerAdErrorKey(error) ?? "owner_ads_error_generic")}
         </p>
       ) : null}
 

@@ -154,8 +154,17 @@ export async function loadAdPricingGuide(sb: SupabaseClient): Promise<AdPricingG
   }
 
   const cfg = catalog.partnerConfig;
+  /**
+   * R-58: 가입 DB 함수(`owner_apply_partner_membership`)와 같은 조건 — 회비 0 이하는 `fee_not_configured` 로 거절된다.
+   * R-59: 할인율 0% 는 혜택이 없으므로 안내하지 않는다.
+   */
   const partner =
-    cfg && cfg.enabled && cfg.acceptingNewMembers && cfg.monthlyFeeMinor != null && cfg.monthlyFeeMinor >= 0
+    cfg &&
+    cfg.enabled &&
+    cfg.acceptingNewMembers &&
+    cfg.monthlyFeeMinor != null &&
+    cfg.monthlyFeeMinor > 0 &&
+    Number(cfg.advertisingDiscountPercent) > 0
       ? { feeMinor: cfg.monthlyFeeMinor, discountPercent: cfg.advertisingDiscountPercent }
       : null;
 

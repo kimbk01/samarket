@@ -43,7 +43,7 @@ import {
   dibayShellRequestHeaders,
   useIosAppDigitalPurchaseBlocked,
 } from "@/lib/apple-iap/use-ios-digital-purchase-blocked";
-import { ownerAdErrorKey } from "@/lib/stores/advertising/owner-ad-error-copy";
+import { ownerAdDraftSaveErrorCode, ownerAdErrorKey } from "@/lib/stores/advertising/owner-ad-error-copy";
 
 type EligibleStore = {
   id: string;
@@ -443,7 +443,7 @@ export function OwnerStoreSponsoredCreateView() {
         campaign?: OwnerSponsoredCampaignRow;
       };
       if (!patchRes.ok || !patchJson.ok || !patchJson.campaign) {
-        setError(patchJson.error || "generic");
+        setError(ownerAdDraftSaveErrorCode(patchJson.error));
         return null;
       }
       saved = patchJson.campaign;
@@ -469,7 +469,7 @@ export function OwnerStoreSponsoredCreateView() {
       campaign?: OwnerSponsoredCampaignRow;
     };
     if (!createRes.ok || !createJson.ok || !createJson.campaign) {
-      setError(createJson.error || "generic");
+      setError(ownerAdDraftSaveErrorCode(createJson.error));
       return null;
     }
     saved = createJson.campaign;

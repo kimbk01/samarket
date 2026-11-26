@@ -26,6 +26,8 @@ const ERROR_KEY: Record<string, MessageKey> = {
   no_packages: "owner_ads_no_sellable_packages",
   capacity_full: "owner_ads_error_capacity_full",
   capacity_check_failed: "owner_ads_error_check_failed",
+  /** R-67: 신청서 저장(결제 전) 중 확인 실패 — 캐시 문장 없는 화면 상태 문구 */
+  sale_check_failed: "owner_ads_sale_check_failed",
   home_ads_disabled: "owner_ads_error_placement_unavailable",
   category_ads_disabled: "owner_ads_error_placement_unavailable",
   placement_not_sellable: "owner_ads_error_placement_unavailable",
@@ -33,6 +35,13 @@ const ERROR_KEY: Record<string, MessageKey> = {
   INSUFFICIENT_BUSINESS_CASH: "owner_ads_funding_insufficient",
   INSUFFICIENT_STORE_CASH: "owner_ads_funding_insufficient",
 };
+
+/** R-67: 신청서 저장(결제 전) 경로의 오류 코드 — 확인 실패는 결제 문장이 없는 `sale_check_failed` 로 */
+export function ownerAdDraftSaveErrorCode(code: string | null | undefined): string {
+  const c = String(code ?? "").trim();
+  if (!c) return "generic";
+  return c === "capacity_check_failed" ? "sale_check_failed" : c;
+}
 
 export function ownerAdErrorKey(code: string | null | undefined, quoteError?: string | null): MessageKey | null {
   const c = String(code ?? "").trim();
