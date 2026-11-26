@@ -94,16 +94,36 @@ export function HomeTelringRecent({ isMember, refreshSeq }: { isMember: boolean;
     }
     wasLiveRef.current = isLive;
   }, [isMember, live, load]);
+  /**
+   * ② 는 바로 읽지 않고 1.5초 뒤 1번 읽는다 (2026-11-26 실기 FAIL: 받는 쪽이 수신 화면에서 거절하면
+   * 화면이 돌아온 순간(20:10:57.339) 읽어 서버 거절 저장(20:10:57.752)보다 0.4초 빨라 목록이 한 통화씩 밀림).
+   * 네이티브 수신 화면은 거절을 자체 요청으로 저장하고 웹에 완료를 알리지 않는다.
+   */
   useEffect(() => {
     if (!isMember) return;
+    let timer: number | null = null;
+    const clear = () => {
+      if (timer != null) window.clearTimeout(timer);
+      timer = null;
+    };
     const onVisible = () => {
-      if (document.visibilityState !== "visible") return;
+      if (document.visibilityState !== "visible") {
+        clear();
+        return;
+      }
       const hit = homeCallsCache;
       if (hit && Date.now() - hit.at < HOME_CALLS_VISIBLE_SKIP_MS) return;
-      load(true);
+      clear();
+      timer = window.setTimeout(() => {
+        timer = null;
+        load(true);
+      }, HOME_CALLS_AFTER_END_MS);
     };
     document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
+    return () => {
+      clear();
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [isMember, load]);
 
   const brand = DIBAY_SERVICE_BRAND.LETARING;
