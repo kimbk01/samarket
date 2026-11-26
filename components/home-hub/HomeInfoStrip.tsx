@@ -5,6 +5,7 @@ import { Cloud, CloudFog, CloudLightning, CloudRain, Sun, type LucideIcon } from
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { fetchExchangeRatesViaApp, type ExchangeRates } from "@/lib/exchange/fetchExchangeRates";
 import { untilLaunchDestinationSettled } from "@/lib/startup/launch-push-destination-pending";
+import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { fetchAddressDefaultsSnapshot, peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { resolveExplorationAddressLineFromSnapshot } from "@/lib/addresses/address-defaults-snapshot-resolvers";
 import type { AddressDefaultsSnapshot } from "@/lib/addresses/address-defaults-snapshot";
@@ -107,6 +108,36 @@ function storeHomeRate(r: ExchangeRates): void {
   }
 }
 
+/**
+ * 마지막으로 그린 날씨(지역·온도) — 앱을 새로 열 때 첫 그림부터 보이고 새 값으로 바꾼다.
+ * 2026-11-26 Xiaomi 실측: 날씨는 로그인 확정 → 내 주소 → 날씨 조회를 차례로 기다려 홈이 그려진 뒤 약 1.2초 회색.
+ * 저장한 계정과 지금 계정이 다르면 쓰지 않는다(다른 계정의 지역이 보이지 않게).
+ */
+const HOME_WEATHER_STORE_KEY = "dibay:home:weather:v1";
+
+type StoredHomeWeather = { viewer: string; tempC: number; code: number; place: string | null };
+
+function readStoredHomeWeather(viewer: string): StoredHomeWeather | null {
+  try {
+    const raw = window.localStorage.getItem(HOME_WEATHER_STORE_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as StoredHomeWeather | null;
+    if (!v || typeof v.tempC !== "number" || typeof v.code !== "number") return null;
+    if ((v.viewer ?? "") !== viewer) return null;
+    return v;
+  } catch {
+    return null;
+  }
+}
+
+function storeHomeWeather(v: StoredHomeWeather): void {
+  try {
+    window.localStorage.setItem(HOME_WEATHER_STORE_KEY, JSON.stringify(v));
+  } catch {
+    /* 저장 실패는 무시 — 다음 실행에 회색만 남는다 */
+  }
+}
+
 export function HomeInfoStrip({
   isMember,
   memberPending = false,
@@ -142,6 +173,15 @@ export function HomeInfoStrip({
     }
   }, []);
 
+  /** 회원 확인 중(쿠키 있음)·회원이면 지금 계정의 저장 날씨, 비회원이면 비회원 저장 날씨 */
+  useLayoutEffect(() => {
+    const viewer = memberPending || isMember ? (getSyncViewerUserIdForClient() ?? "") : "";
+    if ((memberPending || isMember) && !viewer) return;
+    const stored = readStoredHomeWeather(viewer);
+    if (!stored) return;
+    setWeather((cur) => cur ?? { tempC: stored.tempC, code: stored.code, place: stored.place });
+  }, [memberPending, isMember]);
+
   useLayoutEffect(() => {
     const stored = readStoredHomeRate();
     if (!stored) return;
@@ -176,8 +216,15 @@ export function HomeInfoStrip({
         if (!alive) return;
         if (res.ok && j.ok && typeof j.tempC === "number" && typeof j.code === "number") {
           // 좌표가 있으면 그 주소의 이름 · 좌표가 없을 때만 「마닐라」
-          setWeather({ tempC: j.tempC, code: j.code, place: coord ? coord.place : defaultPlace });
+          const place = coord ? coord.place : defaultPlace;
+          setWeather({ tempC: j.tempC, code: j.code, place });
           setWeatherFailed(false);
+          storeHomeWeather({
+            viewer: isMember ? (getSyncViewerUserIdForClient() ?? "") : "",
+            tempC: j.tempC,
+            code: j.code,
+            place,
+          });
         } else {
           setWeatherFailed(true);
         }
