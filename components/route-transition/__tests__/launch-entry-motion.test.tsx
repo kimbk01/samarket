@@ -20,16 +20,6 @@ vi.mock("@/hooks/use-is-messenger-split-viewport", () => ({ useIsMessengerSplitV
 vi.mock("@/lib/community-messenger/room/messenger-room-entry-origin-store", () => ({
   resolveMessengerRoomEntryOrigin: () => "push",
 }));
-/** 목록 복사본(앱 안 목록 탭에서만 생김) 유무 — 셸 진입 움직임의 유일한 조건(§13) */
-const entrySnapshot = { present: false };
-vi.mock("@/lib/community-messenger/room/messenger-page-snapshot-transition", () => ({
-  hasMessengerRoomEntrySnapshot: () => entrySnapshot.present,
-  dismissMessengerRoomEntrySnapshot: () => {
-    entrySnapshot.present = false;
-  },
-  revealMessengerRoomEntrySnapshot: () => {},
-  runMessengerRoomExitWithSnapshot: () => false,
-}));
 
 let container: HTMLDivElement;
 let root: Root;
@@ -54,8 +44,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-async function mountShell(osReleased: boolean, listSnapshotBehind = false) {
-  entrySnapshot.present = listSnapshotBehind;
+async function mountShell(osReleased: boolean) {
   const owner = await import("@/lib/launch-intro/os-release-owner");
   if (osReleased) owner.noteLaunchOsReleased();
   const { MessengerRoomSwipeBackShell } = await import(
@@ -83,23 +72,17 @@ describe("isLaunchEntryMotionSuppressed", () => {
   });
 });
 
-describe("채팅방 셸 — 진입 움직임은 뒤에 목록 복사본이 있을 때만 (§13)", () => {
-  it("OS 화면이 떠 있을 때 붙으면(복사본 없음) 움직임 없이 제자리(idle)", async () => {
+describe("채팅방 셸 — 시작 목적지", () => {
+  it("OS 화면이 떠 있을 때 붙으면 움직임 없이 제자리(idle)", async () => {
     const surface = await mountShell(false);
     expect(surface.dataset.messengerRoomAnimationPhase).toBe("idle");
     expect(surface.className).not.toContain("messenger-enter");
   });
 
-  it("실기 17:55 재현: OS 화면이 먼저 걷힌 뒤 붙어도 복사본이 없으면(알림·복원) 제자리 — 흰 띠 없음", async () => {
-    const surface = await mountShell(true, false);
-    expect(surface.dataset.messengerRoomAnimationPhase).toBe("idle");
-    expect(surface.className).not.toContain("messenger-enter");
-  });
-
-  it("앱 안 목록 탭(복사본 있음)이면 기존대로 오른쪽→왼쪽 진입", async () => {
+  it("OS 화면이 걷힌 뒤(앱 안 탭) 붙으면 기존대로 오른쪽→왼쪽 진입", async () => {
     vi.stubGlobal("requestAnimationFrame", () => 0);
     vi.stubGlobal("cancelAnimationFrame", () => {});
-    const surface = await mountShell(true, true);
+    const surface = await mountShell(true);
     expect(surface.dataset.messengerRoomAnimationPhase).toBe("enter");
   });
 });
