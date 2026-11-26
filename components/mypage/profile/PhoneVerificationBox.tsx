@@ -1,6 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type MutableRefObject,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
+import { MY_STICKY_CTA_PRIMARY_BUTTON_CLASS } from "@/components/mypage/ds/MyStickyCta";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   normalizePhilippinesPhoneNumber,
@@ -132,7 +143,13 @@ export function PhoneVerificationBox({
   surface = "page",
   onPhoneDuplicate,
   onPhoneInputChange,
+  registration,
 }: {
+  /**
+   * 가입 단계 전체 화면(시안 v3 · 2026-11-27) — 주면 이 상자는 가입 화면 배치로 그린다(내정보 배치는 무변경).
+   * 주 버튼([인증번호 받기]·[인증하기]·[확인])은 `actionSlot`(하단 고정 줄)에 그린다. `null` = 자리 아직 없음.
+   */
+  registration?: RegistrationPhoneLayout;
   snapshot: VerifySnapshot;
   /** 다른 계정이 쓰는 번호(409 `phone_duplicate`) — 가입 화면이 원래 계정 안내를 띄운다. 내정보는 넘기지 않음(기존 그대로). */
   onPhoneDuplicate?: (phone: string) => void;
@@ -434,6 +451,21 @@ export function PhoneVerificationBox({
     return () => window.clearTimeout(id);
   }, [justVerified, onDone]);
 
+  /** 가입 화면 단계 알림 — 부모가 맨 위 줄(국가 선택)·[가입 취소](완료 때 숨김)를 맞춘다 */
+  const regStep: RegistrationPhoneStepKind = justVerified && onDone ? "done" : step;
+  const onRegStepChange = registration?.onStepChange;
+  useEffect(() => {
+    onRegStepChange?.(regStep);
+  }, [onRegStepChange, regStep]);
+  const regBackRef = registration?.countryBackRef;
+  useEffect(() => {
+    if (!regBackRef) return;
+    regBackRef.current = () => setStep("phone");
+    return () => {
+      regBackRef.current = null;
+    };
+  }, [regBackRef]);
+
   if (!settings) {
     if (settingsLoadFailed) {
       return (
@@ -497,6 +529,10 @@ export function PhoneVerificationBox({
   ) : null;
   const pressFeedback = (e: MouseEvent) =>
     triggerInteractionFeedback("light", { pointerType: (e.nativeEvent as PointerEvent).pointerType });
+
+  if (registration && !(verifiedNow && !allowEdit && !justVerified)) {
+    return renderRegistration();
+  }
 
   /** ④ 완료 — 확인 API 성공 즉시 (부모가 닫기·복귀를 맡을 때) */
   if (justVerified && onDone) {
@@ -704,6 +740,289 @@ export function PhoneVerificationBox({
     );
   }
 
+  /**
+   * 가입 단계 전체 화면 배치 — 시안 v3 그림 2-1~2-6 · 3-1~3-3 (Owner 2026-11-27 「v3대로 구현」).
+   * 위쪽: 제목(22/700)·설명(14)·입력 · 하단 고정 줄: [가입 취소](부모) · 주 버튼(여기서 `actionSlot` 으로).
+   * 상태·검증·API·자동 확인 규칙은 내정보 배치와 같은 값을 쓴다(위 공용 상태).
+   */
+  function renderRegistration(): ReactNode {
+    const reg = registration!;
+    const slot = reg.actionSlot;
+    const inSlot = (node: ReactNode): ReactNode => (slot ? createPortal(node, slot) : null);
+    const slotBtnClass = `${MY_STICKY_CTA_PRIMARY_BUTTON_CLASS} sam-press w-full`;
+    const regError = error ? (
+      <p className="mt-2 text-[12px] leading-[1.4] text-sam-danger" role="alert" data-testid="phone-verify-error">
+        {error}
+      </p>
+    ) : null;
+
+    /** 3-3 인증 완료 — 1.2초 뒤 자동 이동(위 공용 효과) · [확인] 하단 전폭 */
+    if (justVerified && onDone) {
+      return (
+        <div className="flex flex-col items-center pt-8 text-center" data-testid="phone-verify-done">
+          <IconCircle solid>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12.5l4.5 4.5L19 7.5" />
+            </svg>
+          </IconCircle>
+          <p className="mt-4 text-[22px] font-bold leading-[1.4] text-sam-fg">{t("my_phone_tg_done_title")}</p>
+          <p className="mt-1.5 text-[16px] tabular-nums text-sam-fg">
+            {sentPhoneDisplay || formatSentPhoneForDisplay(phoneForApi)}
+          </p>
+          <p className="mt-1.5 text-[14px] leading-[1.6] text-sam-muted [word-break:keep-all]">{t("my_phone_tg_done_desc")}</p>
+          {inSlot(
+            <button
+              type="button"
+              className={slotBtnClass}
+              onClick={(e) => {
+                pressFeedback(e);
+                onDone();
+              }}
+              data-testid="phone-verify-done-confirm"
+            >
+              {t("common_confirm")}
+            </button>,
+          )}
+        </div>
+      );
+    }
+
+    /** 2-5 국가 선택 — 맨 위 줄 ‹ 국가 선택 은 부모 틀 · 목록만 */
+    if (step === "country") {
+      return (
+        <div role="radiogroup" aria-label={t("my_phone_country_code_label")} className="-mt-4" data-testid="phone-verify-country-list">
+          {countryOptions.map((c) => {
+            const selected = c.dialCode === dialCode;
+            return (
+              <button
+                key={c.iso}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className="flex h-14 w-full items-center gap-3 border-b border-sam-border px-1 text-left"
+                onClick={(e) => {
+                  pressFeedback(e);
+                  if (!selected) {
+                    setDialCode(c.dialCode);
+                    setPhone("");
+                    setOtp("");
+                    setCodeSent(false);
+                    setSentPhone("");
+                    setSentPhoneDisplay("");
+                    setError(null);
+                  }
+                  setStep("phone");
+                }}
+                data-testid={`phone-verify-country-${c.iso}`}
+              >
+                <span className="text-[22px]" aria-hidden>
+                  {c.flag}
+                </span>
+                <span className="flex-1 text-[16px] text-sam-fg">{countryName(c.iso)}</span>
+                <span className="text-[15px] text-sam-muted">{c.dialCode}</span>
+                <span className="flex w-5 justify-center text-sam-primary" aria-hidden>
+                  {selected ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12.5l4.5 4.5L19 7.5" />
+                    </svg>
+                  ) : null}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+
+    /** 3-1·3-2 인증번호 6자리 — 6칸 위쪽 · [다시 보내기] 6칸 아래 글자 버튼 · 주 버튼 [인증하기] */
+    if (step === "code") {
+      const digits = Array.from({ length: PHONE_OTP_CODE_LENGTH }, (_, i) => otp[i] ?? "");
+      const activeIndex = Math.min(otp.length, PHONE_OTP_CODE_LENGTH - 1);
+      const codeComplete = otp.length === PHONE_OTP_CODE_LENGTH;
+      return (
+        <div data-testid="phone-verify-code-step">
+          <h1 className="text-[22px] font-bold leading-[1.4] text-sam-fg">{t("my_phone_tg_code_label")}</h1>
+          <p className="mt-1.5 text-[14px] leading-[1.6] text-sam-muted [word-break:keep-all]">{t("my_phone_tg_code_desc")}</p>
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5">
+            <span className="text-[18px] font-bold tabular-nums text-sam-fg">
+              {sentPhoneDisplay || formatSentPhoneForDisplay(phoneForApi || snapshot.phone)}
+            </span>
+            <button
+              type="button"
+              className="inline-flex min-h-[44px] items-center text-[14px] font-semibold text-sam-primary underline underline-offset-2"
+              onClick={() => {
+                setError(null);
+                setOtp("");
+                submittedCodeRef.current = "";
+                setStep("phone");
+              }}
+              data-testid="phone-verify-change-number"
+            >
+              {t("my_phone_tg_change_number")}
+            </button>
+          </div>
+          <div className="relative mt-2 flex gap-2" onClick={() => codeInputRef.current?.focus()}>
+            {digits.map((d, i) => (
+              <span
+                key={i}
+                aria-hidden
+                className={`flex h-14 w-[46px] items-center justify-center rounded-ui-rect border-[1.5px] text-[24px] font-semibold tabular-nums text-sam-fg ${
+                  error ? "border-sam-danger" : d || i === activeIndex ? "border-sam-primary" : "border-sam-border"
+                }`}
+              >
+                {d}
+              </span>
+            ))}
+            <input
+              ref={codeInputRef}
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              name="one-time-code"
+              aria-label={t("my_phone_tg_code_label")}
+              maxLength={PHONE_OTP_CODE_LENGTH}
+              value={otp}
+              disabled={verifying}
+              autoFocus
+              onChange={(e) => {
+                setError(null);
+                setOtp(e.target.value.replace(/\D+/g, "").slice(0, PHONE_OTP_CODE_LENGTH));
+              }}
+              className="absolute inset-0 h-full w-full cursor-text opacity-0 caret-transparent"
+              data-testid="phone-verify-code"
+            />
+          </div>
+          {regError}
+          <button
+            type="button"
+            disabled={sending || cooldownLeft > 0}
+            onClick={(e) => {
+              pressFeedback(e);
+              void requestOtp();
+            }}
+            className={`mt-1 inline-flex min-h-[44px] items-center text-[14px] ${
+              sending || cooldownLeft > 0
+                ? "font-medium text-sam-muted"
+                : "font-semibold text-sam-primary underline underline-offset-2"
+            }`}
+            data-testid="phone-verify-resend"
+          >
+            {sending
+              ? t("my_phone_sending")
+              : cooldownLeft > 0
+                ? t("my_phone_tg_resend_in", { seconds: cooldownLeft })
+                : t("my_phone_tg_resend")}
+          </button>
+          {inSlot(
+            <button
+              type="button"
+              disabled={!codeComplete || verifying}
+              onClick={(e) => {
+                pressFeedback(e);
+                submittedCodeRef.current = otp;
+                void verifyOtp(otp);
+              }}
+              className={slotBtnClass}
+              data-testid="phone-verify-submit"
+            >
+              {verifying ? t("my_phone_verifying") : t("popup_btn_verify")}
+            </button>,
+          )}
+        </div>
+      );
+    }
+
+    /** 2-1~2-4 · 2-6 번호 입력 — 제목·설명 위쪽 · 국가 줄 · [국가번호 | 번호] · 주 버튼 [인증번호 받기] */
+    return (
+      <div data-testid="phone-verify-phone-step">
+        <h1 className="text-[22px] font-bold leading-[1.4] text-sam-fg [word-break:keep-all]">{reg.title}</h1>
+        {reg.description ? (
+          <p className="mt-1.5 text-[14px] leading-[1.6] text-sam-muted [word-break:keep-all]">{reg.description}</p>
+        ) : null}
+        <div className="mt-6 border-t border-sam-border">
+          <button
+            type="button"
+            className="flex h-14 w-full items-center gap-3 border-b border-sam-border px-1 text-left"
+            onClick={(e) => {
+              pressFeedback(e);
+              setStep("country");
+            }}
+            aria-label={`${t("my_phone_country_code_label")}: ${selectedCountry ? countryName(selectedCountry.iso) : ""}`}
+            data-testid="phone-verify-country-code"
+          >
+            <span className="text-[22px]" aria-hidden>
+              {selectedCountry?.flag}
+            </span>
+            <span className="flex-1 text-[16px] font-semibold text-sam-primary">
+              {selectedCountry ? countryName(selectedCountry.iso) : ""}
+            </span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-sam-muted" aria-hidden>
+              <path d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          <div className={`flex h-14 items-center border-b-2 ${showFormatError || error ? "border-sam-danger" : "border-sam-primary"}`}>
+            <span className="w-14 pl-1 text-[18px] font-medium tabular-nums text-sam-fg">{dialCode}</span>
+            <span className="mr-3 h-7 w-px bg-sam-border" aria-hidden />
+            <input
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              name="tel"
+              aria-label={t("my_phone_number_label")}
+              value={phone}
+              onChange={(e) => {
+                setPhone(sanitizePhoneTyping(e.target.value));
+                setPhoneBlurred(false);
+                setError(null);
+                onPhoneInputChange?.();
+              }}
+              onBlur={() => setPhoneBlurred(true)}
+              aria-invalid={showFormatError}
+              placeholder={t("my_phone_number_placeholder")}
+              /** 칸이 줄 높이를 다 채워야 키보드 보정이 아래 밑줄까지 보이게 올린다 (기기 확인 2026-11-27) */
+              className="min-w-0 flex-1 self-stretch bg-transparent text-[18px] tabular-nums text-sam-fg outline-none placeholder:text-[16px] placeholder:text-sam-muted/70"
+              data-testid="phone-verify-number"
+            />
+          </div>
+        </div>
+        {showFormatError && !error ? (
+          <p className="mt-2 text-[12px] leading-[1.4] text-sam-danger" role="alert" data-testid="phone-verify-format-error">
+            {t("my_phone_err_format")}
+          </p>
+        ) : null}
+        {regError}
+        {!showFormatError && !error ? (
+          <p className="mt-3 text-[14px] leading-[1.6] text-sam-muted [word-break:keep-all]" data-testid="phone-verify-guide">
+            {settings?.guide_text || t("my_phone_tg_desc")}
+          </p>
+        ) : null}
+        {inSlot(
+          <button
+            type="button"
+            disabled={continueDisabled}
+            onClick={(e) => {
+              pressFeedback(e);
+              if (sameNumberAlreadySent) {
+                setError(null);
+                setStep("code");
+                return;
+              }
+              void requestOtp();
+            }}
+            className={slotBtnClass}
+            data-testid="phone-verify-send"
+          >
+            {sending
+              ? t("my_phone_sending")
+              : cooldownLeft > 0 && !sameNumberAlreadySent
+                ? t("my_phone_tg_resend_in", { seconds: cooldownLeft })
+                : t("my_phone_btn_get_code")}
+          </button>,
+        )}
+      </div>
+    );
+  }
+
   /** ① 번호 입력 — 국가 줄 · [국가번호 | 번호] 한 줄 · [계속] */
   return (
     <div className="flex flex-col" data-testid="phone-verify-phone-step">
@@ -812,3 +1131,17 @@ export function PhoneVerificationBox({
 function sanitizePhoneTyping(raw: string): string {
   return String(raw ?? "").replace(/[^\d+\s-]/g, "").slice(0, 18);
 }
+
+/** 가입 화면 단계 — 부모(`RegistrationPhoneStep`)가 맨 위 줄·[가입 취소] 를 맞춘다 */
+export type RegistrationPhoneStepKind = "phone" | "country" | "code" | "done";
+
+export type RegistrationPhoneLayout = {
+  /** 번호 화면 제목·설명 (가입 문구) — 설명이 없으면 숨김(중복 번호 안내 때) */
+  title: string;
+  description?: string;
+  /** 하단 고정 줄 주 버튼 자리 */
+  actionSlot: HTMLElement | null;
+  onStepChange?: (step: RegistrationPhoneStepKind) => void;
+  /** 맨 위 줄 ‹ (국가 선택) → 번호 화면으로 — 상자가 채운다 */
+  countryBackRef?: MutableRefObject<(() => void) | null>;
+};

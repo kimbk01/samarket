@@ -243,6 +243,8 @@
 | ③ 입력창 | 짧은 입력 1~2칸 | `DibayPromptDialog` / `dibayPrompt` |
 | ④ 선택 시트 | 메뉴·목록에서 고르기 | `DibayActionSheet`, `DibayBottomSheet` + `DibayMenuList` |
 | ⑤ 입력 시트 | 폼·상세·작성 | `DibayBottomSheet` + `DibaySheetHeader` + 고정 하단 버튼 |
+
+> **예외 (Owner 2026-11-27 「모달로 하지 말 것」·「v3대로 구현」)**: 회원가입 단계(동의·전화 인증·대표 주소)는 시트·팝업이 아니라 **전체 화면**(`components/auth/RegistrationPageShell.tsx`) — 입력은 위쪽, 하단 고정 줄 [가입 취소 · 주 버튼]은 앱 버튼 표준(`Sam.btn` 46·4·14). 근거 `docs/audit/registration-keyboard-cta-audit-2026-11-27.md` §6.
 | ⑥ 팝오버 메뉴 | ⋮·⋯·길게 누르기·드롭다운 | **신규 클래스 `OverlayUi.popover*`** (위치 계산은 각자 유지) |
 | ⑦ 토스트·상단 배너 | 결과 알림·수신 알림 | **신규 `DibayToastHost` 1개** + 배너 클래스 `OverlayUi.banner*` |
 

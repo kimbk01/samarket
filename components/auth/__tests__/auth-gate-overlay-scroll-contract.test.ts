@@ -18,15 +18,16 @@ describe("auth gate overlay: scroll body + fixed CTA footer (App Review Guidelin
     expect(src).toMatch(/className="dibay-overlay-dialog__footer"/);
   });
 
-  it("consent submit CTA lives in the fixed footer, not the scroll body", () => {
-    const shell = read("components/auth/DibayOnboardingOverlayShell.tsx");
-    expect(shell).toMatch(/footer=\{footer\}/);
+  it("consent submit CTA lives in the fixed bottom bar, not the scroll body (signup page v3 · 2026-11-27)", () => {
+    const shell = read("components/auth/RegistrationPageShell.tsx");
+    expect(shell).toMatch(/data-registration-footer="1"/);
+    expect(shell.indexOf("{primaryAction ?? null}")).toBeGreaterThan(shell.indexOf('data-registration-footer="1"'));
     const form = read("components/auth/AuthConsentForm.tsx");
-    const footerStart = form.indexOf("footer={");
+    const primaryStart = form.indexOf("primaryAction={");
     const childrenStart = form.indexOf("{isReconsent && shownVersions");
     const submitAt = form.indexOf('data-testid="auth-consent-submit"');
-    expect(footerStart).toBeGreaterThan(-1);
-    expect(submitAt).toBeGreaterThan(footerStart);
+    expect(primaryStart).toBeGreaterThan(-1);
+    expect(submitAt).toBeGreaterThan(primaryStart);
     expect(submitAt).toBeLessThan(childrenStart);
     expect(form.match(/auth_consent_submit"\)/g)?.length).toBe(1);
   });

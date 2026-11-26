@@ -660,13 +660,14 @@ export function AddressPlatformDetailClient(props: {
     );
   }
 
-  /** 시안 4번 — 일반 주소: 칸 최소, 저장 버튼은 칸 바로 아래(본문 안 — 키보드에 가려지지 않음) */
+  /** 시안 4번 — 일반 주소: 칸 최소. [저장] = 하단 고정 바(배달 화면과 같은 `MyStickyCta` 줄) — 키보드가 열리면 키보드 바로 위.
+   * 예전에는 본문 맨 아래라 상세주소를 치는 동안 키보드 뒤로 가려졌다(2026-11-27 가입 재감사 · Samsung·iPhone 재현).
+   */
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div
         ref={scrollRootRef}
         className={`${MYPAGE_BODY_COLUMN_CLASS} min-h-0 flex-1 space-y-5 overflow-y-auto py-4`}
-        style={{ paddingBottom: `calc(1rem + ${effectiveBottomInset}px)` }}
       >
         {draftRestoredBar}
         {summary}
@@ -741,17 +742,26 @@ export function AddressPlatformDetailClient(props: {
         )}
 
         {errLine}
-        <button
-          type="button"
-          disabled={!canSave}
-          aria-busy={busy}
-          data-testid="address-detail-save"
-          onClick={() => void save()}
-          className={`${Sam.btn.primaryCombo} ${Sam.btn.block} ${Sam.focusRing} sam-press h-[52px] text-[16px] disabled:opacity-50`}
-        >
-          {busy ? t("addr_ui_saving") : t("addr_v3_save")}
-        </button>
         <p className="text-center sam-text-helper text-sam-muted">{t("addr_v3_general_footnote")}</p>
+      </div>
+      <div
+        className={`shrink-0 ${MY_STICKY_CTA_BAR_SURFACE_CLASS}`}
+        data-form-keyboard-footer="1"
+        style={{ paddingBottom: `${effectiveBottomInset}px` }}
+      >
+        <div className={MY_STICKY_CTA_ROW_CLASS}>
+          <button
+            type="button"
+            disabled={!canSave}
+            aria-busy={busy}
+            data-testid="address-detail-save"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => void save()}
+            className={`${MY_STICKY_CTA_PRIMARY_BUTTON_CLASS} sam-press`}
+          >
+            {busy ? t("addr_ui_saving") : t("addr_v3_save")}
+          </button>
+        </div>
       </div>
     </div>
   );
