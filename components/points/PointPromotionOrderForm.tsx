@@ -131,9 +131,8 @@ export function PointPromotionOrderForm({
     /** R-62: 다시 읽는 동안 옛 가격 목록·버튼을 보이지 않게 비운다 */
     setCatalog(null);
     /** TB-08: 고른 글의 진행 중 상위노출(종료일·확인 중·멈춤)도 같은 응답으로 — 거래 광고 창과 같은 판정 */
-    const qs = new URLSearchParams({ catalog: "1", domain: "trade" });
-    if (resolvedTargetId) qs.set("targetId", resolvedTargetId);
-    void fetch(`/api/me/points/promotion-orders?${qs.toString()}`, {
+    const targetQs = resolvedTargetId ? `&targetId=${encodeURIComponent(resolvedTargetId)}` : "";
+    void fetch(`/api/me/points/promotion-orders?catalog=1&domain=trade${targetQs}`, {
       credentials: "include",
       cache: "no-store",
     })

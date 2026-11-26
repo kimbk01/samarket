@@ -16,6 +16,7 @@ import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { confirmBigAdPriceChange } from "@/lib/admin/ads-commercial/confirm-big-ad-price-change";
 import { formatAdPriceRatio, isBigAdPriceChange } from "@/lib/admin/ads-commercial/ad-price-change-guard";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminConflictReloadedCode } from "@/lib/admin/operator-ux/operator-labels";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
@@ -110,8 +111,8 @@ export function AdminFeedAdProductsClient() {
       Number.isFinite(nextPoint) && nextPoint !== row.pointCost
         ? t("admin_ads_price_change_line", {
             label: t(feedAdProductTitleKey(row.domain), { days: String(row.durationDays) }),
-            before: `${row.pointCost.toLocaleString()}P`,
-            after: `${nextPoint.toLocaleString()}P`,
+            before: `${formatAdminNumber(row.pointCost)}P`,
+            after: `${formatAdminNumber(nextPoint)}P`,
             ratio: formatAdPriceRatio(row.pointCost, nextPoint) ?? "",
           })
         : null;
