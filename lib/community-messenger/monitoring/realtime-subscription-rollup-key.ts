@@ -35,6 +35,11 @@ export const REALTIME_SUBSCRIPTION_KIND_BY_SCOPE_PREFIX: readonly (readonly [str
   ["trade-post-listing:", "trade_post_listing"],
   ["trade-listing-visibility", "trade_listing_visibility"],
   ["notifications-rt:", "notifications"],
+  /** 2026-11-27 결함 2: 감독 입구로 옮긴 채널 4개(이전엔 직접 subscribe 라 집계 밖) */
+  ["home_list_insert", "home_list_insert"],
+  ["room_bump", "room_bump"],
+  ["typing", "typing"],
+  ["cm-room-friendship:room", "room_friendship"],
 ];
 
 export const REALTIME_SUBSCRIPTION_OTHER_KIND = "other";

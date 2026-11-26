@@ -50,6 +50,22 @@ export function releaseMessengerChannel(sb: SupabaseClient | ClientLike, ch: Rea
 }
 
 /**
+ * 감독(`superviseMessengerChannel`) 핸들 해제 — 핸들 stop(재시도 중단·채널 제거) 후 토픽 해제를 기록한다.
+ * 기록이 없으면 다음 `whenMessengerTopicFree` 가 `false` 를 돌려 「빠른 재진입 공백 보상 1회」가 사라진다
+ * (2026-11-27 독립 검토 1번 — room-bump `resyncPending`). 감독 래퍼의 제거 프로미스는 밖으로 나오지 않으므로
+ * 다음 tick 에 끝나는 기록을 남기고, 남은 leaving/closed 객체 정리는 `whenMessengerTopicFree` 가 한다.
+ */
+export function releaseSupervisedMessengerChannel(name: string, handle: { stop: () => void } | null): void {
+  if (!handle) return;
+  handle.stop();
+  const key = messengerRealtimeTopicKey(name);
+  const tracked: Promise<unknown> = new Promise<void>((resolve) => setTimeout(resolve, 0)).finally(() => {
+    if (pendingRelease.get(key) === tracked) pendingRelease.delete(key);
+  });
+  pendingRelease.set(key, tracked);
+}
+
+/**
  * 같은 토픽 이름으로 새 채널을 만들기 전에 호출 — 이전 제거 완료(ok/timeout/error 로 항상 끝남)를 기다리고,
  * leaving/closed 로 남은 같은 토픽 객체가 있으면 제거한다(errored 는 다른 소유자의 rejoin 대기일 수 있어 건드리지 않음).
  * 반환: 이전 채널 제거를 기다렸으면 true(= 수신 공백이 있었을 수 있음 — 호출부가 정합 1회 판단).

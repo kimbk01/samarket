@@ -10,9 +10,10 @@ import {
   communityMessengerRoomBumpChannelName,
 } from "@/lib/community-messenger/realtime/community-messenger-room-bump-channel";
 import {
-  releaseMessengerChannel,
+  releaseSupervisedMessengerChannel,
   whenMessengerTopicFree,
 } from "@/lib/community-messenger/realtime/messenger-channel-topic-lease";
+import type { SubscribeWithRetryHandle } from "@/lib/community-messenger/realtime/cm-rt-channel-registry";
 import { parseCommunityMessengerBumpMessageSnapshot } from "@/lib/community-messenger/realtime/community-messenger-room-bump-message-snapshot";
 import { resolveRoomBumpDedupeKey } from "@/lib/chat-domain/realtime/domain-realtime-envelope";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
@@ -60,14 +61,15 @@ function createRoomBumpEntry(key: string, roomIds: string[]): RoomBumpEntry {
    * 이전 제거 완료를 기다린 뒤 생성하고, 기다렸다면 첫 SUBSCRIBED 때 `after=` 정합 1회로 공백을 메운다.
    */
   let alive = true;
-  const channels: Array<ReturnType<typeof sb.channel>> = [];
+  const channels: Array<{ name: string; handle: SubscribeWithRetryHandle }> = [];
   for (const rid of authorizedRoomIds) {
     void (async () => {
       const waited = await whenMessengerTopicFree(sb, communityMessengerRoomBumpChannelName(rid));
       if (!alive) return;
       let resyncPending = waited;
-      channels.push(
-        subscribeCommunityMessengerRoomBumpBroadcast({
+      channels.push({
+        name: communityMessengerRoomBumpChannelName(rid),
+        handle: subscribeCommunityMessengerRoomBumpBroadcast({
           sb,
           roomId: rid,
           onBump: (payload) => {
@@ -75,6 +77,7 @@ function createRoomBumpEntry(key: string, roomIds: string[]): RoomBumpEntry {
               listener.current.onBump(payload);
             }
           },
+          isCancelled: () => !alive,
           onStatus: (status) => {
             if (status !== "SUBSCRIBED" || !resyncPending) return;
             resyncPending = false;
@@ -82,15 +85,16 @@ function createRoomBumpEntry(key: string, roomIds: string[]): RoomBumpEntry {
               listener.current.onResync?.();
             }
           },
-        })
-      );
+        }),
+      });
     })();
   }
 
   entry.stop = () => {
     alive = false;
-    for (const ch of channels) {
-      releaseMessengerChannel(sb, ch);
+    for (const { name, handle } of channels) {
+      /** 해제 기록 — 같은 방 빠른 재진입 때 `whenMessengerTopicFree` 가 true → 첫 SUBSCRIBED 에 공백 보상 1회(지금 동작) */
+      releaseSupervisedMessengerChannel(name, handle);
     }
     channels.length = 0;
     roomBumpEntries.delete(key);

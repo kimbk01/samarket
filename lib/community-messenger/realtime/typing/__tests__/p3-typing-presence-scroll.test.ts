@@ -5,6 +5,22 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+/**
+ * 결함 2(2026-11-27): 등록부는 감독 입구로 가입한다. 이 파일은 등록부의 참조 수·토픽 정리만 본다 —
+ * 감독(인증 대기·재시도)은 `messenger-realtime-supervisor` 시험이 본다. 여기서는 동기 가짜 감독으로 대신한다.
+ */
+vi.mock("@/lib/community-messenger/realtime/messenger-realtime-supervisor", () => ({
+  superviseMessengerChannel: (args: {
+    sb: { channel: (n: string, o?: unknown) => { subscribe: () => unknown } };
+    name: string;
+    channelOptions?: unknown;
+    build: (ch: never) => { subscribe: () => unknown };
+  }) => {
+    const ch = args.build(args.sb.channel(args.name, args.channelOptions) as never);
+    ch.subscribe();
+    return { channel: ch, stop: () => undefined, markSignal: () => undefined };
+  },
+}));
 import { resolveMessengerTypingLabel } from "@/lib/community-messenger/realtime/typing/resolve-messenger-typing-label";
 import {
   selectMessengerTypingUserIdsKey,
