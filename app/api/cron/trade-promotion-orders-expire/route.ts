@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isDailyPromotionNoticeWindow, runPromotionExpiryNoticeBatch } from "@/lib/ads/promotion-expiry-notify";
 import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -29,7 +30,18 @@ async function runTradePromotionExpire(req: Request) {
   try {
     const { data, error } = await sb.rpc("expire_trade_promotion_orders");
     if (error) throw new Error(error.message);
-    return NextResponse.json({ ok: true, ...((data ?? {}) as Record<string, unknown>) });
+    /**
+     * A-DB TB-09: 하루 1회(09:00 PHT 창)만 「내일 끝나요」·「끝났어요」 알림 — 만료 뒤에 돌려 방금 끝난 주문도 포함.
+     * 알림 실패는 만료 결과에 영향 없음(로그만).
+     */
+    let notices: Record<string, unknown> | null = null;
+    if (isDailyPromotionNoticeWindow(Date.now())) {
+      const n = await runPromotionExpiryNoticeBatch(sb, "trade");
+      if (!n.ok) console.error("[cron trade-promotion-orders-expire] notices", n.error);
+      notices = n.ok ? { soon: n.soon, ended: n.ended } : null;
+    }
+    /** 창 밖 실행은 응답 그대로(예전과 같음) — 알림을 돌렸을 때만 notices 를 붙인다 */
+    return NextResponse.json({ ok: true, ...((data ?? {}) as Record<string, unknown>), ...(notices ? { notices } : {}) });
   } catch (err) {
     console.error("[cron trade-promotion-orders-expire]", err);
     return NextResponse.json({ ok: false, error: clientSafeInternalErrorMessage(String(err)) }, { status: 500 });

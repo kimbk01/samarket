@@ -601,6 +601,15 @@ export default function MyAdsPageClient() {
                           <p className="sam-text-helper text-sam-muted">
                             {fmtDate(o.startAt) ?? "—"} → {fmtDate(o.endAt) ?? "—"}
                           </p>
+                          {/* A-DB TB-07: 처음 결제(위 줄)와 연장을 나눠 보인다 — 주문 행은 처음 값 그대로 */}
+                          {(o.extensionCount ?? 0) > 0 ? (
+                            <p className="sam-text-helper text-sam-muted" data-testid="revenue-hub-boost-extended">
+                              {t("mypage_oa_ads_boost_extended", {
+                                count: String(o.extensionCount ?? 0),
+                                days: String(o.extensionDays ?? 0),
+                              })}
+                            </p>
+                          ) : null}
                           {/* 운영 종료 환급 (TB-10) — 알림에만 있던 금액을 내 광고 줄에도 */}
                           {(o.refundPoints ?? 0) > 0 ? (
                             <p className="sam-text-helper font-medium text-sam-primary" data-testid="revenue-hub-boost-refund">
