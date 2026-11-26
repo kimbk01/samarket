@@ -22,18 +22,24 @@ import {
   resolveVisibleHomeSections,
   type HomeLayoutConfig,
   type HomeMenuKey,
-  type HomeServiceKey,
 } from "@/lib/home/home-layout-contract";
 import type { HomeCatalog } from "@/lib/home/home-catalog-types";
 import { addHomePullRefreshHandler, homePtrStore } from "@/lib/home/home-pull-refresh-store";
 import { HomePullRefreshHost } from "@/components/home-hub/HomePullRefreshHost";
 import { HomeBanner } from "@/components/home-hub/HomeBanner";
-import { HomeServiceCards, HomeTelringCard } from "@/components/home-hub/HomeServiceCards";
+import dynamic from "next/dynamic";
+import { HomeServiceCards } from "@/components/home-hub/HomeServiceCards";
 import { HomeInfoStrip } from "@/components/home-hub/HomeInfoStrip";
 import { HomeMyActivity } from "@/components/home-hub/HomeMyActivity";
 import { HomeRateCalcStandalone } from "@/components/home-hub/HomeRateCalcSheet";
 import { homePressDelegate, homePressFeedback, homePressPointerDown, prewarmHomePressFeedback } from "@/lib/ui/home-press-feedback";
 import { resolveHomeTopAreas } from "@/lib/home/home-top-areas";
+
+/** ④ telRING 최근 통화 — 통화 모듈을 쓰므로 홈 첫 그림과 나눠 불러온다(자리는 카드 높이로 미리 잡음) */
+const HomeTelringRecent = dynamic(
+  () => import("@/components/home-hub/HomeTelringRecent").then((m) => m.HomeTelringRecent),
+  { ssr: false, loading: () => <div className="home-tel home-tel--placeholder" aria-hidden /> }
+);
 import { HomeNoticeLine } from "@/components/home-hub/HomeNoticeLine";
 import { HomeDiscoverFeed } from "@/components/home-hub/HomeDiscoverFeed";
 import { useHomeRotation } from "@/components/home-hub/use-home-rotation";
@@ -116,19 +122,6 @@ export function HomeScreen({
     },
     [isMember, router]
   );
-  /** telRING 대표 칸의 채팅·통화 바로가기 — 비로그인 안내는 메뉴와 같은 규칙 */
-  const openMenuHref = useCallback(
-    (k: HomeServiceKey, href: string) => {
-      const m = HOME_MENU_CATALOG[k];
-      if (!isMember && m.guestAuthAction) {
-        void requireAuthAction(m.guestAuthAction, () => router.push(href), { next: href });
-        return;
-      }
-      router.push(href);
-    },
-    [isMember, router]
-  );
-
   const sections = useMemo(() => resolveVisibleHomeSections(layout, !isMember), [layout, isMember]);
   const banners = useMemo(
     () => resolveAudienceBanners(layout, !(bannerAudienceMember ?? isMember)),
@@ -148,7 +141,6 @@ export function HomeScreen({
     info: showInfo,
     my: showMy && myActivityShown,
   });
-  const telringConfig = layout.services.find((x) => x.key === "chat") ?? null;
 
   /**
    * 앱 진입 v3 ① (실측 2026-11-17 삼성: 첫 그림 뒤 「전체 지역」→빈칸→실제 주소 3단계 · 알림 종이 늦게 끼어들어 자리 이동).
@@ -317,7 +309,7 @@ export function HomeScreen({
             {topAreas.hasRule ? <span className="home-r3-rule" aria-hidden /> : null}
             {showTelring ? (
               <div className="home-r3-cell home-r3-cell--ring">
-                <HomeTelringCard config={telringConfig} catalog={catalog} onOpen={openMenu} onOpenHref={openMenuHref} />
+                <HomeTelringRecent isMember={isMember} refreshSeq={refreshSeq} />
               </div>
             ) : null}
             {showMy ? (

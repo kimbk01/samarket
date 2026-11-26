@@ -484,61 +484,6 @@
   }
 }
 
-/* telRING 대표 칸 (수정안 #4) */
-.home-ring {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  overflow: hidden;
-  padding: 14px 14px 14px 16px;
-  border-radius: var(--ui-radius-rect, 4px);
-  color: #fff;
-  background: linear-gradient(135deg, #1c7a3a 0%, #0f5223 50%, #0b421a 100%);
-  box-shadow: 0 8px 22px rgba(11, 66, 26, 0.25);
-  cursor: pointer;
-}
-.home-ring::before {
-  content: "";
-  position: absolute;
-  right: -50px;
-  top: -70px;
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 201, 51, 0.4), rgba(255, 201, 51, 0) 70%);
-  pointer-events: none;
-}
-
-.home-ring-badge {
-  position: relative;
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
-}
-.home-ring-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 34px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: #fff;
-  color: var(--sam-primary, #0b421a);
-  font-size: 13px;
-  font-weight: 800;
-  -webkit-tap-highlight-color: transparent;
-}
-.home-ring-cta--chat {
-  background: #ffc933;
-  color: #2a2000;
-}
-
-
 /*
  * 위쪽 칸 — 시안 v2 §1 (Owner 「v2대로 구현」 2026-11-26).
  * 휴대폰 <600: 한 줄(정보 띠 → 배너(화면 끝까지) → 서비스 → telRING → 내 진행 중), 칸 사이 10.
@@ -612,7 +557,7 @@
   /* 같은 행 같은 높이 */
   .home-r3-cell--svc .home-svc,
   .home-r3-cell--svc .home-svc-grid,
-  .home-r3-cell--ring .home-ring,
+  .home-r3-cell--ring .home-tel,
   .home-r3-cell--info .home-info,
   .home-r3-cell--my .home-my {
     height: 100%;
@@ -1445,10 +1390,14 @@
 }
 @container homer3 (max-width: 359px) {
   .home-info-cell {
-    padding: 7px 9px;
+    padding: 5px 8px;
   }
   .home-info-main {
-    font-size: 13px;
+    gap: 3px;
+    font-size: 12.5px;
+  }
+  .home-info-delta {
+    font-size: 10.5px;
   }
 }
 @container homer3 (min-width: 600px) {
@@ -1686,4 +1635,281 @@
   width: max(100%, 44px);
   height: max(100%, 44px);
   transform: translate(-50%, -50%);
+}
+
+/*
+ * ④ telRING 최근 통화 — 시안 v2 §3-5.
+ * 휴대폰: 흰 카드(테두리 · 모서리 8) · 연초록 머리(초록 네모 전화 + 제목 + ›) · 줄 3: 사진 · 이름/종류·시간 · 오른쪽 시각 · 진초록 버튼 1.
+ * 태블릿: 진초록 머리(흰 동그라미 전화 + tel「RING」 노랑) · 줄: 사진 · 이름/종류·시간·시각 · 연초록 영상 + 노랑 음성 버튼.
+ * 버튼 그림이 작아도 누르는 영역은 44×44.
+ */
+.home-tel {
+  overflow: hidden;
+  border: 1px solid #e3e6e3;
+  border-radius: 8px;
+  background: #fff;
+}
+.home-tel--placeholder {
+  min-height: 196px;
+}
+.home-tel-head {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  background: #e9f3ec;
+  text-align: left;
+}
+.home-tel-head-ic {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: #0b5c2d;
+  color: #fff;
+}
+.home-tel-head-ic svg {
+  width: 15px;
+  height: 15px;
+}
+.home-tel-head-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #141a16;
+}
+.home-tel-head-chev {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: #141a16;
+}
+.home-tel-list {
+  padding: 0 10px;
+}
+.home-tel-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+}
+.home-tel-row + .home-tel-row {
+  border-top: 1px solid #eef0ee;
+}
+.home-tel-row-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  text-align: left;
+}
+.home-tel-avatar {
+  display: block;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e9ece9;
+}
+.home-tel-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+.home-tel-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 800;
+  color: #141a16;
+}
+.home-tel-sub {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #3d4540;
+}
+.home-tel-sub.is-missed {
+  color: #e0322a;
+}
+.home-tel-sub-ic {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: #1c7a3a;
+}
+.home-tel-sub.is-missed .home-tel-sub-ic {
+  color: #e0322a;
+}
+.home-tel-sub-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.home-tel-when-inline {
+  display: none;
+}
+.home-tel-when {
+  flex: none;
+  font-size: 12px;
+  color: #8c948f;
+}
+.home-tel-btns {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+.home-tel-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #0b5223;
+  color: #fff;
+  transition: transform 0.12s ease;
+}
+.home-tel-btn::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+.home-tel-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.home-tel-btn.is-live,
+.home-tel-btn:disabled {
+  opacity: 0.45;
+}
+.home-tel-btn--video,
+.home-tel-btn--voice {
+  display: none;
+}
+.home-tel-empty {
+  display: flex;
+  min-height: 120px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  font-size: 13.5px;
+  color: #5c645e;
+}
+.home-tel-empty-btn {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: #0b421a;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+.home-tel-skel-line {
+  display: block;
+  width: 60%;
+  height: 14px;
+  border-radius: 4px;
+}
+@container homer3 (min-width: 600px) {
+  .home-tel {
+    border-color: #ececed;
+    border-radius: 12px;
+  }
+  .home-tel-head {
+    min-height: 58px;
+    gap: 12px;
+    padding: 0 18px;
+    background: #0b421a;
+  }
+  .home-tel-head-ic {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: #fff;
+    color: #0b421a;
+  }
+  .home-tel-head-ic svg {
+    width: 17px;
+    height: 17px;
+  }
+  .home-tel-head-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .home-tel-ring {
+    font-weight: 900;
+    color: #ffc933;
+  }
+  .home-tel-head-chev {
+    display: none;
+  }
+  .home-tel-list {
+    padding: 0 16px;
+  }
+  .home-tel-row {
+    min-height: 66px;
+    gap: 10px;
+  }
+  .home-tel-avatar {
+    width: 44px;
+    height: 44px;
+  }
+  .home-tel-name {
+    font-size: 16px;
+  }
+  .home-tel-sub {
+    font-size: 13px;
+    color: #5c645e;
+  }
+  .home-tel-sub-ic {
+    color: #5c645e;
+  }
+  .home-tel-when {
+    display: none;
+  }
+  .home-tel-when-inline {
+    display: inline;
+    color: #8c948f;
+    white-space: nowrap;
+  }
+  .home-tel-btn {
+    width: 44px;
+    height: 44px;
+  }
+  .home-tel-btn--one {
+    display: none;
+  }
+  .home-tel-btn--video {
+    display: grid;
+    background: #e3f1e7;
+    color: #0b421a;
+  }
+  .home-tel-btn--voice {
+    display: grid;
+    background: #ffc933;
+    color: #1d1a0f;
+  }
 }

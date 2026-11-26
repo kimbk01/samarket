@@ -13,7 +13,8 @@ const failures = [];
 
 const OUTGOING_CTA_FILES = [
   "components/community-messenger/CommunityMessengerHome.tsx",
-  "components/community-messenger/MessengerCallLogsPanel.tsx",
+  /** 통화 기록 다시 걸기 — 통화 탭(`MessengerCallLogsPanel`)·홈 telRING 칸이 같이 쓰는 함수 (2026-11-26 옮김) */
+  "lib/community-messenger/call-history/start-call-from-history.ts",
   "lib/community-messenger/room/phase2/use-messenger-room-phase2-controller.ts",
   "app/(main)/community-messenger/calls/outgoing/CommunityMessengerOutgoingDialPageClient.tsx",
 ];
@@ -218,6 +219,18 @@ for (const abs of files) {
       failures.push(`${label} (key: ${hit.keyText})`);
     }
   }
+}
+
+/** 통화 기록 다시 걸기는 공용 함수 하나로만 — 화면이 발신 순서를 따로 갖지 않는다 */
+for (const rel of ["components/community-messenger/MessengerCallLogsPanel.tsx", "components/home-hub/HomeTelringRecent.tsx"]) {
+  const abs = path.join(ROOT, rel);
+  if (!fs.existsSync(abs)) {
+    failures.push(`call history redial surface missing: ${rel}`);
+    continue;
+  }
+  const src = fs.readFileSync(abs, "utf8");
+  if (!src.includes("startCallFromHistory(")) failures.push(`call history redial must use startCallFromHistory: ${rel}`);
+  if (src.includes("launchOutgoingDirectCall(")) failures.push(`call history redial must not launch directly: ${rel}`);
 }
 
 for (const rel of OUTGOING_CTA_FILES) {

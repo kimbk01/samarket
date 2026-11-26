@@ -102,7 +102,8 @@ describe("call-engine instant telegram UX contracts", () => {
   it("outgoing CTAs use launchOutgoingDirectCall only", () => {
     const ctas = [
       "components/community-messenger/CommunityMessengerHome.tsx",
-      "components/community-messenger/MessengerCallLogsPanel.tsx",
+      /** 통화 탭 다시 걸기 본문 — 2026-11-26 공용 함수로 옮김(통화 탭·홈 telRING 칸) */
+      "lib/community-messenger/call-history/start-call-from-history.ts",
       "lib/community-messenger/room/phase2/use-messenger-room-phase2-controller.ts",
     ];
     for (const file of ctas) {
