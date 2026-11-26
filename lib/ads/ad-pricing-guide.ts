@@ -155,7 +155,7 @@ export async function loadAdPricingGuide(sb: SupabaseClient): Promise<AdPricingG
 
   const cfg = catalog.partnerConfig;
   const partner =
-    cfg && cfg.enabled && cfg.acceptingNewMembers && cfg.monthlyFeeMinor != null && cfg.monthlyFeeMinor > 0
+    cfg && cfg.enabled && cfg.acceptingNewMembers && cfg.monthlyFeeMinor != null && cfg.monthlyFeeMinor >= 0
       ? { feeMinor: cfg.monthlyFeeMinor, discountPercent: cfg.advertisingDiscountPercent }
       : null;
 

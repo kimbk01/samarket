@@ -44,9 +44,14 @@ export function MemberPostPromoteSheet({
   const { t, language, safeT } = useI18n();
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [balance, setBalance] = useState<number | null>(null);
-  const [productId, setProductId] = useState<MemberPromotionProductId | null>(
-    domain === "community" ? "community_promote_3" : "trade_promote_7"
-  );
+  /** 처음엔 고른 상품 없음 — 목록을 읽은 뒤 살 수 있는 첫 상품(코드 기본 id 를 「회원이 고른 상품」으로 보지 않는다) */
+  const [productId, setProductId] = useState<MemberPromotionProductId | null>(null);
+  /** 다시 읽은 뒤 고른 상품을 살 수 없게 됨 — 「다시 골라 주세요」 */
+  const [choiceLost, setChoiceLost] = useState(false);
+  const productIdRef = useRef<MemberPromotionProductId | null>(null);
+  useEffect(() => {
+    productIdRef.current = productId;
+  }, [productId]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -78,13 +83,14 @@ export function MemberPostPromoteSheet({
                 credentials: "include",
                 signal,
               }
-            ).then(
-              async (r) =>
-                (await r.json().catch(() => ({}))) as {
-                  catalog?: CatalogItem[];
-                  activeForTarget?: { endAt?: string; orderStatus?: string; pausedBy?: string } | null;
-                }
-            ),
+            ).then(async (r) => {
+              /** 전수 대조(R-48 같은 종류): 상품 조회 실패를 「상품 없음」으로 숨기지 않는다 → 아래 catch 의 「불러오지 못했어요」 */
+              if (!r.ok) throw new Error(`promotion_catalog_${r.status}`);
+              return (await r.json().catch(() => ({}))) as {
+                catalog?: CatalogItem[];
+                activeForTarget?: { endAt?: string; orderStatus?: string; pausedBy?: string } | null;
+              };
+            }),
             fetch("/api/me/points", { cache: "no-store", credentials: "include", signal }).then(
               async (r) => (await r.json().catch(() => ({}))) as { balance?: number; points?: number }
             ),
@@ -100,13 +106,16 @@ export function MemberPostPromoteSheet({
       setBalance(balOk);
       // 설계 2026-11-08 ⑨: 기본 선택 = 결과를 모르는 결제 상품 → 지금 고른 상품(살 수 있으면) → 살 수 있는 첫 상품 → 없음
       const canBuy = (i: CatalogItem) => balOk != null && balOk >= i.pointCost;
-      setProductId((prev) => {
-        const pending = items.find((i) => i.id === pendingProduct);
-        if (pending) return pending.id;
-        const prevItem = items.find((i) => i.id === prev);
-        if (prevItem && canBuy(prevItem)) return prevItem.id;
-        return items.find(canBuy)?.id ?? null;
-      });
+      /**
+       * 전수 대조(R-56 같은 종류): 회원이 고른 상품을 다시 읽은 뒤 살 수 없게 됐으면(꺼짐·잔액 부족) 다른 상품으로 바꾸지 않고 비운다.
+       * 고른 적이 없을 때만 살 수 있는 첫 상품.
+       */
+      const pending = items.find((i) => i.id === pendingProduct);
+      const prev = productIdRef.current;
+      const prevItem = prev ? items.find((i) => i.id === prev) : undefined;
+      const lost = !pending && Boolean(prev) && !(prevItem && canBuy(prevItem));
+      setChoiceLost(lost);
+      setProductId(pending ? pending.id : prev && !lost ? prev : prev ? null : (items.find(canBuy)?.id ?? null));
       const st = String(promoJ.activeForTarget?.orderStatus ?? "").toLowerCase();
       const activeEnd = promoJ.activeForTarget?.endAt?.trim() || null;
       setPausedExisting(st === "paused");
@@ -401,7 +410,11 @@ export function MemberPostPromoteSheet({
                   role="radio"
                   aria-checked={selectedNow}
                   disabled={!enabled}
-                  onClick={() => enabled && setProductId(item.id)}
+                  onClick={() => {
+                    if (!enabled) return;
+                    setProductId(item.id);
+                    setChoiceLost(false);
+                  }}
                   data-selected={selectedNow ? "true" : undefined}
                   data-promo-sheet-option-state={selectedNow ? "selected" : enabled ? "enabled" : "disabled"}
                   className={`flex min-h-14 w-full items-center gap-2.5 rounded-ui-rect border px-3 py-2.5 text-left ${
@@ -442,6 +455,11 @@ export function MemberPostPromoteSheet({
           </div>
           {extending ? <p className={`mt-2 ${OverlayUi.bodySecondary}`}>{t("trade_ad_extend_keeps_place")}</p> : null}
           {err ? <p className={`mt-2 ${OverlayUi.captionDanger}`}>{err}</p> : null}
+          {choiceLost ? (
+            <p className={`mt-2 ${OverlayUi.captionDanger}`} role="status" data-promo-choice-lost>
+              {t("feed_ad_req_product_gone")}
+            </p>
+          ) : null}
         </>
       )}
     </DibayBottomSheet>

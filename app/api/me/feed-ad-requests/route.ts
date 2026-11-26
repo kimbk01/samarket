@@ -17,7 +17,7 @@ import {
   isFeedAdCommunityTopicTargetAllowed,
   normalizeFeedAdTopicSlug,
 } from "@/lib/ads/feed-ad-placement";
-import { getFeedAdProduct, listActiveFeedAdProducts } from "@/lib/ads/feed-ad-products";
+import { getFeedAdProductOrThrow, listActiveFeedAdProductsOrThrow } from "@/lib/ads/feed-ad-products";
 import {
   FEED_AD_POTENTIALLY_OPEN_REQUEST_STATUSES,
   findCurrentFeedAdBanner,
@@ -129,7 +129,14 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const catalog = await listActiveFeedAdProducts(sb, domain || undefined);
+  /** R-54: 상품 목록 조회 실패를 빈 목록(「상품 없음」·「고른 상품 없어짐」)으로 숨기지 않는다 */
+  let catalog: Awaited<ReturnType<typeof listActiveFeedAdProductsOrThrow>>;
+  try {
+    catalog = await listActiveFeedAdProductsOrThrow(sb, domain || undefined);
+  } catch (e) {
+    console.warn("[me/feed-ad-requests] catalog load failed", e instanceof Error ? e.message : e);
+    return NextResponse.json({ ok: false, error: "catalog_load_failed" }, { status: 503 });
+  }
 
   const { data, error } = await sb
     .from("feed_ad_requests")
@@ -315,7 +322,14 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const product = await getFeedAdProduct(sb, String(body.productId ?? ""));
+  /** R-54: 상품 조회 오류 = 503 「불러오지 못했어요」(「상품 없음」 아님) */
+  let product: Awaited<ReturnType<typeof getFeedAdProductOrThrow>>;
+  try {
+    product = await getFeedAdProductOrThrow(sb, String(body.productId ?? ""));
+  } catch (e) {
+    console.warn("[me/feed-ad-requests] product load failed", e instanceof Error ? e.message : e);
+    return NextResponse.json({ ok: false, error: "catalog_load_failed" }, { status: 503 });
+  }
   if (!product) {
     return NextResponse.json({ ok: false, error: "product_not_found" }, { status: 400 });
   }

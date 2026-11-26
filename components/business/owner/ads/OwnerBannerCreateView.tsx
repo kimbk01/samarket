@@ -837,7 +837,7 @@ export function OwnerBannerCreateView() {
                   data-owner-ads-check-failed="1"
                   role="status"
                 >
-                  <p className="text-[13px] font-semibold text-sam-fg">{t("owner_ads_error_check_failed")}</p>
+                  <p className="text-[13px] font-semibold text-sam-fg">{t("owner_ads_sale_check_failed")}</p>
                   <button
                     type="button"
                     className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[13px] font-semibold text-sam-fg"

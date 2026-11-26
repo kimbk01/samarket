@@ -34,6 +34,8 @@ const KEY_BY_CODE: Record<string, MessageKey> = {
   /** R-09: 노출 판정과 같은 기준(숨김·카테고리 없는 거래 글은 피드에 안 나온다) — 이유를 사실대로 */
   destination_unavailable: "feed_ad_req_dest_unavailable",
   destination_check_failed: "feed_ad_req_check_failed",
+  /** R-54: 상품 조회 실패 — 「상품 없음」과 구분 */
+  catalog_load_failed: "feed_ad_products_load_failed",
 };
 
 export function feedAdMemberErrorKey(code: string | null | undefined): MessageKey {

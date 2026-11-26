@@ -50,6 +50,8 @@ type Loaded = {
   } | null;
   banner: BannerItem[];
   bannerCurrent: { displayStatus: string } | null;
+  /** 배너 상품 조회 실패(상위노출은 정상) */
+  bannerLoadFailed: boolean;
 };
 
 const DAY_MS = 86_400_000;
@@ -77,6 +79,12 @@ export function TradeAdQuickSheet({
   const [data, setData] = useState<Loaded | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  /** 전수 대조(R-54·R-56 같은 종류): 다시 읽은 뒤 고른 상품을 살 수 없게 됐으면 다른 상품으로 바꾸지 않고 비운다 */
+  const [choiceLost, setChoiceLost] = useState(false);
+  const selectedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    selectedKeyRef.current = selectedKey;
+  }, [selectedKey]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [startedEndAt, setStartedEndAt] = useState<string | null>(null);
@@ -130,6 +138,8 @@ export function TradeAdQuickSheet({
         banner: (Array.isArray(b.catalog) ? b.catalog : []).filter((x) => !x.domain || x.domain === "trade"),
         bannerCurrent:
           b.canCreateBanner === false ? { displayStatus: String(b.currentBanner?.displayStatus ?? "active") } : null,
+        /** R-54 같은 종류: 배너 상품 조회 실패를 「배너 상품 없음」으로 숨기지 않는다 */
+        bannerLoadFailed: banner == null,
       });
     } catch {
       setLoadFailed(true);
@@ -144,6 +154,8 @@ export function TradeAdQuickSheet({
     setStartedExtended(false);
     setStartedReplay(false);
     setSelectedKey(null);
+    selectedKeyRef.current = null;
+    setChoiceLost(false);
     attemptKeys.current.reset();
     void load();
   }, [open, load]);
@@ -194,8 +206,11 @@ export function TradeAdQuickSheet({
   /** 처음 열 때 기본 선택 = 고를 수 있는 첫 상품 (결과를 모르는 결제가 있으면 그 상품) */
   useEffect(() => {
     if (!data) return;
-    setSelectedKey((prev) =>
-      pendingRow ? pendingRow.key : prev && buyable.some((r) => r.key === prev) ? prev : buyable[0]?.key ?? null
+    const prev = selectedKeyRef.current;
+    const lost = !pendingRow && Boolean(prev) && !buyable.some((r) => r.key === prev);
+    setChoiceLost(lost);
+    setSelectedKey(
+      pendingRow ? pendingRow.key : prev && !lost ? prev : prev ? null : buyable[0]?.key ?? null
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
@@ -412,7 +427,11 @@ export function TradeAdQuickSheet({
                 role="radio"
                 aria-checked={on}
                 disabled={!enabled}
-                onClick={() => enabled && setSelectedKey(r.key)}
+                onClick={() => {
+                  if (!enabled) return;
+                  setSelectedKey(r.key);
+                  setChoiceLost(false);
+                }}
                 data-trade-ad-option={r.key}
                 data-trade-ad-option-state={on ? "selected" : enabled ? "enabled" : "disabled"}
                 className={`flex min-h-14 w-full items-center gap-2.5 rounded-ui-rect border px-3 py-2.5 text-left ${
@@ -469,6 +488,23 @@ export function TradeAdQuickSheet({
           })}
         </div>
       )}
+      {startedEndAt === null && data?.bannerLoadFailed && !data.bannerCurrent ? (
+        <div className="mt-2" role="status" data-trade-ad-banner-failed>
+          <p className={OverlayUi.captionDanger}>{t("feed_ad_products_load_failed")}</p>
+          <button
+            type="button"
+            className="mt-1 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[13px] font-semibold text-sam-fg"
+            onClick={() => void load()}
+          >
+            {t("common_retry")}
+          </button>
+        </div>
+      ) : null}
+      {startedEndAt === null && choiceLost ? (
+        <p className={`mt-2 ${OverlayUi.captionDanger}`} role="status" data-trade-ad-choice-lost>
+          {t("feed_ad_req_product_gone")}
+        </p>
+      ) : null}
       {startedEndAt === null && rows.some((r) => r.kind === "boost" && r.extendEndAt) ? (
         <p className={`mt-2 ${OverlayUi.bodySecondary}`}>{t("trade_ad_extend_keeps_place")}</p>
       ) : null}

@@ -147,6 +147,8 @@ export default function MemberFeedAdRequestPage() {
   const prefillProductIdRef = useRef<string | null>(null);
   /** R-30: 회원이 고른(또는 광고하기 창에서 넘어온) 상품이 지금 목록에 없음 */
   const [chosenProductGone, setChosenProductGone] = useState(false);
+  /** R-54: 상품 목록을 불러오지 못함 */
+  const [catalogLoadFailed, setCatalogLoadFailed] = useState(false);
   /** R-38: 비동기 응답에서 지금 고른 상품을 읽기 위한 거울 — 고를 때마다 맞춘다 */
   const productIdRef = useRef<string>("");
   useEffect(() => {
@@ -154,18 +156,26 @@ export default function MemberFeedAdRequestPage() {
   }, [productId]);
   const load = useCallback(async () => {
     const seq = ++loadSeqRef.current;
+    /** R-54: 상품 조회 실패(서버 503 · 네트워크)는 「고른 상품이 없어졌어요」가 아니라 「불러오지 못했어요 · 다시 시도」 — 고른 상품은 그대로 */
     const [prodRes, balRes, tgtRes] = await Promise.all([
-      fetch(`/api/me/feed-ad-requests?domain=${domain}`, { credentials: "include" }),
-      fetch("/api/me/points", { credentials: "include", cache: "no-store" }),
+      fetch(`/api/me/feed-ad-requests?domain=${domain}`, { credentials: "include" }).catch(() => null),
+      fetch("/api/me/points", { credentials: "include", cache: "no-store" }).catch(() => null),
       fetch("/api/me/feed-ad-targets", { credentials: "include" }).catch(() => null),
     ]);
-    const pj = (await prodRes.json().catch(() => ({}))) as {
+    const pj = (prodRes ? await prodRes.json().catch(() => ({})) : {}) as {
+      ok?: boolean;
       catalog?: FeedAdProduct[];
       canCreateBanner?: boolean;
       currentBanner?: { requestId?: string; displayStatus?: string } | null;
     };
-    const items = (Array.isArray(pj.catalog) ? pj.catalog : []).filter((p) => p.domain === domain);
-    const bj = (await balRes.json().catch(() => ({}))) as { balance?: number; points?: number };
+    if (seq !== loadSeqRef.current) return;
+    if (!prodRes || !prodRes.ok || pj.ok === false || !Array.isArray(pj.catalog)) {
+      setCatalogLoadFailed(true);
+      return;
+    }
+    setCatalogLoadFailed(false);
+    const items = pj.catalog.filter((p) => p.domain === domain);
+    const bj = (balRes ? await balRes.json().catch(() => ({})) : {}) as { balance?: number; points?: number };
     if (seq !== loadSeqRef.current) return;
     setCatalog(items);
     if (pj.canCreateBanner === false && pj.currentBanner?.requestId) {
@@ -557,6 +567,7 @@ export default function MemberFeedAdRequestPage() {
   const filledCreatives = creatives.filter((c) => c.imageUrl.trim());
   const canSubmit =
     !busy &&
+    !catalogLoadFailed &&
     !uploading &&
     !currentBanner &&
     Boolean(selected) &&
@@ -998,6 +1009,18 @@ export default function MemberFeedAdRequestPage() {
           <h2 className="sam-text-body font-semibold">
             {safeT("feed_ad_req_product")}
           </h2>
+          {catalogLoadFailed ? (
+            <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2" role="status" data-testid="feed-ad-catalog-failed">
+              <p className="sam-text-helper text-sam-muted">{t("feed_ad_products_load_failed")}</p>
+              <button
+                type="button"
+                className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 sam-text-body font-semibold text-sam-fg"
+                onClick={() => void load()}
+              >
+                {t("common_retry")}
+              </button>
+            </div>
+          ) : null}
           {chosenProductGone ? (
             <p className="sam-text-helper font-medium text-sam-warning" role="status" data-testid="feed-ad-product-gone">
               {t("feed_ad_req_product_gone")}

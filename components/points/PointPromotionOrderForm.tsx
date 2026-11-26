@@ -100,7 +100,12 @@ export function PointPromotionOrderForm({
     setTargetId((prev) => (prev === want ? prev : want));
   }, [initialTargetId, productOptions]);
 
-  const selected = catalog?.find((p) => p.id === productId) ?? catalog?.[0] ?? null;
+  /**
+   * R-56: 회원이 고른 상품이 다시 읽은 목록에 없으면(그새 꺼짐) 첫 상품으로 바꾸지 않는다 — 선택을 비우고 「다시 골라 주세요」.
+   * 고른 적이 없을 때만 첫 상품을 미리 고른다.
+   */
+  const chosenGone = productId != null && catalog != null && !catalog.some((p) => p.id === productId);
+  const selected = chosenGone ? null : (catalog?.find((p) => p.id === productId) ?? catalog?.[0] ?? null);
   const cost = selected?.pointCost ?? 0;
   const insufficient = balance !== null && balance < cost;
   /** 충전 후 돌아오기 (TB-08) — 거래 광고 창 `goCharge` 와 같은 주소 규칙: 모자란 포인트 · 돌아올 화면 */
@@ -198,6 +203,10 @@ export function PointPromotionOrderForm({
         ) : catalog.length === 0 ? (
           <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-muted">
             {safeT("promo_no_active_products")}
+          </p>
+        ) : chosenGone ? (
+          <p className="sam-text-helper font-medium text-sam-warning" role="status" data-promo-product-gone="1">
+            {t("feed_ad_req_product_gone")}
           </p>
         ) : null}
         {(catalog ?? []).map((item) => {

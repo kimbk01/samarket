@@ -704,6 +704,12 @@ export async function updateOwnerSponsoredDraft(
     patch.headline = input.headline.trim().slice(0, 160);
   }
 
+  /** R-53: 배달 홈 홍보로 바꾸는 저장도 만들기와 같은 홈 판정(꺼짐 = home_ads_disabled · 조회 실패 = capacity_check_failed) */
+  if (input.inventoryKeys !== undefined && nextKeys.includes(STORES_HOME_FEED_INVENTORY_KEY)) {
+    const homeGate = await assertHomeFeedSellableByPolicy(sb);
+    if (!homeGate.ok) return { ok: false, error: homeGate.error };
+  }
+
   /**
    * R-21: 업종 목록으로 바꾸거나 업종을 바꾸는 저장도 만들기와 같은 업종 판정 — 꺼진 업종으로 옮겨 두고 제출하는 길을 막는다.
    * (업종을 건드리지 않는 저장은 제출 직전 판정이 본다)

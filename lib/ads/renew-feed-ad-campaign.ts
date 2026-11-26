@@ -12,7 +12,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getFeedAdProduct } from "@/lib/ads/feed-ad-products";
+import { getFeedAdProductOrThrow } from "@/lib/ads/feed-ad-products";
 
 export type RenewFeedAdCampaignResult =
   | {
@@ -96,7 +96,13 @@ export async function renewFeedAdCampaign(
   }
   if (expectedCost == null || expectedDays != null) {
     // 가격 확인값을 보내지 않는 옛 화면(배포 직후 열려 있던 창) — 지금 가격을 기준으로 한다 (옛 동작과 같음).
-    const product = await getFeedAdProduct(sb, productId);
+    /** R-54: 상품 조회 오류는 「상품 없음」(400 → 화면이 키를 버림)이 아니라 500(키 유지 · 같은 키로 재확인) */
+    let product: Awaited<ReturnType<typeof getFeedAdProductOrThrow>>;
+    try {
+      product = await getFeedAdProductOrThrow(sb, productId);
+    } catch {
+      return { ok: false, error: "renew_failed", httpStatus: 500 };
+    }
     if (!product) return { ok: false, error: "product_not_found", httpStatus: 400 };
     if (expectedCost == null) expectedCost = product.pointCost;
     /** R-35: 기간이 바뀌었으면 차감 전에 멈춘다 — 회원이 본 기간과 다른 기간으로 연장하지 않게 */
