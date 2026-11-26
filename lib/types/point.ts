@@ -162,6 +162,9 @@ export interface PointPromotionOrder {
   endReasonCode?: string;
   /** 운영 종료 환급 포인트 (DB `refund_points` · TB-10) — 0·없음이면 표시 안 함 */
   refundPoints?: number;
+  /** A-DB TB-07: 연장 기록(`point_promotion_order_extensions`) — 주문 행은 처음 결제 값, 연장은 여기서 합친다 */
+  extensionCount?: number;
+  extensionDays?: number;
 }
 
 export type PointActionLogType =
