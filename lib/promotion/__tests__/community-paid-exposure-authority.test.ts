@@ -30,7 +30,8 @@ describe("community paid exposure authority", () => {
 
   it("keeps community catalog prices from live seed (10000/20000) and auto-live (no approval)", () => {
     const items = listActiveMemberPromotionProducts("community");
-    expect(items.map((p) => p.id)).toEqual(["community_promote_3", "community_promote_7"]);
+    /** 금액 권장안(2026-11-27): 커뮤니티 14일 새 상품 (가격 원본은 DB · 여기 값은 처음 seed) */
+    expect(items.map((p) => p.id)).toEqual(["community_promote_3", "community_promote_7", "community_promote_14"]);
     expect(getMemberPromotionProduct("community_promote_3")?.pointCost).toBe(10000);
     expect(getMemberPromotionProduct("community_promote_7")?.pointCost).toBe(20000);
     expect(getMemberPromotionProduct("community_promote_3")?.requiresAdminApproval).toBe(false);
