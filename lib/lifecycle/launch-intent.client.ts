@@ -60,7 +60,7 @@ function withinCap<T>(p: Promise<T>, fallback: T): Promise<T> {
 }
 
 /** Android 동기 브리지(문서 시작 전 네이티브가 저장한 알림 목적지 · `launch-push-hold`)가 있는가 */
-function hasAndroidSyncPushBridge(): boolean {
+export function hasAndroidSyncPushBridge(): boolean {
   if (typeof window === "undefined") return false;
   const bridge = (window as unknown as { DibayBootBridge?: { pendingLaunchRoutePath?: unknown } }).DibayBootBridge;
   return !!bridge && typeof bridge.pendingLaunchRoutePath === "function";

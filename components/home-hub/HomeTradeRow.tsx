@@ -1,7 +1,7 @@
 "use client";
 
 import { formatPrice } from "@/lib/utils/format";
-import { untilLaunchPushDestinationSettled } from "@/lib/startup/launch-push-destination-pending";
+import { untilLaunchDestinationSettled } from "@/lib/startup/launch-push-destination-pending";
 import { resolveTradePostCurrency } from "@/lib/trade/trade-price-currency";
 import { useEffect, useState } from "react";
 import { PostFavoriteButton } from "@/components/favorites/PostFavoriteButton";
@@ -75,7 +75,7 @@ export function useHomeTrades({
     let alive = true;
     void (async () => {
       // 설계 §24 D1-웹: 알림으로 켠 실행이면 덮개가 걷힐 때까지(목적지 그림) 홈 전용 요청을 미룬다 · 그 밖에는 바로
-      await untilLaunchPushDestinationSettled();
+      await untilLaunchDestinationSettled();
       if (!alive) return;
       const r = await getPostsForHome({
         type: "trade",

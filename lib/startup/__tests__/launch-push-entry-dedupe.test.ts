@@ -111,12 +111,12 @@ describe("구조 계약", () => {
   const nav = readFileSync("components/layout/BottomNav.tsx", "utf8");
   it("D4: 하단 탭 링크 미리 받기 3곳 모두 대기 중 끔", () => {
     expect(nav.match(/prefetch=\{!launchPushPending && shouldPrefetchMainBottomNavHref\(/g)?.length).toBe(3);
-    expect(nav.match(/const launchPushPending = useLaunchPushDestinationPending\(\);/g)?.length).toBe(3);
+    expect(nav.match(/const launchPushPending = useLaunchDestinationPending\(\);/g)?.length).toBe(3);
   });
   const host = readFileSync("components/layout/BottomNavBootIdlePrewarmHost.tsx", "utf8");
   it("D4: 부팅 예열은 대기가 끝난 뒤 · 복귀 재예열은 대기 중 건너뜀", () => {
-    expect(host).toContain("whenLaunchPushDestinationSettled(");
-    expect(host).toMatch(/if \(isLaunchPushDestinationPending\(\)\) return;\s*latestRef\.current\.router\.prefetch\(href, PREFETCH_FULL\);/);
+    expect(host).toContain("whenLaunchDestinationSettled(");
+    expect(host).toMatch(/if \(isLaunchDestinationPending\(\)\) return;\s*latestRef\.current\.router\.prefetch\(href, PREFETCH_FULL\);/);
   });
 });
 
@@ -195,10 +195,54 @@ describe("설계 §24 D1-웹 — 덮개 아래 홈 전용 요청 미룸 (SSOT �
 
   it("구조: 홈 줄 3개 요청(마켓·정보 공유·DIPICK — 시안 R3, 모임 줄 없음)이 모두 대기 뒤에 시작", () => {
     const files: Array<[string, RegExp]> = [
-      ["components/home-hub/HomeTradeRow.tsx", /await untilLaunchPushDestinationSettled\(\);\s*if \(!alive\) return;\s*const r = await getPostsForHome\(/],
-      ["components/home-hub/HomePostsSection.tsx", /untilLaunchPushDestinationSettled\(\)\s*\.then\(\(\) => \(alive \? fetchNeighborhoodFeedShortTtl\(/],
-      ["components/home-hub/HomeStoresSection.tsx", /await untilLaunchPushDestinationSettled\(\);\s*if \(!alive\) return;\s*if \(refreshSeq > 0\)/],
+      ["components/home-hub/HomeTradeRow.tsx", /await untilLaunchDestinationSettled\(\);\s*if \(!alive\) return;\s*const r = await getPostsForHome\(/],
+      ["components/home-hub/HomePostsSection.tsx", /untilLaunchDestinationSettled\(\)\s*\.then\(\(\) => \(alive \? fetchNeighborhoodFeedShortTtl\(/],
+      ["components/home-hub/HomeStoresSection.tsx", /await untilLaunchDestinationSettled\(\);\s*if \(!alive\) return;\s*if \(refreshSeq > 0\)/],
     ];
     for (const [f, re] of files) expect(readFileSync(f, "utf8")).toMatch(re);
+  });
+
+  it("구조(재감사 §9 A5): 홈 정보 띠 환율·날씨 요청도 대기 뒤에 시작", () => {
+    const strip = readFileSync("components/home-hub/HomeInfoStrip.tsx", "utf8");
+    expect(strip).toMatch(/await untilLaunchDestinationSettled\(\);\s*const r = await fetchExchangeRatesViaApp\(\);/);
+    expect(strip).toMatch(/await untilLaunchDestinationSettled\(\);\s*if \(!alive\) return;\s*let coord/);
+  });
+});
+
+describe("재감사 §9 A5 — 직전 화면 복원(생명주기 이동)도 같은 대기", () => {
+  it("알림 없음 + 복원 이동 예정이면 대기 · OS 화면이 걷히면 미룬 일을 1번 실행", async () => {
+    const { metrics, pending } = await load("/", "", null);
+    const nav = await import("@/lib/startup/lifecycle-nav-hold");
+    vi.spyOn(nav, "lifecycleNavHoldStartPath").mockReturnValue("/");
+    expect(pending.isLaunchPushDestinationPending()).toBe(false);
+    expect(pending.isLaunchDestinationPending()).toBe(true);
+    const run = vi.fn();
+    pending.whenLaunchDestinationSettled(run);
+    expect(run).not.toHaveBeenCalled();
+    metrics.markAppReady("test");
+    expect(pending.isLaunchDestinationPending()).toBe(false);
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("복원 이동을 하지 않기로 정하면(settle) 미룬 일을 실행", async () => {
+    const { pending } = await load("/", "", null);
+    const nav = await import("@/lib/startup/lifecycle-nav-hold");
+    const spy = vi.spyOn(nav, "lifecycleNavHoldStartPath").mockReturnValue("/");
+    const run = vi.fn();
+    pending.whenLaunchDestinationSettled(run);
+    expect(run).not.toHaveBeenCalled();
+    spy.mockReturnValue(null);
+    nav.settleLifecycleNavHold();
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("알림도 복원도 없는 실행 = 대기 없음 → 바로 실행(이전과 같음)", async () => {
+    const { pending } = await load("/", "", null);
+    const nav = await import("@/lib/startup/lifecycle-nav-hold");
+    vi.spyOn(nav, "lifecycleNavHoldStartPath").mockReturnValue(null);
+    expect(pending.isLaunchDestinationPending()).toBe(false);
+    const run = vi.fn();
+    pending.whenLaunchDestinationSettled(run);
+    expect(run).toHaveBeenCalledTimes(1);
   });
 });

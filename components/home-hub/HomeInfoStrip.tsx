@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Cloud, CloudFog, CloudLightning, CloudRain, Sun, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { fetchExchangeRatesViaApp, type ExchangeRates } from "@/lib/exchange/fetchExchangeRates";
+import { untilLaunchDestinationSettled } from "@/lib/startup/launch-push-destination-pending";
 import { fetchAddressDefaultsSnapshot, peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { resolveExplorationAddressLineFromSnapshot } from "@/lib/addresses/address-defaults-snapshot-resolvers";
 import type { AddressDefaultsSnapshot } from "@/lib/addresses/address-defaults-snapshot";
@@ -104,6 +105,8 @@ export function HomeInfoStrip({
 
   const loadRate = useCallback(async () => {
     setRateStatus((s) => (s === "ok" ? s : "loading"));
+    // 재감사 2026-11-26 §9 A5: 시작 목적지(알림·직전 화면 복원)가 그려지기 전에는 홈 전용 요청을 내지 않는다(§24 D1-웹과 같은 규칙)
+    await untilLaunchDestinationSettled();
     const r = await fetchExchangeRatesViaApp();
     if (r) {
       setRate(r);
@@ -120,6 +123,8 @@ export function HomeInfoStrip({
   useEffect(() => {
     let alive = true;
     void (async () => {
+      await untilLaunchDestinationSettled();
+      if (!alive) return;
       let coord: { lat: number; lng: number; place: string | null } | null = null;
       if (isMember) {
         const snap =

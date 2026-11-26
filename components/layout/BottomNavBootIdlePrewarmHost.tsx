@@ -11,8 +11,8 @@ import { useRegion } from "@/contexts/RegionContext";
 import { shouldRunApkBottomNavRoutePrefetch } from "@/lib/platform/apk-remote-webview-perf";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import {
-  isLaunchPushDestinationPending,
-  whenLaunchPushDestinationSettled,
+  isLaunchDestinationPending,
+  whenLaunchDestinationSettled,
 } from "@/lib/startup/launch-push-destination-pending";
 
 /** Link `prefetch={true}` 와 같은 전략(Next `PrefetchKind.FULL` = "full") — 같은 라우터 캐시 항목을 채운다. */
@@ -49,7 +49,7 @@ export function BottomNavBootIdlePrewarmHost() {
 
     // 설계 §24 D4: 알림 목적지 대기 중이면 덮개가 걷힌 뒤 예열한다(실측: 대기 중 탭 RSC 8건이 채팅방 RSC 와 경쟁).
     // 대기가 없으면(아이콘 실행·iOS·알림 목적지 없음) 바로 — 이전과 같다.
-    cancelDeferredRef.current = whenLaunchPushDestinationSettled(() => {
+    cancelDeferredRef.current = whenLaunchDestinationSettled(() => {
       const cur = latestRef.current;
       scheduleBottomNavBootIdlePrewarm({
         pathname: cur.pathname ?? null,
@@ -76,7 +76,7 @@ export function BottomNavBootIdlePrewarmHost() {
         },
         (href) => {
           // 설계 §24 D4: 알림 목적지 대기 중 복귀 재예열도 하지 않는다
-          if (isLaunchPushDestinationPending()) return;
+          if (isLaunchDestinationPending()) return;
           latestRef.current.router.prefetch(href, PREFETCH_FULL);
         }
       )

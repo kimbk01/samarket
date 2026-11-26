@@ -9,7 +9,13 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getAppEntryDecision } from "@/lib/lifecycle/app-entry-kind";
 import { writeRestoreEnvelope, readLifecycleAccountKey } from "@/lib/lifecycle/restore-envelope";
-import { hasLaunchIntent, readPushLaunchIntentNavigated } from "@/lib/lifecycle/launch-intent.client";
+import {
+  hasAndroidSyncPushBridge,
+  hasLaunchIntent,
+  readPushLaunchIntentNavigated,
+} from "@/lib/lifecycle/launch-intent.client";
+import { readLaunchPushTarget } from "@/lib/startup/launch-push-hold";
+import { warmSessionForLaunchDestination } from "@/lib/startup/launch-destination-session-warm";
 import {
   LIFECYCLE_NAV_APPLIED_KEY as NAV_APPLIED_KEY,
   noteLifecycleNavIssued,
@@ -69,6 +75,14 @@ export function LifecycleRouteEffects(): null {
       return;
     }
     const navigateTo = d.navigateTo;
+    // 재감사 2026-11-26 §9 B1·B2 (`docs/audit/app-entry-reaudit-responsibility-ssot-2026-11-26.md`):
+    // 실측(Samsung) 목적지를 정한 뒤 의도 확인 왕복(0.49~0.67초)이 끝나야 채팅방 데이터·세션 확인이 시작됐다.
+    // Android 동기 브리지로 「알림 목적지 없음」이 확정된 실행이면 지금 시작한다(이동은 그대로 의도 확인 뒤 — §8 불변).
+    // 딥링크 의도가 나와 이동하지 않게 되면 받은 데이터는 쓰이지 않을 뿐 화면은 바뀌지 않는다. 아래 이동 직전 호출은 같은 단일 비행.
+    if (hasAndroidSyncPushBridge() && !readLaunchPushTarget()) {
+      prefetchLaunchRoomEntry(navigateTo, "lifecycle_restore");
+      warmSessionForLaunchDestination(navigateTo, "lifecycle_restore");
+    }
     // Lifecycle SSOT §8 — 의도 목적지(Push·Deep Link)가 있는 시작에서는 직전 화면 복원·Safe Entry 를 먼저 띄우지 않는다.
     // (재감사 2026-11-01: 앱 종료 후 공지 푸시 탭 → 직전 메신저 방이 잠깐 보인 뒤 공지 상세로 이동했다.)
     // 네이티브 보관 목적지 조회는 응답을 기다릴 뿐 고정 대기는 없다. 조회 불가(구버전·웹)면 기존대로 복원한다.
@@ -89,6 +103,7 @@ export function LifecycleRouteEffects(): null {
       console.info(`[dibay-lifecycle] navigate kind=${d.kind} → ${navigateTo}`);
       // 감사 2026-11-26 D2-R: 복원 목적지가 채팅방이면 이동과 동시에 채팅방 데이터·JS 를 받기 시작(게이트와 같은 단일 비행).
       prefetchLaunchRoomEntry(navigateTo, "lifecycle_restore");
+      warmSessionForLaunchDestination(navigateTo, "lifecycle_restore");
       noteLifecycleNavIssued();
       router.replace(navigateTo);
     }).catch(() => {

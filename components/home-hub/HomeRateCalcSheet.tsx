@@ -14,10 +14,22 @@ function parseAmount(v: string): number {
 }
 
 /**
+ * 재감사 2026-11-26 §9 A2 (`docs/audit/app-entry-reaudit-responsibility-ssot-2026-11-26.md` · Owner 「A1·B2 포함 진행」):
+ * 앱 시작 성능 기록(Samsung · 함수 표본)에서 닫혀 있는 이 시트를 홈이 그릴 때마다 약 41ms 썼다.
+ * 처음 열기 전에는 그리지 않는다. 한 번 열린 뒤에는 계속 붙여 두어 닫힘 움직임·다시 열기는 지금과 같다(화면·시안 불변).
+ */
+export function HomeRateCalcSheet(props: { open: boolean; onClose: () => void; rate: ExchangeRates | null }) {
+  const [everOpened, setEverOpened] = useState(props.open);
+  if (props.open && !everOpened) setEverOpened(true);
+  if (!everOpened && !props.open) return null;
+  return <HomeRateCalcSheetBody {...props} />;
+}
+
+/**
  * 환율 계산 시트 — ₱ ↔ ₩ (설계 §1·§3①). 위 칸에 입력하면 아래 칸이 바로 계산된다. 「위아래 바꾸기」로 방향 전환.
  * 숫자 입력에는 진동·소리 없음(§5-2). 새 페이지·새 요청 없음 — 정보 띠가 받은 환율을 그대로 쓴다.
  */
-export function HomeRateCalcSheet({
+function HomeRateCalcSheetBody({
   open,
   onClose,
   rate,

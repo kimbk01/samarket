@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { untilLaunchPushDestinationSettled } from "@/lib/startup/launch-push-destination-pending";
+import { untilLaunchDestinationSettled } from "@/lib/startup/launch-push-destination-pending";
 import { useRouter } from "next/navigation";
 import { Eye, MessageSquare } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -42,7 +42,7 @@ export function useHomePosts({
     const gateKey = `${url}|${refreshSeq}|${retryKey}`;
     if (revisitGate.isFresh(gateKey)) return;
     // 설계 §24 D1-웹: 알림으로 켠 실행이면 덮개가 걷힐 때까지(목적지 그림) 홈 전용 요청을 미룬다 · 그 밖에는 바로
-    void untilLaunchPushDestinationSettled()
+    void untilLaunchDestinationSettled()
       .then(() => (alive ? fetchNeighborhoodFeedShortTtl(url, { credentials: "include" }) : null))
       .then(async (res) => {
         if (!res) return;
