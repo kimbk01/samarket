@@ -212,10 +212,15 @@ export function TradeAdQuickSheet({
   useEffect(() => {
     if (!data) return;
     const prev = selectedKeyRef.current;
-    const lost = !pendingRow && Boolean(prev) && !buyable.some((r) => r.key === prev);
-    setChoiceLost(lost);
+    /**
+     * R-71: 「고른 상품이 사라졌어요」는 그 줄이 목록에서 **없어졌을 때만** — 잔액 부족은 줄 옆 「포인트 부족」 안내로 충분.
+     * 어느 경우든 다른 상품으로 바꾸지 않고 선택만 푼다.
+     */
+    const gone = !pendingRow && Boolean(prev) && !rows.some((r) => r.key === prev);
+    const unbuyable = !pendingRow && Boolean(prev) && !buyable.some((r) => r.key === prev);
+    setChoiceLost(gone);
     setSelectedKey(
-      pendingRow ? pendingRow.key : prev && !lost ? prev : prev ? null : buyable[0]?.key ?? null
+      pendingRow ? pendingRow.key : prev ? (unbuyable ? null : prev) : buyable[0]?.key ?? null
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);

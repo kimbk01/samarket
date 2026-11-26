@@ -407,12 +407,18 @@ export async function upsertOwnerBannerDraft(
     const { quoteDeliveryAdApplicationCommercial } = await import(
       "@/lib/stores/advertising/delivery-ad-commercial-catalog"
     );
-    const quote = await quoteDeliveryAdApplicationCommercial(sb, {
-      productKind: "banner",
-      inventoryKey: inv.key,
-      packageId,
-      storeId: input.storeId,
-    });
+    /** R-70: 견적 조회 오류 = 「확인 못 함」 */
+    let quote: Awaited<ReturnType<typeof quoteDeliveryAdApplicationCommercial>>;
+    try {
+      quote = await quoteDeliveryAdApplicationCommercial(sb, {
+        productKind: "banner",
+        inventoryKey: inv.key,
+        packageId,
+        storeId: input.storeId,
+      });
+    } catch {
+      return { ok: false, error: "capacity_check_failed" };
+    }
     if (!quote.ok) return { ok: false, error: "db_error" };
     const window = scheduleWindowFromPackageDurationDays(quote.durationDays, input.nowMs);
     if (!window.ok) return { ok: false, error: "invalid_end_at" };

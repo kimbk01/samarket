@@ -492,12 +492,18 @@ export async function createOwnerSponsoredDraft(
     } = await import("@/lib/stores/advertising/owner-delivery-ad-commercial-bind");
     const inventoryKey = inv.keys[0];
     if (!inventoryKey) return { ok: false, error: "no_inventory" };
-    const quote = await quoteDeliveryAdApplicationCommercial(sb, {
-      productKind: "store_sponsored",
-      inventoryKey,
-      packageId,
-      storeId: input.storeId,
-    });
+    /** R-70: 견적 조회 오류 = 「확인 못 함」 */
+    let quote: Awaited<ReturnType<typeof quoteDeliveryAdApplicationCommercial>>;
+    try {
+      quote = await quoteDeliveryAdApplicationCommercial(sb, {
+        productKind: "store_sponsored",
+        inventoryKey,
+        packageId,
+        storeId: input.storeId,
+      });
+    } catch {
+      return { ok: false, error: "capacity_check_failed" };
+    }
     if (!quote.ok) return { ok: false, error: "pricing_not_configured_ok" };
     const window = scheduleWindowFromPackageDurationDays(quote.durationDays, input.nowMs);
     if (!window.ok) return { ok: false, error: "invalid_end_at" };
@@ -680,12 +686,18 @@ export async function updateOwnerSponsoredDraft(
     } = await import("@/lib/stores/advertising/owner-delivery-ad-commercial-bind");
     const inventoryKey = nextKeys[0];
     if (!inventoryKey) return { ok: false, error: "no_inventory" };
-    const quote = await quoteDeliveryAdApplicationCommercial(sb, {
-      productKind: "store_sponsored",
-      inventoryKey,
-      packageId,
-      storeId: row.storeId,
-    });
+    /** R-70: 견적 조회 오류 = 「확인 못 함」 */
+    let quote: Awaited<ReturnType<typeof quoteDeliveryAdApplicationCommercial>>;
+    try {
+      quote = await quoteDeliveryAdApplicationCommercial(sb, {
+        productKind: "store_sponsored",
+        inventoryKey,
+        packageId,
+        storeId: row.storeId,
+      });
+    } catch {
+      return { ok: false, error: "capacity_check_failed" };
+    }
     if (!quote.ok) return { ok: false, error: "pricing_not_configured_ok" };
     const window = scheduleWindowFromPackageDurationDays(quote.durationDays, input.nowMs);
     if (!window.ok) return { ok: false, error: "invalid_end_at" };

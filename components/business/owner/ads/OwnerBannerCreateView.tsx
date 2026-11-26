@@ -554,6 +554,8 @@ export function OwnerBannerCreateView() {
             productKind: "banner",
             packageId,
             clientFinalPayableMinor: quote.finalPayableMinor,
+            /** R-69: 화면 견적에 보인 기간도 보낸다 — 서버가 지금 기간과 다르면 차감 없이 「요금이 바뀌었어요」 */
+            clientDurationDays: quote.durationDays,
           }),
         }
       );

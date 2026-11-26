@@ -192,6 +192,7 @@ export const pointsUiMessages = {
     feed_ad_req_current_exists: "현재 진행 중인 배너 광고가 있습니다. 내 광고에서 관리하세요.",
     /** 신청 실패 이유 (FB-04 · `feed-ad-member-error-key.ts`) */
     feed_ad_req_product_gone: "이 상품은 지금 신청할 수 없어요. 기간을 다시 골라 주세요.",
+    feed_ad_req_result_unknown: "신청 결과를 확인하지 못했어요. 다시 눌러도 같은 신청으로 확인해서 포인트가 두 번 묶이지 않아요.",
     feed_ad_renew_no_products: "지금 연장할 수 있는 배너 상품이 없어요.",
     feed_ad_req_spot_full: "이 자리가 찼어요. 신청되지 않았고 포인트는 그대로예요.",
     feed_ad_req_check_failed: "확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
@@ -596,6 +597,7 @@ export const pointsUiMessages = {
     feed_ad_req_invalid_dest: "Invalid destination.",
     feed_ad_req_current_exists: "You already have a current banner ad. Manage it from My ads.",
     feed_ad_req_product_gone: "This option isn't available now. Please choose the period again.",
+    feed_ad_req_result_unknown: "We couldn't confirm your request. Tapping again checks the same request, so your points won't be held twice.",
     feed_ad_renew_no_products: "No banner options are available to extend right now.",
     feed_ad_req_spot_full: "This spot is full. Not submitted; your points are unchanged.",
     feed_ad_req_check_failed: "Couldn't check right now. Please try again shortly.",

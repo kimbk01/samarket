@@ -80,6 +80,8 @@ export async function attachOwnerPaidCommercialSnapshotOnSubmit(
     inventoryKey: string;
     packageId: string;
     clientFinalPayableMinor?: number | null;
+    /** R-69: 화면 견적에 보인 기간 — 지금 상품 기간과 다르면 quote_stale(차감 없음) */
+    clientDurationDays?: number | null;
   }
 ): Promise<OwnerCommercialAttachResult> {
   const packageId = String(input.packageId ?? "").trim();
@@ -118,14 +120,20 @@ export async function attachOwnerPaidCommercialSnapshotOnSubmit(
     }
   }
 
-  const quote = await quoteDeliveryAdApplicationCommercial(sb, {
-    productKind: input.productKind,
-    inventoryKey: input.inventoryKey,
-    packageId,
-    storeId: input.storeId,
-    clientFinalPayableMinor:
-      input.clientFinalPayableMinor == null ? undefined : input.clientFinalPayableMinor,
-  });
+  let quote: Awaited<ReturnType<typeof quoteDeliveryAdApplicationCommercial>>;
+  try {
+    quote = await quoteDeliveryAdApplicationCommercial(sb, {
+      productKind: input.productKind,
+      inventoryKey: input.inventoryKey,
+      packageId,
+      storeId: input.storeId,
+      clientFinalPayableMinor:
+        input.clientFinalPayableMinor == null ? undefined : input.clientFinalPayableMinor,
+    });
+  } catch {
+    /** R-70: 견적 조회 오류 = 「확인 못 함」(503) — 차감 전 */
+    return { ok: false, error: "capacity_check_failed" };
+  }
 
   if (!quote.ok) {
     return {
@@ -141,6 +149,17 @@ export async function attachOwnerPaidCommercialSnapshotOnSubmit(
     input.clientFinalPayableMinor !== quote.finalPayableMinor
   ) {
     return { ok: false, error: "quote_stale", quoteError: "client_payable_mismatch" };
+  }
+  /**
+   * R-69: 기간도 대조 — 어드민이 (가격은 그대로) 기간만 바꾸면 화면 「7일」을 보고 3일로 결제되는 것을 막는다.
+   * (회원 배너 연장 R-35 와 같은 방식)
+   */
+  if (
+    input.clientDurationDays != null &&
+    Number.isInteger(input.clientDurationDays) &&
+    input.clientDurationDays !== quote.durationDays
+  ) {
+    return { ok: false, error: "quote_stale", quoteError: "client_duration_mismatch" };
   }
 
   const snapshot = prepareOwnerPaidCampaignSnapshotFromQuote({

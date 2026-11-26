@@ -116,9 +116,16 @@ export function MemberPostPromoteSheet({
       const pending = items.find((i) => i.id === pendingProduct);
       const prev = productIdRef.current;
       const prevItem = prev ? items.find((i) => i.id === prev) : undefined;
-      const lost = !pending && Boolean(prev) && !(prevItem && canBuy(prevItem));
-      setChoiceLost(lost);
-      setProductId(pending ? pending.id : prev && !lost ? prev : prev ? null : (items.find(canBuy)?.id ?? null));
+      /**
+       * R-71: 「고른 상품이 사라졌어요」는 그 상품이 목록에서 **꺼졌을 때만**.
+       * 잔액이 모자라게 된 경우는 선택만 풀고 기존 「포인트 부족 · 충전」 안내를 쓴다(다른 상품으로 바꾸지 않음).
+       */
+      const gone = !pending && Boolean(prev) && !prevItem;
+      const unaffordable = !pending && Boolean(prevItem) && !canBuy(prevItem as CatalogItem);
+      setChoiceLost(gone);
+      setProductId(
+        pending ? pending.id : prev ? (gone || unaffordable ? null : prev) : (items.find(canBuy)?.id ?? null)
+      );
       const st = String(promoJ.activeForTarget?.orderStatus ?? "").toLowerCase();
       const activeEnd = promoJ.activeForTarget?.endAt?.trim() || null;
       setPausedExisting(st === "paused");
@@ -151,6 +158,11 @@ export function MemberPostPromoteSheet({
     setSuccessExtended(false);
     setSuccessReplay(false);
     setPendingReview(false);
+    /** R-71: 창을 다시 열면 지난번 선택은 「고른 상품」이 아니다 — 비우고 살 수 있는 첫 상품부터 */
+    setProductId(null);
+    productIdRef.current = null;
+    setChoiceLost(false);
+    setLoadFailed(false);
     attemptKeys.current.reset();
     void load();
   }, [open, load]);

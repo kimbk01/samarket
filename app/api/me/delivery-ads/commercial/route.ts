@@ -201,12 +201,18 @@ export async function GET(req: NextRequest) {
   if (packageId && (homeFeedBlocked || categoryFeedBlocked)) {
     quote = { ok: false as const, error: "placement_not_sellable" };
   } else if (packageId) {
-    const q = await quoteDeliveryAdApplicationCommercial(sb, {
-      productKind: productKindRaw,
-      inventoryKey,
-      packageId,
-      storeId,
-    });
+    /** R-70: 견적 조회 오류 = 503 「확인 못 함」 */
+    let q: Awaited<ReturnType<typeof quoteDeliveryAdApplicationCommercial>>;
+    try {
+      q = await quoteDeliveryAdApplicationCommercial(sb, {
+        productKind: productKindRaw,
+        inventoryKey,
+        packageId,
+        storeId,
+      });
+    } catch {
+      return NextResponse.json({ ok: false, error: "capacity_check_failed" }, { status: 503 });
+    }
     if (q.ok) {
       quote = {
         ok: true as const,

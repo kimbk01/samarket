@@ -131,4 +131,33 @@ describe("commercial snapshot resubmit reuse", () => {
     expect(res.error).toBe("quote_stale");
     expect(res.quoteError).toBe("existing_snapshot_mismatch");
   });
+
+  it("R-69: 화면 기간과 지금 상품 기간이 다르면 quote_stale(요금 기록 없음 · 차감 전)", async () => {
+    const r = await attachOwnerPaidCommercialSnapshotOnSubmit({} as never, {
+      campaignId: "camp-1",
+      storeId: "store-1",
+      productKind: "store_sponsored",
+      inventoryKey: "STORES_HOME_FEED",
+      packageId: "pkg-1",
+      clientFinalPayableMinor: 12000,
+      clientDurationDays: 3,
+    });
+    expect(r).toMatchObject({ ok: false, error: "quote_stale", quoteError: "client_duration_mismatch" });
+    expect(insertCampaignCommercialSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("R-70: 견적 조회 오류는 「확인 못 함」(capacity_check_failed) — 「판매 안 함」이 아님", async () => {
+    quoteDeliveryAdApplicationCommercial.mockRejectedValueOnce(new Error("db down"));
+    const r = await attachOwnerPaidCommercialSnapshotOnSubmit({} as never, {
+      campaignId: "camp-1",
+      storeId: "store-1",
+      productKind: "store_sponsored",
+      inventoryKey: "STORES_HOME_FEED",
+      packageId: "pkg-1",
+      clientFinalPayableMinor: 12000,
+      clientDurationDays: 7,
+    });
+    expect(r).toMatchObject({ ok: false, error: "capacity_check_failed" });
+    expect(insertCampaignCommercialSnapshot).not.toHaveBeenCalled();
+  });
 });

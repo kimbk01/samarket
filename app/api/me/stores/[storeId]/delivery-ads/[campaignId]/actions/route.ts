@@ -142,6 +142,8 @@ export async function POST(
   const productKind =
     body.productKind === "banner" || body.product_kind === "banner" ? "banner" : "store_sponsored";
 
+  /** R-69: 화면 견적에 보인 기간 */
+  const clientDurationDays = typeof body.clientDurationDays === "number" ? body.clientDurationDays : null;
   const clientFinalPayableMinor =
     typeof body.clientFinalPayableMinor === "number"
       ? body.clientFinalPayableMinor
@@ -180,6 +182,7 @@ export async function POST(
         inventoryKey,
         packageId,
         clientFinalPayableMinor,
+        clientDurationDays,
       });
       if (!commercial.ok) {
         return NextResponse.json(
@@ -256,6 +259,7 @@ export async function POST(
       inventoryKey,
       packageId,
       clientFinalPayableMinor,
+      clientDurationDays,
     });
     if (!commercial.ok) {
       return NextResponse.json(

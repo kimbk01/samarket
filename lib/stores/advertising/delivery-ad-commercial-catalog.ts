@@ -190,7 +190,11 @@ export async function quoteDeliveryAdApplicationCommercial(
   }
 ): Promise<DeliveryAdCommercialQuote> {
   void input.clientFinalPayableMinor;
-  const catalog = await loadDeliveryAdCommercialCatalog(sb);
+  /**
+   * R-70: 견적은 엄격 조회 — 조회 오류를 「이 기간은 판매하지 않아요」(package_disabled)로 바꾸지 않고 던진다.
+   * 호출처(제출·신청서 저장·사장님 상품 API)가 「확인 못 함」으로 돌려준다.
+   */
+  const catalog = await loadDeliveryAdCommercialCatalog(sb, { strict: true });
   const product = catalog.products.find((p) => p.key === input.productKind);
   const pkg = catalog.packages.find((p) => p.id === input.packageId);
   const placement =

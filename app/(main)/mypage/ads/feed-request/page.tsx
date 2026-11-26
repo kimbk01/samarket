@@ -40,6 +40,7 @@ import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { formatMypageDate, formatMypageMoney, formatMypagePoint } from "@/lib/mypage/format-mypage-date";
 import { useReleaseDroppedBlobUrls } from "@/lib/media/use-release-dropped-blob-urls";
+import { createPromotionAttemptKeyStore } from "@/lib/points/promotion-attempt-key";
 
 type Cat = { id: string; name: string; nameEn: string | null };
 type Topic = { id: string; slug: string; name: string; nameEn: string | null };
@@ -145,6 +146,11 @@ export default function MemberFeedAdRequestPage() {
    */
   const loadSeqRef = useRef(0);
   const prefillProductIdRef = useRef<string | null>(null);
+  /**
+   * R-72: 같은 신청 시도 = 같은 요청 키 — 응답이 끊긴 뒤 다시 눌러도 서버가 처음 신청을 돌려준다(보류 두 번 방지).
+   * 서버가 결과를 확정해 돌려준 뒤(성공·4xx)에만 키를 버린다. 다른 결제 화면 4곳과 같은 저장소.
+   */
+  const attemptKeysRef = useRef(createPromotionAttemptKeyStore());
   /** R-30: 회원이 고른(또는 광고하기 창에서 넘어온) 상품이 지금 목록에 없음 */
   const [chosenProductGone, setChosenProductGone] = useState(false);
   /** R-54: 상품 목록을 불러오지 못함 */
@@ -501,11 +507,9 @@ export default function MemberFeedAdRequestPage() {
 
     setBusy(true);
     setErr("");
+    let status: number | null = null;
     try {
-      const idem =
-        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-          ? crypto.randomUUID()
-          : `feed-ad-${Date.now()}`;
+      const idem = attemptKeysRef.current.keyFor(`feed-banner:${domain}:${placement}`, selected.id);
 
       let destinationType: string = "";
       let destinationId = "";
@@ -546,8 +550,17 @@ export default function MemberFeedAdRequestPage() {
           idempotencyKey: idem,
         }),
       });
+      status = res.status;
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      /** 성공 응답인데 본문을 못 읽음 = 결과를 모름 → 키 유지 */
+      if (res.ok && typeof j.ok !== "boolean") status = null;
       if (!res.ok || !j.ok) {
+        if (res.status >= 500 || status == null) {
+          /** R-72: 5xx·본문 없음 = 결과를 모름 → 같은 키로 다시 확인 */
+          const unknownMsg = t("feed_ad_req_result_unknown");
+          setErr(j.error ? t(feedAdMemberErrorKey(j.error)) : unknownMsg);
+          return;
+        }
         const code = j.error ?? "failed";
         /** FB-04: 실패 이유 → 문구 키 단일 정의 (서버는 코드만) */
         const msg = t(feedAdMemberErrorKey(code));
@@ -564,7 +577,12 @@ export default function MemberFeedAdRequestPage() {
       invalidateMypageSummary();
       // 신청 후 내 광고 — [대기] 탭 선택
       router.push("/mypage/ads?tab=pending");
+    } catch {
+      /** R-72: 응답을 못 받음(네트워크 끊김) = 결과를 모름 — 키를 유지하고 안내 */
+      status = null;
+      setErr(t("feed_ad_req_result_unknown"));
     } finally {
+      attemptKeysRef.current.settleIfFinal(status);
       setBusy(false);
     }
   };
