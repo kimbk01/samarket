@@ -14,6 +14,8 @@ import {
 import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { confirmBigAdPriceChange } from "@/lib/admin/ads-commercial/confirm-big-ad-price-change";
+import { formatAdPriceRatio, isBigAdPriceChange } from "@/lib/admin/ads-commercial/ad-price-change-guard";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminConflictReloadedCode } from "@/lib/admin/operator-ux/operator-labels";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
@@ -102,14 +104,33 @@ export function AdminFeedAdProductsClient() {
   const save = async (row: Row) => {
     if (!writeGuard.guard()) return;
     const ko = !en;
+    /** D-13: 확인 창에 「이전 → 새 금액 (×배수)」 · 3배 이상이면 한 번 더 확인 */
+    const nextPoint = Math.floor(Number(row.draftPoint));
+    const priceLine =
+      Number.isFinite(nextPoint) && nextPoint !== row.pointCost
+        ? t("admin_ads_price_change_line", {
+            label: t(feedAdProductTitleKey(row.domain), { days: String(row.durationDays) }),
+            before: `${row.pointCost.toLocaleString()}P`,
+            after: `${nextPoint.toLocaleString()}P`,
+            ratio: formatAdPriceRatio(row.pointCost, nextPoint) ?? "",
+          })
+        : null;
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("pointPolicySave"),
       ko,
       title: t("admin_ads_save_banner_ad_product"),
-      description: t("admin_ads_duration_point_apply_new_requests"),
+      description: priceLine
+        ? `${priceLine} — ${t("admin_ads_duration_point_apply_new_requests")}`
+        : t("admin_ads_duration_point_apply_new_requests"),
       confirmLabel: adminCta("save", ko),
     });
     if (!confirmed.ok) return;
+    const bigOk = await confirmBigAdPriceChange({
+      ko,
+      t,
+      bigLines: priceLine && isBigAdPriceChange(row.pointCost, nextPoint) ? [priceLine] : [],
+    });
+    if (!bigOk) return;
     setBusyId(row.id);
     setResult(null);
     try {

@@ -4,6 +4,7 @@
  * No UI.
  */
 
+import { isAdPhpPriceOverCap } from "@/lib/admin/ads-commercial/ad-price-change-guard";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   DELIVERY_AD_COMMERCIAL_OVERRIDE_AUDIT_TABLE,
@@ -71,6 +72,10 @@ export async function adminUpdateDeliveryAdPackagePrice(
     (!assertDeliveryAdMoneyMinor(input.priceAmountMinor) || input.priceAmountMinor <= 0)
   ) {
     return { ok: false, error: "invalid_price" };
+  }
+  /** D-13: 금액 상한(₱100,000) — 오타 방지 */
+  if (input.priceAmountMinor != null && isAdPhpPriceOverCap(input.priceAmountMinor)) {
+    return { ok: false, error: "price_over_cap" };
   }
   const { data: beforeRaw, error: loadErr } = await sb
     .from(DELIVERY_AD_PACKAGE_TABLE)
@@ -377,6 +382,10 @@ export async function adminCreateDeliveryAdPackage(
     (!assertDeliveryAdMoneyMinor(input.priceAmountMinor) || input.priceAmountMinor <= 0)
   ) {
     return { ok: false, error: "invalid_price" };
+  }
+  /** D-13: 금액 상한(₱100,000) — 오타 방지 */
+  if (input.priceAmountMinor != null && isAdPhpPriceOverCap(input.priceAmountMinor)) {
+    return { ok: false, error: "price_over_cap" };
   }
   if (input.enabled && (input.priceAmountMinor == null || input.priceAmountMinor <= 0)) {
     return { ok: false, error: "price_required_to_enable" };

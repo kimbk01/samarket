@@ -39,7 +39,17 @@ export const dynamic = "force-dynamic";
  *   → `{ orders, total, offset, limit, period, periodSummary }` — 50건 잘림 없음, 합계는 기간 전체.
  * `offset` 이 없으면 예전 응답(최근 50건 · `targetId` 거르기) 그대로 — 광고 시트·내 상품 등 호출처 유지.
  */
-export async function GET(req: NextRequest): Promise<NextResponse> {
+/**
+ * D-18 (광고 감사 · 2026-11-27): 가격 목록·견적 응답은 캐시하지 않는다 — 어드민 금액 변경이 다음 열기부터 바로 보이게.
+ * 모든 응답(성공·오류)에 `Cache-Control: private, no-store`.
+ */
+export async function GET(req: NextRequest) {
+  const res = await getUncached(req);
+  res.headers.set("Cache-Control", "private, no-store");
+  return res;
+}
+
+async function getUncached(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 

@@ -143,6 +143,9 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
   const [perfLoading, setPerfLoading] = useState(false);
   const [placementPreview, setPlacementPreview] =
     useState<DeliveryAdPlacementPreviewPayload | null>(null);
+  /** SA-11: 환불 금액·시각 (환불 원장 기준) */
+  const [refundAmountMinor, setRefundAmountMinor] = useState<number | null>(null);
+  const [refundedAt, setRefundedAt] = useState<string | null>(null);
   const [fundingStatus, setFundingStatus] = useState<
     "UNFUNDED" | "FUNDED" | "REFUNDED" | null
   >(null);
@@ -285,12 +288,16 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
             status?: "UNFUNDED" | "FUNDED" | "REFUNDED";
             fundingStatus?: "UNFUNDED" | "FUNDED" | "REFUNDED";
             fundedAt?: string | null;
+            refundAmountMinor?: number | null;
+            refundedAt?: string | null;
           };
           businessCash?: { balanceMinor?: number };
         };
         if (cancelled || !res.ok || !json.ok) return;
         setFundingStatus(json.funding?.status ?? json.funding?.fundingStatus ?? "UNFUNDED");
         setFundedAt(json.funding?.fundedAt ?? null);
+        setRefundAmountMinor(typeof json.funding?.refundAmountMinor === "number" ? json.funding.refundAmountMinor : null);
+        setRefundedAt(json.funding?.refundedAt ?? null);
         setCashBalanceMinor(
           typeof json.businessCash?.balanceMinor === "number"
             ? json.businessCash.balanceMinor
@@ -673,7 +680,14 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                 {fundedAt ? ` · ${formatPhtDisplayDateTime(fundedAt, language === "en" ? "en" : "ko")}` : ""}
               </p>
             ) : fundingStatus === "REFUNDED" ? (
-              <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_funding_refunded")}</p>
+              <p className="mt-2 text-[13px] text-sam-muted" data-owner-ads-refunded="1">
+                {refundAmountMinor != null && refundedAt
+                  ? t("owner_ads_funding_refunded_detail", {
+                      amount: formatDeliveryAdPhpMinor(refundAmountMinor),
+                      at: formatPhtDisplayDateTime(refundedAt, language === "en" ? "en" : "ko"),
+                    })
+                  : t("owner_ads_funding_refunded")}
+              </p>
             ) : (
               <>
                 <p className="mt-2 text-[13px] font-semibold text-sam-fg">

@@ -1,5 +1,6 @@
 "use client";
 
+import { handlePriceChanged, isPriceChangedError } from "@/lib/ads/handle-price-changed";
 import { DibayPendingSpinner, DibaySpinner } from "@/components/ui/DibaySpinner";
 import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
@@ -164,11 +165,11 @@ export default function MemberFeedAdRequestPage() {
   useEffect(() => {
     productIdRef.current = productId;
   }, [productId]);
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<boolean | void> => {
     const seq = ++loadSeqRef.current;
     /** R-54: 상품 조회 실패(서버 503 · 네트워크)는 「고른 상품이 없어졌어요」가 아니라 「불러오지 못했어요 · 다시 시도」 — 고른 상품은 그대로 */
     const [prodRes, balRes, tgtRes] = await Promise.all([
-      fetch(`/api/me/feed-ad-requests?domain=${domain}`, { credentials: "include" }).catch(() => null),
+      fetch(`/api/me/feed-ad-requests?domain=${domain}`, { credentials: "include", cache: "no-store" }).catch(() => null),
       fetch("/api/me/points", { credentials: "include", cache: "no-store" }).catch(() => null),
       fetch("/api/me/feed-ad-targets", { credentials: "include" }).catch(() => null),
     ]);
@@ -181,7 +182,7 @@ export default function MemberFeedAdRequestPage() {
     if (seq !== loadSeqRef.current) return;
     if (!prodRes || !prodRes.ok || pj.ok === false || !Array.isArray(pj.catalog)) {
       setCatalogLoadFailed(true);
-      return;
+      return false;
     }
     setCatalogLoadFailed(false);
     const items = pj.catalog.filter((p) => p.domain === domain);
@@ -568,9 +569,16 @@ export default function MemberFeedAdRequestPage() {
         const code = j.error ?? "failed";
         /** FB-04: 실패 이유 → 문구 키 단일 정의 (서버는 코드만) */
         const msg = t(feedAdMemberErrorKey(code));
-        if (code === "price_changed") {
-          /** 새 금액·기간을 다시 읽은 뒤 안내 (다시 읽기가 안내를 지우지 않게 순서 고정) */
-          await load();
+        if (isPriceChangedError(code)) {
+          /** X-2 공용 처리: 새 금액·기간을 다시 읽은 뒤, 성공했을 때만 「금액이 바뀌었어요」 (실패면 「불러오지 못했어요」가 남음) */
+          await handlePriceChanged({
+            reload: load,
+            notify: () => {
+              setErr(msg);
+              showMypageToast(msg, "error");
+            },
+          });
+          return;
         }
         if (code === "capacity_full") setPoolRemaining((p) => (p ? { ...p, remaining: 0 } : { remaining: 0, capacity: 3 }));
         setErr(msg);

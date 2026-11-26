@@ -5,6 +5,7 @@
  * Surface multi-select + CTA destinations + visible crop + Cash recovery with requestId.
  */
 
+import { ownerPopupErrorKey } from "@/lib/platform-popup/owner-popup-error-copy";
 import { OwnerCta } from "@/lib/business/owner-cta-classes";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import Link from "next/link";
@@ -489,11 +490,9 @@ export function OwnerPlatformPopupApplyView() {
                 {safeT("owner_platform_popup_go_finance")}
               </Link>
             </>
-          ) : error === "owner_platform_popup_new_sales_disabled" ? (
-            safeT("owner_platform_popup_new_sales_disabled")
           ) : (
-            /* PP-03: 오류 코드 원문을 보이지 않는다 */
-            safeT("owner_ads_error_generic")
+            /* PP-03·X-3: 오류 코드 → 문구 키 단일 정의(`ownerPopupErrorKey`) — 오류 코드 원문을 보이지 않는다 */
+            safeT(ownerPopupErrorKey(error))
           )}
         </div>
       ) : null}

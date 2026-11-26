@@ -319,6 +319,7 @@ export default function MyAdsPageClient() {
     try {
       const res = await fetch(`/api/me/feed-ad-requests?domain=${row.domain}`, {
         credentials: "include",
+        cache: "no-store",
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; catalog?: FeedAdProduct[] };
       if (res.ok && j.ok !== false && Array.isArray(j.catalog)) {

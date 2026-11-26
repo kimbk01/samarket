@@ -1,5 +1,6 @@
 "use client";
 
+import { handlePriceChanged, isPriceChangedError } from "@/lib/ads/handle-price-changed";
 import { DibayPendingSpinner, DibaySpinner } from "@/components/ui/DibaySpinner";
 import { formatPhtDisplayDateTime } from "@/lib/time/format-pht-display";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -252,12 +253,9 @@ export function MemberPostPromoteSheet({
       if (res.ok && typeof j.ok !== "boolean") status = null;
       if (!res.ok || !j.ok) {
         const errKey = promotionPurchaseErrorKey(j);
-        if (j.error === "price_changed") {
-          /** 새 가격을 다시 읽은 뒤 안내 (다시 읽기가 안내를 지우지 않게 순서 고정) */
-          /** R-61: 다시 읽기가 성공했을 때만 「가격이 바뀌었어요」 — 실패면 「불러오지 못했어요」가 남는다 */
-          void load().then((ok) => {
-            if (ok) setErr(safeT(errKey));
-          });
+        if (isPriceChangedError(j.error)) {
+          /** X-2 공용 처리: 다시 읽기가 성공했을 때만 「가격이 바뀌었어요」 (R-61) */
+          void handlePriceChanged({ reload: load, notify: () => setErr(safeT(errKey)) });
         } else {
           setErr(safeT(errKey));
         }

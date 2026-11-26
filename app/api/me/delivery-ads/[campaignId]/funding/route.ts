@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { BUSINESS_CASH_LEDGER_TABLE } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -80,6 +81,22 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 
   const status = funding?.status ?? "UNFUNDED";
   const amountMinor = funding?.amountMinor ?? null;
+  /**
+   * SA-11: 환불 금액·시각 — 운영 종료 환불은 남은 기간 비율이라 결제 금액과 다를 수 있다 → 환불 원장 행 금액을 그대로.
+   * 환불됐을 때만 1회 조회. 실패하면 null(금액 없이 「환불됨」만).
+   */
+  let refundAmountMinor: number | null = null;
+  let refundedAt: string | null = null;
+  if (status === "REFUNDED" && funding?.refundLedgerId) {
+    const { data: refundRow } = await sb
+      .from(BUSINESS_CASH_LEDGER_TABLE)
+      .select("amount_minor, created_at")
+      .eq("id", funding.refundLedgerId)
+      .maybeSingle();
+    const r = refundRow as { amount_minor?: unknown; created_at?: unknown } | null;
+    if (r && Number.isFinite(Number(r.amount_minor))) refundAmountMinor = Math.abs(Math.trunc(Number(r.amount_minor)));
+    if (r && typeof r.created_at === "string") refundedAt = r.created_at;
+  }
 
   return NextResponse.json({
     ok: true,
@@ -94,6 +111,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       refundLedgerId: funding?.refundLedgerId ?? null,
       fundingId: funding?.fundingId ?? null,
       fundedAt: funding?.fundedAt ?? null,
+      refundAmountMinor,
+      refundedAt,
       authority: AST_005_BUSINESS_CASH,
     },
     businessCash: {

@@ -360,7 +360,11 @@ export function OwnerDeliveryAdsHubView() {
         </button>
         {eligibleStoreCount === 0 ? (
           <p className="mt-2 text-[12px] text-sam-muted" data-owner-ads-not-eligible="1">
-            {t("owner_ads_store_not_eligible_reason")}
+            {t("owner_ads_store_not_eligible_reason")}{" "}
+            {/* SA-06: 신청 못 하는 이유를 고치러 가는 길 — 매장 정보 화면 */}
+            <Link href="/stores/owner/profile" className="font-medium text-sam-primary underline" data-owner-ads-store-info-link="1">
+              {t("mypage_comp_view_store_info")}
+            </Link>
           </p>
         ) : null}
         </>

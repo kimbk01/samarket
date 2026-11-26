@@ -14,6 +14,8 @@ import {
   AdminLoadingState,
   AdminResultBanner,
 } from "@/components/admin/ui/AdminStateViews";
+import { confirmBigAdPriceChange } from "@/lib/admin/ads-commercial/confirm-big-ad-price-change";
+import { formatAdPriceRatio, isBigAdPriceChange } from "@/lib/admin/ads-commercial/ad-price-change-guard";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
@@ -50,6 +52,8 @@ export function AdminDeliveryAdCommercialSettingsView() {
   const { t, language, safeT } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const [catalog, setCatalog] = useState<Catalog | null>(null);
+  /** SA-01④: 배달 홈 홍보 노출 자리 켜짐 여부 (null = 확인 못 함) */
+  const [homeFeedSellable, setHomeFeedSellable] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -68,6 +72,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
     const j = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       catalog?: Catalog;
+      homeFeedSellable?: boolean | null;
       error?: string;
     };
     if (!res.ok || !j.ok || !j.catalog) {
@@ -76,11 +81,37 @@ export function AdminDeliveryAdCommercialSettingsView() {
       return;
     }
     setCatalog(j.catalog);
+    setHomeFeedSellable(typeof j.homeFeedSellable === "boolean" ? j.homeFeedSellable : null);
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * D-13: 가격 저장 확인에 「이전 → 새 금액 (×배수)」 줄 · 3배 이상 바뀐 줄은 한 번 더 확인.
+   * 이전 금액 = 화면이 읽은 카탈로그의 그 기간 상품 금액.
+   */
+  const priceChangeLines = (bodies: Array<Record<string, unknown>>) => {
+    const lines: string[] = [];
+    const bigLines: string[] = [];
+    for (const b of bodies) {
+      if (b.op !== "update_package" || typeof b.priceAmountMinor !== "number") continue;
+      const pkg = catalog?.packages.find((x) => x.id === b.packageId);
+      const before = pkg?.priceAmountMinor ?? null;
+      const after = b.priceAmountMinor;
+      if (before === after) continue;
+      const line = t("admin_ads_price_change_line", {
+        label: pkg ? `${deliveryAdCommercialPlacementLabel(pkg.inventoryKey, lang)} ${pkg.durationDays}${translateBy(lang, "admin_d")}` : "",
+        before: isAdminDeliveryAdPriceUnset(before) ? "—" : `₱${((before as number) / 100).toFixed(2)}`,
+        after: `₱${(after / 100).toFixed(2)}`,
+        ratio: formatAdPriceRatio(before, after) ?? "",
+      });
+      lines.push(line);
+      if (isBigAdPriceChange(before, after)) bigLines.push(line);
+    }
+    return { lines, bigLines };
+  };
 
   /** 재감사 S-2 (H-4): 배달 광고 상업 설정 저장 = business 키 */
   const writeGuard = useAdminWriteGuard("/admin/delivery-ads");
@@ -96,14 +127,16 @@ export function AdminDeliveryAdCommercialSettingsView() {
           : op === "update_product" || op === "update_placement"
             ? t("admin_stores_save_sales_setting")
             : t("admin_stores_save_ad_price");
+    const priceLines = priceChangeLines([body]);
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
       title,
-      description: t("admin_stores_applies_to_new_applications_only_approved"),
+      description: [...priceLines.lines, t("admin_stores_applies_to_new_applications_only_approved")].join(" — "),
       confirmLabel: adminCta(op === "create_package" ? "create" : "save", ko),
     });
     if (!confirmed.ok) return;
+    if (!(await confirmBigAdPriceChange({ ko, t, bigLines: priceLines.bigLines }))) return;
     setBusy(true);
     setError(null);
     setMsg(null);
@@ -145,16 +178,19 @@ export function AdminDeliveryAdCommercialSettingsView() {
     if (!writeGuard.guard()) return;
     if (bodies.length === 0) return;
     const ko = lang !== "en";
+    const priceLines = priceChangeLines(bodies.map((b) => b.body));
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
       title: t("admin_stores_save_ad_price"),
-      description: `${targetLabel} · ${bodies.map((b) => b.label).join(", ")} — ${
-        t("admin_stores_applies_to_new_applications_only_approved")
-      }`,
+      description: `${targetLabel} · ${bodies.map((b) => b.label).join(", ")} — ${[
+        ...priceLines.lines,
+        t("admin_stores_applies_to_new_applications_only_approved"),
+      ].join(" — ")}`,
       confirmLabel: adminCta("save", ko),
     });
     if (!confirmed.ok) return;
+    if (!(await confirmBigAdPriceChange({ ko, t, bigLines: priceLines.bigLines }))) return;
     setBusy(true);
     setError(null);
     setMsg(null);
@@ -453,6 +489,14 @@ export function AdminDeliveryAdCommercialSettingsView() {
                       <div className="text-[12px] text-sam-muted">
                         {adminDeliveryAdProductHumanLabel(pl.productKind, lang)}
                       </div>
+                      {pl.inventoryKey === "STORES_HOME_FEED" && homeFeedSellable === false ? (
+                        <div className="mt-1 text-[12px] font-medium text-sam-warning" data-commercial-home-feed-off="1">
+                          {t("admin_ads_home_feed_exposure_off")}{" "}
+                          <Link href="/admin/stores-home-shelves" className="underline">
+                            {safeT("admin_delivery_ads_exposure_policy_link")}
+                          </Link>
+                        </div>
+                      ) : null}
                     </div>
                     {/* SA-13: 사장님 신청 화면에 없는 지면(검색 상단 등)은 체크해도 팔리지 않는다 — 잠그고 이유 표시 */}
                     {!(DELIVERY_AD_COMMERCIAL_INVENTORY_BY_PRODUCT[pl.productKind] as readonly string[]).includes(pl.inventoryKey) ? (

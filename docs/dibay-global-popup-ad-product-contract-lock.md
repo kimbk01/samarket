@@ -600,3 +600,9 @@ A DIBAY-native, creative-first promotional popup system whose campaign, surface,
 Until measured geometry is locked:
 
 **PRODUCT LOCKED. PIXELS UNLOCKED. IMPLEMENTATION BLOCKED.**
+
+## 매장(사장님) 유료 팝업 판매 — 꺼짐 유지 메모 (광고 감사 D-17·PP-04 · 2026-11-27)
+
+- 매장 유료 팝업은 **신규 판매 꺼짐**(`lib/platform-popup/owner-popup-new-sales-gate.ts` `OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED = false`) — 광고 요금 안내에도 넣지 않는다.
+- 꺼짐 동안: 신청·초안 수정·소재 업로드·제출은 서버가 거절(취소만 허용), 어드민 「수정 요청」은 409 — 결제된 신청은 반려(환불)로만 끝낸다.
+- **다시 팔려면 먼저**: 매장 팝업 가격·기간을 어드민에서 정하는 가격 화면(다른 매장 광고와 같은 상품·패키지 표·동시 저장 보호)을 만든다. 가격 화면 없이 판매를 켜지 않는다.

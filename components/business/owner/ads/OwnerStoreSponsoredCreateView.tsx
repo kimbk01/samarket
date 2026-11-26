@@ -324,6 +324,7 @@ export function OwnerStoreSponsoredCreateView() {
       }
       const res = await fetch(`/api/me/delivery-ads/commercial?${qs.toString()}`, {
         credentials: "include",
+        cache: "no-store",
       });
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;

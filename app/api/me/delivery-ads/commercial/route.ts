@@ -74,7 +74,17 @@ async function homeFeedGateForOwner(
   }
 }
 
+/**
+ * D-18 (광고 감사 · 2026-11-27): 가격 목록·견적 응답은 캐시하지 않는다 — 어드민 금액 변경이 다음 열기부터 바로 보이게.
+ * 모든 응답(성공·오류)에 `Cache-Control: private, no-store`.
+ */
 export async function GET(req: NextRequest) {
+  const res = await getUncached(req);
+  res.headers.set("Cache-Control", "private, no-store");
+  return res;
+}
+
+async function getUncached(req: NextRequest): Promise<NextResponse> {
   const userId = await getRouteUserId();
   if (!userId) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   const session = await validateActiveSession(userId);

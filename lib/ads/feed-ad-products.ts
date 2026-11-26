@@ -11,6 +11,7 @@
  * second runtime price authority.
  */
 
+import { isAdPointPriceOverCap } from "@/lib/admin/ads-commercial/ad-price-change-guard";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FeedAdDomain } from "@/lib/ads/feed-ad-placement";
 
@@ -162,6 +163,8 @@ export async function updateFeedAdProduct(
   if (patch.pointCost != null) {
     const p = Math.floor(Number(patch.pointCost));
     if (!Number.isFinite(p) || p < 1) return { ok: false, error: "invalid_point_cost" };
+    /** D-13: 금액 상한(1,000,000P) — 오타 방지 */
+    if (isAdPointPriceOverCap(p)) return { ok: false, error: "price_over_cap" };
     update.point_cost = p;
   }
   if (patch.titleKo != null) update.title_ko = String(patch.titleKo).trim();

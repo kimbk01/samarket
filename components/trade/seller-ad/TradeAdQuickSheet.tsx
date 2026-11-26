@@ -1,5 +1,6 @@
 "use client";
 
+import { handlePriceChanged } from "@/lib/ads/handle-price-changed";
 import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { formatPhtDisplayDateTime } from "@/lib/time/format-pht-display";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -313,7 +314,11 @@ export function TradeAdQuickSheet({
       const err = j.error ?? "";
       /** 가격 변경·잔액 변화·이미 광고 중 → 새 값으로 다시 그린 뒤 안내 */
       /** R-60: 다시 읽기가 성공했을 때만 「가격이 바뀌었어요」 등 — 실패면 「불러오지 못했어요 · 다시 시도」만 */
-      if (await load()) setNotice(t(promotionPurchaseErrorKey({ error: err, code: j.code })));
+      /** X-2 공용 처리: 다시 읽기가 성공했을 때만 안내(가격 변경·잔액 변화·이미 광고 중) — R-60 */
+      await handlePriceChanged({
+        reload: load,
+        notify: () => setNotice(t(promotionPurchaseErrorKey({ error: err, code: j.code }))),
+      });
     } catch {
       /** 응답을 못 받음 = 결제됐는지 모름 → 키를 유지하고 상태를 다시 불러온다 (다시 누르면 같은 결제로 확인) */
       await load();

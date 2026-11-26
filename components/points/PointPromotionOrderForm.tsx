@@ -1,5 +1,6 @@
 "use client";
 
+import { formatPhtDisplayDateTime } from "@/lib/time/format-pht-display";
 import { DibayPendingSpinner, DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -77,31 +78,9 @@ export function PointPromotionOrderForm({
   const [catalogAttempt, setCatalogAttempt] = useState(0);
   const [targetId, setTargetId] = useState("");
   const [productId, setProductId] = useState<MemberPromotionProductId | null>(null);
+  /** TB-08: 고른 글의 진행 중 상위노출 — 있으면 결제 = 연장(종료일 표시) · 확인 중·멈춤이면 결제 불가(거래 광고 창과 같음) */
+  const [activeBoost, setActiveBoost] = useState<{ endAt: string | null; pending: boolean; paused: boolean } | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    /** R-62: 다시 읽는 동안 옛 가격 목록·버튼을 보이지 않게 비운다 */
-    setCatalog(null);
-    void fetch("/api/me/points/promotion-orders?catalog=1&domain=trade", {
-      credentials: "include",
-      cache: "no-store",
-    })
-      .then(async (res) => {
-        const j = (await res.json().catch(() => ({}))) as { catalog?: CatalogItem[] };
-        if (cancelled) return;
-        const loaded = res.ok && Array.isArray(j.catalog);
-        setCatalogFailed(!loaded);
-        setCatalog(loaded ? (j.catalog as CatalogItem[]) : []);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setCatalogFailed(true);
-        setCatalog([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [catalogRefreshKey, catalogAttempt]);
 
   useEffect(() => {
     const want = (initialTargetId ?? "").trim();
@@ -146,11 +125,53 @@ export function PointPromotionOrderForm({
   const targetLost =
     Boolean(initialWant) && !targetId.trim() && productOptions.length > 0 && !productOptions.some((p) => p.id === initialWant);
   const resolvedTargetId = targetId.trim() || (targetLost ? "" : productOptions[0]?.id || "");
+
+  useEffect(() => {
+    let cancelled = false;
+    /** R-62: 다시 읽는 동안 옛 가격 목록·버튼을 보이지 않게 비운다 */
+    setCatalog(null);
+    /** TB-08: 고른 글의 진행 중 상위노출(종료일·확인 중·멈춤)도 같은 응답으로 — 거래 광고 창과 같은 판정 */
+    const qs = new URLSearchParams({ catalog: "1", domain: "trade" });
+    if (resolvedTargetId) qs.set("targetId", resolvedTargetId);
+    void fetch(`/api/me/points/promotion-orders?${qs.toString()}`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then(async (res) => {
+        const j = (await res.json().catch(() => ({}))) as {
+          catalog?: CatalogItem[];
+          activeForTarget?: { endAt?: string | null; orderStatus?: string | null } | null;
+        };
+        if (cancelled) return;
+        const st = String(j.activeForTarget?.orderStatus ?? "").toLowerCase();
+        setActiveBoost(
+          res.ok && j.activeForTarget
+            ? {
+                endAt: j.activeForTarget.endAt ?? null,
+                pending: st === "pending" || st === "pending_review",
+                paused: st === "paused",
+              }
+            : null
+        );
+        const loaded = res.ok && Array.isArray(j.catalog);
+        setCatalogFailed(!loaded);
+        setCatalog(loaded ? (j.catalog as CatalogItem[]) : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCatalogFailed(true);
+        setCatalog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [catalogRefreshKey, catalogAttempt, resolvedTargetId]);
   const targetTitle =
     productOptions.find((p) => p.id === resolvedTargetId)?.title ?? "";
 
   const canSubmit =
     !loadFailed &&
+    !(activeBoost && (activeBoost.pending || activeBoost.paused)) &&
     !balanceLoading &&
     balance !== null &&
     Boolean(resolvedTargetId) &&
@@ -225,6 +246,17 @@ export function PointPromotionOrderForm({
 
       <div className="space-y-2">
         <p className="sam-text-body font-medium text-sam-fg">{t("promo_sheet_title")}</p>
+        {activeBoost ? (
+          <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-helper text-sam-fg" role="status" data-promo-form-active="1">
+            {activeBoost.pending || activeBoost.paused
+              ? t("promo_form_boost_blocked", {
+                  status: t(activeBoost.pending ? "trade_ad_boost_pending" : "trade_ad_boost_paused_short"),
+                })
+              : `${t("promo_form_boost_running", {
+                  date: activeBoost.endAt ? formatPhtDisplayDateTime(activeBoost.endAt, language === "en" ? "en" : "ko") : "—",
+                })} ${t("trade_ad_extend_keeps_place")}`}
+          </p>
+        ) : null}
         {catalog === null ? (
           <DibayPendingSpinner layout="inline" />
         ) : catalogFailed ? (

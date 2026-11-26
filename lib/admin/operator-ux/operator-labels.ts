@@ -179,6 +179,10 @@ export function adminOperatorErrorMessage(
     sold_check_failed: catalogPair("admin_ads_err_sold_check_failed"),
     duration_locked_sold: catalogPair("admin_ads_err_duration_locked_sold"),
     capacity_check_failed: catalogPair("admin_ads_err_capacity_check_failed"),
+    price_over_cap: catalogPair("admin_ads_err_price_over_cap"),
+    destination_unavailable: catalogPair("admin_ads_err_dest_unavailable"),
+    destination_not_mine: catalogPair("admin_ads_err_dest_unavailable"),
+    destination_check_failed: catalogPair("admin_ads_err_dest_check_failed"),
     /** 언어 SSOT S7 — 어드민 등록 이름 영어 필수 */
     name_en_required: catalogPair("admin_name_en_required"),
     reason_required: catalogPair("admin_launch_intro_err_reason_required"),
