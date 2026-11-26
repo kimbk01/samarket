@@ -16,7 +16,12 @@ export async function GET(req: NextRequest) {
   const lng = roundWeatherCoord(req.nextUrl.searchParams.get("lng"), 180) ?? WEATHER_DEFAULT_COORD.lng;
   const url = `${OPEN_METEO}?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code&timezone=Asia%2FManila`;
   try {
-    const res = await fetch(url, { next: { revalidate: 1800 }, headers: { Accept: "application/json" } });
+    /** 바깥 서비스가 느려도 4초 안에 답한다 — 앱의 「DIBAY 연결 원활하지 않음」 판정(8초)에 걸리지 않게 */
+    const res = await fetch(url, {
+      next: { revalidate: 1800 },
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(4000),
+    });
     if (!res.ok) {
       return NextResponse.json({ ok: false, error: "upstream_failed" }, { status: 502, headers: { "Cache-Control": "no-store" } });
     }
