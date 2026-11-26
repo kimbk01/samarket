@@ -166,10 +166,11 @@ describe("차단", () => {
     }
   });
   it("화면 숨김이면 대기가 끝나도 시험하지 않고, wake 때 시험", () => {
-    let visible = false;
+    let visible = true;
     const h = harness({ canProbe: () => visible });
     h.sup.supervise(h.args("a"));
     h.storm(6, () => h.subs[0]!);
+    visible = false; // 차단 뒤 화면이 숨겨짐
     h.advance(10 * 60_000);
     expect(h.sup.state()).toBe("open");
     expect(h.live()).toHaveLength(0);
@@ -348,6 +349,25 @@ describe("2차 감사 반영", () => {
     expect(h.sup.state()).toBe("open");
     expect(opened).toHaveBeenCalledTimes(1);
     expect(h.live()).toHaveLength(0);
+  });
+});
+
+describe("실기 T4 반영 — 오프라인·숨김 중 실패는 세지 않는다", () => {
+  it("오프라인 동안 실패가 계속돼도 차단·쉼 없음, 온라인이 되면 채널 그대로", () => {
+    let online = false;
+    const h = harness({ canProbe: () => online });
+    for (const n of ["community-messenger-home:meta:u", "bundle", "notifications", "unread", "friend"]) h.sup.supervise(h.args(n));
+    for (let i = 0; i < 7; i++) {
+      for (const s of h.live()) s.onStatus?.("CHANNEL_ERROR");
+      h.advance(10_000);
+    }
+    expect(h.sup.state()).toBe("closed");
+    expect(h.live()).toHaveLength(5);
+    expect(h.records).not.toContain("open");
+    expect(h.records).not.toContain("park");
+    online = true;
+    h.storm(6, () => h.live()[0]!);
+    expect(h.sup.state()).toBe("open");
   });
 });
 
