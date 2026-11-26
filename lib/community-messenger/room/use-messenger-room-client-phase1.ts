@@ -472,6 +472,8 @@ export function useMessengerRoomClientPhase1({
   const roomMessagesRef = useRef(roomMessages);
   /** F2: 폴백 중 읽음 재조회는 끊김 1번당 1번 */
   const readStateFallbackDoneRef = useRef(false);
+  /** F2: 재연결 읽음 재조회 마지막 시각(3초 안 중복 방지) */
+  const readStateRefreshAtRef = useRef(0);
   /** 감사 4: 방을 바꾸면 새 방 기준으로 다시 허용 */
   useEffect(() => {
     readStateFallbackDoneRef.current = false;
@@ -1555,8 +1557,16 @@ export function useMessengerRoomClientPhase1({
               fallbackRows: snap.messages,
             })
           ) {
+            /**
+             * 실기 (b) 2026-11-27 00:36 PHT: 답장이 함께 병합되면 refresh 관리 단계가 「로컬 스냅샷 충분」
+             * (`local_snapshot_sufficient`)으로 요청을 버렸다 — 읽음 커서는 스냅샷에만 있으므로 네트워크를 강제한다
+             * (`read_cursor_missing_silent` 와 같은 방식). 재연결 묶음이 잇따라 오면 3초 안 중복은 1번만.
+             */
+            const nowMs = Date.now();
+            if (nowMs - readStateRefreshAtRef.current < 3_000) return;
+            readStateRefreshAtRef.current = nowMs;
             if (reason === "fallback") readStateFallbackDoneRef.current = true;
-            void refresh(true, { triggerReason: "reconnect_read_state" });
+            void refresh(true, { forceSilentNetwork: true, triggerReason: "reconnect_read_state" });
           }
           return;
         }

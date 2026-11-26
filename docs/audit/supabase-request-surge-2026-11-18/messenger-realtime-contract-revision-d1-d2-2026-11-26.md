@@ -322,3 +322,13 @@
   - 커서가 내 화면에 없는 메시지를 가리키면 재연결마다 재조회가 반복될 수 있다.
   - 비공개 단체는 1번에 silent_delta + 읽음 수 POST 2요청이다.
   - 내 마지막 메시지가 「모두에게 삭제」면 판정에서 빠진다(그 앞 메시지는 보지 않음).
+
+## 16. F2(#633) 실기 (2026-11-27 00:29~00:37 PHT · Production `a6e8150`(#633 `84f3033` 포함) · Samsung 1.2.7(85) ↔ Xiaomi 1.2.7(80) · 청크 `c9178ba6…js` 에 `reconnect_read_state` 확인)
+- 앱 실행: 11-27 이 세션 누계 3회(Owner 추가 허용 3회 중 1회 사용 — 00:12 재시작 2 + 00:29 Xiaomi 복귀 1) · 예상 운영 Supabase 약 585건. 00:13 1차 (a) 는 Xiaomi 앱이 기기에서 종료돼 무효.
+
+| 시험 | 결과 | 증거 |
+|---|---|---|
+| (a) 끊긴 동안 상대가 읽기만 | **PASS** | Xiaomi 읽음 DB 00:30:13 · Samsung 켬 00:31:19 → a2 「읽음」 +9초 안 · 요청 `after=` 1 → silent_delta 1(+6.5초) |
+| (b) 읽고 답장 | **FAIL** | 답장 +6초 표시, b1 60초 넘게 「안 읽음」. 재현(c1) 콘솔: `reconnect_read_state` 요청 2번 모두 `skipped_reason: local_snapshot_sufficient`(답장 병합으로 스냅샷이 「신선」 판정) |
+| (c) 이미 읽힘 → 재조회 0 | NOT_PROVEN | (b) 수정 뒤 |
+- 수정(다음 PR): `refresh(true, { forceSilentNetwork: true, triggerReason: "reconnect_read_state" })` — 같은 파일 `read_cursor_missing_silent` 와 같은 방식 · 3초 안 중복 1번.
