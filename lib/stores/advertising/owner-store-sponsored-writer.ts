@@ -52,6 +52,8 @@ const SELECT_COLS = [
   "lifecycle_status",
   "review_status",
   "pricing_model",
+  /** R-79: 업종 목록의 대상(대분류·소분류) — 이어쓰기 화면이 지면 칸을 채운다 */
+  "browse_target_kind",
   "review_notes",
   "owner_client_request_id",
   "submitted_at",
@@ -89,6 +91,8 @@ export type OwnerSponsoredCampaignRow = {
   createdAt: string;
   updatedAt: string;
   inventoryKeys: OwnerStoreSponsoredInventoryKey[];
+  /** R-79: 업종 목록 대상 (홈 홍보 = null) */
+  browseTargetKind: "primary" | "secondary" | null;
 };
 
 export type OwnerSponsoredWriterError =
@@ -164,6 +168,8 @@ function mapRow(
     lifecycleStatus,
     reviewStatus,
     pricingModel: raw.pricing_model == null ? null : String(raw.pricing_model),
+    browseTargetKind:
+      raw.browse_target_kind === "primary" || raw.browse_target_kind === "secondary" ? raw.browse_target_kind : null,
     reviewNotes: raw.review_notes == null ? null : String(raw.review_notes),
     ownerClientRequestId:
       raw.owner_client_request_id == null ? null : String(raw.owner_client_request_id),

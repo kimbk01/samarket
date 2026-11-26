@@ -159,6 +159,9 @@ export function OwnerStoreSponsoredCreateView() {
   const [acceptingApplications, setAcceptingApplications] = useState(true);
   const [commercialLoading, setCommercialLoading] = useState(false);
   const [cashBalanceMinor, setCashBalanceMinor] = useState<number | null>(null);
+  /** R-80: 잔액 조회 실패 — 0(「캐시 부족」)이 아니라 「잔액을 불러오지 못했어요 · 다시 시도」 · 신청 버튼 끔 */
+  const [cashBalanceFailed, setCashBalanceFailed] = useState(false);
+  const [balanceAttempt, setBalanceAttempt] = useState(0);
   const [busy, setBusy] = useState(false);
   const [draftBusy, setDraftBusy] = useState(false);
   const [shortageModalOpen, setShortageModalOpen] = useState(false);
@@ -178,7 +181,7 @@ export function OwnerStoreSponsoredCreateView() {
     (async () => {
       try {
         const res = await fetch("/api/me/delivery-ads", { credentials: "include" });
-        const json = (await res.json()) as {
+        const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           stores?: EligibleStore[];
           businessCash?: { balanceMinor?: number };
@@ -186,15 +189,22 @@ export function OwnerStoreSponsoredCreateView() {
         if (cancelled) return;
         const list = (json.stores ?? []).filter((s) => s.eligible);
         setStores(list);
-        if (typeof json.businessCash?.balanceMinor === "number") {
+        if (res.ok && typeof json.businessCash?.balanceMinor === "number") {
           setCashBalanceMinor(json.businessCash.balanceMinor);
+          setCashBalanceFailed(false);
         } else {
-          setCashBalanceMinor(0);
+          setCashBalanceMinor(null);
+          setCashBalanceFailed(true);
         }
         if (preloadStoreId && list.some((s) => s.id === preloadStoreId)) {
           setStoreId(preloadStoreId);
         } else if (list.length === 1) {
           setStoreId(list[0]!.id);
+        }
+      } catch {
+        if (!cancelled) {
+          setCashBalanceMinor(null);
+          setCashBalanceFailed(true);
         }
       } finally {
         if (!cancelled) setLoaded(true);
@@ -203,7 +213,7 @@ export function OwnerStoreSponsoredCreateView() {
     return () => {
       cancelled = true;
     };
-  }, [preloadStoreId]);
+  }, [preloadStoreId, balanceAttempt]);
 
   useEffect(() => {
     if (!preloadCampaignId || !preloadStoreId) return;
@@ -229,6 +239,9 @@ export function OwnerStoreSponsoredCreateView() {
         setStoreId(row.storeId);
         const key = row.inventoryKeys.find(isOwnerStoreSponsoredInventoryKey);
         if (key) setInventoryKey(key);
+        /** R-79: 저장된 지면·업종 대상으로 지면 칸을 채운다(비어 있으면 「신청하기」가 「지면을 선택해 주세요」로 실패) */
+        if (key === "STORES_HOME_FEED") setPlacementChoice("home");
+        else if (key === "STORES_CATEGORY_FEED") setPlacementChoice(row.browseTargetKind === "secondary" ? "secondary" : "primary");
         const bound = decodeOwnerAdPackagePricingModel(row.pricingModel);
         if (bound) setPackageId(bound);
       } catch {
@@ -560,11 +573,15 @@ export function OwnerStoreSponsoredCreateView() {
 
   const canSubmit = Boolean(
     storeId &&
+      /** R-79: 지면 칸이 비어 있으면 신청하지 않는다(저장 단계에서 「지면을 선택해 주세요」로 실패) */
+      placementChoice &&
       inventoryKey &&
       packageId &&
       quote &&
       !noSellablePackages &&
       acceptingApplications &&
+      !cashBalanceFailed &&
+      cashBalanceMinor != null &&
       !commercialLoading
   );
 
@@ -802,6 +819,22 @@ export function OwnerStoreSponsoredCreateView() {
                 )}
               </OwnerStoreAdminDashSection>
 
+              {cashBalanceFailed ? (
+                <div
+                  className="mb-3 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-3"
+                  data-owner-ads-balance-failed="1"
+                  role="status"
+                >
+                  <p className="text-[13px] font-semibold text-sam-fg">{t("owner_ads_balance_load_failed")}</p>
+                  <button
+                    type="button"
+                    className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[13px] font-semibold text-sam-fg"
+                    onClick={() => setBalanceAttempt((n) => n + 1)}
+                  >
+                    {t("common_retry")}
+                  </button>
+                </div>
+              ) : null}
               <OwnerStoreAdminDashSection title={t("owner_ads_ad_cost_section")}>
                 {commercialCheckFailed ? null : quote ? (
                   <DeliveryAdOwnerApplicationConfirm

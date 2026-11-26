@@ -306,6 +306,8 @@ export default function MyAdsPageClient() {
     feedAdOpsStatusLabel(displayOrRaw, language === "en" ? "en" : "ko");
 
   const openRenew = async (row: FeedRequestRow) => {
+    /** R-83: 다른 연장이 진행 중이면 새 창을 열지 않는다 */
+    if (renewBusy) return;
     setActionErr("");
     /** R-55: 창을 열 때 이전 캠페인 목록·선택을 비우고 불러오는 중 — 응답 전에는 결제 버튼을 누를 수 없다 */
     const seq = ++renewLoadSeqRef.current;
@@ -874,7 +876,11 @@ export default function MyAdsPageClient() {
 
       <DibayBottomSheet
         open={Boolean(renewTarget)}
-        onClose={() => setRenewTarget(null)}
+        onClose={() => {
+          /** R-83: 연장 응답을 기다리는 동안은 닫지 않는다(앞 응답이 다른 캠페인 창에 적용되지 않게) */
+          if (renewBusy) return;
+          setRenewTarget(null);
+        }}
         title={safeT("feed_ad_renew_title")}
         ariaLabel={safeT("feed_ad_renew_title")}
       >

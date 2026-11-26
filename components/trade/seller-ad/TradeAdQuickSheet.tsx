@@ -93,8 +93,11 @@ export function TradeAdQuickSheet({
   const attemptKeys = useRef(createPromotionAttemptKeyStore());
   const [startedReplay, setStartedReplay] = useState(false);
 
+  /** R-81: 다시 읽는 중 — 결제 버튼 끔(옛 목록으로 결제하지 않게) */
+  const [reloading, setReloading] = useState(false);
   const load = useCallback(async (): Promise<boolean> => {
     setLoadFailed(false);
+    setReloading(true);
     try {
       const [promo, points, banner] = await runSingleFlight(`trade-ad-sheet:${postId}`, () =>
         runWithSharedFlightDeadline("trade_ad_sheet", ENTRY_SHARED_FLIGHT_DEADLINE_MS, (signal) =>
@@ -148,6 +151,8 @@ export function TradeAdQuickSheet({
       setSelectedKey(null);
       setLoadFailed(true);
       return false;
+    } finally {
+      setReloading(false);
     }
   }, [postId]);
 
@@ -360,7 +365,7 @@ export function TradeAdQuickSheet({
         {t("trade_ad_support")}
       </DibayOverlayButton>
       {selected ? (
-        <DibayOverlayButton roleTone="primary" loading={busy} onClick={() => void start()}>
+        <DibayOverlayButton roleTone="primary" loading={busy} disabled={reloading} onClick={() => void start()}>
           {selected.kind === "banner"
             ? t("trade_ad_banner_apply", { points: fmtP(selected.pointCost) })
             : selected.extendEndAt

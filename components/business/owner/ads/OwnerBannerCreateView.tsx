@@ -152,6 +152,9 @@ export function OwnerBannerCreateView() {
   const [acceptingApplications, setAcceptingApplications] = useState(true);
   const [commercialLoading, setCommercialLoading] = useState(false);
   const [cashBalanceMinor, setCashBalanceMinor] = useState<number | null>(null);
+  /** R-80: 잔액 조회 실패 — 0(「캐시 부족」)이 아니라 「잔액을 불러오지 못했어요 · 다시 시도」 · 신청 버튼 끔 */
+  const [cashBalanceFailed, setCashBalanceFailed] = useState(false);
+  const [balanceAttempt, setBalanceAttempt] = useState(0);
   const [busy, setBusy] = useState(false);
   const [draftBusy, setDraftBusy] = useState(false);
   const [shortageModalOpen, setShortageModalOpen] = useState(false);
@@ -169,7 +172,7 @@ export function OwnerBannerCreateView() {
     (async () => {
       try {
         const res = await fetch("/api/me/delivery-ads", { credentials: "include" });
-        const json = (await res.json()) as {
+        const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           stores?: EligibleStore[];
           businessCash?: { balanceMinor?: number };
@@ -177,15 +180,22 @@ export function OwnerBannerCreateView() {
         if (cancelled) return;
         const list = (json.stores ?? []).filter((s) => s.eligible);
         setStores(list);
-        if (typeof json.businessCash?.balanceMinor === "number") {
+        if (res.ok && typeof json.businessCash?.balanceMinor === "number") {
           setCashBalanceMinor(json.businessCash.balanceMinor);
+          setCashBalanceFailed(false);
         } else {
-          setCashBalanceMinor(0);
+          setCashBalanceMinor(null);
+          setCashBalanceFailed(true);
         }
         if (preloadStoreId && list.some((s) => s.id === preloadStoreId)) {
           setStoreId(preloadStoreId);
         } else if (list.length === 1) {
           setStoreId(list[0]!.id);
+        }
+      } catch {
+        if (!cancelled) {
+          setCashBalanceMinor(null);
+          setCashBalanceFailed(true);
         }
       } finally {
         if (!cancelled) setLoaded(true);
@@ -194,7 +204,7 @@ export function OwnerBannerCreateView() {
     return () => {
       cancelled = true;
     };
-  }, [preloadStoreId]);
+  }, [preloadStoreId, balanceAttempt]);
 
   useEffect(() => {
     if (!preloadCampaignId || !preloadStoreId) return;
@@ -449,6 +459,8 @@ export function OwnerBannerCreateView() {
       quote &&
       !noSellablePackages &&
       acceptingApplications &&
+      !cashBalanceFailed &&
+      cashBalanceMinor != null &&
       (creativeMode === "admin_produce" ||
         (creativeMode === "owner_upload" && uploaded?.path))
   );
@@ -1039,6 +1051,22 @@ export function OwnerBannerCreateView() {
               </OwnerStoreAdminDashSection>
             ) : null}
 
+            {cashBalanceFailed ? (
+              <div
+                className="mb-3 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-3"
+                data-owner-ads-balance-failed="1"
+                role="status"
+              >
+                <p className="text-[13px] font-semibold text-sam-fg">{t("owner_ads_balance_load_failed")}</p>
+                <button
+                  type="button"
+                  className="mt-2 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[13px] font-semibold text-sam-fg"
+                  onClick={() => setBalanceAttempt((n) => n + 1)}
+                >
+                  {t("common_retry")}
+                </button>
+              </div>
+            ) : null}
             <OwnerStoreAdminDashSection title={t("owner_ads_section_confirm")}>
               {commercialCheckFailed ? null : quote ? (
                 <DeliveryAdOwnerApplicationConfirm

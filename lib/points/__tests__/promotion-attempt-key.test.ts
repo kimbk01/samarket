@@ -89,3 +89,16 @@ describe("H-1 — 전체 광고에서 거래 상위노출 종료도 귀책을 �
     expect(ws).toContain("j.refund_points");
   });
 });
+
+describe("R-82 결과를 모르는 결제가 있으면 창을 다시 열어도 같은 키", () => {
+  it("응답 없음(null) 뒤에는 pendingProductFor 가 상품을 돌려주고 같은 키를 쓴다 — 창 재열기 때 reset 하지 않는 조건", () => {
+    let n = 0;
+    const store = createPromotionAttemptKeyStore(() => `k${++n}`);
+    const first = store.keyFor("post-1", "trade_promote_7");
+    store.settleIfFinal(null);
+    expect(store.pendingProductFor("post-1")).toBe("trade_promote_7");
+    // 창을 다시 열 때: pending 이 있으면 reset 하지 않는다 → 같은 키
+    if (!store.pendingProductFor("post-1")) store.reset();
+    expect(store.keyFor("post-1", "trade_promote_7")).toBe(first);
+  });
+});

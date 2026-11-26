@@ -173,7 +173,11 @@ export function MemberPostPromoteSheet({
     setPendingExisting(false);
     setPausedExisting(false);
     setActiveEndAt(null);
-    attemptKeys.current.reset();
+    /**
+     * R-82: 결과를 모르는 결제가 있으면 요청 키를 지우지 않는다 — 다시 눌러도 같은 결제로 확인(두 번째 차감 방지).
+     * 결제 중에는 창을 닫을 수 없다(아래 onClose).
+     */
+    if (!attemptKeys.current.pendingProductFor(postId)) attemptKeys.current.reset();
     void load();
   }, [open, load]);
 
@@ -342,7 +346,11 @@ export function MemberPostPromoteSheet({
   return (
     <DibayBottomSheet
       open={open}
-      onClose={onClose}
+      onClose={() => {
+        /** R-82: 결제 응답을 기다리는 동안은 닫지 않는다(늦은 응답이 다시 연 창에 뜨거나 키가 지워지지 않게) */
+        if (busy) return;
+        onClose();
+      }}
       title={sheetTitle}
       footer={successFooter ?? catalogFooter}
     >
