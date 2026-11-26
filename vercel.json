@@ -122,6 +122,10 @@
       "schedule": "0 19 * * *"
     },
     {
+      "path": "/api/cron/hourly-anomaly-watch",
+      "schedule": "7 * * * *"
+    },
+    {
       "path": "/api/cron/request-budget-watch",
       "schedule": "0 1 * * *"
     }

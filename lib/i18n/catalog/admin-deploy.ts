@@ -159,6 +159,11 @@ export const adminDeployMessages = {
     // 요청 예산 운영 감시 (docs/request-budget-ssot.md)
     admin_request_budget_alert_title: "Supabase 요청 예산 초과 · {count}건",
     admin_request_budget_alert_body: "최근 24시간 Supabase 호출 {total}건(시험 기기 {test}건). {items}",
+    // 매시 이상 감시 (structural-analysis-and-design-2026-11-26 §5 D4)
+    admin_hourly_anomaly_rt_title: "실시간 연결 재시도 폭주",
+    admin_hourly_anomaly_rt_body: "{window}부터 1시간 {platform} 기기 재시도 {retries}회 · 연결 성공 {subscribed}회. 서버 호출이 늘어날 수 있습니다.",
+    admin_hourly_anomaly_hot_title: "한 대화방에 요청 몰림",
+    admin_hourly_anomaly_hot_body: "{window}부터 1시간 {path} 요청 {requests}회.",
   },
   en: {
     admin_deploy_title: "Deploy · Production",
@@ -314,5 +319,9 @@ export const adminDeployMessages = {
     admin_deploy_ops_sem_prod: "Production applied",
     admin_request_budget_alert_title: "Supabase request budget exceeded · {count}",
     admin_request_budget_alert_body: "Last 24h Supabase calls {total} (test devices {test}). {items}",
+    admin_hourly_anomaly_rt_title: "Realtime retry storm",
+    admin_hourly_anomaly_rt_body: "1 hour from {window}: {platform} retries {retries}, connected {subscribed}. Server calls may rise.",
+    admin_hourly_anomaly_hot_title: "Requests piling on one chat",
+    admin_hourly_anomaly_hot_body: "1 hour from {window}: {path} requested {requests} times.",
   },
 } as const;

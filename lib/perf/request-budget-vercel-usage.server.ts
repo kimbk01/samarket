@@ -16,8 +16,8 @@ import { DAILY_TOTAL_BASELINE_DAYS } from "@/lib/perf/request-budget";
 
 const API = "https://api.vercel.com/v2/observability/query";
 /** 비밀값 아님 — 운영 프로젝트 식별자. 바꿀 때만 환경변수로 덮는다 */
-const DEFAULT_TEAM_ID = "team_pvmVIRp0rvayJ1LN07RLLlft";
-const DEFAULT_PROJECT_ID = "prj_F75kGK83Sd7B4An6IURjQUc0VW5D";
+export const DEFAULT_TEAM_ID = "team_pvmVIRp0rvayJ1LN07RLLlft";
+export const DEFAULT_PROJECT_ID = "prj_F75kGK83Sd7B4An6IURjQUc0VW5D";
 const DAY_MS = 24 * 60 * 60_000;
 const GROUP_LIMIT = 1000;
 const TIMEOUT_MS = 20_000;
@@ -69,7 +69,8 @@ export function utcDayWindow(nowMs: number): { start: number; end: number } {
   return { start: end - DAY_MS, end };
 }
 
-async function query(
+/** 2026-11-26 D4 — 매시 이상 감시(`hourly-anomaly-watch.server.ts`)도 같은 조회를 쓴다 */
+export async function queryVercelObservability(
   token: string,
   teamId: string,
   projectId: string,
@@ -114,7 +115,7 @@ export async function loadVercelRequestBudgetUsage(
   const supabase = "contains(request_hostname, 'supabase')";
   try {
     const [callRows, reqRows, dayRows] = await Promise.all([
-      query(token, teamId, projectId, {
+      queryVercelObservability(token, teamId, projectId, {
         metric: "vercel.external_api_request.count",
         startTime: iso(start),
         endTime: iso(end),
@@ -123,7 +124,7 @@ export async function loadVercelRequestBudgetUsage(
         groupBy: ["origin_route"],
         limit: GROUP_LIMIT,
       }, fetchImpl),
-      query(token, teamId, projectId, {
+      queryVercelObservability(token, teamId, projectId, {
         metric: "vercel.request.count",
         startTime: iso(start),
         endTime: iso(end),
@@ -131,7 +132,7 @@ export async function loadVercelRequestBudgetUsage(
         groupBy: ["route"],
         limit: GROUP_LIMIT,
       }, fetchImpl),
-      query(token, teamId, projectId, {
+      queryVercelObservability(token, teamId, projectId, {
         metric: "vercel.external_api_request.count",
         startTime: iso(start - DAILY_TOTAL_BASELINE_DAYS * DAY_MS),
         endTime: iso(start),
