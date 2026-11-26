@@ -31,6 +31,7 @@ import {
   validateOwnerStoreSponsoredSchedule,
   type OwnerStoreSponsoredInventoryKey,
 } from "@/lib/stores/advertising/owner-store-sponsored-contract";
+import { assertHomeFeedSellableByPolicy, STORES_HOME_FEED_INVENTORY_KEY } from "@/lib/stores/advertising/delivery-ad-home-feed-sell-gate";
 
 const JUNCTION_TABLE = "delivery_store_sponsored_campaign_inventories" as const;
 const INVENTORY_TABLE = "delivery_ad_inventories" as const;
@@ -110,6 +111,8 @@ export type OwnerSponsoredWriterError =
   | "inventory_lookup_failed"
   | "pricing_not_configured_ok"
   | "category_ads_disabled"
+  /** SA-01: 배달 홈 노출 자리(「더 많은 매장」 광고 연동) 꺼짐 */
+  | "home_ads_disabled"
   | "taxonomy_required"
   /** ADS-02 — 기간은 패키지에서만 서버가 산출 (직접 start/end 수정 금지). */
   | "schedule_locked"
@@ -388,6 +391,12 @@ export async function createOwnerSponsoredDraft(
   let browseTargetKind = input.browseTargetKind ?? null;
   let browsePrimarySlug = input.browsePrimarySlug?.trim() || null;
   let browseSecondarySlug = input.browseSecondarySlug?.trim() || null;
+
+  /** SA-01: 배달 홈 홍보는 노출 자리가 켜져 있을 때만 판다 (업종 판매 차단과 같은 자리) */
+  if (inv.keys.includes(STORES_HOME_FEED_INVENTORY_KEY)) {
+    const homeGate = await assertHomeFeedSellableByPolicy(sb);
+    if (!homeGate.ok) return { ok: false, error: homeGate.error };
+  }
 
   const wantsCategory = inv.keys.includes("STORES_CATEGORY_FEED");
   if (wantsCategory) {

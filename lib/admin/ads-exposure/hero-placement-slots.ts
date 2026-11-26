@@ -113,6 +113,7 @@ export function projectHeroPlacementSlots(
 export async function loadHeroPlacementSlots(
   sb: SupabaseClient
 ): Promise<HeroPlacementSlot[]> {
-  const campaigns = await loadHeroOccupancyCampaigns(sb);
+  /** SA-08: 점유 조회가 실패하면 어드민 자리 보드는 빈 칸으로(판매 판정은 capacity-gate 가 막는다) */
+  const campaigns = await loadHeroOccupancyCampaigns(sb).catch(() => []);
   return projectHeroPlacementSlots(campaigns);
 }

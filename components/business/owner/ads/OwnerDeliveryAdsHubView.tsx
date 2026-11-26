@@ -118,6 +118,8 @@ export function OwnerDeliveryAdsHubView() {
   const [draftDeleteTarget, setDraftDeleteTarget] = useState<HubCampaign | null>(null);
   const [draftDeleteBusy, setDraftDeleteBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  /** SA-06: 신청할 수 있는 매장 수(승인·공개) — 0 이면 신청 버튼을 끄고 이유를 보여 준다 (null = 모름 → 그대로) */
+  const [eligibleStoreCount, setEligibleStoreCount] = useState<number | null>(null);
   const { contentPaddingBottomPx } = useOwnerAdminBottomSheetKeyboard(productSelectOpen);
 
   const load = useCallback(async () => {
@@ -132,6 +134,7 @@ export function OwnerDeliveryAdsHubView() {
         summary?: HubSummary;
         businessCash?: { balanceMinor?: number | null };
         unreadByCampaignId?: Record<string, number>;
+        eligibleStoreCount?: number;
       };
       if (!res.ok || !json.ok) {
         setError(json.error || "load_failed");
@@ -140,6 +143,7 @@ export function OwnerDeliveryAdsHubView() {
       }
       setCampaigns(json.campaigns ?? []);
       setStores(json.stores ?? []);
+      setEligibleStoreCount(typeof json.eligibleStoreCount === "number" ? json.eligibleStoreCount : null);
       if (json.summary) {
         setSummary({
           changes_requested: json.summary.changes_requested ?? 0,
@@ -347,12 +351,18 @@ export function OwnerDeliveryAdsHubView() {
         </div>
         <button
           type="button"
-          className={`${DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS} w-full`}
+          className={`${DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS} w-full disabled:opacity-50`}
           data-owner-ads-primary-cta="apply"
+          disabled={eligibleStoreCount === 0}
           onClick={() => setProductSelectOpen(true)}
         >
           {t("owner_ads_apply_primary_cta")}
         </button>
+        {eligibleStoreCount === 0 ? (
+          <p className="mt-2 text-[12px] text-sam-muted" data-owner-ads-not-eligible="1">
+            {t("owner_ads_store_not_eligible_reason")}
+          </p>
+        ) : null}
         </>
       ) : null}
 

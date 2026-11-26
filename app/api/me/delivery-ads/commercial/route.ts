@@ -16,6 +16,7 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { isLaunchSellableInventoryKey } from "@/lib/stores/advertising/delivery-ad-launch-placement-product";
 import { STORES_SEARCH_TOP_LAUNCH } from "@/lib/stores/advertising/delivery-ad-product-recovery-contract";
+import { isStoresHomeFeedSellable, STORES_HOME_FEED_INVENTORY_KEY } from "@/lib/stores/advertising/delivery-ad-home-feed-sell-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,13 +54,17 @@ export async function GET(req: NextRequest) {
   const product = catalog.products.find((p) => p.key === productKindRaw);
   const partner = await loadActivePartnerMembershipForStore(sb, storeId);
 
+  /** SA-01: 배달 홈 노출 자리가 꺼져 있으면 홈 홍보를 사장님 선택지에서 뺀다 (판매 판정 1곳) */
+  const homeFeedSellable =
+    productKindRaw === "store_sponsored" ? await isStoresHomeFeedSellable(sb) : true;
   const placements = catalog.placements
     .filter(
       (p) =>
         p.productKind === productKindRaw &&
         p.sellable &&
         isLaunchSellableInventoryKey(p.inventoryKey) &&
-        p.inventoryKey !== STORES_SEARCH_TOP_LAUNCH.inventoryKey
+        p.inventoryKey !== STORES_SEARCH_TOP_LAUNCH.inventoryKey &&
+        (p.inventoryKey !== STORES_HOME_FEED_INVENTORY_KEY || homeFeedSellable)
     )
     .map((p) => ({
       inventoryKey: p.inventoryKey,
@@ -104,8 +109,10 @@ export async function GET(req: NextRequest) {
     partner,
   });
 
+  /** SA-01: 꺼진 홈 홍보는 기간 상품도 0개 → 화면은 「판매 준비 중」 · 신청 버튼 꺼짐 */
+  const homeFeedBlocked = inventoryKey === STORES_HOME_FEED_INVENTORY_KEY && !homeFeedSellable;
   const sellable = listed
-    .filter((row) => row.quote.ok)
+    .filter((row) => row.quote.ok && !homeFeedBlocked)
     .map((row) => {
       const q = row.quote;
       if (!q.ok) return null;
@@ -127,7 +134,9 @@ export async function GET(req: NextRequest) {
     .filter((p): p is NonNullable<typeof p> => p != null);
 
   let quote = null;
-  if (packageId) {
+  if (packageId && homeFeedBlocked) {
+    quote = { ok: false as const, error: "placement_not_sellable" };
+  } else if (packageId) {
     const q = await quoteDeliveryAdApplicationCommercial(sb, {
       productKind: productKindRaw,
       inventoryKey,

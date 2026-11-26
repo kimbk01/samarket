@@ -166,7 +166,20 @@ export function selectExposureEligibleStorePaidAds(input: {
 
   eligible.sort(compareStorePaidAdCampaigns);
   const deduped = dedupeSponsoredCampaignsOnePerStore(eligible, compareStorePaidAdCampaigns);
-  return { eligible: deduped, blocked };
+  return { eligible: rotateStorePaidAdsForFairExposure(deduped, nowMs), blocked };
+}
+
+/**
+ * 광고 감사 SA-03 (2026-11-26): 노출 자리(정책 최대)보다 홍보가 많을 때 늘 같은 광고만 잘리지 않게
+ * 10분마다 시작 위치를 한 칸씩 돌린다. 같은 10분 안에서는 순서가 같다(화면이 흔들리지 않음).
+ * 예전에는 종료일 빠른 순으로 앞에서부터 잘라, 긴 기간(30일)을 산 매장이 기간 내내 0회 노출될 수 있었다.
+ */
+export const STORE_PAID_AD_ROTATION_WINDOW_MS = 10 * 60 * 1000;
+
+export function rotateStorePaidAdsForFairExposure<T>(rows: readonly T[], nowMs: number): T[] {
+  if (rows.length < 2) return [...rows];
+  const offset = Math.floor(Math.max(0, nowMs) / STORE_PAID_AD_ROTATION_WINDOW_MS) % rows.length;
+  return [...rows.slice(offset), ...rows.slice(0, offset)];
 }
 
 /**

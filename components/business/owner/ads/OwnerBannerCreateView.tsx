@@ -64,6 +64,7 @@ import {
   dibayShellRequestHeaders,
   useIosAppDigitalPurchaseBlocked,
 } from "@/lib/apple-iap/use-ios-digital-purchase-blocked";
+import { ownerAdErrorKey } from "@/lib/stores/advertising/owner-ad-error-copy";
 
 type EligibleStore = {
   id: string;
@@ -150,7 +151,6 @@ export function OwnerBannerCreateView() {
   const [noSellablePackages, setNoSellablePackages] = useState(false);
   const [acceptingApplications, setAcceptingApplications] = useState(true);
   const [commercialLoading, setCommercialLoading] = useState(false);
-  const [productLabel, setProductLabel] = useState<string | null>(null);
   const [cashBalanceMinor, setCashBalanceMinor] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [draftBusy, setDraftBusy] = useState(false);
@@ -298,7 +298,6 @@ export function OwnerBannerCreateView() {
         setNoSellablePackages(true);
         return;
       }
-      setProductLabel(json.product?.displayName?.trim() || null);
       setAcceptingApplications(
         json.product?.acceptingApplications !== false && json.product?.enabled !== false
       );
@@ -543,6 +542,7 @@ export function OwnerBannerCreateView() {
       const actionJson = (await actionRes.json()) as {
         ok?: boolean;
         error?: string;
+        quoteError?: string | null;
         refreshQuote?: boolean;
         campaign?: OwnerBannerCampaignRow;
       };
@@ -553,10 +553,11 @@ export function OwnerBannerCreateView() {
         actionJson.refreshQuote
       ) {
         await refetchCommercial();
+        /** SA-04: 실패 이유 그대로 (견적 세부 코드 우선) — 문구는 `ownerAdErrorKey` 1곳 */
         setError(
-          actionJson.error === "quote_stale" || actionJson.refreshQuote
+          actionJson.refreshQuote
             ? "quote_stale"
-            : actionJson.error || "generic"
+            : actionJson.quoteError || actionJson.error || "generic"
         );
         return;
       }
@@ -591,23 +592,13 @@ export function OwnerBannerCreateView() {
       ? t("owner_ios_cash_purchase_unavailable")
       : error === "file_too_large"
       ? t("business_image_upload_too_large")
-      : error === "inventory"
-      ? t("owner_ads_error_inventory")
-      : error === "store"
-        ? t("owner_ads_error_store")
-        : error === "quote_stale"
-          ? t("owner_ads_error_quote_stale")
-          : error === "applications_paused"
-            ? t("owner_ads_error_applications_paused")
-            : error === "no_packages"
-              ? t("owner_ads_no_sellable_packages")
-              : error === "image_required"
-                ? safeT("owner_ads_banner_image_required")
-                : error === "image_spec"
-                  ? safeT("owner_ads_banner_image_spec_error")
-                  : error
-                    ? safeT("owner_ads_error_generic")
-                    : null;
+      : error === "image_required"
+        ? safeT("owner_ads_banner_image_required")
+        : error === "image_spec"
+          ? safeT("owner_ads_banner_image_spec_error")
+          : error
+            ? /** SA-04: 그 외 실패 이유 → 문구 단일 정의 */ t(ownerAdErrorKey(error) ?? "owner_ads_error_generic")
+            : null;
 
   const ctaLabel =
     ctaType === "store_menu"
@@ -630,7 +621,8 @@ export function OwnerBannerCreateView() {
       rows.push(
         {
           labelKey: "owner_ads_confirm_package",
-          value: quote.packageDisplayName || `${quote.durationDays}일`,
+          /** SA-05: 기간 이름 = 키 + 기간 (DB 영문 「7 days」·코드 안 「일」 금지) */
+          value: t("owner_ads_period_duration_days", { days: quote.durationDays }),
         },
         {
           labelKey: "owner_ads_confirm_period",
@@ -999,7 +991,7 @@ export function OwnerBannerCreateView() {
                     creativeMode === "owner_upload" && uploaded?.url
                       ? {
                           assetUrl: uploaded.url,
-                          headline: productLabel,
+                          headline: t("owner_ads_product_banner"),
                           subcopy: null,
                           alt: selectedStore?.storeName ?? "banner",
                         }

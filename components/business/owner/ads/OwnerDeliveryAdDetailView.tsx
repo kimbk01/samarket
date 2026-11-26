@@ -60,6 +60,8 @@ import {
   dibayShellRequestHeaders,
   useIosAppDigitalPurchaseBlocked,
 } from "@/lib/apple-iap/use-ios-digital-purchase-blocked";
+import { ownerAdHistoryActionKey, ownerAdHistoryActorKey } from "@/lib/stores/advertising/owner-ad-history-copy";
+import { formatPhtDisplayDateTime } from "@/lib/time/format-pht-display";
 
 const OWNER_DETAIL_SECONDARY_BTN_CLASS =
   "inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[14px] font-semibold text-sam-fg";
@@ -113,7 +115,7 @@ function draftEditHref(productKind: DeliveryAdOwnerProductKind, storeId: string,
 }
 
 export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
   const iosCashPurchaseBlocked = useIosAppDigitalPurchaseBlocked();
   const router = useRouter();
   const sp = useSearchParams();
@@ -410,13 +412,15 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
 
   const confirmCopy =
     confirm === "pause"
-      ? { title: t("popup_q_pause_ad"), body: null, confirmLabel: t("popup_btn_pause") }
+      ? /** SA-07: 멈춰도 기간은 흐른다(운영 함수: 다시 시작해도 종료일 그대로) — 누르기 전에 알린다 */
+        { title: t("popup_q_pause_ad"), body: t("owner_ads_pause_period_runs_note"), confirmLabel: t("popup_btn_pause") }
       : confirm === "resume"
         ? { title: t("popup_q_resume_ad"), body: null, confirmLabel: t("popup_btn_restart") }
         : confirm === "end"
           ? {
               title: t("popup_q_end_ad"),
-              body: t("popup_note_ad_end_final"),
+              /** SA-07: 사장님 종료는 환불 없음(운영 함수) — 종료 안내 + 환불 안내 */
+              body: t("owner_ads_end_no_refund_note"),
               confirmLabel: t("popup_cta_end"),
             }
           : confirm === "delete"
@@ -574,9 +578,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
               <p className="text-[13px] text-sam-muted">{t("owner_ads_price_unset")}</p>
             ) : (
               <>
-                {snap?.packageDisplayName ? (
-                  <p className="text-[13px] text-sam-fg">{snap.packageDisplayName}</p>
-                ) : null}
+                {/* SA-05: DB 패키지 이름(영문 「7 days」)은 보이지 않는다 — 아래 기간 줄(키 + 기간)이 같은 뜻 */}
                 {snap?.durationDays != null ? (
                   <p className="mt-1 text-[12px] text-sam-muted">
                     {t("owner_ads_period_duration_days", { days: snap.durationDays })}
@@ -636,7 +638,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
             {fundingStatus === "FUNDED" ? (
               <p className="mt-2 text-[13px] font-semibold text-sam-fg">
                 {t("owner_ads_funding_done")}
-                {fundedAt ? ` · ${fundedAt.slice(0, 16)}` : ""}
+                {fundedAt ? ` · ${formatPhtDisplayDateTime(fundedAt, language === "en" ? "en" : "ko")}` : ""}
               </p>
             ) : fundingStatus === "REFUNDED" ? (
               <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_funding_refunded")}</p>
@@ -729,16 +731,13 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                   h.after && typeof h.after.currency === "string"
                     ? String(h.after.currency)
                     : null;
-                const extensionKind =
-                  h.after && typeof h.after.extension_kind === "string"
-                    ? String(h.after.extension_kind)
-                    : null;
                 return (
                   <li key={`${h.createdAt}-${i}`} data-owner-ads-history-action={h.action}>
-                    <span className="font-medium text-sam-fg">{h.action}</span>
-                    {h.actorType ? ` · ${h.actorType}` : ""}
+                    {/* SA-11: 동작·주체 = 키 · 시각 = PHT (코드·UTC 원문 금지) */}
+                    <span className="font-medium text-sam-fg">{t(ownerAdHistoryActionKey(h.action))}</span>
+                    {ownerAdHistoryActorKey(h.actorType) ? ` · ${t(ownerAdHistoryActorKey(h.actorType)!)}` : ""}
                     {" · "}
-                    {h.createdAt.slice(0, 19).replace("T", " ")}
+                    {formatPhtDisplayDateTime(h.createdAt, language === "en" ? "en" : "ko")}
                     {h.reason ? (
                       <div className="mt-0.5 text-sam-fg">
                         {safeT("owner_ads_history_reason")}
@@ -748,10 +747,9 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                     {h.action === "extended" && (beforeEnd || afterEnd) ? (
                       <div className="mt-0.5 text-sam-fg">
                         {beforeEnd
-                          ? `${beforeEnd.slice(0, 19).replace("T", " ")} → `
+                          ? `${formatPhtDisplayDateTime(beforeEnd, language === "en" ? "en" : "ko")} → `
                           : ""}
-                        {afterEnd ? afterEnd.slice(0, 19).replace("T", " ") : "—"}
-                        {extensionKind ? ` · ${extensionKind}` : ""}
+                        {afterEnd ? formatPhtDisplayDateTime(afterEnd, language === "en" ? "en" : "ko") : "—"}
                         {amountMinor != null && currency
                           ? ` · ${(amountMinor / 100).toFixed(2)} ${currency}`
                           : ""}

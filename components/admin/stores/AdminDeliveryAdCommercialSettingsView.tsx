@@ -166,6 +166,8 @@ export function AdminDeliveryAdCommercialSettingsView() {
         };
         if (!res.ok || !j.ok || !j.catalog) {
           setError(j.error ?? "save_failed");
+          /** SA-12: 다른 관리자가 먼저 저장 → 새 값을 다시 읽는다(덮어쓰지 않음) */
+          if (j.error === "stale_updated_at") void load();
           return;
         }
         setCatalog(j.catalog);
@@ -357,6 +359,8 @@ export function AdminDeliveryAdCommercialSettingsView() {
                                       op: "update_package",
                                       packageId: pkg.id,
                                       reason: "admin_package_settings",
+                                      /** SA-12: 화면이 읽은 수정 시각 — 그 사이 다른 관리자가 저장했으면 409(덮어쓰기 없음) */
+                                      expectedUpdatedAt: pkg.updatedAt,
                                       ...body,
                                     },
                                   }))
@@ -439,6 +443,12 @@ export function AdminDeliveryAdCommercialSettingsView() {
                         {adminDeliveryAdProductHumanLabel(pl.productKind, lang)}
                       </div>
                     </div>
+                    {/* SA-13: 사장님 신청 화면에 없는 지면(검색 상단 등)은 체크해도 팔리지 않는다 — 잠그고 이유 표시 */}
+                    {!(DELIVERY_AD_COMMERCIAL_INVENTORY_BY_PRODUCT[pl.productKind] as readonly string[]).includes(pl.inventoryKey) ? (
+                      <span className="text-[12px] text-sam-muted" data-commercial-placement-unsupported="1">
+                        {translateBy(lang, "admin_ads_sell_unsupported")}
+                      </span>
+                    ) : (
                     <label className="flex items-center gap-2 text-[12px]">
                       <input
                         type="checkbox"
@@ -456,6 +466,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
                       />
                       {translateBy(lang, "admin_ads_sellable")}
                     </label>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -519,6 +530,52 @@ export function AdminDeliveryAdCommercialSettingsView() {
                       })
                     }
                   />
+                  {/*
+                    SA-14: 7·15·30일 표 밖의 사용자 지정 상품 — 예전에는 만들면 enabled=false 로 고정되고 어디에도 안 보여 켤 수 없었다.
+                    판매 켜기는 서버가 가격 없으면 거부(price_required_to_enable).
+                  */}
+                  {(() => {
+                    const custom = catalog.packages.filter(
+                      (p) => !(R3_COMMERCIAL_MATRIX_SEED_CODES as readonly string[]).includes(p.code)
+                    );
+                    if (custom.length === 0) return null;
+                    return (
+                      <ul className="space-y-1.5 pt-2" data-commercial-custom-list="1">
+                        {custom.map((p) => (
+                          <li
+                            key={p.id}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[12px]"
+                          >
+                            <span className="text-sam-fg">
+                              {adminDeliveryAdProductHumanLabel(p.productKind, lang)} ·{" "}
+                              {deliveryAdCommercialPlacementLabel(p.inventoryKey, lang)} ·{" "}
+                              {translateBy(lang, "owner_ads_period_duration_days", { days: p.durationDays })} ·{" "}
+                              {isAdminDeliveryAdPriceUnset(p.priceAmountMinor)
+                                ? translateBy(lang, "admin_not_set")
+                                : `₱${(p.priceAmountMinor! / 100).toFixed(2)}`}
+                            </span>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={p.enabled}
+                                disabled={busy}
+                                onChange={(e) =>
+                                  void patch({
+                                    op: "update_package",
+                                    packageId: p.id,
+                                    reason: "admin_package_settings",
+                                    expectedUpdatedAt: p.updatedAt,
+                                    enabled: e.target.checked,
+                                  })
+                                }
+                              />
+                              {translateBy(lang, "admin_ads_sellable")}
+                            </label>
+                          </li>
+                        ))}
+                      </ul>
+                    );
+                  })()}
                 </div>
               ) : null}
             </div>

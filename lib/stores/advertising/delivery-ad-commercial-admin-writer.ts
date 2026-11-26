@@ -60,6 +60,8 @@ export async function adminUpdateDeliveryAdPackagePrice(
     durationDays?: number;
     displayName?: string;
     displayOrder?: number;
+    /** SA-12: 화면이 읽은 `updated_at` — 다르면 덮어쓰지 않고 `stale_updated_at` */
+    expectedUpdatedAt?: string;
     actorUserId: string;
     reason: string;
   }
@@ -100,6 +102,19 @@ export async function adminUpdateDeliveryAdPackagePrice(
     if (!Number.isInteger(input.durationDays) || input.durationDays < 1) {
       return { ok: false, error: "invalid_duration" };
     }
+    /**
+     * SA-12: 한 번이라도 팔린 기간 상품은 기간을 바꾸지 않는다 — 요금 기록(스냅샷)의 기간과 상품 기간이 갈라진다.
+     * 다른 기간이 필요하면 새 상품을 만든다.
+     */
+    if (input.durationDays !== before.durationDays) {
+      const { data: sold, error: soldErr } = await sb
+        .from("delivery_ad_campaign_commercial_snapshots")
+        .select("id")
+        .eq("package_id", input.packageId)
+        .limit(1);
+      if (soldErr) return { ok: false, error: "sold_check_failed" };
+      if ((sold ?? []).length > 0) return { ok: false, error: "duration_locked_sold" };
+    }
     patch.duration_days = input.durationDays;
   }
   if (input.displayName != null) {
@@ -112,13 +127,11 @@ export async function adminUpdateDeliveryAdPackagePrice(
     patch.display_order = input.displayOrder;
   }
 
-  const { data: afterRaw, error } = await sb
-    .from(DELIVERY_AD_PACKAGE_TABLE)
-    .update(patch)
-    .eq("id", input.packageId)
-    .select("*")
-    .maybeSingle();
-  if (error || !afterRaw) return { ok: false, error: error?.message ?? "update_failed" };
+  let updateQ = sb.from(DELIVERY_AD_PACKAGE_TABLE).update(patch).eq("id", input.packageId);
+  if (input.expectedUpdatedAt) updateQ = updateQ.eq("updated_at", input.expectedUpdatedAt);
+  const { data: afterRaw, error } = await updateQ.select("*").maybeSingle();
+  if (error) return { ok: false, error: error.message ?? "update_failed" };
+  if (!afterRaw) return { ok: false, error: input.expectedUpdatedAt ? "stale_updated_at" : "update_failed" };
   const after = mapDeliveryAdPackageRow(afterRaw as Record<string, unknown>);
   if (!after) return { ok: false, error: "invalid_row" };
 

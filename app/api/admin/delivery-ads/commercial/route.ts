@@ -51,6 +51,8 @@ type PatchBody = {
   priceAmountMinor?: number | null;
   durationDays?: number;
   displayOrder?: number;
+  /** SA-12: 화면이 읽은 패키지 `updated_at` */
+  expectedUpdatedAt?: string;
   inventoryKey?: string;
   sellable?: boolean;
   code?: string;
@@ -115,6 +117,7 @@ export async function PATCH(req: NextRequest) {
         durationDays: body.durationDays,
         displayName: body.displayName,
         displayOrder: body.displayOrder,
+        expectedUpdatedAt: typeof body.expectedUpdatedAt === "string" ? body.expectedUpdatedAt : undefined,
         actorUserId,
         reason,
       });
@@ -186,7 +189,10 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (!result.ok) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: result.error },
+      { status: result.error === "stale_updated_at" ? 409 : 400 }
+    );
   }
 
   const { op: _op, reason: _reason, ...input } = body as PatchBody & Record<string, unknown>;

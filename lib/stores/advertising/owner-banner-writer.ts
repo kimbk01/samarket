@@ -139,6 +139,8 @@ export type OwnerBannerWriterError =
   | "funding_required"
   | "duplicate_submit"
   | "capacity_full"
+  /** SA-08: 자리 확인 조회 실패 → 제출 막음 */
+  | "capacity_check_failed"
   | "db_error"
   | "inventory_lookup_failed"
   | "store_slug_missing"
@@ -552,7 +554,7 @@ export async function transitionOwnerBannerCampaign(
         inventoryKey: invKey,
       });
       if (!cap.ok) {
-        return { ok: false, error: "capacity_full" };
+        return { ok: false, error: cap.error === "capacity_check_failed" ? "capacity_check_failed" : "capacity_full" };
       }
     }
   }

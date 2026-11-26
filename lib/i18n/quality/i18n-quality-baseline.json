@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-26 17:28 PHT",
+ "generatedAtPht": "2026-11-26 17:47 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -257,7 +257,6 @@
    "app/api/test-login/route.ts": 1,
    "app/api/trade/chat/entry/resolve/route.ts": 2,
    "app/api/trade/product-chat/[roomId]/buyer-issue/route.ts": 5,
-   "components/business/owner/ads/OwnerBannerCreateView.tsx": 1,
    "components/business/owner/OwnerCoinConvertSection.tsx": 25,
    "components/business/owner/OwnerCoinWithdrawalPanel.tsx": 7,
    "components/business/owner/OwnerStoreOrdersMobileBody.tsx": 7,
@@ -740,6 +739,7 @@
    "lib/utils/ph-mobile.ts": 1
   },
   "jsx-text-korean": {
+   "components/admin/stores/AdminDeliveryAdCommercialSettingsView.tsx": 1,
    "components/dev/PromotionEventOperationProofClient.tsx": 12
   }
  }

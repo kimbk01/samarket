@@ -259,6 +259,8 @@ export const adminDeliveryAdsMessages = {
     admin_ads_hero_order: "표시 순서·일정 편입/제외는 광고 목록에서 관리",
     admin_ads_search_customer: "고객이 검색했을 때 매장 목록 위에 배너가 표시됩니다.",
     admin_ads_sellable: "판매",
+    /** SA-13: 사장님 신청 화면에 없는 지면 */
+    admin_ads_sell_unsupported: "판매 미지원 (사장님 신청 화면에 없음)",
     admin_ads_manage: "관리",
     admin_ads_taxonomy_note: "매장 본인 업종 Browse에만 노출 · 타 업종 침투 금지",
     admin_delivery_ads_unset_price_summary: "확인이 필요한 광고 가격이 {count}개 있습니다.",
@@ -531,6 +533,7 @@ export const adminDeliveryAdsMessages = {
     admin_ads_hero_order: "Order and schedule inclusion are managed in the ad list",
     admin_ads_search_customer: "Shown above the store list when customers search.",
     admin_ads_sellable: "Sellable",
+    admin_ads_sell_unsupported: "Not sold (not in owner apply screen)",
     admin_ads_manage: "Manage",
     admin_ads_taxonomy_note: "Only the store’s own category Browse · no cross-category",
     admin_delivery_ads_unset_price_summary: "{count} ad prices need attention.",

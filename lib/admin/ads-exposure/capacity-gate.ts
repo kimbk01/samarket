@@ -18,6 +18,7 @@ import {
   parseBannerBrowseTarget,
   type BannerBrowseTarget,
 } from "@/lib/stores/advertising/banner-browse-target";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export const DELIVERY_HERO_PLACEMENT_KEY = "STORES_HOME_HERO" as const;
 
@@ -64,7 +65,7 @@ export type CapacityGateResult =
     }
   | {
       ok: false;
-      error: "capacity_full" | "invalid_schedule";
+      error: "capacity_full" | "invalid_schedule" | "capacity_check_failed";
       placementKey: string;
       capacity: number;
       overlappingCount: number;
@@ -72,6 +73,20 @@ export type CapacityGateResult =
       messageKo: string;
       messageEn: string;
     };
+
+/** SA-08: 점유 조회 실패 → 판매 막음 (자리 있음으로 통과시키지 않는다) */
+function capacityCheckFailed(placementKey: string, capacity: number): CapacityGateResult {
+  return {
+    ok: false,
+    error: "capacity_check_failed",
+    placementKey,
+    capacity,
+    overlappingCount: 0,
+    vacant: 0,
+    messageKo: translateBy("ko", "owner_ads_error_check_failed"),
+    messageEn: translateBy("en", "owner_ads_error_check_failed"),
+  };
+}
 
 export function isDeliveryHeroPlacement(key: string): boolean {
   return key === DELIVERY_HERO_PLACEMENT_KEY;
@@ -187,10 +202,15 @@ export async function loadBannerOccupancyCampaigns(
     .select(
       "id, store_id, owner_user_id, title, image_url, creative_id, campaign_source, sort_order, lifecycle_status, start_at, end_at, surface, browse_primary_slug, browse_secondary_slug"
     )
-    .limit(500);
+    /**
+     * 광고 감사 SA-08 (2026-11-26): 자리를 차지하는 상태만 읽는다(예전: 상태 조건 없이 500행 — 종료 행이 쌓이면 점유 행이 빠졌다).
+     * 조회 실패는 「자리 0개 사용」이 아니라 오류로 올린다 — 판매 쪽은 막는다(fail-closed).
+     */
+    .in("lifecycle_status", [...HERO_OCCUPYING_LIFECYCLES])
+    .limit(2000);
   if (error) {
     console.warn("[capacity-gate] load hero campaigns", error.message);
-    return [];
+    throw new Error("capacity_check_failed");
   }
 
   const rows = ((data ?? []) as BannerCampaignRow[]).filter((r) =>
@@ -299,7 +319,12 @@ export async function assertDeliveryBannerCapacityAvailable(
   if (!ssot) {
     return { ok: true, placementKey: key, capacity: 1, overlappingCount: 0, vacant: 1 };
   }
-  const campaigns = await loadBannerOccupancyCampaigns(sb, key);
+  let campaigns: HeroOccupancyCampaign[];
+  try {
+    campaigns = await loadBannerOccupancyCampaigns(sb, key);
+  } catch {
+    return capacityCheckFailed(key, ssot.max);
+  }
   const target = input.browseTarget ?? { primarySlug: null, secondarySlug: null };
   return assertHeroCapacityForWindow({
     campaigns,
@@ -366,7 +391,12 @@ export async function assertDeliveryHeroCapacityAvailable(
       vacant: 1,
     };
   }
-  const campaigns = await loadHeroOccupancyCampaigns(sb);
+  let campaigns: HeroOccupancyCampaign[];
+  try {
+    campaigns = await loadHeroOccupancyCampaigns(sb);
+  } catch {
+    return capacityCheckFailed(key, 0);
+  }
   return assertHeroCapacityForWindow({
     campaigns,
     startAt: input.startAt,

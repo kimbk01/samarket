@@ -43,6 +43,7 @@ import {
   dibayShellRequestHeaders,
   useIosAppDigitalPurchaseBlocked,
 } from "@/lib/apple-iap/use-ios-digital-purchase-blocked";
+import { ownerAdErrorKey } from "@/lib/stores/advertising/owner-ad-error-copy";
 
 type EligibleStore = {
   id: string;
@@ -157,7 +158,6 @@ export function OwnerStoreSponsoredCreateView() {
   const [noSellablePackages, setNoSellablePackages] = useState(false);
   const [acceptingApplications, setAcceptingApplications] = useState(true);
   const [commercialLoading, setCommercialLoading] = useState(false);
-  const [productLabel, setProductLabel] = useState<string | null>(null);
   const [cashBalanceMinor, setCashBalanceMinor] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [draftBusy, setDraftBusy] = useState(false);
@@ -319,7 +319,6 @@ export function OwnerStoreSponsoredCreateView() {
         setNoSellablePackages(true);
         return;
       }
-      setProductLabel(json.product?.displayName?.trim() || null);
       setAcceptingApplications(
         json.product?.acceptingApplications !== false && json.product?.enabled !== false
       );
@@ -502,6 +501,7 @@ export function OwnerStoreSponsoredCreateView() {
       const actionJson = (await actionRes.json()) as {
         ok?: boolean;
         error?: string;
+        quoteError?: string | null;
         refreshQuote?: boolean;
         campaign?: OwnerSponsoredCampaignRow;
       };
@@ -512,10 +512,11 @@ export function OwnerStoreSponsoredCreateView() {
         actionJson.refreshQuote
       ) {
         await refetchCommercial();
+        /** SA-04: 실패 이유 그대로 (견적 세부 코드 우선) — 문구는 `ownerAdErrorKey` 1곳 */
         setError(
-          actionJson.error === "quote_stale" || actionJson.refreshQuote
+          actionJson.refreshQuote
             ? "quote_stale"
-            : actionJson.error || "generic"
+            : actionJson.quoteError || actionJson.error || "generic"
         );
         return;
       }
@@ -527,22 +528,9 @@ export function OwnerStoreSponsoredCreateView() {
     }
   }, [packageId, persistDraft, quote, refetchCommercial]);
 
-  const errorText =
-    error === "ios_digital_purchase_unavailable"
-      ? t("owner_ios_cash_purchase_unavailable")
-      : error === "inventory"
-      ? t("owner_ads_error_inventory")
-      : error === "store"
-        ? t("owner_ads_error_store")
-        : error === "quote_stale"
-          ? t("owner_ads_error_quote_stale")
-          : error === "applications_paused"
-            ? t("owner_ads_error_applications_paused")
-            : error === "no_packages"
-              ? t("owner_ads_no_sellable_packages")
-              : error
-                ? safeT("owner_ads_error_generic")
-                : null;
+  /** SA-04: 실패 이유 → 문구 단일 정의 */
+  const errorKey = ownerAdErrorKey(error);
+  const errorText = errorKey ? t(errorKey) : null;
 
   const canSubmit = Boolean(
     storeId &&
@@ -693,7 +681,8 @@ export function OwnerStoreSponsoredCreateView() {
 
               <OwnerStoreAdminDashSection title={t("owner_ads_where_to_promote")}>
                 <p className="mb-2 text-[12px] text-sam-muted">
-                  {productLabel || t("owner_ads_product_store_sponsored")}
+                  {/* SA-05: 상품 이름 = 키 (DB 영문 「Store sponsored」 금지) */}
+                  {t("owner_ads_product_store_sponsored")}
                 </p>
                 <DeliveryAdOwnerPlacementVisualGrid
                   options={
