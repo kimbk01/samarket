@@ -131,6 +131,12 @@ describe("생명주기 복원 목적지 그림 보류 (D3)", () => {
 
 describe("구조 계약", () => {
   const effects = readFileSync("lib/lifecycle/lifecycle-route-effects.client.ts", "utf8");
+  it("D2-R: 복원 채팅방 미리 받기는 실제 이동(router.replace) 직전 한 곳에서만", () => {
+    expect(effects).toMatch(
+      /prefetchLaunchRoomEntry\(navigateTo, "lifecycle_restore"\);\s*noteLifecycleNavIssued\(\);\s*router\.replace\(navigateTo\);/
+    );
+    expect(effects.match(/prefetchLaunchRoomEntry\(/g)?.length).toBe(1);
+  });
   it("이동 표시는 router.replace 바로 앞에서만", () => {
     expect(effects).toMatch(/noteLifecycleNavIssued\(\);\s*router\.replace\(navigateTo\);/);
     expect(effects.match(/noteLifecycleNavIssued\(\)/g)?.length).toBe(1);

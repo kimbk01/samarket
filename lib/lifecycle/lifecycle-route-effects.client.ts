@@ -20,6 +20,7 @@ import {
 } from "@/lib/startup/lifecycle-nav-hold";
 import { markInitialDestinationVisualReady } from "@/lib/startup/startup-metrics";
 import { armLifecycleDestinationPaintCap } from "@/lib/startup/lifecycle-destination-paint-cap";
+import { prefetchLaunchRoomEntry } from "@/lib/startup/launch-room-prefetch";
 
 /** Auth / consent / onboarding surfaces — owned by auth SSOT, never replaced by restore or Safe Entry. 단일 정의는 `lifecycle-nav-hold`. */
 export { isLifecycleAuthSurfacePath };
@@ -86,6 +87,8 @@ export function LifecycleRouteEffects(): null {
         return;
       }
       console.info(`[dibay-lifecycle] navigate kind=${d.kind} → ${navigateTo}`);
+      // 감사 2026-11-26 D2-R: 복원 목적지가 채팅방이면 이동과 동시에 채팅방 데이터·JS 를 받기 시작(게이트와 같은 단일 비행).
+      prefetchLaunchRoomEntry(navigateTo, "lifecycle_restore");
       noteLifecycleNavIssued();
       router.replace(navigateTo);
     }).catch(() => {

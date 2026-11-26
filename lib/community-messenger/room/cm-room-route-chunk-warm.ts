@@ -11,7 +11,9 @@ export type CmRoomRouteChunkWarmSource =
   | "pointerenter"
   | "pointerdown"
   /** 감사 2026-11-26 D2 — 알림 탭으로 켠 실행의 채팅방 목적지 */
-  | "launch_push";
+  | "launch_push"
+  /** 감사 2026-11-26 D2-R — 직전 화면 복원 목적지가 채팅방 */
+  | "lifecycle_restore";
 
 export type CmRoomRouteChunkWarmSession = {
   sources: CmRoomRouteChunkWarmSource[];
