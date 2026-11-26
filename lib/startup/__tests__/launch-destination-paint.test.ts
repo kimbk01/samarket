@@ -87,6 +87,16 @@ describe("목적지 그림 판정 (순수)", () => {
     );
     expect(paint.isLaunchDestinationPaintPending(ROOM)).toBe(false);
   });
+  it("감사 11-26 §10: 진입 움직임 중(running) 화면이 보이면 대기 · 끝나면 그림 · 숨긴 화면은 안 셈", async () => {
+    const MOVING = `<div data-entry-motion="running">${ROOM_SHELL}</div>`;
+    const { paint } = await load(ROOM, MOVING, null);
+    expect(paint.isLaunchDestinationPaintPending(ROOM)).toBe(true);
+    expect(paint.isLaunchDestinationPaintPending(ORDER)).toBe(true);
+    document.body.innerHTML = `<div style="display: none"><div data-entry-motion="running"></div></div>${ROOM_SHELL}`;
+    expect(paint.isLaunchDestinationPaintPending(ROOM)).toBe(false);
+    document.body.innerHTML = `<div>${ROOM_SHELL}</div>`;
+    expect(paint.isLaunchDestinationPaintPending(ROOM)).toBe(false);
+  });
   it("채팅방이 아닌 목적지는 막음이 없으면 바로 그림", async () => {
     const { paint } = await load(ORDER, "<main><section>주문</section></main>", null);
     expect(paint.isLaunchDestinationPaintPending(ORDER)).toBe(false);

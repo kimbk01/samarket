@@ -69,6 +69,8 @@ describe("방 진입 중 뒤로", () => {
     const calls = src.split("noteRoomEntryArrived(rid)").length - 1;
     expect(calls).toBe(2);
     expect(src).toMatch(/setPhase\(\(p\) => \(p === "enter-active" \? "idle" : p\)\);\s*const rid = roomId\?\.trim\(\);\s*if \(rid\) noteRoomEntryArrived\(rid\);/);
-    expect(src).toMatch(/if \(rid && \(splitPaneMode \|\| reducedMotion\)\) noteRoomEntryArrived\(rid\);/);
+    // 감사 11-26 §10: 움직임 없이 여는 경우(분할·축소 모션·앱 시작 목적지)는 즉시 진입 완료
+    expect(src).toContain("const skipEnterMotion = splitPaneMode || reducedMotion || launchDestinationEntry;");
+    expect(src).toMatch(/if \(rid && skipEnterMotion\) noteRoomEntryArrived\(rid\);/);
   });
 });
