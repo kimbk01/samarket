@@ -117,6 +117,8 @@ export function MandatoryAddressGate() {
       });
       await applyGateJson(res);
     } catch {
+      /** 확인 실패 = 통과 여부 모름 — 다음 복귀에 다시 묻는다 */
+      lastPassedRef.current = false;
       setBlocked(false);
     }
   }, [applyGateJson]);

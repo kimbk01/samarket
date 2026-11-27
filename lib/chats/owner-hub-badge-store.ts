@@ -86,8 +86,6 @@ import { logHubRefreshGuard, logMarkReadRefreshChain, logParticipantUnreadHubRef
 
 import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
-import { onMessengerRealtimeResynced } from "@/lib/community-messenger/realtime/messenger-realtime-resync";
-import { ensureResumeVisibilityClock, shouldRefetchOnAppResume } from "@/lib/community-messenger/realtime/resume-resync-gate";
 import {
   applyHubBadgeProjection,
   registerHubBadgeProjectionSink,
@@ -1849,11 +1847,6 @@ function scheduleEventDrivenOwnerHubRefresh() {
 const coalescedHubVisibilityFetch = createTrailingCoalescedCallback(() => {
   if (typeof document === "undefined" || document.visibilityState !== "visible") return;
   if (Date.now() - lastFetchStartedAt < MIN_VISIBILITY_FETCH_GAP_MS) return;
-  /**
-   * 실시간이 끊기지 않았으면(짧게 숨김·모든 채널 연결) 다시 열기 조회를 하지 않는다 — 끊겼다 붙으면 아래
-   * 재연결 따라잡기(`onHubRealtimeResynced`)가 1번 다시 받는다. 설계 resume-fixed-cost-design-2026-11-27 §4.
-   */
-  if (!shouldRefetchOnAppResume()) return;
   logHubBadgeLoopTrace({ reason: "visibility_visible" });
   scheduleDeferredHubBadgeFetch("visibility_visible", false, {
     callerComponent: "document_visibility",
@@ -1908,20 +1901,6 @@ function onVisibility() {
 
 
 
-/**
- * 실시간 재연결 따라잡기 (D2 R2) — 끊긴 동안 놓친 알림·메신저 안 읽음 변경을 서버 값으로 1번 맞춘다.
- * 다시 열기 조회를 줄이면서 이 경로가 유일한 따라잡기가 되므로 클라이언트 캐시를 쓰지 않고 서버 값을 받는다.
- */
-function onHubRealtimeResynced() {
-  if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-  scheduleDeferredHubBadgeFetch("realtime_resync", true, {
-    callerComponent: "messenger_realtime_resync",
-    serverHubBadgeBypass: true,
-  });
-}
-
-let offHubRealtimeResynced: (() => void) | null = null;
-
 function attachGlobalEventsOnce() {
 
   if (globalEventsAttached) {
@@ -1946,10 +1925,6 @@ function attachGlobalEventsOnce() {
 
   document.addEventListener("visibilitychange", onVisibility);
 
-  ensureResumeVisibilityClock();
-  offHubRealtimeResynced?.();
-  offHubRealtimeResynced = onMessengerRealtimeResynced(onHubRealtimeResynced);
-
 }
 
 
@@ -1967,9 +1942,6 @@ function detachGlobalEvents() {
   window.removeEventListener(KASAMA_OWNER_HUB_BADGE_REFRESH, onOwnerHubRefresh);
 
   document.removeEventListener("visibilitychange", onVisibility);
-
-  offHubRealtimeResynced?.();
-  offHubRealtimeResynced = null;
 
 }
 
