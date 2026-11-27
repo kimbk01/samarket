@@ -104,6 +104,7 @@ import {
   adminDeleteSupportMessage,
   adminEditSupportMessage,
   adminReplySupportCase,
+  settleAdminWorkAfterSeenReply,
   adminUpdateSupportCaseStatus,
   enrichSupportCasesForAdminDisplay,
   listSupportCasesForAdmin,
@@ -146,7 +147,7 @@ function makeDb(seed: Record<string, Row[]> = {}) {
     ...seed,
   };
   let tick = 0;
-  const now = () => new Date(Date.UTC(2026, 9, 1) + ++tick).toISOString();
+  const now = () => new Date(Date.UTC(2026, 11, 1) + ++tick).toISOString(); // 본 시각 규칙 시작(2026-11-28) 뒤 — 기록 없는 답변 = 안 봤음
   function builder(table: string) {
     const st: {
       op: "select" | "insert" | "update";
@@ -1316,7 +1317,7 @@ describe("support final audit 2026-11-28 — D1·D5·L1~L11 (동작)", () => {
     if (!m.ok) throw new Error(m.error);
     await flush();
     // B 의 답변 R 은 저장됐지만 「본 시각」 기록은 아직(경합) — 규칙 시작 뒤 시각으로 직접 넣는다
-    const rAt = new Date(Date.parse(SUPPORT_REPLY_SEEN_RECORD_SINCE) + 60_000).toISOString();
+    const rAt = new Date(Date.parse(String(db.support_cases[0].last_message_at)) + 60_000).toISOString();
     db.support_messages.push({
       id: randomUUID(), case_id: a.case.id, sender_type: "ADMIN", sender_admin_id: OTHER_ADMIN, message_type: "PUBLIC",
       body: "B 답(기록 전)", created_at: rAt, deleted_at: null,
@@ -1370,7 +1371,12 @@ describe("support final audit 2026-11-28 — D1·D5·L1~L11 (동작)", () => {
       const out = await origRpc(n, args);
       if (n === "support_append_message" && !injected && args.p_sender_admin_id === ADMIN) {
         injected = true;
-        await origRpc(n, { ...args, p_sender_admin_id: OTHER_ADMIN, p_body: "B 가 M 보고 답" });
+        const b = (await origRpc(n, { ...args, p_sender_admin_id: OTHER_ADMIN, p_body: "B 가 M 보고 답" })) as { data: { id: string; created_at: string } };
+        // B 의 정리 단계가 남기는 「본 시각」(M 을 봄)
+        db.support_case_events.push({
+          id: randomUUID(), case_id: a.case.id, event_type: "admin_reply_seen", actor_user_id: null,
+          payload: { reply_message_id: b.data.id, seen_at: b.data.created_at }, created_at: b.data.created_at,
+        });
       }
       return out;
     };
@@ -1384,6 +1390,39 @@ describe("support final audit 2026-11-28 — D1·D5·L1~L11 (동작)", () => {
     await flush();
     expect(db.support_cases[0].status).toBe("WAITING_USER");
     expect(db.admin_notifications[0].read_at).not.toBeNull();
+    expect(await supportCustomerMessageNeedsAdmin(sb, { caseId: a.case.id, messageId: m.message.id })).toBe("skip");
+  });
+
+  it("4차 재감사: a wrong revert by an earlier-finishing settle is corrected when the other reply's settle runs (converges to WAITING_USER)", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "첫 문의");
+    if (!a.ok) throw new Error(a.error);
+    const s0 = String(db.support_cases[0].last_message_at);
+    const m = await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "M" });
+    if (!m.ok) throw new Error(m.error);
+    await flush();
+    // R_B(최신 화면 — M 봄)가 먼저 저장, 바로 뒤 R_A(오래된 화면). R_A 의 정리가 R_B 기록보다 먼저 돈다.
+    const origRpc = (sb as { rpc: (n: string, args?: Record<string, unknown>) => Promise<unknown> }).rpc;
+    let rb: { id: string; created_at: string } | null = null;
+    (sb as { rpc: unknown }).rpc = async (n: string, args: Record<string, unknown> = {}) => {
+      if (n === "support_append_message" && !rb && args.p_sender_admin_id === ADMIN) {
+        rb = ((await origRpc(n, { ...args, p_sender_admin_id: OTHER_ADMIN, p_body: "B 답" })) as { data: { id: string; created_at: string } }).data;
+      }
+      return origRpc(n, args);
+    };
+    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "A 답", seenLastMessageAt: s0 });
+    await flush();
+    expect(db.support_cases[0].status).toBe("WAITING_ADMIN"); // R_B 기록 전이라 보수적으로 되돌림
+    // 이제 R_B 의 정리(본 시각 = 자기 답변 시각 → M 봄)
+    if (!rb) throw new Error("no rb");
+    const rbRow = rb as { id: string; created_at: string };
+    await settleAdminWorkAfterSeenReply(sb, {
+      caseRow: db.support_cases[0] as never,
+      seenLastMessageAt: rbRow.created_at,
+      reply: rbRow,
+    });
+    await flush();
+    expect(db.support_cases[0].status).toBe("WAITING_USER");
     expect(await supportCustomerMessageNeedsAdmin(sb, { caseId: a.case.id, messageId: m.message.id })).toBe("skip");
   });
 

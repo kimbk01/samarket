@@ -347,12 +347,13 @@ async function resolveSupportAdminNotifications(sb: SupabaseClient, caseId: stri
 }
 
 /**
- * 최종 감사 D1 (2026-11-28) — 답변한 어드민이 **화면에서 본 마지막 글 시각**(`seenLastMessageAt` = 상세의 `last_message_at`)까지의
- * 고객 글 알림만 받은 어드민 전원 읽음 + 담당 지정 알림 읽음. 그 시각 **뒤에** 온 고객 공개 글(답을 쓰는 사이 온 글)이 있으면
- * 문의를 WAITING_ADMIN 으로 되돌려(「답변 필요」 탭에 남김) 그 글 알림을 안 읽음으로 두고, 아직 없으면 만든다(같은 dedupe 키 — 중복 없음).
- * 읽기 실패 = 아무것도 읽음 처리하지 않는다(알림을 덜 남기지 않는다). 돌려준 값 = 본 뒤 온 고객 글 수.
+ * 최종 감사 D1 (2026-11-28 · 재감사 4회 반영) — 공개 답변 1건의 정리. 규칙은 `supportReplySawMessage` 하나:
+ *  ① 이 답변의 「본 시각」을 맨 먼저 기록 ② 최신 어드민 답변 전 고객 글마다 「본 답변이 있나」 계산
+ *  ③ 답 받은 글 알림만 전원 읽음 ④ 상태 = 아무도 안 본 글 있으면 WAITING_ADMIN, 없으면 WAITING_USER
+ *     (CAS: 마지막 글 = 최신 어드민 답변 — 어느 답변의 정리가 마지막에 돌아도 같은 결론) ⑤ 남은 글 알림이 없으면 만든다.
+ * 돌려준 값 = 아무도 안 본 고객 글 수.
  */
-async function settleAdminWorkAfterSeenReply(
+export async function settleAdminWorkAfterSeenReply(
   sb: SupabaseClient,
   input: { caseRow: SupportCaseRow; seenLastMessageAt: string | null; reply: { id: string; created_at: string } }
 ): Promise<number> {
@@ -369,31 +370,32 @@ async function settleAdminWorkAfterSeenReply(
   };
   let seenErr = (await sb.from("support_case_events").insert(seenRow)).error;
   if (seenErr) seenErr = (await sb.from("support_case_events").insert(seenRow)).error;
-  if (seenErr) {
-    // 기록이 없으면 이 답변은 「안 봤음」으로 판정된다 — 알림을 읽음 처리하지 않는다(잃는 쪽으로 가지 않음).
-    console.error("[support] reply_seen_event_failed", { caseId: c.id, error: seenErr.message });
-    return 0;
-  }
+  // 4차 재감사: 기록이 끝내 실패해도 멈추지 않는다 — 이 답변은 「안 봤음」으로 계산돼 상태·알림이 남는 쪽(보수적)으로 간다.
+  if (seenErr) console.error("[support] reply_seen_event_failed", { caseId: c.id, error: seenErr.message });
   const msgs = (cols: string) => sb.from("support_messages").select(cols).eq("case_id", c.id).eq("message_type", "PUBLIC").is("deleted_at", null);
-  const [custRes, replyRes, seenMap] = await Promise.all([
-    msgs("id, body, sender_user_id, created_at")
-      .in("sender_type", ["MEMBER", "OWNER"])
-      .lt("created_at", replyAt)
-      .order("created_at", { ascending: false })
-      .limit(SUPPORT_MESSAGES_LIST_LIMIT),
+  const [replyRes, seenMap] = await Promise.all([
     msgs("id, created_at").eq("sender_type", "ADMIN").order("created_at", { ascending: false }).limit(SUPPORT_MESSAGES_LIST_LIMIT),
     loadSupportAdminReplySeenAt(sb, c.id),
   ]);
-  if (custRes.error || replyRes.error || !seenMap) {
+  const replies = (replyRes.data ?? []) as unknown as SupportReplyRow[];
+  // 4차 재감사: 기준 = **최신** 어드민 답변(이 답변보다 늦은 다른 답변이 있으면 그것) — 어느 답변의 정리가 마지막에 돌아도 같은 결론
+  const latestReplyAt = replies[0]?.created_at ?? replyAt;
+  const custRes = replyRes.error
+    ? null
+    : await msgs("id, created_at")
+        .in("sender_type", ["MEMBER", "OWNER"])
+        .lt("created_at", latestReplyAt)
+        .order("created_at", { ascending: false })
+        .limit(SUPPORT_MESSAGES_LIST_LIMIT);
+  if (replyRes.error || !custRes || custRes.error || !seenMap) {
     console.error("[support] reply_seen_settle_read_failed", {
       caseId: c.id,
-      error: custRes.error?.message ?? replyRes.error?.message ?? "seen_events",
+      error: replyRes.error?.message ?? custRes?.error?.message ?? "seen_events",
     });
     return 0;
   }
-  type Cust = { id: string; body: string; sender_user_id: string | null; created_at: string };
+  type Cust = { id: string; created_at: string };
   const customers = (custRes.data ?? []) as unknown as Cust[];
-  const replies = (replyRes.data ?? []) as unknown as SupportReplyRow[];
   const answered = (m: Cust) =>
     replies.some((r) => Date.parse(r.created_at) >= Date.parse(m.created_at) && supportReplySawMessage(r, seenMap, m.created_at));
   const done = customers.filter(answered);
@@ -407,18 +409,24 @@ async function settleAdminWorkAfterSeenReply(
     }),
     resolveAdminNotificationsForWork(sb, { workRef, kinds: ["support_case_assigned"] }),
   ]);
-  if (unanswered.length === 0) return 0;
-  // DB 함수가 이 답변으로 WAITING_USER 를 만들었다 → 아무도 안 본 고객 글이 남았으니 「답변 필요」로.
-  // CAS: 상태 = WAITING_USER 그리고 마지막 글 = 이 답변 (그 뒤 고객 글·다른 답변이 오면 그쪽이 최신 — 건드리지 않음).
+  // 상태 맞춤 — CAS: 마지막 글 = 최신 어드민 답변(그 뒤 고객 글이 오면 DB 함수가 WAITING_ADMIN 으로 이미 맞춤 · 건드리지 않음)
+  //   아무도 안 본 글 남음 → WAITING_ADMIN · 모두 답 받음 → WAITING_USER (다른 답변의 정리가 먼저 되돌려 둔 것을 바로잡음)
+  const target = unanswered.length > 0 ? { from: "WAITING_USER", to: "WAITING_ADMIN" } : { from: "WAITING_ADMIN", to: "WAITING_USER" };
   const { error: backErr } = await sb
     .from("support_cases")
-    .update({ status: "WAITING_ADMIN", updated_at: new Date().toISOString() })
+    .update({ status: target.to, updated_at: new Date().toISOString() })
     .eq("id", c.id)
-    .eq("status", "WAITING_USER")
-    .eq("last_message_at", replyAt);
+    .eq("status", target.from)
+    .eq("last_message_at", latestReplyAt);
   if (backErr) console.error("[support] reply_unseen_status_failed", { caseId: c.id, error: backErr.message });
-  // 남은 글 알림이 없으면 만든다(같은 dedupe 키 — 있으면 그대로). 판정은 같은 규칙이라 send.
-  for (const m of unanswered) {
+  if (unanswered.length === 0) return 0;
+  // 남은 글 알림이 없으면 만든다(같은 dedupe 키 — 있으면 그대로). 본문은 남은 글만 읽는다.
+  const bodies = await msgs("id, body, sender_user_id").in("id", unanswered.map((m) => m.id));
+  if (bodies.error) {
+    console.error("[support] reply_unseen_body_read_failed", { caseId: c.id, error: bodies.error.message });
+    return unanswered.length;
+  }
+  for (const m of (bodies.data ?? []) as unknown as { id: string; body: string; sender_user_id: string | null }[]) {
     notifyAdminsAfterResponse(sb, {
       caseRow: c,
       messageId: m.id,
