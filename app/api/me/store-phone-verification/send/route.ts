@@ -3,6 +3,7 @@ import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { enforceRateLimit, jsonError, jsonOk } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
 import {
   sendStorePhoneOtp,
   STORE_PHONE_VERIFY_PURPOSES,
@@ -24,15 +25,6 @@ export async function POST(req: NextRequest) {
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) return jsonError("supabase_service_unconfigured", 503);
 
-  const quota = await enforceRateLimit({
-    key: `store_phone_verification_send:${auth.userId}`,
-    limit: 8,
-    windowMs: 3_600_000,
-    message: "store_phone_otp_rate_limited",
-    code: "store_phone_otp_rate_limited",
-  });
-  if (!quota.ok) return quota.response;
-
   let body: { phone?: unknown; purpose?: unknown; storeId?: unknown };
   try {
     body = await req.json();
@@ -48,6 +40,24 @@ export async function POST(req: NextRequest) {
    */
   const requestedStoreId = String(body.storeId ?? "").trim() || null;
   if (purpose === "store_phone_change" && !requestedStoreId) return jsonError("store_id_required", 400);
+  /**
+   * 결정 4 (Owner 2026-11-27): 새 입점 신청(store_apply · storeId 없음) 전 인증번호 = 가입 필요 (신청 `POST /api/me/stores` 와 같은 기준).
+   * 내 매장 번호 변경·보완 제출은 가입 없이. 발송 한도·문자 전에 거절한다 (규칙 표 split).
+   */
+  if (purpose === "store_apply" && !requestedStoreId) {
+    const registrationGate = await requireRegistrationForAction(auth.userId);
+    if (registrationGate) return registrationGate;
+  }
+
+  const quota = await enforceRateLimit({
+    key: `store_phone_verification_send:${auth.userId}`,
+    limit: 8,
+    windowMs: 3_600_000,
+    message: "store_phone_otp_rate_limited",
+    code: "store_phone_otp_rate_limited",
+  });
+  if (!quota.ok) return quota.response;
+
   let ownStoreId: string | null = null;
   if (requestedStoreId) {
     const { data: own, error } = await sb

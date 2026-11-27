@@ -44,6 +44,8 @@ function HostRequestBody({ detail }: { detail: MoimDetailDto }) {
     setBusy(false);
     setConfirmOpen(false);
     if (!r.ok) {
+      // 결정 2 — 변경 요청은 가입 필요: 「가입 이어하기」 창이 이미 떴다
+      if (r.code === "signup_incomplete") return;
       if (r.error === "moim_host_recently_active" || r.error === "moim_transfer_pending") {
         setErrorText(t(r.error === "moim_host_recently_active" ? "moim_err_moim_host_recently_active" : "moim_err_moim_transfer_pending"));
         return;

@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { guardMoimWrite, moimBadRequest, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
 import { moimHostTransferRespond } from "@/lib/moim/server/moim-rpc.server";
+import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
 import { listActiveMoimMemberIds, loadMoimName } from "@/lib/moim/server/moim-queries.server";
 import { moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
 
@@ -16,6 +17,11 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!g.ok) return g.response;
   const body = await readMoimJson<{ accept?: unknown }>(req);
   if (typeof body?.accept !== "boolean") return moimBadRequest();
+  /** 결정 1 (Owner 2026-11-27): 수락 = 모임장 권한을 새로 받음 → 가입 필요. 거절은 가입 없이 (규칙 표 split) */
+  if (body.accept === true) {
+    const registrationGate = await requireRegistrationForAction(g.userId);
+    if (registrationGate) return registrationGate;
+  }
   const result = await moimHostTransferRespond(g.userId, transferId, body.accept, g.sb);
   if (result.ok && result.accepted && result.moim_id) {
     const moimId = result.moim_id;

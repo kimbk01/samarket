@@ -123,9 +123,18 @@ describe("분류 — 설계 §4 대표", () => {
     ["PATCH", "/api/community-messenger/rooms/r1"],
     ["POST", "/api/trade/chat/entry/resolve"],
   ])("%s %s = split", (m, p) => expect(kind(m, p)).toBe("split"));
-  it.each([["POST", "/api/community-messenger/direct/start"]])("%s %s = manage (재감사3 #6)", (m, p) =>
-    expect(kind(m, p)).toBe("manage"),
-  );
+  /** F1·결정 (Owner 2026-11-27) — 재감사3 #6 의 manage 를 계약 §4 A 로 되돌림: 새 1:1 방만 가입 필요 (split) */
+  it.each([
+    ["POST", "/api/community-messenger/direct/start"],
+    ["POST", "/api/moim/host-transfers/t1"],
+    ["POST", "/api/me/store-phone-verification/send"],
+  ])("%s %s = split (F1·결정 1·4)", (m, p) => expect(kind(m, p)).toBe("split"));
+  it("모임장 변경 요청 = new (결정 2) · 입점 인증 확인·친구 즐겨찾기·거래→메신저 = manage (결정 3·4′·6)", () => {
+    expect(kind("POST", "/api/moim/m1/host-inactive-request")).toBe("new");
+    expect(kind("POST", "/api/me/store-phone-verification/verify")).toBe("manage");
+    expect(kind("POST", "/api/community-messenger/friends/f1/favorite")).toBe("manage");
+    expect(kind("POST", "/api/community-messenger/bridge/product-chat")).toBe("manage");
+  });
   /** 계약 §4 A 「글 사진 올리기 = 가입 필요」 — F2 2026-11-27 (재감사3 #7 의 manage 를 되돌림) */
   it.each([
     ["POST", "/api/posts/upload-image"],
