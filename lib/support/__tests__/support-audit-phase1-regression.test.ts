@@ -38,6 +38,7 @@ const adminNotifyCalls: {
   broadcastPermission?: string | null;
   requiredPermission?: string | null;
   excludeRecipientIds?: readonly string[];
+  push?: boolean;
 }[] = [];
 
 const adminResolveCalls: string[] = [];
@@ -55,6 +56,7 @@ vi.mock("@/lib/admin/notifications/admin-notification-service", () => ({
         broadcastPermission?: string | null;
         requiredPermission?: string | null;
         excludeRecipientIds?: readonly string[];
+        push?: boolean;
       }
     ) => {
       adminNotifyCalls.push({
@@ -65,6 +67,7 @@ vi.mock("@/lib/admin/notifications/admin-notification-service", () => ({
         broadcastPermission: input.broadcastPermission,
         requiredPermission: input.requiredPermission,
         excludeRecipientIds: input.excludeRecipientIds,
+        push: input.push,
       });
       return { ok: true, created: 1, skippedRecipients: 0, pushed: 1 };
     }
@@ -226,6 +229,10 @@ function makeDb(seed: Record<string, Row[]> = {}) {
         st.filters.push((r) => String(r[c] ?? "") < String(v));
         return b;
       },
+      gt: (c: string, v: unknown) => {
+        st.filters.push((r) => String(r[c] ?? "") > String(v));
+        return b;
+      },
       neq: (c: string, v: unknown) => {
         st.filters.push((r) => r[c] !== v);
         return b;
@@ -337,7 +344,7 @@ const ctx = (): SupportContext => ({
   category: "ORDER",
   sourceSurface: "mypage_customer_center",
 });
-const openStructured = (sb: never, issueType: string, summary: string) =>
+const openStructuredRaw = (sb: never, issueType: string, summary: string) =>
   openSupportCaseFromContext(sb, {
     userId: U,
     context: ctx(),
@@ -346,6 +353,14 @@ const openStructured = (sb: never, issueType: string, summary: string) =>
     initialBody: summary,
     allowMissingIssue: false,
   });
+
+/** 응답 뒤로 미룬 어드민 알림 발송(after)까지 끝나게 — 시험은 그 결과를 본다 */
+const flush = () => new Promise<void>((r) => setTimeout(r, 0));
+const openStructured = async (sb: never, issueType: string, summary: string) => {
+  const r = await openStructuredRaw(sb, issueType, summary);
+  await flush();
+  return r;
+};
 
 beforeEach(() => {
   notifyCalls.length = 0;
@@ -760,12 +775,14 @@ describe("support inquiry SSOT 2026-11-27 — reaudit fixes", () => {
     await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답변" });
     adminNotifyCalls.length = 0;
     await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "추가 질문" });
+    await flush();
     expect(adminNotifyCalls).toHaveLength(1);
     expect(adminNotifyCalls[0].broadcastPermission).toBe("support");
 
     await adminAssignSupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, assigneeAdminId: ADMIN });
     adminNotifyCalls.length = 0;
     await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "또 질문" });
+    await flush();
     expect(adminNotifyCalls).toHaveLength(1);
     expect(adminNotifyCalls[0].recipientAdminIds).toEqual([ADMIN]);
     expect(adminNotifyCalls[0].broadcastPermission).toBeUndefined();
@@ -1038,10 +1055,11 @@ describe("support inquiry SSOT 2026-11-27 — second reaudit A~J (behaviour)", (
     await markSupportCaseNotificationsRead(sb, { userId: U, caseId: a.case.id, shownMessageIds: shownIds });
     expect(db.notification_events.find((n) => n.id === "ne-a")?.unread).toBe(false);
     expect(db.notification_events.find((n) => n.id === "ne-b")?.unread).toBe(true);
-    expect(Number(db.support_cases[0].requester_unread_count)).toBe(2);
+    // 남은 위험 ①: 숫자 = 아직 안 본 답변(B) 1 — 알림 행(B 만 안 읽음)과 같다
+    expect(Number(db.support_cases[0].requester_unread_count)).toBe(1);
 
     await adminDeleteSupportMessage(sb, { adminUserId: ADMIN, caseId: a.case.id, messageId: String(rb.message.id) });
-    expect(Number(db.support_cases[0].requester_unread_count)).toBe(1);
+    expect(Number(db.support_cases[0].requester_unread_count)).toBe(0);
   });
 
   it("E: mark-read never clears messages that arrived after the list the viewer was shown", async () => {
@@ -1052,20 +1070,42 @@ describe("support inquiry SSOT 2026-11-27 — second reaudit A~J (behaviour)", (
     const shownAt = String(db.support_cases[0].last_message_at);
     await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답변 B" });
     const r = await markSupportCaseReadForRequester(sb, { userId: U, caseId: a.case.id, seenLastMessageAt: shownAt });
-    expect(r.ok && r.wrote).toBe(false);
-    expect(Number(db.support_cases[0].requester_unread_count)).toBe(2);
+    // 남은 위험 ①: 본 목록 뒤에 온 답변 B 만 남긴다(통째로 2 가 아니라 정확히 1)
+    expect(r.ok && r.wrote).toBe(true);
+    expect(Number(db.support_cases[0].requester_unread_count)).toBe(1);
 
     await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "추가 1" });
     const adminShownAt = String(db.support_cases[0].last_message_at);
     await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "추가 2" });
     const ra = await markSupportCaseReadForAdmin(sb, a.case.id, adminShownAt);
-    expect(ra.ok && ra.wrote).toBe(false);
-    expect(Number(db.support_cases[0].admin_unread_count)).toBeGreaterThan(0);
+    // 어드민 쪽도 본 목록 뒤의 고객 글(추가 2) 1건만 남긴다
+    expect(ra.ok && ra.wrote).toBe(true);
+    expect(Number(db.support_cases[0].admin_unread_count)).toBe(1);
   });
 
   it("E2 (구조 확인): a deferred admin notification is not created once the admin already answered", () => {
     const svc = src("lib/support/support-case-service.ts");
-    expect(svc).toMatch(/if \(liveStatus !== "OPEN" && liveStatus !== "WAITING_ADMIN"\) return;/);
+    // 남은 위험 ③④: 끝난 일 = 읽음 기록만(푸시 없음) · 상태를 못 읽으면 보내지 않음(재생 함수가 남은 일만 다시 만든다)
+    expect(svc).toContain('const workDone = liveStatus !== "OPEN" && liveStatus !== "WAITING_ADMIN";');
+    expect(svc).toMatch(/if \(workDone\) \{[\s\S]{0,200}push: false,[\s\S]{0,300}resolveSupportAdminNotifications\(sb, c\.id\)/);
+    expect(svc).toMatch(/if \(live\.error\) live = await readStatus\(\);[\s\S]{0,400}return;/);
+  });
+
+  it("남은 위험 ④: a customer message whose admin work finished before the deferred send → read record only, no push", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "x");
+    if (!a.ok) throw new Error(a.error);
+    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답변" });
+    adminNotifyCalls.length = 0;
+    adminResolveCalls.length = 0;
+    // 고객 글 → (응답 뒤 발송 전) 어드민이 곧바로 답함
+    const p = postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "추가" });
+    await p;
+    db.support_cases[0].status = "WAITING_USER"; // 발송 직전 상태 = 이미 답함
+    await flush();
+    expect(adminNotifyCalls).toHaveLength(1);
+    expect(adminNotifyCalls[0].push).toBe(false);
+    expect(adminResolveCalls).toContain(a.case.id);
   });
 
   it("F/G (구조 확인): merge into a case closed meanwhile → new case; session failure → no empty case left (structure)", () => {

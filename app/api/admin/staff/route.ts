@@ -1,3 +1,4 @@
+import { releaseSupportAssignmentsIfNoSupportPermission } from "@/lib/support/support-assignee-permission-sync";
 import { NextRequest, NextResponse } from "next/server";
 import { checkAdminSetPassword, mapSupabaseWeakPasswordError } from "@/lib/auth/admin-set-password-policy";
 import { writeMemberMarketingConsent } from "@/lib/legal/marketing-consent.server";
@@ -220,6 +221,8 @@ export async function POST(req: NextRequest) {
       grantedBy: actor.userId,
     });
     await replaceStaffPermissions(sb, existingUserId, permissions, actor.userId);
+    // 고객 문의 남은 위험 ⑤: 고객지원 권한이 빠졌으면 담당 문의를 미배정으로
+    await releaseSupportAssignmentsIfNoSupportPermission(sb, { userId: existingUserId, changedBy: actor.userId });
 
     void appendAuditLog(sb, {
       actor_type: "admin",
@@ -312,6 +315,8 @@ export async function POST(req: NextRequest) {
   });
 
   await replaceStaffPermissions(sb, userId, permissions, actor.userId);
+  // 고객 문의 남은 위험 ⑤: 고객지원 권한이 빠졌으면 담당 문의를 미배정으로
+  await releaseSupportAssignmentsIfNoSupportPermission(sb, { userId: userId, changedBy: actor.userId });
 
   void appendAuditLog(sb, {
     actor_type: "admin",

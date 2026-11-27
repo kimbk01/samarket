@@ -381,6 +381,30 @@ describe("R13-D reliable delivery (outbox · replay · at-most-once push)", () =
     expect(sendPush).not.toHaveBeenCalled();
   });
 
+  it("고객 문의 남은 위험 ⑤: queued customer-message notification whose assignee lost the support permission → every support admin instead", async () => {
+    const sb = memoryDb({}, { failInsertInto: new Set(["admin_notifications"]) });
+    const queued = { ...input, requiredPermission: "support" as const };
+    await createAdminNotification(sb as never, queued, { resolveAuthority: async () => SUPER, sendPush: vi.fn() });
+    const healed = memoryDb({
+      admin_notification_outbox: sb.tables.admin_notification_outbox,
+      admin_memberships: [
+        { user_id: "admin-a", status: "active" },
+        { user_id: "support-b", status: "active" },
+      ],
+    });
+    const authorities: Record<string, AdminRecipientAuthority> = {
+      "admin-a": OPERATOR, // 고객지원 권한 없음 (users 만)
+      "support-b": { active: true, isSuperAdmin: false, permissions: ["support"] },
+    };
+    const sendPush = vi.fn(async () => "sent" as const);
+    const run = await runAdminNotificationDeliveryWorker(healed as never, {
+      resolveAuthority: async (_: unknown, uid: string) => authorities[uid] ?? REVOKED,
+      sendPush,
+    });
+    expect(run).toMatchObject({ outboxDelivered: 1 });
+    expect(healed.tables.admin_notifications.map((r) => r.recipient_admin_id)).toEqual(["support-b"]);
+  });
+
   it("persistent failure is bounded: dead after max attempts and surfaced by health", async () => {
     const sb = memoryDb({}, { failInsertInto: new Set(["admin_notifications"]) });
     const deps = { resolveAuthority: async () => SUPER, sendPush: vi.fn() };

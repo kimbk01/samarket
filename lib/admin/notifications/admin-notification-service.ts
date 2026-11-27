@@ -489,9 +489,26 @@ export async function runAdminNotificationDeliveryWorker(
   for (const row of (claimed.data ?? []) as OutboxRow[]) {
     sum.outboxClaimed += 1;
     const input = parseOutboxPayload(row.payload);
-    const res = input
+    let res = input
       ? await createAdminNotification(sb, input, { resolveAuthority, sendPush }, { fromOutbox: true })
       : ({ ok: false, error: "invalid_payload", queued: true } as const);
+    // 고객 문의 남은 위험 ⑤: 담당자에게 보낸 고객 글 알림을 담당자가 받을 수 없으면(권한 잃음) support 권한 전원에게 —
+    // 앱 즉시 경로(notifyAdminsOfCustomerMessage)와 같은 대체. 같은 dedupe 키라 중복 없음.
+    if (
+      input &&
+      res.ok &&
+      res.created === 0 &&
+      res.skippedRecipients > 0 &&
+      input.kind === "support_customer_replied" &&
+      (input.recipientAdminIds?.length ?? 0) > 0
+    ) {
+      res = await createAdminNotification(
+        sb,
+        { ...input, recipientAdminIds: undefined, broadcastPermission: "support", requiredPermission: "support" },
+        { resolveAuthority, sendPush },
+        { fromOutbox: true }
+      );
+    }
     const fin = await sb.rpc("admin_notification_outbox_finish", {
       p_id: row.id,
       p_claim_token: row.claim_token,
