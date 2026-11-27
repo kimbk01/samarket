@@ -6,6 +6,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { prepareAuthUserPurge } from "@/lib/admin/admin-user-deletion";
 import {
   buildPrelaunchResetPlan,
   confirmationMatches,
@@ -494,6 +495,12 @@ export async function executePrelaunchReset(
     for (const target of toDelete) {
       if (target.userId === input.actorUserId) {
         errors.push(`${target.userId}:refused_current_admin`);
+        continue;
+      }
+      /** 기기 행이 지워질 때 캠페인 발송 기록 고유키가 겹치지 않게(어드민 영구 삭제와 같은 준비 · 2026-11-27) */
+      const prepared = await prepareAuthUserPurge(input.sb, target.userId);
+      if (!prepared.ok) {
+        errors.push(`${target.userId}:purge_prepare_failed:${prepared.error}`);
         continue;
       }
       const { error } = await input.sb.auth.admin.deleteUser(target.userId);
